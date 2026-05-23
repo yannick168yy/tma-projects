@@ -28,7 +28,7 @@ const emit = defineEmits<{ close: [] }>()
 const sheetRef = ref<HTMLElement | null>(null)
 const backdropRef = ref<HTMLElement | null>(null)
 
-const { onPointerDown, onPointerUp, onPointerCancel } = useBottomSheetDrag(
+const { onChromePointerDown, onChromePointerUp, onScrollPointerDown, onScrollPointerUp } = useBottomSheetDrag(
   toRef(props, 'open'),
   () => emit('close'),
   sheetRef,
@@ -94,13 +94,16 @@ function statusIcon(status: string) {
     <div
       ref="sheetRef"
       data-bottom-sheet
-      class="fixed bottom-0 left-1/2 z-50 flex w-full max-w-[430px] flex-col rounded-t-3xl bg-card"
-      style="height: 86vh; max-height: 86vh"
-      @pointerdown.capture="onPointerDown"
-      @pointerup="onPointerUp"
-      @pointercancel="onPointerCancel"
+      class="fixed bottom-0 left-0 right-0 z-50 mx-auto flex h-[86vh] max-h-[86vh] w-full max-w-[430px] min-h-0 flex-col rounded-t-3xl bg-card"
     >
-      <div class="flex flex-shrink-0 justify-center pb-1 pt-3">
+      <div
+        data-sheet-chrome
+        class="flex flex-shrink-0 flex-col"
+        @pointerdown="onChromePointerDown"
+        @pointerup="onChromePointerUp"
+        @pointercancel="onChromePointerUp"
+      >
+      <div class="flex justify-center pb-1 pt-3">
         <div class="h-1 w-10 rounded-full bg-border" />
       </div>
 
@@ -218,8 +221,15 @@ function statusIcon(status: string) {
           </button>
         </div>
       </div>
+      </div>
 
-      <div data-sheet-scroll class="page-scroll flex-1 px-5 pb-8 pt-4 hide-scrollbar">
+      <div
+        data-sheet-scroll
+        class="page-scroll min-h-0 flex-1 px-5 pb-8 pt-4 hide-scrollbar"
+        @pointerdown="onScrollPointerDown"
+        @pointerup="onScrollPointerUp"
+        @pointercancel="onScrollPointerUp"
+      >
         <div v-if="tab !== 'history'" class="space-y-5">
           <div>
             <p class="text-muted-foreground text-[11px] font-bold uppercase tracking-wider mb-2.5">Fiat Currency</p>

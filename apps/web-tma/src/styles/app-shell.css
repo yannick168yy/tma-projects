@@ -33,7 +33,6 @@ body {
   overflow: hidden;
   overscroll-behavior: none;
   background: #040609;
-  /* pan-y on body; manipulation on controls (see below) */
   touch-action: pan-y;
   -ms-touch-action: pan-y;
 }
@@ -81,17 +80,28 @@ label {
   -ms-touch-action: manipulation;
 }
 
-/* Bottom sheet drag: GPU transform via CSS var (updated in rAF, no Vue re-render) */
+/*
+ * Bottom sheet: NO transform on root (iOS cannot scroll inside transformed ancestors).
+ * Center with margin; apply translateY only while dragging, on chrome + scroll layers.
+ */
 [data-bottom-sheet] {
-  touch-action: none;
-  -ms-touch-action: none;
   overscroll-behavior: none;
-  transform: translate(-50%, var(--sheet-drag-y, 0px));
-  transition: transform 0.28s cubic-bezier(0.32, 0.72, 0, 1);
+  left: 0;
+  right: 0;
+  margin-left: auto;
+  margin-right: auto;
+  width: 100%;
+  max-width: 430px;
 }
 
-[data-bottom-sheet].bottom-sheet--dragging {
-  transition: none;
+[data-bottom-sheet] [data-sheet-chrome] {
+  touch-action: none;
+  -ms-touch-action: none;
+}
+
+[data-bottom-sheet].bottom-sheet--dragging [data-sheet-chrome],
+[data-bottom-sheet].bottom-sheet--dragging [data-sheet-scroll] {
+  transform: translateY(var(--sheet-drag-y, 0px));
   will-change: transform;
 }
 
@@ -108,12 +118,13 @@ label {
   touch-action: pan-y;
   -ms-touch-action: pan-y;
   overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
-/* Icons/tiles inside scroll: native pan-y for scroll-first handoff */
-[data-bottom-sheet] [data-sheet-scroll] button,
-[data-bottom-sheet] [data-sheet-scroll] a,
-[data-bottom-sheet] [data-sheet-scroll] [role='button'] {
-  touch-action: pan-y;
-  -ms-touch-action: pan-y;
+/* Tiles in scroll areas: div + role=button — real <button> blocks touch-scroll on iOS */
+[data-bottom-sheet] [data-sheet-scroll] .sheet-scroll-tile {
+  touch-action: pan-y !important;
+  -ms-touch-action: pan-y !important;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }

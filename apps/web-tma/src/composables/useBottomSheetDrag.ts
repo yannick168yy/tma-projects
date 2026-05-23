@@ -2,7 +2,6 @@ import { nextTick, watch, type MaybeRefOrGetter, type Ref, toValue } from 'vue'
 import { setTelegramBottomSheetSwipeLock } from '@/utils/telegramSwipeLock'
 
 const DRAG_LOCK_PX = 8
-const SCROLL_TOP_EPS = 2
 const DISMISS_ANIM_MS = 200
 
 const INPUT_SELECTOR = 'input, textarea, select'
@@ -21,37 +20,13 @@ function isTextInput(target: EventTarget | null): boolean {
   return true
 }
 
-function isInsideScrollArea(target: EventTarget | null, sheet: HTMLElement): boolean {
-  if (!(target instanceof Element)) return false
-  const scrollRoot = target.closest(SCROLL_SELECTOR)
-  return Boolean(scrollRoot && sheet.contains(scrollRoot))
-}
-
 function findClickSuppressEl(target: EventTarget | null): HTMLElement | null {
   if (!(target instanceof Element)) return null
   return target.closest('button, a, [role="button"]') as HTMLElement | null
 }
 
-function getSheetScrollEl(sheet: HTMLElement): HTMLElement | null {
-  return sheet.querySelector(SCROLL_SELECTOR)
-}
-
-function findScrollEl(target: EventTarget | null, sheet: HTMLElement): HTMLElement | null {
-  if (!(target instanceof Element)) return null
-  if (!isInsideScrollArea(target, sheet)) return getSheetScrollEl(sheet)
-
-  const scrollRoot = target.closest(SCROLL_SELECTOR) as HTMLElement | null
-  if (!scrollRoot) return getSheetScrollEl(sheet)
-
-  let node: HTMLElement | null = target instanceof HTMLElement ? target : null
-  while (node && node !== scrollRoot) {
-    const { overflowY } = getComputedStyle(node)
-    if ((overflowY === 'auto' || overflowY === 'scroll') && node.scrollHeight > node.clientHeight + 1) {
-      return node
-    }
-    node = node.parentElement
-  }
-  return scrollRoot
+function getSheetScrollEl(sheet: HTMLElement | null): HTMLElement | null {
+  return sheet?.querySelector(SCROLL_SELECTOR) ?? null
 }
 
 function isScrollable(el: HTMLElement | null): boolean {
@@ -74,15 +49,15 @@ export function useBottomSheetDrag(
   let cachedHeight = 0
   let liveDragY = 0
 
-  let pointerId: number | null = null
-  let startClientY = 0
-  let startDragY = 0
-  let startScrollTop = 0
   let scrollEl: HTMLElement | null = null
-  let touchInScrollArea = false
+
+  let pointerId: number | null = null
+  let pointerZone: 'chrome' | 'scroll' | null = null
+  let startClientY = 0
+  let startScrollTop = 0
   let sheetDragging = false
-  let allowNativeScroll = false
   let clickSuppressEl: HTMLElement | null = null
+
   let animTimer: ReturnType<typeof setTimeout> | null = null
   let rafId = 0
 
@@ -99,7 +74,9 @@ export function useBottomSheetDrag(
     if (sheet) {
       sheet.classList.remove('bottom-sheet--dragging')
       sheet.style.removeProperty('--sheet-drag-y')
-      sheet.style.transition = ''
+      for (const el of sheet.querySelectorAll('[data-sheet-chrome], [data-sheet-scroll]')) {
+        ;(el as HTMLElement).style.transition = ''
+      }
     }
     if (backdrop) {
       backdrop.classList.remove('bottom-sheet--dragging')
@@ -109,16 +86,21 @@ export function useBottomSheetDrag(
     liveDragY = 0
   }
 
+  function detachChromeListeners() {
+    window.removeEventListener('pointermove', onPointerMove)
+    window.removeEventListener('pointerup', onPointerUp)
+    window.removeEventListener('pointercancel', onPointerUp)
+  }
+
   function resetGestureState() {
-    detachWindowListeners()
+    detachChromeListeners()
     cancelDragFrame()
     pointerId = null
+    pointerZone = null
     sheetDragging = false
-    allowNativeScroll = false
-    scrollEl = null
-    touchInScrollArea = false
     startScrollTop = 0
     clickSuppressEl = null
+    scrollEl = null
   }
 
   function reset() {
@@ -150,12 +132,6 @@ export function useBottomSheetDrag(
     return options?.dismissPx ?? Math.max(96, cachedHeight * (options?.dismissRatio ?? 0.2))
   }
 
-  function detachWindowListeners() {
-    window.removeEventListener('pointermove', onPointerMove)
-    window.removeEventListener('pointerup', onPointerUp)
-    window.removeEventListener('pointercancel', onPointerCancel)
-  }
-
   function cancelDragFrame() {
     if (rafId) {
       cancelAnimationFrame(rafId)
@@ -163,6 +139,7 @@ export function useBottomSheetDrag(
     }
   }
 
+  /** Drag offset on chrome + scroll siblings — NOT on sheet root (keeps list scrollable on iOS). */
   function paintDrag(y: number) {
     liveDragY = y
     const sheet = sheetRef.value
@@ -191,126 +168,6 @@ export function useBottomSheetDrag(
     paintDrag(y)
   }
 
-  function beginSheetDrag(sheet: HTMLElement, e: PointerEvent, dragOffset = 0) {
-    if (sheetDragging) return
-    sheetDragging = true
-    allowNativeScroll = false
-    try {
-      sheet.setPointerCapture(e.pointerId)
-    } catch {
-      // ignore
-    }
-    if (dragOffset > 0) schedulePaint(dragOffset)
-  }
-
-  /** Pull down from header/filters: scroll list toward top before sheet drag. */
-  function pullScrollTowardTop(pulledPx: number): number {
-    if (!scrollEl || pulledPx <= 0) return pulledPx
-    const nextTop = Math.max(0, startScrollTop - pulledPx)
-    scrollEl.scrollTop = nextTop
-    const consumed = startScrollTop - nextTop
-    return Math.max(0, pulledPx - consumed)
-  }
-
-  function suppressClickIfNeeded(didDrag: boolean) {
-    if (!clickSuppressEl || !didDrag) {
-      clickSuppressEl = null
-      return
-    }
-    const el = clickSuppressEl
-    const block = (ev: Event) => {
-      ev.preventDefault()
-      ev.stopImmediatePropagation()
-    }
-    el.addEventListener('click', block, { capture: true, once: true })
-    clickSuppressEl = null
-  }
-
-  function onPointerDown(e: PointerEvent) {
-    if (e.button !== 0) return
-    const sheet = sheetRef.value
-    if (!sheet || !sheet.contains(e.target as Node)) return
-    if (isTextInput(e.target)) return
-
-    clearAnimTimer()
-    measureSheet()
-    scrollEl = findScrollEl(e.target, sheet)
-    touchInScrollArea = isInsideScrollArea(e.target, sheet)
-    startScrollTop = scrollEl?.scrollTop ?? 0
-    clickSuppressEl = findClickSuppressEl(e.target)
-    startClientY = e.clientY
-    startDragY = liveDragY
-    pointerId = e.pointerId
-    sheetDragging = false
-    allowNativeScroll = false
-
-    window.addEventListener('pointermove', onPointerMove, { passive: false })
-    window.addEventListener('pointerup', onPointerUp)
-    window.addEventListener('pointercancel', onPointerCancel)
-  }
-
-  function handleScrollHandoff(sheet: HTMLElement, e: PointerEvent, dy: number) {
-    const pulled = Math.max(0, dy - DRAG_LOCK_PX)
-    const st = scrollEl!.scrollTop
-
-    if (allowNativeScroll) {
-      if (st <= SCROLL_TOP_EPS && dy > 0) {
-        beginSheetDrag(sheet, e, pulled)
-        if (e.cancelable) e.preventDefault()
-      }
-      return
-    }
-
-    if (dy < 0) {
-      allowNativeScroll = true
-      return
-    }
-
-    if (dy > 0 && st > SCROLL_TOP_EPS) {
-      if (touchInScrollArea) {
-        allowNativeScroll = true
-        return
-      }
-      const excess = pullScrollTowardTop(pulled)
-      if (scrollEl!.scrollTop <= SCROLL_TOP_EPS) {
-        beginSheetDrag(sheet, e, excess)
-        if (e.cancelable) e.preventDefault()
-      }
-      return
-    }
-
-    if (dy > 0 && st <= SCROLL_TOP_EPS) {
-      beginSheetDrag(sheet, e, pulled)
-      if (e.cancelable) e.preventDefault()
-    }
-  }
-
-  function onPointerMove(e: PointerEvent) {
-    if (pointerId === null || e.pointerId !== pointerId) return
-    const sheet = sheetRef.value
-    if (!sheet) return
-
-    const dy = e.clientY - startClientY
-
-    if (sheetDragging) {
-      if (e.cancelable) e.preventDefault()
-      schedulePaint(Math.max(0, startDragY + dy))
-      return
-    }
-
-    if (Math.abs(dy) < DRAG_LOCK_PX) return
-
-    if (!scrollEl || !isScrollable(scrollEl)) {
-      if (dy > 0) {
-        beginSheetDrag(sheet, e, Math.max(0, dy - DRAG_LOCK_PX))
-        if (e.cancelable) e.preventDefault()
-      }
-      return
-    }
-
-    handleScrollHandoff(sheet, e, dy)
-  }
-
   function releaseCapture(sheet: HTMLElement | null, id: number) {
     if (sheet?.hasPointerCapture(id)) {
       try {
@@ -321,12 +178,155 @@ export function useBottomSheetDrag(
     }
   }
 
+  function suppressClickIfNeeded(el: HTMLElement | null, didDrag: boolean) {
+    if (!el || !didDrag) return
+    const block = (ev: Event) => {
+      ev.preventDefault()
+      ev.stopImmediatePropagation()
+    }
+    el.addEventListener('click', block, { capture: true, once: true })
+  }
+
+  function finishSheetDrag(wasSheetDrag: boolean) {
+    if (!wasSheetDrag) {
+      animateTo(0, () => clearSheetVisuals())
+      return
+    }
+    if (liveDragY >= dismissThreshold()) {
+      clearAnimTimer()
+      animateTo(cachedHeight, () => {
+        clearAnimTimer()
+        onClose()
+        reset()
+      })
+    } else {
+      animateTo(0, () => clearSheetVisuals())
+    }
+  }
+
+  function applyPullDownFromTop(pulled: number, startTop: number) {
+    if (!scrollEl || pulled <= 0) return 0
+    const scrollReduce = Math.min(startTop, pulled)
+    scrollEl.scrollTop = Math.max(0, startTop - scrollReduce)
+    return pulled - scrollReduce
+  }
+
+  function beginPointerGesture(e: PointerEvent, zone: 'chrome' | 'scroll') {
+    if (e.button !== 0) return
+    const sheet = sheetRef.value
+    if (!sheet) return
+    if (isTextInput(e.target)) return
+
+    clearAnimTimer()
+    measureSheet()
+    scrollEl = getSheetScrollEl(sheet)
+    startScrollTop = scrollEl?.scrollTop ?? 0
+    clickSuppressEl = findClickSuppressEl(e.target)
+    startClientY = e.clientY
+    pointerId = e.pointerId
+    pointerZone = zone
+    sheetDragging = false
+
+    window.addEventListener('pointermove', onPointerMove, { passive: false })
+    window.addEventListener('pointerup', onPointerUp)
+    window.addEventListener('pointercancel', onPointerUp)
+  }
+
+  function onChromePointerDown(e: PointerEvent) {
+    beginPointerGesture(e, 'chrome')
+  }
+
+  function onScrollPointerDown(e: PointerEvent) {
+    beginPointerGesture(e, 'scroll')
+  }
+
+  /** Scroll zone: never block upward moves — native inertia must run. */
+  function shouldDeferToNativeScroll(dy: number): boolean {
+    if (pointerZone !== 'scroll' || !scrollEl) return false
+    if (dy < -DRAG_LOCK_PX) return true
+    if (scrollEl.scrollTop > 1 && dy > 0) return true
+    return false
+  }
+
+  function onPointerMove(e: PointerEvent) {
+    if (pointerId === null || e.pointerId !== pointerId) return
+    const sheet = sheetRef.value
+    if (!sheet) return
+
+    const dy = e.clientY - startClientY
+    if (shouldDeferToNativeScroll(dy)) return
+    if (dy <= DRAG_LOCK_PX) return
+
+    if (scrollEl && isScrollable(scrollEl)) {
+      const pulled = dy - DRAG_LOCK_PX
+      const atTop = scrollEl.scrollTop <= 1
+      const sheetPull = atTop ? pulled : applyPullDownFromTop(pulled, startScrollTop)
+      if (sheetPull > 0) {
+        if (!sheetDragging) {
+          sheetDragging = true
+          try {
+            sheet.setPointerCapture(e.pointerId)
+          } catch {
+            // ignore
+          }
+        }
+        if (e.cancelable) e.preventDefault()
+        schedulePaint(sheetPull)
+        return
+      }
+      if (pulled > 0 && startScrollTop > 0 && pointerZone === 'chrome') {
+        if (e.cancelable) e.preventDefault()
+        return
+      }
+    }
+
+    if (dy > DRAG_LOCK_PX) {
+      if (!sheetDragging) {
+        sheetDragging = true
+        try {
+          sheet.setPointerCapture(e.pointerId)
+        } catch {
+          // ignore
+        }
+      }
+      if (e.cancelable) e.preventDefault()
+      schedulePaint(dy - DRAG_LOCK_PX)
+    }
+  }
+
+  function onPointerUp(e: PointerEvent) {
+    if (pointerId === null || e.pointerId !== pointerId) return
+    detachChromeListeners()
+
+    const sheet = sheetRef.value
+    const dy = e.clientY - startClientY
+    const didMove = Math.abs(dy) > DRAG_LOCK_PX || liveDragY > DRAG_LOCK_PX
+    const wasSheetDrag = liveDragY > DRAG_LOCK_PX
+
+    if (sheetDragging && wasSheetDrag) flushPaint(liveDragY)
+    else cancelDragFrame()
+
+    releaseCapture(sheet, e.pointerId)
+    pointerId = null
+    sheetDragging = false
+
+    suppressClickIfNeeded(clickSuppressEl, wasSheetDrag || didMove)
+    clickSuppressEl = null
+
+    if (!wasSheetDrag) return
+    finishSheetDrag(true)
+  }
+
   function animateTo(y: number, onDone?: () => void) {
     clearAnimTimer()
     const sheet = sheetRef.value
     const backdrop = backdropRef.value
     paintDrag(y)
-    if (sheet) sheet.style.transition = SHEET_TRANSITION
+    if (sheet) {
+      for (const el of sheet.querySelectorAll('[data-sheet-chrome], [data-sheet-scroll]')) {
+        ;(el as HTMLElement).style.transition = SHEET_TRANSITION
+      }
+    }
     if (backdrop) backdrop.style.transition = 'opacity 0.28s cubic-bezier(0.32, 0.72, 0, 1)'
 
     let done = false
@@ -344,58 +344,10 @@ export function useBottomSheetDrag(
     animTimer = setTimeout(finish, DISMISS_ANIM_MS + 50)
   }
 
-  function onPointerUp(e: PointerEvent) {
-    if (pointerId === null || e.pointerId !== pointerId) return
-    detachWindowListeners()
-
-    const sheet = sheetRef.value
-    releaseCapture(sheet, e.pointerId)
-
-    const dy = e.clientY - startClientY
-    if (sheetDragging) {
-      flushPaint(Math.max(0, startDragY + dy))
-    } else {
-      cancelDragFrame()
-    }
-
-    const didMove = Math.abs(dy) > DRAG_LOCK_PX || liveDragY > DRAG_LOCK_PX
-    const wasSheetDrag = sheetDragging
-    const finalY = liveDragY
-
-    pointerId = null
-    sheetDragging = false
-    allowNativeScroll = false
-    touchInScrollArea = false
-
-    suppressClickIfNeeded(wasSheetDrag || (didMove && finalY > 0))
-
-    if (!wasSheetDrag) return
-
-    if (finalY >= dismissThreshold()) {
-      clearAnimTimer()
-      animateTo(cachedHeight, () => {
-        clearAnimTimer()
-        onClose()
-        reset()
-      })
-    } else {
-      animateTo(0, () => clearSheetVisuals())
-    }
-  }
-
-  function onPointerCancel(e: PointerEvent) {
-    if (pointerId === null || e.pointerId !== pointerId) return
-    detachWindowListeners()
-    cancelDragFrame()
-    releaseCapture(sheetRef.value, e.pointerId)
-    suppressClickIfNeeded(sheetDragging)
-    resetGestureState()
-    animateTo(0, () => clearSheetVisuals())
-  }
-
   return {
-    onPointerDown,
-    onPointerUp,
-    onPointerCancel,
+    onChromePointerDown,
+    onScrollPointerDown,
+    onChromePointerUp: onPointerUp,
+    onScrollPointerUp: onPointerUp,
   }
 }
