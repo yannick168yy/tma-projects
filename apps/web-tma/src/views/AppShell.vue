@@ -79,7 +79,7 @@ function navIcon(id: string) {
   <div class="flex h-dvh w-full justify-center bg-[#040609]">
     <div class="app-frame relative flex w-full max-w-[430px] flex-col overflow-hidden bg-background">
       <header class="relative z-10 flex-shrink-0">
-        <div class="flex items-center gap-3 px-4 pb-4 pt-5">
+        <div class="app-safe-header flex items-center gap-3 px-4 pb-4">
           <button type="button" class="flex flex-shrink-0 cursor-pointer items-baseline leading-none" @click="goHome">
             <span class="font-display text-xl font-black leading-none tracking-tight text-white">TARSIER</span>
             <span class="font-display text-xl font-black leading-none tracking-tight text-primary">WIN</span>
@@ -193,8 +193,7 @@ function navIcon(id: string) {
 
       <!-- Figma: bottom nav always visible, including on profile -->
       <nav
-        class="relative z-20 flex flex-shrink-0 items-center justify-around border-t border-border bg-card px-2 pb-3 pt-2"
-        style="padding-bottom: max(0.75rem, env(safe-area-inset-bottom))"
+        class="app-safe-nav relative z-20 flex flex-shrink-0 items-center justify-around border-t border-border bg-card px-2 pt-2"
       >
         <button
           v-for="item in NAV_ITEMS"
@@ -232,5 +231,6 @@ function navIcon(id: string) {
   height: 100dvh;
   max-height: 100dvh;
   touch-action: pan-y;
+  box-sizing: border-box;
 }
 </style>

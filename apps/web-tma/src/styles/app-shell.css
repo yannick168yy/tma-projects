@@ -1,4 +1,16 @@
 /* Fixed app shell: scroll inside main/pages, not on document */
+:root {
+  --tg-safe-top: 0px;
+  --tg-safe-bottom: 0px;
+  --tg-safe-left: 0px;
+  --tg-safe-right: 0px;
+  /* iOS env() + Telegram WebApp insets (whichever is larger) */
+  --app-safe-top: max(env(safe-area-inset-top, 0px), var(--tg-safe-top));
+  --app-safe-bottom: max(env(safe-area-inset-bottom, 0px), var(--tg-safe-bottom));
+  --app-safe-left: max(env(safe-area-inset-left, 0px), var(--tg-safe-left));
+  --app-safe-right: max(env(safe-area-inset-right, 0px), var(--tg-safe-right));
+}
+
 html {
   height: 100%;
   height: 100dvh;
@@ -34,6 +46,19 @@ body {
   -webkit-overflow-scrolling: touch;
   touch-action: pan-y;
   -ms-touch-action: pan-y;
+}
+
+.app-safe-header {
+  padding-top: max(1.25rem, var(--app-safe-top));
+}
+
+.app-safe-nav {
+  padding-bottom: max(0.75rem, var(--app-safe-bottom));
+}
+
+.app-frame {
+  padding-left: var(--app-safe-left);
+  padding-right: var(--app-safe-right);
 }
 
 /* Prevent iOS double-tap zoom on taps (buttons, links) */
