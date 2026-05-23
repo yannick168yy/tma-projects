@@ -10,7 +10,7 @@ const emit = defineEmits<{ close: [] }>()
 const sheetRef = ref<HTMLElement | null>(null)
 const backdropRef = ref<HTMLElement | null>(null)
 
-const { onChromePointerDown, onChromePointerUp, onScrollPointerDown, onScrollPointerUp } = useBottomSheetDrag(
+const { onPointerDown, onPointerUp, onPointerCancel } = useBottomSheetDrag(
   toRef(props, 'open'),
   () => emit('close'),
   sheetRef,
@@ -57,16 +57,13 @@ const hasQuery = computed(() => query.value.trim().length > 0)
     <div
       ref="sheetRef"
       data-bottom-sheet
-      class="fixed bottom-0 left-0 right-0 z-50 mx-auto flex h-[86vh] w-full max-w-[430px] min-h-0 flex-col rounded-t-3xl bg-card"
+      class="fixed bottom-0 left-1/2 z-50 flex w-full max-w-[430px] flex-col rounded-t-3xl bg-card"
+      style="height: 86vh"
+      @pointerdown.capture="onPointerDown"
+      @pointerup="onPointerUp"
+      @pointercancel="onPointerCancel"
     >
-      <div
-        data-sheet-chrome
-        class="flex flex-shrink-0 flex-col"
-        @pointerdown="onChromePointerDown"
-        @pointerup="onChromePointerUp"
-        @pointercancel="onChromePointerUp"
-      >
-      <div class="flex justify-center pb-1 pt-3">
+      <div class="flex flex-shrink-0 justify-center pb-1 pt-3">
         <div class="h-1 w-10 rounded-full bg-border" />
       </div>
 
@@ -116,27 +113,19 @@ const hasQuery = computed(() => query.value.trim().length > 0)
         </button>
       </div>
 
-      <div class="px-4 pb-2">
+      <div class="px-4 pb-2 flex-shrink-0">
         <p class="text-muted-foreground text-[11px] font-bold">
           {{ hasQuery ? `Search results · ${displayed.length} games` : `All Games · ${displayed.length}` }}
         </p>
       </div>
-      </div>
 
-      <div
-        data-sheet-scroll
-        class="page-scroll min-h-0 flex-1 px-4 pb-6 hide-scrollbar"
-        @pointerdown="onScrollPointerDown"
-        @pointerup="onScrollPointerUp"
-        @pointercancel="onScrollPointerUp"
-      >
+      <div data-sheet-scroll class="page-scroll flex-1 px-4 pb-6 hide-scrollbar">
         <div v-if="displayed.length > 0" class="grid grid-cols-3 gap-3">
-          <div
+          <button
             v-for="(g, i) in displayed"
             :key="i"
-            role="button"
-            tabindex="0"
-            class="sheet-scroll-tile relative flex aspect-[3/4] flex-col justify-end overflow-hidden rounded-2xl transition-transform active:scale-95"
+            type="button"
+            class="relative rounded-2xl overflow-hidden flex flex-col justify-end active:scale-95 transition-transform aspect-[3/4]"
           >
             <div class="absolute inset-0 bg-gradient-to-br" :class="g.gradient" />
             <div class="absolute inset-0 flex items-center justify-center">
@@ -153,7 +142,7 @@ const hasQuery = computed(() => query.value.trim().length > 0)
               <p class="text-white font-black text-[10px] leading-tight font-display">{{ g.name.toUpperCase() }}</p>
               <p class="text-white/40 text-[9px]">{{ g.provider }}</p>
             </div>
-          </div>
+          </button>
         </div>
         <div v-else class="text-center py-16">
           <p class="text-4xl mb-3">🔍</p>

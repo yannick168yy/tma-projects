@@ -8,34 +8,21 @@ defineProps<{
 }>()
 
 const emit = defineEmits<{ select: [id: string] }>()
-
-function onSelect(id: string) {
-  emit('select', id)
-}
-
-function onKeydown(e: KeyboardEvent, id: string) {
-  if (e.key === 'Enter' || e.key === ' ') {
-    e.preventDefault()
-    onSelect(id)
-  }
-}
 </script>
 
 <template>
   <div class="grid grid-cols-3 gap-2.5">
-    <div
+    <button
       v-for="m in methods"
       :key="m.id"
-      role="button"
-      tabindex="0"
-      class="sheet-scroll-tile relative flex flex-col items-center gap-1.5 rounded-2xl border-2 p-3 transition-all"
+      type="button"
+      class="relative flex flex-col items-center gap-1.5 p-3 rounded-2xl border-2 transition-all"
       :class="
         selected === m.id
           ? 'border-primary bg-primary/10 shadow-lg shadow-primary/20'
           : 'border-border bg-secondary hover:border-white/20'
       "
-      @click="onSelect(m.id)"
-      @keydown="onKeydown($event, m.id)"
+      @click="emit('select', m.id)"
     >
       <div
         class="w-11 h-11 rounded-xl bg-gradient-to-br flex items-center justify-center shadow-md"
@@ -55,6 +42,6 @@ function onKeydown(e: KeyboardEvent, id: string) {
       <span v-if="selected === m.id" class="absolute top-1.5 right-1.5">
         <CheckCircle2 :size="13" class="text-primary" />
       </span>
-    </div>
+    </button>
   </div>
 </template>
