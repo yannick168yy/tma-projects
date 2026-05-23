@@ -31,7 +31,7 @@ const fiestaBuntingColors = [
 </script>
 
 <template>
-  <div class="flex-1 overflow-y-auto pb-20 hide-scrollbar">
+  <div class="page-scroll pb-20 hide-scrollbar">
     <PeryaCarnivalHero>
       <p class="text-amber-300 text-[10px] font-black uppercase tracking-widest mb-1">🎪 Philippine Carnival</p>
       <h1

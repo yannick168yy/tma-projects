@@ -57,7 +57,7 @@ function tabIcon(id: GameTabId) {
 </script>
 
 <template>
-  <div class="flex-1 overflow-y-auto overflow-x-hidden pb-20 hide-scrollbar">
+  <div class="page-scroll pb-20 hide-scrollbar">
     <div class="flex gap-3 px-4 pb-3 overflow-x-auto hide-scrollbar">
       <button
         v-for="c in CATEGORIES"

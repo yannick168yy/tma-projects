@@ -83,7 +83,7 @@ function savePersonal() {
 </script>
 
 <template>
-  <div class="h-full overflow-y-auto pb-24 hide-scrollbar">
+  <div class="page-scroll pb-24 hide-scrollbar">
     <div class="flex items-center gap-4 border-b border-border bg-card px-5 py-4">
       <div class="h-12 w-12 flex-shrink-0 overflow-hidden rounded-full bg-gradient-to-br from-amber-400 to-orange-500 shadow-lg shadow-amber-500/30">
         <svg viewBox="0 0 40 40" width="48" height="48" class="h-full w-full" aria-hidden="true">

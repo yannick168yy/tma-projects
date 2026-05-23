@@ -76,8 +76,8 @@ function navIcon(id: string) {
 </script>
 
 <template>
-  <div class="h-full w-full flex justify-center bg-[#040609]">
-    <div class="app-frame relative flex h-full w-full max-w-[430px] flex-col overflow-hidden bg-background">
+  <div class="flex h-dvh w-full justify-center bg-[#040609]">
+    <div class="app-frame relative flex w-full max-w-[430px] flex-col overflow-hidden bg-background">
       <header class="relative z-10 flex-shrink-0">
         <div class="flex items-center gap-3 px-4 pb-4 pt-5">
           <button type="button" class="flex flex-shrink-0 cursor-pointer items-baseline leading-none" @click="goHome">
@@ -183,7 +183,7 @@ function navIcon(id: string) {
         </template>
       </header>
 
-      <main class="relative min-h-0 flex-1 overflow-hidden">
+      <main class="relative flex min-h-0 flex-1 flex-col overflow-hidden">
         <ProfilePage v-if="profileOpen" />
         <BonusesPage v-else-if="activeNav === 'bonuses'" :promo-filter="promoFilter" @open-wallet="openWallet" />
         <BingoPage v-else-if="activeNav === 'bingo'" @open-wallet="openWallet" />
@@ -229,7 +229,8 @@ function navIcon(id: string) {
 
 <style scoped>
 .app-frame {
-  height: 100%;
+  height: 100dvh;
   max-height: 100dvh;
+  touch-action: pan-y;
 }
 </style>
