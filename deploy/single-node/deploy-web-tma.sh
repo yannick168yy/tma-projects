@@ -118,7 +118,7 @@ direct_build_run() {
   fi
   echo "==> 使用 ${ctr} build 直接构建（阿里云无 compose 插件时的备用方案）"
   export WEB_TMA_PORT="$PORT"
-  "$ctr" build -t tma-web-tma:latest -f apps/web-tma/Dockerfile apps/web-tma
+  "$ctr" build --no-cache -t tma-web-tma:latest -f apps/web-tma/Dockerfile apps/web-tma
   "$ctr" rm -f tma-web-tma 2>/dev/null || true
   if [[ "$ctr" == podman ]]; then
     "$ctr" run -d --replace --name tma-web-tma -p "${PORT}:80" tma-web-tma:latest
