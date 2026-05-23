@@ -1,4 +1,4 @@
-# Bet/Win 回调数据流（序列图）
+# 竞彩回调数据流（序列图）
 
 ## 时序
 
@@ -11,7 +11,7 @@ sequenceDiagram
     participant Cons as Wallet Consumer
     participant MySQL as MySQL
 
-    Agg->>Core: POST /callback/bet (signed)
+    Agg->>Core: POST /callback/bet（竞彩下单，路径名依聚合商契约）
     Core->>Core: 验签、解析 DTO
     Core->>Redis: SETNX idempotency key
     alt 已处理
@@ -21,7 +21,7 @@ sequenceDiagram
         Core-->>Agg: 200 OK (immediate)
         MQ->>Cons: deliver message
         Cons->>Redis: EVAL balance Lua
-        alt 余额不足 (bet)
+        alt 余额不足（竞彩下单）
             Cons->>MQ: NACK / DLQ + 告警
         else 成功
             Cons->>MySQL: TX: wallet_log + bet_orders + wallet
@@ -46,7 +46,7 @@ UNIQUE KEY uk_agg_txn (aggregator_id, provider_txn_id)
 ```json
 {
   "eventId": "uuid",
-  "eventType": "BET",
+  "eventType": "ORDER",
   "userId": 10001,
   "aggregatorId": 1,
   "providerTxnId": "ext-123",

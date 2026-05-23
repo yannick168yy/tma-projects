@@ -1,6 +1,6 @@
 # web-tma
 
-Telegram Mini App 客户端（Vue 3 + Vite + Tailwind CSS 4）。
+Telegram Mini App 游戏客户端（竞彩聚合，Vue 3 + Vite + Tailwind CSS 4）。
 
 ## 设计来源
 
@@ -14,7 +14,7 @@ npm install
 npm run dev
 ```
 
-浏览器打开 http://localhost:5173 。建议用 DevTools 手机模式（宽 390–430px）预览。
+浏览器打开 http://localhost:5173。建议用 DevTools 手机模式（宽 390–430px）预览。
 
 ## 已实现（静态）
 
@@ -22,7 +22,7 @@ npm run dev
 - 分类快捷卡、Banner 轮播、游戏 Tab
 - Game History、Recent Wins 跑马灯
 - Popular Games 网格、E-Games、Live Games、Providers
-- 底栏导航、客服条
+- 底栏导航（含「竞彩」入口）、客服条
 
 ## 待接（后续）
 

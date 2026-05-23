@@ -1,12 +1,12 @@
-# TMA Betting Platform — Monorepo
+# TMA 竞彩平台 — Monorepo
 
-Telegram Mini App（博彩聚合）MVP 单体部署、逻辑解耦的可扩展架构。
+Telegram Mini App（竞彩聚合）MVP 单体部署、逻辑解耦的可扩展架构。
 
 ## 仓库结构
 
 ```
 apps/web-tma      → Vue 3 前端（Telegram WebApp SDK）
-apps/bff-node     → Node.js BFF（initData 校验、用户/分销）
+apps/bff-node     → Node.js BFF（initData 校验、用户/活动）
 apps/core-java    → Spring Boot 核心（账变、聚合商回调、MQ 消费）
 infra/docker      → 本地基础设施与初始化脚本
 docs/             → 业务与技术架构文档

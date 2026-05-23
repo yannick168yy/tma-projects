@@ -130,7 +130,7 @@ public interface MessageQueueService {
 - `auth`：解析 JWT/Session Token → Redis `GET session:{id}`。
 - `initData` 校验：官方算法 `secret_key = HMAC_SHA256(bot_token, "WebAppData")`。
 - 调 Core：内部网络 + `X-Internal-Service-Key`（MVP 可 IP 白名单）。
-- **BFF 不实现 Bet/Win**；若前端需要注单历史，BFF 代理 Core 只读 API。
+- **BFF 不实现 竞彩回调**；若前端需要竞彩记录历史，BFF 代理 Core 只读 API。
 
 ## 8. 前端架构要点
 

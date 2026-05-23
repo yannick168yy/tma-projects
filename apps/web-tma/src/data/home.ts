@@ -181,6 +181,6 @@ export const NAV_ITEMS = [
   { id: 'cashier', label: 'Cashier' },
   { id: 'bingo', label: 'Bingo' },
   { id: 'bonuses', label: 'Bonuses', badge: 3 },
-  { id: 'casino', label: 'Casino' },
+  { id: 'jingcai', label: '竞彩' },
   { id: 'menu', label: 'Menu' },
 ] as const

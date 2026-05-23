@@ -1,6 +1,6 @@
 # bff-node
 
-Node.js (Koa) BFF：Telegram `initData` 校验、Redis Session、用户/游戏/分销；代理 Core 只读接口。
+Node.js (Koa) BFF：Telegram `initData` 校验、Redis Session、用户/营销活动；代理 Core 只读接口。
 
 - 无状态，Session 仅存 Redis。
 - 目录约定见 [docs/STRUCTURE.md](../../docs/STRUCTURE.md)。

@@ -1,6 +1,6 @@
 # core-java
 
-Spring Boot 3.x：聚合商回调、MQ 账变、`MessageQueueService` 抽象、钱包领域。
+Spring Boot 3.x：聚合商竞彩回调、MQ 账变、`MessageQueueService` 抽象、钱包领域。
 
 - 包结构按 `wallet` / `callback` / `consumer` / `integration` / `mq` 分治。
 - 目录约定见 [docs/STRUCTURE.md](../../docs/STRUCTURE.md)。

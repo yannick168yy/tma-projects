@@ -39,7 +39,7 @@ import {
 
 const activeBanner = ref(0)
 const activeTab = ref<GameTabId>('all')
-const activeNav = ref('casino')
+const activeNav = ref('jingcai')
 const balanceVisible = ref(true)
 const walletOpen = ref(false)
 
@@ -69,7 +69,7 @@ function navIcon(id: string) {
       return Dices
     case 'bonuses':
       return Gift
-    case 'casino':
+    case 'jingcai':
       return Spade
     default:
       return Menu

@@ -15,7 +15,7 @@ tma-projects/
 │   └── architecture/
 │       ├── 01-business-architecture.md
 │       ├── 02-technical-architecture.md
-│       └── 03-data-flow-bet-callback.md
+│       └── 03-data-flow-jingcai-callback.md
 │
 ├── apps/
 │   │
