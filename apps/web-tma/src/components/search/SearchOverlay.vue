@@ -8,15 +8,14 @@ const props = defineProps<{ open: boolean }>()
 const emit = defineEmits<{ close: [] }>()
 
 const sheetRef = ref<HTMLElement | null>(null)
+const backdropRef = ref<HTMLElement | null>(null)
 
-const {
-  sheetStyle,
-  backdropStyle,
-  onPointerDown,
-  onPointerMove,
-  onPointerUp,
-  onPointerCancel,
-} = useBottomSheetDrag(toRef(props, 'open'), () => emit('close'), sheetRef)
+const { onPointerDown, onPointerUp, onPointerCancel } = useBottomSheetDrag(
+  toRef(props, 'open'),
+  () => emit('close'),
+  sheetRef,
+  backdropRef,
+)
 
 const query = ref('')
 const tab = ref('all')
@@ -49,8 +48,9 @@ const hasQuery = computed(() => query.value.trim().length > 0)
 <template>
   <template v-if="open">
     <div
-      class="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm transition-opacity"
-      :style="backdropStyle"
+      ref="backdropRef"
+      data-bottom-sheet-backdrop
+      class="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm"
       @click="emit('close')"
     />
 
@@ -58,9 +58,8 @@ const hasQuery = computed(() => query.value.trim().length > 0)
       ref="sheetRef"
       data-bottom-sheet
       class="fixed bottom-0 left-1/2 z-50 flex w-full max-w-[430px] flex-col rounded-t-3xl bg-card"
-      :style="[sheetStyle, { height: '86vh' }]"
+      style="height: 86vh"
       @pointerdown.capture="onPointerDown"
-      @pointermove="onPointerMove"
       @pointerup="onPointerUp"
       @pointercancel="onPointerCancel"
     >
