@@ -8,13 +8,6 @@ export interface Banner {
   badgeColor: string
 }
 
-export interface Category {
-  icon: string
-  label: string
-  color: string
-  badge: string | null
-}
-
 export interface GameItem {
   id: number
   name: string
@@ -86,14 +79,6 @@ export const BANNERS: Banner[] = [
     badge: '👑',
     badgeColor: 'bg-yellow-500 text-black',
   },
-]
-
-export const CATEGORIES: Category[] = [
-  { icon: '🎁', label: 'Bonuses', color: 'from-purple-600 to-indigo-700', badge: null },
-  { icon: '💵', label: 'Cashback', color: 'from-emerald-600 to-teal-700', badge: '10%' },
-  { icon: '👑', label: 'VIP', color: 'from-yellow-500 to-amber-600', badge: null },
-  { icon: '🐓', label: 'Sabong', color: 'from-red-600 to-rose-700', badge: 'LIVE' },
-  { icon: '⚡', label: 'Turbo', color: 'from-blue-600 to-cyan-600', badge: null },
 ]
 
 export const GAME_TABS = [
@@ -181,6 +166,6 @@ export const NAV_ITEMS = [
   { id: 'cashier', label: 'Cashier' },
   { id: 'bingo', label: 'Bingo' },
   { id: 'bonuses', label: 'Bonuses', badge: 3 },
-  { id: 'jingcai', label: '竞彩' },
+  { id: 'casino', label: 'Casino' },
   { id: 'menu', label: 'Menu' },
 ] as const

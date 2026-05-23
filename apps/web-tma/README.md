@@ -16,13 +16,16 @@ npm run dev
 
 浏览器打开 http://localhost:5173。建议用 DevTools 手机模式（宽 390–430px）预览。
 
-## 已实现（静态）
+## 已实现（静态，对齐 Figma Make 最新稿）
 
-- TARSIER WIN 顶栏、钱包下拉、Top up
-- 分类快捷卡、Banner 轮播、游戏 Tab
-- Game History、Recent Wins 跑马灯
-- Popular Games 网格、E-Games、Live Games、Providers
-- 底栏导航（含「竞彩」入口）、客服条
+- **首页**：分类快捷卡（活动导向）、Banner、游戏 Tab、历史/热门/直播/厂商
+- **活动页**：试玩官 / 邀请 / 首充三大活动卡片
+- **Bingo / Perya**：嘉年华风格专区与 Pinoy 游戏网格
+- **菜单**：游戏分类浏览、语言切换、客服入口
+- **个人中心**：资料、联系方式、政策链接
+- **钱包弹窗**：法币/加密货币充提、交易历史
+- **全局搜索**：游戏搜索浮层
+- 底栏：Cashier · Bingo · Bonuses · Casino · Menu
 
 ## 待接（后续）
 
