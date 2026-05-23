@@ -1,0 +1,29 @@
+/* Telegram Mini App / mobile webview: fixed viewport, no double-tap zoom */
+html {
+  height: 100%;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+  touch-action: manipulation;
+  -ms-touch-action: manipulation;
+  background: #040609;
+}
+
+#app {
+  height: 100%;
+  overflow: hidden;
+  touch-action: manipulation;
+}
+
+/* Prevent iOS double-tap zoom on interactive controls */
+button,
+a,
+[role='button'] {
+  touch-action: manipulation;
+}

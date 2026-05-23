@@ -1,0 +1,164 @@
+#!/usr/bin/env bash
+# 将 web-tma 部署到远程 Linux 服务器（Docker）
+#
+# 用法:
+#   export DEPLOY_HOST=root@你的公网IP
+#   export DEPLOY_DIR=/opt/tma-projects
+#   export SSH_IDENTITY_FILE=~/Downloads/your.pem   # 阿里云密钥对
+#   ./deploy/single-node/deploy-web-tma.sh
+#
+# 可选:
+#   WEB_TMA_PORT=8080   宿主机映射端口（默认 8080）
+#   SKIP_GIT_PULL=1     不在服务器上 git pull（仅重建镜像）
+#   SSH_OPTS            额外 ssh 参数，如 "-o StrictHostKeyChecking=no"
+
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+HOST="${DEPLOY_HOST:?请设置 DEPLOY_HOST，例如 root@1.2.3.4}"
+DIR="${DEPLOY_DIR:-/opt/tma-projects}"
+PORT="${WEB_TMA_PORT:-8080}"
+COMPOSE_FILE="deploy/single-node/docker-compose.web-tma.yml"
+
+SSH_BASE=(ssh)
+if [[ -n "${SSH_IDENTITY_FILE:-}" ]]; then
+  KEY="${SSH_IDENTITY_FILE/#\~/$HOME}"
+  if [[ ! -f "$KEY" ]]; then
+    echo "错误: SSH_IDENTITY_FILE 不存在: $KEY" >&2
+    exit 1
+  fi
+  SSH_BASE+=( -i "$KEY" )
+  export RSYNC_RSH="ssh -i $KEY"
+fi
+if [[ -n "${SSH_OPTS:-}" ]]; then
+  # shellcheck disable=SC2206
+  EXTRA=( $SSH_OPTS )
+  SSH_BASE+=( "${EXTRA[@]}" )
+  if [[ -n "${RSYNC_RSH:-}" ]]; then
+    export RSYNC_RSH="${RSYNC_RSH} ${SSH_OPTS}"
+  else
+    export RSYNC_RSH="ssh ${SSH_OPTS}"
+  fi
+fi
+
+ssh_cmd() {
+  "${SSH_BASE[@]}" "$HOST" "$@"
+}
+
+rsync_cmd() {
+  rsync -az --delete \
+    --exclude node_modules \
+    --exclude dist \
+    --exclude .git/objects \
+    "$ROOT/" "$HOST:$DIR/"
+}
+
+echo "==> 同步代码到 ${HOST}:${DIR}"
+ssh_cmd "mkdir -p '$DIR'"
+echo "==> 确保远程已安装 rsync"
+ssh_cmd 'command -v rsync >/dev/null || {
+  if command -v dnf >/dev/null; then dnf install -y rsync
+  elif command -v yum >/dev/null; then yum install -y rsync
+  elif command -v apt-get >/dev/null; then apt-get update -qq && apt-get install -y rsync
+  else echo "请手动安装 rsync" >&2; exit 1
+  fi
+}'
+rsync_cmd
+
+echo "==> 远程构建并启动容器（端口 ${PORT}）"
+ssh_cmd bash -s "$DIR" "$PORT" "$COMPOSE_FILE" "${SKIP_GIT_PULL:-}" <<'REMOTE_EOF'
+set -euo pipefail
+cd "$1"
+PORT="$2"
+COMPOSE_FILE="$3"
+SKIP_GIT_PULL="${4:-}"
+
+start_container_runtime() {
+  if systemctl list-unit-files docker.service 2>/dev/null | grep -q '^docker.service'; then
+    systemctl enable --now docker
+    return
+  fi
+  if systemctl list-unit-files podman.socket 2>/dev/null | grep -q '^podman.socket'; then
+    systemctl enable --now podman.socket
+    return
+  fi
+  echo "警告: 未找到 docker.service / podman.socket，继续尝试 compose…" >&2
+}
+
+install_container_tools() {
+  if command -v docker >/dev/null 2>&1 || command -v podman >/dev/null 2>&1; then
+    return 0
+  fi
+  if command -v dnf >/dev/null 2>&1; then
+    dnf install -y podman podman-docker 2>/dev/null \
+      || dnf install -y docker docker-compose-plugin 2>/dev/null \
+      || dnf install -y docker
+  elif command -v yum >/dev/null 2>&1; then
+    yum install -y podman podman-docker 2>/dev/null || yum install -y docker
+  elif command -v apt-get >/dev/null 2>&1; then
+    apt-get update -qq
+    apt-get install -y docker.io docker-compose-plugin 2>/dev/null \
+      || apt-get install -y docker.io docker-compose
+  else
+    echo "请先安装 Docker 或 Podman" >&2
+    exit 1
+  fi
+}
+
+container_cmd() {
+  if command -v docker >/dev/null 2>&1; then echo docker; elif command -v podman >/dev/null 2>&1; then echo podman; else echo ""; fi
+}
+
+direct_build_run() {
+  local ctr
+  ctr="$(container_cmd)"
+  if [[ -z "$ctr" ]]; then
+    echo "未找到 docker / podman" >&2
+    exit 1
+  fi
+  echo "==> 使用 ${ctr} build 直接构建（阿里云无 compose 插件时的备用方案）"
+  export WEB_TMA_PORT="$PORT"
+  "$ctr" build -t tma-web-tma:latest -f apps/web-tma/Dockerfile apps/web-tma
+  "$ctr" rm -f tma-web-tma 2>/dev/null || true
+  if [[ "$ctr" == podman ]]; then
+    "$ctr" run -d --replace --name tma-web-tma -p "${PORT}:80" tma-web-tma:latest
+  else
+    "$ctr" run -d --name tma-web-tma -p "${PORT}:80" tma-web-tma:latest
+  fi
+}
+
+compose_up() {
+  export WEB_TMA_PORT="$PORT"
+  if docker compose version >/dev/null 2>&1; then
+    docker compose -f "$COMPOSE_FILE" up -d --build
+  elif podman compose version >/dev/null 2>&1; then
+    podman compose -f "$COMPOSE_FILE" up -d --build
+  elif docker-compose version >/dev/null 2>&1; then
+    docker-compose -f "$COMPOSE_FILE" up -d --build
+  else
+    # 阿里云 Alibaba Cloud Linux：通常仅有 podman-docker，无 compose 插件
+    direct_build_run
+  fi
+}
+
+install_container_tools
+start_container_runtime
+
+if [[ "$SKIP_GIT_PULL" != "1" ]] && [[ -d .git ]] && command -v git >/dev/null 2>&1; then
+  git pull --ff-only origin main || true
+fi
+
+compose_up
+
+if docker ps --filter name=tma-web-tma 2>/dev/null | grep -q tma-web-tma; then
+  docker ps --filter name=tma-web-tma
+elif podman ps --filter name=tma-web-tma 2>/dev/null | grep -q tma-web-tma; then
+  podman ps --filter name=tma-web-tma
+else
+  docker ps -a 2>/dev/null || podman ps -a
+fi
+echo ""
+echo "客户端已启动: http://$(curl -s ifconfig.me 2>/dev/null || hostname -I | awk '{print $1}'):${PORT}"
+REMOTE_EOF
+
+echo "==> 完成"

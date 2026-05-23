@@ -2,7 +2,6 @@
 import { ref } from 'vue'
 import {
   ChevronDown,
-  ChevronLeft,
   Wallet,
   Gift,
   Spade,
@@ -50,6 +49,16 @@ function setNav(id: NavId) {
   if (id !== 'bonuses') promoFilter.value = null
 }
 
+function goHome() {
+  activeNav.value = 'casino'
+  profileOpen.value = false
+  promoFilter.value = null
+}
+
+function openProfile() {
+  profileOpen.value = true
+}
+
 function navIcon(id: string) {
   switch (id) {
     case 'cashier':
@@ -67,101 +76,103 @@ function navIcon(id: string) {
 </script>
 
 <template>
-  <div class="flex justify-center items-start min-h-screen bg-[#040609]">
-    <div class="relative bg-background w-full max-w-[430px] min-h-screen flex flex-col overflow-hidden">
-      <header class="relative flex-shrink-0">
-        <div class="flex items-center px-4 pt-5 pb-4 gap-3">
-          <div class="flex-shrink-0 flex items-baseline">
-            <span class="text-white font-black leading-none tracking-tight font-display text-xl">TARSIER</span>
-            <span class="text-primary font-black leading-none tracking-tight font-display text-xl">WIN</span>
-          </div>
-
-          <button
-            v-if="profileOpen"
-            type="button"
-            class="absolute left-1/2 -translate-x-1/2 flex items-center gap-1 bg-secondary border border-border rounded-full px-3 py-1"
-            @click="profileOpen = false"
-          >
-            <ChevronLeft :size="13" class="text-muted-foreground" />
-            <span class="text-foreground font-bold text-xs font-display">MY PROFILE</span>
+  <div class="h-full w-full flex justify-center bg-[#040609]">
+    <div class="app-frame relative flex h-full w-full max-w-[430px] flex-col overflow-hidden bg-background">
+      <header class="relative z-10 flex-shrink-0">
+        <div class="flex items-center gap-3 px-4 pb-4 pt-5">
+          <button type="button" class="flex flex-shrink-0 cursor-pointer items-baseline leading-none" @click="goHome">
+            <span class="font-display text-xl font-black leading-none tracking-tight text-white">TARSIER</span>
+            <span class="font-display text-xl font-black leading-none tracking-tight text-primary">WIN</span>
           </button>
 
-          <div class="flex-1 flex items-center justify-center gap-3">
+          <div class="flex flex-1 items-center justify-center gap-3">
             <button type="button" class="flex flex-col items-center gap-0.5" @click="walletOpen = !walletOpen">
-              <span class="text-muted-foreground text-[11px] font-semibold flex items-center gap-1 leading-none">
+              <span class="flex items-center gap-1 text-[11px] font-semibold leading-none text-muted-foreground">
                 PHP
-                <ChevronDown :size="11" class="transition-transform duration-200" :class="walletOpen ? 'rotate-180' : ''" />
+                <ChevronDown
+                  :size="11"
+                  class="transition-transform duration-200"
+                  :class="walletOpen ? 'rotate-180' : ''"
+                />
               </span>
-              <span class="text-white font-black text-base leading-tight">
+              <span class="text-base font-black leading-tight text-white">
                 {{ balanceVisible ? '₱ 1,250.00' : '₱ ••••••' }}
               </span>
             </button>
             <button
               type="button"
-              class="flex items-center gap-1 bg-primary hover:bg-yellow-400 text-primary-foreground font-black text-sm px-5 py-2 rounded-full transition-colors shadow-lg shadow-amber-500/30 whitespace-nowrap"
+              class="flex items-center gap-1 whitespace-nowrap rounded-full bg-primary px-5 py-2 text-sm font-black text-primary-foreground shadow-lg shadow-amber-500/30 transition-colors hover:bg-yellow-400"
               @click="openWallet"
             >
               Top up
             </button>
           </div>
 
-          <button type="button" class="flex-shrink-0 relative" @click="profileOpen = true">
+          <button type="button" class="relative flex-shrink-0" @click="openProfile">
             <ProfileAvatar />
-            <span class="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-accent border-2 border-background" />
+            <span class="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border-2 border-background bg-accent" />
           </button>
         </div>
 
         <template v-if="walletOpen">
           <div class="fixed inset-0 z-40" @click="walletOpen = false" />
-          <div class="absolute left-4 right-4 top-full -mt-1 z-50 bg-card border border-border rounded-2xl shadow-2xl overflow-hidden">
+          <div
+            class="absolute left-4 right-4 top-full z-50 -mt-1 overflow-hidden rounded-2xl border border-border bg-card shadow-2xl"
+          >
             <div class="p-4">
-              <p class="text-muted-foreground text-xs font-bold uppercase tracking-wider mb-3">My Wallet</p>
-              <div class="flex items-center justify-between py-2.5 border-b border-border">
+              <p class="mb-3 text-xs font-bold uppercase tracking-wider text-muted-foreground">My Wallet</p>
+              <div class="flex items-center justify-between border-b border-border py-2.5">
                 <div class="flex items-center gap-2.5">
-                  <div class="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                    <span class="text-primary font-black text-sm">₱</span>
+                  <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
+                    <span class="text-sm font-black text-primary">₱</span>
                   </div>
                   <div>
-                    <p class="text-foreground font-bold text-sm">Philippine Peso</p>
-                    <p class="text-muted-foreground text-xs">PHP</p>
+                    <p class="text-sm font-bold text-foreground">Philippine Peso</p>
+                    <p class="text-xs text-muted-foreground">PHP</p>
                   </div>
                 </div>
-                <span class="text-primary font-black text-base">{{ balanceVisible ? '1,250.00' : '••••••' }}</span>
+                <span class="text-base font-black text-primary">
+                  {{ balanceVisible ? '1,250.00' : '••••••' }}
+                </span>
               </div>
-              <div class="flex items-center justify-between py-2.5 border-b border-border">
+              <div class="flex items-center justify-between border-b border-border py-2.5">
                 <div class="flex items-center gap-2.5">
-                  <div class="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center">
-                    <span class="text-emerald-400 font-black text-sm">₮</span>
+                  <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10">
+                    <span class="text-sm font-black text-emerald-400">₮</span>
                   </div>
                   <div>
-                    <p class="text-foreground font-bold text-sm">Tether USD</p>
-                    <p class="text-muted-foreground text-xs">USDT · TRC20</p>
+                    <p class="text-sm font-bold text-foreground">Tether USD</p>
+                    <p class="text-xs text-muted-foreground">USDT · TRC20</p>
                   </div>
                 </div>
-                <span class="text-emerald-400 font-black text-base">{{ balanceVisible ? '21.80' : '••••' }}</span>
+                <span class="text-base font-black text-emerald-400">
+                  {{ balanceVisible ? '21.80' : '••••' }}
+                </span>
               </div>
               <div class="flex items-center justify-between py-2.5">
                 <div class="flex items-center gap-2.5">
-                  <div class="w-8 h-8 rounded-lg bg-violet-500/10 flex items-center justify-center text-xl">🎁</div>
+                  <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-500/10 text-xl">🎁</div>
                   <div>
-                    <p class="text-foreground font-bold text-sm">Bonus Balance</p>
-                    <p class="text-muted-foreground text-xs">Non-withdrawable</p>
+                    <p class="text-sm font-bold text-foreground">Bonus Balance</p>
+                    <p class="text-xs text-muted-foreground">Non-withdrawable</p>
                   </div>
                 </div>
-                <span class="text-violet-400 font-black text-base">{{ balanceVisible ? '₱ 500.00' : '₱ ••••' }}</span>
+                <span class="text-base font-black text-violet-400">
+                  {{ balanceVisible ? '₱ 500.00' : '₱ ••••' }}
+                </span>
               </div>
             </div>
             <div class="flex gap-2 px-4 pb-4">
               <button
                 type="button"
-                class="flex-1 py-2 rounded-xl bg-secondary text-muted-foreground text-xs font-bold"
+                class="flex-1 rounded-xl bg-secondary py-2 text-xs font-bold text-muted-foreground"
                 @click="balanceVisible = !balanceVisible"
               >
                 {{ balanceVisible ? 'Hide Balances' : 'Show Balances' }}
               </button>
               <button
                 type="button"
-                class="flex-1 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-bold flex items-center justify-center gap-1.5"
+                class="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-primary py-2 text-xs font-bold text-primary-foreground transition-colors hover:bg-yellow-400"
                 @click="openWallet"
               >
                 <Wallet :size="13" />
@@ -172,38 +183,37 @@ function navIcon(id: string) {
         </template>
       </header>
 
-      <ProfilePage v-if="profileOpen" />
-      <BonusesPage v-else-if="activeNav === 'bonuses'" :promo-filter="promoFilter" @open-wallet="openWallet" />
-      <BingoPage v-else-if="activeNav === 'bingo'" @open-wallet="openWallet" />
-      <MenuPage v-else-if="activeNav === 'menu'" @open-search="searchOpen = true" />
-      <HomeContent
-        v-else
-        @open-search="searchOpen = true"
-        @open-promo="goBonuses"
-      />
+      <main class="relative min-h-0 flex-1 overflow-hidden">
+        <ProfilePage v-if="profileOpen" />
+        <BonusesPage v-else-if="activeNav === 'bonuses'" :promo-filter="promoFilter" @open-wallet="openWallet" />
+        <BingoPage v-else-if="activeNav === 'bingo'" @open-wallet="openWallet" />
+        <MenuPage v-else-if="activeNav === 'menu'" @open-search="searchOpen = true" />
+        <HomeContent v-else @open-search="searchOpen = true" @open-promo="goBonuses" />
+      </main>
 
+      <!-- Figma: bottom nav always visible, including on profile -->
       <nav
-        v-if="!profileOpen"
-        class="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[430px] bg-card border-t border-border flex items-center justify-around px-2 pt-2 pb-3 z-50"
+        class="relative z-20 flex flex-shrink-0 items-center justify-around border-t border-border bg-card px-2 pb-3 pt-2"
+        style="padding-bottom: max(0.75rem, env(safe-area-inset-bottom))"
       >
         <button
           v-for="item in NAV_ITEMS"
           :key="item.id"
           type="button"
-          class="relative flex flex-col items-center gap-0.5 px-3 py-1 rounded-xl transition-colors"
+          class="relative flex flex-col items-center gap-0.5 rounded-xl px-3 py-1 transition-colors"
           :class="activeNav === item.id ? 'text-primary' : 'text-muted-foreground hover:text-foreground'"
           @click="setNav(item.id)"
         >
           <span
             v-if="activeNav === item.id"
-            class="absolute -top-2 left-1/2 -translate-x-1/2 w-7 h-0.5 rounded-full bg-primary"
+            class="absolute -top-2 left-1/2 h-0.5 w-7 -translate-x-1/2 rounded-full bg-primary"
           />
-          <div :class="activeNav === item.id ? 'p-1.5 bg-primary/10 rounded-xl' : 'p-1.5'">
+          <div :class="activeNav === item.id ? 'rounded-xl bg-primary/10 p-1.5' : 'p-1.5'">
             <component :is="navIcon(item.id)" :size="20" />
           </div>
           <span
             v-if="'badge' in item && item.badge"
-            class="absolute top-0 right-1 min-w-[16px] h-4 rounded-full bg-accent text-white text-[9px] font-black flex items-center justify-center px-1"
+            class="absolute right-1 top-0 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-accent px-1 text-[9px] font-black text-white"
           >
             {{ item.badge }}
           </span>
@@ -216,3 +226,10 @@ function navIcon(id: string) {
     <SearchOverlay :open="searchOpen" @close="searchOpen = false" />
   </div>
 </template>
+
+<style scoped>
+.app-frame {
+  height: 100%;
+  max-height: 100dvh;
+}
+</style>

@@ -1,0 +1,14 @@
+# 仅部署 web-tma 静态客户端（Nginx）
+# 在仓库根目录执行:
+#   docker compose -f deploy/single-node/docker-compose.web-tma.yml up -d --build
+
+services:
+  web-tma:
+    build:
+      context: ../../apps/web-tma
+      dockerfile: Dockerfile
+    image: tma-web-tma:latest
+    container_name: tma-web-tma
+    restart: unless-stopped
+    ports:
+      - "${WEB_TMA_PORT:-8080}:80"
