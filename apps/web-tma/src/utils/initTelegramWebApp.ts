@@ -1,8 +1,8 @@
-/** Telegram Mini App viewport: expand, optional fullscreen, safe-area for header. */
+/** Telegram Mini App viewport: expand, fullscreen, safe-area for header. */
 type Inset = { top: number; bottom: number; left: number; right: number }
 
-/** Only when TG reports no content inset in fullscreen. */
-const TG_HEADER_FALLBACK_PX = 48
+/** Fullscreen TG chrome fallback when content inset not reported yet. */
+const TG_HEADER_FALLBACK_PX = 52
 
 function readInset(value: Inset | undefined): Inset {
   return {
@@ -13,6 +13,13 @@ function readInset(value: Inset | undefined): Inset {
   }
 }
 
+function readCssInsetPx(varName: string): number {
+  const raw = getComputedStyle(document.documentElement).getPropertyValue(varName).trim()
+  if (!raw) return 0
+  const n = parseFloat(raw)
+  return Number.isFinite(n) ? n : 0
+}
+
 /** True when opened inside Telegram (not a plain browser with the stub SDK). */
 export function isInsideTelegram(): boolean {
   const tg = window.Telegram?.WebApp
@@ -21,21 +28,24 @@ export function isInsideTelegram(): boolean {
 }
 
 /**
- * Top padding for app header.
- * contentSafeAreaInset is the offset below TG chrome (often already includes notch).
- * Avoid summing device + content — that double-counts and creates a huge gap.
+ * TMA top inset — differs from mobile browser (env only).
+ * Fullscreen: device notch + TG header row (sum when both reported).
  */
 function computeTopInset(tg: TelegramWebApp): number {
   const device = readInset(tg.safeAreaInset)
   const content = readInset(tg.contentSafeAreaInset)
 
+  const d = Math.max(device.top, readCssInsetPx('--tg-safe-area-inset-top'))
+  const c = Math.max(content.top, readCssInsetPx('--tg-content-safe-area-inset-top'))
+
   if (tg.isFullscreen) {
-    if (content.top > 0) return Math.max(device.top, content.top)
-    return device.top + TG_HEADER_FALLBACK_PX
+    if (d > 0 && c > 0) return d + c
+    if (c > 0) return c
+    return d + TG_HEADER_FALLBACK_PX
   }
 
-  // Expanded / compact: only device notch, no extra TG header row in our layout
-  return device.top
+  if (c > 0) return Math.max(d, c)
+  return d
 }
 
 function computeInsets(tg: TelegramWebApp): Inset {
@@ -75,7 +85,9 @@ function clearTelegramSafeArea(): void {
 function scheduleInsetUpdates(): void {
   applySafeAreaInsets()
   requestAnimationFrame(applySafeAreaInsets)
-  window.setTimeout(applySafeAreaInsets, 50)
+  for (const ms of [50, 150, 300, 600, 1000]) {
+    window.setTimeout(applySafeAreaInsets, ms)
+  }
 }
 
 function requestFullscreenIfNeeded(tg: TelegramWebApp): void {
@@ -100,6 +112,10 @@ export function initTelegramWebApp(): void {
   tg.expand()
   requestFullscreenIfNeeded(tg)
   scheduleInsetUpdates()
+
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', scheduleInsetUpdates)
+  }
 
   tg.onEvent?.('safeAreaChanged', scheduleInsetUpdates)
   tg.onEvent?.('contentSafeAreaChanged', scheduleInsetUpdates)

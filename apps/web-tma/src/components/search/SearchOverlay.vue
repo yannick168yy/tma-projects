@@ -7,6 +7,8 @@ import { useBottomSheetDrag } from '@/composables/useBottomSheetDrag'
 const props = defineProps<{ open: boolean }>()
 const emit = defineEmits<{ close: [] }>()
 
+const sheetRef = ref<HTMLElement | null>(null)
+
 const {
   sheetStyle,
   backdropStyle,
@@ -14,7 +16,7 @@ const {
   onPointerMove,
   onPointerUp,
   onPointerCancel,
-} = useBottomSheetDrag(toRef(props, 'open'), () => emit('close'))
+} = useBottomSheetDrag(toRef(props, 'open'), () => emit('close'), sheetRef)
 
 const query = ref('')
 const tab = ref('all')
@@ -53,23 +55,21 @@ const hasQuery = computed(() => query.value.trim().length > 0)
     />
 
     <div
+      ref="sheetRef"
       data-bottom-sheet
-      class="fixed bottom-0 left-1/2 z-50 flex w-full max-w-[430px] flex-col rounded-t-3xl bg-card"
+      class="fixed bottom-0 left-1/2 z-50 flex w-full max-w-[430px] touch-pan-y flex-col rounded-t-3xl bg-card"
       :style="[sheetStyle, { height: '86vh' }]"
+      @pointerdown="onPointerDown"
+      @pointermove="onPointerMove"
+      @pointerup="onPointerUp"
+      @pointercancel="onPointerCancel"
     >
-      <div
-        class="flex-shrink-0 touch-none cursor-grab select-none active:cursor-grabbing"
-        @pointerdown="onPointerDown"
-        @pointermove="onPointerMove"
-        @pointerup="onPointerUp"
-        @pointercancel="onPointerCancel"
-      >
-        <div class="flex justify-center pb-1 pt-3">
-          <div class="h-1 w-10 rounded-full bg-border" />
-        </div>
+      <div class="flex flex-shrink-0 justify-center pb-1 pt-3">
+        <div class="h-1 w-10 rounded-full bg-border" />
+      </div>
 
-        <div class="flex items-center gap-3 border-b border-border px-4 pb-3">
-        <div class="flex-1 relative">
+      <div class="flex flex-shrink-0 items-center gap-3 border-b border-border px-4 pb-3">
+        <div class="relative flex-1">
           <Search :size="14" class="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
           <input
             ref="inputRef"
@@ -90,7 +90,6 @@ const hasQuery = computed(() => query.value.trim().length > 0)
         <button type="button" class="flex-shrink-0 px-1 text-sm font-bold text-muted-foreground" @click="emit('close')">
           Cancel
         </button>
-        </div>
       </div>
 
       <div class="flex flex-shrink-0 gap-2 overflow-x-auto px-4 py-2.5 hide-scrollbar">
@@ -121,7 +120,7 @@ const hasQuery = computed(() => query.value.trim().length > 0)
         </p>
       </div>
 
-      <div class="flex-1 overflow-y-auto px-4 pb-6 hide-scrollbar">
+      <div data-sheet-scroll class="page-scroll flex-1 px-4 pb-6 hide-scrollbar">
         <div v-if="displayed.length > 0" class="grid grid-cols-3 gap-3">
           <button
             v-for="(g, i) in displayed"

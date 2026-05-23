@@ -25,6 +25,8 @@ import {
 const props = defineProps<{ open: boolean }>()
 const emit = defineEmits<{ close: [] }>()
 
+const sheetRef = ref<HTMLElement | null>(null)
+
 const {
   sheetStyle,
   backdropStyle,
@@ -32,7 +34,7 @@ const {
   onPointerMove,
   onPointerUp,
   onPointerCancel,
-} = useBottomSheetDrag(toRef(props, 'open'), () => emit('close'))
+} = useBottomSheetDrag(toRef(props, 'open'), () => emit('close'), sheetRef)
 
 const tab = ref<'deposit' | 'withdraw' | 'history'>('deposit')
 const selectedMethod = ref<string | null>(null)
@@ -90,25 +92,23 @@ function statusIcon(status: string) {
     />
 
     <div
+      ref="sheetRef"
       data-bottom-sheet
-      class="fixed bottom-0 left-1/2 z-50 flex w-full max-w-[430px] flex-col rounded-t-3xl bg-card"
+      class="fixed bottom-0 left-1/2 z-50 flex w-full max-w-[430px] touch-pan-y flex-col rounded-t-3xl bg-card"
       :style="[sheetStyle, { height: '86vh', maxHeight: '86vh' }]"
+      @pointerdown="onPointerDown"
+      @pointermove="onPointerMove"
+      @pointerup="onPointerUp"
+      @pointercancel="onPointerCancel"
     >
-      <div
-        class="flex-shrink-0 touch-none cursor-grab select-none active:cursor-grabbing"
-        @pointerdown="onPointerDown"
-        @pointermove="onPointerMove"
-        @pointerup="onPointerUp"
-        @pointercancel="onPointerCancel"
-      >
-        <div class="flex justify-center pb-1 pt-3">
-          <div class="h-1 w-10 rounded-full bg-border" />
-        </div>
+      <div class="flex flex-shrink-0 justify-center pb-1 pt-3">
+        <div class="h-1 w-10 rounded-full bg-border" />
+      </div>
 
-        <div class="flex items-center justify-between border-b border-border px-5 py-3">
+      <div class="flex flex-shrink-0 items-center justify-between border-b border-border px-5 py-3">
         <div class="flex items-center gap-2">
           <Wallet :size="18" class="text-primary" />
-          <span class="text-foreground font-black text-base font-display">MY WALLET</span>
+          <span class="font-display text-base font-black text-foreground">MY WALLET</span>
         </div>
         <div class="flex items-center gap-2 text-xs font-bold">
           <span class="text-primary">₱ 1,250.00</span>
@@ -117,12 +117,11 @@ function statusIcon(status: string) {
         </div>
         <button
           type="button"
-          class="w-8 h-8 rounded-xl bg-secondary flex items-center justify-center hover:bg-muted transition-colors"
+          class="flex h-8 w-8 items-center justify-center rounded-xl bg-secondary transition-colors hover:bg-muted"
           @click="emit('close')"
         >
           <X :size="15" class="text-muted-foreground" />
         </button>
-        </div>
       </div>
 
       <div class="flex flex-shrink-0 gap-2 px-5 pt-3">
@@ -221,7 +220,7 @@ function statusIcon(status: string) {
         </div>
       </div>
 
-      <div class="overflow-y-auto px-5 pb-8 pt-4 flex-1 hide-scrollbar">
+      <div data-sheet-scroll class="page-scroll flex-1 px-5 pb-8 pt-4 hide-scrollbar">
         <div v-if="tab !== 'history'" class="space-y-5">
           <div>
             <p class="text-muted-foreground text-[11px] font-bold uppercase tracking-wider mb-2.5">Fiat Currency</p>
