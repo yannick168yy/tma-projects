@@ -1,8 +1,8 @@
-/** Telegram Mini App viewport: expand + sync safe-area insets (device + TG chrome). */
+/** Telegram Mini App viewport: expand, optional fullscreen, safe-area for header. */
 type Inset = { top: number; bottom: number; left: number; right: number }
 
-/** TG fullscreen header row (close / collapse / menu) when API reports 0. */
-const TG_HEADER_FALLBACK_PX = 52
+/** Only when TG reports no content inset in fullscreen. */
+const TG_HEADER_FALLBACK_PX = 48
 
 function readInset(value: Inset | undefined): Inset {
   return {
@@ -13,59 +13,46 @@ function readInset(value: Inset | undefined): Inset {
   }
 }
 
-function readCssInsetPx(varName: string): number {
-  const raw = getComputedStyle(document.documentElement).getPropertyValue(varName).trim()
-  if (!raw) return 0
-  const n = parseFloat(raw)
-  return Number.isFinite(n) ? n : 0
+/** True when opened inside Telegram (not a plain browser with the stub SDK). */
+export function isInsideTelegram(): boolean {
+  const tg = window.Telegram?.WebApp
+  if (!tg) return false
+  return Boolean(tg.initData && tg.initData.length > 0)
 }
 
 /**
- * Per Telegram docs / community: total offset = safeAreaInset + contentSafeAreaInset
- * (not max). contentSafeAreaInset clears TG close / menu buttons in fullscreen.
+ * Top padding for app header.
+ * contentSafeAreaInset is the offset below TG chrome (often already includes notch).
+ * Avoid summing device + content — that double-counts and creates a huge gap.
  */
+function computeTopInset(tg: TelegramWebApp): number {
+  const device = readInset(tg.safeAreaInset)
+  const content = readInset(tg.contentSafeAreaInset)
+
+  if (tg.isFullscreen) {
+    if (content.top > 0) return Math.max(device.top, content.top)
+    return device.top + TG_HEADER_FALLBACK_PX
+  }
+
+  // Expanded / compact: only device notch, no extra TG header row in our layout
+  return device.top
+}
+
 function computeInsets(tg: TelegramWebApp): Inset {
   const device = readInset(tg.safeAreaInset)
-  let content = readInset(tg.contentSafeAreaInset)
-
-  // SDK also exposes CSS vars; use whichever is larger per edge
-  content = {
-    top: Math.max(content.top, readCssInsetPx('--tg-content-safe-area-inset-top')),
-    bottom: Math.max(content.bottom, readCssInsetPx('--tg-content-safe-area-inset-bottom')),
-    left: Math.max(content.left, readCssInsetPx('--tg-content-safe-area-inset-left')),
-    right: Math.max(content.right, readCssInsetPx('--tg-content-safe-area-inset-right')),
-  }
-
-  const deviceFromCss = {
-    top: readCssInsetPx('--tg-safe-area-inset-top'),
-    bottom: readCssInsetPx('--tg-safe-area-inset-bottom'),
-    left: readCssInsetPx('--tg-safe-area-inset-left'),
-    right: readCssInsetPx('--tg-safe-area-inset-right'),
-  }
-
-  const d = {
-    top: Math.max(device.top, deviceFromCss.top),
-    bottom: Math.max(device.bottom, deviceFromCss.bottom),
-    left: Math.max(device.left, deviceFromCss.left),
-    right: Math.max(device.right, deviceFromCss.right),
-  }
-
-  let contentTop = content.top
-  if (contentTop === 0 && (tg.isFullscreen || tg.isExpanded !== false)) {
-    contentTop = TG_HEADER_FALLBACK_PX
-  }
+  const content = readInset(tg.contentSafeAreaInset)
 
   return {
-    top: d.top + contentTop,
-    bottom: d.bottom + content.bottom,
-    left: d.left + content.left,
-    right: d.right + content.right,
+    top: computeTopInset(tg),
+    bottom: Math.max(device.bottom, content.bottom),
+    left: Math.max(device.left, content.left),
+    right: Math.max(device.right, content.right),
   }
 }
 
 function applySafeAreaInsets(): void {
   const tg = window.Telegram?.WebApp
-  if (!tg) return
+  if (!tg || !isInsideTelegram()) return
 
   const total = computeInsets(tg)
   const root = document.documentElement
@@ -76,26 +63,38 @@ function applySafeAreaInsets(): void {
   root.classList.add('is-telegram-webapp')
 }
 
+function clearTelegramSafeArea(): void {
+  const root = document.documentElement
+  root.style.removeProperty('--tg-safe-top')
+  root.style.removeProperty('--tg-safe-bottom')
+  root.style.removeProperty('--tg-safe-left')
+  root.style.removeProperty('--tg-safe-right')
+  root.classList.remove('is-telegram-webapp')
+}
+
 function scheduleInsetUpdates(): void {
   applySafeAreaInsets()
   requestAnimationFrame(applySafeAreaInsets)
   window.setTimeout(applySafeAreaInsets, 50)
-  window.setTimeout(applySafeAreaInsets, 300)
 }
 
-/** BotFather Main App fullscreen does not apply to menu-button launches; request in code. */
 function requestFullscreenIfNeeded(tg: TelegramWebApp): void {
-  if (tg.isFullscreen || !tg.requestFullscreen) return
+  if (!isInsideTelegram() || tg.isFullscreen || !tg.requestFullscreen) return
   try {
     tg.requestFullscreen()
   } catch {
-    // Older clients may not support Bot API 8.0+ fullscreen
+    // Bot API 8.0+ only
   }
 }
 
 export function initTelegramWebApp(): void {
   const tg = window.Telegram?.WebApp
   if (!tg) return
+
+  if (!isInsideTelegram()) {
+    clearTelegramSafeArea()
+    return
+  }
 
   tg.ready()
   tg.expand()

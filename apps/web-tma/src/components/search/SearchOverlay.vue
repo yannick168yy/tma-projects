@@ -1,10 +1,20 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, toRef, watch } from 'vue'
 import { Search, X, Flame } from 'lucide-vue-next'
 import { ALL_MENU_GAMES, CASINO_SUBCATS } from '@/data/menu'
+import { useBottomSheetDrag } from '@/composables/useBottomSheetDrag'
 
-defineProps<{ open: boolean }>()
+const props = defineProps<{ open: boolean }>()
 const emit = defineEmits<{ close: [] }>()
+
+const {
+  sheetStyle,
+  backdropStyle,
+  onPointerDown,
+  onPointerMove,
+  onPointerUp,
+  onPointerCancel,
+} = useBottomSheetDrag(toRef(props, 'open'), () => emit('close'))
 
 const query = ref('')
 const tab = ref('all')
@@ -13,6 +23,13 @@ const inputRef = ref<HTMLInputElement | null>(null)
 onMounted(() => {
   setTimeout(() => inputRef.value?.focus(), 80)
 })
+
+watch(
+  () => props.open,
+  (open) => {
+    if (open) setTimeout(() => inputRef.value?.focus(), 80)
+  },
+)
 
 const tabGames = computed(() =>
   tab.value === 'all' ? ALL_MENU_GAMES : ALL_MENU_GAMES.filter((g) => g.catId === tab.value),
@@ -29,17 +46,29 @@ const hasQuery = computed(() => query.value.trim().length > 0)
 
 <template>
   <template v-if="open">
-    <div class="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm" @click="emit('close')" />
+    <div
+      class="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm transition-opacity"
+      :style="backdropStyle"
+      @click="emit('close')"
+    />
 
     <div
-      class="fixed bottom-0 left-1/2 -translate-x-1/2 z-50 w-full max-w-[430px] bg-card rounded-t-3xl flex flex-col"
-      style="height: 86vh"
+      data-bottom-sheet
+      class="fixed bottom-0 left-1/2 z-50 flex w-full max-w-[430px] flex-col rounded-t-3xl bg-card"
+      :style="[sheetStyle, { height: '86vh' }]"
     >
-      <div class="flex justify-center pt-3 pb-1 flex-shrink-0">
-        <div class="w-10 h-1 rounded-full bg-border" />
-      </div>
+      <div
+        class="flex-shrink-0 touch-none cursor-grab select-none active:cursor-grabbing"
+        @pointerdown="onPointerDown"
+        @pointermove="onPointerMove"
+        @pointerup="onPointerUp"
+        @pointercancel="onPointerCancel"
+      >
+        <div class="flex justify-center pb-1 pt-3">
+          <div class="h-1 w-10 rounded-full bg-border" />
+        </div>
 
-      <div class="flex items-center gap-3 px-4 pb-3 border-b border-border flex-shrink-0">
+        <div class="flex items-center gap-3 border-b border-border px-4 pb-3">
         <div class="flex-1 relative">
           <Search :size="14" class="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
           <input
@@ -58,12 +87,13 @@ const hasQuery = computed(() => query.value.trim().length > 0)
             <X :size="13" />
           </button>
         </div>
-        <button type="button" class="text-muted-foreground font-bold text-sm flex-shrink-0 px-1" @click="emit('close')">
+        <button type="button" class="flex-shrink-0 px-1 text-sm font-bold text-muted-foreground" @click="emit('close')">
           Cancel
         </button>
+        </div>
       </div>
 
-      <div class="flex gap-2 px-4 py-2.5 overflow-x-auto hide-scrollbar flex-shrink-0">
+      <div class="flex flex-shrink-0 gap-2 overflow-x-auto px-4 py-2.5 hide-scrollbar">
         <button
           type="button"
           class="flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-bold transition-colors"

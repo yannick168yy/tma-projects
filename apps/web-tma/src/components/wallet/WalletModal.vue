@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, ref, toRef, watch } from 'vue'
+import { useBottomSheetDrag } from '@/composables/useBottomSheetDrag'
 import {
   Wallet,
   X,
@@ -23,6 +24,15 @@ import {
 
 const props = defineProps<{ open: boolean }>()
 const emit = defineEmits<{ close: [] }>()
+
+const {
+  sheetStyle,
+  backdropStyle,
+  onPointerDown,
+  onPointerMove,
+  onPointerUp,
+  onPointerCancel,
+} = useBottomSheetDrag(toRef(props, 'open'), () => emit('close'))
 
 const tab = ref<'deposit' | 'withdraw' | 'history'>('deposit')
 const selectedMethod = ref<string | null>(null)
@@ -73,17 +83,29 @@ function statusIcon(status: string) {
 
 <template>
   <template v-if="open">
-    <div class="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm" @click="emit('close')" />
+    <div
+      class="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm transition-opacity"
+      :style="backdropStyle"
+      @click="emit('close')"
+    />
 
     <div
-      class="fixed bottom-0 left-1/2 -translate-x-1/2 z-50 w-full max-w-[430px] bg-card rounded-t-3xl flex flex-col"
-      style="height: 86vh; max-height: 86vh"
+      data-bottom-sheet
+      class="fixed bottom-0 left-1/2 z-50 flex w-full max-w-[430px] flex-col rounded-t-3xl bg-card"
+      :style="[sheetStyle, { height: '86vh', maxHeight: '86vh' }]"
     >
-      <div class="flex justify-center pt-3 pb-1 flex-shrink-0">
-        <div class="w-10 h-1 rounded-full bg-border" />
-      </div>
+      <div
+        class="flex-shrink-0 touch-none cursor-grab select-none active:cursor-grabbing"
+        @pointerdown="onPointerDown"
+        @pointermove="onPointerMove"
+        @pointerup="onPointerUp"
+        @pointercancel="onPointerCancel"
+      >
+        <div class="flex justify-center pb-1 pt-3">
+          <div class="h-1 w-10 rounded-full bg-border" />
+        </div>
 
-      <div class="flex items-center justify-between px-5 py-3 flex-shrink-0 border-b border-border">
+        <div class="flex items-center justify-between border-b border-border px-5 py-3">
         <div class="flex items-center gap-2">
           <Wallet :size="18" class="text-primary" />
           <span class="text-foreground font-black text-base font-display">MY WALLET</span>
@@ -100,9 +122,10 @@ function statusIcon(status: string) {
         >
           <X :size="15" class="text-muted-foreground" />
         </button>
+        </div>
       </div>
 
-      <div class="flex px-5 pt-3 gap-2 flex-shrink-0">
+      <div class="flex flex-shrink-0 gap-2 px-5 pt-3">
         <button
           v-for="t in [
             { id: 'deposit' as const, label: 'Deposit', icon: ArrowDownToLine },

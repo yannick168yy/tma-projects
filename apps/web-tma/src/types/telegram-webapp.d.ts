@@ -8,6 +8,7 @@ interface TelegramWebAppInset {
 interface TelegramWebApp {
   ready: () => void
   expand: () => void
+  initData?: string
   requestFullscreen?: () => void
   exitFullscreen?: () => void
   isFullscreen?: boolean
