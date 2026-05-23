@@ -1,0 +1,34 @@
+# Dependencies
+node_modules/
+target/
+.gradle/
+
+# Build
+dist/
+build/
+*.jar
+!**/src/main/**/placeholder
+
+# Env & secrets
+.env
+.env.local
+*.pem
+*.key
+
+# IDE
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs & runtime
+logs/
+*.log
+tmp/
+
+# Docker volumes (local)
+infra/docker/data/
