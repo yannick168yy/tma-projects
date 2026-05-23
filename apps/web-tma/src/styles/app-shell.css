@@ -110,18 +110,10 @@ label {
   overscroll-behavior-y: contain;
 }
 
-/* Icons/tiles inside scroll: native pan-y (avoids JS scroll fight / jank) */
+/* Icons/tiles inside scroll: native pan-y for scroll-first handoff */
 [data-bottom-sheet] [data-sheet-scroll] button,
 [data-bottom-sheet] [data-sheet-scroll] a,
 [data-bottom-sheet] [data-sheet-scroll] [role='button'] {
   touch-action: pan-y;
   -ms-touch-action: pan-y;
-}
-
-/* Header / tabs / filters outside scroll */
-[data-bottom-sheet] [data-sheet-drag] button,
-[data-bottom-sheet] [data-sheet-drag] a,
-[data-bottom-sheet] [data-sheet-drag] [role='button'] {
-  touch-action: none;
-  -ms-touch-action: none;
 }

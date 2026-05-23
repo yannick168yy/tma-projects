@@ -7,7 +7,6 @@ const DISMISS_ANIM_MS = 200
 
 const INPUT_SELECTOR = 'input, textarea, select'
 const SCROLL_SELECTOR = '[data-sheet-scroll]'
-const DRAG_HANDLE_SELECTOR = '[data-sheet-drag]'
 
 const SHEET_TRANSITION = 'transform 0.28s cubic-bezier(0.32, 0.72, 0, 1)'
 
@@ -22,12 +21,6 @@ function isTextInput(target: EventTarget | null): boolean {
   return true
 }
 
-function isDragHandle(target: EventTarget | null, sheet: HTMLElement): boolean {
-  if (!(target instanceof Element)) return false
-  const handle = target.closest(DRAG_HANDLE_SELECTOR)
-  return Boolean(handle && sheet.contains(handle))
-}
-
 function isInsideScrollArea(target: EventTarget | null, sheet: HTMLElement): boolean {
   if (!(target instanceof Element)) return false
   const scrollRoot = target.closest(SCROLL_SELECTOR)
@@ -39,12 +32,16 @@ function findClickSuppressEl(target: EventTarget | null): HTMLElement | null {
   return target.closest('button, a, [role="button"]') as HTMLElement | null
 }
 
+function getSheetScrollEl(sheet: HTMLElement): HTMLElement | null {
+  return sheet.querySelector(SCROLL_SELECTOR)
+}
+
 function findScrollEl(target: EventTarget | null, sheet: HTMLElement): HTMLElement | null {
   if (!(target instanceof Element)) return null
-  if (!isInsideScrollArea(target, sheet)) return null
+  if (!isInsideScrollArea(target, sheet)) return getSheetScrollEl(sheet)
 
   const scrollRoot = target.closest(SCROLL_SELECTOR) as HTMLElement | null
-  if (!scrollRoot) return null
+  if (!scrollRoot) return getSheetScrollEl(sheet)
 
   let node: HTMLElement | null = target instanceof HTMLElement ? target : null
   while (node && node !== scrollRoot) {
@@ -80,12 +77,12 @@ export function useBottomSheetDrag(
   let pointerId: number | null = null
   let startClientY = 0
   let startDragY = 0
+  let startScrollTop = 0
   let scrollEl: HTMLElement | null = null
+  let touchInScrollArea = false
   let sheetDragging = false
-  let allowScroll = false
+  let allowNativeScroll = false
   let clickSuppressEl: HTMLElement | null = null
-  let outsideScroll = false
-  let dragHandle = false
   let animTimer: ReturnType<typeof setTimeout> | null = null
   let rafId = 0
 
@@ -117,11 +114,11 @@ export function useBottomSheetDrag(
     cancelDragFrame()
     pointerId = null
     sheetDragging = false
-    allowScroll = false
+    allowNativeScroll = false
     scrollEl = null
+    touchInScrollArea = false
+    startScrollTop = 0
     clickSuppressEl = null
-    outsideScroll = false
-    dragHandle = false
   }
 
   function reset() {
@@ -166,7 +163,6 @@ export function useBottomSheetDrag(
     }
   }
 
-  /** Update transform/opacity on DOM only — avoids Vue re-render per frame. */
   function paintDrag(y: number) {
     liveDragY = y
     const sheet = sheetRef.value
@@ -195,15 +191,25 @@ export function useBottomSheetDrag(
     paintDrag(y)
   }
 
-  function beginSheetDrag(sheet: HTMLElement, e: PointerEvent) {
+  function beginSheetDrag(sheet: HTMLElement, e: PointerEvent, dragOffset = 0) {
     if (sheetDragging) return
     sheetDragging = true
-    allowScroll = false
+    allowNativeScroll = false
     try {
       sheet.setPointerCapture(e.pointerId)
     } catch {
       // ignore
     }
+    if (dragOffset > 0) schedulePaint(dragOffset)
+  }
+
+  /** Pull down from header/filters: scroll list toward top before sheet drag. */
+  function pullScrollTowardTop(pulledPx: number): number {
+    if (!scrollEl || pulledPx <= 0) return pulledPx
+    const nextTop = Math.max(0, startScrollTop - pulledPx)
+    scrollEl.scrollTop = nextTop
+    const consumed = startScrollTop - nextTop
+    return Math.max(0, pulledPx - consumed)
   }
 
   function suppressClickIfNeeded(didDrag: boolean) {
@@ -229,18 +235,54 @@ export function useBottomSheetDrag(
     clearAnimTimer()
     measureSheet()
     scrollEl = findScrollEl(e.target, sheet)
-    outsideScroll = scrollEl === null
-    dragHandle = isDragHandle(e.target, sheet)
+    touchInScrollArea = isInsideScrollArea(e.target, sheet)
+    startScrollTop = scrollEl?.scrollTop ?? 0
     clickSuppressEl = findClickSuppressEl(e.target)
     startClientY = e.clientY
     startDragY = liveDragY
     pointerId = e.pointerId
     sheetDragging = false
-    allowScroll = false
+    allowNativeScroll = false
 
     window.addEventListener('pointermove', onPointerMove, { passive: false })
     window.addEventListener('pointerup', onPointerUp)
     window.addEventListener('pointercancel', onPointerCancel)
+  }
+
+  function handleScrollHandoff(sheet: HTMLElement, e: PointerEvent, dy: number) {
+    const pulled = Math.max(0, dy - DRAG_LOCK_PX)
+    const st = scrollEl!.scrollTop
+
+    if (allowNativeScroll) {
+      if (st <= SCROLL_TOP_EPS && dy > 0) {
+        beginSheetDrag(sheet, e, pulled)
+        if (e.cancelable) e.preventDefault()
+      }
+      return
+    }
+
+    if (dy < 0) {
+      allowNativeScroll = true
+      return
+    }
+
+    if (dy > 0 && st > SCROLL_TOP_EPS) {
+      if (touchInScrollArea) {
+        allowNativeScroll = true
+        return
+      }
+      const excess = pullScrollTowardTop(pulled)
+      if (scrollEl!.scrollTop <= SCROLL_TOP_EPS) {
+        beginSheetDrag(sheet, e, excess)
+        if (e.cancelable) e.preventDefault()
+      }
+      return
+    }
+
+    if (dy > 0 && st <= SCROLL_TOP_EPS) {
+      beginSheetDrag(sheet, e, pulled)
+      if (e.cancelable) e.preventDefault()
+    }
   }
 
   function onPointerMove(e: PointerEvent) {
@@ -258,61 +300,15 @@ export function useBottomSheetDrag(
 
     if (Math.abs(dy) < DRAG_LOCK_PX) return
 
-    if (outsideScroll) {
+    if (!scrollEl || !isScrollable(scrollEl)) {
       if (dy > 0) {
-        beginSheetDrag(sheet, e)
+        beginSheetDrag(sheet, e, Math.max(0, dy - DRAG_LOCK_PX))
         if (e.cancelable) e.preventDefault()
-        schedulePaint(Math.max(0, dy))
       }
       return
     }
 
-    if (dragHandle) {
-      if (dy > 0) {
-        beginSheetDrag(sheet, e)
-        if (e.cancelable) e.preventDefault()
-        schedulePaint(Math.max(0, dy))
-      } else if (dy < 0) {
-        allowScroll = true
-      }
-      return
-    }
-
-    if (allowScroll && scrollEl) {
-      if (scrollEl.scrollTop <= SCROLL_TOP_EPS && dy > 0) {
-        beginSheetDrag(sheet, e)
-        if (e.cancelable) e.preventDefault()
-        schedulePaint(Math.max(0, dy))
-      }
-      return
-    }
-
-    if (!isScrollable(scrollEl)) {
-      if (dy > 0) {
-        beginSheetDrag(sheet, e)
-        if (e.cancelable) e.preventDefault()
-        schedulePaint(Math.max(0, dy))
-      }
-      return
-    }
-
-    const st = scrollEl!.scrollTop
-
-    if (dy < 0) {
-      allowScroll = true
-      return
-    }
-
-    if (dy > 0 && st > SCROLL_TOP_EPS) {
-      allowScroll = true
-      return
-    }
-
-    if (dy > 0 && st <= SCROLL_TOP_EPS) {
-      beginSheetDrag(sheet, e)
-      if (e.cancelable) e.preventDefault()
-      schedulePaint(Math.max(0, dy))
-    }
+    handleScrollHandoff(sheet, e, dy)
   }
 
   function releaseCapture(sheet: HTMLElement | null, id: number) {
@@ -368,9 +364,8 @@ export function useBottomSheetDrag(
 
     pointerId = null
     sheetDragging = false
-    allowScroll = false
-    outsideScroll = false
-    dragHandle = false
+    allowNativeScroll = false
+    touchInScrollArea = false
 
     suppressClickIfNeeded(wasSheetDrag || (didMove && finalY > 0))
 

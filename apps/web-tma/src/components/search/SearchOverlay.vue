@@ -91,7 +91,7 @@ const hasQuery = computed(() => query.value.trim().length > 0)
         </button>
       </div>
 
-      <div data-sheet-drag class="flex flex-shrink-0 gap-2 overflow-x-auto px-4 py-2.5 hide-scrollbar">
+      <div class="flex flex-shrink-0 gap-2 overflow-x-auto px-4 py-2.5 hide-scrollbar">
         <button
           type="button"
           class="flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-bold transition-colors"
@@ -120,7 +120,7 @@ const hasQuery = computed(() => query.value.trim().length > 0)
       </div>
 
       <div data-sheet-scroll class="page-scroll flex-1 px-4 pb-6 hide-scrollbar">
-        <div v-if="displayed.length > 0" data-sheet-drag class="grid grid-cols-3 gap-3">
+        <div v-if="displayed.length > 0" class="grid grid-cols-3 gap-3">
           <button
             v-for="(g, i) in displayed"
             :key="i"

@@ -221,11 +221,11 @@ function statusIcon(status: string) {
 
       <div data-sheet-scroll class="page-scroll flex-1 px-5 pb-8 pt-4 hide-scrollbar">
         <div v-if="tab !== 'history'" class="space-y-5">
-          <div data-sheet-drag>
+          <div>
             <p class="text-muted-foreground text-[11px] font-bold uppercase tracking-wider mb-2.5">Fiat Currency</p>
             <PayMethodGrid :methods="fiatList" :selected="selectedMethod" @select="selectedMethod = $event" />
           </div>
-          <div data-sheet-drag>
+          <div>
             <p class="text-muted-foreground text-[11px] font-bold uppercase tracking-wider mb-2.5">Cryptocurrency</p>
             <PayMethodGrid :methods="cryptoList" :selected="selectedMethod" @select="selectedMethod = $event" />
           </div>
