@@ -16,6 +16,9 @@ interface TelegramWebApp {
   safeAreaInset?: TelegramWebAppInset
   contentSafeAreaInset?: TelegramWebAppInset
   onEvent?: (eventType: string, callback: () => void) => void
+  disableVerticalSwipes?: () => void
+  enableVerticalSwipes?: () => void
+  isVerticalSwipesEnabled?: boolean
 }
 
 interface Window {

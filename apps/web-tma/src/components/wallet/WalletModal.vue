@@ -94,9 +94,9 @@ function statusIcon(status: string) {
     <div
       ref="sheetRef"
       data-bottom-sheet
-      class="fixed bottom-0 left-1/2 z-50 flex w-full max-w-[430px] touch-pan-y flex-col rounded-t-3xl bg-card"
+      class="fixed bottom-0 left-1/2 z-50 flex w-full max-w-[430px] flex-col rounded-t-3xl bg-card"
       :style="[sheetStyle, { height: '86vh', maxHeight: '86vh' }]"
-      @pointerdown="onPointerDown"
+      @pointerdown.capture="onPointerDown"
       @pointermove="onPointerMove"
       @pointerup="onPointerUp"
       @pointercancel="onPointerCancel"
@@ -222,11 +222,11 @@ function statusIcon(status: string) {
 
       <div data-sheet-scroll class="page-scroll flex-1 px-5 pb-8 pt-4 hide-scrollbar">
         <div v-if="tab !== 'history'" class="space-y-5">
-          <div>
+          <div data-sheet-drag>
             <p class="text-muted-foreground text-[11px] font-bold uppercase tracking-wider mb-2.5">Fiat Currency</p>
             <PayMethodGrid :methods="fiatList" :selected="selectedMethod" @select="selectedMethod = $event" />
           </div>
-          <div>
+          <div data-sheet-drag>
             <p class="text-muted-foreground text-[11px] font-bold uppercase tracking-wider mb-2.5">Cryptocurrency</p>
             <PayMethodGrid :methods="cryptoList" :selected="selectedMethod" @select="selectedMethod = $event" />
           </div>

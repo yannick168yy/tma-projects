@@ -1,10 +1,13 @@
 import { computed, ref, watch, type MaybeRefOrGetter, type Ref, toValue } from 'vue'
+import { setTelegramBottomSheetSwipeLock } from '@/utils/telegramSwipeLock'
 
 /** Movement before locking to scroll vs sheet-drag vs tap. */
 const DRAG_LOCK_PX = 8
 const SCROLL_TOP_EPS = 2
 
 const INPUT_SELECTOR = 'input, textarea, select'
+const SCROLL_SELECTOR = '[data-sheet-scroll]'
+const DRAG_HANDLE_SELECTOR = '[data-sheet-drag]'
 
 function isTextInput(target: EventTarget | null): boolean {
   if (!(target instanceof Element)) return false
@@ -17,22 +20,40 @@ function isTextInput(target: EventTarget | null): boolean {
   return true
 }
 
+function isDragHandle(target: EventTarget | null, sheet: HTMLElement): boolean {
+  if (!(target instanceof Element)) return false
+  const handle = target.closest(DRAG_HANDLE_SELECTOR)
+  return Boolean(handle && sheet.contains(handle))
+}
+
+function isInsideScrollArea(target: EventTarget | null, sheet: HTMLElement): boolean {
+  if (!(target instanceof Element)) return false
+  const scrollRoot = target.closest(SCROLL_SELECTOR)
+  return Boolean(scrollRoot && sheet.contains(scrollRoot))
+}
+
 function findClickSuppressEl(target: EventTarget | null): HTMLElement | null {
   if (!(target instanceof Element)) return null
   return target.closest('button, a, [role="button"]') as HTMLElement | null
 }
 
+/** Scroll container only when the pointer started inside [data-sheet-scroll]. */
 function findScrollEl(target: EventTarget | null, sheet: HTMLElement): HTMLElement | null {
-  let node = target instanceof HTMLElement ? target : null
-  while (node && node !== sheet) {
-    if (node.hasAttribute('data-sheet-scroll')) return node
+  if (!(target instanceof Element)) return null
+  if (!isInsideScrollArea(target, sheet)) return null
+
+  const scrollRoot = target.closest(SCROLL_SELECTOR) as HTMLElement | null
+  if (!scrollRoot) return null
+
+  let node: HTMLElement | null = target instanceof HTMLElement ? target : null
+  while (node && node !== scrollRoot) {
     const { overflowY } = getComputedStyle(node)
     if ((overflowY === 'auto' || overflowY === 'scroll') && node.scrollHeight > node.clientHeight + 1) {
       return node
     }
     node = node.parentElement
   }
-  return sheet.querySelector('[data-sheet-scroll]')
+  return scrollRoot
 }
 
 function isScrollable(el: HTMLElement | null): boolean {
@@ -57,6 +78,8 @@ export function useBottomSheetDrag(
   let sheetDragging = false
   let allowScroll = false
   let clickSuppressEl: HTMLElement | null = null
+  let outsideScroll = false
+  let dragHandle = false
 
   function reset() {
     detachWindowListeners()
@@ -67,13 +90,17 @@ export function useBottomSheetDrag(
     allowScroll = false
     scrollEl = null
     clickSuppressEl = null
+    outsideScroll = false
+    dragHandle = false
   }
 
   watch(
     () => toValue(open),
     (v) => {
+      setTelegramBottomSheetSwipeLock(v)
       if (!v) reset()
     },
+    { immediate: true },
   )
 
   function measureSheet() {
@@ -88,13 +115,18 @@ export function useBottomSheetDrag(
     window.removeEventListener('pointermove', onPointerMove)
     window.removeEventListener('pointerup', onPointerUp)
     window.removeEventListener('pointercancel', onPointerCancel)
+    window.removeEventListener('touchmove', onTouchMove)
   }
 
   function beginSheetDrag(sheet: HTMLElement, e: PointerEvent) {
     sheetDragging = true
     isDragging.value = true
     allowScroll = false
-    sheet.setPointerCapture(e.pointerId)
+    try {
+      sheet.setPointerCapture(e.pointerId)
+    } catch {
+      // ignore
+    }
     if (scrollEl) scrollEl.scrollTop = 0
   }
 
@@ -112,16 +144,22 @@ export function useBottomSheetDrag(
     clickSuppressEl = null
   }
 
+  function onTouchMove(e: TouchEvent) {
+    if (!sheetDragging) return
+    if (e.cancelable) e.preventDefault()
+  }
+
   function onPointerDown(e: PointerEvent) {
     if (e.button !== 0) return
     const sheet = sheetRef.value
     if (!sheet || !sheet.contains(e.target as Node)) return
 
-    // Search input etc. — keep focus/typing; everything else can start a drag
     if (isTextInput(e.target)) return
 
     measureSheet()
     scrollEl = findScrollEl(e.target, sheet)
+    outsideScroll = scrollEl === null
+    dragHandle = isDragHandle(e.target, sheet)
     clickSuppressEl = findClickSuppressEl(e.target)
     startClientY = e.clientY
     startDragY = dragY.value
@@ -133,6 +171,7 @@ export function useBottomSheetDrag(
     window.addEventListener('pointermove', onPointerMove, { passive: false })
     window.addEventListener('pointerup', onPointerUp)
     window.addEventListener('pointercancel', onPointerCancel)
+    window.addEventListener('touchmove', onTouchMove, { passive: false })
   }
 
   function onPointerMove(e: PointerEvent) {
@@ -143,18 +182,39 @@ export function useBottomSheetDrag(
     const dy = e.clientY - startClientY
 
     if (sheetDragging) {
-      e.preventDefault()
+      if (e.cancelable) e.preventDefault()
       dragY.value = Math.max(0, startDragY + dy)
       return
     }
 
     if (Math.abs(dy) < DRAG_LOCK_PX) return
 
-    // Was scrolling list — at top, keep pulling down → drag whole sheet
+    // Tabs, filters, search header — not tied to list scroll position
+    if (outsideScroll) {
+      if (dy > 0) {
+        beginSheetDrag(sheet, e)
+        if (e.cancelable) e.preventDefault()
+        dragY.value = Math.max(0, dy)
+      }
+      return
+    }
+
+    // Pay / game tiles: pull down closes sheet; pull up scrolls list
+    if (dragHandle) {
+      if (dy > 0) {
+        beginSheetDrag(sheet, e)
+        if (e.cancelable) e.preventDefault()
+        dragY.value = Math.max(0, dy)
+      } else if (dy < 0) {
+        allowScroll = true
+      }
+      return
+    }
+
     if (allowScroll && scrollEl) {
       if (scrollEl.scrollTop <= SCROLL_TOP_EPS && dy > 0) {
         beginSheetDrag(sheet, e)
-        e.preventDefault()
+        if (e.cancelable) e.preventDefault()
         dragY.value = Math.max(0, dy)
       }
       return
@@ -163,7 +223,7 @@ export function useBottomSheetDrag(
     if (!isScrollable(scrollEl)) {
       if (dy > 0) {
         beginSheetDrag(sheet, e)
-        e.preventDefault()
+        if (e.cancelable) e.preventDefault()
         dragY.value = Math.max(0, dy)
       }
       return
@@ -183,7 +243,7 @@ export function useBottomSheetDrag(
 
     if (dy > 0 && st <= SCROLL_TOP_EPS) {
       beginSheetDrag(sheet, e)
-      e.preventDefault()
+      if (e.cancelable) e.preventDefault()
       dragY.value = Math.max(0, dy)
     }
   }
@@ -194,7 +254,11 @@ export function useBottomSheetDrag(
 
     const sheet = sheetRef.value
     if (sheet?.hasPointerCapture(e.pointerId)) {
-      sheet.releasePointerCapture(e.pointerId)
+      try {
+        sheet.releasePointerCapture(e.pointerId)
+      } catch {
+        // ignore
+      }
     }
 
     const dy = e.clientY - startClientY
@@ -204,6 +268,8 @@ export function useBottomSheetDrag(
     pointerId = null
     sheetDragging = false
     allowScroll = false
+    outsideScroll = false
+    dragHandle = false
     isDragging.value = false
 
     suppressClickIfNeeded(wasSheetDrag || (didMove && dragY.value > 0))
@@ -226,7 +292,11 @@ export function useBottomSheetDrag(
     detachWindowListeners()
     const sheet = sheetRef.value
     if (sheet?.hasPointerCapture(e.pointerId)) {
-      sheet.releasePointerCapture(e.pointerId)
+      try {
+        sheet.releasePointerCapture(e.pointerId)
+      } catch {
+        // ignore
+      }
     }
     suppressClickIfNeeded(sheetDragging)
     reset()

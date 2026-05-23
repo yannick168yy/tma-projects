@@ -80,3 +80,23 @@ label {
   touch-action: manipulation;
   -ms-touch-action: manipulation;
 }
+
+/* Bottom sheet: block native vertical pan (TMA pull-to-close); scroll only inside list */
+[data-bottom-sheet] {
+  touch-action: none;
+  -ms-touch-action: none;
+  overscroll-behavior: none;
+}
+
+[data-bottom-sheet] [data-sheet-scroll] {
+  touch-action: pan-y;
+  -ms-touch-action: pan-y;
+  overscroll-behavior-y: contain;
+}
+
+[data-bottom-sheet] button,
+[data-bottom-sheet] a,
+[data-bottom-sheet] [role='button'] {
+  touch-action: none;
+  -ms-touch-action: none;
+}
