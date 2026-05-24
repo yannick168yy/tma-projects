@@ -1,4 +1,5 @@
 import { defineStore } from 'pinia'
+import { i18n } from '@/i18n'
 import { loginTelegram, loginWithGoogleRedirect, logoutSession, restoreSession } from '@/api/auth'
 import { getInitData } from '@/api/client'
 import { fetchBalance } from '@/api/wallet'
@@ -57,7 +58,7 @@ export const useAuthStore = defineStore('auth', {
           wallet.setBalance(await fetchBalance())
         }
       } catch (e) {
-        this.bootError = e instanceof Error ? e.message : 'Startup failed'
+        this.bootError = e instanceof Error ? e.message : i18n.global.t('auth.startupFailed')
       } finally {
         this.phase = 'ready'
       }

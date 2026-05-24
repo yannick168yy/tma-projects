@@ -1,12 +1,17 @@
 <script setup lang="ts">
+import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { Gift } from 'lucide-vue-next'
 import type { Category } from '@/data/categories'
 
-defineProps<{
+const props = defineProps<{
   category: Category
   claimable: boolean
   claimLabel: string | null
 }>()
+
+const { t } = useI18n()
+const label = computed(() => t(`category.${props.category.id}`))
 
 const emit = defineEmits<{ click: [] }>()
 </script>
@@ -51,14 +56,14 @@ const emit = defineEmits<{ click: [] }>()
         style="box-shadow: 0 2px 10px rgba(251, 191, 36, 0.6)"
       >
         <Gift :size="10" stroke-width="3" />
-        Claim
+        {{ t('common.claim') }}
       </div>
     </div>
     <span
       class="text-[12px] font-bold"
       :class="claimable ? 'text-primary' : 'text-white/80'"
     >
-      {{ category.label }}
+      {{ label }}
     </span>
   </button>
 </template>

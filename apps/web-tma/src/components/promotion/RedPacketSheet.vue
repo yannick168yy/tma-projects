@@ -1,6 +1,8 @@
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
 import { usePromotionStore } from '@/stores/promotion'
 
+const { t } = useI18n()
 const promo = usePromotionStore()
 </script>
 
@@ -17,13 +19,13 @@ const promo = usePromotionStore()
         <p class="mt-2 text-3xl font-black text-primary">
           ₱ {{ promo.redPacketSheet.amountPhp.toLocaleString('en-PH') }}
         </p>
-        <p class="mt-2 text-xs text-white/60">Credited to your PHP balance</p>
+        <p class="mt-2 text-xs text-white/60">{{ t('redpacket.credited') }}</p>
         <button
           type="button"
           class="mt-6 w-full rounded-xl bg-primary py-3 text-sm font-black text-primary-foreground"
           @click="promo.closeRedPacket()"
         >
-          Awesome!
+          {{ t('redpacket.awesome') }}
         </button>
       </div>
     </div>

@@ -1,12 +1,44 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { Trophy, ChevronDown } from 'lucide-vue-next'
 import { BONUS_WINNERS, PROMOS, PROMO_STATS } from '@/data/promos'
 
 const props = defineProps<{ promoFilter?: string | null }>()
 const emit = defineEmits<{ openWallet: [] }>()
 
+const { t } = useI18n()
+
 const expanded = ref<string | null>(props.promoFilter ?? null)
+
+const localizedPromos = computed(() =>
+  PROMOS.map((p) => {
+    const base = `bonuses.promos.${p.id}`
+    const stepList =
+      p.id === 'referral'
+        ? [t(`${base}.step1`), t(`${base}.step2`), t(`${base}.step3`)]
+        : [t(`${base}.step1`), t(`${base}.step2`)]
+    return {
+      ...p,
+      tag: t(`${base}.tag`),
+      title: t(`${base}.title`),
+      tagline: t(`${base}.tagline`),
+      rewardLabel: t(`${base}.rewardLabel`),
+      desc: t(`${base}.desc`),
+      badge: t(`${base}.badge`),
+      cta: t(`${base}.cta`),
+      steps: stepList,
+      expiry: p.expiry === 'Ongoing' ? t('common.ongoing') : t('common.limitedTime'),
+    }
+  }),
+)
+
+const localizedStats = computed(() =>
+  PROMO_STATS.map((s, i) => {
+    const keys = ['distributed', 'active', 'winnersToday'] as const
+    return { ...s, label: t(`bonuses.stats.${keys[i]}`) }
+  }),
+)
 
 watch(
   () => props.promoFilter,
@@ -28,16 +60,16 @@ watch(
       class="relative px-4 pt-3 pb-5 overflow-hidden"
       style="background: linear-gradient(160deg, #1a0060 0%, #080b14 60%)"
     >
-      <p class="text-muted-foreground text-[11px] uppercase tracking-widest font-bold mb-1">TarsierWin Exclusive</p>
-      <h1 class="text-white font-black leading-tight mb-1 font-display text-[1.8rem]">
-        PROMOTIONS<br /><span class="text-primary">& BONUSES</span>
-      </h1>
-      <p class="text-white/50 text-xs max-w-[220px] leading-relaxed">
-        Claim your rewards every step of the way — from your very first play to every referral.
+      <p class="text-muted-foreground text-[11px] uppercase tracking-widest font-bold mb-1">
+        {{ t('bonuses.exclusive') }}
       </p>
+      <h1 class="text-white font-black leading-tight mb-1 font-display text-[1.8rem]">
+        {{ t('bonuses.titleLine1') }}<br /><span class="text-primary">{{ t('bonuses.titleLine2') }}</span>
+      </h1>
+      <p class="text-white/50 text-xs max-w-[220px] leading-relaxed">{{ t('bonuses.heroSub') }}</p>
       <div class="flex gap-3 mt-4">
         <div
-          v-for="s in PROMO_STATS"
+          v-for="s in localizedStats"
           :key="s.label"
           class="flex-1 bg-white/5 rounded-xl px-2.5 py-2 text-center border border-white/8"
         >
@@ -51,14 +83,14 @@ watch(
     <div class="mx-4 mt-3 bg-secondary rounded-xl px-3 py-2 flex items-center gap-2 overflow-hidden">
       <div class="flex-shrink-0 flex items-center gap-1 text-primary">
         <Trophy :size="12" />
-        <span class="text-[10px] font-black uppercase whitespace-nowrap">Recent Claims</span>
+        <span class="text-[10px] font-black uppercase whitespace-nowrap">{{ t('bonuses.recentClaims') }}</span>
       </div>
       <div class="w-px h-3 bg-border flex-shrink-0" />
       <div class="overflow-hidden flex-1">
         <div class="flex gap-5 animate-marquee whitespace-nowrap" style="animation-duration: 14s">
           <span v-for="(w, i) in [...BONUS_WINNERS, ...BONUS_WINNERS]" :key="i" class="text-[11px] flex-shrink-0">
             <span class="text-primary font-bold">{{ w.name }}</span>
-            <span class="text-white/50"> claimed </span>
+            <span class="text-white/50"> {{ t('common.claimed') }} </span>
             <span class="text-emerald-400 font-bold">{{ w.amount }}</span>
             <span class="text-white/30"> · {{ w.promo }}</span>
           </span>
@@ -68,7 +100,7 @@ watch(
 
     <div class="px-4 mt-4 space-y-3">
       <div
-        v-for="p in PROMOS"
+        v-for="p in localizedPromos"
         :id="`promo-${p.id}`"
         :key="p.id"
         class="rounded-2xl overflow-hidden border"
@@ -82,7 +114,7 @@ watch(
             v-if="p.highlight"
             class="absolute top-3 right-3 bg-primary text-primary-foreground text-[10px] font-black px-2 py-0.5 rounded-full"
           >
-            ⭐ FEATURED
+            {{ t('bonuses.featuredBadge') }}
           </div>
           <div class="flex items-start justify-between">
             <div class="flex-1 pr-12">
@@ -111,7 +143,7 @@ watch(
             class="w-full flex items-center justify-between mt-3 py-2 border-t border-border"
             @click="expanded = expanded === p.id ? null : p.id"
           >
-            <span class="text-foreground text-xs font-bold">How it works</span>
+            <span class="text-foreground text-xs font-bold">{{ t('bonuses.howItWorks') }}</span>
             <ChevronDown
               :size="14"
               class="text-muted-foreground transition-transform duration-200"
@@ -142,9 +174,7 @@ watch(
     </div>
 
     <div class="mx-4 mt-4 mb-2 bg-secondary/50 rounded-xl px-4 py-3 border border-border">
-      <p class="text-muted-foreground text-[11px] leading-relaxed text-center">
-        All bonuses are subject to TarsierWin Terms & Conditions. Wagering requirements apply. 18+
-      </p>
+      <p class="text-muted-foreground text-[11px] leading-relaxed text-center">{{ t('bonuses.disclaimer') }}</p>
     </div>
   </div>
 </template>

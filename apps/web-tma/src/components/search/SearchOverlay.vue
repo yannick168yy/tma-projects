@@ -1,11 +1,16 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, toRef, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { Search, X, Flame } from 'lucide-vue-next'
 import { ALL_MENU_GAMES, CASINO_SUBCATS } from '@/data/menu'
 import { useBottomSheetDrag } from '@/composables/useBottomSheetDrag'
+import { useMenuLabels } from '@/composables/useMenuLabels'
 
 const props = defineProps<{ open: boolean }>()
 const emit = defineEmits<{ close: []; gameTap: [] }>()
+
+const { t } = useI18n()
+const { subcatLabel } = useMenuLabels()
 
 const sheetRef = ref<HTMLElement | null>(null)
 const backdropRef = ref<HTMLElement | null>(null)
@@ -74,7 +79,7 @@ const hasQuery = computed(() => query.value.trim().length > 0)
             ref="inputRef"
             v-model="query"
             type="text"
-            placeholder="Search games…"
+            :placeholder="t('search.placeholder')"
             class="w-full bg-secondary border border-border rounded-xl pl-9 pr-9 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:border-primary/50"
           />
           <button
@@ -87,7 +92,7 @@ const hasQuery = computed(() => query.value.trim().length > 0)
           </button>
         </div>
         <button type="button" class="flex-shrink-0 px-1 text-sm font-bold text-muted-foreground" @click="emit('close')">
-          Cancel
+          {{ t('search.cancel') }}
         </button>
       </div>
 
@@ -98,7 +103,7 @@ const hasQuery = computed(() => query.value.trim().length > 0)
           :class="tab === 'all' ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground'"
           @click="tab = 'all'"
         >
-          All Games
+          {{ t('search.allGames') }}
         </button>
         <button
           v-for="c in CASINO_SUBCATS"
@@ -109,13 +114,17 @@ const hasQuery = computed(() => query.value.trim().length > 0)
           @click="tab = c.id"
         >
           <span>{{ c.icon }}</span>
-          <span>{{ c.label }}</span>
+          <span>{{ subcatLabel(c.id, c.label) }}</span>
         </button>
       </div>
 
       <div class="px-4 pb-2 flex-shrink-0">
         <p class="text-muted-foreground text-[11px] font-bold">
-          {{ hasQuery ? `Search results · ${displayed.length} games` : `All Games · ${displayed.length}` }}
+          {{
+            hasQuery
+              ? t('search.resultsCount', { count: displayed.length })
+              : t('search.allCount', { count: displayed.length })
+          }}
         </p>
       </div>
 
@@ -137,7 +146,7 @@ const hasQuery = computed(() => query.value.trim().length > 0)
               class="absolute top-1.5 left-1.5 flex items-center gap-0.5 bg-red-500 rounded-full px-1.5 py-0.5"
             >
               <Flame :size="8" class="text-white" />
-              <span class="text-white text-[8px] font-black">HOT</span>
+              <span class="text-white text-[8px] font-black">{{ t('common.hot') }}</span>
             </div>
             <div class="relative p-2 bg-gradient-to-t from-black/80 to-transparent">
               <p class="text-white font-black text-[10px] leading-tight font-display">{{ g.name.toUpperCase() }}</p>
@@ -147,8 +156,8 @@ const hasQuery = computed(() => query.value.trim().length > 0)
         </div>
         <div v-else class="text-center py-16">
           <p class="text-4xl mb-3">🔍</p>
-          <p class="text-foreground font-bold text-sm">No results for "{{ query }}"</p>
-          <p class="text-muted-foreground text-xs mt-1">Try a different keyword</p>
+          <p class="text-foreground font-bold text-sm">{{ t('search.noResultsFor', { query }) }}</p>
+          <p class="text-muted-foreground text-xs mt-1">{{ t('search.tryAnother') }}</p>
         </div>
       </div>
     </div>

@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { storeToRefs } from 'pinia'
 import {
   ChevronDown,
@@ -22,6 +23,7 @@ import { NAV_ITEMS } from '@/data/home'
 import { useAuthStore } from '@/stores/auth'
 import { useWalletStore } from '@/stores/wallet'
 
+const { t } = useI18n()
 const auth = useAuthStore()
 const wallet = useWalletStore()
 const { isLoggedIn } = storeToRefs(auth)
@@ -37,27 +39,34 @@ const walletOpen = ref(false)
 const walletModalOpen = ref(false)
 const profileOpen = ref(false)
 
+const navItems = computed(() =>
+  NAV_ITEMS.map((item) => ({
+    ...item,
+    label: t(`nav.${item.id}`),
+  })),
+)
+
 async function openWallet() {
-  if (!(await auth.ensureLoggedIn('Sign in to deposit or withdraw'))) return
+  if (!(await auth.ensureLoggedIn(t('auth.signInDepositWithdraw')))) return
   walletOpen.value = false
   walletModalOpen.value = true
 }
 
 async function onBalanceTap() {
   if (!auth.isLoggedIn) {
-    await auth.ensureLoggedIn('Sign in to view balance and top up')
+    await auth.ensureLoggedIn(t('auth.signInBalance'))
     return
   }
   walletOpen.value = !walletOpen.value
 }
 
 async function openProfile() {
-  if (!(await auth.ensureLoggedIn('Sign in to view your profile'))) return
+  if (!(await auth.ensureLoggedIn(t('auth.signInProfile')))) return
   profileOpen.value = true
 }
 
 async function onGameTap() {
-  await auth.ensureLoggedIn('Sign in to play games')
+  await auth.ensureLoggedIn(t('auth.signInPlay'))
 }
 
 function goBonuses(promo: string | null = null) {
@@ -125,7 +134,7 @@ function navIcon(id: string) {
           <div class="flex flex-1 items-center justify-center gap-3">
             <button type="button" class="flex flex-col items-center gap-0.5" @click="onBalanceTap">
               <span class="flex items-center gap-1 text-[11px] font-semibold leading-none text-muted-foreground">
-                {{ isLoggedIn ? 'PHP' : 'Sign in' }}
+                {{ isLoggedIn ? 'PHP' : t('shell.signIn') }}
                 <ChevronDown
                   v-if="isLoggedIn"
                   :size="11"
@@ -134,7 +143,7 @@ function navIcon(id: string) {
                 />
               </span>
               <span class="text-base font-black leading-tight text-white">
-                {{ isLoggedIn ? (balanceVisible ? displayPhp : '₱ ••••••') : 'Tap to login' }}
+                {{ isLoggedIn ? (balanceVisible ? displayPhp : '₱ ••••••') : t('shell.tapToLogin') }}
               </span>
             </button>
             <button
@@ -143,7 +152,7 @@ function navIcon(id: string) {
               class="flex items-center gap-1 whitespace-nowrap rounded-full bg-primary px-5 py-2 text-sm font-black text-primary-foreground shadow-lg shadow-amber-500/30 transition-colors hover:bg-yellow-400"
               @click="openWallet"
             >
-              Top up
+              {{ t('shell.topUp') }}
             </button>
           </div>
 
@@ -159,14 +168,14 @@ function navIcon(id: string) {
             class="absolute left-4 right-4 top-full z-50 -mt-1 overflow-hidden rounded-2xl border border-border bg-card shadow-2xl"
           >
             <div class="p-4">
-              <p class="mb-3 text-xs font-bold uppercase tracking-wider text-muted-foreground">My Wallet</p>
+              <p class="mb-3 text-xs font-bold uppercase tracking-wider text-muted-foreground">{{ t('shell.myWallet') }}</p>
               <div class="flex items-center justify-between border-b border-border py-2.5">
                 <div class="flex items-center gap-2.5">
                   <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
                     <span class="text-sm font-black text-primary">₱</span>
                   </div>
                   <div>
-                    <p class="text-sm font-bold text-foreground">Philippine Peso</p>
+                    <p class="text-sm font-bold text-foreground">{{ t('shell.philippinePeso') }}</p>
                     <p class="text-xs text-muted-foreground">PHP</p>
                   </div>
                 </div>
@@ -180,7 +189,7 @@ function navIcon(id: string) {
                     <span class="text-sm font-black text-emerald-400">₮</span>
                   </div>
                   <div>
-                    <p class="text-sm font-bold text-foreground">Tether USD</p>
+                    <p class="text-sm font-bold text-foreground">{{ t('shell.tetherUsd') }}</p>
                     <p class="text-xs text-muted-foreground">USDT · TRC20</p>
                   </div>
                 </div>
@@ -192,8 +201,8 @@ function navIcon(id: string) {
                 <div class="flex items-center gap-2.5">
                   <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-500/10 text-xl">🎁</div>
                   <div>
-                    <p class="text-sm font-bold text-foreground">Bonus Balance</p>
-                    <p class="text-xs text-muted-foreground">Non-withdrawable</p>
+                    <p class="text-sm font-bold text-foreground">{{ t('shell.bonusBalance') }}</p>
+                    <p class="text-xs text-muted-foreground">{{ t('shell.nonWithdrawable') }}</p>
                   </div>
                 </div>
                 <span class="text-base font-black text-violet-400">
@@ -207,7 +216,7 @@ function navIcon(id: string) {
                 class="flex-1 rounded-xl bg-secondary py-2 text-xs font-bold text-muted-foreground"
                 @click="balanceVisible = !balanceVisible"
               >
-                {{ balanceVisible ? 'Hide Balances' : 'Show Balances' }}
+                {{ balanceVisible ? t('shell.hideBalances') : t('shell.showBalances') }}
               </button>
               <button
                 type="button"
@@ -215,7 +224,7 @@ function navIcon(id: string) {
                 @click="openWallet"
               >
                 <Wallet :size="13" />
-                Wallet
+                {{ t('shell.wallet') }}
               </button>
             </div>
           </div>
@@ -235,7 +244,7 @@ function navIcon(id: string) {
         class="app-safe-nav relative z-20 flex flex-shrink-0 items-center justify-around border-t border-border bg-card px-2 pt-2"
       >
         <button
-          v-for="item in NAV_ITEMS"
+          v-for="item in navItems"
           :key="item.id"
           type="button"
           class="relative flex flex-col items-center gap-0.5 rounded-xl px-3 py-1 transition-colors"

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { storeToRefs } from 'pinia'
 import { usePromotionStore } from '@/stores/promotion'
 import {
@@ -39,8 +40,18 @@ const emit = defineEmits<{
   gameTap: []
 }>()
 
+const { t } = useI18n()
 const promotion = usePromotionStore()
 const { highlightMap } = storeToRefs(promotion)
+
+const localizedBanners = computed(() =>
+  BANNERS.map((b) => ({
+    ...b,
+    tag: t(`home.banners.${b.id}.tag`),
+    title: t(`home.banners.${b.id}.title`),
+    sub: t(`home.banners.${b.id}.sub`),
+  })),
+)
 
 function categoryBadge(promo: string | null, fallback: string | null) {
   if (!promo) return fallback
@@ -154,7 +165,7 @@ function tabIcon(id: GameTabId) {
     <div class="category-shortcut-row flex gap-3 px-4 pb-3 pt-3 overflow-x-auto hide-scrollbar">
       <HomeCategoryShortcut
         v-for="c in CATEGORIES"
-        :key="c.label"
+        :key="c.id"
         :category="c"
         :claimable="categoryClaimable(c.promo)"
         :claim-label="categoryBadge(c.promo, c.badge)"
@@ -174,7 +185,7 @@ function tabIcon(id: GameTabId) {
           @touchcancel="onBannerTouchEnd"
         >
           <article
-            v-for="banner in BANNERS"
+            v-for="banner in localizedBanners"
             :key="banner.id"
             class="relative h-56 w-full flex-shrink-0 snap-center"
           >
@@ -219,20 +230,20 @@ function tabIcon(id: GameTabId) {
         <Search :size="15" class="text-muted-foreground" />
       </button>
       <button
-        v-for="t in GAME_TABS"
-        :key="t.id"
+        v-for="tab in GAME_TABS"
+        :key="tab.id"
         type="button"
         class="flex-shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-colors"
         :class="
-          activeTab === t.id
+          activeTab === tab.id
             ? 'bg-primary text-primary-foreground'
             : 'bg-secondary text-muted-foreground hover:text-foreground'
         "
-        @click="activeTab = t.id"
+        @click="activeTab = tab.id"
       >
-        <component :is="tabIcon(t.id)" v-if="tabIcon(t.id)" :size="13" />
+        <component :is="tabIcon(tab.id)" v-if="tabIcon(tab.id)" :size="13" />
         <span v-else class="text-sm leading-none">🐓</span>
-        <span>{{ t.label }}</span>
+        <span>{{ t(`home.gameTabs.${tab.id}`) }}</span>
       </button>
     </div>
 
@@ -240,7 +251,7 @@ function tabIcon(id: GameTabId) {
       <div class="flex items-center justify-between px-4 mb-3">
         <div class="flex items-center gap-2">
           <Clock :size="15" class="text-muted-foreground" />
-          <h3 class="text-foreground font-black text-sm font-display">GAME HISTORY</h3>
+          <h3 class="text-foreground font-black text-sm font-display">{{ t('home.gameHistory') }}</h3>
         </div>
         <div class="flex gap-1">
           <button type="button" class="w-7 h-7 bg-secondary rounded-lg flex items-center justify-center">
@@ -259,14 +270,14 @@ function tabIcon(id: GameTabId) {
     <div class="mx-4 mt-4 bg-secondary rounded-xl p-3 flex items-center gap-2 overflow-hidden">
       <div class="flex-shrink-0 flex items-center gap-1.5 text-primary">
         <Trophy :size="13" />
-        <span class="text-xs font-bold uppercase tracking-wide whitespace-nowrap">Recent Wins</span>
+        <span class="text-xs font-bold uppercase tracking-wide whitespace-nowrap">{{ t('home.recentWins') }}</span>
       </div>
       <div class="w-px h-4 bg-border flex-shrink-0" />
       <div class="overflow-hidden flex-1">
         <div class="flex gap-6 animate-marquee whitespace-nowrap">
           <span v-for="(w, i) in marqueeWinners" :key="i" class="text-xs text-foreground/80 flex-shrink-0">
             <span class="text-primary font-bold">{{ w.name }}</span>
-            won
+            {{ t('common.won') }}
             <span class="text-emerald-400 font-bold">{{ w.amount }}</span>
             ·
             <span class="text-muted-foreground">{{ w.game }}</span>
@@ -279,11 +290,11 @@ function tabIcon(id: GameTabId) {
       <div class="flex items-center justify-between mb-3">
         <div class="flex items-center gap-2">
           <TrendingUp :size="15" class="text-primary" />
-          <h3 class="text-foreground font-black text-sm font-display">POPULAR GAMES</h3>
+          <h3 class="text-foreground font-black text-sm font-display">{{ t('home.popularGames') }}</h3>
         </div>
         <div class="flex items-center gap-1">
           <button type="button" class="bg-secondary/60 text-xs font-bold text-muted-foreground px-3 py-1 rounded-full">
-            All
+            {{ t('common.all') }}
           </button>
           <button type="button" class="w-7 h-7 bg-secondary rounded-lg flex items-center justify-center">
             <ChevronLeft :size="13" class="text-muted-foreground" />
@@ -302,11 +313,11 @@ function tabIcon(id: GameTabId) {
       <div class="flex items-center justify-between px-4 mb-3">
         <div class="flex items-center gap-2">
           <Gamepad2 :size="15" class="text-violet-400" />
-          <h3 class="text-foreground font-black text-sm font-display">E-GAMES ZONE</h3>
-          <span class="bg-violet-500/20 text-violet-300 text-[10px] font-bold px-2 py-0.5 rounded-full">FEATURED</span>
+          <h3 class="text-foreground font-black text-sm font-display">{{ t('home.egamesZone') }}</h3>
+          <span class="bg-violet-500/20 text-violet-300 text-[10px] font-bold px-2 py-0.5 rounded-full">{{ t('common.featured') }}</span>
         </div>
         <button type="button" class="text-primary text-xs font-bold flex items-center gap-0.5">
-          See all
+          {{ t('common.seeAll') }}
           <ChevronRight :size="12" />
         </button>
       </div>
@@ -319,10 +330,10 @@ function tabIcon(id: GameTabId) {
       <div class="flex items-center justify-between px-4 mb-3">
         <div class="flex items-center gap-2">
           <span class="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-          <h3 class="text-foreground font-black text-sm font-display">LIVE GAMES</h3>
+          <h3 class="text-foreground font-black text-sm font-display">{{ t('home.liveGames') }}</h3>
         </div>
         <button type="button" class="text-primary text-xs font-bold flex items-center gap-0.5">
-          See all
+          {{ t('common.seeAll') }}
           <ChevronRight :size="12" />
         </button>
       </div>
@@ -333,9 +344,9 @@ function tabIcon(id: GameTabId) {
 
     <section class="mt-6 px-4">
       <div class="flex items-center justify-between mb-3">
-        <h3 class="text-foreground font-black text-sm font-display">GAME PROVIDERS</h3>
+        <h3 class="text-foreground font-black text-sm font-display">{{ t('home.gameProviders') }}</h3>
         <button type="button" class="text-primary text-xs font-bold flex items-center gap-0.5">
-          All
+          {{ t('common.all') }}
           <ChevronRight :size="12" />
         </button>
       </div>
@@ -358,8 +369,8 @@ function tabIcon(id: GameTabId) {
       class="mx-4 mt-6 mb-4 bg-gradient-to-r from-secondary to-[#1a2540] rounded-2xl p-4 flex items-center justify-between border border-border"
     >
       <div>
-        <p class="text-foreground font-bold text-sm">24/7 Customer Support</p>
-        <p class="text-muted-foreground text-xs mt-0.5">Always here for you · Laging handa</p>
+        <p class="text-foreground font-bold text-sm">{{ t('home.supportTitle') }}</p>
+        <p class="text-muted-foreground text-xs mt-0.5">{{ t('home.supportSub') }}</p>
       </div>
       <button type="button" class="w-11 h-11 rounded-xl bg-primary flex items-center justify-center shadow shadow-amber-500/20">
         <Headphones :size="18" class="text-primary-foreground" />

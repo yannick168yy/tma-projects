@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { X } from 'lucide-vue-next'
 import BetogoLogo from '@/components/BetogoLogo.vue'
 import { useAuthStore } from '@/stores/auth'
@@ -7,6 +8,7 @@ import { useAuthStore } from '@/stores/auth'
 defineProps<{ open: boolean }>()
 const emit = defineEmits<{ close: [] }>()
 
+const { t } = useI18n()
 const auth = useAuthStore()
 const loading = ref(false)
 const error = ref<string | null>(null)
@@ -17,7 +19,7 @@ async function onTelegramLogin() {
   try {
     await auth.loginWithTelegram()
   } catch (e) {
-    error.value = e instanceof Error ? e.message : 'Login failed'
+    error.value = e instanceof Error ? e.message : t('auth.loginFailed')
   } finally {
     loading.value = false
   }
@@ -29,7 +31,7 @@ async function onGoogleLogin() {
   try {
     await auth.loginWithGoogle()
   } catch (e) {
-    error.value = e instanceof Error ? e.message : 'Login failed'
+    error.value = e instanceof Error ? e.message : t('auth.loginFailed')
   } finally {
     loading.value = false
   }
@@ -56,12 +58,12 @@ async function onGoogleLogin() {
         <div class="mb-5 flex justify-center">
           <BetogoLogo />
         </div>
-        <h2 class="text-center text-lg font-black text-foreground">Sign in to BetoGo</h2>
+        <h2 class="text-center text-lg font-black text-foreground">{{ t('auth.signInTitle') }}</h2>
         <p class="mt-1 text-center text-xs text-muted-foreground">
-          {{ auth.loginReason ?? 'Continue to play, deposit, and claim bonuses.' }}
+          {{ auth.loginReason ?? t('auth.signInSubtitle') }}
         </p>
         <p v-if="auth.isTelegram" class="mt-2 text-center text-[10px] text-muted-foreground">
-          BetoGo signs you in automatically when opened in Telegram. Use below if sign-in did not complete.
+          {{ t('auth.telegramHint') }}
         </p>
 
         <div class="mt-6 space-y-3">
@@ -72,7 +74,7 @@ async function onGoogleLogin() {
             :disabled="loading"
             @click="onTelegramLogin"
           >
-            Retry Telegram sign-in
+            {{ t('auth.retryTelegram') }}
           </button>
           <button
             v-else
@@ -82,10 +84,10 @@ async function onGoogleLogin() {
             @click="onGoogleLogin"
           >
             <span class="text-base">G</span>
-            Continue with Google
+            {{ t('auth.continueGoogle') }}
           </button>
           <p v-if="!auth.isTelegram" class="text-center text-[10px] text-muted-foreground">
-            You will be redirected to Google to sign in securely.
+            {{ t('auth.googleRedirectHint') }}
           </p>
         </div>
 

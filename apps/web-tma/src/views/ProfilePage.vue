@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { CheckCircle2, Copy, ChevronDown, ChevronRight, LogOut } from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/auth'
 import type { LoginProvider } from '@/types/api'
@@ -9,6 +10,7 @@ import ContactMethodRow from '@/components/profile/ContactMethodRow.vue'
 
 const emit = defineEmits<{ logout: [] }>()
 
+const { t } = useI18n()
 const auth = useAuthStore()
 const loggingOut = ref(false)
 const logoutConfirmOpen = ref(false)
@@ -25,7 +27,7 @@ const phone = ref('')
 const emailExtra = ref('')
 
 const USER_ID = computed(() => auth.user?.id ?? '—')
-const displayName = computed(() => auth.user?.displayName ?? 'Player Account')
+const displayName = computed(() => auth.user?.displayName ?? t('profile.playerAccount'))
 
 const loginProvider = computed<LoginProvider>(
   () => auth.user?.loginProvider ?? (auth.user?.telegramUserId ? 'telegram' : 'google'),
@@ -41,19 +43,21 @@ const telegramHandle = computed(() => {
 })
 
 const telegramSubtitle = computed(() => {
-  if (!isTelegramLogin.value) return 'Not connected'
-  return telegramHandle.value ?? 'Connected'
+  if (!isTelegramLogin.value) return t('profile.notConnected')
+  return telegramHandle.value ?? t('profile.connected')
 })
 
 const googleEmail = computed(() => auth.user?.email?.trim() ?? '')
 
 const isGoogleEmailConnected = computed(() => isGoogleLogin.value && Boolean(googleEmail.value))
 
-const emailRowTitle = computed(() => (isGoogleLogin.value ? 'Google' : 'Email Address'))
+const emailRowTitle = computed(() =>
+  isGoogleLogin.value ? t('profile.google') : t('profile.emailAddress'),
+)
 
 const emailRowSubtitle = computed(() => {
-  if (isGoogleLogin.value) return googleEmail.value || 'Not connected'
-  return emailExtra.value.trim() || 'Add email (optional)'
+  if (isGoogleLogin.value) return googleEmail.value || t('profile.notConnected')
+  return emailExtra.value.trim() || t('profile.addEmailOptional')
 })
 
 /** Login method row appears first in Contact Information. */
@@ -63,10 +67,15 @@ const contactOrder = computed(() =>
     : (['telegram', 'phone', 'email'] as const),
 )
 
-const MONTHS = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December',
-]
+const MONTHS = computed(() =>
+  Array.from({ length: 12 }, (_, i) => t(`profile.months.${i + 1}`)),
+)
+
+const genderOptions = computed(() => [
+  { id: 'Male', label: t('profile.male') },
+  { id: 'Female', label: t('profile.female') },
+  { id: 'Other', label: t('profile.other') },
+])
 
 const CURRENCIES = [
   { symbol: '₱', name: 'PHP', color: 'from-blue-600 to-blue-800' },
@@ -77,33 +86,51 @@ const CURRENCIES = [
   { symbol: '◈', name: 'BNB', color: 'from-yellow-400 to-yellow-600' },
 ]
 
-const LINKS = [
-  { icon: '📢', label: 'Official Channel', sub: 'News & announcements', color: 'from-blue-600 to-blue-800' },
-  { icon: '💬', label: 'Community Group', sub: 'Chat with players', color: 'from-indigo-600 to-violet-700' },
-  { icon: '🎰', label: 'VIP Club', sub: 'Exclusive member perks', color: 'from-yellow-500 to-amber-600' },
-  { icon: '📱', label: 'Facebook Page', sub: 'Follow for promotions', color: 'from-blue-500 to-blue-700' },
-]
+const LINKS = computed(() => [
+  { icon: '📢', label: t('profile.links.channel'), sub: t('profile.links.channelSub'), color: 'from-blue-600 to-blue-800' },
+  { icon: '💬', label: t('profile.links.community'), sub: t('profile.links.communitySub'), color: 'from-indigo-600 to-violet-700' },
+  { icon: '🎰', label: t('profile.links.vip'), sub: t('profile.links.vipSub'), color: 'from-yellow-500 to-amber-600' },
+  { icon: '📱', label: t('profile.links.facebook'), sub: t('profile.links.facebookSub'), color: 'from-blue-500 to-blue-700' },
+])
 
-const SUPPORT_ITEMS = [
-  { icon: '💬', label: 'Live Chat', sub: 'Available 24/7', badge: 'Online', badgeColor: 'bg-emerald-500/20 text-emerald-400' },
-  { icon: '📩', label: 'Telegram Support', sub: '@TarsierWin_Support', badge: null, badgeColor: '' },
-  { icon: '📧', label: 'Email Support', sub: 'support@tarsierwin.com', badge: null, badgeColor: '' },
-]
+const SUPPORT_ITEMS = computed(() => [
+  {
+    icon: '💬',
+    label: t('profile.supportItems.liveChat'),
+    sub: t('profile.supportItems.liveChatSub'),
+    badge: t('common.online'),
+    badgeColor: 'bg-emerald-500/20 text-emerald-400',
+  },
+  {
+    icon: '📩',
+    label: t('profile.supportItems.telegram'),
+    sub: '@TarsierWin_Support',
+    badge: null,
+    badgeColor: '',
+  },
+  {
+    icon: '📧',
+    label: t('profile.supportItems.email'),
+    sub: 'support@tarsierwin.com',
+    badge: null,
+    badgeColor: '',
+  },
+])
 
-const DOCS = [
-  { label: 'Terms & Conditions', icon: '📋' },
-  { label: 'Privacy Policy', icon: '🔒' },
-  { label: 'Responsible Gaming', icon: '🛡️' },
-  { label: 'AML Policy', icon: '⚖️' },
-  { label: 'Bonus Terms', icon: '🎁' },
-  { label: 'About TarsierWin', icon: 'ℹ️' },
-]
+const DOCS = computed(() => [
+  { label: t('profile.docs.terms'), icon: '📋' },
+  { label: t('profile.docs.privacy'), icon: '🔒' },
+  { label: t('profile.docs.responsible'), icon: '🛡️' },
+  { label: t('profile.docs.aml'), icon: '⚖️' },
+  { label: t('profile.docs.bonusTerms'), icon: '🎁' },
+  { label: t('profile.docs.about'), icon: 'ℹ️' },
+])
 
 const dobFilled = computed(() => !!(dobMonth.value && dobDay.value && dobYear.value))
 
 const dobDisplay = computed(() => {
   if (!dobFilled.value) return ''
-  const m = MONTHS[parseInt(dobMonth.value, 10) - 1]
+  const m = MONTHS.value[parseInt(dobMonth.value, 10) - 1]
   return `${m} ${parseInt(dobDay.value, 10)}, ${dobYear.value}`
 })
 
@@ -178,35 +205,35 @@ function savePersonal() {
           <CheckCircle2 v-if="copied" :size="11" class="text-emerald-400" />
           <Copy v-else :size="11" class="text-muted-foreground" />
         </button>
-        <p v-if="copied" class="mt-0.5 text-[10px] font-semibold text-emerald-400">Copied!</p>
+        <p v-if="copied" class="mt-0.5 text-[10px] font-semibold text-emerald-400">{{ t('common.copied') }}</p>
       </div>
     </div>
 
     <div class="mt-4 space-y-4 px-5">
       <section>
         <div class="mb-3 flex items-center justify-between">
-          <h3 class="font-display text-sm font-black text-foreground">PERSONAL INFORMATION</h3>
+          <h3 class="font-display text-sm font-black text-foreground">{{ t('profile.personalInfo') }}</h3>
           <span v-if="personalSaved" class="flex items-center gap-1 text-[10px] font-bold text-emerald-400">
-            <CheckCircle2 :size="11" /> Verified
+            <CheckCircle2 :size="11" /> {{ t('common.verified') }}
           </span>
         </div>
         <div class="overflow-hidden rounded-2xl border border-border bg-card">
           <div class="border-b border-border px-4 py-3">
-            <label class="mb-1 block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">First Name</label>
+            <label class="mb-1 block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{{ t('profile.firstName') }}</label>
             <input
               v-model="firstName"
               type="text"
-              placeholder="Enter first name"
+              :placeholder="t('profile.firstNamePh')"
               :readonly="personalSaved"
               class="w-full bg-transparent text-sm font-semibold text-foreground placeholder:text-muted-foreground/40 focus:outline-none"
             />
           </div>
           <div class="border-b border-border px-4 py-3">
-            <label class="mb-1 block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Last Name</label>
+            <label class="mb-1 block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{{ t('profile.lastName') }}</label>
             <input
               v-model="lastName"
               type="text"
-              placeholder="Enter last name"
+              :placeholder="t('profile.lastNamePh')"
               :readonly="personalSaved"
               class="w-full bg-transparent text-sm font-semibold text-foreground placeholder:text-muted-foreground/40 focus:outline-none"
             />
@@ -216,7 +243,7 @@ function savePersonal() {
             @click="!personalSaved && (dobOpen = !dobOpen)"
           >
             <label class="mb-1 block cursor-pointer text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-              Date of Birth
+              {{ t('profile.dateOfBirth') }}
             </label>
             <template v-if="personalSaved">
               <p class="text-sm font-semibold text-foreground">{{ dobDisplay || '—' }}</p>
@@ -227,7 +254,7 @@ function savePersonal() {
                   class="text-sm font-semibold"
                   :class="dobFilled ? 'text-foreground' : 'text-muted-foreground/50'"
                 >
-                  {{ dobFilled ? dobDisplay : 'Select date of birth' }}
+                  {{ dobFilled ? dobDisplay : t('profile.selectDob') }}
                 </span>
                 <ChevronDown
                   :size="14"
@@ -237,32 +264,32 @@ function savePersonal() {
               </div>
               <div v-if="dobOpen" class="mt-3 grid grid-cols-3 gap-2" @click.stop>
                 <div class="flex flex-col gap-1">
-                  <span class="text-[10px] font-bold uppercase text-muted-foreground">Month</span>
+                  <span class="text-[10px] font-bold uppercase text-muted-foreground">{{ t('profile.month') }}</span>
                   <select
                     v-model="dobMonth"
                     class="appearance-none rounded-lg border border-border bg-secondary px-2 py-1.5 text-xs font-semibold text-foreground focus:border-primary focus:outline-none"
                   >
-                    <option value="">Month</option>
+                    <option value="">{{ t('profile.month') }}</option>
                     <option v-for="(m, i) in MONTHS" :key="m" :value="String(i + 1).padStart(2, '0')">{{ m }}</option>
                   </select>
                 </div>
                 <div class="flex flex-col gap-1">
-                  <span class="text-[10px] font-bold uppercase text-muted-foreground">Day</span>
+                  <span class="text-[10px] font-bold uppercase text-muted-foreground">{{ t('profile.day') }}</span>
                   <select
                     v-model="dobDay"
                     class="appearance-none rounded-lg border border-border bg-secondary px-2 py-1.5 text-xs font-semibold text-foreground focus:border-primary focus:outline-none"
                   >
-                    <option value="">Day</option>
+                    <option value="">{{ t('profile.day') }}</option>
                     <option v-for="d in days" :key="d" :value="d">{{ parseInt(d, 10) }}</option>
                   </select>
                 </div>
                 <div class="flex flex-col gap-1">
-                  <span class="text-[10px] font-bold uppercase text-muted-foreground">Year</span>
+                  <span class="text-[10px] font-bold uppercase text-muted-foreground">{{ t('profile.year') }}</span>
                   <select
                     v-model="dobYear"
                     class="appearance-none rounded-lg border border-border bg-secondary px-2 py-1.5 text-xs font-semibold text-foreground focus:border-primary focus:outline-none"
                   >
-                    <option value="">Year</option>
+                    <option value="">{{ t('profile.year') }}</option>
                     <option v-for="y in years" :key="y" :value="String(y)">{{ y }}</option>
                   </select>
                 </div>
@@ -272,27 +299,27 @@ function savePersonal() {
                   class="col-span-3 mt-1 rounded-lg bg-primary/20 py-1.5 text-xs font-black text-primary transition-colors hover:bg-primary/30"
                   @click="dobOpen = false"
                 >
-                  Confirm — {{ dobDisplay }}
+                  {{ t('profile.confirmDob', { date: dobDisplay }) }}
                 </button>
               </div>
             </template>
           </div>
           <div class="px-4 py-3">
-            <label class="mb-2 block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Gender</label>
+            <label class="mb-2 block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{{ t('profile.gender') }}</label>
             <div class="flex gap-2">
               <button
-                v-for="g in ['Male', 'Female', 'Other']"
-                :key="g"
+                v-for="g in genderOptions"
+                :key="g.id"
                 type="button"
                 :disabled="personalSaved"
                 class="flex-1 rounded-lg py-1.5 text-xs font-bold transition-colors"
                 :class="[
-                  gender === g ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground',
+                  gender === g.id ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground',
                   personalSaved ? 'cursor-default opacity-60' : 'hover:text-foreground',
                 ]"
-                @click="!personalSaved && (gender = g)"
+                @click="!personalSaved && (gender = g.id)"
               >
-                {{ g }}
+                {{ g.label }}
               </button>
             </div>
           </div>
@@ -303,18 +330,18 @@ function savePersonal() {
           class="mt-2.5 w-full rounded-2xl bg-primary py-3 text-sm font-black text-primary-foreground shadow shadow-amber-500/20 transition-colors hover:bg-yellow-400"
           @click="savePersonal"
         >
-          Save & Lock Information
+          {{ t('profile.saveLock') }}
         </button>
       </section>
 
       <section>
-        <h3 class="mb-3 font-display text-sm font-black text-foreground">CONTACT INFORMATION</h3>
+        <h3 class="mb-3 font-display text-sm font-black text-foreground">{{ t('profile.contactInfo') }}</h3>
         <div class="overflow-hidden rounded-2xl border border-border bg-card">
           <template v-for="(block, idx) in contactOrder" :key="block">
             <div :class="idx < contactOrder.length - 1 ? 'border-b border-border' : ''">
               <ContactMethodRow
                 v-if="block === 'telegram'"
-                title="Telegram"
+                :title="t('profile.telegram')"
                 :subtitle="telegramSubtitle"
                 :connected="isTelegramLogin"
                 :subtitle-connected="isTelegramLogin"
@@ -346,8 +373,8 @@ function savePersonal() {
 
               <ContactMethodRow
                 v-else-if="block === 'phone'"
-                title="Phone Number"
-                subtitle="Add phone (optional)"
+                :title="t('profile.phoneNumber')"
+                :subtitle="t('profile.addPhoneOptional')"
               >
                 <template #icon>
                   <ContactBrandIcon brand="phone" />
@@ -370,7 +397,7 @@ function savePersonal() {
       </section>
 
       <section>
-        <h3 class="mb-3 font-display text-sm font-black text-foreground">CUSTOMER SUPPORT</h3>
+        <h3 class="mb-3 font-display text-sm font-black text-foreground">{{ t('profile.customerSupportSection') }}</h3>
         <div class="overflow-hidden rounded-2xl border border-border bg-card">
           <button
             v-for="(item, i) in SUPPORT_ITEMS"
@@ -395,7 +422,7 @@ function savePersonal() {
       </section>
 
       <section>
-        <h3 class="mb-3 font-display text-sm font-black text-foreground">COMMUNITY & MEDIA</h3>
+        <h3 class="mb-3 font-display text-sm font-black text-foreground">{{ t('profile.communityMedia') }}</h3>
         <div class="grid grid-cols-2 gap-2">
           <button
             v-for="l in LINKS"
@@ -413,7 +440,7 @@ function savePersonal() {
       </section>
 
       <section>
-        <h3 class="mb-3 font-display text-sm font-black text-foreground">SUPPORTED CURRENCIES</h3>
+        <h3 class="mb-3 font-display text-sm font-black text-foreground">{{ t('profile.supportedCurrencies') }}</h3>
         <div class="grid grid-cols-6 gap-2">
           <div v-for="c in CURRENCIES" :key="c.name" class="flex flex-col items-center gap-1">
             <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br shadow-md" :class="c.color">
@@ -425,7 +452,7 @@ function savePersonal() {
       </section>
 
       <section>
-        <h3 class="mb-3 font-display text-sm font-black text-foreground">LEGAL & POLICIES</h3>
+        <h3 class="mb-3 font-display text-sm font-black text-foreground">{{ t('profile.legalPolicies') }}</h3>
         <div class="overflow-hidden rounded-2xl border border-border bg-card">
           <button
             v-for="(d, i) in DOCS"
@@ -444,7 +471,7 @@ function savePersonal() {
       </section>
 
       <section>
-        <h3 class="mb-3 font-display text-sm font-black text-foreground">ACCOUNT</h3>
+        <h3 class="mb-3 font-display text-sm font-black text-foreground">{{ t('profile.account') }}</h3>
         <button
           type="button"
           class="flex w-full items-center justify-center gap-2 rounded-2xl border border-red-500/30 bg-red-500/10 py-3 text-sm font-black text-red-400 transition-colors hover:bg-red-500/20 disabled:opacity-60"
@@ -452,7 +479,7 @@ function savePersonal() {
           @click="requestLogout"
         >
           <LogOut :size="16" />
-          Log out
+          {{ t('profile.logout') }}
         </button>
       </section>
 
@@ -465,10 +492,8 @@ function savePersonal() {
           aria-labelledby="logout-confirm-title"
         >
           <div class="w-full max-w-sm rounded-2xl border border-border bg-card p-5 shadow-2xl">
-            <h3 id="logout-confirm-title" class="text-base font-black text-foreground">Log out?</h3>
-            <p class="mt-2 text-sm text-muted-foreground">
-              You will need to sign in again to deposit, play games, and view your wallet.
-            </p>
+            <h3 id="logout-confirm-title" class="text-base font-black text-foreground">{{ t('profile.logoutConfirmTitle') }}</h3>
+            <p class="mt-2 text-sm text-muted-foreground">{{ t('profile.logoutConfirmBody2') }}</p>
             <div class="mt-5 flex gap-2">
               <button
                 type="button"
@@ -476,7 +501,7 @@ function savePersonal() {
                 :disabled="loggingOut"
                 @click="cancelLogout"
               >
-                Cancel
+                {{ t('profile.cancel') }}
               </button>
               <button
                 type="button"
@@ -484,7 +509,7 @@ function savePersonal() {
                 :disabled="loggingOut"
                 @click="confirmLogout"
               >
-                {{ loggingOut ? 'Signing out…' : 'Log out' }}
+                {{ loggingOut ? t('profile.signingOut') : t('profile.confirmLogout') }}
               </button>
             </div>
           </div>
@@ -492,11 +517,9 @@ function savePersonal() {
       </Teleport>
 
       <div class="space-y-1 py-4 text-center">
-        <p class="text-xs text-muted-foreground">TarsierWin · v1.0.0</p>
-        <p class="text-xs text-muted-foreground">© 2025 TarsierWin. All rights reserved.</p>
-        <p class="mt-2 px-4 text-[10px] leading-relaxed text-muted-foreground">
-          TarsierWin operates under a valid gaming license. Please play responsibly. 18+
-        </p>
+        <p class="text-xs text-muted-foreground">{{ t('profile.footerVersion') }}</p>
+        <p class="text-xs text-muted-foreground">{{ t('profile.footerCopyright') }}</p>
+        <p class="mt-2 px-4 text-[10px] leading-relaxed text-muted-foreground">{{ t('profile.footerLegal') }}</p>
       </div>
     </div>
   </div>

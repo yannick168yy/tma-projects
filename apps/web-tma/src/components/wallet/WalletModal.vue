@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, toRef, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useBottomSheetDrag } from '@/composables/useBottomSheetDrag'
 import {
   Wallet,
@@ -32,7 +33,22 @@ import {
 const props = defineProps<{ open: boolean }>()
 const emit = defineEmits<{ close: [] }>()
 
+const { t } = useI18n()
 const walletStore = useWalletStore()
+
+const walletTabs = computed(() => [
+  { id: 'deposit' as const, label: t('wallet.deposit'), icon: ArrowDownToLine },
+  { id: 'withdraw' as const, label: t('wallet.withdraw'), icon: ArrowUpFromLine },
+  { id: 'history' as const, label: t('wallet.history'), icon: History },
+])
+
+const localizedWalletBanners = computed(() =>
+  WALLET_BANNERS.map((b, i) => ({
+    ...b,
+    label: t(`wallet.banners.${i}.label`),
+    text: t(`wallet.banners.${i}.text`),
+  })),
+)
 
 const sheetRef = ref<HTMLElement | null>(null)
 const backdropRef = ref<HTMLElement | null>(null)
@@ -122,7 +138,7 @@ async function onProceedDeposit() {
 
   const num = Number(amount.value)
   if (!Number.isFinite(num) || num <= 0) {
-    depositMessage.value = 'Enter a valid amount'
+    depositMessage.value = t('wallet.invalidAmount')
     return
   }
 
@@ -136,13 +152,13 @@ async function onProceedDeposit() {
     if (result.status === 'paid') {
       await walletStore.refresh()
       depositSuccess.value = true
-      depositMessage.value = 'Deposit credited to your wallet.'
+      depositMessage.value = t('wallet.credited')
       return
     }
 
     if (result.invoiceLink) {
       if (!isTelegramWebApp()) {
-        depositMessage.value = 'Open BetoGo in Telegram to pay with Telegram Wallet.'
+        depositMessage.value = t('wallet.openInTelegram')
         return
       }
       const closeStatus = await openTelegramInvoice(result.invoiceLink)
@@ -151,23 +167,23 @@ async function onProceedDeposit() {
         if (credited) {
           await walletStore.refresh()
           depositSuccess.value = true
-          depositMessage.value = 'Payment successful. Balance updated.'
+          depositMessage.value = t('wallet.paymentSuccess')
         } else {
-          depositMessage.value = 'Payment received. Balance may take a moment to update.'
+          depositMessage.value = t('wallet.paymentPending')
         }
       } else if (closeStatus === 'cancelled') {
-        depositMessage.value = 'Payment cancelled.'
+        depositMessage.value = t('wallet.paymentCancelled')
       } else if (closeStatus === 'failed') {
-        depositMessage.value = 'Payment failed. Try again.'
+        depositMessage.value = t('wallet.paymentFailed')
       } else {
-        depositMessage.value = 'Complete payment in Telegram, then check your balance.'
+        depositMessage.value = t('wallet.completeInTelegram')
       }
       return
     }
 
-    depositMessage.value = 'Payment is temporarily unavailable. Try again later.'
+    depositMessage.value = t('wallet.unavailable')
   } catch (e) {
-    depositMessage.value = e instanceof ApiError ? e.message : 'Deposit failed. Try again.'
+    depositMessage.value = e instanceof ApiError ? e.message : t('wallet.depositFailed')
   } finally {
     depositLoading.value = false
   }
@@ -199,7 +215,7 @@ async function onProceedDeposit() {
       <div class="flex flex-shrink-0 items-center justify-between border-b border-border px-5 py-3">
         <div class="flex items-center gap-2">
           <Wallet :size="18" class="text-primary" />
-          <span class="font-display text-base font-black text-foreground">MY WALLET</span>
+          <span class="font-display text-base font-black text-foreground">{{ t('wallet.title') }}</span>
         </div>
         <div class="flex items-center gap-2 text-xs font-bold">
           <span class="text-primary">{{ walletStore.displayPhp }}</span>
@@ -215,23 +231,19 @@ async function onProceedDeposit() {
 
       <div class="flex flex-shrink-0 gap-2 px-5 pt-3">
         <button
-          v-for="t in [
-            { id: 'deposit' as const, label: 'Deposit', icon: ArrowDownToLine },
-            { id: 'withdraw' as const, label: 'Withdraw', icon: ArrowUpFromLine },
-            { id: 'history' as const, label: 'History', icon: History },
-          ]"
-          :key="t.id"
+          v-for="tabItem in walletTabs"
+          :key="tabItem.id"
           type="button"
           class="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-black transition-colors"
           :class="
-            tab === t.id
+            tab === tabItem.id
               ? 'bg-primary text-primary-foreground shadow shadow-amber-500/20'
               : 'bg-secondary text-muted-foreground hover:text-foreground'
           "
-          @click="tab = t.id; selectedMethod = t.id === 'deposit' ? 'tg_wallet_php' : null; amount = ''; depositMessage = ''"
+          @click="tab = tabItem.id; selectedMethod = tabItem.id === 'deposit' ? 'tg_wallet_php' : null; amount = ''; depositMessage = ''"
         >
-          <component :is="t.icon" :size="14" />
-          {{ t.label }}
+          <component :is="tabItem.icon" :size="14" />
+          {{ tabItem.label }}
         </button>
       </div>
 
@@ -239,23 +251,23 @@ async function onProceedDeposit() {
         <button
           type="button"
           class="relative w-full rounded-2xl overflow-hidden h-20 bg-gradient-to-br text-left"
-          :class="WALLET_BANNERS[bannerIdx]!.gradient"
-          @click="bannerIdx = (bannerIdx + 1) % WALLET_BANNERS.length"
+          :class="localizedWalletBanners[bannerIdx]!.gradient"
+          @click="bannerIdx = (bannerIdx + 1) % localizedWalletBanners.length"
         >
           <div class="absolute inset-0 p-3.5 flex items-center justify-between">
             <div>
               <span class="text-white/60 text-[10px] font-bold uppercase tracking-wider block leading-none mb-1">
-                {{ WALLET_BANNERS[bannerIdx]!.label }}
+                {{ localizedWalletBanners[bannerIdx]!.label }}
               </span>
               <span class="text-white font-black text-base leading-tight font-display">
-                {{ WALLET_BANNERS[bannerIdx]!.text }}
+                {{ localizedWalletBanners[bannerIdx]!.text }}
               </span>
             </div>
-            <span class="text-4xl">{{ WALLET_BANNERS[bannerIdx]!.icon }}</span>
+            <span class="text-4xl">{{ localizedWalletBanners[bannerIdx]!.icon }}</span>
           </div>
           <div class="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
             <span
-              v-for="(_, i) in WALLET_BANNERS"
+              v-for="(_, i) in localizedWalletBanners"
               :key="i"
               class="h-1 rounded-full transition-all"
               :class="i === bannerIdx ? 'w-4 bg-white' : 'w-1 bg-white/40'"
@@ -282,7 +294,7 @@ async function onProceedDeposit() {
             "
             @click="historyFilter = f"
           >
-            {{ f === 'deposit' ? '↓ Deposit' : f === 'withdraw' ? '↑ Withdraw' : 'All' }}
+            {{ f === 'deposit' ? t('wallet.filterDeposit') : f === 'withdraw' ? t('wallet.filterWithdraw') : t('wallet.filterAll') }}
           </button>
         </div>
         <div class="flex gap-1.5">
@@ -304,7 +316,7 @@ async function onProceedDeposit() {
             "
             @click="historyStatus = s"
           >
-            {{ s }}
+            {{ t(`common.${s}`) }}
           </button>
         </div>
       </div>
@@ -313,7 +325,7 @@ async function onProceedDeposit() {
         <div v-if="tab !== 'history'" class="space-y-5">
           <div v-if="isDeposit">
             <p class="text-muted-foreground text-[11px] font-bold uppercase tracking-wider mb-2.5">
-              Telegram Wallet · Ammer Pay
+              {{ t('wallet.tgWalletSection') }}
             </p>
             <PayMethodGrid
               :methods="TG_WALLET_DEPOSIT"
@@ -322,17 +334,17 @@ async function onProceedDeposit() {
             />
           </div>
           <div>
-            <p class="text-muted-foreground text-[11px] font-bold uppercase tracking-wider mb-2.5">Fiat Currency</p>
+            <p class="text-muted-foreground text-[11px] font-bold uppercase tracking-wider mb-2.5">{{ t('wallet.fiatSection') }}</p>
             <PayMethodGrid :methods="fiatList" :selected="selectedMethod" @select="selectedMethod = $event" />
           </div>
           <div>
-            <p class="text-muted-foreground text-[11px] font-bold uppercase tracking-wider mb-2.5">Cryptocurrency</p>
+            <p class="text-muted-foreground text-[11px] font-bold uppercase tracking-wider mb-2.5">{{ t('wallet.cryptoSection') }}</p>
             <PayMethodGrid :methods="cryptoList" :selected="selectedMethod" @select="selectedMethod = $event" />
           </div>
 
           <div v-if="selectedMethod && (isTgWallet || tab === 'withdraw')" class="space-y-3">
             <p class="text-muted-foreground text-[11px] font-bold uppercase tracking-wider">
-              {{ isDeposit ? 'Deposit Amount' : 'Withdraw Amount' }}
+              {{ isDeposit ? t('wallet.depositAmount') : t('wallet.withdrawAmount') }}
             </p>
             <div v-if="isDeposit && isTgWallet" class="flex gap-2 flex-wrap">
               <button
@@ -385,7 +397,7 @@ async function onProceedDeposit() {
             >
               <Loader2 v-if="depositLoading" :size="18" class="animate-spin" />
               <ArrowDownToLine v-else :size="18" />
-              {{ depositLoading ? 'Opening Telegram Pay…' : 'Pay with Telegram Wallet' }}
+              {{ depositLoading ? t('wallet.openingPay') : t('wallet.payTelegram') }}
             </button>
             <button
               v-else-if="tab === 'withdraw'"
@@ -393,7 +405,7 @@ async function onProceedDeposit() {
               class="w-full py-3.5 rounded-2xl font-black text-base flex items-center justify-center gap-2 shadow-lg bg-accent text-accent-foreground hover:bg-red-500 shadow-red-500/20"
             >
               <ArrowUpFromLine :size="18" />
-              Proceed to Withdraw
+              {{ t('wallet.proceedWithdraw') }}
             </button>
           </div>
         </div>
@@ -401,7 +413,7 @@ async function onProceedDeposit() {
         <div v-else class="space-y-2">
           <div v-if="filteredHistory.length === 0" class="py-12 flex flex-col items-center gap-2 text-muted-foreground">
             <History :size="32" class="opacity-30" />
-            <span class="text-sm">No records found</span>
+            <span class="text-sm">{{ t('common.noRecords') }}</span>
           </div>
           <div
             v-for="tx in filteredHistory"
@@ -442,7 +454,7 @@ async function onProceedDeposit() {
                       'text-red-400': tx.status === 'failed',
                     }"
                   >
-                    {{ tx.status }}
+                    {{ t(`common.${tx.status}`) }}
                   </span>
                 </span>
               </div>
@@ -453,7 +465,7 @@ async function onProceedDeposit() {
             type="button"
             class="w-full py-3 rounded-xl bg-secondary text-muted-foreground text-xs font-bold flex items-center justify-center gap-1.5 mt-2"
           >
-            Load more
+            {{ t('common.loadMore') }}
             <ChevronRight :size="13" />
           </button>
         </div>

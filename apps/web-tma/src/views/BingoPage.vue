@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { Trophy } from 'lucide-vue-next'
 import PeryaCarnivalHero from '@/components/bingo/PeryaCarnivalHero.vue'
 import { PERYA_GRID, PERYA_MAIN, PERYA_WINNERS } from '@/data/bingo'
 
 const emit = defineEmits<{ openWallet: []; gameTap: [] }>()
+const { t } = useI18n()
 
 const heroGame = computed(() => PERYA_MAIN[0]!)
 const otherGames = computed(() => PERYA_MAIN.slice(1))
@@ -33,18 +35,16 @@ const fiestaBuntingColors = [
 <template>
   <div class="page-scroll pb-20 hide-scrollbar">
     <PeryaCarnivalHero>
-      <p class="text-amber-300 text-[10px] font-black uppercase tracking-widest mb-1">🎪 Philippine Carnival</p>
+      <p class="text-amber-300 text-[10px] font-black uppercase tracking-widest mb-1">🎪 {{ t('bingo.carnival') }}</p>
       <h1
         class="font-black leading-none mb-1 font-display text-[2.6rem]"
         style="text-shadow: 0 2px 20px rgba(168, 85, 247, 0.6)"
       >
-        <span class="text-white">PERYA</span>
-        <span class="text-primary"> & </span>
-        <span style="color: #ec4899">BINGO</span>
+        <span class="text-white">{{ t('bingo.titlePerya') }}</span>
+        <span class="text-primary">{{ t('bingo.titleAnd') }}</span>
+        <span style="color: #ec4899">{{ t('bingo.titleBingo') }}</span>
       </h1>
-      <p class="text-white/40 text-xs leading-relaxed">
-        Laruin ang paboritong laro ng Pilipino — anytime, anywhere!
-      </p>
+      <p class="text-white/40 text-xs leading-relaxed">{{ t('bingo.heroSub') }}</p>
 
       <div
         class="flex items-center gap-2 mt-4 bg-black/35 rounded-xl px-3 py-2 overflow-hidden"
@@ -52,14 +52,14 @@ const fiestaBuntingColors = [
       >
         <div class="flex items-center gap-1 flex-shrink-0">
           <Trophy :size="11" class="text-primary" />
-          <span class="text-primary text-[10px] font-black uppercase tracking-wide">Winners</span>
+          <span class="text-primary text-[10px] font-black uppercase tracking-wide">{{ t('bingo.winners') }}</span>
         </div>
         <div class="w-px h-3 bg-white/10 flex-shrink-0" />
         <div class="overflow-hidden flex-1">
           <div class="flex gap-5 animate-marquee whitespace-nowrap" style="animation-duration: 16s">
             <span v-for="(w, i) in marqueeWinners" :key="i" class="text-[11px] flex-shrink-0">
               <span class="text-primary font-bold">{{ w.name }}</span>
-              <span class="text-white/40"> won </span>
+              <span class="text-white/40"> {{ t('common.won') }} </span>
               <span class="text-emerald-400 font-bold">{{ w.amount }}</span>
               <span class="text-white/25"> · {{ w.game }}</span>
             </span>
