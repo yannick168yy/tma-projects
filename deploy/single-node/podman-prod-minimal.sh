@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
-# 阿里云 2C2G 最小栈：web-tma + bff-node + redis（无 Nacos / Podman MySQL / RabbitMQ / core-java）
-# 配置来自服务器 .env；用户/钱包/Session 暂存 Redis。
-# 在 /opt/tma-projects 执行；由 deploy-web-tma.sh 调用。
-
+# 阿里云 2C2G：web-tma + bff-node + redis + 容器 MySQL（betogo，与宝塔独立）
+# 表结构：infra/database/betogo/001_schema.sql（与本地 scripts/apply-betogo-schema.sh 同源）
 set -euo pipefail
 
 cd "$(dirname "$0")/../.."
@@ -23,10 +21,17 @@ if [[ -f .env ]]; then
   sed -i 's/^BFF_DEV_SKIP_TELEGRAM_AUTH=true/BFF_DEV_SKIP_TELEGRAM_AUTH=false/' .env || true
 fi
 
-# 构建 web-tma 时禁止把 localhost 打进手机/TG 包（.env 常为开发值）
 WEB_BFF_API_URL="${VITE_BFF_BASE_URL:-}"
 if [[ -z "$WEB_BFF_API_URL" || "$WEB_BFF_API_URL" == *localhost* || "$WEB_BFF_API_URL" == *127.0.0.1* ]]; then
   WEB_BFF_API_URL="${VITE_BFF_BASE_URL_PROD:-https://www.188facai.com/api/v1}"
+fi
+
+MYSQL_ROOT_PASSWORD="${MYSQL_ROOT_PASSWORD:-root_dev_only}"
+MYSQL_BETOGO_USER="${MYSQL_BETOGO_USER:-betogo}"
+MYSQL_BETOGO_PASSWORD="${MYSQL_BETOGO_PASSWORD:-${MYSQL_PASSWORD:-}}"
+if [[ -z "$MYSQL_BETOGO_PASSWORD" ]]; then
+  echo "缺少 MYSQL_BETOGO_PASSWORD（或 MYSQL_PASSWORD）" >&2
+  exit 1
 fi
 
 run() {
@@ -37,9 +42,9 @@ run() {
   fi
 }
 
-OPTIONAL_CONTAINERS=(tma-nacos tma-mysql tma-rabbitmq tma-core-java)
+OPTIONAL_CONTAINERS=(tma-nacos tma-rabbitmq tma-core-java)
 
-echo "==> [${CTR}] 停用可选组件（若存在）"
+echo "==> [${CTR}] 停用非必需组件（保留 tma-mysql 数据卷）"
 for name in "${OPTIONAL_CONTAINERS[@]}"; do
   if run ps -a --format '{{.Names}}' 2>/dev/null | grep -qx "$name"; then
     run stop "$name" 2>/dev/null || true
@@ -51,6 +56,29 @@ done
 echo "==> [${CTR}] 创建网络 ${NET}"
 run network inspect "$NET" >/dev/null 2>&1 || run network create "$NET"
 
+echo "==> [${CTR}] MySQL betogo (limit 256m, :13306)"
+run rm -f tma-mysql 2>/dev/null || true
+run volume create tma-mysql-data 2>/dev/null || true
+run run -d --name tma-mysql --network "$NET" --network-alias mysql --restart=always \
+  --memory=256m --memory-swap=256m \
+  -p 127.0.0.1:13306:3306 \
+  -v tma-mysql-data:/var/lib/mysql:Z \
+  -e MYSQL_ROOT_PASSWORD="${MYSQL_ROOT_PASSWORD}" \
+  -e MYSQL_DATABASE="${MYSQL_DATABASE:-betogo}" \
+  -e TZ=UTC \
+  mysql:8.0 \
+  --character-set-server=utf8mb4 \
+  --collation-server=utf8mb4_unicode_ci \
+  --default-authentication-plugin=mysql_native_password \
+  --max_connections=50 \
+  --innodb_buffer_pool_size=64M \
+  --performance_schema=OFF \
+  --table_open_cache=200
+
+export CTR
+chmod +x scripts/apply-betogo-schema.sh
+bash scripts/apply-betogo-schema.sh
+
 echo "==> [${CTR}] Redis (limit 96m)"
 run rm -f tma-redis 2>/dev/null || true
 run run -d --name tma-redis --network "$NET" --network-alias redis --restart=always \
@@ -59,7 +87,7 @@ run run -d --name tma-redis --network "$NET" --network-alias redis --restart=alw
   redis:7.0-alpine \
   redis-server --maxmemory 64mb --maxmemory-policy allkeys-lru --save "" --appendonly no
 
-echo "==> [${CTR}] bff-node (limit 192m, Redis store)"
+echo "==> [${CTR}] bff-node (MySQL store + Redis session)"
 REDIS_IP="$(run inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' tma-redis 2>/dev/null || echo "")"
 REDIS_URL_WIRED="redis://${REDIS_IP:-127.0.0.1}:6379"
 run rm -f tma-bff-node 2>/dev/null || true
@@ -69,8 +97,13 @@ run run -d --name tma-bff-node --network "$NET" --restart=always \
   -p 127.0.0.1:3000:3000 \
   -e NODE_ENV=production \
   -e BFF_PORT=3000 \
-  -e BFF_STORAGE=redis \
+  -e BFF_STORAGE=mysql \
   -e REDIS_URL="${REDIS_URL_WIRED}" \
+  -e MYSQL_HOST=mysql \
+  -e MYSQL_PORT=3306 \
+  -e MYSQL_DATABASE="${MYSQL_DATABASE:-betogo}" \
+  -e MYSQL_USER="${MYSQL_BETOGO_USER}" \
+  -e MYSQL_PASSWORD="${MYSQL_BETOGO_PASSWORD}" \
   -e TELEGRAM_BOT_TOKEN="${TELEGRAM_BOT_TOKEN:?缺少 TELEGRAM_BOT_TOKEN}" \
   -e BFF_DEV_SKIP_TELEGRAM_AUTH="${BFF_DEV_SKIP_TELEGRAM_AUTH:-false}" \
   -e SESSION_TTL_SECONDS="${SESSION_TTL_SECONDS:-86400}" \
@@ -97,10 +130,12 @@ run run -d --name tma-web-tma --restart=always \
   tma-web-tma:latest
 
 echo "==> 等待服务就绪…"
-sleep 6
+sleep 8
 curl -sf http://127.0.0.1:3000/health >/dev/null && echo "  bff-node: ok" || echo "  bff-node: 未就绪"
 run exec tma-redis redis-cli ping 2>/dev/null | grep -q PONG && echo "  redis: ok" || echo "  redis: 未就绪"
+run exec tma-mysql mysqladmin ping -h localhost -uroot -p"${MYSQL_ROOT_PASSWORD}" 2>/dev/null | grep -q alive && echo "  mysql: ok" || echo "  mysql: 未就绪"
+run exec tma-mysql mysql -u"${MYSQL_BETOGO_USER}" -p"${MYSQL_BETOGO_PASSWORD}" "${MYSQL_DATABASE:-betogo}" -e "SHOW TABLES LIKE 'bg_user';" 2>/dev/null | grep -q bg_user && echo "  betogo schema: ok" || echo "  betogo schema: check failed"
 
 echo ""
-echo "最小栈已启动（web + BFF + Redis）。业务库请用宝塔 MySQL；接库后再设 BFF MYSQL_* 与 podman-prod-up.sh --profile mysql。"
+echo "已启动：web + BFF(MySQL) + Redis + MySQL(:13306)。表结构变更请改 infra/database/betogo/ 后重跑 apply-betogo-schema.sh"
 run ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"

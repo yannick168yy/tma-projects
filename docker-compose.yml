@@ -1,10 +1,9 @@
-# BetoGo 本地环境 — 默认最小栈：redis + bff-node + web-tma
+# BetoGo 本地环境 — 默认：mysql + redis + bff-node + web-tma（表结构见 infra/database/betogo/）
 # 用法: cp .env.example .env && ./scripts/local-deploy.sh
-# 可选全量: docker compose --profile full up -d --build
+# 可选: docker compose --profile full up -d  # 额外 nacos / rabbitmq
 
 services:
   mysql:
-    profiles: ["full"]
     image: mysql:8.0
     container_name: tma-mysql
     restart: unless-stopped
@@ -153,7 +152,7 @@ services:
     environment:
       NODE_ENV: development
       BFF_PORT: 3000
-      BFF_STORAGE: ${BFF_STORAGE:-redis}
+      BFF_STORAGE: ${BFF_STORAGE:-mysql}
       REDIS_URL: redis://redis:6379
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:?Set TELEGRAM_BOT_TOKEN in .env}
       BFF_DEV_SKIP_TELEGRAM_AUTH: ${BFF_DEV_SKIP_TELEGRAM_AUTH:-true}
@@ -164,16 +163,18 @@ services:
       AMMER_PAY_PROVIDER_TOKEN: ${AMMER_PAY_PROVIDER_TOKEN:-}
       USDT_TO_PHP_RATE: ${USDT_TO_PHP_RATE:-58}
       # MySQL / Nacos：仅 --profile full 时在 .env 中设置 MYSQL_HOST / NACOS_SERVER_ADDR
-      MYSQL_HOST: ${MYSQL_HOST:-}
-      MYSQL_PORT: ${MYSQL_PORT:-3306}
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
       MYSQL_DATABASE: ${MYSQL_DATABASE:-betogo}
-      MYSQL_USER: ${MYSQL_USER:-tma}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-}
+      MYSQL_USER: ${MYSQL_BETOGO_USER:-betogo}
+      MYSQL_PASSWORD: ${MYSQL_BETOGO_PASSWORD:-${MYSQL_PASSWORD:-tma_dev}}
       NACOS_SERVER_ADDR: ${NACOS_SERVER_ADDR:-}
       NACOS_NAMESPACE: ${NACOS_NAMESPACE:-batogo}
       NACOS_DATA_ID: ${NACOS_DATA_ID:-bff-node}
       NACOS_GROUP: ${NACOS_GROUP:-DEFAULT_GROUP}
     depends_on:
+      mysql:
+        condition: service_healthy
       redis:
         condition: service_healthy
     healthcheck:

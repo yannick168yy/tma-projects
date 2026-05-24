@@ -1,7 +1,37 @@
-# 默认生产 compose = 最小栈。全量见 docker-compose.prod.full.yml
+# 生产 compose：web + BFF + Redis + 容器 MySQL（betogo，与宝塔独立）
 #   docker compose -f deploy/single-node/docker-compose.prod.yml up -d --build
 
 services:
+  mysql:
+    image: mysql:8.0
+    container_name: tma-mysql
+    restart: unless-stopped
+    ports:
+      - '127.0.0.1:13306:3306'
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root_dev_only}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-betogo}
+      TZ: UTC
+    volumes:
+      - mysql_data:/var/lib/mysql
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --default-authentication-plugin=mysql_native_password
+      - --max_connections=50
+      - --innodb_buffer_pool_size=64M
+      - --performance_schema=OFF
+    healthcheck:
+      test: ['CMD', 'mysqladmin', 'ping', '-h', 'localhost', '-u', 'root', '-p${MYSQL_ROOT_PASSWORD:-root_dev_only}']
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
   redis:
     image: redis:7.0-alpine
     container_name: tma-redis
@@ -31,8 +61,13 @@ services:
     environment:
       NODE_ENV: production
       BFF_PORT: 3000
-      BFF_STORAGE: redis
+      BFF_STORAGE: mysql
       REDIS_URL: redis://redis:6379
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-betogo}
+      MYSQL_USER: ${MYSQL_BETOGO_USER:-betogo}
+      MYSQL_PASSWORD: ${MYSQL_BETOGO_PASSWORD:?Set MYSQL_BETOGO_PASSWORD}
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:?Set TELEGRAM_BOT_TOKEN in .env}
       BFF_DEV_SKIP_TELEGRAM_AUTH: ${BFF_DEV_SKIP_TELEGRAM_AUTH:-false}
       SESSION_TTL_SECONDS: ${SESSION_TTL_SECONDS:-86400}
@@ -42,6 +77,8 @@ services:
       AMMER_PAY_PROVIDER_TOKEN: ${AMMER_PAY_PROVIDER_TOKEN:-}
       USDT_TO_PHP_RATE: ${USDT_TO_PHP_RATE:-58}
     depends_on:
+      mysql:
+        condition: service_healthy
       redis:
         condition: service_healthy
     healthcheck:
@@ -49,7 +86,7 @@ services:
       interval: 15s
       timeout: 5s
       retries: 5
-      start_period: 20s
+      start_period: 25s
     deploy:
       resources:
         limits:
@@ -76,3 +113,6 @@ services:
       resources:
         limits:
           memory: 64M
+
+volumes:
+  mysql_data:

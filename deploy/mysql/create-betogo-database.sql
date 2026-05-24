@@ -1,6 +1,5 @@
--- BetoGo 业务库（宝塔 MySQL / 宿主机 3306）
--- 执行示例（在阿里云服务器上，按实际 root 密码调整）:
---   mysql -h 127.0.0.1 -P 3306 -u root -p < deploy/mysql/create-betogo-database.sql
+-- BetoGo 业务库（参考 SQL；推荐用 scripts/apply-betogo-schema.sh 统一建库/用户/表）
+-- 容器 MySQL：127.0.0.1:13306（生产）  本地 Docker：127.0.0.1:3306
 
 CREATE DATABASE IF NOT EXISTS `betogo`
   CHARACTER SET utf8mb4
