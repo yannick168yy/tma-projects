@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="BETOGO">
+  <defs>
+    <style>
+      @font-face {
+        font-family: 'Barlow Condensed';
+        font-style: normal;
+        font-weight: 900;
+        src: url('/fonts/barlow-condensed-900.ttf') format('truetype');
+      }
+    </style>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="#0A0C14" />
+  <text
+    x="32"
+    y="43"
+    fill="#FFB800"
+    font-family="'Barlow Condensed', 'Arial Narrow', sans-serif"
+    font-size="30"
+    font-weight="900"
+    letter-spacing="-0.5"
+    text-anchor="middle"
+  >
+    GO
+  </text>
+</svg>
