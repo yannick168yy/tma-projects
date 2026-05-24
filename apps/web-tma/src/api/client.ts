@@ -1,6 +1,21 @@
 import type { ApiResponse } from '@/types/api'
 
-const BASE_URL = import.meta.env.VITE_BFF_BASE_URL ?? 'http://localhost:3000/api/v1'
+/** 生产域名走同源 /api/v1（Nginx → BFF）；避免 .env 误配 localhost 导致手机/TG 报 Load Failed */
+function resolveBaseUrl(): string {
+  const fromEnv = import.meta.env.VITE_BFF_BASE_URL?.trim()
+  if (fromEnv && !/localhost|127\.0\.0\.1/i.test(fromEnv)) {
+    return fromEnv.replace(/\/$/, '')
+  }
+  if (typeof window !== 'undefined') {
+    const { hostname, origin } = window.location
+    if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
+      return `${origin}/api/v1`
+    }
+  }
+  return (fromEnv || 'http://localhost:3000/api/v1').replace(/\/$/, '')
+}
+
+const BASE_URL = resolveBaseUrl()
 
 function authHeaders(): HeadersInit {
   const token = localStorage.getItem('betogo_token')
@@ -26,11 +41,25 @@ export async function apiRequest<T>(
   path: string,
   init: RequestInit = {},
 ): Promise<T> {
-  const res = await fetch(`${BASE_URL}${path}`, {
-    ...init,
-    headers: { ...authHeaders(), ...(init.headers as Record<string, string>) },
-  })
-  const body = (await res.json()) as ApiResponse<T>
+  let res: Response
+  try {
+    res = await fetch(`${BASE_URL}${path}`, {
+      ...init,
+      headers: { ...authHeaders(), ...(init.headers as Record<string, string>) },
+    })
+  } catch (e) {
+    const hint =
+      BASE_URL.includes('localhost') && typeof window !== 'undefined'
+        ? 'Cannot reach API (localhost is invalid on mobile). Use the production site URL.'
+        : 'Network request failed. Check connection and try again.'
+    throw new ApiError(e instanceof Error ? `${hint} (${e.message})` : hint, 0)
+  }
+  let body: ApiResponse<T>
+  try {
+    body = (await res.json()) as ApiResponse<T>
+  } catch {
+    throw new ApiError(res.ok ? 'Invalid API response' : res.statusText || 'Request failed', res.status)
+  }
   if (!res.ok || body.code !== 0) {
     throw new ApiError(body.message || res.statusText, body.code ?? res.status, body.traceId)
   }

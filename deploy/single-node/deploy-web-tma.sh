@@ -138,9 +138,16 @@ if [[ "$SKIP_GIT_PULL" != "1" ]] && [[ -d .git ]] && command -v git >/dev/null 2
   git pull --ff-only origin main || true
 fi
 
-# 生产环境：关闭 Dev 登录绕过
+# 生产环境：关闭 Dev 登录绕过；前端 API 勿用 localhost（手机/TG 会 Load Failed）
 if [[ -f .env ]]; then
   sed -i 's/^BFF_DEV_SKIP_TELEGRAM_AUTH=true/BFF_DEV_SKIP_TELEGRAM_AUTH=false/' .env || true
+  if grep -q '^VITE_BFF_BASE_URL=.*localhost' .env 2>/dev/null || ! grep -q '^VITE_BFF_BASE_URL=' .env 2>/dev/null; then
+    if grep -q '^VITE_BFF_BASE_URL=' .env; then
+      sed -i 's|^VITE_BFF_BASE_URL=.*|VITE_BFF_BASE_URL=https://www.188facai.com/api/v1|' .env
+    else
+      echo 'VITE_BFF_BASE_URL=https://www.188facai.com/api/v1' >> .env
+    fi
+  fi
 fi
 
 compose_up

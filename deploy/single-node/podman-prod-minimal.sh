@@ -23,6 +23,12 @@ if [[ -f .env ]]; then
   sed -i 's/^BFF_DEV_SKIP_TELEGRAM_AUTH=true/BFF_DEV_SKIP_TELEGRAM_AUTH=false/' .env || true
 fi
 
+# 构建 web-tma 时禁止把 localhost 打进手机/TG 包（.env 常为开发值）
+WEB_BFF_API_URL="${VITE_BFF_BASE_URL:-}"
+if [[ -z "$WEB_BFF_API_URL" || "$WEB_BFF_API_URL" == *localhost* || "$WEB_BFF_API_URL" == *127.0.0.1* ]]; then
+  WEB_BFF_API_URL="${VITE_BFF_BASE_URL_PROD:-https://www.188facai.com/api/v1}"
+fi
+
 run() {
   if [[ "$CTR" == podman ]]; then
     podman "$@"
@@ -78,7 +84,7 @@ run run -d --name tma-bff-node --network "$NET" --restart=always \
 echo "==> [${CTR}] web-tma (limit 64m)"
 run rm -f tma-web-tma 2>/dev/null || true
 run build -t tma-web-tma:latest \
-  --build-arg "VITE_BFF_BASE_URL=${VITE_BFF_BASE_URL:-https://www.188facai.com/api/v1}" \
+  --build-arg "VITE_BFF_BASE_URL=${WEB_BFF_API_URL}" \
   --build-arg VITE_USE_MOCK_API=false \
   --build-arg "VITE_GOOGLE_CLIENT_ID=${VITE_GOOGLE_CLIENT_ID:-}" \
   --build-arg "VITE_GOOGLE_REDIRECT_URI=${VITE_GOOGLE_REDIRECT_URI:-https://www.188facai.com/auth/google/callback}" \
