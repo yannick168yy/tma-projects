@@ -58,7 +58,12 @@ function categoryClaimable(promo: string | null) {
 const activeBanner = ref(0)
 const activeTab = ref<GameTabId>('all')
 const bannerTrackRef = ref<HTMLElement | null>(null)
-const bannerTouch = ref({ x: 0, y: 0, axis: null as 'x' | 'y' | null })
+const bannerDrag = ref({
+  startX: 0,
+  startY: 0,
+  startScroll: 0,
+  axis: null as 'x' | 'y' | null,
+})
 const marqueeWinners = computed(() => [...WINNERS, ...WINNERS])
 
 function onBannerScroll() {
@@ -75,23 +80,51 @@ function scrollToBanner(index: number) {
   activeBanner.value = index
 }
 
+function snapBannerToNearest() {
+  const el = bannerTrackRef.value
+  if (!el || el.clientWidth <= 0) return
+  const idx = Math.round(el.scrollLeft / el.clientWidth)
+  const clamped = Math.max(0, Math.min(BANNERS.length - 1, idx))
+  el.scrollTo({ left: clamped * el.clientWidth, behavior: 'smooth' })
+  activeBanner.value = clamped
+}
+
 function onBannerTouchStart(e: TouchEvent) {
   const t = e.touches[0]
   if (!t) return
-  bannerTouch.value = { x: t.clientX, y: t.clientY, axis: null }
+  bannerDrag.value = {
+    startX: t.clientX,
+    startY: t.clientY,
+    startScroll: bannerTrackRef.value?.scrollLeft ?? 0,
+    axis: null,
+  }
 }
 
 function onBannerTouchMove(e: TouchEvent) {
+  const el = bannerTrackRef.value
   const t = e.touches[0]
-  if (!t) return
-  const dx = Math.abs(t.clientX - bannerTouch.value.x)
-  const dy = Math.abs(t.clientY - bannerTouch.value.y)
-  if (bannerTouch.value.axis === null && (dx > 8 || dy > 8)) {
-    bannerTouch.value.axis = dx >= dy ? 'x' : 'y'
+  if (!el || !t) return
+
+  const dx = t.clientX - bannerDrag.value.startX
+  const dy = t.clientY - bannerDrag.value.startY
+  const adx = Math.abs(dx)
+  const ady = Math.abs(dy)
+
+  if (bannerDrag.value.axis === null && (adx > 8 || ady > 8)) {
+    bannerDrag.value.axis = adx >= ady ? 'x' : 'y'
   }
-  if (bannerTouch.value.axis === 'x') {
-    e.preventDefault()
+
+  if (bannerDrag.value.axis !== 'x') return
+
+  e.preventDefault()
+  el.scrollLeft = bannerDrag.value.startScroll - dx
+}
+
+function onBannerTouchEnd() {
+  if (bannerDrag.value.axis === 'x') {
+    snapBannerToNearest()
   }
+  bannerDrag.value.axis = null
 }
 
 watch(bannerTrackRef, (el) => {
@@ -130,13 +163,15 @@ function tabIcon(id: GameTabId) {
     </div>
 
     <div class="px-4">
-      <div class="relative h-56 select-none overflow-hidden rounded-2xl">
+      <div class="relative h-56 overflow-hidden rounded-2xl">
         <div
           ref="bannerTrackRef"
           class="banner-carousel flex h-full snap-x snap-mandatory hide-scrollbar"
           @scroll.passive="onBannerScroll"
           @touchstart.passive="onBannerTouchStart"
           @touchmove="onBannerTouchMove"
+          @touchend="onBannerTouchEnd"
+          @touchcancel="onBannerTouchEnd"
         >
           <article
             v-for="banner in BANNERS"

@@ -49,14 +49,12 @@ body {
   overflow-y: visible;
 }
 
-/* Banner: horizontal swipe only */
+/* Banner: native overflow scroll + JS drag fallback (see HomeContent.vue) */
 .banner-carousel {
   overflow-x: auto;
   overflow-y: hidden;
-  touch-action: pan-x;
-  -ms-touch-action: pan-x;
-  overscroll-behavior-x: contain;
-  overscroll-behavior-y: none;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
 }
 
 /* Scrollable page area inside the shell */
