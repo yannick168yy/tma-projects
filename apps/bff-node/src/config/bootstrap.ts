@@ -10,7 +10,19 @@ export async function bootstrapEnv(): Promise<Env> {
   const conn = getNacosConnectionFromEnv()
   if (conn) {
     try {
-      const config = await loadNacosConfig(conn)
+      let config: Record<string, string> = {}
+      let lastErr: unknown
+      for (let attempt = 1; attempt <= 10; attempt++) {
+        try {
+          config = await loadNacosConfig(conn)
+          lastErr = undefined
+          break
+        } catch (err) {
+          lastErr = err
+          await new Promise((r) => setTimeout(r, 2000))
+        }
+      }
+      if (lastErr) throw lastErr
       applyConfigToProcessEnv(config)
       void subscribeNacosConfig(conn, () => {
         /* hot reload: next requests use updated process.env; loadEnv not re-run */

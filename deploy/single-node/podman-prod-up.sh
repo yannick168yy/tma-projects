@@ -105,6 +105,12 @@ run run -d --name tma-core-java --network "$NET" --restart=always \
   betogo-core-java:placeholder
 
 echo "==> [${CTR}] bff-node (limit 192m)"
+NACOS_IP="$(run inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' tma-nacos 2>/dev/null || echo "")"
+if [[ -z "$NACOS_IP" ]]; then
+  NACOS_ADDR="127.0.0.1:8848"
+else
+  NACOS_ADDR="${NACOS_IP}:8848"
+fi
 run rm -f tma-bff-node 2>/dev/null || true
 run build -t betogo-bff-node:latest -f apps/bff-node/Dockerfile apps/bff-node
 run run -d --name tma-bff-node --network "$NET" --restart=always \
@@ -119,7 +125,7 @@ run run -d --name tma-bff-node --network "$NET" --restart=always \
   -e GOOGLE_CLIENT_ID="${GOOGLE_CLIENT_ID:-}" \
   -e GOOGLE_CLIENT_SECRET="${GOOGLE_CLIENT_SECRET:-}" \
   -e GOOGLE_REDIRECT_URI="${GOOGLE_REDIRECT_URI:-https://www.188facai.com/auth/google/callback}" \
-  -e NACOS_SERVER_ADDR="${NACOS_SERVER_ADDR:-nacos:8848}" \
+  -e NACOS_SERVER_ADDR="${NACOS_ADDR}" \
   -e NACOS_NAMESPACE="${NACOS_NAMESPACE:-batogo}" \
   -e NACOS_DATA_ID="${NACOS_DATA_ID:-bff-node}" \
   -e NACOS_GROUP="${NACOS_GROUP:-DEFAULT_GROUP}" \
@@ -156,7 +162,7 @@ AMMER_PAY_PROVIDER_TOKEN=${AMMER_PAY_PROVIDER_TOKEN:-}
 GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
 GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
 GOOGLE_REDIRECT_URI=${GOOGLE_REDIRECT_URI:-https://www.188facai.com/auth/google/callback}
-REDIS_URL=redis://redis:6379
+REDIS_URL=redis://tma-redis:6379
 MYSQL_HOST=127.0.0.1
 MYSQL_PORT=3306
 MYSQL_DATABASE=betogo
