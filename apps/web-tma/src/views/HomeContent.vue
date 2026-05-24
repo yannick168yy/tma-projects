@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { usePromotionStore } from '@/stores/promotion'
 import {
@@ -15,6 +15,7 @@ import {
   Spade,
   Headphones,
 } from 'lucide-vue-next'
+import HomeCategoryShortcut from '@/components/home/HomeCategoryShortcut.vue'
 import GameCard from '@/components/home/GameCard.vue'
 import HistoryCard from '@/components/home/HistoryCard.vue'
 import EGameCard from '@/components/home/EGameCard.vue'
@@ -48,16 +49,36 @@ function categoryBadge(promo: string | null, fallback: string | null) {
   return fallback
 }
 
-function categoryRing(promo: string | null) {
-  if (!promo) return ''
+function categoryClaimable(promo: string | null) {
+  if (!promo) return false
   const h = highlightMap.value.get(promo as 'trial' | 'referral' | 'firstdep')
-  return h?.highlight ? 'ring-2 ring-primary ring-offset-2 ring-offset-background' : ''
+  return Boolean(h?.highlight)
 }
 
 const activeBanner = ref(0)
 const activeTab = ref<GameTabId>('all')
-const currentBanner = computed(() => BANNERS[activeBanner.value]!)
+const bannerTrackRef = ref<HTMLElement | null>(null)
 const marqueeWinners = computed(() => [...WINNERS, ...WINNERS])
+
+function onBannerScroll() {
+  const el = bannerTrackRef.value
+  if (!el || el.clientWidth <= 0) return
+  const idx = Math.round(el.scrollLeft / el.clientWidth)
+  activeBanner.value = Math.max(0, Math.min(BANNERS.length - 1, idx))
+}
+
+function scrollToBanner(index: number) {
+  const el = bannerTrackRef.value
+  if (!el) return
+  el.scrollTo({ left: index * el.clientWidth, behavior: 'smooth' })
+  activeBanner.value = index
+}
+
+watch(bannerTrackRef, (el) => {
+  if (!el) return
+  const ro = new ResizeObserver(() => onBannerScroll())
+  ro.observe(el)
+})
 
 function tabIcon(id: GameTabId) {
   switch (id) {
@@ -78,65 +99,55 @@ function tabIcon(id: GameTabId) {
 <template>
   <div class="page-scroll pb-20 hide-scrollbar">
     <div class="flex gap-3 px-4 pb-3 overflow-x-auto hide-scrollbar">
-      <button
+      <HomeCategoryShortcut
         v-for="c in CATEGORIES"
         :key="c.label"
-        type="button"
-        class="flex-shrink-0 flex flex-col items-center gap-1.5 pt-2.5"
-        :class="categoryRing(c.promo)"
+        :category="c"
+        :claimable="categoryClaimable(c.promo)"
+        :claim-label="categoryBadge(c.promo, c.badge)"
         @click="emit('openPromo', c.promo)"
-      >
-        <div
-          class="relative rounded-2xl bg-gradient-to-br flex flex-col items-center justify-end w-[110px] h-[59px]"
-          :class="c.color"
-          style="box-shadow: 0 4px 18px rgba(0, 0, 0, 0.45)"
-        >
-          <div class="flex-1 flex items-center justify-center w-full">
-            <span class="text-[36px] leading-none">{{ c.icon }}</span>
-          </div>
-          <div
-            v-if="categoryBadge(c.promo, c.badge)"
-            class="absolute flex items-center gap-0.5 bg-red-500 text-white font-black z-10 whitespace-nowrap"
-            style="top: -11px; left: 8px; font-size: 11px; padding: 4px 7px 4px 5px; border-radius: 6px 6px 6px 0; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5)"
-          >
-            🔥 {{ categoryBadge(c.promo, c.badge) }}
-            <span
-              class="absolute"
-              style="bottom: -6px; left: 0; width: 0; height: 0; border-left: 6px solid #ef4444; border-bottom: 6px solid transparent"
-            />
-          </div>
-        </div>
-        <span class="text-[12px] text-white/80 font-bold">{{ c.label }}</span>
-      </button>
+      />
     </div>
 
     <div class="px-4">
-      <div class="relative rounded-2xl overflow-hidden h-56 select-none">
-        <div class="absolute inset-0 bg-gradient-to-br" :class="currentBanner.gradient" />
-        <div class="absolute -top-8 -right-8 w-28 h-28 rounded-full bg-white/5" />
-        <div class="absolute -bottom-6 -left-6 w-20 h-20 rounded-full bg-white/5" />
-        <div class="absolute inset-0 p-4 flex flex-col justify-between">
-          <div class="flex items-start justify-between">
-            <span class="text-xs font-bold px-2 py-0.5 rounded-full" :class="currentBanner.badgeColor">
-              {{ currentBanner.tag }}
-            </span>
-            <span class="text-3xl">{{ currentBanner.badge }}</span>
-          </div>
-          <div>
-            <h2 class="text-white font-black leading-tight mb-1 whitespace-pre-line font-display text-[1.55rem]">
-              {{ currentBanner.title }}
-            </h2>
-            <p class="text-white/70 text-xs">{{ currentBanner.sub }}</p>
-          </div>
+      <div class="relative h-56 select-none overflow-hidden rounded-2xl">
+        <div
+          ref="bannerTrackRef"
+          class="flex h-full snap-x snap-mandatory overflow-x-auto hide-scrollbar"
+          @scroll.passive="onBannerScroll"
+        >
+          <article
+            v-for="banner in BANNERS"
+            :key="banner.id"
+            class="relative h-56 w-full flex-shrink-0 snap-center"
+          >
+            <div class="absolute inset-0 bg-gradient-to-br" :class="banner.gradient" />
+            <div class="absolute -top-8 -right-8 h-28 w-28 rounded-full bg-white/5" />
+            <div class="absolute -bottom-6 -left-6 h-20 w-20 rounded-full bg-white/5" />
+            <div class="absolute inset-0 flex flex-col justify-between p-4">
+              <div class="flex items-start justify-between">
+                <span class="rounded-full px-2 py-0.5 text-xs font-bold" :class="banner.badgeColor">
+                  {{ banner.tag }}
+                </span>
+                <span class="text-3xl">{{ banner.badge }}</span>
+              </div>
+              <div>
+                <h2 class="mb-1 whitespace-pre-line font-display text-[1.55rem] font-black leading-tight text-white">
+                  {{ banner.title }}
+                </h2>
+                <p class="text-xs text-white/70">{{ banner.sub }}</p>
+              </div>
+            </div>
+          </article>
         </div>
-        <div class="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
+        <div class="pointer-events-none absolute bottom-3 left-1/2 flex -translate-x-1/2 gap-1.5">
           <button
             v-for="(_, i) in BANNERS"
             :key="i"
             type="button"
-            class="h-1.5 rounded-full transition-all"
+            class="pointer-events-auto h-1.5 rounded-full transition-all"
             :class="i === activeBanner ? 'w-5 bg-white' : 'w-1.5 bg-white/40'"
-            @click="activeBanner = i"
+            @click="scrollToBanner(i)"
           />
         </div>
       </div>

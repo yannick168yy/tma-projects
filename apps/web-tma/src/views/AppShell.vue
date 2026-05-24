@@ -56,8 +56,8 @@ async function openProfile() {
   profileOpen.value = true
 }
 
-function onGameTap() {
-  void auth.ensureLoggedIn('Sign in to play games')
+async function onGameTap() {
+  await auth.ensureLoggedIn('Sign in to play games')
 }
 
 function goBonuses(promo: string | null = null) {
@@ -225,8 +225,8 @@ function navIcon(id: string) {
       <main class="relative flex min-h-0 flex-1 flex-col overflow-hidden">
         <ProfilePage v-if="profileOpen" @logout="onLogout" />
         <BonusesPage v-else-if="activeNav === 'bonuses'" :promo-filter="promoFilter" @open-wallet="openWallet" />
-        <BingoPage v-else-if="activeNav === 'bingo'" @open-wallet="openWallet" />
-        <MenuPage v-else-if="activeNav === 'menu'" @open-search="searchOpen = true" />
+        <BingoPage v-else-if="activeNav === 'bingo'" @open-wallet="openWallet" @game-tap="onGameTap" />
+        <MenuPage v-else-if="activeNav === 'menu'" @open-search="searchOpen = true" @game-tap="onGameTap" />
         <HomeContent v-else @open-search="searchOpen = true" @open-promo="goBonuses" @game-tap="onGameTap" />
       </main>
 
@@ -261,7 +261,7 @@ function navIcon(id: string) {
     </div>
 
     <WalletModal :open="walletModalOpen" @close="walletModalOpen = false" />
-    <SearchOverlay :open="searchOpen" @close="searchOpen = false" />
+    <SearchOverlay :open="searchOpen" @close="searchOpen = false" @game-tap="onGameTap" />
   </div>
 </template>
 

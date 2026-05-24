@@ -5,7 +5,7 @@ import { ALL_MENU_GAMES, CASINO_SUBCATS } from '@/data/menu'
 import { useBottomSheetDrag } from '@/composables/useBottomSheetDrag'
 
 const props = defineProps<{ open: boolean }>()
-const emit = defineEmits<{ close: [] }>()
+const emit = defineEmits<{ close: []; gameTap: [] }>()
 
 const sheetRef = ref<HTMLElement | null>(null)
 const backdropRef = ref<HTMLElement | null>(null)
@@ -126,6 +126,7 @@ const hasQuery = computed(() => query.value.trim().length > 0)
             :key="i"
             type="button"
             class="relative rounded-2xl overflow-hidden flex flex-col justify-end active:scale-95 transition-transform aspect-[3/4]"
+            @click="emit('gameTap')"
           >
             <div class="absolute inset-0 bg-gradient-to-br" :class="g.gradient" />
             <div class="absolute inset-0 flex items-center justify-center">

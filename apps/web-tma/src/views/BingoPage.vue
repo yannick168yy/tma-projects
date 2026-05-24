@@ -4,7 +4,7 @@ import { Trophy } from 'lucide-vue-next'
 import PeryaCarnivalHero from '@/components/bingo/PeryaCarnivalHero.vue'
 import { PERYA_GRID, PERYA_MAIN, PERYA_WINNERS } from '@/data/bingo'
 
-const emit = defineEmits<{ openWallet: [] }>()
+const emit = defineEmits<{ openWallet: []; gameTap: [] }>()
 
 const heroGame = computed(() => PERYA_MAIN[0]!)
 const otherGames = computed(() => PERYA_MAIN.slice(1))
@@ -97,6 +97,7 @@ const fiestaBuntingColors = [
           type="button"
           class="col-span-2 relative rounded-3xl overflow-hidden h-40 text-left active:scale-[0.98] transition-transform"
           :style="{ boxShadow: `0 6px 28px ${heroGame.glow}33` }"
+          @click="emit('gameTap')"
         >
           <div
             class="absolute inset-0"
@@ -145,6 +146,7 @@ const fiestaBuntingColors = [
           type="button"
           class="relative rounded-3xl overflow-hidden h-36 text-left active:scale-[0.98] transition-transform"
           :style="{ boxShadow: `0 4px 20px ${g.glow}25` }"
+          @click="emit('gameTap')"
         >
           <div
             class="absolute inset-0"
@@ -191,6 +193,7 @@ const fiestaBuntingColors = [
           :key="g.id"
           type="button"
           class="relative rounded-2xl overflow-hidden h-24 text-left active:scale-95 transition-transform"
+          @click="emit('gameTap')"
         >
           <div class="absolute inset-0" :style="{ background: `linear-gradient(135deg, ${g.bg[0]}, ${g.bg[1]})` }" />
           <div class="absolute inset-0 flex flex-col justify-between p-2.5">

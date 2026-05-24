@@ -3,7 +3,7 @@ import { computed, ref } from 'vue'
 import { Search, ChevronLeft, ChevronRight, ChevronDown, Flame, Headphones, CheckCircle2 } from 'lucide-vue-next'
 import { LANGUAGES, MENU_DATA } from '@/data/menu'
 
-const emit = defineEmits<{ openSearch: [] }>()
+const emit = defineEmits<{ openSearch: []; gameTap: [] }>()
 
 const active = ref<{ sid: string; cid: string } | null>(null)
 const langOpen = ref(false)
@@ -55,6 +55,7 @@ const activeCat = computed(() =>
           :key="i"
           type="button"
           class="relative rounded-2xl overflow-hidden flex flex-col justify-end active:scale-95 transition-transform aspect-[3/4]"
+          @click="emit('gameTap')"
         >
           <div class="absolute inset-0 bg-gradient-to-br" :class="activeCat.gradient" />
           <div class="absolute inset-0 flex items-center justify-center">
