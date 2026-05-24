@@ -18,6 +18,8 @@ export interface UserProfile {
 export interface UserRecord {
   id: string
   telegramUserId?: number
+  /** Telegram @username without @ */
+  telegramUsername?: string
   googleSub?: string
   email?: string
   displayName: string

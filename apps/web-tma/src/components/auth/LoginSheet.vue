@@ -60,6 +60,9 @@ async function onGoogleLogin() {
         <p class="mt-1 text-center text-xs text-muted-foreground">
           {{ auth.loginReason ?? 'Continue to play, deposit, and claim bonuses.' }}
         </p>
+        <p v-if="auth.isTelegram" class="mt-2 text-center text-[10px] text-muted-foreground">
+          BetoGo signs you in automatically when opened in Telegram. Use below if sign-in did not complete.
+        </p>
 
         <div class="mt-6 space-y-3">
           <button
@@ -69,7 +72,7 @@ async function onGoogleLogin() {
             :disabled="loading"
             @click="onTelegramLogin"
           >
-            Continue with Telegram
+            Retry Telegram sign-in
           </button>
           <button
             v-else

@@ -5,10 +5,22 @@ interface TelegramWebAppInset {
   right: number
 }
 
+interface TelegramWebAppUser {
+  id: number
+  username?: string
+  first_name?: string
+  last_name?: string
+  photo_url?: string
+}
+
 interface TelegramWebApp {
   ready: () => void
   expand: () => void
   initData?: string
+  initDataUnsafe?: {
+    user?: TelegramWebAppUser
+    start_param?: string
+  }
   requestFullscreen?: () => void
   exitFullscreen?: () => void
   isFullscreen?: boolean

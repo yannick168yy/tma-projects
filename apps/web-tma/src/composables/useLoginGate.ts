@@ -5,8 +5,8 @@ export function useLoginGate() {
   const auth = useAuthStore()
   const { isLoggedIn } = storeToRefs(auth)
 
-  function gate(reason: string, action: () => void) {
-    if (auth.requireLogin(reason)) {
+  async function gate(reason: string, action: () => void) {
+    if (await auth.ensureLoggedIn(reason)) {
       action()
     }
   }

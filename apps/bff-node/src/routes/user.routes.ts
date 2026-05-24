@@ -1,5 +1,6 @@
 import Router from '@koa/router'
 import { getUser, saveUser } from '../services/store.js'
+import { toPublicUser } from '../services/userPresentation.js'
 import { isAppLocale } from '../types/locale.js'
 import { fail, ok } from '../utils/response.js'
 
@@ -12,11 +13,7 @@ router.get('/me', async (ctx) => {
     return
   }
   ok(ctx, {
-    id: user.id,
-    telegramUserId: user.telegramUserId,
-    displayName: user.displayName,
-    avatarUrl: user.avatarUrl,
-    inviteCode: user.inviteCode,
+    ...toPublicUser(user),
     registeredAt: user.registeredAt,
     locale: user.locale,
     profile: user.profile,

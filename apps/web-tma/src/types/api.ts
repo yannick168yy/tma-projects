@@ -5,12 +5,17 @@ export interface ApiResponse<T> {
   traceId?: string
 }
 
+export type LoginProvider = 'telegram' | 'google'
+
 export interface AuthUser {
   id: string
   telegramUserId?: number
+  telegramUsername?: string
   displayName: string
   avatarUrl?: string
   inviteCode?: string
+  loginProvider?: LoginProvider
+  email?: string
   isNewUser?: boolean
 }
 

@@ -75,17 +75,32 @@ export async function getUserByInviteCode(redis: Redis, code: string): Promise<U
   return getUser(redis, userId)
 }
 
+function applyTelegramProfile(user: UserRecord, input: {
+  displayName: string
+  avatarUrl?: string
+  telegramUsername?: string
+}): void {
+  user.displayName = input.displayName
+  if (input.avatarUrl) user.avatarUrl = input.avatarUrl
+  if (input.telegramUsername) user.telegramUsername = input.telegramUsername
+}
+
 export async function createUserFromTelegram(
   redis: Redis,
   input: {
     telegramUserId: number
     displayName: string
     avatarUrl?: string
+    telegramUsername?: string
     referredBy?: string
   },
 ): Promise<{ user: UserRecord; isNewUser: boolean }> {
   const existing = await getUserByTelegramId(redis, input.telegramUserId)
-  if (existing) return { user: existing, isNewUser: false }
+  if (existing) {
+    applyTelegramProfile(existing, input)
+    await saveUser(redis, existing)
+    return { user: existing, isNewUser: false }
+  }
 
   const id = await nextUserId(redis)
   let inviteCode = generateInviteCode()
@@ -96,6 +111,7 @@ export async function createUserFromTelegram(
   const user: UserRecord = {
     id,
     telegramUserId: input.telegramUserId,
+    telegramUsername: input.telegramUsername,
     displayName: input.displayName,
     avatarUrl: input.avatarUrl,
     inviteCode,
@@ -131,7 +147,16 @@ export async function createUserFromGoogle(
   },
 ): Promise<{ user: UserRecord; isNewUser: boolean }> {
   const existing = await getUserByGoogleSub(redis, input.googleSub)
-  if (existing) return { user: existing, isNewUser: false }
+  if (existing) {
+    existing.displayName = input.displayName
+    if (input.avatarUrl) existing.avatarUrl = input.avatarUrl
+    if (input.email) {
+      existing.email = input.email
+      existing.profile.email = input.email
+    }
+    await saveUser(redis, existing)
+    return { user: existing, isNewUser: false }
+  }
 
   const id = await nextUserId(redis)
   let inviteCode = generateInviteCode()

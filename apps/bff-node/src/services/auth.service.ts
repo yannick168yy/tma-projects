@@ -15,6 +15,7 @@ import {
 import { randomToken } from '../utils/id.js'
 import type { UserRecord } from '../types/domain.js'
 import { exchangeGoogleCode } from './google.service.js'
+import { toPublicUser } from './userPresentation.js'
 
 export class AuthError extends Error {
   constructor(message: string) {
@@ -76,6 +77,7 @@ export async function loginWithInitData(
     telegramUserId: tgUserId,
     displayName,
     avatarUrl,
+    telegramUsername: parsed.user.username,
     referredBy,
   })
 
@@ -174,12 +176,5 @@ export async function logout(redis: Redis, token: string): Promise<void> {
 }
 
 export function toAuthUser(user: UserRecord) {
-  return {
-    id: user.id,
-    telegramUserId: user.telegramUserId,
-    displayName: user.displayName,
-    avatarUrl: user.avatarUrl,
-    inviteCode: user.inviteCode,
-    isNewUser: false,
-  }
+  return { ...toPublicUser(user), isNewUser: false }
 }

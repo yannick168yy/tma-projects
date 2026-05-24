@@ -1,25 +1,31 @@
 import { apiRequest, getInitData } from '@/api/client'
 import * as mock from '@/api/mock/auth.mock'
 import { getGoogleRedirectUri, startGoogleLoginRedirect } from '@/utils/googleOAuth'
-import type { AuthSession, AuthUser } from '@/types/api'
+import type { AuthSession, AuthUser, LoginProvider } from '@/types/api'
 
 const useMock = import.meta.env.VITE_USE_MOCK_API !== 'false'
 
 interface MeResponse {
   id: string
   telegramUserId?: number
+  telegramUsername?: string
   displayName: string
   avatarUrl?: string
   inviteCode?: string
+  loginProvider?: LoginProvider
+  email?: string
 }
 
 function toAuthUser(me: MeResponse): AuthUser {
   return {
     id: me.id,
     telegramUserId: me.telegramUserId,
+    telegramUsername: me.telegramUsername,
     displayName: me.displayName,
     avatarUrl: me.avatarUrl,
     inviteCode: me.inviteCode,
+    loginProvider: me.loginProvider,
+    email: me.email,
   }
 }
 

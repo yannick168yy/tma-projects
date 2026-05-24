@@ -37,27 +37,27 @@ const walletOpen = ref(false)
 const walletModalOpen = ref(false)
 const profileOpen = ref(false)
 
-function openWallet() {
-  if (!auth.requireLogin('Sign in to deposit or withdraw')) return
+async function openWallet() {
+  if (!(await auth.ensureLoggedIn('Sign in to deposit or withdraw'))) return
   walletOpen.value = false
   walletModalOpen.value = true
 }
 
-function onBalanceTap() {
+async function onBalanceTap() {
   if (!auth.isLoggedIn) {
-    auth.requireLogin('Sign in to view balance and top up')
+    await auth.ensureLoggedIn('Sign in to view balance and top up')
     return
   }
   walletOpen.value = !walletOpen.value
 }
 
-function openProfile() {
-  if (!auth.requireLogin('Sign in to view your profile')) return
+async function openProfile() {
+  if (!(await auth.ensureLoggedIn('Sign in to view your profile'))) return
   profileOpen.value = true
 }
 
 function onGameTap() {
-  auth.requireLogin('Sign in to play games')
+  void auth.ensureLoggedIn('Sign in to play games')
 }
 
 function goBonuses(promo: string | null = null) {

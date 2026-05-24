@@ -233,13 +233,21 @@ export async function createUserFromTelegram(
     telegramUserId: number
     displayName: string
     avatarUrl?: string
+    telegramUsername?: string
     referredBy?: string
   },
 ): Promise<{ user: UserRecord; isNewUser: boolean }> {
   const existing = await getUserByTelegramId(env, input.telegramUserId)
-  if (existing) return { user: existing, isNewUser: false }
+  if (existing) {
+    existing.displayName = input.displayName
+    if (input.avatarUrl) existing.avatarUrl = input.avatarUrl
+    if (input.telegramUsername) existing.telegramUsername = input.telegramUsername
+    await saveUser(env, existing)
+    return { user: existing, isNewUser: false }
+  }
   return createUser(env, {
     telegramUserId: input.telegramUserId,
+    telegramUsername: input.telegramUsername,
     displayName: input.displayName,
     avatarUrl: input.avatarUrl,
     referredBy: input.referredBy,
@@ -264,7 +272,16 @@ export async function createUserFromGoogle(
   },
 ): Promise<{ user: UserRecord; isNewUser: boolean }> {
   const existing = await getUserByGoogleSub(env, input.googleSub)
-  if (existing) return { user: existing, isNewUser: false }
+  if (existing) {
+    existing.displayName = input.displayName
+    if (input.avatarUrl) existing.avatarUrl = input.avatarUrl
+    if (input.email) {
+      existing.email = input.email
+      existing.profile.email = input.email
+    }
+    await saveUser(env, existing)
+    return { user: existing, isNewUser: false }
+  }
   return createUser(env, {
     googleSub: input.googleSub,
     email: input.email,

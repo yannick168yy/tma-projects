@@ -2,11 +2,14 @@
 import { computed, ref } from 'vue'
 import { CheckCircle2, Copy, ChevronDown, ChevronRight, LogOut } from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/auth'
+import type { LoginProvider } from '@/types/api'
+import { formatTelegramHandle, getTelegramWebAppUser } from '@/utils/telegramUser'
 
 const emit = defineEmits<{ logout: [] }>()
 
 const auth = useAuthStore()
 const loggingOut = ref(false)
+const logoutConfirmOpen = ref(false)
 const personalSaved = ref(false)
 const copied = ref(false)
 const firstName = ref('')
@@ -16,11 +19,46 @@ const dobDay = ref('')
 const dobYear = ref('')
 const dobOpen = ref(false)
 const gender = ref('')
-const telegramLinked = ref(false)
 const phone = ref('')
-const email = ref('')
+const emailExtra = ref('')
 
 const USER_ID = computed(() => auth.user?.id ?? '—')
+const displayName = computed(() => auth.user?.displayName ?? 'Player Account')
+
+const loginProvider = computed<LoginProvider>(
+  () => auth.user?.loginProvider ?? (auth.user?.telegramUserId ? 'telegram' : 'google'),
+)
+
+const isTelegramLogin = computed(() => loginProvider.value === 'telegram')
+
+const telegramHandle = computed(() => {
+  const fromApi = formatTelegramHandle(auth.user?.telegramUsername)
+  if (fromApi) return fromApi
+  return formatTelegramHandle(getTelegramWebAppUser()?.username)
+})
+
+const telegramSubtitle = computed(() => {
+  if (!isTelegramLogin.value) return 'Not connected'
+  return telegramHandle.value ?? 'Connected'
+})
+
+const googleEmail = computed(() => auth.user?.email?.trim() ?? '')
+
+const emailFieldValue = computed({
+  get: () => (loginProvider.value === 'google' ? googleEmail.value : emailExtra.value),
+  set: (v: string) => {
+    if (loginProvider.value !== 'google') emailExtra.value = v
+  },
+})
+
+const emailReadonly = computed(() => loginProvider.value === 'google' && Boolean(googleEmail.value))
+
+/** Login method row appears first in Contact Information. */
+const contactOrder = computed(() =>
+  loginProvider.value === 'google'
+    ? (['email', 'telegram', 'phone'] as const)
+    : (['telegram', 'phone', 'email'] as const),
+)
 
 const MONTHS = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -81,10 +119,19 @@ function copyId() {
   setTimeout(() => { copied.value = false }, 2000)
 }
 
-async function onLogout() {
+function requestLogout() {
+  logoutConfirmOpen.value = true
+}
+
+function cancelLogout() {
+  logoutConfirmOpen.value = false
+}
+
+async function confirmLogout() {
   loggingOut.value = true
   try {
     await auth.logout()
+    logoutConfirmOpen.value = false
     emit('logout')
   } finally {
     loggingOut.value = false
@@ -121,7 +168,7 @@ function savePersonal() {
         </svg>
       </div>
       <div class="min-w-0 flex-1">
-        <p class="mb-1 text-sm font-black leading-none text-foreground">Player Account</p>
+        <p class="mb-1 text-sm font-black leading-none text-foreground">{{ displayName }}</p>
         <button type="button" class="flex items-center gap-1.5 transition-opacity hover:opacity-80" @click="copyId">
           <span class="text-xs text-muted-foreground">ID: </span>
           <span class="text-xs font-bold text-primary">{{ USER_ID }}</span>
@@ -260,43 +307,70 @@ function savePersonal() {
       <section>
         <h3 class="mb-3 font-display text-sm font-black text-foreground">CONTACT INFORMATION</h3>
         <div class="overflow-hidden rounded-2xl border border-border bg-card">
-          <div class="flex items-center justify-between border-b border-border px-4 py-3">
-            <div class="flex items-center gap-3">
-              <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500/15 text-lg">✈️</div>
-              <div>
-                <p class="text-sm font-bold text-foreground">Telegram</p>
-                <p class="text-xs text-muted-foreground">{{ telegramLinked ? '@username' : 'Not connected' }}</p>
+          <template v-for="(block, idx) in contactOrder" :key="block">
+            <div
+              v-if="block === 'telegram'"
+              class="flex items-center justify-between px-4 py-3"
+              :class="idx < contactOrder.length - 1 ? 'border-b border-border' : ''"
+            >
+              <div class="flex items-center gap-3">
+                <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500/15 text-lg">✈️</div>
+                <div>
+                  <p class="text-sm font-bold text-foreground">Telegram</p>
+                  <p
+                    class="text-xs"
+                    :class="isTelegramLogin ? 'text-emerald-400 font-semibold' : 'text-muted-foreground'"
+                  >
+                    {{ telegramSubtitle }}
+                  </p>
+                </div>
+              </div>
+              <span
+                v-if="isTelegramLogin"
+                class="rounded-lg bg-emerald-500/20 px-3 py-1.5 text-xs font-black text-emerald-400"
+              >
+                Connected
+              </span>
+              <span
+                v-else
+                class="rounded-lg bg-secondary px-3 py-1.5 text-xs font-bold text-muted-foreground"
+              >
+                —
+              </span>
+            </div>
+
+            <div
+              v-else-if="block === 'phone'"
+              class="px-4 py-3"
+              :class="idx < contactOrder.length - 1 ? 'border-b border-border' : ''"
+            >
+              <label class="mb-1 block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Phone Number</label>
+              <div class="flex items-center gap-2">
+                <span class="text-sm text-muted-foreground">🇵🇭 +63</span>
+                <input
+                  v-model="phone"
+                  type="tel"
+                  placeholder="9XX XXX XXXX"
+                  class="flex-1 bg-transparent text-sm font-semibold text-foreground placeholder:text-muted-foreground/40 focus:outline-none"
+                />
               </div>
             </div>
-            <button
-              type="button"
-              class="rounded-lg px-3 py-1.5 text-xs font-black transition-colors"
-              :class="telegramLinked ? 'bg-emerald-500/20 text-emerald-400' : 'bg-primary text-primary-foreground hover:bg-yellow-400'"
-            >
-              {{ telegramLinked ? '✓ Linked' : 'Connect' }}
-            </button>
-          </div>
-          <div class="border-b border-border px-4 py-3">
-            <label class="mb-1 block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Phone Number</label>
-            <div class="flex items-center gap-2">
-              <span class="text-sm text-muted-foreground">🇵🇭 +63</span>
+
+            <div v-else-if="block === 'email'" class="px-4 py-3">
+              <label class="mb-1 block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Email Address</label>
               <input
-                v-model="phone"
-                type="tel"
-                placeholder="9XX XXX XXXX"
-                class="flex-1 bg-transparent text-sm font-semibold text-foreground placeholder:text-muted-foreground/40 focus:outline-none"
+                v-model="emailFieldValue"
+                type="email"
+                :readonly="emailReadonly"
+                :placeholder="loginProvider === 'google' ? 'Google account email' : 'your@email.com'"
+                class="w-full bg-transparent text-sm font-semibold text-foreground placeholder:text-muted-foreground/40 focus:outline-none disabled:opacity-90"
+                :class="emailReadonly ? 'cursor-default' : ''"
               />
+              <p v-if="loginProvider === 'google' && googleEmail" class="mt-1 text-[10px] font-semibold text-emerald-400">
+                Signed in with Google
+              </p>
             </div>
-          </div>
-          <div class="px-4 py-3">
-            <label class="mb-1 block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Email Address</label>
-            <input
-              v-model="email"
-              type="email"
-              placeholder="your@email.com"
-              class="w-full bg-transparent text-sm font-semibold text-foreground placeholder:text-muted-foreground/40 focus:outline-none"
-            />
-          </div>
+          </template>
         </div>
       </section>
 
@@ -380,12 +454,47 @@ function savePersonal() {
           type="button"
           class="flex w-full items-center justify-center gap-2 rounded-2xl border border-red-500/30 bg-red-500/10 py-3 text-sm font-black text-red-400 transition-colors hover:bg-red-500/20 disabled:opacity-60"
           :disabled="loggingOut"
-          @click="onLogout"
+          @click="requestLogout"
         >
           <LogOut :size="16" />
-          {{ loggingOut ? 'Signing out…' : 'Log out' }}
+          Log out
         </button>
       </section>
+
+      <Teleport to="body">
+        <div
+          v-if="logoutConfirmOpen"
+          class="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 px-6"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="logout-confirm-title"
+        >
+          <div class="w-full max-w-sm rounded-2xl border border-border bg-card p-5 shadow-2xl">
+            <h3 id="logout-confirm-title" class="text-base font-black text-foreground">Log out?</h3>
+            <p class="mt-2 text-sm text-muted-foreground">
+              You will need to sign in again to deposit, play games, and view your wallet.
+            </p>
+            <div class="mt-5 flex gap-2">
+              <button
+                type="button"
+                class="flex-1 rounded-xl bg-secondary py-2.5 text-sm font-bold text-foreground"
+                :disabled="loggingOut"
+                @click="cancelLogout"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                class="flex-1 rounded-xl bg-red-500 py-2.5 text-sm font-black text-white disabled:opacity-60"
+                :disabled="loggingOut"
+                @click="confirmLogout"
+              >
+                {{ loggingOut ? 'Signing out…' : 'Log out' }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </Teleport>
 
       <div class="space-y-1 py-4 text-center">
         <p class="text-xs text-muted-foreground">TarsierWin · v1.0.0</p>
