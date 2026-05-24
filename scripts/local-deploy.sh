@@ -52,7 +52,7 @@ docker compose up -d --build bff-node web-tma
 
 docker compose ps
 curl -sf "http://127.0.0.1:${BFF_PORT:-3000}/health" >/dev/null && log "  BFF /health: ok" || log "  BFF /health: FAIL"
-curl -sf -o /dev/null "http://127.0.0.1:${WEB_TMA_PORT:-5173}/" && log "  web-tma: ok" || log "  web-tma: FAIL"
+curl -sf -o /dev/null "http://127.0.0.1:${WEB_TMA_PORT:-8080}/" && log "  web-tma: ok" || log "  web-tma: FAIL"
 
 if [[ "${LOCAL_DEPLOY_FULL:-}" == "1" ]]; then
   log "LOCAL_DEPLOY_FULL=1 — nacos + rabbitmq"
@@ -60,5 +60,5 @@ if [[ "${LOCAL_DEPLOY_FULL:-}" == "1" ]]; then
   [[ -x scripts/publish-nacos-config.sh ]] && ./scripts/publish-nacos-config.sh || true
 fi
 
-log "Done. Client: http://localhost:${WEB_TMA_PORT:-5173}  MySQL: localhost:${MYSQL_PORT:-3306}  betogo"
+log "Done. Client: http://localhost:${WEB_TMA_PORT:-8080}  MySQL: localhost:${MYSQL_PORT:-3306}  betogo"
 log "Schema sync: edit infra/database/betogo/*.sql then ./scripts/apply-betogo-schema.sh"

@@ -159,7 +159,7 @@ tma-projects/
 
 | 服务 | 端口 |
 |------|------|
-| web-tma (Docker Nginx) | 5173 |
+| web-tma (Docker Nginx) | 8080 |
 | bff-node | 3000 |
 | core-java | 8080 |
 | MySQL | 3306 |

@@ -24,7 +24,7 @@ docker compose up -d --build
 
 | 服务 | 地址 |
 |------|------|
-| **BetoGo 客户端** | http://localhost:5173 |
+| **BetoGo 客户端** | http://localhost:8080 |
 | RabbitMQ 管理台 | http://localhost:15672（`tma` / `tma_dev`） |
 | MySQL | `localhost:3306`（`tma` / `tma_dev`，库 `tma`） |
 | Redis | `localhost:6379` |

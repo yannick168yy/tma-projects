@@ -10,7 +10,7 @@ Telegram Mini App 游戏客户端（Vue 3 + Vite + Tailwind CSS 4）。
 docker compose up -d --build web-tma
 ```
 
-浏览器打开 http://localhost:5173（`WEB_TMA_PORT`）。
+浏览器打开 http://localhost:8080（`WEB_TMA_PORT`，默认 8080）。
 
 改完 Vue/CSS/组件后：
 

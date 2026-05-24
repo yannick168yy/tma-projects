@@ -17,31 +17,32 @@ const emit = defineEmits<{ click: [] }>()
     class="flex-shrink-0 flex flex-col items-center gap-1.5 pt-2.5"
     @click="emit('click')"
   >
-    <div class="relative">
+    <div class="relative overflow-visible">
       <!-- Claimable: glow ring hugs icon tile only -->
       <div
         v-if="claimable"
         class="pointer-events-none absolute -inset-[3px] rounded-[18px] bg-gradient-to-br from-amber-400 via-primary to-amber-500 opacity-90 animate-pulse"
         style="box-shadow: 0 0 14px rgba(251, 191, 36, 0.55)"
       />
+      <!-- Flag ribbon floats outside card (must not sit inside overflow-hidden) -->
       <div
-        class="relative flex h-[59px] w-[110px] flex-col items-center justify-end overflow-hidden rounded-2xl bg-gradient-to-br"
+        v-if="claimLabel && !claimable"
+        class="absolute left-2 top-[-11px] z-10 flex items-center gap-0.5 whitespace-nowrap bg-red-500 px-[7px] py-1 pl-[5px] text-[11px] font-black text-white"
+        style="border-radius: 6px 6px 6px 0; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5)"
+      >
+        🔥 {{ claimLabel }}
+        <span
+          class="absolute bottom-[-6px] left-0 h-0 w-0"
+          style="border-left: 6px solid #ef4444; border-bottom: 6px solid transparent"
+        />
+      </div>
+      <div
+        class="relative flex h-[59px] w-[110px] flex-col items-center justify-end rounded-2xl bg-gradient-to-br"
         :class="[category.color, claimable ? 'ring-2 ring-amber-300/80 ring-inset' : '']"
         style="box-shadow: 0 4px 18px rgba(0, 0, 0, 0.45)"
       >
         <div class="flex w-full flex-1 items-center justify-center">
           <span class="text-[36px] leading-none">{{ category.icon }}</span>
-        </div>
-        <div
-          v-if="claimLabel && !claimable"
-          class="absolute left-2 top-[-11px] z-10 flex items-center gap-0.5 whitespace-nowrap bg-red-500 px-[7px] py-1 pl-[5px] text-[11px] font-black text-white"
-          style="border-radius: 6px 6px 6px 0; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5)"
-        >
-          🔥 {{ claimLabel }}
-          <span
-            class="absolute bottom-[-6px] left-0 h-0 w-0"
-            style="border-left: 6px solid #ef4444; border-bottom: 6px solid transparent"
-          />
         </div>
       </div>
       <div

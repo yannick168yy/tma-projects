@@ -44,6 +44,21 @@ body {
   overflow: hidden;
 }
 
+/* Home promo row: room for flag ribbons above tiles */
+.category-shortcut-row {
+  overflow-y: visible;
+}
+
+/* Banner: horizontal swipe only */
+.banner-carousel {
+  overflow-x: auto;
+  overflow-y: hidden;
+  touch-action: pan-x;
+  -ms-touch-action: pan-x;
+  overscroll-behavior-x: contain;
+  overscroll-behavior-y: none;
+}
+
 /* Scrollable page area inside the shell */
 .page-scroll {
   min-height: 0;

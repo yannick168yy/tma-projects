@@ -16,7 +16,7 @@ When you finish **local** code or config changes in this repo:
    - MySQL database `betogo` exists (local Docker MySQL)
    - Nacos namespace `batogo` exists; seed `bff-node` config from `.env` when Nacos is up
    - `docker compose up -d --build` for affected services (`bff-node`, `web-tma`, `nacos`, etc.)
-3. **Verify** briefly: `docker compose ps`, BFF `/health`, Nacos `:8848`, client `:5173`
+3. **Verify** briefly: `docker compose ps`, BFF `/health`, Nacos `:8848`, client `:8080`
 4. Tell the user what was deployed locally and any manual gaps (e.g. BotFather).
 
 **Do not** unless the user explicitly asks in the **current** message:

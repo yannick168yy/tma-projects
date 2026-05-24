@@ -58,6 +58,7 @@ function categoryClaimable(promo: string | null) {
 const activeBanner = ref(0)
 const activeTab = ref<GameTabId>('all')
 const bannerTrackRef = ref<HTMLElement | null>(null)
+const bannerTouch = ref({ x: 0, y: 0, axis: null as 'x' | 'y' | null })
 const marqueeWinners = computed(() => [...WINNERS, ...WINNERS])
 
 function onBannerScroll() {
@@ -72,6 +73,25 @@ function scrollToBanner(index: number) {
   if (!el) return
   el.scrollTo({ left: index * el.clientWidth, behavior: 'smooth' })
   activeBanner.value = index
+}
+
+function onBannerTouchStart(e: TouchEvent) {
+  const t = e.touches[0]
+  if (!t) return
+  bannerTouch.value = { x: t.clientX, y: t.clientY, axis: null }
+}
+
+function onBannerTouchMove(e: TouchEvent) {
+  const t = e.touches[0]
+  if (!t) return
+  const dx = Math.abs(t.clientX - bannerTouch.value.x)
+  const dy = Math.abs(t.clientY - bannerTouch.value.y)
+  if (bannerTouch.value.axis === null && (dx > 8 || dy > 8)) {
+    bannerTouch.value.axis = dx >= dy ? 'x' : 'y'
+  }
+  if (bannerTouch.value.axis === 'x') {
+    e.preventDefault()
+  }
 }
 
 watch(bannerTrackRef, (el) => {
@@ -98,7 +118,7 @@ function tabIcon(id: GameTabId) {
 
 <template>
   <div class="page-scroll pb-20 hide-scrollbar">
-    <div class="flex gap-3 px-4 pb-3 overflow-x-auto hide-scrollbar">
+    <div class="category-shortcut-row flex gap-3 px-4 pb-3 pt-3 overflow-x-auto hide-scrollbar">
       <HomeCategoryShortcut
         v-for="c in CATEGORIES"
         :key="c.label"
@@ -113,8 +133,10 @@ function tabIcon(id: GameTabId) {
       <div class="relative h-56 select-none overflow-hidden rounded-2xl">
         <div
           ref="bannerTrackRef"
-          class="flex h-full snap-x snap-mandatory overflow-x-auto hide-scrollbar"
+          class="banner-carousel flex h-full snap-x snap-mandatory hide-scrollbar"
           @scroll.passive="onBannerScroll"
+          @touchstart.passive="onBannerTouchStart"
+          @touchmove="onBannerTouchMove"
         >
           <article
             v-for="banner in BANNERS"

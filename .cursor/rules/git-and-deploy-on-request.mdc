@@ -10,7 +10,7 @@ alwaysApply: true
 - **GitHub**: `git commit`, `git push`, or creating PRs
 - **Alibaba Cloud**: `deploy/single-node/deploy-web-tma.sh` or any remote deploy
 
-After code changes, **automatically run** `./scripts/local-deploy.sh` (sync `.env`, MySQL `betogo`, Nacos `batogo`, `docker compose up -d --build`). Client: http://localhost:5173. Tell the user what changed locally; they will say when to commit or deploy remotely.
+After code changes, **automatically run** `./scripts/local-deploy.sh` (sync `.env`, MySQL `betogo`, Nacos `batogo`, `docker compose up -d --build`). Client: http://localhost:8080. Tell the user what changed locally; they will say when to commit or deploy remotely.
 
 Typical triggers when the user *does* want action:
 - 提交 / commit / push / GitHub → commit and push

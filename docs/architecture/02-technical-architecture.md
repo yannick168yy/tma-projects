@@ -172,7 +172,7 @@ src/
 ```bash
 cp .env.example .env
 docker compose up -d --build
-# 客户端 http://localhost:5173
+# 客户端 http://localhost:8080
 # MySQL :3306  Redis :6379  RabbitMQ :5672  管理台 :15672
 ```
 
