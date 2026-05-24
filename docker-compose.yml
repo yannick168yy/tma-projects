@@ -1,8 +1,10 @@
-# BetoGo 本地环境 — 全部服务跑在 Docker（不依赖本机 Vite/Node/Java 进程）
-# 用法: cp .env.example .env && docker compose up -d --build
+# BetoGo 本地环境 — 默认最小栈：redis + bff-node + web-tma
+# 用法: cp .env.example .env && ./scripts/local-deploy.sh
+# 可选全量: docker compose --profile full up -d --build
 
 services:
   mysql:
+    profiles: ["full"]
     image: mysql:8.0
     container_name: tma-mysql
     restart: unless-stopped
@@ -64,6 +66,7 @@ services:
           memory: 192M
 
   nacos:
+    profiles: ["full"]
     image: nacos/nacos-server:v2.3.2-slim
     container_name: tma-nacos
     restart: unless-stopped
@@ -89,6 +92,7 @@ services:
           memory: 512M
 
   rabbitmq:
+    profiles: ["full"]
     image: rabbitmq:3.13-management-alpine
     container_name: tma-rabbitmq
     restart: unless-stopped
@@ -149,6 +153,7 @@ services:
     environment:
       NODE_ENV: development
       BFF_PORT: 3000
+      BFF_STORAGE: ${BFF_STORAGE:-redis}
       REDIS_URL: redis://redis:6379
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:?Set TELEGRAM_BOT_TOKEN in .env}
       BFF_DEV_SKIP_TELEGRAM_AUTH: ${BFF_DEV_SKIP_TELEGRAM_AUTH:-true}
@@ -158,7 +163,13 @@ services:
       GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI:-https://www.188facai.com/auth/google/callback}
       AMMER_PAY_PROVIDER_TOKEN: ${AMMER_PAY_PROVIDER_TOKEN:-}
       USDT_TO_PHP_RATE: ${USDT_TO_PHP_RATE:-58}
-      NACOS_SERVER_ADDR: nacos:8848
+      # MySQL / Nacos：仅 --profile full 时在 .env 中设置 MYSQL_HOST / NACOS_SERVER_ADDR
+      MYSQL_HOST: ${MYSQL_HOST:-}
+      MYSQL_PORT: ${MYSQL_PORT:-3306}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-betogo}
+      MYSQL_USER: ${MYSQL_USER:-tma}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-}
+      NACOS_SERVER_ADDR: ${NACOS_SERVER_ADDR:-}
       NACOS_NAMESPACE: ${NACOS_NAMESPACE:-batogo}
       NACOS_DATA_ID: ${NACOS_DATA_ID:-bff-node}
       NACOS_GROUP: ${NACOS_GROUP:-DEFAULT_GROUP}
@@ -176,9 +187,9 @@ services:
         limits:
           memory: 256M
 
-  # Java Core — 待定；启用: docker compose --profile java up -d
+  # Java Core — 待定；启用: docker compose --profile full up -d
   core-java:
-    profiles: ["java"]
+    profiles: ["full"]
     build:
       context: ./apps/core-java
       dockerfile: Dockerfile

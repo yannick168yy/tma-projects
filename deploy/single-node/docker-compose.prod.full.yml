@@ -1,0 +1,151 @@
+# 全量生产栈（4G+ 内存）。默认请用 docker-compose.prod.yml
+#   docker compose -f deploy/single-node/docker-compose.prod.full.yml up -d --build
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: tma-mysql
+    restart: unless-stopped
+    ports:
+      - '127.0.0.1:13306:3306'
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root_dev_only}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-tma}
+      MYSQL_USER: ${MYSQL_USER:-tma}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-tma_dev}
+      TZ: UTC
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ../../infra/docker/mysql/init:/docker-entrypoint-initdb.d:ro
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --default-authentication-plugin=mysql_native_password
+      - --max_connections=50
+      - --innodb_buffer_pool_size=48M
+      - --performance_schema=OFF
+      - --table_open_cache=200
+    healthcheck:
+      test: ['CMD', 'mysqladmin', 'ping', '-h', 'localhost', '-u', 'root', '-p${MYSQL_ROOT_PASSWORD:-root_dev_only}']
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          memory: 384M
+
+  redis:
+    image: redis:7.0-alpine
+    container_name: tma-redis
+    restart: unless-stopped
+    ports:
+      - '127.0.0.1:6379:6379'
+    command: redis-server --maxmemory 64mb --maxmemory-policy allkeys-lru --save "" --appendonly no
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 96M
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: tma-rabbitmq
+    restart: unless-stopped
+    ports:
+      - '127.0.0.1:5672:5672'
+      - '127.0.0.1:15672:15672'
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-tma}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-tma_dev}
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+      - ./rabbitmq-prod.conf:/etc/rabbitmq/rabbitmq.conf:ro
+    healthcheck:
+      test: ['CMD', 'rabbitmq-diagnostics', '-q', 'ping']
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 45s
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  core-java:
+    build:
+      context: ../../apps/core-java
+      dockerfile: Dockerfile
+    image: betogo-core-java:placeholder
+    container_name: tma-core-java
+    restart: unless-stopped
+    ports:
+      - '127.0.0.1:8081:8080'
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+
+  bff-node:
+    build:
+      context: ../../apps/bff-node
+      dockerfile: Dockerfile
+    image: betogo-bff-node:latest
+    container_name: tma-bff-node
+    restart: unless-stopped
+    ports:
+      - '127.0.0.1:3000:3000'
+    environment:
+      NODE_ENV: production
+      BFF_PORT: 3000
+      REDIS_URL: redis://redis:6379
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:?Set TELEGRAM_BOT_TOKEN in .env}
+      BFF_DEV_SKIP_TELEGRAM_AUTH: ${BFF_DEV_SKIP_TELEGRAM_AUTH:-false}
+      SESSION_TTL_SECONDS: ${SESSION_TTL_SECONDS:-86400}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI:-https://www.188facai.com/auth/google/callback}
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '-O', '/dev/null', 'http://127.0.0.1:3000/health']
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    deploy:
+      resources:
+        limits:
+          memory: 192M
+
+  web-tma:
+    build:
+      context: ../../apps/web-tma
+      dockerfile: Dockerfile
+      args:
+        VITE_BFF_BASE_URL: ${VITE_BFF_BASE_URL:-https://www.188facai.com/api/v1}
+        VITE_USE_MOCK_API: ${VITE_USE_MOCK_API:-false}
+        VITE_GOOGLE_CLIENT_ID: ${VITE_GOOGLE_CLIENT_ID:-}
+        VITE_GOOGLE_REDIRECT_URI: ${VITE_GOOGLE_REDIRECT_URI:-https://www.188facai.com/auth/google/callback}
+    image: tma-web-tma:latest
+    container_name: tma-web-tma
+    restart: unless-stopped
+    ports:
+      - '${WEB_TMA_PORT:-8080}:80'
+    depends_on:
+      bff-node:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+
+volumes:
+  mysql_data:
+  rabbitmq_data:

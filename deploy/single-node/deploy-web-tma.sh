@@ -110,11 +110,11 @@ container_cmd() {
 }
 
 direct_build_run() {
-  echo "==> 无 compose 插件，使用 podman-prod-up.sh 全栈部署（2C2G 内存限制）"
+  echo "==> 无 compose 插件，使用 podman-prod-minimal.sh（web + BFF + Redis）"
   export WEB_TMA_PORT="$PORT"
   export CTR="$(container_cmd)"
-  chmod +x deploy/single-node/podman-prod-up.sh
-  bash deploy/single-node/podman-prod-up.sh
+  chmod +x deploy/single-node/podman-prod-minimal.sh deploy/single-node/podman-prod-up.sh
+  bash deploy/single-node/podman-prod-minimal.sh
 }
 
 compose_up() {

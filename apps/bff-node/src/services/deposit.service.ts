@@ -8,7 +8,7 @@ import {
   listDeposits,
   saveDeposit,
   saveUser,
-} from './store.js'
+} from './store/index.js'
 import { nowIso, phpToCents } from '../utils/format.js'
 
 export type DepositCurrency = 'PHP' | 'USDT'

@@ -36,4 +36,4 @@ Docker 全栈：`docker compose up -d --build`（见仓库根目录）。
 
 ## 架构说明
 
-当前无 Java Core，钱包与订单数据暂存 **Redis**（BFF 层临时方案）。`core-java` 就绪后，钱包读写改为代理 Core，Redis 仅保留 Session。
+默认 `BFF_STORAGE=redis`：Session、用户、钱包、订单暂存 **Redis**（2C2G 生产推荐）。设 `BFF_STORAGE=mysql` 且配置 `MYSQL_HOST` 后走 MySQL。`core-java` 就绪后钱包可迁 Java，Redis 保留 Session。

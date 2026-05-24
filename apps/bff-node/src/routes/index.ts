@@ -7,11 +7,13 @@ import withdrawRoutes from './withdraw.routes.js'
 import ledgerRoutes from './ledger.routes.js'
 import kycRoutes from './kyc.routes.js'
 import promotionRoutes from './promotion.routes.js'
+import webhookRoutes from './webhook.routes.js'
 import { authMiddleware } from '../middleware/auth.js'
 
 export function createApiRouter(): Router {
   const api = new Router({ prefix: '/api/v1' })
 
+  api.use(webhookRoutes.routes(), webhookRoutes.allowedMethods())
   api.use(authRoutes.routes(), authRoutes.allowedMethods())
 
   const protectedMw = authMiddleware()

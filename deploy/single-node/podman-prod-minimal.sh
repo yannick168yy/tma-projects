@@ -1,0 +1,100 @@
+#!/usr/bin/env bash
+# 阿里云 2C2G 最小栈：web-tma + bff-node + redis（无 Nacos / Podman MySQL / RabbitMQ / core-java）
+# 配置来自服务器 .env；用户/钱包/Session 暂存 Redis。
+# 在 /opt/tma-projects 执行；由 deploy-web-tma.sh 调用。
+
+set -euo pipefail
+
+cd "$(dirname "$0")/../.."
+CTR="${CTR:-podman}"
+PORT="${WEB_TMA_PORT:-8080}"
+NET="${TMA_PODMAN_NETWORK:-tma-prod}"
+
+if [[ "$CTR" != podman ]] && [[ "$CTR" != docker ]]; then
+  echo "CTR 必须是 podman 或 docker" >&2
+  exit 1
+fi
+
+if [[ -f .env ]]; then
+  set -a
+  # shellcheck disable=SC1091
+  source .env
+  set +a
+  sed -i 's/^BFF_DEV_SKIP_TELEGRAM_AUTH=true/BFF_DEV_SKIP_TELEGRAM_AUTH=false/' .env || true
+fi
+
+run() {
+  if [[ "$CTR" == podman ]]; then
+    podman "$@"
+  else
+    docker "$@"
+  fi
+}
+
+OPTIONAL_CONTAINERS=(tma-nacos tma-mysql tma-rabbitmq tma-core-java)
+
+echo "==> [${CTR}] 停用可选组件（若存在）"
+for name in "${OPTIONAL_CONTAINERS[@]}"; do
+  if run ps -a --format '{{.Names}}' 2>/dev/null | grep -qx "$name"; then
+    run stop "$name" 2>/dev/null || true
+    run rm -f "$name" 2>/dev/null || true
+    echo "  stopped ${name}"
+  fi
+done
+
+echo "==> [${CTR}] 创建网络 ${NET}"
+run network inspect "$NET" >/dev/null 2>&1 || run network create "$NET"
+
+echo "==> [${CTR}] Redis (limit 96m)"
+run rm -f tma-redis 2>/dev/null || true
+run run -d --name tma-redis --network "$NET" --network-alias redis --restart=always \
+  --memory=96m --memory-swap=96m \
+  -p 127.0.0.1:6379:6379 \
+  redis:7.0-alpine \
+  redis-server --maxmemory 64mb --maxmemory-policy allkeys-lru --save "" --appendonly no
+
+echo "==> [${CTR}] bff-node (limit 192m, Redis store)"
+REDIS_IP="$(run inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' tma-redis 2>/dev/null || echo "")"
+REDIS_URL_WIRED="redis://${REDIS_IP:-127.0.0.1}:6379"
+run rm -f tma-bff-node 2>/dev/null || true
+run build -t betogo-bff-node:latest -f apps/bff-node/Dockerfile apps/bff-node
+run run -d --name tma-bff-node --network "$NET" --restart=always \
+  --memory=192m --memory-swap=192m \
+  -p 127.0.0.1:3000:3000 \
+  -e NODE_ENV=production \
+  -e BFF_PORT=3000 \
+  -e BFF_STORAGE=redis \
+  -e REDIS_URL="${REDIS_URL_WIRED}" \
+  -e TELEGRAM_BOT_TOKEN="${TELEGRAM_BOT_TOKEN:?缺少 TELEGRAM_BOT_TOKEN}" \
+  -e BFF_DEV_SKIP_TELEGRAM_AUTH="${BFF_DEV_SKIP_TELEGRAM_AUTH:-false}" \
+  -e SESSION_TTL_SECONDS="${SESSION_TTL_SECONDS:-86400}" \
+  -e GOOGLE_CLIENT_ID="${GOOGLE_CLIENT_ID:-}" \
+  -e GOOGLE_CLIENT_SECRET="${GOOGLE_CLIENT_SECRET:-}" \
+  -e GOOGLE_REDIRECT_URI="${GOOGLE_REDIRECT_URI:-https://www.188facai.com/auth/google/callback}" \
+  -e AMMER_PAY_PROVIDER_TOKEN="${AMMER_PAY_PROVIDER_TOKEN:-}" \
+  -e USDT_TO_PHP_RATE="${USDT_TO_PHP_RATE:-58}" \
+  betogo-bff-node:latest
+
+echo "==> [${CTR}] web-tma (limit 64m)"
+run rm -f tma-web-tma 2>/dev/null || true
+run build -t tma-web-tma:latest \
+  --build-arg "VITE_BFF_BASE_URL=${VITE_BFF_BASE_URL:-https://www.188facai.com/api/v1}" \
+  --build-arg VITE_USE_MOCK_API=false \
+  --build-arg "VITE_GOOGLE_CLIENT_ID=${VITE_GOOGLE_CLIENT_ID:-}" \
+  --build-arg "VITE_GOOGLE_REDIRECT_URI=${VITE_GOOGLE_REDIRECT_URI:-https://www.188facai.com/auth/google/callback}" \
+  --build-arg "VITE_TELEGRAM_BOT_USERNAME=${VITE_TELEGRAM_BOT_USERNAME:-BetoGoBot}" \
+  --build-arg "VITE_TELEGRAM_WEB_APP_URL=${VITE_TELEGRAM_WEB_APP_URL:-https://www.188facai.com}" \
+  -f apps/web-tma/Dockerfile apps/web-tma
+run run -d --name tma-web-tma --restart=always \
+  --memory=64m --memory-swap=64m \
+  -p "${PORT}:80" \
+  tma-web-tma:latest
+
+echo "==> 等待服务就绪…"
+sleep 6
+curl -sf http://127.0.0.1:3000/health >/dev/null && echo "  bff-node: ok" || echo "  bff-node: 未就绪"
+run exec tma-redis redis-cli ping 2>/dev/null | grep -q PONG && echo "  redis: ok" || echo "  redis: 未就绪"
+
+echo ""
+echo "最小栈已启动（web + BFF + Redis）。业务库请用宝塔 MySQL；接库后再设 BFF MYSQL_* 与 podman-prod-up.sh --profile mysql。"
+run ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"

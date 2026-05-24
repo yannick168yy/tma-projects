@@ -6,10 +6,12 @@ import { getRedis } from './clients/redis.client.js'
 import { errorHandler } from './middleware/errorHandler.js'
 import { injectDeps, requestIdMiddleware } from './middleware/requestId.js'
 import { createApiRouter } from './routes/index.js'
+import { initStore } from './services/store/index.js'
 import { ok } from './utils/response.js'
 
 export function createApp(env: Env): Koa {
   const app = new Koa()
+  initStore(env)
   const redis = getRedis(env)
 
   app.use(errorHandler())

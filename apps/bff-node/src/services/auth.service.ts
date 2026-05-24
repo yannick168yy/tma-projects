@@ -11,7 +11,7 @@ import {
   getUserByInviteCode,
   saveSession,
   saveUser,
-} from './store.js'
+} from './store/index.js'
 import { randomToken } from '../utils/id.js'
 import type { UserRecord } from '../types/domain.js'
 import { exchangeGoogleCode } from './google.service.js'

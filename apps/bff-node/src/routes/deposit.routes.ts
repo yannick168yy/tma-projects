@@ -25,8 +25,9 @@ router.post('/', async (ctx) => {
     return
   }
 
+  const orderId = randomOrderId('DEP')
   const order: DepositOrder = {
-    orderId: randomOrderId('DEP'),
+    orderId,
     userId: ctx.state.userId!,
     amount: body.amount,
     currency,
@@ -36,7 +37,7 @@ router.post('/', async (ctx) => {
     tgWalletParams: {
       provider: 'ammer_pay',
       currency,
-      invoicePayload: `dep_${Date.now()}`,
+      invoicePayload: orderId,
     },
   }
   await saveDeposit(ctx.state.redis, order)

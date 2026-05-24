@@ -67,8 +67,7 @@ export async function subscribeNacosConfig(
   })
   client.subscribe({ dataId: conn.dataId, group: conn.group }, (content: string) => {
     const parsed = parseProperties(content)
-    applyConfigToProcessEnv(parsed)
     onUpdate(parsed)
-    console.info('[bff-node] Nacos config updated (hot reload applied to process.env)')
+    console.info('[bff-node] Nacos config updated (hot reload)')
   })
 }
