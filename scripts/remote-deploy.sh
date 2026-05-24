@@ -18,6 +18,6 @@ if [[ -n "${SSH_IDENTITY_FILE:-}" ]]; then
   KEY="${SSH_IDENTITY_FILE/#\~/$HOME}"
   SSH_BASE+=( -i "$KEY" )
 fi
-"${SSH_BASE[@]}" "$DEPLOY_HOST" "cd '$DEPLOY_DIR' && chmod +x deploy/single-node/server-init-betogo.sh && bash deploy/single-node/server-init-betogo.sh"
+"${SSH_BASE[@]}" "$DEPLOY_HOST" "cd '$DEPLOY_DIR' && MYSQL_HOST=127.0.0.1 chmod +x deploy/single-node/server-init-betogo.sh && MYSQL_HOST=127.0.0.1 bash deploy/single-node/server-init-betogo.sh" || echo "==> 宝塔 MySQL 建表跳过（最小栈使用 Redis）"
 
 echo "==> 远程部署完成"
