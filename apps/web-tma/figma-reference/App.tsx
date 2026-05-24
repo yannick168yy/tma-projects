@@ -10,6 +10,7 @@ import {
   Flame,
   Wallet,
   Gift,
+  Home,
   Spade,
   Menu,
   Bell,
@@ -2192,7 +2193,7 @@ export default function App() {
     { id: "cashier", label: "Cashier", icon: <Wallet size={20} />, onClick: openWallet },
     { id: "bingo", label: "Bingo", icon: <Dices size={20} /> },
     { id: "bonuses", label: "Bonuses", icon: <Gift size={20} />, badge: 3 },
-    { id: "casino", label: "Casino", icon: <Spade size={20} /> },
+    { id: "casino", label: "Casino", icon: <Home size={20} /> },
     { id: "menu", label: "Menu", icon: <Menu size={20} /> },
   ];
 

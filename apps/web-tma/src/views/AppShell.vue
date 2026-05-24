@@ -4,7 +4,7 @@ import {
   ChevronDown,
   Wallet,
   Gift,
-  Spade,
+  Home,
   Menu,
   Dices,
 } from 'lucide-vue-next'
@@ -78,7 +78,7 @@ function navIcon(id: string) {
     case 'bonuses':
       return Gift
     case 'casino':
-      return Spade
+      return Home
     default:
       return Menu
   }
