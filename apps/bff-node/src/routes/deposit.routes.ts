@@ -1,6 +1,7 @@
 import Router from '@koa/router'
 import { getDeposit, listDeposits, saveDeposit } from '../services/store.js'
 import { settlePaidDeposit, type DepositCurrency } from '../services/deposit.service.js'
+import { createTelegramInvoiceLink } from '../services/telegramPayments.js'
 import { nowIso } from '../utils/format.js'
 import { fail, ok } from '../utils/response.js'
 import { randomOrderId } from '../utils/id.js'
@@ -42,20 +43,49 @@ router.post('/', async (ctx) => {
   }
   await saveDeposit(ctx.state.redis, order)
 
-  // Dev shortcut: auto-complete until Ammer Pay webhook is wired
-  if (ctx.state.env.NODE_ENV !== 'production') {
+  const providerToken = ctx.state.env.AMMER_PAY_PROVIDER_TOKEN?.trim()
+  let invoiceLink: string | undefined
+
+  if (providerToken) {
+    try {
+      invoiceLink = await createTelegramInvoiceLink(
+        ctx.state.env.TELEGRAM_BOT_TOKEN,
+        providerToken,
+        {
+          title: 'BetoGo Deposit',
+          description:
+            currency === 'PHP'
+              ? `Deposit ₱${body.amount.toFixed(2)} via Telegram Wallet`
+              : `Deposit ${body.amount} USDT via Telegram Wallet`,
+          payload: orderId,
+          currency,
+          amount: body.amount,
+        },
+      )
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'Failed to create payment invoice'
+      fail(ctx, 502, message, 502)
+      return
+    }
+  } else if (ctx.state.env.NODE_ENV !== 'production') {
     await settlePaidDeposit(ctx.state.redis, order, {
       traceId: ctx.state.traceId,
       usdtToPhpRate: ctx.state.env.USDT_TO_PHP_RATE,
       amountPhpUnits: body.amount,
       currency,
     })
+    order.status = 'paid'
+    await saveDeposit(ctx.state.redis, order)
+  } else {
+    fail(ctx, 503, 'Telegram payments are not configured (AMMER_PAY_PROVIDER_TOKEN)', 503)
+    return
   }
 
   ok(ctx, {
     orderId: order.orderId,
     status: order.status,
     currency: order.currency,
+    invoiceLink,
     tgWalletParams: order.tgWalletParams,
   })
 })

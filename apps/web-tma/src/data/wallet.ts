@@ -1,27 +1,60 @@
+import type { DepositCurrency } from '@/types/wallet'
+
 export interface PayMethod {
   id: string
   name: string
   icon: string
   color: string
   tag: string
+  /** false = greyed out, not selectable (v0.2 deposit) */
+  enabled?: boolean
+  channelId?: string
+  currency?: DepositCurrency
+  iconKind?: 'emoji' | 'telegram'
 }
 
+/** Telegram Wallet via Ammer Pay — only live deposit channel in v0.2 */
+export const TG_WALLET_DEPOSIT: PayMethod[] = [
+  {
+    id: 'tg_wallet_php',
+    name: 'Telegram Pay',
+    icon: '',
+    iconKind: 'telegram',
+    color: 'from-[#2AABEE] to-[#229ED9]',
+    tag: 'PHP',
+    enabled: true,
+    channelId: 'tg_wallet',
+    currency: 'PHP',
+  },
+  {
+    id: 'tg_wallet_usdt',
+    name: 'Telegram Pay',
+    icon: '',
+    iconKind: 'telegram',
+    color: 'from-cyan-500 to-teal-600',
+    tag: 'USDT',
+    enabled: true,
+    channelId: 'tg_wallet',
+    currency: 'USDT',
+  },
+]
+
 export const FIAT_DEPOSIT: PayMethod[] = [
-  { id: 'gcash', name: 'GCash', icon: '💙', color: 'from-blue-500 to-blue-700', tag: 'Instant' },
-  { id: 'maya', name: 'Maya', icon: '💚', color: 'from-green-500 to-emerald-600', tag: 'Instant' },
-  { id: 'bdo', name: 'BDO Bank', icon: '🏦', color: 'from-blue-800 to-blue-900', tag: '1–3 hrs' },
-  { id: 'bpi', name: 'BPI Bank', icon: '🏛️', color: 'from-red-700 to-red-900', tag: '1–3 hrs' },
-  { id: '711', name: '7-Eleven', icon: '🏪', color: 'from-orange-500 to-red-600', tag: 'OTC' },
-  { id: 'coins', name: 'Coins.ph', icon: '🪙', color: 'from-yellow-500 to-amber-600', tag: 'Instant' },
+  { id: 'gcash', name: 'GCash', icon: '💙', color: 'from-blue-500 to-blue-700', tag: 'Soon', enabled: false },
+  { id: 'maya', name: 'Maya', icon: '💚', color: 'from-green-500 to-emerald-600', tag: 'Soon', enabled: false },
+  { id: 'bdo', name: 'BDO Bank', icon: '🏦', color: 'from-blue-800 to-blue-900', tag: 'Soon', enabled: false },
+  { id: 'bpi', name: 'BPI Bank', icon: '🏛️', color: 'from-red-700 to-red-900', tag: 'Soon', enabled: false },
+  { id: '711', name: '7-Eleven', icon: '🏪', color: 'from-orange-500 to-red-600', tag: 'Soon', enabled: false },
+  { id: 'coins', name: 'Coins.ph', icon: '🪙', color: 'from-yellow-500 to-amber-600', tag: 'Soon', enabled: false },
 ]
 
 export const CRYPTO_DEPOSIT: PayMethod[] = [
-  { id: 'usdt-trc', name: 'USDT', icon: '₮', color: 'from-teal-500 to-emerald-600', tag: 'TRC20' },
-  { id: 'usdt-erc', name: 'USDT', icon: '₮', color: 'from-indigo-500 to-blue-700', tag: 'ERC20' },
-  { id: 'ton', name: 'TON', icon: '💎', color: 'from-sky-400 to-blue-600', tag: 'TON' },
-  { id: 'btc', name: 'Bitcoin', icon: '₿', color: 'from-orange-400 to-amber-600', tag: 'BTC' },
-  { id: 'eth', name: 'Ethereum', icon: 'Ξ', color: 'from-purple-500 to-indigo-700', tag: 'ETH' },
-  { id: 'bnb', name: 'BNB', icon: '◈', color: 'from-yellow-400 to-yellow-600', tag: 'BEP20' },
+  { id: 'usdt-trc', name: 'USDT', icon: '₮', color: 'from-teal-500 to-emerald-600', tag: 'Soon', enabled: false },
+  { id: 'usdt-erc', name: 'USDT', icon: '₮', color: 'from-indigo-500 to-blue-700', tag: 'Soon', enabled: false },
+  { id: 'ton', name: 'TON', icon: '💎', color: 'from-sky-400 to-blue-600', tag: 'Soon', enabled: false },
+  { id: 'btc', name: 'Bitcoin', icon: '₿', color: 'from-orange-400 to-amber-600', tag: 'Soon', enabled: false },
+  { id: 'eth', name: 'Ethereum', icon: 'Ξ', color: 'from-purple-500 to-indigo-700', tag: 'Soon', enabled: false },
+  { id: 'bnb', name: 'BNB', icon: '◈', color: 'from-yellow-400 to-yellow-600', tag: 'Soon', enabled: false },
 ]
 
 export const FIAT_WITHDRAW: PayMethod[] = [

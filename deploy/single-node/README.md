@@ -1,5 +1,7 @@
 # single-node 部署
 
+**服务器规格（各场景最低/推荐内存、CPU、磁盘）**：见 [docs/ops/SERVER-SIZING.md](../../docs/ops/SERVER-SIZING.md)。
+
 ## 默认：生产栈（2C2G）
 
 | 容器 | 作用 |

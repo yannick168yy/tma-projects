@@ -19,6 +19,8 @@ interface TelegramWebApp {
   disableVerticalSwipes?: () => void
   enableVerticalSwipes?: () => void
   isVerticalSwipesEnabled?: boolean
+  openLink?: (url: string) => void
+  openInvoice?: (url: string, callback?: (status: string) => void) => void
 }
 
 interface Window {
