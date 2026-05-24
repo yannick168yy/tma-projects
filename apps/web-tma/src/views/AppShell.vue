@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import {
   ChevronDown,
   Wallet,
@@ -8,6 +8,7 @@ import {
   Menu,
   Dices,
 } from 'lucide-vue-next'
+import BetogoLogo from '@/components/BetogoLogo.vue'
 import ProfileAvatar from '@/components/ProfileAvatar.vue'
 import WalletModal from '@/components/wallet/WalletModal.vue'
 import SearchOverlay from '@/components/search/SearchOverlay.vue'
@@ -59,6 +60,15 @@ function openProfile() {
   profileOpen.value = true
 }
 
+/** Dev-only: ?figma=search|wallet|profile for Figma capture screenshots */
+onMounted(() => {
+  if (!import.meta.env.DEV) return
+  const preset = new URLSearchParams(window.location.search).get('figma')
+  if (preset === 'search') searchOpen.value = true
+  if (preset === 'wallet') walletModalOpen.value = true
+  if (preset === 'profile') profileOpen.value = true
+})
+
 function navIcon(id: string) {
   switch (id) {
     case 'cashier':
@@ -80,9 +90,8 @@ function navIcon(id: string) {
     <div class="app-frame relative flex w-full max-w-[430px] flex-col overflow-hidden bg-background">
       <header class="relative z-10 flex-shrink-0">
         <div class="app-safe-header flex items-center gap-3 px-4 pb-4">
-          <button type="button" class="flex flex-shrink-0 cursor-pointer items-baseline leading-none" @click="goHome">
-            <span class="font-display text-xl font-black leading-none tracking-tight text-white">TARSIER</span>
-            <span class="font-display text-xl font-black leading-none tracking-tight text-primary">WIN</span>
+          <button type="button" class="flex-shrink-0 cursor-pointer" @click="goHome">
+            <BetogoLogo />
           </button>
 
           <div class="flex flex-1 items-center justify-center gap-3">

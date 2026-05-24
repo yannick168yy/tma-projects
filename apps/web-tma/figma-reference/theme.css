@@ -180,3 +180,81 @@
     line-height: 1.5;
   }
 }
+
+/* ── Synced from apps/web-tma/src/styles/app-shell.css (2026-05-24) ── */
+:root {
+  --tg-safe-top: 0px;
+  --tg-safe-bottom: 0px;
+  --tg-safe-left: 0px;
+  --tg-safe-right: 0px;
+  --app-safe-top: max(1.25rem, env(safe-area-inset-top, 0px));
+  --app-safe-bottom: max(0.75rem, env(safe-area-inset-bottom, 0px));
+  --app-safe-left: env(safe-area-inset-left, 0px);
+  --app-safe-right: env(safe-area-inset-right, 0px);
+}
+
+html.is-telegram-webapp {
+  --app-safe-top: max(1.25rem, var(--tg-safe-top));
+  --app-safe-bottom: max(0.75rem, var(--tg-safe-bottom));
+  --app-safe-left: var(--tg-safe-left);
+  --app-safe-right: var(--tg-safe-right);
+}
+
+html, body, #root {
+  height: 100%;
+  height: 100dvh;
+}
+
+body {
+  overflow: hidden;
+  overscroll-behavior: none;
+  touch-action: pan-y;
+}
+
+.page-scroll {
+  min-height: 0;
+  flex: 1 1 0%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+}
+
+.app-safe-header { padding-top: var(--app-safe-top); }
+.app-safe-nav { padding-bottom: var(--app-safe-bottom); }
+.app-frame {
+  padding-left: var(--app-safe-left);
+  padding-right: var(--app-safe-right);
+}
+
+[data-bottom-sheet] {
+  touch-action: none;
+  overscroll-behavior: none;
+  transform: translate(-50%, var(--sheet-drag-y, 0px));
+  transition: transform 0.28s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+[data-bottom-sheet].bottom-sheet--dragging {
+  transition: none;
+  will-change: transform;
+}
+
+[data-bottom-sheet-backdrop] {
+  opacity: var(--sheet-backdrop-opacity, 0.7);
+  transition: opacity 0.28s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+[data-bottom-sheet-backdrop].bottom-sheet--dragging { transition: none; }
+
+[data-bottom-sheet] [data-sheet-scroll] {
+  touch-action: pan-y;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+[data-bottom-sheet] [data-sheet-scroll] button,
+[data-bottom-sheet] [data-sheet-scroll] a,
+[data-bottom-sheet] [data-sheet-scroll] [role='button'] {
+  touch-action: pan-y;
+}

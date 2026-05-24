@@ -920,11 +920,10 @@ function SearchOverlay({ onClose }: { onClose: () => void }) {
 
   return (
     <>
-      {/* Backdrop */}
-      <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm" onClick={onClose} />
-      {/* Bottom sheet */}
+      <div data-bottom-sheet-backdrop className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm" onClick={onClose} />
       <div
-        className="fixed bottom-0 left-1/2 -translate-x-1/2 z-50 w-full max-w-[430px] bg-card rounded-t-3xl flex flex-col"
+        data-bottom-sheet
+        className="fixed bottom-0 left-1/2 z-50 flex w-full max-w-[430px] flex-col rounded-t-3xl bg-card"
         style={{ height: "86vh" }}
       >
       {/* Handle */}
@@ -977,8 +976,7 @@ function SearchOverlay({ onClose }: { onClose: () => void }) {
         </p>
       </div>
 
-      {/* Game grid */}
-      <div className="flex-1 overflow-y-auto px-4 pb-6" style={{ scrollbarWidth: "none" }}>
+      <div data-sheet-scroll className="page-scroll flex-1 px-4 pb-6 hide-scrollbar">
         {displayed.length > 0 ? (
           <div className="grid grid-cols-3 gap-3">
             {displayed.map((g, i) => (
@@ -1788,12 +1786,10 @@ function WalletModal({ open, onClose }: { open: boolean; onClose: () => void }) 
 
   return (
     <>
-      {/* Backdrop */}
-      <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm" onClick={onClose} />
-
-      {/* Bottom sheet — +10% taller: 92 → ~101 capped at safe max */}
+      <div data-bottom-sheet-backdrop className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm" onClick={onClose} />
       <div
-        className="fixed bottom-0 left-1/2 -translate-x-1/2 z-50 w-full max-w-[430px] bg-card rounded-t-3xl flex flex-col"
+        data-bottom-sheet
+        className="fixed bottom-0 left-1/2 z-50 flex w-full max-w-[430px] flex-col rounded-t-3xl bg-card"
         style={{ height: "86vh", maxHeight: "86vh" }}
       >
         {/* Handle */}
@@ -1912,7 +1908,7 @@ function WalletModal({ open, onClose }: { open: boolean; onClose: () => void }) 
         )}
 
         {/* ── Scrollable content — fixed height, same across all tabs ── */}
-        <div className="overflow-y-auto px-5 pb-8 pt-4 flex-1" style={{ scrollbarWidth: "none" }}>
+        <div data-sheet-scroll className="page-scroll flex-1 px-5 pb-8 pt-4 hide-scrollbar">
 
           {/* Deposit / Withdraw */}
           {tab !== "history" && (
@@ -2201,20 +2197,33 @@ export default function App() {
   ];
 
   return (
-    <div className="flex justify-center items-start min-h-screen bg-[#040609]">
+    <div className="flex h-dvh w-full justify-center bg-[#040609]">
       <div
-        className="relative bg-background w-full max-w-[430px] min-h-screen flex flex-col overflow-hidden"
-        style={{ fontFamily: "'Nunito', sans-serif" }}
+        className="app-frame relative flex w-full max-w-[430px] flex-col overflow-hidden bg-background"
+        style={{ fontFamily: "'Nunito', sans-serif", height: "100dvh" }}
       >
 
-        {/* ── 1. HEADER ──────────────────────────────────────── */}
-        <header className="relative flex-shrink-0">
-          <div className="flex items-center px-4 pt-5 pb-4 gap-3">
+        <header className="relative z-10 flex-shrink-0">
+          <div className="app-safe-header flex items-center gap-3 px-4 pb-4">
 
             {/* Logo — always visible, click to go home */}
-            <div className="flex-shrink-0 leading-none flex items-baseline cursor-pointer" onClick={() => { setActiveNav("casino"); setProfileOpen(false); setPromoFilter(null); }}>
-              <span className="text-white font-black leading-none tracking-tight" style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: "1.25rem" }}>TARSIER</span>
-              <span className="text-primary font-black leading-none tracking-tight" style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: "1.25rem" }}>WIN</span>
+            <div
+              className="relative flex flex-shrink-0 cursor-pointer items-center justify-center"
+              onClick={() => { setActiveNav("casino"); setProfileOpen(false); setPromoFilter(null); }}
+              role="img"
+              aria-label="Bet.Go.Win"
+            >
+              <div className="flex flex-col leading-none" style={{ gap: 2.5 }}>
+                <div className="flex items-baseline">
+                  <span className="font-black leading-none text-white" style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: "1.3rem" }}>BETO</span>
+                  <span className="font-black leading-none text-primary" style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: "1.3rem" }}>GO</span>
+                </div>
+                <div className="flex items-center leading-none" style={{ gap: 1 }}>
+                  <span style={{ fontFamily: "'Nunito', sans-serif", fontSize: "0.54rem", fontWeight: 800, color: "rgba(255,255,255,0.45)" }}>Bet.</span>
+                  <span style={{ fontFamily: "'Nunito', sans-serif", fontSize: "0.54rem", fontWeight: 800, color: "#FFB800" }}>Go.</span>
+                  <span style={{ fontFamily: "'Nunito', sans-serif", fontSize: "0.54rem", fontWeight: 800, color: "rgba(255,255,255,0.45)" }}>Win.</span>
+                </div>
+              </div>
             </div>
 
 
@@ -2337,7 +2346,8 @@ export default function App() {
         </header>
 
         {/* ── Scrollable body ─────────────────────────────────── */}
-        {profileOpen ? <ProfilePage /> : activeNav === "bonuses" ? <BonusesPage openWallet={openWallet} promoFilter={promoFilter} /> : activeNav === "bingo" ? <BingoPage openWallet={openWallet} /> : activeNav === "menu" ? <MenuPage onSearch={() => setSearchOpen(true)} /> : <div className="flex-1 overflow-y-auto overflow-x-hidden pb-20" style={{ scrollbarWidth: "none" }}>
+        <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        {profileOpen ? <ProfilePage /> : activeNav === "bonuses" ? <BonusesPage openWallet={openWallet} promoFilter={promoFilter} /> : activeNav === "bingo" ? <BingoPage openWallet={openWallet} /> : activeNav === "menu" ? <MenuPage onSearch={() => setSearchOpen(true)} /> : <div className="page-scroll flex-1 overflow-x-hidden pb-20 hide-scrollbar">
 
           {/* ── 2. CATEGORY MENU ──────────────────────────────── */}
           <div className="flex gap-3 px-4 pb-3 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
@@ -2606,9 +2616,9 @@ export default function App() {
             </button>
           </div>
         </div>}
+        </main>
 
-        {/* ── BOTTOM NAV ────────────────────────────────────── */}
-        <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[430px] bg-card border-t border-border flex items-center justify-around px-2 pt-2 pb-3 z-50">
+        <nav className="app-safe-nav relative z-20 flex flex-shrink-0 items-center justify-around border-t border-border bg-card px-2 pt-2">
           {NAV_ITEMS.map((item) => (
             <button
               key={item.id}
