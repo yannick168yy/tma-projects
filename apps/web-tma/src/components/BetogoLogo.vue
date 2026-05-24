@@ -21,7 +21,7 @@ withDefaults(
       <div class="flex items-center gap-px leading-none">
         <span class="text-[0.54rem] font-extrabold text-white/45">Bet.</span>
         <span class="text-[0.54rem] font-extrabold text-primary">Go.</span>
-        <span class="text-[0.54rem] font-extrabold text-white/45">Win.</span>
+        <span class="text-[0.54rem] font-extrabold text-white/45">Win</span>
       </div>
     </div>
     <span

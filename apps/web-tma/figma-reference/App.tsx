@@ -2221,7 +2221,7 @@ export default function App() {
                 <div className="flex items-center leading-none" style={{ gap: 1 }}>
                   <span style={{ fontFamily: "'Nunito', sans-serif", fontSize: "0.54rem", fontWeight: 800, color: "rgba(255,255,255,0.45)" }}>Bet.</span>
                   <span style={{ fontFamily: "'Nunito', sans-serif", fontSize: "0.54rem", fontWeight: 800, color: "#FFB800" }}>Go.</span>
-                  <span style={{ fontFamily: "'Nunito', sans-serif", fontSize: "0.54rem", fontWeight: 800, color: "rgba(255,255,255,0.45)" }}>Win.</span>
+                  <span style={{ fontFamily: "'Nunito', sans-serif", fontSize: "0.54rem", fontWeight: 800, color: "rgba(255,255,255,0.45)" }}>Win</span>
                 </div>
               </div>
             </div>
