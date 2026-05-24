@@ -106,11 +106,13 @@ run run -d --name tma-core-java --network "$NET" --restart=always \
 
 echo "==> [${CTR}] bff-node (limit 192m)"
 NACOS_IP="$(run inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' tma-nacos 2>/dev/null || echo "")"
+REDIS_IP="$(run inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' tma-redis 2>/dev/null || echo "")"
 if [[ -z "$NACOS_IP" ]]; then
   NACOS_ADDR="127.0.0.1:8848"
 else
   NACOS_ADDR="${NACOS_IP}:8848"
 fi
+REDIS_URL_WIRED="redis://${REDIS_IP:-127.0.0.1}:6379"
 run rm -f tma-bff-node 2>/dev/null || true
 run build -t betogo-bff-node:latest -f apps/bff-node/Dockerfile apps/bff-node
 run run -d --name tma-bff-node --network "$NET" --restart=always \
@@ -118,7 +120,7 @@ run run -d --name tma-bff-node --network "$NET" --restart=always \
   -p 127.0.0.1:3000:3000 \
   -e NODE_ENV=production \
   -e BFF_PORT=3000 \
-  -e REDIS_URL=redis://redis:6379 \
+  -e REDIS_URL="${REDIS_URL_WIRED}" \
   -e TELEGRAM_BOT_TOKEN="${TELEGRAM_BOT_TOKEN:?缺少 TELEGRAM_BOT_TOKEN}" \
   -e BFF_DEV_SKIP_TELEGRAM_AUTH="${BFF_DEV_SKIP_TELEGRAM_AUTH:-false}" \
   -e SESSION_TTL_SECONDS="${SESSION_TTL_SECONDS:-86400}" \
