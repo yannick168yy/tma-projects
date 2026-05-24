@@ -4,6 +4,8 @@ import { CheckCircle2, Copy, ChevronDown, ChevronRight, LogOut } from 'lucide-vu
 import { useAuthStore } from '@/stores/auth'
 import type { LoginProvider } from '@/types/api'
 import { formatTelegramHandle, getTelegramWebAppUser } from '@/utils/telegramUser'
+import ContactBrandIcon from '@/components/profile/ContactBrandIcon.vue'
+import ContactMethodRow from '@/components/profile/ContactMethodRow.vue'
 
 const emit = defineEmits<{ logout: [] }>()
 
@@ -30,6 +32,7 @@ const loginProvider = computed<LoginProvider>(
 )
 
 const isTelegramLogin = computed(() => loginProvider.value === 'telegram')
+const isGoogleLogin = computed(() => loginProvider.value === 'google')
 
 const telegramHandle = computed(() => {
   const fromApi = formatTelegramHandle(auth.user?.telegramUsername)
@@ -44,14 +47,14 @@ const telegramSubtitle = computed(() => {
 
 const googleEmail = computed(() => auth.user?.email?.trim() ?? '')
 
-const emailFieldValue = computed({
-  get: () => (loginProvider.value === 'google' ? googleEmail.value : emailExtra.value),
-  set: (v: string) => {
-    if (loginProvider.value !== 'google') emailExtra.value = v
-  },
-})
+const isGoogleEmailConnected = computed(() => isGoogleLogin.value && Boolean(googleEmail.value))
 
-const emailReadonly = computed(() => loginProvider.value === 'google' && Boolean(googleEmail.value))
+const emailRowTitle = computed(() => (isGoogleLogin.value ? 'Google' : 'Email Address'))
+
+const emailRowSubtitle = computed(() => {
+  if (isGoogleLogin.value) return googleEmail.value || 'Not connected'
+  return emailExtra.value.trim() || 'Add email (optional)'
+})
 
 /** Login method row appears first in Contact Information. */
 const contactOrder = computed(() =>
@@ -308,67 +311,59 @@ function savePersonal() {
         <h3 class="mb-3 font-display text-sm font-black text-foreground">CONTACT INFORMATION</h3>
         <div class="overflow-hidden rounded-2xl border border-border bg-card">
           <template v-for="(block, idx) in contactOrder" :key="block">
-            <div
-              v-if="block === 'telegram'"
-              class="flex items-center justify-between px-4 py-3"
-              :class="idx < contactOrder.length - 1 ? 'border-b border-border' : ''"
-            >
-              <div class="flex items-center gap-3">
-                <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500/15 text-lg">✈️</div>
-                <div>
-                  <p class="text-sm font-bold text-foreground">Telegram</p>
-                  <p
-                    class="text-xs"
-                    :class="isTelegramLogin ? 'text-emerald-400 font-semibold' : 'text-muted-foreground'"
-                  >
-                    {{ telegramSubtitle }}
-                  </p>
-                </div>
-              </div>
-              <span
-                v-if="isTelegramLogin"
-                class="rounded-lg bg-emerald-500/20 px-3 py-1.5 text-xs font-black text-emerald-400"
+            <div :class="idx < contactOrder.length - 1 ? 'border-b border-border' : ''">
+              <ContactMethodRow
+                v-if="block === 'telegram'"
+                title="Telegram"
+                :subtitle="telegramSubtitle"
+                :connected="isTelegramLogin"
+                :subtitle-connected="isTelegramLogin"
               >
-                Connected
-              </span>
-              <span
-                v-else
-                class="rounded-lg bg-secondary px-3 py-1.5 text-xs font-bold text-muted-foreground"
+                <template #icon>
+                  <ContactBrandIcon brand="telegram" />
+                </template>
+              </ContactMethodRow>
+
+              <ContactMethodRow
+                v-else-if="block === 'email'"
+                :title="emailRowTitle"
+                :subtitle="emailRowSubtitle"
+                :connected="isGoogleEmailConnected"
+                :subtitle-connected="isGoogleEmailConnected"
               >
-                —
-              </span>
-            </div>
+                <template #icon>
+                  <ContactBrandIcon :brand="isGoogleLogin ? 'google' : 'email'" />
+                </template>
+                <template v-if="!isGoogleLogin" #subtitle>
+                  <input
+                    v-model="emailExtra"
+                    type="email"
+                    placeholder="your@email.com"
+                    class="w-full bg-transparent text-xs font-semibold text-foreground placeholder:text-muted-foreground/40 focus:outline-none"
+                  />
+                </template>
+              </ContactMethodRow>
 
-            <div
-              v-else-if="block === 'phone'"
-              class="px-4 py-3"
-              :class="idx < contactOrder.length - 1 ? 'border-b border-border' : ''"
-            >
-              <label class="mb-1 block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Phone Number</label>
-              <div class="flex items-center gap-2">
-                <span class="text-sm text-muted-foreground">🇵🇭 +63</span>
-                <input
-                  v-model="phone"
-                  type="tel"
-                  placeholder="9XX XXX XXXX"
-                  class="flex-1 bg-transparent text-sm font-semibold text-foreground placeholder:text-muted-foreground/40 focus:outline-none"
-                />
-              </div>
-            </div>
-
-            <div v-else-if="block === 'email'" class="px-4 py-3">
-              <label class="mb-1 block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Email Address</label>
-              <input
-                v-model="emailFieldValue"
-                type="email"
-                :readonly="emailReadonly"
-                :placeholder="loginProvider === 'google' ? 'Google account email' : 'your@email.com'"
-                class="w-full bg-transparent text-sm font-semibold text-foreground placeholder:text-muted-foreground/40 focus:outline-none disabled:opacity-90"
-                :class="emailReadonly ? 'cursor-default' : ''"
-              />
-              <p v-if="loginProvider === 'google' && googleEmail" class="mt-1 text-[10px] font-semibold text-emerald-400">
-                Signed in with Google
-              </p>
+              <ContactMethodRow
+                v-else-if="block === 'phone'"
+                title="Phone Number"
+                subtitle="Add phone (optional)"
+              >
+                <template #icon>
+                  <ContactBrandIcon brand="phone" />
+                </template>
+                <template #subtitle>
+                  <div class="flex items-center gap-1.5">
+                    <span class="text-xs text-muted-foreground">🇵🇭 +63</span>
+                    <input
+                      v-model="phone"
+                      type="tel"
+                      placeholder="9XX XXX XXXX"
+                      class="min-w-0 flex-1 bg-transparent text-xs font-semibold text-foreground placeholder:text-muted-foreground/40 focus:outline-none"
+                    />
+                  </div>
+                </template>
+              </ContactMethodRow>
             </div>
           </template>
         </div>
