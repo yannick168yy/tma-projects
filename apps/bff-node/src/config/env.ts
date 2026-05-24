@@ -15,6 +15,12 @@ const schema = z.object({
   GOOGLE_REDIRECT_URI: z
     .string()
     .default('https://www.188facai.com/auth/google/callback'),
+  AMMER_PAY_PROVIDER_TOKEN: z.string().default(''),
+  USDT_TO_PHP_RATE: z.coerce.number().positive().default(58),
+  NACOS_SERVER_ADDR: z.string().default(''),
+  NACOS_NAMESPACE: z.string().default('batogo'),
+  NACOS_DATA_ID: z.string().default('bff-node'),
+  NACOS_GROUP: z.string().default('DEFAULT_GROUP'),
 })
 
 export type Env = z.infer<typeof schema>

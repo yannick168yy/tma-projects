@@ -79,14 +79,6 @@ export async function loginWithInitData(
     referredBy,
   })
 
-  if (referredBy && isNewUser) {
-    const inviter = await getUser(redis, referredBy)
-    if (inviter) {
-      inviter.referralReady = true
-      await saveUser(redis, inviter)
-    }
-  }
-
   return issueSession(redis, env, user, isNewUser)
 }
 

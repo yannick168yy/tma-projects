@@ -224,9 +224,9 @@ export const MENU_DATA: MenuSection[] = [
 
 export const LANGUAGES = [
   { code: 'en', label: 'English', flag: '🇺🇸' },
-  { code: 'fil', label: 'Filipino', flag: '🇵🇭' },
   { code: 'id', label: 'Bahasa', flag: '🇮🇩' },
   { code: 'vi', label: 'Tiếng Việt', flag: '🇻🇳' },
+  { code: 'zh-CN', label: '简体中文', flag: '🇨🇳' },
 ]
 
 const casinoSection = MENU_DATA.find((s) => s.id === 'casino')!

@@ -80,7 +80,7 @@
 | GET | `/user/me` | 当前用户资料 | — | TG 头像/昵称/id、平台 userId、邀请码、注册时间 | Profile、顶栏头像 | P0 |
 | GET | `/user/status` | 账号状态 | — | `active` / `frozen` / `banned`, `reason` | 启动门禁、游戏/提现拦截 | P0 |
 | PATCH | `/user/me` | 更新扩展资料 | 姓名、生日、性别、手机、邮箱等 | 更新后 profile | Profile 个人信息表单 | P1 |
-| PATCH | `/user/language` | 语言偏好 | `locale`: `en` \| `fil` | 当前 locale | Menu 语言切换 | P0 |
+| PATCH | `/user/language` | 语言偏好 | `locale`: `en` \| `id` \| `vi` \| `zh-CN` | 当前 locale | Menu 语言切换 | P0 |
 
 ---
 

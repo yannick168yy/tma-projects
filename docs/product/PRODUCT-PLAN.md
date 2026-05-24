@@ -530,6 +530,8 @@ flowchart TD
 
 原「待决策」均已按本章「〇、已确认决策摘要」关闭。后续变更走 PRD 变更记录。
 
+**v0.2 运营/基建补充**（Bot、Ammer Pay、MySQL、i18n、Nacos）：见 [V0.2-OPS-INFRA-DECISIONS.md](./V0.2-OPS-INFRA-DECISIONS.md)。
+
 ---
 
 ## 十二、附录

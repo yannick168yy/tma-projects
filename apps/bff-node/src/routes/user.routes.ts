@@ -1,5 +1,6 @@
 import Router from '@koa/router'
 import { getUser, saveUser } from '../services/store.js'
+import { isAppLocale } from '../types/locale.js'
 import { fail, ok } from '../utils/response.js'
 
 const router = new Router({ prefix: '/user' })
@@ -55,8 +56,8 @@ router.patch('/language', async (ctx) => {
     fail(ctx, 404, 'User not found', 404)
     return
   }
-  const body = ctx.request.body as { locale?: 'en' | 'fil' }
-  if (body.locale) user.locale = body.locale
+  const body = ctx.request.body as { locale?: string }
+  if (body.locale && isAppLocale(body.locale)) user.locale = body.locale
   await saveUser(ctx.state.redis, user)
   ok(ctx, { locale: user.locale })
 })

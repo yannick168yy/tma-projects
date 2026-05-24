@@ -17,6 +17,7 @@
     "koa": "^2.16.1",
     "google-auth-library": "^9.15.1",
     "koa-bodyparser": "^4.4.1",
+    "nacos": "^2.6.1",
     "uuid": "^11.1.0",
     "zod": "^3.24.2"
   },

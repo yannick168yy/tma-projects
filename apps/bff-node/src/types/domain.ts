@@ -1,5 +1,8 @@
+import type { AppLocale } from './locale.js'
+
 export type UserStatus = 'active' | 'frozen' | 'banned'
 export type KycStatus = 'none' | 'pending' | 'approved' | 'rejected'
+export type DepositCurrency = 'PHP' | 'USDT'
 
 export interface UserProfile {
   firstName: string
@@ -21,7 +24,9 @@ export interface UserRecord {
   avatarUrl?: string
   inviteCode: string
   referredBy?: string
-  locale: 'en' | 'fil'
+  locale: AppLocale
+  /** 被邀请人首充达标（≥₱100）已触发，避免重复处理 */
+  referralMilestoneMet?: boolean
   status: UserStatus
   statusReason?: string
   registeredAt: string
@@ -54,11 +59,13 @@ export interface DepositOrder {
   orderId: string
   userId: string
   amount: number
-  currency: 'PHP'
+  currency: DepositCurrency
   channelId: 'tg_wallet'
   status: 'pending' | 'paid' | 'failed' | 'cancelled'
   createdAt: string
   paidAt?: string
+  /** 入账 PHP 分（cents） */
+  creditedCents?: number
   tgWalletParams?: Record<string, string>
 }
 

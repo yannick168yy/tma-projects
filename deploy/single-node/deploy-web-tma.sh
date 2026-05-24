@@ -110,21 +110,11 @@ container_cmd() {
 }
 
 direct_build_run() {
-  local ctr
-  ctr="$(container_cmd)"
-  if [[ -z "$ctr" ]]; then
-    echo "未找到 docker / podman" >&2
-    exit 1
-  fi
-  echo "==> 使用 ${ctr} build 直接构建（阿里云无 compose 插件时的备用方案）"
+  echo "==> 无 compose 插件，使用 podman-prod-up.sh 全栈部署（2C2G 内存限制）"
   export WEB_TMA_PORT="$PORT"
-  "$ctr" build --no-cache -t tma-web-tma:latest -f apps/web-tma/Dockerfile apps/web-tma
-  "$ctr" rm -f tma-web-tma 2>/dev/null || true
-  if [[ "$ctr" == podman ]]; then
-    "$ctr" run -d --replace --name tma-web-tma -p "${PORT}:80" tma-web-tma:latest
-  else
-    "$ctr" run -d --name tma-web-tma -p "${PORT}:80" tma-web-tma:latest
-  fi
+  export CTR="$(container_cmd)"
+  chmod +x deploy/single-node/podman-prod-up.sh
+  bash deploy/single-node/podman-prod-up.sh
 }
 
 compose_up() {
@@ -164,9 +154,9 @@ if [[ -f deploy/single-node/nginx-bff-proxy.conf ]] && [[ ! -f "$NGINX_BFF_CONF"
 fi
 
 if docker ps --filter name=tma-web-tma 2>/dev/null | grep -q tma-web-tma; then
-  docker ps --filter name=tma-web-tma
+  docker ps -a --filter name=tma- --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" 2>/dev/null || docker ps --filter name=tma-web-tma
 elif podman ps --filter name=tma-web-tma 2>/dev/null | grep -q tma-web-tma; then
-  podman ps --filter name=tma-web-tma
+  podman ps -a --filter name=tma- --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" 2>/dev/null || podman ps --filter name=tma-web-tma
 else
   docker ps -a 2>/dev/null || podman ps -a
 fi
