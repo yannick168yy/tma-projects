@@ -4,6 +4,7 @@ import { Flame } from 'lucide-vue-next'
 import type { GameItem } from '@/data/home'
 
 defineProps<{ game: GameItem }>()
+const emit = defineEmits<{ tap: [] }>()
 
 const pressed = ref(false)
 </script>
@@ -17,6 +18,7 @@ const pressed = ref(false)
     @pointerup="pressed = false"
     @pointerleave="pressed = false"
     @pointercancel="pressed = false"
+    @click="emit('tap')"
   >
     <div class="absolute inset-0 bg-gradient-to-br" :class="game.gradient" />
     <div class="absolute inset-0 flex items-center justify-center">

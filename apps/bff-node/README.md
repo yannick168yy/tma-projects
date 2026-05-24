@@ -1,8 +1,39 @@
-# bff-node
+# BetoGo Node BFF (Koa)
 
-Node.js (Koa) BFF：Telegram `initData` 校验、Redis Session、用户/营销活动；代理 Core 只读接口。
+C 端唯一 REST API，v0.1 实现 [BFF-CLIENT-API.md](../../docs/product/BFF-CLIENT-API.md) 中 29 个接口。
 
-- 无状态，Session 仅存 Redis。
-- 目录约定见 [docs/STRUCTURE.md](../../docs/STRUCTURE.md)。
+## 本地开发
 
-下一步：初始化 `package.json`，安装 `koa`、`ioredis`、`@tma.js/init-data-node`（或自实现 HMAC）。
+```bash
+cd apps/bff-node
+cp .env.example .env   # 填入 TELEGRAM_BOT_TOKEN
+npm install
+npm run dev            # http://localhost:3000
+```
+
+Docker 全栈：`docker compose up -d --build`（见仓库根目录）。
+
+## 环境变量
+
+| 变量 | 说明 |
+|------|------|
+| `BFF_PORT` | 默认 3000 |
+| `REDIS_URL` | Session + 临时业务数据（Core Java 就绪前） |
+| `TELEGRAM_BOT_TOKEN` | BotFather token，校验 initData |
+| `BFF_DEV_SKIP_TELEGRAM_AUTH` | `true` 时浏览器无 initData 可 Dev 登录（勿用于生产） |
+| `SESSION_TTL_SECONDS` | Session TTL，默认 86400 |
+
+## v0.1 路由
+
+- `auth.routes.ts` — 认证与会话
+- `user.routes.ts` — 用户资料
+- `wallet.routes.ts` — 余额 / 摘要 / 流水倍数
+- `deposit.routes.ts` — TG Wallet 充值
+- `withdraw.routes.ts` — TG Wallet 提现
+- `ledger.routes.ts` — 账变流水
+- `kyc.routes.ts` — KYC
+- `promotion.routes.ts` — 活动与邀请
+
+## 架构说明
+
+当前无 Java Core，钱包与订单数据暂存 **Redis**（BFF 层临时方案）。`core-java` 就绪后，钱包读写改为代理 Core，Redis 仅保留 Session。

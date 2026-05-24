@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { storeToRefs } from 'pinia'
+import { usePromotionStore } from '@/stores/promotion'
 import {
   Search,
   ChevronLeft,
@@ -33,7 +35,24 @@ import {
 const emit = defineEmits<{
   openSearch: []
   openPromo: [promo: string | null]
+  gameTap: []
 }>()
+
+const promotion = usePromotionStore()
+const { highlightMap } = storeToRefs(promotion)
+
+function categoryBadge(promo: string | null, fallback: string | null) {
+  if (!promo) return fallback
+  const h = highlightMap.value.get(promo as 'trial' | 'referral' | 'firstdep')
+  if (h?.highlight && h.flagLabel) return h.flagLabel
+  return fallback
+}
+
+function categoryRing(promo: string | null) {
+  if (!promo) return ''
+  const h = highlightMap.value.get(promo as 'trial' | 'referral' | 'firstdep')
+  return h?.highlight ? 'ring-2 ring-primary ring-offset-2 ring-offset-background' : ''
+}
 
 const activeBanner = ref(0)
 const activeTab = ref<GameTabId>('all')
@@ -64,6 +83,7 @@ function tabIcon(id: GameTabId) {
         :key="c.label"
         type="button"
         class="flex-shrink-0 flex flex-col items-center gap-1.5 pt-2.5"
+        :class="categoryRing(c.promo)"
         @click="emit('openPromo', c.promo)"
       >
         <div
@@ -75,11 +95,11 @@ function tabIcon(id: GameTabId) {
             <span class="text-[36px] leading-none">{{ c.icon }}</span>
           </div>
           <div
-            v-if="c.badge"
+            v-if="categoryBadge(c.promo, c.badge)"
             class="absolute flex items-center gap-0.5 bg-red-500 text-white font-black z-10 whitespace-nowrap"
             style="top: -11px; left: 8px; font-size: 11px; padding: 4px 7px 4px 5px; border-radius: 6px 6px 6px 0; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5)"
           >
-            🔥 {{ c.badge }}
+            🔥 {{ categoryBadge(c.promo, c.badge) }}
             <span
               class="absolute"
               style="bottom: -6px; left: 0; width: 0; height: 0; border-left: 6px solid #ef4444; border-bottom: 6px solid transparent"
@@ -164,7 +184,7 @@ function tabIcon(id: GameTabId) {
         </div>
       </div>
       <div class="flex gap-3 px-4 overflow-x-auto hide-scrollbar">
-        <HistoryCard v-for="g in HISTORY_GAMES" :key="g.id" :game="g" />
+        <HistoryCard v-for="g in HISTORY_GAMES" :key="g.id" :game="g" @tap="emit('gameTap')" />
       </div>
     </section>
 
@@ -206,7 +226,7 @@ function tabIcon(id: GameTabId) {
         </div>
       </div>
       <div class="grid grid-cols-3 gap-2">
-        <GameCard v-for="g in POPULAR_GAMES" :key="g.id" :game="g" />
+        <GameCard v-for="g in POPULAR_GAMES" :key="g.id" :game="g" @tap="emit('gameTap')" />
       </div>
     </section>
 

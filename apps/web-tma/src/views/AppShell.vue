@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
+import { storeToRefs } from 'pinia'
 import {
   ChevronDown,
   Wallet,
@@ -18,6 +19,13 @@ import BingoPage from '@/views/BingoPage.vue'
 import MenuPage from '@/views/MenuPage.vue'
 import ProfilePage from '@/views/ProfilePage.vue'
 import { NAV_ITEMS } from '@/data/home'
+import { useAuthStore } from '@/stores/auth'
+import { useWalletStore } from '@/stores/wallet'
+
+const auth = useAuthStore()
+const wallet = useWalletStore()
+const { isLoggedIn } = storeToRefs(auth)
+const { displayPhp } = storeToRefs(wallet)
 
 type NavId = (typeof NAV_ITEMS)[number]['id']
 
@@ -30,8 +38,26 @@ const walletModalOpen = ref(false)
 const profileOpen = ref(false)
 
 function openWallet() {
+  if (!auth.requireLogin('Sign in to deposit or withdraw')) return
   walletOpen.value = false
   walletModalOpen.value = true
+}
+
+function onBalanceTap() {
+  if (!auth.isLoggedIn) {
+    auth.requireLogin('Sign in to view balance and top up')
+    return
+  }
+  walletOpen.value = !walletOpen.value
+}
+
+function openProfile() {
+  if (!auth.requireLogin('Sign in to view your profile')) return
+  profileOpen.value = true
+}
+
+function onGameTap() {
+  auth.requireLogin('Sign in to play games')
 }
 
 function goBonuses(promo: string | null = null) {
@@ -56,8 +82,10 @@ function goHome() {
   promoFilter.value = null
 }
 
-function openProfile() {
-  profileOpen.value = true
+function onLogout() {
+  profileOpen.value = false
+  walletOpen.value = false
+  walletModalOpen.value = false
 }
 
 /** Dev-only: ?figma=search|wallet|profile for Figma capture screenshots */
@@ -95,20 +123,22 @@ function navIcon(id: string) {
           </button>
 
           <div class="flex flex-1 items-center justify-center gap-3">
-            <button type="button" class="flex flex-col items-center gap-0.5" @click="walletOpen = !walletOpen">
+            <button type="button" class="flex flex-col items-center gap-0.5" @click="onBalanceTap">
               <span class="flex items-center gap-1 text-[11px] font-semibold leading-none text-muted-foreground">
-                PHP
+                {{ isLoggedIn ? 'PHP' : 'Sign in' }}
                 <ChevronDown
+                  v-if="isLoggedIn"
                   :size="11"
                   class="transition-transform duration-200"
                   :class="walletOpen ? 'rotate-180' : ''"
                 />
               </span>
               <span class="text-base font-black leading-tight text-white">
-                {{ balanceVisible ? '₱ 1,250.00' : '₱ ••••••' }}
+                {{ isLoggedIn ? (balanceVisible ? displayPhp : '₱ ••••••') : 'Tap to login' }}
               </span>
             </button>
             <button
+              v-if="isLoggedIn"
               type="button"
               class="flex items-center gap-1 whitespace-nowrap rounded-full bg-primary px-5 py-2 text-sm font-black text-primary-foreground shadow-lg shadow-amber-500/30 transition-colors hover:bg-yellow-400"
               @click="openWallet"
@@ -123,7 +153,7 @@ function navIcon(id: string) {
           </button>
         </div>
 
-        <template v-if="walletOpen">
+        <template v-if="walletOpen && isLoggedIn">
           <div class="fixed inset-0 z-40" @click="walletOpen = false" />
           <div
             class="absolute left-4 right-4 top-full z-50 -mt-1 overflow-hidden rounded-2xl border border-border bg-card shadow-2xl"
@@ -193,11 +223,11 @@ function navIcon(id: string) {
       </header>
 
       <main class="relative flex min-h-0 flex-1 flex-col overflow-hidden">
-        <ProfilePage v-if="profileOpen" />
+        <ProfilePage v-if="profileOpen" @logout="onLogout" />
         <BonusesPage v-else-if="activeNav === 'bonuses'" :promo-filter="promoFilter" @open-wallet="openWallet" />
         <BingoPage v-else-if="activeNav === 'bingo'" @open-wallet="openWallet" />
         <MenuPage v-else-if="activeNav === 'menu'" @open-search="searchOpen = true" />
-        <HomeContent v-else @open-search="searchOpen = true" @open-promo="goBonuses" />
+        <HomeContent v-else @open-search="searchOpen = true" @open-promo="goBonuses" @game-tap="onGameTap" />
       </main>
 
       <!-- Figma: bottom nav always visible, including on profile -->

@@ -1,0 +1,17 @@
+---
+description: Only commit/push GitHub or deploy Alibaba when user explicitly asks
+alwaysApply: true
+---
+
+# Git & deploy: user must ask first
+
+**Do not** run unless the user explicitly requests it in the current message:
+
+- **GitHub**: `git commit`, `git push`, or creating PRs
+- **Alibaba Cloud**: `deploy/single-node/deploy-web-tma.sh` or any remote deploy
+
+After code changes, default to **local Docker publish** (`docker compose up -d --build` from repo root; client at http://localhost:5173). Tell the user what changed; they will say when to commit or deploy.
+
+Typical triggers when the user *does* want action:
+- 提交 / commit / push / GitHub → commit and push
+- 部署 / deploy / 阿里云 → run deploy script

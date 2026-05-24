@@ -1,7 +1,12 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { CheckCircle2, Copy, ChevronDown, ChevronRight } from 'lucide-vue-next'
+import { CheckCircle2, Copy, ChevronDown, ChevronRight, LogOut } from 'lucide-vue-next'
+import { useAuthStore } from '@/stores/auth'
 
+const emit = defineEmits<{ logout: [] }>()
+
+const auth = useAuthStore()
+const loggingOut = ref(false)
 const personalSaved = ref(false)
 const copied = ref(false)
 const firstName = ref('')
@@ -15,7 +20,7 @@ const telegramLinked = ref(false)
 const phone = ref('')
 const email = ref('')
 
-const USER_ID = 'TW-8842916'
+const USER_ID = computed(() => auth.user?.id ?? '—')
 
 const MONTHS = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -69,9 +74,21 @@ const years = computed(() => {
 const days = Array.from({ length: 31 }, (_, i) => String(i + 1).padStart(2, '0'))
 
 function copyId() {
-  navigator.clipboard?.writeText(USER_ID).catch(() => {})
+  const id = auth.user?.id
+  if (!id) return
+  navigator.clipboard?.writeText(id).catch(() => {})
   copied.value = true
   setTimeout(() => { copied.value = false }, 2000)
+}
+
+async function onLogout() {
+  loggingOut.value = true
+  try {
+    await auth.logout()
+    emit('logout')
+  } finally {
+    loggingOut.value = false
+  }
 }
 
 function savePersonal() {
@@ -355,6 +372,19 @@ function savePersonal() {
             <ChevronRight :size="14" class="text-muted-foreground" />
           </button>
         </div>
+      </section>
+
+      <section>
+        <h3 class="mb-3 font-display text-sm font-black text-foreground">ACCOUNT</h3>
+        <button
+          type="button"
+          class="flex w-full items-center justify-center gap-2 rounded-2xl border border-red-500/30 bg-red-500/10 py-3 text-sm font-black text-red-400 transition-colors hover:bg-red-500/20 disabled:opacity-60"
+          :disabled="loggingOut"
+          @click="onLogout"
+        >
+          <LogOut :size="16" />
+          {{ loggingOut ? 'Signing out…' : 'Log out' }}
+        </button>
       </section>
 
       <div class="space-y-1 py-4 text-center">

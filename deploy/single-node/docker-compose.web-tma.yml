@@ -7,6 +7,11 @@ services:
     build:
       context: ../../apps/web-tma
       dockerfile: Dockerfile
+      args:
+        VITE_BFF_BASE_URL: ${VITE_BFF_BASE_URL:-https://www.188facai.com/api/v1}
+        VITE_USE_MOCK_API: ${VITE_USE_MOCK_API:-false}
+        VITE_GOOGLE_CLIENT_ID: ${VITE_GOOGLE_CLIENT_ID:-}
+        VITE_GOOGLE_REDIRECT_URI: ${VITE_GOOGLE_REDIRECT_URI:-https://www.188facai.com/auth/google/callback}
     image: tma-web-tma:latest
     container_name: tma-web-tma
     restart: unless-stopped

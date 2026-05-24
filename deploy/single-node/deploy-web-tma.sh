@@ -18,7 +18,7 @@ ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 HOST="${DEPLOY_HOST:?请设置 DEPLOY_HOST，例如 root@1.2.3.4}"
 DIR="${DEPLOY_DIR:-/opt/tma-projects}"
 PORT="${WEB_TMA_PORT:-8080}"
-COMPOSE_FILE="deploy/single-node/docker-compose.web-tma.yml"
+COMPOSE_FILE="${COMPOSE_FILE:-deploy/single-node/docker-compose.prod.yml}"
 
 SSH_BASE=(ssh)
 if [[ -n "${SSH_IDENTITY_FILE:-}" ]]; then
@@ -148,7 +148,20 @@ if [[ "$SKIP_GIT_PULL" != "1" ]] && [[ -d .git ]] && command -v git >/dev/null 2
   git pull --ff-only origin main || true
 fi
 
+# 生产环境：关闭 Dev 登录绕过
+if [[ -f .env ]]; then
+  sed -i 's/^BFF_DEV_SKIP_TELEGRAM_AUTH=true/BFF_DEV_SKIP_TELEGRAM_AUTH=false/' .env || true
+fi
+
 compose_up
+
+# 配置 Nginx 反向代理 /api/ → BFF（宝塔面板）
+NGINX_BFF_CONF="/www/server/panel/vhost/nginx/proxy/188facai.com/bff-api.conf"
+if [[ -f deploy/single-node/nginx-bff-proxy.conf ]] && [[ ! -f "$NGINX_BFF_CONF" ]]; then
+  echo "==> 安装 Nginx BFF 反向代理"
+  cp deploy/single-node/nginx-bff-proxy.conf "$NGINX_BFF_CONF"
+  nginx -t && nginx -s reload || systemctl reload nginx || true
+fi
 
 if docker ps --filter name=tma-web-tma 2>/dev/null | grep -q tma-web-tma; then
   docker ps --filter name=tma-web-tma

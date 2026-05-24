@@ -1,0 +1,110 @@
+export type UserStatus = 'active' | 'frozen' | 'banned'
+export type KycStatus = 'none' | 'pending' | 'approved' | 'rejected'
+
+export interface UserProfile {
+  firstName: string
+  lastName: string
+  gender: '' | 'male' | 'female' | 'other'
+  dobMonth: string
+  dobDay: string
+  dobYear: string
+  phone?: string
+  email?: string
+}
+
+export interface UserRecord {
+  id: string
+  telegramUserId?: number
+  googleSub?: string
+  email?: string
+  displayName: string
+  avatarUrl?: string
+  inviteCode: string
+  referredBy?: string
+  locale: 'en' | 'fil'
+  status: UserStatus
+  statusReason?: string
+  registeredAt: string
+  profile: UserProfile
+  trialClaimed: boolean
+  referralClaimed: boolean
+  firstDepClaimed: boolean
+  referralReady: boolean
+  firstDepReady: boolean
+}
+
+export interface SessionRecord {
+  userId: string
+  expiresAt: string
+}
+
+export interface WalletRecord {
+  available: number
+  frozen: number
+}
+
+export interface TurnoverRecord {
+  multiplier: number
+  required: number
+  completed: number
+  canWithdraw: boolean
+}
+
+export interface DepositOrder {
+  orderId: string
+  userId: string
+  amount: number
+  currency: 'PHP'
+  channelId: 'tg_wallet'
+  status: 'pending' | 'paid' | 'failed' | 'cancelled'
+  createdAt: string
+  paidAt?: string
+  tgWalletParams?: Record<string, string>
+}
+
+export interface WithdrawOrder {
+  orderId: string
+  userId: string
+  amount: number
+  currency: 'PHP'
+  channelId: 'tg_wallet'
+  status: 'pending' | 'processing' | 'completed' | 'rejected' | 'failed'
+  createdAt: string
+  completedAt?: string
+  rejectReason?: string
+}
+
+export interface LedgerEntry {
+  id: string
+  userId: string
+  type: 'deposit' | 'withdraw' | 'bet' | 'red_packet' | 'bonus'
+  amount: number
+  balanceAfter: number
+  refId?: string
+  description: string
+  createdAt: string
+  traceId?: string
+}
+
+export interface KycSubmission {
+  submissionId: string
+  userId: string
+  status: KycStatus
+  fullName: string
+  gender: string
+  dob: string
+  docType?: string
+  fileIds?: string[]
+  rejectReason?: string
+  submittedAt: string
+}
+
+export interface PromotionItem {
+  promoId: string
+  title: string
+  subtitle: string
+  description: string
+  ctaLabel: string
+  highlight: boolean
+  flagLabel: string | null
+}

@@ -2,10 +2,15 @@
 import type { GameItem } from '@/data/home'
 
 defineProps<{ game: GameItem }>()
+const emit = defineEmits<{ tap: [] }>()
 </script>
 
 <template>
-  <div class="flex-shrink-0 w-28 rounded-xl overflow-hidden relative cursor-pointer aspect-[3/4]">
+  <button
+    type="button"
+    class="flex-shrink-0 w-28 rounded-xl overflow-hidden relative aspect-[3/4] text-left"
+    @click="emit('tap')"
+  >
     <div class="absolute inset-0 bg-gradient-to-br" :class="game.gradient" />
     <div class="absolute inset-0 flex items-center justify-center">
       <span class="text-4xl">{{ game.icon }}</span>
@@ -16,5 +21,5 @@ defineProps<{ game: GameItem }>()
       </p>
       <p class="text-white/50 text-[9px] uppercase">{{ game.provider }}</p>
     </div>
-  </div>
+  </button>
 </template>

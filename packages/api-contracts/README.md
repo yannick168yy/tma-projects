@@ -1,3 +1,9 @@
-# api-contracts
+# OpenAPI contracts for BetoGo BFF ↔ Client
 
-竞彩平台 BFF 对外 OpenAPI、Core 内部 API 契约。前后端与 BFF→Core 以契约为准，便于未来拆服务时版本化。
+| File | Description |
+|------|-------------|
+| [openapi/bff-v1.yaml](./openapi/bff-v1.yaml) | v0.1 — 29 endpoints (auth, user, wallet, deposits, withdrawals, ledger, kyc, promotions) |
+
+Source of truth for product semantics: [docs/product/BFF-CLIENT-API.md](../../docs/product/BFF-CLIENT-API.md).
+
+Validate or preview with any OpenAPI 3 tool (Swagger UI, Redoc, `@redocly/cli`).

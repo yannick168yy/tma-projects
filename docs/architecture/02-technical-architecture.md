@@ -167,14 +167,16 @@ src/
 - 指标：回调 QPS、MQ 堆积、Consumer lag、Redis 余额操作耗时、DLQ 深度。
 - 日志：结构化 JSON（生产）。
 
-## 11. 本地开发
+## 11. 本地开发（Docker Only）
 
 ```bash
-docker compose up -d
-# MySQL localhost:3306  Redis :6379  RabbitMQ :5672  管理台 :15672
+cp .env.example .env
+docker compose up -d --build
+# 客户端 http://localhost:5173
+# MySQL :3306  Redis :6379  RabbitMQ :5672  管理台 :15672
 ```
 
-应用进程本机启动（后续步骤）：`web-tma` → `bff-node` → `core-java`。
+**不在本机**运行 Vite dev、Node BFF 或 Java Core 进程；后续 `bff-node`、`core-java` scaffold 后同样加入根目录 `docker-compose.yml`。
 
 ## 12. 配置分层
 

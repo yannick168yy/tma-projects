@@ -1,0 +1,61 @@
+# 阿里云单机：web-tma + bff-node + redis
+# 在仓库根目录: docker compose -f deploy/single-node/docker-compose.prod.yml up -d --build
+
+services:
+  redis:
+    image: redis:7.0-alpine
+    container_name: tma-redis
+    restart: unless-stopped
+    command: redis-server --maxmemory 128mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  bff-node:
+    build:
+      context: ../../apps/bff-node
+      dockerfile: Dockerfile
+    image: betogo-bff-node:latest
+    container_name: tma-bff-node
+    restart: unless-stopped
+    ports:
+      - '127.0.0.1:3000:3000'
+    environment:
+      NODE_ENV: production
+      BFF_PORT: 3000
+      REDIS_URL: redis://redis:6379
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:?Set TELEGRAM_BOT_TOKEN in .env}
+      BFF_DEV_SKIP_TELEGRAM_AUTH: ${BFF_DEV_SKIP_TELEGRAM_AUTH:-false}
+      SESSION_TTL_SECONDS: ${SESSION_TTL_SECONDS:-86400}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI:-https://www.188facai.com/auth/google/callback}
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '-O', '/dev/null', 'http://127.0.0.1:3000/health']
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  web-tma:
+    build:
+      context: ../../apps/web-tma
+      dockerfile: Dockerfile
+      args:
+        VITE_BFF_BASE_URL: ${VITE_BFF_BASE_URL:-https://www.188facai.com/api/v1}
+        VITE_USE_MOCK_API: ${VITE_USE_MOCK_API:-false}
+        VITE_GOOGLE_CLIENT_ID: ${VITE_GOOGLE_CLIENT_ID:-}
+        VITE_GOOGLE_REDIRECT_URI: ${VITE_GOOGLE_REDIRECT_URI:-https://www.188facai.com/auth/google/callback}
+    image: tma-web-tma:latest
+    container_name: tma-web-tma
+    restart: unless-stopped
+    ports:
+      - '${WEB_TMA_PORT:-8080}:80'
+    depends_on:
+      bff-node:
+        condition: service_healthy
