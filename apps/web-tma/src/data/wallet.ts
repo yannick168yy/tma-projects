@@ -32,7 +32,7 @@ export const TG_WALLET_DEPOSIT: PayMethod[] = [
     icon: '',
     iconKind: 'telegram',
     color: 'from-cyan-500 to-teal-600',
-    tag: 'USDT',
+    tag: 'USDT→PHP',
     enabled: true,
     channelId: 'tg_wallet',
     currency: 'USDT',

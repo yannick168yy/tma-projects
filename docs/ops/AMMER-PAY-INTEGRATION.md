@@ -44,7 +44,7 @@ curl "https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/setWebhook" \
 创建充值单后，需用 Bot API **`createInvoiceLink`** 或 **`sendInvoice`**：
 
 - `provider_token` = `AMMER_PAY_PROVIDER_TOKEN`
-- `currency` = `PHP` 或 `USDT`（与产品一致）
+- `currency` = **`PHP` only**（Telegram Bot API 不接受 `USDT`；用户选 USDT 时 BFF 按 `USDT_TO_PHP_RATE` 折算成 PHP 账单，入账仍按订单币种）
 - `payload` = 充值单 `orderId`（BFF 已写入 `invoice_payload`）
 
 用户支付成功后，Telegram 推送 `successful_payment` → Webhook 入账。

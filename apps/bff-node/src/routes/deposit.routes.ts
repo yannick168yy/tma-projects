@@ -1,7 +1,7 @@
 import Router from '@koa/router'
 import { getDeposit, listDeposits, saveDeposit } from '../services/store.js'
 import { settlePaidDeposit, type DepositCurrency } from '../services/deposit.service.js'
-import { createTelegramInvoiceLink } from '../services/telegramPayments.js'
+import { createTelegramInvoiceLink, orderToTelegramInvoice } from '../services/telegramPayments.js'
 import { nowIso } from '../utils/format.js'
 import { fail, ok } from '../utils/response.js'
 import { randomOrderId } from '../utils/id.js'
@@ -48,18 +48,20 @@ router.post('/', async (ctx) => {
 
   if (providerToken) {
     try {
+      const invoice = orderToTelegramInvoice(
+        currency,
+        body.amount,
+        ctx.state.env.USDT_TO_PHP_RATE,
+      )
       invoiceLink = await createTelegramInvoiceLink(
         ctx.state.env.TELEGRAM_BOT_TOKEN,
         providerToken,
         {
           title: 'BetoGo Deposit',
-          description:
-            currency === 'PHP'
-              ? `Deposit ₱${body.amount.toFixed(2)} via Telegram Wallet`
-              : `Deposit ${body.amount} USDT via Telegram Wallet`,
+          description: `Deposit ${invoice.descriptionSuffix} via Telegram Wallet`,
           payload: orderId,
-          currency,
-          amount: body.amount,
+          currency: invoice.currency,
+          amount: invoice.amount,
         },
       )
     } catch (e) {

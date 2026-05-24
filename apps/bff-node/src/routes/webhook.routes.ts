@@ -2,8 +2,6 @@ import Router from '@koa/router'
 import { settlePaidDeposit } from '../services/deposit.service.js'
 import { getDeposit } from '../services/store/index.js'
 import { ok } from '../utils/response.js'
-import type { DepositCurrency } from '../services/deposit.service.js'
-
 const router = new Router({ prefix: '/webhooks' })
 
 /**
@@ -40,14 +38,12 @@ router.post('/telegram', async (ctx) => {
     return
   }
 
-  const currency: DepositCurrency = payment.currency === 'USDT' ? 'USDT' : 'PHP'
-  const amountPhpUnits = currency === 'PHP' ? payment.total_amount / 100 : payment.total_amount
-
+  // Invoice is always PHP on Telegram; credit wallet per original order (PHP or USDT).
   await settlePaidDeposit(ctx.state.redis, order, {
     traceId: ctx.state.traceId,
     usdtToPhpRate: ctx.state.env.USDT_TO_PHP_RATE,
-    amountPhpUnits,
-    currency,
+    amountPhpUnits: order.amount,
+    currency: order.currency,
   })
 
   ok(ctx, { handled: true, orderId })
