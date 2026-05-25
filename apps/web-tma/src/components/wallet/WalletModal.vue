@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, toRef, watch } from 'vue'
+import { computed, nextTick, onUnmounted, ref, toRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useBottomSheetDrag } from '@/composables/useBottomSheetDrag'
 import {
@@ -11,7 +11,6 @@ import {
   CheckCircle2,
   AlertCircle,
   Loader2,
-  ChevronRight,
 } from 'lucide-vue-next'
 import PayMethodGrid from '@/components/wallet/PayMethodGrid.vue'
 import { createDeposit } from '@/api/deposit'
@@ -20,12 +19,20 @@ import { isTelegramWebApp } from '@/api/client'
 import { useWalletStore } from '@/stores/wallet'
 import { openTelegramInvoice, waitForDepositPaid } from '@/utils/tgInvoice'
 import {
+  fetchYfPayChannels,
+  createYfDeposit,
+  queryYfDeposit,
+  fetchYfDepositOrders,
+  fetchYfWithdrawOrders,
+  createYfWithdrawal,
+  type YfPayChannel,
+} from '@/api/yfpay'
+import {
   CRYPTO_DEPOSIT,
   CRYPTO_WITHDRAW,
   FIAT_DEPOSIT,
   FIAT_WITHDRAW,
   TG_WALLET_DEPOSIT,
-  TX_HISTORY,
   WALLET_BANNERS,
   type PayMethod,
 } from '@/data/wallet'
@@ -35,6 +42,20 @@ const emit = defineEmits<{ close: [] }>()
 
 const { t } = useI18n()
 const walletStore = useWalletStore()
+
+// ── types ────────────────────────────────────────────────────────────────────
+
+interface HistoryItem {
+  id: string
+  type: 'deposit' | 'withdraw'
+  method: string
+  amount: string
+  date: string
+  sortKey: string
+  status: 'success' | 'pending' | 'failed'
+}
+
+// ── bottom sheet ─────────────────────────────────────────────────────────────
 
 const walletTabs = computed(() => [
   { id: 'deposit' as const, label: t('wallet.deposit'), icon: ArrowDownToLine },
@@ -60,15 +81,191 @@ const { onPointerDown, onPointerUp, onPointerCancel } = useBottomSheetDrag(
   backdropRef,
 )
 
+// ── state ─────────────────────────────────────────────────────────────────────
+
 const tab = ref<'deposit' | 'withdraw' | 'history'>('deposit')
 const selectedMethod = ref<string | null>(null)
 const amount = ref('')
 const historyFilter = ref<'all' | 'deposit' | 'withdraw'>('all')
 const historyStatus = ref<'all' | 'success' | 'pending' | 'failed'>('all')
 const bannerIdx = ref(0)
+
+// deposit
 const depositLoading = ref(false)
 const depositMessage = ref('')
 const depositSuccess = ref(false)
+
+// YF Pay channels
+const yfpayChannels = ref<YfPayChannel[]>([])
+
+// YF Pay deposit polling
+let pollTimer: ReturnType<typeof setInterval> | null = null
+const pollSerial = ref('')
+const pollCount = ref(0)
+const MAX_POLLS = 60 // 60 × 3s = 3 min
+
+// withdraw form
+const withdrawAccount = ref('')
+const withdrawOwner = ref('')
+const withdrawLoading = ref(false)
+const withdrawMessage = ref('')
+const withdrawSuccess = ref(false)
+
+// history
+const historyOrders = ref<HistoryItem[]>([])
+const historyLoading = ref(false)
+
+// scroll ref for amount section
+const amountSectionRef = ref<HTMLElement | null>(null)
+
+// ── helpers ───────────────────────────────────────────────────────────────────
+
+function methodDisplayName(code: string): string {
+  const map: Record<string, string> = {
+    GCASH: 'GCash', GCash: 'GCash', gcash: 'GCash',
+    MAYA: 'Maya', Maya: 'Maya', maya: 'Maya',
+    BDO: 'BDO Bank', BPI: 'BPI Bank',
+  }
+  return map[code] ?? code ?? '—'
+}
+
+function formatOrderDate(iso: string): string {
+  try {
+    return new Date(iso).toLocaleString('en-PH', { dateStyle: 'short', timeStyle: 'short' })
+  } catch {
+    return iso
+  }
+}
+
+function mapDepositState(state: number): 'success' | 'pending' | 'failed' {
+  if (state === 2) return 'success'
+  if (state === 3) return 'failed'
+  return 'pending'
+}
+
+function mapWithdrawState(state: number): 'success' | 'pending' | 'failed' {
+  if (state === 1) return 'success'
+  if (state === 2 || state === 3) return 'failed'
+  return 'pending'
+}
+
+function stopPolling() {
+  if (pollTimer) {
+    clearInterval(pollTimer)
+    pollTimer = null
+  }
+  pollCount.value = 0
+}
+
+function statusIcon(status: string) {
+  if (status === 'success') return CheckCircle2
+  if (status === 'pending') return Loader2
+  return AlertCircle
+}
+
+// ── computed ──────────────────────────────────────────────────────────────────
+
+// Dynamically enable FIAT_DEPOSIT methods that match loaded YF Pay channels
+// Channel codes like "gcash-merchant1-test" → matched by startsWith("gcash")
+const liveFiatDeposit = computed((): PayMethod[] => {
+  return FIAT_DEPOSIT.map((m) => {
+    const ch = yfpayChannels.value.find((ch) =>
+      ch.code.toLowerCase().startsWith(m.id.toLowerCase()),
+    )
+    if (ch) {
+      return {
+        ...m,
+        id: `yfpay_${m.id}`,
+        tag: `₱${ch.min}–₱${ch.max}`,
+        enabled: true,
+        channelId: ch.code,
+        yfpayChannelCode: ch.code,
+        minAmount: ch.min,
+        maxAmount: ch.max,
+      }
+    }
+    return m
+  })
+})
+
+const isDeposit = computed(() => tab.value === 'deposit')
+const fiatList = computed(() => (isDeposit.value ? liveFiatDeposit.value : FIAT_WITHDRAW))
+const cryptoList = computed(() => (isDeposit.value ? CRYPTO_DEPOSIT : CRYPTO_WITHDRAW))
+const quickAmountsPhp = ['100', '500', '1000', '2000', '5000']
+const quickAmountsUsdt = ['10', '25', '50', '100']
+
+const allDepositMethods = computed(() => [
+  ...TG_WALLET_DEPOSIT,
+  ...liveFiatDeposit.value,
+  ...CRYPTO_DEPOSIT,
+])
+
+const selectedPayMethod = computed((): PayMethod | undefined =>
+  allDepositMethods.value.find((m) => m.id === selectedMethod.value),
+)
+
+const isCryptoMethod = computed(() => {
+  const id = selectedMethod.value ?? ''
+  return /usdt|ton|btc|eth|bnb/.test(id) && !id.startsWith('tg_wallet')
+})
+
+const isTgWallet = computed(() => selectedMethod.value?.startsWith('tg_wallet') ?? false)
+const isYfPay = computed(() => (selectedMethod.value ?? '').startsWith('yfpay_'))
+const isFiatWithdraw = computed(() => FIAT_WITHDRAW.some((m) => m.id === selectedMethod.value))
+
+const depositCurrency = computed(() => selectedPayMethod.value?.currency ?? 'PHP')
+const quickAmounts = computed(() =>
+  depositCurrency.value === 'USDT' ? quickAmountsUsdt : quickAmountsPhp,
+)
+
+const yfpayQuickAmounts = computed((): string[] => {
+  const m = selectedPayMethod.value
+  if (!m?.minAmount || !m?.maxAmount) return []
+  const min = m.minAmount
+  const max = m.maxAmount
+  const step = Math.max(1, Math.round((max - min) / 3))
+  return [min, min + step, min + step * 2, max]
+    .filter((v, i, a) => a.indexOf(v) === i && v <= max)
+    .map(String)
+})
+
+const withdrawOptionCode = computed(() => {
+  const map: Record<string, string> = {
+    'gcash-w': 'GCASH',
+    'maya-w': 'MAYA',
+    'bdo-w': 'BDO',
+    'bpi-w': 'BPI',
+  }
+  return map[selectedMethod.value ?? ''] ?? ''
+})
+
+const canSubmitDeposit = computed(() => {
+  if (!isDeposit.value || !selectedPayMethod.value?.channelId) return false
+  const n = Number(amount.value)
+  return !depositLoading.value && Number.isFinite(n) && n > 0
+})
+
+const canSubmitWithdraw = computed(() => {
+  if (tab.value !== 'withdraw' || !isFiatWithdraw.value) return false
+  const n = Number(amount.value)
+  return (
+    !withdrawLoading.value &&
+    Number.isFinite(n) &&
+    n > 0 &&
+    withdrawAccount.value.trim().length > 0 &&
+    withdrawOwner.value.trim().length > 0
+  )
+})
+
+const filteredHistory = computed(() =>
+  historyOrders.value.filter((tx) => {
+    const typeOk = historyFilter.value === 'all' || tx.type === historyFilter.value
+    const statusOk = historyStatus.value === 'all' || tx.status === historyStatus.value
+    return typeOk && statusOk
+  }),
+)
+
+// ── watch ─────────────────────────────────────────────────────────────────────
 
 watch(
   () => props.open,
@@ -84,52 +281,100 @@ watch(
       depositLoading.value = false
       depositMessage.value = ''
       depositSuccess.value = false
+      withdrawAccount.value = ''
+      withdrawOwner.value = ''
+      withdrawMessage.value = ''
+      withdrawSuccess.value = false
       void walletStore.refresh()
+      void fetchYfPayChannels()
+        .then((ch) => { yfpayChannels.value = ch })
+        .catch(() => {})
+    } else {
+      stopPolling()
     }
   },
 )
 
-const isDeposit = computed(() => tab.value === 'deposit')
-const fiatList = computed(() => (isDeposit.value ? FIAT_DEPOSIT : FIAT_WITHDRAW))
-const cryptoList = computed(() => (isDeposit.value ? CRYPTO_DEPOSIT : CRYPTO_WITHDRAW))
-const quickAmountsPhp = ['100', '500', '1000', '2000', '5000']
-const quickAmountsUsdt = ['10', '25', '50', '100']
-
-const allDepositMethods = computed(() => [...TG_WALLET_DEPOSIT, ...FIAT_DEPOSIT, ...CRYPTO_DEPOSIT])
-
-const selectedPayMethod = computed((): PayMethod | undefined =>
-  allDepositMethods.value.find((m) => m.id === selectedMethod.value),
-)
-
-const filteredHistory = computed(() =>
-  TX_HISTORY.filter((tx) => {
-    const typeOk = historyFilter.value === 'all' || tx.type === historyFilter.value
-    const statusOk = historyStatus.value === 'all' || tx.status === historyStatus.value
-    return typeOk && statusOk
-  }),
-)
-
-const isCryptoMethod = computed(() => {
-  const id = selectedMethod.value ?? ''
-  return /usdt|ton|btc|eth|bnb/.test(id) && !id.startsWith('tg_wallet')
+watch(tab, (newTab) => {
+  if (newTab === 'history') void loadHistory()
 })
 
-const isTgWallet = computed(() => selectedMethod.value?.startsWith('tg_wallet') ?? false)
-const depositCurrency = computed(() => selectedPayMethod.value?.currency ?? 'PHP')
-const quickAmounts = computed(() =>
-  depositCurrency.value === 'USDT' ? quickAmountsUsdt : quickAmountsPhp,
-)
-
-const canSubmitDeposit = computed(() => {
-  if (!isDeposit.value || !selectedPayMethod.value?.channelId) return false
-  const n = Number(amount.value)
-  return !depositLoading.value && Number.isFinite(n) && n > 0
+watch(selectedMethod, async (method) => {
+  if (!method) return
+  await nextTick()
+  amountSectionRef.value?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
 })
 
-function statusIcon(status: string) {
-  if (status === 'success') return CheckCircle2
-  if (status === 'pending') return Loader2
-  return AlertCircle
+onUnmounted(() => stopPolling())
+
+// ── actions ───────────────────────────────────────────────────────────────────
+
+async function pollYfDeposit() {
+  const serial = pollSerial.value
+  if (!serial) return
+  pollCount.value++
+  if (pollCount.value > MAX_POLLS) {
+    stopPolling()
+    depositLoading.value = false
+    depositMessage.value = t('wallet.yfpayDepositTimeout')
+    return
+  }
+  try {
+    const res = await queryYfDeposit(serial)
+    if (res.state === 2) {
+      stopPolling()
+      depositLoading.value = false
+      depositSuccess.value = true
+      depositMessage.value = t('wallet.yfpayDepositSuccess')
+      await walletStore.refresh()
+    } else if (res.state === 3) {
+      stopPolling()
+      depositLoading.value = false
+      depositMessage.value = t('wallet.yfpayDepositRejected')
+    }
+  } catch {
+    // network glitch — keep polling
+  }
+}
+
+async function onProceedYfDeposit() {
+  const method = selectedPayMethod.value
+  if (!method?.yfpayChannelCode) return
+  const num = Number(amount.value)
+  if (!Number.isFinite(num) || num <= 0) {
+    depositMessage.value = t('wallet.invalidAmount')
+    return
+  }
+  if (method.minAmount && num < method.minAmount) {
+    depositMessage.value = t('wallet.yfpayAmountOutOfRange', { min: method.minAmount, max: method.maxAmount })
+    return
+  }
+  if (method.maxAmount && num > method.maxAmount) {
+    depositMessage.value = t('wallet.yfpayAmountOutOfRange', { min: method.minAmount, max: method.maxAmount })
+    return
+  }
+
+  depositLoading.value = true
+  depositMessage.value = t('wallet.yfpayOpenBrowser')
+  depositSuccess.value = false
+  stopPolling()
+
+  try {
+    const result = await createYfDeposit(num, method.yfpayChannelCode)
+    pollSerial.value = result.merchantSerial
+
+    if (window.Telegram?.WebApp?.openLink) {
+      window.Telegram.WebApp.openLink(result.payUrl)
+    } else {
+      window.open(result.payUrl, '_blank')
+    }
+
+    depositMessage.value = t('wallet.yfpayWaitingPayment')
+    pollTimer = setInterval(pollYfDeposit, 3000)
+  } catch (e) {
+    depositLoading.value = false
+    depositMessage.value = e instanceof ApiError ? e.message : t('wallet.yfpayDepositFailed')
+  }
 }
 
 async function onProceedDeposit() {
@@ -188,6 +433,65 @@ async function onProceedDeposit() {
     depositLoading.value = false
   }
 }
+
+async function onProceedWithdraw() {
+  if (!canSubmitWithdraw.value) return
+  const n = Number(amount.value)
+  withdrawLoading.value = true
+  withdrawMessage.value = ''
+  withdrawSuccess.value = false
+  try {
+    await createYfWithdrawal({
+      amount: n,
+      targetOwner: withdrawOwner.value.trim(),
+      targetAccount: withdrawAccount.value.trim(),
+      optionCode: withdrawOptionCode.value || undefined,
+    })
+    withdrawSuccess.value = true
+    withdrawMessage.value = t('wallet.yfpayWithdrawPending')
+    await walletStore.refresh()
+  } catch (e) {
+    withdrawMessage.value = e instanceof ApiError ? e.message : t('wallet.yfpayWithdrawFailed')
+  } finally {
+    withdrawLoading.value = false
+  }
+}
+
+async function loadHistory() {
+  historyLoading.value = true
+  try {
+    const [deposits, withdrawals] = await Promise.all([
+      fetchYfDepositOrders(),
+      fetchYfWithdrawOrders(),
+    ])
+    const items: HistoryItem[] = [
+      ...deposits.map((d) => ({
+        id: d.merchantSerial,
+        type: 'deposit' as const,
+        method: methodDisplayName(d.channelCode ?? ''),
+        amount: `+₱${(d.amountCents / 100).toFixed(2)}`,
+        date: formatOrderDate(d.createdAt),
+        sortKey: d.createdAt,
+        status: mapDepositState(d.state),
+      })),
+      ...withdrawals.map((w) => ({
+        id: w.merchantSerial,
+        type: 'withdraw' as const,
+        method: methodDisplayName(w.optionCode ?? ''),
+        amount: `-₱${(w.amountCents / 100).toFixed(2)}`,
+        date: formatOrderDate(w.createdAt),
+        sortKey: w.createdAt,
+        status: mapWithdrawState(w.state),
+      })),
+    ]
+    items.sort((a, b) => b.sortKey.localeCompare(a.sortKey))
+    historyOrders.value = items
+  } catch {
+    historyOrders.value = []
+  } finally {
+    historyLoading.value = false
+  }
+}
 </script>
 
 <template>
@@ -240,7 +544,7 @@ async function onProceedDeposit() {
               ? 'bg-primary text-primary-foreground shadow shadow-amber-500/20'
               : 'bg-secondary text-muted-foreground hover:text-foreground'
           "
-          @click="tab = tabItem.id; selectedMethod = tabItem.id === 'deposit' ? 'tg_wallet_php' : null; amount = ''; depositMessage = ''"
+          @click="tab = tabItem.id; selectedMethod = tabItem.id === 'deposit' ? 'tg_wallet_php' : null; amount = ''; depositMessage = ''; withdrawMessage = ''"
         >
           <component :is="tabItem.icon" :size="14" />
           {{ tabItem.label }}
@@ -322,6 +626,7 @@ async function onProceedDeposit() {
       </div>
 
       <div data-sheet-scroll class="page-scroll flex-1 px-5 pb-8 pt-4 hide-scrollbar">
+        <!-- ── Deposit / Withdraw ───────────────────────────────────────────── -->
         <div v-if="tab !== 'history'" class="space-y-5">
           <div v-if="isDeposit">
             <p class="text-muted-foreground text-[11px] font-bold uppercase tracking-wider mb-2.5">
@@ -335,17 +640,24 @@ async function onProceedDeposit() {
           </div>
           <div>
             <p class="text-muted-foreground text-[11px] font-bold uppercase tracking-wider mb-2.5">{{ t('wallet.fiatSection') }}</p>
-            <PayMethodGrid :methods="fiatList" :selected="selectedMethod" @select="selectedMethod = $event" />
+            <PayMethodGrid
+              :methods="fiatList"
+              :selected="selectedMethod"
+              @select="selectedMethod = $event; amount = ''; depositMessage = ''; withdrawMessage = ''; withdrawAccount = ''; withdrawOwner = ''"
+            />
           </div>
           <div>
             <p class="text-muted-foreground text-[11px] font-bold uppercase tracking-wider mb-2.5">{{ t('wallet.cryptoSection') }}</p>
             <PayMethodGrid :methods="cryptoList" :selected="selectedMethod" @select="selectedMethod = $event" />
           </div>
 
-          <div v-if="selectedMethod && (isTgWallet || tab === 'withdraw')" class="space-y-3">
+          <!-- ── Amount + submit block ──────────────────────────────────────── -->
+          <div v-if="selectedMethod && (isTgWallet || isYfPay || tab === 'withdraw')" ref="amountSectionRef" class="space-y-3">
             <p class="text-muted-foreground text-[11px] font-bold uppercase tracking-wider">
               {{ isDeposit ? t('wallet.depositAmount') : t('wallet.withdrawAmount') }}
             </p>
+
+            <!-- Quick amounts: TG Wallet -->
             <div v-if="isDeposit && isTgWallet" class="flex gap-2 flex-wrap">
               <button
                 v-for="q in quickAmounts"
@@ -358,17 +670,22 @@ async function onProceedDeposit() {
                 {{ depositCurrency === 'USDT' ? `$${q}` : `₱${q}` }}
               </button>
             </div>
-            <div v-else-if="!isCryptoMethod && tab === 'deposit'" class="flex gap-2 flex-wrap">
+
+            <!-- Quick amounts: YF Pay fiat -->
+            <div v-else-if="isDeposit && isYfPay && yfpayQuickAmounts.length" class="flex gap-2 flex-wrap">
               <button
-                v-for="q in quickAmountsPhp"
+                v-for="q in yfpayQuickAmounts"
                 :key="q"
                 type="button"
-                class="px-3 py-1.5 rounded-lg text-xs font-bold transition-colors opacity-40"
-                disabled
+                class="px-3 py-1.5 rounded-lg text-xs font-bold transition-colors"
+                :class="amount === q ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground'"
+                @click="amount = q"
               >
                 ₱{{ q }}
               </button>
             </div>
+
+            <!-- Amount input -->
             <div class="relative">
               <span class="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground font-bold text-sm">
                 {{ isTgWallet && depositCurrency === 'USDT' ? '$' : isCryptoMethod ? '≈ $' : '₱' }}
@@ -380,6 +697,24 @@ async function onProceedDeposit() {
                 class="w-full bg-secondary border border-border rounded-xl pl-10 pr-4 py-3 text-foreground font-black text-lg focus:outline-none focus:border-primary"
               />
             </div>
+
+            <!-- Withdraw: account + owner fields -->
+            <template v-if="tab === 'withdraw' && isFiatWithdraw">
+              <input
+                v-model="withdrawAccount"
+                type="tel"
+                :placeholder="t('wallet.yfpayAccountNumber')"
+                class="w-full bg-secondary border border-border rounded-xl px-4 py-3 text-foreground font-bold text-sm focus:outline-none focus:border-primary"
+              />
+              <input
+                v-model="withdrawOwner"
+                type="text"
+                :placeholder="t('wallet.yfpayFullName')"
+                class="w-full bg-secondary border border-border rounded-xl px-4 py-3 text-foreground font-bold text-sm focus:outline-none focus:border-primary"
+              />
+            </template>
+
+            <!-- Status message -->
             <p
               v-if="depositMessage"
               class="text-xs font-bold text-center"
@@ -387,11 +722,19 @@ async function onProceedDeposit() {
             >
               {{ depositMessage }}
             </p>
+            <p
+              v-if="withdrawMessage"
+              class="text-xs font-bold text-center"
+              :class="withdrawSuccess ? 'text-emerald-400' : 'text-amber-400'"
+            >
+              {{ withdrawMessage }}
+            </p>
+
+            <!-- Submit: TG Wallet deposit -->
             <button
               v-if="isDeposit && isTgWallet"
               type="button"
-              class="w-full py-3.5 rounded-2xl font-black text-base flex items-center justify-center gap-2 shadow-lg disabled:opacity-50"
-              :class="'bg-primary text-primary-foreground hover:bg-yellow-400 shadow-amber-500/20'"
+              class="w-full py-3.5 rounded-2xl font-black text-base flex items-center justify-center gap-2 shadow-lg disabled:opacity-50 bg-primary text-primary-foreground hover:bg-yellow-400 shadow-amber-500/20"
               :disabled="!canSubmitDeposit"
               @click="onProceedDeposit"
             >
@@ -399,75 +742,91 @@ async function onProceedDeposit() {
               <ArrowDownToLine v-else :size="18" />
               {{ depositLoading ? t('wallet.openingPay') : t('wallet.payTelegram') }}
             </button>
+
+            <!-- Submit: YF Pay deposit -->
             <button
-              v-else-if="tab === 'withdraw'"
+              v-else-if="isDeposit && isYfPay"
               type="button"
-              class="w-full py-3.5 rounded-2xl font-black text-base flex items-center justify-center gap-2 shadow-lg bg-accent text-accent-foreground hover:bg-red-500 shadow-red-500/20"
+              class="w-full py-3.5 rounded-2xl font-black text-base flex items-center justify-center gap-2 shadow-lg disabled:opacity-50 bg-primary text-primary-foreground hover:bg-yellow-400 shadow-amber-500/20"
+              :disabled="!canSubmitDeposit || depositLoading"
+              @click="onProceedYfDeposit"
             >
-              <ArrowUpFromLine :size="18" />
-              {{ t('wallet.proceedWithdraw') }}
+              <Loader2 v-if="depositLoading" :size="18" class="animate-spin" />
+              <ArrowDownToLine v-else :size="18" />
+              {{ depositLoading ? t('wallet.yfpayWaitingPayment') : t('wallet.yfpayProceedDeposit') }}
+            </button>
+
+            <!-- Submit: YF Pay withdraw -->
+            <button
+              v-else-if="tab === 'withdraw' && isFiatWithdraw"
+              type="button"
+              class="w-full py-3.5 rounded-2xl font-black text-base flex items-center justify-center gap-2 shadow-lg disabled:opacity-50 bg-accent text-accent-foreground hover:bg-red-500 shadow-red-500/20"
+              :disabled="!canSubmitWithdraw"
+              @click="onProceedWithdraw"
+            >
+              <Loader2 v-if="withdrawLoading" :size="18" class="animate-spin" />
+              <ArrowUpFromLine v-else :size="18" />
+              {{ withdrawLoading ? t('wallet.openingPay') : t('wallet.yfpayWithdrawSubmit') }}
             </button>
           </div>
         </div>
 
+        <!-- ── History ──────────────────────────────────────────────────────── -->
         <div v-else class="space-y-2">
-          <div v-if="filteredHistory.length === 0" class="py-12 flex flex-col items-center gap-2 text-muted-foreground">
-            <History :size="32" class="opacity-30" />
-            <span class="text-sm">{{ t('common.noRecords') }}</span>
+          <div v-if="historyLoading" class="py-12 flex flex-col items-center gap-2 text-muted-foreground">
+            <Loader2 :size="28" class="opacity-50 animate-spin" />
           </div>
-          <div
-            v-for="tx in filteredHistory"
-            :key="tx.id"
-            class="flex items-center gap-3 bg-secondary rounded-2xl px-4 py-3"
-          >
+          <template v-else>
+            <div v-if="filteredHistory.length === 0" class="py-12 flex flex-col items-center gap-2 text-muted-foreground">
+              <History :size="32" class="opacity-30" />
+              <span class="text-sm">{{ t('common.noRecords') }}</span>
+            </div>
             <div
-              class="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-              :class="tx.type === 'deposit' ? 'bg-emerald-500/15' : 'bg-red-500/15'"
+              v-for="tx in filteredHistory"
+              :key="tx.id"
+              class="flex items-center gap-3 bg-secondary rounded-2xl px-4 py-3"
             >
-              <ArrowDownToLine v-if="tx.type === 'deposit'" :size="16" class="text-emerald-400" />
-              <ArrowUpFromLine v-else :size="16" class="text-red-400" />
-            </div>
-            <div class="flex-1 min-w-0">
-              <div class="flex items-center justify-between">
-                <span class="text-foreground font-bold text-sm">{{ tx.method }}</span>
-                <span class="font-black text-sm" :class="tx.type === 'deposit' ? 'text-emerald-400' : 'text-red-400'">
-                  {{ tx.amount }}
-                </span>
+              <div
+                class="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+                :class="tx.type === 'deposit' ? 'bg-emerald-500/15' : 'bg-red-500/15'"
+              >
+                <ArrowDownToLine v-if="tx.type === 'deposit'" :size="16" class="text-emerald-400" />
+                <ArrowUpFromLine v-else :size="16" class="text-red-400" />
               </div>
-              <div class="flex items-center justify-between mt-0.5">
-                <span class="text-muted-foreground text-xs">{{ tx.date }}</span>
-                <span class="flex items-center gap-1">
-                  <component
-                    :is="statusIcon(tx.status)"
-                    :size="14"
-                    :class="[
-                      tx.status === 'success' ? 'text-emerald-400' : '',
-                      tx.status === 'pending' ? 'text-yellow-400 animate-spin' : '',
-                      tx.status === 'failed' ? 'text-red-400' : '',
-                    ]"
-                  />
-                  <span
-                    class="text-[11px] font-bold capitalize"
-                    :class="{
-                      'text-emerald-400': tx.status === 'success',
-                      'text-yellow-400': tx.status === 'pending',
-                      'text-red-400': tx.status === 'failed',
-                    }"
-                  >
-                    {{ t(`common.${tx.status}`) }}
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center justify-between">
+                  <span class="text-foreground font-bold text-sm">{{ tx.method }}</span>
+                  <span class="font-black text-sm" :class="tx.type === 'deposit' ? 'text-emerald-400' : 'text-red-400'">
+                    {{ tx.amount }}
                   </span>
-                </span>
+                </div>
+                <div class="flex items-center justify-between mt-0.5">
+                  <span class="text-muted-foreground text-xs">{{ tx.date }}</span>
+                  <span class="flex items-center gap-1">
+                    <component
+                      :is="statusIcon(tx.status)"
+                      :size="14"
+                      :class="[
+                        tx.status === 'success' ? 'text-emerald-400' : '',
+                        tx.status === 'pending' ? 'text-yellow-400 animate-spin' : '',
+                        tx.status === 'failed' ? 'text-red-400' : '',
+                      ]"
+                    />
+                    <span
+                      class="text-[11px] font-bold capitalize"
+                      :class="{
+                        'text-emerald-400': tx.status === 'success',
+                        'text-yellow-400': tx.status === 'pending',
+                        'text-red-400': tx.status === 'failed',
+                      }"
+                    >
+                      {{ t(`common.${tx.status}`) }}
+                    </span>
+                  </span>
+                </div>
               </div>
             </div>
-          </div>
-          <button
-            v-if="filteredHistory.length > 0"
-            type="button"
-            class="w-full py-3 rounded-xl bg-secondary text-muted-foreground text-xs font-bold flex items-center justify-center gap-1.5 mt-2"
-          >
-            {{ t('common.loadMore') }}
-            <ChevronRight :size="13" />
-          </button>
+          </template>
         </div>
       </div>
     </div>

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 阿里云 2C2G：web-tma + bff-node + redis + 容器 MySQL（betogo，与宝塔独立）
+# 阿里云 2C2G：web-tma + bff-node + core-node + nats + redis + 容器 MySQL（betogo）
 # 表结构：infra/database/betogo/001_schema.sql（与本地 scripts/apply-betogo-schema.sh 同源）
 set -euo pipefail
 
@@ -42,7 +42,7 @@ run() {
   fi
 }
 
-OPTIONAL_CONTAINERS=(tma-nacos tma-rabbitmq tma-core-java)
+OPTIONAL_CONTAINERS=(tma-nacos tma-rabbitmq tma-core-java tma-core-node tma-nats)
 
 echo "==> [${CTR}] 停用非必需组件（保留 tma-mysql 数据卷）"
 for name in "${OPTIONAL_CONTAINERS[@]}"; do
@@ -87,9 +87,45 @@ run run -d --name tma-redis --network "$NET" --network-alias redis --restart=alw
   redis:7.0-alpine \
   redis-server --maxmemory 64mb --maxmemory-policy allkeys-lru --save "" --appendonly no
 
-echo "==> [${CTR}] bff-node (MySQL store + Redis session)"
 REDIS_IP="$(run inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' tma-redis 2>/dev/null || echo "")"
 REDIS_URL_WIRED="redis://${REDIS_IP:-127.0.0.1}:6379"
+
+echo "==> [${CTR}] NATS JetStream (limit 64m)"
+run volume create tma-nats-data 2>/dev/null || true
+run run -d --name tma-nats --network "$NET" --network-alias nats --restart=always \
+  --memory=64m --memory-swap=64m \
+  -p 127.0.0.1:4222:4222 \
+  -v tma-nats-data:/data:Z \
+  nats:2.10-alpine \
+  -js --store_dir=/data
+
+echo "==> 等待 NATS 就绪…"
+for i in $(seq 1 10); do
+  run exec tma-nats nats-server --version >/dev/null 2>&1 && break || sleep 1
+done
+
+echo "==> [${CTR}] core-node (Fastify, limit 192m)"
+run rm -f tma-core-node 2>/dev/null || true
+run build -t betogo-core-node:latest -f apps/core-node/Dockerfile apps/core-node
+NATS_IP="$(run inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' tma-nats 2>/dev/null || echo "")"
+run run -d --name tma-core-node --network "$NET" --restart=always \
+  --memory=192m --memory-swap=192m \
+  -p 127.0.0.1:4000:4000 \
+  -e NODE_ENV=production \
+  -e CORE_PORT=4000 \
+  -e REDIS_URL="${REDIS_URL_WIRED}" \
+  -e NATS_URL="nats://${NATS_IP:-127.0.0.1}:4222" \
+  -e NATS_STREAM="${NATS_STREAM:-BETOGO}" \
+  -e NATS_LEDGER_SUBJECT="${NATS_LEDGER_SUBJECT:-betogo.ledger}" \
+  -e NATS_CALLBACK_SUBJECT="${NATS_CALLBACK_SUBJECT:-betogo.callback}" \
+  -e MYSQL_HOST=mysql \
+  -e MYSQL_PORT=3306 \
+  -e MYSQL_DATABASE="${MYSQL_DATABASE:-betogo}" \
+  -e MYSQL_USER="${MYSQL_BETOGO_USER}" \
+  -e MYSQL_PASSWORD="${MYSQL_BETOGO_PASSWORD}" \
+  betogo-core-node:latest
+
+echo "==> [${CTR}] bff-node (MySQL store + Redis session)"
 run rm -f tma-bff-node 2>/dev/null || true
 run build -t betogo-bff-node:latest -f apps/bff-node/Dockerfile apps/bff-node
 run run -d --name tma-bff-node --network "$NET" --restart=always \
@@ -112,6 +148,10 @@ run run -d --name tma-bff-node --network "$NET" --restart=always \
   -e GOOGLE_REDIRECT_URI="${GOOGLE_REDIRECT_URI:-https://www.188facai.com/auth/google/callback}" \
   -e AMMER_PAY_PROVIDER_TOKEN="${AMMER_PAY_PROVIDER_TOKEN:-}" \
   -e USDT_TO_PHP_RATE="${USDT_TO_PHP_RATE:-58}" \
+  -e YFPAY_USERNAME="${YFPAY_USERNAME:-}" \
+  -e YFPAY_API_KEY="${YFPAY_API_KEY:-}" \
+  -e YFPAY_NOTIFY_URL="${YFPAY_NOTIFY_URL:-https://www.188facai.com/api/v1/callback/yfpay}" \
+  -e CORE_NODE_URL=http://core-node:4000 \
   betogo-bff-node:latest
 
 echo "==> [${CTR}] web-tma (limit 64m)"
@@ -130,12 +170,13 @@ run run -d --name tma-web-tma --restart=always \
   tma-web-tma:latest
 
 echo "==> 等待服务就绪…"
-sleep 8
+sleep 10
 curl -sf http://127.0.0.1:3000/health >/dev/null && echo "  bff-node: ok" || echo "  bff-node: 未就绪"
+curl -sf http://127.0.0.1:4000/health >/dev/null && echo "  core-node: ok" || echo "  core-node: 未就绪"
 run exec tma-redis redis-cli ping 2>/dev/null | grep -q PONG && echo "  redis: ok" || echo "  redis: 未就绪"
 run exec tma-mysql mysqladmin ping -h localhost -uroot -p"${MYSQL_ROOT_PASSWORD}" 2>/dev/null | grep -q alive && echo "  mysql: ok" || echo "  mysql: 未就绪"
 run exec tma-mysql mysql -u"${MYSQL_BETOGO_USER}" -p"${MYSQL_BETOGO_PASSWORD}" "${MYSQL_DATABASE:-betogo}" -e "SHOW TABLES LIKE 'bg_user';" 2>/dev/null | grep -q bg_user && echo "  betogo schema: ok" || echo "  betogo schema: check failed"
 
 echo ""
-echo "已启动：web + BFF(MySQL) + Redis + MySQL(:13306)。表结构变更请改 infra/database/betogo/ 后重跑 apply-betogo-schema.sh"
+echo "已启动：web + BFF + core-node + NATS + Redis + MySQL(:13306)"
 run ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"

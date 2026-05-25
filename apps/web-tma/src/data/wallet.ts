@@ -6,11 +6,14 @@ export interface PayMethod {
   icon: string
   color: string
   tag: string
-  /** false = greyed out, not selectable (v0.2 deposit) */
+  /** false = greyed out, not selectable */
   enabled?: boolean
   channelId?: string
   currency?: DepositCurrency
   iconKind?: 'emoji' | 'telegram'
+  yfpayChannelCode?: string
+  minAmount?: number
+  maxAmount?: number
 }
 
 /** Telegram Wallet via Ammer Pay — only live deposit channel in v0.2 */

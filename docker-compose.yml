@@ -1,6 +1,6 @@
-# BetoGo 本地环境 — 默认：mysql + redis + bff-node + web-tma（表结构见 infra/database/betogo/）
+# BetoGo 本地环境 — 默认：mysql + redis + nats + bff-node + core-node + web-tma
 # 用法: cp .env.example .env && ./scripts/local-deploy.sh
-# 可选: docker compose --profile full up -d  # 额外 nacos / rabbitmq
+# 可选: docker compose --profile full up -d  # 额外启动服务
 
 services:
   mysql:
@@ -43,7 +43,6 @@ services:
       - "${REDIS_PORT:-6379}:6379"
     volumes:
       - redis_data:/data
-    # 开发环境关闭 RDB/AOF，配合 maxmemory 保持轻量
     command:
       - redis-server
       - --maxmemory
@@ -64,57 +63,115 @@ services:
         limits:
           memory: 192M
 
-  nacos:
-    profiles: ["full"]
-    image: nacos/nacos-server:v2.3.2-slim
-    container_name: tma-nacos
+  nats:
+    image: nats:2.10-alpine
+    container_name: tma-nats
     restart: unless-stopped
     ports:
-      - "${NACOS_PORT:-8848}:8848"
-    environment:
-      MODE: standalone
-      NACOS_AUTH_ENABLE: "false"
-      JVM_XMS: 256m
-      JVM_XMX: 256m
-      JVM_XMN: 128m
+      - "${NATS_PORT:-4222}:4222"
+      - "${NATS_MONITOR_PORT:-8222}:8222"
+    command:
+      - -js                          # 启用 JetStream
+      - -m=8222                      # 监控端口
+      - --store_dir=/data
     volumes:
-      - nacos_data:/home/nacos/data
+      - nats_data:/data
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://127.0.0.1:8848/nacos/v1/console/health/readiness"]
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8222/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+
+  core-node:
+    build:
+      context: ./apps/core-node
+      dockerfile: Dockerfile
+    image: betogo-core-node:latest
+    container_name: tma-core-node
+    restart: unless-stopped
+    ports:
+      - "${CORE_PORT:-4000}:4000"
+    environment:
+      NODE_ENV: development
+      CORE_PORT: 4000
+      REDIS_URL: redis://redis:6379
+      NATS_URL: nats://nats:4222
+      NATS_STREAM: BETOGO
+      NATS_LEDGER_SUBJECT: betogo.ledger
+      NATS_CALLBACK_SUBJECT: betogo.callback
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-betogo}
+      MYSQL_USER: ${MYSQL_BETOGO_USER:-betogo}
+      MYSQL_PASSWORD: ${MYSQL_BETOGO_PASSWORD:-${MYSQL_PASSWORD:-tma_dev}}
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:4000/health"]
       interval: 15s
       timeout: 5s
-      retries: 8
-      start_period: 45s
+      retries: 5
+      start_period: 20s
     deploy:
       resources:
         limits:
-          memory: 512M
+          memory: 256M
 
-  rabbitmq:
-    profiles: ["full"]
-    image: rabbitmq:3.13-management-alpine
-    container_name: tma-rabbitmq
+  bff-node:
+    build:
+      context: ./apps/bff-node
+      dockerfile: Dockerfile
+    image: betogo-bff-node:latest
+    container_name: tma-bff-node
     restart: unless-stopped
     ports:
-      - "${RABBITMQ_PORT:-5672}:5672"
-      - "${RABBITMQ_MGMT_PORT:-15672}:15672"
+      - "${BFF_PORT:-3000}:3000"
     environment:
-      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-tma}
-      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-tma_dev}
-      # 内存水位见 infra/docker/rabbitmq/rabbitmq.conf（vm_memory_high_watermark.relative）
-    volumes:
-      - rabbitmq_data:/var/lib/rabbitmq
-      - ./infra/docker/rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+      NODE_ENV: development
+      BFF_PORT: 3000
+      BFF_STORAGE: ${BFF_STORAGE:-mysql}
+      REDIS_URL: redis://redis:6379
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:?Set TELEGRAM_BOT_TOKEN in .env}
+      BFF_DEV_SKIP_TELEGRAM_AUTH: ${BFF_DEV_SKIP_TELEGRAM_AUTH:-true}
+      SESSION_TTL_SECONDS: ${SESSION_TTL_SECONDS:-86400}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI:-https://www.188facai.com/auth/google/callback}
+      AMMER_PAY_PROVIDER_TOKEN: ${AMMER_PAY_PROVIDER_TOKEN:-}
+      USDT_TO_PHP_RATE: ${USDT_TO_PHP_RATE:-58}
+      YFPAY_USERNAME: ${YFPAY_USERNAME:-}
+      YFPAY_API_KEY: ${YFPAY_API_KEY:-}
+      YFPAY_NOTIFY_URL: ${YFPAY_NOTIFY_URL:-https://www.188facai.com/api/v1/callback/yfpay}
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-betogo}
+      MYSQL_USER: ${MYSQL_BETOGO_USER:-betogo}
+      MYSQL_PASSWORD: ${MYSQL_BETOGO_PASSWORD:-${MYSQL_PASSWORD:-tma_dev}}
+      CORE_NODE_URL: http://core-node:4000
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:3000/health"]
       interval: 15s
-      timeout: 10s
+      timeout: 5s
       retries: 5
-      start_period: 40s
+      start_period: 20s
     deploy:
       resources:
         limits:
-          memory: 384M
+          memory: 256M
 
   web-tma:
     build:
@@ -140,72 +197,7 @@ services:
       retries: 3
       start_period: 10s
 
-  bff-node:
-    build:
-      context: ./apps/bff-node
-      dockerfile: Dockerfile
-    image: betogo-bff-node:latest
-    container_name: tma-bff-node
-    restart: unless-stopped
-    ports:
-      - "${BFF_PORT:-3000}:3000"
-    environment:
-      NODE_ENV: development
-      BFF_PORT: 3000
-      BFF_STORAGE: ${BFF_STORAGE:-mysql}
-      REDIS_URL: redis://redis:6379
-      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:?Set TELEGRAM_BOT_TOKEN in .env}
-      BFF_DEV_SKIP_TELEGRAM_AUTH: ${BFF_DEV_SKIP_TELEGRAM_AUTH:-true}
-      SESSION_TTL_SECONDS: ${SESSION_TTL_SECONDS:-86400}
-      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
-      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
-      GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI:-https://www.188facai.com/auth/google/callback}
-      AMMER_PAY_PROVIDER_TOKEN: ${AMMER_PAY_PROVIDER_TOKEN:-}
-      USDT_TO_PHP_RATE: ${USDT_TO_PHP_RATE:-58}
-      # MySQL / Nacos：仅 --profile full 时在 .env 中设置 MYSQL_HOST / NACOS_SERVER_ADDR
-      MYSQL_HOST: mysql
-      MYSQL_PORT: 3306
-      MYSQL_DATABASE: ${MYSQL_DATABASE:-betogo}
-      MYSQL_USER: ${MYSQL_BETOGO_USER:-betogo}
-      MYSQL_PASSWORD: ${MYSQL_BETOGO_PASSWORD:-${MYSQL_PASSWORD:-tma_dev}}
-      NACOS_SERVER_ADDR: ${NACOS_SERVER_ADDR:-}
-      NACOS_NAMESPACE: ${NACOS_NAMESPACE:-batogo}
-      NACOS_DATA_ID: ${NACOS_DATA_ID:-bff-node}
-      NACOS_GROUP: ${NACOS_GROUP:-DEFAULT_GROUP}
-    depends_on:
-      mysql:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:3000/health"]
-      interval: 15s
-      timeout: 5s
-      retries: 5
-      start_period: 20s
-    deploy:
-      resources:
-        limits:
-          memory: 256M
-
-  # Java Core — 待定；启用: docker compose --profile full up -d
-  core-java:
-    profiles: ["full"]
-    build:
-      context: ./apps/core-java
-      dockerfile: Dockerfile
-    image: betogo-core-java:placeholder
-    container_name: tma-core-java
-    restart: unless-stopped
-    ports:
-      - "${CORE_JAVA_PORT:-8080}:8080"
-    deploy:
-      resources:
-        limits:
-          memory: 512M
-
 volumes:
   mysql_data:
   redis_data:
-  rabbitmq_data:
-  nacos_data:
+  nats_data:

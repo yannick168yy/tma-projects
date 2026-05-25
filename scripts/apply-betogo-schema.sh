@@ -100,4 +100,21 @@ else
   log "Schema exists (${TABLE_COUNT} tables in ${BETOGO_DB}), skip 001_schema.sql"
 fi
 
+# 增量迁移：002 及以后的 SQL 文件（按序号顺序执行，已有表则跳过）
+for sql_file in "${ROOT}"/infra/database/betogo/[0-9][0-9][0-9]_*.sql; do
+  [[ -f "$sql_file" ]] || continue
+  fname="$(basename "$sql_file")"
+  [[ "$fname" == "001_schema.sql" ]] && continue
+  # 从文件名提取主表名（形如 002_payment_order.sql → bg_payment_order）
+  table_hint="bg_$(echo "$fname" | sed 's/^[0-9]*_//;s/\.sql$//')"
+  exists="$(mysql_cli "$RT" -N -e \
+    "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='${BETOGO_DB}' AND table_name='${table_hint}';" 2>/dev/null | tr -d ' ')"
+  if [[ "${exists:-0}" -gt 0 ]]; then
+    log "Table ${table_hint} exists, skip ${fname}"
+  else
+    log "Applying migration: ${fname}"
+    mysql_cli "$RT" "$BETOGO_DB" < "$sql_file"
+  fi
+done
+
 log "Done. ${BETOGO_DB} @ ${MYSQL_CONTAINER:-host}"
