@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <circle cx="50" cy="50" r="50" fill="#2AABEE"/>
+  <!-- Paper plane / send icon -->
+  <path d="M14 48 L86 18 L63 84 L47 62 Z" fill="white" opacity="0.95"/>
+  <path d="M47 62 L43 79 L38 62 L63 84 Z" fill="rgba(0,90,160,0.45)"/>
+  <path d="M47 62 L63 84 L38 62 Z" fill="rgba(255,255,255,0.6)"/>
+</svg>

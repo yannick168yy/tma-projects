@@ -32,7 +32,14 @@ function isEnabled(m: PayMethod): boolean {
       :disabled="!isEnabled(m)"
       @click="isEnabled(m) && emit('select', m.id)"
     >
+      <!-- Logo image (when iconUrl is set) -->
+      <div v-if="m.iconUrl" class="w-11 h-11 rounded-xl overflow-hidden shadow-md flex-shrink-0">
+        <img :src="m.iconUrl" :alt="m.name" class="w-full h-full object-cover" />
+      </div>
+
+      <!-- Gradient icon (fallback: emoji or telegram icon) -->
       <div
+        v-else
         class="w-11 h-11 rounded-xl bg-gradient-to-br flex items-center justify-center shadow-md"
         :class="m.color"
       >
@@ -50,6 +57,7 @@ function isEnabled(m: PayMethod): boolean {
           {{ m.icon }}
         </span>
       </div>
+
       <span class="text-foreground font-bold text-xs leading-tight text-center">{{ m.name }}</span>
       <span
         class="text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none"

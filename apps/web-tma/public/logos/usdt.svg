@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <circle cx="50" cy="50" r="50" fill="#26A17B"/>
+  <!-- Top horizontal bar of T -->
+  <rect x="17" y="22" width="66" height="14" rx="7" fill="white"/>
+  <!-- Vertical stem -->
+  <rect x="43" y="22" width="14" height="38" fill="white"/>
+  <!-- Bottom underline (Tether's signature band) -->
+  <rect x="23" y="68" width="54" height="10" rx="5" fill="rgba(255,255,255,0.75)"/>
+</svg>

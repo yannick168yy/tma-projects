@@ -702,7 +702,13 @@ async function loadHistory() {
                   <ArrowLeft :size="16" class="text-foreground" />
                 </button>
                 <div class="flex items-center gap-2.5 flex-1 bg-secondary rounded-xl px-3 py-2.5">
+                  <!-- Logo image -->
+                  <div v-if="selectedPayMethod?.iconUrl" class="w-8 h-8 rounded-lg overflow-hidden flex-shrink-0">
+                    <img :src="selectedPayMethod.iconUrl" :alt="selectedPayMethod.name" class="w-full h-full object-cover" />
+                  </div>
+                  <!-- Fallback gradient icon -->
                   <div
+                    v-else
                     class="w-8 h-8 rounded-lg bg-gradient-to-br flex items-center justify-center flex-shrink-0"
                     :class="selectedPayMethod?.color ?? 'from-muted to-muted'"
                   >

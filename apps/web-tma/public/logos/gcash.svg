@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <rect width="100" height="100" rx="22" fill="#007DFF"/>
+  <!-- G shape: arc + crossbar -->
+  <path d="M72 34 A28 28 0 1 0 72 66 L72 52 L54 52 L54 60 L64 60 L64 66 A22 22 0 1 1 64 34 Z"
+        fill="white" stroke="none"/>
+</svg>
