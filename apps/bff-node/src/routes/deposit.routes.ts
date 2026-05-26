@@ -52,6 +52,7 @@ router.post('/', async (ctx) => {
         currency,
         body.amount,
         ctx.state.env.USDT_TO_PHP_RATE,
+        ctx.state.env.AMMER_PAY_PHP_PER_STAR,
       )
       invoiceLink = await createTelegramInvoiceLink(
         ctx.state.env.TELEGRAM_BOT_TOKEN,

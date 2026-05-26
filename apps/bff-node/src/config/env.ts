@@ -16,6 +16,7 @@ const schema = z.object({
     .string()
     .default('https://www.188facai.com/auth/google/callback'),
   AMMER_PAY_PROVIDER_TOKEN: z.string().default(''),
+  AMMER_PAY_PHP_PER_STAR: z.coerce.number().positive().default(1.12),
   USDT_TO_PHP_RATE: z.coerce.number().positive().default(58),
   YFPAY_USERNAME: z.string().default(''),
   YFPAY_API_KEY: z.string().default(''),

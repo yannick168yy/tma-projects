@@ -640,7 +640,7 @@ async function loadHistory() {
         </div>
       </div>
 
-      <div data-sheet-scroll class="page-scroll flex-1 px-5 pb-8 pt-4 hide-scrollbar">
+      <div data-sheet-scroll class="page-scroll flex-1 px-5 pb-4 pt-4 hide-scrollbar">
         <!-- ── Deposit / Withdraw ───────────────────────────────────────────── -->
         <div v-if="tab !== 'history'">
 
@@ -834,27 +834,6 @@ async function loadHistory() {
                 {{ withdrawLoading ? t('wallet.openingPay') : t('wallet.yfpayWithdrawSubmit') }}
               </button>
 
-              <!-- Trust badges (deposit only) -->
-              <div v-if="isDeposit" class="grid grid-cols-3 gap-2 pt-1 pb-2">
-                <div class="flex flex-col items-center gap-2 rounded-2xl bg-secondary border border-amber-500/20 p-3 text-center">
-                  <div class="w-8 h-8 rounded-xl bg-amber-500/15 flex items-center justify-center">
-                    <ShieldCheck :size="16" class="text-amber-400" />
-                  </div>
-                  <span class="text-[10px] font-bold text-amber-400 leading-tight">{{ t('wallet.trustSsl') }}</span>
-                </div>
-                <div class="flex flex-col items-center gap-2 rounded-2xl bg-secondary border border-emerald-500/20 p-3 text-center">
-                  <div class="w-8 h-8 rounded-xl bg-emerald-500/15 flex items-center justify-center">
-                    <Zap :size="16" class="text-emerald-400" />
-                  </div>
-                  <span class="text-[10px] font-bold text-emerald-400 leading-tight">{{ t('wallet.trustInstant') }}</span>
-                </div>
-                <div class="flex flex-col items-center gap-2 rounded-2xl bg-secondary border border-sky-500/20 p-3 text-center">
-                  <div class="w-8 h-8 rounded-xl bg-sky-500/15 flex items-center justify-center">
-                    <Headphones :size="16" class="text-sky-400" />
-                  </div>
-                  <span class="text-[10px] font-bold text-sky-400 leading-tight">{{ t('wallet.trustSupport') }}</span>
-                </div>
-              </div>
             </div>
           </template>
         </div>
@@ -915,6 +894,29 @@ async function loadHistory() {
               </div>
             </div>
           </template>
+        </div>
+      </div>
+
+      <!-- Trust bar — fixed at modal bottom, visible only on deposit input view -->
+      <div
+        v-if="tab !== 'history' && depositView === 'input' && isDeposit"
+        class="flex-shrink-0 px-5 py-3 border-t border-border/50"
+      >
+        <div class="flex items-center justify-around">
+          <div class="flex items-center gap-1.5">
+            <ShieldCheck :size="12" class="text-amber-400 flex-shrink-0" />
+            <span class="text-[10px] font-bold text-muted-foreground">{{ t('wallet.trustSsl') }}</span>
+          </div>
+          <div class="w-px h-3 bg-border" />
+          <div class="flex items-center gap-1.5">
+            <Zap :size="12" class="text-emerald-400 flex-shrink-0" />
+            <span class="text-[10px] font-bold text-muted-foreground">{{ t('wallet.trustInstant') }}</span>
+          </div>
+          <div class="w-px h-3 bg-border" />
+          <div class="flex items-center gap-1.5">
+            <Headphones :size="12" class="text-sky-400 flex-shrink-0" />
+            <span class="text-[10px] font-bold text-muted-foreground">{{ t('wallet.trustSupport') }}</span>
+          </div>
         </div>
       </div>
     </div>

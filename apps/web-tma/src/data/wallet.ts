@@ -45,26 +45,16 @@ export const TG_WALLET_DEPOSIT: PayMethod[] = [
 export const FIAT_DEPOSIT: PayMethod[] = [
   { id: 'gcash', name: 'GCash', icon: '💙', color: 'from-blue-500 to-blue-700', tag: 'Soon', enabled: false },
   { id: 'maya', name: 'Maya', icon: '💚', color: 'from-green-500 to-emerald-600', tag: 'Soon', enabled: false },
-  { id: 'bdo', name: 'BDO Bank', icon: '🏦', color: 'from-blue-800 to-blue-900', tag: 'Soon', enabled: false },
-  { id: 'bpi', name: 'BPI Bank', icon: '🏛️', color: 'from-red-700 to-red-900', tag: 'Soon', enabled: false },
-  { id: '711', name: '7-Eleven', icon: '🏪', color: 'from-orange-500 to-red-600', tag: 'Soon', enabled: false },
-  { id: 'coins', name: 'Coins.ph', icon: '🪙', color: 'from-yellow-500 to-amber-600', tag: 'Soon', enabled: false },
 ]
 
 export const CRYPTO_DEPOSIT: PayMethod[] = [
-  { id: 'usdt-trc', name: 'USDT', icon: '₮', color: 'from-teal-500 to-emerald-600', tag: 'Soon', enabled: false },
-  { id: 'usdt-erc', name: 'USDT', icon: '₮', color: 'from-indigo-500 to-blue-700', tag: 'Soon', enabled: false },
-  { id: 'ton', name: 'TON', icon: '💎', color: 'from-sky-400 to-blue-600', tag: 'Soon', enabled: false },
-  { id: 'btc', name: 'Bitcoin', icon: '₿', color: 'from-orange-400 to-amber-600', tag: 'Soon', enabled: false },
-  { id: 'eth', name: 'Ethereum', icon: 'Ξ', color: 'from-purple-500 to-indigo-700', tag: 'Soon', enabled: false },
-  { id: 'bnb', name: 'BNB', icon: '◈', color: 'from-yellow-400 to-yellow-600', tag: 'Soon', enabled: false },
+  { id: 'usdt-trc', name: 'USDT', icon: '₮', color: 'from-teal-500 to-emerald-600', tag: 'TRC20', enabled: false },
+  { id: 'ton', name: 'TON', icon: '💎', color: 'from-sky-400 to-blue-600', tag: 'TON', enabled: false },
 ]
 
 export const FIAT_WITHDRAW: PayMethod[] = [
   { id: 'gcash-w', name: 'GCash', icon: '💙', color: 'from-blue-500 to-blue-700', tag: 'Instant' },
   { id: 'maya-w', name: 'Maya', icon: '💚', color: 'from-green-500 to-emerald-600', tag: 'Instant' },
-  { id: 'bdo-w', name: 'BDO Bank', icon: '🏦', color: 'from-blue-800 to-blue-900', tag: '1–24 hrs' },
-  { id: 'bpi-w', name: 'BPI Bank', icon: '🏛️', color: 'from-red-700 to-red-900', tag: '1–24 hrs' },
 ]
 
 export const CRYPTO_WITHDRAW: PayMethod[] = [

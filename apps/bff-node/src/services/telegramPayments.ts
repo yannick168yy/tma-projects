@@ -1,36 +1,41 @@
 /**
  * Telegram Bot API — createInvoiceLink for Ammer Pay / TG Wallet deposits.
- * Only ISO 4217 codes are valid (e.g. PHP). USDT must be converted to PHP for the invoice.
+ * Ammer Pay accepts Telegram Stars (XTR) as the invoice currency.
+ * The Stars amount is derived by dividing the PHP amount by the PHP-per-Star rate.
  * @see https://core.telegram.org/bots/payments#supported-currencies
  */
 
 import type { DepositCurrency } from './deposit.service.js'
 
-/** Telegram / Ammer Pay invoice currency (ISO 4217). */
-export type TelegramInvoiceCurrency = 'PHP'
+/** Ammer Pay invoices must use Telegram Stars (XTR). */
+export type TelegramInvoiceCurrency = 'XTR'
 
 export function orderToTelegramInvoice(
   currency: DepositCurrency,
   amount: number,
   usdtToPhpRate: number,
+  phpPerStar: number,
 ): { currency: TelegramInvoiceCurrency; amount: number; descriptionSuffix: string } {
+  let phpAmount: number
   if (currency === 'PHP') {
-    return { currency: 'PHP', amount, descriptionSuffix: `₱${amount.toFixed(2)}` }
+    phpAmount = amount
+  } else {
+    if (usdtToPhpRate <= 0) throw new Error('USDT exchange rate not configured')
+    phpAmount = Math.round(amount * usdtToPhpRate * 100) / 100
+    if (phpAmount < 1) throw new Error('Amount too small after USDT conversion')
   }
-  if (usdtToPhpRate <= 0) throw new Error('USDT exchange rate not configured')
-  const phpAmount = Math.round(amount * usdtToPhpRate * 100) / 100
-  if (phpAmount < 1) throw new Error('Amount too small after USDT conversion')
-  return {
-    currency: 'PHP',
-    amount: phpAmount,
-    descriptionSuffix: `${amount} USDT (≈ ₱${phpAmount.toFixed(2)})`,
-  }
-}
 
-function amountToMinorUnits(amount: number): number {
-  const n = Math.round(amount * 100)
-  if (n < 1) throw new Error('Amount too small')
-  return n
+  if (phpPerStar <= 0) throw new Error('AMMER_PAY_PHP_PER_STAR not configured')
+  // Stars are whole integers; round up so the deposit covers the requested PHP amount
+  const stars = Math.ceil(phpAmount / phpPerStar)
+  if (stars < 1) throw new Error('Amount converts to 0 Stars')
+
+  const descriptionSuffix =
+    currency === 'PHP'
+      ? `₱${amount.toFixed(2)} (${stars} Stars)`
+      : `${amount} USDT ≈ ₱${phpAmount.toFixed(2)} (${stars} Stars)`
+
+  return { currency: 'XTR', amount: stars, descriptionSuffix }
 }
 
 export async function createTelegramInvoiceLink(
@@ -44,9 +49,8 @@ export async function createTelegramInvoiceLink(
     amount: number
   },
 ): Promise<string> {
-  const prices = JSON.stringify([
-    { label: input.title, amount: amountToMinorUnits(input.amount) },
-  ])
+  // XTR amounts are in whole Stars; no minor-unit conversion needed
+  const prices = JSON.stringify([{ label: input.title, amount: input.amount }])
 
   const body = new URLSearchParams({
     title: input.title,
