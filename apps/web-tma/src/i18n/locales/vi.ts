@@ -337,6 +337,10 @@ export default {
     yfpayWithdrawSubmit: 'Gửi yêu cầu rút tiền',
     yfpayWithdrawPending: 'Yêu cầu rút tiền đã gửi. Dự kiến 24 giờ.',
     yfpayWithdrawFailed: 'Rút tiền thất bại. Vui lòng thử lại.',
+    trustSsl: 'Mã hóa SSL',
+    trustInstant: 'Ghi Có Tức Thì',
+    trustSupport: 'Hỗ Trợ 24/7',
+    selectMethod: 'Chọn Phương Thức Thanh Toán',
   },
   languages: {
     en: 'English',

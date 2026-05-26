@@ -339,6 +339,10 @@ export default {
     yfpayWithdrawSubmit: 'Submit Withdrawal',
     yfpayWithdrawPending: 'Withdrawal submitted. Estimated 24 hrs.',
     yfpayWithdrawFailed: 'Withdrawal failed. Please try again.',
+    trustSsl: 'SSL Encrypted',
+    trustInstant: 'Instant Credit',
+    trustSupport: '24/7 Support',
+    selectMethod: 'Select Payment Method',
   },
   languages: {
     en: 'English',

@@ -337,6 +337,10 @@ export default {
     yfpayWithdrawSubmit: 'Kirim Penarikan',
     yfpayWithdrawPending: 'Penarikan dikirim. Estimasi 24 jam.',
     yfpayWithdrawFailed: 'Penarikan gagal. Silakan coba lagi.',
+    trustSsl: 'Terenkripsi SSL',
+    trustInstant: 'Kredit Instan',
+    trustSupport: 'Dukungan 24/7',
+    selectMethod: 'Pilih Metode Pembayaran',
   },
   languages: {
     en: 'English',

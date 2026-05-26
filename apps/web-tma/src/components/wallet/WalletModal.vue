@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onUnmounted, ref, toRef, watch } from 'vue'
+import { computed, onUnmounted, ref, toRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useBottomSheetDrag } from '@/composables/useBottomSheetDrag'
 import {
@@ -11,6 +11,11 @@ import {
   CheckCircle2,
   AlertCircle,
   Loader2,
+  ArrowLeft,
+  Send,
+  ShieldCheck,
+  Zap,
+  Headphones,
 } from 'lucide-vue-next'
 import PayMethodGrid from '@/components/wallet/PayMethodGrid.vue'
 import { createDeposit } from '@/api/deposit'
@@ -84,6 +89,7 @@ const { onPointerDown, onPointerUp, onPointerCancel } = useBottomSheetDrag(
 // ── state ─────────────────────────────────────────────────────────────────────
 
 const tab = ref<'deposit' | 'withdraw' | 'history'>('deposit')
+const depositView = ref<'select' | 'input'>('select')
 const selectedMethod = ref<string | null>(null)
 const amount = ref('')
 const historyFilter = ref<'all' | 'deposit' | 'withdraw'>('all')
@@ -115,8 +121,13 @@ const withdrawSuccess = ref(false)
 const historyOrders = ref<HistoryItem[]>([])
 const historyLoading = ref(false)
 
-// scroll ref for amount section
-const amountSectionRef = ref<HTMLElement | null>(null)
+// 默认金额（写死）：首选 ₱1000，不支持时取低于 1000 的最近档
+const DEFAULT_DEPOSIT_AMOUNTS: Record<string, string> = {
+  tg_wallet_php:  '1000',
+  tg_wallet_usdt: '20',   // ≈ ₱1160，最接近 ₱1000
+  yfpay_gcash:    '500',   // 测试通道上限 500
+  yfpay_maya:     '500',
+}
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -189,8 +200,6 @@ const liveFiatDeposit = computed((): PayMethod[] => {
 })
 
 const isDeposit = computed(() => tab.value === 'deposit')
-const fiatList = computed(() => (isDeposit.value ? liveFiatDeposit.value : FIAT_WITHDRAW))
-const cryptoList = computed(() => (isDeposit.value ? CRYPTO_DEPOSIT : CRYPTO_WITHDRAW))
 const quickAmountsPhp = ['100', '500', '1000', '2000', '5000']
 const quickAmountsUsdt = ['10', '25', '50', '100']
 
@@ -273,7 +282,8 @@ watch(
     document.body.style.overflow = open ? 'hidden' : ''
     if (open) {
       tab.value = 'deposit'
-      selectedMethod.value = 'tg_wallet_php'
+      depositView.value = 'select'
+      selectedMethod.value = null
       amount.value = ''
       historyFilter.value = 'all'
       historyStatus.value = 'all'
@@ -299,10 +309,15 @@ watch(tab, (newTab) => {
   if (newTab === 'history') void loadHistory()
 })
 
-watch(selectedMethod, async (method) => {
+watch(selectedMethod, (method) => {
   if (!method) return
-  await nextTick()
-  amountSectionRef.value?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+  depositView.value = 'input'
+  if (tab.value === 'deposit') {
+    const isCrypto = /^(usdt|ton|btc|eth|bnb)/.test(method) && !method.startsWith('tg_wallet')
+    if (!isCrypto) {
+      amount.value = DEFAULT_DEPOSIT_AMOUNTS[method] ?? ''
+    }
+  }
 })
 
 onUnmounted(() => stopPolling())
@@ -544,7 +559,7 @@ async function loadHistory() {
               ? 'bg-primary text-primary-foreground shadow shadow-amber-500/20'
               : 'bg-secondary text-muted-foreground hover:text-foreground'
           "
-          @click="tab = tabItem.id; selectedMethod = tabItem.id === 'deposit' ? 'tg_wallet_php' : null; amount = ''; depositMessage = ''; withdrawMessage = ''"
+          @click="tab = tabItem.id; depositView = 'select'; selectedMethod = null; amount = ''; depositMessage = ''; withdrawMessage = ''"
         >
           <component :is="tabItem.icon" :size="14" />
           {{ tabItem.label }}
@@ -627,148 +642,221 @@ async function loadHistory() {
 
       <div data-sheet-scroll class="page-scroll flex-1 px-5 pb-8 pt-4 hide-scrollbar">
         <!-- ── Deposit / Withdraw ───────────────────────────────────────────── -->
-        <div v-if="tab !== 'history'" class="space-y-5">
-          <div v-if="isDeposit">
-            <p class="text-muted-foreground text-[11px] font-bold uppercase tracking-wider mb-2.5">
-              {{ t('wallet.tgWalletSection') }}
-            </p>
-            <PayMethodGrid
-              :methods="TG_WALLET_DEPOSIT"
-              :selected="selectedMethod"
-              @select="selectedMethod = $event; amount = ''; depositMessage = ''"
-            />
-          </div>
-          <div>
-            <p class="text-muted-foreground text-[11px] font-bold uppercase tracking-wider mb-2.5">{{ t('wallet.fiatSection') }}</p>
-            <PayMethodGrid
-              :methods="fiatList"
-              :selected="selectedMethod"
-              @select="selectedMethod = $event; amount = ''; depositMessage = ''; withdrawMessage = ''; withdrawAccount = ''; withdrawOwner = ''"
-            />
-          </div>
-          <div>
-            <p class="text-muted-foreground text-[11px] font-bold uppercase tracking-wider mb-2.5">{{ t('wallet.cryptoSection') }}</p>
-            <PayMethodGrid :methods="cryptoList" :selected="selectedMethod" @select="selectedMethod = $event" />
-          </div>
+        <div v-if="tab !== 'history'">
 
-          <!-- ── Amount + submit block ──────────────────────────────────────── -->
-          <div v-if="selectedMethod && (isTgWallet || isYfPay || tab === 'withdraw')" ref="amountSectionRef" class="space-y-3">
-            <p class="text-muted-foreground text-[11px] font-bold uppercase tracking-wider">
-              {{ isDeposit ? t('wallet.depositAmount') : t('wallet.withdrawAmount') }}
-            </p>
+          <!-- SELECT VIEW: choose payment method -->
+          <template v-if="depositView === 'select'">
+            <div class="space-y-5">
+              <!-- Deposit: Fiat first, then TG Wallet, then Crypto -->
+              <template v-if="isDeposit">
+                <div>
+                  <p class="text-muted-foreground text-[11px] font-bold uppercase tracking-wider mb-2.5">{{ t('wallet.fiatSection') }}</p>
+                  <PayMethodGrid
+                    :methods="liveFiatDeposit"
+                    :selected="selectedMethod"
+                    @select="selectedMethod = $event; amount = ''; depositMessage = ''"
+                  />
+                </div>
+                <div>
+                  <p class="text-muted-foreground text-[11px] font-bold uppercase tracking-wider mb-2.5">{{ t('wallet.tgWalletSection') }}</p>
+                  <PayMethodGrid
+                    :methods="TG_WALLET_DEPOSIT"
+                    :selected="selectedMethod"
+                    @select="selectedMethod = $event; amount = ''; depositMessage = ''"
+                  />
+                </div>
+                <div>
+                  <p class="text-muted-foreground text-[11px] font-bold uppercase tracking-wider mb-2.5">{{ t('wallet.cryptoSection') }}</p>
+                  <PayMethodGrid :methods="CRYPTO_DEPOSIT" :selected="selectedMethod" @select="selectedMethod = $event" />
+                </div>
+              </template>
 
-            <!-- Quick amounts: TG Wallet -->
-            <div v-if="isDeposit && isTgWallet" class="flex gap-2 flex-wrap">
-              <button
-                v-for="q in quickAmounts"
-                :key="q"
-                type="button"
-                class="px-3 py-1.5 rounded-lg text-xs font-bold transition-colors"
-                :class="amount === q ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground'"
-                @click="amount = q"
+              <!-- Withdraw: Fiat, then Crypto -->
+              <template v-else>
+                <div>
+                  <p class="text-muted-foreground text-[11px] font-bold uppercase tracking-wider mb-2.5">{{ t('wallet.fiatSection') }}</p>
+                  <PayMethodGrid
+                    :methods="FIAT_WITHDRAW"
+                    :selected="selectedMethod"
+                    @select="selectedMethod = $event; amount = ''; withdrawMessage = ''; withdrawAccount = ''; withdrawOwner = ''"
+                  />
+                </div>
+                <div>
+                  <p class="text-muted-foreground text-[11px] font-bold uppercase tracking-wider mb-2.5">{{ t('wallet.cryptoSection') }}</p>
+                  <PayMethodGrid :methods="CRYPTO_WITHDRAW" :selected="selectedMethod" @select="selectedMethod = $event" />
+                </div>
+              </template>
+            </div>
+          </template>
+
+          <!-- INPUT VIEW: amount + submit -->
+          <template v-else>
+            <div class="space-y-4">
+              <!-- Back + selected method header -->
+              <div class="flex items-center gap-3">
+                <button
+                  type="button"
+                  class="flex h-9 w-9 items-center justify-center rounded-xl bg-secondary hover:bg-muted transition-colors flex-shrink-0"
+                  @click="depositView = 'select'; selectedMethod = null; amount = ''; depositMessage = ''; withdrawMessage = ''; withdrawAccount = ''; withdrawOwner = ''"
+                >
+                  <ArrowLeft :size="16" class="text-foreground" />
+                </button>
+                <div class="flex items-center gap-2.5 flex-1 bg-secondary rounded-xl px-3 py-2.5">
+                  <div
+                    class="w-8 h-8 rounded-lg bg-gradient-to-br flex items-center justify-center flex-shrink-0"
+                    :class="selectedPayMethod?.color ?? 'from-muted to-muted'"
+                  >
+                    <Send v-if="selectedPayMethod?.iconKind === 'telegram'" :size="16" class="text-white" stroke-width="2.5" />
+                    <span v-else class="text-white font-black text-sm">{{ selectedPayMethod?.icon }}</span>
+                  </div>
+                  <div class="flex-1">
+                    <span class="text-foreground font-black text-sm">{{ selectedPayMethod?.name }}</span>
+                  </div>
+                  <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/15 text-primary">
+                    {{ selectedPayMethod?.tag }}
+                  </span>
+                </div>
+              </div>
+
+              <p class="text-muted-foreground text-[11px] font-bold uppercase tracking-wider">
+                {{ isDeposit ? t('wallet.depositAmount') : t('wallet.withdrawAmount') }}
+              </p>
+
+              <!-- Quick amounts: TG Wallet -->
+              <div v-if="isDeposit && isTgWallet" class="flex gap-2 flex-wrap">
+                <button
+                  v-for="q in quickAmounts"
+                  :key="q"
+                  type="button"
+                  class="px-3 py-1.5 rounded-lg text-xs font-bold transition-colors"
+                  :class="amount === q ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground'"
+                  @click="amount = q"
+                >
+                  {{ depositCurrency === 'USDT' ? `$${q}` : `₱${q}` }}
+                </button>
+              </div>
+
+              <!-- Quick amounts: YF Pay fiat -->
+              <div v-else-if="isDeposit && isYfPay && yfpayQuickAmounts.length" class="flex gap-2 flex-wrap">
+                <button
+                  v-for="q in yfpayQuickAmounts"
+                  :key="q"
+                  type="button"
+                  class="px-3 py-1.5 rounded-lg text-xs font-bold transition-colors"
+                  :class="amount === q ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground'"
+                  @click="amount = q"
+                >
+                  ₱{{ q }}
+                </button>
+              </div>
+
+              <!-- Amount input -->
+              <div class="relative">
+                <span class="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground font-bold text-sm">
+                  {{ isTgWallet && depositCurrency === 'USDT' ? '$' : isCryptoMethod ? '≈ $' : '₱' }}
+                </span>
+                <input
+                  v-model="amount"
+                  type="number"
+                  placeholder="0.00"
+                  class="w-full bg-secondary border border-border rounded-xl pl-10 pr-4 py-3 text-foreground font-black text-lg focus:outline-none focus:border-primary"
+                />
+              </div>
+
+              <!-- Withdraw: account + owner fields -->
+              <template v-if="tab === 'withdraw' && isFiatWithdraw">
+                <input
+                  v-model="withdrawAccount"
+                  type="tel"
+                  :placeholder="t('wallet.yfpayAccountNumber')"
+                  class="w-full bg-secondary border border-border rounded-xl px-4 py-3 text-foreground font-bold text-sm focus:outline-none focus:border-primary"
+                />
+                <input
+                  v-model="withdrawOwner"
+                  type="text"
+                  :placeholder="t('wallet.yfpayFullName')"
+                  class="w-full bg-secondary border border-border rounded-xl px-4 py-3 text-foreground font-bold text-sm focus:outline-none focus:border-primary"
+                />
+              </template>
+
+              <!-- Status message -->
+              <p
+                v-if="depositMessage"
+                class="text-xs font-bold text-center"
+                :class="depositSuccess ? 'text-emerald-400' : 'text-amber-400'"
               >
-                {{ depositCurrency === 'USDT' ? `$${q}` : `₱${q}` }}
-              </button>
-            </div>
-
-            <!-- Quick amounts: YF Pay fiat -->
-            <div v-else-if="isDeposit && isYfPay && yfpayQuickAmounts.length" class="flex gap-2 flex-wrap">
-              <button
-                v-for="q in yfpayQuickAmounts"
-                :key="q"
-                type="button"
-                class="px-3 py-1.5 rounded-lg text-xs font-bold transition-colors"
-                :class="amount === q ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground'"
-                @click="amount = q"
+                {{ depositMessage }}
+              </p>
+              <p
+                v-if="withdrawMessage"
+                class="text-xs font-bold text-center"
+                :class="withdrawSuccess ? 'text-emerald-400' : 'text-amber-400'"
               >
-                ₱{{ q }}
+                {{ withdrawMessage }}
+              </p>
+
+              <!-- Submit: TG Wallet deposit -->
+              <button
+                v-if="isDeposit && isTgWallet"
+                type="button"
+                class="w-full py-3.5 rounded-2xl font-black text-base flex items-center justify-center gap-2 shadow-lg disabled:opacity-50 bg-primary text-primary-foreground hover:bg-yellow-400 shadow-amber-500/20"
+                :disabled="!canSubmitDeposit"
+                @click="onProceedDeposit"
+              >
+                <Loader2 v-if="depositLoading" :size="18" class="animate-spin" />
+                <ArrowDownToLine v-else :size="18" />
+                {{ depositLoading ? t('wallet.openingPay') : t('wallet.payTelegram') }}
               </button>
+
+              <!-- Submit: YF Pay deposit -->
+              <button
+                v-else-if="isDeposit && isYfPay"
+                type="button"
+                class="w-full py-3.5 rounded-2xl font-black text-base flex items-center justify-center gap-2 shadow-lg disabled:opacity-50 bg-primary text-primary-foreground hover:bg-yellow-400 shadow-amber-500/20"
+                :disabled="!canSubmitDeposit || depositLoading"
+                @click="onProceedYfDeposit"
+              >
+                <Loader2 v-if="depositLoading" :size="18" class="animate-spin" />
+                <ArrowDownToLine v-else :size="18" />
+                {{ depositLoading ? t('wallet.yfpayWaitingPayment') : t('wallet.yfpayProceedDeposit') }}
+              </button>
+
+              <!-- Submit: YF Pay withdraw -->
+              <button
+                v-else-if="tab === 'withdraw' && isFiatWithdraw"
+                type="button"
+                class="w-full py-3.5 rounded-2xl font-black text-base flex items-center justify-center gap-2 shadow-lg disabled:opacity-50 bg-accent text-accent-foreground hover:bg-red-500 shadow-red-500/20"
+                :disabled="!canSubmitWithdraw"
+                @click="onProceedWithdraw"
+              >
+                <Loader2 v-if="withdrawLoading" :size="18" class="animate-spin" />
+                <ArrowUpFromLine v-else :size="18" />
+                {{ withdrawLoading ? t('wallet.openingPay') : t('wallet.yfpayWithdrawSubmit') }}
+              </button>
+
+              <!-- Trust badges (deposit only) -->
+              <div v-if="isDeposit" class="grid grid-cols-3 gap-2 pt-1 pb-2">
+                <div class="flex flex-col items-center gap-2 rounded-2xl bg-secondary border border-amber-500/20 p-3 text-center">
+                  <div class="w-8 h-8 rounded-xl bg-amber-500/15 flex items-center justify-center">
+                    <ShieldCheck :size="16" class="text-amber-400" />
+                  </div>
+                  <span class="text-[10px] font-bold text-amber-400 leading-tight">{{ t('wallet.trustSsl') }}</span>
+                </div>
+                <div class="flex flex-col items-center gap-2 rounded-2xl bg-secondary border border-emerald-500/20 p-3 text-center">
+                  <div class="w-8 h-8 rounded-xl bg-emerald-500/15 flex items-center justify-center">
+                    <Zap :size="16" class="text-emerald-400" />
+                  </div>
+                  <span class="text-[10px] font-bold text-emerald-400 leading-tight">{{ t('wallet.trustInstant') }}</span>
+                </div>
+                <div class="flex flex-col items-center gap-2 rounded-2xl bg-secondary border border-sky-500/20 p-3 text-center">
+                  <div class="w-8 h-8 rounded-xl bg-sky-500/15 flex items-center justify-center">
+                    <Headphones :size="16" class="text-sky-400" />
+                  </div>
+                  <span class="text-[10px] font-bold text-sky-400 leading-tight">{{ t('wallet.trustSupport') }}</span>
+                </div>
+              </div>
             </div>
-
-            <!-- Amount input -->
-            <div class="relative">
-              <span class="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground font-bold text-sm">
-                {{ isTgWallet && depositCurrency === 'USDT' ? '$' : isCryptoMethod ? '≈ $' : '₱' }}
-              </span>
-              <input
-                v-model="amount"
-                type="number"
-                placeholder="0.00"
-                class="w-full bg-secondary border border-border rounded-xl pl-10 pr-4 py-3 text-foreground font-black text-lg focus:outline-none focus:border-primary"
-              />
-            </div>
-
-            <!-- Withdraw: account + owner fields -->
-            <template v-if="tab === 'withdraw' && isFiatWithdraw">
-              <input
-                v-model="withdrawAccount"
-                type="tel"
-                :placeholder="t('wallet.yfpayAccountNumber')"
-                class="w-full bg-secondary border border-border rounded-xl px-4 py-3 text-foreground font-bold text-sm focus:outline-none focus:border-primary"
-              />
-              <input
-                v-model="withdrawOwner"
-                type="text"
-                :placeholder="t('wallet.yfpayFullName')"
-                class="w-full bg-secondary border border-border rounded-xl px-4 py-3 text-foreground font-bold text-sm focus:outline-none focus:border-primary"
-              />
-            </template>
-
-            <!-- Status message -->
-            <p
-              v-if="depositMessage"
-              class="text-xs font-bold text-center"
-              :class="depositSuccess ? 'text-emerald-400' : 'text-amber-400'"
-            >
-              {{ depositMessage }}
-            </p>
-            <p
-              v-if="withdrawMessage"
-              class="text-xs font-bold text-center"
-              :class="withdrawSuccess ? 'text-emerald-400' : 'text-amber-400'"
-            >
-              {{ withdrawMessage }}
-            </p>
-
-            <!-- Submit: TG Wallet deposit -->
-            <button
-              v-if="isDeposit && isTgWallet"
-              type="button"
-              class="w-full py-3.5 rounded-2xl font-black text-base flex items-center justify-center gap-2 shadow-lg disabled:opacity-50 bg-primary text-primary-foreground hover:bg-yellow-400 shadow-amber-500/20"
-              :disabled="!canSubmitDeposit"
-              @click="onProceedDeposit"
-            >
-              <Loader2 v-if="depositLoading" :size="18" class="animate-spin" />
-              <ArrowDownToLine v-else :size="18" />
-              {{ depositLoading ? t('wallet.openingPay') : t('wallet.payTelegram') }}
-            </button>
-
-            <!-- Submit: YF Pay deposit -->
-            <button
-              v-else-if="isDeposit && isYfPay"
-              type="button"
-              class="w-full py-3.5 rounded-2xl font-black text-base flex items-center justify-center gap-2 shadow-lg disabled:opacity-50 bg-primary text-primary-foreground hover:bg-yellow-400 shadow-amber-500/20"
-              :disabled="!canSubmitDeposit || depositLoading"
-              @click="onProceedYfDeposit"
-            >
-              <Loader2 v-if="depositLoading" :size="18" class="animate-spin" />
-              <ArrowDownToLine v-else :size="18" />
-              {{ depositLoading ? t('wallet.yfpayWaitingPayment') : t('wallet.yfpayProceedDeposit') }}
-            </button>
-
-            <!-- Submit: YF Pay withdraw -->
-            <button
-              v-else-if="tab === 'withdraw' && isFiatWithdraw"
-              type="button"
-              class="w-full py-3.5 rounded-2xl font-black text-base flex items-center justify-center gap-2 shadow-lg disabled:opacity-50 bg-accent text-accent-foreground hover:bg-red-500 shadow-red-500/20"
-              :disabled="!canSubmitWithdraw"
-              @click="onProceedWithdraw"
-            >
-              <Loader2 v-if="withdrawLoading" :size="18" class="animate-spin" />
-              <ArrowUpFromLine v-else :size="18" />
-              {{ withdrawLoading ? t('wallet.openingPay') : t('wallet.yfpayWithdrawSubmit') }}
-            </button>
-          </div>
+          </template>
         </div>
 
         <!-- ── History ──────────────────────────────────────────────────────── -->

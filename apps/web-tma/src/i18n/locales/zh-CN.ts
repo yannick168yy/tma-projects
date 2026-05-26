@@ -335,6 +335,10 @@ export default {
     yfpayWithdrawSubmit: '提交提现',
     yfpayWithdrawPending: '提现申请已提交，预计 24 小时内到账。',
     yfpayWithdrawFailed: '提现失败，请重试。',
+    trustSsl: 'SSL 加密保障',
+    trustInstant: '即时到账',
+    trustSupport: '7×24 客服',
+    selectMethod: '选择支付方式',
   },
   languages: {
     en: 'English',
