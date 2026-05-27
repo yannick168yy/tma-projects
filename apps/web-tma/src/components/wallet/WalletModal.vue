@@ -19,9 +19,11 @@ import {
 } from 'lucide-vue-next'
 import PayMethodGrid from '@/components/wallet/PayMethodGrid.vue'
 import { createDeposit } from '@/api/deposit'
+import { createTonDeposit, pollTonDepositStatus } from '@/api/tonDeposit'
 import { ApiError } from '@/api/client'
 import { isTelegramWebApp } from '@/api/client'
 import { useWalletStore } from '@/stores/wallet'
+import { useTonConnect } from '@/composables/useTonConnect'
 import { openTelegramInvoice, waitForDepositPaid } from '@/utils/tgInvoice'
 import {
   fetchYfPayChannels,
@@ -47,6 +49,13 @@ const emit = defineEmits<{ close: [] }>()
 
 const { t } = useI18n()
 const walletStore = useWalletStore()
+const {
+  walletAddress: tonWalletAddress,
+  isConnected: tonIsConnected,
+  connectWallet: connectTonWallet,
+  disconnect: disconnectTon,
+  sendTransaction: sendTonTransaction,
+} = useTonConnect()
 
 // ── types ────────────────────────────────────────────────────────────────────
 
@@ -110,6 +119,14 @@ const pollSerial = ref('')
 const pollCount = ref(0)
 const MAX_POLLS = 60 // 60 × 3s = 3 min
 
+// TON Connect state
+const tonLoading = ref(false)
+const tonMessage = ref('')
+const tonSuccess = ref(false)
+let tonPollTimer: ReturnType<typeof setInterval> | null = null
+const tonPollCount = ref(0)
+const MAX_TON_POLLS = 60 // 60 × 5s = 5 min
+
 // withdraw form
 const withdrawAccount = ref('')
 const withdrawOwner = ref('')
@@ -168,6 +185,14 @@ function stopPolling() {
   pollCount.value = 0
 }
 
+function stopTonPolling() {
+  if (tonPollTimer) {
+    clearInterval(tonPollTimer)
+    tonPollTimer = null
+  }
+  tonPollCount.value = 0
+}
+
 function statusIcon(status: string) {
   if (status === 'success') return CheckCircle2
   if (status === 'pending') return Loader2
@@ -181,7 +206,7 @@ function statusIcon(status: string) {
 const liveFiatDeposit = computed((): PayMethod[] => {
   return FIAT_DEPOSIT.map((m) => {
     const ch = yfpayChannels.value.find((ch) =>
-      ch.code.toLowerCase().startsWith(m.id.toLowerCase()),
+      ch.code.toLowerCase().includes(m.id.toLowerCase()),
     )
     if (ch) {
       return {
@@ -220,7 +245,14 @@ const isCryptoMethod = computed(() => {
 
 const isTgWallet = computed(() => selectedMethod.value?.startsWith('tg_wallet') ?? false)
 const isYfPay = computed(() => (selectedMethod.value ?? '').startsWith('yfpay_'))
+const isTonConnect = computed(() => selectedPayMethod.value?.channelId === 'ton_connect')
 const isFiatWithdraw = computed(() => FIAT_WITHDRAW.some((m) => m.id === selectedMethod.value))
+
+const tonAddressShort = computed(() => {
+  const addr = tonWalletAddress.value
+  if (!addr) return ''
+  return addr.length > 20 ? `${addr.slice(0, 10)}…${addr.slice(-6)}` : addr
+})
 
 const depositCurrency = computed(() => selectedPayMethod.value?.currency ?? 'PHP')
 const quickAmounts = computed(() =>
@@ -295,12 +327,16 @@ watch(
       withdrawOwner.value = ''
       withdrawMessage.value = ''
       withdrawSuccess.value = false
+      tonLoading.value = false
+      tonMessage.value = ''
+      tonSuccess.value = false
       void walletStore.refresh()
       void fetchYfPayChannels()
         .then((ch) => { yfpayChannels.value = ch })
         .catch(() => {})
     } else {
       stopPolling()
+      stopTonPolling()
     }
   },
 )
@@ -320,7 +356,7 @@ watch(selectedMethod, (method) => {
   }
 })
 
-onUnmounted(() => stopPolling())
+onUnmounted(() => { stopPolling(); stopTonPolling() })
 
 // ── actions ───────────────────────────────────────────────────────────────────
 
@@ -446,6 +482,80 @@ async function onProceedDeposit() {
     depositMessage.value = e instanceof ApiError ? e.message : t('wallet.depositFailed')
   } finally {
     depositLoading.value = false
+  }
+}
+
+async function onProceedTonDeposit() {
+  const amountTon = Number(amount.value)
+  if (!amountTon || amountTon < 0.01) {
+    tonMessage.value = t('wallet.invalidAmount')
+    return
+  }
+
+  tonLoading.value = true
+  tonMessage.value = ''
+  tonSuccess.value = false
+  stopTonPolling()
+
+  try {
+    let address = tonWalletAddress.value
+    if (!tonIsConnected.value) {
+      tonMessage.value = t('wallet.tonConnecting')
+      address = await connectTonWallet()
+    }
+    if (!address) {
+      tonMessage.value = t('wallet.paymentCancelled')
+      return
+    }
+
+    tonMessage.value = t('wallet.tonCreatingOrder')
+    const order = await createTonDeposit(amountTon, address)
+
+    if (order.devSettled) {
+      tonSuccess.value = true
+      tonMessage.value = t('wallet.tonSuccess')
+      await walletStore.refresh()
+      return
+    }
+
+    tonMessage.value = t('wallet.tonSending')
+    await sendTonTransaction(order.merchantAddress, order.amountNano)
+
+    tonMessage.value = t('wallet.tonPolling')
+    tonPollCount.value = 0
+    const orderId = order.orderId
+    tonPollTimer = setInterval(async () => {
+      tonPollCount.value++
+      if (tonPollCount.value > MAX_TON_POLLS) {
+        stopTonPolling()
+        tonLoading.value = false
+        tonMessage.value = t('wallet.tonTimeout')
+        return
+      }
+      try {
+        const status = await pollTonDepositStatus(orderId)
+        if (status.status === 'paid') {
+          stopTonPolling()
+          tonLoading.value = false
+          tonSuccess.value = true
+          tonMessage.value = t('wallet.tonSuccess')
+          await walletStore.refresh()
+        } else if (status.status === 'failed' || status.status === 'cancelled') {
+          stopTonPolling()
+          tonLoading.value = false
+          tonMessage.value = t('wallet.depositFailed')
+        }
+      } catch { /* keep polling */ }
+    }, 5000)
+  } catch (e) {
+    stopTonPolling()
+    const msg = (e as Error)?.message ?? ''
+    if (msg.includes('cancel') || msg.includes('reject') || msg === 'wallet_connect_timeout') {
+      tonMessage.value = t('wallet.paymentCancelled')
+    } else {
+      tonMessage.value = e instanceof ApiError ? e.message : t('wallet.depositFailed')
+    }
+    tonLoading.value = false
   }
 }
 
@@ -697,7 +807,7 @@ async function loadHistory() {
                 <button
                   type="button"
                   class="flex h-9 w-9 items-center justify-center rounded-xl bg-secondary hover:bg-muted transition-colors flex-shrink-0"
-                  @click="depositView = 'select'; selectedMethod = null; amount = ''; depositMessage = ''; withdrawMessage = ''; withdrawAccount = ''; withdrawOwner = ''"
+                  @click="depositView = 'select'; selectedMethod = null; amount = ''; depositMessage = ''; withdrawMessage = ''; withdrawAccount = ''; withdrawOwner = ''; stopTonPolling(); tonMessage = ''; tonLoading = false; tonSuccess = false"
                 >
                   <ArrowLeft :size="16" class="text-foreground" />
                 </button>
@@ -728,8 +838,22 @@ async function loadHistory() {
                 {{ isDeposit ? t('wallet.depositAmount') : t('wallet.withdrawAmount') }}
               </p>
 
+              <!-- Quick amounts: TON Connect -->
+              <div v-if="isDeposit && isTonConnect" class="flex gap-2 flex-wrap">
+                <button
+                  v-for="q in ['1', '5', '10', '50']"
+                  :key="q"
+                  type="button"
+                  class="px-3 py-1.5 rounded-lg text-xs font-bold transition-colors"
+                  :class="amount === q ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground'"
+                  @click="amount = q"
+                >
+                  {{ q }} TON
+                </button>
+              </div>
+
               <!-- Quick amounts: TG Wallet -->
-              <div v-if="isDeposit && isTgWallet" class="flex gap-2 flex-wrap">
+              <div v-else-if="isDeposit && isTgWallet" class="flex gap-2 flex-wrap">
                 <button
                   v-for="q in quickAmounts"
                   :key="q"
@@ -743,7 +867,7 @@ async function loadHistory() {
               </div>
 
               <!-- Quick amounts: YF Pay fiat -->
-              <div v-else-if="isDeposit && isYfPay && yfpayQuickAmounts.length" class="flex gap-2 flex-wrap">
+              <div v-else-if="isDeposit && isYfPay && yfpayQuickAmounts.length > 0" class="flex gap-2 flex-wrap">
                 <button
                   v-for="q in yfpayQuickAmounts"
                   :key="q"
@@ -759,7 +883,7 @@ async function loadHistory() {
               <!-- Amount input -->
               <div class="relative">
                 <span class="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground font-bold text-sm">
-                  {{ isTgWallet && depositCurrency === 'USDT' ? '$' : isCryptoMethod ? '≈ $' : '₱' }}
+                  {{ isTonConnect ? '◈' : isTgWallet && depositCurrency === 'USDT' ? '$' : isCryptoMethod ? '≈ $' : '₱' }}
                 </span>
                 <input
                   v-model="amount"
@@ -785,6 +909,14 @@ async function loadHistory() {
                 />
               </template>
 
+              <!-- TON PHP equiv hint -->
+              <p
+                v-if="isTonConnect && isDeposit && amount && Number(amount) > 0"
+                class="text-xs text-muted-foreground text-center -mt-1"
+              >
+                ≈ ₱{{ (Number(amount) * 350).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}
+              </p>
+
               <!-- Status message -->
               <p
                 v-if="depositMessage"
@@ -801,9 +933,41 @@ async function loadHistory() {
                 {{ withdrawMessage }}
               </p>
 
+              <!-- Submit: TON Connect deposit -->
+              <template v-if="isDeposit && isTonConnect">
+                <div v-if="tonIsConnected" class="flex items-center gap-2 bg-secondary rounded-xl px-3 py-2">
+                  <div class="w-2 h-2 rounded-full bg-emerald-400 flex-shrink-0" />
+                  <span class="text-xs font-bold text-muted-foreground flex-1 truncate font-mono">{{ tonAddressShort }}</span>
+                  <button
+                    type="button"
+                    class="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                    @click="disconnectTon"
+                  >
+                    {{ t('wallet.tonDisconnect') }}
+                  </button>
+                </div>
+                <p
+                  v-if="tonMessage"
+                  class="text-xs font-bold text-center"
+                  :class="tonSuccess ? 'text-emerald-400' : 'text-amber-400'"
+                >
+                  {{ tonMessage }}
+                </p>
+                <button
+                  type="button"
+                  class="w-full py-3.5 rounded-2xl font-black text-base flex items-center justify-center gap-2 shadow-lg disabled:opacity-50 bg-sky-500 text-white hover:bg-sky-400 shadow-sky-500/20"
+                  :disabled="tonLoading || !amount || Number(amount) < 0.01"
+                  @click="onProceedTonDeposit"
+                >
+                  <Loader2 v-if="tonLoading" :size="18" class="animate-spin" />
+                  <span v-else class="font-black text-lg leading-none">◈</span>
+                  {{ tonLoading ? t('wallet.tonLoading') : tonIsConnected ? t('wallet.tonPay') : t('wallet.tonConnect') }}
+                </button>
+              </template>
+
               <!-- Submit: TG Wallet deposit -->
               <button
-                v-if="isDeposit && isTgWallet"
+                v-else-if="isDeposit && isTgWallet"
                 type="button"
                 class="w-full py-3.5 rounded-2xl font-black text-base flex items-center justify-center gap-2 shadow-lg disabled:opacity-50 bg-primary text-primary-foreground hover:bg-yellow-400 shadow-amber-500/20"
                 :disabled="!canSubmitDeposit"
@@ -816,7 +980,7 @@ async function loadHistory() {
 
               <!-- Submit: YF Pay deposit -->
               <button
-                v-else-if="isDeposit && isYfPay"
+                v-else-if="isDeposit && isYfPay && !isTonConnect"
                 type="button"
                 class="w-full py-3.5 rounded-2xl font-black text-base flex items-center justify-center gap-2 shadow-lg disabled:opacity-50 bg-primary text-primary-foreground hover:bg-yellow-400 shadow-amber-500/20"
                 :disabled="!canSubmitDeposit || depositLoading"

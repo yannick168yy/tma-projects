@@ -11,16 +11,24 @@ import {
 } from './store/index.js'
 import { nowIso, phpToCents } from '../utils/format.js'
 
-export type DepositCurrency = 'PHP' | 'USDT'
+export type DepositCurrency = 'PHP' | 'USDT' | 'TON'
 
 export function depositAmountToCents(
   amount: number,
   currency: DepositCurrency,
   usdtToPhpRate: number,
+  tonToPhpRate = 0,
 ): number {
   if (currency === 'PHP') return phpToCents(amount)
-  if (amount <= 0 || usdtToPhpRate <= 0) return 0
-  return phpToCents(amount * usdtToPhpRate)
+  if (currency === 'USDT') {
+    if (amount <= 0 || usdtToPhpRate <= 0) return 0
+    return phpToCents(amount * usdtToPhpRate)
+  }
+  if (currency === 'TON') {
+    if (amount <= 0 || tonToPhpRate <= 0) return 0
+    return phpToCents(amount * tonToPhpRate)
+  }
+  return 0
 }
 
 async function countPaidDeposits(redis: Redis, userId: string, excludeOrderId?: string): Promise<number> {
@@ -72,11 +80,12 @@ export async function settlePaidDeposit(
   opts: {
     traceId?: string
     usdtToPhpRate: number
+    tonToPhpRate?: number
     amountPhpUnits: number
     currency: DepositCurrency
   },
 ): Promise<DepositOrder> {
-  const creditedCents = depositAmountToCents(opts.amountPhpUnits, opts.currency, opts.usdtToPhpRate)
+  const creditedCents = depositAmountToCents(opts.amountPhpUnits, opts.currency, opts.usdtToPhpRate, opts.tonToPhpRate ?? 0)
   if (creditedCents <= 0) {
     throw new Error('Invalid deposit amount')
   }
@@ -92,7 +101,9 @@ export async function settlePaidDeposit(
     description:
       opts.currency === 'USDT'
         ? `USDT deposit (≈ ₱${(creditedCents / 100).toFixed(2)})`
-        : 'Telegram Wallet deposit',
+        : opts.currency === 'TON'
+          ? `TON deposit (≈ ₱${(creditedCents / 100).toFixed(2)})`
+          : 'Telegram Wallet deposit',
     createdAt: nowIso(),
     traceId: opts.traceId,
   })

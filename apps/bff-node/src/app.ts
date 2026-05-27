@@ -7,12 +7,32 @@ import { errorHandler } from './middleware/errorHandler.js'
 import { injectDeps, requestIdMiddleware } from './middleware/requestId.js'
 import { createApiRouter } from './routes/index.js'
 import { initStore } from './services/store/index.js'
+import { pollAndSettleTonDeposits } from './services/ton.service.js'
+import { syncAllGames } from './services/sg-game.service.js'
+import { isMysqlEnabled } from './clients/mysql.client.js'
 import { ok } from './utils/response.js'
 
 export function createApp(env: Env): Koa {
   const app = new Koa()
   initStore(env)
   const redis = getRedis(env)
+
+  // TON deposit poller: every 30s
+  setInterval(() => {
+    pollAndSettleTonDeposits(redis, env).catch((err) =>
+      console.error('[ton-poller] unhandled error:', err),
+    )
+  }, 30_000)
+
+  // Slotegrator game sync: on startup then every 6h
+  if (isMysqlEnabled(env) && env.SG_BASE_URL && env.SG_MERCHANT_ID) {
+    const runSync = () =>
+      syncAllGames(env)
+        .then(({ synced }) => console.log(`[sg-sync] synced ${synced} games`))
+        .catch((err) => console.error('[sg-sync] error:', err))
+    setTimeout(runSync, 10_000) // 10s after startup
+    setInterval(runSync, 6 * 60 * 60 * 1000) // every 6h
+  }
 
   app.use(errorHandler())
   app.use(

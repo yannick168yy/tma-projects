@@ -151,7 +151,15 @@ run run -d --name tma-bff-node --network "$NET" --restart=always \
   -e YFPAY_USERNAME="${YFPAY_USERNAME:-}" \
   -e YFPAY_API_KEY="${YFPAY_API_KEY:-}" \
   -e YFPAY_NOTIFY_URL="${YFPAY_NOTIFY_URL:-https://www.188facai.com/api/v1/callback/yfpay}" \
+  -e MERCHANT_TON_ADDRESS="${MERCHANT_TON_ADDRESS:-UQBjAz1W6jUkH7WJbxwu7rSHbJaOg65TVFHv8w6b1Nx697rJ}" \
+  -e TON_TO_PHP_RATE="${TON_TO_PHP_RATE:-350}" \
+  -e TONCENTER_API_KEY="${TONCENTER_API_KEY:-}" \
   -e CORE_NODE_URL=http://core-node:4000 \
+  -e SG_BASE_URL="${SG_BASE_URL:-}" \
+  -e SG_MERCHANT_ID="${SG_MERCHANT_ID:-}" \
+  -e SG_MERCHANT_KEY="${SG_MERCHANT_KEY:-}" \
+  -e SG_CURRENCY="${SG_CURRENCY:-EUR}" \
+  -e SG_RETURN_URL="${SG_RETURN_URL:-https://www.188facai.com}" \
   betogo-bff-node:latest
 
 echo "==> [${CTR}] web-tma (limit 64m)"

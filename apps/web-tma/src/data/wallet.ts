@@ -45,13 +45,23 @@ export const TG_WALLET_DEPOSIT: PayMethod[] = [
 ]
 
 export const FIAT_DEPOSIT: PayMethod[] = [
-  { id: 'gcash', name: 'GCash', icon: '', iconUrl: '/logos/gcash.svg', color: 'from-blue-500 to-blue-700', tag: 'Soon', enabled: false },
-  { id: 'maya', name: 'Maya', icon: '', iconUrl: '/logos/maya.svg', color: 'from-green-500 to-emerald-600', tag: 'Soon', enabled: false },
+  { id: 'gcash', name: 'GCash', icon: '', iconUrl: '/logos/gcash.svg', color: 'from-blue-500 to-blue-700', tag: 'Instant' },
+  { id: 'maya', name: 'Maya', icon: '', iconUrl: '/logos/maya.svg', color: 'from-green-500 to-emerald-600', tag: 'Instant' },
 ]
 
 export const CRYPTO_DEPOSIT: PayMethod[] = [
   { id: 'usdt-trc', name: 'USDT', icon: '', iconUrl: '/logos/usdt.svg', color: 'from-teal-500 to-emerald-600', tag: 'TRC20', enabled: false },
-  { id: 'ton', name: 'TON', icon: '', iconUrl: '/logos/ton.svg', color: 'from-sky-400 to-blue-600', tag: 'TON', enabled: false },
+  {
+    id: 'ton',
+    name: 'TON',
+    icon: '',
+    iconUrl: '/logos/ton.svg',
+    color: 'from-sky-400 to-blue-600',
+    tag: 'TON Connect',
+    enabled: true,
+    channelId: 'ton_connect',
+    currency: 'TON',
+  },
 ]
 
 export const FIAT_WITHDRAW: PayMethod[] = [

@@ -17,6 +17,7 @@ import {
   Headphones,
 } from 'lucide-vue-next'
 import HomeCategoryShortcut from '@/components/home/HomeCategoryShortcut.vue'
+import SlotsSection from '@/components/home/SlotsSection.vue'
 import GameCard from '@/components/home/GameCard.vue'
 import HistoryCard from '@/components/home/HistoryCard.vue'
 import EGameCard from '@/components/home/EGameCard.vue'
@@ -38,6 +39,7 @@ const emit = defineEmits<{
   openSearch: []
   openPromo: [promo: string | null]
   gameTap: []
+  openSlotsLobby: []
 }>()
 
 const { t } = useI18n()
@@ -220,6 +222,9 @@ function tabIcon(id: GameTabId) {
         </div>
       </div>
     </div>
+
+    <!-- Slotegrator games section (auto-hides if SG not configured) -->
+    <SlotsSection @open-lobby="emit('openSlotsLobby')" @game-tap="emit('gameTap')" />
 
     <div class="flex items-center gap-2 px-4 mt-4 overflow-x-auto hide-scrollbar">
       <button

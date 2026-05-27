@@ -19,6 +19,7 @@ import BonusesPage from '@/views/BonusesPage.vue'
 import BingoPage from '@/views/BingoPage.vue'
 import MenuPage from '@/views/MenuPage.vue'
 import ProfilePage from '@/views/ProfilePage.vue'
+import SlotsLobby from '@/views/SlotsLobby.vue'
 import { NAV_ITEMS } from '@/data/home'
 import { useAuthStore } from '@/stores/auth'
 import { useWalletStore } from '@/stores/wallet'
@@ -38,6 +39,7 @@ const balanceVisible = ref(true)
 const walletOpen = ref(false)
 const walletModalOpen = ref(false)
 const profileOpen = ref(false)
+const slotsLobbyOpen = ref(false)
 
 const navItems = computed(() =>
   NAV_ITEMS.map((item) => ({
@@ -236,7 +238,8 @@ function navIcon(id: string) {
         <BonusesPage v-else-if="activeNav === 'bonuses'" :promo-filter="promoFilter" @open-wallet="openWallet" />
         <BingoPage v-else-if="activeNav === 'bingo'" @open-wallet="openWallet" @game-tap="onGameTap" />
         <MenuPage v-else-if="activeNav === 'menu'" @open-search="searchOpen = true" @game-tap="onGameTap" />
-        <HomeContent v-else @open-search="searchOpen = true" @open-promo="goBonuses" @game-tap="onGameTap" />
+        <HomeContent v-else @open-search="searchOpen = true" @open-promo="goBonuses" @game-tap="onGameTap" @open-slots-lobby="slotsLobbyOpen = true" />
+        <SlotsLobby v-if="slotsLobbyOpen" @close="slotsLobbyOpen = false" @game-tap="onGameTap" />
       </main>
 
       <!-- Figma: bottom nav always visible, including on profile -->

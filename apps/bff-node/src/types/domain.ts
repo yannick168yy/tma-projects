@@ -2,7 +2,7 @@ import type { AppLocale } from './locale.js'
 
 export type UserStatus = 'active' | 'frozen' | 'banned'
 export type KycStatus = 'none' | 'pending' | 'approved' | 'rejected'
-export type DepositCurrency = 'PHP' | 'USDT'
+export type DepositCurrency = 'PHP' | 'USDT' | 'TON'
 
 export interface UserProfile {
   firstName: string
@@ -57,18 +57,27 @@ export interface TurnoverRecord {
   canWithdraw: boolean
 }
 
+export interface TonConnectParams {
+  userWalletAddress: string
+  amountNano: string
+  merchantAddress: string
+  expiresAt: string
+  txHash?: string
+}
+
 export interface DepositOrder {
   orderId: string
   userId: string
   amount: number
   currency: DepositCurrency
-  channelId: 'tg_wallet'
+  channelId: 'tg_wallet' | 'ton_connect'
   status: 'pending' | 'paid' | 'failed' | 'cancelled'
   createdAt: string
   paidAt?: string
   /** 入账 PHP 分（cents） */
   creditedCents?: number
   tgWalletParams?: Record<string, string>
+  tonConnectParams?: TonConnectParams
 }
 
 export interface WithdrawOrder {

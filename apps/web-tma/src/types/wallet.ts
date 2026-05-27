@@ -1,1 +1,1 @@
-export type DepositCurrency = 'PHP' | 'USDT'
+export type DepositCurrency = 'PHP' | 'USDT' | 'TON'
