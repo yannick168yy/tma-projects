@@ -115,8 +115,6 @@ function pickLanguage(code: (typeof LANGUAGES)[number]['code']) {
             class="w-full flex items-center gap-3 py-2.5 px-3.5 rounded-2xl active:scale-[0.97] transition-all text-left"
             :style="{
               background: idx % 2 === 0 ? 'rgba(255,255,255,0.04)' : 'transparent',
-              marginLeft: idx % 2 !== 0 ? '6px' : '0',
-              marginRight: idx % 2 !== 0 ? '-6px' : '0',
             }"
             @click="active = { sid: section.id, cid: cat.id }"
           >

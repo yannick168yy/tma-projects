@@ -111,6 +111,75 @@ const historyFilter = ref<'all' | 'deposit' | 'withdraw'>('all')
 const historyStatus = ref<'all' | 'success' | 'pending' | 'rejected' | 'admin_rejected' | 'failed'>('all')
 const bannerIdx = ref(0)
 
+const walletBannerTrackRef = ref<HTMLElement | null>(null)
+const walletBannerDrag = ref({
+  startX: 0,
+  startY: 0,
+  startScroll: 0,
+  axis: null as 'x' | 'y' | null,
+  lastX: 0,
+  lastT: 0,
+})
+
+function onWalletBannerTouchStart(e: TouchEvent) {
+  const touch = e.touches[0]
+  if (!touch) return
+  walletBannerDrag.value = {
+    startX: touch.clientX,
+    startY: touch.clientY,
+    startScroll: walletBannerTrackRef.value?.scrollLeft ?? 0,
+    axis: null,
+    lastX: touch.clientX,
+    lastT: Date.now(),
+  }
+}
+
+function onWalletBannerTouchMove(e: TouchEvent) {
+  const el = walletBannerTrackRef.value
+  const touch = e.touches[0]
+  if (!el || !touch) return
+
+  const dx = touch.clientX - walletBannerDrag.value.startX
+  const dy = touch.clientY - walletBannerDrag.value.startY
+
+  if (walletBannerDrag.value.axis === null && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) {
+    walletBannerDrag.value.axis = Math.abs(dx) >= Math.abs(dy) ? 'x' : 'y'
+  }
+
+  if (walletBannerDrag.value.axis !== 'x') return
+
+  e.stopPropagation()
+  el.scrollLeft = walletBannerDrag.value.startScroll - dx
+  walletBannerDrag.value.lastX = touch.clientX
+  walletBannerDrag.value.lastT = Date.now()
+}
+
+function onWalletBannerTouchEnd() {
+  if (walletBannerDrag.value.axis === 'x') {
+    const el = walletBannerTrackRef.value
+    if (el && el.clientWidth > 0) {
+      const banners = localizedWalletBanners.value
+      const dx = walletBannerDrag.value.startX - walletBannerDrag.value.lastX
+      const dt = Math.max(1, Date.now() - walletBannerDrag.value.lastT)
+      const velocity = dx / dt
+      const threshold = el.clientWidth * 0.18
+      const cur = bannerIdx.value
+      if (dx > threshold || velocity > 0.35) {
+        const next = Math.min(banners.length - 1, cur + 1)
+        el.scrollTo({ left: next * el.clientWidth, behavior: 'smooth' })
+        bannerIdx.value = next
+      } else if (dx < -threshold || velocity < -0.35) {
+        const prev = Math.max(0, cur - 1)
+        el.scrollTo({ left: prev * el.clientWidth, behavior: 'smooth' })
+        bannerIdx.value = prev
+      } else {
+        el.scrollTo({ left: cur * el.clientWidth, behavior: 'smooth' })
+      }
+    }
+  }
+  walletBannerDrag.value.axis = null
+}
+
 // deposit
 const depositLoading = ref(false)
 const depositMessage = ref('')
@@ -345,6 +414,7 @@ watch(
       historyFilter.value = 'all'
       historyStatus.value = 'all'
       bannerIdx.value = 0
+      if (walletBannerTrackRef.value) walletBannerTrackRef.value.scrollLeft = 0
       depositLoading.value = false
       depositMessage.value = ''
       depositSuccess.value = false
@@ -774,24 +844,37 @@ async function loadHistory() {
       </div>
 
       <div v-if="tab !== 'history'" class="px-5 pt-3 flex-shrink-0">
-        <button
-          type="button"
-          class="relative w-full rounded-2xl overflow-hidden h-20 bg-gradient-to-br text-left"
-          :class="localizedWalletBanners[bannerIdx]!.gradient"
-          @click="bannerIdx = (bannerIdx + 1) % localizedWalletBanners.length"
-        >
-          <div class="absolute inset-0 p-3.5 flex items-center justify-between">
-            <div>
-              <span class="text-white/60 text-[10px] font-bold uppercase tracking-wider block leading-none mb-1">
-                {{ localizedWalletBanners[bannerIdx]!.label }}
-              </span>
-              <span class="text-white font-black text-base leading-tight font-display">
-                {{ localizedWalletBanners[bannerIdx]!.text }}
-              </span>
+        <div class="relative w-full rounded-2xl overflow-hidden h-20">
+          <div
+            ref="walletBannerTrackRef"
+            class="flex h-full overflow-x-auto hide-scrollbar"
+            style="scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch;"
+            @touchstart="onWalletBannerTouchStart"
+            @touchmove="onWalletBannerTouchMove"
+            @touchend="onWalletBannerTouchEnd"
+            @touchcancel="onWalletBannerTouchEnd"
+          >
+            <div
+              v-for="(banner, i) in localizedWalletBanners"
+              :key="i"
+              class="relative w-full flex-shrink-0 h-20 bg-gradient-to-br"
+              :class="banner.gradient"
+              style="scroll-snap-align: center;"
+            >
+              <div class="absolute inset-0 p-3.5 flex items-center justify-between">
+                <div>
+                  <span class="text-white/60 text-[10px] font-bold uppercase tracking-wider block leading-none mb-1">
+                    {{ banner.label }}
+                  </span>
+                  <span class="text-white font-black text-base leading-tight font-display">
+                    {{ banner.text }}
+                  </span>
+                </div>
+                <span class="text-4xl">{{ banner.icon }}</span>
+              </div>
             </div>
-            <span class="text-4xl">{{ localizedWalletBanners[bannerIdx]!.icon }}</span>
           </div>
-          <div class="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
+          <div class="pointer-events-none absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
             <span
               v-for="(_, i) in localizedWalletBanners"
               :key="i"
@@ -799,7 +882,7 @@ async function loadHistory() {
               :class="i === bannerIdx ? 'w-4 bg-white' : 'w-1 bg-white/40'"
             />
           </div>
-        </button>
+        </div>
       </div>
 
       <div v-if="tab === 'history'" class="px-5 pt-3 space-y-2 flex-shrink-0">

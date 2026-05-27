@@ -76,6 +76,8 @@ const bannerDrag = ref({
   startY: 0,
   startScroll: 0,
   axis: null as 'x' | 'y' | null,
+  lastX: 0,
+  lastT: 0,
 })
 const marqueeWinners = computed(() => [...WINNERS, ...WINNERS])
 
@@ -110,6 +112,8 @@ function onBannerTouchStart(e: TouchEvent) {
     startY: t.clientY,
     startScroll: bannerTrackRef.value?.scrollLeft ?? 0,
     axis: null,
+    lastX: t.clientX,
+    lastT: Date.now(),
   }
 }
 
@@ -131,11 +135,31 @@ function onBannerTouchMove(e: TouchEvent) {
 
   e.preventDefault()
   el.scrollLeft = bannerDrag.value.startScroll - dx
+  bannerDrag.value.lastX = t.clientX
+  bannerDrag.value.lastT = Date.now()
 }
 
 function onBannerTouchEnd() {
   if (bannerDrag.value.axis === 'x') {
-    snapBannerToNearest()
+    const el = bannerTrackRef.value
+    if (el && el.clientWidth > 0) {
+      const dx = bannerDrag.value.startX - bannerDrag.value.lastX
+      const dt = Math.max(1, Date.now() - bannerDrag.value.lastT)
+      const velocity = dx / dt // px/ms，正值 = 向左滑（下一张）
+      const threshold = el.clientWidth * 0.18 // 18% 宽度即触发
+      const cur = activeBanner.value
+      if (dx > threshold || velocity > 0.35) {
+        const next = Math.min(BANNERS.length - 1, cur + 1)
+        el.scrollTo({ left: next * el.clientWidth, behavior: 'smooth' })
+        activeBanner.value = next
+      } else if (dx < -threshold || velocity < -0.35) {
+        const prev = Math.max(0, cur - 1)
+        el.scrollTo({ left: prev * el.clientWidth, behavior: 'smooth' })
+        activeBanner.value = prev
+      } else {
+        snapBannerToNearest()
+      }
+    }
   }
   bannerDrag.value.axis = null
 }
