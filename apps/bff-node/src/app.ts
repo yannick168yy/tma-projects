@@ -25,9 +25,11 @@ export function createApp(env: Env): Koa {
     )
   }, 30_000)
 
-  // Seed default admin account on startup (no-op if accounts already exist)
+  // Seed default admin account — delay 15s to let MySQL stabilize after container start
   if (isMysqlEnabled(env)) {
-    seedDefaultAdmin(env).catch((err) => console.error('[admin-seed] error:', err))
+    setTimeout(() => {
+      seedDefaultAdmin(env).catch((err) => console.error('[admin-seed] error:', err))
+    }, 15_000)
   }
 
   // Slotegrator game sync: on startup then every 6h

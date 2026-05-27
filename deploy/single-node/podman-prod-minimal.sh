@@ -177,6 +177,18 @@ run run -d --name tma-web-tma --restart=always \
   -p "${PORT}:80" \
   tma-web-tma:latest
 
+echo "==> [${CTR}] web-admin (limit 64m)"
+ADMIN_PORT="${WEB_ADMIN_PORT:-8085}"
+ADMIN_API_URL="${VITE_ADMIN_API_BASE_URL:-https://www.188facai.com/api/v1}"
+run rm -f tma-web-admin 2>/dev/null || true
+run build -t betogo-web-admin:latest \
+  --build-arg "VITE_ADMIN_API_BASE_URL=${ADMIN_API_URL}" \
+  -f apps/web-admin/Dockerfile apps/web-admin
+run run -d --name tma-web-admin --restart=always \
+  --memory=64m --memory-swap=64m \
+  -p "${ADMIN_PORT}:80" \
+  betogo-web-admin:latest
+
 echo "==> 等待服务就绪…"
 sleep 10
 curl -sf http://127.0.0.1:3000/health >/dev/null && echo "  bff-node: ok" || echo "  bff-node: 未就绪"
