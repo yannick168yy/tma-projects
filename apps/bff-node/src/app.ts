@@ -15,6 +15,7 @@ import { seedDefaultAdmin } from './services/admin-auth.service.js'
 
 export function createApp(env: Env): Koa {
   const app = new Koa()
+  app.proxy = true  // 信任 nginx 的 X-Forwarded-For，ctx.ip 才能拿到真实用户 IP
   initStore(env)
   const redis = getRedis(env)
 
