@@ -1,4 +1,5 @@
 import Router from '@koa/router'
+import { createAdminRouter } from './admin/index.js'
 import authRoutes from './auth.routes.js'
 import userRoutes from './user.routes.js'
 import walletRoutes from './wallet.routes.js'
@@ -19,6 +20,10 @@ import { ok, fail } from '../utils/response.js'
 
 export function createApiRouter(): Router {
   const api = new Router({ prefix: '/api/v1' })
+
+  // 管理后台路由（自带 /admin 前缀）
+  const adminRouter = createAdminRouter()
+  api.use(adminRouter.routes(), adminRouter.allowedMethods())
 
   // 无需鉴权：webhook + 回调 + 登录
   api.use(webhookRoutes.routes(), webhookRoutes.allowedMethods())

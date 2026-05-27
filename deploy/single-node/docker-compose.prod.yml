@@ -178,6 +178,31 @@ services:
         limits:
           memory: 64M
 
+  web-admin:
+    build:
+      context: ../../apps/web-admin
+      dockerfile: Dockerfile
+      args:
+        VITE_ADMIN_API_BASE_URL: ${VITE_ADMIN_API_BASE_URL:-https://www.188facai.com/api/v1}
+    image: betogo-web-admin:latest
+    container_name: tma-web-admin
+    restart: unless-stopped
+    ports:
+      - '${WEB_ADMIN_PORT:-8085}:80'
+    depends_on:
+      bff-node:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '-O', '/dev/null', 'http://127.0.0.1/']
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+
 volumes:
   mysql_data:
   nats_data:

@@ -11,6 +11,7 @@ import { pollAndSettleTonDeposits } from './services/ton.service.js'
 import { syncAllGames } from './services/sg-game.service.js'
 import { isMysqlEnabled } from './clients/mysql.client.js'
 import { ok } from './utils/response.js'
+import { seedDefaultAdmin } from './services/admin-auth.service.js'
 
 export function createApp(env: Env): Koa {
   const app = new Koa()
@@ -23,6 +24,11 @@ export function createApp(env: Env): Koa {
       console.error('[ton-poller] unhandled error:', err),
     )
   }, 30_000)
+
+  // Seed default admin account on startup (no-op if accounts already exist)
+  if (isMysqlEnabled(env)) {
+    seedDefaultAdmin(env).catch((err) => console.error('[admin-seed] error:', err))
+  }
 
   // Slotegrator game sync: on startup then every 6h
   if (isMysqlEnabled(env) && env.SG_BASE_URL && env.SG_MERCHANT_ID) {
