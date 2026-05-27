@@ -35,6 +35,10 @@
           <file-text-outlined />
           <span>操作日志</span>
         </a-menu-item>
+        <a-menu-item key="/settings">
+          <setting-outlined />
+          <span>系统设置</span>
+        </a-menu-item>
       </a-menu>
     </a-layout-sider>
 
@@ -85,7 +89,7 @@ import { ref, reactive } from 'vue'
 import { useRouter, useRoute, RouterView } from 'vue-router'
 import {
   DashboardOutlined, TeamOutlined, ArrowDownOutlined, ArrowUpOutlined,
-  FileTextOutlined, UserOutlined, DownOutlined, AppstoreOutlined,
+  FileTextOutlined, UserOutlined, DownOutlined, AppstoreOutlined, SettingOutlined,
 } from '@ant-design/icons-vue'
 import { useAuthStore } from '../stores/auth.js'
 import { adminChangePassword } from '../api.js'

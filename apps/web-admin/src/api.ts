@@ -59,7 +59,7 @@ export interface AdminUser {
   status: string; label: string; lastLoginAt: string | null; registeredAt: string; balanceCents: number
 }
 export interface LoginLog {
-  id: number; ip: string | null; userAgent: string | null; authMethod: string; createdAt: string
+  id: number; ip: string | null; region: string | null; userAgent: string | null; authMethod: string; createdAt: string
 }
 export interface BetOrder {
   id: number; providerTxnId: string; roundId: string | null
@@ -79,8 +79,14 @@ export const updateUserStatus = (id: string, status: string, reason?: string) =>
   patch<{ status: string }>(`/admin/users/${id}/status`, { status, reason })
 export const updateUserLabel = (id: string, label: string) =>
   patch<{ label: string }>(`/admin/users/${id}/label`, { label })
-export const adjustBalance = (id: string, cents: number, note?: string) =>
-  post<{ available: number }>(`/admin/users/${id}/adjust-balance`, { cents, note })
+export const adjustBalance = (id: string, cents: number, opPassword: string, note?: string) =>
+  post<{ available: number; orderId: string }>(`/admin/users/${id}/adjust-balance`, { cents, opPassword, note })
+
+// Settings - op password
+export const getOpPasswordStatus = () =>
+  get<{ configured: boolean }>('/admin/settings/op-password')
+export const setOpPassword = (newPassword: string, currentPassword?: string) =>
+  post('/admin/settings/op-password', { newPassword, currentPassword })
 
 // Deposits
 export interface AdminDeposit {

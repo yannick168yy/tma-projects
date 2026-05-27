@@ -19,9 +19,21 @@
                   {{ labelText(String(detail.user.label ?? 'normal')) }}
                 </a-tag>
               </a-descriptions-item>
-              <a-descriptions-item label="最后登录">{{ detail.user.lastLoginAt ? fmtDate(String(detail.user.lastLoginAt)) : '-' }}</a-descriptions-item>
               <a-descriptions-item label="注册时间">{{ fmtDate(String(detail.user.registeredAt)) }}</a-descriptions-item>
-              <a-descriptions-item label="余额">₱{{ Math.round(detail.wallet.available / 100).toLocaleString() }}</a-descriptions-item>
+              <a-descriptions-item label="注册区域">
+                <span>{{ detail.user.registerRegion || '-' }}</span>
+                <a-typography-text v-if="detail.user.registerIp" type="secondary" style="margin-left:6px;font-size:12px">
+                  {{ detail.user.registerIp }}
+                </a-typography-text>
+              </a-descriptions-item>
+              <a-descriptions-item label="最后登录">{{ detail.user.lastLoginAt ? fmtDate(String(detail.user.lastLoginAt)) : '-' }}</a-descriptions-item>
+              <a-descriptions-item label="最后登录区域">
+                <span>{{ detail.user.lastLoginRegion || '-' }}</span>
+                <a-typography-text v-if="detail.user.lastLoginIp" type="secondary" style="margin-left:6px;font-size:12px">
+                  {{ detail.user.lastLoginIp }}
+                </a-typography-text>
+              </a-descriptions-item>
+              <a-descriptions-item label="余额">₱{{ (detail.wallet.available / 100).toFixed(2) }}</a-descriptions-item>
             </a-descriptions>
           </a-card>
         </a-col>
@@ -56,10 +68,18 @@
               <a-divider />
               <div>
                 <div style="margin-bottom:8px; font-weight:500">调整余额（单位：分，正加负减）</div>
-                <a-space>
-                  <a-input-number v-model:value="adjustCents" style="width:150px" />
-                  <a-input v-model:value="adjustNote" placeholder="备注" style="width:200px" />
-                  <a-button :loading="opLoading" @click="doAdjust">确认</a-button>
+                <a-space direction="vertical" style="width:100%">
+                  <a-space>
+                    <a-input-number v-model:value="adjustCents" style="width:150px" placeholder="金额(分)" />
+                    <a-input v-model:value="adjustNote" placeholder="备注" style="width:200px" />
+                  </a-space>
+                  <a-space>
+                    <a-input-password v-model:value="adjustOpPwd" placeholder="操作密码" style="width:180px" />
+                    <a-button type="primary" :loading="opLoading" @click="doAdjust">确认调整</a-button>
+                  </a-space>
+                  <a-typography-text type="secondary" style="font-size:12px">
+                    操作密码由 super_admin 在「系统设置」中管理
+                  </a-typography-text>
                 </a-space>
               </div>
             </a-space>
@@ -70,8 +90,19 @@
         <a-col :span="24">
           <a-card :bordered="false" style="margin-bottom:16px">
             <a-tabs v-model:activeKey="actTab">
-              <a-tab-pane key="ledger" tab="账本记录">
-                <a-table :columns="ledgerCols" :data-source="detail.ledger" row-key="id" :pagination="false" size="small" />
+              <a-tab-pane key="ledger" tab="账变记录">
+                <a-table :columns="ledgerCols" :data-source="detail.ledger" row-key="id" :pagination="false" size="small">
+                  <template #bodyCell="{ column, record }">
+                    <template v-if="column.key === 'type'">
+                      <a-tag :color="ledgerTypeColor(String((record as any).type))">{{ ledgerTypeText(String((record as any).type)) }}</a-tag>
+                    </template>
+                    <template v-else-if="column.key === 'amount'">
+                      <span :style="{ color: Number((record as any).amount) > 0 ? '#52c41a' : '#ff4d4f' }">
+                        {{ Number((record as any).amount) > 0 ? '+' : '' }}{{ Number((record as any).amount) }}
+                      </span>
+                    </template>
+                  </template>
+                </a-table>
               </a-tab-pane>
               <a-tab-pane key="login" :tab="`登录记录 (${detail.loginLogs.length})`">
                 <a-table :columns="loginCols" :data-source="detail.loginLogs" row-key="id" :pagination="false" size="small" />
@@ -105,9 +136,10 @@ const statusReason = ref('')
 const newLabel = ref('normal')
 const adjustCents = ref(0)
 const adjustNote = ref('')
+const adjustOpPwd = ref('')
 
 const ledgerCols = [
-  { title: '类型', dataIndex: 'type', key: 'type', width: 80 },
+  { title: '类型', dataIndex: 'type', key: 'type', width: 110 },
   { title: '金额(分)', dataIndex: 'amount', key: 'amount', width: 100 },
   { title: '余额(分)', dataIndex: 'balanceAfter', key: 'balanceAfter', width: 100 },
   { title: '描述', dataIndex: 'description', key: 'desc' },
@@ -115,8 +147,9 @@ const ledgerCols = [
 ]
 
 const loginCols = [
-  { title: '登录方式', dataIndex: 'authMethod', key: 'method', width: 100 },
-  { title: 'IP', dataIndex: 'ip', key: 'ip', width: 130, customRender: ({ value }: { value: string | null }) => value || '-' },
+  { title: '登录方式', dataIndex: 'authMethod', key: 'method', width: 90 },
+  { title: 'IP', dataIndex: 'ip', key: 'ip', width: 120, customRender: ({ value }: { value: string | null }) => value || '-' },
+  { title: '区域', dataIndex: 'region', key: 'region', width: 130, customRender: ({ value }: { value: string | null }) => value || '-' },
   { title: 'User-Agent', dataIndex: 'userAgent', key: 'ua', ellipsis: true },
   { title: '时间', dataIndex: 'createdAt', key: 'at', width: 160, customRender: ({ value }: { value: string }) => new Date(value).toLocaleString('zh-CN') },
 ]
@@ -132,6 +165,12 @@ const betCols = [
 function statusColor(s: string) { return { active: 'green', frozen: 'orange', banned: 'red' }[s] ?? 'default' }
 function labelText(l: string) { return { normal: '普通', arbitrage: '套利客' }[l] ?? l }
 function fmtDate(s: string) { return new Date(s).toLocaleString('zh-CN') }
+function ledgerTypeColor(t: string) {
+  return { deposit: 'green', admin_adjust: 'blue', withdraw: 'orange', bet: 'purple', bonus: 'cyan', red_packet: 'magenta' }[t] ?? 'default'
+}
+function ledgerTypeText(t: string) {
+  return { deposit: '存款', withdraw: '取款', bet: '投注', win: '中奖', bonus: '奖励', red_packet: '红包', adjust: '调整', admin_adjust: '后台调整' }[t] ?? t
+}
 
 async function load() {
   loading.value = true
@@ -140,7 +179,8 @@ async function load() {
     newStatus.value = String(detail.value.user.status ?? 'active')
     newLabel.value = String(detail.value.user.label ?? 'normal')
   } finally {
-    loading.value = false }
+    loading.value = false
+  }
 }
 
 async function doUpdateStatus() {
@@ -166,11 +206,15 @@ async function doUpdateLabel() {
 }
 
 async function doAdjust() {
-  if (!adjustCents.value) { message.warning('请填写金额'); return }
+  if (!adjustCents.value) { message.warning('请填写调整金额'); return }
+  if (!adjustOpPwd.value) { message.warning('请输入操作密码'); return }
   opLoading.value = true
   try {
-    const res = await adjustBalance(id, adjustCents.value, adjustNote.value || undefined)
-    message.success(`余额已调整，当前余额: ${res.available} 分`)
+    const res = await adjustBalance(id, adjustCents.value, adjustOpPwd.value, adjustNote.value || undefined)
+    message.success(`余额已调整，订单: ${res.orderId}，当前余额: ₱${(res.available / 100).toFixed(2)}`)
+    adjustOpPwd.value = ''
+    adjustCents.value = 0
+    adjustNote.value = ''
     await load()
   } catch (e) {
     message.error(e instanceof Error ? e.message : '操作失败')
