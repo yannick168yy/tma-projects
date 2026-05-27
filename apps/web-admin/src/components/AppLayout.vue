@@ -27,6 +27,10 @@
           <arrow-up-outlined />
           <span>提款审批</span>
         </a-menu-item>
+        <a-menu-item key="/games">
+          <appstore-outlined />
+          <span>游戏管理</span>
+        </a-menu-item>
         <a-menu-item key="/audit-log">
           <file-text-outlined />
           <span>操作日志</span>
@@ -61,7 +65,7 @@ import { ref } from 'vue'
 import { useRouter, useRoute, RouterView } from 'vue-router'
 import {
   DashboardOutlined, TeamOutlined, ArrowDownOutlined, ArrowUpOutlined,
-  FileTextOutlined, UserOutlined, DownOutlined,
+  FileTextOutlined, UserOutlined, DownOutlined, AppstoreOutlined,
 } from '@ant-design/icons-vue'
 import { useAuthStore } from '../stores/auth.js'
 import { message } from 'ant-design-vue'

@@ -30,6 +30,7 @@ function defaultProfile(): UserRecord['profile'] {
 type UserRow = RowDataPacket & {
   id: string
   telegram_user_id: number | null
+  telegram_username: string | null
   google_sub: string | null
   email: string | null
   display_name: string
@@ -59,6 +60,7 @@ function mapUser(row: UserRow): UserRecord {
   return {
     id: row.id,
     telegramUserId: row.telegram_user_id ?? undefined,
+    telegramUsername: row.telegram_username ?? undefined,
     googleSub: row.google_sub ?? undefined,
     email: row.email ?? undefined,
     displayName: row.display_name,
@@ -110,14 +112,16 @@ export async function saveUser(env: Env, user: UserRecord): Promise<void> {
   try {
     await conn.beginTransaction()
     await conn.execute(
-      `INSERT INTO bg_user (id, telegram_user_id, google_sub, email, display_name, avatar_url, invite_code, inviter_id, locale, status, status_reason, registered_at)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
+      `INSERT INTO bg_user (id, telegram_user_id, telegram_username, google_sub, email, display_name, avatar_url, invite_code, inviter_id, locale, status, status_reason, registered_at)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
        ON DUPLICATE KEY UPDATE
+         telegram_username=VALUES(telegram_username),
          display_name=VALUES(display_name), avatar_url=VALUES(avatar_url), email=VALUES(email),
          locale=VALUES(locale), status=VALUES(status), status_reason=VALUES(status_reason)`,
       [
         user.id,
         user.telegramUserId ?? null,
+        user.telegramUsername ?? null,
         user.googleSub ?? null,
         user.email ?? null,
         user.displayName,

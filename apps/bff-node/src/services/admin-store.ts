@@ -268,6 +268,55 @@ export async function listAdminDeposits(
   return { total, items }
 }
 
+export async function listAdminGames(
+  env: Env,
+  opts: { page: number; pageSize: number; provider?: string; search?: string; isActive?: boolean },
+) {
+  const offset = (opts.page - 1) * opts.pageSize
+  const conditions: string[] = []
+  const params: unknown[] = []
+
+  if (opts.provider) { conditions.push('provider = ?'); params.push(opts.provider) }
+  if (opts.search) { conditions.push('name LIKE ?'); params.push(`%${opts.search}%`) }
+  if (opts.isActive !== undefined) { conditions.push('is_active = ?'); params.push(opts.isActive ? 1 : 0) }
+
+  const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : ''
+
+  const [countRows] = await pool(env).query<RowDataPacket[]>(
+    `SELECT COUNT(*) as cnt FROM sg_games ${where}`, params,
+  )
+  const total = Number(countRows[0]?.cnt ?? 0)
+
+  const [rows] = await pool(env).query<RowDataPacket[]>(
+    `SELECT uuid, name, provider, category, sub_category, image_url, has_demo, has_lobby, is_mobile, is_active, updated_at
+     FROM sg_games ${where} ORDER BY provider, name LIMIT ? OFFSET ?`,
+    [...params, opts.pageSize, offset],
+  )
+
+  const [provRows] = await pool(env).query<RowDataPacket[]>(`SELECT DISTINCT provider FROM sg_games ORDER BY provider`)
+  const providers = provRows.map((r) => String(r.provider))
+
+  const items = rows.map((r) => ({
+    uuid: String(r.uuid),
+    name: String(r.name),
+    provider: String(r.provider),
+    category: r.category ? String(r.category) : null,
+    subCategory: r.sub_category ? String(r.sub_category) : null,
+    imageUrl: r.image_url ? String(r.image_url) : null,
+    hasDemo: Boolean(r.has_demo),
+    hasLobby: Boolean(r.has_lobby),
+    isMobile: Boolean(r.is_mobile),
+    isActive: Boolean(r.is_active),
+    updatedAt: new Date(r.updated_at as Date).toISOString(),
+  }))
+
+  return { total, items, providers }
+}
+
+export async function toggleAdminGame(env: Env, uuid: string, isActive: boolean): Promise<void> {
+  await pool(env).execute(`UPDATE sg_games SET is_active = ? WHERE uuid = ?`, [isActive ? 1 : 0, uuid])
+}
+
 export async function listAdminWithdrawals(
   env: Env,
   opts: { page: number; pageSize: number; userId?: string; status?: string },

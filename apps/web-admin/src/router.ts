@@ -16,6 +16,7 @@ const router = createRouter({
         { path: 'deposits', component: () => import('./views/Deposits.vue') },
         { path: 'withdrawals', component: () => import('./views/Withdrawals.vue') },
         { path: 'audit-log', component: () => import('./views/AuditLog.vue') },
+        { path: 'games', component: () => import('./views/Games.vue') },
       ],
     },
     { path: '/:pathMatch(.*)*', redirect: '/dashboard' },

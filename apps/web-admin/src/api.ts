@@ -85,6 +85,17 @@ export const approveWithdrawal = (orderId: string) =>
 export const rejectWithdrawal = (orderId: string, reason: string) =>
   post<{ orderId: string; status: string }>(`/admin/withdrawals/${orderId}/reject`, { reason })
 
+// Games
+export interface AdminGame {
+  uuid: string; name: string; provider: string; category: string | null
+  subCategory: string | null; imageUrl: string | null
+  hasDemo: boolean; hasLobby: boolean; isMobile: boolean; isActive: boolean; updatedAt: string
+}
+export const getAdminGames = (params: { page?: number; pageSize?: number; provider?: string; search?: string; isActive?: boolean }) =>
+  get<{ total: number; items: AdminGame[]; providers: string[] }>('/admin/games', params)
+export const toggleGame = (uuid: string, isActive: boolean) =>
+  patch<{ uuid: string; isActive: boolean }>(`/admin/games/${uuid}/toggle`, { isActive })
+
 // Audit log
 export interface AuditEntry {
   id: number; adminUsername: string; action: string; targetType: string | null
