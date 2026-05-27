@@ -52,6 +52,15 @@
             >
               <a-button type="link" size="small" danger :loading="opUid === record.id">禁用</a-button>
             </a-popconfirm>
+            <a-popconfirm
+              v-if="record.status === 'frozen' || record.status === 'banned'"
+              title="确定恢复该用户？"
+              ok-text="恢复"
+              cancel-text="取消"
+              @confirm="doRestore(record)"
+            >
+              <a-button type="link" size="small" :loading="opUid === record.id">恢复</a-button>
+            </a-popconfirm>
             <a-dropdown trigger="click">
               <a-button type="link" size="small">标记▾</a-button>
               <template #overlay>
@@ -120,6 +129,19 @@ async function load(p = 1) {
     total.value = res.total
   } finally {
     loading.value = false
+  }
+}
+
+async function doRestore(record: AdminUser) {
+  opUid.value = record.id
+  try {
+    await updateUserStatus(record.id, 'active')
+    record.status = 'active'
+    message.success('已恢复')
+  } catch {
+    message.error('操作失败')
+  } finally {
+    opUid.value = null
   }
 }
 

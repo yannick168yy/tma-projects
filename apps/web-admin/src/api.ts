@@ -42,6 +42,8 @@ const patch = <T>(url: string, data?: unknown) => req<T>('PATCH', url, data)
 export const adminLogin = (username: string, password: string) =>
   post<{ token: string; expiresIn: number; role: string }>('/admin/auth/login', { username, password })
 export const adminLogout = () => post('/admin/auth/logout')
+export const adminChangePassword = (currentPassword: string, newPassword: string) =>
+  post('/admin/auth/change-password', { currentPassword, newPassword })
 
 // Dashboard
 export const getDashboard = () => get<{

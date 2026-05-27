@@ -4,10 +4,12 @@ import type { Redis } from 'ioredis'
 import type { Env } from '../config/env.js'
 import {
   getAdminByUsername,
+  getAdminById,
   updateLastLogin,
   countAdmins,
   createAdmin,
 } from './admin-store.js'
+import { getMysqlPool } from '../clients/mysql.client.js'
 import { randomToken } from '../utils/id.js'
 
 const scryptAsync = promisify(scrypt)
@@ -70,6 +72,22 @@ export async function getAdminSession(redis: Redis, token: string): Promise<Admi
 
 export async function logoutAdmin(redis: Redis, token: string): Promise<void> {
   await redis.del(sessionKey(token))
+}
+
+export async function changeAdminPassword(
+  env: Env,
+  adminId: number,
+  currentPassword: string,
+  newPassword: string,
+): Promise<'ok' | 'wrong_password' | 'not_found'> {
+  const account = await getAdminById(env, adminId)
+  if (!account) return 'not_found'
+  const valid = await verifyPassword(currentPassword, account.passwordHash)
+  if (!valid) return 'wrong_password'
+  const newHash = await hashPassword(newPassword)
+  const pool = getMysqlPool(env)
+  await pool.execute(`UPDATE admin_accounts SET password_hash = ? WHERE id = ?`, [newHash, adminId])
+  return 'ok'
 }
 
 export async function seedDefaultAdmin(env: Env): Promise<void> {

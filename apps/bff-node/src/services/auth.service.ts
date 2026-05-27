@@ -81,6 +81,10 @@ export async function loginWithInitData(
     referredBy,
   })
 
+  if (user.status === 'frozen' || user.status === 'banned') {
+    throw new AuthError('Account has been disabled. Please contact support.')
+  }
+
   return issueSession(redis, env, user, isNewUser)
 }
 
@@ -113,6 +117,9 @@ export async function loginWithGoogleCode(
       displayName: profile.name,
       avatarUrl: profile.picture,
     })
+    if (user.status === 'frozen' || user.status === 'banned') {
+      throw new AuthError('Account has been disabled. Please contact support.')
+    }
     return issueSession(redis, env, user, isNewUser)
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Google login failed'

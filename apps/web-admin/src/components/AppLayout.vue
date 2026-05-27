@@ -47,7 +47,9 @@
           </a-button>
           <template #overlay>
             <a-menu>
-              <a-menu-item @click="handleLogout">退出登录</a-menu-item>
+              <a-menu-item @click="showPwdModal = true">修改密码</a-menu-item>
+              <a-menu-divider />
+              <a-menu-item @click="handleLogout" style="color:red">退出登录</a-menu-item>
             </a-menu>
           </template>
         </a-dropdown>
@@ -58,16 +60,35 @@
       </a-layout-content>
     </a-layout>
   </a-layout>
+
+  <!-- 修改密码弹窗 -->
+  <a-modal v-model:open="showPwdModal" title="修改登录密码" :footer="null" @cancel="resetPwdForm">
+    <a-form layout="vertical" style="margin-top:8px">
+      <a-form-item label="当前密码">
+        <a-input-password v-model:value="pwdForm.current" placeholder="请输入当前密码" />
+      </a-form-item>
+      <a-form-item label="新密码">
+        <a-input-password v-model:value="pwdForm.newPwd" placeholder="至少8位" />
+      </a-form-item>
+      <a-form-item label="确认新密码">
+        <a-input-password v-model:value="pwdForm.confirm" placeholder="再次输入新密码" />
+      </a-form-item>
+      <a-form-item>
+        <a-button type="primary" :loading="pwdLoading" block @click="handleChangePwd">确认修改</a-button>
+      </a-form-item>
+    </a-form>
+  </a-modal>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, reactive } from 'vue'
 import { useRouter, useRoute, RouterView } from 'vue-router'
 import {
   DashboardOutlined, TeamOutlined, ArrowDownOutlined, ArrowUpOutlined,
   FileTextOutlined, UserOutlined, DownOutlined, AppstoreOutlined,
 } from '@ant-design/icons-vue'
 import { useAuthStore } from '../stores/auth.js'
+import { adminChangePassword } from '../api.js'
 import { message } from 'ant-design-vue'
 
 const collapsed = ref(false)
@@ -76,8 +97,43 @@ const route = useRoute()
 const auth = useAuthStore()
 const role = auth.role
 
+const showPwdModal = ref(false)
+const pwdLoading = ref(false)
+const pwdForm = reactive({ current: '', newPwd: '', confirm: '' })
+
 function onMenuClick(info: { key: string }) {
   router.push(info.key)
+}
+
+function resetPwdForm() {
+  pwdForm.current = ''
+  pwdForm.newPwd = ''
+  pwdForm.confirm = ''
+}
+
+async function handleChangePwd() {
+  if (!pwdForm.current || !pwdForm.newPwd || !pwdForm.confirm) {
+    message.warning('请填写所有字段'); return
+  }
+  if (pwdForm.newPwd !== pwdForm.confirm) {
+    message.warning('两次输入的新密码不一致'); return
+  }
+  if (pwdForm.newPwd.length < 8) {
+    message.warning('新密码至少8位'); return
+  }
+  pwdLoading.value = true
+  try {
+    await adminChangePassword(pwdForm.current, pwdForm.newPwd)
+    message.success('密码已修改，请重新登录')
+    showPwdModal.value = false
+    resetPwdForm()
+    await auth.logout()
+    router.push('/login')
+  } catch (e) {
+    message.error(e instanceof Error ? e.message : '修改失败')
+  } finally {
+    pwdLoading.value = false
+  }
 }
 
 async function handleLogout() {
