@@ -181,7 +181,7 @@ function tabIcon(id: GameTabId) {
           ref="bannerTrackRef"
           class="banner-carousel flex h-full snap-x snap-mandatory hide-scrollbar"
           @scroll.passive="onBannerScroll"
-          @touchstart.passive="onBannerTouchStart"
+          @touchstart="onBannerTouchStart"
           @touchmove="onBannerTouchMove"
           @touchend="onBannerTouchEnd"
           @touchcancel="onBannerTouchEnd"

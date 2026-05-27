@@ -55,6 +55,7 @@ body {
   overflow-y: hidden;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
+  touch-action: pan-y;
 }
 
 /* Scrollable page area inside the shell */
