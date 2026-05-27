@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { CheckCircle2, Copy, ChevronDown, ChevronRight, LogOut } from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/auth'
 import type { LoginProvider } from '@/types/api'
 import { formatTelegramHandle, getTelegramWebAppUser } from '@/utils/telegramUser'
+import { patchProfile } from '@/api/auth'
 import ContactBrandIcon from '@/components/profile/ContactBrandIcon.vue'
 import ContactMethodRow from '@/components/profile/ContactMethodRow.vue'
 
@@ -15,6 +16,8 @@ const auth = useAuthStore()
 const loggingOut = ref(false)
 const logoutConfirmOpen = ref(false)
 const personalSaved = ref(false)
+const personalSaving = ref(false)
+const personalError = ref('')
 const copied = ref(false)
 const firstName = ref('')
 const lastName = ref('')
@@ -168,10 +171,38 @@ async function confirmLogout() {
   }
 }
 
-function savePersonal() {
-  if (firstName.value && lastName.value && dobFilled.value && gender.value) {
+onMounted(() => {
+  const p = auth.user?.profile
+  if (p) {
+    firstName.value = p.firstName ?? ''
+    lastName.value = p.lastName ?? ''
+    gender.value = p.gender ?? ''
+    dobMonth.value = p.dobMonth ?? ''
+    dobDay.value = p.dobDay ?? ''
+    dobYear.value = p.dobYear ?? ''
+  }
+})
+
+async function savePersonal() {
+  if (!firstName.value || !lastName.value || !dobFilled.value || !gender.value) return
+  personalSaving.value = true
+  personalError.value = ''
+  try {
+    const saved = await patchProfile({
+      firstName: firstName.value,
+      lastName: lastName.value,
+      gender: gender.value as 'male' | 'female' | 'other' | '',
+      dobMonth: dobMonth.value,
+      dobDay: dobDay.value,
+      dobYear: dobYear.value,
+    })
+    if (auth.user) auth.user = { ...auth.user, profile: saved }
     personalSaved.value = true
     dobOpen.value = false
+  } catch (e) {
+    personalError.value = e instanceof Error ? e.message : '保存失败'
+  } finally {
+    personalSaving.value = false
   }
 }
 </script>
@@ -324,13 +355,15 @@ function savePersonal() {
             </div>
           </div>
         </div>
+        <p v-if="personalError" class="mt-1 text-center text-xs font-bold text-red-400">{{ personalError }}</p>
         <button
           v-if="!personalSaved"
           type="button"
-          class="mt-2.5 w-full rounded-2xl bg-primary py-3 text-sm font-black text-primary-foreground shadow shadow-amber-500/20 transition-colors hover:bg-yellow-400"
+          class="mt-2.5 w-full rounded-2xl bg-primary py-3 text-sm font-black text-primary-foreground shadow shadow-amber-500/20 transition-colors hover:bg-yellow-400 disabled:opacity-50"
+          :disabled="personalSaving"
           @click="savePersonal"
         >
-          {{ t('profile.saveLock') }}
+          {{ personalSaving ? '保存中…' : t('profile.saveLock') }}
         </button>
       </section>
 

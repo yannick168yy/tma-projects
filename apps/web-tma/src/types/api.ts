@@ -17,6 +17,7 @@ export interface AuthUser {
   loginProvider?: LoginProvider
   email?: string
   isNewUser?: boolean
+  profile?: UserProfile
 }
 
 export interface AuthSession {

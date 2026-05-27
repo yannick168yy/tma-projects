@@ -1,7 +1,7 @@
 import { apiRequest, getInitData } from '@/api/client'
 import * as mock from '@/api/mock/auth.mock'
 import { getGoogleRedirectUri, startGoogleLoginRedirect } from '@/utils/googleOAuth'
-import type { AuthSession, AuthUser, LoginProvider } from '@/types/api'
+import type { AuthSession, AuthUser, LoginProvider, UserProfile } from '@/types/api'
 
 const useMock = import.meta.env.VITE_USE_MOCK_API !== 'false'
 
@@ -14,6 +14,7 @@ interface MeResponse {
   inviteCode?: string
   loginProvider?: LoginProvider
   email?: string
+  profile?: UserProfile
 }
 
 function toAuthUser(me: MeResponse): AuthUser {
@@ -26,7 +27,16 @@ function toAuthUser(me: MeResponse): AuthUser {
     inviteCode: me.inviteCode,
     loginProvider: me.loginProvider,
     email: me.email,
+    profile: me.profile,
   }
+}
+
+export async function patchProfile(profile: Partial<UserProfile>): Promise<UserProfile> {
+  const res = await apiRequest<{ profile: UserProfile }>('/user/me', {
+    method: 'PATCH',
+    body: JSON.stringify(profile),
+  })
+  return res.profile
 }
 
 export async function loginTelegram(): Promise<AuthSession> {

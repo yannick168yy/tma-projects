@@ -82,6 +82,9 @@ export const updateUserStatus = (id: string, status: string, reason?: string) =>
   patch<{ status: string }>(`/admin/users/${id}/status`, { status, reason })
 export const updateUserLabel = (id: string, label: string) =>
   patch<{ label: string }>(`/admin/users/${id}/label`, { label })
+export interface UserProfileData { firstName: string; lastName: string; gender: string; dobMonth: string; dobDay: string; dobYear: string; phone?: string; email?: string }
+export const updateUserProfile = (id: string, profile: Partial<UserProfileData>) =>
+  patch<{ profile: UserProfileData }>(`/admin/users/${id}/profile`, profile)
 export const adjustBalance = (id: string, cents: number, opPassword: string, note?: string) =>
   post<{ available: number; orderId: string }>(`/admin/users/${id}/adjust-balance`, { cents, opPassword, note })
 

@@ -86,6 +86,60 @@
           </a-card>
         </a-col>
 
+        <!-- 个人信息编辑 -->
+        <a-col :span="24">
+          <a-card title="个人信息编辑" :bordered="false" style="margin-bottom:16px">
+            <a-row :gutter="12">
+              <a-col :span="6">
+                <a-form-item label="名字" style="margin-bottom:8px">
+                  <a-input v-model:value="profileForm.firstName" placeholder="First Name" />
+                </a-form-item>
+              </a-col>
+              <a-col :span="6">
+                <a-form-item label="姓氏" style="margin-bottom:8px">
+                  <a-input v-model:value="profileForm.lastName" placeholder="Last Name" />
+                </a-form-item>
+              </a-col>
+              <a-col :span="4">
+                <a-form-item label="性别" style="margin-bottom:8px">
+                  <a-select v-model:value="profileForm.gender" style="width:100%">
+                    <a-select-option value="">未填</a-select-option>
+                    <a-select-option value="male">男</a-select-option>
+                    <a-select-option value="female">女</a-select-option>
+                    <a-select-option value="other">其他</a-select-option>
+                  </a-select>
+                </a-form-item>
+              </a-col>
+              <a-col :span="4">
+                <a-form-item label="出生年份" style="margin-bottom:8px">
+                  <a-input v-model:value="profileForm.dobYear" placeholder="YYYY" />
+                </a-form-item>
+              </a-col>
+              <a-col :span="2">
+                <a-form-item label="月" style="margin-bottom:8px">
+                  <a-input v-model:value="profileForm.dobMonth" placeholder="MM" />
+                </a-form-item>
+              </a-col>
+              <a-col :span="2">
+                <a-form-item label="日" style="margin-bottom:8px">
+                  <a-input v-model:value="profileForm.dobDay" placeholder="DD" />
+                </a-form-item>
+              </a-col>
+              <a-col :span="6">
+                <a-form-item label="手机" style="margin-bottom:8px">
+                  <a-input v-model:value="profileForm.phone" placeholder="Phone" />
+                </a-form-item>
+              </a-col>
+              <a-col :span="6">
+                <a-form-item label="邮箱" style="margin-bottom:8px">
+                  <a-input v-model:value="profileForm.email" placeholder="Email" />
+                </a-form-item>
+              </a-col>
+            </a-row>
+            <a-button type="primary" :loading="opLoading" @click="doSaveProfile">保存个人信息</a-button>
+          </a-card>
+        </a-col>
+
         <!-- 活动记录 -->
         <a-col :span="24">
           <a-card :bordered="false" style="margin-bottom:16px">
@@ -121,7 +175,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
-import { getUserDetail, updateUserStatus, updateUserLabel, adjustBalance } from '../api.js'
+import { getUserDetail, updateUserStatus, updateUserLabel, adjustBalance, updateUserProfile } from '../api.js'
 import { message } from 'ant-design-vue'
 
 const route = useRoute()
@@ -137,6 +191,9 @@ const newLabel = ref('normal')
 const adjustCents = ref(0)
 const adjustNote = ref('')
 const adjustOpPwd = ref('')
+
+// 个人信息编辑
+const profileForm = ref({ firstName: '', lastName: '', gender: '', dobMonth: '', dobDay: '', dobYear: '', phone: '', email: '' })
 
 const ledgerCols = [
   { title: '类型', dataIndex: 'type', key: 'type', width: 110 },
@@ -178,9 +235,31 @@ async function load() {
     detail.value = await getUserDetail(id)
     newStatus.value = String(detail.value.user.status ?? 'active')
     newLabel.value = String(detail.value.user.label ?? 'normal')
+    const p = (detail.value.user as any).profile ?? {}
+    profileForm.value = {
+      firstName: p.firstName ?? '',
+      lastName: p.lastName ?? '',
+      gender: p.gender ?? '',
+      dobMonth: p.dobMonth ?? '',
+      dobDay: p.dobDay ?? '',
+      dobYear: p.dobYear ?? '',
+      phone: p.phone ?? '',
+      email: p.email ?? '',
+    }
   } finally {
     loading.value = false
   }
+}
+
+async function doSaveProfile() {
+  opLoading.value = true
+  try {
+    await updateUserProfile(id, profileForm.value)
+    message.success('个人信息已更新')
+    await load()
+  } catch (e) {
+    message.error(e instanceof Error ? e.message : '操作失败')
+  } finally { opLoading.value = false }
 }
 
 async function doUpdateStatus() {

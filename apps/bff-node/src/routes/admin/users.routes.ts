@@ -104,6 +104,25 @@ router.post('/:id/adjust-balance', async (ctx) => {
   ok(ctx, { available: result.available, orderId: result.orderId })
 })
 
+router.patch('/:id/profile', async (ctx) => {
+  const user = await getUser(ctx.state.redis, ctx.params.id)
+  if (!user) { fail(ctx, 404, 'User not found', 404); return }
+  const body = ctx.request.body as Partial<typeof user.profile>
+  const prev = { ...user.profile }
+  user.profile = { ...user.profile, ...body }
+  await saveUser(ctx.state.redis, user)
+  await writeAuditLog(ctx.state.env, {
+    adminId: ctx.state.adminId!,
+    adminUsername: ctx.state.adminUsername!,
+    action: 'user.profile_edit',
+    targetType: 'user',
+    targetId: user.id,
+    detail: { before: prev, after: user.profile },
+    ip: ctx.ip,
+  })
+  ok(ctx, { profile: user.profile })
+})
+
 router.patch('/:id/label', async (ctx) => {
   const body = ctx.request.body as { label?: string }
   const allowed = ['normal', 'arbitrage']
