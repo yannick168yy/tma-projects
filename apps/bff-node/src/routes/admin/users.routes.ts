@@ -1,8 +1,8 @@
 import Router from '@koa/router'
-import { listAdminUsers, writeAuditLog, updateUserLabel, getLoginLogs, getBetOrders } from '../../services/admin-store.js'
-import { getUser, saveUser, getWallet, creditWallet, listLedger } from '../../services/store/index.js'
+import { listAdminUsers, writeAuditLog, updateUserLabel, getLoginLogs, getBetOrders, getOpPasswordHash } from '../../services/admin-store.js'
+import { getUser, saveUser, getWallet, listLedger, adminAdjustBalance } from '../../services/store/index.js'
+import { verifyPassword } from '../../services/admin-auth.service.js'
 import { fail, ok } from '../../utils/response.js'
-import { nowIso } from '../../utils/format.js'
 
 const router = new Router({ prefix: '/users' })
 
@@ -54,35 +54,54 @@ router.patch('/:id/status', async (ctx) => {
 })
 
 router.post('/:id/adjust-balance', async (ctx) => {
-  const body = ctx.request.body as { cents?: number; note?: string }
+  const body = ctx.request.body as { cents?: number; note?: string; opPassword?: string }
   if (typeof body.cents !== 'number' || body.cents === 0) {
     fail(ctx, 400, 'cents must be a non-zero number'); return
   }
+  if (!body.opPassword) {
+    fail(ctx, 400, 'opPassword is required'); return
+  }
+
+  // 验证操作密码
+  const opHash = await getOpPasswordHash(ctx.state.env)
+  if (!opHash) {
+    fail(ctx, 403, 'Operation password not configured. Please ask super_admin to set it first.'); return
+  }
+  const valid = await verifyPassword(body.opPassword, opHash)
+  if (!valid) {
+    fail(ctx, 403, 'Incorrect operation password'); return
+  }
+
   const user = await getUser(ctx.state.redis, ctx.params.id)
   if (!user) { fail(ctx, 404, 'User not found', 404); return }
 
-  const wallet = await creditWallet(
-    ctx.state.redis,
-    ctx.params.id,
-    body.cents,
-    {
-      type: 'bonus',
-      description: body.note ?? `Admin adjustment by ${ctx.state.adminUsername}`,
-      traceId: ctx.state.traceId,
-      refId: undefined,
-      createdAt: nowIso(),
-    },
-  )
+  let result: { available: number; orderId: string }
+  try {
+    result = await adminAdjustBalance(
+      ctx.state.redis,
+      ctx.params.id,
+      body.cents,
+      {
+        adminUsername: ctx.state.adminUsername!,
+        note: body.note,
+        traceId: ctx.state.traceId,
+      },
+    )
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : 'Adjustment failed'
+    fail(ctx, 400, msg); return
+  }
+
   await writeAuditLog(ctx.state.env, {
     adminId: ctx.state.adminId!,
     adminUsername: ctx.state.adminUsername!,
     action: 'user.balance_adjust',
     targetType: 'user',
     targetId: user.id,
-    detail: { cents: body.cents, note: body.note, balanceAfterCents: wallet.available },
+    detail: { cents: body.cents, note: body.note, orderId: result.orderId, balanceAfterCents: result.available },
     ip: ctx.ip,
   })
-  ok(ctx, { available: wallet.available })
+  ok(ctx, { available: result.available, orderId: result.orderId })
 })
 
 router.patch('/:id/label', async (ctx) => {

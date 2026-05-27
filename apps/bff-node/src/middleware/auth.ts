@@ -1,5 +1,5 @@
 import type { Middleware } from 'koa'
-import { getSession } from '../services/store.js'
+import { getSession, getUser, deleteSession } from '../services/store.js'
 import { fail } from '../utils/response.js'
 
 export function authMiddleware(): Middleware {
@@ -13,6 +13,12 @@ export function authMiddleware(): Middleware {
     const session = await getSession(ctx.state.redis, token)
     if (!session || new Date(session.expiresAt).getTime() <= Date.now()) {
       fail(ctx, 401, 'Session expired', 401)
+      return
+    }
+    const user = await getUser(ctx.state.redis, session.userId)
+    if (!user || user.status === 'banned') {
+      await deleteSession(ctx.state.redis, token)
+      fail(ctx, 401, 'Account has been permanently banned', 401)
       return
     }
     ctx.state.userId = session.userId

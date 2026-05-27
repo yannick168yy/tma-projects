@@ -363,6 +363,21 @@ export async function toggleAdminGame(env: Env, uuid: string, isActive: boolean)
   await pool(env).execute(`UPDATE sg_games SET is_active = ? WHERE uuid = ?`, [isActive ? 1 : 0, uuid])
 }
 
+export async function getOpPasswordHash(env: Env): Promise<string | null> {
+  const [rows] = await pool(env).query<RowDataPacket[]>(
+    `SELECT \`value\` FROM bg_admin_settings WHERE \`key\` = 'op_password'`,
+  )
+  return rows[0] ? String(rows[0].value) : null
+}
+
+export async function setOpPassword(env: Env, hash: string): Promise<void> {
+  await pool(env).execute(
+    `INSERT INTO bg_admin_settings (\`key\`, \`value\`) VALUES ('op_password', ?)
+     ON DUPLICATE KEY UPDATE \`value\` = VALUES(\`value\`)`,
+    [hash],
+  )
+}
+
 export async function listAdminWithdrawals(
   env: Env,
   opts: { page: number; pageSize: number; userId?: string; status?: string },

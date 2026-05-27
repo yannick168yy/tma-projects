@@ -16,6 +16,7 @@ import { randomToken } from '../utils/id.js'
 import type { UserRecord } from '../types/domain.js'
 import { exchangeGoogleCode } from './google.service.js'
 import { toPublicUser } from './userPresentation.js'
+import { lookupRegion } from './geo.service.js'
 
 export class AuthError extends Error {
   constructor(message: string) {
@@ -35,6 +36,7 @@ export async function loginWithInitData(
   env: Env,
   initDataRaw: string,
   startParam?: string,
+  ip?: string,
 ): Promise<{
   token: string
   expiresIn: number
@@ -73,16 +75,21 @@ export async function loginWithInitData(
     if (inviter) referredBy = inviter.id
   }
 
+  const region = ip ? lookupRegion(ip) : undefined
   const { user, isNewUser } = await createUserFromTelegram(redis, {
     telegramUserId: tgUserId,
     displayName,
     avatarUrl,
     telegramUsername: parsed.user.username,
     referredBy,
+    registerIp: ip,
+    registerRegion: region,
   })
 
-  if (user.status === 'frozen' || user.status === 'banned') {
-    throw new AuthError('Account has been disabled. Please contact support.')
+  // Telegram 登录不受账号禁用状态影响（禁用仅屏蔽 Google 登录）
+  // banned 状态除外：完全封禁
+  if (user.status === 'banned') {
+    throw new AuthError('Account has been permanently banned. Please contact support.')
   }
 
   return issueSession(redis, env, user, isNewUser)
@@ -93,6 +100,7 @@ export async function loginWithGoogleCode(
   env: Env,
   code: string,
   redirectUri: string,
+  ip?: string,
 ): Promise<{
   token: string
   expiresIn: number
@@ -111,12 +119,16 @@ export async function loginWithGoogleCode(
 
   try {
     const profile = await exchangeGoogleCode(env, code, redirectUri)
+    const region = ip ? lookupRegion(ip) : undefined
     const { user, isNewUser } = await createUserFromGoogle(redis, {
       googleSub: profile.sub,
       email: profile.email,
       displayName: profile.name,
       avatarUrl: profile.picture,
+      registerIp: ip,
+      registerRegion: region,
     })
+    // Google 登录：frozen 和 banned 均拦截
     if (user.status === 'frozen' || user.status === 'banned') {
       throw new AuthError('Account has been disabled. Please contact support.')
     }

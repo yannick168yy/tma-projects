@@ -42,6 +42,10 @@ type UserRow = RowDataPacket & {
   status_reason: string | null
   label: string
   last_login_at: Date | null
+  last_login_ip: string | null
+  last_login_region: string | null
+  register_ip: string | null
+  register_region: string | null
   registered_at: Date
   first_name: string
   last_name: string
@@ -74,6 +78,10 @@ function mapUser(row: UserRow): UserRecord {
     statusReason: row.status_reason ?? undefined,
     label: row.label ?? 'normal',
     lastLoginAt: row.last_login_at ? new Date(row.last_login_at).toISOString() : undefined,
+    lastLoginIp: row.last_login_ip ?? undefined,
+    lastLoginRegion: row.last_login_region ?? undefined,
+    registerIp: row.register_ip ?? undefined,
+    registerRegion: row.register_region ?? undefined,
     registeredAt: new Date(row.registered_at).toISOString(),
     profile: {
       firstName: row.first_name,
@@ -116,8 +124,8 @@ export async function saveUser(env: Env, user: UserRecord): Promise<void> {
   try {
     await conn.beginTransaction()
     await conn.execute(
-      `INSERT INTO bg_user (id, telegram_user_id, telegram_username, google_sub, email, display_name, avatar_url, invite_code, inviter_id, locale, status, status_reason, label, registered_at)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+      `INSERT INTO bg_user (id, telegram_user_id, telegram_username, google_sub, email, display_name, avatar_url, invite_code, inviter_id, locale, status, status_reason, label, register_ip, register_region, registered_at)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
        ON DUPLICATE KEY UPDATE
          telegram_username=VALUES(telegram_username),
          display_name=VALUES(display_name), avatar_url=VALUES(avatar_url), email=VALUES(email),
@@ -137,6 +145,8 @@ export async function saveUser(env: Env, user: UserRecord): Promise<void> {
         user.status,
         user.statusReason ?? null,
         user.label ?? 'normal',
+        user.registerIp ?? null,
+        user.registerRegion ?? null,
         new Date(user.registeredAt),
       ],
     )
@@ -245,6 +255,8 @@ export async function createUserFromTelegram(
     avatarUrl?: string
     telegramUsername?: string
     referredBy?: string
+    registerIp?: string
+    registerRegion?: string
   },
 ): Promise<{ user: UserRecord; isNewUser: boolean }> {
   const existing = await getUserByTelegramId(env, input.telegramUserId)
@@ -261,6 +273,8 @@ export async function createUserFromTelegram(
     displayName: input.displayName,
     avatarUrl: input.avatarUrl,
     referredBy: input.referredBy,
+    registerIp: input.registerIp,
+    registerRegion: input.registerRegion,
     locale: 'en',
     status: 'active',
     profile: defaultProfile(),
@@ -279,6 +293,8 @@ export async function createUserFromGoogle(
     email?: string
     displayName: string
     avatarUrl?: string
+    registerIp?: string
+    registerRegion?: string
   },
 ): Promise<{ user: UserRecord; isNewUser: boolean }> {
   const existing = await getUserByGoogleSub(env, input.googleSub)
@@ -520,15 +536,18 @@ export async function listWithdrawals(
 export async function recordUserLogin(
   env: Env,
   userId: string,
-  opts: { ip?: string; userAgent?: string; authMethod?: string },
+  opts: { ip?: string; region?: string; userAgent?: string; authMethod?: string },
 ): Promise<void> {
   const conn = await pool(env).getConnection()
   try {
     await conn.beginTransaction()
-    await conn.execute(`UPDATE bg_user SET last_login_at = NOW(3) WHERE id = ?`, [userId])
     await conn.execute(
-      `INSERT INTO bg_login_log (user_id, ip, user_agent, auth_method) VALUES (?,?,?,?)`,
-      [userId, opts.ip ?? null, opts.userAgent?.slice(0, 512) ?? null, opts.authMethod ?? 'telegram'],
+      `UPDATE bg_user SET last_login_at = NOW(3), last_login_ip = ?, last_login_region = ? WHERE id = ?`,
+      [opts.ip ?? null, opts.region ?? null, userId],
+    )
+    await conn.execute(
+      `INSERT INTO bg_login_log (user_id, ip, region, user_agent, auth_method) VALUES (?,?,?,?,?)`,
+      [userId, opts.ip ?? null, opts.region ?? null, opts.userAgent?.slice(0, 512) ?? null, opts.authMethod ?? 'telegram'],
     )
     await conn.commit()
   } catch (e) {
@@ -545,4 +564,84 @@ export async function getKyc(_env: Env, _userId: string): Promise<KycSubmission 
 
 export async function saveKyc(_env: Env, _submission: KycSubmission): Promise<void> {
   /* KYC still optional; extend to bg_kyc_submission when needed */
+}
+
+export async function adminAdjustBalance(
+  env: Env,
+  userId: string,
+  cents: number,
+  opts: { adminUsername: string; note?: string; traceId?: string },
+): Promise<{ available: number; orderId: string }> {
+  if (cents === 0) throw new Error('cents must be non-zero')
+
+  const conn = await pool(env).getConnection()
+  const orderId = `ADM_${Date.now()}_${Math.random().toString(36).slice(2, 8).toUpperCase()}`
+  const ledgerId = `LG_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+  const description = opts.note ?? `Admin adjustment by ${opts.adminUsername}`
+
+  try {
+    await conn.beginTransaction()
+
+    if (cents > 0) {
+      // 存款记录（管理员充值）
+      await conn.execute(
+        `INSERT INTO bg_deposit_order (order_id, user_id, amount, currency, credited_cents, channel_id, status, provider, paid_at)
+         VALUES (?,?,?,?,?,?,?,?,NOW(3))`,
+        [orderId, userId, (cents / 100).toFixed(2), 'PHP', cents, 'admin', 'paid', 'admin'],
+      )
+    } else {
+      // 先检查余额是否足够
+      const [wrows] = await conn.query<RowDataPacket[]>(
+        `SELECT available_cents FROM bg_wallet WHERE user_id = ? FOR UPDATE`,
+        [userId],
+      )
+      const current = Number(wrows[0]?.available_cents ?? 0)
+      if (current + cents < 0) {
+        await conn.rollback()
+        throw new Error(`Insufficient balance: current=${current}, adjustment=${cents}`)
+      }
+      // 取款记录（管理员扣款）
+      await conn.execute(
+        `INSERT INTO bg_withdraw_order (order_id, user_id, amount_cents, currency, channel_id, status, completed_at)
+         VALUES (?,?,?,?,?,?,NOW(3))`,
+        [orderId, userId, Math.abs(cents), 'PHP', 'admin', 'completed'],
+      )
+    }
+
+    // 更新钱包
+    await conn.execute(
+      `UPDATE bg_wallet SET available_cents = available_cents + ?, version = version + 1 WHERE user_id = ?`,
+      [cents, userId],
+    )
+    const [wrows] = await conn.query<RowDataPacket[]>(
+      `SELECT available_cents, frozen_cents FROM bg_wallet WHERE user_id = ?`,
+      [userId],
+    )
+    const balanceAfter = Number(wrows[0]?.available_cents ?? 0)
+
+    // 账变记录
+    await conn.execute(
+      `INSERT INTO bg_wallet_ledger (id, user_id, type, amount_cents, balance_after, ref_type, ref_id, description, trace_id)
+       VALUES (?,?,?,?,?,?,?,?,?)`,
+      [
+        ledgerId,
+        userId,
+        'admin_adjust',
+        cents,
+        balanceAfter,
+        cents > 0 ? 'deposit' : 'withdraw',
+        orderId,
+        description,
+        opts.traceId ?? null,
+      ],
+    )
+
+    await conn.commit()
+    return { available: balanceAfter, orderId }
+  } catch (e) {
+    await conn.rollback()
+    throw e
+  } finally {
+    conn.release()
+  }
 }

@@ -140,11 +140,21 @@ export const listWithdrawals = (redis: Redis, userId: string, page = 1, pageSize
 export const recordUserLogin = (
   redis: Redis,
   userId: string,
-  opts: { ip?: string; userAgent?: string; authMethod?: string },
+  opts: { ip?: string; region?: string; userAgent?: string; authMethod?: string },
 ) =>
   isMysqlEnabled(env())
     ? mysqlStore.recordUserLogin(env(), userId, opts)
     : Promise.resolve()
+
+export const adminAdjustBalance = (
+  _redis: Redis,
+  userId: string,
+  cents: number,
+  opts: { adminUsername: string; note?: string; traceId?: string },
+) =>
+  isMysqlEnabled(env())
+    ? mysqlStore.adminAdjustBalance(env(), userId, cents, opts)
+    : Promise.resolve({ available: 0, orderId: 'MOCK' })
 
 export const getKyc = (redis: Redis, userId: string) =>
   isMysqlEnabled(env()) ? mysqlStore.getKyc(env(), userId) : redisStore.getKyc(redis, userId)

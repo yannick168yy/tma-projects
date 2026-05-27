@@ -93,6 +93,8 @@ export async function createUserFromTelegram(
     avatarUrl?: string
     telegramUsername?: string
     referredBy?: string
+    registerIp?: string
+    registerRegion?: string
   },
 ): Promise<{ user: UserRecord; isNewUser: boolean }> {
   const existing = await getUserByTelegramId(redis, input.telegramUserId)
@@ -144,6 +146,8 @@ export async function createUserFromGoogle(
     email?: string
     displayName: string
     avatarUrl?: string
+    registerIp?: string
+    registerRegion?: string
   },
 ): Promise<{ user: UserRecord; isNewUser: boolean }> {
   const existing = await getUserByGoogleSub(redis, input.googleSub)

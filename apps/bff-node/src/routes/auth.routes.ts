@@ -1,6 +1,7 @@
 import Router from '@koa/router'
 import { AuthError, loginWithGoogleCode, loginWithInitData, logout, refreshSession, resolveSession, toAuthUser } from '../services/auth.service.js'
 import { recordUserLogin } from '../services/store/index.js'
+import { lookupRegion } from '../services/geo.service.js'
 import { fail, ok } from '../utils/response.js'
 
 const router = new Router({ prefix: '/auth' })
@@ -9,7 +10,8 @@ router.post('/telegram', async (ctx) => {
   const body = ctx.request.body as { initData?: string; start_param?: string }
   const initData = ctx.get('X-Telegram-Init-Data') || body.initData || ''
   try {
-    const result = await loginWithInitData(ctx.state.redis, ctx.state.env, initData, body.start_param)
+    const ip = ctx.ip
+    const result = await loginWithInitData(ctx.state.redis, ctx.state.env, initData, body.start_param, ip)
     ok(ctx, {
       token: result.token,
       expiresIn: result.expiresIn,
@@ -18,7 +20,8 @@ router.post('/telegram', async (ctx) => {
       user: toAuthUser(result.user),
     })
     recordUserLogin(ctx.state.redis, result.user.id, {
-      ip: ctx.ip,
+      ip,
+      region: lookupRegion(ip),
       userAgent: ctx.get('user-agent'),
       authMethod: 'telegram',
     }).catch(() => {})
@@ -38,11 +41,13 @@ router.post('/google', async (ctx) => {
     return
   }
   try {
+    const ip = ctx.ip
     const result = await loginWithGoogleCode(
       ctx.state.redis,
       ctx.state.env,
       body.code,
       body.redirectUri,
+      ip,
     )
     ok(ctx, {
       token: result.token,
@@ -52,7 +57,8 @@ router.post('/google', async (ctx) => {
       user: toAuthUser(result.user),
     })
     recordUserLogin(ctx.state.redis, result.user.id, {
-      ip: ctx.ip,
+      ip,
+      region: lookupRegion(ip),
       userAgent: ctx.get('user-agent'),
       authMethod: 'google',
     }).catch(() => {})

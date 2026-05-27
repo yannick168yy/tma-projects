@@ -33,6 +33,10 @@ export interface UserRecord {
   statusReason?: string
   label?: string
   lastLoginAt?: string
+  lastLoginIp?: string
+  lastLoginRegion?: string
+  registerIp?: string
+  registerRegion?: string
   registeredAt: string
   profile: UserProfile
   trialClaimed: boolean
@@ -97,7 +101,7 @@ export interface WithdrawOrder {
 export interface LedgerEntry {
   id: string
   userId: string
-  type: 'deposit' | 'withdraw' | 'bet' | 'red_packet' | 'bonus'
+  type: 'deposit' | 'withdraw' | 'bet' | 'red_packet' | 'bonus' | 'admin_adjust'
   amount: number
   balanceAfter: number
   refId?: string
