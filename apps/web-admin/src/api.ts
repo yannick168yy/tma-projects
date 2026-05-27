@@ -13,7 +13,7 @@ http.interceptors.request.use((config) => {
 http.interceptors.response.use(
   (r) => r,
   (err) => {
-    if (err.response?.status === 401) {
+    if (err.response?.status === 401 && localStorage.getItem('admin_token')) {
       localStorage.removeItem('admin_token')
       localStorage.removeItem('admin_role')
       window.location.href = '/login'
