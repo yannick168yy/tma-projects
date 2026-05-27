@@ -56,7 +56,10 @@ export const getDashboard = () => get<{
 // Users
 export interface AdminUser {
   id: string; displayName: string; email: string | null; telegramUsername: string | null
-  status: string; label: string; lastLoginAt: string | null; registeredAt: string; balanceCents: number
+  status: string; label: string
+  lastLoginAt: string | null; lastLoginRegion: string | null
+  registerRegion: string | null
+  registeredAt: string; balanceCents: number
 }
 export interface LoginLog {
   id: number; ip: string | null; region: string | null; userAgent: string | null; authMethod: string; createdAt: string

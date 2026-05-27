@@ -208,7 +208,7 @@ export async function listAdminUsers(
 
   const [rows] = await pool(env).query<RowDataPacket[]>(
     `SELECT u.id, u.display_name, u.email, u.telegram_username, u.status, u.label,
-            u.last_login_at, u.registered_at,
+            u.last_login_at, u.last_login_region, u.register_region, u.registered_at,
             COALESCE(w.available_cents,0) as available_cents
      FROM bg_user u
      LEFT JOIN bg_wallet w ON w.user_id = u.id
@@ -226,6 +226,8 @@ export async function listAdminUsers(
     status: String(r.status),
     label: String(r.label ?? 'normal'),
     lastLoginAt: r.last_login_at ? new Date(r.last_login_at as Date).toISOString() : null,
+    lastLoginRegion: r.last_login_region ? String(r.last_login_region) : null,
+    registerRegion: r.register_region ? String(r.register_region) : null,
     registeredAt: new Date(r.registered_at as Date).toISOString(),
     balanceCents: Number(r.available_cents),
   }))

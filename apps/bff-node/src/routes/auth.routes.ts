@@ -6,11 +6,15 @@ import { fail, ok } from '../utils/response.js'
 
 const router = new Router({ prefix: '/auth' })
 
+function cleanIp(raw: string): string {
+  return raw.replace(/^::ffff:/i, '')
+}
+
 router.post('/telegram', async (ctx) => {
   const body = ctx.request.body as { initData?: string; start_param?: string }
   const initData = ctx.get('X-Telegram-Init-Data') || body.initData || ''
   try {
-    const ip = ctx.ip
+    const ip = cleanIp(ctx.ip)
     const result = await loginWithInitData(ctx.state.redis, ctx.state.env, initData, body.start_param, ip)
     ok(ctx, {
       token: result.token,
@@ -41,7 +45,7 @@ router.post('/google', async (ctx) => {
     return
   }
   try {
-    const ip = ctx.ip
+    const ip = cleanIp(ctx.ip)
     const result = await loginWithGoogleCode(
       ctx.state.redis,
       ctx.state.env,

@@ -38,7 +38,11 @@
           </a-tag>
         </template>
         <template v-if="column.key === 'lastLoginAt'">
-          {{ record.lastLoginAt ? new Date(record.lastLoginAt).toLocaleString('zh-CN') : '-' }}
+          <div>{{ record.lastLoginAt ? new Date(record.lastLoginAt).toLocaleString('zh-CN') : '-' }}</div>
+          <div v-if="record.lastLoginRegion" style="color:#999;font-size:11px">{{ record.lastLoginRegion }}</div>
+        </template>
+        <template v-if="column.key === 'registerRegion'">
+          {{ record.registerRegion || '-' }}
         </template>
         <template v-if="column.key === 'actions'">
           <a-space size="small">
@@ -108,7 +112,8 @@ const columns = [
   { title: '余额', key: 'balance', width: 100 },
   { title: '状态', key: 'status', width: 80 },
   { title: '标记', key: 'label', width: 90 },
-  { title: '最后登录', key: 'lastLoginAt', width: 150 },
+  { title: '注册区域', key: 'registerRegion', dataIndex: 'registerRegion', width: 120 },
+  { title: '最后登录', key: 'lastLoginAt', width: 160 },
   { title: '操作', key: 'actions', width: 180 },
 ]
 
