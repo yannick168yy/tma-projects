@@ -26,12 +26,23 @@ CREATE TABLE IF NOT EXISTS `bg_order_deposit` (
   CONSTRAINT `fk_order_deposit_user` FOREIGN KEY (`user_id`) REFERENCES `bg_user` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='存款订单（统一）';
 
--- 迁移旧存款记录
-INSERT IGNORE INTO `bg_order_deposit`
-  (order_id, user_id, amount, currency, credited_cents, channel_id, status, provider, paid_at, created_at, updated_at)
-SELECT order_id, user_id, amount, currency, credited_cents, channel_id, status,
-       COALESCE(provider, 'ammer_pay'), paid_at, created_at, updated_at
-FROM `bg_deposit_order`;
+-- 迁移旧存款记录（仅在源表存在时执行）
+DROP PROCEDURE IF EXISTS `__migrate_008_deposit`;
+DELIMITER //
+CREATE PROCEDURE `__migrate_008_deposit`()
+BEGIN
+  IF (SELECT COUNT(*) FROM information_schema.TABLES
+      WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'bg_deposit_order') > 0 THEN
+    INSERT IGNORE INTO `bg_order_deposit`
+      (order_id, user_id, amount, currency, credited_cents, channel_id, status, provider, paid_at, created_at, updated_at)
+    SELECT order_id, user_id, amount, currency, credited_cents, channel_id, status,
+           COALESCE(provider, 'ammer_pay'), paid_at, created_at, updated_at
+    FROM `bg_deposit_order`;
+  END IF;
+END //
+DELIMITER ;
+CALL `__migrate_008_deposit`();
+DROP PROCEDURE IF EXISTS `__migrate_008_deposit`;
 
 -- 迁移 YFPay 存款（bg_payment_order type=deposit）
 INSERT IGNORE INTO `bg_order_deposit`
@@ -76,11 +87,22 @@ CREATE TABLE IF NOT EXISTS `bg_order_withdraw` (
   CONSTRAINT `fk_order_withdraw_user` FOREIGN KEY (`user_id`) REFERENCES `bg_user` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='提款订单（统一）';
 
--- 迁移旧提款记录
-INSERT IGNORE INTO `bg_order_withdraw`
-  (order_id, user_id, amount_cents, currency, channel_id, status, reject_reason, completed_at, created_at, updated_at)
-SELECT order_id, user_id, amount_cents, currency, channel_id, status, reject_reason, completed_at, created_at, updated_at
-FROM `bg_withdraw_order`;
+-- 迁移旧提款记录（仅在源表存在时执行）
+DROP PROCEDURE IF EXISTS `__migrate_008_withdraw`;
+DELIMITER //
+CREATE PROCEDURE `__migrate_008_withdraw`()
+BEGIN
+  IF (SELECT COUNT(*) FROM information_schema.TABLES
+      WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'bg_withdraw_order') > 0 THEN
+    INSERT IGNORE INTO `bg_order_withdraw`
+      (order_id, user_id, amount_cents, currency, channel_id, status, reject_reason, completed_at, created_at, updated_at)
+    SELECT order_id, user_id, amount_cents, currency, channel_id, status, reject_reason, completed_at, created_at, updated_at
+    FROM `bg_withdraw_order`;
+  END IF;
+END //
+DELIMITER ;
+CALL `__migrate_008_withdraw`();
+DROP PROCEDURE IF EXISTS `__migrate_008_withdraw`;
 
 -- 迁移 YFPay 提款（bg_payment_order type=withdrawal）
 INSERT IGNORE INTO `bg_order_withdraw`
