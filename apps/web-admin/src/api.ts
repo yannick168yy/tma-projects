@@ -1,6 +1,6 @@
 import axios from 'axios'
 
-const BASE = (import.meta.env.VITE_ADMIN_API_BASE_URL as string | undefined) ?? '/api/v1'
+const BASE = import.meta.env.VITE_ADMIN_API_BASE_URL || '/api/v1'
 
 export const http = axios.create({ baseURL: BASE })
 
