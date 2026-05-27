@@ -18,7 +18,7 @@ http.interceptors.response.use(
       localStorage.removeItem('admin_role')
       window.location.href = '/login'
     }
-    return Promise.reject(err)
+    return Promise.reject(new Error(err.response?.data?.message ?? err.message))
   },
 )
 
