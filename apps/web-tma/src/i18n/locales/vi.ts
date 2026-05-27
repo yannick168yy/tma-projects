@@ -17,6 +17,7 @@ export default {
     success: 'thành công',
     pending: 'đang chờ',
     rejected: 'từ chối',
+    admin_rejected: 'từ chối bởi admin',
     failed: 'thất bại',
     copy: 'Sao chép',
     ongoing: 'Đang diễn ra',

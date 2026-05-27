@@ -94,7 +94,7 @@ export interface OrderWithdraw {
   amount: number
   currency: 'PHP'
   channelId: string
-  status: 'pending' | 'processing' | 'completed' | 'rejected' | 'failed'
+  status: 'pending' | 'processing' | 'completed' | 'rejected' | 'admin_rejected' | 'failed'
   createdAt: string
   completedAt?: string
   rejectReason?: string

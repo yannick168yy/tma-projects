@@ -59,6 +59,7 @@ async function onBalanceTap() {
     await auth.ensureLoggedIn(t('auth.signInBalance'))
     return
   }
+  if (!walletOpen.value) void wallet.refresh()
   walletOpen.value = !walletOpen.value
 }
 
@@ -182,34 +183,20 @@ function navIcon(id: string) {
                   </div>
                 </div>
                 <span class="text-base font-black text-primary">
-                  {{ balanceVisible ? '1,250.00' : '••••••' }}
-                </span>
-              </div>
-              <div class="flex items-center justify-between border-b border-border py-2.5">
-                <div class="flex items-center gap-2.5">
-                  <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10">
-                    <span class="text-sm font-black text-emerald-400">₮</span>
-                  </div>
-                  <div>
-                    <p class="text-sm font-bold text-foreground">{{ t('shell.tetherUsd') }}</p>
-                    <p class="text-xs text-muted-foreground">USDT · TRC20</p>
-                  </div>
-                </div>
-                <span class="text-base font-black text-emerald-400">
-                  {{ balanceVisible ? '21.80' : '••••' }}
+                  {{ balanceVisible ? ((wallet.balance?.availableCents ?? 0) / 100).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '••••••' }}
                 </span>
               </div>
               <div class="flex items-center justify-between py-2.5">
                 <div class="flex items-center gap-2.5">
-                  <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-500/10 text-xl">🎁</div>
+                  <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-secondary">
+                    <span class="text-sm font-black text-muted-foreground">₮</span>
+                  </div>
                   <div>
-                    <p class="text-sm font-bold text-foreground">{{ t('shell.bonusBalance') }}</p>
-                    <p class="text-xs text-muted-foreground">{{ t('shell.nonWithdrawable') }}</p>
+                    <p class="text-sm font-bold text-foreground">{{ t('shell.tetherUsd') }}</p>
+                    <p class="text-xs text-muted-foreground">USDT · Coming Soon</p>
                   </div>
                 </div>
-                <span class="text-base font-black text-violet-400">
-                  {{ balanceVisible ? '₱ 500.00' : '₱ ••••' }}
-                </span>
+                <span class="text-sm font-bold text-muted-foreground">—</span>
               </div>
             </div>
             <div class="flex gap-2 px-4 pb-4">

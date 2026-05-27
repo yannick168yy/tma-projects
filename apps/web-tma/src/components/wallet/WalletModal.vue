@@ -72,7 +72,7 @@ interface HistoryItem {
   amount: string
   date: string
   sortKey: string
-  status: 'success' | 'pending' | 'rejected' | 'failed'
+  status: 'success' | 'pending' | 'rejected' | 'admin_rejected' | 'failed'
 }
 
 // ── bottom sheet ─────────────────────────────────────────────────────────────
@@ -108,7 +108,7 @@ const depositView = ref<'select' | 'input'>('select')
 const selectedMethod = ref<string | null>(null)
 const amount = ref('')
 const historyFilter = ref<'all' | 'deposit' | 'withdraw'>('all')
-const historyStatus = ref<'all' | 'success' | 'pending' | 'rejected' | 'failed'>('all')
+const historyStatus = ref<'all' | 'success' | 'pending' | 'rejected' | 'admin_rejected' | 'failed'>('all')
 const bannerIdx = ref(0)
 
 // deposit
@@ -204,6 +204,7 @@ function statusIcon(status: string) {
   if (status === 'success') return CheckCircle2
   if (status === 'pending') return Loader2
   if (status === 'rejected') return XCircle
+  if (status === 'admin_rejected') return AlertCircle
   return AlertCircle
 }
 
@@ -629,6 +630,7 @@ function mapDepositChannelName(channelId: string): string {
 function mapDepositStatus(status: string): HistoryItem['status'] {
   if (status === 'paid' || status === 'completed') return 'success'
   if (status === 'rejected') return 'rejected'
+  if (status === 'admin_rejected') return 'admin_rejected'
   if (status === 'cancelled' || status === 'failed') return 'failed'
   return 'pending'
 }
@@ -823,7 +825,7 @@ async function loadHistory() {
         </div>
         <div class="flex gap-1.5 flex-wrap">
           <button
-            v-for="s in ['all', 'success', 'pending', 'rejected', 'failed'] as const"
+            v-for="s in ['all', 'success', 'pending', 'rejected', 'admin_rejected', 'failed'] as const"
             :key="s"
             type="button"
             class="px-3 py-1 rounded-lg text-[11px] font-bold capitalize transition-colors"
@@ -835,9 +837,11 @@ async function loadHistory() {
                     ? 'bg-yellow-500 text-black'
                     : s === 'rejected'
                       ? 'bg-orange-500 text-white'
-                      : s === 'failed'
-                        ? 'bg-red-500 text-white'
-                        : 'bg-primary text-primary-foreground'
+                      : s === 'admin_rejected'
+                        ? 'bg-rose-700 text-white'
+                        : s === 'failed'
+                          ? 'bg-red-500 text-white'
+                          : 'bg-primary text-primary-foreground'
                 : 'bg-secondary text-muted-foreground'
             "
             @click="historyStatus = s"
@@ -1157,6 +1161,7 @@ async function loadHistory() {
                           tx.status === 'success' ? 'text-emerald-400' : '',
                           tx.status === 'pending' ? 'text-yellow-400 animate-spin' : '',
                           tx.status === 'rejected' ? 'text-orange-400' : '',
+                          tx.status === 'admin_rejected' ? 'text-rose-400' : '',
                           tx.status === 'failed' ? 'text-red-400' : '',
                         ]"
                       />
@@ -1166,6 +1171,7 @@ async function loadHistory() {
                           'text-emerald-400': tx.status === 'success',
                           'text-yellow-400': tx.status === 'pending',
                           'text-orange-400': tx.status === 'rejected',
+                          'text-rose-400': tx.status === 'admin_rejected',
                           'text-red-400': tx.status === 'failed',
                         }"
                       >

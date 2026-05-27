@@ -45,7 +45,7 @@ router.post('/:orderId/reject', async (ctx) => {
     fail(ctx, 400, `Cannot reject order in status: ${order.status}`); return
   }
 
-  order.status = 'rejected'
+  order.status = 'admin_rejected'
   order.rejectReason = body.reason ?? 'Rejected by admin'
   order.completedAt = nowIso()
   await saveWithdraw(ctx.state.redis, order)

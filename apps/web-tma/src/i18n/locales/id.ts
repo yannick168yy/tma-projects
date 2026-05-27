@@ -17,6 +17,7 @@ export default {
     success: 'berhasil',
     pending: 'menunggu',
     rejected: 'ditolak',
+    admin_rejected: 'ditolak admin',
     failed: 'gagal',
     copy: 'Salin',
     ongoing: 'Berlangsung',

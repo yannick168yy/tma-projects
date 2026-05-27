@@ -17,6 +17,7 @@ export default {
     success: 'success',
     pending: 'pending',
     rejected: 'declined',
+    admin_rejected: 'rejected',
     failed: 'failed',
     copy: 'Copy',
     ongoing: 'Ongoing',

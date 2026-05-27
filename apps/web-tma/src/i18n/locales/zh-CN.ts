@@ -17,6 +17,7 @@ export default {
     success: '成功',
     pending: '处理中',
     rejected: '已拒绝',
+    admin_rejected: '后台拒绝',
     failed: '失败',
     copy: '复制',
     ongoing: '进行中',
