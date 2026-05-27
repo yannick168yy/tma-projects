@@ -2,9 +2,11 @@ import Router from '@koa/router'
 import { verifySign } from '../services/yfpay.service.js'
 import { creditWallet } from '../services/store/index.js'
 import {
-  getPaymentOrderBySerial,
-  updatePaymentOrderState,
-} from '../services/store/payment-order-store.js'
+  getOrderDeposit,
+  getOrderWithdraw,
+  updateOrderDepositStatus,
+  updateOrderWithdrawStatus,
+} from '../services/store/mysql-store.js'
 import { isMysqlEnabled } from '../clients/mysql.client.js'
 import { nowIso } from '../utils/format.js'
 
@@ -44,38 +46,50 @@ router.post('/yfpay', async (ctx) => {
       return
     }
 
-    const order = await getPaymentOrderBySerial(env, merchantSerial)
-    if (!order) {
-      ctx.log?.warn({ merchantSerial }, 'YfPay callback: order not found')
-      ctx.body = 'success'
-      return
-    }
+    // merchantSerial 前缀：YFD_ = 代收，YFW_ = 代付
+    const isDeposit = merchantSerial.startsWith('YFD')
 
-    if (order.type === 'deposit') {
-      // 代收：state=2 完成 → 入账；state=3 驳回 → 仅更新状态
+    if (isDeposit) {
+      const order = await getOrderDeposit(env, merchantSerial)
+      if (!order) {
+        ctx.log?.warn({ merchantSerial }, 'YfPay callback: deposit order not found')
+        ctx.body = 'success'
+        return
+      }
+      // state=2 完成 → 入账；state=3 失败 → 仅更新状态
       if (state === 2) {
-        await creditWallet(redis, order.userId, order.amountCents, {
+        await creditWallet(redis, order.userId, Math.round(order.amount * 100), {
           type: 'deposit',
           refId: merchantSerial,
           description: `YF Pay 充值 #${merchantSerial}`,
           traceId: ctx.state.traceId,
           createdAt: nowIso(),
         })
+        await updateOrderDepositStatus(env, merchantSerial, 'paid', platformId, { state })
+      } else if (state === 3) {
+        await updateOrderDepositStatus(env, merchantSerial, 'failed', platformId, { state })
       }
-      await updatePaymentOrderState(env, merchantSerial, state, platformId)
 
-    } else if (order.type === 'withdrawal') {
-      // 代付：state=1 完成（已扣款，无需操作）；state=2/3 驳回 → 退款
-      if (state === 2 || state === 3) {
-        await creditWallet(redis, order.userId, order.amountCents, {
+    } else {
+      const order = await getOrderWithdraw(env, merchantSerial)
+      if (!order) {
+        ctx.log?.warn({ merchantSerial }, 'YfPay callback: withdrawal order not found')
+        ctx.body = 'success'
+        return
+      }
+      // state=1 完成（已扣款，无需操作）；state=2/3 驳回 → 退款
+      if (state === 1) {
+        await updateOrderWithdrawStatus(env, merchantSerial, 'completed', { providerRef: platformId })
+      } else if (state === 2 || state === 3) {
+        await creditWallet(redis, order.userId, order.amount, {
           type: 'bonus',
           refId: `REFUND_${merchantSerial}`,
           description: `YF Pay 提现退款 #${merchantSerial}`,
           traceId: ctx.state.traceId,
           createdAt: nowIso(),
         })
+        await updateOrderWithdrawStatus(env, merchantSerial, 'rejected', { providerRef: platformId })
       }
-      await updatePaymentOrderState(env, merchantSerial, state, platformId)
     }
   } catch (err) {
     ctx.log?.error({ err, merchantSerial }, 'YfPay callback processing error')

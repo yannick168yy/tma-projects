@@ -71,7 +71,7 @@ export interface TonConnectParams {
   txHash?: string
 }
 
-export interface DepositOrder {
+export interface OrderDeposit {
   orderId: string
   userId: string
   amount: number
@@ -80,13 +80,15 @@ export interface DepositOrder {
   status: 'pending' | 'paid' | 'failed' | 'cancelled'
   createdAt: string
   paidAt?: string
-  /** 入账 PHP 分（cents） */
   creditedCents?: number
+  provider?: string
+  providerRef?: string
+  extraData?: Record<string, unknown>
   tgWalletParams?: Record<string, string>
   tonConnectParams?: TonConnectParams
 }
 
-export interface WithdrawOrder {
+export interface OrderWithdraw {
   orderId: string
   userId: string
   amount: number
@@ -96,7 +98,15 @@ export interface WithdrawOrder {
   createdAt: string
   completedAt?: string
   rejectReason?: string
+  provider?: string
+  providerRef?: string
+  extraData?: Record<string, unknown>
 }
+
+/** @deprecated use OrderDeposit */
+export type DepositOrder = OrderDeposit
+/** @deprecated use OrderWithdraw */
+export type WithdrawOrder = OrderWithdraw
 
 export interface LedgerEntry {
   id: string

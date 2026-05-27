@@ -150,20 +150,20 @@ export async function getDashboardStats(env: Env): Promise<DashboardStats> {
 
   const [dRows] = await pool(env).query<RowDataPacket[]>(
     `SELECT COUNT(*) as cnt, COALESCE(SUM(amount),0) as amt
-     FROM bg_deposit_order WHERE DATE(created_at) = CURDATE() AND status = 'paid'`,
+     FROM bg_order_deposit WHERE DATE(created_at) = CURDATE() AND status = 'paid'`,
   )
   const todayDepositCount = Number(dRows[0]?.cnt ?? 0)
   const todayDepositAmount = Number(dRows[0]?.amt ?? 0)
 
   const [wdRows] = await pool(env).query<RowDataPacket[]>(
     `SELECT COUNT(*) as cnt, COALESCE(SUM(amount_cents),0) as amt
-     FROM bg_withdraw_order WHERE DATE(created_at) = CURDATE() AND status IN ('completed','processing')`,
+     FROM bg_order_withdraw WHERE DATE(created_at) = CURDATE() AND status IN ('completed','processing')`,
   )
   const todayWithdrawCount = Number(wdRows[0]?.cnt ?? 0)
   const todayWithdrawAmount = Number(wdRows[0]?.amt ?? 0)
 
   const [pwRows] = await pool(env).query<RowDataPacket[]>(
-    `SELECT COUNT(*) as cnt FROM bg_withdraw_order WHERE status = 'pending'`,
+    `SELECT COUNT(*) as cnt FROM bg_order_withdraw WHERE status = 'pending'`,
   )
   const pendingWithdrawCount = Number(pwRows[0]?.cnt ?? 0)
 
@@ -249,12 +249,12 @@ export async function listAdminDeposits(
   const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : ''
 
   const [countRows] = await pool(env).query<RowDataPacket[]>(
-    `SELECT COUNT(*) as cnt FROM bg_deposit_order ${where}`, params,
+    `SELECT COUNT(*) as cnt FROM bg_order_deposit ${where}`, params,
   )
   const total = Number(countRows[0]?.cnt ?? 0)
 
   const [rows] = await pool(env).query<RowDataPacket[]>(
-    `SELECT * FROM bg_deposit_order ${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`,
+    `SELECT * FROM bg_order_deposit ${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`,
     [...params, opts.pageSize, offset],
   )
 
@@ -395,12 +395,12 @@ export async function listAdminWithdrawals(
   const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : ''
 
   const [countRows] = await pool(env).query<RowDataPacket[]>(
-    `SELECT COUNT(*) as cnt FROM bg_withdraw_order ${where}`, params,
+    `SELECT COUNT(*) as cnt FROM bg_order_withdraw ${where}`, params,
   )
   const total = Number(countRows[0]?.cnt ?? 0)
 
   const [rows] = await pool(env).query<RowDataPacket[]>(
-    `SELECT * FROM bg_withdraw_order ${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`,
+    `SELECT * FROM bg_order_withdraw ${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`,
     [...params, opts.pageSize, offset],
   )
 

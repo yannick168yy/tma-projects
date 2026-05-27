@@ -8,16 +8,12 @@ import {
   queryWithdrawal,
   YfPayError,
 } from '../services/yfpay.service.js'
-import { creditWallet, getWallet } from '../services/store/index.js'
-import {
-  savePaymentOrder,
-  getPaymentOrderBySerial,
-  listPaymentOrders,
-} from '../services/store/payment-order-store.js'
+import { creditWallet, getWallet, saveDeposit, saveWithdraw, listDeposits, listWithdrawals } from '../services/store/index.js'
 import { isMysqlEnabled } from '../clients/mysql.client.js'
 import { ok, fail } from '../utils/response.js'
 import { randomOrderId } from '../utils/id.js'
 import { nowIso } from '../utils/format.js'
+import type { OrderDeposit, OrderWithdraw } from '../types/domain.js'
 
 const router = new Router()
 
@@ -53,18 +49,20 @@ router.post('/deposit/yfpay/create', async (ctx) => {
       ctx.state.env,
     )
 
+    const order: OrderDeposit = {
+      orderId: merchantSerial,
+      userId: ctx.state.userId!,
+      amount,
+      currency: 'PHP',
+      channelId: `yfpay_${channelCode.split('-')[0].toLowerCase()}`,
+      status: 'pending',
+      provider: 'yfpay',
+      providerRef: result.platformId,
+      extraData: { channelCode, payUrl: result.url, state: result.state },
+      createdAt: nowIso(),
+    }
     if (isMysqlEnabled(ctx.state.env)) {
-      await savePaymentOrder(ctx.state.env, {
-        userId: ctx.state.userId!,
-        provider: 'yfpay',
-        type: 'deposit',
-        merchantSerial,
-        platformId: result.platformId,
-        amountCents: Math.round(amount * 100),
-        channelCode,
-        state: result.state,
-        payUrl: result.url,
-      })
+      await saveDeposit(ctx.state.redis, order)
     }
 
     ok(ctx, {
@@ -102,8 +100,16 @@ router.get('/deposit/yfpay/orders', async (ctx) => {
     ok(ctx, [])
     return
   }
-  const orders = await listPaymentOrders(ctx.state.env, ctx.state.userId!, 'deposit')
-  ok(ctx, orders)
+  const orders = await listDeposits(ctx.state.redis, ctx.state.userId!, 1, 50)
+  const yfOrders = orders.filter((o) => o.provider === 'yfpay')
+  ok(ctx, yfOrders.map((o) => ({
+    merchantSerial: o.orderId,
+    amountCents: Math.round(o.amount * 100),
+    state: o.status === 'paid' ? 2 : o.status === 'failed' ? 3 : 0,
+    channelCode: (o.extraData as Record<string, string> | undefined)?.channelCode,
+    payUrl: (o.extraData as Record<string, string> | undefined)?.payUrl,
+    createdAt: o.createdAt,
+  })))
 })
 
 // ── 代付 ──────────────────────────────────────────────────────────────────
@@ -166,18 +172,19 @@ router.post('/withdraw/yfpay/create', async (ctx) => {
     })
 
     if (isMysqlEnabled(ctx.state.env)) {
-      await savePaymentOrder(ctx.state.env, {
+      const wOrder: OrderWithdraw = {
+        orderId: merchantSerial,
         userId,
+        amount: amountCents,
+        currency: 'PHP',
+        channelId: `yfpay_${(optionCode ?? 'unknown').toLowerCase()}`,
+        status: 'pending',
         provider: 'yfpay',
-        type: 'withdrawal',
-        merchantSerial,
-        platformId: result.platformId,
-        amountCents,
-        optionCode,
-        targetAccount,
-        targetOwner,
-        state: result.state,
-      })
+        providerRef: result.platformId,
+        extraData: { optionCode: optionCode ?? '', targetAccount: targetAccount ?? '', targetOwner: targetOwner ?? '' },
+        createdAt: nowIso(),
+      }
+      await saveWithdraw(ctx.state.redis, wOrder)
     }
 
     ok(ctx, {
@@ -214,8 +221,15 @@ router.get('/withdraw/yfpay/orders', async (ctx) => {
     ok(ctx, [])
     return
   }
-  const orders = await listPaymentOrders(ctx.state.env, ctx.state.userId!, 'withdrawal')
-  ok(ctx, orders)
+  const orders = await listWithdrawals(ctx.state.redis, ctx.state.userId!, 1, 50)
+  const yfOrders = orders.filter((o) => o.provider === 'yfpay')
+  ok(ctx, yfOrders.map((o) => ({
+    merchantSerial: o.orderId,
+    amountCents: o.amount,
+    state: o.status === 'completed' ? 1 : o.status === 'rejected' ? 2 : 0,
+    optionCode: (o.extraData as Record<string, string> | undefined)?.optionCode,
+    createdAt: o.createdAt,
+  })))
 })
 
 export default router

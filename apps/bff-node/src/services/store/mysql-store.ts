@@ -1,11 +1,11 @@
 import type { Pool, RowDataPacket } from 'mysql2/promise'
 import type {
-  DepositOrder,
+  OrderDeposit,
+  OrderWithdraw,
   KycSubmission,
   LedgerEntry,
   UserRecord,
   WalletRecord,
-  WithdrawOrder,
 } from '../../types/domain.js'
 import type { Env } from '../../config/env.js'
 import { getMysqlPool } from '../../clients/mysql.client.js'
@@ -422,116 +422,142 @@ export async function getLedgerEntry(env: Env, userId: string, id: string): Prom
   }
 }
 
-function mapDeposit(r: RowDataPacket): DepositOrder {
+function mapOrderDeposit(r: RowDataPacket): OrderDeposit {
   return {
     orderId: r.order_id as string,
     userId: r.user_id as string,
     amount: Number(r.amount),
-    currency: r.currency as DepositOrder['currency'],
+    currency: r.currency as OrderDeposit['currency'],
     channelId: (r.channel_id as string) ?? 'tg_wallet',
-    status: r.status as DepositOrder['status'],
+    status: r.status as OrderDeposit['status'],
     createdAt: new Date(r.created_at as Date).toISOString(),
     paidAt: r.paid_at ? new Date(r.paid_at as Date).toISOString() : undefined,
     creditedCents: r.credited_cents != null ? Number(r.credited_cents) : undefined,
+    provider: r.provider ? String(r.provider) : undefined,
+    providerRef: r.provider_ref ? String(r.provider_ref) : undefined,
+    extraData: r.extra_data ? (typeof r.extra_data === 'string' ? JSON.parse(r.extra_data) : r.extra_data as Record<string, unknown>) : undefined,
     tgWalletParams: r.tg_payload ? JSON.parse(String(r.tg_payload)) : undefined,
   }
 }
 
-export async function saveDeposit(env: Env, order: DepositOrder): Promise<void> {
+export async function saveOrderDeposit(env: Env, order: OrderDeposit): Promise<void> {
   await pool(env).execute(
-    `INSERT INTO bg_deposit_order (order_id, user_id, amount, currency, credited_cents, channel_id, status, provider, tg_payload, paid_at)
-     VALUES (?,?,?,?,?,?,?,?,?,?)
-     ON DUPLICATE KEY UPDATE status=VALUES(status), credited_cents=VALUES(credited_cents), paid_at=VALUES(paid_at), tg_payload=VALUES(tg_payload)`,
+    `INSERT INTO bg_order_deposit (order_id, user_id, amount, currency, credited_cents, channel_id, status, provider, provider_ref, extra_data, tg_payload, paid_at)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
+     ON DUPLICATE KEY UPDATE status=VALUES(status), credited_cents=VALUES(credited_cents), provider_ref=VALUES(provider_ref), extra_data=VALUES(extra_data), paid_at=VALUES(paid_at), tg_payload=VALUES(tg_payload)`,
     [
-      order.orderId,
-      order.userId,
-      order.amount,
-      order.currency,
-      order.creditedCents ?? null,
-      order.channelId,
-      order.status,
-      'ammer_pay',
+      order.orderId, order.userId, order.amount, order.currency,
+      order.creditedCents ?? null, order.channelId, order.status,
+      order.provider ?? 'ammer_pay', order.providerRef ?? null,
+      order.extraData ? JSON.stringify(order.extraData) : null,
       order.tgWalletParams ? JSON.stringify(order.tgWalletParams) : null,
       order.paidAt ? new Date(order.paidAt) : null,
     ],
   )
 }
 
-export async function getDeposit(env: Env, orderId: string): Promise<DepositOrder | null> {
+export async function getOrderDeposit(env: Env, orderId: string): Promise<OrderDeposit | null> {
   const [rows] = await pool(env).query<RowDataPacket[]>(
-    `SELECT * FROM bg_deposit_order WHERE order_id = ?`,
-    [orderId],
+    `SELECT * FROM bg_order_deposit WHERE order_id = ?`, [orderId],
   )
-  return rows[0] ? mapDeposit(rows[0]) : null
+  return rows[0] ? mapOrderDeposit(rows[0]) : null
 }
 
-export async function listDeposits(
-  env: Env,
-  userId: string,
-  page = 1,
-  pageSize = 20,
-): Promise<DepositOrder[]> {
+export async function listOrderDeposits(env: Env, userId: string, page = 1, pageSize = 20): Promise<OrderDeposit[]> {
   const offset = (page - 1) * pageSize
   const [rows] = await pool(env).query<RowDataPacket[]>(
-    `SELECT * FROM bg_deposit_order WHERE user_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?`,
+    `SELECT * FROM bg_order_deposit WHERE user_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?`,
     [userId, pageSize, offset],
   )
-  return rows.map(mapDeposit)
+  return rows.map(mapOrderDeposit)
 }
 
-function mapWithdraw(r: RowDataPacket): WithdrawOrder {
+export async function updateOrderDepositStatus(
+  env: Env, orderId: string, status: OrderDeposit['status'],
+  providerRef?: string, extraDataPatch?: Record<string, unknown>,
+): Promise<void> {
+  const paidAt = status === 'paid' ? new Date() : null
+  if (extraDataPatch) {
+    await pool(env).execute(
+      `UPDATE bg_order_deposit SET status=?, provider_ref=COALESCE(?,provider_ref), paid_at=COALESCE(?,paid_at), extra_data=JSON_MERGE_PATCH(COALESCE(extra_data,'{}'),?) WHERE order_id=?`,
+      [status, providerRef ?? null, paidAt, JSON.stringify(extraDataPatch), orderId],
+    )
+  } else {
+    await pool(env).execute(
+      `UPDATE bg_order_deposit SET status=?, provider_ref=COALESCE(?,provider_ref), paid_at=COALESCE(?,paid_at) WHERE order_id=?`,
+      [status, providerRef ?? null, paidAt, orderId],
+    )
+  }
+}
+
+// backward-compat aliases
+export const saveDeposit = saveOrderDeposit
+export const getDeposit = getOrderDeposit
+export const listDeposits = listOrderDeposits
+
+function mapOrderWithdraw(r: RowDataPacket): OrderWithdraw {
   return {
     orderId: r.order_id as string,
     userId: r.user_id as string,
     amount: Number(r.amount_cents),
     currency: 'PHP',
-    channelId: 'tg_wallet',
-    status: r.status as WithdrawOrder['status'],
+    channelId: (r.channel_id as string) ?? 'tg_wallet',
+    status: r.status as OrderWithdraw['status'],
     createdAt: new Date(r.created_at as Date).toISOString(),
     completedAt: r.completed_at ? new Date(r.completed_at as Date).toISOString() : undefined,
-    rejectReason: (r.reject_reason as string) ?? undefined,
+    rejectReason: r.reject_reason ? String(r.reject_reason) : undefined,
+    provider: r.provider ? String(r.provider) : undefined,
+    providerRef: r.provider_ref ? String(r.provider_ref) : undefined,
+    extraData: r.extra_data ? (typeof r.extra_data === 'string' ? JSON.parse(r.extra_data) : r.extra_data as Record<string, unknown>) : undefined,
   }
 }
 
-export async function saveWithdraw(env: Env, order: WithdrawOrder): Promise<void> {
+export async function saveOrderWithdraw(env: Env, order: OrderWithdraw): Promise<void> {
   await pool(env).execute(
-    `INSERT INTO bg_withdraw_order (order_id, user_id, amount_cents, currency, channel_id, status, reject_reason, completed_at)
-     VALUES (?,?,?,?,?,?,?,?)
-     ON DUPLICATE KEY UPDATE status=VALUES(status), reject_reason=VALUES(reject_reason), completed_at=VALUES(completed_at)`,
+    `INSERT INTO bg_order_withdraw (order_id, user_id, amount_cents, currency, channel_id, status, provider, provider_ref, extra_data, reject_reason, completed_at)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?)
+     ON DUPLICATE KEY UPDATE status=VALUES(status), provider_ref=VALUES(provider_ref), extra_data=VALUES(extra_data), reject_reason=VALUES(reject_reason), completed_at=VALUES(completed_at)`,
     [
-      order.orderId,
-      order.userId,
-      order.amount,
-      order.currency,
-      order.channelId,
-      order.status,
+      order.orderId, order.userId, order.amount, order.currency,
+      order.channelId, order.status, order.provider ?? null, order.providerRef ?? null,
+      order.extraData ? JSON.stringify(order.extraData) : null,
       order.rejectReason ?? null,
       order.completedAt ? new Date(order.completedAt) : null,
     ],
   )
 }
 
-export async function getWithdraw(env: Env, orderId: string): Promise<WithdrawOrder | null> {
+export async function getOrderWithdraw(env: Env, orderId: string): Promise<OrderWithdraw | null> {
   const [rows] = await pool(env).query<RowDataPacket[]>(
-    `SELECT * FROM bg_withdraw_order WHERE order_id = ?`,
-    [orderId],
+    `SELECT * FROM bg_order_withdraw WHERE order_id = ?`, [orderId],
   )
-  return rows[0] ? mapWithdraw(rows[0]) : null
+  return rows[0] ? mapOrderWithdraw(rows[0]) : null
 }
 
-export async function listWithdrawals(
-  env: Env,
-  userId: string,
-  page = 1,
-  pageSize = 20,
-): Promise<WithdrawOrder[]> {
+export async function listOrderWithdrawals(env: Env, userId: string, page = 1, pageSize = 20): Promise<OrderWithdraw[]> {
   const offset = (page - 1) * pageSize
   const [rows] = await pool(env).query<RowDataPacket[]>(
-    `SELECT * FROM bg_withdraw_order WHERE user_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?`,
+    `SELECT * FROM bg_order_withdraw WHERE user_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?`,
     [userId, pageSize, offset],
   )
-  return rows.map(mapWithdraw)
+  return rows.map(mapOrderWithdraw)
 }
+
+export async function updateOrderWithdrawStatus(
+  env: Env, orderId: string, status: OrderWithdraw['status'],
+  opts?: { rejectReason?: string; providerRef?: string },
+): Promise<void> {
+  const completedAt = (status === 'completed' || status === 'rejected') ? new Date() : null
+  await pool(env).execute(
+    `UPDATE bg_order_withdraw SET status=?, provider_ref=COALESCE(?,provider_ref), reject_reason=COALESCE(?,reject_reason), completed_at=COALESCE(?,completed_at) WHERE order_id=?`,
+    [status, opts?.providerRef ?? null, opts?.rejectReason ?? null, completedAt, orderId],
+  )
+}
+
+// backward-compat aliases
+export const saveWithdraw = saveOrderWithdraw
+export const getWithdraw = getOrderWithdraw
+export const listWithdrawals = listOrderWithdrawals
 
 export async function recordUserLogin(
   env: Env,
@@ -585,7 +611,7 @@ export async function adminAdjustBalance(
     if (cents > 0) {
       // 存款记录（管理员充值）
       await conn.execute(
-        `INSERT INTO bg_deposit_order (order_id, user_id, amount, currency, credited_cents, channel_id, status, provider, paid_at)
+        `INSERT INTO bg_order_deposit (order_id, user_id, amount, currency, credited_cents, channel_id, status, provider, paid_at)
          VALUES (?,?,?,?,?,?,?,?,NOW(3))`,
         [orderId, userId, (cents / 100).toFixed(2), 'PHP', cents, 'admin', 'paid', 'admin'],
       )
@@ -602,7 +628,7 @@ export async function adminAdjustBalance(
       }
       // 取款记录（管理员扣款）
       await conn.execute(
-        `INSERT INTO bg_withdraw_order (order_id, user_id, amount_cents, currency, channel_id, status, completed_at)
+        `INSERT INTO bg_order_withdraw (order_id, user_id, amount_cents, currency, channel_id, status, completed_at)
          VALUES (?,?,?,?,?,?,NOW(3))`,
         [orderId, userId, Math.abs(cents), 'PHP', 'admin', 'completed'],
       )

@@ -4,14 +4,18 @@ import { isMysqlEnabled } from '../../clients/mysql.client.js'
 import * as redisStore from './redis-store.js'
 import * as mysqlStore from './mysql-store.js'
 import type {
-  DepositOrder,
+  OrderDeposit,
+  OrderWithdraw,
   KycSubmission,
   LedgerEntry,
   SessionRecord,
   UserRecord,
   WalletRecord,
-  WithdrawOrder,
 } from '../../types/domain.js'
+
+// backward-compat type aliases
+type DepositOrder = OrderDeposit
+type WithdrawOrder = OrderWithdraw
 
 let appEnv: Env | null = null
 
@@ -161,3 +165,21 @@ export const getKyc = (redis: Redis, userId: string) =>
 
 export const saveKyc = (redis: Redis, submission: KycSubmission) =>
   isMysqlEnabled(env()) ? mysqlStore.saveKyc(env(), submission) : redisStore.saveKyc(redis, submission)
+
+export const saveOrderDeposit = (_redis: Redis, order: OrderDeposit) =>
+  isMysqlEnabled(env()) ? mysqlStore.saveOrderDeposit(env(), order) : Promise.resolve()
+
+export const getOrderDeposit = (_redis: Redis, orderId: string) =>
+  isMysqlEnabled(env()) ? mysqlStore.getOrderDeposit(env(), orderId) : Promise.resolve(null)
+
+export const listOrderDeposits = (_redis: Redis, userId: string, page = 1, pageSize = 20) =>
+  isMysqlEnabled(env()) ? mysqlStore.listOrderDeposits(env(), userId, page, pageSize) : Promise.resolve([] as OrderDeposit[])
+
+export const saveOrderWithdraw = (_redis: Redis, order: OrderWithdraw) =>
+  isMysqlEnabled(env()) ? mysqlStore.saveOrderWithdraw(env(), order) : Promise.resolve()
+
+export const getOrderWithdraw = (_redis: Redis, orderId: string) =>
+  isMysqlEnabled(env()) ? mysqlStore.getOrderWithdraw(env(), orderId) : Promise.resolve(null)
+
+export const listOrderWithdrawals = (_redis: Redis, userId: string, page = 1, pageSize = 20) =>
+  isMysqlEnabled(env()) ? mysqlStore.listOrderWithdrawals(env(), userId, page, pageSize) : Promise.resolve([] as OrderWithdraw[])
