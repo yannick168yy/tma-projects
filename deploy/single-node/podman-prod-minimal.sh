@@ -179,12 +179,15 @@ run run -d --name tma-web-tma --restart=always \
 
 echo "==> [${CTR}] web-admin (limit 64m)"
 ADMIN_PORT="${WEB_ADMIN_PORT:-8085}"
-ADMIN_API_URL="${VITE_ADMIN_API_BASE_URL:-https://www.188facai.com/api/v1}"
 run rm -f tma-web-admin 2>/dev/null || true
+# 不设 VITE_ADMIN_API_BASE_URL 时用相对路径 /api/v1，由 nginx 反代到 bff-node
+ADMIN_BUILD_ARGS=()
+[[ -n "${VITE_ADMIN_API_BASE_URL:-}" ]] && ADMIN_BUILD_ARGS+=(--build-arg "VITE_ADMIN_API_BASE_URL=${VITE_ADMIN_API_BASE_URL}")
 run build -t betogo-web-admin:latest \
-  --build-arg "VITE_ADMIN_API_BASE_URL=${ADMIN_API_URL}" \
+  "${ADMIN_BUILD_ARGS[@]}" \
   -f apps/web-admin/Dockerfile apps/web-admin
-run run -d --name tma-web-admin --restart=always \
+# 加入 tma-prod 网络以便 nginx 反代解析 tma-bff-node 主机名
+run run -d --name tma-web-admin --network "$NET" --restart=always \
   --memory=64m --memory-swap=64m \
   -p "${ADMIN_PORT}:80" \
   betogo-web-admin:latest
