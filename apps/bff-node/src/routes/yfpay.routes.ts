@@ -73,6 +73,7 @@ router.post('/deposit/yfpay/create', async (ctx) => {
       state: result.state,
     })
   } catch (err) {
+    console.error('[bff] deposit/yfpay/create', merchantSerial, err)
     const msg = err instanceof YfPayError ? err.message : '创建充值订单失败'
     fail(ctx, 500, msg)
   }
@@ -194,6 +195,7 @@ router.post('/withdraw/yfpay/create', async (ctx) => {
       state: result.state,
     })
   } catch (err) {
+    console.error('[bff] withdraw/yfpay/create', merchantSerial, err)
     const msg = err instanceof YfPayError ? err.message : '创建提现订单失败'
     fail(ctx, 500, msg)
   }

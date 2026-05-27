@@ -423,6 +423,9 @@ export async function getLedgerEntry(env: Env, userId: string, id: string): Prom
 }
 
 function mapOrderDeposit(r: RowDataPacket): OrderDeposit {
+  const extra = r.extra_data
+    ? (typeof r.extra_data === 'string' ? JSON.parse(r.extra_data) : r.extra_data as Record<string, unknown>)
+    : undefined
   return {
     orderId: r.order_id as string,
     userId: r.user_id as string,
@@ -435,22 +438,28 @@ function mapOrderDeposit(r: RowDataPacket): OrderDeposit {
     creditedCents: r.credited_cents != null ? Number(r.credited_cents) : undefined,
     provider: r.provider ? String(r.provider) : undefined,
     providerRef: r.provider_ref ? String(r.provider_ref) : undefined,
-    extraData: r.extra_data ? (typeof r.extra_data === 'string' ? JSON.parse(r.extra_data) : r.extra_data as Record<string, unknown>) : undefined,
-    tgWalletParams: r.tg_payload ? JSON.parse(String(r.tg_payload)) : undefined,
+    extraData: extra,
+    tgWalletParams: extra?.tgWalletParams as OrderDeposit['tgWalletParams'] ?? undefined,
+    tonConnectParams: extra?.tonConnectParams as OrderDeposit['tonConnectParams'] ?? undefined,
   }
 }
 
 export async function saveOrderDeposit(env: Env, order: OrderDeposit): Promise<void> {
+  // tgWalletParams / tonConnectParams 合并进 extra_data，无独立列
+  const extra: Record<string, unknown> = { ...(order.extraData ?? {}) }
+  if (order.tgWalletParams) extra['tgWalletParams'] = order.tgWalletParams
+  if (order.tonConnectParams) extra['tonConnectParams'] = order.tonConnectParams
+  const extraJson = Object.keys(extra).length ? JSON.stringify(extra) : null
+
   await pool(env).execute(
-    `INSERT INTO bg_order_deposit (order_id, user_id, amount, currency, credited_cents, channel_id, status, provider, provider_ref, extra_data, tg_payload, paid_at)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
-     ON DUPLICATE KEY UPDATE status=VALUES(status), credited_cents=VALUES(credited_cents), provider_ref=VALUES(provider_ref), extra_data=VALUES(extra_data), paid_at=VALUES(paid_at), tg_payload=VALUES(tg_payload)`,
+    `INSERT INTO bg_order_deposit (order_id, user_id, amount, currency, credited_cents, channel_id, status, provider, provider_ref, extra_data, paid_at)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?)
+     ON DUPLICATE KEY UPDATE status=VALUES(status), credited_cents=VALUES(credited_cents), provider_ref=VALUES(provider_ref), extra_data=VALUES(extra_data), paid_at=VALUES(paid_at)`,
     [
       order.orderId, order.userId, order.amount, order.currency,
       order.creditedCents ?? null, order.channelId, order.status,
       order.provider ?? 'ammer_pay', order.providerRef ?? null,
-      order.extraData ? JSON.stringify(order.extraData) : null,
-      order.tgWalletParams ? JSON.stringify(order.tgWalletParams) : null,
+      extraJson,
       order.paidAt ? new Date(order.paidAt) : null,
     ],
   )
