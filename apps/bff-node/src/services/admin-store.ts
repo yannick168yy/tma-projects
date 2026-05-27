@@ -207,7 +207,8 @@ export async function listAdminUsers(
   const total = Number(countRows[0]?.cnt ?? 0)
 
   const [rows] = await pool(env).query<RowDataPacket[]>(
-    `SELECT u.id, u.display_name, u.email, u.telegram_username, u.status, u.registered_at,
+    `SELECT u.id, u.display_name, u.email, u.telegram_username, u.status, u.label,
+            u.last_login_at, u.registered_at,
             COALESCE(w.available_cents,0) as available_cents
      FROM bg_user u
      LEFT JOIN bg_wallet w ON w.user_id = u.id
@@ -223,6 +224,8 @@ export async function listAdminUsers(
     email: r.email ? String(r.email) : null,
     telegramUsername: r.telegram_username ? String(r.telegram_username) : null,
     status: String(r.status),
+    label: String(r.label ?? 'normal'),
+    lastLoginAt: r.last_login_at ? new Date(r.last_login_at as Date).toISOString() : null,
     registeredAt: new Date(r.registered_at as Date).toISOString(),
     balanceCents: Number(r.available_cents),
   }))
@@ -266,6 +269,49 @@ export async function listAdminDeposits(
   }))
 
   return { total, items }
+}
+
+export async function updateUserLabel(env: Env, userId: string, label: string): Promise<void> {
+  await pool(env).execute(`UPDATE bg_user SET label = ? WHERE id = ?`, [label, userId])
+}
+
+export async function getLoginLogs(
+  env: Env,
+  userId: string,
+  limit = 20,
+): Promise<{ id: number; ip: string | null; userAgent: string | null; authMethod: string; createdAt: string }[]> {
+  const [rows] = await pool(env).query<RowDataPacket[]>(
+    `SELECT id, ip, user_agent, auth_method, created_at FROM bg_login_log WHERE user_id = ? ORDER BY created_at DESC LIMIT ?`,
+    [userId, limit],
+  )
+  return rows.map((r) => ({
+    id: Number(r.id),
+    ip: r.ip ? String(r.ip) : null,
+    userAgent: r.user_agent ? String(r.user_agent) : null,
+    authMethod: String(r.auth_method),
+    createdAt: new Date(r.created_at as Date).toISOString(),
+  }))
+}
+
+export async function getBetOrders(
+  env: Env,
+  userId: string,
+  limit = 30,
+): Promise<{ id: number; providerTxnId: string; roundId: string | null; betType: string; amountCents: number; status: string; createdAt: string }[]> {
+  const [rows] = await pool(env).query<RowDataPacket[]>(
+    `SELECT id, provider_txn_id, round_id, bet_type, amount_cents, status, created_at
+     FROM bg_bet_order WHERE user_id = ? ORDER BY created_at DESC LIMIT ?`,
+    [userId, limit],
+  )
+  return rows.map((r) => ({
+    id: Number(r.id),
+    providerTxnId: String(r.provider_txn_id),
+    roundId: r.round_id ? String(r.round_id) : null,
+    betType: String(r.bet_type),
+    amountCents: Number(r.amount_cents),
+    status: String(r.status),
+    createdAt: new Date(r.created_at as Date).toISOString(),
+  }))
 }
 
 export async function listAdminGames(

@@ -54,14 +54,29 @@ export const getDashboard = () => get<{
 // Users
 export interface AdminUser {
   id: string; displayName: string; email: string | null; telegramUsername: string | null
-  status: string; registeredAt: string; balanceCents: number
+  status: string; label: string; lastLoginAt: string | null; registeredAt: string; balanceCents: number
+}
+export interface LoginLog {
+  id: number; ip: string | null; userAgent: string | null; authMethod: string; createdAt: string
+}
+export interface BetOrder {
+  id: number; providerTxnId: string; roundId: string | null
+  betType: string; amountCents: number; status: string; createdAt: string
 }
 export const getUsers = (params: { page?: number; pageSize?: number; search?: string; status?: string }) =>
   get<{ total: number; items: AdminUser[] }>('/admin/users', params)
 export const getUserDetail = (id: string) =>
-  get<{ user: Record<string, unknown>; wallet: { available: number; frozen: number }; ledger: unknown[] }>(`/admin/users/${id}`)
+  get<{
+    user: Record<string, unknown>
+    wallet: { available: number; frozen: number }
+    ledger: unknown[]
+    loginLogs: LoginLog[]
+    betOrders: BetOrder[]
+  }>(`/admin/users/${id}`)
 export const updateUserStatus = (id: string, status: string, reason?: string) =>
   patch<{ status: string }>(`/admin/users/${id}/status`, { status, reason })
+export const updateUserLabel = (id: string, label: string) =>
+  patch<{ label: string }>(`/admin/users/${id}/label`, { label })
 export const adjustBalance = (id: string, cents: number, note?: string) =>
   post<{ available: number }>(`/admin/users/${id}/adjust-balance`, { cents, note })
 

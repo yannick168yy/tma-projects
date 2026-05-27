@@ -1,5 +1,6 @@
 import Router from '@koa/router'
 import { AuthError, loginWithGoogleCode, loginWithInitData, logout, refreshSession, resolveSession, toAuthUser } from '../services/auth.service.js'
+import { recordUserLogin } from '../services/store/index.js'
 import { fail, ok } from '../utils/response.js'
 
 const router = new Router({ prefix: '/auth' })
@@ -16,6 +17,11 @@ router.post('/telegram', async (ctx) => {
       trialRedPacketEligible: result.trialRedPacketEligible,
       user: toAuthUser(result.user),
     })
+    recordUserLogin(ctx.state.redis, result.user.id, {
+      ip: ctx.ip,
+      userAgent: ctx.get('user-agent'),
+      authMethod: 'telegram',
+    }).catch(() => {})
   } catch (e) {
     if (e instanceof AuthError) {
       fail(ctx, 401, e.message, 401)
@@ -45,6 +51,11 @@ router.post('/google', async (ctx) => {
       trialRedPacketEligible: result.trialRedPacketEligible,
       user: toAuthUser(result.user),
     })
+    recordUserLogin(ctx.state.redis, result.user.id, {
+      ip: ctx.ip,
+      userAgent: ctx.get('user-agent'),
+      authMethod: 'google',
+    }).catch(() => {})
   } catch (e) {
     if (e instanceof AuthError) {
       fail(ctx, 401, e.message, 401)

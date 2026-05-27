@@ -31,6 +31,8 @@ export interface UserRecord {
   referralMilestoneMet?: boolean
   status: UserStatus
   statusReason?: string
+  label?: string
+  lastLoginAt?: string
   registeredAt: string
   profile: UserProfile
   trialClaimed: boolean

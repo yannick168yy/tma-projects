@@ -40,6 +40,8 @@ type UserRow = RowDataPacket & {
   locale: string
   status: UserRecord['status']
   status_reason: string | null
+  label: string
+  last_login_at: Date | null
   registered_at: Date
   first_name: string
   last_name: string
@@ -70,6 +72,8 @@ function mapUser(row: UserRow): UserRecord {
     locale: row.locale as UserRecord['locale'],
     status: row.status,
     statusReason: row.status_reason ?? undefined,
+    label: row.label ?? 'normal',
+    lastLoginAt: row.last_login_at ? new Date(row.last_login_at).toISOString() : undefined,
     registeredAt: new Date(row.registered_at).toISOString(),
     profile: {
       firstName: row.first_name,
@@ -112,12 +116,13 @@ export async function saveUser(env: Env, user: UserRecord): Promise<void> {
   try {
     await conn.beginTransaction()
     await conn.execute(
-      `INSERT INTO bg_user (id, telegram_user_id, telegram_username, google_sub, email, display_name, avatar_url, invite_code, inviter_id, locale, status, status_reason, registered_at)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
+      `INSERT INTO bg_user (id, telegram_user_id, telegram_username, google_sub, email, display_name, avatar_url, invite_code, inviter_id, locale, status, status_reason, label, registered_at)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
        ON DUPLICATE KEY UPDATE
          telegram_username=VALUES(telegram_username),
          display_name=VALUES(display_name), avatar_url=VALUES(avatar_url), email=VALUES(email),
-         locale=VALUES(locale), status=VALUES(status), status_reason=VALUES(status_reason)`,
+         locale=VALUES(locale), status=VALUES(status), status_reason=VALUES(status_reason),
+         label=VALUES(label)`,
       [
         user.id,
         user.telegramUserId ?? null,
@@ -131,6 +136,7 @@ export async function saveUser(env: Env, user: UserRecord): Promise<void> {
         user.locale,
         user.status,
         user.statusReason ?? null,
+        user.label ?? 'normal',
         new Date(user.registeredAt),
       ],
     )
@@ -509,6 +515,28 @@ export async function listWithdrawals(
     [userId, pageSize, offset],
   )
   return rows.map(mapWithdraw)
+}
+
+export async function recordUserLogin(
+  env: Env,
+  userId: string,
+  opts: { ip?: string; userAgent?: string; authMethod?: string },
+): Promise<void> {
+  const conn = await pool(env).getConnection()
+  try {
+    await conn.beginTransaction()
+    await conn.execute(`UPDATE bg_user SET last_login_at = NOW(3) WHERE id = ?`, [userId])
+    await conn.execute(
+      `INSERT INTO bg_login_log (user_id, ip, user_agent, auth_method) VALUES (?,?,?,?)`,
+      [userId, opts.ip ?? null, opts.userAgent?.slice(0, 512) ?? null, opts.authMethod ?? 'telegram'],
+    )
+    await conn.commit()
+  } catch (e) {
+    await conn.rollback()
+    throw e
+  } finally {
+    conn.release()
+  }
 }
 
 export async function getKyc(_env: Env, _userId: string): Promise<KycSubmission | null> {

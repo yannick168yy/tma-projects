@@ -22,6 +22,7 @@
       :loading="loading"
       :pagination="pagination"
       row-key="id"
+      size="small"
       @change="onPageChange"
     >
       <template #bodyCell="{ column, record }">
@@ -31,8 +32,36 @@
         <template v-if="column.key === 'status'">
           <a-tag :color="statusColor(record.status)">{{ record.status }}</a-tag>
         </template>
+        <template v-if="column.key === 'label'">
+          <a-tag :color="record.label === 'arbitrage' ? 'red' : 'default'">
+            {{ labelText(record.label) }}
+          </a-tag>
+        </template>
+        <template v-if="column.key === 'lastLoginAt'">
+          {{ record.lastLoginAt ? new Date(record.lastLoginAt).toLocaleString('zh-CN') : '-' }}
+        </template>
         <template v-if="column.key === 'actions'">
-          <a-button type="link" size="small" @click="$router.push(`/users/${record.id}`)">详情</a-button>
+          <a-space size="small">
+            <a-button type="link" size="small" @click="$router.push(`/users/${record.id}`)">详情</a-button>
+            <a-popconfirm
+              v-if="record.status === 'active'"
+              title="确定禁用该用户？"
+              ok-text="禁用"
+              cancel-text="取消"
+              @confirm="doDisable(record)"
+            >
+              <a-button type="link" size="small" danger :loading="opUid === record.id">禁用</a-button>
+            </a-popconfirm>
+            <a-dropdown trigger="click">
+              <a-button type="link" size="small">标记▾</a-button>
+              <template #overlay>
+                <a-menu @click="onLabelClick($event, record)">
+                  <a-menu-item key="normal">普通</a-menu-item>
+                  <a-menu-item key="arbitrage" style="color:red">套利客</a-menu-item>
+                </a-menu>
+              </template>
+            </a-dropdown>
+          </a-space>
         </template>
       </template>
     </a-table>
@@ -41,7 +70,8 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { getUsers, type AdminUser } from '../api.js'
+import { message } from 'ant-design-vue'
+import { getUsers, updateUserStatus, updateUserLabel, type AdminUser } from '../api.js'
 
 const search = ref('')
 const statusFilter = ref<string | undefined>()
@@ -49,6 +79,7 @@ const loading = ref(false)
 const users = ref<AdminUser[]>([])
 const total = ref(0)
 const page = ref(1)
+const opUid = ref<string | null>(null)
 
 const pagination = computed(() => ({
   current: page.value,
@@ -64,16 +95,20 @@ function onPageChange(p: { current: number }) {
 const columns = [
   { title: 'ID', dataIndex: 'id', key: 'id', width: 100 },
   { title: '显示名', dataIndex: 'displayName', key: 'displayName' },
-  { title: 'Email', dataIndex: 'email', key: 'email' },
-  { title: 'TG用户名', dataIndex: 'telegramUsername', key: 'tg' },
-  { title: '余额', key: 'balance' },
-  { title: '状态', key: 'status' },
-  { title: '注册时间', dataIndex: 'registeredAt', key: 'reg', customRender: ({ value }: { value: string }) => new Date(value).toLocaleString('zh-CN') },
-  { title: '操作', key: 'actions' },
+  { title: 'TG用户名', dataIndex: 'telegramUsername', key: 'tg', customRender: ({ value }: { value: string | null }) => value || '-' },
+  { title: '余额', key: 'balance', width: 100 },
+  { title: '状态', key: 'status', width: 80 },
+  { title: '标记', key: 'label', width: 90 },
+  { title: '最后登录', key: 'lastLoginAt', width: 150 },
+  { title: '操作', key: 'actions', width: 180 },
 ]
 
 function statusColor(s: string) {
   return { active: 'green', frozen: 'orange', banned: 'red' }[s] ?? 'default'
+}
+
+function labelText(l: string) {
+  return { normal: '普通', arbitrage: '套利客' }[l] ?? l
 }
 
 async function load(p = 1) {
@@ -85,6 +120,34 @@ async function load(p = 1) {
     total.value = res.total
   } finally {
     loading.value = false
+  }
+}
+
+async function doDisable(record: AdminUser) {
+  opUid.value = record.id
+  try {
+    await updateUserStatus(record.id, 'frozen')
+    record.status = 'frozen'
+    message.success('已禁用')
+  } catch {
+    message.error('操作失败')
+  } finally {
+    opUid.value = null
+  }
+}
+
+function onLabelClick(e: unknown, record: AdminUser) {
+  const key = (e as { key: string }).key
+  doLabel(record, key)
+}
+
+async function doLabel(record: AdminUser, label: string) {
+  try {
+    await updateUserLabel(record.id, label)
+    record.label = label
+    message.success(`已标记为：${labelText(label)}`)
+  } catch {
+    message.error('操作失败')
   }
 }
 

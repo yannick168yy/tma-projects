@@ -137,6 +137,15 @@ export const listWithdrawals = (redis: Redis, userId: string, page = 1, pageSize
     ? mysqlStore.listWithdrawals(env(), userId, page, pageSize)
     : redisStore.listWithdrawals(redis, userId, page, pageSize)
 
+export const recordUserLogin = (
+  redis: Redis,
+  userId: string,
+  opts: { ip?: string; userAgent?: string; authMethod?: string },
+) =>
+  isMysqlEnabled(env())
+    ? mysqlStore.recordUserLogin(env(), userId, opts)
+    : Promise.resolve()
+
 export const getKyc = (redis: Redis, userId: string) =>
   isMysqlEnabled(env()) ? mysqlStore.getKyc(env(), userId) : redisStore.getKyc(redis, userId)
 

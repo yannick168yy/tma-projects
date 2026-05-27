@@ -1,5 +1,5 @@
 import Router from '@koa/router'
-import { listAdminUsers, writeAuditLog } from '../../services/admin-store.js'
+import { listAdminUsers, writeAuditLog, updateUserLabel, getLoginLogs, getBetOrders } from '../../services/admin-store.js'
 import { getUser, saveUser, getWallet, creditWallet, listLedger } from '../../services/store/index.js'
 import { fail, ok } from '../../utils/response.js'
 import { nowIso } from '../../utils/format.js'
@@ -18,9 +18,13 @@ router.get('/', async (ctx) => {
 router.get('/:id', async (ctx) => {
   const user = await getUser(ctx.state.redis, ctx.params.id)
   if (!user) { fail(ctx, 404, 'User not found', 404); return }
-  const wallet = await getWallet(ctx.state.redis, ctx.params.id)
-  const ledger = await listLedger(ctx.state.redis, ctx.params.id, 20)
-  ok(ctx, { user, wallet, ledger })
+  const [wallet, ledger, loginLogs, betOrders] = await Promise.all([
+    getWallet(ctx.state.redis, ctx.params.id),
+    listLedger(ctx.state.redis, ctx.params.id, 20),
+    getLoginLogs(ctx.state.env, ctx.params.id, 20),
+    getBetOrders(ctx.state.env, ctx.params.id, 30),
+  ])
+  ok(ctx, { user, wallet, ledger, loginLogs, betOrders })
 })
 
 router.patch('/:id/status', async (ctx) => {
@@ -79,6 +83,27 @@ router.post('/:id/adjust-balance', async (ctx) => {
     ip: ctx.ip,
   })
   ok(ctx, { available: wallet.available })
+})
+
+router.patch('/:id/label', async (ctx) => {
+  const body = ctx.request.body as { label?: string }
+  const allowed = ['normal', 'arbitrage']
+  if (!body.label || !allowed.includes(body.label)) {
+    fail(ctx, 400, 'label must be normal | arbitrage'); return
+  }
+  const user = await getUser(ctx.state.redis, ctx.params.id)
+  if (!user) { fail(ctx, 404, 'User not found', 404); return }
+  await updateUserLabel(ctx.state.env, ctx.params.id, body.label)
+  await writeAuditLog(ctx.state.env, {
+    adminId: ctx.state.adminId!,
+    adminUsername: ctx.state.adminUsername!,
+    action: 'user.label_change',
+    targetType: 'user',
+    targetId: ctx.params.id,
+    detail: { label: body.label },
+    ip: ctx.ip,
+  })
+  ok(ctx, { label: body.label })
 })
 
 export default router
