@@ -351,6 +351,8 @@ export default {
     tonSuccess: 'Deposit diterima! Saldo diperbarui.',
     tonTimeout: 'Waktu habis. Tidak ada transaksi terdeteksi. Coba lagi.',
     tonDisconnect: 'Putuskan',
+    comingSoon: 'Segera Hadir',
+    cryptoWithdrawSoon: 'Penarikan kripto akan segera tersedia.',
   },
   slots: {
     sectionTitle: 'GAME SLOT',

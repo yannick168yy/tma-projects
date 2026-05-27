@@ -351,6 +351,8 @@ export default {
     tonSuccess: 'Đã nhận nạp tiền! Số dư đã cập nhật.',
     tonTimeout: 'Hết giờ. Không phát hiện giao dịch. Thử lại.',
     tonDisconnect: 'Ngắt kết nối',
+    comingSoon: 'Sắp ra mắt',
+    cryptoWithdrawSoon: 'Rút tiền bằng crypto sẽ sớm khả dụng.',
   },
   slots: {
     sectionTitle: 'GAME SLOT',

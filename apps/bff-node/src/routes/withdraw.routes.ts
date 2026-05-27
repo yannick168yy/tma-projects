@@ -81,8 +81,11 @@ router.get('/', async (ctx) => {
     items: orders.map((o) => ({
       orderId: o.orderId,
       amount: o.amount,
+      currency: o.currency,
+      channelId: o.channelId,
       status: o.status,
       createdAt: o.createdAt,
+      completedAt: o.completedAt ?? null,
     })),
     page,
   })

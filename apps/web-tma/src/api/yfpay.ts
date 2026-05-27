@@ -72,3 +72,33 @@ export async function createYfWithdrawal(params: {
 export async function fetchYfWithdrawOrders(): Promise<YfPayOrder[]> {
   return apiRequest<YfPayOrder[]>('/withdraw/yfpay/orders')
 }
+
+export interface DepositHistoryItem {
+  orderId: string
+  amount: number
+  currency: string
+  channelId: string
+  status: string
+  creditedCents: number | null
+  createdAt: string
+}
+
+export interface WithdrawHistoryItem {
+  orderId: string
+  amount: number
+  currency: string
+  channelId: string
+  status: string
+  createdAt: string
+  completedAt: string | null
+}
+
+export async function fetchDepositHistory(): Promise<DepositHistoryItem[]> {
+  const res = await apiRequest<{ items: DepositHistoryItem[]; page: number }>('/deposits')
+  return res.items
+}
+
+export async function fetchWithdrawHistory(): Promise<WithdrawHistoryItem[]> {
+  const res = await apiRequest<{ items: WithdrawHistoryItem[]; page: number }>('/withdrawals')
+  return res.items
+}

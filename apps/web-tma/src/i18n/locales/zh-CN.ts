@@ -349,6 +349,8 @@ export default {
     tonSuccess: '充值已到账！余额已更新。',
     tonTimeout: '等待超时，未检测到交易，请重试。',
     tonDisconnect: '断开连接',
+    comingSoon: '即将上线',
+    cryptoWithdrawSoon: '加密货币提款功能即将开放，敬请期待。',
   },
   slots: {
     sectionTitle: '老虎机游戏',

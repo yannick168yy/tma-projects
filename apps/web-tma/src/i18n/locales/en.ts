@@ -353,6 +353,8 @@ export default {
     tonSuccess: 'Deposit received! Balance updated.',
     tonTimeout: 'Timed out. No transaction detected. Please retry.',
     tonDisconnect: 'Disconnect',
+    comingSoon: 'Coming Soon',
+    cryptoWithdrawSoon: 'Crypto withdrawals will be available soon.',
   },
   slots: {
     sectionTitle: 'CASINO SLOTS',

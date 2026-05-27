@@ -31,6 +31,8 @@ import {
   queryYfDeposit,
   fetchYfDepositOrders,
   fetchYfWithdrawOrders,
+  fetchDepositHistory,
+  fetchWithdrawHistory,
   createYfWithdrawal,
   type YfPayChannel,
 } from '@/api/yfpay'
@@ -234,8 +236,14 @@ const allDepositMethods = computed(() => [
   ...CRYPTO_DEPOSIT,
 ])
 
+const allPayMethods = computed(() => [
+  ...allDepositMethods.value,
+  ...FIAT_WITHDRAW,
+  ...CRYPTO_WITHDRAW,
+])
+
 const selectedPayMethod = computed((): PayMethod | undefined =>
-  allDepositMethods.value.find((m) => m.id === selectedMethod.value),
+  allPayMethods.value.find((m) => m.id === selectedMethod.value),
 )
 
 const isCryptoMethod = computed(() => {
@@ -582,33 +590,89 @@ async function onProceedWithdraw() {
   }
 }
 
+function mapDepositChannelName(channelId: string): string {
+  const map: Record<string, string> = {
+    admin: 'Admin',
+    tg_wallet: 'Telegram',
+    ammer_pay: 'Telegram',
+    ton_connect: 'TON',
+  }
+  return map[channelId] ?? channelId ?? '—'
+}
+
+function mapDepositStatus(status: string): 'success' | 'pending' | 'failed' {
+  if (status === 'paid' || status === 'completed') return 'success'
+  if (status === 'cancelled' || status === 'rejected' || status === 'failed') return 'failed'
+  return 'pending'
+}
+
 async function loadHistory() {
   historyLoading.value = true
   try {
-    const [deposits, withdrawals] = await Promise.all([
-      fetchYfDepositOrders(),
-      fetchYfWithdrawOrders(),
+    const [yfDeposits, yfWithdrawals, bgDeposits, bgWithdrawals] = await Promise.all([
+      fetchYfDepositOrders().catch(() => []),
+      fetchYfWithdrawOrders().catch(() => []),
+      fetchDepositHistory().catch(() => []),
+      fetchWithdrawHistory().catch(() => []),
     ])
-    const items: HistoryItem[] = [
-      ...deposits.map((d) => ({
-        id: d.merchantSerial,
-        type: 'deposit' as const,
-        method: methodDisplayName(d.channelCode ?? ''),
-        amount: `+₱${(d.amountCents / 100).toFixed(2)}`,
+
+    const seen = new Set<string>()
+    const items: HistoryItem[] = []
+
+    for (const d of bgDeposits) {
+      seen.add(d.orderId)
+      items.push({
+        id: d.orderId,
+        type: 'deposit',
+        method: mapDepositChannelName(d.channelId),
+        amount: `+₱${((d.creditedCents ?? d.amount * 100) / 100).toFixed(2)}`,
         date: formatOrderDate(d.createdAt),
         sortKey: d.createdAt,
-        status: mapDepositState(d.state),
-      })),
-      ...withdrawals.map((w) => ({
-        id: w.merchantSerial,
-        type: 'withdraw' as const,
-        method: methodDisplayName(w.optionCode ?? ''),
-        amount: `-₱${(w.amountCents / 100).toFixed(2)}`,
+        status: mapDepositStatus(d.status),
+      })
+    }
+
+    for (const w of bgWithdrawals) {
+      seen.add(w.orderId)
+      items.push({
+        id: w.orderId,
+        type: 'withdraw',
+        method: mapDepositChannelName(w.channelId),
+        amount: `-₱${(w.amount / 100).toFixed(2)}`,
         date: formatOrderDate(w.createdAt),
         sortKey: w.createdAt,
-        status: mapWithdrawState(w.state),
-      })),
-    ]
+        status: mapDepositStatus(w.status),
+      })
+    }
+
+    for (const d of yfDeposits) {
+      if (!seen.has(d.merchantSerial)) {
+        items.push({
+          id: d.merchantSerial,
+          type: 'deposit',
+          method: methodDisplayName(d.channelCode ?? ''),
+          amount: `+₱${(d.amountCents / 100).toFixed(2)}`,
+          date: formatOrderDate(d.createdAt),
+          sortKey: d.createdAt,
+          status: mapDepositState(d.state),
+        })
+      }
+    }
+
+    for (const w of yfWithdrawals) {
+      if (!seen.has(w.merchantSerial)) {
+        items.push({
+          id: w.merchantSerial,
+          type: 'withdraw',
+          method: methodDisplayName(w.optionCode ?? ''),
+          amount: `-₱${(w.amountCents / 100).toFixed(2)}`,
+          date: formatOrderDate(w.createdAt),
+          sortKey: w.createdAt,
+          status: mapWithdrawState(w.state),
+        })
+      }
+    }
+
     items.sort((a, b) => b.sortKey.localeCompare(a.sortKey))
     historyOrders.value = items
   } catch {
@@ -1003,6 +1067,18 @@ async function loadHistory() {
                 <ArrowUpFromLine v-else :size="18" />
                 {{ withdrawLoading ? t('wallet.openingPay') : t('wallet.yfpayWithdrawSubmit') }}
               </button>
+
+              <!-- Crypto withdraw: coming soon -->
+              <div
+                v-else-if="tab === 'withdraw' && !isFiatWithdraw"
+                class="flex flex-col items-center gap-3 py-6 text-center"
+              >
+                <div class="w-14 h-14 rounded-2xl bg-secondary flex items-center justify-center">
+                  <span class="text-2xl">🔜</span>
+                </div>
+                <p class="text-sm font-black text-foreground">{{ t('wallet.comingSoon') }}</p>
+                <p class="text-xs text-muted-foreground">{{ t('wallet.cryptoWithdrawSoon') }}</p>
+              </div>
 
             </div>
           </template>
