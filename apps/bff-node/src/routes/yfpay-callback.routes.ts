@@ -67,7 +67,7 @@ router.post('/yfpay', async (ctx) => {
         })
         await updateOrderDepositStatus(env, merchantSerial, 'paid', platformId, { state })
       } else if (state === 3) {
-        await updateOrderDepositStatus(env, merchantSerial, 'failed', platformId, { state })
+        await updateOrderDepositStatus(env, merchantSerial, 'rejected', platformId, { state })
       }
 
     } else {

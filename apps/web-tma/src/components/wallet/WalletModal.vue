@@ -10,12 +10,15 @@ import {
   History,
   CheckCircle2,
   AlertCircle,
+  XCircle,
   Loader2,
   ArrowLeft,
   Send,
   ShieldCheck,
   Zap,
   Headphones,
+  Copy,
+  Check,
 } from 'lucide-vue-next'
 import PayMethodGrid from '@/components/wallet/PayMethodGrid.vue'
 import { createDeposit } from '@/api/deposit'
@@ -63,12 +66,13 @@ const {
 
 interface HistoryItem {
   id: string
+  orderId: string
   type: 'deposit' | 'withdraw'
   method: string
   amount: string
   date: string
   sortKey: string
-  status: 'success' | 'pending' | 'failed'
+  status: 'success' | 'pending' | 'rejected' | 'failed'
 }
 
 // ── bottom sheet ─────────────────────────────────────────────────────────────
@@ -104,7 +108,7 @@ const depositView = ref<'select' | 'input'>('select')
 const selectedMethod = ref<string | null>(null)
 const amount = ref('')
 const historyFilter = ref<'all' | 'deposit' | 'withdraw'>('all')
-const historyStatus = ref<'all' | 'success' | 'pending' | 'failed'>('all')
+const historyStatus = ref<'all' | 'success' | 'pending' | 'rejected' | 'failed'>('all')
 const bannerIdx = ref(0)
 
 // deposit
@@ -139,6 +143,7 @@ const withdrawSuccess = ref(false)
 // history
 const historyOrders = ref<HistoryItem[]>([])
 const historyLoading = ref(false)
+const copiedId = ref<string | null>(null)
 
 // 默认金额（写死）：首选 ₱1000，不支持时取低于 1000 的最近档
 const DEFAULT_DEPOSIT_AMOUNTS: Record<string, string> = {
@@ -167,15 +172,15 @@ function formatOrderDate(iso: string): string {
   }
 }
 
-function mapDepositState(state: number): 'success' | 'pending' | 'failed' {
+function mapDepositState(state: number): HistoryItem['status'] {
   if (state === 2) return 'success'
-  if (state === 3) return 'failed'
+  if (state === 3) return 'rejected'
   return 'pending'
 }
 
-function mapWithdrawState(state: number): 'success' | 'pending' | 'failed' {
+function mapWithdrawState(state: number): HistoryItem['status'] {
   if (state === 1) return 'success'
-  if (state === 2 || state === 3) return 'failed'
+  if (state === 2 || state === 3) return 'rejected'
   return 'pending'
 }
 
@@ -198,7 +203,18 @@ function stopTonPolling() {
 function statusIcon(status: string) {
   if (status === 'success') return CheckCircle2
   if (status === 'pending') return Loader2
+  if (status === 'rejected') return XCircle
   return AlertCircle
+}
+
+async function copyOrderId(id: string) {
+  try {
+    await navigator.clipboard.writeText(id)
+    copiedId.value = id
+    setTimeout(() => { copiedId.value = null }, 2000)
+  } catch {
+    // clipboard not available
+  }
 }
 
 // ── computed ──────────────────────────────────────────────────────────────────
@@ -583,6 +599,11 @@ async function onProceedWithdraw() {
     withdrawSuccess.value = true
     withdrawMessage.value = t('wallet.yfpayWithdrawPending')
     await walletStore.refresh()
+    setTimeout(() => {
+      tab.value = 'history'
+      historyFilter.value = 'withdraw'
+      void loadHistory()
+    }, 1500)
   } catch (e) {
     withdrawMessage.value = e instanceof ApiError ? e.message : t('wallet.yfpayWithdrawFailed')
   } finally {
@@ -596,13 +617,19 @@ function mapDepositChannelName(channelId: string): string {
     tg_wallet: 'Telegram',
     ammer_pay: 'Telegram',
     ton_connect: 'TON',
+    yfpay_gcash: 'GCash',
+    yfpay_maya: 'Maya',
+    yfpay_bdo: 'BDO Bank',
+    yfpay_bpi: 'BPI Bank',
+    yfpay_unknown: 'YF Pay',
   }
   return map[channelId] ?? channelId ?? '—'
 }
 
-function mapDepositStatus(status: string): 'success' | 'pending' | 'failed' {
+function mapDepositStatus(status: string): HistoryItem['status'] {
   if (status === 'paid' || status === 'completed') return 'success'
-  if (status === 'cancelled' || status === 'rejected' || status === 'failed') return 'failed'
+  if (status === 'rejected') return 'rejected'
+  if (status === 'cancelled' || status === 'failed') return 'failed'
   return 'pending'
 }
 
@@ -623,6 +650,7 @@ async function loadHistory() {
       seen.add(d.orderId)
       items.push({
         id: d.orderId,
+        orderId: d.orderId,
         type: 'deposit',
         method: mapDepositChannelName(d.channelId),
         amount: `+₱${((d.creditedCents ?? d.amount * 100) / 100).toFixed(2)}`,
@@ -636,6 +664,7 @@ async function loadHistory() {
       seen.add(w.orderId)
       items.push({
         id: w.orderId,
+        orderId: w.orderId,
         type: 'withdraw',
         method: mapDepositChannelName(w.channelId),
         amount: `-₱${(w.amount / 100).toFixed(2)}`,
@@ -649,6 +678,7 @@ async function loadHistory() {
       if (!seen.has(d.merchantSerial)) {
         items.push({
           id: d.merchantSerial,
+          orderId: d.merchantSerial,
           type: 'deposit',
           method: methodDisplayName(d.channelCode ?? ''),
           amount: `+₱${(d.amountCents / 100).toFixed(2)}`,
@@ -663,6 +693,7 @@ async function loadHistory() {
       if (!seen.has(w.merchantSerial)) {
         items.push({
           id: w.merchantSerial,
+          orderId: w.merchantSerial,
           type: 'withdraw',
           method: methodDisplayName(w.optionCode ?? ''),
           amount: `-₱${(w.amountCents / 100).toFixed(2)}`,
@@ -790,9 +821,9 @@ async function loadHistory() {
             {{ f === 'deposit' ? t('wallet.filterDeposit') : f === 'withdraw' ? t('wallet.filterWithdraw') : t('wallet.filterAll') }}
           </button>
         </div>
-        <div class="flex gap-1.5">
+        <div class="flex gap-1.5 flex-wrap">
           <button
-            v-for="s in ['all', 'success', 'pending', 'failed'] as const"
+            v-for="s in ['all', 'success', 'pending', 'rejected', 'failed'] as const"
             :key="s"
             type="button"
             class="px-3 py-1 rounded-lg text-[11px] font-bold capitalize transition-colors"
@@ -802,9 +833,11 @@ async function loadHistory() {
                   ? 'bg-emerald-500 text-white'
                   : s === 'pending'
                     ? 'bg-yellow-500 text-black'
-                    : s === 'failed'
-                      ? 'bg-red-500 text-white'
-                      : 'bg-primary text-primary-foreground'
+                    : s === 'rejected'
+                      ? 'bg-orange-500 text-white'
+                      : s === 'failed'
+                        ? 'bg-red-500 text-white'
+                        : 'bg-primary text-primary-foreground'
                 : 'bg-secondary text-muted-foreground'
             "
             @click="historyStatus = s"
@@ -1097,46 +1130,64 @@ async function loadHistory() {
             <div
               v-for="tx in filteredHistory"
               :key="tx.id"
-              class="flex items-center gap-3 bg-secondary rounded-2xl px-4 py-3"
+              class="bg-secondary rounded-2xl px-4 py-3 space-y-1.5"
             >
-              <div
-                class="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-                :class="tx.type === 'deposit' ? 'bg-emerald-500/15' : 'bg-red-500/15'"
-              >
-                <ArrowDownToLine v-if="tx.type === 'deposit'" :size="16" class="text-emerald-400" />
-                <ArrowUpFromLine v-else :size="16" class="text-red-400" />
-              </div>
-              <div class="flex-1 min-w-0">
-                <div class="flex items-center justify-between">
-                  <span class="text-foreground font-bold text-sm">{{ tx.method }}</span>
-                  <span class="font-black text-sm" :class="tx.type === 'deposit' ? 'text-emerald-400' : 'text-red-400'">
-                    {{ tx.amount }}
-                  </span>
+              <div class="flex items-center gap-3">
+                <div
+                  class="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+                  :class="tx.type === 'deposit' ? 'bg-emerald-500/15' : 'bg-red-500/15'"
+                >
+                  <ArrowDownToLine v-if="tx.type === 'deposit'" :size="16" class="text-emerald-400" />
+                  <ArrowUpFromLine v-else :size="16" class="text-red-400" />
                 </div>
-                <div class="flex items-center justify-between mt-0.5">
-                  <span class="text-muted-foreground text-xs">{{ tx.date }}</span>
-                  <span class="flex items-center gap-1">
-                    <component
-                      :is="statusIcon(tx.status)"
-                      :size="14"
-                      :class="[
-                        tx.status === 'success' ? 'text-emerald-400' : '',
-                        tx.status === 'pending' ? 'text-yellow-400 animate-spin' : '',
-                        tx.status === 'failed' ? 'text-red-400' : '',
-                      ]"
-                    />
-                    <span
-                      class="text-[11px] font-bold capitalize"
-                      :class="{
-                        'text-emerald-400': tx.status === 'success',
-                        'text-yellow-400': tx.status === 'pending',
-                        'text-red-400': tx.status === 'failed',
-                      }"
-                    >
-                      {{ t(`common.${tx.status}`) }}
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center justify-between">
+                    <span class="text-foreground font-bold text-sm">{{ tx.method }}</span>
+                    <span class="font-black text-sm" :class="tx.type === 'deposit' ? 'text-emerald-400' : 'text-red-400'">
+                      {{ tx.amount }}
                     </span>
-                  </span>
+                  </div>
+                  <div class="flex items-center justify-between mt-0.5">
+                    <span class="text-muted-foreground text-xs">{{ tx.date }}</span>
+                    <span class="flex items-center gap-1">
+                      <component
+                        :is="statusIcon(tx.status)"
+                        :size="14"
+                        :class="[
+                          tx.status === 'success' ? 'text-emerald-400' : '',
+                          tx.status === 'pending' ? 'text-yellow-400 animate-spin' : '',
+                          tx.status === 'rejected' ? 'text-orange-400' : '',
+                          tx.status === 'failed' ? 'text-red-400' : '',
+                        ]"
+                      />
+                      <span
+                        class="text-[11px] font-bold capitalize"
+                        :class="{
+                          'text-emerald-400': tx.status === 'success',
+                          'text-yellow-400': tx.status === 'pending',
+                          'text-orange-400': tx.status === 'rejected',
+                          'text-red-400': tx.status === 'failed',
+                        }"
+                      >
+                        {{ t(`common.${tx.status}`) }}
+                      </span>
+                    </span>
+                  </div>
                 </div>
+              </div>
+              <!-- 订单号 + 复制 -->
+              <div class="flex items-center justify-between pl-12 gap-2">
+                <span class="text-[10px] font-mono text-muted-foreground truncate">{{ tx.orderId }}</span>
+                <button
+                  type="button"
+                  class="flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-lg transition-colors"
+                  :class="copiedId === tx.orderId ? 'text-emerald-400 bg-emerald-500/10' : 'text-muted-foreground hover:text-foreground bg-muted/50'"
+                  @click.stop="copyOrderId(tx.orderId)"
+                >
+                  <Check v-if="copiedId === tx.orderId" :size="10" />
+                  <Copy v-else :size="10" />
+                  {{ copiedId === tx.orderId ? t('common.copied') : t('common.copy') }}
+                </button>
               </div>
             </div>
           </template>

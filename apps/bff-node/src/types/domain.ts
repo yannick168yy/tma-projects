@@ -77,7 +77,7 @@ export interface OrderDeposit {
   amount: number
   currency: DepositCurrency
   channelId: string
-  status: 'pending' | 'paid' | 'failed' | 'cancelled'
+  status: 'pending' | 'paid' | 'failed' | 'cancelled' | 'rejected'
   createdAt: string
   paidAt?: string
   creditedCents?: number
