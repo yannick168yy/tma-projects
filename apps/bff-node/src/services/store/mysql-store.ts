@@ -428,7 +428,7 @@ function mapDeposit(r: RowDataPacket): DepositOrder {
     userId: r.user_id as string,
     amount: Number(r.amount),
     currency: r.currency as DepositOrder['currency'],
-    channelId: 'tg_wallet',
+    channelId: (r.channel_id as string) ?? 'tg_wallet',
     status: r.status as DepositOrder['status'],
     createdAt: new Date(r.created_at as Date).toISOString(),
     paidAt: r.paid_at ? new Date(r.paid_at as Date).toISOString() : undefined,

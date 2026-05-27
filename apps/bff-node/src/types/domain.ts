@@ -76,7 +76,7 @@ export interface DepositOrder {
   userId: string
   amount: number
   currency: DepositCurrency
-  channelId: 'tg_wallet' | 'ton_connect'
+  channelId: string
   status: 'pending' | 'paid' | 'failed' | 'cancelled'
   createdAt: string
   paidAt?: string
@@ -91,7 +91,7 @@ export interface WithdrawOrder {
   userId: string
   amount: number
   currency: 'PHP'
-  channelId: 'tg_wallet'
+  channelId: string
   status: 'pending' | 'processing' | 'completed' | 'rejected' | 'failed'
   createdAt: string
   completedAt?: string
