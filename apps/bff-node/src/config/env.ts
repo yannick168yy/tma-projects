@@ -43,6 +43,8 @@ const schema = z.object({
   // 通过 setWebhook ?secret_token= 设置后，Telegram 会在回调 header 中携带此值
   // 空字符串表示跳过验签（向下兼容，建议生产环境设置）
   TELEGRAM_WEBHOOK_SECRET: z.string().default(''),
+  INTERNAL_TOKEN: z.string().default(''),
+  CORE_NODE_URL: z.string().default('http://core-node:4000'),
   CS_ENABLED: z
     .enum(['true', 'false'])
     .default('true')

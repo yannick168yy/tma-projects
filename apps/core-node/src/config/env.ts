@@ -16,6 +16,14 @@ const schema = z.object({
   NATS_STREAM: z.string().default('BETOGO'),
   NATS_LEDGER_SUBJECT: z.string().default('betogo.ledger'),
   NATS_CALLBACK_SUBJECT: z.string().default('betogo.callback'),
+
+  // SG 回调处理
+  SG_MERCHANT_ID: z.string().default(''),
+  SG_MERCHANT_KEY: z.string().default(''),
+  SG_CURRENCY: z.string().default('EUR'),
+
+  // 内部服务间通信 token
+  INTERNAL_TOKEN: z.string().default(''),
 })
 
 export const env = schema.parse(process.env)

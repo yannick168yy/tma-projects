@@ -123,6 +123,10 @@ run run -d --name tma-core-node --network "$NET" --restart=always \
   -e MYSQL_DATABASE="${MYSQL_DATABASE:-betogo}" \
   -e MYSQL_USER="${MYSQL_BETOGO_USER}" \
   -e MYSQL_PASSWORD="${MYSQL_BETOGO_PASSWORD}" \
+  -e SG_MERCHANT_ID="${SG_MERCHANT_ID:-}" \
+  -e SG_MERCHANT_KEY="${SG_MERCHANT_KEY:-}" \
+  -e SG_CURRENCY="${SG_CURRENCY:-EUR}" \
+  -e INTERNAL_TOKEN="${INTERNAL_TOKEN:-}" \
   betogo-core-node:latest
 
 echo "==> [${CTR}] bff-node (MySQL store + Redis session)"
@@ -164,6 +168,7 @@ run run -d --name tma-bff-node --network "$NET" --restart=always \
   -e CS_ENABLED="${CS_ENABLED:-true}" \
   -e EXCHANGE_RATE_API_KEY="${EXCHANGE_RATE_API_KEY:-}" \
   -e COINGECKO_API_KEY="${COINGECKO_API_KEY:-}" \
+  -e INTERNAL_TOKEN="${INTERNAL_TOKEN:-}" \
   betogo-bff-node:latest
 
 echo "==> [${CTR}] web-tma (limit 64m)"
