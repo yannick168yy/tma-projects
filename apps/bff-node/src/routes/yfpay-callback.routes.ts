@@ -58,6 +58,9 @@ router.post('/yfpay', async (ctx) => {
       }
       // state=2 完成 → 入账；state=3 失败 → 仅更新状态
       if (state === 2) {
+        if (Math.abs(amount - order.amount) > 0.01) {
+          ctx.log?.warn({ merchantSerial, orderAmount: order.amount, callbackAmount: amount }, 'YfPay callback: amount mismatch')
+        }
         await creditWallet(redis, order.userId, Math.round(order.amount * 100), {
           type: 'deposit',
           refId: merchantSerial,

@@ -1,4 +1,5 @@
 import Router from '@koa/router'
+import { randomBytes } from 'node:crypto'
 import {
   getDepositChannels,
   createDeposit,
@@ -8,7 +9,7 @@ import {
   queryWithdrawal,
   YfPayError,
 } from '../services/yfpay.service.js'
-import { creditWallet, getWallet, saveDeposit, saveWithdraw, listDeposits, listWithdrawals } from '../services/store/index.js'
+import { creditWallet, getWallet, getDeposit, getWithdraw, saveDeposit, saveWithdraw, listDeposits, listWithdrawals } from '../services/store/index.js'
 import { isMysqlEnabled } from '../clients/mysql.client.js'
 import { ok, fail } from '../utils/response.js'
 import { randomOrderId } from '../utils/id.js'
@@ -86,6 +87,14 @@ router.post('/deposit/yfpay/query', async (ctx) => {
     fail(ctx, 400, '缺少 merchantSerial')
     return
   }
+  // 归属权校验（MySQL 模式下）
+  if (isMysqlEnabled(ctx.state.env)) {
+    const order = await getDeposit(ctx.state.redis, body.merchantSerial)
+    if (!order || order.userId !== ctx.state.userId) {
+      fail(ctx, 403, '无权查询此订单')
+      return
+    }
+  }
   try {
     const result = await queryDeposit(body.merchantSerial, ctx.state.env)
     ok(ctx, result)
@@ -146,24 +155,27 @@ router.post('/withdraw/yfpay/create', async (ctx) => {
   const userId = ctx.state.userId!
   const redis = ctx.state.redis
 
-  // 检查余额是否充足
-  const wallet = await getWallet(redis, userId)
-  if (wallet.available < amountCents) {
-    fail(ctx, 400, '余额不足')
+  // 分布式锁：防止并发提现（TOCTOU）
+  const lockKey = `withdraw:lock:${userId}`
+  const lockVal = randomBytes(8).toString('hex')
+  const locked = await redis.set(lockKey, lockVal, 'EX', 30, 'NX')
+  if (!locked) {
+    fail(ctx, 429, '请勿重复提交提现请求')
     return
   }
 
-  const merchantSerial = randomOrderId('YFW')
-  const notifyUrl = ctx.state.env.YFPAY_NOTIFY_URL
-
   try {
-    // 先扣款（已成功创建订单才扣）
-    const result = await createWithdrawal(
-      { merchantSerial, amount, targetOwner, targetAccount, optionCode, notifyUrl },
-      ctx.state.env,
-    )
+    // 检查余额是否充足
+    const wallet = await getWallet(redis, userId)
+    if (wallet.available < amountCents) {
+      fail(ctx, 400, '余额不足')
+      return
+    }
 
-    // 扣除可用余额
+    const merchantSerial = randomOrderId('YFW')
+    const notifyUrl = ctx.state.env.YFPAY_NOTIFY_URL
+
+    // 先扣余额（原子写入，防止多笔并发双花）
     await creditWallet(redis, userId, -amountCents, {
       type: 'withdraw',
       refId: merchantSerial,
@@ -171,6 +183,27 @@ router.post('/withdraw/yfpay/create', async (ctx) => {
       traceId: ctx.state.traceId,
       createdAt: nowIso(),
     })
+
+    let result: Awaited<ReturnType<typeof createWithdrawal>>
+    try {
+      result = await createWithdrawal(
+        { merchantSerial, amount, targetOwner, targetAccount, optionCode, notifyUrl },
+        ctx.state.env,
+      )
+    } catch (err) {
+      // YfPay 调用失败：退还余额，避免资金损失
+      await creditWallet(redis, userId, amountCents, {
+        type: 'bonus',
+        refId: `REFUND_${merchantSerial}`,
+        description: `YF Pay 提现失败退款 #${merchantSerial}`,
+        traceId: ctx.state.traceId,
+        createdAt: nowIso(),
+      })
+      console.error('[bff] withdraw/yfpay/create failed, refunded', merchantSerial, err)
+      const msg = err instanceof YfPayError ? err.message : '创建提现订单失败'
+      fail(ctx, 500, msg)
+      return
+    }
 
     if (isMysqlEnabled(ctx.state.env)) {
       const wOrder: OrderWithdraw = {
@@ -194,10 +227,10 @@ router.post('/withdraw/yfpay/create', async (ctx) => {
       amount,
       state: result.state,
     })
-  } catch (err) {
-    console.error('[bff] withdraw/yfpay/create', merchantSerial, err)
-    const msg = err instanceof YfPayError ? err.message : '创建提现订单失败'
-    fail(ctx, 500, msg)
+  } finally {
+    // 释放锁（仅当仍是当前持有者）
+    const current = await redis.get(lockKey)
+    if (current === lockVal) await redis.del(lockKey)
   }
 })
 
@@ -207,6 +240,14 @@ router.post('/withdraw/yfpay/query', async (ctx) => {
   if (!body.merchantSerial) {
     fail(ctx, 400, '缺少 merchantSerial')
     return
+  }
+  // 归属权校验（MySQL 模式下）
+  if (isMysqlEnabled(ctx.state.env)) {
+    const order = await getWithdraw(ctx.state.redis, body.merchantSerial)
+    if (!order || order.userId !== ctx.state.userId) {
+      fail(ctx, 403, '无权查询此订单')
+      return
+    }
   }
   try {
     const result = await queryWithdrawal(body.merchantSerial, ctx.state.env)

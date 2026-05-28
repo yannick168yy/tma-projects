@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto'
+import { createHash, timingSafeEqual } from 'node:crypto'
 import type { Env } from '../config/env.js'
 
 const BASE_URL = 'https://gateway.yfpay.me'
@@ -18,7 +18,9 @@ export function generateSign(params: Record<string, unknown>, apiKey: string): s
 
 export function verifySign(params: Record<string, unknown>, apiKey: string): boolean {
   const expected = generateSign(params, apiKey)
-  return params['sign'] === expected
+  const received = String(params['sign'] ?? '')
+  if (received.length !== expected.length) return false
+  return timingSafeEqual(Buffer.from(received), Buffer.from(expected))
 }
 
 // ── HTTP 基础请求 ────────────────────────────────────────────────────────────
