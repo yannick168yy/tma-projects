@@ -26,11 +26,19 @@ export function createApp(env: Env): Koa {
     )
   }, 30_000)
 
-  // Seed default admin account — delay 15s to let MySQL stabilize after container start
+  // Seed default admin account — retry with backoff until MySQL is reachable
   if (isMysqlEnabled(env)) {
-    setTimeout(() => {
-      seedDefaultAdmin(env).catch((err) => console.error('[admin-seed] error:', err))
-    }, 15_000)
+    const trySeed = (attempt: number): void => {
+      seedDefaultAdmin(env).catch((err) => {
+        if (attempt < 8) {
+          const delay = Math.min(5_000 * (attempt + 1), 30_000)
+          setTimeout(() => trySeed(attempt + 1), delay)
+        } else {
+          console.error('[admin-seed] error:', err)
+        }
+      })
+    }
+    setTimeout(() => trySeed(0), 10_000)
   }
 
   // Slotegrator game sync: on startup then every 6h

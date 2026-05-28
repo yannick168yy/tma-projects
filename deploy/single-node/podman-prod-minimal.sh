@@ -172,7 +172,7 @@ run build -t tma-web-tma:latest \
   --build-arg "VITE_TELEGRAM_BOT_USERNAME=${VITE_TELEGRAM_BOT_USERNAME:-BetoGoBot}" \
   --build-arg "VITE_TELEGRAM_WEB_APP_URL=${VITE_TELEGRAM_WEB_APP_URL:-https://www.188facai.com}" \
   -f apps/web-tma/Dockerfile apps/web-tma
-run run -d --name tma-web-tma --restart=always \
+run run -d --name tma-web-tma --network "$NET" --restart=always \
   --memory=64m --memory-swap=64m \
   -p "${PORT}:80" \
   tma-web-tma:latest
