@@ -1,5 +1,6 @@
 import Router from '@koa/router'
-import { getKyc, getWallet, getWithdraw, listWithdrawals, saveWallet, saveWithdraw } from '../services/store.js'
+import { randomBytes } from 'node:crypto'
+import { creditWallet, getKyc, getWallet, getWithdraw, listWithdrawals, saveWithdraw } from '../services/store.js'
 import { nowIso } from '../utils/format.js'
 import { fail, ok } from '../utils/response.js'
 import { randomOrderId } from '../utils/id.js'
@@ -51,27 +52,51 @@ router.post('/', async (ctx) => {
     return
   }
 
-  const wallet = await getWallet(ctx.state.redis, ctx.state.userId!)
-  if (body.amount > wallet.available) {
-    fail(ctx, 400, 'Insufficient balance')
+  const userId = ctx.state.userId!
+  const redis = ctx.state.redis
+
+  // 分布式锁：防止并发提现导致 TOCTOU 竞态（多请求同时读到相同余额各自扣款）
+  const lockKey = `withdraw:lock:${userId}`
+  const lockVal = randomBytes(8).toString('hex')
+  const locked = await redis.set(lockKey, lockVal, 'EX', 30, 'NX')
+  if (!locked) {
+    fail(ctx, 429, '请勿重复提交提现请求')
     return
   }
 
-  wallet.available -= body.amount
-  await saveWallet(ctx.state.redis, ctx.state.userId!, wallet)
+  try {
+    const wallet = await getWallet(redis, userId)
+    if (body.amount > wallet.available) {
+      fail(ctx, 400, 'Insufficient balance')
+      return
+    }
 
-  const order: WithdrawOrder = {
-    orderId: randomOrderId('WDR'),
-    userId: ctx.state.userId!,
-    amount: body.amount,
-    currency: 'PHP',
-    channelId: 'tg_wallet',
-    status: ctx.state.env.NODE_ENV !== 'production' ? 'completed' : 'pending',
-    createdAt: nowIso(),
-    completedAt: ctx.state.env.NODE_ENV !== 'production' ? nowIso() : undefined,
+    const orderId = randomOrderId('WDR')
+    // creditWallet 原子扣款（Redis: Lua 脚本；MySQL: 事务），同时写入 ledger
+    await creditWallet(redis, userId, -body.amount, {
+      type: 'withdraw',
+      refId: orderId,
+      description: `提现 TG Wallet #${orderId}`,
+      traceId: ctx.state.traceId,
+      createdAt: nowIso(),
+    })
+
+    const order: WithdrawOrder = {
+      orderId,
+      userId,
+      amount: body.amount,
+      currency: 'PHP',
+      channelId: 'tg_wallet',
+      status: ctx.state.env.NODE_ENV !== 'production' ? 'completed' : 'pending',
+      createdAt: nowIso(),
+      completedAt: ctx.state.env.NODE_ENV !== 'production' ? nowIso() : undefined,
+    }
+    await saveWithdraw(redis, order)
+    ok(ctx, { orderId: order.orderId, status: order.status })
+  } finally {
+    const current = await redis.get(lockKey)
+    if (current === lockVal) await redis.del(lockKey)
   }
-  await saveWithdraw(ctx.state.redis, order)
-  ok(ctx, { orderId: order.orderId, status: order.status })
 })
 
 router.get('/', async (ctx) => {

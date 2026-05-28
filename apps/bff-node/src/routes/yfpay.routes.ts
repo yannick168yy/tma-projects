@@ -53,7 +53,8 @@ router.post('/deposit/yfpay/create', async (ctx) => {
     const order: OrderDeposit = {
       orderId: merchantSerial,
       userId: ctx.state.userId!,
-      amount,
+      amount,                              // PHP 元（浮点），供对账展示用
+      creditedCents: Math.round(amount * 100), // 实际入账分数，显式存储避免回调时单位换算歧义
       currency: 'PHP',
       channelId: `yfpay_${channelCode.split('-')[0].toLowerCase()}`,
       status: 'pending',

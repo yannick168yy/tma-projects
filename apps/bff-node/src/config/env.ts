@@ -34,6 +34,9 @@ const schema = z.object({
   NACOS_DATA_ID: z.string().default('bff-node'),
   NACOS_GROUP: z.string().default('DEFAULT_GROUP'),
   GEMINI_API_KEY: z.string().default(''),
+  // 通过 setWebhook ?secret_token= 设置后，Telegram 会在回调 header 中携带此值
+  // 空字符串表示跳过验签（向下兼容，建议生产环境设置）
+  TELEGRAM_WEBHOOK_SECRET: z.string().default(''),
   CS_ENABLED: z
     .enum(['true', 'false'])
     .default('true')

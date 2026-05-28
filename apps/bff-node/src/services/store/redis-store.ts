@@ -224,17 +224,50 @@ export async function saveWallet(redis: Redis, userId: string, wallet: WalletRec
   await redis.set(KEYS.wallet(userId), JSON.stringify(wallet))
 }
 
+// Lua 脚本：原子化完成 wallet 更新 + ledger 追加
+// 解决两个问题：
+//   1. TOCTOU 竞态 — GET/SET 之间无锁，并发请求会互相覆盖余额
+//   2. 非原子性   — wallet 写入成功但 ledger LPUSH 失败时账务不一致
+// KEYS[1]=wallet_key  KEYS[2]=ledger_key  ARGV[1]=cents  ARGV[2]=partial_entry_json
+const CREDIT_LUA = `
+local raw = redis.call('GET', KEYS[1])
+local wallet
+if raw == false then
+  wallet = {available=0, frozen=0}
+else
+  wallet = cjson.decode(raw)
+end
+local cents = tonumber(ARGV[1])
+local new_avail = (wallet['available'] or 0) + cents
+wallet['available'] = new_avail
+redis.call('SET', KEYS[1], cjson.encode(wallet))
+local entry = cjson.decode(ARGV[2])
+entry['amount'] = cents
+entry['balanceAfter'] = new_avail
+redis.call('LPUSH', KEYS[2], cjson.encode(entry))
+return cjson.encode(wallet)
+`
+
 export async function creditWallet(
   redis: Redis,
   userId: string,
   cents: number,
   entry: Omit<LedgerEntry, 'id' | 'userId' | 'balanceAfter' | 'amount'>,
 ): Promise<WalletRecord> {
-  const wallet = await getWallet(redis, userId)
-  wallet.available += cents
-  await saveWallet(redis, userId, wallet)
-  await appendLedger(redis, userId, { ...entry, amount: cents, balanceAfter: wallet.available })
-  return wallet
+  const partialEntry = {
+    id: `LG_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+    userId,
+    ...entry,
+  }
+  const result = await redis.eval(
+    CREDIT_LUA,
+    2,
+    KEYS.wallet(userId),
+    KEYS.ledger(userId),
+    String(cents),
+    JSON.stringify(partialEntry),
+  ) as string
+  return JSON.parse(result) as WalletRecord
 }
 
 export async function appendLedger(

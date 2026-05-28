@@ -7,8 +7,21 @@ const router = new Router({ prefix: '/webhooks' })
 /**
  * Telegram Bot API webhook: handles successful_payment (Ammer Pay / TG Payments).
  * Configure: setWebhook → https://www.188facai.com/api/v1/webhooks/telegram
+ *   需同时设置 secret_token 参数（对应 TELEGRAM_WEBHOOK_SECRET 环境变量），
+ *   Telegram 会在每次回调的 X-Telegram-Bot-Api-Secret-Token header 中携带该值。
  */
 router.post('/telegram', async (ctx) => {
+  // 验证 secret token，防止任意方伪造充值回调
+  const secret = ctx.state.env.TELEGRAM_WEBHOOK_SECRET
+  if (secret) {
+    const provided = ctx.get('X-Telegram-Bot-Api-Secret-Token')
+    if (provided !== secret) {
+      ctx.status = 403
+      ctx.body = 'forbidden'
+      return
+    }
+  }
+
   const update = ctx.request.body as {
     message?: {
       successful_payment?: {
