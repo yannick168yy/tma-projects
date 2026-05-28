@@ -4,7 +4,7 @@ import { getOrCreateConversation, getMessages, saveMessage } from './cs-store.js
 import { GEMINI_TOOLS, executeTool } from './cs-tools.js'
 import { SYSTEM_PROMPT } from './cs-prompt.js'
 
-const MODEL = 'gemini-2.0-flash'
+const MODEL = 'gemini-2.5-flash'
 const MAX_HISTORY = 20
 const MAX_TOOL_ROUNDS = 5
 
@@ -30,7 +30,7 @@ function buildHistory(msgs: { role: string; content: string }[]): Content[] {
 
 export async function handleUserMessage(
   env: Env,
-  userId: number,
+  userId: string,
   userText: string,
 ): Promise<{ reply: string; conversationId: number; status: string }> {
   const conversation = await getOrCreateConversation(env, userId)

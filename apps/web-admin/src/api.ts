@@ -152,3 +152,35 @@ export const csTakeover = (id: number) =>
   post(`/admin/cs/conversations/${id}/takeover`)
 export const csResolve = (id: number) =>
   post(`/admin/cs/conversations/${id}/resolve`)
+
+// 汇率管理
+export interface ExchangeRate {
+  from: string; to: string
+  rate: number | null; source: string | null; fetchedAt: string | null
+}
+export interface RateHistoryBatch {
+  id: number; fetchedAt: string; source: string
+  rates: Record<string, number>  // { EUR: 62.15, USD: 58.43, USDT: 58.0, TON: 350.0 }
+}
+export const getExchangeRates = () => get<ExchangeRate[]>('/admin/settings/exchange-rates')
+export const getRateHistory = () => get<RateHistoryBatch[]>('/admin/settings/exchange-rates/history')
+export const refreshExchangeRates = () => post<ExchangeRate[]>('/admin/settings/exchange-rates/refresh')
+export const setManualRate = (from: string, to: string, rate: number) =>
+  post('/admin/settings/exchange-rates/manual', { from, to, rate })
+export const clearManualRate = (from: string, to: string) =>
+  req<null>('DELETE', `/admin/settings/exchange-rates/manual/${from}/${to}`)
+
+// FAQ 知识库
+export interface FaqItem {
+  id: number; category: string; question: string; answer: string
+  lang: string; sort_order: number; is_active: number
+  created_at: string; updated_at: string
+}
+export const getFaqList = (params: { keyword?: string; category?: string; page?: number; pageSize?: number }) =>
+  get<{ items: FaqItem[]; total: number; page: number; pageSize: number }>('/admin/cs/faq', params)
+export const createFaq = (data: { category: string; question: string; answer: string; lang?: string; sort_order?: number }) =>
+  post<FaqItem>('/admin/cs/faq', data)
+export const updateFaq = (id: number, data: Partial<{ category: string; question: string; answer: string; lang: string; sort_order: number; is_active: number }>) =>
+  req<FaqItem>('PATCH', `/admin/cs/faq/${id}`, data)
+export const deleteFaq = (id: number) =>
+  req<{ success: boolean }>('DELETE', `/admin/cs/faq/${id}`)

@@ -97,8 +97,8 @@ function formatTime(iso: string) {
 
 <template>
   <div class="page-scroll hide-scrollbar flex flex-col" style="height:100%">
-    <!-- 头部 -->
-    <div class="flex items-center gap-3 border-b border-border bg-card px-4 py-3 flex-shrink-0">
+    <!-- 头部（safe area 适配刘海屏） -->
+    <div class="app-safe-header flex items-center gap-3 border-b border-border bg-card px-4 pb-3 pt-3 flex-shrink-0">
       <div class="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10">
         <Headphones :size="18" class="text-primary" />
       </div>
@@ -120,13 +120,7 @@ function formatTime(iso: string) {
         <Loader2 :size="20" class="animate-spin text-muted-foreground" />
       </div>
 
-      <!-- 未登录提示 -->
-      <div v-else-if="!auth.isLoggedIn" class="text-center py-8">
-        <Headphones :size="40" class="mx-auto text-muted-foreground mb-3" />
-        <p class="text-sm text-muted-foreground">请先登录后使用客服功能</p>
-      </div>
-
-      <!-- 欢迎语 -->
+      <!-- 欢迎语（登录/未登录均显示） -->
       <template v-else>
         <div v-if="messages.length === 0" class="flex justify-start">
           <div class="max-w-[85%] rounded-2xl rounded-tl-sm bg-secondary px-3.5 py-2.5">
@@ -166,7 +160,7 @@ function formatTime(iso: string) {
     </div>
 
     <!-- 输入框 -->
-    <div v-if="auth.isLoggedIn" class="flex-shrink-0 border-t border-border bg-card px-3 py-2.5 flex gap-2 items-end">
+    <div class="flex-shrink-0 border-t border-border bg-card px-3 py-2.5 flex gap-2 items-end">
       <textarea
         v-model="inputText"
         rows="1"

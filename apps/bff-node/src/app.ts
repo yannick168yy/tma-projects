@@ -9,6 +9,8 @@ import { createApiRouter } from './routes/index.js'
 import { initStore } from './services/store/index.js'
 import { pollAndSettleTonDeposits } from './services/ton.service.js'
 import { syncAllGames } from './services/sg-game.service.js'
+import { refreshRates } from './services/exchange-rate.service.js'
+import { runDailyReconciliation, yesterday } from './services/sg-settlement.service.js'
 import { isMysqlEnabled } from './clients/mysql.client.js'
 import { ok } from './utils/response.js'
 import { seedDefaultAdmin } from './services/admin-auth.service.js'
@@ -39,6 +41,36 @@ export function createApp(env: Env): Koa {
       })
     }
     setTimeout(() => trySeed(0), 10_000)
+  }
+
+  // 汇率定时刷新：启动后 30s 先跑一次，之后每 10 分钟刷新
+  // EUR/USD 走 API（2次/10min × 6 × 24 × 30 = 8640次/月 < 5000免费额度）
+  // USDT/TON 直接用 env 兜底，不消耗 API 配额
+  setTimeout(() => {
+    refreshRates(redis, env).catch((err) => console.error('[exchange-rate] refresh error:', err))
+    setInterval(
+      () => refreshRates(redis, env).catch((err) => console.error('[exchange-rate] refresh error:', err)),
+      10 * 60 * 1000,
+    )
+  }, 30_000)
+
+  // SG 日结算对账：每天 UTC 02:05（新加坡时间 10:05）跑昨日数据
+  if (isMysqlEnabled(env) && env.SG_BASE_URL && env.SG_MERCHANT_ID) {
+    const runReconcile = () =>
+      runDailyReconciliation(env, yesterday()).catch((err) =>
+        console.error('[sg-settlement] error:', err),
+      )
+    const msUntilNext = () => {
+      const now = new Date()
+      const next = new Date()
+      next.setUTCHours(2, 5, 0, 0)
+      if (next <= now) next.setUTCDate(next.getUTCDate() + 1)
+      return next.getTime() - now.getTime()
+    }
+    setTimeout(() => {
+      runReconcile()
+      setInterval(runReconcile, 24 * 60 * 60 * 1000)
+    }, msUntilNext())
   }
 
   // Slotegrator game sync: on startup then every 6h

@@ -40,6 +40,7 @@ const emit = defineEmits<{
   openPromo: [promo: string | null]
   gameTap: []
   openSlotsLobby: []
+  openCs: []
 }>()
 
 const { t } = useI18n()
@@ -401,7 +402,7 @@ function tabIcon(id: GameTabId) {
         <p class="text-foreground font-bold text-sm">{{ t('home.supportTitle') }}</p>
         <p class="text-muted-foreground text-xs mt-0.5">{{ t('home.supportSub') }}</p>
       </div>
-      <button type="button" class="w-11 h-11 rounded-xl bg-primary flex items-center justify-center shadow shadow-amber-500/20">
+      <button type="button" class="w-11 h-11 rounded-xl bg-primary flex items-center justify-center shadow shadow-amber-500/20" @click="emit('openCs')">
         <Headphones :size="18" class="text-primary-foreground" />
       </button>
     </div>

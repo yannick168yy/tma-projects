@@ -17,6 +17,11 @@ const schema = z.object({
     .default('https://www.188facai.com/auth/google/callback'),
   AMMER_PAY_PROVIDER_TOKEN: z.string().default(''),
   AMMER_PAY_PHP_PER_STAR: z.coerce.number().positive().default(1.12),
+  // 第三方汇率 API（freecurrencyapi.com，免费额度 5000 次/月）
+  // 空字符串时退回使用下方手动汇率
+  EXCHANGE_RATE_API_KEY: z.string().default(''),
+  // 手动兜底汇率（无 API key 或 API 故障时使用）
+  EUR_TO_PHP_RATE: z.coerce.number().positive().default(62),
   USDT_TO_PHP_RATE: z.coerce.number().positive().default(58),
   YFPAY_USERNAME: z.string().default(''),
   YFPAY_API_KEY: z.string().default(''),

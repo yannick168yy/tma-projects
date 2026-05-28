@@ -168,7 +168,7 @@ function navIcon(id: string) {
             </button>
           </div>
 
-          <button v-if="isLoggedIn" type="button"
+          <button type="button"
             class="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-muted-foreground hover:text-primary transition-colors"
             @click="openCs">
             <Headphones :size="20" />
@@ -238,8 +238,8 @@ function navIcon(id: string) {
         <ProfilePage v-if="profileOpen" @logout="onLogout" @open-cs="openCs" />
         <BonusesPage v-else-if="activeNav === 'bonuses'" :promo-filter="promoFilter" @open-wallet="openWallet" />
         <BingoPage v-else-if="activeNav === 'bingo'" @open-wallet="openWallet" @game-tap="onGameTap" />
-        <MenuPage v-else-if="activeNav === 'menu'" @open-search="searchOpen = true" @game-tap="onGameTap" />
-        <HomeContent v-else @open-search="searchOpen = true" @open-promo="goBonuses" @game-tap="onGameTap" @open-slots-lobby="slotsLobbyOpen = true" />
+        <MenuPage v-else-if="activeNav === 'menu'" @open-search="searchOpen = true" @game-tap="onGameTap" @open-cs="openCs" />
+        <HomeContent v-else @open-search="searchOpen = true" @open-promo="goBonuses" @game-tap="onGameTap" @open-slots-lobby="slotsLobbyOpen = true" @open-cs="openCs" />
         <SlotsLobby v-if="slotsLobbyOpen" @close="slotsLobbyOpen = false" @game-tap="onGameTap" />
       </main>
 

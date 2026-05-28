@@ -7,7 +7,7 @@ export type MessageRole = 'user' | 'assistant' | 'admin'
 
 export interface Conversation {
   id: number
-  userId: number
+  userId: string
   status: ConversationStatus
   assignedAdminId: number | null
   createdAt: Date
@@ -27,7 +27,7 @@ function db(env: Env) {
   return getMysqlPool(env)
 }
 
-export async function getOrCreateConversation(env: Env, userId: number): Promise<Conversation> {
+export async function getOrCreateConversation(env: Env, userId: string): Promise<Conversation> {
   const pool = db(env)
   const [rows] = await pool.query<RowDataPacket[]>(
     `SELECT * FROM cs_conversation WHERE user_id = ? AND status IN ('active','human_taken') ORDER BY updated_at DESC LIMIT 1`,
@@ -150,7 +150,7 @@ export async function searchFaq(env: Env, keyword: string): Promise<{ question: 
 function rowToConversation(r: RowDataPacket): Conversation {
   return {
     id: r.id,
-    userId: r.user_id,
+    userId: String(r.user_id),
     status: r.status,
     assignedAdminId: r.assigned_admin_id ?? null,
     createdAt: r.created_at,

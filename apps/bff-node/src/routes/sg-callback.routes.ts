@@ -1,14 +1,15 @@
 import Router from '@koa/router'
 import type { RowDataPacket } from 'mysql2/promise'
+import type { Redis } from 'ioredis'
 import { getMysqlPool } from '../clients/mysql.client.js'
 import { getWallet } from '../services/store/mysql-store.js'
 import { verifySgCallback } from '../services/slotegrator.service.js'
 import { isMysqlEnabled } from '../clients/mysql.client.js'
+import { getRate } from '../services/exchange-rate.service.js'
 
 const router = new Router({ prefix: '/sg' })
 
 const centsToBalance = (c: number) => Math.round(c) / 100
-const amountToCents = (a: string | number) => Math.round(parseFloat(String(a)) * 100)
 const txId = () => `SG_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
 const lgId = () => `LG_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
 
@@ -59,7 +60,19 @@ router.post('/callback', async (ctx) => {
     }
   }
 
-  const amtCents = amountToCents(amount ?? 0)
+  // 解析 SG 原始金额并换算为 PHP 分
+  const sgCurrency = (env.SG_CURRENCY || 'PHP').toUpperCase()
+  const redis = ctx.state.redis as Redis
+  const originalAmt = parseFloat(String(amount ?? 0))
+  let amtCents: number
+  let exchangeRate: number | null = null
+  if (sgCurrency === 'PHP') {
+    amtCents = Math.round(originalAmt * 100)
+  } else {
+    const rateResult = await getRate(redis, sgCurrency, 'PHP', env)
+    exchangeRate = rateResult.rate
+    amtCents = Math.round(originalAmt * rateResult.rate * 100)
+  }
 
   // ── bet ───────────────────────────────────────────────────────────────────
   if (action === 'bet') {
@@ -92,9 +105,9 @@ router.post('/callback', async (ctx) => {
         [lgId(), player_id, -amtCents, bal, round_id ?? null, `${game_uuid} bet`],
       )
       await conn.execute(
-        `INSERT INTO bg_bet_order (user_id, aggregator_id, provider_id, provider_txn_id, round_id, bet_type, amount_cents, status)
-         VALUES (?, 'slotegrator', ?, ?, ?, 'bet', ?, 'settled')`,
-        [player_id, game_uuid, transaction_id, round_id ?? null, amtCents],
+        `INSERT INTO bg_bet_order (user_id, aggregator_id, provider_id, provider_txn_id, round_id, bet_type, amount_cents, currency_code, original_amount, exchange_rate, status)
+         VALUES (?, 'slotegrator', ?, ?, ?, 'bet', ?, ?, ?, ?, 'settled')`,
+        [player_id, game_uuid, transaction_id, round_id ?? null, amtCents, sgCurrency, originalAmt, exchangeRate],
       )
 
       const resp = { balance: centsToBalance(bal), transaction_id: txId() }
@@ -137,9 +150,9 @@ router.post('/callback', async (ctx) => {
         [lgId(), player_id, ledgerType, amtCents, bal, round_id ?? null, `${game_uuid} ${action}`],
       )
       await conn.execute(
-        `INSERT INTO bg_bet_order (user_id, aggregator_id, provider_id, provider_txn_id, round_id, bet_type, amount_cents, status)
-         VALUES (?, 'slotegrator', ?, ?, ?, ?, ?, 'settled')`,
-        [player_id, game_uuid, transaction_id, round_id ?? null, action, amtCents],
+        `INSERT INTO bg_bet_order (user_id, aggregator_id, provider_id, provider_txn_id, round_id, bet_type, amount_cents, currency_code, original_amount, exchange_rate, status)
+         VALUES (?, 'slotegrator', ?, ?, ?, ?, ?, ?, ?, ?, 'settled')`,
+        [player_id, game_uuid, transaction_id, round_id ?? null, action, amtCents, sgCurrency, originalAmt, exchangeRate],
       )
 
       const resp = { balance: centsToBalance(bal), transaction_id: txId() }

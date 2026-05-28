@@ -8,7 +8,7 @@ import { LANGUAGES } from '@/data/languages'
 import { useMenuLabels } from '@/composables/useMenuLabels'
 import { useLocaleStore } from '@/stores/locale'
 
-const emit = defineEmits<{ openSearch: []; gameTap: [] }>()
+const emit = defineEmits<{ openSearch: []; gameTap: []; openCs: [] }>()
 
 const { t } = useI18n()
 const { sectionLabel, subcatLabel } = useMenuLabels()
@@ -182,6 +182,7 @@ function pickLanguage(code: (typeof LANGUAGES)[number]['code']) {
         <button
           type="button"
           class="w-full flex items-center gap-3 py-3 px-3.5 rounded-2xl border border-emerald-900/30 bg-emerald-950/20"
+          @click="emit('openCs')"
         >
           <div class="w-9 h-9 rounded-xl bg-primary flex items-center justify-center flex-shrink-0 shadow shadow-amber-500/20">
             <Headphones :size="16" class="text-primary-foreground" />

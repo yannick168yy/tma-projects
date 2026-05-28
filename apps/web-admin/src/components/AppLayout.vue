@@ -39,6 +39,14 @@
           <customer-service-outlined />
           <span>客服工作台</span>
         </a-menu-item>
+        <a-menu-item key="/cs-faq">
+          <book-outlined />
+          <span>知识库管理</span>
+        </a-menu-item>
+        <a-menu-item key="/exchange-rates">
+          <swap-outlined />
+          <span>汇率管理</span>
+        </a-menu-item>
         <a-menu-item key="/settings">
           <setting-outlined />
           <span>系统设置</span>
@@ -94,7 +102,7 @@ import { useRouter, useRoute, RouterView } from 'vue-router'
 import {
   DashboardOutlined, TeamOutlined, ArrowDownOutlined, ArrowUpOutlined,
   FileTextOutlined, UserOutlined, DownOutlined, AppstoreOutlined, SettingOutlined,
-  CustomerServiceOutlined,
+  CustomerServiceOutlined, BookOutlined, SwapOutlined,
 } from '@ant-design/icons-vue'
 import { useAuthStore } from '../stores/auth.js'
 import { adminChangePassword } from '../api.js'

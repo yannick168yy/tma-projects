@@ -1,7 +1,11 @@
 import Router from '@koa/router'
+import type { Redis } from 'ioredis'
 import { getOpPasswordHash, setOpPassword } from '../../services/admin-store.js'
 import { hashPassword, verifyPassword } from '../../services/admin-auth.service.js'
 import { fail, ok } from '../../utils/response.js'
+import {
+  getAllCurrentRates, getRateHistory, setManualRate, clearManualRate, refreshRates,
+} from '../../services/exchange-rate.service.js'
 
 const router = new Router({ prefix: '/settings' })
 
@@ -36,6 +40,60 @@ router.post('/op-password', async (ctx) => {
 
   const newHash = await hashPassword(body.newPassword)
   await setOpPassword(ctx.state.env, newHash)
+  ok(ctx, null)
+})
+
+// ── 汇率管理 ──────────────────────────────────────────────────────────────────
+
+// 查询所有汇率对的当前状态
+router.get('/exchange-rates', async (ctx) => {
+  const redis = ctx.state.redis as Redis
+  const rates = await getAllCurrentRates(redis, ctx.state.env)
+  ok(ctx, rates)
+})
+
+// 汇率历史记录（最近 1000 条原始记录，按批次分组）
+router.get('/exchange-rates/history', async (ctx) => {
+  const history = await getRateHistory(ctx.state.env, 1000)
+  ok(ctx, history)
+})
+
+// 手动触发 API 刷新（不覆盖 manual 来源）
+router.post('/exchange-rates/refresh', async (ctx) => {
+  const redis = ctx.state.redis as Redis
+  await refreshRates(redis, ctx.state.env)
+  const rates = await getAllCurrentRates(redis, ctx.state.env)
+  ok(ctx, rates)
+})
+
+// 设置手动汇率（super_admin 或 finance 可操作）
+router.post('/exchange-rates/manual', async (ctx) => {
+  const role = ctx.state.adminRole as string
+  if (role !== 'super_admin' && role !== 'finance') {
+    fail(ctx, 403, '无操作权限'); return
+  }
+  const body = ctx.request.body as { from?: string; to?: string; rate?: unknown }
+  const from = String(body.from ?? '').toUpperCase()
+  const to = String(body.to ?? '').toUpperCase()
+  const rate = Number(body.rate)
+  if (!from || !to || isNaN(rate) || rate <= 0) {
+    fail(ctx, 400, 'from / to / rate 参数无效'); return
+  }
+  const redis = ctx.state.redis as Redis
+  const result = await setManualRate(redis, from, to, rate, ctx.state.env)
+  ok(ctx, result)
+})
+
+// 清除手动汇率（恢复 API 自动获取）
+router.delete('/exchange-rates/manual/:from/:to', async (ctx) => {
+  const role = ctx.state.adminRole as string
+  if (role !== 'super_admin' && role !== 'finance') {
+    fail(ctx, 403, '无操作权限'); return
+  }
+  const from = ctx.params.from.toUpperCase()
+  const to = ctx.params.to.toUpperCase()
+  const redis = ctx.state.redis as Redis
+  await clearManualRate(redis, from, to)
   ok(ctx, null)
 })
 

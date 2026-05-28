@@ -58,7 +58,7 @@ export async function executeTool(
   env: Env,
   toolName: string,
   input: ToolInput,
-  context: { userId: number; conversationId: number },
+  context: { userId: string; conversationId: number },
 ): Promise<unknown> {
   const pool = getMysqlPool(env)
 
