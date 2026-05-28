@@ -1,0 +1,162 @@
+import type { Tool } from '@anthropic-ai/sdk/resources/messages.js'
+import type { RowDataPacket } from 'mysql2/promise'
+import type { Env } from '../../config/env.js'
+import { getMysqlPool } from '../../clients/mysql.client.js'
+import { searchFaq, updateConversationStatus } from './cs-store.js'
+
+export const CS_TOOLS: Tool[] = [
+  {
+    name: 'get_user_info',
+    description: 'Get the current user\'s account information: display name, status, KYC status, registration date, locale.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {},
+      required: [],
+    },
+  },
+  {
+    name: 'get_wallet_balance',
+    description: 'Get the current user\'s wallet balance (available and frozen amounts in PHP pesos).',
+    input_schema: {
+      type: 'object' as const,
+      properties: {},
+      required: [],
+    },
+  },
+  {
+    name: 'get_recent_orders',
+    description: 'Get the user\'s recent deposit and withdrawal orders (last 5 of each).',
+    input_schema: {
+      type: 'object' as const,
+      properties: {},
+      required: [],
+    },
+  },
+  {
+    name: 'search_faq',
+    description: 'Search the FAQ knowledge base for answers to common questions.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        keyword: {
+          type: 'string',
+          description: 'Search keyword (e.g. "deposit", "withdrawal", "KYC", "bonus")',
+        },
+      },
+      required: ['keyword'],
+    },
+  },
+  {
+    name: 'escalate_to_human',
+    description: 'Escalate the conversation to a human customer service agent. Use this when: the user explicitly requests a human, the issue is complex/sensitive (large amount disputes, account bans, fraud), or you cannot resolve after 2-3 attempts.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        reason: {
+          type: 'string',
+          description: 'Brief reason for escalation',
+        },
+      },
+      required: ['reason'],
+    },
+  },
+]
+
+export type ToolInput = Record<string, unknown>
+
+export async function executeTool(
+  env: Env,
+  toolName: string,
+  input: ToolInput,
+  context: { userId: number; conversationId: number },
+): Promise<string> {
+  const pool = getMysqlPool(env)
+
+  switch (toolName) {
+    case 'get_user_info': {
+      const [rows] = await pool.query<RowDataPacket[]>(
+        `SELECT u.display_name, u.status, u.locale, u.registered_at,
+                k.status AS kyc_status
+         FROM bg_user u
+         LEFT JOIN bg_kyc_submission k ON k.user_id = u.id
+         WHERE u.id = ?
+         ORDER BY k.submitted_at DESC LIMIT 1`,
+        [context.userId],
+      )
+      if (!rows.length) return JSON.stringify({ error: 'User not found' })
+      const r = rows[0]
+      return JSON.stringify({
+        displayName: r.display_name,
+        status: r.status,
+        locale: r.locale,
+        kycStatus: r.kyc_status ?? 'not_submitted',
+        registeredAt: r.registered_at,
+      })
+    }
+
+    case 'get_wallet_balance': {
+      const [rows] = await pool.query<RowDataPacket[]>(
+        `SELECT available_cents, frozen_cents FROM bg_wallet WHERE user_id = ?`,
+        [context.userId],
+      )
+      if (!rows.length) return JSON.stringify({ availablePHP: 0, frozenPHP: 0 })
+      return JSON.stringify({
+        availablePHP: (rows[0].available_cents / 100).toFixed(2),
+        frozenPHP: (rows[0].frozen_cents / 100).toFixed(2),
+      })
+    }
+
+    case 'get_recent_orders': {
+      const [deposits] = await pool.query<RowDataPacket[]>(
+        `SELECT order_id, amount, currency, credited_cents, channel_id, status, created_at, paid_at
+         FROM bg_order_deposit WHERE user_id = ? ORDER BY created_at DESC LIMIT 5`,
+        [context.userId],
+      )
+      const [withdrawals] = await pool.query<RowDataPacket[]>(
+        `SELECT order_id, amount_cents, currency, channel_id, status, created_at, completed_at, reject_reason
+         FROM bg_order_withdraw WHERE user_id = ? ORDER BY created_at DESC LIMIT 5`,
+        [context.userId],
+      )
+      return JSON.stringify({
+        deposits: deposits.map((d) => ({
+          orderId: d.order_id,
+          amount: d.amount,
+          currency: d.currency,
+          creditedPHP: d.credited_cents ? (d.credited_cents / 100).toFixed(2) : null,
+          channel: d.channel_id,
+          status: d.status,
+          createdAt: d.created_at,
+          paidAt: d.paid_at,
+        })),
+        withdrawals: withdrawals.map((w) => ({
+          orderId: w.order_id,
+          amountPHP: (w.amount_cents / 100).toFixed(2),
+          currency: w.currency,
+          channel: w.channel_id,
+          status: w.status,
+          createdAt: w.created_at,
+          completedAt: w.completed_at,
+          rejectReason: w.reject_reason,
+        })),
+      })
+    }
+
+    case 'search_faq': {
+      const keyword = String(input.keyword ?? '')
+      const results = await searchFaq(env, keyword)
+      if (!results.length) return JSON.stringify({ found: false, results: [] })
+      return JSON.stringify({ found: true, results })
+    }
+
+    case 'escalate_to_human': {
+      await updateConversationStatus(env, context.conversationId, 'human_taken')
+      return JSON.stringify({
+        success: true,
+        message: 'Conversation has been escalated to a human agent. They will respond shortly.',
+      })
+    }
+
+    default:
+      return JSON.stringify({ error: `Unknown tool: ${toolName}` })
+  }
+}

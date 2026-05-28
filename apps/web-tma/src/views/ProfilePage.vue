@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { CheckCircle2, Copy, ChevronDown, ChevronRight, LogOut } from 'lucide-vue-next'
+import { CheckCircle2, Copy, ChevronDown, ChevronRight, LogOut, Headphones } from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/auth'
 import type { LoginProvider } from '@/types/api'
 import { formatTelegramHandle, getTelegramWebAppUser } from '@/utils/telegramUser'
@@ -9,7 +9,7 @@ import { patchProfile } from '@/api/auth'
 import ContactBrandIcon from '@/components/profile/ContactBrandIcon.vue'
 import ContactMethodRow from '@/components/profile/ContactMethodRow.vue'
 
-const emit = defineEmits<{ logout: [] }>()
+const emit = defineEmits<{ logout: []; 'open-cs': [] }>()
 
 const { t } = useI18n()
 const auth = useAuthStore()
@@ -505,6 +505,14 @@ async function savePersonal() {
 
       <section>
         <h3 class="mb-3 font-display text-sm font-black text-foreground">{{ t('profile.account') }}</h3>
+        <button
+          type="button"
+          class="flex w-full items-center justify-center gap-2 rounded-2xl border border-primary/30 bg-primary/10 py-3 text-sm font-black text-primary transition-colors hover:bg-primary/20 mb-3"
+          @click="emit('open-cs')"
+        >
+          <Headphones :size="16" />
+          联系客服
+        </button>
         <button
           type="button"
           class="flex w-full items-center justify-center gap-2 rounded-2xl border border-red-500/30 bg-red-500/10 py-3 text-sm font-black text-red-400 transition-colors hover:bg-red-500/20 disabled:opacity-60"

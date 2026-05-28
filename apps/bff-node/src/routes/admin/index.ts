@@ -8,6 +8,7 @@ import withdrawalsRoutes from './withdrawals.routes.js'
 import auditRoutes from './audit.routes.js'
 import gamesRoutes from './games.routes.js'
 import settingsRoutes from './settings.routes.js'
+import csRoutes from './cs.routes.js'
 
 export function createAdminRouter(): Router {
   const admin = new Router({ prefix: '/admin' })
@@ -17,7 +18,7 @@ export function createAdminRouter(): Router {
 
   // 需要 admin token
   const guard = adminAuthMiddleware()
-  for (const r of [dashboardRoutes, usersRoutes, depositsRoutes, withdrawalsRoutes, auditRoutes, gamesRoutes, settingsRoutes]) {
+  for (const r of [dashboardRoutes, usersRoutes, depositsRoutes, withdrawalsRoutes, auditRoutes, gamesRoutes, settingsRoutes, csRoutes]) {
     admin.use(guard, r.routes(), r.allowedMethods())
   }
 

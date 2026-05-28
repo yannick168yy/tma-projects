@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.99.0",
     "@koa/cors": "^5.0.0",
     "@koa/router": "^13.1.0",
     "@tma.js/init-data-node": "^1.0.4",

@@ -1,6 +1,7 @@
 import Router from '@koa/router'
 import { createAdminRouter } from './admin/index.js'
 import authRoutes from './auth.routes.js'
+import csRoutes from './cs.routes.js'
 import userRoutes from './user.routes.js'
 import walletRoutes from './wallet.routes.js'
 import depositRoutes from './deposit.routes.js'
@@ -49,7 +50,7 @@ export function createApiRouter(): Router {
   const protectedMw = authMiddleware()
   for (const r of [
     userRoutes, walletRoutes, depositRoutes, tonDepositRoutes, withdrawRoutes,
-    ledgerRoutes, kycRoutes, promotionRoutes, yfpayRoutes,
+    ledgerRoutes, kycRoutes, promotionRoutes, yfpayRoutes, csRoutes,
   ]) {
     api.use(protectedMw, r.routes(), r.allowedMethods())
   }

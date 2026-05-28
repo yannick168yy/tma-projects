@@ -18,6 +18,7 @@ const router = createRouter({
         { path: 'audit-log', component: () => import('./views/AuditLog.vue') },
         { path: 'games', component: () => import('./views/Games.vue') },
         { path: 'settings', component: () => import('./views/Settings.vue') },
+        { path: 'customer-service', component: () => import('./views/CustomerService.vue') },
       ],
     },
     { path: '/:pathMatch(.*)*', redirect: '/dashboard' },

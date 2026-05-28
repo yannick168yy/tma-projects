@@ -132,3 +132,23 @@ export interface AuditEntry {
 }
 export const getAuditLog = (params: { page?: number; pageSize?: number }) =>
   get<{ items: AuditEntry[]; page: number }>('/admin/audit-log', params)
+
+// Customer Service
+export interface CsConversation {
+  id: number; userId: number; status: string; assignedAdminId: number | null
+  displayName: string; lastMessage: string; createdAt: string; updatedAt: string
+}
+export interface CsMessage {
+  id: number; conversationId: number; role: 'user' | 'assistant' | 'admin'
+  content: string; createdAt: string
+}
+export const getCsConversations = (params: { status?: string; page?: number; pageSize?: number }) =>
+  get<{ items: CsConversation[]; total: number; page: number; pageSize: number }>('/admin/cs/conversations', params)
+export const getCsConversation = (id: number) =>
+  get<{ conversation: CsConversation; messages: CsMessage[] }>(`/admin/cs/conversations/${id}`)
+export const csReply = (id: number, message: string) =>
+  post<CsMessage>(`/admin/cs/conversations/${id}/reply`, { message })
+export const csTakeover = (id: number) =>
+  post(`/admin/cs/conversations/${id}/takeover`)
+export const csResolve = (id: number) =>
+  post(`/admin/cs/conversations/${id}/resolve`)
