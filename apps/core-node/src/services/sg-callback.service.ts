@@ -67,7 +67,15 @@ export class SgCallbackService {
         )
         if (!row || Number(row.available_cents) < amtCents) {
           await conn.rollback()
-          return { error_code: 'INSUFFICIENT_FUNDS', error_description: 'Insufficient balance' }
+          const resp = { error_code: 'INSUFFICIENT_FUNDS', error_description: 'Insufficient balance' }
+          if (transaction_id) {
+            await db.execute(
+              `INSERT IGNORE INTO bg_idempotency (idempotency_key, scope, response_snapshot, expires_at)
+               VALUES (?, 'sg_callback', ?, DATE_ADD(NOW(), INTERVAL 24 HOUR))`,
+              [transaction_id, JSON.stringify(resp)],
+            )
+          }
+          return resp
         }
         await conn.execute(
           'UPDATE bg_wallet SET available_cents = available_cents - ?, version = version + 1 WHERE user_id = ?',
