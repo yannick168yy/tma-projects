@@ -21,6 +21,8 @@ const router = createRouter({
         { path: 'exchange-rates', component: () => import('./views/ExchangeRates.vue') },
         { path: 'customer-service', component: () => import('./views/CustomerService.vue') },
         { path: 'cs-faq', component: () => import('./views/CsFaq.vue') },
+        { path: 'bet-orders', component: () => import('./views/BetOrders.vue') },
+        { path: 'sg-settlement', component: () => import('./views/SgSettlement.vue') },
       ],
     },
     { path: '/:pathMatch(.*)*', redirect: '/dashboard' },

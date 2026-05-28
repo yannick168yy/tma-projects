@@ -184,3 +184,36 @@ export const updateFaq = (id: number, data: Partial<{ category: string; question
   req<FaqItem>('PATCH', `/admin/cs/faq/${id}`, data)
 export const deleteFaq = (id: number) =>
   req<{ success: boolean }>('DELETE', `/admin/cs/faq/${id}`)
+
+// 投注记录
+export interface BetOrderRecord {
+  id: number; userId: string; aggregatorId: string; providerId: string
+  providerTxnId: string; roundId: string | null
+  betType: 'bet' | 'win' | 'refund' | 'cancel'
+  amountCents: number; currencyCode: string
+  originalAmount: number | null; exchangeRate: number | null
+  status: 'pending' | 'settled' | 'failed'
+  createdAt: string; settledAt: string | null
+}
+export interface BetOrderStats {
+  totalBetCents: number; totalWinCents: number; roundCount: number
+}
+export const getBetOrders = (params: {
+  page?: number; pageSize?: number
+  userId?: string; status?: string; betType?: string
+  dateFrom?: string; dateTo?: string
+}) => get<{ total: number; page: number; pageSize: number; stats: BetOrderStats; items: BetOrderRecord[] }>('/admin/bet-orders', params)
+
+// SG 结算报告
+export interface SgSettlementRecord {
+  id: number; reportDate: string; currency: string
+  sgBetAmount: number; sgWinAmount: number; sgGgr: number; sgRoundCount: number
+  localBetCents: number; localWinCents: number
+  discrepancyNote: string | null; reconciled: number; fetchedAt: string
+}
+export const getSgSettlements = (params: { page?: number; pageSize?: number }) =>
+  get<{ total: number; page: number; pageSize: number; items: SgSettlementRecord[] }>('/admin/sg-settlement', params)
+export const triggerReconcile = (date: string) =>
+  post('/admin/sg-settlement/reconcile', { date })
+export const markReconciled = (id: number) =>
+  req<{ id: number }>('PATCH', `/admin/sg-settlement/${id}/reconcile`)

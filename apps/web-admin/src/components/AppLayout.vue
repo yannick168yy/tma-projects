@@ -31,6 +31,14 @@
           <appstore-outlined />
           <span>游戏管理</span>
         </a-menu-item>
+        <a-menu-item key="/bet-orders">
+          <transaction-outlined />
+          <span>投注记录</span>
+        </a-menu-item>
+        <a-menu-item key="/sg-settlement">
+          <reconciliation-outlined />
+          <span>结算对账</span>
+        </a-menu-item>
         <a-menu-item key="/audit-log">
           <file-text-outlined />
           <span>操作日志</span>
@@ -102,7 +110,7 @@ import { useRouter, useRoute, RouterView } from 'vue-router'
 import {
   DashboardOutlined, TeamOutlined, ArrowDownOutlined, ArrowUpOutlined,
   FileTextOutlined, UserOutlined, DownOutlined, AppstoreOutlined, SettingOutlined,
-  CustomerServiceOutlined, BookOutlined, SwapOutlined,
+  CustomerServiceOutlined, BookOutlined, SwapOutlined, TransactionOutlined, ReconciliationOutlined,
 } from '@ant-design/icons-vue'
 import { useAuthStore } from '../stores/auth.js'
 import { adminChangePassword } from '../api.js'
