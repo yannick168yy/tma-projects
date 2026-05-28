@@ -142,10 +142,10 @@ export async function getRateHistory(env: Env, limit = 1000): Promise<Array<{
     `SELECT
        MIN(id) AS id,
        MIN(fetched_at) AS fetchedAt,
-       MAX(source) AS source,
+       GROUP_CONCAT(DISTINCT source ORDER BY source SEPARATOR ',') AS source,
        JSON_OBJECTAGG(currency_from, CAST(rate AS DOUBLE)) AS rates
      FROM (SELECT * FROM bg_exchange_rate ORDER BY id DESC LIMIT ?) t
-     GROUP BY DATE_FORMAT(fetched_at, '%Y%m%d%H%i%s')
+     GROUP BY FLOOR(UNIX_TIMESTAMP(fetched_at) / 5)
      ORDER BY id DESC`,
     [limit],
   )

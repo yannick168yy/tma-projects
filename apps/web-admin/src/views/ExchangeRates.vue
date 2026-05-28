@@ -64,9 +64,12 @@
               <span style="font-size:12px">{{ fmtRate((record as RateHistoryBatch).rates?.[column.key]) }}</span>
             </template>
             <template v-else-if="column.key === 'hsource'">
-              <a-tag :color="sourceColor((record as RateHistoryBatch).source)" style="font-size:11px">
-                {{ sourceLabel((record as RateHistoryBatch).source) }}
-              </a-tag>
+              <a-tag
+                v-for="s in ((record as RateHistoryBatch).source || '').split(',')"
+                :key="s"
+                :color="sourceColor(s)"
+                style="font-size:11px; margin-bottom:2px"
+              >{{ sourceLabel(s) }}</a-tag>
             </template>
           </template>
         </a-table>
