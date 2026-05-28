@@ -20,8 +20,11 @@ export const RATE_PAIRS: [string, string][] = [
   ['TON', 'PHP'],
 ]
 
-// USDT/TON 是加密货币，exchangerate-api.com 不支持，直接用 env 兜底，避免浪费 API 配额
-const API_SKIP_PAIRS = new Set(['USDT', 'TON'])
+// CoinGecko 加密货币 ID 映射
+const COINGECKO_IDS: Record<string, string> = {
+  USDT: 'tether',
+  TON:  'the-open-network',
+}
 
 // ── 内置兜底汇率（从 env 读，无 API key 时使用）────────────────────────────────
 function fallbackRate(from: string, to: string, env: Env): number | null {
@@ -31,6 +34,25 @@ function fallbackRate(from: string, to: string, env: Env): number | null {
   if (from === 'EUR')                    return env.EUR_TO_PHP_RATE
   if (from === 'PHP')                    return 1
   return null
+}
+
+// ── 从 CoinGecko 拉取加密货币汇率（USDT/TON，免费 tier 50 次/分无需 key）───────────
+async function fetchFromCoinGecko(from: string, to: string, env: Env): Promise<RateResult> {
+  const coinId = COINGECKO_IDS[from]
+  if (!coinId) throw new Error(`No CoinGecko ID for ${from}`)
+
+  const headers: Record<string, string> = {}
+  if (env.COINGECKO_API_KEY) headers['x-cg-demo-api-key'] = env.COINGECKO_API_KEY
+
+  const url = `https://api.coingecko.com/api/v3/simple/price?ids=${coinId}&vs_currencies=${to.toLowerCase()}`
+  const res = await fetch(url, { signal: AbortSignal.timeout(8000), headers })
+  if (!res.ok) throw new Error(`CoinGecko ${res.status}: ${await res.text()}`)
+
+  const data = await res.json() as Record<string, Record<string, number>>
+  const rate = data?.[coinId]?.[to.toLowerCase()]
+  if (typeof rate !== 'number') throw new Error(`CoinGecko: missing rate for ${from}→${to}: ${JSON.stringify(data)}`)
+
+  return { rate, fetchedAt: new Date().toISOString(), source: 'coingecko' }
 }
 
 // ── 从第三方 API 拉取汇率（freecurrencyapi.com）──────────────────────────────────
@@ -56,10 +78,12 @@ export async function getRate(redis: Redis, from: string, to: string, env: Env):
   const cached = await redis.get(redisKey(from, to))
   if (cached) return JSON.parse(cached) as RateResult
 
-  // 2. 拉取 API
+  // 2. 拉取 API（加密货币走 CoinGecko，法币走 freecurrencyapi）
   let result: RateResult
   try {
-    result = await fetchFromApi(from, to, env)
+    result = COINGECKO_IDS[from]
+      ? await fetchFromCoinGecko(from, to, env)
+      : await fetchFromApi(from, to, env)
   } catch (err) {
     // 3. API 失败 → 使用 env 兜底汇率（保证业务不中断）
     const fb = fallbackRate(from, to, env)
@@ -141,17 +165,13 @@ export async function refreshRates(redis: Redis, env: Env): Promise<void> {
     if (cached && (JSON.parse(cached) as RateResult).source === 'manual') continue
 
     let result: RateResult
-    if (env.EXCHANGE_RATE_API_KEY && !API_SKIP_PAIRS.has(from)) {
-      try {
-        result = await fetchFromApi(from, to, env)
-      } catch (err) {
-        console.error(`[exchange-rate] refresh ${from}→${to} failed:`, err)
-        continue
-      }
-    } else {
-      const fb = fallbackRate(from, to, env)
-      if (fb == null) continue
-      result = { rate: fb, fetchedAt: new Date().toISOString(), source: 'env-fallback' }
+    try {
+      result = COINGECKO_IDS[from]
+        ? await fetchFromCoinGecko(from, to, env)
+        : await fetchFromApi(from, to, env)
+    } catch (err) {
+      console.error(`[exchange-rate] refresh ${from}→${to} failed:`, err)
+      continue
     }
 
     await redis.setex(redisKey(from, to), REDIS_TTL, JSON.stringify(result))

@@ -163,6 +163,7 @@ run run -d --name tma-bff-node --network "$NET" --restart=always \
   -e GEMINI_API_KEY="${GEMINI_API_KEY:-}" \
   -e CS_ENABLED="${CS_ENABLED:-true}" \
   -e EXCHANGE_RATE_API_KEY="${EXCHANGE_RATE_API_KEY:-}" \
+  -e COINGECKO_API_KEY="${COINGECKO_API_KEY:-}" \
   betogo-bff-node:latest
 
 echo "==> [${CTR}] web-tma (limit 64m)"

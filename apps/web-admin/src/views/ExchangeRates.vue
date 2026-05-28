@@ -150,14 +150,16 @@ function sourceLabel(s: string | null) {
   if (!s) return '未知'
   if (s === 'manual') return '手动'
   if (s === 'env-fallback') return '环境变量兜底'
-  if (s === 'freecurrencyapi' || s === 'exchangerate-api') return 'API'
+  if (s === 'freecurrencyapi' || s === 'exchangerate-api') return 'FreeCurrency'
+  if (s === 'coingecko') return 'CoinGecko'
   if (s === 'identity') return '同币种'
   return s
 }
 
 function sourceColor(s: string | null) {
   if (s === 'manual') return 'orange'
-  if (s === 'exchangerate-api') return 'green'
+  if (s === 'freecurrencyapi' || s === 'exchangerate-api') return 'green'
+  if (s === 'coingecko') return 'blue'
   if (s === 'env-fallback') return 'gold'
   return 'default'
 }
