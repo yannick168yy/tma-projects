@@ -9,6 +9,7 @@ import {
   Home,
   Menu,
   Dices,
+  Headphones,
 } from 'lucide-vue-next'
 import BetogoLogo from '@/components/BetogoLogo.vue'
 import ProfileAvatar from '@/components/ProfileAvatar.vue'
@@ -42,6 +43,12 @@ const walletModalOpen = ref(false)
 const profileOpen = ref(false)
 const slotsLobbyOpen = ref(false)
 const csOpen = ref(false)
+
+function openCs() {
+  profileOpen.value = false
+  walletOpen.value = false
+  csOpen.value = true
+}
 
 const navItems = computed(() =>
   NAV_ITEMS.map((item) => ({
@@ -161,6 +168,11 @@ function navIcon(id: string) {
             </button>
           </div>
 
+          <button v-if="isLoggedIn" type="button"
+            class="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-muted-foreground hover:text-primary transition-colors"
+            @click="openCs">
+            <Headphones :size="20" />
+          </button>
           <button type="button" class="relative flex-shrink-0" @click="openProfile">
             <ProfileAvatar />
             <span class="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border-2 border-background bg-accent" />
@@ -223,15 +235,12 @@ function navIcon(id: string) {
       </header>
 
       <main class="relative flex min-h-0 flex-1 flex-col overflow-hidden">
-        <ProfilePage v-if="profileOpen" @logout="onLogout" @open-cs="csOpen = true" />
+        <ProfilePage v-if="profileOpen" @logout="onLogout" @open-cs="openCs" />
         <BonusesPage v-else-if="activeNav === 'bonuses'" :promo-filter="promoFilter" @open-wallet="openWallet" />
         <BingoPage v-else-if="activeNav === 'bingo'" @open-wallet="openWallet" @game-tap="onGameTap" />
         <MenuPage v-else-if="activeNav === 'menu'" @open-search="searchOpen = true" @game-tap="onGameTap" />
         <HomeContent v-else @open-search="searchOpen = true" @open-promo="goBonuses" @game-tap="onGameTap" @open-slots-lobby="slotsLobbyOpen = true" />
         <SlotsLobby v-if="slotsLobbyOpen" @close="slotsLobbyOpen = false" @game-tap="onGameTap" />
-        <div v-if="csOpen" class="absolute inset-0 z-30 flex flex-col bg-background">
-          <CustomerServicePage @close="csOpen = false" />
-        </div>
       </main>
 
       <!-- Figma: bottom nav always visible, including on profile -->
@@ -266,6 +275,11 @@ function navIcon(id: string) {
 
     <WalletModal :open="walletModalOpen" @close="walletModalOpen = false" />
     <SearchOverlay :open="searchOpen" @close="searchOpen = false" @game-tap="onGameTap" />
+
+    <!-- 客服聊天覆盖层：与 WalletModal/SearchOverlay 同级，覆盖整个 app-frame -->
+    <div v-if="csOpen" class="absolute inset-0 z-50 flex flex-col bg-background">
+      <CustomerServicePage @close="csOpen = false" />
+    </div>
   </div>
 </template>
 
