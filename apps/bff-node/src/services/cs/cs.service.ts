@@ -1,16 +1,31 @@
-import Anthropic from '@anthropic-ai/sdk'
-import type { MessageParam } from '@anthropic-ai/sdk/resources/messages.js'
+import { GoogleGenerativeAI, type Content } from '@google/generative-ai'
 import type { Env } from '../../config/env.js'
 import { getOrCreateConversation, getMessages, saveMessage } from './cs-store.js'
-import { CS_TOOLS, executeTool } from './cs-tools.js'
+import { GEMINI_TOOLS, executeTool } from './cs-tools.js'
 import { SYSTEM_PROMPT } from './cs-prompt.js'
 
+const MODEL = 'gemini-2.0-flash'
 const MAX_HISTORY = 20
 const MAX_TOOL_ROUNDS = 5
 
-function getClient(env: Env): Anthropic {
-  if (!env.ANTHROPIC_API_KEY) throw new Error('ANTHROPIC_API_KEY not configured')
-  return new Anthropic({ apiKey: env.ANTHROPIC_API_KEY })
+function getClient(env: Env) {
+  if (!env.GEMINI_API_KEY) throw new Error('GEMINI_API_KEY not configured')
+  return new GoogleGenerativeAI(env.GEMINI_API_KEY)
+}
+
+// Gemini 要求 history 严格交替 user/model，合并相邻同角色消息
+function buildHistory(msgs: { role: string; content: string }[]): Content[] {
+  const contents: Content[] = []
+  for (const m of msgs) {
+    const role = m.role === 'user' ? 'user' : 'model'
+    const last = contents[contents.length - 1]
+    if (last && last.role === role) {
+      last.parts.push({ text: m.content })
+    } else {
+      contents.push({ role, parts: [{ text: m.content }] })
+    }
+  }
+  return contents
 }
 
 export async function handleUserMessage(
@@ -21,7 +36,6 @@ export async function handleUserMessage(
   const conversation = await getOrCreateConversation(env, userId)
   const conversationId = conversation.id
 
-  // 已转人工时 AI 不介入，直接存消息等待人工回复
   if (conversation.status === 'human_taken') {
     await saveMessage(env, conversationId, 'user', userText)
     return {
@@ -34,50 +48,43 @@ export async function handleUserMessage(
   await saveMessage(env, conversationId, 'user', userText)
 
   const history = await getMessages(env, conversationId, MAX_HISTORY)
-  const messages: MessageParam[] = history.map((m) => ({
-    role: m.role === 'user' ? 'user' : 'assistant',
-    content: m.content,
-  }))
+  // 去掉最后一条（刚刚存入的 user 消息，sendMessage 会单独发）
+  const historyContents = buildHistory(history.slice(0, -1))
 
-  const client = getClient(env)
-  let rounds = 0
+  const model = getClient(env).getGenerativeModel({
+    model: MODEL,
+    systemInstruction: SYSTEM_PROMPT,
+    tools: GEMINI_TOOLS,
+  })
 
-  // agentic tool-use loop
-  while (rounds < MAX_TOOL_ROUNDS) {
-    rounds++
-    const response = await client.messages.create({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 1024,
-      system: SYSTEM_PROMPT,
-      tools: CS_TOOLS,
-      messages,
-    })
+  const chat = model.startChat({ history: historyContents })
+  let response = await chat.sendMessage(userText)
 
-    if (response.stop_reason === 'end_turn') {
-      const textBlock = response.content.find((b) => b.type === 'text')
-      const reply = textBlock?.type === 'text' ? textBlock.text : '抱歉，我无法处理您的请求，请稍后再试。'
+  for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
+    const candidate = response.response.candidates?.[0]
+    const parts = candidate?.content?.parts ?? []
+
+    const fnCalls = parts.filter((p) => p.functionCall)
+
+    if (fnCalls.length === 0) {
+      const reply = response.response.text()
       await saveMessage(env, conversationId, 'assistant', reply)
       return { reply, conversationId, status: conversation.status }
     }
 
-    if (response.stop_reason === 'tool_use') {
-      // 把 assistant 这一轮（含 tool_use blocks）加入历史
-      messages.push({ role: 'assistant', content: response.content })
-
-      const toolResults: MessageParam['content'] = []
-      for (const block of response.content) {
-        if (block.type !== 'tool_use') continue
-        const result = await executeTool(env, block.name, block.input as Record<string, unknown>, {
+    // 执行所有工具，批量回传结果
+    const toolResults = await Promise.all(
+      fnCalls.map(async (p) => {
+        const fn = p.functionCall!
+        const result = await executeTool(env, fn.name, fn.args as Record<string, unknown>, {
           userId,
           conversationId,
         })
-        toolResults.push({ type: 'tool_result', tool_use_id: block.id, content: result })
-      }
-      messages.push({ role: 'user', content: toolResults })
-      continue
-    }
+        return { functionResponse: { name: fn.name, response: { result } } }
+      }),
+    )
 
-    break
+    response = await chat.sendMessage(toolResults)
   }
 
   const fallback = '抱歉，我暂时无法处理您的请求，已为您转接人工客服。'

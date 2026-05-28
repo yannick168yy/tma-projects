@@ -33,7 +33,7 @@ const schema = z.object({
   NACOS_NAMESPACE: z.string().default('batogo'),
   NACOS_DATA_ID: z.string().default('bff-node'),
   NACOS_GROUP: z.string().default('DEFAULT_GROUP'),
-  ANTHROPIC_API_KEY: z.string().default(''),
+  GEMINI_API_KEY: z.string().default(''),
   CS_ENABLED: z
     .enum(['true', 'false'])
     .default('true')

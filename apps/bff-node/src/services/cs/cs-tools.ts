@@ -1,64 +1,54 @@
-import type { Tool } from '@anthropic-ai/sdk/resources/messages.js'
+import { SchemaType, type Tool } from '@google/generative-ai'
 import type { RowDataPacket } from 'mysql2/promise'
 import type { Env } from '../../config/env.js'
 import { getMysqlPool } from '../../clients/mysql.client.js'
 import { searchFaq, updateConversationStatus } from './cs-store.js'
 
-export const CS_TOOLS: Tool[] = [
+export const GEMINI_TOOLS: Tool[] = [
   {
-    name: 'get_user_info',
-    description: 'Get the current user\'s account information: display name, status, KYC status, registration date, locale.',
-    input_schema: {
-      type: 'object' as const,
-      properties: {},
-      required: [],
-    },
-  },
-  {
-    name: 'get_wallet_balance',
-    description: 'Get the current user\'s wallet balance (available and frozen amounts in PHP pesos).',
-    input_schema: {
-      type: 'object' as const,
-      properties: {},
-      required: [],
-    },
-  },
-  {
-    name: 'get_recent_orders',
-    description: 'Get the user\'s recent deposit and withdrawal orders (last 5 of each).',
-    input_schema: {
-      type: 'object' as const,
-      properties: {},
-      required: [],
-    },
-  },
-  {
-    name: 'search_faq',
-    description: 'Search the FAQ knowledge base for answers to common questions.',
-    input_schema: {
-      type: 'object' as const,
-      properties: {
-        keyword: {
-          type: 'string',
-          description: 'Search keyword (e.g. "deposit", "withdrawal", "KYC", "bonus")',
+    functionDeclarations: [
+      {
+        name: 'get_user_info',
+        description: "Get the current user's account information: display name, status, KYC status, registration date.",
+        parameters: { type: SchemaType.OBJECT, properties: {} },
+      },
+      {
+        name: 'get_wallet_balance',
+        description: "Get the current user's wallet balance (available and frozen amounts in PHP pesos).",
+        parameters: { type: SchemaType.OBJECT, properties: {} },
+      },
+      {
+        name: 'get_recent_orders',
+        description: "Get the user's recent deposit and withdrawal orders (last 5 of each).",
+        parameters: { type: SchemaType.OBJECT, properties: {} },
+      },
+      {
+        name: 'search_faq',
+        description: 'Search the FAQ knowledge base for answers to common questions.',
+        parameters: {
+          type: SchemaType.OBJECT,
+          properties: {
+            keyword: {
+              type: SchemaType.STRING,
+              description: 'Search keyword, e.g. "deposit", "withdrawal", "KYC", "bonus"',
+            },
+          },
+          required: ['keyword'],
         },
       },
-      required: ['keyword'],
-    },
-  },
-  {
-    name: 'escalate_to_human',
-    description: 'Escalate the conversation to a human customer service agent. Use this when: the user explicitly requests a human, the issue is complex/sensitive (large amount disputes, account bans, fraud), or you cannot resolve after 2-3 attempts.',
-    input_schema: {
-      type: 'object' as const,
-      properties: {
-        reason: {
-          type: 'string',
-          description: 'Brief reason for escalation',
+      {
+        name: 'escalate_to_human',
+        description:
+          'Escalate the conversation to a human agent. Use when the user requests a human, the dispute is large (>₱5000), or you cannot resolve after 2 attempts.',
+        parameters: {
+          type: SchemaType.OBJECT,
+          properties: {
+            reason: { type: SchemaType.STRING, description: 'Brief reason for escalation' },
+          },
+          required: ['reason'],
         },
       },
-      required: ['reason'],
-    },
+    ],
   },
 ]
 
@@ -69,7 +59,7 @@ export async function executeTool(
   toolName: string,
   input: ToolInput,
   context: { userId: number; conversationId: number },
-): Promise<string> {
+): Promise<unknown> {
   const pool = getMysqlPool(env)
 
   switch (toolName) {
@@ -83,15 +73,15 @@ export async function executeTool(
          ORDER BY k.submitted_at DESC LIMIT 1`,
         [context.userId],
       )
-      if (!rows.length) return JSON.stringify({ error: 'User not found' })
+      if (!rows.length) return { error: 'User not found' }
       const r = rows[0]
-      return JSON.stringify({
+      return {
         displayName: r.display_name,
         status: r.status,
         locale: r.locale,
         kycStatus: r.kyc_status ?? 'not_submitted',
         registeredAt: r.registered_at,
-      })
+      }
     }
 
     case 'get_wallet_balance': {
@@ -99,11 +89,11 @@ export async function executeTool(
         `SELECT available_cents, frozen_cents FROM bg_wallet WHERE user_id = ?`,
         [context.userId],
       )
-      if (!rows.length) return JSON.stringify({ availablePHP: 0, frozenPHP: 0 })
-      return JSON.stringify({
+      if (!rows.length) return { availablePHP: '0.00', frozenPHP: '0.00' }
+      return {
         availablePHP: (rows[0].available_cents / 100).toFixed(2),
         frozenPHP: (rows[0].frozen_cents / 100).toFixed(2),
-      })
+      }
     }
 
     case 'get_recent_orders': {
@@ -117,7 +107,7 @@ export async function executeTool(
          FROM bg_order_withdraw WHERE user_id = ? ORDER BY created_at DESC LIMIT 5`,
         [context.userId],
       )
-      return JSON.stringify({
+      return {
         deposits: deposits.map((d) => ({
           orderId: d.order_id,
           amount: d.amount,
@@ -138,25 +128,21 @@ export async function executeTool(
           completedAt: w.completed_at,
           rejectReason: w.reject_reason,
         })),
-      })
+      }
     }
 
     case 'search_faq': {
       const keyword = String(input.keyword ?? '')
       const results = await searchFaq(env, keyword)
-      if (!results.length) return JSON.stringify({ found: false, results: [] })
-      return JSON.stringify({ found: true, results })
+      return { found: results.length > 0, results }
     }
 
     case 'escalate_to_human': {
       await updateConversationStatus(env, context.conversationId, 'human_taken')
-      return JSON.stringify({
-        success: true,
-        message: 'Conversation has been escalated to a human agent. They will respond shortly.',
-      })
+      return { success: true, message: 'Escalated to human agent.' }
     }
 
     default:
-      return JSON.stringify({ error: `Unknown tool: ${toolName}` })
+      return { error: `Unknown tool: ${toolName}` }
   }
 }

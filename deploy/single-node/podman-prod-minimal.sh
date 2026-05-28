@@ -160,6 +160,8 @@ run run -d --name tma-bff-node --network "$NET" --restart=always \
   -e SG_MERCHANT_KEY="${SG_MERCHANT_KEY:-}" \
   -e SG_CURRENCY="${SG_CURRENCY:-EUR}" \
   -e SG_RETURN_URL="${SG_RETURN_URL:-https://www.188facai.com}" \
+  -e GEMINI_API_KEY="${GEMINI_API_KEY:-}" \
+  -e CS_ENABLED="${CS_ENABLED:-true}" \
   betogo-bff-node:latest
 
 echo "==> [${CTR}] web-tma (limit 64m)"
