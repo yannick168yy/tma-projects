@@ -42,7 +42,10 @@ export class SgCallbackService {
         `SELECT response_snapshot FROM bg_idempotency WHERE idempotency_key = ? AND scope = 'sg_callback'`,
         [transaction_id],
       )
-      if (cached) return JSON.parse(cached.response_snapshot as string)
+      if (cached) {
+        const snap = cached.response_snapshot
+        return typeof snap === 'string' ? JSON.parse(snap) : snap
+      }
     }
 
     // 金额换算为 PHP 分
