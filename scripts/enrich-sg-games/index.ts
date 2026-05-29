@@ -166,6 +166,7 @@ interface ClaudeResult {
 async function main() {
   const BATCH_SIZE  = Number(process.env.BATCH_SIZE ?? 50)
   const START_OFFSET = Number(process.env.OFFSET ?? 0)
+  const MAX_BATCHES  = process.env.MAX_BATCHES ? Number(process.env.MAX_BATCHES) : Infinity
   const DRY_RUN     = process.env.DRY_RUN === '1'
   const ONLY_MISSING = process.env.ONLY_MISSING === '1'
 
@@ -205,6 +206,7 @@ async function main() {
     const batch = games.slice(i, i + BATCH_SIZE)
     const batchNum = Math.floor(i / BATCH_SIZE) + 1
     const totalBatches = Math.ceil(games.length / BATCH_SIZE)
+    if (batchNum > MAX_BATCHES) break
 
     process.stdout.write(`[${batchNum}/${totalBatches}] 处理 ${batch.length} 款游戏...`)
 

@@ -124,8 +124,17 @@ export interface AdminGame {
   label: string | null; rtp: number | null; volatility: string | null
   reelsCount: string | null; linesCount: number | null
   tags: string[]; isActive: boolean; updatedAt: string | null
+  weight: number; isFeatured: boolean; sortCategory: string | null
+  theme: string | null; gameStyle: string | null; playerType: string | null
+  descriptionEn: string | null; descriptionZh: string | null
+  searchKeywords: string | null; weightUpdatedAt: string | null
 }
-export const getAdminGames = (params: { page?: number; pageSize?: number; provider?: string; search?: string; isActive?: boolean }) =>
+export const getAdminGames = (params: {
+  page?: number; pageSize?: number; provider?: string; search?: string; isActive?: boolean
+  type?: string; sortCategory?: string; volatility?: string; isFeatured?: boolean
+  hasDemo?: boolean; theme?: string; gameStyle?: string; playerType?: string
+  weightMin?: number; weightMax?: number
+}) =>
   get<{ total: number; items: AdminGame[]; providers: string[] }>('/admin/games', params)
 export const toggleGame = (uuid: string, isActive: boolean) =>
   patch<{ uuid: string; isActive: boolean }>(`/admin/games/${uuid}/toggle`, { isActive })

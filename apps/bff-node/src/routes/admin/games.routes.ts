@@ -12,7 +12,20 @@ router.get('/', async (ctx) => {
   const provider = ctx.query.provider ? String(ctx.query.provider) : undefined
   const search = ctx.query.search ? String(ctx.query.search) : undefined
   const isActive = ctx.query.isActive !== undefined ? ctx.query.isActive === 'true' : undefined
-  const result = await listAdminGames(ctx.state.env, { page, pageSize, provider, search, isActive })
+  const type = ctx.query.type ? String(ctx.query.type) : undefined
+  const sortCategory = ctx.query.sortCategory ? String(ctx.query.sortCategory) : undefined
+  const volatility = ctx.query.volatility ? String(ctx.query.volatility) : undefined
+  const isFeatured = ctx.query.isFeatured !== undefined ? ctx.query.isFeatured === 'true' : undefined
+  const hasDemo = ctx.query.hasDemo !== undefined ? ctx.query.hasDemo === 'true' : undefined
+  const theme = ctx.query.theme ? String(ctx.query.theme) : undefined
+  const gameStyle = ctx.query.gameStyle ? String(ctx.query.gameStyle) : undefined
+  const playerType = ctx.query.playerType ? String(ctx.query.playerType) : undefined
+  const weightMin = ctx.query.weightMin !== undefined ? Number(ctx.query.weightMin) : undefined
+  const weightMax = ctx.query.weightMax !== undefined ? Number(ctx.query.weightMax) : undefined
+  const result = await listAdminGames(ctx.state.env, {
+    page, pageSize, provider, search, isActive, type, sortCategory, volatility,
+    isFeatured, hasDemo, theme, gameStyle, playerType, weightMin, weightMax,
+  })
   ok(ctx, result)
 })
 

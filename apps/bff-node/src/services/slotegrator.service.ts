@@ -93,7 +93,7 @@ export interface SgGame {
   type?: string
   image: string
   provider: string
-  provider_id?: number
+  provider_id?: number | string
   technology?: string
   category?: string
   sub_category?: string
@@ -106,10 +106,10 @@ export interface SgGame {
   label?: string
   tags?: Array<{ code: string; label: string } | string>
   parameters?: {
-    rtp?: number | null
+    rtp?: number | string | null
     volatility?: string | null
     reels_count?: string | null
-    lines_count?: number | null
+    lines_count?: number | string | null
   }
   images?: Array<{ name: string; file: string; url: string; type: string }>
 }

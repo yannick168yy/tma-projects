@@ -319,15 +319,31 @@ export async function getBetOrders(
 
 export async function listAdminGames(
   env: Env,
-  opts: { page: number; pageSize: number; provider?: string; search?: string; isActive?: boolean },
+  opts: {
+    page: number; pageSize: number
+    provider?: string; search?: string; isActive?: boolean
+    type?: string; sortCategory?: string; volatility?: string; isFeatured?: boolean
+    hasDemo?: boolean; theme?: string; gameStyle?: string; playerType?: string
+    weightMin?: number; weightMax?: number
+  },
 ) {
   const offset = (opts.page - 1) * opts.pageSize
   const conditions: string[] = []
   const params: unknown[] = []
 
   if (opts.provider) { conditions.push('provider = ?'); params.push(opts.provider) }
-  if (opts.search) { conditions.push('name LIKE ?'); params.push(`%${opts.search}%`) }
+  if (opts.search) { conditions.push('(name LIKE ? OR search_keywords LIKE ?)'); params.push(`%${opts.search}%`, `%${opts.search}%`) }
   if (opts.isActive !== undefined) { conditions.push('is_active = ?'); params.push(opts.isActive ? 1 : 0) }
+  if (opts.type) { conditions.push('(type = ? OR category = ?)'); params.push(opts.type, opts.type) }
+  if (opts.sortCategory) { conditions.push('sort_category = ?'); params.push(opts.sortCategory) }
+  if (opts.volatility) { conditions.push('volatility = ?'); params.push(opts.volatility) }
+  if (opts.isFeatured !== undefined) { conditions.push('is_featured = ?'); params.push(opts.isFeatured ? 1 : 0) }
+  if (opts.hasDemo !== undefined) { conditions.push('has_demo = ?'); params.push(opts.hasDemo ? 1 : 0) }
+  if (opts.theme) { conditions.push('theme LIKE ?'); params.push(`%${opts.theme}%`) }
+  if (opts.gameStyle) { conditions.push('game_style = ?'); params.push(opts.gameStyle) }
+  if (opts.playerType) { conditions.push('player_type = ?'); params.push(opts.playerType) }
+  if (opts.weightMin !== undefined) { conditions.push('weight >= ?'); params.push(opts.weightMin) }
+  if (opts.weightMax !== undefined) { conditions.push('weight <= ?'); params.push(opts.weightMax) }
 
   const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : ''
 
@@ -340,9 +356,11 @@ export async function listAdminGames(
     `SELECT uuid, name, type, provider, provider_id, technology,
             category, sub_category, image_url, image_hq_url,
             has_demo, has_lobby, is_mobile, has_freespins, has_tables,
-            label, rtp, volatility, reels_count, lines_count,
-            tags, is_active, updated_at
-     FROM sg_games ${where} ORDER BY provider, name LIMIT ? OFFSET ?`,
+            label, rtp, volatility, reels_count, lines_count, tags,
+            is_active, updated_at,
+            weight, is_featured, sort_category, theme, game_style, player_type,
+            description_en, description_zh, search_keywords, weight_updated_at
+     FROM sg_games ${where} ORDER BY weight DESC, provider, name LIMIT ? OFFSET ?`,
     [...params, opts.pageSize, offset],
   )
 
@@ -373,6 +391,16 @@ export async function listAdminGames(
     tags: r.tags ? (typeof r.tags === 'string' ? JSON.parse(r.tags) : r.tags) : [],
     isActive: Boolean(r.is_active),
     updatedAt: (() => { const d = new Date(r.updated_at as Date); return isNaN(d.getTime()) ? null : d.toISOString() })(),
+    weight: r.weight != null ? Number(r.weight) : 0,
+    isFeatured: Boolean(r.is_featured),
+    sortCategory: r.sort_category ? String(r.sort_category) : null,
+    theme: r.theme ? String(r.theme) : null,
+    gameStyle: r.game_style ? String(r.game_style) : null,
+    playerType: r.player_type ? String(r.player_type) : null,
+    descriptionEn: r.description_en ? String(r.description_en) : null,
+    descriptionZh: r.description_zh ? String(r.description_zh) : null,
+    searchKeywords: r.search_keywords ? String(r.search_keywords) : null,
+    weightUpdatedAt: (() => { const d = new Date(r.weight_updated_at as Date); return isNaN(d.getTime()) ? null : d.toISOString() })(),
   }))
 
   return { total, items, providers }

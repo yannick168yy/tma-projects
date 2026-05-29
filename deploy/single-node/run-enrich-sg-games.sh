@@ -19,6 +19,7 @@ HOST="${DEPLOY_HOST:?请设置 DEPLOY_HOST，例如 root@47.84.34.139}"
 DIR="${DEPLOY_DIR:-/root/workspace/tma-projects}"
 ONLY_MISSING="${ONLY_MISSING:-1}"
 BATCH_SIZE="${BATCH_SIZE:-50}"
+MAX_BATCHES="${MAX_BATCHES:-}"
 
 SSH_BASE=(ssh)
 if [[ -n "${SSH_IDENTITY_FILE:-}" ]]; then
@@ -44,11 +45,12 @@ rsync -az --delete \
   "$ROOT/" "$HOST:$DIR/"
 
 echo "==> 在服务器上安装依赖并后台启动 enrich-sg-games..."
-ssh_cmd bash -s "$DIR" "$ONLY_MISSING" "$BATCH_SIZE" <<'REMOTE_EOF'
+ssh_cmd bash -s "$DIR" "$ONLY_MISSING" "$BATCH_SIZE" "$MAX_BATCHES" <<'REMOTE_EOF'
 set -euo pipefail
 DIR="$1"
 ONLY_MISSING="$2"
 BATCH_SIZE="$3"
+MAX_BATCHES="$4"
 
 cd "$DIR/scripts/enrich-sg-games"
 npm install --silent
@@ -67,6 +69,7 @@ MYSQL_USER=tma \
 MYSQL_PASSWORD=tma_dev \
 ONLY_MISSING="$ONLY_MISSING" \
 BATCH_SIZE="$BATCH_SIZE" \
+MAX_BATCHES="$MAX_BATCHES" \
 nohup npm start > "$LOG" 2>&1 &
 
 echo "✅ PID=$!  日志: $LOG"
