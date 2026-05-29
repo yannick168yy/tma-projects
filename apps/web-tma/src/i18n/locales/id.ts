@@ -95,7 +95,7 @@ export default {
     gameHistory: 'RIWAYAT GAME',
     recentWins: 'Kemenangan Terbaru',
     popularGames: 'GAME POPULER',
-    egamesZone: 'ZONA E-GAME',
+    egamesZone: 'SLOT GAMES',
     liveGames: 'GAME LIVE',
     fishingZone: 'GAME MEMANCING',
     crashZone: 'GAME CRASH',

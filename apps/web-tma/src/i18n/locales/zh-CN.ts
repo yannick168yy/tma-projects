@@ -94,7 +94,7 @@ export default {
     gameHistory: '游戏记录',
     recentWins: '最近中奖',
     popularGames: '热门游戏',
-    egamesZone: '电子游戏专区',
+    egamesZone: '老虎机游戏',
     liveGames: '真人游戏',
     fishingZone: '捕鱼游戏',
     crashZone: '飞机游戏',

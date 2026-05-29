@@ -23,8 +23,38 @@ import EGameCard from '@/components/home/EGameCard.vue'
 import LiveCard from '@/components/home/LiveCard.vue'
 import { CATEGORIES } from '@/data/categories'
 import { BANNERS, WINNERS } from '@/data/home'
-import { fetchGames, fetchGameHistory, launchGame, type SlotGame, type GameHistoryItem } from '@/api/slots'
+import { fetchGames, launchGame, type SlotGame, type GameHistoryItem } from '@/api/slots'
 import { ApiError } from '@/api/client'
+
+const HISTORY_STORAGE_KEY = 'betogo_game_history'
+const HISTORY_MAX = 10
+
+function readLocalHistory(): GameHistoryItem[] {
+  try {
+    const raw = localStorage.getItem(HISTORY_STORAGE_KEY)
+    return raw ? (JSON.parse(raw) as GameHistoryItem[]) : []
+  } catch {
+    return []
+  }
+}
+
+function writeLocalHistory(game: SlotGame) {
+  try {
+    const existing = readLocalHistory().filter((g) => g.uuid !== game.uuid)
+    const updated: GameHistoryItem[] = [
+      {
+        uuid: game.uuid,
+        name: game.name,
+        provider: game.provider,
+        imageUrl: game.imageUrl,
+        imageHqUrl: game.imageHqUrl,
+        lastPlayedAt: new Date().toISOString(),
+      },
+      ...existing,
+    ].slice(0, HISTORY_MAX)
+    localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(updated))
+  } catch { /* silent */ }
+}
 
 type CategoryLobbyParams = {
   sortCategory?: string
@@ -45,7 +75,6 @@ const { t } = useI18n()
 const promotion = usePromotionStore()
 const auth = useAuthStore()
 const { highlightMap } = storeToRefs(promotion)
-const { isLoggedIn } = storeToRefs(auth)
 
 const localizedBanners = computed(() =>
   BANNERS.map((b) => ({
@@ -160,6 +189,25 @@ watch(bannerTrackRef, (el) => {
 
 // ── Game data ────────────────────────────────────────────────────────────────
 const launchingUuid = ref<string | null>(null)
+const popularRaw = ref<SlotGame[]>([])
+const slotsRaw = ref<SlotGame[]>([])
+const liveRaw = ref<SlotGame[]>([])
+const fishingRaw = ref<SlotGame[]>([])
+const crashRaw = ref<SlotGame[]>([])
+const tableRaw = ref<SlotGame[]>([])
+const historyGames = ref<GameHistoryItem[]>([])
+const gamesLoading = ref(true)
+
+const gameMap = computed(() => {
+  const m = new Map<string, SlotGame>()
+  for (const g of [
+    ...popularRaw.value, ...slotsRaw.value, ...liveRaw.value,
+    ...fishingRaw.value, ...crashRaw.value, ...tableRaw.value,
+  ]) {
+    if (!m.has(g.uuid)) m.set(g.uuid, g)
+  }
+  return m
+})
 
 async function onGameTap(uuid: string) {
   if (!(await auth.ensureLoggedIn(t('auth.signInPlay')))) return
@@ -167,6 +215,11 @@ async function onGameTap(uuid: string) {
   launchingUuid.value = uuid
   try {
     const { url } = await launchGame(uuid)
+    const game = gameMap.value.get(uuid)
+    if (game) {
+      writeLocalHistory(game)
+      historyGames.value = readLocalHistory()
+    }
     if (window.Telegram?.WebApp?.openLink) {
       window.Telegram.WebApp.openLink(url)
     } else {
@@ -179,22 +232,8 @@ async function onGameTap(uuid: string) {
   }
 }
 
-const popularRaw = ref<SlotGame[]>([])
-const slotsRaw = ref<SlotGame[]>([])
-const liveRaw = ref<SlotGame[]>([])
-const fishingRaw = ref<SlotGame[]>([])
-const crashRaw = ref<SlotGame[]>([])
-const tableRaw = ref<SlotGame[]>([])
-const historyGames = ref<GameHistoryItem[]>([])
-const gamesLoading = ref(true)
-
-async function loadHistory() {
-  try {
-    historyGames.value = await fetchGameHistory(10)
-  } catch { /* silent */ }
-}
-
 onMounted(async () => {
+  historyGames.value = readLocalHistory()
   gamesLoading.value = true
   const [pop, slots, live, fishing, crash, table] = await Promise.allSettled([
     fetchGames({ sortBy: 'ph_bonus', limit: 50 }),
@@ -211,12 +250,6 @@ onMounted(async () => {
   if (crash.status === 'fulfilled') crashRaw.value = crash.value.items
   if (table.status === 'fulfilled') tableRaw.value = table.value.items
   gamesLoading.value = false
-
-  if (isLoggedIn.value) void loadHistory()
-})
-
-watch(isLoggedIn, (loggedIn) => {
-  if (loggedIn && historyGames.value.length === 0) void loadHistory()
 })
 
 // ── Deduplication cascade ────────────────────────────────────────────────────
@@ -336,7 +369,7 @@ const tableGames = computed(() => {
           <h3 class="text-foreground font-black text-sm font-display">{{ t('home.gameHistory') }}</h3>
         </div>
       </div>
-      <div v-if="isLoggedIn && historyGames.length > 0" class="flex gap-3 px-4 overflow-x-auto hide-scrollbar">
+      <div v-if="historyGames.length > 0" class="flex gap-3 px-4 overflow-x-auto hide-scrollbar">
         <HistoryCard
           v-for="g in historyGames"
           :key="g.uuid"
@@ -344,7 +377,7 @@ const tableGames = computed(() => {
           @tap="onGameTap(g.uuid)"
         />
       </div>
-      <div v-else-if="!isLoggedIn || historyGames.length === 0" class="px-4">
+      <div v-else class="px-4">
         <p class="text-muted-foreground text-xs">{{ t('home.noHistory') }}</p>
       </div>
     </section>

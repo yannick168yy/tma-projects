@@ -95,7 +95,7 @@ export default {
     gameHistory: 'GAME HISTORY',
     recentWins: 'Recent Wins',
     popularGames: 'POPULAR GAMES',
-    egamesZone: 'E-GAMES ZONE',
+    egamesZone: 'SLOT GAMES',
     liveGames: 'LIVE GAMES',
     fishingZone: 'FISHING GAMES',
     crashZone: 'CRASH GAMES',

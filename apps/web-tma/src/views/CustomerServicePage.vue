@@ -4,11 +4,9 @@ import { Send, Headphones, Loader2 } from 'lucide-vue-next'
 import { sendCsMessage, fetchCsHistory } from '@/api/cs'
 import type { CsMessage } from '@/api/cs'
 import { useAuthStore } from '@/stores/auth'
-import { useI18n } from 'vue-i18n'
 
 const emit = defineEmits<{ close: [] }>()
 
-const { t } = useI18n()
 const auth = useAuthStore()
 const messages = ref<CsMessage[]>([])
 const inputText = ref('')

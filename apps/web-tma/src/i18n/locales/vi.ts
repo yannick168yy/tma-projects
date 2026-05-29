@@ -95,7 +95,7 @@ export default {
     gameHistory: 'LỊCH SỬ GAME',
     recentWins: 'Thắng gần đây',
     popularGames: 'GAME PHỔ BIẾN',
-    egamesZone: 'KHU E-GAME',
+    egamesZone: 'SLOT GAMES',
     liveGames: 'GAME TRỰC TIẾP',
     fishingZone: 'GAME BẮN CÁ',
     crashZone: 'GAME CRASH',
