@@ -33,7 +33,7 @@
                   {{ detail.user.lastLoginIp }}
                 </a-typography-text>
               </a-descriptions-item>
-              <a-descriptions-item label="余额">₱{{ (detail.wallet.available / 100).toFixed(2) }}</a-descriptions-item>
+              <a-descriptions-item label="余额">₱{{ Number(detail.wallet.available).toFixed(2) }}</a-descriptions-item>
             </a-descriptions>
           </a-card>
         </a-col>
@@ -67,10 +67,10 @@
               </div>
               <a-divider />
               <div>
-                <div style="margin-bottom:8px; font-weight:500">调整余额（单位：分，正加负减）</div>
+                <div style="margin-bottom:8px; font-weight:500">调整余额（正加负减）</div>
                 <a-space direction="vertical" style="width:100%">
                   <a-space>
-                    <a-input-number v-model:value="adjustCents" style="width:150px" placeholder="金额(分)" />
+                    <a-input-number v-model:value="adjustAmount" :step="0.01" :precision="2" style="width:150px" placeholder="金额" />
                     <a-input v-model:value="adjustNote" placeholder="备注" style="width:200px" />
                   </a-space>
                   <a-space>
@@ -188,7 +188,7 @@ const actTab = ref('ledger')
 const newStatus = ref('active')
 const statusReason = ref('')
 const newLabel = ref('normal')
-const adjustCents = ref(0)
+const adjustAmount = ref(0)
 const adjustNote = ref('')
 const adjustOpPwd = ref('')
 
@@ -197,8 +197,8 @@ const profileForm = ref({ firstName: '', lastName: '', gender: '', dobMonth: '',
 
 const ledgerCols = [
   { title: '类型', dataIndex: 'type', key: 'type', width: 110 },
-  { title: '金额(分)', dataIndex: 'amount', key: 'amount', width: 100 },
-  { title: '余额(分)', dataIndex: 'balanceAfter', key: 'balanceAfter', width: 100 },
+  { title: '金额(元)', dataIndex: 'amount', key: 'amount', width: 100 },
+  { title: '余额(元)', dataIndex: 'balanceAfter', key: 'balanceAfter', width: 100 },
   { title: '描述', dataIndex: 'description', key: 'desc' },
   { title: '时间', dataIndex: 'createdAt', key: 'at', width: 160, customRender: ({ value }: { value: string }) => new Date(value).toLocaleString('zh-CN') },
 ]
@@ -213,7 +213,7 @@ const loginCols = [
 
 const betCols = [
   { title: '类型', dataIndex: 'betType', key: 'type', width: 80 },
-  { title: '金额(分)', dataIndex: 'amountCents', key: 'amt', width: 100 },
+  { title: '金额(元)', dataIndex: 'amount', key: 'amt', width: 100 },
   { title: '状态', dataIndex: 'status', key: 'status', width: 80 },
   { title: 'Round ID', dataIndex: 'roundId', key: 'round', ellipsis: true },
   { title: '时间', dataIndex: 'createdAt', key: 'at', width: 160, customRender: ({ value }: { value: string }) => new Date(value).toLocaleString('zh-CN') },
@@ -285,14 +285,14 @@ async function doUpdateLabel() {
 }
 
 async function doAdjust() {
-  if (!adjustCents.value) { message.warning('请填写调整金额'); return }
+  if (!adjustAmount.value) { message.warning('请填写调整金额'); return }
   if (!adjustOpPwd.value) { message.warning('请输入操作密码'); return }
   opLoading.value = true
   try {
-    const res = await adjustBalance(id, adjustCents.value, adjustOpPwd.value, adjustNote.value || undefined)
-    message.success(`余额已调整，订单: ${res.orderId}，当前余额: ₱${(res.available / 100).toFixed(2)}`)
+    const res = await adjustBalance(id, adjustAmount.value, adjustOpPwd.value, adjustNote.value || undefined)
+    message.success(`余额已调整，订单: ${res.orderId}，当前余额: ₱${Number(res.available).toFixed(2)}`)
     adjustOpPwd.value = ''
-    adjustCents.value = 0
+    adjustAmount.value = 0
     adjustNote.value = ''
     await load()
   } catch (e) {

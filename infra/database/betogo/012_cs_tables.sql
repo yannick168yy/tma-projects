@@ -1,4 +1,5 @@
 -- 012: AI 客服表（会话 / 消息 / FAQ 知识库）— 全部幂等
+SET NAMES utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `cs_conversation` (
   `id`                BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,

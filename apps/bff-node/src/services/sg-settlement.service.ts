@@ -65,20 +65,20 @@ async function fetchAllSgTransactions(env: Env, date: string): Promise<SgTxnItem
 async function queryLocalTotals(
   env: Env,
   date: string,
-): Promise<{ betCents: number; winCents: number }> {
+): Promise<{ betTotal: number; winTotal: number }> {
   const db = getMysqlPool(env)
   const [rows] = await db.query<RowDataPacket[]>(
     `SELECT
-       SUM(CASE WHEN bet_type = 'bet'    THEN amount_cents ELSE 0 END) AS bet_cents,
-       SUM(CASE WHEN bet_type IN ('win','refund') THEN amount_cents ELSE 0 END) AS win_cents
+       SUM(CASE WHEN bet_type = 'bet'    THEN amount ELSE 0 END) AS bet_total,
+       SUM(CASE WHEN bet_type IN ('win','refund') THEN amount ELSE 0 END) AS win_total
      FROM bg_bet_order
      WHERE aggregator_id = 'slotegrator'
        AND DATE(created_at) = ?`,
     [date],
   )
   return {
-    betCents: Number(rows[0]?.bet_cents ?? 0),
-    winCents: Number(rows[0]?.win_cents ?? 0),
+    betTotal: Number(rows[0]?.bet_total ?? 0),
+    winTotal: Number(rows[0]?.win_total ?? 0),
   }
 }
 
@@ -110,17 +110,15 @@ export async function runDailyReconciliation(env: Env, date: string): Promise<vo
   }
   const sgGgr = sgBet - sgWin
 
-  // 本地汇总（PHP 分）
+  // 本地汇总（PHP 元）
   const local = await queryLocalTotals(env, date)
 
-  // 差异判断（容忍 1 分的浮点误差）
-  // SG 金额是原币，本地是 PHP 分，直接比较时用各自的单位，记录差异说明
   const sgRoundCount = new Set(sgItems.map((i) => i.round_id)).size
   let discrepancyNote: string | null = null
 
-  if (sgItems.length === 0 && local.betCents === 0) {
+  if (sgItems.length === 0 && local.betTotal === 0) {
     discrepancyNote = null // 当日无数据，一致
-  } else if (Math.abs(sgItems.length - (local.betCents > 0 ? sgItems.length : 0)) > 0) {
+  } else if (Math.abs(sgItems.length - (local.betTotal > 0 ? sgItems.length : 0)) > 0) {
     // 粗略检查：SG 事务数 vs 本地记录数
     const localTxnCount = await db.query<RowDataPacket[]>(
       `SELECT COUNT(*) AS cnt FROM bg_bet_order
@@ -137,18 +135,18 @@ export async function runDailyReconciliation(env: Env, date: string): Promise<vo
   await db.execute(
     `INSERT INTO sg_settlement_report
        (report_date, currency, sg_bet_amount, sg_win_amount, sg_ggr, sg_round_count,
-        local_bet_cents, local_win_cents, discrepancy_note, raw_data, fetched_at, reconciled)
+        local_bet, local_win, discrepancy_note, raw_data, fetched_at, reconciled)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(3), ?)
      ON DUPLICATE KEY UPDATE
        sg_bet_amount=VALUES(sg_bet_amount), sg_win_amount=VALUES(sg_win_amount),
        sg_ggr=VALUES(sg_ggr), sg_round_count=VALUES(sg_round_count),
-       local_bet_cents=VALUES(local_bet_cents), local_win_cents=VALUES(local_win_cents),
+       local_bet=VALUES(local_bet), local_win=VALUES(local_win),
        discrepancy_note=VALUES(discrepancy_note), raw_data=VALUES(raw_data),
        fetched_at=VALUES(fetched_at), reconciled=VALUES(reconciled)`,
     [
       date, sgCurrency,
       sgBet.toFixed(4), sgWin.toFixed(4), sgGgr.toFixed(4), sgRoundCount,
-      local.betCents, local.winCents,
+      local.betTotal, local.winTotal,
       discrepancyNote,
       JSON.stringify({ total: sgItems.length, sample: sgItems.slice(0, 3) }),
       discrepancyNote === null ? 1 : 0,

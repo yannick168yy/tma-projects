@@ -8,12 +8,12 @@ export async function fetchBalance(): Promise<WalletBalance> {
   if (useMock) return mock.mockGetBalance()
   const list = await apiRequest<Array<{ currency: string; available: number; frozen: number }>>('/wallet/balances')
   const php = list.find((b) => b.currency === 'PHP')
-  const cents = php?.available ?? 0
+  const amount = php?.available ?? 0
   return {
     currency: 'PHP',
-    availableCents: cents,
+    availableCents: amount,
     frozenCents: php?.frozen ?? 0,
-    displayPhp: `₱ ${(cents / 100).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+    displayPhp: `₱ ${amount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
   }
 }
 

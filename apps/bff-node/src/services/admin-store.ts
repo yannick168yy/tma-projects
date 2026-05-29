@@ -134,7 +134,7 @@ export interface DashboardStats {
   todayWithdrawCount: number
   todayWithdrawAmount: number
   pendingWithdrawCount: number
-  totalBalanceCents: number
+  totalBalance: number
 }
 
 export async function getDashboardStats(env: Env): Promise<DashboardStats> {
@@ -156,7 +156,7 @@ export async function getDashboardStats(env: Env): Promise<DashboardStats> {
   const todayDepositAmount = Number(dRows[0]?.amt ?? 0)
 
   const [wdRows] = await pool(env).query<RowDataPacket[]>(
-    `SELECT COUNT(*) as cnt, COALESCE(SUM(amount_cents),0) as amt
+    `SELECT COUNT(*) as cnt, COALESCE(SUM(amount),0) as amt
      FROM bg_order_withdraw WHERE DATE(created_at) = CURDATE() AND status IN ('completed','processing')`,
   )
   const todayWithdrawCount = Number(wdRows[0]?.cnt ?? 0)
@@ -168,15 +168,15 @@ export async function getDashboardStats(env: Env): Promise<DashboardStats> {
   const pendingWithdrawCount = Number(pwRows[0]?.cnt ?? 0)
 
   const [balRows] = await pool(env).query<RowDataPacket[]>(
-    `SELECT COALESCE(SUM(available_cents),0) as total FROM bg_wallet`,
+    `SELECT COALESCE(SUM(available),0) as total FROM bg_wallet`,
   )
-  const totalBalanceCents = Number(balRows[0]?.total ?? 0)
+  const totalBalance = Number(balRows[0]?.total ?? 0)
 
   return {
     totalUsers, activeUsers, frozenUsers,
     todayDepositCount, todayDepositAmount,
     todayWithdrawCount, todayWithdrawAmount,
-    pendingWithdrawCount, totalBalanceCents,
+    pendingWithdrawCount, totalBalance,
   }
 }
 
@@ -209,7 +209,7 @@ export async function listAdminUsers(
   const [rows] = await pool(env).query<RowDataPacket[]>(
     `SELECT u.id, u.display_name, u.email, u.telegram_username, u.status, u.label,
             u.last_login_at, u.last_login_region, u.register_region, u.registered_at,
-            COALESCE(w.available_cents,0) as available_cents
+            COALESCE(w.available,0) as available
      FROM bg_user u
      LEFT JOIN bg_wallet w ON w.user_id = u.id
      ${where}
@@ -228,8 +228,8 @@ export async function listAdminUsers(
     lastLoginAt: r.last_login_at ? new Date(r.last_login_at as Date).toISOString() : null,
     lastLoginRegion: r.last_login_region ? String(r.last_login_region) : null,
     registerRegion: r.register_region ? String(r.register_region) : null,
-    registeredAt: new Date(r.registered_at as Date).toISOString(),
-    balanceCents: Number(r.available_cents),
+    registeredAt: (() => { const d = new Date(r.registered_at as Date); return isNaN(d.getTime()) ? null : d.toISOString() })(),
+    balance: Number(r.available),
   }))
 
   return { total, items }
@@ -267,7 +267,7 @@ export async function listAdminDeposits(
     status: String(r.status),
     createdAt: new Date(r.created_at as Date).toISOString(),
     paidAt: r.paid_at ? new Date(r.paid_at as Date).toISOString() : null,
-    creditedCents: r.credited_cents != null ? Number(r.credited_cents) : null,
+    credited: r.credited != null ? Number(r.credited) : null,
   }))
 
   return { total, items }
@@ -300,9 +300,9 @@ export async function getBetOrders(
   env: Env,
   userId: string,
   limit = 30,
-): Promise<{ id: number; providerTxnId: string; roundId: string | null; betType: string; amountCents: number; status: string; createdAt: string }[]> {
+): Promise<{ id: number; providerTxnId: string; roundId: string | null; betType: string; amount: number; status: string; createdAt: string }[]> {
   const [rows] = await pool(env).query<RowDataPacket[]>(
-    `SELECT id, provider_txn_id, round_id, bet_type, amount_cents, status, created_at
+    `SELECT id, provider_txn_id, round_id, bet_type, amount, status, created_at
      FROM bg_bet_order WHERE user_id = ? ORDER BY created_at DESC LIMIT ?`,
     [userId, limit],
   )
@@ -311,7 +311,7 @@ export async function getBetOrders(
     providerTxnId: String(r.provider_txn_id),
     roundId: r.round_id ? String(r.round_id) : null,
     betType: String(r.bet_type),
-    amountCents: Number(r.amount_cents),
+    amount: Number(r.amount),
     status: String(r.status),
     createdAt: new Date(r.created_at as Date).toISOString(),
   }))
@@ -337,7 +337,11 @@ export async function listAdminGames(
   const total = Number(countRows[0]?.cnt ?? 0)
 
   const [rows] = await pool(env).query<RowDataPacket[]>(
-    `SELECT uuid, name, provider, category, sub_category, image_url, has_demo, has_lobby, is_mobile, is_active, updated_at
+    `SELECT uuid, name, type, provider, provider_id, technology,
+            category, sub_category, image_url, image_hq_url,
+            has_demo, has_lobby, is_mobile, has_freespins, has_tables,
+            label, rtp, volatility, reels_count, lines_count,
+            tags, is_active, updated_at
      FROM sg_games ${where} ORDER BY provider, name LIMIT ? OFFSET ?`,
     [...params, opts.pageSize, offset],
   )
@@ -348,15 +352,27 @@ export async function listAdminGames(
   const items = rows.map((r) => ({
     uuid: String(r.uuid),
     name: String(r.name),
+    type: r.type ? String(r.type) : null,
     provider: String(r.provider),
+    providerId: r.provider_id ? Number(r.provider_id) : null,
+    technology: r.technology ? String(r.technology) : null,
     category: r.category ? String(r.category) : null,
     subCategory: r.sub_category ? String(r.sub_category) : null,
     imageUrl: r.image_url ? String(r.image_url) : null,
+    imageHqUrl: r.image_hq_url ? String(r.image_hq_url) : null,
     hasDemo: Boolean(r.has_demo),
     hasLobby: Boolean(r.has_lobby),
     isMobile: Boolean(r.is_mobile),
+    hasFreespins: Boolean(r.has_freespins),
+    hasTables: Boolean(r.has_tables),
+    label: r.label ? String(r.label) : null,
+    rtp: r.rtp != null ? Number(r.rtp) : null,
+    volatility: r.volatility ? String(r.volatility) : null,
+    reelsCount: r.reels_count ? String(r.reels_count) : null,
+    linesCount: r.lines_count ? Number(r.lines_count) : null,
+    tags: r.tags ? (typeof r.tags === 'string' ? JSON.parse(r.tags) : r.tags) : [],
     isActive: Boolean(r.is_active),
-    updatedAt: new Date(r.updated_at as Date).toISOString(),
+    updatedAt: (() => { const d = new Date(r.updated_at as Date); return isNaN(d.getTime()) ? null : d.toISOString() })(),
   }))
 
   return { total, items, providers }
@@ -407,7 +423,7 @@ export async function listAdminWithdrawals(
   const items = rows.map((r) => ({
     orderId: String(r.order_id),
     userId: String(r.user_id),
-    amount: Number(r.amount_cents),
+    amount: Number(r.amount),
     currency: String(r.currency),
     channelId: String(r.channel_id),
     status: String(r.status),

@@ -1,6 +1,6 @@
 import Router from '@koa/router'
 import { creditWallet, getUser, listLedger, saveUser } from '../services/store.js'
-import { formatDisplayTime, nowIso, phpToCents } from '../utils/format.js'
+import { formatDisplayTime, nowIso } from '../utils/format.js'
 import { fail, ok } from '../utils/response.js'
 
 const PROMOS = [
@@ -89,14 +89,13 @@ router.post('/trial-play/claim', async (ctx) => {
   }
   user.trialClaimed = true
   await saveUser(ctx.state.redis, user)
-  const cents = phpToCents(88)
-  await creditWallet(ctx.state.redis, user.id, cents, {
+  await creditWallet(ctx.state.redis, user.id, 88, {
     type: 'red_packet',
     description: 'Trial Officer red packet',
     createdAt: nowIso(),
     traceId: ctx.state.traceId,
   })
-  ok(ctx, { amountPhp: 88, amountCents: cents })
+  ok(ctx, { amountPhp: 88, amountCents: 88 })
 })
 
 router.get('/referral', async (ctx) => {
@@ -143,7 +142,7 @@ router.get('/red-packets', async (ctx) => {
     .map((e) => ({
       id: e.id,
       type: e.description,
-      amountPhp: e.amount / 100,
+      amountPhp: e.amount,
       createdAt: formatDisplayTime(e.createdAt),
     }))
   if (user?.trialClaimed && !items.length) {
@@ -185,14 +184,13 @@ router.post('/:promoId/claim', async (ctx) => {
     user.referralClaimed = true
     user.referralReady = false
     await saveUser(ctx.state.redis, user)
-    const cents = phpToCents(50)
-    await creditWallet(ctx.state.redis, user.id, cents, {
+    await creditWallet(ctx.state.redis, user.id, 50, {
       type: 'bonus',
       description: 'Referral bonus',
       createdAt: nowIso(),
       traceId: ctx.state.traceId,
     })
-    ok(ctx, { amountPhp: 50, amountCents: cents })
+    ok(ctx, { amountPhp: 50, amountCents: 50 })
     return
   }
   if (promoId === 'firstdep') {
@@ -203,14 +201,13 @@ router.post('/:promoId/claim', async (ctx) => {
     user.firstDepClaimed = true
     user.firstDepReady = false
     await saveUser(ctx.state.redis, user)
-    const cents = phpToCents(1000)
-    await creditWallet(ctx.state.redis, user.id, cents, {
+    await creditWallet(ctx.state.redis, user.id, 1000, {
       type: 'bonus',
       description: 'First deposit bonus',
       createdAt: nowIso(),
       traceId: ctx.state.traceId,
     })
-    ok(ctx, { amountPhp: 1000, amountCents: cents })
+    ok(ctx, { amountPhp: 1000, amountCents: 1000 })
     return
   }
   fail(ctx, 404, 'Promotion not found', 404)

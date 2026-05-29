@@ -16,19 +16,51 @@ export async function syncAllGames(env: Env): Promise<{ synced: number }> {
     pageCount = res._meta.pageCount
 
     for (const g of res.items) {
+      const isMobile = g.is_mobile ?? g.mobile ?? 0
+      const tags = g.tags?.length
+        ? JSON.stringify(g.tags.map((t) => (typeof t === 'string' ? t : t.code)))
+        : null
+      const hqImage = g.images?.find((i) => i.type === 'high-quality')?.url ?? null
+
       await db.execute(
-        `INSERT INTO sg_games (uuid, name, provider, category, sub_category, image_url, has_demo, has_lobby, is_mobile, tags, features)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `INSERT INTO sg_games
+           (uuid, name, type, provider, provider_id, technology,
+            category, sub_category, image_url, image_hq_url,
+            has_demo, has_lobby, is_mobile, has_freespins, has_tables,
+            label, rtp, volatility, reels_count, lines_count, tags)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON DUPLICATE KEY UPDATE
-           name=VALUES(name), provider=VALUES(provider), category=VALUES(category),
-           sub_category=VALUES(sub_category), image_url=VALUES(image_url),
+           name=VALUES(name), type=VALUES(type),
+           provider=VALUES(provider), provider_id=VALUES(provider_id), technology=VALUES(technology),
+           category=VALUES(category), sub_category=VALUES(sub_category),
+           image_url=VALUES(image_url), image_hq_url=VALUES(image_hq_url),
            has_demo=VALUES(has_demo), has_lobby=VALUES(has_lobby), is_mobile=VALUES(is_mobile),
-           tags=VALUES(tags), features=VALUES(features), updated_at=NOW(3)`,
+           has_freespins=VALUES(has_freespins), has_tables=VALUES(has_tables),
+           label=VALUES(label), rtp=VALUES(rtp), volatility=VALUES(volatility),
+           reels_count=VALUES(reels_count), lines_count=VALUES(lines_count),
+           tags=VALUES(tags), updated_at=NOW(3)`,
         [
-          g.uuid, g.name, g.provider, g.category ?? null, g.sub_category ?? null,
-          g.image ?? null, g.has_demo ? 1 : 0, g.has_lobby ? 1 : 0, g.mobile ? 1 : 0,
-          g.tags?.length ? JSON.stringify(g.tags) : null,
-          g.features?.length ? JSON.stringify(g.features) : null,
+          g.uuid,
+          g.name,
+          g.type ?? null,
+          g.provider,
+          g.provider_id ?? null,
+          g.technology ?? null,
+          g.category ?? null,
+          g.sub_category ?? null,
+          g.image ?? null,
+          hqImage,
+          g.has_demo ? 1 : 0,
+          g.has_lobby ? 1 : 0,
+          isMobile ? 1 : 0,
+          g.has_freespins ? 1 : 0,
+          g.has_tables ? 1 : 0,
+          g.label ?? null,
+          g.parameters?.rtp ?? null,
+          g.parameters?.volatility ?? null,
+          g.parameters?.reels_count ?? null,
+          g.parameters?.lines_count ?? null,
+          tags,
         ],
       )
       synced++
@@ -69,7 +101,7 @@ export async function listGames(
   const { page = 1, limit = 30, search, provider, category } = opts
   const offset = (page - 1) * limit
 
-  const conds: string[] = []
+  const conds: string[] = ['is_active = 1']
   const vals: unknown[] = []
 
   if (search) {
@@ -85,7 +117,7 @@ export async function listGames(
     vals.push(category)
   }
 
-  const where = conds.length ? `WHERE ${conds.join(' AND ')}` : ''
+  const where = `WHERE ${conds.join(' AND ')}`
 
   const [[{ total }]] = await db.query<RowDataPacket[]>(
     `SELECT COUNT(*) AS total FROM sg_games ${where}`,

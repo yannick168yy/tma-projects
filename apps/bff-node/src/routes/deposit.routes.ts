@@ -121,7 +121,7 @@ router.get('/:orderId', async (ctx) => {
     status: order.status,
     amount: order.amount,
     currency: order.currency,
-    paidAmount: order.status === 'paid' ? (order.creditedCents ?? 0) / 100 : 0,
+    paidAmount: order.status === 'paid' ? (order.creditedCents ?? 0) : 0,
   })
 })
 

@@ -17,7 +17,7 @@ router.get('/', async (ctx) => {
   const [items] = await pool.query<import('mysql2/promise').RowDataPacket[]>(
     `SELECT id, report_date, currency,
             sg_bet_amount, sg_win_amount, sg_ggr, sg_round_count,
-            local_bet_cents, local_win_cents,
+            local_bet, local_win,
             discrepancy_note, reconciled, fetched_at
      FROM sg_settlement_report
      ORDER BY report_date DESC, id DESC

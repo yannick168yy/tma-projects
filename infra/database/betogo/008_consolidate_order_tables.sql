@@ -34,8 +34,8 @@ BEGIN
   IF (SELECT COUNT(*) FROM information_schema.TABLES
       WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'bg_deposit_order') > 0 THEN
     INSERT IGNORE INTO `bg_order_deposit`
-      (order_id, user_id, amount, currency, credited_cents, channel_id, status, provider, paid_at, created_at, updated_at)
-    SELECT order_id, user_id, amount, currency, credited_cents, channel_id, status,
+      (order_id, user_id, amount, currency, credited, channel_id, status, provider, paid_at, created_at, updated_at)
+    SELECT order_id, user_id, amount, currency, credited_cents / 100, channel_id, status,
            COALESCE(provider, 'ammer_pay'), paid_at, created_at, updated_at
     FROM `bg_deposit_order`;
   END IF;
@@ -44,24 +44,34 @@ DELIMITER ;
 CALL `__migrate_008_deposit`();
 DROP PROCEDURE IF EXISTS `__migrate_008_deposit`;
 
--- 迁移 YFPay 存款（bg_payment_order type=deposit）
-INSERT IGNORE INTO `bg_order_deposit`
-  (order_id, user_id, amount, currency, credited_cents, channel_id, status, provider, provider_ref, extra_data, paid_at, created_at)
-SELECT
-  merchant_serial,
-  user_id,
-  amount_cents / 100.0,
-  'PHP',
-  CASE WHEN state = 2 THEN amount_cents ELSE NULL END,
-  CONCAT('yfpay_', LOWER(COALESCE(SUBSTRING_INDEX(channel_code, '-', 1), 'unknown'))),
-  CASE WHEN state = 2 THEN 'paid' WHEN state = 3 THEN 'failed' ELSE 'pending' END,
-  'yfpay',
-  platform_id,
-  JSON_OBJECT('channelCode', COALESCE(channel_code,''), 'payUrl', COALESCE(pay_url,''), 'state', state),
-  CASE WHEN state = 2 THEN notify_at ELSE NULL END,
-  created_at
-FROM `bg_payment_order`
-WHERE type = 'deposit';
+-- 迁移 YFPay 存款（bg_payment_order type=deposit，动态适配列名）
+DROP PROCEDURE IF EXISTS `__migrate_008_yfpay_deposit`;
+DELIMITER //
+CREATE PROCEDURE `__migrate_008_yfpay_deposit`()
+BEGIN
+  IF (SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='bg_payment_order') > 0 THEN
+    SET @amt_col = IF(
+      (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='bg_payment_order' AND COLUMN_NAME='amount_cents') > 0,
+      'amount_cents / 100.0', 'amount'
+    );
+    SET @sql = CONCAT(
+      'INSERT IGNORE INTO `bg_order_deposit`',
+      ' (order_id, user_id, amount, currency, credited, channel_id, status, provider, provider_ref, extra_data, paid_at, created_at)',
+      ' SELECT merchant_serial, user_id, ', @amt_col, ', ''PHP'',',
+      ' CASE WHEN state = 2 THEN ', @amt_col, ' ELSE NULL END,',
+      ' CONCAT(''yfpay_'', LOWER(COALESCE(SUBSTRING_INDEX(channel_code, ''-'', 1), ''unknown''))),',
+      ' CASE WHEN state = 2 THEN ''paid'' WHEN state = 3 THEN ''failed'' ELSE ''pending'' END,',
+      ' ''yfpay'', platform_id,',
+      ' JSON_OBJECT(''channelCode'', COALESCE(channel_code,''''), ''payUrl'', COALESCE(pay_url,''''), ''state'', state),',
+      ' CASE WHEN state = 2 THEN notify_at ELSE NULL END, created_at',
+      ' FROM `bg_payment_order` WHERE type = ''deposit'''
+    );
+    PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+  END IF;
+END //
+DELIMITER ;
+CALL `__migrate_008_yfpay_deposit`();
+DROP PROCEDURE IF EXISTS `__migrate_008_yfpay_deposit`;
 
 -- ────────────────────────────────────────────────────────────────
 -- bg_order_withdraw
@@ -69,7 +79,7 @@ WHERE type = 'deposit';
 CREATE TABLE IF NOT EXISTS `bg_order_withdraw` (
   `order_id`      varchar(64)     NOT NULL,
   `user_id`       varchar(32)     NOT NULL,
-  `amount_cents`  bigint          NOT NULL,
+  `amount`        DECIMAL(18,4)   NOT NULL,
   `currency`      char(3)         NOT NULL DEFAULT 'PHP',
   `channel_id`    varchar(32)     NOT NULL DEFAULT 'tg_wallet',
   `status`        varchar(20)     NOT NULL DEFAULT 'pending',
@@ -95,8 +105,8 @@ BEGIN
   IF (SELECT COUNT(*) FROM information_schema.TABLES
       WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'bg_withdraw_order') > 0 THEN
     INSERT IGNORE INTO `bg_order_withdraw`
-      (order_id, user_id, amount_cents, currency, channel_id, status, reject_reason, completed_at, created_at, updated_at)
-    SELECT order_id, user_id, amount_cents, currency, channel_id, status, reject_reason, completed_at, created_at, updated_at
+      (order_id, user_id, amount, currency, channel_id, status, reject_reason, completed_at, created_at, updated_at)
+    SELECT order_id, user_id, amount_cents / 100, currency, channel_id, status, reject_reason, completed_at, created_at, updated_at
     FROM `bg_withdraw_order`;
   END IF;
 END //
@@ -104,23 +114,33 @@ DELIMITER ;
 CALL `__migrate_008_withdraw`();
 DROP PROCEDURE IF EXISTS `__migrate_008_withdraw`;
 
--- 迁移 YFPay 提款（bg_payment_order type=withdrawal）
-INSERT IGNORE INTO `bg_order_withdraw`
-  (order_id, user_id, amount_cents, currency, channel_id, status, provider, provider_ref, extra_data, completed_at, created_at)
-SELECT
-  merchant_serial,
-  user_id,
-  amount_cents,
-  'PHP',
-  CONCAT('yfpay_', LOWER(COALESCE(option_code, 'unknown'))),
-  CASE WHEN state = 1 THEN 'completed' WHEN state IN (2,3) THEN 'rejected' ELSE 'pending' END,
-  'yfpay',
-  platform_id,
-  JSON_OBJECT('optionCode', COALESCE(option_code,''), 'targetAccount', COALESCE(target_account,''), 'targetOwner', COALESCE(target_owner,'')),
-  CASE WHEN state = 1 THEN notify_at ELSE NULL END,
-  created_at
-FROM `bg_payment_order`
-WHERE type = 'withdrawal';
+-- 迁移 YFPay 提款（bg_payment_order type=withdrawal，动态适配列名）
+DROP PROCEDURE IF EXISTS `__migrate_008_yfpay_withdraw`;
+DELIMITER //
+CREATE PROCEDURE `__migrate_008_yfpay_withdraw`()
+BEGIN
+  IF (SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='bg_payment_order') > 0 THEN
+    SET @amt_col = IF(
+      (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='bg_payment_order' AND COLUMN_NAME='amount_cents') > 0,
+      'amount_cents / 100.0', 'amount'
+    );
+    SET @sql = CONCAT(
+      'INSERT IGNORE INTO `bg_order_withdraw`',
+      ' (order_id, user_id, amount, currency, channel_id, status, provider, provider_ref, extra_data, completed_at, created_at)',
+      ' SELECT merchant_serial, user_id, ', @amt_col, ', ''PHP'',',
+      ' CONCAT(''yfpay_'', LOWER(COALESCE(option_code, ''unknown''))),',
+      ' CASE WHEN state = 1 THEN ''completed'' WHEN state IN (2,3) THEN ''rejected'' ELSE ''pending'' END,',
+      ' ''yfpay'', platform_id,',
+      ' JSON_OBJECT(''optionCode'', COALESCE(option_code,''''), ''targetAccount'', COALESCE(target_account,''''), ''targetOwner'', COALESCE(target_owner,'''')),',
+      ' CASE WHEN state = 1 THEN notify_at ELSE NULL END, created_at',
+      ' FROM `bg_payment_order` WHERE type = ''withdrawal'''
+    );
+    PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+  END IF;
+END //
+DELIMITER ;
+CALL `__migrate_008_yfpay_withdraw`();
+DROP PROCEDURE IF EXISTS `__migrate_008_yfpay_withdraw`;
 
 -- 更新 bg_wallet_ledger 中的 ref_type（如有需要可跳过，ref_id 不变）
 -- ref_type 值为 'deposit'/'withdraw'，与表名无关，保持不变

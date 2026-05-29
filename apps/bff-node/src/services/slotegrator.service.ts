@@ -4,10 +4,10 @@ import type { Env } from '../config/env.js'
 // ── Signing ──────────────────────────────────────────────────────────────────
 
 function buildSignPayload(params: Record<string, string | number>): string {
-  return Object.keys(params)
-    .sort()
-    .map((k) => `${k}=${encodeURIComponent(String(params[k]))}`)
-    .join('&')
+  const sorted = Object.keys(params).sort()
+  const usp = new URLSearchParams()
+  for (const k of sorted) usp.append(k, String(params[k]))
+  return usp.toString()
 }
 
 export function sgSign(params: Record<string, string | number>, merchantKey: string): string {
@@ -90,15 +90,28 @@ async function sgGet<T>(path: string, params: Record<string, string | number>, e
 export interface SgGame {
   uuid: string
   name: string
-  provider: string
-  category: string
-  sub_category?: string
+  type?: string
   image: string
-  has_demo: 0 | 1
+  provider: string
+  provider_id?: number
+  technology?: string
+  category?: string
+  sub_category?: string
+  has_demo?: 0 | 1
   has_lobby: 0 | 1
-  mobile: 0 | 1
-  tags?: string[]
-  features?: string[]
+  is_mobile: 0 | 1
+  mobile?: 0 | 1
+  has_freespins?: 0 | 1
+  has_tables?: 0 | 1
+  label?: string
+  tags?: Array<{ code: string; label: string } | string>
+  parameters?: {
+    rtp?: number | null
+    volatility?: string | null
+    reels_count?: string | null
+    lines_count?: number | null
+  }
+  images?: Array<{ name: string; file: string; url: string; type: string }>
 }
 
 export interface SgGamesPage {
@@ -112,7 +125,7 @@ export interface SgGamesPage {
 }
 
 export function fetchSgGames(env: Env, page = 1): Promise<SgGamesPage> {
-  return sgGet<SgGamesPage>('/games', { page, 'per-page': 50 }, env)
+  return sgGet<SgGamesPage>('/games', { page, 'per-page': 50, expand: 'tags,parameters,images' }, env)
 }
 
 // ── Game init ─────────────────────────────────────────────────────────────────

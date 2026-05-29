@@ -54,7 +54,7 @@ router.post('/deposit/yfpay/create', async (ctx) => {
       orderId: merchantSerial,
       userId: ctx.state.userId!,
       amount,                              // PHP 元（浮点），供对账展示用
-      creditedCents: Math.round(amount * 100), // 实际入账分数，显式存储避免回调时单位换算歧义
+      creditedCents: amount, // 实际入账金额（PHP 元）
       currency: 'PHP',
       channelId: `yfpay_${channelCode.split('-')[0].toLowerCase()}`,
       status: 'pending',
@@ -115,7 +115,7 @@ router.get('/deposit/yfpay/orders', async (ctx) => {
   const yfOrders = orders.filter((o) => o.provider === 'yfpay')
   ok(ctx, yfOrders.map((o) => ({
     merchantSerial: o.orderId,
-    amountCents: Math.round(o.amount * 100),
+    amount: o.amount,
     state: o.status === 'paid' ? 2 : o.status === 'failed' ? 3 : 0,
     channelCode: (o.extraData as Record<string, string> | undefined)?.channelCode,
     payUrl: (o.extraData as Record<string, string> | undefined)?.payUrl,
@@ -152,7 +152,6 @@ router.post('/withdraw/yfpay/create', async (ctx) => {
     return
   }
 
-  const amountCents = Math.round(amount * 100)
   const userId = ctx.state.userId!
   const redis = ctx.state.redis
 
@@ -168,7 +167,7 @@ router.post('/withdraw/yfpay/create', async (ctx) => {
   try {
     // 检查余额是否充足
     const wallet = await getWallet(redis, userId)
-    if (wallet.available < amountCents) {
+    if (wallet.available < amount) {
       fail(ctx, 400, '余额不足')
       return
     }
@@ -177,7 +176,7 @@ router.post('/withdraw/yfpay/create', async (ctx) => {
     const notifyUrl = ctx.state.env.YFPAY_NOTIFY_URL
 
     // 先扣余额（原子写入，防止多笔并发双花）
-    await creditWallet(redis, userId, -amountCents, {
+    await creditWallet(redis, userId, -amount, {
       type: 'withdraw',
       refId: merchantSerial,
       description: `YF Pay 提现 #${merchantSerial}`,
@@ -193,7 +192,7 @@ router.post('/withdraw/yfpay/create', async (ctx) => {
       )
     } catch (err) {
       // YfPay 调用失败：退还余额，避免资金损失
-      await creditWallet(redis, userId, amountCents, {
+      await creditWallet(redis, userId, amount, {
         type: 'bonus',
         refId: `REFUND_${merchantSerial}`,
         description: `YF Pay 提现失败退款 #${merchantSerial}`,
@@ -210,7 +209,7 @@ router.post('/withdraw/yfpay/create', async (ctx) => {
       const wOrder: OrderWithdraw = {
         orderId: merchantSerial,
         userId,
-        amount: amountCents,
+        amount: amount,
         currency: 'PHP',
         channelId: `yfpay_${(optionCode ?? 'unknown').toLowerCase()}`,
         status: 'pending',
@@ -269,7 +268,7 @@ router.get('/withdraw/yfpay/orders', async (ctx) => {
   const yfOrders = orders.filter((o) => o.provider === 'yfpay')
   ok(ctx, yfOrders.map((o) => ({
     merchantSerial: o.orderId,
-    amountCents: o.amount,
+    amount: o.amount,
     state: o.status === 'completed' ? 1 : o.status === 'rejected' ? 2 : 0,
     optionCode: (o.extraData as Record<string, string> | undefined)?.optionCode,
     createdAt: o.createdAt,

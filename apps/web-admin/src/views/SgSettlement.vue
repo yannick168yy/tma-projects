@@ -41,10 +41,10 @@
         </template>
         <template v-if="column.key === 'localAmounts'">
           <div style="line-height:1.6">
-            <div>投注: <b>₱{{ (record.localBetCents / 100).toFixed(2) }}</b></div>
-            <div>派彩: <b>₱{{ (record.localWinCents / 100).toFixed(2) }}</b></div>
-            <div>GGR: <b :style="{ color: record.localBetCents >= record.localWinCents ? '#3f8600' : '#cf1322' }">
-              ₱{{ ((record.localBetCents - record.localWinCents) / 100).toFixed(2) }}
+            <div>投注: <b>₱{{ Number(record.localBet).toFixed(2) }}</b></div>
+            <div>派彩: <b>₱{{ Number(record.localWin).toFixed(2) }}</b></div>
+            <div>GGR: <b :style="{ color: record.localBet >= record.localWin ? '#3f8600' : '#cf1322' }">
+              ₱{{ (record.localBet - record.localWin).toFixed(2) }}
             </b></div>
           </div>
         </template>

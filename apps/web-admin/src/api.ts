@@ -50,7 +50,7 @@ export const getDashboard = () => get<{
   totalUsers: number; activeUsers: number; frozenUsers: number
   todayDepositCount: number; todayDepositAmount: number
   todayWithdrawCount: number; todayWithdrawAmount: number
-  pendingWithdrawCount: number; totalBalanceCents: number
+  pendingWithdrawCount: number; totalBalance: number
 }>('/admin/dashboard')
 
 // Users
@@ -59,14 +59,14 @@ export interface AdminUser {
   status: string; label: string
   lastLoginAt: string | null; lastLoginRegion: string | null
   registerRegion: string | null
-  registeredAt: string; balanceCents: number
+  registeredAt: string; balance: number
 }
 export interface LoginLog {
   id: number; ip: string | null; region: string | null; userAgent: string | null; authMethod: string; createdAt: string
 }
 export interface BetOrder {
   id: number; providerTxnId: string; roundId: string | null
-  betType: string; amountCents: number; status: string; createdAt: string
+  betType: string; amount: number; status: string; createdAt: string
 }
 export const getUsers = (params: { page?: number; pageSize?: number; search?: string; status?: string }) =>
   get<{ total: number; items: AdminUser[] }>('/admin/users', params)
@@ -85,8 +85,8 @@ export const updateUserLabel = (id: string, label: string) =>
 export interface UserProfileData { firstName: string; lastName: string; gender: string; dobMonth: string; dobDay: string; dobYear: string; phone?: string; email?: string }
 export const updateUserProfile = (id: string, profile: Partial<UserProfileData>) =>
   patch<{ profile: UserProfileData }>(`/admin/users/${id}/profile`, profile)
-export const adjustBalance = (id: string, cents: number, opPassword: string, note?: string) =>
-  post<{ available: number; orderId: string }>(`/admin/users/${id}/adjust-balance`, { cents, opPassword, note })
+export const adjustBalance = (id: string, amount: number, opPassword: string, note?: string) =>
+  post<{ available: number; orderId: string }>(`/admin/users/${id}/adjust-balance`, { amount, opPassword, note })
 
 // Settings - op password
 export const getOpPasswordStatus = () =>
@@ -97,7 +97,7 @@ export const setOpPassword = (newPassword: string, currentPassword?: string) =>
 // Deposits
 export interface AdminDeposit {
   orderId: string; userId: string; amount: number; currency: string; channelId: string
-  status: string; createdAt: string; paidAt: string | null; creditedCents: number | null
+  status: string; createdAt: string; paidAt: string | null; credited: number | null
 }
 export const getDeposits = (params: { page?: number; pageSize?: number; userId?: string; status?: string }) =>
   get<{ total: number; items: AdminDeposit[] }>('/admin/deposits', params)
@@ -116,14 +116,21 @@ export const rejectWithdrawal = (orderId: string, reason: string) =>
 
 // Games
 export interface AdminGame {
-  uuid: string; name: string; provider: string; category: string | null
-  subCategory: string | null; imageUrl: string | null
-  hasDemo: boolean; hasLobby: boolean; isMobile: boolean; isActive: boolean; updatedAt: string
+  uuid: string; name: string; type: string | null; provider: string; providerId: number | null
+  technology: string | null; category: string | null; subCategory: string | null
+  imageUrl: string | null; imageHqUrl: string | null
+  hasDemo: boolean; hasLobby: boolean; isMobile: boolean
+  hasFreespins: boolean; hasTables: boolean
+  label: string | null; rtp: number | null; volatility: string | null
+  reelsCount: string | null; linesCount: number | null
+  tags: string[]; isActive: boolean; updatedAt: string | null
 }
 export const getAdminGames = (params: { page?: number; pageSize?: number; provider?: string; search?: string; isActive?: boolean }) =>
   get<{ total: number; items: AdminGame[]; providers: string[] }>('/admin/games', params)
 export const toggleGame = (uuid: string, isActive: boolean) =>
   patch<{ uuid: string; isActive: boolean }>(`/admin/games/${uuid}/toggle`, { isActive })
+export const syncGames = () =>
+  post<{ synced: number }>('/admin/games/sync', {})
 
 // Audit log
 export interface AuditEntry {
@@ -190,13 +197,13 @@ export interface BetOrderRecord {
   id: number; userId: string; aggregatorId: string; providerId: string
   providerTxnId: string; roundId: string | null
   betType: 'bet' | 'win' | 'refund' | 'cancel'
-  amountCents: number; currencyCode: string
+  amount: number; currencyCode: string
   originalAmount: number | null; exchangeRate: number | null
   status: 'pending' | 'settled' | 'failed'
   createdAt: string; settledAt: string | null
 }
 export interface BetOrderStats {
-  totalBetCents: number; totalWinCents: number; roundCount: number
+  totalBet: number; totalWin: number; roundCount: number
 }
 export const getBetOrders = (params: {
   page?: number; pageSize?: number
@@ -208,7 +215,7 @@ export const getBetOrders = (params: {
 export interface SgSettlementRecord {
   id: number; reportDate: string; currency: string
   sgBetAmount: number; sgWinAmount: number; sgGgr: number; sgRoundCount: number
-  localBetCents: number; localWinCents: number
+  localBet: number; localWin: number
   discrepancyNote: string | null; reconciled: number; fetchedAt: string
 }
 export const getSgSettlements = (params: { page?: number; pageSize?: number }) =>

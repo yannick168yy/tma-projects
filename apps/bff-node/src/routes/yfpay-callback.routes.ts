@@ -61,10 +61,8 @@ router.post('/yfpay', async (ctx) => {
         if (Math.abs(amount - order.amount) > 0.01) {
           ctx.log?.warn({ merchantSerial, orderAmount: order.amount, callbackAmount: amount }, 'YfPay callback: amount mismatch')
         }
-        // 优先用 creditedCents（创单时显式设置的整数分数），避免 amount（PHP 元浮点）× 100 的精度/单位歧义
-        // OrderDeposit.amount = PHP 元（如 100.00），OrderWithdraw.amount = 分（如 10000），单位不同
-        const creditCents = order.creditedCents ?? Math.round(order.amount * 100)
-        await creditWallet(redis, order.userId, creditCents, {
+        const creditAmount = order.creditedCents ?? order.amount
+        await creditWallet(redis, order.userId, creditAmount, {
           type: 'deposit',
           refId: merchantSerial,
           description: `YF Pay 充值 #${merchantSerial}`,

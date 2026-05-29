@@ -9,24 +9,24 @@ import {
   saveDeposit,
   saveUser,
 } from './store/index.js'
-import { nowIso, phpToCents } from '../utils/format.js'
+import { nowIso } from '../utils/format.js'
 
 export type DepositCurrency = 'PHP' | 'USDT' | 'TON'
 
-export function depositAmountToCents(
+export function depositAmountToYuan(
   amount: number,
   currency: DepositCurrency,
   usdtToPhpRate: number,
   tonToPhpRate = 0,
 ): number {
-  if (currency === 'PHP') return phpToCents(amount)
+  if (currency === 'PHP') return Math.round(amount * 100) / 100
   if (currency === 'USDT') {
     if (amount <= 0 || usdtToPhpRate <= 0) return 0
-    return phpToCents(amount * usdtToPhpRate)
+    return Math.round(amount * usdtToPhpRate * 100) / 100
   }
   if (currency === 'TON') {
     if (amount <= 0 || tonToPhpRate <= 0) return 0
-    return phpToCents(amount * tonToPhpRate)
+    return Math.round(amount * tonToPhpRate * 100) / 100
   }
   return 0
 }
@@ -85,31 +85,31 @@ export async function settlePaidDeposit(
     currency: DepositCurrency
   },
 ): Promise<DepositOrder> {
-  const creditedCents = depositAmountToCents(opts.amountPhpUnits, opts.currency, opts.usdtToPhpRate, opts.tonToPhpRate ?? 0)
-  if (creditedCents <= 0) {
+  const credited = depositAmountToYuan(opts.amountPhpUnits, opts.currency, opts.usdtToPhpRate, opts.tonToPhpRate ?? 0)
+  if (credited <= 0) {
     throw new Error('Invalid deposit amount')
   }
 
   order.status = 'paid'
   order.paidAt = nowIso()
-  order.creditedCents = creditedCents
+  order.creditedCents = credited
   await saveDeposit(redis, order)
 
-  await creditWallet(redis, order.userId, creditedCents, {
+  await creditWallet(redis, order.userId, credited, {
     type: 'deposit',
     refId: order.orderId,
     description:
       opts.currency === 'USDT'
-        ? `USDT deposit (≈ ₱${(creditedCents / 100).toFixed(2)})`
+        ? `USDT deposit (≈ ₱${credited.toFixed(2)})`
         : opts.currency === 'TON'
-          ? `TON deposit (≈ ₱${(creditedCents / 100).toFixed(2)})`
+          ? `TON deposit (≈ ₱${credited.toFixed(2)})`
           : 'Telegram Wallet deposit',
     createdAt: nowIso(),
     traceId: opts.traceId,
   })
 
   await applyFirstDepPromo(redis, order.userId)
-  await applyReferralMilestone(redis, order.userId, order.orderId, creditedCents)
+  await applyReferralMilestone(redis, order.userId, order.orderId, credited)
 
   return order
 }

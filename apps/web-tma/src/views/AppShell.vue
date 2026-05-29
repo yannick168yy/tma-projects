@@ -197,7 +197,7 @@ function navIcon(id: string) {
                   </div>
                 </div>
                 <span class="text-base font-black text-primary">
-                  {{ balanceVisible ? ((wallet.balance?.availableCents ?? 0) / 100).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '••••••' }}
+                  {{ balanceVisible ? (wallet.balance?.availableCents ?? 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '••••••' }}
                 </span>
               </div>
               <div class="flex items-center justify-between py-2.5">

@@ -1,5 +1,7 @@
 import Router from '@koa/router'
 import { listAdminGames, toggleAdminGame, writeAuditLog } from '../../services/admin-store.js'
+import { syncAllGames } from '../../services/sg-game.service.js'
+import { isMysqlEnabled } from '../../clients/mysql.client.js'
 import { ok, fail } from '../../utils/response.js'
 
 const router = new Router({ prefix: '/games' })
@@ -29,6 +31,27 @@ router.patch('/:uuid/toggle', async (ctx) => {
     ip: ctx.ip,
   })
   ok(ctx, { uuid: ctx.params.uuid, isActive: body.isActive })
+})
+
+router.post('/sync', async (ctx) => {
+  const env = ctx.state.env
+  if (!isMysqlEnabled(env) || !env.SG_BASE_URL) {
+    fail(ctx, 400, 'Slotegrator not configured'); return
+  }
+  try {
+    const result = await syncAllGames(env)
+    await writeAuditLog(env, {
+      adminId: ctx.state.adminId!,
+      adminUsername: ctx.state.adminUsername!,
+      action: 'game.sync',
+      targetType: 'game',
+      targetId: 'all',
+      ip: ctx.ip,
+    })
+    ok(ctx, result)
+  } catch (e) {
+    fail(ctx, 500, e instanceof Error ? e.message : 'Sync failed')
+  }
 })
 
 export default router

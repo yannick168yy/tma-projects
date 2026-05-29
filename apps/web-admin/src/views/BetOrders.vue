@@ -5,17 +5,17 @@
     <!-- 统计卡片 -->
     <a-row :gutter="16" style="margin-bottom:16px">
       <a-col :span="6">
-        <a-statistic title="总投注（PHP）" :value="(stats.totalBetCents / 100).toFixed(2)" prefix="₱" />
+        <a-statistic title="总投注（PHP）" :value="stats.totalBet.toFixed(2)" prefix="₱" />
       </a-col>
       <a-col :span="6">
-        <a-statistic title="总派彩（PHP）" :value="(stats.totalWinCents / 100).toFixed(2)" prefix="₱" />
+        <a-statistic title="总派彩（PHP）" :value="stats.totalWin.toFixed(2)" prefix="₱" />
       </a-col>
       <a-col :span="6">
         <a-statistic
           title="GGR（PHP）"
-          :value="((stats.totalBetCents - stats.totalWinCents) / 100).toFixed(2)"
+          :value="(stats.totalBet - stats.totalWin).toFixed(2)"
           prefix="₱"
-          :value-style="{ color: stats.totalBetCents >= stats.totalWinCents ? '#3f8600' : '#cf1322' }"
+          :value-style="{ color: stats.totalBet >= stats.totalWin ? '#3f8600' : '#cf1322' }"
         />
       </a-col>
       <a-col :span="6">
@@ -67,7 +67,7 @@
           <a-tag :color="betTypeColor(record.betType)">{{ betTypeLabel(record.betType) }}</a-tag>
         </template>
         <template v-if="column.key === 'amount'">
-          <span>₱{{ (record.amountCents / 100).toFixed(2) }}</span>
+          <span>₱{{ Number(record.amount).toFixed(2) }}</span>
           <span v-if="record.originalAmount" style="color:#888; font-size:11px; margin-left:4px">
             ({{ record.currencyCode }} {{ Number(record.originalAmount).toFixed(4) }})
           </span>
@@ -93,7 +93,7 @@ const items = ref<BetOrderRecord[]>([])
 const total = ref(0)
 const page = ref(1)
 const pageSize = 20
-const stats = reactive<BetOrderStats>({ totalBetCents: 0, totalWinCents: 0, roundCount: 0 })
+const stats = reactive<BetOrderStats>({ totalBet: 0, totalWin: 0, roundCount: 0 })
 const dateRange = ref<[string, string] | null>(null)
 
 const filters = reactive({

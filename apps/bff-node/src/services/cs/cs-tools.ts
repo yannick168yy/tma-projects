@@ -86,24 +86,24 @@ export async function executeTool(
 
     case 'get_wallet_balance': {
       const [rows] = await pool.query<RowDataPacket[]>(
-        `SELECT available_cents, frozen_cents FROM bg_wallet WHERE user_id = ?`,
+        `SELECT available, frozen FROM bg_wallet WHERE user_id = ?`,
         [context.userId],
       )
       if (!rows.length) return { availablePHP: '0.00', frozenPHP: '0.00' }
       return {
-        availablePHP: (rows[0].available_cents / 100).toFixed(2),
-        frozenPHP: (rows[0].frozen_cents / 100).toFixed(2),
+        availablePHP: Number(rows[0].available).toFixed(2),
+        frozenPHP: Number(rows[0].frozen).toFixed(2),
       }
     }
 
     case 'get_recent_orders': {
       const [deposits] = await pool.query<RowDataPacket[]>(
-        `SELECT order_id, amount, currency, credited_cents, channel_id, status, created_at, paid_at
+        `SELECT order_id, amount, currency, credited, channel_id, status, created_at, paid_at
          FROM bg_order_deposit WHERE user_id = ? ORDER BY created_at DESC LIMIT 5`,
         [context.userId],
       )
       const [withdrawals] = await pool.query<RowDataPacket[]>(
-        `SELECT order_id, amount_cents, currency, channel_id, status, created_at, completed_at, reject_reason
+        `SELECT order_id, amount, currency, channel_id, status, created_at, completed_at, reject_reason
          FROM bg_order_withdraw WHERE user_id = ? ORDER BY created_at DESC LIMIT 5`,
         [context.userId],
       )
@@ -112,7 +112,7 @@ export async function executeTool(
           orderId: d.order_id,
           amount: d.amount,
           currency: d.currency,
-          creditedPHP: d.credited_cents ? (d.credited_cents / 100).toFixed(2) : null,
+          creditedPHP: d.credited ? Number(d.credited).toFixed(2) : null,
           channel: d.channel_id,
           status: d.status,
           createdAt: d.created_at,
@@ -120,7 +120,7 @@ export async function executeTool(
         })),
         withdrawals: withdrawals.map((w) => ({
           orderId: w.order_id,
-          amountPHP: (w.amount_cents / 100).toFixed(2),
+          amountPHP: Number(w.amount).toFixed(2),
           currency: w.currency,
           channel: w.channel_id,
           status: w.status,

@@ -31,6 +31,7 @@ export function getMysqlPool(env: Env): Pool {
       waitForConnections: true,
       connectionLimit: 10,
       timezone: 'Z',
+      charset: 'utf8mb4',
     })
   }
   return pool

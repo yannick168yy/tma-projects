@@ -29,7 +29,7 @@ const stats = ref<{
   totalUsers: number; activeUsers: number; frozenUsers: number
   todayDepositCount: number; todayDepositAmount: number
   todayWithdrawCount: number; todayWithdrawAmount: number
-  pendingWithdrawCount: number; totalBalanceCents: number
+  pendingWithdrawCount: number; totalBalance: number
 } | null>(null)
 
 const statCards = computed(() => {
@@ -43,9 +43,9 @@ const statCards = computed(() => {
     { label: '今日存款笔数', value: s.todayDepositCount },
     { label: '今日存款金额', value: s.todayDepositAmount, suffix: ' PHP' },
     { label: '今日提款笔数', value: s.todayWithdrawCount },
-    { label: '今日提款金额', value: Math.round(s.todayWithdrawAmount / 100), suffix: ' PHP' },
+    { label: '今日提款金额', value: Math.round(s.todayWithdrawAmount * 100) / 100, suffix: ' PHP' },
     { label: '待审批提款', value: s.pendingWithdrawCount, color: s.pendingWithdrawCount > 0 ? '#d46b08' : undefined },
-    { label: '平台总余额', value: Math.round(s.totalBalanceCents / 100), suffix: ' PHP' },
+    { label: '平台总余额', value: Math.round(s.totalBalance * 100) / 100, suffix: ' PHP' },
   ]
   return cards
 })

@@ -27,7 +27,7 @@
     >
       <template #bodyCell="{ column, record }">
         <template v-if="column.key === 'balance'">
-          ₱{{ Math.round(record.balanceCents / 100).toLocaleString() }}
+          ₱{{ Number(record.balance).toFixed(2) }}
         </template>
         <template v-if="column.key === 'status'">
           <a-tag :color="statusColor(record.status)">{{ record.status }}</a-tag>

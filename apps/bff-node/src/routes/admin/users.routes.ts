@@ -54,9 +54,9 @@ router.patch('/:id/status', async (ctx) => {
 })
 
 router.post('/:id/adjust-balance', async (ctx) => {
-  const body = ctx.request.body as { cents?: number; note?: string; opPassword?: string }
-  if (typeof body.cents !== 'number' || body.cents === 0) {
-    fail(ctx, 400, 'cents must be a non-zero number'); return
+  const body = ctx.request.body as { amount?: number; note?: string; opPassword?: string }
+  if (typeof body.amount !== 'number' || body.amount === 0) {
+    fail(ctx, 400, 'amount must be a non-zero number'); return
   }
   if (!body.opPassword) {
     fail(ctx, 400, 'opPassword is required'); return
@@ -80,7 +80,7 @@ router.post('/:id/adjust-balance', async (ctx) => {
     result = await adminAdjustBalance(
       ctx.state.redis,
       ctx.params.id,
-      body.cents,
+      body.amount,
       {
         adminUsername: ctx.state.adminUsername!,
         note: body.note,
@@ -98,7 +98,7 @@ router.post('/:id/adjust-balance', async (ctx) => {
     action: 'user.balance_adjust',
     targetType: 'user',
     targetId: user.id,
-    detail: { cents: body.cents, note: body.note, orderId: result.orderId, balanceAfterCents: result.available },
+    detail: { amount: body.amount, note: body.note, orderId: result.orderId, balanceAfter: result.available },
     ip: ctx.ip,
   })
   ok(ctx, { available: result.available, orderId: result.orderId })

@@ -26,7 +26,7 @@ export interface YfPayOrder {
   id: number
   merchantSerial: string
   platformId: string
-  amountCents: number
+  amount: number
   channelCode?: string
   optionCode?: string
   targetAccount?: string

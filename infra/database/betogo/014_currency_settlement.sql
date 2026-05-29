@@ -23,7 +23,7 @@ SET @col_exists = (
 );
 SET @add_cols = CONCAT(
   'ALTER TABLE `bg_bet_order`',
-  ' ADD COLUMN `currency_code`   CHAR(3)       NOT NULL DEFAULT ', QUOTE('PHP'), ' AFTER `amount_cents`,',
+  ' ADD COLUMN `currency_code`   CHAR(3)       NOT NULL DEFAULT ', QUOTE('PHP'), ' AFTER `amount`,',
   ' ADD COLUMN `original_amount` DECIMAL(18,4) NULL AFTER `currency_code`,',
   ' ADD COLUMN `exchange_rate`   DECIMAL(18,8) NULL AFTER `original_amount`'
 );
