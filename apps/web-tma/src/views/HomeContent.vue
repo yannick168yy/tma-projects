@@ -23,7 +23,8 @@ import EGameCard from '@/components/home/EGameCard.vue'
 import LiveCard from '@/components/home/LiveCard.vue'
 import { CATEGORIES } from '@/data/categories'
 import { BANNERS, WINNERS } from '@/data/home'
-import { fetchGames, fetchGameHistory, type SlotGame, type GameHistoryItem } from '@/api/slots'
+import { fetchGames, fetchGameHistory, launchGame, type SlotGame, type GameHistoryItem } from '@/api/slots'
+import { ApiError } from '@/api/client'
 
 type CategoryLobbyParams = {
   sortCategory?: string
@@ -158,6 +159,26 @@ watch(bannerTrackRef, (el) => {
 })
 
 // ── Game data ────────────────────────────────────────────────────────────────
+const launchingUuid = ref<string | null>(null)
+
+async function onGameTap(uuid: string) {
+  if (!(await auth.ensureLoggedIn(t('auth.signInPlay')))) return
+  if (launchingUuid.value) return
+  launchingUuid.value = uuid
+  try {
+    const { url } = await launchGame(uuid)
+    if (window.Telegram?.WebApp?.openLink) {
+      window.Telegram.WebApp.openLink(url)
+    } else {
+      window.open(url, '_blank', 'noopener')
+    }
+  } catch (e) {
+    alert(e instanceof ApiError ? e.message : 'Launch failed')
+  } finally {
+    launchingUuid.value = null
+  }
+}
+
 const popularRaw = ref<SlotGame[]>([])
 const slotsRaw = ref<SlotGame[]>([])
 const liveRaw = ref<SlotGame[]>([])
@@ -320,7 +341,7 @@ const tableGames = computed(() => {
           v-for="g in historyGames"
           :key="g.uuid"
           :game="g"
-          @tap="emit('gameTap')"
+          @tap="onGameTap(g.uuid)"
         />
       </div>
       <div v-else-if="!isLoggedIn || historyGames.length === 0" class="px-4">
@@ -368,7 +389,7 @@ const tableGames = computed(() => {
         <div v-for="n in 9" :key="n" class="aspect-[3/4] animate-pulse rounded-xl bg-secondary" />
       </div>
       <div v-else-if="popularGames.length > 0" class="grid grid-cols-3 gap-2">
-        <GameCard v-for="g in popularGames" :key="g.uuid" :game="g" @tap="emit('gameTap')" />
+        <GameCard v-for="g in popularGames" :key="g.uuid" :game="g" @tap="onGameTap(g.uuid)" />
       </div>
     </section>
 
@@ -393,7 +414,7 @@ const tableGames = computed(() => {
         <div v-for="n in 6" :key="n" class="flex-shrink-0 w-32 h-20 animate-pulse rounded-xl bg-secondary" />
       </div>
       <div v-else class="flex gap-3 px-4 overflow-x-auto hide-scrollbar">
-        <EGameCard v-for="g in slotsGames" :key="g.uuid" :game="g" @tap="emit('gameTap')" />
+        <EGameCard v-for="g in slotsGames" :key="g.uuid" :game="g" @tap="onGameTap(g.uuid)" />
       </div>
     </section>
 
@@ -417,7 +438,7 @@ const tableGames = computed(() => {
         <div v-for="n in 6" :key="n" class="flex-shrink-0 w-36 h-20 animate-pulse rounded-xl bg-secondary" />
       </div>
       <div v-else class="flex gap-3 px-4 overflow-x-auto hide-scrollbar">
-        <LiveCard v-for="g in liveGames" :key="g.uuid" :game="g" @tap="emit('gameTap')" />
+        <LiveCard v-for="g in liveGames" :key="g.uuid" :game="g" @tap="onGameTap(g.uuid)" />
       </div>
     </section>
 
@@ -441,7 +462,7 @@ const tableGames = computed(() => {
         <div v-for="n in 6" :key="n" class="flex-shrink-0 w-32 h-20 animate-pulse rounded-xl bg-secondary" />
       </div>
       <div v-else class="flex gap-3 px-4 overflow-x-auto hide-scrollbar">
-        <EGameCard v-for="g in fishingGames" :key="g.uuid" :game="g" @tap="emit('gameTap')" />
+        <EGameCard v-for="g in fishingGames" :key="g.uuid" :game="g" @tap="onGameTap(g.uuid)" />
       </div>
     </section>
 
@@ -465,7 +486,7 @@ const tableGames = computed(() => {
         <div v-for="n in 6" :key="n" class="flex-shrink-0 w-32 h-20 animate-pulse rounded-xl bg-secondary" />
       </div>
       <div v-else class="flex gap-3 px-4 overflow-x-auto hide-scrollbar">
-        <EGameCard v-for="g in crashGames" :key="g.uuid" :game="g" @tap="emit('gameTap')" />
+        <EGameCard v-for="g in crashGames" :key="g.uuid" :game="g" @tap="onGameTap(g.uuid)" />
       </div>
     </section>
 
@@ -489,7 +510,7 @@ const tableGames = computed(() => {
         <div v-for="n in 6" :key="n" class="flex-shrink-0 w-32 h-20 animate-pulse rounded-xl bg-secondary" />
       </div>
       <div v-else class="flex gap-3 px-4 overflow-x-auto hide-scrollbar">
-        <EGameCard v-for="g in tableGames" :key="g.uuid" :game="g" @tap="emit('gameTap')" />
+        <EGameCard v-for="g in tableGames" :key="g.uuid" :game="g" @tap="onGameTap(g.uuid)" />
       </div>
     </section>
 
