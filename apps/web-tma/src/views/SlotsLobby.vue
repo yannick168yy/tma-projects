@@ -17,6 +17,7 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits<{
   close: []
   gameTap: []
+  openGame: [url: string]
 }>()
 
 const { t } = useI18n()
@@ -125,11 +126,7 @@ async function onDemo(uuid: string) {
 }
 
 function openGameUrl(url: string) {
-  if (window.Telegram?.WebApp?.openLink) {
-    window.Telegram.WebApp.openLink(url)
-  } else {
-    window.open(url, '_blank', 'noopener')
-  }
+  emit('openGame', url)
 }
 
 const hasMore = computed(() => currentPage.value < pages.value)

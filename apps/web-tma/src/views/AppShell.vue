@@ -25,6 +25,7 @@ import CustomerServicePage from '@/views/CustomerServicePage.vue'
 import { NAV_ITEMS } from '@/data/home'
 import { useAuthStore } from '@/stores/auth'
 import { useWalletStore } from '@/stores/wallet'
+import GamePlayer from '@/components/GamePlayer.vue'
 
 const { t } = useI18n()
 const auth = useAuthStore()
@@ -51,6 +52,11 @@ const slotsLobbyOpen = ref(false)
 const categoryLobbyOpen = ref(false)
 const categoryLobbyParams = ref<CategoryLobbyParams | null>(null)
 const csOpen = ref(false)
+const gamePlayerUrl = ref<string | null>(null)
+
+function openGame(url: string) {
+  gamePlayerUrl.value = url
+}
 
 function openCs() {
   profileOpen.value = false
@@ -260,8 +266,9 @@ function navIcon(id: string) {
           @open-slots-lobby="slotsLobbyOpen = true"
           @open-category-lobby="openCategoryLobby"
           @open-cs="openCs"
+          @open-game="openGame"
         />
-        <SlotsLobby v-if="slotsLobbyOpen" @close="slotsLobbyOpen = false" @game-tap="onGameTap" />
+        <SlotsLobby v-if="slotsLobbyOpen" @close="slotsLobbyOpen = false" @game-tap="onGameTap" @open-game="openGame" />
         <SlotsLobby
           v-if="categoryLobbyOpen && categoryLobbyParams"
           :sort-category="categoryLobbyParams.sortCategory"
@@ -269,6 +276,7 @@ function navIcon(id: string) {
           :title="categoryLobbyParams.title"
           @close="categoryLobbyOpen = false"
           @game-tap="onGameTap"
+          @open-game="openGame"
         />
       </main>
 
@@ -309,6 +317,9 @@ function navIcon(id: string) {
     <div v-if="csOpen" class="absolute inset-0 z-50 flex flex-col bg-background">
       <CustomerServicePage @close="csOpen = false" />
     </div>
+
+    <!-- 游戏内嵌覆盖层 -->
+    <GamePlayer v-if="gamePlayerUrl" :url="gamePlayerUrl" @close="gamePlayerUrl = null" />
   </div>
 </template>
 

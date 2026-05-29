@@ -10,6 +10,7 @@ import { useAuthStore } from '@/stores/auth'
 const emit = defineEmits<{
   openLobby: []
   gameTap: []
+  openGame: [url: string]
 }>()
 
 const { t } = useI18n()
@@ -60,11 +61,7 @@ async function onDemo(uuid: string) {
 }
 
 function openGameUrl(url: string) {
-  if (window.Telegram?.WebApp?.openLink) {
-    window.Telegram.WebApp.openLink(url)
-  } else {
-    window.open(url, '_blank', 'noopener')
-  }
+  emit('openGame', url)
 }
 </script>
 

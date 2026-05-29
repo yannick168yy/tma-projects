@@ -69,6 +69,7 @@ const emit = defineEmits<{
   openSlotsLobby: []
   openCategoryLobby: [params: CategoryLobbyParams]
   openCs: []
+  openGame: [url: string]
 }>()
 
 const { t } = useI18n()
@@ -220,11 +221,7 @@ async function onGameTap(uuid: string) {
       writeLocalHistory(game)
       historyGames.value = readLocalHistory()
     }
-    if (window.Telegram?.WebApp?.openLink) {
-      window.Telegram.WebApp.openLink(url)
-    } else {
-      window.open(url, '_blank', 'noopener')
-    }
+    emit('openGame', url)
   } catch (e) {
     alert(e instanceof ApiError ? e.message : 'Launch failed')
   } finally {
@@ -253,7 +250,7 @@ onMounted(async () => {
 })
 
 // ── Deduplication cascade ────────────────────────────────────────────────────
-const popularGames = computed(() => popularRaw.value.slice(0, 9))
+const popularGames = computed(() => popularRaw.value.slice(0, 6))
 const popularUuids = computed(() => new Set(popularGames.value.map((g) => g.uuid)))
 
 const slotsGames = computed(() => {
@@ -419,7 +416,7 @@ const tableGames = computed(() => {
         </button>
       </div>
       <div v-if="gamesLoading" class="grid grid-cols-3 gap-2">
-        <div v-for="n in 9" :key="n" class="aspect-[3/4] animate-pulse rounded-xl bg-secondary" />
+        <div v-for="n in 6" :key="n" class="aspect-[3/4] animate-pulse rounded-xl bg-secondary" />
       </div>
       <div v-else-if="popularGames.length > 0" class="grid grid-cols-3 gap-2">
         <GameCard v-for="g in popularGames" :key="g.uuid" :game="g" @tap="onGameTap(g.uuid)" />
