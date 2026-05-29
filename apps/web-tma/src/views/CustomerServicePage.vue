@@ -41,11 +41,6 @@ async function send() {
   const text = inputText.value.trim()
   if (!text || sending.value) return
 
-  if (!auth.isLoggedIn) {
-    await auth.ensureLoggedIn(t('auth.signInProfile'))
-    return
-  }
-
   inputText.value = ''
   messages.value.push({
     id: Date.now(),
