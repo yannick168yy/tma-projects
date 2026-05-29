@@ -181,7 +181,7 @@ async function main() {
   const apiKey = process.env.GEMINI_API_KEY
   if (!apiKey) throw new Error('GEMINI_API_KEY 未设置')
   const genAI = new GoogleGenerativeAI(apiKey)
-  const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
+  const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-lite' })
 
   const whereClause = ONLY_MISSING
     ? 'WHERE weight = 0 AND weight_updated_at IS NULL'
