@@ -1,13 +1,38 @@
 import Router from '@koa/router'
+import type { Context } from 'koa'
+import type { Redis } from 'ioredis'
 import { ok, fail } from '../utils/response.js'
 import { handleUserMessage } from '../services/cs/cs.service.js'
 import { getOrCreateConversation, getMessages } from '../services/cs/cs-store.js'
 
+const GUEST_HOURLY_LIMIT = 20
+const USER_MINUTE_LIMIT = 20
+
+function getClientIp(ctx: Context): string {
+  const forwarded = ctx.get('X-Forwarded-For')
+  const ip = forwarded ? forwarded.split(',')[0].trim() : ctx.ip
+  return ip.replace(/[^a-zA-Z0-9.:]/g, '').slice(0, 64) || 'unknown'
+}
+
+async function checkRateLimit(
+  redis: Redis,
+  key: string,
+  limit: number,
+  windowSecs: number,
+): Promise<{ limited: boolean; retryAfter: number }> {
+  const count = await redis.incr(key)
+  if (count === 1) await redis.expire(key, windowSecs)
+  if (count > limit) {
+    const ttl = await redis.ttl(key)
+    return { limited: true, retryAfter: Math.max(ttl, 1) }
+  }
+  return { limited: false, retryAfter: 0 }
+}
+
 const router = new Router()
 
-// POST /cs/message — 发送消息，获取 AI 回复
+// POST /cs/message — 发送消息，获取 AI 回复（登录/游客均可）
 router.post('/cs/message', async (ctx) => {
-  const userId = ctx.state.userId as string
   const { message } = ctx.request.body as { message?: string }
   if (!message?.trim()) {
     fail(ctx, 400, '消息不能为空')
@@ -17,14 +42,48 @@ router.post('/cs/message', async (ctx) => {
     fail(ctx, 400, '消息过长')
     return
   }
-  const result = await handleUserMessage(ctx.state.env, userId, message.trim())
+
+  const isGuest = !ctx.state.userId
+  let effectiveUserId: string
+
+  if (isGuest) {
+    const ip = getClientIp(ctx)
+    effectiveUserId = `guest:${ip}`
+    const { limited, retryAfter } = await checkRateLimit(
+      ctx.state.redis,
+      `cs:rl:${effectiveUserId}`,
+      GUEST_HOURLY_LIMIT,
+      3600,
+    )
+    if (limited) {
+      fail(ctx, 429, `发送消息过于频繁，请 ${Math.ceil(retryAfter / 60)} 分钟后重试`)
+      return
+    }
+  } else {
+    effectiveUserId = ctx.state.userId!
+    const { limited } = await checkRateLimit(
+      ctx.state.redis,
+      `cs:rl:${effectiveUserId}`,
+      USER_MINUTE_LIMIT,
+      60,
+    )
+    if (limited) {
+      fail(ctx, 429, `每分钟最多发送 ${USER_MINUTE_LIMIT} 条消息，请稍后再试`)
+      return
+    }
+  }
+
+  const result = await handleUserMessage(ctx.state.env, effectiveUserId, message.trim())
   ok(ctx, result)
 })
 
-// GET /cs/history — 获取历史消息
+// GET /cs/history — 获取历史消息（游客返回空）
 router.get('/cs/history', async (ctx) => {
-  const userId = ctx.state.userId as string
-  const conversation = await getOrCreateConversation(ctx.state.env, userId)
+  if (!ctx.state.userId) {
+    ok(ctx, { conversation: null, messages: [] })
+    return
+  }
+  const conversation = await getOrCreateConversation(ctx.state.env, ctx.state.userId)
   const messages = await getMessages(ctx.state.env, conversation.id, 50)
   ok(ctx, { conversation, messages })
 })

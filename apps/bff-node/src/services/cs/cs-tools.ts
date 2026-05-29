@@ -54,12 +54,18 @@ export const GEMINI_TOOLS: Tool[] = [
 
 export type ToolInput = Record<string, unknown>
 
+const GUEST_RESTRICTED_TOOLS = new Set(['get_user_info', 'get_wallet_balance', 'get_recent_orders'])
+
 export async function executeTool(
   env: Env,
   toolName: string,
   input: ToolInput,
   context: { userId: string; conversationId: number },
 ): Promise<unknown> {
+  if (context.userId.startsWith('guest:') && GUEST_RESTRICTED_TOOLS.has(toolName)) {
+    return { error: 'Please log in to access your account information.' }
+  }
+
   const pool = getMysqlPool(env)
 
   switch (toolName) {

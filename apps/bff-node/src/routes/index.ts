@@ -47,10 +47,13 @@ export function createApiRouter(): Router {
   const optMw = optionalAuthMiddleware()
   api.use(optMw, slotsRoutes.routes(), slotsRoutes.allowedMethods())
 
+  // 客服：游客也可访问，内部自行处理防刷和权限
+  api.use(optMw, csRoutes.routes(), csRoutes.allowedMethods())
+
   const protectedMw = authMiddleware()
   for (const r of [
     userRoutes, walletRoutes, depositRoutes, tonDepositRoutes, withdrawRoutes,
-    ledgerRoutes, kycRoutes, promotionRoutes, yfpayRoutes, csRoutes,
+    ledgerRoutes, kycRoutes, promotionRoutes, yfpayRoutes,
   ]) {
     api.use(protectedMw, r.routes(), r.allowedMethods())
   }
