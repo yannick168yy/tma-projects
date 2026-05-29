@@ -1,7 +1,11 @@
 import type { RowDataPacket } from 'mysql2/promise'
 import type { Env } from '../config/env.js'
 import { getMysqlPool } from '../clients/mysql.client.js'
+import { getRedis } from '../clients/redis.client.js'
 import { fetchSgGames } from './slotegrator.service.js'
+
+const GAMES_CACHE_KEY = 'games:all'
+const GAMES_CACHE_TTL = 30 * 60 // 30 分钟
 
 // ── Sync ──────────────────────────────────────────────────────────────────────
 
@@ -88,6 +92,53 @@ export interface DbGame {
   isMobile: boolean
   weight: number
   phBonus: number
+  isFeatured: boolean
+}
+
+function rowToDbGame(r: RowDataPacket): DbGame {
+  return {
+    uuid: r.uuid as string,
+    name: r.name as string,
+    provider: r.provider as string,
+    category: (r.category as string) ?? null,
+    subCategory: (r.sub_category as string) ?? null,
+    sortCategory: (r.sort_category as string) ?? null,
+    imageUrl: (r.image_url as string) ?? null,
+    imageHqUrl: (r.image_hq_url as string) ?? null,
+    hasDemo: Boolean(r.has_demo),
+    hasLobby: Boolean(r.has_lobby),
+    isMobile: Boolean(r.is_mobile),
+    weight: r.weight != null ? Number(r.weight) : 0,
+    phBonus: r.ph_bonus != null ? Number(r.ph_bonus) : 0,
+    isFeatured: Boolean(r.is_featured),
+  }
+}
+
+// ── 全量缓存 ──────────────────────────────────────────────────────────────────
+
+export async function loadGamesCache(env: Env): Promise<number> {
+  const db = getMysqlPool(env)
+  const redis = getRedis(env)
+  const [rows] = await db.query<RowDataPacket[]>(
+    `SELECT uuid, name, provider, category, sub_category, sort_category,
+            image_url, image_hq_url, has_demo, has_lobby, is_mobile,
+            weight, ph_bonus, is_featured
+     FROM sg_games WHERE is_active = 1`,
+  )
+  const games = (rows as RowDataPacket[]).map(rowToDbGame)
+  await redis.set(GAMES_CACHE_KEY, JSON.stringify(games), 'EX', GAMES_CACHE_TTL)
+  console.log(`[games-cache] cached ${games.length} games`)
+  return games.length
+}
+
+async function getGamesFromCache(env: Env): Promise<DbGame[]> {
+  const redis = getRedis(env)
+  const raw = await redis.get(GAMES_CACHE_KEY)
+  if (raw) return JSON.parse(raw) as DbGame[]
+  // 缓存不存在时回填
+  await loadGamesCache(env)
+  const raw2 = await redis.get(GAMES_CACHE_KEY)
+  return raw2 ? (JSON.parse(raw2) as DbGame[]) : []
 }
 
 export interface GameListResult {
@@ -109,64 +160,38 @@ export async function listGames(
     sortBy?: 'weight' | 'ph_bonus' | 'name'
   } = {},
 ): Promise<GameListResult> {
-  const db = getMysqlPool(env)
   const { page = 1, limit = 30, search, provider, category, sortCategory, sortBy = 'weight' } = opts
-  const offset = (page - 1) * limit
 
-  const conds: string[] = ['is_active = 1']
-  const vals: unknown[] = []
+  let games = await getGamesFromCache(env)
 
   if (search) {
-    conds.push('(name LIKE ? OR provider LIKE ?)')
-    vals.push(`%${search}%`, `%${search}%`)
+    const s = search.toLowerCase()
+    games = games.filter((g) => g.name.toLowerCase().includes(s) || g.provider.toLowerCase().includes(s))
   }
   if (provider && provider !== 'all') {
-    conds.push('provider = ?')
-    vals.push(provider)
+    games = games.filter((g) => g.provider === provider)
   }
   if (category && category !== 'all') {
-    conds.push('category = ?')
-    vals.push(category)
+    games = games.filter((g) => g.category === category)
   }
   if (sortCategory && sortCategory !== 'all') {
-    conds.push('sort_category = ?')
-    vals.push(sortCategory)
+    games = games.filter((g) => g.sortCategory === sortCategory)
   }
 
-  const where = `WHERE ${conds.join(' AND ')}`
-  const orderBy = sortBy === 'ph_bonus' ? 'ph_bonus DESC, weight DESC' : sortBy === 'name' ? 'name ASC' : 'weight DESC, ph_bonus DESC'
+  games = [...games].sort((a, b) => {
+    if (sortBy === 'ph_bonus') return (b.phBonus - a.phBonus) || (b.weight - a.weight)
+    if (sortBy === 'name') return a.name.localeCompare(b.name)
+    return (b.weight - a.weight) || (b.phBonus - a.phBonus)
+  })
 
-  const [[{ total }]] = await db.query<RowDataPacket[]>(
-    `SELECT COUNT(*) AS total FROM sg_games ${where}`,
-    vals,
-  )
-
-  const [rows] = await db.query<RowDataPacket[]>(
-    `SELECT uuid, name, provider, category, sub_category, sort_category, image_url, image_hq_url,
-            has_demo, has_lobby, is_mobile, weight, ph_bonus
-     FROM sg_games ${where} ORDER BY ${orderBy} LIMIT ? OFFSET ?`,
-    [...vals, limit, offset],
-  )
+  const total = games.length
+  const offset = (page - 1) * limit
 
   return {
-    items: rows.map((r) => ({
-      uuid: r.uuid as string,
-      name: r.name as string,
-      provider: r.provider as string,
-      category: (r.category as string) ?? null,
-      subCategory: (r.sub_category as string) ?? null,
-      sortCategory: (r.sort_category as string) ?? null,
-      imageUrl: (r.image_url as string) ?? null,
-      imageHqUrl: (r.image_hq_url as string) ?? null,
-      hasDemo: Boolean(r.has_demo),
-      hasLobby: Boolean(r.has_lobby),
-      isMobile: Boolean(r.is_mobile),
-      weight: r.weight != null ? Number(r.weight) : 0,
-      phBonus: r.ph_bonus != null ? Number(r.ph_bonus) : 0,
-    })),
-    total: Number(total),
+    items: games.slice(offset, offset + limit),
+    total,
     page,
-    pages: Math.ceil(Number(total) / limit),
+    pages: Math.ceil(total / limit),
   }
 }
 

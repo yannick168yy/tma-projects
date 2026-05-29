@@ -24,6 +24,7 @@ import LiveCard from '@/components/home/LiveCard.vue'
 import { CATEGORIES } from '@/data/categories'
 import { BANNERS, WINNERS } from '@/data/home'
 import { fetchGames, launchGame, type SlotGame, type GameHistoryItem } from '@/api/slots'
+import { weightedSample } from '@/utils/weightedSample'
 import { ApiError } from '@/api/client'
 
 const HISTORY_STORAGE_KEY = 'betogo_game_history'
@@ -233,12 +234,12 @@ onMounted(async () => {
   historyGames.value = readLocalHistory()
   gamesLoading.value = true
   const [pop, slots, live, fishing, crash, table] = await Promise.allSettled([
-    fetchGames({ sortBy: 'ph_bonus', limit: 50 }),
-    fetchGames({ sortCategory: 'slots', sortBy: 'weight', limit: 30 }),
-    fetchGames({ sortCategory: 'live', sortBy: 'weight', limit: 30 }),
-    fetchGames({ sortCategory: 'fishing', sortBy: 'weight', limit: 20 }),
-    fetchGames({ sortCategory: 'crash', sortBy: 'weight', limit: 20 }),
-    fetchGames({ sortCategory: 'table', sortBy: 'weight', limit: 20 }),
+    fetchGames({ sortBy: 'ph_bonus', limit: 100 }),
+    fetchGames({ sortCategory: 'slots', sortBy: 'weight', limit: 60 }),
+    fetchGames({ sortCategory: 'live', sortBy: 'weight', limit: 40 }),
+    fetchGames({ sortCategory: 'fishing', sortBy: 'weight', limit: 40 }),
+    fetchGames({ sortCategory: 'crash', sortBy: 'weight', limit: 30 }),
+    fetchGames({ sortCategory: 'table', sortBy: 'weight', limit: 30 }),
   ])
   if (pop.status === 'fulfilled') popularRaw.value = pop.value.items
   if (slots.status === 'fulfilled') slotsRaw.value = slots.value.items
@@ -249,31 +250,35 @@ onMounted(async () => {
   gamesLoading.value = false
 })
 
-// ── Deduplication cascade ────────────────────────────────────────────────────
-const popularGames = computed(() => popularRaw.value.slice(0, 6))
+// ── 加权随机采样 + 跨区段去重瀑布 ────────────────────────────────────────────
+// getScore 对 ph_bonus/weight 做 featured 加成（1.5×），power curve 在工具函数内部
+
+const popularGames = computed(() =>
+  weightedSample(popularRaw.value, (g) => g.phBonus * (g.isFeatured ? 1.5 : 1), 6),
+)
 const popularUuids = computed(() => new Set(popularGames.value.map((g) => g.uuid)))
 
 const slotsGames = computed(() => {
-  const excl = popularUuids.value
-  return slotsRaw.value.filter((g) => !excl.has(g.uuid)).slice(0, 6)
+  const pool = slotsRaw.value.filter((g) => !popularUuids.value.has(g.uuid))
+  return weightedSample(pool, (g) => g.weight * (g.isFeatured ? 1.5 : 1), 6)
 })
 const slotsUuids = computed(() => new Set([...popularUuids.value, ...slotsGames.value.map((g) => g.uuid)]))
 
 const liveGames = computed(() => {
-  const excl = slotsUuids.value
-  return liveRaw.value.filter((g) => !excl.has(g.uuid)).slice(0, 6)
+  const pool = liveRaw.value.filter((g) => !slotsUuids.value.has(g.uuid))
+  return weightedSample(pool, (g) => g.weight * (g.isFeatured ? 1.5 : 1), 6)
 })
 const liveUuids = computed(() => new Set([...slotsUuids.value, ...liveGames.value.map((g) => g.uuid)]))
 
 const fishingGames = computed(() => {
-  const excl = liveUuids.value
-  return fishingRaw.value.filter((g) => !excl.has(g.uuid)).slice(0, 6)
+  const pool = fishingRaw.value.filter((g) => !liveUuids.value.has(g.uuid))
+  return weightedSample(pool, (g) => g.weight * (g.isFeatured ? 1.5 : 1), 6)
 })
 const fishingUuids = computed(() => new Set([...liveUuids.value, ...fishingGames.value.map((g) => g.uuid)]))
 
 const crashGames = computed(() => {
-  const excl = fishingUuids.value
-  return crashRaw.value.filter((g) => !excl.has(g.uuid)).slice(0, 6)
+  const pool = crashRaw.value.filter((g) => !fishingUuids.value.has(g.uuid))
+  return weightedSample(pool, (g) => g.weight * (g.isFeatured ? 1.5 : 1), 6)
 })
 const crashUuids = computed(() => new Set([...fishingUuids.value, ...crashGames.value.map((g) => g.uuid)]))
 

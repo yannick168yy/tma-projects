@@ -1,6 +1,6 @@
 import Router from '@koa/router'
 import { listAdminGames, toggleAdminGame, writeAuditLog } from '../../services/admin-store.js'
-import { syncAllGames } from '../../services/sg-game.service.js'
+import { syncAllGames, loadGamesCache } from '../../services/sg-game.service.js'
 import { isMysqlEnabled } from '../../clients/mysql.client.js'
 import { ok, fail } from '../../utils/response.js'
 
@@ -58,6 +58,7 @@ router.post('/sync', async (ctx) => {
   }
   try {
     const result = await syncAllGames(env)
+    await loadGamesCache(env)
     await writeAuditLog(env, {
       adminId: ctx.state.adminId!,
       adminUsername: ctx.state.adminUsername!,
@@ -69,6 +70,15 @@ router.post('/sync', async (ctx) => {
     ok(ctx, result)
   } catch (e) {
     fail(ctx, 500, e instanceof Error ? e.message : 'Sync failed')
+  }
+})
+
+router.post('/refresh-cache', async (ctx) => {
+  try {
+    const count = await loadGamesCache(ctx.state.env)
+    ok(ctx, { cached: count })
+  } catch (e) {
+    fail(ctx, 500, e instanceof Error ? e.message : 'Refresh failed')
   }
 })
 
