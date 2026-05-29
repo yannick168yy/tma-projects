@@ -22,9 +22,14 @@ router.get('/', async (ctx) => {
   const playerType = ctx.query.playerType ? String(ctx.query.playerType) : undefined
   const weightMin = ctx.query.weightMin !== undefined ? Number(ctx.query.weightMin) : undefined
   const weightMax = ctx.query.weightMax !== undefined ? Number(ctx.query.weightMax) : undefined
+  const sortField = ctx.query.sortField ? String(ctx.query.sortField) : undefined
+  const sortOrder = ctx.query.sortOrder === 'asc' || ctx.query.sortOrder === 'desc'
+    ? (ctx.query.sortOrder as 'asc' | 'desc')
+    : undefined
   const result = await listAdminGames(ctx.state.env, {
     page, pageSize, provider, search, isActive, type, sortCategory, volatility,
     isFeatured, hasDemo, theme, gameStyle, playerType, weightMin, weightMax,
+    sortField, sortOrder,
   })
   ok(ctx, result)
 })

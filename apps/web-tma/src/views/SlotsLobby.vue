@@ -8,6 +8,12 @@ import { fetchGames, fetchProviders, launchGame, launchDemo, type SlotGame } fro
 import { ApiError } from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
 
+const props = withDefaults(defineProps<{
+  sortCategory?: string
+  sortBy?: 'weight' | 'ph_bonus' | 'name'
+  title?: string
+}>(), {})
+
 const emit = defineEmits<{
   close: []
   gameTap: []
@@ -56,6 +62,8 @@ async function loadGames(reset = true) {
       limit: 30,
       search: search.value || undefined,
       provider: selectedProvider.value !== 'all' ? selectedProvider.value : undefined,
+      sortCategory: props.sortCategory,
+      sortBy: props.sortBy,
     })
     if (reset) {
       games.value = res.items
@@ -140,7 +148,7 @@ onMounted(() => {
         <X :size="22" />
       </button>
       <h2 class="flex-1 text-sm font-bold text-foreground">
-        SLOTS
+        {{ props.title || 'SLOTS' }}
         <span v-if="total > 0" class="ml-1.5 text-xs font-normal text-muted-foreground">{{ total.toLocaleString() }} games</span>
       </h2>
     </div>

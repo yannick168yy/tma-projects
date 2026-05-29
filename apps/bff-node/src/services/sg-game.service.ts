@@ -80,10 +80,14 @@ export interface DbGame {
   provider: string
   category: string | null
   subCategory: string | null
+  sortCategory: string | null
   imageUrl: string | null
+  imageHqUrl: string | null
   hasDemo: boolean
   hasLobby: boolean
   isMobile: boolean
+  weight: number
+  phBonus: number
 }
 
 export interface GameListResult {
@@ -95,10 +99,18 @@ export interface GameListResult {
 
 export async function listGames(
   env: Env,
-  opts: { page?: number; limit?: number; search?: string; provider?: string; category?: string } = {},
+  opts: {
+    page?: number
+    limit?: number
+    search?: string
+    provider?: string
+    category?: string
+    sortCategory?: string
+    sortBy?: 'weight' | 'ph_bonus' | 'name'
+  } = {},
 ): Promise<GameListResult> {
   const db = getMysqlPool(env)
-  const { page = 1, limit = 30, search, provider, category } = opts
+  const { page = 1, limit = 30, search, provider, category, sortCategory, sortBy = 'weight' } = opts
   const offset = (page - 1) * limit
 
   const conds: string[] = ['is_active = 1']
@@ -116,8 +128,13 @@ export async function listGames(
     conds.push('category = ?')
     vals.push(category)
   }
+  if (sortCategory && sortCategory !== 'all') {
+    conds.push('sort_category = ?')
+    vals.push(sortCategory)
+  }
 
   const where = `WHERE ${conds.join(' AND ')}`
+  const orderBy = sortBy === 'ph_bonus' ? 'ph_bonus DESC, weight DESC' : sortBy === 'name' ? 'name ASC' : 'weight DESC, ph_bonus DESC'
 
   const [[{ total }]] = await db.query<RowDataPacket[]>(
     `SELECT COUNT(*) AS total FROM sg_games ${where}`,
@@ -125,8 +142,9 @@ export async function listGames(
   )
 
   const [rows] = await db.query<RowDataPacket[]>(
-    `SELECT uuid, name, provider, category, sub_category, image_url, has_demo, has_lobby, is_mobile
-     FROM sg_games ${where} ORDER BY name ASC LIMIT ? OFFSET ?`,
+    `SELECT uuid, name, provider, category, sub_category, sort_category, image_url, image_hq_url,
+            has_demo, has_lobby, is_mobile, weight, ph_bonus
+     FROM sg_games ${where} ORDER BY ${orderBy} LIMIT ? OFFSET ?`,
     [...vals, limit, offset],
   )
 
@@ -137,15 +155,56 @@ export async function listGames(
       provider: r.provider as string,
       category: (r.category as string) ?? null,
       subCategory: (r.sub_category as string) ?? null,
+      sortCategory: (r.sort_category as string) ?? null,
       imageUrl: (r.image_url as string) ?? null,
+      imageHqUrl: (r.image_hq_url as string) ?? null,
       hasDemo: Boolean(r.has_demo),
       hasLobby: Boolean(r.has_lobby),
       isMobile: Boolean(r.is_mobile),
+      weight: r.weight != null ? Number(r.weight) : 0,
+      phBonus: r.ph_bonus != null ? Number(r.ph_bonus) : 0,
     })),
     total: Number(total),
     page,
     pages: Math.ceil(Number(total) / limit),
   }
+}
+
+export interface GameHistoryItem {
+  uuid: string
+  name: string
+  provider: string
+  imageUrl: string | null
+  imageHqUrl: string | null
+  lastPlayedAt: string
+}
+
+export async function getUserGameHistory(
+  env: Env,
+  userId: string,
+  limit = 10,
+): Promise<GameHistoryItem[]> {
+  const db = getMysqlPool(env)
+  const [rows] = await db.query<RowDataPacket[]>(
+    `SELECT b.provider_id AS game_uuid,
+            g.name, g.provider, g.image_url, g.image_hq_url,
+            MAX(b.created_at) AS last_played_at
+     FROM bg_bet_order b
+     JOIN sg_games g ON g.uuid = b.provider_id
+     WHERE b.user_id = ? AND b.aggregator_id = 'slotegrator'
+     GROUP BY b.provider_id, g.name, g.provider, g.image_url, g.image_hq_url
+     ORDER BY last_played_at DESC
+     LIMIT ?`,
+    [userId, limit],
+  )
+  return rows.map((r) => ({
+    uuid: r.game_uuid as string,
+    name: r.name as string,
+    provider: r.provider as string,
+    imageUrl: r.image_url ? String(r.image_url) : null,
+    imageHqUrl: r.image_hq_url ? String(r.image_hq_url) : null,
+    lastPlayedAt: new Date(r.last_played_at as Date).toISOString(),
+  }))
 }
 
 /** Returns distinct provider codes from cached games */

@@ -134,6 +134,7 @@ export const getAdminGames = (params: {
   type?: string; sortCategory?: string; volatility?: string; isFeatured?: boolean
   hasDemo?: boolean; theme?: string; gameStyle?: string; playerType?: string
   weightMin?: number; weightMax?: number
+  sortField?: string; sortOrder?: 'asc' | 'desc'
 }) =>
   get<{ total: number; items: AdminGame[]; providers: string[] }>('/admin/games', params)
 export const toggleGame = (uuid: string, isActive: boolean) =>

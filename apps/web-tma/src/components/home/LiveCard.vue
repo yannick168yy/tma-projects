@@ -1,22 +1,31 @@
 <script setup lang="ts">
-import type { LiveGameItem } from '@/data/home'
+import type { SlotGame } from '@/api/slots'
 
-defineProps<{ game: LiveGameItem }>()
+defineProps<{ game: SlotGame }>()
+const emit = defineEmits<{ tap: [] }>()
 </script>
 
 <template>
-  <div class="flex-shrink-0 w-36 rounded-xl overflow-hidden relative h-24 cursor-pointer">
-    <div class="absolute inset-0 bg-gradient-to-br" :class="game.gradient" />
-    <div class="absolute top-2 left-2 flex items-center gap-1 bg-red-500 rounded-full px-2 py-0.5">
+  <div
+    class="flex-shrink-0 w-36 rounded-xl overflow-hidden relative h-20 cursor-pointer"
+    @click="emit('tap')"
+  >
+    <div v-if="game.imageHqUrl || game.imageUrl" class="absolute inset-0">
+      <img
+        :src="game.imageHqUrl || game.imageUrl || ''"
+        :alt="game.name"
+        class="w-full h-full object-cover"
+        loading="lazy"
+      />
+    </div>
+    <div v-else class="absolute inset-0 bg-gradient-to-br from-emerald-900 to-teal-700" />
+    <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
+    <div class="absolute top-1.5 left-1.5 flex items-center gap-1 bg-red-500/80 rounded-full px-1.5 py-0.5">
       <span class="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
-      <span class="text-white text-[10px] font-bold">LIVE</span>
+      <span class="text-white text-[9px] font-bold">LIVE</span>
     </div>
-    <div class="absolute inset-0 flex items-center justify-center">
-      <span class="text-3xl">{{ game.icon }}</span>
-    </div>
-    <div class="absolute bottom-0 inset-x-0 p-2 bg-gradient-to-t from-black/70 to-transparent">
-      <p class="text-white font-bold text-xs">{{ game.name }}</p>
-      <p class="text-white/60 text-[10px]">{{ game.players }} playing</p>
+    <div class="absolute bottom-0 inset-x-0 p-1.5">
+      <p class="text-white font-bold text-xs leading-tight truncate">{{ game.name }}</p>
     </div>
   </div>
 </template>

@@ -34,6 +34,12 @@ const { displayPhp } = storeToRefs(wallet)
 
 type NavId = (typeof NAV_ITEMS)[number]['id']
 
+type CategoryLobbyParams = {
+  sortCategory?: string
+  sortBy?: 'weight' | 'ph_bonus'
+  title: string
+}
+
 const activeNav = ref<NavId>('casino')
 const promoFilter = ref<string | null>(null)
 const searchOpen = ref(false)
@@ -42,6 +48,8 @@ const walletOpen = ref(false)
 const walletModalOpen = ref(false)
 const profileOpen = ref(false)
 const slotsLobbyOpen = ref(false)
+const categoryLobbyOpen = ref(false)
+const categoryLobbyParams = ref<CategoryLobbyParams | null>(null)
 const csOpen = ref(false)
 
 function openCs() {
@@ -101,6 +109,11 @@ function goHome() {
   activeNav.value = 'casino'
   profileOpen.value = false
   promoFilter.value = null
+}
+
+function openCategoryLobby(params: CategoryLobbyParams) {
+  categoryLobbyParams.value = params
+  categoryLobbyOpen.value = true
 }
 
 function onLogout() {
@@ -239,8 +252,24 @@ function navIcon(id: string) {
         <BonusesPage v-else-if="activeNav === 'bonuses'" :promo-filter="promoFilter" @open-wallet="openWallet" />
         <BingoPage v-else-if="activeNav === 'bingo'" @open-wallet="openWallet" @game-tap="onGameTap" />
         <MenuPage v-else-if="activeNav === 'menu'" @open-search="searchOpen = true" @game-tap="onGameTap" @open-cs="openCs" />
-        <HomeContent v-else @open-search="searchOpen = true" @open-promo="goBonuses" @game-tap="onGameTap" @open-slots-lobby="slotsLobbyOpen = true" @open-cs="openCs" />
+        <HomeContent
+          v-else
+          @open-search="searchOpen = true"
+          @open-promo="goBonuses"
+          @game-tap="onGameTap"
+          @open-slots-lobby="slotsLobbyOpen = true"
+          @open-category-lobby="openCategoryLobby"
+          @open-cs="openCs"
+        />
         <SlotsLobby v-if="slotsLobbyOpen" @close="slotsLobbyOpen = false" @game-tap="onGameTap" />
+        <SlotsLobby
+          v-if="categoryLobbyOpen && categoryLobbyParams"
+          :sort-category="categoryLobbyParams.sortCategory"
+          :sort-by="categoryLobbyParams.sortBy"
+          :title="categoryLobbyParams.title"
+          @close="categoryLobbyOpen = false"
+          @game-tap="onGameTap"
+        />
       </main>
 
       <!-- Figma: bottom nav always visible, including on profile -->

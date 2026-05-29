@@ -1,51 +1,50 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, ref, watch, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { storeToRefs } from 'pinia'
 import { usePromotionStore } from '@/stores/promotion'
+import { useAuthStore } from '@/stores/auth'
 import {
   Search,
-  ChevronLeft,
   ChevronRight,
-  Zap,
   Trophy,
   TrendingUp,
   Clock,
-  BarChart3,
   Gamepad2,
-  Spade,
   Headphones,
+  Fish,
+  Zap,
+  LayoutGrid,
 } from 'lucide-vue-next'
 import HomeCategoryShortcut from '@/components/home/HomeCategoryShortcut.vue'
-import SlotsSection from '@/components/home/SlotsSection.vue'
 import GameCard from '@/components/home/GameCard.vue'
 import HistoryCard from '@/components/home/HistoryCard.vue'
 import EGameCard from '@/components/home/EGameCard.vue'
 import LiveCard from '@/components/home/LiveCard.vue'
 import { CATEGORIES } from '@/data/categories'
-import {
-  BANNERS,
-  GAME_TABS,
-  HISTORY_GAMES,
-  POPULAR_GAMES,
-  EGAMES,
-  LIVE_GAMES,
-  WINNERS,
-  PROVIDERS,
-  type GameTabId,
-} from '@/data/home'
+import { BANNERS, WINNERS } from '@/data/home'
+import { fetchGames, fetchGameHistory, type SlotGame, type GameHistoryItem } from '@/api/slots'
+
+type CategoryLobbyParams = {
+  sortCategory?: string
+  sortBy?: 'weight' | 'ph_bonus'
+  title: string
+}
 
 const emit = defineEmits<{
   openSearch: []
   openPromo: [promo: string | null]
   gameTap: []
   openSlotsLobby: []
+  openCategoryLobby: [params: CategoryLobbyParams]
   openCs: []
 }>()
 
 const { t } = useI18n()
 const promotion = usePromotionStore()
+const auth = useAuthStore()
 const { highlightMap } = storeToRefs(promotion)
+const { isLoggedIn } = storeToRefs(auth)
 
 const localizedBanners = computed(() =>
   BANNERS.map((b) => ({
@@ -69,16 +68,12 @@ function categoryClaimable(promo: string | null) {
   return Boolean(h?.highlight)
 }
 
+// ── Banner ──────────────────────────────────────────────────────────────────
 const activeBanner = ref(0)
-const activeTab = ref<GameTabId>('all')
 const bannerTrackRef = ref<HTMLElement | null>(null)
 const bannerDrag = ref({
-  startX: 0,
-  startY: 0,
-  startScroll: 0,
-  axis: null as 'x' | 'y' | null,
-  lastX: 0,
-  lastT: 0,
+  startX: 0, startY: 0, startScroll: 0,
+  axis: null as 'x' | 'y' | null, lastX: 0, lastT: 0,
 })
 const marqueeWinners = computed(() => [...WINNERS, ...WINNERS])
 
@@ -109,12 +104,9 @@ function onBannerTouchStart(e: TouchEvent) {
   const t = e.touches[0]
   if (!t) return
   bannerDrag.value = {
-    startX: t.clientX,
-    startY: t.clientY,
+    startX: t.clientX, startY: t.clientY,
     startScroll: bannerTrackRef.value?.scrollLeft ?? 0,
-    axis: null,
-    lastX: t.clientX,
-    lastT: Date.now(),
+    axis: null, lastX: t.clientX, lastT: Date.now(),
   }
 }
 
@@ -122,18 +114,12 @@ function onBannerTouchMove(e: TouchEvent) {
   const el = bannerTrackRef.value
   const t = e.touches[0]
   if (!el || !t) return
-
   const dx = t.clientX - bannerDrag.value.startX
   const dy = t.clientY - bannerDrag.value.startY
-  const adx = Math.abs(dx)
-  const ady = Math.abs(dy)
-
-  if (bannerDrag.value.axis === null && (adx > 8 || ady > 8)) {
-    bannerDrag.value.axis = adx >= ady ? 'x' : 'y'
+  if (bannerDrag.value.axis === null && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) {
+    bannerDrag.value.axis = Math.abs(dx) >= Math.abs(dy) ? 'x' : 'y'
   }
-
   if (bannerDrag.value.axis !== 'x') return
-
   e.preventDefault()
   el.scrollLeft = bannerDrag.value.startScroll - dx
   bannerDrag.value.lastX = t.clientX
@@ -146,8 +132,8 @@ function onBannerTouchEnd() {
     if (el && el.clientWidth > 0) {
       const dx = bannerDrag.value.startX - bannerDrag.value.lastX
       const dt = Math.max(1, Date.now() - bannerDrag.value.lastT)
-      const velocity = dx / dt // px/ms，正值 = 向左滑（下一张）
-      const threshold = el.clientWidth * 0.18 // 18% 宽度即触发
+      const velocity = dx / dt
+      const threshold = el.clientWidth * 0.18
       const cur = activeBanner.value
       if (dx > threshold || velocity > 0.35) {
         const next = Math.min(BANNERS.length - 1, cur + 1)
@@ -171,24 +157,84 @@ watch(bannerTrackRef, (el) => {
   ro.observe(el)
 })
 
-function tabIcon(id: GameTabId) {
-  switch (id) {
-    case 'all':
-      return Spade
-    case 'slots':
-      return Zap
-    case 'egames':
-      return Gamepad2
-    case 'sports':
-      return BarChart3
-    default:
-      return null
-  }
+// ── Game data ────────────────────────────────────────────────────────────────
+const popularRaw = ref<SlotGame[]>([])
+const slotsRaw = ref<SlotGame[]>([])
+const liveRaw = ref<SlotGame[]>([])
+const fishingRaw = ref<SlotGame[]>([])
+const crashRaw = ref<SlotGame[]>([])
+const tableRaw = ref<SlotGame[]>([])
+const historyGames = ref<GameHistoryItem[]>([])
+const gamesLoading = ref(true)
+
+async function loadHistory() {
+  try {
+    historyGames.value = await fetchGameHistory(10)
+  } catch { /* silent */ }
 }
+
+onMounted(async () => {
+  gamesLoading.value = true
+  const [pop, slots, live, fishing, crash, table] = await Promise.allSettled([
+    fetchGames({ sortBy: 'ph_bonus', limit: 50 }),
+    fetchGames({ sortCategory: 'slots', sortBy: 'weight', limit: 30 }),
+    fetchGames({ sortCategory: 'live', sortBy: 'weight', limit: 30 }),
+    fetchGames({ sortCategory: 'fishing', sortBy: 'weight', limit: 20 }),
+    fetchGames({ sortCategory: 'crash', sortBy: 'weight', limit: 20 }),
+    fetchGames({ sortCategory: 'table', sortBy: 'weight', limit: 20 }),
+  ])
+  if (pop.status === 'fulfilled') popularRaw.value = pop.value.items
+  if (slots.status === 'fulfilled') slotsRaw.value = slots.value.items
+  if (live.status === 'fulfilled') liveRaw.value = live.value.items
+  if (fishing.status === 'fulfilled') fishingRaw.value = fishing.value.items
+  if (crash.status === 'fulfilled') crashRaw.value = crash.value.items
+  if (table.status === 'fulfilled') tableRaw.value = table.value.items
+  gamesLoading.value = false
+
+  if (isLoggedIn.value) void loadHistory()
+})
+
+watch(isLoggedIn, (loggedIn) => {
+  if (loggedIn && historyGames.value.length === 0) void loadHistory()
+})
+
+// ── Deduplication cascade ────────────────────────────────────────────────────
+const popularGames = computed(() => popularRaw.value.slice(0, 9))
+const popularUuids = computed(() => new Set(popularGames.value.map((g) => g.uuid)))
+
+const slotsGames = computed(() => {
+  const excl = popularUuids.value
+  return slotsRaw.value.filter((g) => !excl.has(g.uuid)).slice(0, 6)
+})
+const slotsUuids = computed(() => new Set([...popularUuids.value, ...slotsGames.value.map((g) => g.uuid)]))
+
+const liveGames = computed(() => {
+  const excl = slotsUuids.value
+  return liveRaw.value.filter((g) => !excl.has(g.uuid)).slice(0, 6)
+})
+const liveUuids = computed(() => new Set([...slotsUuids.value, ...liveGames.value.map((g) => g.uuid)]))
+
+const fishingGames = computed(() => {
+  const excl = liveUuids.value
+  return fishingRaw.value.filter((g) => !excl.has(g.uuid)).slice(0, 6)
+})
+const fishingUuids = computed(() => new Set([...liveUuids.value, ...fishingGames.value.map((g) => g.uuid)]))
+
+const crashGames = computed(() => {
+  const excl = fishingUuids.value
+  return crashRaw.value.filter((g) => !excl.has(g.uuid)).slice(0, 6)
+})
+const crashUuids = computed(() => new Set([...fishingUuids.value, ...crashGames.value.map((g) => g.uuid)]))
+
+const tableGames = computed(() => {
+  const excl = crashUuids.value
+  return tableRaw.value.filter((g) => !excl.has(g.uuid)).slice(0, 6)
+})
 </script>
 
 <template>
   <div class="page-scroll pb-20 hide-scrollbar">
+    <!-- 分类快捷入口 -->
     <div class="category-shortcut-row flex gap-3 px-4 pb-3 pt-3 overflow-x-auto hide-scrollbar">
       <HomeCategoryShortcut
         v-for="c in CATEGORIES"
@@ -200,6 +246,7 @@ function tabIcon(id: GameTabId) {
       />
     </div>
 
+    <!-- Banner 轮播 -->
     <div class="px-4">
       <div class="relative h-56 overflow-hidden rounded-2xl">
         <div
@@ -248,55 +295,40 @@ function tabIcon(id: GameTabId) {
       </div>
     </div>
 
-    <!-- Slotegrator games section (auto-hides if SG not configured) -->
-    <SlotsSection @open-lobby="emit('openSlotsLobby')" @game-tap="emit('gameTap')" />
-
-    <div class="flex items-center gap-2 px-4 mt-4 overflow-x-auto hide-scrollbar">
+    <!-- 搜索按钮 -->
+    <div class="flex items-center px-4 mt-4">
       <button
         type="button"
-        class="flex-shrink-0 w-9 h-9 rounded-xl bg-secondary flex items-center justify-center"
+        class="flex items-center gap-2 flex-1 px-3 py-2.5 rounded-xl bg-secondary text-muted-foreground"
         @click="emit('openSearch')"
       >
-        <Search :size="15" class="text-muted-foreground" />
-      </button>
-      <button
-        v-for="tab in GAME_TABS"
-        :key="tab.id"
-        type="button"
-        class="flex-shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-colors"
-        :class="
-          activeTab === tab.id
-            ? 'bg-primary text-primary-foreground'
-            : 'bg-secondary text-muted-foreground hover:text-foreground'
-        "
-        @click="activeTab = tab.id"
-      >
-        <component :is="tabIcon(tab.id)" v-if="tabIcon(tab.id)" :size="13" />
-        <span v-else class="text-sm leading-none">🐓</span>
-        <span>{{ t(`home.gameTabs.${tab.id}`) }}</span>
+        <Search :size="14" />
+        <span class="text-xs">{{ t('search.placeholder') }}</span>
       </button>
     </div>
 
+    <!-- GAME HISTORY -->
     <section class="mt-5">
       <div class="flex items-center justify-between px-4 mb-3">
         <div class="flex items-center gap-2">
           <Clock :size="15" class="text-muted-foreground" />
           <h3 class="text-foreground font-black text-sm font-display">{{ t('home.gameHistory') }}</h3>
         </div>
-        <div class="flex gap-1">
-          <button type="button" class="w-7 h-7 bg-secondary rounded-lg flex items-center justify-center">
-            <ChevronLeft :size="13" class="text-muted-foreground" />
-          </button>
-          <button type="button" class="w-7 h-7 bg-secondary rounded-lg flex items-center justify-center">
-            <ChevronRight :size="13" class="text-muted-foreground" />
-          </button>
-        </div>
       </div>
-      <div class="flex gap-3 px-4 overflow-x-auto hide-scrollbar">
-        <HistoryCard v-for="g in HISTORY_GAMES" :key="g.id" :game="g" @tap="emit('gameTap')" />
+      <div v-if="isLoggedIn && historyGames.length > 0" class="flex gap-3 px-4 overflow-x-auto hide-scrollbar">
+        <HistoryCard
+          v-for="g in historyGames"
+          :key="g.uuid"
+          :game="g"
+          @tap="emit('gameTap')"
+        />
+      </div>
+      <div v-else-if="!isLoggedIn || historyGames.length === 0" class="px-4">
+        <p class="text-muted-foreground text-xs">{{ t('home.noHistory') }}</p>
       </div>
     </section>
 
+    <!-- Recent Wins 跑马灯 -->
     <div class="mx-4 mt-4 bg-secondary rounded-xl p-3 flex items-center gap-2 overflow-hidden">
       <div class="flex-shrink-0 flex items-center gap-1.5 text-primary">
         <Trophy :size="13" />
@@ -316,85 +348,152 @@ function tabIcon(id: GameTabId) {
       </div>
     </div>
 
+    <!-- POPULAR GAMES (by ph_bonus) -->
     <section class="mt-5 px-4">
       <div class="flex items-center justify-between mb-3">
         <div class="flex items-center gap-2">
           <TrendingUp :size="15" class="text-primary" />
           <h3 class="text-foreground font-black text-sm font-display">{{ t('home.popularGames') }}</h3>
         </div>
-        <div class="flex items-center gap-1">
-          <button type="button" class="bg-secondary/60 text-xs font-bold text-muted-foreground px-3 py-1 rounded-full">
-            {{ t('common.all') }}
-          </button>
-          <button type="button" class="w-7 h-7 bg-secondary rounded-lg flex items-center justify-center">
-            <ChevronLeft :size="13" class="text-muted-foreground" />
-          </button>
-          <button type="button" class="w-7 h-7 bg-secondary rounded-lg flex items-center justify-center">
-            <ChevronRight :size="13" class="text-muted-foreground" />
-          </button>
-        </div>
+        <button
+          type="button"
+          class="text-primary text-xs font-bold flex items-center gap-0.5"
+          @click="emit('openCategoryLobby', { sortBy: 'ph_bonus', title: t('home.popularGames') })"
+        >
+          {{ t('common.seeAll') }}
+          <ChevronRight :size="12" />
+        </button>
       </div>
-      <div class="grid grid-cols-3 gap-2">
-        <GameCard v-for="g in POPULAR_GAMES" :key="g.id" :game="g" @tap="emit('gameTap')" />
+      <div v-if="gamesLoading" class="grid grid-cols-3 gap-2">
+        <div v-for="n in 9" :key="n" class="aspect-[3/4] animate-pulse rounded-xl bg-secondary" />
+      </div>
+      <div v-else-if="popularGames.length > 0" class="grid grid-cols-3 gap-2">
+        <GameCard v-for="g in popularGames" :key="g.uuid" :game="g" @tap="emit('gameTap')" />
       </div>
     </section>
 
-    <section class="mt-6">
+    <!-- E-GAMES ZONE (slots) -->
+    <section v-if="gamesLoading || slotsGames.length > 0" class="mt-6">
       <div class="flex items-center justify-between px-4 mb-3">
         <div class="flex items-center gap-2">
           <Gamepad2 :size="15" class="text-violet-400" />
           <h3 class="text-foreground font-black text-sm font-display">{{ t('home.egamesZone') }}</h3>
           <span class="bg-violet-500/20 text-violet-300 text-[10px] font-bold px-2 py-0.5 rounded-full">{{ t('common.featured') }}</span>
         </div>
-        <button type="button" class="text-primary text-xs font-bold flex items-center gap-0.5">
+        <button
+          type="button"
+          class="text-primary text-xs font-bold flex items-center gap-0.5"
+          @click="emit('openCategoryLobby', { sortCategory: 'slots', sortBy: 'weight', title: t('home.egamesZone') })"
+        >
           {{ t('common.seeAll') }}
           <ChevronRight :size="12" />
         </button>
       </div>
-      <div class="flex gap-3 px-4 overflow-x-auto hide-scrollbar">
-        <EGameCard v-for="g in EGAMES" :key="g.id" :game="g" />
+      <div v-if="gamesLoading" class="flex gap-3 px-4">
+        <div v-for="n in 6" :key="n" class="flex-shrink-0 w-32 h-20 animate-pulse rounded-xl bg-secondary" />
+      </div>
+      <div v-else class="flex gap-3 px-4 overflow-x-auto hide-scrollbar">
+        <EGameCard v-for="g in slotsGames" :key="g.uuid" :game="g" @tap="emit('gameTap')" />
       </div>
     </section>
 
-    <section class="mt-6">
+    <!-- LIVE GAMES -->
+    <section v-if="gamesLoading || liveGames.length > 0" class="mt-6">
       <div class="flex items-center justify-between px-4 mb-3">
         <div class="flex items-center gap-2">
           <span class="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
           <h3 class="text-foreground font-black text-sm font-display">{{ t('home.liveGames') }}</h3>
         </div>
-        <button type="button" class="text-primary text-xs font-bold flex items-center gap-0.5">
+        <button
+          type="button"
+          class="text-primary text-xs font-bold flex items-center gap-0.5"
+          @click="emit('openCategoryLobby', { sortCategory: 'live', sortBy: 'weight', title: t('home.liveGames') })"
+        >
           {{ t('common.seeAll') }}
           <ChevronRight :size="12" />
         </button>
       </div>
-      <div class="flex gap-3 px-4 overflow-x-auto hide-scrollbar">
-        <LiveCard v-for="g in LIVE_GAMES" :key="g.id" :game="g" />
+      <div v-if="gamesLoading" class="flex gap-3 px-4">
+        <div v-for="n in 6" :key="n" class="flex-shrink-0 w-36 h-20 animate-pulse rounded-xl bg-secondary" />
+      </div>
+      <div v-else class="flex gap-3 px-4 overflow-x-auto hide-scrollbar">
+        <LiveCard v-for="g in liveGames" :key="g.uuid" :game="g" @tap="emit('gameTap')" />
       </div>
     </section>
 
-    <section class="mt-6 px-4">
-      <div class="flex items-center justify-between mb-3">
-        <h3 class="text-foreground font-black text-sm font-display">{{ t('home.gameProviders') }}</h3>
-        <button type="button" class="text-primary text-xs font-bold flex items-center gap-0.5">
-          {{ t('common.all') }}
+    <!-- FISHING GAMES -->
+    <section v-if="gamesLoading || fishingGames.length > 0" class="mt-6">
+      <div class="flex items-center justify-between px-4 mb-3">
+        <div class="flex items-center gap-2">
+          <Fish :size="15" class="text-cyan-400" />
+          <h3 class="text-foreground font-black text-sm font-display">{{ t('home.fishingZone') }}</h3>
+        </div>
+        <button
+          type="button"
+          class="text-primary text-xs font-bold flex items-center gap-0.5"
+          @click="emit('openCategoryLobby', { sortCategory: 'fishing', sortBy: 'weight', title: t('home.fishingZone') })"
+        >
+          {{ t('common.seeAll') }}
           <ChevronRight :size="12" />
         </button>
       </div>
-      <div class="grid grid-cols-4 gap-2">
-        <button
-          v-for="p in PROVIDERS"
-          :key="p.name"
-          type="button"
-          class="rounded-xl bg-secondary border border-border hover:border-primary/30 transition-colors flex flex-col items-center justify-center gap-1 py-3"
-        >
-          <div class="w-8 h-8 rounded-lg bg-gradient-to-br flex items-center justify-center" :class="p.color">
-            <span class="text-white font-black text-[10px]">{{ p.abbr }}</span>
-          </div>
-          <span class="text-muted-foreground text-[10px] font-bold">{{ p.name }}</span>
-        </button>
+      <div v-if="gamesLoading" class="flex gap-3 px-4">
+        <div v-for="n in 6" :key="n" class="flex-shrink-0 w-32 h-20 animate-pulse rounded-xl bg-secondary" />
+      </div>
+      <div v-else class="flex gap-3 px-4 overflow-x-auto hide-scrollbar">
+        <EGameCard v-for="g in fishingGames" :key="g.uuid" :game="g" @tap="emit('gameTap')" />
       </div>
     </section>
 
+    <!-- CRASH GAMES -->
+    <section v-if="gamesLoading || crashGames.length > 0" class="mt-6">
+      <div class="flex items-center justify-between px-4 mb-3">
+        <div class="flex items-center gap-2">
+          <Zap :size="15" class="text-orange-400" />
+          <h3 class="text-foreground font-black text-sm font-display">{{ t('home.crashZone') }}</h3>
+        </div>
+        <button
+          type="button"
+          class="text-primary text-xs font-bold flex items-center gap-0.5"
+          @click="emit('openCategoryLobby', { sortCategory: 'crash', sortBy: 'weight', title: t('home.crashZone') })"
+        >
+          {{ t('common.seeAll') }}
+          <ChevronRight :size="12" />
+        </button>
+      </div>
+      <div v-if="gamesLoading" class="flex gap-3 px-4">
+        <div v-for="n in 6" :key="n" class="flex-shrink-0 w-32 h-20 animate-pulse rounded-xl bg-secondary" />
+      </div>
+      <div v-else class="flex gap-3 px-4 overflow-x-auto hide-scrollbar">
+        <EGameCard v-for="g in crashGames" :key="g.uuid" :game="g" @tap="emit('gameTap')" />
+      </div>
+    </section>
+
+    <!-- TABLE GAMES -->
+    <section v-if="gamesLoading || tableGames.length > 0" class="mt-6">
+      <div class="flex items-center justify-between px-4 mb-3">
+        <div class="flex items-center gap-2">
+          <LayoutGrid :size="15" class="text-blue-400" />
+          <h3 class="text-foreground font-black text-sm font-display">{{ t('home.tableZone') }}</h3>
+        </div>
+        <button
+          type="button"
+          class="text-primary text-xs font-bold flex items-center gap-0.5"
+          @click="emit('openCategoryLobby', { sortCategory: 'table', sortBy: 'weight', title: t('home.tableZone') })"
+        >
+          {{ t('common.seeAll') }}
+          <ChevronRight :size="12" />
+        </button>
+      </div>
+      <div v-if="gamesLoading" class="flex gap-3 px-4">
+        <div v-for="n in 6" :key="n" class="flex-shrink-0 w-32 h-20 animate-pulse rounded-xl bg-secondary" />
+      </div>
+      <div v-else class="flex gap-3 px-4 overflow-x-auto hide-scrollbar">
+        <EGameCard v-for="g in tableGames" :key="g.uuid" :game="g" @tap="emit('gameTap')" />
+      </div>
+    </section>
+
+    <!-- 客服入口 -->
     <div
       class="mx-4 mt-6 mb-4 bg-gradient-to-r from-secondary to-[#1a2540] rounded-2xl p-4 flex items-center justify-between border border-border"
     >
@@ -402,7 +501,11 @@ function tabIcon(id: GameTabId) {
         <p class="text-foreground font-bold text-sm">{{ t('home.supportTitle') }}</p>
         <p class="text-muted-foreground text-xs mt-0.5">{{ t('home.supportSub') }}</p>
       </div>
-      <button type="button" class="w-11 h-11 rounded-xl bg-primary flex items-center justify-center shadow shadow-amber-500/20" @click="emit('openCs')">
+      <button
+        type="button"
+        class="w-11 h-11 rounded-xl bg-primary flex items-center justify-center shadow shadow-amber-500/20"
+        @click="emit('openCs')"
+      >
         <Headphones :size="18" class="text-primary-foreground" />
       </button>
     </div>

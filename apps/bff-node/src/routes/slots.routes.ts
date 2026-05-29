@@ -1,7 +1,7 @@
 import Router from '@koa/router'
 import { randomUUID } from 'node:crypto'
 import { ok, fail } from '../utils/response.js'
-import { listGames, listProviders, syncAllGames } from '../services/sg-game.service.js'
+import { listGames, listProviders, syncAllGames, getUserGameHistory } from '../services/sg-game.service.js'
 import { sgInitGame, sgInitDemo } from '../services/slotegrator.service.js'
 import { getUser } from '../services/store/index.js'
 import { isMysqlEnabled } from '../clients/mysql.client.js'
@@ -24,6 +24,8 @@ router.get('/games', async (ctx) => {
       search: q.search || undefined,
       provider: q.provider || undefined,
       category: q.category || undefined,
+      sortCategory: q.sortCategory || undefined,
+      sortBy: (q.sortBy as 'weight' | 'ph_bonus' | 'name') || undefined,
     })
     ok(ctx, result)
   } catch (e) {
@@ -43,6 +45,20 @@ router.get('/providers', async (ctx) => {
     ok(ctx, providers)
   } catch (e) {
     fail(ctx, 500, 'Failed to list providers')
+  }
+})
+
+// GET /slots/history — logged-in user's recently played games
+router.get('/history', async (ctx) => {
+  const env = ctx.state.env
+  if (!ctx.state.userId) { ok(ctx, []); return }
+  if (!isMysqlEnabled(env)) { ok(ctx, []); return }
+  const limit = Math.min(Number(ctx.query.limit ?? 10), 20)
+  try {
+    const items = await getUserGameHistory(env, ctx.state.userId, limit)
+    ok(ctx, items)
+  } catch (e) {
+    ok(ctx, [])
   }
 })
 

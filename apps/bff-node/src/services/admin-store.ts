@@ -325,6 +325,7 @@ export async function listAdminGames(
     type?: string; sortCategory?: string; volatility?: string; isFeatured?: boolean
     hasDemo?: boolean; theme?: string; gameStyle?: string; playerType?: string
     weightMin?: number; weightMax?: number
+    sortField?: string; sortOrder?: 'asc' | 'desc'
   },
 ) {
   const offset = (opts.page - 1) * opts.pageSize
@@ -352,6 +353,10 @@ export async function listAdminGames(
   )
   const total = Number(countRows[0]?.cnt ?? 0)
 
+  const allowedSortFields: Record<string, string> = { weight: 'weight', phBonus: 'ph_bonus' }
+  const sortCol = (opts.sortField && allowedSortFields[opts.sortField]) || 'weight'
+  const sortDir = opts.sortOrder === 'asc' ? 'ASC' : 'DESC'
+
   const [rows] = await pool(env).query<RowDataPacket[]>(
     `SELECT uuid, name, type, provider, provider_id, technology,
             category, sub_category, image_url, image_hq_url,
@@ -360,7 +365,7 @@ export async function listAdminGames(
             is_active, updated_at,
             weight, ph_bonus, is_featured, sort_category, theme, game_style, player_type,
             description_en, description_zh, search_keywords, weight_updated_at
-     FROM sg_games ${where} ORDER BY weight DESC, provider, name LIMIT ? OFFSET ?`,
+     FROM sg_games ${where} ORDER BY ${sortCol} ${sortDir}, provider, name LIMIT ? OFFSET ?`,
     [...params, opts.pageSize, offset],
   )
 

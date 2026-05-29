@@ -6,10 +6,14 @@ export interface SlotGame {
   provider: string
   category: string | null
   subCategory: string | null
+  sortCategory: string | null
   imageUrl: string | null
+  imageHqUrl: string | null
   hasDemo: boolean
   hasLobby: boolean
   isMobile: boolean
+  weight: number
+  phBonus: number
 }
 
 export interface GameListResult {
@@ -25,6 +29,17 @@ export interface GameListParams {
   search?: string
   provider?: string
   category?: string
+  sortCategory?: string
+  sortBy?: 'weight' | 'ph_bonus' | 'name'
+}
+
+export interface GameHistoryItem {
+  uuid: string
+  name: string
+  provider: string
+  imageUrl: string | null
+  imageHqUrl: string | null
+  lastPlayedAt: string
 }
 
 export function fetchGames(params: GameListParams = {}): Promise<GameListResult> {
@@ -34,8 +49,14 @@ export function fetchGames(params: GameListParams = {}): Promise<GameListResult>
   if (params.search) qs.set('search', params.search)
   if (params.provider && params.provider !== 'all') qs.set('provider', params.provider)
   if (params.category && params.category !== 'all') qs.set('category', params.category)
+  if (params.sortCategory) qs.set('sortCategory', params.sortCategory)
+  if (params.sortBy) qs.set('sortBy', params.sortBy)
   const q = qs.toString()
   return apiRequest<GameListResult>(`/slots/games${q ? `?${q}` : ''}`)
+}
+
+export function fetchGameHistory(limit = 10): Promise<GameHistoryItem[]> {
+  return apiRequest<GameHistoryItem[]>(`/slots/history?limit=${limit}`)
 }
 
 export function fetchProviders(): Promise<string[]> {

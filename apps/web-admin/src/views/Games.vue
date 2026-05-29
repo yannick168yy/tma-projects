@@ -108,7 +108,7 @@
       row-key="uuid"
       size="small"
       :scroll="{ x: 1400 }"
-      @change="onPageChange"
+      @change="onTableChange"
     >
       <template #bodyCell="{ column, record }">
         <!-- 游戏名 -->
@@ -188,7 +188,13 @@
             <span style="font-size:11px;color:#595959;width:22px;text-align:right;flex-shrink:0">{{ record.weight }}</span>
           </div>
           <span v-else style="color:#d9d9d9;font-size:11px">未评</span>
-          <div v-if="record.phBonus > 0" style="font-size:10px;color:#1677ff;margin-top:2px">PH热度 {{ record.phBonus }}/30</div>
+        </template>
+
+        <!-- PH热度 -->
+        <template v-if="column.key === 'phBonus'">
+          <span v-if="record.phBonus > 0" style="font-size:13px;font-weight:600;color:#1677ff">{{ record.phBonus }}</span>
+          <span v-else style="color:#d9d9d9;font-size:11px">—</span>
+          <span v-if="record.phBonus > 0" style="font-size:10px;color:#999"> /30</span>
         </template>
 
         <!-- 特性 -->
@@ -380,6 +386,8 @@ const games = ref<AdminGame[]>([])
 const providers = ref<string[]>([])
 const total = ref(0)
 const page = ref(1)
+const sortField = ref<string | undefined>()
+const sortOrder = ref<'asc' | 'desc' | undefined>()
 const togglingUuid = ref<string | null>(null)
 const detailVisible = ref(false)
 const detailGame = ref<AdminGame | null>(null)
@@ -392,7 +400,20 @@ const pagination = computed(() => ({
   showSizeChanger: false,
 }))
 
-function onPageChange(p: { current: number }) { load(p.current) }
+function onTableChange(
+  pag: { current?: number },
+  _filters: unknown,
+  sorter: { columnKey?: string; order?: string },
+) {
+  if (sorter.columnKey && sorter.order) {
+    sortField.value = sorter.columnKey
+    sortOrder.value = sorter.order === 'ascend' ? 'asc' : 'desc'
+  } else {
+    sortField.value = undefined
+    sortOrder.value = undefined
+  }
+  load(pag.current ?? 1)
+}
 
 function volatilityColor(v: string) {
   if (v.includes('very')) return 'magenta'
@@ -445,7 +466,8 @@ const columns = [
   { title: '前端分类', key: 'sortCategory', width: 100 },
   { title: '主题/风格/玩家', key: 'aiAttrs', width: 150 },
   { title: '参数', key: 'params', width: 110 },
-  { title: '热度权重', key: 'weight', width: 120 },
+  { title: '热度权重', key: 'weight', width: 120, sorter: true, sortDirections: ['ascend', 'descend'] },
+  { title: 'PH热度', key: 'phBonus', width: 90, sorter: true, sortDirections: ['ascend', 'descend'] },
   { title: '特性', key: 'features', width: 120 },
   { title: '操作', key: 'actions', width: 65, fixed: 'right' },
 ]
@@ -480,6 +502,8 @@ async function load(p = 1) {
       playerType: playerTypeFilter.value,
       weightMin,
       weightMax,
+      sortField: sortField.value,
+      sortOrder: sortOrder.value,
     })
     games.value = res.items
     total.value = res.total
