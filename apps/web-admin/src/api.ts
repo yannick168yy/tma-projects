@@ -124,7 +124,7 @@ export interface AdminGame {
   label: string | null; rtp: number | null; volatility: string | null
   reelsCount: string | null; linesCount: number | null
   tags: string[]; isActive: boolean; updatedAt: string | null
-  weight: number; isFeatured: boolean; sortCategory: string | null
+  weight: number; phBonus: number; isFeatured: boolean; sortCategory: string | null
   theme: string | null; gameStyle: string | null; playerType: string | null
   descriptionEn: string | null; descriptionZh: string | null
   searchKeywords: string | null; weightUpdatedAt: string | null

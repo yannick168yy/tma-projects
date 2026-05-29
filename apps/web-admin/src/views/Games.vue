@@ -188,6 +188,7 @@
             <span style="font-size:11px;color:#595959;width:22px;text-align:right;flex-shrink:0">{{ record.weight }}</span>
           </div>
           <span v-else style="color:#d9d9d9;font-size:11px">未评</span>
+          <div v-if="record.phBonus > 0" style="font-size:10px;color:#1677ff;margin-top:2px">PH热度 {{ record.phBonus }}/30</div>
         </template>
 
         <!-- 特性 -->
@@ -293,6 +294,10 @@
                 :stroke-color="weightColor(detailGame.weight)" :show-info="false" style="flex:1;margin:0" />
               <span style="font-size:13px;font-weight:500;width:30px">{{ detailGame.weight }}</span>
             </div>
+          </a-descriptions-item>
+          <a-descriptions-item label="PH热度(ph_bonus)">
+            <span style="font-size:13px;font-weight:500;color:#1677ff">{{ detailGame.phBonus }}</span>
+            <span style="font-size:11px;color:#999"> / 30</span>
           </a-descriptions-item>
           <a-descriptions-item label="推荐首页">
             <a-tag :color="detailGame.isFeatured ? 'gold' : 'default'">{{ detailGame.isFeatured ? '已推荐' : '未推荐' }}</a-tag>

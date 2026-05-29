@@ -248,9 +248,17 @@ async function main() {
         const featScore = featureScore(g)
         const weight = Math.min(providerBase + phBonus + featScore + featuredBonus, 100)
 
+        const breakdown = JSON.stringify({
+          provider_base:  providerBase,
+          ph_bonus:       phBonus,
+          feature_score:  featScore,
+          featured_bonus: featuredBonus,
+        })
+
         await db.execute(
           `UPDATE sg_games SET
              weight            = ?,
+             ph_bonus          = ?,
              is_featured       = ?,
              sort_category     = ?,
              theme             = ?,
@@ -259,10 +267,12 @@ async function main() {
              description_en    = ?,
              description_zh    = ?,
              search_keywords   = ?,
+             weight_breakdown  = ?,
              weight_updated_at = NOW(3)
            WHERE uuid = ?`,
           [
             weight,
+            phBonus,
             (r.is_featured || FEATURED_GAMES.has(g.name)) ? 1 : 0,
             r.sort_category ?? 'slots',
             r.theme ?? null,
@@ -271,6 +281,7 @@ async function main() {
             r.description_en || null,
             r.description_zh || null,
             r.search_keywords || null,
+            breakdown,
             g.uuid,
           ],
         )

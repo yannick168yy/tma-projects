@@ -358,7 +358,7 @@ export async function listAdminGames(
             has_demo, has_lobby, is_mobile, has_freespins, has_tables,
             label, rtp, volatility, reels_count, lines_count, tags,
             is_active, updated_at,
-            weight, is_featured, sort_category, theme, game_style, player_type,
+            weight, ph_bonus, is_featured, sort_category, theme, game_style, player_type,
             description_en, description_zh, search_keywords, weight_updated_at
      FROM sg_games ${where} ORDER BY weight DESC, provider, name LIMIT ? OFFSET ?`,
     [...params, opts.pageSize, offset],
@@ -392,6 +392,7 @@ export async function listAdminGames(
     isActive: Boolean(r.is_active),
     updatedAt: (() => { const d = new Date(r.updated_at as Date); return isNaN(d.getTime()) ? null : d.toISOString() })(),
     weight: r.weight != null ? Number(r.weight) : 0,
+    phBonus: r.ph_bonus != null ? Number(r.ph_bonus) : 0,
     isFeatured: Boolean(r.is_featured),
     sortCategory: r.sort_category ? String(r.sort_category) : null,
     theme: r.theme ? String(r.theme) : null,
