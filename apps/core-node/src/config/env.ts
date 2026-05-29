@@ -22,6 +22,9 @@ const schema = z.object({
   SG_MERCHANT_KEY: z.string().default(''),
   SG_CURRENCY: z.string().default('EUR'),
 
+  // YFPay 回调验签
+  YFPAY_API_KEY: z.string().default(''),
+
   // 内部服务间通信 token
   INTERNAL_TOKEN: z.string().default(''),
 })

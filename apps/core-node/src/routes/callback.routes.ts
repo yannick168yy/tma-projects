@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify'
 import { env } from '../config/env.js'
+import { providerVerifiers } from '../providers/verifiers.js'
 
 export async function callbackRoutes(app: FastifyInstance) {
   // 聚合商回调入口 — 验签后入队 NATS，立即返回 200
@@ -9,10 +10,19 @@ export async function callbackRoutes(app: FastifyInstance) {
       const { provider } = req.params
       const payload = req.body as Record<string, unknown>
 
-      // TODO: 按 provider 做签名验证（各厂商适配器）
+      const verify = providerVerifiers[provider]
+      if (!verify) {
+        app.log.warn({ provider }, 'Callback: unknown provider')
+        return reply.status(400).send({ code: 1, message: 'unknown provider' })
+      }
+
+      if (!verify(req, env as unknown as Record<string, string>)) {
+        app.log.warn({ provider }, 'Callback: invalid signature')
+        return reply.status(401).send({ code: 1, message: 'invalid signature' })
+      }
+
       app.log.info({ provider, payload }, 'Callback received')
 
-      // 入队 NATS JetStream
       const js = app.js
       await js.publish(
         env.NATS_CALLBACK_SUBJECT,
