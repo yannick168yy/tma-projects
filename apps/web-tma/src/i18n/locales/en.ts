@@ -380,4 +380,7 @@ export default {
     vi: 'Tiếng Việt',
     'zh-CN': '简体中文',
   },
+  game: {
+    backToBetoGo: 'Back to BetoGo',
+  },
 }
