@@ -53,16 +53,11 @@ export interface HomepageGames {
   fishing: SlotGame[]
   crash: SlotGame[]
   table: SlotGame[]
-  recommended: SlotGame[]
   generatedAt: string
 }
 
 export function fetchHomepageGames(): Promise<HomepageGames> {
   return apiRequest<HomepageGames>('/slots/homepage')
-}
-
-export function fetchRecommendedGames(): Promise<{ items: SlotGame[] }> {
-  return apiRequest<{ items: SlotGame[] }>('/slots/recommended')
 }
 
 export function fetchGames(params: GameListParams = {}): Promise<GameListResult> {

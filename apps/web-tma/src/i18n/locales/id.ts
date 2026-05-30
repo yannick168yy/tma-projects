@@ -100,8 +100,6 @@ export default {
     fishingZone: 'GAME MEMANCING',
     crashZone: 'GAME CRASH',
     tableZone: 'GAME MEJA',
-    forYou: 'Untuk Anda',
-    shuffle: 'Acak',
     noHistory: 'Main game untuk melihat riwayat di sini',
     gameProviders: 'PENYEDIA GAME',
     supportTitle: 'Dukungan Pelanggan 24/7',

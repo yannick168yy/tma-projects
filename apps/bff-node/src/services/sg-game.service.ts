@@ -159,7 +159,6 @@ export interface HomepageSelection {
   fishing: DbGame[]
   crash: DbGame[]
   table: DbGame[]
-  recommended: DbGame[]
   generatedAt: string
 }
 
@@ -205,8 +204,8 @@ export async function refreshHomepageSelection(env: Env): Promise<void> {
   if (!all.length) return
 
   const seen = new Set<string>()
-  const pick = (pool: DbGame[], score: (g: DbGame) => number, n = 6) => {
-    const r = serverWeightedSample(pool.filter((g) => !seen.has(g.uuid)), score, n)
+  const pick = (pool: DbGame[], score: (g: DbGame) => number) => {
+    const r = serverWeightedSample(pool.filter((g) => !seen.has(g.uuid)), score, 6)
     r.forEach((g) => seen.add(g.uuid))
     return r
   }
@@ -214,13 +213,12 @@ export async function refreshHomepageSelection(env: Env): Promise<void> {
   const score = (g: DbGame) => g.weight * (g.isFeatured ? 1.5 : 1)
 
   const selection: HomepageSelection = {
-    popular:     pick(all, (g) => g.phBonus * (g.isFeatured ? 1.5 : 1)),
-    slots:       pick(byCategory('slots'), score),
-    live:        pick(byCategory('live'), score),
-    fishing:     pick(byCategory('fishing'), score),
-    crash:       pick(byCategory('crash'), score),
-    table:       pick(byCategory('table'), score),
-    recommended: pick(all, score, 36),
+    popular: pick(all, (g) => g.phBonus * (g.isFeatured ? 1.5 : 1)),
+    slots:   pick(byCategory('slots'), score),
+    live:    pick(byCategory('live'), score),
+    fishing: pick(byCategory('fishing'), score),
+    crash:   pick(byCategory('crash'), score),
+    table:   pick(byCategory('table'), score),
     generatedAt: new Date().toISOString(),
   }
 
@@ -236,14 +234,6 @@ export async function getHomepageSelection(env: Env): Promise<HomepageSelection 
   await refreshHomepageSelection(env)
   const raw2 = await redis.get(HOMEPAGE_KEY)
   return raw2 ? (JSON.parse(raw2) as HomepageSelection) : null
-}
-
-// 换一批：从内存缓存实时随机抽取，不走 Redis，每次结果不同
-export async function getRecommendedGames(env: Env, n = 12): Promise<DbGame[]> {
-  const all = await getGamesFromCache(env)
-  if (!all.length) return []
-  const score = (g: DbGame) => g.weight * (g.isFeatured ? 1.5 : 1)
-  return serverWeightedSample(all, score, n, 3)
 }
 
 export interface GameListResult {

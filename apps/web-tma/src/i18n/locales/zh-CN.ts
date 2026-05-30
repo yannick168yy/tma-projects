@@ -99,8 +99,6 @@ export default {
     fishingZone: '捕鱼游戏',
     crashZone: '飞机游戏',
     tableZone: '桌牌游戏',
-    forYou: '猜你喜欢',
-    shuffle: '换一批',
     noHistory: '玩游戏后在此查看记录',
     gameProviders: '游戏供应商',
     supportTitle: '7×24 客服',
