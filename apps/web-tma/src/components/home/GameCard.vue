@@ -12,7 +12,7 @@ const pressed = ref(false)
 <template>
   <button
     type="button"
-    class="relative aspect-square overflow-hidden rounded-xl flex flex-col justify-end transition-transform duration-100"
+    class="relative w-full h-40 overflow-hidden rounded-xl flex flex-col justify-end transition-transform duration-100"
     :class="pressed ? 'scale-95' : ''"
     @pointerdown="pressed = true"
     @pointerup="pressed = false"

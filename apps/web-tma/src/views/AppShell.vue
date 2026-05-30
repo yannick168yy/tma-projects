@@ -118,6 +118,9 @@ function setNav(id: NavId) {
   }
   activeNav.value = id
   profileOpen.value = false
+  searchOpen.value = false
+  slotsLobbyOpen.value = false
+  categoryLobbyOpen.value = false
   if (id !== 'bonuses') promoFilter.value = null
   window.scrollTo({ top: 0, behavior: 'instant' })
 }
@@ -125,13 +128,42 @@ function setNav(id: NavId) {
 function goHome() {
   activeNav.value = 'casino'
   profileOpen.value = false
+  searchOpen.value = false
+  slotsLobbyOpen.value = false
+  categoryLobbyOpen.value = false
   promoFilter.value = null
+  window.scrollTo({ top: 0, behavior: 'instant' })
+}
+
+function openSearch() {
+  searchOpen.value = true
+  window.scrollTo({ top: 0, behavior: 'instant' })
+}
+
+function openSlotsLobby() {
+  slotsLobbyOpen.value = true
+  window.scrollTo({ top: 0, behavior: 'instant' })
+}
+
+function closeSlotsLobby() {
+  slotsLobbyOpen.value = false
+  window.scrollTo({ top: 0, behavior: 'instant' })
+}
+
+function closeCategoryLobby() {
+  categoryLobbyOpen.value = false
+  window.scrollTo({ top: 0, behavior: 'instant' })
+}
+
+function closeSearch() {
+  searchOpen.value = false
   window.scrollTo({ top: 0, behavior: 'instant' })
 }
 
 function openCategoryLobby(params: CategoryLobbyParams) {
   categoryLobbyParams.value = params
   categoryLobbyOpen.value = true
+  window.scrollTo({ top: 0, behavior: 'instant' })
 }
 
 function onLogout() {
@@ -278,31 +310,32 @@ function navIcon(id: string) {
         class="relative overflow-x-hidden"
         :style="{ paddingTop: headerH + 'px', paddingBottom: navH + 'px' }"
       >
-        <ProfilePage v-if="profileOpen" @logout="onLogout" @open-cs="openCs" />
-        <BonusesPage v-else-if="activeNav === 'bonuses'" :promo-filter="promoFilter" @open-wallet="openWallet" />
-        <BingoPage v-else-if="activeNav === 'bingo'" @open-wallet="openWallet" @game-tap="onGameTap" />
-        <MenuPage v-else-if="activeNav === 'menu'" @open-search="searchOpen = true" @open-cs="openCs" @open-category-lobby="openCategoryLobby" />
-        <HomeContent
-          v-else
-          @open-search="searchOpen = true"
-          @open-promo="goBonuses"
-          @game-tap="onGameTap"
-          @open-slots-lobby="slotsLobbyOpen = true"
-          @open-category-lobby="openCategoryLobby"
-          @open-cs="openCs"
-          @open-game="openGame"
-        />
-        <SlotsLobby v-if="slotsLobbyOpen" @close="slotsLobbyOpen = false" @game-tap="onGameTap" @open-game="openGame" />
+        <SearchOverlay v-if="searchOpen" @close="closeSearch" @game-tap="onGameTap" @open-game="openGame" />
+        <SlotsLobby v-else-if="slotsLobbyOpen" @close="closeSlotsLobby" @game-tap="onGameTap" @open-game="openGame" />
         <SlotsLobby
-          v-if="categoryLobbyOpen && categoryLobbyParams"
+          v-else-if="categoryLobbyOpen && categoryLobbyParams"
           :sort-category="categoryLobbyParams.sortCategory"
           :sort-by="categoryLobbyParams.sortBy"
           :title="categoryLobbyParams.title"
           :themes="categoryLobbyParams.themes"
           :game-styles="categoryLobbyParams.gameStyles"
           :player-types="categoryLobbyParams.playerTypes"
-          @close="categoryLobbyOpen = false"
+          @close="closeCategoryLobby"
           @game-tap="onGameTap"
+          @open-game="openGame"
+        />
+        <ProfilePage v-else-if="profileOpen" @logout="onLogout" @open-cs="openCs" />
+        <BonusesPage v-else-if="activeNav === 'bonuses'" :promo-filter="promoFilter" @open-wallet="openWallet" />
+        <BingoPage v-else-if="activeNav === 'bingo'" @open-wallet="openWallet" @game-tap="onGameTap" />
+        <MenuPage v-else-if="activeNav === 'menu'" @open-search="openSearch" @open-cs="openCs" @open-category-lobby="openCategoryLobby" />
+        <HomeContent
+          v-else
+          @open-search="openSearch"
+          @open-promo="goBonuses"
+          @game-tap="onGameTap"
+          @open-slots-lobby="openSlotsLobby"
+          @open-category-lobby="openCategoryLobby"
+          @open-cs="openCs"
           @open-game="openGame"
         />
       </main>
@@ -338,7 +371,6 @@ function navIcon(id: string) {
     </div>
 
     <WalletModal :open="walletModalOpen" @close="walletModalOpen = false" />
-    <SearchOverlay :open="searchOpen" @close="searchOpen = false" @game-tap="onGameTap" @open-game="openGame" />
 
     <!-- 客服聊天覆盖层：fixed 相对视口，不受页面滚动影响 -->
     <div v-if="csOpen" class="fixed inset-0 z-[60] flex justify-center">

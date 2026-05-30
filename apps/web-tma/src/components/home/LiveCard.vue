@@ -7,7 +7,7 @@ const emit = defineEmits<{ tap: [] }>()
 
 <template>
   <div
-    class="flex-shrink-0 w-36 rounded-xl overflow-hidden relative h-20 cursor-pointer"
+    class="flex-shrink-0 w-32 rounded-xl overflow-hidden relative h-28 cursor-pointer"
     @click="emit('tap')"
   >
     <div v-if="game.imageHqUrl || game.imageUrl" class="absolute inset-0">

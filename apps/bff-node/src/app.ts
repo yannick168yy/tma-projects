@@ -82,14 +82,18 @@ export function createApp(env: Env): Koa {
       refreshMonthTop(env),
     ]).catch((err) => console.error('[betting-activity] init error:', err))
 
-  // 游戏缓存 + 首页推荐：启动 8s 后首次加载，之后每 3 小时刷新首页推荐
+  // 游戏缓存 + 首页推荐：启动 8s 后首次加载，失败则每 10s 重试，之后每 3 小时刷新首页推荐
   if (isMysqlEnabled(env)) {
-    setTimeout(() => {
+    const loadWithRetry = (attempt = 0): void => {
       loadGamesCache(env)
         .then(() => refreshHomepageSelection(env))
         .then(() => initBettingActivity())
-        .catch((err) => console.error('[games-cache] load error:', err))
-    }, 8_000)
+        .catch((err) => {
+          console.error(`[games-cache] load error (attempt ${attempt}):`, (err as Error).message ?? err)
+          if (attempt < 12) setTimeout(() => loadWithRetry(attempt + 1), 10_000)
+        })
+    }
+    setTimeout(() => loadWithRetry(), 8_000)
 
     setInterval(() => {
       refreshHomepageSelection(env).catch((err) => console.error('[homepage] refresh error:', err))
@@ -129,8 +133,11 @@ export function createApp(env: Env): Koa {
         })
         .then(() => refreshHomepageSelection(env))
         .then(() => initBettingActivity())
-        .catch((err) => console.error('[sg-sync] error:', err))
-    setTimeout(runSync, 10_000)
+        .catch((err) => {
+          console.error('[sg-sync] error:', (err as Error).message ?? err)
+          // sg-sync 失败时仍尝试从缓存初始化 betting-activity
+          initBettingActivity()
+        })
     setInterval(runSync, 24 * 60 * 60 * 1000)
   }
 

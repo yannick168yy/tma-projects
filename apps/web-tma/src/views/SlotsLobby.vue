@@ -2,7 +2,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { storeToRefs } from 'pinia'
-import { X, Search, RefreshCw } from 'lucide-vue-next'
+import { ChevronLeft, Search, RefreshCw } from 'lucide-vue-next'
 import SlotGameCard from '@/components/home/SlotGameCard.vue'
 import { fetchGames, fetchProviders, launchGame, launchDemo, type SlotGame } from '@/api/slots'
 import { ApiError } from '@/api/client'
@@ -144,11 +144,11 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="absolute inset-0 z-30 flex flex-col bg-background">
+  <div class="min-h-full bg-background">
     <!-- Header -->
-    <div class="app-safe-header flex flex-shrink-0 items-center gap-3 border-b border-border px-4 pb-3">
+    <div class="flex items-center gap-3 border-b border-border px-4 py-3">
       <button type="button" class="flex-shrink-0 text-muted-foreground" @click="emit('close')">
-        <X :size="22" />
+        <ChevronLeft :size="22" />
       </button>
       <h2 class="flex-1 text-sm font-bold text-foreground">
         {{ props.title || 'SLOTS' }}
@@ -193,13 +193,13 @@ onMounted(() => {
     </div>
 
     <!-- Game grid -->
-    <div class="flex-1 overflow-y-auto px-3 py-3">
+    <div class="px-3 py-3">
       <!-- Loading skeleton -->
-      <div v-if="loading" class="grid grid-cols-3 gap-2">
+      <div v-if="loading" class="grid grid-cols-2 gap-2">
         <div
           v-for="n in 12"
           :key="n"
-          class="aspect-[4/3] animate-pulse rounded-xl bg-secondary"
+          class="h-40 animate-pulse rounded-xl bg-secondary"
         />
       </div>
 
@@ -223,7 +223,7 @@ onMounted(() => {
 
       <!-- Grid -->
       <template v-else>
-        <div class="grid grid-cols-3 gap-2">
+        <div class="grid grid-cols-2 gap-2">
           <SlotGameCard
             v-for="game in games"
             :key="game.uuid"

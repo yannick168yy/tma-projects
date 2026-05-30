@@ -17,9 +17,9 @@ const imgError = ref(false)
 </script>
 
 <template>
-  <div class="group relative flex flex-col overflow-hidden rounded-xl bg-card border border-border">
+  <div class="group relative flex h-40 flex-col overflow-hidden rounded-xl bg-card border border-border">
     <!-- Thumbnail -->
-    <div class="relative aspect-[4/3] w-full overflow-hidden bg-secondary">
+    <div class="relative min-h-0 flex-1 w-full overflow-hidden bg-secondary">
       <img
         v-if="game.imageUrl && !imgError"
         :src="game.imageUrl"

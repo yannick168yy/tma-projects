@@ -51,7 +51,7 @@ body {
   transform: translateX(-50%);
   width: 100%;
   max-width: 430px;
-  z-index: 10;
+  z-index: 20;
 }
 
 /* Fixed nav：居中在 430px 内 */
