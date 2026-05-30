@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { storeToRefs } from 'pinia'
 import {
@@ -57,6 +57,13 @@ const categoryLobbyParams = ref<CategoryLobbyParams | null>(null)
 const csOpen = ref(false)
 const gamePlayerUrl = ref<string | null>(null)
 
+// 动态测量 header/nav 高度，用于 main 的 padding
+const headerRef = ref<HTMLElement | null>(null)
+const navRef = ref<HTMLElement | null>(null)
+const headerH = ref(80)
+const navH = ref(64)
+let ro: ResizeObserver | null = null
+
 function openGame(url: string) {
   gamePlayerUrl.value = url
 }
@@ -112,12 +119,14 @@ function setNav(id: NavId) {
   activeNav.value = id
   profileOpen.value = false
   if (id !== 'bonuses') promoFilter.value = null
+  window.scrollTo({ top: 0, behavior: 'instant' })
 }
 
 function goHome() {
   activeNav.value = 'casino'
   profileOpen.value = false
   promoFilter.value = null
+  window.scrollTo({ top: 0, behavior: 'instant' })
 }
 
 function openCategoryLobby(params: CategoryLobbyParams) {
@@ -131,14 +140,23 @@ function onLogout() {
   walletModalOpen.value = false
 }
 
-/** Dev-only: ?figma=search|wallet|profile for Figma capture screenshots */
 onMounted(() => {
+  ro = new ResizeObserver(() => {
+    if (headerRef.value) headerH.value = headerRef.value.offsetHeight
+    if (navRef.value) navH.value = navRef.value.offsetHeight
+  })
+  if (headerRef.value) ro.observe(headerRef.value)
+  if (navRef.value) ro.observe(navRef.value)
+
+  /** Dev-only: ?figma=search|wallet|profile for Figma capture screenshots */
   if (!import.meta.env.DEV) return
   const preset = new URLSearchParams(window.location.search).get('figma')
   if (preset === 'search') searchOpen.value = true
   if (preset === 'wallet') walletModalOpen.value = true
   if (preset === 'profile') profileOpen.value = true
 })
+
+onUnmounted(() => ro?.disconnect())
 
 function navIcon(id: string) {
   switch (id) {
@@ -157,9 +175,9 @@ function navIcon(id: string) {
 </script>
 
 <template>
-  <div class="flex h-dvh w-full justify-center bg-[#040609]">
-    <div class="app-frame relative flex w-full max-w-[430px] flex-col bg-background">
-      <header class="relative z-10 flex-shrink-0">
+  <div class="flex w-full justify-center bg-[#040609]">
+    <div class="app-frame w-full max-w-[430px] bg-background">
+      <header ref="headerRef" class="app-fixed-top bg-background">
         <div class="app-safe-header flex items-center gap-3 px-4 pb-4">
           <button type="button" class="flex-shrink-0 cursor-pointer" @click="goHome">
             <BetogoLogo />
@@ -256,7 +274,10 @@ function navIcon(id: string) {
         </template>
       </header>
 
-      <main class="relative flex min-h-0 flex-1 flex-col overflow-hidden">
+      <main
+        class="relative overflow-x-hidden"
+        :style="{ paddingTop: headerH + 'px', paddingBottom: navH + 'px' }"
+      >
         <ProfilePage v-if="profileOpen" @logout="onLogout" @open-cs="openCs" />
         <BonusesPage v-else-if="activeNav === 'bonuses'" :promo-filter="promoFilter" @open-wallet="openWallet" />
         <BingoPage v-else-if="activeNav === 'bingo'" @open-wallet="openWallet" @game-tap="onGameTap" />
@@ -286,9 +307,9 @@ function navIcon(id: string) {
         />
       </main>
 
-      <!-- Figma: bottom nav always visible, including on profile -->
       <nav
-        class="app-safe-nav sticky bottom-0 z-20 flex flex-shrink-0 items-center justify-around border-t border-border bg-background px-2 pt-2"
+        ref="navRef"
+        class="app-fixed-bottom app-safe-nav flex items-center justify-around border-t border-border bg-background px-2 pt-2"
       >
         <button
           v-for="item in navItems"
@@ -332,7 +353,6 @@ function navIcon(id: string) {
 <style scoped>
 .app-frame {
   min-height: 100dvh;
-  overflow: clip; /* 裁切溢出但不创建滚动容器，sticky 仍有效 */
   touch-action: pan-y;
   box-sizing: border-box;
 }

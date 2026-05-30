@@ -47,7 +47,7 @@ function onSubcatTap(cat: MenuSubcat) {
 </script>
 
 <template>
-  <div class="page-scroll pb-24 hide-scrollbar">
+  <div class="page-main pb-4">
     <div class="px-4 pt-3 pb-2">
       <button
         type="button"

@@ -1,17 +1,30 @@
 ---
-description: Only commit/push GitHub or deploy Alibaba when user explicitly asks
+description: After code changes, auto commit+push+deploy to Alibaba Cloud by default
 alwaysApply: true
 ---
 
-# Git & deploy: user must ask first
+# Git & deploy: 默认自动发布到阿里云
 
-**Do not** run unless the user explicitly requests it in the current message:
+**每次代码改完后，必须自动执行以下全流程（无需用户重复要求）：**
 
-- **GitHub**: `git commit`, `git push`, or creating PRs
-- **Alibaba Cloud**: `deploy/single-node/deploy-web-tma.sh` or any remote deploy
+1. `git add` 相关文件
+2. `git commit`（使用 `/usr/local/bin/git`，系统 git 版本过旧不支持 --trailer）
+3. `git push origin main`
+4. 部署到阿里云：
+   ```bash
+   DEPLOY_HOST=root@47.84.34.139 \
+   DEPLOY_DIR=/root/workspace/tma-projects \
+   SSH_IDENTITY_FILE=~/Downloads/yannick.pem \
+   SSH_OPTS="-o StrictHostKeyChecking=no" \
+   bash deploy/single-node/deploy-web-tma.sh
+   ```
 
-After code changes, **automatically run** `./scripts/local-deploy.sh` (sync `.env`, MySQL `betogo`, Nacos `batogo`, `docker compose up -d --build`). Client: http://localhost:8080. Tell the user what changed locally; they will say when to commit or deploy remotely.
+**注意事项：**
+- git 命令必须用 `export PATH="/usr/local/bin:$PATH"` 或直接用 `/usr/local/bin/git`，避免系统自带 2.24.3 的 --trailer 兼容问题
+- commit message 用 `-m` 单行或写入临时文件再用 `-F` 传入
+- **不需要**用户说"部署"、"push"才执行，改完代码即自动完成全流程
 
-Typical triggers when the user *does* want action:
-- 提交 / commit / push / GitHub → commit and push
-- 部署 / deploy / 阿里云 → run deploy script
+**例外（仍需用户明确要求）：**
+- 创建 PR
+- 数据库 DDL 变更上生产前需确认
+- 涉及密钥/环境变量变更

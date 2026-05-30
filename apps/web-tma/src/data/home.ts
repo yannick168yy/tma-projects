@@ -162,6 +162,13 @@ export const PROVIDERS: Provider[] = [
   { name: 'POPIPLAY', color: 'from-pink-600 to-rose-600', abbr: 'POP' },
 ]
 
+export const INFO_LINKS = [
+  { key: 'terms', href: '#' },
+  { key: 'privacy', href: '#' },
+  { key: 'responsible', href: '#' },
+  { key: 'about', href: '#' },
+]
+
 export const NAV_ITEMS = [
   { id: 'cashier', label: 'Cashier' },
   { id: 'bingo', label: 'Bingo' },

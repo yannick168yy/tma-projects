@@ -22,8 +22,8 @@ import HistoryCard from '@/components/home/HistoryCard.vue'
 import EGameCard from '@/components/home/EGameCard.vue'
 import LiveCard from '@/components/home/LiveCard.vue'
 import { CATEGORIES } from '@/data/categories'
-import { BANNERS, WINNERS } from '@/data/home'
-import { fetchHomepageGames, launchGame, type SlotGame, type GameHistoryItem } from '@/api/slots'
+import { BANNERS, WINNERS, INFO_LINKS } from '@/data/home'
+import { fetchHomepageGames, launchGame, fetchProviders, fetchBettingActivity, type SlotGame, type GameHistoryItem, type BetRecord, type BetTab } from '@/api/slots'
 import { ApiError } from '@/api/client'
 
 const HISTORY_STORAGE_KEY = 'betogo_game_history'
@@ -224,6 +224,47 @@ async function onGameTap(uuid: string) {
   }
 }
 
+// ── 首页各区段（服务器每 3 小时统一刷新，所有用户看到相同推荐）────────────
+const popularGames = computed(() => homepageGames.value.popular)
+const slotsGames   = computed(() => homepageGames.value.slots)
+const liveGames    = computed(() => homepageGames.value.live)
+const fishingGames = computed(() => homepageGames.value.fishing)
+const crashGames   = computed(() => homepageGames.value.crash)
+const tableGames   = computed(() => homepageGames.value.table)
+
+// ── Providers ────────────────────────────────────────────────────────────────
+const providerList = ref<string[]>([])
+
+// ── Betting Table ─────────────────────────────────────────────────────────────
+const activeBetTab = ref<BetTab>('latest')
+const latestBets = ref<BetRecord[]>([])
+const weekBets   = ref<BetRecord[]>([])
+const monthBets  = ref<BetRecord[]>([])
+const betLoaded  = ref<Record<BetTab, boolean>>({ latest: false, week: false, month: false })
+
+function formatBet(amount: number): string {
+  return '₱ ' + amount.toLocaleString()
+}
+
+async function loadBetTab(tab: BetTab) {
+  if (betLoaded.value[tab]) return
+  betLoaded.value[tab] = true
+  try {
+    const data = await fetchBettingActivity(tab)
+    if (tab === 'latest') latestBets.value = data
+    else if (tab === 'week') weekBets.value = data
+    else monthBets.value = data
+  } catch { /* 静默失败 */ }
+}
+
+async function switchBetTab(tab: BetTab) {
+  activeBetTab.value = tab
+  await loadBetTab(tab)
+}
+
+// Latest Bets 需要双份数据实现无缝循环
+const latestBetsLoop = computed(() => [...latestBets.value, ...latestBets.value])
+
 onMounted(async () => {
   historyGames.value = readLocalHistory()
   gamesLoading.value = true
@@ -234,15 +275,18 @@ onMounted(async () => {
     // 静默失败，各区段保持空数组
   }
   gamesLoading.value = false
-})
 
-// ── 首页各区段（服务器每 3 小时统一刷新，所有用户看到相同推荐）────────────
-const popularGames = computed(() => homepageGames.value.popular)
-const slotsGames   = computed(() => homepageGames.value.slots)
-const liveGames    = computed(() => homepageGames.value.live)
-const fishingGames = computed(() => homepageGames.value.fishing)
-const crashGames   = computed(() => homepageGames.value.crash)
-const tableGames   = computed(() => homepageGames.value.table)
+  // 并行加载 providers 和 latest bets
+  fetchProviders()
+    .then((list) => {
+      // JILI 固定第一位
+      const others = list.filter((p) => p.toUpperCase() !== 'JILI')
+      providerList.value = ['JILI', ...others]
+    })
+    .catch(() => { providerList.value = ['JILI'] })
+
+  loadBetTab('latest')
+})
 
 </script>
 
@@ -507,21 +551,160 @@ const tableGames   = computed(() => homepageGames.value.table)
       </div>
     </section>
 
-    <!-- 客服入口 -->
-    <div
-      class="mx-4 mt-6 mb-4 bg-gradient-to-r from-secondary to-[#1a2540] rounded-2xl p-4 flex items-center justify-between border border-border"
-    >
-      <div>
-        <p class="text-foreground font-bold text-sm">{{ t('home.supportTitle') }}</p>
-        <p class="text-muted-foreground text-xs mt-0.5">{{ t('home.supportSub') }}</p>
+    <!-- ── PROVIDERS ─────────────────────────────────────────────────── -->
+    <section class="mt-8 px-4">
+      <h3 class="text-muted-foreground font-black text-xs font-display tracking-widest mb-3">
+        {{ t('home.providersSection') }}
+      </h3>
+      <div class="flex gap-2 overflow-x-auto hide-scrollbar pb-1">
+        <span
+          v-for="p in providerList"
+          :key="p"
+          class="flex-shrink-0 px-3 py-1.5 rounded-full bg-white/8 border border-white/10 text-xs font-bold text-foreground/80 tracking-wide"
+        >
+          {{ p }}
+        </span>
       </div>
+    </section>
+
+    <!-- ── BETTING TABLE ──────────────────────────────────────────────── -->
+    <section class="mt-8 px-4">
+      <h3 class="text-muted-foreground font-black text-xs font-display tracking-widest mb-3">
+        {{ t('home.bettingTable') }}
+      </h3>
+
+      <!-- 页签 -->
+      <div class="flex gap-1 mb-3 bg-secondary rounded-xl p-1">
+        <button
+          v-for="tab in (['latest', 'week', 'month'] as BetTab[])"
+          :key="tab"
+          type="button"
+          class="flex-1 py-1.5 rounded-lg text-xs font-bold transition-colors"
+          :class="activeBetTab === tab
+            ? 'bg-primary text-primary-foreground'
+            : 'text-muted-foreground'"
+          @click="switchBetTab(tab)"
+        >
+          {{ tab === 'latest' ? t('home.latestBets') : tab === 'week' ? t('home.topWeek') : t('home.topMonth') }}
+        </button>
+      </div>
+
+      <!-- Latest Bets: 竖向无缝滚动 -->
+      <div v-if="activeBetTab === 'latest'" class="relative overflow-hidden rounded-xl bg-secondary" style="height: 220px">
+        <div v-if="latestBets.length === 0" class="flex items-center justify-center h-full">
+          <div class="space-y-2 w-full px-3">
+            <div v-for="n in 5" :key="n" class="flex items-center gap-3 py-2">
+              <div class="w-10 h-10 rounded-lg animate-pulse bg-white/10 flex-shrink-0" />
+              <div class="flex-1 space-y-1">
+                <div class="h-3 w-24 rounded animate-pulse bg-white/10" />
+                <div class="h-2 w-16 rounded animate-pulse bg-white/10" />
+              </div>
+              <div class="h-3 w-16 rounded animate-pulse bg-white/10" />
+            </div>
+          </div>
+        </div>
+        <div v-else class="animate-scroll-up">
+          <div
+            v-for="(rec, i) in latestBetsLoop"
+            :key="i"
+            class="flex items-center gap-3 px-3 py-2 border-b border-white/5"
+          >
+            <img
+              v-if="rec.imageUrl"
+              :src="rec.imageUrl"
+              :alt="rec.name"
+              class="w-10 h-10 rounded-lg object-cover flex-shrink-0 bg-white/5"
+            />
+            <div v-else class="w-10 h-10 rounded-lg bg-white/10 flex-shrink-0" />
+            <div class="flex-1 min-w-0">
+              <p class="text-xs font-bold text-foreground truncate">{{ rec.name }}</p>
+              <p class="text-[10px] text-muted-foreground">{{ rec.provider }}</p>
+            </div>
+            <span class="text-xs font-bold text-primary flex-shrink-0">{{ formatBet(rec.betAmount) }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Top of the Week / Month: 排行榜静态 -->
+      <div v-else class="rounded-xl bg-secondary overflow-hidden">
+        <div v-if="(activeBetTab === 'week' ? weekBets : monthBets).length === 0" class="space-y-px">
+          <div v-for="n in 10" :key="n" class="flex items-center gap-3 px-3 py-2.5 border-b border-white/5">
+            <div class="w-5 h-5 rounded animate-pulse bg-white/10 flex-shrink-0" />
+            <div class="w-10 h-10 rounded-lg animate-pulse bg-white/10 flex-shrink-0" />
+            <div class="flex-1 space-y-1">
+              <div class="h-3 w-24 rounded animate-pulse bg-white/10" />
+              <div class="h-2 w-16 rounded animate-pulse bg-white/10" />
+            </div>
+            <div class="h-3 w-20 rounded animate-pulse bg-white/10" />
+          </div>
+        </div>
+        <div
+          v-for="(rec, idx) in (activeBetTab === 'week' ? weekBets : monthBets)"
+          :key="rec.uuid"
+          class="flex items-center gap-3 px-3 py-2.5 border-b border-white/5 last:border-0"
+        >
+          <span
+            class="w-5 text-center text-xs font-black flex-shrink-0"
+            :class="idx === 0 ? 'text-primary' : idx === 1 ? 'text-white/60' : idx === 2 ? 'text-amber-600' : 'text-muted-foreground'"
+          >
+            #{{ idx + 1 }}
+          </span>
+          <img
+            v-if="rec.imageUrl"
+            :src="rec.imageUrl"
+            :alt="rec.name"
+            class="w-10 h-10 rounded-lg object-cover flex-shrink-0 bg-white/5"
+          />
+          <div v-else class="w-10 h-10 rounded-lg bg-white/10 flex-shrink-0" />
+          <div class="flex-1 min-w-0">
+            <p class="text-xs font-bold text-foreground truncate">{{ rec.name }}</p>
+            <p class="text-[10px] text-muted-foreground">{{ rec.provider }}</p>
+          </div>
+          <span class="text-xs font-bold text-primary flex-shrink-0">{{ formatBet(rec.betAmount) }}</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── INFORMATION ────────────────────────────────────────────────── -->
+    <section class="mt-8 px-4">
+      <h3 class="text-muted-foreground font-black text-xs font-display tracking-widest mb-3">
+        {{ t('home.infoSection') }}
+      </h3>
+      <div class="grid grid-cols-2 gap-y-3">
+        <a
+          v-for="link in INFO_LINKS"
+          :key="link.key"
+          :href="link.href"
+          class="text-xs text-foreground/60 hover:text-foreground/90 transition-colors"
+        >
+          {{ t(`home.info${link.key.charAt(0).toUpperCase() + link.key.slice(1)}`) }}
+        </a>
+      </div>
+    </section>
+
+    <!-- ── SUPPORT ────────────────────────────────────────────────────── -->
+    <section class="mt-8 px-4">
+      <h3 class="text-muted-foreground font-black text-xs font-display tracking-widest mb-3">
+        {{ t('home.supportSection') }}
+      </h3>
       <button
         type="button"
-        class="w-11 h-11 rounded-xl bg-primary flex items-center justify-center shadow shadow-amber-500/20"
+        class="w-full bg-secondary rounded-xl p-4 flex items-center justify-between border border-border"
         @click="emit('openCs')"
       >
-        <Headphones :size="18" class="text-primary-foreground" />
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-lg bg-primary/15 flex items-center justify-center flex-shrink-0">
+            <Headphones :size="16" class="text-primary" />
+          </div>
+          <span class="text-sm font-bold text-foreground">{{ t('home.supportOnline') }}</span>
+        </div>
+        <ChevronRight :size="16" class="text-muted-foreground" />
       </button>
+    </section>
+
+    <!-- 版权 -->
+    <div class="mt-6 mb-4 px-4 text-center">
+      <p class="text-[10px] text-muted-foreground/50">© 2025 BetoGo · 18+</p>
     </div>
   </div>
 </template>

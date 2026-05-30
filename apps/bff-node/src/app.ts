@@ -9,6 +9,7 @@ import { createApiRouter } from './routes/index.js'
 import { initStore } from './services/store/index.js'
 import { pollAndSettleTonDeposits } from './services/ton.service.js'
 import { syncAllGames, loadGamesCache, refreshHomepageSelection } from './services/sg-game.service.js'
+import { refreshLatestPool, refreshWeekTop, refreshMonthTop } from './services/betting-activity.service.js'
 import { refreshRates } from './services/exchange-rate.service.js'
 import { runDailyReconciliation, yesterday } from './services/sg-settlement.service.js'
 import { isMysqlEnabled } from './clients/mysql.client.js'
@@ -78,12 +79,32 @@ export function createApp(env: Env): Koa {
     setTimeout(() => {
       loadGamesCache(env)
         .then(() => refreshHomepageSelection(env))
+        .then(() =>
+          Promise.all([
+            refreshLatestPool(env),
+            refreshWeekTop(env),
+            refreshMonthTop(env),
+          ]),
+        )
         .catch((err) => console.error('[games-cache] load error:', err))
     }, 8_000)
 
     setInterval(() => {
       refreshHomepageSelection(env).catch((err) => console.error('[homepage] refresh error:', err))
     }, 3 * 60 * 60 * 1000)
+
+    // Betting activity 三套缓存定时刷新
+    setInterval(() => {
+      refreshLatestPool(env).catch((err) => console.error('[betting-latest] refresh error:', err))
+    }, 60 * 60 * 1000)
+
+    setInterval(() => {
+      refreshWeekTop(env).catch((err) => console.error('[betting-week] refresh error:', err))
+    }, 7 * 24 * 60 * 60 * 1000)
+
+    setInterval(() => {
+      refreshMonthTop(env).catch((err) => console.error('[betting-month] refresh error:', err))
+    }, 30 * 24 * 60 * 60 * 1000)
   }
 
   // Slotegrator game sync: on startup then every 24h，同步完自动刷新缓存和首页

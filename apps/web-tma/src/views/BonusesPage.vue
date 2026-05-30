@@ -55,7 +55,7 @@ watch(
 </script>
 
 <template>
-  <div class="page-scroll pb-20 hide-scrollbar">
+  <div class="page-main">
     <div
       class="relative px-4 pt-3 pb-5 overflow-hidden"
       style="background: linear-gradient(160deg, #1a0060 0%, #080b14 60%)"

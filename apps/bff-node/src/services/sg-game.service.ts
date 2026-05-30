@@ -137,7 +137,7 @@ export async function loadGamesCache(env: Env): Promise<number> {
   return games.length
 }
 
-async function getGamesFromCache(env: Env): Promise<DbGame[]> {
+export async function getGamesFromCache(env: Env): Promise<DbGame[]> {
   const redis = getRedis(env)
   const raw = await redis.get(GAMES_CACHE_KEY)
   if (raw) return JSON.parse(raw) as DbGame[]

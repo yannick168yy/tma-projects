@@ -19,9 +19,4 @@ When you finish **local** code or config changes in this repo:
 3. **Verify** briefly: `docker compose ps`, BFF `/health`, Nacos `:8848`, client `:8080`
 4. Tell the user what was deployed locally and any manual gaps (e.g. BotFather).
 
-**Do not** unless the user explicitly asks in the **current** message:
-
-- `git commit`, `git push`, PRs
-- `deploy/single-node/deploy-web-tma.sh` or any **remote** Alibaba deploy
-
-Remote production remains **user-confirmed**; local Docker publish is **agent-default**.
+**注意：** 代码改完后的默认流程已升级为 commit + push + 阿里云部署，详见 `git-and-deploy-on-request.mdc`。本地 Docker 部署（`./scripts/local-deploy.sh`）仅在明确需要本地验证时执行。

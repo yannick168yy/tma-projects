@@ -101,3 +101,17 @@ export function launchDemo(gameUuid: string, device: 'mobile' | 'desktop' = 'mob
 export function syncGames(): Promise<{ synced: number }> {
   return apiRequest<{ synced: number }>('/slots/sync', { method: 'POST' })
 }
+
+export interface BetRecord {
+  uuid: string
+  name: string
+  provider: string
+  imageUrl: string | null
+  betAmount: number
+}
+
+export type BetTab = 'latest' | 'week' | 'month'
+
+export function fetchBettingActivity(tab: BetTab): Promise<BetRecord[]> {
+  return apiRequest<BetRecord[]>(`/slots/betting-activity?tab=${tab}`)
+}

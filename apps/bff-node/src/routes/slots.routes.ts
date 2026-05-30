@@ -5,6 +5,7 @@ import { listGames, listProviders, syncAllGames, getUserGameHistory, getHomepage
 import { sgInitGame, sgInitDemo } from '../services/slotegrator.service.js'
 import { getUser } from '../services/store/index.js'
 import { isMysqlEnabled } from '../clients/mysql.client.js'
+import { getBettingActivity, type BetTab } from '../services/betting-activity.service.js'
 
 const router = new Router({ prefix: '/slots' })
 
@@ -49,6 +50,16 @@ router.get('/games', async (ctx) => {
   } catch (e) {
     fail(ctx, 500, e instanceof Error ? e.message : 'Failed to list games')
   }
+})
+
+// GET /slots/betting-activity?tab=latest|week|month
+router.get('/betting-activity', (ctx) => {
+  const tab = (ctx.query.tab as string) || 'latest'
+  if (tab !== 'latest' && tab !== 'week' && tab !== 'month') {
+    fail(ctx, 400, 'Invalid tab')
+    return
+  }
+  ok(ctx, getBettingActivity(tab as BetTab))
 })
 
 // GET /slots/providers — distinct providers from cache

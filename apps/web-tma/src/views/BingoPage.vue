@@ -33,7 +33,7 @@ const fiestaBuntingColors = [
 </script>
 
 <template>
-  <div class="page-scroll pb-20 hide-scrollbar">
+  <div class="page-main">
     <PeryaCarnivalHero>
       <p class="text-amber-300 text-[10px] font-black uppercase tracking-widest mb-1">🎪 {{ t('bingo.carnival') }}</p>
       <h1
