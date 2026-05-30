@@ -93,6 +93,9 @@ export interface DbGame {
   weight: number
   phBonus: number
   isFeatured: boolean
+  theme: string | null
+  gameStyle: string | null
+  playerType: string | null
 }
 
 function rowToDbGame(r: RowDataPacket): DbGame {
@@ -111,6 +114,9 @@ function rowToDbGame(r: RowDataPacket): DbGame {
     weight: r.weight != null ? Number(r.weight) : 0,
     phBonus: r.ph_bonus != null ? Number(r.ph_bonus) : 0,
     isFeatured: Boolean(r.is_featured),
+    theme: (r.theme as string) ?? null,
+    gameStyle: (r.game_style as string) ?? null,
+    playerType: (r.player_type as string) ?? null,
   }
 }
 
@@ -122,7 +128,7 @@ export async function loadGamesCache(env: Env): Promise<number> {
   const [rows] = await db.query<RowDataPacket[]>(
     `SELECT uuid, name, provider, category, sub_category, sort_category,
             image_url, image_hq_url, has_demo, has_lobby, is_mobile,
-            weight, ph_bonus, is_featured
+            weight, ph_bonus, is_featured, theme, game_style, player_type
      FROM sg_games WHERE is_active = 1`,
   )
   const games = (rows as RowDataPacket[]).map(rowToDbGame)
@@ -247,9 +253,13 @@ export async function listGames(
     category?: string
     sortCategory?: string
     sortBy?: 'weight' | 'ph_bonus' | 'name'
+    themes?: string[]
+    gameStyles?: string[]
+    playerTypes?: string[]
   } = {},
 ): Promise<GameListResult> {
-  const { page = 1, limit = 30, search, provider, category, sortCategory, sortBy = 'weight' } = opts
+  const { page = 1, limit = 30, search, provider, category, sortCategory, sortBy = 'weight',
+    themes, gameStyles, playerTypes } = opts
 
   let games = await getGamesFromCache(env)
 
@@ -265,6 +275,18 @@ export async function listGames(
   }
   if (sortCategory && sortCategory !== 'all') {
     games = games.filter((g) => g.sortCategory === sortCategory)
+  }
+  if (themes && themes.length > 0) {
+    const set = new Set(themes)
+    games = games.filter((g) => g.theme !== null && set.has(g.theme))
+  }
+  if (gameStyles && gameStyles.length > 0) {
+    const set = new Set(gameStyles)
+    games = games.filter((g) => g.gameStyle !== null && set.has(g.gameStyle))
+  }
+  if (playerTypes && playerTypes.length > 0) {
+    const set = new Set(playerTypes)
+    games = games.filter((g) => g.playerType !== null && set.has(g.playerType))
   }
 
   games = [...games].sort((a, b) => {

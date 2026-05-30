@@ -12,6 +12,9 @@ const props = withDefaults(defineProps<{
   sortCategory?: string
   sortBy?: 'weight' | 'ph_bonus' | 'name'
   title?: string
+  themes?: string[]
+  gameStyles?: string[]
+  playerTypes?: string[]
 }>(), {})
 
 const emit = defineEmits<{
@@ -65,6 +68,9 @@ async function loadGames(reset = true) {
       provider: selectedProvider.value !== 'all' ? selectedProvider.value : undefined,
       sortCategory: props.sortCategory,
       sortBy: props.sortBy,
+      themes: props.themes,
+      gameStyles: props.gameStyles,
+      playerTypes: props.playerTypes,
     })
     if (reset) {
       games.value = res.items

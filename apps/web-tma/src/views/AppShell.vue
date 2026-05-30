@@ -36,9 +36,12 @@ const { displayPhp } = storeToRefs(wallet)
 type NavId = (typeof NAV_ITEMS)[number]['id']
 
 type CategoryLobbyParams = {
+  title: string
   sortCategory?: string
   sortBy?: 'weight' | 'ph_bonus'
-  title: string
+  themes?: string[]
+  gameStyles?: string[]
+  playerTypes?: string[]
 }
 
 const activeNav = ref<NavId>('casino')
@@ -257,7 +260,7 @@ function navIcon(id: string) {
         <ProfilePage v-if="profileOpen" @logout="onLogout" @open-cs="openCs" />
         <BonusesPage v-else-if="activeNav === 'bonuses'" :promo-filter="promoFilter" @open-wallet="openWallet" />
         <BingoPage v-else-if="activeNav === 'bingo'" @open-wallet="openWallet" @game-tap="onGameTap" />
-        <MenuPage v-else-if="activeNav === 'menu'" @open-search="searchOpen = true" @game-tap="onGameTap" @open-cs="openCs" />
+        <MenuPage v-else-if="activeNav === 'menu'" @open-search="searchOpen = true" @open-cs="openCs" @open-category-lobby="openCategoryLobby" />
         <HomeContent
           v-else
           @open-search="searchOpen = true"
@@ -274,6 +277,9 @@ function navIcon(id: string) {
           :sort-category="categoryLobbyParams.sortCategory"
           :sort-by="categoryLobbyParams.sortBy"
           :title="categoryLobbyParams.title"
+          :themes="categoryLobbyParams.themes"
+          :game-styles="categoryLobbyParams.gameStyles"
+          :player-types="categoryLobbyParams.playerTypes"
           @close="categoryLobbyOpen = false"
           @game-tap="onGameTap"
           @open-game="openGame"
@@ -311,7 +317,7 @@ function navIcon(id: string) {
     </div>
 
     <WalletModal :open="walletModalOpen" @close="walletModalOpen = false" />
-    <SearchOverlay :open="searchOpen" @close="searchOpen = false" @game-tap="onGameTap" />
+    <SearchOverlay :open="searchOpen" @close="searchOpen = false" @game-tap="onGameTap" @open-game="openGame" />
 
     <!-- 客服聊天覆盖层：与 WalletModal/SearchOverlay 同级，覆盖整个 app-frame -->
     <div v-if="csOpen" class="absolute inset-0 z-50 flex flex-col bg-background">

@@ -32,6 +32,9 @@ export interface GameListParams {
   category?: string
   sortCategory?: string
   sortBy?: 'weight' | 'ph_bonus' | 'name'
+  themes?: string[]
+  gameStyles?: string[]
+  playerTypes?: string[]
 }
 
 export interface GameHistoryItem {
@@ -66,6 +69,9 @@ export function fetchGames(params: GameListParams = {}): Promise<GameListResult>
   if (params.category && params.category !== 'all') qs.set('category', params.category)
   if (params.sortCategory) qs.set('sortCategory', params.sortCategory)
   if (params.sortBy) qs.set('sortBy', params.sortBy)
+  if (params.themes?.length) qs.set('themes', params.themes.join(','))
+  if (params.gameStyles?.length) qs.set('gameStyles', params.gameStyles.join(','))
+  if (params.playerTypes?.length) qs.set('playerTypes', params.playerTypes.join(','))
   const q = qs.toString()
   return apiRequest<GameListResult>(`/slots/games${q ? `?${q}` : ''}`)
 }

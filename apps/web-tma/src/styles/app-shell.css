@@ -24,6 +24,7 @@ html {
   height: 100dvh;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
+  background: #111827; /* nav 色：底部 home indicator 区域露出 html 层时显示 */
 }
 
 body {
@@ -32,7 +33,7 @@ body {
   height: 100dvh;
   overflow: hidden;
   overscroll-behavior: none;
-  background: #040609;
+  background: #080b14; /* header 色：顶部刘海区域显示 */
   /* pan-y on body; manipulation on controls (see below) */
   touch-action: pan-y;
   -ms-touch-action: pan-y;

@@ -41,6 +41,9 @@ router.get('/games', async (ctx) => {
       category: q.category || undefined,
       sortCategory: q.sortCategory || undefined,
       sortBy: (q.sortBy as 'weight' | 'ph_bonus' | 'name') || undefined,
+      themes: q.themes ? String(q.themes).split(',').filter(Boolean) : undefined,
+      gameStyles: q.gameStyles ? String(q.gameStyles).split(',').filter(Boolean) : undefined,
+      playerTypes: q.playerTypes ? String(q.playerTypes).split(',').filter(Boolean) : undefined,
     })
     ok(ctx, result)
   } catch (e) {

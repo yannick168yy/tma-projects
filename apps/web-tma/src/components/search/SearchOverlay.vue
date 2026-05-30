@@ -1,16 +1,18 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, toRef, watch } from 'vue'
+import { ref, toRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { Search, X, Flame } from 'lucide-vue-next'
-import { ALL_MENU_GAMES, CASINO_SUBCATS } from '@/data/menu'
+import { Search, X, RefreshCw } from 'lucide-vue-next'
 import { useBottomSheetDrag } from '@/composables/useBottomSheetDrag'
-import { useMenuLabels } from '@/composables/useMenuLabels'
+import { fetchGames, launchGame, launchDemo, type SlotGame } from '@/api/slots'
+import { ApiError } from '@/api/client'
+import { useAuthStore } from '@/stores/auth'
+import SlotGameCard from '@/components/home/SlotGameCard.vue'
 
 const props = defineProps<{ open: boolean }>()
-const emit = defineEmits<{ close: []; gameTap: [] }>()
+const emit = defineEmits<{ close: []; gameTap: []; openGame: [url: string] }>()
 
 const { t } = useI18n()
-const { subcatLabel } = useMenuLabels()
+const auth = useAuthStore()
 
 const sheetRef = ref<HTMLElement | null>(null)
 const backdropRef = ref<HTMLElement | null>(null)
@@ -23,31 +25,71 @@ const { onPointerDown, onPointerUp, onPointerCancel } = useBottomSheetDrag(
 )
 
 const query = ref('')
-const tab = ref('all')
 const inputRef = ref<HTMLInputElement | null>(null)
+const games = ref<SlotGame[]>([])
+const total = ref(0)
+const loading = ref(false)
+const error = ref('')
+const launchingUuid = ref<string | null>(null)
 
-onMounted(() => {
-  setTimeout(() => inputRef.value?.focus(), 80)
+let searchTimer: ReturnType<typeof setTimeout> | null = null
+
+async function doSearch(q: string) {
+  loading.value = true
+  error.value = ''
+  try {
+    const res = await fetchGames({ search: q || undefined, limit: 60 })
+    games.value = res.items
+    total.value = res.total
+  } catch (e) {
+    error.value = e instanceof ApiError ? e.message : 'Search failed'
+  } finally {
+    loading.value = false
+  }
+}
+
+watch(query, (val) => {
+  if (searchTimer) clearTimeout(searchTimer)
+  searchTimer = setTimeout(() => doSearch(val.trim()), 300)
 })
 
 watch(
   () => props.open,
   (open) => {
-    if (open) setTimeout(() => inputRef.value?.focus(), 80)
+    if (open) {
+      doSearch('')
+      setTimeout(() => inputRef.value?.focus(), 80)
+    }
   },
 )
 
-const tabGames = computed(() =>
-  tab.value === 'all' ? ALL_MENU_GAMES : ALL_MENU_GAMES.filter((g) => g.catId === tab.value),
-)
+async function onPlay(uuid: string) {
+  if (!auth.isLoggedIn) {
+    emit('gameTap')
+    return
+  }
+  launchingUuid.value = uuid
+  try {
+    const { url } = await launchGame(uuid)
+    emit('openGame', url)
+  } catch (e) {
+    alert(e instanceof ApiError ? e.message : 'Failed to launch game')
+  } finally {
+    launchingUuid.value = null
+  }
+}
 
-const displayed = computed(() => {
-  const q = query.value.trim().toLowerCase()
-  if (!q) return tabGames.value
-  return tabGames.value.filter((g) => g.name.toLowerCase().includes(q))
-})
-
-const hasQuery = computed(() => query.value.trim().length > 0)
+async function onDemo(uuid: string) {
+  launchingUuid.value = uuid
+  try {
+    const { url } = await launchDemo(uuid)
+    emit('openGame', url)
+  } catch (e) {
+    alert(e instanceof ApiError ? e.message : 'Failed to launch demo')
+  } finally {
+    launchingUuid.value = null
+  }
+}
 </script>
 
 <template>
@@ -96,68 +138,34 @@ const hasQuery = computed(() => query.value.trim().length > 0)
         </button>
       </div>
 
-      <div class="flex flex-shrink-0 gap-2 overflow-x-auto px-4 py-2.5 hide-scrollbar">
-        <button
-          type="button"
-          class="flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-bold transition-colors"
-          :class="tab === 'all' ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground'"
-          @click="tab = 'all'"
-        >
-          {{ t('search.allGames') }}
-        </button>
-        <button
-          v-for="c in CASINO_SUBCATS"
-          :key="c.id"
-          type="button"
-          class="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-colors"
-          :class="tab === c.id ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground'"
-          @click="tab = c.id"
-        >
-          <span>{{ c.icon }}</span>
-          <span>{{ subcatLabel(c.id, c.label) }}</span>
-        </button>
-      </div>
-
-      <div class="px-4 pb-2 flex-shrink-0">
-        <p class="text-muted-foreground text-[11px] font-bold">
+      <div class="px-4 pb-2 pt-2 flex-shrink-0 flex items-center gap-2">
+        <p class="text-muted-foreground text-[11px] font-bold flex-1">
           {{
-            hasQuery
-              ? t('search.resultsCount', { count: displayed.length })
-              : t('search.allCount', { count: displayed.length })
+            query.trim()
+              ? t('search.resultsCount', { count: total })
+              : t('search.allCount', { count: total })
           }}
         </p>
+        <RefreshCw v-if="loading" :size="12" class="text-muted-foreground animate-spin" />
       </div>
 
       <div data-sheet-scroll class="page-scroll flex-1 px-4 pb-6 hide-scrollbar">
-        <div v-if="displayed.length > 0" class="grid grid-cols-3 gap-3">
-          <button
-            v-for="(g, i) in displayed"
-            :key="i"
-            type="button"
-            class="relative rounded-2xl overflow-hidden flex flex-col justify-end active:scale-95 transition-transform aspect-[3/4]"
-            @click="emit('gameTap')"
-          >
-            <div class="absolute inset-0 bg-gradient-to-br" :class="g.gradient" />
-            <div class="absolute inset-0 flex items-center justify-center">
-              <span class="text-[32px]">{{ g.icon }}</span>
-            </div>
-            <div
-              v-if="g.hot"
-              class="absolute top-1.5 left-1.5 flex items-center gap-0.5 bg-red-500 rounded-full px-1.5 py-0.5"
-            >
-              <Flame :size="8" class="text-white" />
-              <span class="text-white text-[8px] font-black">{{ t('common.hot') }}</span>
-            </div>
-            <div class="relative p-2 bg-gradient-to-t from-black/80 to-transparent">
-              <p class="text-white font-black text-[10px] leading-tight font-display">{{ g.name.toUpperCase() }}</p>
-              <p class="text-white/40 text-[9px]">{{ g.provider }}</p>
-            </div>
-          </button>
+        <div v-if="games.length > 0" class="grid grid-cols-3 gap-3">
+          <SlotGameCard
+            v-for="game in games"
+            :key="game.uuid"
+            :game="game"
+            :launching="launchingUuid === game.uuid"
+            @play="onPlay"
+            @demo="onDemo"
+          />
         </div>
-        <div v-else class="text-center py-16">
+        <div v-else-if="!loading" class="text-center py-16">
           <p class="text-4xl mb-3">🔍</p>
-          <p class="text-foreground font-bold text-sm">{{ t('search.noResultsFor', { query }) }}</p>
-          <p class="text-muted-foreground text-xs mt-1">{{ t('search.tryAnother') }}</p>
+          <p class="text-foreground font-bold text-sm">
+            {{ query.trim() ? t('search.noResultsFor', { query }) : t('search.noResults') }}
+          </p>
+          <p v-if="query.trim()" class="text-muted-foreground text-xs mt-1">{{ t('search.tryAnother') }}</p>
         </div>
       </div>
     </div>

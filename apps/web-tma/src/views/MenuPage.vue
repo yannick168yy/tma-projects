@@ -1,34 +1,48 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { storeToRefs } from 'pinia'
-import { Search, ChevronLeft, ChevronRight, ChevronDown, Flame, Headphones, CheckCircle2 } from 'lucide-vue-next'
-import { MENU_DATA } from '@/data/menu'
+import { Search, ChevronRight, ChevronDown, Flame, Headphones, CheckCircle2 } from 'lucide-vue-next'
+import { MENU_DATA, type MenuSubcat } from '@/data/menu'
 import { LANGUAGES } from '@/data/languages'
 import { useMenuLabels } from '@/composables/useMenuLabels'
 import { useLocaleStore } from '@/stores/locale'
 
-const emit = defineEmits<{ openSearch: []; gameTap: []; openCs: [] }>()
+export interface CategoryLobbyParams {
+  title: string
+  themes?: string[]
+  gameStyles?: string[]
+  playerTypes?: string[]
+}
+
+const emit = defineEmits<{
+  openSearch: []
+  openCs: []
+  openCategoryLobby: [params: CategoryLobbyParams]
+}>()
 
 const { t } = useI18n()
 const { sectionLabel, subcatLabel } = useMenuLabels()
 const localeStore = useLocaleStore()
 const { locale } = storeToRefs(localeStore)
 
-const active = ref<{ sid: string; cid: string } | null>(null)
 const langOpen = ref(false)
 
 const currentLang = computed(() => LANGUAGES.find((l) => l.code === locale.value)!)
-const activeSection = computed(() => (active.value ? MENU_DATA.find((s) => s.id === active.value!.sid) : null))
-const activeCat = computed(() =>
-  active.value && activeSection.value
-    ? activeSection.value.subcats.find((c) => c.id === active.value!.cid)
-    : null,
-)
 
 function pickLanguage(code: (typeof LANGUAGES)[number]['code']) {
   localeStore.setLocale(code)
   langOpen.value = false
+}
+
+function onSubcatTap(cat: MenuSubcat) {
+  const params: CategoryLobbyParams = {
+    title: subcatLabel(cat.id, cat.label),
+    ...(cat.filterType === 'themes' ? { themes: cat.filterValues }
+      : cat.filterType === 'gameStyles' ? { gameStyles: cat.filterValues }
+      : { playerTypes: cat.filterValues }),
+  }
+  emit('openCategoryLobby', params)
 }
 </script>
 
@@ -45,60 +59,7 @@ function pickLanguage(code: (typeof LANGUAGES)[number]['code']) {
       </button>
     </div>
 
-    <div v-if="activeCat && activeSection" class="px-4 pt-2">
-      <button type="button" class="flex items-center gap-1 mb-3 text-muted-foreground" @click="active = null">
-        <ChevronLeft :size="13" />
-        <span class="text-[11px] font-bold" :style="{ color: activeSection.dot }">
-          {{ sectionLabel(activeSection.id, activeSection.label) }}
-        </span>
-        <span class="text-muted-foreground/40 text-[11px] mx-0.5">›</span>
-        <span class="text-[11px] font-bold text-foreground">
-          {{ subcatLabel(activeCat.id, activeCat.label) }}
-        </span>
-      </button>
-      <div class="relative rounded-2xl overflow-hidden mb-4 bg-gradient-to-br px-4 py-3.5" :class="activeCat.gradient">
-        <div class="absolute inset-0 bg-black/15" />
-        <div class="relative flex items-center gap-3">
-          <span class="text-[30px]">{{ activeCat.icon }}</span>
-          <div>
-            <p class="text-white/50 text-[10px] font-bold uppercase tracking-widest">
-              {{ sectionLabel(activeSection.id, activeSection.label) }}
-            </p>
-            <h2 class="text-white font-black text-lg leading-none font-display">
-              {{ subcatLabel(activeCat.id, activeCat.label).toUpperCase() }}
-            </h2>
-            <p class="text-white/50 text-[10px] mt-0.5">{{ t('common.games', { count: activeCat.games.length }) }}</p>
-          </div>
-        </div>
-      </div>
-      <div class="grid grid-cols-3 gap-3">
-        <button
-          v-for="(game, i) in activeCat.games"
-          :key="i"
-          type="button"
-          class="relative rounded-2xl overflow-hidden flex flex-col justify-end active:scale-95 transition-transform aspect-[3/4]"
-          @click="emit('gameTap')"
-        >
-          <div class="absolute inset-0 bg-gradient-to-br" :class="activeCat.gradient" />
-          <div class="absolute inset-0 flex items-center justify-center">
-            <span class="text-[32px]">{{ game.icon }}</span>
-          </div>
-          <div
-            v-if="game.hot"
-            class="absolute top-1.5 left-1.5 flex items-center gap-0.5 bg-red-500 rounded-full px-1.5 py-0.5"
-          >
-            <Flame :size="8" class="text-white" />
-            <span class="text-white text-[8px] font-black">{{ t('common.hot') }}</span>
-          </div>
-          <div class="relative p-2 bg-gradient-to-t from-black/80 to-transparent">
-            <p class="text-white font-black text-[10px] leading-tight font-display">{{ game.name.toUpperCase() }}</p>
-            <p class="text-white/40 text-[9px]">{{ game.provider }}</p>
-          </div>
-        </button>
-      </div>
-    </div>
-
-    <div v-else class="pt-3 pb-2">
+    <div class="pt-3 pb-2">
       <div v-for="section in MENU_DATA" :key="section.id" class="mb-5">
         <div class="flex items-center gap-2.5 px-5 mb-2">
           <span class="w-2 h-2 rounded-full flex-shrink-0" :style="{ background: section.dot, boxShadow: `0 0 6px ${section.dot}` }" />
@@ -113,10 +74,8 @@ function pickLanguage(code: (typeof LANGUAGES)[number]['code']) {
             :key="cat.id"
             type="button"
             class="w-full flex items-center gap-3 py-2.5 px-3.5 rounded-2xl active:scale-[0.97] transition-all text-left"
-            :style="{
-              background: idx % 2 === 0 ? 'rgba(255,255,255,0.04)' : 'transparent',
-            }"
-            @click="active = { sid: section.id, cid: cat.id }"
+            :style="{ background: idx % 2 === 0 ? 'rgba(255,255,255,0.04)' : 'transparent' }"
+            @click="onSubcatTap(cat)"
           >
             <div
               class="w-9 h-9 rounded-xl bg-gradient-to-br flex items-center justify-center shadow-sm flex-shrink-0"
@@ -132,9 +91,6 @@ function pickLanguage(code: (typeof LANGUAGES)[number]['code']) {
                 </span>
                 <span v-if="cat.hot" class="flex items-center gap-0.5 bg-red-500/15 text-red-400 text-[9px] font-black px-1.5 py-0.5 rounded-full">
                   <Flame :size="7" />{{ t('common.hot') }}
-                </span>
-                <span v-if="cat.isNew" class="bg-emerald-500/15 text-emerald-400 text-[9px] font-black px-1.5 py-0.5 rounded-full">
-                  {{ t('common.new') }}
                 </span>
               </div>
               <span class="text-muted-foreground/60 text-[11px] mt-0.5 block">

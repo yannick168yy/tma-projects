@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ArrowLeft } from 'lucide-vue-next'
 import { isInsideTelegram } from '@/utils/initTelegramWebApp'
@@ -10,19 +10,45 @@ const emit = defineEmits<{ close: [] }>()
 const { t } = useI18n()
 const iframeLoaded = ref(false)
 const isTMA = isInsideTelegram()
+const expanded = ref(false)
+
+let collapseTimer: ReturnType<typeof setTimeout> | null = null
+
+function expand() {
+  expanded.value = true
+  if (collapseTimer) clearTimeout(collapseTimer)
+  collapseTimer = setTimeout(() => { expanded.value = false }, 2500)
+}
+
+onMounted(() => {
+  if (!isTMA) expand()
+})
+
+onUnmounted(() => {
+  if (collapseTimer) clearTimeout(collapseTimer)
+})
 </script>
 
 <template>
   <div class="fixed inset-0 z-[100] flex flex-col bg-black">
-    <!-- 顶部返回栏：TMA 模式下隐藏，避免与 Telegram 自带关闭按钮重叠 -->
+    <!-- 浮动返回按钮（仅浏览器模式）：默认收合为小圆形，点击展开显示文字 -->
     <div
       v-if="!isTMA"
-      class="flex-shrink-0 flex items-center gap-3 px-4 py-2.5 bg-black border-b border-white/10"
-      style="padding-top: max(env(safe-area-inset-top), 10px)"
+      class="absolute z-10 transition-all duration-300"
+      :style="{ top: 'max(env(safe-area-inset-top, 0px) + 10px, 18px)', left: '12px' }"
     >
       <button
+        v-if="!expanded"
         type="button"
-        class="flex items-center gap-1.5 rounded-full bg-white/10 px-4 py-2 text-sm font-bold text-white active:bg-white/20 transition-colors"
+        class="flex items-center justify-center w-9 h-9 rounded-full bg-black/50 backdrop-blur-sm border border-white/20 text-white active:bg-black/70 transition-colors"
+        @click="expand"
+      >
+        <ArrowLeft :size="16" />
+      </button>
+      <button
+        v-else
+        type="button"
+        class="flex items-center gap-1.5 rounded-full bg-black/60 backdrop-blur-sm border border-white/20 px-4 py-2 text-sm font-bold text-white active:bg-black/80 transition-colors"
         @click="emit('close')"
       >
         <ArrowLeft :size="15" />
@@ -31,7 +57,7 @@ const isTMA = isInsideTelegram()
     </div>
 
     <!-- 加载中 -->
-    <div v-if="!iframeLoaded" class="absolute inset-0 flex items-center justify-center bg-black z-10" :class="isTMA ? '' : 'mt-12'">
+    <div v-if="!iframeLoaded" class="absolute inset-0 flex items-center justify-center bg-black z-10">
       <div class="w-10 h-10 border-2 border-white/20 border-t-white rounded-full animate-spin" />
     </div>
 

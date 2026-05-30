@@ -1,7 +1,7 @@
 {
   "name": "web-tma",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@intlify/message-compiler": "^10.0.8",
     "@tonconnect/ui": "^2.4.4",
     "lucide-vue-next": "^0.487.0",
     "pinia": "^2.3.1",
