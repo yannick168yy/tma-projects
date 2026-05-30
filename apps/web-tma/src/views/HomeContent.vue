@@ -23,8 +23,7 @@ import EGameCard from '@/components/home/EGameCard.vue'
 import LiveCard from '@/components/home/LiveCard.vue'
 import { CATEGORIES } from '@/data/categories'
 import { BANNERS, WINNERS } from '@/data/home'
-import { fetchGames, launchGame, type SlotGame, type GameHistoryItem } from '@/api/slots'
-import { weightedSample } from '@/utils/weightedSample'
+import { fetchHomepageGames, launchGame, type SlotGame, type GameHistoryItem } from '@/api/slots'
 import { ApiError } from '@/api/client'
 
 const HISTORY_STORAGE_KEY = 'betogo_game_history'
@@ -191,21 +190,16 @@ watch(bannerTrackRef, (el) => {
 
 // ── Game data ────────────────────────────────────────────────────────────────
 const launchingUuid = ref<string | null>(null)
-const popularRaw = ref<SlotGame[]>([])
-const slotsRaw = ref<SlotGame[]>([])
-const liveRaw = ref<SlotGame[]>([])
-const fishingRaw = ref<SlotGame[]>([])
-const crashRaw = ref<SlotGame[]>([])
-const tableRaw = ref<SlotGame[]>([])
+const homepageGames = ref<{ popular: SlotGame[]; slots: SlotGame[]; live: SlotGame[]; fishing: SlotGame[]; crash: SlotGame[]; table: SlotGame[] }>({
+  popular: [], slots: [], live: [], fishing: [], crash: [], table: [],
+})
 const historyGames = ref<GameHistoryItem[]>([])
 const gamesLoading = ref(true)
 
 const gameMap = computed(() => {
   const m = new Map<string, SlotGame>()
-  for (const g of [
-    ...popularRaw.value, ...slotsRaw.value, ...liveRaw.value,
-    ...fishingRaw.value, ...crashRaw.value, ...tableRaw.value,
-  ]) {
+  const { popular, slots, live, fishing, crash, table } = homepageGames.value
+  for (const g of [...popular, ...slots, ...live, ...fishing, ...crash, ...table]) {
     if (!m.has(g.uuid)) m.set(g.uuid, g)
   }
   return m
@@ -233,59 +227,22 @@ async function onGameTap(uuid: string) {
 onMounted(async () => {
   historyGames.value = readLocalHistory()
   gamesLoading.value = true
-  const [pop, slots, live, fishing, crash, table] = await Promise.allSettled([
-    fetchGames({ sortBy: 'ph_bonus', limit: 100 }),
-    fetchGames({ sortCategory: 'slots', sortBy: 'weight', limit: 60 }),
-    fetchGames({ sortCategory: 'live', sortBy: 'weight', limit: 40 }),
-    fetchGames({ sortCategory: 'fishing', sortBy: 'weight', limit: 40 }),
-    fetchGames({ sortCategory: 'crash', sortBy: 'weight', limit: 30 }),
-    fetchGames({ sortCategory: 'table', sortBy: 'weight', limit: 30 }),
-  ])
-  if (pop.status === 'fulfilled') popularRaw.value = pop.value.items
-  if (slots.status === 'fulfilled') slotsRaw.value = slots.value.items
-  if (live.status === 'fulfilled') liveRaw.value = live.value.items
-  if (fishing.status === 'fulfilled') fishingRaw.value = fishing.value.items
-  if (crash.status === 'fulfilled') crashRaw.value = crash.value.items
-  if (table.status === 'fulfilled') tableRaw.value = table.value.items
+  try {
+    const result = await fetchHomepageGames()
+    homepageGames.value = result
+  } catch {
+    // 静默失败，各区段保持空数组
+  }
   gamesLoading.value = false
 })
 
-// ── 加权随机采样 + 跨区段去重瀑布 ────────────────────────────────────────────
-// getScore 对 ph_bonus/weight 做 featured 加成（1.5×），power curve 在工具函数内部
-
-const popularGames = computed(() =>
-  weightedSample(popularRaw.value, (g) => g.phBonus * (g.isFeatured ? 1.5 : 1), 6),
-)
-const popularUuids = computed(() => new Set(popularGames.value.map((g) => g.uuid)))
-
-const slotsGames = computed(() => {
-  const pool = slotsRaw.value.filter((g) => !popularUuids.value.has(g.uuid))
-  return weightedSample(pool, (g) => g.weight * (g.isFeatured ? 1.5 : 1), 6)
-})
-const slotsUuids = computed(() => new Set([...popularUuids.value, ...slotsGames.value.map((g) => g.uuid)]))
-
-const liveGames = computed(() => {
-  const pool = liveRaw.value.filter((g) => !slotsUuids.value.has(g.uuid))
-  return weightedSample(pool, (g) => g.weight * (g.isFeatured ? 1.5 : 1), 6)
-})
-const liveUuids = computed(() => new Set([...slotsUuids.value, ...liveGames.value.map((g) => g.uuid)]))
-
-const fishingGames = computed(() => {
-  const pool = fishingRaw.value.filter((g) => !liveUuids.value.has(g.uuid))
-  return weightedSample(pool, (g) => g.weight * (g.isFeatured ? 1.5 : 1), 6)
-})
-const fishingUuids = computed(() => new Set([...liveUuids.value, ...fishingGames.value.map((g) => g.uuid)]))
-
-const crashGames = computed(() => {
-  const pool = crashRaw.value.filter((g) => !fishingUuids.value.has(g.uuid))
-  return weightedSample(pool, (g) => g.weight * (g.isFeatured ? 1.5 : 1), 6)
-})
-const crashUuids = computed(() => new Set([...fishingUuids.value, ...crashGames.value.map((g) => g.uuid)]))
-
-const tableGames = computed(() => {
-  const excl = crashUuids.value
-  return tableRaw.value.filter((g) => !excl.has(g.uuid)).slice(0, 6)
-})
+// ── 首页各区段（服务器每 30 分钟统一刷新，所有用户看到相同推荐）────────────
+const popularGames = computed(() => homepageGames.value.popular)
+const slotsGames   = computed(() => homepageGames.value.slots)
+const liveGames    = computed(() => homepageGames.value.live)
+const fishingGames = computed(() => homepageGames.value.fishing)
+const crashGames   = computed(() => homepageGames.value.crash)
+const tableGames   = computed(() => homepageGames.value.table)
 </script>
 
 <template>

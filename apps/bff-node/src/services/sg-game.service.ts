@@ -141,6 +141,95 @@ async function getGamesFromCache(env: Env): Promise<DbGame[]> {
   return raw2 ? (JSON.parse(raw2) as DbGame[]) : []
 }
 
+// ── 首页推荐：加权随机 + 30 分钟定时刷新 ────────────────────────────────────
+
+const HOMEPAGE_KEY = 'homepage:selection'
+const HOMEPAGE_TTL = 35 * 60 // 35 分钟（比刷新间隔略长，防止窗口期空缺）
+
+export interface HomepageSelection {
+  popular: DbGame[]
+  slots: DbGame[]
+  live: DbGame[]
+  fishing: DbGame[]
+  crash: DbGame[]
+  table: DbGame[]
+  generatedAt: string
+}
+
+function serverWeightedSample(
+  pool: DbGame[],
+  getScore: (g: DbGame) => number,
+  n: number,
+  maxPerProvider = 2,
+): DbGame[] {
+  const weighted = pool.map((g) => ({ g, w: Math.pow(Math.max(getScore(g), 0.1), 1.5) }))
+  const sampleSize = Math.min(n * 3, weighted.length)
+  const candidates: DbGame[] = []
+  const rem = [...weighted]
+
+  while (candidates.length < sampleSize && rem.length > 0) {
+    const total = rem.reduce((s, x) => s + x.w, 0)
+    let rand = Math.random() * total
+    let idx = rem.length - 1
+    for (let i = 0; i < rem.length; i++) {
+      rand -= rem[i].w
+      if (rand <= 0) { idx = i; break }
+    }
+    candidates.push(rem[idx].g)
+    rem.splice(idx, 1)
+  }
+
+  const result: DbGame[] = []
+  const counts = new Map<string, number>()
+  for (const g of candidates) {
+    if (result.length >= n) break
+    const c = counts.get(g.provider) ?? 0
+    if (c < maxPerProvider) {
+      result.push(g)
+      counts.set(g.provider, c + 1)
+    }
+  }
+  return result
+}
+
+export async function refreshHomepageSelection(env: Env): Promise<void> {
+  const redis = getRedis(env)
+  const all = await getGamesFromCache(env)
+  if (!all.length) return
+
+  const seen = new Set<string>()
+  const pick = (pool: DbGame[], score: (g: DbGame) => number) => {
+    const r = serverWeightedSample(pool.filter((g) => !seen.has(g.uuid)), score, 6)
+    r.forEach((g) => seen.add(g.uuid))
+    return r
+  }
+  const byCategory = (cat: string) => all.filter((g) => g.sortCategory === cat)
+  const score = (g: DbGame) => g.weight * (g.isFeatured ? 1.5 : 1)
+
+  const selection: HomepageSelection = {
+    popular:  pick(all, (g) => g.phBonus * (g.isFeatured ? 1.5 : 1)),
+    slots:    pick(byCategory('slots'), score),
+    live:     pick(byCategory('live'), score),
+    fishing:  pick(byCategory('fishing'), score),
+    crash:    pick(byCategory('crash'), score),
+    table:    pick(byCategory('table'), score),
+    generatedAt: new Date().toISOString(),
+  }
+
+  await redis.set(HOMEPAGE_KEY, JSON.stringify(selection), 'EX', HOMEPAGE_TTL)
+  console.log('[homepage] selection refreshed')
+}
+
+export async function getHomepageSelection(env: Env): Promise<HomepageSelection | null> {
+  const redis = getRedis(env)
+  const raw = await redis.get(HOMEPAGE_KEY)
+  if (raw) return JSON.parse(raw) as HomepageSelection
+  // 缓存不存在则立即生成
+  await refreshHomepageSelection(env)
+  const raw2 = await redis.get(HOMEPAGE_KEY)
+  return raw2 ? (JSON.parse(raw2) as HomepageSelection) : null
+}
+
 export interface GameListResult {
   items: DbGame[]
   total: number

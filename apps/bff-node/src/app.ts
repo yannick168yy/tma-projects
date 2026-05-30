@@ -8,7 +8,7 @@ import { injectDeps, requestIdMiddleware } from './middleware/requestId.js'
 import { createApiRouter } from './routes/index.js'
 import { initStore } from './services/store/index.js'
 import { pollAndSettleTonDeposits } from './services/ton.service.js'
-import { syncAllGames, loadGamesCache } from './services/sg-game.service.js'
+import { syncAllGames, loadGamesCache, refreshHomepageSelection } from './services/sg-game.service.js'
 import { refreshRates } from './services/exchange-rate.service.js'
 import { runDailyReconciliation, yesterday } from './services/sg-settlement.service.js'
 import { isMysqlEnabled } from './clients/mysql.client.js'
@@ -73,14 +73,20 @@ export function createApp(env: Env): Koa {
     }, msUntilNext())
   }
 
-  // 游戏缓存：启动 8s 后首次加载（MySQL 就绪后）
+  // 游戏缓存 + 首页推荐：启动 8s 后首次加载，之后每 30 分钟刷新首页推荐
   if (isMysqlEnabled(env)) {
     setTimeout(() => {
-      loadGamesCache(env).catch((err) => console.error('[games-cache] load error:', err))
+      loadGamesCache(env)
+        .then(() => refreshHomepageSelection(env))
+        .catch((err) => console.error('[games-cache] load error:', err))
     }, 8_000)
+
+    setInterval(() => {
+      refreshHomepageSelection(env).catch((err) => console.error('[homepage] refresh error:', err))
+    }, 30 * 60 * 1000)
   }
 
-  // Slotegrator game sync: on startup then every 6h，同步完自动刷新缓存
+  // Slotegrator game sync: on startup then every 6h，同步完自动刷新缓存和首页
   if (isMysqlEnabled(env) && env.SG_BASE_URL && env.SG_MERCHANT_ID) {
     const runSync = () =>
       syncAllGames(env)
@@ -88,6 +94,7 @@ export function createApp(env: Env): Koa {
           console.log(`[sg-sync] synced ${synced} games`)
           return loadGamesCache(env)
         })
+        .then(() => refreshHomepageSelection(env))
         .catch((err) => console.error('[sg-sync] error:', err))
     setTimeout(runSync, 10_000)
     setInterval(runSync, 6 * 60 * 60 * 1000)

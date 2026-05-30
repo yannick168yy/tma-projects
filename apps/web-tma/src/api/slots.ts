@@ -43,6 +43,20 @@ export interface GameHistoryItem {
   lastPlayedAt: string
 }
 
+export interface HomepageGames {
+  popular: SlotGame[]
+  slots: SlotGame[]
+  live: SlotGame[]
+  fishing: SlotGame[]
+  crash: SlotGame[]
+  table: SlotGame[]
+  generatedAt: string
+}
+
+export function fetchHomepageGames(): Promise<HomepageGames> {
+  return apiRequest<HomepageGames>('/slots/homepage')
+}
+
 export function fetchGames(params: GameListParams = {}): Promise<GameListResult> {
   const qs = new URLSearchParams()
   if (params.page) qs.set('page', String(params.page))

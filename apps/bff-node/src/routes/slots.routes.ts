@@ -1,12 +1,27 @@
 import Router from '@koa/router'
 import { randomUUID } from 'node:crypto'
 import { ok, fail } from '../utils/response.js'
-import { listGames, listProviders, syncAllGames, getUserGameHistory } from '../services/sg-game.service.js'
+import { listGames, listProviders, syncAllGames, getUserGameHistory, getHomepageSelection } from '../services/sg-game.service.js'
 import { sgInitGame, sgInitDemo } from '../services/slotegrator.service.js'
 import { getUser } from '../services/store/index.js'
 import { isMysqlEnabled } from '../clients/mysql.client.js'
 
 const router = new Router({ prefix: '/slots' })
+
+// GET /slots/homepage — 首页推荐（服务器每 30 分钟刷新一次）
+router.get('/homepage', async (ctx) => {
+  const env = ctx.state.env
+  if (!isMysqlEnabled(env)) {
+    ok(ctx, { popular: [], slots: [], live: [], fishing: [], crash: [], table: [], generatedAt: '' })
+    return
+  }
+  try {
+    const selection = await getHomepageSelection(env)
+    ok(ctx, selection ?? { popular: [], slots: [], live: [], fishing: [], crash: [], table: [], generatedAt: '' })
+  } catch (e) {
+    fail(ctx, 500, e instanceof Error ? e.message : 'Failed to load homepage')
+  }
+})
 
 // GET /slots/games — public game list from cache
 // Also registered outside auth middleware in routes/index.ts
