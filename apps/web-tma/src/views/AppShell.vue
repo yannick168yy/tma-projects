@@ -158,7 +158,7 @@ function navIcon(id: string) {
 
 <template>
   <div class="flex h-dvh w-full justify-center bg-[#040609]">
-    <div class="app-frame relative flex w-full max-w-[430px] flex-col overflow-hidden bg-background">
+    <div class="app-frame relative flex w-full max-w-[430px] flex-col bg-background">
       <header class="relative z-10 flex-shrink-0">
         <div class="app-safe-header flex items-center gap-3 px-4 pb-4">
           <button type="button" class="flex-shrink-0 cursor-pointer" @click="goHome">
@@ -288,7 +288,7 @@ function navIcon(id: string) {
 
       <!-- Figma: bottom nav always visible, including on profile -->
       <nav
-        class="app-safe-nav relative z-20 flex flex-shrink-0 items-center justify-around border-t border-border bg-card px-2 pt-2"
+        class="app-safe-nav sticky bottom-0 z-20 flex flex-shrink-0 items-center justify-around border-t border-border bg-background px-2 pt-2"
       >
         <button
           v-for="item in navItems"
@@ -331,8 +331,8 @@ function navIcon(id: string) {
 
 <style scoped>
 .app-frame {
-  height: 100dvh;
-  max-height: 100dvh;
+  min-height: 100dvh;
+  overflow: clip; /* 裁切溢出但不创建滚动容器，sticky 仍有效 */
   touch-action: pan-y;
   box-sizing: border-box;
 }

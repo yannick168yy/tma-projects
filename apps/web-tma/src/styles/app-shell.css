@@ -20,20 +20,26 @@ html.is-telegram-webapp {
 }
 
 html {
-  height: 100%;
-  height: 100dvh;
+  /* 1px 让 iOS Safari 认为页面可滚动，触发地址栏收缩 */
+  height: calc(100% + 1px);
+  overflow-y: scroll;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
-  background: #111827; /* nav 色：底部 home indicator 区域露出 html 层时显示 */
+  background: #080b14;
+}
+
+html::-webkit-scrollbar {
+  display: none;
 }
 
 body {
   margin: 0;
-  height: 100%;
   height: 100dvh;
   overflow: hidden;
   overscroll-behavior: none;
-  background: #080b14; /* header 色：顶部刘海区域显示 */
+  background: #080b14;
   /* pan-y on body; manipulation on controls (see below) */
   touch-action: pan-y;
   -ms-touch-action: pan-y;
