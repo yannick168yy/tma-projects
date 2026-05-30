@@ -100,6 +100,8 @@ export default {
     fishingZone: 'GAME BẮN CÁ',
     crashZone: 'GAME CRASH',
     tableZone: 'GAME BÀI',
+    forYou: 'Dành cho bạn',
+    shuffle: 'Đổi khác',
     noHistory: 'Chơi game để xem lịch sử tại đây',
     gameProviders: 'NHÀ CUNG CẤP',
     supportTitle: 'Hỗ trợ khách hàng 24/7',

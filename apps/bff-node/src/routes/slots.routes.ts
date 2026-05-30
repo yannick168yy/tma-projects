@@ -17,7 +17,7 @@ router.get('/homepage', async (ctx) => {
   }
   try {
     const selection = await getHomepageSelection(env)
-    ok(ctx, selection ?? { popular: [], slots: [], live: [], fishing: [], crash: [], table: [], generatedAt: '' })
+    ok(ctx, selection ?? { popular: [], slots: [], live: [], fishing: [], crash: [], table: [], recommended: [], generatedAt: '' })
   } catch (e) {
     fail(ctx, 500, e instanceof Error ? e.message : 'Failed to load homepage')
   }

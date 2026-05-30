@@ -100,6 +100,8 @@ export default {
     fishingZone: 'FISHING GAMES',
     crashZone: 'CRASH GAMES',
     tableZone: 'TABLE GAMES',
+    forYou: 'For You',
+    shuffle: 'Shuffle',
     noHistory: 'Play any game to see your history here',
     gameProviders: 'GAME PROVIDERS',
     supportTitle: '24/7 Customer Support',

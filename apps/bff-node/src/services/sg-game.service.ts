@@ -159,6 +159,7 @@ export interface HomepageSelection {
   fishing: DbGame[]
   crash: DbGame[]
   table: DbGame[]
+  recommended: DbGame[]
   generatedAt: string
 }
 
@@ -204,8 +205,8 @@ export async function refreshHomepageSelection(env: Env): Promise<void> {
   if (!all.length) return
 
   const seen = new Set<string>()
-  const pick = (pool: DbGame[], score: (g: DbGame) => number) => {
-    const r = serverWeightedSample(pool.filter((g) => !seen.has(g.uuid)), score, 6)
+  const pick = (pool: DbGame[], score: (g: DbGame) => number, n = 6) => {
+    const r = serverWeightedSample(pool.filter((g) => !seen.has(g.uuid)), score, n)
     r.forEach((g) => seen.add(g.uuid))
     return r
   }
@@ -213,12 +214,13 @@ export async function refreshHomepageSelection(env: Env): Promise<void> {
   const score = (g: DbGame) => g.weight * (g.isFeatured ? 1.5 : 1)
 
   const selection: HomepageSelection = {
-    popular:  pick(all, (g) => g.phBonus * (g.isFeatured ? 1.5 : 1)),
-    slots:    pick(byCategory('slots'), score),
-    live:     pick(byCategory('live'), score),
-    fishing:  pick(byCategory('fishing'), score),
-    crash:    pick(byCategory('crash'), score),
-    table:    pick(byCategory('table'), score),
+    popular:     pick(all, (g) => g.phBonus * (g.isFeatured ? 1.5 : 1)),
+    slots:       pick(byCategory('slots'), score),
+    live:        pick(byCategory('live'), score),
+    fishing:     pick(byCategory('fishing'), score),
+    crash:       pick(byCategory('crash'), score),
+    table:       pick(byCategory('table'), score),
+    recommended: pick(all, score, 36),
     generatedAt: new Date().toISOString(),
   }
 

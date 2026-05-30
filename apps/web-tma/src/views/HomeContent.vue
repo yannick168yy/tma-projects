@@ -15,6 +15,8 @@ import {
   Fish,
   Zap,
   LayoutGrid,
+  Sparkles,
+  RefreshCw,
 } from 'lucide-vue-next'
 import HomeCategoryShortcut from '@/components/home/HomeCategoryShortcut.vue'
 import GameCard from '@/components/home/GameCard.vue'
@@ -190,8 +192,8 @@ watch(bannerTrackRef, (el) => {
 
 // ── Game data ────────────────────────────────────────────────────────────────
 const launchingUuid = ref<string | null>(null)
-const homepageGames = ref<{ popular: SlotGame[]; slots: SlotGame[]; live: SlotGame[]; fishing: SlotGame[]; crash: SlotGame[]; table: SlotGame[] }>({
-  popular: [], slots: [], live: [], fishing: [], crash: [], table: [],
+const homepageGames = ref<{ popular: SlotGame[]; slots: SlotGame[]; live: SlotGame[]; fishing: SlotGame[]; crash: SlotGame[]; table: SlotGame[]; recommended: SlotGame[] }>({
+  popular: [], slots: [], live: [], fishing: [], crash: [], table: [], recommended: [],
 })
 const historyGames = ref<GameHistoryItem[]>([])
 const gamesLoading = ref(true)
@@ -243,6 +245,18 @@ const liveGames    = computed(() => homepageGames.value.live)
 const fishingGames = computed(() => homepageGames.value.fishing)
 const crashGames   = computed(() => homepageGames.value.crash)
 const tableGames   = computed(() => homepageGames.value.table)
+
+// ── 猜你喜欢：服务端返回 36 款，前端本地分页每次展示 12 款 ─────────────────
+const recPage = ref(0)
+const recommendedPool = computed(() => homepageGames.value.recommended)
+const recommendedGames = computed(() => {
+  const start = recPage.value * 12
+  return recommendedPool.value.slice(start, start + 12)
+})
+function shuffleRec() {
+  const total = Math.ceil(recommendedPool.value.length / 12)
+  recPage.value = total > 1 ? (recPage.value + 1) % total : 0
+}
 </script>
 
 <template>
@@ -503,6 +517,30 @@ const tableGames   = computed(() => homepageGames.value.table)
       </div>
       <div v-else class="flex gap-3 px-4 overflow-x-auto hide-scrollbar">
         <EGameCard v-for="g in tableGames" :key="g.uuid" :game="g" @tap="onGameTap(g.uuid)" />
+      </div>
+    </section>
+
+    <!-- FOR YOU 推荐 -->
+    <section v-if="gamesLoading || recommendedPool.length > 0" class="mt-6">
+      <div class="flex items-center justify-between px-4 mb-3">
+        <div class="flex items-center gap-2">
+          <Sparkles :size="15" class="text-yellow-400" />
+          <h3 class="text-foreground font-black text-sm font-display">{{ t('home.forYou') }}</h3>
+        </div>
+        <button
+          type="button"
+          class="flex items-center gap-1 text-primary text-xs font-bold"
+          @click="shuffleRec"
+        >
+          <RefreshCw :size="11" />
+          {{ t('home.shuffle') }}
+        </button>
+      </div>
+      <div v-if="gamesLoading" class="grid grid-cols-3 gap-2 px-4">
+        <div v-for="n in 12" :key="n" class="aspect-[3/4] animate-pulse rounded-xl bg-secondary" />
+      </div>
+      <div v-else class="grid grid-cols-3 gap-2 px-4">
+        <GameCard v-for="g in recommendedGames" :key="g.uuid" :game="g" @tap="onGameTap(g.uuid)" />
       </div>
     </section>
 
