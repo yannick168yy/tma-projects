@@ -236,7 +236,7 @@ onMounted(async () => {
   gamesLoading.value = false
 })
 
-// ── 首页各区段（服务器每 30 分钟统一刷新，所有用户看到相同推荐）────────────
+// ── 首页各区段（服务器每 3 小时统一刷新，所有用户看到相同推荐）────────────
 const popularGames = computed(() => homepageGames.value.popular)
 const slotsGames   = computed(() => homepageGames.value.slots)
 const liveGames    = computed(() => homepageGames.value.live)
@@ -246,7 +246,7 @@ const tableGames   = computed(() => homepageGames.value.table)
 </script>
 
 <template>
-  <div class="page-scroll pb-20 hide-scrollbar">
+  <div class="page-main">
     <!-- 分类快捷入口 -->
     <div class="category-shortcut-row flex gap-3 px-4 pb-3 pt-3 overflow-x-auto hide-scrollbar">
       <HomeCategoryShortcut

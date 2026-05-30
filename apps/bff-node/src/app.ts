@@ -73,7 +73,7 @@ export function createApp(env: Env): Koa {
     }, msUntilNext())
   }
 
-  // 游戏缓存 + 首页推荐：启动 8s 后首次加载，之后每 30 分钟刷新首页推荐
+  // 游戏缓存 + 首页推荐：启动 8s 后首次加载，之后每 3 小时刷新首页推荐
   if (isMysqlEnabled(env)) {
     setTimeout(() => {
       loadGamesCache(env)
@@ -83,7 +83,7 @@ export function createApp(env: Env): Koa {
 
     setInterval(() => {
       refreshHomepageSelection(env).catch((err) => console.error('[homepage] refresh error:', err))
-    }, 30 * 60 * 1000)
+    }, 3 * 60 * 60 * 1000)
   }
 
   // Slotegrator game sync: on startup then every 6h，同步完自动刷新缓存和首页

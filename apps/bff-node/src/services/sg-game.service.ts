@@ -150,7 +150,7 @@ async function getGamesFromCache(env: Env): Promise<DbGame[]> {
 // ── 首页推荐：加权随机 + 30 分钟定时刷新 ────────────────────────────────────
 
 const HOMEPAGE_KEY = 'homepage:selection'
-const HOMEPAGE_TTL = 35 * 60 // 35 分钟（比刷新间隔略长，防止窗口期空缺）
+const HOMEPAGE_TTL = 3 * 60 * 60 + 5 * 60 // 3h5m（比刷新间隔略长，防止窗口期空缺）
 
 export interface HomepageSelection {
   popular: DbGame[]
