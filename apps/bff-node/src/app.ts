@@ -93,18 +93,28 @@ export function createApp(env: Env): Koa {
       refreshHomepageSelection(env).catch((err) => console.error('[homepage] refresh error:', err))
     }, 3 * 60 * 60 * 1000)
 
-    // Betting activity 三套缓存定时刷新
+    // Betting activity 定时刷新
+    // latest: 每 1 小时
     setInterval(() => {
       refreshLatestPool(env).catch((err) => console.error('[betting-latest] refresh error:', err))
     }, 60 * 60 * 1000)
 
+    // week / month: JS setInterval 上限约 24.8 天，用每天检查 + 时间戳守卫
+    let weekLastAt = 0
+    let monthLastAt = 0
+    const WEEK_MS  = 7  * 24 * 60 * 60 * 1000
+    const MONTH_MS = 30 * 24 * 60 * 60 * 1000
     setInterval(() => {
-      refreshWeekTop(env).catch((err) => console.error('[betting-week] refresh error:', err))
-    }, 7 * 24 * 60 * 60 * 1000)
-
-    setInterval(() => {
-      refreshMonthTop(env).catch((err) => console.error('[betting-month] refresh error:', err))
-    }, 30 * 24 * 60 * 60 * 1000)
+      const now = Date.now()
+      if (now - weekLastAt >= WEEK_MS) {
+        weekLastAt = now
+        refreshWeekTop(env).catch((err) => console.error('[betting-week] refresh error:', err))
+      }
+      if (now - monthLastAt >= MONTH_MS) {
+        monthLastAt = now
+        refreshMonthTop(env).catch((err) => console.error('[betting-month] refresh error:', err))
+      }
+    }, 24 * 60 * 60 * 1000)
   }
 
   // Slotegrator game sync: on startup then every 24h，同步完自动刷新缓存和首页
