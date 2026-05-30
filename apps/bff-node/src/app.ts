@@ -86,7 +86,7 @@ export function createApp(env: Env): Koa {
     }, 3 * 60 * 60 * 1000)
   }
 
-  // Slotegrator game sync: on startup then every 6h，同步完自动刷新缓存和首页
+  // Slotegrator game sync: on startup then every 24h，同步完自动刷新缓存和首页
   if (isMysqlEnabled(env) && env.SG_BASE_URL && env.SG_MERCHANT_ID) {
     const runSync = () =>
       syncAllGames(env)
@@ -97,7 +97,7 @@ export function createApp(env: Env): Koa {
         .then(() => refreshHomepageSelection(env))
         .catch((err) => console.error('[sg-sync] error:', err))
     setTimeout(runSync, 10_000)
-    setInterval(runSync, 6 * 60 * 60 * 1000)
+    setInterval(runSync, 24 * 60 * 60 * 1000)
   }
 
   app.use(errorHandler())
