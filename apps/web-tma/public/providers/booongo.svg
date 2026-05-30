@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="96" height="44" viewBox="0 0 96 44">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1B8A3E"/>
+      <stop offset="1" stop-color="#0D4F22"/>
+    </linearGradient>
+  </defs>
+  <rect width="96" height="44" rx="10" fill="url(#bg)"/>
+  <!-- B·G monogram -->
+  <text x="16" y="30" text-anchor="middle" font-family="Arial Black,Arial" font-weight="900" font-size="20" fill="rgba(255,255,255,0.2)">B</text>
+  <text x="62" y="26" text-anchor="middle" font-family="Arial Black,Arial" font-weight="900" font-size="13" letter-spacing="1" fill="white">BOOONGO</text>
+</svg>

@@ -13,7 +13,7 @@ export function startGoogleLoginRedirect(): void {
   }
 
   const state = crypto.randomUUID()
-  sessionStorage.setItem(STATE_KEY, state)
+  localStorage.setItem(STATE_KEY, state)
 
   const params = new URLSearchParams({
     client_id: clientId,
@@ -29,9 +29,9 @@ export function startGoogleLoginRedirect(): void {
 }
 
 export function readStoredOAuthState(): string | null {
-  return sessionStorage.getItem(STATE_KEY)
+  return localStorage.getItem(STATE_KEY)
 }
 
 export function clearStoredOAuthState(): void {
-  sessionStorage.removeItem(STATE_KEY)
+  localStorage.removeItem(STATE_KEY)
 }

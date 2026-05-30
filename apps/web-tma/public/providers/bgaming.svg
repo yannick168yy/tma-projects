@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="96" height="44" viewBox="0 0 96 44">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1A3E8F"/>
+      <stop offset="1" stop-color="#0D1F5C"/>
+    </linearGradient>
+  </defs>
+  <rect width="96" height="44" rx="10" fill="url(#bg)"/>
+  <!-- B hexagon -->
+  <path d="M15 11 L25 11 L30 19.5 L25 28 L15 28 L10 19.5 Z" fill="rgba(255,255,255,0.12)" stroke="rgba(255,255,255,0.5)" stroke-width="1"/>
+  <text x="20" y="24" text-anchor="middle" font-family="Arial Black,Arial" font-weight="900" font-size="12" fill="white">B</text>
+  <!-- label -->
+  <text x="62" y="20" text-anchor="middle" font-family="Arial Black,Arial" font-weight="900" font-size="11" letter-spacing="1" fill="white">GAMING</text>
+  <text x="62" y="33" text-anchor="middle" font-family="Arial,sans-serif" font-weight="400" font-size="8" letter-spacing="1" fill="rgba(255,255,255,0.6)">BY BGAMING</text>
+</svg>

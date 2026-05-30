@@ -13,7 +13,6 @@ import {
   Gamepad2,
   Headphones,
   Fish,
-  Zap,
   LayoutGrid,
   FileText,
   Shield,
@@ -27,7 +26,7 @@ import HistoryCard from '@/components/home/HistoryCard.vue'
 import EGameCard from '@/components/home/EGameCard.vue'
 import LiveCard from '@/components/home/LiveCard.vue'
 import { CATEGORIES } from '@/data/categories'
-import { BANNERS, WINNERS, INFO_LINKS, PROVIDER_LOGOS } from '@/data/home'
+import { BANNERS, WINNERS, INFO_LINKS } from '@/data/home'
 import { fetchHomepageGames, launchGame, fetchProviders, fetchBettingActivity, type SlotGame, type GameHistoryItem, type BetRecord, type BetTab } from '@/api/slots'
 import { ApiError } from '@/api/client'
 
@@ -236,8 +235,7 @@ const popularGames = computed(() => homepageGames.value.popular)
 const slotsGames   = computed(() => homepageGames.value.slots)
 const liveGames    = computed(() => homepageGames.value.live)
 const fishingGames = computed(() => homepageGames.value.fishing)
-const crashGames   = computed(() => homepageGames.value.crash)
-const tableGames   = computed(() => homepageGames.value.table)
+const tableCrashGames = computed(() => [...homepageGames.value.table, ...homepageGames.value.crash])
 
 // ── Providers ────────────────────────────────────────────────────────────────
 const providerList = ref<string[]>([])
@@ -277,9 +275,6 @@ const infoModal = ref<string | null>(null)
 function openInfo(key: string) { infoModal.value = key }
 function closeInfo() { infoModal.value = null }
 
-function providerChip(name: string) {
-  return PROVIDER_LOGOS[name.toUpperCase()] ?? { abbr: name.slice(0, 4), gradient: 'from-slate-600 to-slate-700' }
-}
 
 onMounted(async () => {
   historyGames.value = readLocalHistory()
@@ -423,8 +418,8 @@ onMounted(async () => {
     </div>
 
     <!-- POPULAR GAMES (by ph_bonus) -->
-    <section class="mt-5 px-4">
-      <div class="flex items-center justify-between mb-3">
+    <section class="mt-5">
+      <div class="flex items-center justify-between px-4 mb-3">
         <div class="flex items-center gap-2">
           <TrendingUp :size="15" class="text-primary" />
           <h3 class="text-foreground font-black text-sm font-display">{{ t('home.popularGames') }}</h3>
@@ -438,11 +433,13 @@ onMounted(async () => {
           <ChevronRight :size="12" />
         </button>
       </div>
-      <div v-if="gamesLoading" class="grid grid-cols-3 gap-2">
-        <div v-for="n in 6" :key="n" class="aspect-[3/4] animate-pulse rounded-xl bg-secondary" />
+      <div v-if="gamesLoading" class="flex gap-3 px-4">
+        <div v-for="n in 6" :key="n" class="flex-shrink-0 w-28 aspect-square animate-pulse rounded-xl bg-secondary" />
       </div>
-      <div v-else-if="popularGames.length > 0" class="grid grid-cols-3 gap-2">
-        <GameCard v-for="g in popularGames" :key="g.uuid" :game="g" @tap="onGameTap(g.uuid)" />
+      <div v-else-if="popularGames.length > 0" class="flex gap-3 px-4 overflow-x-auto hide-scrollbar">
+        <div v-for="g in popularGames" :key="g.uuid" class="flex-shrink-0 w-28">
+          <GameCard :game="g" @tap="onGameTap(g.uuid)" />
+        </div>
       </div>
     </section>
 
@@ -519,32 +516,8 @@ onMounted(async () => {
       </div>
     </section>
 
-    <!-- CRASH GAMES -->
-    <section v-if="gamesLoading || crashGames.length > 0" class="mt-6">
-      <div class="flex items-center justify-between px-4 mb-3">
-        <div class="flex items-center gap-2">
-          <Zap :size="15" class="text-orange-400" />
-          <h3 class="text-foreground font-black text-sm font-display">{{ t('home.crashZone') }}</h3>
-        </div>
-        <button
-          type="button"
-          class="text-primary text-xs font-bold flex items-center gap-0.5"
-          @click="emit('openCategoryLobby', { sortCategory: 'crash', sortBy: 'weight', title: t('home.crashZone') })"
-        >
-          {{ t('common.seeAll') }}
-          <ChevronRight :size="12" />
-        </button>
-      </div>
-      <div v-if="gamesLoading" class="flex gap-3 px-4">
-        <div v-for="n in 6" :key="n" class="flex-shrink-0 w-32 h-20 animate-pulse rounded-xl bg-secondary" />
-      </div>
-      <div v-else class="flex gap-3 px-4 overflow-x-auto hide-scrollbar">
-        <EGameCard v-for="g in crashGames" :key="g.uuid" :game="g" @tap="onGameTap(g.uuid)" />
-      </div>
-    </section>
-
-    <!-- TABLE GAMES -->
-    <section v-if="gamesLoading || tableGames.length > 0" class="mt-6">
+    <!-- TABLE & CRASH GAMES (合并) -->
+    <section v-if="gamesLoading || tableCrashGames.length > 0" class="mt-6">
       <div class="flex items-center justify-between px-4 mb-3">
         <div class="flex items-center gap-2">
           <LayoutGrid :size="15" class="text-blue-400" />
@@ -563,26 +536,23 @@ onMounted(async () => {
         <div v-for="n in 6" :key="n" class="flex-shrink-0 w-32 h-20 animate-pulse rounded-xl bg-secondary" />
       </div>
       <div v-else class="flex gap-3 px-4 overflow-x-auto hide-scrollbar">
-        <EGameCard v-for="g in tableGames" :key="g.uuid" :game="g" @tap="onGameTap(g.uuid)" />
+        <EGameCard v-for="g in tableCrashGames" :key="g.uuid" :game="g" @tap="onGameTap(g.uuid)" />
       </div>
     </section>
 
     <!-- ── PROVIDERS ─────────────────────────────────────────────────── -->
     <section class="mt-8 px-4">
-      <h3 class="text-muted-foreground font-black text-xs font-display tracking-widest mb-3">
+      <p class="text-muted-foreground text-[10px] uppercase tracking-widest font-black mb-3">
         {{ t('home.providersSection') }}
-      </h3>
-      <div class="flex gap-2.5 overflow-x-auto hide-scrollbar pb-1">
-        <div
+      </p>
+      <div class="flex gap-2 flex-wrap">
+        <span
           v-for="p in providerList"
           :key="p"
-          class="flex-shrink-0 w-[88px] h-11 rounded-xl flex items-center justify-center bg-gradient-to-br shadow-sm"
-          :class="providerChip(p).gradient"
+          class="text-[10px] font-black text-muted-foreground bg-secondary px-3 py-1.5 rounded-full border border-border"
         >
-          <span class="font-display font-black text-white text-sm tracking-wider drop-shadow">
-            {{ providerChip(p).abbr }}
-          </span>
-        </div>
+          {{ p }}
+        </span>
       </div>
     </section>
 
@@ -608,8 +578,8 @@ onMounted(async () => {
         </button>
       </div>
 
-      <!-- Latest Bets: 竖向无缝滚动，高度与 Week/Month 一致 -->
-      <div v-if="activeBetTab === 'latest'" class="relative overflow-hidden rounded-xl bg-secondary h-[520px]">
+      <!-- Latest Bets: 竖向无缝滚动 -->
+      <div v-if="activeBetTab === 'latest'" class="relative overflow-hidden rounded-xl bg-secondary h-[600px]">
         <div v-if="latestBets.length === 0" class="space-y-px pt-1">
           <div v-for="n in 8" :key="n" class="flex items-center gap-3 px-3 py-2.5">
             <div class="w-10 h-10 rounded-lg animate-pulse bg-white/10 flex-shrink-0" />
@@ -644,8 +614,8 @@ onMounted(async () => {
         </div>
       </div>
 
-      <!-- Top of the Week / Month: 排行榜，高度与 Latest 一致 -->
-      <div v-else class="rounded-xl bg-secondary overflow-y-auto h-[520px]">
+      <!-- Top of the Week / Month: 排行榜，固定展示10条，不可滚动 -->
+      <div v-else class="rounded-xl bg-secondary overflow-hidden h-[600px]">
         <div v-if="(activeBetTab === 'week' ? weekBets : monthBets).length === 0" class="space-y-px pt-1">
           <div v-for="n in 8" :key="n" class="flex items-center gap-3 px-3 py-2.5 border-b border-white/5">
             <div class="w-5 h-5 rounded animate-pulse bg-white/10 flex-shrink-0" />

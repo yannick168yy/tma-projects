@@ -74,18 +74,20 @@ export function createApp(env: Env): Koa {
     }, msUntilNext())
   }
 
+  // Betting activity 初始化（需要 games cache 已加载）
+  const initBettingActivity = () =>
+    Promise.all([
+      refreshLatestPool(env),
+      refreshWeekTop(env),
+      refreshMonthTop(env),
+    ]).catch((err) => console.error('[betting-activity] init error:', err))
+
   // 游戏缓存 + 首页推荐：启动 8s 后首次加载，之后每 3 小时刷新首页推荐
   if (isMysqlEnabled(env)) {
     setTimeout(() => {
       loadGamesCache(env)
         .then(() => refreshHomepageSelection(env))
-        .then(() =>
-          Promise.all([
-            refreshLatestPool(env),
-            refreshWeekTop(env),
-            refreshMonthTop(env),
-          ]),
-        )
+        .then(() => initBettingActivity())
         .catch((err) => console.error('[games-cache] load error:', err))
     }, 8_000)
 
@@ -126,6 +128,7 @@ export function createApp(env: Env): Koa {
           return loadGamesCache(env)
         })
         .then(() => refreshHomepageSelection(env))
+        .then(() => initBettingActivity())
         .catch((err) => console.error('[sg-sync] error:', err))
     setTimeout(runSync, 10_000)
     setInterval(runSync, 24 * 60 * 60 * 1000)

@@ -340,9 +340,11 @@ function navIcon(id: string) {
     <WalletModal :open="walletModalOpen" @close="walletModalOpen = false" />
     <SearchOverlay :open="searchOpen" @close="searchOpen = false" @game-tap="onGameTap" @open-game="openGame" />
 
-    <!-- 客服聊天覆盖层：与 WalletModal/SearchOverlay 同级，覆盖整个 app-frame -->
-    <div v-if="csOpen" class="absolute inset-0 z-50 flex flex-col bg-background">
-      <CustomerServicePage @close="csOpen = false" />
+    <!-- 客服聊天覆盖层：fixed 相对视口，不受页面滚动影响 -->
+    <div v-if="csOpen" class="fixed inset-0 z-[60] flex justify-center">
+      <div class="w-full max-w-[430px] bg-background flex flex-col overflow-hidden">
+        <CustomerServicePage @close="csOpen = false" />
+      </div>
     </div>
 
     <!-- 游戏内嵌覆盖层 -->
