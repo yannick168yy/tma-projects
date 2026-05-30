@@ -53,6 +53,7 @@ export interface HomepageGames {
   fishing: SlotGame[]
   crash: SlotGame[]
   table: SlotGame[]
+  recommended: SlotGame[]
   generatedAt: string
 }
 

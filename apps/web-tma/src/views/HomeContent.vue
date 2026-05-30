@@ -200,8 +200,8 @@ const gamesLoading = ref(true)
 
 const gameMap = computed(() => {
   const m = new Map<string, SlotGame>()
-  const { popular, slots, live, fishing, crash, table } = homepageGames.value
-  for (const g of [...popular, ...slots, ...live, ...fishing, ...crash, ...table]) {
+  const { popular, slots, live, fishing, crash, table, recommended } = homepageGames.value
+  for (const g of [...popular, ...slots, ...live, ...fishing, ...crash, ...table, ...recommended]) {
     if (!m.has(g.uuid)) m.set(g.uuid, g)
   }
   return m
