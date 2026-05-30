@@ -116,6 +116,24 @@ export default {
     infoAbout: 'Về chúng tôi',
     supportSection: 'HỖ TRỢ',
     supportOnline: 'Hỗ trợ trực tuyến 24/7',
+    infoDetails: {
+      terms: {
+        title: 'Điều khoản dịch vụ',
+        content: 'BetoGo được vận hành bởi công ty gaming được cấp phép. Khi sử dụng nền tảng, bạn xác nhận đủ 18 tuổi và được phép tham gia cờ bạc trực tuyến hợp pháp tại khu vực của mình.\n\nTất cả trò chơi được cung cấp bởi các nhà phát triển thứ ba được chứng nhận. Tiền thắng phải tuân theo các điều khoản và yêu cầu cược áp dụng. BetoGo có quyền xác minh danh tính và đình chỉ tài khoản vi phạm chính sách.\n\nNạp và rút tiền được xử lý qua các kênh tiền điện tử được hỗ trợ (TON, USDT). Thời gian xử lý có thể thay đổi do điều kiện mạng.\n\nBetoGo có quyền sửa đổi các điều khoản này bất cứ lúc nào. Việc tiếp tục sử dụng nền tảng sau khi thay đổi được đăng đồng nghĩa với việc chấp nhận các điều khoản đã cập nhật.',
+      },
+      privacy: {
+        title: 'Chính sách bảo mật',
+        content: 'BetoGo chỉ thu thập thông tin cần thiết để vận hành nền tảng, bao gồm ID Telegram và dữ liệu hồ sơ cơ bản mà Telegram cung cấp khi ủy quyền.\n\nChúng tôi không bán, cho thuê hoặc chia sẻ thông tin cá nhân của bạn với bên thứ ba cho mục đích tiếp thị. Hồ sơ giao dịch được lưu trữ an toàn chỉ để quản lý tài khoản và tuân thủ quy định.\n\nBạn có thể yêu cầu xóa tài khoản và dữ liệu liên quan bất cứ lúc nào bằng cách liên hệ đội ngũ hỗ trợ 24/7 của chúng tôi.\n\nChúng tôi sử dụng mã hóa và các biện pháp bảo mật tiêu chuẩn ngành để bảo vệ dữ liệu của bạn.',
+      },
+      responsible: {
+        title: 'Cờ bạc có trách nhiệm',
+        content: 'BetoGo cam kết thúc đẩy cờ bạc an toàn và có trách nhiệm. Cờ bạc nên là một hình thức giải trí thú vị, không phải cách kiếm thu nhập hay trốn tránh các vấn đề cá nhân.\n\nChúng tôi cung cấp các công cụ tự loại trừ và tùy chọn giới hạn tiền nạp để giúp bạn kiểm soát. Nếu cờ bạc đang trở thành vấn đề, hãy liên hệ ngay đội ngũ hỗ trợ của chúng tôi.\n\nNếu bạn hoặc người quen đang vật lộn với chứng nghiện cờ bạc, hãy tìm kiếm sự giúp đỡ từ Gamblers Anonymous hoặc các dịch vụ hỗ trợ địa phương.\n\nBetoGo thực thi nghiêm ngặt chính sách 18+. Hãy chơi có trách nhiệm.',
+      },
+      about: {
+        title: 'Về BetoGo',
+        content: 'BetoGo là nền tảng gaming trực tuyến hàng đầu được xây dựng như Telegram Mini App, dành cho người chơi tại Philippines và khắp Đông Nam Á. Chúng tôi mang trải nghiệm casino trực tiếp vào ứng dụng Telegram của bạn.\n\nChúng tôi hợp tác với các nhà cung cấp game hàng đầu như PGSOFT, Pragmatic Play, BGaming, Evolution, Habanero, NetEnt và nhiều hơn nữa để cung cấp hàng nghìn slot, live casino, bắn cá và crash game cao cấp.\n\nNền tảng hỗ trợ nạp và rút tiền tức thì qua TON, USDT và YFPay, đảm bảo giao dịch nhanh chóng và an toàn cho tất cả người chơi.\n\nĐội ngũ hỗ trợ khách hàng 24/7 của chúng tôi luôn sẵn sàng giúp đỡ bạn. Chúng tôi cam kết mang lại môi trường chơi game an toàn, công bằng và thú vị.',
+      },
+    },
   },
   category: {
     bonuses: 'Khuyến mãi',

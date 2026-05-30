@@ -75,7 +75,26 @@
 }
 
 .animate-scroll-up {
-  animation: scroll-up 40s linear infinite;
+  animation: scroll-up 100s linear infinite;
+}
+
+/* Information 底部抽屉 */
+.sheet-fade-enter-active,
+.sheet-fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+.sheet-fade-enter-from,
+.sheet-fade-leave-to {
+  opacity: 0;
+}
+
+.sheet-slide-enter-active,
+.sheet-slide-leave-active {
+  transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+}
+.sheet-slide-enter-from,
+.sheet-slide-leave-to {
+  transform: translateY(100%);
 }
 
 .hide-scrollbar {

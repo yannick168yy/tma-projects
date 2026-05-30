@@ -163,11 +163,25 @@ export const PROVIDERS: Provider[] = [
 ]
 
 export const INFO_LINKS = [
-  { key: 'terms', href: '#' },
-  { key: 'privacy', href: '#' },
-  { key: 'responsible', href: '#' },
-  { key: 'about', href: '#' },
+  { key: 'terms' },
+  { key: 'privacy' },
+  { key: 'responsible' },
+  { key: 'about' },
 ]
+
+export const PROVIDER_LOGOS: Record<string, { abbr: string; gradient: string }> = {
+  JILI:      { abbr: 'JILI',  gradient: 'from-orange-500 via-red-500 to-rose-600' },
+  PGSOFT:    { abbr: 'PG',    gradient: 'from-amber-500 via-orange-500 to-red-500' },
+  PRAGMATIC: { abbr: 'PP',    gradient: 'from-red-600 via-rose-600 to-pink-600' },
+  BGAMING:   { abbr: 'BG',    gradient: 'from-blue-600 via-indigo-600 to-violet-600' },
+  EVOLUTION: { abbr: 'EVO',   gradient: 'from-slate-600 via-slate-700 to-slate-800' },
+  HABANERO:  { abbr: 'HAB',   gradient: 'from-yellow-500 via-amber-500 to-orange-500' },
+  NOLIMIT:   { abbr: 'NLC',   gradient: 'from-purple-600 via-violet-600 to-indigo-600' },
+  NETENT:    { abbr: 'NET',   gradient: 'from-emerald-600 via-teal-600 to-cyan-600' },
+  POPIPLAY:  { abbr: 'POP',   gradient: 'from-pink-600 via-rose-600 to-red-500' },
+  SPRIBE:    { abbr: 'SPR',   gradient: 'from-cyan-600 via-blue-600 to-indigo-600' },
+  BOOONGO:   { abbr: 'BOO',   gradient: 'from-green-600 via-emerald-600 to-teal-600' },
+}
 
 export const NAV_ITEMS = [
   { id: 'cashier', label: 'Cashier' },

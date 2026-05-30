@@ -116,6 +116,24 @@ export default {
     infoAbout: 'Tentang Kami',
     supportSection: 'DUKUNGAN',
     supportOnline: 'Dukungan Online 24/7',
+    infoDetails: {
+      terms: {
+        title: 'Syarat Layanan',
+        content: 'BetoGo dioperasikan oleh entitas gaming berlisensi. Dengan menggunakan platform ini, Anda mengonfirmasi berusia minimal 18 tahun dan diizinkan secara hukum untuk berjudi online di yurisdiksi Anda.\n\nSemua permainan disediakan oleh pengembang pihak ketiga bersertifikat. Kemenangan tunduk pada syarat dan ketentuan yang berlaku. BetoGo berhak memverifikasi identitas dan menangguhkan akun yang melanggar kebijakan kami.\n\nDeposit dan penarikan diproses melalui saluran kripto yang didukung (TON, USDT). Waktu pemrosesan dapat bervariasi karena kondisi jaringan.\n\nBetoGo berhak mengubah ketentuan ini kapan saja. Penggunaan platform secara terus-menerus setelah perubahan diposting berarti penerimaan ketentuan yang diperbarui.',
+      },
+      privacy: {
+        title: 'Kebijakan Privasi',
+        content: 'BetoGo hanya mengumpulkan informasi yang diperlukan untuk mengoperasikan platform, termasuk ID Telegram dan data profil dasar yang disediakan Telegram saat otorisasi.\n\nKami tidak menjual, menyewakan, atau membagikan informasi pribadi Anda kepada pihak ketiga untuk tujuan pemasaran. Catatan transaksi disimpan dengan aman hanya untuk manajemen akun dan kepatuhan regulasi.\n\nAnda dapat meminta penghapusan akun dan data terkait kapan saja dengan menghubungi tim dukungan 24/7 kami.\n\nKami menggunakan enkripsi dan langkah keamanan standar industri untuk melindungi data Anda.',
+      },
+      responsible: {
+        title: 'Perjudian Bertanggung Jawab',
+        content: 'BetoGo berkomitmen untuk mempromosikan perjudian yang aman dan bertanggung jawab. Perjudian seharusnya menjadi hiburan yang menyenangkan, bukan cara menghasilkan pendapatan atau melarikan diri dari masalah.\n\nKami menyediakan alat pengecualian diri dan opsi batas deposit untuk membantu Anda tetap terkendali. Jika perjudian menjadi masalah bagi Anda, segera hubungi tim dukungan kami.\n\nJika Anda atau seseorang yang Anda kenal berjuang dengan kecanduan judi, carilah bantuan dari Gamblers Anonymous atau layanan dukungan lokal di daerah Anda.\n\nBetoGo menegakkan kebijakan 18+ secara ketat. Bermainlah dengan bertanggung jawab.',
+      },
+      about: {
+        title: 'Tentang BetoGo',
+        content: 'BetoGo adalah platform gaming online unggulan yang dibangun sebagai Telegram Mini App, dirancang untuk pemain di Filipina dan seluruh Asia Tenggara. Kami menghadirkan pengalaman kasino langsung ke aplikasi Telegram Anda.\n\nKami bermitra dengan penyedia game terkemuka termasuk PGSOFT, Pragmatic Play, BGaming, Evolution, Habanero, NetEnt, dan banyak lagi untuk menghadirkan ribuan slot premium, live casino, fishing, dan crash game.\n\nPlatform mendukung deposit dan penarikan instan melalui TON, USDT, dan YFPay, memastikan transaksi yang cepat dan aman untuk semua pemain.\n\nTim dukungan pelanggan 24/7 kami selalu siap membantu Anda. Kami berkomitmen memberikan lingkungan gaming yang aman, adil, dan mengasyikkan bagi setiap pemain.',
+      },
+    },
   },
   category: {
     bonuses: 'Bonus',

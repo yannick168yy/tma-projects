@@ -15,6 +15,11 @@ import {
   Fish,
   Zap,
   LayoutGrid,
+  FileText,
+  Shield,
+  Heart,
+  Info,
+  X,
 } from 'lucide-vue-next'
 import HomeCategoryShortcut from '@/components/home/HomeCategoryShortcut.vue'
 import GameCard from '@/components/home/GameCard.vue'
@@ -22,9 +27,11 @@ import HistoryCard from '@/components/home/HistoryCard.vue'
 import EGameCard from '@/components/home/EGameCard.vue'
 import LiveCard from '@/components/home/LiveCard.vue'
 import { CATEGORIES } from '@/data/categories'
-import { BANNERS, WINNERS, INFO_LINKS } from '@/data/home'
+import { BANNERS, WINNERS, INFO_LINKS, PROVIDER_LOGOS } from '@/data/home'
 import { fetchHomepageGames, launchGame, fetchProviders, fetchBettingActivity, type SlotGame, type GameHistoryItem, type BetRecord, type BetTab } from '@/api/slots'
 import { ApiError } from '@/api/client'
+
+const INFO_ICONS: Record<string, unknown> = { terms: FileText, privacy: Shield, responsible: Heart, about: Info }
 
 const HISTORY_STORAGE_KEY = 'betogo_game_history'
 const HISTORY_MAX = 10
@@ -264,6 +271,15 @@ async function switchBetTab(tab: BetTab) {
 
 // Latest Bets 需要双份数据实现无缝循环
 const latestBetsLoop = computed(() => [...latestBets.value, ...latestBets.value])
+
+// Information 底部抽屉
+const infoModal = ref<string | null>(null)
+function openInfo(key: string) { infoModal.value = key }
+function closeInfo() { infoModal.value = null }
+
+function providerChip(name: string) {
+  return PROVIDER_LOGOS[name.toUpperCase()] ?? { abbr: name.slice(0, 4), gradient: 'from-slate-600 to-slate-700' }
+}
 
 onMounted(async () => {
   historyGames.value = readLocalHistory()
@@ -556,14 +572,17 @@ onMounted(async () => {
       <h3 class="text-muted-foreground font-black text-xs font-display tracking-widest mb-3">
         {{ t('home.providersSection') }}
       </h3>
-      <div class="flex gap-2 overflow-x-auto hide-scrollbar pb-1">
-        <span
+      <div class="flex gap-2.5 overflow-x-auto hide-scrollbar pb-1">
+        <div
           v-for="p in providerList"
           :key="p"
-          class="flex-shrink-0 px-3 py-1.5 rounded-full bg-white/8 border border-white/10 text-xs font-bold text-foreground/80 tracking-wide"
+          class="flex-shrink-0 w-[88px] h-11 rounded-xl flex items-center justify-center bg-gradient-to-br shadow-sm"
+          :class="providerChip(p).gradient"
         >
-          {{ p }}
-        </span>
+          <span class="font-display font-black text-white text-sm tracking-wider drop-shadow">
+            {{ providerChip(p).abbr }}
+          </span>
+        </div>
       </div>
     </section>
 
@@ -589,25 +608,25 @@ onMounted(async () => {
         </button>
       </div>
 
-      <!-- Latest Bets: 竖向无缝滚动 -->
-      <div v-if="activeBetTab === 'latest'" class="relative overflow-hidden rounded-xl bg-secondary" style="height: 220px">
-        <div v-if="latestBets.length === 0" class="flex items-center justify-center h-full">
-          <div class="space-y-2 w-full px-3">
-            <div v-for="n in 5" :key="n" class="flex items-center gap-3 py-2">
-              <div class="w-10 h-10 rounded-lg animate-pulse bg-white/10 flex-shrink-0" />
-              <div class="flex-1 space-y-1">
-                <div class="h-3 w-24 rounded animate-pulse bg-white/10" />
-                <div class="h-2 w-16 rounded animate-pulse bg-white/10" />
-              </div>
-              <div class="h-3 w-16 rounded animate-pulse bg-white/10" />
+      <!-- Latest Bets: 竖向无缝滚动，高度与 Week/Month 一致 -->
+      <div v-if="activeBetTab === 'latest'" class="relative overflow-hidden rounded-xl bg-secondary h-[520px]">
+        <div v-if="latestBets.length === 0" class="space-y-px pt-1">
+          <div v-for="n in 8" :key="n" class="flex items-center gap-3 px-3 py-2.5">
+            <div class="w-10 h-10 rounded-lg animate-pulse bg-white/10 flex-shrink-0" />
+            <div class="flex-1 space-y-1.5">
+              <div class="h-3 w-28 rounded animate-pulse bg-white/10" />
+              <div class="h-2 w-16 rounded animate-pulse bg-white/10" />
             </div>
+            <div class="h-3 w-16 rounded animate-pulse bg-white/10" />
           </div>
         </div>
         <div v-else class="animate-scroll-up">
-          <div
+          <button
             v-for="(rec, i) in latestBetsLoop"
             :key="i"
-            class="flex items-center gap-3 px-3 py-2 border-b border-white/5"
+            type="button"
+            class="w-full flex items-center gap-3 px-3 py-2.5 border-b border-white/5 active:bg-white/5 transition-colors text-left"
+            @click="onGameTap(rec.uuid)"
           >
             <img
               v-if="rec.imageUrl"
@@ -621,31 +640,33 @@ onMounted(async () => {
               <p class="text-[10px] text-muted-foreground">{{ rec.provider }}</p>
             </div>
             <span class="text-xs font-bold text-primary flex-shrink-0">{{ formatBet(rec.betAmount) }}</span>
-          </div>
+          </button>
         </div>
       </div>
 
-      <!-- Top of the Week / Month: 排行榜静态 -->
-      <div v-else class="rounded-xl bg-secondary overflow-hidden">
-        <div v-if="(activeBetTab === 'week' ? weekBets : monthBets).length === 0" class="space-y-px">
-          <div v-for="n in 10" :key="n" class="flex items-center gap-3 px-3 py-2.5 border-b border-white/5">
+      <!-- Top of the Week / Month: 排行榜，高度与 Latest 一致 -->
+      <div v-else class="rounded-xl bg-secondary overflow-y-auto h-[520px]">
+        <div v-if="(activeBetTab === 'week' ? weekBets : monthBets).length === 0" class="space-y-px pt-1">
+          <div v-for="n in 8" :key="n" class="flex items-center gap-3 px-3 py-2.5 border-b border-white/5">
             <div class="w-5 h-5 rounded animate-pulse bg-white/10 flex-shrink-0" />
             <div class="w-10 h-10 rounded-lg animate-pulse bg-white/10 flex-shrink-0" />
-            <div class="flex-1 space-y-1">
-              <div class="h-3 w-24 rounded animate-pulse bg-white/10" />
+            <div class="flex-1 space-y-1.5">
+              <div class="h-3 w-28 rounded animate-pulse bg-white/10" />
               <div class="h-2 w-16 rounded animate-pulse bg-white/10" />
             </div>
-            <div class="h-3 w-20 rounded animate-pulse bg-white/10" />
+            <div class="h-3 w-16 rounded animate-pulse bg-white/10" />
           </div>
         </div>
-        <div
+        <button
           v-for="(rec, idx) in (activeBetTab === 'week' ? weekBets : monthBets)"
           :key="rec.uuid"
-          class="flex items-center gap-3 px-3 py-2.5 border-b border-white/5 last:border-0"
+          type="button"
+          class="w-full flex items-center gap-3 px-3 py-2.5 border-b border-white/5 last:border-0 active:bg-white/5 transition-colors text-left"
+          @click="onGameTap(rec.uuid)"
         >
           <span
             class="w-5 text-center text-xs font-black flex-shrink-0"
-            :class="idx === 0 ? 'text-primary' : idx === 1 ? 'text-white/60' : idx === 2 ? 'text-amber-600' : 'text-muted-foreground'"
+            :class="idx === 0 ? 'text-primary' : idx === 1 ? 'text-white/50' : idx === 2 ? 'text-amber-600' : 'text-muted-foreground'"
           >
             #{{ idx + 1 }}
           </span>
@@ -661,7 +682,7 @@ onMounted(async () => {
             <p class="text-[10px] text-muted-foreground">{{ rec.provider }}</p>
           </div>
           <span class="text-xs font-bold text-primary flex-shrink-0">{{ formatBet(rec.betAmount) }}</span>
-        </div>
+        </button>
       </div>
     </section>
 
@@ -670,17 +691,71 @@ onMounted(async () => {
       <h3 class="text-muted-foreground font-black text-xs font-display tracking-widest mb-3">
         {{ t('home.infoSection') }}
       </h3>
-      <div class="grid grid-cols-2 gap-y-3">
-        <a
+      <div class="grid grid-cols-2 gap-3">
+        <button
           v-for="link in INFO_LINKS"
           :key="link.key"
-          :href="link.href"
-          class="text-xs text-foreground/60 hover:text-foreground/90 transition-colors"
+          type="button"
+          class="bg-secondary border border-border rounded-2xl p-4 text-left flex flex-col gap-3 active:scale-95 transition-transform"
+          @click="openInfo(link.key)"
         >
-          {{ t(`home.info${link.key.charAt(0).toUpperCase() + link.key.slice(1)}`) }}
-        </a>
+          <div
+            class="w-9 h-9 rounded-xl flex items-center justify-center"
+            :class="{
+              'bg-amber-500/15': link.key === 'terms',
+              'bg-blue-500/15':  link.key === 'privacy',
+              'bg-rose-500/15':  link.key === 'responsible',
+              'bg-emerald-500/15': link.key === 'about',
+            }"
+          >
+            <component
+              :is="INFO_ICONS[link.key]"
+              :size="16"
+              :class="{
+                'text-amber-400':   link.key === 'terms',
+                'text-blue-400':    link.key === 'privacy',
+                'text-rose-400':    link.key === 'responsible',
+                'text-emerald-400': link.key === 'about',
+              }"
+            />
+          </div>
+          <div class="flex items-end justify-between gap-1 flex-1">
+            <p class="text-xs font-bold text-foreground leading-snug">
+              {{ t(`home.info${link.key.charAt(0).toUpperCase() + link.key.slice(1)}`) }}
+            </p>
+            <ChevronRight :size="14" class="text-muted-foreground flex-shrink-0" />
+          </div>
+        </button>
       </div>
     </section>
+
+    <!-- Information 底部抽屉 -->
+    <Teleport to="body">
+      <Transition name="sheet-fade">
+        <div v-if="infoModal" class="fixed inset-0 z-50 flex flex-col justify-end">
+          <div class="absolute inset-0 bg-black/60" @click="closeInfo()" />
+          <Transition name="sheet-slide">
+            <div v-if="infoModal" class="relative bg-card rounded-t-2xl max-h-[82vh] flex flex-col">
+              <div class="flex items-center justify-between px-5 py-4 border-b border-border flex-shrink-0">
+                <h2 class="font-display font-black text-base text-foreground">
+                  {{ t(`home.infoDetails.${infoModal}.title`) }}
+                </h2>
+                <button
+                  type="button"
+                  class="w-8 h-8 rounded-full bg-secondary flex items-center justify-center"
+                  @click="closeInfo()"
+                >
+                  <X :size="15" class="text-muted-foreground" />
+                </button>
+              </div>
+              <div class="overflow-y-auto px-5 py-4 text-sm text-foreground/75 leading-relaxed whitespace-pre-line">
+                {{ t(`home.infoDetails.${infoModal}.content`) }}
+              </div>
+            </div>
+          </Transition>
+        </div>
+      </Transition>
+    </Teleport>
 
     <!-- ── SUPPORT ────────────────────────────────────────────────────── -->
     <section class="mt-8 px-4">

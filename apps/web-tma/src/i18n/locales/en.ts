@@ -116,6 +116,24 @@ export default {
     infoAbout: 'About Us',
     supportSection: 'SUPPORT',
     supportOnline: '24/7 Online Support',
+    infoDetails: {
+      terms: {
+        title: 'Terms of Service',
+        content: 'BetoGo is operated by a licensed gaming entity. By using this platform you confirm you are at least 18 years of age and legally permitted to participate in online gambling in your jurisdiction.\n\nAll games are provided by certified third-party providers. Winnings are subject to applicable terms and wagering requirements. BetoGo reserves the right to verify identity and suspend accounts that violate our policies.\n\nDeposits and withdrawals are processed via supported cryptocurrency channels (TON, USDT). Processing times may vary due to network conditions. BetoGo is not liable for delays caused by blockchain congestion.\n\nBetoGo reserves the right to amend these terms at any time. Continued use of the platform after changes are posted constitutes your acceptance of the updated terms.',
+      },
+      privacy: {
+        title: 'Privacy Policy',
+        content: 'BetoGo collects only the information necessary to operate the platform, including your Telegram user ID and basic profile data provided by Telegram upon authorization.\n\nWe do not sell, rent, or share your personal information with third parties for marketing purposes. Transaction records are stored securely and used solely for account management and regulatory compliance.\n\nYou may request deletion of your account and associated data at any time by contacting our 24/7 support team. Certain transaction records may be retained as required by applicable laws and regulations.\n\nWe use industry-standard encryption and security measures to protect your data. However, no system is completely secure and we encourage you to use a strong Telegram account password.',
+      },
+      responsible: {
+        title: 'Responsible Gaming',
+        content: 'BetoGo is committed to promoting safe and responsible gambling. Gambling should be an enjoyable form of entertainment — not a way to generate income or escape personal problems.\n\nWe provide self-exclusion tools and deposit limit options to help you stay in control. If you feel your gambling is becoming a problem, please contact our support team immediately and we will assist you.\n\nIf you or someone you know is struggling with gambling addiction, please seek help from Gamblers Anonymous (www.gamblersanonymous.org) or local support services in your area.\n\nBetoGo strictly enforces an 18+ policy. We actively screen for underage gambling and take immediate action when identified. Please play responsibly.',
+      },
+      about: {
+        title: 'About BetoGo',
+        content: 'BetoGo is a premier online gaming platform built as a Telegram Mini App, designed for players in the Philippines and across Southeast Asia. We bring the casino experience directly to your Telegram app.\n\nWe partner with industry-leading game providers including PGSOFT, Pragmatic Play, BGaming, Evolution, Habanero, NetEnt, and many more to deliver thousands of premium slot, live casino, fishing, and crash games.\n\nOur platform supports instant deposits and withdrawals via TON, USDT, and YFPay, ensuring fast and secure transactions for all players. No lengthy KYC — just connect your Telegram and play.\n\nOur dedicated 24/7 customer support team is always ready to assist you. We are committed to providing a safe, fair, and thrilling gaming environment for every player.',
+      },
+    },
   },
   category: {
     bonuses: 'Bonuses',
