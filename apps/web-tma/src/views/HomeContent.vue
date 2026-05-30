@@ -25,7 +25,7 @@ import EGameCard from '@/components/home/EGameCard.vue'
 import LiveCard from '@/components/home/LiveCard.vue'
 import { CATEGORIES } from '@/data/categories'
 import { BANNERS, WINNERS } from '@/data/home'
-import { fetchHomepageGames, launchGame, type SlotGame, type GameHistoryItem } from '@/api/slots'
+import { fetchHomepageGames, fetchRecommendedGames, launchGame, type SlotGame, type GameHistoryItem } from '@/api/slots'
 import { ApiError } from '@/api/client'
 
 const HISTORY_STORAGE_KEY = 'betogo_game_history'
@@ -200,8 +200,8 @@ const gamesLoading = ref(true)
 
 const gameMap = computed(() => {
   const m = new Map<string, SlotGame>()
-  const { popular, slots, live, fishing, crash, table, recommended } = homepageGames.value
-  for (const g of [...popular, ...slots, ...live, ...fishing, ...crash, ...table, ...recommended]) {
+  const { popular, slots, live, fishing, crash, table } = homepageGames.value
+  for (const g of [...popular, ...slots, ...live, ...fishing, ...crash, ...table, ...recommendedGames.value]) {
     if (!m.has(g.uuid)) m.set(g.uuid, g)
   }
   return m
@@ -232,6 +232,7 @@ onMounted(async () => {
   try {
     const result = await fetchHomepageGames()
     homepageGames.value = result
+    recommendedGames.value = result.recommended ?? []
   } catch {
     // 静默失败，各区段保持空数组
   }
@@ -246,16 +247,19 @@ const fishingGames = computed(() => homepageGames.value.fishing)
 const crashGames   = computed(() => homepageGames.value.crash)
 const tableGames   = computed(() => homepageGames.value.table)
 
-// ── 猜你喜欢：服务端返回 36 款，前端本地分页每次展示 12 款 ─────────────────
-const recPage = ref(0)
-const recommendedPool = computed(() => homepageGames.value.recommended)
-const recommendedGames = computed(() => {
-  const start = recPage.value * 12
-  return recommendedPool.value.slice(start, start + 12)
-})
-function shuffleRec() {
-  const total = Math.ceil(recommendedPool.value.length / 12)
-  recPage.value = total > 1 ? (recPage.value + 1) % total : 0
+// ── 猜你喜欢：初始来自首页缓存，换一批实时向服务器请求 ──────────────────────
+const recommendedGames = ref<SlotGame[]>([])
+const recShuffling = ref(false)
+
+async function shuffleRec() {
+  if (recShuffling.value) return
+  recShuffling.value = true
+  try {
+    const { items } = await fetchRecommendedGames()
+    recommendedGames.value = items
+  } catch { /* 静默失败，保持现有列表 */ } finally {
+    recShuffling.value = false
+  }
 }
 </script>
 
@@ -521,7 +525,7 @@ function shuffleRec() {
     </section>
 
     <!-- FOR YOU 推荐 -->
-    <section v-if="gamesLoading || recommendedPool.length > 0" class="mt-6">
+    <section v-if="gamesLoading || recommendedGames.length > 0" class="mt-6">
       <div class="flex items-center justify-between px-4 mb-3">
         <div class="flex items-center gap-2">
           <Sparkles :size="15" class="text-yellow-400" />
@@ -529,18 +533,39 @@ function shuffleRec() {
         </div>
         <button
           type="button"
-          class="flex items-center gap-1 text-primary text-xs font-bold"
+          class="flex items-center gap-1 text-primary text-xs font-bold disabled:opacity-50"
+          :disabled="recShuffling"
           @click="shuffleRec"
         >
-          <RefreshCw :size="11" />
+          <RefreshCw :size="11" :class="recShuffling ? 'animate-spin' : ''" />
           {{ t('home.shuffle') }}
         </button>
       </div>
       <div v-if="gamesLoading" class="grid grid-cols-3 gap-2 px-4">
-        <div v-for="n in 12" :key="n" class="aspect-[3/4] animate-pulse rounded-xl bg-secondary" />
+        <div v-for="n in 12" :key="n" class="aspect-[8/5] animate-pulse rounded-xl bg-secondary" />
       </div>
       <div v-else class="grid grid-cols-3 gap-2 px-4">
-        <GameCard v-for="g in recommendedGames" :key="g.uuid" :game="g" @tap="onGameTap(g.uuid)" />
+        <button
+          v-for="g in recommendedGames"
+          :key="g.uuid"
+          type="button"
+          class="relative w-full aspect-[8/5] overflow-hidden rounded-xl cursor-pointer"
+          @click="onGameTap(g.uuid)"
+        >
+          <img
+            v-if="g.imageHqUrl || g.imageUrl"
+            :src="g.imageHqUrl || g.imageUrl || ''"
+            :alt="g.name"
+            class="absolute inset-0 w-full h-full object-cover"
+            loading="lazy"
+          />
+          <div v-else class="absolute inset-0 bg-gradient-to-br from-violet-900 to-indigo-700" />
+          <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
+          <span class="absolute top-1 left-1 rounded bg-black/50 px-1 py-0.5 text-[8px] font-bold uppercase text-white/80">
+            {{ g.provider }}
+          </span>
+          <p class="absolute bottom-1 inset-x-1.5 text-white font-bold text-[10px] leading-tight truncate">{{ g.name }}</p>
+        </button>
       </div>
     </section>
 

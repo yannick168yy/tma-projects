@@ -238,6 +238,14 @@ export async function getHomepageSelection(env: Env): Promise<HomepageSelection 
   return raw2 ? (JSON.parse(raw2) as HomepageSelection) : null
 }
 
+// 换一批：从内存缓存实时随机抽取，不走 Redis，每次结果不同
+export async function getRecommendedGames(env: Env, n = 12): Promise<DbGame[]> {
+  const all = await getGamesFromCache(env)
+  if (!all.length) return []
+  const score = (g: DbGame) => g.weight * (g.isFeatured ? 1.5 : 1)
+  return serverWeightedSample(all, score, n, 3)
+}
+
 export interface GameListResult {
   items: DbGame[]
   total: number

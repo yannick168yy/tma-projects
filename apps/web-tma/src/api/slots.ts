@@ -61,6 +61,10 @@ export function fetchHomepageGames(): Promise<HomepageGames> {
   return apiRequest<HomepageGames>('/slots/homepage')
 }
 
+export function fetchRecommendedGames(): Promise<{ items: SlotGame[] }> {
+  return apiRequest<{ items: SlotGame[] }>('/slots/recommended')
+}
+
 export function fetchGames(params: GameListParams = {}): Promise<GameListResult> {
   const qs = new URLSearchParams()
   if (params.page) qs.set('page', String(params.page))

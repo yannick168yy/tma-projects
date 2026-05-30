@@ -1,7 +1,7 @@
 import Router from '@koa/router'
 import { randomUUID } from 'node:crypto'
 import { ok, fail } from '../utils/response.js'
-import { listGames, listProviders, syncAllGames, getUserGameHistory, getHomepageSelection } from '../services/sg-game.service.js'
+import { listGames, listProviders, syncAllGames, getUserGameHistory, getHomepageSelection, getRecommendedGames } from '../services/sg-game.service.js'
 import { sgInitGame, sgInitDemo } from '../services/slotegrator.service.js'
 import { getUser } from '../services/store/index.js'
 import { isMysqlEnabled } from '../clients/mysql.client.js'
@@ -20,6 +20,21 @@ router.get('/homepage', async (ctx) => {
     ok(ctx, selection ?? { popular: [], slots: [], live: [], fishing: [], crash: [], table: [], recommended: [], generatedAt: '' })
   } catch (e) {
     fail(ctx, 500, e instanceof Error ? e.message : 'Failed to load homepage')
+  }
+})
+
+// GET /slots/recommended — 换一批：实时从内存缓存随机抽取 12 款，不走 Redis
+router.get('/recommended', async (ctx) => {
+  const env = ctx.state.env
+  if (!isMysqlEnabled(env)) {
+    ok(ctx, { items: [] })
+    return
+  }
+  try {
+    const items = await getRecommendedGames(env)
+    ok(ctx, { items })
+  } catch (e) {
+    fail(ctx, 500, e instanceof Error ? e.message : 'Failed to load recommendations')
   }
 })
 
