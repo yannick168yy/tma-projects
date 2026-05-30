@@ -20,12 +20,25 @@ function expand() {
   collapseTimer = setTimeout(() => { expanded.value = false }, 2500)
 }
 
+function handleClose() {
+  emit('close')
+}
+
 onMounted(() => {
-  if (!isTMA) expand()
+  if (isTMA) {
+    window.Telegram?.WebApp?.BackButton?.show()
+    window.Telegram?.WebApp?.BackButton?.onClick(handleClose)
+  } else {
+    expand()
+  }
 })
 
 onUnmounted(() => {
   if (collapseTimer) clearTimeout(collapseTimer)
+  if (isTMA) {
+    window.Telegram?.WebApp?.BackButton?.hide()
+    window.Telegram?.WebApp?.BackButton?.offClick(handleClose)
+  }
 })
 </script>
 

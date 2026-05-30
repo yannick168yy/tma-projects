@@ -13,6 +13,14 @@ interface TelegramWebAppUser {
   photo_url?: string
 }
 
+interface TelegramBackButton {
+  isVisible: boolean
+  show: () => void
+  hide: () => void
+  onClick: (callback: () => void) => void
+  offClick: (callback: () => void) => void
+}
+
 interface TelegramWebApp {
   ready: () => void
   expand: () => void
@@ -33,6 +41,7 @@ interface TelegramWebApp {
   isVerticalSwipesEnabled?: boolean
   openLink?: (url: string) => void
   openInvoice?: (url: string, callback?: (status: string) => void) => void
+  BackButton?: TelegramBackButton
 }
 
 interface Window {

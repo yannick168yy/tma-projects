@@ -111,6 +111,7 @@ export function initTelegramWebApp(): void {
   tg.ready()
   tg.expand()
   requestFullscreenIfNeeded(tg)
+  tg.disableVerticalSwipes?.()
   scheduleInsetUpdates()
 
   if (window.visualViewport) {
