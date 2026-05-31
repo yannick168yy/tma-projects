@@ -4,7 +4,7 @@ import GameImageCard from '@/components/game/GameImageCard.vue'
 
 defineProps<{
   game: SlotGame
-  variant?: 'overlay' | 'hard'
+  variant?: 'glass-b' | 'glass-c'
 }>()
 const emit = defineEmits<{ tap: [] }>()
 </script>
@@ -16,7 +16,7 @@ const emit = defineEmits<{ tap: [] }>()
     @click="emit('tap')"
   >
     <GameImageCard
-      :variant="variant ?? 'overlay'"
+      :variant="variant ?? 'glass-b'"
       :image-url="game.imageHqUrl ?? game.imageUrl"
       :fallback-bg="['#1e1b4b', '#312e81']"
       :name="game.name"

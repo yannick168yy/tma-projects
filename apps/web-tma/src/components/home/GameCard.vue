@@ -14,7 +14,7 @@ const emit = defineEmits<{ tap: [] }>()
     @click="emit('tap')"
   >
     <GameImageCard
-      variant="block"
+      variant="glass-a"
       :image-url="game.imageHqUrl ?? game.imageUrl"
       :fallback-bg="['#1e1b4b', '#312e81']"
       :name="game.name"
