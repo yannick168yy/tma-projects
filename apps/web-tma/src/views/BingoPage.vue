@@ -1,35 +1,66 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Trophy } from 'lucide-vue-next'
+import { storeToRefs } from 'pinia'
 import PeryaCarnivalHero from '@/components/bingo/PeryaCarnivalHero.vue'
-import { PERYA_GRID, PERYA_MAIN, PERYA_WINNERS } from '@/data/bingo'
+import { PINOY_CLASSICS, PERYA_WINNERS } from '@/data/bingo'
+import { fetchGames, launchGame, type SlotGame } from '@/api/slots'
+import { useAuthStore } from '@/stores/auth'
+import { ApiError } from '@/api/client'
 
-const emit = defineEmits<{ openWallet: []; gameTap: [] }>()
+const emit = defineEmits<{ openWallet: []; gameTap: []; openGame: [url: string] }>()
 const { t } = useI18n()
+const auth = useAuthStore()
+const { isLoggedIn } = storeToRefs(auth)
 
-const heroGame = computed(() => PERYA_MAIN[0]!)
-const otherGames = computed(() => PERYA_MAIN.slice(1))
+const bingoGames = ref<SlotGame[]>([])
+const launchingUuid = ref<string | null>(null)
+
+const heroGame = computed(() => bingoGames.value[0] ?? null)
+const subGames = computed(() => bingoGames.value.slice(1, 5))
 const marqueeWinners = computed(() => [...PERYA_WINNERS, ...PERYA_WINNERS])
 
+// 按厂商分配渐变兜底色（无封面图时使用）
+const providerGradient: Record<string, string> = {
+  JiliGames: 'linear-gradient(135deg, #4c0091, #7c3aed, #a855f7)',
+  PragmaticPlay: 'linear-gradient(135deg, #065f46, #059669, #34d399)',
+  Caleta: 'linear-gradient(135deg, #1e3a8a, #2563eb, #60a5fa)',
+}
+function cardBg(provider: string): string {
+  return providerGradient[provider] ?? 'linear-gradient(135deg, #1e293b, #334155, #475569)'
+}
+
 const fiestaBuntingColors = [
-  '#FFB800',
-  '#ec4899',
-  '#34d399',
-  '#60a5fa',
-  '#f97316',
-  '#a855f7',
-  '#FFB800',
-  '#ef4444',
-  '#FFB800',
-  '#ec4899',
-  '#34d399',
-  '#60a5fa',
-  '#f97316',
-  '#a855f7',
-  '#FFB800',
-  '#ef4444',
+  '#FFB800', '#ec4899', '#34d399', '#60a5fa', '#f97316', '#a855f7',
+  '#FFB800', '#ef4444', '#FFB800', '#ec4899', '#34d399', '#60a5fa',
+  '#f97316', '#a855f7', '#FFB800', '#ef4444',
 ] as const
+
+async function onPlayGame(uuid: string) {
+  if (!isLoggedIn.value) {
+    emit('gameTap')
+    return
+  }
+  launchingUuid.value = uuid
+  try {
+    const { url } = await launchGame(uuid)
+    emit('openGame', url)
+  } catch (e) {
+    alert(e instanceof ApiError ? e.message : 'Failed to launch game')
+  } finally {
+    launchingUuid.value = null
+  }
+}
+
+onMounted(async () => {
+  try {
+    const res = await fetchGames({ sortCategory: 'bingo', sortBy: 'ph_bonus', limit: 8 })
+    bingoGames.value = res.items
+  } catch {
+    // 静默失败，卡片区域空置
+  }
+})
 </script>
 
 <template>
@@ -68,6 +99,7 @@ const fiestaBuntingColors = [
       </div>
     </PeryaCarnivalHero>
 
+    <!-- Jackpot banner -->
     <div
       class="mx-4 mt-4 rounded-2xl px-4 py-3 flex items-center gap-3"
       style="background: linear-gradient(90deg, #2d1800, #1a0d40); border: 1px solid rgba(255, 184, 0, 0.25); box-shadow: 0 4px 20px rgba(255, 184, 0, 0.12)"
@@ -86,130 +118,111 @@ const fiestaBuntingColors = [
       </button>
     </div>
 
-    <div class="px-4 mt-5">
+    <!-- SIGNATURE GAMES -->
+    <div v-if="heroGame" class="px-4 mt-5">
       <div class="flex items-center gap-2 mb-3">
         <span class="text-base">🎪</span>
         <h2 class="text-white font-black text-base font-display">SIGNATURE GAMES</h2>
       </div>
 
       <div class="grid grid-cols-2 gap-3">
+        <!-- Hero card -->
         <button
           type="button"
           class="col-span-2 relative rounded-3xl overflow-hidden h-40 text-left active:scale-[0.98] transition-transform"
-          :style="{ boxShadow: `0 6px 28px ${heroGame.glow}33` }"
-          @click="emit('gameTap')"
+          :disabled="launchingUuid === heroGame.uuid"
+          @click="onPlayGame(heroGame.uuid)"
         >
-          <div
-            class="absolute inset-0"
-            :style="{ background: `linear-gradient(135deg, ${heroGame.bg[0]}, ${heroGame.bg[1]}, ${heroGame.bg[2]})` }"
+          <div class="absolute inset-0" :style="{ background: cardBg(heroGame.provider) }" />
+          <img
+            v-if="heroGame.imageHqUrl || heroGame.imageUrl"
+            :src="(heroGame.imageHqUrl || heroGame.imageUrl)!"
+            class="absolute inset-0 w-full h-full object-cover opacity-40"
           />
-          <template v-if="heroGame.stars">
-            <div
-              v-for="i in 6"
-              :key="i"
-              class="absolute rounded-full"
-              :style="{
-                width: `${3 + (i % 3)}px`,
-                height: `${3 + (i % 3)}px`,
-                background: '#fff',
-                opacity: 0.15 + i * 0.04,
-                top: `${10 + i * 14}%`,
-                left: `${55 + i * 7}%`,
-              }"
-            />
-          </template>
-          <div class="absolute inset-0 p-4 flex items-center gap-4">
-            <div>
-              <span
-                class="text-[9px] font-black px-2 py-0.5 rounded-full mb-2 inline-block"
-                :style="{ background: heroGame.tagBg, color: heroGame.tagFg }"
-              >
-                {{ heroGame.tag }}
+          <div class="absolute inset-0 bg-gradient-to-r from-black/70 via-black/30 to-transparent" />
+          <div class="absolute inset-0 p-4 flex items-center">
+            <div class="flex-1">
+              <span class="text-[9px] font-black px-2 py-0.5 rounded-full mb-2 inline-block bg-[#FFB800] text-black">
+                JACKPOT
               </span>
-              <h3 class="text-white font-black leading-none font-display text-[1.7rem]">{{ heroGame.label }}</h3>
-              <p class="text-white/60 text-xs font-semibold mt-0.5">{{ heroGame.sub }}</p>
+              <h3 class="text-white font-black leading-none font-display text-[1.7rem]">{{ heroGame.name }}</h3>
+              <p class="text-white/60 text-xs font-semibold mt-0.5">{{ heroGame.provider }}</p>
               <div class="flex items-center gap-3 mt-2">
                 <div class="flex items-center gap-1">
                   <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                  <span class="text-white/60 text-[11px]">{{ heroGame.players.toLocaleString() }} playing</span>
+                  <span class="text-white/60 text-[11px]">{{ (heroGame.weight * 12 + 800).toLocaleString() }} playing</span>
                 </div>
-                <span class="font-black text-base font-display" :style="{ color: heroGame.glow }">{{ heroGame.prize }}</span>
               </div>
             </div>
-            <div class="ml-auto text-6xl opacity-90">{{ heroGame.emoji }}</div>
+            <div v-if="launchingUuid === heroGame.uuid" class="ml-auto text-white/60 text-xs">...</div>
           </div>
         </button>
 
+        <!-- 小卡 -->
         <button
-          v-for="g in otherGames"
-          :key="g.id"
+          v-for="g in subGames"
+          :key="g.uuid"
           type="button"
           class="relative rounded-3xl overflow-hidden h-36 text-left active:scale-[0.98] transition-transform"
-          :style="{ boxShadow: `0 4px 20px ${g.glow}25` }"
-          @click="emit('gameTap')"
+          :disabled="launchingUuid === g.uuid"
+          @click="onPlayGame(g.uuid)"
         >
-          <div
-            class="absolute inset-0"
-            :style="{ background: `linear-gradient(135deg, ${g.bg[0]}, ${g.bg[1]}, ${g.bg[2]})` }"
+          <div class="absolute inset-0" :style="{ background: cardBg(g.provider) }" />
+          <img
+            v-if="g.imageHqUrl || g.imageUrl"
+            :src="(g.imageHqUrl || g.imageUrl)!"
+            class="absolute inset-0 w-full h-full object-cover opacity-40"
           />
-          <div
-            class="absolute -bottom-4 -right-4 w-20 h-20 rounded-full opacity-20"
-            :style="{ background: g.glow }"
-          />
+          <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent" />
           <div class="absolute inset-0 p-3.5 flex flex-col justify-between">
-            <div class="flex items-start justify-between">
-              <span
-                class="text-[9px] font-black px-2 py-0.5 rounded-full"
-                :style="{ background: g.tagBg, color: g.tagFg }"
-              >
-                {{ g.tag }}
-              </span>
-              <span class="text-3xl">{{ g.emoji }}</span>
-            </div>
+            <span class="text-[9px] font-black px-2 py-0.5 rounded-full self-start bg-white/15 text-white/80">
+              BINGO
+            </span>
             <div>
-              <h3 class="text-white font-black leading-none text-base font-display">{{ g.label }}</h3>
-              <p class="text-white/50 text-[10px] mt-0.5">{{ g.sub }}</p>
-              <div class="flex items-center justify-between mt-1.5">
-                <div class="flex items-center gap-1">
-                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                  <span class="text-white/50 text-[10px]">{{ g.players.toLocaleString() }}</span>
-                </div>
-                <span class="font-black text-sm font-display" :style="{ color: g.glow }">{{ g.prize }}</span>
-              </div>
+              <h3 class="text-white font-black leading-none text-sm font-display">{{ g.name }}</h3>
+              <p class="text-white/50 text-[10px] mt-0.5">{{ g.provider }}</p>
             </div>
           </div>
         </button>
       </div>
     </div>
 
+    <!-- PERYA CLASSICS -->
     <div class="px-4 mt-6">
       <div class="flex items-center gap-2 mb-3">
         <span class="text-base">🎡</span>
-        <h2 class="text-white font-black text-base font-display">MORE PINOY GAMES</h2>
+        <h2 class="text-white font-black text-base font-display">PERYA CLASSICS</h2>
       </div>
       <div class="grid grid-cols-3 gap-2.5">
         <button
-          v-for="g in PERYA_GRID"
-          :key="g.id"
+          v-for="g in PINOY_CLASSICS"
+          :key="g.uuid"
           type="button"
           class="relative rounded-2xl overflow-hidden h-24 text-left active:scale-95 transition-transform"
-          @click="emit('gameTap')"
+          :disabled="launchingUuid === g.uuid"
+          @click="onPlayGame(g.uuid)"
         >
           <div class="absolute inset-0" :style="{ background: `linear-gradient(135deg, ${g.bg[0]}, ${g.bg[1]})` }" />
+          <img
+            :src="g.imageUrl"
+            class="absolute inset-0 w-full h-full object-cover opacity-45"
+          />
+          <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent" />
           <div class="absolute inset-0 flex flex-col justify-between p-2.5">
-            <div class="flex justify-between items-start">
-              <span class="text-[8px] font-black bg-black/30 text-white/70 px-1.5 py-0.5 rounded-full leading-none">{{ g.tag }}</span>
-              <span class="text-[22px]">{{ g.emoji }}</span>
-            </div>
+            <span
+              class="text-[8px] font-black px-1.5 py-0.5 rounded-full leading-none self-start"
+              :style="{ background: g.tagBg, color: g.tagFg }"
+            >{{ g.tag }}</span>
             <div>
-              <p class="text-white font-black text-xs leading-none font-display">{{ g.label }}</p>
-              <p class="text-white/40 text-[9px] mt-0.5">{{ g.players.toLocaleString() }} online</p>
+              <p class="text-white font-black text-xs leading-none font-display">{{ g.name }}</p>
+              <p class="text-white/50 text-[9px] mt-0.5">{{ g.provider }}</p>
             </div>
           </div>
         </button>
       </div>
     </div>
 
+    <!-- Fiesta Special -->
     <div
       class="mx-4 mt-5 rounded-2xl overflow-hidden relative"
       style="background: linear-gradient(135deg, #1a004a, #3b0020); border: 1px solid rgba(236, 72, 153, 0.2)"
@@ -251,11 +264,12 @@ const fiestaBuntingColors = [
       </div>
     </div>
 
+    <!-- Powered by -->
     <div class="px-4 mt-5 mb-4">
       <p class="text-muted-foreground text-[10px] uppercase tracking-widest font-black mb-3">Powered by</p>
       <div class="flex gap-2 flex-wrap">
         <span
-          v-for="p in ['JILI', 'EVOLUTION', 'BGAMING', 'PRAGMATIC', 'SPRIBE', 'BINGO+']"
+          v-for="p in ['JILI', 'PRAGMATIC', 'CALETA', 'RICH88', 'JDB']"
           :key="p"
           class="text-[10px] font-black text-muted-foreground bg-secondary px-3 py-1.5 rounded-full border border-border"
         >

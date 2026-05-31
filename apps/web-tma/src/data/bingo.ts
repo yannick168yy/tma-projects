@@ -1,94 +1,82 @@
-export interface PeryaMainGame {
-  id: string
-  label: string
-  sub: string
-  emoji: string
-  players: number
-  prize: string
-  bg: [string, string, string]
-  glow: string
+export interface PinoyClassicGame {
+  uuid: string
+  name: string
+  provider: string
+  imageUrl: string
   tag: string
   tagBg: string
   tagFg: string
-  stars?: boolean
+  bg: [string, string]
+  emoji: string
 }
 
-export const PERYA_MAIN: PeryaMainGame[] = [
+export const PINOY_CLASSICS: PinoyClassicGame[] = [
   {
-    id: 'bingo',
-    label: 'BINGO',
-    sub: '75 & 90 Ball',
-    emoji: '🎱',
-    players: 2841,
-    prize: '₱500,000',
-    bg: ['#4c0091', '#7c3aed', '#a855f7'],
-    glow: '#a855f7',
-    tag: 'JACKPOT',
+    uuid: '58f038e202409028258f3ed9581589db0eb50510',
+    name: 'Color Game Extreme',
+    provider: 'JILI',
+    imageUrl: 'https://stage.gis-static.com/games/da481495311e13bed8405e0fcc115357/JiliGames/58f038e202409028258f3ed9581589db0eb50510.png',
+    tag: 'HOT',
     tagBg: '#FFB800',
     tagFg: '#000',
-    stars: true,
-  },
-  {
-    id: 'colorgame',
-    label: 'COLOR GAME',
-    sub: 'Paborito sa Perya',
+    bg: ['#7f1d1d', '#ea580c'],
     emoji: '🎨',
-    players: 1509,
-    prize: '30×',
-    bg: ['#b91c1c', '#ea580c', '#f59e0b'],
-    glow: '#f59e0b',
-    tag: 'PERYA HIT',
-    tagBg: '#f97316',
-    tagFg: '#fff',
   },
   {
-    id: 'dropball',
-    label: 'DROP BALL',
-    sub: 'Plinko-Style',
-    emoji: '🔴',
-    players: 876,
-    prize: '50×',
-    bg: ['#065f46', '#059669', '#34d399'],
-    glow: '#34d399',
-    tag: 'TRENDING',
-    tagBg: '#10b981',
-    tagFg: '#000',
-  },
-  {
-    id: 'perya',
-    label: 'PERYA LIVE',
-    sub: 'Carnival Live Table',
-    emoji: '🎡',
-    players: 2204,
-    prize: '100×',
-    bg: ['#6b21a8', '#c026d3', '#f97316'],
-    glow: '#f97316',
-    tag: 'FIESTA',
-    tagBg: '#ec4899',
-    tagFg: '#fff',
-  },
-  {
-    id: 'pulaputi',
-    label: 'PULA PUTI',
-    sub: 'Red or White',
-    emoji: '🃏',
-    players: 3102,
-    prize: '2×',
-    bg: ['#7f1d1d', '#dc2626', '#f87171'],
-    glow: '#f87171',
-    tag: 'MOST PLAYED',
+    uuid: 'b58561e0b90249b18f6fe3d66bf65c74',
+    name: 'Color Game',
+    provider: 'JILI',
+    imageUrl: 'https://stage.gis-static.com/games/da481495311e13bed8405e0fcc115357/JiliGames/b58561e0b90249b18f6fe3d66bf65c74.png',
+    tag: 'CLASSIC',
     tagBg: '#ef4444',
     tagFg: '#fff',
+    bg: ['#b91c1c', '#f97316'],
+    emoji: '🟥',
   },
-]
-
-export const PERYA_GRID = [
-  { id: 'swertres', label: 'Swertres', emoji: '3️⃣', players: 654, bg: ['#1e3a8a', '#3b82f6'], tag: 'Numbers' },
-  { id: 'stl', label: 'STL Pares', emoji: '🎯', players: 449, bg: ['#134e4a', '#0d9488'], tag: 'Local' },
-  { id: 'lasttwo', label: 'Last Two', emoji: '🎰', players: 321, bg: ['#78350f', '#d97706'], tag: 'Pick 2' },
-  { id: 'keno', label: 'Keno PH', emoji: '🔢', players: 512, bg: ['#4c1d95', '#8b5cf6'], tag: 'Pick 10' },
-  { id: 'sabong', label: 'E-Sabong', emoji: '🐓', players: 1890, bg: ['#7f1d1d', '#dc2626'], tag: 'LIVE' },
-  { id: 'jaialai', label: 'Jai Alai', emoji: '🏟️', players: 210, bg: ['#1e293b', '#475569'], tag: 'Revival' },
+  {
+    uuid: 'aa9e42ff386e49a0889492e7cbd4452a',
+    name: 'Color Prediction',
+    provider: 'JILI',
+    imageUrl: 'https://stage.gis-static.com/games/da481495311e13bed8405e0fcc115357/JiliGames/aa9e42ff386e49a0889492e7cbd4452a.png',
+    tag: 'PREDICT',
+    tagBg: '#3b82f6',
+    tagFg: '#fff',
+    bg: ['#1e3a8a', '#6d28d9'],
+    emoji: '🎯',
+  },
+  {
+    uuid: 'a7943aa090104ddda8008b685fcbaeb2',
+    name: 'Super E-Sabong',
+    provider: 'JILI',
+    imageUrl: 'https://stage.gis-static.com/games/da481495311e13bed8405e0fcc115357/JiliGames/a7943aa090104ddda8008b685fcbaeb2.png',
+    tag: 'SABONG',
+    tagBg: '#ec4899',
+    tagFg: '#fff',
+    bg: ['#7f1d1d', '#dc2626'],
+    emoji: '🐓',
+  },
+  {
+    uuid: '6721efc3f16f42cd907155d79d560030',
+    name: 'CockFighting',
+    provider: 'Rich88',
+    imageUrl: 'https://stage.gis-static.com/games/Rich88/6721efc3f16f42cd907155d79d560030.png',
+    tag: 'FIGHTING',
+    tagBg: '#78350f',
+    tagFg: '#fff',
+    bg: ['#78350f', '#b91c1c'],
+    emoji: '⚔️',
+  },
+  {
+    uuid: '672cf996d4be4bcd8d6c7c847258ca33',
+    name: 'Sic Bo',
+    provider: 'JILI',
+    imageUrl: 'https://stage.gis-static.com/games/da481495311e13bed8405e0fcc115357/JiliGames/672cf996d4be4bcd8d6c7c847258ca33.png',
+    tag: 'DICE',
+    tagBg: '#059669',
+    tagFg: '#fff',
+    bg: ['#064e3b', '#0d9488'],
+    emoji: '🎲',
+  },
 ]
 
 export const PERYA_WINNERS = [
