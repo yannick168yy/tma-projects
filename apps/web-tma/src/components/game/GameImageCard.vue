@@ -70,14 +70,12 @@ const tagStyle = computed(() =>
       <img v-if="imageUrl" :src="imageUrl" class="absolute inset-0 w-full h-full object-cover" :style="{ objectPosition: imagePosition ?? 'center' }" />
       <slot />
     </div>
-    <div class="flex-shrink-0 relative px-2.5 pt-2 pb-2.5">
-      <div class="absolute inset-0 overflow-hidden">
-        <div v-if="imageUrl" class="absolute" :style="mirrorBgStyle" />
-        <div v-else class="absolute inset-0" :style="{ background: fallbackBg[0] }" />
-      </div>
+    <div class="flex-shrink-0 relative overflow-hidden px-2.5 pt-2 pb-2.5">
+      <div v-if="imageUrl" class="absolute" :style="mirrorBgStyle" />
+      <div v-else class="absolute inset-0" :style="{ background: fallbackBg[0] }" />
       <div class="relative z-10">
         <span v-if="tag" class="text-[7px] font-black px-1.5 py-[2px] rounded-full leading-none inline-block mb-1.5" :style="tagStyle">{{ tag }}</span>
-        <p class="text-white font-black text-[15px] leading-tight line-clamp-2">{{ name }}</p>
+        <p class="text-white font-black text-[15px] leading-tight line-clamp-2 min-h-[2.5em]">{{ name }}</p>
         <p class="text-white/60 text-[10px] mt-0.5">{{ provider }}</p>
       </div>
     </div>
