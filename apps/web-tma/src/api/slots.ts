@@ -15,6 +15,7 @@ export interface SlotGame {
   weight: number
   phBonus: number
   isFeatured: boolean
+  theme: string | null
 }
 
 export interface GameListResult {

@@ -12,15 +12,21 @@ const emit = defineEmits<{
   play: [uuid: string]
   demo: [uuid: string]
 }>()
+
+function formatTheme(theme: string | null): string | undefined {
+  if (!theme) return undefined
+  return theme.replace(/-/g, ' ').toUpperCase()
+}
 </script>
 
 <template>
-  <div class="group relative h-40 overflow-hidden rounded-xl">
+  <div class="group relative h-44 overflow-hidden rounded-xl">
     <GameImageCard
       :image-url="game.imageHqUrl ?? game.imageUrl"
       :fallback-bg="['#1e1b4b', '#312e81']"
       :name="game.name"
       :provider="game.provider"
+      :tag="formatTheme(game.theme)"
     >
       <!-- Play / Demo 浮层 -->
       <div

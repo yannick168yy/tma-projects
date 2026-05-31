@@ -71,9 +71,11 @@ const barGradient = computed(() => {
     <!-- 渐变信息栏 -->
     <div class="flex-shrink-0 px-2 pt-1.5 pb-2" :style="{ background: barGradient }">
       <span
-        v-if="tag && tagBg"
+        v-if="tag"
         class="text-[7px] font-black px-1.5 py-[2px] rounded-full leading-none inline-block mb-1"
-        :style="{ background: tagBg, color: tagFg ?? '#fff' }"
+        :style="tagBg
+          ? { background: tagBg, color: tagFg ?? '#fff' }
+          : { background: 'rgba(255,255,255,0.18)', color: '#fff' }"
       >{{ tag }}</span>
       <p class="text-white font-black text-[11px] leading-tight truncate">{{ name }}</p>
       <p class="text-white/50 text-[9px] mt-px">{{ provider }}</p>

@@ -4,12 +4,17 @@ import GameImageCard from '@/components/game/GameImageCard.vue'
 
 defineProps<{ game: SlotGame }>()
 const emit = defineEmits<{ tap: [] }>()
+
+function formatTheme(theme: string | null): string | undefined {
+  if (!theme) return undefined
+  return theme.replace(/-/g, ' ').toUpperCase()
+}
 </script>
 
 <template>
   <button
     type="button"
-    class="flex-shrink-0 w-32 h-28 rounded-xl overflow-hidden active:scale-95 transition-transform"
+    class="flex-shrink-0 w-32 h-36 rounded-xl overflow-hidden active:scale-95 transition-transform"
     @click="emit('tap')"
   >
     <GameImageCard
@@ -17,6 +22,7 @@ const emit = defineEmits<{ tap: [] }>()
       :fallback-bg="['#064e3b', '#065f46']"
       :name="game.name"
       :provider="game.provider"
+      :tag="formatTheme(game.theme)"
     >
       <div class="absolute top-1.5 left-1.5 flex items-center gap-1 bg-red-500/85 rounded-full px-1.5 py-0.5">
         <span class="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
