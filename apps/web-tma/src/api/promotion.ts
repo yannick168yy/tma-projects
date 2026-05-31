@@ -43,4 +43,3 @@ export async function fetchRedPacketRecords(): Promise<RedPacketRecord[]> {
   return data.items
 }
 
-export { mockSeedReferralReady } from '@/api/mock/promotion.mock'

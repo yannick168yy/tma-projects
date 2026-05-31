@@ -77,10 +77,6 @@ export function fetchGames(params: GameListParams = {}): Promise<GameListResult>
   return apiRequest<GameListResult>(`/slots/games${q ? `?${q}` : ''}`)
 }
 
-export function fetchGameHistory(limit = 10): Promise<GameHistoryItem[]> {
-  return apiRequest<GameHistoryItem[]>(`/slots/history?limit=${limit}`)
-}
-
 export function fetchProviders(): Promise<string[]> {
   return apiRequest<string[]>('/slots/providers')
 }
@@ -97,10 +93,6 @@ export function launchDemo(gameUuid: string, device: 'mobile' | 'desktop' = 'mob
     method: 'POST',
     body: JSON.stringify({ gameUuid, device }),
   })
-}
-
-export function syncGames(): Promise<{ synced: number }> {
-  return apiRequest<{ synced: number }>('/slots/sync', { method: 'POST' })
 }
 
 export interface BetRecord {

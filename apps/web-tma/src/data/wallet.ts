@@ -76,15 +76,6 @@ export const CRYPTO_WITHDRAW: PayMethod[] = [
   { id: 'btc-w', name: 'Bitcoin', icon: '', iconUrl: '/logos/btc.svg', color: 'from-orange-400 to-amber-600', tag: 'BTC' },
 ]
 
-export const TX_HISTORY = [
-  { id: 1, type: 'deposit' as const, method: 'GCash', amount: '+₱ 1,000.00', date: '2025-05-22 14:32', status: 'success' as const },
-  { id: 2, type: 'withdraw' as const, method: 'Maya', amount: '−₱ 500.00', date: '2025-05-21 09:15', status: 'success' as const },
-  { id: 3, type: 'deposit' as const, method: 'USDT TRC20', amount: '+21.80 USDT', date: '2025-05-20 18:44', status: 'success' as const },
-  { id: 4, type: 'withdraw' as const, method: 'GCash', amount: '−₱ 200.00', date: '2025-05-19 11:02', status: 'pending' as const },
-  { id: 5, type: 'deposit' as const, method: 'Maya', amount: '+₱ 500.00', date: '2025-05-18 20:11', status: 'success' as const },
-  { id: 6, type: 'deposit' as const, method: 'TON', amount: '+5.00 TON', date: '2025-05-17 16:30', status: 'failed' as const },
-]
-
 export const WALLET_BANNERS = [
   { gradient: 'from-[#1a0533] via-[#4a0e82] to-[#c0392b]', label: 'FIRST DEPOSIT BONUS', text: '100% up to ₱50,000', icon: '🎁' },
   { gradient: 'from-[#0a2444] via-[#1a4a8a] to-[#0d7b4f]', label: 'ZERO FEE CRYPTO', text: 'Deposit with 0% fees', icon: '💎' },

@@ -28,8 +28,6 @@ export interface AuthSession {
   trialRedPacketEligible?: boolean
 }
 
-export type UserStatus = 'active' | 'frozen' | 'banned'
-
 export interface WalletBalance {
   currency: 'PHP'
   availableCents: number
