@@ -1,39 +1,134 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { Trophy } from 'lucide-vue-next'
+import { storeToRefs } from 'pinia'
+import { Trophy, RefreshCw } from 'lucide-vue-next'
 import PeryaCarnivalHero from '@/components/bingo/PeryaCarnivalHero.vue'
-import { PERYA_GRID, PERYA_MAIN, PERYA_WINNERS } from '@/data/bingo'
+import SlotGameCard from '@/components/home/SlotGameCard.vue'
+import { fetchGames, launchGame, launchDemo, type SlotGame } from '@/api/slots'
+import { ApiError } from '@/api/client'
+import { useAuthStore } from '@/stores/auth'
+import { PERYA_WINNERS } from '@/data/bingo'
 
-const emit = defineEmits<{ openWallet: []; gameTap: [] }>()
+const emit = defineEmits<{
+  openWallet: []
+  gameTap: []
+  openGame: [url: string]
+}>()
+
 const { t } = useI18n()
+const auth = useAuthStore()
+const { isLoggedIn } = storeToRefs(auth)
 
-const heroGame = computed(() => PERYA_MAIN[0]!)
-const otherGames = computed(() => PERYA_MAIN.slice(1))
+type TabId = 'all' | 'jili' | 'jackpot' | 'classic'
+const tabs: { id: TabId; label: string }[] = [
+  { id: 'all',     label: 'ALL' },
+  { id: 'jili',    label: 'JILI' },
+  { id: 'jackpot', label: 'JACKPOT' },
+  { id: 'classic', label: 'CLASSIC' },
+]
+
+const activeTab  = ref<TabId>('all')
+const games      = ref<SlotGame[]>([])
+const total      = ref(0)
+const curPage    = ref(1)
+const pages      = ref(1)
+const loading    = ref(false)
+const loadingMore = ref(false)
+const launchingUuid = ref<string | null>(null)
+const error      = ref('')
+
 const marqueeWinners = computed(() => [...PERYA_WINNERS, ...PERYA_WINNERS])
+const hasMore = computed(() => curPage.value < pages.value)
 
-const fiestaBuntingColors = [
-  '#FFB800',
-  '#ec4899',
-  '#34d399',
-  '#60a5fa',
-  '#f97316',
-  '#a855f7',
-  '#FFB800',
-  '#ef4444',
-  '#FFB800',
-  '#ec4899',
-  '#34d399',
-  '#60a5fa',
-  '#f97316',
-  '#a855f7',
-  '#FFB800',
-  '#ef4444',
-] as const
+function tabParams(tab: TabId) {
+  switch (tab) {
+    case 'jili':    return { provider: 'JiliGames' }
+    case 'jackpot': return { search: 'jackpot' }
+    case 'classic': return { provider: 'Rich88' }
+    default:        return {}
+  }
+}
+
+async function loadGames(reset = true) {
+  if (reset) {
+    loading.value = true
+    curPage.value = 1
+    games.value = []
+  } else {
+    loadingMore.value = true
+  }
+  error.value = ''
+
+  try {
+    const extra = tabParams(activeTab.value)
+    const res = await fetchGames({
+      page: curPage.value,
+      limit: 30,
+      sortCategory: 'bingo',
+      sortBy: 'ph_bonus',
+      ...extra,
+    })
+    if (reset) {
+      games.value = res.items
+    } else {
+      games.value.push(...res.items)
+    }
+    total.value = res.total
+    pages.value = res.pages
+  } catch (e) {
+    error.value = e instanceof ApiError ? e.message : 'Failed to load games'
+  } finally {
+    loading.value = false
+    loadingMore.value = false
+  }
+}
+
+function selectTab(id: TabId) {
+  activeTab.value = id
+  loadGames(true)
+}
+
+function loadMore() {
+  if (loadingMore.value || curPage.value >= pages.value) return
+  curPage.value++
+  loadGames(false)
+}
+
+async function onPlay(uuid: string) {
+  if (!isLoggedIn.value) {
+    emit('gameTap')
+    return
+  }
+  launchingUuid.value = uuid
+  try {
+    const { url } = await launchGame(uuid)
+    emit('openGame', url)
+  } catch (e) {
+    alert(e instanceof ApiError ? e.message : 'Failed to launch game')
+  } finally {
+    launchingUuid.value = null
+  }
+}
+
+async function onDemo(uuid: string) {
+  launchingUuid.value = uuid
+  try {
+    const { url } = await launchDemo(uuid)
+    emit('openGame', url)
+  } catch (e) {
+    alert(e instanceof ApiError ? e.message : 'Failed to launch demo')
+  } finally {
+    launchingUuid.value = null
+  }
+}
+
+onMounted(() => loadGames())
 </script>
 
 <template>
   <div class="page-main">
+    <!-- Hero -->
     <PeryaCarnivalHero>
       <p class="text-amber-300 text-[10px] font-black uppercase tracking-widest mb-1">🎪 {{ t('bingo.carnival') }}</p>
       <h1
@@ -68,6 +163,7 @@ const fiestaBuntingColors = [
       </div>
     </PeryaCarnivalHero>
 
+    <!-- Jackpot banner -->
     <div
       class="mx-4 mt-4 rounded-2xl px-4 py-3 flex items-center gap-3"
       style="background: linear-gradient(90deg, #2d1800, #1a0d40); border: 1px solid rgba(255, 184, 0, 0.25); box-shadow: 0 4px 20px rgba(255, 184, 0, 0.12)"
@@ -86,153 +182,91 @@ const fiestaBuntingColors = [
       </button>
     </div>
 
-    <div class="px-4 mt-5">
-      <div class="flex items-center gap-2 mb-3">
-        <span class="text-base">🎪</span>
-        <h2 class="text-white font-black text-base font-display">SIGNATURE GAMES</h2>
-      </div>
-
-      <div class="grid grid-cols-2 gap-3">
-        <button
-          type="button"
-          class="col-span-2 relative rounded-3xl overflow-hidden h-40 text-left active:scale-[0.98] transition-transform"
-          :style="{ boxShadow: `0 6px 28px ${heroGame.glow}33` }"
-          @click="emit('gameTap')"
-        >
-          <div
-            class="absolute inset-0"
-            :style="{ background: `linear-gradient(135deg, ${heroGame.bg[0]}, ${heroGame.bg[1]}, ${heroGame.bg[2]})` }"
-          />
-          <template v-if="heroGame.stars">
-            <div
-              v-for="i in 6"
-              :key="i"
-              class="absolute rounded-full"
-              :style="{
-                width: `${3 + (i % 3)}px`,
-                height: `${3 + (i % 3)}px`,
-                background: '#fff',
-                opacity: 0.15 + i * 0.04,
-                top: `${10 + i * 14}%`,
-                left: `${55 + i * 7}%`,
-              }"
-            />
-          </template>
-          <div class="absolute inset-0 p-4 flex items-center gap-4">
-            <div>
-              <span
-                class="text-[9px] font-black px-2 py-0.5 rounded-full mb-2 inline-block"
-                :style="{ background: heroGame.tagBg, color: heroGame.tagFg }"
-              >
-                {{ heroGame.tag }}
-              </span>
-              <h3 class="text-white font-black leading-none font-display text-[1.7rem]">{{ heroGame.label }}</h3>
-              <p class="text-white/60 text-xs font-semibold mt-0.5">{{ heroGame.sub }}</p>
-              <div class="flex items-center gap-3 mt-2">
-                <div class="flex items-center gap-1">
-                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                  <span class="text-white/60 text-[11px]">{{ heroGame.players.toLocaleString() }} playing</span>
-                </div>
-                <span class="font-black text-base font-display" :style="{ color: heroGame.glow }">{{ heroGame.prize }}</span>
-              </div>
-            </div>
-            <div class="ml-auto text-6xl opacity-90">{{ heroGame.emoji }}</div>
-          </div>
-        </button>
-
-        <button
-          v-for="g in otherGames"
-          :key="g.id"
-          type="button"
-          class="relative rounded-3xl overflow-hidden h-36 text-left active:scale-[0.98] transition-transform"
-          :style="{ boxShadow: `0 4px 20px ${g.glow}25` }"
-          @click="emit('gameTap')"
-        >
-          <div
-            class="absolute inset-0"
-            :style="{ background: `linear-gradient(135deg, ${g.bg[0]}, ${g.bg[1]}, ${g.bg[2]})` }"
-          />
-          <div
-            class="absolute -bottom-4 -right-4 w-20 h-20 rounded-full opacity-20"
-            :style="{ background: g.glow }"
-          />
-          <div class="absolute inset-0 p-3.5 flex flex-col justify-between">
-            <div class="flex items-start justify-between">
-              <span
-                class="text-[9px] font-black px-2 py-0.5 rounded-full"
-                :style="{ background: g.tagBg, color: g.tagFg }"
-              >
-                {{ g.tag }}
-              </span>
-              <span class="text-3xl">{{ g.emoji }}</span>
-            </div>
-            <div>
-              <h3 class="text-white font-black leading-none text-base font-display">{{ g.label }}</h3>
-              <p class="text-white/50 text-[10px] mt-0.5">{{ g.sub }}</p>
-              <div class="flex items-center justify-between mt-1.5">
-                <div class="flex items-center gap-1">
-                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                  <span class="text-white/50 text-[10px]">{{ g.players.toLocaleString() }}</span>
-                </div>
-                <span class="font-black text-sm font-display" :style="{ color: g.glow }">{{ g.prize }}</span>
-              </div>
-            </div>
-          </div>
-        </button>
-      </div>
+    <!-- Tab bar -->
+    <div class="flex gap-2 px-4 mt-5 overflow-x-auto no-scrollbar">
+      <button
+        v-for="tab in tabs"
+        :key="tab.id"
+        type="button"
+        class="flex-shrink-0 rounded-full px-4 py-1.5 text-xs font-black transition-colors"
+        :class="activeTab === tab.id
+          ? 'bg-primary text-primary-foreground'
+          : 'bg-secondary text-muted-foreground'"
+        @click="selectTab(tab.id)"
+      >
+        {{ tab.label }}
+      </button>
     </div>
 
-    <div class="px-4 mt-6">
-      <div class="flex items-center gap-2 mb-3">
-        <span class="text-base">🎡</span>
-        <h2 class="text-white font-black text-base font-display">MORE PINOY GAMES</h2>
+    <!-- Games section -->
+    <div class="px-4 mt-4 mb-6">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-white font-black text-base font-display">
+          🎱 BINGO GAMES
+          <span v-if="total > 0" class="text-xs font-normal text-muted-foreground ml-1.5">{{ total }} games</span>
+        </h2>
       </div>
-      <div class="grid grid-cols-3 gap-2.5">
+
+      <!-- Skeleton -->
+      <div v-if="loading" class="grid grid-cols-2 gap-2">
+        <div v-for="n in 12" :key="n" class="h-40 animate-pulse rounded-xl bg-secondary" />
+      </div>
+
+      <!-- Error -->
+      <div v-else-if="error" class="flex flex-col items-center gap-3 py-12 text-center">
+        <p class="text-sm text-muted-foreground">{{ error }}</p>
         <button
-          v-for="g in PERYA_GRID"
-          :key="g.id"
           type="button"
-          class="relative rounded-2xl overflow-hidden h-24 text-left active:scale-95 transition-transform"
-          @click="emit('gameTap')"
+          class="flex items-center gap-1.5 rounded-full bg-secondary px-4 py-2 text-xs font-bold text-foreground"
+          @click="loadGames()"
         >
-          <div class="absolute inset-0" :style="{ background: `linear-gradient(135deg, ${g.bg[0]}, ${g.bg[1]})` }" />
-          <div class="absolute inset-0 flex flex-col justify-between p-2.5">
-            <div class="flex justify-between items-start">
-              <span class="text-[8px] font-black bg-black/30 text-white/70 px-1.5 py-0.5 rounded-full leading-none">{{ g.tag }}</span>
-              <span class="text-[22px]">{{ g.emoji }}</span>
-            </div>
-            <div>
-              <p class="text-white font-black text-xs leading-none font-display">{{ g.label }}</p>
-              <p class="text-white/40 text-[9px] mt-0.5">{{ g.players.toLocaleString() }} online</p>
-            </div>
-          </div>
+          <RefreshCw :size="12" />
+          Retry
         </button>
       </div>
+
+      <!-- Empty -->
+      <div v-else-if="games.length === 0" class="py-12 text-center text-sm text-muted-foreground">
+        No games found
+      </div>
+
+      <!-- Grid -->
+      <template v-else>
+        <div class="grid grid-cols-2 gap-2">
+          <SlotGameCard
+            v-for="game in games"
+            :key="game.uuid"
+            :game="game"
+            :launching="launchingUuid === game.uuid"
+            @play="onPlay"
+            @demo="onDemo"
+          />
+        </div>
+
+        <div v-if="hasMore" class="mt-4 flex justify-center">
+          <button
+            type="button"
+            class="rounded-full bg-secondary px-6 py-2.5 text-sm font-bold text-foreground transition-opacity"
+            :class="{ 'opacity-50': loadingMore }"
+            :disabled="loadingMore"
+            @click="loadMore"
+          >
+            {{ loadingMore ? '…' : t('common.loadMore') }}
+          </button>
+        </div>
+      </template>
     </div>
 
+    <!-- Fiesta Special banner -->
     <div
-      class="mx-4 mt-5 rounded-2xl overflow-hidden relative"
+      class="mx-4 mt-1 mb-4 rounded-2xl overflow-hidden relative"
       style="background: linear-gradient(135deg, #1a004a, #3b0020); border: 1px solid rgba(236, 72, 153, 0.2)"
     >
       <div
         class="absolute inset-0 pointer-events-none"
         style="background: radial-gradient(ellipse at 80% 50%, rgba(236, 72, 153, 0.12) 0%, transparent 65%)"
       />
-      <div class="absolute top-0 inset-x-0 overflow-hidden flex" style="height: 8px">
-        <span
-          v-for="(c, i) in fiestaBuntingColors"
-          :key="i"
-          class="inline-block flex-shrink-0"
-          :style="{
-            width: '14px',
-            height: '8px',
-            background: c,
-            clipPath: 'polygon(0 0, 100% 0, 50% 100%)',
-            opacity: 0.8,
-          }"
-        />
-      </div>
-      <div class="relative px-4 pt-5 pb-4 flex items-center gap-3">
+      <div class="relative px-4 py-4 flex items-center gap-3">
         <div class="text-4xl">🎉</div>
         <div class="flex-1">
           <p class="text-pink-300 text-[10px] font-black uppercase tracking-widest">Fiesta Special</p>
@@ -243,24 +277,11 @@ const fiestaBuntingColors = [
         </div>
         <button
           type="button"
-          class="flex-shrink-0 bg-pink-500 hover:bg-pink-400 text-white font-black text-xs px-4 py-2.5 rounded-xl transition-colors shadow shadow-pink-500/30"
+          class="flex-shrink-0 bg-pink-500 text-white font-black text-xs px-4 py-2.5 rounded-xl shadow shadow-pink-500/30"
           @click="emit('openWallet')"
         >
           LIBRE!
         </button>
-      </div>
-    </div>
-
-    <div class="px-4 mt-5 mb-4">
-      <p class="text-muted-foreground text-[10px] uppercase tracking-widest font-black mb-3">Powered by</p>
-      <div class="flex gap-2 flex-wrap">
-        <span
-          v-for="p in ['JILI', 'EVOLUTION', 'BGAMING', 'PRAGMATIC', 'SPRIBE', 'BINGO+']"
-          :key="p"
-          class="text-[10px] font-black text-muted-foreground bg-secondary px-3 py-1.5 rounded-full border border-border"
-        >
-          {{ p }}
-        </span>
       </div>
     </div>
   </div>
