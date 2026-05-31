@@ -212,7 +212,7 @@ onMounted(async () => {
           v-for="g in PINOY_CLASSICS"
           :key="g.uuid"
           type="button"
-          class="flex-shrink-0 w-32 h-44 rounded-2xl overflow-hidden active:scale-95 transition-transform snap-start"
+          class="flex-shrink-0 w-32 h-44 rounded-xl overflow-hidden active:scale-95 transition-transform snap-start"
           :disabled="launchingUuid === g.uuid"
           @click="onPlayGame(g.uuid)"
         >
@@ -222,9 +222,6 @@ onMounted(async () => {
             :fallback-bg="g.bg"
             :name="g.name"
             :provider="g.provider"
-            :tag="g.tag"
-            :tag-bg="g.tagBg"
-            :tag-fg="g.tagFg"
           />
         </button>
       </div>
@@ -251,7 +248,7 @@ onMounted(async () => {
           v-for="g in MORE_PINOY_GAMES"
           :key="g.uuid"
           type="button"
-          class="flex-shrink-0 w-32 h-44 rounded-2xl overflow-hidden active:scale-95 transition-transform snap-start"
+          class="flex-shrink-0 w-32 h-44 rounded-xl overflow-hidden active:scale-95 transition-transform snap-start"
           :disabled="launchingUuid === g.uuid"
           @click="onPlayGame(g.uuid)"
         >
@@ -261,9 +258,6 @@ onMounted(async () => {
             :fallback-bg="g.bg"
             :name="g.name"
             :provider="g.provider"
-            :tag="g.tag"
-            :tag-bg="g.tagBg"
-            :tag-fg="g.tagFg"
           />
         </button>
       </div>
