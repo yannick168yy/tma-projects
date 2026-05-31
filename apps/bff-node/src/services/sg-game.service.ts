@@ -9,6 +9,19 @@ const GAMES_CACHE_TTL = 30 * 60 // 30 分钟
 
 // ── Sync ──────────────────────────────────────────────────────────────────────
 
+function cleanGameName(name: string): string {
+  return name.replace(/ mobile/gi, '').trim()
+}
+
+export async function stripMobileNamesInDb(env: Env): Promise<void> {
+  const db = getMysqlPool(env)
+  const [result] = await db.execute(
+    `UPDATE sg_games SET name = TRIM(REGEXP_REPLACE(name, '(?i) mobile', '')) WHERE name REGEXP '(?i) mobile'`,
+  )
+  const changed = (result as { affectedRows: number }).affectedRows
+  if (changed > 0) console.log(`[games] stripped "mobile" from ${changed} game names`)
+}
+
 export async function syncAllGames(env: Env): Promise<{ synced: number }> {
   const db = getMysqlPool(env)
   let page = 1
@@ -45,7 +58,7 @@ export async function syncAllGames(env: Env): Promise<{ synced: number }> {
            tags=VALUES(tags), updated_at=NOW(3)`,
         [
           g.uuid,
-          g.name,
+          cleanGameName(g.name),
           g.type || null,
           g.provider,
           g.provider_id != null && g.provider_id !== '' ? Number(g.provider_id) : null,

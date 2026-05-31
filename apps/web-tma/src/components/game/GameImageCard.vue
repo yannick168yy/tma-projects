@@ -56,6 +56,19 @@ const tagStyle = computed(() =>
     ? { background: props.tagBg, color: props.tagFg ?? '#fff' }
     : { background: 'rgba(255,255,255,0.2)', color: '#fff' }
 )
+
+const mirrorNameClass = computed(() => {
+  const len = props.name.length
+  if (len <= 11) return 'text-[15px] leading-tight truncate'
+  if (len <= 18) return 'text-[12px] leading-tight truncate'
+  return 'text-[11px] leading-tight line-clamp-2'
+})
+
+const splitNameClass = computed(() => {
+  const len = props.name.length
+  if (len <= 14) return 'text-[11px] leading-tight truncate'
+  return 'text-[9px] leading-tight truncate'
+})
 </script>
 
 <template>
@@ -73,7 +86,7 @@ const tagStyle = computed(() =>
       <div v-else class="absolute inset-0" :style="{ background: fallbackBg[0] }" />
       <div class="relative z-10">
         <span v-if="tag" class="text-[7px] font-black px-1.5 py-[2px] rounded-full leading-none inline-block mb-1.5" :style="tagStyle">{{ tag }}</span>
-        <p class="text-white font-black text-[15px] leading-tight truncate">{{ name }}</p>
+        <p class="text-white font-black" :class="mirrorNameClass">{{ name }}</p>
         <p class="text-white/60 text-[10px] mt-0.5">{{ provider }}</p>
       </div>
     </div>
@@ -96,7 +109,7 @@ const tagStyle = computed(() =>
     </div>
     <div class="flex-shrink-0 px-2 pt-1.5 pb-2" :style="{ background: barGradient }">
       <span v-if="tag" class="text-[7px] font-black px-1.5 py-[2px] rounded-full leading-none inline-block mb-1" :style="tagStyle">{{ tag }}</span>
-      <p class="text-white font-black text-[11px] leading-tight truncate">{{ name }}</p>
+      <p class="text-white font-black" :class="splitNameClass">{{ name }}</p>
       <p class="text-white/50 text-[9px] mt-px">{{ provider }}</p>
     </div>
   </div>

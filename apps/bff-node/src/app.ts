@@ -10,6 +10,7 @@ import { initStore } from './services/store/index.js'
 import { pollAndSettleTonDeposits } from './services/ton.service.js'
 import { syncAllGames, loadGamesCache, refreshHomepageSelection } from './services/sg-game.service.js'
 import { refreshLatestPool, refreshWeekTop, refreshMonthTop } from './services/betting-activity.service.js'
+import { stripMobileNamesInDb } from './services/sg-game.service.js'
 import { refreshRates } from './services/exchange-rate.service.js'
 import { runDailyReconciliation, yesterday } from './services/sg-settlement.service.js'
 import { isMysqlEnabled } from './clients/mysql.client.js'
@@ -85,7 +86,8 @@ export function createApp(env: Env): Koa {
   // 游戏缓存 + 首页推荐：启动 8s 后首次加载，失败则每 10s 重试，之后每 3 小时刷新首页推荐
   if (isMysqlEnabled(env)) {
     const loadWithRetry = (attempt = 0): void => {
-      loadGamesCache(env)
+      stripMobileNamesInDb(env)
+        .then(() => loadGamesCache(env))
         .then(() => refreshHomepageSelection(env))
         .then(() => initBettingActivity())
         .catch((err) => {
@@ -100,10 +102,10 @@ export function createApp(env: Env): Koa {
     }, 3 * 60 * 60 * 1000)
 
     // Betting activity 定时刷新
-    // latest: 每 1 小时
+    // latest: 每 20 分钟
     setInterval(() => {
       refreshLatestPool(env).catch((err) => console.error('[betting-latest] refresh error:', err))
-    }, 60 * 60 * 1000)
+    }, 20 * 60 * 1000)
 
     // week / month: JS setInterval 上限约 24.8 天，用每天检查 + 时间戳守卫
     let weekLastAt = 0

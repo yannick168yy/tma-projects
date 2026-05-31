@@ -1,6 +1,6 @@
 import Router from '@koa/router'
 import { listAdminGames, toggleAdminGame, writeAuditLog } from '../../services/admin-store.js'
-import { syncAllGames, loadGamesCache, refreshHomepageSelection } from '../../services/sg-game.service.js'
+import { syncAllGames, loadGamesCache, refreshHomepageSelection, stripMobileNamesInDb } from '../../services/sg-game.service.js'
 
 import { isMysqlEnabled } from '../../clients/mysql.client.js'
 import { ok, fail } from '../../utils/response.js'
@@ -82,6 +82,17 @@ router.post('/refresh-cache', async (ctx) => {
     ok(ctx, { cached: count })
   } catch (e) {
     fail(ctx, 500, e instanceof Error ? e.message : 'Refresh failed')
+  }
+})
+
+router.post('/strip-mobile-names', async (ctx) => {
+  try {
+    await stripMobileNamesInDb(ctx.state.env)
+    const count = await loadGamesCache(ctx.state.env)
+    await refreshHomepageSelection(ctx.state.env)
+    ok(ctx, { cached: count })
+  } catch (e) {
+    fail(ctx, 500, e instanceof Error ? e.message : 'Strip failed')
   }
 })
 
