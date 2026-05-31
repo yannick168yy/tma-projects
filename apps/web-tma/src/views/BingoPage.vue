@@ -229,7 +229,6 @@ onMounted(async () => {
         >
           <GameImageCard
             variant="mirror"
-            image-position="top"
             :image-url="g.imageUrl"
             :fallback-bg="g.bg"
             :name="g.name"
@@ -266,7 +265,6 @@ onMounted(async () => {
         >
           <GameImageCard
             variant="mirror"
-            image-position="top"
             :image-url="g.imageUrl"
             :fallback-bg="g.bg"
             :name="g.name"
