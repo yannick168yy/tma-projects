@@ -9,7 +9,7 @@ const emit = defineEmits<{ tap: [] }>()
 <template>
   <button
     type="button"
-    class="flex-shrink-0 w-32 h-36 rounded-xl overflow-hidden active:scale-95 transition-transform"
+    class="flex-shrink-0 w-32 h-44 rounded-xl overflow-hidden active:scale-95 transition-transform"
     @click="emit('tap')"
   >
     <GameImageCard
