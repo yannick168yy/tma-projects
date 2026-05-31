@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n'
 import { Trophy, ChevronRight } from 'lucide-vue-next'
 import { storeToRefs } from 'pinia'
 import PeryaCarnivalHero from '@/components/bingo/PeryaCarnivalHero.vue'
+import GameImageCard from '@/components/game/GameImageCard.vue'
 import { PINOY_CLASSICS, MORE_PINOY_GAMES, PERYA_WINNERS } from '@/data/bingo'
 import { fetchGames, launchGame, type SlotGame } from '@/api/slots'
 import { useAuthStore } from '@/stores/auth'
@@ -27,14 +28,14 @@ const subGames = computed(() => bingoGames.value.slice(1, 5))
 const marqueeWinners = computed(() => [...PERYA_WINNERS, ...PERYA_WINNERS])
 
 
-// 按厂商分配渐变兜底色（无封面图时）
-const providerGradient: Record<string, string> = {
-  JiliGames: 'linear-gradient(135deg, #4c0091, #7c3aed)',
-  PragmaticPlay: 'linear-gradient(135deg, #065f46, #059669)',
-  Caleta: 'linear-gradient(135deg, #1e3a8a, #2563eb)',
+// 按厂商分配兜底色对（给 GameImageCard fallbackBg 用）
+const providerFallback: Record<string, [string, string]> = {
+  JiliGames:    ['#4c0091', '#7c3aed'],
+  PragmaticPlay:['#065f46', '#059669'],
+  Caleta:       ['#1e3a8a', '#2563eb'],
 }
-function cardBg(provider: string): string {
-  return providerGradient[provider] ?? 'linear-gradient(135deg, #1e293b, #334155)'
+function cardFallback(provider: string): [string, string] {
+  return providerFallback[provider] ?? ['#1e293b', '#334155']
 }
 
 // 大卡左侧渐变色（与各厂商配色协调）
@@ -180,29 +181,21 @@ onMounted(async () => {
           </div>
         </button>
 
-        <!-- 小卡：上图下信息栏 -->
+        <!-- 小卡：上图下渐变信息栏 -->
         <button
           v-for="g in subGames"
           :key="g.uuid"
           type="button"
-          class="relative rounded-3xl overflow-hidden h-36 text-left active:scale-[0.98] transition-transform flex flex-col"
+          class="rounded-3xl overflow-hidden h-36 active:scale-[0.98] transition-transform"
           :disabled="launchingUuid === g.uuid"
           @click="onPlayGame(g.uuid)"
         >
-          <!-- 上半：图片 -->
-          <div class="relative flex-1 overflow-hidden">
-            <div class="absolute inset-0" :style="{ background: cardBg(g.provider) }" />
-            <img
-              v-if="g.imageHqUrl || g.imageUrl"
-              :src="(g.imageHqUrl || g.imageUrl)!"
-              class="absolute inset-0 w-full h-full object-cover"
-            />
-          </div>
-          <!-- 下半：信息栏 -->
-          <div class="flex-shrink-0 bg-[#111827] px-3 py-2">
-            <p class="text-white font-black text-[13px] leading-tight truncate">{{ g.name }}</p>
-            <p class="text-white/40 text-[10px] mt-0.5">{{ g.provider }}</p>
-          </div>
+          <GameImageCard
+            :image-url="g.imageHqUrl ?? g.imageUrl"
+            :fallback-bg="cardFallback(g.provider)"
+            :name="g.name"
+            :provider="g.provider"
+          />
         </button>
       </div>
     </div>
@@ -213,28 +206,26 @@ onMounted(async () => {
         <span class="text-base">🎡</span>
         <h2 class="text-white font-black text-base font-display">PERYA CLASSICS</h2>
       </div>
+      <!-- 卡宽 = (100vw - 32px 内边距 - 20px 间隙) / 3，刚好一行三个 -->
       <div class="flex gap-2.5 overflow-x-auto px-4 pb-2 scrollbar-hide snap-x snap-mandatory">
         <button
           v-for="g in PINOY_CLASSICS"
           :key="g.uuid"
           type="button"
-          class="flex-shrink-0 w-[30vw] min-w-[108px] rounded-2xl overflow-hidden text-left active:scale-95 transition-transform flex flex-col snap-start"
-          style="height: 112px"
+          class="flex-shrink-0 rounded-2xl overflow-hidden active:scale-95 transition-transform snap-start"
+          style="width: calc((100vw - 52px) / 3); height: 144px"
           :disabled="launchingUuid === g.uuid"
           @click="onPlayGame(g.uuid)"
         >
-          <div class="relative flex-1 overflow-hidden">
-            <div class="absolute inset-0" :style="{ background: `linear-gradient(135deg, ${g.bg[0]}, ${g.bg[1]})` }" />
-            <img :src="g.imageUrl" class="absolute inset-0 w-full h-full object-cover" />
-          </div>
-          <div class="flex-shrink-0 bg-[#111827] px-2 py-1.5">
-            <span
-              class="text-[7px] font-black px-1.5 py-0.5 rounded-full leading-none inline-block mb-0.5"
-              :style="{ background: g.tagBg, color: g.tagFg }"
-            >{{ g.tag }}</span>
-            <p class="text-white font-black text-[11px] leading-tight truncate">{{ g.name }}</p>
-            <p class="text-white/40 text-[9px]">{{ g.provider }}</p>
-          </div>
+          <GameImageCard
+            :image-url="g.imageUrl"
+            :fallback-bg="g.bg"
+            :name="g.name"
+            :provider="g.provider"
+            :tag="g.tag"
+            :tag-bg="g.tagBg"
+            :tag-fg="g.tagFg"
+          />
         </button>
       </div>
     </div>
@@ -260,23 +251,20 @@ onMounted(async () => {
           v-for="g in MORE_PINOY_GAMES"
           :key="g.uuid"
           type="button"
-          class="flex-shrink-0 w-[30vw] min-w-[108px] rounded-2xl overflow-hidden text-left active:scale-95 transition-transform flex flex-col snap-start"
-          style="height: 112px"
+          class="flex-shrink-0 rounded-2xl overflow-hidden active:scale-95 transition-transform snap-start"
+          style="width: calc((100vw - 52px) / 3); height: 144px"
           :disabled="launchingUuid === g.uuid"
           @click="onPlayGame(g.uuid)"
         >
-          <div class="relative flex-1 overflow-hidden">
-            <div class="absolute inset-0" :style="{ background: `linear-gradient(135deg, ${g.bg[0]}, ${g.bg[1]})` }" />
-            <img :src="g.imageUrl" class="absolute inset-0 w-full h-full object-cover" />
-          </div>
-          <div class="flex-shrink-0 bg-[#111827] px-2 py-1.5">
-            <span
-              class="text-[7px] font-black px-1.5 py-0.5 rounded-full leading-none inline-block mb-0.5"
-              :style="{ background: g.tagBg, color: g.tagFg }"
-            >{{ g.tag }}</span>
-            <p class="text-white font-black text-[11px] leading-tight truncate">{{ g.name }}</p>
-            <p class="text-white/40 text-[9px]">{{ g.provider }}</p>
-          </div>
+          <GameImageCard
+            :image-url="g.imageUrl"
+            :fallback-bg="g.bg"
+            :name="g.name"
+            :provider="g.provider"
+            :tag="g.tag"
+            :tag-bg="g.tagBg"
+            :tag-fg="g.tagFg"
+          />
         </button>
       </div>
     </div>
