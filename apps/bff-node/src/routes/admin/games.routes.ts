@@ -1,6 +1,7 @@
 import Router from '@koa/router'
 import { listAdminGames, toggleAdminGame, writeAuditLog } from '../../services/admin-store.js'
 import { syncAllGames, loadGamesCache, refreshHomepageSelection } from '../../services/sg-game.service.js'
+
 import { isMysqlEnabled } from '../../clients/mysql.client.js'
 import { ok, fail } from '../../utils/response.js'
 
@@ -40,6 +41,7 @@ router.patch('/:uuid/toggle', async (ctx) => {
     fail(ctx, 400, 'isActive must be boolean'); return
   }
   await toggleAdminGame(ctx.state.env, ctx.params.uuid, body.isActive)
+  await loadGamesCache(ctx.state.env)
   await writeAuditLog(ctx.state.env, {
     adminId: ctx.state.adminId!,
     adminUsername: ctx.state.adminUsername!,

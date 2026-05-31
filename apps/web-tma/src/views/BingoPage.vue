@@ -9,23 +9,23 @@ import { fetchGames, launchGame, type SlotGame } from '@/api/slots'
 import { useAuthStore } from '@/stores/auth'
 import { ApiError } from '@/api/client'
 
-const emit = defineEmits<{ openWallet: []; gameTap: []; openGame: [url: string] }>()
+const emit = defineEmits<{
+  openWallet: []
+  gameTap: []
+  openGame: [url: string]
+  openCategoryLobby: [params: { title: string; sortCategory?: string }]
+}>()
 const { t } = useI18n()
 const auth = useAuthStore()
 const { isLoggedIn } = storeToRefs(auth)
 
 const bingoGames = ref<SlotGame[]>([])
 const launchingUuid = ref<string | null>(null)
-const morePinoyExpanded = ref(false)
 
 const heroGame = computed(() => bingoGames.value[0] ?? null)
 const subGames = computed(() => bingoGames.value.slice(1, 5))
 const marqueeWinners = computed(() => [...PERYA_WINNERS, ...PERYA_WINNERS])
 
-const MORE_PINOY_PREVIEW_COUNT = 6
-const morePinoyVisible = computed(() =>
-  morePinoyExpanded.value ? MORE_PINOY_GAMES : MORE_PINOY_GAMES.slice(0, MORE_PINOY_PREVIEW_COUNT),
-)
 
 // 按厂商分配渐变兜底色（无封面图时）
 const providerGradient: Record<string, string> = {
@@ -207,34 +207,31 @@ onMounted(async () => {
       </div>
     </div>
 
-    <!-- ── PERYA CLASSICS ── -->
-    <div class="px-4 mt-6">
-      <div class="flex items-center gap-2 mb-3">
+    <!-- ── PERYA CLASSICS（横向滚动一行） ── -->
+    <div class="mt-6">
+      <div class="flex items-center gap-2 mb-3 px-4">
         <span class="text-base">🎡</span>
         <h2 class="text-white font-black text-base font-display">PERYA CLASSICS</h2>
       </div>
-      <div class="grid grid-cols-3 gap-2.5">
+      <div class="flex gap-2.5 overflow-x-auto px-4 pb-2 scrollbar-hide snap-x snap-mandatory">
         <button
           v-for="g in PINOY_CLASSICS"
           :key="g.uuid"
           type="button"
-          class="relative rounded-2xl overflow-hidden h-28 text-left active:scale-95 transition-transform flex flex-col"
+          class="flex-shrink-0 w-[30vw] min-w-[108px] rounded-2xl overflow-hidden text-left active:scale-95 transition-transform flex flex-col snap-start"
+          style="height: 112px"
           :disabled="launchingUuid === g.uuid"
           @click="onPlayGame(g.uuid)"
         >
-          <!-- 上半：图片 -->
           <div class="relative flex-1 overflow-hidden">
             <div class="absolute inset-0" :style="{ background: `linear-gradient(135deg, ${g.bg[0]}, ${g.bg[1]})` }" />
             <img :src="g.imageUrl" class="absolute inset-0 w-full h-full object-cover" />
           </div>
-          <!-- 下半：信息栏 -->
           <div class="flex-shrink-0 bg-[#111827] px-2 py-1.5">
-            <div class="flex items-center gap-1 mb-0.5">
-              <span
-                class="text-[7px] font-black px-1.5 py-0.5 rounded-full leading-none"
-                :style="{ background: g.tagBg, color: g.tagFg }"
-              >{{ g.tag }}</span>
-            </div>
+            <span
+              class="text-[7px] font-black px-1.5 py-0.5 rounded-full leading-none inline-block mb-0.5"
+              :style="{ background: g.tagBg, color: g.tagFg }"
+            >{{ g.tag }}</span>
             <p class="text-white font-black text-[11px] leading-tight truncate">{{ g.name }}</p>
             <p class="text-white/40 text-[9px]">{{ g.provider }}</p>
           </div>
@@ -242,29 +239,29 @@ onMounted(async () => {
       </div>
     </div>
 
-    <!-- ── MORE PINOY GAMES ── -->
-    <div class="px-4 mt-6">
-      <div class="flex items-center justify-between mb-3">
+    <!-- ── MORE PINOY GAMES（横向滚动一行 + See All） ── -->
+    <div class="mt-6">
+      <div class="flex items-center justify-between mb-3 px-4">
         <div class="flex items-center gap-2">
           <span class="text-base">🐓</span>
           <h2 class="text-white font-black text-base font-display">MORE PINOY GAMES</h2>
         </div>
         <button
-          v-if="!morePinoyExpanded"
           type="button"
           class="flex items-center gap-0.5 text-primary text-xs font-black"
-          @click="morePinoyExpanded = true"
+          @click="emit('openCategoryLobby', { title: '🇵🇭 All Pinoy Games', sortCategory: 'pinoy' })"
         >
           SEE ALL
           <ChevronRight :size="14" />
         </button>
       </div>
-      <div class="grid grid-cols-3 gap-2.5">
+      <div class="flex gap-2.5 overflow-x-auto px-4 pb-2 scrollbar-hide snap-x snap-mandatory">
         <button
-          v-for="g in morePinoyVisible"
+          v-for="g in MORE_PINOY_GAMES"
           :key="g.uuid"
           type="button"
-          class="relative rounded-2xl overflow-hidden h-28 text-left active:scale-95 transition-transform flex flex-col"
+          class="flex-shrink-0 w-[30vw] min-w-[108px] rounded-2xl overflow-hidden text-left active:scale-95 transition-transform flex flex-col snap-start"
+          style="height: 112px"
           :disabled="launchingUuid === g.uuid"
           @click="onPlayGame(g.uuid)"
         >
@@ -273,12 +270,10 @@ onMounted(async () => {
             <img :src="g.imageUrl" class="absolute inset-0 w-full h-full object-cover" />
           </div>
           <div class="flex-shrink-0 bg-[#111827] px-2 py-1.5">
-            <div class="flex items-center gap-1 mb-0.5">
-              <span
-                class="text-[7px] font-black px-1.5 py-0.5 rounded-full leading-none"
-                :style="{ background: g.tagBg, color: g.tagFg }"
-              >{{ g.tag }}</span>
-            </div>
+            <span
+              class="text-[7px] font-black px-1.5 py-0.5 rounded-full leading-none inline-block mb-0.5"
+              :style="{ background: g.tagBg, color: g.tagFg }"
+            >{{ g.tag }}</span>
             <p class="text-white font-black text-[11px] leading-tight truncate">{{ g.name }}</p>
             <p class="text-white/40 text-[9px]">{{ g.provider }}</p>
           </div>

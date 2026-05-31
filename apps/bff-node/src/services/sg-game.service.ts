@@ -129,7 +129,18 @@ export async function loadGamesCache(env: Env): Promise<number> {
     `SELECT uuid, name, provider, category, sub_category, sort_category,
             image_url, image_hq_url, has_demo, has_lobby, is_mobile,
             weight, ph_bonus, is_featured, theme, game_style, player_type
-     FROM sg_games WHERE is_active = 1`,
+     FROM sg_games g
+     WHERE is_active = 1
+       AND NOT (
+         g.is_mobile = 0
+         AND EXISTS (
+           SELECT 1 FROM sg_games g2
+           WHERE g2.provider = g.provider
+             AND g2.name = CONCAT(g.name, ' Mobile')
+             AND g2.is_mobile = 1
+             AND g2.is_active = 1
+         )
+       )`,
   )
   const games = (rows as RowDataPacket[]).map(rowToDbGame)
   await redis.set(GAMES_CACHE_KEY, JSON.stringify(games), 'EX', GAMES_CACHE_TTL)
