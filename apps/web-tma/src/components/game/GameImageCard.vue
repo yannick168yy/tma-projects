@@ -14,6 +14,8 @@ const props = defineProps<{
    * split  — 上图下渐变信息栏，canvas 提取色（默认，SIGNATURE GAMES 小卡）
    */
   variant?: 'mirror' | 'split'
+  /** object-position，默认 center，传 'top' 可让游戏图标顶部对齐 */
+  imagePosition?: 'center' | 'top' | 'bottom'
 }>()
 
 // split 模式：canvas 提取图片底部色用于信息栏渐变
@@ -65,7 +67,7 @@ const tagStyle = computed(() =>
       class="relative flex-1 overflow-hidden"
       :style="{ background: `linear-gradient(135deg, ${fallbackBg[0]}, ${fallbackBg[1]})` }"
     >
-      <img v-if="imageUrl" :src="imageUrl" class="absolute inset-0 w-full h-full object-cover" />
+      <img v-if="imageUrl" :src="imageUrl" class="absolute inset-0 w-full h-full object-cover" :style="{ objectPosition: imagePosition ?? 'center' }" />
       <slot />
     </div>
     <div class="flex-shrink-0 relative overflow-hidden px-2.5 pt-2 pb-2.5">
@@ -73,7 +75,7 @@ const tagStyle = computed(() =>
       <div v-else class="absolute inset-0" :style="{ background: fallbackBg[0] }" />
       <div class="relative z-10">
         <span v-if="tag" class="text-[7px] font-black px-1.5 py-[2px] rounded-full leading-none inline-block mb-1.5" :style="tagStyle">{{ tag }}</span>
-        <p class="text-white font-black text-[15px] leading-tight truncate">{{ name }}</p>
+        <p class="text-white font-black text-[15px] leading-tight line-clamp-2 min-h-[2.5em]">{{ name }}</p>
         <p class="text-white/60 text-[10px] mt-0.5">{{ provider }}</p>
       </div>
     </div>
@@ -96,7 +98,7 @@ const tagStyle = computed(() =>
     </div>
     <div class="flex-shrink-0 px-2 pt-1.5 pb-2" :style="{ background: barGradient }">
       <span v-if="tag" class="text-[7px] font-black px-1.5 py-[2px] rounded-full leading-none inline-block mb-1" :style="tagStyle">{{ tag }}</span>
-      <p class="text-white font-black text-[11px] leading-tight truncate">{{ name }}</p>
+      <p class="text-white font-black text-[11px] leading-tight line-clamp-2 min-h-[2.5em]">{{ name }}</p>
       <p class="text-white/50 text-[9px] mt-px">{{ provider }}</p>
     </div>
   </div>

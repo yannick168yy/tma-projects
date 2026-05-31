@@ -15,6 +15,7 @@ const emit = defineEmits<{ tap: [] }>()
   >
     <GameImageCard
       variant="mirror"
+      image-position="top"
       :image-url="game.imageHqUrl ?? game.imageUrl"
       :fallback-bg="['#1e1b4b', '#312e81']"
       :name="game.name"
