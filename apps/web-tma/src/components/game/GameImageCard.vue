@@ -10,19 +10,16 @@ const props = defineProps<{
   tagBg?: string
   tagFg?: string
   /**
-   * split   — 上图下渐变信息栏（默认，Bingo/Perya 页）
-   * mirror  — 图片完整展示 + 底栏用同张图镜像模糊模拟毛玻璃（Popular/Slot/Fishing）
-   * glass   — 磨砂玻璃叠层（Live）
-   * block / overlay / glass-a / glass-b / glass-c / hard — 历史方案，保留备用
+   * mirror — 图片完整展示 + 底栏镜像模糊毛玻璃（首页 / Bingo 页）
+   * split  — 上图下渐变信息栏，canvas 提取色（默认，SIGNATURE GAMES 小卡）
    */
-  variant?: 'split' | 'mirror' | 'glass' | 'block' | 'overlay' | 'glass-a' | 'glass-b' | 'glass-c' | 'hard'
+  variant?: 'mirror' | 'split'
 }>()
 
-// split / glass-b 模式：从图片底部提取色
+// split 模式：canvas 提取图片底部色用于信息栏渐变
 const extractedColor = ref<string | null>(null)
 function onImageLoad(e: Event) {
-  const v = props.variant
-  if (v && v !== 'split' && v !== 'glass-b') return
+  if (props.variant === 'mirror') return
   const img = e.target as HTMLImageElement
   try {
     const canvas = document.createElement('canvas')
@@ -46,14 +43,6 @@ const barGradient = computed(() => {
   return `linear-gradient(to bottom, ${from}, #07090f)`
 })
 
-// glass-b 底栏：提取色半透明，呈现自然玻璃色调
-const glassBBg = computed(() => {
-  const base = extractedColor.value ?? props.fallbackBg[0]
-  return `linear-gradient(to bottom, ${base}cc, ${base}f0)`
-})
-
-const accentColor = computed(() => props.tagBg ?? '#FFB800')
-
 const mirrorBgStyle = computed(() => ({
   inset: '-10px',
   backgroundImage: `url("${props.imageUrl}")`,
@@ -61,18 +50,17 @@ const mirrorBgStyle = computed(() => ({
   backgroundPosition: 'center bottom',
   filter: 'blur(14px) brightness(0.48) saturate(1.4)',
 }))
+
 const tagStyle = computed(() =>
   props.tagBg
     ? { background: props.tagBg, color: props.tagFg ?? '#fff' }
     : { background: 'rgba(255,255,255,0.2)', color: '#fff' }
 )
-
 </script>
 
 <template>
-  <!-- ── mirror：图片完整 + 底栏镜像模糊 ── -->
+  <!-- ── mirror：图片完整展示 + 底栏镜像模糊毛玻璃 ── -->
   <div v-if="variant === 'mirror'" class="flex flex-col h-full w-full overflow-hidden">
-    <!-- 上层：完整图片，不被任何元素遮挡 -->
     <div
       class="relative flex-1 overflow-hidden"
       :style="{ background: `linear-gradient(135deg, ${fallbackBg[0]}, ${fallbackBg[1]})` }"
@@ -80,16 +68,9 @@ const tagStyle = computed(() =>
       <img v-if="imageUrl" :src="imageUrl" class="absolute inset-0 w-full h-full object-cover" />
       <slot />
     </div>
-    <!-- 下层：同张图的 CSS background-image，模糊后模拟毛玻璃 -->
     <div class="flex-shrink-0 relative overflow-hidden px-2.5 pt-2 pb-2.5">
-      <!-- 镜像模糊背景（inset 负值防止 blur 边缘漏白，全部属性合并进 :style 避免 Vue 合并问题） -->
-      <div
-        v-if="imageUrl"
-        class="absolute"
-        :style="mirrorBgStyle"
-      />
+      <div v-if="imageUrl" class="absolute" :style="mirrorBgStyle" />
       <div v-else class="absolute inset-0" :style="{ background: fallbackBg[0] }" />
-      <!-- 文字 -->
       <div class="relative z-10">
         <span v-if="tag" class="text-[7px] font-black px-1.5 py-[2px] rounded-full leading-none inline-block mb-1.5" :style="tagStyle">{{ tag }}</span>
         <p class="text-white font-black text-[15px] leading-tight truncate">{{ name }}</p>
@@ -98,21 +79,8 @@ const tagStyle = computed(() =>
     </div>
   </div>
 
-  <!-- ── glass-a：叠层玻璃 + object-top（解法A） ── -->
-  <div v-if="variant === 'glass-a'" class="relative h-full w-full overflow-hidden">
-    <div class="absolute inset-0" :style="{ background: `linear-gradient(135deg, ${fallbackBg[0]}, ${fallbackBg[1]})` }" />
-    <img v-if="imageUrl" :src="imageUrl" class="absolute inset-0 w-full h-full object-cover object-top" />
-    <slot />
-    <div class="absolute inset-x-0 bottom-0 px-2.5 pt-2 pb-2.5 backdrop-blur-[10px] saturate-150 bg-black/60">
-      <span v-if="tag" class="text-[7px] font-black px-1.5 py-[2px] rounded-full leading-none inline-block mb-1.5" :style="tagStyle">{{ tag }}</span>
-      <p class="text-white font-black text-[15px] leading-tight truncate">{{ name }}</p>
-      <p class="text-white/55 text-[10px] mt-0.5">{{ provider }}</p>
-    </div>
-  </div>
-
-  <!-- ── glass-b：图片完整展示 + 色彩玻璃底栏（解法B） ── -->
-  <div v-else-if="variant === 'glass-b'" class="flex flex-col h-full w-full overflow-hidden">
-    <!-- 图片区：完整展示，不被遮挡 -->
+  <!-- ── split（默认）：上图下渐变信息栏 ── -->
+  <div v-else class="flex flex-col h-full w-full overflow-hidden">
     <div
       class="relative flex-1 overflow-hidden"
       :style="{ background: `linear-gradient(135deg, ${fallbackBg[0]}, ${fallbackBg[1]})` }"
@@ -124,87 +92,6 @@ const tagStyle = computed(() =>
         class="absolute inset-0 w-full h-full object-cover"
         @load="onImageLoad"
       />
-      <slot />
-    </div>
-    <!-- 底栏：提取色玻璃质感（无 backdrop-blur，图片在上方不重叠） -->
-    <div
-      class="flex-shrink-0 px-2.5 pt-2 pb-2.5 border-t border-white/10"
-      :style="{ background: glassBBg }"
-    >
-      <span v-if="tag" class="text-[7px] font-black px-1.5 py-[2px] rounded-full leading-none inline-block mb-1.5" :style="tagStyle">{{ tag }}</span>
-      <p class="text-white font-black text-[15px] leading-tight truncate">{{ name }}</p>
-      <p class="text-white/55 text-[10px] mt-0.5">{{ provider }}</p>
-    </div>
-  </div>
-
-  <!-- ── glass-c：叠层玻璃 + object-position偏上20%（解法C） ── -->
-  <div v-else-if="variant === 'glass-c'" class="relative h-full w-full overflow-hidden">
-    <div class="absolute inset-0" :style="{ background: `linear-gradient(135deg, ${fallbackBg[0]}, ${fallbackBg[1]})` }" />
-    <img v-if="imageUrl" :src="imageUrl" class="absolute inset-0 w-full h-full object-cover" style="object-position: center 20%" />
-    <slot />
-    <div class="absolute inset-x-0 bottom-0 px-2.5 pt-2 pb-2.5 backdrop-blur-[10px] saturate-150 bg-black/60">
-      <span v-if="tag" class="text-[7px] font-black px-1.5 py-[2px] rounded-full leading-none inline-block mb-1.5" :style="tagStyle">{{ tag }}</span>
-      <p class="text-white font-black text-[15px] leading-tight truncate">{{ name }}</p>
-      <p class="text-white/55 text-[10px] mt-0.5">{{ provider }}</p>
-    </div>
-  </div>
-
-  <!-- ── block：纯色底块 + 彩色分割线 ── -->
-  <div v-else-if="variant === 'block'" class="flex flex-col h-full w-full overflow-hidden">
-    <div class="relative flex-1 overflow-hidden" :style="{ background: `linear-gradient(135deg, ${fallbackBg[0]}, ${fallbackBg[1]})` }">
-      <img v-if="imageUrl" :src="imageUrl" class="absolute inset-0 w-full h-full object-cover" />
-      <slot />
-    </div>
-    <div class="flex-shrink-0 h-[2.5px]" :style="{ background: accentColor }" />
-    <div class="flex-shrink-0 px-2.5 pt-2 pb-2.5" style="background: rgba(8,10,18,0.96)">
-      <span v-if="tag" class="text-[7px] font-black px-1.5 py-[2px] rounded-full leading-none inline-block mb-1.5" :style="tagStyle">{{ tag }}</span>
-      <p class="text-white font-black text-[15px] leading-tight truncate">{{ name }}</p>
-      <p class="text-white/55 text-[10px] mt-0.5">{{ provider }}</p>
-    </div>
-  </div>
-
-  <!-- ── overlay：超强渐变 + 文字重阴影 ── -->
-  <div v-else-if="variant === 'overlay'" class="relative h-full w-full overflow-hidden">
-    <div class="absolute inset-0" :style="{ background: `linear-gradient(135deg, ${fallbackBg[0]}, ${fallbackBg[1]})` }" />
-    <img v-if="imageUrl" :src="imageUrl" class="absolute inset-0 w-full h-full object-cover" />
-    <div class="absolute inset-x-0 bottom-0 h-[58%] bg-gradient-to-t from-black/95 via-black/60 to-transparent" />
-    <slot />
-    <div class="absolute inset-x-0 bottom-0 px-2.5 pb-2.5">
-      <span v-if="tag" class="text-[7px] font-black px-1.5 py-[2px] rounded-full leading-none inline-block mb-1.5" :style="tagStyle">{{ tag }}</span>
-      <p class="text-white font-black text-[15px] leading-tight truncate" style="text-shadow: 0 2px 12px rgba(0,0,0,1), 0 0 4px rgba(0,0,0,0.8)">{{ name }}</p>
-      <p class="text-white/60 text-[10px] mt-0.5" style="text-shadow: 0 1px 6px rgba(0,0,0,1)">{{ provider }}</p>
-    </div>
-  </div>
-
-  <!-- ── glass：磨砂玻璃叠层（Live，object-center，原版） ── -->
-  <div v-else-if="variant === 'glass'" class="relative h-full w-full overflow-hidden">
-    <div class="absolute inset-0" :style="{ background: `linear-gradient(135deg, ${fallbackBg[0]}, ${fallbackBg[1]})` }" />
-    <img v-if="imageUrl" :src="imageUrl" class="absolute inset-0 w-full h-full object-cover" />
-    <slot />
-    <div class="absolute inset-x-0 bottom-0 px-2.5 pt-2 pb-2.5 backdrop-blur-[10px] saturate-150 bg-black/60">
-      <span v-if="tag" class="text-[7px] font-black px-1.5 py-[2px] rounded-full leading-none inline-block mb-1.5" :style="tagStyle">{{ tag }}</span>
-      <p class="text-white font-black text-[15px] leading-tight truncate">{{ name }}</p>
-      <p class="text-white/55 text-[10px] mt-0.5">{{ provider }}</p>
-    </div>
-  </div>
-
-  <!-- ── hard：硬切分割 ── -->
-  <div v-else-if="variant === 'hard'" class="flex flex-col h-full w-full overflow-hidden">
-    <div class="relative overflow-hidden" style="height: 62%" :style="{ background: `linear-gradient(135deg, ${fallbackBg[0]}, ${fallbackBg[1]})` }">
-      <img v-if="imageUrl" :src="imageUrl" class="absolute inset-0 w-full h-full object-cover" />
-      <slot />
-    </div>
-    <div class="flex-1 flex flex-col justify-center px-2.5 py-2" style="background: #0d1117">
-      <span v-if="tag" class="text-[7px] font-black px-1.5 py-[2px] rounded-full leading-none inline-block mb-1.5" :style="tagStyle">{{ tag }}</span>
-      <p class="text-white font-black text-[15px] leading-tight truncate">{{ name }}</p>
-      <p class="text-white/55 text-[10px] mt-0.5">{{ provider }}</p>
-    </div>
-  </div>
-
-  <!-- ── split：上图下渐变信息栏（默认，Bingo/Perya 页） ── -->
-  <div v-else class="flex flex-col h-full w-full overflow-hidden">
-    <div class="relative flex-1 overflow-hidden" :style="{ background: `linear-gradient(135deg, ${fallbackBg[0]}, ${fallbackBg[1]})` }">
-      <img v-if="imageUrl" :src="imageUrl" crossorigin="anonymous" class="absolute inset-0 w-full h-full object-cover" @load="onImageLoad" />
       <slot />
     </div>
     <div class="flex-shrink-0 px-2 pt-1.5 pb-2" :style="{ background: barGradient }">
