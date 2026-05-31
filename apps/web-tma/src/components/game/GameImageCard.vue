@@ -11,15 +11,11 @@ const props = defineProps<{
   tagFg?: string
   /**
    * split   — 上图下渐变信息栏（默认，Bingo/Perya 页）
-   * block   — 纯色底块 + 彩色分割线
-   * overlay — 超强渐变 + 文字重阴影
-   * glass   — 磨砂玻璃叠层（Live，object-center）
-   * glass-a — 磨砂玻璃 + object-top（Popular，解法A）
-   * glass-b — 图片完整展示 + 色彩玻璃底栏（Slot，解法B）
-   * glass-c — 磨砂玻璃 + object-position偏上（Fishing，解法C）
-   * hard    — 硬切分割
+   * mirror  — 图片完整展示 + 底栏用同张图镜像模糊模拟毛玻璃（Popular/Slot/Fishing）
+   * glass   — 磨砂玻璃叠层（Live）
+   * block / overlay / glass-a / glass-b / glass-c / hard — 历史方案，保留备用
    */
-  variant?: 'split' | 'block' | 'overlay' | 'glass' | 'glass-a' | 'glass-b' | 'glass-c' | 'hard'
+  variant?: 'split' | 'mirror' | 'glass' | 'block' | 'overlay' | 'glass-a' | 'glass-b' | 'glass-c' | 'hard'
 }>()
 
 // split / glass-b 模式：从图片底部提取色
@@ -66,6 +62,35 @@ const tagStyle = computed(() =>
 </script>
 
 <template>
+  <!-- ── mirror：图片完整 + 底栏镜像模糊 ── -->
+  <div v-if="variant === 'mirror'" class="flex flex-col h-full w-full overflow-hidden">
+    <!-- 上层：完整图片，不被任何元素遮挡 -->
+    <div
+      class="relative flex-1 overflow-hidden"
+      :style="{ background: `linear-gradient(135deg, ${fallbackBg[0]}, ${fallbackBg[1]})` }"
+    >
+      <img v-if="imageUrl" :src="imageUrl" class="absolute inset-0 w-full h-full object-cover" />
+      <slot />
+    </div>
+    <!-- 下层：同张图的 CSS background-image，模糊后模拟毛玻璃 -->
+    <div class="flex-shrink-0 relative overflow-hidden px-2.5 pt-2 pb-2.5">
+      <!-- 镜像模糊背景（inset 负值防止 blur 边缘漏白） -->
+      <div
+        v-if="imageUrl"
+        class="absolute"
+        style="inset: -10px; background-size: cover; background-position: center bottom; filter: blur(14px) brightness(0.48) saturate(1.4)"
+        :style="{ backgroundImage: `url(${imageUrl})` }"
+      />
+      <div v-else class="absolute inset-0" :style="{ background: fallbackBg[0] }" />
+      <!-- 文字 -->
+      <div class="relative z-10">
+        <span v-if="tag" class="text-[7px] font-black px-1.5 py-[2px] rounded-full leading-none inline-block mb-1.5" :style="tagStyle">{{ tag }}</span>
+        <p class="text-white font-black text-[15px] leading-tight truncate">{{ name }}</p>
+        <p class="text-white/60 text-[10px] mt-0.5">{{ provider }}</p>
+      </div>
+    </div>
+  </div>
+
   <!-- ── glass-a：叠层玻璃 + object-top（解法A） ── -->
   <div v-if="variant === 'glass-a'" class="relative h-full w-full overflow-hidden">
     <div class="absolute inset-0" :style="{ background: `linear-gradient(135deg, ${fallbackBg[0]}, ${fallbackBg[1]})` }" />
