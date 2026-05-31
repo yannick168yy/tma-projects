@@ -53,7 +53,7 @@ const barGradient = computed(() => {
 
 <template>
   <div class="flex flex-col h-full w-full overflow-hidden">
-    <!-- 图片区 -->
+    <!-- 图片区（slot 供外部插入徽章、浮层按钮等） -->
     <div
       class="relative flex-1 overflow-hidden"
       :style="{ background: `linear-gradient(135deg, ${fallbackBg[0]}, ${fallbackBg[1]})` }"
@@ -65,6 +65,7 @@ const barGradient = computed(() => {
         class="absolute inset-0 w-full h-full object-cover"
         @load="onImageLoad"
       />
+      <slot />
     </div>
 
     <!-- 渐变信息栏 -->
