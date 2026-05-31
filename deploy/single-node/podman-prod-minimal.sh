@@ -184,6 +184,7 @@ run build -t tma-web-tma:latest \
 run run -d --name tma-web-tma --network "$NET" --restart=always \
   --memory=64m --memory-swap=64m \
   -p "${PORT}:80" \
+  -v "$(pwd)/apps/web-tma/dist:/usr/share/nginx/html:ro" \
   tma-web-tma:latest
 
 echo "==> [${CTR}] web-admin (limit 64m)"
