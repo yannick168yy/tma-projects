@@ -430,11 +430,11 @@ onMounted(async () => {
           <h3 class="text-foreground font-black text-sm font-display">{{ t('home.popularGames') }}</h3>
         </div>
         <div class="flex items-center gap-2">
+          <button type="button" class="text-primary text-xs font-bold flex items-center gap-0.5" @click="emit('openCategoryLobby', { sortBy: 'ph_bonus', title: t('home.popularGames') })">{{ t('common.seeAll') }}<ChevronRight :size="12" /></button>
           <div class="flex items-center gap-0.5">
             <button type="button" class="w-6 h-6 flex items-center justify-center rounded-full bg-secondary text-muted-foreground active:scale-90 transition-transform" @click="scrollRow(popularScroll, -1)"><ChevronLeft :size="13" /></button>
             <button type="button" class="w-6 h-6 flex items-center justify-center rounded-full bg-secondary text-muted-foreground active:scale-90 transition-transform" @click="scrollRow(popularScroll, 1)"><ChevronRight :size="13" /></button>
           </div>
-          <button type="button" class="text-primary text-xs font-bold flex items-center gap-0.5" @click="emit('openCategoryLobby', { sortBy: 'ph_bonus', title: t('home.popularGames') })">{{ t('common.seeAll') }}<ChevronRight :size="12" /></button>
         </div>
       </div>
       <div v-if="gamesLoading" class="flex gap-3 px-4">
@@ -456,11 +456,11 @@ onMounted(async () => {
           <span class="bg-violet-500/20 text-violet-300 text-[10px] font-bold px-2 py-0.5 rounded-full">{{ t('common.featured') }}</span>
         </div>
         <div class="flex items-center gap-2">
+          <button type="button" class="text-primary text-xs font-bold flex items-center gap-0.5" @click="emit('openCategoryLobby', { sortCategory: 'slots', sortBy: 'weight', title: t('home.egamesZone') })">{{ t('common.seeAll') }}<ChevronRight :size="12" /></button>
           <div class="flex items-center gap-0.5">
             <button type="button" class="w-6 h-6 flex items-center justify-center rounded-full bg-secondary text-muted-foreground active:scale-90 transition-transform" @click="scrollRow(slotsScroll, -1)"><ChevronLeft :size="13" /></button>
             <button type="button" class="w-6 h-6 flex items-center justify-center rounded-full bg-secondary text-muted-foreground active:scale-90 transition-transform" @click="scrollRow(slotsScroll, 1)"><ChevronRight :size="13" /></button>
           </div>
-          <button type="button" class="text-primary text-xs font-bold flex items-center gap-0.5" @click="emit('openCategoryLobby', { sortCategory: 'slots', sortBy: 'weight', title: t('home.egamesZone') })">{{ t('common.seeAll') }}<ChevronRight :size="12" /></button>
         </div>
       </div>
       <div v-if="gamesLoading" class="flex gap-3 px-4">
@@ -479,11 +479,11 @@ onMounted(async () => {
           <h3 class="text-foreground font-black text-sm font-display">{{ t('home.liveGames') }}</h3>
         </div>
         <div class="flex items-center gap-2">
+          <button type="button" class="text-primary text-xs font-bold flex items-center gap-0.5" @click="emit('openCategoryLobby', { sortCategory: 'live', sortBy: 'weight', title: t('home.liveGames') })">{{ t('common.seeAll') }}<ChevronRight :size="12" /></button>
           <div class="flex items-center gap-0.5">
             <button type="button" class="w-6 h-6 flex items-center justify-center rounded-full bg-secondary text-muted-foreground active:scale-90 transition-transform" @click="scrollRow(liveScroll, -1)"><ChevronLeft :size="13" /></button>
             <button type="button" class="w-6 h-6 flex items-center justify-center rounded-full bg-secondary text-muted-foreground active:scale-90 transition-transform" @click="scrollRow(liveScroll, 1)"><ChevronRight :size="13" /></button>
           </div>
-          <button type="button" class="text-primary text-xs font-bold flex items-center gap-0.5" @click="emit('openCategoryLobby', { sortCategory: 'live', sortBy: 'weight', title: t('home.liveGames') })">{{ t('common.seeAll') }}<ChevronRight :size="12" /></button>
         </div>
       </div>
       <div v-if="gamesLoading" class="flex gap-3 px-4">
@@ -502,11 +502,11 @@ onMounted(async () => {
           <h3 class="text-foreground font-black text-sm font-display">{{ t('home.fishingZone') }}</h3>
         </div>
         <div class="flex items-center gap-2">
+          <button type="button" class="text-primary text-xs font-bold flex items-center gap-0.5" @click="emit('openCategoryLobby', { sortCategory: 'fishing', sortBy: 'weight', title: t('home.fishingZone') })">{{ t('common.seeAll') }}<ChevronRight :size="12" /></button>
           <div class="flex items-center gap-0.5">
             <button type="button" class="w-6 h-6 flex items-center justify-center rounded-full bg-secondary text-muted-foreground active:scale-90 transition-transform" @click="scrollRow(fishingScroll, -1)"><ChevronLeft :size="13" /></button>
             <button type="button" class="w-6 h-6 flex items-center justify-center rounded-full bg-secondary text-muted-foreground active:scale-90 transition-transform" @click="scrollRow(fishingScroll, 1)"><ChevronRight :size="13" /></button>
           </div>
-          <button type="button" class="text-primary text-xs font-bold flex items-center gap-0.5" @click="emit('openCategoryLobby', { sortCategory: 'fishing', sortBy: 'weight', title: t('home.fishingZone') })">{{ t('common.seeAll') }}<ChevronRight :size="12" /></button>
         </div>
       </div>
       <div v-if="gamesLoading" class="flex gap-3 px-4">
@@ -525,11 +525,11 @@ onMounted(async () => {
           <h3 class="text-foreground font-black text-sm font-display">{{ t('home.tableZone') }}</h3>
         </div>
         <div class="flex items-center gap-2">
+          <button type="button" class="text-primary text-xs font-bold flex items-center gap-0.5" @click="emit('openCategoryLobby', { sortCategory: 'table', sortBy: 'weight', title: t('home.tableZone') })">{{ t('common.seeAll') }}<ChevronRight :size="12" /></button>
           <div class="flex items-center gap-0.5">
             <button type="button" class="w-6 h-6 flex items-center justify-center rounded-full bg-secondary text-muted-foreground active:scale-90 transition-transform" @click="scrollRow(tableCrashScroll, -1)"><ChevronLeft :size="13" /></button>
             <button type="button" class="w-6 h-6 flex items-center justify-center rounded-full bg-secondary text-muted-foreground active:scale-90 transition-transform" @click="scrollRow(tableCrashScroll, 1)"><ChevronRight :size="13" /></button>
           </div>
-          <button type="button" class="text-primary text-xs font-bold flex items-center gap-0.5" @click="emit('openCategoryLobby', { sortCategory: 'table', sortBy: 'weight', title: t('home.tableZone') })">{{ t('common.seeAll') }}<ChevronRight :size="12" /></button>
         </div>
       </div>
       <div v-if="gamesLoading" class="flex gap-3 px-4">

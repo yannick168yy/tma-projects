@@ -246,11 +246,11 @@ onMounted(async () => {
           <h2 class="text-white font-black text-base font-display">MORE PINOY GAMES</h2>
         </div>
         <div class="flex items-center gap-2">
+          <button type="button" class="flex items-center gap-0.5 text-primary text-xs font-black" @click="emit('openCategoryLobby', { title: '🇵🇭 All Pinoy Games', sortCategory: 'pinoy' })">SEE ALL<ChevronRight :size="14" /></button>
           <div class="flex items-center gap-0.5">
             <button type="button" class="w-6 h-6 flex items-center justify-center rounded-full bg-white/10 text-white/60 active:scale-90 transition-transform" @click="scrollRow(moreScroll, -1)"><ChevronLeft :size="13" /></button>
             <button type="button" class="w-6 h-6 flex items-center justify-center rounded-full bg-white/10 text-white/60 active:scale-90 transition-transform" @click="scrollRow(moreScroll, 1)"><ChevronRight :size="13" /></button>
           </div>
-          <button type="button" class="flex items-center gap-0.5 text-primary text-xs font-black" @click="emit('openCategoryLobby', { title: '🇵🇭 All Pinoy Games', sortCategory: 'pinoy' })">SEE ALL<ChevronRight :size="14" /></button>
         </div>
       </div>
       <div ref="moreScroll" class="flex gap-2.5 overflow-x-auto px-4 pb-2 scrollbar-hide snap-x snap-mandatory">
