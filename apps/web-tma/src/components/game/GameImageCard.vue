@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, type CSSProperties } from 'vue'
 
 const props = defineProps<{
   imageUrl: string | null
@@ -57,18 +57,17 @@ const tagStyle = computed(() =>
     : { background: 'rgba(255,255,255,0.2)', color: '#fff' }
 )
 
-const mirrorNameClass = computed(() => {
+// 字号用 style 内联绑定（规避 Tailwind JIT 不扫描动态拼接 class 的问题）
+const mirrorNameStyle = computed((): CSSProperties => {
   const len = props.name.length
-  if (len <= 11) return 'text-[15px] leading-tight truncate'
-  if (len <= 18) return 'text-[12px] leading-tight truncate'
-  return 'text-[11px] leading-tight line-clamp-2'
+  return { fontSize: len <= 11 ? '15px' : len <= 18 ? '12px' : '11px', lineHeight: '1.25' }
 })
+const mirrorNameClamp = computed(() => props.name.length > 18)
 
-const splitNameClass = computed(() => {
-  const len = props.name.length
-  if (len <= 14) return 'text-[11px] leading-tight truncate'
-  return 'text-[9px] leading-tight truncate'
-})
+const splitNameStyle = computed((): CSSProperties => ({
+  fontSize: props.name.length <= 14 ? '11px' : '9px',
+  lineHeight: '1.25',
+}))
 </script>
 
 <template>
@@ -86,7 +85,11 @@ const splitNameClass = computed(() => {
       <div v-else class="absolute inset-0" :style="{ background: fallbackBg[0] }" />
       <div class="relative z-10">
         <span v-if="tag" class="text-[7px] font-black px-1.5 py-[2px] rounded-full leading-none inline-block mb-1.5" :style="tagStyle">{{ tag }}</span>
-        <p class="text-white font-black" :class="mirrorNameClass">{{ name }}</p>
+        <p
+          class="text-white font-black"
+          :class="mirrorNameClamp ? 'line-clamp-2' : 'truncate'"
+          :style="mirrorNameStyle"
+        >{{ name }}</p>
         <p class="text-white/60 text-[10px] mt-0.5">{{ provider }}</p>
       </div>
     </div>
@@ -109,7 +112,7 @@ const splitNameClass = computed(() => {
     </div>
     <div class="flex-shrink-0 px-2 pt-1.5 pb-2" :style="{ background: barGradient }">
       <span v-if="tag" class="text-[7px] font-black px-1.5 py-[2px] rounded-full leading-none inline-block mb-1" :style="tagStyle">{{ tag }}</span>
-      <p class="text-white font-black" :class="splitNameClass">{{ name }}</p>
+        <p class="text-white font-black truncate" :style="splitNameStyle">{{ name }}</p>
       <p class="text-white/50 text-[9px] mt-px">{{ provider }}</p>
     </div>
   </div>
