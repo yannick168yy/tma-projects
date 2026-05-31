@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { Trophy } from 'lucide-vue-next'
+import { Trophy, ChevronRight } from 'lucide-vue-next'
 import { storeToRefs } from 'pinia'
 import PeryaCarnivalHero from '@/components/bingo/PeryaCarnivalHero.vue'
-import { PINOY_CLASSICS, PERYA_WINNERS } from '@/data/bingo'
+import { PINOY_CLASSICS, MORE_PINOY_GAMES, PERYA_WINNERS } from '@/data/bingo'
 import { fetchGames, launchGame, type SlotGame } from '@/api/slots'
 import { useAuthStore } from '@/stores/auth'
 import { ApiError } from '@/api/client'
@@ -16,19 +16,35 @@ const { isLoggedIn } = storeToRefs(auth)
 
 const bingoGames = ref<SlotGame[]>([])
 const launchingUuid = ref<string | null>(null)
+const morePinoyExpanded = ref(false)
 
 const heroGame = computed(() => bingoGames.value[0] ?? null)
 const subGames = computed(() => bingoGames.value.slice(1, 5))
 const marqueeWinners = computed(() => [...PERYA_WINNERS, ...PERYA_WINNERS])
 
-// 按厂商分配渐变兜底色（无封面图时使用）
+const MORE_PINOY_PREVIEW_COUNT = 6
+const morePinoyVisible = computed(() =>
+  morePinoyExpanded.value ? MORE_PINOY_GAMES : MORE_PINOY_GAMES.slice(0, MORE_PINOY_PREVIEW_COUNT),
+)
+
+// 按厂商分配渐变兜底色（无封面图时）
 const providerGradient: Record<string, string> = {
-  JiliGames: 'linear-gradient(135deg, #4c0091, #7c3aed, #a855f7)',
-  PragmaticPlay: 'linear-gradient(135deg, #065f46, #059669, #34d399)',
-  Caleta: 'linear-gradient(135deg, #1e3a8a, #2563eb, #60a5fa)',
+  JiliGames: 'linear-gradient(135deg, #4c0091, #7c3aed)',
+  PragmaticPlay: 'linear-gradient(135deg, #065f46, #059669)',
+  Caleta: 'linear-gradient(135deg, #1e3a8a, #2563eb)',
 }
 function cardBg(provider: string): string {
-  return providerGradient[provider] ?? 'linear-gradient(135deg, #1e293b, #334155, #475569)'
+  return providerGradient[provider] ?? 'linear-gradient(135deg, #1e293b, #334155)'
+}
+
+// 大卡左侧渐变色（与各厂商配色协调）
+const providerHeroLeft: Record<string, string> = {
+  JiliGames: '#0e0024',
+  PragmaticPlay: '#021a10',
+  Caleta: '#050e2a',
+}
+function heroLeftColor(provider: string): string {
+  return providerHeroLeft[provider] ?? '#0e1117'
 }
 
 const fiestaBuntingColors = [
@@ -58,13 +74,14 @@ onMounted(async () => {
     const res = await fetchGames({ sortCategory: 'bingo', sortBy: 'ph_bonus', limit: 8 })
     bingoGames.value = res.items
   } catch {
-    // 静默失败，卡片区域空置
+    // 静默失败
   }
 })
 </script>
 
 <template>
   <div class="page-main">
+    <!-- Hero -->
     <PeryaCarnivalHero>
       <p class="text-amber-300 text-[10px] font-black uppercase tracking-widest mb-1">🎪 {{ t('bingo.carnival') }}</p>
       <h1
@@ -76,7 +93,6 @@ onMounted(async () => {
         <span style="color: #ec4899">{{ t('bingo.titleBingo') }}</span>
       </h1>
       <p class="text-white/40 text-xs leading-relaxed">{{ t('bingo.heroSub') }}</p>
-
       <div
         class="flex items-center gap-2 mt-4 bg-black/35 rounded-xl px-3 py-2 overflow-hidden"
         style="border: 1px solid rgba(255, 184, 0, 0.14)"
@@ -118,7 +134,7 @@ onMounted(async () => {
       </button>
     </div>
 
-    <!-- SIGNATURE GAMES -->
+    <!-- ── SIGNATURE GAMES（方案A：图文左右分割） ── -->
     <div v-if="heroGame" class="px-4 mt-5">
       <div class="flex items-center gap-2 mb-3">
         <span class="text-base">🎪</span>
@@ -126,68 +142,72 @@ onMounted(async () => {
       </div>
 
       <div class="grid grid-cols-2 gap-3">
-        <!-- Hero card -->
+        <!-- 大卡：左文右图 -->
         <button
           type="button"
           class="col-span-2 relative rounded-3xl overflow-hidden h-40 text-left active:scale-[0.98] transition-transform"
           :disabled="launchingUuid === heroGame.uuid"
           @click="onPlayGame(heroGame.uuid)"
         >
-          <div class="absolute inset-0" :style="{ background: cardBg(heroGame.provider) }" />
-          <img
-            v-if="heroGame.imageHqUrl || heroGame.imageUrl"
-            :src="(heroGame.imageHqUrl || heroGame.imageUrl)!"
-            class="absolute inset-0 w-full h-full object-cover opacity-40"
+          <!-- 整体底色 -->
+          <div
+            class="absolute inset-0"
+            :style="{ background: `linear-gradient(to right, ${heroLeftColor(heroGame.provider)} 45%, #2a0060 100%)` }"
           />
-          <div class="absolute inset-0 bg-gradient-to-r from-black/70 via-black/30 to-transparent" />
-          <div class="absolute inset-0 p-4 flex items-center">
-            <div class="flex-1">
-              <span class="text-[9px] font-black px-2 py-0.5 rounded-full mb-2 inline-block bg-[#FFB800] text-black">
-                JACKPOT
-              </span>
-              <h3 class="text-white font-black leading-none font-display text-[1.7rem]">{{ heroGame.name }}</h3>
-              <p class="text-white/60 text-xs font-semibold mt-0.5">{{ heroGame.provider }}</p>
-              <div class="flex items-center gap-3 mt-2">
-                <div class="flex items-center gap-1">
-                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                  <span class="text-white/60 text-[11px]">{{ (heroGame.weight * 12 + 800).toLocaleString() }} playing</span>
-                </div>
-              </div>
+          <!-- 右侧图片 + 向左渐隐 -->
+          <div class="absolute right-0 top-0 bottom-0 w-[55%]">
+            <img
+              v-if="heroGame.imageHqUrl || heroGame.imageUrl"
+              :src="(heroGame.imageHqUrl || heroGame.imageUrl)!"
+              class="w-full h-full object-cover object-center"
+            />
+            <div
+              class="absolute inset-0"
+              :style="{ background: `linear-gradient(to right, ${heroLeftColor(heroGame.provider)} 0%, transparent 55%)` }"
+            />
+          </div>
+          <!-- 左侧文字 -->
+          <div class="absolute inset-0 p-4 flex flex-col justify-center" style="max-width: 58%">
+            <span class="text-[9px] font-black px-2 py-0.5 rounded-full mb-2 self-start bg-[#FFB800] text-black">
+              JACKPOT
+            </span>
+            <h3 class="text-white font-black leading-tight font-display text-2xl">{{ heroGame.name }}</h3>
+            <p class="text-white/50 text-xs mt-0.5">{{ heroGame.provider }}</p>
+            <div class="flex items-center gap-1 mt-2">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              <span class="text-white/50 text-[11px]">{{ (heroGame.weight * 12 + 800).toLocaleString() }} playing</span>
             </div>
-            <div v-if="launchingUuid === heroGame.uuid" class="ml-auto text-white/60 text-xs">...</div>
           </div>
         </button>
 
-        <!-- 小卡 -->
+        <!-- 小卡：上图下信息栏 -->
         <button
           v-for="g in subGames"
           :key="g.uuid"
           type="button"
-          class="relative rounded-3xl overflow-hidden h-36 text-left active:scale-[0.98] transition-transform"
+          class="relative rounded-3xl overflow-hidden h-36 text-left active:scale-[0.98] transition-transform flex flex-col"
           :disabled="launchingUuid === g.uuid"
           @click="onPlayGame(g.uuid)"
         >
-          <div class="absolute inset-0" :style="{ background: cardBg(g.provider) }" />
-          <img
-            v-if="g.imageHqUrl || g.imageUrl"
-            :src="(g.imageHqUrl || g.imageUrl)!"
-            class="absolute inset-0 w-full h-full object-cover opacity-40"
-          />
-          <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent" />
-          <div class="absolute inset-0 p-3.5 flex flex-col justify-between">
-            <span class="text-[9px] font-black px-2 py-0.5 rounded-full self-start bg-white/15 text-white/80">
-              BINGO
-            </span>
-            <div>
-              <h3 class="text-white font-black leading-none text-sm font-display">{{ g.name }}</h3>
-              <p class="text-white/50 text-[10px] mt-0.5">{{ g.provider }}</p>
-            </div>
+          <!-- 上半：图片 -->
+          <div class="relative flex-1 overflow-hidden">
+            <div class="absolute inset-0" :style="{ background: cardBg(g.provider) }" />
+            <img
+              v-if="g.imageHqUrl || g.imageUrl"
+              :src="(g.imageHqUrl || g.imageUrl)!"
+              class="absolute inset-0 w-full h-full object-cover"
+            />
+          </div>
+          <!-- 下半：信息栏 -->
+          <div class="flex-shrink-0 bg-[#111827] px-3 py-2">
+            <p class="text-white font-black text-[13px] leading-tight truncate">{{ g.name }}</p>
+            <p class="text-white/40 text-[10px] mt-0.5">{{ g.provider }}</p>
           </div>
         </button>
       </div>
     </div>
 
-    <!-- PERYA CLASSICS -->
+    <!-- ── PERYA CLASSICS ── -->
     <div class="px-4 mt-6">
       <div class="flex items-center gap-2 mb-3">
         <span class="text-base">🎡</span>
@@ -198,25 +218,69 @@ onMounted(async () => {
           v-for="g in PINOY_CLASSICS"
           :key="g.uuid"
           type="button"
-          class="relative rounded-2xl overflow-hidden h-24 text-left active:scale-95 transition-transform"
+          class="relative rounded-2xl overflow-hidden h-28 text-left active:scale-95 transition-transform flex flex-col"
           :disabled="launchingUuid === g.uuid"
           @click="onPlayGame(g.uuid)"
         >
-          <div class="absolute inset-0" :style="{ background: `linear-gradient(135deg, ${g.bg[0]}, ${g.bg[1]})` }" />
-          <img
-            :src="g.imageUrl"
-            class="absolute inset-0 w-full h-full object-cover opacity-45"
-          />
-          <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent" />
-          <div class="absolute inset-0 flex flex-col justify-between p-2.5">
-            <span
-              class="text-[8px] font-black px-1.5 py-0.5 rounded-full leading-none self-start"
-              :style="{ background: g.tagBg, color: g.tagFg }"
-            >{{ g.tag }}</span>
-            <div>
-              <p class="text-white font-black text-xs leading-none font-display">{{ g.name }}</p>
-              <p class="text-white/50 text-[9px] mt-0.5">{{ g.provider }}</p>
+          <!-- 上半：图片 -->
+          <div class="relative flex-1 overflow-hidden">
+            <div class="absolute inset-0" :style="{ background: `linear-gradient(135deg, ${g.bg[0]}, ${g.bg[1]})` }" />
+            <img :src="g.imageUrl" class="absolute inset-0 w-full h-full object-cover" />
+          </div>
+          <!-- 下半：信息栏 -->
+          <div class="flex-shrink-0 bg-[#111827] px-2 py-1.5">
+            <div class="flex items-center gap-1 mb-0.5">
+              <span
+                class="text-[7px] font-black px-1.5 py-0.5 rounded-full leading-none"
+                :style="{ background: g.tagBg, color: g.tagFg }"
+              >{{ g.tag }}</span>
             </div>
+            <p class="text-white font-black text-[11px] leading-tight truncate">{{ g.name }}</p>
+            <p class="text-white/40 text-[9px]">{{ g.provider }}</p>
+          </div>
+        </button>
+      </div>
+    </div>
+
+    <!-- ── MORE PINOY GAMES ── -->
+    <div class="px-4 mt-6">
+      <div class="flex items-center justify-between mb-3">
+        <div class="flex items-center gap-2">
+          <span class="text-base">🐓</span>
+          <h2 class="text-white font-black text-base font-display">MORE PINOY GAMES</h2>
+        </div>
+        <button
+          v-if="!morePinoyExpanded"
+          type="button"
+          class="flex items-center gap-0.5 text-primary text-xs font-black"
+          @click="morePinoyExpanded = true"
+        >
+          SEE ALL
+          <ChevronRight :size="14" />
+        </button>
+      </div>
+      <div class="grid grid-cols-3 gap-2.5">
+        <button
+          v-for="g in morePinoyVisible"
+          :key="g.uuid"
+          type="button"
+          class="relative rounded-2xl overflow-hidden h-28 text-left active:scale-95 transition-transform flex flex-col"
+          :disabled="launchingUuid === g.uuid"
+          @click="onPlayGame(g.uuid)"
+        >
+          <div class="relative flex-1 overflow-hidden">
+            <div class="absolute inset-0" :style="{ background: `linear-gradient(135deg, ${g.bg[0]}, ${g.bg[1]})` }" />
+            <img :src="g.imageUrl" class="absolute inset-0 w-full h-full object-cover" />
+          </div>
+          <div class="flex-shrink-0 bg-[#111827] px-2 py-1.5">
+            <div class="flex items-center gap-1 mb-0.5">
+              <span
+                class="text-[7px] font-black px-1.5 py-0.5 rounded-full leading-none"
+                :style="{ background: g.tagBg, color: g.tagFg }"
+              >{{ g.tag }}</span>
+            </div>
+            <p class="text-white font-black text-[11px] leading-tight truncate">{{ g.name }}</p>
+            <p class="text-white/40 text-[9px]">{{ g.provider }}</p>
           </div>
         </button>
       </div>
@@ -236,13 +300,7 @@ onMounted(async () => {
           v-for="(c, i) in fiestaBuntingColors"
           :key="i"
           class="inline-block flex-shrink-0"
-          :style="{
-            width: '14px',
-            height: '8px',
-            background: c,
-            clipPath: 'polygon(0 0, 100% 0, 50% 100%)',
-            opacity: 0.8,
-          }"
+          :style="{ width: '14px', height: '8px', background: c, clipPath: 'polygon(0 0, 100% 0, 50% 100%)', opacity: 0.8 }"
         />
       </div>
       <div class="relative px-4 pt-5 pb-4 flex items-center gap-3">
@@ -269,7 +327,7 @@ onMounted(async () => {
       <p class="text-muted-foreground text-[10px] uppercase tracking-widest font-black mb-3">Powered by</p>
       <div class="flex gap-2 flex-wrap">
         <span
-          v-for="p in ['JILI', 'PRAGMATIC', 'CALETA', 'RICH88', 'JDB']"
+          v-for="p in ['JILI', 'PRAGMATIC', 'CALETA', 'RICH88', 'JDB', 'SPRIBE']"
           :key="p"
           class="text-[10px] font-black text-muted-foreground bg-secondary px-3 py-1.5 rounded-full border border-border"
         >

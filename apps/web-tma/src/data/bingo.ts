@@ -7,7 +7,6 @@ export interface PinoyClassicGame {
   tagBg: string
   tagFg: string
   bg: [string, string]
-  emoji: string
 }
 
 export const PINOY_CLASSICS: PinoyClassicGame[] = [
@@ -20,7 +19,6 @@ export const PINOY_CLASSICS: PinoyClassicGame[] = [
     tagBg: '#FFB800',
     tagFg: '#000',
     bg: ['#7f1d1d', '#ea580c'],
-    emoji: '🎨',
   },
   {
     uuid: 'b58561e0b90249b18f6fe3d66bf65c74',
@@ -31,7 +29,6 @@ export const PINOY_CLASSICS: PinoyClassicGame[] = [
     tagBg: '#ef4444',
     tagFg: '#fff',
     bg: ['#b91c1c', '#f97316'],
-    emoji: '🟥',
   },
   {
     uuid: 'aa9e42ff386e49a0889492e7cbd4452a',
@@ -42,7 +39,6 @@ export const PINOY_CLASSICS: PinoyClassicGame[] = [
     tagBg: '#3b82f6',
     tagFg: '#fff',
     bg: ['#1e3a8a', '#6d28d9'],
-    emoji: '🎯',
   },
   {
     uuid: 'a7943aa090104ddda8008b685fcbaeb2',
@@ -53,7 +49,6 @@ export const PINOY_CLASSICS: PinoyClassicGame[] = [
     tagBg: '#ec4899',
     tagFg: '#fff',
     bg: ['#7f1d1d', '#dc2626'],
-    emoji: '🐓',
   },
   {
     uuid: '6721efc3f16f42cd907155d79d560030',
@@ -64,7 +59,6 @@ export const PINOY_CLASSICS: PinoyClassicGame[] = [
     tagBg: '#78350f',
     tagFg: '#fff',
     bg: ['#78350f', '#b91c1c'],
-    emoji: '⚔️',
   },
   {
     uuid: '672cf996d4be4bcd8d6c7c847258ca33',
@@ -75,7 +69,130 @@ export const PINOY_CLASSICS: PinoyClassicGame[] = [
     tagBg: '#059669',
     tagFg: '#fff',
     bg: ['#064e3b', '#0d9488'],
-    emoji: '🎲',
+  },
+]
+
+// 更多菲律宾传统游戏（See All 展开后显示全部）
+export const MORE_PINOY_GAMES: PinoyClassicGame[] = [
+  {
+    uuid: '173c325e55a546e4a50cb1f5d89171b4',
+    name: 'Dragon Tiger',
+    provider: 'KAGaming',
+    imageUrl: 'https://stage.gis-static.com/games/KAGaming/173c325e55a546e4a50cb1f5d89171b4.jpg',
+    tag: 'LIVE',
+    tagBg: '#dc2626',
+    tagFg: '#fff',
+    bg: ['#7f1d1d', '#1e3a8a'],
+  },
+  {
+    uuid: '0d863a26ff6843169aeda4519811c924',
+    name: 'Dragon Tiger',
+    provider: 'Pragmatic',
+    imageUrl: 'https://stage.gis-static.com/games/PragmaticPlay/0d863a26ff6843169aeda4519811c924.png',
+    tag: 'POPULAR',
+    tagBg: '#16a34a',
+    tagFg: '#fff',
+    bg: ['#064e3b', '#7f1d1d'],
+  },
+  {
+    uuid: '319a82ab9eb941ca8adbc958af3456b1',
+    name: 'Virtual SicBo',
+    provider: 'FunkyGames',
+    imageUrl: 'https://stage.gis-static.com/games/FunkyGames/319a82ab9eb941ca8adbc958af3456b1.png',
+    tag: 'DICE',
+    tagBg: '#059669',
+    tagFg: '#fff',
+    bg: ['#134e4a', '#0d9488'],
+  },
+  {
+    uuid: 'c36b075de1384fc681970c8343269c05',
+    name: 'Thai HiLo',
+    provider: 'FunkyGames',
+    imageUrl: 'https://stage.gis-static.com/games/FunkyGames/c36b075de1384fc681970c8343269c05.png',
+    tag: 'HILO',
+    tagBg: '#d97706',
+    tagFg: '#000',
+    bg: ['#78350f', '#b45309'],
+  },
+  {
+    uuid: '7d6977b36be04303b1a5a56a9caf9573',
+    name: 'Cockfighting 2',
+    provider: 'Rich88',
+    imageUrl: 'https://stage.gis-static.com/games/Rich88/7d6977b36be04303b1a5a56a9caf9573.png',
+    tag: 'SABONG',
+    tagBg: '#ec4899',
+    tagFg: '#fff',
+    bg: ['#7f1d1d', '#dc2626'],
+  },
+  {
+    uuid: '1caab9939c3c40c4b02638bc1ecf5c9a',
+    name: 'Thai Sic Bo 2',
+    provider: 'Rich88',
+    imageUrl: 'https://stage.gis-static.com/games/Rich88/1caab9939c3c40c4b02638bc1ecf5c9a.png',
+    tag: 'DICE',
+    tagBg: '#059669',
+    tagFg: '#fff',
+    bg: ['#1e3a8a', '#3b0082'],
+  },
+  {
+    uuid: 'da1d06adc2b6452e908b7634ec9b61ca',
+    name: 'Color Game',
+    provider: 'Rich88',
+    imageUrl: 'https://stage.gis-static.com/games/Rich88/da1d06adc2b6452e908b7634ec9b61ca.png',
+    tag: 'CLASSIC',
+    tagBg: '#ef4444',
+    tagFg: '#fff',
+    bg: ['#b91c1c', '#f97316'],
+  },
+  {
+    uuid: 'af923befebaf4df0b64e9057c820e5d2',
+    name: 'Color Dish',
+    provider: 'Rich88',
+    imageUrl: 'https://stage.gis-static.com/games/Rich88/af923befebaf4df0b64e9057c820e5d2.png',
+    tag: 'PERYA',
+    tagBg: '#f97316',
+    tagFg: '#fff',
+    bg: ['#78350f', '#ea580c'],
+  },
+  {
+    uuid: '6b6daf151dbc45c88987e81aa056b7f0',
+    name: 'Lucky Color Game',
+    provider: 'JDB',
+    imageUrl: 'https://stage.gis-static.com/games/JDB/6b6daf151dbc45c88987e81aa056b7f0.png',
+    tag: 'LUCKY',
+    tagBg: '#FFB800',
+    tagFg: '#000',
+    bg: ['#7f1d1d', '#b45309'],
+  },
+  {
+    uuid: '55bca7f034174deca3080875d3149364',
+    name: 'TeenPatti Joker',
+    provider: 'JILI',
+    imageUrl: 'https://stage.gis-static.com/games/da481495311e13bed8405e0fcc115357/JiliGames/55bca7f034174deca3080875d3149364.png',
+    tag: 'CARDS',
+    tagBg: '#6d28d9',
+    tagFg: '#fff',
+    bg: ['#4c1d95', '#7c3aed'],
+  },
+  {
+    uuid: '96f98fff15574a02b3c3978c08e344ae',
+    name: 'TeenPatti',
+    provider: 'JILI',
+    imageUrl: 'https://stage.gis-static.com/games/da481495311e13bed8405e0fcc115357/JiliGames/96f98fff15574a02b3c3978c08e344ae.png',
+    tag: 'CARDS',
+    tagBg: '#6d28d9',
+    tagFg: '#fff',
+    bg: ['#1e3a8a', '#6d28d9'],
+  },
+  {
+    uuid: 'c148c295ad214b03b42d79fb0b5a11f2',
+    name: 'Hilo',
+    provider: 'Spribe',
+    imageUrl: 'https://stage.gis-static.com/games/3962be5e18b1e84fdd95613e87dfda1a/Spribe/c148c295ad214b03b42d79fb0b5a11f2.png',
+    tag: 'HI-LO',
+    tagBg: '#0ea5e9',
+    tagFg: '#fff',
+    bg: ['#0c4a6e', '#0369a1'],
   },
 ]
 
