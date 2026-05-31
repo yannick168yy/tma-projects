@@ -13,6 +13,7 @@ const emit = defineEmits<{ tap: [] }>()
     @click="emit('tap')"
   >
     <GameImageCard
+      overlay
       :image-url="game.imageHqUrl ?? game.imageUrl"
       :fallback-bg="['#064e3b', '#065f46']"
       :name="game.name"
