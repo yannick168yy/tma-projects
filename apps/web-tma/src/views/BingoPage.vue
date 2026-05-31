@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { Trophy, ChevronLeft, ChevronRight, LayoutGrid } from 'lucide-vue-next'
+import { Trophy, ChevronLeft, ChevronRight } from 'lucide-vue-next'
 import { storeToRefs } from 'pinia'
 import PeryaCarnivalHero from '@/components/bingo/PeryaCarnivalHero.vue'
 import GameImageCard from '@/components/game/GameImageCard.vue'
@@ -214,7 +214,7 @@ onMounted(async () => {
       </div>
     </div>
 
-    <!-- ── PERYA CLASSICS（横向滚动一行） ── -->
+    <!-- ── PERYA CLASSICS（横向滚动，卡片宽度与首页 popular 一致） ── -->
     <div class="mt-6">
       <div class="flex items-center justify-between mb-3 px-4">
         <div class="flex items-center gap-2">
@@ -222,32 +222,31 @@ onMounted(async () => {
           <h2 class="text-white font-black text-base font-display">PERYA CLASSICS</h2>
         </div>
         <div class="flex items-center gap-0.5">
-          <button type="button" class="w-6 h-6 flex items-center justify-center rounded-full bg-white/10 text-white/60 active:scale-90 transition-transform" @click="scrollRow(peryaScroll, -1)"><ChevronLeft :size="13" /></button>
-          <button type="button" class="w-6 h-6 flex items-center justify-center rounded-full bg-white/10 text-white/60 active:scale-90 transition-transform" @click="scrollRow(peryaScroll, 1)"><ChevronRight :size="13" /></button>
+          <button type="button" class="w-6 h-6 flex items-center justify-center rounded-full bg-secondary text-muted-foreground active:scale-90 transition-transform" @click="scrollRow(peryaScroll, -1)"><ChevronLeft :size="13" /></button>
+          <button type="button" class="w-6 h-6 flex items-center justify-center rounded-full bg-secondary text-muted-foreground active:scale-90 transition-transform" @click="scrollRow(peryaScroll, 1)"><ChevronRight :size="13" /></button>
         </div>
       </div>
-      <div ref="peryaScroll" class="flex gap-2.5 overflow-x-auto px-4 pb-2 scrollbar-hide snap-x snap-mandatory">
-        <button
-          v-for="g in PINOY_CLASSICS"
-          :key="g.uuid"
-          type="button"
-          class="flex-shrink-0 h-44 rounded-xl overflow-hidden active:scale-95 transition-transform snap-start"
-          style="width: calc((100vw - 52px) / 3)"
-          :disabled="launchingUuid === g.uuid"
-          @click="onPlayGame(g.uuid)"
-        >
-          <GameImageCard
-            variant="mirror"
-            :image-url="g.imageUrl"
-            :fallback-bg="g.bg"
-            :name="g.name"
-            :provider="g.provider"
-          />
-        </button>
+      <div ref="peryaScroll" class="flex gap-3 px-4 overflow-x-auto hide-scrollbar">
+        <div v-for="g in PINOY_CLASSICS" :key="g.uuid" class="flex-shrink-0 w-32">
+          <button
+            type="button"
+            class="w-full h-44 rounded-xl overflow-hidden active:scale-95 transition-transform"
+            :disabled="launchingUuid === g.uuid"
+            @click="onPlayGame(g.uuid)"
+          >
+            <GameImageCard
+              variant="mirror"
+              :image-url="g.imageUrl"
+              :fallback-bg="g.bg"
+              :name="g.name"
+              :provider="g.provider"
+            />
+          </button>
+        </div>
       </div>
     </div>
 
-    <!-- ── MORE PINOY GAMES（横向滚动一行 + See All） ── -->
+    <!-- ── MORE PINOY GAMES（横向滚动 + ALL 胶囊按钮，与首页格式统一） ── -->
     <div class="mt-6">
       <div class="flex items-center justify-between mb-3 px-4">
         <div class="flex items-center gap-2">
@@ -255,31 +254,30 @@ onMounted(async () => {
           <h2 class="text-white font-black text-base font-display">MORE PINOY GAMES</h2>
         </div>
         <div class="flex items-center gap-2">
-          <button type="button" class="w-6 h-6 flex items-center justify-center rounded-full bg-white/10 text-primary active:scale-90 transition-transform" @click="emit('openCategoryLobby', { title: '🇵🇭 All Pinoy Games', sortCategory: 'pinoy' })"><LayoutGrid :size="13" /></button>
+          <button type="button" class="h-6 px-2 flex items-center rounded-full bg-secondary text-primary text-[10px] font-bold active:scale-90 transition-transform" @click="emit('openCategoryLobby', { title: '🇵🇭 All Pinoy Games', sortCategory: 'pinoy' })">ALL</button>
           <div class="flex items-center gap-0.5">
-            <button type="button" class="w-6 h-6 flex items-center justify-center rounded-full bg-white/10 text-white/60 active:scale-90 transition-transform" @click="scrollRow(moreScroll, -1)"><ChevronLeft :size="13" /></button>
-            <button type="button" class="w-6 h-6 flex items-center justify-center rounded-full bg-white/10 text-white/60 active:scale-90 transition-transform" @click="scrollRow(moreScroll, 1)"><ChevronRight :size="13" /></button>
+            <button type="button" class="w-6 h-6 flex items-center justify-center rounded-full bg-secondary text-muted-foreground active:scale-90 transition-transform" @click="scrollRow(moreScroll, -1)"><ChevronLeft :size="13" /></button>
+            <button type="button" class="w-6 h-6 flex items-center justify-center rounded-full bg-secondary text-muted-foreground active:scale-90 transition-transform" @click="scrollRow(moreScroll, 1)"><ChevronRight :size="13" /></button>
           </div>
         </div>
       </div>
-      <div ref="moreScroll" class="flex gap-2.5 overflow-x-auto px-4 pb-2 scrollbar-hide snap-x snap-mandatory">
-        <button
-          v-for="g in MORE_PINOY_GAMES"
-          :key="g.uuid"
-          type="button"
-          class="flex-shrink-0 h-44 rounded-xl overflow-hidden active:scale-95 transition-transform snap-start"
-          style="width: calc((100vw - 52px) / 3)"
-          :disabled="launchingUuid === g.uuid"
-          @click="onPlayGame(g.uuid)"
-        >
-          <GameImageCard
-            variant="mirror"
-            :image-url="g.imageUrl"
-            :fallback-bg="g.bg"
-            :name="g.name"
-            :provider="g.provider"
-          />
-        </button>
+      <div ref="moreScroll" class="flex gap-3 px-4 overflow-x-auto hide-scrollbar">
+        <div v-for="g in MORE_PINOY_GAMES" :key="g.uuid" class="flex-shrink-0 w-32">
+          <button
+            type="button"
+            class="w-full h-44 rounded-xl overflow-hidden active:scale-95 transition-transform"
+            :disabled="launchingUuid === g.uuid"
+            @click="onPlayGame(g.uuid)"
+          >
+            <GameImageCard
+              variant="mirror"
+              :image-url="g.imageUrl"
+              :fallback-bg="g.bg"
+              :name="g.name"
+              :provider="g.provider"
+            />
+          </button>
+        </div>
       </div>
     </div>
 
