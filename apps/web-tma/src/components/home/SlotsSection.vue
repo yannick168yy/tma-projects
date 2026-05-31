@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n'
 import { storeToRefs } from 'pinia'
 import { ChevronRight, Play, Tv2 } from 'lucide-vue-next'
 import { fetchGames, launchGame, launchDemo, type SlotGame } from '@/api/slots'
+import GameImageCard from '@/components/game/GameImageCard.vue'
 import { ApiError } from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
 
@@ -92,25 +93,18 @@ function openGameUrl(url: string) {
       <div
         v-for="game in games"
         :key="game.uuid"
-        class="group relative overflow-hidden rounded-xl bg-card border border-border"
+        class="group relative overflow-hidden rounded-xl h-36"
       >
-        <!-- Image -->
-        <div class="relative aspect-[4/3] overflow-hidden bg-secondary">
-          <img
-            v-if="game.imageUrl"
-            :src="game.imageUrl"
-            :alt="game.name"
-            class="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-            loading="lazy"
-          />
-          <div v-else class="flex h-full w-full items-center justify-center bg-gradient-to-br from-indigo-900 to-purple-900">
-            <span class="text-xl">🎰</span>
-          </div>
-          <span class="absolute left-1 top-1 rounded bg-black/60 px-1 py-0.5 text-[9px] font-bold uppercase text-white/80">
-            {{ game.provider }}
-          </span>
+        <GameImageCard
+          variant="mirror"
+          :image-url="game.imageHqUrl ?? game.imageUrl"
+          :fallback-bg="['#1e1b4b', '#312e81']"
+          :name="game.name"
+          :provider="game.provider"
+        >
           <!-- Hover overlay -->
-          <div class="absolute inset-0 flex flex-col items-center justify-center gap-1.5 bg-black/70 opacity-0 transition-opacity group-hover:opacity-100">
+          <div class="absolute inset-0 flex flex-col items-center justify-center gap-1.5 bg-black/70 opacity-0 transition-opacity group-hover:opacity-100"
+            :class="{ 'opacity-100': launchingUuid === game.uuid }">
             <button
               type="button"
               class="flex w-4/5 items-center justify-center gap-1 rounded-full bg-primary py-1.5 text-[11px] font-bold text-primary-foreground"
@@ -131,11 +125,7 @@ function openGameUrl(url: string) {
               Demo
             </button>
           </div>
-        </div>
-        <!-- Name -->
-        <div class="px-2 py-1">
-          <p class="truncate text-[10px] font-semibold text-foreground">{{ game.name }}</p>
-        </div>
+        </GameImageCard>
       </div>
     </div>
   </section>
