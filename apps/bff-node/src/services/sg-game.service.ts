@@ -149,7 +149,11 @@ export async function loadGamesCache(env: Env): Promise<number> {
          AND EXISTS (
            SELECT 1 FROM sg_games g2
            WHERE g2.provider = g.provider
-             AND g2.name = CONCAT(g.name, ' Mobile')
+             AND g2.uuid != g.uuid
+             AND (
+               g2.name = g.name
+               OR g2.name = CONCAT(g.name, ' Mobile')
+             )
              AND g2.is_mobile = 1
              AND g2.is_active = 1
          )
