@@ -53,6 +53,14 @@ const glassBBg = computed(() => {
 })
 
 const accentColor = computed(() => props.tagBg ?? '#FFB800')
+
+const mirrorBgStyle = computed(() => ({
+  inset: '-10px',
+  backgroundImage: `url("${props.imageUrl}")`,
+  backgroundSize: 'cover' as const,
+  backgroundPosition: 'center bottom',
+  filter: 'blur(14px) brightness(0.48) saturate(1.4)',
+}))
 const tagStyle = computed(() =>
   props.tagBg
     ? { background: props.tagBg, color: props.tagFg ?? '#fff' }
@@ -74,12 +82,11 @@ const tagStyle = computed(() =>
     </div>
     <!-- 下层：同张图的 CSS background-image，模糊后模拟毛玻璃 -->
     <div class="flex-shrink-0 relative overflow-hidden px-2.5 pt-2 pb-2.5">
-      <!-- 镜像模糊背景（inset 负值防止 blur 边缘漏白） -->
+      <!-- 镜像模糊背景（inset 负值防止 blur 边缘漏白，全部属性合并进 :style 避免 Vue 合并问题） -->
       <div
         v-if="imageUrl"
         class="absolute"
-        style="inset: -10px; background-size: cover; background-position: center bottom; filter: blur(14px) brightness(0.48) saturate(1.4)"
-        :style="{ backgroundImage: `url(${imageUrl})` }"
+        :style="mirrorBgStyle"
       />
       <div v-else class="absolute inset-0" :style="{ background: fallbackBg[0] }" />
       <!-- 文字 -->

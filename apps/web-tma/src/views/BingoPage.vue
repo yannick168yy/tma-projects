@@ -212,8 +212,7 @@ onMounted(async () => {
           v-for="g in PINOY_CLASSICS"
           :key="g.uuid"
           type="button"
-          class="flex-shrink-0 rounded-2xl overflow-hidden active:scale-95 transition-transform snap-start"
-          style="width: calc((100vw - 52px) / 3); height: 144px"
+          class="flex-shrink-0 w-32 h-44 rounded-2xl overflow-hidden active:scale-95 transition-transform snap-start"
           :disabled="launchingUuid === g.uuid"
           @click="onPlayGame(g.uuid)"
         >
@@ -252,8 +251,7 @@ onMounted(async () => {
           v-for="g in MORE_PINOY_GAMES"
           :key="g.uuid"
           type="button"
-          class="flex-shrink-0 rounded-2xl overflow-hidden active:scale-95 transition-transform snap-start"
-          style="width: calc((100vw - 52px) / 3); height: 144px"
+          class="flex-shrink-0 w-32 h-44 rounded-2xl overflow-hidden active:scale-95 transition-transform snap-start"
           :disabled="launchingUuid === g.uuid"
           @click="onPlayGame(g.uuid)"
         >
