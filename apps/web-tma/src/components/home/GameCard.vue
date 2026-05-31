@@ -14,11 +14,12 @@ const emit = defineEmits<{ tap: [] }>()
     @click="emit('tap')"
   >
     <GameImageCard
-      overlay
+      variant="block"
       :image-url="game.imageHqUrl ?? game.imageUrl"
       :fallback-bg="['#1e1b4b', '#312e81']"
       :name="game.name"
       :provider="game.provider"
+      :tag-bg="game.phBonus >= 20 ? '#ef4444' : undefined"
     >
       <div
         v-if="game.phBonus >= 20"

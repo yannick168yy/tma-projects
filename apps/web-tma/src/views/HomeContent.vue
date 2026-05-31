@@ -506,7 +506,7 @@ onMounted(async () => {
         <div v-for="n in 6" :key="n" class="flex-shrink-0 w-32 h-28 animate-pulse rounded-xl bg-secondary" />
       </div>
       <div v-else class="flex gap-3 px-4 overflow-x-auto hide-scrollbar">
-        <EGameCard v-for="g in fishingGames" :key="g.uuid" :game="g" @tap="onGameTap(g.uuid)" />
+        <EGameCard v-for="g in fishingGames" :key="g.uuid" :game="g" variant="hard" @tap="onGameTap(g.uuid)" />
       </div>
     </section>
 
