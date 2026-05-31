@@ -1,14 +1,10 @@
 <script setup lang="ts">
 import type { SlotGame } from '@/api/slots'
 import GameImageCard from '@/components/game/GameImageCard.vue'
+import { themeTag } from '@/utils/theme-tag'
 
 defineProps<{ game: SlotGame }>()
 const emit = defineEmits<{ tap: [] }>()
-
-function formatTheme(theme: string | null): string | undefined {
-  if (!theme) return undefined
-  return theme.replace(/-/g, ' ').toUpperCase()
-}
 </script>
 
 <template>
@@ -22,7 +18,9 @@ function formatTheme(theme: string | null): string | undefined {
       :fallback-bg="['#1e1b4b', '#312e81']"
       :name="game.name"
       :provider="game.provider"
-      :tag="formatTheme(game.theme)"
+      :tag="themeTag(game.theme)?.label"
+      :tag-bg="themeTag(game.theme)?.bg"
+      :tag-fg="themeTag(game.theme)?.fg"
     >
       <span class="absolute top-1.5 left-1.5 rounded bg-black/55 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide text-white/80">
         {{ game.provider }}

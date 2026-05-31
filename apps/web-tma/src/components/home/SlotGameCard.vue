@@ -2,6 +2,7 @@
 import { Play, Tv2 } from 'lucide-vue-next'
 import type { SlotGame } from '@/api/slots'
 import GameImageCard from '@/components/game/GameImageCard.vue'
+import { themeTag } from '@/utils/theme-tag'
 
 defineProps<{
   game: SlotGame
@@ -12,11 +13,6 @@ const emit = defineEmits<{
   play: [uuid: string]
   demo: [uuid: string]
 }>()
-
-function formatTheme(theme: string | null): string | undefined {
-  if (!theme) return undefined
-  return theme.replace(/-/g, ' ').toUpperCase()
-}
 </script>
 
 <template>
@@ -26,9 +22,10 @@ function formatTheme(theme: string | null): string | undefined {
       :fallback-bg="['#1e1b4b', '#312e81']"
       :name="game.name"
       :provider="game.provider"
-      :tag="formatTheme(game.theme)"
+      :tag="themeTag(game.theme)?.label"
+      :tag-bg="themeTag(game.theme)?.bg"
+      :tag-fg="themeTag(game.theme)?.fg"
     >
-      <!-- Play / Demo 浮层 -->
       <div
         class="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/70 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
         :class="{ 'opacity-100': launching }"
