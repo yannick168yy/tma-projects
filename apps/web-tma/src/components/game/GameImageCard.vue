@@ -77,7 +77,7 @@ const tagStyle = computed(() =>
       </div>
       <div class="relative z-10">
         <span v-if="tag" class="text-[7px] font-black px-1.5 py-[2px] rounded-full leading-none inline-block mb-1.5" :style="tagStyle">{{ tag }}</span>
-        <p class="text-white font-black text-[15px] leading-tight line-clamp-2">{{ name }}</p>
+        <p class="text-white font-black text-[15px] leading-tight whitespace-normal line-clamp-2">{{ name }}</p>
         <p class="text-white/60 text-[10px] mt-0.5">{{ provider }}</p>
       </div>
     </div>
@@ -100,7 +100,7 @@ const tagStyle = computed(() =>
     </div>
     <div class="flex-shrink-0 px-2 pt-1.5 pb-2" :style="{ background: barGradient }">
       <span v-if="tag" class="text-[7px] font-black px-1.5 py-[2px] rounded-full leading-none inline-block mb-1" :style="tagStyle">{{ tag }}</span>
-      <p class="text-white font-black text-[11px] leading-tight line-clamp-2 min-h-[2.5em]">{{ name }}</p>
+      <p class="text-white font-black text-[11px] leading-tight whitespace-normal line-clamp-2">{{ name }}</p>
       <p class="text-white/50 text-[9px] mt-px">{{ provider }}</p>
     </div>
   </div>
