@@ -177,7 +177,16 @@ onMounted(async () => {
             <span class="text-[9px] font-black px-2 py-0.5 rounded-full mb-2 self-start bg-[#FFB800] text-black">
               JACKPOT
             </span>
-            <h3 class="text-white font-black leading-tight font-display text-2xl">{{ heroGame.name }}</h3>
+            <h3
+              class="text-white font-black leading-tight font-display"
+              :style="{
+                fontSize: heroGame.name.length <= 14 ? '22px' : heroGame.name.length <= 20 ? '18px' : '15px',
+                overflow: 'hidden',
+                display: '-webkit-box',
+                WebkitBoxOrient: 'vertical',
+                WebkitLineClamp: 2,
+              }"
+            >{{ heroGame.name }}</h3>
             <p class="text-white/50 text-xs mt-0.5">{{ heroGame.provider }}</p>
             <div class="flex items-center gap-1 mt-2">
               <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />

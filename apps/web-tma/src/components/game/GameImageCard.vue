@@ -57,18 +57,35 @@ const tagStyle = computed(() =>
     : { background: 'rgba(255,255,255,0.2)', color: '#fff' }
 )
 
-// 字号用 style 内联绑定（规避 Tailwind JIT 不扫描动态拼接 class 的问题）
-// 策略：≤10字 单行大字，>10字 两行显示以保证完整呈现，字数越多字号越小
+// 全部用内联 style 控制，彻底避免 Tailwind v4 扫描 :class 三元表达式不可靠的问题
 const mirrorNameStyle = computed((): CSSProperties => {
   const len = props.name.length
-  return { fontSize: len <= 10 ? '15px' : len <= 20 ? '12px' : '10px', lineHeight: '1.25' }
+  const fontSize = len <= 10 ? '15px' : len <= 20 ? '12px' : '10px'
+  if (len > 10) {
+    return {
+      fontSize,
+      lineHeight: '1.25',
+      overflow: 'hidden',
+      display: '-webkit-box',
+      WebkitBoxOrient: 'vertical',
+      WebkitLineClamp: 2,
+    }
+  }
+  return {
+    fontSize,
+    lineHeight: '1.25',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+  }
 })
-// >10 字符的名字允许换行，保证完整显示；≤10 字截断兜底
-const mirrorNameClamp = computed(() => props.name.length > 10)
 
 const splitNameStyle = computed((): CSSProperties => ({
   fontSize: props.name.length <= 14 ? '11px' : '9px',
   lineHeight: '1.25',
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
 }))
 </script>
 
@@ -87,11 +104,7 @@ const splitNameStyle = computed((): CSSProperties => ({
       <div v-else class="absolute inset-0" :style="{ background: fallbackBg[0] }" />
       <div class="relative z-10">
         <span v-if="tag" class="text-[7px] font-black px-1.5 py-[2px] rounded-full leading-none inline-block mb-1.5" :style="tagStyle">{{ tag }}</span>
-        <p
-          class="text-white font-black"
-          :class="mirrorNameClamp ? 'line-clamp-2' : 'truncate'"
-          :style="mirrorNameStyle"
-        >{{ name }}</p>
+        <p class="text-white font-black" :style="mirrorNameStyle">{{ name }}</p>
         <p class="text-white/60 text-[10px] mt-0.5">{{ provider }}</p>
       </div>
     </div>
@@ -114,7 +127,7 @@ const splitNameStyle = computed((): CSSProperties => ({
     </div>
     <div class="flex-shrink-0 px-2 pt-1.5 pb-2" :style="{ background: barGradient }">
       <span v-if="tag" class="text-[7px] font-black px-1.5 py-[2px] rounded-full leading-none inline-block mb-1" :style="tagStyle">{{ tag }}</span>
-        <p class="text-white font-black truncate" :style="splitNameStyle">{{ name }}</p>
+        <p class="text-white font-black" :style="splitNameStyle">{{ name }}</p>
       <p class="text-white/50 text-[9px] mt-px">{{ provider }}</p>
     </div>
   </div>
