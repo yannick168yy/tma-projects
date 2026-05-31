@@ -58,11 +58,13 @@ const tagStyle = computed(() =>
 )
 
 // 字号用 style 内联绑定（规避 Tailwind JIT 不扫描动态拼接 class 的问题）
+// 策略：≤10字 单行大字，>10字 两行显示以保证完整呈现，字数越多字号越小
 const mirrorNameStyle = computed((): CSSProperties => {
   const len = props.name.length
-  return { fontSize: len <= 11 ? '15px' : len <= 18 ? '12px' : '11px', lineHeight: '1.25' }
+  return { fontSize: len <= 10 ? '15px' : len <= 20 ? '12px' : '10px', lineHeight: '1.25' }
 })
-const mirrorNameClamp = computed(() => props.name.length > 18)
+// >10 字符的名字允许换行，保证完整显示；≤10 字截断兜底
+const mirrorNameClamp = computed(() => props.name.length > 10)
 
 const splitNameStyle = computed((): CSSProperties => ({
   fontSize: props.name.length <= 14 ? '11px' : '9px',
