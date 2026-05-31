@@ -326,7 +326,7 @@ function navIcon(id: string) {
         />
         <ProfilePage v-else-if="profileOpen" @logout="onLogout" @open-cs="openCs" />
         <BonusesPage v-else-if="activeNav === 'bonuses'" :promo-filter="promoFilter" @open-wallet="openWallet" />
-        <BingoPage v-else-if="activeNav === 'bingo'" @open-wallet="openWallet" @game-tap="onGameTap" @open-game="openGame" />
+        <BingoPage v-else-if="activeNav === 'bingo'" @open-wallet="openWallet" @game-tap="onGameTap" />
         <MenuPage v-else-if="activeNav === 'menu'" @open-search="openSearch" @open-cs="openCs" @open-category-lobby="openCategoryLobby" />
         <HomeContent
           v-else
