@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { Trophy, ChevronRight } from 'lucide-vue-next'
+import { Trophy, ChevronLeft, ChevronRight } from 'lucide-vue-next'
 import { storeToRefs } from 'pinia'
 import PeryaCarnivalHero from '@/components/bingo/PeryaCarnivalHero.vue'
 import GameImageCard from '@/components/game/GameImageCard.vue'
@@ -22,6 +22,11 @@ const { isLoggedIn } = storeToRefs(auth)
 
 const bingoGames = ref<SlotGame[]>([])
 const launchingUuid = ref<string | null>(null)
+const peryaScroll = ref<HTMLElement | null>(null)
+const moreScroll  = ref<HTMLElement | null>(null)
+function scrollRow(el: HTMLElement | null, dir: -1 | 1) {
+  el?.scrollBy({ left: dir * 148, behavior: 'smooth' })
+}
 
 const heroGame = computed(() => bingoGames.value[0] ?? null)
 const subGames = computed(() => bingoGames.value.slice(1, 5))
@@ -202,17 +207,23 @@ onMounted(async () => {
 
     <!-- ── PERYA CLASSICS（横向滚动一行） ── -->
     <div class="mt-6">
-      <div class="flex items-center gap-2 mb-3 px-4">
-        <span class="text-base">🎡</span>
-        <h2 class="text-white font-black text-base font-display">PERYA CLASSICS</h2>
+      <div class="flex items-center justify-between mb-3 px-4">
+        <div class="flex items-center gap-2">
+          <span class="text-base">🎡</span>
+          <h2 class="text-white font-black text-base font-display">PERYA CLASSICS</h2>
+        </div>
+        <div class="flex items-center gap-0.5">
+          <button type="button" class="w-6 h-6 flex items-center justify-center rounded-full bg-white/10 text-white/60 active:scale-90 transition-transform" @click="scrollRow(peryaScroll, -1)"><ChevronLeft :size="13" /></button>
+          <button type="button" class="w-6 h-6 flex items-center justify-center rounded-full bg-white/10 text-white/60 active:scale-90 transition-transform" @click="scrollRow(peryaScroll, 1)"><ChevronRight :size="13" /></button>
+        </div>
       </div>
-      <!-- 卡宽 = (100vw - 32px 内边距 - 20px 间隙) / 3，刚好一行三个 -->
-      <div class="flex gap-2.5 overflow-x-auto px-4 pb-2 scrollbar-hide snap-x snap-mandatory">
+      <div ref="peryaScroll" class="flex gap-2.5 overflow-x-auto px-4 pb-2 scrollbar-hide snap-x snap-mandatory">
         <button
           v-for="g in PINOY_CLASSICS"
           :key="g.uuid"
           type="button"
-          class="flex-shrink-0 w-32 h-44 rounded-xl overflow-hidden active:scale-95 transition-transform snap-start"
+          class="flex-shrink-0 h-44 rounded-xl overflow-hidden active:scale-95 transition-transform snap-start"
+          style="width: calc((100vw - 52px) / 3)"
           :disabled="launchingUuid === g.uuid"
           @click="onPlayGame(g.uuid)"
         >
@@ -234,21 +245,21 @@ onMounted(async () => {
           <span class="text-base">🐓</span>
           <h2 class="text-white font-black text-base font-display">MORE PINOY GAMES</h2>
         </div>
-        <button
-          type="button"
-          class="flex items-center gap-0.5 text-primary text-xs font-black"
-          @click="emit('openCategoryLobby', { title: '🇵🇭 All Pinoy Games', sortCategory: 'pinoy' })"
-        >
-          SEE ALL
-          <ChevronRight :size="14" />
-        </button>
+        <div class="flex items-center gap-2">
+          <div class="flex items-center gap-0.5">
+            <button type="button" class="w-6 h-6 flex items-center justify-center rounded-full bg-white/10 text-white/60 active:scale-90 transition-transform" @click="scrollRow(moreScroll, -1)"><ChevronLeft :size="13" /></button>
+            <button type="button" class="w-6 h-6 flex items-center justify-center rounded-full bg-white/10 text-white/60 active:scale-90 transition-transform" @click="scrollRow(moreScroll, 1)"><ChevronRight :size="13" /></button>
+          </div>
+          <button type="button" class="flex items-center gap-0.5 text-primary text-xs font-black" @click="emit('openCategoryLobby', { title: '🇵🇭 All Pinoy Games', sortCategory: 'pinoy' })">SEE ALL<ChevronRight :size="14" /></button>
+        </div>
       </div>
-      <div class="flex gap-2.5 overflow-x-auto px-4 pb-2 scrollbar-hide snap-x snap-mandatory">
+      <div ref="moreScroll" class="flex gap-2.5 overflow-x-auto px-4 pb-2 scrollbar-hide snap-x snap-mandatory">
         <button
           v-for="g in MORE_PINOY_GAMES"
           :key="g.uuid"
           type="button"
-          class="flex-shrink-0 w-32 h-44 rounded-xl overflow-hidden active:scale-95 transition-transform snap-start"
+          class="flex-shrink-0 h-44 rounded-xl overflow-hidden active:scale-95 transition-transform snap-start"
+          style="width: calc((100vw - 52px) / 3)"
           :disabled="launchingUuid === g.uuid"
           @click="onPlayGame(g.uuid)"
         >

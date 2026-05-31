@@ -6,6 +6,7 @@ import { usePromotionStore } from '@/stores/promotion'
 import { useAuthStore } from '@/stores/auth'
 import {
   Search,
+  ChevronLeft,
   ChevronRight,
   Trophy,
   TrendingUp,
@@ -201,6 +202,16 @@ const homepageGames = ref<{ popular: SlotGame[]; slots: SlotGame[]; live: SlotGa
 })
 const historyGames = ref<GameHistoryItem[]>([])
 const gamesLoading = ref(true)
+
+// 横滑区滚动控制
+const popularScroll    = ref<HTMLElement | null>(null)
+const slotsScroll      = ref<HTMLElement | null>(null)
+const liveScroll       = ref<HTMLElement | null>(null)
+const fishingScroll    = ref<HTMLElement | null>(null)
+const tableCrashScroll = ref<HTMLElement | null>(null)
+function scrollRow(el: HTMLElement | null, dir: -1 | 1) {
+  el?.scrollBy({ left: dir * 148, behavior: 'smooth' })
+}
 
 const gameMap = computed(() => {
   const m = new Map<string, SlotGame>()
@@ -418,19 +429,18 @@ onMounted(async () => {
           <TrendingUp :size="15" class="text-primary" />
           <h3 class="text-foreground font-black text-sm font-display">{{ t('home.popularGames') }}</h3>
         </div>
-        <button
-          type="button"
-          class="text-primary text-xs font-bold flex items-center gap-0.5"
-          @click="emit('openCategoryLobby', { sortBy: 'ph_bonus', title: t('home.popularGames') })"
-        >
-          {{ t('common.seeAll') }}
-          <ChevronRight :size="12" />
-        </button>
+        <div class="flex items-center gap-2">
+          <div class="flex items-center gap-0.5">
+            <button type="button" class="w-6 h-6 flex items-center justify-center rounded-full bg-secondary text-muted-foreground active:scale-90 transition-transform" @click="scrollRow(popularScroll, -1)"><ChevronLeft :size="13" /></button>
+            <button type="button" class="w-6 h-6 flex items-center justify-center rounded-full bg-secondary text-muted-foreground active:scale-90 transition-transform" @click="scrollRow(popularScroll, 1)"><ChevronRight :size="13" /></button>
+          </div>
+          <button type="button" class="text-primary text-xs font-bold flex items-center gap-0.5" @click="emit('openCategoryLobby', { sortBy: 'ph_bonus', title: t('home.popularGames') })">{{ t('common.seeAll') }}<ChevronRight :size="12" /></button>
+        </div>
       </div>
       <div v-if="gamesLoading" class="flex gap-3 px-4">
         <div v-for="n in 6" :key="n" class="flex-shrink-0 w-32 h-40 animate-pulse rounded-xl bg-secondary" />
       </div>
-      <div v-else-if="popularGames.length > 0" class="flex gap-3 px-4 overflow-x-auto hide-scrollbar">
+      <div v-else-if="popularGames.length > 0" ref="popularScroll" class="flex gap-3 px-4 overflow-x-auto hide-scrollbar">
         <div v-for="g in popularGames" :key="g.uuid" class="flex-shrink-0 w-32">
           <GameCard :game="g" @tap="onGameTap(g.uuid)" />
         </div>
@@ -445,19 +455,18 @@ onMounted(async () => {
           <h3 class="text-foreground font-black text-sm font-display">{{ t('home.egamesZone') }}</h3>
           <span class="bg-violet-500/20 text-violet-300 text-[10px] font-bold px-2 py-0.5 rounded-full">{{ t('common.featured') }}</span>
         </div>
-        <button
-          type="button"
-          class="text-primary text-xs font-bold flex items-center gap-0.5"
-          @click="emit('openCategoryLobby', { sortCategory: 'slots', sortBy: 'weight', title: t('home.egamesZone') })"
-        >
-          {{ t('common.seeAll') }}
-          <ChevronRight :size="12" />
-        </button>
+        <div class="flex items-center gap-2">
+          <div class="flex items-center gap-0.5">
+            <button type="button" class="w-6 h-6 flex items-center justify-center rounded-full bg-secondary text-muted-foreground active:scale-90 transition-transform" @click="scrollRow(slotsScroll, -1)"><ChevronLeft :size="13" /></button>
+            <button type="button" class="w-6 h-6 flex items-center justify-center rounded-full bg-secondary text-muted-foreground active:scale-90 transition-transform" @click="scrollRow(slotsScroll, 1)"><ChevronRight :size="13" /></button>
+          </div>
+          <button type="button" class="text-primary text-xs font-bold flex items-center gap-0.5" @click="emit('openCategoryLobby', { sortCategory: 'slots', sortBy: 'weight', title: t('home.egamesZone') })">{{ t('common.seeAll') }}<ChevronRight :size="12" /></button>
+        </div>
       </div>
       <div v-if="gamesLoading" class="flex gap-3 px-4">
         <div v-for="n in 6" :key="n" class="flex-shrink-0 w-32 h-28 animate-pulse rounded-xl bg-secondary" />
       </div>
-      <div v-else class="flex gap-3 px-4 overflow-x-auto hide-scrollbar">
+      <div v-else ref="slotsScroll" class="flex gap-3 px-4 overflow-x-auto hide-scrollbar">
         <EGameCard v-for="g in slotsGames" :key="g.uuid" :game="g" @tap="onGameTap(g.uuid)" />
       </div>
     </section>
@@ -469,19 +478,18 @@ onMounted(async () => {
           <span class="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
           <h3 class="text-foreground font-black text-sm font-display">{{ t('home.liveGames') }}</h3>
         </div>
-        <button
-          type="button"
-          class="text-primary text-xs font-bold flex items-center gap-0.5"
-          @click="emit('openCategoryLobby', { sortCategory: 'live', sortBy: 'weight', title: t('home.liveGames') })"
-        >
-          {{ t('common.seeAll') }}
-          <ChevronRight :size="12" />
-        </button>
+        <div class="flex items-center gap-2">
+          <div class="flex items-center gap-0.5">
+            <button type="button" class="w-6 h-6 flex items-center justify-center rounded-full bg-secondary text-muted-foreground active:scale-90 transition-transform" @click="scrollRow(liveScroll, -1)"><ChevronLeft :size="13" /></button>
+            <button type="button" class="w-6 h-6 flex items-center justify-center rounded-full bg-secondary text-muted-foreground active:scale-90 transition-transform" @click="scrollRow(liveScroll, 1)"><ChevronRight :size="13" /></button>
+          </div>
+          <button type="button" class="text-primary text-xs font-bold flex items-center gap-0.5" @click="emit('openCategoryLobby', { sortCategory: 'live', sortBy: 'weight', title: t('home.liveGames') })">{{ t('common.seeAll') }}<ChevronRight :size="12" /></button>
+        </div>
       </div>
       <div v-if="gamesLoading" class="flex gap-3 px-4">
         <div v-for="n in 6" :key="n" class="flex-shrink-0 w-32 h-28 animate-pulse rounded-xl bg-secondary" />
       </div>
-      <div v-else class="flex gap-3 px-4 overflow-x-auto hide-scrollbar">
+      <div v-else ref="liveScroll" class="flex gap-3 px-4 overflow-x-auto hide-scrollbar">
         <LiveCard v-for="g in liveGames" :key="g.uuid" :game="g" @tap="onGameTap(g.uuid)" />
       </div>
     </section>
@@ -493,19 +501,18 @@ onMounted(async () => {
           <Fish :size="15" class="text-cyan-400" />
           <h3 class="text-foreground font-black text-sm font-display">{{ t('home.fishingZone') }}</h3>
         </div>
-        <button
-          type="button"
-          class="text-primary text-xs font-bold flex items-center gap-0.5"
-          @click="emit('openCategoryLobby', { sortCategory: 'fishing', sortBy: 'weight', title: t('home.fishingZone') })"
-        >
-          {{ t('common.seeAll') }}
-          <ChevronRight :size="12" />
-        </button>
+        <div class="flex items-center gap-2">
+          <div class="flex items-center gap-0.5">
+            <button type="button" class="w-6 h-6 flex items-center justify-center rounded-full bg-secondary text-muted-foreground active:scale-90 transition-transform" @click="scrollRow(fishingScroll, -1)"><ChevronLeft :size="13" /></button>
+            <button type="button" class="w-6 h-6 flex items-center justify-center rounded-full bg-secondary text-muted-foreground active:scale-90 transition-transform" @click="scrollRow(fishingScroll, 1)"><ChevronRight :size="13" /></button>
+          </div>
+          <button type="button" class="text-primary text-xs font-bold flex items-center gap-0.5" @click="emit('openCategoryLobby', { sortCategory: 'fishing', sortBy: 'weight', title: t('home.fishingZone') })">{{ t('common.seeAll') }}<ChevronRight :size="12" /></button>
+        </div>
       </div>
       <div v-if="gamesLoading" class="flex gap-3 px-4">
         <div v-for="n in 6" :key="n" class="flex-shrink-0 w-32 h-28 animate-pulse rounded-xl bg-secondary" />
       </div>
-      <div v-else class="flex gap-3 px-4 overflow-x-auto hide-scrollbar">
+      <div v-else ref="fishingScroll" class="flex gap-3 px-4 overflow-x-auto hide-scrollbar">
         <EGameCard v-for="g in fishingGames" :key="g.uuid" :game="g" @tap="onGameTap(g.uuid)" />
       </div>
     </section>
@@ -517,19 +524,18 @@ onMounted(async () => {
           <LayoutGrid :size="15" class="text-blue-400" />
           <h3 class="text-foreground font-black text-sm font-display">{{ t('home.tableZone') }}</h3>
         </div>
-        <button
-          type="button"
-          class="text-primary text-xs font-bold flex items-center gap-0.5"
-          @click="emit('openCategoryLobby', { sortCategory: 'table', sortBy: 'weight', title: t('home.tableZone') })"
-        >
-          {{ t('common.seeAll') }}
-          <ChevronRight :size="12" />
-        </button>
+        <div class="flex items-center gap-2">
+          <div class="flex items-center gap-0.5">
+            <button type="button" class="w-6 h-6 flex items-center justify-center rounded-full bg-secondary text-muted-foreground active:scale-90 transition-transform" @click="scrollRow(tableCrashScroll, -1)"><ChevronLeft :size="13" /></button>
+            <button type="button" class="w-6 h-6 flex items-center justify-center rounded-full bg-secondary text-muted-foreground active:scale-90 transition-transform" @click="scrollRow(tableCrashScroll, 1)"><ChevronRight :size="13" /></button>
+          </div>
+          <button type="button" class="text-primary text-xs font-bold flex items-center gap-0.5" @click="emit('openCategoryLobby', { sortCategory: 'table', sortBy: 'weight', title: t('home.tableZone') })">{{ t('common.seeAll') }}<ChevronRight :size="12" /></button>
+        </div>
       </div>
       <div v-if="gamesLoading" class="flex gap-3 px-4">
         <div v-for="n in 6" :key="n" class="flex-shrink-0 w-32 h-28 animate-pulse rounded-xl bg-secondary" />
       </div>
-      <div v-else class="flex gap-3 px-4 overflow-x-auto hide-scrollbar">
+      <div v-else ref="tableCrashScroll" class="flex gap-3 px-4 overflow-x-auto hide-scrollbar">
         <EGameCard v-for="g in tableCrashGames" :key="g.uuid" :game="g" @tap="onGameTap(g.uuid)" />
       </div>
     </section>
