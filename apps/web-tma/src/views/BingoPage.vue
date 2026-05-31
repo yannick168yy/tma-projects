@@ -218,6 +218,7 @@ onMounted(async () => {
           @click="onPlayGame(g.uuid)"
         >
           <GameImageCard
+            variant="mirror"
             :image-url="g.imageUrl"
             :fallback-bg="g.bg"
             :name="g.name"
@@ -257,6 +258,7 @@ onMounted(async () => {
           @click="onPlayGame(g.uuid)"
         >
           <GameImageCard
+            variant="mirror"
             :image-url="g.imageUrl"
             :fallback-bg="g.bg"
             :name="g.name"
