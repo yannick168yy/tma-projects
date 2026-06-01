@@ -132,9 +132,14 @@ const DOCS = computed(() => [
 // 复用首页 infoDetails 内容的 doc 键
 const HOME_DOC_KEYS = new Set(['terms', 'privacy', 'responsible', 'about'])
 
-const comingSoonOpen = ref(false)
+const comingSoonToast = ref(false)
+let comingSoonTimer: ReturnType<typeof setTimeout> | null = null
 function showComingSoon() {
-  comingSoonOpen.value = true
+  if (comingSoonTimer) clearTimeout(comingSoonTimer)
+  comingSoonToast.value = true
+  comingSoonTimer = setTimeout(() => {
+    comingSoonToast.value = false
+  }, 2200)
 }
 const docModalKey = ref<string | null>(null)
 
@@ -219,15 +224,13 @@ onMounted(() => {
   }
 })
 
-watch(
-  () => comingSoonOpen.value || docModalKey.value,
-  (anyOpen) => {
-    document.body.style.overflow = anyOpen ? 'hidden' : ''
-  },
-)
+watch(docModalKey, (open) => {
+  document.body.style.overflow = open ? 'hidden' : ''
+})
 
 onUnmounted(() => {
   document.body.style.overflow = ''
+  if (comingSoonTimer) clearTimeout(comingSoonTimer)
 })
 
 async function savePersonal() {
@@ -255,7 +258,7 @@ async function savePersonal() {
 </script>
 
 <template>
-  <div class="min-h-full">
+  <div class="min-h-full pb-24">
     <div class="flex items-center gap-4 border-b border-border bg-card px-5 py-4">
       <div class="h-12 w-12 flex-shrink-0 overflow-hidden rounded-full bg-gradient-to-br from-amber-400 to-orange-500 shadow-lg shadow-amber-500/30">
         <svg viewBox="0 0 40 40" width="48" height="48" class="h-full w-full" aria-hidden="true">
@@ -575,32 +578,20 @@ async function savePersonal() {
       </section>
 
       <Teleport to="#app">
-        <div
-          v-if="comingSoonOpen"
-          class="fixed inset-0 z-[200] flex justify-center"
-          role="dialog"
-          aria-modal="true"
-        >
-          <div class="relative flex h-full w-full max-w-[430px] flex-col justify-end">
-            <div
-              class="absolute inset-0 bg-black/60"
-              aria-hidden="true"
-              @click="comingSoonOpen = false"
-            />
-            <div class="relative z-10 bg-card rounded-t-2xl pb-8 shadow-2xl">
-              <div class="flex items-center justify-between px-5 py-4 border-b border-border">
-                <h2 class="font-display font-black text-base text-foreground">{{ t('profile.comingSoon') }}</h2>
-                <button type="button" class="w-8 h-8 rounded-full bg-secondary flex items-center justify-center" @click="comingSoonOpen = false">
-                  <X :size="15" class="text-muted-foreground" />
-                </button>
-              </div>
-              <div class="px-5 py-6 text-center">
-                <div class="text-4xl mb-3">🚀</div>
-                <p class="text-sm text-foreground/70 leading-relaxed">{{ t('profile.comingSoonSub') }}</p>
-              </div>
+        <Transition name="toast-up">
+          <div
+            v-if="comingSoonToast"
+            class="profile-toast fixed left-1/2 z-[200] flex max-w-[min(320px,calc(100vw-2rem))] -translate-x-1/2 items-center gap-2.5 rounded-2xl border border-border bg-card px-4 py-3 shadow-2xl"
+            role="status"
+            aria-live="polite"
+          >
+            <span class="text-xl leading-none">🚀</span>
+            <div class="min-w-0">
+              <p class="text-sm font-black leading-tight text-foreground">{{ t('profile.comingSoon') }}</p>
+              <p class="mt-0.5 text-xs leading-snug text-muted-foreground">{{ t('profile.comingSoonSub') }}</p>
             </div>
           </div>
-        </div>
+        </Transition>
       </Teleport>
 
       <Teleport to="#app">

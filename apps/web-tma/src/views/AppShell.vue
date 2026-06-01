@@ -70,19 +70,20 @@ function closeOverlayPanels() {
 }
 
 const mainStyle = computed(() => {
-  const pad = {
-    paddingTop: `${headerH.value}px`,
-    paddingBottom: `${navH.value}px`,
-  }
+  const top = `${headerH.value}px`
   if (profileOpen.value) {
-    const h = headerH.value + navH.value
+    // 高度只减去顶栏；底栏由 fixed nav 覆盖，勿再 paddingBottom（否则会多出一条挡内容的底色带）
     return {
-      ...pad,
-      height: `calc(100dvh - ${h}px)`,
-      maxHeight: `calc(100dvh - ${h}px)`,
+      paddingTop: top,
+      paddingBottom: '0',
+      height: `calc(100dvh - ${headerH.value}px)`,
+      maxHeight: `calc(100dvh - ${headerH.value}px)`,
     }
   }
-  return pad
+  return {
+    paddingTop: top,
+    paddingBottom: `${navH.value}px`,
+  }
 })
 
 function openGame(url: string) {

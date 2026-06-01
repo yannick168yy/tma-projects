@@ -102,7 +102,11 @@
   transform: translateY(100%);
 }
 
-/* Toast 从顶部落下 */
+/* Toast：个人中心等场景，页面中上区域 */
+.profile-toast {
+  top: max(calc(var(--app-safe-top) + 5.5rem), 30vh);
+}
+
 .toast-up-enter-active {
   transition: opacity 0.2s ease, transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
@@ -112,7 +116,7 @@
 .toast-up-enter-from,
 .toast-up-leave-to {
   opacity: 0;
-  transform: translateX(-50%) translateY(-12px);
+  transform: translate(-50%, -12px);
 }
 
 .hide-scrollbar {
