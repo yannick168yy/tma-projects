@@ -3,6 +3,9 @@ import { apiRequest } from './client'
 export interface SlotGame {
   uuid: string
   name: string
+  nameId: string | null
+  nameVi: string | null
+  nameZh: string | null
   provider: string
   category: string | null
   subCategory: string | null
@@ -41,6 +44,9 @@ export interface GameListParams {
 export interface GameHistoryItem {
   uuid: string
   name: string
+  nameId?: string | null
+  nameVi?: string | null
+  nameZh?: string | null
   provider: string
   imageUrl: string | null
   imageHqUrl: string | null
@@ -98,6 +104,9 @@ export function launchDemo(gameUuid: string, device: 'mobile' | 'desktop' = 'mob
 export interface BetRecord {
   uuid: string
   name: string
+  nameId?: string | null
+  nameVi?: string | null
+  nameZh?: string | null
   provider: string
   imageUrl: string | null
   betAmount: number

@@ -116,7 +116,8 @@ export const rejectWithdrawal = (orderId: string, reason: string) =>
 
 // Games
 export interface AdminGame {
-  uuid: string; name: string; type: string | null; provider: string; providerId: number | null
+  uuid: string; name: string; nameId: string | null; nameVi: string | null; nameZh: string | null
+  type: string | null; provider: string; providerId: number | null
   technology: string | null; category: string | null; subCategory: string | null
   imageUrl: string | null; imageHqUrl: string | null
   hasDemo: boolean; hasLobby: boolean; isMobile: boolean
@@ -141,6 +142,8 @@ export const toggleGame = (uuid: string, isActive: boolean) =>
   patch<{ uuid: string; isActive: boolean }>(`/admin/games/${uuid}/toggle`, { isActive })
 export const syncGames = () =>
   post<{ synced: number }>('/admin/games/sync', {})
+export const translateGames = () =>
+  post<{ translated: number; errors: number; total: number }>('/admin/games/translate', {})
 
 // Audit log
 export interface AuditEntry {

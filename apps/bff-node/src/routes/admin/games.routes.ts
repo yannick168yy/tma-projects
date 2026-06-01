@@ -1,7 +1,7 @@
 import Router from '@koa/router'
 import { listAdminGames, toggleAdminGame, writeAuditLog } from '../../services/admin-store.js'
 import { syncAllGames, loadGamesCache, refreshHomepageSelection, stripMobileNamesInDb } from '../../services/sg-game.service.js'
-
+import { translateUntranslatedGames } from '../../services/game-translation.service.js'
 import { isMysqlEnabled } from '../../clients/mysql.client.js'
 import { ok, fail } from '../../utils/response.js'
 
@@ -102,6 +102,26 @@ router.post('/refresh-homepage', async (ctx) => {
     ok(ctx, { ok: true })
   } catch (e) {
     fail(ctx, 500, e instanceof Error ? e.message : 'Refresh failed')
+  }
+})
+
+router.post('/translate', async (ctx) => {
+  const env = ctx.state.env
+  if (!isMysqlEnabled(env)) {
+    fail(ctx, 400, 'MySQL not configured'); return
+  }
+  if (!env.GEMINI_API_KEY) {
+    fail(ctx, 400, 'GEMINI_API_KEY not configured'); return
+  }
+  try {
+    const result = await translateUntranslatedGames(env)
+    if (result.total > 0) {
+      await loadGamesCache(env)
+      await refreshHomepageSelection(env)
+    }
+    ok(ctx, result)
+  } catch (e) {
+    fail(ctx, 500, e instanceof Error ? e.message : 'Translation failed')
   }
 })
 

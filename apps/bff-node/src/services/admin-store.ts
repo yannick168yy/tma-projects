@@ -358,7 +358,7 @@ export async function listAdminGames(
   const sortDir = opts.sortOrder === 'asc' ? 'ASC' : 'DESC'
 
   const [rows] = await pool(env).query<RowDataPacket[]>(
-    `SELECT uuid, name, type, provider, provider_id, technology,
+    `SELECT uuid, name, name_id, name_vi, name_zh, type, provider, provider_id, technology,
             category, sub_category, image_url, image_hq_url,
             has_demo, has_lobby, is_mobile, has_freespins, has_tables,
             label, rtp, volatility, reels_count, lines_count, tags,
@@ -375,6 +375,9 @@ export async function listAdminGames(
   const items = rows.map((r) => ({
     uuid: String(r.uuid),
     name: String(r.name),
+    nameId: r.name_id ? String(r.name_id) : null,
+    nameVi: r.name_vi ? String(r.name_vi) : null,
+    nameZh: r.name_zh ? String(r.name_zh) : null,
     type: r.type ? String(r.type) : null,
     provider: String(r.provider),
     providerId: r.provider_id ? Number(r.provider_id) : null,

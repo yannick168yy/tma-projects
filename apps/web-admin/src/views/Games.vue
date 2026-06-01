@@ -2,7 +2,10 @@
   <div>
     <a-space style="margin-bottom:12px;width:100%;justify-content:space-between" align="center">
       <h2 style="margin:0">游戏管理</h2>
-      <a-button type="primary" :loading="syncing" @click="doSync">同步游戏库</a-button>
+      <a-space>
+        <a-button :loading="translating" @click="doTranslate">AI 翻译游戏名</a-button>
+        <a-button type="primary" :loading="syncing" @click="doSync">同步游戏库</a-button>
+      </a-space>
     </a-space>
 
     <!-- 筛选栏 -->
@@ -292,6 +295,23 @@
           <a-descriptions-item label="赔付线">{{ detailGame.linesCount ?? '—' }}</a-descriptions-item>
         </a-descriptions>
 
+        <!-- 多语言名称 -->
+        <a-descriptions title="多语言名称" :column="1" bordered size="small" style="margin-bottom:14px">
+          <a-descriptions-item label="英语 (en)">{{ detailGame.name }}</a-descriptions-item>
+          <a-descriptions-item label="印尼语 (id)">
+            <span v-if="detailGame.nameId">{{ detailGame.nameId }}</span>
+            <span v-else style="color:#bbb">未翻译</span>
+          </a-descriptions-item>
+          <a-descriptions-item label="越南语 (vi)">
+            <span v-if="detailGame.nameVi">{{ detailGame.nameVi }}</span>
+            <span v-else style="color:#bbb">未翻译</span>
+          </a-descriptions-item>
+          <a-descriptions-item label="中文 (zh-CN)">
+            <span v-if="detailGame.nameZh">{{ detailGame.nameZh }}</span>
+            <span v-else style="color:#bbb">未翻译</span>
+          </a-descriptions-item>
+        </a-descriptions>
+
         <!-- AI 富化 -->
         <a-descriptions title="AI 富化数据" :column="1" bordered size="small" style="margin-bottom:14px">
           <a-descriptions-item label="热度权重">
@@ -365,7 +385,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { message } from 'ant-design-vue'
-import { getAdminGames, toggleGame, syncGames, type AdminGame } from '../api.js'
+import { getAdminGames, toggleGame, syncGames, translateGames, type AdminGame } from '../api.js'
 
 const search = ref('')
 const providerFilter = ref<string | undefined>()
@@ -382,6 +402,7 @@ const activeFilter = ref<string | undefined>()
 
 const loading = ref(false)
 const syncing = ref(false)
+const translating = ref(false)
 const games = ref<AdminGame[]>([])
 const providers = ref<string[]>([])
 const total = ref(0)
@@ -541,6 +562,23 @@ async function doSync() {
     message.error(e instanceof Error ? e.message : '同步失败')
   } finally {
     syncing.value = false
+  }
+}
+
+async function doTranslate() {
+  translating.value = true
+  try {
+    const res = await translateGames()
+    if (res.total === 0) {
+      message.info('所有游戏名称已翻译，无需重复操作')
+    } else {
+      message.success(`翻译完成：${res.translated} 款成功，${res.errors} 款失败（共 ${res.total} 款待翻译）`)
+      load(1)
+    }
+  } catch (e) {
+    message.error(e instanceof Error ? e.message : 'AI 翻译失败')
+  } finally {
+    translating.value = false
   }
 }
 

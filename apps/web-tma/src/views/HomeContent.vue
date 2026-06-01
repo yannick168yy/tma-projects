@@ -30,6 +30,8 @@ import { CATEGORIES } from '@/data/categories'
 import { BANNERS, WINNERS, INFO_LINKS } from '@/data/home'
 import { fetchHomepageGames, launchGame, fetchBettingActivity, type SlotGame, type GameHistoryItem, type BetRecord, type BetTab } from '@/api/slots'
 import { ApiError } from '@/api/client'
+import { useLocaleStore } from '@/stores/locale'
+import { localizedGameName } from '@/utils/game'
 
 const INFO_ICONS: Record<string, unknown> = { terms: FileText, privacy: Shield, responsible: Heart, about: Info }
 
@@ -52,6 +54,9 @@ function writeLocalHistory(game: SlotGame) {
       {
         uuid: game.uuid,
         name: game.name,
+        nameId: game.nameId,
+        nameVi: game.nameVi,
+        nameZh: game.nameZh,
         provider: game.provider,
         imageUrl: game.imageUrl,
         imageHqUrl: game.imageHqUrl,
@@ -82,6 +87,7 @@ const emit = defineEmits<{
 const { t } = useI18n()
 const promotion = usePromotionStore()
 const auth = useAuthStore()
+const localeStore = useLocaleStore()
 const { highlightMap } = storeToRefs(promotion)
 
 const localizedBanners = computed(() =>
@@ -624,7 +630,7 @@ onMounted(async () => {
             />
             <div v-else class="w-10 h-10 rounded-lg bg-white/10 flex-shrink-0" />
             <div class="flex-1 min-w-0">
-              <p class="text-xs font-bold text-foreground truncate">{{ rec.name }}</p>
+              <p class="text-xs font-bold text-foreground truncate">{{ localizedGameName(rec, localeStore.locale) }}</p>
               <p class="text-[10px] text-muted-foreground">{{ rec.provider }}</p>
             </div>
             <span class="text-xs font-bold text-primary flex-shrink-0">{{ formatBet(rec.betAmount) }}</span>

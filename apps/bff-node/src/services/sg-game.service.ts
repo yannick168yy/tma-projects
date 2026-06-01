@@ -94,6 +94,9 @@ export async function syncAllGames(env: Env): Promise<{ synced: number }> {
 export interface DbGame {
   uuid: string
   name: string
+  nameId: string | null
+  nameVi: string | null
+  nameZh: string | null
   provider: string
   category: string | null
   subCategory: string | null
@@ -115,6 +118,9 @@ function rowToDbGame(r: RowDataPacket): DbGame {
   return {
     uuid: r.uuid as string,
     name: r.name as string,
+    nameId: (r.name_id as string) ?? null,
+    nameVi: (r.name_vi as string) ?? null,
+    nameZh: (r.name_zh as string) ?? null,
     provider: r.provider as string,
     category: (r.category as string) ?? null,
     subCategory: (r.sub_category as string) ?? null,
@@ -139,7 +145,7 @@ export async function loadGamesCache(env: Env): Promise<number> {
   const db = getMysqlPool(env)
   const redis = getRedis(env)
   const [rows] = await db.query<RowDataPacket[]>(
-    `SELECT uuid, name, provider, category, sub_category, sort_category,
+    `SELECT uuid, name, name_id, name_vi, name_zh, provider, category, sub_category, sort_category,
             image_url, image_hq_url, has_demo, has_lobby, is_mobile,
             weight, ph_bonus, is_featured, theme, game_style, player_type
      FROM sg_games g
@@ -337,6 +343,9 @@ export async function listGames(
 export interface GameHistoryItem {
   uuid: string
   name: string
+  nameId: string | null
+  nameVi: string | null
+  nameZh: string | null
   provider: string
   imageUrl: string | null
   imageHqUrl: string | null
@@ -351,12 +360,13 @@ export async function getUserGameHistory(
   const db = getMysqlPool(env)
   const [rows] = await db.query<RowDataPacket[]>(
     `SELECT b.provider_id AS game_uuid,
-            g.name, g.provider, g.image_url, g.image_hq_url,
+            g.name, g.name_id, g.name_vi, g.name_zh,
+            g.provider, g.image_url, g.image_hq_url,
             MAX(b.created_at) AS last_played_at
      FROM bg_bet_order b
      JOIN sg_games g ON g.uuid = b.provider_id
      WHERE b.user_id = ? AND b.aggregator_id = 'slotegrator'
-     GROUP BY b.provider_id, g.name, g.provider, g.image_url, g.image_hq_url
+     GROUP BY b.provider_id, g.name, g.name_id, g.name_vi, g.name_zh, g.provider, g.image_url, g.image_hq_url
      ORDER BY last_played_at DESC
      LIMIT ?`,
     [userId, limit],
@@ -364,6 +374,9 @@ export async function getUserGameHistory(
   return rows.map((r) => ({
     uuid: r.game_uuid as string,
     name: r.name as string,
+    nameId: (r.name_id as string) ?? null,
+    nameVi: (r.name_vi as string) ?? null,
+    nameZh: (r.name_zh as string) ?? null,
     provider: r.provider as string,
     imageUrl: r.image_url ? String(r.image_url) : null,
     imageHqUrl: r.image_hq_url ? String(r.image_hq_url) : null,

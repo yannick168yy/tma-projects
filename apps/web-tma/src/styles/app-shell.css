@@ -67,7 +67,7 @@ body {
 
 /* 主页面视图：流入 document，不限制自身滚动 */
 .page-main {
-  overflow-x: hidden;
+  overflow-x: clip;
   touch-action: pan-y;
   -ms-touch-action: pan-y;
 }

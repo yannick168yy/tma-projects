@@ -3,6 +3,8 @@ import { Play, Tv2 } from 'lucide-vue-next'
 import type { SlotGame } from '@/api/slots'
 import GameImageCard from '@/components/game/GameImageCard.vue'
 import { themeTag } from '@/utils/theme-tag'
+import { useLocaleStore } from '@/stores/locale'
+import { localizedGameName } from '@/utils/game'
 
 defineProps<{
   game: SlotGame
@@ -13,6 +15,7 @@ const emit = defineEmits<{
   play: [uuid: string]
   demo: [uuid: string]
 }>()
+const localeStore = useLocaleStore()
 </script>
 
 <template>
@@ -20,7 +23,7 @@ const emit = defineEmits<{
     <GameImageCard
       :image-url="game.imageHqUrl ?? game.imageUrl"
       :fallback-bg="['#1e1b4b', '#312e81']"
-      :name="game.name"
+      :name="localizedGameName(game, localeStore.locale)"
       :provider="game.provider"
       :tag="themeTag(game.theme)?.label"
       :tag-bg="themeTag(game.theme)?.bg"

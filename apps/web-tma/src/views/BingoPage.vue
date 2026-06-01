@@ -9,6 +9,8 @@ import { PINOY_CLASSICS, MORE_PINOY_GAMES, PERYA_WINNERS } from '@/data/bingo'
 import { fetchGames, launchGame, type SlotGame } from '@/api/slots'
 import { useAuthStore } from '@/stores/auth'
 import { ApiError } from '@/api/client'
+import { useLocaleStore } from '@/stores/locale'
+import { localizedGameName } from '@/utils/game'
 
 const emit = defineEmits<{
   openWallet: []
@@ -19,6 +21,7 @@ const emit = defineEmits<{
 const { t } = useI18n()
 const auth = useAuthStore()
 const { isLoggedIn } = storeToRefs(auth)
+const localeStore = useLocaleStore()
 
 const bingoGames = ref<SlotGame[]>([])
 const launchingUuid = ref<string | null>(null)
@@ -207,7 +210,7 @@ onMounted(async () => {
           <GameImageCard
             :image-url="g.imageHqUrl ?? g.imageUrl"
             :fallback-bg="cardFallback(g.provider)"
-            :name="g.name"
+            :name="localizedGameName(g, localeStore.locale)"
             :provider="g.provider"
           />
         </button>
@@ -238,7 +241,7 @@ onMounted(async () => {
               variant="mirror"
               :image-url="g.imageUrl"
               :fallback-bg="g.bg"
-              :name="g.name"
+              :name="localizedGameName(g, localeStore.locale)"
               :provider="g.provider"
             />
           </button>
@@ -273,7 +276,7 @@ onMounted(async () => {
               variant="mirror"
               :image-url="g.imageUrl"
               :fallback-bg="g.bg"
-              :name="g.name"
+              :name="localizedGameName(g, localeStore.locale)"
               :provider="g.provider"
             />
           </button>

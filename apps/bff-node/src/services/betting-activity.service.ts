@@ -4,6 +4,9 @@ import { getGamesFromCache, type DbGame } from './sg-game.service.js'
 export interface BetRecord {
   uuid: string
   name: string
+  nameId: string | null
+  nameVi: string | null
+  nameZh: string | null
   provider: string
   imageUrl: string | null
   betAmount: number
@@ -43,6 +46,9 @@ function toRecord(g: DbGame, betAmount: number): BetRecord {
   return {
     uuid: g.uuid,
     name: g.name,
+    nameId: g.nameId,
+    nameVi: g.nameVi,
+    nameZh: g.nameZh,
     provider: g.provider,
     imageUrl: g.imageHqUrl ?? g.imageUrl,
     betAmount,

@@ -307,7 +307,7 @@ function navIcon(id: string) {
       </header>
 
       <main
-        class="relative overflow-x-hidden"
+        class="relative overflow-x-clip"
         :style="{ paddingTop: headerH + 'px', paddingBottom: navH + 'px' }"
       >
         <SearchOverlay v-if="searchOpen" @close="closeSearch" @game-tap="onGameTap" @open-game="openGame" />
