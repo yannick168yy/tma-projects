@@ -2,6 +2,8 @@ import Router from '@koa/router'
 import { getDeposit, listDeposits, saveDeposit } from '../services/store.js'
 import { settlePaidDeposit, type DepositCurrency } from '../services/deposit.service.js'
 import { createTelegramInvoiceLink, orderToTelegramInvoice } from '../services/telegramPayments.js'
+import { getOrFetchDepositAddress } from '../services/matrix.service.js'
+import { isMatrixEnabled } from '../clients/matrix.client.js'
 import { nowIso } from '../utils/format.js'
 import { fail, ok } from '../utils/response.js'
 import { randomOrderId } from '../utils/id.js'
@@ -123,6 +125,30 @@ router.get('/:orderId', async (ctx) => {
     currency: order.currency,
     paidAmount: order.status === 'paid' ? (order.creditedCents ?? 0) : 0,
   })
+})
+
+// ── Matrix 充值地址 ───────────────────────────────────────────────────────────
+// GET /deposits/matrix/address?symbol=USDT&chain=TRON
+router.get('/matrix/address', async (ctx) => {
+  if (!isMatrixEnabled(ctx.state.env)) {
+    fail(ctx, 503, 'Matrix payment channel is not configured', 503)
+    return
+  }
+
+  const symbol = String(ctx.query.symbol ?? '').toUpperCase()
+  const chain = String(ctx.query.chain ?? '').toUpperCase()
+  if (!symbol || !chain) {
+    fail(ctx, 400, 'symbol and chain are required')
+    return
+  }
+
+  try {
+    const result = await getOrFetchDepositAddress(ctx.state.env, ctx.state.userId!, symbol, chain)
+    ok(ctx, result)
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Failed to get deposit address'
+    fail(ctx, 502, msg, 502)
+  }
 })
 
 export default router

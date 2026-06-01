@@ -13,6 +13,7 @@ import promotionRoutes from './promotion.routes.js'
 import webhookRoutes from './webhook.routes.js'
 import yfpayCallbackRoutes from './yfpay-callback.routes.js'
 import yfpayRoutes from './yfpay.routes.js'
+import matrixCallbackRoutes from './matrix-callback.routes.js'
 import slotsRoutes from './slots.routes.js'
 import sgCallbackRoutes from './sg-callback.routes.js'
 import { authMiddleware, optionalAuthMiddleware } from '../middleware/auth.js'
@@ -30,6 +31,7 @@ export function createApiRouter(): Router {
   api.use(webhookRoutes.routes(), webhookRoutes.allowedMethods())
   api.use(yfpayCallbackRoutes.routes(), yfpayCallbackRoutes.allowedMethods())
   api.use(sgCallbackRoutes.routes(), sgCallbackRoutes.allowedMethods())
+  api.use(matrixCallbackRoutes.routes(), matrixCallbackRoutes.allowedMethods())
   api.use(authRoutes.routes(), authRoutes.allowedMethods())
 
   // 公开：YF Pay 存款频道

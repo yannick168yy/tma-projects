@@ -49,6 +49,23 @@ const schema = z.object({
     .enum(['true', 'false'])
     .default('true')
     .transform((v) => v === 'true'),
+  // ── Matrix 加密支付通道 ─────────────────────────────────────────────────────
+  // 网关地址，例如 https://gateway.example.com/api
+  MATRIX_GATEWAY_URL: z.string().default(''),
+  // 平台分配的商户 API Key
+  MATRIX_API_KEY: z.string().default(''),
+  // 商户 API 私钥（PEM 格式，\n 替换为实际换行）
+  MATRIX_MERCHANT_API_PRIVATE_KEY: z.string().default(''),
+  // 平台 API 公钥（PEM 格式，API_SIGN 类型）
+  MATRIX_PLATFORM_API_PUBLIC_KEY: z.string().default(''),
+  // 商户通知私钥（PEM 格式，NOTIFY_ENCRYPT 类型）
+  MATRIX_MERCHANT_NOTIFY_PRIVATE_KEY: z.string().default(''),
+  // 平台通知公钥（PEM 格式，NOTIFY_ENCRYPT 类型）
+  MATRIX_PLATFORM_NOTIFY_PUBLIC_KEY: z.string().default(''),
+  // 接收平台通知的公网地址，例如 https://api.yourdomain.com/api/v1/callback/matrix
+  MATRIX_NOTIFY_URL: z.string().default(''),
+  // 提现反查地址（可选）
+  MATRIX_WITHDRAW_CHECK_URL: z.string().default(''),
 })
 
 export type Env = z.infer<typeof schema>
