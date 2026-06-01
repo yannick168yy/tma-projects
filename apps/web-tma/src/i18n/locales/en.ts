@@ -312,13 +312,25 @@ export default {
       telegram: 'Telegram Support',
       email: 'Email Support',
     },
+    comingSoon: 'Coming Soon',
+    comingSoonSub: 'This feature is on its way. Stay tuned for updates!',
     docs: {
-      terms: 'Terms & Conditions',
+      terms: 'Terms of Service',
       privacy: 'Privacy Policy',
       responsible: 'Responsible Gaming',
       aml: 'AML Policy',
       bonusTerms: 'Bonus Terms',
-      about: 'About TarsierWin',
+      about: 'About Us',
+    },
+    docDetails: {
+      aml: {
+        title: 'AML Policy',
+        content: 'TarsierWin is committed to preventing money laundering and terrorist financing in full compliance with applicable regulations and our PAGCOR gaming license.\n\nKnow Your Customer (KYC)\n\nWe verify player identities through Telegram and Google authentication. For higher withdrawal amounts or when suspicious activity is detected, additional documentation may be required. Identity verification ensures the integrity of our platform for all players.\n\nTransaction Monitoring\n\nAll financial transactions are continuously monitored for unusual patterns. Deposits and withdrawals are screened against international sanctions lists and risk indicators. Our compliance team investigates flagged activities promptly.\n\nReporting Obligations\n\nTarsierWin cooperates fully with PAGCOR and relevant law enforcement authorities. Suspicious transactions are reported in accordance with applicable anti-money laundering laws. We maintain detailed transaction records as required by regulation.\n\nPlayer Responsibilities\n\nPlayers must ensure all funds used for gaming are from legitimate sources. Using the platform for money laundering or any illegal financial activity is strictly prohibited and will result in immediate account suspension and reporting to authorities.\n\nContact Compliance\n\nFor AML-related queries or to report suspicious activity, contact our support team via live chat. All reports are treated with strict confidentiality.',
+      },
+      bonusTerms: {
+        title: 'Bonus Terms',
+        content: 'All bonuses and promotional offers on TarsierWin are subject to the following terms and conditions. By claiming any bonus, you agree to these terms.\n\nEligibility\n\nBonuses are available to registered players who meet the eligibility criteria specified for each promotion. Some bonuses are restricted to new players, first deposits, or specific activities as described in the promotion details.\n\nWelcome Bonus\n\nNew players may receive free bonus credits upon registration with no deposit required. This bonus is credited automatically to eligible accounts and is intended for exploring the platform without financial risk.\n\nFirst Deposit Bonus\n\nA deposit match bonus is available on qualifying first deposits. The bonus percentage and maximum bonus amount are as stated in the active promotion. A minimum deposit amount applies to qualify.\n\nReferral Bonus\n\nPlayers who invite friends may receive a bonus when the referred player completes their first qualifying deposit. Both the referrer and the referee may receive bonuses as specified in the current promotion.\n\nWagering Requirements\n\nAll bonuses are subject to wagering requirements before any withdrawal can be made. The required wagering multiplier is specified per promotion. Wagering must be completed within the stated time limit.\n\nGeneral Rules\n\n• One bonus per player, per household, per IP address unless stated otherwise\n• TarsierWin reserves the right to modify or withdraw any promotion at any time\n• Abuse of bonus offers will result in account suspension\n• In case of any dispute, TarsierWin\'s decision is final\n• All bonuses are subject to TarsierWin\'s full Terms of Service',
+      },
     },
     months: {
       '1': 'January',

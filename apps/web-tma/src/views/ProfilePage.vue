@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { CheckCircle2, Copy, ChevronDown, ChevronRight, LogOut, Headphones } from 'lucide-vue-next'
+import { CheckCircle2, Copy, ChevronDown, ChevronRight, LogOut, Headphones, X } from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/auth'
 import type { LoginProvider } from '@/types/api'
 import { formatTelegramHandle, getTelegramWebAppUser } from '@/utils/telegramUser'
@@ -121,13 +121,46 @@ const SUPPORT_ITEMS = computed(() => [
 ])
 
 const DOCS = computed(() => [
-  { label: t('profile.docs.terms'), icon: '📋' },
-  { label: t('profile.docs.privacy'), icon: '🔒' },
-  { label: t('profile.docs.responsible'), icon: '🛡️' },
-  { label: t('profile.docs.aml'), icon: '⚖️' },
-  { label: t('profile.docs.bonusTerms'), icon: '🎁' },
-  { label: t('profile.docs.about'), icon: 'ℹ️' },
+  { key: 'terms',        label: t('profile.docs.terms'),        icon: '📋' },
+  { key: 'privacy',      label: t('profile.docs.privacy'),      icon: '🔒' },
+  { key: 'responsible',  label: t('profile.docs.responsible'),  icon: '🛡️' },
+  { key: 'aml',          label: t('profile.docs.aml'),          icon: '⚖️' },
+  { key: 'bonusTerms',   label: t('profile.docs.bonusTerms'),   icon: '🎁' },
+  { key: 'about',        label: t('profile.docs.about'),        icon: 'ℹ️' },
 ])
+
+// 复用首页 infoDetails 内容的 doc 键
+const HOME_DOC_KEYS = new Set(['terms', 'privacy', 'responsible', 'about'])
+
+const comingSoonOpen = ref(false)
+const docModalKey = ref<string | null>(null)
+
+function openDoc(key: string) { docModalKey.value = key }
+function closeDoc() { docModalKey.value = null }
+
+const docTitle = computed(() =>
+  docModalKey.value ? t(`profile.docs.${docModalKey.value}`) : '',
+)
+
+const parsedDocContent = computed(() => {
+  if (!docModalKey.value) return []
+  const raw = HOME_DOC_KEYS.has(docModalKey.value)
+    ? t(`home.infoDetails.${docModalKey.value}.content`)
+    : t(`profile.docDetails.${docModalKey.value}.content`)
+  const chunks = raw.split('\n\n').map((c) => c.trim()).filter(Boolean)
+  const sections: { heading: string | null; body: string }[] = []
+  for (let i = 0; i < chunks.length; i++) {
+    const chunk = chunks[i]
+    const isHeading = chunk.length <= 60 && !chunk.includes('\n') && !/[.?!,。，！？]$/.test(chunk)
+    if (isHeading && i + 1 < chunks.length) {
+      sections.push({ heading: chunk, body: chunks[i + 1] })
+      i++
+    } else {
+      sections.push({ heading: null, body: chunk })
+    }
+  }
+  return sections
+})
 
 const dobFilled = computed(() => !!(dobMonth.value && dobDay.value && dobYear.value))
 
@@ -438,6 +471,7 @@ async function savePersonal() {
             type="button"
             class="flex w-full items-center justify-between px-4 py-3 transition-colors hover:bg-secondary/50"
             :class="i < SUPPORT_ITEMS.length - 1 ? 'border-b border-border' : ''"
+            @click="i === 0 ? emit('open-cs') : (comingSoonOpen = true)"
           >
             <div class="flex items-center gap-3">
               <span class="text-xl">{{ item.icon }}</span>
@@ -463,6 +497,7 @@ async function savePersonal() {
             type="button"
             class="relative rounded-2xl bg-gradient-to-br p-4 text-left transition-opacity hover:opacity-90"
             :class="l.color"
+            @click="comingSoonOpen = true"
           >
             <span class="mb-2 block text-2xl">{{ l.icon }}</span>
             <p class="text-xs font-black leading-tight text-white">{{ l.label }}</p>
@@ -489,10 +524,11 @@ async function savePersonal() {
         <div class="overflow-hidden rounded-2xl border border-border bg-card">
           <button
             v-for="(d, i) in DOCS"
-            :key="d.label"
+            :key="d.key"
             type="button"
             class="flex w-full items-center justify-between px-4 py-3 transition-colors hover:bg-secondary/50"
             :class="i < DOCS.length - 1 ? 'border-b border-border' : ''"
+            @click="openDoc(d.key)"
           >
             <div class="flex items-center gap-3">
               <span class="text-base">{{ d.icon }}</span>
@@ -523,6 +559,56 @@ async function savePersonal() {
           {{ t('profile.logout') }}
         </button>
       </section>
+
+      <!-- 尽请期待弹窗 -->
+      <Teleport to="body">
+        <Transition name="sheet-fade">
+          <div v-if="comingSoonOpen" class="fixed inset-0 z-50 flex flex-col justify-end" @click.self="comingSoonOpen = false">
+            <div class="absolute inset-0 bg-black/60" @click="comingSoonOpen = false" />
+            <Transition name="sheet-slide">
+              <div v-if="comingSoonOpen" class="relative bg-card rounded-t-2xl pb-8">
+                <div class="flex items-center justify-between px-5 py-4 border-b border-border">
+                  <h2 class="font-display font-black text-base text-foreground">{{ t('profile.comingSoon') }}</h2>
+                  <button type="button" class="w-8 h-8 rounded-full bg-secondary flex items-center justify-center" @click="comingSoonOpen = false">
+                    <X :size="15" class="text-muted-foreground" />
+                  </button>
+                </div>
+                <div class="px-5 py-6 text-center">
+                  <div class="text-4xl mb-3">🚀</div>
+                  <p class="text-sm text-foreground/70 leading-relaxed">{{ t('profile.comingSoonSub') }}</p>
+                </div>
+              </div>
+            </Transition>
+          </div>
+        </Transition>
+      </Teleport>
+
+      <!-- 法律文件内容弹窗 -->
+      <Teleport to="body">
+        <Transition name="sheet-fade">
+          <div v-if="docModalKey" class="fixed inset-0 z-50 flex flex-col justify-end">
+            <div class="absolute inset-0 bg-black/60" @click="closeDoc()" />
+            <Transition name="sheet-slide">
+              <div v-if="docModalKey" class="relative bg-card rounded-t-2xl max-h-[82vh] flex flex-col">
+                <div class="flex items-center justify-between px-5 py-4 border-b border-border flex-shrink-0">
+                  <h2 class="font-display font-black text-base text-foreground">{{ docTitle }}</h2>
+                  <button type="button" class="w-8 h-8 rounded-full bg-secondary flex items-center justify-center" @click="closeDoc()">
+                    <X :size="15" class="text-muted-foreground" />
+                  </button>
+                </div>
+                <div class="overflow-y-auto px-5 py-5 space-y-4">
+                  <div v-for="(s, i) in parsedDocContent" :key="i">
+                    <p v-if="s.heading" class="text-primary font-black font-display text-[11px] uppercase tracking-widest mb-1.5 border-l-2 border-primary pl-2.5">
+                      {{ s.heading }}
+                    </p>
+                    <p class="text-[13px] text-foreground/70 leading-relaxed whitespace-pre-line">{{ s.body }}</p>
+                  </div>
+                </div>
+              </div>
+            </Transition>
+          </div>
+        </Transition>
+      </Teleport>
 
       <Teleport to="body">
         <div

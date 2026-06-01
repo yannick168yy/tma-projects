@@ -310,13 +310,25 @@ export default {
       telegram: 'Dukungan Telegram',
       email: 'Dukungan Email',
     },
+    comingSoon: 'Segera Hadir',
+    comingSoonSub: 'Fitur ini sedang dalam pengembangan. Nantikan pembaruannya!',
     docs: {
-      terms: 'Syarat & Ketentuan',
+      terms: 'Syarat Layanan',
       privacy: 'Kebijakan Privasi',
       responsible: 'Permainan Bertanggung Jawab',
       aml: 'Kebijakan AML',
       bonusTerms: 'Syarat Bonus',
-      about: 'Tentang TarsierWin',
+      about: 'Tentang Kami',
+    },
+    docDetails: {
+      aml: {
+        title: 'Kebijakan AML',
+        content: 'TarsierWin berkomitmen untuk mencegah pencucian uang dan pendanaan terorisme sesuai peraturan yang berlaku dan lisensi PAGCOR kami.\n\nKenali Pelanggan Anda (KYC)\n\nKami memverifikasi identitas pemain melalui autentikasi Telegram dan Google. Untuk penarikan jumlah besar atau saat aktivitas mencurigakan terdeteksi, dokumentasi tambahan mungkin diperlukan. Verifikasi identitas memastikan integritas platform bagi semua pemain.\n\nPemantauan Transaksi\n\nSemua transaksi keuangan dipantau secara berkelanjutan untuk mendeteksi pola yang tidak biasa. Setoran dan penarikan disaring terhadap daftar sanksi internasional dan indikator risiko. Tim kepatuhan kami menyelidiki aktivitas yang ditandai dengan segera.\n\nKewajiban Pelaporan\n\nTarsierWin bekerja sama penuh dengan PAGCOR dan otoritas penegak hukum. Transaksi mencurigakan dilaporkan sesuai undang-undang AML yang berlaku. Kami menyimpan catatan transaksi terperinci sesuai persyaratan regulasi.\n\nTanggung Jawab Pemain\n\nPemain harus memastikan semua dana yang digunakan untuk bermain berasal dari sumber yang sah. Menggunakan platform untuk pencucian uang atau aktivitas keuangan ilegal apa pun dilarang keras dan akan mengakibatkan penangguhan akun serta pelaporan kepada pihak berwenang.\n\nHubungi Tim Kepatuhan\n\nUntuk pertanyaan AML atau melaporkan aktivitas mencurigakan, hubungi tim dukungan kami melalui live chat. Semua laporan ditangani dengan kerahasiaan ketat.',
+      },
+      bonusTerms: {
+        title: 'Syarat Bonus',
+        content: 'Semua bonus dan penawaran promosi di TarsierWin tunduk pada syarat dan ketentuan berikut. Dengan mengklaim bonus apa pun, Anda menyetujui syarat-syarat ini.\n\nKelayakan\n\nBonus tersedia untuk pemain terdaftar yang memenuhi kriteria kelayakan yang ditentukan untuk setiap promosi. Beberapa bonus terbatas untuk pemain baru, setoran pertama, atau aktivitas tertentu sesuai detail promosi.\n\nBonus Selamat Datang\n\nPemain baru dapat menerima kredit bonus gratis saat mendaftar tanpa perlu melakukan setoran. Bonus dikreditkan secara otomatis ke akun yang memenuhi syarat untuk menjelajahi platform.\n\nBonus Setoran Pertama\n\nBonus pencocokan setoran tersedia untuk setoran pertama yang memenuhi syarat. Persentase bonus dan jumlah bonus maksimum tercantum dalam promosi aktif. Jumlah setoran minimum berlaku untuk memenuhi syarat.\n\nBonus Referral\n\nPemain yang mengundang teman dapat menerima bonus ketika teman yang dirujuk menyelesaikan setoran pertama mereka. Baik perujuk maupun yang dirujuk dapat menerima bonus sesuai promosi yang berlaku.\n\nPersyaratan Taruhan\n\nSemua bonus dikenakan persyaratan taruhan sebelum penarikan dapat dilakukan. Pengganda taruhan yang diperlukan ditentukan per promosi dan harus diselesaikan dalam batas waktu yang ditetapkan.\n\nAturan Umum\n\n• Satu bonus per pemain, per rumah tangga, per IP kecuali dinyatakan lain\n• TarsierWin berhak mengubah atau menarik promosi kapan saja\n• Penyalahgunaan bonus akan mengakibatkan penangguhan akun\n• Dalam hal perselisihan, keputusan TarsierWin bersifat final\n• Semua bonus tunduk pada Syarat Layanan lengkap TarsierWin',
+      },
     },
     months: {
       '1': 'Januari',
