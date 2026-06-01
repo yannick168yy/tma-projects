@@ -581,14 +581,14 @@ async function savePersonal() {
         <Transition name="toast-up">
           <div
             v-if="comingSoonToast"
-            class="profile-toast fixed left-1/2 z-[200] flex max-w-[min(320px,calc(100vw-2rem))] -translate-x-1/2 items-center gap-2.5 rounded-2xl border border-border bg-card px-4 py-3 shadow-2xl"
+            class="profile-toast fixed left-1/2 z-[200] flex max-w-[min(320px,calc(100vw-2rem))] -translate-x-1/2 items-center gap-3 rounded-2xl px-4 py-3"
             role="status"
             aria-live="polite"
           >
-            <span class="text-xl leading-none">🚀</span>
+            <span class="profile-toast__icon text-lg leading-none">🚀</span>
             <div class="min-w-0">
-              <p class="text-sm font-black leading-tight text-foreground">{{ t('profile.comingSoon') }}</p>
-              <p class="mt-0.5 text-xs leading-snug text-muted-foreground">{{ t('profile.comingSoonSub') }}</p>
+              <p class="profile-toast__title text-sm font-black leading-tight">{{ t('profile.comingSoon') }}</p>
+              <p class="mt-0.5 text-xs leading-snug text-foreground/75">{{ t('profile.comingSoonSub') }}</p>
             </div>
           </div>
         </Transition>
