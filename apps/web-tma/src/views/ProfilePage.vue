@@ -132,7 +132,13 @@ const DOCS = computed(() => [
 // 复用首页 infoDetails 内容的 doc 键
 const HOME_DOC_KEYS = new Set(['terms', 'privacy', 'responsible', 'about'])
 
-const comingSoonOpen = ref(false)
+const comingSoonToast = ref(false)
+let toastTimer: ReturnType<typeof setTimeout> | null = null
+function showComingSoon() {
+  if (toastTimer) clearTimeout(toastTimer)
+  comingSoonToast.value = true
+  toastTimer = setTimeout(() => { comingSoonToast.value = false }, 2200)
+}
 const docModalKey = ref<string | null>(null)
 
 function openDoc(key: string) { docModalKey.value = key }
@@ -471,7 +477,7 @@ async function savePersonal() {
             type="button"
             class="flex w-full items-center justify-between px-4 py-3 transition-colors hover:bg-secondary/50"
             :class="i < SUPPORT_ITEMS.length - 1 ? 'border-b border-border' : ''"
-            @click="i === 0 ? emit('open-cs') : (comingSoonOpen = true)"
+            @click="i === 0 ? emit('open-cs') : (showComingSoon())"
           >
             <div class="flex items-center gap-3">
               <span class="text-xl">{{ item.icon }}</span>
@@ -497,7 +503,7 @@ async function savePersonal() {
             type="button"
             class="relative rounded-2xl bg-gradient-to-br p-4 text-left transition-opacity hover:opacity-90"
             :class="l.color"
-            @click="comingSoonOpen = true"
+            @click="showComingSoon()"
           >
             <span class="mb-2 block text-2xl">{{ l.icon }}</span>
             <p class="text-xs font-black leading-tight text-white">{{ l.label }}</p>
@@ -560,25 +566,18 @@ async function savePersonal() {
         </button>
       </section>
 
-      <!-- 尽请期待弹窗 -->
+      <!-- 敬请期待 Toast -->
       <Teleport to="body">
-        <Transition name="sheet-fade">
-          <div v-if="comingSoonOpen" class="fixed inset-0 z-50 flex flex-col justify-end" @click.self="comingSoonOpen = false">
-            <div class="absolute inset-0 bg-black/60" @click="comingSoonOpen = false" />
-            <Transition name="sheet-slide">
-              <div v-if="comingSoonOpen" class="relative bg-card rounded-t-2xl pb-8">
-                <div class="flex items-center justify-between px-5 py-4 border-b border-border">
-                  <h2 class="font-display font-black text-base text-foreground">{{ t('profile.comingSoon') }}</h2>
-                  <button type="button" class="w-8 h-8 rounded-full bg-secondary flex items-center justify-center" @click="comingSoonOpen = false">
-                    <X :size="15" class="text-muted-foreground" />
-                  </button>
-                </div>
-                <div class="px-5 py-6 text-center">
-                  <div class="text-4xl mb-3">🚀</div>
-                  <p class="text-sm text-foreground/70 leading-relaxed">{{ t('profile.comingSoonSub') }}</p>
-                </div>
-              </div>
-            </Transition>
+        <Transition name="toast-up">
+          <div
+            v-if="comingSoonToast"
+            class="fixed bottom-24 left-1/2 z-[200] -translate-x-1/2 flex items-center gap-2.5 rounded-2xl bg-card border border-border shadow-2xl px-4 py-3 max-w-[320px] w-max"
+          >
+            <span class="text-xl leading-none">🚀</span>
+            <div>
+              <p class="text-sm font-black text-foreground leading-tight">{{ t('profile.comingSoon') }}</p>
+              <p class="text-xs text-muted-foreground mt-0.5 leading-snug">{{ t('profile.comingSoonSub') }}</p>
+            </div>
           </div>
         </Transition>
       </Teleport>
