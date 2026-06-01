@@ -35,26 +35,7 @@ export function sgAuthHeaders(
   }
 }
 
-/** Verify incoming callback X-Sign from Slotegrator */
-export function verifySgCallback(
-  bodyParams: Record<string, string>,
-  rawHeaders: Record<string, string | string[] | undefined>,
-  merchantKey: string,
-): boolean {
-  const get = (k: string) => {
-    const v = rawHeaders[k.toLowerCase()] ?? rawHeaders[k]
-    return Array.isArray(v) ? v[0] : (v ?? '')
-  }
-  const merged: Record<string, string | number> = {
-    ...bodyParams,
-    'X-Merchant-Id': get('X-Merchant-Id'),
-    'X-Timestamp': get('X-Timestamp'),
-    'X-Nonce': get('X-Nonce'),
-  }
-  const expected = sgSign(merged, merchantKey)
-  const received = get('X-Sign')
-  return expected === received
-}
+// SG 回调验签与处理在 core-node（providers/verifiers.ts + sg-callback.routes.ts）
 
 // ── HTTP helpers ─────────────────────────────────────────────────────────────
 

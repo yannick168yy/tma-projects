@@ -3,7 +3,10 @@
 ## 概述
 
 Slotegrator 是游戏聚合供应商，提供老虎机、Live Casino、捕鱼、Crash 等多品类游戏。
-本项目通过 BFF-Node（网关层）+ Core-Node（业务层）两层架构接入。
+
+**职责划分：**
+- **bff-node**：游戏列表、启动真玩/试玩、同步游戏库（调用 SG 出站 API）
+- **core-node**：SG 钱包回调（验签 + 余额扣减/派彩/退款），Nginx 直连 `core-node:4000`
 
 ---
 
@@ -13,19 +16,19 @@ Slotegrator 是游戏聚合供应商，提供老虎机、Live Casino、捕鱼、
 |------|------|------|
 | `SG_BASE_URL` | bff-node | SG API 基础地址 |
 | `SG_MERCHANT_ID` | bff-node / core-node | 商户 ID |
-| `SG_MERCHANT_KEY` | bff-node / core-node | HMAC-SHA1 签名密钥 |
-| `SG_CURRENCY` | bff-node / core-node | 结算货币（测试环境固定 `EUR`） |
+| `SG_MERCHANT_KEY` | bff-node（出站签名）/ core-node（回调验签） | HMAC-SHA1 签名密钥 |
+| `SG_CURRENCY` | core-node | 回调结算货币（测试环境固定 `EUR`） |
 | `SG_RETURN_URL` | bff-node | 玩家退出游戏后跳转地址 |
-| `CORE_NODE_URL` | bff-node | Core-Node 内部地址（默认 `http://core-node:4000`） |
-| `INTERNAL_TOKEN` | bff-node / core-node | 内部服务通信鉴权 token |
+| `CORE_NODE_URL` | bff-node | Core-Node 地址（TG Wallet 等内部入账转发） |
+| `INTERNAL_TOKEN` | bff-node / core-node | BFF → core-node 内部接口鉴权（如 TG Wallet 入账） |
 
 ---
 
 ## 签名机制
 
-所有向 SG 发出的请求（包括接收回调验签）均使用 HMAC-SHA1。
+出站请求（bff-node）与入站回调验签（core-node `providers/verifiers.ts`）均使用 HMAC-SHA1。
 
-**算法（`slotegrator.service.ts:sgSign`）：**
+**算法（bff-node `slotegrator.service.ts:sgSign`，core-node 逻辑一致）：**
 1. 将所有请求参数 + `X-Merchant-Id` / `X-Timestamp` / `X-Nonce` 合并
 2. 按 key 字典序排序，拼成 `URLSearchParams` 字符串
 3. 用 `SG_MERCHANT_KEY` 做 HMAC-SHA1，取 hex 值
@@ -224,16 +227,14 @@ Authorization: 需登录
 
 ### 接入点
 
-```
-POST /api/v1/sg/callback
-```
-
-BFF-Node 只做签名验证，通过后转发到 Core-Node：
+对外注册给 Slotegrator 的路径（经 Nginx）：
 
 ```
-POST http://core-node:4000/internal/sg/callback
-Header: X-Internal-Token: <INTERNAL_TOKEN>
+POST /v1/slotegrator/callback
+  → proxy_pass http://127.0.0.1:4000/api/v1/sg/callback
 ```
+
+core-node 在 `POST /api/v1/sg/callback` 完成 HMAC 验签与业务处理（`SgCallbackService`），**不再经 bff-node 转发**。
 
 ### 支持的 action
 
