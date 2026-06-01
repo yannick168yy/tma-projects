@@ -140,10 +140,23 @@ export const getAdminGames = (params: {
   get<{ total: number; items: AdminGame[]; providers: string[] }>('/admin/games', params)
 export const toggleGame = (uuid: string, isActive: boolean) =>
   patch<{ uuid: string; isActive: boolean }>(`/admin/games/${uuid}/toggle`, { isActive })
-export const syncGames = () =>
-  post<{ synced: number }>('/admin/games/sync', {})
-export const translateGames = () =>
-  post<{ translated: number; errors: number; total: number }>('/admin/games/translate', {})
+export interface AdminGameJob {
+  id: string
+  type: 'games_sync' | 'games_translate'
+  status: 'pending' | 'running' | 'done' | 'failed'
+  progress: number
+  total: number
+  message: string
+  result?: { synced?: number; translated?: number; errors?: number; total?: number }
+  error?: string
+}
+
+export const startSyncGames = () =>
+  post<{ jobId: string; alreadyRunning?: boolean }>('/admin/games/sync', {})
+export const startTranslateGames = () =>
+  post<{ jobId: string; alreadyRunning?: boolean }>('/admin/games/translate', {})
+export const getGameJob = (jobId: string) =>
+  get<AdminGameJob>(`/admin/games/jobs/${jobId}`)
 
 // Audit log
 export interface AuditEntry {

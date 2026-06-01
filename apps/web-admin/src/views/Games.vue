@@ -3,8 +3,8 @@
     <a-space style="margin-bottom:12px;width:100%;justify-content:space-between" align="center">
       <h2 style="margin:0">游戏管理</h2>
       <a-space>
-        <a-button :loading="translating" @click="doTranslate">AI 翻译游戏名</a-button>
-        <a-button type="primary" :loading="syncing" @click="doSync">同步游戏库</a-button>
+        <a-button :loading="translating" :disabled="syncing" @click="doTranslate">AI 翻译游戏名</a-button>
+        <a-button type="primary" :loading="syncing" :disabled="translating" @click="doSync">同步游戏库</a-button>
       </a-space>
     </a-space>
 
@@ -379,13 +379,38 @@
         </a-descriptions>
       </template>
     </a-modal>
+
+    <a-modal
+      v-model:open="jobModalVisible"
+      :title="jobModalTitle"
+      :footer="null"
+      :closable="jobClosable"
+      :mask-closable="false"
+      width="420"
+    >
+      <p style="margin-bottom:12px;color:#666">{{ jobMessage }}</p>
+      <a-progress
+        v-if="jobTotal > 0"
+        :percent="jobPercent"
+        :status="jobProgressStatus"
+      />
+      <a-spin v-else />
+    </a-modal>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { message } from 'ant-design-vue'
-import { getAdminGames, toggleGame, syncGames, translateGames, type AdminGame } from '../api.js'
+import {
+  getAdminGames,
+  toggleGame,
+  startSyncGames,
+  startTranslateGames,
+  getGameJob,
+  type AdminGame,
+  type AdminGameJob,
+} from '../api.js'
 
 const search = ref('')
 const providerFilter = ref<string | undefined>()
@@ -552,34 +577,97 @@ function openDetail(record: AdminGame) {
   detailVisible.value = true
 }
 
-async function doSync() {
-  syncing.value = true
+const jobModalVisible = ref(false)
+const jobModalTitle = ref('')
+const jobMessage = ref('')
+const jobTotal = ref(0)
+const jobPercent = ref(0)
+const jobClosable = ref(false)
+const jobProgressStatus = ref<'active' | 'success' | 'exception'>('active')
+
+function sleep(ms: number) {
+  return new Promise((r) => setTimeout(r, ms))
+}
+
+async function pollGameJob(
+  jobId: string,
+  onUpdate: (job: AdminGameJob) => void,
+): Promise<AdminGameJob> {
+  for (let i = 0; i < 3600; i++) {
+    const job = await getGameJob(jobId)
+    onUpdate(job)
+    if (job.status === 'done' || job.status === 'failed') return job
+    await sleep(2000)
+  }
+  throw new Error('任务超时，请稍后在服务端日志中确认是否已完成')
+}
+
+function applyJobUi(job: AdminGameJob) {
+  jobMessage.value = job.message || '处理中…'
+  jobTotal.value = job.total
+  jobPercent.value = job.total > 0
+    ? Math.min(100, Math.round((job.progress / job.total) * 100))
+    : 0
+}
+
+async function runBatchJob(
+  kind: 'sync' | 'translate',
+  start: () => Promise<{ jobId: string; alreadyRunning?: boolean }>,
+) {
+  const isSync = kind === 'sync'
+  if (isSync) syncing.value = true
+  else translating.value = true
+
+  jobModalTitle.value = isSync ? '同步游戏库' : 'AI 翻译游戏名'
+  jobMessage.value = '正在启动任务…'
+  jobTotal.value = 0
+  jobPercent.value = 0
+  jobProgressStatus.value = 'active'
+  jobClosable.value = false
+  jobModalVisible.value = true
+
   try {
-    const res = await syncGames()
-    message.success(`同步完成，共 ${res.synced} 款游戏`)
-    load(1)
+    const { jobId, alreadyRunning } = await start()
+    if (alreadyRunning) {
+      message.info('已有任务在运行，继续跟踪进度')
+    }
+    const final = await pollGameJob(jobId, applyJobUi)
+    if (final.status === 'failed') {
+      jobProgressStatus.value = 'exception'
+      message.error(final.error ?? '任务失败')
+      return
+    }
+    jobProgressStatus.value = 'success'
+    if (isSync) {
+      const synced = final.result?.synced ?? 0
+      message.success(`同步完成，共 ${synced} 款游戏`)
+      load(1)
+    } else {
+      const r = final.result
+      const total = r?.total ?? 0
+      if (total === 0) {
+        message.info('所有游戏名称已翻译，无需重复操作')
+      } else {
+        message.success(`翻译完成：${r?.translated ?? 0} 款成功，${r?.errors ?? 0} 款失败（共 ${total} 款待翻译）`)
+        load(1)
+      }
+    }
   } catch (e) {
-    message.error(e instanceof Error ? e.message : '同步失败')
+    jobProgressStatus.value = 'exception'
+    message.error(e instanceof Error ? e.message : '操作失败')
   } finally {
-    syncing.value = false
+    jobClosable.value = true
+    if (isSync) syncing.value = false
+    else translating.value = false
   }
 }
 
+async function doSync() {
+  await runBatchJob('sync', startSyncGames)
+}
+
 async function doTranslate() {
-  translating.value = true
-  try {
-    const res = await translateGames()
-    if (res.total === 0) {
-      message.info('所有游戏名称已翻译，无需重复操作')
-    } else {
-      message.success(`翻译完成：${res.translated} 款成功，${res.errors} 款失败（共 ${res.total} 款待翻译）`)
-      load(1)
-    }
-  } catch (e) {
-    message.error(e instanceof Error ? e.message : 'AI 翻译失败')
-  } finally {
-    translating.value = false
-  }
+  await runBatchJob('translate', startTranslateGames)
 }
 
 onMounted(load)

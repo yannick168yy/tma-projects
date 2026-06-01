@@ -42,8 +42,15 @@ ${JSON.stringify(names)}`
   return parsed
 }
 
+export type TranslateJobProgressFn = (p: {
+  progress: number
+  total: number
+  message: string
+}) => void | Promise<void>
+
 export async function translateUntranslatedGames(
   env: Env,
+  onProgress?: TranslateJobProgressFn,
 ): Promise<{ translated: number; errors: number; total: number }> {
   const db = getMysqlPool(env)
 
@@ -56,6 +63,8 @@ export async function translateUntranslatedGames(
   const total = rows.length
   let translated = 0
   let errors = 0
+
+  await onProgress?.({ progress: 0, total, message: total === 0 ? '无需翻译' : `共 ${total} 款待翻译` })
 
   for (let i = 0; i < rows.length; i += BATCH_SIZE) {
     const batch = (rows as RowDataPacket[]).slice(i, i + BATCH_SIZE)
@@ -72,9 +81,19 @@ export async function translateUntranslatedGames(
         translated++
       }
       console.log(`[game-translation] batch ${i + 1}–${i + batch.length} / ${total} done`)
+      await onProgress?.({
+        progress: translated + errors,
+        total,
+        message: `已处理 ${Math.min(i + batch.length, total)}/${total}（成功 ${translated}，失败 ${errors}）`,
+      })
     } catch (e) {
       console.error(`[game-translation] batch ${i}–${i + BATCH_SIZE} failed:`, e)
       errors += batch.length
+      await onProgress?.({
+        progress: translated + errors,
+        total,
+        message: `批次失败，已处理 ${translated + errors}/${total}`,
+      })
     }
 
     if (i + BATCH_SIZE < rows.length) {

@@ -2,7 +2,17 @@ import Router from '@koa/router'
 import { listAdminGames, toggleAdminGame, writeAuditLog } from '../../services/admin-store.js'
 import { syncAllGames, loadGamesCache, refreshHomepageSelection, stripMobileNamesInDb } from '../../services/sg-game.service.js'
 import { translateUntranslatedGames } from '../../services/game-translation.service.js'
+import {
+  createJob,
+  getJob,
+  getActiveJobForType,
+  updateJobProgress,
+  completeJob,
+  failJob,
+} from '../../services/admin-job.service.js'
 import { isMysqlEnabled } from '../../clients/mysql.client.js'
+import { getRedis } from '../../clients/redis.client.js'
+import type { Env } from '../../config/env.js'
 import { ok, fail } from '../../utils/response.js'
 
 const router = new Router({ prefix: '/games' })
@@ -35,6 +45,15 @@ router.get('/', async (ctx) => {
   ok(ctx, result)
 })
 
+router.get('/jobs/:jobId', async (ctx) => {
+  const job = await getJob(getRedis(ctx.state.env), ctx.params.jobId)
+  if (!job) {
+    fail(ctx, 404, 'Job not found')
+    return
+  }
+  ok(ctx, job)
+})
+
 router.patch('/:uuid/toggle', async (ctx) => {
   const body = ctx.request.body as { isActive?: boolean }
   if (typeof body.isActive !== 'boolean') {
@@ -53,26 +72,90 @@ router.patch('/:uuid/toggle', async (ctx) => {
   ok(ctx, { uuid: ctx.params.uuid, isActive: body.isActive })
 })
 
+async function runSyncJob(
+  env: Env,
+  jobId: string,
+  adminId: number,
+  adminUsername: string,
+  ip?: string,
+) {
+  const redis = getRedis(env)
+  try {
+    await updateJobProgress(redis, jobId, { status: 'running', message: '正在从 Slotegrator 拉取游戏…' })
+    const result = await syncAllGames(env, (p) =>
+      updateJobProgress(redis, jobId, { progress: p.progress, total: p.total, message: p.message }),
+    )
+    await updateJobProgress(redis, jobId, { message: '刷新缓存与首页…' })
+    await loadGamesCache(env)
+    await writeAuditLog(env, {
+      adminId,
+      adminUsername,
+      action: 'game.sync',
+      targetType: 'game',
+      targetId: 'all',
+      ip,
+    })
+    await completeJob(redis, jobId, result)
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : 'Sync failed'
+    console.error('[games-sync-job]', msg, e)
+    await failJob(redis, jobId, msg)
+  }
+}
+
 router.post('/sync', async (ctx) => {
   const env = ctx.state.env
   if (!isMysqlEnabled(env) || !env.SG_BASE_URL) {
     fail(ctx, 400, 'Slotegrator not configured'); return
   }
-  try {
-    const result = await syncAllGames(env)
-    await loadGamesCache(env)
-    await writeAuditLog(env, {
-      adminId: ctx.state.adminId!,
-      adminUsername: ctx.state.adminUsername!,
-      action: 'game.sync',
-      targetType: 'game',
-      targetId: 'all',
-      ip: ctx.ip,
-    })
-    ok(ctx, result)
-  } catch (e) {
-    fail(ctx, 500, e instanceof Error ? e.message : 'Sync failed')
+  const redis = getRedis(env)
+  const active = await getActiveJobForType(redis, 'games_sync')
+  if (active) {
+    ok(ctx, { jobId: active.id, alreadyRunning: true })
+    return
   }
+  const job = await createJob(redis, 'games_sync')
+  ok(ctx, { jobId: job.id })
+  void runSyncJob(env, job.id, ctx.state.adminId!, ctx.state.adminUsername!, String(ctx.ip ?? ''))
+})
+
+async function runTranslateJob(env: Env, jobId: string) {
+  const redis = getRedis(env)
+  try {
+    await updateJobProgress(redis, jobId, { status: 'running', message: '正在调用 Gemini 翻译…' })
+    const result = await translateUntranslatedGames(env, (p) =>
+      updateJobProgress(redis, jobId, { progress: p.progress, total: p.total, message: p.message }),
+    )
+    if (result.total > 0) {
+      await updateJobProgress(redis, jobId, { message: '刷新缓存与首页…' })
+      await loadGamesCache(env)
+      await refreshHomepageSelection(env)
+    }
+    await completeJob(redis, jobId, result)
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : 'Translation failed'
+    console.error('[games-translate-job]', msg, e)
+    await failJob(redis, jobId, msg)
+  }
+}
+
+router.post('/translate', async (ctx) => {
+  const env = ctx.state.env
+  if (!isMysqlEnabled(env)) {
+    fail(ctx, 400, 'MySQL not configured'); return
+  }
+  if (!env.GEMINI_API_KEY) {
+    fail(ctx, 400, 'GEMINI_API_KEY not configured'); return
+  }
+  const redis = getRedis(env)
+  const active = await getActiveJobForType(redis, 'games_translate')
+  if (active) {
+    ok(ctx, { jobId: active.id, alreadyRunning: true })
+    return
+  }
+  const job = await createJob(redis, 'games_translate')
+  ok(ctx, { jobId: job.id })
+  void runTranslateJob(env, job.id)
 })
 
 router.post('/refresh-cache', async (ctx) => {
@@ -102,26 +185,6 @@ router.post('/refresh-homepage', async (ctx) => {
     ok(ctx, { ok: true })
   } catch (e) {
     fail(ctx, 500, e instanceof Error ? e.message : 'Refresh failed')
-  }
-})
-
-router.post('/translate', async (ctx) => {
-  const env = ctx.state.env
-  if (!isMysqlEnabled(env)) {
-    fail(ctx, 400, 'MySQL not configured'); return
-  }
-  if (!env.GEMINI_API_KEY) {
-    fail(ctx, 400, 'GEMINI_API_KEY not configured'); return
-  }
-  try {
-    const result = await translateUntranslatedGames(env)
-    if (result.total > 0) {
-      await loadGamesCache(env)
-      await refreshHomepageSelection(env)
-    }
-    ok(ctx, result)
-  } catch (e) {
-    fail(ctx, 500, e instanceof Error ? e.message : 'Translation failed')
   }
 })
 

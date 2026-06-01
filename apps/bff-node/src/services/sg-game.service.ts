@@ -22,15 +22,26 @@ export async function stripMobileNamesInDb(env: Env): Promise<void> {
   if (changed > 0) console.log(`[games] stripped "mobile" from ${changed} game names`)
 }
 
-export async function syncAllGames(env: Env): Promise<{ synced: number }> {
+export type GamesJobProgressFn = (p: {
+  progress: number
+  total: number
+  message: string
+}) => void | Promise<void>
+
+export async function syncAllGames(
+  env: Env,
+  onProgress?: GamesJobProgressFn,
+): Promise<{ synced: number }> {
   const db = getMysqlPool(env)
   let page = 1
   let synced = 0
   let pageCount = 1
+  let totalCount = 0
 
   do {
     const res = await fetchSgGames(env, page)
     pageCount = res._meta.pageCount
+    totalCount = res._meta.totalCount
 
     for (const g of res.items) {
       const isMobile = g.is_mobile ?? g.mobile ?? 0
@@ -82,6 +93,12 @@ export async function syncAllGames(env: Env): Promise<{ synced: number }> {
       )
       synced++
     }
+
+    await onProgress?.({
+      progress: synced,
+      total: totalCount,
+      message: `同步第 ${page}/${pageCount} 页`,
+    })
 
     page++
   } while (page <= pageCount)
