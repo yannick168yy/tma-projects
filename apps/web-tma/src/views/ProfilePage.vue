@@ -571,7 +571,7 @@ async function savePersonal() {
         <Transition name="toast-up">
           <div
             v-if="comingSoonToast"
-            class="fixed bottom-24 left-1/2 z-[200] -translate-x-1/2 flex items-center gap-2.5 rounded-2xl bg-card border border-border shadow-2xl px-4 py-3 max-w-[320px] w-max"
+            class="fixed top-24 left-1/2 z-[200] -translate-x-1/2 flex items-center gap-2.5 rounded-2xl bg-card border border-border shadow-2xl px-4 py-3 max-w-[320px] w-max"
           >
             <span class="text-xl leading-none">🚀</span>
             <div>
