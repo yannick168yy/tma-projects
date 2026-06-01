@@ -5,18 +5,15 @@ import type { FastifyInstance } from 'fastify'
 import type { RowDataPacket } from 'mysql2/promise'
 import type { Redis } from 'ioredis'
 import { env } from '../config/env.js'
-
-const lgId = () => `LG_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+import { lgId } from '../utils/id.js'
 
 export async function internalRoutes(app: FastifyInstance) {
-  // 所有 /internal/* 路由都验 token
+  // 所有 /internal/* 路由都验 token；未配置 token 时 fail-closed
   app.addHook('onRequest', async (req, reply) => {
     if (!req.url.startsWith('/internal/')) return
-    if (env.INTERNAL_TOKEN) {
-      const token = req.headers['x-internal-token']
-      if (token !== env.INTERNAL_TOKEN) {
-        return reply.status(401).send({ error: 'Unauthorized' })
-      }
+    const token = req.headers['x-internal-token']
+    if (!env.INTERNAL_TOKEN || token !== env.INTERNAL_TOKEN) {
+      return reply.status(401).send({ error: 'Unauthorized' })
     }
   })
 

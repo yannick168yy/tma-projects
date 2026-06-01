@@ -1,7 +1,6 @@
 import type { Pool, RowDataPacket } from 'mysql2/promise'
 import type { Redis } from 'ioredis'
-
-const lgId = () => `LG_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+import { lgId } from '../utils/id.js'
 
 export interface MatrixDepositNotify {
   notifyType: 1

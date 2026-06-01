@@ -27,7 +27,7 @@ export async function callbackRoutes(app: FastifyInstance) {
 
       await app.js.publish(
         env.NATS_CALLBACK_SUBJECT,
-        JSON.stringify({ provider, payload, rawBody: JSON.stringify(payload), receivedAt: Date.now() }),
+        JSON.stringify({ provider, payload, receivedAt: Date.now() }),
       )
 
       // YF Pay 要求明文 'success'，其余返回标准 JSON

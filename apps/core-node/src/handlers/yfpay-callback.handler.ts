@@ -1,5 +1,6 @@
 import type { Pool, RowDataPacket } from 'mysql2/promise'
 import type { Redis } from 'ioredis'
+import { lgId } from '../utils/id.js'
 
 export interface YfPayCallbackPayload {
   merchantSerial: string
@@ -8,8 +9,6 @@ export interface YfPayCallbackPayload {
   amount: number
   [key: string]: unknown
 }
-
-const lgId = () => `LG_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
 
 /**
  * YF Pay 充值/提现回调处理（从 NATS betogo.callback 消费）

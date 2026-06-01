@@ -13,7 +13,6 @@ import promotionRoutes from './promotion.routes.js'
 import webhookRoutes from './webhook.routes.js'
 import yfpayRoutes from './yfpay.routes.js'
 import slotsRoutes from './slots.routes.js'
-import sgCallbackRoutes from './sg-callback.routes.js'
 import { authMiddleware, optionalAuthMiddleware } from '../middleware/auth.js'
 import { getDepositChannels, YfPayError } from '../services/yfpay.service.js'
 import { ok, fail } from '../utils/response.js'
@@ -25,9 +24,8 @@ export function createApiRouter(): Router {
   const adminRouter = createAdminRouter()
   api.use(adminRouter.routes(), adminRouter.allowedMethods())
 
-  // 无需鉴权：webhook + 回调 + 登录
+  // 无需鉴权：webhook + 登录
   api.use(webhookRoutes.routes(), webhookRoutes.allowedMethods())
-  api.use(sgCallbackRoutes.routes(), sgCallbackRoutes.allowedMethods())
   api.use(authRoutes.routes(), authRoutes.allowedMethods())
 
   // 公开：YF Pay 存款频道

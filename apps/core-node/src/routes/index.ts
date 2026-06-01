@@ -6,6 +6,6 @@ import { internalRoutes } from './internal.routes.js'
 export async function registerRoutes(app: FastifyInstance) {
   app.get('/health', async () => ({ status: 'ok' }))
   await app.register(callbackRoutes, { prefix: '/api/v1' })
-  await app.register(sgCallbackRoutes)
+  await app.register(sgCallbackRoutes, { prefix: '/api/v1' })
   await app.register(internalRoutes)
 }

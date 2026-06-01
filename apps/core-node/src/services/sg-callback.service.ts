@@ -1,9 +1,7 @@
 import type { FastifyInstance } from 'fastify'
 import type { RowDataPacket } from 'mysql2/promise'
 import type { Redis } from 'ioredis'
-
-const txId = () => `SG_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
-const lgId = () => `LG_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+import { lgId, txId } from '../utils/id.js'
 
 export interface SgCallbackBody {
   action: string
