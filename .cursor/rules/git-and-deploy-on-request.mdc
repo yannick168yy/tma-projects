@@ -1,22 +1,16 @@
 ---
-description: Git commit / push / deploy only when user explicitly asks
+description: After web-tma changes, auto commit + push + fast deploy
 alwaysApply: true
 ---
 
-# Git & Deploy：等用户通知再执行
+# Git & Deploy：改完自动 commit + push + 部署
 
-**默认：功能做完后不要自动 commit、push 或部署。**
-
-用户明确说「commit」「push」「部署」等之后，再执行对应步骤。
-
-## 用户要求时的工作流
+**web-tma 前端改完后自动执行（无需用户再说）：**
 
 1. `git add` 相关文件
-2. `git commit`（使用 `/usr/local/bin/git`）
-3. 仅当用户要求 **push** 时：`git push origin main`
-4. 仅当用户要求 **部署** 时，按改动范围选择脚本：
-
-### 纯前端（`apps/web-tma/`）
+2. `git commit`（`/usr/local/bin/git`，中文 message）
+3. `git push origin main`
+4. 快速部署（仅前台）：
 
 ```bash
 cd /Users/yannicky/tma-projects && \
@@ -27,24 +21,14 @@ SSH_OPTS="-o StrictHostKeyChecking=no" \
 bash deploy/single-node/deploy-web-tma-fast.sh
 ```
 
-### 含后端（`bff-node`、`core-node`、`deploy/` 等）
-
-```bash
-cd /Users/yannicky/tma-projects && \
-DEPLOY_HOST=root@47.84.34.139 \
-DEPLOY_DIR=/root/workspace/tma-projects \
-SSH_IDENTITY_FILE=~/Downloads/yannick.pem \
-SSH_OPTS="-o StrictHostKeyChecking=no" \
-bash deploy/single-node/deploy-web-tma.sh
-```
+**含 bff-node / core-node / deploy 等后端改动时**，改用完整部署 `deploy/single-node/deploy-web-tma.sh`。
 
 ## 注意事项
 
-- commit message 用中文，`-m` 或 `-F` 传入
 - 不提交 `.env` 等含密钥文件
-- 服务器：`47.84.34.139`，域名：`https://www.188facai.com`
+- 服务器：`47.84.34.139`
 
-## 仍需用户明确要求的事项
+## 仍需用户明确要求
 
 - 创建 PR
 - 数据库 DDL 上生产前确认

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { CheckCircle2, Copy, ChevronDown, ChevronRight, LogOut, Headphones, X } from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/auth'
@@ -132,12 +132,9 @@ const DOCS = computed(() => [
 // 复用首页 infoDetails 内容的 doc 键
 const HOME_DOC_KEYS = new Set(['terms', 'privacy', 'responsible', 'about'])
 
-const comingSoonToast = ref(false)
-let toastTimer: ReturnType<typeof setTimeout> | null = null
+const comingSoonOpen = ref(false)
 function showComingSoon() {
-  if (toastTimer) clearTimeout(toastTimer)
-  comingSoonToast.value = true
-  toastTimer = setTimeout(() => { comingSoonToast.value = false }, 2200)
+  comingSoonOpen.value = true
 }
 const docModalKey = ref<string | null>(null)
 
@@ -222,6 +219,17 @@ onMounted(() => {
   }
 })
 
+watch(
+  () => comingSoonOpen.value || docModalKey.value,
+  (anyOpen) => {
+    document.body.style.overflow = anyOpen ? 'hidden' : ''
+  },
+)
+
+onUnmounted(() => {
+  document.body.style.overflow = ''
+})
+
 async function savePersonal() {
   if (!firstName.value || !lastName.value || !dobFilled.value || !gender.value) return
   personalSaving.value = true
@@ -247,7 +255,7 @@ async function savePersonal() {
 </script>
 
 <template>
-  <div class="page-main hide-scrollbar">
+  <div class="min-h-full">
     <div class="flex items-center gap-4 border-b border-border bg-card px-5 py-4">
       <div class="h-12 w-12 flex-shrink-0 overflow-hidden rounded-full bg-gradient-to-br from-amber-400 to-orange-500 shadow-lg shadow-amber-500/30">
         <svg viewBox="0 0 40 40" width="48" height="48" class="h-full w-full" aria-hidden="true">
@@ -503,7 +511,7 @@ async function savePersonal() {
             type="button"
             class="relative rounded-2xl bg-gradient-to-br p-4 text-left transition-opacity hover:opacity-90"
             :class="l.color"
-            @click="showComingSoon()"
+            @click.stop="showComingSoon()"
           >
             <span class="mb-2 block text-2xl">{{ l.icon }}</span>
             <p class="text-xs font-black leading-tight text-white">{{ l.label }}</p>
@@ -534,7 +542,7 @@ async function savePersonal() {
             type="button"
             class="flex w-full items-center justify-between px-4 py-3 transition-colors hover:bg-secondary/50"
             :class="i < DOCS.length - 1 ? 'border-b border-border' : ''"
-            @click="openDoc(d.key)"
+            @click.stop="openDoc(d.key)"
           >
             <div class="flex items-center gap-3">
               <span class="text-base">{{ d.icon }}</span>
@@ -566,50 +574,65 @@ async function savePersonal() {
         </button>
       </section>
 
-      <!-- 敬请期待 Toast -->
-      <Teleport to="body">
-        <Transition name="toast-up">
-          <div
-            v-if="comingSoonToast"
-            class="fixed top-24 left-1/2 z-[200] -translate-x-1/2 flex items-center gap-2.5 rounded-2xl bg-card border border-border shadow-2xl px-4 py-3 max-w-[320px] w-max"
-          >
-            <span class="text-xl leading-none">🚀</span>
-            <div>
-              <p class="text-sm font-black text-foreground leading-tight">{{ t('profile.comingSoon') }}</p>
-              <p class="text-xs text-muted-foreground mt-0.5 leading-snug">{{ t('profile.comingSoonSub') }}</p>
+      <Teleport to="#app">
+        <div
+          v-if="comingSoonOpen"
+          class="fixed inset-0 z-[200] flex justify-center"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div class="relative flex h-full w-full max-w-[430px] flex-col justify-end">
+            <div
+              class="absolute inset-0 bg-black/60"
+              aria-hidden="true"
+              @click="comingSoonOpen = false"
+            />
+            <div class="relative z-10 bg-card rounded-t-2xl pb-8 shadow-2xl">
+              <div class="flex items-center justify-between px-5 py-4 border-b border-border">
+                <h2 class="font-display font-black text-base text-foreground">{{ t('profile.comingSoon') }}</h2>
+                <button type="button" class="w-8 h-8 rounded-full bg-secondary flex items-center justify-center" @click="comingSoonOpen = false">
+                  <X :size="15" class="text-muted-foreground" />
+                </button>
+              </div>
+              <div class="px-5 py-6 text-center">
+                <div class="text-4xl mb-3">🚀</div>
+                <p class="text-sm text-foreground/70 leading-relaxed">{{ t('profile.comingSoonSub') }}</p>
+              </div>
             </div>
           </div>
-        </Transition>
+        </div>
       </Teleport>
 
-      <!-- 法律文件内容弹窗 -->
-      <Teleport to="body">
-        <Transition name="sheet-fade">
-          <div v-if="docModalKey" class="fixed inset-0 z-50 flex flex-col justify-end">
-            <div class="absolute inset-0 bg-black/60" @click="closeDoc()" />
-            <Transition name="sheet-slide">
-              <div v-if="docModalKey" class="relative bg-card rounded-t-2xl max-h-[82vh] flex flex-col">
-                <div class="flex items-center justify-between px-5 py-4 border-b border-border flex-shrink-0">
-                  <h2 class="font-display font-black text-base text-foreground">{{ docTitle }}</h2>
-                  <button type="button" class="w-8 h-8 rounded-full bg-secondary flex items-center justify-center" @click="closeDoc()">
-                    <X :size="15" class="text-muted-foreground" />
-                  </button>
-                </div>
-                <div class="overflow-y-auto px-5 py-5 space-y-4">
-                  <div v-for="(s, i) in parsedDocContent" :key="i">
-                    <p v-if="s.heading" class="text-primary font-black font-display text-[11px] uppercase tracking-widest mb-1.5 border-l-2 border-primary pl-2.5">
-                      {{ s.heading }}
-                    </p>
-                    <p class="text-[13px] text-foreground/70 leading-relaxed whitespace-pre-line">{{ s.body }}</p>
-                  </div>
+      <Teleport to="#app">
+        <div
+          v-if="docModalKey"
+          class="fixed inset-0 z-[200] flex justify-center"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div class="relative flex h-full w-full max-w-[430px] flex-col justify-end">
+            <div class="absolute inset-0 bg-black/60" aria-hidden="true" @click="closeDoc()" />
+            <div class="relative z-10 flex max-h-[82vh] flex-col rounded-t-2xl bg-card shadow-2xl">
+              <div class="flex flex-shrink-0 items-center justify-between border-b border-border px-5 py-4">
+                <h2 class="font-display text-base font-black text-foreground">{{ docTitle }}</h2>
+                <button type="button" class="flex h-8 w-8 items-center justify-center rounded-full bg-secondary" @click="closeDoc()">
+                  <X :size="15" class="text-muted-foreground" />
+                </button>
+              </div>
+              <div class="overflow-y-auto px-5 py-5 space-y-4">
+                <div v-for="(s, i) in parsedDocContent" :key="i">
+                  <p v-if="s.heading" class="mb-1.5 border-l-2 border-primary pl-2.5 font-display text-[11px] font-black uppercase tracking-widest text-primary">
+                    {{ s.heading }}
+                  </p>
+                  <p class="whitespace-pre-line text-[13px] leading-relaxed text-foreground/70">{{ s.body }}</p>
                 </div>
               </div>
-            </Transition>
+            </div>
           </div>
-        </Transition>
+        </div>
       </Teleport>
 
-      <Teleport to="body">
+      <Teleport to="#app">
         <div
           v-if="logoutConfirmOpen"
           class="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 px-6"

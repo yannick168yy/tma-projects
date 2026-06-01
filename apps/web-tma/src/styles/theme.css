@@ -86,6 +86,11 @@
 .sheet-fade-enter-from,
 .sheet-fade-leave-to {
   opacity: 0;
+  pointer-events: none;
+}
+
+.sheet-fade-leave-active {
+  pointer-events: none;
 }
 
 .sheet-slide-enter-active,

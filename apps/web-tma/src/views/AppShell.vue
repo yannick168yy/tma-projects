@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { storeToRefs } from 'pinia'
 import {
@@ -60,9 +60,30 @@ const gamePlayerUrl = ref<string | null>(null)
 // 动态测量 header/nav 高度，用于 main 的 padding
 const headerRef = ref<HTMLElement | null>(null)
 const navRef = ref<HTMLElement | null>(null)
+const mainRef = ref<HTMLElement | null>(null)
 const headerH = ref(80)
 const navH = ref(64)
 let ro: ResizeObserver | null = null
+
+function closeOverlayPanels() {
+  walletOpen.value = false
+}
+
+const mainStyle = computed(() => {
+  const pad = {
+    paddingTop: `${headerH.value}px`,
+    paddingBottom: `${navH.value}px`,
+  }
+  if (profileOpen.value) {
+    const h = headerH.value + navH.value
+    return {
+      ...pad,
+      height: `calc(100dvh - ${h}px)`,
+      maxHeight: `calc(100dvh - ${h}px)`,
+    }
+  }
+  return pad
+})
 
 function openGame(url: string) {
   gamePlayerUrl.value = url
@@ -98,7 +119,15 @@ async function onBalanceTap() {
 
 async function openProfile() {
   if (!(await auth.ensureLoggedIn(t('auth.signInProfile')))) return
+  closeOverlayPanels()
+  searchOpen.value = false
+  slotsLobbyOpen.value = false
+  categoryLobbyOpen.value = false
   profileOpen.value = true
+  requestAnimationFrame(() => {
+    mainRef.value?.scrollTo({ top: 0 })
+    window.scrollTo({ top: 0, behavior: 'instant' })
+  })
 }
 
 async function onGameTap() {
@@ -136,11 +165,15 @@ function goHome() {
 }
 
 function openSearch() {
+  closeOverlayPanels()
+  profileOpen.value = false
   searchOpen.value = true
   window.scrollTo({ top: 0, behavior: 'instant' })
 }
 
 function openSlotsLobby() {
+  closeOverlayPanels()
+  profileOpen.value = false
   slotsLobbyOpen.value = true
   window.scrollTo({ top: 0, behavior: 'instant' })
 }
@@ -161,10 +194,16 @@ function closeSearch() {
 }
 
 function openCategoryLobby(params: CategoryLobbyParams) {
+  closeOverlayPanels()
+  profileOpen.value = false
   categoryLobbyParams.value = params
   categoryLobbyOpen.value = true
   window.scrollTo({ top: 0, behavior: 'instant' })
 }
+
+watch(profileOpen, (open) => {
+  if (open) closeOverlayPanels()
+})
 
 function onLogout() {
   profileOpen.value = false
@@ -307,8 +346,9 @@ function navIcon(id: string) {
       </header>
 
       <main
-        class="relative overflow-x-clip"
-        :style="{ paddingTop: headerH + 'px', paddingBottom: navH + 'px' }"
+        ref="mainRef"
+        :class="profileOpen ? 'page-scroll hide-scrollbar overflow-x-hidden' : 'relative overflow-x-clip'"
+        :style="mainStyle"
       >
         <SearchOverlay v-if="searchOpen" @close="closeSearch" @game-tap="onGameTap" @open-game="openGame" />
         <SlotsLobby v-else-if="slotsLobbyOpen" @close="closeSlotsLobby" @game-tap="onGameTap" @open-game="openGame" />
