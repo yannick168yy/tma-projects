@@ -107,14 +107,14 @@ const SUPPORT_ITEMS = computed(() => [
   {
     icon: '📩',
     label: t('profile.supportItems.telegram'),
-    sub: '@TarsierWin_Support',
+    sub: '@BetoGo_Support',
     badge: null,
     badgeColor: '',
   },
   {
     icon: '📧',
     label: t('profile.supportItems.email'),
-    sub: 'support@tarsierwin.com',
+    sub: 'support@betogo.com',
     badge: null,
     badgeColor: '',
   },

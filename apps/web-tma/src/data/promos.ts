@@ -45,7 +45,7 @@ export const PROMOS: Promo[] = [
     tagline: 'Both You & Your Friend Win',
     reward: '₱50 / ₱30',
     rewardLabel: 'Inviter / Invitee',
-    desc: 'Invite a friend to TarsierWin. When they register and make their first deposit, you get ₱50 and your friend gets ₱30 — unlimited referrals!',
+    desc: 'Invite a friend to BetoGo. When they register and make their first deposit, you get ₱50 and your friend gets ₱30 — unlimited referrals!',
     gradient: 'from-[#064e3b] via-[#065f46] to-[#047857]',
     accentColor: '#34d399',
     icon: '🤝',

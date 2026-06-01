@@ -179,7 +179,7 @@ export default {
     noResults: 'Không tìm thấy game',
   },
   bonuses: {
-    exclusive: 'Độc quyền TarsierWin',
+    exclusive: 'Độc quyền BetoGo',
     titleLine1: 'KHUYẾN MÃI',
     titleLine2: '& THƯỞNG',
     heroSub: 'Nhận thưởng ở mọi bước — từ lần chơi đầu đến mỗi lời mời.',
@@ -207,7 +207,7 @@ export default {
         title: 'Mời & Cùng thắng',
         tagline: 'Bạn và bạn bè đều thắng',
         rewardLabel: 'Người mời / Người được mời',
-        desc: 'Mời bạn bè đến TarsierWin. Khi họ đăng ký và nạp lần đầu, bạn nhận ₱50 và bạn bè ₱30 — mời không giới hạn!',
+        desc: 'Mời bạn bè đến BetoGo. Khi họ đăng ký và nạp lần đầu, bạn nhận ₱50 và bạn bè ₱30 — mời không giới hạn!',
         badge: 'Không giới hạn',
         cta: 'Chia sẻ liên kết',
         step1: 'Chia sẻ liên kết giới thiệu',
@@ -229,7 +229,7 @@ export default {
     },
     featuredBadge: '⭐ NỔI BẬT',
     disclaimer:
-      'Mọi khuyến mãi tuân theo Điều khoản & Điều kiện TarsierWin. Yêu cầu cược áp dụng. 18+',
+      'Mọi khuyến mãi tuân theo Điều khoản & Điều kiện BetoGo. Yêu cầu cược áp dụng. 18+',
   },
   redpacket: {
     credited: 'Đã ghi có vào số dư PHP',
@@ -291,9 +291,9 @@ export default {
     year: 'Năm',
     confirmDob: 'Xác nhận — {date}',
     customerSupportSection: 'HỖ TRỢ KHÁCH HÀNG',
-    footerVersion: 'TarsierWin · v1.0.0',
-    footerCopyright: '© 2025 TarsierWin. Bảo lưu mọi quyền.',
-    footerLegal: 'TarsierWin hoạt động theo giấy phép hợp lệ. Chơi có trách nhiệm. 18+',
+    footerVersion: 'BetoGo · v1.0.0',
+    footerCopyright: '© 2025 BetoGo. Bảo lưu mọi quyền.',
+    footerLegal: 'BetoGo hoạt động theo giấy phép hợp lệ. Chơi có trách nhiệm. 18+',
     links: {
       channel: 'Kênh chính thức',
       channelSub: 'Tin tức & thông báo',
@@ -323,11 +323,11 @@ export default {
     docDetails: {
       aml: {
         title: 'Chính sách AML',
-        content: 'TarsierWin cam kết phòng chống rửa tiền và tài trợ khủng bố theo đúng các quy định hiện hành và giấy phép PAGCOR.\n\nXác minh danh tính khách hàng (KYC)\n\nChúng tôi xác minh danh tính người chơi qua Telegram và Google. Đối với số tiền rút cao hoặc khi phát hiện hoạt động đáng ngờ, có thể yêu cầu tài liệu bổ sung. Xác minh danh tính giúp bảo vệ tính toàn vẹn của nền tảng cho tất cả người chơi.\n\nGiám sát giao dịch\n\nTất cả giao dịch tài chính được giám sát liên tục để phát hiện các mẫu bất thường. Tiền nạp và rút được kiểm tra với danh sách trừng phạt quốc tế. Đội tuân thủ điều tra ngay các hoạt động bị đánh dấu.\n\nNghĩa vụ báo cáo\n\nTarsierWin hợp tác đầy đủ với PAGCOR và cơ quan thực thi pháp luật. Các giao dịch đáng ngờ được báo cáo theo luật AML hiện hành. Chúng tôi lưu giữ hồ sơ giao dịch chi tiết theo yêu cầu pháp lý.\n\nTrách nhiệm của người chơi\n\nNgười chơi phải đảm bảo tất cả tiền dùng để chơi game có nguồn gốc hợp pháp. Nghiêm cấm sử dụng nền tảng để rửa tiền hoặc bất kỳ hoạt động tài chính bất hợp pháp nào, sẽ bị đình chỉ tài khoản và báo cáo cho cơ quan chức năng.\n\nLiên hệ tuân thủ\n\nĐể biết thêm về AML hoặc báo cáo hoạt động đáng ngờ, liên hệ đội hỗ trợ qua live chat. Mọi báo cáo được bảo mật tuyệt đối.',
+        content: 'BetoGo cam kết phòng chống rửa tiền và tài trợ khủng bố theo đúng các quy định hiện hành và giấy phép PAGCOR.\n\nXác minh danh tính khách hàng (KYC)\n\nChúng tôi xác minh danh tính người chơi qua Telegram và Google. Đối với số tiền rút cao hoặc khi phát hiện hoạt động đáng ngờ, có thể yêu cầu tài liệu bổ sung. Xác minh danh tính giúp bảo vệ tính toàn vẹn của nền tảng cho tất cả người chơi.\n\nGiám sát giao dịch\n\nTất cả giao dịch tài chính được giám sát liên tục để phát hiện các mẫu bất thường. Tiền nạp và rút được kiểm tra với danh sách trừng phạt quốc tế. Đội tuân thủ điều tra ngay các hoạt động bị đánh dấu.\n\nNghĩa vụ báo cáo\n\nBetoGo hợp tác đầy đủ với PAGCOR và cơ quan thực thi pháp luật. Các giao dịch đáng ngờ được báo cáo theo luật AML hiện hành. Chúng tôi lưu giữ hồ sơ giao dịch chi tiết theo yêu cầu pháp lý.\n\nTrách nhiệm của người chơi\n\nNgười chơi phải đảm bảo tất cả tiền dùng để chơi game có nguồn gốc hợp pháp. Nghiêm cấm sử dụng nền tảng để rửa tiền hoặc bất kỳ hoạt động tài chính bất hợp pháp nào, sẽ bị đình chỉ tài khoản và báo cáo cho cơ quan chức năng.\n\nLiên hệ tuân thủ\n\nĐể biết thêm về AML hoặc báo cáo hoạt động đáng ngờ, liên hệ đội hỗ trợ qua live chat. Mọi báo cáo được bảo mật tuyệt đối.',
       },
       bonusTerms: {
         title: 'Điều khoản thưởng',
-        content: 'Tất cả bonus và khuyến mãi trên TarsierWin đều tuân theo các điều khoản sau. Khi nhận bất kỳ bonus nào, bạn đồng ý với các điều khoản này.\n\nĐiều kiện tham gia\n\nBonus dành cho người chơi đã đăng ký đáp ứng tiêu chí của từng chương trình. Một số bonus chỉ dành cho người chơi mới, lần nạp đầu tiên, hoặc hoạt động cụ thể theo mô tả khuyến mãi.\n\nBonus chào mừng\n\nNgười chơi mới có thể nhận tín dụng bonus miễn phí khi đăng ký mà không cần nạp tiền. Bonus được ghi tự động vào tài khoản đủ điều kiện để trải nghiệm nền tảng.\n\nBonus nạp lần đầu\n\nBonus khớp tiền nạp có sẵn cho lần nạp đầu tiên đủ điều kiện. Tỷ lệ khớp và số bonus tối đa được ghi trong khuyến mãi hiện tại. Áp dụng số tiền nạp tối thiểu.\n\nBonus giới thiệu\n\nNgười chơi giới thiệu bạn bè có thể nhận bonus khi bạn được giới thiệu hoàn thành lần nạp đầu tiên. Cả người giới thiệu và người được giới thiệu đều có thể nhận bonus theo khuyến mãi hiện hành.\n\nYêu cầu vòng cược\n\nTất cả bonus đều yêu cầu hoàn thành vòng cược trước khi rút tiền. Hệ số vòng cược được ghi cụ thể theo từng khuyến mãi và phải hoàn thành trong thời hạn quy định.\n\nQuy tắc chung\n\n• Một bonus mỗi người chơi, mỗi hộ gia đình, mỗi IP trừ khi có quy định khác\n• TarsierWin có quyền thay đổi hoặc hủy bất kỳ khuyến mãi nào bất cứ lúc nào\n• Lạm dụng bonus sẽ dẫn đến đình chỉ tài khoản\n• Trong trường hợp tranh chấp, quyết định của TarsierWin là cuối cùng\n• Tất cả bonus tuân theo Điều khoản dịch vụ đầy đủ của TarsierWin',
+        content: 'Tất cả bonus và khuyến mãi trên BetoGo đều tuân theo các điều khoản sau. Khi nhận bất kỳ bonus nào, bạn đồng ý với các điều khoản này.\n\nĐiều kiện tham gia\n\nBonus dành cho người chơi đã đăng ký đáp ứng tiêu chí của từng chương trình. Một số bonus chỉ dành cho người chơi mới, lần nạp đầu tiên, hoặc hoạt động cụ thể theo mô tả khuyến mãi.\n\nBonus chào mừng\n\nNgười chơi mới có thể nhận tín dụng bonus miễn phí khi đăng ký mà không cần nạp tiền. Bonus được ghi tự động vào tài khoản đủ điều kiện để trải nghiệm nền tảng.\n\nBonus nạp lần đầu\n\nBonus khớp tiền nạp có sẵn cho lần nạp đầu tiên đủ điều kiện. Tỷ lệ khớp và số bonus tối đa được ghi trong khuyến mãi hiện tại. Áp dụng số tiền nạp tối thiểu.\n\nBonus giới thiệu\n\nNgười chơi giới thiệu bạn bè có thể nhận bonus khi bạn được giới thiệu hoàn thành lần nạp đầu tiên. Cả người giới thiệu và người được giới thiệu đều có thể nhận bonus theo khuyến mãi hiện hành.\n\nYêu cầu vòng cược\n\nTất cả bonus đều yêu cầu hoàn thành vòng cược trước khi rút tiền. Hệ số vòng cược được ghi cụ thể theo từng khuyến mãi và phải hoàn thành trong thời hạn quy định.\n\nQuy tắc chung\n\n• Một bonus mỗi người chơi, mỗi hộ gia đình, mỗi IP trừ khi có quy định khác\n• BetoGo có quyền thay đổi hoặc hủy bất kỳ khuyến mãi nào bất cứ lúc nào\n• Lạm dụng bonus sẽ dẫn đến đình chỉ tài khoản\n• Trong trường hợp tranh chấp, quyết định của BetoGo là cuối cùng\n• Tất cả bonus tuân theo Điều khoản dịch vụ đầy đủ của BetoGo',
       },
     },
     months: {

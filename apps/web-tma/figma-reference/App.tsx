@@ -313,7 +313,7 @@ function ProfilePage() {
     { label: "Responsible Gaming", icon: "🛡️" },
     { label: "AML Policy", icon: "⚖️" },
     { label: "Bonus Terms", icon: "🎁" },
-    { label: "About TarsierWin", icon: "ℹ️" },
+    { label: "About BetoGo", icon: "ℹ️" },
   ];
 
   return (
@@ -527,8 +527,8 @@ function ProfilePage() {
           <div className="bg-card rounded-2xl overflow-hidden border border-border">
             {[
               { icon: "💬", label: "Live Chat", sub: "Available 24/7", badge: "Online", badgeColor: "bg-emerald-500/20 text-emerald-400" },
-              { icon: "📩", label: "Telegram Support", sub: "@TarsierWin_Support", badge: null, badgeColor: "" },
-              { icon: "📧", label: "Email Support", sub: "support@tarsierwin.com", badge: null, badgeColor: "" },
+              { icon: "📩", label: "Telegram Support", sub: "@BetoGo_Support", badge: null, badgeColor: "" },
+              { icon: "📧", label: "Email Support", sub: "support@betogo.com", badge: null, badgeColor: "" },
             ].map((item, i, arr) => (
               <button key={item.label} className={`w-full flex items-center justify-between px-4 py-3 hover:bg-secondary/50 transition-colors ${i < arr.length - 1 ? "border-b border-border" : ""}`}>
                 <div className="flex items-center gap-3">
@@ -601,10 +601,10 @@ function ProfilePage() {
 
         {/* ── Footer ──────────────────────────────────────── */}
         <div className="text-center py-4 space-y-1">
-          <p className="text-muted-foreground text-xs">TarsierWin · v1.0.0</p>
-          <p className="text-muted-foreground text-xs">© 2025 TarsierWin. All rights reserved.</p>
+          <p className="text-muted-foreground text-xs">BetoGo · v1.0.0</p>
+          <p className="text-muted-foreground text-xs">© 2025 BetoGo. All rights reserved.</p>
           <p className="text-muted-foreground text-[10px] mt-2 px-4 leading-relaxed">
-            TarsierWin operates under a valid gaming license. Please play responsibly. 18+
+            BetoGo operates under a valid gaming license. Please play responsibly. 18+
           </p>
         </div>
 
@@ -642,7 +642,7 @@ const PROMOS = [
     tagline: "Both You & Your Friend Win",
     reward: "₱50 / ₱30",
     rewardLabel: "Inviter / Invitee",
-    desc: "Invite a friend to TarsierWin. When they register and make their first deposit, you get ₱50 and your friend gets ₱30 — unlimited referrals!",
+    desc: "Invite a friend to BetoGo. When they register and make their first deposit, you get ₱50 and your friend gets ₱30 — unlimited referrals!",
     gradient: "from-[#064e3b] via-[#065f46] to-[#047857]",
     accentColor: "#34d399",
     icon: "🤝",
@@ -709,7 +709,7 @@ function BonusesPage({ openWallet, promoFilter }: { openWallet: () => void; prom
       <div className="relative px-4 pt-3 pb-5 overflow-hidden" style={{ background: "linear-gradient(160deg,#1a0060 0%,#080B14 60%)" }}>
         <div className="absolute top-0 right-0 w-40 h-40 rounded-full bg-purple-600/10 -translate-y-1/2 translate-x-1/4" />
         <div className="absolute bottom-0 left-0 w-24 h-24 rounded-full bg-amber-500/10 translate-y-1/2 -translate-x-1/4" />
-        <p className="text-muted-foreground text-[11px] uppercase tracking-widest font-bold mb-1">TarsierWin Exclusive</p>
+        <p className="text-muted-foreground text-[11px] uppercase tracking-widest font-bold mb-1">BetoGo Exclusive</p>
         <h1 className="text-white font-black leading-tight mb-1" style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: "1.8rem" }}>
           PROMOTIONS<br /><span className="text-primary">& BONUSES</span>
         </h1>
@@ -841,7 +841,7 @@ function BonusesPage({ openWallet, promoFilter }: { openWallet: () => void; prom
       {/* ── Terms note ───────────────────────────────────── */}
       <div className="mx-4 mt-4 mb-2 bg-secondary/50 rounded-xl px-4 py-3 border border-border">
         <p className="text-muted-foreground text-[11px] leading-relaxed text-center">
-          All bonuses are subject to TarsierWin's Terms & Conditions. Wagering requirements apply.
+          All bonuses are subject to BetoGo's Terms & Conditions. Wagering requirements apply.
           Bonuses are for entertainment purposes. Please gamble responsibly. 18+
         </p>
       </div>
