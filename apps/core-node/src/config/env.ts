@@ -25,6 +25,13 @@ const schema = z.object({
   // YFPay 回调验签
   YFPAY_API_KEY: z.string().default(''),
 
+  // Matrix 通知密钥（入站验签解密）
+  MATRIX_MERCHANT_NOTIFY_PRIVATE_KEY: z.string().default(''),
+  MATRIX_PLATFORM_NOTIFY_PUBLIC_KEY: z.string().default(''),
+
+  // 汇率（支付入账折算用）
+  USDT_TO_PHP_RATE: z.coerce.number().positive().default(58),
+
   // 内部服务间通信 token
   INTERNAL_TOKEN: z.string().default(''),
 })

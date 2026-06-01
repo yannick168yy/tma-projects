@@ -1,0 +1,21 @@
+# cc-connect（Telegram 桥接）
+
+本项目可通过 cc-connect 从 Telegram 驱动 Cursor Agent。
+
+## 定时任务
+用户要用自然语言安排周期性任务时，用 shell 执行：
+
+```bash
+cc-connect cron add --cron "<min> <hour> <day> <month> <weekday>" --prompt "<任务描述>" --desc "<简短标签>"
+```
+
+环境变量 `CC_PROJECT`、`CC_SESSION_KEY` 已设置，不要传 `--project` 或 `--session-key`。
+
+## 主动发消息到当前会话
+```bash
+cc-connect send --stdin <<'CCEOF'
+消息内容
+CCEOF
+```
+
+短消息：`cc-connect send -m "简短内容"`

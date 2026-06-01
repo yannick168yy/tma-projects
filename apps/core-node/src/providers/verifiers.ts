@@ -1,5 +1,6 @@
 import { createHash, createHmac, timingSafeEqual } from 'node:crypto'
 import type { FastifyRequest } from 'fastify'
+import { verifyNotifySignature, normalizePem, type MatrixEnvelope } from '../utils/matrix-crypto.js'
 
 export type VerifyFn = (req: FastifyRequest, env: Record<string, string>) => boolean
 
@@ -52,9 +53,25 @@ function verifySg(req: FastifyRequest, env: Record<string, string>): boolean {
   return sgSign(merged, merchantKey) === get('X-Sign')
 }
 
+// ── Matrix ────────────────────────────────────────────────────────────────────
+
+function verifyMatrix(req: FastifyRequest, env: Record<string, string>): boolean {
+  const pubKey = env['MATRIX_PLATFORM_NOTIFY_PUBLIC_KEY']
+  if (!pubKey) return false
+  try {
+    return verifyNotifySignature(
+      req.body as MatrixEnvelope,
+      normalizePem(pubKey),
+    )
+  } catch {
+    return false
+  }
+}
+
 // ── 注册表 ────────────────────────────────────────────────────────────────────
 
 export const providerVerifiers: Record<string, VerifyFn> = {
   yfpay: verifyYfpay,
+  matrix: verifyMatrix,
   sg: verifySg,
 }

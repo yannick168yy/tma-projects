@@ -4,6 +4,7 @@ import natsPlugin from './plugins/nats.js'
 import mysqlPlugin from './plugins/mysql.js'
 import { registerRoutes } from './routes/index.js'
 import { startLedgerConsumer } from './consumers/ledger.consumer.js'
+import { startCallbackConsumer } from './consumers/callback.consumer.js'
 import { env } from './config/env.js'
 
 export async function buildApp() {
@@ -24,6 +25,7 @@ export async function buildApp() {
 
   app.addHook('onReady', async () => {
     await startLedgerConsumer(app)
+    await startCallbackConsumer(app)
   })
 
   return app
