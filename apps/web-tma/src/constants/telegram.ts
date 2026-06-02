@@ -5,3 +5,8 @@ export const TELEGRAM_WEB_APP_URL =
 export function buildInviteDeepLink(inviteCode: string): string {
   return `https://t.me/${TELEGRAM_BOT_USERNAME}?startapp=ref_${inviteCode}`
 }
+
+export function buildInviteWebLink(inviteCode: string): string {
+  const base = TELEGRAM_WEB_APP_URL.replace(/\/$/, '')
+  return `${base}?ref=${encodeURIComponent(inviteCode)}`
+}
