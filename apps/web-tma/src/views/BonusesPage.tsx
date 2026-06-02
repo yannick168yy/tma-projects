@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Trophy, ChevronDown, Users, Wallet } from 'lucide-react'
 import { BONUS_WINNERS, PROMOS, PROMO_STATS } from '@/data/promos'
-import { usePromotionStore, getHighlightMap } from '@/stores/promotion'
+import { usePromotionStore } from '@/stores/promotion'
 import { useAuthStore } from '@/stores/auth'
 
 interface Props {
@@ -11,192 +11,313 @@ interface Props {
   onOpenTeam: () => void
 }
 
+function phpDisplay(cents: number) {
+  return '₱' + (cents / 100).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
 
 export default function BonusesPage({ promoFilter, onOpenWallet, onOpenTeam }: Props) {
   const { t } = useTranslation()
   const promotionStore = usePromotionStore()
-  const auth = useAuthStore()
+  const token = useAuthStore((s) => s.token)
+  const user = useAuthStore((s) => s.user)
+  const ensureLoggedIn = useAuthStore((s) => s.ensureLoggedIn)
+
   const [expanded, setExpanded] = useState<string | null>(promoFilter ?? null)
   const [agentActivating, setAgentActivating] = useState(false)
   const [agentExpanded, setAgentExpanded] = useState(false)
 
   const teamStatus = promotionStore.teamStatus
-  const highlightMap = useMemo(() => getHighlightMap(), [promotionStore.highlights])
 
   useEffect(() => {
-    if (auth.token && auth.user) void promotionStore.loadTeamStatus()
-  }, [auth.token])
+    if (token && user) void promotionStore.loadTeamStatus()
+  }, [token, user])
 
   useEffect(() => {
     if (promoFilter) {
       setExpanded(promoFilter)
-      setTimeout(() => { document.getElementById(`promo-${promoFilter}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }) }, 100)
+      setTimeout(() => {
+        document.getElementById(`promo-${promoFilter}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }, 100)
     }
   }, [promoFilter])
 
   async function onActivateAgent() {
-    if (!(await auth.ensureLoggedIn(t('auth.signInProfile')))) return
+    if (!(await ensureLoggedIn(t('auth.signInProfile')))) return
     setAgentActivating(true)
     await promotionStore.enableAgent()
     setAgentActivating(false)
   }
 
-  const localizedPromos = useMemo(() =>
-    PROMOS.map((p) => {
-      const base = `bonuses.promos.${p.id}`
-      const stepList = p.id === 'referral'
-        ? [t(`${base}.step1`), t(`${base}.step2`), t(`${base}.step3`)]
-        : [t(`${base}.step1`), t(`${base}.step2`)]
-      return {
-        ...p,
-        tag: t(`${base}.tag`), title: t(`${base}.title`), tagline: t(`${base}.tagline`),
-        rewardLabel: t(`${base}.rewardLabel`), desc: t(`${base}.desc`), badge: t(`${base}.badge`),
-        cta: t(`${base}.cta`), steps: stepList,
-        expiry: p.expiry === 'Ongoing' ? t('common.ongoing') : t('common.limitedTime'),
-      }
-    }), [t])
+  const localizedPromos = useMemo(
+    () =>
+      PROMOS.map((p) => {
+        const base = `bonuses.promos.${p.id}`
+        const stepList =
+          p.id === 'referral'
+            ? [t(`${base}.step1`), t(`${base}.step2`), t(`${base}.step3`)]
+            : [t(`${base}.step1`), t(`${base}.step2`)]
+        return {
+          ...p,
+          tag: t(`${base}.tag`),
+          title: t(`${base}.title`),
+          tagline: t(`${base}.tagline`),
+          rewardLabel: t(`${base}.rewardLabel`),
+          desc: t(`${base}.desc`),
+          badge: t(`${base}.badge`),
+          cta: t(`${base}.cta`),
+          steps: stepList,
+          expiry: p.expiry === 'Ongoing' ? t('common.ongoing') : t('common.limitedTime'),
+        }
+      }),
+    [t],
+  )
 
-  const localizedStats = useMemo(() =>
-    PROMO_STATS.map((s, i) => {
-      const keys = ['distributed', 'active', 'winnersToday'] as const
-      return { ...s, label: t(`bonuses.stats.${keys[i]}`) }
-    }), [t])
+  const localizedStats = useMemo(
+    () =>
+      PROMO_STATS.map((s, i) => {
+        const keys = ['distributed', 'active', 'winnersToday'] as const
+        return { ...s, label: t(`bonuses.stats.${keys[i]}`) }
+      }),
+    [t],
+  )
+
+  const agentSteps = useMemo(
+    () => [t('bonuses.promos.agent.step1'), t('bonuses.promos.agent.step2'), t('bonuses.promos.agent.step3')],
+    [t],
+  )
 
   return (
-    <div className="page-main pb-6">
-      {/* Stats bar */}
-      <div className="flex gap-3 px-4 pt-4 pb-3">
-        {localizedStats.map((s) => (
-          <div key={s.label} className="flex-1 bg-secondary rounded-2xl p-3 text-center border border-border">
-            <div className="text-primary font-black text-base leading-none">{s.value}</div>
-            <div className="text-muted-foreground text-[10px] mt-0.5">{s.label}</div>
-          </div>
-        ))}
+    <div className="page-main">
+      <div
+        className="relative px-4 pt-3 pb-5 overflow-hidden"
+        style={{ background: 'linear-gradient(160deg, #1a0060 0%, #080b14 60%)' }}
+      >
+        <p className="text-muted-foreground text-[11px] uppercase tracking-widest font-bold mb-1">
+          {t('bonuses.exclusive')}
+        </p>
+        <h1 className="text-white font-black leading-tight mb-1 font-display text-[1.8rem]">
+          {t('bonuses.titleLine1')}
+          <br />
+          <span className="text-primary">{t('bonuses.titleLine2')}</span>
+        </h1>
+        <p className="text-white/50 text-xs max-w-[220px] leading-relaxed">{t('bonuses.heroSub')}</p>
+        <div className="flex gap-3 mt-4">
+          {localizedStats.map((s) => (
+            <div key={s.label} className="flex-1 bg-white/5 rounded-xl px-2.5 py-2 text-center border border-white/8">
+              <p className="text-base leading-none mb-0.5">{s.icon}</p>
+              <p className="text-primary font-black text-sm leading-none">{s.value}</p>
+              <p className="text-white/40 text-[9px] mt-0.5 leading-tight">{s.label}</p>
+            </div>
+          ))}
+        </div>
       </div>
 
-      {/* Marquee winners */}
-      <div className="mx-4 mb-4 bg-secondary rounded-xl p-3 flex items-center gap-2 overflow-hidden">
-        <div className="flex-shrink-0 flex items-center gap-1.5 text-primary">
-          <Trophy size={13} />
-          <span className="text-xs font-bold uppercase tracking-wide whitespace-nowrap">{t('bonuses.recentWinners')}</span>
+      <div className="mx-4 mt-3 bg-secondary rounded-xl px-3 py-2 flex items-center gap-2 overflow-hidden">
+        <div className="flex-shrink-0 flex items-center gap-1 text-primary">
+          <Trophy size={12} />
+          <span className="text-[10px] font-black uppercase whitespace-nowrap">{t('bonuses.recentClaims')}</span>
         </div>
-        <div className="w-px h-4 bg-border flex-shrink-0" />
+        <div className="w-px h-3 bg-border flex-shrink-0" />
         <div className="overflow-hidden flex-1">
-          <div className="flex gap-6 animate-marquee whitespace-nowrap">
+          <div className="flex gap-5 animate-marquee whitespace-nowrap" style={{ animationDuration: '14s' }}>
             {[...BONUS_WINNERS, ...BONUS_WINNERS].map((w, i) => (
-              <span key={i} className="text-xs text-foreground/80 flex-shrink-0">
+              <span key={i} className="text-[11px] flex-shrink-0">
                 <span className="text-primary font-bold">{w.name}</span>
-                {' '}{t('common.won')}{' '}
+                <span className="text-white/50"> {t('common.claimed')} </span>
                 <span className="text-emerald-400 font-bold">{w.amount}</span>
-                {' · '}<span className="text-muted-foreground">{w.promo}</span>
+                <span className="text-white/30"> · {w.promo}</span>
               </span>
             ))}
           </div>
         </div>
       </div>
 
-      {/* Promo cards */}
-      <div className="px-4 space-y-3">
-        {localizedPromos.map((promo) => {
-          const highlight = highlightMap.get(promo.id as 'trial' | 'referral' | 'firstdep')
-          const isExpanded = expanded === promo.id
-          return (
-            <div key={promo.id} id={`promo-${promo.id}`} className="overflow-hidden rounded-2xl border border-border bg-card">
+      <div className="px-4 mt-4 space-y-3">
+        <div className="rounded-2xl overflow-hidden border border-amber-500/30">
+          <div className="relative bg-gradient-to-br from-[#78350f] via-[#92400e] to-[#b45309] px-4 py-4">
+            <span className="text-3xl absolute top-3 right-4">🏆</span>
+            <span className="text-[10px] font-black uppercase tracking-widest text-amber-300">
+              {t('bonuses.promos.agent.tag')}
+            </span>
+
+            {!teamStatus?.isAgent ? (
+              <>
+                <h2 className="text-white font-black leading-tight mt-0.5 font-display text-[1.3rem]">
+                  {t('bonuses.promos.agent.title')}
+                </h2>
+                <p className="text-white/60 text-xs mt-0.5">{t('bonuses.promos.agent.tagline')}</p>
+                <div className="flex gap-2 mt-3">
+                  <div className="flex-1 bg-black/30 rounded-xl p-2 text-center">
+                    <div className="text-amber-400 font-black text-lg leading-none">25%</div>
+                    <div className="text-white/50 text-[9px] mt-0.5">{t('bonuses.promos.agent.rateL1')}</div>
+                  </div>
+                  <div className="flex-1 bg-black/30 rounded-xl p-2 text-center">
+                    <div className="text-amber-400 font-black text-lg leading-none">8%</div>
+                    <div className="text-white/50 text-[9px] mt-0.5">{t('bonuses.promos.agent.rateL2')}</div>
+                  </div>
+                  <div className="flex-1 bg-black/30 rounded-xl p-2 text-center">
+                    <div className="text-amber-400 font-black text-lg leading-none">3%</div>
+                    <div className="text-white/50 text-[9px] mt-0.5">{t('bonuses.promos.agent.rateL3')}</div>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
+                <h2 className="text-white font-black leading-tight mt-0.5 font-display text-[1.3rem]">
+                  {t('bonuses.promos.agent.title')}
+                </h2>
+                <div className="flex gap-2 mt-3">
+                  <div className="flex-1 bg-black/30 rounded-xl px-3 py-2">
+                    <div className="flex items-center gap-1 mb-0.5">
+                      <Users size={10} className="text-amber-400" />
+                      <span className="text-white/50 text-[9px]">{t('bonuses.promos.agent.teamLabel')}</span>
+                    </div>
+                    <div className="text-amber-400 font-black text-sm leading-none">
+                      L1 {teamStatus.l1Count} · L2 {teamStatus.l2Count} · L3 {teamStatus.l3Count}
+                    </div>
+                  </div>
+                  <div className="bg-black/30 rounded-xl px-3 py-2 text-right">
+                    <div className="flex items-center justify-end gap-1 mb-0.5">
+                      <Wallet size={10} className="text-amber-400" />
+                      <span className="text-white/50 text-[9px]">{t('bonuses.promos.agent.commissionLabel')}</span>
+                    </div>
+                    <div className="text-amber-400 font-black text-sm leading-none">
+                      {phpDisplay(teamStatus.availableCents)}
+                    </div>
+                  </div>
+                </div>
+                {!teamStatus.activated && (
+                  <div className="mt-2 bg-amber-500/15 border border-amber-500/30 rounded-lg px-3 py-1.5">
+                    <p className="text-amber-300 text-[10px] leading-relaxed">
+                      {t('bonuses.promos.agent.activationHint')}
+                    </p>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+
+          <div className="bg-card px-4 py-3">
+            <p className="text-muted-foreground text-xs leading-relaxed">{t('bonuses.promos.agent.desc')}</p>
+
+            <button
+              type="button"
+              className="w-full flex items-center justify-between mt-3 py-2 border-t border-border"
+              onClick={() => setAgentExpanded((v) => !v)}
+            >
+              <span className="text-foreground text-xs font-bold">{t('bonuses.howItWorks')}</span>
+              <ChevronDown
+                size={14}
+                className={`text-muted-foreground transition-transform duration-200 ${agentExpanded ? 'rotate-180' : ''}`}
+              />
+            </button>
+            {agentExpanded && (
+              <div className="pb-2 space-y-2">
+                {agentSteps.map((step, i) => (
+                  <div key={i} className="flex items-start gap-2.5">
+                    <div className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 font-black text-[11px] text-black mt-0.5 bg-amber-400">
+                      {i + 1}
+                    </div>
+                    <span className="text-foreground/80 text-xs leading-relaxed">{step}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {!teamStatus?.isAgent ? (
               <button
                 type="button"
-                className={`w-full flex items-center gap-3 px-4 py-3.5 text-left transition-colors ${isExpanded ? 'bg-primary/5' : 'hover:bg-secondary/50'}`}
-                onClick={() => setExpanded(isExpanded ? null : promo.id)}
+                className={`w-full mt-3 py-3 rounded-xl text-black font-black text-sm transition-opacity bg-amber-500 hover:bg-amber-400 ${agentActivating ? 'opacity-60 pointer-events-none' : ''}`}
+                onClick={() => void onActivateAgent()}
               >
-                <span className="text-2xl">{promo.badge}</span>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-primary/15 text-primary">{promo.tag}</span>
-                    {highlight?.highlight && highlight.flagLabel && (
-                      <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400">{highlight.flagLabel}</span>
-                    )}
-                  </div>
-                  <p className="text-foreground font-black text-sm mt-1">{promo.title}</p>
-                  <p className="text-muted-foreground text-xs">{promo.tagline}</p>
-                </div>
-                <ChevronDown size={16} className={`text-muted-foreground transition-transform flex-shrink-0 ${isExpanded ? 'rotate-180' : ''}`} />
+                {agentActivating ? t('bonuses.promos.agent.activating') : t('bonuses.promos.agent.cta')}
               </button>
-              {isExpanded && (
-                <div className="px-4 pb-4 pt-2 border-t border-border">
-                  <p className="text-foreground/80 text-xs leading-relaxed mb-3">{promo.desc}</p>
-                  <div className="space-y-1.5 mb-4">
-                    {promo.steps.map((step, i) => (
-                      <div key={i} className="flex items-start gap-2">
-                        <span className="flex-shrink-0 w-5 h-5 rounded-full bg-primary/15 text-primary text-[10px] font-black flex items-center justify-center mt-0.5">{i + 1}</span>
-                        <p className="text-xs text-foreground/70 leading-relaxed">{step}</p>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="flex-1 bg-secondary rounded-xl p-3">
-                      <p className="text-[10px] text-muted-foreground">{promo.rewardLabel}</p>
-                      <p className="text-primary font-black text-sm">{promo.expiry}</p>
-                    </div>
-                    <button
-                      type="button"
-                      className="flex-shrink-0 bg-primary text-primary-foreground font-black text-xs px-5 py-3 rounded-xl shadow shadow-amber-500/20"
-                      onClick={() => void auth.ensureLoggedIn(t('auth.signInBonus'))}
-                    >
-                      {promo.cta}
-                    </button>
-                  </div>
+            ) : (
+              <button
+                type="button"
+                className="w-full mt-3 py-3 rounded-xl text-black font-black text-sm bg-amber-500 hover:bg-amber-400 transition-colors"
+                onClick={onOpenTeam}
+              >
+                {t('bonuses.promos.agent.ctaActive')}
+              </button>
+            )}
+          </div>
+        </div>
+
+        {localizedPromos.map((p) => (
+          <div
+            key={p.id}
+            id={`promo-${p.id}`}
+            className={`rounded-2xl overflow-hidden border ${p.highlight ? 'border-purple-500/40' : 'border-white/8'} ${promoFilter === p.id ? 'ring-2 ring-primary/60' : ''}`}
+          >
+            <div className={`relative bg-gradient-to-br px-4 py-4 ${p.gradient}`}>
+              {p.highlight && (
+                <div className="absolute top-3 right-3 bg-primary text-primary-foreground text-[10px] font-black px-2 py-0.5 rounded-full">
+                  {t('bonuses.featuredBadge')}
                 </div>
               )}
+              <div className="flex items-start justify-between">
+                <div className="flex-1 pr-12">
+                  <span className="text-[10px] font-black uppercase tracking-widest" style={{ color: p.accentColor }}>
+                    {p.tag}
+                  </span>
+                  <h2 className="text-white font-black leading-tight mt-0.5 font-display text-[1.3rem]">{p.title}</h2>
+                  <p className="text-white/60 text-xs mt-0.5">{p.tagline}</p>
+                </div>
+                <span className="text-3xl">{p.icon}</span>
+              </div>
+              <div className="mt-3 flex items-center gap-2">
+                <div className="bg-black/30 rounded-xl px-3 py-1.5 flex items-baseline gap-1.5">
+                  <span className="text-white font-black text-xl leading-none font-display">{p.reward}</span>
+                  <span className="text-white/60 text-xs">{p.rewardLabel}</span>
+                </div>
+                <span className={`text-[10px] font-black px-2 py-1 rounded-full ${p.badgeColor}`}>{p.badge}</span>
+                <span className="ml-auto text-[10px] text-white/40 font-semibold">🕐 {p.expiry}</span>
+              </div>
             </div>
-          )
-        })}
-      </div>
 
-      {/* Agent CTA */}
-      <div className="mx-4 mt-6 rounded-2xl overflow-hidden border border-amber-500/20" style={{ background: 'linear-gradient(135deg, #1a0040, #3b0020)' }}>
-        <div className="p-4">
-          <div className="flex items-center gap-3 mb-3">
-            <span className="text-2xl">🤝</span>
-            <div>
-              <p className="text-amber-400 text-[10px] font-black uppercase tracking-widest">{t('bonuses.agentProgram')}</p>
-              <p className="text-white font-black text-base">{t('bonuses.agentTitle')}</p>
-            </div>
-          </div>
-          <p className="text-white/60 text-xs mb-4">{t('bonuses.agentDesc')}</p>
-          {teamStatus?.isAgent ? (
-            <div className="space-y-2">
-              <div className="bg-black/30 rounded-xl p-3">
-                <div className="grid grid-cols-3 gap-2 text-center">
-                  {([1, 2, 3] as const).map((lvl) => (
-                    <div key={lvl}>
-                      <div className="text-amber-400 font-black text-lg leading-none">{teamStatus[`l${lvl}Count` as 'l1Count' | 'l2Count' | 'l3Count']}</div>
-                      <div className="text-white/50 text-[9px] mt-0.5">L{lvl}</div>
+            <div className="bg-card px-4 py-3">
+              <p className="text-muted-foreground text-xs leading-relaxed">{p.desc}</p>
+              <button
+                type="button"
+                className="w-full flex items-center justify-between mt-3 py-2 border-t border-border"
+                onClick={() => setExpanded(expanded === p.id ? null : p.id)}
+              >
+                <span className="text-foreground text-xs font-bold">{t('bonuses.howItWorks')}</span>
+                <ChevronDown
+                  size={14}
+                  className={`text-muted-foreground transition-transform duration-200 ${expanded === p.id ? 'rotate-180' : ''}`}
+                />
+              </button>
+              {expanded === p.id && (
+                <div className="pb-2 space-y-2">
+                  {p.steps.map((step, i) => (
+                    <div key={i} className="flex items-start gap-2.5">
+                      <div
+                        className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 font-black text-[11px] text-black mt-0.5"
+                        style={{ background: p.accentColor }}
+                      >
+                        {i + 1}
+                      </div>
+                      <span className="text-foreground/80 text-xs leading-relaxed">{step}</span>
                     </div>
                   ))}
                 </div>
-              </div>
-              <button type="button" className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-amber-500/20 text-amber-400 font-black text-sm" onClick={onOpenTeam}>
-                <Users size={14} />{t('bonuses.viewTeam')}
-              </button>
-              <button type="button" className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-amber-500 text-black font-black text-sm" onClick={onOpenWallet}>
-                <Wallet size={14} />{t('bonuses.withdraw')}
-              </button>
-            </div>
-          ) : (
-            <div>
+              )}
               <button
                 type="button"
-                className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl font-black text-sm transition-colors ${agentExpanded ? 'bg-amber-500 text-black' : 'bg-amber-500/20 text-amber-400'}`}
-                onClick={() => { if (!agentExpanded) { setAgentExpanded(true); return } void onActivateAgent() }}
-                disabled={agentActivating}
+                className={`w-full mt-3 py-3 rounded-xl text-white font-black text-sm transition-colors ${p.ctaColor}`}
+                onClick={p.id === 'firstdep' ? onOpenWallet : undefined}
               >
-                {agentActivating ? '...' : agentExpanded ? t('bonuses.confirmActivate') : t('bonuses.activate')}
+                {p.cta}
               </button>
-              {agentExpanded && (
-                <p className="text-white/50 text-[10px] text-center mt-2">{t('bonuses.agentActivateHint')}</p>
-              )}
             </div>
-          )}
-        </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="mx-4 mt-4 mb-2 bg-secondary/50 rounded-xl px-4 py-3 border border-border">
+        <p className="text-muted-foreground text-[11px] leading-relaxed text-center">{t('bonuses.disclaimer')}</p>
       </div>
     </div>
   )
