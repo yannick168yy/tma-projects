@@ -57,7 +57,7 @@ const tagStyle = computed(() =>
     : { background: 'rgba(255,255,255,0.2)', color: '#fff' }
 )
 
-const NAME_FONT_SIZE = 13
+const NAME_FONT_SIZE = 14
 const nameStyle: CSSProperties = {
   fontSize: `${NAME_FONT_SIZE}px`,
   lineHeight: '1.25',
