@@ -14,10 +14,15 @@ if [[ "$CTR" != podman ]] && [[ "$CTR" != docker ]]; then
 fi
 
 if [[ -f .env ]]; then
-  set -a
-  # shellcheck disable=SC1091
-  source .env
-  set +a
+  # 安全解析 .env：逐行读取，避免含空格的 PEM key 值被 bash 当命令执行
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
+    [[ "$line" != *=* ]] && continue
+    key="${line%%=*}"
+    val="${line#*=}"
+    [[ "$key" =~ [[:space:]] ]] && continue
+    export "${key}=${val}"
+  done < .env
   sed -i 's/^BFF_DEV_SKIP_TELEGRAM_AUTH=true/BFF_DEV_SKIP_TELEGRAM_AUTH=false/' .env || true
 fi
 
@@ -169,6 +174,15 @@ run run -d --name tma-bff-node --network "$NET" --restart=always \
   -e EXCHANGE_RATE_API_KEY="${EXCHANGE_RATE_API_KEY:-}" \
   -e COINGECKO_API_KEY="${COINGECKO_API_KEY:-}" \
   -e INTERNAL_TOKEN="${INTERNAL_TOKEN:-}" \
+  -e MATRIX_GATEWAY_URL="${MATRIX_GATEWAY_URL:-}" \
+  -e MATRIX_API_KEY="${MATRIX_API_KEY:-}" \
+  -e MATRIX_MERCHANT_NO="${MATRIX_MERCHANT_NO:-}" \
+  -e "MATRIX_PLATFORM_API_PUBLIC_KEY=${MATRIX_PLATFORM_API_PUBLIC_KEY:-}" \
+  -e "MATRIX_PLATFORM_NOTIFY_PUBLIC_KEY=${MATRIX_PLATFORM_NOTIFY_PUBLIC_KEY:-}" \
+  -e "MATRIX_MERCHANT_API_PRIVATE_KEY=${MATRIX_MERCHANT_API_PRIVATE_KEY:-}" \
+  -e "MATRIX_MERCHANT_NOTIFY_PRIVATE_KEY=${MATRIX_MERCHANT_NOTIFY_PRIVATE_KEY:-}" \
+  -e MATRIX_NOTIFY_URL="${MATRIX_NOTIFY_URL:-}" \
+  -e MATRIX_WITHDRAW_CHECK_URL="${MATRIX_WITHDRAW_CHECK_URL:-}" \
   betogo-bff-node:latest
 
 echo "==> [${CTR}] web-tma (limit 64m)"
