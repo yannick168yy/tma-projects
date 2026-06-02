@@ -70,12 +70,12 @@ export default function TeamCenterPage({ onClose }: Props) {
   async function submitWithdraw() {
     setWithdrawError('')
     const cents = Math.round(parseFloat(withdrawInput) * 100)
-    if (!cents || cents <= 0) { setWithdrawError('请输入有效金额'); return }
+    if (!cents || cents <= 0) { setWithdrawError(t('team.invalidAmount')); return }
     setWithdrawing(true)
     const res = await store.submitWithdrawal(cents)
     setWithdrawing(false)
     if (res.ok) setWithdrawInput('')
-    else setWithdrawError(res.message ?? '提现失败，请重试')
+    else setWithdrawError(res.message ?? t('team.withdrawFailed'))
   }
 
   const teamStatus = store.teamStatus

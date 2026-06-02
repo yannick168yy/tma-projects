@@ -2,10 +2,56 @@
  * 内部服务接口（仅供 bff-node 调用，需 X-Internal-Token）
  */
 import type { FastifyInstance } from 'fastify'
-import type { RowDataPacket } from 'mysql2/promise'
+import type { PoolConnection, RowDataPacket } from 'mysql2/promise'
 import type { Redis } from 'ioredis'
 import { env } from '../config/env.js'
 import { lgId } from '../utils/id.js'
+
+// PHT = UTC+8，结算周期按菲律宾本地月份切割
+const PHT_OFFSET_MS = 8 * 60 * 60 * 1000
+
+// 共用：首充激活（所有支付通道调用同一段 SQL，避免漏接通道）
+async function tryActivateTeamNode(
+  conn: PoolConnection,
+  userId: string,
+  creditedCents: number,
+): Promise<void> {
+  await conn.execute(
+    `UPDATE bg_team_node tn
+     SET tn.activated = 1,
+         tn.activation_cents = ?,
+         tn.activated_at = NOW(3)
+     WHERE tn.user_id = ?
+       AND tn.activated = 0
+       AND ? >= (SELECT min_activation_cents FROM bg_team_config WHERE id = 1 LIMIT 1)`,
+    [creditedCents, userId, creditedCents],
+  )
+}
+
+// 共用：钱包入账 + ledger（在已开启的事务内调用）
+async function creditWalletInTx(
+  conn: PoolConnection,
+  userId: string,
+  creditedCents: number,
+  refId: string,
+  description: string,
+): Promise<number> {
+  await conn.execute(
+    `UPDATE bg_wallet SET available = available + ?, version = version + 1 WHERE user_id = ?`,
+    [creditedCents, userId],
+  )
+  const [[wallet]] = await conn.query<RowDataPacket[]>(
+    `SELECT available FROM bg_wallet WHERE user_id = ?`,
+    [userId],
+  )
+  const balanceAfter = Number(wallet?.available ?? 0)
+  await conn.execute(
+    `INSERT INTO bg_wallet_ledger (id, user_id, type, amount, balance_after, ref_type, ref_id, description)
+     VALUES (?, ?, 'deposit', ?, ?, 'deposit', ?, ?)`,
+    [lgId(), userId, creditedCents, balanceAfter, refId, description],
+  )
+  return balanceAfter
+}
 
 export async function internalRoutes(app: FastifyInstance) {
   // 所有 /internal/* 路由都验 token；未配置 token 时 fail-closed
@@ -18,18 +64,17 @@ export async function internalRoutes(app: FastifyInstance) {
   })
 
   // POST /internal/payment/tg-wallet
-  // BFF 收到 Telegram successful_payment 后转发到此处入账
   app.post<{
     Body: {
       orderId: string
       userId: string
-      amount: number        // PHP 元
-      creditedCents: number // 实际入账 PHP（可含折算）
+      amount: number
+      creditedCents: number
       currency: string
       description?: string
     }
   }>('/internal/payment/tg-wallet', async (req, reply) => {
-    const { orderId, userId, amount, creditedCents, description } = req.body
+    const { orderId, userId, creditedCents, description } = req.body
 
     if (!orderId || !userId || creditedCents <= 0) {
       return reply.status(400).send({ code: 400, message: 'invalid payload' })
@@ -38,61 +83,87 @@ export async function internalRoutes(app: FastifyInstance) {
     const db = app.mysql
     const redis = app.redis as unknown as Redis
 
-    // 幂等：同一订单只处理一次
     const idempotencyKey = `tgwallet:cb:${orderId}`
     const locked = await redis.set(idempotencyKey, '1', 'EX', 604800, 'NX')
-    if (!locked) {
-      return reply.send({ code: 0, message: 'duplicate, skipped' })
-    }
+    if (!locked) return reply.send({ code: 0, message: 'duplicate, skipped' })
 
-    // 检查订单是否已 paid（双重保险）
     const [rows] = await db.query<RowDataPacket[]>(
       `SELECT status FROM bg_order_deposit WHERE order_id = ? LIMIT 1`,
       [orderId],
     )
-    if (rows[0]?.status === 'paid') {
-      return reply.send({ code: 0, message: 'already paid' })
-    }
+    if (rows[0]?.status === 'paid') return reply.send({ code: 0, message: 'already paid' })
 
     const conn = await db.getConnection()
     try {
       await conn.beginTransaction()
-      await conn.execute(
-        `UPDATE bg_wallet SET available = available + ?, version = version + 1 WHERE user_id = ?`,
-        [creditedCents, userId],
-      )
-      const [[wallet]] = await conn.query<RowDataPacket[]>(
-        `SELECT available FROM bg_wallet WHERE user_id = ?`,
-        [userId],
-      )
-      const balanceAfter = Number(wallet?.available ?? 0)
-      await conn.execute(
-        `INSERT INTO bg_wallet_ledger (id, user_id, type, amount, balance_after, ref_type, ref_id, description)
-         VALUES (?, ?, 'deposit', ?, ?, 'deposit', ?, ?)`,
-        [lgId(), userId, creditedCents, balanceAfter, orderId,
-          description ?? 'Telegram Wallet deposit'],
+      const balanceAfter = await creditWalletInTx(
+        conn, userId, creditedCents, orderId,
+        description ?? 'Telegram Wallet deposit',
       )
       await conn.execute(
         `UPDATE bg_order_deposit SET status='paid', paid_at=NOW() WHERE order_id=?`,
         [orderId],
       )
-      // 首充激活：若当次入账金额 >= 门槛且用户尚未激活，标记 activated=1
-      await conn.execute(
-        `UPDATE bg_team_node tn
-         SET tn.activated = 1,
-             tn.activation_cents = ?,
-             tn.activated_at = NOW(3)
-         WHERE tn.user_id = ?
-           AND tn.activated = 0
-           AND ? >= (SELECT min_activation_cents FROM bg_team_config WHERE id = 1 LIMIT 1)`,
-        [creditedCents, userId, creditedCents],
-      )
+      await tryActivateTeamNode(conn, userId, creditedCents)
       await conn.commit()
       app.log.info({ orderId, userId, creditedCents }, 'TG Wallet deposit settled')
       return reply.send({ code: 0, message: 'ok', balanceAfter })
     } catch (err) {
       await conn.rollback()
       app.log.error({ err, orderId }, 'TG Wallet deposit failed')
+      return reply.status(500).send({ code: 500, message: 'internal error' })
+    } finally {
+      conn.release()
+    }
+  })
+
+  // POST /internal/payment/yfpay
+  // BFF 收到 YFPay 支付回调（state=2）后转发到此处入账 + 激活
+  app.post<{
+    Body: {
+      orderId: string     // merchantSerial
+      userId: string
+      creditedCents: number  // PHP 分（BFF 已转换）
+    }
+  }>('/internal/payment/yfpay', async (req, reply) => {
+    const { orderId, userId, creditedCents } = req.body
+
+    if (!orderId || !userId || creditedCents <= 0) {
+      return reply.status(400).send({ code: 400, message: 'invalid payload' })
+    }
+
+    const db = app.mysql
+    const redis = app.redis as unknown as Redis
+
+    const idempotencyKey = `yfpay:cb:${orderId}`
+    const locked = await redis.set(idempotencyKey, '1', 'EX', 604800, 'NX')
+    if (!locked) return reply.send({ code: 0, message: 'duplicate, skipped' })
+
+    const [rows] = await db.query<RowDataPacket[]>(
+      `SELECT status FROM bg_order_deposit WHERE order_id = ? LIMIT 1`,
+      [orderId],
+    )
+    if (rows[0]?.status === 'paid') return reply.send({ code: 0, message: 'already paid' })
+
+    const conn = await db.getConnection()
+    try {
+      await conn.beginTransaction()
+      const balanceAfter = await creditWalletInTx(
+        conn, userId, creditedCents, orderId, 'YFPay deposit',
+      )
+      await conn.execute(
+        `UPDATE bg_order_deposit
+         SET status='paid', credited=?, paid_at=NOW()
+         WHERE order_id=?`,
+        [creditedCents, orderId],
+      )
+      await tryActivateTeamNode(conn, userId, creditedCents)
+      await conn.commit()
+      app.log.info({ orderId, userId, creditedCents }, 'YFPay deposit settled')
+      return reply.send({ code: 0, message: 'ok', balanceAfter })
+    } catch (err) {
+      await conn.rollback()
+      app.log.error({ err, orderId }, 'YFPay deposit failed')
       return reply.status(500).send({ code: 500, message: 'internal error' })
     } finally {
       conn.release()
@@ -118,7 +189,7 @@ export async function internalRoutes(app: FastifyInstance) {
     const db = app.mysql
     const conn = await db.getConnection()
     try {
-      const [[wd]] = await conn.query<import('mysql2/promise').RowDataPacket[]>(
+      const [[wd]] = await conn.query<RowDataPacket[]>(
         `SELECT user_id, amount_cents, status FROM bg_team_withdrawal WHERE id = ? LIMIT 1`,
         [withdrawalId],
       )
@@ -126,7 +197,6 @@ export async function internalRoutes(app: FastifyInstance) {
       if (wd.status !== 'pending') return reply.send({ code: 0, message: 'already processed' })
 
       await conn.beginTransaction()
-      // 解冻并扣减 team wallet
       const [twRes] = await conn.execute<import('mysql2/promise').ResultSetHeader>(
         `UPDATE bg_team_wallet
          SET frozen_cents = frozen_cents - ?,
@@ -136,12 +206,11 @@ export async function internalRoutes(app: FastifyInstance) {
       )
       if (twRes.affectedRows === 0) throw new Error('insufficient frozen balance')
 
-      // 主钱包入账
       await conn.execute(
         `UPDATE bg_wallet SET available = available + ?, version = version + 1 WHERE user_id = ?`,
         [wd.amount_cents, wd.user_id],
       )
-      const [[walletRow]] = await conn.query<import('mysql2/promise').RowDataPacket[]>(
+      const [[walletRow]] = await conn.query<RowDataPacket[]>(
         `SELECT available FROM bg_wallet WHERE user_id = ?`,
         [wd.user_id],
       )
@@ -171,20 +240,27 @@ export async function internalRoutes(app: FastifyInstance) {
 async function runTeamSettlement(app: FastifyInstance, period: string) {
   const db = app.mysql
   const [year, month] = period.split('-').map(Number)
-  const startDate = new Date(Date.UTC(year, month - 1, 1))
-  const endDate   = new Date(Date.UTC(year, month, 1))
 
-  app.log.info({ period }, '[team-settle] start')
+  // 按菲律宾时间（UTC+8）切割月份边界，避免跨月偏移
+  const startDate = new Date(Date.UTC(year, month - 1, 1) - PHT_OFFSET_MS)
+  const endDate   = new Date(Date.UTC(year, month,     1) - PHT_OFFSET_MS)
 
-  // 费率配置
-  const [[cfg]] = await db.query<import('mysql2/promise').RowDataPacket[]>(
-    `SELECT l1_rate_pct, l2_rate_pct, l3_rate_pct FROM bg_team_config WHERE id = 1 LIMIT 1`,
+  app.log.info({ period, startDate, endDate }, '[team-settle] start')
+
+  // 费率与上限配置
+  const [[cfg]] = await db.query<RowDataPacket[]>(
+    `SELECT l1_rate_pct, l2_rate_pct, l3_rate_pct, max_commission_per_settlement_cents
+     FROM bg_team_config WHERE id = 1 LIMIT 1`,
   )
   if (!cfg) throw new Error('bg_team_config not initialized')
   const rates = [Number(cfg.l1_rate_pct), Number(cfg.l2_rate_pct), Number(cfg.l3_rate_pct)]
+  const maxCommission: number | null =
+    cfg.max_commission_per_settlement_cents != null
+      ? Number(cfg.max_commission_per_settlement_cents)
+      : null
 
   // 聚合当月 GGR
-  const [bets] = await db.query<import('mysql2/promise').RowDataPacket[]>(
+  const [bets] = await db.query<RowDataPacket[]>(
     `SELECT user_id,
        SUM(CASE WHEN bet_type='bet' THEN amount_cents ELSE 0 END) AS bet_cents,
        SUM(CASE WHEN bet_type='win' THEN amount_cents ELSE 0 END) AS win_cents
@@ -210,7 +286,6 @@ async function runTeamSettlement(app: FastifyInstance, period: string) {
     )
   }
 
-  // 有正 GGR 的用户
   const positiveUsers = bets.filter(r => Number(r.bet_cents) - Number(r.win_cents) > 0)
   if (positiveUsers.length === 0) {
     app.log.info({ period }, '[team-settle] no positive GGR users')
@@ -218,15 +293,13 @@ async function runTeamSettlement(app: FastifyInstance, period: string) {
   }
   const userIds = positiveUsers.map(r => r.user_id)
 
-  // 批量取归属树（仅已激活节点）
-  const [nodes] = await db.query<import('mysql2/promise').RowDataPacket[]>(
+  const [nodes] = await db.query<RowDataPacket[]>(
     `SELECT user_id, l1_referrer_id, l2_referrer_id, l3_referrer_id
      FROM bg_team_node WHERE user_id IN (?) AND activated = 1`,
     [userIds],
   )
   const nodeMap = new Map(nodes.map(n => [n.user_id as string, n]))
 
-  // 插入佣金记录，幂等（INSERT IGNORE）
   for (const row of positiveUsers) {
     const effectiveGgr = Math.max(0, Number(row.bet_cents) - Number(row.win_cents))
     const node = nodeMap.get(row.user_id as string)
@@ -238,7 +311,9 @@ async function runTeamSettlement(app: FastifyInstance, period: string) {
     ]
     for (const ref of referrers) {
       if (!ref.id) continue
-      const commCents = Math.floor(effectiveGgr * ref.rate / 100)
+      let commCents = Math.floor(effectiveGgr * ref.rate / 100)
+      // 应用单次结算上限（若已配置）
+      if (maxCommission !== null) commCents = Math.min(commCents, maxCommission)
       await db.execute(
         `INSERT IGNORE INTO bg_team_commission
            (beneficiary_id, from_user_id, level, period, ggr_cents, rate_pct, commission_cents, status)
@@ -248,8 +323,7 @@ async function runTeamSettlement(app: FastifyInstance, period: string) {
     }
   }
 
-  // 汇总本次 pending 佣金，按 beneficiary 更新 team wallet
-  const [pending] = await db.query<import('mysql2/promise').RowDataPacket[]>(
+  const [pending] = await db.query<RowDataPacket[]>(
     `SELECT beneficiary_id, SUM(commission_cents) AS total
      FROM bg_team_commission WHERE period = ? AND status = 'pending'
      GROUP BY beneficiary_id`,
@@ -261,9 +335,9 @@ async function runTeamSettlement(app: FastifyInstance, period: string) {
       `INSERT IGNORE INTO bg_team_wallet (user_id) VALUES (?)`,
       [row.beneficiary_id],
     )
-    let ok = false
+    let settled = false
     for (let i = 0; i < 3; i++) {
-      const [[w]] = await db.query<import('mysql2/promise').RowDataPacket[]>(
+      const [[w]] = await db.query<RowDataPacket[]>(
         `SELECT version FROM bg_team_wallet WHERE user_id = ?`,
         [row.beneficiary_id],
       )
@@ -275,12 +349,11 @@ async function runTeamSettlement(app: FastifyInstance, period: string) {
          WHERE user_id = ? AND version = ?`,
         [row.total, row.total, row.beneficiary_id, w.version],
       )
-      if (res.affectedRows > 0) { ok = true; break }
+      if (res.affectedRows > 0) { settled = true; break }
     }
-    if (!ok) app.log.warn({ beneficiaryId: row.beneficiary_id }, '[team-settle] wallet update failed after 3 retries')
+    if (!settled) app.log.warn({ beneficiaryId: row.beneficiary_id }, '[team-settle] wallet update failed after 3 retries')
   }
 
-  // 标记 paid
   await db.execute(
     `UPDATE bg_team_commission SET status='paid', paid_at=NOW(3) WHERE period=? AND status='pending'`,
     [period],

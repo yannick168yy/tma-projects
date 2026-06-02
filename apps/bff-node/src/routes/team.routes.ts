@@ -29,12 +29,14 @@ router.get('/status', async (ctx) => {
     return
   }
 
+  // 统计全部下线人数（含未激活），与 /downlines 接口口径一致；
+  // 激活情况通过 downlines 列表的 activated 字段体现
   const [counts] = await db.query<RowDataPacket[]>(
     `SELECT
        SUM(l1_referrer_id = ?) AS l1Count,
        SUM(l2_referrer_id = ?) AS l2Count,
        SUM(l3_referrer_id = ?) AS l3Count
-     FROM bg_team_node WHERE activated = 1`,
+     FROM bg_team_node`,
     [userId, userId, userId],
   )
 

@@ -1,7 +1,8 @@
 import Router from '@koa/router'
 import { getDeposit } from '../services/store/index.js'
 import { depositAmountToYuan } from '../services/deposit.service.js'
-import { ok } from '../utils/response.js'
+import { verifySign } from '../services/yfpay.service.js'
+import { ok, fail } from '../utils/response.js'
 
 const router = new Router({ prefix: '/webhooks' })
 
@@ -87,6 +88,74 @@ router.post('/telegram', async (ctx) => {
   }
 
   ok(ctx, { handled: true, orderId })
+})
+
+// POST /webhooks/yfpay  — YFPay 代收回调（支付成功通知）
+router.post('/yfpay', async (ctx) => {
+  const body = ctx.request.body as Record<string, unknown>
+
+  // 验签（防伪造）
+  if (!verifySign(body, ctx.state.env.YFPAY_API_KEY)) {
+    ctx.status = 403
+    ctx.body = 'invalid sign'
+    return
+  }
+
+  // state=2 表示支付成功
+  const state = Number(body['state'] ?? 0)
+  if (state !== 2) {
+    ok(ctx, { handled: false, reason: 'not paid' })
+    return
+  }
+
+  const merchantSerial = String(body['merchantSerial'] ?? '')
+  const amountYuan     = Number(body['amount'] ?? 0)   // PHP 元（YFPay 返回）
+  const creditedCents  = Math.round(amountYuan * 100)  // 转 PHP 分
+
+  if (!merchantSerial || creditedCents <= 0) {
+    fail(ctx, 400, 'missing merchantSerial or amount')
+    return
+  }
+
+  // 查订单所属用户（归属权 + 幂等检查）
+  const order = await getDeposit(ctx.state.redis, merchantSerial)
+  if (!order) {
+    ctx.status = 404
+    ctx.body = { code: 404, message: 'order not found' }
+    return
+  }
+  if (order.status === 'paid') {
+    ok(ctx, { handled: true, orderId: merchantSerial, duplicate: true })
+    return
+  }
+
+  // 转发到 core-node 入账（core-node 负责账变 + 激活）
+  try {
+    const coreUrl = `${ctx.state.env.CORE_NODE_URL}/internal/payment/yfpay`
+    const res = await fetch(coreUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Internal-Token': ctx.state.env.INTERNAL_TOKEN,
+      },
+      body: JSON.stringify({
+        orderId: merchantSerial,
+        userId: order.userId,
+        creditedCents,
+      }),
+    })
+    if (!res.ok) {
+      ctx.status = 502
+      ctx.body = 'core-node yfpay payment failed'
+      return
+    }
+  } catch {
+    ctx.status = 502
+    ctx.body = 'core-node unreachable'
+    return
+  }
+
+  ok(ctx, { handled: true, orderId: merchantSerial })
 })
 
 export default router
