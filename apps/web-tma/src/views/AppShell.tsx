@@ -17,9 +17,10 @@ import GamePlayer from '@/components/GamePlayer'
 import { NAV_ITEMS } from '@/data/home'
 import { useAuthStore } from '@/stores/auth'
 import { useWalletStore } from '@/stores/wallet'
+import { useFullPageOverlay } from '@/hooks/useFullPageOverlay'
+import type { CategoryLobbyParams } from '@/hooks/useFullPageOverlay'
 
 type NavId = (typeof NAV_ITEMS)[number]['id']
-type CategoryLobbyParams = { title: string; sortCategory?: string; sortBy?: 'weight'|'ph_bonus'; themes?: string[]; gameStyles?: string[]; playerTypes?: string[] }
 
 function navIcon(id: string) {
   switch (id) { case 'cashier': return Wallet; case 'bingo': return Dices; case 'bonuses': return Gift; case 'casino': return Home; default: return Menu }
@@ -32,18 +33,15 @@ export default function AppShell() {
   const isLoggedIn = Boolean(auth.token && auth.user)
   const displayPhp = wallet.balance?.displayPhp ?? '₱ —'
 
+  // 互斥全屏 overlay——用状态机显式化互斥关系
+  const overlay = useFullPageOverlay()
+
   const [activeNav, setActiveNav] = useState<NavId>('casino')
   const [promoFilter, setPromoFilter] = useState<string | null>(null)
-  const [searchOpen, setSearchOpen] = useState(false)
   const [balanceVisible, setBalanceVisible] = useState(true)
   const [walletOpen, setWalletOpen] = useState(false)
   const [walletModalOpen, setWalletModalOpen] = useState(false)
-  const [profileOpen, setProfileOpen] = useState(false)
-  const [slotsLobbyOpen, setSlotsLobbyOpen] = useState(false)
-  const [categoryLobbyOpen, setCategoryLobbyOpen] = useState(false)
-  const [categoryLobbyParams, setCategoryLobbyParams] = useState<CategoryLobbyParams | null>(null)
   const [csOpen, setCsOpen] = useState(false)
-  const [teamCenterOpen, setTeamCenterOpen] = useState(false)
   const [gamePlayerUrl, setGamePlayerUrl] = useState<string | null>(null)
 
   const headerRef = useRef<HTMLElement>(null)
@@ -64,13 +62,10 @@ export default function AppShell() {
 
   const mainStyle = useMemo(() => {
     const top = `${headerH}px`
-    if (profileOpen) return { paddingTop: top, paddingBottom: '0', height: `calc(100dvh - ${headerH}px)`, maxHeight: `calc(100dvh - ${headerH}px)` }
-    if (teamCenterOpen) return { paddingTop: top, paddingBottom: '0', height: `calc(100dvh - ${headerH}px)`, maxHeight: `calc(100dvh - ${headerH}px)`, overflowY: 'hidden' as const }
+    if (overlay.is('profile')) return { paddingTop: top, paddingBottom: '0', height: `calc(100dvh - ${headerH}px)`, maxHeight: `calc(100dvh - ${headerH}px)` }
+    if (overlay.is('teamCenter')) return { paddingTop: top, paddingBottom: '0', height: `calc(100dvh - ${headerH}px)`, maxHeight: `calc(100dvh - ${headerH}px)`, overflowY: 'hidden' as const }
     return { paddingTop: top, paddingBottom: `${navH}px` }
-  }, [headerH, navH, profileOpen, teamCenterOpen])
-
-  function closeOverlayPanels() { setWalletOpen(false) }
-  function closeFullPageOverlays() { setProfileOpen(false); setSearchOpen(false); setSlotsLobbyOpen(false); setCategoryLobbyOpen(false); setTeamCenterOpen(false) }
+  }, [headerH, navH, overlay])
 
   async function openWallet() {
     if (!(await auth.ensureLoggedIn(t('auth.signInDepositWithdraw')))) return
@@ -85,29 +80,45 @@ export default function AppShell() {
 
   async function openProfile() {
     if (!(await auth.ensureLoggedIn(t('auth.signInProfile')))) return
-    closeOverlayPanels(); closeFullPageOverlays(); setProfileOpen(true)
+    setWalletOpen(false); overlay.openProfile()
     requestAnimationFrame(() => { mainRef.current?.scrollTo({ top: 0 }); window.scrollTo({ top: 0, behavior: 'instant' }) })
   }
 
   async function onGameTap() { await auth.ensureLoggedIn(t('auth.signInPlay')) }
 
-  const goBonuses = useCallback((promo: string | null = null) => { setPromoFilter(promo); setActiveNav('bonuses'); closeFullPageOverlays() }, [])
+  const goBonuses = useCallback((promo: string | null = null) => {
+    setPromoFilter(promo); setActiveNav('bonuses'); overlay.close()
+  }, [overlay])
 
   function setNav(id: NavId) {
-    if (id === 'cashier') { closeFullPageOverlays(); void openWallet(); return }
-    setActiveNav(id); closeFullPageOverlays()
+    if (id === 'cashier') { overlay.close(); void openWallet(); return }
+    setActiveNav(id); overlay.close()
     if (id !== 'bonuses') setPromoFilter(null)
     window.scrollTo({ top: 0, behavior: 'instant' })
   }
 
-  function goHome() { setActiveNav('casino'); closeFullPageOverlays(); setPromoFilter(null); window.scrollTo({ top: 0, behavior: 'instant' }) }
-  function openSearch() { closeOverlayPanels(); closeFullPageOverlays(); setSearchOpen(true); window.scrollTo({ top: 0, behavior: 'instant' }) }
-  function openCategoryLobby(params: CategoryLobbyParams) { closeOverlayPanels(); closeFullPageOverlays(); setCategoryLobbyParams(params); setCategoryLobbyOpen(true); window.scrollTo({ top: 0, behavior: 'instant' }) }
-  function openCs() { setProfileOpen(false); setWalletOpen(false); setCsOpen(true) }
-  function openTeamCenter() { closeOverlayPanels(); closeFullPageOverlays(); setTeamCenterOpen(true) }
-  function onLogout() { closeFullPageOverlays(); setWalletOpen(false); setWalletModalOpen(false) }
+  function goHome() {
+    setActiveNav('casino'); overlay.close(); setPromoFilter(null)
+    window.scrollTo({ top: 0, behavior: 'instant' })
+  }
+
+  function openSearch() {
+    setWalletOpen(false); overlay.openSearch()
+    window.scrollTo({ top: 0, behavior: 'instant' })
+  }
+
+  function openCategoryLobby(params: CategoryLobbyParams) {
+    setWalletOpen(false); overlay.openCategoryLobby(params)
+    window.scrollTo({ top: 0, behavior: 'instant' })
+  }
+
+  function openCs() { overlay.close(); setWalletOpen(false); setCsOpen(true) }
+  function openTeamCenter() { setWalletOpen(false); overlay.openTeamCenter() }
+  function onLogout() { overlay.close(); setWalletOpen(false); setWalletModalOpen(false) }
 
   const navItems = useMemo(() => NAV_ITEMS.map((item) => ({ ...item, label: t(`nav.${item.id}`) })), [t])
+
+  const { view } = overlay
 
   return (
     <div className="flex w-full justify-center bg-[#040609]">
@@ -172,18 +183,24 @@ export default function AppShell() {
 
         <main
           ref={mainRef}
-          className={profileOpen ? 'page-scroll hide-scrollbar overflow-x-hidden' : 'relative overflow-x-clip'}
+          className={view.type === 'profile' ? 'page-scroll hide-scrollbar overflow-x-hidden' : 'relative overflow-x-clip'}
           style={mainStyle}
         >
-          {searchOpen && <SearchOverlay onClose={() => { setSearchOpen(false); window.scrollTo({ top: 0, behavior: 'instant' }) }} onGameTap={() => void onGameTap()} onOpenGame={(url) => setGamePlayerUrl(url)} />}
-          {slotsLobbyOpen && <SlotsLobby onClose={() => { setSlotsLobbyOpen(false); window.scrollTo({ top: 0, behavior: 'instant' }) }} onGameTap={() => void onGameTap()} onOpenGame={(url) => setGamePlayerUrl(url)} />}
-          {categoryLobbyOpen && categoryLobbyParams && <SlotsLobby {...categoryLobbyParams} onClose={() => { setCategoryLobbyOpen(false); window.scrollTo({ top: 0, behavior: 'instant' }) }} onGameTap={() => void onGameTap()} onOpenGame={(url) => setGamePlayerUrl(url)} />}
-          {!searchOpen && !slotsLobbyOpen && !categoryLobbyOpen && profileOpen && <ProfilePage onLogout={onLogout} onOpenCs={openCs} />}
-          {!searchOpen && !slotsLobbyOpen && !categoryLobbyOpen && !profileOpen && teamCenterOpen && <TeamCenterPage onClose={() => setTeamCenterOpen(false)} />}
-          {!searchOpen && !slotsLobbyOpen && !categoryLobbyOpen && !profileOpen && !teamCenterOpen && activeNav === 'bonuses' && <BonusesPage promoFilter={promoFilter} onOpenWallet={() => void openWallet()} onOpenTeam={openTeamCenter} />}
-          {!searchOpen && !slotsLobbyOpen && !categoryLobbyOpen && !profileOpen && !teamCenterOpen && activeNav === 'bingo' && <BingoPage onOpenWallet={() => void openWallet()} onGameTap={() => void onGameTap()} onOpenGame={(url) => setGamePlayerUrl(url)} onOpenCategoryLobby={openCategoryLobby} />}
-          {!searchOpen && !slotsLobbyOpen && !categoryLobbyOpen && !profileOpen && !teamCenterOpen && activeNav === 'menu' && <MenuPage onOpenSearch={openSearch} onOpenCs={openCs} onOpenCategoryLobby={openCategoryLobby} />}
-          {!searchOpen && !slotsLobbyOpen && !categoryLobbyOpen && !profileOpen && !teamCenterOpen && activeNav === 'casino' && (
+          {view.type === 'search' && (
+            <SearchOverlay onClose={() => { overlay.close(); window.scrollTo({ top: 0, behavior: 'instant' }) }} onGameTap={() => void onGameTap()} onOpenGame={(url) => setGamePlayerUrl(url)} />
+          )}
+          {view.type === 'slotsLobby' && (
+            <SlotsLobby onClose={() => { overlay.close(); window.scrollTo({ top: 0, behavior: 'instant' }) }} onGameTap={() => void onGameTap()} onOpenGame={(url) => setGamePlayerUrl(url)} />
+          )}
+          {view.type === 'categoryLobby' && (
+            <SlotsLobby {...view.params} onClose={() => { overlay.close(); window.scrollTo({ top: 0, behavior: 'instant' }) }} onGameTap={() => void onGameTap()} onOpenGame={(url) => setGamePlayerUrl(url)} />
+          )}
+          {view.type === 'profile' && <ProfilePage onLogout={onLogout} onOpenCs={openCs} />}
+          {view.type === 'teamCenter' && <TeamCenterPage onClose={overlay.close} />}
+          {view.type === 'none' && activeNav === 'bonuses' && <BonusesPage promoFilter={promoFilter} onOpenWallet={() => void openWallet()} onOpenTeam={openTeamCenter} />}
+          {view.type === 'none' && activeNav === 'bingo' && <BingoPage onOpenWallet={() => void openWallet()} onGameTap={() => void onGameTap()} onOpenGame={(url) => setGamePlayerUrl(url)} onOpenCategoryLobby={openCategoryLobby} />}
+          {view.type === 'none' && activeNav === 'menu' && <MenuPage onOpenSearch={openSearch} onOpenCs={openCs} onOpenCategoryLobby={openCategoryLobby} />}
+          {view.type === 'none' && activeNav === 'casino' && (
             <HomeContent onOpenSearch={openSearch} onOpenPromo={goBonuses} onOpenCategoryLobby={openCategoryLobby} onOpenCs={openCs} onOpenGame={(url) => setGamePlayerUrl(url)} />
           )}
         </main>

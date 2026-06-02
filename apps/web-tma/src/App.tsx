@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import AppShell from '@/views/AppShell'
 import SplashPage from '@/views/SplashPage'
@@ -12,7 +12,10 @@ function MainApp() {
   const { phase, bootError, loginSheetOpen, closeLoginSheet } = useAuthStore()
   const { redPacketSheet, closeRedPacket } = usePromotionStore()
 
+  const bootstrapped = useRef(false)
   useEffect(() => {
+    if (bootstrapped.current) return
+    bootstrapped.current = true
     void useAuthStore.getState().bootstrap()
   }, [])
 
