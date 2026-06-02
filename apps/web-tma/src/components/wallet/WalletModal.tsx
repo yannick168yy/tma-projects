@@ -31,6 +31,7 @@ function statusIconComp(status: string) { if(status==='success')return CheckCirc
 export default function WalletModal({ open, onClose }: Props) {
   const { t } = useTranslation()
   const walletStore = useWalletStore()
+  const displayPhp = useWalletStore((s) => s.balance?.displayPhp ?? '₱ —')
   const { walletAddress: tonWalletAddress, isConnected: tonIsConnected, connectWallet: connectTonWallet, disconnect: disconnectTon, sendTransaction: sendTonTransaction } = useTonConnect()
 
   const sheetRef = useRef<HTMLDivElement>(null)
@@ -233,7 +234,7 @@ export default function WalletModal({ open, onClose }: Props) {
         <div className="flex flex-shrink-0 justify-center pb-1 pt-3"><div className="h-1 w-10 rounded-full bg-border" /></div>
         <div className="flex flex-shrink-0 items-center justify-between border-b border-border px-5 py-3">
           <div className="flex items-center gap-2"><Wallet size={18} className="text-primary" /><span className="font-display text-base font-black text-foreground">{t('wallet.title')}</span></div>
-          <div className="flex items-center gap-2 text-xs font-bold"><span className="text-primary">{useWalletStore.getState().balance?.displayPhp ?? '₱ —'}</span></div>
+          <div className="flex items-center gap-2 text-xs font-bold"><span className="text-primary">{displayPhp}</span></div>
           <button type="button" className="flex h-8 w-8 items-center justify-center rounded-xl bg-secondary transition-colors hover:bg-muted" onClick={onClose}><X size={15} className="text-muted-foreground" /></button>
         </div>
 

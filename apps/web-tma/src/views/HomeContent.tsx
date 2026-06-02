@@ -15,6 +15,7 @@ import { fetchHomepageGames, launchGame, fetchBettingActivity, type SlotGame, ty
 import { ApiError } from '@/api/client'
 import { usePromotionStore, getHighlightMap } from '@/stores/promotion'
 import { useAuthStore } from '@/stores/auth'
+import { localizedGameName } from '@/utils/game'
 
 const INFO_ICONS: Record<string, React.ComponentType<{ size: number; className?: string }>> = { terms: FileText, privacy: Shield, responsible: Heart, about: Info }
 const HISTORY_STORAGE_KEY = 'betogo_game_history'
@@ -38,7 +39,8 @@ interface Props {
 }
 
 export default function HomeContent({ onOpenSearch, onOpenPromo, onOpenCategoryLobby, onOpenCs, onOpenGame }: Props) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const locale = i18n.language
   const promotion = usePromotionStore()
   const auth = useAuthStore()
   const highlightMap = useMemo(() => getHighlightMap(), [promotion.highlights])
@@ -142,7 +144,14 @@ export default function HomeContent({ onOpenSearch, onOpenPromo, onOpenCategoryL
     } catch { /**/ }
   }
   async function switchBetTab(tab: BetTab) { setActiveBetTab(tab); await loadBetTab(tab) }
-  const currentBets = activeBetTab === 'latest' ? latestBets : activeBetTab === 'week' ? weekBets : monthBets
+  const latestBetsLoop = useMemo(() => [...latestBets, ...latestBets], [latestBets])
+  const rankBets = activeBetTab === 'week' ? weekBets : monthBets
+
+  function betTabLabel(tab: BetTab) {
+    if (tab === 'latest') return t('home.latestBets')
+    if (tab === 'week') return t('home.topWeek')
+    return t('home.topMonth')
+  }
 
   // Info modal
   const [infoModal, setInfoModal] = useState<string | null>(null)
@@ -323,31 +332,124 @@ export default function HomeContent({ onOpenSearch, onOpenPromo, onOpenCategoryL
       )}
 
       {/* Providers */}
-      <section className="mt-6 px-4">
-        <div className="flex items-center gap-2 mb-3"><h3 className="text-muted-foreground font-black text-xs font-display tracking-widest">{t('home.providersSection')}</h3></div>
-        <div className="flex gap-2 flex-wrap">
-          {providerList.map((p) => <button key={p} type="button" className="text-[10px] font-black text-muted-foreground bg-secondary px-3 py-1.5 rounded-full border border-border hover:border-primary/50 transition-colors active:scale-95" onClick={() => onOpenCategoryLobby({ title: p })}>{p}</button>)}
+      <section className="mt-8 px-4">
+        <p className="text-muted-foreground text-[10px] uppercase tracking-widest font-black mb-3">
+          {t('home.providersSection')}
+        </p>
+        <div className="flex gap-2 overflow-x-auto hide-scrollbar pb-1">
+          {providerList.map((p) => (
+            <span
+              key={p}
+              className="flex-shrink-0 text-[10px] font-black text-muted-foreground bg-secondary px-3 py-1.5 rounded-full border border-border"
+            >
+              {p}
+            </span>
+          ))}
         </div>
       </section>
 
-      {/* Betting Activity */}
-      <section className="mt-6 px-4">
-        <div className="flex gap-2 mb-3">
+      {/* Betting Table */}
+      <section className="mt-8 px-4">
+        <h3 className="text-muted-foreground font-black text-xs font-display tracking-widest mb-3">
+          {t('home.bettingTable')}
+        </h3>
+
+        <div className="flex gap-1 mb-3 bg-secondary rounded-xl p-1">
           {(['latest', 'week', 'month'] as BetTab[]).map((tab) => (
-            <button key={tab} type="button" className={`px-3 py-1.5 rounded-full text-[11px] font-bold transition-colors ${activeBetTab === tab ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground'}`} onClick={() => void switchBetTab(tab)}>{t(`home.bets.${tab}`)}</button>
+            <button
+              key={tab}
+              type="button"
+              className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-colors ${activeBetTab === tab ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'}`}
+              onClick={() => void switchBetTab(tab)}
+            >
+              {betTabLabel(tab)}
+            </button>
           ))}
         </div>
-        <div className="overflow-hidden rounded-2xl border border-border bg-card">
-          {currentBets.length === 0 ? (
-            <div className="py-8 text-center"><p className="text-xs text-muted-foreground">{t('home.bets.noData')}</p></div>
-          ) : currentBets.slice(0, 10).map((bet, i) => (
-            <div key={i} className={`flex items-center gap-3 px-4 py-2.5 ${i < currentBets.length - 1 ? 'border-b border-border' : ''}`}>
-              <div className="w-8 h-8 rounded-lg overflow-hidden flex-shrink-0 bg-secondary">{bet.imageUrl && <img src={bet.imageUrl} alt={bet.name} className="w-full h-full object-cover" />}</div>
-              <div className="flex-1 min-w-0"><p className="text-foreground font-bold text-xs leading-none truncate">{bet.name}</p><p className="text-muted-foreground text-[10px] mt-0.5">{bet.provider}</p></div>
-              <span className="text-sm font-black text-emerald-400">{formatBet(bet.betAmount)}</span>
-            </div>
-          ))}
-        </div>
+
+        {activeBetTab === 'latest' ? (
+          <div className="relative overflow-hidden rounded-xl bg-secondary h-[600px]">
+            {latestBets.length === 0 ? (
+              <div className="space-y-px pt-1">
+                {Array.from({ length: 8 }).map((_, n) => (
+                  <div key={n} className="flex items-center gap-3 px-3 py-2.5">
+                    <div className="w-10 h-10 rounded-lg animate-pulse bg-white/10 flex-shrink-0" />
+                    <div className="flex-1 space-y-1.5">
+                      <div className="h-3 w-28 rounded animate-pulse bg-white/10" />
+                      <div className="h-2 w-16 rounded animate-pulse bg-white/10" />
+                    </div>
+                    <div className="h-3 w-16 rounded animate-pulse bg-white/10" />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="animate-scroll-up">
+                {latestBetsLoop.map((rec, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    className="w-full flex items-center gap-3 px-3 py-2.5 border-b border-white/5 active:bg-white/5 transition-colors text-left"
+                    onClick={() => void onGameTapAction(rec.uuid)}
+                  >
+                    {rec.imageUrl ? (
+                      <img src={rec.imageUrl} alt={rec.name} className="w-10 h-10 rounded-lg object-cover flex-shrink-0 bg-white/5" />
+                    ) : (
+                      <div className="w-10 h-10 rounded-lg bg-white/10 flex-shrink-0" />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-bold text-foreground truncate">{localizedGameName(rec, locale)}</p>
+                      <p className="text-[10px] text-muted-foreground">{rec.provider}</p>
+                    </div>
+                    <span className="text-xs font-bold text-primary flex-shrink-0">{formatBet(rec.betAmount)}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="rounded-xl bg-secondary overflow-hidden h-[600px]">
+            {rankBets.length === 0 ? (
+              <div className="space-y-px pt-1">
+                {Array.from({ length: 8 }).map((_, n) => (
+                  <div key={n} className="flex items-center gap-3 px-3 py-2.5 border-b border-white/5">
+                    <div className="w-5 h-5 rounded animate-pulse bg-white/10 flex-shrink-0" />
+                    <div className="w-10 h-10 rounded-lg animate-pulse bg-white/10 flex-shrink-0" />
+                    <div className="flex-1 space-y-1.5">
+                      <div className="h-3 w-28 rounded animate-pulse bg-white/10" />
+                      <div className="h-2 w-16 rounded animate-pulse bg-white/10" />
+                    </div>
+                    <div className="h-3 w-16 rounded animate-pulse bg-white/10" />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              rankBets.map((rec, idx) => (
+                <button
+                  key={rec.uuid}
+                  type="button"
+                  className="w-full flex items-center gap-3 px-3 py-2.5 border-b border-white/5 last:border-0 active:bg-white/5 transition-colors text-left"
+                  onClick={() => void onGameTapAction(rec.uuid)}
+                >
+                  <span
+                    className={`w-5 text-center text-xs font-black flex-shrink-0 ${idx === 0 ? 'text-primary' : idx === 1 ? 'text-white/50' : idx === 2 ? 'text-amber-600' : 'text-muted-foreground'}`}
+                  >
+                    #{idx + 1}
+                  </span>
+                  {rec.imageUrl ? (
+                    <img src={rec.imageUrl} alt={rec.name} className="w-10 h-10 rounded-lg object-cover flex-shrink-0 bg-white/5" />
+                  ) : (
+                    <div className="w-10 h-10 rounded-lg bg-white/10 flex-shrink-0" />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-bold text-foreground truncate">{localizedGameName(rec, locale)}</p>
+                    <p className="text-[10px] text-muted-foreground">{rec.provider}</p>
+                  </div>
+                  <span className="text-xs font-bold text-primary flex-shrink-0">{formatBet(rec.betAmount)}</span>
+                </button>
+              ))
+            )}
+          </div>
+        )}
       </section>
 
       {/* Info Links */}

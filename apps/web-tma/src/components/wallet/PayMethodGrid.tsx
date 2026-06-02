@@ -19,9 +19,11 @@ export default function PayMethodGrid({ methods, selected, onSelect }: Props) {
           key={m.id}
           type="button"
           className={`relative flex flex-col items-center gap-1.5 p-3 rounded-2xl border-2 transition-all ${
-            !isEnabled(m) ? 'opacity-45 cursor-not-allowed border-border bg-secondary' :
-            selected === m.id ? 'border-primary bg-primary/10 shadow-lg shadow-primary/20' :
-            'border-border bg-secondary hover:border-white/20'
+            !isEnabled(m)
+              ? 'opacity-45 cursor-not-allowed border-border bg-secondary'
+              : selected === m.id
+                ? 'border-primary bg-primary/10 shadow-lg shadow-primary/20'
+                : 'border-border bg-secondary hover:border-white/20'
           }`}
           disabled={!isEnabled(m)}
           onClick={() => isEnabled(m) && onSelect(m.id)}
@@ -41,17 +43,23 @@ export default function PayMethodGrid({ methods, selected, onSelect }: Props) {
               )}
             </div>
           )}
-          <p className="text-[10px] font-bold text-foreground text-center leading-tight">{m.name}</p>
-          {m.tag && <span className="text-[9px] text-muted-foreground">{m.tag}</span>}
-          {selected === m.id && (
-            <div className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary">
-              <CheckCircle2 size={10} className="text-primary-foreground" />
-            </div>
+          <span className="text-foreground font-bold text-xs leading-tight text-center">{m.name}</span>
+          <span
+            className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none ${
+              selected === m.id ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground'
+            }`}
+          >
+            {m.tag}
+          </span>
+          {selected === m.id && isEnabled(m) && (
+            <span className="absolute top-1.5 right-1.5">
+              <CheckCircle2 size={13} className="text-primary" />
+            </span>
           )}
           {!isEnabled(m) && (
-            <div className="absolute inset-0 flex items-center justify-center rounded-2xl">
-              <Lock size={14} className="text-muted-foreground" />
-            </div>
+            <span className="absolute top-1.5 right-1.5">
+              <Lock size={12} className="text-muted-foreground" />
+            </span>
           )}
         </button>
       ))}
