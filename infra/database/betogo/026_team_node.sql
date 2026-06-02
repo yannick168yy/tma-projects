@@ -182,22 +182,8 @@ CREATE TABLE IF NOT EXISTS `bg_team_config` (
 INSERT IGNORE INTO `bg_team_config` (`id`) VALUES (1);
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- 7. bg_wallet_ledger type ENUM 扩展
---    新增 'team_commission' 类型，用于佣金发放到主钱包的流水记录
+-- 7. bg_wallet_ledger.type ENUM 扩展见 028_wallet_ledger_team_type.sql
 -- ─────────────────────────────────────────────────────────────────────────────
-SET @col_def = (
-  SELECT COLUMN_TYPE FROM information_schema.COLUMNS
-  WHERE TABLE_SCHEMA = DATABASE()
-    AND TABLE_NAME   = 'bg_wallet_ledger'
-    AND COLUMN_NAME  = 'type'
-);
-SET @has_tc = LOCATE('team_commission', IFNULL(@col_def, ''));
-SET @alter_ledger = IF(
-  @has_tc = 0,
-  "ALTER TABLE `bg_wallet_ledger` MODIFY COLUMN `type` ENUM('deposit','withdraw','bet','win','red_packet','bonus','adjust','team_commission') NOT NULL",
-  'SELECT 1 AS skipped'
-);
-PREPARE stmt FROM @alter_ledger; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- 8. 存量用户回填 bg_team_node
