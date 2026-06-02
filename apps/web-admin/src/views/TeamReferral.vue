@@ -68,7 +68,7 @@
           :pagination="agentPagination"
           row-key="userId"
           size="small"
-          @change="(p) => loadAgents(p.current)"
+          @change="onAgentPageChange"
         >
           <template #bodyCell="{ column, record }">
             <template v-if="column.key === 'thisMonth'">
@@ -103,7 +103,7 @@
           :pagination="commPagination"
           row-key="id"
           size="small"
-          @change="(p) => loadCommissions(p.current)"
+          @change="onCommPageChange"
         >
           <template #bodyCell="{ column, record }">
             <template v-if="column.key === 'ggr'">{{ phpDisplay(record.ggr_cents) }}</template>
@@ -134,7 +134,7 @@
           :pagination="wdPagination"
           row-key="id"
           size="small"
-          @change="(p) => loadWithdrawals(p.current)"
+          @change="onWdPageChange"
         >
           <template #bodyCell="{ column, record }">
             <template v-if="column.key === 'amount'">{{ phpDisplay(record.amount_cents) }}</template>
@@ -231,6 +231,10 @@ const agentCols = [
   { title: '累计收益',  key: 'lifetime',            width: 120 },
   { title: '开启时间',  dataIndex: 'optedInAt',     key: 'optedInAt', width: 160 },
 ]
+
+function onAgentPageChange(p: { current: number }) { void loadAgents(p.current) }
+function onCommPageChange(p: { current: number }) { void loadCommissions(p.current) }
+function onWdPageChange(p: { current: number }) { void loadWithdrawals(p.current) }
 
 async function loadAgents(page = 1) {
   agentsLoading.value = true
