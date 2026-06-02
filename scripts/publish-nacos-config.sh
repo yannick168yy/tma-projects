@@ -6,10 +6,13 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
 [[ -f .env ]] || { echo "missing .env"; exit 1; }
-set -a
-# shellcheck disable=SC1091
-source .env
-set +a
+while IFS= read -r line || [[ -n "$line" ]]; do
+  [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
+  [[ "$line" != *=* ]] && continue
+  key="${line%%=*}"; val="${line#*=}"
+  [[ "$key" =~ [[:space:]] ]] && continue
+  export "${key}=${val}"
+done < .env
 
 NACOS_ADDR="${NACOS_PUBLISH_ADDR:-http://127.0.0.1:${NACOS_PORT:-8848}}"
 NS="${NACOS_NAMESPACE:-batogo}"

@@ -6,10 +6,13 @@ set -euo pipefail
 cd "$(dirname "$0")/../.."
 
 if [[ -f .env ]]; then
-  set -a
-  # shellcheck disable=SC1091
-  source .env
-  set +a
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
+    [[ "$line" != *=* ]] && continue
+    key="${line%%=*}"; val="${line#*=}"
+    [[ "$key" =~ [[:space:]] ]] && continue
+    export "${key}=${val}"
+  done < .env
 fi
 
 MYSQL_HOST="${MYSQL_HOST:-127.0.0.1}"

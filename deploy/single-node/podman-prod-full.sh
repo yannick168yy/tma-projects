@@ -16,10 +16,13 @@ if [[ "$CTR" != podman ]] && [[ "$CTR" != docker ]]; then
 fi
 
 if [[ -f .env ]]; then
-  set -a
-  # shellcheck disable=SC1091
-  source .env
-  set +a
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
+    [[ "$line" != *=* ]] && continue
+    key="${line%%=*}"; val="${line#*=}"
+    [[ "$key" =~ [[:space:]] ]] && continue
+    export "${key}=${val}"
+  done < .env
   sed -i 's/^BFF_DEV_SKIP_TELEGRAM_AUTH=true/BFF_DEV_SKIP_TELEGRAM_AUTH=false/' .env || true
 fi
 

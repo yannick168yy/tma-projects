@@ -55,10 +55,13 @@ MAX_BATCHES="$4"
 cd "$DIR/scripts/enrich-sg-games"
 npm install --silent
 
-set -a
-# shellcheck disable=SC1091
-source "$DIR/.env"
-set +a
+while IFS= read -r line || [[ -n "$line" ]]; do
+  [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
+  [[ "$line" != *=* ]] && continue
+  key="${line%%=*}"; val="${line#*=}"
+  [[ "$key" =~ [[:space:]] ]] && continue
+  export "${key}=${val}"
+done < "$DIR/.env"
 
 LOG="$DIR/scripts/enrich-sg-games/run-$(date +%Y%m%d-%H%M%S).log"
 
