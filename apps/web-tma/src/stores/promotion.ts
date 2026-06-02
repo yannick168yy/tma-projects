@@ -6,10 +6,12 @@ import {
   fetchPromoHighlights,
   fetchRedPacketRecords,
   fetchReferralRecords,
+  fetchTeamStatus,
+  enableAgent as apiEnableAgent,
 } from '@/api/promotion'
 import { creditWallet } from '@/api/wallet'
 import { useWalletStore } from '@/stores/wallet'
-import type { PromoHighlight, PromoId, RedPacketRecord, ReferralRecord } from '@/types/api'
+import type { PromoHighlight, PromoId, RedPacketRecord, ReferralRecord, TeamAgentStatus } from '@/types/api'
 
 export const usePromotionStore = defineStore('promotion', {
   state: () => ({
@@ -17,6 +19,8 @@ export const usePromotionStore = defineStore('promotion', {
     referralRecords: [] as ReferralRecord[],
     redPacketRecords: [] as RedPacketRecord[],
     redPacketSheet: { open: false, amountPhp: 0, title: '' },
+    teamStatus: null as TeamAgentStatus | null,
+    teamStatusLoading: false,
   }),
 
   getters: {
@@ -49,6 +53,28 @@ export const usePromotionStore = defineStore('promotion', {
 
     closeRedPacket() {
       this.redPacketSheet = { open: false, amountPhp: 0, title: '' }
+    },
+
+    async loadTeamStatus() {
+      if (this.teamStatusLoading) return
+      this.teamStatusLoading = true
+      try {
+        this.teamStatus = await fetchTeamStatus()
+      } catch {
+        // 未登录或接口暂不可用，不阻塞页面
+      } finally {
+        this.teamStatusLoading = false
+      }
+    },
+
+    async enableAgent(): Promise<{ ok: boolean }> {
+      try {
+        await apiEnableAgent()
+        await this.loadTeamStatus()
+        return { ok: true }
+      } catch (e) {
+        return { ok: false }
+      }
     },
 
     async claimPromo(id: PromoId): Promise<{ ok: boolean; message?: string }> {

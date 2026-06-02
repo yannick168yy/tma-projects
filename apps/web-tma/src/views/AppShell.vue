@@ -22,6 +22,7 @@ import MenuPage from '@/views/MenuPage.vue'
 import ProfilePage from '@/views/ProfilePage.vue'
 import SlotsLobby from '@/views/SlotsLobby.vue'
 import CustomerServicePage from '@/views/CustomerServicePage.vue'
+import TeamCenterPage from '@/views/TeamCenterPage.vue'
 import { NAV_ITEMS } from '@/data/home'
 import { useAuthStore } from '@/stores/auth'
 import { useWalletStore } from '@/stores/wallet'
@@ -55,6 +56,7 @@ const slotsLobbyOpen = ref(false)
 const categoryLobbyOpen = ref(false)
 const categoryLobbyParams = ref<CategoryLobbyParams | null>(null)
 const csOpen = ref(false)
+const teamCenterOpen = ref(false)
 const gamePlayerUrl = ref<string | null>(null)
 
 // 动态测量 header/nav 高度，用于 main 的 padding
@@ -94,6 +96,14 @@ function openCs() {
   profileOpen.value = false
   walletOpen.value = false
   csOpen.value = true
+}
+
+function openTeamCenter() {
+  teamCenterOpen.value = true
+}
+
+function closeTeamCenter() {
+  teamCenterOpen.value = false
 }
 
 const navItems = computed(() =>
@@ -366,7 +376,8 @@ function navIcon(id: string) {
           @open-game="openGame"
         />
         <ProfilePage v-else-if="profileOpen" @logout="onLogout" @open-cs="openCs" />
-        <BonusesPage v-else-if="activeNav === 'bonuses'" :promo-filter="promoFilter" @open-wallet="openWallet" />
+        <TeamCenterPage v-else-if="teamCenterOpen" @close="closeTeamCenter" />
+        <BonusesPage v-else-if="activeNav === 'bonuses'" :promo-filter="promoFilter" @open-wallet="openWallet" @open-team="openTeamCenter" />
         <BingoPage v-else-if="activeNav === 'bingo'" @open-wallet="openWallet" @game-tap="onGameTap" @open-game="openGame" @open-category-lobby="openCategoryLobby" />
         <MenuPage v-else-if="activeNav === 'menu'" @open-search="openSearch" @open-cs="openCs" @open-category-lobby="openCategoryLobby" />
         <HomeContent

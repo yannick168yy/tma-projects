@@ -66,3 +66,13 @@ export interface RedPacketRecord {
   amountPhp: number
   createdAt: string
 }
+
+export interface TeamAgentStatus {
+  isAgent: boolean
+  activated: boolean
+  l1Count: number
+  l2Count: number
+  l3Count: number
+  availableCents: number
+  lifetimeEarnedCents: number
+}

@@ -1,6 +1,6 @@
 import { apiRequest } from '@/api/client'
 import * as mock from '@/api/mock/promotion.mock'
-import type { PromoHighlight, RedPacketRecord, ReferralRecord } from '@/types/api'
+import type { PromoHighlight, RedPacketRecord, ReferralRecord, TeamAgentStatus } from '@/types/api'
 
 const useMock = import.meta.env.VITE_USE_MOCK_API !== 'false'
 
@@ -41,5 +41,13 @@ export async function fetchRedPacketRecords(): Promise<RedPacketRecord[]> {
   if (useMock) return mock.mockRedPacketRecords()
   const data = await apiRequest<{ items: RedPacketRecord[] }>('/promotions/red-packets')
   return data.items
+}
+
+export async function fetchTeamStatus(): Promise<TeamAgentStatus> {
+  return apiRequest<TeamAgentStatus>('/promotions/team/status')
+}
+
+export async function enableAgent(): Promise<void> {
+  await apiRequest<{ isAgent: boolean }>('/promotions/team/enable', { method: 'POST' })
 }
 

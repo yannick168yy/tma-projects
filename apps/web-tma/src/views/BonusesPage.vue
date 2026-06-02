@@ -1,15 +1,38 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, ref, watch, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { Trophy, ChevronDown } from 'lucide-vue-next'
+import { Trophy, ChevronDown, Users, Wallet } from 'lucide-vue-next'
 import { BONUS_WINNERS, PROMOS, PROMO_STATS } from '@/data/promos'
+import { usePromotionStore } from '@/stores/promotion'
+import { useAuthStore } from '@/stores/auth'
 
 const props = defineProps<{ promoFilter?: string | null }>()
-const emit = defineEmits<{ openWallet: [] }>()
+const emit = defineEmits<{ openWallet: []; openTeam: [] }>()
 
 const { t } = useI18n()
+const promotionStore = usePromotionStore()
+const auth = useAuthStore()
 
 const expanded = ref<string | null>(props.promoFilter ?? null)
+const agentActivating = ref(false)
+const agentExpanded = ref(false)
+
+const teamStatus = computed(() => promotionStore.teamStatus)
+
+onMounted(() => {
+  if (auth.isLoggedIn) promotionStore.loadTeamStatus()
+})
+
+async function onActivateAgent() {
+  if (!(await auth.ensureLoggedIn(t('auth.signInProfile')))) return
+  agentActivating.value = true
+  await promotionStore.enableAgent()
+  agentActivating.value = false
+}
+
+function phpDisplay(cents: number) {
+  return '₱' + (cents / 100).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
 
 const localizedPromos = computed(() =>
   PROMOS.map((p) => {
@@ -99,6 +122,102 @@ watch(
     </div>
 
     <div class="px-4 mt-4 space-y-3">
+      <!-- ── 三级分销代理卡 ── -->
+      <div class="rounded-2xl overflow-hidden border border-amber-500/30">
+        <!-- 头部渐变区 -->
+        <div class="relative bg-gradient-to-br from-[#78350f] via-[#92400e] to-[#b45309] px-4 py-4">
+          <span class="text-3xl absolute top-3 right-4">🏆</span>
+          <span class="text-[10px] font-black uppercase tracking-widest text-amber-300">{{ t('bonuses.promos.agent.tag') }}</span>
+
+          <!-- 未开启 -->
+          <template v-if="!teamStatus?.isAgent">
+            <h2 class="text-white font-black leading-tight mt-0.5 font-display text-[1.3rem]">{{ t('bonuses.promos.agent.title') }}</h2>
+            <p class="text-white/60 text-xs mt-0.5">{{ t('bonuses.promos.agent.tagline') }}</p>
+            <div class="flex gap-2 mt-3">
+              <div class="flex-1 bg-black/30 rounded-xl p-2 text-center">
+                <div class="text-amber-400 font-black text-lg leading-none">25%</div>
+                <div class="text-white/50 text-[9px] mt-0.5">{{ t('bonuses.promos.agent.rateL1') }}</div>
+              </div>
+              <div class="flex-1 bg-black/30 rounded-xl p-2 text-center">
+                <div class="text-amber-400 font-black text-lg leading-none">8%</div>
+                <div class="text-white/50 text-[9px] mt-0.5">{{ t('bonuses.promos.agent.rateL2') }}</div>
+              </div>
+              <div class="flex-1 bg-black/30 rounded-xl p-2 text-center">
+                <div class="text-amber-400 font-black text-lg leading-none">3%</div>
+                <div class="text-white/50 text-[9px] mt-0.5">{{ t('bonuses.promos.agent.rateL3') }}</div>
+              </div>
+            </div>
+          </template>
+
+          <!-- 已开启 -->
+          <template v-else>
+            <h2 class="text-white font-black leading-tight mt-0.5 font-display text-[1.3rem]">{{ t('bonuses.promos.agent.title') }}</h2>
+            <div class="flex gap-2 mt-3">
+              <div class="flex-1 bg-black/30 rounded-xl px-3 py-2">
+                <div class="flex items-center gap-1 mb-0.5">
+                  <Users :size="10" class="text-amber-400" />
+                  <span class="text-white/50 text-[9px]">{{ t('bonuses.promos.agent.teamLabel') }}</span>
+                </div>
+                <div class="text-amber-400 font-black text-sm leading-none">
+                  L1 {{ teamStatus.l1Count }} · L2 {{ teamStatus.l2Count }} · L3 {{ teamStatus.l3Count }}
+                </div>
+              </div>
+              <div class="bg-black/30 rounded-xl px-3 py-2 text-right">
+                <div class="flex items-center justify-end gap-1 mb-0.5">
+                  <Wallet :size="10" class="text-amber-400" />
+                  <span class="text-white/50 text-[9px]">{{ t('bonuses.promos.agent.commissionLabel') }}</span>
+                </div>
+                <div class="text-amber-400 font-black text-sm leading-none">{{ phpDisplay(teamStatus.availableCents) }}</div>
+              </div>
+            </div>
+            <div v-if="!teamStatus.activated" class="mt-2 bg-amber-500/15 border border-amber-500/30 rounded-lg px-3 py-1.5">
+              <p class="text-amber-300 text-[10px] leading-relaxed">{{ t('bonuses.promos.agent.activationHint') }}</p>
+            </div>
+          </template>
+        </div>
+
+        <!-- 卡片底部 -->
+        <div class="bg-card px-4 py-3">
+          <p class="text-muted-foreground text-xs leading-relaxed">{{ t('bonuses.promos.agent.desc') }}</p>
+
+          <!-- 活动说明折叠 -->
+          <button
+            type="button"
+            class="w-full flex items-center justify-between mt-3 py-2 border-t border-border"
+            @click="agentExpanded = !agentExpanded"
+          >
+            <span class="text-foreground text-xs font-bold">{{ t('bonuses.howItWorks') }}</span>
+            <ChevronDown :size="14" class="text-muted-foreground transition-transform duration-200" :class="agentExpanded ? 'rotate-180' : ''" />
+          </button>
+          <div v-if="agentExpanded" class="pb-2 space-y-2">
+            <div v-for="(step, i) in [t('bonuses.promos.agent.step1'), t('bonuses.promos.agent.step2'), t('bonuses.promos.agent.step3')]" :key="i" class="flex items-start gap-2.5">
+              <div class="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 font-black text-[11px] text-black mt-0.5 bg-amber-400">{{ i + 1 }}</div>
+              <span class="text-foreground/80 text-xs leading-relaxed">{{ step }}</span>
+            </div>
+          </div>
+
+          <!-- CTA 按钮 -->
+          <button
+            v-if="!teamStatus?.isAgent"
+            type="button"
+            class="w-full mt-3 py-3 rounded-xl text-black font-black text-sm transition-opacity bg-amber-500 hover:bg-amber-400"
+            :class="agentActivating ? 'opacity-60 pointer-events-none' : ''"
+            @click="onActivateAgent"
+          >
+            {{ agentActivating ? t('bonuses.promos.agent.activating') : t('bonuses.promos.agent.cta') }}
+          </button>
+          <button
+            v-else
+            type="button"
+            class="w-full mt-3 py-3 rounded-xl text-black font-black text-sm bg-amber-500 hover:bg-amber-400 transition-colors"
+            @click="emit('openTeam')"
+          >
+            {{ t('bonuses.promos.agent.ctaActive') }}
+          </button>
+        </div>
+      </div>
+      <!-- ── 三级分销代理卡 结束 ── -->
+
       <div
         v-for="p in localizedPromos"
         :id="`promo-${p.id}`"
