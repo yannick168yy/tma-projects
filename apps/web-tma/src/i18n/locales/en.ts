@@ -260,6 +260,7 @@ export default {
     title: 'Team Center',
     myReferralCode: 'My Referral Code',
     shareOnTelegram: 'Share on Telegram',
+    shareLink: 'Share Link',
     copied: 'Link copied!',
     tabTeam: 'My Team',
     tabCommissions: 'Earnings',

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { ChevronLeft, Copy, Share2, Users, Wallet, TrendingUp, CheckCircle2, Clock, XCircle } from 'lucide-vue-next'
+import { ChevronLeft, Copy, Share2, Link2, Users, Wallet, TrendingUp, CheckCircle2, Clock, XCircle } from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/auth'
 import { usePromotionStore } from '@/stores/promotion'
 
@@ -70,6 +70,19 @@ function shareToTelegram() {
   window.open(`https://t.me/share/url?url=${encodeURIComponent(deepLink.value)}&text=${text}`, '_blank')
 }
 
+async function shareToWeb() {
+  const shareData = {
+    title: 'BetoGo',
+    text: `Join BetoGo — use my code ${inviteCode.value}!`,
+    url: deepLink.value,
+  }
+  if (navigator.share) {
+    try { await navigator.share(shareData) } catch { /* cancelled */ }
+  } else {
+    await copyLink()
+  }
+}
+
 function phpDisplay(cents: number) {
   return '₱' + (cents / 100).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
@@ -135,12 +148,20 @@ const tabs = [
         </button>
       </div>
       <p v-if="copyTip" class="text-center text-xs text-amber-400 -mt-1 mb-2">{{ t('team.copied') }}</p>
-      <button type="button"
-        class="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-amber-500 text-black font-black text-sm"
-        @click="shareToTelegram">
-        <Share2 :size="14" />
-        {{ t('team.shareOnTelegram') }}
-      </button>
+      <div class="flex gap-2">
+        <button type="button"
+          class="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-amber-500 text-black font-black text-sm"
+          @click="shareToTelegram">
+          <Share2 :size="14" />
+          {{ t('team.shareOnTelegram') }}
+        </button>
+        <button type="button"
+          class="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border border-amber-500/50 text-amber-400 font-black text-sm"
+          @click="shareToWeb">
+          <Link2 :size="14" />
+          {{ t('team.shareLink') }}
+        </button>
+      </div>
     </div>
 
     <!-- 快捷统计 -->

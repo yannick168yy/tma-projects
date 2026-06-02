@@ -82,6 +82,16 @@ const mainStyle = computed(() => {
       maxHeight: `calc(100dvh - ${headerH.value}px)`,
     }
   }
+  if (teamCenterOpen.value) {
+    // 高度约束，避免内容区延伸到底部导航下方遮住点击
+    return {
+      paddingTop: top,
+      paddingBottom: `${navH.value}px`,
+      height: `calc(100dvh - ${headerH.value}px)`,
+      maxHeight: `calc(100dvh - ${headerH.value}px)`,
+      overflowY: 'hidden' as const,
+    }
+  }
   return {
     paddingTop: top,
     paddingBottom: `${navH.value}px`,

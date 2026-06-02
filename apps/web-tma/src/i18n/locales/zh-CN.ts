@@ -258,6 +258,7 @@ export default {
     title: '分销中心',
     myReferralCode: '我的邀请码',
     shareOnTelegram: '分享到 Telegram',
+    shareLink: '分享链接',
     copied: '链接已复制！',
     tabTeam: '我的团队',
     tabCommissions: '收益明细',
