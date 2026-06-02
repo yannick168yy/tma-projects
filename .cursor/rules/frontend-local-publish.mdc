@@ -12,4 +12,4 @@ After modifying `apps/web-tma`, **rebuild and run the Docker client** before end
 2. If build fails, fix errors in source; the image runs `npm run build` inside Docker.
 3. **Tell the user** the URL: http://localhost:8080/ (`WEB_TMA_PORT` in `.env`, default 8080)
 
-Do **not** start `npm run dev` on the host. After changes, follow `git-and-deploy-on-request.mdc` (auto commit + push + Aliyun deploy).
+Do **not** start `npm run dev` on the host. After changes, follow `git-and-deploy-on-request.mdc` (auto commit + Aliyun deploy; push on user request).

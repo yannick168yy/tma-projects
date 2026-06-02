@@ -19,4 +19,4 @@ When you finish **local** code or config changes in this repo:
 3. **Verify** briefly: `docker compose ps`, BFF `/health`, Nacos `:8848`, client `:8080`
 4. Tell the user what was deployed locally and any manual gaps (e.g. BotFather).
 
-**注意：** 代码改完后的默认流程已升级为 commit + push + 阿里云部署，详见 `git-and-deploy-on-request.mdc`。本地 Docker 部署（`./scripts/local-deploy.sh`）仅在明确需要本地验证时执行。
+**注意：** 代码改完后的默认流程为 commit + 阿里云测试部署（push 等用户通知），详见 `git-and-deploy-on-request.mdc`。本地 Docker 部署（`./scripts/local-deploy.sh`）仅在明确需要本地验证时执行。

@@ -1,16 +1,16 @@
 ---
-description: 代码改完后自动 commit + push + 部署阿里云（默认流程，无需用户再说）
+description: 代码改完后自动 commit + 部署测试环境；push 等用户通知
 alwaysApply: true
 ---
 
-# Git & Deploy：改完自动 commit + push + 部署
+# Git & Deploy：改完自动 commit + 部署（push 等通知）
 
 **本项目默认流程：完成代码修改后，任务结束前自动执行以下步骤，无需用户再提醒。**
 
 1. `git add` 本次相关文件（不含 `.env` 等密钥）
 2. `git commit`（中文 message，说明 why）
-3. `git push origin main`
-4. 部署阿里云测试环境
+3. **部署阿里云测试环境**（见下方命令）
+4. **`git push` 不要自动执行** — 等用户明确说「push」「推上去」等再执行
 
 ## 部署命令
 
@@ -41,9 +41,11 @@ bash deploy/single-node/deploy-web-tma.sh
 - 服务器：`47.84.34.139`
 - 不提交 `.env`、密钥、pem 等敏感文件
 - 本地 Docker（`./scripts/local-deploy.sh`）仅在需要本地验证时额外执行，**不能替代** commit + 阿里云部署
+- commit 优先用 `/usr/local/bin/git`（系统 git 可能与 hook 不兼容）
 
 ## 仍需用户明确要求
 
+- **`git push`**（默认不做）
 - 创建 PR
 - 数据库 DDL 上生产前确认
 - 涉及密钥/环境变量变更
