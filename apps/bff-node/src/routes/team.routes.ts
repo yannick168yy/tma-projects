@@ -2,7 +2,7 @@ import Router from '@koa/router'
 import type { RowDataPacket, ResultSetHeader } from 'mysql2/promise'
 import { getMysqlPool } from '../clients/mysql.client.js'
 import { ok, fail } from '../utils/response.js'
-import { nowIso } from '../utils/format.js'
+import { nowMysql } from '../utils/format.js'
 
 const router = new Router({ prefix: '/promotions/team' })
 
@@ -53,7 +53,7 @@ router.get('/status', async (ctx) => {
 router.post('/enable', async (ctx) => {
   const userId = ctx.state.userId!
   const db = getMysqlPool(ctx.state.env)
-  const now = nowIso()
+  const now = nowMysql()
 
   // 查用户三级上线链（注册时已有 inviter_id）
   const [[user]] = await db.query<RowDataPacket[]>(

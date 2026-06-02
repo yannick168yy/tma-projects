@@ -13,6 +13,10 @@ export function nowIso(): string {
   return new Date().toISOString()
 }
 
+export function nowMysql(): string {
+  return new Date().toISOString().replace('T', ' ').replace(/\.\d{3}Z$/, '')
+}
+
 export function formatDisplayTime(iso: string): string {
   const d = new Date(iso)
   const pad = (n: number) => String(n).padStart(2, '0')
