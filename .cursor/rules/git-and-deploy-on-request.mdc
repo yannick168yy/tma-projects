@@ -1,16 +1,20 @@
 ---
-description: After web-tma changes, auto commit + push + fast deploy
+description: 代码改完后自动 commit + push + 部署阿里云（默认流程，无需用户再说）
 alwaysApply: true
 ---
 
 # Git & Deploy：改完自动 commit + push + 部署
 
-**web-tma 前端改完后自动执行（无需用户再说）：**
+**本项目默认流程：完成代码修改后，任务结束前自动执行以下步骤，无需用户再提醒。**
 
-1. `git add` 相关文件
-2. `git commit`（`/usr/local/bin/git`，中文 message）
+1. `git add` 本次相关文件（不含 `.env` 等密钥）
+2. `git commit`（中文 message，说明 why）
 3. `git push origin main`
-4. 快速部署（仅前台）：
+4. 部署阿里云测试环境
+
+## 部署命令
+
+**仅 web-tma 前端：**
 
 ```bash
 cd /Users/yannicky/tma-projects && \
@@ -21,15 +25,26 @@ SSH_OPTS="-o StrictHostKeyChecking=no" \
 bash deploy/single-node/deploy-web-tma-fast.sh
 ```
 
-**含 bff-node / core-node / deploy 等后端改动时**，改用完整部署 `deploy/single-node/deploy-web-tma.sh`。
+**含 bff-node / core-node / deploy / 数据库迁移等后端改动：**
+
+```bash
+cd /Users/yannicky/tma-projects && \
+DEPLOY_HOST=root@47.84.34.139 \
+DEPLOY_DIR=/root/workspace/tma-projects \
+SSH_IDENTITY_FILE=~/Downloads/yannick.pem \
+SSH_OPTS="-o StrictHostKeyChecking=no" \
+bash deploy/single-node/deploy-web-tma.sh
+```
 
 ## 注意事项
 
-- 不提交 `.env` 等含密钥文件
 - 服务器：`47.84.34.139`
+- 不提交 `.env`、密钥、pem 等敏感文件
+- 本地 Docker（`./scripts/local-deploy.sh`）仅在需要本地验证时额外执行，**不能替代** commit + 阿里云部署
 
 ## 仍需用户明确要求
 
 - 创建 PR
 - 数据库 DDL 上生产前确认
 - 涉及密钥/环境变量变更
+- 用户明确说「先别提交 / 别部署」

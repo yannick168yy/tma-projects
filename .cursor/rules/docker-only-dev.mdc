@@ -13,6 +13,6 @@ alwaysApply: true
 | Rebuild client: `docker compose up -d --build web-tma` | Start MySQL/Redis/RabbitMQ via Homebrew |
 | Client URL: http://localhost:8080 | Assume host Java/Node for app services |
 
-After frontend changes, follow `frontend-local-publish.mdc` (Docker rebuild). Git commit / Aliyun deploy only when the user explicitly asks (`git-and-deploy-on-request.mdc`).
+After frontend changes, follow `git-and-deploy-on-request.mdc` (auto commit + push + Aliyun deploy). Local Docker rebuild only when explicitly needed for verification.
 
 Future `bff-node` and `core-java` will be added to the same `docker-compose.yml`.

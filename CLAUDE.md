@@ -4,7 +4,7 @@
 - **所有对话、解释、注释、commit message 均使用中文**
 
 ## 部署
-- 每次代码改完必须**自动部署**到阿里云测试环境
+- 每次代码改完必须**自动 commit + push + 部署**到阿里云测试环境（无需用户再提醒）
 - 服务器 IP：`47.84.34.139`
 - SSH 密钥：`~/Downloads/yannick.pem`
 - 项目路径：`/root/workspace/tma-projects`
