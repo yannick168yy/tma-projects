@@ -68,7 +68,7 @@
           :pagination="agentPagination"
           row-key="userId"
           size="small"
-          @change="(p: { current: number }) => loadAgents(p.current)"
+          @change="(p) => loadAgents(p.current)"
         >
           <template #bodyCell="{ column, record }">
             <template v-if="column.key === 'thisMonth'">
@@ -103,7 +103,7 @@
           :pagination="commPagination"
           row-key="id"
           size="small"
-          @change="(p: { current: number }) => loadCommissions(p.current)"
+          @change="(p) => loadCommissions(p.current)"
         >
           <template #bodyCell="{ column, record }">
             <template v-if="column.key === 'ggr'">{{ phpDisplay(record.ggr_cents) }}</template>
@@ -134,7 +134,7 @@
           :pagination="wdPagination"
           row-key="id"
           size="small"
-          @change="(p: { current: number }) => loadWithdrawals(p.current)"
+          @change="(p) => loadWithdrawals(p.current)"
         >
           <template #bodyCell="{ column, record }">
             <template v-if="column.key === 'amount'">{{ phpDisplay(record.amount_cents) }}</template>
