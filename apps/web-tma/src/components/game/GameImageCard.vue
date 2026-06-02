@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, type CSSProperties } from 'vue'
+import { ref, computed, watch, onMounted, nextTick, type CSSProperties } from 'vue'
 
 const props = defineProps<{
   imageUrl: string | null
@@ -57,36 +57,69 @@ const tagStyle = computed(() =>
     : { background: 'rgba(255,255,255,0.2)', color: '#fff' }
 )
 
-// 全部用内联 style 控制，彻底避免 Tailwind v4 扫描 :class 三元表达式不可靠的问题
-const mirrorNameStyle = computed((): CSSProperties => {
-  const len = props.name.length
-  const fontSize = len <= 10 ? '15px' : len <= 20 ? '12px' : '10px'
-  if (len > 10) {
+// ── 游戏名四级降级策略 ──
+// 优先大号字体，单行放不下换两行，两行还放不下缩小字号，最终 webkit-line-clamp 自动省略
+// mirror: 大号 15px / 小号 11px；split: 大号 11px / 小号 9px
+type NameLevel = 'large-1' | 'large-2' | 'small'
+const nameLevel = ref<NameLevel>('large-1')
+const nameRef = ref<HTMLElement | null>(null)
+
+const MIRROR_LARGE = 15
+const MIRROR_SMALL = 11
+const SPLIT_LARGE = 11
+const SPLIT_SMALL = 9
+
+function measureTextPx(text: string, font: string): number {
+  const c = document.createElement('canvas')
+  const ctx = c.getContext('2d')
+  if (!ctx) return 0
+  ctx.font = font
+  return ctx.measureText(text).width
+}
+
+function resolveNameLevel() {
+  nextTick().then(() => {
+    const el = nameRef.value
+    if (!el) return
+    const w = el.clientWidth
+    if (!w) return
+    const family = getComputedStyle(el).fontFamily
+    const large = props.variant === 'mirror' ? MIRROR_LARGE : SPLIT_LARGE
+
+    const lw = measureTextPx(props.name, `900 ${large}px ${family}`)
+    if (lw <= w) { nameLevel.value = 'large-1'; return }
+    if (lw <= w * 2) { nameLevel.value = 'large-2'; return }
+    nameLevel.value = 'small'
+  })
+}
+
+onMounted(resolveNameLevel)
+watch(() => props.name, resolveNameLevel)
+
+const nameStyle = computed((): CSSProperties => {
+  const isMirror = props.variant === 'mirror'
+  const largePx = `${isMirror ? MIRROR_LARGE : SPLIT_LARGE}px`
+  const smallPx = `${isMirror ? MIRROR_SMALL : SPLIT_SMALL}px`
+  const level = nameLevel.value
+
+  if (level === 'large-1') {
     return {
-      fontSize,
+      fontSize: largePx,
       lineHeight: '1.25',
       overflow: 'hidden',
-      display: '-webkit-box',
-      WebkitBoxOrient: 'vertical',
-      WebkitLineClamp: 2,
+      textOverflow: 'ellipsis',
+      whiteSpace: 'nowrap',
     }
   }
   return {
-    fontSize,
+    fontSize: level === 'large-2' ? largePx : smallPx,
     lineHeight: '1.25',
     overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap',
+    display: '-webkit-box',
+    WebkitBoxOrient: 'vertical',
+    WebkitLineClamp: 2,
   }
 })
-
-const splitNameStyle = computed((): CSSProperties => ({
-  fontSize: props.name.length <= 14 ? '11px' : '9px',
-  lineHeight: '1.25',
-  overflow: 'hidden',
-  textOverflow: 'ellipsis',
-  whiteSpace: 'nowrap',
-}))
 </script>
 
 <template>
@@ -104,7 +137,7 @@ const splitNameStyle = computed((): CSSProperties => ({
       <div v-else class="absolute inset-0" :style="{ background: fallbackBg[0] }" />
       <div class="relative z-10">
         <span v-if="tag" class="text-[7px] font-black px-1.5 py-[2px] rounded-full leading-none inline-block mb-1.5" :style="tagStyle">{{ tag }}</span>
-        <p class="text-white font-black" :style="mirrorNameStyle">{{ name }}</p>
+        <p ref="nameRef" class="text-white font-black" :style="nameStyle">{{ name }}</p>
         <p class="text-white/60 text-[10px] mt-0.5">{{ provider }}</p>
       </div>
     </div>
@@ -127,7 +160,7 @@ const splitNameStyle = computed((): CSSProperties => ({
     </div>
     <div class="flex-shrink-0 px-2 pt-1.5 pb-2" :style="{ background: barGradient }">
       <span v-if="tag" class="text-[7px] font-black px-1.5 py-[2px] rounded-full leading-none inline-block mb-1" :style="tagStyle">{{ tag }}</span>
-        <p class="text-white font-black" :style="splitNameStyle">{{ name }}</p>
+        <p ref="nameRef" class="text-white font-black" :style="nameStyle">{{ name }}</p>
       <p class="text-white/50 text-[9px] mt-px">{{ provider }}</p>
     </div>
   </div>
