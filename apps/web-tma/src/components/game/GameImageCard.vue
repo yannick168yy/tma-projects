@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted, nextTick, type CSSProperties } from 'vue'
+import { ref, computed, type CSSProperties } from 'vue'
 
 const props = defineProps<{
   imageUrl: string | null
@@ -57,130 +57,14 @@ const tagStyle = computed(() =>
     : { background: 'rgba(255,255,255,0.2)', color: '#fff' }
 )
 
-// ── 游戏名三级降级：大号单行 → 大号双行 → 小号双行（line-clamp 省略）──
-// mirror: 15px / 11px；split: 11px / 9px
-type NameLevel = 'large-1' | 'large-2' | 'small'
-const nameLevel = ref<NameLevel>('large-1')
-const nameRef = ref<HTMLElement | null>(null)
-let resizeObserver: ResizeObserver | null = null
-
-const MIRROR_LARGE = 15
-const MIRROR_SMALL = 11
-const SPLIT_LARGE = 11
-const SPLIT_SMALL = 9
-const NAME_LINE_HEIGHT = 1.25
-
-function nameFits(
-  text: string,
-  containerWidth: number,
-  fontSize: number,
-  maxLines: 1 | 2,
-  fontFamily: string,
-): boolean {
-  const probe = document.createElement('p')
-  const base = [
-    'position:fixed',
-    'top:-9999px',
-    'left:-9999px',
-    'visibility:hidden',
-    'pointer-events:none',
-    'margin:0',
-    'padding:0',
-    `width:${containerWidth}px`,
-    `font-size:${fontSize}px`,
-    'font-weight:900',
-    `font-family:${fontFamily}`,
-    `line-height:${NAME_LINE_HEIGHT}`,
-  ]
-  if (maxLines === 1) {
-    probe.style.cssText = [...base, 'white-space:nowrap', 'overflow:hidden'].join(';')
-  } else {
-    probe.style.cssText = [
-      ...base,
-      'white-space:normal',
-      'overflow:hidden',
-      'display:-webkit-box',
-      '-webkit-box-orient:vertical',
-      `-webkit-line-clamp:${maxLines}`,
-    ].join(';')
-  }
-  probe.textContent = text
-  document.body.appendChild(probe)
-  const fits =
-    maxLines === 1
-      ? probe.scrollWidth <= containerWidth + 0.5
-      : probe.scrollHeight <= fontSize * NAME_LINE_HEIGHT * maxLines + 0.5
-  document.body.removeChild(probe)
-  return fits
+const NAME_FONT_SIZE = 13
+const nameStyle: CSSProperties = {
+  fontSize: `${NAME_FONT_SIZE}px`,
+  lineHeight: '1.25',
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
 }
-
-async function resolveNameLevel(retry = 0) {
-  await nextTick()
-  if (document.fonts?.ready) await document.fonts.ready
-
-  const el = nameRef.value
-  if (!el) return
-  const w = el.clientWidth
-  if (!w) {
-    if (retry < 5) requestAnimationFrame(() => { void resolveNameLevel(retry + 1) })
-    return
-  }
-
-  const family = getComputedStyle(el).fontFamily
-  const large = props.variant === 'mirror' ? MIRROR_LARGE : SPLIT_LARGE
-
-  if (nameFits(props.name, w, large, 1, family)) {
-    nameLevel.value = 'large-1'
-  } else if (nameFits(props.name, w, large, 2, family)) {
-    nameLevel.value = 'large-2'
-  } else {
-    nameLevel.value = 'small'
-  }
-}
-
-if (typeof ResizeObserver !== 'undefined') {
-  resizeObserver = new ResizeObserver(() => { void resolveNameLevel() })
-}
-
-watch(nameRef, (el, _, onCleanup) => {
-  if (!resizeObserver || !el) return
-  resizeObserver.observe(el)
-  onCleanup(() => resizeObserver!.unobserve(el))
-})
-
-onMounted(() => { void resolveNameLevel() })
-
-onUnmounted(() => {
-  resizeObserver?.disconnect()
-})
-
-watch(() => [props.name, props.variant] as const, () => { void resolveNameLevel() })
-
-const nameStyle = computed((): CSSProperties => {
-  const isMirror = props.variant === 'mirror'
-  const largePx = `${isMirror ? MIRROR_LARGE : SPLIT_LARGE}px`
-  const smallPx = `${isMirror ? MIRROR_SMALL : SPLIT_SMALL}px`
-  const level = nameLevel.value
-
-  if (level === 'large-1') {
-    return {
-      fontSize: largePx,
-      lineHeight: String(NAME_LINE_HEIGHT),
-      overflow: 'hidden',
-      textOverflow: 'ellipsis',
-      whiteSpace: 'nowrap',
-    }
-  }
-  return {
-    fontSize: level === 'large-2' ? largePx : smallPx,
-    lineHeight: String(NAME_LINE_HEIGHT),
-    whiteSpace: 'normal',
-    overflow: 'hidden',
-    display: '-webkit-box',
-    WebkitBoxOrient: 'vertical',
-    WebkitLineClamp: 2,
-  }
-})
 </script>
 
 <template>
@@ -196,9 +80,9 @@ const nameStyle = computed((): CSSProperties => {
     <div class="flex-shrink-0 relative overflow-hidden px-2.5 pt-2 pb-2.5">
       <div v-if="imageUrl" class="absolute" :style="mirrorBgStyle" />
       <div v-else class="absolute inset-0" :style="{ background: fallbackBg[0] }" />
-      <div class="relative z-10">
+      <div class="relative z-10 min-w-0">
         <span v-if="tag" class="text-[7px] font-black px-1.5 py-[2px] rounded-full leading-none inline-block mb-1.5" :style="tagStyle">{{ tag }}</span>
-        <p ref="nameRef" class="text-white font-black font-display" :style="nameStyle">{{ name }}</p>
+        <p class="text-white font-black font-display min-w-0" :style="nameStyle">{{ name }}</p>
         <p class="text-white/60 text-[10px] mt-0.5">{{ provider }}</p>
       </div>
     </div>
@@ -219,9 +103,9 @@ const nameStyle = computed((): CSSProperties => {
       />
       <slot />
     </div>
-    <div class="flex-shrink-0 px-2 pt-1.5 pb-2" :style="{ background: barGradient }">
+    <div class="flex-shrink-0 px-2 pt-1.5 pb-2 min-w-0" :style="{ background: barGradient }">
       <span v-if="tag" class="text-[7px] font-black px-1.5 py-[2px] rounded-full leading-none inline-block mb-1" :style="tagStyle">{{ tag }}</span>
-        <p ref="nameRef" class="text-white font-black font-display" :style="nameStyle">{{ name }}</p>
+      <p class="text-white font-black font-display min-w-0" :style="nameStyle">{{ name }}</p>
       <p class="text-white/50 text-[9px] mt-px">{{ provider }}</p>
     </div>
   </div>
