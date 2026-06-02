@@ -1,0 +1,406 @@
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
+import {
+  Search, ChevronLeft, ChevronRight, Trophy, TrendingUp, Clock, Gamepad2,
+  Headphones, Fish, LayoutGrid, FileText, Shield, Heart, Info, X,
+} from 'lucide-react'
+import HomeCategoryShortcut from '@/components/home/HomeCategoryShortcut'
+import GameCard from '@/components/home/GameCard'
+import HistoryCard from '@/components/home/HistoryCard'
+import EGameCard from '@/components/home/EGameCard'
+import LiveCard from '@/components/home/LiveCard'
+import { CATEGORIES } from '@/data/categories'
+import { BANNERS, WINNERS, INFO_LINKS } from '@/data/home'
+import { fetchHomepageGames, launchGame, fetchBettingActivity, type SlotGame, type GameHistoryItem, type BetRecord, type BetTab } from '@/api/slots'
+import { ApiError } from '@/api/client'
+import { usePromotionStore, getHighlightMap } from '@/stores/promotion'
+import { useAuthStore } from '@/stores/auth'
+
+const INFO_ICONS: Record<string, React.ComponentType<{ size: number; className?: string }>> = { terms: FileText, privacy: Shield, responsible: Heart, about: Info }
+const HISTORY_STORAGE_KEY = 'betogo_game_history'
+const HISTORY_MAX = 10
+
+function readLocalHistory(): GameHistoryItem[] { try { const r = localStorage.getItem(HISTORY_STORAGE_KEY); return r ? JSON.parse(r) as GameHistoryItem[] : [] } catch { return [] } }
+function writeLocalHistory(game: SlotGame) {
+  try {
+    const existing = readLocalHistory().filter((g) => g.uuid !== game.uuid)
+    const updated: GameHistoryItem[] = [{ uuid: game.uuid, name: game.name, nameId: game.nameId, nameVi: game.nameVi, nameZh: game.nameZh, provider: game.provider, imageUrl: game.imageUrl, imageHqUrl: game.imageHqUrl, lastPlayedAt: new Date().toISOString() }, ...existing].slice(0, HISTORY_MAX)
+    localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(updated))
+  } catch { /**/ }
+}
+
+interface CategoryLobbyParams { sortCategory?: string; sortBy?: 'weight' | 'ph_bonus'; title: string }
+
+interface Props {
+  onOpenSearch: () => void; onOpenPromo: (promo: string | null) => void
+  onOpenCategoryLobby: (params: CategoryLobbyParams) => void
+  onOpenCs: () => void; onOpenGame: (url: string) => void
+}
+
+export default function HomeContent({ onOpenSearch, onOpenPromo, onOpenCategoryLobby, onOpenCs, onOpenGame }: Props) {
+  const { t } = useTranslation()
+  const promotion = usePromotionStore()
+  const auth = useAuthStore()
+  const highlightMap = useMemo(() => getHighlightMap(), [promotion.highlights])
+
+  const localizedBanners = useMemo(() => BANNERS.map((b) => ({ ...b, tag: t(`home.banners.${b.id}.tag`), title: t(`home.banners.${b.id}.title`), sub: t(`home.banners.${b.id}.sub`) })), [t])
+
+  function categoryBadge(promo: string | null, fallback: string | null) {
+    if (!promo) return fallback
+    const h = highlightMap.get(promo as 'trial' | 'referral' | 'firstdep')
+    if (h?.highlight && h.flagLabel) return h.flagLabel
+    return fallback
+  }
+  function categoryClaimable(promo: string | null) {
+    if (!promo) return false
+    const h = highlightMap.get(promo as 'trial' | 'referral' | 'firstdep')
+    return Boolean(h?.highlight)
+  }
+
+  // Banner
+  const [activeBanner, setActiveBanner] = useState(0)
+  const bannerTrackRef = useRef<HTMLDivElement>(null)
+  const bannerDragRef = useRef({ startX: 0, startY: 0, startScroll: 0, axis: null as 'x'|'y'|null, lastX: 0, lastT: 0 })
+  const marqueeWinners = useMemo(() => [...WINNERS, ...WINNERS], [])
+
+  function onBannerScroll() {
+    const el = bannerTrackRef.current; if (!el || el.clientWidth <= 0) return
+    setActiveBanner(Math.max(0, Math.min(BANNERS.length - 1, Math.round(el.scrollLeft / el.clientWidth))))
+  }
+  function scrollToBanner(index: number) {
+    const el = bannerTrackRef.current; if (!el) return
+    el.scrollTo({ left: index * el.clientWidth, behavior: 'smooth' }); setActiveBanner(index)
+  }
+  function onBannerTouchStart(e: React.TouchEvent) {
+    const t = e.touches[0]; if (!t) return
+    bannerDragRef.current = { startX: t.clientX, startY: t.clientY, startScroll: bannerTrackRef.current?.scrollLeft ?? 0, axis: null, lastX: t.clientX, lastT: Date.now() }
+  }
+  function onBannerTouchMove(e: React.TouchEvent) {
+    const el = bannerTrackRef.current; const touch = e.touches[0]; if (!el || !touch) return
+    const dx = touch.clientX - bannerDragRef.current.startX; const dy = touch.clientY - bannerDragRef.current.startY
+    if (bannerDragRef.current.axis === null && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) bannerDragRef.current.axis = Math.abs(dx) >= Math.abs(dy) ? 'x' : 'y'
+    if (bannerDragRef.current.axis !== 'x') return
+    e.preventDefault(); el.scrollLeft = bannerDragRef.current.startScroll - dx
+    bannerDragRef.current.lastX = touch.clientX; bannerDragRef.current.lastT = Date.now()
+  }
+  function onBannerTouchEnd() {
+    if (bannerDragRef.current.axis === 'x') {
+      const el = bannerTrackRef.current; if (el && el.clientWidth > 0) {
+        const dx = bannerDragRef.current.startX - bannerDragRef.current.lastX
+        const velocity = dx / Math.max(1, Date.now() - bannerDragRef.current.lastT)
+        const threshold = el.clientWidth * 0.18; const cur = activeBanner
+        if (dx > threshold || velocity > 0.35) { const next = Math.min(BANNERS.length - 1, cur + 1); el.scrollTo({ left: next * el.clientWidth, behavior: 'smooth' }); setActiveBanner(next) }
+        else if (dx < -threshold || velocity < -0.35) { const prev = Math.max(0, cur - 1); el.scrollTo({ left: prev * el.clientWidth, behavior: 'smooth' }); setActiveBanner(prev) }
+        else el.scrollTo({ left: cur * el.clientWidth, behavior: 'smooth' })
+      }
+    }
+    bannerDragRef.current.axis = null
+  }
+
+  // Game data
+  const [launchingUuid, setLaunchingUuid] = useState<string | null>(null)
+  const [homepageGames, setHomepageGames] = useState<{ popular: SlotGame[]; slots: SlotGame[]; live: SlotGame[]; fishing: SlotGame[]; crash: SlotGame[]; table: SlotGame[] }>({ popular: [], slots: [], live: [], fishing: [], crash: [], table: [] })
+  const [historyGames, setHistoryGames] = useState<GameHistoryItem[]>([])
+  const [gamesLoading, setGamesLoading] = useState(true)
+  const popularScroll = useRef<HTMLDivElement>(null); const slotsScroll = useRef<HTMLDivElement>(null)
+  const liveScroll = useRef<HTMLDivElement>(null); const fishingScroll = useRef<HTMLDivElement>(null)
+  const tableCrashScroll = useRef<HTMLDivElement>(null)
+  function scrollRow(ref: React.RefObject<HTMLDivElement | null>, dir: -1 | 1) { ref.current?.scrollBy({ left: dir * 148, behavior: 'smooth' }) }
+
+  const gameMap = useMemo(() => {
+    const m = new Map<string, SlotGame>()
+    const { popular, slots, live, fishing, crash, table } = homepageGames
+    for (const g of [...popular, ...slots, ...live, ...fishing, ...crash, ...table]) if (!m.has(g.uuid)) m.set(g.uuid, g)
+    return m
+  }, [homepageGames])
+
+  const onGameTapAction = useCallback(async (uuid: string) => {
+    if (!(await auth.ensureLoggedIn(t('auth.signInPlay')))) return
+    if (launchingUuid) return
+    setLaunchingUuid(uuid)
+    try {
+      const { url } = await launchGame(uuid); const game = gameMap.get(uuid)
+      if (game) { writeLocalHistory(game); setHistoryGames(readLocalHistory()) }
+      onOpenGame(url)
+    } catch (e) { alert(e instanceof ApiError ? e.message : 'Launch failed') }
+    finally { setLaunchingUuid(null) }
+  }, [auth, launchingUuid, gameMap, onOpenGame, t])
+
+  const popularGames = homepageGames.popular; const slotsGames = homepageGames.slots; const liveGames = homepageGames.live
+  const fishingGames = homepageGames.fishing; const tableCrashGames = useMemo(() => [...homepageGames.table, ...homepageGames.crash], [homepageGames])
+
+  // Betting table
+  const [activeBetTab, setActiveBetTab] = useState<BetTab>('latest')
+  const [latestBets, setLatestBets] = useState<BetRecord[]>([]); const [weekBets, setWeekBets] = useState<BetRecord[]>([]); const [monthBets, setMonthBets] = useState<BetRecord[]>([])
+  const [betLoaded, setBetLoaded] = useState<Record<BetTab, boolean>>({ latest: false, week: false, month: false })
+  function formatBet(amount: number) { return '₱ ' + amount.toLocaleString() }
+  async function loadBetTab(tab: BetTab) {
+    if (betLoaded[tab]) return; setBetLoaded((prev) => ({ ...prev, [tab]: true }))
+    try {
+      const data = await fetchBettingActivity(tab)
+      if (tab === 'latest') setLatestBets(data); else if (tab === 'week') setWeekBets(data); else setMonthBets(data)
+    } catch { /**/ }
+  }
+  async function switchBetTab(tab: BetTab) { setActiveBetTab(tab); await loadBetTab(tab) }
+  const currentBets = activeBetTab === 'latest' ? latestBets : activeBetTab === 'week' ? weekBets : monthBets
+
+  // Info modal
+  const [infoModal, setInfoModal] = useState<string | null>(null)
+  const parsedInfoContent = useMemo(() => {
+    if (!infoModal) return []
+    const text = t(`home.infoDetails.${infoModal}.content`)
+    const chunks = text.split('\n\n').map((c) => c.trim()).filter(Boolean)
+    const sections: { heading: string | null; body: string }[] = []
+    for (let i = 0; i < chunks.length; i++) {
+      const chunk = chunks[i]
+      const isHeading = chunk.length <= 50 && !chunk.includes('\n') && !/[.?!,。，！？]$/.test(chunk)
+      if (isHeading && i + 1 < chunks.length) { sections.push({ heading: chunk, body: chunks[i + 1] }); i++ }
+      else sections.push({ heading: null, body: chunk })
+    }
+    return sections
+  }, [infoModal, t])
+
+  useEffect(() => {
+    setHistoryGames(readLocalHistory())
+    setGamesLoading(true)
+    fetchHomepageGames().then(setHomepageGames).catch(() => {}).finally(() => setGamesLoading(false))
+    void loadBetTab('latest')
+  }, [])
+
+  const providerList = ['JILI', 'PGSOFT', 'PRAGMATIC', 'BGAMING', 'EVOLUTION', 'HABANERO', 'NOLIMIT', 'NETENT', 'POPIPLAY', 'SPRIBE', 'BOOONGO']
+
+  return (
+    <div className="page-main">
+      {/* Category shortcuts */}
+      <div className="category-shortcut-row flex gap-3 px-4 pb-3 pt-3 overflow-x-auto hide-scrollbar">
+        {CATEGORIES.map((c) => (
+          <HomeCategoryShortcut key={c.id} category={c} claimable={categoryClaimable(c.promo)} claimLabel={categoryBadge(c.promo, c.badge)} onClick={() => onOpenPromo(c.promo)} />
+        ))}
+      </div>
+
+      {/* Banner carousel */}
+      <div className="px-4">
+        <div className="relative h-56 overflow-hidden rounded-2xl">
+          <div ref={bannerTrackRef} className="banner-carousel flex h-full snap-x snap-mandatory hide-scrollbar" onScroll={onBannerScroll} onTouchStart={onBannerTouchStart} onTouchMove={onBannerTouchMove} onTouchEnd={onBannerTouchEnd} onTouchCancel={onBannerTouchEnd}>
+            {localizedBanners.map((banner) => (
+              <article key={banner.id} className="relative h-56 w-full flex-shrink-0 snap-center">
+                <div className={`absolute inset-0 bg-gradient-to-br ${banner.gradient}`} />
+                <div className="absolute -top-8 -right-8 h-28 w-28 rounded-full bg-white/5" />
+                <div className="absolute -bottom-6 -left-6 h-20 w-20 rounded-full bg-white/5" />
+                <div className="absolute inset-0 flex flex-col justify-between p-4">
+                  <div className="flex items-start justify-between">
+                    <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${banner.badgeColor}`}>{banner.tag}</span>
+                    <span className="text-3xl">{banner.badge}</span>
+                  </div>
+                  <div>
+                    <h2 className="mb-1 whitespace-pre-line font-display text-[1.55rem] font-black leading-tight text-white">{banner.title}</h2>
+                    <p className="text-xs text-white/70">{banner.sub}</p>
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+          <div className="pointer-events-none absolute bottom-3 left-1/2 flex -translate-x-1/2 gap-1.5">
+            {BANNERS.map((_, i) => (
+              <button key={i} type="button" className={`pointer-events-auto h-1.5 rounded-full transition-all ${i === activeBanner ? 'w-5 bg-white' : 'w-1.5 bg-white/40'}`} onClick={() => scrollToBanner(i)} />
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Search */}
+      <div className="flex items-center px-4 mt-4">
+        <button type="button" className="flex items-center gap-2 flex-1 px-3 py-2.5 rounded-xl bg-secondary text-muted-foreground" onClick={onOpenSearch}>
+          <Search size={14} /><span className="text-xs">{t('search.placeholder')}</span>
+        </button>
+      </div>
+
+      {/* Game History */}
+      <section className="mt-5">
+        <div className="flex items-center justify-between px-4 mb-3"><div className="flex items-center gap-2"><Clock size={15} className="text-muted-foreground" /><h3 className="text-foreground font-black text-sm font-display">{t('home.gameHistory')}</h3></div></div>
+        {historyGames.length > 0 ? (
+          <div className="flex gap-3 px-4 overflow-x-auto hide-scrollbar">{historyGames.map((g) => <HistoryCard key={g.uuid} game={g} onTap={() => void onGameTapAction(g.uuid)} />)}</div>
+        ) : <div className="px-4"><p className="text-muted-foreground text-xs">{t('home.noHistory')}</p></div>}
+      </section>
+
+      {/* Recent Wins marquee */}
+      <div className="mx-4 mt-4 bg-secondary rounded-xl p-3 flex items-center gap-2 overflow-hidden">
+        <div className="flex-shrink-0 flex items-center gap-1.5 text-primary"><Trophy size={13} /><span className="text-xs font-bold uppercase tracking-wide whitespace-nowrap">{t('home.recentWins')}</span></div>
+        <div className="w-px h-4 bg-border flex-shrink-0" />
+        <div className="overflow-hidden flex-1">
+          <div className="flex gap-6 animate-marquee whitespace-nowrap">
+            {marqueeWinners.map((w, i) => <span key={i} className="text-xs text-foreground/80 flex-shrink-0"><span className="text-primary font-bold">{w.name}</span> {t('common.won')} <span className="text-emerald-400 font-bold">{w.amount}</span> · <span className="text-muted-foreground">{w.game}</span></span>)}
+          </div>
+        </div>
+      </div>
+
+      {/* Popular Games */}
+      <section className="mt-5">
+        <div className="flex items-center justify-between px-4 mb-3">
+          <div className="flex items-center gap-2"><TrendingUp size={15} className="text-primary" /><h3 className="text-foreground font-black text-sm font-display">{t('home.popularGames')}</h3></div>
+          <div className="flex items-center gap-2">
+            <button type="button" className="h-6 px-2 flex items-center rounded-full bg-secondary text-primary text-[10px] font-bold active:scale-90 transition-transform" onClick={() => onOpenCategoryLobby({ sortBy: 'ph_bonus', title: t('home.popularGames') })}>ALL</button>
+            <div className="flex items-center gap-0.5">
+              <button type="button" className="w-6 h-6 flex items-center justify-center rounded-full bg-secondary text-muted-foreground active:scale-90 transition-transform" onClick={() => scrollRow(popularScroll, -1)}><ChevronLeft size={13} /></button>
+              <button type="button" className="w-6 h-6 flex items-center justify-center rounded-full bg-secondary text-muted-foreground active:scale-90 transition-transform" onClick={() => scrollRow(popularScroll, 1)}><ChevronRight size={13} /></button>
+            </div>
+          </div>
+        </div>
+        {gamesLoading ? <div className="flex gap-3 px-4">{Array.from({length:6}).map((_,i)=><div key={i} className="flex-shrink-0 w-32 h-40 animate-pulse rounded-xl bg-secondary"/>)}</div>
+          : popularGames.length > 0 && <div ref={popularScroll} className="flex gap-3 px-4 overflow-x-auto hide-scrollbar">{popularGames.map((g)=><div key={g.uuid} className="flex-shrink-0 w-32"><GameCard game={g} onTap={()=>void onGameTapAction(g.uuid)} /></div>)}</div>}
+      </section>
+
+      {/* E-Games Zone (slots) */}
+      {(gamesLoading || slotsGames.length > 0) && (
+        <section className="mt-6">
+          <div className="flex items-center justify-between px-4 mb-3">
+            <div className="flex items-center gap-2"><Gamepad2 size={15} className="text-violet-400" /><h3 className="text-foreground font-black text-sm font-display">{t('home.egamesZone')}</h3><span className="bg-violet-500/20 text-violet-300 text-[10px] font-bold px-2 py-0.5 rounded-full">{t('common.featured')}</span></div>
+            <div className="flex items-center gap-2">
+              <button type="button" className="h-6 px-2 flex items-center rounded-full bg-secondary text-primary text-[10px] font-bold active:scale-90 transition-transform" onClick={() => onOpenCategoryLobby({ sortCategory: 'slots', sortBy: 'weight', title: t('home.egamesZone') })}>ALL</button>
+              <div className="flex items-center gap-0.5">
+                <button type="button" className="w-6 h-6 flex items-center justify-center rounded-full bg-secondary text-muted-foreground active:scale-90 transition-transform" onClick={() => scrollRow(slotsScroll, -1)}><ChevronLeft size={13} /></button>
+                <button type="button" className="w-6 h-6 flex items-center justify-center rounded-full bg-secondary text-muted-foreground active:scale-90 transition-transform" onClick={() => scrollRow(slotsScroll, 1)}><ChevronRight size={13} /></button>
+              </div>
+            </div>
+          </div>
+          {gamesLoading ? <div className="flex gap-3 px-4">{Array.from({length:6}).map((_,i)=><div key={i} className="flex-shrink-0 w-32 h-28 animate-pulse rounded-xl bg-secondary"/>)}</div>
+            : <div ref={slotsScroll} className="flex gap-3 px-4 overflow-x-auto hide-scrollbar">{slotsGames.map((g)=><EGameCard key={g.uuid} game={g} onTap={()=>void onGameTapAction(g.uuid)} />)}</div>}
+        </section>
+      )}
+
+      {/* Live Games */}
+      {(gamesLoading || liveGames.length > 0) && (
+        <section className="mt-6">
+          <div className="flex items-center justify-between px-4 mb-3">
+            <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" /><h3 className="text-foreground font-black text-sm font-display">{t('home.liveGames')}</h3></div>
+            <div className="flex items-center gap-2">
+              <button type="button" className="h-6 px-2 flex items-center rounded-full bg-secondary text-primary text-[10px] font-bold active:scale-90 transition-transform" onClick={() => onOpenCategoryLobby({ sortCategory: 'live', sortBy: 'weight', title: t('home.liveGames') })}>ALL</button>
+              <div className="flex items-center gap-0.5">
+                <button type="button" className="w-6 h-6 flex items-center justify-center rounded-full bg-secondary text-muted-foreground active:scale-90 transition-transform" onClick={() => scrollRow(liveScroll, -1)}><ChevronLeft size={13} /></button>
+                <button type="button" className="w-6 h-6 flex items-center justify-center rounded-full bg-secondary text-muted-foreground active:scale-90 transition-transform" onClick={() => scrollRow(liveScroll, 1)}><ChevronRight size={13} /></button>
+              </div>
+            </div>
+          </div>
+          {gamesLoading ? <div className="flex gap-3 px-4">{Array.from({length:6}).map((_,i)=><div key={i} className="flex-shrink-0 w-32 h-28 animate-pulse rounded-xl bg-secondary"/>)}</div>
+            : <div ref={liveScroll} className="flex gap-3 px-4 overflow-x-auto hide-scrollbar">{liveGames.map((g)=><LiveCard key={g.uuid} game={g} onTap={()=>void onGameTapAction(g.uuid)} />)}</div>}
+        </section>
+      )}
+
+      {/* Fishing Games */}
+      {(gamesLoading || fishingGames.length > 0) && (
+        <section className="mt-6">
+          <div className="flex items-center justify-between px-4 mb-3">
+            <div className="flex items-center gap-2"><Fish size={15} className="text-cyan-400" /><h3 className="text-foreground font-black text-sm font-display">{t('home.fishingZone')}</h3></div>
+            <div className="flex items-center gap-2">
+              <button type="button" className="h-6 px-2 flex items-center rounded-full bg-secondary text-primary text-[10px] font-bold active:scale-90 transition-transform" onClick={() => onOpenCategoryLobby({ sortCategory: 'fishing', sortBy: 'weight', title: t('home.fishingZone') })}>ALL</button>
+              <div className="flex items-center gap-0.5">
+                <button type="button" className="w-6 h-6 flex items-center justify-center rounded-full bg-secondary text-muted-foreground active:scale-90 transition-transform" onClick={() => scrollRow(fishingScroll, -1)}><ChevronLeft size={13} /></button>
+                <button type="button" className="w-6 h-6 flex items-center justify-center rounded-full bg-secondary text-muted-foreground active:scale-90 transition-transform" onClick={() => scrollRow(fishingScroll, 1)}><ChevronRight size={13} /></button>
+              </div>
+            </div>
+          </div>
+          {gamesLoading ? <div className="flex gap-3 px-4">{Array.from({length:6}).map((_,i)=><div key={i} className="flex-shrink-0 w-32 h-28 animate-pulse rounded-xl bg-secondary"/>)}</div>
+            : <div ref={fishingScroll} className="flex gap-3 px-4 overflow-x-auto hide-scrollbar">{fishingGames.map((g)=><EGameCard key={g.uuid} game={g} onTap={()=>void onGameTapAction(g.uuid)} />)}</div>}
+        </section>
+      )}
+
+      {/* Table & Crash */}
+      {(gamesLoading || tableCrashGames.length > 0) && (
+        <section className="mt-6">
+          <div className="flex items-center justify-between px-4 mb-3">
+            <div className="flex items-center gap-2"><LayoutGrid size={15} className="text-blue-400" /><h3 className="text-foreground font-black text-sm font-display">{t('home.tableZone')}</h3></div>
+            <div className="flex items-center gap-2">
+              <button type="button" className="h-6 px-2 flex items-center rounded-full bg-secondary text-primary text-[10px] font-bold active:scale-90 transition-transform" onClick={() => onOpenCategoryLobby({ sortCategory: 'table', sortBy: 'weight', title: t('home.tableZone') })}>ALL</button>
+              <div className="flex items-center gap-0.5">
+                <button type="button" className="w-6 h-6 flex items-center justify-center rounded-full bg-secondary text-muted-foreground active:scale-90 transition-transform" onClick={() => scrollRow(tableCrashScroll, -1)}><ChevronLeft size={13} /></button>
+                <button type="button" className="w-6 h-6 flex items-center justify-center rounded-full bg-secondary text-muted-foreground active:scale-90 transition-transform" onClick={() => scrollRow(tableCrashScroll, 1)}><ChevronRight size={13} /></button>
+              </div>
+            </div>
+          </div>
+          {gamesLoading ? <div className="flex gap-3 px-4">{Array.from({length:6}).map((_,i)=><div key={i} className="flex-shrink-0 w-32 h-28 animate-pulse rounded-xl bg-secondary"/>)}</div>
+            : <div ref={tableCrashScroll} className="flex gap-3 px-4 overflow-x-auto hide-scrollbar">{tableCrashGames.map((g)=><EGameCard key={g.uuid} game={g} onTap={()=>void onGameTapAction(g.uuid)} />)}</div>}
+        </section>
+      )}
+
+      {/* Providers */}
+      <section className="mt-6 px-4">
+        <div className="flex items-center gap-2 mb-3"><h3 className="text-muted-foreground font-black text-xs font-display tracking-widest">{t('home.providersSection')}</h3></div>
+        <div className="flex gap-2 flex-wrap">
+          {providerList.map((p) => <button key={p} type="button" className="text-[10px] font-black text-muted-foreground bg-secondary px-3 py-1.5 rounded-full border border-border hover:border-primary/50 transition-colors active:scale-95" onClick={() => onOpenCategoryLobby({ title: p })}>{p}</button>)}
+        </div>
+      </section>
+
+      {/* Betting Activity */}
+      <section className="mt-6 px-4">
+        <div className="flex gap-2 mb-3">
+          {(['latest', 'week', 'month'] as BetTab[]).map((tab) => (
+            <button key={tab} type="button" className={`px-3 py-1.5 rounded-full text-[11px] font-bold transition-colors ${activeBetTab === tab ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground'}`} onClick={() => void switchBetTab(tab)}>{t(`home.bets.${tab}`)}</button>
+          ))}
+        </div>
+        <div className="overflow-hidden rounded-2xl border border-border bg-card">
+          {currentBets.length === 0 ? (
+            <div className="py-8 text-center"><p className="text-xs text-muted-foreground">{t('home.bets.noData')}</p></div>
+          ) : currentBets.slice(0, 10).map((bet, i) => (
+            <div key={i} className={`flex items-center gap-3 px-4 py-2.5 ${i < currentBets.length - 1 ? 'border-b border-border' : ''}`}>
+              <div className="w-8 h-8 rounded-lg overflow-hidden flex-shrink-0 bg-secondary">{bet.imageUrl && <img src={bet.imageUrl} alt={bet.name} className="w-full h-full object-cover" />}</div>
+              <div className="flex-1 min-w-0"><p className="text-foreground font-bold text-xs leading-none truncate">{bet.name}</p><p className="text-muted-foreground text-[10px] mt-0.5">{bet.provider}</p></div>
+              <span className="text-sm font-black text-emerald-400">{formatBet(bet.betAmount)}</span>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Info Links */}
+      <section className="mt-6 px-4">
+        <h3 className="text-muted-foreground font-black text-xs font-display tracking-widest mb-3">{t('home.infoSection')}</h3>
+        <div className="grid grid-cols-2 gap-3">
+          {INFO_LINKS.map((link) => {
+            const IconComp = INFO_ICONS[link.key]
+            const iconColors: Record<string, { bg: string; text: string }> = { terms: { bg: 'bg-amber-500/15', text: 'text-amber-400' }, privacy: { bg: 'bg-blue-500/15', text: 'text-blue-400' }, responsible: { bg: 'bg-rose-500/15', text: 'text-rose-400' }, about: { bg: 'bg-emerald-500/15', text: 'text-emerald-400' } }
+            const colors = iconColors[link.key] ?? { bg: 'bg-secondary', text: 'text-muted-foreground' }
+            return (
+              <button key={link.key} type="button" className="bg-secondary border border-border rounded-2xl p-4 text-left flex flex-col gap-3 active:scale-95 transition-transform" onClick={() => setInfoModal(link.key)}>
+                <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${colors.bg}`}>{IconComp && <IconComp size={16} className={colors.text} />}</div>
+                <div className="flex items-end justify-between gap-1 flex-1">
+                  <p className="text-xs font-bold text-foreground leading-snug">{t(`home.info${link.key.charAt(0).toUpperCase() + link.key.slice(1)}`)}</p>
+                  <ChevronRight size={14} className="text-muted-foreground flex-shrink-0" />
+                </div>
+              </button>
+            )
+          })}
+        </div>
+      </section>
+
+      {/* Info Modal */}
+      {infoModal && (
+        <div className="fixed inset-0 z-50 flex flex-col justify-end" onClick={() => setInfoModal(null)}>
+          <div className="absolute inset-0 bg-black/60" />
+          <div className="relative bg-card rounded-t-2xl max-h-[82vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-5 py-4 border-b border-border flex-shrink-0">
+              <h2 className="font-display font-black text-base text-foreground">{t(`home.infoDetails.${infoModal}.title`)}</h2>
+              <button type="button" className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center" onClick={() => setInfoModal(null)}><X size={15} className="text-muted-foreground" /></button>
+            </div>
+            <div className="overflow-y-auto px-5 py-5 space-y-4">
+              {parsedInfoContent.map((s, i) => (
+                <div key={i}>
+                  {s.heading && <p className="text-primary font-black font-display text-[11px] uppercase tracking-widest mb-1.5 border-l-2 border-primary pl-2.5">{s.heading}</p>}
+                  <p className="text-[13px] text-foreground/70 leading-relaxed whitespace-pre-line">{s.body}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Support */}
+      <section className="mt-8 px-4">
+        <h3 className="text-muted-foreground font-black text-xs font-display tracking-widest mb-3">{t('home.supportSection')}</h3>
+        <button type="button" className="w-full bg-secondary rounded-xl p-4 flex items-center justify-between border border-border" onClick={onOpenCs}>
+          <div className="flex items-center gap-3"><div className="w-9 h-9 rounded-lg bg-primary/15 flex items-center justify-center flex-shrink-0"><Headphones size={16} className="text-primary" /></div><span className="text-sm font-bold text-foreground">{t('home.supportOnline')}</span></div>
+          <ChevronRight size={16} className="text-muted-foreground" />
+        </button>
+      </section>
+      <div className="mt-6 mb-4 px-4 text-center"><p className="text-[10px] text-muted-foreground/50">© 2025 BetoGo · 18+</p></div>
+    </div>
+  )
+}

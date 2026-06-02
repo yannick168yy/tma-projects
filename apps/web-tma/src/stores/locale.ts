@@ -1,17 +1,21 @@
-import { defineStore } from 'pinia'
-import { getAppLocale, setAppLocale } from '@/i18n'
+import { create } from 'zustand'
+import { setAppLocale, getAppLocale } from '@/i18n'
 import { SUPPORTED_LOCALES, type SupportedLocale } from '@/i18n/types'
 
-export const useLocaleStore = defineStore('locale', {
-  state: () => ({
-    locale: getAppLocale() as SupportedLocale,
-  }),
+interface LocaleState {
+  locale: SupportedLocale
+}
 
-  actions: {
-    setLocale(code: SupportedLocale) {
-      if (!SUPPORTED_LOCALES.includes(code)) return
-      this.locale = code
-      setAppLocale(code)
-    },
+interface LocaleActions {
+  setLocale: (code: SupportedLocale) => void
+}
+
+export const useLocaleStore = create<LocaleState & LocaleActions>((set) => ({
+  locale: getAppLocale(),
+
+  setLocale(code) {
+    if (!SUPPORTED_LOCALES.includes(code)) return
+    set({ locale: code })
+    setAppLocale(code)
   },
-})
+}))

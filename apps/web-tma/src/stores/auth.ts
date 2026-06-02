@@ -1,5 +1,4 @@
-import { defineStore } from 'pinia'
-import { i18n } from '@/i18n'
+import { create } from 'zustand'
 import { loginTelegram, loginWithGoogleRedirect, logoutSession, restoreSession } from '@/api/auth'
 import { getInitData } from '@/api/client'
 import { fetchBalance } from '@/api/wallet'
@@ -8,136 +7,152 @@ import { usePromotionStore } from '@/stores/promotion'
 import { useWalletStore } from '@/stores/wallet'
 import type { AuthUser } from '@/types/api'
 import { isInsideTelegram } from '@/utils/initTelegramWebApp'
+import { clearStoredReferral } from '@/utils/referral'
+import { i18n } from '@/i18n'
 
 export type AuthPhase = 'splash' | 'ready' | 'error'
 
-export const useAuthStore = defineStore('auth', {
-  state: () => ({
-    phase: 'splash' as AuthPhase,
-    bootError: null as string | null,
-    token: null as string | null,
-    user: null as AuthUser | null,
-    isNewUser: false,
-    trialEligible: false,
-    loginSheetOpen: false,
-    loginReason: null as string | null,
-    isTelegram: isInsideTelegram(),
-    tgAutoLoginAttempted: false,
-  }),
+interface AuthState {
+  phase: AuthPhase
+  bootError: string | null
+  token: string | null
+  user: AuthUser | null
+  isNewUser: boolean
+  trialEligible: boolean
+  loginSheetOpen: boolean
+  loginReason: string | null
+  isTelegram: boolean
+  tgAutoLoginAttempted: boolean
+}
 
-  getters: {
-    isLoggedIn: (s) => Boolean(s.token && s.user),
-    loginProvider: (s) => s.user?.loginProvider,
+interface AuthActions {
+  bootstrap: () => Promise<void>
+  tryTelegramAutoLogin: () => Promise<void>
+  applySession: (session: { token: string; user: AuthUser; isNewUser: boolean; trialRedPacketEligible?: boolean }) => void
+  ensureLoggedIn: (reason: string) => Promise<boolean>
+  requireLogin: (reason: string) => boolean
+  closeLoginSheet: () => void
+  loginWithTelegram: () => Promise<void>
+  loginWithGoogle: () => void
+  logout: () => Promise<void>
+}
+
+export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
+  phase: 'splash',
+  bootError: null,
+  token: null,
+  user: null,
+  isNewUser: false,
+  trialEligible: false,
+  loginSheetOpen: false,
+  loginReason: null,
+  isTelegram: isInsideTelegram(),
+  tgAutoLoginAttempted: false,
+
+  async bootstrap() {
+    set({ phase: 'splash', bootError: null, isTelegram: isInsideTelegram() })
+    const wallet = useWalletStore.getState()
+    const promotion = usePromotionStore.getState()
+
+    try {
+      const token = localStorage.getItem('betogo_token')
+      if (token) {
+        const session = await restoreSession()
+        if (session) {
+          get().applySession(session)
+        } else {
+          localStorage.removeItem('betogo_token')
+        }
+      }
+
+      if (get().isTelegram && getInitData()) {
+        await get().tryTelegramAutoLogin()
+      }
+
+      if (get().token && get().user) {
+        promotion.setHighlights(await fetchPromoHighlights())
+        wallet.setBalance(await fetchBalance())
+      }
+    } catch (e) {
+      set({ bootError: e instanceof Error ? e.message : i18n.t('auth.startupFailed') })
+    } finally {
+      set({ phase: 'ready' })
+    }
   },
 
-  actions: {
-    async bootstrap() {
-      this.phase = 'splash'
-      this.bootError = null
-      this.isTelegram = isInsideTelegram()
-      const wallet = useWalletStore()
-      const promotion = usePromotionStore()
-
-      try {
-        const token = localStorage.getItem('betogo_token')
-        if (token) {
-          const session = await restoreSession()
-          if (session) {
-            this.applySession(session)
-          } else {
-            localStorage.removeItem('betogo_token')
-          }
-        }
-
-        if (this.isTelegram && getInitData()) {
-          await this.tryTelegramAutoLogin()
-        }
-
-        if (this.isLoggedIn) {
-          promotion.setHighlights(await fetchPromoHighlights())
-          wallet.setBalance(await fetchBalance())
-        }
-      } catch (e) {
-        this.bootError = e instanceof Error ? e.message : i18n.global.t('auth.startupFailed')
-      } finally {
-        this.phase = 'ready'
-      }
-    },
-
-    /** Telegram Mini App: sign in silently on launch using initData. */
-    async tryTelegramAutoLogin() {
-      if (!this.isTelegram || !getInitData()) return
-      this.tgAutoLoginAttempted = true
-      try {
-        const session = await loginTelegram()
-        this.applySession(session)
-      } catch {
-        // Keep restored session or guest mode; user can retry from login sheet if needed.
-      }
-    },
-
-    applySession(session: {
-      token: string
-      user: AuthUser
-      isNewUser: boolean
-      trialRedPacketEligible?: boolean
-    }) {
-      this.token = session.token
-      this.user = session.user
-      this.isNewUser = session.isNewUser
-      this.trialEligible = Boolean(session.trialRedPacketEligible)
-      localStorage.setItem('betogo_token', session.token)
-      if (session.isNewUser) localStorage.setItem('betogo_seen', '1')
-    },
-
-    async ensureLoggedIn(reason: string): Promise<boolean> {
-      if (this.isLoggedIn) return true
-      if (this.isTelegram && getInitData()) {
-        await this.tryTelegramAutoLogin()
-        if (this.isLoggedIn) return true
-      }
-      this.loginReason = reason
-      this.loginSheetOpen = true
-      return false
-    },
-
-    requireLogin(reason: string) {
-      void this.ensureLoggedIn(reason)
-      return this.isLoggedIn
-    },
-
-    closeLoginSheet() {
-      this.loginSheetOpen = false
-      this.loginReason = null
-    },
-
-    async loginWithTelegram() {
+  async tryTelegramAutoLogin() {
+    if (!get().isTelegram || !getInitData()) return
+    set({ tgAutoLoginAttempted: true })
+    try {
       const session = await loginTelegram()
-      this.applySession(session)
-      this.closeLoginSheet()
-      useWalletStore().setBalance(await fetchBalance())
-      await usePromotionStore().refreshHighlights()
-    },
-
-    loginWithGoogle() {
-      loginWithGoogleRedirect()
-    },
-
-    async logout() {
-      await logoutSession()
-      this.token = null
-      this.user = null
-      this.isNewUser = false
-      this.trialEligible = false
-      this.closeLoginSheet()
-      localStorage.removeItem('betogo_token')
-      useWalletStore().$patch({ balance: null, loading: false })
-      usePromotionStore().$patch({
-        highlights: [],
-        referralRecords: [],
-        redPacketRecords: [],
-        redPacketSheet: { open: false, amountPhp: 0, title: '' },
-      })
-    },
+      get().applySession(session)
+    } catch { /* 保留当前会话或访客模式 */ }
   },
-})
+
+  applySession(session) {
+    set({
+      token: session.token,
+      user: session.user,
+      isNewUser: session.isNewUser,
+      trialEligible: Boolean(session.trialRedPacketEligible),
+    })
+    localStorage.setItem('betogo_token', session.token)
+    if (session.isNewUser) {
+      localStorage.setItem('betogo_seen', '1')
+      clearStoredReferral()
+    }
+  },
+
+  async ensureLoggedIn(reason) {
+    if (get().token && get().user) return true
+    if (get().isTelegram && getInitData()) {
+      await get().tryTelegramAutoLogin()
+      if (get().token && get().user) return true
+    }
+    set({ loginReason: reason, loginSheetOpen: true })
+    return false
+  },
+
+  requireLogin(reason) {
+    void get().ensureLoggedIn(reason)
+    return Boolean(get().token && get().user)
+  },
+
+  closeLoginSheet() {
+    set({ loginSheetOpen: false, loginReason: null })
+  },
+
+  async loginWithTelegram() {
+    const session = await loginTelegram()
+    get().applySession(session)
+    get().closeLoginSheet()
+    useWalletStore.getState().setBalance(await fetchBalance())
+    await usePromotionStore.getState().refreshHighlights()
+  },
+
+  loginWithGoogle() {
+    loginWithGoogleRedirect()
+  },
+
+  async logout() {
+    await logoutSession()
+    set({
+      token: null,
+      user: null,
+      isNewUser: false,
+      trialEligible: false,
+    })
+    get().closeLoginSheet()
+    localStorage.removeItem('betogo_token')
+    useWalletStore.getState().reset()
+    const promotion = usePromotionStore.getState()
+    usePromotionStore.setState({
+      highlights: [],
+      referralRecords: [],
+      redPacketRecords: [],
+      redPacketSheet: { open: false, amountPhp: 0, title: '' },
+    })
+    // keep other promo state as-is
+    void promotion
+  },
+}))

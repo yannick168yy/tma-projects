@@ -1,4 +1,4 @@
-import { defineStore } from 'pinia'
+import { create } from 'zustand'
 import {
   claimFirstDepBonus,
   claimReferralBonus,
@@ -22,150 +22,191 @@ import { creditWallet } from '@/api/wallet'
 import { useWalletStore } from '@/stores/wallet'
 import type { PromoHighlight, PromoId, RedPacketRecord, ReferralRecord, TeamAgentStatus } from '@/types/api'
 
-export const usePromotionStore = defineStore('promotion', {
-  state: () => ({
-    highlights: [] as PromoHighlight[],
-    referralRecords: [] as ReferralRecord[],
-    redPacketRecords: [] as RedPacketRecord[],
-    redPacketSheet: { open: false, amountPhp: 0, title: '' },
-    teamStatus: null as TeamAgentStatus | null,
-    teamStatusLoading: false,
-    // 分销中心详情
-    teamDownlines: { 1: [] as TeamDownline[], 2: [] as TeamDownline[], 3: [] as TeamDownline[] },
-    teamDownlineTotals: { 1: 0, 2: 0, 3: 0 },
-    teamDownlinePages: { 1: 1, 2: 1, 3: 1 },
-    teamDownlineLoading: false,
-    teamCommissionSummary: null as TeamCommissionSummary | null,
-    teamCommissionItems: [] as TeamCommissionItem[],
-    teamCommissionPeriod: '',
-    teamCommissionLoading: false,
-    teamWallet: null as { availableCents: number; frozenCents: number; lifetimeEarnedCents: number } | null,
-    teamWithdrawals: [] as TeamWithdrawal[],
-    teamWithdrawalsTotal: 0,
-    teamWithdrawalsPage: 1,
-    teamWithdrawalsLoading: false,
-  }),
+interface PromotionState {
+  highlights: PromoHighlight[]
+  referralRecords: ReferralRecord[]
+  redPacketRecords: RedPacketRecord[]
+  redPacketSheet: { open: boolean; amountPhp: number; title: string }
+  teamStatus: TeamAgentStatus | null
+  teamStatusLoading: boolean
+  teamDownlines: { 1: TeamDownline[]; 2: TeamDownline[]; 3: TeamDownline[] }
+  teamDownlineTotals: { 1: number; 2: number; 3: number }
+  teamDownlinePages: { 1: number; 2: number; 3: number }
+  teamDownlineLoading: boolean
+  teamCommissionSummary: TeamCommissionSummary | null
+  teamCommissionItems: TeamCommissionItem[]
+  teamCommissionPeriod: string
+  teamCommissionLoading: boolean
+  teamWallet: { availableCents: number; frozenCents: number; lifetimeEarnedCents: number } | null
+  teamWithdrawals: TeamWithdrawal[]
+  teamWithdrawalsTotal: number
+  teamWithdrawalsPage: number
+  teamWithdrawalsLoading: boolean
+}
 
-  getters: {
-    highlightMap: (s) => {
-      const map = new Map<PromoId, PromoHighlight>()
-      for (const h of s.highlights) map.set(h.promoId, h)
-      return map
-    },
+interface PromotionActions {
+  setHighlights: (rows: PromoHighlight[]) => void
+  refreshHighlights: () => Promise<void>
+  loadLists: () => Promise<void>
+  showRedPacket: (title: string, amountPhp: number) => void
+  closeRedPacket: () => void
+  loadTeamStatus: () => Promise<void>
+  enableAgent: () => Promise<{ ok: boolean }>
+  loadTeamDownlines: (level: 1 | 2 | 3, page?: number) => Promise<void>
+  loadTeamCommissions: (period: string) => Promise<void>
+  loadTeamWallet: () => Promise<void>
+  submitWithdrawal: (amountCents: number) => Promise<{ ok: boolean; message?: string }>
+  loadTeamWithdrawals: (page?: number) => Promise<void>
+  claimPromo: (id: PromoId) => Promise<{ ok: boolean; message?: string }>
+}
+
+export const usePromotionStore = create<PromotionState & PromotionActions>((set, get) => ({
+  highlights: [],
+  referralRecords: [],
+  redPacketRecords: [],
+  redPacketSheet: { open: false, amountPhp: 0, title: '' },
+  teamStatus: null,
+  teamStatusLoading: false,
+  teamDownlines: { 1: [], 2: [], 3: [] },
+  teamDownlineTotals: { 1: 0, 2: 0, 3: 0 },
+  teamDownlinePages: { 1: 1, 2: 1, 3: 1 },
+  teamDownlineLoading: false,
+  teamCommissionSummary: null,
+  teamCommissionItems: [],
+  teamCommissionPeriod: '',
+  teamCommissionLoading: false,
+  teamWallet: null,
+  teamWithdrawals: [],
+  teamWithdrawalsTotal: 0,
+  teamWithdrawalsPage: 1,
+  teamWithdrawalsLoading: false,
+
+  setHighlights(rows) { set({ highlights: rows }) },
+
+  async refreshHighlights() {
+    set({ highlights: await fetchPromoHighlights() })
   },
 
-  actions: {
-    setHighlights(rows: PromoHighlight[]) {
-      this.highlights = rows
-    },
+  async loadLists() {
+    const [referralRecords, redPacketRecords] = await Promise.all([
+      fetchReferralRecords(),
+      fetchRedPacketRecords(),
+    ])
+    set({ referralRecords, redPacketRecords })
+  },
 
-    async refreshHighlights() {
-      this.highlights = await fetchPromoHighlights()
-    },
+  showRedPacket(title, amountPhp) {
+    set({ redPacketSheet: { open: true, amountPhp, title } })
+  },
 
-    async loadLists() {
-      ;[this.referralRecords, this.redPacketRecords] = await Promise.all([
-        fetchReferralRecords(),
-        fetchRedPacketRecords(),
+  closeRedPacket() {
+    set({ redPacketSheet: { open: false, amountPhp: 0, title: '' } })
+  },
+
+  async loadTeamStatus() {
+    if (get().teamStatusLoading) return
+    set({ teamStatusLoading: true })
+    try {
+      set({ teamStatus: await fetchTeamStatus() })
+    } catch { /* 未登录或接口不可用 */ } finally {
+      set({ teamStatusLoading: false })
+    }
+  },
+
+  async enableAgent() {
+    try {
+      await apiEnableAgent()
+      await get().loadTeamStatus()
+      return { ok: true }
+    } catch {
+      return { ok: false }
+    }
+  },
+
+  async loadTeamDownlines(level, page = 1) {
+    set({ teamDownlineLoading: true })
+    try {
+      const data = await fetchTeamDownlines(level, page)
+      const prev = get().teamDownlines
+      set({
+        teamDownlines: {
+          ...prev,
+          [level]: page === 1 ? data.items : [...prev[level], ...data.items],
+        },
+        teamDownlineTotals: { ...get().teamDownlineTotals, [level]: data.total },
+        teamDownlinePages: { ...get().teamDownlinePages, [level]: page },
+      })
+    } finally {
+      set({ teamDownlineLoading: false })
+    }
+  },
+
+  async loadTeamCommissions(period) {
+    set({ teamCommissionLoading: true })
+    try {
+      const data = await fetchTeamCommissions(period)
+      set({
+        teamCommissionSummary: data.summary,
+        teamCommissionItems: data.items,
+        teamCommissionPeriod: data.period,
+      })
+    } finally {
+      set({ teamCommissionLoading: false })
+    }
+  },
+
+  async loadTeamWallet() {
+    set({ teamWallet: await fetchTeamWallet() })
+  },
+
+  async submitWithdrawal(amountCents) {
+    try {
+      await submitTeamWithdrawal(amountCents)
+      await Promise.all([
+        get().loadTeamWallet(),
+        get().loadTeamWithdrawals(1),
+        get().loadTeamStatus(),
       ])
-    },
-
-    showRedPacket(title: string, amountPhp: number) {
-      this.redPacketSheet = { open: true, amountPhp, title }
-    },
-
-    closeRedPacket() {
-      this.redPacketSheet = { open: false, amountPhp: 0, title: '' }
-    },
-
-    async loadTeamStatus() {
-      if (this.teamStatusLoading) return
-      this.teamStatusLoading = true
-      try {
-        this.teamStatus = await fetchTeamStatus()
-      } catch {
-        // 未登录或接口暂不可用，不阻塞页面
-      } finally {
-        this.teamStatusLoading = false
-      }
-    },
-
-    async enableAgent(): Promise<{ ok: boolean }> {
-      try {
-        await apiEnableAgent()
-        await this.loadTeamStatus()
-        return { ok: true }
-      } catch (e) {
-        return { ok: false }
-      }
-    },
-
-    async loadTeamDownlines(level: 1 | 2 | 3, page = 1) {
-      this.teamDownlineLoading = true
-      try {
-        const data = await fetchTeamDownlines(level, page)
-        if (page === 1) this.teamDownlines[level] = data.items
-        else this.teamDownlines[level] = [...this.teamDownlines[level], ...data.items]
-        this.teamDownlineTotals[level] = data.total
-        this.teamDownlinePages[level] = page
-      } finally {
-        this.teamDownlineLoading = false
-      }
-    },
-
-    async loadTeamCommissions(period: string) {
-      this.teamCommissionLoading = true
-      try {
-        const data = await fetchTeamCommissions(period)
-        this.teamCommissionSummary = data.summary
-        this.teamCommissionItems = data.items
-        this.teamCommissionPeriod = data.period
-      } finally {
-        this.teamCommissionLoading = false
-      }
-    },
-
-    async loadTeamWallet() {
-      this.teamWallet = await fetchTeamWallet()
-    },
-
-    async submitWithdrawal(amountCents: number): Promise<{ ok: boolean; message?: string }> {
-      try {
-        await submitTeamWithdrawal(amountCents)
-        await Promise.all([this.loadTeamWallet(), this.loadTeamWithdrawals(1), this.loadTeamStatus()])
-        return { ok: true }
-      } catch (e) {
-        return { ok: false, message: e instanceof Error ? e.message : '提现失败' }
-      }
-    },
-
-    async loadTeamWithdrawals(page = 1) {
-      this.teamWithdrawalsLoading = true
-      try {
-        const data = await fetchTeamWithdrawals(page)
-        this.teamWithdrawals = data.items
-        this.teamWithdrawalsTotal = data.total
-        this.teamWithdrawalsPage = data.page
-      } finally {
-        this.teamWithdrawalsLoading = false
-      }
-    },
-
-    async claimPromo(id: PromoId): Promise<{ ok: boolean; message?: string }> {
-      try {
-        let amountPhp = 0
-        if (id === 'trial') ({ amountPhp } = await claimTrialBonus())
-        else if (id === 'referral') ({ amountPhp } = await claimReferralBonus())
-        else if (id === 'firstdep') ({ amountPhp } = await claimFirstDepBonus())
-        await creditWallet(amountPhp * 100)
-        await useWalletStore().refresh()
-        await this.refreshHighlights()
-        await this.loadLists()
-        this.showRedPacket('Bonus credited', amountPhp)
-        return { ok: true }
-      } catch (e) {
-        return { ok: false, message: e instanceof Error ? e.message : 'Claim failed' }
-      }
-    },
+      return { ok: true }
+    } catch (e) {
+      return { ok: false, message: e instanceof Error ? e.message : '提现失败' }
+    }
   },
-})
+
+  async loadTeamWithdrawals(page = 1) {
+    set({ teamWithdrawalsLoading: true })
+    try {
+      const data = await fetchTeamWithdrawals(page)
+      set({
+        teamWithdrawals: data.items,
+        teamWithdrawalsTotal: data.total,
+        teamWithdrawalsPage: data.page,
+      })
+    } finally {
+      set({ teamWithdrawalsLoading: false })
+    }
+  },
+
+  async claimPromo(id) {
+    try {
+      let amountPhp = 0
+      if (id === 'trial') ({ amountPhp } = await claimTrialBonus())
+      else if (id === 'referral') ({ amountPhp } = await claimReferralBonus())
+      else if (id === 'firstdep') ({ amountPhp } = await claimFirstDepBonus())
+      await creditWallet(amountPhp * 100)
+      await useWalletStore.getState().refresh()
+      await get().refreshHighlights()
+      await get().loadLists()
+      get().showRedPacket('Bonus credited', amountPhp)
+      return { ok: true }
+    } catch (e) {
+      return { ok: false, message: e instanceof Error ? e.message : 'Claim failed' }
+    }
+  },
+}))
+
+export function getHighlightMap() {
+  const map = new Map<PromoId, PromoHighlight>()
+  for (const h of usePromotionStore.getState().highlights) map.set(h.promoId, h)
+  return map
+}
