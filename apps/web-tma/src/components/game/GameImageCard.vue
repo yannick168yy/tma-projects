@@ -69,12 +69,14 @@ const MIRROR_SMALL = 11
 const SPLIT_LARGE = 11
 const SPLIT_SMALL = 9
 
-function measureTextPx(text: string, font: string): number {
-  const c = document.createElement('canvas')
-  const ctx = c.getContext('2d')
-  if (!ctx) return 0
-  ctx.font = font
-  return ctx.measureText(text).width
+function measureTextPx(text: string, fontSize: number, refEl: HTMLElement): number {
+  const span = document.createElement('span')
+  span.style.cssText = `position:fixed;top:-9999px;left:-9999px;white-space:nowrap;font-size:${fontSize}px;font-weight:900;font-family:${getComputedStyle(refEl).fontFamily};visibility:hidden`
+  span.textContent = text
+  document.body.appendChild(span)
+  const w = span.getBoundingClientRect().width
+  document.body.removeChild(span)
+  return w
 }
 
 function resolveNameLevel() {
@@ -83,10 +85,9 @@ function resolveNameLevel() {
     if (!el) return
     const w = el.clientWidth
     if (!w) return
-    const family = getComputedStyle(el).fontFamily
     const large = props.variant === 'mirror' ? MIRROR_LARGE : SPLIT_LARGE
 
-    const lw = measureTextPx(props.name, `900 ${large}px ${family}`)
+    const lw = measureTextPx(props.name, large, el)
     if (lw <= w) { nameLevel.value = 'large-1'; return }
     if (lw <= w * 2) { nameLevel.value = 'large-2'; return }
     nameLevel.value = 'small'
