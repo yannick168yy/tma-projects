@@ -88,4 +88,184 @@ router.post('/enable', async (ctx) => {
   ok(ctx, { isAgent: true })
 })
 
+// GET /promotions/team/downlines?level=1&page=1
+router.get('/downlines', async (ctx) => {
+  const userId = ctx.state.userId!
+  const level  = Math.min(3, Math.max(1, Number(ctx.query.level ?? 1)))
+  const page   = Math.max(1, Number(ctx.query.page ?? 1))
+  const size   = 20
+  const offset = (page - 1) * size
+  const col    = `l${level}_referrer_id`
+  const db     = getMysqlPool(ctx.state.env)
+
+  const [[{ total }]] = await db.query<RowDataPacket[]>(
+    `SELECT COUNT(*) AS total FROM bg_team_node WHERE ${col} = ?`,
+    [userId],
+  )
+  const [rows] = await db.query<RowDataPacket[]>(
+    `SELECT tn.user_id, tn.activated, tn.activated_at, tn.created_at,
+            u.display_name
+     FROM bg_team_node tn
+     JOIN bg_user u ON u.id = tn.user_id
+     WHERE tn.${col} = ?
+     ORDER BY tn.created_at DESC
+     LIMIT ? OFFSET ?`,
+    [userId, size, offset],
+  )
+
+  ok(ctx, {
+    total: Number(total),
+    page,
+    items: rows.map(r => ({
+      userId:     r.user_id,
+      maskedName: maskName(r.display_name),
+      activated:  !!r.activated,
+      activatedAt: r.activated_at ?? null,
+      registeredAt: r.created_at,
+    })),
+  })
+})
+
+// GET /promotions/team/commissions?period=2026-06
+router.get('/commissions', async (ctx) => {
+  const userId = ctx.state.userId!
+  const period = String(ctx.query.period ?? currentPeriod())
+  const db     = getMysqlPool(ctx.state.env)
+
+  const [rows] = await db.query<RowDataPacket[]>(
+    `SELECT tc.*, u.display_name
+     FROM bg_team_commission tc
+     JOIN bg_user u ON u.id = tc.from_user_id
+     WHERE tc.beneficiary_id = ? AND tc.period = ?
+     ORDER BY tc.commission_cents DESC`,
+    [userId, period],
+  )
+
+  const summary = { l1Cents: 0, l2Cents: 0, l3Cents: 0, totalCents: 0 }
+  for (const r of rows) {
+    const c = Number(r.commission_cents)
+    if (r.level === 1) summary.l1Cents += c
+    else if (r.level === 2) summary.l2Cents += c
+    else summary.l3Cents += c
+    summary.totalCents += c
+  }
+
+  ok(ctx, {
+    period,
+    summary,
+    items: rows.map(r => ({
+      fromUserId:      r.from_user_id,
+      maskedName:      maskName(r.display_name),
+      level:           r.level,
+      ggrCents:        Number(r.ggr_cents),
+      ratePct:         Number(r.rate_pct),
+      commissionCents: Number(r.commission_cents),
+      status:          r.status,
+      paidAt:          r.paid_at ?? null,
+    })),
+  })
+})
+
+// GET /promotions/team/wallet
+router.get('/wallet', async (ctx) => {
+  const userId = ctx.state.userId!
+  const db     = getMysqlPool(ctx.state.env)
+  const [[row]] = await db.query<RowDataPacket[]>(
+    `SELECT available_cents, frozen_cents, lifetime_earned_cents
+     FROM bg_team_wallet WHERE user_id = ? LIMIT 1`,
+    [userId],
+  )
+  ok(ctx, {
+    availableCents:      Number(row?.available_cents ?? 0),
+    frozenCents:         Number(row?.frozen_cents ?? 0),
+    lifetimeEarnedCents: Number(row?.lifetime_earned_cents ?? 0),
+  })
+})
+
+// POST /promotions/team/withdraw  { amount_cents }
+router.post('/withdraw', async (ctx) => {
+  const userId     = ctx.state.userId!
+  const body       = ctx.request.body as { amount_cents?: number }
+  const amountCents = Number(body?.amount_cents ?? 0)
+  if (amountCents <= 0) { fail(ctx, 400, 'amount_cents must be positive'); return }
+
+  const db = getMysqlPool(ctx.state.env)
+  const [[cfg]] = await db.query<RowDataPacket[]>(
+    `SELECT min_withdrawal_cents FROM bg_team_config WHERE id = 1 LIMIT 1`,
+  )
+  if (amountCents < Number(cfg?.min_withdrawal_cents ?? 5000)) {
+    fail(ctx, 400, `最低提现 ₱${(Number(cfg?.min_withdrawal_cents ?? 5000) / 100).toFixed(0)}`); return
+  }
+
+  // 乐观锁扣款（最多重试3次）
+  let withdrawalId: number | null = null
+  for (let i = 0; i < 3; i++) {
+    const [[wallet]] = await db.query<RowDataPacket[]>(
+      `SELECT available_cents, version FROM bg_team_wallet WHERE user_id = ? LIMIT 1`,
+      [userId],
+    )
+    if (!wallet || Number(wallet.available_cents) < amountCents) {
+      fail(ctx, 400, '可提余额不足'); return
+    }
+    const [res] = await db.execute<import('mysql2/promise').ResultSetHeader>(
+      `UPDATE bg_team_wallet
+       SET available_cents = available_cents - ?,
+           frozen_cents    = frozen_cents + ?,
+           version = version + 1
+       WHERE user_id = ? AND version = ? AND available_cents >= ?`,
+      [amountCents, amountCents, userId, wallet.version, amountCents],
+    )
+    if (res.affectedRows > 0) {
+      const [ins] = await db.execute<import('mysql2/promise').ResultSetHeader>(
+        `INSERT INTO bg_team_withdrawal (user_id, amount_cents) VALUES (?, ?)`,
+        [userId, amountCents],
+      )
+      withdrawalId = ins.insertId
+      break
+    }
+  }
+  if (!withdrawalId) { fail(ctx, 500, '提现申请失败，请重试'); return }
+  ok(ctx, { withdrawalId })
+})
+
+// GET /promotions/team/withdrawals?page=1
+router.get('/withdrawals', async (ctx) => {
+  const userId = ctx.state.userId!
+  const page   = Math.max(1, Number(ctx.query.page ?? 1))
+  const size   = 20
+  const offset = (page - 1) * size
+  const db     = getMysqlPool(ctx.state.env)
+
+  const [[{ total }]] = await db.query<RowDataPacket[]>(
+    `SELECT COUNT(*) AS total FROM bg_team_withdrawal WHERE user_id = ?`,
+    [userId],
+  )
+  const [rows] = await db.query<RowDataPacket[]>(
+    `SELECT id, amount_cents, status, reject_reason, reviewed_at, created_at
+     FROM bg_team_withdrawal WHERE user_id = ?
+     ORDER BY created_at DESC LIMIT ? OFFSET ?`,
+    [userId, size, offset],
+  )
+  ok(ctx, { total: Number(total), page, items: rows.map(r => ({
+    id:           r.id,
+    amountCents:  Number(r.amount_cents),
+    status:       r.status,
+    rejectReason: r.reject_reason ?? null,
+    reviewedAt:   r.reviewed_at ?? null,
+    createdAt:    r.created_at,
+  })) })
+})
+
+// ── 工具函数 ──────────────────────────────────────────────────────────────
+function maskName(name: string): string {
+  if (!name) return '***'
+  if (name.length <= 2) return name[0] + '***'
+  return name[0] + name[1] + '***' + name[name.length - 1]
+}
+
+function currentPeriod(): string {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+}
+
 export default router

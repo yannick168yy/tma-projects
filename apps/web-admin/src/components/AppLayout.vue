@@ -39,6 +39,10 @@
           <reconciliation-outlined />
           <span>结算对账</span>
         </a-menu-item>
+        <a-menu-item key="/team-referral">
+          <apartment-outlined />
+          <span>分销管理</span>
+        </a-menu-item>
         <a-menu-item key="/audit-log">
           <file-text-outlined />
           <span>操作日志</span>
@@ -110,7 +114,7 @@ import { useRouter, useRoute, RouterView } from 'vue-router'
 import {
   DashboardOutlined, TeamOutlined, ArrowDownOutlined, ArrowUpOutlined,
   FileTextOutlined, UserOutlined, DownOutlined, AppstoreOutlined, SettingOutlined,
-  CustomerServiceOutlined, BookOutlined, SwapOutlined, TransactionOutlined, ReconciliationOutlined,
+  CustomerServiceOutlined, BookOutlined, SwapOutlined, TransactionOutlined, ReconciliationOutlined, ApartmentOutlined,
 } from '@ant-design/icons-vue'
 import { useAuthStore } from '../stores/auth.js'
 import { adminChangePassword } from '../api.js'

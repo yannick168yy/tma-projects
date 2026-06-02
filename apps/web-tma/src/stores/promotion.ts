@@ -8,6 +8,15 @@ import {
   fetchReferralRecords,
   fetchTeamStatus,
   enableAgent as apiEnableAgent,
+  fetchTeamDownlines,
+  fetchTeamCommissions,
+  fetchTeamWallet,
+  submitTeamWithdrawal,
+  fetchTeamWithdrawals,
+  type TeamDownline,
+  type TeamCommissionItem,
+  type TeamCommissionSummary,
+  type TeamWithdrawal,
 } from '@/api/promotion'
 import { creditWallet } from '@/api/wallet'
 import { useWalletStore } from '@/stores/wallet'
@@ -21,6 +30,20 @@ export const usePromotionStore = defineStore('promotion', {
     redPacketSheet: { open: false, amountPhp: 0, title: '' },
     teamStatus: null as TeamAgentStatus | null,
     teamStatusLoading: false,
+    // 分销中心详情
+    teamDownlines: { 1: [] as TeamDownline[], 2: [] as TeamDownline[], 3: [] as TeamDownline[] },
+    teamDownlineTotals: { 1: 0, 2: 0, 3: 0 },
+    teamDownlinePages: { 1: 1, 2: 1, 3: 1 },
+    teamDownlineLoading: false,
+    teamCommissionSummary: null as TeamCommissionSummary | null,
+    teamCommissionItems: [] as TeamCommissionItem[],
+    teamCommissionPeriod: '',
+    teamCommissionLoading: false,
+    teamWallet: null as { availableCents: number; frozenCents: number; lifetimeEarnedCents: number } | null,
+    teamWithdrawals: [] as TeamWithdrawal[],
+    teamWithdrawalsTotal: 0,
+    teamWithdrawalsPage: 1,
+    teamWithdrawalsLoading: false,
   }),
 
   getters: {
@@ -74,6 +97,57 @@ export const usePromotionStore = defineStore('promotion', {
         return { ok: true }
       } catch (e) {
         return { ok: false }
+      }
+    },
+
+    async loadTeamDownlines(level: 1 | 2 | 3, page = 1) {
+      this.teamDownlineLoading = true
+      try {
+        const data = await fetchTeamDownlines(level, page)
+        if (page === 1) this.teamDownlines[level] = data.items
+        else this.teamDownlines[level] = [...this.teamDownlines[level], ...data.items]
+        this.teamDownlineTotals[level] = data.total
+        this.teamDownlinePages[level] = page
+      } finally {
+        this.teamDownlineLoading = false
+      }
+    },
+
+    async loadTeamCommissions(period: string) {
+      this.teamCommissionLoading = true
+      try {
+        const data = await fetchTeamCommissions(period)
+        this.teamCommissionSummary = data.summary
+        this.teamCommissionItems = data.items
+        this.teamCommissionPeriod = data.period
+      } finally {
+        this.teamCommissionLoading = false
+      }
+    },
+
+    async loadTeamWallet() {
+      this.teamWallet = await fetchTeamWallet()
+    },
+
+    async submitWithdrawal(amountCents: number): Promise<{ ok: boolean; message?: string }> {
+      try {
+        await submitTeamWithdrawal(amountCents)
+        await Promise.all([this.loadTeamWallet(), this.loadTeamWithdrawals(1), this.loadTeamStatus()])
+        return { ok: true }
+      } catch (e) {
+        return { ok: false, message: e instanceof Error ? e.message : '提现失败' }
+      }
+    },
+
+    async loadTeamWithdrawals(page = 1) {
+      this.teamWithdrawalsLoading = true
+      try {
+        const data = await fetchTeamWithdrawals(page)
+        this.teamWithdrawals = data.items
+        this.teamWithdrawalsTotal = data.total
+        this.teamWithdrawalsPage = data.page
+      } finally {
+        this.teamWithdrawalsLoading = false
       }
     },
 

@@ -218,6 +218,77 @@ export const updateFaq = (id: number, data: Partial<{ category: string; question
 export const deleteFaq = (id: number) =>
   req<{ success: boolean }>('DELETE', `/admin/cs/faq/${id}`)
 
+// ── 三级分销管理 ──────────────────────────────────────────────────────────────
+
+export interface TeamOverview {
+  activeAgents: number
+  thisMonthCommissionCents: number
+  pendingWithdrawalCount: number
+  pendingWithdrawalCents: number
+}
+
+export interface TeamAgent {
+  userId: string
+  displayName: string
+  l1Count: number; l2Count: number; l3Count: number
+  thisMonthCommissionCents: number
+  lifetimeEarnedCents: number
+  optedInAt: string
+}
+
+export interface TeamCommission {
+  id: number
+  beneficiary_id: string; beneficiary_name: string
+  from_user_id: string; from_name: string
+  level: number; period: string
+  ggr_cents: number; rate_pct: number; commission_cents: number
+  status: string; paid_at: string | null; created_at: string
+}
+
+export interface TeamWithdrawalAdmin {
+  id: number
+  user_id: string; display_name: string
+  amount_cents: number; status: string
+  reject_reason: string | null; reviewed_at: string | null; created_at: string
+}
+
+export interface TeamConfig {
+  l1_rate_pct: number; l2_rate_pct: number; l3_rate_pct: number
+  min_activation_cents: number; min_withdrawal_cents: number
+  max_commission_per_settlement_cents: number | null
+  settlement_day: number
+}
+
+export const getTeamOverview = () =>
+  get<TeamOverview>('/admin/team/overview')
+
+export const getTeamAgents = (params?: { search?: string; page?: number; pageSize?: number }) =>
+  get<{ items: TeamAgent[]; total: number; page: number; pageSize: number }>('/admin/team/agents', params)
+
+export const getTeamAgentDetail = (userId: string) =>
+  get<{ agent: unknown; history: unknown[] }>(`/admin/team/agents/${userId}`)
+
+export const getTeamCommissions = (params?: { period?: string; beneficiaryId?: string; status?: string; page?: number }) =>
+  get<{ items: TeamCommission[]; total: number; page: number; pageSize: number }>('/admin/team/commissions', params)
+
+export const triggerTeamSettle = (period: string) =>
+  post<{ message: string }>('/admin/team/settle', { period })
+
+export const getTeamWithdrawals = (params?: { status?: string; page?: number }) =>
+  get<{ items: TeamWithdrawalAdmin[]; total: number; page: number; pageSize: number }>('/admin/team/withdrawals', params)
+
+export const approveTeamWithdrawal = (id: number) =>
+  post<{ ok: boolean }>(`/admin/team/withdrawals/${id}/approve`)
+
+export const rejectTeamWithdrawal = (id: number, reason: string) =>
+  post<{ ok: boolean }>(`/admin/team/withdrawals/${id}/reject`, { reason })
+
+export const getTeamConfig = () =>
+  get<TeamConfig>('/admin/team/config')
+
+export const updateTeamConfig = (data: Partial<TeamConfig>) =>
+  req<{ ok: boolean }>('PUT', '/admin/team/config', data)
+
 // 投注记录
 export interface BetOrderRecord {
   id: number; userId: string; aggregatorId: string; providerId: string

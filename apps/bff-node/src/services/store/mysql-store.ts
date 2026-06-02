@@ -237,6 +237,16 @@ async function createUser(
        ON DUPLICATE KEY UPDATE user_id=user_id`,
       [id],
     )
+    // 写入三级归属树（bg_user 已在 saveUser 事务中提交，此处可 JOIN）
+    await conn.execute(
+      `INSERT IGNORE INTO bg_team_node (user_id, l1_referrer_id, l2_referrer_id, l3_referrer_id)
+       SELECT ?, u.inviter_id, l1.inviter_id, l2.inviter_id
+       FROM bg_user u
+       LEFT JOIN bg_user l1 ON l1.id = u.inviter_id
+       LEFT JOIN bg_user l2 ON l2.id = l1.inviter_id
+       WHERE u.id = ?`,
+      [id, id],
+    )
     await conn.commit()
   } catch (e) {
     await conn.rollback()

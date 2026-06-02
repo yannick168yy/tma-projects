@@ -23,6 +23,7 @@ const router = createRouter({
         { path: 'cs-faq', component: () => import('./views/CsFaq.vue') },
         { path: 'bet-orders', component: () => import('./views/BetOrders.vue') },
         { path: 'sg-settlement', component: () => import('./views/SgSettlement.vue') },
+        { path: 'team-referral', component: () => import('./views/TeamReferral.vue') },
       ],
     },
     { path: '/:pathMatch(.*)*', redirect: '/dashboard' },
