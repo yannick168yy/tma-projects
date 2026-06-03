@@ -1,0 +1,57 @@
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import AppLayout from './components/AppLayout'
+import Login from './views/Login'
+import Dashboard from './views/Dashboard'
+import Users from './views/Users'
+import UserDetail from './views/UserDetail'
+import Deposits from './views/Deposits'
+import Withdrawals from './views/Withdrawals'
+import AuditLog from './views/AuditLog'
+import Games from './views/Games'
+import Settings from './views/Settings'
+import ExchangeRates from './views/ExchangeRates'
+import CustomerService from './views/CustomerService'
+import CsFaq from './views/CsFaq'
+import BetOrders from './views/BetOrders'
+import SgSettlement from './views/SgSettlement'
+import TeamReferral from './views/TeamReferral'
+
+function RequireAuth({ children }: { children: React.ReactNode }) {
+  const token = localStorage.getItem('admin_token')
+  if (!token) return <Navigate to="/login" replace />
+  return <>{children}</>
+}
+
+function GuestOnly({ children }: { children: React.ReactNode }) {
+  const token = localStorage.getItem('admin_token')
+  if (token) return <Navigate to="/dashboard" replace />
+  return <>{children}</>
+}
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/login" element={<GuestOnly><Login /></GuestOnly>} />
+        <Route path="/" element={<RequireAuth><AppLayout /></RequireAuth>}>
+          <Route index element={<Navigate to="/dashboard" replace />} />
+          <Route path="dashboard" element={<Dashboard />} />
+          <Route path="users" element={<Users />} />
+          <Route path="users/:id" element={<UserDetail />} />
+          <Route path="deposits" element={<Deposits />} />
+          <Route path="withdrawals" element={<Withdrawals />} />
+          <Route path="audit-log" element={<AuditLog />} />
+          <Route path="games" element={<Games />} />
+          <Route path="settings" element={<Settings />} />
+          <Route path="exchange-rates" element={<ExchangeRates />} />
+          <Route path="customer-service" element={<CustomerService />} />
+          <Route path="cs-faq" element={<CsFaq />} />
+          <Route path="bet-orders" element={<BetOrders />} />
+          <Route path="sg-settlement" element={<SgSettlement />} />
+          <Route path="team-referral" element={<TeamReferral />} />
+        </Route>
+        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+      </Routes>
+    </BrowserRouter>
+  )
+}

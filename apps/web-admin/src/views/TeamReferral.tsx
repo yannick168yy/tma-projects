@@ -1,0 +1,250 @@
+import { useEffect, useState } from 'react'
+import { Row, Col, Statistic, Card, Form, InputNumber, Button, Input, Select, Popconfirm, Table, Tabs, Tag, Modal, message } from 'antd'
+import type { TablePaginationConfig } from 'antd'
+import {
+  getTeamOverview, getTeamAgents, getTeamCommissions, getTeamWithdrawals,
+  getTeamConfig, updateTeamConfig, triggerTeamSettle,
+  approveTeamWithdrawal, rejectTeamWithdrawal,
+  type TeamOverview, type TeamAgent, type TeamCommission, type TeamWithdrawalAdmin, type TeamConfig,
+} from '../api'
+
+function phpDisplay(cents: number) {
+  return '₱' + ((cents ?? 0) / 100).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
+function currentPeriod() {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+}
+
+function wdColor(s: string) {
+  return s === 'approved' ? 'green' : s === 'pending' ? 'orange' : s === 'rejected' ? 'red' : 'default'
+}
+
+export default function TeamReferral() {
+  const [overview, setOverview] = useState<TeamOverview>({ activeAgents: 0, thisMonthCommissionCents: 0, pendingWithdrawalCount: 0, pendingWithdrawalCents: 0 })
+  const [configForm] = Form.useForm<TeamConfig>()
+  const [configSaving, setConfigSaving] = useState(false)
+  const [settling, setSettling] = useState(false)
+  const [settlePeriod, setSettlePeriod] = useState(currentPeriod())
+  const [activeTab, setActiveTab] = useState('agents')
+
+  const [agentSearch, setAgentSearch] = useState('')
+  const [agents, setAgents] = useState<TeamAgent[]>([])
+  const [agentsTotal, setAgentsTotal] = useState(0)
+  const [agentsPage, setAgentsPage] = useState(1)
+  const [agentsLoading, setAgentsLoading] = useState(false)
+
+  const [commFilter, setCommFilter] = useState({ period: '', beneficiaryId: '', status: undefined as string | undefined })
+  const [commissions, setCommissions] = useState<TeamCommission[]>([])
+  const [commissionsTotal, setCommissionsTotal] = useState(0)
+  const [commissionsPage, setCommissionsPage] = useState(1)
+  const [commissionsLoading, setCommissionsLoading] = useState(false)
+
+  const [wdStatusFilter, setWdStatusFilter] = useState<string | undefined>()
+  const [withdrawals, setWithdrawals] = useState<TeamWithdrawalAdmin[]>([])
+  const [withdrawalsTotal, setWithdrawalsTotal] = useState(0)
+  const [withdrawalsPage, setWithdrawalsPage] = useState(1)
+  const [withdrawalsLoading, setWithdrawalsLoading] = useState(false)
+  const [opLoading, setOpLoading] = useState(false)
+  const [rejectModal, setRejectModal] = useState({ visible: false, id: 0, reason: '' })
+
+  async function loadOverview() {
+    const data = await getTeamOverview()
+    setOverview(data)
+  }
+
+  async function loadConfig() {
+    const cfg = await getTeamConfig()
+    configForm.setFieldsValue(cfg)
+  }
+
+  async function saveConfig() {
+    const values = configForm.getFieldsValue()
+    setConfigSaving(true)
+    try {
+      await updateTeamConfig(values)
+      message.success('配置已保存')
+    } catch { message.error('保存失败') }
+    finally { setConfigSaving(false) }
+  }
+
+  async function doSettle() {
+    setSettling(true)
+    try {
+      await triggerTeamSettle(settlePeriod)
+      message.success(`${settlePeriod} 结算已触发，后台处理中`)
+    } catch (e) { message.error(e instanceof Error ? e.message : '触发失败') }
+    finally { setSettling(false) }
+  }
+
+  async function loadAgents(page = 1) {
+    setAgentsLoading(true)
+    try {
+      const data = await getTeamAgents({ search: agentSearch, page, pageSize: 20 })
+      setAgents(data.items); setAgentsTotal(data.total); setAgentsPage(page)
+    } finally { setAgentsLoading(false) }
+  }
+
+  async function loadCommissions(page = 1) {
+    setCommissionsLoading(true)
+    try {
+      const data = await getTeamCommissions({ ...commFilter, page })
+      setCommissions(data.items); setCommissionsTotal(data.total); setCommissionsPage(page)
+    } finally { setCommissionsLoading(false) }
+  }
+
+  async function loadWithdrawals(page = 1) {
+    setWithdrawalsLoading(true)
+    try {
+      const data = await getTeamWithdrawals({ status: wdStatusFilter, page })
+      setWithdrawals(data.items); setWithdrawalsTotal(data.total); setWithdrawalsPage(page)
+    } finally { setWithdrawalsLoading(false) }
+  }
+
+  async function doApprove(id: number) {
+    setOpLoading(true)
+    try {
+      await approveTeamWithdrawal(id)
+      message.success('已批准')
+      await Promise.all([loadWithdrawals(withdrawalsPage), loadOverview()])
+    } catch (e) { message.error(e instanceof Error ? e.message : '操作失败') }
+    finally { setOpLoading(false) }
+  }
+
+  async function doReject() {
+    setOpLoading(true)
+    try {
+      await rejectTeamWithdrawal(rejectModal.id, rejectModal.reason)
+      setRejectModal((m) => ({ ...m, visible: false }))
+      message.success('已驳回')
+      await loadWithdrawals(withdrawalsPage)
+    } catch (e) { message.error(e instanceof Error ? e.message : '操作失败') }
+    finally { setOpLoading(false) }
+  }
+
+  useEffect(() => {
+    void loadOverview(); void loadConfig(); void loadAgents(1); void loadWithdrawals(1)
+  }, [])
+
+  const agentCols = [
+    { title: '用户ID', dataIndex: 'userId', key: 'userId', width: 110 },
+    { title: '昵称', dataIndex: 'displayName', key: 'name' },
+    { title: '团队规模', key: 'team', width: 160, render: (_: unknown, r: TeamAgent) => `L1:${r.l1Count} / L2:${r.l2Count} / L3:${r.l3Count}` },
+    { title: '本月佣金', key: 'thisMonth', width: 120, render: (_: unknown, r: TeamAgent) => phpDisplay(r.thisMonthCommissionCents) },
+    { title: '累计收益', key: 'lifetime', width: 120, render: (_: unknown, r: TeamAgent) => phpDisplay(r.lifetimeEarnedCents) },
+    { title: '开启时间', dataIndex: 'optedInAt', key: 'optedInAt', width: 160 },
+  ]
+
+  const commCols = [
+    { title: '月份', dataIndex: 'period', key: 'period', width: 90 },
+    { title: '收益人', dataIndex: 'beneficiary_name', key: 'beneficiary' },
+    { title: '下线', dataIndex: 'from_name', key: 'from' },
+    { title: '层级', dataIndex: 'level', key: 'level', width: 60 },
+    { title: 'GGR', key: 'ggr', width: 110, render: (_: unknown, r: TeamCommission) => phpDisplay(r.ggr_cents) },
+    { title: '费率', dataIndex: 'rate_pct', key: 'rate', width: 70 },
+    { title: '佣金', key: 'commission', width: 110, render: (_: unknown, r: TeamCommission) => phpDisplay(r.commission_cents) },
+    { title: '状态', key: 'status', width: 90, render: (_: unknown, r: TeamCommission) => <Tag color={r.status === 'paid' ? 'green' : r.status === 'pending' ? 'orange' : 'default'}>{r.status}</Tag> },
+  ]
+
+  const wdCols = [
+    { title: 'ID', dataIndex: 'id', key: 'id', width: 80 },
+    { title: '用户', dataIndex: 'display_name', key: 'user' },
+    { title: '用户ID', dataIndex: 'user_id', key: 'userId', width: 110 },
+    { title: '金额', key: 'amount', width: 110, render: (_: unknown, r: TeamWithdrawalAdmin) => phpDisplay(r.amount_cents) },
+    { title: '状态', key: 'status', width: 90, render: (_: unknown, r: TeamWithdrawalAdmin) => <Tag color={wdColor(r.status)}>{r.status}</Tag> },
+    { title: '申请时间', dataIndex: 'created_at', key: 'createdAt', width: 160 },
+    {
+      title: '操作', key: 'actions', width: 120,
+      render: (_: unknown, r: TeamWithdrawalAdmin) => r.status === 'pending' ? (
+        <>
+          <Popconfirm title="确认批准此提现？" onConfirm={() => doApprove(r.id)}>
+            <Button type="link" size="small" style={{ color: '#52c41a' }}>批准</Button>
+          </Popconfirm>
+          <Button type="link" size="small" danger onClick={() => setRejectModal({ visible: true, id: r.id, reason: '' })}>驳回</Button>
+        </>
+      ) : <span>-</span>,
+    },
+  ]
+
+  const agentPagination: TablePaginationConfig = { current: agentsPage, pageSize: 20, total: agentsTotal, showTotal: (t) => `共 ${t} 条`, onChange: (p) => loadAgents(p) }
+  const commPagination: TablePaginationConfig = { current: commissionsPage, pageSize: 50, total: commissionsTotal, showTotal: (t) => `共 ${t} 条`, onChange: (p) => loadCommissions(p) }
+  const wdPagination: TablePaginationConfig = { current: withdrawalsPage, pageSize: 20, total: withdrawalsTotal, showTotal: (t) => `共 ${t} 条`, onChange: (p) => loadWithdrawals(p) }
+
+  return (
+    <div>
+      <h2 style={{ marginBottom: 16 }}>三级分销管理</h2>
+
+      <Row gutter={16} style={{ marginBottom: 20 }}>
+        <Col span={6}><Statistic title="活跃代理" value={overview.activeAgents} /></Col>
+        <Col span={6}><Statistic title="本月佣金总额" value={phpDisplay(overview.thisMonthCommissionCents)} /></Col>
+        <Col span={6}><Statistic title="待审提现笔数" value={overview.pendingWithdrawalCount} /></Col>
+        <Col span={6}><Statistic title="待审提现金额" value={phpDisplay(overview.pendingWithdrawalCents)} /></Col>
+      </Row>
+
+      <Card title="佣金配置" style={{ marginBottom: 20 }}>
+        <Form form={configForm} layout="inline" onFinish={saveConfig}>
+          <Form.Item label="L1 比率(%)" name="l1_rate_pct"><InputNumber min={0} max={100} step={0.5} style={{ width: 90 }} /></Form.Item>
+          <Form.Item label="L2 比率(%)" name="l2_rate_pct"><InputNumber min={0} max={100} step={0.5} style={{ width: 90 }} /></Form.Item>
+          <Form.Item label="L3 比率(%)" name="l3_rate_pct"><InputNumber min={0} max={100} step={0.5} style={{ width: 90 }} /></Form.Item>
+          <Form.Item label="激活门槛(分)" name="min_activation_cents"><InputNumber min={0} style={{ width: 110 }} /></Form.Item>
+          <Form.Item label="最低提现(分)" name="min_withdrawal_cents"><InputNumber min={0} style={{ width: 110 }} /></Form.Item>
+          <Form.Item><Button type="primary" htmlType="submit" loading={configSaving}>保存配置</Button></Form.Item>
+          <Form.Item>
+            <Popconfirm title={`确认触发 ${settlePeriod} 月结算？`} onConfirm={doSettle}>
+              <Input.Group compact>
+                <Input value={settlePeriod} onChange={(e) => setSettlePeriod(e.target.value)} style={{ width: 110 }} placeholder="YYYY-MM" />
+                <Button loading={settling}>触发结算</Button>
+              </Input.Group>
+            </Popconfirm>
+          </Form.Item>
+        </Form>
+      </Card>
+
+      <Tabs activeKey={activeTab} onChange={setActiveTab} items={[
+        {
+          key: 'agents', label: '代理列表',
+          children: (
+            <div>
+              <div style={{ marginBottom: 12, display: 'flex', gap: 8 }}>
+                <Input value={agentSearch} onChange={(e) => setAgentSearch(e.target.value)} placeholder="搜索用户ID/昵称" allowClear style={{ width: 200 }} />
+                <Button type="primary" onClick={() => loadAgents(1)}>查询</Button>
+              </div>
+              <Table columns={agentCols} dataSource={agents} loading={agentsLoading} pagination={agentPagination} rowKey="userId" size="small" />
+            </div>
+          ),
+        },
+        {
+          key: 'commissions', label: '佣金流水',
+          children: (
+            <div>
+              <div style={{ marginBottom: 12, display: 'flex', gap: 8 }}>
+                <Input value={commFilter.period} onChange={(e) => setCommFilter((f) => ({ ...f, period: e.target.value }))} placeholder="月份 YYYY-MM" allowClear style={{ width: 130 }} />
+                <Input value={commFilter.beneficiaryId} onChange={(e) => setCommFilter((f) => ({ ...f, beneficiaryId: e.target.value }))} placeholder="收益人ID" allowClear style={{ width: 150 }} />
+                <Select value={commFilter.status} placeholder="状态" allowClear style={{ width: 110 }} onChange={(v) => setCommFilter((f) => ({ ...f, status: v }))} options={[{ value: 'pending', label: 'pending' }, { value: 'paid', label: 'paid' }, { value: 'voided', label: 'voided' }]} />
+                <Button type="primary" onClick={() => loadCommissions(1)}>查询</Button>
+              </div>
+              <Table columns={commCols} dataSource={commissions} loading={commissionsLoading} pagination={commPagination} rowKey="id" size="small" />
+            </div>
+          ),
+        },
+        {
+          key: 'withdrawals', label: '提现审核',
+          children: (
+            <div>
+              <div style={{ marginBottom: 12, display: 'flex', gap: 8 }}>
+                <Select value={wdStatusFilter} placeholder="状态" allowClear style={{ width: 130 }} onChange={setWdStatusFilter} options={[{ value: 'pending', label: 'pending' }, { value: 'approved', label: 'approved' }, { value: 'rejected', label: 'rejected' }]} />
+                <Button type="primary" onClick={() => loadWithdrawals(1)}>查询</Button>
+              </div>
+              <Table columns={wdCols} dataSource={withdrawals} loading={withdrawalsLoading} pagination={wdPagination} rowKey="id" size="small" />
+            </div>
+          ),
+        },
+      ]} />
+
+      <Modal open={rejectModal.visible} title="驳回原因" onOk={doReject} confirmLoading={opLoading} onCancel={() => setRejectModal((m) => ({ ...m, visible: false }))}>
+        <Input value={rejectModal.reason} onChange={(e) => setRejectModal((m) => ({ ...m, reason: e.target.value }))} placeholder="请输入驳回原因" />
+      </Modal>
+    </div>
+  )
+}

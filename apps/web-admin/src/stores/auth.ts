@@ -1,28 +1,28 @@
-import { defineStore } from 'pinia'
-import { ref } from 'vue'
-import { adminLogin, adminLogout } from '../api.js'
+import { create } from 'zustand'
+import { adminLogin, adminLogout } from '../api'
 
-export const useAuthStore = defineStore('auth', () => {
-  const token = ref(localStorage.getItem('admin_token') ?? '')
-  const role = ref(localStorage.getItem('admin_role') ?? '')
+interface AuthState {
+  token: string
+  role: string
+  isLoggedIn: () => boolean
+  login: (username: string, password: string) => Promise<void>
+  logout: () => Promise<void>
+}
 
-  const isLoggedIn = () => !!token.value
-
-  async function login(username: string, password: string) {
+export const useAuthStore = create<AuthState>((set, get) => ({
+  token: localStorage.getItem('admin_token') ?? '',
+  role: localStorage.getItem('admin_role') ?? '',
+  isLoggedIn: () => !!get().token,
+  async login(username, password) {
     const res = await adminLogin(username, password)
-    token.value = res.token
-    role.value = res.role
     localStorage.setItem('admin_token', res.token)
     localStorage.setItem('admin_role', res.role)
-  }
-
-  async function logout() {
+    set({ token: res.token, role: res.role })
+  },
+  async logout() {
     try { await adminLogout() } catch { /* ignore */ }
-    token.value = ''
-    role.value = ''
     localStorage.removeItem('admin_token')
     localStorage.removeItem('admin_role')
-  }
-
-  return { token, role, isLoggedIn, login, logout }
-})
+    set({ token: '', role: '' })
+  },
+}))

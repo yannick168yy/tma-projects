@@ -1,0 +1,194 @@
+import { useEffect, useRef, useState } from 'react'
+import { Card, Select, Tag, Button, Input, Space, Empty, Badge, message } from 'antd'
+import type { CsConversation, CsMessage } from '../api'
+import { getCsConversations, getCsConversation, csReply, csTakeover, csResolve } from '../api'
+
+function statusColor(status?: string) {
+  return ({ active: 'blue', human_taken: 'orange', resolved: 'green', closed: 'default' } as Record<string, string>)[status ?? ''] ?? 'default'
+}
+function statusText(status?: string) {
+  return ({ active: 'AI处理', human_taken: '待人工', resolved: '已解决', closed: '已关闭' } as Record<string, string>)[status ?? ''] ?? status
+}
+function formatTime(t?: string) {
+  if (!t) return ''
+  return new Date(t).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
+}
+
+export default function CustomerService() {
+  const [conversations, setConversations] = useState<CsConversation[]>([])
+  const [total, setTotal] = useState(0)
+  const [loading, setLoading] = useState(false)
+  const [statusFilter, setStatusFilter] = useState('human_taken')
+  const [page, setPage] = useState(1)
+  const [selectedId, setSelectedId] = useState<number | null>(null)
+  const [messages, setMessages] = useState<CsMessage[]>([])
+  const [detailLoading, setDetailLoading] = useState(false)
+  const [replyText, setReplyText] = useState('')
+  const [replying, setReplying] = useState(false)
+  const msgListRef = useRef<HTMLDivElement>(null)
+
+  const selectedConv = conversations.find((c) => c.id === selectedId) ?? null
+  const unreadCount = conversations.filter((c) => c.status === 'human_taken').length
+
+  async function loadList(p = 1) {
+    setLoading(true)
+    try {
+      const res = await getCsConversations({ status: statusFilter || undefined, page: p, pageSize: 30 })
+      if (p === 1) setConversations(res.items)
+      else setConversations((prev) => [...prev, ...res.items])
+      setTotal(res.total)
+      setPage(p)
+    } finally { setLoading(false) }
+  }
+
+  async function refreshDetail() {
+    if (!selectedId) return
+    setDetailLoading(true)
+    try {
+      const res = await getCsConversation(selectedId)
+      setMessages(res.messages)
+      setConversations((prev) => prev.map((c) => c.id === selectedId ? { ...c, ...res.conversation } : c))
+      setTimeout(() => { if (msgListRef.current) msgListRef.current.scrollTop = msgListRef.current.scrollHeight }, 50)
+    } finally { setDetailLoading(false) }
+  }
+
+  useEffect(() => {
+    void loadList(1)
+    const timer = setInterval(() => {
+      void loadList(1)
+      if (selectedId) void refreshDetail()
+    }, 15_000)
+    return () => clearInterval(timer)
+  }, [statusFilter])
+
+  useEffect(() => { if (selectedId) void refreshDetail() }, [selectedId])
+
+  async function sendReply() {
+    if (!replyText.trim() || !selectedId) return
+    setReplying(true)
+    try {
+      const msg = await csReply(selectedId, replyText.trim())
+      setMessages((prev) => [...prev, msg])
+      setReplyText('')
+      setConversations((prev) => prev.map((c) => c.id === selectedId ? { ...c, lastMessage: msg.content } : c))
+      setTimeout(() => { if (msgListRef.current) msgListRef.current.scrollTop = msgListRef.current.scrollHeight }, 50)
+    } catch (e) { message.error(e instanceof Error ? e.message : '发送失败') }
+    finally { setReplying(false) }
+  }
+
+  async function takeover() {
+    if (!selectedId) return
+    await csTakeover(selectedId)
+    message.success('已接管会话')
+    await refreshDetail(); await loadList(1)
+  }
+
+  async function resolve() {
+    if (!selectedId) return
+    await csResolve(selectedId)
+    message.success('会话已结单')
+    setSelectedId(null); setMessages([])
+    await loadList(1)
+  }
+
+  return (
+    <div style={{ display: 'flex', gap: 16, height: 'calc(100vh - 112px)' }}>
+      <Card
+        style={{ width: 340, flexShrink: 0, overflow: 'auto' }}
+        styles={{ body: { padding: '8px 0' } }}
+        title={<span>客服会话 <Badge count={unreadCount} style={{ marginLeft: 8 }} /></span>}
+        extra={
+          <Select
+            value={statusFilter}
+            size="small"
+            style={{ width: 110 }}
+            onChange={(v) => { setStatusFilter(v); void loadList(1) }}
+            options={[
+              { value: '', label: '全部' }, { value: 'active', label: 'AI 处理中' },
+              { value: 'human_taken', label: '待人工' }, { value: 'resolved', label: '已解决' },
+            ]}
+          />
+        }
+      >
+        {conversations.map((conv) => (
+          <div
+            key={conv.id}
+            onClick={() => setSelectedId(conv.id)}
+            style={{
+              padding: '10px 16px', cursor: 'pointer', borderBottom: '1px solid #f0f0f0',
+              transition: 'background 0.15s',
+              background: selectedId === conv.id ? '#e6f4ff' : undefined,
+            }}
+            onMouseEnter={(e) => { if (selectedId !== conv.id) (e.currentTarget as HTMLDivElement).style.background = '#f5f5f5' }}
+            onMouseLeave={(e) => { if (selectedId !== conv.id) (e.currentTarget as HTMLDivElement).style.background = '' }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontWeight: 600, fontSize: 13 }}>{conv.displayName || `用户#${conv.userId}`}</span>
+              <Tag color={statusColor(conv.status)} style={{ margin: 0, fontSize: 11 }}>{statusText(conv.status)}</Tag>
+            </div>
+            <div style={{ color: '#999', fontSize: 12, marginTop: 2, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
+              {conv.lastMessage || '（暂无消息）'}
+            </div>
+            <div style={{ color: '#bbb', fontSize: 11, marginTop: 2 }}>{formatTime(conv.updatedAt)}</div>
+          </div>
+        ))}
+        {!loading && conversations.length === 0 && <Empty description="暂无会话" style={{ padding: '32px 0' }} />}
+        {conversations.length < total && (
+          <div style={{ textAlign: 'center', padding: 8 }}>
+            <Button type="link" size="small" loading={loading} onClick={() => loadList(page + 1)}>加载更多</Button>
+          </div>
+        )}
+      </Card>
+
+      {selectedId ? (
+        <Card
+          style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
+          styles={{ body: { flex: 1, display: 'flex', flexDirection: 'column', padding: 12, overflow: 'hidden' } }}
+          title={<span>{selectedConv?.displayName || `用户#${selectedConv?.userId}`} <Tag color={statusColor(selectedConv?.status)} style={{ marginLeft: 8 }}>{statusText(selectedConv?.status)}</Tag></span>}
+          extra={
+            <Space>
+              {selectedConv?.status === 'active' && <Button size="small" onClick={takeover}>接管会话</Button>}
+              {selectedConv?.status !== 'resolved' && selectedConv?.status !== 'closed' && (
+                <Button size="small" type="primary" ghost onClick={resolve}>结单</Button>
+              )}
+              <Button size="small" onClick={refreshDetail} loading={detailLoading}>刷新</Button>
+            </Space>
+          }
+        >
+          <div ref={msgListRef} style={{ flex: 1, overflowY: 'auto', padding: '4px 0' }}>
+            {messages.map((msg) => (
+              <div key={msg.id} style={{ display: 'flex', marginBottom: 12, justifyContent: msg.role === 'user' ? 'flex-start' : 'flex-end' }}>
+                <div style={{
+                  maxWidth: '70%', padding: '8px 12px', borderRadius: 8, fontSize: 13, lineHeight: 1.5,
+                  background: msg.role === 'user' ? '#f0f0f0' : msg.role === 'assistant' ? '#e6f4ff' : '#f6ffed',
+                }}>
+                  <div style={{ fontSize: 11, color: '#999', marginBottom: 2 }}>
+                    {msg.role === 'user' ? '用户' : msg.role === 'assistant' ? '🤖 AI' : '👤 客服'}
+                  </div>
+                  <div style={{ whiteSpace: 'pre-wrap' }}>{msg.content}</div>
+                  <div style={{ fontSize: 11, color: '#bbb', marginTop: 4, textAlign: 'right' }}>{formatTime(msg.createdAt)}</div>
+                </div>
+              </div>
+            ))}
+            {messages.length === 0 && <Empty description="暂无消息" />}
+          </div>
+          {selectedConv?.status !== 'resolved' && selectedConv?.status !== 'closed' && (
+            <div style={{ marginTop: 8, display: 'flex', gap: 8 }}>
+              <Input.TextArea
+                value={replyText}
+                onChange={(e) => setReplyText(e.target.value)}
+                autoSize={{ minRows: 2, maxRows: 4 }}
+                placeholder="输入回复内容，Ctrl+Enter 发送"
+                style={{ flex: 1 }}
+                onKeyDown={(e) => { if (e.ctrlKey && e.key === 'Enter') void sendReply() }}
+              />
+              <Button type="primary" loading={replying} onClick={sendReply} style={{ height: 'auto' }}>发送</Button>
+            </div>
+          )}
+        </Card>
+      ) : (
+        <Empty description="选择一个会话开始处理" style={{ margin: 'auto' }} />
+      )}
+    </div>
+  )
+}
