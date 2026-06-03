@@ -220,6 +220,6 @@ async function handleMatrixAddressChange(
 function convertToPHP(symbol: string, amount: number, usdtToPhpRate: number): number {
   if (symbol === 'USDT') return Math.round(amount * usdtToPhpRate * 100) / 100
   // Matrix 测试环境币种：1:1 映射到 USDT 汇率（测试用）
-  if (symbol === 'TRON_SHASTA' || symbol === 'TRX_TESTNET') return Math.round(amount * usdtToPhpRate * 100) / 100
+  if (symbol === 'TLK_TESTNET' || symbol === 'TRX_TESTNET') return Math.round(amount * usdtToPhpRate * 100) / 100
   return 0
 }
