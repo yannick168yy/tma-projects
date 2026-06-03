@@ -188,6 +188,7 @@ run run -d --name tma-bff-node --network "$NET" --restart=always \
 echo "==> [${CTR}] web-tma (limit 64m)"
 run rm -f tma-web-tma 2>/dev/null || true
 run build -t tma-web-tma:latest \
+  --ulimit nofile=65535:65535 \
   --build-arg "VITE_BFF_BASE_URL=${WEB_BFF_API_URL}" \
   --build-arg VITE_USE_MOCK_API=false \
   --build-arg "VITE_GOOGLE_CLIENT_ID=${VITE_GOOGLE_CLIENT_ID:-}" \
