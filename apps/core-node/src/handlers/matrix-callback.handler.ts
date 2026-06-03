@@ -219,5 +219,6 @@ async function handleMatrixAddressChange(
 
 function convertToPHP(symbol: string, amount: number, usdtToPhpRate: number): number {
   if (symbol === 'USDT') return Math.round(amount * usdtToPhpRate * 100) / 100
+  if (symbol === 'TRX') return Math.round(amount * 0.25 * usdtToPhpRate * 100) / 100
   return 0
 }
