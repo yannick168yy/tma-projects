@@ -20,7 +20,7 @@ DIR="${DEPLOY_DIR:-/opt/tma-projects}"
 PORT="${WEB_TMA_PORT:-8080}"
 COMPOSE_FILE="${COMPOSE_FILE:-deploy/single-node/docker-compose.prod.yml}"
 
-SSH_BASE=(ssh)
+SSH_BASE=(ssh -o ServerAliveInterval=30 -o ServerAliveCountMax=20)
 if [[ -n "${SSH_IDENTITY_FILE:-}" ]]; then
   KEY="${SSH_IDENTITY_FILE/#\~/$HOME}"
   if [[ ! -f "$KEY" ]]; then
@@ -52,8 +52,9 @@ rsync_cmd() {
     "$ROOT/" "$HOST:$DIR/"
 }
 
-echo "==> 本地构建 dist（三个服务）"
+echo "==> 本地构建 dist（四个服务）"
 (cd "$ROOT/apps/web-tma" && npm run build)
+(cd "$ROOT/apps/web-admin" && npm run build)
 (cd "$ROOT/apps/bff-node" && npm run build)
 (cd "$ROOT/apps/core-node" && npm run build)
 

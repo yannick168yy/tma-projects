@@ -22,8 +22,16 @@ SSH_ARGS=()
 [[ -n "${SSH_OPTS:-}" ]] && SSH_ARGS+=($SSH_OPTS)
 RSYNC_RSH="ssh ${SSH_ARGS[*]}"
 
+restart_container() {
+  local name="$1"
+  ssh "${SSH_ARGS[@]}" "$HOST" \
+    'if command -v podman >/dev/null 2>&1; then podman restart '"$name"';
+     elif command -v docker >/dev/null 2>&1; then docker restart '"$name"';
+     else echo "未找到 podman/docker" >&2; exit 1; fi'
+}
+
 TARGETS=("${@:-all}")
-[[ "${TARGETS[0]}" == "all" ]] && TARGETS=(web-tma bff-node core-node)
+[[ "${TARGETS[0]}" == "all" ]] && TARGETS=(web-tma web-admin bff-node core-node)
 
 for TARGET in "${TARGETS[@]}"; do
   case "$TARGET" in
@@ -35,6 +43,14 @@ for TARGET in "${TARGETS[@]}"; do
         "$ROOT/apps/web-tma/dist/" "$HOST:$DIR/apps/web-tma/dist/"
       echo "==> [web-tma] 完成（nginx 即时生效，无需重启）"
       ;;
+    web-admin)
+      echo "==> [web-admin] 本地构建..."
+      (cd "$ROOT/apps/web-admin" && npm run build)
+      echo "==> [web-admin] 同步 dist..."
+      RSYNC_RSH="$RSYNC_RSH" rsync -az --delete \
+        "$ROOT/apps/web-admin/dist/" "$HOST:$DIR/apps/web-admin/dist/"
+      echo "==> [web-admin] 完成（nginx 即时生效，无需重启）"
+      ;;
     bff-node)
       echo "==> [bff-node] 本地编译..."
       (cd "$ROOT/apps/bff-node" && npm run build)
@@ -42,7 +58,7 @@ for TARGET in "${TARGETS[@]}"; do
       RSYNC_RSH="$RSYNC_RSH" rsync -az --delete \
         "$ROOT/apps/bff-node/dist/" "$HOST:$DIR/apps/bff-node/dist/"
       echo "==> [bff-node] 重启容器..."
-      ssh "${SSH_ARGS[@]}" "$HOST" "docker restart tma-bff-node"
+      restart_container tma-bff-node
       echo "==> [bff-node] 完成"
       ;;
     core-node)
@@ -52,7 +68,7 @@ for TARGET in "${TARGETS[@]}"; do
       RSYNC_RSH="$RSYNC_RSH" rsync -az --delete \
         "$ROOT/apps/core-node/dist/" "$HOST:$DIR/apps/core-node/dist/"
       echo "==> [core-node] 重启容器..."
-      ssh "${SSH_ARGS[@]}" "$HOST" "docker restart tma-core-node"
+      restart_container tma-core-node
       echo "==> [core-node] 完成"
       ;;
     *)

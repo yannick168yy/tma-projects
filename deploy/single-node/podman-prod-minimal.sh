@@ -4,6 +4,7 @@
 set -euo pipefail
 
 cd "$(dirname "$0")/../.."
+DIR="${DEPLOY_DIR:-$(pwd)}"
 CTR="${CTR:-podman}"
 PORT="${WEB_TMA_PORT:-8080}"
 NET="${TMA_PODMAN_NETWORK:-tma-prod}"
@@ -207,15 +208,10 @@ run run -d --name tma-web-tma --network "$NET" --restart=always \
 echo "==> [${CTR}] web-admin (limit 64m)"
 ADMIN_PORT="${WEB_ADMIN_PORT:-8085}"
 run rm -f tma-web-admin 2>/dev/null || true
-# 不设 VITE_ADMIN_API_BASE_URL 时用相对路径 /api/v1，由 nginx 反代到 bff-node
-ADMIN_BUILD_ARGS=()
-[[ -n "${VITE_ADMIN_API_BASE_URL:-}" ]] && ADMIN_BUILD_ARGS+=(--build-arg "VITE_ADMIN_API_BASE_URL=${VITE_ADMIN_API_BASE_URL}")
-run build -t betogo-web-admin:latest \
-  "${ADMIN_BUILD_ARGS[@]}" \
-  -f apps/web-admin/Dockerfile apps/web-admin
-# 加入 tma-prod 网络以便 nginx 反代解析 tma-bff-node 主机名
+run build -t betogo-web-admin:latest -f apps/web-admin/Dockerfile apps/web-admin
 run run -d --name tma-web-admin --network "$NET" --restart=always \
   --memory=64m --memory-swap=64m \
+  -v "${DIR}/apps/web-admin/dist:/usr/share/nginx/html:ro" \
   -p "${ADMIN_PORT}:80" \
   betogo-web-admin:latest
 
