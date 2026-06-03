@@ -9,7 +9,7 @@
 - SSH 密钥：`~/Downloads/yannick.pem`
 - 项目路径：`/root/workspace/tma-projects`
 
-### 纯代码改动（无新 npm 依赖）→ Fast 部署，约 20-40 秒
+### 默认使用：Fast 部署，约 20-40 秒（纯代码改动，无新 npm 依赖）
 ```bash
 DEPLOY_HOST=root@47.84.34.139 \
 DEPLOY_DIR=/root/workspace/tma-projects \
