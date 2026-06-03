@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
+import { QRCodeSVG } from 'qrcode.react'
 import { Wallet, X, ArrowDownToLine, ArrowUpFromLine, History, CheckCircle2, AlertCircle, XCircle, Loader2, ArrowLeft, Send, ShieldCheck, Zap, Headphones, Copy, Check } from 'lucide-react'
 import { createPortal } from 'react-dom'
 import PayMethodGrid from '@/components/wallet/PayMethodGrid'
@@ -344,9 +345,16 @@ export default function WalletModal({ open, onClose }: Props) {
                   ) : matrixAddress ? (
                     <>
                       <p className="text-xs text-muted-foreground text-center">{t('wallet.matrixDepositNote', { symbol: selectedPayMethod?.matrixSymbol, chain: selectedPayMethod?.matrixChain })}</p>
-                      <div className="bg-secondary rounded-2xl px-4 py-3 space-y-2">
-                        <p className="font-mono text-xs text-foreground break-all leading-relaxed">{matrixAddress}</p>
-                        <button type="button" className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-xl transition-colors w-full justify-center ${copiedAddress?'bg-emerald-500/20 text-emerald-400':'bg-muted text-muted-foreground hover:text-foreground'}`} onClick={()=>void copyMatrixAddress()}>
+                      {/* 二维码 */}
+                      <div className="flex justify-center">
+                        <div className="bg-white rounded-2xl p-3 shadow-lg shadow-black/20">
+                          <QRCodeSVG value={matrixAddress} size={180} bgColor="#ffffff" fgColor="#111111" level="M" />
+                        </div>
+                      </div>
+                      {/* 地址 */}
+                      <div className="bg-secondary rounded-2xl px-4 py-3 space-y-2.5">
+                        <p className="font-mono text-sm font-bold text-foreground break-all leading-relaxed tracking-wide text-center">{matrixAddress}</p>
+                        <button type="button" className={`flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-xl transition-colors w-full justify-center ${copiedAddress?'bg-emerald-500/20 text-emerald-400':'bg-primary/10 text-primary hover:bg-primary/20'}`} onClick={()=>void copyMatrixAddress()}>
                           {copiedAddress?<Check size={13}/>:<Copy size={13}/>}{copiedAddress?t('common.copied'):t('common.copy')}
                         </button>
                       </div>
