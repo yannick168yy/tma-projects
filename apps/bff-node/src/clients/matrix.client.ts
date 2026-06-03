@@ -111,13 +111,17 @@ export class MatrixClient {
       this.cfg.platformApiPubKeyPem,
     )
 
-    const res = await fetch(`${this.cfg.gatewayUrl}${path}`, {
+    const url = `${this.cfg.gatewayUrl}${path}`
+    console.log('[Matrix] →', url, '| biz:', JSON.stringify(bizData))
+
+    const res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json; charset=UTF-8' },
       body: JSON.stringify(envelope),
     })
 
     const json = (await res.json()) as { code: number; msg: string } & Partial<MatrixEnvelope>
+    console.log('[Matrix] ←', JSON.stringify(json))
 
     if (json.code !== 0) {
       throw new MatrixApiError(json.code, json.msg)
