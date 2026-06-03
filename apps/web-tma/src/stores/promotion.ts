@@ -19,7 +19,6 @@ import {
   type TeamWithdrawal,
 } from '@/api/promotion'
 import { ApiError } from '@/api/client'
-import { creditWallet } from '@/api/wallet'
 import { useAuthStore } from '@/stores/auth'
 import { useWalletStore } from '@/stores/wallet'
 import { i18n } from '@/i18n'
@@ -61,7 +60,7 @@ interface PromotionActions {
   loadTeamWallet: () => Promise<void>
   submitWithdrawal: (amountCents: number) => Promise<{ ok: boolean; message?: string }>
   loadTeamWithdrawals: (page?: number) => Promise<void>
-  claimPromo: (id: PromoId) => Promise<{ ok: boolean; message?: string }>
+  claimPromo: (id: PromoId) => Promise<{ ok: boolean; code?: number; message?: string }>
   claimTrialIfEligible: () => Promise<{ ok: boolean; alreadyClaimed?: boolean; message?: string }>
 }
 
@@ -205,7 +204,6 @@ export const usePromotionStore = create<PromotionState & PromotionActions>((set,
       if (id === 'trial') ({ amountPhp } = await claimTrialBonus())
       else if (id === 'referral') ({ amountPhp } = await claimReferralBonus())
       else if (id === 'firstdep') ({ amountPhp } = await claimFirstDepBonus())
-      await creditWallet(amountPhp * 100)
       await useWalletStore.getState().refresh()
       await get().refreshHighlights()
       await get().loadLists()
@@ -223,7 +221,7 @@ export const usePromotionStore = create<PromotionState & PromotionActions>((set,
           : e instanceof Error
             ? e.message
             : i18n.t('bonuses.promos.trial.claimFailed')
-      return { ok: false, message }
+      return { ok: false, code: e instanceof ApiError ? e.code : undefined, message }
     }
   },
 
@@ -237,7 +235,7 @@ export const usePromotionStore = create<PromotionState & PromotionActions>((set,
     set({ trialClaiming: true })
     try {
       const result = await get().claimPromo('trial')
-      if (!result.ok && result.message === i18n.t('bonuses.promos.trial.alreadyClaimed')) {
+      if (!result.ok && result.code === 409) {
         return { ok: false, alreadyClaimed: true, message: result.message }
       }
       return result

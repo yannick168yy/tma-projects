@@ -1,5 +1,8 @@
 import { useTranslation } from 'react-i18next'
 import { createPortal } from 'react-dom'
+import { PROMOS } from '@/data/promos'
+
+const TRIAL_REWARD = PROMOS.find((p) => p.id === 'trial')?.reward ?? '₱ 88'
 
 interface Props {
   claiming: boolean
@@ -17,7 +20,7 @@ export default function TrialWelcomeSheet({ claiming, onClaim, onDismiss }: Prop
         <p className="text-4xl mb-2">🎖️</p>
         <h3 className="text-xl font-black text-white">{t('bonuses.promos.trial.title')}</h3>
         <p className="mt-2 text-sm text-white/60 leading-relaxed">{t('bonuses.promos.trial.sheetSub')}</p>
-        <p className="mt-3 text-3xl font-black text-primary">₱ 88</p>
+        <p className="mt-3 text-3xl font-black text-primary">{TRIAL_REWARD}</p>
         <button
           type="button"
           className={`mt-6 w-full rounded-xl bg-primary py-3 text-sm font-black text-primary-foreground ${claiming ? 'opacity-60 pointer-events-none' : ''}`}
