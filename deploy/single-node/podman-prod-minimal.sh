@@ -116,6 +116,7 @@ NATS_IP="$(run inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{en
 run run -d --name tma-core-node --network "$NET" --restart=always \
   --memory=192m --memory-swap=192m \
   -p 127.0.0.1:4000:4000 \
+  -v "${DIR}/apps/core-node/dist:/app/dist:ro" \
   -e NODE_ENV=production \
   -e CORE_PORT=4000 \
   -e REDIS_URL="${REDIS_URL_WIRED}" \
@@ -140,6 +141,7 @@ run build -t betogo-bff-node:latest -f apps/bff-node/Dockerfile apps/bff-node
 run run -d --name tma-bff-node --network "$NET" --restart=always \
   --memory=192m --memory-swap=192m \
   -p 127.0.0.1:3000:3000 \
+  -v "${DIR}/apps/bff-node/dist:/app/dist:ro" \
   -e NODE_ENV=production \
   -e BFF_PORT=3000 \
   -e BFF_STORAGE=mysql \
@@ -198,6 +200,7 @@ run build -t tma-web-tma:latest \
   -f apps/web-tma/Dockerfile apps/web-tma
 run run -d --name tma-web-tma --network "$NET" --restart=always \
   --memory=64m --memory-swap=64m \
+  -v "${DIR}/apps/web-tma/dist:/usr/share/nginx/html:ro" \
   -p "${PORT}:80" \
   tma-web-tma:latest
 

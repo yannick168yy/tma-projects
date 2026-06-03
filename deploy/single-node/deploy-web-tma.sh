@@ -48,10 +48,14 @@ ssh_cmd() {
 rsync_cmd() {
   rsync -az --delete \
     --exclude node_modules \
-    --exclude dist \
     --exclude .git/objects \
     "$ROOT/" "$HOST:$DIR/"
 }
+
+echo "==> 本地构建 dist（三个服务）"
+(cd "$ROOT/apps/web-tma" && npm run build)
+(cd "$ROOT/apps/bff-node" && npm run build)
+(cd "$ROOT/apps/core-node" && npm run build)
 
 echo "==> 同步代码到 ${HOST}:${DIR}"
 ssh_cmd "mkdir -p '$DIR'"

@@ -8,14 +8,25 @@
 - 服务器 IP：`47.84.34.139`
 - SSH 密钥：`~/Downloads/yannick.pem`
 - 项目路径：`/root/workspace/tma-projects`
-- 部署命令（在本地项目根目录执行）：
-  ```bash
-  DEPLOY_HOST=root@47.84.34.139 \
-  DEPLOY_DIR=/root/workspace/tma-projects \
-  SSH_IDENTITY_FILE=~/Downloads/yannick.pem \
-  SSH_OPTS="-o StrictHostKeyChecking=no" \
-  bash deploy/single-node/deploy-web-tma.sh
-  ```
+
+### 纯代码改动（无新 npm 依赖）→ Fast 部署，约 20-40 秒
+```bash
+DEPLOY_HOST=root@47.84.34.139 \
+DEPLOY_DIR=/root/workspace/tma-projects \
+SSH_IDENTITY_FILE=~/Downloads/yannick.pem \
+SSH_OPTS="-o StrictHostKeyChecking=no" \
+bash deploy/single-node/deploy-fast.sh <目标>
+# 目标：web-tma | bff-node | core-node | all
+```
+
+### 有新 npm 依赖 / Dockerfile 变更 / 首次部署 → 完整部署，约 3-5 分钟
+```bash
+DEPLOY_HOST=root@47.84.34.139 \
+DEPLOY_DIR=/root/workspace/tma-projects \
+SSH_IDENTITY_FILE=~/Downloads/yannick.pem \
+SSH_OPTS="-o StrictHostKeyChecking=no" \
+bash deploy/single-node/deploy-web-tma.sh
+```
 
 ## 项目结构
 - **bff-node**：Koa + TypeScript 后端 API，端口 3000
