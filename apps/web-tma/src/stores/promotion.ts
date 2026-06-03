@@ -18,8 +18,11 @@ import {
   type TeamCommissionSummary,
   type TeamWithdrawal,
 } from '@/api/promotion'
+import { ApiError } from '@/api/client'
 import { creditWallet } from '@/api/wallet'
+import { useAuthStore } from '@/stores/auth'
 import { useWalletStore } from '@/stores/wallet'
+import { i18n } from '@/i18n'
 import type { PromoHighlight, PromoId, RedPacketRecord, ReferralRecord, TeamAgentStatus } from '@/types/api'
 
 interface PromotionState {
@@ -42,6 +45,7 @@ interface PromotionState {
   teamWithdrawalsTotal: number
   teamWithdrawalsPage: number
   teamWithdrawalsLoading: boolean
+  trialClaiming: boolean
 }
 
 interface PromotionActions {
@@ -58,6 +62,7 @@ interface PromotionActions {
   submitWithdrawal: (amountCents: number) => Promise<{ ok: boolean; message?: string }>
   loadTeamWithdrawals: (page?: number) => Promise<void>
   claimPromo: (id: PromoId) => Promise<{ ok: boolean; message?: string }>
+  claimTrialIfEligible: () => Promise<{ ok: boolean; alreadyClaimed?: boolean; message?: string }>
 }
 
 export const usePromotionStore = create<PromotionState & PromotionActions>((set, get) => ({
@@ -80,6 +85,7 @@ export const usePromotionStore = create<PromotionState & PromotionActions>((set,
   teamWithdrawalsTotal: 0,
   teamWithdrawalsPage: 1,
   teamWithdrawalsLoading: false,
+  trialClaiming: false,
 
   setHighlights(rows) { set({ highlights: rows }) },
 
@@ -188,6 +194,12 @@ export const usePromotionStore = create<PromotionState & PromotionActions>((set,
   },
 
   async claimPromo(id) {
+    const titleKey =
+      id === 'trial'
+        ? 'bonuses.promos.trial.title'
+        : id === 'referral'
+          ? 'bonuses.promos.referral.title'
+          : 'bonuses.promos.firstdep.title'
     try {
       let amountPhp = 0
       if (id === 'trial') ({ amountPhp } = await claimTrialBonus())
@@ -197,10 +209,40 @@ export const usePromotionStore = create<PromotionState & PromotionActions>((set,
       await useWalletStore.getState().refresh()
       await get().refreshHighlights()
       await get().loadLists()
-      get().showRedPacket('Bonus credited', amountPhp)
+      get().showRedPacket(i18n.t(titleKey), amountPhp)
+      if (id === 'trial') useAuthStore.getState().clearTrialEligible()
       return { ok: true }
     } catch (e) {
-      return { ok: false, message: e instanceof Error ? e.message : 'Claim failed' }
+      if (id === 'trial' && e instanceof ApiError && e.code === 409) {
+        useAuthStore.getState().clearTrialEligible()
+        await get().refreshHighlights()
+      }
+      const message =
+        id === 'trial' && e instanceof ApiError && e.code === 409
+          ? i18n.t('bonuses.promos.trial.alreadyClaimed')
+          : e instanceof Error
+            ? e.message
+            : i18n.t('bonuses.promos.trial.claimFailed')
+      return { ok: false, message }
+    }
+  },
+
+  async claimTrialIfEligible() {
+    const trialHighlight = getHighlightMap().get('trial')
+    const authEligible = useAuthStore.getState().trialEligible
+    if (!trialHighlight?.highlight && !authEligible) {
+      return { ok: false, alreadyClaimed: true }
+    }
+    if (get().trialClaiming) return { ok: false, message: i18n.t('bonuses.promos.trial.claiming') }
+    set({ trialClaiming: true })
+    try {
+      const result = await get().claimPromo('trial')
+      if (!result.ok && result.message === i18n.t('bonuses.promos.trial.alreadyClaimed')) {
+        return { ok: false, alreadyClaimed: true, message: result.message }
+      }
+      return result
+    } finally {
+      set({ trialClaiming: false })
     }
   },
 }))

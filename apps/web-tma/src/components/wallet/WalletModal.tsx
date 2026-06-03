@@ -10,6 +10,7 @@ import { useWalletStore } from '@/stores/wallet'
 import { useTonConnect } from '@/hooks/useTonConnect'
 import { openTelegramInvoice, waitForDepositPaid } from '@/utils/tgInvoice'
 import { fetchYfPayChannels, createYfDeposit, queryYfDeposit, fetchYfDepositOrders, fetchYfWithdrawOrders, fetchDepositHistory, fetchWithdrawHistory, createYfWithdrawal, type YfPayChannel } from '@/api/yfpay'
+import { fetchMatrixDepositAddress, createMatrixWithdrawal } from '@/api/matrix'
 import { CRYPTO_DEPOSIT, CRYPTO_WITHDRAW, FIAT_DEPOSIT, FIAT_WITHDRAW, TG_WALLET_DEPOSIT, WALLET_BANNERS, type PayMethod } from '@/data/wallet'
 import { useBottomSheetDrag } from '@/hooks/useBottomSheetDrag'
 
@@ -39,7 +40,7 @@ export default function WalletModal({ open, onClose }: Props) {
   const { onPointerDown, onPointerUp, onPointerCancel } = useBottomSheetDrag(open, onClose, sheetRef, backdropRef)
 
   const [tab, setTab] = useState<'deposit'|'withdraw'|'history'>('deposit')
-  const [depositView, setDepositView] = useState<'select'|'input'>('select')
+  const [depositView, setDepositView] = useState<'select'|'input'|'matrix_address'>('select')
   const [selectedMethod, setSelectedMethod] = useState<string|null>(null)
   const [amount, setAmount] = useState('')
   const [historyFilter, setHistoryFilter] = useState<'all'|'deposit'|'withdraw'>('all')
@@ -66,6 +67,10 @@ export default function WalletModal({ open, onClose }: Props) {
   const [historyOrders, setHistoryOrders] = useState<HistoryItem[]>([])
   const [historyLoading, setHistoryLoading] = useState(false)
   const [copiedId, setCopiedId] = useState<string|null>(null)
+  const [matrixAddress, setMatrixAddress] = useState('')
+  const [matrixAddressLoading, setMatrixAddressLoading] = useState(false)
+  const [matrixCryptoAmount, setMatrixCryptoAmount] = useState('')
+  const [copiedAddress, setCopiedAddress] = useState(false)
 
   function stopPolling() { if(pollTimerRef.current){clearInterval(pollTimerRef.current);pollTimerRef.current=null} }
   function stopTonPolling() { if(tonPollTimerRef.current){clearInterval(tonPollTimerRef.current);tonPollTimerRef.current=null} }
@@ -88,10 +93,20 @@ export default function WalletModal({ open, onClose }: Props) {
 
   useEffect(() => {
     if (!selectedMethod) return
-    setDepositView('input')
-    if (tab === 'deposit') {
-      const isCrypto = /^(usdt|ton|btc|eth|bnb)/.test(selectedMethod) && !selectedMethod.startsWith('tg_wallet')
-      if (!isCrypto) setAmount(DEFAULT_DEPOSIT_AMOUNTS[selectedMethod] ?? '')
+    const method = allPayMethods.find((m) => m.id === selectedMethod)
+    if (method?.channelId === 'matrix' && tab === 'deposit') {
+      setDepositView('matrix_address')
+      setMatrixAddress(''); setDepositMessage(''); setMatrixAddressLoading(true); setCopiedAddress(false)
+      void fetchMatrixDepositAddress(method.matrixSymbol!, method.matrixChain!)
+        .then((res) => setMatrixAddress(res.address))
+        .catch((e) => { setDepositMessage(e instanceof Error ? e.message : t('wallet.matrixDepositFetchFailed')); setDepositView('select'); setSelectedMethod(null) })
+        .finally(() => setMatrixAddressLoading(false))
+    } else {
+      setDepositView('input')
+      if (tab === 'deposit') {
+        const isCrypto = /^(usdt|ton|btc|eth|bnb|matrix)/.test(selectedMethod) && !selectedMethod.startsWith('tg_wallet')
+        if (!isCrypto) setAmount(DEFAULT_DEPOSIT_AMOUNTS[selectedMethod] ?? '')
+      }
     }
   }, [selectedMethod])
 
@@ -109,6 +124,7 @@ export default function WalletModal({ open, onClose }: Props) {
   const isYfPay = (selectedMethod ?? '').startsWith('yfpay_')
   const isTonConnect = selectedPayMethod?.channelId === 'ton_connect'
   const isFiatWithdraw = FIAT_WITHDRAW.some((m) => m.id === selectedMethod)
+  const isMatrixWithdraw = selectedPayMethod?.channelId === 'matrix' && tab === 'withdraw'
   const isCryptoMethod = /usdt|ton|btc|eth|bnb/.test(selectedMethod ?? '') && !isTgWallet
   const depositCurrency = selectedPayMethod?.currency ?? 'PHP'
   const quickAmounts = depositCurrency === 'USDT' ? quickAmountsUsdt : quickAmountsPhp
@@ -121,6 +137,7 @@ export default function WalletModal({ open, onClose }: Props) {
   const tonAddressShort = useMemo(() => { const addr=tonWalletAddress; if(!addr)return ''; return addr.length>20?`${addr.slice(0,10)}…${addr.slice(-6)}`:addr }, [tonWalletAddress])
   const canSubmitDeposit = Boolean(!depositLoading && selectedPayMethod?.channelId && Number(amount) > 0)
   const canSubmitWithdraw = Boolean(!withdrawLoading && isFiatWithdraw && Number(amount) > 0 && withdrawAccount.trim() && withdrawOwner.trim())
+  const canSubmitMatrixWithdraw = Boolean(!withdrawLoading && isMatrixWithdraw && Number(amount) > 0 && Number(matrixCryptoAmount) > 0 && withdrawAccount.trim())
   const filteredHistory = useMemo(() => historyOrders.filter((tx) => (historyFilter==='all'||tx.type===historyFilter) && (historyStatus==='all'||tx.status===historyStatus)), [historyOrders, historyFilter, historyStatus])
 
   const localizedWalletBanners = useMemo(() => WALLET_BANNERS.map((b, i) => ({ ...b, label: t(`wallet.banners.${i}.label`), text: t(`wallet.banners.${i}.text`) })), [t])
@@ -201,6 +218,29 @@ export default function WalletModal({ open, onClose }: Props) {
     try{await createYfWithdrawal({amount:n,targetOwner:withdrawOwner.trim(),targetAccount:withdrawAccount.trim(),optionCode:withdrawOptionCode||undefined});setWithdrawSuccess(true);setWithdrawMessage(t('wallet.yfpayWithdrawPending'));await walletStore.refresh();setTimeout(()=>{setTab('history');setHistoryFilter('withdraw');void loadHistory()},1500)}catch(e){setWithdrawMessage(e instanceof ApiError?e.message:t('wallet.yfpayWithdrawFailed'))}finally{setWithdrawLoading(false)}
   }
 
+  async function onProceedMatrixWithdraw() {
+    if (!canSubmitMatrixWithdraw || !selectedPayMethod) return
+    setWithdrawLoading(true); setWithdrawMessage(''); setWithdrawSuccess(false)
+    try {
+      await createMatrixWithdrawal({
+        toAddress: withdrawAccount.trim(),
+        symbol: selectedPayMethod.matrixSymbol!,
+        chain: selectedPayMethod.matrixChain!,
+        cryptoAmount: matrixCryptoAmount.trim(),
+        amount: Number(amount),
+      })
+      setWithdrawSuccess(true); setWithdrawMessage(t('wallet.matrixWithdrawPending'))
+      await walletStore.refresh()
+      setTimeout(() => { setTab('history'); setHistoryFilter('withdraw'); void loadHistory() }, 1500)
+    } catch (e) {
+      setWithdrawMessage(e instanceof Error ? e.message : t('wallet.matrixWithdrawFailed'))
+    } finally { setWithdrawLoading(false) }
+  }
+
+  async function copyMatrixAddress() {
+    try { await navigator.clipboard.writeText(matrixAddress); setCopiedAddress(true); setTimeout(() => setCopiedAddress(false), 2000) } catch { /**/ }
+  }
+
   async function loadHistory() {
     setHistoryLoading(true)
     try{
@@ -216,7 +256,7 @@ export default function WalletModal({ open, onClose }: Props) {
 
   async function copyOrderId(id: string) { try{await navigator.clipboard.writeText(id);setCopiedId(id);setTimeout(()=>setCopiedId(null),2000)}catch{/***/} }
 
-  function resetToSelect() { setDepositView('select'); setSelectedMethod(null); setAmount(''); setDepositMessage(''); setWithdrawMessage(''); setWithdrawAccount(''); setWithdrawOwner(''); stopTonPolling(); setTonMessage(''); setTonLoading(false); setTonSuccess(false) }
+  function resetToSelect() { setDepositView('select'); setSelectedMethod(null); setAmount(''); setDepositMessage(''); setWithdrawMessage(''); setWithdrawAccount(''); setWithdrawOwner(''); stopTonPolling(); setTonMessage(''); setTonLoading(false); setTonSuccess(false); setMatrixAddress(''); setMatrixCryptoAmount(''); setCopiedAddress(false) }
 
   if (!open) return null
 
@@ -288,7 +328,38 @@ export default function WalletModal({ open, onClose }: Props) {
         <div data-sheet-scroll className="page-scroll flex-1 px-5 pb-4 pt-4 hide-scrollbar overflow-y-auto">
           {tab !== 'history' ? (
             <>
-              {depositView === 'select' ? (
+              {depositView === 'matrix_address' ? (
+                <div className="space-y-4">
+                  <div className="flex items-center gap-3">
+                    <button type="button" className="flex h-9 w-9 items-center justify-center rounded-xl bg-secondary hover:bg-muted transition-colors flex-shrink-0" onClick={resetToSelect}><ArrowLeft size={16} className="text-foreground" /></button>
+                    <div className="flex items-center gap-2.5 flex-1 bg-secondary rounded-xl px-3 py-2.5">
+                      <div className={`w-8 h-8 rounded-lg bg-gradient-to-br flex items-center justify-center flex-shrink-0 ${selectedPayMethod?.color??'from-muted to-muted'}`}><span className="text-white font-black text-sm">{selectedPayMethod?.icon}</span></div>
+                      <div className="flex-1"><span className="text-foreground font-black text-sm">{selectedPayMethod?.name}</span></div>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/15 text-primary">{selectedPayMethod?.tag}</span>
+                    </div>
+                  </div>
+                  <p className="text-muted-foreground text-[11px] font-bold uppercase tracking-wider">{t('wallet.matrixDepositTitle')}</p>
+                  {matrixAddressLoading ? (
+                    <div className="flex flex-col items-center gap-3 py-8"><Loader2 size={28} className="text-primary animate-spin opacity-70" /></div>
+                  ) : matrixAddress ? (
+                    <>
+                      <p className="text-xs text-muted-foreground text-center">{t('wallet.matrixDepositNote', { symbol: selectedPayMethod?.matrixSymbol, chain: selectedPayMethod?.matrixChain })}</p>
+                      <div className="bg-secondary rounded-2xl px-4 py-3 space-y-2">
+                        <p className="font-mono text-xs text-foreground break-all leading-relaxed">{matrixAddress}</p>
+                        <button type="button" className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-xl transition-colors w-full justify-center ${copiedAddress?'bg-emerald-500/20 text-emerald-400':'bg-muted text-muted-foreground hover:text-foreground'}`} onClick={()=>void copyMatrixAddress()}>
+                          {copiedAddress?<Check size={13}/>:<Copy size={13}/>}{copiedAddress?t('common.copied'):t('common.copy')}
+                        </button>
+                      </div>
+                      <div className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/20 rounded-xl px-3 py-2.5">
+                        <ShieldCheck size={13} className="text-amber-400 flex-shrink-0" />
+                        <span className="text-[11px] text-amber-300/80">{`Network: ${selectedPayMethod?.matrixChain} · Min 1 ${selectedPayMethod?.matrixSymbol}`}</span>
+                      </div>
+                    </>
+                  ) : (
+                    <p className="text-xs text-amber-400 text-center py-4">{depositMessage}</p>
+                  )}
+                </div>
+              ) : depositView === 'select' ? (
                 <div className="space-y-5">
                   {tab === 'deposit' ? (
                     <>
@@ -339,8 +410,15 @@ export default function WalletModal({ open, onClose }: Props) {
                   </>}
                   {tab==='deposit'&&isTgWallet&&<button type="button" className="w-full py-3.5 rounded-2xl font-black text-base flex items-center justify-center gap-2 shadow-lg disabled:opacity-50 bg-primary text-primary-foreground hover:bg-yellow-400 shadow-amber-500/20" disabled={!canSubmitDeposit} onClick={()=>void onProceedDeposit()}>{depositLoading?<Loader2 size={18} className="animate-spin"/>:<ArrowDownToLine size={18} />}{depositLoading?t('wallet.openingPay'):t('wallet.payTelegram')}</button>}
                   {tab==='deposit'&&isYfPay&&!isTonConnect&&<button type="button" className="w-full py-3.5 rounded-2xl font-black text-base flex items-center justify-center gap-2 shadow-lg disabled:opacity-50 bg-primary text-primary-foreground hover:bg-yellow-400 shadow-amber-500/20" disabled={!canSubmitDeposit||depositLoading} onClick={()=>void onProceedYfDeposit()}>{depositLoading?<Loader2 size={18} className="animate-spin"/>:<ArrowDownToLine size={18} />}{depositLoading?t('wallet.yfpayWaitingPayment'):t('wallet.yfpayProceedDeposit')}</button>}
+                  {tab==='withdraw'&&isMatrixWithdraw&&<>
+                    <input value={withdrawAccount} type="text" placeholder={t('wallet.matrixWithdrawAddress', { symbol: selectedPayMethod?.matrixSymbol ?? 'TRX' })} className="w-full bg-secondary border border-border rounded-xl px-4 py-3 text-foreground font-bold text-sm focus:outline-none focus:border-primary font-mono" onChange={(e)=>setWithdrawAccount(e.target.value)} />
+                    <input value={matrixCryptoAmount} type="number" placeholder={t('wallet.matrixCryptoAmount', { symbol: selectedPayMethod?.matrixSymbol ?? 'TRX' })} className="w-full bg-secondary border border-border rounded-xl px-4 py-3 text-foreground font-bold text-sm focus:outline-none focus:border-primary" onChange={(e)=>setMatrixCryptoAmount(e.target.value)} />
+                    <input value={amount} type="number" placeholder={t('wallet.matrixPhpDeduct')} className="w-full bg-secondary border border-border rounded-xl px-4 py-3 text-foreground font-bold text-sm focus:outline-none focus:border-primary" onChange={(e)=>setAmount(e.target.value)} />
+                    {withdrawMessage&&<p className={`text-xs font-bold text-center ${withdrawSuccess?'text-emerald-400':'text-amber-400'}`}>{withdrawMessage}</p>}
+                    <button type="button" className="w-full py-3.5 rounded-2xl font-black text-base flex items-center justify-center gap-2 shadow-lg disabled:opacity-50 bg-red-600 text-white hover:bg-red-500 shadow-red-500/20" disabled={!canSubmitMatrixWithdraw} onClick={()=>void onProceedMatrixWithdraw()}>{withdrawLoading?<Loader2 size={18} className="animate-spin"/>:<ArrowUpFromLine size={18} />}{withdrawLoading?t('wallet.openingPay'):t('wallet.matrixWithdrawSubmit')}</button>
+                  </>}
                   {tab==='withdraw'&&isFiatWithdraw&&<button type="button" className="w-full py-3.5 rounded-2xl font-black text-base flex items-center justify-center gap-2 shadow-lg disabled:opacity-50 bg-accent text-accent-foreground hover:bg-red-500 shadow-red-500/20" disabled={!canSubmitWithdraw} onClick={()=>void onProceedWithdraw()}>{withdrawLoading?<Loader2 size={18} className="animate-spin"/>:<ArrowUpFromLine size={18} />}{withdrawLoading?t('wallet.openingPay'):t('wallet.yfpayWithdrawSubmit')}</button>}
-                  {tab==='withdraw'&&!isFiatWithdraw&&<div className="flex flex-col items-center gap-3 py-6 text-center"><div className="w-14 h-14 rounded-2xl bg-secondary flex items-center justify-center"><span className="text-2xl">🔜</span></div><p className="text-sm font-black text-foreground">{t('wallet.comingSoon')}</p><p className="text-xs text-muted-foreground">{t('wallet.cryptoWithdrawSoon')}</p></div>}
+                  {tab==='withdraw'&&!isFiatWithdraw&&!isMatrixWithdraw&&<div className="flex flex-col items-center gap-3 py-6 text-center"><div className="w-14 h-14 rounded-2xl bg-secondary flex items-center justify-center"><span className="text-2xl">🔜</span></div><p className="text-sm font-black text-foreground">{t('wallet.comingSoon')}</p><p className="text-xs text-muted-foreground">{t('wallet.cryptoWithdrawSoon')}</p></div>}
                 </div>
               )}
             </>

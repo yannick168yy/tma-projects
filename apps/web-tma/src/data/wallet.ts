@@ -16,6 +16,9 @@ export interface PayMethod {
   yfpayChannelCode?: string
   minAmount?: number
   maxAmount?: number
+  /** Matrix-specific fields */
+  matrixSymbol?: string
+  matrixChain?: string
 }
 
 /** Telegram Wallet via TON Connect — coming soon */
@@ -62,6 +65,28 @@ export const CRYPTO_DEPOSIT: PayMethod[] = [
     channelId: 'ton_connect',
     currency: 'TON',
   },
+  {
+    id: 'matrix_trx_shasta',
+    name: 'TRX',
+    icon: 'T',
+    color: 'from-red-500 to-rose-700',
+    tag: 'TRON_SHASTA',
+    enabled: true,
+    channelId: 'matrix',
+    matrixSymbol: 'TRX',
+    matrixChain: 'TRON_SHASTA',
+  },
+  {
+    id: 'matrix_trx_testnet',
+    name: 'TRX',
+    icon: 'T',
+    color: 'from-orange-500 to-red-600',
+    tag: 'TRX_TESTNET',
+    enabled: true,
+    channelId: 'matrix',
+    matrixSymbol: 'TRX',
+    matrixChain: 'TRX_TESTNET',
+  },
 ]
 
 export const FIAT_WITHDRAW: PayMethod[] = [
@@ -74,6 +99,28 @@ export const CRYPTO_WITHDRAW: PayMethod[] = [
   { id: 'usdt-erc-w', name: 'USDT', icon: '', iconUrl: '/logos/usdt.svg', color: 'from-indigo-500 to-blue-700', tag: 'ERC20' },
   { id: 'ton-w', name: 'TON', icon: '', iconUrl: '/logos/ton.svg', color: 'from-sky-400 to-blue-600', tag: 'TON' },
   { id: 'btc-w', name: 'Bitcoin', icon: '', iconUrl: '/logos/btc.svg', color: 'from-orange-400 to-amber-600', tag: 'BTC' },
+  {
+    id: 'matrix_trx_shasta_w',
+    name: 'TRX',
+    icon: 'T',
+    color: 'from-red-500 to-rose-700',
+    tag: 'TRON_SHASTA',
+    enabled: true,
+    channelId: 'matrix',
+    matrixSymbol: 'TRX',
+    matrixChain: 'TRON_SHASTA',
+  },
+  {
+    id: 'matrix_trx_testnet_w',
+    name: 'TRX',
+    icon: 'T',
+    color: 'from-orange-500 to-red-600',
+    tag: 'TRX_TESTNET',
+    enabled: true,
+    channelId: 'matrix',
+    matrixSymbol: 'TRX',
+    matrixChain: 'TRX_TESTNET',
+  },
 ]
 
 export const WALLET_BANNERS = [

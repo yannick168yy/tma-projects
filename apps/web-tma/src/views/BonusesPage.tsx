@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Trophy, ChevronDown, Users, Wallet } from 'lucide-react'
 import { BONUS_WINNERS, PROMOS, PROMO_STATS } from '@/data/promos'
-import { usePromotionStore } from '@/stores/promotion'
+import { usePromotionStore, getHighlightMap } from '@/stores/promotion'
 import { useAuthStore } from '@/stores/auth'
 
 interface Props {
@@ -18,11 +18,18 @@ function phpDisplay(cents: number) {
 export default function BonusesPage({ promoFilter, onOpenWallet, onOpenTeam }: Props) {
   const { t } = useTranslation()
   const promotionStore = usePromotionStore()
+  const highlights = usePromotionStore((s) => s.highlights)
+  const trialClaiming = usePromotionStore((s) => s.trialClaiming)
+  const claimTrialIfEligible = usePromotionStore((s) => s.claimTrialIfEligible)
   const token = useAuthStore((s) => s.token)
   const user = useAuthStore((s) => s.user)
+  const trialEligible = useAuthStore((s) => s.trialEligible)
   const ensureLoggedIn = useAuthStore((s) => s.ensureLoggedIn)
 
+  const highlightMap = useMemo(() => getHighlightMap(), [highlights])
+
   const [expanded, setExpanded] = useState<string | null>(promoFilter ?? null)
+  const [promoError, setPromoError] = useState<string | null>(null)
   const [agentActivating, setAgentActivating] = useState(false)
   const [agentExpanded, setAgentExpanded] = useState(false)
 
@@ -46,6 +53,22 @@ export default function BonusesPage({ promoFilter, onOpenWallet, onOpenTeam }: P
     setAgentActivating(true)
     await promotionStore.enableAgent()
     setAgentActivating(false)
+  }
+
+  function isTrialClaimable() {
+    return Boolean(highlightMap.get('trial')?.highlight ?? trialEligible)
+  }
+
+  async function onPromoCta(promoId: string) {
+    setPromoError(null)
+    if (promoId === 'firstdep') {
+      onOpenWallet()
+      return
+    }
+    if (promoId !== 'trial') return
+    if (!(await ensureLoggedIn(t('auth.signInProfile')))) return
+    const result = await claimTrialIfEligible()
+    if (!result.ok && !result.alreadyClaimed && result.message) setPromoError(result.message)
   }
 
   const localizedPromos = useMemo(
@@ -306,11 +329,19 @@ export default function BonusesPage({ promoFilter, onOpenWallet, onOpenTeam }: P
               )}
               <button
                 type="button"
-                className={`w-full mt-3 py-3 rounded-xl text-white font-black text-sm transition-colors ${p.ctaColor}`}
-                onClick={p.id === 'firstdep' ? onOpenWallet : undefined}
+                disabled={p.id === 'trial' && (!isTrialClaimable() || trialClaiming)}
+                className={`w-full mt-3 py-3 rounded-xl text-white font-black text-sm transition-colors ${p.ctaColor} ${p.id === 'trial' && (!isTrialClaimable() || trialClaiming) ? 'opacity-50 pointer-events-none' : ''}`}
+                onClick={() => void onPromoCta(p.id)}
               >
-                {p.cta}
+                {p.id === 'trial' && trialClaiming
+                  ? t('bonuses.promos.trial.claiming')
+                  : p.id === 'trial' && !isTrialClaimable()
+                    ? t('bonuses.promos.trial.ctaClaimed')
+                    : p.cta}
               </button>
+              {p.id === 'trial' && promoError && (
+                <p className="mt-2 text-[11px] text-red-400 text-center">{promoError}</p>
+              )}
             </div>
           </div>
         ))}

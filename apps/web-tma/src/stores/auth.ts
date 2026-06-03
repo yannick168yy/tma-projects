@@ -32,6 +32,7 @@ interface AuthActions {
   ensureLoggedIn: (reason: string) => Promise<boolean>
   requireLogin: (reason: string) => boolean
   closeLoginSheet: () => void
+  clearTrialEligible: () => void
   loginWithTelegram: () => Promise<void>
   loginWithGoogle: () => void
   logout: () => Promise<void>
@@ -120,6 +121,10 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
 
   closeLoginSheet() {
     set({ loginSheetOpen: false, loginReason: null })
+  },
+
+  clearTrialEligible() {
+    set({ trialEligible: false })
   },
 
   async loginWithTelegram() {
