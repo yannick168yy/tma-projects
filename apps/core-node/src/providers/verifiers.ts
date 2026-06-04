@@ -57,13 +57,23 @@ function verifySg(req: FastifyRequest, env: Record<string, string>): boolean {
 
 function verifyMatrix(req: FastifyRequest, env: Record<string, string>): boolean {
   const pubKey = env['MATRIX_PLATFORM_NOTIFY_PUBLIC_KEY']
-  if (!pubKey) return false
+  if (!pubKey) {
+    console.error('[matrix-verify] MATRIX_PLATFORM_NOTIFY_PUBLIC_KEY 未配置')
+    return false
+  }
+  const normalized = normalizePem(pubKey)
+  const envelope = req.body as MatrixEnvelope
+  const signStr = `data=${envelope.data}&key=${envelope.key}&timestamp=${envelope.timestamp}`
+  console.error('[matrix-verify] pubKey前60字符:', JSON.stringify(normalized.slice(0, 60)))
+  console.error('[matrix-verify] pubKey末30字符:', JSON.stringify(normalized.slice(-30)))
+  console.error('[matrix-verify] signStr前100字符:', signStr.slice(0, 100))
+  console.error('[matrix-verify] timestamp:', envelope.timestamp, 'sig前30:', envelope.sig?.slice(0, 30))
   try {
-    return verifyNotifySignature(
-      req.body as MatrixEnvelope,
-      normalizePem(pubKey),
-    )
-  } catch {
+    const ok = verifyNotifySignature(envelope, normalized)
+    console.error('[matrix-verify] 验签结果:', ok)
+    return ok
+  } catch (err) {
+    console.error('[matrix-verify] 验签异常:', err)
     return false
   }
 }
