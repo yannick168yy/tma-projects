@@ -49,6 +49,45 @@ export function getDisplayPhp(): string {
   return useWalletStore.getState().balance?.displayPhp ?? '₱ —'
 }
 
+// 预设支持的币种顺序
+export const SUPPORTED_CURRENCY_CODES = ['PHP', 'USDT', 'USDC', 'TON', 'TRX', 'BNB', 'ETH', 'BTC'] as const
+
+export interface CurrencyMeta {
+  code: string
+  name: string
+  symbol: string
+  isTestnet?: boolean
+}
+
+export const CURRENCY_META: Record<string, CurrencyMeta> = {
+  PHP:         { code: 'PHP',         name: 'Philippine Peso', symbol: '₱' },
+  USDT:        { code: 'USDT',        name: 'Tether USD',      symbol: '₮' },
+  USDC:        { code: 'USDC',        name: 'USD Coin',        symbol: '$' },
+  TON:         { code: 'TON',         name: 'Toncoin',         symbol: '◈' },
+  TRX:         { code: 'TRX',         name: 'Tron',            symbol: 'T' },
+  TRX_TESTNET: { code: 'TRX_TESTNET', name: 'Tron',            symbol: 'T', isTestnet: true },
+  BNB:         { code: 'BNB',         name: 'BNB',             symbol: 'B' },
+  ETH:         { code: 'ETH',         name: 'Ethereum',        symbol: 'Ξ' },
+  BTC:         { code: 'BTC',         name: 'Bitcoin',         symbol: '₿' },
+}
+
+// 头部 chip 余额：PHP 带 ₱ 符号，其他只显示数字（chip 标签已含币种代码）
+export function formatHeaderBalance(currency: string, available: number): string {
+  if (currency === 'PHP') {
+    return `₱ ${available.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  }
+  return available.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
+// 列表行金额：只显示数字，不重复币种代码
+export function formatRowAmount(currency: string, available: number): string {
+  if (currency === 'PHP') {
+    return `₱ ${available.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  }
+  return available.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
+// 完整格式，含币种代码（用于其他地方）
 export function formatCurrencyAmount(currency: string, available: number): string {
   if (currency === 'PHP') {
     return `₱ ${available.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
@@ -57,8 +96,5 @@ export function formatCurrencyAmount(currency: string, available: number): strin
 }
 
 export function currencySymbol(currency: string): string {
-  if (currency === 'PHP') return '₱'
-  if (currency === 'USDT') return '$'
-  if (currency === 'TON') return '◈'
-  return currency.slice(0, 3)
+  return CURRENCY_META[currency]?.symbol ?? currency.slice(0, 3)
 }
