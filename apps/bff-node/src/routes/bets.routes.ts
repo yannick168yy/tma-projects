@@ -39,7 +39,7 @@ router.get('/', async (ctx) => {
        g.image_hq_url AS game_image_hq
      FROM (
        SELECT
-         round_id,
+         MAX(round_id)                                                          AS round_id,
          MAX(provider_id)                                                       AS game_uuid,
          SUM(CASE WHEN bet_type = 'bet'              THEN amount ELSE 0 END)   AS bet_amount,
          SUM(CASE WHEN bet_type IN ('win','refund')  THEN amount ELSE 0 END)   AS win_amount,
