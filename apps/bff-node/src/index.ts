@@ -2,9 +2,12 @@ import { bootstrapEnv } from './config/bootstrap.js'
 import { createApp } from './app.js'
 import { logger } from './lib/logger.js'
 import { closeRedis } from './clients/redis.client.js'
-import { closeMysql, getStorageMode } from './clients/mysql.client.js'
+import { closeMysql, getStorageMode, warmupMysql, isMysqlEnabled } from './clients/mysql.client.js'
 
 const env = await bootstrapEnv()
+
+if (isMysqlEnabled(env)) await warmupMysql(env)
+
 const app = createApp(env)
 
 const server = app.listen(env.BFF_PORT, () => {

@@ -37,6 +37,21 @@ export function getMysqlPool(env: Env): Pool {
   return pool
 }
 
+export async function warmupMysql(env: Env): Promise<void> {
+  const p = getMysqlPool(env)
+  for (let i = 0; i < 6; i++) {
+    try {
+      const conn = await p.getConnection()
+      conn.release()
+      return
+    } catch (err: unknown) {
+      if (i === 5) throw err
+      console.warn(`[mysql] connect failed (attempt ${i + 1}/6), retrying in 3s:`, (err as Error).message)
+      await new Promise(r => setTimeout(r, 3000))
+    }
+  }
+}
+
 export async function closeMysql(): Promise<void> {
   if (pool) {
     await pool.end()
