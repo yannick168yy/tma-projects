@@ -46,7 +46,8 @@ function verifyRsa(message: string, signatureB64: string, publicKeyPem: string):
     const verifier = createVerify('SHA256')
     verifier.update(message, 'utf8')
     return verifier.verify(publicKeyPem, signatureB64, 'base64')
-  } catch {
+  } catch (err) {
+    console.error('[verifyRsa] 异常:', err instanceof Error ? err.message : err)
     return false
   }
 }
@@ -73,7 +74,14 @@ export function verifyNotifySignature(
   platformNotifyPubKeyPem: string,
 ): boolean {
   const signStr = `data=${envelope.data}&key=${envelope.key}&timestamp=${envelope.timestamp}`
-  return verifyRsa(signStr, envelope.sig, platformNotifyPubKeyPem)
+  const ok = verifyRsa(signStr, envelope.sig, platformNotifyPubKeyPem)
+  if (!ok) {
+    console.warn('[verifyNotifySignature] 验签失败')
+    console.warn('  signStr(前200):', signStr.slice(0, 200))
+    console.warn('  pubKey(前60):', platformNotifyPubKeyPem.slice(0, 60))
+    console.warn('  sig(前40):', envelope.sig.slice(0, 40))
+  }
+  return ok
 }
 
 // 验签 + 解密通知 / 提现反查请求
