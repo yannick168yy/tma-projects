@@ -341,6 +341,8 @@ export default {
     communityMedia: 'COMMUNITY & MEDIA',
     supportedCurrencies: 'SUPPORTED CURRENCIES',
     legalPolicies: 'LEGAL & POLICIES',
+    activity: 'ACTIVITY',
+    betHistory: 'Bet History',
     account: 'ACCOUNT',
     signingOut: 'Signing out…',
     logoutConfirmBody2:
@@ -495,5 +497,17 @@ export default {
   },
   game: {
     backToBetoGo: 'Back to BetoGo',
+  },
+  betHistory: {
+    title: 'Bet History',
+    records: 'records',
+    empty: 'No bets yet',
+    emptyHint: 'Your game activity will appear here.',
+    type: {
+      bet: 'Bet',
+      win: 'Win',
+      refund: 'Refund',
+      rollback: 'Rollback',
+    },
   },
 }

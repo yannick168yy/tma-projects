@@ -314,6 +314,8 @@ export default {
     communityMedia: 'KOMUNITAS & MEDIA',
     supportedCurrencies: 'MATA UANG DIDUKUNG',
     legalPolicies: 'HUKUM & KEBIJAKAN',
+    activity: 'AKTIVITAS',
+    betHistory: 'Riwayat Taruhan',
     account: 'AKUN',
     signingOut: 'Sedang keluar…',
     logoutConfirmBody2: 'Anda perlu masuk lagi untuk deposit, bermain, dan melihat dompet.',
@@ -457,5 +459,17 @@ export default {
   },
   game: {
     backToBetoGo: 'Kembali ke BetoGo',
+  },
+  betHistory: {
+    title: 'Riwayat Taruhan',
+    records: 'catatan',
+    empty: 'Belum ada taruhan',
+    emptyHint: 'Aktivitas game Anda akan muncul di sini.',
+    type: {
+      bet: 'Taruhan',
+      win: 'Menang',
+      refund: 'Refund',
+      rollback: 'Dibatalkan',
+    },
   },
 }

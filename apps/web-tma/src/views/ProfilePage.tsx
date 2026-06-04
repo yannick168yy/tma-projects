@@ -9,7 +9,7 @@ import { patchProfile } from '@/api/auth'
 import ContactBrandIcon from '@/components/profile/ContactBrandIcon'
 import ContactMethodRow from '@/components/profile/ContactMethodRow'
 
-interface Props { onLogout: () => void; onOpenCs: () => void }
+interface Props { onLogout: () => void; onOpenCs: () => void; onOpenBetHistory: () => void }
 
 const CURRENCIES = [
   { symbol: '₱', name: 'PHP', color: 'from-blue-600 to-blue-800' },
@@ -22,7 +22,7 @@ const CURRENCIES = [
 
 const HOME_DOC_KEYS = new Set(['terms', 'privacy', 'responsible', 'about'])
 
-export default function ProfilePage({ onLogout, onOpenCs }: Props) {
+export default function ProfilePage({ onLogout, onOpenCs, onOpenBetHistory }: Props) {
   const { t } = useTranslation()
   const auth = useAuthStore()
   const [loggingOut, setLoggingOut] = useState(false)
@@ -310,6 +310,17 @@ export default function ProfilePage({ onLogout, onOpenCs }: Props) {
                 <ChevronRight size={14} className="text-muted-foreground" />
               </button>
             ))}
+          </div>
+        </section>
+
+        {/* Activity */}
+        <section>
+          <h3 className="mb-3 font-display text-sm font-black text-foreground">{t('profile.activity')}</h3>
+          <div className="overflow-hidden rounded-2xl border border-border bg-card">
+            <button type="button" className="flex w-full items-center justify-between px-4 py-3 transition-colors hover:bg-secondary/50" onClick={onOpenBetHistory}>
+              <div className="flex items-center gap-3"><span className="text-base">🎰</span><span className="text-sm font-semibold text-foreground">{t('profile.betHistory')}</span></div>
+              <ChevronRight size={14} className="text-muted-foreground" />
+            </button>
           </div>
         </section>
 

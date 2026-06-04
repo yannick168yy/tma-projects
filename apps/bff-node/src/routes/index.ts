@@ -14,6 +14,7 @@ import teamRoutes from './team.routes.js'
 import webhookRoutes from './webhook.routes.js'
 import yfpayRoutes from './yfpay.routes.js'
 import slotsRoutes from './slots.routes.js'
+import betsRoutes from './bets.routes.js'
 import { authMiddleware, optionalAuthMiddleware } from '../middleware/auth.js'
 import { getDepositChannels, YfPayError } from '../services/yfpay.service.js'
 import { ok, fail } from '../utils/response.js'
@@ -50,7 +51,7 @@ export function createApiRouter(): Router {
   const protectedMw = authMiddleware()
   for (const r of [
     userRoutes, walletRoutes, depositRoutes, tonDepositRoutes, withdrawRoutes,
-    ledgerRoutes, kycRoutes, promotionRoutes, teamRoutes, yfpayRoutes,
+    ledgerRoutes, kycRoutes, promotionRoutes, teamRoutes, yfpayRoutes, betsRoutes,
   ]) {
     api.use(protectedMw, r.routes(), r.allowedMethods())
   }

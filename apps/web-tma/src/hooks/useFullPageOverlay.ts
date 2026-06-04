@@ -17,6 +17,7 @@ type FullPageView =
   | { type: 'slotsLobby' }
   | { type: 'categoryLobby'; params: CategoryLobbyParams }
   | { type: 'teamCenter' }
+  | { type: 'betHistory' }
 
 export function useFullPageOverlay() {
   const [view, setView] = useState<FullPageView>({ type: 'none' })
@@ -28,6 +29,7 @@ export function useFullPageOverlay() {
     openSlotsLobby:    () => setView({ type: 'slotsLobby' }),
     openCategoryLobby: (params: CategoryLobbyParams) => setView({ type: 'categoryLobby', params }),
     openTeamCenter:    () => setView({ type: 'teamCenter' }),
+    openBetHistory:    () => setView({ type: 'betHistory' }),
     close:             () => setView({ type: 'none' }),
     is: (t: FullPageView['type']) => view.type === t,
   }

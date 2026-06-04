@@ -314,6 +314,8 @@ export default {
     communityMedia: 'CỘNG ĐỒNG & TRUYỀN THÔNG',
     supportedCurrencies: 'TIỀN TỆ HỖ TRỢ',
     legalPolicies: 'PHÁP LÝ & CHÍNH SÁCH',
+    activity: 'HOẠT ĐỘNG',
+    betHistory: 'Lịch sử cược',
     account: 'TÀI KHOẢN',
     signingOut: 'Đang đăng xuất…',
     logoutConfirmBody2: 'Bạn cần đăng nhập lại để nạp, chơi game và xem ví.',
@@ -457,5 +459,17 @@ export default {
   },
   game: {
     backToBetoGo: 'Quay lại BetoGo',
+  },
+  betHistory: {
+    title: 'Lịch sử cược',
+    records: 'bản ghi',
+    empty: 'Chưa có lịch sử cược',
+    emptyHint: 'Hoạt động chơi game của bạn sẽ hiển thị tại đây.',
+    type: {
+      bet: 'Đặt cược',
+      win: 'Thắng',
+      refund: 'Hoàn tiền',
+      rollback: 'Huỷ',
+    },
   },
 }

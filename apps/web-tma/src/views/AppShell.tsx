@@ -13,6 +13,7 @@ import ProfilePage from '@/views/ProfilePage'
 import SlotsLobby from '@/views/SlotsLobby'
 import CustomerServicePage from '@/views/CustomerServicePage'
 import TeamCenterPage from '@/views/TeamCenterPage'
+import BetHistoryPage from '@/views/BetHistoryPage'
 import GamePlayer from '@/components/GamePlayer'
 import { NAV_ITEMS } from '@/data/home'
 import { useAuthStore } from '@/stores/auth'
@@ -107,7 +108,7 @@ export default function AppShell() {
   const mainStyle = useMemo(() => {
     const top = `${headerH}px`
     if (overlay.is('profile')) return { paddingTop: top, paddingBottom: '0', height: `calc(100dvh - ${headerH}px)`, maxHeight: `calc(100dvh - ${headerH}px)` }
-    if (overlay.is('teamCenter')) return { paddingTop: top, paddingBottom: `${navH}px`, height: `calc(100dvh - ${headerH}px)`, maxHeight: `calc(100dvh - ${headerH}px)`, overflowY: 'hidden' as const }
+    if (overlay.is('teamCenter') || overlay.is('betHistory')) return { paddingTop: top, paddingBottom: `${navH}px`, height: `calc(100dvh - ${headerH}px)`, maxHeight: `calc(100dvh - ${headerH}px)`, overflowY: 'hidden' as const }
     return { paddingTop: top, paddingBottom: `${navH}px` }
   }, [headerH, navH, overlay])
 
@@ -158,6 +159,7 @@ export default function AppShell() {
 
   function openCs() { overlay.close(); setWalletOpen(false); setCsOpen(true) }
   function openTeamCenter() { setWalletOpen(false); overlay.openTeamCenter() }
+  function openBetHistory() { setWalletOpen(false); overlay.openBetHistory() }
   function onLogout() { overlay.close(); setWalletOpen(false); setWalletModalOpen(false) }
 
   const navItems = useMemo(() => NAV_ITEMS.map((item) => ({ ...item, label: t(`nav.${item.id}`) })), [t])
@@ -282,7 +284,8 @@ export default function AppShell() {
           {view.type === 'categoryLobby' && (
             <SlotsLobby {...view.params} onClose={() => { overlay.close(); window.scrollTo({ top: 0, behavior: 'instant' }) }} onGameTap={() => void onGameTap()} onOpenGame={(url) => setGamePlayerUrl(url)} />
           )}
-          {view.type === 'profile' && <ProfilePage onLogout={onLogout} onOpenCs={openCs} />}
+          {view.type === 'profile' && <ProfilePage onLogout={onLogout} onOpenCs={openCs} onOpenBetHistory={openBetHistory} />}
+          {view.type === 'betHistory' && <BetHistoryPage onClose={overlay.close} />}
           {view.type === 'teamCenter' && <TeamCenterPage onClose={overlay.close} />}
           {view.type === 'none' && activeNav === 'bonuses' && <BonusesPage promoFilter={promoFilter} onOpenWallet={() => void openWallet()} onOpenTeam={openTeamCenter} />}
           {view.type === 'none' && activeNav === 'bingo' && <BingoPage onOpenWallet={() => void openWallet()} onGameTap={() => void onGameTap()} onOpenGame={(url) => setGamePlayerUrl(url)} onOpenCategoryLobby={openCategoryLobby} />}

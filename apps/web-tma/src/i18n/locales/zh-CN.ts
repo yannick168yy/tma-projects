@@ -339,6 +339,8 @@ export default {
     communityMedia: '社区与媒体',
     supportedCurrencies: '支持的货币',
     legalPolicies: '法律与政策',
+    activity: '活动记录',
+    betHistory: '投注记录',
     account: '账户',
     signingOut: '正在退出…',
     logoutConfirmBody2: '退出后需重新登录才能充值、游戏和查看钱包。',
@@ -491,5 +493,17 @@ export default {
   },
   game: {
     backToBetoGo: '返回 BetoGo',
+  },
+  betHistory: {
+    title: '投注记录',
+    records: '条记录',
+    empty: '暂无投注记录',
+    emptyHint: '你的游戏投注将在此显示。',
+    type: {
+      bet: '下注',
+      win: '赢取',
+      refund: '退款',
+      rollback: '撤销',
+    },
   },
 }
