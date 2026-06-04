@@ -18,6 +18,7 @@ function formatBalance(cents: number): WalletBalance {
     availableCents: cents,
     frozenCents: 0,
     displayPhp: `₱ ${(cents / 100).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+    balances: [{ currency: 'PHP', available: cents, frozen: 0 }],
   }
 }
 

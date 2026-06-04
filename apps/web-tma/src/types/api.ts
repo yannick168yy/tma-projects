@@ -28,11 +28,18 @@ export interface AuthSession {
   trialRedPacketEligible?: boolean
 }
 
+export interface CurrencyBalance {
+  currency: string
+  available: number
+  frozen: number
+}
+
 export interface WalletBalance {
   currency: 'PHP'
   availableCents: number
   frozenCents: number
   displayPhp: string
+  balances: CurrencyBalance[]
 }
 
 export interface UserProfile {
