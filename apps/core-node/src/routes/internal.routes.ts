@@ -197,11 +197,14 @@ export async function internalRoutes(app: FastifyInstance) {
       if (!wd) return reply.status(404).send({ code: 404, message: 'withdrawal not found' })
       if (wd.status !== 'pending') return reply.send({ code: 0, message: 'already processed' })
 
+      // bg_wallet.available / bg_wallet_ledger.amount 是 PHP 元（DECIMAL，迁移016后）
+      // bg_team_withdrawal.amount_cents 是 PHP 分，需除以 100
+      const amountYuan = wd.amount_cents / 100
+
       await conn.beginTransaction()
       const [twRes] = await conn.execute<import('mysql2/promise').ResultSetHeader>(
         `UPDATE bg_team_wallet
-         SET frozen_cents = frozen_cents - ?,
-             available_cents = available_cents - 0
+         SET frozen_cents = frozen_cents - ?
          WHERE user_id = ? AND frozen_cents >= ?`,
         [wd.amount_cents, wd.user_id, wd.amount_cents],
       )
@@ -211,7 +214,7 @@ export async function internalRoutes(app: FastifyInstance) {
         `INSERT INTO bg_wallet (user_id, currency, available, version)
          VALUES (?, 'PHP', ?, 1)
          ON DUPLICATE KEY UPDATE available = available + ?, version = version + 1`,
-        [wd.user_id, wd.amount_cents, wd.amount_cents],
+        [wd.user_id, amountYuan, amountYuan],
       )
       const [[walletRow]] = await conn.query<RowDataPacket[]>(
         `SELECT available FROM bg_wallet WHERE user_id = ? AND currency = 'PHP'`,
@@ -221,7 +224,7 @@ export async function internalRoutes(app: FastifyInstance) {
       await conn.execute(
         `INSERT INTO bg_wallet_ledger (id, user_id, currency, type, amount, balance_after, ref_type, ref_id, description)
          VALUES (?, ?, 'PHP', 'bonus', ?, ?, 'team_withdrawal', ?, 'Team commission payout')`,
-        [lgId(), wd.user_id, wd.amount_cents, balanceAfter, String(withdrawalId)],
+        [lgId(), wd.user_id, amountYuan, balanceAfter, String(withdrawalId)],
       )
       await conn.execute(
         `UPDATE bg_team_withdrawal SET status='approved', reviewed_at=NOW(3) WHERE id=?`,
