@@ -24,7 +24,6 @@ export function createMatrixWithdrawal(opts: {
   symbol: string
   chain: string
   cryptoAmount: string
-  amount: number
 }): Promise<MatrixWithdrawResult> {
   return apiRequest<MatrixWithdrawResult>('/withdrawals', {
     method: 'POST',

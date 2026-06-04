@@ -1,6 +1,6 @@
 import Router from '@koa/router'
 import { randomBytes } from 'node:crypto'
-import { creditWallet, getKyc, getWallet, getWithdraw, listWithdrawals, saveWithdraw } from '../services/store.js'
+import { creditWallet, getKyc, getWallet, getWalletBalances, getWithdraw, listWithdrawals, saveWithdraw } from '../services/store.js'
 import { createMatrixWithdraw } from '../services/matrix.service.js'
 import { isMatrixEnabled } from '../clients/matrix.client.js'
 import { nowIso } from '../utils/format.js'
@@ -65,9 +65,14 @@ router.post('/', async (ctx) => {
       fail(ctx, 503, 'Matrix payment channel is not configured', 503)
       return
     }
-    const { toAddress, symbol, chain, cryptoAmount, amount } = body
-    if (!toAddress || !symbol || !chain || !cryptoAmount || !amount || amount <= 0) {
-      fail(ctx, 400, 'toAddress, symbol, chain, cryptoAmount, amount are required for Matrix withdrawal')
+    const { toAddress, symbol, chain, cryptoAmount } = body
+    if (!toAddress || !symbol || !chain || !cryptoAmount) {
+      fail(ctx, 400, 'toAddress, symbol, chain, cryptoAmount are required for Matrix withdrawal')
+      return
+    }
+    const cryptoAmt = Number(cryptoAmount)
+    if (!Number.isFinite(cryptoAmt) || cryptoAmt <= 0) {
+      fail(ctx, 400, 'Invalid cryptoAmount')
       return
     }
 
@@ -83,37 +88,41 @@ router.post('/', async (ctx) => {
     }
 
     try {
-      const wallet = await getWallet(redis, userId)
-      if (amount > wallet.available) {
+      // 检查对应虚拟币余额
+      const currency = symbol.toUpperCase()
+      const balances = await getWalletBalances(redis, userId)
+      const cryptoBalance = balances.find((b) => b.currency === currency)?.available ?? 0
+      if (cryptoAmt > cryptoBalance) {
         fail(ctx, 400, 'Insufficient balance')
         return
       }
 
-      // 扣款
+      // 扣款（从对应虚拟币余额扣）
       const orderId = randomOrderId('WDR')
-      await creditWallet(redis, userId, -amount, {
+      await creditWallet(redis, userId, -cryptoAmt, {
         type: 'withdraw',
         refId: orderId,
         description: `Matrix ${symbol} 提现 #${orderId}`,
         createdAt: nowIso(),
         traceId: ctx.state.traceId,
+        currency,
       })
 
       // 创建 Matrix 订单（失败会自动退款）
       const { merchantOrderNo, matrixOrderNo } = await createMatrixWithdraw(ctx.state.env, redis, {
         userId,
         toAddress,
-        symbol: symbol.toUpperCase(),
+        symbol: currency,
         chain: chain.toUpperCase(),
         cryptoAmount,
-        phpAmount: amount,
+        phpAmount: cryptoAmt,
       })
 
       const order: WithdrawOrder = {
         orderId,
         userId,
-        amount,
-        currency: 'PHP',
+        amount: cryptoAmt,
+        currency,
         channelId: 'matrix',
         status: 'pending',
         createdAt: nowIso(),
