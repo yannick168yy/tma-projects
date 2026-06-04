@@ -396,14 +396,14 @@ export default function WalletModal({ open, onClose }: Props) {
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/15 text-primary">{selectedPayMethod?.tag}</span>
                     </div>
                   </div>
-                  <p className="text-muted-foreground text-[11px] font-bold uppercase tracking-wider">{tab==='deposit'?t('wallet.depositAmount'):t('wallet.withdrawAmount')}</p>
+                  {!isMatrixWithdraw&&<p className="text-muted-foreground text-[11px] font-bold uppercase tracking-wider">{tab==='deposit'?t('wallet.depositAmount'):t('wallet.withdrawAmount')}</p>}
                   {tab==='deposit'&&isTonConnect&&<div className="flex gap-2 flex-wrap">{['1','5','10','50'].map((q)=><button key={q} type="button" className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${amount===q?'bg-primary text-primary-foreground':'bg-secondary text-muted-foreground'}`} onClick={()=>setAmount(q)}>{q} TON</button>)}</div>}
                   {tab==='deposit'&&isTgWallet&&<div className="flex gap-2 flex-wrap">{quickAmounts.map((q)=><button key={q} type="button" className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${amount===q?'bg-primary text-primary-foreground':'bg-secondary text-muted-foreground'}`} onClick={()=>setAmount(q)}>{depositCurrency==='USDT'?`$${q}`:`₱${q}`}</button>)}</div>}
                   {tab==='deposit'&&isYfPay&&yfpayQuickAmounts.length>0&&<div className="flex gap-2 flex-wrap">{yfpayQuickAmounts.map((q)=><button key={q} type="button" className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${amount===q?'bg-primary text-primary-foreground':'bg-secondary text-muted-foreground'}`} onClick={()=>setAmount(q)}>₱{q}</button>)}</div>}
-                  <div className="relative">
+                  {!isMatrixWithdraw&&<div className="relative">
                     <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground font-bold text-sm">{isTonConnect?'◈':isTgWallet&&depositCurrency==='USDT'?'$':isCryptoMethod?'≈ $':'₱'}</span>
                     <input value={amount} type="number" placeholder="0.00" className="w-full bg-secondary border border-border rounded-xl pl-10 pr-4 py-3 text-foreground font-black text-lg focus:outline-none focus:border-primary" onChange={(e)=>setAmount(e.target.value)} />
-                  </div>
+                  </div>}
                   {tab==='withdraw'&&isFiatWithdraw&&<>
                     <input value={withdrawAccount} type="tel" placeholder={t('wallet.yfpayAccountNumber')} className="w-full bg-secondary border border-border rounded-xl px-4 py-3 text-foreground font-bold text-sm focus:outline-none focus:border-primary" onChange={(e)=>setWithdrawAccount(e.target.value)} />
                     <input value={withdrawOwner} type="text" placeholder={t('wallet.yfpayFullName')} className="w-full bg-secondary border border-border rounded-xl px-4 py-3 text-foreground font-bold text-sm focus:outline-none focus:border-primary" onChange={(e)=>setWithdrawOwner(e.target.value)} />
