@@ -196,7 +196,7 @@ export interface ExchangeRate {
 }
 export interface RateHistoryBatch {
   id: number; fetchedAt: string; source: string
-  rates: Record<string, number>  // { EUR: 62.15, USD: 58.43, USDT: 58.0, TON: 350.0 }
+  rates: Record<string, number>  // { USDT: 58.0, USDC: 58.1, TON: 350.0, ... }
 }
 export const getExchangeRates = () => get<ExchangeRate[]>('/admin/settings/exchange-rates')
 export const getRateHistory = () => get<RateHistoryBatch[]>('/admin/settings/exchange-rates/history')

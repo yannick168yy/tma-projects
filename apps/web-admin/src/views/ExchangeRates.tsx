@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useMemo } from 'react'
 import { Table, Button, Space, Tag, Modal, Form, InputNumber, Alert, Collapse, message } from 'antd'
 import { SyncOutlined } from '@ant-design/icons'
 import {
@@ -6,6 +6,9 @@ import {
   setManualRate, clearManualRate,
   type ExchangeRate, type RateHistoryBatch,
 } from '../api'
+
+/** 与 BFF RATE_PAIRS 一致：加密货币 → PHP（CoinGecko simple/price） */
+const TRACKED_TO_PHP = ['USDT', 'USDC', 'TON', 'TRX', 'BNB', 'ETH', 'BTC'] as const
 
 function fmtRate(r: number | string | null | undefined): string {
   if (r === null || r === undefined) return '—'
@@ -17,15 +20,14 @@ function sourceLabel(s: string | null) {
   if (!s) return '未知'
   if (s === 'manual') return '手动'
   if (s === 'env-fallback') return '环境变量兜底'
-  if (s === 'freecurrencyapi' || s === 'exchangerate-api') return 'FreeCurrency'
   if (s === 'coingecko') return 'CoinGecko'
+  if (s === 'freecurrencyapi' || s === 'exchangerate-api') return '历史'
   if (s === 'identity') return '同币种'
   return s
 }
 
 function sourceColor(s: string | null) {
   if (s === 'manual') return 'orange'
-  if (s === 'freecurrencyapi' || s === 'exchangerate-api') return 'green'
   if (s === 'coingecko') return 'blue'
   if (s === 'env-fallback') return 'gold'
   return 'default'
@@ -111,6 +113,11 @@ export default function ExchangeRates() {
     } catch (e) { message.error(e instanceof Error ? e.message : '操作失败') }
   }
 
+  const sortedRates = useMemo(() => {
+    const order = new Map(TRACKED_TO_PHP.map((c, i) => [c, i]))
+    return [...rates].sort((a, b) => (order.get(a.from as typeof TRACKED_TO_PHP[number]) ?? 99) - (order.get(b.from as typeof TRACKED_TO_PHP[number]) ?? 99))
+  }, [rates])
+
   const rateColumns = [
     { title: '货币对', key: 'pair', render: (_: unknown, r: ExchangeRate) => `${r.from} → ${r.to}` },
     {
@@ -132,35 +139,40 @@ export default function ExchangeRates() {
     },
   ]
 
-  const historyColumns = [
-    { title: '时间', key: 'fetchedAt', render: (_: unknown, r: RateHistoryBatch) => <span style={{ color: '#888', fontSize: 12 }}>{fmtTime(r.fetchedAt)}</span> },
-    { title: 'EUR→PHP', key: 'EUR', render: (_: unknown, r: RateHistoryBatch) => <span style={{ fontSize: 12 }}>{fmtRate(r.rates?.EUR)}</span> },
-    { title: 'USD→PHP', key: 'USD', render: (_: unknown, r: RateHistoryBatch) => <span style={{ fontSize: 12 }}>{fmtRate(r.rates?.USD)}</span> },
-    { title: 'USDT→PHP', key: 'USDT', render: (_: unknown, r: RateHistoryBatch) => <span style={{ fontSize: 12 }}>{fmtRate(r.rates?.USDT)}</span> },
-    { title: 'TON→PHP', key: 'TON', render: (_: unknown, r: RateHistoryBatch) => <span style={{ fontSize: 12 }}>{fmtRate(r.rates?.TON)}</span> },
+  const historyColumns = useMemo(() => [
+    { title: '时间', key: 'fetchedAt', fixed: 'left' as const, width: 168, render: (_: unknown, r: RateHistoryBatch) => <span style={{ color: '#888', fontSize: 12 }}>{fmtTime(r.fetchedAt)}</span> },
+    ...TRACKED_TO_PHP.map((code) => ({
+      title: `${code}→PHP`,
+      key: code,
+      width: 100,
+      render: (_: unknown, r: RateHistoryBatch) => <span style={{ fontSize: 12 }}>{fmtRate(r.rates?.[code])}</span>,
+    })),
     {
-      title: '来源', key: 'hsource',
+      title: '来源', key: 'hsource', width: 120,
       render: (_: unknown, r: RateHistoryBatch) => (r.source || '').split(',').map((s) => (
         <Tag key={s} color={sourceColor(s)} style={{ fontSize: 11, marginBottom: 2 }}>{sourceLabel(s)}</Tag>
       )),
     },
-  ]
+  ], [])
 
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-        <h2 style={{ margin: 0 }}>汇率管理</h2>
+        <div>
+          <h2 style={{ margin: 0 }}>汇率管理</h2>
+          <p style={{ margin: '4px 0 0', color: '#888', fontSize: 12 }}>加密货币 → PHP，CoinGecko simple/price 单次批量刷新</p>
+        </div>
         <Button loading={refreshing} disabled={cooldown > 0} onClick={handleRefresh} icon={<SyncOutlined />}>
-          {cooldown > 0 ? `${cooldown}s 后可刷新` : '从 API 刷新'}
+          {cooldown > 0 ? `${cooldown}s 后可刷新` : '从 CoinGecko 刷新'}
         </Button>
       </div>
 
-      <Table dataSource={rates} columns={rateColumns} rowKey="from" loading={loading} pagination={false} style={{ marginBottom: 24 }} />
+      <Table dataSource={sortedRates} columns={rateColumns} rowKey={(r) => `${r.from}-${r.to}`} loading={loading} pagination={false} style={{ marginBottom: 24 }} scroll={{ x: 720 }} />
 
       <Collapse items={[{
         key: 'history',
         label: '汇率历史记录（最近 1000 条，按批次合并）',
-        children: <Table dataSource={history} columns={historyColumns} rowKey="id" loading={histLoading} size="small" pagination={{ pageSize: 20, showSizeChanger: false }} />,
+        children: <Table dataSource={history} columns={historyColumns} rowKey="id" loading={histLoading} size="small" scroll={{ x: 1200 }} pagination={{ pageSize: 20, showSizeChanger: false }} />,
       }]} />
 
       <Modal

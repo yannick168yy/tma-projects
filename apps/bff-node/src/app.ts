@@ -45,9 +45,7 @@ export function createApp(env: Env): Koa {
     setTimeout(() => trySeed(0), 10_000)
   }
 
-  // 汇率定时刷新：启动后 30s 先跑一次，之后每 10 分钟刷新
-  // EUR/USD 走 API（2次/10min × 6 × 24 × 30 = 8640次/月 < 5000免费额度）
-  // USDT/TON 直接用 env 兜底，不消耗 API 配额
+  // 汇率定时刷新：启动后 30s 先跑一次，之后每 10 分钟（全部走 CoinGecko）
   setTimeout(() => {
     refreshRates(redis, env).catch((err) => console.error('[exchange-rate] refresh error:', err))
     setInterval(
