@@ -501,5 +501,6 @@ export default {
     emptyHint: '你的游戏投注将在此显示。',
     bet: '下注',
     win: '赢取',
+    range: { today: '今天', '7d': '近 7 天', '30d': '近 30 天' },
   },
 }

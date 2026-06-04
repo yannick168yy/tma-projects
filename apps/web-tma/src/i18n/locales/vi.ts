@@ -467,5 +467,6 @@ export default {
     emptyHint: 'Hoạt động chơi game của bạn sẽ hiển thị tại đây.',
     bet: 'Đặt cược',
     win: 'Thắng',
+    range: { today: 'Hôm nay', '7d': '7 ngày', '30d': '30 ngày' },
   },
 }

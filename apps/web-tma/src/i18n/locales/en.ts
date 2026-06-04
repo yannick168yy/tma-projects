@@ -505,5 +505,6 @@ export default {
     emptyHint: 'Your game activity will appear here.',
     bet: 'Bet',
     win: 'Win',
+    range: { today: 'Today', '7d': 'Last 7 days', '30d': 'Last 30 days' },
   },
 }

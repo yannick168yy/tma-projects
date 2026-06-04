@@ -22,6 +22,8 @@ export interface BetHistoryPage {
   items: BetRound[]
 }
 
-export async function fetchBets(page: number, pageSize = 20): Promise<BetHistoryPage> {
-  return apiRequest<BetHistoryPage>(`/bets?page=${page}&pageSize=${pageSize}`)
+export async function fetchBets(page: number, pageSize = 20, dateFrom?: string): Promise<BetHistoryPage> {
+  const qs = new URLSearchParams({ page: String(page), pageSize: String(pageSize) })
+  if (dateFrom) qs.set('dateFrom', dateFrom)
+  return apiRequest<BetHistoryPage>(`/bets?${qs.toString()}`)
 }

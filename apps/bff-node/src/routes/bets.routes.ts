@@ -10,18 +10,22 @@ router.get('/', async (ctx) => {
   const page     = Math.max(1, Number(ctx.query.page ?? 1))
   const pageSize = Math.min(50, Math.max(10, Number(ctx.query.pageSize ?? 20)))
   const offset   = (page - 1) * pageSize
+  const dateFrom = ctx.query.dateFrom ? String(ctx.query.dateFrom) : undefined
 
   const pool = getMysqlPool(ctx.state.env)
 
-  // 总组数（round_id 为 NULL 的每条独立成组）
+  const where = dateFrom
+    ? 'WHERE user_id = ? AND created_at >= ?'
+    : 'WHERE user_id = ?'
+  const baseParams: unknown[] = dateFrom ? [userId, `${dateFrom} 00:00:00`] : [userId]
+
   const [[{ total }]] = await pool.query<RowDataPacket[]>(
     `SELECT COUNT(*) AS total FROM (
-       SELECT 1 FROM bg_bet_order WHERE user_id = ? GROUP BY IFNULL(round_id, id)
+       SELECT 1 FROM bg_bet_order ${where} GROUP BY IFNULL(round_id, id)
      ) t`,
-    [userId],
+    baseParams,
   )
 
-  // 按 round_id 聚合，JOIN 游戏信息
   const [rows] = await pool.query<RowDataPacket[]>(
     `SELECT
        sub.round_id,
@@ -30,31 +34,31 @@ router.get('/', async (ctx) => {
        sub.currency_code,
        sub.created_at,
        sub.max_id,
-       g.name        AS game_name,
-       g.name_zh     AS game_name_zh,
-       g.name_vi     AS game_name_vi,
-       g.name_id     AS game_name_id,
-       g.provider    AS game_provider,
-       g.image_url   AS game_image,
+       g.name         AS game_name,
+       g.name_zh      AS game_name_zh,
+       g.name_vi      AS game_name_vi,
+       g.name_id      AS game_name_id,
+       g.provider     AS game_provider,
+       g.image_url    AS game_image,
        g.image_hq_url AS game_image_hq
      FROM (
        SELECT
-         MAX(round_id)                                                          AS round_id,
-         MAX(provider_id)                                                       AS game_uuid,
-         SUM(CASE WHEN bet_type = 'bet'              THEN amount ELSE 0 END)   AS bet_amount,
-         SUM(CASE WHEN bet_type IN ('win','refund')  THEN amount ELSE 0 END)   AS win_amount,
-         MAX(currency_code)  AS currency_code,
-         MIN(created_at)     AS created_at,
-         MAX(id)             AS max_id
+         MAX(round_id)                                                         AS round_id,
+         MAX(provider_id)                                                      AS game_uuid,
+         SUM(CASE WHEN bet_type = 'bet'             THEN amount ELSE 0 END)   AS bet_amount,
+         SUM(CASE WHEN bet_type IN ('win','refund') THEN amount ELSE 0 END)   AS win_amount,
+         MAX(currency_code) AS currency_code,
+         MIN(created_at)    AS created_at,
+         MAX(id)            AS max_id
        FROM bg_bet_order
-       WHERE user_id = ?
+       ${where}
        GROUP BY IFNULL(round_id, id)
        ORDER BY MAX(id) DESC
        LIMIT ? OFFSET ?
      ) sub
      LEFT JOIN sg_games g ON g.uuid = sub.game_uuid
      ORDER BY sub.max_id DESC`,
-    [userId, pageSize, offset],
+    [...baseParams, pageSize, offset],
   )
 
   function toIso(v: unknown): string | null {

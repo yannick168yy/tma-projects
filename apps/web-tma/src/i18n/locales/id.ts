@@ -467,5 +467,6 @@ export default {
     emptyHint: 'Aktivitas game Anda akan muncul di sini.',
     bet: 'Taruhan',
     win: 'Menang',
+    range: { today: 'Hari ini', '7d': '7 Hari', '30d': '30 Hari' },
   },
 }
