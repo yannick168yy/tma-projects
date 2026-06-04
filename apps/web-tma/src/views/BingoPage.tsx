@@ -6,6 +6,7 @@ import GameImageCard from '@/components/game/GameImageCard'
 import { PINOY_CLASSICS, MORE_PINOY_GAMES, PERYA_WINNERS } from '@/data/bingo'
 import { fetchGames, launchGame, type SlotGame } from '@/api/slots'
 import { useAuthStore } from '@/stores/auth'
+import { useWalletStore } from '@/stores/wallet'
 import { ApiError } from '@/api/client'
 import { useLocaleStore } from '@/stores/locale'
 import { localizedGameName } from '@/utils/game'
@@ -30,6 +31,7 @@ const fiestaBuntingColors = ['#FFB800','#ec4899','#34d399','#60a5fa','#f97316','
 export default function BingoPage({ onOpenWallet, onGameTap, onOpenGame, onOpenCategoryLobby }: Props) {
   const { t } = useTranslation()
   const isLoggedIn = useAuthStore((s) => Boolean(s.token && s.user))
+  const activeCurrency = useWalletStore((s) => s.activeCurrency)
   const locale = useLocaleStore((s) => s.locale)
   const [bingoGames, setBingoGames] = useState<SlotGame[]>([])
   const [launchingUuid, setLaunchingUuid] = useState<string | null>(null)
@@ -49,7 +51,7 @@ export default function BingoPage({ onOpenWallet, onGameTap, onOpenGame, onOpenC
   async function onPlayGame(uuid: string) {
     if (!isLoggedIn) { onGameTap(); return }
     setLaunchingUuid(uuid)
-    try { const { url } = await launchGame(uuid); onOpenGame(url) }
+    try { const { url } = await launchGame(uuid, 'mobile', activeCurrency); onOpenGame(url) }
     catch (e) { alert(e instanceof ApiError ? e.message : 'Failed to launch game') }
     finally { setLaunchingUuid(null) }
   }

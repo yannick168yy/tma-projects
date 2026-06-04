@@ -4,6 +4,7 @@ import { ChevronLeft, Search, X, RefreshCw } from 'lucide-react'
 import { fetchGames, launchGame, launchDemo, type SlotGame } from '@/api/slots'
 import { ApiError } from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
+import { useWalletStore } from '@/stores/wallet'
 import SlotGameCard from '@/components/home/SlotGameCard'
 
 interface Props {
@@ -15,6 +16,7 @@ interface Props {
 export default function SearchOverlay({ onClose, onGameTap, onOpenGame }: Props) {
   const { t } = useTranslation()
   const isLoggedIn = useAuthStore((s) => Boolean(s.token && s.user))
+  const activeCurrency = useWalletStore((s) => s.activeCurrency)
   const [query, setQuery] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
   const [games, setGames] = useState<SlotGame[]>([])
@@ -89,7 +91,7 @@ export default function SearchOverlay({ onClose, onGameTap, onOpenGame }: Props)
     }
     setLaunchingUuid(uuid)
     try {
-      const { url } = await launchGame(uuid)
+      const { url } = await launchGame(uuid, 'mobile', activeCurrency)
       onOpenGame(url)
     } catch (e) {
       alert(e instanceof ApiError ? e.message : 'Failed to launch game')
@@ -101,7 +103,7 @@ export default function SearchOverlay({ onClose, onGameTap, onOpenGame }: Props)
   async function onDemo(uuid: string) {
     setLaunchingUuid(uuid)
     try {
-      const { url } = await launchDemo(uuid)
+      const { url } = await launchDemo(uuid, 'mobile', activeCurrency)
       onOpenGame(url)
     } catch (e) {
       alert(e instanceof ApiError ? e.message : 'Failed to launch demo')

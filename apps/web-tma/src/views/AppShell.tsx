@@ -16,7 +16,7 @@ import TeamCenterPage from '@/views/TeamCenterPage'
 import GamePlayer from '@/components/GamePlayer'
 import { NAV_ITEMS } from '@/data/home'
 import { useAuthStore } from '@/stores/auth'
-import { useWalletStore } from '@/stores/wallet'
+import { useWalletStore, formatCurrencyAmount, currencySymbol } from '@/stores/wallet'
 import { useFullPageOverlay } from '@/hooks/useFullPageOverlay'
 import type { CategoryLobbyParams } from '@/hooks/useFullPageOverlay'
 
@@ -31,7 +31,9 @@ export default function AppShell() {
   const auth = useAuthStore()
   const wallet = useWalletStore()
   const isLoggedIn = Boolean(auth.token && auth.user)
-  const displayPhp = wallet.balance?.displayPhp ?? '₱ —'
+  const activeCurrency = wallet.activeCurrency
+  const activeBalance = wallet.balance?.balances.find((b) => b.currency === activeCurrency)
+  const displayBalance = activeBalance ? formatCurrencyAmount(activeCurrency, activeBalance.available) : (activeCurrency === 'PHP' ? '₱ —' : `— ${activeCurrency}`)
 
   // 互斥全屏 overlay——用状态机显式化互斥关系
   const overlay = useFullPageOverlay()
@@ -130,11 +132,11 @@ export default function AppShell() {
             <div className="flex flex-1 items-center justify-center gap-3">
               <button type="button" className="flex flex-col items-center gap-0.5" onClick={() => void onBalanceTap()}>
                 <span className="flex items-center gap-1 text-[11px] font-semibold leading-none text-muted-foreground">
-                  {isLoggedIn ? 'PHP' : t('shell.signIn')}
+                  {isLoggedIn ? activeCurrency : t('shell.signIn')}
                   {isLoggedIn && <ChevronDown size={11} className={`transition-transform duration-200 ${walletOpen ? 'rotate-180' : ''}`} />}
                 </span>
                 <span className="text-base font-black leading-tight text-white">
-                  {isLoggedIn ? (balanceVisible ? displayPhp : '₱ ••••••') : t('shell.tapToLogin')}
+                  {isLoggedIn ? (balanceVisible ? displayBalance : '••••••') : t('shell.tapToLogin')}
                 </span>
               </button>
               {isLoggedIn && (
@@ -155,22 +157,27 @@ export default function AppShell() {
               <div className="absolute left-4 right-4 top-full z-50 -mt-1 overflow-hidden rounded-2xl border border-border bg-card shadow-2xl">
                 <div className="p-4">
                   <p className="mb-3 text-xs font-bold uppercase tracking-wider text-muted-foreground">{t('shell.myWallet')}</p>
-                  <div className="flex items-center justify-between border-b border-border py-2.5">
-                    <div className="flex items-center gap-2.5">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10"><span className="text-sm font-black text-primary">₱</span></div>
-                      <div><p className="text-sm font-bold text-foreground">{t('shell.philippinePeso')}</p><p className="text-xs text-muted-foreground">PHP</p></div>
-                    </div>
-                    <span className="text-base font-black text-primary">
-                      {balanceVisible ? (wallet.balance?.availableCents ?? 0).toLocaleString('en-PH',{minimumFractionDigits:2,maximumFractionDigits:2}) : '••••••'}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between py-2.5">
-                    <div className="flex items-center gap-2.5">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-secondary"><span className="text-sm font-black text-muted-foreground">₮</span></div>
-                      <div><p className="text-sm font-bold text-foreground">{t('shell.tetherUsd')}</p><p className="text-xs text-muted-foreground">USDT · Coming Soon</p></div>
-                    </div>
-                    <span className="text-sm font-bold text-muted-foreground">—</span>
-                  </div>
+                  {(wallet.balance?.balances ?? [{ currency: 'PHP', available: 0, frozen: 0 }]).map((b, i, arr) => (
+                    <button
+                      key={b.currency}
+                      type="button"
+                      className={`flex w-full items-center justify-between py-2.5 text-left transition-colors hover:bg-white/5 rounded-lg px-1 -mx-1 ${i < arr.length - 1 ? 'border-b border-border' : ''}`}
+                      onClick={() => { wallet.setActiveCurrency(b.currency); setWalletOpen(false) }}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${activeCurrency === b.currency ? 'bg-primary/10' : 'bg-secondary'}`}>
+                          <span className={`text-sm font-black ${activeCurrency === b.currency ? 'text-primary' : 'text-muted-foreground'}`}>{currencySymbol(b.currency)}</span>
+                        </div>
+                        <div>
+                          <p className="text-sm font-bold text-foreground">{b.currency}</p>
+                          <p className="text-xs text-muted-foreground">{activeCurrency === b.currency ? '● 当前' : b.currency}</p>
+                        </div>
+                      </div>
+                      <span className={`text-base font-black ${activeCurrency === b.currency ? 'text-primary' : 'text-foreground'}`}>
+                        {balanceVisible ? formatCurrencyAmount(b.currency, b.available) : '••••••'}
+                      </span>
+                    </button>
+                  ))}
                 </div>
                 <div className="flex gap-2 px-4 pb-4">
                   <button type="button" className="flex-1 rounded-xl bg-secondary py-2 text-xs font-bold text-muted-foreground" onClick={() => setBalanceVisible(!balanceVisible)}>{balanceVisible ? t('shell.hideBalances') : t('shell.showBalances')}</button>

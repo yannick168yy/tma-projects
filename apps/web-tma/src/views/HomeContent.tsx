@@ -15,6 +15,7 @@ import { fetchHomepageGames, launchGame, fetchBettingActivity, type SlotGame, ty
 import { ApiError } from '@/api/client'
 import { usePromotionStore, getHighlightMap } from '@/stores/promotion'
 import { useAuthStore } from '@/stores/auth'
+import { useWalletStore } from '@/stores/wallet'
 import { localizedGameName } from '@/utils/game'
 
 const INFO_ICONS: Record<string, React.ComponentType<{ size: number; className?: string }>> = { terms: FileText, privacy: Shield, responsible: Heart, about: Info }
@@ -43,6 +44,7 @@ export default function HomeContent({ onOpenSearch, onOpenPromo, onOpenCategoryL
   const locale = i18n.language
   const promotion = usePromotionStore()
   const auth = useAuthStore()
+  const activeCurrency = useWalletStore((s) => s.activeCurrency)
   const highlightMap = useMemo(() => getHighlightMap(), [promotion.highlights])
 
   const localizedBanners = useMemo(() => BANNERS.map((b) => ({ ...b, tag: t(`home.banners.${b.id}.tag`), title: t(`home.banners.${b.id}.title`), sub: t(`home.banners.${b.id}.sub`) })), [t])
@@ -121,12 +123,12 @@ export default function HomeContent({ onOpenSearch, onOpenPromo, onOpenCategoryL
     if (launchingUuid) return
     setLaunchingUuid(uuid)
     try {
-      const { url } = await launchGame(uuid); const game = gameMap.get(uuid)
+      const { url } = await launchGame(uuid, 'mobile', activeCurrency); const game = gameMap.get(uuid)
       if (game) { writeLocalHistory(game); setHistoryGames(readLocalHistory()) }
       onOpenGame(url)
     } catch (e) { alert(e instanceof ApiError ? e.message : 'Launch failed') }
     finally { setLaunchingUuid(null) }
-  }, [auth, launchingUuid, gameMap, onOpenGame, t])
+  }, [auth, launchingUuid, gameMap, onOpenGame, t, activeCurrency])
 
   const popularGames = homepageGames.popular; const slotsGames = homepageGames.slots; const liveGames = homepageGames.live
   const fishingGames = homepageGames.fishing; const tableCrashGames = useMemo(() => [...homepageGames.table, ...homepageGames.crash], [homepageGames])

@@ -5,6 +5,7 @@ import SlotGameCard from '@/components/home/SlotGameCard'
 import { fetchGames, fetchProviders, launchGame, launchDemo, type SlotGame } from '@/api/slots'
 import { ApiError } from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
+import { useWalletStore } from '@/stores/wallet'
 
 interface Props {
   sortCategory?: string
@@ -31,6 +32,7 @@ export default function SlotsLobby({
 }: Props) {
   const { t } = useTranslation()
   const isLoggedIn = useAuthStore((s) => Boolean(s.token && s.user))
+  const activeCurrency = useWalletStore((s) => s.activeCurrency)
   const [games, setGames] = useState<SlotGame[]>([])
   const [providers, setProviders] = useState<string[]>([])
   const [total, setTotal] = useState(0)
@@ -115,7 +117,7 @@ export default function SlotsLobby({
     }
     setLaunchingUuid(uuid)
     try {
-      const { url } = await launchGame(uuid)
+      const { url } = await launchGame(uuid, 'mobile', activeCurrency)
       onOpenGame(url)
     } catch (e) {
       alert(e instanceof ApiError ? e.message : 'Failed to launch game')
@@ -127,7 +129,7 @@ export default function SlotsLobby({
   async function onDemo(uuid: string) {
     setLaunchingUuid(uuid)
     try {
-      const { url } = await launchDemo(uuid)
+      const { url } = await launchDemo(uuid, 'mobile', activeCurrency)
       onOpenGame(url)
     } catch (e) {
       alert(e instanceof ApiError ? e.message : 'Failed to launch demo')

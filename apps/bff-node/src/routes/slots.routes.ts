@@ -111,7 +111,7 @@ router.post('/sync', async (ctx) => {
 router.post('/init', async (ctx) => {
   const env = ctx.state.env
   if (!ctx.state.userId) { fail(ctx, 401, 'Sign in to play'); return }
-  const body = ctx.request.body as { gameUuid?: string; device?: string; language?: string }
+  const body = ctx.request.body as { gameUuid?: string; device?: string; language?: string; currency?: string }
 
   if (!body.gameUuid) {
     fail(ctx, 400, 'gameUuid is required')
@@ -140,7 +140,7 @@ router.post('/init', async (ctx) => {
         game_uuid: body.gameUuid,
         player_id: userId,
         player_name: user.displayName || userId,
-        currency: env.SG_CURRENCY,
+        currency: body.currency || env.SG_CURRENCY,
         session_id: sessionId,
         return_url: env.SG_RETURN_URL,
         language: (body.language ?? user.locale ?? 'en').split('-')[0],

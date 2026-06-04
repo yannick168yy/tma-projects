@@ -87,17 +87,17 @@ export function fetchProviders(): Promise<string[]> {
   return apiRequest<string[]>('/slots/providers')
 }
 
-export function launchGame(gameUuid: string, device: 'mobile' | 'desktop' = 'mobile'): Promise<{ url: string }> {
+export function launchGame(gameUuid: string, device: 'mobile' | 'desktop' = 'mobile', currency?: string): Promise<{ url: string }> {
   return apiRequest<{ url: string }>('/slots/init', {
     method: 'POST',
-    body: JSON.stringify({ gameUuid, device }),
+    body: JSON.stringify({ gameUuid, device, currency }),
   })
 }
 
-export function launchDemo(gameUuid: string, device: 'mobile' | 'desktop' = 'mobile'): Promise<{ url: string }> {
+export function launchDemo(gameUuid: string, device: 'mobile' | 'desktop' = 'mobile', currency?: string): Promise<{ url: string }> {
   return apiRequest<{ url: string }>('/slots/demo', {
     method: 'POST',
-    body: JSON.stringify({ gameUuid, device }),
+    body: JSON.stringify({ gameUuid, device, currency }),
   })
 }
 
