@@ -1,7 +1,7 @@
 import Router from '@koa/router'
 import { randomBytes } from 'node:crypto'
 import { creditWallet, getKyc, getWallet, getWalletBalances, getWithdraw, listWithdrawals, saveWithdraw } from '../services/store.js'
-import { createMatrixWithdraw } from '../services/matrix.service.js'
+import { generateMerchantOrderNo, initMatrixWithdrawOrder } from '../services/matrix.service.js'
 import { isMatrixEnabled } from '../clients/matrix.client.js'
 import { nowIso } from '../utils/format.js'
 import { fail, ok } from '../utils/response.js'
@@ -88,8 +88,9 @@ router.post('/', async (ctx) => {
     }
 
     try {
-      // 检查对应虚拟币余额
       const currency = symbol.toUpperCase()
+
+      // 检查对应虚拟币余额
       const balances = await getWalletBalances(redis, userId)
       const cryptoBalance = balances.find((b) => b.currency === currency)?.available ?? 0
       if (cryptoAmt > cryptoBalance) {
@@ -97,29 +98,41 @@ router.post('/', async (ctx) => {
         return
       }
 
-      // 扣款（从对应虚拟币余额扣）
-      const orderId = randomOrderId('WDR')
+      const merchantOrderNo = generateMerchantOrderNo()
+
+      // 扣款（先扣，等后台审批后才打款）
       await creditWallet(redis, userId, -cryptoAmt, {
         type: 'withdraw',
-        refId: orderId,
-        description: `Matrix ${symbol} 提现 #${orderId}`,
+        refId: merchantOrderNo,
+        description: `Matrix ${symbol} 提现 #${merchantOrderNo}`,
         createdAt: nowIso(),
         traceId: ctx.state.traceId,
         currency,
       })
 
-      // 创建 Matrix 订单（失败会自动退款）
-      const { merchantOrderNo, matrixOrderNo } = await createMatrixWithdraw(ctx.state.env, redis, {
-        userId,
-        toAddress,
-        symbol: currency,
-        chain: chain.toUpperCase(),
-        cryptoAmount,
-        phpAmount: cryptoAmt,
-      })
+      // 存单，不调 Matrix API，等后台审批
+      try {
+        await initMatrixWithdrawOrder(ctx.state.env, {
+          merchantOrderNo,
+          userId,
+          toAddress,
+          symbol: currency,
+          chain: chain.toUpperCase(),
+          cryptoAmount,
+        })
+      } catch (dbErr) {
+        // DB 失败：退款
+        await creditWallet(redis, userId, cryptoAmt, {
+          type: 'deposit',
+          refId: merchantOrderNo,
+          description: `Matrix 提现申请创建失败退款 #${merchantOrderNo}`,
+          createdAt: nowIso(),
+          currency,
+        })
+        throw dbErr
+      }
 
-      // createMatrixWithdraw 已写入 bg_withdraw_order（merchantOrderNo），无需再 saveWithdraw
-      ok(ctx, { orderId: merchantOrderNo, status: 'pending', merchantOrderNo, matrixOrderNo })
+      ok(ctx, { orderId: merchantOrderNo, status: 'pending' })
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Matrix withdrawal failed'
       fail(ctx, 502, msg, 502)

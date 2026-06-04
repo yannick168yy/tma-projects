@@ -469,7 +469,7 @@ export default {
     matrixCryptoAmount: '{{symbol}} 数量',
     matrixPhpDeduct: '从余额扣除的 PHP 金额',
     matrixWithdrawSubmit: '提交提现',
-    matrixWithdrawPending: '提现已提交至 Matrix，处理中。',
+    matrixWithdrawPending: '提现申请已提交，等待后台审批。',
     matrixWithdrawFailed: '提现失败，请重试。',
   },
   slots: {

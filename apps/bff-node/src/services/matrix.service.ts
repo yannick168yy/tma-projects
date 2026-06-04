@@ -62,63 +62,87 @@ export async function getOrFetchDepositAddress(
   return { address: resp.address, symbol: resp.symbol, chain: resp.chain }
 }
 
-// ── 提现（出站调 Matrix API）─────────────────────────────────────────────────
+// ── 提现 Step 1：存单（仅写 DB，不调 Matrix API）────────────────────────────
+// 用于用户提交提现申请时，等待后台审批
 
-export async function createMatrixWithdraw(
+export function generateMerchantOrderNo(): string {
+  return randomOrderId('MXW')
+}
+
+export async function initMatrixWithdrawOrder(
   env: Env,
-  redis: Redis,
   opts: {
+    merchantOrderNo: string
     userId: string
     toAddress: string
     symbol: string
     chain: string
     cryptoAmount: string
-    phpAmount: number
   },
-): Promise<{ merchantOrderNo: string; matrixOrderNo: string }> {
-  const merchantOrderNo = randomOrderId('MXW')
+): Promise<void> {
   const pool = getMysqlPool(env)
-
   await pool.query(
     `INSERT INTO bg_withdraw_order
        (order_id, user_id, channel, currency, amount, status, to_address, chain, extra)
      VALUES (?, ?, 'matrix', ?, ?, 'pending', ?, ?,
-       JSON_OBJECT('cryptoAmount', ?, 'phpAmount', ?))`,
-    [merchantOrderNo, opts.userId, opts.symbol, Number(opts.cryptoAmount),
-      opts.toAddress, opts.chain, opts.cryptoAmount, opts.phpAmount],
+       JSON_OBJECT('cryptoAmount', ?))`,
+    [
+      opts.merchantOrderNo, opts.userId, opts.symbol,
+      Number(opts.cryptoAmount), opts.toAddress, opts.chain,
+      opts.cryptoAmount,
+    ],
   )
+}
 
-  let matrixOrderNo: string
+// ── 提现 Step 2：后台批准时调 Matrix API 实际出款 ─────────────────────────────
+
+export async function executeMatrixWithdrawOrder(
+  env: Env,
+  redis: Redis,
+  merchantOrderNo: string,
+): Promise<string> {
+  const pool = getMysqlPool(env)
+
+  const [rows] = await pool.query<RowDataPacket[]>(
+    `SELECT order_id, user_id, currency, amount, to_address, chain
+     FROM bg_withdraw_order WHERE order_id = ? LIMIT 1`,
+    [merchantOrderNo],
+  )
+  const order = rows[0]
+  if (!order) throw new Error(`Order not found: ${merchantOrderNo}`)
+
+  const client = matrixClientFromEnv(env)
+
   try {
-    const client = matrixClientFromEnv(env)
     const resp = await client.createWithdrawOrder({
       merchantOrderNo,
-      userId: opts.userId,
-      toAddress: opts.toAddress,
-      symbol: opts.symbol,
-      chain: opts.chain,
-      amount: opts.cryptoAmount,
+      userId: String(order.user_id),
+      toAddress: String(order.to_address),
+      symbol: String(order.currency),
+      chain: String(order.chain),
+      amount: String(order.amount),
     })
-    matrixOrderNo = resp.orderNo
     await pool.query(
-      `UPDATE bg_withdraw_order SET extra=JSON_SET(COALESCE(extra,'{}'),'$.matrixOrderNo',?) WHERE order_id=?`,
-      [matrixOrderNo, merchantOrderNo],
+      `UPDATE bg_withdraw_order
+         SET status='processing',
+             extra=JSON_SET(COALESCE(extra,'{}'),'$.matrixOrderNo',?)
+       WHERE order_id=?`,
+      [resp.orderNo, merchantOrderNo],
     )
+    return resp.orderNo
   } catch (err) {
     await pool.query(
       `UPDATE bg_withdraw_order SET status='failed', refunded=1 WHERE order_id=?`,
       [merchantOrderNo],
     )
-    await creditWallet(redis, opts.userId, opts.phpAmount, {
+    await creditWallet(redis, String(order.user_id), Number(order.amount), {
       type: 'deposit',
       refId: merchantOrderNo,
-      description: `Matrix 提现创建失败退款 #${merchantOrderNo}`,
+      description: `Matrix 提现出款失败退款 #${merchantOrderNo}`,
       createdAt: nowIso(),
-      currency: opts.symbol,
+      currency: String(order.currency),
     })
-    const msg = err instanceof MatrixApiError ? err.message : 'Matrix 提现创建失败'
+    const msg = err instanceof MatrixApiError ? err.message : 'Matrix 提现出款失败'
     throw new Error(msg)
   }
-
-  return { merchantOrderNo, matrixOrderNo }
 }

@@ -473,7 +473,7 @@ export default {
     matrixCryptoAmount: '{{symbol}} Amount',
     matrixPhpDeduct: 'PHP to deduct from balance',
     matrixWithdrawSubmit: 'Submit Withdrawal',
-    matrixWithdrawPending: 'Withdrawal submitted to Matrix.',
+    matrixWithdrawPending: 'Withdrawal submitted, pending admin approval.',
     matrixWithdrawFailed: 'Withdrawal failed. Please try again.',
   },
   slots: {

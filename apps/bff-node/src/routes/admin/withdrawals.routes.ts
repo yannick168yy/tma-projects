@@ -1,6 +1,7 @@
 import Router from '@koa/router'
 import { listAdminWithdrawals, writeAuditLog } from '../../services/admin-store.js'
 import { getWithdraw, saveWithdraw, creditWallet } from '../../services/store/index.js'
+import { executeMatrixWithdrawOrder } from '../../services/matrix.service.js'
 import { fail, ok } from '../../utils/response.js'
 import { nowIso } from '../../utils/format.js'
 
@@ -21,9 +22,34 @@ router.post('/:orderId/approve', async (ctx) => {
   if (order.status !== 'pending') {
     fail(ctx, 400, `Cannot approve order in status: ${order.status}`); return
   }
+
+  // Matrix 提现：审批时才调 Matrix API 实际出款
   if (order.channelId === 'matrix') {
-    fail(ctx, 400, 'Matrix withdrawals are processed automatically on-chain, no manual approval needed'); return
+    try {
+      const matrixOrderNo = await executeMatrixWithdrawOrder(
+        ctx.state.env,
+        ctx.state.redis,
+        order.orderId,
+      )
+      await writeAuditLog(ctx.state.env, {
+        adminId: ctx.state.adminId!,
+        adminUsername: ctx.state.adminUsername!,
+        action: 'withdrawal.approve',
+        targetType: 'withdrawal',
+        targetId: order.orderId,
+        detail: { userId: order.userId, amount: order.amount, currency: order.currency, matrixOrderNo },
+        ip: ctx.ip,
+      })
+      ok(ctx, { orderId: order.orderId, status: 'processing', matrixOrderNo })
+    } catch (err) {
+      // Matrix API 失败：executeMatrixWithdrawOrder 内部已退款并置 failed
+      const msg = err instanceof Error ? err.message : 'Matrix withdrawal failed'
+      fail(ctx, 502, msg)
+    }
+    return
   }
+
+  // 其他渠道（tg_wallet 等）：直接标记完成
   order.status = 'completed'
   order.completedAt = nowIso()
   await saveWithdraw(ctx.state.redis, order)
@@ -47,16 +73,13 @@ router.post('/:orderId/reject', async (ctx) => {
   if (order.status !== 'pending') {
     fail(ctx, 400, `Cannot reject order in status: ${order.status}`); return
   }
-  if (order.channelId === 'matrix') {
-    fail(ctx, 400, 'Matrix withdrawals are processed automatically on-chain and cannot be rejected after submission'); return
-  }
 
   order.status = 'admin_rejected'
   order.rejectReason = body.reason ?? 'Rejected by admin'
   order.completedAt = nowIso()
   await saveWithdraw(ctx.state.redis, order)
 
-  // 退款：金额已在创建时扣除，拒绝时退回原币种
+  // 退款：退回原币种
   await creditWallet(
     ctx.state.redis,
     order.userId,
@@ -77,7 +100,7 @@ router.post('/:orderId/reject', async (ctx) => {
     action: 'withdrawal.reject',
     targetType: 'withdrawal',
     targetId: order.orderId,
-    detail: { userId: order.userId, amount: order.amount, reason: body.reason },
+    detail: { userId: order.userId, amount: order.amount, currency: order.currency, reason: body.reason },
     ip: ctx.ip,
   })
   ok(ctx, { orderId: order.orderId, status: order.status })
