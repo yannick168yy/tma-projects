@@ -7,7 +7,7 @@ import PayMethodGrid from '@/components/wallet/PayMethodGrid'
 import { createDeposit } from '@/api/deposit'
 import { createTonDeposit, pollTonDepositStatus } from '@/api/tonDeposit'
 import { ApiError, isTelegramWebApp } from '@/api/client'
-import { useWalletStore, formatHeaderBalance, CURRENCY_META } from '@/stores/wallet'
+import { useWalletStore, formatBalanceWithCode } from '@/stores/wallet'
 import { useTonConnect } from '@/hooks/useTonConnect'
 import { openTelegramInvoice, waitForDepositPaid } from '@/utils/tgInvoice'
 import { fetchYfPayChannels, createYfDeposit, queryYfDeposit, fetchYfDepositOrders, fetchYfWithdrawOrders, fetchDepositHistory, fetchWithdrawHistory, createYfWithdrawal, type YfPayChannel } from '@/api/yfpay'
@@ -38,8 +38,7 @@ export default function WalletModal({ open, onClose }: Props) {
     const b = s.balance?.balances.find((x) => x.currency === s.activeCurrency)
     return b?.available ?? 0
   })
-  const activeMeta = CURRENCY_META[activeCurrency] ?? { name: activeCurrency, symbol: activeCurrency[0] }
-  const displayActive = walletStore.balance ? formatHeaderBalance(activeCurrency, activeAvailable) : '—'
+  const displayActive = walletStore.balance ? formatBalanceWithCode(activeCurrency, activeAvailable) : '—'
   const { walletAddress: tonWalletAddress, isConnected: tonIsConnected, connectWallet: connectTonWallet, disconnect: disconnectTon, sendTransaction: sendTonTransaction } = useTonConnect()
 
   const sheetRef = useRef<HTMLDivElement>(null)
@@ -281,10 +280,7 @@ export default function WalletModal({ open, onClose }: Props) {
         <div className="flex flex-shrink-0 justify-center pb-1 pt-3"><div className="h-1 w-10 rounded-full bg-border" /></div>
         <div className="flex flex-shrink-0 items-center justify-between border-b border-border px-5 py-3">
           <div className="flex items-center gap-2"><Wallet size={18} className="text-primary" /><span className="font-display text-base font-black text-foreground">{t('wallet.title')}</span></div>
-          <div className="flex items-center gap-1.5">
-            <span className="text-[11px] font-bold text-muted-foreground">{activeMeta.symbol}</span>
-            <span className="text-sm font-black text-primary">{displayActive}</span>
-          </div>
+          <span className="text-sm font-black tabular-nums text-primary">{displayActive}</span>
           <button type="button" className="flex h-8 w-8 items-center justify-center rounded-xl bg-secondary transition-colors hover:bg-muted" onClick={onClose}><X size={15} className="text-muted-foreground" /></button>
         </div>
 
@@ -381,8 +377,7 @@ export default function WalletModal({ open, onClose }: Props) {
                   {tab === 'deposit' ? (
                     <>
                       <div><p className="text-muted-foreground text-[11px] font-bold uppercase tracking-wider mb-2.5">{t('wallet.fiatSection')}</p><PayMethodGrid methods={liveFiatDeposit} selected={selectedMethod} onSelect={(id)=>{setSelectedMethod(id);setAmount('');setDepositMessage('')}} /></div>
-                      <div><p className="text-muted-foreground text-[11px] font-bold uppercase tracking-wider mb-2.5">{t('wallet.tgWalletSection')}</p><PayMethodGrid methods={TG_WALLET_DEPOSIT} selected={selectedMethod} onSelect={(id)=>{setSelectedMethod(id);setAmount('');setDepositMessage('')}} /></div>
-                      <div><p className="text-muted-foreground text-[11px] font-bold uppercase tracking-wider mb-2.5">{t('wallet.cryptoSection')}</p><PayMethodGrid methods={CRYPTO_DEPOSIT} selected={selectedMethod} onSelect={setSelectedMethod} /></div>
+                      <div><p className="text-muted-foreground text-[11px] font-bold uppercase tracking-wider mb-2.5">{t('wallet.cryptoSection')}</p><PayMethodGrid methods={[...TG_WALLET_DEPOSIT, ...CRYPTO_DEPOSIT]} selected={selectedMethod} onSelect={(id)=>{setSelectedMethod(id);setAmount('');setDepositMessage('')}} /></div>
                     </>
                   ) : (
                     <>

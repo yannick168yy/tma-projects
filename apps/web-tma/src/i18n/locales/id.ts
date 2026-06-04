@@ -46,6 +46,9 @@ export default {
     hideBalances: 'Sembunyikan Saldo',
     showBalances: 'Tampilkan Saldo',
     wallet: 'Dompet',
+    switchCurrency: 'Ganti Mata Uang',
+    fiatCurrencies: 'Mata Uang Fiat',
+    cryptoCurrencies: 'Kripto',
   },
   auth: {
     signInTitle: 'Masuk ke BetoGo',

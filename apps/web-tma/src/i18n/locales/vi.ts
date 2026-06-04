@@ -46,6 +46,9 @@ export default {
     hideBalances: 'Ẩn số dư',
     showBalances: 'Hiện số dư',
     wallet: 'Ví',
+    switchCurrency: 'Đổi loại tiền',
+    fiatCurrencies: 'Tiền pháp định',
+    cryptoCurrencies: 'Tiền mã hóa',
   },
   auth: {
     signInTitle: 'Đăng nhập BetoGo',

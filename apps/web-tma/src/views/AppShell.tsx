@@ -16,7 +16,14 @@ import TeamCenterPage from '@/views/TeamCenterPage'
 import GamePlayer from '@/components/GamePlayer'
 import { NAV_ITEMS } from '@/data/home'
 import { useAuthStore } from '@/stores/auth'
-import { useWalletStore, formatHeaderBalance, formatRowAmount, SUPPORTED_CURRENCY_CODES, CURRENCY_META } from '@/stores/wallet'
+import {
+  useWalletStore,
+  formatHeaderBalance,
+  formatBalanceWithCode,
+  SUPPORTED_CURRENCY_CODES,
+  isFiatCurrency,
+  displayCurrencyCode,
+} from '@/stores/wallet'
 import { useFullPageOverlay } from '@/hooks/useFullPageOverlay'
 import type { CategoryLobbyParams } from '@/hooks/useFullPageOverlay'
 
@@ -67,8 +74,25 @@ export default function AppShell() {
   const headerRef = useRef<HTMLElement>(null)
   const navRef = useRef<HTMLElement>(null)
   const mainRef = useRef<HTMLElement>(null)
+  const balanceTriggerRef = useRef<HTMLButtonElement>(null)
+  const walletPanelRef = useRef<HTMLDivElement>(null)
   const [headerH, setHeaderH] = useState(80)
   const [navH, setNavH] = useState(64)
+
+  const fiatBalances = useMemo(() => allBalances.filter((b) => isFiatCurrency(b.code)), [allBalances])
+  const cryptoBalances = useMemo(() => allBalances.filter((b) => !isFiatCurrency(b.code)), [allBalances])
+
+  useEffect(() => {
+    if (!walletOpen) return
+    function onPointerDown(e: PointerEvent) {
+      const target = e.target as Node
+      if (walletPanelRef.current?.contains(target)) return
+      if (balanceTriggerRef.current?.contains(target)) return
+      setWalletOpen(false)
+    }
+    document.addEventListener('pointerdown', onPointerDown, true)
+    return () => document.removeEventListener('pointerdown', onPointerDown, true)
+  }, [walletOpen])
 
   useEffect(() => {
     const ro = new ResizeObserver(() => {
@@ -140,15 +164,43 @@ export default function AppShell() {
 
   const { view } = overlay
 
+  function renderCurrencyRow(b: { code: string; available: number }) {
+    const isActive = b.code === activeCurrency
+    return (
+      <button
+        key={b.code}
+        type="button"
+        className={`flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-left transition-colors ${isActive ? 'bg-primary/6' : 'hover:bg-white/4'}`}
+        onClick={() => {
+          wallet.setActiveCurrency(b.code)
+          setWalletOpen(false)
+        }}
+      >
+        <div className="flex items-center gap-1">
+          <span className={`text-xs font-bold ${isActive ? 'text-primary' : 'text-foreground'}`}>
+            {displayCurrencyCode(b.code)}
+          </span>
+          {b.code === 'TRX_TESTNET' && <sup className="text-[8px] font-bold leading-none text-yellow-400">TEST</sup>}
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className={`text-xs font-bold tabular-nums ${isActive ? 'text-primary' : 'text-muted-foreground'}`}>
+            {balanceVisible ? formatBalanceWithCode(b.code, b.available) : '••••••'}
+          </span>
+          {isActive && <Check size={11} className="flex-shrink-0 text-primary" />}
+        </div>
+      </button>
+    )
+  }
+
   return (
     <div className="flex w-full justify-center bg-[#040609]">
       <div className="app-frame w-full max-w-[430px] bg-background">
-        <header ref={headerRef} className="app-fixed-top bg-background">
+        <header ref={headerRef} className={`app-fixed-top bg-background ${walletOpen ? 'z-50' : ''}`}>
           <div className="app-safe-header flex items-center gap-3 px-4 pb-4">
             <button type="button" className="flex-shrink-0 cursor-pointer" onClick={goHome}><BetogoLogo /></button>
 
             <div className="flex flex-1 items-center justify-center gap-3">
-              <button type="button" className="flex flex-col items-center gap-0.5" onClick={() => void onBalanceTap()}>
+              <button ref={balanceTriggerRef} type="button" className="flex flex-col items-center gap-0.5" onClick={() => void onBalanceTap()}>
                 <span className="flex items-center gap-1 text-[11px] font-semibold leading-none text-muted-foreground">
                   {isLoggedIn ? activeCurrency : t('shell.signIn')}
                   {isLoggedIn && <ChevronDown size={11} className={`transition-transform duration-200 ${walletOpen ? 'rotate-180' : ''}`} />}
@@ -172,71 +224,40 @@ export default function AppShell() {
           {walletOpen && isLoggedIn && (
             <>
               <div
-                className="fixed inset-0 z-40"
-                onClick={() => setWalletOpen(false)}
-                onTouchMove={(e) => e.preventDefault()}
-              />
-              <div className="absolute left-4 right-4 top-full z-50 -mt-1 overflow-hidden rounded-2xl border border-border bg-card shadow-2xl">
+                ref={walletPanelRef}
+                className="absolute left-4 right-4 top-full z-[60] -mt-1 overflow-hidden rounded-2xl border border-border bg-card shadow-2xl"
+              >
                 <div className="px-4 pt-4 pb-3">
-                  {/* 当前选中币种 — 突出显示 */}
                   <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{t('shell.myWallet')}</p>
-                  {(() => {
-                    const meta = CURRENCY_META[activeCurrency] ?? { name: activeCurrency, symbol: activeCurrency[0] }
-                    return (
-                      <div className="mb-3 flex items-center justify-between rounded-xl bg-primary/8 px-3 py-2.5 border border-primary/15">
-                        <div className="flex items-center gap-2.5">
-                          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/15">
-                            <span className="text-sm font-black text-primary">{meta.symbol}</span>
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-1">
-                              <p className="text-sm font-black text-primary">{activeCurrency === 'TRX_TESTNET' ? 'TRX' : activeCurrency}</p>
-                              {activeCurrency === 'TRX_TESTNET' && <sup className="text-[9px] font-bold text-yellow-400 leading-none">TEST</sup>}
-                            </div>
-                            <p className="text-[10px] text-primary/60">{meta.name}</p>
-                          </div>
-                        </div>
-                        <span className="text-lg font-black text-primary tabular-nums">
-                          {balanceVisible ? formatRowAmount(activeCurrency, activeAvailable) : '••••••'}
-                        </span>
-                      </div>
-                    )
-                  })()}
-
-                  {/* 全部币种选择列表 */}
-                  <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">切换币种</p>
-                  <div className="space-y-0.5">
-                    {allBalances.map((b) => {
-                      const meta = CURRENCY_META[b.code] ?? { name: b.code, symbol: b.code[0] }
-                      const isActive = b.code === activeCurrency
-                      return (
-                        <button
-                          key={b.code}
-                          type="button"
-                          className={`flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-left transition-colors ${isActive ? 'bg-primary/6' : 'hover:bg-white/4'}`}
-                          onClick={() => { wallet.setActiveCurrency(b.code); setWalletOpen(false) }}
-                        >
-                          <div className="flex items-center gap-2">
-                            <div className={`flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-md text-xs font-black ${isActive ? 'bg-primary/15 text-primary' : 'bg-secondary text-muted-foreground'}`}>
-                              {meta.symbol}
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <span className={`text-xs font-bold ${isActive ? 'text-primary' : 'text-foreground'}`}>
-                                {b.code === 'TRX_TESTNET' ? 'TRX' : b.code}
-                              </span>
-                              {b.code === 'TRX_TESTNET' && <sup className="text-[8px] font-bold text-yellow-400 leading-none">TEST</sup>}
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-1.5">
-                            <span className={`text-xs font-bold tabular-nums ${isActive ? 'text-primary' : 'text-muted-foreground'}`}>
-                              {balanceVisible ? formatRowAmount(b.code, b.available) : '••••••'}
-                            </span>
-                            {isActive && <Check size={11} className="text-primary flex-shrink-0" />}
-                          </div>
-                        </button>
-                      )
-                    })}
+                  <div className="mb-3 flex items-center justify-between rounded-xl border border-primary/15 bg-primary/8 px-3 py-2.5">
+                    <div className="flex items-center gap-1">
+                      <span className="text-sm font-black text-primary">{displayCurrencyCode(activeCurrency)}</span>
+                      {activeCurrency === 'TRX_TESTNET' && <sup className="text-[9px] font-bold leading-none text-yellow-400">TEST</sup>}
+                    </div>
+                    <span className="text-lg font-black tabular-nums text-primary">
+                      {balanceVisible ? formatBalanceWithCode(activeCurrency, activeAvailable) : '••••••'}
+                    </span>
                   </div>
+
+                  <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{t('shell.switchCurrency')}</p>
+
+                  {fiatBalances.length > 0 && (
+                    <div className="mb-2">
+                      <p className="mb-1 px-2 text-[10px] font-semibold text-muted-foreground/80">{t('shell.fiatCurrencies')}</p>
+                      <div className="space-y-0.5">
+                        {fiatBalances.map((b) => renderCurrencyRow(b))}
+                      </div>
+                    </div>
+                  )}
+
+                  {cryptoBalances.length > 0 && (
+                    <div>
+                      <p className="mb-1 px-2 text-[10px] font-semibold text-muted-foreground/80">{t('shell.cryptoCurrencies')}</p>
+                      <div className="space-y-0.5">
+                        {cryptoBalances.map((b) => renderCurrencyRow(b))}
+                      </div>
+                    </div>
+                  )}
                 </div>
                 <div className="flex gap-2 px-4 pb-4">
                   <button type="button" className="flex-1 rounded-xl bg-secondary py-2 text-xs font-bold text-muted-foreground" onClick={() => setBalanceVisible(!balanceVisible)}>{balanceVisible ? t('shell.hideBalances') : t('shell.showBalances')}</button>

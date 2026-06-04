@@ -52,6 +52,16 @@ export function getDisplayPhp(): string {
 // 预设支持的币种顺序
 export const SUPPORTED_CURRENCY_CODES = ['PHP', 'USDT', 'USDC', 'TON', 'TRX', 'BNB', 'ETH', 'BTC'] as const
 
+export const FIAT_CURRENCY_CODES = ['PHP'] as const
+
+export function isFiatCurrency(code: string): boolean {
+  return (FIAT_CURRENCY_CODES as readonly string[]).includes(code)
+}
+
+export function displayCurrencyCode(code: string): string {
+  return code === 'TRX_TESTNET' ? 'TRX' : code
+}
+
 export interface CurrencyMeta {
   code: string
   name: string
@@ -93,6 +103,16 @@ export function formatCurrencyAmount(currency: string, available: number): strin
     return `₱ ${available.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
   }
   return `${available.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`
+}
+
+/** 充提/币种列表：币种代码在前，如 PHP 1,234.56 */
+export function formatBalanceWithCode(currency: string, available: number): string {
+  const code = displayCurrencyCode(currency)
+  const num =
+    currency === 'PHP'
+      ? available.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+      : available.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  return `${code} ${num}`
 }
 
 export function currencySymbol(currency: string): string {

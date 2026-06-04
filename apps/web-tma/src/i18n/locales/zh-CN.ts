@@ -46,6 +46,9 @@ export default {
     hideBalances: '隐藏余额',
     showBalances: '显示余额',
     wallet: '钱包',
+    switchCurrency: '切换币种',
+    fiatCurrencies: '法币',
+    cryptoCurrencies: '虚拟币',
   },
   auth: {
     signInTitle: '登录 BetoGo',

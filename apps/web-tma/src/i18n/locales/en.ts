@@ -46,6 +46,9 @@ export default {
     hideBalances: 'Hide Balances',
     showBalances: 'Show Balances',
     wallet: 'Wallet',
+    switchCurrency: 'Switch Currency',
+    fiatCurrencies: 'Fiat',
+    cryptoCurrencies: 'Crypto',
   },
   auth: {
     signInTitle: 'Sign in to BetoGo',
