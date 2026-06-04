@@ -7,7 +7,7 @@ import {
   DashboardOutlined, TeamOutlined, ArrowDownOutlined, ArrowUpOutlined,
   FileTextOutlined, UserOutlined, DownOutlined, AppstoreOutlined, SettingOutlined,
   CustomerServiceOutlined, BookOutlined, SwapOutlined, TransactionOutlined,
-  ReconciliationOutlined, ApartmentOutlined,
+  ReconciliationOutlined, ApartmentOutlined, GiftOutlined,
 } from '@ant-design/icons'
 import { useAuthStore } from '../stores/auth'
 import { adminChangePassword } from '../api'
@@ -23,6 +23,7 @@ const menuItems = [
   { key: '/bet-orders', icon: <TransactionOutlined />, label: '投注记录' },
   { key: '/sg-settlement', icon: <ReconciliationOutlined />, label: '结算对账' },
   { key: '/team-referral', icon: <ApartmentOutlined />, label: '分销管理' },
+  { key: '/promotions', icon: <GiftOutlined />, label: '活动配置' },
   { key: '/audit-log', icon: <FileTextOutlined />, label: '操作日志' },
   { key: '/customer-service', icon: <CustomerServiceOutlined />, label: '客服工作台' },
   { key: '/cs-faq', icon: <BookOutlined />, label: '知识库管理' },

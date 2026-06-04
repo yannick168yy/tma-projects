@@ -2,6 +2,7 @@ import Router from '@koa/router'
 import { creditWallet, getUser, listLedger, saveUser } from '../services/store.js'
 import { formatDisplayTime, nowIso } from '../utils/format.js'
 import { fail, ok } from '../utils/response.js'
+import { getPromoConfig } from '../services/promo-config.service.js'
 
 const PROMOS = [
   {
@@ -50,6 +51,11 @@ function promoHighlights(user: Awaited<ReturnType<typeof getUser>>) {
   })
 }
 
+router.get('/config', async (ctx) => {
+  const cfg = await getPromoConfig(ctx.state.env)
+  ok(ctx, cfg)
+})
+
 router.get('/', async (ctx) => {
   const user = await getUser(ctx.state.redis, ctx.state.userId!)
   const highlights = promoHighlights(user)
@@ -87,15 +93,21 @@ router.post('/trial-play/claim', async (ctx) => {
     fail(ctx, 409, 'Trial bonus already claimed')
     return
   }
+  const cfg = await getPromoConfig(ctx.state.env)
+  if (!cfg.trial.enabled) {
+    fail(ctx, 409, 'Trial bonus is currently disabled')
+    return
+  }
+  const amount = cfg.trial.amount
   user.trialClaimed = true
   await saveUser(ctx.state.redis, user)
-  await creditWallet(ctx.state.redis, user.id, 88, {
+  await creditWallet(ctx.state.redis, user.id, amount, {
     type: 'red_packet',
     description: 'Trial Officer red packet',
     createdAt: nowIso(),
     traceId: ctx.state.traceId,
   })
-  ok(ctx, { amountPhp: 88, amountCents: 88 })
+  ok(ctx, { amountPhp: amount, amountCents: amount })
 })
 
 router.get('/referral', async (ctx) => {
@@ -181,16 +193,19 @@ router.post('/:promoId/claim', async (ctx) => {
       fail(ctx, 409, 'Referral reward not available')
       return
     }
+    const cfg = await getPromoConfig(ctx.state.env)
+    if (!cfg.referral.enabled) { fail(ctx, 409, 'Referral bonus is currently disabled'); return }
+    const amount = cfg.referral.inviterAmount
     user.referralClaimed = true
     user.referralReady = false
     await saveUser(ctx.state.redis, user)
-    await creditWallet(ctx.state.redis, user.id, 50, {
+    await creditWallet(ctx.state.redis, user.id, amount, {
       type: 'bonus',
       description: 'Referral bonus',
       createdAt: nowIso(),
       traceId: ctx.state.traceId,
     })
-    ok(ctx, { amountPhp: 50, amountCents: 50 })
+    ok(ctx, { amountPhp: amount, amountCents: amount })
     return
   }
   if (promoId === 'firstdep') {
@@ -198,16 +213,19 @@ router.post('/:promoId/claim', async (ctx) => {
       fail(ctx, 409, 'First deposit bonus not available')
       return
     }
+    const cfg = await getPromoConfig(ctx.state.env)
+    if (!cfg.firstdep.enabled) { fail(ctx, 409, 'First deposit bonus is currently disabled'); return }
+    const amount = cfg.firstdep.maxBonus
     user.firstDepClaimed = true
     user.firstDepReady = false
     await saveUser(ctx.state.redis, user)
-    await creditWallet(ctx.state.redis, user.id, 1000, {
+    await creditWallet(ctx.state.redis, user.id, amount, {
       type: 'bonus',
       description: 'First deposit bonus',
       createdAt: nowIso(),
       traceId: ctx.state.traceId,
     })
-    ok(ctx, { amountPhp: 1000, amountCents: 1000 })
+    ok(ctx, { amountPhp: amount, amountCents: amount })
     return
   }
   fail(ctx, 404, 'Promotion not found', 404)

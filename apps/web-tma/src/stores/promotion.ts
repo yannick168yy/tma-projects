@@ -13,10 +13,12 @@ import {
   fetchTeamWallet,
   submitTeamWithdrawal,
   fetchTeamWithdrawals,
+  fetchPromoConfig,
   type TeamDownline,
   type TeamCommissionItem,
   type TeamCommissionSummary,
   type TeamWithdrawal,
+  type PromoConfig,
 } from '@/api/promotion'
 import { ApiError } from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
@@ -25,6 +27,7 @@ import { i18n } from '@/i18n'
 import type { PromoHighlight, PromoId, RedPacketRecord, ReferralRecord, TeamAgentStatus } from '@/types/api'
 
 interface PromotionState {
+  promoConfig: PromoConfig | null
   highlights: PromoHighlight[]
   referralRecords: ReferralRecord[]
   redPacketRecords: RedPacketRecord[]
@@ -48,6 +51,7 @@ interface PromotionState {
 }
 
 interface PromotionActions {
+  loadPromoConfig: () => Promise<void>
   setHighlights: (rows: PromoHighlight[]) => void
   refreshHighlights: () => Promise<void>
   loadLists: () => Promise<void>
@@ -65,6 +69,7 @@ interface PromotionActions {
 }
 
 export const usePromotionStore = create<PromotionState & PromotionActions>((set, get) => ({
+  promoConfig: null,
   highlights: [],
   referralRecords: [],
   redPacketRecords: [],
@@ -86,6 +91,10 @@ export const usePromotionStore = create<PromotionState & PromotionActions>((set,
   teamWithdrawalsLoading: false,
   trialClaiming: false,
 
+  async loadPromoConfig() {
+    const cfg = await fetchPromoConfig()
+    set({ promoConfig: cfg })
+  },
   setHighlights(rows) { set({ highlights: rows }) },
 
   async refreshHighlights() {

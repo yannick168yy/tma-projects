@@ -34,10 +34,13 @@ export default function BonusesPage({ promoFilter, onOpenWallet, onOpenTeam }: P
   const [agentExpanded, setAgentExpanded] = useState(false)
 
   const teamStatus = promotionStore.teamStatus
+  const promoConfig = usePromotionStore((s) => s.promoConfig)
 
   useEffect(() => {
     if (token && user) void promotionStore.loadTeamStatus()
   }, [token, user])
+
+  useEffect(() => { void promotionStore.loadPromoConfig() }, [])
 
   useEffect(() => {
     if (promoFilter) {
@@ -75,24 +78,40 @@ export default function BonusesPage({ promoFilter, onOpenWallet, onOpenTeam }: P
     () =>
       PROMOS.map((p) => {
         const base = `bonuses.promos.${p.id}`
+        const cfg = promoConfig
+
+        let vars: Record<string, unknown> = {}
+        let reward = p.reward
+        if (p.id === 'trial' && cfg) {
+          vars = { amount: cfg.trial.amount }
+          reward = `₱ ${cfg.trial.amount}`
+        } else if (p.id === 'referral' && cfg) {
+          vars = { inviterAmount: cfg.referral.inviterAmount, inviteeAmount: cfg.referral.inviteeAmount }
+          reward = `₱${cfg.referral.inviterAmount} / ₱${cfg.referral.inviteeAmount}`
+        } else if (p.id === 'firstdep' && cfg) {
+          vars = { matchPct: cfg.firstdep.matchPct, maxBonus: cfg.firstdep.maxBonus.toLocaleString('en-PH'), minDeposit: cfg.firstdep.minDeposit, turnoverX: cfg.firstdep.turnoverX }
+          reward = `${cfg.firstdep.matchPct}%`
+        }
+
         const stepList =
           p.id === 'referral'
-            ? [t(`${base}.step1`), t(`${base}.step2`), t(`${base}.step3`)]
-            : [t(`${base}.step1`), t(`${base}.step2`)]
+            ? [t(`${base}.step1`, vars), t(`${base}.step2`, vars), t(`${base}.step3`, vars)]
+            : [t(`${base}.step1`, vars), t(`${base}.step2`, vars)]
         return {
           ...p,
+          reward,
           tag: t(`${base}.tag`),
           title: t(`${base}.title`),
-          tagline: t(`${base}.tagline`),
-          rewardLabel: t(`${base}.rewardLabel`),
-          desc: t(`${base}.desc`),
-          badge: t(`${base}.badge`),
+          tagline: t(`${base}.tagline`, vars),
+          rewardLabel: t(`${base}.rewardLabel`, vars),
+          desc: t(`${base}.desc`, vars),
+          badge: t(`${base}.badge`, vars),
           cta: t(`${base}.cta`),
           steps: stepList,
           expiry: p.expiry === 'Ongoing' ? t('common.ongoing') : t('common.limitedTime'),
         }
       }),
-    [t],
+    [t, promoConfig],
   )
 
   const localizedStats = useMemo(

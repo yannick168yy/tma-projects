@@ -328,3 +328,12 @@ export const triggerReconcile = (date: string) =>
   post('/admin/sg-settlement/reconcile', { date })
 export const markReconciled = (id: number) =>
   req<{ id: number }>('PATCH', `/admin/sg-settlement/${id}/reconcile`)
+
+// Promo Config
+export interface PromoConfig {
+  trial:    { amount: number; enabled: boolean }
+  referral: { inviterAmount: number; inviteeAmount: number; enabled: boolean }
+  firstdep: { matchPct: number; maxBonus: number; minDeposit: number; turnoverX: number; enabled: boolean }
+}
+export const getPromoConfig = () => get<PromoConfig>('/admin/promotions/config')
+export const savePromoConfig = (data: PromoConfig) => req<PromoConfig>('PUT', '/admin/promotions/config', data)

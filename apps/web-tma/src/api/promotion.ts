@@ -106,3 +106,24 @@ export async function fetchTeamWithdrawals(page: number): Promise<{ items: TeamW
   return apiRequest(`/promotions/team/withdrawals?page=${page}`)
 }
 
+export interface PromoConfig {
+  trial:    { amount: number; enabled: boolean }
+  referral: { inviterAmount: number; inviteeAmount: number; enabled: boolean }
+  firstdep: { matchPct: number; maxBonus: number; minDeposit: number; turnoverX: number; enabled: boolean }
+}
+
+const DEFAULT_PROMO_CONFIG: PromoConfig = {
+  trial:    { amount: 88, enabled: true },
+  referral: { inviterAmount: 50, inviteeAmount: 30, enabled: true },
+  firstdep: { matchPct: 120, maxBonus: 1000, minDeposit: 100, turnoverX: 15, enabled: true },
+}
+
+export async function fetchPromoConfig(): Promise<PromoConfig> {
+  if (useMock) return DEFAULT_PROMO_CONFIG
+  try {
+    return await apiRequest<PromoConfig>('/promotions/config')
+  } catch {
+    return DEFAULT_PROMO_CONFIG
+  }
+}
+

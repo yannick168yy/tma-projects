@@ -15,6 +15,7 @@ import CsFaq from './views/CsFaq'
 import BetOrders from './views/BetOrders'
 import SgSettlement from './views/SgSettlement'
 import TeamReferral from './views/TeamReferral'
+import Promotions from './views/Promotions'
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const token = localStorage.getItem('admin_token')
@@ -49,6 +50,7 @@ export default function App() {
           <Route path="bet-orders" element={<BetOrders />} />
           <Route path="sg-settlement" element={<SgSettlement />} />
           <Route path="team-referral" element={<TeamReferral />} />
+          <Route path="promotions" element={<Promotions />} />
         </Route>
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>

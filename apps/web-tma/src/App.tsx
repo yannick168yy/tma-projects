@@ -16,7 +16,7 @@ function MainApp() {
   const closeLoginSheet = useAuthStore((s) => s.closeLoginSheet)
   const token = useAuthStore((s) => s.token)
   const trialEligible = useAuthStore((s) => s.trialEligible)
-  const { redPacketSheet, closeRedPacket, trialClaiming, claimTrialIfEligible } = usePromotionStore()
+  const { redPacketSheet, closeRedPacket, trialClaiming, claimTrialIfEligible, promoConfig, loadPromoConfig } = usePromotionStore()
 
   const [trialWelcomeOpen, setTrialWelcomeOpen] = useState(false)
   const bootstrapped = useRef(false)
@@ -25,6 +25,7 @@ function MainApp() {
     if (bootstrapped.current) return
     bootstrapped.current = true
     void useAuthStore.getState().bootstrap()
+    void loadPromoConfig()
   }, [])
 
   useEffect(() => {
@@ -54,6 +55,7 @@ function MainApp() {
           claiming={trialClaiming}
           onClaim={() => void onTrialWelcomeClaim()}
           onDismiss={dismissTrialWelcome}
+          amount={promoConfig?.trial.amount}
         />
       )}
       {redPacketSheet.open && (

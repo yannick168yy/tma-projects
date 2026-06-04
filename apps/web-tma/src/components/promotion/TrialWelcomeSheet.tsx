@@ -1,17 +1,16 @@
 import { useTranslation } from 'react-i18next'
 import { createPortal } from 'react-dom'
-import { PROMOS } from '@/data/promos'
-
-const TRIAL_REWARD = PROMOS.find((p) => p.id === 'trial')?.reward ?? '₱ 88'
 
 interface Props {
   claiming: boolean
   onClaim: () => void
   onDismiss: () => void
+  amount?: number
 }
 
-export default function TrialWelcomeSheet({ claiming, onClaim, onDismiss }: Props) {
+export default function TrialWelcomeSheet({ claiming, onClaim, onDismiss, amount = 88 }: Props) {
   const { t } = useTranslation()
+  const vars = { amount }
 
   return createPortal(
     <div className="fixed inset-0 z-[94] flex items-end justify-center">
@@ -19,14 +18,14 @@ export default function TrialWelcomeSheet({ claiming, onClaim, onDismiss }: Prop
       <div className="relative z-10 w-full max-w-[430px] rounded-t-3xl bg-gradient-to-b from-[#4a0e82] to-[#141B2D] p-6 pb-10 text-center">
         <p className="text-4xl mb-2">🎖️</p>
         <h3 className="text-xl font-black text-white">{t('bonuses.promos.trial.title')}</h3>
-        <p className="mt-2 text-sm text-white/60 leading-relaxed">{t('bonuses.promos.trial.sheetSub')}</p>
-        <p className="mt-3 text-3xl font-black text-primary">{TRIAL_REWARD}</p>
+        <p className="mt-2 text-sm text-white/60 leading-relaxed">{t('bonuses.promos.trial.sheetSub', vars)}</p>
+        <p className="mt-3 text-3xl font-black text-primary">₱ {amount}</p>
         <button
           type="button"
           className={`mt-6 w-full rounded-xl bg-primary py-3 text-sm font-black text-primary-foreground ${claiming ? 'opacity-60 pointer-events-none' : ''}`}
           onClick={onClaim}
         >
-          {claiming ? t('bonuses.promos.trial.claiming') : t('bonuses.promos.trial.sheetCta')}
+          {claiming ? t('bonuses.promos.trial.claiming') : t('bonuses.promos.trial.sheetCta', vars)}
         </button>
         <button
           type="button"
