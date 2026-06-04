@@ -263,10 +263,11 @@ async function runTeamSettlement(app: FastifyInstance, period: string) {
       : null
 
   // 聚合当月 GGR
+  // amount 列为 PHP 元（DECIMAL），迁移 016 已将 amount_cents 改为 amount
   const [bets] = await db.query<RowDataPacket[]>(
     `SELECT user_id,
-       SUM(CASE WHEN bet_type='bet' THEN amount_cents ELSE 0 END) AS bet_cents,
-       SUM(CASE WHEN bet_type='win' THEN amount_cents ELSE 0 END) AS win_cents
+       ROUND(SUM(CASE WHEN bet_type='bet' THEN amount ELSE 0 END) * 100) AS bet_cents,
+       ROUND(SUM(CASE WHEN bet_type='win' THEN amount ELSE 0 END) * 100) AS win_cents
      FROM bg_bet_order
      WHERE created_at >= ? AND created_at < ?
        AND bet_type IN ('bet','win') AND status = 'settled'
