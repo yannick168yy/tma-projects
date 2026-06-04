@@ -465,11 +465,7 @@ export default {
     records: 'catatan',
     empty: 'Belum ada taruhan',
     emptyHint: 'Aktivitas game Anda akan muncul di sini.',
-    type: {
-      bet: 'Taruhan',
-      win: 'Menang',
-      refund: 'Refund',
-      rollback: 'Dibatalkan',
-    },
+    bet: 'Taruhan',
+    win: 'Menang',
   },
 }

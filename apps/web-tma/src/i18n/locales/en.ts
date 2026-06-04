@@ -503,11 +503,7 @@ export default {
     records: 'records',
     empty: 'No bets yet',
     emptyHint: 'Your game activity will appear here.',
-    type: {
-      bet: 'Bet',
-      win: 'Win',
-      refund: 'Refund',
-      rollback: 'Rollback',
-    },
+    bet: 'Bet',
+    win: 'Win',
   },
 }

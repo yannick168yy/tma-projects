@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ChevronLeft, TrendingDown, TrendingUp, RotateCcw, X } from 'lucide-react'
-import { fetchBets, type BetRecord } from '@/api/bets'
+import { ChevronLeft, Copy, CheckCircle2, X } from 'lucide-react'
+import { fetchBets, type BetRound } from '@/api/bets'
 
 interface Props { onClose: () => void }
 
@@ -19,17 +19,61 @@ function formatTime(iso: string | null): string {
     d.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', hour12: false })
 }
 
-function BetTypeIcon({ betType }: { betType: string }) {
-  if (betType === 'win') return <TrendingUp size={14} className="text-emerald-400" />
-  if (betType === 'refund' || betType === 'rollback') return <RotateCcw size={14} className="text-amber-400" />
-  return <TrendingDown size={14} className="text-red-400" />
+function localGameName(item: BetRound, lang: string): string {
+  if (lang === 'zh-CN' && item.gameNameZh) return item.gameNameZh
+  if (lang === 'vi'   && item.gameNameVi) return item.gameNameVi
+  if (lang === 'id'   && item.gameNameId) return item.gameNameId
+  return item.gameName ?? '—'
+}
+
+function GameThumb({ item }: { item: BetRound }) {
+  const src = item.gameImageHq ?? item.gameImage
+  if (!src) {
+    return (
+      <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-secondary text-2xl">🎰</div>
+    )
+  }
+  return (
+    <img
+      src={src}
+      alt=""
+      className="h-12 w-12 flex-shrink-0 rounded-xl object-cover bg-secondary"
+      loading="lazy"
+      onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
+    />
+  )
+}
+
+function CopyRoundId({ roundId }: { roundId: string }) {
+  const [copied, setCopied] = useState(false)
+
+  function copy() {
+    navigator.clipboard?.writeText(roundId).catch(() => {})
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  return (
+    <button
+      type="button"
+      className="flex items-center gap-1 transition-opacity hover:opacity-70"
+      onClick={copy}
+    >
+      <span className="text-[10px] font-mono text-muted-foreground/60 tabular-nums">
+        #{roundId.length > 12 ? roundId.slice(-12) : roundId}
+      </span>
+      {copied
+        ? <CheckCircle2 size={10} className="text-emerald-400" />
+        : <Copy size={10} className="text-muted-foreground/40" />}
+    </button>
+  )
 }
 
 const PAGE_SIZE = 20
 
 export default function BetHistoryPage({ onClose }: Props) {
-  const { t } = useTranslation()
-  const [items, setItems] = useState<BetRecord[]>([])
+  const { t, i18n } = useTranslation()
+  const [items, setItems] = useState<BetRound[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(false)
@@ -47,11 +91,11 @@ export default function BetHistoryPage({ onClose }: Props) {
       setItems((prev) => p === 1 ? res.items : [...prev, ...res.items])
       setPage(p)
     } catch (e) {
-      setError(e instanceof Error ? e.message : t('common.error'))
+      setError(e instanceof Error ? e.message : String(e))
     } finally {
       setLoading(false)
     }
-  }, [loading, t])
+  }, [loading])
 
   useEffect(() => { void loadPage(1) }, [])
 
@@ -65,19 +109,29 @@ export default function BetHistoryPage({ onClose }: Props) {
     return () => ob.disconnect()
   }, [hasMore, loading, page, loadPage])
 
+  const lang = i18n.language
+
   return (
     <div className="flex h-full flex-col">
+      {/* Header */}
       <div className="flex flex-shrink-0 items-center gap-3 border-b border-border px-4 py-4">
-        <button type="button" className="flex h-8 w-8 items-center justify-center rounded-full bg-secondary text-muted-foreground" onClick={onClose}>
+        <button
+          type="button"
+          className="flex h-8 w-8 items-center justify-center rounded-full bg-secondary text-muted-foreground"
+          onClick={onClose}
+        >
           <ChevronLeft size={18} />
         </button>
         <h2 className="font-display text-base font-black text-foreground">{t('betHistory.title')}</h2>
-        {total > 0 && <span className="ml-auto text-xs text-muted-foreground">{total} {t('betHistory.records')}</span>}
+        {total > 0 && (
+          <span className="ml-auto text-xs text-muted-foreground">{total} {t('betHistory.records')}</span>
+        )}
       </div>
 
+      {/* List */}
       <div className="flex-1 overflow-y-auto">
         {items.length === 0 && !loading && (
-          <div className="flex flex-col items-center justify-center py-24 text-center px-8">
+          <div className="flex flex-col items-center justify-center py-24 px-8 text-center">
             <span className="mb-3 text-4xl">🎰</span>
             <p className="font-display text-sm font-black text-foreground">{t('betHistory.empty')}</p>
             <p className="mt-1 text-xs text-muted-foreground">{t('betHistory.emptyHint')}</p>
@@ -86,30 +140,55 @@ export default function BetHistoryPage({ onClose }: Props) {
 
         {items.length > 0 && (
           <div className="divide-y divide-border">
-            {items.map((item) => (
-              <div key={item.id} className="flex items-center gap-3 px-4 py-3">
-                <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-secondary">
-                  <BetTypeIcon betType={item.betType} />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-xs font-bold text-foreground">{t(`betHistory.type.${item.betType}`)}</span>
-                    {item.providerId && (
-                      <span className="rounded bg-secondary px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">{item.providerId}</span>
+            {items.map((item, idx) => {
+              const net = item.winAmount - item.betAmount
+              const netPositive = net > 0
+              const netZero = Math.abs(net) < 0.001
+
+              return (
+                <div key={item.roundId ?? idx} className="flex items-center gap-3 px-4 py-3">
+                  {/* 游戏图标 */}
+                  <GameThumb item={item} />
+
+                  {/* 游戏信息 */}
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-bold text-foreground leading-tight">
+                      {localGameName(item, lang)}
+                    </p>
+                    <div className="mt-0.5 flex items-center gap-1.5">
+                      {item.gameProvider && (
+                        <span className="rounded bg-secondary px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">
+                          {item.gameProvider}
+                        </span>
+                      )}
+                      <span className="text-[10px] text-muted-foreground">{formatTime(item.createdAt)}</span>
+                    </div>
+                    {item.roundId && (
+                      <div className="mt-1">
+                        <CopyRoundId roundId={item.roundId} />
+                      </div>
                     )}
                   </div>
-                  <p className="mt-0.5 text-[10px] text-muted-foreground">{formatTime(item.createdAt)}</p>
+
+                  {/* 金额 */}
+                  <div className="flex-shrink-0 text-right">
+                    {/* 净盈亏 */}
+                    <p className={`text-sm font-black tabular-nums ${netZero ? 'text-muted-foreground' : netPositive ? 'text-emerald-400' : 'text-red-400'}`}>
+                      {netZero ? '±' : netPositive ? '+' : ''}{formatAmount(Math.abs(net), item.currencyCode)}
+                    </p>
+                    {/* 下注 / 赢取 小字 */}
+                    <p className="mt-0.5 text-[10px] text-muted-foreground tabular-nums">
+                      {t('betHistory.bet')} {formatAmount(item.betAmount, item.currencyCode)}
+                    </p>
+                    {item.winAmount > 0 && (
+                      <p className="text-[10px] text-emerald-400/70 tabular-nums">
+                        {t('betHistory.win')} {formatAmount(item.winAmount, item.currencyCode)}
+                      </p>
+                    )}
+                  </div>
                 </div>
-                <div className="flex-shrink-0 text-right">
-                  <p className={`text-sm font-black tabular-nums ${item.betType === 'win' ? 'text-emerald-400' : item.betType === 'bet' ? 'text-red-400' : 'text-amber-400'}`}>
-                    {item.betType === 'win' ? '+' : item.betType === 'bet' ? '-' : ''}{formatAmount(item.amount, item.currencyCode)}
-                  </p>
-                  {item.roundId && (
-                    <p className="mt-0.5 text-[10px] text-muted-foreground/50 tabular-nums">#{item.roundId.slice(-8)}</p>
-                  )}
-                </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
 

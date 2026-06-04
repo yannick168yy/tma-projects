@@ -1,21 +1,25 @@
 import { apiRequest } from '@/api/client'
 
-export interface BetRecord {
-  id: number
+export interface BetRound {
   roundId: string | null
-  providerId: string | null
-  betType: 'bet' | 'win' | 'refund' | 'rollback'
-  amount: number
+  betAmount: number
+  winAmount: number
   currencyCode: string
-  status: string
   createdAt: string | null
+  gameName: string | null
+  gameNameZh: string | null
+  gameNameVi: string | null
+  gameNameId: string | null
+  gameProvider: string | null
+  gameImage: string | null
+  gameImageHq: string | null
 }
 
 export interface BetHistoryPage {
   total: number
   page: number
   pageSize: number
-  items: BetRecord[]
+  items: BetRound[]
 }
 
 export async function fetchBets(page: number, pageSize = 20): Promise<BetHistoryPage> {

@@ -1,4 +1,5 @@
 import Router from '@koa/router'
+import type { RowDataPacket } from 'mysql2/promise'
 import { getMysqlPool } from '../clients/mysql.client.js'
 import { ok } from '../utils/response.js'
 
@@ -12,33 +13,72 @@ router.get('/', async (ctx) => {
 
   const pool = getMysqlPool(ctx.state.env)
 
-  const [[{ total }]] = await pool.query<import('mysql2/promise').RowDataPacket[]>(
-    'SELECT COUNT(*) AS total FROM bg_bet_order WHERE user_id = ?',
+  // 总组数（round_id 为 NULL 的每条独立成组）
+  const [[{ total }]] = await pool.query<RowDataPacket[]>(
+    `SELECT COUNT(*) AS total FROM (
+       SELECT 1 FROM bg_bet_order WHERE user_id = ? GROUP BY IFNULL(round_id, id)
+     ) t`,
     [userId],
   )
 
-  const [items] = await pool.query<import('mysql2/promise').RowDataPacket[]>(
-    `SELECT id, round_id, provider_id, bet_type, amount, currency_code, status, created_at
-     FROM bg_bet_order
-     WHERE user_id = ?
-     ORDER BY id DESC
-     LIMIT ? OFFSET ?`,
+  // 按 round_id 聚合，JOIN 游戏信息
+  const [rows] = await pool.query<RowDataPacket[]>(
+    `SELECT
+       sub.round_id,
+       sub.bet_amount,
+       sub.win_amount,
+       sub.currency_code,
+       sub.created_at,
+       sub.max_id,
+       g.name        AS game_name,
+       g.name_zh     AS game_name_zh,
+       g.name_vi     AS game_name_vi,
+       g.name_id     AS game_name_id,
+       g.provider    AS game_provider,
+       g.image_url   AS game_image,
+       g.image_hq_url AS game_image_hq
+     FROM (
+       SELECT
+         round_id,
+         MAX(provider_id)                                                       AS game_uuid,
+         SUM(CASE WHEN bet_type = 'bet'              THEN amount ELSE 0 END)   AS bet_amount,
+         SUM(CASE WHEN bet_type IN ('win','refund')  THEN amount ELSE 0 END)   AS win_amount,
+         MAX(currency_code)  AS currency_code,
+         MIN(created_at)     AS created_at,
+         MAX(id)             AS max_id
+       FROM bg_bet_order
+       WHERE user_id = ?
+       GROUP BY IFNULL(round_id, id)
+       ORDER BY MAX(id) DESC
+       LIMIT ? OFFSET ?
+     ) sub
+     LEFT JOIN sg_games g ON g.uuid = sub.game_uuid
+     ORDER BY sub.max_id DESC`,
     [userId, pageSize, offset],
   )
+
+  function toIso(v: unknown): string | null {
+    const d = new Date(v as Date)
+    return isNaN(d.getTime()) ? null : d.toISOString()
+  }
 
   ok(ctx, {
     total: Number(total),
     page,
     pageSize,
-    items: items.map((r) => ({
-      id: r.id,
-      roundId: r.round_id ? String(r.round_id) : null,
-      providerId: r.provider_id ? String(r.provider_id) : null,
-      betType: r.bet_type as string,
-      amount: Number(r.amount),
+    items: rows.map((r) => ({
+      roundId:      r.round_id      ? String(r.round_id)      : null,
+      betAmount:    Number(r.bet_amount),
+      winAmount:    Number(r.win_amount),
       currencyCode: String(r.currency_code),
-      status: r.status as string,
-      createdAt: (() => { const d = new Date(r.created_at as Date); return isNaN(d.getTime()) ? null : d.toISOString() })(),
+      createdAt:    toIso(r.created_at),
+      gameName:     r.game_name     ? String(r.game_name)     : null,
+      gameNameZh:   r.game_name_zh  ? String(r.game_name_zh)  : null,
+      gameNameVi:   r.game_name_vi  ? String(r.game_name_vi)  : null,
+      gameNameId:   r.game_name_id  ? String(r.game_name_id)  : null,
+      gameProvider: r.game_provider ? String(r.game_provider) : null,
+      gameImage:    r.game_image    ? String(r.game_image)    : null,
+      gameImageHq:  r.game_image_hq ? String(r.game_image_hq) : null,
     })),
   })
 })

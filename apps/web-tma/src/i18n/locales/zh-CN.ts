@@ -499,11 +499,7 @@ export default {
     records: '条记录',
     empty: '暂无投注记录',
     emptyHint: '你的游戏投注将在此显示。',
-    type: {
-      bet: '下注',
-      win: '赢取',
-      refund: '退款',
-      rollback: '撤销',
-    },
+    bet: '下注',
+    win: '赢取',
   },
 }

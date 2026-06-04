@@ -465,11 +465,7 @@ export default {
     records: 'bản ghi',
     empty: 'Chưa có lịch sử cược',
     emptyHint: 'Hoạt động chơi game của bạn sẽ hiển thị tại đây.',
-    type: {
-      bet: 'Đặt cược',
-      win: 'Thắng',
-      refund: 'Hoàn tiền',
-      rollback: 'Huỷ',
-    },
+    bet: 'Đặt cược',
+    win: 'Thắng',
   },
 }
