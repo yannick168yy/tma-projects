@@ -108,7 +108,7 @@ export default function AppShell() {
   const mainStyle = useMemo(() => {
     const top = `${headerH}px`
     if (overlay.is('profile')) return { paddingTop: top, paddingBottom: '0', height: `calc(100dvh - ${headerH}px)`, maxHeight: `calc(100dvh - ${headerH}px)` }
-    if (overlay.is('teamCenter') || overlay.is('betHistory')) return { paddingTop: top, paddingBottom: `${navH}px`, height: `calc(100dvh - ${headerH}px)`, maxHeight: `calc(100dvh - ${headerH}px)`, overflowY: 'hidden' as const }
+    if (overlay.is('teamCenter') || overlay.is('betHistory')) return { paddingTop: top, paddingBottom: '0', height: `calc(100dvh - ${headerH}px)`, maxHeight: `calc(100dvh - ${headerH}px)`, overflowY: 'hidden' as const }
     return { paddingTop: top, paddingBottom: `${navH}px` }
   }, [headerH, navH, overlay])
 

@@ -5,6 +5,8 @@ import type { Env } from './config/env.js'
 import { getRedis } from './clients/redis.client.js'
 import { errorHandler } from './middleware/errorHandler.js'
 import { injectDeps, requestIdMiddleware } from './middleware/requestId.js'
+import { accessLogMiddleware } from './middleware/accessLog.js'
+import { childLogger } from './lib/logger.js'
 import { createApiRouter } from './routes/index.js'
 import { initStore } from './services/store/index.js'
 import { pollAndSettleTonDeposits } from './services/ton.service.js'
@@ -22,11 +24,21 @@ export function createApp(env: Env): Koa {
   app.proxy = true  // 信任 nginx 的 X-Forwarded-For，ctx.ip 才能拿到真实用户 IP
   initStore(env)
   const redis = getRedis(env)
+  const log = {
+    ton: childLogger('ton-poller'),
+    admin: childLogger('admin-seed'),
+    rates: childLogger('exchange-rate'),
+    settlement: childLogger('sg-settlement'),
+    betting: childLogger('betting-activity'),
+    games: childLogger('games-cache'),
+    homepage: childLogger('homepage'),
+    sgSync: childLogger('sg-sync'),
+  }
 
   // TON deposit poller: every 30s
   setInterval(() => {
     pollAndSettleTonDeposits(redis, env).catch((err) =>
-      console.error('[ton-poller] unhandled error:', err),
+      log.ton.error({ err }, 'unhandled error'),
     )
   }, 30_000)
 
@@ -38,7 +50,7 @@ export function createApp(env: Env): Koa {
           const delay = Math.min(5_000 * (attempt + 1), 30_000)
           setTimeout(() => trySeed(attempt + 1), delay)
         } else {
-          console.error('[admin-seed] error:', err)
+          log.admin.error({ err }, 'seed failed')
         }
       })
     }
@@ -47,9 +59,9 @@ export function createApp(env: Env): Koa {
 
   // 汇率定时刷新：启动后 30s 先跑一次，之后每 10 分钟（全部走 CoinGecko）
   setTimeout(() => {
-    refreshRates(redis, env).catch((err) => console.error('[exchange-rate] refresh error:', err))
+    refreshRates(redis, env).catch((err) => log.rates.error({ err }, 'refresh error'))
     setInterval(
-      () => refreshRates(redis, env).catch((err) => console.error('[exchange-rate] refresh error:', err)),
+      () => refreshRates(redis, env).catch((err) => log.rates.error({ err }, 'refresh error')),
       10 * 60 * 1000,
     )
   }, 30_000)
@@ -58,7 +70,7 @@ export function createApp(env: Env): Koa {
   if (isMysqlEnabled(env) && env.SG_BASE_URL && env.SG_MERCHANT_ID) {
     const runReconcile = () =>
       runDailyReconciliation(env, yesterday()).catch((err) =>
-        console.error('[sg-settlement] error:', err),
+        log.settlement.error({ err }, 'reconcile error'),
       )
     const msUntilNext = () => {
       const now = new Date()
@@ -79,7 +91,7 @@ export function createApp(env: Env): Koa {
       refreshLatestPool(env),
       refreshWeekTop(env),
       refreshMonthTop(env),
-    ]).catch((err) => console.error('[betting-activity] init error:', err))
+    ]).catch((err) => log.betting.error({ err }, 'init error'))
 
   // 游戏缓存 + 首页推荐：启动 8s 后首次加载，失败则每 10s 重试，之后每 3 小时刷新首页推荐
   if (isMysqlEnabled(env)) {
@@ -89,20 +101,20 @@ export function createApp(env: Env): Koa {
         .then(() => refreshHomepageSelection(env))
         .then(() => initBettingActivity())
         .catch((err) => {
-          console.error(`[games-cache] load error (attempt ${attempt}):`, (err as Error).message ?? err)
+          log.games.error({ err, attempt }, 'load error')
           if (attempt < 12) setTimeout(() => loadWithRetry(attempt + 1), 10_000)
         })
     }
     setTimeout(() => loadWithRetry(), 8_000)
 
     setInterval(() => {
-      refreshHomepageSelection(env).catch((err) => console.error('[homepage] refresh error:', err))
+      refreshHomepageSelection(env).catch((err) => log.homepage.error({ err }, 'refresh error'))
     }, 3 * 60 * 60 * 1000)
 
     // Betting activity 定时刷新
     // latest: 每 20 分钟
     setInterval(() => {
-      refreshLatestPool(env).catch((err) => console.error('[betting-latest] refresh error:', err))
+      refreshLatestPool(env).catch((err) => log.betting.error({ err }, 'latest refresh error'))
     }, 20 * 60 * 1000)
 
     // week / month: JS setInterval 上限约 24.8 天，用每天检查 + 时间戳守卫
@@ -114,11 +126,11 @@ export function createApp(env: Env): Koa {
       const now = Date.now()
       if (now - weekLastAt >= WEEK_MS) {
         weekLastAt = now
-        refreshWeekTop(env).catch((err) => console.error('[betting-week] refresh error:', err))
+        refreshWeekTop(env).catch((err) => log.betting.error({ err }, 'week refresh error'))
       }
       if (now - monthLastAt >= MONTH_MS) {
         monthLastAt = now
-        refreshMonthTop(env).catch((err) => console.error('[betting-month] refresh error:', err))
+        refreshMonthTop(env).catch((err) => log.betting.error({ err }, 'month refresh error'))
       }
     }, 24 * 60 * 60 * 1000)
   }
@@ -128,13 +140,13 @@ export function createApp(env: Env): Koa {
     const runSync = () =>
       syncAllGames(env)
         .then(({ synced }) => {
-          console.log(`[sg-sync] synced ${synced} games`)
+          log.sgSync.info({ synced }, 'synced games')
           return loadGamesCache(env)
         })
         .then(() => refreshHomepageSelection(env))
         .then(() => initBettingActivity())
         .catch((err) => {
-          console.error('[sg-sync] error:', (err as Error).message ?? err)
+          log.sgSync.error({ err }, 'sync error')
           // sg-sync 失败时仍尝试从缓存初始化 betting-activity
           initBettingActivity()
         })
@@ -152,6 +164,7 @@ export function createApp(env: Env): Koa {
   )
   app.use(bodyParser())
   app.use(requestIdMiddleware())
+  app.use(accessLogMiddleware())
   app.use(injectDeps(env, redis))
 
   app.use(async (ctx, next) => {

@@ -1,6 +1,7 @@
 import type { Middleware } from 'koa'
 import { AuthError } from '../services/auth.service.js'
 import { fail } from '../utils/response.js'
+import { logger } from '../lib/logger.js'
 
 export function errorHandler(): Middleware {
   return async (ctx, next) => {
@@ -12,7 +13,7 @@ export function errorHandler(): Middleware {
         return
       }
       const message = err instanceof Error ? err.message : 'Internal server error'
-      console.error('[bff]', ctx.state.traceId, err)
+      logger.error({ traceId: ctx.state.traceId, err }, 'request failed')
       fail(ctx, 500, message, 500)
     }
   }

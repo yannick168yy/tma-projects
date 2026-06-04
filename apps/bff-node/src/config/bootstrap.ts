@@ -6,6 +6,7 @@ import {
 } from './nacos.config.js'
 import { closeMysql } from '../clients/mysql.client.js'
 import { loadEnv, type Env } from './env.js'
+import { initLogger } from '../lib/logger.js'
 
 /** Container / compose 注入的地址不能被 Nacos 里的 127.0.0.1 覆盖 */
 const INFRA_ENV_KEYS = ['MYSQL_HOST', 'MYSQL_PORT', 'REDIS_URL', 'NACOS_SERVER_ADDR'] as const
@@ -85,5 +86,8 @@ export async function bootstrapEnv(): Promise<Env> {
     console.info('[bff-node] NACOS_SERVER_ADDR not set, using process.env / .env only')
   }
   normalizeMysqlEnv()
-  return loadEnv()
+  const env = loadEnv()
+  process.env.LOG_LEVEL = env.LOG_LEVEL
+  initLogger()
+  return env
 }

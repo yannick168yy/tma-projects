@@ -112,11 +112,15 @@ done
 echo "==> [${CTR}] core-node (Fastify, limit 192m)"
 run rm -f tma-core-node 2>/dev/null || true
 run build -t betogo-core-node:latest -f apps/core-node/Dockerfile apps/core-node
+LOG_OPTS=(--log-driver=json-file --log-opt max-size=50m --log-opt max-file=3)
+
 run run -d --name tma-core-node --network "$NET" --restart=always \
+  "${LOG_OPTS[@]}" \
   --memory=192m --memory-swap=192m \
   -p 127.0.0.1:4000:4000 \
   -v "${DIR}/apps/core-node/dist:/app/dist:ro" \
   -e NODE_ENV=production \
+  -e LOG_LEVEL="${LOG_LEVEL:-info}" \
   -e CORE_PORT=4000 \
   -e REDIS_URL="${REDIS_URL_WIRED}" \
   -e NATS_URL="nats://nats:4222" \
@@ -147,10 +151,12 @@ echo "==> [${CTR}] bff-node (MySQL store + Redis session)"
 run rm -f tma-bff-node 2>/dev/null || true
 run build -t betogo-bff-node:latest -f apps/bff-node/Dockerfile apps/bff-node
 run run -d --name tma-bff-node --network "$NET" --restart=always \
+  "${LOG_OPTS[@]}" \
   --memory=192m --memory-swap=192m \
   -p 127.0.0.1:3000:3000 \
   -v "${DIR}/apps/bff-node/dist:/app/dist:ro" \
   -e NODE_ENV=production \
+  -e LOG_LEVEL="${LOG_LEVEL:-info}" \
   -e BFF_PORT=3000 \
   -e BFF_STORAGE=mysql \
   -e REDIS_URL="${REDIS_URL_WIRED}" \
@@ -232,4 +238,5 @@ run exec tma-mysql mysql -u"${MYSQL_BETOGO_USER}" -p"${MYSQL_BETOGO_PASSWORD}" "
 
 echo ""
 echo "已启动：web + BFF + core-node + NATS + Redis + MySQL(:13306)"
+echo "日志栈（可选）: cd deploy/single-node && bash start-observability.sh  → Grafana http://127.0.0.1:3001"
 run ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"

@@ -54,11 +54,22 @@ for TARGET in "${TARGETS[@]}"; do
     bff-node)
       echo "==> [bff-node] 本地编译..."
       (cd "$ROOT/apps/bff-node" && npm run build)
-      echo "==> [bff-node] 同步 dist..."
+      echo "==> [bff-node] 同步 dist + package..."
       RSYNC_RSH="$RSYNC_RSH" rsync -az --delete \
         "$ROOT/apps/bff-node/dist/" "$HOST:$DIR/apps/bff-node/dist/"
-      echo "==> [bff-node] 重启容器..."
-      restart_container tma-bff-node
+      RSYNC_RSH="$RSYNC_RSH" rsync -az \
+        "$ROOT/apps/bff-node/package.json" \
+        "$ROOT/apps/bff-node/package-lock.json" \
+        "$HOST:$DIR/apps/bff-node/"
+      if [[ "${BFF_REBUILD_IMAGE:-}" == "1" ]] || \
+         RSYNC_RSH="$RSYNC_RSH" rsync -ain \
+           "$ROOT/apps/bff-node/package-lock.json" "$HOST:$DIR/apps/bff-node/" | grep -q '^[<>]'; then
+        echo "==> [bff-node] 依赖变更，重建镜像并替换容器..."
+        ssh "${SSH_ARGS[@]}" "$HOST" "cd '$DIR' && bash deploy/single-node/recreate-bff-node.sh"
+      else
+        echo "==> [bff-node] 重启容器..."
+        restart_container tma-bff-node
+      fi
       echo "==> [bff-node] 完成"
       ;;
     core-node)

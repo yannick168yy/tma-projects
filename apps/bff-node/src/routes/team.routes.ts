@@ -119,9 +119,9 @@ router.get('/downlines', async (ctx) => {
     total: Number(total),
     page,
     items: rows.map(r => ({
-      userId:     r.user_id,
-      maskedName: maskName(r.display_name),
-      activated:  !!r.activated,
+      userId:      r.user_id,
+      displayName: r.display_name,
+      activated:   !!r.activated,
       activatedAt: r.activated_at ?? null,
       registeredAt: r.created_at,
     })),
@@ -157,7 +157,7 @@ router.get('/commissions', async (ctx) => {
     summary,
     items: rows.map(r => ({
       fromUserId:      r.from_user_id,
-      maskedName:      maskName(r.display_name),
+      displayName:     r.display_name,
       level:           r.level,
       ggrCents:        Number(r.ggr_cents),
       ratePct:         Number(r.rate_pct),

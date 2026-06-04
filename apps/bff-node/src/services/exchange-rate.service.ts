@@ -1,5 +1,8 @@
 import type { Redis } from 'ioredis'
 import type { Env } from '../config/env.js'
+import { childLogger } from '../lib/logger.js'
+
+const log = childLogger('exchange-rate')
 import { getMysqlPool } from '../clients/mysql.client.js'
 import { isMysqlEnabled } from '../clients/mysql.client.js'
 
@@ -94,7 +97,7 @@ export async function getRate(redis: Redis, from: string, to: string, env: Env):
   } catch (err) {
     const fb = fallbackRate(from, to, env)
     if (fb == null) throw new Error(`No exchange rate for ${from}→${to}: ${err}`)
-    console.warn(`[exchange-rate] API failed, using fallback for ${from}→${to}:`, err)
+    log.warn({ err, from, to }, 'API failed, using env fallback')
     result = { rate: fb, fetchedAt: new Date().toISOString(), source: 'env-fallback' }
   }
 
@@ -173,7 +176,7 @@ async function persistRate(
       [from, to, result.rate, result.source],
     )
   }
-  console.log(`[exchange-rate] ${from}→${to} = ${result.rate} (${result.source})`)
+  log.info({ from, to, rate: result.rate, source: result.source }, 'rate updated')
 }
 
 async function isManualRate(redis: Redis, from: string, to: string): Promise<boolean> {
@@ -197,19 +200,19 @@ export async function refreshRates(redis: Redis, env: Env): Promise<void> {
     for (const from of toRefresh) {
       const result = batch[from]
       if (!result) {
-        console.error(`[exchange-rate] refresh ${from}→PHP failed: missing in CoinGecko batch`)
+        log.error({ from }, 'refresh failed: missing in CoinGecko batch')
         continue
       }
       await persistRate(redis, env, from, 'PHP', result)
     }
   } catch (err) {
-    console.error('[exchange-rate] batch refresh failed:', err)
+    log.error({ err }, 'batch refresh failed')
     for (const from of toRefresh) {
       try {
         const result = await fetchFromCoinGecko(from, 'PHP', env)
         await persistRate(redis, env, from, 'PHP', result)
       } catch (singleErr) {
-        console.error(`[exchange-rate] refresh ${from}→PHP failed:`, singleErr)
+        log.error({ err: singleErr, from }, 'refresh failed')
       }
     }
   }

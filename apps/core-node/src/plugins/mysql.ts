@@ -20,6 +20,19 @@ export default fp(async (app) => {
     timezone: '+00:00',
   })
 
+  // 启动时主动建立连接，确保 DNS 已就绪（aardvark-dns 在容器重启后短暂不可用）
+  for (let i = 0; i < 6; i++) {
+    try {
+      const conn = await pool.getConnection()
+      conn.release()
+      break
+    } catch (err: unknown) {
+      if (i === 5) throw err
+      app.log.warn({ msg: (err as Error).message, attempt: i + 1 }, 'MySQL connect failed, retrying in 3s')
+      await new Promise(r => setTimeout(r, 3000))
+    }
+  }
+
   app.decorate('mysql', pool)
 
   app.addHook('onClose', async () => {

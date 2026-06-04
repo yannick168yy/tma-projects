@@ -39,6 +39,8 @@ export default function TeamCenterPage({ onClose }: Props) {
     void Promise.all([
       store.loadTeamStatus(),
       store.loadTeamDownlines(1, 1),
+      store.loadTeamDownlines(2, 1),
+      store.loadTeamDownlines(3, 1),
       store.loadTeamCommissions(commissionPeriod),
       store.loadTeamWallet(),
       store.loadTeamWithdrawals(1),
@@ -141,7 +143,7 @@ export default function TeamCenterPage({ onClose }: Props) {
             <div className="flex gap-2 px-4 pt-4 pb-3">
               {([1, 2, 3] as const).map((lvl) => (
                 <button key={lvl} type="button" className={`flex-1 py-1.5 rounded-full text-xs font-bold transition-colors ${activeLevel === lvl ? 'bg-amber-500 text-black' : 'bg-secondary text-muted-foreground'}`} onClick={() => setActiveLevel(lvl)}>
-                  L{lvl} {t('team.tabTeam')} ({store.teamDownlineTotals[lvl]})
+                  L{lvl} {t('team.tabTeam')} ({teamStatus?.[`l${lvl}Count` as 'l1Count' | 'l2Count' | 'l3Count'] ?? 0})
                 </button>
               ))}
             </div>
@@ -154,8 +156,8 @@ export default function TeamCenterPage({ onClose }: Props) {
                 <>
                   {downlines.map((dl) => (
                     <div key={dl.userId} className="flex items-center gap-3 bg-secondary rounded-xl px-3 py-3">
-                      <div className="w-8 h-8 rounded-full bg-amber-500/20 flex items-center justify-center flex-shrink-0"><span className="text-amber-400 font-black text-sm">{dl.maskedName[0]}</span></div>
-                      <div className="flex-1 min-w-0"><p className="text-foreground font-bold text-sm leading-none mb-0.5">{dl.maskedName}</p><p className="text-muted-foreground text-[10px]">{new Date(dl.registeredAt).toLocaleDateString()}</p></div>
+                      <div className="w-8 h-8 rounded-full bg-amber-500/20 flex items-center justify-center flex-shrink-0"><span className="text-amber-400 font-black text-sm">{(dl.displayName || '?')[0]}</span></div>
+                      <div className="flex-1 min-w-0"><p className="text-foreground font-bold text-sm leading-none mb-0.5">{dl.displayName}</p><p className="text-muted-foreground text-[10px]">{new Date(dl.registeredAt).toLocaleDateString()}</p></div>
                       <div className="flex-shrink-0">
                         {dl.activated ? <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400">{t('team.activated')}</span>
                           : <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-secondary text-muted-foreground border border-border">{t('team.pending')}</span>}
@@ -197,7 +199,7 @@ export default function TeamCenterPage({ onClose }: Props) {
               ) : commissionItems.map((item, i) => (
                 <div key={i} className="flex items-center gap-3 bg-secondary rounded-xl px-3 py-2.5">
                   <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full flex-shrink-0 ${levelBadge[item.level]}`}>L{item.level}</span>
-                  <div className="flex-1 min-w-0"><p className="text-foreground font-bold text-xs leading-none mb-0.5">{item.maskedName}</p><p className="text-muted-foreground text-[10px]">GGR {phpDisplay(item.ggrCents)} × {item.ratePct}%</p></div>
+                  <div className="flex-1 min-w-0"><p className="text-foreground font-bold text-xs leading-none mb-0.5">{item.displayName}</p><p className="text-muted-foreground text-[10px]">GGR {phpDisplay(item.ggrCents)} × {item.ratePct}%</p></div>
                   <div className="text-right flex-shrink-0"><p className="text-amber-400 font-black text-sm leading-none">{phpDisplay(item.commissionCents)}</p><p className={`text-[9px] mt-0.5 ${statusColor[item.status] ?? 'text-muted-foreground'}`}>{item.status}</p></div>
                 </div>
               ))}

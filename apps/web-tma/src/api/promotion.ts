@@ -53,7 +53,7 @@ export async function enableAgent(): Promise<void> {
 
 export interface TeamDownline {
   userId: string
-  maskedName: string
+  displayName: string
   activated: boolean
   activatedAt: string | null
   registeredAt: string
@@ -61,7 +61,7 @@ export interface TeamDownline {
 
 export interface TeamCommissionItem {
   fromUserId: string
-  maskedName: string
+  displayName: string
   level: number
   ggrCents: number
   ratePct: number
