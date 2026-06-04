@@ -74,11 +74,13 @@ router.get('/trial-play', async (ctx) => {
     fail(ctx, 404, 'User not found', 404)
     return
   }
+  const cfg = await getPromoConfig(ctx.state.env)
+  const amount = cfg.trial.amount
   ok(ctx, {
     claimed: user.trialClaimed,
-    amountPhp: 88,
-    turnoverRequired: 264,
-    turnoverCompleted: user.trialClaimed ? 88 : 0,
+    amountPhp: amount,
+    turnoverRequired: amount * 3,
+    turnoverCompleted: user.trialClaimed ? amount : 0,
     canWithdraw: false,
   })
 })
@@ -116,10 +118,12 @@ router.get('/referral', async (ctx) => {
     fail(ctx, 404, 'User not found', 404)
     return
   }
+  const cfg = await getPromoConfig(ctx.state.env)
+  const inviterAmt = cfg.referral.inviterAmount
   ok(ctx, {
     inviteCode: user.inviteCode,
-    totalRewardPhp: user.referralClaimed ? 50 : 0,
-    pendingRewardPhp: user.referralReady && !user.referralClaimed ? 50 : 0,
+    totalRewardPhp: user.referralClaimed ? inviterAmt : 0,
+    pendingRewardPhp: user.referralReady && !user.referralClaimed ? inviterAmt : 0,
   })
 })
 
