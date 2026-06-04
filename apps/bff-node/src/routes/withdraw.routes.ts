@@ -118,20 +118,8 @@ router.post('/', async (ctx) => {
         phpAmount: cryptoAmt,
       })
 
-      const order: WithdrawOrder = {
-        orderId,
-        userId,
-        amount: cryptoAmt,
-        currency,
-        channelId: 'matrix',
-        status: 'pending',
-        createdAt: nowIso(),
-        provider: 'matrix',
-        providerRef: matrixOrderNo,
-        extraData: { merchantOrderNo },
-      }
-      await saveWithdraw(redis, order)
-      ok(ctx, { orderId, status: order.status, merchantOrderNo, matrixOrderNo })
+      // createMatrixWithdraw 已写入 bg_withdraw_order（merchantOrderNo），无需再 saveWithdraw
+      ok(ctx, { orderId: merchantOrderNo, status: 'pending', merchantOrderNo, matrixOrderNo })
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Matrix withdrawal failed'
       fail(ctx, 502, msg, 502)
