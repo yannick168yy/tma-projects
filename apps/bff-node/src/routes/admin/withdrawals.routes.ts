@@ -21,6 +21,9 @@ router.post('/:orderId/approve', async (ctx) => {
   if (order.status !== 'pending') {
     fail(ctx, 400, `Cannot approve order in status: ${order.status}`); return
   }
+  if (order.channelId === 'matrix') {
+    fail(ctx, 400, 'Matrix withdrawals are processed automatically on-chain, no manual approval needed'); return
+  }
   order.status = 'completed'
   order.completedAt = nowIso()
   await saveWithdraw(ctx.state.redis, order)
@@ -44,13 +47,16 @@ router.post('/:orderId/reject', async (ctx) => {
   if (order.status !== 'pending') {
     fail(ctx, 400, `Cannot reject order in status: ${order.status}`); return
   }
+  if (order.channelId === 'matrix') {
+    fail(ctx, 400, 'Matrix withdrawals are processed automatically on-chain and cannot be rejected after submission'); return
+  }
 
   order.status = 'admin_rejected'
   order.rejectReason = body.reason ?? 'Rejected by admin'
   order.completedAt = nowIso()
   await saveWithdraw(ctx.state.redis, order)
 
-  // 退款：金额已在创建时扣除，拒绝时需退回
+  // 退款：金额已在创建时扣除，拒绝时退回原币种
   await creditWallet(
     ctx.state.redis,
     order.userId,
@@ -61,6 +67,7 @@ router.post('/:orderId/reject', async (ctx) => {
       traceId: ctx.state.traceId,
       refId: order.orderId,
       createdAt: nowIso(),
+      currency: order.currency ?? 'PHP',
     },
   )
 
