@@ -171,7 +171,11 @@ export default function AppShell() {
 
           {walletOpen && isLoggedIn && (
             <>
-              <div className="fixed inset-0 z-40" onClick={() => setWalletOpen(false)} />
+              <div
+                className="fixed inset-0 z-40"
+                onClick={() => setWalletOpen(false)}
+                onTouchMove={(e) => e.preventDefault()}
+              />
               <div className="absolute left-4 right-4 top-full z-50 -mt-1 overflow-hidden rounded-2xl border border-border bg-card shadow-2xl">
                 <div className="px-4 pt-4 pb-3">
                   {/* 当前选中币种 — 突出显示 */}
