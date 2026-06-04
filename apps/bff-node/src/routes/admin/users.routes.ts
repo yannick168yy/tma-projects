@@ -53,13 +53,19 @@ router.patch('/:id/status', async (ctx) => {
   ok(ctx, { status: user.status })
 })
 
+const SUPPORTED_CURRENCIES = ['PHP', 'USDT', 'USDC', 'TON', 'TRX', 'TRX_TESTNET', 'BNB', 'ETH', 'BTC']
+
 router.post('/:id/adjust-balance', async (ctx) => {
-  const body = ctx.request.body as { amount?: number; note?: string; opPassword?: string }
+  const body = ctx.request.body as { amount?: number; note?: string; opPassword?: string; currency?: string }
   if (typeof body.amount !== 'number' || body.amount === 0) {
     fail(ctx, 400, 'amount must be a non-zero number'); return
   }
   if (!body.opPassword) {
     fail(ctx, 400, 'opPassword is required'); return
+  }
+  const currency = body.currency ?? 'PHP'
+  if (!SUPPORTED_CURRENCIES.includes(currency)) {
+    fail(ctx, 400, `Unsupported currency: ${currency}`); return
   }
 
   // 验证操作密码
@@ -85,6 +91,7 @@ router.post('/:id/adjust-balance', async (ctx) => {
         adminUsername: ctx.state.adminUsername!,
         note: body.note,
         traceId: ctx.state.traceId,
+        currency,
       },
     )
   } catch (e) {
@@ -98,7 +105,7 @@ router.post('/:id/adjust-balance', async (ctx) => {
     action: 'user.balance_adjust',
     targetType: 'user',
     targetId: user.id,
-    detail: { amount: body.amount, note: body.note, orderId: result.orderId, balanceAfter: result.available },
+    detail: { amount: body.amount, currency, note: body.note, orderId: result.orderId, balanceAfter: result.available },
     ip: ctx.ip,
   })
   ok(ctx, { available: result.available, orderId: result.orderId })

@@ -85,8 +85,11 @@ export const updateUserLabel = (id: string, label: string) =>
 export interface UserProfileData { firstName: string; lastName: string; gender: string; dobMonth: string; dobDay: string; dobYear: string; phone?: string; email?: string }
 export const updateUserProfile = (id: string, profile: Partial<UserProfileData>) =>
   patch<{ profile: UserProfileData }>(`/admin/users/${id}/profile`, profile)
-export const adjustBalance = (id: string, amount: number, opPassword: string, note?: string) =>
-  post<{ available: number; orderId: string }>(`/admin/users/${id}/adjust-balance`, { amount, opPassword, note })
+export const SUPPORTED_CURRENCIES = ['PHP', 'USDT', 'USDC', 'TON', 'TRX', 'TRX_TESTNET', 'BNB', 'ETH', 'BTC'] as const
+export type SupportedCurrency = typeof SUPPORTED_CURRENCIES[number]
+
+export const adjustBalance = (id: string, amount: number, opPassword: string, currency: string, note?: string) =>
+  post<{ available: number; orderId: string }>(`/admin/users/${id}/adjust-balance`, { amount, opPassword, currency, note })
 
 // Settings - op password
 export const getOpPasswordStatus = () =>

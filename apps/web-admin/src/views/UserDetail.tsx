@@ -4,7 +4,7 @@ import {
   Row, Col, Card, Descriptions, Tag, Space, Select, Input, Button, InputNumber,
   Spin, Tabs, Table, Typography, Divider, message,
 } from 'antd'
-import { getUserDetail, updateUserStatus, updateUserLabel, adjustBalance, updateUserProfile } from '../api'
+import { getUserDetail, updateUserStatus, updateUserLabel, adjustBalance, updateUserProfile, SUPPORTED_CURRENCIES } from '../api'
 
 type Detail = Awaited<ReturnType<typeof getUserDetail>>
 
@@ -32,6 +32,7 @@ export default function UserDetail() {
   const [statusReason, setStatusReason] = useState('')
   const [newLabel, setNewLabel] = useState('normal')
   const [adjustAmount, setAdjustAmount] = useState(0)
+  const [adjustCurrency, setAdjustCurrency] = useState('PHP')
   const [adjustNote, setAdjustNote] = useState('')
   const [adjustOpPwd, setAdjustOpPwd] = useState('')
   const [profileForm, setProfileForm] = useState({ firstName: '', lastName: '', gender: '', dobMonth: '', dobDay: '', dobYear: '', phone: '', email: '' })
@@ -81,8 +82,8 @@ export default function UserDetail() {
     if (!adjustOpPwd) { message.warning('请输入操作密码'); return }
     setOpLoading(true)
     try {
-      const res = await adjustBalance(id, adjustAmount, adjustOpPwd, adjustNote || undefined)
-      message.success(`余额已调整，订单: ${res.orderId}，当前余额: ₱${Number(res.available).toFixed(2)}`)
+      const res = await adjustBalance(id, adjustAmount, adjustOpPwd, adjustCurrency, adjustNote || undefined)
+      message.success(`余额已调整，订单: ${res.orderId}，当前 ${adjustCurrency} 余额: ${Number(res.available).toFixed(adjustCurrency === 'PHP' ? 2 : 6)}`)
       setAdjustOpPwd(''); setAdjustAmount(0); setAdjustNote('')
       await loadDetail()
     } catch (e) { message.error(e instanceof Error ? e.message : '操作失败') }
@@ -186,8 +187,26 @@ export default function UserDetail() {
                   <div>
                     <div style={{ marginBottom: 8, fontWeight: 500 }}>调整余额（正加负减）</div>
                     <Space direction="vertical" style={{ width: '100%' }}>
-                      <Space>
-                        <InputNumber value={adjustAmount} onChange={(v) => setAdjustAmount(v ?? 0)} step={0.01} precision={2} style={{ width: 150 }} placeholder="金额" />
+                      <Space wrap>
+                        <Select
+                          value={adjustCurrency}
+                          style={{ width: 160 }}
+                          onChange={setAdjustCurrency}
+                          options={SUPPORTED_CURRENCIES.map((c) => ({
+                            value: c,
+                            label: c === 'TRX_TESTNET'
+                              ? <span>TRX <sup style={{ color: '#faad14', fontSize: 10, fontWeight: 700 }}>TEST</sup></span>
+                              : c,
+                          }))}
+                        />
+                        <InputNumber
+                          value={adjustAmount}
+                          onChange={(v) => setAdjustAmount(v ?? 0)}
+                          step={adjustCurrency === 'PHP' ? 1 : 0.000001}
+                          precision={adjustCurrency === 'PHP' ? 2 : 6}
+                          style={{ width: 160 }}
+                          placeholder="金额"
+                        />
                         <Input value={adjustNote} onChange={(e) => setAdjustNote(e.target.value)} placeholder="备注" style={{ width: 200 }} />
                       </Space>
                       <Space>

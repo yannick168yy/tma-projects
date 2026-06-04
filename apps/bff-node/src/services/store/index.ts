@@ -158,7 +158,7 @@ export const adminAdjustBalance = (
   _redis: Redis,
   userId: string,
   cents: number,
-  opts: { adminUsername: string; note?: string; traceId?: string },
+  opts: { adminUsername: string; note?: string; traceId?: string; currency?: string },
 ) =>
   isMysqlEnabled(env())
     ? mysqlStore.adminAdjustBalance(env(), userId, cents, opts)

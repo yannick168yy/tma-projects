@@ -621,10 +621,11 @@ export async function adminAdjustBalance(
   env: Env,
   userId: string,
   amount: number,
-  opts: { adminUsername: string; note?: string; traceId?: string },
+  opts: { adminUsername: string; note?: string; traceId?: string; currency?: string },
 ): Promise<{ available: number; orderId: string }> {
   if (amount === 0) throw new Error('amount must be non-zero')
 
+  const currency = opts.currency ?? 'PHP'
   const conn = await pool(env).getConnection()
   const orderId = `ADM_${Date.now()}_${Math.random().toString(36).slice(2, 8).toUpperCase()}`
   const ledgerId = `LG_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
@@ -637,12 +638,12 @@ export async function adminAdjustBalance(
       await conn.execute(
         `INSERT INTO bg_deposit_order (order_id, user_id, channel, currency, amount, status, credited)
          VALUES (?,?,?,?,?,?,?)`,
-        [orderId, userId, 'admin', 'PHP', amount, 'paid', 1],
+        [orderId, userId, 'admin', currency, amount, 'paid', 1],
       )
     } else {
       const [wrows] = await conn.query<RowDataPacket[]>(
-        `SELECT available FROM bg_wallet WHERE user_id = ? AND currency = 'PHP' FOR UPDATE`,
-        [userId],
+        `SELECT available FROM bg_wallet WHERE user_id = ? AND currency = ? FOR UPDATE`,
+        [userId, currency],
       )
       const current = Number(wrows[0]?.available ?? 0)
       if (current + amount < 0) {
@@ -652,27 +653,27 @@ export async function adminAdjustBalance(
       await conn.execute(
         `INSERT INTO bg_withdraw_order (order_id, user_id, channel, currency, amount, status)
          VALUES (?,?,?,?,?,?)`,
-        [orderId, userId, 'admin', 'PHP', Math.abs(amount), 'completed'],
+        [orderId, userId, 'admin', currency, Math.abs(amount), 'completed'],
       )
     }
 
     await conn.execute(
       `INSERT INTO bg_wallet (user_id, currency, available, version)
-       VALUES (?, 'PHP', ?, 1)
+       VALUES (?, ?, ?, 1)
        ON DUPLICATE KEY UPDATE available = available + ?, version = version + 1`,
-      [userId, amount, amount],
+      [userId, currency, amount, amount],
     )
     const [wrows] = await conn.query<RowDataPacket[]>(
-      `SELECT available FROM bg_wallet WHERE user_id = ? AND currency = 'PHP'`,
-      [userId],
+      `SELECT available FROM bg_wallet WHERE user_id = ? AND currency = ?`,
+      [userId, currency],
     )
     const balanceAfter = Number(wrows[0]?.available ?? 0)
 
     await conn.execute(
       `INSERT INTO bg_wallet_ledger (id, user_id, currency, type, amount, balance_after, ref_type, ref_id, description, trace_id)
-       VALUES (?,?,'PHP',?,?,?,?,?,?,?)`,
+       VALUES (?,?,?,?,?,?,?,?,?,?)`,
       [
-        ledgerId, userId, 'admin_adjust', amount, balanceAfter,
+        ledgerId, userId, currency, 'admin_adjust', amount, balanceAfter,
         amount > 0 ? 'deposit' : 'withdraw', orderId, description, opts.traceId ?? null,
       ],
     )
