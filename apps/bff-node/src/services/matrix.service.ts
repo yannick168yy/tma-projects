@@ -114,6 +114,7 @@ export async function createMatrixWithdraw(
       refId: merchantOrderNo,
       description: `Matrix 提现创建失败退款 #${merchantOrderNo}`,
       createdAt: nowIso(),
+      currency: opts.symbol,
     })
     const msg = err instanceof MatrixApiError ? err.message : 'Matrix 提现创建失败'
     throw new Error(msg)
