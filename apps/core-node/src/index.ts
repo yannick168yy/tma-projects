@@ -9,3 +9,11 @@ try {
   app.log.error(err)
   process.exit(1)
 }
+
+const shutdown = async () => {
+  app.log.info('shutting down...')
+  await app.close()
+  process.exit(0)
+}
+process.on('SIGTERM', shutdown)
+process.on('SIGINT', shutdown)
