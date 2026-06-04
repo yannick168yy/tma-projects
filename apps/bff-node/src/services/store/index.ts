@@ -175,6 +175,9 @@ export const getOrderDeposit = (_redis: Redis, orderId: string) =>
 export const listOrderDeposits = (_redis: Redis, userId: string, page = 1, pageSize = 20) =>
   isMysqlEnabled(env()) ? mysqlStore.listOrderDeposits(env(), userId, page, pageSize) : Promise.resolve([] as OrderDeposit[])
 
+export const listMatrixDeposits = (_redis: Redis, userId: string, pageSize = 20) =>
+  isMysqlEnabled(env()) ? mysqlStore.listMatrixDeposits(env(), userId, pageSize) : Promise.resolve([])
+
 export const saveOrderWithdraw = (_redis: Redis, order: OrderWithdraw) =>
   isMysqlEnabled(env()) ? mysqlStore.saveOrderWithdraw(env(), order) : Promise.resolve()
 

@@ -514,6 +514,33 @@ export const saveDeposit = saveOrderDeposit
 export const getDeposit = getOrderDeposit
 export const listDeposits = listOrderDeposits
 
+export interface MatrixDepositRow {
+  orderId: string
+  amount: number
+  currency: string
+  channelId: string
+  status: string
+  creditedCents: number | null
+  createdAt: string
+}
+
+export async function listMatrixDeposits(env: Env, userId: string, pageSize = 20): Promise<MatrixDepositRow[]> {
+  const [rows] = await pool(env).query<RowDataPacket[]>(
+    `SELECT order_no, credited_php, status, created_at FROM bg_matrix_deposit_order
+     WHERE user_id = ? ORDER BY created_at DESC LIMIT ?`,
+    [userId, pageSize],
+  )
+  return rows.map((r) => ({
+    orderId: r.order_no as string,
+    amount: Number(r.credited_php ?? 0),
+    currency: 'PHP',
+    channelId: 'matrix',
+    status: r.status === 3 ? 'completed' : r.status === 4 ? 'failed' : 'pending',
+    creditedCents: r.credited_php != null ? Number(r.credited_php) : null,
+    createdAt: new Date(r.created_at as Date).toISOString(),
+  }))
+}
+
 function mapOrderWithdraw(r: RowDataPacket): OrderWithdraw {
   return {
     orderId: r.order_id as string,
