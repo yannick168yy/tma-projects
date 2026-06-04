@@ -17,10 +17,6 @@ export const useWalletStore = create<WalletState & WalletActions>((set) => ({
   balance: null,
   loading: false,
 
-  get displayPhp() {
-    return (useWalletStore.getState().balance?.displayPhp) ?? '₱ —'
-  },
-
   setBalance(balance) {
     set({ balance })
   },

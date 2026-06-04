@@ -1,17 +1,14 @@
 import type { ApiResponse } from '@/types/api'
 
-/** 生产域名走同源 /api/v1（Nginx → BFF）；避免 .env 误配 localhost 导致手机/TG 报 Load Failed */
+/** 生产域名走同源 /api/v1（Nginx → BFF）；避免 www/裸域跨域与 .env 写死 www 导致异常 */
 function resolveBaseUrl(): string {
-  const fromEnv = import.meta.env.VITE_BFF_BASE_URL?.trim()
-  if (fromEnv && !/localhost|127\.0\.0\.1/i.test(fromEnv)) {
-    return fromEnv.replace(/\/$/, '')
-  }
   if (typeof window !== 'undefined') {
     const { hostname, origin } = window.location
     if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
       return `${origin}/api/v1`
     }
   }
+  const fromEnv = import.meta.env.VITE_BFF_BASE_URL?.trim()
   return (fromEnv || 'http://localhost:3000/api/v1').replace(/\/$/, '')
 }
 

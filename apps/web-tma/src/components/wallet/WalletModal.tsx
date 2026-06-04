@@ -34,8 +34,10 @@ export default function WalletModal({ open, onClose }: Props) {
   const { t } = useTranslation()
   const walletStore = useWalletStore()
   const displayPhp = useWalletStore((s) => s.balance?.displayPhp ?? '₱ —')
-  const nonPhpBalances = useWalletStore((s) =>
-    (s.balance?.balances ?? []).filter((b) => b.currency !== 'PHP' && b.available > 0)
+  const balanceList = useWalletStore((s) => s.balance?.balances)
+  const nonPhpBalances = useMemo(
+    () => (balanceList ?? []).filter((b) => b.currency !== 'PHP' && b.available > 0),
+    [balanceList],
   )
   const { walletAddress: tonWalletAddress, isConnected: tonIsConnected, connectWallet: connectTonWallet, disconnect: disconnectTon, sendTransaction: sendTonTransaction } = useTonConnect()
 

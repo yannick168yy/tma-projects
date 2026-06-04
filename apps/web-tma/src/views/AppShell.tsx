@@ -222,7 +222,9 @@ export default function AppShell() {
         </nav>
       </div>
 
-      <WalletModal open={walletModalOpen} onClose={() => setWalletModalOpen(false)} />
+      {walletModalOpen && (
+        <WalletModal open onClose={() => setWalletModalOpen(false)} />
+      )}
 
       {csOpen && (
         <div className="fixed inset-0 z-[60] flex justify-center">

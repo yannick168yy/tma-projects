@@ -93,8 +93,7 @@ run run -d --name tma-redis --network "$NET" --network-alias redis --restart=alw
   redis:7.0-alpine \
   redis-server --maxmemory 64mb --maxmemory-policy allkeys-lru --save "" --appendonly no
 
-REDIS_IP="$(run inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' tma-redis 2>/dev/null || echo "")"
-REDIS_URL_WIRED="redis://${REDIS_IP:-127.0.0.1}:6379"
+REDIS_URL_WIRED="redis://redis:6379"
 
 echo "==> [${CTR}] NATS JetStream (limit 64m)"
 run volume create tma-nats-data 2>/dev/null || true
@@ -113,7 +112,6 @@ done
 echo "==> [${CTR}] core-node (Fastify, limit 192m)"
 run rm -f tma-core-node 2>/dev/null || true
 run build -t betogo-core-node:latest -f apps/core-node/Dockerfile apps/core-node
-NATS_IP="$(run inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' tma-nats 2>/dev/null || echo "")"
 run run -d --name tma-core-node --network "$NET" --restart=always \
   --memory=192m --memory-swap=192m \
   -p 127.0.0.1:4000:4000 \
@@ -121,7 +119,7 @@ run run -d --name tma-core-node --network "$NET" --restart=always \
   -e NODE_ENV=production \
   -e CORE_PORT=4000 \
   -e REDIS_URL="${REDIS_URL_WIRED}" \
-  -e NATS_URL="nats://${NATS_IP:-127.0.0.1}:4222" \
+  -e NATS_URL="nats://nats:4222" \
   -e NATS_STREAM="${NATS_STREAM:-BETOGO}" \
   -e NATS_LEDGER_SUBJECT="${NATS_LEDGER_SUBJECT:-betogo.ledger}" \
   -e NATS_CALLBACK_SUBJECT="${NATS_CALLBACK_SUBJECT:-betogo.callback}" \
