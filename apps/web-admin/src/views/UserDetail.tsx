@@ -102,8 +102,9 @@ export default function UserDetail() {
 
   const ledgerCols = [
     { title: '类型', dataIndex: 'type', key: 'type', width: 110, render: (t: string) => <Tag color={ledgerTypeColor(t)}>{ledgerTypeText(t)}</Tag> },
-    { title: '金额(元)', dataIndex: 'amount', key: 'amount', width: 100, render: (v: number) => <span style={{ color: v > 0 ? '#52c41a' : '#ff4d4f' }}>{v > 0 ? '+' : ''}{v}</span> },
-    { title: '余额(元)', dataIndex: 'balanceAfter', key: 'balanceAfter', width: 100 },
+    { title: '币种', dataIndex: 'currency', key: 'currency', width: 110 },
+    { title: '金额', dataIndex: 'amount', key: 'amount', width: 120, render: (v: number) => <span style={{ color: v > 0 ? '#52c41a' : '#ff4d4f' }}>{v > 0 ? '+' : ''}{v}</span> },
+    { title: '余额', dataIndex: 'balanceAfter', key: 'balanceAfter', width: 120 },
     { title: '描述', dataIndex: 'description', key: 'desc' },
     { title: '时间', dataIndex: 'createdAt', key: 'at', width: 160, render: (v: string) => new Date(v).toLocaleString('zh-CN') },
   ]
@@ -116,7 +117,8 @@ export default function UserDetail() {
   ]
   const betCols = [
     { title: '类型', dataIndex: 'betType', key: 'type', width: 80 },
-    { title: '金额(元)', dataIndex: 'amount', key: 'amt', width: 100 },
+    { title: '币种', dataIndex: 'currencyCode', key: 'currency', width: 100 },
+    { title: '金额', dataIndex: 'amount', key: 'amt', width: 100 },
     { title: '状态', dataIndex: 'status', key: 'status', width: 80 },
     { title: 'Round ID', dataIndex: 'roundId', key: 'round', ellipsis: true },
     { title: '时间', dataIndex: 'createdAt', key: 'at', width: 160, render: (v: string) => new Date(v).toLocaleString('zh-CN') },

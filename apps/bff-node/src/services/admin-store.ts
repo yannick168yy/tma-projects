@@ -300,9 +300,9 @@ export async function getBetOrders(
   env: Env,
   userId: string,
   limit = 30,
-): Promise<{ id: number; providerTxnId: string; roundId: string | null; betType: string; amount: number; status: string; createdAt: string }[]> {
+): Promise<{ id: number; providerTxnId: string; roundId: string | null; betType: string; amount: number; currencyCode: string; status: string; createdAt: string }[]> {
   const [rows] = await pool(env).query<RowDataPacket[]>(
-    `SELECT id, provider_txn_id, round_id, bet_type, amount, status, created_at
+    `SELECT id, provider_txn_id, round_id, bet_type, amount, currency_code, status, created_at
      FROM bg_bet_order WHERE user_id = ? ORDER BY created_at DESC LIMIT ?`,
     [userId, limit],
   )
@@ -312,6 +312,7 @@ export async function getBetOrders(
     roundId: r.round_id ? String(r.round_id) : null,
     betType: String(r.bet_type),
     amount: Number(r.amount),
+    currencyCode: String(r.currency_code ?? 'PHP'),
     status: String(r.status),
     createdAt: new Date(r.created_at as Date).toISOString(),
   }))

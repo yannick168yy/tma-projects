@@ -66,11 +66,11 @@ export default function BetOrders() {
     { title: '局号', dataIndex: 'roundId', key: 'roundId', width: 130, ellipsis: true },
     { title: '类型', key: 'betType', width: 70, render: (_: unknown, r: BetOrderRecord) => <Tag color={betTypeColor(r.betType)}>{betTypeLabel(r.betType)}</Tag> },
     {
-      title: '金额', key: 'amount', width: 160,
+      title: '金额', key: 'amount', width: 180,
       render: (_: unknown, r: BetOrderRecord) => (
         <span>
-          ₱{Number(r.amount).toFixed(2)}
-          {r.originalAmount && <span style={{ color: '#888', fontSize: 11, marginLeft: 4 }}>({r.currencyCode} {Number(r.originalAmount).toFixed(4)})</span>}
+          {r.currencyCode} {Number(r.amount).toFixed(2)}
+          {r.originalAmount && r.currencyCode !== 'PHP' && <span style={{ color: '#888', fontSize: 11, marginLeft: 4 }}>(原始 {Number(r.originalAmount).toFixed(4)})</span>}
         </span>
       ),
     },

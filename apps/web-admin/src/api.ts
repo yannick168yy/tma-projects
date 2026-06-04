@@ -66,7 +66,11 @@ export interface LoginLog {
 }
 export interface BetOrder {
   id: number; providerTxnId: string; roundId: string | null
-  betType: string; amount: number; status: string; createdAt: string
+  betType: string; amount: number; currencyCode: string; status: string; createdAt: string
+}
+export interface LedgerEntry {
+  id: string; type: string; amount: number; currency: string
+  balanceAfter: number; description: string; createdAt: string
 }
 export const getUsers = (params: { page?: number; pageSize?: number; search?: string; status?: string }) =>
   get<{ total: number; items: AdminUser[] }>('/admin/users', params)
@@ -74,7 +78,7 @@ export const getUserDetail = (id: string) =>
   get<{
     user: Record<string, unknown>
     wallet: { available: number; frozen: number }
-    ledger: unknown[]
+    ledger: LedgerEntry[]
     loginLogs: LoginLog[]
     betOrders: BetOrder[]
   }>(`/admin/users/${id}`)

@@ -53,7 +53,8 @@ export default function Withdrawals() {
   const columns = [
     { title: '订单号', dataIndex: 'orderId', key: 'orderId', width: 200 },
     { title: '用户', key: 'user', render: (_: unknown, r: AdminWithdrawal) => <Button type="link" size="small" onClick={() => navigate(`/users/${r.userId}`)}>{r.userId}</Button> },
-    { title: '金额(分)', dataIndex: 'amount', key: 'amount' },
+    { title: '币种', dataIndex: 'currency', key: 'currency', width: 110 },
+    { title: '金额', dataIndex: 'amount', key: 'amount' },
     { title: '渠道', dataIndex: 'channelId', key: 'channel' },
     { title: '状态', key: 'status', render: (_: unknown, r: AdminWithdrawal) => <Tag color={wdStatusColor(r.status)}>{r.status}</Tag> },
     { title: '创建时间', dataIndex: 'createdAt', key: 'at', render: (v: string) => new Date(v).toLocaleString('zh-CN') },
