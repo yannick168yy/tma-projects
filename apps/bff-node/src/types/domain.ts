@@ -51,6 +51,13 @@ export interface SessionRecord {
   expiresAt: string
 }
 
+export interface WalletBalance {
+  currency: string
+  available: number
+  frozen: number
+}
+
+/** @deprecated 仅用于 PHP 单币种场景 */
 export interface WalletRecord {
   available: number
   frozen: number
@@ -92,7 +99,7 @@ export interface OrderWithdraw {
   orderId: string
   userId: string
   amount: number
-  currency: 'PHP'
+  currency: string
   channelId: string
   status: 'pending' | 'processing' | 'completed' | 'rejected' | 'admin_rejected' | 'failed'
   createdAt: string
@@ -111,6 +118,7 @@ export type WithdrawOrder = OrderWithdraw
 export interface LedgerEntry {
   id: string
   userId: string
+  currency?: string  // 默认 'PHP'
   type: 'deposit' | 'withdraw' | 'bet' | 'red_packet' | 'bonus' | 'admin_adjust'
   amount: number
   balanceAfter: number

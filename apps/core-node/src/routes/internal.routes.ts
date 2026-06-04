@@ -32,23 +32,26 @@ async function tryActivateTeamNode(
 async function creditWalletInTx(
   conn: PoolConnection,
   userId: string,
-  creditedCents: number,
+  amount: number,
   refId: string,
   description: string,
+  currency = 'PHP',
 ): Promise<number> {
   await conn.execute(
-    `UPDATE bg_wallet SET available = available + ?, version = version + 1 WHERE user_id = ?`,
-    [creditedCents, userId],
+    `INSERT INTO bg_wallet (user_id, currency, available, version)
+     VALUES (?, ?, ?, 1)
+     ON DUPLICATE KEY UPDATE available = available + ?, version = version + 1`,
+    [userId, currency, amount, amount],
   )
   const [[wallet]] = await conn.query<RowDataPacket[]>(
-    `SELECT available FROM bg_wallet WHERE user_id = ?`,
-    [userId],
+    `SELECT available FROM bg_wallet WHERE user_id = ? AND currency = ?`,
+    [userId, currency],
   )
   const balanceAfter = Number(wallet?.available ?? 0)
   await conn.execute(
-    `INSERT INTO bg_wallet_ledger (id, user_id, type, amount, balance_after, ref_type, ref_id, description)
-     VALUES (?, ?, 'deposit', ?, ?, 'deposit', ?, ?)`,
-    [lgId(), userId, creditedCents, balanceAfter, refId, description],
+    `INSERT INTO bg_wallet_ledger (id, user_id, currency, type, amount, balance_after, ref_type, ref_id, description)
+     VALUES (?, ?, ?, 'deposit', ?, ?, 'deposit', ?, ?)`,
+    [lgId(), userId, currency, amount, balanceAfter, refId, description],
   )
   return balanceAfter
 }
@@ -88,7 +91,7 @@ export async function internalRoutes(app: FastifyInstance) {
     if (!locked) return reply.send({ code: 0, message: 'duplicate, skipped' })
 
     const [rows] = await db.query<RowDataPacket[]>(
-      `SELECT status FROM bg_order_deposit WHERE order_id = ? LIMIT 1`,
+      `SELECT status FROM bg_deposit_order WHERE order_id = ? LIMIT 1`,
       [orderId],
     )
     if (rows[0]?.status === 'paid') return reply.send({ code: 0, message: 'already paid' })
@@ -101,7 +104,7 @@ export async function internalRoutes(app: FastifyInstance) {
         description ?? 'Telegram Wallet deposit',
       )
       await conn.execute(
-        `UPDATE bg_order_deposit SET status='paid', paid_at=NOW() WHERE order_id=?`,
+        `UPDATE bg_deposit_order SET status='paid', credited=1 WHERE order_id=?`,
         [orderId],
       )
       await tryActivateTeamNode(conn, userId, creditedCents)
@@ -140,7 +143,7 @@ export async function internalRoutes(app: FastifyInstance) {
     if (!locked) return reply.send({ code: 0, message: 'duplicate, skipped' })
 
     const [rows] = await db.query<RowDataPacket[]>(
-      `SELECT status FROM bg_order_deposit WHERE order_id = ? LIMIT 1`,
+      `SELECT status FROM bg_deposit_order WHERE order_id = ? LIMIT 1`,
       [orderId],
     )
     if (rows[0]?.status === 'paid') return reply.send({ code: 0, message: 'already paid' })
@@ -152,10 +155,8 @@ export async function internalRoutes(app: FastifyInstance) {
         conn, userId, creditedCents, orderId, 'YFPay deposit',
       )
       await conn.execute(
-        `UPDATE bg_order_deposit
-         SET status='paid', credited=?, paid_at=NOW()
-         WHERE order_id=?`,
-        [creditedCents, orderId],
+        `UPDATE bg_deposit_order SET status='paid', credited=1 WHERE order_id=?`,
+        [orderId],
       )
       await tryActivateTeamNode(conn, userId, creditedCents)
       await conn.commit()
@@ -207,17 +208,19 @@ export async function internalRoutes(app: FastifyInstance) {
       if (twRes.affectedRows === 0) throw new Error('insufficient frozen balance')
 
       await conn.execute(
-        `UPDATE bg_wallet SET available = available + ?, version = version + 1 WHERE user_id = ?`,
-        [wd.amount_cents, wd.user_id],
+        `INSERT INTO bg_wallet (user_id, currency, available, version)
+         VALUES (?, 'PHP', ?, 1)
+         ON DUPLICATE KEY UPDATE available = available + ?, version = version + 1`,
+        [wd.user_id, wd.amount_cents, wd.amount_cents],
       )
       const [[walletRow]] = await conn.query<RowDataPacket[]>(
-        `SELECT available FROM bg_wallet WHERE user_id = ?`,
+        `SELECT available FROM bg_wallet WHERE user_id = ? AND currency = 'PHP'`,
         [wd.user_id],
       )
       const balanceAfter = Number(walletRow?.available ?? 0)
       await conn.execute(
-        `INSERT INTO bg_wallet_ledger (id, user_id, type, amount, balance_after, ref_type, ref_id, description)
-         VALUES (?, ?, 'bonus', ?, ?, 'team_withdrawal', ?, 'Team commission payout')`,
+        `INSERT INTO bg_wallet_ledger (id, user_id, currency, type, amount, balance_after, ref_type, ref_id, description)
+         VALUES (?, ?, 'PHP', 'bonus', ?, ?, 'team_withdrawal', ?, 'Team commission payout')`,
         [lgId(), wd.user_id, wd.amount_cents, balanceAfter, String(withdrawalId)],
       )
       await conn.execute(

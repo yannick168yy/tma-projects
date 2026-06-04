@@ -70,8 +70,8 @@ export async function callbackRoutes(app: FastifyInstance) {
     let approved = false
     try {
       const [rows] = await app.mysql.query<RowDataPacket[]>(
-        `SELECT id FROM bg_matrix_withdraw_order
-         WHERE merchant_order_no = ? AND local_status = 'pending' LIMIT 1`,
+        `SELECT order_id FROM bg_withdraw_order
+         WHERE order_id = ? AND status = 'pending' LIMIT 1`,
         [reqBiz.merchantOrderNo],
       )
       approved = rows.length > 0

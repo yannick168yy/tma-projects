@@ -11,6 +11,7 @@ import type {
   SessionRecord,
   UserRecord,
   WalletRecord,
+  WalletBalance,
 } from '../../types/domain.js'
 
 // backward-compat type aliases
@@ -74,6 +75,9 @@ export const deleteSession = redisStore.deleteSession
 
 export const getWallet = (redis: Redis, userId: string) =>
   isMysqlEnabled(env()) ? mysqlStore.getWallet(env(), userId) : redisStore.getWallet(redis, userId)
+
+export const getWalletBalances = (_redis: Redis, userId: string): Promise<WalletBalance[]> =>
+  isMysqlEnabled(env()) ? mysqlStore.getWalletBalances(env(), userId) : Promise.resolve([])
 
 export const saveWallet = (redis: Redis, userId: string, wallet: WalletRecord) =>
   isMysqlEnabled(env())
@@ -174,9 +178,6 @@ export const getOrderDeposit = (_redis: Redis, orderId: string) =>
 
 export const listOrderDeposits = (_redis: Redis, userId: string, page = 1, pageSize = 20) =>
   isMysqlEnabled(env()) ? mysqlStore.listOrderDeposits(env(), userId, page, pageSize) : Promise.resolve([] as OrderDeposit[])
-
-export const listMatrixDeposits = (_redis: Redis, userId: string, pageSize = 20) =>
-  isMysqlEnabled(env()) ? mysqlStore.listMatrixDeposits(env(), userId, pageSize) : Promise.resolve([])
 
 export const saveOrderWithdraw = (_redis: Redis, order: OrderWithdraw) =>
   isMysqlEnabled(env()) ? mysqlStore.saveOrderWithdraw(env(), order) : Promise.resolve()

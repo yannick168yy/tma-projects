@@ -80,12 +80,12 @@ export async function createMatrixWithdraw(
   const pool = getMysqlPool(env)
 
   await pool.query(
-    `INSERT INTO bg_matrix_withdraw_order
-       (merchant_order_no, user_id, symbol, chain, amount, amount_php,
-        to_address, status, local_status)
-     VALUES (?, ?, ?, ?, ?, ?, ?, 0, 'pending')`,
-    [merchantOrderNo, opts.userId, opts.symbol, opts.chain,
-      opts.cryptoAmount, opts.phpAmount, opts.toAddress],
+    `INSERT INTO bg_withdraw_order
+       (order_id, user_id, channel, currency, amount, status, to_address, chain, extra)
+     VALUES (?, ?, 'matrix', ?, ?, 'pending', ?, ?,
+       JSON_OBJECT('cryptoAmount', ?, 'phpAmount', ?))`,
+    [merchantOrderNo, opts.userId, opts.symbol, Number(opts.cryptoAmount),
+      opts.toAddress, opts.chain, opts.cryptoAmount, opts.phpAmount],
   )
 
   let matrixOrderNo: string
@@ -101,12 +101,12 @@ export async function createMatrixWithdraw(
     })
     matrixOrderNo = resp.orderNo
     await pool.query(
-      'UPDATE bg_matrix_withdraw_order SET order_no=?, status=? WHERE merchant_order_no=?',
-      [matrixOrderNo, resp.status, merchantOrderNo],
+      `UPDATE bg_withdraw_order SET extra=JSON_SET(COALESCE(extra,'{}'),'$.matrixOrderNo',?) WHERE order_id=?`,
+      [matrixOrderNo, merchantOrderNo],
     )
   } catch (err) {
     await pool.query(
-      "UPDATE bg_matrix_withdraw_order SET local_status='failed', refunded=1 WHERE merchant_order_no=?",
+      `UPDATE bg_withdraw_order SET status='failed', refunded=1 WHERE order_id=?`,
       [merchantOrderNo],
     )
     await creditWallet(redis, opts.userId, opts.phpAmount, {

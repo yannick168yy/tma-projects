@@ -1,5 +1,5 @@
 import Router from '@koa/router'
-import { getDeposit, listDeposits, listMatrixDeposits, saveDeposit } from '../services/store.js'
+import { getDeposit, listDeposits, saveDeposit } from '../services/store.js'
 import { settlePaidDeposit, type DepositCurrency } from '../services/deposit.service.js'
 import { createTelegramInvoiceLink, orderToTelegramInvoice } from '../services/telegramPayments.js'
 import { getOrFetchDepositAddress } from '../services/matrix.service.js'
@@ -97,12 +97,9 @@ router.post('/', async (ctx) => {
 
 router.get('/', async (ctx) => {
   const page = Number(ctx.query.page ?? 1)
-  const [orders, matrixOrders] = await Promise.all([
-    listDeposits(ctx.state.redis, ctx.state.userId!, page),
-    listMatrixDeposits(ctx.state.redis, ctx.state.userId!),
-  ])
-  const items = [
-    ...orders.map((o) => ({
+  const orders = await listDeposits(ctx.state.redis, ctx.state.userId!, page)
+  ok(ctx, {
+    items: orders.map((o) => ({
       orderId: o.orderId,
       amount: o.amount,
       currency: o.currency,
@@ -111,9 +108,8 @@ router.get('/', async (ctx) => {
       creditedCents: o.creditedCents ?? null,
       createdAt: o.createdAt,
     })),
-    ...matrixOrders,
-  ].sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-  ok(ctx, { items, page })
+    page,
+  })
 })
 
 router.get('/:orderId', async (ctx) => {

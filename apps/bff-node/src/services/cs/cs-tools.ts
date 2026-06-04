@@ -105,12 +105,12 @@ export async function executeTool(
     case 'get_recent_orders': {
       const [deposits] = await pool.query<RowDataPacket[]>(
         `SELECT order_id, amount, currency, credited, channel_id, status, created_at, paid_at
-         FROM bg_order_deposit WHERE user_id = ? ORDER BY created_at DESC LIMIT 5`,
+         FROM bg_deposit_order WHERE user_id = ? ORDER BY created_at DESC LIMIT 5`,
         [context.userId],
       )
       const [withdrawals] = await pool.query<RowDataPacket[]>(
         `SELECT order_id, amount, currency, channel_id, status, created_at, completed_at, reject_reason
-         FROM bg_order_withdraw WHERE user_id = ? ORDER BY created_at DESC LIMIT 5`,
+         FROM bg_withdraw_order WHERE user_id = ? ORDER BY created_at DESC LIMIT 5`,
         [context.userId],
       )
       return {

@@ -150,25 +150,25 @@ export async function getDashboardStats(env: Env): Promise<DashboardStats> {
 
   const [dRows] = await pool(env).query<RowDataPacket[]>(
     `SELECT COUNT(*) as cnt, COALESCE(SUM(amount),0) as amt
-     FROM bg_order_deposit WHERE DATE(created_at) = CURDATE() AND status = 'paid'`,
+     FROM bg_deposit_order WHERE DATE(created_at) = CURDATE() AND status = 'paid'`,
   )
   const todayDepositCount = Number(dRows[0]?.cnt ?? 0)
   const todayDepositAmount = Number(dRows[0]?.amt ?? 0)
 
   const [wdRows] = await pool(env).query<RowDataPacket[]>(
     `SELECT COUNT(*) as cnt, COALESCE(SUM(amount),0) as amt
-     FROM bg_order_withdraw WHERE DATE(created_at) = CURDATE() AND status IN ('completed','processing')`,
+     FROM bg_withdraw_order WHERE DATE(created_at) = CURDATE() AND status IN ('completed','processing')`,
   )
   const todayWithdrawCount = Number(wdRows[0]?.cnt ?? 0)
   const todayWithdrawAmount = Number(wdRows[0]?.amt ?? 0)
 
   const [pwRows] = await pool(env).query<RowDataPacket[]>(
-    `SELECT COUNT(*) as cnt FROM bg_order_withdraw WHERE status = 'pending'`,
+    `SELECT COUNT(*) as cnt FROM bg_withdraw_order WHERE status = 'pending'`,
   )
   const pendingWithdrawCount = Number(pwRows[0]?.cnt ?? 0)
 
   const [balRows] = await pool(env).query<RowDataPacket[]>(
-    `SELECT COALESCE(SUM(available),0) as total FROM bg_wallet`,
+    `SELECT COALESCE(SUM(available),0) as total FROM bg_wallet WHERE currency = 'PHP'`,
   )
   const totalBalance = Number(balRows[0]?.total ?? 0)
 
@@ -211,7 +211,7 @@ export async function listAdminUsers(
             u.last_login_at, u.last_login_region, u.register_region, u.registered_at,
             COALESCE(w.available,0) as available
      FROM bg_user u
-     LEFT JOIN bg_wallet w ON w.user_id = u.id
+     LEFT JOIN bg_wallet w ON w.user_id = u.id AND w.currency = 'PHP'
      ${where}
      ORDER BY u.registered_at DESC
      LIMIT ? OFFSET ?`,
@@ -249,12 +249,12 @@ export async function listAdminDeposits(
   const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : ''
 
   const [countRows] = await pool(env).query<RowDataPacket[]>(
-    `SELECT COUNT(*) as cnt FROM bg_order_deposit ${where}`, params,
+    `SELECT COUNT(*) as cnt FROM bg_deposit_order ${where}`, params,
   )
   const total = Number(countRows[0]?.cnt ?? 0)
 
   const [rows] = await pool(env).query<RowDataPacket[]>(
-    `SELECT * FROM bg_order_deposit ${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`,
+    `SELECT * FROM bg_deposit_order ${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`,
     [...params, opts.pageSize, offset],
   )
 
@@ -263,7 +263,7 @@ export async function listAdminDeposits(
     userId: String(r.user_id),
     amount: Number(r.amount),
     currency: String(r.currency),
-    channelId: String(r.channel_id),
+    channelId: String(r.channel),
     status: String(r.status),
     createdAt: new Date(r.created_at as Date).toISOString(),
     paidAt: r.paid_at ? new Date(r.paid_at as Date).toISOString() : null,
@@ -448,12 +448,12 @@ export async function listAdminWithdrawals(
   const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : ''
 
   const [countRows] = await pool(env).query<RowDataPacket[]>(
-    `SELECT COUNT(*) as cnt FROM bg_order_withdraw ${where}`, params,
+    `SELECT COUNT(*) as cnt FROM bg_withdraw_order ${where}`, params,
   )
   const total = Number(countRows[0]?.cnt ?? 0)
 
   const [rows] = await pool(env).query<RowDataPacket[]>(
-    `SELECT * FROM bg_order_withdraw ${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`,
+    `SELECT * FROM bg_withdraw_order ${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`,
     [...params, opts.pageSize, offset],
   )
 
@@ -462,7 +462,7 @@ export async function listAdminWithdrawals(
     userId: String(r.user_id),
     amount: Number(r.amount),
     currency: String(r.currency),
-    channelId: String(r.channel_id),
+    channelId: String(r.channel),
     status: String(r.status),
     createdAt: new Date(r.created_at as Date).toISOString(),
     completedAt: r.completed_at ? new Date(r.completed_at as Date).toISOString() : null,

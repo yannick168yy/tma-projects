@@ -1,5 +1,5 @@
 import Router from '@koa/router'
-import { getWallet } from '../services/store.js'
+import { getWallet, getWalletBalances } from '../services/store.js'
 import { formatPhp } from '../utils/format.js'
 import { ok } from '../utils/response.js'
 
@@ -8,16 +8,19 @@ const TURNOVER_MULTIPLIER = 3
 const router = new Router({ prefix: '/wallet' })
 
 router.get('/balances', async (ctx) => {
-  const wallet = await getWallet(ctx.state.redis, ctx.state.userId!)
-  ok(ctx, [{ currency: 'PHP', available: wallet.available, frozen: wallet.frozen }])
+  const balances = await getWalletBalances(ctx.state.redis, ctx.state.userId!)
+  ok(ctx, balances.length ? balances : [{ currency: 'PHP', available: 0, frozen: 0 }])
 })
 
 router.get('/summary', async (ctx) => {
-  const wallet = await getWallet(ctx.state.redis, ctx.state.userId!)
+  const [wallet, balances] = await Promise.all([
+    getWallet(ctx.state.redis, ctx.state.userId!),
+    getWalletBalances(ctx.state.redis, ctx.state.userId!),
+  ])
   ok(ctx, {
     primaryCurrency: 'PHP',
     displayPhp: formatPhp(wallet.available),
-    balances: [{ currency: 'PHP', available: wallet.available, frozen: wallet.frozen }],
+    balances: balances.length ? balances : [{ currency: 'PHP', available: 0, frozen: 0 }],
     frozenNote: wallet.frozen > 0 ? 'Some funds are frozen pending turnover.' : null,
   })
 })
