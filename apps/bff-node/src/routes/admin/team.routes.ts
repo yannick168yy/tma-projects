@@ -86,6 +86,66 @@ router.get('/agents', async (ctx) => {
   })
 })
 
+// GET /admin/team/agents/:userId/tree  ── 三层完整树形（一次性加载）
+router.get('/agents/:userId/tree', async (ctx) => {
+  const { userId } = ctx.params
+  const db = getMysqlPool(ctx.state.env)
+  const period = currentPeriod()
+
+  const commJoin = `LEFT JOIN (
+    SELECT beneficiary_id, SUM(commission_cents) AS total
+    FROM bg_team_commission WHERE period = ?
+    GROUP BY beneficiary_id
+  ) tc ON tc.beneficiary_id = tn.user_id`
+
+  const [l1Rows] = await db.query<RowDataPacket[]>(
+    `SELECT tn.user_id, tn.opted_in, u.display_name, COALESCE(tc.total, 0) AS month_cents
+     FROM bg_team_node tn JOIN bg_user u ON u.id = tn.user_id ${commJoin}
+     WHERE tn.l1_referrer_id = ? ORDER BY month_cents DESC`,
+    [period, userId],
+  )
+  const [l2Rows] = await db.query<RowDataPacket[]>(
+    `SELECT tn.user_id, tn.l1_referrer_id, tn.opted_in, u.display_name, COALESCE(tc.total, 0) AS month_cents
+     FROM bg_team_node tn JOIN bg_user u ON u.id = tn.user_id ${commJoin}
+     WHERE tn.l2_referrer_id = ? ORDER BY month_cents DESC`,
+    [period, userId],
+  )
+  const [l3Rows] = await db.query<RowDataPacket[]>(
+    `SELECT tn.user_id, tn.l2_referrer_id, tn.opted_in, u.display_name, COALESCE(tc.total, 0) AS month_cents
+     FROM bg_team_node tn JOIN bg_user u ON u.id = tn.user_id ${commJoin}
+     WHERE tn.l3_referrer_id = ? ORDER BY month_cents DESC`,
+    [period, userId],
+  )
+
+  interface NodeData { userId: string; displayName: string; isAgent: boolean; thisMonthCents: number; children: NodeData[] }
+
+  const l1Map = new Map<string, NodeData>()
+  for (const r of l1Rows) {
+    l1Map.set(String(r.user_id), {
+      userId: String(r.user_id), displayName: String(r.display_name),
+      isAgent: Boolean(r.opted_in), thisMonthCents: Number(r.month_cents), children: [],
+    })
+  }
+  const l2Map = new Map<string, NodeData>()
+  for (const r of l2Rows) {
+    const node: NodeData = {
+      userId: String(r.user_id), displayName: String(r.display_name),
+      isAgent: Boolean(r.opted_in), thisMonthCents: Number(r.month_cents), children: [],
+    }
+    l2Map.set(node.userId, node)
+    l1Map.get(String(r.l1_referrer_id))?.children.push(node)
+  }
+  for (const r of l3Rows) {
+    const node: NodeData = {
+      userId: String(r.user_id), displayName: String(r.display_name),
+      isAgent: Boolean(r.opted_in), thisMonthCents: Number(r.month_cents), children: [],
+    }
+    l2Map.get(String(r.l2_referrer_id))?.children.push(node)
+  }
+
+  ok(ctx, { l1Members: [...l1Map.values()] })
+})
+
 // GET /admin/team/agents/:userId
 router.get('/agents/:userId', async (ctx) => {
   const { userId } = ctx.params

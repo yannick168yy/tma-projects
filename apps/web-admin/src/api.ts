@@ -282,6 +282,16 @@ export const getTeamAgents = (params?: { search?: string; page?: number; pageSiz
 export const getTeamAgentDetail = (userId: string) =>
   get<{ agent: unknown; history: unknown[] }>(`/admin/team/agents/${userId}`)
 
+export interface TeamTreeMember {
+  userId: string
+  displayName: string
+  isAgent: boolean
+  thisMonthCents: number
+  children: TeamTreeMember[]
+}
+export const getTeamAgentTree = (userId: string) =>
+  get<{ l1Members: TeamTreeMember[] }>(`/admin/team/agents/${userId}/tree`)
+
 export const getTeamCommissions = (params?: { period?: string; beneficiaryId?: string; status?: string; page?: number }) =>
   get<{ items: TeamCommission[]; total: number; page: number; pageSize: number }>('/admin/team/commissions', params)
 

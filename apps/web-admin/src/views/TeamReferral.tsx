@@ -1,12 +1,31 @@
 import { useEffect, useState } from 'react'
-import { Row, Col, Statistic, Card, Form, InputNumber, Button, Input, Select, Popconfirm, Table, Tabs, Tag, Modal, message } from 'antd'
+import { Row, Col, Statistic, Card, Form, InputNumber, Button, Input, Select, Popconfirm, Table, Tabs, Tag, Modal, message, Drawer, Tree, Spin, Space } from 'antd'
 import type { TablePaginationConfig } from 'antd'
 import {
   getTeamOverview, getTeamAgents, getTeamCommissions, getTeamWithdrawals,
   getTeamConfig, updateTeamConfig, triggerTeamSettle,
-  approveTeamWithdrawal, rejectTeamWithdrawal,
-  type TeamOverview, type TeamAgent, type TeamCommission, type TeamWithdrawalAdmin, type TeamConfig,
+  approveTeamWithdrawal, rejectTeamWithdrawal, getTeamAgentTree,
+  type TeamOverview, type TeamAgent, type TeamCommission, type TeamWithdrawalAdmin, type TeamConfig, type TeamTreeMember,
 } from '../api'
+
+interface TreeNodeItem { key: string; title: React.ReactNode; children?: TreeNodeItem[] }
+
+function buildTreeNode(m: TeamTreeMember, level: 1 | 2 | 3): TreeNodeItem {
+  const levelColor = level === 1 ? 'gold' : level === 2 ? 'blue' : 'green'
+  return {
+    key: `l${level}-${m.userId}`,
+    title: (
+      <span style={{ display: 'inline-flex', gap: 5, alignItems: 'center', flexWrap: 'wrap' }}>
+        <Tag color={levelColor} style={{ fontSize: 10, padding: '0 4px', margin: 0, lineHeight: '16px' }}>L{level}</Tag>
+        <span style={{ fontWeight: 500 }}>{m.displayName}</span>
+        <span style={{ color: '#bbb', fontSize: 11 }}>{m.userId}</span>
+        {m.isAgent && <Tag color="purple" style={{ fontSize: 10, padding: '0 4px', margin: 0, lineHeight: '16px' }}>代理</Tag>}
+        {m.thisMonthCents > 0 && <span style={{ color: '#1677ff', fontSize: 11 }}>₱{(m.thisMonthCents / 100).toFixed(2)}</span>}
+      </span>
+    ),
+    children: m.children.length > 0 ? m.children.map((c) => buildTreeNode(c, (level + 1) as 2 | 3)) : undefined,
+  }
+}
 
 function phpDisplay(cents: number) {
   return '₱' + ((cents ?? 0) / 100).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -49,6 +68,12 @@ export default function TeamReferral() {
   const [opLoading, setOpLoading] = useState(false)
   const [rejectModal, setRejectModal] = useState({ visible: false, id: 0, reason: '' })
 
+  const [treeVisible, setTreeVisible] = useState(false)
+  const [treeAgent, setTreeAgent] = useState<TeamAgent | null>(null)
+  const [treeData, setTreeData] = useState<{ l1Members: TeamTreeMember[] } | null>(null)
+  const [treeLoading, setTreeLoading] = useState(false)
+  const [treeExpandedKeys, setTreeExpandedKeys] = useState<(string | number)[]>([])
+
   async function loadOverview() {
     const data = await getTeamOverview()
     setOverview(data)
@@ -76,6 +101,32 @@ export default function TeamReferral() {
       message.success(`${settlePeriod} 结算已触发，后台处理中`)
     } catch (e) { message.error(e instanceof Error ? e.message : '触发失败') }
     finally { setSettling(false) }
+  }
+
+  async function openTree(agent: TeamAgent) {
+    setTreeAgent(agent)
+    setTreeData(null)
+    setTreeVisible(true)
+    setTreeLoading(true)
+    try {
+      const data = await getTeamAgentTree(agent.userId)
+      setTreeData(data)
+      setTreeExpandedKeys([
+        `root-${agent.userId}`,
+        ...data.l1Members.map((m) => `l1-${m.userId}`),
+      ])
+    } catch { message.error('加载团队树失败') }
+    finally { setTreeLoading(false) }
+  }
+
+  function expandAll() {
+    if (!treeAgent || !treeData) return
+    const keys: (string | number)[] = [`root-${treeAgent.userId}`]
+    for (const l1 of treeData.l1Members) {
+      keys.push(`l1-${l1.userId}`)
+      for (const l2 of l1.children) keys.push(`l2-${l2.userId}`)
+    }
+    setTreeExpandedKeys(keys)
   }
 
   async function loadAgents(page = 1) {
@@ -130,10 +181,25 @@ export default function TeamReferral() {
   const agentCols = [
     { title: '用户ID', dataIndex: 'userId', key: 'userId', width: 110 },
     { title: '昵称', dataIndex: 'displayName', key: 'name' },
-    { title: '团队规模', key: 'team', width: 160, render: (_: unknown, r: TeamAgent) => `L1:${r.l1Count} / L2:${r.l2Count} / L3:${r.l3Count}` },
+    {
+      title: '团队规模', key: 'team', width: 200,
+      render: (_: unknown, r: TeamAgent) => (
+        <Space size={4}>
+          <Tag color="gold" style={{ margin: 0 }}>L1 · {r.l1Count}</Tag>
+          <Tag color="blue" style={{ margin: 0 }}>L2 · {r.l2Count}</Tag>
+          <Tag color="green" style={{ margin: 0 }}>L3 · {r.l3Count}</Tag>
+        </Space>
+      ),
+    },
     { title: '本月佣金', key: 'thisMonth', width: 120, render: (_: unknown, r: TeamAgent) => phpDisplay(r.thisMonthCommissionCents) },
     { title: '累计收益', key: 'lifetime', width: 120, render: (_: unknown, r: TeamAgent) => phpDisplay(r.lifetimeEarnedCents) },
     { title: '开启时间', dataIndex: 'optedInAt', key: 'optedInAt', width: 160 },
+    {
+      title: '操作', key: 'actions', width: 90,
+      render: (_: unknown, r: TeamAgent) => (
+        <Button type="link" size="small" onClick={() => openTree(r)}>团队树</Button>
+      ),
+    },
   ]
 
   const commCols = [
@@ -245,6 +311,55 @@ export default function TeamReferral() {
       <Modal open={rejectModal.visible} title="驳回原因" onOk={doReject} confirmLoading={opLoading} onCancel={() => setRejectModal((m) => ({ ...m, visible: false }))}>
         <Input value={rejectModal.reason} onChange={(e) => setRejectModal((m) => ({ ...m, reason: e.target.value }))} placeholder="请输入驳回原因" />
       </Modal>
+
+      <Drawer
+        title={
+          treeAgent ? (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingRight: 32 }}>
+              <span>
+                <Tag color="gold">代理</Tag>
+                <span style={{ fontWeight: 600 }}>{treeAgent.displayName}</span>
+                <span style={{ color: '#999', fontSize: 12, marginLeft: 6 }}>{treeAgent.userId}</span>
+              </span>
+              <Space size={6}>
+                <Button size="small" onClick={expandAll} disabled={treeLoading}>展开全部</Button>
+                <Button size="small" onClick={() => treeAgent && setTreeExpandedKeys([`root-${treeAgent.userId}`])} disabled={treeLoading}>折叠</Button>
+              </Space>
+            </div>
+          ) : '团队树'
+        }
+        open={treeVisible}
+        onClose={() => setTreeVisible(false)}
+        width={560}
+        destroyOnHidden
+        styles={{ body: { padding: '12px 16px', overflow: 'auto' } }}
+      >
+        {treeLoading && <div style={{ textAlign: 'center', padding: 40 }}><Spin /></div>}
+        {!treeLoading && treeAgent && treeData && (
+          treeData.l1Members.length === 0
+            ? <div style={{ color: '#999', textAlign: 'center', padding: 40 }}>该代理暂无下线</div>
+            : <Tree
+                showLine={{ showLeafIcon: false }}
+                expandedKeys={treeExpandedKeys}
+                onExpand={(keys) => setTreeExpandedKeys(keys as (string | number)[])}
+                blockNode
+                treeData={[{
+                  key: `root-${treeAgent.userId}`,
+                  title: (
+                    <span style={{ display: 'inline-flex', gap: 5, alignItems: 'center' }}>
+                      <Tag color="gold" style={{ fontSize: 10, padding: '0 4px', margin: 0, lineHeight: '16px' }}>代理</Tag>
+                      <span style={{ fontWeight: 600 }}>{treeAgent.displayName}</span>
+                      <span style={{ color: '#999', fontSize: 11 }}>{treeAgent.userId}</span>
+                      <span style={{ color: '#aaa', fontSize: 11 }}>
+                        L1·{treeAgent.l1Count} L2·{treeAgent.l2Count} L3·{treeAgent.l3Count}
+                      </span>
+                    </span>
+                  ),
+                  children: treeData.l1Members.map((m) => buildTreeNode(m, 1)),
+                }] as TreeNodeItem[]}
+              />
+        )}
+      </Drawer>
     </div>
   )
 }
