@@ -15,6 +15,7 @@ import webhookRoutes from './webhook.routes.js'
 import yfpayRoutes from './yfpay.routes.js'
 import slotsRoutes from './slots.routes.js'
 import betsRoutes from './bets.routes.js'
+import sgRoutes from './sg.routes.js'
 import { authMiddleware, optionalAuthMiddleware } from '../middleware/auth.js'
 import { getDepositChannels, YfPayError } from '../services/yfpay.service.js'
 import { ok, fail } from '../utils/response.js'
@@ -26,9 +27,10 @@ export function createApiRouter(): Router {
   const adminRouter = createAdminRouter()
   api.use(adminRouter.routes(), adminRouter.allowedMethods())
 
-  // 无需鉴权：webhook + 登录
+  // 无需鉴权：webhook + 登录 + SG回调透传
   api.use(webhookRoutes.routes(), webhookRoutes.allowedMethods())
   api.use(authRoutes.routes(), authRoutes.allowedMethods())
+  api.use(sgRoutes.routes(), sgRoutes.allowedMethods())
 
   // 公开：YF Pay 存款频道
   api.get('/deposit/yfpay/channels', async (ctx) => {
