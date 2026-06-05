@@ -86,35 +86,45 @@ router.get('/agents', async (ctx) => {
   })
 })
 
-// GET /admin/team/agents/:userId/tree  ── 三层完整树形（一次性加载）
+// GET /admin/team/agents/:userId/tree?period=YYYY-MM  ── 三层完整树形（一次性加载）
 router.get('/agents/:userId/tree', async (ctx) => {
   const { userId } = ctx.params
+  const period = ctx.query.period ? String(ctx.query.period) : currentPeriod()
   const db = getMysqlPool(ctx.state.env)
-  const period = currentPeriod()
 
-  const commJoin = `LEFT JOIN (
-    SELECT beneficiary_id, SUM(commission_cents) AS total
-    FROM bg_team_commission WHERE period = ?
-    GROUP BY beneficiary_id
-  ) tc ON tc.beneficiary_id = tn.user_id`
-
+  // 每层 join 查主代理从该下线身上实际获得的佣金（beneficiary=主代理, from_user=下线, level=N）
   const [l1Rows] = await db.query<RowDataPacket[]>(
     `SELECT tn.user_id, tn.opted_in, u.display_name, COALESCE(tc.total, 0) AS month_cents
-     FROM bg_team_node tn JOIN bg_user u ON u.id = tn.user_id ${commJoin}
+     FROM bg_team_node tn JOIN bg_user u ON u.id = tn.user_id
+     LEFT JOIN (
+       SELECT from_user_id, SUM(commission_cents) AS total
+       FROM bg_team_commission WHERE period = ? AND beneficiary_id = ? AND level = 1
+       GROUP BY from_user_id
+     ) tc ON tc.from_user_id = tn.user_id
      WHERE tn.l1_referrer_id = ? ORDER BY month_cents DESC`,
-    [period, userId],
+    [period, userId, userId],
   )
   const [l2Rows] = await db.query<RowDataPacket[]>(
     `SELECT tn.user_id, tn.l1_referrer_id, tn.opted_in, u.display_name, COALESCE(tc.total, 0) AS month_cents
-     FROM bg_team_node tn JOIN bg_user u ON u.id = tn.user_id ${commJoin}
+     FROM bg_team_node tn JOIN bg_user u ON u.id = tn.user_id
+     LEFT JOIN (
+       SELECT from_user_id, SUM(commission_cents) AS total
+       FROM bg_team_commission WHERE period = ? AND beneficiary_id = ? AND level = 2
+       GROUP BY from_user_id
+     ) tc ON tc.from_user_id = tn.user_id
      WHERE tn.l2_referrer_id = ? ORDER BY month_cents DESC`,
-    [period, userId],
+    [period, userId, userId],
   )
   const [l3Rows] = await db.query<RowDataPacket[]>(
     `SELECT tn.user_id, tn.l1_referrer_id, tn.opted_in, u.display_name, COALESCE(tc.total, 0) AS month_cents
-     FROM bg_team_node tn JOIN bg_user u ON u.id = tn.user_id ${commJoin}
+     FROM bg_team_node tn JOIN bg_user u ON u.id = tn.user_id
+     LEFT JOIN (
+       SELECT from_user_id, SUM(commission_cents) AS total
+       FROM bg_team_commission WHERE period = ? AND beneficiary_id = ? AND level = 3
+       GROUP BY from_user_id
+     ) tc ON tc.from_user_id = tn.user_id
      WHERE tn.l3_referrer_id = ? ORDER BY month_cents DESC`,
-    [period, userId],
+    [period, userId, userId],
   )
 
   interface NodeData { userId: string; displayName: string; isAgent: boolean; thisMonthCents: number; children: NodeData[] }
