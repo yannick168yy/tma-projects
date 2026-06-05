@@ -19,9 +19,9 @@ function nextPeriod(p: string) {
   const [y, m] = p.split('-').map(Number)
   return m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, '0')}`
 }
-function formatPeriod(p: string) {
-  const [y, m] = p.split('-')
-  return `${y}年${Number(m)}月`
+function formatPeriod(p: string, locale = 'en') {
+  const [y, m] = p.split('-').map(Number)
+  return new Intl.DateTimeFormat(locale, { year: 'numeric', month: 'long' }).format(new Date(y, m - 1, 1))
 }
 
 function phpDisplay(cents: number) {
@@ -82,7 +82,7 @@ function TreeNodeRow({ node, depth, expandedIds, onToggle }: {
 interface Props { onClose: () => void }
 
 export default function TeamCenterPage({ onClose }: Props) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const user = useAuthStore((s) => s.user)
   const store = usePromotionStore()
 
@@ -190,7 +190,7 @@ export default function TeamCenterPage({ onClose }: Props) {
   const wdLoading    = store.teamWithdrawalsLoading
 
   const tabs = [
-    { id: 'earnings' as const, label: '团队收益', Icon: TrendingUp },
+    { id: 'earnings' as const, label: t('team.tabEarnings'), Icon: TrendingUp },
     { id: 'withdraw' as const, label: t('team.tabWithdraw'), Icon: Wallet },
   ]
 
@@ -234,7 +234,7 @@ export default function TeamCenterPage({ onClose }: Props) {
           <button type="button" className="p-1.5 text-muted-foreground hover:text-amber-400 transition-colors" onClick={() => changePeriod(prevPeriod(period))}>
             <ChevronLeft size={16} />
           </button>
-          <span className="text-sm font-bold text-foreground min-w-[76px] text-center">{formatPeriod(period)}</span>
+          <span className="text-sm font-bold text-foreground min-w-[76px] text-center">{formatPeriod(period, i18n.language)}</span>
           <button type="button" className={`p-1.5 transition-colors ${period >= currentPeriod() ? 'text-border' : 'text-muted-foreground hover:text-amber-400'}`} disabled={period >= currentPeriod()} onClick={() => changePeriod(nextPeriod(period))}>
             <ChevronRight size={16} />
           </button>
@@ -283,7 +283,7 @@ export default function TeamCenterPage({ onClose }: Props) {
                 </div>
                 {(summary?.paidCents ?? 0) > 0 && (
                   <div className="mt-2 pt-2 border-t border-amber-500/20 text-center">
-                    <span className="text-[10px] text-muted-foreground">已结算 </span>
+                    <span className="text-[10px] text-muted-foreground">{t('team.settled')} </span>
                     <span className="text-[10px] font-bold text-emerald-400">{phpDisplay(summary!.paidCents)}</span>
                   </div>
                 )}
@@ -294,8 +294,8 @@ export default function TeamCenterPage({ onClose }: Props) {
             <div className="flex items-center justify-end gap-2 px-4 pb-2">
               {treeView && (
                 <>
-                  <button type="button" className="text-[11px] font-bold text-amber-400 px-2 py-1 bg-amber-500/10 rounded-lg" onClick={expandAll}>全展</button>
-                  <button type="button" className="text-[11px] font-bold text-muted-foreground px-2 py-1 bg-secondary rounded-lg" onClick={() => setExpandedIds(new Set())}>折叠</button>
+                  <button type="button" className="text-[11px] font-bold text-amber-400 px-2 py-1 bg-amber-500/10 rounded-lg" onClick={expandAll}>{t('team.expandAll')}</button>
+                  <button type="button" className="text-[11px] font-bold text-muted-foreground px-2 py-1 bg-secondary rounded-lg" onClick={() => setExpandedIds(new Set())}>{t('team.collapse')}</button>
                 </>
               )}
               <button type="button"
@@ -369,11 +369,11 @@ export default function TeamCenterPage({ onClose }: Props) {
                 <div className="mt-3 pt-3 border-t border-amber-500/20 grid grid-cols-2 gap-2">
                   <div className="bg-black/20 rounded-xl p-2 text-center">
                     <div className="text-amber-400 font-bold text-sm leading-none">{phpDisplay(summary?.totalCents ?? 0)}</div>
-                    <div className="text-white/40 text-[9px] mt-0.5">{formatPeriod(period)} 产生</div>
+                    <div className="text-white/40 text-[9px] mt-0.5">{t('team.periodEarned', { period: formatPeriod(period, i18n.language) })}</div>
                   </div>
                   <div className="bg-black/20 rounded-xl p-2 text-center">
                     <div className="text-emerald-400 font-bold text-sm leading-none">{phpDisplay(summary?.paidCents ?? 0)}</div>
-                    <div className="text-white/40 text-[9px] mt-0.5">{formatPeriod(period)} 已结算</div>
+                    <div className="text-white/40 text-[9px] mt-0.5">{t('team.periodSettled', { period: formatPeriod(period, i18n.language) })}</div>
                   </div>
                 </div>
               </div>
