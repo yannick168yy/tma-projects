@@ -141,6 +141,7 @@ export const getAdminGames = (params: {
   page?: number; pageSize?: number; provider?: string; search?: string; isActive?: boolean
   type?: string; sortCategory?: string; volatility?: string; isFeatured?: boolean
   hasDemo?: boolean; theme?: string; gameStyle?: string; playerType?: string
+  technology?: string
   weightMin?: number; weightMax?: number
   sortField?: string; sortOrder?: 'asc' | 'desc'
 }) =>

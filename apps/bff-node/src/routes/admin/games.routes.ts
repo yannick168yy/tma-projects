@@ -31,6 +31,7 @@ router.get('/', async (ctx) => {
   const theme = ctx.query.theme ? String(ctx.query.theme) : undefined
   const gameStyle = ctx.query.gameStyle ? String(ctx.query.gameStyle) : undefined
   const playerType = ctx.query.playerType ? String(ctx.query.playerType) : undefined
+  const technology = ctx.query.technology ? String(ctx.query.technology) : undefined
   const weightMin = ctx.query.weightMin !== undefined ? Number(ctx.query.weightMin) : undefined
   const weightMax = ctx.query.weightMax !== undefined ? Number(ctx.query.weightMax) : undefined
   const sortField = ctx.query.sortField ? String(ctx.query.sortField) : undefined
@@ -39,7 +40,7 @@ router.get('/', async (ctx) => {
     : undefined
   const result = await listAdminGames(ctx.state.env, {
     page, pageSize, provider, search, isActive, type, sortCategory, volatility,
-    isFeatured, hasDemo, theme, gameStyle, playerType, weightMin, weightMax,
+    isFeatured, hasDemo, theme, gameStyle, playerType, technology, weightMin, weightMax,
     sortField, sortOrder,
   })
   ok(ctx, result)

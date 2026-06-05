@@ -61,22 +61,30 @@ export default function Games() {
   const [togglingProvider, setTogglingProvider] = useState<string | null>(null)
   const [jobModal, setJobModal] = useState({ visible: false, title: '', msg: '', total: 0, percent: 0, closable: false, status: 'active' as 'active' | 'success' | 'exception' })
 
-  async function load(p = 1) {
+  async function load(p = 1, clearFilters = false) {
     setPage(p); setLoading(true)
     try {
-      const isActive = activeFilter !== undefined ? activeFilter === 'true' : undefined
-      const isFeatured = featuredFilter !== undefined ? featuredFilter === 'true' : undefined
-      const hasDemo = demoFilter !== undefined ? demoFilter === 'true' : undefined
+      const eff = !clearFilters
+      const isActive = (eff && activeFilter !== undefined) ? activeFilter === 'true' : undefined
+      const isFeatured = (eff && featuredFilter !== undefined) ? featuredFilter === 'true' : undefined
+      const hasDemo = (eff && demoFilter !== undefined) ? demoFilter === 'true' : undefined
       let weightMin: number | undefined, weightMax: number | undefined
-      if (weightRangeFilter) {
+      if (eff && weightRangeFilter) {
         const [mn, mx] = weightRangeFilter.split('-').map(Number)
         weightMin = mn; weightMax = mx
       }
       const res = await getAdminGames({
         page: p, pageSize: 20,
-        provider: providerFilter, search: search || undefined,
-        isActive, sortCategory: sortCategoryFilter, volatility: volatilityFilter,
-        isFeatured, hasDemo, theme: themeFilter, gameStyle: gameStyleFilter, playerType: playerTypeFilter,
+        provider: eff ? providerFilter : undefined,
+        search: eff ? (search || undefined) : undefined,
+        isActive,
+        sortCategory: eff ? sortCategoryFilter : undefined,
+        volatility: eff ? volatilityFilter : undefined,
+        isFeatured, hasDemo,
+        theme: eff ? themeFilter : undefined,
+        gameStyle: eff ? gameStyleFilter : undefined,
+        playerType: eff ? playerTypeFilter : undefined,
+        technology: eff ? techFilter : undefined,
         weightMin, weightMax, sortField, sortOrder,
       })
       setGames(res.items); setTotal(res.total)
@@ -91,7 +99,7 @@ export default function Games() {
     setGameStyleFilter(undefined); setPlayerTypeFilter(undefined); setWeightRangeFilter(undefined)
     setVolatilityFilter(undefined); setDemoFilter(undefined); setFeaturedFilter(undefined)
     setTechFilter(undefined); setActiveFilter(undefined)
-    void load(1)
+    void load(1, true)
   }
 
   const loadProviderStats = useCallback(async () => {
@@ -287,7 +295,7 @@ export default function Games() {
   }
 
   const filterSelect = (placeholder: string, value: string | undefined, onChange: (v: string | undefined) => void, options: { value: string; label: string }[]) => (
-    <Select value={value} placeholder={placeholder} allowClear style={{ width: '100%' }} onChange={(v) => { onChange(v); void load(1) }} options={options} />
+    <Select value={value} placeholder={placeholder} allowClear style={{ width: '100%' }} onChange={onChange} options={options} />
   )
 
   const providerColumns = [
@@ -325,8 +333,6 @@ export default function Games() {
             <Switch
               checked={r.active > 0}
               loading={loading}
-              checkedChildren="启用"
-              unCheckedChildren="关闭"
               onChange={(val) => void onToggleProvider(r.provider, val)}
             />
             {!allOn && r.active > 0 && (
@@ -381,8 +387,11 @@ export default function Games() {
               <Col span={3}>{filterSelect('技术', techFilter, setTechFilter, [{ value: 'HTML5', label: 'HTML5' }, { value: 'Flash', label: 'Flash' }])}</Col>
               <Col span={3}>{filterSelect('状态', activeFilter, setActiveFilter, [{ value: 'true', label: '已启用' }, { value: 'false', label: '已禁用' }])}</Col>
               <Col span={3} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <Tag color="blue">共 {total} 款</Tag>
+                <Button type="primary" size="small" onClick={() => load(1)}>查询</Button>
                 <Button size="small" onClick={resetFilters}>重置</Button>
+              </Col>
+              <Col span={3} style={{ display: 'flex', alignItems: 'center' }}>
+                <Tag color="blue">共 {total} 款</Tag>
               </Col>
             </Row>
           </div>

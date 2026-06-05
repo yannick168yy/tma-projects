@@ -7,6 +7,9 @@ import { getUsers, updateUserStatus, updateUserLabel, type AdminUser } from '../
 function statusColor(s: string) {
   return ({ active: 'green', frozen: 'orange', banned: 'red' } as Record<string, string>)[s] ?? 'default'
 }
+function statusLabel(s: string) {
+  return ({ active: '活跃', frozen: '冻结', banned: '封禁' } as Record<string, string>)[s] ?? s
+}
 function labelText(l: string) {
   return ({ normal: '普通', arbitrage: '套利客' } as Record<string, string>)[l] ?? l
 }
@@ -68,7 +71,7 @@ export default function Users() {
     { title: '显示名', dataIndex: 'displayName', key: 'displayName' },
     { title: 'TG用户名', dataIndex: 'telegramUsername', key: 'tg', render: (v: string | null) => v || '-' },
     { title: '余额', key: 'balance', width: 100, render: (_: unknown, r: AdminUser) => `₱${Number(r.balance).toFixed(2)}` },
-    { title: '状态', key: 'status', width: 80, render: (_: unknown, r: AdminUser) => <Tag color={statusColor(r.status)}>{r.status}</Tag> },
+    { title: '状态', key: 'status', width: 80, render: (_: unknown, r: AdminUser) => <Tag color={statusColor(r.status)}>{statusLabel(r.status)}</Tag> },
     { title: '标记', key: 'label', width: 90, render: (_: unknown, r: AdminUser) => <Tag color={r.label === 'arbitrage' ? 'red' : 'default'}>{labelText(r.label)}</Tag> },
     { title: '注册区域', dataIndex: 'registerRegion', key: 'registerRegion', width: 120, render: (v: string | null) => v || '-' },
     {

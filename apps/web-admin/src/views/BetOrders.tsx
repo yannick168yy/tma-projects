@@ -18,6 +18,9 @@ function statusColor(s: string) {
   if (s === 'failed') return 'red'
   return 'default'
 }
+function statusLabel(s: string) {
+  return ({ pending: '待结算', settled: '已结算', failed: '失败' } as Record<string, string>)[s] ?? s
+}
 function fmtTime(t: string) {
   return new Date(t).toLocaleString('zh-CN', { hour12: false })
 }
@@ -74,7 +77,7 @@ export default function BetOrders() {
         </span>
       ),
     },
-    { title: '状态', key: 'status', width: 90, render: (_: unknown, r: BetOrderRecord) => <Tag color={statusColor(r.status)}>{r.status}</Tag> },
+    { title: '状态', key: 'status', width: 90, render: (_: unknown, r: BetOrderRecord) => <Tag color={statusColor(r.status)}>{statusLabel(r.status)}</Tag> },
     { title: '时间', key: 'createdAt', width: 150, render: (_: unknown, r: BetOrderRecord) => <span style={{ fontSize: 12, color: '#888' }}>{fmtTime(r.createdAt)}</span> },
   ]
 
@@ -100,7 +103,7 @@ export default function BetOrders() {
           { value: 'bet', label: '投注' }, { value: 'win', label: '派彩' }, { value: 'refund', label: '退款' }, { value: 'cancel', label: '取消' },
         ]} />
         <Select value={status} placeholder="状态" allowClear style={{ width: 110 }} onChange={(v) => { setStatus(v); void load(1) }} options={[
-          { value: 'pending', label: 'pending' }, { value: 'settled', label: 'settled' }, { value: 'failed', label: 'failed' },
+          { value: 'pending', label: '待结算' }, { value: 'settled', label: '已结算' }, { value: 'failed', label: '失败' },
         ]} />
         <DatePicker.RangePicker
           value={dateRange}

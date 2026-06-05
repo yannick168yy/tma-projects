@@ -325,6 +325,7 @@ export async function listAdminGames(
     provider?: string; search?: string; isActive?: boolean
     type?: string; sortCategory?: string; volatility?: string; isFeatured?: boolean
     hasDemo?: boolean; theme?: string; gameStyle?: string; playerType?: string
+    technology?: string
     weightMin?: number; weightMax?: number
     sortField?: string; sortOrder?: 'asc' | 'desc'
   },
@@ -344,6 +345,7 @@ export async function listAdminGames(
   if (opts.theme) { conditions.push('theme LIKE ?'); params.push(`%${opts.theme}%`) }
   if (opts.gameStyle) { conditions.push('game_style = ?'); params.push(opts.gameStyle) }
   if (opts.playerType) { conditions.push('player_type = ?'); params.push(opts.playerType) }
+  if (opts.technology) { conditions.push('technology = ?'); params.push(opts.technology) }
   if (opts.weightMin !== undefined) { conditions.push('weight >= ?'); params.push(opts.weightMin) }
   if (opts.weightMax !== undefined) { conditions.push('weight <= ?'); params.push(opts.weightMax) }
 

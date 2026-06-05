@@ -5,7 +5,10 @@ import type { TablePaginationConfig } from 'antd'
 import { getWithdrawals, approveWithdrawal, rejectWithdrawal, type AdminWithdrawal } from '../api'
 
 function wdStatusColor(s: string) {
-  return ({ completed: 'green', pending: 'orange', processing: 'blue', rejected: 'red' } as Record<string, string>)[s] ?? 'default'
+  return ({ completed: 'green', pending: 'orange', processing: 'blue', rejected: 'red', admin_rejected: 'red', failed: 'red' } as Record<string, string>)[s] ?? 'default'
+}
+function wdStatusLabel(s: string) {
+  return ({ pending: '待审核', processing: '处理中', completed: '已完成', rejected: '已拒绝', admin_rejected: '管理员拒绝', failed: '失败' } as Record<string, string>)[s] ?? s
 }
 
 export default function Withdrawals() {
@@ -56,7 +59,7 @@ export default function Withdrawals() {
     { title: '币种', dataIndex: 'currency', key: 'currency', width: 110 },
     { title: '金额', dataIndex: 'amount', key: 'amount' },
     { title: '渠道', dataIndex: 'channelId', key: 'channel' },
-    { title: '状态', key: 'status', render: (_: unknown, r: AdminWithdrawal) => <Tag color={wdStatusColor(r.status)}>{r.status}</Tag> },
+    { title: '状态', key: 'status', render: (_: unknown, r: AdminWithdrawal) => <Tag color={wdStatusColor(r.status)}>{wdStatusLabel(r.status)}</Tag> },
     { title: '创建时间', dataIndex: 'createdAt', key: 'at', render: (v: string) => new Date(v).toLocaleString('zh-CN') },
     {
       title: '操作', key: 'actions',
@@ -82,9 +85,10 @@ export default function Withdrawals() {
       <h2>提款审批</h2>
       <Space style={{ marginBottom: 16 }}>
         <Input value={userIdFilter} onChange={(e) => setUserIdFilter(e.target.value)} placeholder="用户ID" style={{ width: 160 }} allowClear />
-        <Select value={statusFilter} placeholder="状态" allowClear style={{ width: 130 }} onChange={setStatusFilter} options={[
-          { value: 'pending', label: 'pending' }, { value: 'processing', label: 'processing' },
-          { value: 'completed', label: 'completed' }, { value: 'rejected', label: 'rejected' },
+        <Select value={statusFilter} placeholder="状态" allowClear style={{ width: 150 }} onChange={setStatusFilter} options={[
+          { value: 'pending', label: '待审核' }, { value: 'processing', label: '处理中' },
+          { value: 'completed', label: '已完成' }, { value: 'rejected', label: '已拒绝' },
+          { value: 'admin_rejected', label: '管理员拒绝' }, { value: 'failed', label: '失败' },
         ]} />
         <Button type="primary" onClick={() => load(1)}>查询</Button>
       </Space>
