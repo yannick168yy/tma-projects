@@ -111,7 +111,7 @@ router.get('/agents/:userId/tree', async (ctx) => {
     [period, userId],
   )
   const [l3Rows] = await db.query<RowDataPacket[]>(
-    `SELECT tn.user_id, tn.l2_referrer_id, tn.opted_in, u.display_name, COALESCE(tc.total, 0) AS month_cents
+    `SELECT tn.user_id, tn.l1_referrer_id, tn.opted_in, u.display_name, COALESCE(tc.total, 0) AS month_cents
      FROM bg_team_node tn JOIN bg_user u ON u.id = tn.user_id ${commJoin}
      WHERE tn.l3_referrer_id = ? ORDER BY month_cents DESC`,
     [period, userId],
@@ -140,7 +140,7 @@ router.get('/agents/:userId/tree', async (ctx) => {
       userId: String(r.user_id), displayName: String(r.display_name),
       isAgent: Boolean(r.opted_in), thisMonthCents: Number(r.month_cents), children: [],
     }
-    l2Map.get(String(r.l2_referrer_id))?.children.push(node)
+    l2Map.get(String(r.l1_referrer_id))?.children.push(node)
   }
 
   ok(ctx, { l1Members: [...l1Map.values()] })
