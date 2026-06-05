@@ -75,6 +75,7 @@ export interface TeamCommissionSummary {
   l2Cents: number
   l3Cents: number
   totalCents: number
+  paidCents: number
 }
 
 export interface TeamWithdrawal {
