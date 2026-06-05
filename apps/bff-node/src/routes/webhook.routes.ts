@@ -109,8 +109,7 @@ router.post('/yfpay', async (ctx) => {
   }
 
   const merchantSerial = String(body['merchantSerial'] ?? '')
-  const amountYuan     = Number(body['amount'] ?? 0)   // PHP 元（YFPay 返回）
-  const creditedCents  = Math.round(amountYuan * 100)  // 转 PHP 分
+  const creditedCents  = Math.round(Number(body['amount'] ?? 0) * 100) / 100  // PHP 元，保留两位小数
 
   if (!merchantSerial || creditedCents <= 0) {
     fail(ctx, 400, 'missing merchantSerial or amount')
