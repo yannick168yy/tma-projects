@@ -140,7 +140,7 @@ router.post('/init', async (ctx) => {
         game_uuid: body.gameUuid,
         player_id: userId,
         player_name: user.displayName || userId,
-        currency: body.currency || env.SG_CURRENCY,
+        currency: env.SG_CURRENCY,
         session_id: sessionId,
         return_url: env.SG_RETURN_URL,
         language: (body.language ?? user.locale ?? 'en').split('-')[0],
