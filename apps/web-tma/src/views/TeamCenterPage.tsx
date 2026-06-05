@@ -1,9 +1,42 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ChevronLeft, Copy, Share2, Link2, Users, Wallet, TrendingUp, CheckCircle2, Clock, XCircle } from 'lucide-react'
+import { ChevronLeft, Copy, Share2, Link2, Users, Wallet, TrendingUp, CheckCircle2, Clock, XCircle, ChevronRight, GitBranch, List } from 'lucide-react'
+import { fetchTeamTree, type TeamTreeNode } from '@/api/promotion'
 import { buildInviteDeepLink, buildInviteWebLink } from '@/constants/telegram'
 import { useAuthStore } from '@/stores/auth'
 import { usePromotionStore } from '@/stores/promotion'
+
+function TreeNodeRow({ node, depth, expandedIds, onToggle }: {
+  node: TeamTreeNode
+  depth: 1 | 2 | 3
+  expandedIds: Set<string>
+  onToggle: (id: string) => void
+}) {
+  const isExpanded = expandedIds.has(node.userId)
+  const hasKids = node.children.length > 0
+  const badge = depth === 1 ? 'bg-amber-500/20 text-amber-400' : depth === 2 ? 'bg-blue-500/20 text-blue-400' : 'bg-purple-500/20 text-purple-400'
+  return (
+    <>
+      <div
+        className={`flex items-center gap-2 py-2.5 border-b border-border/30 ${hasKids ? 'active:bg-secondary/50' : ''}`}
+        style={{ paddingLeft: (depth - 1) * 16 + 12 }}
+        onClick={() => hasKids && onToggle(node.userId)}
+      >
+        {hasKids
+          ? <ChevronRight size={12} className={`text-muted-foreground flex-shrink-0 transition-transform duration-150 ${isExpanded ? 'rotate-90' : ''}`} />
+          : <span className="w-3 flex-shrink-0" />}
+        <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full flex-shrink-0 ${badge}`}>L{depth}</span>
+        <span className="flex-1 text-sm font-medium text-foreground truncate">{node.displayName}</span>
+        {node.thisMonthCents > 0 && (
+          <span className="text-amber-400 font-black text-xs flex-shrink-0 pr-3">{phpDisplay(node.thisMonthCents)}</span>
+        )}
+      </div>
+      {hasKids && isExpanded && node.children.map((child) => (
+        <TreeNodeRow key={child.userId} node={child} depth={Math.min(depth + 1, 3) as 2 | 3} expandedIds={expandedIds} onToggle={onToggle} />
+      ))}
+    </>
+  )
+}
 
 interface Props { onClose: () => void }
 
@@ -30,6 +63,11 @@ export default function TeamCenterPage({ onClose }: Props) {
   const [withdrawing, setWithdrawing] = useState(false)
   const [withdrawError, setWithdrawError] = useState('')
   const [commissionPeriod, setCommissionPeriod] = useState(currentPeriod)
+  const [treeView, setTreeView] = useState(false)
+  const [treeData, setTreeData] = useState<{ l1Members: TeamTreeNode[] } | null>(null)
+  const [treeLoading, setTreeLoading] = useState(false)
+  const [treePeriod, setTreePeriod] = useState(currentPeriod)
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
 
   const inviteCode = user?.inviteCode ?? ''
   const telegramLink = useMemo(() => buildInviteDeepLink(inviteCode), [inviteCode])
@@ -52,6 +90,35 @@ export default function TeamCenterPage({ onClose }: Props) {
   }, [activeLevel])
 
   useEffect(() => { void store.loadTeamCommissions(commissionPeriod) }, [commissionPeriod])
+
+  async function loadTree(period: string) {
+    setTreeLoading(true)
+    setTreeData(null)
+    try {
+      const data = await fetchTeamTree(period)
+      setTreeData(data)
+      setExpandedIds(new Set(data.l1Members.map((m) => m.userId)))
+    } catch { /* fail silently */ }
+    finally { setTreeLoading(false) }
+  }
+
+  function toggleExpand(id: string) {
+    setExpandedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id); else next.add(id)
+      return next
+    })
+  }
+
+  function expandAllTree() {
+    if (!treeData) return
+    const ids = new Set<string>()
+    for (const l1 of treeData.l1Members) {
+      ids.add(l1.userId)
+      for (const l2 of l1.children) ids.add(l2.userId)
+    }
+    setExpandedIds(ids)
+  }
 
   async function copyWebLink() {
     await navigator.clipboard.writeText(webShareLink).catch(() => {})
@@ -140,37 +207,75 @@ export default function TeamCenterPage({ onClose }: Props) {
       <div className="flex-1 min-h-0 overflow-y-auto page-scroll">
         {activeTab === 'team' && (
           <>
-            <div className="flex gap-2 px-4 pt-4 pb-3">
-              {([1, 2, 3] as const).map((lvl) => (
-                <button key={lvl} type="button" className={`flex-1 py-1.5 rounded-full text-xs font-bold transition-colors ${activeLevel === lvl ? 'bg-amber-500 text-black' : 'bg-secondary text-muted-foreground'}`} onClick={() => setActiveLevel(lvl)}>
-                  L{lvl} {t('team.tabTeam')} ({teamStatus?.[`l${lvl}Count` as 'l1Count' | 'l2Count' | 'l3Count'] ?? 0})
-                </button>
-              ))}
-            </div>
-            <div className="px-4 space-y-2 pb-4">
-              {downlineLoading && !downlines.length ? (
-                Array.from({ length: 5 }).map((_, i) => <div key={i} className="h-14 animate-pulse rounded-xl bg-secondary" />)
-              ) : !downlines.length ? (
-                <div className="py-12 text-center text-muted-foreground"><Users size={36} className="mx-auto mb-3 opacity-30" /><p className="text-sm">{t('team.noDownlines')}</p></div>
-              ) : (
-                <>
-                  {downlines.map((dl) => (
-                    <div key={dl.userId} className="flex items-center gap-3 bg-secondary rounded-xl px-3 py-3">
-                      <div className="w-8 h-8 rounded-full bg-amber-500/20 flex items-center justify-center flex-shrink-0"><span className="text-amber-400 font-black text-sm">{(dl.displayName || '?')[0]}</span></div>
-                      <div className="flex-1 min-w-0"><p className="text-foreground font-bold text-sm leading-none mb-0.5">{dl.displayName}</p><p className="text-muted-foreground text-[10px]">{new Date(dl.registeredAt).toLocaleDateString()}</p></div>
-                      <div className="flex-shrink-0">
-                        {dl.activated ? <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400">{t('team.activated')}</span>
-                          : <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-secondary text-muted-foreground border border-border">{t('team.pending')}</span>}
-                      </div>
-                    </div>
+            {!treeView ? (
+              <div className="flex items-center gap-2 px-4 pt-4 pb-3">
+                <div className="flex flex-1 gap-2">
+                  {([1, 2, 3] as const).map((lvl) => (
+                    <button key={lvl} type="button" className={`flex-1 py-1.5 rounded-full text-xs font-bold transition-colors ${activeLevel === lvl ? 'bg-amber-500 text-black' : 'bg-secondary text-muted-foreground'}`} onClick={() => setActiveLevel(lvl)}>
+                      L{lvl} ({teamStatus?.[`l${lvl}Count` as 'l1Count' | 'l2Count' | 'l3Count'] ?? 0})
+                    </button>
                   ))}
-                  {hasMoreDownlines && !downlineLoading && (
-                    <button type="button" className="w-full py-2.5 text-xs font-bold text-amber-400 bg-amber-500/10 rounded-xl" onClick={() => void store.loadTeamDownlines(activeLevel, downlinePage + 1)}>{t('team.loadMore')}</button>
-                  )}
-                  {downlineLoading && <div className="text-center text-xs text-muted-foreground py-2">Loading...</div>}
-                </>
-              )}
-            </div>
+                </div>
+                <button type="button" className="flex-shrink-0 p-1.5 rounded-lg bg-secondary text-muted-foreground hover:text-amber-400 transition-colors" onClick={() => { setTreeView(true); if (!treeData) void loadTree(treePeriod) }}>
+                  <GitBranch size={15} />
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 px-4 pt-3 pb-2">
+                <input
+                  type="month"
+                  value={treePeriod}
+                  className="flex-1 bg-secondary text-foreground rounded-xl px-3 py-1.5 text-sm border border-border outline-none focus:ring-1 focus:ring-amber-500"
+                  onChange={(e) => { setTreePeriod(e.target.value); void loadTree(e.target.value) }}
+                />
+                <button type="button" className="text-[11px] font-bold text-amber-400 px-2 py-1.5 bg-amber-500/10 rounded-lg flex-shrink-0" onClick={expandAllTree}>全展</button>
+                <button type="button" className="text-[11px] font-bold text-muted-foreground px-2 py-1.5 bg-secondary rounded-lg flex-shrink-0" onClick={() => setExpandedIds(new Set())}>折叠</button>
+                <button type="button" className="flex-shrink-0 p-1.5 rounded-lg bg-secondary text-muted-foreground hover:text-amber-400 transition-colors" onClick={() => setTreeView(false)}>
+                  <List size={15} />
+                </button>
+              </div>
+            )}
+
+            {!treeView ? (
+              <div className="px-4 space-y-2 pb-4">
+                {downlineLoading && !downlines.length ? (
+                  Array.from({ length: 5 }).map((_, i) => <div key={i} className="h-14 animate-pulse rounded-xl bg-secondary" />)
+                ) : !downlines.length ? (
+                  <div className="py-12 text-center text-muted-foreground"><Users size={36} className="mx-auto mb-3 opacity-30" /><p className="text-sm">{t('team.noDownlines')}</p></div>
+                ) : (
+                  <>
+                    {downlines.map((dl) => (
+                      <div key={dl.userId} className="flex items-center gap-3 bg-secondary rounded-xl px-3 py-3">
+                        <div className="w-8 h-8 rounded-full bg-amber-500/20 flex items-center justify-center flex-shrink-0"><span className="text-amber-400 font-black text-sm">{(dl.displayName || '?')[0]}</span></div>
+                        <div className="flex-1 min-w-0"><p className="text-foreground font-bold text-sm leading-none mb-0.5">{dl.displayName}</p><p className="text-muted-foreground text-[10px]">{new Date(dl.registeredAt).toLocaleDateString()}</p></div>
+                        <div className="flex-shrink-0">
+                          {dl.activated ? <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400">{t('team.activated')}</span>
+                            : <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-secondary text-muted-foreground border border-border">{t('team.pending')}</span>}
+                        </div>
+                      </div>
+                    ))}
+                    {hasMoreDownlines && !downlineLoading && (
+                      <button type="button" className="w-full py-2.5 text-xs font-bold text-amber-400 bg-amber-500/10 rounded-xl" onClick={() => void store.loadTeamDownlines(activeLevel, downlinePage + 1)}>{t('team.loadMore')}</button>
+                    )}
+                    {downlineLoading && <div className="text-center text-xs text-muted-foreground py-2">Loading...</div>}
+                  </>
+                )}
+              </div>
+            ) : (
+              <div className="pb-4">
+                {treeLoading ? (
+                  <div className="px-4 space-y-1 pt-2">
+                    {Array.from({ length: 6 }).map((_, i) => <div key={i} className="h-10 animate-pulse rounded-lg bg-secondary" style={{ marginLeft: (i % 3) * 16 }} />)}
+                  </div>
+                ) : !treeData || treeData.l1Members.length === 0 ? (
+                  <div className="py-12 text-center text-muted-foreground"><GitBranch size={36} className="mx-auto mb-3 opacity-30" /><p className="text-sm">{t('team.noDownlines')}</p></div>
+                ) : (
+                  treeData.l1Members.map((m) => (
+                    <TreeNodeRow key={m.userId} node={m} depth={1} expandedIds={expandedIds} onToggle={toggleExpand} />
+                  ))
+                )}
+              </div>
+            )}
           </>
         )}
 

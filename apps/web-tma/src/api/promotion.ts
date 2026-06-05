@@ -106,6 +106,18 @@ export async function fetchTeamWithdrawals(page: number): Promise<{ items: TeamW
   return apiRequest(`/promotions/team/withdrawals?page=${page}`)
 }
 
+export interface TeamTreeNode {
+  userId: string
+  displayName: string
+  isAgent: boolean
+  thisMonthCents: number
+  children: TeamTreeNode[]
+}
+
+export async function fetchTeamTree(period: string): Promise<{ l1Members: TeamTreeNode[] }> {
+  return apiRequest(`/promotions/team/tree?period=${encodeURIComponent(period)}`)
+}
+
 export interface PromoConfig {
   trial:    { amount: number; enabled: boolean }
   referral: { inviterAmount: number; inviteeAmount: number; enabled: boolean }
