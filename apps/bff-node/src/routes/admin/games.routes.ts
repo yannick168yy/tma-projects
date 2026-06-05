@@ -1,5 +1,5 @@
 import Router from '@koa/router'
-import { listAdminGames, toggleAdminGame, writeAuditLog } from '../../services/admin-store.js'
+import { listAdminGames, toggleAdminGame, getProviderStats, toggleProviderGames, writeAuditLog } from '../../services/admin-store.js'
 import { syncAllGames, loadGamesCache, refreshHomepageSelection, stripMobileNamesInDb } from '../../services/sg-game.service.js'
 import { translateUntranslatedGames } from '../../services/game-translation.service.js'
 import {
@@ -177,6 +177,33 @@ router.post('/strip-mobile-names', async (ctx) => {
   } catch (e) {
     fail(ctx, 500, e instanceof Error ? e.message : 'Strip failed')
   }
+})
+
+router.get('/provider-stats', async (ctx) => {
+  try {
+    const stats = await getProviderStats(ctx.state.env)
+    ok(ctx, stats)
+  } catch (e) {
+    fail(ctx, 500, e instanceof Error ? e.message : 'Failed')
+  }
+})
+
+router.post('/provider-toggle', async (ctx) => {
+  const body = ctx.request.body as { provider?: string; isActive?: boolean }
+  if (!body.provider || typeof body.isActive !== 'boolean') {
+    fail(ctx, 400, 'provider and isActive required'); return
+  }
+  const affected = await toggleProviderGames(ctx.state.env, body.provider, body.isActive)
+  await loadGamesCache(ctx.state.env)
+  await writeAuditLog(ctx.state.env, {
+    adminId: ctx.state.adminId!,
+    adminUsername: ctx.state.adminUsername!,
+    action: body.isActive ? 'game.provider.enable' : 'game.provider.disable',
+    targetType: 'game',
+    targetId: body.provider,
+    ip: ctx.ip,
+  })
+  ok(ctx, { provider: body.provider, isActive: body.isActive, affected })
 })
 
 router.post('/refresh-homepage', async (ctx) => {

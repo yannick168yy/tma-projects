@@ -420,6 +420,32 @@ export async function toggleAdminGame(env: Env, uuid: string, isActive: boolean)
   await pool(env).execute(`UPDATE sg_games SET is_active = ? WHERE uuid = ?`, [isActive ? 1 : 0, uuid])
 }
 
+export interface ProviderStat {
+  provider: string
+  total: number
+  active: number
+}
+
+export async function getProviderStats(env: Env): Promise<ProviderStat[]> {
+  const [rows] = await pool(env).query<RowDataPacket[]>(
+    `SELECT provider, COUNT(*) AS total, SUM(is_active) AS active
+     FROM sg_games GROUP BY provider ORDER BY provider ASC`,
+  )
+  return rows.map((r) => ({
+    provider: String(r.provider),
+    total: Number(r.total),
+    active: Number(r.active),
+  }))
+}
+
+export async function toggleProviderGames(env: Env, provider: string, isActive: boolean): Promise<number> {
+  const [result] = await pool(env).execute(
+    `UPDATE sg_games SET is_active = ? WHERE provider = ?`,
+    [isActive ? 1 : 0, provider],
+  )
+  return (result as { affectedRows: number }).affectedRows
+}
+
 export async function getOpPasswordHash(env: Env): Promise<string | null> {
   const [rows] = await pool(env).query<RowDataPacket[]>(
     `SELECT \`value\` FROM bg_admin_settings WHERE \`key\` = 'op_password'`,

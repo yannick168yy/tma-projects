@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react'
-import { Table, Space, Input, Select, Button, Tag, Switch, Modal, Progress, Spin, Row, Col, Descriptions, message } from 'antd'
+import { useEffect, useState, useCallback } from 'react'
+import { Table, Space, Input, Select, Button, Tag, Switch, Modal, Progress, Spin, Row, Col, Descriptions, message, Tabs } from 'antd'
 import type { TablePaginationConfig, TableProps } from 'antd'
 import {
   getAdminGames, toggleGame, startSyncGames, startTranslateGames, getGameJob,
-  type AdminGame, type AdminGameJob,
+  getProviderStats, toggleProviderGames,
+  type AdminGame, type AdminGameJob, type ProviderStat,
 } from '../api'
 
 function volatilityColor(v: string) {
@@ -54,6 +55,10 @@ export default function Games() {
   const [togglingUuid, setTogglingUuid] = useState<string | null>(null)
   const [detailVisible, setDetailVisible] = useState(false)
   const [detailGame, setDetailGame] = useState<AdminGame | null>(null)
+  const [activeTab, setActiveTab] = useState('games')
+  const [providerStats, setProviderStats] = useState<ProviderStat[]>([])
+  const [providerStatsLoading, setProviderStatsLoading] = useState(false)
+  const [togglingProvider, setTogglingProvider] = useState<string | null>(null)
   const [jobModal, setJobModal] = useState({ visible: false, title: '', msg: '', total: 0, percent: 0, closable: false, status: 'active' as 'active' | 'success' | 'exception' })
 
   async function load(p = 1) {
@@ -87,6 +92,36 @@ export default function Games() {
     setVolatilityFilter(undefined); setDemoFilter(undefined); setFeaturedFilter(undefined)
     setTechFilter(undefined); setActiveFilter(undefined)
     void load(1)
+  }
+
+  const loadProviderStats = useCallback(async () => {
+    setProviderStatsLoading(true)
+    try { setProviderStats(await getProviderStats()) }
+    catch { message.error('加载失败') }
+    finally { setProviderStatsLoading(false) }
+  }, [])
+
+  useEffect(() => { if (activeTab === 'providers') void loadProviderStats() }, [activeTab])
+
+  async function onToggleProvider(provider: string, isActive: boolean) {
+    const stat = providerStats.find((s) => s.provider === provider)
+    const count = stat?.total ?? 0
+    Modal.confirm({
+      title: `${isActive ? '启用' : '关闭'}「${provider}」全部游戏`,
+      content: `将${isActive ? '启用' : '关闭'} ${count} 款游戏，确认操作？`,
+      okType: isActive ? 'primary' : 'danger',
+      okText: '确认',
+      cancelText: '取消',
+      onOk: async () => {
+        setTogglingProvider(provider)
+        try {
+          const res = await toggleProviderGames(provider, isActive)
+          setProviderStats((prev) => prev.map((s) => s.provider === provider ? { ...s, active: isActive ? s.total : 0 } : s))
+          message.success(`已${isActive ? '启用' : '关闭'} ${res.affected} 款游戏`)
+        } catch { message.error('操作失败') }
+        finally { setTogglingProvider(null) }
+      },
+    })
   }
 
   async function onToggle(record: AdminGame, val: boolean) {
@@ -255,6 +290,57 @@ export default function Games() {
     <Select value={value} placeholder={placeholder} allowClear style={{ width: '100%' }} onChange={(v) => { onChange(v); void load(1) }} options={options} />
   )
 
+  const providerColumns = [
+    {
+      title: '游戏商', dataIndex: 'provider', key: 'provider',
+      render: (v: string) => <span style={{ fontWeight: 500 }}>{v}</span>,
+    },
+    {
+      title: '游戏总数', dataIndex: 'total', key: 'total', width: 100,
+      render: (v: number) => <Tag>{v} 款</Tag>,
+    },
+    {
+      title: '已启用', key: 'active', width: 100,
+      render: (_: unknown, r: ProviderStat) => {
+        const allOn = r.active === r.total
+        const allOff = r.active === 0
+        return <Tag color={allOn ? 'green' : allOff ? 'red' : 'orange'}>{r.active} 款</Tag>
+      },
+    },
+    {
+      title: '状态', key: 'status', width: 100,
+      render: (_: unknown, r: ProviderStat) => {
+        const allOn = r.active === r.total
+        const allOff = r.active === 0
+        return allOn ? <Tag color="green">全部启用</Tag> : allOff ? <Tag color="red">全部关闭</Tag> : <Tag color="orange">部分启用</Tag>
+      },
+    },
+    {
+      title: '操作', key: 'action', width: 160,
+      render: (_: unknown, r: ProviderStat) => {
+        const allOn = r.active === r.total
+        const loading = togglingProvider === r.provider
+        return (
+          <Space>
+            <Switch
+              checked={r.active > 0}
+              loading={loading}
+              checkedChildren="启用"
+              unCheckedChildren="关闭"
+              onChange={(val) => void onToggleProvider(r.provider, val)}
+            />
+            {!allOn && r.active > 0 && (
+              <Button size="small" danger loading={loading} onClick={() => void onToggleProvider(r.provider, false)}>全部关闭</Button>
+            )}
+            {r.active < r.total && (
+              <Button size="small" type="primary" loading={loading} onClick={() => void onToggleProvider(r.provider, true)}>全部启用</Button>
+            )}
+          </Space>
+        )
+      },
+    },
+  ]
+
   return (
     <div>
       <Space style={{ marginBottom: 12, width: '100%', justifyContent: 'space-between' }} align="center">
@@ -264,38 +350,54 @@ export default function Games() {
           <Button type="primary" loading={syncing} disabled={translating} onClick={() => runBatchJob('sync', startSyncGames)}>同步游戏库</Button>
         </Space>
       </Space>
+      <Tabs activeKey={activeTab} onChange={setActiveTab} style={{ marginBottom: 0 }} items={[{ key: 'games', label: '游戏列表' }, { key: 'providers', label: '按厂商管理' }]} />
 
-      <div style={{ background: '#fafafa', border: '1px solid #f0f0f0', borderRadius: 6, padding: '12px 16px', marginBottom: 14 }}>
-        <Row gutter={[8, 8]}>
-          <Col span={5}><Input.Search value={search} placeholder="搜索游戏名/关键词" onSearch={() => load(1)} allowClear onChange={(e) => setSearch(e.target.value)} /></Col>
-          <Col span={4}>{filterSelect('游戏商', providerFilter, setProviderFilter, providers.map((p) => ({ value: p, label: p })))}</Col>
-          <Col span={3}>{filterSelect('前端分类', sortCategoryFilter, setSortCategoryFilter, [{ value: 'slots', label: 'Slots' }, { value: 'fishing', label: 'Fishing' }, { value: 'live', label: 'Live' }, { value: 'bingo', label: 'Bingo' }, { value: 'crash', label: 'Crash' }, { value: 'table', label: 'Table' }])}</Col>
-          <Col span={3}>{filterSelect('游戏主题', themeFilter, setThemeFilter, ['fishing', 'asian', 'mythology', 'fantasy', 'adventure', 'fruit', 'classic', 'animal'].map((v) => ({ value: v, label: v })))}</Col>
-          <Col span={3}>{filterSelect('游戏风格', gameStyleFilter, setGameStyleFilter, ['asian', 'western', 'classic', 'modern'].map((v) => ({ value: v, label: v })))}</Col>
-          <Col span={3}>{filterSelect('适合玩家', playerTypeFilter, setPlayerTypeFilter, [{ value: 'casual', label: 'casual 休闲' }, { value: 'regular', label: 'regular 普通' }, { value: 'high-roller', label: 'high-roller 高额' }])}</Col>
-          <Col span={3}>{filterSelect('权重分段', weightRangeFilter, setWeightRangeFilter, [{ value: '80-100', label: '高热度 80-100' }, { value: '50-79', label: '中热度 50-79' }, { value: '1-49', label: '低热度 1-49' }, { value: '0-0', label: '未评分 0' }])}</Col>
-          <Col span={3}>{filterSelect('波动性', volatilityFilter, setVolatilityFilter, [{ value: 'low', label: '低 Low' }, { value: 'medium', label: '中 Medium' }, { value: 'high', label: '高 High' }, { value: 'very-high', label: '极高 Very High' }])}</Col>
-          <Col span={3}>{filterSelect('支持试玩', demoFilter, setDemoFilter, [{ value: 'true', label: '支持试玩' }, { value: 'false', label: '不支持' }])}</Col>
-          <Col span={3}>{filterSelect('推荐首页', featuredFilter, setFeaturedFilter, [{ value: 'true', label: '已推荐' }, { value: 'false', label: '未推荐' }])}</Col>
-          <Col span={3}>{filterSelect('技术', techFilter, setTechFilter, [{ value: 'HTML5', label: 'HTML5' }, { value: 'Flash', label: 'Flash' }])}</Col>
-          <Col span={3}>{filterSelect('状态', activeFilter, setActiveFilter, [{ value: 'true', label: '已启用' }, { value: 'false', label: '已禁用' }])}</Col>
-          <Col span={3} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Tag color="blue">共 {total} 款</Tag>
-            <Button size="small" onClick={resetFilters}>重置</Button>
-          </Col>
-        </Row>
-      </div>
+      {activeTab === 'providers' && (
+        <Table
+          columns={providerColumns}
+          dataSource={providerStats}
+          rowKey="provider"
+          loading={providerStatsLoading}
+          pagination={false}
+          size="middle"
+          style={{ marginTop: 12 }}
+        />
+      )}
 
-      <Table
-        columns={columns}
-        dataSource={games}
-        loading={loading}
-        pagination={pagination}
-        rowKey="uuid"
-        size="small"
-        scroll={{ x: 1400 }}
-        onChange={handleTableChange}
-      />
+      {activeTab === 'games' && (
+        <>
+          <div style={{ background: '#fafafa', border: '1px solid #f0f0f0', borderRadius: 6, padding: '12px 16px', marginBottom: 14 }}>
+            <Row gutter={[8, 8]}>
+              <Col span={5}><Input.Search value={search} placeholder="搜索游戏名/关键词" onSearch={() => load(1)} allowClear onChange={(e) => setSearch(e.target.value)} /></Col>
+              <Col span={4}>{filterSelect('游戏商', providerFilter, setProviderFilter, providers.map((p) => ({ value: p, label: p })))}</Col>
+              <Col span={3}>{filterSelect('前端分类', sortCategoryFilter, setSortCategoryFilter, [{ value: 'slots', label: 'Slots' }, { value: 'fishing', label: 'Fishing' }, { value: 'live', label: 'Live' }, { value: 'bingo', label: 'Bingo' }, { value: 'crash', label: 'Crash' }, { value: 'table', label: 'Table' }])}</Col>
+              <Col span={3}>{filterSelect('游戏主题', themeFilter, setThemeFilter, ['fishing', 'asian', 'mythology', 'fantasy', 'adventure', 'fruit', 'classic', 'animal'].map((v) => ({ value: v, label: v })))}</Col>
+              <Col span={3}>{filterSelect('游戏风格', gameStyleFilter, setGameStyleFilter, ['asian', 'western', 'classic', 'modern'].map((v) => ({ value: v, label: v })))}</Col>
+              <Col span={3}>{filterSelect('适合玩家', playerTypeFilter, setPlayerTypeFilter, [{ value: 'casual', label: 'casual 休闲' }, { value: 'regular', label: 'regular 普通' }, { value: 'high-roller', label: 'high-roller 高额' }])}</Col>
+              <Col span={3}>{filterSelect('权重分段', weightRangeFilter, setWeightRangeFilter, [{ value: '80-100', label: '高热度 80-100' }, { value: '50-79', label: '中热度 50-79' }, { value: '1-49', label: '低热度 1-49' }, { value: '0-0', label: '未评分 0' }])}</Col>
+              <Col span={3}>{filterSelect('波动性', volatilityFilter, setVolatilityFilter, [{ value: 'low', label: '低 Low' }, { value: 'medium', label: '中 Medium' }, { value: 'high', label: '高 High' }, { value: 'very-high', label: '极高 Very High' }])}</Col>
+              <Col span={3}>{filterSelect('支持试玩', demoFilter, setDemoFilter, [{ value: 'true', label: '支持试玩' }, { value: 'false', label: '不支持' }])}</Col>
+              <Col span={3}>{filterSelect('推荐首页', featuredFilter, setFeaturedFilter, [{ value: 'true', label: '已推荐' }, { value: 'false', label: '未推荐' }])}</Col>
+              <Col span={3}>{filterSelect('技术', techFilter, setTechFilter, [{ value: 'HTML5', label: 'HTML5' }, { value: 'Flash', label: 'Flash' }])}</Col>
+              <Col span={3}>{filterSelect('状态', activeFilter, setActiveFilter, [{ value: 'true', label: '已启用' }, { value: 'false', label: '已禁用' }])}</Col>
+              <Col span={3} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Tag color="blue">共 {total} 款</Tag>
+                <Button size="small" onClick={resetFilters}>重置</Button>
+              </Col>
+            </Row>
+          </div>
+          <Table
+            columns={columns}
+            dataSource={games}
+            loading={loading}
+            pagination={pagination}
+            rowKey="uuid"
+            size="small"
+            scroll={{ x: 1400 }}
+            onChange={handleTableChange}
+          />
+        </>
+      )}
 
       {/* 详情弹窗 */}
       <Modal

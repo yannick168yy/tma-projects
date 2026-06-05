@@ -165,6 +165,12 @@ export const startTranslateGames = () =>
 export const getGameJob = (jobId: string) =>
   get<AdminGameJob>(`/admin/games/jobs/${jobId}`)
 
+export interface ProviderStat { provider: string; total: number; active: number }
+export const getProviderStats = () =>
+  get<ProviderStat[]>('/admin/games/provider-stats')
+export const toggleProviderGames = (provider: string, isActive: boolean) =>
+  post<{ provider: string; isActive: boolean; affected: number }>('/admin/games/provider-toggle', { provider, isActive })
+
 // Audit log
 export interface AuditEntry {
   id: number; adminUsername: string; action: string; targetType: string | null
