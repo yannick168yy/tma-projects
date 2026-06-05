@@ -26,7 +26,12 @@ function TreeNodeRow({ node, depth, expandedIds, onToggle }: {
           ? <ChevronRight size={12} className={`text-muted-foreground flex-shrink-0 transition-transform duration-150 ${isExpanded ? 'rotate-90' : ''}`} />
           : <span className="w-3 flex-shrink-0" />}
         <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full flex-shrink-0 ${badge}`}>L{depth}</span>
-        <span className="flex-1 text-sm font-medium text-foreground truncate">{node.displayName}</span>
+        <div className="flex-1 min-w-0 mr-2">
+          <p className="text-sm font-medium text-foreground truncate leading-none mb-0.5">{node.displayName}</p>
+          {node.ggrCents > 0 && (
+            <p className="text-[10px] text-muted-foreground leading-none">GGR {phpDisplay(node.ggrCents)}</p>
+          )}
+        </div>
         {node.thisMonthCents > 0 && (
           <span className="text-amber-400 font-black text-xs flex-shrink-0 pr-3">{phpDisplay(node.thisMonthCents)}</span>
         )}

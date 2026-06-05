@@ -287,6 +287,7 @@ export interface TeamTreeMember {
   displayName: string
   isAgent: boolean
   thisMonthCents: number
+  ggrCents: number
   children: TeamTreeMember[]
 }
 export const getTeamAgentTree = (userId: string, period?: string) =>

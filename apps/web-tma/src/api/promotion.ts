@@ -111,6 +111,7 @@ export interface TeamTreeNode {
   displayName: string
   isAgent: boolean
   thisMonthCents: number
+  ggrCents: number
   children: TeamTreeNode[]
 }
 

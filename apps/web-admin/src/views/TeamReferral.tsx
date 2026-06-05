@@ -22,6 +22,7 @@ function buildTreeNode(m: TeamTreeMember, level: 1 | 2 | 3): TreeNodeItem {
         <span style={{ color: '#bbb', fontSize: 11 }}>{m.userId}</span>
         {m.isAgent && <Tag color="purple" style={{ fontSize: 10, padding: '0 4px', margin: 0, lineHeight: '16px' }}>代理</Tag>}
         {m.thisMonthCents > 0 && <span style={{ color: '#1677ff', fontSize: 11 }}>₱{(m.thisMonthCents / 100).toFixed(2)}</span>}
+        {m.ggrCents > 0 && <span style={{ color: '#999', fontSize: 11 }}>GGR ₱{(m.ggrCents / 100).toFixed(2)}</span>}
       </span>
     ),
     children: m.children.length > 0 ? m.children.map((c) => buildTreeNode(c, (level + 1) as 2 | 3)) : undefined,

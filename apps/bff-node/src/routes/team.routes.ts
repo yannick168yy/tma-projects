@@ -265,10 +265,11 @@ router.get('/tree', async (ctx) => {
   const db = getMysqlPool(ctx.state.env)
 
   const [l1Rows] = await db.query<RowDataPacket[]>(
-    `SELECT tn.user_id, tn.opted_in, u.display_name, COALESCE(tc.total, 0) AS month_cents
+    `SELECT tn.user_id, tn.opted_in, u.display_name,
+            COALESCE(tc.total, 0) AS month_cents, COALESCE(tc.ggr, 0) AS ggr_cents
      FROM bg_team_node tn JOIN bg_user u ON u.id = tn.user_id
      LEFT JOIN (
-       SELECT from_user_id, SUM(commission_cents) AS total
+       SELECT from_user_id, SUM(commission_cents) AS total, SUM(ggr_cents) AS ggr
        FROM bg_team_commission WHERE period = ? AND beneficiary_id = ? AND level = 1
        GROUP BY from_user_id
      ) tc ON tc.from_user_id = tn.user_id
@@ -276,10 +277,11 @@ router.get('/tree', async (ctx) => {
     [period, userId, userId],
   )
   const [l2Rows] = await db.query<RowDataPacket[]>(
-    `SELECT tn.user_id, tn.l1_referrer_id, tn.opted_in, u.display_name, COALESCE(tc.total, 0) AS month_cents
+    `SELECT tn.user_id, tn.l1_referrer_id, tn.opted_in, u.display_name,
+            COALESCE(tc.total, 0) AS month_cents, COALESCE(tc.ggr, 0) AS ggr_cents
      FROM bg_team_node tn JOIN bg_user u ON u.id = tn.user_id
      LEFT JOIN (
-       SELECT from_user_id, SUM(commission_cents) AS total
+       SELECT from_user_id, SUM(commission_cents) AS total, SUM(ggr_cents) AS ggr
        FROM bg_team_commission WHERE period = ? AND beneficiary_id = ? AND level = 2
        GROUP BY from_user_id
      ) tc ON tc.from_user_id = tn.user_id
@@ -287,10 +289,11 @@ router.get('/tree', async (ctx) => {
     [period, userId, userId],
   )
   const [l3Rows] = await db.query<RowDataPacket[]>(
-    `SELECT tn.user_id, tn.l1_referrer_id, tn.opted_in, u.display_name, COALESCE(tc.total, 0) AS month_cents
+    `SELECT tn.user_id, tn.l1_referrer_id, tn.opted_in, u.display_name,
+            COALESCE(tc.total, 0) AS month_cents, COALESCE(tc.ggr, 0) AS ggr_cents
      FROM bg_team_node tn JOIN bg_user u ON u.id = tn.user_id
      LEFT JOIN (
-       SELECT from_user_id, SUM(commission_cents) AS total
+       SELECT from_user_id, SUM(commission_cents) AS total, SUM(ggr_cents) AS ggr
        FROM bg_team_commission WHERE period = ? AND beneficiary_id = ? AND level = 3
        GROUP BY from_user_id
      ) tc ON tc.from_user_id = tn.user_id
@@ -298,19 +301,21 @@ router.get('/tree', async (ctx) => {
     [period, userId, userId],
   )
 
-  interface NodeData { userId: string; displayName: string; isAgent: boolean; thisMonthCents: number; children: NodeData[] }
+  interface NodeData { userId: string; displayName: string; isAgent: boolean; thisMonthCents: number; ggrCents: number; children: NodeData[] }
   const l1Map = new Map<string, NodeData>()
   for (const r of l1Rows) {
     l1Map.set(String(r.user_id), {
       userId: String(r.user_id), displayName: String(r.display_name),
-      isAgent: Boolean(r.opted_in), thisMonthCents: Number(r.month_cents), children: [],
+      isAgent: Boolean(r.opted_in), thisMonthCents: Number(r.month_cents),
+      ggrCents: Number(r.ggr_cents), children: [],
     })
   }
   const l2Map = new Map<string, NodeData>()
   for (const r of l2Rows) {
     const node: NodeData = {
       userId: String(r.user_id), displayName: String(r.display_name),
-      isAgent: Boolean(r.opted_in), thisMonthCents: Number(r.month_cents), children: [],
+      isAgent: Boolean(r.opted_in), thisMonthCents: Number(r.month_cents),
+      ggrCents: Number(r.ggr_cents), children: [],
     }
     l2Map.set(node.userId, node)
     l1Map.get(String(r.l1_referrer_id))?.children.push(node)
@@ -318,7 +323,8 @@ router.get('/tree', async (ctx) => {
   for (const r of l3Rows) {
     const node: NodeData = {
       userId: String(r.user_id), displayName: String(r.display_name),
-      isAgent: Boolean(r.opted_in), thisMonthCents: Number(r.month_cents), children: [],
+      isAgent: Boolean(r.opted_in), thisMonthCents: Number(r.month_cents),
+      ggrCents: Number(r.ggr_cents), children: [],
     }
     l2Map.get(String(r.l1_referrer_id))?.children.push(node)
   }
