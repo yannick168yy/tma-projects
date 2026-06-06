@@ -1,18 +1,23 @@
 /**
- * 三级分销功能测试脚本（含 L4 层，各层均产生注单）
+ * 三级分销测试脚本 v2 — 多币种 GGR 明细验证
  *
- * 用户树（每层可配置人数）：
- *   root (BG-10001)
- *   ├─ L1_1, L1_2
- *   │    └─ L2_x (每 L1 下 L2_PER_L1 名)
- *   │         └─ L3_x (每 L2 下 L3_PER_L2 名)
- *   │              └─ L4_x (每 L3 下 L4_PER_L3 名)
+ * 用户树（固定结构）：
+ *   BG-10001 (root/代理)
+ *   ├── L1_1  PHP: bet=500, win=100  → GGR ₱400
+ *   │   ├── L2_1  PHP+USDT 混合      → GGR ₱200 + 8USDT
+ *   │   │   ├── L3_1  PHP+USDC       → GGR ₱150 + 4USDC
+ *   │   │   └── L3_2  PHP only       → GGR ₱300
+ *   │   └── L2_2  USDT only          → GGR 12USDT
+ *   │       ├── L3_3  PHP+USDT+USDC  → GGR ₱100 + 5USDT + 3USDC
+ *   │       └── L3_4  PHP only       → GGR ₱400
+ *   └── L1_2  PHP only               → GGR ₱600
+ *       ├── L2_3  PHP only           → GGR ₱350
+ *       │   ├── L3_5  PHP only       → GGR ₱280
+ *       │   └── L3_6  USDC only      → GGR 6USDC
+ *       └── L2_4  PHP only (未激活)  → GGR ₱500（不贡献佣金，验证激活门槛）
  *
- * L4 的 bg_team_node: l1=L3, l2=L2, l3=L1, root 拿不到 L4 的佣金
- *
- * 运行方式：
+ * 运行方式（在 tma-bff-node 容器内）：
  *   node scripts/test-team-distribution.mjs
- * （在 tma-bff-node 容器内运行，env 已由容器注入）
  */
 
 import mysql from 'mysql2/promise'
@@ -26,27 +31,13 @@ const DB = {
   password: process.env.MYSQL_PASSWORD ?? 'tma_dev',
   database: process.env.MYSQL_DATABASE ?? 'betogo',
 }
-const CORE_URL  = process.env.CORE_NODE_URL   ?? 'http://tma-core-node:4000'
-const INT_TOKEN = process.env.INTERNAL_TOKEN  ?? ''
+const CORE_URL  = process.env.CORE_NODE_URL  ?? 'http://tma-core-node:4000'
+const INT_TOKEN = process.env.INTERNAL_TOKEN ?? ''
 
 const TEST_PERIOD = process.env.TEST_PERIOD ?? (() => {
   const d = new Date()
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
 })()
-
-// 每层人数
-const L1_COUNT   = 2
-const L2_PER_L1  = 2
-const L3_PER_L2  = 2
-const L4_PER_L3  = 2
-
-// 各层下注金额（PHP 元）/ 赢出金额
-const BETS = {
-  l1: { bet: 500,  win: 100  },  // GGR ₱400
-  l2: { bet: 800,  win: 300  },  // GGR ₱500
-  l3: { bet: 1000, win: 200  },  // GGR ₱800
-  l4: { bet: 600,  win: 50   },  // GGR ₱550
-}
 
 // ── 工具 ──────────────────────────────────────────────────────────────────────
 function log(msg, data) {
@@ -56,7 +47,7 @@ function log(msg, data) {
 
 function ok(label, passed, detail) {
   const mark = passed ? '✓' : '✗'
-  console.log(`  ${mark} ${label}${detail !== undefined ? ': ' + detail : ''}`)
+  console.log(`  ${mark} ${label}${detail !== undefined ? ': ' + JSON.stringify(detail) : ''}`)
   if (!passed) process.exitCode = 1
 }
 
@@ -92,7 +83,7 @@ async function createUser(db, { displayName, inviterId }) {
        VALUES (?, 'PHP', 0, 0) ON DUPLICATE KEY UPDATE user_id=user_id`,
       [id]
     )
-    // 写入三级归属树（与 mysql-store.createUser 相同逻辑）
+    // 写入三级归属树
     await conn.execute(
       `INSERT IGNORE INTO bg_team_node (user_id, l1_referrer_id, l2_referrer_id, l3_referrer_id)
        SELECT ?, u.inviter_id, l1.inviter_id, l2.inviter_id
@@ -112,79 +103,72 @@ async function createUser(db, { displayName, inviterId }) {
   return { id, displayName, inviteCode, inviterId }
 }
 
-async function enableAndActivate(db, userId) {
+// activate=false → 仅开启代理但不激活（模拟激活门槛未达标）
+async function enableAndActivate(db, userId, activate = true) {
+  if (activate) {
+    await db.execute(
+      `UPDATE bg_team_node SET opted_in=1, opted_in_at=NOW(3),
+         activated=1, activation_cents=10000, activated_at=NOW(3)
+       WHERE user_id = ?`,
+      [userId]
+    )
+  } else {
+    await db.execute(
+      `UPDATE bg_team_node SET opted_in=1, opted_in_at=NOW(3)
+       WHERE user_id = ?`,
+      [userId]
+    )
+  }
+  // 注意：bg_team_wallet PK 是 (user_id, currency)，必须带 currency
   await db.execute(
-    `UPDATE bg_team_node SET opted_in=1, opted_in_at=NOW(3),
-       activated=1, activation_cents=10000, activated_at=NOW(3)
-     WHERE user_id = ?`,
+    `INSERT IGNORE INTO bg_team_wallet (user_id, currency) VALUES (?, 'PHP')`,
     [userId]
   )
-  await db.execute(`INSERT IGNORE INTO bg_team_wallet (user_id) VALUES (?)`, [userId])
 }
 
-async function insertBetOrders(db, userId, betAmount, winAmount) {
+// 插入一对注单，currency 默认 'PHP'
+// amount 单位：原币种（PHP 元、USDT 个 等），结算引擎会乘以 100 得到 cents
+async function insertBetOrders(db, userId, betAmount, winAmount, currency = 'PHP') {
   const ts   = Date.now()
   const rand = randomBytes(3).toString('hex')
-  // bg_bet_order.amount 是 PHP 元（DECIMAL），迁移 016 已从 amount_cents 改为 amount
   await db.execute(
     `INSERT INTO bg_bet_order
-       (user_id, aggregator_id, provider_id, provider_txn_id, bet_type, amount, status, settled_at)
-     VALUES (?, 'test', 'test-provider', ?, 'bet', ?, 'settled', NOW(3))`,
-    [userId, `T${ts}${rand}_BET`, betAmount]
+       (user_id, aggregator_id, provider_id, provider_txn_id, currency_code,
+        bet_type, amount, status, settled_at)
+     VALUES (?, 'test', 'test-provider', ?, ?, 'bet', ?, 'settled', NOW(3))`,
+    [userId, `T${ts}${rand}_BET_${currency}`, currency, betAmount]
   )
   await db.execute(
     `INSERT INTO bg_bet_order
-       (user_id, aggregator_id, provider_id, provider_txn_id, bet_type, amount, status, settled_at)
-     VALUES (?, 'test', 'test-provider', ?, 'win', ?, 'settled', NOW(3))`,
-    [userId, `T${ts}${rand}_WIN`, winAmount]
+       (user_id, aggregator_id, provider_id, provider_txn_id, currency_code,
+        bet_type, amount, status, settled_at)
+     VALUES (?, 'test', 'test-provider', ?, ?, 'win', ?, 'settled', NOW(3))`,
+    [userId, `T${ts}${rand}_WIN_${currency}`, currency, winAmount]
   )
-  return { ggrCents: Math.round((betAmount - winAmount) * 100) }
+  return { currency, ggrCents: Math.round((betAmount - winAmount) * 100) }
 }
 
 async function cleanupPreviousRun(db) {
-  log('清理上一轮测试数据（label=test 的用户及其关联数据）')
-
+  log('清理上一轮测试数据（label=test 的用户）')
   const [[{ cnt }]] = await db.query(`SELECT COUNT(*) AS cnt FROM bg_user WHERE label='test'`)
-  if (Number(cnt) === 0) { log('  无历史测试数据，跳过清理'); return }
+  if (Number(cnt) === 0) { log('  无历史测试数据，跳过'); return }
 
-  // 关闭外键检查，批量删除
   await db.execute('SET FOREIGN_KEY_CHECKS=0')
   try {
-    // beneficiary 或 from_user 是测试用户的佣金记录
-    await db.execute(
-      `DELETE FROM bg_team_commission
-       WHERE from_user_id IN (SELECT id FROM bg_user WHERE label='test')
-          OR beneficiary_id IN (SELECT id FROM bg_user WHERE label='test')`
-    )
-    await db.execute(
-      `DELETE FROM bg_team_ggr_monthly WHERE user_id IN (SELECT id FROM bg_user WHERE label='test')`
-    )
-    await db.execute(
-      `DELETE FROM bg_team_wallet WHERE user_id IN (SELECT id FROM bg_user WHERE label='test')`
-    )
-    await db.execute(
-      `DELETE FROM bg_team_withdrawal WHERE user_id IN (SELECT id FROM bg_user WHERE label='test')`
-    )
-    await db.execute(
-      `DELETE FROM bg_team_node WHERE user_id IN (SELECT id FROM bg_user WHERE label='test')`
-    )
-    await db.execute(
-      `DELETE FROM bg_bet_order WHERE user_id IN (SELECT id FROM bg_user WHERE label='test')`
-    )
-    await db.execute(
-      `DELETE FROM bg_wallet_ledger WHERE user_id IN (SELECT id FROM bg_user WHERE label='test')`
-    )
-    await db.execute(
-      `DELETE FROM bg_wallet WHERE user_id IN (SELECT id FROM bg_user WHERE label='test')`
-    )
-    await db.execute(
-      `DELETE FROM bg_user_profile WHERE user_id IN (SELECT id FROM bg_user WHERE label='test')`
-    )
-    await db.execute(`DELETE FROM bg_user WHERE label='test'`)
+    await db.execute(`DELETE FROM bg_team_commission   WHERE from_user_id IN (SELECT id FROM bg_user WHERE label='test') OR beneficiary_id IN (SELECT id FROM bg_user WHERE label='test')`)
+    await db.execute(`DELETE FROM bg_team_ggr_monthly  WHERE user_id IN (SELECT id FROM bg_user WHERE label='test')`)
+    await db.execute(`DELETE FROM bg_team_wallet       WHERE user_id IN (SELECT id FROM bg_user WHERE label='test')`)
+    await db.execute(`DELETE FROM bg_team_withdrawal   WHERE user_id IN (SELECT id FROM bg_user WHERE label='test')`)
+    await db.execute(`DELETE FROM bg_team_node         WHERE user_id IN (SELECT id FROM bg_user WHERE label='test')`)
+    await db.execute(`DELETE FROM bg_bet_order         WHERE user_id IN (SELECT id FROM bg_user WHERE label='test')`)
+    await db.execute(`DELETE FROM bg_wallet_ledger     WHERE user_id IN (SELECT id FROM bg_user WHERE label='test')`)
+    await db.execute(`DELETE FROM bg_wallet            WHERE user_id IN (SELECT id FROM bg_user WHERE label='test')`)
+    await db.execute(`DELETE FROM bg_user_profile      WHERE user_id IN (SELECT id FROM bg_user WHERE label='test')`)
+    await db.execute(`DELETE FROM bg_user              WHERE label='test'`)
   } finally {
     await db.execute('SET FOREIGN_KEY_CHECKS=1')
   }
-  log(`  已清理 ${cnt} 个测试用户及其所有关联数据`)
+  log(`  已清理 ${cnt} 个测试用户`)
 }
 
 async function triggerSettle(period) {
@@ -195,241 +179,233 @@ async function triggerSettle(period) {
   }).catch(e => { throw new Error(`core-node 不可达: ${e.message}`) })
 
   if (!res.ok) throw new Error(`结算接口返回 ${res.status}`)
-  log('  结算请求已发送，等待 4s...')
-  await new Promise(r => setTimeout(r, 4000))
+  log('  结算请求已发送，等待 5s...')
+  await new Promise(r => setTimeout(r, 5000))
 }
 
 // ── 主流程 ────────────────────────────────────────────────────────────────────
 async function main() {
-  log('连接数据库', { host: DB.host, database: DB.database })
+  log('连接数据库', DB)
   const db = await mysql.createPool({ ...DB, waitForConnections: true, connectionLimit: 5 })
 
   try {
-    // ── 0. 清理 ────────────────────────────────────────────────────────────────
+    // ── 0. 清理 ──────────────────────────────────────────────────────────────
     await cleanupPreviousRun(db)
 
-    // ── 1. 创建用户树 ──────────────────────────────────────────────────────────
-    log('步骤 1：创建测试用户树')
-
-    const ROOT_ID = 'BG-10001'
+    // ── 1. 获取 root ──────────────────────────────────────────────────────────
+    log('步骤 1：初始化 root(BG-10001)')
     const [[rootRow]] = await db.query(
-      `SELECT id, display_name, invite_code FROM bg_user WHERE id = ? LIMIT 1`, [ROOT_ID]
+      `SELECT id, display_name, invite_code FROM bg_user WHERE id='BG-10001' LIMIT 1`
     )
-    if (!rootRow) throw new Error(`root 用户 ${ROOT_ID} 不存在`)
+    if (!rootRow) throw new Error('BG-10001 不存在，请先创建该用户')
     const root = { id: rootRow.id, displayName: rootRow.display_name }
-    log(`  root = ${root.id}`)
 
-    // 确保 root 的 team_node 存在
     await db.execute(`INSERT IGNORE INTO bg_team_node (user_id) VALUES (?)`, [root.id])
-
-    const l1Users = []
-    for (let i = 0; i < L1_COUNT; i++) {
-      const u = await createUser(db, { displayName: `TEST_L1_${i+1}`, inviterId: root.id })
-      l1Users.push(u)
-    }
-
-    const l2Users = []
-    for (const l1 of l1Users) {
-      for (let i = 0; i < L2_PER_L1; i++) {
-        const u = await createUser(db, { displayName: `TEST_L2_${l1.id}_${i+1}`, inviterId: l1.id })
-        l2Users.push({ ...u, parent: l1 })
-      }
-    }
-
-    const l3Users = []
-    for (const l2 of l2Users) {
-      for (let i = 0; i < L3_PER_L2; i++) {
-        const u = await createUser(db, { displayName: `TEST_L3_${l2.id}_${i+1}`, inviterId: l2.id })
-        l3Users.push({ ...u, parent: l2 })
-      }
-    }
-
-    const l4Users = []
-    for (const l3 of l3Users) {
-      for (let i = 0; i < L4_PER_L3; i++) {
-        const u = await createUser(db, { displayName: `TEST_L4_${l3.id}_${i+1}`, inviterId: l3.id })
-        l4Users.push({ ...u, parent: l3 })
-      }
-    }
-
-    log(`用户树创建完成`, {
-      root: 1,
-      l1: l1Users.length,
-      l2: l2Users.length,
-      l3: l3Users.length,
-      l4: l4Users.length,
-      total: 1 + l1Users.length + l2Users.length + l3Users.length + l4Users.length,
-    })
-
-    // ── 2. 验证归属关系 ────────────────────────────────────────────────────────
-    log('步骤 2：验证 bg_team_node 归属关系')
-
-    for (const u of l1Users) {
-      const [[n]] = await db.query(
-        `SELECT l1_referrer_id, l2_referrer_id, l3_referrer_id FROM bg_team_node WHERE user_id=?`, [u.id]
-      )
-      ok(`L1(${u.id}) l1_ref=root`, n?.l1_referrer_id === root.id)
-      ok(`L1(${u.id}) l2_ref=null`, n?.l2_referrer_id == null)
-    }
-
-    for (const u of l2Users) {
-      const [[n]] = await db.query(
-        `SELECT l1_referrer_id, l2_referrer_id, l3_referrer_id FROM bg_team_node WHERE user_id=?`, [u.id]
-      )
-      ok(`L2(${u.id}) l1_ref=${u.parent.id}`, n?.l1_referrer_id === u.parent.id)
-      ok(`L2(${u.id}) l2_ref=root`, n?.l2_referrer_id === root.id)
-      ok(`L2(${u.id}) l3_ref=null`, n?.l3_referrer_id == null)
-    }
-
-    for (const u of l3Users) {
-      const [[n]] = await db.query(
-        `SELECT l1_referrer_id, l2_referrer_id, l3_referrer_id FROM bg_team_node WHERE user_id=?`, [u.id]
-      )
-      ok(`L3(${u.id}) l1_ref=${u.parent.id}`, n?.l1_referrer_id === u.parent.id)
-      ok(`L3(${u.id}) l3_ref=root`, n?.l3_referrer_id === root.id)
-    }
-
-    for (const u of l4Users) {
-      const [[n]] = await db.query(
-        `SELECT l1_referrer_id, l2_referrer_id, l3_referrer_id FROM bg_team_node WHERE user_id=?`, [u.id]
-      )
-      // L4 的 l1_referrer = L3 parent，root 不在链上
-      ok(`L4(${u.id}) l1_ref=${u.parent.id}`, n?.l1_referrer_id === u.parent.id)
-      ok(`L4(${u.id}) l3_ref=L1(非root)`, n?.l3_referrer_id !== root.id)
-    }
-
-    // ── 3. 开启代理 & 激活 ────────────────────────────────────────────────────
-    log('步骤 3：开启代理 & 激活所有测试用户')
-    const allNew = [...l1Users, ...l2Users, ...l3Users, ...l4Users]
-    for (const u of allNew) await enableAndActivate(db, u.id)
-    // root 也激活（确保能作为佣金受益人）
     await enableAndActivate(db, root.id)
-    log(`  已激活 ${allNew.length + 1} 个用户`)
+    log(`  root = ${root.id} (${root.displayName})`)
 
-    // ── 4. 各层用户产生注单 ───────────────────────────────────────────────────
-    log('步骤 4：各层用户插入注单')
-    const ggrMap = {}
+    // ── 2. 创建固定用户树 ─────────────────────────────────────────────────────
+    log('步骤 2：创建用户树')
 
-    for (const u of l1Users) {
-      const { ggrCents } = await insertBetOrders(db, u.id, BETS.l1.bet, BETS.l1.win)
-      ggrMap[u.id] = ggrCents
+    // L1
+    const l1_1 = await createUser(db, { displayName: 'TEST_L1_1', inviterId: root.id })
+    const l1_2 = await createUser(db, { displayName: 'TEST_L1_2', inviterId: root.id })
+
+    // L2（挂在 L1_1 下）
+    const l2_1 = await createUser(db, { displayName: 'TEST_L2_1', inviterId: l1_1.id })
+    const l2_2 = await createUser(db, { displayName: 'TEST_L2_2', inviterId: l1_1.id })
+    // L2（挂在 L1_2 下）
+    const l2_3 = await createUser(db, { displayName: 'TEST_L2_3', inviterId: l1_2.id })
+    const l2_4 = await createUser(db, { displayName: 'TEST_L2_4(未激活)', inviterId: l1_2.id })
+
+    // L3（挂在 L2_1 下）
+    const l3_1 = await createUser(db, { displayName: 'TEST_L3_1', inviterId: l2_1.id })
+    const l3_2 = await createUser(db, { displayName: 'TEST_L3_2', inviterId: l2_1.id })
+    // L3（挂在 L2_2 下）
+    const l3_3 = await createUser(db, { displayName: 'TEST_L3_3', inviterId: l2_2.id })
+    const l3_4 = await createUser(db, { displayName: 'TEST_L3_4', inviterId: l2_2.id })
+    // L3（挂在 L2_3 下）
+    const l3_5 = await createUser(db, { displayName: 'TEST_L3_5', inviterId: l2_3.id })
+    const l3_6 = await createUser(db, { displayName: 'TEST_L3_6', inviterId: l2_3.id })
+
+    const allUsers = [l1_1, l1_2, l2_1, l2_2, l2_3, l2_4, l3_1, l3_2, l3_3, l3_4, l3_5, l3_6]
+    log(`  已创建 ${allUsers.length} 个测试用户`)
+
+    // ── 3. 开启代理 & 激活（l2_4 不激活，验证激活门槛）────────────────────────
+    log('步骤 3：开启代理 & 激活')
+    for (const u of [l1_1, l1_2, l2_1, l2_2, l2_3, l3_1, l3_2, l3_3, l3_4, l3_5, l3_6]) {
+      await enableAndActivate(db, u.id, true)
     }
-    for (const u of l2Users) {
-      const { ggrCents } = await insertBetOrders(db, u.id, BETS.l2.bet, BETS.l2.win)
-      ggrMap[u.id] = ggrCents
-    }
-    for (const u of l3Users) {
-      const { ggrCents } = await insertBetOrders(db, u.id, BETS.l3.bet, BETS.l3.win)
-      ggrMap[u.id] = ggrCents
-    }
-    for (const u of l4Users) {
-      const { ggrCents } = await insertBetOrders(db, u.id, BETS.l4.bet, BETS.l4.win)
-      ggrMap[u.id] = ggrCents
+    await enableAndActivate(db, l2_4.id, false)  // 仅开启不激活
+    log(`  已激活 11 人，l2_4(${l2_4.id}) 仅开启未激活`)
+
+    // ── 4. 插入多币种注单 ─────────────────────────────────────────────────────
+    log('步骤 4：插入注单（多币种）')
+
+    // L1
+    await insertBetOrders(db, l1_1.id, 500, 100, 'PHP')    // GGR ₱400
+    await insertBetOrders(db, l1_2.id, 800, 200, 'PHP')    // GGR ₱600
+
+    // L2 — 混合币种
+    await insertBetOrders(db, l2_1.id, 200, 0,   'PHP')    // GGR ₱200
+    await insertBetOrders(db, l2_1.id, 10,  2,   'USDT')   // GGR 8USDT
+    await insertBetOrders(db, l2_2.id, 20,  8,   'USDT')   // GGR 12USDT  (纯USDT)
+    await insertBetOrders(db, l2_3.id, 350, 0,   'PHP')    // GGR ₱350
+    await insertBetOrders(db, l2_4.id, 500, 0,   'PHP')    // GGR ₱500（未激活，不应产生上线佣金）
+
+    // L3 — 多种组合
+    await insertBetOrders(db, l3_1.id, 150, 0,   'PHP')    // GGR ₱150
+    await insertBetOrders(db, l3_1.id, 5,   1,   'USDC')   // GGR 4USDC
+    await insertBetOrders(db, l3_2.id, 300, 0,   'PHP')    // GGR ₱300
+    await insertBetOrders(db, l3_3.id, 100, 0,   'PHP')    // GGR ₱100
+    await insertBetOrders(db, l3_3.id, 6,   1,   'USDT')   // GGR 5USDT
+    await insertBetOrders(db, l3_3.id, 4,   1,   'USDC')   // GGR 3USDC   (三币种)
+    await insertBetOrders(db, l3_4.id, 400, 0,   'PHP')    // GGR ₱400
+    await insertBetOrders(db, l3_5.id, 280, 0,   'PHP')    // GGR ₱280
+    await insertBetOrders(db, l3_6.id, 7,   1,   'USDC')   // GGR 6USDC   (纯USDC)
+
+    const [[{ betCnt }]] = await db.query(`SELECT COUNT(*) AS betCnt FROM bg_bet_order WHERE user_id IN (${allUsers.map(()=>'?').join(',')})`, allUsers.map(u => u.id))
+    log(`  已插入 ${betCnt} 条注单`)
+
+    // ── 5. 验证归属关系 ───────────────────────────────────────────────────────
+    log('步骤 5：验证 bg_team_node 归属关系')
+
+    async function checkNode(u, expect) {
+      const [[n]] = await db.query(`SELECT l1_referrer_id, l2_referrer_id, l3_referrer_id FROM bg_team_node WHERE user_id=?`, [u.id])
+      ok(`${u.displayName}(${u.id}) l1=${expect.l1 ?? 'null'}`, n?.l1_referrer_id === (expect.l1 ?? null))
+      ok(`${u.displayName}(${u.id}) l2=${expect.l2 ?? 'null'}`, n?.l2_referrer_id === (expect.l2 ?? null))
+      ok(`${u.displayName}(${u.id}) l3=${expect.l3 ?? 'null'}`, n?.l3_referrer_id === (expect.l3 ?? null))
     }
 
-    const totalOrders = allNew.length * 2
-    const [[{ betCnt }]] = await db.query(
-      `SELECT COUNT(*) AS betCnt FROM bg_bet_order WHERE user_id IN (${allNew.map(()=>'?').join(',')})`,
-      allNew.map(u => u.id)
-    )
-    ok(`bg_bet_order 共 ${totalOrders} 条`, Number(betCnt) === totalOrders, betCnt)
+    await checkNode(l1_1, { l1: root.id })
+    await checkNode(l1_2, { l1: root.id })
+    await checkNode(l2_1, { l1: l1_1.id, l2: root.id })
+    await checkNode(l2_2, { l1: l1_1.id, l2: root.id })
+    await checkNode(l2_3, { l1: l1_2.id, l2: root.id })
+    await checkNode(l2_4, { l1: l1_2.id, l2: root.id })
+    await checkNode(l3_1, { l1: l2_1.id, l2: l1_1.id, l3: root.id })
+    await checkNode(l3_2, { l1: l2_1.id, l2: l1_1.id, l3: root.id })
+    await checkNode(l3_3, { l1: l2_2.id, l2: l1_1.id, l3: root.id })
+    await checkNode(l3_4, { l1: l2_2.id, l2: l1_1.id, l3: root.id })
+    await checkNode(l3_5, { l1: l2_3.id, l2: l1_2.id, l3: root.id })
+    await checkNode(l3_6, { l1: l2_3.id, l2: l1_2.id, l3: root.id })
 
-    log('  各层 GGR 预期', {
-      L1每人: `₱${(BETS.l1.bet-BETS.l1.win).toFixed(0)} → ${(BETS.l1.bet-BETS.l1.win)*100}分`,
-      L2每人: `₱${(BETS.l2.bet-BETS.l2.win).toFixed(0)} → ${(BETS.l2.bet-BETS.l2.win)*100}分`,
-      L3每人: `₱${(BETS.l3.bet-BETS.l3.win).toFixed(0)} → ${(BETS.l3.bet-BETS.l3.win)*100}分`,
-      L4每人: `₱${(BETS.l4.bet-BETS.l4.win).toFixed(0)} → ${(BETS.l4.bet-BETS.l4.win)*100}分`,
-    })
-
-    // ── 5. 触发结算 ───────────────────────────────────────────────────────────
-    log(`步骤 5：触发 ${TEST_PERIOD} 月结算`)
+    // ── 6. 触发结算 ───────────────────────────────────────────────────────────
+    log(`步骤 6：触发 ${TEST_PERIOD} 月结算`)
     await triggerSettle(TEST_PERIOD)
 
-    // ── 6. 验证佣金 ───────────────────────────────────────────────────────────
-    log('步骤 6：验证佣金')
+    // ── 7. 验证佣金 ───────────────────────────────────────────────────────────
+    log('步骤 7：验证佣金结果')
 
-    const allBettors = allNew  // L1~L4 都下注了
+    const allIds = allUsers.map(u => u.id)
     const [commissions] = await db.query(
-      `SELECT beneficiary_id, from_user_id, level, ggr_cents, rate_pct, commission_cents, status
+      `SELECT beneficiary_id, from_user_id, level, currency,
+              ggr_cents, rate_pct, commission_cents, php_equivalent_cents, status
        FROM bg_team_commission
-       WHERE period=? AND from_user_id IN (${allBettors.map(()=>'?').join(',')})
-       ORDER BY from_user_id, level`,
-      [TEST_PERIOD, ...allBettors.map(u => u.id)]
+       WHERE period=? AND from_user_id IN (${allIds.map(()=>'?').join(',')})
+       ORDER BY from_user_id, currency, level`,
+      [TEST_PERIOD, ...allIds]
     )
 
-    // 每个下注用户最多 3 条佣金（有几层上线就有几条）
     const [[{ cfgL1, cfgL2, cfgL3 }]] = await db.query(
-      `SELECT l1_rate_pct AS cfgL1, l2_rate_pct AS cfgL2, l3_rate_pct AS cfgL3
-       FROM bg_team_config WHERE id=1`
+      `SELECT l1_rate_pct AS cfgL1, l2_rate_pct AS cfgL2, l3_rate_pct AS cfgL3 FROM bg_team_config WHERE id=1`
     )
-    log('  当前费率', { L1: `${cfgL1}%`, L2: `${cfgL2}%`, L3: `${cfgL3}%` })
+    log('  当前佣金费率', { L1: `${cfgL1}%`, L2: `${cfgL2}%`, L3: `${cfgL3}%` })
 
-    // 验证 L4 用户：root 不应收到来自 L4 的佣金
-    const rootFromL4 = commissions.filter(
-      c => c.beneficiary_id === root.id && l4Users.some(u => u.id === c.from_user_id)
-    )
-    ok(`root 不收 L4 的佣金（超出3层）`, rootFromL4.length === 0, `找到 ${rootFromL4.length} 条`)
+    // L2_4 未激活 → 不应产生任何佣金
+    const fromL2_4 = commissions.filter(c => c.from_user_id === l2_4.id)
+    ok(`l2_4(未激活) 不产生佣金`, fromL2_4.length === 0, fromL2_4.length)
 
-    // 验证 L1 用户：应有 1 条佣金（beneficiary = root，level=1）
-    for (const u of l1Users) {
-      const rows = commissions.filter(c => c.from_user_id === u.id)
-      ok(`L1(${u.id}) 产生 1 条佣金`, rows.length === 1, rows.length)
-      if (rows[0]) {
-        ok(`L1(${u.id}) 受益人=root`, rows[0].beneficiary_id === root.id)
-        const expected = Math.floor(ggrMap[u.id] * Number(cfgL1) / 100)
-        ok(`L1(${u.id}) 佣金金额正确`, Number(rows[0].commission_cents) === expected,
-          `${rows[0].commission_cents} (期望 ${expected})`)
-      }
-    }
+    // l1_1: PHP only → root 收 level=1 佣金，1条
+    const fromL1_1 = commissions.filter(c => c.from_user_id === l1_1.id)
+    ok(`l1_1 产生 1 条佣金(PHP)`, fromL1_1.length === 1, fromL1_1.length)
+    ok(`l1_1 受益人=root level=1`, fromL1_1[0]?.beneficiary_id === root.id && fromL1_1[0]?.level === 1)
 
-    // 验证 L2 用户：应有 2 条佣金（level1=L1上线, level2=root）
-    for (const u of l2Users) {
-      const rows = commissions.filter(c => c.from_user_id === u.id)
-      ok(`L2(${u.id}) 产生 2 条佣金`, rows.length === 2, rows.length)
-      const rootRow = rows.find(c => c.beneficiary_id === root.id)
-      ok(`L2(${u.id}) root 收到 level=2 佣金`, rootRow?.level === 2)
-    }
+    // l1_2: PHP only → root 收 level=1，1条
+    const fromL1_2 = commissions.filter(c => c.from_user_id === l1_2.id)
+    ok(`l1_2 产生 1 条佣金(PHP)`, fromL1_2.length === 1, fromL1_2.length)
 
-    // 验证 L3 用户：应有 3 条佣金（level1=L2, level2=L1, level3=root）
-    for (const u of l3Users) {
-      const rows = commissions.filter(c => c.from_user_id === u.id)
-      ok(`L3(${u.id}) 产生 3 条佣金`, rows.length === 3, rows.length)
-      const rootRow = rows.find(c => c.beneficiary_id === root.id)
-      ok(`L3(${u.id}) root 收到 level=3 佣金`, rootRow?.level === 3)
-    }
+    // l2_1: PHP+USDT → root(level=2)各1条 + l1_1(level=1)各1条 = 4条
+    const fromL2_1 = commissions.filter(c => c.from_user_id === l2_1.id)
+    ok(`l2_1(PHP+USDT) 产生 4 条佣金`, fromL2_1.length === 4, fromL2_1.length)
+    const l2_1_rootPHP  = fromL2_1.find(c => c.beneficiary_id === root.id   && c.currency === 'PHP')
+    const l2_1_rootUSDT = fromL2_1.find(c => c.beneficiary_id === root.id   && c.currency === 'USDT')
+    ok(`l2_1 root 收到 PHP 佣金(level=2)`,  l2_1_rootPHP?.level  === 2)
+    ok(`l2_1 root 收到 USDT 佣金(level=2)`, l2_1_rootUSDT?.level === 2)
 
-    // 验证 L4 用户：应有 3 条佣金（level1=L3, level2=L2, level3=L1），root 不在其中
-    for (const u of l4Users) {
-      const rows = commissions.filter(c => c.from_user_id === u.id)
-      ok(`L4(${u.id}) 产生 3 条佣金`, rows.length === 3, rows.length)
-      const rootRow = rows.find(c => c.beneficiary_id === root.id)
-      ok(`L4(${u.id}) root 不在佣金链中`, !rootRow)
-    }
+    // l2_2: USDT only → root(level=2)1条 + l1_1(level=1)1条 = 2条
+    const fromL2_2 = commissions.filter(c => c.from_user_id === l2_2.id)
+    ok(`l2_2(USDT only) 产生 2 条佣金`, fromL2_2.length === 2, fromL2_2.length)
+    ok(`l2_2 货币均为 USDT`, fromL2_2.every(c => c.currency === 'USDT'))
 
-    // ── 7. 汇总打印 ───────────────────────────────────────────────────────────
-    log('── 佣金汇总表 ─────────────────────────────────────────')
+    // l3_1: PHP+USDC → l2_1(L1)+l1_1(L2)+root(L3) × 2币种 = 6条
+    const fromL3_1 = commissions.filter(c => c.from_user_id === l3_1.id)
+    ok(`l3_1(PHP+USDC) 产生 6 条佣金`, fromL3_1.length === 6, fromL3_1.length)
+    const l3_1_rootUSDC = fromL3_1.find(c => c.beneficiary_id === root.id && c.currency === 'USDC' && c.level === 3)
+    ok(`l3_1 root 收到 USDC 佣金(level=3)`, !!l3_1_rootUSDC)
+
+    // l3_3: PHP+USDT+USDC (三币种) → 3层上线 × 3币种 = 9条
+    const fromL3_3 = commissions.filter(c => c.from_user_id === l3_3.id)
+    ok(`l3_3(PHP+USDT+USDC) 产生 9 条佣金`, fromL3_3.length === 9, fromL3_3.length)
+    const l3_3_rootPHPL3  = fromL3_3.find(c => c.beneficiary_id === root.id && c.currency === 'PHP'  && c.level === 3)
+    const l3_3_rootUSDTL3 = fromL3_3.find(c => c.beneficiary_id === root.id && c.currency === 'USDT' && c.level === 3)
+    const l3_3_rootUSDCL3 = fromL3_3.find(c => c.beneficiary_id === root.id && c.currency === 'USDC' && c.level === 3)
+    ok(`l3_3 root 收到 PHP 佣金(level=3)`,  !!l3_3_rootPHPL3)
+    ok(`l3_3 root 收到 USDT 佣金(level=3)`, !!l3_3_rootUSDTL3)
+    ok(`l3_3 root 收到 USDC 佣金(level=3)`, !!l3_3_rootUSDCL3)
+
+    // php_equivalent_cents 应非零（汇率服务正常时）
+    const nonPhpComms = commissions.filter(c => c.currency !== 'PHP')
+    const phpEquivSet = nonPhpComms.filter(c => Number(c.php_equivalent_cents) !== 0)
+    ok(`非PHP佣金的 php_equivalent_cents 已填充(${phpEquivSet.length}/${nonPhpComms.length})`,
+       phpEquivSet.length === nonPhpComms.length, `${phpEquivSet.length}/${nonPhpComms.length}`)
+
+    // ── 8. 汇总打印 ───────────────────────────────────────────────────────────
+    log('── root(BG-10001) 收到的所有佣金 ──────────────────────')
+    const rootComms = commissions.filter(c => c.beneficiary_id === root.id)
     console.table(
-      commissions.map(c => ({
-        来源用户: c.from_user_id,
-        受益人:   c.beneficiary_id,
-        层级:     c.level,
+      rootComms.map(c => ({
+        来源:     c.from_user_id,
+        层级:     `L${c.level}`,
+        货币:     c.currency,
         GGR分:    c.ggr_cents,
+        PHP等价:  c.php_equivalent_cents,
         费率:     `${c.rate_pct}%`,
         佣金分:   c.commission_cents,
         状态:     c.status,
       }))
     )
 
-    // root 总收益
-    const rootCommissions = commissions.filter(c => c.beneficiary_id === root.id)
-    const rootTotal = rootCommissions.reduce((s, c) => s + Number(c.commission_cents), 0)
-    log(`root(${root.id}) 本次共获佣金`, {
-      条数: rootCommissions.length,
-      合计分: rootTotal,
-      合计PHP: `₱${(rootTotal/100).toFixed(2)}`,
+    const rootTotalPhp = rootComms.reduce((s, c) => s + Number(c.php_equivalent_cents), 0)
+    log(`root 本次共获佣金（PHP合计）`, {
+      条数: rootComms.length,
+      PHP合计分: rootTotalPhp,
+      PHP合计: `₱${(rootTotalPhp/100).toFixed(2)}`,
     })
 
-    log(process.exitCode ? '⚠ 测试完成（有失败项，见上方 ✗）' : '✓ 全部测试通过')
+    // 打印预期在前端展示的 ggrBreakdown 格式
+    log('── 前端 ggrBreakdown 预期展示格式（按 from_user 分组）──')
+    const fromUserGroups = {}
+    for (const c of rootComms) {
+      const key = `${c.from_user_id}(L${c.level})`
+      if (!fromUserGroups[key]) fromUserGroups[key] = []
+      fromUserGroups[key].push(`${c.currency}:${c.ggr_cents}分`)
+    }
+    for (const [key, items] of Object.entries(fromUserGroups)) {
+      console.log(`  ${key} → GGR currencies: [${items.join(', ')}]`)
+    }
+
+    // 检查 bg_team_wallet root 余额
+    const [[wallet]] = await db.query(
+      `SELECT available_cents, lifetime_earned_cents FROM bg_team_wallet WHERE user_id=? AND currency='PHP'`,
+      [root.id]
+    )
+    log('root 团队钱包（PHP）', {
+      available:        wallet ? `₱${(Number(wallet.available_cents)/100).toFixed(2)}`        : 'N/A',
+      lifetimeEarned:   wallet ? `₱${(Number(wallet.lifetime_earned_cents)/100).toFixed(2)}`  : 'N/A',
+    })
+
+    log(process.exitCode ? '⚠ 完成（有失败项，见上方 ✗）' : '✓ 全部验证通过')
 
   } finally {
     await db.end()
@@ -437,6 +413,6 @@ async function main() {
 }
 
 main().catch(e => {
-  console.error('脚本异常:', e.message)
+  console.error('脚本异常:', e.message, e.stack)
   process.exit(1)
 })
