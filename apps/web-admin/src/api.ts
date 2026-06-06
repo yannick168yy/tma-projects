@@ -51,6 +51,7 @@ export const getDashboard = () => get<{
   todayDepositCount: number; todayDepositAmount: number
   todayWithdrawCount: number; todayWithdrawAmount: number
   pendingWithdrawCount: number; totalBalance: number
+  sgMultiCurrency: boolean
 }>('/admin/dashboard')
 
 // Users

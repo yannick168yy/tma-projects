@@ -397,10 +397,13 @@ export default function WalletModal({ open, onClose }: Props) {
                         <div className="h-11 bg-secondary rounded-xl animate-pulse" />
                       ) : turnoverProgress ? (
                         turnoverProgress.canWithdraw ? (
-                          <div className="flex items-center gap-2.5 bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-4 py-3">
-                            <CheckCircle2 size={15} className="text-emerald-400 flex-shrink-0" />
-                            <span className="text-xs font-bold text-emerald-300">{t('wallet.turnoverAllClear')}</span>
-                          </div>
+                          // 只在确实有流水记录时才显示"已完成"提示，新用户从未存款则不展示
+                          turnoverProgress.requirements.length > 0 ? (
+                            <div className="flex items-center gap-2.5 bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-4 py-3">
+                              <CheckCircle2 size={15} className="text-emerald-400 flex-shrink-0" />
+                              <span className="text-xs font-bold text-emerald-300">{t('wallet.turnoverAllClear')}</span>
+                            </div>
+                          ) : null
                         ) : (
                           <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl px-4 py-3 space-y-2.5">
                             <div className="flex items-center justify-between">

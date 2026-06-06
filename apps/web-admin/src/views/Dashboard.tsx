@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Row, Col, Card, Statistic, Spin } from 'antd'
+import { Row, Col, Card, Statistic, Spin, Tag } from 'antd'
 import { getDashboard } from '../api'
 
 type Stats = Awaited<ReturnType<typeof getDashboard>>
@@ -29,6 +29,17 @@ export default function Dashboard() {
     <div>
       <h2 style={{ marginBottom: 16 }}>数据概览</h2>
       <Spin spinning={loading}>
+        {stats && (
+          <Card bordered={false} style={{ marginBottom: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <span style={{ fontWeight: 600, color: '#666' }}>多币种模式（SG_MULTI_CURRENCY）</span>
+              {stats.sgMultiCurrency
+                ? <Tag color="green">已开启 — 按原生币种独立计算</Tag>
+                : <Tag color="default">已关闭 — 统一使用 EUR（测试环境）</Tag>
+              }
+            </div>
+          </Card>
+        )}
         <Row gutter={16}>
           {cards.map((card) => (
             <Col span={6} key={card.label}>

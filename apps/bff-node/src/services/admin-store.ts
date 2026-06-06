@@ -135,6 +135,7 @@ export interface DashboardStats {
   todayWithdrawAmount: number
   pendingWithdrawCount: number
   totalBalance: number
+  sgMultiCurrency: boolean
 }
 
 export async function getDashboardStats(env: Env): Promise<DashboardStats> {
@@ -177,6 +178,7 @@ export async function getDashboardStats(env: Env): Promise<DashboardStats> {
     todayDepositCount, todayDepositAmount,
     todayWithdrawCount, todayWithdrawAmount,
     pendingWithdrawCount, totalBalance,
+    sgMultiCurrency: env.SG_MULTI_CURRENCY,
   }
 }
 

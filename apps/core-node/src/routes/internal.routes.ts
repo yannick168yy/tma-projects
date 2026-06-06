@@ -293,13 +293,14 @@ async function runTeamSettlement(app: FastifyInstance, period: string) {
     )
   }
 
-  const positiveUsers = bets.filter(r => Number(r.bet_cents) - Number(r.win_cents) > 0)
-  if (positiveUsers.length === 0) {
-    app.log.info({ period }, '[team-settle] no positive GGR users')
+  // 处理所有有投注记录的用户（含负 GGR，即用户赢钱场景），佣金可为负
+  const allBetUsers = bets.filter(r => Number(r.bet_cents) !== 0 || Number(r.win_cents) !== 0)
+  if (allBetUsers.length === 0) {
+    app.log.info({ period }, '[team-settle] no bet users')
     return
   }
   // 去重 user_id 用于查询团队节点关系
-  const userIds = [...new Set(positiveUsers.map(r => r.user_id as string))]
+  const userIds = [...new Set(allBetUsers.map(r => r.user_id as string))]
 
   const [nodes] = await db.query<RowDataPacket[]>(
     `SELECT user_id, l1_referrer_id, l2_referrer_id, l3_referrer_id
@@ -308,8 +309,9 @@ async function runTeamSettlement(app: FastifyInstance, period: string) {
   )
   const nodeMap = new Map(nodes.map(n => [n.user_id as string, n]))
 
-  for (const row of positiveUsers) {
-    const effectiveGgr = Math.max(0, Number(row.bet_cents) - Number(row.win_cents))
+  for (const row of allBetUsers) {
+    // ggr 可为负（用户赢钱）——上级佣金对应为负，体现盈亏双向
+    const ggr = Number(row.bet_cents) - Number(row.win_cents)
     const currency = String(row.currency_code ?? 'PHP')
     const node = nodeMap.get(row.user_id as string)
     if (!node) continue
@@ -320,13 +322,14 @@ async function runTeamSettlement(app: FastifyInstance, period: string) {
     ]
     for (const ref of referrers) {
       if (!ref.id) continue
-      let commCents = Math.floor(effectiveGgr * ref.rate / 100)
-      if (maxCommission !== null) commCents = Math.min(commCents, maxCommission)
+      let commCents = Math.floor(ggr * ref.rate / 100)
+      // 正佣金应用单次上限；负佣金不限（真实回撤）
+      if (maxCommission !== null && commCents > 0) commCents = Math.min(commCents, maxCommission)
       await db.execute(
         `INSERT IGNORE INTO bg_team_commission
            (beneficiary_id, from_user_id, level, period, currency, ggr_cents, rate_pct, commission_cents, status)
          VALUES (?,?,?,?,?,?,?,?,'pending')`,
-        [ref.id, row.user_id, ref.level, period, currency, effectiveGgr, ref.rate, commCents],
+        [ref.id, row.user_id, ref.level, period, currency, ggr, ref.rate, commCents],
       )
     }
   }
@@ -353,7 +356,7 @@ async function runTeamSettlement(app: FastifyInstance, period: string) {
       const [res] = await db.execute<import('mysql2/promise').ResultSetHeader>(
         `UPDATE bg_team_wallet
          SET available_cents = available_cents + ?,
-             lifetime_earned_cents = lifetime_earned_cents + ?,
+             lifetime_earned_cents = lifetime_earned_cents + GREATEST(0, ?),
              version = version + 1
          WHERE user_id = ? AND currency = ? AND version = ?`,
         [row.total, row.total, row.beneficiary_id, currency, w.version],
@@ -371,5 +374,5 @@ async function runTeamSettlement(app: FastifyInstance, period: string) {
     `UPDATE bg_team_ggr_monthly SET settled=1, settled_at=NOW(3) WHERE period=?`,
     [period],
   )
-  app.log.info({ period, users: positiveUsers.length, beneficiaries: pending.length }, '[team-settle] done')
+  app.log.info({ period, users: allBetUsers.length, beneficiaries: pending.length }, '[team-settle] done')
 }
