@@ -95,6 +95,17 @@ export type SupportedCurrency = typeof SUPPORTED_CURRENCIES[number]
 export const adjustBalance = (id: string, amount: number, opPassword: string, currency: string, note?: string) =>
   post<{ available: number; orderId: string }>(`/admin/users/${id}/adjust-balance`, { amount, opPassword, currency, note })
 
+export interface TurnoverRequirement {
+  id: number; sourceType: string; sourceRef: string
+  requiredAmount: number; completedAmount: number
+  status: 'pending' | 'completed' | 'expired' | 'cancelled'
+  expiresAt: string | null; createdAt: string; updatedAt: string
+}
+export const getUserTurnover = (id: string) =>
+  get<{ canWithdraw: boolean; totalRemaining: number; requirements: TurnoverRequirement[] }>(`/admin/users/${id}/turnover`)
+export const adjustTurnoverRequirement = (id: string, reqId: number, action: 'adjust' | 'cancel', completedAmount?: number, reason?: string) =>
+  patch<{ success: boolean }>(`/admin/users/${id}/turnover/${reqId}`, { action, completedAmount, reason })
+
 // Settings - op password
 export const getOpPasswordStatus = () =>
   get<{ configured: boolean }>('/admin/settings/op-password')

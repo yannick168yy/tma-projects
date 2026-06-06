@@ -2,7 +2,9 @@ import Router from '@koa/router'
 import { listAdminUsers, writeAuditLog, updateUserLabel, getLoginLogs, getBetOrders, getOpPasswordHash } from '../../services/admin-store.js'
 import { getUser, saveUser, getWallet, listLedger, adminAdjustBalance } from '../../services/store/index.js'
 import { verifyPassword } from '../../services/admin-auth.service.js'
+import { getMysqlPool, isMysqlEnabled } from '../../clients/mysql.client.js'
 import { fail, ok } from '../../utils/response.js'
+import type { RowDataPacket, OkPacket } from 'mysql2/promise'
 
 const router = new Router({ prefix: '/users' })
 
@@ -128,6 +130,83 @@ router.patch('/:id/profile', async (ctx) => {
     ip: ctx.ip,
   })
   ok(ctx, { profile: user.profile })
+})
+
+router.get('/:id/turnover', async (ctx) => {
+  if (!isMysqlEnabled(ctx.state.env)) {
+    ok(ctx, { canWithdraw: true, totalRemaining: 0, requirements: [] }); return
+  }
+  const pool = getMysqlPool(ctx.state.env)
+  const [rows] = await pool.query<RowDataPacket[]>(
+    `SELECT id, source_type, source_ref, required_amount, completed_amount,
+            status, expires_at, created_at, updated_at
+     FROM bg_turnover_requirements
+     WHERE user_id = ?
+     ORDER BY FIELD(status,'pending','completed','expired','cancelled'), created_at ASC`,
+    [ctx.params.id],
+  )
+  const requirements = rows.map((r) => ({
+    id: Number(r.id),
+    sourceType: r.source_type as string,
+    sourceRef: String(r.source_ref),
+    requiredAmount: Number(r.required_amount),
+    completedAmount: Number(r.completed_amount),
+    status: r.status as string,
+    expiresAt: r.expires_at ? new Date(r.expires_at as Date).toISOString() : null,
+    createdAt: new Date(r.created_at as Date).toISOString(),
+    updatedAt: new Date(r.updated_at as Date).toISOString(),
+  }))
+  const pending = requirements.filter((r) => r.status === 'pending')
+  const totalRemaining = Math.max(0, pending.reduce((s, r) => s + (r.requiredAmount - r.completedAmount), 0))
+  ok(ctx, { canWithdraw: totalRemaining <= 0, totalRemaining, requirements })
+})
+
+router.patch('/:id/turnover/:reqId', async (ctx) => {
+  if (!isMysqlEnabled(ctx.state.env)) {
+    fail(ctx, 503, 'MySQL not enabled'); return
+  }
+  const body = ctx.request.body as { action: string; completedAmount?: number; reason?: string }
+  const reqId = Number(ctx.params.reqId)
+  if (!body.action || !['adjust', 'cancel'].includes(body.action)) {
+    fail(ctx, 400, 'action must be adjust | cancel'); return
+  }
+  const pool = getMysqlPool(ctx.state.env)
+  const [[req]] = await pool.query<RowDataPacket[]>(
+    `SELECT id, user_id, status, required_amount FROM bg_turnover_requirements WHERE id = ? AND user_id = ?`,
+    [reqId, ctx.params.id],
+  )
+  if (!req) { fail(ctx, 404, 'Requirement not found', 404); return }
+  if (req.status === 'expired' || req.status === 'cancelled') {
+    fail(ctx, 400, `Cannot modify a ${req.status as string} requirement`); return
+  }
+
+  if (body.action === 'cancel') {
+    await pool.execute(
+      `UPDATE bg_turnover_requirements SET status = 'cancelled', updated_at = NOW() WHERE id = ?`,
+      [reqId],
+    )
+  } else {
+    const newCompleted = Number(body.completedAmount ?? 0)
+    if (newCompleted < 0 || newCompleted > Number(req.required_amount)) {
+      fail(ctx, 400, `completedAmount must be between 0 and ${Number(req.required_amount)}`); return
+    }
+    const newStatus = newCompleted >= Number(req.required_amount) ? 'completed' : 'pending'
+    await pool.execute(
+      `UPDATE bg_turnover_requirements SET completed_amount = ?, status = ?, updated_at = NOW() WHERE id = ?`,
+      [newCompleted, newStatus, reqId],
+    )
+  }
+
+  await writeAuditLog(ctx.state.env, {
+    adminId: ctx.state.adminId!,
+    adminUsername: ctx.state.adminUsername!,
+    action: 'user.turnover_adjust',
+    targetType: 'user',
+    targetId: ctx.params.id,
+    detail: { reqId, action: body.action, completedAmount: body.completedAmount, reason: body.reason },
+    ip: ctx.ip,
+  })
+  ok(ctx, { success: true })
 })
 
 router.patch('/:id/label', async (ctx) => {
