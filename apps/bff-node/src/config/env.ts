@@ -35,6 +35,7 @@ const schema = z.object({
   SG_MERCHANT_ID: z.string().default(''),
   SG_MERCHANT_KEY: z.string().default(''),
   SG_CURRENCY: z.string().default('EUR'),
+  SG_MULTI_CURRENCY: z.enum(['true', 'false']).default('false').transform((v) => v === 'true'),
   SG_RETURN_URL: z.string().default('https://www.188facai.com'),
   NACOS_SERVER_ADDR: z.string().default(''),
   NACOS_NAMESPACE: z.string().default('batogo'),

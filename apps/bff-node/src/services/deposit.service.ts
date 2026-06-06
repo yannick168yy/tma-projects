@@ -86,36 +86,52 @@ export async function settlePaidDeposit(
     amountPhpUnits: number
     currency: DepositCurrency
     mysqlPool?: Pool
+    multiCurrency?: boolean
   },
 ): Promise<DepositOrder> {
-  const credited = depositAmountToYuan(opts.amountPhpUnits, opts.currency, opts.usdtToPhpRate, opts.tonToPhpRate ?? 0)
-  if (credited <= 0) {
-    throw new Error('Invalid deposit amount')
+  let credited: number
+  let creditedCurrency: string
+
+  if (opts.multiCurrency) {
+    credited = Math.round(opts.amountPhpUnits * 10000) / 10000
+    creditedCurrency = opts.currency
+  } else {
+    credited = depositAmountToYuan(opts.amountPhpUnits, opts.currency, opts.usdtToPhpRate, opts.tonToPhpRate ?? 0)
+    creditedCurrency = 'PHP'
   }
+
+  if (credited <= 0) throw new Error('Invalid deposit amount')
 
   order.status = 'paid'
   order.paidAt = nowIso()
   order.creditedCents = credited
   await saveDeposit(redis, order)
 
+  let description: string
+  if (opts.multiCurrency) {
+    description = `${opts.currency} deposit`
+  } else if (opts.currency === 'USDT') {
+    description = `USDT deposit (≈ ₱${credited.toFixed(2)})`
+  } else if (opts.currency === 'TON') {
+    description = `TON deposit (≈ ₱${credited.toFixed(2)})`
+  } else {
+    description = 'Telegram Wallet deposit'
+  }
+
   await creditWallet(redis, order.userId, credited, {
     type: 'deposit',
     refId: order.orderId,
-    description:
-      opts.currency === 'USDT'
-        ? `USDT deposit (≈ ₱${credited.toFixed(2)})`
-        : opts.currency === 'TON'
-          ? `TON deposit (≈ ₱${credited.toFixed(2)})`
-          : 'Telegram Wallet deposit',
+    description,
     createdAt: nowIso(),
     traceId: opts.traceId,
+    ...(creditedCurrency !== 'PHP' ? { currency: creditedCurrency } : {}),
   })
 
   await applyFirstDepPromo(redis, order.userId)
   await applyReferralMilestone(redis, order.userId, order.orderId, credited)
 
   if (opts.mysqlPool) {
-    await createDepositRequirement(opts.mysqlPool, order.userId, order.orderId, credited)
+    await createDepositRequirement(opts.mysqlPool, order.userId, order.orderId, credited, creditedCurrency)
   }
 
   return order

@@ -10,7 +10,8 @@ router.get('/', async (ctx) => {
     ok(ctx, { canWithdraw: true, totalRemaining: 0, requirements: [] })
     return
   }
-  const progress = await getTurnoverProgress(getMysqlPool(ctx.state.env), ctx.state.userId!)
+  const currency = ctx.query.currency ? String(ctx.query.currency) : undefined
+  const progress = await getTurnoverProgress(getMysqlPool(ctx.state.env), ctx.state.userId!, currency)
   ok(ctx, progress)
 })
 

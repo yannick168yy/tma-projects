@@ -205,7 +205,7 @@ export async function internalRoutes(app: FastifyInstance) {
       const [twRes] = await conn.execute<import('mysql2/promise').ResultSetHeader>(
         `UPDATE bg_team_wallet
          SET frozen_cents = frozen_cents - ?
-         WHERE user_id = ? AND frozen_cents >= ?`,
+         WHERE user_id = ? AND currency = 'PHP' AND frozen_cents >= ?`,
         [wd.amount_cents, wd.user_id, wd.amount_cents],
       )
       if (twRes.affectedRows === 0) throw new Error('insufficient frozen balance')
@@ -265,31 +265,31 @@ async function runTeamSettlement(app: FastifyInstance, period: string) {
       ? Number(cfg.max_commission_per_settlement_cents)
       : null
 
-  // 聚合当月 GGR
-  // amount 列为 PHP 元（DECIMAL），迁移 016 已将 amount_cents 改为 amount
+  // 聚合当月 GGR，按 (user_id, currency_code) 分组——多币种各自独立
   const [bets] = await db.query<RowDataPacket[]>(
-    `SELECT user_id,
+    `SELECT user_id, COALESCE(currency_code, 'PHP') AS currency_code,
        ROUND(SUM(CASE WHEN bet_type='bet' THEN amount ELSE 0 END) * 100) AS bet_cents,
        ROUND(SUM(CASE WHEN bet_type='win' THEN amount ELSE 0 END) * 100) AS win_cents
      FROM bg_bet_order
      WHERE created_at >= ? AND created_at < ?
        AND bet_type IN ('bet','win') AND status = 'settled'
-     GROUP BY user_id`,
+     GROUP BY user_id, currency_code`,
     [startDate, endDate],
   )
 
   for (const row of bets) {
     const ggr = Number(row.bet_cents) - Number(row.win_cents)
     const effectiveGgr = Math.max(0, ggr)
+    const currency = String(row.currency_code ?? 'PHP')
     await db.execute(
       `INSERT INTO bg_team_ggr_monthly
-         (user_id, period, bet_cents, win_cents, ggr_cents, effective_ggr_cents, negative_ggr)
-       VALUES (?,?,?,?,?,?,?)
+         (user_id, period, currency, bet_cents, win_cents, ggr_cents, effective_ggr_cents, negative_ggr)
+       VALUES (?,?,?,?,?,?,?,?)
        ON DUPLICATE KEY UPDATE
          bet_cents=VALUES(bet_cents), win_cents=VALUES(win_cents),
          ggr_cents=VALUES(ggr_cents), effective_ggr_cents=VALUES(effective_ggr_cents),
          negative_ggr=VALUES(negative_ggr)`,
-      [row.user_id, period, row.bet_cents, row.win_cents, ggr, effectiveGgr, ggr < 0 ? 1 : 0],
+      [row.user_id, period, currency, row.bet_cents, row.win_cents, ggr, effectiveGgr, ggr < 0 ? 1 : 0],
     )
   }
 
@@ -298,7 +298,8 @@ async function runTeamSettlement(app: FastifyInstance, period: string) {
     app.log.info({ period }, '[team-settle] no positive GGR users')
     return
   }
-  const userIds = positiveUsers.map(r => r.user_id)
+  // 去重 user_id 用于查询团队节点关系
+  const userIds = [...new Set(positiveUsers.map(r => r.user_id as string))]
 
   const [nodes] = await db.query<RowDataPacket[]>(
     `SELECT user_id, l1_referrer_id, l2_referrer_id, l3_referrer_id
@@ -309,6 +310,7 @@ async function runTeamSettlement(app: FastifyInstance, period: string) {
 
   for (const row of positiveUsers) {
     const effectiveGgr = Math.max(0, Number(row.bet_cents) - Number(row.win_cents))
+    const currency = String(row.currency_code ?? 'PHP')
     const node = nodeMap.get(row.user_id as string)
     if (!node) continue
     const referrers = [
@@ -319,46 +321,46 @@ async function runTeamSettlement(app: FastifyInstance, period: string) {
     for (const ref of referrers) {
       if (!ref.id) continue
       let commCents = Math.floor(effectiveGgr * ref.rate / 100)
-      // 应用单次结算上限（若已配置）
       if (maxCommission !== null) commCents = Math.min(commCents, maxCommission)
       await db.execute(
         `INSERT IGNORE INTO bg_team_commission
-           (beneficiary_id, from_user_id, level, period, ggr_cents, rate_pct, commission_cents, status)
-         VALUES (?,?,?,?,?,?,?,'pending')`,
-        [ref.id, row.user_id, ref.level, period, effectiveGgr, ref.rate, commCents],
+           (beneficiary_id, from_user_id, level, period, currency, ggr_cents, rate_pct, commission_cents, status)
+         VALUES (?,?,?,?,?,?,?,?,'pending')`,
+        [ref.id, row.user_id, ref.level, period, currency, effectiveGgr, ref.rate, commCents],
       )
     }
   }
 
   const [pending] = await db.query<RowDataPacket[]>(
-    `SELECT beneficiary_id, SUM(commission_cents) AS total
+    `SELECT beneficiary_id, currency, SUM(commission_cents) AS total
      FROM bg_team_commission WHERE period = ? AND status = 'pending'
-     GROUP BY beneficiary_id`,
+     GROUP BY beneficiary_id, currency`,
     [period],
   )
 
   for (const row of pending) {
+    const currency = String(row.currency ?? 'PHP')
     await db.execute(
-      `INSERT IGNORE INTO bg_team_wallet (user_id) VALUES (?)`,
-      [row.beneficiary_id],
+      `INSERT IGNORE INTO bg_team_wallet (user_id, currency) VALUES (?, ?)`,
+      [row.beneficiary_id, currency],
     )
     let settled = false
     for (let i = 0; i < 3; i++) {
       const [[w]] = await db.query<RowDataPacket[]>(
-        `SELECT version FROM bg_team_wallet WHERE user_id = ?`,
-        [row.beneficiary_id],
+        `SELECT version FROM bg_team_wallet WHERE user_id = ? AND currency = ?`,
+        [row.beneficiary_id, currency],
       )
       const [res] = await db.execute<import('mysql2/promise').ResultSetHeader>(
         `UPDATE bg_team_wallet
          SET available_cents = available_cents + ?,
              lifetime_earned_cents = lifetime_earned_cents + ?,
              version = version + 1
-         WHERE user_id = ? AND version = ?`,
-        [row.total, row.total, row.beneficiary_id, w.version],
+         WHERE user_id = ? AND currency = ? AND version = ?`,
+        [row.total, row.total, row.beneficiary_id, currency, w.version],
       )
       if (res.affectedRows > 0) { settled = true; break }
     }
-    if (!settled) app.log.warn({ beneficiaryId: row.beneficiary_id }, '[team-settle] wallet update failed after 3 retries')
+    if (!settled) app.log.warn({ beneficiaryId: row.beneficiary_id, currency }, '[team-settle] wallet update failed after 3 retries')
   }
 
   await db.execute(

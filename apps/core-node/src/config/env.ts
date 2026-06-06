@@ -21,6 +21,8 @@ const schema = z.object({
   SG_MERCHANT_ID: z.string().default(''),
   SG_MERCHANT_KEY: z.string().default(''),
   SG_CURRENCY: z.string().default('EUR'),
+  // 多货币模式：true = 按回调 currency 字段区分账户；false = 全部视为 SG_CURRENCY
+  SG_MULTI_CURRENCY: z.enum(['true', 'false']).default('false').transform((v) => v === 'true'),
 
   // YFPay 回调验签
   YFPAY_API_KEY: z.string().default(''),

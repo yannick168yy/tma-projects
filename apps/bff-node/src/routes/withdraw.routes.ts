@@ -27,7 +27,7 @@ router.get('/eligibility', async (ctx) => {
     getKyc(ctx.state.redis, userId),
   ])
   const kycApproved = kyc?.status === 'approved'
-  const turnoverOk = !isMysqlEnabled(ctx.state.env) || await checkTurnover(getMysqlPool(ctx.state.env), userId)
+  const turnoverOk = !isMysqlEnabled(ctx.state.env) || await checkTurnover(getMysqlPool(ctx.state.env), userId, currency)
 
   ok(ctx, {
     currency,

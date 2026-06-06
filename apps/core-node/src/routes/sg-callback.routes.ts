@@ -17,7 +17,7 @@ export async function sgCallbackRoutes(app: FastifyInstance) {
     const body = req.body as import('../services/sg-callback.service.js').SgCallbackBody
     const sgCurrency = (env.SG_CURRENCY || 'EUR').toUpperCase()
 
-    const result = await svc.handle(body, sgCurrency)
+    const result = await svc.handle(body, sgCurrency, env.SG_MULTI_CURRENCY)
     return reply.send(result)
   })
 }

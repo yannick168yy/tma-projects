@@ -5,13 +5,14 @@ export async function createDepositRequirement(
   userId: string,
   orderId: string,
   amount: number,
+  currency = 'PHP',
 ): Promise<void> {
   if (amount <= 0) return
   await conn.execute(
     `INSERT IGNORE INTO bg_turnover_requirements
-       (user_id, source_type, source_ref, required_amount)
-     VALUES (?, 'deposit', ?, ?)`,
-    [userId, orderId, amount],
+       (user_id, currency, source_type, source_ref, required_amount)
+     VALUES (?, ?, 'deposit', ?, ?)`,
+    [userId, currency, orderId, amount],
   )
 }
 
@@ -21,6 +22,7 @@ export async function allocateBetTurnover(
   betOrderId: number,
   betAmount: number,
   gameUuid: string,
+  currency = 'PHP',
 ): Promise<void> {
   if (betAmount <= 0) return
 
@@ -46,21 +48,21 @@ export async function allocateBetTurnover(
 
     const [logResult] = await conn.execute<ResultSetHeader>(
       `INSERT INTO bg_turnover_logs
-         (user_id, bet_order_id, bet_amount, rate, effective_amount, sort_category)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [userId, betOrderId, betAmount, rate, effectiveAmount, sortCategory],
+         (user_id, currency, bet_order_id, bet_amount, rate, effective_amount, sort_category)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [userId, currency, betOrderId, betAmount, rate, effectiveAmount, sortCategory],
     )
     const logId = logResult.insertId
 
-    // FIFO：按创建时间顺序填满各 pending 要求
+    // FIFO：同货币的 pending 要求，按创建时间顺序填满
     const [reqs] = await conn.query<RowDataPacket[]>(
       `SELECT id, required_amount - completed_amount AS remaining
        FROM bg_turnover_requirements
-       WHERE user_id = ? AND status = 'pending'
+       WHERE user_id = ? AND currency = ? AND status = 'pending'
          AND (expires_at IS NULL OR expires_at > NOW())
        ORDER BY created_at ASC
        FOR UPDATE`,
-      [userId],
+      [userId, currency],
     )
 
     let remaining = effectiveAmount
