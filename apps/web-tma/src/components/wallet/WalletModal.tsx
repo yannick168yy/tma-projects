@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { QRCodeSVG } from 'qrcode.react'
-import { Wallet, X, ArrowDownToLine, ArrowUpFromLine, History, CheckCircle2, AlertCircle, XCircle, Loader2, ArrowLeft, Send, ShieldCheck, Zap, Headphones, Copy, Check } from 'lucide-react'
+import { Wallet, X, ArrowDownToLine, ArrowUpFromLine, History, CheckCircle2, AlertCircle, XCircle, Loader2, ArrowLeft, Send, ShieldCheck, Zap, Headphones, Copy, Check, Lock } from 'lucide-react'
 import { createPortal } from 'react-dom'
 import PayMethodGrid from '@/components/wallet/PayMethodGrid'
 import { createDeposit } from '@/api/deposit'
@@ -11,6 +11,7 @@ import { useWalletStore, formatBalanceWithCode } from '@/stores/wallet'
 import { useTonConnect } from '@/hooks/useTonConnect'
 import { openTelegramInvoice, waitForDepositPaid } from '@/utils/tgInvoice'
 import { fetchYfPayChannels, createYfDeposit, queryYfDeposit, fetchYfDepositOrders, fetchYfWithdrawOrders, fetchDepositHistory, fetchWithdrawHistory, createYfWithdrawal, type YfPayChannel } from '@/api/yfpay'
+import { fetchTurnoverProgress, type TurnoverProgress } from '@/api/wallet'
 import { fetchMatrixDepositAddress, createMatrixWithdrawal } from '@/api/matrix'
 import { CRYPTO_DEPOSIT, CRYPTO_WITHDRAW, FIAT_DEPOSIT, FIAT_WITHDRAW, TG_WALLET_DEPOSIT, WALLET_BANNERS, type PayMethod } from '@/data/wallet'
 import { useBottomSheetDrag } from '@/hooks/useBottomSheetDrag'
@@ -77,6 +78,8 @@ export default function WalletModal({ open, onClose }: Props) {
   const [matrixAddressLoading, setMatrixAddressLoading] = useState(false)
   const [matrixCryptoAmount, setMatrixCryptoAmount] = useState('')
   const [copiedAddress, setCopiedAddress] = useState(false)
+  const [turnoverProgress, setTurnoverProgress] = useState<TurnoverProgress | null>(null)
+  const [turnoverLoading, setTurnoverLoading] = useState(false)
 
   function stopPolling() { if(pollTimerRef.current){clearInterval(pollTimerRef.current);pollTimerRef.current=null} }
   function stopTonPolling() { if(tonPollTimerRef.current){clearInterval(tonPollTimerRef.current);tonPollTimerRef.current=null} }
@@ -88,6 +91,7 @@ export default function WalletModal({ open, onClose }: Props) {
       if(walletBannerTrackRef.current)walletBannerTrackRef.current.scrollLeft=0
       setDepositLoading(false); setDepositMessage(''); setDepositSuccess(false)
       setWithdrawAccount(''); setWithdrawOwner(''); setWithdrawMessage(''); setWithdrawSuccess(false)
+      setTurnoverProgress(null); setTurnoverLoading(false)
       setTonLoading(false); setTonMessage(''); setTonSuccess(false)
       void walletStore.refresh()
       void fetchYfPayChannels().then(setYfpayChannels).catch(()=>{})
@@ -96,6 +100,15 @@ export default function WalletModal({ open, onClose }: Props) {
   }, [open])
 
   useEffect(() => { if(tab==='history')void loadHistory() }, [tab])
+
+  useEffect(() => {
+    if (tab !== 'withdraw') return
+    setTurnoverLoading(true)
+    fetchTurnoverProgress()
+      .then(setTurnoverProgress)
+      .catch(() => setTurnoverProgress(null))
+      .finally(() => setTurnoverLoading(false))
+  }, [tab])
 
   useEffect(() => {
     if (!selectedMethod) return
@@ -380,6 +393,40 @@ export default function WalletModal({ open, onClose }: Props) {
                     </>
                   ) : (
                     <>
+                      {turnoverLoading ? (
+                        <div className="h-11 bg-secondary rounded-xl animate-pulse" />
+                      ) : turnoverProgress ? (
+                        turnoverProgress.canWithdraw ? (
+                          <div className="flex items-center gap-2.5 bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-4 py-3">
+                            <CheckCircle2 size={15} className="text-emerald-400 flex-shrink-0" />
+                            <span className="text-xs font-bold text-emerald-300">{t('wallet.turnoverAllClear')}</span>
+                          </div>
+                        ) : (
+                          <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl px-4 py-3 space-y-2.5">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <Lock size={13} className="text-amber-400 flex-shrink-0" />
+                                <span className="text-[11px] font-bold text-amber-300">{t('wallet.turnoverBlocked')}</span>
+                              </div>
+                              <span className="text-xs font-black text-amber-400">₱{turnoverProgress.totalRemaining.toLocaleString('en-PH',{minimumFractionDigits:2,maximumFractionDigits:2})}</span>
+                            </div>
+                            {turnoverProgress.requirements.filter(r=>r.status==='pending').slice(0,3).map(req=>{
+                              const pct=Math.min(100,(req.completedAmount/req.requiredAmount)*100)
+                              return (
+                                <div key={req.id} className="space-y-1">
+                                  <div className="flex justify-between">
+                                    <span className="text-[10px] text-amber-300/70">{req.sourceType==='deposit'?t('wallet.turnoverDeposit'):t('wallet.turnoverPromo')} · ₱{req.requiredAmount.toFixed(2)}</span>
+                                    <span className="text-[10px] font-bold text-amber-300/70">{Math.round(pct)}%</span>
+                                  </div>
+                                  <div className="h-1 bg-amber-500/20 rounded-full overflow-hidden">
+                                    <div className="h-full bg-amber-400 rounded-full" style={{width:`${pct}%`}} />
+                                  </div>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        )
+                      ) : null}
                       <div><p className="text-muted-foreground text-[11px] font-bold uppercase tracking-wider mb-2.5">{t('wallet.fiatSection')}</p><PayMethodGrid methods={FIAT_WITHDRAW} selected={selectedMethod} onSelect={(id)=>{setSelectedMethod(id);setAmount('');setWithdrawMessage('');setWithdrawAccount('');setWithdrawOwner('')}} /></div>
                       <div><p className="text-muted-foreground text-[11px] font-bold uppercase tracking-wider mb-2.5">{t('wallet.cryptoSection')}</p><PayMethodGrid methods={CRYPTO_WITHDRAW} selected={selectedMethod} onSelect={setSelectedMethod} /></div>
                     </>

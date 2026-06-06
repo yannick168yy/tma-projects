@@ -485,6 +485,11 @@ export default {
     matrixWithdrawSubmit: 'Submit Withdrawal',
     matrixWithdrawPending: 'Withdrawal submitted, pending admin approval.',
     matrixWithdrawFailed: 'Withdrawal failed. Please try again.',
+    turnoverAllClear: 'Wagering completed — you can withdraw!',
+    turnoverBlocked: 'Complete wagering requirements to withdraw',
+    turnoverRemaining: 'Still needed',
+    turnoverDeposit: 'Deposit',
+    turnoverPromo: 'Bonus',
   },
   slots: {
     sectionTitle: 'CASINO SLOTS',

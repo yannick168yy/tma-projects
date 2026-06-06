@@ -474,6 +474,11 @@ export default {
     tonDisconnect: 'Putuskan',
     comingSoon: 'Segera Hadir',
     cryptoWithdrawSoon: 'Penarikan kripto akan segera tersedia.',
+    turnoverAllClear: 'Syarat taruhan terpenuhi — Anda bisa menarik dana!',
+    turnoverBlocked: 'Selesaikan syarat taruhan untuk menarik dana',
+    turnoverRemaining: 'Masih dibutuhkan',
+    turnoverDeposit: 'Deposit',
+    turnoverPromo: 'Bonus',
   },
   slots: {
     sectionTitle: 'GAME SLOT',

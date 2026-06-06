@@ -481,6 +481,11 @@ export default {
     matrixWithdrawSubmit: '提交提现',
     matrixWithdrawPending: '提现申请已提交，等待后台审批。',
     matrixWithdrawFailed: '提现失败，请重试。',
+    turnoverAllClear: '流水已达标，可以提现！',
+    turnoverBlocked: '完成流水要求后才能提现',
+    turnoverRemaining: '还需流水',
+    turnoverDeposit: '存款流水',
+    turnoverPromo: '优惠流水',
   },
   slots: {
     sectionTitle: '老虎机游戏',

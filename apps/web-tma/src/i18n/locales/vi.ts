@@ -474,6 +474,11 @@ export default {
     tonDisconnect: 'Ngắt kết nối',
     comingSoon: 'Sắp ra mắt',
     cryptoWithdrawSoon: 'Rút tiền bằng crypto sẽ sớm khả dụng.',
+    turnoverAllClear: 'Đã hoàn thành yêu cầu cược — Bạn có thể rút tiền!',
+    turnoverBlocked: 'Hoàn thành yêu cầu cược để rút tiền',
+    turnoverRemaining: 'Còn cần',
+    turnoverDeposit: 'Nạp tiền',
+    turnoverPromo: 'Khuyến mãi',
   },
   slots: {
     sectionTitle: 'GAME SLOT',

@@ -4,6 +4,27 @@ import type { WalletBalance, CurrencyBalance } from '@/types/api'
 
 const useMock = import.meta.env.VITE_USE_MOCK_API !== 'false'
 
+export interface TurnoverRequirement {
+  id: number
+  sourceType: string
+  sourceRef: string
+  requiredAmount: number
+  completedAmount: number
+  status: string
+  expiresAt: string | null
+  createdAt: string
+}
+
+export interface TurnoverProgress {
+  canWithdraw: boolean
+  totalRemaining: number
+  requirements: TurnoverRequirement[]
+}
+
+export async function fetchTurnoverProgress(): Promise<TurnoverProgress> {
+  return apiRequest<TurnoverProgress>('/turnover')
+}
+
 export async function fetchBalance(): Promise<WalletBalance> {
   if (useMock) return mock.mockGetBalance()
   const list = await apiRequest<CurrencyBalance[]>('/wallet/balances')
