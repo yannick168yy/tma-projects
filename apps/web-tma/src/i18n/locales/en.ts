@@ -300,6 +300,9 @@ export default {
     periodSettled: '{{period}} Settled',
     invalidAmount: 'Please enter a valid amount',
     withdrawFailed: 'Withdrawal failed, please try again',
+    debtWarning: 'Your account has an outstanding debt of {{amount}}. Withdrawals are disabled until the debt is settled in the next commission cycle.',
+    debtLabel: 'Debt',
+    minWithdrawPhp: 'Min ₱100',
   },
   bingo: {
     carnival: 'Philippine Carnival',

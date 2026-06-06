@@ -25,7 +25,9 @@ function formatPeriod(p: string, locale = 'en') {
 }
 
 function phpDisplay(cents: number) {
-  return '₱' + (cents / 100).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  const val = (cents ?? 0) / 100
+  const abs = Math.abs(val).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  return (val < 0 ? '-₱' : '₱') + abs
 }
 
 const statusColor: Record<string, string> = {
@@ -63,12 +65,12 @@ function TreeNodeRow({ node, depth, expandedIds, onToggle }: {
         <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full flex-shrink-0 ${badge}`}>L{depth}</span>
         <div className="flex-1 min-w-0 mr-2">
           <p className="text-sm font-medium text-foreground truncate leading-none mb-0.5">{node.displayName}</p>
-          {node.ggrCents > 0 && (
-            <p className="text-[10px] text-muted-foreground leading-none">GGR {phpDisplay(node.ggrCents)}</p>
+          {node.ggrCents !== 0 && (
+            <p className={`text-[10px] leading-none ${node.ggrCents < 0 ? 'text-red-400' : 'text-muted-foreground'}`}>GGR {phpDisplay(node.ggrCents)}</p>
           )}
         </div>
-        {node.thisMonthCents > 0 && (
-          <span className="text-amber-400 font-black text-xs flex-shrink-0 pr-3">{phpDisplay(node.thisMonthCents)}</span>
+        {node.thisMonthCents !== 0 && (
+          <span className={`font-black text-xs flex-shrink-0 pr-3 ${node.thisMonthCents < 0 ? 'text-red-400' : 'text-amber-400'}`}>{phpDisplay(node.thisMonthCents)}</span>
         )}
       </div>
       {hasKids && isExpanded && node.children.map((child) => (
@@ -340,10 +342,10 @@ export default function TeamCenterPage({ onClose }: Props) {
                     <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full flex-shrink-0 ${levelBadge[item.level]}`}>L{item.level}</span>
                     <div className="flex-1 min-w-0">
                       <p className="text-foreground font-bold text-xs leading-none mb-0.5">{item.displayName}</p>
-                      <p className="text-muted-foreground text-[10px]">GGR {phpDisplay(item.ggrCents)} × {item.ratePct}%</p>
+                      <p className={`text-[10px] ${item.ggrCents < 0 ? 'text-red-400/70' : 'text-muted-foreground'}`}>GGR {phpDisplay(item.ggrCents)} × {item.ratePct}%</p>
                     </div>
                     <div className="text-right flex-shrink-0">
-                      <p className="text-amber-400 font-black text-sm leading-none">{phpDisplay(item.commissionCents)}</p>
+                      <p className={`font-black text-sm leading-none ${item.commissionCents < 0 ? 'text-red-400' : 'text-amber-400'}`}>{phpDisplay(item.commissionCents)}</p>
                       <p className={`text-[9px] mt-0.5 ${statusColor[item.status] ?? 'text-muted-foreground'}`}>{item.status}</p>
                     </div>
                   </div>
@@ -358,9 +360,11 @@ export default function TeamCenterPage({ onClose }: Props) {
           <>
             {/* 钱包大卡 */}
             <div className="px-4 pt-4 pb-3">
-              <div className="bg-gradient-to-br from-[#78350f]/30 to-transparent rounded-2xl border border-amber-500/20 p-4">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-amber-400/70 mb-1 text-center">{t('team.available')}</p>
-                <p className="text-4xl font-black text-amber-400 leading-none text-center mb-2">{phpDisplay(teamWallet?.availableCents ?? 0)}</p>
+              <div className={`bg-gradient-to-br rounded-2xl border p-4 ${(teamWallet?.availableCents ?? 0) < 0 ? 'from-red-900/30 to-transparent border-red-500/20' : 'from-[#78350f]/30 to-transparent border-amber-500/20'}`}>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-amber-400/70 mb-1 text-center">
+                  {(teamWallet?.availableCents ?? 0) < 0 ? t('team.debtLabel') : t('team.available')}
+                </p>
+                <p className={`text-4xl font-black leading-none text-center mb-2 ${(teamWallet?.availableCents ?? 0) < 0 ? 'text-red-400' : 'text-amber-400'}`}>{phpDisplay(teamWallet?.availableCents ?? 0)}</p>
                 <div className="flex justify-center gap-4 text-[10px] text-muted-foreground">
                   <span>{t('team.frozen')}: {phpDisplay(teamWallet?.frozenCents ?? 0)}</span>
                   <span>{t('team.lifetime')}: {phpDisplay(teamWallet?.lifetimeEarnedCents ?? 0)}</span>
@@ -381,26 +385,36 @@ export default function TeamCenterPage({ onClose }: Props) {
 
             {/* 提现表单 */}
             <div className="px-4 pb-4">
-              <div className="bg-secondary rounded-2xl p-4 mb-3">
-                <p className="text-xs font-bold text-foreground mb-2">{t('team.withdrawAmount')}</p>
-                <div className="flex gap-2">
-                  <div className="flex-1 relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-bold text-sm">₱</span>
-                    <input type="number" value={withdrawInput} placeholder={`${t('team.minWithdraw')} ₱50`} min="50" step="1"
-                      className="w-full bg-background rounded-xl pl-7 pr-3 py-2.5 text-sm text-foreground outline-none focus:ring-1 focus:ring-amber-500 border border-border"
-                      onChange={(e) => setWithdrawInput(e.target.value)} />
-                  </div>
-                  <button type="button" className="px-3 py-2.5 bg-amber-500/20 text-amber-400 rounded-xl text-xs font-bold"
-                    onClick={() => setWithdrawInput(String((teamWallet?.availableCents ?? 0) / 100))}>
-                    {t('team.max')}
-                  </button>
+              {(teamWallet?.availableCents ?? 0) < 0 ? (
+                <div className="bg-red-500/10 border border-red-500/30 rounded-2xl p-4 mb-3">
+                  <p className="text-xs font-bold text-red-400 mb-1">{t('team.debtLabel')}</p>
+                  <p className="text-[11px] text-red-300/80 leading-relaxed">
+                    {t('team.debtWarning', { amount: phpDisplay(Math.abs(teamWallet!.availableCents)) })}
+                  </p>
                 </div>
-                {withdrawError && <p className="text-red-400 text-xs mt-1.5">{withdrawError}</p>}
-                <p className="text-muted-foreground text-[10px] mt-1.5">{t('team.withdrawHint')}</p>
-              </div>
+              ) : (
+                <div className="bg-secondary rounded-2xl p-4 mb-3">
+                  <p className="text-xs font-bold text-foreground mb-2">{t('team.withdrawAmount')}</p>
+                  <div className="flex gap-2">
+                    <div className="flex-1 relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-bold text-sm">₱</span>
+                      <input type="number" value={withdrawInput} placeholder={t('team.minWithdrawPhp')} min="100" step="1"
+                        className="w-full bg-background rounded-xl pl-7 pr-3 py-2.5 text-sm text-foreground outline-none focus:ring-1 focus:ring-amber-500 border border-border"
+                        onChange={(e) => setWithdrawInput(e.target.value)} />
+                    </div>
+                    <button type="button" className="px-3 py-2.5 bg-amber-500/20 text-amber-400 rounded-xl text-xs font-bold"
+                      onClick={() => setWithdrawInput(String(Math.max(0, (teamWallet?.availableCents ?? 0)) / 100))}>
+                      {t('team.max')}
+                    </button>
+                  </div>
+                  {withdrawError && <p className="text-red-400 text-xs mt-1.5">{withdrawError}</p>}
+                  <p className="text-muted-foreground text-[10px] mt-1.5">{t('team.withdrawHint')}</p>
+                </div>
+              )}
               <button type="button"
-                className={`w-full py-3 rounded-xl font-black text-sm transition-opacity ${withdrawing ? 'bg-amber-500/50 text-black/50' : 'bg-amber-500 text-black'}`}
-                disabled={withdrawing} onClick={() => void submitWithdraw()}>
+                className={`w-full py-3 rounded-xl font-black text-sm transition-opacity ${(withdrawing || (teamWallet?.availableCents ?? 0) < 0) ? 'bg-amber-500/50 text-black/50' : 'bg-amber-500 text-black'}`}
+                disabled={withdrawing || (teamWallet?.availableCents ?? 0) < 0}
+                onClick={() => void submitWithdraw()}>
                 {withdrawing ? t('team.withdrawing') : t('team.withdrawSubmit')}
               </button>
             </div>

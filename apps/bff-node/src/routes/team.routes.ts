@@ -19,7 +19,7 @@ router.get('/status', async (ctx) => {
     ),
     db.query<RowDataPacket[]>(
       `SELECT available_cents, lifetime_earned_cents
-       FROM bg_team_wallet WHERE user_id = ? LIMIT 1`,
+       FROM bg_team_wallet WHERE user_id = ? AND currency = 'PHP' LIMIT 1`,
       [userId],
     ),
   ])
@@ -81,9 +81,9 @@ router.post('/enable', async (ctx) => {
     [userId, user.l1_id ?? null, user.l2_id ?? null, user.l3_id ?? null, now],
   )
 
-  // 确保佣金钱包存在
+  // 确保佣金钱包（PHP）存在
   await db.execute<ResultSetHeader>(
-    `INSERT IGNORE INTO bg_team_wallet (user_id) VALUES (?)`,
+    `INSERT IGNORE INTO bg_team_wallet (user_id, currency) VALUES (?, 'PHP')`,
     [userId],
   )
 
@@ -175,7 +175,7 @@ router.get('/wallet', async (ctx) => {
   const db     = getMysqlPool(ctx.state.env)
   const [[row]] = await db.query<RowDataPacket[]>(
     `SELECT available_cents, frozen_cents, lifetime_earned_cents
-     FROM bg_team_wallet WHERE user_id = ? LIMIT 1`,
+     FROM bg_team_wallet WHERE user_id = ? AND currency = 'PHP' LIMIT 1`,
     [userId],
   )
   ok(ctx, {
@@ -204,18 +204,19 @@ router.post('/withdraw', async (ctx) => {
   let withdrawalId: number | null = null
   for (let i = 0; i < 3; i++) {
     const [[wallet]] = await db.query<RowDataPacket[]>(
-      `SELECT available_cents, version FROM bg_team_wallet WHERE user_id = ? LIMIT 1`,
+      `SELECT available_cents, version FROM bg_team_wallet WHERE user_id = ? AND currency = 'PHP' LIMIT 1`,
       [userId],
     )
-    if (!wallet || Number(wallet.available_cents) < amountCents) {
-      fail(ctx, 400, '可提余额不足'); return
-    }
+    if (!wallet) { fail(ctx, 400, '可提余额不足'); return }
+    const available = Number(wallet.available_cents)
+    if (available < 0) { fail(ctx, 400, '账户存在欠款，请先联系客服处理'); return }
+    if (available < amountCents) { fail(ctx, 400, '可提余额不足'); return }
     const [res] = await db.execute<import('mysql2/promise').ResultSetHeader>(
       `UPDATE bg_team_wallet
        SET available_cents = available_cents - ?,
            frozen_cents    = frozen_cents + ?,
            version = version + 1
-       WHERE user_id = ? AND version = ? AND available_cents >= ?`,
+       WHERE user_id = ? AND currency = 'PHP' AND version = ? AND available_cents >= ?`,
       [amountCents, amountCents, userId, wallet.version, amountCents],
     )
     if (res.affectedRows > 0) {

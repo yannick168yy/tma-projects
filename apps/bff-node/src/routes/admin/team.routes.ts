@@ -336,7 +336,8 @@ router.get('/config', async (ctx) => {
   const [[row]] = await getMysqlPool(ctx.state.env).query<RowDataPacket[]>(
     `SELECT l1_rate_pct, l2_rate_pct, l3_rate_pct,
             min_activation_cents, min_withdrawal_cents,
-            max_commission_per_settlement_cents, settlement_day, updated_at
+            max_commission_per_settlement_cents, settlement_day, settlement_hour,
+            last_auto_settlement, updated_at
      FROM bg_team_config WHERE id = 1 LIMIT 1`,
   )
   ok(ctx, row ?? {})
@@ -350,7 +351,7 @@ router.put('/config', async (ctx) => {
 
   const allowed = ['l1_rate_pct', 'l2_rate_pct', 'l3_rate_pct',
                    'min_activation_cents', 'min_withdrawal_cents',
-                   'max_commission_per_settlement_cents', 'settlement_day']
+                   'max_commission_per_settlement_cents', 'settlement_day', 'settlement_hour']
   const sets: string[] = []
   const vals: unknown[] = []
   for (const key of allowed) {

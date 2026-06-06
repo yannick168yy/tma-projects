@@ -298,6 +298,9 @@ export default {
     periodSettled: '{{period}} 已结算',
     invalidAmount: '请输入有效金额',
     withdrawFailed: '提现失败，请重试',
+    debtWarning: '账户存在欠款 {{amount}}，下月结算补平后即可提现。',
+    debtLabel: '欠款',
+    minWithdrawPhp: '最低 ₱100',
   },
   bingo: {
     carnival: '菲律宾嘉年华',

@@ -6,6 +6,7 @@ import type { PoolConnection, RowDataPacket } from 'mysql2/promise'
 import type { Redis } from 'ioredis'
 import { env } from '../config/env.js'
 import { lgId } from '../utils/id.js'
+import { getPhpRate } from '../services/exchange-rate.service.js'
 
 // PHT = UTC+8，结算周期按菲律宾本地月份切割
 const PHT_OFFSET_MS = 8 * 60 * 60 * 1000
@@ -243,7 +244,7 @@ export async function internalRoutes(app: FastifyInstance) {
 }
 
 // ── 月度 GGR 结算引擎 ──────────────────────────────────────────────────────
-async function runTeamSettlement(app: FastifyInstance, period: string) {
+export async function runTeamSettlement(app: FastifyInstance, period: string) {
   const db = app.mysql
   const [year, month] = period.split('-').map(Number)
 
@@ -309,10 +310,19 @@ async function runTeamSettlement(app: FastifyInstance, period: string) {
   )
   const nodeMap = new Map(nodes.map(n => [n.user_id as string, n]))
 
+  // 结算时一次性拉取所有涉及币种的汇率（含负 GGR 逻辑不影响 FX 获取）
+  const involvedCurrencies = [...new Set(allBetUsers.map(r => String(r.currency_code ?? 'PHP')))]
+  const fxRates: Record<string, number> = {}
+  await Promise.all(involvedCurrencies.map(async (cur) => {
+    fxRates[cur] = await getPhpRate(cur)
+  }))
+  app.log.info({ period, fxRates }, '[team-settle] fx rates fetched')
+
   for (const row of allBetUsers) {
     // ggr 可为负（用户赢钱）——上级佣金对应为负，体现盈亏双向
     const ggr = Number(row.bet_cents) - Number(row.win_cents)
     const currency = String(row.currency_code ?? 'PHP')
+    const fxRate = fxRates[currency] ?? 1
     const node = nodeMap.get(row.user_id as string)
     if (!node) continue
     const referrers = [
@@ -325,45 +335,50 @@ async function runTeamSettlement(app: FastifyInstance, period: string) {
       let commCents = Math.floor(ggr * ref.rate / 100)
       // 正佣金应用单次上限；负佣金不限（真实回撤）
       if (maxCommission !== null && commCents > 0) commCents = Math.min(commCents, maxCommission)
+      // PHP 等价 = 原始分 × 汇率（保留整数分，正负同向）
+      const phpEquivalentCents = commCents >= 0
+        ? Math.floor(commCents * fxRate)
+        : Math.ceil(commCents * fxRate)
       await db.execute(
         `INSERT IGNORE INTO bg_team_commission
-           (beneficiary_id, from_user_id, level, period, currency, ggr_cents, rate_pct, commission_cents, status)
-         VALUES (?,?,?,?,?,?,?,?,'pending')`,
-        [ref.id, row.user_id, ref.level, period, currency, ggr, ref.rate, commCents],
+           (beneficiary_id, from_user_id, level, period, currency, ggr_cents, rate_pct, commission_cents, fx_rate, php_equivalent_cents, status)
+         VALUES (?,?,?,?,?,?,?,?,?,?,'pending')`,
+        [ref.id, row.user_id, ref.level, period, currency, ggr, ref.rate, commCents, fxRate, phpEquivalentCents],
       )
     }
   }
 
+  // 统一按 PHP 入账——不再按原始币种拆分，全部折算后累加到 bg_team_wallet(user_id, 'PHP')
   const [pending] = await db.query<RowDataPacket[]>(
-    `SELECT beneficiary_id, currency, SUM(commission_cents) AS total
+    `SELECT beneficiary_id, SUM(php_equivalent_cents) AS total_php
      FROM bg_team_commission WHERE period = ? AND status = 'pending'
-     GROUP BY beneficiary_id, currency`,
+     GROUP BY beneficiary_id`,
     [period],
   )
 
   for (const row of pending) {
-    const currency = String(row.currency ?? 'PHP')
+    const totalPhp = Number(row.total_php)
     await db.execute(
-      `INSERT IGNORE INTO bg_team_wallet (user_id, currency) VALUES (?, ?)`,
-      [row.beneficiary_id, currency],
+      `INSERT IGNORE INTO bg_team_wallet (user_id, currency) VALUES (?, 'PHP')`,
+      [row.beneficiary_id],
     )
     let settled = false
     for (let i = 0; i < 3; i++) {
       const [[w]] = await db.query<RowDataPacket[]>(
-        `SELECT version FROM bg_team_wallet WHERE user_id = ? AND currency = ?`,
-        [row.beneficiary_id, currency],
+        `SELECT version FROM bg_team_wallet WHERE user_id = ? AND currency = 'PHP'`,
+        [row.beneficiary_id],
       )
       const [res] = await db.execute<import('mysql2/promise').ResultSetHeader>(
         `UPDATE bg_team_wallet
          SET available_cents = available_cents + ?,
              lifetime_earned_cents = lifetime_earned_cents + GREATEST(0, ?),
              version = version + 1
-         WHERE user_id = ? AND currency = ? AND version = ?`,
-        [row.total, row.total, row.beneficiary_id, currency, w.version],
+         WHERE user_id = ? AND currency = 'PHP' AND version = ?`,
+        [totalPhp, totalPhp, row.beneficiary_id, w.version],
       )
       if (res.affectedRows > 0) { settled = true; break }
     }
-    if (!settled) app.log.warn({ beneficiaryId: row.beneficiary_id, currency }, '[team-settle] wallet update failed after 3 retries')
+    if (!settled) app.log.warn({ beneficiaryId: row.beneficiary_id }, '[team-settle] PHP wallet update failed after 3 retries')
   }
 
   await db.execute(

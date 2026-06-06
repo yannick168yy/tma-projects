@@ -300,6 +300,9 @@ export default {
     withdrawHistory: 'Lịch sử rút tiền',
     invalidAmount: 'Vui lòng nhập số tiền hợp lệ',
     withdrawFailed: 'Rút tiền thất bại, vui lòng thử lại',
+    debtWarning: 'Tài khoản có nợ {{amount}}. Rút tiền bị tạm khóa cho đến khi nợ được thanh toán trong chu kỳ hoa hồng tiếp theo.',
+    debtLabel: 'Nợ',
+    minWithdrawPhp: 'Tối thiểu ₱100',
   },
   bingo: {
     carnival: 'Lễ hội Philippines',

@@ -283,6 +283,8 @@ export interface TeamConfig {
   min_activation_cents: number; min_withdrawal_cents: number
   max_commission_per_settlement_cents: number | null
   settlement_day: number
+  settlement_hour: number
+  last_auto_settlement: string | null
 }
 
 export const getTeamOverview = () =>

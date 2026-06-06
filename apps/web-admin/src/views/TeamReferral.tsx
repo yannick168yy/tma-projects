@@ -21,16 +21,22 @@ function buildTreeNode(m: TeamTreeMember, level: 1 | 2 | 3): TreeNodeItem {
         <span style={{ fontWeight: 500 }}>{m.displayName}</span>
         <span style={{ color: '#bbb', fontSize: 11 }}>{m.userId}</span>
         {m.isAgent && <Tag color="purple" style={{ fontSize: 10, padding: '0 4px', margin: 0, lineHeight: '16px' }}>代理</Tag>}
-        {m.thisMonthCents > 0 && <span style={{ color: '#1677ff', fontSize: 11 }}>₱{(m.thisMonthCents / 100).toFixed(2)}</span>}
-        {m.ggrCents > 0 && <span style={{ color: '#999', fontSize: 11 }}>GGR ₱{(m.ggrCents / 100).toFixed(2)}</span>}
+        {m.thisMonthCents !== 0 && <span style={{ color: m.thisMonthCents < 0 ? '#ff4d4f' : '#1677ff', fontSize: 11 }}>{m.thisMonthCents < 0 ? '-₱' : '₱'}{Math.abs(m.thisMonthCents / 100).toFixed(2)}</span>}
+        {m.ggrCents !== 0 && <span style={{ color: m.ggrCents < 0 ? '#ff4d4f' : '#999', fontSize: 11 }}>GGR {m.ggrCents < 0 ? '-₱' : '₱'}{Math.abs(m.ggrCents / 100).toFixed(2)}</span>}
       </span>
     ),
     children: m.children.length > 0 ? m.children.map((c) => buildTreeNode(c, (level + 1) as 2 | 3)) : undefined,
   }
 }
 
-function phpDisplay(cents: number) {
-  return '₱' + ((cents ?? 0) / 100).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+function phpDisplay(cents: number): string {
+  const val = (cents ?? 0) / 100
+  return (val < 0 ? '-₱' : '₱') + Math.abs(val).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
+function phpCell(cents: number) {
+  const val = (cents ?? 0) / 100
+  return <span style={{ color: val < 0 ? '#ff4d4f' : undefined }}>{phpDisplay(cents)}</span>
 }
 
 function currentPeriod() {
@@ -214,9 +220,9 @@ export default function TeamReferral() {
     { title: '收益人', dataIndex: 'beneficiary_name', key: 'beneficiary' },
     { title: '下线', dataIndex: 'from_name', key: 'from' },
     { title: '层级', dataIndex: 'level', key: 'level', width: 60 },
-    { title: 'GGR', key: 'ggr', width: 110, render: (_: unknown, r: TeamCommission) => phpDisplay(r.ggr_cents) },
+    { title: 'GGR', key: 'ggr', width: 110, render: (_: unknown, r: TeamCommission) => phpCell(r.ggr_cents) },
     { title: '费率', dataIndex: 'rate_pct', key: 'rate', width: 70 },
-    { title: '佣金', key: 'commission', width: 110, render: (_: unknown, r: TeamCommission) => phpDisplay(r.commission_cents) },
+    { title: '佣金', key: 'commission', width: 110, render: (_: unknown, r: TeamCommission) => phpCell(r.commission_cents) },
     { title: '状态', key: 'status', width: 90, render: (_: unknown, r: TeamCommission) => <Tag color={r.status === 'paid' ? 'green' : r.status === 'pending' ? 'orange' : 'default'}>{r.status}</Tag> },
   ]
 
@@ -262,6 +268,8 @@ export default function TeamReferral() {
           <Form.Item label="L3 比率(%)" name="l3_rate_pct"><InputNumber min={0} max={100} step={0.5} style={{ width: 90 }} /></Form.Item>
           <Form.Item label="激活门槛(分)" name="min_activation_cents"><InputNumber min={0} style={{ width: 110 }} /></Form.Item>
           <Form.Item label="最低提现(分)" name="min_withdrawal_cents"><InputNumber min={0} style={{ width: 110 }} /></Form.Item>
+          <Form.Item label="结算日(每月)" name="settlement_day"><InputNumber min={1} max={28} style={{ width: 80 }} /></Form.Item>
+          <Form.Item label="结算时(PHT)" name="settlement_hour"><InputNumber min={0} max={23} style={{ width: 80 }} /></Form.Item>
           <Form.Item><Button type="primary" htmlType="submit" loading={configSaving}>保存配置</Button></Form.Item>
           <Form.Item>
             <Popconfirm title={`确认触发 ${settlePeriod} 月结算？`} onConfirm={doSettle}>

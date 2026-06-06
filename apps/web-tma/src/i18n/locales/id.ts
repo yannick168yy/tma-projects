@@ -300,6 +300,9 @@ export default {
     withdrawHistory: 'Riwayat Penarikan',
     invalidAmount: 'Masukkan jumlah yang valid',
     withdrawFailed: 'Penarikan gagal, coba lagi',
+    debtWarning: 'Akun Anda memiliki hutang {{amount}}. Penarikan dinonaktifkan hingga hutang lunas pada siklus komisi berikutnya.',
+    debtLabel: 'Hutang',
+    minWithdrawPhp: 'Min ₱100',
   },
   bingo: {
     carnival: 'Karnaval Filipina',
