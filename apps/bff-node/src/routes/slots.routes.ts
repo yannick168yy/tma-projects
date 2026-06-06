@@ -131,8 +131,15 @@ router.post('/init', async (ctx) => {
   }
 
   const sessionId = randomUUID()
-  // Store session in Redis for TTL bookkeeping (optional; player_id is the source of truth)
-  await redis.setex(`sg:session:${sessionId}`, 86400, userId)
+  const walletCurrency = (body.currency ?? 'PHP').toUpperCase()
+  // 单币种模式：SG 侧固定 EUR，回调按 session 映射到用户所选钱包币种（金额 1:1）
+  const sessionPayload = env.SG_MULTI_CURRENCY
+    ? userId
+    : JSON.stringify({ uid: userId, wallet: walletCurrency })
+  await redis.setex(`sg:session:${sessionId}`, 86400, sessionPayload)
+  if (!env.SG_MULTI_CURRENCY) {
+    await redis.setex(`sg:player:${userId}:wallet`, 86400, walletCurrency)
+  }
 
   try {
     const result = await sgInitGame(
@@ -140,7 +147,7 @@ router.post('/init', async (ctx) => {
         game_uuid: body.gameUuid,
         player_id: userId,
         player_name: user.displayName || userId,
-        currency: env.SG_MULTI_CURRENCY ? (body.currency ?? env.SG_CURRENCY) : env.SG_CURRENCY,
+        currency: env.SG_MULTI_CURRENCY ? walletCurrency : env.SG_CURRENCY,
         session_id: sessionId,
         return_url: env.SG_RETURN_URL,
         language: (body.language ?? user.locale ?? 'en').split('-')[0],

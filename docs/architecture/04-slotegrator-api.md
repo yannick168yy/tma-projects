@@ -585,7 +585,7 @@ SG 生产环境为每种货币开独立合约。`currency` 字段存在于所有
 
 ## 七、注意事项
 
-1. **货币**：测试环境 SG 仅支持 EUR；生产环境多货币合约，每种货币独立结算，`exchange_rate` 按合约配置。
+1. **货币**：测试环境 SG 仅支持 EUR；`SG_MULTI_CURRENCY=false` 时 SG 侧固定 EUR，但回调读写用户进游戏时选择的钱包币种（如 PHP 100 → 游戏内显示 100 EUR，扣款仍从 PHP 钱包 1:1）。生产多货币合约开启 `SG_MULTI_CURRENCY=true` 后，每种货币独立结算。
 2. **回调幂等**：同一 `transaction_id` 24h 内重复回调返回缓存响应，不重复写账。
 3. **PC/Mobile 去重**：同名游戏存在 PC/Mobile 两版时，优先保留 Mobile，列表层自动过滤 PC 版。
 4. **游戏名称**：SG 仅提供英文名，无多语言支持。

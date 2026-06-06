@@ -7,12 +7,34 @@ import { allocateBetTurnover, reverseBetTurnover } from './turnover.service.js'
 export interface SgCallbackBody {
   action: string
   player_id: string
+  session_id?: string
   transaction_id?: string
   amount?: string | number
   round_id?: string
   game_uuid?: string
   currency?: string
   rollback_transactions?: Array<{ transaction_id?: string; provider_txn_id?: string }>
+}
+
+/** 单币种模式：SG 用 EUR，钱包读写映射到用户进游戏时选的币种（1:1 金额） */
+async function resolveWalletCurrency(
+  redis: Redis,
+  playerId: string,
+  sessionId: string | undefined,
+): Promise<string> {
+  if (sessionId) {
+    const raw = await redis.get(`sg:session:${sessionId}`)
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw) as { wallet?: string }
+        if (parsed.wallet) return parsed.wallet.toUpperCase()
+      } catch {
+        // 旧格式：value 仅为 userId
+      }
+    }
+  }
+  const fallback = await redis.get(`sg:player:${playerId}:wallet`)
+  return (fallback ?? 'PHP').toUpperCase()
 }
 
 export class SgCallbackService {
@@ -23,8 +45,10 @@ export class SgCallbackService {
 
   async handle(body: SgCallbackBody, sgCurrency: string, multiCurrency: boolean): Promise<unknown> {
     const { action, player_id, transaction_id, round_id, game_uuid = '' } = body
-    // multiCurrency=true 时用回调里的 currency 字段，否则统一用 sgCurrency（测试环境 EUR）
-    const currency = multiCurrency ? ((body.currency ?? sgCurrency).toUpperCase()) : sgCurrency
+    // multiCurrency=true：按回调 currency；false：SG 侧 EUR，钱包用 session 映射币种（1:1）
+    const currency = multiCurrency
+      ? ((body.currency ?? sgCurrency).toUpperCase())
+      : await resolveWalletCurrency(this.redis, player_id, body.session_id)
     const db = this.db
 
     // ── balance ───────────────────────────────────────────────────────────────
@@ -33,8 +57,7 @@ export class SgCallbackService {
         'SELECT available FROM bg_wallet WHERE user_id = ? AND currency = ?',
         [player_id, currency],
       )
-      if (!row) return { error_code: 'PLAYER_NOT_FOUND', error_description: 'Player not found' }
-      return { balance: Number(row.available) }
+      return { balance: Number(row?.available ?? 0) }
     }
 
     // ── idempotency ───────────────────────────────────────────────────────────
