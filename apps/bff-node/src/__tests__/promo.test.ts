@@ -60,9 +60,9 @@ function makeUser(overrides: Partial<UserRecord> = {}): UserRecord {
 }
 
 const DEFAULT_CONFIG = {
-  trial: { amount: 88, enabled: true },
-  referral: { inviterAmount: 50, inviteeAmount: 30, enabled: true },
-  firstdep: { matchPct: 120, maxBonus: 1000, minDeposit: 100, turnoverX: 15, enabled: true },
+  trial: { amount: 88, enabled: true, turnoverX: 0, turnoverDays: 0 },
+  referral: { inviterAmount: 50, inviteeAmount: 30, enabled: true, turnoverX: 0, turnoverDays: 0 },
+  firstdep: { matchPct: 120, maxBonus: 1000, minDeposit: 100, turnoverX: 15, turnoverDays: 30, enabled: true },
 }
 
 function createApp() {
@@ -112,7 +112,7 @@ describe('首席体验官 (trial)', () => {
   it('GET /promotions/trial-play — 配置金额改为 120 时，amountPhp 同步为 120', async () => {
     mockGetPromoConfig.mockResolvedValue({
       ...DEFAULT_CONFIG,
-      trial: { amount: 120, enabled: true },
+      trial: { amount: 120, enabled: true, turnoverX: 0, turnoverDays: 0 },
     })
     mockGetUser.mockResolvedValue(makeUser({ trialClaimed: false }))
     const res = await request(createApp()).get('/promotions/trial-play')
@@ -141,7 +141,7 @@ describe('首席体验官 (trial)', () => {
   it('POST /promotions/trial-play/claim — 配置金额改为 100 时，领取 100', async () => {
     mockGetPromoConfig.mockResolvedValue({
       ...DEFAULT_CONFIG,
-      trial: { amount: 100, enabled: true },
+      trial: { amount: 100, enabled: true, turnoverX: 0, turnoverDays: 0 },
     })
     mockGetUser.mockResolvedValue(makeUser({ trialClaimed: false }))
     mockCreditWallet.mockResolvedValue({ available: 100, frozen: 0 })
@@ -167,7 +167,7 @@ describe('首席体验官 (trial)', () => {
   it('POST /promotions/trial-play/claim — 活动关闭时返回 409', async () => {
     mockGetPromoConfig.mockResolvedValue({
       ...DEFAULT_CONFIG,
-      trial: { amount: 88, enabled: false },
+      trial: { amount: 88, enabled: false, turnoverX: 0, turnoverDays: 0 },
     })
     mockGetUser.mockResolvedValue(makeUser({ trialClaimed: false }))
     const res = await request(createApp()).post('/promotions/trial-play/claim')
@@ -217,7 +217,7 @@ describe('邀请共赢 (referral)', () => {
   it('GET /promotions/referral — inviterAmount 改为 80，pendingRewardPhp 同步为 80', async () => {
     mockGetPromoConfig.mockResolvedValue({
       ...DEFAULT_CONFIG,
-      referral: { inviterAmount: 80, inviteeAmount: 30, enabled: true },
+      referral: { inviterAmount: 80, inviteeAmount: 30, enabled: true, turnoverX: 0, turnoverDays: 0 },
     })
     mockGetUser.mockResolvedValue(makeUser({ referralReady: true, referralClaimed: false }))
     const res = await request(createApp()).get('/promotions/referral')
@@ -255,7 +255,7 @@ describe('邀请共赢 (referral)', () => {
   it('POST /promotions/referral/claim — inviterAmount 改为 80 时领取 80', async () => {
     mockGetPromoConfig.mockResolvedValue({
       ...DEFAULT_CONFIG,
-      referral: { inviterAmount: 80, inviteeAmount: 30, enabled: true },
+      referral: { inviterAmount: 80, inviteeAmount: 30, enabled: true, turnoverX: 0, turnoverDays: 0 },
     })
     mockGetUser.mockResolvedValue(makeUser({ referralReady: true, referralClaimed: false }))
     mockCreditWallet.mockResolvedValue({ available: 80, frozen: 0 })
@@ -296,7 +296,7 @@ describe('邀请共赢 (referral)', () => {
   it('POST /promotions/referral/claim — 活动关闭时返回 409', async () => {
     mockGetPromoConfig.mockResolvedValue({
       ...DEFAULT_CONFIG,
-      referral: { inviterAmount: 50, inviteeAmount: 30, enabled: false },
+      referral: { inviterAmount: 50, inviteeAmount: 30, enabled: false, turnoverX: 0, turnoverDays: 0 },
     })
     mockGetUser.mockResolvedValue(makeUser({ referralReady: true, referralClaimed: false }))
     const res = await request(createApp()).post('/promotions/referral/claim')
@@ -338,7 +338,7 @@ describe('首充嘉年华 (firstdep)', () => {
   it('POST /promotions/firstdep/claim — maxBonus 改为 500 时领取 500', async () => {
     mockGetPromoConfig.mockResolvedValue({
       ...DEFAULT_CONFIG,
-      firstdep: { matchPct: 120, maxBonus: 500, minDeposit: 100, turnoverX: 15, enabled: true },
+      firstdep: { matchPct: 120, maxBonus: 500, minDeposit: 100, turnoverX: 15, turnoverDays: 30, enabled: true },
     })
     mockGetUser.mockResolvedValue(makeUser({ firstDepReady: true, firstDepClaimed: false }))
     mockCreditWallet.mockResolvedValue({ available: 500, frozen: 0 })
@@ -379,7 +379,7 @@ describe('首充嘉年华 (firstdep)', () => {
   it('POST /promotions/firstdep/claim — 活动关闭时返回 409', async () => {
     mockGetPromoConfig.mockResolvedValue({
       ...DEFAULT_CONFIG,
-      firstdep: { matchPct: 120, maxBonus: 1000, minDeposit: 100, turnoverX: 15, enabled: false },
+      firstdep: { matchPct: 120, maxBonus: 1000, minDeposit: 100, turnoverX: 15, turnoverDays: 30, enabled: false },
     })
     mockGetUser.mockResolvedValue(makeUser({ firstDepReady: true, firstDepClaimed: false }))
     const res = await request(createApp()).post('/promotions/firstdep/claim')

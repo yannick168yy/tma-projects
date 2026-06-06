@@ -3,6 +3,8 @@ import { creditWallet, getUser, listLedger, saveUser } from '../services/store.j
 import { formatDisplayTime, nowIso } from '../utils/format.js'
 import { fail, ok } from '../utils/response.js'
 import { getPromoConfig } from '../services/promo-config.service.js'
+import { getMysqlPool, isMysqlEnabled } from '../clients/mysql.client.js'
+import { createPromoRequirement } from '../services/turnover.service.js'
 
 const PROMOS = [
   {
@@ -109,6 +111,12 @@ router.post('/trial-play/claim', async (ctx) => {
     createdAt: nowIso(),
     traceId: ctx.state.traceId,
   })
+  if (cfg.trial.turnoverX > 0 && isMysqlEnabled(ctx.state.env)) {
+    const expiresAt = cfg.trial.turnoverDays > 0
+      ? new Date(Date.now() + cfg.trial.turnoverDays * 86400000).toISOString().slice(0, 19).replace('T', ' ')
+      : null
+    await createPromoRequirement(getMysqlPool(ctx.state.env), user.id, 'trial', amount, cfg.trial.turnoverX, expiresAt)
+  }
   ok(ctx, { amountPhp: amount, amountCents: amount })
 })
 
@@ -209,6 +217,12 @@ router.post('/:promoId/claim', async (ctx) => {
       createdAt: nowIso(),
       traceId: ctx.state.traceId,
     })
+    if (cfg.referral.turnoverX > 0 && isMysqlEnabled(ctx.state.env)) {
+      const expiresAt = cfg.referral.turnoverDays > 0
+        ? new Date(Date.now() + cfg.referral.turnoverDays * 86400000).toISOString().slice(0, 19).replace('T', ' ')
+        : null
+      await createPromoRequirement(getMysqlPool(ctx.state.env), user.id, 'referral', amount, cfg.referral.turnoverX, expiresAt)
+    }
     ok(ctx, { amountPhp: amount, amountCents: amount })
     return
   }
@@ -229,6 +243,12 @@ router.post('/:promoId/claim', async (ctx) => {
       createdAt: nowIso(),
       traceId: ctx.state.traceId,
     })
+    if (cfg.firstdep.turnoverX > 0 && isMysqlEnabled(ctx.state.env)) {
+      const expiresAt = cfg.firstdep.turnoverDays > 0
+        ? new Date(Date.now() + cfg.firstdep.turnoverDays * 86400000).toISOString().slice(0, 19).replace('T', ' ')
+        : null
+      await createPromoRequirement(getMysqlPool(ctx.state.env), user.id, 'firstdep', amount, cfg.firstdep.turnoverX, expiresAt)
+    }
     ok(ctx, { amountPhp: amount, amountCents: amount })
     return
   }

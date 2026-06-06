@@ -4,6 +4,7 @@ import { settlePaidDeposit, type DepositCurrency } from '../services/deposit.ser
 import { createTelegramInvoiceLink, orderToTelegramInvoice } from '../services/telegramPayments.js'
 import { getOrFetchDepositAddress } from '../services/matrix.service.js'
 import { isMatrixEnabled } from '../clients/matrix.client.js'
+import { getMysqlPool, isMysqlEnabled } from '../clients/mysql.client.js'
 import { nowIso } from '../utils/format.js'
 import { fail, ok } from '../utils/response.js'
 import { randomOrderId } from '../utils/id.js'
@@ -78,6 +79,7 @@ router.post('/', async (ctx) => {
       usdtToPhpRate: ctx.state.env.USDT_TO_PHP_RATE,
       amountPhpUnits: body.amount,
       currency,
+      mysqlPool: isMysqlEnabled(ctx.state.env) ? getMysqlPool(ctx.state.env) : undefined,
     })
     order.status = 'paid'
     await saveDeposit(ctx.state.redis, order)

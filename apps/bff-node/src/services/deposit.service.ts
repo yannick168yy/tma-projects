@@ -1,4 +1,5 @@
 import type { Redis } from 'ioredis'
+import type { Pool } from 'mysql2/promise'
 import type { DepositOrder } from '../types/domain.js'
 import { REFERRAL_MIN_DEPOSIT_CENTS } from '../constants/referral.js'
 import {
@@ -10,6 +11,7 @@ import {
   saveUser,
 } from './store/index.js'
 import { nowIso } from '../utils/format.js'
+import { createDepositRequirement } from './turnover.service.js'
 
 export type DepositCurrency = 'PHP' | 'USDT' | 'TON'
 
@@ -83,6 +85,7 @@ export async function settlePaidDeposit(
     tonToPhpRate?: number
     amountPhpUnits: number
     currency: DepositCurrency
+    mysqlPool?: Pool
   },
 ): Promise<DepositOrder> {
   const credited = depositAmountToYuan(opts.amountPhpUnits, opts.currency, opts.usdtToPhpRate, opts.tonToPhpRate ?? 0)
@@ -110,6 +113,10 @@ export async function settlePaidDeposit(
 
   await applyFirstDepPromo(redis, order.userId)
   await applyReferralMilestone(redis, order.userId, order.orderId, credited)
+
+  if (opts.mysqlPool) {
+    await createDepositRequirement(opts.mysqlPool, order.userId, order.orderId, credited)
+  }
 
   return order
 }

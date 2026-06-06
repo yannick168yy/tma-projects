@@ -3,9 +3,11 @@ import { randomBytes } from 'node:crypto'
 import { creditWallet, getKyc, getWallet, getWalletBalances, getWithdraw, listWithdrawals, saveWithdraw } from '../services/store.js'
 import { generateMerchantOrderNo, initMatrixWithdrawOrder } from '../services/matrix.service.js'
 import { isMatrixEnabled } from '../clients/matrix.client.js'
+import { getMysqlPool, isMysqlEnabled } from '../clients/mysql.client.js'
 import { nowIso } from '../utils/format.js'
 import { fail, ok } from '../utils/response.js'
 import { randomOrderId } from '../utils/id.js'
+import { canWithdraw as checkTurnover } from '../services/turnover.service.js'
 import type { WithdrawOrder } from '../types/domain.js'
 
 const router = new Router({ prefix: '/withdrawals' })
@@ -19,14 +21,13 @@ router.get('/eligibility', async (ctx) => {
     return
   }
 
-  const wallet = await getWallet(ctx.state.redis, ctx.state.userId!)
-  const kyc = await getKyc(ctx.state.redis, ctx.state.userId!)
+  const userId = ctx.state.userId!
+  const [wallet, kyc] = await Promise.all([
+    getWallet(ctx.state.redis, userId),
+    getKyc(ctx.state.redis, userId),
+  ])
   const kycApproved = kyc?.status === 'approved'
-
-  const multiplier = 3
-  const requiredTurnover = wallet.available * multiplier
-  const completedTurnover = Math.min(requiredTurnover, wallet.available)
-  const turnoverOk = completedTurnover >= requiredTurnover || wallet.available === 0
+  const turnoverOk = !isMysqlEnabled(ctx.state.env) || await checkTurnover(getMysqlPool(ctx.state.env), userId)
 
   ok(ctx, {
     currency,

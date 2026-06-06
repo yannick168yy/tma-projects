@@ -2,6 +2,7 @@ import Router from '@koa/router'
 import { getDeposit, saveDeposit } from '../services/store/index.js'
 import { settlePaidDeposit } from '../services/deposit.service.js'
 import { TON_PENDING_SET, TON_ORDER_TTL_MS } from '../services/ton.service.js'
+import { getMysqlPool, isMysqlEnabled } from '../clients/mysql.client.js'
 import { nowIso } from '../utils/format.js'
 import { fail, ok } from '../utils/response.js'
 import { randomOrderId } from '../utils/id.js'
@@ -60,6 +61,7 @@ router.post('/', async (ctx) => {
       tonToPhpRate: ctx.state.env.TON_TO_PHP_RATE,
       amountPhpUnits: amountTon,
       currency: 'TON',
+      mysqlPool: isMysqlEnabled(ctx.state.env) ? getMysqlPool(ctx.state.env) : undefined,
     })
     await ctx.state.redis.srem(TON_PENDING_SET, orderId)
     ok(ctx, {

@@ -25,9 +25,9 @@ const mockSavePromoConfig = vi.mocked(promoConfigSvc.savePromoConfig)
 const mockGetAdminSession = vi.mocked(adminAuthSvc.getAdminSession)
 
 const DEFAULT_CONFIG = {
-  trial:    { amount: 88, enabled: true },
-  referral: { inviterAmount: 50, inviteeAmount: 30, enabled: true },
-  firstdep: { matchPct: 120, maxBonus: 1000, minDeposit: 100, turnoverX: 15, enabled: true },
+  trial:    { amount: 88, enabled: true, turnoverX: 0, turnoverDays: 0 },
+  referral: { inviterAmount: 50, inviteeAmount: 30, enabled: true, turnoverX: 0, turnoverDays: 0 },
+  firstdep: { matchPct: 120, maxBonus: 1000, minDeposit: 100, turnoverX: 15, turnoverDays: 30, enabled: true },
 }
 
 function createAdminApp() {

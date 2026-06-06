@@ -1,7 +1,8 @@
 import type { FastifyInstance } from 'fastify'
-import type { RowDataPacket } from 'mysql2/promise'
+import type { ResultSetHeader, RowDataPacket } from 'mysql2/promise'
 import type { Redis } from 'ioredis'
 import { lgId, txId } from '../utils/id.js'
+import { allocateBetTurnover, reverseBetTurnover } from './turnover.service.js'
 
 export interface SgCallbackBody {
   action: string
@@ -85,11 +86,12 @@ export class SgCallbackService {
            VALUES (?, ?, 'bet', ?, ?, 'game', ?, ?)`,
           [lgId(), player_id, -amount, bal, round_id ?? null, `${game_uuid} bet`],
         )
-        await conn.execute(
+        const [betResult] = await conn.execute<ResultSetHeader>(
           `INSERT INTO bg_bet_order (user_id, aggregator_id, provider_id, provider_txn_id, round_id, bet_type, amount, currency_code, original_amount, exchange_rate, status)
            VALUES (?, 'slotegrator', ?, ?, ?, 'bet', ?, ?, ?, ?, 'settled')`,
           [player_id, game_uuid, transaction_id ?? null, round_id ?? null, amount, sgCurrency, originalAmt, exchangeRate],
         )
+        const betOrderId = betResult.insertId
         const resp = { balance: bal, transaction_id: txId() }
         if (transaction_id) {
           await conn.execute(
@@ -99,6 +101,10 @@ export class SgCallbackService {
           )
         }
         await conn.commit()
+        // 流水分配在事务提交后异步执行，失败不影响投注结果
+        allocateBetTurnover(db, player_id, betOrderId, amount, game_uuid).catch((err) => {
+          this.app.log.error({ err }, '[turnover] allocateBetTurnover failed')
+        })
         return resp
       } catch (e) {
         await conn.rollback()
@@ -192,6 +198,12 @@ export class SgCallbackService {
             )
           }
           await conn.commit()
+          // 反冲流水（rollback 表示该局投注无效）
+          if (round_id) {
+            reverseBetTurnover(db, player_id, round_id).catch((err) => {
+              this.app.log.error({ err }, '[turnover] reverseBetTurnover failed')
+            })
+          }
           return resp
         }
         await conn.rollback()

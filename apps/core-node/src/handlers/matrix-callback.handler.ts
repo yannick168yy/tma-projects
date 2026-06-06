@@ -1,6 +1,7 @@
 import type { Pool, RowDataPacket } from 'mysql2/promise'
 import type { Redis } from 'ioredis'
 import { lgId } from '../utils/id.js'
+import { createDepositRequirement } from '../services/turnover.service.js'
 
 export interface MatrixDepositNotify {
   notifyType: 1
@@ -128,6 +129,7 @@ async function handleMatrixDeposit(
       `UPDATE bg_deposit_order SET credited = 1, status = 'paid' WHERE order_id = ?`,
       [notify.orderNo],
     )
+    await createDepositRequirement(conn, notify.userId, notify.orderNo, amount)
     await conn.commit()
   } catch (err) {
     await conn.rollback()

@@ -2,6 +2,7 @@ import type { Redis } from 'ioredis'
 import type { Env } from '../config/env.js'
 import { getDeposit, saveDeposit } from './store/index.js'
 import { settlePaidDeposit } from './deposit.service.js'
+import { getMysqlPool, isMysqlEnabled } from '../clients/mysql.client.js'
 
 const TONCENTER_BASE = 'https://toncenter.com/api/v2'
 export const TON_PENDING_SET = 'tma:ton:pending_orders'
@@ -100,6 +101,7 @@ async function checkAndSettleOrder(
     tonToPhpRate: env.TON_TO_PHP_RATE,
     amountPhpUnits: order.amount,
     currency: order.currency as 'TON',
+    mysqlPool: isMysqlEnabled(env) ? getMysqlPool(env) : undefined,
   })
   await redis.srem(TON_PENDING_SET, orderId)
   console.log(`[ton-poller] settled ${orderId} tx=${matchedTx.transaction_id.hash}`)
