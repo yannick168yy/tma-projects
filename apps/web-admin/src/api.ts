@@ -266,7 +266,7 @@ export interface TeamCommission {
   id: number
   beneficiary_id: string; beneficiary_name: string
   from_user_id: string; from_name: string
-  level: number; period: string
+  level: number; period: string; currency: string
   ggr_cents: number; rate_pct: number; commission_cents: number
   status: string; paid_at: string | null; created_at: string
 }
@@ -302,6 +302,7 @@ export interface TeamTreeMember {
   isAgent: boolean
   thisMonthCents: number
   ggrCents: number
+  ggrBreakdown?: { currency: string; ggrCents: number }[]
   children: TeamTreeMember[]
 }
 export const getTeamAgentTree = (userId: string, period?: string) =>

@@ -22,7 +22,17 @@ const menuItems = [
   { key: '/games', icon: <AppstoreOutlined />, label: '游戏管理' },
   { key: '/bet-orders', icon: <TransactionOutlined />, label: '投注记录' },
   { key: '/sg-settlement', icon: <ReconciliationOutlined />, label: '结算对账' },
-  { key: '/team-referral', icon: <ApartmentOutlined />, label: '分销管理' },
+  {
+    key: '/team-referral',
+    icon: <ApartmentOutlined />,
+    label: '分销管理',
+    children: [
+      { key: '/team-referral/agents', label: '代理管理' },
+      { key: '/team-referral/commissions', label: '佣金流水' },
+      { key: '/team-referral/withdrawals', label: '提现审核' },
+      { key: '/team-referral/config', label: '佣金配置' },
+    ],
+  },
   { key: '/promotions', icon: <GiftOutlined />, label: '活动配置' },
   { key: '/audit-log', icon: <FileTextOutlined />, label: '操作日志' },
   { key: '/customer-service', icon: <CustomerServiceOutlined />, label: '客服工作台' },
@@ -92,6 +102,7 @@ export default function AppLayout() {
           theme="dark"
           mode="inline"
           selectedKeys={[location.pathname]}
+          defaultOpenKeys={['/team-referral']}
           items={menuItems}
           onClick={({ key }) => navigate(key)}
         />

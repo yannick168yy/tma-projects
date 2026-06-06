@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ChevronLeft, Copy, Share2, Link2, Wallet, TrendingUp, CheckCircle2, Clock, XCircle, ChevronRight, GitBranch, List } from 'lucide-react'
-import { fetchTeamTree, type TeamTreeNode } from '@/api/promotion'
+import { fetchTeamTree, type TeamTreeNode, type GgrBreakdownItem } from '@/api/promotion'
 import { buildInviteDeepLink, buildInviteWebLink } from '@/constants/telegram'
 import { useAuthStore } from '@/stores/auth'
 import { usePromotionStore } from '@/stores/promotion'
@@ -28,6 +28,21 @@ function phpDisplay(cents: number) {
   const val = (cents ?? 0) / 100
   const abs = Math.abs(val).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
   return (val < 0 ? '-₱' : '₱') + abs
+}
+
+function fmtCurrencyGgr(currency: string, cents: number): string {
+  const val = cents / 100
+  const absVal = Math.abs(val)
+  const str = absVal % 1 === 0 ? String(absVal) : absVal.toFixed(2).replace(/\.?0+$/, '')
+  if (currency === 'PHP') return (val < 0 ? '-₱' : '₱') + str
+  return (val < 0 ? '-' : '') + str + currency
+}
+
+function ggrText(ggrCents: number, breakdown?: GgrBreakdownItem[]): string {
+  const total = phpDisplay(ggrCents)
+  if (!breakdown || breakdown.length <= 1) return `GGR ${total}`
+  const detail = breakdown.map(b => fmtCurrencyGgr(b.currency, b.ggrCents)).join(',')
+  return `GGR ${total}(${detail})`
 }
 
 const statusColor: Record<string, string> = {
@@ -66,7 +81,7 @@ function TreeNodeRow({ node, depth, expandedIds, onToggle }: {
         <div className="flex-1 min-w-0 mr-2">
           <p className="text-sm font-medium text-foreground truncate leading-none mb-0.5">{node.displayName}</p>
           {node.ggrCents !== 0 && (
-            <p className={`text-[10px] leading-none ${node.ggrCents < 0 ? 'text-red-400' : 'text-muted-foreground'}`}>GGR {phpDisplay(node.ggrCents)}</p>
+            <p className={`text-[10px] leading-none ${node.ggrCents < 0 ? 'text-red-400' : 'text-muted-foreground'}`}>{ggrText(node.ggrCents, node.ggrBreakdown)}</p>
           )}
         </div>
         {node.thisMonthCents !== 0 && (
@@ -199,10 +214,9 @@ export default function TeamCenterPage({ onClose }: Props) {
   return (
     <div className="h-full bg-background flex flex-col overflow-hidden">
 
-      {/* ── 顶部栏 ── */}
-      <div className="flex items-center gap-3 border-b border-border px-4 py-3 flex-shrink-0">
-        <button type="button" className="flex-shrink-0 text-muted-foreground" onClick={onClose}><ChevronLeft size={22} /></button>
-        <h2 className="flex-1 text-sm font-bold text-foreground">{t('team.title')}</h2>
+      {/* ── 顶部栏（精简，只保留返回和AGENT标识）── */}
+      <div className="flex items-center justify-between border-b border-border px-3 py-2 flex-shrink-0">
+        <button type="button" className="text-muted-foreground p-1" onClick={onClose}><ChevronLeft size={20} /></button>
         <span className="text-xs font-black text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded-full">AGENT</span>
       </div>
 
@@ -342,7 +356,7 @@ export default function TeamCenterPage({ onClose }: Props) {
                     <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full flex-shrink-0 ${levelBadge[item.level]}`}>L{item.level}</span>
                     <div className="flex-1 min-w-0">
                       <p className="text-foreground font-bold text-xs leading-none mb-0.5">{item.displayName}</p>
-                      <p className={`text-[10px] ${item.ggrCents < 0 ? 'text-red-400/70' : 'text-muted-foreground'}`}>GGR {phpDisplay(item.ggrCents)} × {item.ratePct}%</p>
+                      <p className={`text-[10px] ${item.ggrCents < 0 ? 'text-red-400/70' : 'text-muted-foreground'}`}>{fmtCurrencyGgr(item.currency ?? 'PHP', item.ggrCents)} GGR × {item.ratePct}%</p>
                     </div>
                     <div className="text-right flex-shrink-0">
                       <p className={`font-black text-sm leading-none ${item.commissionCents < 0 ? 'text-red-400' : 'text-amber-400'}`}>{phpDisplay(item.commissionCents)}</p>

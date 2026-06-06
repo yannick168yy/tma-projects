@@ -63,7 +63,9 @@ export interface TeamCommissionItem {
   fromUserId: string
   displayName: string
   level: number
+  currency: string
   ggrCents: number
+  phpEquivCents: number
   ratePct: number
   commissionCents: number
   status: string
@@ -107,12 +109,15 @@ export async function fetchTeamWithdrawals(page: number): Promise<{ items: TeamW
   return apiRequest(`/promotions/team/withdrawals?page=${page}`)
 }
 
+export interface GgrBreakdownItem { currency: string; ggrCents: number }
+
 export interface TeamTreeNode {
   userId: string
   displayName: string
   isAgent: boolean
   thisMonthCents: number
   ggrCents: number
+  ggrBreakdown?: GgrBreakdownItem[]
   children: TeamTreeNode[]
 }
 

@@ -15,6 +15,7 @@ import CsFaq from './views/CsFaq'
 import BetOrders from './views/BetOrders'
 import SgSettlement from './views/SgSettlement'
 import TeamReferral from './views/TeamReferral'
+import TeamReferralConfig from './views/TeamReferralConfig'
 import Promotions from './views/Promotions'
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
@@ -49,7 +50,11 @@ export default function App() {
           <Route path="cs-faq" element={<CsFaq />} />
           <Route path="bet-orders" element={<BetOrders />} />
           <Route path="sg-settlement" element={<SgSettlement />} />
-          <Route path="team-referral" element={<TeamReferral />} />
+          <Route path="team-referral" element={<Navigate to="/team-referral/agents" replace />} />
+          <Route path="team-referral/agents" element={<TeamReferral tab="agents" />} />
+          <Route path="team-referral/commissions" element={<TeamReferral tab="commissions" />} />
+          <Route path="team-referral/withdrawals" element={<TeamReferral tab="withdrawals" />} />
+          <Route path="team-referral/config" element={<TeamReferralConfig />} />
           <Route path="promotions" element={<Promotions />} />
         </Route>
         <Route path="*" element={<Navigate to="/dashboard" replace />} />

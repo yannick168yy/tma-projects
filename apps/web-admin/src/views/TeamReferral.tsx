@@ -1,18 +1,36 @@
 import { useEffect, useState } from 'react'
-import { Row, Col, Statistic, Card, Form, InputNumber, Button, Input, Select, Popconfirm, Table, Tabs, Tag, Modal, message, Tree, Spin, Space, DatePicker } from 'antd'
+import { Row, Col, Statistic, Input, Select, Popconfirm, Table, Tag, Modal, message, Tree, Spin, Space, DatePicker, Button } from 'antd'
 import type { TablePaginationConfig } from 'antd'
 import dayjs from 'dayjs'
 import {
   getTeamOverview, getTeamAgents, getTeamCommissions, getTeamWithdrawals,
-  getTeamConfig, updateTeamConfig, triggerTeamSettle,
   approveTeamWithdrawal, rejectTeamWithdrawal, getTeamAgentTree,
-  type TeamOverview, type TeamAgent, type TeamCommission, type TeamWithdrawalAdmin, type TeamConfig, type TeamTreeMember,
+  type TeamOverview, type TeamAgent, type TeamCommission, type TeamWithdrawalAdmin, type TeamTreeMember,
 } from '../api'
 
 interface TreeNodeItem { key: string; title: React.ReactNode; children?: TreeNodeItem[] }
 
+type GgrBreakdownItem = { currency: string; ggrCents: number }
+
+function fmtGgrAmount(currency: string, cents: number): string {
+  const val = cents / 100
+  const absStr = Math.abs(val) % 1 === 0
+    ? String(Math.abs(val))
+    : Math.abs(val).toFixed(2).replace(/\.?0+$/, '')
+  if (currency === 'PHP') return (val < 0 ? '-₱' : '₱') + absStr
+  return (val < 0 ? '-' : '') + absStr + currency
+}
+
+function ggrLabel(ggrCents: number, breakdown: GgrBreakdownItem[]): string {
+  const total = phpDisplay(ggrCents)
+  if (breakdown.length <= 1) return `GGR ${total}`
+  const detail = breakdown.map(b => fmtGgrAmount(b.currency, b.ggrCents)).join(',')
+  return `GGR ${total}(${detail})`
+}
+
 function buildTreeNode(m: TeamTreeMember, level: 1 | 2 | 3): TreeNodeItem {
   const levelColor = level === 1 ? 'gold' : level === 2 ? 'blue' : 'green'
+  const breakdown = (m as TeamTreeMember & { ggrBreakdown?: GgrBreakdownItem[] }).ggrBreakdown ?? []
   return {
     key: `l${level}-${m.userId}`,
     title: (
@@ -22,7 +40,7 @@ function buildTreeNode(m: TeamTreeMember, level: 1 | 2 | 3): TreeNodeItem {
         <span style={{ color: '#bbb', fontSize: 11 }}>{m.userId}</span>
         {m.isAgent && <Tag color="purple" style={{ fontSize: 10, padding: '0 4px', margin: 0, lineHeight: '16px' }}>代理</Tag>}
         {m.thisMonthCents !== 0 && <span style={{ color: m.thisMonthCents < 0 ? '#ff4d4f' : '#1677ff', fontSize: 11 }}>{m.thisMonthCents < 0 ? '-₱' : '₱'}{Math.abs(m.thisMonthCents / 100).toFixed(2)}</span>}
-        {m.ggrCents !== 0 && <span style={{ color: m.ggrCents < 0 ? '#ff4d4f' : '#999', fontSize: 11 }}>GGR {m.ggrCents < 0 ? '-₱' : '₱'}{Math.abs(m.ggrCents / 100).toFixed(2)}</span>}
+        {m.ggrCents !== 0 && <span style={{ color: m.ggrCents < 0 ? '#ff4d4f' : '#999', fontSize: 11 }}>{ggrLabel(m.ggrCents, breakdown)}</span>}
       </span>
     ),
     children: m.children.length > 0 ? m.children.map((c) => buildTreeNode(c, (level + 1) as 2 | 3)) : undefined,
@@ -48,13 +66,10 @@ function wdColor(s: string) {
   return s === 'approved' ? 'green' : s === 'pending' ? 'orange' : s === 'rejected' ? 'red' : 'default'
 }
 
-export default function TeamReferral() {
+interface Props { tab: 'agents' | 'commissions' | 'withdrawals' }
+
+export default function TeamReferral({ tab }: Props) {
   const [overview, setOverview] = useState<TeamOverview>({ activeAgents: 0, thisMonthCommissionCents: 0, pendingWithdrawalCount: 0, pendingWithdrawalCents: 0 })
-  const [configForm] = Form.useForm<TeamConfig>()
-  const [configSaving, setConfigSaving] = useState(false)
-  const [settling, setSettling] = useState(false)
-  const [settlePeriod, setSettlePeriod] = useState(currentPeriod())
-  const [activeTab, setActiveTab] = useState('agents')
 
   const [agentSearch, setAgentSearch] = useState('')
   const [agents, setAgents] = useState<TeamAgent[]>([])
@@ -86,30 +101,6 @@ export default function TeamReferral() {
   async function loadOverview() {
     const data = await getTeamOverview()
     setOverview(data)
-  }
-
-  async function loadConfig() {
-    const cfg = await getTeamConfig()
-    configForm.setFieldsValue(cfg)
-  }
-
-  async function saveConfig() {
-    const values = configForm.getFieldsValue()
-    setConfigSaving(true)
-    try {
-      await updateTeamConfig(values)
-      message.success('配置已保存')
-    } catch { message.error('保存失败') }
-    finally { setConfigSaving(false) }
-  }
-
-  async function doSettle() {
-    setSettling(true)
-    try {
-      await triggerTeamSettle(settlePeriod)
-      message.success(`${settlePeriod} 结算已触发，后台处理中`)
-    } catch (e) { message.error(e instanceof Error ? e.message : '触发失败') }
-    finally { setSettling(false) }
   }
 
   async function loadTreeData(agent: TeamAgent, period: string) {
@@ -188,8 +179,11 @@ export default function TeamReferral() {
   }
 
   useEffect(() => {
-    void loadOverview(); void loadConfig(); void loadAgents(1); void loadWithdrawals(1)
-  }, [])
+    void loadOverview()
+    if (tab === 'agents') void loadAgents(1)
+    if (tab === 'commissions') void loadCommissions(1)
+    if (tab === 'withdrawals') void loadWithdrawals(1)
+  }, [tab])
 
   const agentCols = [
     { title: '用户ID', dataIndex: 'userId', key: 'userId', width: 110 },
@@ -220,9 +214,10 @@ export default function TeamReferral() {
     { title: '收益人', dataIndex: 'beneficiary_name', key: 'beneficiary' },
     { title: '下线', dataIndex: 'from_name', key: 'from' },
     { title: '层级', dataIndex: 'level', key: 'level', width: 60 },
-    { title: 'GGR', key: 'ggr', width: 110, render: (_: unknown, r: TeamCommission) => phpCell(r.ggr_cents) },
+    { title: '货币', dataIndex: 'currency', key: 'currency', width: 70 },
+    { title: 'GGR', key: 'ggr', width: 120, render: (_: unknown, r: TeamCommission) => phpCell(r.ggr_cents) },
     { title: '费率', dataIndex: 'rate_pct', key: 'rate', width: 70 },
-    { title: '佣金', key: 'commission', width: 110, render: (_: unknown, r: TeamCommission) => phpCell(r.commission_cents) },
+    { title: '佣金', key: 'commission', width: 120, render: (_: unknown, r: TeamCommission) => phpCell(r.commission_cents) },
     { title: '状态', key: 'status', width: 90, render: (_: unknown, r: TeamCommission) => <Tag color={r.status === 'paid' ? 'green' : r.status === 'pending' ? 'orange' : 'default'}>{r.status}</Tag> },
   ]
 
@@ -250,78 +245,52 @@ export default function TeamReferral() {
   const commPagination: TablePaginationConfig = { current: commissionsPage, pageSize: 50, total: commissionsTotal, showTotal: (t) => `共 ${t} 条`, onChange: (p) => loadCommissions(p) }
   const wdPagination: TablePaginationConfig = { current: withdrawalsPage, pageSize: 20, total: withdrawalsTotal, showTotal: (t) => `共 ${t} 条`, onChange: (p) => loadWithdrawals(p) }
 
+  const pageTitle = tab === 'agents' ? '代理管理' : tab === 'commissions' ? '佣金流水' : '提现审核'
+
   return (
     <div>
-      <h2 style={{ marginBottom: 16 }}>三级分销管理</h2>
+      <h2 style={{ marginBottom: 16 }}>三级分销 · {pageTitle}</h2>
 
-      <Row gutter={16} style={{ marginBottom: 20 }}>
-        <Col span={6}><Statistic title="活跃代理" value={overview.activeAgents} /></Col>
-        <Col span={6}><Statistic title="本月佣金总额" value={phpDisplay(overview.thisMonthCommissionCents)} /></Col>
-        <Col span={6}><Statistic title="待审提现笔数" value={overview.pendingWithdrawalCount} /></Col>
-        <Col span={6}><Statistic title="待审提现金额" value={phpDisplay(overview.pendingWithdrawalCents)} /></Col>
-      </Row>
+      {tab === 'agents' && (
+        <Row gutter={16} style={{ marginBottom: 20 }}>
+          <Col span={6}><Statistic title="活跃代理" value={overview.activeAgents} /></Col>
+          <Col span={6}><Statistic title="本月佣金总额" value={phpDisplay(overview.thisMonthCommissionCents)} /></Col>
+          <Col span={6}><Statistic title="待审提现笔数" value={overview.pendingWithdrawalCount} /></Col>
+          <Col span={6}><Statistic title="待审提现金额" value={phpDisplay(overview.pendingWithdrawalCents)} /></Col>
+        </Row>
+      )}
 
-      <Card title="佣金配置" style={{ marginBottom: 20 }}>
-        <Form form={configForm} layout="inline" onFinish={saveConfig}>
-          <Form.Item label="L1 比率(%)" name="l1_rate_pct"><InputNumber min={0} max={100} step={0.5} style={{ width: 90 }} /></Form.Item>
-          <Form.Item label="L2 比率(%)" name="l2_rate_pct"><InputNumber min={0} max={100} step={0.5} style={{ width: 90 }} /></Form.Item>
-          <Form.Item label="L3 比率(%)" name="l3_rate_pct"><InputNumber min={0} max={100} step={0.5} style={{ width: 90 }} /></Form.Item>
-          <Form.Item label="激活门槛(分)" name="min_activation_cents"><InputNumber min={0} style={{ width: 110 }} /></Form.Item>
-          <Form.Item label="最低提现(分)" name="min_withdrawal_cents"><InputNumber min={0} style={{ width: 110 }} /></Form.Item>
-          <Form.Item label="结算日(每月)" name="settlement_day"><InputNumber min={1} max={28} style={{ width: 80 }} /></Form.Item>
-          <Form.Item label="结算时(PHT)" name="settlement_hour"><InputNumber min={0} max={23} style={{ width: 80 }} /></Form.Item>
-          <Form.Item><Button type="primary" htmlType="submit" loading={configSaving}>保存配置</Button></Form.Item>
-          <Form.Item>
-            <Popconfirm title={`确认触发 ${settlePeriod} 月结算？`} onConfirm={doSettle}>
-              <Input.Group compact>
-                <Input value={settlePeriod} onChange={(e) => setSettlePeriod(e.target.value)} style={{ width: 110 }} placeholder="YYYY-MM" />
-                <Button loading={settling}>触发结算</Button>
-              </Input.Group>
-            </Popconfirm>
-          </Form.Item>
-        </Form>
-      </Card>
+      {tab === 'agents' && (
+        <div>
+          <div style={{ marginBottom: 12, display: 'flex', gap: 8 }}>
+            <Input value={agentSearch} onChange={(e) => setAgentSearch(e.target.value)} placeholder="搜索用户ID/昵称" allowClear style={{ width: 200 }} />
+            <Button type="primary" onClick={() => loadAgents(1)}>查询</Button>
+          </div>
+          <Table columns={agentCols} dataSource={agents} loading={agentsLoading} pagination={agentPagination} rowKey="userId" size="small" />
+        </div>
+      )}
 
-      <Tabs activeKey={activeTab} onChange={setActiveTab} items={[
-        {
-          key: 'agents', label: '代理列表',
-          children: (
-            <div>
-              <div style={{ marginBottom: 12, display: 'flex', gap: 8 }}>
-                <Input value={agentSearch} onChange={(e) => setAgentSearch(e.target.value)} placeholder="搜索用户ID/昵称" allowClear style={{ width: 200 }} />
-                <Button type="primary" onClick={() => loadAgents(1)}>查询</Button>
-              </div>
-              <Table columns={agentCols} dataSource={agents} loading={agentsLoading} pagination={agentPagination} rowKey="userId" size="small" />
-            </div>
-          ),
-        },
-        {
-          key: 'commissions', label: '佣金流水',
-          children: (
-            <div>
-              <div style={{ marginBottom: 12, display: 'flex', gap: 8 }}>
-                <Input value={commFilter.period} onChange={(e) => setCommFilter((f) => ({ ...f, period: e.target.value }))} placeholder="月份 YYYY-MM" allowClear style={{ width: 130 }} />
-                <Input value={commFilter.beneficiaryId} onChange={(e) => setCommFilter((f) => ({ ...f, beneficiaryId: e.target.value }))} placeholder="收益人ID" allowClear style={{ width: 150 }} />
-                <Select value={commFilter.status} placeholder="状态" allowClear style={{ width: 110 }} onChange={(v) => setCommFilter((f) => ({ ...f, status: v }))} options={[{ value: 'pending', label: 'pending' }, { value: 'paid', label: 'paid' }, { value: 'voided', label: 'voided' }]} />
-                <Button type="primary" onClick={() => loadCommissions(1)}>查询</Button>
-              </div>
-              <Table columns={commCols} dataSource={commissions} loading={commissionsLoading} pagination={commPagination} rowKey="id" size="small" />
-            </div>
-          ),
-        },
-        {
-          key: 'withdrawals', label: '提现审核',
-          children: (
-            <div>
-              <div style={{ marginBottom: 12, display: 'flex', gap: 8 }}>
-                <Select value={wdStatusFilter} placeholder="状态" allowClear style={{ width: 130 }} onChange={setWdStatusFilter} options={[{ value: 'pending', label: 'pending' }, { value: 'approved', label: 'approved' }, { value: 'rejected', label: 'rejected' }]} />
-                <Button type="primary" onClick={() => loadWithdrawals(1)}>查询</Button>
-              </div>
-              <Table columns={wdCols} dataSource={withdrawals} loading={withdrawalsLoading} pagination={wdPagination} rowKey="id" size="small" />
-            </div>
-          ),
-        },
-      ]} />
+      {tab === 'commissions' && (
+        <div>
+          <div style={{ marginBottom: 12, display: 'flex', gap: 8 }}>
+            <Input value={commFilter.period} onChange={(e) => setCommFilter((f) => ({ ...f, period: e.target.value }))} placeholder="月份 YYYY-MM" allowClear style={{ width: 130 }} />
+            <Input value={commFilter.beneficiaryId} onChange={(e) => setCommFilter((f) => ({ ...f, beneficiaryId: e.target.value }))} placeholder="收益人ID" allowClear style={{ width: 150 }} />
+            <Select value={commFilter.status} placeholder="状态" allowClear style={{ width: 110 }} onChange={(v) => setCommFilter((f) => ({ ...f, status: v }))} options={[{ value: 'pending', label: 'pending' }, { value: 'paid', label: 'paid' }, { value: 'voided', label: 'voided' }]} />
+            <Button type="primary" onClick={() => loadCommissions(1)}>查询</Button>
+          </div>
+          <Table columns={commCols} dataSource={commissions} loading={commissionsLoading} pagination={commPagination} rowKey="id" size="small" />
+        </div>
+      )}
+
+      {tab === 'withdrawals' && (
+        <div>
+          <div style={{ marginBottom: 12, display: 'flex', gap: 8 }}>
+            <Select value={wdStatusFilter} placeholder="状态" allowClear style={{ width: 130 }} onChange={setWdStatusFilter} options={[{ value: 'pending', label: 'pending' }, { value: 'approved', label: 'approved' }, { value: 'rejected', label: 'rejected' }]} />
+            <Button type="primary" onClick={() => loadWithdrawals(1)}>查询</Button>
+          </div>
+          <Table columns={wdCols} dataSource={withdrawals} loading={withdrawalsLoading} pagination={wdPagination} rowKey="id" size="small" />
+        </div>
+      )}
 
       <Modal open={rejectModal.visible} title="驳回原因" onOk={doReject} confirmLoading={opLoading} onCancel={() => setRejectModal((m) => ({ ...m, visible: false }))}>
         <Input value={rejectModal.reason} onChange={(e) => setRejectModal((m) => ({ ...m, reason: e.target.value }))} placeholder="请输入驳回原因" />
