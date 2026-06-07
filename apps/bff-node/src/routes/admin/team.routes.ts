@@ -97,6 +97,11 @@ router.get('/agents/:userId/tree', async (ctx) => {
   const startDate = new Date(Date.UTC(year, month - 1, 1) - PHT_OFFSET_MS)
   const endDate   = new Date(Date.UTC(year, month,     1) - PHT_OFFSET_MS)
 
+  const [[cfg]] = await db.query<RowDataPacket[]>(
+    `SELECT l1_rate_pct, l2_rate_pct, l3_rate_pct FROM bg_team_config WHERE id = 1 LIMIT 1`
+  )
+  const rates = [0, Number(cfg?.l1_rate_pct ?? 25), Number(cfg?.l2_rate_pct ?? 8), Number(cfg?.l3_rate_pct ?? 3)]
+
   function ggrSub(levelCol: string) {
     return `
       SELECT pc.user_id,
@@ -126,7 +131,7 @@ router.get('/agents/:userId/tree', async (ctx) => {
   const [l1Rows] = await db.query<RowDataPacket[]>(
     `SELECT tn.user_id, tn.opted_in, u.display_name,
             COALESCE(g.ggr_cents, 0) AS ggr_cents, g.ggr_breakdown,
-            COALESCE(c.commission_cents, 0) AS commission_cents
+            c.commission_cents
      FROM bg_team_node tn JOIN bg_user u ON u.id = tn.user_id
      LEFT JOIN (${ggrSub('l1_referrer_id')}) g ON g.user_id = tn.user_id
      LEFT JOIN (${commSub(1)}) c ON c.from_user_id = tn.user_id
@@ -136,7 +141,7 @@ router.get('/agents/:userId/tree', async (ctx) => {
   const [l2Rows] = await db.query<RowDataPacket[]>(
     `SELECT tn.user_id, tn.l1_referrer_id, tn.opted_in, u.display_name,
             COALESCE(g.ggr_cents, 0) AS ggr_cents, g.ggr_breakdown,
-            COALESCE(c.commission_cents, 0) AS commission_cents
+            c.commission_cents
      FROM bg_team_node tn JOIN bg_user u ON u.id = tn.user_id
      LEFT JOIN (${ggrSub('l2_referrer_id')}) g ON g.user_id = tn.user_id
      LEFT JOIN (${commSub(2)}) c ON c.from_user_id = tn.user_id
@@ -146,7 +151,7 @@ router.get('/agents/:userId/tree', async (ctx) => {
   const [l3Rows] = await db.query<RowDataPacket[]>(
     `SELECT tn.user_id, tn.l1_referrer_id, tn.opted_in, u.display_name,
             COALESCE(g.ggr_cents, 0) AS ggr_cents, g.ggr_breakdown,
-            COALESCE(c.commission_cents, 0) AS commission_cents
+            c.commission_cents
      FROM bg_team_node tn JOIN bg_user u ON u.id = tn.user_id
      LEFT JOIN (${ggrSub('l3_referrer_id')}) g ON g.user_id = tn.user_id
      LEFT JOIN (${commSub(3)}) c ON c.from_user_id = tn.user_id
@@ -162,29 +167,37 @@ router.get('/agents/:userId/tree', async (ctx) => {
     return (arr as GgrBreakdownItem[]).filter(b => b.ggrCents !== 0)
   }
 
+  function toCommCents(raw: unknown, ggrCents: number, level: 1 | 2 | 3): number {
+    if (raw !== null && raw !== undefined) return Number(raw)
+    return Math.round(ggrCents * rates[level] / 100)
+  }
+
   const l1Map = new Map<string, NodeData>()
   for (const r of l1Rows) {
+    const ggrCents = Number(r.ggr_cents)
     l1Map.set(String(r.user_id), {
       userId: String(r.user_id), displayName: String(r.display_name),
-      isAgent: Boolean(r.opted_in), thisMonthCents: Number(r.commission_cents),
-      ggrCents: Number(r.ggr_cents), ggrBreakdown: parseBreakdown(r.ggr_breakdown), children: [],
+      isAgent: Boolean(r.opted_in), thisMonthCents: toCommCents(r.commission_cents, ggrCents, 1),
+      ggrCents, ggrBreakdown: parseBreakdown(r.ggr_breakdown), children: [],
     })
   }
   const l2Map = new Map<string, NodeData>()
   for (const r of l2Rows) {
+    const ggrCents = Number(r.ggr_cents)
     const node: NodeData = {
       userId: String(r.user_id), displayName: String(r.display_name),
-      isAgent: Boolean(r.opted_in), thisMonthCents: Number(r.commission_cents),
-      ggrCents: Number(r.ggr_cents), ggrBreakdown: parseBreakdown(r.ggr_breakdown), children: [],
+      isAgent: Boolean(r.opted_in), thisMonthCents: toCommCents(r.commission_cents, ggrCents, 2),
+      ggrCents, ggrBreakdown: parseBreakdown(r.ggr_breakdown), children: [],
     }
     l2Map.set(node.userId, node)
     l1Map.get(String(r.l1_referrer_id))?.children.push(node)
   }
   for (const r of l3Rows) {
+    const ggrCents = Number(r.ggr_cents)
     const node: NodeData = {
       userId: String(r.user_id), displayName: String(r.display_name),
-      isAgent: Boolean(r.opted_in), thisMonthCents: Number(r.commission_cents),
-      ggrCents: Number(r.ggr_cents), ggrBreakdown: parseBreakdown(r.ggr_breakdown), children: [],
+      isAgent: Boolean(r.opted_in), thisMonthCents: toCommCents(r.commission_cents, ggrCents, 3),
+      ggrCents, ggrBreakdown: parseBreakdown(r.ggr_breakdown), children: [],
     }
     l2Map.get(String(r.l1_referrer_id))?.children.push(node)
   }
