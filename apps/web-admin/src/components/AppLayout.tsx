@@ -1,13 +1,12 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Outlet, useNavigate, useLocation } from 'react-router-dom'
 import {
   Layout, Menu, Dropdown, Button, Modal, Form, Input, message,
 } from 'antd'
 import {
-  DashboardOutlined, TeamOutlined, ArrowDownOutlined, ArrowUpOutlined,
-  FileTextOutlined, UserOutlined, DownOutlined, AppstoreOutlined, SettingOutlined,
-  CustomerServiceOutlined, BookOutlined, SwapOutlined, TransactionOutlined,
-  ReconciliationOutlined, ApartmentOutlined, GiftOutlined,
+  DashboardOutlined, TeamOutlined, UserOutlined, DownOutlined,
+  AppstoreOutlined, SettingOutlined, CustomerServiceOutlined,
+  TransactionOutlined, ApartmentOutlined,
 } from '@ant-design/icons'
 import { useAuthStore } from '../stores/auth'
 import { adminChangePassword } from '../api'
@@ -17,13 +16,28 @@ const { Sider, Header, Content } = Layout
 const menuItems = [
   { key: '/dashboard', icon: <DashboardOutlined />, label: '数据概览' },
   { key: '/users', icon: <TeamOutlined />, label: '用户管理' },
-  { key: '/deposits', icon: <ArrowDownOutlined />, label: '存款管理' },
-  { key: '/withdrawals', icon: <ArrowUpOutlined />, label: '提款审批' },
-  { key: '/games', icon: <AppstoreOutlined />, label: '游戏管理' },
-  { key: '/bet-orders', icon: <TransactionOutlined />, label: '投注记录' },
-  { key: '/sg-settlement', icon: <ReconciliationOutlined />, label: '结算对账' },
   {
-    key: '/team-referral',
+    key: 'finance',
+    icon: <TransactionOutlined />,
+    label: '财务管理',
+    children: [
+      { key: '/deposits', label: '存款管理' },
+      { key: '/withdrawals', label: '提款审批' },
+      { key: '/sg-settlement', label: '结算对账' },
+    ],
+  },
+  {
+    key: 'content',
+    icon: <AppstoreOutlined />,
+    label: '游戏内容',
+    children: [
+      { key: '/games', label: '游戏管理' },
+      { key: '/bet-orders', label: '投注记录' },
+      { key: '/promotions', label: '活动配置' },
+    ],
+  },
+  {
+    key: 'team',
     icon: <ApartmentOutlined />,
     label: '分销管理',
     children: [
@@ -33,13 +47,35 @@ const menuItems = [
       { key: '/team-referral/config', label: '佣金配置' },
     ],
   },
-  { key: '/promotions', icon: <GiftOutlined />, label: '活动配置' },
-  { key: '/audit-log', icon: <FileTextOutlined />, label: '操作日志' },
-  { key: '/customer-service', icon: <CustomerServiceOutlined />, label: '客服工作台' },
-  { key: '/cs-faq', icon: <BookOutlined />, label: '知识库管理' },
-  { key: '/exchange-rates', icon: <SwapOutlined />, label: '汇率管理' },
-  { key: '/settings', icon: <SettingOutlined />, label: '系统设置' },
+  {
+    key: 'cs',
+    icon: <CustomerServiceOutlined />,
+    label: '客服系统',
+    children: [
+      { key: '/customer-service', label: '客服工作台' },
+      { key: '/cs-faq', label: '知识库管理' },
+    ],
+  },
+  {
+    key: 'system',
+    icon: <SettingOutlined />,
+    label: '系统管理',
+    children: [
+      { key: '/exchange-rates', label: '汇率管理' },
+      { key: '/audit-log', label: '操作日志' },
+      { key: '/settings', label: '系统设置' },
+    ],
+  },
 ]
+
+function getDefaultOpenKey(pathname: string): string {
+  if (['/deposits', '/withdrawals', '/sg-settlement'].some((p) => pathname.startsWith(p))) return 'finance'
+  if (['/games', '/bet-orders', '/promotions'].some((p) => pathname.startsWith(p))) return 'content'
+  if (pathname.startsWith('/team-referral')) return 'team'
+  if (['/customer-service', '/cs-faq'].some((p) => pathname.startsWith(p))) return 'cs'
+  if (['/exchange-rates', '/audit-log', '/settings'].some((p) => pathname.startsWith(p))) return 'system'
+  return ''
+}
 
 export default function AppLayout() {
   const navigate = useNavigate()
@@ -49,6 +85,7 @@ export default function AppLayout() {
   const [showPwdModal, setShowPwdModal] = useState(false)
   const [pwdLoading, setPwdLoading] = useState(false)
   const [form] = Form.useForm<{ current: string; newPwd: string; confirm: string }>()
+  const defaultOpenKeys = useMemo(() => { const k = getDefaultOpenKey(location.pathname); return k ? [k] : [] }, [])
 
   async function handleChangePwd() {
     const values = form.getFieldsValue()
@@ -102,7 +139,7 @@ export default function AppLayout() {
           theme="dark"
           mode="inline"
           selectedKeys={[location.pathname]}
-          defaultOpenKeys={['/team-referral']}
+          defaultOpenKeys={defaultOpenKeys}
           items={menuItems}
           onClick={({ key }) => navigate(key)}
         />
