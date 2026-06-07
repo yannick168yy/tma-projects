@@ -15,7 +15,7 @@ router.get('/overview', async (ctx) => {
       `SELECT COUNT(*) AS cnt FROM bg_team_node WHERE opted_in = 1`,
     ),
     db.query<RowDataPacket[]>(
-      `SELECT COALESCE(SUM(commission_cents), 0) AS total
+      `SELECT COALESCE(SUM(php_equivalent_cents), 0) AS total
        FROM bg_team_commission WHERE period = ? AND status = 'paid'`,
       [period],
     ),
@@ -57,7 +57,7 @@ router.get('/agents', async (ctx) => {
             (SELECT COUNT(*) FROM bg_team_node WHERE l1_referrer_id = tn.user_id) AS l1_count,
             (SELECT COUNT(*) FROM bg_team_node WHERE l2_referrer_id = tn.user_id) AS l2_count,
             (SELECT COUNT(*) FROM bg_team_node WHERE l3_referrer_id = tn.user_id) AS l3_count,
-            COALESCE((SELECT SUM(commission_cents) FROM bg_team_commission
+            COALESCE((SELECT SUM(php_equivalent_cents) FROM bg_team_commission
                       WHERE beneficiary_id = tn.user_id AND period = ?), 0) AS this_month_cents,
             COALESCE(tw.lifetime_earned_cents, 0) AS lifetime_cents
      FROM bg_team_node tn

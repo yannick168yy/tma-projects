@@ -21,11 +21,10 @@ function fmtGgrAmount(currency: string, cents: number): string {
   return (val < 0 ? '-' : '') + absStr + currency
 }
 
-function ggrLabel(ggrCents: number, breakdown: GgrBreakdownItem[]): string {
-  const total = phpDisplay(ggrCents)
-  if (breakdown.length <= 1) return `GGR ${total}`
-  const detail = breakdown.map(b => fmtGgrAmount(b.currency, b.ggrCents)).join(',')
-  return `GGR ${total}(${detail})`
+function ggrLabel(_ggrCents: number, breakdown: GgrBreakdownItem[]): string {
+  if (breakdown.length === 0) return 'GGR'
+  if (breakdown.length === 1) return `GGR ${fmtGgrAmount(breakdown[0].currency, breakdown[0].ggrCents)}`
+  return `GGR ${breakdown.map(b => fmtGgrAmount(b.currency, b.ggrCents)).join(', ')}`
 }
 
 function buildTreeNode(m: TeamTreeMember, level: 1 | 2 | 3): TreeNodeItem {
