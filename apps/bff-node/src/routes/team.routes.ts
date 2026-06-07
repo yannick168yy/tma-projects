@@ -274,45 +274,50 @@ router.get('/tree', async (ctx) => {
   const startDate = new Date(Date.UTC(year, month - 1, 1) - PHT_OFFSET_MS)
   const endDate   = new Date(Date.UTC(year, month,     1) - PHT_OFFSET_MS)
 
-  // 实时 GGR 子查询：先按 (user_id, currency_code) 分组，再聚合为每个用户的汇总
-  const ggrSub = `
-    SELECT user_id,
-           ROUND(SUM(ggr_amount) * 100) AS ggr_cents,
-           JSON_ARRAYAGG(JSON_OBJECT('currency', currency_code, 'ggrCents', ROUND(ggr_amount * 100))) AS ggr_breakdown
-    FROM (
-      SELECT user_id, currency_code,
-             SUM(CASE WHEN bet_type='bet' THEN amount ELSE 0 END) -
-             SUM(CASE WHEN bet_type='win' THEN amount ELSE 0 END) AS ggr_amount
-      FROM bg_bet_order
-      WHERE created_at >= ? AND created_at < ?
-        AND bet_type IN ('bet','win') AND status = 'settled'
-      GROUP BY user_id, currency_code
-    ) pc
-    GROUP BY user_id`
+  // 实时 GGR 子查询：内部先 JOIN bg_team_node 过滤出目标成员，
+  // 再按 (user_id, currency_code) 分组，确保 MySQL 能走 idx_user_created 索引。
+  // levelCol 为 l1_referrer_id / l2_referrer_id / l3_referrer_id
+  function ggrSub(levelCol: string) {
+    return `
+      SELECT pc.user_id,
+             ROUND(SUM(pc.ggr_amount) * 100) AS ggr_cents,
+             JSON_ARRAYAGG(JSON_OBJECT('currency', pc.currency_code, 'ggrCents', ROUND(pc.ggr_amount * 100))) AS ggr_breakdown
+      FROM (
+        SELECT bo.user_id, bo.currency_code,
+               SUM(CASE WHEN bo.bet_type='bet' THEN bo.amount ELSE 0 END) -
+               SUM(CASE WHEN bo.bet_type='win' THEN bo.amount ELSE 0 END) AS ggr_amount
+        FROM bg_bet_order bo
+        JOIN bg_team_node tm ON tm.user_id = bo.user_id AND tm.${levelCol} = ?
+        WHERE bo.created_at >= ? AND bo.created_at < ?
+          AND bo.bet_type IN ('bet','win') AND bo.status = 'settled'
+        GROUP BY bo.user_id, bo.currency_code
+      ) pc
+      GROUP BY pc.user_id`
+  }
 
   const [l1Rows] = await db.query<RowDataPacket[]>(
     `SELECT tn.user_id, tn.opted_in, u.display_name,
             COALESCE(g.ggr_cents, 0) AS ggr_cents, g.ggr_breakdown
      FROM bg_team_node tn JOIN bg_user u ON u.id = tn.user_id
-     LEFT JOIN (${ggrSub}) g ON g.user_id = tn.user_id
+     LEFT JOIN (${ggrSub('l1_referrer_id')}) g ON g.user_id = tn.user_id
      WHERE tn.l1_referrer_id = ? ORDER BY ggr_cents DESC`,
-    [startDate, endDate, userId],
+    [userId, startDate, endDate, userId],
   )
   const [l2Rows] = await db.query<RowDataPacket[]>(
     `SELECT tn.user_id, tn.l1_referrer_id, tn.opted_in, u.display_name,
             COALESCE(g.ggr_cents, 0) AS ggr_cents, g.ggr_breakdown
      FROM bg_team_node tn JOIN bg_user u ON u.id = tn.user_id
-     LEFT JOIN (${ggrSub}) g ON g.user_id = tn.user_id
+     LEFT JOIN (${ggrSub('l2_referrer_id')}) g ON g.user_id = tn.user_id
      WHERE tn.l2_referrer_id = ? ORDER BY ggr_cents DESC`,
-    [startDate, endDate, userId],
+    [userId, startDate, endDate, userId],
   )
   const [l3Rows] = await db.query<RowDataPacket[]>(
     `SELECT tn.user_id, tn.l1_referrer_id, tn.opted_in, u.display_name,
             COALESCE(g.ggr_cents, 0) AS ggr_cents, g.ggr_breakdown
      FROM bg_team_node tn JOIN bg_user u ON u.id = tn.user_id
-     LEFT JOIN (${ggrSub}) g ON g.user_id = tn.user_id
+     LEFT JOIN (${ggrSub('l3_referrer_id')}) g ON g.user_id = tn.user_id
      WHERE tn.l3_referrer_id = ? ORDER BY ggr_cents DESC`,
-    [startDate, endDate, userId],
+    [userId, startDate, endDate, userId],
   )
 
   type GgrBreakdownItem = { currency: string; ggrCents: number }
