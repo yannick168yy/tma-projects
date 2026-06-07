@@ -14,10 +14,12 @@ function fmtGgrAmount(currency: string, cents: number): string {
   return (val < 0 ? '-' : '') + absStr + currency
 }
 
-function ggrLabel(_ggrCents: number, breakdown: GgrBreakdownItem[]): string {
+function ggrLabel(phpGgrCents: number, breakdown: GgrBreakdownItem[]): string {
   if (breakdown.length === 0) return 'GGR'
-  if (breakdown.length === 1) return `GGR ${fmtGgrAmount(breakdown[0].currency, breakdown[0].ggrCents)}`
-  return `GGR ${breakdown.map(b => fmtGgrAmount(b.currency, b.ggrCents)).join(', ')}`
+  const allPhp = breakdown.every(b => b.currency.toUpperCase() === 'PHP')
+  if (allPhp) return `GGR ${phpDisplay(phpGgrCents)}`
+  const detail = breakdown.map(b => fmtGgrAmount(b.currency, b.ggrCents)).join(', ')
+  return `GGR ${phpDisplay(phpGgrCents)} (${detail})`
 }
 
 function buildTreeNode(m: TeamTreeMember, level: 1 | 2 | 3): TreeNodeItem {

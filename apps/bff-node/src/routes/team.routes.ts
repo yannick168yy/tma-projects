@@ -278,6 +278,27 @@ router.get('/tree', async (ctx) => {
   )
   const rates = [0, Number(cfg?.l1_rate_pct ?? 25), Number(cfg?.l2_rate_pct ?? 8), Number(cfg?.l3_rate_pct ?? 3)]
 
+  const env = ctx.state.env
+  function fxRate(currency: string): number {
+    const u = currency.toUpperCase()
+    if (u === 'PHP') return 1
+    if (u === 'EUR') return Number(env.EUR_TO_PHP_RATE)
+    if (u === 'USDT' || u === 'USD') return Number(env.USDT_TO_PHP_RATE)
+    if (u === 'TON') return Number(env.TON_TO_PHP_RATE)
+    return 1
+  }
+
+  type GgrBreakdownItem = { currency: string; ggrCents: number }
+
+  function parseBreakdown(raw: unknown): GgrBreakdownItem[] {
+    const arr = typeof raw === 'string' ? JSON.parse(raw) : (raw ?? [])
+    return (arr as GgrBreakdownItem[]).filter(b => b.ggrCents !== 0)
+  }
+
+  function toPhpGgr(breakdown: GgrBreakdownItem[]): number {
+    return breakdown.reduce((sum, b) => sum + Math.round(b.ggrCents * fxRate(b.currency)), 0)
+  }
+
   function ggrSub(levelCol: string) {
     return `
       SELECT pc.user_id,
@@ -335,45 +356,42 @@ router.get('/tree', async (ctx) => {
     [userId, startDate, endDate, period, userId, userId],
   )
 
-  type GgrBreakdownItem = { currency: string; ggrCents: number }
   interface NodeData { userId: string; displayName: string; isAgent: boolean; thisMonthCents: number; ggrCents: number; ggrBreakdown: GgrBreakdownItem[]; children: NodeData[] }
 
-  function parseBreakdown(raw: unknown): GgrBreakdownItem[] {
-    const arr = typeof raw === 'string' ? JSON.parse(raw) : (raw ?? [])
-    return (arr as GgrBreakdownItem[]).filter(b => b.ggrCents !== 0)
-  }
-
-  function toCommCents(raw: unknown, ggrCents: number, level: 1 | 2 | 3): number {
+  function toCommCents(raw: unknown, phpGgrCents: number, level: 1 | 2 | 3): number {
     if (raw !== null && raw !== undefined) return Number(raw)
-    return Math.round(ggrCents * rates[level] / 100)
+    return Math.round(phpGgrCents * rates[level] / 100)
   }
 
   const l1Map = new Map<string, NodeData>()
   for (const r of l1Rows) {
-    const ggrCents = Number(r.ggr_cents)
+    const breakdown = parseBreakdown(r.ggr_breakdown)
+    const phpGgrCents = toPhpGgr(breakdown)
     l1Map.set(String(r.user_id), {
       userId: String(r.user_id), displayName: String(r.display_name),
-      isAgent: Boolean(r.opted_in), thisMonthCents: toCommCents(r.commission_cents, ggrCents, 1),
-      ggrCents, ggrBreakdown: parseBreakdown(r.ggr_breakdown), children: [],
+      isAgent: Boolean(r.opted_in), thisMonthCents: toCommCents(r.commission_cents, phpGgrCents, 1),
+      ggrCents: phpGgrCents, ggrBreakdown: breakdown, children: [],
     })
   }
   const l2Map = new Map<string, NodeData>()
   for (const r of l2Rows) {
-    const ggrCents = Number(r.ggr_cents)
+    const breakdown = parseBreakdown(r.ggr_breakdown)
+    const phpGgrCents = toPhpGgr(breakdown)
     const node: NodeData = {
       userId: String(r.user_id), displayName: String(r.display_name),
-      isAgent: Boolean(r.opted_in), thisMonthCents: toCommCents(r.commission_cents, ggrCents, 2),
-      ggrCents, ggrBreakdown: parseBreakdown(r.ggr_breakdown), children: [],
+      isAgent: Boolean(r.opted_in), thisMonthCents: toCommCents(r.commission_cents, phpGgrCents, 2),
+      ggrCents: phpGgrCents, ggrBreakdown: breakdown, children: [],
     }
     l2Map.set(node.userId, node)
     l1Map.get(String(r.l1_referrer_id))?.children.push(node)
   }
   for (const r of l3Rows) {
-    const ggrCents = Number(r.ggr_cents)
+    const breakdown = parseBreakdown(r.ggr_breakdown)
+    const phpGgrCents = toPhpGgr(breakdown)
     const node: NodeData = {
       userId: String(r.user_id), displayName: String(r.display_name),
-      isAgent: Boolean(r.opted_in), thisMonthCents: toCommCents(r.commission_cents, ggrCents, 3),
-      ggrCents, ggrBreakdown: parseBreakdown(r.ggr_breakdown), children: [],
+      isAgent: Boolean(r.opted_in), thisMonthCents: toCommCents(r.commission_cents, phpGgrCents, 3),
+      ggrCents: phpGgrCents, ggrBreakdown: breakdown, children: [],
     }
     l2Map.get(String(r.l1_referrer_id))?.children.push(node)
   }
