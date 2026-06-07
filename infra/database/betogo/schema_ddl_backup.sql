@@ -1,26 +1,3 @@
-Emulate Docker CLI using podman. Create /etc/containers/nodocker to quiet msg.
--- MySQL dump 10.13  Distrib 8.0.46, for Linux (x86_64)
---
--- Host: localhost    Database: betogo
--- ------------------------------------------------------
--- Server version	8.0.46
-
-/*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
-/*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
-/*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
-/*!50503 SET NAMES utf8mb4 */;
-/*!40103 SET @OLD_TIME_ZONE=@@TIME_ZONE */;
-/*!40103 SET TIME_ZONE='+00:00' */;
-/*!40014 SET @OLD_UNIQUE_CHECKS=@@UNIQUE_CHECKS, UNIQUE_CHECKS=0 */;
-/*!40014 SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=0 */;
-/*!40101 SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_VALUE_ON_ZERO' */;
-/*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
-
---
--- Table structure for table `admin_accounts`
---
-
-DROP TABLE IF EXISTS `admin_accounts`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `admin_accounts` (
@@ -35,12 +12,6 @@ CREATE TABLE `admin_accounts` (
   UNIQUE KEY `uk_username` (`username`)
 ) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='后台管理员账号';
 /*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Table structure for table `admin_audit_log`
---
-
-DROP TABLE IF EXISTS `admin_audit_log`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `admin_audit_log` (
@@ -57,14 +28,8 @@ CREATE TABLE `admin_audit_log` (
   KEY `idx_admin_created` (`admin_id`,`created_at` DESC),
   KEY `idx_target` (`target_type`,`target_id`),
   KEY `idx_created` (`created_at` DESC)
-) ENGINE=InnoDB AUTO_INCREMENT=23 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='管理员操作审计日志';
+) ENGINE=InnoDB AUTO_INCREMENT=44 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='管理员操作审计日志';
 /*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Table structure for table `bg_admin_settings`
---
-
-DROP TABLE IF EXISTS `bg_admin_settings`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `bg_admin_settings` (
@@ -74,12 +39,6 @@ CREATE TABLE `bg_admin_settings` (
   PRIMARY KEY (`key`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='系统全局配置项';
 /*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Table structure for table `bg_bet_order`
---
-
-DROP TABLE IF EXISTS `bg_bet_order`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `bg_bet_order` (
@@ -91,7 +50,7 @@ CREATE TABLE `bg_bet_order` (
   `round_id` varchar(128) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '游戏局号',
   `bet_type` enum('bet','win','refund','cancel') COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '账变类型',
   `amount` decimal(18,4) NOT NULL DEFAULT '0.0000' COMMENT '换算后 PHP 金额（元）',
-  `currency_code` char(3) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'PHP' COMMENT '原始投注币种',
+  `currency_code` varchar(16) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'PHP',
   `original_amount` decimal(18,4) DEFAULT NULL COMMENT '原始投注金额（原币）',
   `exchange_rate` decimal(18,8) DEFAULT NULL COMMENT '入账时汇率（原币→PHP）',
   `status` enum('pending','settled','failed') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'pending' COMMENT '结算状态',
@@ -102,14 +61,30 @@ CREATE TABLE `bg_bet_order` (
   UNIQUE KEY `uk_provider_txn` (`aggregator_id`,`provider_txn_id`),
   KEY `idx_user_created` (`user_id`,`created_at` DESC),
   CONSTRAINT `fk_bet_user` FOREIGN KEY (`user_id`) REFERENCES `bg_user` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=39 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='竞彩/游戏账变关联单';
+) ENGINE=InnoDB AUTO_INCREMENT=80 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='竞彩/游戏账变关联单';
 /*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Table structure for table `bg_exchange_rate`
---
-
-DROP TABLE IF EXISTS `bg_exchange_rate`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `bg_deposit_order` (
+  `order_id` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `user_id` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `channel` varchar(32) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `currency` varchar(16) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `amount` decimal(18,6) NOT NULL,
+  `status` enum('pending','paid','failed','rejected','admin_rejected') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'pending',
+  `credited` tinyint(1) NOT NULL DEFAULT '0',
+  `tx_hash` varchar(128) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `from_address` varchar(256) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `to_address` varchar(256) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `chain` varchar(32) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `extra` json DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`order_id`),
+  KEY `idx_user_created` (`user_id`,`created_at`),
+  KEY `idx_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `bg_exchange_rate` (
@@ -121,26 +96,14 @@ CREATE TABLE `bg_exchange_rate` (
   `fetched_at` datetime(3) NOT NULL COMMENT '抓取时间',
   PRIMARY KEY (`id`),
   KEY `idx_pair_fetched` (`currency_from`,`currency_to`,`fetched_at` DESC)
-) ENGINE=InnoDB AUTO_INCREMENT=541 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='第三方汇率快照，每小时刷新一次';
+) ENGINE=InnoDB AUTO_INCREMENT=6056 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='第三方汇率快照，每小时刷新一次';
 /*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Table structure for table `bg_fix_faq_encoding`
---
-
-DROP TABLE IF EXISTS `bg_fix_faq_encoding`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `bg_fix_faq_encoding` (
   `applied_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Table structure for table `bg_game_session`
---
-
-DROP TABLE IF EXISTS `bg_game_session`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `bg_game_session` (
@@ -157,12 +120,15 @@ CREATE TABLE `bg_game_session` (
   CONSTRAINT `fk_gs_user` FOREIGN KEY (`user_id`) REFERENCES `bg_user` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='单活跃游戏会话';
 /*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Table structure for table `bg_idempotency`
---
-
-DROP TABLE IF EXISTS `bg_idempotency`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `bg_game_turnover_rates` (
+  `sort_category` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `rate` decimal(5,4) NOT NULL DEFAULT '1.0000' COMMENT 'è´¡çŒ®çŽ‡ 0-1',
+  `updated_at` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (`sort_category`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='æ¸¸æˆå¤§ç±»æµæ°´è´¡çŒ®çŽ‡';
+/*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `bg_idempotency` (
@@ -175,12 +141,6 @@ CREATE TABLE `bg_idempotency` (
   KEY `idx_expires` (`expires_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='HTTP 幂等';
 /*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Table structure for table `bg_kyc_submission`
---
-
-DROP TABLE IF EXISTS `bg_kyc_submission`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `bg_kyc_submission` (
@@ -200,12 +160,6 @@ CREATE TABLE `bg_kyc_submission` (
   CONSTRAINT `fk_kyc_user` FOREIGN KEY (`user_id`) REFERENCES `bg_user` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='KYC 提交';
 /*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Table structure for table `bg_login_log`
---
-
-DROP TABLE IF EXISTS `bg_login_log`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `bg_login_log` (
@@ -218,105 +172,73 @@ CREATE TABLE `bg_login_log` (
   `region` varchar(128) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '登录地区（国家/城市）',
   PRIMARY KEY (`id`),
   KEY `idx_user_created` (`user_id`,`created_at` DESC)
-) ENGINE=InnoDB AUTO_INCREMENT=77 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户登录历史';
+) ENGINE=InnoDB AUTO_INCREMENT=284 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户登录历史';
 /*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Table structure for table `bg_order_deposit`
---
-
-DROP TABLE IF EXISTS `bg_order_deposit`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `bg_matrix_deposit_address` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `user_id` varchar(64) NOT NULL COMMENT 'å•†æˆ·ç”¨æˆ· ID',
+  `symbol` varchar(20) NOT NULL COMMENT 'å¸ç§ï¼Œå¦‚ USDT',
+  `chain` varchar(20) NOT NULL COMMENT 'é“¾ï¼Œå¦‚ TRON',
+  `address` varchar(128) NOT NULL COMMENT 'Matrix åˆ†é…çš„é“¾ä¸Šåœ°å€',
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_user_symbol_chain` (`user_id`,`symbol`,`chain`),
+  KEY `idx_address` (`address`)
+) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='Matrix å……å€¼åœ°å€ç¼“å­˜';
+/*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `bg_order_deposit` (
-  `order_id` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '存款订单号',
-  `user_id` varchar(32) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '关联 bg_user.id',
-  `amount` decimal(18,8) NOT NULL COMMENT 'PHP 或原始金额',
-  `currency` varchar(10) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'PHP' COMMENT '支付币种',
-  `credited` decimal(18,4) DEFAULT NULL COMMENT '实际入账 PHP 元',
-  `channel_id` varchar(32) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'tg_wallet' COMMENT '支付渠道标识',
-  `status` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'pending' COMMENT 'pending | paid | failed | cancelled',
-  `provider` varchar(32) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '支付服务商，如 yfpay',
+  `order_id` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `user_id` varchar(32) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `amount` decimal(18,8) NOT NULL COMMENT 'PHP æˆ–åŽŸå§‹é‡‘é¢',
+  `currency` varchar(10) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'PHP',
+  `credited_cents` bigint DEFAULT NULL COMMENT 'å®žé™…å…¥è´¦ PHP åˆ†',
+  `channel_id` varchar(32) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'tg_wallet',
+  `status` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'pending',
+  `provider` varchar(32) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `provider_ref` varchar(128) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'ç¬¬ä¸‰æ–¹å¹³å°è®¢å•å·',
-  `extra_data` json DEFAULT NULL COMMENT '渠道专有数据',
-  `paid_at` datetime(3) DEFAULT NULL COMMENT '支付成功时间',
-  `created_at` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '下单时间',
-  `updated_at` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '更新时间',
+  `extra_data` json DEFAULT NULL COMMENT 'æ¸ é“ä¸“æœ‰æ•°æ®',
+  `paid_at` datetime(3) DEFAULT NULL,
+  `created_at` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  `updated_at` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
   PRIMARY KEY (`order_id`),
   KEY `idx_user_status` (`user_id`,`status`),
   KEY `idx_provider` (`provider`),
   KEY `idx_created` (`created_at`),
   CONSTRAINT `fk_order_deposit_user` FOREIGN KEY (`user_id`) REFERENCES `bg_user` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='存款订单（统一）';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='å­˜æ¬¾è®¢å•ï¼ˆç»Ÿä¸€ï¼‰';
 /*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Table structure for table `bg_order_withdraw`
---
-
-DROP TABLE IF EXISTS `bg_order_withdraw`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `bg_order_withdraw` (
-  `order_id` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '提款订单号',
-  `user_id` varchar(32) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '关联 bg_user.id',
-  `amount` decimal(18,4) NOT NULL COMMENT '提款金额（PHP 元）',
-  `currency` char(3) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'PHP' COMMENT '币种',
-  `channel_id` varchar(32) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'tg_wallet' COMMENT '提款渠道标识',
-  `status` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'pending' COMMENT 'pending | processing | completed | rejected | failed',
-  `provider` varchar(32) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '出款服务商',
-  `provider_ref` varchar(128) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '服务商单号',
-  `extra_data` json DEFAULT NULL COMMENT '渠道专有数据',
-  `reject_reason` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '拒绝原因',
-  `completed_at` datetime(3) DEFAULT NULL COMMENT '完成时间',
-  `created_at` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '申请时间',
-  `updated_at` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '更新时间',
-  PRIMARY KEY (`order_id`),
-  KEY `idx_user_status` (`user_id`,`status`),
-  KEY `idx_provider` (`provider`),
-  KEY `idx_created` (`created_at`),
-  CONSTRAINT `fk_order_withdraw_user` FOREIGN KEY (`user_id`) REFERENCES `bg_user` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='提款订单（统一）';
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Table structure for table `bg_payment_order`
---
-
-DROP TABLE IF EXISTS `bg_payment_order`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `bg_payment_order` (
-  `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '自增主键',
-  `user_id` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '关联 bg_user.id',
-  `provider` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '支付服务商，如 yfpay',
-  `type` enum('deposit','withdrawal') COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '交易类型',
-  `merchant_serial` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '商户流水号（即 order_id）',
-  `platform_id` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '第三方平台订单号',
-  `amount` decimal(18,4) NOT NULL DEFAULT '0.0000' COMMENT '金额（PHP 元）',
-  `channel_code` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '支付渠道代码',
-  `option_code` varchar(32) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '出款渠道选项代码',
-  `target_account` varchar(128) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '收款账号',
-  `target_owner` varchar(128) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '收款账号持有人',
-  `state` tinyint NOT NULL DEFAULT '0' COMMENT '状态: 0=pending 1=success 2=failed 3=rejected',
-  `pay_url` text COLLATE utf8mb4_unicode_ci COMMENT '支付跳转 URL',
-  `extra_params` varchar(512) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '扩展参数 JSON',
-  `notify_at` datetime DEFAULT NULL COMMENT '回调通知时间',
-  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `user_id` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `provider` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'yfpay',
+  `type` enum('deposit','withdrawal') COLLATE utf8mb4_unicode_ci NOT NULL,
+  `merchant_serial` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `platform_id` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `amount_cents` bigint NOT NULL,
+  `channel_code` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `option_code` varchar(32) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `target_account` varchar(128) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `target_owner` varchar(128) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `state` tinyint NOT NULL DEFAULT '0',
+  `pay_url` text COLLATE utf8mb4_unicode_ci,
+  `extra_params` varchar(512) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `notify_at` datetime DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_merchant_serial` (`merchant_serial`),
   KEY `idx_user_id` (`user_id`),
   KEY `idx_state` (`state`),
   KEY `idx_created` (`created_at`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='YFPay 支付订单（历史数据，已迁移至 bg_order_deposit/withdraw）';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Table structure for table `bg_promo_claim`
---
-
-DROP TABLE IF EXISTS `bg_promo_claim`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `bg_promo_claim` (
@@ -330,12 +252,15 @@ CREATE TABLE `bg_promo_claim` (
   CONSTRAINT `fk_claim_user` FOREIGN KEY (`user_id`) REFERENCES `bg_user` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='活动领取记录';
 /*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Table structure for table `bg_referral_record`
---
-
-DROP TABLE IF EXISTS `bg_referral_record`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `bg_promo_config` (
+  `promo_id` varchar(32) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `config_key` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `config_value` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  PRIMARY KEY (`promo_id`,`config_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='促销活动可配置参数';
+/*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `bg_referral_record` (
@@ -354,12 +279,6 @@ CREATE TABLE `bg_referral_record` (
   CONSTRAINT `fk_ref_inviter` FOREIGN KEY (`inviter_id`) REFERENCES `bg_user` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='邀请关系与奖励';
 /*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Table structure for table `bg_session`
---
-
-DROP TABLE IF EXISTS `bg_session`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `bg_session` (
@@ -373,12 +292,192 @@ CREATE TABLE `bg_session` (
   CONSTRAINT `fk_session_user` FOREIGN KEY (`user_id`) REFERENCES `bg_user` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='登录会话';
 /*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Table structure for table `bg_user`
---
-
-DROP TABLE IF EXISTS `bg_user`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `bg_team_commission` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `beneficiary_id` varchar(32) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '佣金收益人（推荐人）',
+  `from_user_id` varchar(32) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'GGR 产生人（下线玩家）',
+  `level` tinyint NOT NULL COMMENT '关系层级：1/2/3',
+  `period` char(7) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '佣金所属月份，如 2026-06',
+  `currency` varchar(16) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'PHP',
+  `ggr_cents` bigint NOT NULL DEFAULT '0' COMMENT '下线有效 GGR（已归零处理）',
+  `rate_pct` decimal(5,2) NOT NULL COMMENT '佣金费率（%），如 25.00',
+  `commission_cents` bigint NOT NULL DEFAULT '0' COMMENT '佣金金额 = ggr × rate / 100',
+  `status` enum('pending','paid','voided') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'pending',
+  `paid_at` datetime(3) DEFAULT NULL,
+  `created_at` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  `fx_rate` decimal(12,6) NOT NULL DEFAULT '1.000000',
+  `php_equivalent_cents` bigint NOT NULL DEFAULT '0',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_commission_full` (`beneficiary_id`,`from_user_id`,`period`,`currency`,`level`),
+  KEY `idx_beneficiary_period` (`beneficiary_id`,`period`),
+  KEY `idx_period_status` (`period`,`status`),
+  KEY `idx_from_user` (`from_user_id`),
+  KEY `idx_beneficiary_period_status` (`beneficiary_id`,`period`,`status`),
+  CONSTRAINT `fk_tc_beneficiary` FOREIGN KEY (`beneficiary_id`) REFERENCES `bg_user` (`id`),
+  CONSTRAINT `fk_tc_from` FOREIGN KEY (`from_user_id`) REFERENCES `bg_user` (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=75 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='月度佣金分配明细，一条 GGR 快照最多生成 L1/L2/L3 三条记录';
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `bg_team_config` (
+  `id` int NOT NULL DEFAULT '1' COMMENT '单行配置，固定 id=1',
+  `l1_rate_pct` decimal(5,2) NOT NULL DEFAULT '25.00' COMMENT 'L1 佣金率（%）',
+  `l2_rate_pct` decimal(5,2) NOT NULL DEFAULT '8.00' COMMENT 'L2 佣金率（%）',
+  `l3_rate_pct` decimal(5,2) NOT NULL DEFAULT '3.00' COMMENT 'L3 佣金率（%）',
+  `min_activation_cents` bigint NOT NULL DEFAULT '10000' COMMENT '激活门槛（分），默认 ₱100',
+  `min_withdrawal_cents` bigint NOT NULL DEFAULT '5000' COMMENT '最低提现额（分），默认 ₱50',
+  `max_commission_per_settlement_cents` bigint DEFAULT NULL COMMENT '单次结算单用户佣金上限，NULL=不限',
+  `settlement_day` tinyint NOT NULL DEFAULT '1' COMMENT '每月自动结算日（1-28），0=纯手动',
+  `updated_at` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  `updated_by` int DEFAULT NULL COMMENT '最后修改的 admin_id',
+  `settlement_hour` tinyint NOT NULL DEFAULT '3',
+  `last_auto_settlement` varchar(7) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  CONSTRAINT `chk_l1_rate` CHECK ((`l1_rate_pct` between 0 and 100)),
+  CONSTRAINT `chk_l2_rate` CHECK ((`l2_rate_pct` between 0 and 100)),
+  CONSTRAINT `chk_l3_rate` CHECK ((`l3_rate_pct` between 0 and 100)),
+  CONSTRAINT `chk_settlement_day` CHECK ((`settlement_day` between 0 and 28))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='三级分销佣金费率与结算配置（单行）';
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `bg_team_ggr_monthly` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `user_id` varchar(32) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `period` char(7) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '结算月份，如 2026-06',
+  `currency` varchar(16) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'PHP',
+  `bet_cents` bigint NOT NULL DEFAULT '0' COMMENT '当月总投注（分）',
+  `win_cents` bigint NOT NULL DEFAULT '0' COMMENT '当月总派彩（分）',
+  `ggr_cents` bigint NOT NULL DEFAULT '0' COMMENT 'GGR = bet - win，可为负',
+  `effective_ggr_cents` bigint NOT NULL DEFAULT '0' COMMENT '有效 GGR = MAX(ggr,0)，负月归零',
+  `negative_ggr` tinyint(1) NOT NULL DEFAULT '0' COMMENT '当月 GGR 为负（玩家赢钱月）',
+  `settled` tinyint(1) NOT NULL DEFAULT '0' COMMENT '佣金是否已分配完毕',
+  `settled_at` datetime(3) DEFAULT NULL,
+  `calculated_at` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_ggr_user_period_currency` (`user_id`,`period`,`currency`),
+  KEY `idx_period_settled` (`period`,`settled`),
+  CONSTRAINT `fk_tgm_user` FOREIGN KEY (`user_id`) REFERENCES `bg_user` (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=33 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户月度 GGR 快照，负 GGR 月份有效值归零，不向上线分佣';
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `bg_team_node` (
+  `user_id` varchar(32) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '当前用户',
+  `l1_referrer_id` varchar(32) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '一级推荐人（直邀）',
+  `l2_referrer_id` varchar(32) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '二级推荐人',
+  `l3_referrer_id` varchar(32) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '三级推荐人',
+  `activated` tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否已激活（首充达标）',
+  `activation_cents` bigint DEFAULT NULL COMMENT '激活时的首充金额（分）',
+  `activated_at` datetime(3) DEFAULT NULL COMMENT '激活时间',
+  `opted_in` tinyint(1) NOT NULL DEFAULT '0' COMMENT '用户已主动开启代理',
+  `opted_in_at` datetime(3) DEFAULT NULL COMMENT '开启代理时间',
+  `created_at` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (`user_id`),
+  KEY `idx_l1` (`l1_referrer_id`),
+  KEY `idx_l2` (`l2_referrer_id`),
+  KEY `idx_l3` (`l3_referrer_id`),
+  KEY `idx_activated` (`activated`),
+  KEY `idx_l1_activated` (`l1_referrer_id`,`activated`),
+  KEY `idx_l2_activated` (`l2_referrer_id`,`activated`),
+  KEY `idx_l3_activated` (`l3_referrer_id`,`activated`),
+  CONSTRAINT `fk_tn_l1` FOREIGN KEY (`l1_referrer_id`) REFERENCES `bg_user` (`id`),
+  CONSTRAINT `fk_tn_l2` FOREIGN KEY (`l2_referrer_id`) REFERENCES `bg_user` (`id`),
+  CONSTRAINT `fk_tn_l3` FOREIGN KEY (`l3_referrer_id`) REFERENCES `bg_user` (`id`),
+  CONSTRAINT `fk_tn_user` FOREIGN KEY (`user_id`) REFERENCES `bg_user` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户三级归属树，注册时写入，激活后上线方可获得 GGR 佣金';
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `bg_team_optin` (
+  `id` tinyint NOT NULL DEFAULT '1',
+  `applied_at` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='迁移哨兵表，无实际业务用途';
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `bg_team_wallet` (
+  `user_id` varchar(32) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `available_cents` bigint NOT NULL DEFAULT '0' COMMENT '可提现余额（分）',
+  `frozen_cents` bigint NOT NULL DEFAULT '0' COMMENT '提现申请冻结中（分）',
+  `lifetime_earned_cents` bigint NOT NULL DEFAULT '0' COMMENT '历史累计收益（分，只增不减）',
+  `version` int unsigned NOT NULL DEFAULT '0' COMMENT '乐观锁版本号',
+  `updated_at` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  `currency` varchar(16) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'PHP',
+  PRIMARY KEY (`user_id`,`currency`),
+  CONSTRAINT `fk_tw_user` FOREIGN KEY (`user_id`) REFERENCES `bg_user` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='佣金账户，独立于主钱包，提现时转入主钱包';
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `bg_team_withdrawal` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `user_id` varchar(32) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `amount_cents` bigint NOT NULL COMMENT '提现金额（分）',
+  `status` enum('pending','approved','rejected') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'pending',
+  `admin_id` int DEFAULT NULL COMMENT '审核管理员 bg_admin.id',
+  `reject_reason` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `reviewed_at` datetime(3) DEFAULT NULL,
+  `created_at` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (`id`),
+  KEY `idx_user_status` (`user_id`,`status`),
+  KEY `idx_status_created` (`status`,`created_at` DESC),
+  CONSTRAINT `fk_twd_user` FOREIGN KEY (`user_id`) REFERENCES `bg_user` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='佣金提现申请，Admin 审核后转入主钱包';
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `bg_turnover_allocations` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `log_id` bigint unsigned NOT NULL,
+  `requirement_id` bigint unsigned NOT NULL,
+  `allocated_amount` decimal(18,4) NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_log` (`log_id`),
+  KEY `idx_requirement` (`requirement_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='æµæ°´è¦æ±‚åˆ†é…æ˜Žç»†';
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `bg_turnover_logs` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `user_id` varchar(32) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `currency` varchar(16) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'PHP',
+  `bet_order_id` bigint unsigned NOT NULL COMMENT 'å…³è” bg_bet_order.id',
+  `bet_amount` decimal(18,4) NOT NULL,
+  `rate` decimal(5,4) NOT NULL DEFAULT '1.0000',
+  `effective_amount` decimal(18,4) NOT NULL COMMENT 'bet_amount * rateï¼Œå®žé™…è®¡å…¥çš„æµæ°´é¢',
+  `sort_category` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `is_reversed` tinyint(1) NOT NULL DEFAULT '0',
+  `created_at` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_bet_order` (`bet_order_id`),
+  KEY `idx_user_created` (`user_id`,`created_at` DESC)
+) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='æŠ•æ³¨æµæ°´æ˜Žç»†';
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `bg_turnover_requirements` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `user_id` varchar(32) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `currency` varchar(16) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'PHP',
+  `source_type` enum('deposit','promotion') COLLATE utf8mb4_unicode_ci NOT NULL,
+  `source_ref` varchar(128) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'å­˜æ¬¾ orderId æˆ–ä¼˜æƒ ç±»åž‹(trial/referral/firstdep)',
+  `required_amount` decimal(18,4) NOT NULL,
+  `completed_amount` decimal(18,4) NOT NULL DEFAULT '0.0000',
+  `status` enum('pending','completed','expired','cancelled') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'pending',
+  `expires_at` datetime DEFAULT NULL COMMENT 'ä»…ä¼˜æƒ ç±»è¦æ±‚æœ‰æœ‰æ•ˆæœŸï¼ŒNULL=æ°¸ä¹…',
+  `created_at` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  `updated_at` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (`id`),
+  KEY `idx_user_status` (`user_id`,`status`),
+  KEY `idx_expires` (`expires_at`,`status`),
+  KEY `idx_turnover_req_user_currency_status` (`user_id`,`currency`,`status`)
+) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='ç”¨æˆ·æµæ°´è¦æ±‚';
+/*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `bg_user` (
@@ -411,12 +510,6 @@ CREATE TABLE `bg_user` (
   KEY `idx_status` (`status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户主表';
 /*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Table structure for table `bg_user_profile`
---
-
-DROP TABLE IF EXISTS `bg_user_profile`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `bg_user_profile` (
@@ -434,12 +527,6 @@ CREATE TABLE `bg_user_profile` (
   CONSTRAINT `fk_profile_user` FOREIGN KEY (`user_id`) REFERENCES `bg_user` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户资料';
 /*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Table structure for table `bg_user_promo_state`
---
-
-DROP TABLE IF EXISTS `bg_user_promo_state`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `bg_user_promo_state` (
@@ -455,35 +542,25 @@ CREATE TABLE `bg_user_promo_state` (
   CONSTRAINT `fk_promo_user` FOREIGN KEY (`user_id`) REFERENCES `bg_user` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='活动/邀请状态';
 /*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Table structure for table `bg_wallet`
---
-
-DROP TABLE IF EXISTS `bg_wallet`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `bg_wallet` (
-  `user_id` varchar(32) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '关联 bg_user.id',
-  `available` decimal(18,4) NOT NULL DEFAULT '0.0000' COMMENT '可用余额（PHP 元）',
-  `frozen` decimal(18,4) NOT NULL DEFAULT '0.0000' COMMENT '冻结金额（PHP 元）',
-  `version` int unsigned NOT NULL DEFAULT '0' COMMENT '乐观锁',
-  `updated_at` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '最后变动时间',
-  PRIMARY KEY (`user_id`),
-  CONSTRAINT `fk_wallet_user` FOREIGN KEY (`user_id`) REFERENCES `bg_user` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='钱包余额';
+  `user_id` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `currency` varchar(16) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `available` decimal(18,6) NOT NULL DEFAULT '0.000000',
+  `frozen` decimal(18,6) NOT NULL DEFAULT '0.000000',
+  `version` int NOT NULL DEFAULT '0',
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`user_id`,`currency`),
+  KEY `idx_user` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Table structure for table `bg_wallet_ledger`
---
-
-DROP TABLE IF EXISTS `bg_wallet_ledger`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `bg_wallet_ledger` (
   `id` varchar(40) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '流水ID',
   `user_id` varchar(32) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '关联 bg_user.id',
+  `currency` varchar(16) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'PHP',
   `type` enum('deposit','withdraw','bet','win','red_packet','bonus','adjust','admin_adjust') COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '账变类型',
   `amount` decimal(18,4) NOT NULL DEFAULT '0.0000' COMMENT '账变金额（PHP 元，正负）',
   `balance_after` bigint NOT NULL COMMENT '账变后余额（分）',
@@ -499,12 +576,35 @@ CREATE TABLE `bg_wallet_ledger` (
   CONSTRAINT `fk_ledger_user` FOREIGN KEY (`user_id`) REFERENCES `bg_user` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='钱包流水（只追加）';
 /*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Table structure for table `cs_conversation`
---
-
-DROP TABLE IF EXISTS `cs_conversation`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `bg_wallet_ledger_team_type` (
+  `id` tinyint NOT NULL DEFAULT '1',
+  `applied_at` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='è¿ç§»å“¨å…µï¼Œæ— ä¸šåŠ¡ç”¨é€”';
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `bg_withdraw_order` (
+  `order_id` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `user_id` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `channel` varchar(32) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `currency` varchar(16) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `amount` decimal(18,6) NOT NULL,
+  `status` enum('pending','processing','completed','failed','rejected','admin_rejected') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'pending',
+  `to_address` varchar(256) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `chain` varchar(32) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `refunded` tinyint(1) NOT NULL DEFAULT '0',
+  `reject_reason` varchar(512) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `extra` json DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`order_id`),
+  KEY `idx_user_created` (`user_id`,`created_at`),
+  KEY `idx_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `cs_conversation` (
@@ -519,14 +619,8 @@ CREATE TABLE `cs_conversation` (
   KEY `idx_user_id` (`user_id`),
   KEY `idx_status` (`status`),
   KEY `idx_updated_at` (`updated_at`)
-) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='客服会话';
+) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='客服会话';
 /*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Table structure for table `cs_faq`
---
-
-DROP TABLE IF EXISTS `cs_faq`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `cs_faq` (
@@ -544,12 +638,6 @@ CREATE TABLE `cs_faq` (
   KEY `idx_active` (`is_active`)
 ) ENGINE=InnoDB AUTO_INCREMENT=13 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='客服 FAQ 知识库';
 /*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Table structure for table `cs_message`
---
-
-DROP TABLE IF EXISTS `cs_message`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `cs_message` (
@@ -561,19 +649,16 @@ CREATE TABLE `cs_message` (
   PRIMARY KEY (`id`),
   KEY `idx_conversation_id` (`conversation_id`),
   KEY `idx_created_at` (`created_at`)
-) ENGINE=InnoDB AUTO_INCREMENT=25 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='客服消息';
+) ENGINE=InnoDB AUTO_INCREMENT=57 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='客服消息';
 /*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Table structure for table `sg_games`
---
-
-DROP TABLE IF EXISTS `sg_games`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `sg_games` (
   `uuid` varchar(128) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'Slotegrator game_uuid',
   `name` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '游戏名称',
+  `name_id` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `name_vi` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `name_zh` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `type` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '游戏类型，如 slots | baccarat',
   `provider` varchar(128) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '供应商代码，如 PRAGMATIC',
   `provider_id` int DEFAULT NULL COMMENT '供应商数字 ID',
@@ -597,6 +682,8 @@ CREATE TABLE `sg_games` (
   `updated_at` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '最后同步时间',
   `is_active` tinyint(1) NOT NULL DEFAULT '1' COMMENT '是否在平台上架',
   `weight` smallint NOT NULL DEFAULT '0' COMMENT '菲律宾市场受欢迎度 0-100',
+  `ph_bonus` tinyint unsigned NOT NULL DEFAULT '0',
+  `weight_breakdown` json DEFAULT NULL,
   `is_featured` tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否推荐到首页',
   `sort_category` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '前端分类: slots/fishing/live/bingo/crash/table',
   `theme` varchar(128) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '游戏主题: fishing/asian/mythology/...',
@@ -611,12 +698,6 @@ CREATE TABLE `sg_games` (
   KEY `idx_category` (`category`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Slotegrator 游戏列表缓存';
 /*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Table structure for table `sg_settlement_report`
---
-
-DROP TABLE IF EXISTS `sg_settlement_report`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `sg_settlement_report` (
@@ -638,17 +719,3 @@ CREATE TABLE `sg_settlement_report` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Slotegrator 日结算报告及本地核对结果';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Dumping routines for database 'betogo'
---
-/*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
-
-/*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
-/*!40014 SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS */;
-/*!40014 SET UNIQUE_CHECKS=@OLD_UNIQUE_CHECKS */;
-/*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
-/*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
-/*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
-/*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
-
--- Dump completed on 2026-05-29  2:40:00
