@@ -122,7 +122,7 @@ router.get('/agents/:userId/tree', async (ctx) => {
 
   function commSub(level: number) {
     return `
-      SELECT from_user_id, SUM(commission_cents) AS commission_cents
+      SELECT from_user_id, SUM(php_equivalent_cents) AS commission_cents
       FROM bg_team_commission
       WHERE period = ? AND beneficiary_id = ? AND level = ${level}
       GROUP BY from_user_id`

@@ -145,12 +145,12 @@ router.get('/commissions', async (ctx) => {
 
   const summary = { l1Cents: 0, l2Cents: 0, l3Cents: 0, totalCents: 0, paidCents: 0 }
   for (const r of rows) {
-    const c = Number(r.commission_cents)
+    const c = Number(r.php_equivalent_cents ?? r.commission_cents)
     if (r.level === 1) summary.l1Cents += c
     else if (r.level === 2) summary.l2Cents += c
     else summary.l3Cents += c
     summary.totalCents += c
-    if (r.status === 'paid') summary.paidCents += c
+    if (r.status === 'paid') summary.paidCents += Number(r.php_equivalent_cents ?? r.commission_cents)
   }
 
   ok(ctx, {
@@ -298,7 +298,7 @@ router.get('/tree', async (ctx) => {
 
   function commSub(level: number) {
     return `
-      SELECT from_user_id, SUM(commission_cents) AS commission_cents
+      SELECT from_user_id, SUM(php_equivalent_cents) AS commission_cents
       FROM bg_team_commission
       WHERE period = ? AND beneficiary_id = ? AND level = ${level}
       GROUP BY from_user_id`

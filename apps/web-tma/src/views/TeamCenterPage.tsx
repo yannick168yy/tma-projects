@@ -118,13 +118,37 @@ export default function TeamCenterPage() {
   const telegramLink = useMemo(() => buildInviteDeepLink(inviteCode), [inviteCode])
   const webShareLink = useMemo(() => buildInviteWebLink(inviteCode), [inviteCode])
 
+  // 从 treeData 实时计算 summary，确保与树形节点一致
+  const treeBasedSummary = useMemo(() => {
+    if (!treeData) return null
+    let l1Cents = 0, l2Cents = 0, l3Cents = 0
+    for (const l1 of treeData.l1Members) {
+      l1Cents += l1.thisMonthCents
+      for (const l2 of l1.children) {
+        l2Cents += l2.thisMonthCents
+        for (const l3 of l2.children) {
+          l3Cents += l3.thisMonthCents
+        }
+      }
+    }
+    return { l1Cents, l2Cents, l3Cents, totalCents: l1Cents + l2Cents + l3Cents }
+  }, [treeData])
+
   // ── 加载 ────────────────────────────────────────────────────────────────────
   async function loadTree(p: string) {
     setTreeLoading(true); setTreeData(null)
     try {
       const data = await fetchTeamTree(p)
       setTreeData(data)
-      setExpandedIds(new Set(data.l1Members.map((m) => m.userId)))
+      const allIds = new Set<string>()
+      for (const l1 of data.l1Members) {
+        allIds.add(l1.userId)
+        for (const l2 of l1.children) {
+          allIds.add(l2.userId)
+          for (const l3 of l2.children) allIds.add(l3.userId)
+        }
+      }
+      setExpandedIds(allIds)
     } catch { /* fail silently */ }
     finally { setTreeLoading(false) }
   }
@@ -271,21 +295,21 @@ export default function TeamCenterPage() {
               <div className="bg-gradient-to-br from-[#78350f]/30 to-transparent rounded-2xl border border-amber-500/20 p-3">
                 <div className="grid grid-cols-2 gap-2 mb-2">
                   <div className="bg-black/20 rounded-xl p-2 text-center">
-                    <div className="text-amber-400 font-black text-base leading-none">{phpDisplay(summary?.l1Cents ?? 0)}</div>
+                    <div className="text-amber-400 font-black text-base leading-none">{phpDisplay(treeBasedSummary?.l1Cents ?? summary?.l1Cents ?? 0)}</div>
                     <div className="text-white/50 text-[9px] mt-0.5">L1 · 25%</div>
                   </div>
                   <div className="bg-black/20 rounded-xl p-2 text-center">
-                    <div className="text-amber-400 font-black text-base leading-none">{phpDisplay(summary?.l2Cents ?? 0)}</div>
+                    <div className="text-amber-400 font-black text-base leading-none">{phpDisplay(treeBasedSummary?.l2Cents ?? summary?.l2Cents ?? 0)}</div>
                     <div className="text-white/50 text-[9px] mt-0.5">L2 · 8%</div>
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div className="bg-black/20 rounded-xl p-2 text-center">
-                    <div className="text-amber-400 font-black text-base leading-none">{phpDisplay(summary?.l3Cents ?? 0)}</div>
+                    <div className="text-amber-400 font-black text-base leading-none">{phpDisplay(treeBasedSummary?.l3Cents ?? summary?.l3Cents ?? 0)}</div>
                     <div className="text-white/50 text-[9px] mt-0.5">L3 · 3%</div>
                   </div>
                   <div className="bg-amber-500/20 rounded-xl p-2 text-center border border-amber-500/30">
-                    <div className="text-amber-300 font-black text-base leading-none">{phpDisplay(summary?.totalCents ?? 0)}</div>
+                    <div className="text-amber-300 font-black text-base leading-none">{phpDisplay(treeBasedSummary?.totalCents ?? summary?.totalCents ?? 0)}</div>
                     <div className="text-amber-300/60 text-[9px] mt-0.5">{t('team.total')}</div>
                   </div>
                 </div>
@@ -351,7 +375,7 @@ export default function TeamCenterPage() {
                       <p className={`text-[10px] ${item.ggrCents < 0 ? 'text-red-400/70' : 'text-muted-foreground'}`}>{fmtCurrencyGgr(item.currency ?? 'PHP', item.ggrCents)} GGR × {item.ratePct}%</p>
                     </div>
                     <div className="text-right flex-shrink-0">
-                      <p className={`font-black text-sm leading-none ${item.commissionCents < 0 ? 'text-red-400' : 'text-amber-400'}`}>{phpDisplay(item.commissionCents)}</p>
+                      <p className={`font-black text-sm leading-none ${item.phpEquivCents < 0 ? 'text-red-400' : 'text-amber-400'}`}>{phpDisplay(item.phpEquivCents)}</p>
                       <p className={`text-[9px] mt-0.5 ${statusColor[item.status] ?? 'text-muted-foreground'}`}>{item.status}</p>
                     </div>
                   </div>
@@ -378,7 +402,7 @@ export default function TeamCenterPage() {
                 {/* 月份维度 */}
                 <div className="mt-3 pt-3 border-t border-amber-500/20 grid grid-cols-2 gap-2">
                   <div className="bg-black/20 rounded-xl p-2 text-center">
-                    <div className="text-amber-400 font-bold text-sm leading-none">{phpDisplay(summary?.totalCents ?? 0)}</div>
+                    <div className="text-amber-400 font-bold text-sm leading-none">{phpDisplay(treeBasedSummary?.totalCents ?? summary?.totalCents ?? 0)}</div>
                     <div className="text-white/40 text-[9px] mt-0.5">{t('team.periodEarned', { period: formatPeriod(period, i18n.language) })}</div>
                   </div>
                   <div className="bg-black/20 rounded-xl p-2 text-center">

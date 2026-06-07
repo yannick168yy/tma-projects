@@ -109,10 +109,15 @@ export default function TeamReferral({ tab }: Props) {
     try {
       const data = await getTeamAgentTree(agent.userId, period)
       setTreeData(data)
-      setTreeExpandedKeys([
-        `root-${agent.userId}`,
-        ...data.l1Members.map((m) => `l1-${m.userId}`),
-      ])
+      const keys: (string | number)[] = [`root-${agent.userId}`]
+      for (const l1 of data.l1Members) {
+        keys.push(`l1-${l1.userId}`)
+        for (const l2 of l1.children) {
+          keys.push(`l2-${l2.userId}`)
+          for (const l3 of l2.children) keys.push(`l3-${l3.userId}`)
+        }
+      }
+      setTreeExpandedKeys(keys)
     } catch { message.error('加载团队树失败') }
     finally { setTreeLoading(false) }
   }
