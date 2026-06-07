@@ -286,7 +286,7 @@ export default function AppShell() {
           )}
           {view.type === 'profile' && <ProfilePage onLogout={onLogout} onOpenCs={openCs} onOpenBetHistory={openBetHistory} />}
           {view.type === 'betHistory' && <BetHistoryPage onClose={overlay.close} />}
-          {view.type === 'teamCenter' && <TeamCenterPage onClose={overlay.close} />}
+          {view.type === 'teamCenter' && <TeamCenterPage />}
           {view.type === 'none' && activeNav === 'bonuses' && <BonusesPage promoFilter={promoFilter} onOpenWallet={() => void openWallet()} onOpenTeam={openTeamCenter} />}
           {view.type === 'none' && activeNav === 'bingo' && <BingoPage onOpenWallet={() => void openWallet()} onGameTap={() => void onGameTap()} onOpenGame={(url) => setGamePlayerUrl(url)} onOpenCategoryLobby={openCategoryLobby} />}
           {view.type === 'none' && activeNav === 'menu' && <MenuPage onOpenSearch={openSearch} onOpenCs={openCs} onOpenCategoryLobby={openCategoryLobby} />}

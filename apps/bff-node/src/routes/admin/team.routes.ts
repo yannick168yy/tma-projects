@@ -92,48 +92,66 @@ router.get('/agents/:userId/tree', async (ctx) => {
   const period = ctx.query.period ? String(ctx.query.period) : currentPeriod()
   const db = getMysqlPool(ctx.state.env)
 
-  // 每层 join 查主代理从该下线身上实际获得的佣金（beneficiary=主代理, from_user=下线, level=N）
+  const [year, month] = period.split('-').map(Number)
+  const PHT_OFFSET_MS = 8 * 60 * 60 * 1000
+  const startDate = new Date(Date.UTC(year, month - 1, 1) - PHT_OFFSET_MS)
+  const endDate   = new Date(Date.UTC(year, month,     1) - PHT_OFFSET_MS)
+
+  function ggrSub(levelCol: string) {
+    return `
+      SELECT pc.user_id,
+             ROUND(SUM(pc.ggr_amount) * 100) AS ggr_cents,
+             JSON_ARRAYAGG(JSON_OBJECT('currency', pc.currency_code, 'ggrCents', ROUND(pc.ggr_amount * 100))) AS ggr_breakdown
+      FROM (
+        SELECT bo.user_id, bo.currency_code,
+               SUM(CASE WHEN bo.bet_type='bet' THEN bo.amount ELSE 0 END) -
+               SUM(CASE WHEN bo.bet_type='win' THEN bo.amount ELSE 0 END) AS ggr_amount
+        FROM bg_bet_order bo
+        JOIN bg_team_node tm ON tm.user_id = bo.user_id AND tm.${levelCol} = ?
+        WHERE bo.created_at >= ? AND bo.created_at < ?
+          AND bo.bet_type IN ('bet','win') AND bo.status = 'settled'
+        GROUP BY bo.user_id, bo.currency_code
+      ) pc
+      GROUP BY pc.user_id`
+  }
+
+  function commSub(level: number) {
+    return `
+      SELECT from_user_id, SUM(commission_cents) AS commission_cents
+      FROM bg_team_commission
+      WHERE period = ? AND beneficiary_id = ? AND level = ${level}
+      GROUP BY from_user_id`
+  }
+
   const [l1Rows] = await db.query<RowDataPacket[]>(
     `SELECT tn.user_id, tn.opted_in, u.display_name,
-            COALESCE(tc.total, 0) AS month_cents, COALESCE(tc.ggr, 0) AS ggr_cents,
-            tc.ggr_breakdown
+            COALESCE(g.ggr_cents, 0) AS ggr_cents, g.ggr_breakdown,
+            COALESCE(c.commission_cents, 0) AS commission_cents
      FROM bg_team_node tn JOIN bg_user u ON u.id = tn.user_id
-     LEFT JOIN (
-       SELECT from_user_id, SUM(commission_cents) AS total, SUM(php_equivalent_cents) AS ggr,
-              JSON_ARRAYAGG(JSON_OBJECT('currency', currency, 'ggrCents', ggr_cents)) AS ggr_breakdown
-       FROM bg_team_commission WHERE period = ? AND beneficiary_id = ? AND level = 1
-       GROUP BY from_user_id
-     ) tc ON tc.from_user_id = tn.user_id
-     WHERE tn.l1_referrer_id = ? ORDER BY month_cents DESC`,
-    [period, userId, userId],
+     LEFT JOIN (${ggrSub('l1_referrer_id')}) g ON g.user_id = tn.user_id
+     LEFT JOIN (${commSub(1)}) c ON c.from_user_id = tn.user_id
+     WHERE tn.l1_referrer_id = ? ORDER BY ggr_cents DESC`,
+    [userId, startDate, endDate, period, userId, userId],
   )
   const [l2Rows] = await db.query<RowDataPacket[]>(
     `SELECT tn.user_id, tn.l1_referrer_id, tn.opted_in, u.display_name,
-            COALESCE(tc.total, 0) AS month_cents, COALESCE(tc.ggr, 0) AS ggr_cents,
-            tc.ggr_breakdown
+            COALESCE(g.ggr_cents, 0) AS ggr_cents, g.ggr_breakdown,
+            COALESCE(c.commission_cents, 0) AS commission_cents
      FROM bg_team_node tn JOIN bg_user u ON u.id = tn.user_id
-     LEFT JOIN (
-       SELECT from_user_id, SUM(commission_cents) AS total, SUM(php_equivalent_cents) AS ggr,
-              JSON_ARRAYAGG(JSON_OBJECT('currency', currency, 'ggrCents', ggr_cents)) AS ggr_breakdown
-       FROM bg_team_commission WHERE period = ? AND beneficiary_id = ? AND level = 2
-       GROUP BY from_user_id
-     ) tc ON tc.from_user_id = tn.user_id
-     WHERE tn.l2_referrer_id = ? ORDER BY month_cents DESC`,
-    [period, userId, userId],
+     LEFT JOIN (${ggrSub('l2_referrer_id')}) g ON g.user_id = tn.user_id
+     LEFT JOIN (${commSub(2)}) c ON c.from_user_id = tn.user_id
+     WHERE tn.l2_referrer_id = ? ORDER BY ggr_cents DESC`,
+    [userId, startDate, endDate, period, userId, userId],
   )
   const [l3Rows] = await db.query<RowDataPacket[]>(
     `SELECT tn.user_id, tn.l1_referrer_id, tn.opted_in, u.display_name,
-            COALESCE(tc.total, 0) AS month_cents, COALESCE(tc.ggr, 0) AS ggr_cents,
-            tc.ggr_breakdown
+            COALESCE(g.ggr_cents, 0) AS ggr_cents, g.ggr_breakdown,
+            COALESCE(c.commission_cents, 0) AS commission_cents
      FROM bg_team_node tn JOIN bg_user u ON u.id = tn.user_id
-     LEFT JOIN (
-       SELECT from_user_id, SUM(commission_cents) AS total, SUM(php_equivalent_cents) AS ggr,
-              JSON_ARRAYAGG(JSON_OBJECT('currency', currency, 'ggrCents', ggr_cents)) AS ggr_breakdown
-       FROM bg_team_commission WHERE period = ? AND beneficiary_id = ? AND level = 3
-       GROUP BY from_user_id
-     ) tc ON tc.from_user_id = tn.user_id
-     WHERE tn.l3_referrer_id = ? ORDER BY month_cents DESC`,
-    [period, userId, userId],
+     LEFT JOIN (${ggrSub('l3_referrer_id')}) g ON g.user_id = tn.user_id
+     LEFT JOIN (${commSub(3)}) c ON c.from_user_id = tn.user_id
+     WHERE tn.l3_referrer_id = ? ORDER BY ggr_cents DESC`,
+    [userId, startDate, endDate, period, userId, userId],
   )
 
   type GgrBreakdownItem = { currency: string; ggrCents: number }
@@ -148,7 +166,7 @@ router.get('/agents/:userId/tree', async (ctx) => {
   for (const r of l1Rows) {
     l1Map.set(String(r.user_id), {
       userId: String(r.user_id), displayName: String(r.display_name),
-      isAgent: Boolean(r.opted_in), thisMonthCents: Number(r.month_cents),
+      isAgent: Boolean(r.opted_in), thisMonthCents: Number(r.commission_cents),
       ggrCents: Number(r.ggr_cents), ggrBreakdown: parseBreakdown(r.ggr_breakdown), children: [],
     })
   }
@@ -156,7 +174,7 @@ router.get('/agents/:userId/tree', async (ctx) => {
   for (const r of l2Rows) {
     const node: NodeData = {
       userId: String(r.user_id), displayName: String(r.display_name),
-      isAgent: Boolean(r.opted_in), thisMonthCents: Number(r.month_cents),
+      isAgent: Boolean(r.opted_in), thisMonthCents: Number(r.commission_cents),
       ggrCents: Number(r.ggr_cents), ggrBreakdown: parseBreakdown(r.ggr_breakdown), children: [],
     }
     l2Map.set(node.userId, node)
@@ -165,7 +183,7 @@ router.get('/agents/:userId/tree', async (ctx) => {
   for (const r of l3Rows) {
     const node: NodeData = {
       userId: String(r.user_id), displayName: String(r.display_name),
-      isAgent: Boolean(r.opted_in), thisMonthCents: Number(r.month_cents),
+      isAgent: Boolean(r.opted_in), thisMonthCents: Number(r.commission_cents),
       ggrCents: Number(r.ggr_cents), ggrBreakdown: parseBreakdown(r.ggr_breakdown), children: [],
     }
     l2Map.get(String(r.l1_referrer_id))?.children.push(node)

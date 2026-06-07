@@ -96,9 +96,7 @@ function TreeNodeRow({ node, depth, expandedIds, onToggle }: {
 }
 
 // ── 页面主体 ──────────────────────────────────────────────────────────────────
-interface Props { onClose: () => void }
-
-export default function TeamCenterPage({ onClose }: Props) {
+export default function TeamCenterPage() {
   const { t, i18n } = useTranslation()
   const user = useAuthStore((s) => s.user)
   const store = usePromotionStore()
@@ -213,12 +211,6 @@ export default function TeamCenterPage({ onClose }: Props) {
 
   return (
     <div className="h-full bg-background flex flex-col overflow-hidden">
-
-      {/* ── 顶部栏（精简，只保留返回和AGENT标识）── */}
-      <div className="flex items-center justify-between border-b border-border px-3 py-2 flex-shrink-0">
-        <button type="button" className="text-muted-foreground p-1" onClick={onClose}><ChevronLeft size={20} /></button>
-        <span className="text-xs font-black text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded-full">AGENT</span>
-      </div>
 
       {/* ── 邀请码区 ── */}
       <div className="px-4 py-4 bg-gradient-to-br from-[#78350f]/40 via-[#92400e]/20 to-transparent border-b border-border flex-shrink-0">
