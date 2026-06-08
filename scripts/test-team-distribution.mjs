@@ -16,9 +16,10 @@
  *       │   └── L3_6  USDC only      → GGR 6USDC(正)
  *       └── L2_4  PHP only (未激活)  → GGR ₱500（激活门槛未达标，不贡献佣金）
  *
- * 负 GGR 验证点：
- *   - 负 GGR 月不向上线分佣（effective_ggr_cents = 0）
- *   - 多币种中某一币种为负时，该币种不产生佣金，其他币种正常
+ * 负 GGR 验证点（回撤模型）：
+ *   - 负 GGR → 产生负佣金（真实回撤，会减少上线余额）
+ *   - bg_team_ggr_monthly.effective_ggr_cents = 0 仅用于月报归零展示，不影响结算
+ *   - 多币种中某一币种为负 → 该币种产生负佣金，其他币种正常为正
  *   - 未激活用户无论 GGR 正负均不产生上线佣金
  *
  * 运行方式（在 tma-bff-node 容器内）：
@@ -319,24 +320,28 @@ async function main() {
     )
     log('  当前佣金费率', { L1: `${cfgL1}%`, L2: `${cfgL2}%`, L3: `${cfgL3}%` })
 
-    // ── 负 GGR 验证：不产生佣金 ──────────────────────────────────
-    // l1_2: GGR -₱200 → 0 条佣金（负月归零，不向上线分佣）
+    // ── 负 GGR 验证：产生负佣金（回撤模型）──────────────────────
+    // l1_2: GGR -₱200 → root 收到 1 条负佣金（L1 25% × -₱200 = -₱50）
     const fromL1_2 = commissions.filter(c => c.from_user_id === l1_2.id)
-    ok(`l1_2(负GGR -₱200) 不产生佣金`, fromL1_2.length === 0, fromL1_2.length)
+    ok(`l1_2(负GGR) 产生 1 条佣金`, fromL1_2.length === 1, fromL1_2.length)
+    ok(`l1_2 commission_cents 为负`, Number(fromL1_2[0]?.commission_cents) < 0, fromL1_2[0]?.commission_cents)
+    ok(`l1_2 php_equivalent_cents 为负`, Number(fromL1_2[0]?.php_equivalent_cents) < 0)
 
-    // l3_2: GGR -₱300 → 0 条佣金
+    // l3_2: GGR -₱300 → 3层上线各收 1 条负佣金
     const fromL3_2 = commissions.filter(c => c.from_user_id === l3_2.id)
-    ok(`l3_2(负GGR -₱300) 不产生佣金`, fromL3_2.length === 0, fromL3_2.length)
+    ok(`l3_2(负GGR) 产生 3 条负佣金`, fromL3_2.length === 3, fromL3_2.length)
+    ok(`l3_2 所有佣金 commission_cents 为负`, fromL3_2.every(c => Number(c.commission_cents) < 0))
 
-    // l3_4: GGR -₱200 → 0 条佣金
+    // l3_4: GGR -₱200 → 3层上线各收 1 条负佣金
     const fromL3_4 = commissions.filter(c => c.from_user_id === l3_4.id)
-    ok(`l3_4(负GGR -₱200) 不产生佣金`, fromL3_4.length === 0, fromL3_4.length)
+    ok(`l3_4(负GGR) 产生 3 条负佣金`, fromL3_4.length === 3, fromL3_4.length)
+    ok(`l3_4 所有佣金 commission_cents 为负`, fromL3_4.every(c => Number(c.commission_cents) < 0))
 
-    // l2_4: 未激活 → 0 条佣金（无论 GGR 正负）
+    // l2_4: 未激活 → 0 条佣金（无论 GGR 正负，未激活节点不在 team_node 结算范围）
     const fromL2_4 = commissions.filter(c => c.from_user_id === l2_4.id)
     ok(`l2_4(未激活) 不产生佣金`, fromL2_4.length === 0, fromL2_4.length)
 
-    // ── 负 GGR 验证：bg_team_ggr_monthly effective_ggr=0 ─────────
+    // ── effective_ggr 月报归零验证（与结算分离，仅用于展示）───────
     const negUsers = [l1_2.id, l3_2.id, l3_4.id]
     const [negGgrRows] = await db.query(
       `SELECT user_id, ggr_cents, effective_ggr_cents, negative_ggr
@@ -350,18 +355,21 @@ async function main() {
     }
 
     // ── 正 GGR 验证 ────────────────────────────────────────────────
-    // l1_1: PHP only → root 收 level=1 佣金，1条
+    // l1_1: PHP only → root 收 level=1 佣金，1条正数
     const fromL1_1 = commissions.filter(c => c.from_user_id === l1_1.id)
     ok(`l1_1(正₱400) 产生 1 条佣金`, fromL1_1.length === 1, fromL1_1.length)
     ok(`l1_1 受益人=root level=1`, fromL1_1[0]?.beneficiary_id === root.id && fromL1_1[0]?.level === 1)
+    ok(`l1_1 commission_cents 为正`, Number(fromL1_1[0]?.commission_cents) > 0)
 
-    // l2_1: PHP(正)+USDT(负) → 仅 PHP 佣金，root(L2)+l1_1(L1) = 2条
+    // l2_1: PHP(正)+USDT(负) → 4条：PHP正×2 + USDT负×2
     const fromL2_1 = commissions.filter(c => c.from_user_id === l2_1.id)
-    ok(`l2_1(PHP正+USDT负) 产生 2 条佣金(仅PHP)`, fromL2_1.length === 2, fromL2_1.length)
-    ok(`l2_1 佣金货币均为 PHP`, fromL2_1.every(c => c.currency === 'PHP'))
+    ok(`l2_1(PHP正+USDT负) 产生 4 条佣金`, fromL2_1.length === 4, fromL2_1.length)
+    const l2_1_phpComms  = fromL2_1.filter(c => c.currency === 'PHP')
+    const l2_1_usdtComms = fromL2_1.filter(c => c.currency === 'USDT')
+    ok(`l2_1 PHP 佣金为正(2条)`, l2_1_phpComms.length === 2 && l2_1_phpComms.every(c => Number(c.commission_cents) > 0))
+    ok(`l2_1 USDT 佣金为负(2条)`, l2_1_usdtComms.length === 2 && l2_1_usdtComms.every(c => Number(c.commission_cents) < 0))
     const l2_1_rootPHP = fromL2_1.find(c => c.beneficiary_id === root.id && c.currency === 'PHP')
-    ok(`l2_1 root 收到 PHP 佣金(level=2)`, l2_1_rootPHP?.level === 2)
-    ok(`l2_1 无 USDT 佣金(USDT GGR为负)`, !fromL2_1.some(c => c.currency === 'USDT'))
+    ok(`l2_1 root 收到 PHP 正佣金(level=2)`, l2_1_rootPHP?.level === 2 && Number(l2_1_rootPHP?.commission_cents) > 0)
 
     // l2_2: USDT only → root(level=2)1条 + l1_1(level=1)1条 = 2条
     const fromL2_2 = commissions.filter(c => c.from_user_id === l2_2.id)
