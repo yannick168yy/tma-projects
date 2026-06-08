@@ -283,7 +283,7 @@ router.get('/tree', async (ctx) => {
     const u = currency.toUpperCase()
     if (u === 'PHP') return 1
     if (u === 'EUR') return Number(env.EUR_TO_PHP_RATE)
-    if (u === 'USDT' || u === 'USD') return Number(env.USDT_TO_PHP_RATE)
+    if (u === 'USDT' || u === 'USD' || u === 'USDC') return Number(env.USDT_TO_PHP_RATE)
     if (u === 'TON') return Number(env.TON_TO_PHP_RATE)
     return 1
   }
