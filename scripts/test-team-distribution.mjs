@@ -158,6 +158,8 @@ async function cleanupPreviousRun(db) {
     await db.execute(`DELETE FROM bg_team_commission   WHERE from_user_id IN (SELECT id FROM bg_user WHERE label='test') OR beneficiary_id IN (SELECT id FROM bg_user WHERE label='test')`)
     await db.execute(`DELETE FROM bg_team_ggr_monthly  WHERE user_id IN (SELECT id FROM bg_user WHERE label='test')`)
     await db.execute(`DELETE FROM bg_team_wallet       WHERE user_id IN (SELECT id FROM bg_user WHERE label='test')`)
+    // 重置 root(BG-10001) 团队钱包，避免多次运行累加
+    await db.execute(`UPDATE bg_team_wallet SET available_cents=0, frozen_cents=0, lifetime_earned_cents=0, version=version+1 WHERE user_id='BG-10001' AND currency='PHP'`)
     await db.execute(`DELETE FROM bg_team_withdrawal   WHERE user_id IN (SELECT id FROM bg_user WHERE label='test')`)
     await db.execute(`DELETE FROM bg_team_node         WHERE user_id IN (SELECT id FROM bg_user WHERE label='test')`)
     await db.execute(`DELETE FROM bg_bet_order         WHERE user_id IN (SELECT id FROM bg_user WHERE label='test')`)
