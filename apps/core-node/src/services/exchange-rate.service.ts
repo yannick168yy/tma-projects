@@ -50,12 +50,22 @@ function buildFallback(): Record<string, number> {
     EUR: env.EUR_TO_PHP_RATE,
     USD: env.USDT_TO_PHP_RATE,
     USDT: env.USDT_TO_PHP_RATE,
+    USDC: env.USDT_TO_PHP_RATE,
+    TRX: env.TRX_TO_PHP_RATE,
+    TRX_TESTNET: env.TRX_TO_PHP_RATE,
+    BNB: env.BNB_TO_PHP_RATE,
+    ETH: env.ETH_TO_PHP_RATE,
+    BTC: env.BTC_TO_PHP_RATE,
   }
 }
 
 function fallbackRate(currency: string): number {
   const upper = currency.toUpperCase()
   if (upper === 'EUR') return env.EUR_TO_PHP_RATE
-  if (upper === 'USD' || upper === 'USDT') return env.USDT_TO_PHP_RATE
+  if (upper === 'USD' || upper === 'USDT' || upper === 'USDC') return env.USDT_TO_PHP_RATE
+  if (upper === 'TRX' || upper === 'TRX_TESTNET') return env.TRX_TO_PHP_RATE
+  if (upper === 'BNB') return env.BNB_TO_PHP_RATE
+  if (upper === 'ETH') return env.ETH_TO_PHP_RATE
+  if (upper === 'BTC') return env.BTC_TO_PHP_RATE
   return 1
 }

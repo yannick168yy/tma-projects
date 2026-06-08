@@ -109,6 +109,10 @@ router.get('/agents/:userId/tree', async (ctx) => {
     if (u === 'EUR') return Number(env.EUR_TO_PHP_RATE)
     if (u === 'USDT' || u === 'USD' || u === 'USDC') return Number(env.USDT_TO_PHP_RATE)
     if (u === 'TON') return Number(env.TON_TO_PHP_RATE)
+    if (u === 'TRX' || u === 'TRX_TESTNET') return Number(env.TRX_TO_PHP_RATE)
+    if (u === 'BNB') return Number(env.BNB_TO_PHP_RATE)
+    if (u === 'ETH') return Number(env.ETH_TO_PHP_RATE)
+    if (u === 'BTC') return Number(env.BTC_TO_PHP_RATE)
     return 1
   }
 

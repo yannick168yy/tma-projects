@@ -25,6 +25,10 @@ const schema = z.object({
   // 手动兜底汇率（无 API key 或 API 故障时使用）
   EUR_TO_PHP_RATE: z.coerce.number().positive().default(62),
   USDT_TO_PHP_RATE: z.coerce.number().positive().default(58),
+  TRX_TO_PHP_RATE: z.coerce.number().positive().default(10),
+  BNB_TO_PHP_RATE: z.coerce.number().positive().default(33000),
+  ETH_TO_PHP_RATE: z.coerce.number().positive().default(145000),
+  BTC_TO_PHP_RATE: z.coerce.number().positive().default(5800000),
   YFPAY_USERNAME: z.string().default(''),
   YFPAY_API_KEY: z.string().default(''),
   YFPAY_NOTIFY_URL: z.string().default('https://www.188facai.com/api/v1/callback/yfpay'),
