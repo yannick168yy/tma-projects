@@ -3,7 +3,7 @@
 -- 适用：测试环境重置，不可用于生产
 --
 -- 清理范围：
---   存款记录、提款记录、账变记录、投注记录、游戏记录、流水记录
+--   存款记录、提款记录、账变记录、投注记录、流水记录
 --   三级分销佣金/GGR/提现
 --   除 BG-10001 外的所有用户及其关联数据
 --   BG-10001 的钱包余额归零
@@ -25,18 +25,14 @@ DELETE FROM bg_turnover_allocations;
 DELETE FROM bg_turnover_logs;
 DELETE FROM bg_turnover_requirements;
 
--- ── 投注 / 游戏记录 ───────────────────────────────────────────
+-- ── 投注记录 ──────────────────────────────────────────────────
 DELETE FROM bg_bet_order;
-DELETE FROM bg_game_session;
 
 -- ── 账变记录 ──────────────────────────────────────────────────
 DELETE FROM bg_wallet_ledger;
 
--- ── 存款记录 ──────────────────────────────────────────────────
-DELETE FROM bg_order_deposit;
+-- ── 存款 / 提款记录 ───────────────────────────────────────────
 DELETE FROM bg_deposit_order;
-
--- ── 提款记录 ──────────────────────────────────────────────────
 DELETE FROM bg_withdraw_order;
 
 -- ── 幂等键（支付回调去重缓存）────────────────────────────────
@@ -47,8 +43,6 @@ DELETE FROM bg_wallet WHERE user_id != 'BG-10001';
 UPDATE bg_wallet SET available=0, frozen=0, version=version+1 WHERE user_id='BG-10001';
 
 -- ── 活动 / 邀请 ───────────────────────────────────────────────
-DELETE FROM bg_promo_claim;
-DELETE FROM bg_referral_record;
 DELETE FROM bg_user_promo_state WHERE user_id != 'BG-10001';
 UPDATE bg_user_promo_state
   SET trial_claimed=0, referral_claimed=0, first_dep_claimed=0,
@@ -58,7 +52,6 @@ UPDATE bg_user_promo_state
 -- ── 用户关联表 ────────────────────────────────────────────────
 DELETE FROM bg_login_log WHERE user_id != 'BG-10001';
 DELETE FROM bg_kyc_submission WHERE user_id != 'BG-10001';
-DELETE FROM bg_session WHERE user_id != 'BG-10001';
 DELETE FROM bg_user_profile WHERE user_id != 'BG-10001';
 
 -- ── 删除用户（最后）───────────────────────────────────────────
@@ -71,6 +64,6 @@ SELECT 'bg_user'           AS tbl, COUNT(*) AS remaining FROM bg_user
 UNION ALL SELECT 'bg_bet_order',       COUNT(*) FROM bg_bet_order
 UNION ALL SELECT 'bg_team_commission', COUNT(*) FROM bg_team_commission
 UNION ALL SELECT 'bg_wallet_ledger',   COUNT(*) FROM bg_wallet_ledger
-UNION ALL SELECT 'bg_order_deposit',   COUNT(*) FROM bg_order_deposit
+UNION ALL SELECT 'bg_deposit_order',   COUNT(*) FROM bg_deposit_order
 UNION ALL SELECT 'bg_turnover_logs',   COUNT(*) FROM bg_turnover_logs
 UNION ALL SELECT 'bg_team_node',       COUNT(*) FROM bg_team_node;
