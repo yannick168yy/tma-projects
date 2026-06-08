@@ -330,7 +330,7 @@ router.get('/tree', async (ctx) => {
   }
 
   const [l1Rows] = await db.query<RowDataPacket[]>(
-    `SELECT tn.user_id, tn.opted_in, u.display_name,
+    `SELECT tn.user_id, tn.opted_in, tn.activated, u.display_name,
             COALESCE(g.ggr_cents, 0) AS ggr_cents, g.ggr_breakdown,
             c.commission_cents
      FROM bg_team_node tn JOIN bg_user u ON u.id = tn.user_id
@@ -340,7 +340,7 @@ router.get('/tree', async (ctx) => {
     [userId, startDate, endDate, period, userId, userId],
   )
   const [l2Rows] = await db.query<RowDataPacket[]>(
-    `SELECT tn.user_id, tn.l1_referrer_id, tn.opted_in, u.display_name,
+    `SELECT tn.user_id, tn.l1_referrer_id, tn.opted_in, tn.activated, u.display_name,
             COALESCE(g.ggr_cents, 0) AS ggr_cents, g.ggr_breakdown,
             c.commission_cents
      FROM bg_team_node tn JOIN bg_user u ON u.id = tn.user_id
@@ -350,7 +350,7 @@ router.get('/tree', async (ctx) => {
     [userId, startDate, endDate, period, userId, userId],
   )
   const [l3Rows] = await db.query<RowDataPacket[]>(
-    `SELECT tn.user_id, tn.l1_referrer_id, tn.opted_in, u.display_name,
+    `SELECT tn.user_id, tn.l1_referrer_id, tn.opted_in, tn.activated, u.display_name,
             COALESCE(g.ggr_cents, 0) AS ggr_cents, g.ggr_breakdown,
             c.commission_cents
      FROM bg_team_node tn JOIN bg_user u ON u.id = tn.user_id
@@ -362,8 +362,10 @@ router.get('/tree', async (ctx) => {
 
   interface NodeData { userId: string; displayName: string; isAgent: boolean; thisMonthCents: number; ggrCents: number; ggrBreakdown: GgrBreakdownItem[]; children: NodeData[] }
 
-  function toCommCents(raw: unknown, phpGgrCents: number, level: 1 | 2 | 3): number {
+  // 已激活且有真实结算记录时返回记录值；已激活但未结算时用 GGR 估算；未激活始终返回 0
+  function toCommCents(raw: unknown, phpGgrCents: number, level: 1 | 2 | 3, activated: boolean): number {
     if (raw !== null && raw !== undefined) return Number(raw)
+    if (!activated) return 0
     return Math.round(phpGgrCents * rates[level] / 100)
   }
 
@@ -373,7 +375,7 @@ router.get('/tree', async (ctx) => {
     const phpGgrCents = toPhpGgr(breakdown)
     l1Map.set(String(r.user_id), {
       userId: String(r.user_id), displayName: String(r.display_name),
-      isAgent: Boolean(r.opted_in), thisMonthCents: toCommCents(r.commission_cents, phpGgrCents, 1),
+      isAgent: Boolean(r.opted_in), thisMonthCents: toCommCents(r.commission_cents, phpGgrCents, 1, Boolean(r.activated)),
       ggrCents: phpGgrCents, ggrBreakdown: breakdown, children: [],
     })
   }
@@ -383,7 +385,7 @@ router.get('/tree', async (ctx) => {
     const phpGgrCents = toPhpGgr(breakdown)
     const node: NodeData = {
       userId: String(r.user_id), displayName: String(r.display_name),
-      isAgent: Boolean(r.opted_in), thisMonthCents: toCommCents(r.commission_cents, phpGgrCents, 2),
+      isAgent: Boolean(r.opted_in), thisMonthCents: toCommCents(r.commission_cents, phpGgrCents, 2, Boolean(r.activated)),
       ggrCents: phpGgrCents, ggrBreakdown: breakdown, children: [],
     }
     l2Map.set(node.userId, node)
@@ -394,7 +396,7 @@ router.get('/tree', async (ctx) => {
     const phpGgrCents = toPhpGgr(breakdown)
     const node: NodeData = {
       userId: String(r.user_id), displayName: String(r.display_name),
-      isAgent: Boolean(r.opted_in), thisMonthCents: toCommCents(r.commission_cents, phpGgrCents, 3),
+      isAgent: Boolean(r.opted_in), thisMonthCents: toCommCents(r.commission_cents, phpGgrCents, 3, Boolean(r.activated)),
       ggrCents: phpGgrCents, ggrBreakdown: breakdown, children: [],
     }
     l2Map.get(String(r.l1_referrer_id))?.children.push(node)

@@ -267,7 +267,7 @@ export interface TeamCommission {
   beneficiary_id: string; beneficiary_name: string
   from_user_id: string; from_name: string
   level: number; period: string; currency: string
-  ggr_cents: number; rate_pct: number; commission_cents: number
+  ggr_cents: number; rate_pct: number; commission_cents: number; php_equivalent_cents: number
   status: string; paid_at: string | null; created_at: string
 }
 

@@ -34,7 +34,7 @@ export default function TeamCommissions() {
     { title: '货币', dataIndex: 'currency', key: 'currency', width: 70 },
     { title: 'GGR', key: 'ggr', width: 120, render: (_: unknown, r: TeamCommission) => phpCell(r.ggr_cents) },
     { title: '费率', dataIndex: 'rate_pct', key: 'rate', width: 70 },
-    { title: '佣金', key: 'commission', width: 120, render: (_: unknown, r: TeamCommission) => phpCell(r.commission_cents) },
+    { title: '佣金(PHP等值)', key: 'commission', width: 140, render: (_: unknown, r: TeamCommission) => phpCell(r.php_equivalent_cents ?? r.commission_cents) },
     { title: '状态', key: 'status', width: 90, render: (_: unknown, r: TeamCommission) => <Tag color={r.status === 'paid' ? 'green' : r.status === 'pending' ? 'orange' : 'default'}>{r.status}</Tag> },
   ]
 
