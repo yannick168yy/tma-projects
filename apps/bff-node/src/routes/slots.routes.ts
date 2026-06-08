@@ -131,7 +131,9 @@ router.post('/init', async (ctx) => {
   }
 
   const sessionId = randomUUID()
-  const walletCurrency = (body.currency ?? 'PHP').toUpperCase()
+  const VALID_WALLET_CURRENCIES = ['PHP', 'USDT', 'USDC', 'TON', 'TRX', 'TRX_TESTNET', 'BNB', 'ETH', 'BTC', 'TLK_TESTNET']
+  const rawCurrency = (body.currency ?? 'PHP').toUpperCase()
+  const walletCurrency = VALID_WALLET_CURRENCIES.includes(rawCurrency) ? rawCurrency : 'PHP'
   // 单币种模式：SG 侧固定 EUR，回调按 session 映射到用户所选钱包币种（金额 1:1）
   const sessionPayload = env.SG_MULTI_CURRENCY
     ? userId
