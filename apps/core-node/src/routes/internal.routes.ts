@@ -8,10 +8,9 @@ import { env } from '../config/env.js'
 import { lgId } from '../utils/id.js'
 import { getPhpRate } from '../services/exchange-rate.service.js'
 
-// PHT = UTC+8，结算周期按菲律宾本地月份切割
 const PHT_OFFSET_MS = 8 * 60 * 60 * 1000
 
-// 共用：首充激活（所有支付通道调用同一段 SQL，避免漏接通道）
+// 共用：首充激活
 async function tryActivateTeamNode(
   conn: PoolConnection,
   userId: string,
@@ -58,7 +57,6 @@ async function creditWalletInTx(
 }
 
 export async function internalRoutes(app: FastifyInstance) {
-  // 所有 /internal/* 路由都验 token；未配置 token 时 fail-closed
   app.addHook('onRequest', async (req, reply) => {
     if (!req.url.startsWith('/internal/')) return
     const token = req.headers['x-internal-token']
@@ -69,48 +67,28 @@ export async function internalRoutes(app: FastifyInstance) {
 
   // POST /internal/payment/tg-wallet
   app.post<{
-    Body: {
-      orderId: string
-      userId: string
-      amount: number
-      creditedCents: number
-      currency: string
-      description?: string
-    }
+    Body: { orderId: string; userId: string; amount: number; creditedCents: number; currency: string; description?: string }
   }>('/internal/payment/tg-wallet', async (req, reply) => {
     const { orderId, userId, creditedCents, description } = req.body
-
     if (!orderId || !userId || creditedCents <= 0) {
       return reply.status(400).send({ code: 400, message: 'invalid payload' })
     }
-
     const db = app.mysql
     const redis = app.redis as unknown as Redis
-
     const idempotencyKey = `tgwallet:cb:${orderId}`
     const locked = await redis.set(idempotencyKey, '1', 'EX', 604800, 'NX')
     if (!locked) return reply.send({ code: 0, message: 'duplicate, skipped' })
-
     const [rows] = await db.query<RowDataPacket[]>(
-      `SELECT status FROM bg_deposit_order WHERE order_id = ? LIMIT 1`,
-      [orderId],
+      `SELECT status FROM bg_deposit_order WHERE order_id = ? LIMIT 1`, [orderId],
     )
     if (rows[0]?.status === 'paid') return reply.send({ code: 0, message: 'already paid' })
-
     const conn = await db.getConnection()
     try {
       await conn.beginTransaction()
-      const balanceAfter = await creditWalletInTx(
-        conn, userId, creditedCents, orderId,
-        description ?? 'Telegram Wallet deposit',
-      )
-      await conn.execute(
-        `UPDATE bg_deposit_order SET status='paid', credited=1 WHERE order_id=?`,
-        [orderId],
-      )
+      const balanceAfter = await creditWalletInTx(conn, userId, creditedCents, orderId, description ?? 'Telegram Wallet deposit')
+      await conn.execute(`UPDATE bg_deposit_order SET status='paid', credited=1 WHERE order_id=?`, [orderId])
       await tryActivateTeamNode(conn, userId, creditedCents)
       await conn.commit()
-      app.log.info({ orderId, userId, creditedCents }, 'TG Wallet deposit settled')
       return reply.send({ code: 0, message: 'ok', balanceAfter })
     } catch (err) {
       await conn.rollback()
@@ -122,46 +100,29 @@ export async function internalRoutes(app: FastifyInstance) {
   })
 
   // POST /internal/payment/yfpay
-  // BFF 收到 YFPay 支付回调（state=2）后转发到此处入账 + 激活
   app.post<{
-    Body: {
-      orderId: string     // merchantSerial
-      userId: string
-      creditedCents: number  // PHP 分（BFF 已转换）
-    }
+    Body: { orderId: string; userId: string; creditedCents: number }
   }>('/internal/payment/yfpay', async (req, reply) => {
     const { orderId, userId, creditedCents } = req.body
-
     if (!orderId || !userId || creditedCents <= 0) {
       return reply.status(400).send({ code: 400, message: 'invalid payload' })
     }
-
     const db = app.mysql
     const redis = app.redis as unknown as Redis
-
     const idempotencyKey = `yfpay:cb:${orderId}`
     const locked = await redis.set(idempotencyKey, '1', 'EX', 604800, 'NX')
     if (!locked) return reply.send({ code: 0, message: 'duplicate, skipped' })
-
     const [rows] = await db.query<RowDataPacket[]>(
-      `SELECT status FROM bg_deposit_order WHERE order_id = ? LIMIT 1`,
-      [orderId],
+      `SELECT status FROM bg_deposit_order WHERE order_id = ? LIMIT 1`, [orderId],
     )
     if (rows[0]?.status === 'paid') return reply.send({ code: 0, message: 'already paid' })
-
     const conn = await db.getConnection()
     try {
       await conn.beginTransaction()
-      const balanceAfter = await creditWalletInTx(
-        conn, userId, creditedCents, orderId, 'YFPay deposit',
-      )
-      await conn.execute(
-        `UPDATE bg_deposit_order SET status='paid', credited=1 WHERE order_id=?`,
-        [orderId],
-      )
+      const balanceAfter = await creditWalletInTx(conn, userId, creditedCents, orderId, 'YFPay deposit')
+      await conn.execute(`UPDATE bg_deposit_order SET status='paid', credited=1 WHERE order_id=?`, [orderId])
       await tryActivateTeamNode(conn, userId, creditedCents)
       await conn.commit()
-      app.log.info({ orderId, userId, creditedCents }, 'YFPay deposit settled')
       return reply.send({ code: 0, message: 'ok', balanceAfter })
     } catch (err) {
       await conn.rollback()
@@ -172,19 +133,19 @@ export async function internalRoutes(app: FastifyInstance) {
     }
   })
 
-  // POST /internal/team/settle  — 触发月度 GGR 结算（异步，立即返回）
-  app.post<{ Body: { period: string } }>('/internal/team/settle', async (req, reply) => {
-    const { period } = req.body
-    if (!period || !/^\d{4}-\d{2}$/.test(period)) {
-      return reply.status(400).send({ code: 400, message: 'period 格式应为 YYYY-MM' })
+  // POST /internal/team/settle  { date: YYYY-MM-DD, force?: boolean }
+  app.post<{ Body: { date: string; force?: boolean } }>('/internal/team/settle', async (req, reply) => {
+    const { date, force = false } = req.body
+    if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      return reply.status(400).send({ code: 400, message: 'date 格式应为 YYYY-MM-DD' })
     }
-    runTeamSettlement(app, period).catch((err: unknown) =>
-      app.log.error({ err, period }, '[team-settle] failed'),
+    runDailySettlement(app, date, force).catch((err: unknown) =>
+      app.log.error({ err, date }, '[daily-settle] failed'),
     )
-    return reply.send({ code: 0, message: 'settlement triggered', period })
+    return reply.send({ code: 0, message: 'settlement triggered', date })
   })
 
-  // POST /internal/team/withdrawal/approve  — 执行提现划转
+  // POST /internal/team/withdrawal/approve
   app.post<{ Body: { withdrawalId: number } }>('/internal/team/withdrawal/approve', async (req, reply) => {
     const { withdrawalId } = req.body
     if (!withdrawalId) return reply.status(400).send({ code: 400, message: 'withdrawalId required' })
@@ -198,10 +159,7 @@ export async function internalRoutes(app: FastifyInstance) {
       if (!wd) return reply.status(404).send({ code: 404, message: 'withdrawal not found' })
       if (wd.status !== 'pending') return reply.send({ code: 0, message: 'already processed' })
 
-      // bg_wallet.available / bg_wallet_ledger.amount 是 PHP 元（DECIMAL，迁移016后）
-      // bg_team_withdrawal.amount_cents 是 PHP 分，需除以 100
       const amountYuan = wd.amount_cents / 100
-
       await conn.beginTransaction()
       const [twRes] = await conn.execute<import('mysql2/promise').ResultSetHeader>(
         `UPDATE bg_team_wallet
@@ -210,7 +168,6 @@ export async function internalRoutes(app: FastifyInstance) {
         [wd.amount_cents, wd.user_id, wd.amount_cents],
       )
       if (twRes.affectedRows === 0) throw new Error('insufficient frozen balance')
-
       await conn.execute(
         `INSERT INTO bg_wallet (user_id, currency, available, version)
          VALUES (?, 'PHP', ?, 1)
@@ -243,121 +200,174 @@ export async function internalRoutes(app: FastifyInstance) {
   })
 }
 
-// ── 月度 GGR 结算引擎 ──────────────────────────────────────────────────────
-export async function runTeamSettlement(app: FastifyInstance, period: string) {
+// ── 每日流水结算引擎 ──────────────────────────────────────────────────────────
+export async function runDailySettlement(app: FastifyInstance, date: string, force = false): Promise<void> {
   const db = app.mysql
-  const [year, month] = period.split('-').map(Number)
 
-  // 按菲律宾时间（UTC+8）切割月份边界，避免跨月偏移
-  const startDate = new Date(Date.UTC(year, month - 1, 1) - PHT_OFFSET_MS)
-  const endDate   = new Date(Date.UTC(year, month,     1) - PHT_OFFSET_MS)
+  // 覆盖模式：先回滚已入账佣金，再删旧记录
+  if (force) {
+    const [paidRows] = await db.query<RowDataPacket[]>(
+      `SELECT beneficiary_id, SUM(php_equivalent_cents) AS total_php
+       FROM bg_team_commission WHERE period = ? AND status = 'paid'
+       GROUP BY beneficiary_id`,
+      [date],
+    )
+    for (const row of paidRows) {
+      const total = Number(row.total_php)
+      if (total > 0) {
+        await db.execute(
+          `UPDATE bg_team_wallet
+           SET available_cents        = GREATEST(0, available_cents - ?),
+               lifetime_earned_cents  = GREATEST(0, lifetime_earned_cents - ?)
+           WHERE user_id = ? AND currency = 'PHP'`,
+          [total, total, row.beneficiary_id],
+        )
+      }
+    }
+    await db.execute(`DELETE FROM bg_team_commission WHERE period = ?`, [date])
+    await db.execute(`DELETE FROM bg_team_turnover_daily WHERE date = ?`, [date])
+    app.log.info({ date }, '[daily-settle] existing data cleared for force re-run')
+  } else {
+    const [[{ cnt }]] = await db.query<RowDataPacket[]>(
+      `SELECT COUNT(*) AS cnt FROM bg_team_commission WHERE period = ? LIMIT 1`, [date],
+    )
+    if (Number(cnt) > 0) {
+      app.log.info({ date }, '[daily-settle] already settled, skip (use force=true to override)')
+      return
+    }
+  }
 
-  app.log.info({ period, startDate, endDate }, '[team-settle] start')
+  app.log.info({ date, force }, '[daily-settle] start')
 
-  // 费率与上限配置
-  const [[cfg]] = await db.query<RowDataPacket[]>(
-    `SELECT l1_rate_pct, l2_rate_pct, l3_rate_pct, max_commission_per_settlement_cents
-     FROM bg_team_config WHERE id = 1 LIMIT 1`,
-  )
-  if (!cfg) throw new Error('bg_team_config not initialized')
-  const rates = [Number(cfg.l1_rate_pct), Number(cfg.l2_rate_pct), Number(cfg.l3_rate_pct)]
-  const maxCommission: number | null =
-    cfg.max_commission_per_settlement_cents != null
-      ? Number(cfg.max_commission_per_settlement_cents)
-      : null
+  // 按 PHT 日期范围切割
+  const [y, m, d] = date.split('-').map(Number)
+  const startDate = new Date(Date.UTC(y, m - 1, d)     - PHT_OFFSET_MS)
+  const endDate   = new Date(Date.UTC(y, m - 1, d + 1) - PHT_OFFSET_MS)
 
-  // 聚合当月 GGR，按 (user_id, currency_code) 分组——多币种各自独立
+  // 聚合当日投注流水（仅 bet，不减 win）
   const [bets] = await db.query<RowDataPacket[]>(
     `SELECT user_id, COALESCE(currency_code, 'PHP') AS currency_code,
-       ROUND(SUM(CASE WHEN bet_type='bet' THEN amount ELSE 0 END) * 100) AS bet_cents,
-       ROUND(SUM(CASE WHEN bet_type='win' THEN amount ELSE 0 END) * 100) AS win_cents
+       ROUND(SUM(amount) * 100) AS bet_cents
      FROM bg_bet_order
      WHERE created_at >= ? AND created_at < ?
-       AND bet_type IN ('bet','win') AND status = 'settled'
+       AND bet_type = 'bet' AND status = 'settled'
      GROUP BY user_id, currency_code`,
     [startDate, endDate],
   )
 
+  if (bets.length === 0) {
+    app.log.info({ date }, '[daily-settle] no bets, done')
+    return
+  }
+
+  // 写 bg_team_turnover_daily（各币种原始流水）
   for (const row of bets) {
-    const ggr = Number(row.bet_cents) - Number(row.win_cents)
-    const effectiveGgr = Math.max(0, ggr)
-    const currency = String(row.currency_code ?? 'PHP')
     await db.execute(
-      `INSERT INTO bg_team_ggr_monthly
-         (user_id, period, currency, bet_cents, win_cents, ggr_cents, effective_ggr_cents, negative_ggr)
-       VALUES (?,?,?,?,?,?,?,?)
-       ON DUPLICATE KEY UPDATE
-         bet_cents=VALUES(bet_cents), win_cents=VALUES(win_cents),
-         ggr_cents=VALUES(ggr_cents), effective_ggr_cents=VALUES(effective_ggr_cents),
-         negative_ggr=VALUES(negative_ggr)`,
-      [row.user_id, period, currency, row.bet_cents, row.win_cents, ggr, effectiveGgr, ggr < 0 ? 1 : 0],
+      `INSERT INTO bg_team_turnover_daily (user_id, date, currency_code, bet_cents, settled)
+       VALUES (?, ?, ?, ?, 0)
+       ON DUPLICATE KEY UPDATE bet_cents = VALUES(bet_cents), settled = 0`,
+      [row.user_id, date, row.currency_code, row.bet_cents],
     )
   }
 
-  // 处理所有有投注记录的用户（含负 GGR，即用户赢钱场景），佣金可为负
-  const allBetUsers = bets.filter(r => Number(r.bet_cents) !== 0 || Number(r.win_cents) !== 0)
-  if (allBetUsers.length === 0) {
-    app.log.info({ period }, '[team-settle] no bet users')
-    return
-  }
-  // 去重 user_id 用于查询团队节点关系
-  const userIds = [...new Set(allBetUsers.map(r => r.user_id as string))]
+  // 查激活用户的归属树 + 套餐费率（NULL rate_plan_id → COALESCE 到 default 套餐）
+  const userIds = [...new Set(bets.map(r => r.user_id as string))]
+  const [[defaultPlan]] = await db.query<RowDataPacket[]>(
+    `SELECT l1_rate_pct, l2_rate_pct, l3_rate_pct FROM bg_team_rate_plan WHERE is_default = 1 LIMIT 1`,
+  )
+  if (!defaultPlan) throw new Error('bg_team_rate_plan: no default plan')
 
   const [nodes] = await db.query<RowDataPacket[]>(
-    `SELECT user_id, l1_referrer_id, l2_referrer_id, l3_referrer_id
-     FROM bg_team_node WHERE user_id IN (?) AND activated = 1`,
-    [userIds],
+    `SELECT tn.user_id, tn.l1_referrer_id, tn.l2_referrer_id, tn.l3_referrer_id,
+            COALESCE(rp.l1_rate_pct, ?) AS l1_rate_pct,
+            COALESCE(rp.l2_rate_pct, ?) AS l2_rate_pct,
+            COALESCE(rp.l3_rate_pct, ?) AS l3_rate_pct
+     FROM bg_team_node tn
+     LEFT JOIN bg_team_rate_plan rp ON rp.id = tn.rate_plan_id
+     WHERE tn.user_id IN (?) AND tn.activated = 1`,
+    [defaultPlan.l1_rate_pct, defaultPlan.l2_rate_pct, defaultPlan.l3_rate_pct, userIds],
   )
   const nodeMap = new Map(nodes.map(n => [n.user_id as string, n]))
 
-  // 结算时一次性拉取所有涉及币种的汇率（含负 GGR 逻辑不影响 FX 获取）
-  const involvedCurrencies = [...new Set(allBetUsers.map(r => String(r.currency_code ?? 'PHP')))]
-  const fxRates: Record<string, number> = {}
-  await Promise.all(involvedCurrencies.map(async (cur) => {
-    fxRates[cur] = await getPhpRate(cur)
-  }))
-  app.log.info({ period, fxRates }, '[team-settle] fx rates fetched')
+  // 上限配置
+  const [[cfg]] = await db.query<RowDataPacket[]>(
+    `SELECT max_commission_per_settlement_cents FROM bg_team_config WHERE id = 1 LIMIT 1`,
+  )
+  const maxCommission: number | null =
+    cfg?.max_commission_per_settlement_cents != null
+      ? Number(cfg.max_commission_per_settlement_cents)
+      : null
 
-  for (const row of allBetUsers) {
-    // ggr 可为负（用户赢钱）——上级佣金对应为负，体现盈亏双向
-    const ggr = Number(row.bet_cents) - Number(row.win_cents)
-    const currency = String(row.currency_code ?? 'PHP')
-    const fxRate = fxRates[currency] ?? 1
-    const node = nodeMap.get(row.user_id as string)
+  // 汇率（一次批量获取）
+  const currencies = [...new Set(bets.map(r => String(r.currency_code ?? 'PHP')))]
+  const fxRates: Record<string, number> = {}
+  await Promise.all(currencies.map(async cur => { fxRates[cur] = await getPhpRate(cur) }))
+  app.log.info({ date, fxRates }, '[daily-settle] fx rates')
+
+  // 按 from_user 聚合多币种投注，折算 PHP
+  type Breakdown = { currency: string; betCents: number; fxRate: number }
+  const userTotals = new Map<string, { phpCents: number; breakdown: Breakdown[] }>()
+  for (const row of bets) {
+    const uid = row.user_id as string
+    const cur = String(row.currency_code ?? 'PHP')
+    const betCents = Number(row.bet_cents)
+    const fx = fxRates[cur] ?? 1
+    const phpCents = Math.floor(betCents * fx)
+    if (!userTotals.has(uid)) userTotals.set(uid, { phpCents: 0, breakdown: [] })
+    const entry = userTotals.get(uid)!
+    entry.phpCents += phpCents
+    entry.breakdown.push({ currency: cur, betCents, fxRate: fx })
+  }
+
+  // 生成 commission 记录
+  for (const [fromUserId, totals] of userTotals) {
+    const node = nodeMap.get(fromUserId)
     if (!node) continue
+
     const referrers = [
-      { id: node.l1_referrer_id, level: 1, rate: rates[0] },
-      { id: node.l2_referrer_id, level: 2, rate: rates[1] },
-      { id: node.l3_referrer_id, level: 3, rate: rates[2] },
+      { id: node.l1_referrer_id as string | null, level: 1, rate: Number(node.l1_rate_pct) },
+      { id: node.l2_referrer_id as string | null, level: 2, rate: Number(node.l2_rate_pct) },
+      { id: node.l3_referrer_id as string | null, level: 3, rate: Number(node.l3_rate_pct) },
     ]
+
     for (const ref of referrers) {
       if (!ref.id) continue
-      let commCents = Math.floor(ggr * ref.rate / 100)
-      // 正佣金应用单次上限；负佣金不限（真实回撤）
-      if (maxCommission !== null && commCents > 0) commCents = Math.min(commCents, maxCommission)
-      // PHP 等价 = 原始分 × 汇率（保留整数分，正负同向）
-      const phpEquivalentCents = commCents >= 0
-        ? Math.floor(commCents * fxRate)
-        : Math.ceil(commCents * fxRate)
+      let commCents = Math.floor(totals.phpCents * ref.rate / 100)
+      if (commCents <= 0) continue
+      if (maxCommission !== null) commCents = Math.min(commCents, maxCommission)
+
       await db.execute(
-        `INSERT IGNORE INTO bg_team_commission
-           (beneficiary_id, from_user_id, level, period, currency, ggr_cents, rate_pct, commission_cents, fx_rate, php_equivalent_cents, status)
-         VALUES (?,?,?,?,?,?,?,?,?,?,'pending')`,
-        [ref.id, row.user_id, ref.level, period, currency, ggr, ref.rate, commCents, fxRate, phpEquivalentCents],
+        `INSERT INTO bg_team_commission
+           (beneficiary_id, from_user_id, level, period, currency,
+            turnover_cents, ggr_cents, rate_pct, commission_cents,
+            fx_rate, php_equivalent_cents, currency_breakdown, status)
+         VALUES (?,?,?,?,'PHP', ?,0,?,?,1,?,?,'pending')
+         ON DUPLICATE KEY UPDATE
+           turnover_cents       = VALUES(turnover_cents),
+           commission_cents     = VALUES(commission_cents),
+           php_equivalent_cents = VALUES(php_equivalent_cents),
+           currency_breakdown   = VALUES(currency_breakdown),
+           status               = 'pending'`,
+        [
+          ref.id, fromUserId, ref.level, date,
+          totals.phpCents, ref.rate, commCents,
+          commCents, JSON.stringify(totals.breakdown),
+        ],
       )
     }
   }
 
-  // 统一按 PHP 入账——不再按原始币种拆分，全部折算后累加到 bg_team_wallet(user_id, 'PHP')
+  // 按 beneficiary 汇总入账 bg_team_wallet（乐观锁，最多3次重试）
   const [pending] = await db.query<RowDataPacket[]>(
     `SELECT beneficiary_id, SUM(php_equivalent_cents) AS total_php
      FROM bg_team_commission WHERE period = ? AND status = 'pending'
      GROUP BY beneficiary_id`,
-    [period],
+    [date],
   )
 
   for (const row of pending) {
     const totalPhp = Number(row.total_php)
+    if (totalPhp <= 0) continue
     await db.execute(
       `INSERT IGNORE INTO bg_team_wallet (user_id, currency) VALUES (?, 'PHP')`,
       [row.beneficiary_id],
@@ -370,24 +380,26 @@ export async function runTeamSettlement(app: FastifyInstance, period: string) {
       )
       const [res] = await db.execute<import('mysql2/promise').ResultSetHeader>(
         `UPDATE bg_team_wallet
-         SET available_cents = available_cents + ?,
-             lifetime_earned_cents = lifetime_earned_cents + GREATEST(0, ?),
-             version = version + 1
+         SET available_cents        = available_cents + ?,
+             lifetime_earned_cents  = lifetime_earned_cents + ?,
+             version                = version + 1
          WHERE user_id = ? AND currency = 'PHP' AND version = ?`,
         [totalPhp, totalPhp, row.beneficiary_id, w.version],
       )
       if (res.affectedRows > 0) { settled = true; break }
     }
-    if (!settled) app.log.warn({ beneficiaryId: row.beneficiary_id }, '[team-settle] PHP wallet update failed after 3 retries')
+    if (!settled) app.log.warn({ beneficiaryId: row.beneficiary_id }, '[daily-settle] wallet update failed after 3 retries')
   }
 
+  // 标记已付
   await db.execute(
     `UPDATE bg_team_commission SET status='paid', paid_at=NOW(3) WHERE period=? AND status='pending'`,
-    [period],
+    [date],
   )
   await db.execute(
-    `UPDATE bg_team_ggr_monthly SET settled=1, settled_at=NOW(3) WHERE period=?`,
-    [period],
+    `UPDATE bg_team_turnover_daily SET settled=1 WHERE date=?`,
+    [date],
   )
-  app.log.info({ period, users: allBetUsers.length, beneficiaries: pending.length }, '[team-settle] done')
+
+  app.log.info({ date, bets: bets.length, beneficiaries: pending.length }, '[daily-settle] done')
 }

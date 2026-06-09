@@ -267,7 +267,8 @@ export interface TeamCommission {
   beneficiary_id: string; beneficiary_name: string
   from_user_id: string; from_name: string
   level: number; period: string; currency: string
-  ggr_cents: number; rate_pct: number; commission_cents: number; php_equivalent_cents: number
+  turnover_cents: number; rate_pct: number; commission_cents: number; php_equivalent_cents: number
+  currency_breakdown: { currency: string; betCents: number; fxRate: number }[] | null
   status: string; paid_at: string | null; created_at: string
 }
 
@@ -279,12 +280,17 @@ export interface TeamWithdrawalAdmin {
 }
 
 export interface TeamConfig {
-  l1_rate_pct: number; l2_rate_pct: number; l3_rate_pct: number
   min_activation_cents: number; min_withdrawal_cents: number
   max_commission_per_settlement_cents: number | null
-  settlement_day: number
   settlement_hour: number
+  commission_basis: 'ggr' | 'turnover'
   last_auto_settlement: string | null
+}
+
+export interface TeamRatePlan {
+  id: number; name: string; is_default: number
+  l1_rate_pct: number; l2_rate_pct: number; l3_rate_pct: number
+  created_at: string; updated_at: string
 }
 
 export const getTeamOverview = () =>
@@ -301,18 +307,32 @@ export interface TeamTreeMember {
   displayName: string
   isAgent: boolean
   thisMonthCents: number
-  ggrCents: number
-  ggrBreakdown?: { currency: string; ggrCents: number }[]
+  turnoverCents: number
   children: TeamTreeMember[]
 }
-export const getTeamAgentTree = (userId: string, period?: string) =>
-  get<{ l1Members: TeamTreeMember[] }>(`/admin/team/agents/${userId}/tree`, period ? { period } : undefined)
+export const getTeamAgentTree = (userId: string, date?: string) =>
+  get<{ l1Members: TeamTreeMember[] }>(`/admin/team/agents/${userId}/tree`, date ? { date } : undefined)
 
 export const getTeamCommissions = (params?: { period?: string; beneficiaryId?: string; status?: string; page?: number }) =>
   get<{ items: TeamCommission[]; total: number; page: number; pageSize: number }>('/admin/team/commissions', params)
 
-export const triggerTeamSettle = (period: string) =>
-  post<{ message: string }>('/admin/team/settle', { period })
+export const triggerTeamSettle = (date: string, force = false) =>
+  post<{ message: string }>('/admin/team/settle', { date, force })
+
+export const getTeamRatePlans = () =>
+  get<{ items: TeamRatePlan[] }>('/admin/team/rate-plans')
+
+export const createTeamRatePlan = (data: { name: string; l1_rate_pct: number; l2_rate_pct: number; l3_rate_pct: number }) =>
+  post<{ id: number }>('/admin/team/rate-plans', data)
+
+export const updateTeamRatePlan = (id: number, data: Partial<Omit<TeamRatePlan, 'id' | 'is_default' | 'created_at' | 'updated_at'>>) =>
+  req<{ ok: boolean }>('PUT', `/admin/team/rate-plans/${id}`, data)
+
+export const setDefaultTeamRatePlan = (id: number) =>
+  req<{ ok: boolean }>('PUT', `/admin/team/rate-plans/${id}/default`, {})
+
+export const setAgentRatePlan = (userId: string, planId: number | null) =>
+  req<{ ok: boolean }>('PUT', `/admin/team/agents/${userId}/rate-plan`, { planId })
 
 export const getTeamWithdrawals = (params?: { status?: string; page?: number }) =>
   get<{ items: TeamWithdrawalAdmin[]; total: number; page: number; pageSize: number }>('/admin/team/withdrawals', params)

@@ -63,8 +63,8 @@ export interface TeamCommissionItem {
   fromUserId: string
   displayName: string
   level: number
-  currency: string
-  ggrCents: number
+  period: string
+  turnoverCents: number
   phpEquivCents: number
   ratePct: number
   commissionCents: number
@@ -93,8 +93,8 @@ export async function fetchTeamDownlines(level: 1 | 2 | 3, page: number): Promis
   return apiRequest(`/promotions/team/downlines?level=${level}&page=${page}`)
 }
 
-export async function fetchTeamCommissions(period: string): Promise<{ summary: TeamCommissionSummary; items: TeamCommissionItem[]; period: string }> {
-  return apiRequest(`/promotions/team/commissions?period=${period}`)
+export async function fetchTeamCommissions(month: string): Promise<{ summary: TeamCommissionSummary; items: TeamCommissionItem[]; month: string }> {
+  return apiRequest(`/promotions/team/commissions?month=${month}`)
 }
 
 export async function fetchTeamWallet(): Promise<{ availableCents: number; frozenCents: number; lifetimeEarnedCents: number }> {
@@ -109,20 +109,17 @@ export async function fetchTeamWithdrawals(page: number): Promise<{ items: TeamW
   return apiRequest(`/promotions/team/withdrawals?page=${page}`)
 }
 
-export interface GgrBreakdownItem { currency: string; ggrCents: number }
-
 export interface TeamTreeNode {
   userId: string
   displayName: string
   isAgent: boolean
   thisMonthCents: number
-  ggrCents: number
-  ggrBreakdown?: GgrBreakdownItem[]
+  turnoverCents: number
   children: TeamTreeNode[]
 }
 
-export async function fetchTeamTree(period: string): Promise<{ l1Members: TeamTreeNode[] }> {
-  return apiRequest(`/promotions/team/tree?period=${encodeURIComponent(period)}`)
+export async function fetchTeamTree(month: string): Promise<{ l1Members: TeamTreeNode[] }> {
+  return apiRequest(`/promotions/team/tree?month=${encodeURIComponent(month)}`)
 }
 
 export interface PromoConfig {
