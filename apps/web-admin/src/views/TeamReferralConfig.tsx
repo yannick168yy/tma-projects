@@ -99,7 +99,7 @@ export default function TeamReferralConfig() {
       <h2 style={{ marginBottom: 16 }}>佣金配置</h2>
 
       <Card title="门槛与上限" style={{ marginBottom: 20 }}>
-        <Form form={configForm} layout="vertical" onFinish={saveConfig}>
+        <Form form={configForm} layout="vertical">
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
             <Form.Item label="激活门槛 (PHP分)" name="min_activation_cents">
               <InputNumber min={0} style={{ width: '100%' }} />
@@ -112,7 +112,7 @@ export default function TeamReferralConfig() {
             </Form.Item>
           </div>
           <Form.Item>
-            <Button type="primary" htmlType="submit" loading={configSaving}>保存配置</Button>
+            <Button type="primary" onClick={saveConfig} loading={configSaving}>保存配置</Button>
           </Form.Item>
         </Form>
       </Card>
