@@ -73,7 +73,7 @@ export default function AppShell() {
   const headerRef = useRef<HTMLElement>(null)
   const navRef = useRef<HTMLElement>(null)
   const mainRef = useRef<HTMLElement>(null)
-  const balanceTriggerRef = useRef<HTMLButtonElement>(null)
+  const balanceTriggerRef = useRef<HTMLDivElement>(null)
   const walletPanelRef = useRef<HTMLDivElement>(null)
   const [headerH, setHeaderH] = useState(80)
   const [navH, setNavH] = useState(64)
@@ -193,13 +193,15 @@ export default function AppShell() {
           <div className="app-safe-header flex items-center gap-3 px-4 pb-4">
             <button type="button" className="flex-shrink-0 cursor-pointer" onClick={goHome}><BetogoLogo /></button>
 
-            <div className="flex flex-1 items-center justify-end gap-2">
+            <div className="flex flex-1 items-center justify-end">
               {isLoggedIn ? (
-                <>
+                <div
+                  ref={balanceTriggerRef}
+                  className="flex h-9 items-center overflow-hidden rounded-full border border-white/10 shadow-sm shadow-black/20"
+                >
                   <button
-                    ref={balanceTriggerRef}
                     type="button"
-                    className="flex h-9 items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3.5 transition-colors hover:bg-white/8"
+                    className="flex h-full items-center gap-1.5 px-3.5 transition-colors hover:bg-white/8"
                     onClick={() => void onBalanceTap()}
                   >
                     <span className="text-[11px] font-semibold text-muted-foreground">{displayCurrencyCode(activeCurrency)}</span>
@@ -208,14 +210,15 @@ export default function AppShell() {
                     </span>
                     <ChevronDown size={11} className={`flex-shrink-0 text-muted-foreground transition-transform duration-200 ${walletOpen ? 'rotate-180' : ''}`} />
                   </button>
+                  <span className="h-5 w-px flex-shrink-0 bg-white/12" />
                   <button
                     type="button"
-                    className="flex h-9 items-center whitespace-nowrap rounded-full bg-primary px-5 text-sm font-black text-primary-foreground shadow-lg shadow-amber-500/30 transition-colors hover:bg-yellow-400"
+                    className="flex h-full items-center bg-primary px-4 text-sm font-black text-primary-foreground transition-colors hover:bg-yellow-400"
                     onClick={() => void openWallet()}
                   >
                     {t('shell.topUp')}
                   </button>
-                </>
+                </div>
               ) : (
                 <button
                   type="button"
