@@ -13,6 +13,7 @@ export type CategoryLobbyParams = {
 type FullPageView =
   | { type: 'none' }
   | { type: 'search' }
+  | { type: 'profile' }
   | { type: 'slotsLobby' }
   | { type: 'categoryLobby'; params: CategoryLobbyParams }
   | { type: 'teamCenter' }
@@ -24,6 +25,7 @@ export function useFullPageOverlay() {
   return {
     view,
     openSearch:        () => setView({ type: 'search' }),
+    openProfile:       () => setView({ type: 'profile' }),
     openSlotsLobby:    () => setView({ type: 'slotsLobby' }),
     openCategoryLobby: (params: CategoryLobbyParams) => setView({ type: 'categoryLobby', params }),
     openTeamCenter:    () => setView({ type: 'teamCenter' }),

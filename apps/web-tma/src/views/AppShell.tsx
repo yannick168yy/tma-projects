@@ -1,13 +1,15 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ChevronDown, Wallet, Gift, Home, Menu, Dices, Check } from 'lucide-react'
+import { ChevronDown, Wallet, Gift, Home, Menu, Dices, Headphones, Check } from 'lucide-react'
 import BetogoLogo from '@/components/BetogoLogo'
+import ProfileAvatar from '@/components/ProfileAvatar'
 import WalletModal from '@/components/wallet/WalletModal'
 import SearchOverlay from '@/components/search/SearchOverlay'
 import HomeContent from '@/views/HomeContent'
 import BonusesPage from '@/views/BonusesPage'
 import BingoPage from '@/views/BingoPage'
 import MenuPage from '@/views/MenuPage'
+import ProfilePage from '@/views/ProfilePage'
 import SlotsLobby from '@/views/SlotsLobby'
 import CustomerServicePage from '@/views/CustomerServicePage'
 import TeamCenterPage from '@/views/TeamCenterPage'
@@ -73,7 +75,7 @@ export default function AppShell() {
   const headerRef = useRef<HTMLElement>(null)
   const navRef = useRef<HTMLElement>(null)
   const mainRef = useRef<HTMLElement>(null)
-  const balanceTriggerRef = useRef<HTMLDivElement>(null)
+  const balanceTriggerRef = useRef<HTMLButtonElement>(null)
   const walletPanelRef = useRef<HTMLDivElement>(null)
   const [headerH, setHeaderH] = useState(80)
   const [navH, setNavH] = useState(64)
@@ -105,14 +107,20 @@ export default function AppShell() {
 
   const mainStyle = useMemo(() => {
     const top = `${headerH}px`
-    if (activeNav === 'menu' && overlay.view.type === 'none') return { paddingTop: top, paddingBottom: '0', height: `calc(100dvh - ${headerH}px)`, maxHeight: `calc(100dvh - ${headerH}px)` }
+    if (overlay.is('profile')) return { paddingTop: top, paddingBottom: '0', height: `calc(100dvh - ${headerH}px)`, maxHeight: `calc(100dvh - ${headerH}px)` }
     if (overlay.is('teamCenter') || overlay.is('betHistory')) return { paddingTop: top, paddingBottom: '0', height: `calc(100dvh - ${headerH}px)`, maxHeight: `calc(100dvh - ${headerH}px)`, overflowY: 'hidden' as const }
     return { paddingTop: top, paddingBottom: `${navH}px` }
-  }, [headerH, navH, overlay, activeNav])
+  }, [headerH, navH, overlay])
 
   async function openWallet() {
     if (!(await auth.ensureLoggedIn(t('auth.signInDepositWithdraw')))) return
     setWalletOpen(false); setWalletModalOpen(true)
+  }
+
+  async function openProfile() {
+    if (!(await auth.ensureLoggedIn(t('auth.signInProfile')))) return
+    setWalletOpen(false); overlay.openProfile()
+    requestAnimationFrame(() => { mainRef.current?.scrollTo({ top: 0 }); window.scrollTo({ top: 0, behavior: 'instant' }) })
   }
 
   async function onBalanceTap() {
@@ -193,43 +201,26 @@ export default function AppShell() {
           <div className="app-safe-header flex items-center gap-3 px-4 pb-4">
             <button type="button" className="flex-shrink-0 cursor-pointer" onClick={goHome}><BetogoLogo /></button>
 
-            <div className="flex flex-1 items-center justify-end">
-              {isLoggedIn ? (
-                <div ref={balanceTriggerRef} className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    className="flex h-9 items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-3 transition-colors hover:bg-white/8"
-                    onClick={() => void onBalanceTap()}
-                  >
-                    <Wallet size={13} className="flex-shrink-0 text-primary" />
-                    <div className="flex flex-col items-start leading-none">
-                      <span className="text-[9px] font-semibold text-muted-foreground">{displayCurrencyCode(activeCurrency)}</span>
-                      <span className="text-xs font-black tabular-nums text-white">
-                        {balanceVisible ? displayBalance : '••••••'}
-                      </span>
-                    </div>
-                    <ChevronDown size={10} className={`flex-shrink-0 text-muted-foreground transition-transform duration-200 ${walletOpen ? 'rotate-180' : ''}`} />
-                  </button>
-                  <button
-                    type="button"
-                    className="flex h-9 items-center rounded-full bg-primary px-4 text-sm font-black text-primary-foreground shadow-lg shadow-amber-500/20 transition-colors hover:bg-yellow-400"
-                    onClick={() => void openWallet()}
-                  >
-                    {t('shell.topUp')}
-                  </button>
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  className="flex h-9 items-center overflow-hidden rounded-full border border-primary/35 shadow-md shadow-amber-500/15 transition-opacity hover:opacity-90"
-                  onClick={() => void auth.ensureLoggedIn(t('auth.signInProfile'))}
-                >
-                  <span className="px-4 text-sm font-semibold text-foreground/80">{t('shell.signIn')}</span>
-                  <span className="h-5 w-px flex-shrink-0 bg-white/15" />
-                  <span className="flex h-full items-center bg-primary px-4 text-sm font-black text-primary-foreground">{t('shell.register')}</span>
-                </button>
+            <div className="flex flex-1 items-center justify-center gap-3">
+              <button ref={balanceTriggerRef} type="button" className="flex flex-col items-center gap-0.5" onClick={() => void onBalanceTap()}>
+                <span className="flex items-center gap-1 text-[11px] font-semibold leading-none text-muted-foreground">
+                  {isLoggedIn ? activeCurrency : t('shell.signIn')}
+                  {isLoggedIn && <ChevronDown size={11} className={`transition-transform duration-200 ${walletOpen ? 'rotate-180' : ''}`} />}
+                </span>
+                <span className="text-base font-black leading-tight text-white">
+                  {isLoggedIn ? (balanceVisible ? displayBalance : '••••••') : t('shell.tapToLogin')}
+                </span>
+              </button>
+              {isLoggedIn && (
+                <button type="button" className="flex items-center gap-1 whitespace-nowrap rounded-full bg-primary px-5 py-2 text-sm font-black text-primary-foreground shadow-lg shadow-amber-500/30 transition-colors hover:bg-yellow-400" onClick={() => void openWallet()}>{t('shell.topUp')}</button>
               )}
             </div>
+
+            <button type="button" className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-muted-foreground hover:text-primary transition-colors" onClick={openCs}><Headphones size={20} /></button>
+            <button type="button" className="relative flex-shrink-0" onClick={() => void openProfile()}>
+              <ProfileAvatar />
+              <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border-2 border-background bg-accent" />
+            </button>
           </div>
 
           {walletOpen && isLoggedIn && (
@@ -281,7 +272,7 @@ export default function AppShell() {
 
         <main
           ref={mainRef}
-          className={activeNav === 'menu' && view.type === 'none' ? 'page-scroll hide-scrollbar overflow-x-hidden' : 'relative overflow-x-clip'}
+          className={view.type === 'profile' ? 'page-scroll hide-scrollbar overflow-x-hidden' : 'relative overflow-x-clip'}
           style={mainStyle}
         >
           {view.type === 'search' && (
@@ -293,6 +284,7 @@ export default function AppShell() {
           {view.type === 'categoryLobby' && (
             <SlotsLobby {...view.params} onClose={() => { overlay.close(); window.scrollTo({ top: 0, behavior: 'instant' }) }} onGameTap={() => void onGameTap()} onOpenGame={(url) => setGamePlayerUrl(url)} />
           )}
+          {view.type === 'profile' && <ProfilePage onLogout={onLogout} onOpenCs={openCs} onOpenBetHistory={openBetHistory} />}
           {view.type === 'betHistory' && <BetHistoryPage onClose={overlay.close} />}
           {view.type === 'teamCenter' && <TeamCenterPage />}
           {view.type === 'none' && activeNav === 'bonuses' && <BonusesPage promoFilter={promoFilter} onOpenWallet={() => void openWallet()} onOpenTeam={openTeamCenter} />}
