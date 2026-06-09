@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
-import { Row, Col, Statistic, Input, Button, Table, Tag, Space, Modal, Tree, Spin, DatePicker, message } from 'antd'
+import { Row, Col, Statistic, Input, Button, Table, Tag, Space, Modal, Tree, Spin, DatePicker, Select, message } from 'antd'
 import type { TablePaginationConfig } from 'antd'
 import dayjs from 'dayjs'
-import { getTeamOverview, getTeamAgents, getTeamAgentTree, type TeamOverview, type TeamAgent, type TeamTreeMember } from '../../api'
+import { getTeamOverview, getTeamAgents, getTeamAgentTree, getTeamRatePlans, setAgentRatePlan, type TeamOverview, type TeamAgent, type TeamTreeMember, type TeamRatePlan } from '../../api'
 
 interface TreeNodeItem { key: string; title: React.ReactNode; children?: TreeNodeItem[] }
 
@@ -48,9 +48,15 @@ export default function TeamAgents() {
   const [treeExpandedKeys, setTreeExpandedKeys] = useState<(string | number)[]>([])
   const [treePeriod, setTreePeriod] = useState(currentPeriod())
 
+  const [ratePlans, setRatePlans] = useState<TeamRatePlan[]>([])
+  const [planModalAgent, setPlanModalAgent] = useState<TeamAgent | null>(null)
+  const [selectedPlanId, setSelectedPlanId] = useState<number | null>(null)
+  const [planSaving, setPlanSaving] = useState(false)
+
   useEffect(() => {
     void loadOverview()
     void loadAgents(1)
+    getTeamRatePlans().then((d) => setRatePlans(d.items)).catch(() => {})
   }, [])
 
   async function loadOverview() {
@@ -81,6 +87,23 @@ export default function TeamAgents() {
       setTreeExpandedKeys(keys)
     } catch { message.error('加载团队树失败') }
     finally { setTreeLoading(false) }
+  }
+
+  function openPlanModal(agent: TeamAgent) {
+    setPlanModalAgent(agent)
+    setSelectedPlanId(agent.ratePlanId ?? null)
+  }
+
+  async function savePlan() {
+    if (!planModalAgent) return
+    setPlanSaving(true)
+    try {
+      await setAgentRatePlan(planModalAgent.userId, selectedPlanId)
+      message.success('套餐已更新')
+      setPlanModalAgent(null)
+      void loadAgents(agentsPage)
+    } catch { message.error('操作失败') }
+    finally { setPlanSaving(false) }
   }
 
   function openTree(agent: TeamAgent) {
@@ -115,8 +138,22 @@ export default function TeamAgents() {
     { title: '累计收益', key: 'lifetime', width: 120, render: (_: unknown, r: TeamAgent) => phpDisplay(r.lifetimeEarnedCents) },
     { title: '开启时间', dataIndex: 'optedInAt', key: 'optedInAt', width: 160 },
     {
-      title: '操作', key: 'actions', width: 90,
-      render: (_: unknown, r: TeamAgent) => <Button type="link" size="small" onClick={() => openTree(r)}>团队树</Button>,
+      title: '费率套餐', key: 'ratePlan', width: 120,
+      render: (_: unknown, r: TeamAgent) => {
+        const plan = ratePlans.find((p) => p.id === r.ratePlanId)
+        return plan
+          ? <Tag color={plan.is_default ? 'blue' : 'purple'}>{plan.name}</Tag>
+          : <Tag color="default">默认</Tag>
+      },
+    },
+    {
+      title: '操作', key: 'actions', width: 150,
+      render: (_: unknown, r: TeamAgent) => (
+        <Space size={4}>
+          <Button type="link" size="small" onClick={() => openTree(r)}>团队树</Button>
+          <Button type="link" size="small" onClick={() => openPlanModal(r)}>套餐</Button>
+        </Space>
+      ),
     },
   ]
 
@@ -193,6 +230,34 @@ export default function TeamAgents() {
                 />
               </div>
         )}
+      </Modal>
+
+      <Modal
+        open={!!planModalAgent}
+        title={planModalAgent ? `调整套餐 — ${planModalAgent.displayName}` : ''}
+        onCancel={() => setPlanModalAgent(null)}
+        onOk={savePlan}
+        confirmLoading={planSaving}
+        destroyOnHidden
+        width={360}
+      >
+        <div style={{ margin: '16px 0' }}>
+          <Select
+            style={{ width: '100%' }}
+            value={selectedPlanId ?? undefined}
+            placeholder="使用默认套餐"
+            allowClear
+            onClear={() => setSelectedPlanId(null)}
+            onChange={(v) => setSelectedPlanId(v ?? null)}
+            options={ratePlans.map((p) => ({
+              value: p.id,
+              label: p.is_default ? `${p.name}（默认）` : p.name,
+            }))}
+          />
+          <div style={{ marginTop: 8, color: '#888', fontSize: 12 }}>
+            留空表示使用默认套餐（C端广告展示的费率）
+          </div>
+        </div>
       </Modal>
     </div>
   )

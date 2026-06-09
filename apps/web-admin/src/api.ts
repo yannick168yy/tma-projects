@@ -260,6 +260,8 @@ export interface TeamAgent {
   thisMonthCommissionCents: number
   lifetimeEarnedCents: number
   optedInAt: string
+  ratePlanId: number | null
+  ratePlanName: string | null
 }
 
 export interface TeamCommission {

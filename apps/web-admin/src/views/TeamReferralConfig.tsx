@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
-import { Card, Form, InputNumber, Button, Popconfirm, DatePicker, Checkbox, message, Descriptions, Tag } from 'antd'
+import { Card, Form, InputNumber, Button, Popconfirm, DatePicker, Checkbox, message, Descriptions, Tag, Table, Input, Modal, Space, Badge } from 'antd'
+import { PlusOutlined, EditOutlined, StarOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
-import { getTeamConfig, updateTeamConfig, triggerTeamSettle, type TeamConfig } from '../api'
+import { getTeamConfig, updateTeamConfig, triggerTeamSettle, getTeamRatePlans, createTeamRatePlan, updateTeamRatePlan, setDefaultTeamRatePlan, type TeamConfig, type TeamRatePlan } from '../api'
 
 function yesterdayStr() {
   return dayjs().subtract(1, 'day').format('YYYY-MM-DD')
@@ -15,10 +16,60 @@ export default function TeamReferralConfig() {
   const [forceSettle, setForceSettle] = useState(false)
   const [configLoaded, setConfigLoaded] = useState<TeamConfig | null>(null)
 
+  const [plans, setPlans] = useState<TeamRatePlan[]>([])
+  const [planModalOpen, setPlanModalOpen] = useState(false)
+  const [editingPlan, setEditingPlan] = useState<TeamRatePlan | null>(null)
+  const [planForm] = Form.useForm<{ name: string; l1_rate_pct: number; l2_rate_pct: number; l3_rate_pct: number }>()
+  const [planSaving, setPlanSaving] = useState(false)
+
   async function loadConfig() {
     const cfg = await getTeamConfig()
     configForm.setFieldsValue(cfg)
     setConfigLoaded(cfg)
+  }
+
+  async function loadPlans() {
+    try {
+      const data = await getTeamRatePlans()
+      setPlans(data.items)
+    } catch { message.error('加载套餐失败') }
+  }
+
+  function openCreate() {
+    setEditingPlan(null)
+    planForm.resetFields()
+    setPlanModalOpen(true)
+  }
+
+  function openEdit(plan: TeamRatePlan) {
+    setEditingPlan(plan)
+    planForm.setFieldsValue({ name: plan.name, l1_rate_pct: plan.l1_rate_pct, l2_rate_pct: plan.l2_rate_pct, l3_rate_pct: plan.l3_rate_pct })
+    setPlanModalOpen(true)
+  }
+
+  async function savePlan() {
+    const vals = await planForm.validateFields()
+    setPlanSaving(true)
+    try {
+      if (editingPlan) {
+        await updateTeamRatePlan(editingPlan.id, vals)
+        message.success('套餐已更新')
+      } else {
+        await createTeamRatePlan(vals)
+        message.success('套餐已创建')
+      }
+      setPlanModalOpen(false)
+      await loadPlans()
+    } catch { message.error('保存失败') }
+    finally { setPlanSaving(false) }
+  }
+
+  async function setDefault(id: number) {
+    try {
+      await setDefaultTeamRatePlan(id)
+      message.success('已设为默认套餐')
+      await loadPlans()
+    } catch { message.error('操作失败') }
   }
 
   async function saveConfig() {
@@ -41,7 +92,7 @@ export default function TeamReferralConfig() {
     finally { setSettling(false) }
   }
 
-  useEffect(() => { void loadConfig() }, [])
+  useEffect(() => { void loadConfig(); void loadPlans() }, [])
 
   return (
     <div>
@@ -81,6 +132,73 @@ export default function TeamReferralConfig() {
           </Descriptions>
         )}
       </Card>
+
+      <Card
+        title="费率套餐管理"
+        style={{ marginBottom: 20 }}
+        extra={<Button type="primary" size="small" icon={<PlusOutlined />} onClick={openCreate}>新建套餐</Button>}
+      >
+        <Table
+          size="small"
+          rowKey="id"
+          dataSource={plans}
+          pagination={false}
+          columns={[
+            {
+              title: '套餐名称', dataIndex: 'name', key: 'name',
+              render: (name: string, r: TeamRatePlan) => (
+                <Space size={6}>
+                  {name}
+                  {r.is_default === 1 && <Badge status="processing" text="默认（C端展示）" />}
+                </Space>
+              ),
+            },
+            { title: 'L1 费率', dataIndex: 'l1_rate_pct', key: 'l1', width: 90, render: (v: number) => `${v}%` },
+            { title: 'L2 费率', dataIndex: 'l2_rate_pct', key: 'l2', width: 90, render: (v: number) => `${v}%` },
+            { title: 'L3 费率', dataIndex: 'l3_rate_pct', key: 'l3', width: 90, render: (v: number) => `${v}%` },
+            {
+              title: '操作', key: 'actions', width: 180,
+              render: (_: unknown, r: TeamRatePlan) => (
+                <Space size={4}>
+                  <Button size="small" icon={<EditOutlined />} onClick={() => openEdit(r)}>编辑</Button>
+                  {r.is_default !== 1 && (
+                    <Popconfirm title="设为默认套餐？" description="C端广告将展示此套餐费率。" onConfirm={() => setDefault(r.id)}>
+                      <Button size="small" icon={<StarOutlined />}>设为默认</Button>
+                    </Popconfirm>
+                  )}
+                </Space>
+              ),
+            },
+          ]}
+        />
+      </Card>
+
+      <Modal
+        open={planModalOpen}
+        title={editingPlan ? '编辑套餐' : '新建套餐'}
+        onCancel={() => setPlanModalOpen(false)}
+        onOk={savePlan}
+        confirmLoading={planSaving}
+        destroyOnHidden
+        width={400}
+      >
+        <Form form={planForm} layout="vertical" style={{ marginTop: 16 }}>
+          <Form.Item label="套餐名称" name="name" rules={[{ required: true, message: '请输入套餐名称' }]}>
+            <Input placeholder="如：标准套餐、VIP套餐" />
+          </Form.Item>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+            <Form.Item label="L1 费率 (%)" name="l1_rate_pct" rules={[{ required: true }]}>
+              <InputNumber min={0} max={100} precision={2} style={{ width: '100%' }} />
+            </Form.Item>
+            <Form.Item label="L2 费率 (%)" name="l2_rate_pct" rules={[{ required: true }]}>
+              <InputNumber min={0} max={100} precision={2} style={{ width: '100%' }} />
+            </Form.Item>
+            <Form.Item label="L3 费率 (%)" name="l3_rate_pct" rules={[{ required: true }]}>
+              <InputNumber min={0} max={100} precision={2} style={{ width: '100%' }} />
+            </Form.Item>
+          </div>
+        </Form>
+      </Modal>
 
       <Card title="手动触发每日结算">
         <p style={{ color: '#888', marginBottom: 16, fontSize: 13 }}>
