@@ -199,40 +199,33 @@ export default function AppShell() {
                   <button
                     ref={balanceTriggerRef}
                     type="button"
-                    className="flex items-center gap-1.5 rounded-full border border-white/12 bg-white/5 px-3.5 py-2 transition-colors hover:bg-white/8"
+                    className="flex h-9 items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3.5 transition-colors hover:bg-white/8"
                     onClick={() => void onBalanceTap()}
                   >
-                    <span className="text-[11px] font-semibold text-muted-foreground leading-none">{displayCurrencyCode(activeCurrency)}</span>
-                    <span className="text-sm font-black text-white tabular-nums leading-none">
+                    <span className="text-[11px] font-semibold text-muted-foreground">{displayCurrencyCode(activeCurrency)}</span>
+                    <span className="text-sm font-black tabular-nums text-white">
                       {balanceVisible ? displayBalance : '••••••'}
                     </span>
-                    <ChevronDown size={11} className={`text-muted-foreground transition-transform duration-200 flex-shrink-0 ${walletOpen ? 'rotate-180' : ''}`} />
+                    <ChevronDown size={11} className={`flex-shrink-0 text-muted-foreground transition-transform duration-200 ${walletOpen ? 'rotate-180' : ''}`} />
                   </button>
                   <button
                     type="button"
-                    className="whitespace-nowrap rounded-full bg-primary px-5 py-2 text-sm font-black text-primary-foreground shadow-lg shadow-amber-500/30 transition-colors hover:bg-yellow-400"
+                    className="flex h-9 items-center whitespace-nowrap rounded-full bg-primary px-5 text-sm font-black text-primary-foreground shadow-lg shadow-amber-500/30 transition-colors hover:bg-yellow-400"
                     onClick={() => void openWallet()}
                   >
                     {t('shell.topUp')}
                   </button>
                 </>
               ) : (
-                <>
-                  <button
-                    type="button"
-                    className="rounded-full border border-white/12 bg-white/5 px-4 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-white/8"
-                    onClick={() => void auth.ensureLoggedIn(t('auth.signInProfile'))}
-                  >
-                    {t('shell.signIn')}
-                  </button>
-                  <button
-                    type="button"
-                    className="whitespace-nowrap rounded-full bg-primary px-5 py-2 text-sm font-black text-primary-foreground shadow-lg shadow-amber-500/30 transition-colors hover:bg-yellow-400"
-                    onClick={() => void auth.ensureLoggedIn(t('auth.signInProfile'))}
-                  >
-                    {t('shell.register')}
-                  </button>
-                </>
+                <button
+                  type="button"
+                  className="flex h-9 items-center overflow-hidden rounded-full border border-primary/35 shadow-md shadow-amber-500/15 transition-opacity hover:opacity-90"
+                  onClick={() => void auth.ensureLoggedIn(t('auth.signInProfile'))}
+                >
+                  <span className="px-4 text-sm font-semibold text-foreground/80">{t('shell.signIn')}</span>
+                  <span className="h-5 w-px flex-shrink-0 bg-white/15" />
+                  <span className="flex h-full items-center bg-primary px-4 text-sm font-black text-primary-foreground">{t('shell.register')}</span>
+                </button>
               )}
             </div>
           </div>
