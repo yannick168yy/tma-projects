@@ -60,15 +60,15 @@ CREATE TABLE IF NOT EXISTS `bg_team_turnover_daily` (
   COMMENT='每日投注流水快照，结算后 settled=1';
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- 3. bg_team_node 加 rate_plan_id
+-- 3. bg_team_node 加 rate_plan_id；opted_in 可能已存在（027迁移），幂等处理
 -- ─────────────────────────────────────────────────────────────────────────────
-ALTER TABLE `bg_team_node`
-  ADD COLUMN IF NOT EXISTS `rate_plan_id` INT NULL DEFAULT NULL
-    COMMENT '绑定的费率套餐 id，NULL=使用 is_default=1 套餐',
-  ADD COLUMN IF NOT EXISTS `opted_in` TINYINT(1) NOT NULL DEFAULT 0
-    COMMENT '是否已加入代理计划';
+SET @c = (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'bg_team_node' AND COLUMN_NAME = 'rate_plan_id');
+SET @s = IF(@c = 0, 'ALTER TABLE `bg_team_node` ADD COLUMN `rate_plan_id` INT NULL DEFAULT NULL', 'SELECT 1');
+PREPARE st FROM @s; EXECUTE st; DEALLOCATE PREPARE st;
 
--- opted_in 可能已存在（027迁移加过），上面 ADD COLUMN IF NOT EXISTS 幂等处理
+SET @c = (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'bg_team_node' AND COLUMN_NAME = 'opted_in');
+SET @s = IF(@c = 0, 'ALTER TABLE `bg_team_node` ADD COLUMN `opted_in` TINYINT(1) NOT NULL DEFAULT 0', 'SELECT 1');
+PREPARE st FROM @s; EXECUTE st; DEALLOCATE PREPARE st;
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- 4. bg_team_commission：清空旧数据 + 改 period 为日期 + 加新字段
@@ -81,10 +81,14 @@ TRUNCATE TABLE `bg_team_commission`;
 ALTER TABLE `bg_team_commission`
   MODIFY COLUMN `period` CHAR(10) NOT NULL COMMENT '结算日期 YYYY-MM-DD';
 
--- 加新字段
-ALTER TABLE `bg_team_commission`
-  ADD COLUMN IF NOT EXISTS `turnover_cents`      BIGINT NOT NULL DEFAULT 0  COMMENT '按 PHP 折算的投注流水（分）',
-  ADD COLUMN IF NOT EXISTS `currency_breakdown`  JSON   NULL                COMMENT '各币种投注明细 [{currency,betCents,fxRate}]';
+-- 加新字段（幂等）
+SET @c = (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'bg_team_commission' AND COLUMN_NAME = 'turnover_cents');
+SET @s = IF(@c = 0, 'ALTER TABLE `bg_team_commission` ADD COLUMN `turnover_cents` BIGINT NOT NULL DEFAULT 0', 'SELECT 1');
+PREPARE st FROM @s; EXECUTE st; DEALLOCATE PREPARE st;
+
+SET @c = (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'bg_team_commission' AND COLUMN_NAME = 'currency_breakdown');
+SET @s = IF(@c = 0, 'ALTER TABLE `bg_team_commission` ADD COLUMN `currency_breakdown` JSON NULL', 'SELECT 1');
+PREPARE st FROM @s; EXECUTE st; DEALLOCATE PREPARE st;
 
 -- 清空 bg_team_ggr_monthly（废弃，新结算不再写此表）
 TRUNCATE TABLE `bg_team_ggr_monthly`;
@@ -92,9 +96,11 @@ TRUNCATE TABLE `bg_team_ggr_monthly`;
 -- ─────────────────────────────────────────────────────────────────────────────
 -- 5. bg_team_config：加 commission_basis；last_auto_settlement 扩为日期格式
 -- ─────────────────────────────────────────────────────────────────────────────
+SET @c = (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'bg_team_config' AND COLUMN_NAME = 'commission_basis');
+SET @s = IF(@c = 0, "ALTER TABLE `bg_team_config` ADD COLUMN `commission_basis` ENUM('ggr','turnover') NOT NULL DEFAULT 'turnover'", 'SELECT 1');
+PREPARE st FROM @s; EXECUTE st; DEALLOCATE PREPARE st;
+
 ALTER TABLE `bg_team_config`
-  ADD COLUMN IF NOT EXISTS `commission_basis` ENUM('ggr','turnover') NOT NULL DEFAULT 'turnover'
-    COMMENT '佣金计算基数（turnover=流水，ggr=GGR）',
   MODIFY COLUMN `last_auto_settlement` VARCHAR(10) DEFAULT NULL
     COMMENT '上次自动结算的日期（YYYY-MM-DD），防重复触发';
 
