@@ -106,10 +106,10 @@ export default function AppShell() {
 
   const mainStyle = useMemo(() => {
     const top = `${headerH}px`
-    if (activeNav === 'menu' && view.type === 'none') return { paddingTop: top, paddingBottom: '0', height: `calc(100dvh - ${headerH}px)`, maxHeight: `calc(100dvh - ${headerH}px)` }
+    if (activeNav === 'menu' && overlay.view.type === 'none') return { paddingTop: top, paddingBottom: '0', height: `calc(100dvh - ${headerH}px)`, maxHeight: `calc(100dvh - ${headerH}px)` }
     if (overlay.is('teamCenter') || overlay.is('betHistory')) return { paddingTop: top, paddingBottom: '0', height: `calc(100dvh - ${headerH}px)`, maxHeight: `calc(100dvh - ${headerH}px)`, overflowY: 'hidden' as const }
     return { paddingTop: top, paddingBottom: `${navH}px` }
-  }, [headerH, navH, overlay])
+  }, [headerH, navH, overlay, activeNav])
 
   async function openWallet() {
     if (!(await auth.ensureLoggedIn(t('auth.signInDepositWithdraw')))) return
