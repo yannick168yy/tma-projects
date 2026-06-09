@@ -9,7 +9,6 @@ import HomeContent from '@/views/HomeContent'
 import BonusesPage from '@/views/BonusesPage'
 import BingoPage from '@/views/BingoPage'
 import MenuPage from '@/views/MenuPage'
-import ProfilePage from '@/views/ProfilePage'
 import SlotsLobby from '@/views/SlotsLobby'
 import CustomerServicePage from '@/views/CustomerServicePage'
 import TeamCenterPage from '@/views/TeamCenterPage'
@@ -107,7 +106,7 @@ export default function AppShell() {
 
   const mainStyle = useMemo(() => {
     const top = `${headerH}px`
-    if (overlay.is('profile')) return { paddingTop: top, paddingBottom: '0', height: `calc(100dvh - ${headerH}px)`, maxHeight: `calc(100dvh - ${headerH}px)` }
+    if (activeNav === 'menu' && view.type === 'none') return { paddingTop: top, paddingBottom: '0', height: `calc(100dvh - ${headerH}px)`, maxHeight: `calc(100dvh - ${headerH}px)` }
     if (overlay.is('teamCenter') || overlay.is('betHistory')) return { paddingTop: top, paddingBottom: '0', height: `calc(100dvh - ${headerH}px)`, maxHeight: `calc(100dvh - ${headerH}px)`, overflowY: 'hidden' as const }
     return { paddingTop: top, paddingBottom: `${navH}px` }
   }, [headerH, navH, overlay])
@@ -123,9 +122,8 @@ export default function AppShell() {
     setWalletOpen(!walletOpen)
   }
 
-  async function openProfile() {
-    if (!(await auth.ensureLoggedIn(t('auth.signInProfile')))) return
-    setWalletOpen(false); overlay.openProfile()
+  function openMenuTab() {
+    setWalletOpen(false); setActiveNav('menu'); overlay.close()
     requestAnimationFrame(() => { mainRef.current?.scrollTo({ top: 0 }); window.scrollTo({ top: 0, behavior: 'instant' }) })
   }
 
@@ -217,7 +215,7 @@ export default function AppShell() {
             </div>
 
             <button type="button" className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-muted-foreground hover:text-primary transition-colors" onClick={openCs}><Headphones size={20} /></button>
-            <button type="button" className="relative flex-shrink-0" onClick={() => void openProfile()}>
+            <button type="button" className="relative flex-shrink-0" onClick={openMenuTab}>
               <ProfileAvatar />
               <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border-2 border-background bg-accent" />
             </button>
@@ -272,7 +270,7 @@ export default function AppShell() {
 
         <main
           ref={mainRef}
-          className={view.type === 'profile' ? 'page-scroll hide-scrollbar overflow-x-hidden' : 'relative overflow-x-clip'}
+          className={activeNav === 'menu' && view.type === 'none' ? 'page-scroll hide-scrollbar overflow-x-hidden' : 'relative overflow-x-clip'}
           style={mainStyle}
         >
           {view.type === 'search' && (
@@ -284,12 +282,11 @@ export default function AppShell() {
           {view.type === 'categoryLobby' && (
             <SlotsLobby {...view.params} onClose={() => { overlay.close(); window.scrollTo({ top: 0, behavior: 'instant' }) }} onGameTap={() => void onGameTap()} onOpenGame={(url) => setGamePlayerUrl(url)} />
           )}
-          {view.type === 'profile' && <ProfilePage onLogout={onLogout} onOpenCs={openCs} onOpenBetHistory={openBetHistory} />}
           {view.type === 'betHistory' && <BetHistoryPage onClose={overlay.close} />}
           {view.type === 'teamCenter' && <TeamCenterPage />}
           {view.type === 'none' && activeNav === 'bonuses' && <BonusesPage promoFilter={promoFilter} onOpenWallet={() => void openWallet()} onOpenTeam={openTeamCenter} />}
           {view.type === 'none' && activeNav === 'bingo' && <BingoPage onOpenWallet={() => void openWallet()} onGameTap={() => void onGameTap()} onOpenGame={(url) => setGamePlayerUrl(url)} onOpenCategoryLobby={openCategoryLobby} />}
-          {view.type === 'none' && activeNav === 'menu' && <MenuPage onOpenSearch={openSearch} onOpenCs={openCs} onOpenCategoryLobby={openCategoryLobby} />}
+          {view.type === 'none' && activeNav === 'menu' && <MenuPage onOpenCs={openCs} onLogin={() => void auth.ensureLoggedIn(t('auth.signInProfile'))} onLogout={onLogout} onOpenBetHistory={openBetHistory} />}
           {view.type === 'none' && activeNav === 'casino' && (
             <HomeContent onOpenSearch={openSearch} onOpenPromo={goBonuses} onOpenCategoryLobby={openCategoryLobby} onOpenCs={openCs} onOpenGame={(url) => setGamePlayerUrl(url)} />
           )}
