@@ -36,6 +36,7 @@ export default {
   },
   shell: {
     signIn: 'Đăng nhập',
+    register: 'Đăng ký',
     tapToLogin: 'Chạm để đăng nhập',
     topUp: 'Nạp tiền',
     myWallet: 'Ví của tôi',

@@ -36,6 +36,7 @@ export default {
   },
   shell: {
     signIn: '登录',
+    register: '注册',
     tapToLogin: '点击登录',
     topUp: '充值',
     myWallet: '我的钱包',

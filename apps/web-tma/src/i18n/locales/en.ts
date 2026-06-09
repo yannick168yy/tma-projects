@@ -35,7 +35,8 @@ export default {
     menu: 'Menu',
   },
   shell: {
-    signIn: 'Sign in',
+    signIn: 'Log In',
+    register: 'Register',
     tapToLogin: 'Tap to login',
     topUp: 'Top up',
     myWallet: 'My Wallet',

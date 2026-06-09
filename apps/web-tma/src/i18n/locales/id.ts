@@ -36,6 +36,7 @@ export default {
   },
   shell: {
     signIn: 'Masuk',
+    register: 'Daftar',
     tapToLogin: 'Ketuk untuk masuk',
     topUp: 'Isi saldo',
     myWallet: 'Dompet Saya',

@@ -193,18 +193,46 @@ export default function AppShell() {
           <div className="app-safe-header flex items-center gap-3 px-4 pb-4">
             <button type="button" className="flex-shrink-0 cursor-pointer" onClick={goHome}><BetogoLogo /></button>
 
-            <div className="flex flex-1 items-center justify-end gap-3">
-              <button ref={balanceTriggerRef} type="button" className="flex flex-col items-center gap-0.5" onClick={() => void onBalanceTap()}>
-                <span className="flex items-center gap-1 text-[11px] font-semibold leading-none text-muted-foreground">
-                  {isLoggedIn ? activeCurrency : t('shell.signIn')}
-                  {isLoggedIn && <ChevronDown size={11} className={`transition-transform duration-200 ${walletOpen ? 'rotate-180' : ''}`} />}
-                </span>
-                <span className="text-base font-black leading-tight text-white">
-                  {isLoggedIn ? (balanceVisible ? displayBalance : '••••••') : t('shell.tapToLogin')}
-                </span>
-              </button>
-              {isLoggedIn && (
-                <button type="button" className="flex items-center gap-1 whitespace-nowrap rounded-full bg-primary px-5 py-2 text-sm font-black text-primary-foreground shadow-lg shadow-amber-500/30 transition-colors hover:bg-yellow-400" onClick={() => void openWallet()}>{t('shell.topUp')}</button>
+            <div className="flex flex-1 items-center justify-end gap-2">
+              {isLoggedIn ? (
+                <>
+                  <button
+                    ref={balanceTriggerRef}
+                    type="button"
+                    className="flex items-center gap-1.5 rounded-full border border-white/12 bg-white/5 px-3.5 py-2 transition-colors hover:bg-white/8"
+                    onClick={() => void onBalanceTap()}
+                  >
+                    <span className="text-[11px] font-semibold text-muted-foreground leading-none">{displayCurrencyCode(activeCurrency)}</span>
+                    <span className="text-sm font-black text-white tabular-nums leading-none">
+                      {balanceVisible ? displayBalance : '••••••'}
+                    </span>
+                    <ChevronDown size={11} className={`text-muted-foreground transition-transform duration-200 flex-shrink-0 ${walletOpen ? 'rotate-180' : ''}`} />
+                  </button>
+                  <button
+                    type="button"
+                    className="whitespace-nowrap rounded-full bg-primary px-5 py-2 text-sm font-black text-primary-foreground shadow-lg shadow-amber-500/30 transition-colors hover:bg-yellow-400"
+                    onClick={() => void openWallet()}
+                  >
+                    {t('shell.topUp')}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    className="rounded-full border border-white/12 bg-white/5 px-4 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-white/8"
+                    onClick={() => void auth.ensureLoggedIn(t('auth.signInProfile'))}
+                  >
+                    {t('shell.signIn')}
+                  </button>
+                  <button
+                    type="button"
+                    className="whitespace-nowrap rounded-full bg-primary px-5 py-2 text-sm font-black text-primary-foreground shadow-lg shadow-amber-500/30 transition-colors hover:bg-yellow-400"
+                    onClick={() => void auth.ensureLoggedIn(t('auth.signInProfile'))}
+                  >
+                    {t('shell.register')}
+                  </button>
+                </>
               )}
             </div>
           </div>
