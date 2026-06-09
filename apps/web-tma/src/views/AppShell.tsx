@@ -5,7 +5,6 @@ import BetogoLogo from '@/components/BetogoLogo'
 import WalletModal from '@/components/wallet/WalletModal'
 import SearchOverlay from '@/components/search/SearchOverlay'
 import HomeContent from '@/views/HomeContent'
-import HeaderDesignPreview from '@/views/HeaderDesignPreview'
 import BonusesPage from '@/views/BonusesPage'
 import BingoPage from '@/views/BingoPage'
 import MenuPage from '@/views/MenuPage'
@@ -196,25 +195,24 @@ export default function AppShell() {
 
             <div className="flex flex-1 items-center justify-end">
               {isLoggedIn ? (
-                <div
-                  ref={balanceTriggerRef}
-                  className="flex h-9 items-center overflow-hidden rounded-full border border-white/10 shadow-sm shadow-black/20"
-                >
+                <div ref={balanceTriggerRef} className="flex items-center gap-2">
                   <button
                     type="button"
-                    className="flex h-full items-center gap-1.5 px-3.5 transition-colors hover:bg-white/8"
+                    className="flex h-9 items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-3 transition-colors hover:bg-white/8"
                     onClick={() => void onBalanceTap()}
                   >
-                    <span className="text-[11px] font-semibold text-muted-foreground">{displayCurrencyCode(activeCurrency)}</span>
-                    <span className="text-sm font-black tabular-nums text-white">
-                      {balanceVisible ? displayBalance : '••••••'}
-                    </span>
-                    <ChevronDown size={11} className={`flex-shrink-0 text-muted-foreground transition-transform duration-200 ${walletOpen ? 'rotate-180' : ''}`} />
+                    <Wallet size={13} className="flex-shrink-0 text-primary" />
+                    <div className="flex flex-col items-start leading-none">
+                      <span className="text-[9px] font-semibold text-muted-foreground">{displayCurrencyCode(activeCurrency)}</span>
+                      <span className="text-xs font-black tabular-nums text-white">
+                        {balanceVisible ? displayBalance : '••••••'}
+                      </span>
+                    </div>
+                    <ChevronDown size={10} className={`flex-shrink-0 text-muted-foreground transition-transform duration-200 ${walletOpen ? 'rotate-180' : ''}`} />
                   </button>
-                  <span className="h-5 w-px flex-shrink-0 bg-white/12" />
                   <button
                     type="button"
-                    className="flex h-full items-center bg-primary px-4 text-sm font-black text-primary-foreground transition-colors hover:bg-yellow-400"
+                    className="flex h-9 items-center rounded-full bg-primary px-4 text-sm font-black text-primary-foreground shadow-lg shadow-amber-500/20 transition-colors hover:bg-yellow-400"
                     onClick={() => void openWallet()}
                   >
                     {t('shell.topUp')}
@@ -301,9 +299,7 @@ export default function AppShell() {
           {view.type === 'none' && activeNav === 'bingo' && <BingoPage onOpenWallet={() => void openWallet()} onGameTap={() => void onGameTap()} onOpenGame={(url) => setGamePlayerUrl(url)} onOpenCategoryLobby={openCategoryLobby} />}
           {view.type === 'none' && activeNav === 'menu' && <MenuPage onOpenCs={openCs} onLogin={() => void auth.ensureLoggedIn(t('auth.signInProfile'))} onLogout={onLogout} onOpenBetHistory={openBetHistory} />}
           {view.type === 'none' && activeNav === 'casino' && (
-            true
-              ? <HeaderDesignPreview />
-              : <HomeContent onOpenSearch={openSearch} onOpenPromo={goBonuses} onOpenCategoryLobby={openCategoryLobby} onOpenCs={openCs} onOpenGame={(url) => setGamePlayerUrl(url)} />
+            <HomeContent onOpenSearch={openSearch} onOpenPromo={goBonuses} onOpenCategoryLobby={openCategoryLobby} onOpenCs={openCs} onOpenGame={(url) => setGamePlayerUrl(url)} />
           )}
         </main>
 
