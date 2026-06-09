@@ -301,6 +301,7 @@ export default {
     debtWarning: '账户存在欠款 {{amount}}，下月结算补平后即可提现。',
     debtLabel: '欠款',
     minWithdrawPhp: '最低 ₱100',
+    turnover: '流水',
   },
   bingo: {
     carnival: '菲律宾嘉年华',

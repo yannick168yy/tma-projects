@@ -52,6 +52,7 @@ function TreeNodeRow({ node, depth, expandedIds, onToggle }: {
   expandedIds: Set<string>
   onToggle: (id: string) => void
 }) {
+  const { t } = useTranslation()
   const isExpanded = expandedIds.has(node.userId)
   const hasKids = node.children.length > 0
   const badge = depth === 1 ? 'bg-amber-500/20 text-amber-400'
@@ -71,7 +72,7 @@ function TreeNodeRow({ node, depth, expandedIds, onToggle }: {
         <div className="flex-1 min-w-0 mr-2">
           <p className="text-sm font-medium text-foreground truncate leading-none mb-0.5">{node.displayName}</p>
           {node.turnoverCents !== 0 && (
-            <p className="text-[10px] leading-none text-muted-foreground">流水 {turnoverDisplay(node.turnoverCents)}</p>
+            <p className="text-[10px] leading-none text-muted-foreground">{t('team.turnover')} {turnoverDisplay(node.turnoverCents)}</p>
           )}
         </div>
         {node.thisMonthCents !== 0 && (
@@ -346,7 +347,7 @@ export default function TeamCenterPage() {
                     <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full flex-shrink-0 ${levelBadge[item.level]}`}>L{item.level}</span>
                     <div className="flex-1 min-w-0">
                       <p className="text-foreground font-bold text-xs leading-none mb-0.5">{item.displayName}</p>
-                      <p className="text-[10px] text-muted-foreground">流水 {turnoverDisplay(item.turnoverCents)} × {item.ratePct}%</p>
+                      <p className="text-[10px] text-muted-foreground">{t('team.turnover')} {turnoverDisplay(item.turnoverCents)} × {item.ratePct}%</p>
                     </div>
                     <div className="text-right flex-shrink-0">
                       <p className={`font-black text-sm leading-none ${item.phpEquivCents < 0 ? 'text-red-400' : 'text-amber-400'}`}>{phpDisplay(item.phpEquivCents)}</p>

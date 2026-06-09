@@ -308,34 +308,6 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
           </section>
         )}
 
-        {/* Customer Support */}
-        <section>
-          <h3 className="mb-3 font-display text-sm font-black text-foreground">{t('profile.customerSupportSection')}</h3>
-          <div className="overflow-hidden rounded-2xl border border-border bg-card">
-            {SUPPORT_ITEMS.map((item, i) => (
-              <button key={item.label} type="button" className={`flex w-full items-center justify-between px-4 py-3 transition-colors hover:bg-secondary/50 ${i < SUPPORT_ITEMS.length - 1 ? 'border-b border-border' : ''}`} onClick={() => i === 0 ? onOpenCs() : showComingSoon()}>
-                <div className="flex items-center gap-3"><span className="text-xl">{item.icon}</span><div className="text-left"><p className="text-sm font-bold text-foreground">{item.label}</p><p className="text-xs text-muted-foreground">{item.sub}</p></div></div>
-                <div className="flex items-center gap-2">{item.badge && <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${item.badgeColor}`}>{item.badge}</span>}<ChevronRight size={14} className="text-muted-foreground" /></div>
-              </button>
-            ))}
-          </div>
-        </section>
-
-        {/* Community & Media */}
-        <section>
-          <h3 className="mb-3 font-display text-sm font-black text-foreground">{t('profile.communityMedia')}</h3>
-          <div className="grid grid-cols-2 gap-2">
-            {LINKS.map((l) => (
-              <button key={l.label} type="button" className={`relative rounded-2xl bg-gradient-to-br p-4 text-left transition-opacity hover:opacity-90 ${l.color}`} onClick={showComingSoon}>
-                <span className="mb-2 block text-2xl">{l.icon}</span>
-                <p className="text-xs font-black leading-tight text-white">{l.label}</p>
-                <p className="mt-0.5 text-[10px] text-white/60">{l.sub}</p>
-                <ChevronRight size={12} className="absolute right-3 top-3 text-white/50" />
-              </button>
-            ))}
-          </div>
-        </section>
-
         {/* Language */}
         <section>
           <div className="flex items-center gap-2.5 mb-3">
@@ -369,6 +341,34 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
           )}
         </section>
 
+        {/* Customer Support */}
+        <section>
+          <h3 className="mb-3 font-display text-sm font-black text-foreground">{t('profile.customerSupportSection')}</h3>
+          <div className="overflow-hidden rounded-2xl border border-border bg-card">
+            {SUPPORT_ITEMS.map((item, i) => (
+              <button key={item.label} type="button" className={`flex w-full items-center justify-between px-4 py-3 transition-colors hover:bg-secondary/50 ${i < SUPPORT_ITEMS.length - 1 ? 'border-b border-border' : ''}`} onClick={() => i === 0 ? onOpenCs() : showComingSoon()}>
+                <div className="flex items-center gap-3"><span className="text-xl">{item.icon}</span><div className="text-left"><p className="text-sm font-bold text-foreground">{item.label}</p><p className="text-xs text-muted-foreground">{item.sub}</p></div></div>
+                <div className="flex items-center gap-2">{item.badge && <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${item.badgeColor}`}>{item.badge}</span>}<ChevronRight size={14} className="text-muted-foreground" /></div>
+              </button>
+            ))}
+          </div>
+        </section>
+
+        {/* Community & Media */}
+        <section>
+          <h3 className="mb-3 font-display text-sm font-black text-foreground">{t('profile.communityMedia')}</h3>
+          <div className="grid grid-cols-2 gap-2">
+            {LINKS.map((l) => (
+              <button key={l.label} type="button" className={`relative rounded-2xl bg-gradient-to-br p-4 text-left transition-opacity hover:opacity-90 ${l.color}`} onClick={showComingSoon}>
+                <span className="mb-2 block text-2xl">{l.icon}</span>
+                <p className="text-xs font-black leading-tight text-white">{l.label}</p>
+                <p className="mt-0.5 text-[10px] text-white/60">{l.sub}</p>
+                <ChevronRight size={12} className="absolute right-3 top-3 text-white/50" />
+              </button>
+            ))}
+          </div>
+        </section>
+
         {/* Supported Currencies */}
         <section>
           <h3 className="mb-3 font-display text-sm font-black text-foreground">{t('profile.supportedCurrencies')}</h3>
@@ -399,7 +399,7 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
         {isLoggedIn && (
           <section>
             <h3 className="mb-3 font-display text-sm font-black text-foreground">{t('profile.account')}</h3>
-            <button type="button" className="flex w-full items-center justify-center gap-2 rounded-2xl border border-primary/30 bg-primary/10 py-3 text-sm font-black text-primary transition-colors hover:bg-primary/20 mb-3" onClick={onOpenCs}><Headphones size={16} />联系客服</button>
+            <button type="button" className="flex w-full items-center justify-center gap-2 rounded-2xl border border-primary/30 bg-primary/10 py-3 text-sm font-black text-primary transition-colors hover:bg-primary/20 mb-3" onClick={onOpenCs}><Headphones size={16} />{t('menu.customerSupport')}</button>
             <button type="button" className="flex w-full items-center justify-center gap-2 rounded-2xl border border-red-500/30 bg-red-500/10 py-3 text-sm font-black text-red-400 transition-colors hover:bg-red-500/20 disabled:opacity-60" disabled={loggingOut} onClick={() => setLogoutConfirmOpen(true)}><LogOut size={16} />{t('profile.logout')}</button>
           </section>
         )}

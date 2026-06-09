@@ -303,6 +303,7 @@ export default {
     debtWarning: 'Your account has an outstanding debt of {{amount}}. Withdrawals are disabled until the debt is settled in the next commission cycle.',
     debtLabel: 'Debt',
     minWithdrawPhp: 'Min ₱100',
+    turnover: 'Turnover',
   },
   bingo: {
     carnival: 'Philippine Carnival',

@@ -1,8 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ChevronDown, Wallet, Gift, Home, Menu, Dices, Headphones, Check } from 'lucide-react'
+import { ChevronDown, Wallet, Gift, Home, Menu, Dices, Check } from 'lucide-react'
 import BetogoLogo from '@/components/BetogoLogo'
-import ProfileAvatar from '@/components/ProfileAvatar'
 import WalletModal from '@/components/wallet/WalletModal'
 import SearchOverlay from '@/components/search/SearchOverlay'
 import HomeContent from '@/views/HomeContent'
@@ -122,11 +121,6 @@ export default function AppShell() {
     setWalletOpen(!walletOpen)
   }
 
-  function openMenuTab() {
-    setWalletOpen(false); setActiveNav('menu'); overlay.close()
-    requestAnimationFrame(() => { mainRef.current?.scrollTo({ top: 0 }); window.scrollTo({ top: 0, behavior: 'instant' }) })
-  }
-
   async function onGameTap() { await auth.ensureLoggedIn(t('auth.signInPlay')) }
 
   const goBonuses = useCallback((promo: string | null = null) => {
@@ -199,7 +193,7 @@ export default function AppShell() {
           <div className="app-safe-header flex items-center gap-3 px-4 pb-4">
             <button type="button" className="flex-shrink-0 cursor-pointer" onClick={goHome}><BetogoLogo /></button>
 
-            <div className="flex flex-1 items-center justify-center gap-3">
+            <div className="flex flex-1 items-center justify-end gap-3">
               <button ref={balanceTriggerRef} type="button" className="flex flex-col items-center gap-0.5" onClick={() => void onBalanceTap()}>
                 <span className="flex items-center gap-1 text-[11px] font-semibold leading-none text-muted-foreground">
                   {isLoggedIn ? activeCurrency : t('shell.signIn')}
@@ -213,12 +207,6 @@ export default function AppShell() {
                 <button type="button" className="flex items-center gap-1 whitespace-nowrap rounded-full bg-primary px-5 py-2 text-sm font-black text-primary-foreground shadow-lg shadow-amber-500/30 transition-colors hover:bg-yellow-400" onClick={() => void openWallet()}>{t('shell.topUp')}</button>
               )}
             </div>
-
-            <button type="button" className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-muted-foreground hover:text-primary transition-colors" onClick={openCs}><Headphones size={20} /></button>
-            <button type="button" className="relative flex-shrink-0" onClick={openMenuTab}>
-              <ProfileAvatar />
-              <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border-2 border-background bg-accent" />
-            </button>
           </div>
 
           {walletOpen && isLoggedIn && (

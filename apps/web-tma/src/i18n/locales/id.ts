@@ -303,6 +303,7 @@ export default {
     debtWarning: 'Akun Anda memiliki hutang {{amount}}. Penarikan dinonaktifkan hingga hutang lunas pada siklus komisi berikutnya.',
     debtLabel: 'Hutang',
     minWithdrawPhp: 'Min ₱100',
+    turnover: 'Turnover',
   },
   bingo: {
     carnival: 'Karnaval Filipina',

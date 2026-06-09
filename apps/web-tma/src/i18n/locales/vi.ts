@@ -303,6 +303,7 @@ export default {
     debtWarning: 'Tài khoản có nợ {{amount}}. Rút tiền bị tạm khóa cho đến khi nợ được thanh toán trong chu kỳ hoa hồng tiếp theo.',
     debtLabel: 'Nợ',
     minWithdrawPhp: 'Tối thiểu ₱100',
+    turnover: 'Doanh thu cược',
   },
   bingo: {
     carnival: 'Lễ hội Philippines',
