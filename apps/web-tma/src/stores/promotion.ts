@@ -40,7 +40,7 @@ interface PromotionState {
   teamDownlineLoading: boolean
   teamCommissionSummary: TeamCommissionSummary | null
   teamCommissionItems: TeamCommissionItem[]
-  teamCommissionPeriod: string
+  teamCommissionMonth: string
   teamCommissionLoading: boolean
   teamWallet: { availableCents: number; frozenCents: number; lifetimeEarnedCents: number } | null
   teamWithdrawals: TeamWithdrawal[]
@@ -82,7 +82,7 @@ export const usePromotionStore = create<PromotionState & PromotionActions>((set,
   teamDownlineLoading: false,
   teamCommissionSummary: null,
   teamCommissionItems: [],
-  teamCommissionPeriod: '',
+  teamCommissionMonth: '',
   teamCommissionLoading: false,
   teamWallet: null,
   teamWithdrawals: [],
@@ -162,7 +162,7 @@ export const usePromotionStore = create<PromotionState & PromotionActions>((set,
       set({
         teamCommissionSummary: data.summary,
         teamCommissionItems: data.items,
-        teamCommissionPeriod: data.period,
+        teamCommissionMonth: data.month,
       })
     } finally {
       set({ teamCommissionLoading: false })

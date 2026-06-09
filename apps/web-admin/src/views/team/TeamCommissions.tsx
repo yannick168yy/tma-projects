@@ -9,7 +9,7 @@ function phpCell(cents: number) {
 }
 
 export default function TeamCommissions() {
-  const [filter, setFilter] = useState({ period: '', beneficiaryId: '', status: undefined as string | undefined })
+  const [filter, setFilter] = useState({ month: '', beneficiaryId: '', status: undefined as string | undefined })
   const [items, setItems] = useState<TeamCommission[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
@@ -27,12 +27,12 @@ export default function TeamCommissions() {
   useEffect(() => { void load(1) }, [])
 
   const columns = [
-    { title: '月份', dataIndex: 'period', key: 'period', width: 90 },
+    { title: '日期', dataIndex: 'period', key: 'period', width: 105 },
     { title: '收益人', dataIndex: 'beneficiary_name', key: 'beneficiary' },
     { title: '下线', dataIndex: 'from_name', key: 'from' },
     { title: '层级', dataIndex: 'level', key: 'level', width: 60 },
     { title: '货币', dataIndex: 'currency', key: 'currency', width: 70 },
-    { title: 'GGR', key: 'ggr', width: 120, render: (_: unknown, r: TeamCommission) => phpCell(r.ggr_cents) },
+    { title: '流水(PHP)', key: 'turnover', width: 120, render: (_: unknown, r: TeamCommission) => phpCell(r.turnover_cents) },
     { title: '费率', dataIndex: 'rate_pct', key: 'rate', width: 70 },
     { title: '佣金(PHP等值)', key: 'commission', width: 140, render: (_: unknown, r: TeamCommission) => phpCell(r.php_equivalent_cents ?? r.commission_cents) },
     { title: '状态', key: 'status', width: 90, render: (_: unknown, r: TeamCommission) => <Tag color={r.status === 'paid' ? 'green' : r.status === 'pending' ? 'orange' : 'default'}>{r.status}</Tag> },
@@ -43,7 +43,7 @@ export default function TeamCommissions() {
   return (
     <div>
       <div style={{ marginBottom: 12, display: 'flex', gap: 8 }}>
-        <Input value={filter.period} onChange={(e) => setFilter((f) => ({ ...f, period: e.target.value }))} placeholder="月份 YYYY-MM" allowClear style={{ width: 130 }} />
+        <Input value={filter.month} onChange={(e) => setFilter((f) => ({ ...f, month: e.target.value }))} placeholder="月份 YYYY-MM" allowClear style={{ width: 130 }} />
         <Input value={filter.beneficiaryId} onChange={(e) => setFilter((f) => ({ ...f, beneficiaryId: e.target.value }))} placeholder="收益人ID" allowClear style={{ width: 150 }} />
         <Select value={filter.status} placeholder="状态" allowClear style={{ width: 110 }} onChange={(v) => setFilter((f) => ({ ...f, status: v }))} options={[{ value: 'pending', label: 'pending' }, { value: 'paid', label: 'paid' }, { value: 'voided', label: 'voided' }]} />
         <Button type="primary" onClick={() => load(1)}>查询</Button>

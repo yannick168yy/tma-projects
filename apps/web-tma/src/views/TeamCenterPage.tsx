@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ChevronLeft, Copy, Share2, Link2, Wallet, TrendingUp, CheckCircle2, Clock, XCircle, ChevronRight, GitBranch, List } from 'lucide-react'
-import { fetchTeamTree, type TeamTreeNode, type GgrBreakdownItem } from '@/api/promotion'
+import { fetchTeamTree, type TeamTreeNode } from '@/api/promotion'
 import { buildInviteDeepLink, buildInviteWebLink } from '@/constants/telegram'
 import { useAuthStore } from '@/stores/auth'
 import { usePromotionStore } from '@/stores/promotion'
@@ -30,20 +30,9 @@ function phpDisplay(cents: number) {
   return (val < 0 ? '-₱' : '₱') + abs
 }
 
-function fmtCurrencyGgr(currency: string, cents: number): string {
-  const val = cents / 100
-  const absVal = Math.abs(val)
-  const str = absVal % 1 === 0 ? String(absVal) : absVal.toFixed(2).replace(/\.?0+$/, '')
-  if (currency === 'PHP') return (val < 0 ? '-₱' : '₱') + str
-  return (val < 0 ? '-' : '') + str + currency
-}
-
-function ggrText(phpGgrCents: number, breakdown?: GgrBreakdownItem[]): string {
-  if (!breakdown || breakdown.length === 0) return 'GGR'
-  const allPhp = breakdown.every(b => b.currency.toUpperCase() === 'PHP')
-  if (allPhp) return `GGR ${phpDisplay(phpGgrCents)}`
-  const detail = breakdown.map(b => fmtCurrencyGgr(b.currency, b.ggrCents)).join(', ')
-  return `GGR ${phpDisplay(phpGgrCents)} (${detail})`
+function turnoverDisplay(cents: number): string {
+  const val = (cents ?? 0) / 100
+  return '₱' + val.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
 const statusColor: Record<string, string> = {
@@ -81,12 +70,12 @@ function TreeNodeRow({ node, depth, expandedIds, onToggle }: {
         <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full flex-shrink-0 ${badge}`}>L{depth}</span>
         <div className="flex-1 min-w-0 mr-2">
           <p className="text-sm font-medium text-foreground truncate leading-none mb-0.5">{node.displayName}</p>
-          {node.ggrCents !== 0 && (
-            <p className={`text-[10px] leading-none ${node.ggrCents < 0 ? 'text-red-400' : 'text-muted-foreground'}`}>{ggrText(node.ggrCents, node.ggrBreakdown)}</p>
+          {node.turnoverCents !== 0 && (
+            <p className="text-[10px] leading-none text-muted-foreground">流水 {turnoverDisplay(node.turnoverCents)}</p>
           )}
         </div>
         {node.thisMonthCents !== 0 && (
-          <span className={`font-black text-xs flex-shrink-0 pr-3 ${node.thisMonthCents < 0 ? 'text-red-400' : 'text-amber-400'}`}>{phpDisplay(node.thisMonthCents)}</span>
+          <span className="font-black text-xs flex-shrink-0 pr-3 text-amber-400">{phpDisplay(node.thisMonthCents)}</span>
         )}
       </div>
       {hasKids && isExpanded && node.children.map((child) => (
@@ -281,17 +270,17 @@ export default function TeamCenterPage() {
                 <div className="grid grid-cols-2 gap-2 mb-2">
                   <div className="bg-black/20 rounded-xl p-2 text-center">
                     <div className="text-amber-400 font-black text-base leading-none">{phpDisplay(summary?.l1Cents ?? 0)}</div>
-                    <div className="text-white/50 text-[9px] mt-0.5">L1 · 25%</div>
+                    <div className="text-white/50 text-[9px] mt-0.5">L1 · {teamStatus?.ratePlan?.l1RatePct ?? 25}%</div>
                   </div>
                   <div className="bg-black/20 rounded-xl p-2 text-center">
                     <div className="text-amber-400 font-black text-base leading-none">{phpDisplay(summary?.l2Cents ?? 0)}</div>
-                    <div className="text-white/50 text-[9px] mt-0.5">L2 · 8%</div>
+                    <div className="text-white/50 text-[9px] mt-0.5">L2 · {teamStatus?.ratePlan?.l2RatePct ?? 8}%</div>
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div className="bg-black/20 rounded-xl p-2 text-center">
                     <div className="text-amber-400 font-black text-base leading-none">{phpDisplay(summary?.l3Cents ?? 0)}</div>
-                    <div className="text-white/50 text-[9px] mt-0.5">L3 · 3%</div>
+                    <div className="text-white/50 text-[9px] mt-0.5">L3 · {teamStatus?.ratePlan?.l3RatePct ?? 3}%</div>
                   </div>
                   <div className="bg-amber-500/20 rounded-xl p-2 text-center border border-amber-500/30">
                     <div className="text-amber-300 font-black text-base leading-none">{phpDisplay(summary?.totalCents ?? 0)}</div>
@@ -357,7 +346,7 @@ export default function TeamCenterPage() {
                     <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full flex-shrink-0 ${levelBadge[item.level]}`}>L{item.level}</span>
                     <div className="flex-1 min-w-0">
                       <p className="text-foreground font-bold text-xs leading-none mb-0.5">{item.displayName}</p>
-                      <p className={`text-[10px] ${item.ggrCents < 0 ? 'text-red-400/70' : 'text-muted-foreground'}`}>{fmtCurrencyGgr(item.currency ?? 'PHP', item.ggrCents)} GGR × {item.ratePct}%</p>
+                      <p className="text-[10px] text-muted-foreground">流水 {turnoverDisplay(item.turnoverCents)} × {item.ratePct}%</p>
                     </div>
                     <div className="text-right flex-shrink-0">
                       <p className={`font-black text-sm leading-none ${item.phpEquivCents < 0 ? 'text-red-400' : 'text-amber-400'}`}>{phpDisplay(item.phpEquivCents)}</p>

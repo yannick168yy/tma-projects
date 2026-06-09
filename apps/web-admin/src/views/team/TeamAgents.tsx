@@ -5,26 +5,9 @@ import dayjs from 'dayjs'
 import { getTeamOverview, getTeamAgents, getTeamAgentTree, type TeamOverview, type TeamAgent, type TeamTreeMember } from '../../api'
 
 interface TreeNodeItem { key: string; title: React.ReactNode; children?: TreeNodeItem[] }
-type GgrBreakdownItem = { currency: string; ggrCents: number }
-
-function fmtGgrAmount(currency: string, cents: number): string {
-  const val = cents / 100
-  const absStr = Math.abs(val) % 1 === 0 ? String(Math.abs(val)) : Math.abs(val).toFixed(2).replace(/\.?0+$/, '')
-  if (currency === 'PHP') return (val < 0 ? '-₱' : '₱') + absStr
-  return (val < 0 ? '-' : '') + absStr + currency
-}
-
-function ggrLabel(phpGgrCents: number, breakdown: GgrBreakdownItem[]): string {
-  if (breakdown.length === 0) return 'GGR'
-  const allPhp = breakdown.every(b => b.currency.toUpperCase() === 'PHP')
-  if (allPhp) return `GGR ${phpDisplay(phpGgrCents)}`
-  const detail = breakdown.map(b => fmtGgrAmount(b.currency, b.ggrCents)).join(', ')
-  return `GGR ${phpDisplay(phpGgrCents)} (${detail})`
-}
 
 function buildTreeNode(m: TeamTreeMember, level: 1 | 2 | 3): TreeNodeItem {
   const levelColor = level === 1 ? 'gold' : level === 2 ? 'blue' : 'green'
-  const breakdown = (m as TeamTreeMember & { ggrBreakdown?: GgrBreakdownItem[] }).ggrBreakdown ?? []
   return {
     key: `l${level}-${m.userId}`,
     title: (
@@ -33,8 +16,8 @@ function buildTreeNode(m: TeamTreeMember, level: 1 | 2 | 3): TreeNodeItem {
         <span style={{ fontWeight: 500 }}>{m.displayName}</span>
         <span style={{ color: '#bbb', fontSize: 11 }}>{m.userId}</span>
         {m.isAgent && <Tag color="purple" style={{ fontSize: 10, padding: '0 4px', margin: 0, lineHeight: '16px' }}>代理</Tag>}
-        {m.thisMonthCents !== 0 && <span style={{ color: m.thisMonthCents < 0 ? '#ff4d4f' : '#1677ff', fontSize: 11 }}>{m.thisMonthCents < 0 ? '-₱' : '₱'}{Math.abs(m.thisMonthCents / 100).toFixed(2)}</span>}
-        {m.ggrCents !== 0 && <span style={{ color: m.ggrCents < 0 ? '#ff4d4f' : '#999', fontSize: 11 }}>{ggrLabel(m.ggrCents, breakdown)}</span>}
+        {m.thisMonthCents !== 0 && <span style={{ color: '#1677ff', fontSize: 11 }}>₱{(m.thisMonthCents / 100).toFixed(2)}</span>}
+        {m.turnoverCents !== 0 && <span style={{ color: '#999', fontSize: 11 }}>流水 ₱{(m.turnoverCents / 100).toFixed(2)}</span>}
       </span>
     ),
     children: m.children.length > 0 ? m.children.map((c) => buildTreeNode(c, (level + 1) as 2 | 3)) : undefined,
