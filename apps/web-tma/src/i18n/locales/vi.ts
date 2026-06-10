@@ -493,6 +493,9 @@ export default {
     turnoverRemaining: 'Còn cần',
     turnoverDeposit: 'Nạp tiền',
     turnoverPromo: 'Khuyến mãi',
+    promoTrial: 'Thưởng Thử',
+    promoReferral: 'Thưởng Giới Thiệu',
+    promoFirstdep: 'Thưởng Nạp Đầu',
   },
   slots: {
     sectionTitle: 'GAME SLOT',

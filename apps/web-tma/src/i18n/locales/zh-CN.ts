@@ -500,6 +500,9 @@ export default {
     turnoverRemaining: '还需流水',
     turnoverDeposit: '存款流水',
     turnoverPromo: '优惠流水',
+    promoTrial: '首席体验官',
+    promoReferral: '邀请共赢',
+    promoFirstdep: '首充嘉年华',
   },
   slots: {
     sectionTitle: '老虎机游戏',

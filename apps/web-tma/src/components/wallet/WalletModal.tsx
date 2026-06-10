@@ -282,7 +282,7 @@ export default function WalletModal({ open, onClose }: Props) {
     try{
       const[yfDeposits,yfWithdrawals,bgDeposits,bgWithdrawals]=await Promise.all([fetchYfDepositOrders().catch(()=>[]),fetchYfWithdrawOrders().catch(()=>[]),fetchDepositHistory().catch(()=>[]),fetchWithdrawHistory().catch(()=>[])])
       const seen=new Set<string>(); const items: HistoryItem[]=[]
-      for(const d of bgDeposits){seen.add(d.orderId);items.push({id:d.orderId,orderId:d.orderId,type:'deposit',method:mapDepositChannelName(d.channelId),amount:`+₱${(d.creditedCents??d.amount).toFixed(2)}`,date:formatOrderDate(d.createdAt),sortKey:d.createdAt,status:mapDepositStatus(d.status)})}
+      for(const d of bgDeposits){seen.add(d.orderId);const dAmt=d.currency==='PHP'?`+₱${(d.creditedCents??d.amount).toFixed(2)}`:`+${parseFloat(d.amount.toFixed(6))} ${d.currency}`;items.push({id:d.orderId,orderId:d.orderId,type:'deposit',method:mapDepositChannelName(d.channelId),amount:dAmt,date:formatOrderDate(d.createdAt),sortKey:d.createdAt,status:mapDepositStatus(d.status)})}
       for(const w of bgWithdrawals){seen.add(w.orderId);const wAmt=w.channelId==='matrix'?`-${w.amount} ${w.currency}`:`-₱${w.amount.toFixed(2)}`;items.push({id:w.orderId,orderId:w.orderId,type:'withdraw',method:mapDepositChannelName(w.channelId),amount:wAmt,date:formatOrderDate(w.createdAt),sortKey:w.createdAt,status:mapDepositStatus(w.status)})}
       for(const d of yfDeposits)if(!seen.has(d.merchantSerial))items.push({id:d.merchantSerial,orderId:d.merchantSerial,type:'deposit',method:methodDisplayName(d.channelCode??''),amount:`+₱${d.amount.toFixed(2)}`,date:formatOrderDate(d.createdAt),sortKey:d.createdAt,status:mapDepositState(d.state)})
       for(const w of yfWithdrawals)if(!seen.has(w.merchantSerial))items.push({id:w.merchantSerial,orderId:w.merchantSerial,type:'withdraw',method:methodDisplayName(w.optionCode??''),amount:`-₱${w.amount.toFixed(2)}`,date:formatOrderDate(w.createdAt),sortKey:w.createdAt,status:mapWithdrawState(w.state)})
@@ -440,7 +440,7 @@ export default function WalletModal({ open, onClose }: Props) {
                               return (
                                 <div key={req.id} className="space-y-1">
                                   <div className="flex justify-between">
-                                    <span className="text-[10px] text-amber-300/70">{req.sourceType==='deposit'?t('wallet.turnoverDeposit'):t('wallet.turnoverPromo')} · {fmtTurnoverAmount(req.requiredAmount,req.currency??'PHP')}</span>
+                                    <span className="text-[10px] text-amber-300/70">{req.sourceType==='deposit'?t('wallet.turnoverDeposit'):req.sourceRef==='trial'?t('wallet.promoTrial'):req.sourceRef==='referral'?t('wallet.promoReferral'):req.sourceRef==='firstdep'?t('wallet.promoFirstdep'):t('wallet.turnoverPromo')} · {fmtTurnoverAmount(req.requiredAmount,req.currency??'PHP')}</span>
                                     <span className="text-[10px] font-bold text-amber-300/70">{Math.round(pct)}%</span>
                                   </div>
                                   <div className="h-1 bg-amber-500/20 rounded-full overflow-hidden">

@@ -504,6 +504,9 @@ export default {
     turnoverRemaining: 'Still needed',
     turnoverDeposit: 'Deposit',
     turnoverPromo: 'Bonus',
+    promoTrial: 'Trial Bonus',
+    promoReferral: 'Referral Bonus',
+    promoFirstdep: 'First Deposit Bonus',
   },
   slots: {
     sectionTitle: 'CASINO SLOTS',

@@ -1,20 +1,25 @@
 /**
- * 三级分销测试脚本 v3 — 多币种 + 正负 GGR 混合验证
+ * 三级分销测试脚本 v4 — 全员多币种投注 + 流水制结算验证
  *
- * 用户树（固定结构）：
+ * 系统模型：流水制（turnover-based）
+ *   - 只统计 bet_type='bet' 投注额，不减 win
+ *   - 多币种通过汇率折算 PHP，出单条 PHP 佣金
+ *   - currency_breakdown JSON 保留原始多币种明细
+ *
+ * 用户树（全员 PHP+USDT+USDC 三币种投注）：
  *   BG-10001 (root/代理)
- *   ├── L1_1  PHP: bet=500, win=100  → GGR ₱400 (正)
- *   │   ├── L2_1  PHP+USDT 混合      → PHP ₱200(正) + USDT -9USDT(负，不贡献佣金)
- *   │   │   ├── L3_1  PHP+USDC       → GGR ₱150(正) + 4USDC(正)
- *   │   │   └── L3_2  PHP only       → GGR -₱300(负，不贡献佣金)
- *   │   └── L2_2  USDT only          → GGR 12USDT(正)
- *   │       ├── L3_3  PHP+USDT+USDC  → GGR ₱100(正) + 5USDT(正) + 3USDC(正)
- *   │       └── L3_4  PHP only       → GGR -₱200(负，不贡献佣金)
- *   └── L1_2  PHP only               → GGR -₱200(负，不贡献佣金)
- *       ├── L2_3  PHP only           → GGR ₱350(正)
- *       │   ├── L3_5  PHP only       → GGR ₱280(正)
- *       │   └── L3_6  USDC only      → GGR 6USDC(正)
- *       └── L2_4  PHP only (未激活)  → GGR ₱500（激活门槛未达标，不贡献佣金）
+ *   ├── L1_1  PHP+USDT+USDC  bet=(500,10,5)  win=(100,2,1)
+ *   │   ├── L2_1  PHP+USDT+USDC  bet=(200,1,3)   win=(0,10,0)   → PHP正+USDT负(流水仍正)
+ *   │   │   ├── L3_1  PHP+USDT+USDC  bet=(150,4,5)  win=(0,1,1)
+ *   │   │   └── L3_2  PHP+USDT+USDC  bet=(100,3,2)  win=(400,0,0) → PHP负GGR，流水正
+ *   │   └── L2_2  PHP+USDT+USDC  bet=(50,20,8)  win=(0,8,0)
+ *   │       ├── L3_3  PHP+USDT+USDC  bet=(100,6,4)  win=(0,1,1)
+ *   │       └── L3_4  PHP+USDT+USDC  bet=(100,5,3)  win=(300,0,0) → PHP负GGR，流水正
+ *   └── L1_2  PHP+USDT+USDC  bet=(200,5,3)  win=(400,0,0) → PHP负GGR，流水正
+ *       ├── L2_3  PHP+USDT+USDC  bet=(350,8,4)  win=(0,0,0)
+ *       │   ├── L3_5  PHP+USDT+USDC  bet=(280,6,4)  win=(0,0,0)
+ *       │   └── L3_6  PHP+USDT+USDC  bet=(50,5,7)   win=(0,1,1)
+ *       └── L2_4  PHP+USDT+USDC  bet=(500,10,5) win=(0,0,0)  (未激活，不产生佣金)
  *
  * 负 GGR 验证点（回撤模型）：
  *   - 负 GGR → 产生负佣金（真实回撤，会减少上线余额）
@@ -250,27 +255,47 @@ async function main() {
     // ── 4. 插入多币种注单 ─────────────────────────────────────────────────────
     log('步骤 4：插入注单（多币种）')
 
-    // L1
-    await insertBetOrders(db, l1_1.id, 500, 100, 'PHP')    // GGR ₱400  (正)
-    await insertBetOrders(db, l1_2.id, 200, 400, 'PHP')    // GGR -₱200 (负 → 不贡献佣金给 root)
+    // L1 — 全员三币种
+    await insertBetOrders(db, l1_1.id, 500, 100, 'PHP')
+    await insertBetOrders(db, l1_1.id, 10,  2,   'USDT')
+    await insertBetOrders(db, l1_1.id, 5,   1,   'USDC')
+    await insertBetOrders(db, l1_2.id, 200, 400, 'PHP')    // PHP负GGR，流水仍产生正佣金
+    await insertBetOrders(db, l1_2.id, 5,   0,   'USDT')
+    await insertBetOrders(db, l1_2.id, 3,   0,   'USDC')
 
-    // L2 — 混合币种
-    await insertBetOrders(db, l2_1.id, 200, 0,   'PHP')    // GGR ₱200  (正)
-    await insertBetOrders(db, l2_1.id, 1,   10,  'USDT')   // GGR -9USDT(负 → USDT 佣金为 0，PHP 正常)
-    await insertBetOrders(db, l2_2.id, 20,  8,   'USDT')   // GGR 12USDT(正，纯USDT)
-    await insertBetOrders(db, l2_3.id, 350, 0,   'PHP')    // GGR ₱350  (正)
-    await insertBetOrders(db, l2_4.id, 500, 0,   'PHP')    // GGR ₱500（未激活，不应产生上线佣金）
+    // L2 — 全员三币种
+    await insertBetOrders(db, l2_1.id, 200, 0,   'PHP')
+    await insertBetOrders(db, l2_1.id, 1,   10,  'USDT')   // USDT GGR 负，流水仍为正
+    await insertBetOrders(db, l2_1.id, 3,   0,   'USDC')
+    await insertBetOrders(db, l2_2.id, 50,  0,   'PHP')
+    await insertBetOrders(db, l2_2.id, 20,  8,   'USDT')
+    await insertBetOrders(db, l2_2.id, 8,   0,   'USDC')
+    await insertBetOrders(db, l2_3.id, 350, 0,   'PHP')
+    await insertBetOrders(db, l2_3.id, 8,   0,   'USDT')
+    await insertBetOrders(db, l2_3.id, 4,   0,   'USDC')
+    await insertBetOrders(db, l2_4.id, 500, 0,   'PHP')    // 未激活，不产生上线佣金
+    await insertBetOrders(db, l2_4.id, 10,  0,   'USDT')
+    await insertBetOrders(db, l2_4.id, 5,   0,   'USDC')
 
-    // L3 — 多种组合
-    await insertBetOrders(db, l3_1.id, 150, 0,   'PHP')    // GGR ₱150  (正)
-    await insertBetOrders(db, l3_1.id, 5,   1,   'USDC')   // GGR 4USDC (正)
-    await insertBetOrders(db, l3_2.id, 100, 400, 'PHP')    // GGR -₱300 (负 → 不贡献佣金)
-    await insertBetOrders(db, l3_3.id, 100, 0,   'PHP')    // GGR ₱100  (正)
-    await insertBetOrders(db, l3_3.id, 6,   1,   'USDT')   // GGR 5USDT (正)
-    await insertBetOrders(db, l3_3.id, 4,   1,   'USDC')   // GGR 3USDC (正，三币种)
-    await insertBetOrders(db, l3_4.id, 100, 300, 'PHP')    // GGR -₱200 (负 → 不贡献佣金)
-    await insertBetOrders(db, l3_5.id, 280, 0,   'PHP')    // GGR ₱280  (正)
-    await insertBetOrders(db, l3_6.id, 7,   1,   'USDC')   // GGR 6USDC (正，纯USDC)
+    // L3 — 全员三币种
+    await insertBetOrders(db, l3_1.id, 150, 0,   'PHP')
+    await insertBetOrders(db, l3_1.id, 4,   1,   'USDT')
+    await insertBetOrders(db, l3_1.id, 5,   1,   'USDC')
+    await insertBetOrders(db, l3_2.id, 100, 400, 'PHP')    // PHP负GGR，流水正
+    await insertBetOrders(db, l3_2.id, 3,   0,   'USDT')
+    await insertBetOrders(db, l3_2.id, 2,   0,   'USDC')
+    await insertBetOrders(db, l3_3.id, 100, 0,   'PHP')
+    await insertBetOrders(db, l3_3.id, 6,   1,   'USDT')
+    await insertBetOrders(db, l3_3.id, 4,   1,   'USDC')
+    await insertBetOrders(db, l3_4.id, 100, 300, 'PHP')    // PHP负GGR，流水正
+    await insertBetOrders(db, l3_4.id, 5,   0,   'USDT')
+    await insertBetOrders(db, l3_4.id, 3,   0,   'USDC')
+    await insertBetOrders(db, l3_5.id, 280, 0,   'PHP')
+    await insertBetOrders(db, l3_5.id, 6,   0,   'USDT')
+    await insertBetOrders(db, l3_5.id, 4,   0,   'USDC')
+    await insertBetOrders(db, l3_6.id, 50,  0,   'PHP')
+    await insertBetOrders(db, l3_6.id, 5,   1,   'USDT')
+    await insertBetOrders(db, l3_6.id, 7,   1,   'USDC')
 
     const [[{ betCnt }]] = await db.query(`SELECT COUNT(*) AS betCnt FROM bg_bet_order WHERE user_id IN (${allUsers.map(()=>'?').join(',')})`, allUsers.map(u => u.id))
     log(`  已插入 ${betCnt} 条注单`)
@@ -330,41 +355,40 @@ async function main() {
     const fromL2_4 = commissions.filter(c => c.from_user_id === l2_4.id)
     ok(`l2_4(未激活) 不产生佣金`, fromL2_4.length === 0, fromL2_4.length)
 
-    // ── 负 GGR 用户（win>bet）依然产生正佣金（流水制只看投注额）──
+    // ── 负 GGR 用户（PHP win>bet）依然产生正佣金（流水制只看投注额）──
     const fromL1_2 = commissions.filter(c => c.from_user_id === l1_2.id)
-    ok(`l1_2(bet=200 win=400) 产生 1 条佣金(L1→root)`, fromL1_2.length === 1, fromL1_2.length)
+    ok(`l1_2(PHP负GGR+三币种) 产生 1 条佣金(L1→root)`, fromL1_2.length === 1, fromL1_2.length)
     ok(`l1_2 commission_cents 为正（流水制）`, Number(fromL1_2[0]?.commission_cents) > 0, fromL1_2[0]?.commission_cents)
     ok(`l1_2 currency=PHP`, fromL1_2[0]?.currency === 'PHP')
 
     const fromL3_2 = commissions.filter(c => c.from_user_id === l3_2.id)
-    ok(`l3_2(bet=100 win=400) 产生 3 条佣金`, fromL3_2.length === 3, fromL3_2.length)
+    ok(`l3_2(PHP负GGR+三币种) 产生 3 条佣金`, fromL3_2.length === 3, fromL3_2.length)
     ok(`l3_2 全部 commission_cents 为正`, fromL3_2.every(c => Number(c.commission_cents) > 0))
 
     const fromL3_4 = commissions.filter(c => c.from_user_id === l3_4.id)
-    ok(`l3_4(bet=100 win=300) 产生 3 条佣金`, fromL3_4.length === 3, fromL3_4.length)
+    ok(`l3_4(PHP负GGR+三币种) 产生 3 条佣金`, fromL3_4.length === 3, fromL3_4.length)
     ok(`l3_4 全部 commission_cents 为正`, fromL3_4.every(c => Number(c.commission_cents) > 0))
 
     // ── 正常投注验证 ──────────────────────────────────────────────
-    // l1_1: PHP bet=500 → root 收 L1 佣金，commission = ₱500 × 25% = ₱125
     const fromL1_1 = commissions.filter(c => c.from_user_id === l1_1.id)
-    ok(`l1_1(PHP bet=500) 产生 1 条佣金`, fromL1_1.length === 1, fromL1_1.length)
+    ok(`l1_1(三币种) 产生 1 条佣金(L1→root)`, fromL1_1.length === 1, fromL1_1.length)
     ok(`l1_1 受益人=root level=1 currency=PHP`, fromL1_1[0]?.beneficiary_id === root.id && fromL1_1[0]?.level === 1 && fromL1_1[0]?.currency === 'PHP')
     ok(`l1_1 commission_cents 为正`, Number(fromL1_1[0]?.commission_cents) > 0)
 
-    // l2_1: PHP(bet=200)+USDT(bet=1) → 2层上线各 1 条 PHP 佣金，共 2 条
+    // l2_1: PHP+USDT+USDC → 2层上线各 1 条 PHP 佣金（三币种折算合并）
     const fromL2_1 = commissions.filter(c => c.from_user_id === l2_1.id)
-    ok(`l2_1(PHP+USDT混合) 产生 2 条佣金(L1=l1_1, L2=root)`, fromL2_1.length === 2, fromL2_1.length)
+    ok(`l2_1(三币种) 产生 2 条佣金(L1=l1_1, L2=root)`, fromL2_1.length === 2, fromL2_1.length)
     ok(`l2_1 全部 currency=PHP`, fromL2_1.every(c => c.currency === 'PHP'))
     ok(`l2_1 root 收到 PHP 佣金(level=2)`, !!fromL2_1.find(c => c.beneficiary_id === root.id && c.level === 2))
 
-    // l2_2: USDT only(bet=20) → 折算 PHP → 2层上线各 1 条 PHP 佣金
+    // l2_2: PHP+USDT+USDC → 折算 PHP → 2层上线各 1 条 PHP 佣金
     const fromL2_2 = commissions.filter(c => c.from_user_id === l2_2.id)
-    ok(`l2_2(USDT only) 产生 2 条佣金`, fromL2_2.length === 2, fromL2_2.length)
-    ok(`l2_2 全部 currency=PHP（USDT 折算）`, fromL2_2.every(c => c.currency === 'PHP'))
+    ok(`l2_2(三币种) 产生 2 条佣金`, fromL2_2.length === 2, fromL2_2.length)
+    ok(`l2_2 全部 currency=PHP（多币种折算）`, fromL2_2.every(c => c.currency === 'PHP'))
 
     // l3_1: PHP+USDC → 3层上线各 1 条 PHP 佣金，共 3 条
     const fromL3_1 = commissions.filter(c => c.from_user_id === l3_1.id)
-    ok(`l3_1(PHP+USDC) 产生 3 条佣金`, fromL3_1.length === 3, fromL3_1.length)
+    ok(`l3_1(三币种) 产生 3 条佣金`, fromL3_1.length === 3, fromL3_1.length)
     ok(`l3_1 root 收到 PHP 佣金(level=3)`, !!fromL3_1.find(c => c.beneficiary_id === root.id && c.level === 3 && c.currency === 'PHP'))
 
     // l3_3: PHP+USDT+USDC (三币种) → 折算 PHP → 3层各 1 条，共 3 条
