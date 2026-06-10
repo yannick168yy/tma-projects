@@ -18,6 +18,18 @@
   --radius: 0.75rem;
 }
 
+html.light {
+  --background: #f5f6fa;
+  --foreground: #0f1221;
+  --card: #ffffff;
+  --card-foreground: #0f1221;
+  --secondary: #eef0f7;
+  --secondary-foreground: #3d4566;
+  --muted: #eef0f7;
+  --muted-foreground: #7a82a8;
+  --border: rgba(0, 0, 0, 0.09);
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -103,6 +115,20 @@
 }
 
 /* Toast：个人中心等场景，页面中上区域（品牌提示条样式） */
+html.light .profile-toast {
+  background: linear-gradient(
+    135deg,
+    rgba(255, 184, 0, 0.12) 0%,
+    rgba(255, 255, 255, 0.96) 42%,
+    rgba(238, 240, 247, 0.98) 100%
+  );
+  border: 1px solid rgba(255, 184, 0, 0.4);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.04) inset,
+    0 12px 40px rgba(0, 0, 0, 0.12),
+    0 0 28px rgba(255, 184, 0, 0.10);
+}
+
 .profile-toast {
   top: max(calc(var(--app-safe-top) + 5.5rem), 30vh);
   background: linear-gradient(

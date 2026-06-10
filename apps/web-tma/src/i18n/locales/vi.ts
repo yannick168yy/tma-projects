@@ -148,6 +148,10 @@ export default {
   menu: {
     searchPlaceholder: 'Tìm bất kỳ game nào…',
     language: 'NGÔN NGỮ',
+    appearance: 'GIAO DIỆN',
+    themeDark: 'Tối',
+    themeLight: 'Sáng',
+    themeSystem: 'Hệ thống',
     customerSupport: 'Hỗ trợ khách hàng',
     live247: 'Trực tuyến · 24/7',
     sections: {

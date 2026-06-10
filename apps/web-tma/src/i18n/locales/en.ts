@@ -148,6 +148,10 @@ export default {
   menu: {
     searchPlaceholder: 'Search any game…',
     language: 'LANGUAGE',
+    appearance: 'APPEARANCE',
+    themeDark: 'Dark',
+    themeLight: 'Light',
+    themeSystem: 'System',
     customerSupport: 'Customer Support',
     live247: 'Live · 24/7',
     sections: {

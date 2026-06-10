@@ -148,6 +148,10 @@ export default {
   menu: {
     searchPlaceholder: 'Cari game apa saja…',
     language: 'BAHASA',
+    appearance: 'TAMPILAN',
+    themeDark: 'Gelap',
+    themeLight: 'Terang',
+    themeSystem: 'Sistem',
     customerSupport: 'Dukungan Pelanggan',
     live247: 'Live · 24/7',
     sections: {

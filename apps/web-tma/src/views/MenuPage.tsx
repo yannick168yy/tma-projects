@@ -4,6 +4,7 @@ import { CheckCircle2, Copy, ChevronDown, ChevronRight, LogOut, Headphones, X, U
 import { createPortal } from 'react-dom'
 import { useAuthStore } from '@/stores/auth'
 import { useLocaleStore } from '@/stores/locale'
+import { useThemeStore, type ThemeMode } from '@/stores/theme'
 import { LANGUAGES } from '@/data/languages'
 import type { LoginProvider } from '@/types/api'
 import { formatTelegramHandle, getTelegramWebAppUser } from '@/utils/telegramUser'
@@ -33,6 +34,7 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
   const { t } = useTranslation()
   const auth = useAuthStore()
   const { locale, setLocale } = useLocaleStore()
+  const { mode: themeMode, setMode: setThemeMode } = useThemeStore()
   const isLoggedIn = Boolean(auth.token && auth.user)
 
   const [loggingOut, setLoggingOut] = useState(false)
@@ -339,6 +341,31 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
               ))}
             </div>
           )}
+        </section>
+
+        {/* Appearance */}
+        <section>
+          <div className="flex items-center gap-2.5 mb-3">
+            <span className="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0" style={{ boxShadow: '0 0 6px #fbbf24' }} />
+            <h3 className="text-foreground font-black text-sm tracking-tight font-display">{t('menu.appearance')}</h3>
+          </div>
+          <div className="flex rounded-2xl overflow-hidden border border-border bg-card">
+            {([
+              { key: 'dark', icon: '🌙', label: t('menu.themeDark') },
+              { key: 'light', icon: '☀️', label: t('menu.themeLight') },
+              { key: 'system', icon: '📱', label: t('menu.themeSystem') },
+            ] as { key: ThemeMode; icon: string; label: string }[]).map((opt, i) => (
+              <button
+                key={opt.key}
+                type="button"
+                className={`flex flex-1 flex-col items-center gap-1 py-3 text-center transition-colors ${i < 2 ? 'border-r border-border' : ''} ${themeMode === opt.key ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:text-foreground'}`}
+                onClick={() => setThemeMode(opt.key)}
+              >
+                <span className="text-lg leading-none">{opt.icon}</span>
+                <span className="text-[10px] font-bold">{opt.label}</span>
+              </button>
+            ))}
+          </div>
         </section>
 
         {/* Customer Support */}

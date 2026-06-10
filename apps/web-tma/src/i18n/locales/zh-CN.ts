@@ -147,6 +147,10 @@ export default {
   menu: {
     searchPlaceholder: '搜索任意游戏…',
     language: '语言',
+    appearance: '外观',
+    themeDark: '深色',
+    themeLight: '浅色',
+    themeSystem: '跟随系统',
     customerSupport: '客服支持',
     live247: '在线 · 7×24',
     sections: {
