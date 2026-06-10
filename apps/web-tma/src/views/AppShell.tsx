@@ -1,8 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ChevronDown, Wallet, Gift, Home, Menu, Dices, Headphones, Check } from 'lucide-react'
+import { ChevronDown, Wallet, Gift, Home, Menu, Dices, Check } from 'lucide-react'
 import BetogoLogo from '@/components/BetogoLogo'
-import ProfileAvatar from '@/components/ProfileAvatar'
 import WalletModal from '@/components/wallet/WalletModal'
 import SearchOverlay from '@/components/search/SearchOverlay'
 import HomeContent from '@/views/HomeContent'
@@ -117,12 +116,6 @@ export default function AppShell() {
     setWalletOpen(false); setWalletModalOpen(true)
   }
 
-  async function openProfile() {
-    if (!(await auth.ensureLoggedIn(t('auth.signInProfile')))) return
-    setWalletOpen(false); overlay.openProfile()
-    requestAnimationFrame(() => { mainRef.current?.scrollTo({ top: 0 }); window.scrollTo({ top: 0, behavior: 'instant' }) })
-  }
-
   async function onBalanceTap() {
     if (!isLoggedIn) { await auth.ensureLoggedIn(t('auth.signInBalance')); return }
     if (!walletOpen) void wallet.refresh()
@@ -216,10 +209,13 @@ export default function AppShell() {
               )}
             </div>
 
-            <button type="button" className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-muted-foreground hover:text-primary transition-colors" onClick={openCs}><Headphones size={20} /></button>
-            <button type="button" className="relative flex-shrink-0" onClick={() => void openProfile()}>
-              <ProfileAvatar />
-              <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border-2 border-background bg-accent" />
+            <button type="button" className="flex-shrink-0 flex h-9 w-9 items-center justify-center rounded-full bg-white/8 text-foreground hover:bg-white/12 transition-colors" onClick={openCs}>
+              <svg width="19" height="19" viewBox="0 0 20 20" fill="none">
+                <path d="M4 10c0-3.31 2.69-6 6-6s6 2.69 6 6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
+                <rect x="2.5" y="10" width="3" height="5" rx="1.5" fill="currentColor"/>
+                <rect x="14.5" y="10" width="3" height="5" rx="1.5" fill="currentColor"/>
+                <path d="M15.5 14.5q0 2.5-4 2.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
+              </svg>
             </button>
           </div>
 
