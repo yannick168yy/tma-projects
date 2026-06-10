@@ -35,11 +35,23 @@ run_db_migrations() {
   RSYNC_RSH="$RSYNC_RSH" rsync -az \
     "$ROOT/infra/database/betogo/" "$HOST:$DIR/infra/database/betogo/"
   ssh "${SSH_ARGS[@]}" "$HOST" "bash -s" <<'REMOTE'
+set -euo pipefail
 cd /root/workspace/tma-projects
-set -a; [ -f .env ] && source .env; set +a
-MYSQL_CMD="mysql -h${MYSQL_HOST:-localhost} -P${MYSQL_PORT:-3306} -u${MYSQL_USER} -p${MYSQL_PASSWORD} ${MYSQL_DATABASE:-betogo}"
+# 用 grep 逐行提取 DB 凭证，避免 source .env 因私钥等多行内容报错
+_env_val() { grep -E "^${1}\s*=" .env 2>/dev/null | head -1 | cut -d= -f2- | tr -d "\"' "; }
+DB_HOST="$(_env_val MYSQL_HOST)"; DB_HOST="${DB_HOST:-localhost}"
+DB_PORT="$(_env_val MYSQL_PORT)"; DB_PORT="${DB_PORT:-3306}"
+DB_USER="$(_env_val MYSQL_USER)"
+DB_PASS="$(_env_val MYSQL_PASSWORD)"
+DB_NAME="$(_env_val MYSQL_DATABASE)"; DB_NAME="${DB_NAME:-betogo}"
+MYSQL_CMD="mysql -h${DB_HOST} -P${DB_PORT} -u${DB_USER} -p${DB_PASS} ${DB_NAME}"
 for f in infra/database/betogo/045_*.sql; do
-  [ -f "$f" ] && $MYSQL_CMD < "$f" 2>/dev/null && echo "  ran: $f" || echo "  skipped/already-applied: $f"
+  [ -f "$f" ] || continue
+  if $MYSQL_CMD < "$f" 2>/tmp/migrate_err; then
+    echo "  ran: $f"
+  else
+    echo "  failed: $f — $(cat /tmp/migrate_err)"
+  fi
 done
 REMOTE
 }
