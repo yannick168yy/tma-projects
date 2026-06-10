@@ -69,24 +69,28 @@ export default {
   home: {
     banners: {
       '1': {
-        tag: 'THƯỞNG CHÀO MỪNG',
-        title: '100% LÊN TỚI\n₱50.000',
-        sub: 'Dành cho người chơi mới • Nạp lần đầu',
+        tag: 'NẠP LẦN ĐẦU',
+        title: '120% LÊN TỚI\n₱1.000',
+        sub: 'Nạp tối thiểu ₱100 · Yêu cầu 15x cược',
+        cta: 'NHẬN NGAY',
       },
       '2': {
-        tag: 'HOÀN TIỀN HÀNG NGÀY',
-        title: 'LÊN TỚI 15%\nHOÀN TIỀN',
-        sub: 'Mỗi ngày, không cần điều kiện',
+        tag: 'CHIP THỬ MIỄN PHÍ',
+        title: 'NHẬN ₱88\nMIỄN PHÍ',
+        sub: 'Không cần nạp · Chỉ dành người chơi mới',
+        cta: 'NHẬN MIỄN PHÍ',
       },
       '3': {
-        tag: 'ĐẶC BIỆT E-SABONG',
-        title: 'CƯỢC MIỄN PHÍ\nMỖI THỨ SÁU',
-        sub: 'Dành cho người chơi PH đã xác minh',
+        tag: 'GIỚI THIỆU & NHẬN',
+        title: 'KIẾM ₱50\nMỖI BẠN BÈ',
+        sub: 'Bạn được mời cũng nhận ₱30 thưởng',
+        cta: 'MỜI NGAY',
       },
       '4': {
-        tag: 'CHƯƠNG TRÌNH VIP',
-        title: 'TRỞ THÀNH VIP\nNGAY',
-        sub: 'Phần thưởng độc quyền & hỗ trợ ưu tiên',
+        tag: 'GAME CAO CẤP',
+        title: '1000+\nTRÒ CHƠI',
+        sub: 'JILI · PGSOFT · Evolution · 20+ nhà cung cấp',
+        cta: 'CHƠI NGAY',
       },
     },
     gameTabs: {
@@ -141,9 +145,9 @@ export default {
   },
   category: {
     bonuses: 'Khuyến mãi',
-    firstPlay: 'Chơi lần đầu',
+    firstPlay: 'Miễn phí ₱88',
     referWin: 'Mời & Thắng',
-    firstDep: 'Nạp đầu',
+    firstDep: 'Thưởng 120%',
   },
   menu: {
     searchPlaceholder: 'Tìm bất kỳ game nào…',

@@ -68,24 +68,28 @@ export default {
   home: {
     banners: {
       '1': {
-        tag: '欢迎礼金',
-        title: '100% 最高\n₱50,000',
-        sub: '新玩家专享 · 首充',
+        tag: '首充奖励',
+        title: '120% 最高\n₱1,000',
+        sub: '最低充值₱100 · 15倍流水要求',
+        cta: '立即领取',
       },
       '2': {
-        tag: '每日返现',
-        title: '最高 15%\n返现',
-        sub: '每日到账，无需申请',
+        tag: '免费试玩',
+        title: '免费领取\n₱88筹码',
+        sub: '无需充值 · 新玩家专享',
+        cta: '免费领取',
       },
       '3': {
-        tag: '斗鸡特惠',
-        title: '每周五\n免费投注',
-        sub: '已认证菲律宾玩家专享',
+        tag: '邀请赚钱',
+        title: '每邀一人\n赚₱50',
+        sub: '被邀请人同享₱30奖励',
+        cta: '立即邀请',
       },
       '4': {
-        tag: 'VIP 计划',
-        title: '立即成为\nVIP',
-        sub: '专属奖励与优先客服',
+        tag: '精品游戏',
+        title: '1000+\n款游戏',
+        sub: 'JILI · PGSOFT · 老虎机 · 真人 · 捕鱼',
+        cta: '立即游玩',
       },
     },
     gameTabs: {
@@ -140,9 +144,9 @@ export default {
   },
   category: {
     bonuses: '优惠',
-    firstPlay: '首玩',
+    firstPlay: '免费₱88',
     referWin: '邀请有奖',
-    firstDep: '首充',
+    firstDep: '120%奖励',
   },
   menu: {
     searchPlaceholder: '搜索任意游戏…',

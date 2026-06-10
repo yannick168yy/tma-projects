@@ -69,24 +69,28 @@ export default {
   home: {
     banners: {
       '1': {
-        tag: 'WELCOME BONUS',
-        title: '100% UP TO\n₱50,000',
-        sub: 'New player exclusive • First deposit',
+        tag: 'FIRST DEPOSIT',
+        title: '120% UP TO\n₱1,000',
+        sub: 'Min ₱100 · 15x wagering req',
+        cta: 'CLAIM NOW',
       },
       '2': {
-        tag: 'DAILY CASHBACK',
-        title: 'UP TO 15%\nCASHBACK',
-        sub: 'Every day, no questions asked',
+        tag: 'FREE TRIAL CHIPS',
+        title: 'GET ₱88\nFREE CHIPS',
+        sub: 'No deposit · New players only',
+        cta: 'CLAIM FREE',
       },
       '3': {
-        tag: 'E-SABONG SPECIAL',
-        title: 'LIBRE TAYA\nEVERY FRIDAY',
-        sub: 'Exclusive for verified PH players',
+        tag: 'REFER & EARN',
+        title: 'EARN ₱50\nPER FRIEND',
+        sub: 'Your friend gets ₱30 bonus too',
+        cta: 'INVITE NOW',
       },
       '4': {
-        tag: 'VIP PROGRAM',
-        title: 'MAGING VIP\nNGAYON',
-        sub: 'Exclusive rewards & priority support',
+        tag: 'PREMIUM GAMES',
+        title: '1000+\nGAMES',
+        sub: 'JILI · PGSOFT · Evolution · 20+ studios',
+        cta: 'PLAY NOW',
       },
     },
     gameTabs: {
@@ -141,9 +145,9 @@ export default {
   },
   category: {
     bonuses: 'Bonuses',
-    firstPlay: 'First Play',
+    firstPlay: 'Free ₱88',
     referWin: 'Refer & Win',
-    firstDep: 'First Dep',
+    firstDep: '120% Bonus',
   },
   menu: {
     searchPlaceholder: 'Search any game…',

@@ -47,7 +47,15 @@ export default function HomeContent({ onOpenPromo, onOpenCategoryLobby, onOpenCs
   const activeCurrency = useWalletStore((s) => s.activeCurrency)
   const highlightMap = useMemo(() => getHighlightMap(), [promotion.highlights])
 
-  const localizedBanners = useMemo(() => BANNERS.map((b) => ({ ...b, tag: t(`home.banners.${b.id}.tag`), title: t(`home.banners.${b.id}.title`), sub: t(`home.banners.${b.id}.sub`) })), [t])
+  const localizedBanners = useMemo(() => BANNERS.map((b) => ({ ...b, tag: t(`home.banners.${b.id}.tag`), title: t(`home.banners.${b.id}.title`), sub: t(`home.banners.${b.id}.sub`), cta: t(`home.banners.${b.id}.cta`) })), [t])
+
+  function onBannerCta(action: string) {
+    if (action === 'lobby') {
+      onOpenCategoryLobby({ sortBy: 'ph_bonus', title: t('home.popularGames') })
+    } else {
+      onOpenPromo(action)
+    }
+  }
 
   function categoryBadge(promo: string | null, fallback: string | null) {
     if (!promo) return fallback
@@ -205,7 +213,16 @@ export default function HomeContent({ onOpenPromo, onOpenCategoryLobby, onOpenCs
                   </div>
                   <div>
                     <h2 className="mb-1 whitespace-pre-line font-display text-[1.55rem] font-black leading-tight text-white">{banner.title}</h2>
-                    <p className="text-xs text-white/70">{banner.sub}</p>
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-xs text-white/70">{banner.sub}</p>
+                      <button
+                        type="button"
+                        className="flex-shrink-0 rounded-full bg-white/15 backdrop-blur-sm border border-white/30 px-3 py-1 text-[11px] font-black text-white active:scale-95 transition-transform"
+                        onClick={() => onBannerCta(banner.ctaAction)}
+                      >
+                        {banner.cta}
+                      </button>
+                    </div>
                   </div>
                 </div>
               </article>

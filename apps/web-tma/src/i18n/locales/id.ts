@@ -69,24 +69,28 @@ export default {
   home: {
     banners: {
       '1': {
-        tag: 'BONUS SELAMAT DATANG',
-        title: '100% HINGGA\n₱50.000',
-        sub: 'Eksklusif pemain baru • Deposit pertama',
+        tag: 'DEPOSIT PERTAMA',
+        title: '120% HINGGA\n₱1.000',
+        sub: 'Min. deposit ₱100 · Syarat taruhan 15x',
+        cta: 'KLAIM SEKARANG',
       },
       '2': {
-        tag: 'CASHBACK HARIAN',
-        title: 'HINGGA 15%\nCASHBACK',
-        sub: 'Setiap hari, tanpa syarat',
+        tag: 'CHIP COBA GRATIS',
+        title: 'DAPATKAN ₱88\nGRATIS',
+        sub: 'Tanpa deposit · Khusus pemain baru',
+        cta: 'KLAIM GRATIS',
       },
       '3': {
-        tag: 'SPESIAL E-SABONG',
-        title: 'TARUHAN GRATIS\nSETIAP JUMAT',
-        sub: 'Eksklusif pemain PH terverifikasi',
+        tag: 'AJAK & MENANG',
+        title: 'RAIH ₱50\nPER TEMAN',
+        sub: 'Teman kamu juga dapat bonus ₱30',
+        cta: 'UNDANG SEKARANG',
       },
       '4': {
-        tag: 'PROGRAM VIP',
-        title: 'JADI VIP\nSEKARANG',
-        sub: 'Hadiah eksklusif & dukungan prioritas',
+        tag: 'GAME PREMIUM',
+        title: '1000+\nPERMAINAN',
+        sub: 'JILI · PGSOFT · Evolution · 20+ provider',
+        cta: 'MAIN SEKARANG',
       },
     },
     gameTabs: {
@@ -141,9 +145,9 @@ export default {
   },
   category: {
     bonuses: 'Bonus',
-    firstPlay: 'Main Pertama',
+    firstPlay: 'Gratis ₱88',
     referWin: 'Ajak & Menang',
-    firstDep: 'Dep Pertama',
+    firstDep: 'Bonus 120%',
   },
   menu: {
     searchPlaceholder: 'Cari game apa saja…',
