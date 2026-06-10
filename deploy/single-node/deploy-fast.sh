@@ -41,7 +41,7 @@ DB_PASS=$(grep -m1 '^MYSQL_PASSWORD=' .env 2>/dev/null | cut -d= -f2- | tr -d "\
 # .env 可能有多行 MYSQL_DATABASE，取最后一行（bff-node dotenv 行为一致）
 DB_NAME=$(grep '^MYSQL_DATABASE=' .env 2>/dev/null | tail -1 | cut -d= -f2- | tr -d "\"'"); DB_NAME=${DB_NAME:-betogo}
 CTR=$(command -v podman >/dev/null 2>&1 && echo podman || echo docker)
-for f in infra/database/betogo/045_*.sql; do
+for f in $(ls infra/database/betogo/[0-9]*.sql 2>/dev/null | sort); do
   [ -f "$f" ] || continue
   OUT=$($CTR exec tma-mysql \
     mysql -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" < "$f" 2>&1)
