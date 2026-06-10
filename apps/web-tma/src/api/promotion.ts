@@ -59,6 +59,12 @@ export interface TeamDownline {
   registeredAt: string
 }
 
+export interface CurrencyBreakdownItem {
+  currency: string
+  betCents: number
+  fxRate?: number
+}
+
 export interface TeamCommissionItem {
   fromUserId: string
   displayName: string
@@ -70,6 +76,7 @@ export interface TeamCommissionItem {
   commissionCents: number
   status: string
   paidAt: string | null
+  currencyBreakdown: CurrencyBreakdownItem[] | null
 }
 
 export interface TeamCommissionSummary {
@@ -115,6 +122,7 @@ export interface TeamTreeNode {
   isAgent: boolean
   thisMonthCents: number
   turnoverCents: number
+  currencyBreakdown: { currency: string; betCents: number }[]
   children: TeamTreeNode[]
 }
 

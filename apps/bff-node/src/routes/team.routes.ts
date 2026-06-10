@@ -175,16 +175,17 @@ router.get('/commissions', async (ctx) => {
     month,
     summary,
     items: rows.map(r => ({
-      fromUserId:      r.from_user_id,
-      displayName:     r.display_name,
-      level:           r.level,
-      period:          r.period,
-      turnoverCents:   Number(r.turnover_cents ?? 0),
-      phpEquivCents:   Number(r.php_equivalent_cents ?? r.commission_cents),
-      ratePct:         Number(r.rate_pct),
-      commissionCents: Number(r.commission_cents),
-      status:          r.status,
-      paidAt:          r.paid_at ?? null,
+      fromUserId:        r.from_user_id,
+      displayName:       r.display_name,
+      level:             r.level,
+      period:            r.period,
+      turnoverCents:     Number(r.turnover_cents ?? 0),
+      phpEquivCents:     Number(r.php_equivalent_cents ?? r.commission_cents),
+      ratePct:           Number(r.rate_pct),
+      commissionCents:   Number(r.commission_cents),
+      status:            r.status,
+      paidAt:            r.paid_at ?? null,
+      currencyBreakdown: r.currency_breakdown ?? null,
     })),
   })
 })
@@ -360,7 +361,9 @@ router.get('/tree', async (ctx) => {
 
   interface NodeData {
     userId: string; displayName: string; isAgent: boolean
-    thisMonthCents: number; turnoverCents: number; children: NodeData[]
+    thisMonthCents: number; turnoverCents: number
+    currencyBreakdown: { currency: string; betCents: number }[]
+    children: NodeData[]
   }
 
   function toCommCents(raw: unknown, turnoverCents: number, level: 1|2|3, activated: boolean): number {
@@ -369,13 +372,38 @@ router.get('/tree', async (ctx) => {
     return Math.floor(turnoverCents * rates[level] / 100)
   }
 
+  // 收集所有下级 userId，批量查多币种流水明细
+  const allDownlineIds = [
+    ...l1Rows.map(r => String(r.user_id)),
+    ...l2Rows.map(r => String(r.user_id)),
+    ...l3Rows.map(r => String(r.user_id)),
+  ]
+  type BreakdownItem = { currency: string; betCents: number }
+  const bkMap = new Map<string, BreakdownItem[]>()
+  if (allDownlineIds.length > 0) {
+    const [bkRows] = await db.query<RowDataPacket[]>(
+      `SELECT user_id, currency_code, SUM(bet_cents) AS bet_cents
+       FROM bg_team_turnover_daily
+       WHERE user_id IN (${allDownlineIds.map(() => '?').join(',')}) AND date LIKE ?
+       GROUP BY user_id, currency_code`,
+      [...allDownlineIds, likeParam],
+    )
+    for (const b of bkRows) {
+      const uid = String(b.user_id)
+      if (!bkMap.has(uid)) bkMap.set(uid, [])
+      bkMap.get(uid)!.push({ currency: String(b.currency_code), betCents: Number(b.bet_cents) })
+    }
+  }
+
   const l1Map = new Map<string, NodeData>()
   for (const r of l1Rows) {
     l1Map.set(String(r.user_id), {
       userId: String(r.user_id), displayName: String(r.display_name),
       isAgent: Boolean(r.opted_in),
       thisMonthCents: toCommCents(r.commission_cents, Number(r.turnover_cents), 1, Boolean(r.activated)),
-      turnoverCents: Number(r.turnover_cents), children: [],
+      turnoverCents: Number(r.turnover_cents),
+      currencyBreakdown: bkMap.get(String(r.user_id)) ?? [],
+      children: [],
     })
   }
   const l2Map = new Map<string, NodeData>()
@@ -384,7 +412,9 @@ router.get('/tree', async (ctx) => {
       userId: String(r.user_id), displayName: String(r.display_name),
       isAgent: Boolean(r.opted_in),
       thisMonthCents: toCommCents(r.commission_cents, Number(r.turnover_cents), 2, Boolean(r.activated)),
-      turnoverCents: Number(r.turnover_cents), children: [],
+      turnoverCents: Number(r.turnover_cents),
+      currencyBreakdown: bkMap.get(String(r.user_id)) ?? [],
+      children: [],
     }
     l2Map.set(node.userId, node)
     l1Map.get(String(r.l1_referrer_id))?.children.push(node)
@@ -394,7 +424,9 @@ router.get('/tree', async (ctx) => {
       userId: String(r.user_id), displayName: String(r.display_name),
       isAgent: Boolean(r.opted_in),
       thisMonthCents: toCommCents(r.commission_cents, Number(r.turnover_cents), 3, Boolean(r.activated)),
-      turnoverCents: Number(r.turnover_cents), children: [],
+      turnoverCents: Number(r.turnover_cents),
+      currencyBreakdown: bkMap.get(String(r.user_id)) ?? [],
+      children: [],
     }
     l2Map.get(String(r.l1_referrer_id))?.children.push(node)
   }

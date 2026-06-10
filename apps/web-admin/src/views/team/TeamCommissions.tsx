@@ -32,7 +32,25 @@ export default function TeamCommissions() {
     { title: '下线', dataIndex: 'from_name', key: 'from' },
     { title: '层级', dataIndex: 'level', key: 'level', width: 60 },
     { title: '货币', dataIndex: 'currency', key: 'currency', width: 70 },
-    { title: '流水(PHP)', key: 'turnover', width: 120, render: (_: unknown, r: TeamCommission) => phpCell(r.turnover_cents) },
+    {
+      title: '流水明细', key: 'turnover', width: 180,
+      render: (_: unknown, r: TeamCommission) => {
+        const bk = r.currency_breakdown
+        if (!bk || bk.length === 0) return phpCell(r.turnover_cents)
+        const sorted = [...bk].sort((a, b) => (a.currency === 'PHP' ? -1 : b.currency === 'PHP' ? 1 : 0))
+        return (
+          <span style={{ fontSize: 12 }}>
+            {sorted.map((b, i) => {
+              const val = b.betCents / 100
+              const txt = b.currency === 'PHP'
+                ? `₱${val.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`
+                : `${parseFloat(val.toFixed(6))} ${b.currency}`
+              return <span key={b.currency}>{i > 0 && <span style={{ color: '#888', margin: '0 3px' }}>+</span>}{txt}</span>
+            })}
+          </span>
+        )
+      },
+    },
     { title: '费率', dataIndex: 'rate_pct', key: 'rate', width: 70 },
     { title: '佣金(PHP等值)', key: 'commission', width: 140, render: (_: unknown, r: TeamCommission) => phpCell(r.php_equivalent_cents ?? r.commission_cents) },
     { title: '状态', key: 'status', width: 90, render: (_: unknown, r: TeamCommission) => <Tag color={r.status === 'paid' ? 'green' : r.status === 'pending' ? 'orange' : 'default'}>{r.status}</Tag> },

@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ChevronLeft, Copy, Share2, Link2, Wallet, TrendingUp, CheckCircle2, Clock, XCircle, ChevronRight, GitBranch, List } from 'lucide-react'
-import { fetchTeamTree, type TeamTreeNode } from '@/api/promotion'
+import { fetchTeamTree, type TeamTreeNode, type CurrencyBreakdownItem } from '@/api/promotion'
 import { buildInviteDeepLink, buildInviteWebLink } from '@/constants/telegram'
 import { useAuthStore } from '@/stores/auth'
 import { usePromotionStore } from '@/stores/promotion'
@@ -33,6 +33,19 @@ function phpDisplay(cents: number) {
 function turnoverDisplay(cents: number): string {
   const val = (cents ?? 0) / 100
   return '₱' + val.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
+function fmtCurrencyAmt(betCents: number, currency: string): string {
+  const val = betCents / 100
+  if (currency === 'PHP') return '₱' + val.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  const formatted = val % 1 === 0 ? val.toFixed(0) : parseFloat(val.toFixed(6)).toString()
+  return `${formatted} ${currency}`
+}
+
+function breakdownDisplay(breakdown: { currency: string; betCents: number }[] | CurrencyBreakdownItem[] | null | undefined): string {
+  if (!breakdown || breakdown.length === 0) return ''
+  const sorted = [...breakdown].sort((a, b) => (a.currency === 'PHP' ? -1 : b.currency === 'PHP' ? 1 : 0))
+  return sorted.map(b => fmtCurrencyAmt(b.betCents, b.currency)).join(' + ')
 }
 
 const statusColor: Record<string, string> = {
@@ -71,8 +84,10 @@ function TreeNodeRow({ node, depth, expandedIds, onToggle }: {
         <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full flex-shrink-0 ${badge}`}>L{depth}</span>
         <div className="flex-1 min-w-0 mr-2">
           <p className="text-sm font-medium text-foreground truncate leading-none mb-0.5">{node.displayName}</p>
-          {node.turnoverCents !== 0 && (
-            <p className="text-[10px] leading-none text-muted-foreground">{t('team.turnover')} {turnoverDisplay(node.turnoverCents)}</p>
+          {(node.turnoverCents !== 0 || node.currencyBreakdown?.length > 0) && (
+            <p className="text-[10px] leading-none text-muted-foreground">
+              {t('team.turnover')} {node.currencyBreakdown?.length > 0 ? breakdownDisplay(node.currencyBreakdown) : turnoverDisplay(node.turnoverCents)}
+            </p>
           )}
         </div>
         {node.thisMonthCents !== 0 && (
@@ -347,7 +362,9 @@ export default function TeamCenterPage() {
                     <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full flex-shrink-0 ${levelBadge[item.level]}`}>L{item.level}</span>
                     <div className="flex-1 min-w-0">
                       <p className="text-foreground font-bold text-xs leading-none mb-0.5">{item.displayName}</p>
-                      <p className="text-[10px] text-muted-foreground">{t('team.turnover')} {turnoverDisplay(item.turnoverCents)} × {item.ratePct}%</p>
+                      <p className="text-[10px] text-muted-foreground">
+                        {t('team.turnover')} {item.currencyBreakdown?.length ? breakdownDisplay(item.currencyBreakdown) : turnoverDisplay(item.turnoverCents)} × {item.ratePct}%
+                      </p>
                     </div>
                     <div className="text-right flex-shrink-0">
                       <p className={`font-black text-sm leading-none ${item.phpEquivCents < 0 ? 'text-red-400' : 'text-amber-400'}`}>{phpDisplay(item.phpEquivCents)}</p>
