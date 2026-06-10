@@ -10,7 +10,8 @@ import {
   YfPayError,
 } from '../services/yfpay.service.js'
 import { creditWallet, getWallet, getDeposit, getWithdraw, saveDeposit, saveWithdraw, listDeposits, listWithdrawals } from '../services/store/index.js'
-import { isMysqlEnabled } from '../clients/mysql.client.js'
+import { getMysqlPool, isMysqlEnabled } from '../clients/mysql.client.js'
+import { canWithdraw as checkTurnover } from '../services/turnover.service.js'
 import { ok, fail } from '../utils/response.js'
 import { randomOrderId } from '../utils/id.js'
 import { nowIso } from '../utils/format.js'
@@ -165,6 +166,15 @@ router.post('/withdraw/yfpay/create', async (ctx) => {
   }
 
   try {
+    // 流水校验
+    if (isMysqlEnabled(ctx.state.env)) {
+      const turnoverOk = await checkTurnover(getMysqlPool(ctx.state.env), userId, 'PHP')
+      if (!turnoverOk) {
+        fail(ctx, 403, '流水未完成，暂不可提现')
+        return
+      }
+    }
+
     // 检查余额是否充足
     const wallet = await getWallet(redis, userId)
     if (wallet.available < amount) {

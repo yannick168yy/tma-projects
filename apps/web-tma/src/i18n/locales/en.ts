@@ -500,6 +500,7 @@ export default {
     matrixWithdrawFailed: 'Withdrawal failed. Please try again.',
     turnoverAllClear: 'Wagering completed — you can withdraw!',
     turnoverBlocked: 'Complete wagering requirements to withdraw',
+    turnoverBlockedToast: 'Complete wagering requirements before withdrawing',
     turnoverRemaining: 'Still needed',
     turnoverDeposit: 'Deposit',
     turnoverPromo: 'Bonus',

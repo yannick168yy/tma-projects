@@ -489,6 +489,7 @@ export default {
     cryptoWithdrawSoon: 'Rút tiền bằng crypto sẽ sớm khả dụng.',
     turnoverAllClear: 'Đã hoàn thành yêu cầu cược — Bạn có thể rút tiền!',
     turnoverBlocked: 'Hoàn thành yêu cầu cược để rút tiền',
+    turnoverBlockedToast: 'Hoàn thành yêu cầu cược trước khi rút tiền',
     turnoverRemaining: 'Còn cần',
     turnoverDeposit: 'Nạp tiền',
     turnoverPromo: 'Khuyến mãi',

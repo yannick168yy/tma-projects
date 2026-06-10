@@ -496,6 +496,7 @@ export default {
     matrixWithdrawFailed: '提现失败，请重试。',
     turnoverAllClear: '流水已达标，可以提现！',
     turnoverBlocked: '完成流水要求后才能提现',
+    turnoverBlockedToast: '请先完成流水要求再提现',
     turnoverRemaining: '还需流水',
     turnoverDeposit: '存款流水',
     turnoverPromo: '优惠流水',

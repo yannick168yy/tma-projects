@@ -80,9 +80,27 @@ export default function WalletModal({ open, onClose }: Props) {
   const [copiedAddress, setCopiedAddress] = useState(false)
   const [turnoverProgress, setTurnoverProgress] = useState<TurnoverProgress | null>(null)
   const [turnoverLoading, setTurnoverLoading] = useState(false)
+  const [withdrawBlockedToast, setWithdrawBlockedToast] = useState(false)
 
   function stopPolling() { if(pollTimerRef.current){clearInterval(pollTimerRef.current);pollTimerRef.current=null} }
   function stopTonPolling() { if(tonPollTimerRef.current){clearInterval(tonPollTimerRef.current);tonPollTimerRef.current=null} }
+
+  function showWithdrawBlockedToast() {
+    setWithdrawBlockedToast(true)
+    setTimeout(() => setWithdrawBlockedToast(false), 2200)
+  }
+
+  function onSelectWithdrawMethod(id: string) {
+    if (turnoverProgress !== null && !turnoverProgress.canWithdraw) {
+      showWithdrawBlockedToast()
+      return
+    }
+    setSelectedMethod(id)
+    setAmount('')
+    setWithdrawMessage('')
+    setWithdrawAccount('')
+    setWithdrawOwner('')
+  }
 
   useEffect(() => {
     document.body.style.overflow = open ? 'hidden' : ''
@@ -430,8 +448,8 @@ export default function WalletModal({ open, onClose }: Props) {
                           </div>
                         )
                       ) : null}
-                      <div><p className="text-muted-foreground text-[11px] font-bold uppercase tracking-wider mb-2.5">{t('wallet.fiatSection')}</p><PayMethodGrid methods={FIAT_WITHDRAW} selected={selectedMethod} onSelect={(id)=>{setSelectedMethod(id);setAmount('');setWithdrawMessage('');setWithdrawAccount('');setWithdrawOwner('')}} /></div>
-                      <div><p className="text-muted-foreground text-[11px] font-bold uppercase tracking-wider mb-2.5">{t('wallet.cryptoSection')}</p><PayMethodGrid methods={CRYPTO_WITHDRAW} selected={selectedMethod} onSelect={setSelectedMethod} /></div>
+                      <div><p className="text-muted-foreground text-[11px] font-bold uppercase tracking-wider mb-2.5">{t('wallet.fiatSection')}</p><PayMethodGrid methods={FIAT_WITHDRAW} selected={selectedMethod} onSelect={onSelectWithdrawMethod} /></div>
+                      <div><p className="text-muted-foreground text-[11px] font-bold uppercase tracking-wider mb-2.5">{t('wallet.cryptoSection')}</p><PayMethodGrid methods={CRYPTO_WITHDRAW} selected={selectedMethod} onSelect={onSelectWithdrawMethod} /></div>
                     </>
                   )}
                 </div>
@@ -528,6 +546,12 @@ export default function WalletModal({ open, onClose }: Props) {
           </div>
         )}
       </div>
+      {withdrawBlockedToast && (
+        <div className="profile-toast fixed left-1/2 z-[200] flex max-w-[min(320px,calc(100vw-2rem))] -translate-x-1/2 items-center gap-3 rounded-2xl px-4 py-3" role="status" aria-live="polite">
+          <span className="profile-toast__icon text-lg leading-none">🔒</span>
+          <div className="min-w-0"><p className="profile-toast__title text-sm font-black leading-tight">{t('wallet.turnoverBlockedToast')}</p></div>
+        </div>
+      )}
     </>,
     document.body,
   )

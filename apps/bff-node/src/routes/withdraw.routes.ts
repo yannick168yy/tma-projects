@@ -91,6 +91,15 @@ router.post('/', async (ctx) => {
     try {
       const currency = symbol.toUpperCase()
 
+      // 流水校验
+      if (isMysqlEnabled(ctx.state.env)) {
+        const turnoverOk = await checkTurnover(getMysqlPool(ctx.state.env), userId, currency)
+        if (!turnoverOk) {
+          fail(ctx, 403, '流水未完成，暂不可提现')
+          return
+        }
+      }
+
       // 检查对应虚拟币余额
       const balances = await getWalletBalances(redis, userId)
       const cryptoBalance = balances.find((b) => b.currency === currency)?.available ?? 0
@@ -163,6 +172,15 @@ router.post('/', async (ctx) => {
   }
 
   try {
+    // 流水校验
+    if (isMysqlEnabled(ctx.state.env)) {
+      const turnoverOk = await checkTurnover(getMysqlPool(ctx.state.env), userId, 'PHP')
+      if (!turnoverOk) {
+        fail(ctx, 403, '流水未完成，暂不可提现')
+        return
+      }
+    }
+
     const wallet = await getWallet(redis, userId)
     if (body.amount > wallet.available) {
       fail(ctx, 400, 'Insufficient balance')

@@ -489,6 +489,7 @@ export default {
     cryptoWithdrawSoon: 'Penarikan kripto akan segera tersedia.',
     turnoverAllClear: 'Syarat taruhan terpenuhi — Anda bisa menarik dana!',
     turnoverBlocked: 'Selesaikan syarat taruhan untuk menarik dana',
+    turnoverBlockedToast: 'Selesaikan syarat taruhan sebelum menarik dana',
     turnoverRemaining: 'Masih dibutuhkan',
     turnoverDeposit: 'Deposit',
     turnoverPromo: 'Bonus',
