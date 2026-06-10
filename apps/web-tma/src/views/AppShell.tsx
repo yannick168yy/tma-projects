@@ -186,7 +186,7 @@ export default function AppShell() {
   }
 
   return (
-    <div className="flex w-full justify-center bg-[#040609]">
+    <div className="flex w-full justify-center bg-background">
       <div className="app-frame w-full max-w-[430px] bg-background">
         <header ref={headerRef} className={`app-fixed-top bg-background ${walletOpen ? 'z-50' : ''}`}>
           <div className="app-safe-header flex items-center gap-3 px-4 pb-4">
@@ -198,7 +198,7 @@ export default function AppShell() {
                   {isLoggedIn ? activeCurrency : t('shell.signIn')}
                   {isLoggedIn && <ChevronDown size={11} className={`transition-transform duration-200 ${walletOpen ? 'rotate-180' : ''}`} />}
                 </span>
-                <span className="text-base font-black leading-tight text-white">
+                <span className="text-base font-black leading-tight text-foreground">
                   {isLoggedIn ? (balanceVisible ? displayBalance : '••••••') : t('shell.tapToLogin')}
                 </span>
               </button>

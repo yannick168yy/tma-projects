@@ -214,7 +214,7 @@ export default function TeamCenterPage() {
       {/* ── 邀请码区 ── */}
       <div className="px-4 py-4 bg-gradient-to-br from-[#78350f]/40 via-[#92400e]/20 to-transparent border-b border-border flex-shrink-0">
         <p className="text-[10px] font-bold uppercase tracking-widest text-amber-400/80 mb-2">{t('team.myReferralCode')}</p>
-        <div className="flex items-center gap-2 bg-black/30 rounded-xl px-3 py-2 border border-amber-500/20 mb-3">
+        <div className="flex items-center gap-2 bg-foreground/8 rounded-xl px-3 py-2 border border-amber-500/20 mb-3">
           <span className="flex-1 font-black text-amber-400 tracking-widest text-sm">{inviteCode}</span>
           <button type="button" className="text-muted-foreground hover:text-amber-400 transition-colors" onClick={copyWebLink}><Copy size={15} /></button>
         </div>
@@ -269,19 +269,19 @@ export default function TeamCenterPage() {
             <div className="px-4 pt-4 pb-3">
               <div className="bg-gradient-to-br from-[#78350f]/30 to-transparent rounded-2xl border border-amber-500/20 p-3">
                 <div className="grid grid-cols-2 gap-2 mb-2">
-                  <div className="bg-black/20 rounded-xl p-2 text-center">
+                  <div className="bg-foreground/6 rounded-xl p-2 text-center">
                     <div className="text-amber-400 font-black text-base leading-none">{phpDisplay(summary?.l1Cents ?? 0)}</div>
-                    <div className="text-white/50 text-[9px] mt-0.5">L1 · {teamStatus?.ratePlan?.l1RatePct ?? 25}%</div>
+                    <div className="text-foreground/50 text-[9px] mt-0.5">L1 · {teamStatus?.ratePlan?.l1RatePct ?? 25}%</div>
                   </div>
-                  <div className="bg-black/20 rounded-xl p-2 text-center">
+                  <div className="bg-foreground/6 rounded-xl p-2 text-center">
                     <div className="text-amber-400 font-black text-base leading-none">{phpDisplay(summary?.l2Cents ?? 0)}</div>
-                    <div className="text-white/50 text-[9px] mt-0.5">L2 · {teamStatus?.ratePlan?.l2RatePct ?? 8}%</div>
+                    <div className="text-foreground/50 text-[9px] mt-0.5">L2 · {teamStatus?.ratePlan?.l2RatePct ?? 8}%</div>
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
-                  <div className="bg-black/20 rounded-xl p-2 text-center">
+                  <div className="bg-foreground/6 rounded-xl p-2 text-center">
                     <div className="text-amber-400 font-black text-base leading-none">{phpDisplay(summary?.l3Cents ?? 0)}</div>
-                    <div className="text-white/50 text-[9px] mt-0.5">L3 · {teamStatus?.ratePlan?.l3RatePct ?? 3}%</div>
+                    <div className="text-foreground/50 text-[9px] mt-0.5">L3 · {teamStatus?.ratePlan?.l3RatePct ?? 3}%</div>
                   </div>
                   <div className="bg-amber-500/20 rounded-xl p-2 text-center border border-amber-500/30">
                     <div className="text-amber-300 font-black text-base leading-none">{phpDisplay(summary?.totalCents ?? 0)}</div>
@@ -376,11 +376,11 @@ export default function TeamCenterPage() {
                 </div>
                 {/* 月份维度 */}
                 <div className="mt-3 pt-3 border-t border-amber-500/20 grid grid-cols-2 gap-2">
-                  <div className="bg-black/20 rounded-xl p-2 text-center">
+                  <div className="bg-foreground/6 rounded-xl p-2 text-center">
                     <div className="text-amber-400 font-bold text-sm leading-none">{phpDisplay(summary?.totalCents ?? 0)}</div>
                     <div className="text-white/40 text-[9px] mt-0.5">{t('team.periodEarned', { period: formatPeriod(period, i18n.language) })}</div>
                   </div>
-                  <div className="bg-black/20 rounded-xl p-2 text-center">
+                  <div className="bg-foreground/6 rounded-xl p-2 text-center">
                     <div className="text-emerald-400 font-bold text-sm leading-none">{phpDisplay(summary?.paidCents ?? 0)}</div>
                     <div className="text-white/40 text-[9px] mt-0.5">{t('team.periodSettled', { period: formatPeriod(period, i18n.language) })}</div>
                   </div>

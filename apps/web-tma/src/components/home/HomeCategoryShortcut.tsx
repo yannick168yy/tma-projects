@@ -49,7 +49,7 @@ export default function HomeCategoryShortcut({ category, claimable, claimLabel, 
           </div>
         )}
       </div>
-      <span className={`text-[12px] font-bold ${claimable ? 'text-primary' : 'text-white/80'}`}>
+      <span className={`text-[12px] font-bold ${claimable ? 'text-primary' : 'text-foreground/80'}`}>
         {label}
       </span>
     </button>
