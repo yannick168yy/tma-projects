@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ChevronLeft, Copy, Share2, Link2, Wallet, TrendingUp, CheckCircle2, Clock, XCircle, ChevronRight, GitBranch, List } from 'lucide-react'
+import { ChevronLeft, Copy, Share2, Link2, Wallet, TrendingUp, CheckCircle2, Clock, XCircle, ChevronRight, GitBranch, List, CircleHelp, X } from 'lucide-react'
 import { fetchTeamTree, type TeamTreeNode, type CurrencyBreakdownItem } from '@/api/promotion'
 import { buildInviteDeepLink, buildInviteWebLink } from '@/constants/telegram'
 import { useAuthStore } from '@/stores/auth'
@@ -46,6 +46,22 @@ function breakdownDisplay(breakdown: { currency: string; betCents: number }[] | 
   if (!breakdown || breakdown.length === 0) return ''
   const sorted = [...breakdown].sort((a, b) => (a.currency === 'PHP' ? -1 : b.currency === 'PHP' ? 1 : 0))
   return sorted.map(b => fmtCurrencyAmt(b.betCents, b.currency)).join(' + ')
+}
+
+function parseGuideSections(text: string): { heading: string | null; body: string }[] {
+  const chunks = text.split('\n\n').map((c) => c.trim()).filter(Boolean)
+  const sections: { heading: string | null; body: string }[] = []
+  for (let i = 0; i < chunks.length; i++) {
+    const chunk = chunks[i]
+    const isHeading = chunk.length <= 60 && !chunk.includes('\n') && !/[.?!,。，！？]$/.test(chunk)
+    if (isHeading && i + 1 < chunks.length) {
+      sections.push({ heading: chunk, body: chunks[i + 1] })
+      i++
+    } else {
+      sections.push({ heading: null, body: chunk })
+    }
+  }
+  return sections
 }
 
 const statusColor: Record<string, string> = {
@@ -119,6 +135,7 @@ export default function TeamCenterPage() {
   const [treeData, setTreeData] = useState<{ l1Members: TeamTreeNode[] } | null>(null)
   const [treeLoading, setTreeLoading] = useState(false)
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
+  const [guideOpen, setGuideOpen] = useState(false)
 
   const inviteCode = user?.inviteCode ?? ''
   const telegramLink = useMemo(() => buildInviteDeepLink(inviteCode), [inviteCode])
@@ -223,6 +240,16 @@ export default function TeamCenterPage() {
     { id: 'withdraw' as const, label: t('team.tabWithdraw'), Icon: Wallet },
   ]
 
+  const guideSections = useMemo(() => {
+    if (!guideOpen) return []
+    const text = t('team.guide.content', {
+      l1Rate: teamStatus?.ratePlan?.l1RatePct ?? 25,
+      l2Rate: teamStatus?.ratePlan?.l2RatePct ?? 8,
+      l3Rate: teamStatus?.ratePlan?.l3RatePct ?? 3,
+    })
+    return parseGuideSections(text)
+  }, [guideOpen, t, teamStatus?.ratePlan])
+
   return (
     <div className="h-full bg-background flex flex-col overflow-hidden">
 
@@ -252,11 +279,26 @@ export default function TeamCenterPage() {
             </div>
           ))}
         </div>
-        <div className="flex-1 flex items-center justify-end gap-1">
+        <div className="flex-1 flex items-center justify-end gap-1 min-w-0">
+          <button
+            type="button"
+            className="relative flex-shrink-0 group mr-0.5"
+            onClick={() => setGuideOpen(true)}
+            aria-label={t('team.guide.title')}
+          >
+            <span
+              className="pointer-events-none absolute -inset-0.5 rounded-full bg-amber-400/25 blur-[4px] opacity-60 group-hover:opacity-100 transition-opacity"
+              aria-hidden
+            />
+            <span className="relative flex h-7 w-7 items-center justify-center rounded-full border border-amber-500/50 bg-gradient-to-br from-amber-500/35 via-amber-500/12 to-amber-950/20 shadow-[0_0_12px_rgba(251,191,36,0.22)] ring-1 ring-amber-400/20 transition-transform active:scale-90 group-hover:border-amber-400/70 group-hover:shadow-[0_0_14px_rgba(251,191,36,0.35)]">
+              <CircleHelp size={13.5} className="text-amber-200 drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)]" strokeWidth={2.25} />
+            </span>
+          </button>
+          <span className="h-3.5 w-px bg-border/80 flex-shrink-0" aria-hidden />
           <button type="button" className="p-1.5 text-muted-foreground hover:text-amber-400 transition-colors" onClick={() => changePeriod(prevPeriod(period))}>
             <ChevronLeft size={16} />
           </button>
-          <span className="text-sm font-bold text-foreground min-w-[76px] text-center">{formatPeriod(period, i18n.language)}</span>
+          <span className="text-sm font-bold text-foreground min-w-[72px] text-center truncate">{formatPeriod(period, i18n.language)}</span>
           <button type="button" className={`p-1.5 transition-colors ${period >= currentPeriod() ? 'text-border' : 'text-muted-foreground hover:text-amber-400'}`} disabled={period >= currentPeriod()} onClick={() => changePeriod(nextPeriod(period))}>
             <ChevronRight size={16} />
           </button>
@@ -468,6 +510,46 @@ export default function TeamCenterPage() {
           </>
         )}
       </div>
+
+      {/* ── 三级分销机制说明 ── */}
+      {guideOpen && (
+        <div className="fixed inset-0 z-50 flex flex-col justify-end" onClick={() => setGuideOpen(false)}>
+          <div className="absolute inset-0 bg-black/65 backdrop-blur-[2px]" />
+          <div
+            className="relative bg-background rounded-t-2xl max-h-[88vh] flex flex-col shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-center pt-2.5 pb-1 flex-shrink-0">
+              <div className="w-9 h-1 rounded-full bg-foreground/15" />
+            </div>
+            <div className="flex items-center justify-between px-4 pb-3 flex-shrink-0">
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="w-8 h-8 rounded-full bg-amber-500/15 flex items-center justify-center flex-shrink-0">
+                  <CircleHelp size={16} className="text-amber-400" />
+                </div>
+                <h2 className="font-display font-black text-sm text-foreground truncate">{t('team.guide.title')}</h2>
+              </div>
+              <button
+                type="button"
+                className="w-8 h-8 rounded-full bg-secondary/80 flex items-center justify-center flex-shrink-0"
+                onClick={() => setGuideOpen(false)}
+              >
+                <X size={15} className="text-muted-foreground" />
+              </button>
+            </div>
+            <div className="overflow-y-auto px-4 pb-6 pt-1 space-y-3.5 page-scroll">
+              {guideSections.map((s, i) => (
+                <div key={i} className="rounded-xl bg-secondary/40 px-3.5 py-3 border border-border/50">
+                  {s.heading && (
+                    <p className="text-amber-400/90 font-bold text-xs mb-1.5">{s.heading}</p>
+                  )}
+                  <p className="text-[12px] text-foreground/70 leading-[1.65] whitespace-pre-line">{s.body}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

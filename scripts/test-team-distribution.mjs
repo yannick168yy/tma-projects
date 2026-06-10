@@ -167,6 +167,7 @@ async function cleanupPreviousRun(db) {
   await db.execute('SET FOREIGN_KEY_CHECKS=0')
   try {
     await db.execute(`DELETE FROM bg_team_commission   WHERE from_user_id IN (SELECT id FROM bg_user WHERE label='test') OR beneficiary_id IN (SELECT id FROM bg_user WHERE label='test')`)
+    await db.execute(`DELETE FROM bg_team_turnover_daily WHERE user_id IN (SELECT id FROM bg_user WHERE label='test')`)
     await db.execute(`DELETE FROM bg_team_ggr_monthly  WHERE user_id IN (SELECT id FROM bg_user WHERE label='test')`)
     await db.execute(`DELETE FROM bg_team_wallet       WHERE user_id IN (SELECT id FROM bg_user WHERE label='test')`)
     // 重置 root(BG-10001) 团队钱包，避免多次运行累加
@@ -340,10 +341,16 @@ async function main() {
       [TEST_PERIOD, ...allIds]
     )
 
-    const [[{ cfgL1, cfgL2, cfgL3 }]] = await db.query(
-      `SELECT l1_rate_pct AS cfgL1, l2_rate_pct AS cfgL2, l3_rate_pct AS cfgL3 FROM bg_team_config WHERE id=1`
+    const [[rates]] = await db.query(
+      `SELECT l1_rate_pct AS cfgL1, l2_rate_pct AS cfgL2, l3_rate_pct AS cfgL3, name AS planName
+       FROM bg_team_rate_plan WHERE is_default = 1 LIMIT 1`,
     )
-    log('  当前佣金费率', { L1: `${cfgL1}%`, L2: `${cfgL2}%`, L3: `${cfgL3}%` })
+    log('  当前默认套餐费率', {
+      套餐: rates?.planName ?? '默认',
+      L1: `${rates?.cfgL1 ?? '?'}%`,
+      L2: `${rates?.cfgL2 ?? '?'}%`,
+      L3: `${rates?.cfgL3 ?? '?'}%`,
+    })
 
     // ── 系统为流水制（turnover-based）说明 ─────────────────────────
     // 1. 只统计 bet_type='bet' 的投注额，不减 win，不存在负佣金

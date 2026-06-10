@@ -313,6 +313,37 @@ export default {
     debtLabel: 'Nợ',
     minWithdrawPhp: 'Tối thiểu ₱100',
     turnover: 'Doanh thu cược',
+    guideEntry: 'Cơ chế',
+    guide: {
+      title: 'Chương trình giới thiệu 3 cấp',
+      content:
+        'Chương trình 3 cấp là gì\n\n' +
+        'Chia sẻ liên kết mời để xây dựng đội nhóm. Sau khi bật chương trình đại lý, bạn nhận hoa hồng từ tối đa ba cấp downline. Hoa hồng tính theo turnover: chỉ dựa trên số tiền cược hợp lệ (không trừ thắng/thua). Cược đa tiền tệ được quy đổi sang PHP theo tỷ giá ngày.\n\n' +
+        'Cấu trúc đội\n\n' +
+        'L1: Người chơi bạn mời trực tiếp\n' +
+        'L2: Người chơi do thành viên L1 mời\n' +
+        'L3: Người chơi do thành viên L2 mời\n' +
+        'Số L1 / L2 / L3 phía trên là quy mô đội hiện tại theo từng cấp.\n\n' +
+        'Tỷ lệ hoa hồng\n\n' +
+        'Hoa hồng L1 = cược hợp lệ tháng của thành viên (quy PHP) × {{l1Rate}}%\n' +
+        'Hoa hồng L2 = cược hợp lệ tháng của thành viên (quy PHP) × {{l2Rate}}%\n' +
+        'Hoa hồng L3 = cược hợp lệ tháng của thành viên (quy PHP) × {{l3Rate}}%\n' +
+        'Tỷ lệ trên trang áp dụng cho tài khoản của bạn; đại lý khác có thể có gói khác.\n\n' +
+        'Kích hoạt downline\n\n' +
+        'Downline phải nạp lần đầu tối thiểu ₱100 và được kích hoạt thì cược mới tạo hoa hồng cho bạn. Cược từ downline chưa kích hoạt không có hoa hồng (turnover trong ngày vẫn có thể hiển thị trên cây đội để tham khảo).\n\n' +
+        'Turnover & quyết toán\n\n' +
+        'Cược hợp lệ: chỉ tính lệnh bet đã settled; tiền thắng không bị trừ.\n' +
+        'Đa tiền tệ: PHP, USDT, USDC, TON... ghi riêng rồi quy PHP để tính hoa hồng.\n' +
+        'Turnover cây đội: ngày trước từ snapshot; cược hôm nay cập nhật thời gian thực.\n' +
+        'Quyết toán hoa hồng: chạy hàng ngày (giờ Philippines) cho cược ngày hôm trước. Sau quyết toán, thu nhập vào Thu nhập nhóm và số dư có thể rút.\n\n' +
+        'Xem & rút tiền\n\n' +
+        'Thu nhập nhóm: xem tổng và chi tiết L1/L2/L3 theo tháng; chuyển giữa cây và danh sách.\n' +
+        'Rút tiền: gửi yêu cầu ở tab Rút tiền. Số tối thiểu hiển thị trên trang. Duyệt thường 1–3 ngày làm việc.\n\n' +
+        'Lưu ý\n\n' +
+        'Luôn tuyển qua liên kết mời chính thức để downline được gán đúng.\n' +
+        'Hoa hồng ghi bằng PHP quy đổi, không phụ thuộc tiền tệ downline chơi.\n' +
+        'Liên hệ hỗ trợ trực tuyến nếu cần.',
+    },
   },
   bingo: {
     carnival: 'Lễ hội Philippines',

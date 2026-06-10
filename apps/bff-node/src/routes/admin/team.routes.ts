@@ -2,6 +2,7 @@ import Router from '@koa/router'
 import type { RowDataPacket, ResultSetHeader } from 'mysql2/promise'
 import { getMysqlPool } from '../../clients/mysql.client.js'
 import { ok, fail } from '../../utils/response.js'
+import { fetchMonthTurnoverBreakdown, sumBreakdownCents } from '../../utils/team-turnover.js'
 
 const router = new Router({ prefix: '/team' })
 
@@ -125,15 +126,6 @@ router.get('/agents/:userId/tree', async (ctx) => {
     : currentMonthPrefix().replace('%', '')
   const db = getMysqlPool(ctx.state.env)
 
-  const [[defaultPlan]] = await db.query<RowDataPacket[]>(
-    `SELECT l1_rate_pct, l2_rate_pct, l3_rate_pct FROM bg_team_rate_plan WHERE is_default = 1 LIMIT 1`,
-  )
-  const defRates = [0,
-    Number(defaultPlan?.l1_rate_pct ?? 25),
-    Number(defaultPlan?.l2_rate_pct ?? 8),
-    Number(defaultPlan?.l3_rate_pct ?? 3),
-  ]
-
   function turnoverSub(levelCol: string) {
     return `
       SELECT td.user_id, SUM(td.bet_cents) AS turnover_cents
@@ -185,46 +177,49 @@ router.get('/agents/:userId/tree', async (ctx) => {
 
   interface NodeData {
     userId: string; displayName: string; isAgent: boolean
-    thisMonthCents: number; turnoverCents: number; children: NodeData[]
+    thisMonthCents: number; turnoverCents: number
+    currencyBreakdown: { currency: string; betCents: number }[]
+    children: NodeData[]
   }
 
-  function toCommCents(raw: unknown, turnoverCents: number, level: 1|2|3, activated: boolean): number {
+  function toCommCents(raw: unknown): number {
     if (raw !== null && raw !== undefined) return Number(raw)
-    if (!activated) return 0
-    return Math.floor(turnoverCents * defRates[level] / 100)
+    return 0
+  }
+
+  const allDownlineIds = [
+    ...l1Rows.map(r => String(r.user_id)),
+    ...l2Rows.map(r => String(r.user_id)),
+    ...l3Rows.map(r => String(r.user_id)),
+  ]
+  const bkMap = await fetchMonthTurnoverBreakdown(db, allDownlineIds, monthPrefix)
+
+  function buildNode(r: RowDataPacket): NodeData {
+    const uid = String(r.user_id)
+    const breakdown = bkMap.get(uid) ?? []
+    return {
+      userId: uid, displayName: String(r.display_name),
+      isAgent: Boolean(r.opted_in),
+      thisMonthCents: toCommCents(r.commission_cents),
+      turnoverCents: sumBreakdownCents(breakdown),
+      currencyBreakdown: breakdown,
+      children: [],
+    }
   }
 
   const l1Map = new Map<string, NodeData>()
-  for (const r of l1Rows) {
-    l1Map.set(String(r.user_id), {
-      userId: String(r.user_id), displayName: String(r.display_name),
-      isAgent: Boolean(r.opted_in),
-      thisMonthCents: toCommCents(r.commission_cents, Number(r.turnover_cents), 1, Boolean(r.activated)),
-      turnoverCents: Number(r.turnover_cents), children: [],
-    })
-  }
+  for (const r of l1Rows) l1Map.set(String(r.user_id), buildNode(r))
   const l2Map = new Map<string, NodeData>()
   for (const r of l2Rows) {
-    const node: NodeData = {
-      userId: String(r.user_id), displayName: String(r.display_name),
-      isAgent: Boolean(r.opted_in),
-      thisMonthCents: toCommCents(r.commission_cents, Number(r.turnover_cents), 2, Boolean(r.activated)),
-      turnoverCents: Number(r.turnover_cents), children: [],
-    }
+    const node = buildNode(r)
     l2Map.set(node.userId, node)
     l1Map.get(String(r.l1_referrer_id))?.children.push(node)
   }
   for (const r of l3Rows) {
-    const node: NodeData = {
-      userId: String(r.user_id), displayName: String(r.display_name),
-      isAgent: Boolean(r.opted_in),
-      thisMonthCents: toCommCents(r.commission_cents, Number(r.turnover_cents), 3, Boolean(r.activated)),
-      turnoverCents: Number(r.turnover_cents), children: [],
-    }
-    l2Map.get(String(r.l1_referrer_id))?.children.push(node)
+    l2Map.get(String(r.l1_referrer_id))?.children.push(buildNode(r))
   }
 
-  ok(ctx, { l1Members: [...l1Map.values()] })
+  ok(ctx, { l1Members: [...l1Map.values()].sort((a, b) => b.turnoverCents - a.turnoverCents) })
 })
 
 // GET /admin/team/commissions?date=&month=&beneficiaryId=&status=&page=1

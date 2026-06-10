@@ -32,14 +32,10 @@ CREATE TABLE IF NOT EXISTS `bg_team_rate_plan` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
   COMMENT='佣金费率套餐，is_default=1 为 C 端广告展示套餐';
 
--- 从 bg_team_config 读当前费率，写入默认套餐（幂等）
-INSERT INTO `bg_team_rate_plan` (`id`, `name`, `is_default`, `l1_rate_pct`, `l2_rate_pct`, `l3_rate_pct`)
+-- 首次安装：从 bg_team_config 种子默认套餐；已存在则保留后台修改的费率（勿覆盖）
+INSERT IGNORE INTO `bg_team_rate_plan` (`id`, `name`, `is_default`, `l1_rate_pct`, `l2_rate_pct`, `l3_rate_pct`)
 SELECT 1, '默认套餐', 1, l1_rate_pct, l2_rate_pct, l3_rate_pct
-FROM `bg_team_config` WHERE id = 1
-ON DUPLICATE KEY UPDATE
-  l1_rate_pct = VALUES(l1_rate_pct),
-  l2_rate_pct = VALUES(l2_rate_pct),
-  l3_rate_pct = VALUES(l3_rate_pct);
+FROM `bg_team_config` WHERE id = 1;
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- 2. bg_team_turnover_daily  每日投注流水快照

@@ -6,8 +6,28 @@ import { getTeamOverview, getTeamAgents, getTeamAgentTree, getTeamRatePlans, set
 
 interface TreeNodeItem { key: string; title: React.ReactNode; children?: TreeNodeItem[] }
 
+function fmtTurnoverAmt(betCents: number, currency: string): string {
+  const val = betCents / 100
+  if (currency === 'PHP') return `₱${val.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  const formatted = val % 1 === 0 ? val.toFixed(0) : parseFloat(val.toFixed(6)).toString()
+  return `${formatted} ${currency}`
+}
+
+function breakdownDisplay(breakdown: { currency: string; betCents: number }[] | null | undefined): string {
+  if (!breakdown?.length) return ''
+  const sorted = [...breakdown].sort((a, b) => (a.currency === 'PHP' ? -1 : b.currency === 'PHP' ? 1 : 0))
+  return sorted.map((b) => fmtTurnoverAmt(b.betCents, b.currency)).join(' + ')
+}
+
+function turnoverLabel(m: TeamTreeMember): string | null {
+  if (m.currencyBreakdown?.length) return breakdownDisplay(m.currencyBreakdown)
+  if (m.turnoverCents !== 0) return `₱${(m.turnoverCents / 100).toFixed(2)}`
+  return null
+}
+
 function buildTreeNode(m: TeamTreeMember, level: 1 | 2 | 3): TreeNodeItem {
   const levelColor = level === 1 ? 'gold' : level === 2 ? 'blue' : 'green'
+  const turnover = turnoverLabel(m)
   return {
     key: `l${level}-${m.userId}`,
     title: (
@@ -17,7 +37,7 @@ function buildTreeNode(m: TeamTreeMember, level: 1 | 2 | 3): TreeNodeItem {
         <span style={{ color: '#bbb', fontSize: 11 }}>{m.userId}</span>
         {m.isAgent && <Tag color="purple" style={{ fontSize: 10, padding: '0 4px', margin: 0, lineHeight: '16px' }}>代理</Tag>}
         {m.thisMonthCents !== 0 && <span style={{ color: '#1677ff', fontSize: 11 }}>₱{(m.thisMonthCents / 100).toFixed(2)}</span>}
-        {m.turnoverCents !== 0 && <span style={{ color: '#999', fontSize: 11 }}>流水 ₱{(m.turnoverCents / 100).toFixed(2)}</span>}
+        {turnover && <span style={{ color: '#999', fontSize: 11 }}>流水 {turnover}</span>}
       </span>
     ),
     children: m.children.length > 0 ? m.children.map((c) => buildTreeNode(c, (level + 1) as 2 | 3)) : undefined,

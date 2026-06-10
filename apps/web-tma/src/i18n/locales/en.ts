@@ -313,6 +313,37 @@ export default {
     debtLabel: 'Debt',
     minWithdrawPhp: 'Min ₱100',
     turnover: 'Turnover',
+    guideEntry: 'How it works',
+    guide: {
+      title: '3-Tier Referral Program',
+      content:
+        'What is the 3-tier program\n\n' +
+        'Share your invite link to build a team. Once you enable the agent program, you earn commission from up to three downline levels. Commissions are turnover-based: calculated on valid bet amounts only (wins/losses are not deducted). Multi-currency bets are converted to PHP equivalent at the daily FX rate.\n\n' +
+        'Team structure\n\n' +
+        'L1: Players you invited directly\n' +
+        'L2: Players invited by your L1 members\n' +
+        'L3: Players invited by your L2 members\n' +
+        'The L1 / L2 / L3 counts at the top show your current team size per level.\n\n' +
+        'Commission rates\n\n' +
+        'L1 commission = member\'s monthly valid bets (PHP equiv.) × {{l1Rate}}%\n' +
+        'L2 commission = member\'s monthly valid bets (PHP equiv.) × {{l2Rate}}%\n' +
+        'L3 commission = member\'s monthly valid bets (PHP equiv.) × {{l3Rate}}%\n' +
+        'Rates shown on this page apply to your account; different agents may have different plans.\n\n' +
+        'Downline activation\n\n' +
+        'A downline must make a first deposit of at least ₱100 and become activated before their bets earn you commission. Bets from inactive downlines do not generate commission (same-day turnover may still appear in the team tree for reference).\n\n' +
+        'Turnover & settlement\n\n' +
+        'Valid bets: only settled bet orders count; win payouts are not subtracted.\n' +
+        'Multi-currency: PHP, USDT, USDC, TON, etc. are tracked separately and converted to PHP for commission.\n' +
+        'Team tree turnover: past days use daily snapshots; today\'s bets update in real time.\n' +
+        'Commission settlement: runs daily (Philippines time) for the previous day\'s bets. After settlement, earnings appear under Team Earnings and your withdrawable balance.\n\n' +
+        'Viewing & withdrawal\n\n' +
+        'Team Earnings: browse monthly L1/L2/L3 totals and details; switch between tree and list views.\n' +
+        'Withdraw: submit a request on the Withdraw tab. Minimum amount is shown on the page. Review usually takes 1–3 business days.\n\n' +
+        'Notes\n\n' +
+        'Always recruit via your official invite link so downlines are attributed correctly.\n' +
+        'Commissions are credited in PHP equivalent regardless of which currency your downlines play with.\n' +
+        'Contact live support if you have questions.',
+    },
   },
   bingo: {
     carnival: 'Philippine Carnival',

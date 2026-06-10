@@ -7,11 +7,15 @@
 --   三级分销佣金/GGR/提现
 --   除 BG-10001 外的所有用户及其关联数据
 --   BG-10001 的钱包余额归零
+--
+-- 不清理（保留后台配置）：
+--   bg_team_rate_plan、bg_team_config、BG-10001 的 rate_plan_id
 
 SET FOREIGN_KEY_CHECKS = 0;
 
--- ── 三级分销：佣金、GGR、提现、钱包、归属树 ─────────────────
+-- ── 三级分销：佣金、GGR、提现、钱包、归属树、日流水快照 ─────
 DELETE FROM bg_team_commission;
+DELETE FROM bg_team_turnover_daily;
 DELETE FROM bg_team_ggr_monthly;
 DELETE FROM bg_team_withdrawal;
 DELETE FROM bg_team_wallet WHERE user_id != 'BG-10001';

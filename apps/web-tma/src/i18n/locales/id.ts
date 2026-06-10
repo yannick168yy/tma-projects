@@ -313,6 +313,37 @@ export default {
     debtLabel: 'Hutang',
     minWithdrawPhp: 'Min ₱100',
     turnover: 'Turnover',
+    guideEntry: 'Cara kerja',
+    guide: {
+      title: 'Program Referral 3 Tingkat',
+      content:
+        'Apa itu program 3 tingkat\n\n' +
+        'Bagikan tautan undangan untuk membangun tim. Setelah mengaktifkan program agen, Anda mendapat komisi dari maksimal tiga level downline. Komisi berbasis turnover: dihitung dari jumlah taruhan valid saja (menang/kalah tidak dikurangi). Taruhan multi-mata uang dikonversi ke setara PHP dengan kurs harian.\n\n' +
+        'Struktur tim\n\n' +
+        'L1: Pemain yang Anda undang langsung\n' +
+        'L2: Pemain yang diundang oleh anggota L1 Anda\n' +
+        'L3: Pemain yang diundang oleh anggota L2 Anda\n' +
+        'Angka L1 / L2 / L3 di atas menunjukkan jumlah tim per level.\n\n' +
+        'Tarif komisi\n\n' +
+        'Komisi L1 = taruhan valid bulanan anggota (setara PHP) × {{l1Rate}}%\n' +
+        'Komisi L2 = taruhan valid bulanan anggota (setara PHP) × {{l2Rate}}%\n' +
+        'Komisi L3 = taruhan valid bulanan anggota (setara PHP) × {{l3Rate}}%\n' +
+        'Tarif di halaman ini berlaku untuk akun Anda; agen berbeda dapat memiliki paket berbeda.\n\n' +
+        'Aktivasi downline\n\n' +
+        'Downline harus deposit pertama minimal ₱100 dan aktif sebelum taruhannya menghasilkan komisi untuk Anda. Taruhan dari downline yang belum aktif tidak menghasilkan komisi (turnover hari yang sama mungkin tetap tampil di pohon tim sebagai referensi).\n\n' +
+        'Turnover & penyelesaian\n\n' +
+        'Taruhan valid: hanya order bet yang sudah settled; payout win tidak dikurangi.\n' +
+        'Multi-mata uang: PHP, USDT, USDC, TON, dll. dicatat terpisah lalu dikonversi ke PHP untuk komisi.\n' +
+        'Turnover pohon tim: hari lalu dari snapshot harian; taruhan hari ini diperbarui secara real time.\n' +
+        'Penyelesaian komisi: berjalan setiap hari (waktu Filipina) untuk taruhan hari sebelumnya. Setelah selesai, pendapatan masuk ke Pendapatan Tim dan saldo yang bisa ditarik.\n\n' +
+        'Lihat & tarik dana\n\n' +
+        'Pendapatan Tim: lihat total dan detail L1/L2/L3 per bulan; beralih antara tampilan pohon dan daftar.\n' +
+        'Tarik dana: ajukan di tab Tarik Dana. Jumlah minimum ditampilkan di halaman. Review biasanya 1–3 hari kerja.\n\n' +
+        'Catatan\n\n' +
+        'Selalu rekrut melalui tautan undangan resmi agar downline teratribusi dengan benar.\n' +
+        'Komisi dikreditkan dalam setara PHP terlepas dari mata uang yang dipakai downline.\n' +
+        'Hubungi dukungan langsung jika ada pertanyaan.',
+    },
   },
   bingo: {
     carnival: 'Karnaval Filipina',

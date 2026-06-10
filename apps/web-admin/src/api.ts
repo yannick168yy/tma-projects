@@ -310,6 +310,7 @@ export interface TeamTreeMember {
   isAgent: boolean
   thisMonthCents: number
   turnoverCents: number
+  currencyBreakdown: { currency: string; betCents: number }[]
   children: TeamTreeMember[]
 }
 export const getTeamAgentTree = (userId: string, date?: string) =>
