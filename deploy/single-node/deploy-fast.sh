@@ -44,7 +44,7 @@ CTR=$(command -v podman >/dev/null 2>&1 && echo podman || echo docker)
 for f in $(ls infra/database/betogo/[0-9]*.sql 2>/dev/null | sort); do
   [ -f "$f" ] || continue
   OUT=$($CTR exec tma-mysql \
-    mysql -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" < "$f" 2>&1)
+    mysql --default-character-set=utf8mb4 -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" < "$f" 2>&1)
   RC=$?
   if [ $RC -eq 0 ]; then
     echo "  ran: $f"
