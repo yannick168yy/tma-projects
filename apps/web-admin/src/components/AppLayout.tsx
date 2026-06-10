@@ -34,6 +34,7 @@ const menuItems = [
       { key: '/games', label: '游戏管理' },
       { key: '/bet-orders', label: '投注记录' },
       { key: '/promotions', label: '活动配置' },
+      { key: '/promotions/claims', label: '参与记录' },
     ],
   },
   {

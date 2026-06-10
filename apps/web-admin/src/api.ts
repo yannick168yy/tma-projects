@@ -392,3 +392,15 @@ export interface PromoConfig {
 }
 export const getPromoConfig = () => get<PromoConfig>('/admin/promotions/config')
 export const savePromoConfig = (data: PromoConfig) => req<PromoConfig>('PUT', '/admin/promotions/config', data)
+
+export interface PromoClaimRecord {
+  id: string
+  userId: string
+  displayName: string
+  promoName: string
+  amount: number
+  currency: string
+  claimedAt: string
+}
+export const getPromoClaims = (params?: { page?: number; pageSize?: number; promoId?: string }) =>
+  get<{ items: PromoClaimRecord[]; total: number; page: number; pageSize: number }>('/admin/promotions/claims', params)

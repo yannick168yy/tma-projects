@@ -28,7 +28,7 @@ DELETE FROM bg_turnover_requirements;
 -- ── 投注记录 ──────────────────────────────────────────────────
 DELETE FROM bg_bet_order;
 
--- ── 账变记录 ──────────────────────────────────────────────────
+-- ── 账变记录（含活动领取：red_packet / bonus）──────────────────
 DELETE FROM bg_wallet_ledger;
 
 -- ── 存款 / 提款记录 ───────────────────────────────────────────
@@ -42,7 +42,8 @@ DELETE FROM bg_idempotency;
 DELETE FROM bg_wallet WHERE user_id != 'BG-10001';
 UPDATE bg_wallet SET available=0, frozen=0, version=version+1 WHERE user_id='BG-10001';
 
--- ── 活动 / 邀请 ───────────────────────────────────────────────
+-- ── 活动参与状态（领取标记）──────────────────────────────────
+-- 注：活动奖励的账变记录（red_packet/bonus）已在 bg_wallet_ledger 中一并清理
 DELETE FROM bg_user_promo_state WHERE user_id != 'BG-10001';
 UPDATE bg_user_promo_state
   SET trial_claimed=0, referral_claimed=0, first_dep_claimed=0,

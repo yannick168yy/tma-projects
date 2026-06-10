@@ -1,5 +1,7 @@
 import Router from '@koa/router'
+import type { RowDataPacket } from 'mysql2/promise'
 import { getPromoConfig, savePromoConfig, type PromoConfig } from '../../services/promo-config.service.js'
+import { getMysqlPool, isMysqlEnabled } from '../../clients/mysql.client.js'
 import { fail, ok } from '../../utils/response.js'
 
 const router = new Router({ prefix: '/promotions' })
@@ -35,6 +37,61 @@ router.put('/config', async (ctx) => {
 
   await savePromoConfig(ctx.state.env, updated)
   ok(ctx, updated)
+})
+
+function promoLabel(type: string, description: string): string {
+  if (type === 'red_packet') return '首席体验官'
+  if (type === 'bonus') {
+    if (/referral/i.test(description)) return '邀请共赢'
+    if (/first deposit/i.test(description)) return '首充嘉年华'
+    return '活动奖励'
+  }
+  return type
+}
+
+router.get('/claims', async (ctx) => {
+  if (!isMysqlEnabled(ctx.state.env)) { ok(ctx, { items: [], total: 0, page: 1, pageSize: 20 }); return }
+  const pool = getMysqlPool(ctx.state.env)
+  const page     = Math.max(1, Number(ctx.query.page     ?? 1))
+  const pageSize = Math.min(100, Math.max(1, Number(ctx.query.pageSize ?? 20)))
+  const promoId  = ctx.query.promoId ? String(ctx.query.promoId) : undefined
+  const offset   = (page - 1) * pageSize
+
+  const promoFilter = promoId === 'trial'    ? `AND l.type = 'red_packet'`
+                    : promoId === 'referral'  ? `AND l.type = 'bonus' AND l.description LIKE '%Referral%'`
+                    : promoId === 'firstdep'  ? `AND l.type = 'bonus' AND l.description LIKE '%First deposit%'`
+                    : ''
+
+  const [rows] = await pool.query<RowDataPacket[]>(
+    `SELECT l.id, l.user_id, u.display_name, l.type, l.description,
+            l.amount, l.currency, l.created_at AS claimed_at
+     FROM bg_wallet_ledger l
+     LEFT JOIN bg_user u ON u.id = l.user_id
+     WHERE l.type IN ('red_packet', 'bonus') ${promoFilter}
+     ORDER BY l.created_at DESC
+     LIMIT ? OFFSET ?`,
+    [pageSize, offset],
+  )
+
+  const [[countRow]] = await pool.query<RowDataPacket[]>(
+    `SELECT COUNT(*) AS total FROM bg_wallet_ledger l
+     WHERE l.type IN ('red_packet', 'bonus') ${promoFilter}`,
+  )
+
+  ok(ctx, {
+    items: rows.map((r) => ({
+      id: r.id,
+      userId: r.user_id,
+      displayName: r.display_name ?? r.user_id,
+      promoName: promoLabel(String(r.type), String(r.description)),
+      amount: Number(r.amount),
+      currency: String(r.currency),
+      claimedAt: r.claimed_at instanceof Date ? r.claimed_at.toISOString() : String(r.claimed_at),
+    })),
+    total: Number(countRow?.total ?? 0),
+    page,
+    pageSize,
+  })
 })
 
 export default router
