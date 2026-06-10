@@ -36,16 +36,15 @@ run_db_migrations() {
     "$ROOT/infra/database/betogo/" "$HOST:$DIR/infra/database/betogo/"
   ssh "${SSH_ARGS[@]}" "$HOST" "bash -s" <<'REMOTE'
 cd /root/workspace/tma-projects
-DB_HOST=$(grep -m1 '^MYSQL_HOST=' .env 2>/dev/null | cut -d= -f2- | tr -d "\"'"); DB_HOST=${DB_HOST:-localhost}
-DB_PORT=$(grep -m1 '^MYSQL_PORT=' .env 2>/dev/null | cut -d= -f2- | tr -d "\"'"); DB_PORT=${DB_PORT:-3306}
 DB_USER=$(grep -m1 '^MYSQL_USER=' .env 2>/dev/null | cut -d= -f2- | tr -d "\"'")
 DB_PASS=$(grep -m1 '^MYSQL_PASSWORD=' .env 2>/dev/null | cut -d= -f2- | tr -d "\"'")
 DB_NAME=$(grep -m1 '^MYSQL_DATABASE=' .env 2>/dev/null | cut -d= -f2- | tr -d "\"'"); DB_NAME=${DB_NAME:-betogo}
+CTR=$(command -v podman >/dev/null 2>&1 && echo podman || echo docker)
 for f in infra/database/betogo/045_*.sql; do
   [ -f "$f" ] || continue
-  OUT=$(mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" < "$f" 2>&1)
+  OUT=$($CTR exec tma-mysql \
+    mysql -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" < "$f" 2>&1)
   RC=$?
-  # mysql 仅密码警告时仍为成功（exit 0），有真正错误才 RC!=0
   if [ $RC -eq 0 ]; then
     echo "  ran: $f"
   else
