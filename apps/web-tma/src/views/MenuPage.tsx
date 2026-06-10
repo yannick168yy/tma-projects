@@ -318,7 +318,7 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
           </div>
           <button
             type="button"
-            className="w-full flex items-center gap-3 py-3 px-3.5 rounded-2xl bg-white/4 border border-border text-left"
+            className="w-full flex items-center gap-3 py-3 px-3.5 rounded-2xl bg-secondary border border-border text-left"
             onClick={() => setLangOpen(!langOpen)}
           >
             <span className="text-xl">{currentLang.flag}</span>

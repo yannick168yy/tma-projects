@@ -2,6 +2,8 @@
 
 :root {
   --font-size: 16px;
+  --shadow-card: 0 4px 18px rgba(0, 0, 0, 0.45);
+  --shadow-tag: 0 2px 8px rgba(0, 0, 0, 0.5);
   --background: #080b14;
   --foreground: #f0f2ff;
   --card: #111827;
@@ -19,6 +21,8 @@
 }
 
 html.light {
+  --shadow-card: 0 4px 18px rgba(0, 0, 0, 0.12);
+  --shadow-tag: 0 2px 8px rgba(0, 0, 0, 0.15);
   --background: #f5f6fa;
   --foreground: #0f1221;
   --card: #ffffff;
@@ -172,6 +176,23 @@ html.light .profile-toast {
 .toast-up-leave-to {
   opacity: 0;
   transform: translate(-50%, -12px);
+}
+
+/* 深棕/琥珀渐变区域 — 深色下用棕色调，浅色下换成淡金色 */
+.amber-hero-bg {
+  background: linear-gradient(135deg, rgba(120, 53, 15, 0.4), rgba(146, 64, 14, 0.2), transparent);
+}
+
+html.light .amber-hero-bg {
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.14), rgba(245, 158, 11, 0.07), transparent);
+}
+
+.amber-card-bg {
+  background: linear-gradient(135deg, rgba(120, 53, 15, 0.3), transparent);
+}
+
+html.light .amber-card-bg {
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.12), transparent);
 }
 
 .hide-scrollbar {

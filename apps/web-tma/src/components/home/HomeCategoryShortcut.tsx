@@ -25,7 +25,7 @@ export default function HomeCategoryShortcut({ category, claimable, claimLabel, 
         {claimLabel && !claimable && (
           <div
             className="absolute left-2 top-[-11px] z-10 flex items-center gap-0.5 whitespace-nowrap bg-red-500 px-[7px] py-1 pl-[5px] text-[11px] font-black text-white"
-            style={{ borderRadius: '6px 6px 6px 0', boxShadow: '0 2px 8px rgba(0, 0, 0, 0.5)' }}
+            style={{ borderRadius: '6px 6px 6px 0', boxShadow: 'var(--shadow-tag)' }}
           >
             🔥 {claimLabel}
             <span className="absolute bottom-[-6px] left-0 h-0 w-0" style={{ borderLeft: '6px solid #ef4444', borderBottom: '6px solid transparent' }} />
@@ -33,7 +33,7 @@ export default function HomeCategoryShortcut({ category, claimable, claimLabel, 
         )}
         <div
           className={`relative flex h-[59px] w-[110px] flex-col items-center justify-end rounded-2xl bg-gradient-to-br ${category.color}${claimable ? ' ring-2 ring-amber-300/80 ring-inset' : ''}`}
-          style={{ boxShadow: '0 4px 18px rgba(0, 0, 0, 0.45)' }}
+          style={{ boxShadow: 'var(--shadow-card)' }}
         >
           <div className="flex w-full flex-1 items-center justify-center">
             <span className="text-[36px] leading-none">{category.icon}</span>

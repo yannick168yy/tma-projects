@@ -212,7 +212,7 @@ export default function TeamCenterPage() {
     <div className="h-full bg-background flex flex-col overflow-hidden">
 
       {/* ── 邀请码区 ── */}
-      <div className="px-4 py-4 bg-gradient-to-br from-[#78350f]/40 via-[#92400e]/20 to-transparent border-b border-border flex-shrink-0">
+      <div className="px-4 py-4 amber-hero-bg border-b border-border flex-shrink-0">
         <p className="text-[10px] font-bold uppercase tracking-widest text-amber-400/80 mb-2">{t('team.myReferralCode')}</p>
         <div className="flex items-center gap-2 bg-foreground/8 rounded-xl px-3 py-2 border border-amber-500/20 mb-3">
           <span className="flex-1 font-black text-amber-400 tracking-widest text-sm">{inviteCode}</span>
@@ -267,7 +267,7 @@ export default function TeamCenterPage() {
           <>
             {/* 佣金汇总卡片 */}
             <div className="px-4 pt-4 pb-3">
-              <div className="bg-gradient-to-br from-[#78350f]/30 to-transparent rounded-2xl border border-amber-500/20 p-3">
+              <div className="amber-card-bg rounded-2xl border border-amber-500/20 p-3">
                 <div className="grid grid-cols-2 gap-2 mb-2">
                   <div className="bg-foreground/6 rounded-xl p-2 text-center">
                     <div className="text-amber-400 font-black text-base leading-none">{phpDisplay(summary?.l1Cents ?? 0)}</div>
@@ -365,7 +365,7 @@ export default function TeamCenterPage() {
           <>
             {/* 钱包大卡 */}
             <div className="px-4 pt-4 pb-3">
-              <div className={`bg-gradient-to-br rounded-2xl border p-4 ${(teamWallet?.availableCents ?? 0) < 0 ? 'from-red-900/30 to-transparent border-red-500/20' : 'from-[#78350f]/30 to-transparent border-amber-500/20'}`}>
+              <div className={`rounded-2xl border p-4 ${(teamWallet?.availableCents ?? 0) < 0 ? 'bg-gradient-to-br from-red-900/30 to-transparent border-red-500/20' : 'amber-card-bg border-amber-500/20'}`}>
                 <p className="text-[10px] font-bold uppercase tracking-widest text-amber-400/70 mb-1 text-center">
                   {(teamWallet?.availableCents ?? 0) < 0 ? t('team.debtLabel') : t('team.available')}
                 </p>
