@@ -30,7 +30,7 @@ function bindSystemListener(mode: ThemeMode) {
 export const useThemeStore = create<ThemeStore>()(
   persist(
     (set) => ({
-      mode: 'system',
+      mode: 'dark',
       setMode: (mode) => {
         set({ mode })
         applyTheme(mode)
