@@ -8,6 +8,7 @@ export interface TurnoverRequirement {
   id: number
   sourceType: string
   sourceRef: string
+  currency: string
   requiredAmount: number
   completedAmount: number
   status: string

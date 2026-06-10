@@ -30,6 +30,10 @@ const DEFAULT_DEPOSIT_AMOUNTS: Record<string,string>={tg_wallet_php:'1000',tg_wa
 const quickAmountsPhp=['100','500','1000','2000','5000']; const quickAmountsUsdt=['10','25','50','100']
 
 function statusIconComp(status: string) { if(status==='success')return CheckCircle2; if(status==='pending')return Loader2; if(status==='rejected')return XCircle; return AlertCircle }
+function fmtTurnoverAmount(amount: number, currency: string) {
+  if (currency === 'PHP') return `₱${amount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  return `${parseFloat(amount.toFixed(6))} ${currency}`
+}
 
 export default function WalletModal({ open, onClose }: Props) {
   const { t } = useTranslation()
@@ -417,9 +421,9 @@ export default function WalletModal({ open, onClose }: Props) {
                         turnoverProgress.canWithdraw ? (
                           // 只在确实有流水记录时才显示"已完成"提示，新用户从未存款则不展示
                           turnoverProgress.requirements.length > 0 ? (
-                            <div className="flex items-center gap-2.5 bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-4 py-3">
-                              <CheckCircle2 size={15} className="text-emerald-400 flex-shrink-0" />
-                              <span className="text-xs font-bold text-emerald-300">{t('wallet.turnoverAllClear')}</span>
+                            <div className="flex items-center gap-2 bg-secondary rounded-xl px-3 py-2">
+                              <CheckCircle2 size={13} className="text-emerald-400/60 flex-shrink-0" />
+                              <span className="text-xs text-muted-foreground">{t('wallet.turnoverAllClear')}</span>
                             </div>
                           ) : null
                         ) : (
@@ -429,14 +433,18 @@ export default function WalletModal({ open, onClose }: Props) {
                                 <Lock size={13} className="text-amber-400 flex-shrink-0" />
                                 <span className="text-[11px] font-bold text-amber-300">{t('wallet.turnoverBlocked')}</span>
                               </div>
-                              <span className="text-xs font-black text-amber-400">₱{turnoverProgress.totalRemaining.toLocaleString('en-PH',{minimumFractionDigits:2,maximumFractionDigits:2})}</span>
+                              <span className="text-xs font-black text-amber-400">{(() => {
+                                const byCurr: Record<string,number> = {}
+                                for (const r of turnoverProgress.requirements.filter(x=>x.status==='pending')) byCurr[r.currency]=(byCurr[r.currency]??0)+(r.requiredAmount-r.completedAmount)
+                                return Object.entries(byCurr).map(([c,v])=>fmtTurnoverAmount(v,c)).join(' + ')
+                              })()}</span>
                             </div>
                             {turnoverProgress.requirements.filter(r=>r.status==='pending').slice(0,3).map(req=>{
                               const pct=Math.min(100,(req.completedAmount/req.requiredAmount)*100)
                               return (
                                 <div key={req.id} className="space-y-1">
                                   <div className="flex justify-between">
-                                    <span className="text-[10px] text-amber-300/70">{req.sourceType==='deposit'?t('wallet.turnoverDeposit'):t('wallet.turnoverPromo')} · ₱{req.requiredAmount.toFixed(2)}</span>
+                                    <span className="text-[10px] text-amber-300/70">{req.sourceType==='deposit'?t('wallet.turnoverDeposit'):t('wallet.turnoverPromo')} · {fmtTurnoverAmount(req.requiredAmount,req.currency??'PHP')}</span>
                                     <span className="text-[10px] font-bold text-amber-300/70">{Math.round(pct)}%</span>
                                   </div>
                                   <div className="h-1 bg-amber-500/20 rounded-full overflow-hidden">

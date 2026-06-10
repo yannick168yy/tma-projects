@@ -129,7 +129,7 @@ async function handleMatrixDeposit(
       `UPDATE bg_deposit_order SET credited = 1, status = 'paid' WHERE order_id = ?`,
       [notify.orderNo],
     )
-    await createDepositRequirement(conn, notify.userId, notify.orderNo, amount)
+    await createDepositRequirement(conn, notify.userId, notify.orderNo, amount, notify.symbol)
     await conn.commit()
   } catch (err) {
     await conn.rollback()
