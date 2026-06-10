@@ -308,7 +308,7 @@ async function main() {
     const allIds = allUsers.map(u => u.id)
     const [commissions] = await db.query(
       `SELECT beneficiary_id, from_user_id, level, currency,
-              ggr_cents, rate_pct, commission_cents, php_equivalent_cents, status
+              ggr_cents, rate_pct, commission_cents, php_equivalent_cents, currency_breakdown, status
        FROM bg_team_commission
        WHERE period=? AND from_user_id IN (${allIds.map(()=>'?').join(',')})
        ORDER BY from_user_id, currency, level`,
