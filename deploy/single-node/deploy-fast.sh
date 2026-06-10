@@ -35,22 +35,21 @@ run_db_migrations() {
   RSYNC_RSH="$RSYNC_RSH" rsync -az \
     "$ROOT/infra/database/betogo/" "$HOST:$DIR/infra/database/betogo/"
   ssh "${SSH_ARGS[@]}" "$HOST" "bash -s" <<'REMOTE'
-set -euo pipefail
 cd /root/workspace/tma-projects
-# 用 grep 逐行提取 DB 凭证，避免 source .env 因私钥等多行内容报错
-_env_val() { grep -E "^${1}\s*=" .env 2>/dev/null | head -1 | cut -d= -f2- | tr -d "\"' "; }
-DB_HOST="$(_env_val MYSQL_HOST)"; DB_HOST="${DB_HOST:-localhost}"
-DB_PORT="$(_env_val MYSQL_PORT)"; DB_PORT="${DB_PORT:-3306}"
-DB_USER="$(_env_val MYSQL_USER)"
-DB_PASS="$(_env_val MYSQL_PASSWORD)"
-DB_NAME="$(_env_val MYSQL_DATABASE)"; DB_NAME="${DB_NAME:-betogo}"
-MYSQL_CMD="mysql -h${DB_HOST} -P${DB_PORT} -u${DB_USER} -p${DB_PASS} ${DB_NAME}"
+DB_HOST=$(grep -m1 '^MYSQL_HOST=' .env 2>/dev/null | cut -d= -f2- | tr -d "\"'"); DB_HOST=${DB_HOST:-localhost}
+DB_PORT=$(grep -m1 '^MYSQL_PORT=' .env 2>/dev/null | cut -d= -f2- | tr -d "\"'"); DB_PORT=${DB_PORT:-3306}
+DB_USER=$(grep -m1 '^MYSQL_USER=' .env 2>/dev/null | cut -d= -f2- | tr -d "\"'")
+DB_PASS=$(grep -m1 '^MYSQL_PASSWORD=' .env 2>/dev/null | cut -d= -f2- | tr -d "\"'")
+DB_NAME=$(grep -m1 '^MYSQL_DATABASE=' .env 2>/dev/null | cut -d= -f2- | tr -d "\"'"); DB_NAME=${DB_NAME:-betogo}
 for f in infra/database/betogo/045_*.sql; do
   [ -f "$f" ] || continue
-  if $MYSQL_CMD < "$f" 2>/tmp/migrate_err; then
+  OUT=$(mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" < "$f" 2>&1)
+  RC=$?
+  # mysql 仅密码警告时仍为成功（exit 0），有真正错误才 RC!=0
+  if [ $RC -eq 0 ]; then
     echo "  ran: $f"
   else
-    echo "  failed: $f — $(cat /tmp/migrate_err)"
+    echo "  failed(rc=$RC): $f — $OUT"
   fi
 done
 REMOTE
