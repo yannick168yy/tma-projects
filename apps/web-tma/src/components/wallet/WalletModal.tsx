@@ -122,11 +122,11 @@ export default function WalletModal({ open, onClose }: Props) {
   useEffect(() => {
     if (tab !== 'withdraw') return
     setTurnoverLoading(true)
-    fetchTurnoverProgress()
+    fetchTurnoverProgress(activeCurrency)
       .then(setTurnoverProgress)
       .catch(() => setTurnoverProgress(null))
       .finally(() => setTurnoverLoading(false))
-  }, [tab])
+  }, [tab, activeCurrency])
 
   useEffect(() => {
     if (!selectedMethod) return

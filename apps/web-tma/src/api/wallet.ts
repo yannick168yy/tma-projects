@@ -22,8 +22,9 @@ export interface TurnoverProgress {
   requirements: TurnoverRequirement[]
 }
 
-export async function fetchTurnoverProgress(): Promise<TurnoverProgress> {
-  return apiRequest<TurnoverProgress>('/turnover')
+export async function fetchTurnoverProgress(currency?: string): Promise<TurnoverProgress> {
+  const qs = currency ? `?currency=${encodeURIComponent(currency)}` : ''
+  return apiRequest<TurnoverProgress>(`/turnover${qs}`)
 }
 
 export async function fetchBalance(): Promise<WalletBalance> {

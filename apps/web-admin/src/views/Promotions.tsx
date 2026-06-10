@@ -70,6 +70,24 @@ export default function Promotions() {
                 <InputNumber prefix="₱" style={{ width: '100%' }} min={1} max={50000} precision={0} />
               </Form.Item>
             </Col>
+            <Col span={12}>
+              <Form.Item
+                label="流水倍率（0=不要求）"
+                name={['trial', 'turnoverX']}
+                rules={[{ required: true, type: 'number', min: 0, max: 100, message: '请输入 0-100' }]}
+              >
+                <InputNumber suffix="x" style={{ width: '100%' }} min={0} max={100} precision={0} placeholder="0" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item
+                label="流水有效期（0=永久）"
+                name={['trial', 'turnoverDays']}
+                rules={[{ required: true, type: 'number', min: 0, max: 365, message: '请输入 0-365' }]}
+              >
+                <InputNumber suffix="天" style={{ width: '100%' }} min={0} max={365} precision={0} placeholder="0" />
+              </Form.Item>
+            </Col>
           </Row>
         </Card>
 
@@ -100,6 +118,24 @@ export default function Promotions() {
                 rules={[{ required: true, type: 'number', min: 0, max: 50000, message: '请输入 0-50000' }]}
               >
                 <InputNumber prefix="₱" style={{ width: '100%' }} min={0} max={50000} precision={0} />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item
+                label="流水倍率（0=不要求）"
+                name={['referral', 'turnoverX']}
+                rules={[{ required: true, type: 'number', min: 0, max: 100, message: '请输入 0-100' }]}
+              >
+                <InputNumber suffix="x" style={{ width: '100%' }} min={0} max={100} precision={0} placeholder="0" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item
+                label="流水有效期（0=永久）"
+                name={['referral', 'turnoverDays']}
+                rules={[{ required: true, type: 'number', min: 0, max: 365, message: '请输入 0-365' }]}
+              >
+                <InputNumber suffix="天" style={{ width: '100%' }} min={0} max={365} precision={0} placeholder="0" />
               </Form.Item>
             </Col>
           </Row>
@@ -150,6 +186,15 @@ export default function Promotions() {
                 rules={[{ required: true, type: 'number', min: 1, max: 100, message: '请输入 1-100' }]}
               >
                 <InputNumber suffix="x" style={{ width: '100%' }} min={1} max={100} precision={0} />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item
+                label="流水有效期（0=永久）"
+                name={['firstdep', 'turnoverDays']}
+                rules={[{ required: true, type: 'number', min: 0, max: 365, message: '请输入 0-365' }]}
+              >
+                <InputNumber suffix="天" style={{ width: '100%' }} min={0} max={365} precision={0} placeholder="0" />
               </Form.Item>
             </Col>
           </Row>

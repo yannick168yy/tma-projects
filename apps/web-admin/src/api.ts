@@ -386,9 +386,9 @@ export const markReconciled = (id: number) =>
 
 // Promo Config
 export interface PromoConfig {
-  trial:    { amount: number; enabled: boolean }
-  referral: { inviterAmount: number; inviteeAmount: number; enabled: boolean }
-  firstdep: { matchPct: number; maxBonus: number; minDeposit: number; turnoverX: number; enabled: boolean }
+  trial:    { amount: number; enabled: boolean; turnoverX: number; turnoverDays: number }
+  referral: { inviterAmount: number; inviteeAmount: number; enabled: boolean; turnoverX: number; turnoverDays: number }
+  firstdep: { matchPct: number; maxBonus: number; minDeposit: number; turnoverX: number; turnoverDays: number; enabled: boolean }
 }
 export const getPromoConfig = () => get<PromoConfig>('/admin/promotions/config')
 export const savePromoConfig = (data: PromoConfig) => req<PromoConfig>('PUT', '/admin/promotions/config', data)
