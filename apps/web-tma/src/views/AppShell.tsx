@@ -8,7 +8,6 @@ import HomeContent from '@/views/HomeContent'
 import BonusesPage from '@/views/BonusesPage'
 import BingoPage from '@/views/BingoPage'
 import MenuPage from '@/views/MenuPage'
-import ProfilePage from '@/views/ProfilePage'
 import SlotsLobby from '@/views/SlotsLobby'
 import CustomerServicePage from '@/views/CustomerServicePage'
 import TeamCenterPage from '@/views/TeamCenterPage'
@@ -106,7 +105,6 @@ export default function AppShell() {
 
   const mainStyle = useMemo(() => {
     const top = `${headerH}px`
-    if (overlay.is('profile')) return { paddingTop: top, paddingBottom: '0', height: `calc(100dvh - ${headerH}px)`, maxHeight: `calc(100dvh - ${headerH}px)` }
     if (overlay.is('teamCenter') || overlay.is('betHistory')) return { paddingTop: top, paddingBottom: '0', height: `calc(100dvh - ${headerH}px)`, maxHeight: `calc(100dvh - ${headerH}px)`, overflowY: 'hidden' as const }
     return { paddingTop: top, paddingBottom: `${navH}px` }
   }, [headerH, navH, overlay])
@@ -280,7 +278,7 @@ export default function AppShell() {
 
         <main
           ref={mainRef}
-          className={view.type === 'profile' ? 'page-scroll hide-scrollbar overflow-x-hidden' : 'relative overflow-x-clip'}
+          className="relative overflow-x-clip"
           style={mainStyle}
         >
           {view.type === 'search' && (
@@ -292,8 +290,7 @@ export default function AppShell() {
           {view.type === 'categoryLobby' && (
             <SlotsLobby {...view.params} onClose={() => { overlay.close(); window.scrollTo({ top: 0, behavior: 'instant' }) }} onGameTap={() => void onGameTap()} onOpenGame={(url) => setGamePlayerUrl(url)} />
           )}
-          {view.type === 'profile' && <ProfilePage onLogout={onLogout} onOpenCs={openCs} onOpenBetHistory={openBetHistory} />}
-          {view.type === 'betHistory' && <BetHistoryPage onClose={overlay.close} />}
+{view.type === 'betHistory' && <BetHistoryPage onClose={overlay.close} />}
           {view.type === 'teamCenter' && <TeamCenterPage />}
           {view.type === 'none' && activeNav === 'bonuses' && <BonusesPage promoFilter={promoFilter} onOpenWallet={() => void openWallet()} onOpenTeam={openTeamCenter} />}
           {view.type === 'none' && activeNav === 'bingo' && <BingoPage onOpenWallet={() => void openWallet()} onGameTap={() => void onGameTap()} onOpenGame={(url) => setGamePlayerUrl(url)} onOpenCategoryLobby={openCategoryLobby} />}
