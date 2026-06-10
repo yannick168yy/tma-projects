@@ -209,13 +209,25 @@ export default function AppShell() {
               )}
             </div>
 
-            <button type="button" className="flex-shrink-0 flex h-9 w-9 items-center justify-center rounded-full bg-white/8 text-foreground hover:bg-white/12 transition-colors" onClick={openCs}>
-              <svg width="19" height="19" viewBox="0 0 20 20" fill="none">
-                <path d="M4 10c0-3.31 2.69-6 6-6s6 2.69 6 6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
-                <rect x="2.5" y="10" width="3" height="5" rx="1.5" fill="currentColor"/>
-                <rect x="14.5" y="10" width="3" height="5" rx="1.5" fill="currentColor"/>
-                <path d="M15.5 14.5q0 2.5-4 2.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
+            <button
+              type="button"
+              className="relative flex-shrink-0 flex h-9 w-9 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg shadow-amber-500/30 hover:bg-yellow-400 active:scale-95 transition-all"
+              onClick={openCs}
+            >
+              <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
+                {/* 头带弧 */}
+                <path d="M3.5 10C3.5 6.41 6.41 3.5 10 3.5s6.5 2.91 6.5 6.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
+                {/* 左耳罩 */}
+                <rect x="2" y="10" width="3.5" height="5.5" rx="1.75" fill="currentColor"/>
+                {/* 右耳罩 */}
+                <rect x="14.5" y="10" width="3.5" height="5.5" rx="1.75" fill="currentColor"/>
+                {/* 话筒悬臂 */}
+                <path d="M16.25 15.2c0 1.2-.8 2-2.25 2.3" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+                {/* 话筒头 */}
+                <circle cx="14" cy="17.6" r="0.9" fill="currentColor"/>
               </svg>
+              {/* 在线状态 */}
+              <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-green-400 ring-2 ring-background" />
             </button>
           </div>
 
