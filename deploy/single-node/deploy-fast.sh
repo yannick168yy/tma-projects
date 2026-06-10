@@ -30,6 +30,20 @@ restart_container() {
      else echo "未找到 podman/docker" >&2; exit 1; fi'
 }
 
+run_db_migrations() {
+  echo "==> [db] 同步并执行迁移..."
+  RSYNC_RSH="$RSYNC_RSH" rsync -az \
+    "$ROOT/infra/database/betogo/" "$HOST:$DIR/infra/database/betogo/"
+  ssh "${SSH_ARGS[@]}" "$HOST" "bash -s" <<'REMOTE'
+cd /root/workspace/tma-projects
+set -a; [ -f .env ] && source .env; set +a
+MYSQL_CMD="mysql -h${MYSQL_HOST:-localhost} -P${MYSQL_PORT:-3306} -u${MYSQL_USER} -p${MYSQL_PASSWORD} ${MYSQL_DATABASE:-betogo}"
+for f in infra/database/betogo/045_*.sql; do
+  [ -f "$f" ] && $MYSQL_CMD < "$f" 2>/dev/null && echo "  ran: $f" || echo "  skipped/already-applied: $f"
+done
+REMOTE
+}
+
 TARGETS=("${@:-all}")
 [[ "${TARGETS[0]}" == "all" ]] && TARGETS=(web-tma web-admin bff-node core-node)
 
@@ -52,6 +66,7 @@ for TARGET in "${TARGETS[@]}"; do
       echo "==> [web-admin] 完成（nginx 即时生效，无需重启）"
       ;;
     bff-node)
+      run_db_migrations
       echo "==> [bff-node] 本地编译..."
       (cd "$ROOT/apps/bff-node" && npm run build)
       echo "==> [bff-node] 同步 dist + package..."
