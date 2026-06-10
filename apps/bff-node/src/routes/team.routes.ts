@@ -366,10 +366,9 @@ router.get('/tree', async (ctx) => {
     children: NodeData[]
   }
 
-  function toCommCents(raw: unknown, turnoverCents: number, level: 1|2|3, activated: boolean): number {
+  function toCommCents(raw: unknown, _turnoverCents: number, _level: 1|2|3, _activated: boolean): number {
     if (raw !== null && raw !== undefined) return Number(raw)
-    if (!activated) return 0
-    return Math.floor(turnoverCents * rates[level] / 100)
+    return 0
   }
 
   // 收集所有下级 userId，批量查多币种流水明细
