@@ -42,7 +42,7 @@ const INT_TOKEN = process.env.INTERNAL_TOKEN ?? ''
 
 const TEST_PERIOD = process.env.TEST_PERIOD ?? (() => {
   const d = new Date()
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 })()
 
 // ── 工具 ──────────────────────────────────────────────────────────────────────
@@ -183,7 +183,7 @@ async function triggerSettle(period) {
   const res = await fetch(`${CORE_URL}/internal/team/settle`, {
     method:  'POST',
     headers: { 'Content-Type': 'application/json', 'X-Internal-Token': INT_TOKEN },
-    body:    JSON.stringify({ period }),
+    body:    JSON.stringify({ date: period }),
   }).catch(e => { throw new Error(`core-node 不可达: ${e.message}`) })
 
   if (!res.ok) throw new Error(`结算接口返回 ${res.status}`)
@@ -320,80 +320,66 @@ async function main() {
     )
     log('  当前佣金费率', { L1: `${cfgL1}%`, L2: `${cfgL2}%`, L3: `${cfgL3}%` })
 
-    // ── 负 GGR 验证：产生负佣金（回撤模型）──────────────────────
-    // l1_2: GGR -₱200 → root 收到 1 条负佣金（L1 25% × -₱200 = -₱50）
-    const fromL1_2 = commissions.filter(c => c.from_user_id === l1_2.id)
-    ok(`l1_2(负GGR) 产生 1 条佣金`, fromL1_2.length === 1, fromL1_2.length)
-    ok(`l1_2 commission_cents 为负`, Number(fromL1_2[0]?.commission_cents) < 0, fromL1_2[0]?.commission_cents)
-    ok(`l1_2 php_equivalent_cents 为负`, Number(fromL1_2[0]?.php_equivalent_cents) < 0)
+    // ── 系统为流水制（turnover-based）说明 ─────────────────────────
+    // 1. 只统计 bet_type='bet' 的投注额，不减 win，不存在负佣金
+    // 2. 多币种通过汇率折算为 PHP，全部以 PHP 出佣金
+    // 3. 每个 from_user 对其上线最多产生 3 条佣金（L1/L2/L3 各一条），不按币种拆分
+    // 4. bg_team_ggr_monthly 不由 daily settle 写入
 
-    // l3_2: GGR -₱300 → 3层上线各收 1 条负佣金
-    const fromL3_2 = commissions.filter(c => c.from_user_id === l3_2.id)
-    ok(`l3_2(负GGR) 产生 3 条负佣金`, fromL3_2.length === 3, fromL3_2.length)
-    ok(`l3_2 所有佣金 commission_cents 为负`, fromL3_2.every(c => Number(c.commission_cents) < 0))
-
-    // l3_4: GGR -₱200 → 3层上线各收 1 条负佣金
-    const fromL3_4 = commissions.filter(c => c.from_user_id === l3_4.id)
-    ok(`l3_4(负GGR) 产生 3 条负佣金`, fromL3_4.length === 3, fromL3_4.length)
-    ok(`l3_4 所有佣金 commission_cents 为负`, fromL3_4.every(c => Number(c.commission_cents) < 0))
-
-    // l2_4: 未激活 → 0 条佣金（无论 GGR 正负，未激活节点不在 team_node 结算范围）
+    // ── 未激活验证 ────────────────────────────────────────────────
     const fromL2_4 = commissions.filter(c => c.from_user_id === l2_4.id)
     ok(`l2_4(未激活) 不产生佣金`, fromL2_4.length === 0, fromL2_4.length)
 
-    // ── effective_ggr 月报归零验证（与结算分离，仅用于展示）───────
-    const negUsers = [l1_2.id, l3_2.id, l3_4.id]
-    const [negGgrRows] = await db.query(
-      `SELECT user_id, ggr_cents, effective_ggr_cents, negative_ggr
-       FROM bg_team_ggr_monthly WHERE user_id IN (${negUsers.map(()=>'?').join(',')}) AND period=?`,
-      [...negUsers, TEST_PERIOD]
-    )
-    for (const r of negGgrRows) {
-      ok(`${r.user_id} negative_ggr=1`, Number(r.negative_ggr) === 1)
-      ok(`${r.user_id} effective_ggr_cents=0`, Number(r.effective_ggr_cents) === 0)
-      ok(`${r.user_id} ggr_cents<0`, Number(r.ggr_cents) < 0, Number(r.ggr_cents))
-    }
+    // ── 负 GGR 用户（win>bet）依然产生正佣金（流水制只看投注额）──
+    const fromL1_2 = commissions.filter(c => c.from_user_id === l1_2.id)
+    ok(`l1_2(bet=200 win=400) 产生 1 条佣金(L1→root)`, fromL1_2.length === 1, fromL1_2.length)
+    ok(`l1_2 commission_cents 为正（流水制）`, Number(fromL1_2[0]?.commission_cents) > 0, fromL1_2[0]?.commission_cents)
+    ok(`l1_2 currency=PHP`, fromL1_2[0]?.currency === 'PHP')
 
-    // ── 正 GGR 验证 ────────────────────────────────────────────────
-    // l1_1: PHP only → root 收 level=1 佣金，1条正数
+    const fromL3_2 = commissions.filter(c => c.from_user_id === l3_2.id)
+    ok(`l3_2(bet=100 win=400) 产生 3 条佣金`, fromL3_2.length === 3, fromL3_2.length)
+    ok(`l3_2 全部 commission_cents 为正`, fromL3_2.every(c => Number(c.commission_cents) > 0))
+
+    const fromL3_4 = commissions.filter(c => c.from_user_id === l3_4.id)
+    ok(`l3_4(bet=100 win=300) 产生 3 条佣金`, fromL3_4.length === 3, fromL3_4.length)
+    ok(`l3_4 全部 commission_cents 为正`, fromL3_4.every(c => Number(c.commission_cents) > 0))
+
+    // ── 正常投注验证 ──────────────────────────────────────────────
+    // l1_1: PHP bet=500 → root 收 L1 佣金，commission = ₱500 × 25% = ₱125
     const fromL1_1 = commissions.filter(c => c.from_user_id === l1_1.id)
-    ok(`l1_1(正₱400) 产生 1 条佣金`, fromL1_1.length === 1, fromL1_1.length)
-    ok(`l1_1 受益人=root level=1`, fromL1_1[0]?.beneficiary_id === root.id && fromL1_1[0]?.level === 1)
+    ok(`l1_1(PHP bet=500) 产生 1 条佣金`, fromL1_1.length === 1, fromL1_1.length)
+    ok(`l1_1 受益人=root level=1 currency=PHP`, fromL1_1[0]?.beneficiary_id === root.id && fromL1_1[0]?.level === 1 && fromL1_1[0]?.currency === 'PHP')
     ok(`l1_1 commission_cents 为正`, Number(fromL1_1[0]?.commission_cents) > 0)
 
-    // l2_1: PHP(正)+USDT(负) → 4条：PHP正×2 + USDT负×2
+    // l2_1: PHP(bet=200)+USDT(bet=1) → 2层上线各 1 条 PHP 佣金，共 2 条
     const fromL2_1 = commissions.filter(c => c.from_user_id === l2_1.id)
-    ok(`l2_1(PHP正+USDT负) 产生 4 条佣金`, fromL2_1.length === 4, fromL2_1.length)
-    const l2_1_phpComms  = fromL2_1.filter(c => c.currency === 'PHP')
-    const l2_1_usdtComms = fromL2_1.filter(c => c.currency === 'USDT')
-    ok(`l2_1 PHP 佣金为正(2条)`, l2_1_phpComms.length === 2 && l2_1_phpComms.every(c => Number(c.commission_cents) > 0))
-    ok(`l2_1 USDT 佣金为负(2条)`, l2_1_usdtComms.length === 2 && l2_1_usdtComms.every(c => Number(c.commission_cents) < 0))
-    const l2_1_rootPHP = fromL2_1.find(c => c.beneficiary_id === root.id && c.currency === 'PHP')
-    ok(`l2_1 root 收到 PHP 正佣金(level=2)`, l2_1_rootPHP?.level === 2 && Number(l2_1_rootPHP?.commission_cents) > 0)
+    ok(`l2_1(PHP+USDT混合) 产生 2 条佣金(L1=l1_1, L2=root)`, fromL2_1.length === 2, fromL2_1.length)
+    ok(`l2_1 全部 currency=PHP`, fromL2_1.every(c => c.currency === 'PHP'))
+    ok(`l2_1 root 收到 PHP 佣金(level=2)`, !!fromL2_1.find(c => c.beneficiary_id === root.id && c.level === 2))
 
-    // l2_2: USDT only → root(level=2)1条 + l1_1(level=1)1条 = 2条
+    // l2_2: USDT only(bet=20) → 折算 PHP → 2层上线各 1 条 PHP 佣金
     const fromL2_2 = commissions.filter(c => c.from_user_id === l2_2.id)
     ok(`l2_2(USDT only) 产生 2 条佣金`, fromL2_2.length === 2, fromL2_2.length)
-    ok(`l2_2 货币均为 USDT`, fromL2_2.every(c => c.currency === 'USDT'))
+    ok(`l2_2 全部 currency=PHP（USDT 折算）`, fromL2_2.every(c => c.currency === 'PHP'))
 
-    // l3_1: PHP+USDC → l2_1(L1)+l1_1(L2)+root(L3) × 2币种 = 6条
+    // l3_1: PHP+USDC → 3层上线各 1 条 PHP 佣金，共 3 条
     const fromL3_1 = commissions.filter(c => c.from_user_id === l3_1.id)
-    ok(`l3_1(PHP+USDC) 产生 6 条佣金`, fromL3_1.length === 6, fromL3_1.length)
-    const l3_1_rootUSDC = fromL3_1.find(c => c.beneficiary_id === root.id && c.currency === 'USDC' && c.level === 3)
-    ok(`l3_1 root 收到 USDC 佣金(level=3)`, !!l3_1_rootUSDC)
+    ok(`l3_1(PHP+USDC) 产生 3 条佣金`, fromL3_1.length === 3, fromL3_1.length)
+    ok(`l3_1 root 收到 PHP 佣金(level=3)`, !!fromL3_1.find(c => c.beneficiary_id === root.id && c.level === 3 && c.currency === 'PHP'))
 
-    // l3_3: PHP+USDT+USDC (三币种全正) → 3层上线 × 3币种 = 9条
+    // l3_3: PHP+USDT+USDC (三币种) → 折算 PHP → 3层各 1 条，共 3 条
     const fromL3_3 = commissions.filter(c => c.from_user_id === l3_3.id)
-    ok(`l3_3(PHP+USDT+USDC) 产生 9 条佣金`, fromL3_3.length === 9, fromL3_3.length)
-    ok(`l3_3 root 收到 PHP 佣金(level=3)`,  !!fromL3_3.find(c => c.beneficiary_id === root.id && c.currency === 'PHP'  && c.level === 3))
-    ok(`l3_3 root 收到 USDT 佣金(level=3)`, !!fromL3_3.find(c => c.beneficiary_id === root.id && c.currency === 'USDT' && c.level === 3))
-    ok(`l3_3 root 收到 USDC 佣金(level=3)`, !!fromL3_3.find(c => c.beneficiary_id === root.id && c.currency === 'USDC' && c.level === 3))
+    ok(`l3_3(PHP+USDT+USDC) 产生 3 条佣金`, fromL3_3.length === 3, fromL3_3.length)
+    ok(`l3_3 root 收到 PHP 佣金(level=3)`, !!fromL3_3.find(c => c.beneficiary_id === root.id && c.currency === 'PHP' && c.level === 3))
 
-    // php_equivalent_cents 应非零（汇率服务正常时）
-    const nonPhpComms = commissions.filter(c => c.currency !== 'PHP')
-    const phpEquivSet = nonPhpComms.filter(c => Number(c.php_equivalent_cents) !== 0)
-    ok(`非PHP佣金的 php_equivalent_cents 已填充(${phpEquivSet.length}/${nonPhpComms.length})`,
-       phpEquivSet.length === nonPhpComms.length, `${phpEquivSet.length}/${nonPhpComms.length}`)
+    // currency_breakdown 应记录多币种明细
+    const l3_3Root = fromL3_3.find(c => c.beneficiary_id === root.id && c.level === 3)
+    const breakdown = l3_3Root?.currency_breakdown ? JSON.parse(l3_3Root.currency_breakdown) : []
+    const bkCurrencies = [...new Set(breakdown.map((b) => b.currency))]
+    ok(`l3_3 root commission breakdown 含3种币种明细`, bkCurrencies.length === 3, bkCurrencies.join(','))
+
+    // php_equivalent_cents 应非零（所有佣金已折算）
+    ok(`所有佣金 php_equivalent_cents 非零`, commissions.every(c => Number(c.php_equivalent_cents) > 0))
 
     // ── 8. 汇总打印 ───────────────────────────────────────────────────────────
     log('── root(BG-10001) 收到的所有佣金 ──────────────────────')
