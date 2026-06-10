@@ -206,3 +206,17 @@ html.light .amber-card-bg {
 .font-display {
   font-family: var(--font-display);
 }
+
+@keyframes turnover-shake {
+  0%   { transform: translateX(0) }
+  15%  { transform: translateX(-5px) }
+  35%  { transform: translateX(5px) }
+  50%  { transform: translateX(-4px) }
+  65%  { transform: translateX(4px) }
+  80%  { transform: translateX(-2px) }
+  90%  { transform: translateX(2px) }
+  100% { transform: translateX(0) }
+}
+.turnover-shake {
+  animation: turnover-shake 0.45s ease-in-out;
+}
