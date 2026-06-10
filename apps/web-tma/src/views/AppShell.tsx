@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ChevronDown, Wallet, Gift, Home, Menu, Dices, Check } from 'lucide-react'
+import { ChevronDown, Wallet, Gift, Home, Menu, Dices, Check, Search } from 'lucide-react'
 import BetogoLogo from '@/components/BetogoLogo'
 import WalletModal from '@/components/wallet/WalletModal'
 import SearchOverlay from '@/components/search/SearchOverlay'
@@ -209,6 +209,14 @@ export default function AppShell() {
 
             <button
               type="button"
+              className="flex-shrink-0 flex h-9 w-9 items-center justify-center rounded-full bg-secondary text-muted-foreground hover:text-foreground hover:bg-white/10 active:scale-95 transition-all"
+              onClick={openSearch}
+            >
+              <Search size={18} />
+            </button>
+
+            <button
+              type="button"
               className="relative flex-shrink-0 flex h-9 w-9 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg shadow-amber-500/30 hover:bg-yellow-400 active:scale-95 transition-all"
               onClick={openCs}
             >
@@ -296,7 +304,7 @@ export default function AppShell() {
           {view.type === 'none' && activeNav === 'bingo' && <BingoPage onOpenWallet={() => void openWallet()} onGameTap={() => void onGameTap()} onOpenGame={(url) => setGamePlayerUrl(url)} onOpenCategoryLobby={openCategoryLobby} />}
           {view.type === 'none' && activeNav === 'menu' && <MenuPage onOpenCs={openCs} onLogin={() => void auth.ensureLoggedIn(t('auth.signInProfile'))} onLogout={onLogout} onOpenBetHistory={openBetHistory} />}
           {view.type === 'none' && activeNav === 'casino' && (
-            <HomeContent onOpenSearch={openSearch} onOpenPromo={goBonuses} onOpenCategoryLobby={openCategoryLobby} onOpenCs={openCs} onOpenGame={(url) => setGamePlayerUrl(url)} />
+            <HomeContent onOpenPromo={goBonuses} onOpenCategoryLobby={openCategoryLobby} onOpenCs={openCs} onOpenGame={(url) => setGamePlayerUrl(url)} />
           )}
         </main>
 

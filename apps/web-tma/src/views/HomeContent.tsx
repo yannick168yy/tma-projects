@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
-  Search, ChevronLeft, ChevronRight, Trophy, TrendingUp, Clock, Gamepad2,
+  ChevronLeft, ChevronRight, Trophy, TrendingUp, Clock, Gamepad2,
   Headphones, Fish, LayoutGrid, FileText, Shield, Heart, Info, X,
 } from 'lucide-react'
 import HomeCategoryShortcut from '@/components/home/HomeCategoryShortcut'
@@ -34,12 +34,12 @@ function writeLocalHistory(game: SlotGame) {
 interface CategoryLobbyParams { sortCategory?: string; sortBy?: 'weight' | 'ph_bonus'; title: string }
 
 interface Props {
-  onOpenSearch: () => void; onOpenPromo: (promo: string | null) => void
+  onOpenPromo: (promo: string | null) => void
   onOpenCategoryLobby: (params: CategoryLobbyParams) => void
   onOpenCs: () => void; onOpenGame: (url: string) => void
 }
 
-export default function HomeContent({ onOpenSearch, onOpenPromo, onOpenCategoryLobby, onOpenCs, onOpenGame }: Props) {
+export default function HomeContent({ onOpenPromo, onOpenCategoryLobby, onOpenCs, onOpenGame }: Props) {
   const { t, i18n } = useTranslation()
   const locale = i18n.language
   const promotion = usePromotionStore()
@@ -217,13 +217,6 @@ export default function HomeContent({ onOpenSearch, onOpenPromo, onOpenCategoryL
             ))}
           </div>
         </div>
-      </div>
-
-      {/* Search */}
-      <div className="flex items-center px-4 mt-4">
-        <button type="button" className="flex items-center gap-2 flex-1 px-3 py-2.5 rounded-xl bg-secondary text-muted-foreground" onClick={onOpenSearch}>
-          <Search size={14} /><span className="text-xs">{t('search.placeholder')}</span>
-        </button>
       </div>
 
       {/* Game History */}
