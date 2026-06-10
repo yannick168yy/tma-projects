@@ -233,7 +233,7 @@ export default function AppShell() {
                 <circle cx="14" cy="17.6" r="0.9" fill="currentColor"/>
               </svg>
               {/* 在线状态 */}
-              <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-green-400 ring-2 ring-background" />
+              <span className="absolute top-0.5 right-0.5 h-1.5 w-1.5 rounded-full bg-green-600/70 ring-1 ring-background" />
             </button>
           </div>
 
