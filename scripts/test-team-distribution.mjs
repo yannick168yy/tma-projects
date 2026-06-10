@@ -375,7 +375,7 @@ async function main() {
     // currency_breakdown 应记录多币种明细
     const l3_3Root = fromL3_3.find(c => c.beneficiary_id === root.id && c.level === 3)
     const rawBk = l3_3Root?.currency_breakdown
-    const breakdown: { currency: string }[] = !rawBk ? [] : (Array.isArray(rawBk) ? rawBk : JSON.parse(rawBk))
+    const breakdown = !rawBk ? [] : (Array.isArray(rawBk) ? rawBk : JSON.parse(rawBk))
     const bkCurrencies = [...new Set(breakdown.map((b) => b.currency))]
     ok(`l3_3 root commission breakdown 含3种币种明细`, bkCurrencies.length === 3, bkCurrencies.join(','))
 
