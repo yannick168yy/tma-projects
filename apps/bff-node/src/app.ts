@@ -107,6 +107,11 @@ export function createApp(env: Env): Koa {
     }
     setTimeout(() => loadWithRetry(), 8_000)
 
+    // games cache 每 25 分钟刷新（TTL 30 分钟，提前续期避免 cache miss）
+    setInterval(() => {
+      loadGamesCache(env).catch((err) => log.games.error({ err }, 'cache refresh error'))
+    }, 25 * 60 * 1000)
+
     setInterval(() => {
       refreshHomepageSelection(env).catch((err) => log.homepage.error({ err }, 'refresh error'))
     }, 3 * 60 * 60 * 1000)
