@@ -62,11 +62,11 @@ done
 echo "==> [${CTR}] 创建网络 ${NET}"
 run network inspect "$NET" >/dev/null 2>&1 || run network create "$NET"
 
-echo "==> [${CTR}] MySQL betogo (limit 256m, :13306)"
+echo "==> [${CTR}] MySQL betogo (limit 512m, :13306)"
 run rm -f tma-mysql 2>/dev/null || true
 run volume create tma-mysql-data 2>/dev/null || true
 run run -d --name tma-mysql --network "$NET" --network-alias mysql --restart=always \
-  --memory=256m --memory-swap=256m \
+  --memory=512m --memory-swap=512m \
   -p 127.0.0.1:13306:3306 \
   -v tma-mysql-data:/var/lib/mysql:Z \
   -e MYSQL_ROOT_PASSWORD="${MYSQL_ROOT_PASSWORD}" \
@@ -77,7 +77,7 @@ run run -d --name tma-mysql --network "$NET" --network-alias mysql --restart=alw
   --collation-server=utf8mb4_unicode_ci \
   --default-authentication-plugin=mysql_native_password \
   --max_connections=50 \
-  --innodb_buffer_pool_size=64M \
+  --innodb_buffer_pool_size=256M \
   --performance_schema=OFF \
   --table_open_cache=200
 
@@ -152,7 +152,7 @@ run rm -f tma-bff-node 2>/dev/null || true
 run build -t betogo-bff-node:latest -f apps/bff-node/Dockerfile apps/bff-node
 run run -d --name tma-bff-node --network "$NET" --restart=always \
   "${LOG_OPTS[@]}" \
-  --memory=192m --memory-swap=192m \
+  --memory=256m --memory-swap=256m \
   -p 127.0.0.1:3000:3000 \
   -v "${DIR}/apps/bff-node/dist:/app/dist:ro" \
   -e NODE_ENV=production \
