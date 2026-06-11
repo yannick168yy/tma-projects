@@ -304,6 +304,7 @@ export async function createUserFromGoogle(
     email?: string
     displayName: string
     avatarUrl?: string
+    referredBy?: string
     registerIp?: string
     registerRegion?: string
   },
@@ -324,6 +325,9 @@ export async function createUserFromGoogle(
     email: input.email,
     displayName: input.displayName,
     avatarUrl: input.avatarUrl,
+    referredBy: input.referredBy,
+    registerIp: input.registerIp,
+    registerRegion: input.registerRegion,
     locale: 'en',
     status: 'active',
     profile: { ...defaultProfile(), email: input.email ?? '' },

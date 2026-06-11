@@ -1,4 +1,11 @@
+import { getStoredReferral } from '@/utils/referral'
+
 const STATE_KEY = 'betogo_google_oauth_state'
+
+interface OAuthState {
+  nonce: string
+  ref: string
+}
 
 export function getGoogleRedirectUri(): string {
   const configured = import.meta.env.VITE_GOOGLE_REDIRECT_URI
@@ -12,15 +19,19 @@ export function startGoogleLoginRedirect(): void {
     throw new Error('Google Client ID is not configured')
   }
 
-  const state = crypto.randomUUID()
-  localStorage.setItem(STATE_KEY, state)
+  const stateObj: OAuthState = {
+    nonce: crypto.randomUUID(),
+    ref: getStoredReferral() ?? '',
+  }
+  const stateStr = JSON.stringify(stateObj)
+  localStorage.setItem(STATE_KEY, stateStr)
 
   const params = new URLSearchParams({
     client_id: clientId,
     redirect_uri: getGoogleRedirectUri(),
     response_type: 'code',
     scope: 'openid email profile',
-    state,
+    state: stateStr,
     access_type: 'online',
     prompt: 'select_account',
   })
@@ -34,4 +45,14 @@ export function readStoredOAuthState(): string | null {
 
 export function clearStoredOAuthState(): void {
   localStorage.removeItem(STATE_KEY)
+}
+
+/** 从存储的 OAuth state JSON 中提取邀请码（可能为空字符串） */
+export function extractRefFromOAuthState(storedState: string): string {
+  try {
+    const obj = JSON.parse(storedState) as OAuthState
+    return obj.ref ?? ''
+  } catch {
+    return ''
+  }
 }

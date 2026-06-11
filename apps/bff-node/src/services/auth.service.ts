@@ -101,6 +101,7 @@ export async function loginWithGoogleCode(
   code: string,
   redirectUri: string,
   ip?: string,
+  referralCode?: string,
 ): Promise<{
   token: string
   expiresIn: number
@@ -119,12 +120,20 @@ export async function loginWithGoogleCode(
 
   try {
     const profile = await exchangeGoogleCode(env, code, redirectUri)
+
+    let referredBy: string | undefined
+    if (referralCode) {
+      const inviter = await getUserByInviteCode(redis, referralCode.toUpperCase())
+      if (inviter) referredBy = inviter.id
+    }
+
     const region = ip ? lookupRegion(ip) : undefined
     const { user, isNewUser } = await createUserFromGoogle(redis, {
       googleSub: profile.sub,
       email: profile.email,
       displayName: profile.name,
       avatarUrl: profile.picture,
+      referredBy,
       registerIp: ip,
       registerRegion: region,
     })

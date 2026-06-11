@@ -39,7 +39,7 @@ router.post('/telegram', async (ctx) => {
 })
 
 router.post('/google', async (ctx) => {
-  const body = ctx.request.body as { code?: string; redirectUri?: string }
+  const body = ctx.request.body as { code?: string; redirectUri?: string; referralCode?: string }
   if (!body.code || !body.redirectUri) {
     fail(ctx, 400, 'code and redirectUri are required')
     return
@@ -52,6 +52,7 @@ router.post('/google', async (ctx) => {
       body.code,
       body.redirectUri,
       ip,
+      body.referralCode,
     )
     ok(ctx, {
       token: result.token,

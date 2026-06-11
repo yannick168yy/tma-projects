@@ -146,6 +146,7 @@ export async function createUserFromGoogle(
     email?: string
     displayName: string
     avatarUrl?: string
+    referredBy?: string
     registerIp?: string
     registerRegion?: string
   },

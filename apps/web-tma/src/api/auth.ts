@@ -61,13 +61,14 @@ export function loginWithGoogleRedirect(): void {
   startGoogleLoginRedirect()
 }
 
-export async function completeGoogleLogin(code: string, redirectUri?: string): Promise<AuthSession> {
+export async function completeGoogleLogin(code: string, redirectUri?: string, referralCode?: string): Promise<AuthSession> {
   if (useMock) return mock.mockGoogleLogin()
   return apiRequest<AuthSession>('/auth/google', {
     method: 'POST',
     body: JSON.stringify({
       code,
       redirectUri: redirectUri ?? getGoogleRedirectUri(),
+      referralCode: referralCode || undefined,
     }),
   })
 }

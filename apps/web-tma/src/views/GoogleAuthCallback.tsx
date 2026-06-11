@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Loader2 } from 'lucide-react'
 import BetogoLogo from '@/components/BetogoLogo'
 import { completeGoogleLogin } from '@/api/auth'
-import { clearStoredOAuthState, getGoogleRedirectUri, readStoredOAuthState } from '@/utils/googleOAuth'
+import { clearStoredOAuthState, extractRefFromOAuthState, getGoogleRedirectUri, readStoredOAuthState } from '@/utils/googleOAuth'
 import { useAuthStore } from '@/stores/auth'
 
 export default function GoogleAuthCallback() {
@@ -18,11 +18,13 @@ export default function GoogleAuthCallback() {
 
     if (oauthError) { setLoading(false); setError(`Google sign-in failed (${oauthError}).`); return }
     if (!code) { setLoading(false); setError('Missing authorization code from Google.'); return }
-    if (state !== readStoredOAuthState()) {
+    const storedState = readStoredOAuthState()
+    if (state !== storedState) {
       setLoading(false); clearStoredOAuthState(); setError('Invalid OAuth state. Please sign in again.'); return
     }
 
-    completeGoogleLogin(code, getGoogleRedirectUri())
+    const referralCode = storedState ? extractRefFromOAuthState(storedState) : ''
+    completeGoogleLogin(code, getGoogleRedirectUri(), referralCode || undefined)
       .then((session) => {
         applySession(session)
         clearStoredOAuthState()
