@@ -210,7 +210,7 @@ export default function TeamReferralConfig() {
             value={dayjs(settleDate)}
             allowClear={false}
             style={{ width: 160 }}
-            disabledDate={(d) => d.isAfter(dayjs().subtract(1, 'day'))}
+            disabledDate={(d) => d.isAfter(dayjs(), 'day')}
             onChange={(val) => { if (val) setSettleDate(val.format('YYYY-MM-DD')) }}
           />
           <Checkbox checked={forceSettle} onChange={(e) => setForceSettle(e.target.checked)}>
