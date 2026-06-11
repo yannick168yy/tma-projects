@@ -11,7 +11,7 @@ import { getPhpRate } from '../services/exchange-rate.service.js'
 const PHT_OFFSET_MS = 8 * 60 * 60 * 1000
 
 // 共用：首充激活
-async function tryActivateTeamNode(
+export async function tryActivateTeamNode(
   conn: PoolConnection,
   userId: string,
   creditedCents: number,
