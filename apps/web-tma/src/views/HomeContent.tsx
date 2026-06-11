@@ -19,17 +19,7 @@ import { useWalletStore } from '@/stores/wallet'
 import { localizedGameName } from '@/utils/game'
 
 const INFO_ICONS: Record<string, React.ComponentType<{ size: number; className?: string }>> = { terms: FileText, privacy: Shield, responsible: Heart, about: Info }
-const HISTORY_STORAGE_KEY = 'betogo_game_history'
-const HISTORY_MAX = 10
-
-function readLocalHistory(): GameHistoryItem[] { try { const r = localStorage.getItem(HISTORY_STORAGE_KEY); return r ? JSON.parse(r) as GameHistoryItem[] : [] } catch { return [] } }
-function writeLocalHistory(game: SlotGame) {
-  try {
-    const existing = readLocalHistory().filter((g) => g.uuid !== game.uuid)
-    const updated: GameHistoryItem[] = [{ uuid: game.uuid, name: game.name, nameId: game.nameId, nameVi: game.nameVi, nameZh: game.nameZh, provider: game.provider, imageUrl: game.imageUrl, imageHqUrl: game.imageHqUrl, lastPlayedAt: new Date().toISOString() }, ...existing].slice(0, HISTORY_MAX)
-    localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(updated))
-  } catch { /**/ }
-}
+import { readLocalHistory, writeLocalHistory } from '@/utils/game-history'
 
 interface CategoryLobbyParams { sortCategory?: string; sortBy?: 'weight' | 'ph_bonus'; title: string }
 
