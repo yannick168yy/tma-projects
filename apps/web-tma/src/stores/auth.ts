@@ -101,6 +101,7 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
     if (session.isNewUser) {
       localStorage.setItem('betogo_seen', '1')
       clearStoredReferral()
+      useWalletStore.getState().setActiveCurrency('PHP')
     }
   },
 
