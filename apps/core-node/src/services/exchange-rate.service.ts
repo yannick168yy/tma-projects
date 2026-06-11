@@ -4,13 +4,20 @@ import { env } from '../config/env.js'
 let cachedRates: Record<string, number> | null = null
 let cacheExpiry = 0
 
+// Testnet 币种映射到对应主网，使汇率保持一致
+const TESTNET_TO_MAINNET: Record<string, string> = {
+  TRX_TESTNET: 'TRX',
+  TLK_TESTNET: 'TRX',
+}
+
 // 返回 1单位指定货币 → PHP 的汇率
 // 例：getPhpRate('EUR') → 62.5 表示 1 EUR = 62.5 PHP
 export async function getPhpRate(currency: string): Promise<number> {
   if (currency === 'PHP') return 1
 
+  const key = TESTNET_TO_MAINNET[currency.toUpperCase()] ?? currency.toUpperCase()
   const rates = await fetchRates()
-  return rates[currency.toUpperCase()] ?? fallbackRate(currency)
+  return rates[key] ?? fallbackRate(key)
 }
 
 // 返回多个货币的 PHP 汇率 Map
@@ -52,7 +59,6 @@ function buildFallback(): Record<string, number> {
     USDT: env.USDT_TO_PHP_RATE,
     USDC: env.USDT_TO_PHP_RATE,
     TRX: env.TRX_TO_PHP_RATE,
-    TRX_TESTNET: env.TRX_TO_PHP_RATE,
     BNB: env.BNB_TO_PHP_RATE,
     ETH: env.ETH_TO_PHP_RATE,
     BTC: env.BTC_TO_PHP_RATE,
@@ -63,7 +69,7 @@ function fallbackRate(currency: string): number {
   const upper = currency.toUpperCase()
   if (upper === 'EUR') return env.EUR_TO_PHP_RATE
   if (upper === 'USD' || upper === 'USDT' || upper === 'USDC') return env.USDT_TO_PHP_RATE
-  if (upper === 'TRX' || upper === 'TRX_TESTNET') return env.TRX_TO_PHP_RATE
+  if (upper === 'TRX') return env.TRX_TO_PHP_RATE
   if (upper === 'BNB') return env.BNB_TO_PHP_RATE
   if (upper === 'ETH') return env.ETH_TO_PHP_RATE
   if (upper === 'BTC') return env.BTC_TO_PHP_RATE
