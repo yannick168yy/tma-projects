@@ -120,6 +120,15 @@ export default function WalletModal({ open, onClose }: Props) {
   useEffect(() => { if(tab==='history')void loadHistory() }, [tab])
 
   useEffect(() => {
+    if (tab !== 'withdraw' || !selectedMethod) return
+    const allFiltered = [...filteredFiatWithdraw, ...filteredCryptoWithdraw]
+    if (!allFiltered.some((m) => m.id === selectedMethod)) {
+      setSelectedMethod(null)
+      setWithdrawMessage('')
+    }
+  }, [activeCurrency])
+
+  useEffect(() => {
     if (tab !== 'withdraw') return
     setTurnoverLoading(true)
     fetchTurnoverProgress(activeCurrency)
@@ -160,6 +169,14 @@ export default function WalletModal({ open, onClose }: Props) {
   const isTgWallet = selectedMethod?.startsWith('tg_wallet') ?? false
   const isYfPay = (selectedMethod ?? '').startsWith('yfpay_')
   const isTonConnect = selectedPayMethod?.channelId === 'ton_connect'
+  const filteredFiatWithdraw = useMemo(
+    () => FIAT_WITHDRAW.filter((m) => !m.currency || m.currency === activeCurrency),
+    [activeCurrency],
+  )
+  const filteredCryptoWithdraw = useMemo(
+    () => CRYPTO_WITHDRAW.filter((m) => !m.currency || m.currency === activeCurrency),
+    [activeCurrency],
+  )
   const isFiatWithdraw = FIAT_WITHDRAW.some((m) => m.id === selectedMethod)
   const isMatrixWithdraw = selectedPayMethod?.channelId === 'matrix' && tab === 'withdraw'
   const isCryptoMethod = /usdt|ton|btc|eth|bnb/.test(selectedMethod ?? '') && !isTgWallet
@@ -452,8 +469,9 @@ export default function WalletModal({ open, onClose }: Props) {
                           </div>
                         )
                       ) : null}
-                      <div><p className="text-muted-foreground text-[11px] font-bold uppercase tracking-wider mb-2.5">{t('wallet.fiatSection')}</p><PayMethodGrid methods={FIAT_WITHDRAW} selected={selectedMethod} onSelect={onSelectWithdrawMethod} /></div>
-                      <div><p className="text-muted-foreground text-[11px] font-bold uppercase tracking-wider mb-2.5">{t('wallet.cryptoSection')}</p><PayMethodGrid methods={CRYPTO_WITHDRAW} selected={selectedMethod} onSelect={onSelectWithdrawMethod} /></div>
+                      {filteredFiatWithdraw.length > 0 && <div><p className="text-muted-foreground text-[11px] font-bold uppercase tracking-wider mb-2.5">{t('wallet.fiatSection')}</p><PayMethodGrid methods={filteredFiatWithdraw} selected={selectedMethod} onSelect={onSelectWithdrawMethod} /></div>}
+                      {filteredCryptoWithdraw.length > 0 && <div><p className="text-muted-foreground text-[11px] font-bold uppercase tracking-wider mb-2.5">{t('wallet.cryptoSection')}</p><PayMethodGrid methods={filteredCryptoWithdraw} selected={selectedMethod} onSelect={onSelectWithdrawMethod} /></div>}
+                      {filteredFiatWithdraw.length === 0 && filteredCryptoWithdraw.length === 0 && <p className="text-center text-sm text-muted-foreground py-8">{t('wallet.noWithdrawMethodsForCurrency', { currency: activeCurrency })}</p>}
                     </>
                   )}
                 </div>

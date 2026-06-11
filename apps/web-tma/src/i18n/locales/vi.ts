@@ -527,6 +527,7 @@ export default {
     promoTrial: 'Thưởng Thử',
     promoReferral: 'Thưởng Giới Thiệu',
     promoFirstdep: 'Thưởng Nạp Đầu',
+    noWithdrawMethodsForCurrency: 'Không có phương thức rút tiền cho {{currency}}.',
   },
   slots: {
     sectionTitle: 'GAME SLOT',

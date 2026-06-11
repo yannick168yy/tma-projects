@@ -92,15 +92,15 @@ export const CRYPTO_DEPOSIT: PayMethod[] = [
 ]
 
 export const FIAT_WITHDRAW: PayMethod[] = [
-  { id: 'gcash-w', name: 'GCash', icon: '', iconUrl: '/logos/gcash.svg', color: 'from-blue-500 to-blue-700', tag: 'Instant' },
-  { id: 'maya-w', name: 'Maya', icon: '', iconUrl: '/logos/maya.svg', color: 'from-green-500 to-emerald-600', tag: 'Instant' },
+  { id: 'gcash-w', name: 'GCash', icon: '', iconUrl: '/logos/gcash.svg', color: 'from-blue-500 to-blue-700', tag: 'Instant', currency: 'PHP' },
+  { id: 'maya-w', name: 'Maya', icon: '', iconUrl: '/logos/maya.svg', color: 'from-green-500 to-emerald-600', tag: 'Instant', currency: 'PHP' },
 ]
 
 export const CRYPTO_WITHDRAW: PayMethod[] = [
-  { id: 'usdt-trc-w', name: 'USDT', icon: '', iconUrl: '/logos/usdt.svg', color: 'from-teal-500 to-emerald-600', tag: 'TRC20' },
-  { id: 'usdt-erc-w', name: 'USDT', icon: '', iconUrl: '/logos/usdt.svg', color: 'from-indigo-500 to-blue-700', tag: 'ERC20' },
-  { id: 'ton-w', name: 'TON', icon: '', iconUrl: '/logos/ton.svg', color: 'from-sky-400 to-blue-600', tag: 'TON' },
-  { id: 'btc-w', name: 'Bitcoin', icon: '', iconUrl: '/logos/btc.svg', color: 'from-orange-400 to-amber-600', tag: 'BTC' },
+  { id: 'usdt-trc-w', name: 'USDT', icon: '', iconUrl: '/logos/usdt.svg', color: 'from-teal-500 to-emerald-600', tag: 'TRC20', currency: 'USDT' },
+  { id: 'usdt-erc-w', name: 'USDT', icon: '', iconUrl: '/logos/usdt.svg', color: 'from-indigo-500 to-blue-700', tag: 'ERC20', currency: 'USDT' },
+  { id: 'ton-w', name: 'TON', icon: '', iconUrl: '/logos/ton.svg', color: 'from-sky-400 to-blue-600', tag: 'TON', currency: 'TON' },
+  { id: 'btc-w', name: 'Bitcoin', icon: '', iconUrl: '/logos/btc.svg', color: 'from-orange-400 to-amber-600', tag: 'BTC', currency: 'BTC' },
   {
     id: 'matrix_tlk_testnet_w',
     name: 'TLK_TESTNET',
@@ -110,6 +110,7 @@ export const CRYPTO_WITHDRAW: PayMethod[] = [
     tag: 'Test',
     enabled: true,
     channelId: 'matrix',
+    currency: 'TLK_TESTNET',
     matrixSymbol: 'TLK_TESTNET',
     matrixChain: 'TRON_SHASTA',
   },
@@ -122,6 +123,7 @@ export const CRYPTO_WITHDRAW: PayMethod[] = [
     tag: 'Test',
     enabled: true,
     channelId: 'matrix',
+    currency: 'TRX_TESTNET',
     matrixSymbol: 'TRX_TESTNET',
     matrixChain: 'TRON_SHASTA',
   },

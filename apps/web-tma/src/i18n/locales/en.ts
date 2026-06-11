@@ -538,6 +538,7 @@ export default {
     promoTrial: 'Trial Bonus',
     promoReferral: 'Referral Bonus',
     promoFirstdep: 'First Deposit Bonus',
+    noWithdrawMethodsForCurrency: 'No withdrawal methods available for {{currency}}.',
   },
   slots: {
     sectionTitle: 'CASINO SLOTS',

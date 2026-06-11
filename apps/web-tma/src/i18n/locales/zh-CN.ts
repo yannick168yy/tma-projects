@@ -534,6 +534,7 @@ export default {
     promoTrial: '首席体验官',
     promoReferral: '邀请共赢',
     promoFirstdep: '首充嘉年华',
+    noWithdrawMethodsForCurrency: '当前货币 {{currency}} 暂无可用提现方式。',
   },
   slots: {
     sectionTitle: '老虎机游戏',

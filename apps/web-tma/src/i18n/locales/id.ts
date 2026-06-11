@@ -524,6 +524,7 @@ export default {
     turnoverRemaining: 'Masih dibutuhkan',
     turnoverDeposit: 'Deposit',
     turnoverPromo: 'Bonus',
+    noWithdrawMethodsForCurrency: 'Tidak ada metode penarikan untuk {{currency}}.',
   },
   slots: {
     sectionTitle: 'GAME SLOT',
