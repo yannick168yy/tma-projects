@@ -33,9 +33,9 @@ router.get('/status', async (ctx) => {
       isAgent: false, activated: false, l1Count: 0, l2Count: 0, l3Count: 0,
       availableCents: 0, lifetimeEarnedCents: 0,
       ratePlan: {
-        l1RatePct: Number(defaultPlan[0]?.l1_rate_pct ?? 25),
-        l2RatePct: Number(defaultPlan[0]?.l2_rate_pct ?? 8),
-        l3RatePct: Number(defaultPlan[0]?.l3_rate_pct ?? 3),
+        l1RatePct: Number(defaultPlan[0]?.l1_rate_pct ?? 0.6),
+        l2RatePct: Number(defaultPlan[0]?.l2_rate_pct ?? 0.3),
+        l3RatePct: Number(defaultPlan[0]?.l3_rate_pct ?? 0.2),
       },
     })
     return
@@ -43,9 +43,9 @@ router.get('/status', async (ctx) => {
 
   // 用户自己绑定的套餐（若无则用默认）
   let ratePlan = {
-    l1RatePct: Number(defaultPlan[0]?.l1_rate_pct ?? 25),
-    l2RatePct: Number(defaultPlan[0]?.l2_rate_pct ?? 8),
-    l3RatePct: Number(defaultPlan[0]?.l3_rate_pct ?? 3),
+    l1RatePct: Number(defaultPlan[0]?.l1_rate_pct ?? 0.6),
+    l2RatePct: Number(defaultPlan[0]?.l2_rate_pct ?? 0.3),
+    l3RatePct: Number(defaultPlan[0]?.l3_rate_pct ?? 0.2),
   }
   if (node[0].rate_plan_id) {
     const [[plan]] = await db.query<RowDataPacket[]>(
@@ -309,9 +309,9 @@ router.get('/tree', async (ctx) => {
     if (plan) userPlan = plan
   }
   const rates = [0,
-    Number(userPlan?.l1_rate_pct ?? 25),
-    Number(userPlan?.l2_rate_pct ?? 8),
-    Number(userPlan?.l3_rate_pct ?? 3),
+    Number(userPlan?.l1_rate_pct ?? 0.6),
+    Number(userPlan?.l2_rate_pct ?? 0.3),
+    Number(userPlan?.l3_rate_pct ?? 0.2),
   ]
 
   function turnoverSub(levelCol: string) {
