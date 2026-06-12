@@ -245,6 +245,13 @@ const [gamesLoading, setGamesLoading] = useState(true)
   return (
     <div className="page-main">
       {/* Category shortcuts */}
+      {/* 优惠菜单 */}
+      <div className="category-shortcut-row flex gap-3 px-4 pb-2 pt-1.5 overflow-x-auto hide-scrollbar">
+        {CATEGORIES.map((c) => (
+          <HomeCategoryShortcut key={c.id} category={c} onClick={() => onOpenPromo(c.promo)} />
+        ))}
+      </div>
+
       {/* Banner carousel */}
       <div className="px-4">
         <div className="relative h-56 overflow-hidden rounded-2xl">
@@ -282,13 +289,6 @@ const [gamesLoading, setGamesLoading] = useState(true)
             ))}
           </div>
         </div>
-      </div>
-
-      {/* 优惠菜单 */}
-      <div className="category-shortcut-row flex gap-3 px-4 pb-2 pt-3 overflow-x-auto hide-scrollbar">
-        {CATEGORIES.map((c) => (
-          <HomeCategoryShortcut key={c.id} category={c} onClick={() => onOpenPromo(c.promo)} />
-        ))}
       </div>
 
       {/* Game type chip 条 — 实物 emoji 无底色 */}
