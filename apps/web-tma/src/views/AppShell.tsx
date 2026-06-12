@@ -104,9 +104,16 @@ export default function AppShell() {
     return () => ro.disconnect()
   }, [])
 
+  // 供子页面 sticky 使用
+  useEffect(() => {
+    document.documentElement.style.setProperty('--app-header-height', `${headerH}px`)
+  }, [headerH])
+
   const mainStyle = useMemo(() => {
     const top = `${headerH}px`
-    if (overlay.is('teamCenter') || overlay.is('betHistory')) return { paddingTop: top, paddingBottom: '0', height: `calc(100dvh - ${headerH}px)`, maxHeight: `calc(100dvh - ${headerH}px)`, overflowY: 'hidden' as const }
+    // betHistory 保留内部滚动（独立全屏体验）
+    if (overlay.is('betHistory')) return { paddingTop: top, paddingBottom: '0', height: `calc(100dvh - ${headerH}px)`, maxHeight: `calc(100dvh - ${headerH}px)`, overflowY: 'hidden' as const }
+    // teamCenter / referralPromo / 普通页面均使用 document scroll
     return { paddingTop: top, paddingBottom: `${navH}px` }
   }, [headerH, navH, overlay])
 
@@ -150,9 +157,9 @@ export default function AppShell() {
   }
 
   function openCs() { overlay.close(); setWalletOpen(false); setCsOpen(true) }
-  function openTeamCenter() { setWalletOpen(false); overlay.openTeamCenter() }
+  function openTeamCenter() { setWalletOpen(false); overlay.openTeamCenter(); window.scrollTo({ top: 0, behavior: 'instant' }) }
   function openBetHistory() { setWalletOpen(false); overlay.openBetHistory() }
-  function openReferralPromo() { setWalletOpen(false); overlay.openReferralPromo() }
+  function openReferralPromo() { setWalletOpen(false); overlay.openReferralPromo(); window.scrollTo({ top: 0, behavior: 'instant' }) }
   function onLogout() { overlay.close(); setWalletOpen(false); setWalletModalOpen(false) }
 
   const navItems = useMemo(() => NAV_ITEMS.map((item) => ({ ...item, label: t(`nav.${item.id}`) })), [t])

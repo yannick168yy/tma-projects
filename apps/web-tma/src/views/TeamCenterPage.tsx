@@ -251,7 +251,7 @@ export default function TeamCenterPage() {
   }, [guideOpen, t, teamStatus?.ratePlan])
 
   return (
-    <div className="h-full bg-background flex flex-col overflow-hidden">
+    <div className="bg-background flex flex-col">
 
       {/* ── 邀请码区 ── */}
       <div className="px-4 py-4 amber-hero-bg border-b border-border flex-shrink-0">
@@ -267,8 +267,9 @@ export default function TeamCenterPage() {
         </div>
       </div>
 
-      {/* ── L1/L2/L3 人数 + 月份导航 ── */}
-      <div className="flex items-center px-4 py-2.5 border-b border-border flex-shrink-0 gap-4">
+      {/* ── L1/L2/L3 人数 + 月份导航 + Tab 栏（sticky，吸在 AppShell header 下）── */}
+      <div className="sticky z-20 bg-background" style={{ top: 'var(--app-header-height)' }}>
+      <div className="flex items-center px-4 py-2.5 border-b border-border gap-4">
         <div className="flex gap-5">
           {([1, 2, 3] as const).map((lvl) => (
             <div key={lvl} className="text-center">
@@ -306,7 +307,7 @@ export default function TeamCenterPage() {
       </div>
 
       {/* ── Tab 栏 ── */}
-      <div className="flex border-b border-border flex-shrink-0">
+      <div className="flex border-b border-border">
         {tabs.map(({ id, label, Icon }) => (
           <button key={id} type="button"
             className={`flex-1 flex flex-col items-center gap-0.5 py-2.5 text-[10px] font-bold transition-colors ${activeTab === id ? 'text-amber-400 border-b-2 border-amber-400 -mb-px' : 'text-muted-foreground'}`}
@@ -315,9 +316,10 @@ export default function TeamCenterPage() {
           </button>
         ))}
       </div>
+      </div>{/* end sticky wrapper */}
 
-      {/* ── 内容区 ── */}
-      <div className="flex-1 min-h-0 overflow-y-auto page-scroll">
+      {/* ── 内容区（document scroll）── */}
+      <div className="min-h-0">
 
         {/* ══ 团队收益 Tab ══ */}
         {activeTab === 'earnings' && (
@@ -509,6 +511,7 @@ export default function TeamCenterPage() {
             </div>
           </>
         )}
+        <div className="h-4" />{/* 底部留白 */}
       </div>
 
       {/* ── 三级分销机制说明 ── */}
