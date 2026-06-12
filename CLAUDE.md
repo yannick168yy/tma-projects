@@ -52,8 +52,8 @@ bash deploy/single-node/deploy-web-tma.sh
 
 ### 幂等性
 - 新迁移文件命名：`infra/database/betogo/00N_描述.sql`
-- 迁移脚本每次部署都会重跑所有 SQL 文件，**没有"只跑一次"的保护**
-- 所有 DDL 操作必须幂等：`CREATE TABLE IF NOT EXISTS`、`ALTER TABLE` 用 `information_schema` 条件判断
+- 部署脚本通过 `schema_migrations` 表记录已执行版本，**每个文件只执行一次**
+- 新文件直接写即可，DDL 操作无需额外幂等处理（执行成功后版本号入库，不会重跑）
 
 ### 🚫 禁止在迁移文件中写以下语句（无论是否加注释说明"仅测试"）
 - `TRUNCATE TABLE <任何业务表>`

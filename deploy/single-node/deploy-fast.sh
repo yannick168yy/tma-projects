@@ -38,20 +38,55 @@ run_db_migrations() {
 cd /root/workspace/tma-projects
 DB_USER=$(grep -m1 '^MYSQL_USER=' .env 2>/dev/null | cut -d= -f2- | tr -d "\"'")
 DB_PASS=$(grep -m1 '^MYSQL_PASSWORD=' .env 2>/dev/null | cut -d= -f2- | tr -d "\"'")
-# .env 可能有多行 MYSQL_DATABASE，取最后一行（bff-node dotenv 行为一致）
 DB_NAME=$(grep '^MYSQL_DATABASE=' .env 2>/dev/null | tail -1 | cut -d= -f2- | tr -d "\"'"); DB_NAME=${DB_NAME:-betogo}
 CTR=$(command -v podman >/dev/null 2>&1 && echo podman || echo docker)
+
+# 辅助：静默查询（返回裸值，屏蔽密码警告）
+mq() { $CTR exec tma-mysql mysql -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -sN -e "$1" 2>/dev/null; }
+# 辅助：执行语句（屏蔽密码警告）
+me() { $CTR exec tma-mysql mysql -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -e "$1" 2>/dev/null; }
+
+# 1. 确保迁移记录表存在
+me "CREATE TABLE IF NOT EXISTS schema_migrations (
+  version     VARCHAR(64) NOT NULL,
+  executed_at DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (version)
+)"
+
+# 2. 首次引入版本记录：若表为空且 bg_user 已存在（已有库），把现有文件全部标记为已执行
+MC=$(mq "SELECT COUNT(*) FROM schema_migrations")
+BG=$(mq "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='bg_user'")
+if [ "${MC:-0}" -eq 0 ] && [ "${BG:-0}" -gt 0 ]; then
+  echo "  [db] 已有数据库，初始化迁移版本记录..."
+  for f in $(ls infra/database/betogo/[0-9]*.sql 2>/dev/null | sort); do
+    ver=$(basename "$f" .sql)
+    me "INSERT IGNORE INTO schema_migrations (version) VALUES ('$ver')"
+  done
+  echo "  [db] 已标记 $(mq 'SELECT COUNT(*) FROM schema_migrations') 个迁移为已执行"
+fi
+
+# 3. 只执行尚未记录的迁移文件
+SKIP=0
 for f in $(ls infra/database/betogo/[0-9]*.sql 2>/dev/null | sort); do
   [ -f "$f" ] || continue
+  ver=$(basename "$f" .sql)
+  done=$(mq "SELECT COUNT(*) FROM schema_migrations WHERE version='$ver'")
+  if [ "${done:-0}" -gt 0 ]; then
+    SKIP=$((SKIP+1))
+    continue
+  fi
   OUT=$($CTR exec -i tma-mysql \
     mysql --default-character-set=utf8mb4 -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" < "$f" 2>&1)
   RC=$?
   if [ $RC -eq 0 ]; then
+    me "INSERT INTO schema_migrations (version) VALUES ('$ver')"
     echo "  ran: $f"
   else
-    echo "  failed(rc=$RC): $f — $OUT"
+    echo "  failed: $f — $(echo "$OUT" | grep -v Warning)"
+    exit 1
   fi
 done
+[ "$SKIP" -gt 0 ] && echo "  [db] 跳过 $SKIP 个已执行迁移"
 REMOTE
 }
 
