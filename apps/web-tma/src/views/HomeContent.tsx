@@ -246,7 +246,7 @@ const [gamesLoading, setGamesLoading] = useState(true)
     <div className="page-main">
       {/* Category shortcuts */}
       {/* 优惠菜单 */}
-      <div className="category-shortcut-row flex gap-1.5 px-4 pb-2 pt-1.5 overflow-x-auto hide-scrollbar">
+      <div className="category-shortcut-row flex gap-3 px-4 pb-2 pt-1.5 overflow-x-auto hide-scrollbar">
         {CATEGORIES.map((c) => (
           <HomeCategoryShortcut key={c.id} category={c} onClick={() => onOpenPromo(c.promo)} />
         ))}
