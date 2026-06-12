@@ -274,3 +274,12 @@ export const MENU_DATA: MenuSection[] = [
     ],
   },
 ]
+
+/** menu 中全部 theme 筛选值（搜索/标签多语言） */
+export const ALL_THEME_SLUGS: string[] = [
+  ...new Set(
+    MENU_DATA.find((s) => s.id === 'theme')?.subcats
+      .filter((sc) => sc.filterType === 'themes')
+      .flatMap((sc) => sc.filterValues) ?? [],
+  ),
+]

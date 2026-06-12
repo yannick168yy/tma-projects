@@ -1,4 +1,25 @@
-// theme 字段 → 标签文字 + 颜色 [bg, fg]
+import type { TFunction } from 'i18next'
+import { i18n } from '@/i18n'
+import { resolveThemeLocale, translateThemeSlug } from '@/i18n/themeSlugI18n'
+
+// theme 字段 → 颜色 [bg, fg]
+export const GAME_THEME_SLUGS = [
+  'fortune', 'asian-fortune', 'fortune-gems', 'luck', 'lucky', 'jackpot', 'money', 'treasure', 'gold', 'luxury',
+  'fantasy', 'magic', 'mystery', 'mythology', 'greek-mythology', 'norse-mythology', 'asian-mythology', 'legend', 'wizard', 'fairy', 'fairy-tale', 'mystical',
+  'adventure', 'sci-fi', 'space', 'space-adventure', 'futuristic', 'ocean', 'underwater', 'nautical', 'pirate',
+  'nature', 'fishing', 'jungle', 'safari', 'farm', 'farming', 'wildlife',
+  'horror', 'action', 'war', 'battle', 'fighting', 'military', 'sports', 'racing',
+  'dragon', 'dragon-tiger', 'asian', 'asian-culture', 'mahjong', 'samurai', 'ninja',
+  'classic', 'retro', 'vintage', 'western', 'joker',
+  'carnival', 'fiesta', 'fiesta-fortune', 'party', 'festival', 'circus', 'candy',
+  'fruit', 'food', 'sweet', 'sweets',
+  'egyptian', 'ancient-egypt', 'ancient', 'aztec', 'mayan',
+  'animals', 'animal', 'tiger',
+  'dice', 'card', 'card-game', 'poker', 'bingo', 'keno', 'lottery', 'roulette', 'baccarat', 'teenpatti',
+  'christmas', 'halloween',
+  'crime', 'heist', 'gangster', 'spy', 'mafia', 'prison',
+] as const
+
 const COLOR_MAP: Record<string, [string, string]> = {
   // 金/琥珀
   fortune:          ['#d97706', '#000'],
@@ -142,9 +163,30 @@ function hashPick(theme: string): [string, string] {
   return FALLBACK_PALETTE[h % FALLBACK_PALETTE.length]
 }
 
-export function themeTag(theme: string | null): { label: string; bg: string; fg: string } | null {
+export function themeSlugFallbackLabel(theme: string): string {
+  return theme.split(/[-_\s]+/).map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+}
+
+export function themeColors(theme: string | null): { bg: string; fg: string } | null {
   if (!theme) return null
   const [bg, fg] = COLOR_MAP[theme] ?? hashPick(theme)
-  const label = theme.replace(/-/g, ' ').toUpperCase()
-  return { label, bg, fg }
+  return { bg, fg }
+}
+
+export function localizedThemeLabel(theme: string, _t: TFunction): string {
+  const locale = resolveThemeLocale(i18n.language)
+  return translateThemeSlug(theme, locale)
+}
+
+export function localizedThemeTag(theme: string | null, t: TFunction): { label: string; bg: string; fg: string } | null {
+  const colors = themeColors(theme)
+  if (!theme || !colors) return null
+  return { label: localizedThemeLabel(theme, t), ...colors }
+}
+
+/** @deprecated 使用 localizedThemeTag */
+export function themeTag(theme: string | null): { label: string; bg: string; fg: string } | null {
+  const colors = themeColors(theme)
+  if (!theme || !colors) return null
+  return { label: theme.replace(/-/g, ' ').toUpperCase(), ...colors }
 }

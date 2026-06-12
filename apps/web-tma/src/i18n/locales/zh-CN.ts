@@ -199,6 +199,9 @@ export default {
   search: {
     placeholder: '搜索游戏…',
     allGames: '全部游戏',
+    allThemes: '全部主题',
+    expandThemes: '展开主题',
+    collapseThemes: '收起主题',
     cancel: '取消',
     resultsCount: '搜索结果 · {{count}} 款游戏',
     allCount: '全部游戏 · {{count}}',

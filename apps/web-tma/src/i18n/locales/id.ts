@@ -200,6 +200,9 @@ export default {
   search: {
     placeholder: 'Cari game…',
     allGames: 'Semua Game',
+    allThemes: 'Semua Tema',
+    expandThemes: 'Buka tema',
+    collapseThemes: 'Tutup tema',
     cancel: 'Batal',
     resultsCount: 'Hasil pencarian · {{count}} game',
     allCount: 'Semua Game · {{count}}',

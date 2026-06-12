@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ChevronLeft, Search, X, RefreshCw } from 'lucide-react'
-import { fetchGames, fetchProviders, launchGame, launchDemo, type SlotGame } from '@/api/slots'
+import { ChevronLeft, ChevronDown, ChevronUp, Search, X, RefreshCw } from 'lucide-react'
+import { fetchGames, fetchThemes, launchGame, launchDemo, type SlotGame } from '@/api/slots'
 import { ApiError } from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
 import { useWalletStore } from '@/stores/wallet'
-import { shortProviderName } from '@/utils/providers'
+import { localizedThemeLabel, themeColors } from '@/utils/theme-tag'
 import SlotGameCard from '@/components/home/SlotGameCard'
 
 interface Props {
@@ -20,9 +20,9 @@ export default function SearchOverlay({ onClose, onGameTap, onOpenGame }: Props)
   const activeCurrency = useWalletStore((s) => s.activeCurrency)
   const [query, setQuery] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
-  const [providers, setProviders] = useState<string[]>([])
-  const [selectedProvider, setSelectedProvider] = useState('all')
-  const selectedProviderRef = useRef('all')
+  const [themes, setThemes] = useState<string[]>([])
+  const [selectedTheme, setSelectedTheme] = useState('all')
+  const selectedThemeRef = useRef('all')
   const [games, setGames] = useState<SlotGame[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
@@ -30,13 +30,14 @@ export default function SearchOverlay({ onClose, onGameTap, onOpenGame }: Props)
   const [loading, setLoading] = useState(false)
   const [loadingMore, setLoadingMore] = useState(false)
   const [error, setError] = useState('')
+  const [themesExpanded, setThemesExpanded] = useState(false)
   const [launchingUuid, setLaunchingUuid] = useState<string | null>(null)
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const hasMore = page < pages
 
   const pageRef = useRef(1)
 
-  async function doSearch(q: string, provider: string, reset = true) {
+  async function doSearch(q: string, theme: string, reset = true) {
     const pageToFetch = reset ? 1 : pageRef.current + 1
     if (reset) {
       setLoading(true)
@@ -50,7 +51,7 @@ export default function SearchOverlay({ onClose, onGameTap, onOpenGame }: Props)
     try {
       const res = await fetchGames({
         search: q || undefined,
-        provider: provider !== 'all' ? provider : undefined,
+        themes: theme !== 'all' ? [theme] : undefined,
         limit: 30,
         page: pageToFetch,
       })
@@ -72,7 +73,7 @@ export default function SearchOverlay({ onClose, onGameTap, onOpenGame }: Props)
 
   useEffect(() => {
     void doSearch('', 'all')
-    void fetchProviders().then(setProviders)
+    void fetchThemes().then(setThemes)
     const id = setTimeout(() => inputRef.current?.focus(), 80)
     return () => clearTimeout(id)
   }, [])
@@ -84,7 +85,7 @@ export default function SearchOverlay({ onClose, onGameTap, onOpenGame }: Props)
     }
     if (searchTimer.current) clearTimeout(searchTimer.current)
     searchTimer.current = setTimeout(
-      () => void doSearch(query.trim(), selectedProviderRef.current, true),
+      () => void doSearch(query.trim(), selectedThemeRef.current, true),
       300,
     )
     return () => {
@@ -92,15 +93,15 @@ export default function SearchOverlay({ onClose, onGameTap, onOpenGame }: Props)
     }
   }, [query])
 
-  function selectProvider(p: string) {
-    selectedProviderRef.current = p
-    setSelectedProvider(p)
-    void doSearch(query.trim(), p, true)
+  function selectTheme(theme: string) {
+    selectedThemeRef.current = theme
+    setSelectedTheme(theme)
+    void doSearch(query.trim(), theme, true)
   }
 
   function loadMore() {
     if (loadingMore || pageRef.current >= pages) return
-    void doSearch(query.trim(), selectedProviderRef.current, false)
+    void doSearch(query.trim(), selectedThemeRef.current, false)
   }
 
   async function onPlay(uuid: string) {
@@ -117,6 +118,28 @@ export default function SearchOverlay({ onClose, onGameTap, onOpenGame }: Props)
     } finally {
       setLaunchingUuid(null)
     }
+  }
+
+  function renderThemeChip(th: string) {
+    const colors = themeColors(th)
+    const active = selectedTheme === th
+    return (
+      <button
+        key={th}
+        type="button"
+        onClick={() => selectTheme(th)}
+        className={`flex-shrink-0 px-3 py-1 rounded-full text-[10px] font-bold transition-colors ${
+          active ? 'text-primary-foreground' : 'text-foreground/70'
+        }`}
+        style={
+          active
+            ? { background: colors?.bg ?? 'var(--primary)', color: colors?.fg ?? 'var(--primary-foreground)' }
+            : { background: colors ? `${colors.bg}33` : 'var(--secondary)' }
+        }
+      >
+        {localizedThemeLabel(th, t)}
+      </button>
+    )
   }
 
   async function onDemo(uuid: string) {
@@ -159,25 +182,33 @@ export default function SearchOverlay({ onClose, onGameTap, onOpenGame }: Props)
         </div>
       </div>
 
-      {providers.length > 0 && (
-        <div className="flex gap-2 px-4 pt-3 pb-1 overflow-x-auto hide-scrollbar">
+      {themes.length > 0 && (
+        <div className="flex items-start gap-1.5 px-4 pt-3 pb-1">
+          <div
+            className={`min-w-0 flex-1 ${
+              themesExpanded ? 'max-h-36 overflow-y-auto overscroll-contain' : 'overflow-x-auto hide-scrollbar'
+            }`}
+          >
+            <div className={`flex gap-2 ${themesExpanded ? 'flex-wrap' : 'flex-nowrap w-max min-w-full'}`}>
+              <button
+                type="button"
+                onClick={() => selectTheme('all')}
+                className={`flex-shrink-0 px-3 py-1 rounded-full text-[10px] font-bold transition-colors ${selectedTheme === 'all' ? 'bg-primary text-primary-foreground' : 'bg-secondary text-foreground/70'}`}
+              >
+                {t('search.allThemes')}
+              </button>
+              {themes.map(renderThemeChip)}
+            </div>
+          </div>
           <button
             type="button"
-            onClick={() => selectProvider('all')}
-            className={`flex-shrink-0 px-3 py-1 rounded-full text-[10px] font-bold transition-colors ${selectedProvider === 'all' ? 'bg-primary text-primary-foreground' : 'bg-secondary text-foreground/70'}`}
+            aria-expanded={themesExpanded}
+            aria-label={themesExpanded ? t('search.collapseThemes') : t('search.expandThemes')}
+            onClick={() => setThemesExpanded((v) => !v)}
+            className="flex-shrink-0 flex h-7 w-7 items-center justify-center rounded-lg bg-secondary border border-border text-muted-foreground active:scale-95 transition-transform"
           >
-            All
+            {themesExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
           </button>
-          {providers.map((p) => (
-            <button
-              key={p}
-              type="button"
-              onClick={() => selectProvider(p)}
-              className={`flex-shrink-0 px-3 py-1 rounded-full text-[10px] font-bold transition-colors ${selectedProvider === p ? 'bg-primary text-primary-foreground' : 'bg-secondary text-foreground/70'}`}
-            >
-              {shortProviderName(p)}
-            </button>
-          ))}
         </div>
       )}
 

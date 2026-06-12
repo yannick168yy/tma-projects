@@ -200,6 +200,9 @@ export default {
   search: {
     placeholder: 'Tìm game…',
     allGames: 'Tất cả game',
+    allThemes: 'Tất cả chủ đề',
+    expandThemes: 'Mở rộng chủ đề',
+    collapseThemes: 'Thu gọn chủ đề',
     cancel: 'Hủy',
     resultsCount: 'Kết quả tìm kiếm · {{count}} game',
     allCount: 'Tất cả game · {{count}}',

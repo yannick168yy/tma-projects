@@ -1,7 +1,8 @@
 import { Play, Tv2 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import type { SlotGame } from '@/api/slots'
 import GameImageCard from '@/components/game/GameImageCard'
-import { themeTag } from '@/utils/theme-tag'
+import { localizedThemeTag } from '@/utils/theme-tag'
 import { useLocaleStore } from '@/stores/locale'
 import { localizedGameName } from '@/utils/game'
 
@@ -13,8 +14,9 @@ interface Props {
 }
 
 export default function SlotGameCard({ game, launching, onPlay, onDemo }: Props) {
+  const { t } = useTranslation()
   const locale = useLocaleStore((s) => s.locale)
-  const tag = themeTag(game.theme)
+  const tag = localizedThemeTag(game.theme, t)
   return (
     <div className="group relative h-44 overflow-hidden rounded-xl">
       <GameImageCard

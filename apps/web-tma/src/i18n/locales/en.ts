@@ -200,6 +200,9 @@ export default {
   search: {
     placeholder: 'Search games…',
     allGames: 'All Games',
+    allThemes: 'All Themes',
+    expandThemes: 'Expand themes',
+    collapseThemes: 'Collapse themes',
     cancel: 'Cancel',
     resultsCount: 'Search results · {{count}} games',
     allCount: 'All Games · {{count}}',

@@ -412,3 +412,16 @@ export async function listProviders(env: Env, sortCategory?: string): Promise<st
   const providers = [...new Set(games.map((g) => g.provider))].sort()
   return providers
 }
+
+/** Returns distinct theme values from cache, sorted by game count desc */
+export async function listThemes(env: Env): Promise<string[]> {
+  const games = await getGamesFromCache(env)
+  const counts = new Map<string, number>()
+  for (const g of games) {
+    if (!g.theme) continue
+    counts.set(g.theme, (counts.get(g.theme) ?? 0) + 1)
+  }
+  return [...counts.entries()]
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .map(([theme]) => theme)
+}

@@ -1,7 +1,7 @@
 import Router from '@koa/router'
 import { randomUUID } from 'node:crypto'
 import { ok, fail } from '../utils/response.js'
-import { listGames, listProviders, syncAllGames, getUserGameHistory, getHomepageSelection } from '../services/sg-game.service.js'
+import { listGames, listProviders, listThemes, syncAllGames, getUserGameHistory, getHomepageSelection } from '../services/sg-game.service.js'
 import { sgInitGame, sgInitDemo } from '../services/slotegrator.service.js'
 import { getUser } from '../services/store/index.js'
 import { isMysqlEnabled } from '../clients/mysql.client.js'
@@ -60,6 +60,21 @@ router.get('/betting-activity', (ctx) => {
     return
   }
   ok(ctx, getBettingActivity(tab as BetTab))
+})
+
+// GET /slots/themes — distinct themes from cache
+router.get('/themes', async (ctx) => {
+  const env = ctx.state.env
+  if (!isMysqlEnabled(env)) {
+    ok(ctx, [])
+    return
+  }
+  try {
+    const themes = await listThemes(env)
+    ok(ctx, themes)
+  } catch (e) {
+    fail(ctx, 500, 'Failed to list themes')
+  }
 })
 
 // GET /slots/providers?sortCategory=slots — distinct providers from cache

@@ -76,6 +76,10 @@ export function fetchProviders(sortCategory?: string): Promise<string[]> {
   return apiRequest<string[]>(`/slots/providers${qs}`)
 }
 
+export function fetchThemes(): Promise<string[]> {
+  return apiRequest<string[]>('/slots/themes')
+}
+
 export function launchGame(gameUuid: string, device: 'mobile' | 'desktop' = 'mobile', currency?: string): Promise<{ url: string }> {
   return apiRequest<{ url: string }>('/slots/init', {
     method: 'POST',
