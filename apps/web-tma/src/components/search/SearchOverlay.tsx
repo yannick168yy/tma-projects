@@ -128,7 +128,7 @@ export default function SearchOverlay({ onClose, onGameTap, onOpenGame }: Props)
         key={th}
         type="button"
         onClick={() => selectTheme(th)}
-        className={`flex-shrink-0 px-3 py-1 rounded-full text-[10px] font-bold transition-colors ${
+        className={`flex-shrink-0 px-3 py-1 rounded-full text-[11px] font-bold transition-colors ${
           active ? 'text-primary-foreground' : 'text-foreground/70'
         }`}
         style={
@@ -193,7 +193,7 @@ export default function SearchOverlay({ onClose, onGameTap, onOpenGame }: Props)
               <button
                 type="button"
                 onClick={() => selectTheme('all')}
-                className={`flex-shrink-0 px-3 py-1 rounded-full text-[10px] font-bold transition-colors ${selectedTheme === 'all' ? 'bg-primary text-primary-foreground' : 'bg-secondary text-foreground/70'}`}
+                className={`flex-shrink-0 px-3 py-1 rounded-full text-[11px] font-bold transition-colors ${selectedTheme === 'all' ? 'bg-primary text-primary-foreground' : 'bg-secondary text-foreground/70'}`}
               >
                 {t('search.allThemes')}
               </button>

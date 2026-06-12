@@ -80,7 +80,7 @@ export default function GameImageCard({
         <div className="flex-shrink-0 relative overflow-hidden px-2.5 pt-2 pb-2.5">
           {imageUrl ? <div className="absolute" style={mirrorBgStyle} /> : <div className="absolute inset-0" style={{ background: fallbackBg[0] }} />}
           <div className="relative z-10 min-w-0">
-            {tag && <span className="text-[7px] font-normal px-1.5 py-[2px] rounded-full leading-none inline-block mb-1.5" style={tagStyle}>{tag}</span>}
+            {tag && <span className="text-[8px] font-normal px-1.5 py-[2px] rounded-full leading-none inline-block mb-1.5" style={tagStyle}>{tag}</span>}
             <p className="text-[11px] font-bold leading-tight text-white/95 min-w-0" style={nameStyle}>{name}</p>
           </div>
         </div>
@@ -108,7 +108,7 @@ export default function GameImageCard({
         {children}
       </div>
       <div className="flex-shrink-0 px-2 pt-1.5 pb-2 min-w-0" style={{ background: barGradient }}>
-        {tag && <span className="text-[7px] font-normal px-1.5 py-[2px] rounded-full leading-none inline-block mb-1" style={tagStyle}>{tag}</span>}
+        {tag && <span className="text-[8px] font-normal px-1.5 py-[2px] rounded-full leading-none inline-block mb-1" style={tagStyle}>{tag}</span>}
         <p className="text-[11px] font-bold leading-tight text-white/95 min-w-0" style={nameStyle}>{name}</p>
       </div>
     </div>
