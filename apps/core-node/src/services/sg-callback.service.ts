@@ -68,7 +68,9 @@ export class SgCallbackService {
       )
       if (cached) {
         const snap = cached.response_snapshot
-        return typeof snap === 'string' ? JSON.parse(snap) : snap
+        const parsed = typeof snap === 'string' ? JSON.parse(snap) : snap
+        this.app.log.info({ action, player_id, transaction_id, cached: parsed }, '[sg-callback] idempotency hit')
+        return parsed
       }
     }
 
