@@ -1,13 +1,12 @@
 import { useEffect, useState, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ChevronLeft, Copy, Share2, Users, TrendingUp, Wallet, CheckCircle2, ChevronRight, Send, Zap, Info } from 'lucide-react'
+import { Copy, Share2, Users, TrendingUp, Wallet, CheckCircle2, ChevronRight, Send, Zap, Info, Gem } from 'lucide-react'
 import { fetchTeamStatus, enableAgent } from '@/api/promotion'
 import type { TeamAgentStatus } from '@/types/api'
 import { buildInviteDeepLink, buildInviteWebLink } from '@/constants/telegram'
 import { useAuthStore } from '@/stores/auth'
 
 interface Props {
-  onClose: () => void
   onOpenTeamCenter: () => void
 }
 
@@ -103,7 +102,7 @@ function TreeDiagram({ youLabel }: { youLabel: string }) {
   )
 }
 
-export default function ReferralPromoPage({ onClose, onOpenTeamCenter }: Props) {
+export default function ReferralPromoPage({ onOpenTeamCenter }: Props) {
   const { t } = useTranslation()
   const user = useAuthStore((s) => s.user)
   const [status, setStatus] = useState<TeamAgentStatus | null>(null)
@@ -186,73 +185,64 @@ export default function ReferralPromoPage({ onClose, onOpenTeamCenter }: Props) 
 
   return (
     <div className="flex flex-col bg-background min-h-full">
-      {/* 返回栏（普通文档流，不遮挡 AppShell header） */}
-      <div className="flex items-center gap-3 px-4 pt-4 pb-3 flex-shrink-0">
-        <button
-          type="button"
-          onClick={onClose}
-          className="w-9 h-9 rounded-full bg-secondary flex items-center justify-center active:scale-90 transition-transform"
-        >
-          <ChevronLeft size={18} className="text-foreground" />
-        </button>
-        <h1 className="font-display font-black text-base text-foreground">{t('referralPromo.title')}</h1>
-      </div>
-
-      {/* Hero */}
-      <div className="relative overflow-hidden px-4 pt-2 pb-8 flex-shrink-0">
+      {/* Hero - 集成树图 + 层级介绍 */}
+      <div className="relative overflow-hidden px-4 pt-6 pb-8 flex-shrink-0">
+        {/* 背景光晕 */}
         <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute -top-8 -right-16 w-64 h-64 rounded-full bg-amber-500/10 blur-3xl" />
-          <div className="absolute top-4 -left-20 w-56 h-56 rounded-full bg-blue-500/8 blur-3xl" />
-          <div className="absolute bottom-0 right-8 w-40 h-40 rounded-full bg-purple-500/10 blur-2xl" />
+          <div className="absolute -top-10 -right-16 w-64 h-64 rounded-full bg-amber-500/12 blur-3xl" />
+          <div className="absolute top-8 -left-20 w-56 h-56 rounded-full bg-blue-500/10 blur-3xl" />
+          <div className="absolute bottom-0 right-4 w-48 h-48 rounded-full bg-purple-500/10 blur-2xl" />
         </div>
 
-        {/* 一对多树形结构图 */}
-        <div className="relative mb-5 px-1">
-          <TreeDiagram youLabel={t('referralPromo.pyramidYou')} />
-        </div>
-
-        <div className="relative text-center">
-          <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest mb-1">{t('referralPromo.subtitle')}</p>
+        {/* 标题区 */}
+        <div className="relative text-center mb-4">
+          <div className="inline-flex items-center gap-1.5 bg-primary/15 border border-primary/30 rounded-full px-3 py-1 mb-3">
+            <Gem size={11} className="text-primary" />
+            <span className="text-[10px] font-black text-primary uppercase tracking-widest">{t('referralPromo.subtitle')}</span>
+          </div>
           <h2 className="font-display font-black text-3xl text-foreground leading-tight">
             {t('referralPromo.heading1')}<br />
             <span className="text-primary">{t('referralPromo.heading2')}</span>
           </h2>
           <p className="mt-2 text-sm text-muted-foreground">{t('referralPromo.heroParagraph')}</p>
         </div>
-      </div>
 
-      {/* 费率卡 */}
-      <div className="px-4 space-y-3 flex-shrink-0">
-        <h3 className="font-display font-black text-xs text-muted-foreground uppercase tracking-widest">{t('referralPromo.ratesTitle')}</h3>
-        {tiers.map((tier) => (
-          <div
-            key={tier.level}
-            className={`relative overflow-hidden rounded-2xl bg-gradient-to-r ${tier.color} border ${tier.border} p-4 flex items-center justify-between`}
-          >
-            <div className="flex items-center gap-3">
-              <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${tier.badge} flex-shrink-0`}>
-                <Users size={16} className={tier.icon} />
+        {/* 树图：全宽展示层级结构 */}
+        <div className="relative mb-4 px-1">
+          <TreeDiagram youLabel={t('referralPromo.pyramidYou')} />
+        </div>
+
+        {/* 三层介绍卡：图标 + 说明 + 费率 */}
+        <div className="relative space-y-2.5">
+          <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest px-0.5">{t('referralPromo.ratesTitle')}</p>
+          {tiers.map((tier) => (
+            <div
+              key={tier.level}
+              className={`relative overflow-hidden rounded-2xl bg-gradient-to-r ${tier.color} border ${tier.border} p-3.5 flex items-center gap-3`}
+            >
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${tier.badge}`}>
+                <Users size={17} className={tier.icon} />
               </div>
-              <div>
-                <div className="flex items-center gap-1.5">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5 mb-0.5">
                   <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full ${tier.badge}`}>L{tier.level}</span>
                   <span className="text-sm font-black text-foreground">{tier.label}</span>
                 </div>
-                <p className="text-[11px] text-muted-foreground mt-0.5">{tier.desc}</p>
+                <p className="text-[11px] text-muted-foreground leading-snug">{tier.desc}</p>
+              </div>
+              <div className="flex-shrink-0 text-right pl-1">
+                {tier.rate !== null ? (
+                  <>
+                    <p className={`text-2xl font-black font-display leading-none ${tier.icon}`}>{tier.rate}%</p>
+                    <p className="text-[9px] text-muted-foreground mt-0.5">{t('referralPromo.rateLabel')}</p>
+                  </>
+                ) : (
+                  <div className="w-10 h-7 rounded animate-pulse bg-white/10" />
+                )}
               </div>
             </div>
-            <div className="text-right flex-shrink-0 ml-2">
-              {tier.rate !== null ? (
-                <>
-                  <span className={`text-2xl font-black font-display ${tier.icon}`}>{tier.rate}%</span>
-                  <p className="text-[10px] text-muted-foreground">{t('referralPromo.rateLabel')}</p>
-                </>
-              ) : (
-                <div className="w-12 h-6 rounded animate-pulse bg-white/10" />
-              )}
-            </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
 
       {/* ── 已开启：团队快照 + 邀请码 + 分享 CTA ── */}

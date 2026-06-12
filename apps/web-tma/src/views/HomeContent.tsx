@@ -23,8 +23,6 @@ import { readLocalHistory, writeLocalHistory } from '@/utils/game-history'
 
 interface CategoryLobbyParams { sortCategory?: string; sortBy?: 'weight' | 'ph_bonus'; title: string }
 
-const REFERRAL_WIDGET_DISMISSED_KEY = 'referral_widget_dismissed'
-
 interface Props {
   onOpenPromo: (promo: string | null) => void
   onOpenCategoryLobby: (params: CategoryLobbyParams) => void
@@ -40,15 +38,6 @@ export default function HomeContent({ onOpenPromo, onOpenCategoryLobby, onOpenCs
   const auth = useAuthStore()
   const activeCurrency = useWalletStore((s) => s.activeCurrency)
   const highlightMap = useMemo(() => getHighlightMap(), [promotion.highlights])
-
-  const [referralWidgetVisible, setReferralWidgetVisible] = useState(
-    () => !sessionStorage.getItem(REFERRAL_WIDGET_DISMISSED_KEY)
-  )
-  function dismissReferralWidget(e: React.MouseEvent) {
-    e.stopPropagation()
-    sessionStorage.setItem(REFERRAL_WIDGET_DISMISSED_KEY, '1')
-    setReferralWidgetVisible(false)
-  }
 
   const localizedBanners = useMemo(() => BANNERS.map((b) => ({ ...b, tag: t(`home.banners.${b.id}.tag`), title: t(`home.banners.${b.id}.title`), sub: t(`home.banners.${b.id}.sub`), cta: t(`home.banners.${b.id}.cta`) })), [t])
 
@@ -187,6 +176,7 @@ export default function HomeContent({ onOpenPromo, onOpenCategoryLobby, onOpenCs
     setGamesLoading(true)
     fetchHomepageGames().then(setHomepageGames).catch(() => {}).finally(() => setGamesLoading(false))
     void loadBetTab('latest')
+    if (auth.token && auth.user) void promotion.loadTeamStatus()
   }, [])
 
   const providerList = ['JILI', 'PGSOFT', 'PRAGMATIC', 'BGAMING', 'EVOLUTION', 'HABANERO', 'NOLIMIT', 'NETENT', 'POPIPLAY', 'SPRIBE', 'BOOONGO']
@@ -519,26 +509,18 @@ export default function HomeContent({ onOpenPromo, onOpenCategoryLobby, onOpenCs
       </section>
       <div className="mt-6 mb-4 px-4 text-center"><p className="text-[10px] text-muted-foreground/50">© 2025 BetoGo · 18+</p></div>
 
-      {/* 三级分销浮动挂件 */}
-      {auth.token && referralWidgetVisible && (
+      {/* 三级分销浮动挂件：未成为代理前始终显示，成为代理后自动消失 */}
+      {auth.token && !promotion.teamStatus?.isAgent && (
         <div className="fixed bottom-24 right-4 z-30 flex flex-col items-end gap-1.5">
-          {/* 脉冲光晕 */}
           <span className="absolute inset-0 rounded-2xl animate-ping bg-amber-400/30 pointer-events-none" style={{ animationDuration: '2.4s' }} />
           <button
             type="button"
             onClick={onOpenReferralPromo}
-            className="relative flex items-center gap-2 pl-3 pr-2 py-2 rounded-2xl shadow-lg active:scale-95 transition-transform"
+            className="relative flex items-center gap-2 px-3 py-2 rounded-2xl shadow-lg active:scale-95 transition-transform"
             style={{ background: 'linear-gradient(135deg, #ffb800 0%, #ff7a00 100%)', boxShadow: '0 4px 20px rgba(255,184,0,0.45)' }}
           >
             <Gem size={16} className="text-amber-900 flex-shrink-0" />
             <span className="text-[12px] font-black text-amber-950 whitespace-nowrap">{t('referralPromo.widget')}</span>
-            <button
-              type="button"
-              onClick={dismissReferralWidget}
-              className="ml-1 w-5 h-5 rounded-full bg-amber-900/20 flex items-center justify-center active:bg-amber-900/40 transition-colors"
-            >
-              <X size={10} className="text-amber-900" />
-            </button>
           </button>
         </div>
       )}

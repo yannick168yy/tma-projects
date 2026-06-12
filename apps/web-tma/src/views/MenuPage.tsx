@@ -17,6 +17,7 @@ interface Props {
   onLogin: () => void
   onLogout: () => void
   onOpenBetHistory: () => void
+  onOpenReferralPromo: () => void
 }
 
 const CURRENCIES = [
@@ -30,7 +31,7 @@ const CURRENCIES = [
 
 const HOME_DOC_KEYS = new Set(['terms', 'privacy', 'responsible', 'about'])
 
-export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory }: Props) {
+export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory, onOpenReferralPromo }: Props) {
   const { t } = useTranslation()
   const auth = useAuthStore()
   const { locale, setLocale } = useLocaleStore()
@@ -302,8 +303,18 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
           <section>
             <h3 className="mb-3 font-display text-sm font-black text-foreground">{t('profile.activity')}</h3>
             <div className="overflow-hidden rounded-2xl border border-border bg-card">
-              <button type="button" className="flex w-full items-center justify-between px-4 py-3 transition-colors hover:bg-secondary/50" onClick={onOpenBetHistory}>
+              <button type="button" className="flex w-full items-center justify-between px-4 py-3 transition-colors hover:bg-secondary/50 border-b border-border" onClick={onOpenBetHistory}>
                 <div className="flex items-center gap-3"><span className="text-base">🎰</span><span className="text-sm font-semibold text-foreground">{t('profile.betHistory')}</span></div>
+                <ChevronRight size={14} className="text-muted-foreground" />
+              </button>
+              <button type="button" className="flex w-full items-center justify-between px-4 py-3 transition-colors hover:bg-secondary/50" onClick={onOpenReferralPromo}>
+                <div className="flex items-center gap-3">
+                  <span className="text-base">💎</span>
+                  <div className="text-left">
+                    <p className="text-sm font-semibold text-foreground">{t('referralPromo.title')}</p>
+                    <p className="text-[11px] text-muted-foreground">{t('referralPromo.subtitle')}</p>
+                  </div>
+                </div>
                 <ChevronRight size={14} className="text-muted-foreground" />
               </button>
             </div>
