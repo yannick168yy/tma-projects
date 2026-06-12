@@ -205,24 +205,45 @@ export async function runDailySettlement(app: FastifyInstance, date: string, for
   const db = app.mysql
 
   // 覆盖模式：先回滚已入账佣金，再删旧记录
+  // 回滚顺序：先扣 available_cents，不够再扣 frozen_cents（待审提现）
+  // 若两者合计仍不足，说明差额已提走进主钱包，记录亏空并在重算时只补差额
+  const withdrawnMap = new Map<string, number>() // beneficiaryId → 已不可回滚的金额
   if (force) {
     const [paidRows] = await db.query<RowDataPacket[]>(
-      `SELECT beneficiary_id, SUM(php_equivalent_cents) AS total_php
-       FROM bg_team_commission WHERE period = ? AND status = 'paid'
-       GROUP BY beneficiary_id`,
+      `SELECT tc.beneficiary_id, SUM(tc.php_equivalent_cents) AS total_php,
+              tw.available_cents, tw.frozen_cents
+       FROM bg_team_commission tc
+       JOIN bg_team_wallet tw ON tw.user_id = tc.beneficiary_id AND tw.currency = 'PHP'
+       WHERE tc.period = ? AND tc.status = 'paid'
+       GROUP BY tc.beneficiary_id, tw.available_cents, tw.frozen_cents`,
       [date],
     )
     for (const row of paidRows) {
-      const total = Number(row.total_php)
-      if (total > 0) {
-        await db.execute(
-          `UPDATE bg_team_wallet
-           SET available_cents        = GREATEST(0, available_cents - ?),
-               lifetime_earned_cents  = GREATEST(0, lifetime_earned_cents - ?)
-           WHERE user_id = ? AND currency = 'PHP'`,
-          [total, total, row.beneficiary_id],
+      const total     = Number(row.total_php)
+      const available = Number(row.available_cents)
+      const frozen    = Number(row.frozen_cents)
+      if (total <= 0) continue
+
+      const fromAvailable = Math.min(available, total)
+      const fromFrozen    = Math.min(frozen, total - fromAvailable)
+      const alreadyOut    = total - fromAvailable - fromFrozen // 已提走，无法回滚
+
+      if (alreadyOut > 0) {
+        withdrawnMap.set(String(row.beneficiary_id), alreadyOut)
+        app.log.warn(
+          { beneficiaryId: row.beneficiary_id, alreadyOut, date },
+          '[daily-settle] partial rollback: commission already withdrawn, re-settle will credit net delta only',
         )
       }
+
+      await db.execute(
+        `UPDATE bg_team_wallet
+         SET available_cents       = available_cents - ?,
+             frozen_cents          = frozen_cents - ?,
+             lifetime_earned_cents = lifetime_earned_cents - ?
+         WHERE user_id = ? AND currency = 'PHP'`,
+        [fromAvailable, fromFrozen, fromAvailable + fromFrozen, row.beneficiary_id],
+      )
     }
     await db.execute(`DELETE FROM bg_team_commission WHERE period = ?`, [date])
     await db.execute(`DELETE FROM bg_team_turnover_daily WHERE date = ?`, [date])
@@ -366,8 +387,11 @@ export async function runDailySettlement(app: FastifyInstance, date: string, for
   )
 
   for (const row of pending) {
-    const totalPhp = Number(row.total_php)
-    if (totalPhp <= 0) continue
+    const totalPhp  = Number(row.total_php)
+    // force 重算时减去已提走的部分，防止重复入账
+    const alreadyOut = withdrawnMap.get(String(row.beneficiary_id)) ?? 0
+    const creditPhp  = totalPhp - alreadyOut
+    if (creditPhp <= 0) continue
     await db.execute(
       `INSERT IGNORE INTO bg_team_wallet (user_id, currency) VALUES (?, 'PHP')`,
       [row.beneficiary_id],
@@ -384,7 +408,7 @@ export async function runDailySettlement(app: FastifyInstance, date: string, for
              lifetime_earned_cents  = lifetime_earned_cents + ?,
              version                = version + 1
          WHERE user_id = ? AND currency = 'PHP' AND version = ?`,
-        [totalPhp, totalPhp, row.beneficiary_id, w.version],
+        [creditPhp, creditPhp, row.beneficiary_id, w.version],
       )
       if (res.affectedRows > 0) { settled = true; break }
     }
