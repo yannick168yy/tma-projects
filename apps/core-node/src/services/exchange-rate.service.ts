@@ -10,12 +10,15 @@ const TESTNET_TO_MAINNET: Record<string, string> = {
   TLK_TESTNET: 'TRX',
 }
 
-// CoinGecko id → 币种符号（freecurrencyapi 不支持加密货币）
-const CRYPTO_COINGECKO_IDS: Record<string, string> = {
-  TRX: 'tron',
-  BNB: 'binancecoin',
-  ETH: 'ethereum',
-  BTC: 'bitcoin',
+// CoinGecko coin id → 平台币种符号
+const COINGECKO_ID_MAP: Record<string, string> = {
+  tron:         'TRX',
+  binancecoin:  'BNB',
+  ethereum:     'ETH',
+  bitcoin:      'BTC',
+  tether:       'USDT',
+  'usd-coin':   'USDC',
+  'euro-token': 'EUR',
 }
 
 // 返回 1单位指定货币 → PHP 的汇率
@@ -28,61 +31,42 @@ export async function getPhpRate(currency: string): Promise<number> {
   return rates[key] ?? fallbackRate(key)
 }
 
-// 返回多个货币的 PHP 汇率 Map
+// 返回所有货币的 PHP 汇率 Map（全量从 CoinGecko 拉取）
 export async function fetchRates(): Promise<Record<string, number>> {
   if (cachedRates && Date.now() < cacheExpiry) return cachedRates
 
-  if (!env.EXCHANGE_RATE_API_KEY) {
-    cachedRates = buildFallback()
-    cacheExpiry = Date.now() + 60 * 60 * 1000
-    return cachedRates
-  }
-
   const result: Record<string, number> = buildFallback()
 
-  // 法币汇率（freecurrencyapi）
   try {
-    const url = `https://api.freecurrencyapi.com/v1/latest?apikey=${env.EXCHANGE_RATE_API_KEY}&base_currency=PHP&currencies=EUR,USD,USDT,THB,VND,IDR,MYR,SGD`
+    const ids = Object.keys(COINGECKO_ID_MAP).join(',')
+    const url = `https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=php`
     const res = await fetch(url, { signal: AbortSignal.timeout(8000) })
-    if (!res.ok) throw new Error(`FX API ${res.status}`)
-    const json = await res.json() as { data: Record<string, number> }
-    for (const [cur, rateFromPhp] of Object.entries(json.data)) {
-      if (rateFromPhp > 0) result[cur.toUpperCase()] = 1 / rateFromPhp
-    }
-  } catch (err) {
-    console.warn('[exchange-rate] freecurrencyapi failed, using fallback for fiat:', err)
-  }
-
-  // 加密货币汇率（CoinGecko，免费无需 key）
-  try {
-    const ids = Object.values(CRYPTO_COINGECKO_IDS).join(',')
-    const cgUrl = `https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=php`
-    const cgRes = await fetch(cgUrl, { signal: AbortSignal.timeout(8000) })
-    if (!cgRes.ok) throw new Error(`CoinGecko API ${cgRes.status}`)
-    const cgJson = await cgRes.json() as Record<string, { php: number }>
-    for (const [symbol, geckoId] of Object.entries(CRYPTO_COINGECKO_IDS)) {
-      const price = cgJson[geckoId]?.php
+    if (!res.ok) throw new Error(`CoinGecko API ${res.status}`)
+    const json = await res.json() as Record<string, { php: number }>
+    for (const [geckoId, symbol] of Object.entries(COINGECKO_ID_MAP)) {
+      const price = json[geckoId]?.php
       if (price && price > 0) result[symbol] = price
     }
+    cacheExpiry = Date.now() + 60 * 60 * 1000
   } catch (err) {
-    console.warn('[exchange-rate] CoinGecko failed, using fallback for crypto:', err)
+    console.warn('[exchange-rate] CoinGecko failed, using env fallback:', err)
+    cacheExpiry = Date.now() + 5 * 60 * 1000 // 失败后5分钟重试
   }
 
   cachedRates = result
-  cacheExpiry = Date.now() + 60 * 60 * 1000
   return cachedRates
 }
 
 function buildFallback(): Record<string, number> {
   return {
-    EUR: env.EUR_TO_PHP_RATE,
-    USD: env.USDT_TO_PHP_RATE,
+    EUR:  env.EUR_TO_PHP_RATE,
+    USD:  env.USDT_TO_PHP_RATE,
     USDT: env.USDT_TO_PHP_RATE,
     USDC: env.USDT_TO_PHP_RATE,
-    TRX: env.TRX_TO_PHP_RATE,
-    BNB: env.BNB_TO_PHP_RATE,
-    ETH: env.ETH_TO_PHP_RATE,
-    BTC: env.BTC_TO_PHP_RATE,
+    TRX:  env.TRX_TO_PHP_RATE,
+    BNB:  env.BNB_TO_PHP_RATE,
+    ETH:  env.ETH_TO_PHP_RATE,
+    BTC:  env.BTC_TO_PHP_RATE,
   }
 }
 

@@ -31,14 +31,13 @@ const schema = z.object({
   MATRIX_MERCHANT_NOTIFY_PRIVATE_KEY: z.string().default(''),
   MATRIX_PLATFORM_NOTIFY_PUBLIC_KEY: z.string().default(''),
 
-  // 汇率（支付入账折算用）
+  // 汇率兜底（CoinGecko 不可用时使用，单位：PHP）
   USDT_TO_PHP_RATE: z.coerce.number().positive().default(58),
-  EUR_TO_PHP_RATE: z.coerce.number().positive().default(62),
-  TRX_TO_PHP_RATE: z.coerce.number().positive().default(10),
-  BNB_TO_PHP_RATE: z.coerce.number().positive().default(33000),
-  ETH_TO_PHP_RATE: z.coerce.number().positive().default(145000),
-  BTC_TO_PHP_RATE: z.coerce.number().positive().default(5800000),
-  EXCHANGE_RATE_API_KEY: z.string().default(''),
+  EUR_TO_PHP_RATE:  z.coerce.number().positive().default(62),
+  TRX_TO_PHP_RATE:  z.coerce.number().positive().default(19),
+  BNB_TO_PHP_RATE:  z.coerce.number().positive().default(33000),
+  ETH_TO_PHP_RATE:  z.coerce.number().positive().default(145000),
+  BTC_TO_PHP_RATE:  z.coerce.number().positive().default(5800000),
 
   // 内部服务间通信 token
   INTERNAL_TOKEN: z.string().default(''),
