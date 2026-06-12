@@ -65,7 +65,8 @@ export default function BetOrders() {
   const columns = [
     { title: 'ID', dataIndex: 'id', key: 'id', width: 80 },
     { title: '用户 ID', dataIndex: 'userId', key: 'userId', width: 120, ellipsis: true },
-    { title: '供应商', dataIndex: 'providerId', key: 'providerId', width: 130, ellipsis: true },
+    { title: '游戏商', key: 'providerName', width: 130, ellipsis: true, render: (_: unknown, r: BetOrderRecord) => r.providerName ?? r.aggregatorId ?? '-' },
+    { title: '游戏名', key: 'gameName', width: 180, ellipsis: true, render: (_: unknown, r: BetOrderRecord) => r.gameName ?? r.providerId ?? '-' },
     { title: '局号', dataIndex: 'roundId', key: 'roundId', width: 130, ellipsis: true },
     { title: '类型', key: 'betType', width: 70, render: (_: unknown, r: BetOrderRecord) => <Tag color={betTypeColor(r.betType)}>{betTypeLabel(r.betType)}</Tag> },
     {

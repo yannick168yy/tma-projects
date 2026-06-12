@@ -361,6 +361,7 @@ export interface BetOrderRecord {
   originalAmount: number | null; exchangeRate: number | null
   status: 'pending' | 'settled' | 'failed'
   createdAt: string; settledAt: string | null
+  gameName: string | null; providerName: string | null
 }
 export interface BetOrderStats {
   totalBet: number; totalWin: number; roundCount: number
