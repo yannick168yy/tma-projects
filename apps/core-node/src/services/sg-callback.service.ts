@@ -57,7 +57,9 @@ export class SgCallbackService {
         'SELECT available FROM bg_wallet WHERE user_id = ? AND currency = ?',
         [player_id, currency],
       )
-      return { balance: Number(row?.available ?? 0) }
+      const bal = Number(row?.available ?? 0)
+      this.app.log.info({ player_id, currency, session_id: body.session_id, balance: bal }, '[sg-callback] balance')
+      return { balance: bal }
     }
 
     // ── idempotency ───────────────────────────────────────────────────────────
