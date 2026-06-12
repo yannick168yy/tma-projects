@@ -403,7 +403,7 @@ router.get('/tree', async (ctx) => {
   }
   for (const r of l3Rows) {
     const node = buildNode(r, 3)
-    l2Map.get(String(r.l1_referrer_id))?.children.push(node)
+    l2Map.get(String(r.l2_referrer_id))?.children.push(node)
   }
 
   const l1Members = [...l1Map.values()].sort((a, b) => b.turnoverCents - a.turnoverCents)
