@@ -3,8 +3,15 @@
 -- 在代码切换完成后由 032 迁移文件统一 DROP
 
 -- ── 1. 重建 bg_wallet（user_id + currency 复合主键）────────────────────────────
-DROP TABLE IF EXISTS bg_wallet;
-CREATE TABLE bg_wallet (
+-- 仅当 PK 还是单列（旧 schema）时才 DROP + 重建；已迁移则跳过，保留数据
+SET @pk_cols = COALESCE((
+  SELECT COUNT(DISTINCT COLUMN_NAME) FROM information_schema.KEY_COLUMN_USAGE
+  WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='bg_wallet' AND CONSTRAINT_NAME='PRIMARY'
+), 0);
+SET @s = IF(@pk_cols < 2, 'DROP TABLE IF EXISTS bg_wallet', 'SELECT 1');
+PREPARE _s FROM @s; EXECUTE _s; DEALLOCATE PREPARE _s;
+
+CREATE TABLE IF NOT EXISTS bg_wallet (
   user_id   VARCHAR(64)    NOT NULL,
   currency  VARCHAR(16)    NOT NULL,
   available DECIMAL(18,6)  NOT NULL DEFAULT 0,

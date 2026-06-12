@@ -70,8 +70,11 @@ PREPARE st FROM @s; EXECUTE st; DEALLOCATE PREPARE st;
 -- 4. bg_team_commission：清空旧数据 + 改 period 为日期 + 加新字段
 -- ─────────────────────────────────────────────────────────────────────────────
 
--- 先清空（改变结算逻辑，旧月度GGR数据不再有效）
-TRUNCATE TABLE `bg_team_commission`;
+-- 先清空旧月度数据（仅首次迁移：turnover_cents 字段不存在说明尚未迁移）
+SET @migrated = (SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='bg_team_commission' AND COLUMN_NAME='turnover_cents');
+SET @s = IF(@migrated = 0, 'TRUNCATE TABLE bg_team_commission', 'SELECT 1');
+PREPARE _s FROM @s; EXECUTE _s; DEALLOCATE PREPARE _s;
 
 -- period: CHAR(7) YYYY-MM → CHAR(10) YYYY-MM-DD
 ALTER TABLE `bg_team_commission`
@@ -100,7 +103,8 @@ ALTER TABLE `bg_team_config`
   MODIFY COLUMN `last_auto_settlement` VARCHAR(10) DEFAULT NULL
     COMMENT '上次自动结算的日期（YYYY-MM-DD），防重复触发';
 
--- 同步重置钱包（旧佣金已清空，余额归零保持一致性）
--- 注意：仅在开发/测试环境执行；生产环境若有真实提现记录需手动处理
-UPDATE `bg_team_wallet`
-SET available_cents = 0, frozen_cents = 0, lifetime_earned_cents = 0, version = version + 1;
+-- 仅首次迁移时同步重置团队钱包（旧佣金已清空，余额归零保持一致性）
+SET @s = IF(@migrated = 0,
+  'UPDATE bg_team_wallet SET available_cents=0, frozen_cents=0, lifetime_earned_cents=0, version=version+1',
+  'SELECT 1');
+PREPARE _s FROM @s; EXECUTE _s; DEALLOCATE PREPARE _s;
