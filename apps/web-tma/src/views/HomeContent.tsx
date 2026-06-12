@@ -12,7 +12,7 @@ import { CATEGORIES } from '@/data/categories'
 import { BANNERS, WINNERS, INFO_LINKS } from '@/data/home'
 import { fetchHomepageGames, fetchGames, fetchProviders, launchGame, fetchBettingActivity, type SlotGame, type BetRecord, type BetTab } from '@/api/slots'
 import { ApiError } from '@/api/client'
-import { usePromotionStore, getHighlightMap } from '@/stores/promotion'
+import { usePromotionStore } from '@/stores/promotion'
 import { useAuthStore } from '@/stores/auth'
 import { useWalletStore } from '@/stores/wallet'
 import { localizedGameName } from '@/utils/game'
@@ -61,8 +61,6 @@ export default function HomeContent({ onOpenPromo, onOpenCategoryLobby, onOpenCs
   const promotion = usePromotionStore()
   const auth = useAuthStore()
   const activeCurrency = useWalletStore((s) => s.activeCurrency)
-  const highlightMap = useMemo(() => getHighlightMap(), [promotion.highlights])
-
   const localizedBanners = useMemo(() => BANNERS.map((b) => ({ ...b, tag: t(`home.banners.${b.id}.tag`), title: t(`home.banners.${b.id}.title`), sub: t(`home.banners.${b.id}.sub`), cta: t(`home.banners.${b.id}.cta`) })), [t])
 
   function onBannerCta(action: string) {
@@ -71,18 +69,6 @@ export default function HomeContent({ onOpenPromo, onOpenCategoryLobby, onOpenCs
     } else {
       onOpenPromo(action)
     }
-  }
-
-  function categoryBadge(promo: string | null, fallback: string | null) {
-    if (!promo) return fallback
-    const h = highlightMap.get(promo as 'trial' | 'referral' | 'firstdep')
-    if (h?.highlight && h.flagLabel) return h.flagLabel
-    return fallback
-  }
-  function categoryClaimable(promo: string | null) {
-    if (!promo) return false
-    const h = highlightMap.get(promo as 'trial' | 'referral' | 'firstdep')
-    return Boolean(h?.highlight)
   }
 
   // Banner
@@ -259,9 +245,9 @@ const [gamesLoading, setGamesLoading] = useState(true)
   return (
     <div className="page-main">
       {/* Category shortcuts */}
-      <div className="category-shortcut-row flex gap-3 px-4 pb-3 pt-3 overflow-x-auto hide-scrollbar">
+      <div className="category-shortcut-row flex gap-3 px-4 pb-2 pt-1.5 overflow-x-auto hide-scrollbar">
         {CATEGORIES.map((c) => (
-          <HomeCategoryShortcut key={c.id} category={c} claimable={categoryClaimable(c.promo)} claimLabel={categoryBadge(c.promo, c.badge)} onClick={() => onOpenPromo(c.promo)} />
+          <HomeCategoryShortcut key={c.id} category={c} onClick={() => onOpenPromo(c.promo)} />
         ))}
       </div>
 
