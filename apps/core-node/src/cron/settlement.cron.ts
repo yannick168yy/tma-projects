@@ -37,8 +37,8 @@ async function check(app: FastifyInstance) {
       [date],
     )
 
-    app.log.info({ date }, '[settlement-cron] triggering daily settlement')
-    await runDailySettlement(app, date, false)
+    app.log.info({ date }, '[settlement-cron] triggering daily settlement (force=true)')
+    await runDailySettlement(app, date, true)
     app.log.info({ date }, '[settlement-cron] done')
   } catch (err) {
     app.log.error({ err }, '[settlement-cron] check failed')
