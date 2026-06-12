@@ -16,27 +16,31 @@ import { usePromotionStore, getHighlightMap } from '@/stores/promotion'
 import { useAuthStore } from '@/stores/auth'
 import { useWalletStore } from '@/stores/wallet'
 import { localizedGameName } from '@/utils/game'
+import chipHotImg from '@/assets/chips/hot.webp'
+import chipSlotsImg from '@/assets/chips/slots.png'
+import chipLiveImg from '@/assets/chips/live.png'
+import chipPokerImg from '@/assets/chips/poker.png'
+import chipBingoImg from '@/assets/chips/bingo.png'
+import chipSportsImg from '@/assets/chips/sports.png'
+import chipFishingImg from '@/assets/chips/fishing.png'
 
 type GameChip = string
 
-interface GameChipDef { id: string; icon: string; labelKey: string; sortCategory?: string; gradient: string }
+interface GameChipDef { id: string; labelKey: string; sortCategory?: string; icon?: string; image?: string }
+
+const OTHER_CATEGORIES = 'other,fantasy,horror,asian,asian-strategy,adventure'
 
 const GAME_CHIPS: GameChipDef[] = [
-  { id: 'hot',            icon: '🔥', labelKey: 'home.chipHot',          gradient: 'from-orange-500 to-red-600' },
-  { id: 'slots',          icon: '🎰', labelKey: 'home.chipSlots',         sortCategory: 'slots',          gradient: 'from-violet-600 to-purple-800' },
-  { id: 'live',           icon: '🃏', labelKey: 'home.chipLive',          sortCategory: 'live',           gradient: 'from-red-600 to-rose-800' },
-  { id: 'fishing',        icon: '🎣', labelKey: 'home.chipFishing',       sortCategory: 'fishing',        gradient: 'from-cyan-500 to-blue-700' },
-  { id: 'crash',          icon: '🚀', labelKey: 'home.chipCrash',         sortCategory: 'crash',          gradient: 'from-amber-500 to-orange-700' },
-  { id: 'table',          icon: '♟️', labelKey: 'home.chipTable',         sortCategory: 'table',          gradient: 'from-blue-600 to-indigo-800' },
-  { id: 'bingo',          icon: '🎱', labelKey: 'home.chipBingo',         sortCategory: 'bingo',          gradient: 'from-green-600 to-emerald-800' },
-  { id: 'sports',         icon: '⚽', labelKey: 'home.chipSports',        sortCategory: 'sports',         gradient: 'from-lime-500 to-green-700' },
-  { id: 'other',          icon: '🎮', labelKey: 'home.chipOther',         sortCategory: 'other',          gradient: 'from-slate-500 to-zinc-700' },
-  { id: 'pinoy',          icon: '🐓', labelKey: 'home.chipPinoy',         sortCategory: 'pinoy',          gradient: 'from-yellow-600 to-amber-700' },
-  { id: 'fantasy',        icon: '🧙', labelKey: 'home.chipFantasy',       sortCategory: 'fantasy',        gradient: 'from-purple-600 to-fuchsia-800' },
-  { id: 'horror',         icon: '💀', labelKey: 'home.chipHorror',        sortCategory: 'horror',         gradient: 'from-gray-700 to-stone-900' },
-  { id: 'asian',          icon: '🀄', labelKey: 'home.chipAsian',         sortCategory: 'asian',          gradient: 'from-red-700 to-rose-900' },
-  { id: 'asian-strategy', icon: '⚔️', labelKey: 'home.chipAsianStrategy', sortCategory: 'asian-strategy', gradient: 'from-teal-600 to-cyan-800' },
-  { id: 'adventure',      icon: '🗺️', labelKey: 'home.chipAdventure',     sortCategory: 'adventure',      gradient: 'from-emerald-600 to-teal-800' },
+  { id: 'hot',     image: chipHotImg,     labelKey: 'home.chipHot'    },
+  { id: 'slots',   image: chipSlotsImg,   labelKey: 'home.chipSlots',   sortCategory: 'slots'   },
+  { id: 'live',    image: chipLiveImg,    labelKey: 'home.chipLive',    sortCategory: 'live'    },
+  { id: 'table',   image: chipPokerImg,   labelKey: 'home.chipPoker',   sortCategory: 'table'   },
+  { id: 'bingo',   image: chipBingoImg,   labelKey: 'home.chipBingo',   sortCategory: 'bingo'   },
+  { id: 'sports',  image: chipSportsImg,  labelKey: 'home.chipSports',  sortCategory: 'sports'  },
+  { id: 'fishing', image: chipFishingImg, labelKey: 'home.chipFishing', sortCategory: 'fishing' },
+  { id: 'crash',   icon: '🚀', labelKey: 'home.chipCrash',  sortCategory: 'crash'  },
+  { id: 'pinoy',   icon: '🐓', labelKey: 'home.chipPinoy',  sortCategory: 'pinoy'  },
+  { id: 'other',   icon: '🎮', labelKey: 'home.chipOther',  sortCategory: OTHER_CATEGORIES },
 ]
 
 const INFO_ICONS: Record<string, React.ComponentType<{ size: number; className?: string }>> = { terms: FileText, privacy: Shield, responsible: Heart, about: Info }
@@ -300,28 +304,50 @@ const [gamesLoading, setGamesLoading] = useState(true)
         </div>
       </div>
 
-      {/* Game type chip 条 */}
-      <div className="flex gap-3 px-4 mt-5 pb-1 overflow-x-auto hide-scrollbar">
-        {GAME_CHIPS.map((chip) => (
-          <button
-            key={chip.id}
-            type="button"
-            onClick={() => void selectChip(chip.id)}
-            className="flex-shrink-0 flex flex-col items-center gap-1.5 active:scale-95 transition-transform"
-          >
-            <div
-              className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${chip.gradient} flex items-center justify-center transition-shadow ${
-                activeChip === chip.id ? 'ring-2 ring-white/70 ring-offset-2 ring-offset-background' : ''
-              }`}
-              style={activeChip === chip.id ? { boxShadow: '0 0 16px rgba(255,255,255,0.25)' } : undefined}
-            >
-              <span className="text-[28px] leading-none">{chip.icon}</span>
-            </div>
-            <span className={`text-[11px] font-bold leading-none ${activeChip === chip.id ? 'text-primary' : 'text-foreground/60'}`}>
-              {t(chip.labelKey)}
-            </span>
-          </button>
-        ))}
+      {/* Game type chip 条 — 实物 emoji 无底色 */}
+      <div className="mt-4 border-b border-white/5">
+        <div className="flex gap-0.5 px-2 overflow-x-auto hide-scrollbar snap-x snap-mandatory">
+          {GAME_CHIPS.map((chip) => {
+            const active = activeChip === chip.id
+            return (
+              <button
+                key={chip.id}
+                type="button"
+                onClick={() => void selectChip(chip.id)}
+                className="relative flex-shrink-0 snap-start flex flex-col items-center gap-0.5 px-2.5 pt-2 pb-0 min-w-[58px] active:scale-95 transition-transform"
+              >
+                {active && (
+                  <div
+                    className="pointer-events-none absolute inset-x-0 top-0 bottom-0 rounded-t-lg"
+                    style={{ background: 'linear-gradient(180deg, rgba(220,38,38,0.28) 0%, rgba(220,38,38,0.06) 55%, transparent 100%)' }}
+                  />
+                )}
+                {chip.image ? (
+                  <img
+                    src={chip.image}
+                    alt=""
+                    draggable={false}
+                    className={`relative h-9 w-9 object-contain select-none transition-transform ${active ? 'scale-105' : ''}`}
+                    style={{ filter: 'drop-shadow(0 3px 5px rgba(0,0,0,0.45))' }}
+                  />
+                ) : (
+                  <span
+                    className={`relative text-[34px] leading-none select-none transition-transform ${active ? 'scale-105' : ''}`}
+                    style={{ filter: 'drop-shadow(0 3px 5px rgba(0,0,0,0.45))' }}
+                  >
+                    {chip.icon}
+                  </span>
+                )}
+                <span className={`relative text-[11px] font-semibold leading-tight pb-2.5 ${active ? 'text-red-400' : 'text-foreground/75'}`}>
+                  {t(chip.labelKey)}
+                </span>
+                <span
+                  className={`absolute bottom-0 left-1 right-1 h-[3px] rounded-full transition-opacity ${active ? 'bg-red-500 opacity-100' : 'opacity-0'}`}
+                />
+              </button>
+            )
+          })}
+        </div>
       </div>
 
       {/* 非 Hot 模式：二级 provider 筛选 + 游戏 grid */}

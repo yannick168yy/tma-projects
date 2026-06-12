@@ -325,7 +325,8 @@ export async function listGames(
     games = games.filter((g) => g.category === category)
   }
   if (sortCategory && sortCategory !== 'all') {
-    games = games.filter((g) => g.sortCategory === sortCategory)
+    const cats = new Set(sortCategory.split(',').map((s) => s.trim()).filter(Boolean))
+    games = games.filter((g) => g.sortCategory !== null && cats.has(g.sortCategory))
   }
   if (themes && themes.length > 0) {
     const set = new Set(themes)
@@ -401,11 +402,12 @@ export async function getUserGameHistory(
   }))
 }
 
-/** Returns distinct provider codes from cached games, optionally filtered by sortCategory */
+/** Returns distinct provider codes from cached games, optionally filtered by sortCategory (comma-separated) */
 export async function listProviders(env: Env, sortCategory?: string): Promise<string[]> {
   let games = await getGamesFromCache(env)
   if (sortCategory && sortCategory !== 'all') {
-    games = games.filter((g) => g.sortCategory === sortCategory)
+    const cats = new Set(sortCategory.split(',').map((s) => s.trim()).filter(Boolean))
+    games = games.filter((g) => g.sortCategory !== null && cats.has(g.sortCategory))
   }
   const providers = [...new Set(games.map((g) => g.provider))].sort()
   return providers
