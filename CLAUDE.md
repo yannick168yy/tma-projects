@@ -49,9 +49,25 @@ bash deploy/single-node/deploy-web-tma.sh
 - 类型检查通过（`npm run typecheck`）后再提交
 
 ## 数据库迁移规则
+
+### 幂等性
 - 新迁移文件命名：`infra/database/betogo/00N_描述.sql`
-- 迁移脚本会检查 `bg_<描述>` 表是否已存在来决定是否跳过
-- ALTER TABLE 操作必须加幂等判断（IF NOT EXISTS 或先 SELECT information_schema）
+- 迁移脚本每次部署都会重跑所有 SQL 文件，**没有"只跑一次"的保护**
+- 所有 DDL 操作必须幂等：`CREATE TABLE IF NOT EXISTS`、`ALTER TABLE` 用 `information_schema` 条件判断
+
+### 🚫 禁止在迁移文件中写以下语句（无论是否加注释说明"仅测试"）
+- `TRUNCATE TABLE <任何业务表>`
+- `DELETE FROM <任何业务表>`（不带精确 WHERE 条件的）
+- `DROP TABLE <任何业务表>`（不带 `IF NOT EXISTS` 且无幂等保护的）
+- `UPDATE <表> SET <字段>=0`（清零全表数据的）
+
+> **原因**：这些语句每次部署都会执行，会静默清空线上数据。历史上 037/031/044 均因此造成投注记录、钱包余额、佣金数据被反复清空。
+
+### 一次性清理数据的正确做法
+需要清理数据时，**不写在迁移文件里**，改用以下方式之一：
+1. 手动在服务器执行 SQL（一次性操作）
+2. 写独立脚本（如 `scripts/reset-xxx.sql`），明确标注"手动执行，不自动部署"
+3. 如果必须放在迁移文件里，用 `information_schema` 检查"是否首次迁移"，确保只在从未迁移过的库上执行一次
 
 ## 管理后台角色
 - `super_admin`：最高权限，可管理 op_password、其他管理员
