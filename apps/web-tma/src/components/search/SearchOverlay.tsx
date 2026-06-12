@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ChevronLeft, Search, X, RefreshCw } from 'lucide-react'
-import { fetchGames, launchGame, launchDemo, type SlotGame } from '@/api/slots'
+import { fetchGames, fetchProviders, launchGame, launchDemo, type SlotGame } from '@/api/slots'
 import { ApiError } from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
 import { useWalletStore } from '@/stores/wallet'
+import { shortProviderName } from '@/utils/providers'
 import SlotGameCard from '@/components/home/SlotGameCard'
 
 interface Props {
@@ -19,6 +20,9 @@ export default function SearchOverlay({ onClose, onGameTap, onOpenGame }: Props)
   const activeCurrency = useWalletStore((s) => s.activeCurrency)
   const [query, setQuery] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
+  const [providers, setProviders] = useState<string[]>([])
+  const [selectedProvider, setSelectedProvider] = useState('all')
+  const selectedProviderRef = useRef('all')
   const [games, setGames] = useState<SlotGame[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
@@ -32,7 +36,7 @@ export default function SearchOverlay({ onClose, onGameTap, onOpenGame }: Props)
 
   const pageRef = useRef(1)
 
-  async function doSearch(q: string, reset = true) {
+  async function doSearch(q: string, provider: string, reset = true) {
     const pageToFetch = reset ? 1 : pageRef.current + 1
     if (reset) {
       setLoading(true)
@@ -44,7 +48,12 @@ export default function SearchOverlay({ onClose, onGameTap, onOpenGame }: Props)
     }
     setError('')
     try {
-      const res = await fetchGames({ search: q || undefined, limit: 30, page: pageToFetch })
+      const res = await fetchGames({
+        search: q || undefined,
+        provider: provider !== 'all' ? provider : undefined,
+        limit: 30,
+        page: pageToFetch,
+      })
       if (reset) setGames(res.items)
       else setGames((prev) => [...prev, ...res.items])
       setTotal(res.total)
@@ -62,7 +71,8 @@ export default function SearchOverlay({ onClose, onGameTap, onOpenGame }: Props)
   const skipQueryWatch = useRef(true)
 
   useEffect(() => {
-    void doSearch('')
+    void doSearch('', 'all')
+    void fetchProviders().then(setProviders)
     const id = setTimeout(() => inputRef.current?.focus(), 80)
     return () => clearTimeout(id)
   }, [])
@@ -73,15 +83,24 @@ export default function SearchOverlay({ onClose, onGameTap, onOpenGame }: Props)
       return
     }
     if (searchTimer.current) clearTimeout(searchTimer.current)
-    searchTimer.current = setTimeout(() => void doSearch(query.trim(), true), 300)
+    searchTimer.current = setTimeout(
+      () => void doSearch(query.trim(), selectedProviderRef.current, true),
+      300,
+    )
     return () => {
       if (searchTimer.current) clearTimeout(searchTimer.current)
     }
   }, [query])
 
+  function selectProvider(p: string) {
+    selectedProviderRef.current = p
+    setSelectedProvider(p)
+    void doSearch(query.trim(), p, true)
+  }
+
   function loadMore() {
     if (loadingMore || pageRef.current >= pages) return
-    void doSearch(query.trim(), false)
+    void doSearch(query.trim(), selectedProviderRef.current, false)
   }
 
   async function onPlay(uuid: string) {
@@ -139,6 +158,28 @@ export default function SearchOverlay({ onClose, onGameTap, onOpenGame }: Props)
           )}
         </div>
       </div>
+
+      {providers.length > 0 && (
+        <div className="flex gap-2 px-4 pt-3 pb-1 overflow-x-auto hide-scrollbar">
+          <button
+            type="button"
+            onClick={() => selectProvider('all')}
+            className={`flex-shrink-0 px-3 py-1 rounded-full text-[10px] font-bold transition-colors ${selectedProvider === 'all' ? 'bg-primary text-primary-foreground' : 'bg-secondary text-foreground/70'}`}
+          >
+            All
+          </button>
+          {providers.map((p) => (
+            <button
+              key={p}
+              type="button"
+              onClick={() => selectProvider(p)}
+              className={`flex-shrink-0 px-3 py-1 rounded-full text-[10px] font-bold transition-colors ${selectedProvider === p ? 'bg-primary text-primary-foreground' : 'bg-secondary text-foreground/70'}`}
+            >
+              {shortProviderName(p)}
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="px-4 py-2 flex items-center gap-2">
         <p className="text-muted-foreground text-[11px] font-bold flex-1">

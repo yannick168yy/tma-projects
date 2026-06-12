@@ -2,6 +2,22 @@ import { useEffect, useState } from 'react'
 import { Table, Tag, Switch, Button, Space, message, Modal } from 'antd'
 import { getProviderStats, toggleProviderGames, type ProviderStat } from '../../api'
 
+const SHORT_NAMES: Record<string, string> = {
+  'Apparat': 'APP', 'Belatra Games': 'BEL', 'BGaming': 'BG',
+  'Caleta': 'CAL', 'Clawbuster': 'CLW', 'CTInteractive': 'CTi',
+  'Endorphina': 'END', 'Evoplay': 'EVO', 'FormulaSpin': 'FSP',
+  'FunkyGames': 'FUN', 'Hacksawgaming': 'HSW', 'Igrosoft': 'IGS',
+  'JDB': 'JDB', 'JiliGames': 'JILI', 'KAGaming': 'KA',
+  'Kalamba': 'KLB', 'No Limit City': 'NLC', 'PeterAndSons': 'P&S',
+  'Platipus': 'PLT', 'PlayHub': 'PHB', 'PlayNGo': 'PNG',
+  'PragmaticPlay': 'PP', 'Relax Gaming': 'RLX', 'Rich88': 'R88',
+  'Rollback Test': 'TEST', 'Slotopia': 'STP', 'SmartSoft': 'SMS',
+  'Spribe': 'SPB', 'Thunderkick': 'TK', 'Vivogaming': 'VIVO',
+}
+function shortName(provider: string): string {
+  return SHORT_NAMES[provider] ?? '—'
+}
+
 export default function GameProviders() {
   const [stats, setStats] = useState<ProviderStat[]>([])
   const [loading, setLoading] = useState(false)
@@ -39,6 +55,7 @@ export default function GameProviders() {
 
   const columns = [
     { title: '游戏商', dataIndex: 'provider', key: 'provider', render: (v: string) => <span style={{ fontWeight: 500 }}>{v}</span> },
+    { title: '简称', dataIndex: 'provider', key: 'shortName', width: 80, render: (v: string) => <Tag color="blue">{shortName(v)}</Tag> },
     { title: '游戏总数', dataIndex: 'total', key: 'total', width: 100, render: (v: number) => <Tag>{v} 款</Tag> },
     {
       title: '已启用', key: 'active', width: 100,

@@ -23,6 +23,7 @@ import chipPokerImg from '@/assets/chips/poker.png'
 import chipBingoImg from '@/assets/chips/bingo.png'
 import chipSportsImg from '@/assets/chips/sports.png'
 import chipFishingImg from '@/assets/chips/fishing.png'
+import { shortProviderName } from '@/utils/providers'
 
 type GameChip = string
 
@@ -366,7 +367,7 @@ const [gamesLoading, setGamesLoading] = useState(true)
                         activeProvider === p ? 'bg-primary text-primary-foreground' : 'bg-secondary text-foreground/70'
                       }`}
                     >
-                      {p}
+                      {shortProviderName(p)}
                     </button>
                   ))}
                 </>

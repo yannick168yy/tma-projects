@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { ChevronLeft, Search, RefreshCw } from 'lucide-react'
 import SlotGameCard from '@/components/home/SlotGameCard'
 import { fetchGames, fetchProviders, launchGame, launchDemo, type SlotGame } from '@/api/slots'
+import { shortProviderName } from '@/utils/providers'
 import { ApiError } from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
 import { useWalletStore } from '@/stores/wallet'
@@ -187,7 +188,7 @@ export default function SlotsLobby({
                 className={`flex-shrink-0 rounded-full px-3 py-1 text-[11px] font-bold transition-colors ${selectedProvider === p ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground'}`}
                 onClick={() => selectProvider(p)}
               >
-                {p}
+                {shortProviderName(p)}
               </button>
             ))}
           </div>
