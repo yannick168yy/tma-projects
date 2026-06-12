@@ -17,6 +17,24 @@ router.get('/', async (ctx) => {
 
   const pool = getMysqlPool(ctx.state.env)
 
+  // stats 始终只按 userId/日期过滤，两个视图共用，保持数字一致
+  const statsWhere: string[] = []
+  const statsParams: unknown[] = []
+  if (userId)   { statsWhere.push('b.user_id = ?');     statsParams.push(userId) }
+  if (dateFrom) { statsWhere.push('b.created_at >= ?'); statsParams.push(dateFrom + ' 00:00:00') }
+  if (dateTo)   { statsWhere.push('b.created_at <= ?'); statsParams.push(dateTo   + ' 23:59:59') }
+  const statsWhereClause = statsWhere.length ? 'WHERE ' + statsWhere.join(' AND ') : ''
+
+  const [[sharedStats]] = await pool.query<import('mysql2/promise').RowDataPacket[]>(
+    `SELECT
+       COALESCE(SUM(CASE WHEN b.bet_type='bet' THEN b.amount ELSE 0 END), 0) AS totalBet,
+       COALESCE(SUM(CASE WHEN b.bet_type='win' THEN b.amount ELSE 0 END), 0) AS totalWin,
+       COUNT(DISTINCT CASE WHEN b.round_id IS NOT NULL THEN b.round_id END) AS roundCount
+     FROM bg_bet_order b ${statsWhereClause}`,
+    statsParams,
+  )
+  const stats = { totalBet: Number(sharedStats.totalBet), totalWin: Number(sharedStats.totalWin), roundCount: Number(sharedStats.roundCount) }
+
   // ── 按局视图 ────────────────────────────────────────────────────────────────
   if (view === 'round') {
     const innerWhere: string[] = ['b.round_id IS NOT NULL']
@@ -50,15 +68,6 @@ router.get('/', async (ctx) => {
        ORDER BY r.bet_time DESC LIMIT ? OFFSET ?`,
       [...innerParams, pageSize, offset],
     )
-    const [[stats]] = await pool.query<import('mysql2/promise').RowDataPacket[]>(
-      `SELECT
-         COALESCE(SUM(CASE WHEN b.bet_type='bet' THEN b.amount ELSE 0 END), 0) AS totalBet,
-         COALESCE(SUM(CASE WHEN b.bet_type='win' THEN b.amount ELSE 0 END), 0) AS totalWin,
-         COUNT(DISTINCT b.round_id) AS roundCount
-       FROM bg_bet_order b ${innerWhereClause}`,
-      innerParams,
-    )
-
     const toIso = (v: unknown) => {
       if (!v) return null
       const d = new Date(v as Date)
@@ -66,7 +75,7 @@ router.get('/', async (ctx) => {
     }
     ok(ctx, {
       total: Number(total), page, pageSize,
-      stats: { totalBet: Number(stats.totalBet), totalWin: Number(stats.totalWin), roundCount: Number(stats.roundCount) },
+      stats,
       items: items.map((r) => ({
         roundId:      String(r.round_id),
         userId:       String(r.user_id),
@@ -109,15 +118,6 @@ router.get('/', async (ctx) => {
      ORDER BY b.id DESC LIMIT ? OFFSET ?`,
     [...params, pageSize, offset],
   )
-  const [[stats]] = await pool.query<import('mysql2/promise').RowDataPacket[]>(
-    `SELECT
-       COALESCE(SUM(CASE WHEN b.bet_type='bet' THEN b.amount ELSE 0 END), 0) AS totalBet,
-       COALESCE(SUM(CASE WHEN b.bet_type='win' THEN b.amount ELSE 0 END), 0) AS totalWin,
-       COUNT(DISTINCT b.round_id) AS roundCount
-     FROM bg_bet_order b ${whereClause}`,
-    params,
-  )
-
   const toIso = (v: unknown) => {
     if (!v) return null
     const d = new Date(v as Date)
@@ -125,7 +125,7 @@ router.get('/', async (ctx) => {
   }
   ok(ctx, {
     total: Number(total), page, pageSize,
-    stats: { totalBet: Number(stats.totalBet), totalWin: Number(stats.totalWin), roundCount: Number(stats.roundCount) },
+    stats,
     items: items.map((r) => ({
       id:             r.id,
       userId:         String(r.user_id),
