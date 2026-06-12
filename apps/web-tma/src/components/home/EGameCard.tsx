@@ -3,14 +3,14 @@ import GameImageCard from '@/components/game/GameImageCard'
 import { useLocaleStore } from '@/stores/locale'
 import { localizedGameName } from '@/utils/game'
 
-interface Props { game: SlotGame; onTap: () => void }
+interface Props { game: SlotGame; onTap: () => void; className?: string }
 
-export default function EGameCard({ game, onTap }: Props) {
+export default function EGameCard({ game, onTap, className }: Props) {
   const locale = useLocaleStore((s) => s.locale)
   return (
     <button
       type="button"
-      className="flex-shrink-0 w-32 h-44 rounded-xl overflow-hidden active:scale-95 transition-transform"
+      className={className ?? 'flex-shrink-0 w-32 h-44 rounded-xl overflow-hidden active:scale-95 transition-transform'}
       onClick={onTap}
     >
       <GameImageCard

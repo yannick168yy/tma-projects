@@ -18,14 +18,26 @@ import { useAuthStore } from '@/stores/auth'
 import { useWalletStore } from '@/stores/wallet'
 import { localizedGameName } from '@/utils/game'
 
-type GameChip = 'hot' | 'slots' | 'live' | 'fishing' | 'table'
+type GameChip = string
 
-const GAME_CHIPS: { id: GameChip; icon: string; labelKey: string; sortCategory?: string }[] = [
-  { id: 'hot',     icon: '🔥', labelKey: 'home.chipHot' },
-  { id: 'slots',   icon: '🎰', labelKey: 'home.chipSlots',   sortCategory: 'slots' },
-  { id: 'live',    icon: '♠️', labelKey: 'home.chipLive',    sortCategory: 'live' },
-  { id: 'fishing', icon: '🎣', labelKey: 'home.chipFishing', sortCategory: 'fishing' },
-  { id: 'table',   icon: '♟️', labelKey: 'home.chipTable',   sortCategory: 'table' },
+interface GameChipDef { id: string; icon: string; labelKey: string; sortCategory?: string; gradient: string }
+
+const GAME_CHIPS: GameChipDef[] = [
+  { id: 'hot',            icon: '🔥', labelKey: 'home.chipHot',          gradient: 'from-orange-500 to-red-600' },
+  { id: 'slots',          icon: '🎰', labelKey: 'home.chipSlots',         sortCategory: 'slots',          gradient: 'from-violet-600 to-purple-800' },
+  { id: 'live',           icon: '🃏', labelKey: 'home.chipLive',          sortCategory: 'live',           gradient: 'from-red-600 to-rose-800' },
+  { id: 'fishing',        icon: '🎣', labelKey: 'home.chipFishing',       sortCategory: 'fishing',        gradient: 'from-cyan-500 to-blue-700' },
+  { id: 'crash',          icon: '🚀', labelKey: 'home.chipCrash',         sortCategory: 'crash',          gradient: 'from-amber-500 to-orange-700' },
+  { id: 'table',          icon: '♟️', labelKey: 'home.chipTable',         sortCategory: 'table',          gradient: 'from-blue-600 to-indigo-800' },
+  { id: 'bingo',          icon: '🎱', labelKey: 'home.chipBingo',         sortCategory: 'bingo',          gradient: 'from-green-600 to-emerald-800' },
+  { id: 'sports',         icon: '⚽', labelKey: 'home.chipSports',        sortCategory: 'sports',         gradient: 'from-lime-500 to-green-700' },
+  { id: 'other',          icon: '🎮', labelKey: 'home.chipOther',         sortCategory: 'other',          gradient: 'from-slate-500 to-zinc-700' },
+  { id: 'pinoy',          icon: '🐓', labelKey: 'home.chipPinoy',         sortCategory: 'pinoy',          gradient: 'from-yellow-600 to-amber-700' },
+  { id: 'fantasy',        icon: '🧙', labelKey: 'home.chipFantasy',       sortCategory: 'fantasy',        gradient: 'from-purple-600 to-fuchsia-800' },
+  { id: 'horror',         icon: '💀', labelKey: 'home.chipHorror',        sortCategory: 'horror',         gradient: 'from-gray-700 to-stone-900' },
+  { id: 'asian',          icon: '🀄', labelKey: 'home.chipAsian',         sortCategory: 'asian',          gradient: 'from-red-700 to-rose-900' },
+  { id: 'asian-strategy', icon: '⚔️', labelKey: 'home.chipAsianStrategy', sortCategory: 'asian-strategy', gradient: 'from-teal-600 to-cyan-800' },
+  { id: 'adventure',      icon: '🗺️', labelKey: 'home.chipAdventure',     sortCategory: 'adventure',      gradient: 'from-emerald-600 to-teal-800' },
 ]
 
 const INFO_ICONS: Record<string, React.ComponentType<{ size: number; className?: string }>> = { terms: FileText, privacy: Shield, responsible: Heart, about: Info }
@@ -309,20 +321,25 @@ export default function HomeContent({ onOpenPromo, onOpenCategoryLobby, onOpenCs
       </section>
 
       {/* Game type chip 条 */}
-      <div className="flex gap-2 px-4 mt-4 overflow-x-auto hide-scrollbar">
+      <div className="flex gap-3 px-4 mt-5 pb-1 overflow-x-auto hide-scrollbar">
         {GAME_CHIPS.map((chip) => (
           <button
             key={chip.id}
             type="button"
             onClick={() => void selectChip(chip.id)}
-            className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-colors active:scale-95 ${
-              activeChip === chip.id
-                ? 'bg-primary text-primary-foreground'
-                : 'bg-secondary text-foreground/70'
-            }`}
+            className="flex-shrink-0 flex flex-col items-center gap-1.5 active:scale-95 transition-transform"
           >
-            <span>{chip.icon}</span>
-            <span>{t(chip.labelKey)}</span>
+            <div
+              className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${chip.gradient} flex items-center justify-center transition-shadow ${
+                activeChip === chip.id ? 'ring-2 ring-white/70 ring-offset-2 ring-offset-background' : ''
+              }`}
+              style={activeChip === chip.id ? { boxShadow: '0 0 16px rgba(255,255,255,0.25)' } : undefined}
+            >
+              <span className="text-[28px] leading-none">{chip.icon}</span>
+            </div>
+            <span className={`text-[11px] font-bold leading-none ${activeChip === chip.id ? 'text-primary' : 'text-foreground/60'}`}>
+              {t(chip.labelKey)}
+            </span>
           </button>
         ))}
       </div>
@@ -364,25 +381,23 @@ export default function HomeContent({ onOpenPromo, onOpenCategoryLobby, onOpenCs
             }
           </div>
 
-          {/* 游戏 2列 grid */}
-          <div className="px-4 mt-4 grid grid-cols-2 gap-3">
+          {/* 游戏 3列 grid */}
+          <div className="px-3 mt-4 grid grid-cols-3 gap-2">
             {gridLoading && gridGames.length === 0
               ? Array.from({ length: 12 }).map((_, i) => (
-                  <div key={i} className="aspect-[4/3] rounded-xl animate-pulse bg-secondary" />
+                  <div key={i} className="aspect-[8/11] rounded-xl animate-pulse bg-secondary" />
                 ))
               : gridGames.map((g) => (
-                  <div key={g.uuid}>
-                    <EGameCard game={g} onTap={() => void onGameTapAction(g.uuid)} />
-                  </div>
+                  <EGameCard key={g.uuid} game={g} onTap={() => void onGameTapAction(g.uuid)} className="w-full aspect-[8/11] rounded-xl overflow-hidden active:scale-95 transition-transform" />
                 ))
             }
           </div>
 
           {/* 加载更多 skeleton */}
           {gridLoading && gridGames.length > 0 && (
-            <div className="px-4 mt-3 grid grid-cols-2 gap-3">
-              {Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className="aspect-[4/3] rounded-xl animate-pulse bg-secondary" />
+            <div className="px-3 mt-2 grid grid-cols-3 gap-2">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="aspect-[8/11] rounded-xl animate-pulse bg-secondary" />
               ))}
             </div>
           )}
