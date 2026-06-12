@@ -531,7 +531,7 @@ export default function HomeContent({ onOpenPromo, onOpenCategoryLobby, onOpenCs
             style={{ background: 'linear-gradient(135deg, #ffb800 0%, #ff7a00 100%)', boxShadow: '0 4px 20px rgba(255,184,0,0.45)' }}
           >
             <Gem size={16} className="text-amber-900 flex-shrink-0" />
-            <span className="text-[12px] font-black text-amber-950 whitespace-nowrap">邀请赚钱</span>
+            <span className="text-[12px] font-black text-amber-950 whitespace-nowrap">{t('referralPromo.widget')}</span>
             <button
               type="button"
               onClick={dismissReferralWidget}
