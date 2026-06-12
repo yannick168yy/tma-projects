@@ -11,12 +11,22 @@ import EGameCard from '@/components/home/EGameCard'
 import LiveCard from '@/components/home/LiveCard'
 import { CATEGORIES } from '@/data/categories'
 import { BANNERS, WINNERS, INFO_LINKS } from '@/data/home'
-import { fetchHomepageGames, launchGame, fetchBettingActivity, type SlotGame, type GameHistoryItem, type BetRecord, type BetTab } from '@/api/slots'
+import { fetchHomepageGames, fetchGames, fetchProviders, launchGame, fetchBettingActivity, type SlotGame, type GameHistoryItem, type BetRecord, type BetTab } from '@/api/slots'
 import { ApiError } from '@/api/client'
 import { usePromotionStore, getHighlightMap } from '@/stores/promotion'
 import { useAuthStore } from '@/stores/auth'
 import { useWalletStore } from '@/stores/wallet'
 import { localizedGameName } from '@/utils/game'
+
+type GameChip = 'hot' | 'slots' | 'live' | 'fishing' | 'table'
+
+const GAME_CHIPS: { id: GameChip; icon: string; labelKey: string; sortCategory?: string }[] = [
+  { id: 'hot',     icon: '🔥', labelKey: 'home.chipHot' },
+  { id: 'slots',   icon: '🎰', labelKey: 'home.chipSlots',   sortCategory: 'slots' },
+  { id: 'live',    icon: '♠️', labelKey: 'home.chipLive',    sortCategory: 'live' },
+  { id: 'fishing', icon: '🎣', labelKey: 'home.chipFishing', sortCategory: 'fishing' },
+  { id: 'table',   icon: '♟️', labelKey: 'home.chipTable',   sortCategory: 'table' },
+]
 
 const INFO_ICONS: Record<string, React.ComponentType<{ size: number; className?: string }>> = { terms: FileText, privacy: Shield, responsible: Heart, about: Info }
 import { readLocalHistory, writeLocalHistory } from '@/utils/game-history'
@@ -133,6 +143,67 @@ export default function HomeContent({ onOpenPromo, onOpenCategoryLobby, onOpenCs
   const popularGames = homepageGames.popular; const slotsGames = homepageGames.slots; const liveGames = homepageGames.live
   const fishingGames = homepageGames.fishing; const tableCrashGames = useMemo(() => [...homepageGames.table, ...homepageGames.crash], [homepageGames])
 
+  // Game chip 筛选
+  const [activeChip, setActiveChip] = useState<GameChip>('hot')
+  const [activeProvider, setActiveProvider] = useState<string>('all')
+  const [chipProviders, setChipProviders] = useState<string[]>([])
+  const [chipProvidersLoading, setChipProvidersLoading] = useState(false)
+  const [gridGames, setGridGames] = useState<SlotGame[]>([])
+  const [gridPage, setGridPage] = useState(1)
+  const [gridTotalPages, setGridTotalPages] = useState(1)
+  const [gridLoading, setGridLoading] = useState(false)
+  const gridSentinelRef = useRef<HTMLDivElement>(null)
+  const gridFetchRef = useRef(0)
+
+  async function loadGridPage(chip: GameChip, provider: string, page: number, reset: boolean) {
+    const chipDef = GAME_CHIPS.find((c) => c.id === chip)
+    if (!chipDef?.sortCategory) return
+    const token = ++gridFetchRef.current
+    if (reset) setGridLoading(true)
+    try {
+      const result = await fetchGames({ sortCategory: chipDef.sortCategory, provider: provider === 'all' ? undefined : provider, page, limit: 30, sortBy: 'weight' })
+      if (token !== gridFetchRef.current) return
+      setGridGames((prev) => reset ? result.items : [...prev, ...result.items])
+      setGridPage(result.page)
+      setGridTotalPages(result.pages)
+    } catch { /* ignore */ }
+    finally { if (token === gridFetchRef.current) setGridLoading(false) }
+  }
+
+  async function selectChip(chip: GameChip) {
+    if (chip === activeChip) return
+    setActiveChip(chip)
+    setActiveProvider('all')
+    setGridGames([])
+    if (chip === 'hot') return
+    const chipDef = GAME_CHIPS.find((c) => c.id === chip)!
+    setChipProvidersLoading(true)
+    try {
+      const providers = await fetchProviders(chipDef.sortCategory)
+      setChipProviders(providers)
+    } catch { setChipProviders([]) }
+    finally { setChipProvidersLoading(false) }
+    void loadGridPage(chip, 'all', 1, true)
+  }
+
+  async function selectProvider(provider: string) {
+    if (provider === activeProvider) return
+    setActiveProvider(provider)
+    setGridGames([])
+    void loadGridPage(activeChip, provider, 1, true)
+  }
+
+  useEffect(() => {
+    if (!gridSentinelRef.current || activeChip === 'hot') return
+    const observer = new IntersectionObserver((entries) => {
+      if (entries[0]?.isIntersecting && !gridLoading && gridPage < gridTotalPages) {
+        void loadGridPage(activeChip, activeProvider, gridPage + 1, false)
+      }
+    }, { threshold: 0.1 })
+    observer.observe(gridSentinelRef.current)
+    return () => observer.disconnect()
+  }, [activeChip, activeProvider, gridLoading, gridPage, gridTotalPages])
+
   // Betting table
   const [activeBetTab, setActiveBetTab] = useState<BetTab>('latest')
   const [latestBets, setLatestBets] = useState<BetRecord[]>([]); const [weekBets, setWeekBets] = useState<BetRecord[]>([]); const [monthBets, setMonthBets] = useState<BetRecord[]>([])
@@ -236,6 +307,98 @@ export default function HomeContent({ onOpenPromo, onOpenCategoryLobby, onOpenCs
           <div className="flex gap-3 px-4 overflow-x-auto hide-scrollbar">{historyGames.map((g) => <HistoryCard key={g.uuid} game={g} onTap={() => void onGameTapAction(g.uuid)} />)}</div>
         ) : <div className="px-4"><p className="text-muted-foreground text-xs">{t('home.noHistory')}</p></div>}
       </section>
+
+      {/* Game type chip 条 */}
+      <div className="flex gap-2 px-4 mt-4 overflow-x-auto hide-scrollbar">
+        {GAME_CHIPS.map((chip) => (
+          <button
+            key={chip.id}
+            type="button"
+            onClick={() => void selectChip(chip.id)}
+            className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-colors active:scale-95 ${
+              activeChip === chip.id
+                ? 'bg-primary text-primary-foreground'
+                : 'bg-secondary text-foreground/70'
+            }`}
+          >
+            <span>{chip.icon}</span>
+            <span>{t(chip.labelKey)}</span>
+          </button>
+        ))}
+      </div>
+
+      {/* 非 Hot 模式：二级 provider 筛选 + 游戏 grid */}
+      {activeChip !== 'hot' && (
+        <>
+          {/* Provider chip 条 */}
+          <div className="flex gap-2 px-4 mt-3 overflow-x-auto hide-scrollbar">
+            {chipProvidersLoading
+              ? Array.from({ length: 5 }).map((_, i) => (
+                  <div key={i} className="flex-shrink-0 h-7 w-16 rounded-full animate-pulse bg-secondary" />
+                ))
+              : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => void selectProvider('all')}
+                    className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-bold transition-colors active:scale-95 ${
+                      activeProvider === 'all' ? 'bg-primary text-primary-foreground' : 'bg-secondary text-foreground/70'
+                    }`}
+                  >
+                    All
+                  </button>
+                  {chipProviders.map((p) => (
+                    <button
+                      key={p}
+                      type="button"
+                      onClick={() => void selectProvider(p)}
+                      className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-bold transition-colors active:scale-95 ${
+                        activeProvider === p ? 'bg-primary text-primary-foreground' : 'bg-secondary text-foreground/70'
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  ))}
+                </>
+              )
+            }
+          </div>
+
+          {/* 游戏 2列 grid */}
+          <div className="px-4 mt-4 grid grid-cols-2 gap-3">
+            {gridLoading && gridGames.length === 0
+              ? Array.from({ length: 12 }).map((_, i) => (
+                  <div key={i} className="aspect-[4/3] rounded-xl animate-pulse bg-secondary" />
+                ))
+              : gridGames.map((g) => (
+                  <div key={g.uuid}>
+                    <EGameCard game={g} onTap={() => void onGameTapAction(g.uuid)} />
+                  </div>
+                ))
+            }
+          </div>
+
+          {/* 加载更多 skeleton */}
+          {gridLoading && gridGames.length > 0 && (
+            <div className="px-4 mt-3 grid grid-cols-2 gap-3">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="aspect-[4/3] rounded-xl animate-pulse bg-secondary" />
+              ))}
+            </div>
+          )}
+
+          {/* IntersectionObserver 哨兵 */}
+          <div ref={gridSentinelRef} className="h-4" />
+
+          {/* 已到底 */}
+          {!gridLoading && gridPage >= gridTotalPages && gridGames.length > 0 && (
+            <p className="text-center text-[11px] text-muted-foreground py-4">{t('common.noMore')}</p>
+          )}
+        </>
+      )}
+
+      {/* Hot 模式：原有首页内容 */}
+      {activeChip === 'hot' && <>
 
       {/* Recent Wins marquee */}
       <div className="mx-4 mt-4 bg-secondary rounded-xl p-3 flex items-center gap-2 overflow-hidden">
@@ -508,6 +671,8 @@ export default function HomeContent({ onOpenPromo, onOpenCategoryLobby, onOpenCs
         </button>
       </section>
       <div className="mt-6 mb-4 px-4 text-center"><p className="text-[10px] text-muted-foreground/50">© 2025 BetoGo · 18+</p></div>
+
+      </>}{/* end hot mode */}
 
       {/* 三级分销浮动挂件：未成为代理前始终显示，成为代理后自动消失 */}
       {auth.token && !promotion.teamStatus?.isAgent && (

@@ -62,7 +62,7 @@ router.get('/betting-activity', (ctx) => {
   ok(ctx, getBettingActivity(tab as BetTab))
 })
 
-// GET /slots/providers — distinct providers from cache
+// GET /slots/providers?sortCategory=slots — distinct providers from cache
 router.get('/providers', async (ctx) => {
   const env = ctx.state.env
   if (!isMysqlEnabled(env)) {
@@ -70,7 +70,8 @@ router.get('/providers', async (ctx) => {
     return
   }
   try {
-    const providers = await listProviders(env)
+    const sortCategory = (ctx.query.sortCategory as string) || undefined
+    const providers = await listProviders(env, sortCategory)
     ok(ctx, providers)
   } catch (e) {
     fail(ctx, 500, 'Failed to list providers')

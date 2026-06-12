@@ -83,8 +83,9 @@ export function fetchGames(params: GameListParams = {}): Promise<GameListResult>
   return apiRequest<GameListResult>(`/slots/games${q ? `?${q}` : ''}`)
 }
 
-export function fetchProviders(): Promise<string[]> {
-  return apiRequest<string[]>('/slots/providers')
+export function fetchProviders(sortCategory?: string): Promise<string[]> {
+  const qs = sortCategory ? `?sortCategory=${encodeURIComponent(sortCategory)}` : ''
+  return apiRequest<string[]>(`/slots/providers${qs}`)
 }
 
 export function launchGame(gameUuid: string, device: 'mobile' | 'desktop' = 'mobile', currency?: string): Promise<{ url: string }> {

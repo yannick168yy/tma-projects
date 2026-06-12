@@ -401,11 +401,12 @@ export async function getUserGameHistory(
   }))
 }
 
-/** Returns distinct provider codes from cached games */
-export async function listProviders(env: Env): Promise<string[]> {
-  const db = getMysqlPool(env)
-  const [rows] = await db.execute<RowDataPacket[]>(
-    `SELECT DISTINCT provider FROM sg_games ORDER BY provider ASC`,
-  )
-  return rows.map((r) => r.provider as string)
+/** Returns distinct provider codes from cached games, optionally filtered by sortCategory */
+export async function listProviders(env: Env, sortCategory?: string): Promise<string[]> {
+  let games = await getGamesFromCache(env)
+  if (sortCategory && sortCategory !== 'all') {
+    games = games.filter((g) => g.sortCategory === sortCategory)
+  }
+  const providers = [...new Set(games.map((g) => g.provider))].sort()
+  return providers
 }
