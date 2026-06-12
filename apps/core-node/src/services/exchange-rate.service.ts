@@ -10,6 +10,14 @@ const TESTNET_TO_MAINNET: Record<string, string> = {
   TLK_TESTNET: 'TRX',
 }
 
+// CoinGecko id → 币种符号（freecurrencyapi 不支持加密货币）
+const CRYPTO_COINGECKO_IDS: Record<string, string> = {
+  TRX: 'tron',
+  BNB: 'binancecoin',
+  ETH: 'ethereum',
+  BTC: 'bitcoin',
+}
+
 // 返回 1单位指定货币 → PHP 的汇率
 // 例：getPhpRate('EUR') → 62.5 表示 1 EUR = 62.5 PHP
 export async function getPhpRate(currency: string): Promise<number> {
@@ -30,26 +38,39 @@ export async function fetchRates(): Promise<Record<string, number>> {
     return cachedRates
   }
 
+  const result: Record<string, number> = buildFallback()
+
+  // 法币汇率（freecurrencyapi）
   try {
     const url = `https://api.freecurrencyapi.com/v1/latest?apikey=${env.EXCHANGE_RATE_API_KEY}&base_currency=PHP&currencies=EUR,USD,USDT,THB,VND,IDR,MYR,SGD`
     const res = await fetch(url, { signal: AbortSignal.timeout(8000) })
     if (!res.ok) throw new Error(`FX API ${res.status}`)
     const json = await res.json() as { data: Record<string, number> }
-    // freecurrencyapi 返回：1 PHP = X 外币，需要取倒数
-    const raw = json.data
-    const result: Record<string, number> = {}
-    for (const [cur, rateFromPhp] of Object.entries(raw)) {
+    for (const [cur, rateFromPhp] of Object.entries(json.data)) {
       if (rateFromPhp > 0) result[cur.toUpperCase()] = 1 / rateFromPhp
     }
-    cachedRates = result
-    cacheExpiry = Date.now() + 60 * 60 * 1000
-    return cachedRates
-  } catch {
-    // API 失败时用 env 兜底
-    cachedRates = buildFallback()
-    cacheExpiry = Date.now() + 5 * 60 * 1000 // 失败后5分钟再重试
-    return cachedRates
+  } catch (err) {
+    console.warn('[exchange-rate] freecurrencyapi failed, using fallback for fiat:', err)
   }
+
+  // 加密货币汇率（CoinGecko，免费无需 key）
+  try {
+    const ids = Object.values(CRYPTO_COINGECKO_IDS).join(',')
+    const cgUrl = `https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=php`
+    const cgRes = await fetch(cgUrl, { signal: AbortSignal.timeout(8000) })
+    if (!cgRes.ok) throw new Error(`CoinGecko API ${cgRes.status}`)
+    const cgJson = await cgRes.json() as Record<string, { php: number }>
+    for (const [symbol, geckoId] of Object.entries(CRYPTO_COINGECKO_IDS)) {
+      const price = cgJson[geckoId]?.php
+      if (price && price > 0) result[symbol] = price
+    }
+  } catch (err) {
+    console.warn('[exchange-rate] CoinGecko failed, using fallback for crypto:', err)
+  }
+
+  cachedRates = result
+  cacheExpiry = Date.now() + 60 * 60 * 1000
+  return cachedRates
 }
 
 function buildFallback(): Record<string, number> {
