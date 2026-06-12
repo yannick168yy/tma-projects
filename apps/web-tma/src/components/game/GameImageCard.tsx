@@ -13,14 +13,14 @@ interface Props {
   children?: ReactNode
 }
 
-const NAME_FONT_SIZE = 14
 const nameStyle: CSSProperties = {
-  fontSize: `${NAME_FONT_SIZE}px`,
-  lineHeight: '1.25',
   overflow: 'hidden',
   textOverflow: 'ellipsis',
   whiteSpace: 'nowrap',
 }
+
+const PROVIDER_BADGE_CLASS =
+  'absolute top-0 right-0 z-10 bg-black/55 text-white/95 text-xs font-medium px-3 py-1 rounded-bl-lg leading-none backdrop-blur-sm'
 
 export default function GameImageCard({
   imageUrl, fallbackBg, name, provider, tag, tagBg, tagFg, variant, children,
@@ -72,7 +72,7 @@ export default function GameImageCard({
           style={{ background: `linear-gradient(135deg, ${fallbackBg[0]}, ${fallbackBg[1]})` }}
         >
           {imageUrl && <img src={imageUrl} className="absolute inset-0 w-full h-full object-cover" />}
-          <span className="absolute top-1 right-1 bg-black/50 text-white/90 text-[7px] font-black px-1 py-px rounded leading-none backdrop-blur-sm z-10">
+          <span className={PROVIDER_BADGE_CLASS}>
             {shortProviderName(provider)}
           </span>
           {children}
@@ -80,8 +80,8 @@ export default function GameImageCard({
         <div className="flex-shrink-0 relative overflow-hidden px-2.5 pt-2 pb-2.5">
           {imageUrl ? <div className="absolute" style={mirrorBgStyle} /> : <div className="absolute inset-0" style={{ background: fallbackBg[0] }} />}
           <div className="relative z-10 min-w-0">
-            {tag && <span className="text-[7px] font-black px-1.5 py-[2px] rounded-full leading-none inline-block mb-1.5" style={tagStyle}>{tag}</span>}
-            <p className="text-white font-black font-display min-w-0" style={nameStyle}>{name}</p>
+            {tag && <span className="text-[7px] font-normal px-1.5 py-[2px] rounded-full leading-none inline-block mb-1.5" style={tagStyle}>{tag}</span>}
+            <p className="text-[11px] font-bold leading-tight text-white/95 min-w-0" style={nameStyle}>{name}</p>
           </div>
         </div>
       </div>
@@ -102,14 +102,14 @@ export default function GameImageCard({
             onLoad={onImageLoad}
           />
         )}
-        <span className="absolute top-1 right-1 bg-black/50 text-white/90 text-[7px] font-black px-1 py-px rounded leading-none backdrop-blur-sm z-10">
+        <span className={PROVIDER_BADGE_CLASS}>
           {shortProviderName(provider)}
         </span>
         {children}
       </div>
       <div className="flex-shrink-0 px-2 pt-1.5 pb-2 min-w-0" style={{ background: barGradient }}>
-        {tag && <span className="text-[7px] font-black px-1.5 py-[2px] rounded-full leading-none inline-block mb-1" style={tagStyle}>{tag}</span>}
-        <p className="text-white font-black font-display min-w-0" style={nameStyle}>{name}</p>
+        {tag && <span className="text-[7px] font-normal px-1.5 py-[2px] rounded-full leading-none inline-block mb-1" style={tagStyle}>{tag}</span>}
+        <p className="text-[11px] font-bold leading-tight text-white/95 min-w-0" style={nameStyle}>{name}</p>
       </div>
     </div>
   )
