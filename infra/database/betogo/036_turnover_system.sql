@@ -62,11 +62,10 @@ CREATE TABLE IF NOT EXISTS `bg_turnover_allocations` (
   KEY `idx_requirement` (`requirement_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='流水要求分配明细';
 
--- 为 trial/referral 补充 turnover_x（0 = 无流水要求）和 turnover_days（0 = 永久）
-INSERT INTO `bg_promo_config` (`promo_id`, `config_key`, `config_value`) VALUES
-  ('trial',    'turnover_x',    '0'),
+-- 为 trial/referral 补充 turnover_x 和 turnover_days；INSERT IGNORE 避免每次部署覆盖管理员手动调整的值
+INSERT IGNORE INTO `bg_promo_config` (`promo_id`, `config_key`, `config_value`) VALUES
+  ('trial',    'turnover_x',    '15'),
   ('trial',    'turnover_days', '0'),
-  ('referral', 'turnover_x',    '0'),
+  ('referral', 'turnover_x',    '15'),
   ('referral', 'turnover_days', '0'),
-  ('firstdep', 'turnover_days', '30')
-ON DUPLICATE KEY UPDATE `config_value` = VALUES(`config_value`);
+  ('firstdep', 'turnover_days', '30');
