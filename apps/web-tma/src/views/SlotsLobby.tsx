@@ -3,7 +3,6 @@ import { useTranslation } from 'react-i18next'
 import { ChevronLeft, Search, RefreshCw } from 'lucide-react'
 import SlotGameCard from '@/components/home/SlotGameCard'
 import { fetchGames, fetchProviders, launchGame, launchDemo, type SlotGame } from '@/api/slots'
-import { writeLocalHistory } from '@/utils/game-history'
 import { ApiError } from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
 import { useWalletStore } from '@/stores/wallet'
@@ -119,8 +118,6 @@ export default function SlotsLobby({
     setLaunchingUuid(uuid)
     try {
       const { url } = await launchGame(uuid, 'mobile', activeCurrency)
-      const game = games.find((g) => g.uuid === uuid)
-      if (game) writeLocalHistory(game)
       onOpenGame(url)
     } catch (e) {
       alert(e instanceof ApiError ? e.message : 'Failed to launch game')

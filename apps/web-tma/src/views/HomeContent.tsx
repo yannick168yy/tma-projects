@@ -1,17 +1,16 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
-  ChevronLeft, ChevronRight, Trophy, TrendingUp, Clock, Gamepad2,
+  ChevronLeft, ChevronRight, Trophy, TrendingUp, Gamepad2,
   Headphones, Fish, LayoutGrid, FileText, Shield, Heart, Info, X, Gem,
 } from 'lucide-react'
 import HomeCategoryShortcut from '@/components/home/HomeCategoryShortcut'
 import GameCard from '@/components/home/GameCard'
-import HistoryCard from '@/components/home/HistoryCard'
 import EGameCard from '@/components/home/EGameCard'
 import LiveCard from '@/components/home/LiveCard'
 import { CATEGORIES } from '@/data/categories'
 import { BANNERS, WINNERS, INFO_LINKS } from '@/data/home'
-import { fetchHomepageGames, fetchGames, fetchProviders, launchGame, fetchBettingActivity, type SlotGame, type GameHistoryItem, type BetRecord, type BetTab } from '@/api/slots'
+import { fetchHomepageGames, fetchGames, fetchProviders, launchGame, fetchBettingActivity, type SlotGame, type BetRecord, type BetTab } from '@/api/slots'
 import { ApiError } from '@/api/client'
 import { usePromotionStore, getHighlightMap } from '@/stores/promotion'
 import { useAuthStore } from '@/stores/auth'
@@ -41,7 +40,6 @@ const GAME_CHIPS: GameChipDef[] = [
 ]
 
 const INFO_ICONS: Record<string, React.ComponentType<{ size: number; className?: string }>> = { terms: FileText, privacy: Shield, responsible: Heart, about: Info }
-import { readLocalHistory, writeLocalHistory } from '@/utils/game-history'
 
 interface CategoryLobbyParams { sortCategory?: string; sortBy?: 'weight' | 'ph_bonus'; title: string }
 
@@ -126,31 +124,22 @@ export default function HomeContent({ onOpenPromo, onOpenCategoryLobby, onOpenCs
   // Game data
   const [launchingUuid, setLaunchingUuid] = useState<string | null>(null)
   const [homepageGames, setHomepageGames] = useState<{ popular: SlotGame[]; slots: SlotGame[]; live: SlotGame[]; fishing: SlotGame[]; crash: SlotGame[]; table: SlotGame[] }>({ popular: [], slots: [], live: [], fishing: [], crash: [], table: [] })
-  const [historyGames, setHistoryGames] = useState<GameHistoryItem[]>([])
-  const [gamesLoading, setGamesLoading] = useState(true)
+const [gamesLoading, setGamesLoading] = useState(true)
   const popularScroll = useRef<HTMLDivElement>(null); const slotsScroll = useRef<HTMLDivElement>(null)
   const liveScroll = useRef<HTMLDivElement>(null); const fishingScroll = useRef<HTMLDivElement>(null)
   const tableCrashScroll = useRef<HTMLDivElement>(null)
   function scrollRow(ref: React.RefObject<HTMLDivElement | null>, dir: -1 | 1) { ref.current?.scrollBy({ left: dir * 148, behavior: 'smooth' }) }
-
-  const gameMap = useMemo(() => {
-    const m = new Map<string, SlotGame>()
-    const { popular, slots, live, fishing, crash, table } = homepageGames
-    for (const g of [...popular, ...slots, ...live, ...fishing, ...crash, ...table]) if (!m.has(g.uuid)) m.set(g.uuid, g)
-    return m
-  }, [homepageGames])
 
   const onGameTapAction = useCallback(async (uuid: string) => {
     if (!(await auth.ensureLoggedIn(t('auth.signInPlay')))) return
     if (launchingUuid) return
     setLaunchingUuid(uuid)
     try {
-      const { url } = await launchGame(uuid, 'mobile', activeCurrency); const game = gameMap.get(uuid)
-      if (game) { writeLocalHistory(game); setHistoryGames(readLocalHistory()) }
+      const { url } = await launchGame(uuid, 'mobile', activeCurrency)
       onOpenGame(url)
     } catch (e) { alert(e instanceof ApiError ? e.message : 'Launch failed') }
     finally { setLaunchingUuid(null) }
-  }, [auth, launchingUuid, gameMap, onOpenGame, t, activeCurrency])
+  }, [auth, launchingUuid, onOpenGame, t, activeCurrency])
 
   const popularGames = homepageGames.popular; const slotsGames = homepageGames.slots; const liveGames = homepageGames.live
   const fishingGames = homepageGames.fishing; const tableCrashGames = useMemo(() => [...homepageGames.table, ...homepageGames.crash], [homepageGames])
@@ -255,7 +244,6 @@ export default function HomeContent({ onOpenPromo, onOpenCategoryLobby, onOpenCs
   }, [infoModal, t])
 
   useEffect(() => {
-    setHistoryGames(readLocalHistory())
     setGamesLoading(true)
     fetchHomepageGames().then(setHomepageGames).catch(() => {}).finally(() => setGamesLoading(false))
     void loadBetTab('latest')
@@ -311,14 +299,6 @@ export default function HomeContent({ onOpenPromo, onOpenCategoryLobby, onOpenCs
           </div>
         </div>
       </div>
-
-      {/* Game History */}
-      <section className="mt-5">
-        <div className="flex items-center justify-between px-4 mb-3"><div className="flex items-center gap-2"><Clock size={15} className="text-muted-foreground" /><h3 className="text-foreground font-black text-sm font-display">{t('home.gameHistory')}</h3></div></div>
-        {historyGames.length > 0 ? (
-          <div className="flex gap-3 px-4 overflow-x-auto hide-scrollbar">{historyGames.map((g) => <HistoryCard key={g.uuid} game={g} onTap={() => void onGameTapAction(g.uuid)} />)}</div>
-        ) : <div className="px-4"><p className="text-muted-foreground text-xs">{t('home.noHistory')}</p></div>}
-      </section>
 
       {/* Game type chip 条 */}
       <div className="flex gap-3 px-4 mt-5 pb-1 overflow-x-auto hide-scrollbar">

@@ -41,18 +41,6 @@ export interface GameListParams {
   playerTypes?: string[]
 }
 
-export interface GameHistoryItem {
-  uuid: string
-  name: string
-  nameId?: string | null
-  nameVi?: string | null
-  nameZh?: string | null
-  provider: string
-  imageUrl: string | null
-  imageHqUrl: string | null
-  lastPlayedAt: string
-}
-
 export interface HomepageGames {
   popular: SlotGame[]
   slots: SlotGame[]
