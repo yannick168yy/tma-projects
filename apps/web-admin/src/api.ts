@@ -363,6 +363,12 @@ export interface BetOrderRecord {
   createdAt: string; settledAt: string | null
   gameName: string | null; providerName: string | null
 }
+export interface BetRoundRecord {
+  roundId: string; userId: string; currencyCode: string
+  betAmount: number; winAmount: number
+  gameName: string | null; providerName: string | null
+  betTime: string | null; winTime: string | null
+}
 export interface BetOrderStats {
   totalBet: number; totalWin: number; roundCount: number
 }
@@ -371,6 +377,11 @@ export const getBetOrders = (params: {
   userId?: string; status?: string; betType?: string
   dateFrom?: string; dateTo?: string
 }) => get<{ total: number; page: number; pageSize: number; stats: BetOrderStats; items: BetOrderRecord[] }>('/admin/bet-orders', params)
+
+export const getBetRounds = (params: {
+  page?: number; pageSize?: number
+  userId?: string; dateFrom?: string; dateTo?: string
+}) => get<{ total: number; page: number; pageSize: number; stats: BetOrderStats; items: BetRoundRecord[] }>('/admin/bet-orders', { ...params, view: 'round' })
 
 // SG 结算报告
 export interface SgSettlementRecord {
