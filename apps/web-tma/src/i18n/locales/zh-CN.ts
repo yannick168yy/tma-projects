@@ -113,6 +113,7 @@ export default {
     chipLive: '真人',
     chipFishing: '捕鱼',
     chipCrash: '飞鸟',
+    chipPoker: '扑克',
     chipTable: '桌游',
     chipBingo: '宾果',
     chipSports: '体育',

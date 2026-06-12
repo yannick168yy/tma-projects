@@ -114,6 +114,7 @@ export default {
     chipLive: 'Live',
     chipFishing: 'Pancing',
     chipCrash: 'Crash',
+    chipPoker: 'Poker',
     chipTable: 'Meja',
     chipBingo: 'Bingo',
     chipSports: 'Olahraga',
