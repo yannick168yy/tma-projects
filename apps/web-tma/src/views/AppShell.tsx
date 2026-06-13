@@ -311,7 +311,7 @@ export default function AppShell() {
 {view.type === 'betHistory' && <BetHistoryPage onClose={overlay.close} />}
           {view.type === 'teamCenter' && <TeamCenterPage />}
           {view.type === 'referralPromo' && <ReferralPromoPage onOpenTeamCenter={() => { overlay.openTeamCenter() }} />}
-          {view.type === 'cashback' && <CashbackPage onOpenGame={(url) => setGamePlayerUrl(url)} />}
+          {view.type === 'cashback' && <CashbackPage onOpenGame={(url) => setGamePlayerUrl(url)} onOpenCategory={openCategoryLobby} />}
           {view.type === 'none' && activeNav === 'bonuses' && <BonusesPage promoFilter={promoFilter} onOpenWallet={() => void openWallet()} onOpenTeam={openTeamCenter} />}
           {view.type === 'none' && activeNav === 'bingo' && <BingoPage onOpenWallet={() => void openWallet()} onGameTap={() => void onGameTap()} onOpenGame={(url) => setGamePlayerUrl(url)} onOpenCategoryLobby={openCategoryLobby} />}
           {view.type === 'none' && activeNav === 'menu' && <MenuPage onOpenCs={openCs} onLogin={() => void auth.ensureLoggedIn(t('auth.signInProfile'))} onLogout={onLogout} onOpenBetHistory={openBetHistory} onOpenReferralPromo={openReferralPromo} />}
