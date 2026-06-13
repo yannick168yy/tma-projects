@@ -102,6 +102,18 @@ export default {
     close: '完成',
     required: '提款需先完成实名认证',
   },
+  bind: {
+    title: '账号与安全',
+    subtitle: '为当前账号绑定更多登录方式。',
+    bound: '已绑定',
+    action: '绑定',
+    confirm: '确认',
+    failed: '绑定失败',
+    phone: '手机号',
+    account: '账号密码',
+    telegramBrowserOnly: '请在浏览器中绑定',
+    entry: '账号与登录方式',
+  },
   home: {
     banners: {
       '1': {

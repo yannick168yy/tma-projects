@@ -3,8 +3,9 @@ import { useTranslation } from 'react-i18next'
 import { X } from 'lucide-react'
 import { createPortal } from 'react-dom'
 import BetogoLogo from '@/components/BetogoLogo'
+import TelegramLoginButton from '@/components/auth/TelegramLoginButton'
 import { useAuthStore } from '@/stores/auth'
-import type { PasswordMethod } from '@/types/api'
+import type { PasswordMethod, TelegramWidgetUser } from '@/types/api'
 
 interface Props {
   open: boolean
@@ -16,6 +17,7 @@ export default function LoginSheet({ open, onClose }: Props) {
   const isTelegram = useAuthStore((s) => s.isTelegram)
   const loginReason = useAuthStore((s) => s.loginReason)
   const loginWithTelegram = useAuthStore((s) => s.loginWithTelegram)
+  const loginWithTelegramWidget = useAuthStore((s) => s.loginWithTelegramWidget)
   const loginWithGoogle = useAuthStore((s) => s.loginWithGoogle)
   const loginWithPassword = useAuthStore((s) => s.loginWithPassword)
   const registerWithPassword = useAuthStore((s) => s.registerWithPassword)
@@ -46,6 +48,18 @@ export default function LoginSheet({ open, onClose }: Props) {
       loginWithGoogle()
     } catch (e) {
       setError(e instanceof Error ? e.message : t('auth.loginFailed'))
+      setLoading(false)
+    }
+  }
+
+  async function onTelegramWidgetAuth(user: TelegramWidgetUser) {
+    setLoading(true)
+    setError(null)
+    try {
+      await loginWithTelegramWidget(user)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t('auth.loginFailed'))
+    } finally {
       setLoading(false)
     }
   }
@@ -105,16 +119,17 @@ export default function LoginSheet({ open, onClose }: Props) {
               {t('auth.retryTelegram')}
             </button>
           ) : (
-            <button
-              type="button"
-              className="flex w-full items-center justify-center gap-2 rounded-xl border border-border bg-secondary py-3 text-sm font-bold text-foreground disabled:opacity-60"
-              disabled={loading}
-              onClick={onGoogleLogin}
-            >
-              <span className="text-base">G</span>
-              {t('auth.continueGoogle')}
-            </button>
+            <TelegramLoginButton onAuth={(u) => void onTelegramWidgetAuth(u)} />
           )}
+          <button
+            type="button"
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-border bg-secondary py-3 text-sm font-bold text-foreground disabled:opacity-60"
+            disabled={loading}
+            onClick={onGoogleLogin}
+          >
+            <span className="text-base">G</span>
+            {t('auth.continueGoogle')}
+          </button>
         </div>
 
         {/* 分割线 */}

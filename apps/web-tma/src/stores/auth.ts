@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { loginPassword, loginTelegram, loginWithGoogleRedirect, logoutSession, registerPassword, restoreSession } from '@/api/auth'
+import { loginPassword, loginTelegram, loginTelegramWidget, loginWithGoogleRedirect, logoutSession, registerPassword, restoreSession } from '@/api/auth'
 import { getInitData } from '@/api/client'
 import { fetchBalance } from '@/api/wallet'
 import { fetchPromoHighlights } from '@/api/promotion'
@@ -8,7 +8,9 @@ import { useWalletStore } from '@/stores/wallet'
 import type { AuthUser } from '@/types/api'
 import { isInsideTelegram } from '@/utils/initTelegramWebApp'
 import { clearStoredReferral, getStoredReferral } from '@/utils/referral'
-import type { PasswordMethod } from '@/types/api'
+import type { PasswordMethod, TelegramWidgetUser } from '@/types/api'
+
+const LOGOUT_FLAG = 'betogo_logged_out'
 import { i18n } from '@/i18n'
 
 export type AuthPhase = 'splash' | 'ready' | 'error'
@@ -35,6 +37,7 @@ interface AuthActions {
   closeLoginSheet: () => void
   clearTrialEligible: () => void
   loginWithTelegram: () => Promise<void>
+  loginWithTelegramWidget: (data: TelegramWidgetUser) => Promise<void>
   loginWithGoogle: () => void
   loginWithPassword: (method: PasswordMethod, identifier: string, password: string) => Promise<void>
   registerWithPassword: (method: PasswordMethod, identifier: string, password: string) => Promise<void>
@@ -85,6 +88,7 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
   },
 
   async tryTelegramAutoLogin() {
+    if (localStorage.getItem(LOGOUT_FLAG)) return // 手动登出后不自动用 TG 登录，让用户选其他方式
     if (!get().isTelegram || !getInitData()) return
     set({ tgAutoLoginAttempted: true })
     try {
@@ -101,6 +105,7 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
       trialEligible: Boolean(session.trialRedPacketEligible),
     })
     localStorage.setItem('betogo_token', session.token)
+    localStorage.removeItem(LOGOUT_FLAG) // 成功登录后解除登出抑制
     if (session.isNewUser) {
       localStorage.setItem('betogo_seen', '1')
       clearStoredReferral()
@@ -139,6 +144,14 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
     await usePromotionStore.getState().refreshHighlights()
   },
 
+  async loginWithTelegramWidget(data) {
+    const session = await loginTelegramWidget(data)
+    get().applySession(session)
+    get().closeLoginSheet()
+    useWalletStore.getState().setBalance(await fetchBalance())
+    await usePromotionStore.getState().refreshHighlights()
+  },
+
   loginWithGoogle() {
     loginWithGoogleRedirect()
   },
@@ -161,6 +174,7 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
 
   async logout() {
     await logoutSession()
+    localStorage.setItem(LOGOUT_FLAG, '1') // 抑制 TG 自动登录，允许改用其他方式
     set({
       token: null,
       user: null,

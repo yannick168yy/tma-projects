@@ -103,6 +103,18 @@ export default {
     close: 'Done',
     required: 'Verify identity to withdraw',
   },
+  bind: {
+    title: 'Account & Security',
+    subtitle: 'Link more ways to sign in to this account.',
+    bound: 'Linked',
+    action: 'Link',
+    confirm: 'Confirm',
+    failed: 'Linking failed',
+    phone: 'Phone',
+    account: 'Username & password',
+    telegramBrowserOnly: 'Link in a browser',
+    entry: 'Account & login methods',
+  },
   home: {
     banners: {
       '1': {

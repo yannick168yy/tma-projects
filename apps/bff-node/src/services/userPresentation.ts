@@ -26,5 +26,11 @@ export function toPublicUser(user: UserRecord) {
     loginProvider,
     email,
     telegramUsername: user.telegramUsername,
+    username: user.username,
+    // 各登录方式是否已绑定（绑定页用）
+    boundTelegram: user.telegramUserId != null,
+    boundGoogle: Boolean(user.googleSub),
+    boundPhone: Boolean(user.phoneAccount),
+    boundAccount: Boolean(user.username),
   }
 }

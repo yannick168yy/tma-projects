@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
-import { CheckCircle2, Copy, ChevronDown, ChevronRight, LogOut, Headphones, X, User } from 'lucide-react'
+import { CheckCircle2, Copy, ChevronDown, ChevronRight, LogOut, Headphones, X, User, ShieldCheck } from 'lucide-react'
+import BindModal from '@/components/auth/BindModal'
 import { createPortal } from 'react-dom'
 import { useAuthStore } from '@/stores/auth'
 import { useLocaleStore } from '@/stores/locale'
@@ -41,6 +42,7 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
 
   const [loggingOut, setLoggingOut] = useState(false)
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false)
+  const [bindOpen, setBindOpen] = useState(false)
   const [personalSaved, setPersonalSaved] = useState(false)
   const [personalSaving, setPersonalSaving] = useState(false)
   const [personalError, setPersonalError] = useState('')
@@ -202,6 +204,15 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
       )}
 
       <div className="mt-4 space-y-4 px-5">
+        {/* 账号与登录方式 — only when logged in */}
+        {isLoggedIn && (
+          <section>
+            <button type="button" onClick={() => setBindOpen(true)} className="flex w-full items-center justify-between rounded-2xl border border-border bg-card px-4 py-3.5">
+              <span className="flex items-center gap-2 text-sm font-bold text-foreground"><ShieldCheck size={16} className="text-primary" />{t('bind.entry')}</span>
+              <ChevronRight size={16} className="text-muted-foreground" />
+            </button>
+          </section>
+        )}
         {/* Personal Info — only when logged in */}
         {isLoggedIn && (
           <section>
@@ -496,6 +507,8 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
         </div>,
         document.getElementById('app') ?? document.body,
       )}
+
+      <BindModal open={bindOpen} onClose={() => setBindOpen(false)} />
 
       {logoutConfirmOpen && createPortal(
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 px-6" role="dialog" aria-modal="true">

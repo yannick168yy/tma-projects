@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Loader2 } from 'lucide-react'
 import BetogoLogo from '@/components/BetogoLogo'
-import { completeGoogleLogin } from '@/api/auth'
+import { bindGoogle, completeGoogleLogin } from '@/api/auth'
 import { clearStoredOAuthState, extractRefFromOAuthState, getGoogleRedirectUri, readStoredOAuthState } from '@/utils/googleOAuth'
 import { useAuthStore } from '@/stores/auth'
 
@@ -21,6 +21,15 @@ export default function GoogleAuthCallback() {
     const storedState = readStoredOAuthState()
     if (state !== storedState) {
       setLoading(false); clearStoredOAuthState(); setError('Invalid OAuth state. Please sign in again.'); return
+    }
+
+    // 绑定意图：已登录用户把 Google 挂到当前账号（而非登录/新建）
+    if (sessionStorage.getItem('google_bind_intent')) {
+      sessionStorage.removeItem('google_bind_intent')
+      bindGoogle(code, getGoogleRedirectUri())
+        .then(() => { clearStoredOAuthState(); window.location.replace('/?bound=google') })
+        .catch((e) => { clearStoredOAuthState(); setError(e instanceof Error ? e.message : 'Google 绑定失败'); setLoading(false) })
+      return
     }
 
     const referralCode = storedState ? extractRefFromOAuthState(storedState) : ''

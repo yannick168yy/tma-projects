@@ -12,6 +12,7 @@ export interface AuthUser {
   id: string
   telegramUserId?: number
   telegramUsername?: string
+  username?: string
   displayName: string
   avatarUrl?: string
   inviteCode?: string
@@ -19,6 +20,20 @@ export interface AuthUser {
   email?: string
   isNewUser?: boolean
   profile?: UserProfile
+  boundTelegram?: boolean
+  boundGoogle?: boolean
+  boundPhone?: boolean
+  boundAccount?: boolean
+}
+
+export interface TelegramWidgetUser {
+  id: number
+  first_name?: string
+  last_name?: string
+  username?: string
+  photo_url?: string
+  auth_date: number
+  hash: string
 }
 
 export interface AuthSession {
