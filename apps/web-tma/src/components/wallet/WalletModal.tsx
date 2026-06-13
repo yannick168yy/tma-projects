@@ -13,6 +13,8 @@ import { openTelegramInvoice, waitForDepositPaid } from '@/utils/tgInvoice'
 import { fetchYfPayChannels, createYfDeposit, queryYfDeposit, fetchYfDepositOrders, fetchYfWithdrawOrders, fetchDepositHistory, fetchWithdrawHistory, createYfWithdrawal, type YfPayChannel } from '@/api/yfpay'
 import { fetchTurnoverProgress, type TurnoverProgress } from '@/api/wallet'
 import { fetchMatrixDepositAddress, createMatrixWithdrawal } from '@/api/matrix'
+import { fetchKycStatus } from '@/api/kyc'
+import KycModal from '@/components/wallet/KycModal'
 import { CRYPTO_DEPOSIT, CRYPTO_WITHDRAW, FIAT_DEPOSIT, FIAT_WITHDRAW, TG_WALLET_DEPOSIT, WALLET_BANNERS, type PayMethod } from '@/data/wallet'
 import { useBottomSheetDrag } from '@/hooks/useBottomSheetDrag'
 
@@ -75,6 +77,8 @@ export default function WalletModal({ open, onClose }: Props) {
   const [withdrawLoading, setWithdrawLoading] = useState(false)
   const [withdrawMessage, setWithdrawMessage] = useState('')
   const [withdrawSuccess, setWithdrawSuccess] = useState(false)
+  const [kycApproved, setKycApproved] = useState<boolean|null>(null)
+  const [kycOpen, setKycOpen] = useState(false)
   const [historyOrders, setHistoryOrders] = useState<HistoryItem[]>([])
   const [historyLoading, setHistoryLoading] = useState(false)
   const [copiedId, setCopiedId] = useState<string|null>(null)
@@ -118,6 +122,11 @@ export default function WalletModal({ open, onClose }: Props) {
   }, [open])
 
   useEffect(() => { if(tab==='history')void loadHistory() }, [tab])
+
+  useEffect(() => {
+    if (!open || tab !== 'withdraw') return
+    fetchKycStatus().then((s) => setKycApproved(s.status === 'approved')).catch(() => setKycApproved(null))
+  }, [open, tab])
 
   useEffect(() => {
     if (tab !== 'withdraw' || !selectedMethod) return
@@ -517,7 +526,8 @@ export default function WalletModal({ open, onClose }: Props) {
                     {withdrawMessage&&<p className={`text-xs font-bold text-center ${withdrawSuccess?'text-emerald-400':'text-amber-400'}`}>{withdrawMessage}</p>}
                     <button type="button" className="w-full py-3.5 rounded-2xl font-black text-base flex items-center justify-center gap-2 shadow-lg disabled:opacity-50 bg-red-600 text-white hover:bg-red-500 shadow-red-500/20" disabled={!canSubmitMatrixWithdraw} onClick={()=>void onProceedMatrixWithdraw()}>{withdrawLoading?<Loader2 size={18} className="animate-spin"/>:<ArrowUpFromLine size={18} />}{withdrawLoading?t('wallet.openingPay'):t('wallet.matrixWithdrawSubmit')}</button>
                   </>}
-                  {tab==='withdraw'&&isFiatWithdraw&&<button type="button" className="w-full py-3.5 rounded-2xl font-black text-base flex items-center justify-center gap-2 shadow-lg disabled:opacity-50 bg-accent text-accent-foreground hover:bg-red-500 shadow-red-500/20" disabled={!canSubmitWithdraw} onClick={()=>void onProceedWithdraw()}>{withdrawLoading?<Loader2 size={18} className="animate-spin"/>:<ArrowUpFromLine size={18} />}{withdrawLoading?t('wallet.openingPay'):t('wallet.yfpayWithdrawSubmit')}</button>}
+                  {tab==='withdraw'&&isFiatWithdraw&&kycApproved===false&&<button type="button" className="w-full py-3.5 rounded-2xl font-black text-base flex items-center justify-center gap-2 shadow-lg bg-amber-500 text-black hover:bg-amber-400" onClick={()=>setKycOpen(true)}><ShieldCheck size={18} />{t('kyc.required')}</button>}
+                  {tab==='withdraw'&&isFiatWithdraw&&kycApproved!==false&&<button type="button" className="w-full py-3.5 rounded-2xl font-black text-base flex items-center justify-center gap-2 shadow-lg disabled:opacity-50 bg-accent text-accent-foreground hover:bg-red-500 shadow-red-500/20" disabled={!canSubmitWithdraw} onClick={()=>void onProceedWithdraw()}>{withdrawLoading?<Loader2 size={18} className="animate-spin"/>:<ArrowUpFromLine size={18} />}{withdrawLoading?t('wallet.openingPay'):t('wallet.yfpayWithdrawSubmit')}</button>}
                   {tab==='withdraw'&&!isFiatWithdraw&&!isMatrixWithdraw&&<div className="flex flex-col items-center gap-3 py-6 text-center"><div className="w-14 h-14 rounded-2xl bg-secondary flex items-center justify-center"><span className="text-2xl">🔜</span></div><p className="text-sm font-black text-foreground">{t('wallet.comingSoon')}</p><p className="text-xs text-muted-foreground">{t('wallet.cryptoWithdrawSoon')}</p></div>}
                 </div>
               )}
@@ -568,6 +578,7 @@ export default function WalletModal({ open, onClose }: Props) {
           </div>
         )}
       </div>
+      <KycModal open={kycOpen} onClose={()=>{setKycOpen(false);fetchKycStatus().then((s)=>setKycApproved(s.status==='approved')).catch(()=>{})}} onApproved={()=>setKycApproved(true)} />
     </>,
     document.body,
   )
