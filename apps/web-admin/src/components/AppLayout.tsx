@@ -35,6 +35,7 @@ const menuItems = [
       { key: '/bet-orders', label: '投注记录' },
       { key: '/promotions', label: '活动配置' },
       { key: '/promotions/claims', label: '参与记录' },
+      { key: '/rebate', label: '洗码管理' },
     ],
   },
   {
@@ -71,7 +72,7 @@ const menuItems = [
 
 function getDefaultOpenKey(pathname: string): string {
   if (['/deposits', '/withdrawals', '/sg-settlement'].some((p) => pathname.startsWith(p))) return 'finance'
-  if (['/games', '/bet-orders', '/promotions'].some((p) => pathname.startsWith(p))) return 'content'
+  if (['/games', '/bet-orders', '/promotions', '/rebate'].some((p) => pathname.startsWith(p))) return 'content'
   if (pathname.startsWith('/team-referral')) return 'team'
   if (['/customer-service', '/cs-faq'].some((p) => pathname.startsWith(p))) return 'cs'
   if (['/exchange-rates', '/audit-log', '/settings'].some((p) => pathname.startsWith(p))) return 'system'

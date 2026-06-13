@@ -15,6 +15,7 @@ import { refreshLatestPool, refreshWeekTop, refreshMonthTop } from './services/b
 import { stripMobileNamesInDb } from './services/sg-game.service.js'
 import { refreshRates } from './services/exchange-rate.service.js'
 import { runDailyReconciliation, yesterday } from './services/sg-settlement.service.js'
+import { runDailyRebatePayout, yesterdayPHT } from './services/rebate.service.js'
 import { isMysqlEnabled } from './clients/mysql.client.js'
 import { ok } from './utils/response.js'
 import { seedDefaultAdmin } from './services/admin-auth.service.js'
@@ -33,6 +34,7 @@ export function createApp(env: Env): Koa {
     games: childLogger('games-cache'),
     homepage: childLogger('homepage'),
     sgSync: childLogger('sg-sync'),
+    rebate: childLogger('rebate-payout'),
   }
 
   // TON deposit poller: every 30s
@@ -65,6 +67,27 @@ export function createApp(env: Env): Koa {
       10 * 60 * 1000,
     )
   }, 30_000)
+
+  // 洗码自动派发：每天 UTC 16:00（PHT 00:00 凌晨）结算昨日流水并发放余额
+  if (isMysqlEnabled(env)) {
+    const runRebate = () =>
+      runDailyRebatePayout(env, yesterdayPHT())
+        .then(({ users, totalRebate }) =>
+          log.rebate.info({ users, totalRebate }, 'rebate payout done'),
+        )
+        .catch((err) => log.rebate.error({ err }, 'rebate payout error'))
+    const msUntilRebate = () => {
+      const now = new Date()
+      const next = new Date()
+      next.setUTCHours(16, 0, 0, 0)
+      if (next <= now) next.setUTCDate(next.getUTCDate() + 1)
+      return next.getTime() - now.getTime()
+    }
+    setTimeout(() => {
+      runRebate()
+      setInterval(runRebate, 24 * 60 * 60 * 1000)
+    }, msUntilRebate())
+  }
 
   // SG 日结算对账：每天 UTC 02:05（新加坡时间 10:05）跑昨日数据
   if (isMysqlEnabled(env) && env.SG_BASE_URL && env.SG_MERCHANT_ID) {

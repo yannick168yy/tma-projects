@@ -54,9 +54,10 @@ interface Props {
   onOpenCs: () => void
   onOpenGame: (url: string) => void
   onOpenReferralPromo: () => void
+  onOpenCashback: () => void
 }
 
-export default function HomeContent({ onOpenPromo, onOpenCategoryLobby, onOpenCs, onOpenGame, onOpenReferralPromo }: Props) {
+export default function HomeContent({ onOpenPromo, onOpenCategoryLobby, onOpenCs, onOpenGame, onOpenReferralPromo, onOpenCashback }: Props) {
   const { t, i18n } = useTranslation()
   const locale = i18n.language
   const promotion = usePromotionStore()
@@ -249,7 +250,11 @@ const [gamesLoading, setGamesLoading] = useState(true)
       {/* 优惠菜单 */}
       <div className="category-shortcut-row flex gap-3 px-4 pb-2 pt-1.5 overflow-x-auto hide-scrollbar">
         {CATEGORIES.map((c) => (
-          <HomeCategoryShortcut key={c.id} category={c} onClick={() => onOpenPromo(c.promo)} />
+          <HomeCategoryShortcut
+            key={c.id}
+            category={c}
+            onClick={() => { if (c.nav === 'cashback') { onOpenCashback(); return } onOpenPromo(c.promo) }}
+          />
         ))}
       </div>
 

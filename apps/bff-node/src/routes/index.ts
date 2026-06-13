@@ -17,6 +17,7 @@ import slotsRoutes from './slots.routes.js'
 import betsRoutes from './bets.routes.js'
 import sgRoutes from './sg.routes.js'
 import turnoverRoutes from './turnover.routes.js'
+import rebateRoutes from './rebate.routes.js'
 import { authMiddleware, optionalAuthMiddleware } from '../middleware/auth.js'
 import { getDepositChannels, YfPayError } from '../services/yfpay.service.js'
 import { ok, fail } from '../utils/response.js'
@@ -52,6 +53,9 @@ export function createApiRouter(): Router {
   api.use(optMw, csRoutes.routes(), csRoutes.allowedMethods())
 
   const protectedMw = authMiddleware()
+  // rebate config 公开（无需登录），summary 需登录
+  api.use(optMw, rebateRoutes.routes(), rebateRoutes.allowedMethods())
+
   for (const r of [
     userRoutes, walletRoutes, depositRoutes, tonDepositRoutes, withdrawRoutes,
     ledgerRoutes, kycRoutes, promotionRoutes, teamRoutes, yfpayRoutes, betsRoutes, turnoverRoutes,

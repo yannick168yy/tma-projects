@@ -18,6 +18,7 @@ import TeamReferral from './views/TeamReferral'
 import TeamReferralConfig from './views/TeamReferralConfig'
 import Promotions from './views/Promotions'
 import PromotionClaims from './views/PromotionClaims'
+import Rebate from './views/Rebate'
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const token = localStorage.getItem('admin_token')
@@ -58,6 +59,7 @@ export default function App() {
           <Route path="team-referral/config" element={<TeamReferralConfig />} />
           <Route path="promotions" element={<Promotions />} />
           <Route path="promotions/claims" element={<PromotionClaims />} />
+          <Route path="rebate" element={<Rebate />} />
         </Route>
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>

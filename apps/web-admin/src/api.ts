@@ -417,3 +417,46 @@ export interface PromoClaimRecord {
 }
 export const getPromoClaims = (params?: { page?: number; pageSize?: number; promoId?: string }) =>
   get<{ items: PromoClaimRecord[]; total: number; page: number; pageSize: number }>('/admin/promotions/claims', params)
+
+// Rebate
+export interface RebateConfigItem {
+  gameCategory: string
+  ratePct: number
+  enabled: boolean
+}
+export interface RebateFeaturedGame {
+  id: number
+  gameUuid: string
+  tier: string
+  sortOrder: number
+  name?: string
+  provider?: string
+  coverUrl?: string
+}
+export interface RebateRecord {
+  id: number
+  userId: string
+  displayName: string
+  date: string
+  gameCategory: string
+  currencyCode: string
+  betAmount: number
+  rebateAmount: number
+  ratePct: number
+  status: string
+  paidAt: string | null
+}
+export const getRebateConfig = () =>
+  get<{ config: RebateConfigItem[] }>('/admin/rebate/config')
+export const saveRebateConfig = (config: RebateConfigItem[]) =>
+  req<{ saved: number }>('PUT', '/admin/rebate/config', { config })
+export const getFeaturedGames = () =>
+  get<{ games: RebateFeaturedGame[] }>('/admin/rebate/featured-games')
+export const addFeaturedGame = (data: { gameUuid: string; tier: string; sortOrder?: number }) =>
+  post('/admin/rebate/featured-games', data)
+export const removeFeaturedGame = (id: number) =>
+  req('DELETE', `/admin/rebate/featured-games/${id}`)
+export const triggerRebatePayout = (date?: string) =>
+  req<{ users: number; totalRebate: number }>('POST', '/admin/rebate/payout/manual', { date })
+export const getRebateRecords = (params?: { page?: number; pageSize?: number; date?: string; userId?: string }) =>
+  get<{ items: RebateRecord[]; total: number; page: number; pageSize: number }>('/admin/rebate/records', params)
