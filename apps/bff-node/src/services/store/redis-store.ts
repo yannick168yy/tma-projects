@@ -16,6 +16,8 @@ const KEYS = {
   user: (id: string) => `tma:user:${id}`,
   userByTg: (tgId: number) => `tma:user:tg:${tgId}`,
   userByGoogle: (sub: string) => `tma:user:google:${sub}`,
+  userByUsername: (username: string) => `tma:user:username:${username}`,
+  userByPhone: (phone: string) => `tma:user:phone:${phone}`,
   session: (token: string) => `tma:session:${token}`,
   wallet: (userId: string) => `tma:wallet:${userId}`,
   deposit: (orderId: string) => `tma:deposit:${orderId}`,
@@ -54,6 +56,12 @@ export async function saveUser(redis: Redis, user: UserRecord): Promise<void> {
   }
   if (user.googleSub) {
     await redis.set(KEYS.userByGoogle(user.googleSub), user.id)
+  }
+  if (user.username) {
+    await redis.set(KEYS.userByUsername(user.username), user.id)
+  }
+  if (user.phoneAccount) {
+    await redis.set(KEYS.userByPhone(user.phoneAccount), user.id)
   }
   await redis.set(KEYS.inviteCode(user.inviteCode), user.id)
 }
@@ -180,6 +188,64 @@ export async function createUserFromGoogle(
     status: 'active',
     registeredAt: nowIso(),
     profile: { ...defaultProfile(), email: input.email ?? '' },
+    trialClaimed: false,
+    referralClaimed: false,
+    firstDepClaimed: false,
+    referralReady: false,
+    firstDepReady: false,
+  }
+  await saveUser(redis, user)
+  await redis.set(KEYS.wallet(id), JSON.stringify(defaultWallet()))
+  return { user, isNewUser: true }
+}
+
+export async function getUserByUsername(redis: Redis, username: string): Promise<UserRecord | null> {
+  const userId = await redis.get(KEYS.userByUsername(username))
+  if (!userId) return null
+  return getUser(redis, userId)
+}
+
+export async function getUserByPhoneAccount(redis: Redis, phone: string): Promise<UserRecord | null> {
+  const userId = await redis.get(KEYS.userByPhone(phone))
+  if (!userId) return null
+  return getUser(redis, userId)
+}
+
+export async function createUserFromPassword(
+  redis: Redis,
+  input: {
+    identifierType: 'phone' | 'account'
+    identifier: string
+    passwordHash: string
+    displayName: string
+    referredBy?: string
+    registerIp?: string
+    registerRegion?: string
+  },
+): Promise<{ user: UserRecord; isNewUser: boolean }> {
+  const id = await nextUserId(redis)
+  let inviteCode = generateInviteCode()
+  while (await redis.get(KEYS.inviteCode(inviteCode))) {
+    inviteCode = generateInviteCode()
+  }
+
+  const user: UserRecord = {
+    id,
+    username: input.identifierType === 'account' ? input.identifier : undefined,
+    phoneAccount: input.identifierType === 'phone' ? input.identifier : undefined,
+    passwordHash: input.passwordHash,
+    displayName: input.displayName,
+    avatarUrl: undefined,
+    inviteCode,
+    referredBy: input.referredBy,
+    locale: 'en',
+    status: 'active',
+    registerIp: input.registerIp,
+    registerRegion: input.registerRegion,
+    registeredAt: nowIso(),
+    profile: input.identifierType === 'phone'
+      ? { ...defaultProfile(), phone: input.identifier }
+      : defaultProfile(),
     trialClaimed: false,
     referralClaimed: false,
     firstDepClaimed: false,

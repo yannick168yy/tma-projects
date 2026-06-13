@@ -33,6 +33,9 @@ type UserRow = RowDataPacket & {
   telegram_user_id: number | null
   telegram_username: string | null
   google_sub: string | null
+  username: string | null
+  password_hash: string | null
+  phone_account: string | null
   email: string | null
   display_name: string
   avatar_url: string | null
@@ -69,6 +72,9 @@ function mapUser(row: UserRow): UserRecord {
     telegramUserId: row.telegram_user_id ?? undefined,
     telegramUsername: row.telegram_username ?? undefined,
     googleSub: row.google_sub ?? undefined,
+    username: row.username ?? undefined,
+    passwordHash: row.password_hash ?? undefined,
+    phoneAccount: row.phone_account ?? undefined,
     email: row.email ?? undefined,
     displayName: row.display_name,
     avatarUrl: row.avatar_url ?? undefined,
@@ -125,10 +131,13 @@ export async function saveUser(env: Env, user: UserRecord): Promise<void> {
   try {
     await conn.beginTransaction()
     await conn.execute(
-      `INSERT INTO bg_user (id, telegram_user_id, telegram_username, google_sub, email, display_name, avatar_url, invite_code, inviter_id, locale, status, status_reason, label, register_ip, register_region, registered_at)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+      `INSERT INTO bg_user (id, telegram_user_id, telegram_username, google_sub, username, password_hash, phone_account, email, display_name, avatar_url, invite_code, inviter_id, locale, status, status_reason, label, register_ip, register_region, registered_at)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
        ON DUPLICATE KEY UPDATE
          telegram_username=VALUES(telegram_username),
+         username=COALESCE(VALUES(username), username),
+         password_hash=COALESCE(VALUES(password_hash), password_hash),
+         phone_account=COALESCE(VALUES(phone_account), phone_account),
          display_name=VALUES(display_name), avatar_url=VALUES(avatar_url), email=VALUES(email),
          locale=VALUES(locale), status=VALUES(status), status_reason=VALUES(status_reason),
          label=VALUES(label)`,
@@ -137,6 +146,9 @@ export async function saveUser(env: Env, user: UserRecord): Promise<void> {
         user.telegramUserId ?? null,
         user.telegramUsername ?? null,
         user.googleSub ?? null,
+        user.username ?? null,
+        user.passwordHash ?? null,
+        user.phoneAccount ?? null,
         user.email ?? null,
         user.displayName,
         user.avatarUrl ?? null,
@@ -211,6 +223,16 @@ export async function getUserByInviteCode(env: Env, code: string): Promise<UserR
   const [rows] = await pool(env).query<UserRow[]>(`${USER_SELECT} WHERE u.invite_code = ?`, [
     code.toUpperCase(),
   ])
+  return rows[0] ? mapUser(rows[0]) : null
+}
+
+export async function getUserByUsername(env: Env, username: string): Promise<UserRecord | null> {
+  const [rows] = await pool(env).query<UserRow[]>(`${USER_SELECT} WHERE u.username = ?`, [username])
+  return rows[0] ? mapUser(rows[0]) : null
+}
+
+export async function getUserByPhoneAccount(env: Env, phone: string): Promise<UserRecord | null> {
+  const [rows] = await pool(env).query<UserRow[]>(`${USER_SELECT} WHERE u.phone_account = ?`, [phone])
   return rows[0] ? mapUser(rows[0]) : null
 }
 
@@ -331,6 +353,39 @@ export async function createUserFromGoogle(
     locale: 'en',
     status: 'active',
     profile: { ...defaultProfile(), email: input.email ?? '' },
+    trialClaimed: false,
+    referralClaimed: false,
+    firstDepClaimed: false,
+    referralReady: false,
+    firstDepReady: false,
+  })
+}
+
+export async function createUserFromPassword(
+  env: Env,
+  input: {
+    identifierType: 'phone' | 'account'
+    identifier: string
+    passwordHash: string
+    displayName: string
+    referredBy?: string
+    registerIp?: string
+    registerRegion?: string
+  },
+): Promise<{ user: UserRecord; isNewUser: boolean }> {
+  return createUser(env, {
+    username: input.identifierType === 'account' ? input.identifier : undefined,
+    phoneAccount: input.identifierType === 'phone' ? input.identifier : undefined,
+    passwordHash: input.passwordHash,
+    displayName: input.displayName,
+    referredBy: input.referredBy,
+    registerIp: input.registerIp,
+    registerRegion: input.registerRegion,
+    locale: 'en',
+    status: 'active',
+    profile: input.identifierType === 'phone'
+      ? { ...defaultProfile(), phone: input.identifier }
+      : defaultProfile(),
     trialClaimed: false,
     referralClaimed: false,
     firstDepClaimed: false,

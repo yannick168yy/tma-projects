@@ -1,5 +1,6 @@
 import Router from '@koa/router'
-import { AuthError, loginWithGoogleCode, loginWithInitData, logout, refreshSession, resolveSession, toAuthUser } from '../services/auth.service.js'
+import type { PasswordMethod } from '../services/auth.service.js'
+import { AuthError, loginWithGoogleCode, loginWithInitData, loginWithPassword, logout, refreshSession, registerWithPassword, resolveSession, toAuthUser } from '../services/auth.service.js'
 import { recordUserLogin } from '../services/store/index.js'
 import { lookupRegion } from '../services/geo.service.js'
 import { fail, ok } from '../utils/response.js'
@@ -8,6 +9,13 @@ const router = new Router({ prefix: '/auth' })
 
 function cleanIp(raw: string): string {
   return raw.replace(/^::ffff:/i, '')
+}
+
+const LOGIN_MAX_FAILS = 5
+const LOGIN_WINDOW_SEC = 600
+
+function isPasswordMethod(m: unknown): m is PasswordMethod {
+  return m === 'phone' || m === 'account'
 }
 
 router.post('/telegram', async (ctx) => {
@@ -69,6 +77,86 @@ router.post('/google', async (ctx) => {
     }).catch(() => {})
   } catch (e) {
     if (e instanceof AuthError) {
+      fail(ctx, 401, e.message, 401)
+      return
+    }
+    throw e
+  }
+})
+
+router.post('/register', async (ctx) => {
+  const body = ctx.request.body as { method?: string; identifier?: string; password?: string; referralCode?: string }
+  if (!isPasswordMethod(body.method) || !body.identifier || !body.password) {
+    fail(ctx, 400, 'method, identifier and password are required')
+    return
+  }
+  try {
+    const ip = cleanIp(ctx.ip)
+    const result = await registerWithPassword(
+      ctx.state.redis,
+      ctx.state.env,
+      { method: body.method, identifier: body.identifier, password: body.password, referralCode: body.referralCode },
+      ip,
+    )
+    ok(ctx, {
+      token: result.token,
+      expiresIn: result.expiresIn,
+      isNewUser: result.isNewUser,
+      trialRedPacketEligible: result.trialRedPacketEligible,
+      user: toAuthUser(result.user),
+    })
+    recordUserLogin(ctx.state.redis, result.user.id, {
+      ip,
+      region: lookupRegion(ip),
+      userAgent: ctx.get('user-agent'),
+      authMethod: body.method,
+    }).catch(() => {})
+  } catch (e) {
+    if (e instanceof AuthError) {
+      fail(ctx, 409, e.message, 409)
+      return
+    }
+    throw e
+  }
+})
+
+router.post('/login', async (ctx) => {
+  const body = ctx.request.body as { method?: string; identifier?: string; password?: string }
+  if (!isPasswordMethod(body.method) || !body.identifier || !body.password) {
+    fail(ctx, 400, 'method, identifier and password are required')
+    return
+  }
+  const ip = cleanIp(ctx.ip)
+  const throttleKey = `auth:login:fails:${ip}:${body.method}:${body.identifier}`
+  const fails = Number((await ctx.state.redis.get(throttleKey)) ?? 0)
+  if (fails >= LOGIN_MAX_FAILS) {
+    fail(ctx, 429, '尝试次数过多，请稍后再试', 429)
+    return
+  }
+  try {
+    const result = await loginWithPassword(ctx.state.redis, ctx.state.env, {
+      method: body.method,
+      identifier: body.identifier,
+      password: body.password,
+    })
+    await ctx.state.redis.del(throttleKey)
+    ok(ctx, {
+      token: result.token,
+      expiresIn: result.expiresIn,
+      isNewUser: result.isNewUser,
+      trialRedPacketEligible: result.trialRedPacketEligible,
+      user: toAuthUser(result.user),
+    })
+    recordUserLogin(ctx.state.redis, result.user.id, {
+      ip,
+      region: lookupRegion(ip),
+      userAgent: ctx.get('user-agent'),
+      authMethod: body.method,
+    }).catch(() => {})
+  } catch (e) {
+    if (e instanceof AuthError) {
+      const n = await ctx.state.redis.incr(throttleKey)
+      if (n === 1) await ctx.state.redis.expire(throttleKey, LOGIN_WINDOW_SEC)
       fail(ctx, 401, e.message, 401)
       return
     }

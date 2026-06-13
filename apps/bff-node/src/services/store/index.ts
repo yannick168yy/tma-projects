@@ -58,6 +58,24 @@ export const getUserByGoogleSub = (redis: Redis, sub: string) =>
     ? mysqlStore.getUserByGoogleSub(env(), sub)
     : redisStore.getUserByGoogleSub(redis, sub)
 
+export const getUserByUsername = (redis: Redis, username: string) =>
+  isMysqlEnabled(env())
+    ? mysqlStore.getUserByUsername(env(), username)
+    : redisStore.getUserByUsername(redis, username)
+
+export const getUserByPhoneAccount = (redis: Redis, phone: string) =>
+  isMysqlEnabled(env())
+    ? mysqlStore.getUserByPhoneAccount(env(), phone)
+    : redisStore.getUserByPhoneAccount(redis, phone)
+
+export const createUserFromPassword = (
+  redis: Redis,
+  input: Parameters<typeof redisStore.createUserFromPassword>[1],
+) =>
+  isMysqlEnabled(env())
+    ? mysqlStore.createUserFromPassword(env(), input)
+    : redisStore.createUserFromPassword(redis, input)
+
 export const createUserFromGoogle = (
   redis: Redis,
   input: Parameters<typeof redisStore.createUserFromGoogle>[1],

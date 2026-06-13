@@ -21,6 +21,12 @@ export interface UserRecord {
   /** Telegram @username without @ */
   telegramUsername?: string
   googleSub?: string
+  /** 账号登录用户名 */
+  username?: string
+  /** scrypt 密码哈希，账号/手机模式共用 */
+  passwordHash?: string
+  /** 手机号登录凭证(E.164)，未验证，与 KYC 已验手机分离 */
+  phoneAccount?: string
   email?: string
   displayName: string
   avatarUrl?: string

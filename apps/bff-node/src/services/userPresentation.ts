@@ -1,10 +1,12 @@
 import type { UserRecord } from '../types/domain.js'
 
-export type LoginProvider = 'telegram' | 'google'
+export type LoginProvider = 'telegram' | 'google' | 'phone' | 'account'
 
 export function resolveLoginProvider(user: UserRecord): LoginProvider {
   if (user.telegramUserId != null) return 'telegram'
   if (user.googleSub) return 'google'
+  if (user.phoneAccount) return 'phone'
+  if (user.username) return 'account'
   return 'telegram'
 }
 

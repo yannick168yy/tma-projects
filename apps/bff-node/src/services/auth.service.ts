@@ -4,19 +4,25 @@ import type { Redis } from 'ioredis'
 import {
   createDevUser,
   createUserFromGoogle,
+  createUserFromPassword,
   createUserFromTelegram,
   deleteSession,
   getSession,
   getUser,
   getUserByInviteCode,
+  getUserByPhoneAccount,
+  getUserByUsername,
   saveSession,
   saveUser,
 } from './store/index.js'
 import { randomToken } from '../utils/id.js'
+import { hashPassword, verifyPassword } from '../utils/password.js'
 import type { UserRecord } from '../types/domain.js'
 import { exchangeGoogleCode } from './google.service.js'
 import { toPublicUser } from './userPresentation.js'
 import { lookupRegion } from './geo.service.js'
+
+export type PasswordMethod = 'phone' | 'account'
 
 export class AuthError extends Error {
   constructor(message: string) {
@@ -146,6 +152,103 @@ export async function loginWithGoogleCode(
     const message = e instanceof Error ? e.message : 'Google login failed'
     throw new AuthError(message)
   }
+}
+
+const USERNAME_RE = /^[A-Za-z0-9_]{4,20}$/
+
+/** 归一化菲律宾手机号到 E.164：09xx→+639xx，63xx→+63xx，+63xx 原样 */
+function normalizePhonePH(raw: string): string | null {
+  const s = raw.replace(/[\s-]/g, '')
+  let digits: string
+  if (s.startsWith('+63')) digits = s.slice(3)
+  else if (s.startsWith('63')) digits = s.slice(2)
+  else if (s.startsWith('0')) digits = s.slice(1)
+  else digits = s
+  // 菲律宾移动号码：9 开头，共 10 位
+  if (!/^9\d{9}$/.test(digits)) return null
+  return `+63${digits}`
+}
+
+function normalizeIdentifier(method: PasswordMethod, identifier: string): string {
+  const id = identifier.trim()
+  if (method === 'phone') {
+    const e164 = normalizePhonePH(id)
+    if (!e164) throw new AuthError('Invalid phone number')
+    return e164
+  }
+  if (!USERNAME_RE.test(id)) {
+    throw new AuthError('Username must be 4-20 letters, digits or underscore')
+  }
+  return id
+}
+
+export async function registerWithPassword(
+  redis: Redis,
+  env: Env,
+  input: { method: PasswordMethod; identifier: string; password: string; referralCode?: string },
+  ip?: string,
+): Promise<{
+  token: string
+  expiresIn: number
+  user: UserRecord
+  isNewUser: boolean
+  trialRedPacketEligible: boolean
+}> {
+  if (!input.password || input.password.length < 8) {
+    throw new AuthError('Password must be at least 8 characters')
+  }
+  const identifier = normalizeIdentifier(input.method, input.identifier)
+
+  const existing = input.method === 'phone'
+    ? await getUserByPhoneAccount(redis, identifier)
+    : await getUserByUsername(redis, identifier)
+  if (existing) {
+    throw new AuthError(input.method === 'phone' ? 'Phone already registered' : 'Username already taken')
+  }
+
+  let referredBy: string | undefined
+  if (input.referralCode) {
+    const inviter = await getUserByInviteCode(redis, input.referralCode.toUpperCase())
+    if (inviter) referredBy = inviter.id
+  }
+
+  const passwordHash = await hashPassword(input.password)
+  const region = ip ? lookupRegion(ip) : undefined
+  const { user, isNewUser } = await createUserFromPassword(redis, {
+    identifierType: input.method,
+    identifier,
+    passwordHash,
+    displayName: input.method === 'phone' ? identifier : input.identifier.trim(),
+    referredBy,
+    registerIp: ip,
+    registerRegion: region,
+  })
+  return issueSession(redis, env, user, isNewUser)
+}
+
+export async function loginWithPassword(
+  redis: Redis,
+  env: Env,
+  input: { method: PasswordMethod; identifier: string; password: string },
+): Promise<{
+  token: string
+  expiresIn: number
+  user: UserRecord
+  isNewUser: boolean
+  trialRedPacketEligible: boolean
+}> {
+  const identifier = normalizeIdentifier(input.method, input.identifier)
+  const user = input.method === 'phone'
+    ? await getUserByPhoneAccount(redis, identifier)
+    : await getUserByUsername(redis, identifier)
+
+  if (!user || !user.passwordHash || !(await verifyPassword(input.password, user.passwordHash))) {
+    throw new AuthError('Invalid credentials')
+  }
+  if (user.status === 'banned' || user.status === 'frozen') {
+    throw new AuthError('Account has been disabled. Please contact support.')
+  }
+  return issueSession(redis, env, user, false)
 }
 
 async function issueSession(
