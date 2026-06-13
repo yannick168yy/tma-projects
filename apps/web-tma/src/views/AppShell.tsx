@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ChevronDown, Wallet, Gift, Home, Menu, Dices, Check, Search } from 'lucide-react'
+import { ChevronDown, ChevronLeft, Wallet, Gift, Home, Menu, Dices, Check, Search } from 'lucide-react'
 import BetogoLogo from '@/components/BetogoLogo'
 import WalletModal from '@/components/wallet/WalletModal'
 import SearchOverlay from '@/components/search/SearchOverlay'
@@ -311,10 +311,9 @@ export default function AppShell() {
 {view.type === 'betHistory' && <BetHistoryPage onClose={overlay.close} />}
           {view.type === 'teamCenter' && <TeamCenterPage />}
           {view.type === 'referralPromo' && <ReferralPromoPage onOpenTeamCenter={() => { overlay.openTeamCenter() }} />}
-          {view.type === 'cashback' && <CashbackPage onOpenGame={(url) => setGamePlayerUrl(url)} onOpenCategory={openCategoryLobby} />}
           {view.type === 'none' && activeNav === 'bonuses' && <BonusesPage promoFilter={promoFilter} onOpenWallet={() => void openWallet()} onOpenTeam={openTeamCenter} />}
           {view.type === 'none' && activeNav === 'bingo' && <BingoPage onOpenWallet={() => void openWallet()} onGameTap={() => void onGameTap()} onOpenGame={(url) => setGamePlayerUrl(url)} onOpenCategoryLobby={openCategoryLobby} />}
-          {view.type === 'none' && activeNav === 'menu' && <MenuPage onOpenCs={openCs} onLogin={() => void auth.ensureLoggedIn(t('auth.signInProfile'))} onLogout={onLogout} onOpenBetHistory={openBetHistory} onOpenReferralPromo={openReferralPromo} />}
+          {view.type === 'none' && activeNav === 'menu' && <MenuPage onOpenCs={openCs} onLogin={() => void auth.ensureLoggedIn(t('auth.signInProfile'))} onLogout={onLogout} onOpenBetHistory={openBetHistory} onOpenReferralPromo={openReferralPromo} onOpenCashback={openCashback} />}
           {view.type === 'none' && activeNav === 'casino' && (
             <HomeContent onOpenPromo={goBonuses} onOpenCategoryLobby={openCategoryLobby} onOpenCs={openCs} onOpenGame={(url) => setGamePlayerUrl(url)} onOpenReferralPromo={openReferralPromo} onOpenCashback={openCashback} />
           )}
@@ -345,6 +344,25 @@ export default function AppShell() {
         <div className="fixed inset-0 z-[60] flex justify-center">
           <div className="w-full max-w-[430px] bg-background flex flex-col overflow-hidden">
             <CustomerServicePage onClose={() => setCsOpen(false)} />
+          </div>
+        </div>
+      )}
+
+      {view.type === 'cashback' && (
+        <div className="fixed inset-0 z-[60] flex justify-center">
+          <div
+            className="relative w-full max-w-[430px] bg-background overflow-y-auto"
+            style={{ paddingTop: 'env(safe-area-inset-top)' }}
+          >
+            <button
+              type="button"
+              className="absolute left-3 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-black/30 text-white backdrop-blur-sm active:scale-95 transition-transform"
+              style={{ top: 'calc(env(safe-area-inset-top) + 10px)' }}
+              onClick={overlay.close}
+            >
+              <ChevronLeft size={20} />
+            </button>
+            <CashbackPage onOpenGame={(url) => setGamePlayerUrl(url)} onOpenCategory={openCategoryLobby} />
           </div>
         </div>
       )}

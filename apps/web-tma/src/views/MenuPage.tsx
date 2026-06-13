@@ -18,6 +18,7 @@ interface Props {
   onLogout: () => void
   onOpenBetHistory: () => void
   onOpenReferralPromo: () => void
+  onOpenCashback: () => void
 }
 
 const CURRENCIES = [
@@ -31,7 +32,7 @@ const CURRENCIES = [
 
 const HOME_DOC_KEYS = new Set(['terms', 'privacy', 'responsible', 'about'])
 
-export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory, onOpenReferralPromo }: Props) {
+export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory, onOpenReferralPromo, onOpenCashback }: Props) {
   const { t } = useTranslation()
   const auth = useAuthStore()
   const { locale, setLocale } = useLocaleStore()
@@ -297,6 +298,22 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
             </div>
           </section>
         )}
+
+        {/* Cash Rebate — always visible */}
+        <section>
+          <div className="overflow-hidden rounded-2xl border border-border bg-card">
+            <button type="button" className="flex w-full items-center justify-between px-4 py-3 transition-colors hover:bg-secondary/50" onClick={onOpenCashback}>
+              <div className="flex items-center gap-3">
+                <span className="text-base">🧧</span>
+                <div className="text-left">
+                  <p className="text-sm font-semibold text-foreground">{t('cashback.pageTitle')}</p>
+                  <p className="text-[11px] text-muted-foreground">{t('cashback.pageSubtitle')}</p>
+                </div>
+              </div>
+              <ChevronRight size={14} className="text-muted-foreground" />
+            </button>
+          </div>
+        </section>
 
         {/* Activity — only when logged in */}
         {isLoggedIn && (
