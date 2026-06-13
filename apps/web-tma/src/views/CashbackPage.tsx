@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { fetchRebateConfig, fetchRebateSummary, type RebateConfig, type RebateSummary } from '@/api/rebate'
-import { fetchGames, launchGame, type SlotGame } from '@/api/slots'
+import { launchGame } from '@/api/slots'
 import { useAuthStore } from '@/stores/auth'
 import { useWalletStore } from '@/stores/wallet'
-import GameCard from '@/components/home/GameCard'
+import { useLocaleStore } from '@/stores/locale'
+import { localizedGameName } from '@/utils/game'
 import { ApiError } from '@/api/client'
 
 type DateTab = 'today' | 'yesterday'
@@ -12,6 +13,13 @@ type DateTab = 'today' | 'yesterday'
 const CATEGORY_ICONS: Record<string, string> = {
   slots: '🎰', live: '🎲', sports: '⚽', fishing: '🐟',
   table: '🃏', bingo: '🎱', crash: '🚀', pinoy: '🐓', other: '🎮',
+}
+
+// 与首页游戏大类选项保持一致的展示顺序
+const CATEGORY_ORDER = ['slots', 'live', 'table', 'bingo', 'sports', 'fishing', 'crash', 'pinoy', 'other']
+const catRank = (cat: string) => {
+  const i = CATEGORY_ORDER.indexOf(cat)
+  return i === -1 ? CATEGORY_ORDER.length : i
 }
 
 interface Props {
@@ -32,13 +40,13 @@ export default function CashbackPage({ onOpenGame, onOpenCategory }: Props) {
   const token = useAuthStore((s) => s.token)
   const auth = useAuthStore()
   const activeCurrency = useWalletStore((s) => s.activeCurrency)
+  const locale = useLocaleStore((s) => s.locale)
   const currency = activeCurrency === 'PHP' ? 'PHP' : 'PHP'
 
   const [activeTab, setActiveTab] = useState<DateTab>('today')
   const [config, setConfig] = useState<RebateConfig | null>(null)
   const [summary, setSummary] = useState<RebateSummary | null>(null)
   const [summaryLoading, setSummaryLoading] = useState(false)
-  const [tierGames, setTierGames] = useState<Record<string, SlotGame[]>>({})
   const [expandedTier, setExpandedTier] = useState<string | null>(null)
   const [launchingUuid, setLaunchingUuid] = useState<string | null>(null)
   void launchingUuid // 保留，后续可扩展 loading 状态展示
@@ -62,23 +70,8 @@ export default function CashbackPage({ onOpenGame, onOpenCategory }: Props) {
 
   useEffect(() => { void loadSummary(activeTab) }, [activeTab, loadSummary])
 
-  async function loadTierGames(tier: string) {
-    const uuids = (config?.featured[tier] ?? []).map((g) => g.gameUuid)
-    if (!uuids.length || tierGames[tier]) return
-    try {
-      // 通过 uuid 精确搜索拿到完整游戏信息
-      const promises = uuids.slice(0, 12).map((uuid) =>
-        fetchGames({ search: uuid, limit: 1 }).then((r) => r.items[0]).catch(() => null)
-      )
-      const results = (await Promise.all(promises)).filter((g): g is SlotGame => g !== null)
-      setTierGames((prev) => ({ ...prev, [tier]: results }))
-    } catch { /* ignore */ }
-  }
-
   function toggleTier(tier: string) {
-    if (expandedTier === tier) { setExpandedTier(null); return }
-    setExpandedTier(tier)
-    void loadTierGames(tier)
+    setExpandedTier((prev) => prev === tier ? null : tier)
   }
 
   async function onGameTap(uuid: string) {
@@ -93,7 +86,7 @@ export default function CashbackPage({ onOpenGame, onOpenCategory }: Props) {
   }
 
   const rates = config?.config ?? []
-  const enabledRates = rates.filter((r) => r.enabled)
+  const enabledRates = rates.filter((r) => r.enabled).sort((a, b) => catRank(a.gameCategory) - catRank(b.gameCategory))
   const tiers = config ? Object.entries(config.featured ?? {}) : []
 
   const tierRate = (tier: string) => tier === 'elite' ? t('cashback.tierEliteRate') : t('cashback.tierProRate')
@@ -211,20 +204,29 @@ export default function CashbackPage({ onOpenGame, onOpenCategory }: Props) {
                   </div>
                   {expanded && (
                     <div className="px-3 pb-3 border-t border-border pt-3">
-                      {tierGames[tier] ? (
-                        tierGames[tier].length > 0 ? (
-                          <div className="grid grid-cols-3 gap-2">
-                            {tierGames[tier].map((game) => (
-                              <GameCard key={game.uuid} game={game} onTap={() => void onGameTap(game.uuid)} />
-                            ))}
-                          </div>
-                        ) : (
-                          <p className="text-muted-foreground text-xs text-center py-2">No games configured</p>
-                        )
-                      ) : (
-                        <div className="flex justify-center py-3">
-                          <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                      {games.length > 0 ? (
+                        <div className="grid grid-cols-3 gap-2">
+                          {games.map((g) => (
+                            <button
+                              key={g.gameUuid}
+                              type="button"
+                              onClick={() => void onGameTap(g.gameUuid)}
+                              className="flex flex-col rounded-xl overflow-hidden bg-background active:scale-[0.98] transition-transform"
+                            >
+                              <div className="aspect-square w-full bg-secondary">
+                                {g.coverUrl
+                                  ? <img src={g.coverUrl} alt="" className="w-full h-full object-cover" />
+                                  : <div className="w-full h-full flex items-center justify-center text-2xl">🎰</div>
+                                }
+                              </div>
+                              <p className="text-[11px] font-bold text-white/95 truncate px-1.5 py-1.5">
+                                {localizedGameName({ name: g.name ?? '', nameZh: g.nameZh }, locale)}
+                              </p>
+                            </button>
+                          ))}
                         </div>
+                      ) : (
+                        <p className="text-muted-foreground text-xs text-center py-2">No games configured</p>
                       )}
                     </div>
                   )}
