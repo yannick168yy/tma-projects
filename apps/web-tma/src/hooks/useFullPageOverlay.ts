@@ -21,6 +21,14 @@ type FullPageView =
   | { type: 'referralPromo' }
   | { type: 'cashback' }
 
+/** 全屏专题页：走 document/body 滚动，勿用 fixed + 内部 overflow-y-auto */
+export function isImmersiveFullPage(view: FullPageView): boolean {
+  return view.type === 'teamCenter'
+    || view.type === 'betHistory'
+    || view.type === 'referralPromo'
+    || view.type === 'cashback'
+}
+
 export function useFullPageOverlay() {
   const [view, setView] = useState<FullPageView>({ type: 'none' })
 

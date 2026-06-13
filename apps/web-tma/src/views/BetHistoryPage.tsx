@@ -129,9 +129,9 @@ export default function BetHistoryPage({ onClose }: Props) {
   const lang = i18n.language
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="page-main pb-6">
       {/* Header */}
-      <div className="flex flex-shrink-0 items-center gap-3 border-b border-border px-4 py-4">
+      <div className="flex items-center gap-3 border-b border-border px-4 py-4">
         <button
           type="button"
           className="flex h-8 w-8 items-center justify-center rounded-full bg-secondary text-muted-foreground"
@@ -146,7 +146,7 @@ export default function BetHistoryPage({ onClose }: Props) {
       </div>
 
       {/* Range tabs */}
-      <div className="flex flex-shrink-0 gap-1 border-b border-border px-4 py-2">
+      <div className="flex gap-1 border-b border-border px-4 py-2">
         {RANGES.map((r) => (
           <button
             key={r}
@@ -163,8 +163,8 @@ export default function BetHistoryPage({ onClose }: Props) {
         ))}
       </div>
 
-      {/* List */}
-      <div className="flex-1 overflow-y-auto">
+      {/* List — document scroll，勿嵌套 overflow-y-auto */}
+      <div>
         {items.length === 0 && !loading && (
           <div className="flex flex-col items-center justify-center py-24 px-8 text-center">
             <span className="mb-3 text-4xl">🎰</span>

@@ -142,7 +142,7 @@ export default function SlotsLobby({
   const hasMore = currentPage < pages
 
   return (
-    <div className="min-h-full bg-background">
+    <div className="page-main bg-background">
       <div className="flex items-center gap-3 border-b border-border px-4 py-3">
         <button type="button" className="flex-shrink-0 text-muted-foreground" onClick={onClose}>
           <ChevronLeft size={22} />

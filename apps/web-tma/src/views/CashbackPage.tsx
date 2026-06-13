@@ -7,6 +7,7 @@ import { useWalletStore } from '@/stores/wallet'
 import { useLocaleStore } from '@/stores/locale'
 import { localizedGameName } from '@/utils/game'
 import { ApiError } from '@/api/client'
+import { AutoCreditIcon, EliteRebateIcon, MaxRateIcon } from '@/components/cashback/CashbackHeroIcons'
 
 type DateTab = 'today' | 'yesterday'
 
@@ -93,28 +94,32 @@ export default function CashbackPage({ onOpenGame, onOpenCategory }: Props) {
 
   return (
     <div className="page-main pb-6">
-      {/* Hero —— 参照 Bonuses 顶部风格：全宽暗色渐变 + 标签/标题/副文 + 统计卡片 */}
+      {/* Hero —— 暗绿渐变 + 绿金搭配 */}
       <div
         className="relative px-4 pt-14 pb-5 overflow-hidden"
-        style={{ background: 'linear-gradient(160deg, #4a0d0d 0%, #080b14 60%)' }}
+        style={{ background: 'linear-gradient(160deg, #14532d 0%, #0a2e1a 42%, #080b14 75%)' }}
       >
-        <p className="text-muted-foreground text-[11px] uppercase tracking-widest font-bold mb-1">
+        <div className="pointer-events-none absolute -top-8 -right-6 h-28 w-28 rounded-full bg-amber-400/20 blur-2xl" />
+        <div className="pointer-events-none absolute bottom-0 left-0 h-24 w-24 rounded-full bg-emerald-500/15 blur-xl" />
+        <p className="relative text-emerald-200/90 text-[11px] uppercase tracking-widest font-bold mb-1">
           {t('cashback.pageSubtitle')}
         </p>
-        <h1 className="text-white font-black leading-tight mb-1 font-display text-[1.8rem]">
+        <h1 className="relative font-black leading-tight mb-1 font-display text-[1.8rem] drop-shadow-sm bg-gradient-to-r from-white via-emerald-100 to-amber-300 bg-clip-text text-transparent">
           {t('cashback.pageTitle')}
         </h1>
-        <p className="text-white/50 text-xs max-w-[240px] leading-relaxed">{t('cashback.bannerSub')}</p>
-        <div className="flex gap-3 mt-4">
+        <p className="relative text-emerald-100/65 text-xs max-w-[280px] leading-relaxed">{t('cashback.bannerSub')}</p>
+        <div className="relative flex gap-3 mt-4">
           {[
-            { icon: '💵', value: t('cashback.tierEliteRate'), label: t('cashback.heroRateLabel') },
-            { icon: '⏰', value: t('cashback.heroCreditValue'), label: t('cashback.heroCreditLabel') },
-            { icon: '✅', value: '0×', label: t('cashback.heroWagerLabel') },
+            { Icon: MaxRateIcon, value: t('cashback.tierEliteRate'), label: t('cashback.heroRateLabel') },
+            { Icon: AutoCreditIcon, value: t('cashback.heroCreditValue'), label: t('cashback.heroCreditLabel') },
+            { Icon: EliteRebateIcon, value: t('cashback.heroFeaturedValue'), label: t('cashback.heroFeaturedLabel') },
           ].map((s) => (
-            <div key={s.label} className="flex-1 bg-white/5 rounded-xl px-2.5 py-2 text-center border border-white/8">
-              <p className="text-base leading-none mb-0.5">{s.icon}</p>
-              <p className="text-primary font-black text-sm leading-none">{s.value}</p>
-              <p className="text-white/40 text-[9px] mt-0.5 leading-tight">{s.label}</p>
+            <div key={s.label} className="flex-1 bg-emerald-950/40 rounded-xl px-2.5 py-2.5 text-center border border-emerald-400/25 backdrop-blur-sm">
+              <div className="flex justify-center mb-1">
+                <s.Icon className="h-6 w-6" />
+              </div>
+              <p className="text-amber-300 font-black text-sm leading-none">{s.value}</p>
+              <p className="text-emerald-200/55 text-[9px] mt-1 leading-tight">{s.label}</p>
             </div>
           ))}
         </div>
@@ -122,14 +127,16 @@ export default function CashbackPage({ onOpenGame, onOpenCategory }: Props) {
 
       {/* 今日 / 昨日 药丸 Tab */}
       <div className="mx-4 mt-3">
-        <div className="flex bg-secondary rounded-full p-1 gap-1">
+        <div className="flex rounded-full p-1 gap-1 bg-emerald-950/60 border border-emerald-700/35">
           {(['today', 'yesterday'] as DateTab[]).map((tab) => (
             <button
               key={tab}
               type="button"
               onClick={() => setActiveTab(tab)}
               className={`flex-1 py-2.5 rounded-full text-sm font-bold transition-all ${
-                activeTab === tab ? 'bg-primary text-primary-foreground shadow' : 'text-muted-foreground'
+                activeTab === tab
+                  ? 'bg-gradient-to-r from-amber-400 to-yellow-500 text-emerald-950 shadow-md shadow-amber-500/25'
+                  : 'text-emerald-300/70'
               }`}
             >
               {t(tab === 'today' ? 'cashback.tabToday' : 'cashback.tabYesterday')}
@@ -138,34 +145,34 @@ export default function CashbackPage({ onOpenGame, onOpenCategory }: Props) {
         </div>
       </div>
 
-      {/* 金色 Total Bonus 横条 */}
-      <div className="mx-4 mt-3 relative overflow-hidden rounded-2xl">
-        <div className="absolute inset-0 bg-gradient-to-r from-amber-500 to-yellow-400" />
+      {/* 绿金 Total Bonus 横条 */}
+      <div className="mx-4 mt-3 relative overflow-hidden rounded-2xl border border-emerald-600/30">
+        <div className="absolute inset-0 bg-gradient-to-r from-emerald-700 via-emerald-800 to-amber-500" />
         <div className="absolute -top-6 -right-2 h-20 w-20 rounded-full bg-white/15" />
         <div className="relative flex items-center justify-between px-5 py-4">
           <div>
-            <p className="text-white font-black text-xl leading-tight font-display">{t('cashback.totalBonus')}</p>
-            <p className="text-white/80 text-[11px] mt-0.5">{t('cashback.dataUpdates')}</p>
+            <p className="text-amber-200 font-black text-xl leading-tight font-display">{t('cashback.totalBonus')}</p>
+            <p className="text-emerald-100/80 text-[11px] mt-0.5">{t('cashback.dataUpdates')}</p>
           </div>
           {summaryLoading ? (
-            <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            <div className="w-6 h-6 border-2 border-amber-200 border-t-transparent rounded-full animate-spin" />
           ) : (
-            <p className="text-white font-black text-2xl font-display drop-shadow">{phpStr(token ? (summary?.totalRebate ?? 0) : 0)}</p>
+            <p className="text-amber-200 font-black text-2xl font-display drop-shadow">{phpStr(token ? (summary?.totalRebate ?? 0) : 0)}</p>
           )}
         </div>
       </div>
 
       {/* 投注明细（有数据时展示） */}
       {token && summary && summary.breakdown.length > 0 && (
-        <div className="mx-4 mt-2 bg-secondary rounded-2xl px-4 py-3 space-y-1.5">
+        <div className="mx-4 mt-2 bg-emerald-950/40 rounded-2xl px-4 py-3 space-y-1.5 border border-emerald-800/30">
           {summary.breakdown.map((item) => (
             <div key={item.gameCategory} className="flex items-center justify-between text-xs">
-              <span className="flex items-center gap-1.5 text-muted-foreground">
+              <span className="flex items-center gap-1.5 text-emerald-200/70">
                 <span>{CATEGORY_ICONS[item.gameCategory] ?? '🎮'}</span>
                 <span>{t(catKeyOf(item.gameCategory))}</span>
-                <span className="text-[10px] opacity-60">{item.ratePct}%</span>
+                <span className="text-[10px] text-amber-300/80">{item.ratePct}%</span>
               </span>
-              <span className="font-semibold text-green-400">+{phpStr(item.rebateAmount)}</span>
+              <span className="font-semibold text-amber-300">+{phpStr(item.rebateAmount)}</span>
             </div>
           ))}
         </div>
@@ -174,48 +181,48 @@ export default function CashbackPage({ onOpenGame, onOpenCategory }: Props) {
       {/* CASHBACK GAMES */}
       {tiers.length > 0 && (
         <div className="mx-4 mt-5">
-          <h3 className="font-black text-foreground text-base tracking-wide mb-3">{t('cashback.cashbackGames').toUpperCase()}</h3>
+          <h3 className="font-black text-emerald-100 text-base tracking-wide mb-3">{t('cashback.cashbackGames').toUpperCase()}</h3>
           <div className="space-y-3">
             {tiers.map(([tier, games]) => {
               const cover = games[0]?.coverUrl
               const expanded = expandedTier === tier
               return (
-                <div key={tier} className="rounded-2xl bg-secondary border border-border overflow-hidden">
+                <div key={tier} className="rounded-2xl bg-emerald-950/35 border border-emerald-700/30 overflow-hidden">
                   <div className="flex items-center gap-3 p-3">
-                    <div className="w-16 h-16 rounded-xl overflow-hidden flex-shrink-0 bg-background">
+                    <div className="w-16 h-16 rounded-xl overflow-hidden flex-shrink-0 bg-emerald-950/60 border border-emerald-700/25">
                       {cover
                         ? <img src={cover} alt="" className="w-full h-full object-cover" />
                         : <div className="w-full h-full flex items-center justify-center text-2xl">🎰</div>
                       }
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-primary font-black text-sm">
+                      <p className="text-amber-300 font-black text-sm">
                         {t(tier === 'elite' ? 'cashback.tierElite' : 'cashback.tierPro')}
                       </p>
                       <div className="flex gap-5 mt-1">
                         <div>
-                          <p className="text-muted-foreground text-[10px]">{t('cashback.cashbackRate')}</p>
-                          <p className="text-foreground font-bold text-sm">{tierRate(tier)}</p>
+                          <p className="text-emerald-300/60 text-[10px]">{t('cashback.cashbackRate')}</p>
+                          <p className="text-emerald-100 font-bold text-sm">{tierRate(tier)}</p>
                         </div>
                         <div>
-                          <p className="text-muted-foreground text-[10px]">{t('cashback.bonusLabel')}</p>
-                          <p className="text-green-400 font-bold text-sm">{phpStr(0)}</p>
+                          <p className="text-emerald-300/60 text-[10px]">{t('cashback.bonusLabel')}</p>
+                          <p className="text-amber-300 font-bold text-sm">{phpStr(0)}</p>
                         </div>
                       </div>
                     </div>
                     <button
                       type="button"
                       onClick={() => toggleTier(tier)}
-                      className="flex-shrink-0 flex items-center gap-1.5 bg-primary text-primary-foreground rounded-full pl-4 pr-1.5 py-1.5 active:opacity-80 transition-opacity"
+                      className="flex-shrink-0 flex items-center gap-1.5 bg-gradient-to-r from-amber-400 to-yellow-500 text-emerald-950 rounded-full pl-4 pr-1.5 py-1.5 active:opacity-80 transition-opacity"
                     >
                       <span className="font-bold text-xs">{t('cashback.viewBtn')}</span>
-                      <span className="bg-black/30 text-white text-[11px] font-bold rounded-full min-w-5 h-5 px-1.5 flex items-center justify-center">
+                      <span className="bg-emerald-900/40 text-amber-100 text-[11px] font-bold rounded-full min-w-5 h-5 px-1.5 flex items-center justify-center">
                         {games.length}
                       </span>
                     </button>
                   </div>
                   {expanded && (
-                    <div className="px-3 pb-3 border-t border-border pt-3">
+                    <div className="px-3 pb-3 border-t border-emerald-700/30 pt-3">
                       {games.length > 0 ? (
                         <div className="grid grid-cols-3 gap-2">
                           {games.map((g) => (
@@ -252,31 +259,31 @@ export default function CashbackPage({ onOpenGame, onOpenCategory }: Props) {
       {/* 各分类返利费率 + GO BET */}
       {enabledRates.length > 0 && (
         <div className="mx-4 mt-5">
-          <h3 className="font-black text-foreground text-base tracking-wide mb-3">{t('cashback.rateTable').toUpperCase()}</h3>
-          <div className="bg-secondary rounded-2xl border border-border overflow-hidden">
+          <h3 className="font-black text-emerald-100 text-base tracking-wide mb-3">{t('cashback.rateTable').toUpperCase()}</h3>
+          <div className="bg-emerald-950/35 rounded-2xl border border-emerald-700/30 overflow-hidden">
             {enabledRates.map((r, i) => (
               <div
                 key={r.gameCategory}
-                className={`flex items-center gap-3 px-4 py-3.5 ${i < enabledRates.length - 1 ? 'border-b border-border' : ''}`}
+                className={`flex items-center gap-3 px-4 py-3.5 ${i < enabledRates.length - 1 ? 'border-b border-emerald-800/30' : ''}`}
               >
                 <span className="text-2xl leading-none flex-shrink-0">{CATEGORY_ICONS[r.gameCategory] ?? '🎮'}</span>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-foreground truncate">{t(catKeyOf(r.gameCategory))}</p>
-                  <p className="text-[11px] text-muted-foreground">
-                    {t('cashback.cashbackRate')} <span className="text-primary font-bold">{r.ratePct}%</span>
+                  <p className="text-sm font-semibold text-emerald-50 truncate">{t(catKeyOf(r.gameCategory))}</p>
+                  <p className="text-[11px] text-emerald-300/60">
+                    {t('cashback.cashbackRate')} <span className="text-amber-300 font-bold">{r.ratePct}%</span>
                   </p>
                 </div>
                 <button
                   type="button"
                   onClick={() => onOpenCategory({ title: t(catKeyOf(r.gameCategory)), sortCategory: r.gameCategory })}
-                  className="flex-shrink-0 bg-primary text-primary-foreground rounded-full px-4 py-2 font-bold text-xs active:opacity-80 transition-opacity"
+                  className="flex-shrink-0 bg-gradient-to-r from-emerald-600 to-emerald-700 border border-amber-400/35 text-amber-100 rounded-full px-4 py-2 font-bold text-xs active:opacity-80 transition-opacity"
                 >
                   {t('cashback.goBet')}
                 </button>
               </div>
             ))}
           </div>
-          <p className="text-[10px] text-muted-foreground mt-2 px-1">{t('cashback.bannerSub')}</p>
+          <p className="text-[10px] text-emerald-400/50 mt-2 px-1">{t('cashback.rateTableDesc')}</p>
         </div>
       )}
     </div>

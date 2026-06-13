@@ -25,7 +25,7 @@ import {
   isFiatCurrency,
   displayCurrencyCode,
 } from '@/stores/wallet'
-import { useFullPageOverlay } from '@/hooks/useFullPageOverlay'
+import { useFullPageOverlay, isImmersiveFullPage } from '@/hooks/useFullPageOverlay'
 import type { CategoryLobbyParams } from '@/hooks/useFullPageOverlay'
 
 type NavId = (typeof NAV_ITEMS)[number]['id']
@@ -63,6 +63,8 @@ export default function AppShell() {
 
   // 互斥全屏 overlay——用状态机显式化互斥关系
   const overlay = useFullPageOverlay()
+  const { view } = overlay
+  const isImmersive = isImmersiveFullPage(view)
 
   const [activeNav, setActiveNav] = useState<NavId>('casino')
   const [promoFilter, setPromoFilter] = useState<string | null>(null)
@@ -105,15 +107,15 @@ export default function AppShell() {
     return () => ro.disconnect()
   }, [])
 
-  // 供子页面 sticky 使用
+  // 供子页面 sticky 使用；全屏专题页无 AppShell header
   useEffect(() => {
-    document.documentElement.style.setProperty('--app-header-height', `${headerH}px`)
-  }, [headerH])
+    document.documentElement.style.setProperty('--app-header-height', isImmersive ? '0px' : `${headerH}px`)
+  }, [headerH, isImmersive])
 
   const mainStyle = useMemo(() => {
-    const top = `${headerH}px`
-    return { paddingTop: top, paddingBottom: `${navH}px` }
-  }, [headerH, navH])
+    if (isImmersive) return undefined
+    return { paddingTop: `${headerH}px`, paddingBottom: `${navH}px` }
+  }, [headerH, navH, isImmersive])
 
   async function openWallet() {
     if (!(await auth.ensureLoggedIn(t('auth.signInDepositWithdraw')))) return
@@ -163,7 +165,10 @@ export default function AppShell() {
 
   const navItems = useMemo(() => NAV_ITEMS.map((item) => ({ ...item, label: t(`nav.${item.id}`) })), [t])
 
-  const { view } = overlay
+  function closeImmersive() {
+    overlay.close()
+    window.scrollTo({ top: 0, behavior: 'instant' })
+  }
 
   function renderCurrencyRow(b: { code: string; available: number }) {
     const isActive = b.code === activeCurrency
@@ -196,6 +201,7 @@ export default function AppShell() {
   return (
     <div className="flex w-full justify-center bg-background">
       <div className="app-frame w-full max-w-[430px] bg-background">
+        {!isImmersive && (
         <header ref={headerRef} className={`app-fixed-top bg-background ${walletOpen ? 'z-50' : ''}`}>
           <div className="app-safe-header flex items-center gap-3 px-4 pb-4">
             <button type="button" className="flex-shrink-0 cursor-pointer" onClick={goHome}><BetogoLogo /></button>
@@ -290,6 +296,7 @@ export default function AppShell() {
             </>
           )}
         </header>
+        )}
 
         <main
           ref={mainRef}
@@ -305,6 +312,42 @@ export default function AppShell() {
           {view.type === 'categoryLobby' && (
             <SlotsLobby {...view.params} onClose={() => { overlay.close(); window.scrollTo({ top: 0, behavior: 'instant' }) }} onGameTap={() => void onGameTap()} onOpenGame={(url) => setGamePlayerUrl(url)} />
           )}
+          {view.type === 'teamCenter' && (
+            <div className="app-safe-header">
+              <TeamCenterPage onClose={closeImmersive} />
+            </div>
+          )}
+          {view.type === 'betHistory' && (
+            <div className="app-safe-header">
+              <BetHistoryPage onClose={closeImmersive} />
+            </div>
+          )}
+          {view.type === 'referralPromo' && (
+            <div className="relative">
+              <button
+                type="button"
+                className="absolute left-3 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur-sm border border-white/15 active:scale-95 transition-transform"
+                style={{ top: 'calc(var(--app-safe-top) + 10px)' }}
+                onClick={closeImmersive}
+              >
+                <ChevronLeft size={20} />
+              </button>
+              <ReferralPromoPage onOpenTeamCenter={() => { overlay.openTeamCenter() }} />
+            </div>
+          )}
+          {view.type === 'cashback' && (
+            <div className="relative">
+              <button
+                type="button"
+                className="absolute left-3 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur-sm border border-white/15 active:scale-95 transition-transform"
+                style={{ top: 'calc(var(--app-safe-top) + 10px)' }}
+                onClick={closeImmersive}
+              >
+                <ChevronLeft size={20} />
+              </button>
+              <CashbackPage onOpenGame={(url) => setGamePlayerUrl(url)} onOpenCategory={openCategoryLobby} />
+            </div>
+          )}
           {view.type === 'none' && activeNav === 'bonuses' && <BonusesPage promoFilter={promoFilter} onOpenWallet={() => void openWallet()} onOpenTeam={openTeamCenter} />}
           {view.type === 'none' && activeNav === 'bingo' && <BingoPage onOpenWallet={() => void openWallet()} onGameTap={() => void onGameTap()} onOpenGame={(url) => setGamePlayerUrl(url)} onOpenCategoryLobby={openCategoryLobby} />}
           {view.type === 'none' && activeNav === 'menu' && <MenuPage onOpenCs={openCs} onLogin={() => void auth.ensureLoggedIn(t('auth.signInProfile'))} onLogout={onLogout} onOpenBetHistory={openBetHistory} onOpenReferralPromo={openReferralPromo} onOpenCashback={openCashback} />}
@@ -313,6 +356,7 @@ export default function AppShell() {
           )}
         </main>
 
+        {!isImmersive && (
         <nav ref={navRef} className="app-fixed-bottom app-safe-nav flex items-center justify-around border-t border-border bg-background px-2 pt-2">
           {navItems.map((item) => {
             const Icon = navIcon(item.id)
@@ -328,6 +372,7 @@ export default function AppShell() {
             )
           })}
         </nav>
+        )}
       </div>
 
       {walletModalOpen && (
@@ -338,66 +383,6 @@ export default function AppShell() {
         <div className="fixed inset-0 z-[60] flex justify-center">
           <div className="w-full max-w-[430px] bg-background flex flex-col overflow-hidden">
             <CustomerServicePage onClose={() => setCsOpen(false)} />
-          </div>
-        </div>
-      )}
-
-      {view.type === 'teamCenter' && (
-        <div className="fixed inset-0 z-[60] flex justify-center">
-          <div
-            className="w-full max-w-[430px] bg-background overflow-y-auto"
-            style={{ paddingTop: 'env(safe-area-inset-top)', ['--app-header-height' as string]: '0px' }}
-          >
-            <TeamCenterPage onClose={overlay.close} />
-          </div>
-        </div>
-      )}
-
-      {view.type === 'betHistory' && (
-        <div className="fixed inset-0 z-[60] flex justify-center">
-          <div
-            className="w-full max-w-[430px] bg-background flex flex-col overflow-hidden"
-            style={{ paddingTop: 'env(safe-area-inset-top)' }}
-          >
-            <BetHistoryPage onClose={overlay.close} />
-          </div>
-        </div>
-      )}
-
-      {view.type === 'referralPromo' && (
-        <div className="fixed inset-0 z-[60] flex justify-center">
-          <div
-            className="relative w-full max-w-[430px] bg-background overflow-y-auto"
-            style={{ paddingTop: 'env(safe-area-inset-top)' }}
-          >
-            <button
-              type="button"
-              className="absolute left-3 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur-sm border border-white/15 active:scale-95 transition-transform"
-              style={{ top: 'calc(env(safe-area-inset-top) + 10px)' }}
-              onClick={overlay.close}
-            >
-              <ChevronLeft size={20} />
-            </button>
-            <ReferralPromoPage onOpenTeamCenter={() => { overlay.openTeamCenter() }} />
-          </div>
-        </div>
-      )}
-
-      {view.type === 'cashback' && (
-        <div className="fixed inset-0 z-[60] flex justify-center">
-          <div
-            className="relative w-full max-w-[430px] bg-background overflow-y-auto"
-            style={{ paddingTop: 'env(safe-area-inset-top)' }}
-          >
-            <button
-              type="button"
-              className="absolute left-3 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur-sm border border-white/15 active:scale-95 transition-transform"
-              style={{ top: 'calc(env(safe-area-inset-top) + 10px)' }}
-              onClick={overlay.close}
-            >
-              <ChevronLeft size={20} />
-            </button>
-            <CashbackPage onOpenGame={(url) => setGamePlayerUrl(url)} onOpenCategory={openCategoryLobby} />
           </div>
         </div>
       )}
