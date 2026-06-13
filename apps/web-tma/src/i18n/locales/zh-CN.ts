@@ -65,6 +65,17 @@ export default {
     signInBalance: '请登录后查看余额并充值',
     signInProfile: '请登录后查看个人资料',
     signInPlay: '请登录后开始游戏',
+    or: '或',
+    tabAccount: '账号',
+    tabPhone: '手机号',
+    usernamePlaceholder: '用户名',
+    phonePlaceholder: '手机号（09xx...）',
+    passwordPlaceholder: '密码',
+    loginButton: '登录',
+    registerButton: '注册',
+    toRegister: '没有账号？去注册',
+    toLogin: '已有账号？去登录',
+    fillAll: '请填写所有字段',
   },
   home: {
     banners: {

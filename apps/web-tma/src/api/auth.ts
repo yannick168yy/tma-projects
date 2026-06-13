@@ -1,7 +1,7 @@
 import { apiRequest, getInitData } from '@/api/client'
 import * as mock from '@/api/mock/auth.mock'
 import { getGoogleRedirectUri, startGoogleLoginRedirect } from '@/utils/googleOAuth'
-import type { AuthSession, AuthUser, LoginProvider, UserProfile } from '@/types/api'
+import type { AuthSession, AuthUser, LoginProvider, PasswordMethod, UserProfile } from '@/types/api'
 
 const useMock = import.meta.env.VITE_USE_MOCK_API !== 'false'
 
@@ -70,6 +70,29 @@ export async function completeGoogleLogin(code: string, redirectUri?: string, re
       redirectUri: redirectUri ?? getGoogleRedirectUri(),
       referralCode: referralCode || undefined,
     }),
+  })
+}
+
+export async function registerPassword(
+  method: PasswordMethod,
+  identifier: string,
+  password: string,
+  referralCode?: string,
+): Promise<AuthSession> {
+  return apiRequest<AuthSession>('/auth/register', {
+    method: 'POST',
+    body: JSON.stringify({ method, identifier, password, referralCode: referralCode || undefined }),
+  })
+}
+
+export async function loginPassword(
+  method: PasswordMethod,
+  identifier: string,
+  password: string,
+): Promise<AuthSession> {
+  return apiRequest<AuthSession>('/auth/login', {
+    method: 'POST',
+    body: JSON.stringify({ method, identifier, password }),
   })
 }
 

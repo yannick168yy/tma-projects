@@ -5,7 +5,8 @@ export interface ApiResponse<T> {
   traceId?: string
 }
 
-export type LoginProvider = 'telegram' | 'google'
+export type LoginProvider = 'telegram' | 'google' | 'phone' | 'account'
+export type PasswordMethod = 'phone' | 'account'
 
 export interface AuthUser {
   id: string

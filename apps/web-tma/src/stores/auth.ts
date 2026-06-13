@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { loginTelegram, loginWithGoogleRedirect, logoutSession, restoreSession } from '@/api/auth'
+import { loginPassword, loginTelegram, loginWithGoogleRedirect, logoutSession, registerPassword, restoreSession } from '@/api/auth'
 import { getInitData } from '@/api/client'
 import { fetchBalance } from '@/api/wallet'
 import { fetchPromoHighlights } from '@/api/promotion'
@@ -7,7 +7,8 @@ import { usePromotionStore } from '@/stores/promotion'
 import { useWalletStore } from '@/stores/wallet'
 import type { AuthUser } from '@/types/api'
 import { isInsideTelegram } from '@/utils/initTelegramWebApp'
-import { clearStoredReferral } from '@/utils/referral'
+import { clearStoredReferral, getStoredReferral } from '@/utils/referral'
+import type { PasswordMethod } from '@/types/api'
 import { i18n } from '@/i18n'
 
 export type AuthPhase = 'splash' | 'ready' | 'error'
@@ -35,6 +36,8 @@ interface AuthActions {
   clearTrialEligible: () => void
   loginWithTelegram: () => Promise<void>
   loginWithGoogle: () => void
+  loginWithPassword: (method: PasswordMethod, identifier: string, password: string) => Promise<void>
+  registerWithPassword: (method: PasswordMethod, identifier: string, password: string) => Promise<void>
   logout: () => Promise<void>
 }
 
@@ -138,6 +141,22 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
 
   loginWithGoogle() {
     loginWithGoogleRedirect()
+  },
+
+  async loginWithPassword(method, identifier, password) {
+    const session = await loginPassword(method, identifier, password)
+    get().applySession(session)
+    get().closeLoginSheet()
+    useWalletStore.getState().setBalance(await fetchBalance())
+    await usePromotionStore.getState().refreshHighlights()
+  },
+
+  async registerWithPassword(method, identifier, password) {
+    const session = await registerPassword(method, identifier, password, getStoredReferral() ?? undefined)
+    get().applySession(session)
+    get().closeLoginSheet()
+    useWalletStore.getState().setBalance(await fetchBalance())
+    await usePromotionStore.getState().refreshHighlights()
   },
 
   async logout() {

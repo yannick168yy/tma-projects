@@ -66,6 +66,17 @@ export default {
     signInBalance: 'Sign in to view balance and top up',
     signInProfile: 'Sign in to view your profile',
     signInPlay: 'Sign in to play games',
+    or: 'or',
+    tabAccount: 'Account',
+    tabPhone: 'Phone',
+    usernamePlaceholder: 'Username',
+    phonePlaceholder: 'Phone number (09xx...)',
+    passwordPlaceholder: 'Password',
+    loginButton: 'Log in',
+    registerButton: 'Create account',
+    toRegister: 'No account? Sign up',
+    toLogin: 'Have an account? Log in',
+    fillAll: 'Please fill in all fields',
   },
   home: {
     banners: {
