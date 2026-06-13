@@ -56,24 +56,25 @@ export function AutoCreditIcon({ className = 'h-6 w-6' }: IconProps) {
   )
 }
 
-export function EliteRebateIcon({ className = 'h-6 w-6' }: IconProps) {
+export function EveryBetIcon({ className = 'h-6 w-6' }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden="true">
       <defs>
-        <linearGradient id="cb-elite-rebate" x1="0%" y1="0%" x2="100%" y2="100%">
+        <linearGradient id="cb-every-bet" x1="0%" y1="0%" x2="100%" y2="100%">
           <stop offset="0%" stopColor="#fde68a" />
           <stop offset="100%" stopColor="#f59e0b" />
         </linearGradient>
       </defs>
       <path
-        d="M12 2L14.5 8.5L21 9.5L16 14L17.5 20.5L12 17.5L6.5 20.5L8 14L3 9.5L9.5 8.5L12 2Z"
-        stroke="url(#cb-elite-rebate)"
+        d="M12 5C8.5 5 5.5 7 4 10C5.5 13 8.5 15 12 15C15.5 15 18.5 13 20 10C18.5 7 15.5 5 12 5Z"
+        stroke="url(#cb-every-bet)"
         strokeWidth="1.75"
         strokeLinejoin="round"
-        fill="url(#cb-elite-rebate)"
-        fillOpacity="0.15"
+        fill="url(#cb-every-bet)"
+        fillOpacity="0.12"
       />
-      <path d="M12 7V13M9.5 10.5H14.5" stroke="url(#cb-elite-rebate)" strokeWidth="1.75" strokeLinecap="round" />
+      <path d="M8 10H16" stroke="url(#cb-every-bet)" strokeWidth="1.75" strokeLinecap="round" />
+      <path d="M12 15V19M9 17H15" stroke="url(#cb-every-bet)" strokeWidth="1.75" strokeLinecap="round" />
     </svg>
   )
 }

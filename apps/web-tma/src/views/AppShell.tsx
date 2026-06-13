@@ -339,8 +339,7 @@ export default function AppShell() {
             <div className="relative">
               <button
                 type="button"
-                className="absolute left-3 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur-sm border border-white/15 active:scale-95 transition-transform"
-                style={{ top: 'calc(var(--app-safe-top) + 10px)' }}
+                className="cashback-back-btn absolute left-3 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur-sm border border-white/15 active:scale-95 transition-transform"
                 onClick={closeImmersive}
               >
                 <ChevronLeft size={20} />

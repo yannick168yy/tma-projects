@@ -16,6 +16,12 @@ export interface RebateSummaryItem {
   ratePct: number
 }
 
+export interface RebateTierSummaryItem {
+  tier: string
+  betAmount: number
+  rebateAmount: number
+}
+
 export interface RebateSummary {
   date: string
   status: 'estimated' | 'paid' | 'processing'
@@ -23,6 +29,7 @@ export interface RebateSummary {
   totalRebate: number
   currency: string
   breakdown: RebateSummaryItem[]
+  tierBreakdown: RebateTierSummaryItem[]
 }
 
 export interface FeaturedGame {
@@ -81,10 +88,52 @@ export async function saveRebateConfig(env: Env, items: { gameCategory: string; 
   }
 }
 
+function featuredTierRatePct(tier: string): number {
+  if (tier === 'elite') return 2
+  if (tier === 'pro') return 1.5
+  return 0
+}
+
+/** 用户在精选游戏（Cashback Games）各档位的投注与洗码估算 */
+async function getUserTierRebateBreakdown(
+  env: Env,
+  userId: string,
+  phtDate: string,
+  currency: string,
+): Promise<RebateTierSummaryItem[]> {
+  if (!isMysqlEnabled(env)) return []
+  const pool = getMysqlPool(env)
+  const [rows] = await pool.query<RowDataPacket[]>(
+    `SELECT
+       rfg.tier,
+       SUM(tl.bet_amount) AS bet_amount
+     FROM bg_turnover_logs tl
+     INNER JOIN bg_bet_order bo ON bo.id = tl.bet_order_id
+     INNER JOIN bg_rebate_featured_game rfg
+       ON rfg.game_uuid = bo.provider_id AND rfg.enabled = 1
+     WHERE tl.user_id = ?
+       AND tl.is_reversed = 0
+       AND tl.currency = ?
+       AND DATE(CONVERT_TZ(tl.created_at, '+00:00', '+08:00')) = ?
+     GROUP BY rfg.tier`,
+    [userId, currency, phtDate],
+  )
+  return rows.map((r) => {
+    const tier = String(r.tier)
+    const betAmount = Number(r.bet_amount)
+    const ratePct = featuredTierRatePct(tier)
+    return {
+      tier,
+      betAmount,
+      rebateAmount: Math.floor(betAmount * ratePct / 100 * 10000) / 10000,
+    }
+  })
+}
+
 /** 查询用户指定 PHT 日期的洗码汇总（今日为估算，昨日为已结算记录） */
 export async function getUserRebateSummary(env: Env, userId: string, phtDate: string, currency = 'PHP'): Promise<RebateSummary> {
   if (!isMysqlEnabled(env)) {
-    return { date: phtDate, status: 'estimated', totalBet: 0, totalRebate: 0, currency, breakdown: [] }
+    return { date: phtDate, status: 'estimated', totalBet: 0, totalRebate: 0, currency, breakdown: [], tierBreakdown: [] }
   }
   const pool = getMysqlPool(env)
   const today = todayPHT()
@@ -120,7 +169,8 @@ export async function getUserRebateSummary(env: Env, userId: string, phtDate: st
     })
     const totalBet = breakdown.reduce((s, x) => s + x.betAmount, 0)
     const totalRebate = breakdown.reduce((s, x) => s + x.rebateAmount, 0)
-    return { date: phtDate, status: 'estimated', totalBet, totalRebate, currency, breakdown }
+    const tierBreakdown = await getUserTierRebateBreakdown(env, userId, phtDate, currency)
+    return { date: phtDate, status: 'estimated', totalBet, totalRebate, currency, breakdown, tierBreakdown }
   }
 
   // 昨日及历史：从 bg_rebate_record 读取结算记录
@@ -139,6 +189,7 @@ export async function getUserRebateSummary(env: Env, userId: string, phtDate: st
   const totalBet = breakdown.reduce((s, x) => s + x.betAmount, 0)
   const totalRebate = breakdown.reduce((s, x) => s + x.rebateAmount, 0)
   const allPaid = rows.length > 0 && rows.every((r) => r.status === 'paid')
+  const tierBreakdown = await getUserTierRebateBreakdown(env, userId, phtDate, currency)
   return {
     date: phtDate,
     status: allPaid ? 'paid' : rows.length > 0 ? 'processing' : 'paid',
@@ -146,6 +197,7 @@ export async function getUserRebateSummary(env: Env, userId: string, phtDate: st
     totalRebate,
     currency,
     breakdown,
+    tierBreakdown,
   }
 }
 

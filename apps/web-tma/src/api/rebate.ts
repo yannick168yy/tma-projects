@@ -28,6 +28,12 @@ export interface RebateSummaryItem {
   ratePct: number
 }
 
+export interface RebateTierSummaryItem {
+  tier: string
+  betAmount: number
+  rebateAmount: number
+}
+
 export interface RebateSummary {
   date: string
   status: 'estimated' | 'paid' | 'processing'
@@ -35,6 +41,7 @@ export interface RebateSummary {
   totalRebate: number
   currency: string
   breakdown: RebateSummaryItem[]
+  tierBreakdown: RebateTierSummaryItem[]
 }
 
 export async function fetchRebateConfig(): Promise<RebateConfig> {

@@ -111,6 +111,15 @@ body {
   padding-right: var(--app-safe-right);
 }
 
+/* 洗码页返回：手机浏览器更靠上；TMA 仍用 --app-safe-top */
+.cashback-back-btn {
+  top: max(6px, env(safe-area-inset-top, 0px));
+}
+
+html.is-telegram-webapp .cashback-back-btn {
+  top: calc(var(--app-safe-top) + 10px);
+}
+
 /* Prevent iOS double-tap zoom on taps (buttons, links) */
 button,
 a,

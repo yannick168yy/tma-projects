@@ -1,13 +1,13 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { fetchRebateConfig, fetchRebateSummary, type RebateConfig, type RebateSummary } from '@/api/rebate'
 import { launchGame } from '@/api/slots'
 import { useAuthStore } from '@/stores/auth'
-import { useWalletStore } from '@/stores/wallet'
+import { useWalletStore, formatCurrencyAmount } from '@/stores/wallet'
 import { useLocaleStore } from '@/stores/locale'
 import { localizedGameName } from '@/utils/game'
 import { ApiError } from '@/api/client'
-import { AutoCreditIcon, EliteRebateIcon, MaxRateIcon } from '@/components/cashback/CashbackHeroIcons'
+import { AutoCreditIcon, EveryBetIcon, MaxRateIcon } from '@/components/cashback/CashbackHeroIcons'
 
 type DateTab = 'today' | 'yesterday'
 
@@ -28,8 +28,8 @@ interface Props {
   onOpenCategory: (params: { title: string; sortCategory: string }) => void
 }
 
-function phpStr(v: number) {
-  return '₱' + v.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 4 })
+function amtStr(currency: string, v: number) {
+  return formatCurrencyAmount(currency, v)
 }
 
 function catKeyOf(cat: string) {
@@ -42,7 +42,7 @@ export default function CashbackPage({ onOpenGame, onOpenCategory }: Props) {
   const auth = useAuthStore()
   const activeCurrency = useWalletStore((s) => s.activeCurrency)
   const locale = useLocaleStore((s) => s.locale)
-  const currency = activeCurrency === 'PHP' ? 'PHP' : 'PHP'
+  const currency = activeCurrency
 
   const [activeTab, setActiveTab] = useState<DateTab>('today')
   const [config, setConfig] = useState<RebateConfig | null>(null)
@@ -92,6 +92,14 @@ export default function CashbackPage({ onOpenGame, onOpenCategory }: Props) {
 
   const tierRate = (tier: string) => tier === 'elite' ? t('cashback.tierEliteRate') : t('cashback.tierProRate')
 
+  const tierBonusMap = useMemo(() => {
+    const map = new Map<string, number>()
+    for (const item of summary?.tierBreakdown ?? []) {
+      map.set(item.tier, item.rebateAmount)
+    }
+    return map
+  }, [summary?.tierBreakdown])
+
   return (
     <div className="page-main pb-6">
       {/* Hero —— 暗绿渐变 + 绿金搭配 */}
@@ -112,7 +120,7 @@ export default function CashbackPage({ onOpenGame, onOpenCategory }: Props) {
           {[
             { Icon: MaxRateIcon, value: t('cashback.tierEliteRate'), label: t('cashback.heroRateLabel') },
             { Icon: AutoCreditIcon, value: t('cashback.heroCreditValue'), label: t('cashback.heroCreditLabel') },
-            { Icon: EliteRebateIcon, value: t('cashback.heroFeaturedValue'), label: t('cashback.heroFeaturedLabel') },
+            { Icon: EveryBetIcon, value: t('cashback.heroFeaturedValue'), label: t('cashback.heroFeaturedLabel') },
           ].map((s) => (
             <div key={s.label} className="flex-1 bg-emerald-950/40 rounded-xl px-2.5 py-2.5 text-center border border-emerald-400/25 backdrop-blur-sm">
               <div className="flex justify-center mb-1">
@@ -157,7 +165,7 @@ export default function CashbackPage({ onOpenGame, onOpenCategory }: Props) {
           {summaryLoading ? (
             <div className="w-6 h-6 border-2 border-amber-200 border-t-transparent rounded-full animate-spin" />
           ) : (
-            <p className="text-amber-200 font-black text-2xl font-display drop-shadow">{phpStr(token ? (summary?.totalRebate ?? 0) : 0)}</p>
+            <p className="text-amber-200 font-black text-2xl font-display drop-shadow">{amtStr(currency, token ? (summary?.totalRebate ?? 0) : 0)}</p>
           )}
         </div>
       </div>
@@ -172,7 +180,7 @@ export default function CashbackPage({ onOpenGame, onOpenCategory }: Props) {
                 <span>{t(catKeyOf(item.gameCategory))}</span>
                 <span className="text-[10px] text-amber-300/80">{item.ratePct}%</span>
               </span>
-              <span className="font-semibold text-amber-300">+{phpStr(item.rebateAmount)}</span>
+              <span className="font-semibold text-amber-300">+{amtStr(currency, item.rebateAmount)}</span>
             </div>
           ))}
         </div>
@@ -206,7 +214,7 @@ export default function CashbackPage({ onOpenGame, onOpenCategory }: Props) {
                         </div>
                         <div>
                           <p className="text-emerald-300/60 text-[10px]">{t('cashback.bonusLabel')}</p>
-                          <p className="text-amber-300 font-bold text-sm">{phpStr(0)}</p>
+                          <p className="text-amber-300 font-bold text-sm">{amtStr(currency, token ? (tierBonusMap.get(tier) ?? 0) : 0)}</p>
                         </div>
                       </div>
                     </div>
