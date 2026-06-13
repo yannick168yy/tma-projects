@@ -29,6 +29,12 @@ export class KycError extends Error {
   }
 }
 
+/** 取款硬闸门：是否已通过 KYC 实名 */
+export async function isKycApproved(redis: Redis, userId: string): Promise<boolean> {
+  const kyc = await getKyc(redis, userId)
+  return kyc?.status === 'approved'
+}
+
 const otpKey = (userId: string) => `kyc:otp:${userId}`
 const resendKey = (userId: string) => `kyc:otp:sent:${userId}`
 

@@ -10,6 +10,7 @@ import {
   YfPayError,
 } from '../services/yfpay.service.js'
 import { creditWallet, getWallet, getDeposit, getWithdraw, saveDeposit, saveWithdraw, listDeposits, listWithdrawals } from '../services/store/index.js'
+import { isKycApproved } from '../services/kyc.service.js'
 import { getMysqlPool, isMysqlEnabled } from '../clients/mysql.client.js'
 import { canWithdraw as checkTurnover } from '../services/turnover.service.js'
 import { ok, fail } from '../utils/response.js'
@@ -155,6 +156,12 @@ router.post('/withdraw/yfpay/create', async (ctx) => {
 
   const userId = ctx.state.userId!
   const redis = ctx.state.redis
+
+  // KYC 硬闸门：未实名禁止提款
+  if (!(await isKycApproved(redis, userId))) {
+    fail(ctx, 403, '请先完成实名认证（KYC）', 403)
+    return
+  }
 
   // 分布式锁：防止并发提现（TOCTOU）
   const lockKey = `withdraw:lock:${userId}`

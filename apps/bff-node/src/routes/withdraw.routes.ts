@@ -8,6 +8,7 @@ import { nowIso } from '../utils/format.js'
 import { fail, ok } from '../utils/response.js'
 import { randomOrderId } from '../utils/id.js'
 import { canWithdraw as checkTurnover } from '../services/turnover.service.js'
+import { isKycApproved } from '../services/kyc.service.js'
 import type { WithdrawOrder } from '../types/domain.js'
 
 const router = new Router({ prefix: '/withdrawals' })
@@ -79,6 +80,12 @@ router.post('/', async (ctx) => {
 
     const userId = ctx.state.userId!
     const redis = ctx.state.redis
+
+    // KYC 硬闸门：未实名禁止提款
+    if (!(await isKycApproved(redis, userId))) {
+      fail(ctx, 403, '请先完成实名认证（KYC）', 403)
+      return
+    }
 
     const lockKey = `withdraw:lock:${userId}`
     const lockVal = randomBytes(8).toString('hex')
@@ -161,6 +168,12 @@ router.post('/', async (ctx) => {
 
   const userId = ctx.state.userId!
   const redis = ctx.state.redis
+
+  // KYC 硬闸门：未实名禁止提款
+  if (!(await isKycApproved(redis, userId))) {
+    fail(ctx, 403, '请先完成实名认证（KYC）', 403)
+    return
+  }
 
   // 分布式锁：防止并发提现导致 TOCTOU 竞态（多请求同时读到相同余额各自扣款）
   const lockKey = `withdraw:lock:${userId}`
