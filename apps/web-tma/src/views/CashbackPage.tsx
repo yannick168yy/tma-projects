@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
+import { Flame, Zap, Sparkles, type LucideIcon } from 'lucide-react'
 import { fetchRebateConfig, fetchRebateSummary, type RebateConfig, type RebateSummary } from '@/api/rebate'
 import { launchGame } from '@/api/slots'
 import { useAuthStore } from '@/stores/auth'
@@ -93,28 +94,33 @@ export default function CashbackPage({ onOpenGame, onOpenCategory }: Props) {
 
   return (
     <div className="page-main pb-6">
-      {/* Hero —— 参照 Bonuses 顶部风格：全宽暗色渐变 + 标签/标题/副文 + 统计卡片 */}
+      {/* Hero —— 明亮喜庆的红→橙→金渐变，传达洗码返奖的愉悦 */}
       <div
-        className="relative px-4 pt-14 pb-5 overflow-hidden"
-        style={{ background: 'linear-gradient(160deg, #4a0d0d 0%, #080b14 60%)' }}
+        className="relative px-4 pt-14 pb-6 overflow-hidden"
+        style={{ background: 'linear-gradient(135deg, #f43f5e 0%, #fb7185 16%, #fb923c 56%, #fbbf24 100%)' }}
       >
-        <p className="text-muted-foreground text-[11px] uppercase tracking-widest font-bold mb-1">
+        {/* 装饰光晕，增加层次与喜庆感 */}
+        <div className="absolute -top-12 -right-10 h-36 w-36 rounded-full bg-amber-200/40 blur-2xl" />
+        <div className="absolute -bottom-10 -left-8 h-32 w-32 rounded-full bg-white/20 blur-2xl" />
+        <div className="absolute top-3 right-8 h-16 w-16 rounded-full bg-white/10" />
+
+        <span className="relative inline-block bg-white/25 text-white text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full backdrop-blur-sm mb-2">
           {t('cashback.pageSubtitle')}
-        </p>
-        <h1 className="text-white font-black leading-tight mb-1 font-display text-[1.8rem]">
+        </span>
+        <h1 className="relative text-white font-black leading-tight mb-1.5 font-display text-[2rem] drop-shadow-[0_2px_10px_rgba(120,30,0,0.35)]">
           {t('cashback.pageTitle')}
         </h1>
-        <p className="text-white/50 text-xs max-w-[240px] leading-relaxed">{t('cashback.bannerSub')}</p>
-        <div className="flex gap-3 mt-4">
-          {[
-            { icon: '💵', value: t('cashback.tierEliteRate'), label: t('cashback.heroRateLabel') },
-            { icon: '⏰', value: t('cashback.heroCreditValue'), label: t('cashback.heroCreditLabel') },
-            { icon: '✅', value: '0×', label: t('cashback.heroWagerLabel') },
-          ].map((s) => (
-            <div key={s.label} className="flex-1 bg-white/5 rounded-xl px-2.5 py-2 text-center border border-white/8">
-              <p className="text-base leading-none mb-0.5">{s.icon}</p>
-              <p className="text-primary font-black text-sm leading-none">{s.value}</p>
-              <p className="text-white/40 text-[9px] mt-0.5 leading-tight">{s.label}</p>
+        <p className="relative text-white/90 text-xs max-w-[240px] leading-relaxed">{t('cashback.bannerSub')}</p>
+        <div className="relative flex gap-2.5 mt-4">
+          {([
+            { Icon: Flame, value: t('cashback.tierEliteRate'), label: t('cashback.heroRateLabel') },
+            { Icon: Zap, value: t('cashback.heroCreditValue'), label: t('cashback.heroCreditLabel') },
+            { Icon: Sparkles, value: '0×', label: t('cashback.heroWagerLabel') },
+          ] as { Icon: LucideIcon; value: string; label: string }[]).map((s) => (
+            <div key={s.label} className="flex-1 bg-white/15 rounded-xl px-2 py-2.5 text-center border border-white/25 backdrop-blur-sm">
+              <s.Icon size={18} className="mx-auto mb-1 text-white" strokeWidth={2.4} />
+              <p className="text-white font-black text-sm leading-none">{s.value}</p>
+              <p className="text-white/75 text-[9px] mt-1 leading-tight">{s.label}</p>
             </div>
           ))}
         </div>
