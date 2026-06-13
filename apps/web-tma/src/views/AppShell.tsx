@@ -391,7 +391,7 @@ export default function AppShell() {
           >
             <button
               type="button"
-              className="absolute left-3 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-black/25 text-white backdrop-blur-sm border border-white/25 active:scale-95 transition-transform"
+              className="absolute left-3 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur-sm border border-white/15 active:scale-95 transition-transform"
               style={{ top: 'calc(env(safe-area-inset-top) + 10px)' }}
               onClick={overlay.close}
             >
