@@ -430,6 +430,7 @@ export interface RebateFeaturedGame {
   tier: string
   sortOrder: number
   name?: string
+  nameZh?: string
   provider?: string
   coverUrl?: string
 }

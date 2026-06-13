@@ -237,7 +237,15 @@ export default function Rebate() {
           size="small"
           pagination={false}
           columns={[
-            { title: '游戏名称', dataIndex: 'name', key: 'name', render: (v, r) => v ?? r.gameUuid },
+            {
+              title: '游戏名称', key: 'name',
+              render: (_: unknown, r: RebateFeaturedGame) => {
+                const zh = r.nameZh
+                const en = r.name
+                if (zh && en) return <span>{zh}<span style={{ color: '#999', marginLeft: 6, fontSize: 12 }}>({en})</span></span>
+                return zh ?? en ?? r.gameUuid
+              },
+            },
             { title: '厂商', dataIndex: 'provider', key: 'provider' },
             {
               title: '档位', dataIndex: 'tier', key: 'tier',
@@ -288,10 +296,10 @@ export default function Rebate() {
               placeholder={selectedProvider ? '选择游戏' : '请先选择游戏商'}
               disabled={!selectedProvider}
               loading={providerGamesLoading}
-              options={providerGames.map((g) => ({
-                value: g.uuid,
-                label: g.name,
-              }))}
+              options={providerGames.map((g) => {
+                const label = g.nameZh ? `${g.nameZh} (${g.name})` : g.name
+                return { value: g.uuid, label }
+              })}
               filterOption={(input, opt) =>
                 String(opt?.label ?? '').toLowerCase().includes(input.toLowerCase())
               }

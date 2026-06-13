@@ -31,6 +31,7 @@ export interface FeaturedGame {
   tier: string
   sortOrder: number
   name?: string
+  nameZh?: string
   provider?: string
   coverUrl?: string
 }
@@ -153,7 +154,7 @@ export async function getFeaturedGames(env: Env): Promise<FeaturedGame[]> {
   const pool = getMysqlPool(env)
   const [rows] = await pool.query<RowDataPacket[]>(
     `SELECT rfg.id, rfg.game_uuid, rfg.tier, rfg.sort_order,
-            sg.name, sg.provider, sg.image_url
+            sg.name, sg.name_zh, sg.provider, sg.image_url
      FROM bg_rebate_featured_game rfg
      LEFT JOIN sg_games sg ON sg.uuid = rfg.game_uuid
      WHERE rfg.enabled = 1
@@ -165,6 +166,7 @@ export async function getFeaturedGames(env: Env): Promise<FeaturedGame[]> {
     tier: String(r.tier),
     sortOrder: Number(r.sort_order),
     name: r.name ? String(r.name) : undefined,
+    nameZh: r.name_zh ? String(r.name_zh) : undefined,
     provider: r.provider ? String(r.provider) : undefined,
     coverUrl: r.image_url ? String(r.image_url) : undefined,
   }))
