@@ -10,7 +10,8 @@ import {
   getRebateConfig, saveRebateConfig,
   getFeaturedGames, addFeaturedGame, removeFeaturedGame,
   triggerRebatePayout, getRebateRecords,
-  type RebateConfigItem, type RebateFeaturedGame, type RebateRecord,
+  getProviderStats, getAdminGames,
+  type RebateConfigItem, type RebateFeaturedGame, type RebateRecord, type AdminGame,
 } from '../api'
 
 const { Title, Text } = Typography
@@ -43,6 +44,11 @@ export default function Rebate() {
   const [addModalOpen, setAddModalOpen] = useState(false)
   const [addForm] = Form.useForm<{ gameUuid: string; tier: string; sortOrder: number }>()
   const [addLoading, setAddLoading] = useState(false)
+
+  const [providers, setProviders] = useState<string[]>([])
+  const [selectedProvider, setSelectedProvider] = useState<string | undefined>()
+  const [providerGames, setProviderGames] = useState<AdminGame[]>([])
+  const [providerGamesLoading, setProviderGamesLoading] = useState(false)
 
   const [records, setRecords] = useState<RebateRecord[]>([])
   const [recordsTotal, setRecordsTotal] = useState(0)
@@ -88,6 +94,31 @@ export default function Rebate() {
     } catch (e) {
       message.error(e instanceof Error ? e.message : '加载失败')
     } finally { setRecordsLoading(false) }
+  }
+
+  async function loadProviders() {
+    try {
+      const stats = await getProviderStats()
+      setProviders(stats.map((s) => s.provider).sort())
+    } catch { /* ignore */ }
+  }
+
+  async function loadProviderGames(provider: string) {
+    setProviderGamesLoading(true)
+    setProviderGames([])
+    try {
+      const res = await getAdminGames({ provider, isActive: true, pageSize: 200 })
+      setProviderGames(res.items)
+    } catch { /* ignore */ }
+    finally { setProviderGamesLoading(false) }
+  }
+
+  function openAddModal() {
+    setSelectedProvider(undefined)
+    setProviderGames([])
+    addForm.resetFields()
+    setAddModalOpen(true)
+    void loadProviders()
   }
 
   useEffect(() => {
@@ -192,7 +223,7 @@ export default function Rebate() {
       <Card
         title={<span><StarOutlined /> Cashback Games 精选游戏</span>}
         extra={
-          <Button type="primary" icon={<PlusOutlined />} onClick={() => setAddModalOpen(true)}>
+          <Button type="primary" icon={<PlusOutlined />} onClick={openAddModal}>
             添加游戏
           </Button>
         }
@@ -235,8 +266,36 @@ export default function Rebate() {
         cancelText="取消"
       >
         <Form form={addForm} layout="vertical" requiredMark={false}>
-          <Form.Item label="游戏 UUID" name="gameUuid" rules={[{ required: true, message: '请输入游戏 UUID' }]}>
-            <Input placeholder="sg_games.uuid" />
+          <Form.Item label="游戏商">
+            <Select
+              showSearch
+              placeholder="选择游戏商"
+              options={providers.map((p) => ({ value: p, label: p }))}
+              value={selectedProvider}
+              onChange={(v: string) => {
+                setSelectedProvider(v)
+                addForm.setFieldValue('gameUuid', undefined)
+                void loadProviderGames(v)
+              }}
+              filterOption={(input, opt) =>
+                String(opt?.label ?? '').toLowerCase().includes(input.toLowerCase())
+              }
+            />
+          </Form.Item>
+          <Form.Item label="游戏" name="gameUuid" rules={[{ required: true, message: '请选择游戏' }]}>
+            <Select
+              showSearch
+              placeholder={selectedProvider ? '选择游戏' : '请先选择游戏商'}
+              disabled={!selectedProvider}
+              loading={providerGamesLoading}
+              options={providerGames.map((g) => ({
+                value: g.uuid,
+                label: g.name,
+              }))}
+              filterOption={(input, opt) =>
+                String(opt?.label ?? '').toLowerCase().includes(input.toLowerCase())
+              }
+            />
           </Form.Item>
           <Form.Item label="展示档位" name="tier" initialValue="elite" rules={[{ required: true }]}>
             <Select options={[

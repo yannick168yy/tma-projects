@@ -96,7 +96,7 @@ export async function getUserRebateSummary(env: Env, userId: string, phtDate: st
          COALESCE(tl.sort_category, 'other') AS game_category,
          tl.currency,
          SUM(tl.bet_amount)                  AS bet_amount,
-         COALESCE(rc.rate_pct, 0.800)        AS rate_pct
+         MAX(COALESCE(rc.rate_pct, 0.800))   AS rate_pct
        FROM bg_turnover_logs tl
        LEFT JOIN bg_rebate_config rc
          ON rc.game_category = COALESCE(tl.sort_category, 'other') AND rc.enabled = 1
@@ -153,7 +153,7 @@ export async function getFeaturedGames(env: Env): Promise<FeaturedGame[]> {
   const pool = getMysqlPool(env)
   const [rows] = await pool.query<RowDataPacket[]>(
     `SELECT rfg.id, rfg.game_uuid, rfg.tier, rfg.sort_order,
-            sg.name, sg.provider, sg.cover_url
+            sg.name, sg.provider, sg.image_url
      FROM bg_rebate_featured_game rfg
      LEFT JOIN sg_games sg ON sg.uuid = rfg.game_uuid
      WHERE rfg.enabled = 1
@@ -166,7 +166,7 @@ export async function getFeaturedGames(env: Env): Promise<FeaturedGame[]> {
     sortOrder: Number(r.sort_order),
     name: r.name ? String(r.name) : undefined,
     provider: r.provider ? String(r.provider) : undefined,
-    coverUrl: r.cover_url ? String(r.cover_url) : undefined,
+    coverUrl: r.image_url ? String(r.image_url) : undefined,
   }))
 }
 
