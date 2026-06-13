@@ -18,6 +18,7 @@ const KEYS = {
   userByGoogle: (sub: string) => `tma:user:google:${sub}`,
   userByUsername: (username: string) => `tma:user:username:${username}`,
   userByPhone: (phone: string) => `tma:user:phone:${phone}`,
+  userByEmail: (email: string) => `tma:user:email:${email}`,
   session: (token: string) => `tma:session:${token}`,
   wallet: (userId: string) => `tma:wallet:${userId}`,
   deposit: (orderId: string) => `tma:deposit:${orderId}`,
@@ -64,6 +65,9 @@ export async function saveUser(redis: Redis, user: UserRecord): Promise<void> {
   }
   if (user.phoneAccount) {
     await redis.set(KEYS.userByPhone(user.phoneAccount), user.id)
+  }
+  if (user.email) {
+    await redis.set(KEYS.userByEmail(user.email), user.id)
   }
   await redis.set(KEYS.inviteCode(user.inviteCode), user.id)
 }
@@ -209,6 +213,12 @@ export async function getUserByUsername(redis: Redis, username: string): Promise
 
 export async function getUserByPhoneAccount(redis: Redis, phone: string): Promise<UserRecord | null> {
   const userId = await redis.get(KEYS.userByPhone(phone))
+  if (!userId) return null
+  return getUser(redis, userId)
+}
+
+export async function getUserByEmail(redis: Redis, email: string): Promise<UserRecord | null> {
+  const userId = await redis.get(KEYS.userByEmail(email))
   if (!userId) return null
   return getUser(redis, userId)
 }

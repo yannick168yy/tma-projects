@@ -11,6 +11,7 @@ import {
   findKycByExtractedIdNo,
   findKycByVerifiedPhone,
   getKyc,
+  getUserByPhoneAccount,
   saveKyc,
 } from './store/index.js'
 
@@ -53,8 +54,13 @@ export async function sendKycOtp(
   const phone = normalizePhonePH(phoneRaw)
   if (!phone) throw new KycError('Invalid phone number', 400)
 
+  // 全局互斥：该手机不能是他号的 KYC 手机，也不能是他号的手机登录号
   const otherOwner = await findKycByVerifiedPhone(redis, phone, userId)
-  if (otherOwner) throw new KycError('该手机号已被其他账号用于实名认证', 409)
+  if (otherOwner) throw new KycError('该手机号已被其他账号使用', 409)
+  const phoneAccountOwner = await getUserByPhoneAccount(redis, phone)
+  if (phoneAccountOwner && phoneAccountOwner.id !== userId) {
+    throw new KycError('该手机号已被其他账号使用', 409)
+  }
 
   if (await redis.get(resendKey(userId))) {
     throw new KycError('请求过于频繁，请稍后再试', 429)

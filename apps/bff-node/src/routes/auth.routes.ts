@@ -1,6 +1,6 @@
 import Router from '@koa/router'
 import type { PasswordMethod } from '../services/auth.service.js'
-import { AuthError, loginWithGoogleCode, loginWithInitData, loginWithPassword, logout, refreshSession, registerWithPassword, resolveSession, toAuthUser } from '../services/auth.service.js'
+import { AuthError, loginWithGoogleCode, loginWithInitData, loginWithPassword, loginWithTelegramWidget, logout, refreshSession, registerWithPassword, resolveSession, toAuthUser } from '../services/auth.service.js'
 import { recordUserLogin } from '../services/store/index.js'
 import { lookupRegion } from '../services/geo.service.js'
 import { fail, ok } from '../utils/response.js'
@@ -159,6 +159,38 @@ router.post('/login', async (ctx) => {
       const n = await ctx.state.redis.incr(throttleKey)
       if (n === 1) await ctx.state.redis.expire(throttleKey, LOGIN_WINDOW_SEC)
       fail(ctx, 401, e.message, 401)
+      return
+    }
+    throw e
+  }
+})
+
+router.post('/telegram-widget', async (ctx) => {
+  const body = ctx.request.body as Record<string, string> & { referralCode?: string }
+  if (!body?.id || !body?.hash) {
+    fail(ctx, 400, 'Invalid Telegram login payload')
+    return
+  }
+  try {
+    const ip = cleanIp(ctx.ip)
+    const { referralCode, ...data } = body
+    const result = await loginWithTelegramWidget(ctx.state.redis, ctx.state.env, data, ip, referralCode)
+    ok(ctx, {
+      token: result.token,
+      expiresIn: result.expiresIn,
+      isNewUser: result.isNewUser,
+      trialRedPacketEligible: result.trialRedPacketEligible,
+      user: toAuthUser(result.user),
+    })
+    recordUserLogin(ctx.state.redis, result.user.id, {
+      ip,
+      region: lookupRegion(ip),
+      userAgent: ctx.get('user-agent'),
+      authMethod: 'telegram',
+    }).catch(() => {})
+  } catch (e) {
+    if (e instanceof AuthError) {
+      fail(ctx, e.status ?? 401, e.message, e.status ?? 401)
       return
     }
     throw e

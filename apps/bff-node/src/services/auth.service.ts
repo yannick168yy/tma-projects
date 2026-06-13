@@ -7,16 +7,21 @@ import {
   createUserFromPassword,
   createUserFromTelegram,
   deleteSession,
+  findKycByVerifiedPhone,
   getSession,
   getUser,
+  getUserByEmail,
+  getUserByGoogleSub,
   getUserByInviteCode,
   getUserByPhoneAccount,
+  getUserByTelegramId,
   getUserByUsername,
   saveSession,
   saveUser,
 } from './store/index.js'
 import { randomToken } from '../utils/id.js'
 import { normalizePhonePH } from '../utils/phone.js'
+import { verifyTelegramWidget } from '../utils/telegramWidget.js'
 import { hashPassword, verifyPassword } from '../utils/password.js'
 import type { UserRecord } from '../types/domain.js'
 import { exchangeGoogleCode } from './google.service.js'
@@ -195,6 +200,10 @@ export async function registerWithPassword(
   if (existing) {
     throw new AuthError(input.method === 'phone' ? 'Phone already registered' : 'Username already taken', 409)
   }
+  // 手机全局互斥：注册手机不能是他号已验证的 KYC 手机
+  if (input.method === 'phone' && (await findKycByVerifiedPhone(redis, identifier, ''))) {
+    throw new AuthError('该手机号已被其他账号使用', 409)
+  }
 
   let referredBy: string | undefined
   if (input.referralCode) {
@@ -239,6 +248,140 @@ export async function loginWithPassword(
     throw new AuthError('Account has been disabled. Please contact support.')
   }
   return issueSession(redis, env, user, false)
+}
+
+export async function loginWithTelegramWidget(
+  redis: Redis,
+  env: Env,
+  data: Record<string, string>,
+  ip?: string,
+  referralCode?: string,
+): Promise<{
+  token: string
+  expiresIn: number
+  user: UserRecord
+  isNewUser: boolean
+  trialRedPacketEligible: boolean
+}> {
+  const v = verifyTelegramWidget(data, env.TELEGRAM_BOT_TOKEN)
+  if (!v) throw new AuthError('Invalid or expired Telegram login', 401)
+
+  let referredBy: string | undefined
+  if (referralCode) {
+    const inviter = await getUserByInviteCode(redis, referralCode.toUpperCase())
+    if (inviter) referredBy = inviter.id
+  }
+
+  const displayName = [v.firstName, v.lastName].filter(Boolean).join(' ') || v.username || 'Telegram User'
+  const region = ip ? lookupRegion(ip) : undefined
+  const { user, isNewUser } = await createUserFromTelegram(redis, {
+    telegramUserId: v.id,
+    displayName,
+    avatarUrl: v.photoUrl,
+    telegramUsername: v.username,
+    referredBy,
+    registerIp: ip,
+    registerRegion: region,
+  })
+  if (user.status === 'banned') {
+    throw new AuthError('Account has been permanently banned. Please contact support.', 401)
+  }
+  return issueSession(redis, env, user, isNewUser)
+}
+
+// ── 身份绑定：把某登录方式挂到当前已登录账号；命中他号一律 409 ──────────────────
+async function loadUser(redis: Redis, userId: string): Promise<UserRecord> {
+  const user = await getUser(redis, userId)
+  if (!user) throw new AuthError('User not found', 404)
+  return user
+}
+
+export async function bindTelegramWidget(
+  redis: Redis,
+  env: Env,
+  userId: string,
+  data: Record<string, string>,
+): Promise<UserRecord> {
+  const v = verifyTelegramWidget(data, env.TELEGRAM_BOT_TOKEN)
+  if (!v) throw new AuthError('Invalid or expired Telegram login', 401)
+  const owner = await getUserByTelegramId(redis, v.id)
+  if (owner && owner.id !== userId) throw new AuthError('该 Telegram 已绑定其他账号', 409)
+  const user = await loadUser(redis, userId)
+  user.telegramUserId = v.id
+  if (v.username) user.telegramUsername = v.username
+  await saveUser(redis, user)
+  return user
+}
+
+export async function bindGoogleAccount(
+  redis: Redis,
+  env: Env,
+  userId: string,
+  code: string,
+  redirectUri: string,
+): Promise<UserRecord> {
+  if (redirectUri !== env.GOOGLE_REDIRECT_URI) throw new AuthError('Invalid redirect URI', 400)
+  const profile = await exchangeGoogleCode(env, code, redirectUri)
+  const owner = await getUserByGoogleSub(redis, profile.sub)
+  if (owner && owner.id !== userId) throw new AuthError('该 Google 已绑定其他账号', 409)
+  if (profile.email) {
+    const emailOwner = await getUserByEmail(redis, profile.email)
+    if (emailOwner && emailOwner.id !== userId) throw new AuthError('该邮箱已被其他账号使用', 409)
+  }
+  const user = await loadUser(redis, userId)
+  user.googleSub = profile.sub
+  if (profile.email) {
+    user.email = profile.email
+    user.profile.email = profile.email
+  }
+  await saveUser(redis, user)
+  return user
+}
+
+export async function bindPhone(
+  redis: Redis,
+  userId: string,
+  phoneRaw: string,
+  password?: string,
+): Promise<UserRecord> {
+  const phone = normalizePhonePH(phoneRaw)
+  if (!phone) throw new AuthError('Invalid phone number', 400)
+  // 全局互斥：手机登录号 + KYC 已验手机
+  const owner = await getUserByPhoneAccount(redis, phone)
+  if (owner && owner.id !== userId) throw new AuthError('该手机号已被其他账号使用', 409)
+  const kycOwner = await findKycByVerifiedPhone(redis, phone, userId)
+  if (kycOwner) throw new AuthError('该手机号已被其他账号使用', 409)
+  const user = await loadUser(redis, userId)
+  user.phoneAccount = phone
+  if (password) {
+    if (password.length < 8) throw new AuthError('Password must be at least 8 characters', 400)
+    user.passwordHash = await hashPassword(password)
+  } else if (!user.passwordHash) {
+    throw new AuthError('请设置登录密码', 400)
+  }
+  await saveUser(redis, user)
+  return user
+}
+
+export async function bindAccount(
+  redis: Redis,
+  userId: string,
+  username: string,
+  password: string,
+): Promise<UserRecord> {
+  if (!USERNAME_RE.test(username)) {
+    throw new AuthError('Username must be 4-20 letters, digits or underscore', 400)
+  }
+  if (!password || password.length < 8) {
+    throw new AuthError('Password must be at least 8 characters', 400)
+  }
+  const owner = await getUserByUsername(redis, username)
+  if (owner && owner.id !== userId) throw new AuthError('用户名已被占用', 409)
+  const user = await loadUser(redis, userId)
+  user.username = username
+  user.passwordHash = await hashPassword(password)
+  await saveUser(redis, user)
+  return user
 }
 
 async function issueSession(

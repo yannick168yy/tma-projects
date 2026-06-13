@@ -68,6 +68,11 @@ export const getUserByPhoneAccount = (redis: Redis, phone: string) =>
     ? mysqlStore.getUserByPhoneAccount(env(), phone)
     : redisStore.getUserByPhoneAccount(redis, phone)
 
+export const getUserByEmail = (redis: Redis, email: string) =>
+  isMysqlEnabled(env())
+    ? mysqlStore.getUserByEmail(env(), email)
+    : redisStore.getUserByEmail(redis, email)
+
 export const createUserFromPassword = (
   redis: Redis,
   input: Parameters<typeof redisStore.createUserFromPassword>[1],

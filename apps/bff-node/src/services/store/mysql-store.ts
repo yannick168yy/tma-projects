@@ -134,6 +134,8 @@ export async function saveUser(env: Env, user: UserRecord): Promise<void> {
       `INSERT INTO bg_user (id, telegram_user_id, telegram_username, google_sub, username, password_hash, phone_account, email, display_name, avatar_url, invite_code, inviter_id, locale, status, status_reason, label, register_ip, register_region, registered_at)
        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
        ON DUPLICATE KEY UPDATE
+         telegram_user_id=COALESCE(VALUES(telegram_user_id), telegram_user_id),
+         google_sub=COALESCE(VALUES(google_sub), google_sub),
          telegram_username=VALUES(telegram_username),
          username=COALESCE(VALUES(username), username),
          password_hash=COALESCE(VALUES(password_hash), password_hash),
@@ -216,6 +218,11 @@ export async function getUserByTelegramId(env: Env, tgId: number): Promise<UserR
 
 export async function getUserByGoogleSub(env: Env, sub: string): Promise<UserRecord | null> {
   const [rows] = await pool(env).query<UserRow[]>(`${USER_SELECT} WHERE u.google_sub = ?`, [sub])
+  return rows[0] ? mapUser(rows[0]) : null
+}
+
+export async function getUserByEmail(env: Env, email: string): Promise<UserRecord | null> {
+  const [rows] = await pool(env).query<UserRow[]>(`${USER_SELECT} WHERE u.email = ?`, [email])
   return rows[0] ? mapUser(rows[0]) : null
 }
 
