@@ -20,5 +20,5 @@ CREATE TABLE IF NOT EXISTS `bg_kyc` (
   PRIMARY KEY (`user_id`),
   KEY `idx_phone_verified` (`phone`, `phone_verified`),
   KEY `idx_extracted_id_no` (`extracted_id_no`),
-  CONSTRAINT `fk_kyc_user` FOREIGN KEY (`user_id`) REFERENCES `bg_user` (`id`)
+  CONSTRAINT `fk_bg_kyc_user` FOREIGN KEY (`user_id`) REFERENCES `bg_user` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='KYC 实名认证';
