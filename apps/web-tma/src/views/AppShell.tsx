@@ -305,7 +305,6 @@ export default function AppShell() {
           {view.type === 'categoryLobby' && (
             <SlotsLobby {...view.params} onClose={() => { overlay.close(); window.scrollTo({ top: 0, behavior: 'instant' }) }} onGameTap={() => void onGameTap()} onOpenGame={(url) => setGamePlayerUrl(url)} />
           )}
-          {view.type === 'teamCenter' && <TeamCenterPage />}
           {view.type === 'none' && activeNav === 'bonuses' && <BonusesPage promoFilter={promoFilter} onOpenWallet={() => void openWallet()} onOpenTeam={openTeamCenter} />}
           {view.type === 'none' && activeNav === 'bingo' && <BingoPage onOpenWallet={() => void openWallet()} onGameTap={() => void onGameTap()} onOpenGame={(url) => setGamePlayerUrl(url)} onOpenCategoryLobby={openCategoryLobby} />}
           {view.type === 'none' && activeNav === 'menu' && <MenuPage onOpenCs={openCs} onLogin={() => void auth.ensureLoggedIn(t('auth.signInProfile'))} onLogout={onLogout} onOpenBetHistory={openBetHistory} onOpenReferralPromo={openReferralPromo} onOpenCashback={openCashback} />}
@@ -339,6 +338,17 @@ export default function AppShell() {
         <div className="fixed inset-0 z-[60] flex justify-center">
           <div className="w-full max-w-[430px] bg-background flex flex-col overflow-hidden">
             <CustomerServicePage onClose={() => setCsOpen(false)} />
+          </div>
+        </div>
+      )}
+
+      {view.type === 'teamCenter' && (
+        <div className="fixed inset-0 z-[60] flex justify-center">
+          <div
+            className="w-full max-w-[430px] bg-background overflow-y-auto"
+            style={{ paddingTop: 'env(safe-area-inset-top)', ['--app-header-height' as string]: '0px' }}
+          >
+            <TeamCenterPage onClose={overlay.close} />
           </div>
         </div>
       )}

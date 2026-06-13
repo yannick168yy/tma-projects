@@ -118,7 +118,7 @@ function TreeNodeRow({ node, depth, expandedIds, onToggle }: {
 }
 
 // ── 页面主体 ──────────────────────────────────────────────────────────────────
-export default function TeamCenterPage() {
+export default function TeamCenterPage({ onClose }: { onClose?: () => void }) {
   const { t, i18n } = useTranslation()
   const user = useAuthStore((s) => s.user)
   const store = usePromotionStore()
@@ -255,7 +255,18 @@ export default function TeamCenterPage() {
 
       {/* ── 邀请码区 ── */}
       <div className="px-4 py-4 amber-hero-bg border-b border-border flex-shrink-0">
-        <p className="text-[10px] font-bold uppercase tracking-widest text-amber-400/80 mb-2">{t('team.myReferralCode')}</p>
+        <div className="flex items-center gap-2 mb-2">
+          {onClose && (
+            <button
+              type="button"
+              className="-ml-1 flex h-8 w-8 items-center justify-center rounded-full bg-black/25 text-foreground border border-white/10 active:scale-95 transition-transform"
+              onClick={onClose}
+            >
+              <ChevronLeft size={18} />
+            </button>
+          )}
+          <p className="text-[10px] font-bold uppercase tracking-widest text-amber-400/80">{t('team.myReferralCode')}</p>
+        </div>
         <div className="flex items-center gap-2 bg-foreground/8 rounded-xl px-3 py-2 border border-amber-500/20 mb-3">
           <span className="flex-1 font-black text-amber-400 tracking-widest text-sm">{inviteCode}</span>
           <button type="button" className="text-muted-foreground hover:text-amber-400 transition-colors" onClick={copyWebLink}><Copy size={15} /></button>
