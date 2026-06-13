@@ -93,18 +93,30 @@ export default function CashbackPage({ onOpenGame, onOpenCategory }: Props) {
 
   return (
     <div className="page-main pb-6">
-      {/* 红金 Hero */}
-      <div className="relative overflow-hidden mx-4 mt-3 rounded-2xl">
-        <div className="absolute inset-0 bg-gradient-to-br from-red-600 via-red-500 to-orange-500" />
-        <div className="absolute -top-8 -left-6 h-28 w-28 rounded-full bg-amber-300/20" />
-        <div className="absolute -bottom-10 right-6 h-28 w-28 rounded-full bg-white/10" />
-        <div className="absolute top-6 right-10 text-amber-200/40 text-5xl select-none">♠</div>
-        <div className="relative px-5 py-7">
-          <p className="text-amber-200 font-black text-lg tracking-wide font-display drop-shadow">{t('cashback.pageSubtitle')}</p>
-          <h2 className="text-white font-black text-[2rem] leading-none font-display drop-shadow-lg mt-1">
-            {t('cashback.pageTitle')}
-          </h2>
-          <p className="text-white/80 text-xs mt-2">{t('cashback.bannerSub')}</p>
+      {/* Hero —— 参照 Bonuses 顶部风格：全宽暗色渐变 + 标签/标题/副文 + 统计卡片 */}
+      <div
+        className="relative px-4 pt-14 pb-5 overflow-hidden"
+        style={{ background: 'linear-gradient(160deg, #4a0d0d 0%, #080b14 60%)' }}
+      >
+        <p className="text-muted-foreground text-[11px] uppercase tracking-widest font-bold mb-1">
+          {t('cashback.pageSubtitle')}
+        </p>
+        <h1 className="text-white font-black leading-tight mb-1 font-display text-[1.8rem]">
+          {t('cashback.pageTitle')}
+        </h1>
+        <p className="text-white/50 text-xs max-w-[240px] leading-relaxed">{t('cashback.bannerSub')}</p>
+        <div className="flex gap-3 mt-4">
+          {[
+            { icon: '💵', value: t('cashback.tierEliteRate'), label: t('cashback.heroRateLabel') },
+            { icon: '⏰', value: t('cashback.heroCreditValue'), label: t('cashback.heroCreditLabel') },
+            { icon: '✅', value: '0×', label: t('cashback.heroWagerLabel') },
+          ].map((s) => (
+            <div key={s.label} className="flex-1 bg-white/5 rounded-xl px-2.5 py-2 text-center border border-white/8">
+              <p className="text-base leading-none mb-0.5">{s.icon}</p>
+              <p className="text-primary font-black text-sm leading-none">{s.value}</p>
+              <p className="text-white/40 text-[9px] mt-0.5 leading-tight">{s.label}</p>
+            </div>
+          ))}
         </div>
       </div>
 

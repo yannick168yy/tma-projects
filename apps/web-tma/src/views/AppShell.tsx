@@ -112,11 +112,8 @@ export default function AppShell() {
 
   const mainStyle = useMemo(() => {
     const top = `${headerH}px`
-    // betHistory 保留内部滚动（独立全屏体验）
-    if (overlay.is('betHistory')) return { paddingTop: top, paddingBottom: '0', height: `calc(100dvh - ${headerH}px)`, maxHeight: `calc(100dvh - ${headerH}px)`, overflowY: 'hidden' as const }
-    // teamCenter / referralPromo / 普通页面均使用 document scroll
     return { paddingTop: top, paddingBottom: `${navH}px` }
-  }, [headerH, navH, overlay])
+  }, [headerH, navH])
 
   async function openWallet() {
     if (!(await auth.ensureLoggedIn(t('auth.signInDepositWithdraw')))) return
@@ -308,9 +305,7 @@ export default function AppShell() {
           {view.type === 'categoryLobby' && (
             <SlotsLobby {...view.params} onClose={() => { overlay.close(); window.scrollTo({ top: 0, behavior: 'instant' }) }} onGameTap={() => void onGameTap()} onOpenGame={(url) => setGamePlayerUrl(url)} />
           )}
-{view.type === 'betHistory' && <BetHistoryPage onClose={overlay.close} />}
           {view.type === 'teamCenter' && <TeamCenterPage />}
-          {view.type === 'referralPromo' && <ReferralPromoPage onOpenTeamCenter={() => { overlay.openTeamCenter() }} />}
           {view.type === 'none' && activeNav === 'bonuses' && <BonusesPage promoFilter={promoFilter} onOpenWallet={() => void openWallet()} onOpenTeam={openTeamCenter} />}
           {view.type === 'none' && activeNav === 'bingo' && <BingoPage onOpenWallet={() => void openWallet()} onGameTap={() => void onGameTap()} onOpenGame={(url) => setGamePlayerUrl(url)} onOpenCategoryLobby={openCategoryLobby} />}
           {view.type === 'none' && activeNav === 'menu' && <MenuPage onOpenCs={openCs} onLogin={() => void auth.ensureLoggedIn(t('auth.signInProfile'))} onLogout={onLogout} onOpenBetHistory={openBetHistory} onOpenReferralPromo={openReferralPromo} onOpenCashback={openCashback} />}
@@ -348,6 +343,36 @@ export default function AppShell() {
         </div>
       )}
 
+      {view.type === 'betHistory' && (
+        <div className="fixed inset-0 z-[60] flex justify-center">
+          <div
+            className="w-full max-w-[430px] bg-background flex flex-col overflow-hidden"
+            style={{ paddingTop: 'env(safe-area-inset-top)' }}
+          >
+            <BetHistoryPage onClose={overlay.close} />
+          </div>
+        </div>
+      )}
+
+      {view.type === 'referralPromo' && (
+        <div className="fixed inset-0 z-[60] flex justify-center">
+          <div
+            className="relative w-full max-w-[430px] bg-background overflow-y-auto"
+            style={{ paddingTop: 'env(safe-area-inset-top)' }}
+          >
+            <button
+              type="button"
+              className="absolute left-3 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur-sm border border-white/15 active:scale-95 transition-transform"
+              style={{ top: 'calc(env(safe-area-inset-top) + 10px)' }}
+              onClick={overlay.close}
+            >
+              <ChevronLeft size={20} />
+            </button>
+            <ReferralPromoPage onOpenTeamCenter={() => { overlay.openTeamCenter() }} />
+          </div>
+        </div>
+      )}
+
       {view.type === 'cashback' && (
         <div className="fixed inset-0 z-[60] flex justify-center">
           <div
@@ -356,7 +381,7 @@ export default function AppShell() {
           >
             <button
               type="button"
-              className="absolute left-3 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-black/30 text-white backdrop-blur-sm active:scale-95 transition-transform"
+              className="absolute left-3 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur-sm border border-white/15 active:scale-95 transition-transform"
               style={{ top: 'calc(env(safe-area-inset-top) + 10px)' }}
               onClick={overlay.close}
             >
