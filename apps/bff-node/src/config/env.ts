@@ -46,6 +46,23 @@ const schema = z.object({
   NACOS_DATA_ID: z.string().default('bff-node'),
   NACOS_GROUP: z.string().default('DEFAULT_GROUP'),
   GEMINI_API_KEY: z.string().default(''),
+  // ── TeleSMS(特利信) 短信通道（KYC 手机验证用）────────────────────────────────
+  TELESMS_BASE_URL: z.string().default('https://api2.santo.cc'),
+  TELESMS_CPID: z.string().default(''),
+  TELESMS_CPPWD: z.string().default(''),
+  // 自定义发送者号码（可选，不清楚含义就留空）
+  TELESMS_SENDER: z.string().default(''),
+  // ── KYC ────────────────────────────────────────────────────────────────────
+  // Gemini 证件/人脸自动放行的最低置信度（0~1）
+  KYC_GEMINI_MIN_CONFIDENCE: z.coerce.number().min(0).max(1).default(0.85),
+  // KYC 证件图片本地兜底存储目录（未配置 S3 时使用）
+  KYC_STORAGE_DIR: z.string().default('/root/workspace/tma-projects/data/kyc'),
+  // S3（预留，配置后切换；留空则用本地兜底）
+  S3_BUCKET: z.string().default(''),
+  S3_REGION: z.string().default(''),
+  S3_ACCESS_KEY_ID: z.string().default(''),
+  S3_SECRET_ACCESS_KEY: z.string().default(''),
+  S3_ENDPOINT: z.string().default(''),
   // 通过 setWebhook ?secret_token= 设置后，Telegram 会在回调 header 中携带此值
   // 空字符串表示跳过验签（向下兼容，建议生产环境设置）
   TELEGRAM_WEBHOOK_SECRET: z.string().default(''),

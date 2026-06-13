@@ -190,7 +190,8 @@ export function createApp(env: Env): Koa {
       exposeHeaders: ['X-Request-Id'],
     }),
   )
-  app.use(bodyParser())
+  // jsonLimit 提高到 10mb 以容纳 KYC 证件 base64 图片
+  app.use(bodyParser({ jsonLimit: '10mb' }))
   app.use(requestIdMiddleware())
   app.use(accessLogMiddleware())
   app.use(injectDeps(env, redis))

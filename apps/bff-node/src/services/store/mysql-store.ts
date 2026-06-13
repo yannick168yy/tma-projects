@@ -668,12 +668,75 @@ export async function recordUserLogin(
   }
 }
 
-export async function getKyc(_env: Env, _userId: string): Promise<KycSubmission | null> {
-  return null
+function mapKyc(r: RowDataPacket): KycSubmission {
+  const gemini = r.gemini_result
+    ? (typeof r.gemini_result === 'string' ? JSON.parse(r.gemini_result) : r.gemini_result)
+    : undefined
+  return {
+    submissionId: r.user_id as string,
+    userId: r.user_id as string,
+    status: r.status as KycSubmission['status'],
+    fullName: (r.full_name as string) ?? '',
+    gender: '',
+    dob: '',
+    docType: (r.doc_type as string) ?? undefined,
+    rejectReason: (r.reject_reason as string) ?? undefined,
+    submittedAt: r.submitted_at ? new Date(r.submitted_at as Date).toISOString() : '',
+    phone: (r.phone as string) ?? undefined,
+    phoneVerified: Boolean(r.phone_verified),
+    verifyMode: (r.verify_mode as KycSubmission['verifyMode']) ?? undefined,
+    extractedIdNo: (r.extracted_id_no as string) ?? undefined,
+    geminiConfidence: r.gemini_confidence != null ? Number(r.gemini_confidence) : undefined,
+    geminiResult: gemini,
+    docImageKey: (r.doc_image_key as string) ?? undefined,
+    selfieImageKey: (r.selfie_image_key as string) ?? undefined,
+  }
 }
 
-export async function saveKyc(_env: Env, _submission: KycSubmission): Promise<void> {
-  /* KYC still optional; extend to bg_kyc_submission when needed */
+export async function getKyc(env: Env, userId: string): Promise<KycSubmission | null> {
+  const [rows] = await pool(env).query<RowDataPacket[]>(`SELECT * FROM bg_kyc WHERE user_id = ?`, [userId])
+  return rows[0] ? mapKyc(rows[0]) : null
+}
+
+export async function saveKyc(env: Env, s: KycSubmission): Promise<void> {
+  await pool(env).execute(
+    `INSERT INTO bg_kyc (user_id, status, phone, phone_verified, full_name, doc_type, verify_mode,
+       extracted_id_no, gemini_confidence, gemini_result, doc_image_key, selfie_image_key, reject_reason, submitted_at)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+     ON DUPLICATE KEY UPDATE
+       status=VALUES(status), phone=COALESCE(VALUES(phone), phone),
+       phone_verified=VALUES(phone_verified), full_name=COALESCE(VALUES(full_name), full_name),
+       doc_type=VALUES(doc_type), verify_mode=VALUES(verify_mode),
+       extracted_id_no=VALUES(extracted_id_no), gemini_confidence=VALUES(gemini_confidence),
+       gemini_result=VALUES(gemini_result), doc_image_key=VALUES(doc_image_key),
+       selfie_image_key=VALUES(selfie_image_key), reject_reason=VALUES(reject_reason),
+       submitted_at=COALESCE(VALUES(submitted_at), submitted_at)`,
+    [
+      s.userId, s.status, s.phone ?? null, s.phoneVerified ? 1 : 0, s.fullName || null,
+      s.docType ?? null, s.verifyMode ?? null, s.extractedIdNo ?? null,
+      s.geminiConfidence ?? null, s.geminiResult ? JSON.stringify(s.geminiResult) : null,
+      s.docImageKey ?? null, s.selfieImageKey ?? null, s.rejectReason ?? null,
+      s.submittedAt ? new Date(s.submittedAt) : null,
+    ],
+  )
+}
+
+/** 防重：是否存在「其他用户」已用该手机通过/验证过 KYC */
+export async function findKycByVerifiedPhone(env: Env, phone: string, exceptUserId: string): Promise<string | null> {
+  const [rows] = await pool(env).query<RowDataPacket[]>(
+    `SELECT user_id FROM bg_kyc WHERE phone = ? AND phone_verified = 1 AND user_id <> ? LIMIT 1`,
+    [phone, exceptUserId],
+  )
+  return rows[0] ? (rows[0].user_id as string) : null
+}
+
+/** 防重：是否存在「其他用户」已用该证件号通过 KYC */
+export async function findKycByExtractedIdNo(env: Env, idNo: string, exceptUserId: string): Promise<string | null> {
+  const [rows] = await pool(env).query<RowDataPacket[]>(
+    `SELECT user_id FROM bg_kyc WHERE extracted_id_no = ? AND status = 'approved' AND user_id <> ? LIMIT 1`,
+    [idNo, exceptUserId],
+  )
+  return rows[0] ? (rows[0].user_id as string) : null
 }
 
 export async function adminAdjustBalance(

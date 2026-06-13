@@ -145,6 +145,16 @@ export interface KycSubmission {
   fileIds?: string[]
   rejectReason?: string
   submittedAt: string
+  /** KYC 已验证手机(E.164)，与登录用 phoneAccount 分离 */
+  phone?: string
+  phoneVerified?: boolean
+  verifyMode?: 'document' | 'face'
+  /** Gemini 从证件提取的证件号，用于防重 */
+  extractedIdNo?: string
+  geminiConfidence?: number
+  geminiResult?: Record<string, unknown>
+  docImageKey?: string
+  selfieImageKey?: string
 }
 
 export interface PromotionItem {

@@ -26,6 +26,8 @@ const KEYS = {
   userWithdrawals: (userId: string) => `tma:withdrawals:user:${userId}`,
   ledger: (userId: string) => `tma:ledger:user:${userId}`,
   kyc: (userId: string) => `tma:kyc:user:${userId}`,
+  kycByPhone: (phone: string) => `tma:kyc:phone:${phone}`,
+  kycByIdNo: (idNo: string) => `tma:kyc:idno:${idNo}`,
   inviteCode: (code: string) => `tma:invite:${code}`,
 }
 
@@ -413,4 +415,20 @@ export async function getKyc(redis: Redis, userId: string): Promise<KycSubmissio
 
 export async function saveKyc(redis: Redis, submission: KycSubmission): Promise<void> {
   await redis.set(KEYS.kyc(submission.userId), JSON.stringify(submission))
+  if (submission.phone && submission.phoneVerified) {
+    await redis.set(KEYS.kycByPhone(submission.phone), submission.userId)
+  }
+  if (submission.extractedIdNo && submission.status === 'approved') {
+    await redis.set(KEYS.kycByIdNo(submission.extractedIdNo), submission.userId)
+  }
+}
+
+export async function findKycByVerifiedPhone(redis: Redis, phone: string, exceptUserId: string): Promise<string | null> {
+  const owner = await redis.get(KEYS.kycByPhone(phone))
+  return owner && owner !== exceptUserId ? owner : null
+}
+
+export async function findKycByExtractedIdNo(redis: Redis, idNo: string, exceptUserId: string): Promise<string | null> {
+  const owner = await redis.get(KEYS.kycByIdNo(idNo))
+  return owner && owner !== exceptUserId ? owner : null
 }

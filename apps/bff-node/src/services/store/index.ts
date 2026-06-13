@@ -188,6 +188,16 @@ export const getKyc = (redis: Redis, userId: string) =>
 export const saveKyc = (redis: Redis, submission: KycSubmission) =>
   isMysqlEnabled(env()) ? mysqlStore.saveKyc(env(), submission) : redisStore.saveKyc(redis, submission)
 
+export const findKycByVerifiedPhone = (redis: Redis, phone: string, exceptUserId: string) =>
+  isMysqlEnabled(env())
+    ? mysqlStore.findKycByVerifiedPhone(env(), phone, exceptUserId)
+    : redisStore.findKycByVerifiedPhone(redis, phone, exceptUserId)
+
+export const findKycByExtractedIdNo = (redis: Redis, idNo: string, exceptUserId: string) =>
+  isMysqlEnabled(env())
+    ? mysqlStore.findKycByExtractedIdNo(env(), idNo, exceptUserId)
+    : redisStore.findKycByExtractedIdNo(redis, idNo, exceptUserId)
+
 export const saveOrderDeposit = (_redis: Redis, order: OrderDeposit) =>
   isMysqlEnabled(env()) ? mysqlStore.saveOrderDeposit(env(), order) : Promise.resolve()
 
