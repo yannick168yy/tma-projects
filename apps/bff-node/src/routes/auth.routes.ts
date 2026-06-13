@@ -113,7 +113,8 @@ router.post('/register', async (ctx) => {
     }).catch(() => {})
   } catch (e) {
     if (e instanceof AuthError) {
-      fail(ctx, 409, e.message, 409)
+      const status = e.status ?? 400
+      fail(ctx, status, e.message, status)
       return
     }
     throw e

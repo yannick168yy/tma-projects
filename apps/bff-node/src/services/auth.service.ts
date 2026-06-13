@@ -25,9 +25,11 @@ import { lookupRegion } from './geo.service.js'
 export type PasswordMethod = 'phone' | 'account'
 
 export class AuthError extends Error {
-  constructor(message: string) {
+  status?: number
+  constructor(message: string, status?: number) {
     super(message)
     this.name = 'AuthError'
+    this.status = status
   }
 }
 
@@ -173,11 +175,11 @@ function normalizeIdentifier(method: PasswordMethod, identifier: string): string
   const id = identifier.trim()
   if (method === 'phone') {
     const e164 = normalizePhonePH(id)
-    if (!e164) throw new AuthError('Invalid phone number')
+    if (!e164) throw new AuthError('Invalid phone number', 400)
     return e164
   }
   if (!USERNAME_RE.test(id)) {
-    throw new AuthError('Username must be 4-20 letters, digits or underscore')
+    throw new AuthError('Username must be 4-20 letters, digits or underscore', 400)
   }
   return id
 }
@@ -195,7 +197,7 @@ export async function registerWithPassword(
   trialRedPacketEligible: boolean
 }> {
   if (!input.password || input.password.length < 8) {
-    throw new AuthError('Password must be at least 8 characters')
+    throw new AuthError('Password must be at least 8 characters', 400)
   }
   const identifier = normalizeIdentifier(input.method, input.identifier)
 
@@ -203,7 +205,7 @@ export async function registerWithPassword(
     ? await getUserByPhoneAccount(redis, identifier)
     : await getUserByUsername(redis, identifier)
   if (existing) {
-    throw new AuthError(input.method === 'phone' ? 'Phone already registered' : 'Username already taken')
+    throw new AuthError(input.method === 'phone' ? 'Phone already registered' : 'Username already taken', 409)
   }
 
   let referredBy: string | undefined
