@@ -32,6 +32,7 @@ run run -d --name tma-bff-node --network "$NET" --restart=always \
   --memory=192m --memory-swap=192m \
   -p 127.0.0.1:3000:3000 \
   -v "${DIR}/apps/bff-node/dist:/app/dist:ro" \
+  -v "${DIR}/data/kyc:/app/data/kyc" \
   -e NODE_ENV=production \
   -e LOG_LEVEL="${LOG_LEVEL:-info}" \
   -e BFF_PORT=3000 \
@@ -63,6 +64,12 @@ run run -d --name tma-bff-node --network "$NET" --restart=always \
   -e SG_CURRENCY="${SG_CURRENCY:-EUR}" \
   -e SG_RETURN_URL="${SG_RETURN_URL:-https://www.188facai.com}" \
   -e GEMINI_API_KEY="${GEMINI_API_KEY:-}" \
+  -e TELESMS_BASE_URL="${TELESMS_BASE_URL:-https://api2.santo.cc}" \
+  -e TELESMS_CPID="${TELESMS_CPID:-}" \
+  -e TELESMS_CPPWD="${TELESMS_CPPWD:-}" \
+  -e TELESMS_SENDER="${TELESMS_SENDER:-}" \
+  -e KYC_GEMINI_MIN_CONFIDENCE="${KYC_GEMINI_MIN_CONFIDENCE:-0.85}" \
+  -e KYC_STORAGE_DIR="${KYC_STORAGE_DIR:-/app/data/kyc}" \
   -e CS_ENABLED="${CS_ENABLED:-true}" \
   -e EXCHANGE_RATE_API_KEY="${EXCHANGE_RATE_API_KEY:-}" \
   -e COINGECKO_API_KEY="${COINGECKO_API_KEY:-}" \
