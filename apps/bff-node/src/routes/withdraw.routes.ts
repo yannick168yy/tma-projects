@@ -220,14 +220,12 @@ router.post('/', async (ctx) => {
       amount: body.amount,
       currency: 'PHP',
       channelId: 'tg_wallet',
-      status: ctx.state.env.NODE_ENV !== 'production' ? 'completed' : 'pending',
+      status: 'pending',
       createdAt: nowIso(),
-      completedAt: ctx.state.env.NODE_ENV !== 'production' ? nowIso() : undefined,
     }
     await saveWithdraw(redis, order)
 
     // 自动审核：全部规则通过则自动批准出款，否则留 pending 转人工
-    // （非生产环境 order 已是 completed，reviewWithdraw 会自动跳过）
     await reviewWithdraw(ctx.state.env, redis, order.orderId)
 
     ok(ctx, { orderId: order.orderId, status: order.status })
