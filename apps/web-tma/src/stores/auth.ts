@@ -41,7 +41,7 @@ interface AuthActions {
   loginWithGoogle: () => void
   loginWithTelegramOidc: () => void
   loginWithPassword: (method: PasswordMethod, identifier: string, password: string) => Promise<void>
-  registerWithPassword: (method: PasswordMethod, identifier: string, password: string) => Promise<void>
+  registerWithPassword: (method: PasswordMethod, identifier: string, password: string, refCodeOverride?: string) => Promise<void>
   logout: () => Promise<void>
 }
 
@@ -169,8 +169,8 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
     await usePromotionStore.getState().refreshHighlights()
   },
 
-  async registerWithPassword(method, identifier, password) {
-    const session = await registerPassword(method, identifier, password, getStoredReferral() ?? undefined)
+  async registerWithPassword(method, identifier, password, refCodeOverride?: string) {
+    const session = await registerPassword(method, identifier, password, refCodeOverride ?? getStoredReferral() ?? undefined)
     get().applySession(session)
     get().closeLoginSheet()
     useWalletStore.getState().setBalance(await fetchBalance())

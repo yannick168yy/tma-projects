@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { X, User, Phone, Lock, Eye, EyeOff } from 'lucide-react'
+import { X, User, Phone, Lock, Eye, EyeOff, ChevronDown } from 'lucide-react'
 import { createPortal } from 'react-dom'
 import BetogoLogo from '@/components/BetogoLogo'
 import { useAuthStore } from '@/stores/auth'
+import { getStoredReferral } from '@/utils/referral'
 import type { PasswordMethod } from '@/types/api'
 
 interface Props {
@@ -42,11 +43,14 @@ export default function LoginSheet({ open, onClose }: Props) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const [method, setMethod] = useState<PasswordMethod>('account')
+  const [method, setMethod] = useState<PasswordMethod>('phone')
   const [mode, setMode] = useState<'login' | 'register'>('login')
   const [identifier, setIdentifier] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
+  const [showRefCode, setShowRefCode] = useState(false)
+  const [manualRefCode, setManualRefCode] = useState('')
+  const storedRef = getStoredReferral()
 
   async function onTelegramLogin() {
     setLoading(true)
@@ -91,7 +95,7 @@ export default function LoginSheet({ open, onClose }: Props) {
     setError(null)
     try {
       if (mode === 'login') await loginWithPassword(method, identifier.trim(), password)
-      else await registerWithPassword(method, identifier.trim(), password)
+      else await registerWithPassword(method, identifier.trim(), password, manualRefCode.trim() || undefined)
     } catch (e) {
       setError(e instanceof Error ? e.message : t('auth.loginFailed'))
     } finally {
@@ -143,6 +147,13 @@ export default function LoginSheet({ open, onClose }: Props) {
             {loginReason ?? t('auth.signInSubtitle')}
           </p>
 
+          {/* 推荐人 banner */}
+          {storedRef && (
+            <div className="mt-3 rounded-xl border border-primary/30 bg-primary/8 px-4 py-2.5 text-center text-xs font-bold text-primary">
+              {t('auth.invitedBanner')}
+            </div>
+          )}
+
           {/* 登录 / 注册 顶部切换 */}
           <div className="relative mt-6 grid grid-cols-2 rounded-2xl bg-secondary/70 p-1">
             <span
@@ -161,9 +172,9 @@ export default function LoginSheet({ open, onClose }: Props) {
             ))}
           </div>
 
-          {/* 账号 / 手机号 切换 */}
+          {/* 手机号 / 账号 切换 */}
           <div className="mt-4 grid grid-cols-2 gap-2">
-            {(['account', 'phone'] as const).map((m) => (
+            {(['phone', 'account'] as const).map((m) => (
               <button
                 key={m}
                 type="button"
@@ -217,6 +228,30 @@ export default function LoginSheet({ open, onClose }: Props) {
                 {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
             </div>
+            {mode === 'register' && (
+              <div>
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-1 text-[11px] font-bold text-muted-foreground transition-colors hover:text-foreground"
+                  onClick={() => setShowRefCode((v) => !v)}
+                >
+                  <ChevronDown
+                    size={13}
+                    className={`transition-transform duration-200 ${showRefCode ? 'rotate-180' : ''}`}
+                  />
+                  {t('auth.haveReferralCode')}
+                </button>
+                {showRefCode && (
+                  <input
+                    value={manualRefCode}
+                    type="text"
+                    placeholder={t('auth.referralCodePlaceholder')}
+                    className="mt-2 w-full rounded-xl border border-border bg-secondary/60 py-3 px-4 text-sm font-bold uppercase text-foreground transition-colors focus:border-primary focus:bg-secondary focus:outline-none"
+                    onChange={(e) => setManualRefCode(e.target.value.toUpperCase())}
+                  />
+                )}
+              </div>
+            )}
             <button
               type="button"
               className="w-full rounded-xl bg-gradient-to-b from-primary to-[#e6a600] py-3.5 text-sm font-black text-primary-foreground shadow-[0_6px_20px_rgba(255,184,0,0.3)] transition-all active:scale-[0.98] disabled:opacity-60"

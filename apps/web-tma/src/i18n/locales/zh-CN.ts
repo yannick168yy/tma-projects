@@ -81,6 +81,9 @@ export default {
     toRegister: '没有账号？去注册',
     toLogin: '已有账号？去登录',
     fillAll: '请填写所有字段',
+    invitedBanner: '好友邀请 · 注册即享专属奖励',
+    haveReferralCode: '我有推荐码',
+    referralCodePlaceholder: '输入推荐码（可选）',
   },
   kyc: {
     title: '实名认证',
@@ -110,6 +113,18 @@ export default {
     livenessBlink: '请眨眼',
     livenessMouth: '请张嘴',
     cameraDenied: '无法访问摄像头，请在浏览器设置中允许相机权限',
+    reasons: {
+      invalid_doc: '证件无效或无法识别',
+      unsupported_doc_type: '不支持的证件类型',
+      name_mismatch: '证件姓名与填写不符',
+      low_confidence: '证件真实性置信度不足',
+      no_live_person: '未检测到真人',
+      no_blink: '未检测到眨眼动作',
+      no_mouth_open: '未检测到张嘴动作',
+      different_person: '活体帧非同一人',
+      face_id_mismatch: '人脸与证件照不匹配',
+      low_liveness_confidence: '活体置信度不足',
+    },
   },
   bind: {
     title: '账号与安全',

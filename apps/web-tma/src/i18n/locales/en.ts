@@ -82,6 +82,9 @@ export default {
     toRegister: 'No account? Sign up',
     toLogin: 'Have an account? Log in',
     fillAll: 'Please fill in all fields',
+    invitedBanner: "You've been invited by a friend · Sign up for exclusive bonuses",
+    haveReferralCode: 'Have a referral code?',
+    referralCodePlaceholder: 'Enter referral code (optional)',
   },
   kyc: {
     title: 'Identity Verification',
@@ -111,6 +114,18 @@ export default {
     livenessBlink: 'Blink your eyes',
     livenessMouth: 'Open your mouth',
     cameraDenied: 'Camera access denied. Please allow camera permission in your browser.',
+    reasons: {
+      invalid_doc: 'ID document is invalid or unreadable',
+      unsupported_doc_type: 'Unsupported document type',
+      name_mismatch: 'Name on document does not match',
+      low_confidence: 'Document authenticity confidence too low',
+      no_live_person: 'No live person detected',
+      no_blink: 'Blink action not detected',
+      no_mouth_open: 'Mouth open action not detected',
+      different_person: 'Different person across liveness frames',
+      face_id_mismatch: 'Face does not match document photo',
+      low_liveness_confidence: 'Liveness confidence too low',
+    },
   },
   bind: {
     title: 'Account & Security',

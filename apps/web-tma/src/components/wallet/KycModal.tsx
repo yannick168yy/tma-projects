@@ -41,6 +41,13 @@ function compressImage(file: File, maxDim = 1280, quality = 0.82): Promise<strin
 const DOC_TYPES = ['passport', 'drivers_license', 'philid', 'umid'] as const
 type Step = 'phone' | 'document' | 'face' | 'done'
 
+function translateRejectReason(reason: string, t: (key: string, opts?: Record<string, unknown>) => string): string {
+  return reason
+    .split(';')
+    .map((code) => t(`kyc.reasons.${code.trim()}`, { defaultValue: code.trim() }))
+    .join(' · ')
+}
+
 function resolveStep(s: Awaited<ReturnType<typeof fetchKycStatus>>): Step {
   if (s.status === 'approved') return 'done'
   if (!s.phoneVerified) return 'phone'
@@ -150,7 +157,7 @@ export default function KycModal({ open, onClose, onApproved }: Props) {
           setStep('face')
         }
       } else {
-        setError(res.rejectReason || t('kyc.rejected'))
+        setError(res.rejectReason ? translateRejectReason(res.rejectReason, t) : t('kyc.rejected'))
       }
     } catch (e) {
       setError(e instanceof ApiError ? e.message : t('kyc.rejected'))
@@ -165,7 +172,7 @@ export default function KycModal({ open, onClose, onApproved }: Props) {
         setStep('done')
         onApproved?.()
       } else {
-        setError(res.rejectReason || t('kyc.rejected'))
+        setError(res.rejectReason ? translateRejectReason(res.rejectReason, t) : t('kyc.rejected'))
       }
     } catch (e) {
       setError(e instanceof ApiError ? e.message : t('kyc.rejected'))

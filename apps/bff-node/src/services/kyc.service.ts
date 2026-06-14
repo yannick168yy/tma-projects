@@ -396,10 +396,10 @@ export async function submitKycDocument(
   }
 
   const reasons: string[] = []
-  if (!verdict.isValidDocument) reasons.push('证件无效或无法识别')
-  if (!ACCEPTED_DOC_TYPES.includes(verdict.docType)) reasons.push('不支持的证件类型')
-  if (!verdict.nameMatches) reasons.push('证件姓名与填写不符')
-  if (verdict.confidence < env.KYC_GEMINI_MIN_CONFIDENCE) reasons.push('证件真实性置信度不足')
+  if (!verdict.isValidDocument) reasons.push('invalid_doc')
+  if (!ACCEPTED_DOC_TYPES.includes(verdict.docType)) reasons.push('unsupported_doc_type')
+  if (!verdict.nameMatches) reasons.push('name_mismatch')
+  if (verdict.confidence < env.KYC_GEMINI_MIN_CONFIDENCE) reasons.push('low_confidence')
 
   const docVerified = reasons.length === 0
   // 人脸验证关闭 ⇒ 证件通过即完成实名
@@ -419,7 +419,7 @@ export async function submitKycDocument(
     geminiConfidence: verdict.confidence,
     geminiResult: { document: verdict },
     docImageKey,
-    rejectReason: docVerified ? undefined : reasons.join('；'),
+    rejectReason: docVerified ? undefined : reasons.join(';'),
     rejectStep: docVerified ? undefined : 'document',
     submittedAt: now,
     docSubmittedAt: now,
@@ -486,12 +486,12 @@ export async function submitKycFace(
   }
 
   const reasons: string[] = []
-  if (!verdict.isLivePerson) reasons.push('未检测到真人')
-  if (!verdict.blinkDetected) reasons.push('未检测到眨眼动作')
-  if (!verdict.mouthOpenDetected) reasons.push('未检测到张嘴动作')
-  if (!verdict.samePersonAcrossFrames) reasons.push('活体帧非同一人')
-  if ((verdict.faceMatchWithId ?? 0) < 0.8) reasons.push('人脸与证件照不匹配')
-  if (verdict.confidence < env.KYC_GEMINI_MIN_CONFIDENCE) reasons.push('活体置信度不足')
+  if (!verdict.isLivePerson) reasons.push('no_live_person')
+  if (!verdict.blinkDetected) reasons.push('no_blink')
+  if (!verdict.mouthOpenDetected) reasons.push('no_mouth_open')
+  if (!verdict.samePersonAcrossFrames) reasons.push('different_person')
+  if ((verdict.faceMatchWithId ?? 0) < 0.8) reasons.push('face_id_mismatch')
+  if (verdict.confidence < env.KYC_GEMINI_MIN_CONFIDENCE) reasons.push('low_liveness_confidence')
 
   const faceVerified = reasons.length === 0
   const now = nowIso()
@@ -504,7 +504,7 @@ export async function submitKycFace(
     geminiConfidence: verdict.confidence,
     livenessFrames,
     selfieImageKey: livenessFrames[0]?.key,
-    rejectReason: faceVerified ? undefined : reasons.join('；'),
+    rejectReason: faceVerified ? undefined : reasons.join(';'),
     rejectStep: faceVerified ? undefined : 'face',
     faceSubmittedAt: now,
     reviewedAt: faceVerified ? now : undefined,
