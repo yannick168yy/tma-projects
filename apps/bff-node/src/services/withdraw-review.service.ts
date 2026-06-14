@@ -9,7 +9,8 @@ import { approveWithdraw } from './withdraw-approve.service.js'
 
 // ── 规则结果 / 上下文 ─────────────────────────────────────────────────────────
 
-export type RuleVerdict = 'pass' | 'manual'
+export type RuleVerdict = 'pass' | 'manual' | 'skipped' | 'error'
+export type ReviewVerdict = 'pass' | 'manual'
 
 export interface RuleResult {
   code: string
@@ -28,27 +29,36 @@ interface RuleConfig {
 interface ReviewContext {
   pool: Pool
   order: OrderWithdraw
-  /** 统计窗口起点：上次成功取款时间，无则用注册时间 */
+  /** 统计窗口起点：上次成功取款时间，无则注册时间 */
   since: string
-  /** 窗口内真实存款（PHP 分），仅 status=paid */
+  // 资金面（窗口内，PHP 分）
   depositCents: number
-  /** 账号生涯真实存款笔数 */
-  lifetimeDepositCount: number
-  /** 窗口内净盈利（PHP 分）= 派彩+退款 - 投注 */
-  profitCents: number
-  /** 近 24h 净盈利（PHP 分） */
-  profit24hCents: number
-  /** 近 24h 真实存款（PHP 分） */
   deposit24hCents: number
-  /** 窗口内领取的优惠总额（PHP 分） */
+  lifetimeDepositCount: number
+  profitCents: number
+  profit24hCents: number
   bonusCents: number
-  /** 已完成取款笔数 */
   completedWithdrawCount: number
-  /** 上线（邀请人）是否被封/冻结 */
+  // 关系/风控面
   uplineBlacklisted: boolean
+  /** 未完成的优惠流水（required-completed，PHP 分） */
+  promoTurnoverRemaining: number
+  /** 近30天共用同 IP 的其他账号数 */
+  relatedIpAccounts: number
+  /** 共用同设备的其他账号数 */
+  relatedDeviceAccounts: number
+  /** 窗口内"有派彩无下注"的异常 round 数 */
+  tamperOrphanRounds: number
+  /** 窗口内命中对账差异的结算日数 */
+  tamperDiscrepancyDays: number
+  /** 作为收益人累计佣金（PHP 分） */
+  commissionEarnedCents: number
+  /** 名下下线累计 GGR（PHP 分，可为负） */
+  commissionDownlineGgrCents: number
+  /** 佣金重复入账组数 */
+  commissionDupGroups: number
 }
 
-// 规则中文名/说明，供后台展示（阈值在配置表，元信息在代码）
 export const RULE_META: Record<string, { name: string; desc: string }> = {
   turnover:                  { name: '流水检查', desc: '窗口内流水未达标转人工（前置闸门兜底）' },
   large_amount:             { name: '大额取款', desc: '单笔金额超阈值转人工（分币种）' },
@@ -59,9 +69,13 @@ export const RULE_META: Record<string, { name: string; desc: string }> = {
   total_bonus:              { name: '总优惠金额', desc: '窗口内领取优惠总额超阈值转人工' },
   first_withdraw_no_deposit:{ name: '首次取款', desc: '首次取款且无真实存款转人工' },
   upline_blacklist:         { name: '上线黑名单', desc: '邀请人被封/冻结转人工' },
+  same_ip_device:           { name: '同IP同设备', desc: '与多个账号共用同IP/同设备（多账号/对打嫌疑）' },
+  promo_turnover:           { name: '优惠流水', desc: '优惠类流水未打完转人工' },
+  tampered_bet:             { name: '篡改注单', desc: '存在凭空派彩的round / 命中对账差异日' },
+  commission_anomaly:       { name: '三级分销佣金', desc: '佣金重复入账 / 下线无GGR却产生佣金（刷佣）' },
 }
 
-// ── 规则集：默认 pass，仅命中异常特征才 manual ───────────────────────────────
+// ── 规则集：默认 pass，仅命中异常才 manual ─────────────────────────────────────
 
 type Rule = (ctx: ReviewContext, cfg: RuleConfig) => Promise<RuleResult> | RuleResult
 
@@ -75,9 +89,7 @@ const RULES: Record<string, Rule> = {
     const params = cfg.params ?? {}
     const isMatrix = ctx.order.channelId === 'matrix'
     const threshold = Number(isMatrix ? params.usdt : params.phpCents)
-    if (!Number.isFinite(threshold) || threshold <= 0) {
-      return { code: 'large_amount', verdict: 'pass' }
-    }
+    if (!Number.isFinite(threshold) || threshold <= 0) return { code: 'large_amount', verdict: 'pass' }
     const hit = ctx.order.amount > threshold
     return { code: 'large_amount', verdict: hit ? 'manual' : 'pass', actualValue: ctx.order.amount, threshold }
   },
@@ -91,22 +103,16 @@ const RULES: Record<string, Rule> = {
 
   high_multiple_profit(ctx, cfg) {
     const mult = Number(cfg.threshold ?? 0)
-    if (mult <= 0 || ctx.depositCents <= 0) {
-      return { code: 'high_multiple_profit', verdict: 'pass', detail: { depositCents: ctx.depositCents } }
-    }
+    if (mult <= 0 || ctx.depositCents <= 0) return { code: 'high_multiple_profit', verdict: 'pass', detail: { depositCents: ctx.depositCents } }
     const ratio = ctx.profitCents / ctx.depositCents
-    const hit = ratio >= mult
-    return { code: 'high_multiple_profit', verdict: hit ? 'manual' : 'pass', actualValue: round2(ratio), threshold: mult }
+    return { code: 'high_multiple_profit', verdict: ratio >= mult ? 'manual' : 'pass', actualValue: round2(ratio), threshold: mult }
   },
 
   high_multiple_profit_24h(ctx, cfg) {
     const mult = Number(cfg.threshold ?? 0)
-    if (mult <= 0 || ctx.deposit24hCents <= 0) {
-      return { code: 'high_multiple_profit_24h', verdict: 'pass', detail: { deposit24hCents: ctx.deposit24hCents } }
-    }
+    if (mult <= 0 || ctx.deposit24hCents <= 0) return { code: 'high_multiple_profit_24h', verdict: 'pass', detail: { deposit24hCents: ctx.deposit24hCents } }
     const ratio = ctx.profit24hCents / ctx.deposit24hCents
-    const hit = ratio >= mult
-    return { code: 'high_multiple_profit_24h', verdict: hit ? 'manual' : 'pass', actualValue: round2(ratio), threshold: mult }
+    return { code: 'high_multiple_profit_24h', verdict: ratio >= mult ? 'manual' : 'pass', actualValue: round2(ratio), threshold: mult }
   },
 
   deposit_source(ctx) {
@@ -129,11 +135,51 @@ const RULES: Record<string, Rule> = {
   upline_blacklist(ctx) {
     return { code: 'upline_blacklist', verdict: ctx.uplineBlacklisted ? 'manual' : 'pass' }
   },
+
+  same_ip_device(ctx, cfg) {
+    const params = cfg.params ?? {}
+    const ipTh = Number(params.ip ?? 3)
+    const devTh = Number(params.device ?? 3)
+    const hit = ctx.relatedIpAccounts >= ipTh || ctx.relatedDeviceAccounts >= devTh
+    return {
+      code: 'same_ip_device',
+      verdict: hit ? 'manual' : 'pass',
+      actualValue: Math.max(ctx.relatedIpAccounts, ctx.relatedDeviceAccounts),
+      threshold: Math.min(ipTh, devTh),
+      detail: { relatedIpAccounts: ctx.relatedIpAccounts, relatedDeviceAccounts: ctx.relatedDeviceAccounts },
+    }
+  },
+
+  promo_turnover(ctx) {
+    const hit = ctx.promoTurnoverRemaining > 0
+    return { code: 'promo_turnover', verdict: hit ? 'manual' : 'pass', actualValue: ctx.promoTurnoverRemaining }
+  },
+
+  tampered_bet(ctx) {
+    const hit = ctx.tamperOrphanRounds > 0 || ctx.tamperDiscrepancyDays > 0
+    return {
+      code: 'tampered_bet',
+      verdict: hit ? 'manual' : 'pass',
+      detail: { orphanRounds: ctx.tamperOrphanRounds, discrepancyDays: ctx.tamperDiscrepancyDays },
+    }
+  },
+
+  commission_anomaly(ctx) {
+    const dup = ctx.commissionDupGroups > 0
+    const noGgr = ctx.commissionEarnedCents > 0 && ctx.commissionDownlineGgrCents <= 0
+    return {
+      code: 'commission_anomaly',
+      verdict: dup || noGgr ? 'manual' : 'pass',
+      detail: {
+        dupGroups: ctx.commissionDupGroups,
+        earnedCents: ctx.commissionEarnedCents,
+        downlineGgrCents: ctx.commissionDownlineGgrCents,
+      },
+    }
+  },
 }
 
-function round2(n: number): number {
-  return Math.round(n * 100) / 100
-}
+function round2(n: number): number { return Math.round(n * 100) / 100 }
 
 // ── 配置加载 ──────────────────────────────────────────────────────────────────
 
@@ -152,69 +198,116 @@ export async function loadReviewConfig(pool: Pool): Promise<Record<string, RuleC
   return out
 }
 
-// ── 上下文构建（一次取齐聚合数据，规则只读不再查库）───────────────────────────
+// ── 上下文构建 ────────────────────────────────────────────────────────────────
 
 async function buildContext(pool: Pool, order: OrderWithdraw): Promise<ReviewContext> {
   const userId = order.userId
 
-  // 用户注册时间 + 上线黑名单
   const [[user]] = await pool.query<RowDataPacket[]>(
     `SELECT u.registered_at, inv.status AS inviter_status
-     FROM bg_user u
-     LEFT JOIN bg_user inv ON inv.id = u.inviter_id
+     FROM bg_user u LEFT JOIN bg_user inv ON inv.id = u.inviter_id
      WHERE u.id = ? LIMIT 1`,
     [userId],
   )
-  // mysql2 返回 DATETIME 为 Date 对象，直接作为参数传回比 ISO 字符串更可靠
   const registeredAt = user?.registered_at ? new Date(user.registered_at as Date) : new Date(0)
   const uplineBlacklisted = user?.inviter_status === 'banned' || user?.inviter_status === 'frozen'
 
-  // 上次成功取款时间 + 已完成取款笔数
   const [[wd]] = await pool.query<RowDataPacket[]>(
     `SELECT MAX(created_at) AS last_at, COUNT(*) AS cnt
-     FROM bg_withdraw_order
-     WHERE user_id = ? AND status = 'completed'`,
+     FROM bg_withdraw_order WHERE user_id = ? AND status = 'completed'`,
     [userId],
   )
   const completedWithdrawCount = Number(wd?.cnt ?? 0)
   const sinceDate = wd?.last_at ? new Date(wd.last_at as Date) : registeredAt
   const since = sinceDate.toISOString()
 
-  // 真实存款：窗口内、近24h、生涯笔数
   const [[dep]] = await pool.query<RowDataPacket[]>(
     `SELECT
        COALESCE(SUM(CASE WHEN COALESCE(paid_at, created_at) > ? THEN credited_cents END), 0) AS window_cents,
        COALESCE(SUM(CASE WHEN COALESCE(paid_at, created_at) > NOW() - INTERVAL 24 HOUR THEN credited_cents END), 0) AS d24_cents,
        COUNT(*) AS lifetime_cnt
-     FROM bg_deposit_order
-     WHERE user_id = ? AND status = 'paid'`,
+     FROM bg_deposit_order WHERE user_id = ? AND status = 'paid'`,
     [sinceDate, userId],
   )
 
-  // 注单盈利：窗口内、近24h（amount 与钱包同单位=PHP分）
   const [[bet]] = await pool.query<RowDataPacket[]>(
     `SELECT
        COALESCE(SUM(CASE WHEN created_at > ? AND bet_type IN ('win','refund') THEN amount
                          WHEN created_at > ? AND bet_type = 'bet' THEN -amount ELSE 0 END), 0) AS window_profit,
        COALESCE(SUM(CASE WHEN created_at > NOW() - INTERVAL 24 HOUR AND bet_type IN ('win','refund') THEN amount
                          WHEN created_at > NOW() - INTERVAL 24 HOUR AND bet_type = 'bet' THEN -amount ELSE 0 END), 0) AS d24_profit
-     FROM bg_bet_order
-     WHERE user_id = ? AND status = 'settled'`,
+     FROM bg_bet_order WHERE user_id = ? AND status = 'settled'`,
     [sinceDate, sinceDate, userId],
   )
 
-  // 窗口内优惠总额
   const [[promo]] = await pool.query<RowDataPacket[]>(
     `SELECT COALESCE(SUM(amount_cents), 0) AS bonus_cents
-     FROM bg_promo_claim
-     WHERE user_id = ? AND claimed_at > ?`,
+     FROM bg_promo_claim WHERE user_id = ? AND claimed_at > ?`,
     [userId, sinceDate],
   )
 
+  // 优惠流水未完成（promotion 类型）
+  const [[pt]] = await pool.query<RowDataPacket[]>(
+    `SELECT COALESCE(SUM(required_amount - completed_amount), 0) AS remaining
+     FROM bg_turnover_requirements
+     WHERE user_id = ? AND source_type = 'promotion' AND status = 'pending'`,
+    [userId],
+  )
+
+  // 同 IP（近30天）/ 同设备 的其他账号数
+  const [[ip]] = await pool.query<RowDataPacket[]>(
+    `SELECT COUNT(DISTINCT l2.user_id) AS cnt
+     FROM bg_login_log l1
+     JOIN bg_login_log l2 ON l2.ip = l1.ip AND l2.user_id <> l1.user_id
+     WHERE l1.user_id = ? AND l1.ip IS NOT NULL AND l1.created_at > NOW() - INTERVAL 30 DAY`,
+    [userId],
+  )
+  const [[dev]] = await pool.query<RowDataPacket[]>(
+    `SELECT COUNT(DISTINCT s2.user_id) AS cnt
+     FROM bg_game_session s1
+     JOIN bg_game_session s2 ON s2.device_id = s1.device_id AND s2.user_id <> s1.user_id
+     WHERE s1.user_id = ? AND s1.device_id IS NOT NULL`,
+    [userId],
+  )
+
+  // 篡改注单：凭空派彩 round + 对账差异日
+  const [[orphan]] = await pool.query<RowDataPacket[]>(
+    `SELECT COUNT(*) AS cnt FROM (
+       SELECT round_id
+       FROM bg_bet_order
+       WHERE user_id = ? AND status = 'settled' AND created_at > ? AND round_id IS NOT NULL
+       GROUP BY round_id
+       HAVING SUM(bet_type = 'bet') = 0 AND SUM(bet_type IN ('win','refund')) > 0
+     ) t`,
+    [userId, sinceDate],
+  )
+  const [[disc]] = await pool.query<RowDataPacket[]>(
+    `SELECT COUNT(DISTINCT r.report_date) AS cnt
+     FROM sg_settlement_report r
+     JOIN bg_bet_order b ON DATE(b.created_at) = r.report_date AND b.user_id = ?
+     WHERE r.discrepancy_note IS NOT NULL AND b.created_at > ?`,
+    [userId, sinceDate],
+  )
+
+  // 三级分销佣金
+  const [[comm]] = await pool.query<RowDataPacket[]>(
+    `SELECT
+       COALESCE(SUM(commission_cents), 0) AS earned,
+       COALESCE(SUM(ggr_cents), 0)        AS downline_ggr
+     FROM bg_team_commission WHERE beneficiary_id = ? AND status <> 'voided'`,
+    [userId],
+  )
+  const [[dup]] = await pool.query<RowDataPacket[]>(
+    `SELECT COUNT(*) AS cnt FROM (
+       SELECT 1 FROM bg_team_commission
+       WHERE beneficiary_id = ?
+       GROUP BY from_user_id, level, period HAVING COUNT(*) > 1
+     ) t`,
+    [userId],
+  )
+
   return {
-    pool,
-    order,
-    since,
+    pool, order, since,
     depositCents: Number(dep?.window_cents ?? 0),
     deposit24hCents: Number(dep?.d24_cents ?? 0),
     lifetimeDepositCount: Number(dep?.lifetime_cnt ?? 0),
@@ -223,83 +316,169 @@ async function buildContext(pool: Pool, order: OrderWithdraw): Promise<ReviewCon
     bonusCents: Number(promo?.bonus_cents ?? 0),
     completedWithdrawCount,
     uplineBlacklisted,
+    promoTurnoverRemaining: Number(pt?.remaining ?? 0),
+    relatedIpAccounts: Number(ip?.cnt ?? 0),
+    relatedDeviceAccounts: Number(dev?.cnt ?? 0),
+    tamperOrphanRounds: Number(orphan?.cnt ?? 0),
+    tamperDiscrepancyDays: Number(disc?.cnt ?? 0),
+    commissionEarnedCents: Number(comm?.earned ?? 0),
+    commissionDownlineGgrCents: Number(comm?.downline_ggr ?? 0),
+    commissionDupGroups: Number(dup?.cnt ?? 0),
   }
 }
 
-// ── 主流程：审核一笔提案 ──────────────────────────────────────────────────────
+function snapshotOf(ctx: ReviewContext): Record<string, number | string | boolean> {
+  return {
+    since: ctx.since,
+    depositCents: ctx.depositCents,
+    deposit24hCents: ctx.deposit24hCents,
+    lifetimeDepositCount: ctx.lifetimeDepositCount,
+    profitCents: ctx.profitCents,
+    profit24hCents: ctx.profit24hCents,
+    bonusCents: ctx.bonusCents,
+    completedWithdrawCount: ctx.completedWithdrawCount,
+    uplineBlacklisted: ctx.uplineBlacklisted,
+    promoTurnoverRemaining: ctx.promoTurnoverRemaining,
+    relatedIpAccounts: ctx.relatedIpAccounts,
+    relatedDeviceAccounts: ctx.relatedDeviceAccounts,
+    tamperOrphanRounds: ctx.tamperOrphanRounds,
+    tamperDiscrepancyDays: ctx.tamperDiscrepancyDays,
+    commissionEarnedCents: ctx.commissionEarnedCents,
+    commissionDownlineGgrCents: ctx.commissionDownlineGgrCents,
+    commissionDupGroups: ctx.commissionDupGroups,
+  }
+}
+
+// ── 主流程 ────────────────────────────────────────────────────────────────────
 
 /**
  * 对一笔 pending 提案跑自动审核。全部通过则自动批准出款，否则置 manual 留人工。
- * 在请求路径里以 await 调用即可（响应仍为 pending），出款失败不影响提交。
+ * 整体异常一律转人工，绝不静默放行。
+ * @param round 审核轮次，重跑时由调用方递增
  */
-export async function reviewWithdraw(env: Env, redis: Redis, orderId: string): Promise<void> {
+export async function reviewWithdraw(env: Env, redis: Redis, orderId: string, round = 1): Promise<void> {
   if (!isMysqlEnabled(env)) return
   const pool = getMysqlPool(env)
 
-  // 用最新状态，避免与人工操作竞态
   const order = await getWithdraw(redis, orderId)
   if (!order || order.status !== 'pending') return
 
-  const config = await loadReviewConfig(pool)
-  const ctx = await buildContext(pool, order)
+  const t0 = Date.now()
+  let verdict: ReviewVerdict = 'manual'
+  let snapshot: Record<string, unknown> | null = null
 
-  const results: RuleResult[] = []
-  for (const [code, rule] of Object.entries(RULES)) {
-    const cfg = config[code]
-    if (!cfg || !cfg.enabled) continue
-    try {
-      results.push(await rule(ctx, cfg))
-    } catch (err) {
-      // 单条规则异常不应放行：保守转人工
-      results.push({ code, verdict: 'manual', detail: { error: err instanceof Error ? err.message : String(err) } })
+  try {
+    const config = await loadReviewConfig(pool)
+    const ctx = await buildContext(pool, order)
+    snapshot = snapshotOf(ctx)
+
+    const results: RuleResult[] = []
+    for (const [code, rule] of Object.entries(RULES)) {
+      const cfg = config[code]
+      if (!cfg || !cfg.enabled) { results.push({ code, verdict: 'skipped' }); continue }
+      try {
+        results.push(await rule(ctx, cfg))
+      } catch (err) {
+        results.push({ code, verdict: 'error', detail: { error: err instanceof Error ? err.message : String(err) } })
+      }
     }
-  }
 
-  // 落逐规则结果
-  for (const r of results) {
+    for (const r of results) {
+      await pool.execute(
+        `INSERT INTO bg_withdraw_review_log (order_id, user_id, rule_code, round, verdict, actual_value, threshold, detail)
+         VALUES (?,?,?,?,?,?,?,?)`,
+        [order.orderId, order.userId, r.code, round, r.verdict,
+         r.actualValue ?? null, r.threshold ?? null, r.detail ? JSON.stringify(r.detail) : null],
+      )
+    }
+
+    // manual 或 error 均不放行
+    verdict = results.some((r) => r.verdict === 'manual' || r.verdict === 'error') ? 'manual' : 'pass'
+  } catch (err) {
+    // 引擎级异常：保守转人工，记一条审核日志
     await pool.execute(
-      `INSERT INTO bg_withdraw_review_log (order_id, user_id, rule_code, verdict, actual_value, threshold, detail)
-       VALUES (?,?,?,?,?,?,?)`,
-      [
-        order.orderId, order.userId, r.code, r.verdict,
-        r.actualValue ?? null, r.threshold ?? null,
-        r.detail ? JSON.stringify(r.detail) : null,
-      ],
-    )
+      `INSERT INTO bg_withdraw_review_log (order_id, user_id, rule_code, round, verdict, detail)
+       VALUES (?,?,?,?,?,?)`,
+      [order.orderId, order.userId, '_engine', round, 'error',
+       JSON.stringify({ error: err instanceof Error ? err.message : String(err) })],
+    ).catch(() => {})
+    verdict = 'manual'
   }
 
-  const verdict: RuleVerdict = results.some((r) => r.verdict === 'manual') ? 'manual' : 'pass'
   await pool.execute(
-    `UPDATE bg_withdraw_order SET review_verdict = ?, reviewed_at = NOW(3) WHERE order_id = ?`,
-    [verdict, order.orderId],
+    `UPDATE bg_withdraw_order
+       SET review_verdict = ?, reviewed_at = NOW(3), review_round = ?, review_ms = ?, review_snapshot = ?
+     WHERE order_id = ?`,
+    [verdict, round, Date.now() - t0, snapshot ? JSON.stringify(snapshot) : null, order.orderId],
   )
 
   if (verdict === 'pass') {
-    try {
-      await approveWithdraw(env, redis, order)
-    } catch {
-      // 出款失败（如 matrix API）：executeMatrixWithdrawOrder 内部已退款并置 failed，留人工跟进
-    }
+    try { await approveWithdraw(env, redis, order) }
+    catch { /* 出款失败内部已退款并置 failed，留人工跟进 */ }
   }
 }
 
-// ── 后台查询：单笔逐规则明细 ──────────────────────────────────────────────────
+/** 人工触发重跑审核：轮次递增，生成新一轮记录而非覆盖 */
+export async function rerunReview(env: Env, redis: Redis, orderId: string): Promise<{ round: number }> {
+  if (!isMysqlEnabled(env)) return { round: 0 }
+  const pool = getMysqlPool(env)
+  const [[row]] = await pool.query<RowDataPacket[]>(
+    `SELECT COALESCE(MAX(round), 0) AS r FROM bg_withdraw_review_log WHERE order_id = ?`,
+    [orderId],
+  )
+  const nextRound = Number(row?.r ?? 0) + 1
+  await reviewWithdraw(env, redis, orderId, nextRound)
+  return { round: nextRound }
+}
 
+// ── 后台查询 ──────────────────────────────────────────────────────────────────
+
+/** 单笔最新一轮的逐规则结果 */
 export async function getReviewLog(env: Env, orderId: string) {
   if (!isMysqlEnabled(env)) return []
   const pool = getMysqlPool(env)
+  const [[r]] = await pool.query<RowDataPacket[]>(
+    `SELECT COALESCE(MAX(round), 1) AS r FROM bg_withdraw_review_log WHERE order_id = ?`, [orderId],
+  )
+  const round = Number(r?.r ?? 1)
   const [rows] = await pool.query<RowDataPacket[]>(
     `SELECT rule_code, verdict, actual_value, threshold, detail, created_at
-     FROM bg_withdraw_review_log WHERE order_id = ? ORDER BY id ASC`,
-    [orderId],
+     FROM bg_withdraw_review_log WHERE order_id = ? AND round = ? ORDER BY id ASC`,
+    [orderId, round],
   )
-  return rows.map((r) => ({
-    ruleCode: String(r.rule_code),
-    ruleName: RULE_META[String(r.rule_code)]?.name ?? String(r.rule_code),
-    verdict: String(r.verdict),
-    actualValue: r.actual_value == null ? null : Number(r.actual_value),
-    threshold: r.threshold == null ? null : Number(r.threshold),
-    detail: r.detail ?? null,
-    createdAt: new Date(r.created_at as Date).toISOString(),
+  return rows.map((x) => ({
+    ruleCode: String(x.rule_code),
+    ruleName: RULE_META[String(x.rule_code)]?.name ?? String(x.rule_code),
+    verdict: String(x.verdict),
+    actualValue: x.actual_value == null ? null : Number(x.actual_value),
+    threshold: x.threshold == null ? null : Number(x.threshold),
+    detail: x.detail ?? null,
+    createdAt: new Date(x.created_at as Date).toISOString(),
   }))
+}
+
+/** 与某用户共用同 IP / 同设备的关联账号（人工核查辅助，实时查询） */
+export async function getRelatedAccounts(env: Env, userId: string) {
+  if (!isMysqlEnabled(env)) return { ip: [], device: [] }
+  const pool = getMysqlPool(env)
+  const [ipRows] = await pool.query<RowDataPacket[]>(
+    `SELECT DISTINCT l2.user_id, l1.ip
+     FROM bg_login_log l1
+     JOIN bg_login_log l2 ON l2.ip = l1.ip AND l2.user_id <> l1.user_id
+     WHERE l1.user_id = ? AND l1.ip IS NOT NULL AND l1.created_at > NOW() - INTERVAL 30 DAY
+     LIMIT 50`,
+    [userId],
+  )
+  const [devRows] = await pool.query<RowDataPacket[]>(
+    `SELECT DISTINCT s2.user_id, s1.device_id
+     FROM bg_game_session s1
+     JOIN bg_game_session s2 ON s2.device_id = s1.device_id AND s2.user_id <> s1.user_id
+     WHERE s1.user_id = ? AND s1.device_id IS NOT NULL
+     LIMIT 50`,
+    [userId],
+  )
+  return {
+    ip: ipRows.map((r) => ({ userId: String(r.user_id), ip: String(r.ip) })),
+    device: devRows.map((r) => ({ userId: String(r.user_id), deviceId: String(r.device_id) })),
+  }
 }

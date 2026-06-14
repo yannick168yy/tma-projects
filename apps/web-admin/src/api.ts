@@ -153,11 +153,56 @@ export const getReviewConfig = () =>
 export const saveReviewConfig = (config: { ruleCode: string; enabled: boolean; threshold?: number | null; params?: Record<string, number> | null }[]) =>
   req<{ saved: number }>('PUT', '/admin/review/config', { config })
 
-export interface ReviewStats {
-  hits: { ruleCode: string; name: string; count: number }[]
-  manualCount: number; totalReviewed: number; autoApproveRate: number | null
+// 审核总览
+export interface ReviewOverview {
+  autoApproveRate: number | null
+  manualBacklog: number; overdue: number; totalReviewed7d: number
+  topHits: { ruleCode: string; name: string; count: number }[]
+  trend: { date: string; pass: number; manual: number }[]
 }
-export const getReviewStats = () => get<ReviewStats>('/admin/review/stats')
+export const getReviewOverview = () => get<ReviewOverview>('/admin/review/overview')
+
+// 提案审核记录 / 待人工队列
+export interface ReviewProposal {
+  orderId: string; userId: string; displayName: string | null
+  channelId: string; currency: string; amount: number; status: string
+  reviewVerdict: string | null; reviewedAt: string | null; reviewMs: number | null
+  handledBy: string | null; handledAt: string | null; createdAt: string
+  hitRules: { code: string; name: string }[]
+}
+export const getReviewProposals = (params: { page?: number; pageSize?: number; userId?: string; status?: string; reviewVerdict?: string; queue?: string }) =>
+  get<{ total: number; page: number; pageSize: number; items: ReviewProposal[] }>('/admin/review/proposals', params)
+
+export interface ReviewProposalDetail {
+  order: {
+    orderId: string; userId: string; channelId: string; currency: string; amount: number; status: string
+    reviewVerdict: string | null; reviewedAt: string | null; reviewRound: number | null; reviewMs: number | null
+    rejectReason: string | null; handledBy: string | null; handledAt: string | null; createdAt: string
+  }
+  user: {
+    userId: string; displayName: string | null; status: string | null; email: string | null
+    registeredAt: string | null; inviterId: string | null; kycStatus: string | null
+    walletAvailable: number; walletFrozen: number
+  }
+  snapshot: Record<string, number | string | boolean> | null
+  rules: ReviewRuleResult[]
+  related: { ip: { userId: string; ip: string }[]; device: { userId: string; deviceId: string }[] }
+}
+export const getReviewProposalDetail = (orderId: string) =>
+  get<ReviewProposalDetail>(`/admin/review/proposals/${orderId}`)
+export const rerunReview = (orderId: string) =>
+  post<{ round: number }>(`/admin/review/proposals/${orderId}/rerun`)
+
+// 风控名单
+export interface BlacklistItem {
+  id: number; type: string; value: string; reason: string | null; createdBy: string | null; createdAt: string
+}
+export const getBlacklist = (type?: string) =>
+  get<{ items: BlacklistItem[] }>('/admin/review/blacklist', type ? { type } : undefined)
+export const addBlacklist = (data: { type: string; value: string; reason?: string }) =>
+  post<{ added: boolean }>('/admin/review/blacklist', data)
+export const removeBlacklist = (id: number) =>
+  req<{ deleted: number }>('DELETE', `/admin/review/blacklist/${id}`)
 
 // Games
 export interface AdminGame {

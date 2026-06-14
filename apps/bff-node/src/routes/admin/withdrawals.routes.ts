@@ -3,10 +3,21 @@ import { listAdminWithdrawals, writeAuditLog } from '../../services/admin-store.
 import { getWithdraw, saveWithdraw, creditWallet } from '../../services/store/index.js'
 import { approveWithdraw } from '../../services/withdraw-approve.service.js'
 import { getReviewLog } from '../../services/withdraw-review.service.js'
+import { getMysqlPool, isMysqlEnabled } from '../../clients/mysql.client.js'
 import { fail, ok } from '../../utils/response.js'
 import { nowIso } from '../../utils/format.js'
+import type { Env } from '../../config/env.js'
 
 const router = new Router({ prefix: '/withdrawals' })
+
+// 记录人工处理人/时间（审核留痕）
+async function markHandled(env: Env, orderId: string, by: string | undefined): Promise<void> {
+  if (!isMysqlEnabled(env)) return
+  await getMysqlPool(env).execute(
+    `UPDATE bg_withdraw_order SET handled_by = ?, handled_at = NOW(3) WHERE order_id = ?`,
+    [by ?? null, orderId],
+  )
+}
 
 router.get('/', async (ctx) => {
   const page = Math.max(1, Number(ctx.query.page ?? 1))
@@ -27,6 +38,7 @@ router.post('/:orderId/approve', async (ctx) => {
 
   try {
     const result = await approveWithdraw(ctx.state.env, ctx.state.redis, order)
+    await markHandled(ctx.state.env, order.orderId, ctx.state.adminUsername)
     await writeAuditLog(ctx.state.env, {
       adminId: ctx.state.adminId!,
       adminUsername: ctx.state.adminUsername!,
@@ -77,6 +89,8 @@ router.post('/:orderId/reject', async (ctx) => {
       currency: order.currency ?? 'PHP',
     },
   )
+
+  await markHandled(ctx.state.env, order.orderId, ctx.state.adminUsername)
 
   await writeAuditLog(ctx.state.env, {
     adminId: ctx.state.adminId!,

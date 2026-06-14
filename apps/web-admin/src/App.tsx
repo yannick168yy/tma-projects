@@ -6,7 +6,11 @@ import Users from './views/Users'
 import UserDetail from './views/UserDetail'
 import Deposits from './views/Deposits'
 import Withdrawals from './views/Withdrawals'
-import ReviewConfig from './views/ReviewConfig'
+import ReviewOverview from './views/review/Overview'
+import ReviewProposals from './views/review/Proposals'
+import ReviewProposalDetail from './views/review/ProposalDetail'
+import ReviewRuleConfig from './views/review/RuleConfig'
+import ReviewBlacklist from './views/review/Blacklist'
 import AuditLog from './views/AuditLog'
 import Games from './views/Games'
 import Settings from './views/Settings'
@@ -45,7 +49,13 @@ export default function App() {
           <Route path="users/:id" element={<UserDetail />} />
           <Route path="deposits" element={<Deposits />} />
           <Route path="withdrawals" element={<Withdrawals />} />
-          <Route path="withdrawals/review" element={<ReviewConfig />} />
+          <Route path="review" element={<Navigate to="/review/overview" replace />} />
+          <Route path="review/overview" element={<ReviewOverview />} />
+          <Route path="review/proposals" element={<ReviewProposals />} />
+          <Route path="review/proposals/:orderId" element={<ReviewProposalDetail />} />
+          <Route path="review/manual" element={<ReviewProposals queue />} />
+          <Route path="review/config" element={<ReviewRuleConfig />} />
+          <Route path="review/blacklist" element={<ReviewBlacklist />} />
           <Route path="audit-log" element={<AuditLog />} />
           <Route path="games" element={<Games />} />
           <Route path="settings" element={<Settings />} />

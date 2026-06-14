@@ -6,7 +6,7 @@ import {
 import {
   DashboardOutlined, TeamOutlined, UserOutlined, DownOutlined,
   AppstoreOutlined, SettingOutlined, CustomerServiceOutlined,
-  TransactionOutlined, ApartmentOutlined,
+  TransactionOutlined, ApartmentOutlined, SafetyCertificateOutlined,
 } from '@ant-design/icons'
 import { useAuthStore } from '../stores/auth'
 import { adminChangePassword } from '../api'
@@ -23,8 +23,19 @@ const menuItems = [
     children: [
       { key: '/deposits', label: '存款管理' },
       { key: '/withdrawals', label: '提款审批' },
-      { key: '/withdrawals/review', label: '自动审核' },
       { key: '/sg-settlement', label: '结算对账' },
+    ],
+  },
+  {
+    key: 'review',
+    icon: <SafetyCertificateOutlined />,
+    label: '取款审核',
+    children: [
+      { key: '/review/overview', label: '审核总览' },
+      { key: '/review/manual', label: '待人工处理' },
+      { key: '/review/proposals', label: '提案审核记录' },
+      { key: '/review/config', label: '审核规则配置' },
+      { key: '/review/blacklist', label: '风控名单' },
     ],
   },
   {
@@ -72,6 +83,7 @@ const menuItems = [
 ]
 
 function getDefaultOpenKey(pathname: string): string {
+  if (pathname.startsWith('/review')) return 'review'
   if (['/deposits', '/withdrawals', '/sg-settlement'].some((p) => pathname.startsWith(p))) return 'finance'
   if (['/games', '/bet-orders', '/promotions', '/rebate'].some((p) => pathname.startsWith(p))) return 'content'
   if (pathname.startsWith('/team-referral')) return 'team'
