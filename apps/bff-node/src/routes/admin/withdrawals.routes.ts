@@ -1,7 +1,8 @@
 import Router from '@koa/router'
 import { listAdminWithdrawals, writeAuditLog } from '../../services/admin-store.js'
 import { getWithdraw, saveWithdraw, creditWallet } from '../../services/store/index.js'
-import { executeMatrixWithdrawOrder } from '../../services/matrix.service.js'
+import { approveWithdraw } from '../../services/withdraw-approve.service.js'
+import { getReviewLog } from '../../services/withdraw-review.service.js'
 import { fail, ok } from '../../utils/response.js'
 import { nowIso } from '../../utils/format.js'
 
@@ -12,7 +13,8 @@ router.get('/', async (ctx) => {
   const pageSize = Math.min(100, Math.max(10, Number(ctx.query.pageSize ?? 20)))
   const userId = ctx.query.userId ? String(ctx.query.userId) : undefined
   const status = ctx.query.status ? String(ctx.query.status) : undefined
-  const result = await listAdminWithdrawals(ctx.state.env, { page, pageSize, userId, status })
+  const reviewVerdict = ctx.query.reviewVerdict ? String(ctx.query.reviewVerdict) : undefined
+  const result = await listAdminWithdrawals(ctx.state.env, { page, pageSize, userId, status, reviewVerdict })
   ok(ctx, result)
 })
 
@@ -23,47 +25,29 @@ router.post('/:orderId/approve', async (ctx) => {
     fail(ctx, 400, `Cannot approve order in status: ${order.status}`); return
   }
 
-  // Matrix 提现：审批时才调 Matrix API 实际出款
-  if (order.channelId === 'matrix') {
-    try {
-      const matrixOrderNo = await executeMatrixWithdrawOrder(
-        ctx.state.env,
-        ctx.state.redis,
-        order.orderId,
-      )
-      await writeAuditLog(ctx.state.env, {
-        adminId: ctx.state.adminId!,
-        adminUsername: ctx.state.adminUsername!,
-        action: 'withdrawal.approve',
-        targetType: 'withdrawal',
-        targetId: order.orderId,
-        detail: { userId: order.userId, amount: order.amount, currency: order.currency, matrixOrderNo },
-        ip: ctx.ip,
-      })
-      ok(ctx, { orderId: order.orderId, status: 'processing', matrixOrderNo })
-    } catch (err) {
-      // Matrix API 失败：executeMatrixWithdrawOrder 内部已退款并置 failed
-      const msg = err instanceof Error ? err.message : 'Matrix withdrawal failed'
-      fail(ctx, 502, msg)
-    }
-    return
+  try {
+    const result = await approveWithdraw(ctx.state.env, ctx.state.redis, order)
+    await writeAuditLog(ctx.state.env, {
+      adminId: ctx.state.adminId!,
+      adminUsername: ctx.state.adminUsername!,
+      action: 'withdrawal.approve',
+      targetType: 'withdrawal',
+      targetId: order.orderId,
+      detail: { userId: order.userId, amount: order.amount, currency: order.currency, matrixOrderNo: result.matrixOrderNo },
+      ip: ctx.ip,
+    })
+    ok(ctx, { orderId: order.orderId, ...result })
+  } catch (err) {
+    // 出款失败（matrix）：executeMatrixWithdrawOrder 内部已退款并置 failed
+    const msg = err instanceof Error ? err.message : 'Withdrawal approval failed'
+    fail(ctx, 502, msg)
   }
+})
 
-  // 其他渠道（tg_wallet 等）：直接标记完成
-  order.status = 'completed'
-  order.completedAt = nowIso()
-  await saveWithdraw(ctx.state.redis, order)
-
-  await writeAuditLog(ctx.state.env, {
-    adminId: ctx.state.adminId!,
-    adminUsername: ctx.state.adminUsername!,
-    action: 'withdrawal.approve',
-    targetType: 'withdrawal',
-    targetId: order.orderId,
-    detail: { userId: order.userId, amount: order.amount },
-    ip: ctx.ip,
-  })
-  ok(ctx, { orderId: order.orderId, status: order.status })
+// 单笔逐规则审核明细（前台行展开用）
+router.get('/:orderId/review', async (ctx) => {
+  const rules = await getReviewLog(ctx.state.env, ctx.params.orderId)
+  ok(ctx, { rules })
 })
 
 router.post('/:orderId/reject', async (ctx) => {

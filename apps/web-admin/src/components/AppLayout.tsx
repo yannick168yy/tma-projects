@@ -23,6 +23,7 @@ const menuItems = [
     children: [
       { key: '/deposits', label: '存款管理' },
       { key: '/withdrawals', label: '提款审批' },
+      { key: '/withdrawals/review', label: '自动审核' },
       { key: '/sg-settlement', label: '结算对账' },
     ],
   },

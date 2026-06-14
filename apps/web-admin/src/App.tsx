@@ -6,6 +6,7 @@ import Users from './views/Users'
 import UserDetail from './views/UserDetail'
 import Deposits from './views/Deposits'
 import Withdrawals from './views/Withdrawals'
+import ReviewConfig from './views/ReviewConfig'
 import AuditLog from './views/AuditLog'
 import Games from './views/Games'
 import Settings from './views/Settings'
@@ -44,6 +45,7 @@ export default function App() {
           <Route path="users/:id" element={<UserDetail />} />
           <Route path="deposits" element={<Deposits />} />
           <Route path="withdrawals" element={<Withdrawals />} />
+          <Route path="withdrawals/review" element={<ReviewConfig />} />
           <Route path="audit-log" element={<AuditLog />} />
           <Route path="games" element={<Games />} />
           <Route path="settings" element={<Settings />} />

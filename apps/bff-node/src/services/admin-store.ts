@@ -467,7 +467,7 @@ export async function setOpPassword(env: Env, hash: string): Promise<void> {
 
 export async function listAdminWithdrawals(
   env: Env,
-  opts: { page: number; pageSize: number; userId?: string; status?: string },
+  opts: { page: number; pageSize: number; userId?: string; status?: string; reviewVerdict?: string },
 ) {
   const offset = (opts.page - 1) * opts.pageSize
   const conditions: string[] = []
@@ -475,6 +475,8 @@ export async function listAdminWithdrawals(
 
   if (opts.userId) { conditions.push(`user_id = ?`); params.push(opts.userId) }
   if (opts.status) { conditions.push(`status = ?`); params.push(opts.status) }
+  if (opts.reviewVerdict === 'none') { conditions.push(`review_verdict IS NULL`) }
+  else if (opts.reviewVerdict) { conditions.push(`review_verdict = ?`); params.push(opts.reviewVerdict) }
 
   const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : ''
 
@@ -495,6 +497,8 @@ export async function listAdminWithdrawals(
     currency: String(r.currency),
     channelId: String(r.channel),
     status: String(r.status),
+    reviewVerdict: r.review_verdict ? String(r.review_verdict) : null,
+    reviewedAt: r.reviewed_at ? new Date(r.reviewed_at as Date).toISOString() : null,
     createdAt: new Date(r.created_at as Date).toISOString(),
     completedAt: r.completed_at ? new Date(r.completed_at as Date).toISOString() : null,
     rejectReason: r.reject_reason ? String(r.reject_reason) : null,

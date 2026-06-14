@@ -124,14 +124,40 @@ export const getDeposits = (params: { page?: number; pageSize?: number; userId?:
 // Withdrawals
 export interface AdminWithdrawal {
   orderId: string; userId: string; amount: number; currency: string; channelId: string
-  status: string; createdAt: string; completedAt: string | null; rejectReason: string | null
+  status: string; reviewVerdict: string | null; reviewedAt: string | null
+  createdAt: string; completedAt: string | null; rejectReason: string | null
 }
-export const getWithdrawals = (params: { page?: number; pageSize?: number; userId?: string; status?: string }) =>
+export const getWithdrawals = (params: { page?: number; pageSize?: number; userId?: string; status?: string; reviewVerdict?: string }) =>
   get<{ total: number; items: AdminWithdrawal[] }>('/admin/withdrawals', params)
 export const approveWithdrawal = (orderId: string) =>
   post<{ orderId: string; status: string }>(`/admin/withdrawals/${orderId}/approve`)
 export const rejectWithdrawal = (orderId: string, reason: string) =>
   post<{ orderId: string; status: string }>(`/admin/withdrawals/${orderId}/reject`, { reason })
+
+// 自动审核
+export interface ReviewRuleResult {
+  ruleCode: string; ruleName: string; verdict: string
+  actualValue: number | null; threshold: number | null
+  detail: Record<string, unknown> | null; createdAt: string
+}
+export const getWithdrawalReview = (orderId: string) =>
+  get<{ rules: ReviewRuleResult[] }>(`/admin/withdrawals/${orderId}/review`)
+
+export interface ReviewConfigItem {
+  ruleCode: string; name: string; desc: string
+  enabled: boolean; threshold: number | null
+  params: Record<string, number> | null; updatedAt: string | null
+}
+export const getReviewConfig = () =>
+  get<{ config: ReviewConfigItem[] }>('/admin/review/config')
+export const saveReviewConfig = (config: { ruleCode: string; enabled: boolean; threshold?: number | null; params?: Record<string, number> | null }[]) =>
+  req<{ saved: number }>('PUT', '/admin/review/config', { config })
+
+export interface ReviewStats {
+  hits: { ruleCode: string; name: string; count: number }[]
+  manualCount: number; totalReviewed: number; autoApproveRate: number | null
+}
+export const getReviewStats = () => get<ReviewStats>('/admin/review/stats')
 
 // Games
 export interface AdminGame {

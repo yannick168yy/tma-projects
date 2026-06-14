@@ -8,6 +8,7 @@ import { nowIso } from '../utils/format.js'
 import { fail, ok } from '../utils/response.js'
 import { randomOrderId } from '../utils/id.js'
 import { canWithdraw as checkTurnover } from '../services/turnover.service.js'
+import { reviewWithdraw } from '../services/withdraw-review.service.js'
 import { isKycApproved } from '../services/kyc.service.js'
 import type { WithdrawOrder } from '../types/domain.js'
 
@@ -149,6 +150,9 @@ router.post('/', async (ctx) => {
         throw dbErr
       }
 
+      // 自动审核：全部规则通过则自动批准出款，否则留 pending 转人工
+      await reviewWithdraw(ctx.state.env, redis, merchantOrderNo)
+
       ok(ctx, { orderId: merchantOrderNo, status: 'pending' })
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Matrix withdrawal failed'
@@ -221,6 +225,11 @@ router.post('/', async (ctx) => {
       completedAt: ctx.state.env.NODE_ENV !== 'production' ? nowIso() : undefined,
     }
     await saveWithdraw(redis, order)
+
+    // 自动审核：全部规则通过则自动批准出款，否则留 pending 转人工
+    // （非生产环境 order 已是 completed，reviewWithdraw 会自动跳过）
+    await reviewWithdraw(ctx.state.env, redis, order.orderId)
+
     ok(ctx, { orderId: order.orderId, status: order.status })
   } finally {
     const current = await redis.get(lockKey)
