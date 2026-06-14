@@ -37,6 +37,7 @@ async function req<T>(method: string, url: string, payload?: unknown): Promise<T
 const get = <T>(url: string, params?: unknown) => req<T>('GET', url, params)
 const post = <T>(url: string, data?: unknown) => req<T>('POST', url, data)
 const patch = <T>(url: string, data?: unknown) => req<T>('PATCH', url, data)
+const put = <T>(url: string, data?: unknown) => req<T>('PUT', url, data)
 
 // Auth
 export const adminLogin = (username: string, password: string) =>
@@ -112,6 +113,20 @@ export const getOpPasswordStatus = () =>
   get<{ configured: boolean }>('/admin/settings/op-password')
 export const setOpPassword = (newPassword: string, currentPassword?: string) =>
   post('/admin/settings/op-password', { newPassword, currentPassword })
+
+export interface SmsSendLogEntry {
+  id: string
+  scene: string
+  userId: string
+  phone: string
+  code: string
+  text: string
+  mocked: boolean
+  createdAt: string
+}
+export const getSmsSettings = () => get<{ testMode: boolean }>('/admin/settings/sms')
+export const updateSmsSettings = (testMode: boolean) => put<{ testMode: boolean }>('/admin/settings/sms', { testMode })
+export const getSmsSendLogs = () => get<SmsSendLogEntry[]>('/admin/settings/sms/logs')
 
 // Deposits
 export interface AdminDeposit {

@@ -78,6 +78,7 @@ const menuItems = [
       { key: '/exchange-rates', label: '汇率管理' },
       { key: '/audit-log', label: '操作日志' },
       { key: '/settings', label: '系统设置' },
+      { key: '/sms-test', label: '短信测试' },
     ],
   },
 ]
@@ -88,7 +89,7 @@ function getDefaultOpenKey(pathname: string): string {
   if (['/games', '/bet-orders', '/promotions', '/rebate'].some((p) => pathname.startsWith(p))) return 'content'
   if (pathname.startsWith('/team-referral')) return 'team'
   if (['/customer-service', '/cs-faq'].some((p) => pathname.startsWith(p))) return 'cs'
-  if (['/exchange-rates', '/audit-log', '/settings'].some((p) => pathname.startsWith(p))) return 'system'
+  if (['/exchange-rates', '/audit-log', '/settings', '/sms-test'].some((p) => pathname.startsWith(p))) return 'system'
   return ''
 }
 

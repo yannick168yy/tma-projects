@@ -1,6 +1,11 @@
+import type { Redis } from 'ioredis'
 import type { Pool, RowDataPacket } from 'mysql2/promise'
 import { getMysqlPool } from '../clients/mysql.client.js'
 import type { Env } from '../config/env.js'
+
+export const SMS_TEST_MODE_KEY = 'sms_test_mode'
+const SMS_TEST_MODE_CACHE_KEY = 'admin:setting:sms_test_mode'
+const SMS_TEST_MODE_CACHE_TTL_SEC = 300
 
 function pool(env: Env): Pool {
   return getMysqlPool(env)
@@ -463,6 +468,37 @@ export async function setOpPassword(env: Env, hash: string): Promise<void> {
      ON DUPLICATE KEY UPDATE \`value\` = VALUES(\`value\`)`,
     [hash],
   )
+}
+
+export async function getAdminSetting(env: Env, key: string): Promise<string | null> {
+  const [rows] = await pool(env).query<RowDataPacket[]>(
+    `SELECT \`value\` FROM bg_admin_settings WHERE \`key\` = ?`,
+    [key],
+  )
+  return rows[0] ? String(rows[0].value) : null
+}
+
+export async function setAdminSetting(env: Env, key: string, value: string): Promise<void> {
+  await pool(env).execute(
+    `INSERT INTO bg_admin_settings (\`key\`, \`value\`) VALUES (?, ?)
+     ON DUPLICATE KEY UPDATE \`value\` = VALUES(\`value\`)`,
+    [key, value],
+  )
+}
+
+export async function getSmsTestMode(redis: Redis, env: Env): Promise<boolean> {
+  const cached = await redis.get(SMS_TEST_MODE_CACHE_KEY)
+  if (cached === '1') return true
+  if (cached === '0') return false
+  const raw = await getAdminSetting(env, SMS_TEST_MODE_KEY)
+  const enabled = raw === '1'
+  await redis.set(SMS_TEST_MODE_CACHE_KEY, enabled ? '1' : '0', 'EX', SMS_TEST_MODE_CACHE_TTL_SEC)
+  return enabled
+}
+
+export async function setSmsTestMode(redis: Redis, env: Env, enabled: boolean): Promise<void> {
+  await setAdminSetting(env, SMS_TEST_MODE_KEY, enabled ? '1' : '0')
+  await redis.set(SMS_TEST_MODE_CACHE_KEY, enabled ? '1' : '0', 'EX', SMS_TEST_MODE_CACHE_TTL_SEC)
 }
 
 export async function listAdminWithdrawals(

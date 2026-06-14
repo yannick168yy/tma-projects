@@ -5,7 +5,8 @@ import type { Env } from '../config/env.js'
 import type { KycSubmission } from '../types/domain.js'
 import { normalizePhonePH } from '../utils/phone.js'
 import { nowIso } from '../utils/format.js'
-import { getSmsProvider } from './sms/index.js'
+import { getSmsProvider, isSmsTestModeEnabled } from './sms/index.js'
+import { appendSmsSendLog } from './sms/send-log.js'
 import { getStorageProvider } from './storage/index.js'
 import {
   findKycByExtractedIdNo,
@@ -72,11 +73,20 @@ export async function sendKycOtp(
   await redis.set(resendKey(userId), '1', 'EX', RESEND_INTERVAL_SEC)
 
   const text = `Your verification code is ${code}. Valid for 5 minutes. Do not share it.`
-  const res = await getSmsProvider(env).sendSms(phone, text)
+  const mocked = await isSmsTestModeEnabled(redis, env)
+  const res = await (await getSmsProvider(env, redis)).sendSms(phone, text)
   if (!res.ok) {
     await redis.del(otpKey(userId), resendKey(userId))
     throw new KycError(`短信发送失败${res.errCode ? `(${res.errCode})` : ''}`, 502)
   }
+  await appendSmsSendLog(redis, {
+    scene: 'kyc_otp',
+    userId,
+    phone,
+    code,
+    text,
+    mocked,
+  })
   return { phone, resendInSec: RESEND_INTERVAL_SEC }
 }
 

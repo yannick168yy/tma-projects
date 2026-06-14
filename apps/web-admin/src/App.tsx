@@ -14,6 +14,7 @@ import ReviewBlacklist from './views/review/Blacklist'
 import AuditLog from './views/AuditLog'
 import Games from './views/Games'
 import Settings from './views/Settings'
+import SmsTest from './views/SmsTest'
 import ExchangeRates from './views/ExchangeRates'
 import CustomerService from './views/CustomerService'
 import CsFaq from './views/CsFaq'
@@ -59,6 +60,7 @@ export default function App() {
           <Route path="audit-log" element={<AuditLog />} />
           <Route path="games" element={<Games />} />
           <Route path="settings" element={<Settings />} />
+          <Route path="sms-test" element={<SmsTest />} />
           <Route path="exchange-rates" element={<ExchangeRates />} />
           <Route path="customer-service" element={<CustomerService />} />
           <Route path="cs-faq" element={<CsFaq />} />

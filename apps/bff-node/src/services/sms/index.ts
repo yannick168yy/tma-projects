@@ -1,4 +1,6 @@
+import type { Redis } from 'ioredis'
 import type { Env } from '../../config/env.js'
+import { getSmsTestMode } from '../admin-store.js'
 
 export interface SmsSendResult {
   ok: boolean
@@ -25,6 +27,16 @@ function parseKv(body: string): Record<string, string> {
     if (idx > 0) out[pair.slice(0, idx)] = pair.slice(idx + 1)
   }
   return out
+}
+
+class MockSmsProvider implements SmsProvider {
+  async sendSms(): Promise<SmsSendResult> {
+    return { ok: true, providerMsgId: 'mock' }
+  }
+
+  async getBalance(): Promise<number | null> {
+    return null
+  }
 }
 
 class TeleSmsProvider implements SmsProvider {
@@ -74,6 +86,11 @@ class TeleSmsProvider implements SmsProvider {
   }
 }
 
-export function getSmsProvider(env: Env): SmsProvider {
+export async function getSmsProvider(env: Env, redis: Redis): Promise<SmsProvider> {
+  if (await getSmsTestMode(redis, env)) return new MockSmsProvider()
   return new TeleSmsProvider(env)
+}
+
+export async function isSmsTestModeEnabled(redis: Redis, env: Env): Promise<boolean> {
+  return getSmsTestMode(redis, env)
 }

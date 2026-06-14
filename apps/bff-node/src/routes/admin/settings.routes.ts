@@ -1,8 +1,9 @@
 import Router from '@koa/router'
 import type { Redis } from 'ioredis'
-import { getOpPasswordHash, setOpPassword } from '../../services/admin-store.js'
+import { getOpPasswordHash, setOpPassword, getSmsTestMode, setSmsTestMode, writeAuditLog } from '../../services/admin-store.js'
 import { hashPassword, verifyPassword } from '../../services/admin-auth.service.js'
 import { fail, ok } from '../../utils/response.js'
+import { listSmsSendLogs } from '../../services/sms/send-log.js'
 import {
   getAllCurrentRates, getRateHistory, setManualRate, clearManualRate, refreshRates,
 } from '../../services/exchange-rate.service.js'
@@ -41,6 +42,42 @@ router.post('/op-password', async (ctx) => {
   const newHash = await hashPassword(body.newPassword)
   await setOpPassword(ctx.state.env, newHash)
   ok(ctx, null)
+})
+
+// ── 短信测试模式 ──────────────────────────────────────────────────────────────
+
+router.get('/sms', async (ctx) => {
+  const redis = ctx.state.redis as Redis
+  const testMode = await getSmsTestMode(redis, ctx.state.env)
+  ok(ctx, { testMode })
+})
+
+router.put('/sms', async (ctx) => {
+  if (ctx.state.adminRole !== 'super_admin') {
+    fail(ctx, 403, 'Only super_admin can manage SMS test mode'); return
+  }
+  const body = ctx.request.body as { testMode?: unknown }
+  if (typeof body.testMode !== 'boolean') {
+    fail(ctx, 400, 'testMode must be a boolean'); return
+  }
+  const redis = ctx.state.redis as Redis
+  await setSmsTestMode(redis, ctx.state.env, body.testMode)
+  await writeAuditLog(ctx.state.env, {
+    adminId: ctx.state.adminId!,
+    adminUsername: ctx.state.adminUsername!,
+    action: 'sms_test_mode_update',
+    targetType: 'settings',
+    targetId: 'sms_test_mode',
+    detail: { testMode: body.testMode },
+    ip: ctx.ip,
+  })
+  ok(ctx, { testMode: body.testMode })
+})
+
+router.get('/sms/logs', async (ctx) => {
+  const redis = ctx.state.redis as Redis
+  const logs = await listSmsSendLogs(redis)
+  ok(ctx, logs)
 })
 
 // ── 汇率管理 ──────────────────────────────────────────────────────────────────
