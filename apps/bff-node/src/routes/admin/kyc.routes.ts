@@ -2,7 +2,7 @@ import Router from '@koa/router'
 import type { RowDataPacket } from 'mysql2/promise'
 import { getMysqlPool } from '../../clients/mysql.client.js'
 import { getKyc } from '../../services/store/index.js'
-import { buildKycStatusResponse } from '../../services/kyc.service.js'
+import { KycError, adminReviewKyc, buildKycStatusResponse } from '../../services/kyc.service.js'
 import { getStorageProvider } from '../../services/storage/index.js'
 import { fail, ok } from '../../utils/response.js'
 
@@ -126,9 +126,33 @@ router.get('/:userId', async (ctx) => {
       docSubmittedAt: kyc.docSubmittedAt ?? null,
       faceSubmittedAt: kyc.faceSubmittedAt ?? null,
       reviewedAt: kyc.reviewedAt ?? null,
+      reviewedBy: kyc.reviewedBy ?? null,
       submittedAt: kyc.submittedAt || null,
     },
   })
 })
+
+async function review(ctx: import('koa').Context, decision: 'approved' | 'rejected') {
+  const body = (ctx.request.body ?? {}) as { note?: string }
+  try {
+    const status = await adminReviewKyc(
+      ctx.state.redis,
+      ctx.params.userId,
+      decision,
+      ctx.state.adminUsername!,
+      body.note,
+    )
+    ok(ctx, { status })
+  } catch (e) {
+    if (e instanceof KycError) {
+      fail(ctx, e.status, e.message, e.status)
+      return
+    }
+    throw e
+  }
+}
+
+router.post('/:userId/approve', (ctx) => review(ctx, 'approved'))
+router.post('/:userId/reject', (ctx) => review(ctx, 'rejected'))
 
 export default router

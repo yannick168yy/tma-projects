@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Card, Descriptions, Tag, Button, Space, Spin, Alert, Image, Collapse } from 'antd'
-import { fetchKycImageBlob, getKycDetail, type AdminKycDetail } from '../api'
+import { Card, Descriptions, Tag, Button, Space, Spin, Alert, Image, Collapse, Modal, Input, message } from 'antd'
+import { fetchKycImageBlob, getKycDetail, reviewKyc, type AdminKycDetail } from '../api'
 
 function kycStatusTag(status: string) {
   const map: Record<string, { color: string; label: string }> = {
@@ -26,6 +26,7 @@ export default function KycDetail() {
   const [loading, setLoading] = useState(true)
   const [data, setData] = useState<AdminKycDetail | null>(null)
   const [imageUrls, setImageUrls] = useState<Record<string, string>>({})
+  const [reviewing, setReviewing] = useState(false)
 
   const load = useCallback(async () => {
     if (!userId) return
@@ -57,6 +58,35 @@ export default function KycDetail() {
     }
   }, [load])
 
+  function onReview(decision: 'approve' | 'reject') {
+    let note = ''
+    Modal.confirm({
+      title: decision === 'approve' ? '人工通过该 KYC？' : '驳回 / 撤销该 KYC？',
+      content: (
+        <Input.TextArea
+          rows={3}
+          placeholder={decision === 'approve' ? '备注（可选）' : '驳回原因（会展示给用户）'}
+          onChange={(e) => { note = e.target.value }}
+        />
+      ),
+      okText: '确认',
+      cancelText: '取消',
+      onOk: async () => {
+        setReviewing(true)
+        try {
+          await reviewKyc(userId, decision, note.trim() || undefined)
+          message.success('操作成功')
+          await load()
+        } catch (e) {
+          message.error(e instanceof Error ? e.message : '操作失败')
+          throw e
+        } finally {
+          setReviewing(false)
+        }
+      },
+    })
+  }
+
   if (loading) return <Spin />
   if (!data) return <Alert type="error" message="KYC 记录不存在" />
 
@@ -69,6 +99,14 @@ export default function KycDetail() {
         <h2 style={{ margin: 0 }}>KYC 详情 — {user?.displayName || userId}</h2>
         {user && (
           <Button type="link" onClick={() => navigate(`/users/${userId}`)}>用户详情</Button>
+        )}
+        {kyc.status !== 'approved' && (
+          <Button type="primary" loading={reviewing} onClick={() => onReview('approve')}>人工通过</Button>
+        )}
+        {kyc.status !== 'rejected' && (
+          <Button danger loading={reviewing} onClick={() => onReview('reject')}>
+            {kyc.status === 'approved' ? '撤销认证' : '驳回'}
+          </Button>
         )}
       </Space>
 
@@ -83,6 +121,9 @@ export default function KycDetail() {
           <Descriptions.Item label="Gemini 置信度">{kyc.geminiConfidence ?? '—'}</Descriptions.Item>
           <Descriptions.Item label="认证时间">
             {kyc.reviewedAt ? new Date(kyc.reviewedAt).toLocaleString('zh-CN') : '—'}
+          </Descriptions.Item>
+          <Descriptions.Item label="复核方式">
+            {kyc.reviewedBy ? `人工（${kyc.reviewedBy}）` : kyc.status === 'approved' || kyc.status === 'rejected' ? '自动' : '—'}
           </Descriptions.Item>
           <Descriptions.Item label="手机验证">{kyc.phoneVerified ? '是' : '否'}</Descriptions.Item>
           <Descriptions.Item label="证件验证">{kyc.docVerified ? '是' : '否'}</Descriptions.Item>

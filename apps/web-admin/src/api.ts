@@ -113,6 +113,7 @@ export interface AdminKycSummary {
   docSubmittedAt: string | null
   faceSubmittedAt: string | null
   reviewedAt: string | null
+  reviewedBy: string | null
 }
 
 export interface AdminKycListItem {
@@ -147,6 +148,9 @@ export const getKycList = (params: { page?: number; pageSize?: number; status?: 
 
 export const getKycDetail = (userId: string) =>
   get<AdminKycDetail>(`/admin/kyc/${userId}`)
+
+export const reviewKyc = (userId: string, decision: 'approve' | 'reject', note?: string) =>
+  post<{ status: string }>(`/admin/kyc/${userId}/${decision}`, { note })
 
 export async function fetchKycImageBlob(userId: string, key: string): Promise<string> {
   const resp = await http.get(`/admin/kyc/${userId}/images/${encodeURIComponent(key)}`, { responseType: 'blob' })

@@ -172,6 +172,8 @@ export interface KycSubmission {
   docSubmittedAt?: string
   faceSubmittedAt?: string
   reviewedAt?: string
+  /** 人工复核管理员用户名；自动放行为空 */
+  reviewedBy?: string
 }
 
 export interface PromotionItem {

@@ -71,6 +71,31 @@ export function buildKycStatusResponse(kyc: KycSubmission | null) {
   }
 }
 
+/** 后台人工复核：通过=放行提现闸门，拒绝=撤销/驳回 */
+export async function adminReviewKyc(
+  redis: Redis,
+  userId: string,
+  decision: 'approved' | 'rejected',
+  adminUsername: string,
+  note?: string,
+): Promise<KycSubmission['status']> {
+  const existing = await getKyc(redis, userId)
+  if (!existing) throw new KycError('KYC 记录不存在', 404)
+
+  const now = nowIso()
+  await saveKyc(redis, {
+    ...existing,
+    status: decision,
+    docVerified: decision === 'approved' ? true : existing.docVerified,
+    faceVerified: decision === 'approved' ? true : existing.faceVerified,
+    rejectReason: decision === 'rejected' ? note?.trim() || '人工审核未通过' : undefined,
+    rejectStep: undefined,
+    reviewedAt: now,
+    reviewedBy: adminUsername,
+  })
+  return decision
+}
+
 const otpKey = (userId: string) => `kyc:otp:${userId}`
 const resendKey = (userId: string) => `kyc:otp:sent:${userId}`
 
@@ -346,6 +371,7 @@ export async function submitKycDocument(
     selfieImageKey: undefined,
     faceSubmittedAt: undefined,
     reviewedAt: undefined,
+    reviewedBy: undefined,
   }
   await saveKyc(redis, submission)
   return {
