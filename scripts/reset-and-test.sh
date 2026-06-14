@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 # 重置测试数据并执行三级分销测试
-# 用法：bash scripts/reset-and-test-team.sh
-#       SKIP_DB_RESET=1 bash scripts/reset-and-test-team.sh   # 跳过重置，仅跑测试（保留用户/注单/费率）
+# 用法：bash scripts/reset-and-test.sh
+#       SKIP_DB_RESET=1 bash scripts/reset-and-test.sh   # 跳过重置，仅跑测试（保留用户/注单/费率）
 #
 # 注意：本脚本不修改 bg_team_rate_plan / bg_team_config（佣金套餐与费率）。
 #       勿在 bff-node 部署迁移中用 team_config 覆盖已配置的套餐（见 044 迁移）。
+#       重置会清空 bg_kyc 表与 data/kyc 影像文件（保留 BG-10001）。
 set -euo pipefail
 
 HOST=root@47.84.34.139
@@ -17,6 +18,10 @@ scp -i "$KEY" -o StrictHostKeyChecking=no \
   "$(dirname "$0")/test-team-distribution.mjs" \
   "$HOST:/tmp/test-team-distribution.mjs"
 $SSH "$HOST" "podman cp /tmp/test-team-distribution.mjs tma-core-node:/app/test-team-distribution.mjs"
+# 同步最新的重置 SQL（确保 bg_kyc 等新增清理项生效）
+scp -i "$KEY" -o StrictHostKeyChecking=no \
+  "$(dirname "$0")/reset-test-data.sql" \
+  "$HOST:$WORK_DIR/scripts/reset-test-data.sql"
 
 if [[ "${SKIP_DB_RESET:-}" == "1" ]]; then
   echo "==> [2/3] 跳过重置（SKIP_DB_RESET=1）"
@@ -28,6 +33,13 @@ DB_PASS=$(grep -m1 '^MYSQL_PASSWORD=' /root/workspace/tma-projects/.env | cut -d
 DB_NAME=$(grep '^MYSQL_DATABASE=' /root/workspace/tma-projects/.env | tail -1 | cut -d= -f2- | tr -d "\"'"); DB_NAME=${DB_NAME:-betogo}
 podman exec -i tma-mysql mysql --default-character-set=utf8mb4 -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" \
   < /root/workspace/tma-projects/scripts/reset-test-data.sql 2>&1 | grep -v Warning
+
+# 清理 KYC 影像文件（证件照 + 活体帧），保留 BG-10001
+KYC_IMG_DIR=/root/workspace/tma-projects/data/kyc
+if [ -d "$KYC_IMG_DIR" ]; then
+  find "$KYC_IMG_DIR" -mindepth 1 -maxdepth 1 ! -name 'BG-10001' -exec rm -rf {} +
+  echo "已清理 KYC 影像文件（保留 BG-10001）"
+fi
 REMOTE
 fi
 

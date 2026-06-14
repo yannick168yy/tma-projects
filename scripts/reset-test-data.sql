@@ -57,6 +57,8 @@ UPDATE bg_user_promo_state
 -- ── 用户关联表 ────────────────────────────────────────────────
 DELETE FROM bg_login_log WHERE user_id != 'BG-10001';
 DELETE FROM bg_kyc_submission WHERE user_id != 'BG-10001';
+-- 实名认证记录（含进行中/已通过；影像文件由 reset-and-test.sh 同步清理）
+DELETE FROM bg_kyc WHERE user_id != 'BG-10001';
 DELETE FROM bg_user_profile WHERE user_id != 'BG-10001';
 
 -- ── 删除用户（最后）───────────────────────────────────────────
@@ -71,4 +73,5 @@ UNION ALL SELECT 'bg_team_commission', COUNT(*) FROM bg_team_commission
 UNION ALL SELECT 'bg_wallet_ledger',   COUNT(*) FROM bg_wallet_ledger
 UNION ALL SELECT 'bg_deposit_order',   COUNT(*) FROM bg_deposit_order
 UNION ALL SELECT 'bg_turnover_logs',   COUNT(*) FROM bg_turnover_logs
-UNION ALL SELECT 'bg_team_node',       COUNT(*) FROM bg_team_node;
+UNION ALL SELECT 'bg_team_node',       COUNT(*) FROM bg_team_node
+UNION ALL SELECT 'bg_kyc',             COUNT(*) FROM bg_kyc;
