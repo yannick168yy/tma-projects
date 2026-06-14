@@ -47,6 +47,30 @@ function lgId(): string {
   return `LG_${Date.now()}_${randomBytes(3).toString('hex')}`
 }
 
+/** Cashback Games 档位承诺费率（优先于 bg_rebate_config 大类费率） */
+function featuredTierRatePct(tier: string): number {
+  if (tier === 'elite') return 2
+  if (tier === 'pro') return 1.5
+  return 0
+}
+
+/** 单行 turnover 的有效洗码费率 %：精选游戏用档位，否则用大类配置 */
+const SQL_EFFECTIVE_RATE_PCT = `
+  CASE
+    WHEN rfg.tier = 'elite' THEN 2.000
+    WHEN rfg.tier = 'pro' THEN 1.500
+    ELSE COALESCE(rc.rate_pct, 0.800)
+  END
+`
+
+const TURNOVER_REBATE_JOINS = `
+  LEFT JOIN bg_bet_order bo ON bo.id = tl.bet_order_id
+  LEFT JOIN bg_rebate_featured_game rfg
+    ON rfg.game_uuid = bo.provider_id AND rfg.enabled = 1
+  LEFT JOIN bg_rebate_config rc
+    ON rc.game_category = COALESCE(tl.sort_category, 'other') AND rc.enabled = 1
+`
+
 /** PHT = UTC+8，计算给定 Date 对象的 PHT 日期字符串 YYYY-MM-DD */
 function toPhtDateStr(d: Date): string {
   const pht = new Date(d.getTime() + 8 * 60 * 60 * 1000)
@@ -88,13 +112,7 @@ export async function saveRebateConfig(env: Env, items: { gameCategory: string; 
   }
 }
 
-function featuredTierRatePct(tier: string): number {
-  if (tier === 'elite') return 2
-  if (tier === 'pro') return 1.5
-  return 0
-}
-
-/** 用户在精选游戏（Cashback Games）各档位的投注与洗码估算 */
+/** 用户在精选游戏（Cashback Games）各档位的投注与洗码（档位费率 2% / 1.5%） */
 async function getUserTierRebateBreakdown(
   env: Env,
   userId: string,
@@ -145,11 +163,10 @@ export async function getUserRebateSummary(env: Env, userId: string, phtDate: st
       `SELECT
          COALESCE(tl.sort_category, 'other') AS game_category,
          tl.currency,
-         SUM(tl.bet_amount)                  AS bet_amount,
-         MAX(COALESCE(rc.rate_pct, 0.800))   AS rate_pct
+         SUM(tl.bet_amount) AS bet_amount,
+         SUM(tl.bet_amount * (${SQL_EFFECTIVE_RATE_PCT}) / 100) AS rebate_amount_raw
        FROM bg_turnover_logs tl
-       LEFT JOIN bg_rebate_config rc
-         ON rc.game_category = COALESCE(tl.sort_category, 'other') AND rc.enabled = 1
+       ${TURNOVER_REBATE_JOINS}
        WHERE tl.user_id = ?
          AND tl.is_reversed = 0
          AND tl.currency = ?
@@ -159,11 +176,14 @@ export async function getUserRebateSummary(env: Env, userId: string, phtDate: st
     )
     const breakdown: RebateSummaryItem[] = rows.map((r) => {
       const betAmt = Number(r.bet_amount)
-      const ratePct = Number(r.rate_pct)
+      const rebateAmount = Math.floor(Number(r.rebate_amount_raw) * 10000) / 10000
+      const ratePct = betAmt > 0
+        ? Math.round(rebateAmount / betAmt * 100 * 1000) / 1000
+        : 0
       return {
         gameCategory: String(r.game_category),
         betAmount: betAmt,
-        rebateAmount: Math.floor(betAmt * ratePct / 100 * 10000) / 10000,
+        rebateAmount,
         ratePct,
       }
     })
@@ -257,16 +277,19 @@ export async function runDailyRebatePayout(env: Env, date: string): Promise<{ us
        COALESCE(tl.sort_category, 'other') AS game_category,
        tl.currency AS currency_code,
        SUM(tl.bet_amount) AS bet_amount,
-       ROUND(SUM(tl.bet_amount) * COALESCE(rc.rate_pct, 0.800) / 100, 4) AS rebate_amount,
-       COALESCE(rc.rate_pct, 0.800) AS rate_pct,
+       ROUND(SUM(tl.bet_amount * (${SQL_EFFECTIVE_RATE_PCT}) / 100), 4) AS rebate_amount,
+       CASE
+         WHEN SUM(tl.bet_amount) > 0
+         THEN ROUND(SUM(tl.bet_amount * (${SQL_EFFECTIVE_RATE_PCT}) / 100) / SUM(tl.bet_amount) * 100, 3)
+         ELSE 0
+       END AS rate_pct,
        'pending'
      FROM bg_turnover_logs tl
-     LEFT JOIN bg_rebate_config rc
-       ON rc.game_category = COALESCE(tl.sort_category, 'other') AND rc.enabled = 1
+     ${TURNOVER_REBATE_JOINS}
      WHERE tl.is_reversed = 0
        AND DATE(CONVERT_TZ(tl.created_at, '+00:00', '+08:00')) = ?
      GROUP BY tl.user_id, COALESCE(tl.sort_category, 'other'), tl.currency
-     HAVING ROUND(SUM(tl.bet_amount) * COALESCE(rc.rate_pct, 0.800) / 100, 4) > 0`,
+     HAVING ROUND(SUM(tl.bet_amount * (${SQL_EFFECTIVE_RATE_PCT}) / 100), 4) > 0`,
     [date, date],
   )
 
