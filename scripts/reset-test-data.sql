@@ -4,12 +4,13 @@
 --
 -- 清理范围：
 --   存款记录、提款记录、账变记录、投注记录、流水记录
---   三级分销佣金/GGR/提现
+--   三级分销佣金/GGR/提现、洗码返佣记录、提款审核日志、实名认证记录
 --   除 BG-10001 外的所有用户及其关联数据
 --   BG-10001 的钱包余额归零
 --
 -- 不清理（保留后台配置）：
 --   bg_team_rate_plan、bg_team_config、BG-10001 的 rate_plan_id
+--   bg_rebate_config、bg_rebate_featured_game、bg_withdraw_review_config
 
 SET FOREIGN_KEY_CHECKS = 0;
 
@@ -32,12 +33,18 @@ DELETE FROM bg_turnover_requirements;
 -- ── 投注记录 ──────────────────────────────────────────────────
 DELETE FROM bg_bet_order;
 
+-- ── 洗码返佣记录（按投注流水派生，配置表 bg_rebate_config/featured_game 保留）─
+DELETE FROM bg_rebate_record;
+
 -- ── 账变记录（含活动领取：red_packet / bonus）──────────────────
 DELETE FROM bg_wallet_ledger;
 
 -- ── 存款 / 提款记录 ───────────────────────────────────────────
 DELETE FROM bg_deposit_order;
 DELETE FROM bg_withdraw_order;
+
+-- ── 提款自动审核日志（审核提案规则命中记录，配置表 bg_withdraw_review_config 保留）─
+DELETE FROM bg_withdraw_review_log;
 
 -- ── 幂等键（支付回调去重缓存）────────────────────────────────
 DELETE FROM bg_idempotency;
@@ -74,4 +81,6 @@ UNION ALL SELECT 'bg_wallet_ledger',   COUNT(*) FROM bg_wallet_ledger
 UNION ALL SELECT 'bg_deposit_order',   COUNT(*) FROM bg_deposit_order
 UNION ALL SELECT 'bg_turnover_logs',   COUNT(*) FROM bg_turnover_logs
 UNION ALL SELECT 'bg_team_node',       COUNT(*) FROM bg_team_node
-UNION ALL SELECT 'bg_kyc',             COUNT(*) FROM bg_kyc;
+UNION ALL SELECT 'bg_kyc',             COUNT(*) FROM bg_kyc
+UNION ALL SELECT 'bg_rebate_record',   COUNT(*) FROM bg_rebate_record
+UNION ALL SELECT 'bg_withdraw_review_log', COUNT(*) FROM bg_withdraw_review_log;
