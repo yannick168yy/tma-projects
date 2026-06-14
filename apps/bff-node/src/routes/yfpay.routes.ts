@@ -5,11 +5,11 @@ import {
   createDeposit,
   queryDeposit,
   getBankCodes,
-  createWithdrawal,
   queryWithdrawal,
   YfPayError,
 } from '../services/yfpay.service.js'
 import { creditWallet, getWallet, getDeposit, getWithdraw, saveDeposit, saveWithdraw, listDeposits, listWithdrawals } from '../services/store/index.js'
+import { reviewWithdraw } from '../services/withdraw-review.service.js'
 import { isKycApproved } from '../services/kyc.service.js'
 import { getMysqlPool, isMysqlEnabled } from '../clients/mysql.client.js'
 import { canWithdraw as checkTurnover } from '../services/turnover.service.js'
@@ -190,7 +190,6 @@ router.post('/withdraw/yfpay/create', async (ctx) => {
     }
 
     const merchantSerial = randomOrderId('YFW')
-    const notifyUrl = ctx.state.env.YFPAY_NOTIFY_URL
 
     // 先扣余额（原子写入，防止多笔并发双花）
     await creditWallet(redis, userId, -amount, {
@@ -201,48 +200,29 @@ router.post('/withdraw/yfpay/create', async (ctx) => {
       createdAt: nowIso(),
     })
 
-    let result: Awaited<ReturnType<typeof createWithdrawal>>
-    try {
-      result = await createWithdrawal(
-        { merchantSerial, amount, targetOwner, targetAccount, optionCode, notifyUrl },
-        ctx.state.env,
-      )
-    } catch (err) {
-      // YfPay 调用失败：退还余额，避免资金损失
-      await creditWallet(redis, userId, amount, {
-        type: 'bonus',
-        refId: `REFUND_${merchantSerial}`,
-        description: `YF Pay 提现失败退款 #${merchantSerial}`,
-        traceId: ctx.state.traceId,
-        createdAt: nowIso(),
-      })
-      console.error('[bff] withdraw/yfpay/create failed, refunded', merchantSerial, err)
-      const msg = err instanceof YfPayError ? err.message : '创建提现订单失败'
-      fail(ctx, 500, msg)
-      return
+    // 建单 pending，不在此处调 YF Pay API；出款延迟到审核通过/人工批准时（approveWithdraw）
+    const wOrder: OrderWithdraw = {
+      orderId: merchantSerial,
+      userId,
+      amount,
+      currency: 'PHP',
+      channelId: `yfpay_${(optionCode ?? 'unknown').toLowerCase()}`,
+      status: 'pending',
+      provider: 'yfpay',
+      extraData: { optionCode: optionCode ?? '', targetAccount: targetAccount ?? '', targetOwner: targetOwner ?? '' },
+      createdAt: nowIso(),
     }
+    await saveWithdraw(ctx.state.redis, wOrder)
 
-    if (isMysqlEnabled(ctx.state.env)) {
-      const wOrder: OrderWithdraw = {
-        orderId: merchantSerial,
-        userId,
-        amount: amount,
-        currency: 'PHP',
-        channelId: `yfpay_${(optionCode ?? 'unknown').toLowerCase()}`,
-        status: 'pending',
-        provider: 'yfpay',
-        providerRef: result.platformId,
-        extraData: { optionCode: optionCode ?? '', targetAccount: targetAccount ?? '', targetOwner: targetOwner ?? '' },
-        createdAt: nowIso(),
-      }
-      await saveWithdraw(ctx.state.redis, wOrder)
-    }
+    // 自动审核：全部规则通过则 approveWithdraw 调 YF Pay 出款，否则留 pending 转人工
+    await reviewWithdraw(ctx.state.env, redis, merchantSerial)
 
+    const finalOrder = await getWithdraw(ctx.state.redis, merchantSerial)
     ok(ctx, {
       merchantSerial,
-      platformId: result.platformId,
       amount,
-      state: result.state,
+      status: finalOrder?.status ?? 'pending',
+      platformId: (finalOrder?.extraData as Record<string, unknown> | undefined)?.platformId ?? null,
     })
   } finally {
     // 释放锁（仅当仍是当前持有者）

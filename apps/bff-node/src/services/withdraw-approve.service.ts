@@ -1,8 +1,9 @@
 import type { Redis } from 'ioredis'
 import type { Env } from '../config/env.js'
 import type { OrderWithdraw } from '../types/domain.js'
-import { saveWithdraw } from './store/index.js'
+import { saveWithdraw, creditWallet } from './store/index.js'
 import { executeMatrixWithdrawOrder } from './matrix.service.js'
+import { createWithdrawal, YfPayError } from './yfpay.service.js'
 import { nowIso } from '../utils/format.js'
 
 export interface ApproveResult {
@@ -10,9 +11,13 @@ export interface ApproveResult {
   matrixOrderNo?: string
 }
 
+const isYfpay = (o: OrderWithdraw) => o.provider === 'yfpay' || o.channelId.startsWith('yfpay')
+
 /**
  * 批准提款并出款。管理员人工批准与自动审核共用此路径，避免两份逻辑漂移。
- * - matrix：调 Matrix API 实际链上出款，失败时内部已退款并置 failed，会抛错。
+ * 各渠道出款均延迟到此处（审核通过 / 人工批准）才真正发生：
+ * - matrix：调 Matrix API 链上出款；失败时内部已退款并置 failed，会抛错。
+ * - yfpay：调 YF Pay API 出款；失败时退款 + 置 failed，会抛错。
  * - 其他渠道（tg_wallet 等）：直接标记完成。
  * 调用方需自行保证 order.status === 'pending'。
  */
@@ -24,6 +29,36 @@ export async function approveWithdraw(
   if (order.channelId === 'matrix') {
     const matrixOrderNo = await executeMatrixWithdrawOrder(env, redis, order.orderId)
     return { status: 'processing', matrixOrderNo }
+  }
+
+  if (isYfpay(order)) {
+    const ex = (order.extraData ?? {}) as Record<string, unknown>
+    try {
+      const r = await createWithdrawal({
+        merchantSerial: order.orderId,
+        amount: order.amount,
+        targetOwner: String(ex.targetOwner ?? ''),
+        targetAccount: String(ex.targetAccount ?? ''),
+        optionCode: ex.optionCode ? String(ex.optionCode) : undefined,
+        notifyUrl: env.YFPAY_NOTIFY_URL,
+      }, env)
+      order.status = 'processing'
+      order.extraData = { ...ex, platformId: r.platformId }
+      await saveWithdraw(redis, order)
+      return { status: 'processing' }
+    } catch (err) {
+      // 出款失败：退款 + 置 failed
+      await creditWallet(redis, order.userId, order.amount, {
+        type: 'bonus',
+        refId: `REFUND_${order.orderId}`,
+        description: `YF Pay 提现出款失败退款 #${order.orderId}`,
+        createdAt: nowIso(),
+        currency: order.currency ?? 'PHP',
+      })
+      order.status = 'failed'
+      await saveWithdraw(redis, order)
+      throw new Error(err instanceof YfPayError ? err.message : 'YF Pay 提现出款失败')
+    }
   }
 
   order.status = 'completed'
