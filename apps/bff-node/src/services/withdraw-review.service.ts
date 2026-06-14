@@ -181,6 +181,17 @@ const RULES: Record<string, Rule> = {
 
 function round2(n: number): number { return Math.round(n * 100) / 100 }
 
+/** 查询可能缺失的数据源表：表不存在(errno 1146)时按零值/空集处理，不让审核整体失败 */
+async function safeQuery(pool: Pool, sql: string, params: unknown[]): Promise<RowDataPacket[]> {
+  try {
+    const [rows] = await pool.query<RowDataPacket[]>(sql, params)
+    return rows
+  } catch (err) {
+    if ((err as { errno?: number }).errno === 1146) return []
+    throw err
+  }
+}
+
 // ── 配置加载 ──────────────────────────────────────────────────────────────────
 
 export async function loadReviewConfig(pool: Pool): Promise<Record<string, RuleConfig>> {
@@ -240,7 +251,7 @@ async function buildContext(pool: Pool, order: OrderWithdraw): Promise<ReviewCon
     [sinceDate, sinceDate, userId],
   )
 
-  const [[promo]] = await pool.query<RowDataPacket[]>(
+  const [promo] = await safeQuery(pool,
     `SELECT COALESCE(SUM(amount_cents), 0) AS bonus_cents
      FROM bg_promo_claim WHERE user_id = ? AND claimed_at > ?`,
     [userId, sinceDate],
@@ -262,7 +273,7 @@ async function buildContext(pool: Pool, order: OrderWithdraw): Promise<ReviewCon
      WHERE l1.user_id = ? AND l1.ip IS NOT NULL AND l1.created_at > NOW() - INTERVAL 30 DAY`,
     [userId],
   )
-  const [[dev]] = await pool.query<RowDataPacket[]>(
+  const [dev] = await safeQuery(pool,
     `SELECT COUNT(DISTINCT s2.user_id) AS cnt
      FROM bg_game_session s1
      JOIN bg_game_session s2 ON s2.device_id = s1.device_id AND s2.user_id <> s1.user_id
@@ -281,7 +292,7 @@ async function buildContext(pool: Pool, order: OrderWithdraw): Promise<ReviewCon
      ) t`,
     [userId, sinceDate],
   )
-  const [[disc]] = await pool.query<RowDataPacket[]>(
+  const [disc] = await safeQuery(pool,
     `SELECT COUNT(DISTINCT r.report_date) AS cnt
      FROM sg_settlement_report r
      JOIN bg_bet_order b ON DATE(b.created_at) = r.report_date AND b.user_id = ?
@@ -469,7 +480,7 @@ export async function getRelatedAccounts(env: Env, userId: string) {
      LIMIT 50`,
     [userId],
   )
-  const [devRows] = await pool.query<RowDataPacket[]>(
+  const devRows = await safeQuery(pool,
     `SELECT DISTINCT s2.user_id, s1.device_id
      FROM bg_game_session s1
      JOIN bg_game_session s2 ON s2.device_id = s1.device_id AND s2.user_id <> s1.user_id
