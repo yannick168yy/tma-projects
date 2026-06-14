@@ -58,6 +58,7 @@ export default {
     telegramHint: '在 Telegram 中打开 BetoGo 将自动登录。若未完成，请使用下方按钮。',
     retryTelegram: '重试 Telegram 登录',
     continueGoogle: '使用 Google 继续',
+    continueTelegram: '使用 Telegram 继续',
     googleRedirectHint: '将跳转至 Google 安全登录。',
     loginFailed: '登录失败',
     startupFailed: '启动失败',

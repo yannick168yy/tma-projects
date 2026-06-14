@@ -25,6 +25,7 @@ import { verifyTelegramWidget } from '../utils/telegramWidget.js'
 import { hashPassword, verifyPassword } from '../utils/password.js'
 import type { UserRecord } from '../types/domain.js'
 import { exchangeGoogleCode } from './google.service.js'
+import { exchangeTelegramOidcCode } from './telegramOidc.service.js'
 import { toPublicUser } from './userPresentation.js'
 import { lookupRegion } from './geo.service.js'
 
@@ -287,6 +288,56 @@ export async function loginWithTelegramWidget(
     throw new AuthError('Account has been permanently banned. Please contact support.', 401)
   }
   return issueSession(redis, env, user, isNewUser)
+}
+
+export async function loginWithTelegramOidc(
+  redis: Redis,
+  env: Env,
+  code: string,
+  redirectUri: string,
+  ip?: string,
+  referralCode?: string,
+): Promise<{
+  token: string
+  expiresIn: number
+  user: UserRecord
+  isNewUser: boolean
+  trialRedPacketEligible: boolean
+}> {
+  if (!env.TELEGRAM_OIDC_CLIENT_SECRET) {
+    throw new AuthError('Telegram web login is not configured')
+  }
+  if (redirectUri !== env.TELEGRAM_OIDC_REDIRECT_URI) {
+    throw new AuthError('Invalid redirect URI')
+  }
+
+  try {
+    const profile = await exchangeTelegramOidcCode(env, code, redirectUri)
+
+    let referredBy: string | undefined
+    if (referralCode) {
+      const inviter = await getUserByInviteCode(redis, referralCode.toUpperCase())
+      if (inviter) referredBy = inviter.id
+    }
+
+    const region = ip ? lookupRegion(ip) : undefined
+    const { user, isNewUser } = await createUserFromTelegram(redis, {
+      telegramUserId: profile.telegramUserId,
+      displayName: profile.displayName,
+      avatarUrl: profile.avatarUrl,
+      telegramUsername: profile.username,
+      referredBy,
+      registerIp: ip,
+      registerRegion: region,
+    })
+    if (user.status === 'banned' || user.status === 'frozen') {
+      throw new AuthError('Account has been disabled. Please contact support.')
+    }
+    return issueSession(redis, env, user, isNewUser)
+  } catch (e) {
+    if (e instanceof AuthError) throw e
+    throw new AuthError(e instanceof Error ? e.message : 'Telegram login failed')
+  }
 }
 
 // ── 身份绑定：把某登录方式挂到当前已登录账号；命中他号一律 409 ──────────────────

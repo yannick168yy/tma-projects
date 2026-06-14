@@ -59,6 +59,7 @@ export default {
       'BetoGo tự đăng nhập khi mở trong Telegram. Dùng bên dưới nếu đăng nhập chưa hoàn tất.',
     retryTelegram: 'Thử lại đăng nhập Telegram',
     continueGoogle: 'Tiếp tục với Google',
+    continueTelegram: 'Tiếp tục với Telegram',
     googleRedirectHint: 'Bạn sẽ được chuyển đến Google để đăng nhập an toàn.',
     loginFailed: 'Đăng nhập thất bại',
     startupFailed: 'Khởi động thất bại',

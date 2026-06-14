@@ -59,6 +59,7 @@ export default {
       'BetoGo masuk otomatis saat dibuka di Telegram. Gunakan di bawah jika masuk belum selesai.',
     retryTelegram: 'Coba lagi masuk Telegram',
     continueGoogle: 'Lanjutkan dengan Google',
+    continueTelegram: 'Lanjutkan dengan Telegram',
     googleRedirectHint: 'Anda akan diarahkan ke Google untuk masuk dengan aman.',
     loginFailed: 'Gagal masuk',
     startupFailed: 'Gagal memulai',

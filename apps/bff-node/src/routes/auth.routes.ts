@@ -1,6 +1,6 @@
 import Router from '@koa/router'
 import type { PasswordMethod } from '../services/auth.service.js'
-import { AuthError, loginWithGoogleCode, loginWithInitData, loginWithPassword, loginWithTelegramWidget, logout, refreshSession, registerWithPassword, resolveSession, toAuthUser } from '../services/auth.service.js'
+import { AuthError, loginWithGoogleCode, loginWithInitData, loginWithPassword, loginWithTelegramOidc, loginWithTelegramWidget, logout, refreshSession, registerWithPassword, resolveSession, toAuthUser } from '../services/auth.service.js'
 import { recordUserLogin } from '../services/store/index.js'
 import { lookupRegion } from '../services/geo.service.js'
 import { fail, ok } from '../utils/response.js'
@@ -78,6 +78,44 @@ router.post('/google', async (ctx) => {
   } catch (e) {
     if (e instanceof AuthError) {
       fail(ctx, 401, e.message, 401)
+      return
+    }
+    throw e
+  }
+})
+
+router.post('/telegram-oidc', async (ctx) => {
+  const body = ctx.request.body as { code?: string; redirectUri?: string; referralCode?: string }
+  if (!body.code || !body.redirectUri) {
+    fail(ctx, 400, 'code and redirectUri are required')
+    return
+  }
+  try {
+    const ip = cleanIp(ctx.ip)
+    const result = await loginWithTelegramOidc(
+      ctx.state.redis,
+      ctx.state.env,
+      body.code,
+      body.redirectUri,
+      ip,
+      body.referralCode,
+    )
+    ok(ctx, {
+      token: result.token,
+      expiresIn: result.expiresIn,
+      isNewUser: result.isNewUser,
+      trialRedPacketEligible: result.trialRedPacketEligible,
+      user: toAuthUser(result.user),
+    })
+    recordUserLogin(ctx.state.redis, result.user.id, {
+      ip,
+      region: lookupRegion(ip),
+      userAgent: ctx.get('user-agent'),
+      authMethod: 'telegram',
+    }).catch(() => {})
+  } catch (e) {
+    if (e instanceof AuthError) {
+      fail(ctx, e.status ?? 401, e.message, e.status ?? 401)
       return
     }
     throw e

@@ -3,9 +3,8 @@ import { useTranslation } from 'react-i18next'
 import { X, User, Phone, Lock, Eye, EyeOff } from 'lucide-react'
 import { createPortal } from 'react-dom'
 import BetogoLogo from '@/components/BetogoLogo'
-import TelegramLoginButton from '@/components/auth/TelegramLoginButton'
 import { useAuthStore } from '@/stores/auth'
-import type { PasswordMethod, TelegramWidgetUser } from '@/types/api'
+import type { PasswordMethod } from '@/types/api'
 
 interface Props {
   open: boolean
@@ -36,7 +35,7 @@ export default function LoginSheet({ open, onClose }: Props) {
   const isTelegram = useAuthStore((s) => s.isTelegram)
   const loginReason = useAuthStore((s) => s.loginReason)
   const loginWithTelegram = useAuthStore((s) => s.loginWithTelegram)
-  const loginWithTelegramWidget = useAuthStore((s) => s.loginWithTelegramWidget)
+  const loginWithTelegramOidc = useAuthStore((s) => s.loginWithTelegramOidc)
   const loginWithGoogle = useAuthStore((s) => s.loginWithGoogle)
   const loginWithPassword = useAuthStore((s) => s.loginWithPassword)
   const registerWithPassword = useAuthStore((s) => s.registerWithPassword)
@@ -72,14 +71,13 @@ export default function LoginSheet({ open, onClose }: Props) {
     }
   }
 
-  async function onTelegramWidgetAuth(user: TelegramWidgetUser) {
+  function onTelegramOidcLogin() {
     setLoading(true)
     setError(null)
     try {
-      await loginWithTelegramWidget(user)
+      loginWithTelegramOidc()
     } catch (e) {
       setError(e instanceof Error ? e.message : t('auth.loginFailed'))
-    } finally {
       setLoading(false)
     }
   }
@@ -246,19 +244,15 @@ export default function LoginSheet({ open, onClose }: Props) {
 
           {/* 第三方 / Telegram 登录 */}
           <div className="space-y-3">
-            {isTelegram ? (
-              <button
-                type="button"
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#2AABEE] py-3 text-sm font-bold text-white shadow-[0_4px_16px_rgba(42,171,238,0.3)] transition-all active:scale-[0.98] disabled:opacity-60"
-                disabled={loading}
-                onClick={() => void onTelegramLogin()}
-              >
-                <TelegramIcon />
-                {t('auth.retryTelegram')}
-              </button>
-            ) : (
-              <TelegramLoginButton onAuth={(u) => void onTelegramWidgetAuth(u)} />
-            )}
+            <button
+              type="button"
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#2AABEE] py-3 text-sm font-bold text-white shadow-[0_4px_16px_rgba(42,171,238,0.3)] transition-all active:scale-[0.98] disabled:opacity-60"
+              disabled={loading}
+              onClick={() => (isTelegram ? void onTelegramLogin() : onTelegramOidcLogin())}
+            >
+              <TelegramIcon />
+              {isTelegram ? t('auth.retryTelegram') : t('auth.continueTelegram')}
+            </button>
             <button
               type="button"
               className="flex w-full items-center justify-center gap-2.5 rounded-xl border border-border bg-secondary/60 py-3 text-sm font-bold text-foreground transition-all hover:bg-secondary active:scale-[0.98] disabled:opacity-60"

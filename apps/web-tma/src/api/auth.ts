@@ -1,6 +1,7 @@
 import { apiRequest, getInitData } from '@/api/client'
 import * as mock from '@/api/mock/auth.mock'
 import { getGoogleRedirectUri, startGoogleLoginRedirect } from '@/utils/googleOAuth'
+import { getTelegramRedirectUri, startTelegramLoginRedirect } from '@/utils/telegramOAuth'
 import type { AuthSession, AuthUser, LoginProvider, PasswordMethod, TelegramWidgetUser, UserProfile } from '@/types/api'
 
 const useMock = import.meta.env.VITE_USE_MOCK_API !== 'false'
@@ -101,6 +102,22 @@ export async function completeGoogleLogin(code: string, redirectUri?: string, re
     body: JSON.stringify({
       code,
       redirectUri: redirectUri ?? getGoogleRedirectUri(),
+      referralCode: referralCode || undefined,
+    }),
+  })
+}
+
+/** Redirects browser to Telegram OIDC login (non-TG web only). */
+export function loginWithTelegramRedirect(): void {
+  startTelegramLoginRedirect()
+}
+
+export async function completeTelegramLogin(code: string, redirectUri?: string, referralCode?: string): Promise<AuthSession> {
+  return apiRequest<AuthSession>('/auth/telegram-oidc', {
+    method: 'POST',
+    body: JSON.stringify({
+      code,
+      redirectUri: redirectUri ?? getTelegramRedirectUri(),
       referralCode: referralCode || undefined,
     }),
   })

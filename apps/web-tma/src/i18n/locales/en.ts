@@ -59,6 +59,7 @@ export default {
       'BetoGo signs you in automatically when opened in Telegram. Use below if sign-in did not complete.',
     retryTelegram: 'Retry Telegram sign-in',
     continueGoogle: 'Continue with Google',
+    continueTelegram: 'Continue with Telegram',
     googleRedirectHint: 'You will be redirected to Google to sign in securely.',
     loginFailed: 'Login failed',
     startupFailed: 'Startup failed',

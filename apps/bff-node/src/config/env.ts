@@ -16,6 +16,11 @@ const schema = z.object({
   GOOGLE_REDIRECT_URI: z
     .string()
     .default('https://www.188facai.com/auth/google/callback'),
+  // Telegram 新版网页登录（OIDC）。client_id 即 bot_id，从 TELEGRAM_BOT_TOKEN 前缀推导，无需单独配置
+  TELEGRAM_OIDC_CLIENT_SECRET: z.string().default(''),
+  TELEGRAM_OIDC_REDIRECT_URI: z
+    .string()
+    .default('https://www.188facai.com/auth/telegram/callback'),
   AMMER_PAY_PROVIDER_TOKEN: z.string().default(''),
   AMMER_PAY_PHP_PER_STAR: z.coerce.number().positive().default(1.12),
   // 第三方汇率 API（freecurrencyapi.com，免费额度 5000 次/月）

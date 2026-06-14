@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { loginPassword, loginTelegram, loginTelegramWidget, loginWithGoogleRedirect, logoutSession, registerPassword, restoreSession } from '@/api/auth'
+import { loginPassword, loginTelegram, loginTelegramWidget, loginWithGoogleRedirect, loginWithTelegramRedirect, logoutSession, registerPassword, restoreSession } from '@/api/auth'
 import { getInitData } from '@/api/client'
 import { fetchBalance } from '@/api/wallet'
 import { fetchPromoHighlights } from '@/api/promotion'
@@ -39,6 +39,7 @@ interface AuthActions {
   loginWithTelegram: () => Promise<void>
   loginWithTelegramWidget: (data: TelegramWidgetUser) => Promise<void>
   loginWithGoogle: () => void
+  loginWithTelegramOidc: () => void
   loginWithPassword: (method: PasswordMethod, identifier: string, password: string) => Promise<void>
   registerWithPassword: (method: PasswordMethod, identifier: string, password: string) => Promise<void>
   logout: () => Promise<void>
@@ -154,6 +155,10 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
 
   loginWithGoogle() {
     loginWithGoogleRedirect()
+  },
+
+  loginWithTelegramOidc() {
+    loginWithTelegramRedirect()
   },
 
   async loginWithPassword(method, identifier, password) {
