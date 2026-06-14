@@ -4,7 +4,7 @@ const TOKEN_ENDPOINT = 'https://oauth.telegram.org/token'
 const ISSUER = 'https://oauth.telegram.org'
 
 export interface TelegramOidcProfile {
-  telegramUserId: number
+  sub: string
   username?: string
   displayName: string
   avatarUrl?: string
@@ -66,13 +66,13 @@ export async function exchangeTelegramOidcCode(
     throw new Error('id_token expired')
   }
 
-  const sub = Number(claims.sub)
-  if (!Number.isFinite(sub)) throw new Error('Invalid Telegram user id in id_token')
+  const sub = typeof claims.sub === 'string' ? claims.sub : String(claims.sub ?? '')
+  if (!sub) throw new Error('Invalid sub in id_token')
 
   const username = typeof claims.preferred_username === 'string' ? claims.preferred_username : undefined
   const name = typeof claims.name === 'string' && claims.name.trim() ? claims.name : undefined
   return {
-    telegramUserId: sub,
+    sub,
     username,
     displayName: name ?? username ?? 'Telegram User',
     avatarUrl: typeof claims.picture === 'string' ? claims.picture : undefined,

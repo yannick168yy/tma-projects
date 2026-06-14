@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Loader2 } from 'lucide-react'
 import BetogoLogo from '@/components/BetogoLogo'
-import { completeTelegramLogin } from '@/api/auth'
+import { bindTelegramOidc, completeTelegramLogin } from '@/api/auth'
 import { clearStoredOAuthState, getTelegramRedirectUri, readStoredNonce, readStoredRef } from '@/utils/telegramOAuth'
 import { useAuthStore } from '@/stores/auth'
 
@@ -27,6 +27,15 @@ export default function TelegramAuthCallback() {
     const storedNonce = readStoredNonce()
     if (storedNonce && state && state !== storedNonce) {
       setLoading(false); clearStoredOAuthState(); setError(t('auth.stateInvalid')); return
+    }
+
+    // 绑定意图：已登录用户把 Telegram 挂到当前账号（而非登录/新建）
+    if (sessionStorage.getItem('telegram_bind_intent')) {
+      sessionStorage.removeItem('telegram_bind_intent')
+      bindTelegramOidc(code, getTelegramRedirectUri())
+        .then(() => { clearStoredOAuthState(); window.location.replace('/?bound=telegram') })
+        .catch((e) => { clearStoredOAuthState(); setError(e instanceof Error ? e.message : t('auth.loginFailed')); setLoading(false) })
+      return
     }
 
     const referralCode = readStoredRef()

@@ -15,6 +15,7 @@ const KEYS = {
   userSeq: 'tma:user:seq',
   user: (id: string) => `tma:user:${id}`,
   userByTg: (tgId: number) => `tma:user:tg:${tgId}`,
+  userByTgOidc: (sub: string) => `tma:user:tgoidc:${sub}`,
   userByGoogle: (sub: string) => `tma:user:google:${sub}`,
   userByUsername: (username: string) => `tma:user:username:${username}`,
   userByPhone: (phone: string) => `tma:user:phone:${phone}`,
@@ -56,6 +57,9 @@ export async function saveUser(redis: Redis, user: UserRecord): Promise<void> {
   await redis.set(KEYS.user(user.id), JSON.stringify(user))
   if (user.telegramUserId) {
     await redis.set(KEYS.userByTg(user.telegramUserId), user.id)
+  }
+  if (user.telegramOidcSub) {
+    await redis.set(KEYS.userByTgOidc(user.telegramOidcSub), user.id)
   }
   if (user.googleSub) {
     await redis.set(KEYS.userByGoogle(user.googleSub), user.id)
@@ -132,6 +136,64 @@ export async function createUserFromTelegram(
     avatarUrl: input.avatarUrl,
     inviteCode,
     referredBy: input.referredBy,
+    locale: 'en',
+    status: 'active',
+    registeredAt: nowIso(),
+    profile: defaultProfile(),
+    trialClaimed: false,
+    referralClaimed: false,
+    firstDepClaimed: false,
+    referralReady: false,
+    firstDepReady: false,
+  }
+  await saveUser(redis, user)
+  await redis.set(KEYS.wallet(id), JSON.stringify(defaultWallet()))
+  return { user, isNewUser: true }
+}
+
+export async function getUserByTelegramOidcSub(redis: Redis, sub: string): Promise<UserRecord | null> {
+  const userId = await redis.get(KEYS.userByTgOidc(sub))
+  if (!userId) return null
+  return getUser(redis, userId)
+}
+
+export async function createUserFromTelegramOidc(
+  redis: Redis,
+  input: {
+    telegramOidcSub: string
+    telegramUsername?: string
+    displayName: string
+    avatarUrl?: string
+    referredBy?: string
+    registerIp?: string
+    registerRegion?: string
+  },
+): Promise<{ user: UserRecord; isNewUser: boolean }> {
+  const existing = await getUserByTelegramOidcSub(redis, input.telegramOidcSub)
+  if (existing) {
+    existing.displayName = input.displayName
+    if (input.avatarUrl) existing.avatarUrl = input.avatarUrl
+    if (input.telegramUsername) existing.telegramUsername = input.telegramUsername
+    await saveUser(redis, existing)
+    return { user: existing, isNewUser: false }
+  }
+
+  const id = await nextUserId(redis)
+  let inviteCode = generateInviteCode()
+  while (await redis.get(KEYS.inviteCode(inviteCode))) {
+    inviteCode = generateInviteCode()
+  }
+
+  const user: UserRecord = {
+    id,
+    telegramOidcSub: input.telegramOidcSub,
+    telegramUsername: input.telegramUsername,
+    displayName: input.displayName,
+    avatarUrl: input.avatarUrl,
+    referredBy: input.referredBy,
+    registerIp: input.registerIp,
+    registerRegion: input.registerRegion,
+    inviteCode,
     locale: 'en',
     status: 'active',
     registeredAt: nowIso(),

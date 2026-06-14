@@ -49,8 +49,8 @@ export async function loginTelegramWidget(data: TelegramWidgetUser): Promise<Aut
   })
 }
 
-export async function bindTelegram(data: TelegramWidgetUser): Promise<{ user: AuthUser }> {
-  return apiRequest('/user/bind/telegram', { method: 'POST', body: JSON.stringify(data) })
+export async function bindTelegramOidc(code: string, redirectUri: string): Promise<{ user: AuthUser }> {
+  return apiRequest('/user/bind/telegram-oidc', { method: 'POST', body: JSON.stringify({ code, redirectUri }) })
 }
 
 export async function bindGoogle(code: string, redirectUri: string): Promise<{ user: AuthUser }> {

@@ -53,6 +53,11 @@ export const createUserFromTelegram = (
     ? mysqlStore.createUserFromTelegram(env(), input)
     : redisStore.createUserFromTelegram(redis, input)
 
+export const getUserByTelegramOidcSub = (redis: Redis, sub: string) =>
+  isMysqlEnabled(env())
+    ? mysqlStore.getUserByTelegramOidcSub(env(), sub)
+    : redisStore.getUserByTelegramOidcSub(redis, sub)
+
 export const getUserByGoogleSub = (redis: Redis, sub: string) =>
   isMysqlEnabled(env())
     ? mysqlStore.getUserByGoogleSub(env(), sub)
@@ -88,6 +93,14 @@ export const createUserFromGoogle = (
   isMysqlEnabled(env())
     ? mysqlStore.createUserFromGoogle(env(), input)
     : redisStore.createUserFromGoogle(redis, input)
+
+export const createUserFromTelegramOidc = (
+  redis: Redis,
+  input: Parameters<typeof redisStore.createUserFromTelegramOidc>[1],
+) =>
+  isMysqlEnabled(env())
+    ? mysqlStore.createUserFromTelegramOidc(env(), input)
+    : redisStore.createUserFromTelegramOidc(redis, input)
 
 export const createDevUser = (redis: Redis) =>
   isMysqlEnabled(env()) ? mysqlStore.createDevUser(env()) : redisStore.createDevUser(redis)

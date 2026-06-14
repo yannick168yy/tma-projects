@@ -3,12 +3,12 @@ import { useTranslation } from 'react-i18next'
 import { createPortal } from 'react-dom'
 import { X, Check, Loader2 } from 'lucide-react'
 import { ApiError } from '@/api/client'
-import { bindAccount, bindPhone, bindTelegram } from '@/api/auth'
+import { bindAccount, bindPhone } from '@/api/auth'
 import { startGoogleLoginRedirect } from '@/utils/googleOAuth'
-import TelegramLoginButton from '@/components/auth/TelegramLoginButton'
+import { startTelegramLoginRedirect } from '@/utils/telegramOAuth'
 import { useAuthStore } from '@/stores/auth'
 import { isInsideTelegram } from '@/utils/initTelegramWebApp'
-import type { AuthUser, TelegramWidgetUser } from '@/types/api'
+import type { AuthUser } from '@/types/api'
 
 interface Props {
   open: boolean
@@ -45,8 +45,9 @@ export default function BindModal({ open, onClose }: Props) {
     startGoogleLoginRedirect()
   }
 
-  function onBindTelegram(data: TelegramWidgetUser) {
-    void run(() => bindTelegram(data))
+  function onBindTelegram() {
+    sessionStorage.setItem('telegram_bind_intent', '1')
+    startTelegramLoginRedirect()
   }
 
   if (!open || !user) return null
@@ -69,7 +70,7 @@ export default function BindModal({ open, onClose }: Props) {
             <span className="text-sm font-bold text-foreground">Telegram</span>
             {user.boundTelegram ? boundTag : isInsideTelegram()
               ? <span className="text-[11px] text-muted-foreground">{t('bind.telegramBrowserOnly')}</span>
-              : <TelegramLoginButton size="medium" onAuth={onBindTelegram} />}
+              : <button type="button" className="rounded-lg bg-primary px-3 py-1.5 text-xs font-bold text-primary-foreground" onClick={onBindTelegram}>{t('bind.action')}</button>}
           </div>
 
           {/* Google */}

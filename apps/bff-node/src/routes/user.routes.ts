@@ -1,7 +1,7 @@
 import Router from '@koa/router'
 import { getUser, getUserByEmail, saveUser } from '../services/store.js'
 import { toPublicUser } from '../services/userPresentation.js'
-import { AuthError, bindAccount, bindGoogleAccount, bindPhone, bindTelegramWidget } from '../services/auth.service.js'
+import { AuthError, bindAccount, bindGoogleAccount, bindPhone, bindTelegramOidc, bindTelegramWidget } from '../services/auth.service.js'
 import { isAppLocale } from '../types/locale.js'
 import { fail, ok } from '../utils/response.js'
 
@@ -83,6 +83,15 @@ router.post('/bind/telegram', async (ctx) => {
   if (!body?.id || !body?.hash) { fail(ctx, 400, 'Invalid Telegram login payload'); return }
   try {
     const user = await bindTelegramWidget(ctx.state.redis, ctx.state.env, ctx.state.userId!, body)
+    ok(ctx, { user: toPublicUser(user) })
+  } catch (e) { if (!handleBindError(ctx, e)) throw e }
+})
+
+router.post('/bind/telegram-oidc', async (ctx) => {
+  const body = ctx.request.body as { code?: string; redirectUri?: string }
+  if (!body.code || !body.redirectUri) { fail(ctx, 400, 'code and redirectUri are required'); return }
+  try {
+    const user = await bindTelegramOidc(ctx.state.redis, ctx.state.env, ctx.state.userId!, body.code, body.redirectUri)
     ok(ctx, { user: toPublicUser(user) })
   } catch (e) { if (!handleBindError(ctx, e)) throw e }
 })

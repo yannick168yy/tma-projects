@@ -20,6 +20,8 @@ export interface UserRecord {
   telegramUserId?: number
   /** Telegram @username without @ */
   telegramUsername?: string
+  /** Telegram 网页登录(OIDC) 的 sub：按 bot 派生的匿名 id，与 telegramUserId 不同 */
+  telegramOidcSub?: string
   googleSub?: string
   /** 账号登录用户名 */
   username?: string

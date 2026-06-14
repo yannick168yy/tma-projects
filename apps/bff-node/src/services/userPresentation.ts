@@ -3,7 +3,7 @@ import type { UserRecord } from '../types/domain.js'
 export type LoginProvider = 'telegram' | 'google' | 'phone' | 'account'
 
 export function resolveLoginProvider(user: UserRecord): LoginProvider {
-  if (user.telegramUserId != null) return 'telegram'
+  if (user.telegramUserId != null || user.telegramOidcSub) return 'telegram'
   if (user.googleSub) return 'google'
   if (user.phoneAccount) return 'phone'
   if (user.username) return 'account'
@@ -28,7 +28,7 @@ export function toPublicUser(user: UserRecord) {
     telegramUsername: user.telegramUsername,
     username: user.username,
     // 各登录方式是否已绑定（绑定页用）
-    boundTelegram: user.telegramUserId != null,
+    boundTelegram: user.telegramUserId != null || Boolean(user.telegramOidcSub),
     boundGoogle: Boolean(user.googleSub),
     boundPhone: Boolean(user.phoneAccount),
     boundAccount: Boolean(user.username),

@@ -32,6 +32,7 @@ type UserRow = RowDataPacket & {
   id: string
   telegram_user_id: number | null
   telegram_username: string | null
+  telegram_oidc_sub: string | null
   google_sub: string | null
   username: string | null
   password_hash: string | null
@@ -71,6 +72,7 @@ function mapUser(row: UserRow): UserRecord {
     id: row.id,
     telegramUserId: row.telegram_user_id ?? undefined,
     telegramUsername: row.telegram_username ?? undefined,
+    telegramOidcSub: row.telegram_oidc_sub ?? undefined,
     googleSub: row.google_sub ?? undefined,
     username: row.username ?? undefined,
     passwordHash: row.password_hash ?? undefined,
@@ -131,10 +133,11 @@ export async function saveUser(env: Env, user: UserRecord): Promise<void> {
   try {
     await conn.beginTransaction()
     await conn.execute(
-      `INSERT INTO bg_user (id, telegram_user_id, telegram_username, google_sub, username, password_hash, phone_account, email, display_name, avatar_url, invite_code, inviter_id, locale, status, status_reason, label, register_ip, register_region, registered_at)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+      `INSERT INTO bg_user (id, telegram_user_id, telegram_username, telegram_oidc_sub, google_sub, username, password_hash, phone_account, email, display_name, avatar_url, invite_code, inviter_id, locale, status, status_reason, label, register_ip, register_region, registered_at)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
        ON DUPLICATE KEY UPDATE
          telegram_user_id=COALESCE(VALUES(telegram_user_id), telegram_user_id),
+         telegram_oidc_sub=COALESCE(VALUES(telegram_oidc_sub), telegram_oidc_sub),
          google_sub=COALESCE(VALUES(google_sub), google_sub),
          telegram_username=VALUES(telegram_username),
          username=COALESCE(VALUES(username), username),
@@ -147,6 +150,7 @@ export async function saveUser(env: Env, user: UserRecord): Promise<void> {
         user.id,
         user.telegramUserId ?? null,
         user.telegramUsername ?? null,
+        user.telegramOidcSub ?? null,
         user.googleSub ?? null,
         user.username ?? null,
         user.passwordHash ?? null,
@@ -213,6 +217,11 @@ export async function getUser(env: Env, userId: string): Promise<UserRecord | nu
 
 export async function getUserByTelegramId(env: Env, tgId: number): Promise<UserRecord | null> {
   const [rows] = await pool(env).query<UserRow[]>(`${USER_SELECT} WHERE u.telegram_user_id = ?`, [tgId])
+  return rows[0] ? mapUser(rows[0]) : null
+}
+
+export async function getUserByTelegramOidcSub(env: Env, sub: string): Promise<UserRecord | null> {
+  const [rows] = await pool(env).query<UserRow[]>(`${USER_SELECT} WHERE u.telegram_oidc_sub = ?`, [sub])
   return rows[0] ? mapUser(rows[0]) : null
 }
 
@@ -309,6 +318,45 @@ export async function createUserFromTelegram(
   }
   return createUser(env, {
     telegramUserId: input.telegramUserId,
+    telegramUsername: input.telegramUsername,
+    displayName: input.displayName,
+    avatarUrl: input.avatarUrl,
+    referredBy: input.referredBy,
+    registerIp: input.registerIp,
+    registerRegion: input.registerRegion,
+    locale: 'en',
+    status: 'active',
+    profile: defaultProfile(),
+    trialClaimed: false,
+    referralClaimed: false,
+    firstDepClaimed: false,
+    referralReady: false,
+    firstDepReady: false,
+  })
+}
+
+export async function createUserFromTelegramOidc(
+  env: Env,
+  input: {
+    telegramOidcSub: string
+    telegramUsername?: string
+    displayName: string
+    avatarUrl?: string
+    referredBy?: string
+    registerIp?: string
+    registerRegion?: string
+  },
+): Promise<{ user: UserRecord; isNewUser: boolean }> {
+  const existing = await getUserByTelegramOidcSub(env, input.telegramOidcSub)
+  if (existing) {
+    existing.displayName = input.displayName
+    if (input.avatarUrl) existing.avatarUrl = input.avatarUrl
+    if (input.telegramUsername) existing.telegramUsername = input.telegramUsername
+    await saveUser(env, existing)
+    return { user: existing, isNewUser: false }
+  }
+  return createUser(env, {
+    telegramOidcSub: input.telegramOidcSub,
     telegramUsername: input.telegramUsername,
     displayName: input.displayName,
     avatarUrl: input.avatarUrl,

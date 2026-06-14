@@ -6,12 +6,14 @@ import {
   createUserFromGoogle,
   createUserFromPassword,
   createUserFromTelegram,
+  createUserFromTelegramOidc,
   deleteSession,
   findKycByVerifiedPhone,
   getSession,
   getUser,
   getUserByEmail,
   getUserByGoogleSub,
+  getUserByTelegramOidcSub,
   getUserByInviteCode,
   getUserByPhoneAccount,
   getUserByTelegramId,
@@ -321,8 +323,8 @@ export async function loginWithTelegramOidc(
     }
 
     const region = ip ? lookupRegion(ip) : undefined
-    const { user, isNewUser } = await createUserFromTelegram(redis, {
-      telegramUserId: profile.telegramUserId,
+    const { user, isNewUser } = await createUserFromTelegramOidc(redis, {
+      telegramOidcSub: profile.sub,
       displayName: profile.displayName,
       avatarUrl: profile.avatarUrl,
       telegramUsername: profile.username,
@@ -360,6 +362,24 @@ export async function bindTelegramWidget(
   const user = await loadUser(redis, userId)
   user.telegramUserId = v.id
   if (v.username) user.telegramUsername = v.username
+  await saveUser(redis, user)
+  return user
+}
+
+export async function bindTelegramOidc(
+  redis: Redis,
+  env: Env,
+  userId: string,
+  code: string,
+  redirectUri: string,
+): Promise<UserRecord> {
+  if (redirectUri !== env.TELEGRAM_OIDC_REDIRECT_URI) throw new AuthError('Invalid redirect URI', 400)
+  const profile = await exchangeTelegramOidcCode(env, code, redirectUri)
+  const owner = await getUserByTelegramOidcSub(redis, profile.sub)
+  if (owner && owner.id !== userId) throw new AuthError('该 Telegram 已绑定其他账号', 409)
+  const user = await loadUser(redis, userId)
+  user.telegramOidcSub = profile.sub
+  if (profile.username) user.telegramUsername = profile.username
   await saveUser(redis, user)
   return user
 }
