@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Table, Tag, Select, Button, Space } from 'antd'
-import { getKycList, type AdminKycListItem } from '../api'
+import { Table, Tag, Select, Button, Space, Switch, Card, message } from 'antd'
+import { getKycList, getKycSettings, setKycSettings, type AdminKycListItem, type KycStepSettings } from '../api'
 
 function kycStatusTag(status: string) {
   const map: Record<string, { color: string; label: string }> = {
@@ -21,6 +21,23 @@ export default function KycList() {
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
   const [status, setStatus] = useState<string | undefined>()
+  const [cfg, setCfg] = useState<KycStepSettings | null>(null)
+  const [savingCfg, setSavingCfg] = useState(false)
+
+  useEffect(() => { void getKycSettings().then(setCfg).catch(() => {}) }, [])
+
+  async function saveCfg(next: KycStepSettings) {
+    setSavingCfg(true)
+    try {
+      const saved = await setKycSettings(next)
+      setCfg(saved)
+      message.success('已保存')
+    } catch (e) {
+      message.error(e instanceof Error ? e.message : '保存失败')
+    } finally {
+      setSavingCfg(false)
+    }
+  }
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -72,6 +89,29 @@ export default function KycList() {
 
   return (
     <div>
+      <Card size="small" title="验证流程设置" style={{ marginBottom: 16 }}>
+        <Space size={32} wrap>
+          <Space>
+            <span>证件验证</span>
+            <Switch
+              checked={cfg?.requireDocument ?? true}
+              loading={savingCfg}
+              disabled={!cfg}
+              onChange={(v) => void saveCfg({ requireDocument: v, requireFace: v && (cfg?.requireFace ?? true) })}
+            />
+          </Space>
+          <Space>
+            <span>人脸验证</span>
+            <Switch
+              checked={cfg?.requireFace ?? true}
+              loading={savingCfg}
+              disabled={!cfg || !cfg.requireDocument}
+              onChange={(v) => void saveCfg({ requireDocument: cfg?.requireDocument ?? true, requireFace: v })}
+            />
+          </Space>
+          <span style={{ color: '#999', fontSize: 12 }}>关闭证件验证将一并关闭人脸验证（人脸需证件照比对）。手机验证始终开启。</span>
+        </Space>
+      </Card>
       <div style={{ background: '#fff', marginBottom: 16, padding: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <span style={{ fontWeight: 600, fontSize: 16 }}>实名认证</span>
         <Select

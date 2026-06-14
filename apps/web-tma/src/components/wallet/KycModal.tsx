@@ -43,10 +43,10 @@ type Step = 'phone' | 'document' | 'face' | 'done'
 
 function resolveStep(s: Awaited<ReturnType<typeof fetchKycStatus>>): Step {
   if (s.status === 'approved') return 'done'
-  if (s.status === 'rejected' && s.rejectStep === 'face' && s.docVerified) return 'face'
-  if (s.docVerified) return 'face'
-  if (s.phoneVerified) return 'document'
-  return 'phone'
+  if (!s.phoneVerified) return 'phone'
+  if (s.requireDocument && !s.docVerified) return 'document'
+  if (s.requireFace && !s.faceVerified) return 'face'
+  return 'done'
 }
 
 export default function KycModal({ open, onClose, onApproved }: Props) {
@@ -65,10 +65,15 @@ export default function KycModal({ open, onClose, onApproved }: Props) {
   const [idImage, setIdImage] = useState<string | null>(null)
   const idInputRef = useRef<HTMLInputElement>(null)
 
+  const [requireDocument, setRequireDocument] = useState(true)
+  const [requireFace, setRequireFace] = useState(true)
+
   useEffect(() => {
     if (!open) return
     setError(null)
     void fetchKycStatus().then((s) => {
+      setRequireDocument(s.requireDocument)
+      setRequireFace(s.requireFace)
       setStep(resolveStep(s))
       if (s.registeredPhone) {
         setPhone(s.registeredPhone)
@@ -104,8 +109,13 @@ export default function KycModal({ open, onClose, onApproved }: Props) {
     if (!code.trim()) { setError(t('kyc.fillAll')); return }
     setLoading(true); setError(null)
     try {
-      await verifyKycOtp(code.trim())
-      setStep('document')
+      const res = await verifyKycOtp(code.trim())
+      if (res.status === 'approved') {
+        setStep('done')
+        onApproved?.()
+      } else {
+        setStep('document')
+      }
     } catch (e) {
       setError(e instanceof ApiError ? e.message : t('kyc.rejected'))
     } finally { setLoading(false) }
@@ -133,7 +143,12 @@ export default function KycModal({ open, onClose, onApproved }: Props) {
         idImage,
       })
       if (res.docVerified) {
-        setStep('face')
+        if (res.status === 'approved') {
+          setStep('done')
+          onApproved?.()
+        } else {
+          setStep('face')
+        }
       } else {
         setError(res.rejectReason || t('kyc.rejected'))
       }
@@ -177,16 +192,24 @@ export default function KycModal({ open, onClose, onApproved }: Props) {
 
         <div className="mb-5 flex items-center gap-1 text-[10px] font-bold">
           <span className={step === 'phone' ? 'text-primary' : ['document', 'face', 'done'].includes(step) ? 'text-emerald-400' : 'text-muted-foreground'}>
-            ① {t('kyc.stepPhone')}
+            {t('kyc.stepPhone')}
           </span>
-          <span className="h-px w-2 bg-border" />
-          <span className={step === 'document' ? 'text-primary' : ['face', 'done'].includes(step) ? 'text-emerald-400' : 'text-muted-foreground'}>
-            ② {t('kyc.stepDocument')}
-          </span>
-          <span className="h-px w-2 bg-border" />
-          <span className={step === 'face' ? 'text-primary' : step === 'done' ? 'text-emerald-400' : 'text-muted-foreground'}>
-            ③ {t('kyc.stepFace')}
-          </span>
+          {requireDocument && (
+            <>
+              <span className="h-px w-2 bg-border" />
+              <span className={step === 'document' ? 'text-primary' : ['face', 'done'].includes(step) ? 'text-emerald-400' : 'text-muted-foreground'}>
+                {t('kyc.stepDocument')}
+              </span>
+            </>
+          )}
+          {requireFace && (
+            <>
+              <span className="h-px w-2 bg-border" />
+              <span className={step === 'face' ? 'text-primary' : step === 'done' ? 'text-emerald-400' : 'text-muted-foreground'}>
+                {t('kyc.stepFace')}
+              </span>
+            </>
+          )}
         </div>
 
         {step === 'phone' && (

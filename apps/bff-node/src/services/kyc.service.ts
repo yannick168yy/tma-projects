@@ -5,6 +5,7 @@ import type { Env } from '../config/env.js'
 import type { KycSubmission, LivenessAction, LivenessFrameMeta } from '../types/domain.js'
 import { normalizePhonePH } from '../utils/phone.js'
 import { nowIso } from '../utils/format.js'
+import { getAdminSetting } from './admin-store.js'
 import { getSmsProvider, isSmsTestModeEnabled } from './sms/index.js'
 import { appendSmsSendLog } from './sms/send-log.js'
 import { getStorageProvider } from './storage/index.js'
@@ -42,6 +43,25 @@ async function enforceVerifyRateLimit(
 
 const idLockKey = (idNo: string) => `kyc:idlock:${idNo}`
 
+/** 通过落库时用证件号锁串行化并复查防重，消除「同证件先后通过」竞态 */
+async function saveApprovedWithIdGuard(redis: Redis, submission: KycSubmission): Promise<void> {
+  const idNo = submission.extractedIdNo
+  if (submission.status !== 'approved' || !idNo) {
+    await saveKyc(redis, submission)
+    return
+  }
+  const lockKey = idLockKey(idNo)
+  const locked = await redis.set(lockKey, submission.userId, 'EX', 30, 'NX')
+  if (!locked) throw new KycError('该证件正在被其他账号验证，请稍后再试', 409)
+  try {
+    const owner = await findKycByExtractedIdNo(redis, idNo, submission.userId)
+    if (owner) throw new KycError('该证件已被其他账号用于实名认证', 409)
+    await saveKyc(redis, submission)
+  } finally {
+    await redis.del(lockKey)
+  }
+}
+
 export class KycError extends Error {
   status: number
   constructor(message: string, status = 400) {
@@ -51,10 +71,34 @@ export class KycError extends Error {
   }
 }
 
-/** 取款硬闸门：是否已通过 KYC 实名 */
-export async function isKycApproved(redis: Redis, userId: string): Promise<boolean> {
+/** 取款硬闸门：按当前后台配置判断是否已完成所需实名步骤 */
+export async function isKycApproved(redis: Redis, env: Env, userId: string): Promise<boolean> {
   const kyc = await getKyc(redis, userId)
-  return kyc?.status === 'approved'
+  if (!kyc) return false
+  if (kyc.status === 'approved') return true
+  // 人工驳回/撤销（无 rejectStep）永久拦截，需重新走流程
+  if (kyc.status === 'rejected' && !kyc.rejectStep) return false
+  const cfg = await getKycStepConfig(env)
+  if (!kyc.phoneVerified) return false
+  if (cfg.requireDocument && !kyc.docVerified) return false
+  if (cfg.requireFace && !kyc.faceVerified) return false
+  return true
+}
+
+export interface KycStepConfig {
+  requireDocument: boolean
+  requireFace: boolean
+}
+
+/** 后台可配置：是否开启证件/人脸验证（默认开启）。人脸需证件照比对，证件关闭时人脸强制关闭 */
+export async function getKycStepConfig(env: Env): Promise<KycStepConfig> {
+  const [doc, face] = await Promise.all([
+    getAdminSetting(env, 'kyc_require_document'),
+    getAdminSetting(env, 'kyc_require_face'),
+  ])
+  const requireDocument = doc !== '0'
+  const requireFace = face !== '0'
+  return { requireDocument, requireFace: requireDocument && requireFace }
 }
 
 export function buildKycStatusResponse(kyc: KycSubmission | null) {
@@ -158,9 +202,10 @@ export async function sendKycOtp(
 
 export async function verifyKycOtp(
   redis: Redis,
+  env: Env,
   userId: string,
   code: string,
-): Promise<{ phoneVerified: true }> {
+): Promise<{ phoneVerified: true; status: KycSubmission['status'] }> {
   const raw = await redis.get(otpKey(userId))
   if (!raw) throw new KycError('验证码已过期，请重新获取', 400)
   const state = JSON.parse(raw) as OtpState
@@ -178,16 +223,21 @@ export async function verifyKycOtp(
 
   await redis.del(otpKey(userId))
   const existing = await getKyc(redis, userId)
+  const cfg = await getKycStepConfig(env)
+  // 证件验证关闭 ⇒ 手机验证即完成实名（人脸已被强制关闭）
+  const approvedByPhoneOnly = !cfg.requireDocument
+  const now = nowIso()
   await saveKyc(redis, {
     ...(existing ?? blankSubmission(userId)),
     userId,
     phone: state.phone,
     phoneVerified: true,
-    status: existing?.status === 'approved' ? 'approved' : 'pending',
+    status: existing?.status === 'approved' || approvedByPhoneOnly ? 'approved' : 'pending',
     rejectReason: undefined,
     rejectStep: undefined,
+    reviewedAt: approvedByPhoneOnly ? now : existing?.reviewedAt,
   })
-  return { phoneVerified: true }
+  return { phoneVerified: true, status: approvedByPhoneOnly ? 'approved' : 'pending' }
 }
 
 function blankSubmission(userId: string): KycSubmission {
@@ -322,6 +372,10 @@ export async function submitKycDocument(
   if (!existing?.phoneVerified) {
     throw new KycError('请先完成手机验证', 400)
   }
+  const cfg = await getKycStepConfig(env)
+  if (!cfg.requireDocument) {
+    throw new KycError('证件验证已关闭', 400)
+  }
   await enforceVerifyRateLimit(redis, env, userId, 'doc')
 
   const verdict = await runGeminiDocument(env, input.fullName, input.idImage)
@@ -348,12 +402,14 @@ export async function submitKycDocument(
   if (verdict.confidence < env.KYC_GEMINI_MIN_CONFIDENCE) reasons.push('证件真实性置信度不足')
 
   const docVerified = reasons.length === 0
+  // 人脸验证关闭 ⇒ 证件通过即完成实名
+  const approvedByDoc = docVerified && !cfg.requireFace
   const now = nowIso()
   const submission: KycSubmission = {
     ...existing,
     submissionId: userId,
     userId,
-    status: docVerified ? 'pending' : 'rejected',
+    status: docVerified ? (approvedByDoc ? 'approved' : 'pending') : 'rejected',
     fullName: input.fullName,
     docType: input.docType,
     verifyMode: 'document',
@@ -370,10 +426,10 @@ export async function submitKycDocument(
     livenessFrames: undefined,
     selfieImageKey: undefined,
     faceSubmittedAt: undefined,
-    reviewedAt: undefined,
+    reviewedAt: approvedByDoc ? now : undefined,
     reviewedBy: undefined,
   }
-  await saveKyc(redis, submission)
+  await saveApprovedWithIdGuard(redis, submission)
   return {
     docVerified,
     status: submission.status,
@@ -390,6 +446,9 @@ export async function submitKycFace(
 ): Promise<{ faceVerified: boolean; status: KycSubmission['status']; rejectReason?: string; rejectStep?: string }> {
   const existing = await getKyc(redis, userId)
   if (!existing?.phoneVerified) throw new KycError('请先完成手机验证', 400)
+  if (!(await getKycStepConfig(env)).requireFace) {
+    throw new KycError('人脸验证已关闭', 400)
+  }
   if (!existing.docVerified || !existing.docImageKey) {
     throw new KycError('请先完成证件验证', 400)
   }
@@ -451,21 +510,7 @@ export async function submitKycFace(
     reviewedAt: faceVerified ? now : undefined,
   }
 
-  // 通过的那一刻再查一次证件防重，并用锁串行化同证件的并发提交，消除「先后通过」竞态
-  if (faceVerified && existing.extractedIdNo) {
-    const lockKey = idLockKey(existing.extractedIdNo)
-    const locked = await redis.set(lockKey, userId, 'EX', 30, 'NX')
-    if (!locked) throw new KycError('该证件正在被其他账号验证，请稍后再试', 409)
-    try {
-      const owner = await findKycByExtractedIdNo(redis, existing.extractedIdNo, userId)
-      if (owner) throw new KycError('该证件已被其他账号用于实名认证', 409)
-      await saveKyc(redis, submission)
-    } finally {
-      await redis.del(lockKey)
-    }
-  } else {
-    await saveKyc(redis, submission)
-  }
+  await saveApprovedWithIdGuard(redis, submission)
   return {
     faceVerified,
     status: submission.status,

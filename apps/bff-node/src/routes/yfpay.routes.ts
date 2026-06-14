@@ -158,7 +158,7 @@ router.post('/withdraw/yfpay/create', async (ctx) => {
   const redis = ctx.state.redis
 
   // KYC 硬闸门：未实名禁止提款
-  if (!(await isKycApproved(redis, userId))) {
+  if (!(await isKycApproved(redis, ctx.state.env, userId))) {
     fail(ctx, 403, '请先完成实名认证（KYC）', 403)
     return
   }

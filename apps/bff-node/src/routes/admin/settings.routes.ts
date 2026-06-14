@@ -1,6 +1,6 @@
 import Router from '@koa/router'
 import type { Redis } from 'ioredis'
-import { getOpPasswordHash, setOpPassword, getSmsTestMode, setSmsTestMode, writeAuditLog } from '../../services/admin-store.js'
+import { getOpPasswordHash, setOpPassword, getSmsTestMode, setSmsTestMode, getAdminSetting, setAdminSetting, writeAuditLog } from '../../services/admin-store.js'
 import { hashPassword, verifyPassword } from '../../services/admin-auth.service.js'
 import { fail, ok } from '../../utils/response.js'
 import { listSmsSendLogs } from '../../services/sms/send-log.js'
@@ -78,6 +78,42 @@ router.get('/sms/logs', async (ctx) => {
   const redis = ctx.state.redis as Redis
   const logs = await listSmsSendLogs(redis)
   ok(ctx, logs)
+})
+
+// ── KYC 证件/人脸验证开关 ─────────────────────────────────────────────────────
+
+router.get('/kyc', async (ctx) => {
+  const [doc, face] = await Promise.all([
+    getAdminSetting(ctx.state.env, 'kyc_require_document'),
+    getAdminSetting(ctx.state.env, 'kyc_require_face'),
+  ])
+  const requireDocument = doc !== '0'
+  ok(ctx, { requireDocument, requireFace: requireDocument && face !== '0' })
+})
+
+router.put('/kyc', async (ctx) => {
+  if (ctx.state.adminRole !== 'super_admin') {
+    fail(ctx, 403, 'Only super_admin can manage KYC verification settings'); return
+  }
+  const body = ctx.request.body as { requireDocument?: unknown; requireFace?: unknown }
+  if (typeof body.requireDocument !== 'boolean' || typeof body.requireFace !== 'boolean') {
+    fail(ctx, 400, 'requireDocument and requireFace must be booleans'); return
+  }
+  // 人脸验证需证件照比对，证件关闭时人脸强制关闭
+  const requireDocument = body.requireDocument
+  const requireFace = requireDocument && body.requireFace
+  await setAdminSetting(ctx.state.env, 'kyc_require_document', requireDocument ? '1' : '0')
+  await setAdminSetting(ctx.state.env, 'kyc_require_face', requireFace ? '1' : '0')
+  await writeAuditLog(ctx.state.env, {
+    adminId: ctx.state.adminId!,
+    adminUsername: ctx.state.adminUsername!,
+    action: 'kyc_steps_update',
+    targetType: 'settings',
+    targetId: 'kyc_steps',
+    detail: { requireDocument, requireFace },
+    ip: ctx.ip,
+  })
+  ok(ctx, { requireDocument, requireFace })
 })
 
 // ── 汇率管理 ──────────────────────────────────────────────────────────────────

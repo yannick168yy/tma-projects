@@ -15,6 +15,8 @@ export interface KycStatus {
   rejectReason: string | null
   rejectStep: KycRejectStep | null
   registeredPhone: string | null
+  requireDocument: boolean
+  requireFace: boolean
 }
 
 export function fetchKycStatus(): Promise<KycStatus> {
@@ -25,7 +27,7 @@ export function sendKycOtp(phone: string): Promise<{ phone: string; resendInSec:
   return apiRequest('/kyc/phone/send-otp', { method: 'POST', body: JSON.stringify({ phone }) })
 }
 
-export function verifyKycOtp(code: string): Promise<{ phoneVerified: true }> {
+export function verifyKycOtp(code: string): Promise<{ phoneVerified: true; status: KycStatusValue }> {
   return apiRequest('/kyc/phone/verify', { method: 'POST', body: JSON.stringify({ code }) })
 }
 

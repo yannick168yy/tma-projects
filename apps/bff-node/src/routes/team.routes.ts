@@ -224,7 +224,7 @@ router.post('/withdraw', async (ctx) => {
     fail(ctx, 400, `最低提现 ₱${(Number(cfg?.min_withdrawal_cents ?? 5000) / 100).toFixed(0)}`); return
   }
 
-  if (!(await isKycApproved(ctx.state.redis, userId))) {
+  if (!(await isKycApproved(ctx.state.redis, ctx.state.env, userId))) {
     fail(ctx, 403, '请先完成实名认证（KYC）', 403)
     return
   }

@@ -152,6 +152,10 @@ export const getKycDetail = (userId: string) =>
 export const reviewKyc = (userId: string, decision: 'approve' | 'reject', note?: string) =>
   post<{ status: string }>(`/admin/kyc/${userId}/${decision}`, { note })
 
+export interface KycStepSettings { requireDocument: boolean; requireFace: boolean }
+export const getKycSettings = () => get<KycStepSettings>('/admin/settings/kyc')
+export const setKycSettings = (s: KycStepSettings) => put<KycStepSettings>('/admin/settings/kyc', s)
+
 export async function fetchKycImageBlob(userId: string, key: string): Promise<string> {
   const resp = await http.get(`/admin/kyc/${userId}/images/${encodeURIComponent(key)}`, { responseType: 'blob' })
   return URL.createObjectURL(resp.data as Blob)

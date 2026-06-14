@@ -3,6 +3,7 @@ import { getKyc, getUser } from '../services/store.js'
 import {
   KycError,
   buildKycStatusResponse,
+  getKycStepConfig,
   sendKycOtp,
   submitKyc,
   submitKycDocument,
@@ -27,7 +28,13 @@ router.get('/status', async (ctx) => {
   const kyc = await getKyc(ctx.state.redis, ctx.state.userId!)
   const user = await getUser(ctx.state.redis, ctx.state.userId!)
   const registeredPhone = user?.phoneAccount ? normalizePhonePH(user.phoneAccount) : null
-  ok(ctx, { ...buildKycStatusResponse(kyc), registeredPhone })
+  const cfg = await getKycStepConfig(ctx.state.env)
+  ok(ctx, {
+    ...buildKycStatusResponse(kyc),
+    registeredPhone,
+    requireDocument: cfg.requireDocument,
+    requireFace: cfg.requireFace,
+  })
 })
 
 router.post('/phone/send-otp', async (ctx) => {
@@ -51,7 +58,7 @@ router.post('/phone/verify', async (ctx) => {
     return
   }
   try {
-    const result = await verifyKycOtp(ctx.state.redis, ctx.state.userId!, body.code)
+    const result = await verifyKycOtp(ctx.state.redis, ctx.state.env, ctx.state.userId!, body.code)
     ok(ctx, result)
   } catch (e) {
     if (!handleKycError(ctx, e)) throw e
