@@ -1,5 +1,5 @@
 import { randomInt } from 'node:crypto'
-import { GoogleGenerativeAI } from '@google/generative-ai'
+import { GoogleGenerativeAI, GoogleGenerativeAIFetchError } from '@google/generative-ai'
 import type { Redis } from 'ioredis'
 import type { Env } from '../config/env.js'
 import type { KycSubmission, LivenessAction, LivenessFrameMeta } from '../types/domain.js'
@@ -18,7 +18,15 @@ import {
   saveKyc,
 } from './store/index.js'
 
-const MODEL = 'gemini-2.5-flash'
+/** lite 探路 → 2.5 主力 → 1.5 兜底；lite 失败不等待，直接切下一模型 */
+const GEMINI_MODEL_CHAIN = [
+  { model: 'gemini-2.5-flash-lite', maxAttempts: 1 },
+  { model: 'gemini-2.5-flash', maxAttempts: 3 },
+  { model: 'gemini-1.5-flash', maxAttempts: 3 },
+] as const
+const GEMINI_PRIMARY_MODEL = GEMINI_MODEL_CHAIN[0].model
+const GEMINI_RETRY_DELAY_CAP_MS = 60_000
+const GEMINI_RETRY_DELAY_FALLBACK_MS = 5_000
 const OTP_TTL_SEC = 300
 const RESEND_INTERVAL_SEC = 60
 const MAX_VERIFY_ATTEMPTS = 5
@@ -291,11 +299,113 @@ function stripBase64(input: string): { data: string; mimeType: string } {
   return { mimeType: 'image/jpeg', data: input }
 }
 
-async function runGeminiDocument(env: Env, fullName: string, idImage: string): Promise<GeminiDocVerdict> {
-  if (!env.GEMINI_API_KEY) throw new KycError('KYC verification is not configured', 503)
-  const ai = new GoogleGenerativeAI(env.GEMINI_API_KEY)
-  const model = ai.getGenerativeModel({ model: MODEL })
+type GeminiPart = { text: string } | { inlineData: { mimeType: string; data: string } }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+function isGeminiRetryableError(err: unknown): boolean {
+  if (err instanceof GoogleGenerativeAIFetchError) {
+    const status = err.status
+    if (status === 429 || status === 500 || status === 502 || status === 503 || status === 504) return true
+  }
+  const msg = err instanceof Error ? err.message : String(err)
+  return /\b(429|500|502|503|504)\b|high demand|overloaded|unavailable|rate limit|resource exhausted/i.test(msg)
+}
+
+function parseDurationToMs(raw: string): number | null {
+  const s = raw.trim()
+  const msMatch = s.match(/^(\d+(?:\.\d+)?)ms$/i)
+  if (msMatch) return Math.ceil(Number(msMatch[1]))
+  const secMatch = s.match(/^(\d+(?:\.\d+)?)s$/i)
+  if (secMatch) return Math.ceil(Number(secMatch[1]) * 1000)
+  return null
+}
+
+function parseRetryInfoDelayMs(details: Array<Record<string, unknown>>): number | null {
+  for (const detail of details) {
+    const type = typeof detail['@type'] === 'string' ? detail['@type'] : ''
+    if (!type.includes('RetryInfo')) continue
+    const retryDelay = detail.retryDelay
+    if (typeof retryDelay === 'string') {
+      const ms = parseDurationToMs(retryDelay)
+      if (ms != null) return ms
+    }
+  }
+  return null
+}
+
+/** 优先用 Google RetryInfo.retryDelay；无则短保底等待 */
+function resolveGeminiRetryDelayMs(err: unknown): number {
+  if (err instanceof GoogleGenerativeAIFetchError && err.errorDetails?.length) {
+    const fromDetails = parseRetryInfoDelayMs(err.errorDetails as Array<Record<string, unknown>>)
+    if (fromDetails != null) return Math.min(fromDetails, GEMINI_RETRY_DELAY_CAP_MS)
+  }
+
+  const msg = err instanceof Error ? err.message : String(err)
+  const inlineRetry = msg.match(/"retryDelay"\s*:\s*"([^"]+)"/i)
+  if (inlineRetry) {
+    const ms = parseDurationToMs(inlineRetry[1])
+    if (ms != null) return Math.min(ms, GEMINI_RETRY_DELAY_CAP_MS)
+  }
+
+  return GEMINI_RETRY_DELAY_FALLBACK_MS
+}
+
+/** lite 单次失败即切模型；2.5/1.5 按 Google RetryInfo 等待后重试 */
+async function generateGeminiContent(
+  env: Env,
+  parts: GeminiPart[],
+  parseFailMessage: string,
+): Promise<string> {
+  if (!env.GEMINI_API_KEY) throw new KycError('KYC verification is not configured', 503)
+
+  const ai = new GoogleGenerativeAI(env.GEMINI_API_KEY)
+  let lastErr: unknown
+
+  for (let chainIdx = 0; chainIdx < GEMINI_MODEL_CHAIN.length; chainIdx++) {
+    const { model: modelName, maxAttempts } = GEMINI_MODEL_CHAIN[chainIdx]
+    const skipRetry = chainIdx === 0
+    const model = ai.getGenerativeModel({ model: modelName })
+
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      try {
+        const result = await model.generateContent(parts)
+        const text = result.response.text().trim()
+        if (attempt > 0 || modelName !== GEMINI_PRIMARY_MODEL) {
+          console.warn(`[kyc] gemini ok model=${modelName} attempt=${attempt + 1}`)
+        }
+        return text
+      } catch (err) {
+        lastErr = err
+        if (!isGeminiRetryableError(err)) {
+          console.error('[kyc] gemini non-retryable:', err)
+          throw new KycError(parseFailMessage, 502)
+        }
+
+        const hasMoreRetries = !skipRetry && attempt < maxAttempts - 1
+        const delayMs = resolveGeminiRetryDelayMs(err)
+        const action = hasMoreRetries ? 'retry' : 'fallback'
+        console.warn(
+          `[kyc] gemini ${action} model=${modelName} attempt=${attempt + 1}${hasMoreRetries ? ` wait=${delayMs}ms` : ''}:`,
+          err instanceof Error ? err.message : err,
+        )
+
+        if (hasMoreRetries) {
+          await sleep(delayMs)
+          continue
+        }
+        break
+      }
+    }
+  }
+
+  console.error('[kyc] gemini all models failed:', lastErr)
+  throw new KycError('认证服务繁忙，请稍后重试', 503)
+}
+
+async function runGeminiDocument(env: Env, fullName: string, idImage: string): Promise<GeminiDocVerdict> {
   const prompt = `You are a KYC document verification system. Analyze the provided ID document image only.
 
 Accepted document types: passport, drivers_license, philid (Philippine National ID), umid.
@@ -314,11 +424,14 @@ Return ONLY a valid JSON object (no markdown) with exactly these keys:
 }`
 
   const idImg = stripBase64(idImage)
-  const result = await model.generateContent([
-    { text: prompt },
-    { inlineData: { mimeType: idImg.mimeType, data: idImg.data } },
-  ])
-  const text = result.response.text().trim()
+  const text = await generateGeminiContent(
+    env,
+    [
+      { text: prompt },
+      { inlineData: { mimeType: idImg.mimeType, data: idImg.data } },
+    ],
+    '证件识别失败，请重试',
+  )
   const jsonMatch = text.match(/\{[\s\S]*\}/)
   if (!jsonMatch) throw new KycError('证件识别失败，请重试', 502)
   return JSON.parse(jsonMatch[0]) as GeminiDocVerdict
@@ -329,10 +442,6 @@ async function runGeminiFace(
   idImageBase64: string,
   frames: Array<{ action: LivenessAction; image: string }>,
 ): Promise<GeminiFaceVerdict> {
-  if (!env.GEMINI_API_KEY) throw new KycError('KYC verification is not configured', 503)
-  const ai = new GoogleGenerativeAI(env.GEMINI_API_KEY)
-  const model = ai.getGenerativeModel({ model: MODEL })
-
   const prompt = `You are a KYC liveness and face-matching system. You receive:
 1. An ID document photo (reference face on the document)
 2. Three live camera frames from the same person: neutral (look straight), blink (eyes closed/blinking), mouth (mouth open)
@@ -367,8 +476,7 @@ faceMatchWithId is 0..1 similarity between live face and ID photo face.`
     parts.push({ inlineData: { mimeType: img.mimeType, data: img.data } })
   }
 
-  const result = await model.generateContent(parts)
-  const text = result.response.text().trim()
+  const text = await generateGeminiContent(env, parts, '人脸识别失败，请重试')
   const jsonMatch = text.match(/\{[\s\S]*\}/)
   if (!jsonMatch) throw new KycError('人脸识别失败，请重试', 502)
   return JSON.parse(jsonMatch[0]) as GeminiFaceVerdict
