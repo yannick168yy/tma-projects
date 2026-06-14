@@ -1,6 +1,7 @@
 import Router from '@koa/router'
 import type { RowDataPacket, ResultSetHeader } from 'mysql2/promise'
 import { getMysqlPool } from '../clients/mysql.client.js'
+import { isKycApproved } from '../services/kyc.service.js'
 import { ok, fail } from '../utils/response.js'
 import { nowMysql } from '../utils/format.js'
 import { fetchMonthTurnoverBreakdown, sumBreakdownCents } from '../utils/team-turnover.js'
@@ -221,6 +222,11 @@ router.post('/withdraw', async (ctx) => {
   )
   if (amountCents < Number(cfg?.min_withdrawal_cents ?? 5000)) {
     fail(ctx, 400, `最低提现 ₱${(Number(cfg?.min_withdrawal_cents ?? 5000) / 100).toFixed(0)}`); return
+  }
+
+  if (!(await isKycApproved(ctx.state.redis, userId))) {
+    fail(ctx, 403, '请先完成实名认证（KYC）', 403)
+    return
   }
 
   let withdrawalId: number | null = null

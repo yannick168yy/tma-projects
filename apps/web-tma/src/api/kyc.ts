@@ -1,12 +1,19 @@
 import { apiRequest } from '@/api/client'
 
 export type KycStatusValue = 'none' | 'pending' | 'approved' | 'rejected'
+export type KycRejectStep = 'phone' | 'document' | 'face'
+export type LivenessAction = 'neutral' | 'blink' | 'mouth'
 
 export interface KycStatus {
   status: KycStatusValue
   phoneVerified: boolean
+  docVerified: boolean
+  faceVerified: boolean
   phone: string | null
+  fullName: string | null
+  docType: string | null
   rejectReason: string | null
+  rejectStep: KycRejectStep | null
 }
 
 export function fetchKycStatus(): Promise<KycStatus> {
@@ -21,12 +28,19 @@ export function verifyKycOtp(code: string): Promise<{ phoneVerified: true }> {
   return apiRequest('/kyc/phone/verify', { method: 'POST', body: JSON.stringify({ code }) })
 }
 
-export function submitKyc(input: {
+export function submitKycDocument(input: {
   fullName: string
   docType: string
-  verifyMode: 'document' | 'face'
   idImage: string
-  selfieImage?: string
-}): Promise<{ status: KycStatusValue; rejectReason?: string }> {
-  return apiRequest('/kyc/submissions', { method: 'POST', body: JSON.stringify(input) })
+}): Promise<{ docVerified: boolean; status: KycStatusValue; rejectReason?: string; rejectStep?: string }> {
+  return apiRequest('/kyc/document', { method: 'POST', body: JSON.stringify(input) })
+}
+
+export function submitKycFace(frames: Array<{ action: LivenessAction; image: string }>): Promise<{
+  faceVerified: boolean
+  status: KycStatusValue
+  rejectReason?: string
+  rejectStep?: string
+}> {
+  return apiRequest('/kyc/face', { method: 'POST', body: JSON.stringify({ frames }) })
 }

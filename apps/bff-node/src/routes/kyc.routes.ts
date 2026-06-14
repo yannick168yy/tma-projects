@@ -1,6 +1,15 @@
 import Router from '@koa/router'
 import { getKyc } from '../services/store.js'
-import { KycError, sendKycOtp, submitKyc, verifyKycOtp } from '../services/kyc.service.js'
+import {
+  KycError,
+  buildKycStatusResponse,
+  sendKycOtp,
+  submitKyc,
+  submitKycDocument,
+  submitKycFace,
+  verifyKycOtp,
+} from '../services/kyc.service.js'
+import type { LivenessAction } from '../types/domain.js'
 import { fail, ok } from '../utils/response.js'
 
 const router = new Router({ prefix: '/kyc' })
@@ -15,12 +24,7 @@ function handleKycError(ctx: import('koa').Context, e: unknown): boolean {
 
 router.get('/status', async (ctx) => {
   const kyc = await getKyc(ctx.state.redis, ctx.state.userId!)
-  ok(ctx, {
-    status: kyc?.status ?? 'none',
-    phoneVerified: kyc?.phoneVerified ?? false,
-    phone: kyc?.phone ?? null,
-    rejectReason: kyc?.rejectReason ?? null,
-  })
+  ok(ctx, buildKycStatusResponse(kyc))
 })
 
 router.post('/phone/send-otp', async (ctx) => {
@@ -45,6 +49,46 @@ router.post('/phone/verify', async (ctx) => {
   }
   try {
     const result = await verifyKycOtp(ctx.state.redis, ctx.state.userId!, body.code)
+    ok(ctx, result)
+  } catch (e) {
+    if (!handleKycError(ctx, e)) throw e
+  }
+})
+
+router.post('/document', async (ctx) => {
+  const body = ctx.request.body as { fullName?: string; docType?: string; idImage?: string }
+  if (!body.fullName || !body.idImage) {
+    fail(ctx, 400, 'fullName and idImage are required')
+    return
+  }
+  try {
+    const result = await submitKycDocument(ctx.state.redis, ctx.state.env, ctx.state.userId!, {
+      fullName: body.fullName,
+      docType: body.docType ?? 'unknown',
+      idImage: body.idImage,
+    })
+    ok(ctx, result)
+  } catch (e) {
+    if (!handleKycError(ctx, e)) throw e
+  }
+})
+
+router.post('/face', async (ctx) => {
+  const body = ctx.request.body as { frames?: Array<{ action?: string; image?: string }> }
+  if (!body.frames?.length) {
+    fail(ctx, 400, 'frames is required')
+    return
+  }
+  const frames = body.frames
+    .filter((f): f is { action: LivenessAction; image: string } =>
+      Boolean(f.action && f.image && ['neutral', 'blink', 'mouth'].includes(f.action)),
+    )
+  if (frames.length < 3) {
+    fail(ctx, 400, '需要 neutral、blink、mouth 三帧')
+    return
+  }
+  try {
+    const result = await submitKycFace(ctx.state.redis, ctx.state.env, ctx.state.userId!, frames)
     ok(ctx, result)
   } catch (e) {
     if (!handleKycError(ctx, e)) throw e
@@ -84,14 +128,11 @@ router.get('/submissions/latest', async (ctx) => {
     return
   }
   ok(ctx, {
-    status: kyc.status,
-    fullName: kyc.fullName,
-    docType: kyc.docType ?? null,
+    ...buildKycStatusResponse(kyc),
     verifyMode: kyc.verifyMode ?? null,
-    phone: kyc.phone ?? null,
-    phoneVerified: kyc.phoneVerified ?? false,
-    rejectReason: kyc.rejectReason ?? null,
     submittedAt: kyc.submittedAt || null,
+    docSubmittedAt: kyc.docSubmittedAt ?? null,
+    faceSubmittedAt: kyc.faceSubmittedAt ?? null,
   })
 })
 

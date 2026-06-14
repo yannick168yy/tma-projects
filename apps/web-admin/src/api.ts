@@ -83,6 +83,7 @@ export const getUserDetail = (id: string) =>
     ledger: LedgerEntry[]
     loginLogs: LoginLog[]
     betOrders: BetOrder[]
+    kyc: AdminKycSummary | null
   }>(`/admin/users/${id}`)
 export const updateUserStatus = (id: string, status: string, reason?: string) =>
   patch<{ status: string }>(`/admin/users/${id}/status`, { status, reason })
@@ -96,6 +97,61 @@ export type SupportedCurrency = typeof SUPPORTED_CURRENCIES[number]
 
 export const adjustBalance = (id: string, amount: number, opPassword: string, currency: string, note?: string) =>
   post<{ available: number; orderId: string }>(`/admin/users/${id}/adjust-balance`, { amount, opPassword, currency, note })
+
+// KYC
+export interface AdminKycSummary {
+  status: string
+  phoneVerified: boolean
+  docVerified: boolean
+  faceVerified: boolean
+  phone: string | null
+  fullName: string | null
+  docType: string | null
+  rejectReason: string | null
+  rejectStep: string | null
+  extractedIdNo: string | null
+  docSubmittedAt: string | null
+  faceSubmittedAt: string | null
+  reviewedAt: string | null
+}
+
+export interface AdminKycListItem {
+  userId: string
+  displayName: string | null
+  status: string
+  phone: string | null
+  fullName: string | null
+  docType: string | null
+  phoneVerified: boolean
+  docVerified: boolean
+  faceVerified: boolean
+  submittedAt: string | null
+  docSubmittedAt: string | null
+  faceSubmittedAt: string | null
+  reviewedAt: string | null
+}
+
+export interface AdminKycDetail {
+  user: { id: string; displayName: string | null; status: string } | null
+  kyc: AdminKycSummary & {
+    geminiConfidence: number | null
+    geminiResult: Record<string, unknown> | null
+    docImageKey: string | null
+    livenessFrames: { action: string; key: string; capturedAt: string }[] | null
+    submittedAt: string | null
+  }
+}
+
+export const getKycList = (params: { page?: number; pageSize?: number; status?: string }) =>
+  get<{ total: number; page: number; pageSize: number; items: AdminKycListItem[] }>('/admin/kyc', params)
+
+export const getKycDetail = (userId: string) =>
+  get<AdminKycDetail>(`/admin/kyc/${userId}`)
+
+export async function fetchKycImageBlob(userId: string, key: string): Promise<string> {
+  const resp = await http.get(`/admin/kyc/${userId}/images/${encodeURIComponent(key)}`, { responseType: 'blob' })
+  return URL.createObjectURL(resp.data as Blob)
+}
 
 export interface TurnoverRequirement {
   id: number; sourceType: string; sourceRef: string

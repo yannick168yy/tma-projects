@@ -13,8 +13,8 @@ import { openTelegramInvoice, waitForDepositPaid } from '@/utils/tgInvoice'
 import { fetchYfPayChannels, createYfDeposit, queryYfDeposit, fetchYfDepositOrders, fetchYfWithdrawOrders, fetchDepositHistory, fetchWithdrawHistory, createYfWithdrawal, type YfPayChannel } from '@/api/yfpay'
 import { fetchTurnoverProgress, type TurnoverProgress } from '@/api/wallet'
 import { fetchMatrixDepositAddress, createMatrixWithdrawal } from '@/api/matrix'
-import { fetchKycStatus } from '@/api/kyc'
 import KycModal from '@/components/wallet/KycModal'
+import { useKycGate } from '@/hooks/useKycGate'
 import { CRYPTO_DEPOSIT, CRYPTO_WITHDRAW, FIAT_DEPOSIT, FIAT_WITHDRAW, TG_WALLET_DEPOSIT, WALLET_BANNERS, type PayMethod } from '@/data/wallet'
 import { useBottomSheetDrag } from '@/hooks/useBottomSheetDrag'
 
@@ -77,8 +77,7 @@ export default function WalletModal({ open, onClose }: Props) {
   const [withdrawLoading, setWithdrawLoading] = useState(false)
   const [withdrawMessage, setWithdrawMessage] = useState('')
   const [withdrawSuccess, setWithdrawSuccess] = useState(false)
-  const [kycApproved, setKycApproved] = useState<boolean|null>(null)
-  const [kycOpen, setKycOpen] = useState(false)
+  const { kycApproved, kycOpen, setKycOpen, onKycClose, onKycApproved } = useKycGate(open && tab === 'withdraw')
   const [historyOrders, setHistoryOrders] = useState<HistoryItem[]>([])
   const [historyLoading, setHistoryLoading] = useState(false)
   const [copiedId, setCopiedId] = useState<string|null>(null)
@@ -122,11 +121,6 @@ export default function WalletModal({ open, onClose }: Props) {
   }, [open])
 
   useEffect(() => { if(tab==='history')void loadHistory() }, [tab])
-
-  useEffect(() => {
-    if (!open || tab !== 'withdraw') return
-    fetchKycStatus().then((s) => setKycApproved(s.status === 'approved')).catch(() => setKycApproved(null))
-  }, [open, tab])
 
   useEffect(() => {
     if (tab !== 'withdraw' || !selectedMethod) return
@@ -579,7 +573,7 @@ export default function WalletModal({ open, onClose }: Props) {
           </div>
         )}
       </div>
-      <KycModal open={kycOpen} onClose={()=>{setKycOpen(false);fetchKycStatus().then((s)=>setKycApproved(s.status==='approved')).catch(()=>{})}} onApproved={()=>setKycApproved(true)} />
+      <KycModal open={kycOpen} onClose={onKycClose} onApproved={onKycApproved} />
     </>,
     document.body,
   )

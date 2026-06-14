@@ -16,6 +16,7 @@ const { Sider, Header, Content } = Layout
 const menuItems = [
   { key: '/dashboard', icon: <DashboardOutlined />, label: '数据概览' },
   { key: '/users', icon: <TeamOutlined />, label: '用户管理' },
+  { key: '/kyc', icon: <SafetyCertificateOutlined />, label: '实名认证' },
   {
     key: 'finance',
     icon: <TransactionOutlined />,

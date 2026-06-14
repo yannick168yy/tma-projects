@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ChevronLeft, Copy, Share2, Link2, Wallet, TrendingUp, CheckCircle2, Clock, XCircle, ChevronRight, GitBranch, List, CircleHelp, X } from 'lucide-react'
+import { ChevronLeft, Copy, Share2, Link2, Wallet, TrendingUp, CheckCircle2, Clock, XCircle, ChevronRight, GitBranch, List, CircleHelp, X, ShieldCheck } from 'lucide-react'
+import KycModal from '@/components/wallet/KycModal'
+import { useKycGate } from '@/hooks/useKycGate'
 import { fetchTeamTree, type TeamTreeNode, type CurrencyBreakdownItem } from '@/api/promotion'
 import { buildInviteDeepLink, buildInviteWebLink } from '@/constants/telegram'
 import { useAuthStore } from '@/stores/auth'
@@ -129,6 +131,7 @@ export default function TeamCenterPage({ onClose }: { onClose?: () => void }) {
   const [withdrawInput, setWithdrawInput] = useState('')
   const [withdrawing, setWithdrawing] = useState(false)
   const [withdrawError, setWithdrawError] = useState('')
+  const { kycApproved, kycOpen, setKycOpen, onKycClose, onKycApproved } = useKycGate(activeTab === 'withdraw')
 
   // 树形视图状态
   const [treeView, setTreeView] = useState(true)
@@ -488,12 +491,23 @@ export default function TeamCenterPage({ onClose }: { onClose?: () => void }) {
                   <p className="text-muted-foreground text-[10px] mt-1.5">{t('team.withdrawHint')}</p>
                 </div>
               )}
-              <button type="button"
-                className={`w-full py-3 rounded-xl font-black text-sm transition-opacity ${(withdrawing || (teamWallet?.availableCents ?? 0) < 0) ? 'bg-amber-500/50 text-black/50' : 'bg-amber-500 text-black'}`}
-                disabled={withdrawing || (teamWallet?.availableCents ?? 0) < 0}
-                onClick={() => void submitWithdraw()}>
-                {withdrawing ? t('team.withdrawing') : t('team.withdrawSubmit')}
-              </button>
+              {kycApproved === false ? (
+                <button
+                  type="button"
+                  className="w-full py-3 rounded-xl font-black text-sm flex items-center justify-center gap-2 bg-amber-500 text-black"
+                  onClick={() => setKycOpen(true)}
+                >
+                  <ShieldCheck size={16} />
+                  {t('kyc.required')}
+                </button>
+              ) : (
+                <button type="button"
+                  className={`w-full py-3 rounded-xl font-black text-sm transition-opacity ${(withdrawing || (teamWallet?.availableCents ?? 0) < 0) ? 'bg-amber-500/50 text-black/50' : 'bg-amber-500 text-black'}`}
+                  disabled={withdrawing || (teamWallet?.availableCents ?? 0) < 0}
+                  onClick={() => void submitWithdraw()}>
+                  {withdrawing ? t('team.withdrawing') : t('team.withdrawSubmit')}
+                </button>
+              )}
             </div>
 
             {/* 提现记录 */}
@@ -564,6 +578,7 @@ export default function TeamCenterPage({ onClose }: { onClose?: () => void }) {
           </div>
         </div>
       )}
+      <KycModal open={kycOpen} onClose={onKycClose} onApproved={onKycApproved} />
     </div>
   )
 }

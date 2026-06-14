@@ -3,7 +3,15 @@ import { useTranslation } from 'react-i18next'
 import { createPortal } from 'react-dom'
 import { X, Check, Loader2, ShieldCheck, Upload } from 'lucide-react'
 import { ApiError } from '@/api/client'
-import { fetchKycStatus, sendKycOtp, submitKyc, verifyKycOtp } from '@/api/kyc'
+import {
+  fetchKycStatus,
+  sendKycOtp,
+  submitKycDocument,
+  submitKycFace,
+  verifyKycOtp,
+} from '@/api/kyc'
+import type { LivenessAction } from '@/api/kyc'
+import FaceLivenessCapture from '@/components/wallet/FaceLivenessCapture'
 
 interface Props {
   open: boolean
@@ -11,7 +19,6 @@ interface Props {
   onApproved?: () => void
 }
 
-/** 压缩图片到最大边 1280，JPEG 0.82，返回 dataURL，避免 base64 过大 */
 function compressImage(file: File, maxDim = 1280, quality = 0.82): Promise<string> {
   return new Promise((resolve, reject) => {
     const img = new Image()
@@ -32,33 +39,41 @@ function compressImage(file: File, maxDim = 1280, quality = 0.82): Promise<strin
 }
 
 const DOC_TYPES = ['passport', 'drivers_license', 'philid', 'umid'] as const
+type Step = 'phone' | 'document' | 'face' | 'done'
+
+function resolveStep(s: Awaited<ReturnType<typeof fetchKycStatus>>): Step {
+  if (s.status === 'approved') return 'done'
+  if (s.status === 'rejected' && s.rejectStep === 'face' && s.docVerified) return 'face'
+  if (s.docVerified) return 'face'
+  if (s.phoneVerified) return 'document'
+  return 'phone'
+}
 
 export default function KycModal({ open, onClose, onApproved }: Props) {
   const { t } = useTranslation()
-  const [step, setStep] = useState<'phone' | 'document' | 'done'>('phone')
+  const [step, setStep] = useState<Step>('phone')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // phone step
   const [phone, setPhone] = useState('')
   const [code, setCode] = useState('')
   const [resendIn, setResendIn] = useState(0)
 
-  // document step
   const [fullName, setFullName] = useState('')
   const [docType, setDocType] = useState<(typeof DOC_TYPES)[number]>('philid')
-  const [verifyMode, setVerifyMode] = useState<'document' | 'face'>('document')
   const [idImage, setIdImage] = useState<string | null>(null)
-  const [selfieImage, setSelfieImage] = useState<string | null>(null)
   const idInputRef = useRef<HTMLInputElement>(null)
-  const selfieInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (!open) return
     setError(null)
     void fetchKycStatus().then((s) => {
-      setStep(s.phoneVerified ? 'document' : 'phone')
+      setStep(resolveStep(s))
       if (s.phone) setPhone(s.phone)
+      if (s.fullName) setFullName(s.fullName)
+      if (s.docType && DOC_TYPES.includes(s.docType as typeof docType)) {
+        setDocType(s.docType as typeof docType)
+      }
     }).catch(() => {})
   }, [open])
 
@@ -90,31 +105,42 @@ export default function KycModal({ open, onClose, onApproved }: Props) {
     } finally { setLoading(false) }
   }
 
-  async function onPickImage(file: File | undefined, target: 'id' | 'selfie') {
+  async function onPickImage(file: File | undefined) {
     if (!file) return
     try {
       const dataUrl = await compressImage(file)
-      if (target === 'id') setIdImage(dataUrl)
-      else setSelfieImage(dataUrl)
+      setIdImage(dataUrl)
     } catch {
       setError(t('kyc.rejected'))
     }
   }
 
   async function onSubmitDoc() {
-    if (!fullName.trim() || !idImage || (verifyMode === 'face' && !selfieImage)) {
+    if (!fullName.trim() || !idImage) {
       setError(t('kyc.fillAll')); return
     }
     setLoading(true); setError(null)
     try {
-      const res = await submitKyc({
+      const res = await submitKycDocument({
         fullName: fullName.trim(),
         docType,
-        verifyMode,
         idImage,
-        selfieImage: verifyMode === 'face' ? selfieImage! : undefined,
       })
-      if (res.status === 'approved') {
+      if (res.docVerified) {
+        setStep('face')
+      } else {
+        setError(res.rejectReason || t('kyc.rejected'))
+      }
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : t('kyc.rejected'))
+    } finally { setLoading(false) }
+  }
+
+  async function onSubmitFace(frames: Array<{ action: LivenessAction; image: string }>) {
+    setLoading(true); setError(null)
+    try {
+      const res = await submitKycFace(frames)
+      if (res.faceVerified) {
         setStep('done')
         onApproved?.()
       } else {
@@ -143,11 +169,18 @@ export default function KycModal({ open, onClose, onApproved }: Props) {
         </div>
         <p className="mb-5 text-xs text-muted-foreground">{t('kyc.subtitle')}</p>
 
-        {/* 步骤指示 */}
-        <div className="mb-5 flex items-center gap-2 text-[11px] font-bold">
-          <span className={step === 'phone' ? 'text-primary' : 'text-emerald-400'}>① {t('kyc.stepPhone')}</span>
-          <span className="h-px flex-1 bg-border" />
-          <span className={step === 'document' ? 'text-primary' : step === 'done' ? 'text-emerald-400' : 'text-muted-foreground'}>② {t('kyc.stepDocument')}</span>
+        <div className="mb-5 flex items-center gap-1 text-[10px] font-bold">
+          <span className={step === 'phone' ? 'text-primary' : ['document', 'face', 'done'].includes(step) ? 'text-emerald-400' : 'text-muted-foreground'}>
+            ① {t('kyc.stepPhone')}
+          </span>
+          <span className="h-px w-2 bg-border" />
+          <span className={step === 'document' ? 'text-primary' : ['face', 'done'].includes(step) ? 'text-emerald-400' : 'text-muted-foreground'}>
+            ② {t('kyc.stepDocument')}
+          </span>
+          <span className="h-px w-2 bg-border" />
+          <span className={step === 'face' ? 'text-primary' : step === 'done' ? 'text-emerald-400' : 'text-muted-foreground'}>
+            ③ {t('kyc.stepFace')}
+          </span>
         </div>
 
         {step === 'phone' && (
@@ -173,35 +206,21 @@ export default function KycModal({ open, onClose, onApproved }: Props) {
               <option value="umid">{t('kyc.docUmid')}</option>
             </select>
 
-            <div className="grid grid-cols-2 gap-1 rounded-xl bg-secondary p-1">
-              {(['document', 'face'] as const).map((m) => (
-                <button key={m} type="button" className={`rounded-lg py-2 text-xs font-bold transition-colors ${verifyMode === m ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'}`} onClick={() => setVerifyMode(m)}>
-                  {m === 'document' ? t('kyc.modeDocument') : t('kyc.modeFace')}
-                </button>
-              ))}
-            </div>
-
-            <input ref={idInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => void onPickImage(e.target.files?.[0], 'id')} />
+            <input ref={idInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => void onPickImage(e.target.files?.[0])} />
             <button type="button" className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-secondary py-3 text-sm font-bold text-foreground" onClick={() => idInputRef.current?.click()}>
               {idImage ? <Check size={16} className="text-emerald-400" /> : <Upload size={16} />}
-              {idImage ? t('kyc.uploadId') + ' ✓' : t('kyc.uploadId')}
+              {idImage ? `${t('kyc.uploadId')} ✓` : t('kyc.uploadId')}
             </button>
             {idImage && <img src={idImage} alt="id" className="max-h-32 w-full rounded-xl object-contain" />}
-
-            {verifyMode === 'face' && (
-              <>
-                <input ref={selfieInputRef} type="file" accept="image/*" capture="user" className="hidden" onChange={(e) => void onPickImage(e.target.files?.[0], 'selfie')} />
-                <button type="button" className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-secondary py-3 text-sm font-bold text-foreground" onClick={() => selfieInputRef.current?.click()}>
-                  {selfieImage ? <Check size={16} className="text-emerald-400" /> : <Upload size={16} />}
-                  {selfieImage ? t('kyc.uploadSelfie') + ' ✓' : t('kyc.uploadSelfie')}
-                </button>
-              </>
-            )}
 
             <button type="button" className="w-full rounded-xl bg-primary py-3 text-sm font-bold text-primary-foreground disabled:opacity-50" disabled={loading} onClick={() => void onSubmitDoc()}>
               {loading ? <Loader2 size={16} className="mx-auto animate-spin" /> : t('kyc.submit')}
             </button>
           </div>
+        )}
+
+        {step === 'face' && (
+          <FaceLivenessCapture loading={loading} onComplete={(frames) => void onSubmitFace(frames)} />
         )}
 
         {step === 'done' && (

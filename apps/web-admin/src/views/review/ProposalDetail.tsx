@@ -119,7 +119,15 @@ export default function ProposalDetail() {
                 <Button type="link" size="small" style={{ padding: 0 }} onClick={() => navigate(`/users/${user.userId}`)}>{user.displayName || user.userId}</Button>
               </Descriptions.Item>
               <Descriptions.Item label="账号状态"><Tag color={user.status === 'active' ? 'green' : 'red'}>{user.status}</Tag></Descriptions.Item>
-              <Descriptions.Item label="KYC">{user.kycStatus ?? '未提交'}</Descriptions.Item>
+              <Descriptions.Item label="KYC">
+                {user.kycStatus ? (
+                  <Button type="link" size="small" style={{ padding: 0 }} onClick={() => navigate(`/kyc/${user.userId}`)}>
+                    <Tag color={user.kycStatus === 'approved' ? 'green' : user.kycStatus === 'rejected' ? 'red' : 'processing'}>
+                      {{ none: '未开始', pending: '进行中', approved: '已通过', rejected: '已拒绝' }[user.kycStatus] ?? user.kycStatus}
+                    </Tag>
+                  </Button>
+                ) : '未提交'}
+              </Descriptions.Item>
               <Descriptions.Item label="钱包可用">{toPhp(user.walletAvailable)}（冻结 {toPhp(user.walletFrozen)}）</Descriptions.Item>
               <Descriptions.Item label="注册时间">{user.registeredAt ? new Date(user.registeredAt).toLocaleString('zh-CN') : '—'}</Descriptions.Item>
               <Descriptions.Item label="上线">{user.inviterId ?? '无'}</Descriptions.Item>

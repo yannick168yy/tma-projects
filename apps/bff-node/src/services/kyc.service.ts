@@ -2,7 +2,7 @@ import { randomInt } from 'node:crypto'
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import type { Redis } from 'ioredis'
 import type { Env } from '../config/env.js'
-import type { KycSubmission } from '../types/domain.js'
+import type { KycSubmission, LivenessAction, LivenessFrameMeta } from '../types/domain.js'
 import { normalizePhonePH } from '../utils/phone.js'
 import { nowIso } from '../utils/format.js'
 import { getSmsProvider, isSmsTestModeEnabled } from './sms/index.js'
@@ -21,6 +21,7 @@ const OTP_TTL_SEC = 300
 const RESEND_INTERVAL_SEC = 60
 const MAX_VERIFY_ATTEMPTS = 5
 const ACCEPTED_DOC_TYPES = ['passport', 'drivers_license', 'philid', 'umid']
+const REQUIRED_LIVENESS_ACTIONS: LivenessAction[] = ['neutral', 'blink', 'mouth']
 
 export class KycError extends Error {
   status: number
@@ -35,6 +36,20 @@ export class KycError extends Error {
 export async function isKycApproved(redis: Redis, userId: string): Promise<boolean> {
   const kyc = await getKyc(redis, userId)
   return kyc?.status === 'approved'
+}
+
+export function buildKycStatusResponse(kyc: KycSubmission | null) {
+  return {
+    status: kyc?.status ?? 'none',
+    phoneVerified: kyc?.phoneVerified ?? false,
+    docVerified: kyc?.docVerified ?? false,
+    faceVerified: kyc?.faceVerified ?? false,
+    phone: kyc?.phone ?? null,
+    fullName: kyc?.fullName || null,
+    docType: kyc?.docType ?? null,
+    rejectReason: kyc?.rejectReason ?? null,
+    rejectStep: kyc?.rejectStep ?? null,
+  }
 }
 
 const otpKey = (userId: string) => `kyc:otp:${userId}`
@@ -55,7 +70,6 @@ export async function sendKycOtp(
   const phone = normalizePhonePH(phoneRaw)
   if (!phone) throw new KycError('Invalid phone number', 400)
 
-  // 全局互斥：该手机不能是他号的 KYC 手机，也不能是他号的手机登录号
   const otherOwner = await findKycByVerifiedPhone(redis, phone, userId)
   if (otherOwner) throw new KycError('该手机号已被其他账号使用', 409)
   const phoneAccountOwner = await getUserByPhoneAccount(redis, phone)
@@ -118,6 +132,8 @@ export async function verifyKycOtp(
     phone: state.phone,
     phoneVerified: true,
     status: existing?.status === 'approved' ? 'approved' : 'pending',
+    rejectReason: undefined,
+    rejectStep: undefined,
   })
   return { phoneVerified: true }
 }
@@ -134,14 +150,23 @@ function blankSubmission(userId: string): KycSubmission {
   }
 }
 
-interface GeminiVerdict {
+interface GeminiDocVerdict {
   isValidDocument: boolean
   docType: string
   fullName: string
   idNumber: string
   dob: string
   nameMatches: boolean
-  faceMatch: number | null
+  confidence: number
+  reasons: string[]
+}
+
+interface GeminiFaceVerdict {
+  isLivePerson: boolean
+  blinkDetected: boolean
+  mouthOpenDetected: boolean
+  samePersonAcrossFrames: boolean
+  faceMatchWithId: number
   confidence: number
   reasons: string[]
 }
@@ -152,49 +177,233 @@ function stripBase64(input: string): { data: string; mimeType: string } {
   return { mimeType: 'image/jpeg', data: input }
 }
 
-async function runGemini(
-  env: Env,
-  input: { fullName: string; verifyMode: 'document' | 'face'; idImage: string; selfieImage?: string },
-): Promise<GeminiVerdict> {
+async function runGeminiDocument(env: Env, fullName: string, idImage: string): Promise<GeminiDocVerdict> {
   if (!env.GEMINI_API_KEY) throw new KycError('KYC verification is not configured', 503)
   const ai = new GoogleGenerativeAI(env.GEMINI_API_KEY)
   const model = ai.getGenerativeModel({ model: MODEL })
 
-  const prompt = `You are a KYC document verification system for a gaming platform. Analyze the provided ID document image${input.verifyMode === 'face' ? ' and the selfie photo' : ''}.
+  const prompt = `You are a KYC document verification system. Analyze the provided ID document image only.
 
 Accepted document types: passport, drivers_license, philid (Philippine National ID), umid.
-The user claims their full name is: "${input.fullName}".
+The user claims their full name is: "${fullName}".
 
-Return ONLY a valid JSON object (no markdown, no commentary) with exactly these keys:
+Return ONLY a valid JSON object (no markdown) with exactly these keys:
 {
-  "isValidDocument": boolean,   // true if it is a genuine, unaltered, readable government ID (not a screenshot of a screen, not obviously edited)
-  "docType": string,            // one of the accepted types, or "unknown"
-  "fullName": string,           // full name printed on the document
-  "idNumber": string,           // the document/ID number
-  "dob": string,                // date of birth on the document, ISO if possible
-  "nameMatches": boolean,       // does the document name match the claimed name (allow ordering/diacritics differences)
-  "faceMatch": number,          // ${input.verifyMode === 'face' ? '0..1 similarity between the selfie face and the ID photo' : 'always null'}
-  "confidence": number,         // 0..1 overall confidence that this is an authentic document for the claimed person
-  "reasons": string[]           // short reasons supporting the decision
+  "isValidDocument": boolean,
+  "docType": string,
+  "fullName": string,
+  "idNumber": string,
+  "dob": string,
+  "nameMatches": boolean,
+  "confidence": number,
+  "reasons": string[]
 }`
 
-  const idImg = stripBase64(input.idImage)
-  const parts: Array<{ text: string } | { inlineData: { mimeType: string; data: string } }> = [
+  const idImg = stripBase64(idImage)
+  const result = await model.generateContent([
     { text: prompt },
     { inlineData: { mimeType: idImg.mimeType, data: idImg.data } },
+  ])
+  const text = result.response.text().trim()
+  const jsonMatch = text.match(/\{[\s\S]*\}/)
+  if (!jsonMatch) throw new KycError('证件识别失败，请重试', 502)
+  return JSON.parse(jsonMatch[0]) as GeminiDocVerdict
+}
+
+async function runGeminiFace(
+  env: Env,
+  idImageBase64: string,
+  frames: Array<{ action: LivenessAction; image: string }>,
+): Promise<GeminiFaceVerdict> {
+  if (!env.GEMINI_API_KEY) throw new KycError('KYC verification is not configured', 503)
+  const ai = new GoogleGenerativeAI(env.GEMINI_API_KEY)
+  const model = ai.getGenerativeModel({ model: MODEL })
+
+  const prompt = `You are a KYC liveness and face-matching system. You receive:
+1. An ID document photo (reference face on the document)
+2. Three live camera frames from the same person: neutral (look straight), blink (eyes closed/blinking), mouth (mouth open)
+
+Verify:
+- All three frames show the same live person (not a photo of a photo or screen)
+- The blink frame shows eyes closed or mid-blink
+- The mouth frame shows mouth clearly open
+- The live person matches the face on the ID document
+
+Return ONLY a valid JSON object (no markdown) with exactly these keys:
+{
+  "isLivePerson": boolean,
+  "blinkDetected": boolean,
+  "mouthOpenDetected": boolean,
+  "samePersonAcrossFrames": boolean,
+  "faceMatchWithId": number,
+  "confidence": number,
+  "reasons": string[]
+}
+faceMatchWithId is 0..1 similarity between live face and ID photo face.`
+
+  const idImg = stripBase64(idImageBase64)
+  const parts: Array<{ text: string } | { inlineData: { mimeType: string; data: string } }> = [
+    { text: prompt },
+    { text: 'ID document image:' },
+    { inlineData: { mimeType: idImg.mimeType, data: idImg.data } },
   ]
-  if (input.verifyMode === 'face' && input.selfieImage) {
-    const selfie = stripBase64(input.selfieImage)
-    parts.push({ inlineData: { mimeType: selfie.mimeType, data: selfie.data } })
+  for (const frame of frames) {
+    const img = stripBase64(frame.image)
+    parts.push({ text: `Live frame (${frame.action}):` })
+    parts.push({ inlineData: { mimeType: img.mimeType, data: img.data } })
   }
 
   const result = await model.generateContent(parts)
   const text = result.response.text().trim()
   const jsonMatch = text.match(/\{[\s\S]*\}/)
-  if (!jsonMatch) throw new KycError('证件识别失败，请重试', 502)
-  return JSON.parse(jsonMatch[0]) as GeminiVerdict
+  if (!jsonMatch) throw new KycError('人脸识别失败，请重试', 502)
+  return JSON.parse(jsonMatch[0]) as GeminiFaceVerdict
 }
 
+export async function submitKycDocument(
+  redis: Redis,
+  env: Env,
+  userId: string,
+  input: { fullName: string; docType: string; idImage: string },
+): Promise<{ docVerified: boolean; status: KycSubmission['status']; rejectReason?: string; rejectStep?: string }> {
+  const existing = await getKyc(redis, userId)
+  if (!existing?.phoneVerified) {
+    throw new KycError('请先完成手机验证', 400)
+  }
+
+  const verdict = await runGeminiDocument(env, input.fullName, input.idImage)
+
+  if (verdict.idNumber) {
+    const owner = await findKycByExtractedIdNo(redis, verdict.idNumber, userId)
+    if (owner) throw new KycError('该证件已被其他账号用于实名认证', 409)
+  }
+
+  const storage = getStorageProvider(env)
+  const ts = Date.now()
+  let docImageKey: string | undefined
+  try {
+    const idImg = stripBase64(input.idImage)
+    docImageKey = await storage.put(`${userId}/${ts}_id.jpg`, Buffer.from(idImg.data, 'base64'), idImg.mimeType)
+  } catch (e) {
+    console.error('[kyc] store doc image failed:', e)
+  }
+
+  const reasons: string[] = []
+  if (!verdict.isValidDocument) reasons.push('证件无效或无法识别')
+  if (!ACCEPTED_DOC_TYPES.includes(verdict.docType)) reasons.push('不支持的证件类型')
+  if (!verdict.nameMatches) reasons.push('证件姓名与填写不符')
+  if (verdict.confidence < env.KYC_GEMINI_MIN_CONFIDENCE) reasons.push('证件真实性置信度不足')
+
+  const docVerified = reasons.length === 0
+  const now = nowIso()
+  const submission: KycSubmission = {
+    ...existing,
+    submissionId: userId,
+    userId,
+    status: docVerified ? 'pending' : 'rejected',
+    fullName: input.fullName,
+    docType: input.docType,
+    verifyMode: 'document',
+    docVerified,
+    faceVerified: false,
+    extractedIdNo: verdict.idNumber || undefined,
+    geminiConfidence: verdict.confidence,
+    geminiResult: { document: verdict },
+    docImageKey,
+    rejectReason: docVerified ? undefined : reasons.join('；'),
+    rejectStep: docVerified ? undefined : 'document',
+    submittedAt: now,
+    docSubmittedAt: now,
+    livenessFrames: undefined,
+    selfieImageKey: undefined,
+    faceSubmittedAt: undefined,
+    reviewedAt: undefined,
+  }
+  await saveKyc(redis, submission)
+  return {
+    docVerified,
+    status: submission.status,
+    rejectReason: submission.rejectReason,
+    rejectStep: submission.rejectStep,
+  }
+}
+
+export async function submitKycFace(
+  redis: Redis,
+  env: Env,
+  userId: string,
+  frames: Array<{ action: LivenessAction; image: string }>,
+): Promise<{ faceVerified: boolean; status: KycSubmission['status']; rejectReason?: string; rejectStep?: string }> {
+  const existing = await getKyc(redis, userId)
+  if (!existing?.phoneVerified) throw new KycError('请先完成手机验证', 400)
+  if (!existing.docVerified || !existing.docImageKey) {
+    throw new KycError('请先完成证件验证', 400)
+  }
+
+  const actions = frames.map((f) => f.action)
+  for (const required of REQUIRED_LIVENESS_ACTIONS) {
+    if (!actions.includes(required)) {
+      throw new KycError(`缺少活体帧: ${required}`, 400)
+    }
+  }
+
+  const storage = getStorageProvider(env)
+  const docFile = await storage.get(existing.docImageKey)
+  if (!docFile) throw new KycError('证件图片不存在，请重新提交证件', 400)
+
+  const idImageBase64 = `data:${docFile.mimeType};base64,${docFile.data.toString('base64')}`
+  const verdict = await runGeminiFace(env, idImageBase64, frames)
+
+  const ts = Date.now()
+  const livenessFrames: LivenessFrameMeta[] = []
+  try {
+    for (const frame of frames) {
+      const img = stripBase64(frame.image)
+      const key = await storage.put(
+        `${userId}/${ts}_${frame.action}.jpg`,
+        Buffer.from(img.data, 'base64'),
+        img.mimeType,
+      )
+      livenessFrames.push({ action: frame.action, key, capturedAt: nowIso() })
+    }
+  } catch (e) {
+    console.error('[kyc] store liveness frames failed:', e)
+  }
+
+  const reasons: string[] = []
+  if (!verdict.isLivePerson) reasons.push('未检测到真人')
+  if (!verdict.blinkDetected) reasons.push('未检测到眨眼动作')
+  if (!verdict.mouthOpenDetected) reasons.push('未检测到张嘴动作')
+  if (!verdict.samePersonAcrossFrames) reasons.push('活体帧非同一人')
+  if ((verdict.faceMatchWithId ?? 0) < 0.8) reasons.push('人脸与证件照不匹配')
+  if (verdict.confidence < env.KYC_GEMINI_MIN_CONFIDENCE) reasons.push('活体置信度不足')
+
+  const faceVerified = reasons.length === 0
+  const now = nowIso()
+  const submission: KycSubmission = {
+    ...existing,
+    status: faceVerified ? 'approved' : 'rejected',
+    verifyMode: 'face',
+    faceVerified,
+    geminiResult: { ...(existing.geminiResult ?? {}), face: verdict },
+    geminiConfidence: verdict.confidence,
+    livenessFrames,
+    selfieImageKey: livenessFrames[0]?.key,
+    rejectReason: faceVerified ? undefined : reasons.join('；'),
+    rejectStep: faceVerified ? undefined : 'face',
+    faceSubmittedAt: now,
+    reviewedAt: faceVerified ? now : undefined,
+  }
+  await saveKyc(redis, submission)
+  return {
+    faceVerified,
+    status: submission.status,
+    rejectReason: submission.rejectReason,
+    rejectStep: submission.rejectStep,
+  }
+}
+
+/** @deprecated 兼容旧客户端，仅执行证件步骤 */
 export async function submitKyc(
   redis: Redis,
   env: Env,
@@ -207,67 +416,21 @@ export async function submitKyc(
     selfieImage?: string
   },
 ): Promise<{ status: KycSubmission['status']; rejectReason?: string }> {
-  const existing = await getKyc(redis, userId)
-  if (!existing?.phoneVerified) {
-    throw new KycError('请先完成手机验证', 400)
-  }
-  if (input.verifyMode === 'face' && !input.selfieImage) {
-    throw new KycError('人脸识别需要上传自拍照', 400)
-  }
-
-  const verdict = await runGemini(env, {
-    fullName: input.fullName,
-    verifyMode: input.verifyMode,
-    idImage: input.idImage,
-    selfieImage: input.selfieImage,
-  })
-
-  // 防重：同一证件号不可用于多个账号
-  if (verdict.idNumber) {
-    const owner = await findKycByExtractedIdNo(redis, verdict.idNumber, userId)
-    if (owner) throw new KycError('该证件已被其他账号用于实名认证', 409)
-  }
-
-  // 存证件图（审计/合规留痕）
-  const storage = getStorageProvider(env)
-  const ts = Date.now()
-  let docImageKey: string | undefined
-  let selfieImageKey: string | undefined
-  try {
-    const idImg = stripBase64(input.idImage)
-    docImageKey = await storage.put(`${userId}/${ts}_id.jpg`, Buffer.from(idImg.data, 'base64'), idImg.mimeType)
-    if (input.verifyMode === 'face' && input.selfieImage) {
-      const selfie = stripBase64(input.selfieImage)
-      selfieImageKey = await storage.put(`${userId}/${ts}_selfie.jpg`, Buffer.from(selfie.data, 'base64'), selfie.mimeType)
-    }
-  } catch (e) {
-    console.error('[kyc] store image failed:', e)
-  }
-
-  const reasons: string[] = []
-  if (!verdict.isValidDocument) reasons.push('证件无效或无法识别')
-  if (!ACCEPTED_DOC_TYPES.includes(verdict.docType)) reasons.push('不支持的证件类型')
-  if (!verdict.nameMatches) reasons.push('证件姓名与填写不符')
-  if (verdict.confidence < env.KYC_GEMINI_MIN_CONFIDENCE) reasons.push('证件真实性置信度不足')
-  if (input.verifyMode === 'face' && (verdict.faceMatch ?? 0) < 0.8) reasons.push('人脸与证件照不匹配')
-
-  const approved = reasons.length === 0
-  const submission: KycSubmission = {
-    ...existing,
-    submissionId: userId,
-    userId,
-    status: approved ? 'approved' : 'rejected',
+  const docResult = await submitKycDocument(redis, env, userId, {
     fullName: input.fullName,
     docType: input.docType,
-    verifyMode: input.verifyMode,
-    extractedIdNo: verdict.idNumber || undefined,
-    geminiConfidence: verdict.confidence,
-    geminiResult: verdict as unknown as Record<string, unknown>,
-    docImageKey,
-    selfieImageKey,
-    rejectReason: approved ? undefined : reasons.join('；'),
-    submittedAt: nowIso(),
+    idImage: input.idImage,
+  })
+  if (!docResult.docVerified) {
+    return { status: docResult.status, rejectReason: docResult.rejectReason }
   }
-  await saveKyc(redis, submission)
-  return { status: submission.status, rejectReason: submission.rejectReason }
+  if (input.verifyMode === 'face' && input.selfieImage) {
+    const faceResult = await submitKycFace(redis, env, userId, [
+      { action: 'neutral', image: input.selfieImage },
+      { action: 'blink', image: input.selfieImage },
+      { action: 'mouth', image: input.selfieImage },
+    ])
+    return { status: faceResult.status, rejectReason: faceResult.rejectReason }
+  }
+  return { status: docResult.status, rejectReason: docResult.rejectReason }
 }

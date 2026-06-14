@@ -25,6 +25,8 @@ import TeamReferralConfig from './views/TeamReferralConfig'
 import Promotions from './views/Promotions'
 import PromotionClaims from './views/PromotionClaims'
 import Rebate from './views/Rebate'
+import KycList from './views/KycList'
+import KycDetail from './views/KycDetail'
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const token = localStorage.getItem('admin_token')
@@ -48,6 +50,8 @@ export default function App() {
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="users" element={<Users />} />
           <Route path="users/:id" element={<UserDetail />} />
+          <Route path="kyc" element={<KycList />} />
+          <Route path="kyc/:userId" element={<KycDetail />} />
           <Route path="deposits" element={<Deposits />} />
           <Route path="withdrawals" element={<Withdrawals />} />
           <Route path="review" element={<Navigate to="/review/overview" replace />} />

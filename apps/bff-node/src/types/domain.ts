@@ -2,6 +2,14 @@ import type { AppLocale } from './locale.js'
 
 export type UserStatus = 'active' | 'frozen' | 'banned'
 export type KycStatus = 'none' | 'pending' | 'approved' | 'rejected'
+export type KycRejectStep = 'phone' | 'document' | 'face'
+export type LivenessAction = 'neutral' | 'blink' | 'mouth'
+
+export interface LivenessFrameMeta {
+  action: LivenessAction
+  key: string
+  capturedAt: string
+}
 export type DepositCurrency = 'PHP' | 'USDT' | 'TON'
 
 export interface UserProfile {
@@ -157,6 +165,13 @@ export interface KycSubmission {
   geminiResult?: Record<string, unknown>
   docImageKey?: string
   selfieImageKey?: string
+  docVerified?: boolean
+  faceVerified?: boolean
+  rejectStep?: KycRejectStep
+  livenessFrames?: LivenessFrameMeta[]
+  docSubmittedAt?: string
+  faceSubmittedAt?: string
+  reviewedAt?: string
 }
 
 export interface PromotionItem {

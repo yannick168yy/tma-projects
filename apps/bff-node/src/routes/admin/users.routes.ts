@@ -1,6 +1,7 @@
 import Router from '@koa/router'
 import { listAdminUsers, writeAuditLog, updateUserLabel, getLoginLogs, getBetOrders, getOpPasswordHash } from '../../services/admin-store.js'
-import { getUser, saveUser, getWallet, listLedger, adminAdjustBalance } from '../../services/store/index.js'
+import { getUser, saveUser, getWallet, listLedger, adminAdjustBalance, getKyc } from '../../services/store/index.js'
+import { buildKycStatusResponse } from '../../services/kyc.service.js'
 import { verifyPassword } from '../../services/admin-auth.service.js'
 import { getMysqlPool, isMysqlEnabled } from '../../clients/mysql.client.js'
 import { fail, ok } from '../../utils/response.js'
@@ -20,13 +21,27 @@ router.get('/', async (ctx) => {
 router.get('/:id', async (ctx) => {
   const user = await getUser(ctx.state.redis, ctx.params.id)
   if (!user) { fail(ctx, 404, 'User not found', 404); return }
-  const [wallet, ledger, loginLogs, betOrders] = await Promise.all([
+  const [wallet, ledger, loginLogs, betOrders, kyc] = await Promise.all([
     getWallet(ctx.state.redis, ctx.params.id),
     listLedger(ctx.state.redis, ctx.params.id, 20),
     getLoginLogs(ctx.state.env, ctx.params.id, 20),
     getBetOrders(ctx.state.env, ctx.params.id, 30),
+    getKyc(ctx.state.redis, ctx.params.id),
   ])
-  ok(ctx, { user, wallet, ledger, loginLogs, betOrders })
+  ok(ctx, {
+    user,
+    wallet,
+    ledger,
+    loginLogs,
+    betOrders,
+    kyc: kyc ? {
+      ...buildKycStatusResponse(kyc),
+      extractedIdNo: kyc.extractedIdNo ?? null,
+      docSubmittedAt: kyc.docSubmittedAt ?? null,
+      faceSubmittedAt: kyc.faceSubmittedAt ?? null,
+      reviewedAt: kyc.reviewedAt ?? null,
+    } : null,
+  })
 })
 
 router.patch('/:id/status', async (ctx) => {

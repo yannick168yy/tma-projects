@@ -727,6 +727,9 @@ function mapKyc(r: RowDataPacket): KycSubmission {
   const gemini = r.gemini_result
     ? (typeof r.gemini_result === 'string' ? JSON.parse(r.gemini_result) : r.gemini_result)
     : undefined
+  const liveness = r.liveness_frames
+    ? (typeof r.liveness_frames === 'string' ? JSON.parse(r.liveness_frames) : r.liveness_frames)
+    : undefined
   return {
     submissionId: r.user_id as string,
     userId: r.user_id as string,
@@ -739,12 +742,19 @@ function mapKyc(r: RowDataPacket): KycSubmission {
     submittedAt: r.submitted_at ? new Date(r.submitted_at as Date).toISOString() : '',
     phone: (r.phone as string) ?? undefined,
     phoneVerified: Boolean(r.phone_verified),
+    docVerified: Boolean(r.doc_verified),
+    faceVerified: Boolean(r.face_verified),
+    rejectStep: (r.reject_step as KycSubmission['rejectStep']) ?? undefined,
     verifyMode: (r.verify_mode as KycSubmission['verifyMode']) ?? undefined,
     extractedIdNo: (r.extracted_id_no as string) ?? undefined,
     geminiConfidence: r.gemini_confidence != null ? Number(r.gemini_confidence) : undefined,
     geminiResult: gemini,
     docImageKey: (r.doc_image_key as string) ?? undefined,
     selfieImageKey: (r.selfie_image_key as string) ?? undefined,
+    livenessFrames: liveness as KycSubmission['livenessFrames'],
+    docSubmittedAt: r.doc_submitted_at ? new Date(r.doc_submitted_at as Date).toISOString() : undefined,
+    faceSubmittedAt: r.face_submitted_at ? new Date(r.face_submitted_at as Date).toISOString() : undefined,
+    reviewedAt: r.reviewed_at ? new Date(r.reviewed_at as Date).toISOString() : undefined,
   }
 }
 
@@ -755,23 +765,34 @@ export async function getKyc(env: Env, userId: string): Promise<KycSubmission | 
 
 export async function saveKyc(env: Env, s: KycSubmission): Promise<void> {
   await pool(env).execute(
-    `INSERT INTO bg_kyc (user_id, status, phone, phone_verified, full_name, doc_type, verify_mode,
-       extracted_id_no, gemini_confidence, gemini_result, doc_image_key, selfie_image_key, reject_reason, submitted_at)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+    `INSERT INTO bg_kyc (user_id, status, phone, phone_verified, doc_verified, face_verified, full_name, doc_type, verify_mode,
+       extracted_id_no, gemini_confidence, gemini_result, doc_image_key, selfie_image_key, liveness_frames,
+       reject_reason, reject_step, submitted_at, doc_submitted_at, face_submitted_at, reviewed_at)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
      ON DUPLICATE KEY UPDATE
        status=VALUES(status), phone=COALESCE(VALUES(phone), phone),
-       phone_verified=VALUES(phone_verified), full_name=COALESCE(VALUES(full_name), full_name),
+       phone_verified=VALUES(phone_verified), doc_verified=VALUES(doc_verified), face_verified=VALUES(face_verified),
+       full_name=COALESCE(VALUES(full_name), full_name),
        doc_type=VALUES(doc_type), verify_mode=VALUES(verify_mode),
        extracted_id_no=VALUES(extracted_id_no), gemini_confidence=VALUES(gemini_confidence),
        gemini_result=VALUES(gemini_result), doc_image_key=VALUES(doc_image_key),
-       selfie_image_key=VALUES(selfie_image_key), reject_reason=VALUES(reject_reason),
-       submitted_at=COALESCE(VALUES(submitted_at), submitted_at)`,
+       selfie_image_key=VALUES(selfie_image_key), liveness_frames=VALUES(liveness_frames),
+       reject_reason=VALUES(reject_reason), reject_step=VALUES(reject_step),
+       submitted_at=COALESCE(VALUES(submitted_at), submitted_at),
+       doc_submitted_at=COALESCE(VALUES(doc_submitted_at), doc_submitted_at),
+       face_submitted_at=COALESCE(VALUES(face_submitted_at), face_submitted_at),
+       reviewed_at=COALESCE(VALUES(reviewed_at), reviewed_at)`,
     [
-      s.userId, s.status, s.phone ?? null, s.phoneVerified ? 1 : 0, s.fullName || null,
-      s.docType ?? null, s.verifyMode ?? null, s.extractedIdNo ?? null,
+      s.userId, s.status, s.phone ?? null, s.phoneVerified ? 1 : 0, s.docVerified ? 1 : 0, s.faceVerified ? 1 : 0,
+      s.fullName || null, s.docType ?? null, s.verifyMode ?? null, s.extractedIdNo ?? null,
       s.geminiConfidence ?? null, s.geminiResult ? JSON.stringify(s.geminiResult) : null,
-      s.docImageKey ?? null, s.selfieImageKey ?? null, s.rejectReason ?? null,
+      s.docImageKey ?? null, s.selfieImageKey ?? null,
+      s.livenessFrames ? JSON.stringify(s.livenessFrames) : null,
+      s.rejectReason ?? null, s.rejectStep ?? null,
       s.submittedAt ? new Date(s.submittedAt) : null,
+      s.docSubmittedAt ? new Date(s.docSubmittedAt) : null,
+      s.faceSubmittedAt ? new Date(s.faceSubmittedAt) : null,
+      s.reviewedAt ? new Date(s.reviewedAt) : null,
     ],
   )
 }
