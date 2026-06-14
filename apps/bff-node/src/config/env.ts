@@ -60,6 +60,8 @@ const schema = z.object({
   // ── KYC ────────────────────────────────────────────────────────────────────
   // Gemini 证件/人脸自动放行的最低置信度（0~1）
   KYC_GEMINI_MIN_CONFIDENCE: z.coerce.number().min(0).max(1).default(0.85),
+  // 每用户每日证件/人脸提交次数上限（各自独立计，防刷 Gemini 调用）
+  KYC_VERIFY_MAX_PER_DAY: z.coerce.number().int().min(1).default(10),
   // KYC 证件图片本地兜底存储目录（未配置 S3 时使用）
   KYC_STORAGE_DIR: z.string().default('/root/workspace/tma-projects/data/kyc'),
   // S3（预留，配置后切换；留空则用本地兜底）

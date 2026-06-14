@@ -12,6 +12,7 @@ import {
   findKycByExtractedIdNo,
   findKycByVerifiedPhone,
   getKyc,
+  getUser,
   getUserByPhoneAccount,
   saveKyc,
 } from './store/index.js'
@@ -22,6 +23,24 @@ const RESEND_INTERVAL_SEC = 60
 const MAX_VERIFY_ATTEMPTS = 5
 const ACCEPTED_DOC_TYPES = ['passport', 'drivers_license', 'philid', 'umid']
 const REQUIRED_LIVENESS_ACTIONS: LivenessAction[] = ['neutral', 'blink', 'mouth']
+const VERIFY_RL_WINDOW_SEC = 86400
+
+/** 每用户每日证件/人脸提交频控，防刷 Gemini 调用 */
+async function enforceVerifyRateLimit(
+  redis: Redis,
+  env: Env,
+  userId: string,
+  kind: 'doc' | 'face',
+): Promise<void> {
+  const key = `kyc:rl:${kind}:${userId}`
+  const n = await redis.incr(key)
+  if (n === 1) await redis.expire(key, VERIFY_RL_WINDOW_SEC)
+  if (n > env.KYC_VERIFY_MAX_PER_DAY) {
+    throw new KycError('实名认证尝试过于频繁，请 24 小时后再试', 429)
+  }
+}
+
+const idLockKey = (idNo: string) => `kyc:idlock:${idNo}`
 
 export class KycError extends Error {
   status: number
@@ -69,6 +88,14 @@ export async function sendKycOtp(
 ): Promise<{ phone: string; resendInSec: number }> {
   const phone = normalizePhonePH(phoneRaw)
   if (!phone) throw new KycError('Invalid phone number', 400)
+
+  const user = await getUser(redis, userId)
+  if (user?.phoneAccount) {
+    const bound = normalizePhonePH(user.phoneAccount)
+    if (bound && bound !== phone) {
+      throw new KycError('请使用注册时绑定的手机号进行验证', 400)
+    }
+  }
 
   const otherOwner = await findKycByVerifiedPhone(redis, phone, userId)
   if (otherOwner) throw new KycError('该手机号已被其他账号使用', 409)
@@ -270,6 +297,7 @@ export async function submitKycDocument(
   if (!existing?.phoneVerified) {
     throw new KycError('请先完成手机验证', 400)
   }
+  await enforceVerifyRateLimit(redis, env, userId, 'doc')
 
   const verdict = await runGeminiDocument(env, input.fullName, input.idImage)
 
@@ -347,6 +375,8 @@ export async function submitKycFace(
     }
   }
 
+  await enforceVerifyRateLimit(redis, env, userId, 'face')
+
   const storage = getStorageProvider(env)
   const docFile = await storage.get(existing.docImageKey)
   if (!docFile) throw new KycError('证件图片不存在，请重新提交证件', 400)
@@ -394,7 +424,22 @@ export async function submitKycFace(
     faceSubmittedAt: now,
     reviewedAt: faceVerified ? now : undefined,
   }
-  await saveKyc(redis, submission)
+
+  // 通过的那一刻再查一次证件防重，并用锁串行化同证件的并发提交，消除「先后通过」竞态
+  if (faceVerified && existing.extractedIdNo) {
+    const lockKey = idLockKey(existing.extractedIdNo)
+    const locked = await redis.set(lockKey, userId, 'EX', 30, 'NX')
+    if (!locked) throw new KycError('该证件正在被其他账号验证，请稍后再试', 409)
+    try {
+      const owner = await findKycByExtractedIdNo(redis, existing.extractedIdNo, userId)
+      if (owner) throw new KycError('该证件已被其他账号用于实名认证', 409)
+      await saveKyc(redis, submission)
+    } finally {
+      await redis.del(lockKey)
+    }
+  } else {
+    await saveKyc(redis, submission)
+  }
   return {
     faceVerified,
     status: submission.status,

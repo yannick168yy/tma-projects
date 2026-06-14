@@ -14,6 +14,7 @@ export interface KycStatus {
   docType: string | null
   rejectReason: string | null
   rejectStep: KycRejectStep | null
+  registeredPhone: string | null
 }
 
 export function fetchKycStatus(): Promise<KycStatus> {

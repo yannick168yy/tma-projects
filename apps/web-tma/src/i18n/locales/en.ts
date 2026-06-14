@@ -90,6 +90,7 @@ export default {
     stepDocument: 'Verify identity',
     stepFace: 'Face liveness',
     sendCode: 'Send code',
+    phoneLocked: 'You can only verify with your registered phone number.',
     resendIn: 'Resend in {{s}}s',
     codeLabel: 'Verification code',
     verify: 'Verify',

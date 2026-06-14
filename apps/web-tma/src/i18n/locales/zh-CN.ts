@@ -89,6 +89,7 @@ export default {
     stepDocument: '验证证件',
     stepFace: '人脸活体',
     sendCode: '发送验证码',
+    phoneLocked: '只能使用注册时绑定的手机号进行验证',
     resendIn: '{{s}} 秒后重发',
     codeLabel: '验证码',
     verify: '验证',

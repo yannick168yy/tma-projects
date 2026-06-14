@@ -56,6 +56,7 @@ export default function KycModal({ open, onClose, onApproved }: Props) {
   const [error, setError] = useState<string | null>(null)
 
   const [phone, setPhone] = useState('')
+  const [phoneLocked, setPhoneLocked] = useState(false)
   const [code, setCode] = useState('')
   const [resendIn, setResendIn] = useState(0)
 
@@ -69,7 +70,12 @@ export default function KycModal({ open, onClose, onApproved }: Props) {
     setError(null)
     void fetchKycStatus().then((s) => {
       setStep(resolveStep(s))
-      if (s.phone) setPhone(s.phone)
+      if (s.registeredPhone) {
+        setPhone(s.registeredPhone)
+        setPhoneLocked(true)
+      } else if (s.phone) {
+        setPhone(s.phone)
+      }
       if (s.fullName) setFullName(s.fullName)
       if (s.docType && DOC_TYPES.includes(s.docType as typeof docType)) {
         setDocType(s.docType as typeof docType)
@@ -185,7 +191,8 @@ export default function KycModal({ open, onClose, onApproved }: Props) {
 
         {step === 'phone' && (
           <div className="space-y-3">
-            <input value={phone} type="tel" placeholder={t('auth.phonePlaceholder')} className={inputCls} onChange={(e) => setPhone(e.target.value)} />
+            <input value={phone} type="tel" placeholder={t('auth.phonePlaceholder')} className={`${inputCls}${phoneLocked ? ' opacity-60' : ''}`} readOnly={phoneLocked} onChange={(e) => setPhone(e.target.value)} />
+            {phoneLocked && <p className="text-[10px] text-muted-foreground">{t('kyc.phoneLocked')}</p>}
             <button type="button" className="w-full rounded-xl border border-border bg-secondary py-3 text-sm font-bold text-foreground disabled:opacity-50" disabled={loading || resendIn > 0} onClick={() => void onSendCode()}>
               {resendIn > 0 ? t('kyc.resendIn', { s: resendIn }) : t('kyc.sendCode')}
             </button>

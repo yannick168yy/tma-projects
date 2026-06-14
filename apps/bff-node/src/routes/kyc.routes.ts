@@ -1,5 +1,5 @@
 import Router from '@koa/router'
-import { getKyc } from '../services/store.js'
+import { getKyc, getUser } from '../services/store.js'
 import {
   KycError,
   buildKycStatusResponse,
@@ -10,6 +10,7 @@ import {
   verifyKycOtp,
 } from '../services/kyc.service.js'
 import type { LivenessAction } from '../types/domain.js'
+import { normalizePhonePH } from '../utils/phone.js'
 import { fail, ok } from '../utils/response.js'
 
 const router = new Router({ prefix: '/kyc' })
@@ -24,7 +25,9 @@ function handleKycError(ctx: import('koa').Context, e: unknown): boolean {
 
 router.get('/status', async (ctx) => {
   const kyc = await getKyc(ctx.state.redis, ctx.state.userId!)
-  ok(ctx, buildKycStatusResponse(kyc))
+  const user = await getUser(ctx.state.redis, ctx.state.userId!)
+  const registeredPhone = user?.phoneAccount ? normalizePhonePH(user.phoneAccount) : null
+  ok(ctx, { ...buildKycStatusResponse(kyc), registeredPhone })
 })
 
 router.post('/phone/send-otp', async (ctx) => {
