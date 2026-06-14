@@ -78,7 +78,7 @@ export async function isKycApproved(redis: Redis, env: Env, userId: string): Pro
   if (kyc.status === 'approved') return true
   // 人工驳回/撤销（无 rejectStep）永久拦截，需重新走流程
   if (kyc.status === 'rejected' && !kyc.rejectStep) return false
-  const cfg = await getKycStepConfig(env)
+  const cfg = await getKycStepConfig(redis, env, userId)
   if (!kyc.phoneVerified) return false
   if (cfg.requireDocument && !kyc.docVerified) return false
   if (cfg.requireFace && !kyc.faceVerified) return false
@@ -90,14 +90,26 @@ export interface KycStepConfig {
   requireFace: boolean
 }
 
-/** 后台可配置：是否开启证件/人脸验证（默认开启）。人脸需证件照比对，证件关闭时人脸强制关闭 */
-export async function getKycStepConfig(env: Env): Promise<KycStepConfig> {
+/**
+ * 是否开启证件/人脸验证。系统级默认开启（后台可配置）；传 userId 时叠加该用户的个人覆盖。
+ * 人脸需证件照比对，证件关闭时人脸强制关闭。
+ */
+export async function getKycStepConfig(
+  redis: Redis,
+  env: Env,
+  userId?: string,
+): Promise<KycStepConfig> {
   const [doc, face] = await Promise.all([
     getAdminSetting(env, 'kyc_require_document'),
     getAdminSetting(env, 'kyc_require_face'),
   ])
-  const requireDocument = doc !== '0'
-  const requireFace = face !== '0'
+  let requireDocument = doc !== '0'
+  let requireFace = face !== '0'
+  if (userId) {
+    const user = await getUser(redis, userId)
+    if (user?.kycDocOverride != null) requireDocument = user.kycDocOverride
+    if (user?.kycFaceOverride != null) requireFace = user.kycFaceOverride
+  }
   return { requireDocument, requireFace: requireDocument && requireFace }
 }
 
@@ -223,7 +235,7 @@ export async function verifyKycOtp(
 
   await redis.del(otpKey(userId))
   const existing = await getKyc(redis, userId)
-  const cfg = await getKycStepConfig(env)
+  const cfg = await getKycStepConfig(redis, env, userId)
   // 证件验证关闭 ⇒ 手机验证即完成实名（人脸已被强制关闭）
   const approvedByPhoneOnly = !cfg.requireDocument
   const now = nowIso()
@@ -372,7 +384,7 @@ export async function submitKycDocument(
   if (!existing?.phoneVerified) {
     throw new KycError('请先完成手机验证', 400)
   }
-  const cfg = await getKycStepConfig(env)
+  const cfg = await getKycStepConfig(redis, env, userId)
   if (!cfg.requireDocument) {
     throw new KycError('证件验证已关闭', 400)
   }
@@ -446,7 +458,7 @@ export async function submitKycFace(
 ): Promise<{ faceVerified: boolean; status: KycSubmission['status']; rejectReason?: string; rejectStep?: string }> {
   const existing = await getKyc(redis, userId)
   if (!existing?.phoneVerified) throw new KycError('请先完成手机验证', 400)
-  if (!(await getKycStepConfig(env)).requireFace) {
+  if (!(await getKycStepConfig(redis, env, userId)).requireFace) {
     throw new KycError('人脸验证已关闭', 400)
   }
   if (!existing.docVerified || !existing.docImageKey) {

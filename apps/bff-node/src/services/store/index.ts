@@ -35,6 +35,11 @@ export const saveUser = (redis: Redis, user: UserRecord) =>
 export const getUser = (redis: Redis, userId: string) =>
   isMysqlEnabled(env()) ? mysqlStore.getUser(env(), userId) : redisStore.getUser(redis, userId)
 
+export const setUserKycOverride = (redis: Redis, userId: string, doc: boolean | null, face: boolean | null) =>
+  isMysqlEnabled(env())
+    ? mysqlStore.setUserKycOverride(env(), userId, doc, face)
+    : redisStore.setUserKycOverride(redis, userId, doc, face)
+
 export const getUserByTelegramId = (redis: Redis, tgId: number) =>
   isMysqlEnabled(env())
     ? mysqlStore.getUserByTelegramId(env(), tgId)

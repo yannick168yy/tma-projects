@@ -47,7 +47,14 @@ export default function UserDetail() {
               />
             </Col>
             <Col span={24}><UserProfile userId={id!} profile={profile} onSuccess={loadDetail} /></Col>
-            <Col span={24}><UserKyc userId={id!} kyc={detail.kyc ?? null} /></Col>
+            <Col span={24}>
+              <UserKyc
+                userId={id!}
+                kyc={detail.kyc ?? null}
+                kycConfig={detail.kycConfig}
+                onSuccess={loadDetail}
+              />
+            </Col>
             <Col span={24}><UserLogs userId={id!} detail={detail} /></Col>
           </Row>
         )}

@@ -28,7 +28,7 @@ router.get('/status', async (ctx) => {
   const kyc = await getKyc(ctx.state.redis, ctx.state.userId!)
   const user = await getUser(ctx.state.redis, ctx.state.userId!)
   const registeredPhone = user?.phoneAccount ? normalizePhonePH(user.phoneAccount) : null
-  const cfg = await getKycStepConfig(ctx.state.env)
+  const cfg = await getKycStepConfig(ctx.state.redis, ctx.state.env, ctx.state.userId!)
   ok(ctx, {
     ...buildKycStatusResponse(kyc),
     registeredPhone,

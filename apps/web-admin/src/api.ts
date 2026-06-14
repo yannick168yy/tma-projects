@@ -76,6 +76,15 @@ export interface LedgerEntry {
 }
 export const getUsers = (params: { page?: number; pageSize?: number; search?: string; status?: string }) =>
   get<{ total: number; items: AdminUser[] }>('/admin/users', params)
+export type KycOverrideMode = 'inherit' | 'on' | 'off'
+
+export interface KycUserConfig {
+  system: KycStepSettings
+  effective: KycStepSettings
+  docOverride: boolean | null
+  faceOverride: boolean | null
+}
+
 export const getUserDetail = (id: string) =>
   get<{
     user: Record<string, unknown>
@@ -83,8 +92,19 @@ export const getUserDetail = (id: string) =>
     ledger: LedgerEntry[]
     loginLogs: LoginLog[]
     betOrders: BetOrder[]
+    kycConfig: KycUserConfig
     kyc: AdminKycSummary | null
   }>(`/admin/users/${id}`)
+export const updateUserKycOverride = (
+  id: string,
+  requireDocument: KycOverrideMode,
+  requireFace: KycOverrideMode,
+) =>
+  patch<{
+    docOverride: boolean | null
+    faceOverride: boolean | null
+    effective: KycStepSettings
+  }>(`/admin/users/${id}/kyc-override`, { requireDocument, requireFace })
 export const updateUserStatus = (id: string, status: string, reason?: string) =>
   patch<{ status: string }>(`/admin/users/${id}/status`, { status, reason })
 export const updateUserLabel = (id: string, label: string) =>

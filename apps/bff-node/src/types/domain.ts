@@ -48,6 +48,10 @@ export interface UserRecord {
   status: UserStatus
   statusReason?: string
   label?: string
+  /** KYC 证件校验覆盖：null/undefined=跟随系统, true=强制开, false=强制关 */
+  kycDocOverride?: boolean | null
+  /** KYC 人脸校验覆盖：null/undefined=跟随系统, true=强制开, false=强制关 */
+  kycFaceOverride?: boolean | null
   lastLoginAt?: string
   lastLoginIp?: string
   lastLoginRegion?: string

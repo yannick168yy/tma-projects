@@ -1,7 +1,7 @@
 import Router from '@koa/router'
 import { listAdminUsers, writeAuditLog, updateUserLabel, getLoginLogs, getBetOrders, getOpPasswordHash } from '../../services/admin-store.js'
-import { getUser, saveUser, getWallet, listLedger, adminAdjustBalance, getKyc } from '../../services/store/index.js'
-import { buildKycStatusResponse } from '../../services/kyc.service.js'
+import { getUser, saveUser, getWallet, listLedger, adminAdjustBalance, getKyc, setUserKycOverride } from '../../services/store/index.js'
+import { buildKycStatusResponse, getKycStepConfig } from '../../services/kyc.service.js'
 import { verifyPassword } from '../../services/admin-auth.service.js'
 import { getMysqlPool, isMysqlEnabled } from '../../clients/mysql.client.js'
 import { fail, ok } from '../../utils/response.js'
@@ -21,12 +21,14 @@ router.get('/', async (ctx) => {
 router.get('/:id', async (ctx) => {
   const user = await getUser(ctx.state.redis, ctx.params.id)
   if (!user) { fail(ctx, 404, 'User not found', 404); return }
-  const [wallet, ledger, loginLogs, betOrders, kyc] = await Promise.all([
+  const [wallet, ledger, loginLogs, betOrders, kyc, systemCfg, effectiveCfg] = await Promise.all([
     getWallet(ctx.state.redis, ctx.params.id),
     listLedger(ctx.state.redis, ctx.params.id, 20),
     getLoginLogs(ctx.state.env, ctx.params.id, 20),
     getBetOrders(ctx.state.env, ctx.params.id, 30),
     getKyc(ctx.state.redis, ctx.params.id),
+    getKycStepConfig(ctx.state.redis, ctx.state.env),
+    getKycStepConfig(ctx.state.redis, ctx.state.env, ctx.params.id),
   ])
   ok(ctx, {
     user,
@@ -34,6 +36,12 @@ router.get('/:id', async (ctx) => {
     ledger,
     loginLogs,
     betOrders,
+    kycConfig: {
+      system: systemCfg,
+      effective: effectiveCfg,
+      docOverride: user.kycDocOverride ?? null,
+      faceOverride: user.kycFaceOverride ?? null,
+    },
     kyc: kyc ? {
       ...buildKycStatusResponse(kyc),
       extractedIdNo: kyc.extractedIdNo ?? null,
@@ -42,6 +50,39 @@ router.get('/:id', async (ctx) => {
       reviewedAt: kyc.reviewedAt ?? null,
     } : null,
   })
+})
+
+// 三态：'inherit'=跟随系统(null) | 'on'=强制开(true) | 'off'=强制关(false)
+function parseOverride(v: unknown): boolean | null | undefined {
+  if (v === 'inherit') return null
+  if (v === 'on') return true
+  if (v === 'off') return false
+  return undefined
+}
+
+router.patch('/:id/kyc-override', async (ctx) => {
+  const user = await getUser(ctx.state.redis, ctx.params.id)
+  if (!user) { fail(ctx, 404, 'User not found', 404); return }
+
+  const body = ctx.request.body as { requireDocument?: string; requireFace?: string }
+  const doc = parseOverride(body.requireDocument)
+  const face = parseOverride(body.requireFace)
+  if (doc === undefined || face === undefined) {
+    fail(ctx, 400, 'requireDocument / requireFace 必须为 inherit | on | off'); return
+  }
+
+  await setUserKycOverride(ctx.state.redis, ctx.params.id, doc, face)
+  await writeAuditLog(ctx.state.env, {
+    adminId: ctx.state.adminId!,
+    adminUsername: ctx.state.adminUsername!,
+    action: 'user.kyc_override',
+    targetType: 'user',
+    targetId: ctx.params.id,
+    detail: { requireDocument: body.requireDocument, requireFace: body.requireFace },
+    ip: ctx.ip,
+  })
+  const effective = await getKycStepConfig(ctx.state.redis, ctx.state.env, ctx.params.id)
+  ok(ctx, { docOverride: doc, faceOverride: face, effective })
 })
 
 router.patch('/:id/status', async (ctx) => {

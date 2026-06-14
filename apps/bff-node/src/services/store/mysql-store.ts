@@ -46,6 +46,8 @@ type UserRow = RowDataPacket & {
   status: UserRecord['status']
   status_reason: string | null
   label: string
+  kyc_doc_override: number | null
+  kyc_face_override: number | null
   last_login_at: Date | null
   last_login_ip: string | null
   last_login_region: string | null
@@ -86,6 +88,8 @@ function mapUser(row: UserRow): UserRecord {
     status: row.status,
     statusReason: row.status_reason ?? undefined,
     label: row.label ?? 'normal',
+    kycDocOverride: row.kyc_doc_override == null ? null : Boolean(row.kyc_doc_override),
+    kycFaceOverride: row.kyc_face_override == null ? null : Boolean(row.kyc_face_override),
     lastLoginAt: row.last_login_at ? new Date(row.last_login_at).toISOString() : undefined,
     lastLoginIp: row.last_login_ip ?? undefined,
     lastLoginRegion: row.last_login_region ?? undefined,
@@ -213,6 +217,19 @@ export async function saveUser(env: Env, user: UserRecord): Promise<void> {
 export async function getUser(env: Env, userId: string): Promise<UserRecord | null> {
   const [rows] = await pool(env).query<UserRow[]>(`${USER_SELECT} WHERE u.id = ?`, [userId])
   return rows[0] ? mapUser(rows[0]) : null
+}
+
+/** 设置 KYC 校验的按用户覆盖（null=跟随系统） */
+export async function setUserKycOverride(
+  env: Env,
+  userId: string,
+  doc: boolean | null,
+  face: boolean | null,
+): Promise<void> {
+  await pool(env).execute(
+    `UPDATE bg_user SET kyc_doc_override = ?, kyc_face_override = ? WHERE id = ?`,
+    [doc == null ? null : doc ? 1 : 0, face == null ? null : face ? 1 : 0, userId],
+  )
 }
 
 export async function getUserByTelegramId(env: Env, tgId: number): Promise<UserRecord | null> {

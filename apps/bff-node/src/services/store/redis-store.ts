@@ -81,6 +81,19 @@ export async function getUser(redis: Redis, userId: string): Promise<UserRecord 
   return raw ? (JSON.parse(raw) as UserRecord) : null
 }
 
+export async function setUserKycOverride(
+  redis: Redis,
+  userId: string,
+  doc: boolean | null,
+  face: boolean | null,
+): Promise<void> {
+  const user = await getUser(redis, userId)
+  if (!user) return
+  user.kycDocOverride = doc
+  user.kycFaceOverride = face
+  await saveUser(redis, user)
+}
+
 export async function getUserByTelegramId(redis: Redis, tgId: number): Promise<UserRecord | null> {
   const userId = await redis.get(KEYS.userByTg(tgId))
   if (!userId) return null
