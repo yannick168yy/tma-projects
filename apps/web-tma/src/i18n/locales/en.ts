@@ -104,6 +104,8 @@ export default {
     docUmid: 'UMID',
     uploadId: 'Upload ID photo',
     submit: 'Submit for verification',
+    reviewing: 'Under review…',
+    reviewingHint: "Your submission is being reviewed. We'll notify you of the result.",
     capture: 'Capture',
     approved: 'Verification approved!',
     rejected: 'Verification failed, please retry',
