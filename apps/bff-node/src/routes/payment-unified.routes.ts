@@ -1,0 +1,295 @@
+/**
+ * 统一支付路由（用户侧）
+ * 前端面向此接口，后端透明路由到 yfpay / beepay
+ */
+import Router from '@koa/router'
+import { randomBytes } from 'node:crypto'
+import { ok, fail } from '../utils/response.js'
+import { randomOrderId } from '../utils/id.js'
+import { nowIso } from '../utils/format.js'
+import { resolveChannel, listAvailableChannels } from '../services/payment-channel.service.js'
+import {
+  getDepositChannels as yfpayGetChannels,
+  createDeposit as yfpayCreateDeposit,
+  queryDeposit as yfpayQueryDeposit,
+  YfPayError,
+} from '../services/yfpay.service.js'
+import {
+  createDeposit as beepayCreateDeposit,
+  queryDeposit as beepayQueryDeposit,
+  BeepayError,
+} from '../services/beepay.service.js'
+import {
+  getWallet, getDeposit, getWithdraw, saveDeposit, saveWithdraw,
+  creditWallet, listDeposits, listWithdrawals,
+} from '../services/store/index.js'
+import { isKycApproved } from '../services/kyc.service.js'
+import { getMysqlPool, isMysqlEnabled } from '../clients/mysql.client.js'
+import { canWithdraw as checkTurnover } from '../services/turnover.service.js'
+import { reviewWithdraw } from '../services/withdraw-review.service.js'
+import type { OrderDeposit, OrderWithdraw } from '../types/domain.js'
+import type { Redis } from 'ioredis'
+import type { TxType } from '../services/payment-channel.service.js'
+
+const router = new Router()
+
+// yfpay 渠道列表 Redis 缓存（5 分钟）
+async function getCachedYfpayChannels(redis: Redis, env: Parameters<typeof yfpayGetChannels>[0]) {
+  const KEY = 'payment:yfpay:channels:cache'
+  const cached = await redis.get(KEY)
+  if (cached) return JSON.parse(cached) as Awaited<ReturnType<typeof yfpayGetChannels>>
+  const channels = await yfpayGetChannels(env)
+  await redis.setex(KEY, 300, JSON.stringify(channels))
+  return channels
+}
+
+// 根据渠道名找 yfpay channel code（GCASH-001 等）
+function findYfpayCode(channels: Awaited<ReturnType<typeof yfpayGetChannels>>, channelName: string) {
+  return channels.find(
+    (c) => c.code.toUpperCase().startsWith(channelName.toUpperCase()) ||
+           c.name.toLowerCase().includes(channelName.toLowerCase())
+  )
+}
+
+// ── GET /payment/channels ─────────────────────────────────────────────────────
+
+router.get('/payment/channels', async (ctx) => {
+  const txType = (ctx.query.txType ?? 'deposit') as TxType
+  const currency = String(ctx.query.currency ?? 'PHP').toUpperCase()
+
+  const channels = await listAvailableChannels(ctx.state.env, txType, currency)
+
+  // 用 yfpay 真实 min/max 覆盖（如有）
+  if (channels.length > 0 && txType === 'deposit') {
+    try {
+      const yfChannels = await getCachedYfpayChannels(ctx.state.redis as Redis, ctx.state.env)
+      for (const ch of channels) {
+        const yf = findYfpayCode(yfChannels, ch.name)
+        if (yf) { ch.minAmount = yf.min; ch.maxAmount = yf.max }
+      }
+    } catch { /* yfpay 不可用时保留 DB 里的值 */ }
+  }
+
+  ok(ctx, channels)
+})
+
+// ── POST /payment/deposit/create ──────────────────────────────────────────────
+
+router.post('/payment/deposit/create', async (ctx) => {
+  const body = ctx.request.body as { channelName?: string; amount?: number }
+  const channelName = String(body.channelName ?? '').toLowerCase().trim()
+  const amount = Number(body.amount)
+
+  if (!channelName || !Number.isFinite(amount) || amount <= 0) {
+    fail(ctx, 400, '缺少 channelName 或 amount'); return
+  }
+
+  const provider = await resolveChannel(ctx.state.env, channelName, 'deposit', amount, 'PHP')
+  if (!provider) {
+    fail(ctx, 400, '当前金额或渠道暂不可用，请调整金额后重试'); return
+  }
+
+  const merchantSerial = randomOrderId(provider === 'yfpay' ? 'YFD' : 'BPD')
+
+  try {
+    let payUrl: string
+    let platformId: string
+    let channelCodeUsed: string
+
+    if (provider === 'yfpay') {
+      const yfChannels = await getCachedYfpayChannels(ctx.state.redis as Redis, ctx.state.env)
+      const yf = findYfpayCode(yfChannels, channelName)
+      if (!yf) { fail(ctx, 400, `yfpay 暂无 ${channelName} 渠道`); return }
+      channelCodeUsed = yf.code
+      const result = await yfpayCreateDeposit({
+        amount, channelCode: yf.code, merchantSerial,
+        notifyUrl: ctx.state.env.YFPAY_NOTIFY_URL,
+      }, ctx.state.env)
+      payUrl = result.url
+      platformId = result.platformId
+    } else if (provider === 'beepay') {
+      // TODO: BeePay 文档到手后确认 channelCode 格式
+      channelCodeUsed = channelName.toUpperCase()
+      const result = await beepayCreateDeposit({
+        amount, channelCode: channelCodeUsed, merchantSerial,
+        notifyUrl: ctx.state.env.YFPAY_NOTIFY_URL,
+      }, ctx.state.env)
+      payUrl = result.payUrl
+      platformId = result.platformId
+    } else {
+      fail(ctx, 500, `未知 provider: ${provider}`); return
+    }
+
+    const order: OrderDeposit = {
+      orderId: merchantSerial,
+      userId: ctx.state.userId!,
+      amount,
+      creditedCents: Math.round(amount * 100),
+      currency: 'PHP',
+      channelId: `${provider}_${channelName}`,
+      status: 'pending',
+      provider,
+      providerRef: platformId,
+      extraData: { channelCode: channelCodeUsed, payUrl, channelName },
+      createdAt: nowIso(),
+    }
+    if (isMysqlEnabled(ctx.state.env)) {
+      await saveDeposit(ctx.state.redis, order)
+    }
+
+    ok(ctx, { merchantSerial, platformId, payUrl, amount, state: 0, provider })
+  } catch (err) {
+    console.error('[bff] payment/deposit/create', merchantSerial, err)
+    const msg = err instanceof YfPayError ? err.message
+      : err instanceof BeepayError ? err.message
+      : '创建充值订单失败'
+    fail(ctx, 500, msg)
+  }
+})
+
+// ── POST /payment/deposit/query ───────────────────────────────────────────────
+
+router.post('/payment/deposit/query', async (ctx) => {
+  const body = ctx.request.body as { merchantSerial?: string }
+  if (!body.merchantSerial) { fail(ctx, 400, '缺少 merchantSerial'); return }
+
+  let provider = 'yfpay'
+  if (isMysqlEnabled(ctx.state.env)) {
+    const order = await getDeposit(ctx.state.redis, body.merchantSerial)
+    if (!order || order.userId !== ctx.state.userId) { fail(ctx, 403, '无权查询此订单'); return }
+    provider = order.provider ?? 'yfpay'
+  }
+
+  try {
+    let state: number
+    if (provider === 'beepay') {
+      const r = await beepayQueryDeposit(body.merchantSerial, ctx.state.env)
+      state = r.state
+    } else {
+      const r = await yfpayQueryDeposit(body.merchantSerial, ctx.state.env)
+      state = r.state
+    }
+    ok(ctx, { state })
+  } catch (err) {
+    const msg = err instanceof YfPayError ? err.message
+      : err instanceof BeepayError ? err.message
+      : '查询失败'
+    fail(ctx, 500, msg)
+  }
+})
+
+// ── GET /payment/deposit/orders ───────────────────────────────────────────────
+
+router.get('/payment/deposit/orders', async (ctx) => {
+  if (!isMysqlEnabled(ctx.state.env)) { ok(ctx, []); return }
+  const orders = await listDeposits(ctx.state.redis, ctx.state.userId!, 1, 50)
+  ok(ctx, orders.map((o) => ({
+    merchantSerial: o.orderId,
+    amount: o.amount,
+    channelName: (o.extraData as Record<string, string> | undefined)?.channelName ?? o.channelId,
+    provider: o.provider,
+    state: o.status === 'paid' ? 2 : o.status === 'failed' ? 3 : 0,
+    payUrl: (o.extraData as Record<string, string> | undefined)?.payUrl,
+    createdAt: o.createdAt,
+  })))
+})
+
+// ── POST /payment/withdraw/create ─────────────────────────────────────────────
+
+router.post('/payment/withdraw/create', async (ctx) => {
+  const body = ctx.request.body as {
+    channelName?: string; amount?: number
+    targetOwner?: string; targetAccount?: string
+  }
+  const channelName = String(body.channelName ?? '').toLowerCase().trim()
+  const { amount, targetOwner, targetAccount } = body
+
+  if (!channelName || !amount || amount <= 0 || !targetOwner || !targetAccount) {
+    fail(ctx, 400, '缺少必填字段'); return
+  }
+
+  const userId = ctx.state.userId!
+  const redis = ctx.state.redis as Redis
+
+  if (!(await isKycApproved(redis, ctx.state.env, userId))) {
+    fail(ctx, 403, '请先完成实名认证（KYC）', 403); return
+  }
+
+  const lockKey = `withdraw:lock:${userId}`
+  const lockVal = randomBytes(8).toString('hex')
+  const locked = await redis.set(lockKey, lockVal, 'EX', 30, 'NX')
+  if (!locked) { fail(ctx, 429, '请勿重复提交提现请求'); return }
+
+  try {
+    if (isMysqlEnabled(ctx.state.env)) {
+      const turnoverOk = await checkTurnover(getMysqlPool(ctx.state.env), userId, 'PHP')
+      if (!turnoverOk) { fail(ctx, 403, '流水未完成，暂不可提现'); return }
+    }
+
+    const wallet = await getWallet(redis, userId)
+    if (wallet.available < amount) { fail(ctx, 400, '余额不足'); return }
+
+    const provider = await resolveChannel(ctx.state.env, channelName, 'withdraw', amount, 'PHP')
+    if (!provider) { fail(ctx, 400, '当前金额或渠道暂不可用'); return }
+
+    // provider 专用渠道码：yfpay 用大写，beepay 待文档确认
+    const channelCode = channelName.toUpperCase()
+    const merchantSerial = randomOrderId(provider === 'yfpay' ? 'YFW' : 'BPW')
+
+    await creditWallet(redis, userId, -amount, {
+      type: 'withdraw',
+      refId: merchantSerial,
+      description: `${provider} 提现 #${merchantSerial}`,
+      traceId: ctx.state.traceId,
+      createdAt: nowIso(),
+    })
+
+    const wOrder: OrderWithdraw = {
+      orderId: merchantSerial,
+      userId,
+      amount,
+      currency: 'PHP',
+      channelId: `${provider}_${channelName}`,
+      status: 'pending',
+      provider,
+      extraData: {
+        channelCode,
+        channelName,
+        targetAccount: targetAccount ?? '',
+        targetOwner: targetOwner ?? '',
+        // BeePay 文档到手后补充其他字段
+      },
+      createdAt: nowIso(),
+    }
+    await saveWithdraw(redis, wOrder)
+    await reviewWithdraw(ctx.state.env, redis, merchantSerial)
+
+    const finalOrder = await getWithdraw(redis, merchantSerial)
+    ok(ctx, {
+      merchantSerial,
+      amount,
+      status: finalOrder?.status ?? 'pending',
+      platformId: (finalOrder?.extraData as Record<string, unknown> | undefined)?.platformId ?? null,
+    })
+  } finally {
+    const current = await redis.get(lockKey)
+    if (current === lockVal) await redis.del(lockKey)
+  }
+})
+
+// ── GET /payment/withdraw/orders ──────────────────────────────────────────────
+
+router.get('/payment/withdraw/orders', async (ctx) => {
+  if (!isMysqlEnabled(ctx.state.env)) { ok(ctx, []); return }
+  const orders = await listWithdrawals(ctx.state.redis, ctx.state.userId!, 1, 50)
+  ok(ctx, orders.map((o) => ({
+    merchantSerial: o.orderId,
+    amount: o.amount,
+    channelName: (o.extraData as Record<string, string> | undefined)?.channelName ?? o.channelId,
+    provider: o.provider,
+    state: o.status === 'completed' ? 1 : o.status === 'rejected' ? 2 : 0,
+    createdAt: o.createdAt,
+  })))
+})
+
+export default router

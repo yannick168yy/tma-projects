@@ -14,6 +14,8 @@ export interface PayMethod {
   currency?: DepositCurrency
   iconKind?: 'emoji' | 'telegram'
   yfpayChannelCode?: string
+  /** 统一支付路由使用的渠道名（gcash / maya 等） */
+  paymentChannelName?: string
   minAmount?: number
   maxAmount?: number
   /** Matrix-specific fields */
