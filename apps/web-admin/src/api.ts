@@ -666,3 +666,41 @@ export interface AdminBadges {
   pendingCs: number
 }
 export const getAdminBadges = () => get<AdminBadges>('/admin/dashboard/badges')
+
+// ── 支付渠道管理 ──────────────────────────────────────────────────────────────
+
+export interface PaymentChannelRule {
+  id: number; channelId: number; currency: string
+  amountMin: number | null; amountMax: number | null
+  weight: number; enabled: boolean
+  createdAt: string; updatedAt: string
+}
+export interface PaymentChannel {
+  id: number; name: string; provider: string; label: string
+  enabled: boolean; sortOrder: number; rules: PaymentChannelRule[]
+  createdAt: string; updatedAt: string
+}
+
+export const getPaymentChannels = () => get<PaymentChannel[]>('/admin/payment/channels')
+
+export const createPaymentChannel = (data: {
+  name: string; provider: string; label: string; enabled: boolean; sortOrder: number
+}) => post<{ id: number }>('/admin/payment/channels', data)
+
+export const updatePaymentChannel = (id: number, data: Partial<{
+  name: string; provider: string; label: string; enabled: boolean; sortOrder: number
+}>) => req<null>('PUT', `/admin/payment/channels/${id}`, data)
+
+export const deletePaymentChannel = (id: number) =>
+  req<null>('DELETE', `/admin/payment/channels/${id}`)
+
+export const createPaymentRule = (channelId: number, data: {
+  currency: string; amountMin: number | null; amountMax: number | null; weight: number; enabled: boolean
+}) => post<{ id: number }>(`/admin/payment/channels/${channelId}/rules`, data)
+
+export const updatePaymentRule = (id: number, data: Partial<{
+  currency: string; amountMin: number | null; amountMax: number | null; weight: number; enabled: boolean
+}>) => req<null>('PUT', `/admin/payment/rules/${id}`, data)
+
+export const deletePaymentRule = (id: number) =>
+  req<null>('DELETE', `/admin/payment/rules/${id}`)

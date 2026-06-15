@@ -37,6 +37,7 @@ function buildMenuItems(badges: AdminBadges) {
       children: [
         { key: '/deposits', label: '存款管理' },
         { key: '/sg-settlement', label: '结算对账' },
+        { key: '/payment/channels', label: '支付渠道' },
       ],
     },
     {
@@ -104,7 +105,7 @@ function buildMenuItems(badges: AdminBadges) {
 
 function getDefaultOpenKey(pathname: string): string {
   if (pathname.startsWith('/review')) return 'review'
-  if (['/deposits', '/sg-settlement'].some((p) => pathname.startsWith(p))) return 'finance'
+  if (['/deposits', '/sg-settlement', '/payment'].some((p) => pathname.startsWith(p))) return 'finance'
   if (['/games', '/bet-orders', '/promotions', '/rebate'].some((p) => pathname.startsWith(p))) return 'content'
   if (pathname.startsWith('/team-referral')) return 'team'
   if (['/customer-service', '/cs-faq'].some((p) => pathname.startsWith(p))) return 'cs'
