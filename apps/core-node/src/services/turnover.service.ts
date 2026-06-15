@@ -77,8 +77,8 @@ export async function allocateBetTurnover(
       )
       await conn.execute(
         `UPDATE bg_turnover_requirements
-         SET completed_amount = completed_amount + ?,
-             status = IF(completed_amount + ? >= required_amount, 'completed', 'pending'),
+         SET status = IF(completed_amount + ? >= required_amount, 'completed', 'pending'),
+             completed_amount = completed_amount + ?,
              updated_at = NOW()
          WHERE id = ?`,
         [fill, fill, req.id],
