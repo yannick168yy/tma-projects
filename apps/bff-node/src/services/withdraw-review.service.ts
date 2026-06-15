@@ -258,12 +258,12 @@ async function buildContext(pool: Pool, order: OrderWithdraw): Promise<ReviewCon
     [userId, sinceDate],
   )
 
-  // 优惠流水未完成（promotion 类型）
+  // 优惠流水未完成（promotion 类型），只检查与本次取款同币种的要求，跨币种不拦截
   const [[pt]] = await pool.query<RowDataPacket[]>(
     `SELECT COALESCE(SUM(required_amount - completed_amount), 0) AS remaining
      FROM bg_turnover_requirements
-     WHERE user_id = ? AND source_type = 'promotion' AND status = 'pending'`,
-    [userId],
+     WHERE user_id = ? AND currency = ? AND source_type = 'promotion' AND status = 'pending'`,
+    [userId, order.currency],
   )
 
   // 同 IP（近30天）/ 同设备 的其他账号数
