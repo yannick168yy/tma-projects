@@ -68,19 +68,9 @@ router.get('/payment/channels', async (ctx) => {
   const txType = (ctx.query.txType ?? 'deposit') as TxType
   const currency = String(ctx.query.currency ?? 'PHP').toUpperCase()
 
+  // min/max 以后台配置的规则区间为准（listAvailableChannels 已聚合 MIN/MAX），
+  // 不再用 yfpay 接口覆盖——否则同名 yfpay 渠道会把 beepay 渠道的配置区间冲掉
   const channels = await getCachedAvailableChannels(ctx.state.redis as Redis, ctx.state.env, txType, currency)
-
-  // 用 yfpay 真实 min/max 覆盖（如有）
-  if (channels.length > 0 && txType === 'deposit') {
-    try {
-      const yfChannels = await getCachedYfpayChannels(ctx.state.redis as Redis, ctx.state.env)
-      for (const ch of channels) {
-        const yf = findYfpayCode(yfChannels, ch.name)
-        if (yf) { ch.minAmount = yf.min; ch.maxAmount = yf.max }
-      }
-    } catch { /* yfpay 不可用时保留 DB 里的值 */ }
-  }
-
   ok(ctx, channels)
 })
 

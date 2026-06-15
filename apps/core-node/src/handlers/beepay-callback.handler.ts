@@ -45,7 +45,8 @@ async function handleDeposit(
   if (!order || order.status === 'paid') return
 
   if (status === 1) {
-    const creditAmount = Number(order.credited ?? order.amount)
+    // credited 是 0/1 入账标志位（非金额），实际充值额在 amount 列
+    const creditAmount = Number(order.amount)
     const currency: string = order.currency ?? 'PHP'
     const conn = await db.getConnection()
     try {
