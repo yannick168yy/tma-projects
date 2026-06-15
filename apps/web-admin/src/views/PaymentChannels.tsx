@@ -174,6 +174,34 @@ function RuleTable({
   )
 }
 
+// 虚拟币 / TG 渠道的已知服务商与对应渠道标识（与 064 迁移播种值一致，provider→name 联动）
+const CRYPTO_PROVIDER_OPTIONS = [
+  { value: 'matrix', label: 'Matrix' },
+  { value: 'ton_connect', label: 'TON Connect' },
+  { value: 'tg_wallet', label: 'Telegram 钱包' },
+  { value: 'manual', label: '手动 / 链上' },
+]
+const CRYPTO_NAME_OPTIONS: Record<string, { value: string; label: string }[]> = {
+  matrix: [
+    { value: 'matrix_tlk_testnet', label: 'Matrix TLK 充值 (测试)' },
+    { value: 'matrix_trx_testnet', label: 'Matrix TRX 充值 (测试)' },
+    { value: 'matrix_tlk_testnet_w', label: 'Matrix TLK 提现 (测试)' },
+    { value: 'matrix_trx_testnet_w', label: 'Matrix TRX 提现 (测试)' },
+  ],
+  ton_connect: [{ value: 'ton', label: 'TON' }],
+  tg_wallet: [
+    { value: 'tg_wallet_php', label: 'Telegram 钱包 (PHP)' },
+    { value: 'tg_wallet_usdt', label: 'Telegram 钱包 (USDT)' },
+  ],
+  manual: [
+    { value: 'usdt-trc', label: 'USDT TRC20 充值' },
+    { value: 'usdt-trc-w', label: 'USDT TRC20 提现' },
+    { value: 'usdt-erc-w', label: 'USDT ERC20 提现' },
+    { value: 'ton-w', label: 'TON 提现' },
+    { value: 'btc-w', label: 'Bitcoin 提现' },
+  ],
+}
+
 export default function PaymentChannels() {
   const { role } = useAuthStore()
   const isSuperAdmin = role === 'super_admin'
@@ -182,6 +210,7 @@ export default function PaymentChannels() {
   const [channelModal, setChannelModal] = useState<{ open: boolean; channel?: PaymentChannel }>({ open: false })
   const [channelForm] = Form.useForm<{ name: string; provider: string; label: string; category: string; enabled: boolean; sortOrder: number }>()
   const formCategory = Form.useWatch('category', channelForm)
+  const formProvider = Form.useWatch('provider', channelForm)
   const [saving, setSaving] = useState(false)
 
   async function load() {
@@ -337,11 +366,19 @@ export default function PaymentChannels() {
           </Form.Item>
           {formCategory === 'crypto' ? (
             <>
-              <Form.Item label="渠道标识" name="name" rules={[{ required: true }]}>
-                <Input placeholder="如：ton / matrix_trx_testnet / tg_wallet_usdt" />
-              </Form.Item>
               <Form.Item label="服务商" name="provider" rules={[{ required: true }]}>
-                <Input placeholder="如：matrix / ton_connect / tg_wallet" />
+                <Select
+                  options={CRYPTO_PROVIDER_OPTIONS}
+                  placeholder="选择服务商"
+                  onChange={() => channelForm.setFieldsValue({ name: undefined })}
+                />
+              </Form.Item>
+              <Form.Item label="渠道标识" name="name" rules={[{ required: true }]}>
+                <Select
+                  options={CRYPTO_NAME_OPTIONS[formProvider] ?? []}
+                  placeholder={formProvider ? '选择渠道标识' : '请先选择服务商'}
+                  disabled={!formProvider}
+                />
               </Form.Item>
             </>
           ) : (

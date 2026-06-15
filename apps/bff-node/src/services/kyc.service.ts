@@ -282,6 +282,18 @@ function blankSubmission(userId: string): KycSubmission {
   }
 }
 
+/** 从证件出生日期字符串算周岁；无法解析返回 null */
+function ageFromDob(dob: string | undefined): number | null {
+  if (!dob) return null
+  const d = new Date(dob)
+  if (Number.isNaN(d.getTime())) return null
+  const now = new Date()
+  let age = now.getFullYear() - d.getFullYear()
+  const m = now.getMonth() - d.getMonth()
+  if (m < 0 || (m === 0 && now.getDate() < d.getDate())) age--
+  return age
+}
+
 interface GeminiDocVerdict {
   isValidDocument: boolean
   docType: string
@@ -535,6 +547,9 @@ export async function submitKycDocument(
   if (!ACCEPTED_DOC_TYPES.includes(normalizeDocType(verdict.docType))) reasons.push('unsupported_doc_type')
   if (!verdict.nameMatches) reasons.push('name_mismatch')
   if (verdict.confidence < env.KYC_GEMINI_MIN_CONFIDENCE) reasons.push('low_confidence')
+  // 年龄限制：证件出生日期可解析且不足 21 周岁 → 拒绝（OCR 无法解析出生日期时不拦截，避免误杀）
+  const age = ageFromDob(verdict.dob)
+  if (age != null && age < 21) reasons.push('underage')
 
   const docVerified = reasons.length === 0
   // 人脸验证关闭 ⇒ 证件通过即完成实名
@@ -551,6 +566,7 @@ export async function submitKycDocument(
     docVerified,
     faceVerified: false,
     extractedIdNo: verdict.idNumber || undefined,
+    dob: verdict.dob || existing?.dob || '',
     geminiConfidence: verdict.confidence,
     geminiResult: { document: verdict },
     docImageKey,

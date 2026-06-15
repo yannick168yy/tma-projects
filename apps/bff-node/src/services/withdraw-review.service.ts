@@ -61,19 +61,19 @@ interface ReviewContext {
 }
 
 export const RULE_META: Record<string, { name: string; desc: string }> = {
-  turnover:                  { name: '流水检查', desc: '窗口内流水未达标转人工（前置闸门兜底）' },
-  large_amount:             { name: '大额取款', desc: '单笔金额超阈值转人工（分币种）' },
-  large_profit:             { name: '大额盈利', desc: '窗口内净盈利超阈值转人工' },
-  high_multiple_profit:     { name: '高倍盈利', desc: '净盈利/存款 超倍数转人工' },
-  high_multiple_profit_24h: { name: '24小时高倍盈利', desc: '近24h 盈利/存款 超倍数转人工' },
-  deposit_source:           { name: '存款来源', desc: '账号从无真实存款（纯彩金/盈利出款）转人工' },
-  total_bonus:              { name: '总优惠金额', desc: '窗口内领取优惠总额超阈值转人工' },
-  first_withdraw_no_deposit:{ name: '首次取款', desc: '首次取款且无真实存款转人工' },
-  upline_blacklist:         { name: '上线黑名单', desc: '邀请人被封/冻结转人工' },
-  same_ip_device:           { name: '同IP同设备', desc: '与多个账号共用同IP/同设备（多账号/对打嫌疑）' },
-  promo_turnover:           { name: '优惠流水', desc: '优惠类流水未打完转人工' },
-  tampered_bet:             { name: '篡改注单', desc: '存在凭空派彩的round / 命中对账差异日' },
-  commission_anomaly:       { name: '三级分销佣金', desc: '佣金重复入账 / 下线无GGR却产生佣金（刷佣）' },
+  turnover:                  { name: '流水检查', desc: '复核「上次成功取款至今」窗口内的有效投注流水是否达到打码要求；未达标则转人工（与请求路径的流水闸门一致，此处兜底）。' },
+  large_amount:             { name: '大额取款', desc: '本次取款金额超过设定阈值转人工；按币种分别设阈（phpCents=法币分，usdt=Matrix 链上 USDT）。' },
+  large_profit:             { name: '大额盈利', desc: '统计窗口内的净盈利（总派彩−总投注）超过阈值（PHP 分）转人工。阈值≤0 表示不启用。' },
+  high_multiple_profit:     { name: '高倍盈利', desc: '窗口内 净盈利 ÷ 累计存款 的倍数 ≥ 阈值倍数转人工；无存款时跳过。' },
+  high_multiple_profit_24h: { name: '24小时高倍盈利', desc: '近 24 小时内 盈利 ÷ 存款 的倍数 ≥ 阈值倍数转人工，用于抓短时暴赚；近 24h 无存款时跳过。' },
+  deposit_source:           { name: '存款来源', desc: '账号历史从未有过真实成功存款（即纯靠彩金/盈利出款）转人工。' },
+  total_bonus:              { name: '总优惠金额', desc: '窗口内累计领取的优惠（彩金）总额超过阈值（PHP 分）转人工。阈值≤0 表示不启用。' },
+  first_withdraw_no_deposit:{ name: '首次取款', desc: '该账号此前无任何成功取款，且历史无真实存款，首次取款即转人工。' },
+  upline_blacklist:         { name: '上线黑名单', desc: '该用户的邀请人（上线）处于封禁/冻结或风控黑名单中，则本次取款转人工。' },
+  same_ip_device:           { name: '同IP同设备', desc: '与其它账号共用同一 IP 的数量 ≥ ip 阈值，或共用同一设备的数量 ≥ device 阈值（默认各 3），疑似多账号/对打，转人工。' },
+  promo_turnover:           { name: '优惠流水', desc: '存在已领取但尚未打完所需流水的优惠（剩余打码 > 0）则转人工。' },
+  tampered_bet:             { name: '篡改注单', desc: '存在无对应投注却凭空派彩的 round，或命中投注/派彩对账差异日，疑似数据被篡改，转人工。' },
+  commission_anomaly:       { name: '三级分销佣金', desc: '三级分销佣金出现重复入账，或自身有佣金收益但下线累计 GGR ≤ 0（疑似刷佣），转人工。' },
 }
 
 // ── 规则集：默认 pass，仅命中异常才 manual ─────────────────────────────────────

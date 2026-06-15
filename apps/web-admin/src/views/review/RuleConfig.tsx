@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Table, Switch, InputNumber, Button, Space, Card, Tag, message, Tooltip } from 'antd'
+import { Table, Switch, InputNumber, Button, Space, Card, Tag, message } from 'antd'
 import { getReviewConfig, saveReviewConfig, type ReviewConfigItem } from '../../api'
 
 const THRESHOLD_HINT: Record<string, string> = {
@@ -39,7 +39,8 @@ export default function RuleConfig() {
   }
 
   const columns = [
-    { title: '规则', dataIndex: 'name', width: 150, render: (v: string, r: ReviewConfigItem) => <Tooltip title={r.desc}><b>{v}</b></Tooltip> },
+    { title: '规则', dataIndex: 'name', width: 130, render: (v: string) => <b>{v}</b> },
+    { title: '规则说明', dataIndex: 'desc', width: 280, render: (v: string) => <span style={{ color: '#666', fontSize: 13 }}>{v || '—'}</span> },
     { title: '启用', key: 'enabled', width: 70, render: (_: unknown, r: ReviewConfigItem) => <Switch checked={r.enabled} onChange={(c) => update(r.ruleCode, { enabled: c })} /> },
     { title: '阈值参数', key: 'threshold', render: (_: unknown, r: ReviewConfigItem) => {
       if (r.params) {
