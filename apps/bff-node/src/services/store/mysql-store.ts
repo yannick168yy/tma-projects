@@ -12,6 +12,7 @@ import type { Env } from '../../config/env.js'
 import { getMysqlPool } from '../../clients/mysql.client.js'
 import { generateInviteCode } from '../../utils/id.js'
 import { nowIso } from '../../utils/format.js'
+import { providerFromChannel } from '../../utils/payment-provider.js'
 
 function pool(env: Env): Pool {
   return getMysqlPool(env)
@@ -655,12 +656,14 @@ function mapOrderWithdraw(r: RowDataPacket): OrderWithdraw {
   const extra = r.extra
     ? (typeof r.extra === 'string' ? JSON.parse(r.extra) : r.extra as Record<string, unknown>)
     : undefined
+  const channelId = (r.channel as string) ?? 'yfpay'
   return {
     orderId: r.order_id as string,
     userId: r.user_id as string,
     amount: Number(r.amount),
     currency: (r.currency as string) ?? 'PHP',
-    channelId: (r.channel as string) ?? 'yfpay',
+    channelId,
+    provider: providerFromChannel(channelId),
     status: r.status as OrderWithdraw['status'],
     createdAt: new Date(r.created_at as Date).toISOString(),
     completedAt: extra?.completedAt ? String(extra.completedAt) : undefined,

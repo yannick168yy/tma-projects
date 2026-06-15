@@ -6,14 +6,17 @@ import { executeMatrixWithdrawOrder } from './matrix.service.js'
 import { createWithdrawal as yfpayCreateWithdrawal, YfPayError } from './yfpay.service.js'
 import { createWithdrawal as beepayCreateWithdrawal, BeepayError } from './beepay.service.js'
 import { nowIso } from '../utils/format.js'
+import { providerFromChannel } from '../utils/payment-provider.js'
 
 export interface ApproveResult {
   status: OrderWithdraw['status']
   matrixOrderNo?: string
 }
 
-const isYfpay = (o: OrderWithdraw) => o.provider === 'yfpay' || o.channelId.startsWith('yfpay')
-const isBeepay = (o: OrderWithdraw) => o.provider === 'beepay'
+const isYfpay = (o: OrderWithdraw) =>
+  o.provider === 'yfpay' || providerFromChannel(o.channelId) === 'yfpay'
+const isBeepay = (o: OrderWithdraw) =>
+  o.provider === 'beepay' || providerFromChannel(o.channelId) === 'beepay'
 
 /**
  * 批准提款并出款。管理员人工批准与自动审核共用此路径，避免两份逻辑漂移。
