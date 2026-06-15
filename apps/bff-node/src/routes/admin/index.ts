@@ -16,12 +16,14 @@ import promotionsRoutes from './promotions.routes.js'
 import rebateRoutes from './rebate.routes.js'
 import reviewRoutes from './review.routes.js'
 import kycRoutes from './kyc.routes.js'
+import sseRoutes from './sse.routes.js'
 
 export function createAdminRouter(): Router {
   const admin = new Router({ prefix: '/admin' })
 
-  // 无需鉴权
+  // 无需鉴权（SSE 在处理器内部自行验 token）
   admin.use(authRoutes.routes(), authRoutes.allowedMethods())
+  admin.use(sseRoutes.routes(), sseRoutes.allowedMethods())
 
   // 需要 admin token
   const guard = adminAuthMiddleware()
