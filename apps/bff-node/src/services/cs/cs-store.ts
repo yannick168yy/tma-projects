@@ -1,6 +1,7 @@
 import type { RowDataPacket, ResultSetHeader } from 'mysql2/promise'
 import type { Env } from '../../config/env.js'
 import { getMysqlPool } from '../../clients/mysql.client.js'
+import { broadcastBadges } from '../sse-badges.js'
 
 export type ConversationStatus = 'active' | 'human_taken' | 'resolved' | 'closed'
 export type MessageRole = 'user' | 'assistant' | 'admin'
@@ -106,6 +107,9 @@ export async function updateConversationStatus(
       `UPDATE cs_conversation SET status = ?, assigned_admin_id = COALESCE(?, assigned_admin_id) WHERE id = ?`,
       [status, adminId ?? null, id],
     )
+  }
+  if (status === 'human_taken') {
+    broadcastBadges(env).catch(() => {})
   }
 }
 

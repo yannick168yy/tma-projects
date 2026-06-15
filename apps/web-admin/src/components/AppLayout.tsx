@@ -9,7 +9,7 @@ import {
   TransactionOutlined, ApartmentOutlined, SafetyCertificateOutlined,
 } from '@ant-design/icons'
 import { useAuthStore } from '../stores/auth'
-import { adminChangePassword, getAdminBadges, type AdminBadges } from '../api'
+import { adminChangePassword, type AdminBadges } from '../api'
 
 const { Sider, Header, Content } = Layout
 
@@ -120,10 +120,14 @@ export default function AppLayout() {
   const defaultOpenKeys = useMemo(() => { const k = getDefaultOpenKey(location.pathname); return k ? [k] : [] }, [])
 
   useEffect(() => {
-    const fetchBadges = () => { getAdminBadges().then(setBadges).catch(() => {}) }
-    fetchBadges()
-    const id = setInterval(fetchBadges, 30_000)
-    return () => clearInterval(id)
+    const token = localStorage.getItem('admin_token') ?? ''
+    const base = (import.meta.env.VITE_ADMIN_API_BASE_URL as string | undefined) || '/api/v1'
+    const url = `${base}/admin/dashboard/badges/stream?token=${encodeURIComponent(token)}`
+    const es = new EventSource(url)
+    es.onmessage = (e) => {
+      try { setBadges(JSON.parse(e.data) as AdminBadges) } catch { /* ignore */ }
+    }
+    return () => es.close()
   }, [])
 
   const menuItems = useMemo(() => buildMenuItems(badges), [badges])

@@ -6,6 +6,7 @@ import { getMysqlPool, isMysqlEnabled } from '../clients/mysql.client.js'
 import { getWithdraw } from './store/index.js'
 import { canWithdraw } from './turnover.service.js'
 import { approveWithdraw } from './withdraw-approve.service.js'
+import { broadcastBadges } from './sse-badges.js'
 
 // ── 规则结果 / 上下文 ─────────────────────────────────────────────────────────
 
@@ -234,8 +235,8 @@ async function buildContext(pool: Pool, order: OrderWithdraw): Promise<ReviewCon
 
   const [[dep]] = await pool.query<RowDataPacket[]>(
     `SELECT
-       COALESCE(SUM(CASE WHEN COALESCE(paid_at, created_at) > ? THEN credited_cents END), 0) AS window_cents,
-       COALESCE(SUM(CASE WHEN COALESCE(paid_at, created_at) > NOW() - INTERVAL 24 HOUR THEN credited_cents END), 0) AS d24_cents,
+       COALESCE(SUM(CASE WHEN created_at > ? THEN ROUND(amount * 100) END), 0) AS window_cents,
+       COALESCE(SUM(CASE WHEN created_at > NOW() - INTERVAL 24 HOUR THEN ROUND(amount * 100) END), 0) AS d24_cents,
        COUNT(*) AS lifetime_cnt
      FROM bg_deposit_order WHERE user_id = ? AND status = 'paid'`,
     [sinceDate, userId],
@@ -426,6 +427,8 @@ export async function reviewWithdraw(env: Env, redis: Redis, orderId: string, ro
   if (verdict === 'pass') {
     try { await approveWithdraw(env, redis, order) }
     catch { /* 出款失败内部已退款并置 failed，留人工跟进 */ }
+  } else {
+    broadcastBadges(env).catch(() => {})
   }
 }
 
