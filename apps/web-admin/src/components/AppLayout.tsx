@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect, useCallback, type ReactNode } from 'react'
+import { useMemo, useState, useEffect, useCallback } from 'react'
 import { Outlet, useNavigate, useLocation } from 'react-router-dom'
 import {
   Layout, Menu, Dropdown, Button, Modal, Form, Input, message, Badge,
@@ -25,15 +25,6 @@ function MenuBadgeLabel({ text, count }: { text: string; count: number }) {
   )
 }
 
-function BadgedIcon({ icon, count }: { icon: ReactNode; count: number }) {
-  if (count <= 0) return <>{icon}</>
-  return (
-    <Badge count={count} size="small" offset={[-2, 2]}>
-      {icon}
-    </Badge>
-  )
-}
-
 function buildMenuItems(badges: AdminBadges) {
   return [
     { key: '/dashboard', icon: <DashboardOutlined />, label: '数据概览' },
@@ -50,7 +41,7 @@ function buildMenuItems(badges: AdminBadges) {
     },
     {
       key: 'review',
-      icon: <BadgedIcon icon={<SafetyCertificateOutlined />} count={badges.manualWithdrawals} />,
+      icon: <SafetyCertificateOutlined />,
       label: <MenuBadgeLabel text="取款审核" count={badges.manualWithdrawals} />,
       children: [
         { key: '/review/overview', label: '审核总览' },
@@ -87,7 +78,7 @@ function buildMenuItems(badges: AdminBadges) {
     },
     {
       key: 'cs',
-      icon: <BadgedIcon icon={<CustomerServiceOutlined />} count={badges.pendingCs} />,
+      icon: <CustomerServiceOutlined />,
       label: <MenuBadgeLabel text="客服系统" count={badges.pendingCs} />,
       children: [
         {
