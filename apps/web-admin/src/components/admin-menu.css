@@ -1,0 +1,16 @@
+/* 深色侧栏：Badge 作为 sibling 时保持菜单文字颜色 */
+.ant-menu-dark .admin-menu-badge-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.ant-menu-dark .ant-menu-item-selected .admin-menu-badge-label,
+.ant-menu-dark .ant-menu-submenu-selected > .ant-menu-submenu-title .admin-menu-badge-label {
+  color: #fff;
+}
+
+.ant-menu-dark .admin-menu-badge-label .ant-badge-count {
+  box-shadow: none;
+}

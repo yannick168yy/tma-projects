@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from 'react'
+import { useMemo, useState, useEffect, useCallback, type ReactNode } from 'react'
 import { Outlet, useNavigate, useLocation } from 'react-router-dom'
 import {
   Layout, Menu, Dropdown, Button, Modal, Form, Input, message, Badge,
@@ -9,9 +9,30 @@ import {
   TransactionOutlined, ApartmentOutlined, SafetyCertificateOutlined,
 } from '@ant-design/icons'
 import { useAuthStore } from '../stores/auth'
-import { adminChangePassword, type AdminBadges } from '../api'
+import { adminChangePassword, getAdminBadges, type AdminBadges } from '../api'
+import './admin-menu.css'
 
 const { Sider, Header, Content } = Layout
+
+function MenuBadgeLabel({ text, count }: { text: string; count: number }) {
+  return (
+    <span className="admin-menu-badge-label">
+      <span>{text}</span>
+      {count > 0 && (
+        <Badge count={count} size="small" overflowCount={99} />
+      )}
+    </span>
+  )
+}
+
+function BadgedIcon({ icon, count }: { icon: ReactNode; count: number }) {
+  if (count <= 0) return <>{icon}</>
+  return (
+    <Badge count={count} size="small" offset={[-2, 2]}>
+      {icon}
+    </Badge>
+  )
+}
 
 function buildMenuItems(badges: AdminBadges) {
   return [
@@ -29,17 +50,13 @@ function buildMenuItems(badges: AdminBadges) {
     },
     {
       key: 'review',
-      icon: <SafetyCertificateOutlined />,
-      label: '取款审核',
+      icon: <BadgedIcon icon={<SafetyCertificateOutlined />} count={badges.manualWithdrawals} />,
+      label: <MenuBadgeLabel text="取款审核" count={badges.manualWithdrawals} />,
       children: [
         { key: '/review/overview', label: '审核总览' },
         {
           key: '/review/manual',
-          label: (
-            <Badge count={badges.manualWithdrawals} size="small" offset={[6, 0]}>
-              待人工处理
-            </Badge>
-          ),
+          label: <MenuBadgeLabel text="待人工处理" count={badges.manualWithdrawals} />,
         },
         { key: '/review/proposals', label: '提案审核记录' },
         { key: '/review/config', label: '审核规则配置' },
@@ -70,16 +87,12 @@ function buildMenuItems(badges: AdminBadges) {
     },
     {
       key: 'cs',
-      icon: <CustomerServiceOutlined />,
-      label: '客服系统',
+      icon: <BadgedIcon icon={<CustomerServiceOutlined />} count={badges.pendingCs} />,
+      label: <MenuBadgeLabel text="客服系统" count={badges.pendingCs} />,
       children: [
         {
           key: '/customer-service',
-          label: (
-            <Badge count={badges.pendingCs} size="small" offset={[6, 0]}>
-              客服工作台
-            </Badge>
-          ),
+          label: <MenuBadgeLabel text="客服工作台" count={badges.pendingCs} />,
         },
         { key: '/cs-faq', label: '知识库管理' },
       ],
@@ -108,6 +121,42 @@ function getDefaultOpenKey(pathname: string): string {
   return ''
 }
 
+function useAdminBadges(): AdminBadges {
+  const [badges, setBadges] = useState<AdminBadges>({ manualWithdrawals: 0, pendingCs: 0 })
+
+  const refresh = useCallback(async () => {
+    try {
+      setBadges(await getAdminBadges())
+    } catch {
+      /* 静默忽略，保留上次数值 */
+    }
+  }, [])
+
+  useEffect(() => {
+    void refresh()
+    const poll = window.setInterval(() => void refresh(), 30_000)
+
+    const token = localStorage.getItem('admin_token') ?? ''
+    const base = (import.meta.env.VITE_ADMIN_API_BASE_URL as string | undefined) || '/api/v1'
+    const url = `${base}/admin/dashboard/badges/stream?token=${encodeURIComponent(token)}`
+    const es = new EventSource(url)
+    es.onmessage = (e) => {
+      try { setBadges(JSON.parse(e.data) as AdminBadges) } catch { /* ignore */ }
+    }
+    es.onerror = () => {
+      es.close()
+      void refresh()
+    }
+
+    return () => {
+      window.clearInterval(poll)
+      es.close()
+    }
+  }, [refresh])
+
+  return badges
+}
+
 export default function AppLayout() {
   const navigate = useNavigate()
   const location = useLocation()
@@ -116,19 +165,8 @@ export default function AppLayout() {
   const [showPwdModal, setShowPwdModal] = useState(false)
   const [pwdLoading, setPwdLoading] = useState(false)
   const [form] = Form.useForm<{ current: string; newPwd: string; confirm: string }>()
-  const [badges, setBadges] = useState<AdminBadges>({ manualWithdrawals: 0, pendingCs: 0 })
+  const badges = useAdminBadges()
   const defaultOpenKeys = useMemo(() => { const k = getDefaultOpenKey(location.pathname); return k ? [k] : [] }, [])
-
-  useEffect(() => {
-    const token = localStorage.getItem('admin_token') ?? ''
-    const base = (import.meta.env.VITE_ADMIN_API_BASE_URL as string | undefined) || '/api/v1'
-    const url = `${base}/admin/dashboard/badges/stream?token=${encodeURIComponent(token)}`
-    const es = new EventSource(url)
-    es.onmessage = (e) => {
-      try { setBadges(JSON.parse(e.data) as AdminBadges) } catch { /* ignore */ }
-    }
-    return () => es.close()
-  }, [])
 
   const menuItems = useMemo(() => buildMenuItems(badges), [badges])
 
