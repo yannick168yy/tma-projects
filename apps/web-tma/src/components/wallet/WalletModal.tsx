@@ -87,7 +87,7 @@ export default function WalletModal({ open, onClose }: Props) {
   const [withdrawLoading, setWithdrawLoading] = useState(false)
   const [withdrawMessage, setWithdrawMessage] = useState('')
   const [withdrawSuccess, setWithdrawSuccess] = useState(false)
-  const { kycApproved, kycOpen, setKycOpen, boundPhoneNumber, refreshKyc, onKycClose, onKycApproved } = useKycGate(open && tab === 'withdraw')
+  const { kycApproved, kycOpen, setKycOpen, boundPhoneNumber, kycFullName, refreshKyc, onKycClose, onKycApproved } = useKycGate(open && tab === 'withdraw')
   const pendingWithdrawMethodRef = useRef<string | null>(null)
   const [historyOrders, setHistoryOrders] = useState<HistoryItem[]>([])
   const [historyLoading, setHistoryLoading] = useState(false)
@@ -103,20 +103,23 @@ export default function WalletModal({ open, onClose }: Props) {
   function stopPolling() { if(pollTimerRef.current){clearInterval(pollTimerRef.current);pollTimerRef.current=null} }
   function stopTonPolling() { if(tonPollTimerRef.current){clearInterval(tonPollTimerRef.current);tonPollTimerRef.current=null} }
 
-  function applyWithdrawAccountPrefill(methodId: string) {
-    if (isPhoneWalletWithdraw(methodId) && boundPhoneNumber) {
-      setWithdrawAccount(walletAccountFromPhone(boundPhoneNumber))
+  function applyWithdrawPrefill(methodId: string, fullName?: string | null) {
+    if (isPhoneWalletWithdraw(methodId)) {
+      if (boundPhoneNumber) setWithdrawAccount(walletAccountFromPhone(boundPhoneNumber))
+      else setWithdrawAccount('')
+      const name = fullName ?? kycFullName
+      setWithdrawOwner(name?.trim() ?? '')
     } else {
       setWithdrawAccount('')
+      setWithdrawOwner('')
     }
   }
 
-  function proceedWithWithdrawMethod(id: string) {
+  function proceedWithWithdrawMethod(id: string, fullName?: string | null) {
     setSelectedMethod(id)
     setAmount('')
     setWithdrawMessage('')
-    applyWithdrawAccountPrefill(id)
-    setWithdrawOwner('')
+    applyWithdrawPrefill(id, fullName)
   }
 
   async function onSelectWithdrawMethod(id: string) {
@@ -125,22 +128,23 @@ export default function WalletModal({ open, onClose }: Props) {
       setTimeout(() => setTurnoverShake(false), 500)
       return
     }
-    let approved = kycApproved
-    if (approved === null) approved = await refreshKyc()
+    let status = kycApproved === null ? await refreshKyc() : null
+    const approved = status ? status.status === 'approved' : kycApproved === true
     if (!approved) {
       pendingWithdrawMethodRef.current = id
       setKycOpen(true)
       return
     }
-    proceedWithWithdrawMethod(id)
+    proceedWithWithdrawMethod(id, status?.fullName ?? kycFullName)
   }
 
-  function handleKycApproved() {
+  async function handleKycApproved() {
     onKycApproved()
+    const status = await refreshKyc()
     const pending = pendingWithdrawMethodRef.current
     if (pending) {
       pendingWithdrawMethodRef.current = null
-      proceedWithWithdrawMethod(pending)
+      proceedWithWithdrawMethod(pending, status?.fullName ?? kycFullName)
     }
   }
 
@@ -191,6 +195,13 @@ export default function WalletModal({ open, onClose }: Props) {
       setWithdrawAccount(walletAccountFromPhone(boundPhoneNumber))
     }
   }, [tab, selectedMethod, boundPhoneNumber])
+
+  useEffect(() => {
+    if (tab !== 'withdraw' || !selectedMethod || !kycFullName || withdrawOwner.trim()) return
+    if (isPhoneWalletWithdraw(selectedMethod)) {
+      setWithdrawOwner(kycFullName)
+    }
+  }, [tab, selectedMethod, kycFullName, withdrawOwner])
 
   useEffect(() => {
     if (!selectedMethod) return
