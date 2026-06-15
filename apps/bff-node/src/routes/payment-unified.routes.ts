@@ -108,11 +108,10 @@ router.post('/payment/deposit/create', async (ctx) => {
       payUrl = result.url
       platformId = result.platformId
     } else if (provider === 'beepay') {
-      // TODO: BeePay 文档到手后确认 channelCode 格式
       channelCodeUsed = channelName.toUpperCase()
       const result = await beepayCreateDeposit({
         amount, channelCode: channelCodeUsed, merchantSerial,
-        notifyUrl: ctx.state.env.YFPAY_NOTIFY_URL,
+        notifyUrl: ctx.state.env.BEEPAY_NOTIFY_URL,
       }, ctx.state.env)
       payUrl = result.payUrl
       platformId = result.platformId

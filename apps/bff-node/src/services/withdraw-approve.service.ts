@@ -66,14 +66,13 @@ export async function approveWithdraw(
   if (isBeepay(order)) {
     const ex = (order.extraData ?? {}) as Record<string, unknown>
     try {
-      // TODO: BeePay 文档到手后确认 channelCode 字段
       const r = await beepayCreateWithdrawal({
         merchantSerial: order.orderId,
         amount: order.amount,
         targetOwner: String(ex.targetOwner ?? ''),
         targetAccount: String(ex.targetAccount ?? ''),
         channelCode: String(ex.channelCode ?? ''),
-        notifyUrl: env.YFPAY_NOTIFY_URL,
+        notifyUrl: env.BEEPAY_NOTIFY_URL,
       }, env)
       order.status = 'processing'
       order.extraData = { ...ex, platformId: r.platformId }

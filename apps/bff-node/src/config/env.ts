@@ -37,6 +37,11 @@ const schema = z.object({
   YFPAY_USERNAME: z.string().default(''),
   YFPAY_API_KEY: z.string().default(''),
   YFPAY_NOTIFY_URL: z.string().default('https://www.188facai.com/api/v1/callback/yfpay'),
+  // ── BeePay ──────────────────────────────────────────────────────────────────
+  BEEPAY_BASE_URL: z.string().default(''),
+  BEEPAY_MID_NO: z.string().default(''),
+  BEEPAY_API_KEY: z.string().default(''),
+  BEEPAY_NOTIFY_URL: z.string().default('https://www.188facai.com/api/v1/callback/beepay'),
   MERCHANT_TON_ADDRESS: z.string().default('UQBjAz1W6jUkH7WJbxwu7rSHbJaOg65TVFHv8w6b1Nx697rJ'),
   TON_TO_PHP_RATE: z.coerce.number().positive().default(350),
   TONCENTER_API_KEY: z.string().default(''),
