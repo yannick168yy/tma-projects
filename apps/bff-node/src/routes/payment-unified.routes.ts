@@ -51,13 +51,24 @@ function findYfpayCode(channels: Awaited<ReturnType<typeof yfpayGetChannels>>, c
   )
 }
 
+// 可用渠道列表 Redis 缓存（60 秒）。实际下单路由走 resolveChannel 不读此缓存，
+// 故后台改渠道后真实路由立即生效，仅客户端展示列表最多滞后 60 秒。
+async function getCachedAvailableChannels(redis: Redis, env: Parameters<typeof listAvailableChannels>[0], txType: TxType, currency: string) {
+  const KEY = `payment:channels:${txType}:${currency}`
+  const cached = await redis.get(KEY)
+  if (cached) return JSON.parse(cached) as Awaited<ReturnType<typeof listAvailableChannels>>
+  const channels = await listAvailableChannels(env, txType, currency)
+  await redis.setex(KEY, 60, JSON.stringify(channels))
+  return channels
+}
+
 // ── GET /payment/channels ─────────────────────────────────────────────────────
 
 router.get('/payment/channels', async (ctx) => {
   const txType = (ctx.query.txType ?? 'deposit') as TxType
   const currency = String(ctx.query.currency ?? 'PHP').toUpperCase()
 
-  const channels = await listAvailableChannels(ctx.state.env, txType, currency)
+  const channels = await getCachedAvailableChannels(ctx.state.redis as Redis, ctx.state.env, txType, currency)
 
   // 用 yfpay 真实 min/max 覆盖（如有）
   if (channels.length > 0 && txType === 'deposit') {
