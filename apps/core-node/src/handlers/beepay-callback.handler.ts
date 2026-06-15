@@ -1,6 +1,7 @@
 import type { Pool, RowDataPacket } from 'mysql2/promise'
 import type { Redis } from 'ioredis'
 import { lgId } from '../utils/id.js'
+import { createDepositRequirement } from '../services/turnover.service.js'
 
 export interface BeepayCallbackPayload {
   channelOrderNo: string
@@ -68,9 +69,10 @@ async function handleDeposit(
         [lgId(), order.user_id, currency, creditAmount, balanceAfter, merchantSerial, `BeePay 充值 #${merchantSerial}`],
       )
       await conn.execute(
-        `UPDATE bg_deposit_order SET status='paid', extra=JSON_SET(COALESCE(extra,'{}'),'$.providerRef',?) WHERE order_id=?`,
+        `UPDATE bg_deposit_order SET status='paid', credited=1, extra=JSON_SET(COALESCE(extra,'{}'),'$.providerRef',?) WHERE order_id=?`,
         [channelOrderNo, merchantSerial],
       )
+      await createDepositRequirement(conn, order.user_id, merchantSerial, creditAmount, currency)
       await conn.commit()
     } catch (err) {
       await conn.rollback()

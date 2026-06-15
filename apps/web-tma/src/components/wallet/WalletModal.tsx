@@ -386,7 +386,7 @@ export default function WalletModal({ open, onClose }: Props) {
 
   async function copyOrderId(id: string) { try{await navigator.clipboard.writeText(id);setCopiedId(id);setTimeout(()=>setCopiedId(null),2000)}catch{/***/} }
 
-  function resetToSelect() { pendingWithdrawMethodRef.current = null; setDepositView('select'); setSelectedMethod(null); setAmount(''); setDepositMessage(''); setWithdrawMessage(''); setWithdrawAccount(''); setWithdrawOwner(''); stopTonPolling(); setTonMessage(''); setTonLoading(false); setTonSuccess(false); setMatrixAddress(''); setMatrixCryptoAmount(''); setCopiedAddress(false) }
+  function resetToSelect() { pendingWithdrawMethodRef.current = null; setDepositView('select'); setSelectedMethod(null); setAmount(''); setDepositMessage(''); setWithdrawMessage(''); setWithdrawAccount(''); setWithdrawOwner(''); stopPolling(); setDepositLoading(false); setPollSerial(''); setDepositSuccess(false); stopTonPolling(); setTonMessage(''); setTonLoading(false); setTonSuccess(false); setMatrixAddress(''); setMatrixCryptoAmount(''); setCopiedAddress(false) }
 
   if (!open) return null
 
