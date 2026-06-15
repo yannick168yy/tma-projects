@@ -163,8 +163,22 @@ export interface AdminKycDetail {
   }
 }
 
+export interface KycDocLogItem {
+  id: number
+  fullName: string | null
+  docType: string | null
+  docImageKey: string | null
+  geminiConfidence: number | null
+  docVerified: boolean
+  rejectReason: string | null
+  submittedAt: string
+}
+
 export const getKycList = (params: { page?: number; pageSize?: number; status?: string }) =>
   get<{ total: number; page: number; pageSize: number; items: AdminKycListItem[] }>('/admin/kyc', params)
+
+export const getKycDocLog = (userId: string) =>
+  get<{ items: KycDocLogItem[] }>(`/admin/kyc/${userId}/doc-log`)
 
 export const getKycDetail = (userId: string) =>
   get<AdminKycDetail>(`/admin/kyc/${userId}`)
@@ -631,3 +645,9 @@ export const triggerRebatePayout = (date?: string) =>
   req<{ users: number; totalRebate: number }>('POST', '/admin/rebate/payout/manual', { date })
 export const getRebateRecords = (params?: { page?: number; pageSize?: number; date?: string; userId?: string }) =>
   get<{ items: RebateRecord[]; total: number; page: number; pageSize: number }>('/admin/rebate/records', params)
+
+export interface AdminBadges {
+  manualWithdrawals: number
+  pendingCs: number
+}
+export const getAdminBadges = () => get<AdminBadges>('/admin/dashboard/badges')

@@ -1,7 +1,7 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { Outlet, useNavigate, useLocation } from 'react-router-dom'
 import {
-  Layout, Menu, Dropdown, Button, Modal, Form, Input, message,
+  Layout, Menu, Dropdown, Button, Modal, Form, Input, message, Badge,
 } from 'antd'
 import {
   DashboardOutlined, TeamOutlined, UserOutlined, DownOutlined,
@@ -9,84 +9,98 @@ import {
   TransactionOutlined, ApartmentOutlined, SafetyCertificateOutlined,
 } from '@ant-design/icons'
 import { useAuthStore } from '../stores/auth'
-import { adminChangePassword } from '../api'
+import { adminChangePassword, getAdminBadges, type AdminBadges } from '../api'
 
 const { Sider, Header, Content } = Layout
 
-const menuItems = [
-  { key: '/dashboard', icon: <DashboardOutlined />, label: '数据概览' },
-  { key: '/users', icon: <TeamOutlined />, label: '用户管理' },
-  { key: '/kyc', icon: <SafetyCertificateOutlined />, label: '实名认证' },
-  {
-    key: 'finance',
-    icon: <TransactionOutlined />,
-    label: '财务管理',
-    children: [
-      { key: '/deposits', label: '存款管理' },
-      { key: '/withdrawals', label: '提款审批' },
-      { key: '/sg-settlement', label: '结算对账' },
-    ],
-  },
-  {
-    key: 'review',
-    icon: <SafetyCertificateOutlined />,
-    label: '取款审核',
-    children: [
-      { key: '/review/overview', label: '审核总览' },
-      { key: '/review/manual', label: '待人工处理' },
-      { key: '/review/proposals', label: '提案审核记录' },
-      { key: '/review/config', label: '审核规则配置' },
-      { key: '/review/blacklist', label: '风控名单' },
-    ],
-  },
-  {
-    key: 'content',
-    icon: <AppstoreOutlined />,
-    label: '游戏内容',
-    children: [
-      { key: '/games', label: '游戏管理' },
-      { key: '/bet-orders', label: '投注记录' },
-      { key: '/promotions', label: '活动配置' },
-      { key: '/promotions/claims', label: '参与记录' },
-      { key: '/rebate', label: '洗码管理' },
-    ],
-  },
-  {
-    key: 'team',
-    icon: <ApartmentOutlined />,
-    label: '分销管理',
-    children: [
-      { key: '/team-referral/agents', label: '代理管理' },
-      { key: '/team-referral/commissions', label: '佣金流水' },
-      { key: '/team-referral/withdrawals', label: '提现审核' },
-      { key: '/team-referral/config', label: '佣金配置' },
-    ],
-  },
-  {
-    key: 'cs',
-    icon: <CustomerServiceOutlined />,
-    label: '客服系统',
-    children: [
-      { key: '/customer-service', label: '客服工作台' },
-      { key: '/cs-faq', label: '知识库管理' },
-    ],
-  },
-  {
-    key: 'system',
-    icon: <SettingOutlined />,
-    label: '系统管理',
-    children: [
-      { key: '/exchange-rates', label: '汇率管理' },
-      { key: '/audit-log', label: '操作日志' },
-      { key: '/settings', label: '系统设置' },
-      { key: '/sms-test', label: '短信测试' },
-    ],
-  },
-]
+function buildMenuItems(badges: AdminBadges) {
+  return [
+    { key: '/dashboard', icon: <DashboardOutlined />, label: '数据概览' },
+    { key: '/users', icon: <TeamOutlined />, label: '用户管理' },
+    { key: '/kyc', icon: <SafetyCertificateOutlined />, label: '实名认证' },
+    {
+      key: 'finance',
+      icon: <TransactionOutlined />,
+      label: '财务管理',
+      children: [
+        { key: '/deposits', label: '存款管理' },
+        { key: '/sg-settlement', label: '结算对账' },
+      ],
+    },
+    {
+      key: 'review',
+      icon: <SafetyCertificateOutlined />,
+      label: '取款审核',
+      children: [
+        { key: '/review/overview', label: '审核总览' },
+        {
+          key: '/review/manual',
+          label: (
+            <Badge count={badges.manualWithdrawals} size="small" offset={[6, 0]}>
+              待人工处理
+            </Badge>
+          ),
+        },
+        { key: '/review/proposals', label: '提案审核记录' },
+        { key: '/review/config', label: '审核规则配置' },
+        { key: '/review/blacklist', label: '风控名单' },
+      ],
+    },
+    {
+      key: 'content',
+      icon: <AppstoreOutlined />,
+      label: '游戏内容',
+      children: [
+        { key: '/games', label: '游戏管理' },
+        { key: '/bet-orders', label: '投注记录' },
+        { key: '/promotions', label: '活动配置' },
+        { key: '/promotions/claims', label: '参与记录' },
+        { key: '/rebate', label: '洗码管理' },
+      ],
+    },
+    {
+      key: 'team',
+      icon: <ApartmentOutlined />,
+      label: '分销管理',
+      children: [
+        { key: '/team-referral/agents', label: '代理管理' },
+        { key: '/team-referral/commissions', label: '佣金流水' },
+        { key: '/team-referral/config', label: '佣金配置' },
+      ],
+    },
+    {
+      key: 'cs',
+      icon: <CustomerServiceOutlined />,
+      label: '客服系统',
+      children: [
+        {
+          key: '/customer-service',
+          label: (
+            <Badge count={badges.pendingCs} size="small" offset={[6, 0]}>
+              客服工作台
+            </Badge>
+          ),
+        },
+        { key: '/cs-faq', label: '知识库管理' },
+      ],
+    },
+    {
+      key: 'system',
+      icon: <SettingOutlined />,
+      label: '系统管理',
+      children: [
+        { key: '/exchange-rates', label: '汇率管理' },
+        { key: '/audit-log', label: '操作日志' },
+        { key: '/settings', label: '系统设置' },
+        { key: '/sms-test', label: '短信测试' },
+      ],
+    },
+  ]
+}
 
 function getDefaultOpenKey(pathname: string): string {
   if (pathname.startsWith('/review')) return 'review'
-  if (['/deposits', '/withdrawals', '/sg-settlement'].some((p) => pathname.startsWith(p))) return 'finance'
+  if (['/deposits', '/sg-settlement'].some((p) => pathname.startsWith(p))) return 'finance'
   if (['/games', '/bet-orders', '/promotions', '/rebate'].some((p) => pathname.startsWith(p))) return 'content'
   if (pathname.startsWith('/team-referral')) return 'team'
   if (['/customer-service', '/cs-faq'].some((p) => pathname.startsWith(p))) return 'cs'
@@ -102,7 +116,17 @@ export default function AppLayout() {
   const [showPwdModal, setShowPwdModal] = useState(false)
   const [pwdLoading, setPwdLoading] = useState(false)
   const [form] = Form.useForm<{ current: string; newPwd: string; confirm: string }>()
+  const [badges, setBadges] = useState<AdminBadges>({ manualWithdrawals: 0, pendingCs: 0 })
   const defaultOpenKeys = useMemo(() => { const k = getDefaultOpenKey(location.pathname); return k ? [k] : [] }, [])
+
+  useEffect(() => {
+    const fetchBadges = () => { getAdminBadges().then(setBadges).catch(() => {}) }
+    fetchBadges()
+    const id = setInterval(fetchBadges, 30_000)
+    return () => clearInterval(id)
+  }, [])
+
+  const menuItems = useMemo(() => buildMenuItems(badges), [badges])
 
   async function handleChangePwd() {
     const values = form.getFieldsValue()
