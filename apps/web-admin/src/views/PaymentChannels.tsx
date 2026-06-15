@@ -180,7 +180,8 @@ export default function PaymentChannels() {
   const [channels, setChannels] = useState<PaymentChannel[]>([])
   const [loading, setLoading] = useState(false)
   const [channelModal, setChannelModal] = useState<{ open: boolean; channel?: PaymentChannel }>({ open: false })
-  const [channelForm] = Form.useForm<{ name: string; provider: string; label: string; enabled: boolean; sortOrder: number }>()
+  const [channelForm] = Form.useForm<{ name: string; provider: string; label: string; category: string; enabled: boolean; sortOrder: number }>()
+  const formCategory = Form.useWatch('category', channelForm)
   const [saving, setSaving] = useState(false)
 
   async function load() {
@@ -209,12 +210,12 @@ export default function PaymentChannels() {
       if (channelModal.channel) {
         await updatePaymentChannel(channelModal.channel.id, {
           name: vals.name, provider: vals.provider, label: vals.label,
-          enabled: vals.enabled, sortOrder: vals.sortOrder ?? 0,
+          category: vals.category ?? 'fiat', enabled: vals.enabled, sortOrder: vals.sortOrder ?? 0,
         })
       } else {
         await createPaymentChannel({
           name: vals.name, provider: vals.provider, label: vals.label,
-          enabled: vals.enabled !== false, sortOrder: vals.sortOrder ?? 0,
+          category: vals.category ?? 'fiat', enabled: vals.enabled !== false, sortOrder: vals.sortOrder ?? 0,
         })
       }
       message.success('已保存')
@@ -227,14 +228,14 @@ export default function PaymentChannels() {
 
   function openAdd() {
     channelForm.resetFields()
-    channelForm.setFieldsValue({ enabled: true, sortOrder: 0 })
+    channelForm.setFieldsValue({ enabled: true, sortOrder: 0, category: 'fiat' })
     setChannelModal({ open: true })
   }
 
   function openEdit(channel: PaymentChannel) {
     channelForm.setFieldsValue({
       name: channel.name, provider: channel.provider, label: channel.label,
-      enabled: channel.enabled, sortOrder: channel.sortOrder,
+      category: channel.category ?? 'fiat', enabled: channel.enabled, sortOrder: channel.sortOrder,
     })
     setChannelModal({ open: true, channel })
   }
@@ -242,6 +243,12 @@ export default function PaymentChannels() {
   const columns: ColumnsType<PaymentChannel> = [
     { title: '显示名称', dataIndex: 'label', width: 150 },
     { title: '渠道标识', dataIndex: 'name', width: 100, render: (v: string) => <Tag>{v}</Tag> },
+    {
+      title: '类别', dataIndex: 'category', width: 80,
+      render: (v: string) => v === 'crypto'
+        ? <Tag color="gold">虚拟币</Tag>
+        : <Tag color="green">法币</Tag>,
+    },
     { title: '服务商', dataIndex: 'provider', width: 100, render: (v: string) => <Tag color="blue">{v}</Tag> },
     { title: '排序', dataIndex: 'sortOrder', width: 70 },
     {
@@ -258,9 +265,9 @@ export default function PaymentChannels() {
     {
       title: '规则数',
       width: 80,
-      render: (_: unknown, r: PaymentChannel) => (
-        <Tag color={r.rules.length > 0 ? 'green' : 'default'}>{r.rules.length} 条</Tag>
-      ),
+      render: (_: unknown, r: PaymentChannel) => r.category === 'crypto'
+        ? <Tag>—</Tag>
+        : <Tag color={r.rules.length > 0 ? 'green' : 'default'}>{r.rules.length} 条</Tag>,
     },
     {
       title: '操作',
@@ -294,10 +301,16 @@ export default function PaymentChannels() {
         expandable={{
           expandedRowRender: (record) => (
             <div style={{ padding: '8px 16px' }}>
-              <Typography.Text strong style={{ marginBottom: 8, display: 'block' }}>
-                路由规则（按权重加权随机选择匹配的规则对应渠道）
-              </Typography.Text>
-              <RuleTable channel={record} onReload={load} />
+              {record.category === 'crypto' ? (
+                <Typography.Text type="secondary">虚拟币 / TG 渠道：仅后台开关控制，无金额区间 / 权重路由规则。</Typography.Text>
+              ) : (
+                <>
+                  <Typography.Text strong style={{ marginBottom: 8, display: 'block' }}>
+                    路由规则（按权重加权随机选择匹配的规则对应渠道）
+                  </Typography.Text>
+                  <RuleTable channel={record} onReload={load} />
+                </>
+              )}
             </div>
           ),
           rowExpandable: () => true,
@@ -316,18 +329,37 @@ export default function PaymentChannels() {
           <Form.Item label="显示名称" name="label" rules={[{ required: true }]}>
             <Input placeholder="如：GCash-BeePay" />
           </Form.Item>
-          <Form.Item label="渠道类型" name="name" rules={[{ required: true }]}>
+          <Form.Item label="类别" name="category" rules={[{ required: true }]}>
             <Select options={[
-              { value: 'gcash', label: 'GCash' },
-              { value: 'maya', label: 'Maya' },
-            ]} placeholder="选择渠道类型" />
+              { value: 'fiat', label: '法币' },
+              { value: 'crypto', label: '虚拟币 / TG' },
+            ]} />
           </Form.Item>
-          <Form.Item label="服务商" name="provider" rules={[{ required: true }]}>
-            <Select options={[
-              { value: 'yfpay', label: 'YFPay' },
-              { value: 'beepay', label: 'BeePay' },
-            ]} placeholder="选择服务商" />
-          </Form.Item>
+          {formCategory === 'crypto' ? (
+            <>
+              <Form.Item label="渠道标识" name="name" rules={[{ required: true }]}>
+                <Input placeholder="如：ton / matrix_trx_testnet / tg_wallet_usdt" />
+              </Form.Item>
+              <Form.Item label="服务商" name="provider" rules={[{ required: true }]}>
+                <Input placeholder="如：matrix / ton_connect / tg_wallet" />
+              </Form.Item>
+            </>
+          ) : (
+            <>
+              <Form.Item label="渠道类型" name="name" rules={[{ required: true }]}>
+                <Select options={[
+                  { value: 'gcash', label: 'GCash' },
+                  { value: 'maya', label: 'Maya' },
+                ]} placeholder="选择渠道类型" />
+              </Form.Item>
+              <Form.Item label="服务商" name="provider" rules={[{ required: true }]}>
+                <Select options={[
+                  { value: 'yfpay', label: 'YFPay' },
+                  { value: 'beepay', label: 'BeePay' },
+                ]} placeholder="选择服务商" />
+              </Form.Item>
+            </>
+          )}
           <Form.Item label="排序（数字越小越靠前）" name="sortOrder">
             <InputNumber min={0} style={{ width: '100%' }} />
           </Form.Item>

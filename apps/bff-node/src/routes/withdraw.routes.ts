@@ -3,6 +3,7 @@ import { randomBytes } from 'node:crypto'
 import { creditWallet, getKyc, getWallet, getWalletBalances, getWithdraw, listWithdrawals, saveWithdraw } from '../services/store.js'
 import { generateMerchantOrderNo, initMatrixWithdrawOrder } from '../services/matrix.service.js'
 import { isMatrixEnabled } from '../clients/matrix.client.js'
+import { isCryptoChannelEnabled } from '../services/payment-channel.service.js'
 import { getMysqlPool, isMysqlEnabled } from '../clients/mysql.client.js'
 import { nowIso } from '../utils/format.js'
 import { fail, ok } from '../utils/response.js'
@@ -72,6 +73,9 @@ router.post('/', async (ctx) => {
     if (!toAddress || !symbol || !chain || !cryptoAmount) {
       fail(ctx, 400, 'toAddress, symbol, chain, cryptoAmount are required for Matrix withdrawal')
       return
+    }
+    if (isMysqlEnabled(ctx.state.env) && !(await isCryptoChannelEnabled(ctx.state.env, `matrix_${symbol.toLowerCase()}_w`))) {
+      fail(ctx, 403, '该渠道已关闭'); return
     }
     const cryptoAmt = Number(cryptoAmount)
     if (!Number.isFinite(cryptoAmt) || cryptoAmt <= 0) {

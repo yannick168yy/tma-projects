@@ -7,7 +7,7 @@ import { randomBytes } from 'node:crypto'
 import { ok, fail } from '../utils/response.js'
 import { randomOrderId } from '../utils/id.js'
 import { nowIso } from '../utils/format.js'
-import { resolveChannel, listAvailableChannels } from '../services/payment-channel.service.js'
+import { resolveChannel, listAvailableChannels, listCryptoChannelStates } from '../services/payment-channel.service.js'
 import {
   getDepositChannels as yfpayGetChannels,
   createDeposit as yfpayCreateDeposit,
@@ -72,6 +72,13 @@ router.get('/payment/channels', async (ctx) => {
   // 不再用 yfpay 接口覆盖——否则同名 yfpay 渠道会把 beepay 渠道的配置区间冲掉
   const channels = await getCachedAvailableChannels(ctx.state.redis as Redis, ctx.state.env, txType, currency)
   ok(ctx, channels)
+})
+
+// ── GET /payment/crypto-channels ───────────────────────────────────────────────
+// 虚拟币 / TG 渠道开关状态（客户端按开关展示，灰显被关渠道）
+
+router.get('/payment/crypto-channels', async (ctx) => {
+  ok(ctx, await listCryptoChannelStates(ctx.state.env))
 })
 
 // ── POST /payment/deposit/create ──────────────────────────────────────────────

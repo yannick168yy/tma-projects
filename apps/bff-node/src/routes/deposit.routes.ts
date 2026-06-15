@@ -5,6 +5,7 @@ import { createTelegramInvoiceLink, orderToTelegramInvoice } from '../services/t
 import { getOrFetchDepositAddress } from '../services/matrix.service.js'
 import { isMatrixEnabled } from '../clients/matrix.client.js'
 import { getMysqlPool, isMysqlEnabled } from '../clients/mysql.client.js'
+import { isCryptoChannelEnabled } from '../services/payment-channel.service.js'
 import { nowIso } from '../utils/format.js'
 import { fail, ok } from '../utils/response.js'
 import { randomOrderId } from '../utils/id.js'
@@ -27,6 +28,9 @@ router.post('/', async (ctx) => {
   if (!currency || !body.amount || body.amount <= 0) {
     fail(ctx, 400, 'Invalid amount or currency (PHP | USDT)')
     return
+  }
+  if (isMysqlEnabled(ctx.state.env) && !(await isCryptoChannelEnabled(ctx.state.env, `tg_wallet_${currency.toLowerCase()}`))) {
+    fail(ctx, 403, '该渠道已关闭'); return
   }
 
   const orderId = randomOrderId('DEP')
@@ -142,6 +146,9 @@ router.get('/matrix/address', async (ctx) => {
   if (!symbol || !chain) {
     fail(ctx, 400, 'symbol and chain are required')
     return
+  }
+  if (isMysqlEnabled(ctx.state.env) && !(await isCryptoChannelEnabled(ctx.state.env, `matrix_${symbol.toLowerCase()}`))) {
+    fail(ctx, 403, '该渠道已关闭'); return
   }
 
   try {

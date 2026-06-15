@@ -679,7 +679,7 @@ export interface PaymentChannelRule {
   createdAt: string; updatedAt: string
 }
 export interface PaymentChannel {
-  id: number; name: string; provider: string; label: string
+  id: number; name: string; provider: string; label: string; category: string
   enabled: boolean; sortOrder: number; rules: PaymentChannelRule[]
   createdAt: string; updatedAt: string
 }
@@ -687,11 +687,11 @@ export interface PaymentChannel {
 export const getPaymentChannels = () => get<PaymentChannel[]>('/admin/payment/channels')
 
 export const createPaymentChannel = (data: {
-  name: string; provider: string; label: string; enabled: boolean; sortOrder: number
+  name: string; provider: string; label: string; category?: string; enabled: boolean; sortOrder: number
 }) => post<{ id: number }>('/admin/payment/channels', data)
 
 export const updatePaymentChannel = (id: number, data: Partial<{
-  name: string; provider: string; label: string; enabled: boolean; sortOrder: number
+  name: string; provider: string; label: string; category: string; enabled: boolean; sortOrder: number
 }>) => req<null>('PUT', `/admin/payment/channels/${id}`, data)
 
 export const deletePaymentChannel = (id: number) =>

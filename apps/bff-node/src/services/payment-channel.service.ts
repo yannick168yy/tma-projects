@@ -11,6 +11,7 @@ export interface PaymentChannel {
   name: string
   provider: string
   label: string
+  category: string
   enabled: boolean
   sortOrder: number
   rules: PaymentChannelRule[]
@@ -34,7 +35,7 @@ export interface PaymentChannelRule {
 }
 
 type ChannelRow = RowDataPacket & {
-  id: number; name: string; provider: string; label: string
+  id: number; name: string; provider: string; label: string; category: string
   enabled: number; sort_order: number; created_at: Date; updated_at: Date
 }
 
@@ -47,6 +48,7 @@ type RuleRow = RowDataPacket & {
 function mapChannel(row: ChannelRow, rules: PaymentChannelRule[]): PaymentChannel {
   return {
     id: row.id, name: row.name, provider: row.provider, label: row.label,
+    category: row.category ?? 'fiat',
     enabled: row.enabled === 1, sortOrder: row.sort_order,
     rules,
     createdAt: new Date(row.created_at).toISOString(),
@@ -88,11 +90,11 @@ export async function listChannels(env: Env): Promise<PaymentChannel[]> {
 
 export async function createChannel(
   env: Env,
-  data: { name: string; provider: string; label: string; enabled: boolean; sortOrder: number }
+  data: { name: string; provider: string; label: string; category?: string; enabled: boolean; sortOrder: number }
 ): Promise<number> {
   const [res] = await pool(env).query<ResultSetHeader>(
-    `INSERT INTO payment_channels (name, provider, label, enabled, sort_order) VALUES (?, ?, ?, ?, ?)`,
-    [data.name, data.provider, data.label, data.enabled ? 1 : 0, data.sortOrder]
+    `INSERT INTO payment_channels (name, provider, label, category, enabled, sort_order) VALUES (?, ?, ?, ?, ?, ?)`,
+    [data.name, data.provider, data.label, data.category ?? 'fiat', data.enabled ? 1 : 0, data.sortOrder]
   )
   return res.insertId
 }
@@ -100,13 +102,14 @@ export async function createChannel(
 export async function updateChannel(
   env: Env,
   id: number,
-  data: Partial<{ name: string; provider: string; label: string; enabled: boolean; sortOrder: number }>
+  data: Partial<{ name: string; provider: string; label: string; category: string; enabled: boolean; sortOrder: number }>
 ): Promise<boolean> {
   const sets: string[] = []
   const vals: unknown[] = []
   if (data.name !== undefined) { sets.push('name = ?'); vals.push(data.name) }
   if (data.provider !== undefined) { sets.push('provider = ?'); vals.push(data.provider) }
   if (data.label !== undefined) { sets.push('label = ?'); vals.push(data.label) }
+  if (data.category !== undefined) { sets.push('category = ?'); vals.push(data.category) }
   if (data.enabled !== undefined) { sets.push('enabled = ?'); vals.push(data.enabled ? 1 : 0) }
   if (data.sortOrder !== undefined) { sets.push('sort_order = ?'); vals.push(data.sortOrder) }
   if (sets.length === 0) return false
@@ -238,4 +241,31 @@ export async function listAvailableChannels(
     minAmount: r.amount_min !== null ? Number(r.amount_min) : null,
     maxAmount: r.amount_max !== null ? Number(r.amount_max) : null,
   }))
+}
+
+export interface CryptoChannelState {
+  name: string
+  label: string
+  enabled: boolean
+  sortOrder: number
+}
+
+// 虚拟币 / TG 渠道（category='crypto'）的开关状态，供客户端按开关展示
+export async function listCryptoChannelStates(env: Env): Promise<CryptoChannelState[]> {
+  type Row = RowDataPacket & { name: string; label: string; enabled: number; sort_order: number }
+  const [rows] = await pool(env).query<Row[]>(
+    `SELECT name, label, enabled, sort_order FROM payment_channels
+     WHERE category = 'crypto' ORDER BY sort_order ASC, id ASC`
+  )
+  return rows.map((r) => ({ name: r.name, label: r.label, enabled: r.enabled === 1, sortOrder: r.sort_order }))
+}
+
+// 服务端拦截：虚拟币渠道是否启用。未配置该渠道时放行（fail-open，避免漏播种打断下单）
+export async function isCryptoChannelEnabled(env: Env, name: string): Promise<boolean> {
+  const [rows] = await pool(env).query<RowDataPacket[]>(
+    `SELECT enabled FROM payment_channels WHERE name = ? AND category = 'crypto' LIMIT 1`,
+    [name]
+  )
+  if (rows.length === 0) return true
+  return rows[0].enabled === 1
 }

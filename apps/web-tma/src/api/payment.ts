@@ -37,6 +37,17 @@ export async function fetchPaymentChannels(txType: 'deposit' | 'withdraw', curre
   return apiRequest<PaymentChannel[]>(`/payment/channels?txType=${txType}&currency=${currency}`)
 }
 
+export interface CryptoChannelState {
+  name: string
+  label: string
+  enabled: boolean
+  sortOrder: number
+}
+
+export async function fetchCryptoChannels(): Promise<CryptoChannelState[]> {
+  return apiRequest<CryptoChannelState[]>('/payment/crypto-channels')
+}
+
 export async function createPaymentDeposit(params: {
   channelName: string
   amount: number

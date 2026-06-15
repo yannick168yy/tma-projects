@@ -3,6 +3,7 @@ import { getDeposit, saveDeposit } from '../services/store/index.js'
 import { settlePaidDeposit } from '../services/deposit.service.js'
 import { TON_PENDING_SET, TON_ORDER_TTL_MS } from '../services/ton.service.js'
 import { getMysqlPool, isMysqlEnabled } from '../clients/mysql.client.js'
+import { isCryptoChannelEnabled } from '../services/payment-channel.service.js'
 import { nowIso } from '../utils/format.js'
 import { fail, ok } from '../utils/response.js'
 import { randomOrderId } from '../utils/id.js'
@@ -11,6 +12,9 @@ import type { DepositOrder } from '../types/domain.js'
 const router = new Router({ prefix: '/deposits/ton' })
 
 router.post('/', async (ctx) => {
+  if (isMysqlEnabled(ctx.state.env) && !(await isCryptoChannelEnabled(ctx.state.env, 'ton'))) {
+    fail(ctx, 403, '该渠道已关闭'); return
+  }
   const body = ctx.request.body as { amount?: number; walletAddress?: string }
 
   const amountTon = Number(body.amount)

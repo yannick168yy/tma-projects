@@ -18,7 +18,7 @@ router.get('/channels', async (ctx) => {
 router.post('/channels', async (ctx) => {
   if (ctx.state.adminRole !== 'super_admin') { fail(ctx, 403, '无操作权限'); return }
   const body = ctx.request.body as {
-    name?: string; provider?: string; label?: string
+    name?: string; provider?: string; label?: string; category?: string
     enabled?: unknown; sortOrder?: unknown
   }
   if (!body.name || !body.provider || !body.label) {
@@ -28,6 +28,7 @@ router.post('/channels', async (ctx) => {
     name: String(body.name).trim(),
     provider: String(body.provider).trim(),
     label: String(body.label).trim(),
+    category: body.category === 'crypto' ? 'crypto' : 'fiat',
     enabled: body.enabled !== false,
     sortOrder: Number(body.sortOrder ?? 0),
   })
@@ -43,13 +44,14 @@ router.put('/channels/:id', async (ctx) => {
   if (ctx.state.adminRole !== 'super_admin') { fail(ctx, 403, '无操作权限'); return }
   const id = Number(ctx.params.id)
   const body = ctx.request.body as {
-    name?: string; provider?: string; label?: string
+    name?: string; provider?: string; label?: string; category?: string
     enabled?: unknown; sortOrder?: unknown
   }
   const data: Parameters<typeof updateChannel>[2] = {}
   if (body.name !== undefined) data.name = String(body.name).trim()
   if (body.provider !== undefined) data.provider = String(body.provider).trim()
   if (body.label !== undefined) data.label = String(body.label).trim()
+  if (body.category !== undefined) data.category = body.category === 'crypto' ? 'crypto' : 'fiat'
   if (body.enabled !== undefined) data.enabled = Boolean(body.enabled)
   if (body.sortOrder !== undefined) data.sortOrder = Number(body.sortOrder)
   const updated = await updateChannel(ctx.state.env, id, data)

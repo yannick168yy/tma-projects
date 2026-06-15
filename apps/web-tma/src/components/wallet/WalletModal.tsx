@@ -11,7 +11,7 @@ import { useWalletStore, formatBalanceWithCode } from '@/stores/wallet'
 import { useTonConnect } from '@/hooks/useTonConnect'
 import { openTelegramInvoice, waitForDepositPaid } from '@/utils/tgInvoice'
 import { fetchYfDepositOrders, fetchYfWithdrawOrders, fetchDepositHistory, fetchWithdrawHistory } from '@/api/yfpay'
-import { fetchPaymentChannels, createPaymentDeposit, queryPaymentDeposit, createPaymentWithdrawal, type PaymentChannel } from '@/api/payment'
+import { fetchPaymentChannels, fetchCryptoChannels, createPaymentDeposit, queryPaymentDeposit, createPaymentWithdrawal, type PaymentChannel } from '@/api/payment'
 import { fetchTurnoverProgress, type TurnoverProgress } from '@/api/wallet'
 import { fetchMatrixDepositAddress, createMatrixWithdrawal } from '@/api/matrix'
 import KycModal from '@/components/wallet/KycModal'
@@ -77,6 +77,7 @@ export default function WalletModal({ open, onClose }: Props) {
   const [depositSuccess, setDepositSuccess] = useState(false)
   const [paymentDepositChannels, setPaymentDepositChannels] = useState<PaymentChannel[]>([])
   const [paymentWithdrawChannels, setPaymentWithdrawChannels] = useState<PaymentChannel[]>([])
+  const [cryptoEnabled, setCryptoEnabled] = useState<Record<string, boolean>>({})
   const pollTimerRef = useRef<ReturnType<typeof setInterval>|null>(null)
   const [pollSerial, setPollSerial] = useState('')
   const tonLoadingRef = useRef(false)
@@ -168,6 +169,7 @@ export default function WalletModal({ open, onClose }: Props) {
       void walletStore.refresh()
       void fetchPaymentChannels('deposit').then(setPaymentDepositChannels).catch(()=>{})
       void fetchPaymentChannels('withdraw').then(setPaymentWithdrawChannels).catch(()=>{})
+      void fetchCryptoChannels().then((list)=>setCryptoEnabled(Object.fromEntries(list.map((c)=>[c.name,c.enabled])))).catch(()=>{})
     } else { stopPolling(); stopTonPolling() }
     return () => { document.body.style.overflow = '' }
   }, [open])
@@ -240,7 +242,13 @@ export default function WalletModal({ open, onClose }: Props) {
     return { ...m, enabled: false }
   }), [paymentWithdrawChannels])
 
-  const allPayMethods = useMemo(() => [...TG_WALLET_DEPOSIT, ...liveFiatDeposit, ...CRYPTO_DEPOSIT, ...liveFiatWithdraw, ...CRYPTO_WITHDRAW], [liveFiatDeposit, liveFiatWithdraw])
+  // 虚拟币/TG 渠道开关由后台控制：命中开关 map 时覆盖 enabled
+  const applyCrypto = (list: PayMethod[]) => list.map((m) => m.id in cryptoEnabled ? { ...m, enabled: cryptoEnabled[m.id] } : m)
+  const liveTgWalletDeposit = useMemo(() => applyCrypto(TG_WALLET_DEPOSIT), [cryptoEnabled])
+  const liveCryptoDeposit = useMemo(() => applyCrypto(CRYPTO_DEPOSIT), [cryptoEnabled])
+  const liveCryptoWithdraw = useMemo(() => applyCrypto(CRYPTO_WITHDRAW), [cryptoEnabled])
+
+  const allPayMethods = useMemo(() => [...liveTgWalletDeposit, ...liveFiatDeposit, ...liveCryptoDeposit, ...liveFiatWithdraw, ...liveCryptoWithdraw], [liveTgWalletDeposit, liveFiatDeposit, liveCryptoDeposit, liveFiatWithdraw, liveCryptoWithdraw])
   const selectedPayMethod = useMemo(() => allPayMethods.find((m)=>m.id===selectedMethod), [allPayMethods, selectedMethod])
   const isTgWallet = selectedMethod?.startsWith('tg_wallet') ?? false
   const isUnifiedFiat = (selectedMethod ?? '').startsWith('fiat_')
@@ -250,8 +258,8 @@ export default function WalletModal({ open, onClose }: Props) {
     [liveFiatWithdraw, activeCurrency],
   )
   const filteredCryptoWithdraw = useMemo(
-    () => CRYPTO_WITHDRAW.filter((m) => !m.currency || m.currency === activeCurrency),
-    [activeCurrency],
+    () => liveCryptoWithdraw.filter((m) => !m.currency || m.currency === activeCurrency),
+    [liveCryptoWithdraw, activeCurrency],
   )
   const isFiatWithdraw = liveFiatWithdraw.some((m) => m.id === selectedMethod)
   const withdrawAccountLocked = isPhoneWalletWithdraw(selectedMethod) && Boolean(boundPhoneNumber)
@@ -501,7 +509,7 @@ export default function WalletModal({ open, onClose }: Props) {
                   {tab === 'deposit' ? (
                     <>
                       <div><p className="text-muted-foreground text-[11px] font-bold uppercase tracking-wider mb-2.5">{t('wallet.fiatSection')}</p><PayMethodGrid methods={liveFiatDeposit} selected={selectedMethod} onSelect={(id)=>{setSelectedMethod(id);setAmount('');setDepositMessage('')}} /></div>
-                      <div><p className="text-muted-foreground text-[11px] font-bold uppercase tracking-wider mb-2.5">{t('wallet.cryptoSection')}</p><PayMethodGrid methods={[...TG_WALLET_DEPOSIT, ...CRYPTO_DEPOSIT]} selected={selectedMethod} onSelect={(id)=>{setSelectedMethod(id);setAmount('');setDepositMessage('')}} /></div>
+                      <div><p className="text-muted-foreground text-[11px] font-bold uppercase tracking-wider mb-2.5">{t('wallet.cryptoSection')}</p><PayMethodGrid methods={[...liveTgWalletDeposit, ...liveCryptoDeposit]} selected={selectedMethod} onSelect={(id)=>{setSelectedMethod(id);setAmount('');setDepositMessage('')}} /></div>
                     </>
                   ) : (
                     <>
