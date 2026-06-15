@@ -2,9 +2,9 @@ import Router from '@koa/router'
 import { getAdminSession } from '../../services/admin-auth.service.js'
 import { addSseBadgeClient, removeSseBadgeClient, broadcastBadges } from '../../services/sse-badges.js'
 
-// 此路由不经过 adminAuthMiddleware，因为 EventSource 不支持自定义 header
+// 此路由在 api 层直接挂载（不经过 adminAuthMiddleware），因为 EventSource 不支持自定义 header
 // token 通过 query param 传入，在此处手动验证
-const router = new Router({ prefix: '/dashboard' })
+const router = new Router({ prefix: '/admin/dashboard' })
 
 router.get('/badges/stream', async (ctx) => {
   const token = String(ctx.query.token ?? '')

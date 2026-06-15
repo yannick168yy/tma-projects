@@ -1,5 +1,6 @@
 import Router from '@koa/router'
 import { createAdminRouter } from './admin/index.js'
+import adminSseRoutes from './admin/sse.routes.js'
 import authRoutes from './auth.routes.js'
 import csRoutes from './cs.routes.js'
 import userRoutes from './user.routes.js'
@@ -28,6 +29,9 @@ export function createApiRouter(): Router {
   // 管理后台路由（自带 /admin 前缀）
   const adminRouter = createAdminRouter()
   api.use(adminRouter.routes(), adminRouter.allowedMethods())
+
+  // SSE 推送端点：自行在 handler 内验 token，不经过 adminAuthMiddleware
+  api.use(adminSseRoutes.routes(), adminSseRoutes.allowedMethods())
 
   // 无需鉴权：webhook + 登录 + SG回调透传
   api.use(webhookRoutes.routes(), webhookRoutes.allowedMethods())
