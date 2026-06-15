@@ -291,14 +291,20 @@ export default function PaymentChannels() {
         destroyOnClose
       >
         <Form form={channelForm} layout="vertical" style={{ marginTop: 8 }}>
-          <Form.Item label="显示名称（如：GCash-BeePay）" name="label" rules={[{ required: true }]}>
-            <Input placeholder="GCash-BeePay" />
+          <Form.Item label="显示名称" name="label" rules={[{ required: true }]}>
+            <Input placeholder="如：GCash-BeePay" />
           </Form.Item>
-          <Form.Item label="渠道标识 name（如：gcash）" name="name" rules={[{ required: true }]}>
-            <Input placeholder="gcash" />
+          <Form.Item label="渠道类型" name="name" rules={[{ required: true }]}>
+            <Select options={[
+              { value: 'gcash', label: 'GCash' },
+              { value: 'maya', label: 'Maya' },
+            ]} placeholder="选择渠道类型" />
           </Form.Item>
-          <Form.Item label="服务商 provider（如：beepay）" name="provider" rules={[{ required: true }]}>
-            <Input placeholder="beepay" />
+          <Form.Item label="服务商" name="provider" rules={[{ required: true }]}>
+            <Select options={[
+              { value: 'yfpay', label: 'YFPay' },
+              { value: 'beepay', label: 'BeePay' },
+            ]} placeholder="选择服务商" />
           </Form.Item>
           <Form.Item label="排序（数字越小越靠前）" name="sortOrder">
             <InputNumber min={0} style={{ width: '100%' }} />
