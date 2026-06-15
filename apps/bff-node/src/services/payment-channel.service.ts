@@ -18,10 +18,13 @@ export interface PaymentChannel {
   updatedAt: string
 }
 
+export type TxType = 'deposit' | 'withdraw' | 'both'
+
 export interface PaymentChannelRule {
   id: number
   channelId: number
   currency: string
+  txType: TxType
   amountMin: number | null
   amountMax: number | null
   weight: number
@@ -36,7 +39,7 @@ type ChannelRow = RowDataPacket & {
 }
 
 type RuleRow = RowDataPacket & {
-  id: number; channel_id: number; currency: string
+  id: number; channel_id: number; currency: string; tx_type: TxType
   amount_min: string | null; amount_max: string | null
   weight: number; enabled: number; created_at: Date; updated_at: Date
 }
@@ -54,6 +57,7 @@ function mapChannel(row: ChannelRow, rules: PaymentChannelRule[]): PaymentChanne
 function mapRule(row: RuleRow): PaymentChannelRule {
   return {
     id: row.id, channelId: row.channel_id, currency: row.currency,
+    txType: row.tx_type ?? 'both',
     amountMin: row.amount_min !== null ? Number(row.amount_min) : null,
     amountMax: row.amount_max !== null ? Number(row.amount_max) : null,
     weight: row.weight, enabled: row.enabled === 1,
@@ -124,12 +128,12 @@ export async function deleteChannel(env: Env, id: number): Promise<boolean> {
 export async function createRule(
   env: Env,
   channelId: number,
-  data: { currency: string; amountMin: number | null; amountMax: number | null; weight: number; enabled: boolean }
+  data: { currency: string; txType: TxType; amountMin: number | null; amountMax: number | null; weight: number; enabled: boolean }
 ): Promise<number> {
   const [res] = await pool(env).query<ResultSetHeader>(
-    `INSERT INTO payment_channel_rules (channel_id, currency, amount_min, amount_max, weight, enabled)
-     VALUES (?, ?, ?, ?, ?, ?)`,
-    [channelId, data.currency, data.amountMin, data.amountMax, data.weight, data.enabled ? 1 : 0]
+    `INSERT INTO payment_channel_rules (channel_id, currency, tx_type, amount_min, amount_max, weight, enabled)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [channelId, data.currency, data.txType, data.amountMin, data.amountMax, data.weight, data.enabled ? 1 : 0]
   )
   return res.insertId
 }
@@ -137,11 +141,12 @@ export async function createRule(
 export async function updateRule(
   env: Env,
   id: number,
-  data: Partial<{ currency: string; amountMin: number | null; amountMax: number | null; weight: number; enabled: boolean }>
+  data: Partial<{ currency: string; txType: TxType; amountMin: number | null; amountMax: number | null; weight: number; enabled: boolean }>
 ): Promise<boolean> {
   const sets: string[] = []
   const vals: unknown[] = []
   if (data.currency !== undefined) { sets.push('currency = ?'); vals.push(data.currency) }
+  if (data.txType !== undefined) { sets.push('tx_type = ?'); vals.push(data.txType) }
   if ('amountMin' in data) { sets.push('amount_min = ?'); vals.push(data.amountMin ?? null) }
   if ('amountMax' in data) { sets.push('amount_max = ?'); vals.push(data.amountMax ?? null) }
   if (data.weight !== undefined) { sets.push('weight = ?'); vals.push(data.weight) }
@@ -163,15 +168,16 @@ export async function deleteRule(env: Env, id: number): Promise<boolean> {
 }
 
 type RuleWithProvider = RowDataPacket & {
-  id: number; channel_id: number; currency: string
+  id: number; channel_id: number; currency: string; tx_type: TxType
   amount_min: string | null; amount_max: string | null
   weight: number; enabled: number
   provider: string
 }
 
-// 路由选择：给定金额和币种，返回按权重随机选出的渠道 provider
+// 路由选择：给定金额、币种和交易类型，返回按权重随机选出的渠道 provider
 export async function resolveChannel(
   env: Env,
+  txType: TxType,
   amount: number,
   currency: string
 ): Promise<string | null> {
@@ -180,9 +186,10 @@ export async function resolveChannel(
      JOIN payment_channels c ON c.id = r.channel_id
      WHERE r.enabled = 1 AND c.enabled = 1
        AND r.currency = ?
+       AND (r.tx_type = ? OR r.tx_type = 'both')
        AND (r.amount_min IS NULL OR r.amount_min <= ?)
        AND (r.amount_max IS NULL OR r.amount_max >= ?)`,
-    [currency, amount, amount]
+    [currency, txType, amount, amount]
   )
   if (rows.length === 0) return null
   const total = rows.reduce((s, r) => s + r.weight, 0)

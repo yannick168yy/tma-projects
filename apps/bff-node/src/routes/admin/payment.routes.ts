@@ -2,7 +2,7 @@ import Router from '@koa/router'
 import { ok, fail } from '../../utils/response.js'
 import {
   listChannels, createChannel, updateChannel, deleteChannel,
-  createRule, updateRule, deleteRule,
+  createRule, updateRule, deleteRule, type TxType,
 } from '../../services/payment-channel.service.js'
 import { writeAuditLog } from '../../services/admin-store.js'
 
@@ -77,17 +77,22 @@ router.delete('/channels/:id', async (ctx) => {
 
 // ── 规则管理 ──────────────────────────────────────────────────────────────────
 
+const TX_TYPES: TxType[] = ['deposit', 'withdraw', 'both']
+
 router.post('/channels/:channelId/rules', async (ctx) => {
   if (ctx.state.adminRole !== 'super_admin') { fail(ctx, 403, '无操作权限'); return }
   const channelId = Number(ctx.params.channelId)
   const body = ctx.request.body as {
-    currency?: string; amountMin?: unknown; amountMax?: unknown
+    currency?: string; txType?: string; amountMin?: unknown; amountMax?: unknown
     weight?: unknown; enabled?: unknown
   }
   const weight = Number(body.weight ?? 100)
   if (isNaN(weight) || weight <= 0) { fail(ctx, 400, 'weight 必须为正整数'); return }
+  const txType = (body.txType ?? 'both') as TxType
+  if (!TX_TYPES.includes(txType)) { fail(ctx, 400, 'txType 必须为 deposit / withdraw / both'); return }
   const id = await createRule(ctx.state.env, channelId, {
     currency: String(body.currency ?? 'PHP').toUpperCase(),
+    txType,
     amountMin: body.amountMin !== undefined && body.amountMin !== null && body.amountMin !== '' ? Number(body.amountMin) : null,
     amountMax: body.amountMax !== undefined && body.amountMax !== null && body.amountMax !== '' ? Number(body.amountMax) : null,
     weight,
@@ -100,11 +105,12 @@ router.put('/rules/:id', async (ctx) => {
   if (ctx.state.adminRole !== 'super_admin') { fail(ctx, 403, '无操作权限'); return }
   const id = Number(ctx.params.id)
   const body = ctx.request.body as {
-    currency?: string; amountMin?: unknown; amountMax?: unknown
+    currency?: string; txType?: string; amountMin?: unknown; amountMax?: unknown
     weight?: unknown; enabled?: unknown
   }
   const data: Parameters<typeof updateRule>[2] = {}
   if (body.currency !== undefined) data.currency = String(body.currency).toUpperCase()
+  if (body.txType !== undefined && TX_TYPES.includes(body.txType as TxType)) data.txType = body.txType as TxType
   if ('amountMin' in body) data.amountMin = body.amountMin !== null && body.amountMin !== '' ? Number(body.amountMin) : null
   if ('amountMax' in body) data.amountMax = body.amountMax !== null && body.amountMax !== '' ? Number(body.amountMax) : null
   if (body.weight !== undefined) data.weight = Number(body.weight)

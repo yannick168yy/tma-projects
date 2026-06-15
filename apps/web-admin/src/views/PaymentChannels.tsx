@@ -8,7 +8,7 @@ import type { ColumnsType } from 'antd/es/table'
 import {
   getPaymentChannels, createPaymentChannel, updatePaymentChannel, deletePaymentChannel,
   createPaymentRule, updatePaymentRule, deletePaymentRule,
-  type PaymentChannel, type PaymentChannelRule,
+  type PaymentChannel, type PaymentChannelRule, type PaymentTxType,
 } from '../api'
 import { useAuthStore } from '../stores/auth'
 
@@ -17,7 +17,7 @@ function RuleTable({
 }: { channel: PaymentChannel; onReload: () => void }) {
   const { role } = useAuthStore()
   const isSuperAdmin = role === 'super_admin'
-  const [ruleForm] = Form.useForm<{ currency: string; amountMin: number | null; amountMax: number | null; weight: number; enabled: boolean }>()
+  const [ruleForm] = Form.useForm<{ currency: string; txType: PaymentTxType; amountMin: number | null; amountMax: number | null; weight: number; enabled: boolean }>()
   const [ruleModal, setRuleModal] = useState<{ open: boolean; rule?: PaymentChannelRule }>({ open: false })
   const [saving, setSaving] = useState(false)
 
@@ -38,6 +38,7 @@ function RuleTable({
     try {
       const data = {
         currency: vals.currency ?? 'PHP',
+        txType: vals.txType ?? 'both',
         amountMin: vals.amountMin ?? null,
         amountMax: vals.amountMax ?? null,
         weight: vals.weight ?? 100,
@@ -58,13 +59,14 @@ function RuleTable({
 
   function openAdd() {
     ruleForm.resetFields()
-    ruleForm.setFieldsValue({ currency: 'PHP', weight: 100, enabled: true })
+    ruleForm.setFieldsValue({ currency: 'PHP', txType: 'both', weight: 100, enabled: true })
     setRuleModal({ open: true })
   }
 
   function openEdit(rule: PaymentChannelRule) {
     ruleForm.setFieldsValue({
       currency: rule.currency,
+      txType: rule.txType ?? 'both',
       amountMin: rule.amountMin ?? undefined,
       amountMax: rule.amountMax ?? undefined,
       weight: rule.weight,
@@ -73,8 +75,21 @@ function RuleTable({
     setRuleModal({ open: true, rule })
   }
 
+  const TX_TYPE_LABEL: Record<PaymentTxType, { text: string; color: string }> = {
+    deposit: { text: '充值', color: 'blue' },
+    withdraw: { text: '提现', color: 'orange' },
+    both: { text: '充值+提现', color: 'purple' },
+  }
+
   const columns: ColumnsType<PaymentChannelRule> = [
-    { title: '币种', dataIndex: 'currency', width: 80 },
+    { title: '币种', dataIndex: 'currency', width: 70 },
+    {
+      title: '交易类型', dataIndex: 'txType', width: 110,
+      render: (v: PaymentTxType) => {
+        const { text, color } = TX_TYPE_LABEL[v] ?? { text: v, color: 'default' }
+        return <Tag color={color}>{text}</Tag>
+      },
+    },
     {
       title: '金额区间',
       render: (_: unknown, r: PaymentChannelRule) => {
@@ -133,6 +148,13 @@ function RuleTable({
         <Form form={ruleForm} layout="vertical" style={{ marginTop: 8 }}>
           <Form.Item label="币种" name="currency">
             <Select options={[{ value: 'PHP', label: 'PHP' }, { value: 'USDT', label: 'USDT' }]} />
+          </Form.Item>
+          <Form.Item label="交易类型" name="txType">
+            <Select options={[
+              { value: 'both', label: '充值 + 提现' },
+              { value: 'deposit', label: '仅充值' },
+              { value: 'withdraw', label: '仅提现' },
+            ]} />
           </Form.Item>
           <Form.Item label="最小金额（含，留空=无限）" name="amountMin">
             <InputNumber min={0} style={{ width: '100%' }} placeholder="无限制" />
