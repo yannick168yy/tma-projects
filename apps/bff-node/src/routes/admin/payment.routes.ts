@@ -4,6 +4,7 @@ import {
   listChannels, createChannel, updateChannel, deleteChannel,
   createRule, updateRule, deleteRule, type TxType,
 } from '../../services/payment-channel.service.js'
+import { getAccounting, getBalances, refreshBalances } from '../../services/payment-accounting.service.js'
 import { writeAuditLog } from '../../services/admin-store.js'
 
 const router = new Router({ prefix: '/payment' })
@@ -75,6 +76,22 @@ router.delete('/channels/:id', async (ctx) => {
     detail: {}, ip: ctx.ip,
   })
   ok(ctx, null)
+})
+
+// ── 记账：代收 / 代付汇总 + 服务商余额 ─────────────────────────────────────────
+
+router.get('/accounting', async (ctx) => {
+  const q = ctx.query as { from?: string; to?: string }
+  const data = await getAccounting(ctx.state.env, { from: q.from, to: q.to })
+  ok(ctx, data)
+})
+
+router.get('/balance', async (ctx) => {
+  ok(ctx, await getBalances(ctx.state.env))
+})
+
+router.post('/balance/refresh', async (ctx) => {
+  ok(ctx, await refreshBalances(ctx.state.env))
 })
 
 // ── 规则管理 ──────────────────────────────────────────────────────────────────

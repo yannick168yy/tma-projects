@@ -14,6 +14,7 @@ import { syncAllGames, loadGamesCache, refreshHomepageSelection } from './servic
 import { refreshLatestPool, refreshWeekTop, refreshMonthTop } from './services/betting-activity.service.js'
 import { stripMobileNamesInDb } from './services/sg-game.service.js'
 import { refreshRates } from './services/exchange-rate.service.js'
+import { refreshBalances } from './services/payment-accounting.service.js'
 import { runDailyReconciliation, yesterday } from './services/sg-settlement.service.js'
 import { runDailyRebatePayout, yesterdayPHT } from './services/rebate.service.js'
 import { isMysqlEnabled } from './clients/mysql.client.js'
@@ -35,6 +36,7 @@ export function createApp(env: Env): Koa {
     homepage: childLogger('homepage'),
     sgSync: childLogger('sg-sync'),
     rebate: childLogger('rebate-payout'),
+    payment: childLogger('payment-balance'),
   }
 
   // TON deposit poller: every 30s
@@ -67,6 +69,15 @@ export function createApp(env: Env): Koa {
       10 * 60 * 1000,
     )
   }, 30_000)
+
+  // 支付服务商余额快照：启动后 60s 先刷一次，之后每 1 小时（用于与我方记账核对）
+  if (isMysqlEnabled(env)) {
+    setTimeout(() => {
+      const run = () => refreshBalances(env).catch((err) => log.payment.error({ err }, 'balance refresh error'))
+      run()
+      setInterval(run, 60 * 60 * 1000)
+    }, 60_000)
+  }
 
   // 洗码自动派发：每天 UTC 16:00（PHT 00:00 凌晨）结算昨日流水并发放余额
   if (isMysqlEnabled(env)) {

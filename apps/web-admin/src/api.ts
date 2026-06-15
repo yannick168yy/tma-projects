@@ -707,3 +707,27 @@ export const updatePaymentRule = (id: number, data: Partial<{
 
 export const deletePaymentRule = (id: number) =>
   req<null>('DELETE', `/admin/payment/rules/${id}`)
+
+// ── 支付渠道记账 ──────────────────────────────────────────────────────────────
+
+export interface PaymentAccountingRow {
+  provider: string; label: string
+  depositAmount: number; depositCount: number
+  withdrawAmount: number; withdrawCount: number
+  netAmount: number
+}
+export interface ProviderBalanceRow {
+  provider: string; label: string
+  balance: number; frozen: number; currency: string
+  status: 'ok' | 'error'; errorMsg: string | null; updatedAt: string | null
+}
+
+export const getPaymentAccounting = (range: { from?: string; to?: string } = {}) => {
+  const qs = new URLSearchParams()
+  if (range.from) qs.set('from', range.from)
+  if (range.to) qs.set('to', range.to)
+  const suffix = qs.toString() ? `?${qs.toString()}` : ''
+  return get<{ rows: PaymentAccountingRow[]; total: PaymentAccountingRow }>(`/admin/payment/accounting${suffix}`)
+}
+export const getProviderBalances = () => get<ProviderBalanceRow[]>('/admin/payment/balance')
+export const refreshProviderBalances = () => post<ProviderBalanceRow[]>('/admin/payment/balance/refresh', {})
