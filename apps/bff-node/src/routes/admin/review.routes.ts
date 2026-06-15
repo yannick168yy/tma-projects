@@ -286,4 +286,152 @@ router.delete('/blacklist/:id', async (ctx) => {
   ok(ctx, { deleted: Number(ctx.params.id) })
 })
 
+// ── 统一待人工队列（用户提款 + 佣金提现）─────────────────────────────────────
+router.get('/manual-queue', async (ctx) => {
+  if (!isMysqlEnabled(ctx.state.env)) { ok(ctx, { total: 0, items: [] }); return }
+  const pool = getMysqlPool(ctx.state.env)
+  const page = Math.max(1, Number(ctx.query.page ?? 1))
+  const pageSize = Math.min(100, Math.max(10, Number(ctx.query.pageSize ?? 20)))
+  const offset = (page - 1) * pageSize
+
+  // 用户提款：pending + manual verdict
+  const [userRows] = await pool.query<RowDataPacket[]>(
+    `SELECT 'user' AS kind,
+            w.order_id AS id,
+            w.user_id,
+            u.display_name,
+            w.amount,
+            w.currency,
+            w.status,
+            w.handled_by,
+            w.handled_at,
+            w.created_at,
+            hr.hit_rules
+     FROM bg_withdraw_order w
+     LEFT JOIN bg_user u ON u.id = w.user_id
+     LEFT JOIN (
+       SELECT l.order_id, GROUP_CONCAT(l.rule_code) AS hit_rules
+       FROM bg_withdraw_review_log l
+       WHERE l.verdict = 'manual'
+         AND l.round = (SELECT MAX(l2.round) FROM bg_withdraw_review_log l2 WHERE l2.order_id = l.order_id)
+       GROUP BY l.order_id
+     ) hr ON hr.order_id = w.order_id
+     WHERE w.status = 'pending' AND w.review_verdict = 'manual'`,
+  )
+
+  // 佣金提现：pending 即转人工
+  const [teamRows] = await pool.query<RowDataPacket[]>(
+    `SELECT 'team' AS kind,
+            CAST(tw.id AS CHAR) AS id,
+            tw.user_id,
+            u.display_name,
+            tw.amount_cents / 100 AS amount,
+            'PHP' AS currency,
+            tw.status,
+            tw.handled_by,
+            tw.handled_at,
+            tw.created_at,
+            NULL AS hit_rules
+     FROM bg_team_withdrawal tw
+     LEFT JOIN bg_user u ON u.id = tw.user_id
+     WHERE tw.status = 'pending'`,
+  )
+
+  const allRows = [...userRows, ...teamRows].sort(
+    (a, b) => new Date(a.created_at as Date).getTime() - new Date(b.created_at as Date).getTime(),
+  )
+  const total = allRows.length
+  const pageRows = allRows.slice(offset, offset + pageSize)
+
+  ok(ctx, {
+    total,
+    page,
+    pageSize,
+    items: pageRows.map((r) => ({
+      kind: String(r.kind),
+      id: String(r.id),
+      userId: String(r.user_id),
+      displayName: r.display_name ? String(r.display_name) : null,
+      amount: Number(r.amount),
+      currency: String(r.currency),
+      status: String(r.status),
+      handledBy: r.handled_by ? String(r.handled_by) : null,
+      handledAt: r.handled_at ? new Date(r.handled_at as Date).toISOString() : null,
+      createdAt: new Date(r.created_at as Date).toISOString(),
+      hitRules: r.hit_rules ? String(r.hit_rules).split(',').map((c) => ({ code: c, name: ruleName(c) })) : [],
+    })),
+  })
+})
+
+// ── 佣金提现：人工通过 ────────────────────────────────────────────────────────
+router.post('/team-withdrawals/:id/approve', async (ctx) => {
+  if (!isMysqlEnabled(ctx.state.env)) { fail(ctx, 503, 'DB not available'); return }
+  const id = Number(ctx.params.id)
+  const pool = getMysqlPool(ctx.state.env)
+
+  const [[wd]] = await pool.query<RowDataPacket[]>(
+    `SELECT id, status FROM bg_team_withdrawal WHERE id = ? LIMIT 1`, [id],
+  )
+  if (!wd) { fail(ctx, 404, '提现记录不存在'); return }
+  if (wd.status !== 'pending') { fail(ctx, 409, '该记录已处理'); return }
+
+  const res = await fetch(`${ctx.state.env.CORE_NODE_URL}/internal/team/withdrawal/approve`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Internal-Token': ctx.state.env.INTERNAL_TOKEN },
+    body: JSON.stringify({ withdrawalId: id }),
+  })
+  if (!res.ok) { fail(ctx, 502, '出款失败，请稍后重试'); return }
+
+  await pool.execute(
+    `UPDATE bg_team_withdrawal SET handled_by = ?, handled_at = NOW(3) WHERE id = ?`,
+    [ctx.state.adminUsername ?? null, id],
+  )
+  await writeAuditLog(ctx.state.env, {
+    adminId: ctx.state.adminId!, adminUsername: ctx.state.adminUsername!,
+    action: 'team_withdrawal.approve', targetType: 'team_withdrawal', targetId: String(id),
+    detail: {}, ip: ctx.ip,
+  })
+  ok(ctx, { ok: true })
+})
+
+// ── 佣金提现：人工拒绝 ────────────────────────────────────────────────────────
+router.post('/team-withdrawals/:id/reject', async (ctx) => {
+  if (!isMysqlEnabled(ctx.state.env)) { fail(ctx, 503, 'DB not available'); return }
+  const id = Number(ctx.params.id)
+  const body = ctx.request.body as { reason?: string }
+  const pool = getMysqlPool(ctx.state.env)
+
+  const [[wd]] = await pool.query<RowDataPacket[]>(
+    `SELECT user_id, amount_cents, status FROM bg_team_withdrawal WHERE id = ? LIMIT 1`, [id],
+  )
+  if (!wd) { fail(ctx, 404, '提现记录不存在'); return }
+  if (wd.status !== 'pending') { fail(ctx, 409, '该记录已处理'); return }
+
+  const conn = await pool.getConnection()
+  try {
+    await conn.beginTransaction()
+    await conn.execute(
+      `UPDATE bg_team_wallet SET frozen_cents = frozen_cents - ?, available_cents = available_cents + ? WHERE user_id = ?`,
+      [wd.amount_cents, wd.amount_cents, wd.user_id],
+    )
+    await conn.execute(
+      `UPDATE bg_team_withdrawal SET status = 'rejected', reject_reason = ?, handled_by = ?, handled_at = NOW(3), reviewed_at = NOW(3) WHERE id = ?`,
+      [body.reason ?? null, ctx.state.adminUsername ?? null, id],
+    )
+    await conn.commit()
+  } catch (e) {
+    await conn.rollback()
+    fail(ctx, 500, '操作失败'); return
+  } finally {
+    conn.release()
+  }
+
+  await writeAuditLog(ctx.state.env, {
+    adminId: ctx.state.adminId!, adminUsername: ctx.state.adminUsername!,
+    action: 'team_withdrawal.reject', targetType: 'team_withdrawal', targetId: String(id),
+    detail: { reason: body.reason }, ip: ctx.ip,
+  })
+  ok(ctx, { ok: true })
+})
+
 export default router

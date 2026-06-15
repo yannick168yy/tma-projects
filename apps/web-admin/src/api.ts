@@ -306,6 +306,26 @@ export const getReviewProposalDetail = (orderId: string) =>
 export const rerunReview = (orderId: string) =>
   post<{ round: number }>(`/admin/review/proposals/${orderId}/rerun`)
 
+export interface ManualQueueItem {
+  kind: 'user' | 'team'
+  id: string
+  userId: string
+  displayName: string | null
+  amount: number
+  currency: string
+  status: string
+  handledBy: string | null
+  handledAt: string | null
+  createdAt: string
+  hitRules: { code: string; name: string }[]
+}
+export const getManualQueue = (params: { page?: number; pageSize?: number }) =>
+  get<{ total: number; page: number; pageSize: number; items: ManualQueueItem[] }>('/admin/review/manual-queue', params)
+export const approveTeamWithdrawal = (id: string) =>
+  post(`/admin/review/team-withdrawals/${id}/approve`)
+export const rejectTeamWithdrawal = (id: string, reason?: string) =>
+  post(`/admin/review/team-withdrawals/${id}/reject`, { reason })
+
 // 风控名单
 export interface BlacklistItem {
   id: number; type: string; value: string; reason: string | null; createdBy: string | null; createdAt: string
@@ -524,11 +544,6 @@ export const setAgentRatePlan = (userId: string, planId: number | null) =>
 export const getTeamWithdrawals = (params?: { status?: string; page?: number }) =>
   get<{ items: TeamWithdrawalAdmin[]; total: number; page: number; pageSize: number }>('/admin/team/withdrawals', params)
 
-export const approveTeamWithdrawal = (id: number) =>
-  post<{ ok: boolean }>(`/admin/team/withdrawals/${id}/approve`)
-
-export const rejectTeamWithdrawal = (id: number, reason: string) =>
-  post<{ ok: boolean }>(`/admin/team/withdrawals/${id}/reject`, { reason })
 
 export const getTeamConfig = () =>
   get<TeamConfig>('/admin/team/config')

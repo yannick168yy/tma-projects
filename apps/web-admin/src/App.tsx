@@ -11,6 +11,7 @@ import ReviewProposals from './views/review/Proposals'
 import ReviewProposalDetail from './views/review/ProposalDetail'
 import ReviewRuleConfig from './views/review/RuleConfig'
 import ReviewBlacklist from './views/review/Blacklist'
+import ReviewManualQueue from './views/review/ManualQueue'
 import AuditLog from './views/AuditLog'
 import Games from './views/Games'
 import Settings from './views/Settings'
@@ -58,7 +59,7 @@ export default function App() {
           <Route path="review/overview" element={<ReviewOverview />} />
           <Route path="review/proposals" element={<ReviewProposals />} />
           <Route path="review/proposals/:orderId" element={<ReviewProposalDetail />} />
-          <Route path="review/manual" element={<ReviewProposals queue />} />
+          <Route path="review/manual" element={<ReviewManualQueue />} />
           <Route path="review/config" element={<ReviewRuleConfig />} />
           <Route path="review/blacklist" element={<ReviewBlacklist />} />
           <Route path="audit-log" element={<AuditLog />} />
@@ -73,7 +74,7 @@ export default function App() {
           <Route path="team-referral" element={<Navigate to="/team-referral/agents" replace />} />
           <Route path="team-referral/agents" element={<TeamReferral tab="agents" />} />
           <Route path="team-referral/commissions" element={<TeamReferral tab="commissions" />} />
-          <Route path="team-referral/withdrawals" element={<TeamReferral tab="withdrawals" />} />
+
           <Route path="team-referral/config" element={<TeamReferralConfig />} />
           <Route path="promotions" element={<Promotions />} />
           <Route path="promotions/claims" element={<PromotionClaims />} />
