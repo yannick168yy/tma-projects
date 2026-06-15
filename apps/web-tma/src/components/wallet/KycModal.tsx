@@ -38,8 +38,17 @@ function compressImage(file: File, maxDim = 1280, quality = 0.82): Promise<strin
   })
 }
 
-const DOC_TYPES = ['passport', 'drivers_license', 'philid', 'umid'] as const
-type Step = 'phone' | 'document' | 'face' | 'done'
+const DOC_TYPES = ['passport', 'drivers_license', 'philid', 'umid', 'acr_icard'] as const
+type Step = 'phone' | 'document' | 'reviewing' | 'face' | 'done'
+
+function translateKycError(message: string, t: (key: string, opts?: Record<string, unknown>) => string): string {
+  if (message.startsWith('kyc.errors.smsFailedWithCode:')) {
+    const code = message.slice('kyc.errors.smsFailedWithCode:'.length)
+    return t('kyc.errors.smsFailedWithCode', { code })
+  }
+  if (message.startsWith('kyc.')) return t(message)
+  return message
+}
 
 function translateRejectReason(reason: string, t: (key: string, opts?: Record<string, unknown>) => string): string {
   return reason
@@ -48,10 +57,18 @@ function translateRejectReason(reason: string, t: (key: string, opts?: Record<st
     .join(' · ')
 }
 
+function formatDocRejectError(reason: string | null | undefined, t: (key: string, opts?: Record<string, unknown>) => string): string {
+  const reasonText = reason ? translateRejectReason(reason, t) : t('kyc.rejected')
+  return `${reasonText}. ${t('kyc.docReuploadHint')}`
+}
+
 function resolveStep(s: Awaited<ReturnType<typeof fetchKycStatus>>): Step {
   if (s.status === 'approved') return 'done'
   if (!s.phoneVerified) return 'phone'
-  if (s.requireDocument && !s.docVerified) return 'document'
+  if (s.requireDocument && !s.docVerified) {
+    if (s.status === 'pending') return 'reviewing'
+    return 'document'
+  }
   if (s.requireFace && !s.faceVerified) return 'face'
   return 'done'
 }
@@ -70,6 +87,7 @@ export default function KycModal({ open, onClose, onApproved }: Props) {
   const [fullName, setFullName] = useState('')
   const [docType, setDocType] = useState<(typeof DOC_TYPES)[number]>('philid')
   const [idImage, setIdImage] = useState<string | null>(null)
+  const [docReuploadRequired, setDocReuploadRequired] = useState(false)
   const idInputRef = useRef<HTMLInputElement>(null)
 
   const [requireDocument, setRequireDocument] = useState(true)
@@ -78,6 +96,7 @@ export default function KycModal({ open, onClose, onApproved }: Props) {
   useEffect(() => {
     if (!open) return
     setError(null)
+    setDocReuploadRequired(false)
     void fetchKycStatus().then((s) => {
       setRequireDocument(s.requireDocument)
       setRequireFace(s.requireFace)
@@ -92,8 +111,15 @@ export default function KycModal({ open, onClose, onApproved }: Props) {
       if (s.docType && DOC_TYPES.includes(s.docType as typeof docType)) {
         setDocType(s.docType as typeof docType)
       }
+      if (s.status === 'rejected' && s.rejectStep === 'document' && !s.docVerified) {
+        setIdImage(null)
+        setDocReuploadRequired(true)
+        setError(formatDocRejectError(s.rejectReason, t))
+      } else {
+        setIdImage(null)
+      }
     }).catch(() => {})
-  }, [open])
+  }, [open, t])
 
   useEffect(() => {
     if (resendIn <= 0) return
@@ -108,7 +134,7 @@ export default function KycModal({ open, onClose, onApproved }: Props) {
       const res = await sendKycOtp(phone.trim())
       setResendIn(res.resendInSec || 60)
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : t('auth.loginFailed'))
+      setError(e instanceof ApiError ? translateKycError(e.message, t) : t('auth.loginFailed'))
     } finally { setLoading(false) }
   }
 
@@ -124,7 +150,7 @@ export default function KycModal({ open, onClose, onApproved }: Props) {
         setStep('document')
       }
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : t('kyc.rejected'))
+      setError(e instanceof ApiError ? translateKycError(e.message, t) : t('kyc.rejected'))
     } finally { setLoading(false) }
   }
 
@@ -133,6 +159,8 @@ export default function KycModal({ open, onClose, onApproved }: Props) {
     try {
       const dataUrl = await compressImage(file)
       setIdImage(dataUrl)
+      setDocReuploadRequired(false)
+      setError(null)
     } catch {
       setError(t('kyc.rejected'))
     }
@@ -140,7 +168,8 @@ export default function KycModal({ open, onClose, onApproved }: Props) {
 
   async function onSubmitDoc() {
     if (!fullName.trim() || !idImage) {
-      setError(t('kyc.fillAll')); return
+      setError(docReuploadRequired ? formatDocRejectError(null, t) : t('kyc.fillAll'))
+      return
     }
     setLoading(true); setError(null)
     try {
@@ -156,11 +185,15 @@ export default function KycModal({ open, onClose, onApproved }: Props) {
         } else {
           setStep('face')
         }
+      } else if (res.status === 'pending') {
+        setStep('reviewing')
       } else {
-        setError(res.rejectReason ? translateRejectReason(res.rejectReason, t) : t('kyc.rejected'))
+        setIdImage(null)
+        setDocReuploadRequired(true)
+        setError(formatDocRejectError(res.rejectReason, t))
       }
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : t('kyc.rejected'))
+      setError(e instanceof ApiError ? translateKycError(e.message, t) : t('kyc.rejected'))
     } finally { setLoading(false) }
   }
 
@@ -198,13 +231,13 @@ export default function KycModal({ open, onClose, onApproved }: Props) {
         <p className="mb-5 text-xs text-muted-foreground">{t('kyc.subtitle')}</p>
 
         <div className="mb-5 flex items-center gap-1 text-[10px] font-bold">
-          <span className={step === 'phone' ? 'text-primary' : ['document', 'face', 'done'].includes(step) ? 'text-emerald-400' : 'text-muted-foreground'}>
+          <span className={step === 'phone' ? 'text-primary' : ['document', 'reviewing', 'face', 'done'].includes(step) ? 'text-emerald-400' : 'text-muted-foreground'}>
             {t('kyc.stepPhone')}
           </span>
           {requireDocument && (
             <>
               <span className="h-px w-2 bg-border" />
-              <span className={step === 'document' ? 'text-primary' : ['face', 'done'].includes(step) ? 'text-emerald-400' : 'text-muted-foreground'}>
+              <span className={['document', 'reviewing'].includes(step) ? 'text-primary' : ['face', 'done'].includes(step) ? 'text-emerald-400' : 'text-muted-foreground'}>
                 {t('kyc.stepDocument')}
               </span>
             </>
@@ -221,11 +254,13 @@ export default function KycModal({ open, onClose, onApproved }: Props) {
 
         {step === 'phone' && (
           <div className="space-y-3">
-            <input value={phone} type="tel" placeholder={t('auth.phonePlaceholder')} className={`${inputCls}${phoneLocked ? ' opacity-60' : ''}`} readOnly={phoneLocked} onChange={(e) => setPhone(e.target.value)} />
+            <div className="flex gap-2">
+              <input value={phone} type="tel" placeholder={t('auth.phonePlaceholder')} className={`flex-1 rounded-xl border border-border bg-secondary px-4 py-3 text-sm font-bold text-foreground focus:border-primary focus:outline-none${phoneLocked ? ' opacity-60' : ''}`} readOnly={phoneLocked} onChange={(e) => setPhone(e.target.value)} />
+              <button type="button" className="shrink-0 rounded-xl border border-border bg-secondary px-4 py-3 text-sm font-bold text-foreground disabled:opacity-50" disabled={loading || resendIn > 0} onClick={() => void onSendCode()}>
+                {resendIn > 0 ? t('kyc.resendIn', { s: resendIn }) : t('kyc.sendCode')}
+              </button>
+            </div>
             {phoneLocked && <p className="text-[10px] text-muted-foreground">{t('kyc.phoneLocked')}</p>}
-            <button type="button" className="w-full rounded-xl border border-border bg-secondary py-3 text-sm font-bold text-foreground disabled:opacity-50" disabled={loading || resendIn > 0} onClick={() => void onSendCode()}>
-              {resendIn > 0 ? t('kyc.resendIn', { s: resendIn }) : t('kyc.sendCode')}
-            </button>
             <input value={code} type="text" inputMode="numeric" maxLength={6} placeholder={t('kyc.codeLabel')} className={inputCls} onChange={(e) => setCode(e.target.value)} />
             <button type="button" className="w-full rounded-xl bg-primary py-3 text-sm font-bold text-primary-foreground disabled:opacity-50" disabled={loading} onClick={() => void onVerifyCode()}>
               {loading ? <Loader2 size={16} className="mx-auto animate-spin" /> : t('kyc.verify')}
@@ -241,17 +276,31 @@ export default function KycModal({ open, onClose, onApproved }: Props) {
               <option value="passport">{t('kyc.docPassport')}</option>
               <option value="drivers_license">{t('kyc.docDriversLicense')}</option>
               <option value="umid">{t('kyc.docUmid')}</option>
+              <option value="acr_icard">{t('kyc.docAcrIcard')}</option>
             </select>
 
             <input ref={idInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => void onPickImage(e.target.files?.[0])} />
             <button type="button" className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-secondary py-3 text-sm font-bold text-foreground" onClick={() => idInputRef.current?.click()}>
               {idImage ? <Check size={16} className="text-emerald-400" /> : <Upload size={16} />}
-              {idImage ? `${t('kyc.uploadId')} ✓` : t('kyc.uploadId')}
+              {idImage ? `${t('kyc.uploadId')} ✓` : docReuploadRequired ? t('kyc.reuploadId') : t('kyc.uploadId')}
             </button>
             {idImage && <img src={idImage} alt="id" className="max-h-32 w-full rounded-xl object-contain" />}
 
-            <button type="button" className="w-full rounded-xl bg-primary py-3 text-sm font-bold text-primary-foreground disabled:opacity-50" disabled={loading} onClick={() => void onSubmitDoc()}>
-              {loading ? <Loader2 size={16} className="mx-auto animate-spin" /> : t('kyc.submit')}
+            <button type="button" className="w-full rounded-xl bg-primary py-3 text-sm font-bold text-primary-foreground disabled:opacity-50" disabled={loading || !idImage} onClick={() => void onSubmitDoc()}>
+              {loading ? t('kyc.reviewing') : t('kyc.submit')}
+            </button>
+          </div>
+        )}
+
+        {step === 'reviewing' && (
+          <div className="flex flex-col items-center gap-3 py-6 text-center">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/15">
+              <ShieldCheck size={28} className="text-primary animate-pulse" />
+            </div>
+            <p className="text-sm font-black text-foreground">{t('kyc.reviewing')}</p>
+            <p className="text-xs text-muted-foreground">{t('kyc.reviewingHint')}</p>
+            <button type="button" className="mt-2 w-full rounded-xl bg-primary py-3 text-sm font-bold text-primary-foreground" onClick={onClose}>
+              {t('kyc.close')}
             </button>
           </div>
         )}

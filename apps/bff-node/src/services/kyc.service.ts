@@ -6,6 +6,7 @@ import type { KycSubmission, LivenessAction, LivenessFrameMeta } from '../types/
 import { normalizePhonePH } from '../utils/phone.js'
 import { nowIso } from '../utils/format.js'
 import { getAdminSetting } from './admin-store.js'
+import { getMysqlPool, isMysqlEnabled } from '../clients/mysql.client.js'
 import { getSmsProvider, isSmsTestModeEnabled } from './sms/index.js'
 import { appendSmsSendLog } from './sms/send-log.js'
 import { getStorageProvider } from './storage/index.js'
@@ -30,7 +31,13 @@ const GEMINI_RETRY_DELAY_FALLBACK_MS = 5_000
 const OTP_TTL_SEC = 300
 const RESEND_INTERVAL_SEC = 60
 const MAX_VERIFY_ATTEMPTS = 5
-const ACCEPTED_DOC_TYPES = ['passport', 'drivers_license', 'philid', 'umid']
+const ACCEPTED_DOC_TYPES = ['passport', 'drivers_license', 'philid', 'umid', 'acr_icard']
+
+function normalizeDocType(raw: string): string {
+  const s = raw.toLowerCase().trim().replace(/[\s-]+/g, '_')
+  if (s === 'acr_i_card' || s === 'i_card' || s === 'icard') return 'acr_icard'
+  return s
+}
 const REQUIRED_LIVENESS_ACTIONS: LivenessAction[] = ['neutral', 'blink', 'mouth']
 const VERIFY_RL_WINDOW_SEC = 86400
 
@@ -176,25 +183,25 @@ export async function sendKycOtp(
   phoneRaw: string,
 ): Promise<{ phone: string; resendInSec: number }> {
   const phone = normalizePhonePH(phoneRaw)
-  if (!phone) throw new KycError('Invalid phone number', 400)
+  if (!phone) throw new KycError('kyc.errors.invalidPhone', 400)
 
   const user = await getUser(redis, userId)
   if (user?.phoneAccount) {
     const bound = normalizePhonePH(user.phoneAccount)
     if (bound && bound !== phone) {
-      throw new KycError('请使用注册时绑定的手机号进行验证', 400)
+      throw new KycError('kyc.errors.phoneUseRegistered', 400)
     }
   }
 
   const otherOwner = await findKycByVerifiedPhone(redis, phone, userId)
-  if (otherOwner) throw new KycError('该手机号已被其他账号使用', 409)
+  if (otherOwner) throw new KycError('kyc.errors.phoneTaken', 409)
   const phoneAccountOwner = await getUserByPhoneAccount(redis, phone)
   if (phoneAccountOwner && phoneAccountOwner.id !== userId) {
-    throw new KycError('该手机号已被其他账号使用', 409)
+    throw new KycError('kyc.errors.phoneTaken', 409)
   }
 
   if (await redis.get(resendKey(userId))) {
-    throw new KycError('请求过于频繁，请稍后再试', 429)
+    throw new KycError('kyc.errors.rateLimited', 429)
   }
 
   const code = String(randomInt(0, 1_000_000)).padStart(6, '0')
@@ -207,7 +214,10 @@ export async function sendKycOtp(
   const res = await (await getSmsProvider(env, redis)).sendSms(phone, text)
   if (!res.ok) {
     await redis.del(otpKey(userId), resendKey(userId))
-    throw new KycError(`短信发送失败${res.errCode ? `(${res.errCode})` : ''}`, 502)
+    throw new KycError(
+      res.errCode ? `kyc.errors.smsFailedWithCode:${res.errCode}` : 'kyc.errors.smsFailed',
+      502,
+    )
   }
   await appendSmsSendLog(redis, {
     scene: 'kyc_otp',
@@ -227,18 +237,18 @@ export async function verifyKycOtp(
   code: string,
 ): Promise<{ phoneVerified: true; status: KycSubmission['status'] }> {
   const raw = await redis.get(otpKey(userId))
-  if (!raw) throw new KycError('验证码已过期，请重新获取', 400)
+  if (!raw) throw new KycError('kyc.errors.otpExpired', 400)
   const state = JSON.parse(raw) as OtpState
 
   if (state.attempts >= MAX_VERIFY_ATTEMPTS) {
     await redis.del(otpKey(userId))
-    throw new KycError('尝试次数过多，请重新获取验证码', 429)
+    throw new KycError('kyc.errors.otpTooManyAttempts', 429)
   }
   if (code !== state.code) {
     state.attempts += 1
     const ttl = await redis.ttl(otpKey(userId))
     await redis.set(otpKey(userId), JSON.stringify(state), 'EX', ttl > 0 ? ttl : OTP_TTL_SEC)
-    throw new KycError('验证码错误', 400)
+    throw new KycError('kyc.errors.otpInvalid', 400)
   }
 
   await redis.del(otpKey(userId))
@@ -408,7 +418,8 @@ async function generateGeminiContent(
 async function runGeminiDocument(env: Env, fullName: string, idImage: string): Promise<GeminiDocVerdict> {
   const prompt = `You are a KYC document verification system. Analyze the provided ID document image only.
 
-Accepted document types: passport, drivers_license, philid (Philippine National ID), umid.
+Accepted document types: passport, drivers_license, philid (Philippine National ID), umid, acr_icard (ACR I-Card / Alien Certificate of Registration Identity Card).
+Use docType value exactly as listed (e.g. acr_icard for ACR I-Card).
 The user claims their full name is: "${fullName}".
 
 Return ONLY a valid JSON object (no markdown) with exactly these keys:
@@ -498,6 +509,10 @@ export async function submitKycDocument(
   }
   await enforceVerifyRateLimit(redis, env, userId, 'doc')
 
+  if (!ACCEPTED_DOC_TYPES.includes(normalizeDocType(input.docType))) {
+    throw new KycError('kyc.errors.unsupportedDocType', 400)
+  }
+
   const verdict = await runGeminiDocument(env, input.fullName, input.idImage)
 
   if (verdict.idNumber) {
@@ -517,7 +532,7 @@ export async function submitKycDocument(
 
   const reasons: string[] = []
   if (!verdict.isValidDocument) reasons.push('invalid_doc')
-  if (!ACCEPTED_DOC_TYPES.includes(verdict.docType)) reasons.push('unsupported_doc_type')
+  if (!ACCEPTED_DOC_TYPES.includes(normalizeDocType(verdict.docType))) reasons.push('unsupported_doc_type')
   if (!verdict.nameMatches) reasons.push('name_mismatch')
   if (verdict.confidence < env.KYC_GEMINI_MIN_CONFIDENCE) reasons.push('low_confidence')
 
@@ -550,6 +565,16 @@ export async function submitKycDocument(
     reviewedBy: undefined,
   }
   await saveApprovedWithIdGuard(redis, submission)
+
+  // 记录历史提交（MySQL），管理后台可查看所有提交记录
+  if (isMysqlEnabled(env)) {
+    getMysqlPool(env).execute(
+      `INSERT INTO bg_kyc_doc_log (user_id, full_name, doc_type, doc_image_key, gemini_confidence, doc_verified, reject_reason)
+       VALUES (?,?,?,?,?,?,?)`,
+      [userId, input.fullName, input.docType, docImageKey ?? null, verdict.confidence, docVerified ? 1 : 0, submission.rejectReason ?? null],
+    ).catch((e) => console.error('[kyc] doc log insert failed:', e))
+  }
+
   return {
     docVerified,
     status: submission.status,

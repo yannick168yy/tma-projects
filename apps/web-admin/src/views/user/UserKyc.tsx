@@ -25,6 +25,7 @@ function docTypeLabel(t: string | null) {
     drivers_license: '驾驶证',
     philid: 'PhilID',
     umid: 'UMID',
+    acr_icard: 'ACR I-Card',
   }
   return t ? (map[t] ?? t) : '—'
 }

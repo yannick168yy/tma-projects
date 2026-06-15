@@ -427,8 +427,6 @@ export async function bindPhone(
   if (password) {
     if (password.length < 8) throw new AuthError('Password must be at least 8 characters', 400)
     user.passwordHash = await hashPassword(password)
-  } else if (!user.passwordHash) {
-    throw new AuthError('请设置登录密码', 400)
   }
   await saveUser(redis, user)
   return user

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Card, Descriptions, Tag, Button, Space, Spin, Alert, Image, Collapse, Modal, Input, message } from 'antd'
-import { fetchKycImageBlob, getKycDetail, reviewKyc, type AdminKycDetail } from '../api'
+import { Card, Descriptions, Tag, Button, Space, Spin, Alert, Image, Collapse, Modal, Input, Table, message } from 'antd'
+import { fetchKycImageBlob, getKycDetail, getKycDocLog, reviewKyc, type AdminKycDetail, type KycDocLogItem } from '../api'
 
 function kycStatusTag(status: string) {
   const map: Record<string, { color: string; label: string }> = {
@@ -27,6 +27,8 @@ export default function KycDetail() {
   const [data, setData] = useState<AdminKycDetail | null>(null)
   const [imageUrls, setImageUrls] = useState<Record<string, string>>({})
   const [reviewing, setReviewing] = useState(false)
+  const [docLog, setDocLog] = useState<KycDocLogItem[]>([])
+  const [docLogImgUrls, setDocLogImgUrls] = useState<Record<number, string>>({})
 
   const load = useCallback(async () => {
     if (!userId) return
@@ -46,6 +48,18 @@ export default function KycDetail() {
         } catch { /* skip missing files */ }
       }))
       setImageUrls(urls)
+
+      // 加载历史提交记录
+      try {
+        const log = await getKycDocLog(userId)
+        setDocLog(log.items)
+        const logImgs: Record<number, string> = {}
+        await Promise.all(log.items.map(async (item) => {
+          if (!item.docImageKey) return
+          try { logImgs[item.id] = await fetchKycImageBlob(userId, item.docImageKey) } catch { /* skip */ }
+        }))
+        setDocLogImgUrls(logImgs)
+      } catch { /* 表可能不存在，忽略 */ }
     } finally {
       setLoading(false)
     }
@@ -177,6 +191,31 @@ export default function KycDetail() {
             ),
           }]}
         />
+      )}
+
+      {docLog.length > 0 && (
+        <Card title={`证件提交历史（${docLog.length} 次）`} size="small" style={{ marginTop: 16 }}>
+          <Table
+            rowKey="id"
+            size="small"
+            pagination={false}
+            dataSource={docLog}
+            columns={[
+              { title: '提交时间', dataIndex: 'submittedAt', key: 'at', width: 160, render: (v: string) => new Date(v).toLocaleString('zh-CN') },
+              { title: '姓名', dataIndex: 'fullName', key: 'name', render: (v: string | null) => v ?? '—' },
+              { title: '证件类型', dataIndex: 'docType', key: 'docType', width: 120, render: (v: string | null) => v ?? '—' },
+              { title: 'Gemini 置信度', dataIndex: 'geminiConfidence', key: 'conf', width: 110, render: (v: number | null) => v != null ? String(v) : '—' },
+              { title: '结果', key: 'result', width: 90, render: (_: unknown, r: KycDocLogItem) => r.docVerified ? <Tag color="green">通过</Tag> : <Tag color="red">拒绝</Tag> },
+              { title: '拒绝原因', dataIndex: 'rejectReason', key: 'reason', render: (v: string | null) => v ?? '—' },
+              {
+                title: '证件照', key: 'img', width: 100,
+                render: (_: unknown, r: KycDocLogItem) => docLogImgUrls[r.id]
+                  ? <Image width={80} src={docLogImgUrls[r.id]} />
+                  : (r.docImageKey ? <span style={{ color: '#999' }}>加载中</span> : '—'),
+              },
+            ]}
+          />
+        </Card>
       )}
     </div>
   )

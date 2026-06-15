@@ -92,8 +92,7 @@ export default function BindModal({ open, onClose }: Props) {
             {expand === 'phone' && !user.boundPhone && (
               <div className="mt-2 space-y-2">
                 <input value={phone} type="tel" placeholder={t('auth.phonePlaceholder')} className={inputCls} onChange={(e) => setPhone(e.target.value)} />
-                {!user.boundAccount && <input value={password} type="password" placeholder={t('auth.passwordPlaceholder')} className={inputCls} onChange={(e) => setPassword(e.target.value)} />}
-                <button type="button" className="w-full rounded-xl bg-primary py-2.5 text-sm font-bold text-primary-foreground disabled:opacity-50" disabled={loading} onClick={() => void run(() => bindPhone(phone.trim(), password || undefined))}>{loading ? <Loader2 size={15} className="mx-auto animate-spin" /> : t('bind.confirm')}</button>
+                <button type="button" className="w-full rounded-xl bg-primary py-2.5 text-sm font-bold text-primary-foreground disabled:opacity-50" disabled={loading} onClick={() => void run(() => bindPhone(phone.trim()))}>{loading ? <Loader2 size={15} className="mx-auto animate-spin" /> : t('bind.confirm')}</button>
               </div>
             )}
           </div>

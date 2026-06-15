@@ -62,6 +62,28 @@ router.get('/', async (ctx) => {
   })
 })
 
+// 用户证件提交历史
+router.get('/:userId/doc-log', async (ctx) => {
+  const db = getMysqlPool(ctx.state.env)
+  const [rows] = await db.query<import('mysql2/promise').RowDataPacket[]>(
+    `SELECT id, full_name, doc_type, doc_image_key, gemini_confidence, doc_verified, reject_reason, submitted_at
+     FROM bg_kyc_doc_log WHERE user_id = ? ORDER BY submitted_at DESC LIMIT 50`,
+    [ctx.params.userId],
+  )
+  ok(ctx, {
+    items: rows.map((r) => ({
+      id: Number(r.id),
+      fullName: (r.full_name as string) ?? null,
+      docType: (r.doc_type as string) ?? null,
+      docImageKey: (r.doc_image_key as string) ?? null,
+      geminiConfidence: r.gemini_confidence != null ? Number(r.gemini_confidence) : null,
+      docVerified: Boolean(r.doc_verified),
+      rejectReason: (r.reject_reason as string) ?? null,
+      submittedAt: new Date(r.submitted_at as Date).toISOString(),
+    })),
+  })
+})
+
 router.get('/:userId/images/:key', async (ctx) => {
   const key = decodeURIComponent(ctx.params.key)
   if (key.includes('..') || key.startsWith('/')) {

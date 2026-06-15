@@ -104,12 +104,12 @@ export async function executeTool(
 
     case 'get_recent_orders': {
       const [deposits] = await pool.query<RowDataPacket[]>(
-        `SELECT order_id, amount, currency, credited, channel_id, status, created_at, paid_at
+        `SELECT order_id, amount, currency, credited, channel, status, created_at
          FROM bg_deposit_order WHERE user_id = ? ORDER BY created_at DESC LIMIT 5`,
         [context.userId],
       )
       const [withdrawals] = await pool.query<RowDataPacket[]>(
-        `SELECT order_id, amount, currency, channel_id, status, created_at, completed_at, reject_reason
+        `SELECT order_id, amount, currency, channel, status, created_at, completed_at, reject_reason
          FROM bg_withdraw_order WHERE user_id = ? ORDER BY created_at DESC LIMIT 5`,
         [context.userId],
       )
@@ -118,17 +118,16 @@ export async function executeTool(
           orderId: d.order_id,
           amount: d.amount,
           currency: d.currency,
-          creditedPHP: d.credited ? Number(d.credited).toFixed(2) : null,
-          channel: d.channel_id,
+          credited: d.credited ? 1 : 0,
+          channel: d.channel,
           status: d.status,
           createdAt: d.created_at,
-          paidAt: d.paid_at,
         })),
         withdrawals: withdrawals.map((w) => ({
           orderId: w.order_id,
           amountPHP: Number(w.amount).toFixed(2),
           currency: w.currency,
-          channel: w.channel_id,
+          channel: w.channel,
           status: w.status,
           createdAt: w.created_at,
           completedAt: w.completed_at,
