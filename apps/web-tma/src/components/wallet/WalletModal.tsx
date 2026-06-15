@@ -31,6 +31,16 @@ function mapDepositChannelName(channelId: string) { const m: Record<string,strin
 const DEFAULT_DEPOSIT_AMOUNTS: Record<string,string>={tg_wallet_php:'1000',tg_wallet_usdt:'20',yfpay_gcash:'500',yfpay_maya:'500'}
 const quickAmountsPhp=['100','500','1000','2000','5000']; const quickAmountsUsdt=['10','25','50','100']
 
+function isPhoneWalletWithdraw(id: string | null) {
+  return id === 'gcash-w' || id === 'maya-w'
+}
+
+function walletAccountFromPhone(e164: string | null): string {
+  if (!e164) return ''
+  if (e164.startsWith('+63')) return `0${e164.slice(3)}`
+  return e164
+}
+
 function statusIconComp(status: string) { if(status==='success')return CheckCircle2; if(status==='pending')return Loader2; if(status==='rejected')return XCircle; return AlertCircle }
 function fmtTurnoverAmount(amount: number, currency: string) {
   if (currency === 'PHP') return `₱${amount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
@@ -77,7 +87,8 @@ export default function WalletModal({ open, onClose }: Props) {
   const [withdrawLoading, setWithdrawLoading] = useState(false)
   const [withdrawMessage, setWithdrawMessage] = useState('')
   const [withdrawSuccess, setWithdrawSuccess] = useState(false)
-  const { kycApproved, kycOpen, setKycOpen, onKycClose, onKycApproved } = useKycGate(open && tab === 'withdraw')
+  const { kycApproved, kycOpen, setKycOpen, boundPhoneNumber, refreshKyc, onKycClose, onKycApproved } = useKycGate(open && tab === 'withdraw')
+  const pendingWithdrawMethodRef = useRef<string | null>(null)
   const [historyOrders, setHistoryOrders] = useState<HistoryItem[]>([])
   const [historyLoading, setHistoryLoading] = useState(false)
   const [copiedId, setCopiedId] = useState<string|null>(null)
@@ -92,17 +103,50 @@ export default function WalletModal({ open, onClose }: Props) {
   function stopPolling() { if(pollTimerRef.current){clearInterval(pollTimerRef.current);pollTimerRef.current=null} }
   function stopTonPolling() { if(tonPollTimerRef.current){clearInterval(tonPollTimerRef.current);tonPollTimerRef.current=null} }
 
-  function onSelectWithdrawMethod(id: string) {
+  function applyWithdrawAccountPrefill(methodId: string) {
+    if (isPhoneWalletWithdraw(methodId) && boundPhoneNumber) {
+      setWithdrawAccount(walletAccountFromPhone(boundPhoneNumber))
+    } else {
+      setWithdrawAccount('')
+    }
+  }
+
+  function proceedWithWithdrawMethod(id: string) {
+    setSelectedMethod(id)
+    setAmount('')
+    setWithdrawMessage('')
+    applyWithdrawAccountPrefill(id)
+    setWithdrawOwner('')
+  }
+
+  async function onSelectWithdrawMethod(id: string) {
     if (turnoverProgress !== null && !turnoverProgress.canWithdraw) {
       setTurnoverShake(true)
       setTimeout(() => setTurnoverShake(false), 500)
       return
     }
-    setSelectedMethod(id)
-    setAmount('')
-    setWithdrawMessage('')
-    setWithdrawAccount('')
-    setWithdrawOwner('')
+    let approved = kycApproved
+    if (approved === null) approved = await refreshKyc()
+    if (!approved) {
+      pendingWithdrawMethodRef.current = id
+      setKycOpen(true)
+      return
+    }
+    proceedWithWithdrawMethod(id)
+  }
+
+  function handleKycApproved() {
+    onKycApproved()
+    const pending = pendingWithdrawMethodRef.current
+    if (pending) {
+      pendingWithdrawMethodRef.current = null
+      proceedWithWithdrawMethod(pending)
+    }
+  }
+
+  function handleKycClose() {
+    pendingWithdrawMethodRef.current = null
+    onKycClose()
   }
 
   useEffect(() => {
@@ -112,6 +156,7 @@ export default function WalletModal({ open, onClose }: Props) {
       if(walletBannerTrackRef.current)walletBannerTrackRef.current.scrollLeft=0
       setDepositLoading(false); setDepositMessage(''); setDepositSuccess(false)
       setWithdrawAccount(''); setWithdrawOwner(''); setWithdrawMessage(''); setWithdrawSuccess(false)
+      pendingWithdrawMethodRef.current = null
       setTurnoverProgress(null); setTurnoverLoading(false)
       setTonLoading(false); setTonMessage(''); setTonSuccess(false)
       void walletStore.refresh()
@@ -139,6 +184,13 @@ export default function WalletModal({ open, onClose }: Props) {
       .catch(() => setTurnoverProgress(null))
       .finally(() => setTurnoverLoading(false))
   }, [tab, activeCurrency])
+
+  useEffect(() => {
+    if (tab !== 'withdraw' || !selectedMethod || !boundPhoneNumber) return
+    if (isPhoneWalletWithdraw(selectedMethod)) {
+      setWithdrawAccount(walletAccountFromPhone(boundPhoneNumber))
+    }
+  }, [tab, selectedMethod, boundPhoneNumber])
 
   useEffect(() => {
     if (!selectedMethod) return
@@ -181,6 +233,7 @@ export default function WalletModal({ open, onClose }: Props) {
     [activeCurrency],
   )
   const isFiatWithdraw = FIAT_WITHDRAW.some((m) => m.id === selectedMethod)
+  const withdrawAccountLocked = isPhoneWalletWithdraw(selectedMethod) && Boolean(boundPhoneNumber)
   const isMatrixWithdraw = selectedPayMethod?.channelId === 'matrix' && tab === 'withdraw'
   const isCryptoMethod = /usdt|ton|btc|eth|bnb/.test(selectedMethod ?? '') && !isTgWallet
   const depositCurrency = selectedPayMethod?.currency ?? 'PHP'
@@ -312,7 +365,7 @@ export default function WalletModal({ open, onClose }: Props) {
 
   async function copyOrderId(id: string) { try{await navigator.clipboard.writeText(id);setCopiedId(id);setTimeout(()=>setCopiedId(null),2000)}catch{/***/} }
 
-  function resetToSelect() { setDepositView('select'); setSelectedMethod(null); setAmount(''); setDepositMessage(''); setWithdrawMessage(''); setWithdrawAccount(''); setWithdrawOwner(''); stopTonPolling(); setTonMessage(''); setTonLoading(false); setTonSuccess(false); setMatrixAddress(''); setMatrixCryptoAmount(''); setCopiedAddress(false) }
+  function resetToSelect() { pendingWithdrawMethodRef.current = null; setDepositView('select'); setSelectedMethod(null); setAmount(''); setDepositMessage(''); setWithdrawMessage(''); setWithdrawAccount(''); setWithdrawOwner(''); stopTonPolling(); setTonMessage(''); setTonLoading(false); setTonSuccess(false); setMatrixAddress(''); setMatrixCryptoAmount(''); setCopiedAddress(false) }
 
   if (!open) return null
 
@@ -498,7 +551,8 @@ export default function WalletModal({ open, onClose }: Props) {
                     <input value={amount} type="number" placeholder="0.00" className="w-full bg-secondary border border-border rounded-xl pl-10 pr-4 py-3 text-foreground font-black text-lg focus:outline-none focus:border-primary" onChange={(e)=>setAmount(e.target.value)} />
                   </div>}
                   {tab==='withdraw'&&isFiatWithdraw&&<>
-                    <input value={withdrawAccount} type="tel" placeholder={t('wallet.yfpayAccountNumber')} className="w-full bg-secondary border border-border rounded-xl px-4 py-3 text-foreground font-bold text-sm focus:outline-none focus:border-primary" onChange={(e)=>setWithdrawAccount(e.target.value)} />
+                    <input value={withdrawAccount} type="tel" readOnly={withdrawAccountLocked} placeholder={t('wallet.yfpayAccountNumber')} className={`w-full bg-secondary border border-border rounded-xl px-4 py-3 text-foreground font-bold text-sm focus:outline-none focus:border-primary${withdrawAccountLocked ? ' opacity-60' : ''}`} onChange={withdrawAccountLocked ? undefined : (e)=>setWithdrawAccount(e.target.value)} />
+                    {withdrawAccountLocked && <p className="text-[10px] text-muted-foreground">{t('kyc.phoneLocked')}</p>}
                     <input value={withdrawOwner} type="text" placeholder={t('wallet.yfpayFullName')} className="w-full bg-secondary border border-border rounded-xl px-4 py-3 text-foreground font-bold text-sm focus:outline-none focus:border-primary" onChange={(e)=>setWithdrawOwner(e.target.value)} />
                   </>}
                   {isTonConnect&&tab==='deposit'&&amount&&Number(amount)>0&&<p className="text-xs text-muted-foreground text-center -mt-1">≈ ₱{(Number(amount)*350).toLocaleString('en-PH',{minimumFractionDigits:2,maximumFractionDigits:2})}</p>}
@@ -518,11 +572,9 @@ export default function WalletModal({ open, onClose }: Props) {
                     <input value={matrixCryptoAmount} type="number" placeholder={t('wallet.matrixCryptoAmount', { symbol: selectedPayMethod?.matrixSymbol ?? 'TRX' })} className="w-full bg-secondary border border-border rounded-xl px-4 py-3 text-foreground font-bold text-sm focus:outline-none focus:border-primary" onChange={(e)=>setMatrixCryptoAmount(e.target.value)} />
                     <input value={withdrawAccount} type="text" placeholder={t('wallet.matrixWithdrawAddress', { symbol: selectedPayMethod?.matrixSymbol ?? 'TRX' })} className="w-full bg-secondary border border-border rounded-xl px-4 py-3 text-foreground font-bold text-sm focus:outline-none focus:border-primary font-mono" onChange={(e)=>setWithdrawAccount(e.target.value)} />
                     {withdrawMessage&&<p className={`text-xs font-bold text-center ${withdrawSuccess?'text-emerald-400':'text-amber-400'}`}>{withdrawMessage}</p>}
-                    {kycApproved===false&&<button type="button" className="w-full py-3.5 rounded-2xl font-black text-base flex items-center justify-center gap-2 shadow-lg bg-amber-500 text-black hover:bg-amber-400" onClick={()=>setKycOpen(true)}><ShieldCheck size={18} />{t('kyc.required')}</button>}
-                    {kycApproved!==false&&<button type="button" className="w-full py-3.5 rounded-2xl font-black text-base flex items-center justify-center gap-2 shadow-lg disabled:opacity-50 bg-red-600 text-white hover:bg-red-500 shadow-red-500/20" disabled={!canSubmitMatrixWithdraw} onClick={()=>void onProceedMatrixWithdraw()}>{withdrawLoading?<Loader2 size={18} className="animate-spin"/>:<ArrowUpFromLine size={18} />}{withdrawLoading?t('wallet.openingPay'):t('wallet.matrixWithdrawSubmit')}</button>}
+                    <button type="button" className="w-full py-3.5 rounded-2xl font-black text-base flex items-center justify-center gap-2 shadow-lg disabled:opacity-50 bg-red-600 text-white hover:bg-red-500 shadow-red-500/20" disabled={!canSubmitMatrixWithdraw} onClick={()=>void onProceedMatrixWithdraw()}>{withdrawLoading?<Loader2 size={18} className="animate-spin"/>:<ArrowUpFromLine size={18} />}{withdrawLoading?t('wallet.openingPay'):t('wallet.matrixWithdrawSubmit')}</button>
                   </>}
-                  {tab==='withdraw'&&isFiatWithdraw&&kycApproved===false&&<button type="button" className="w-full py-3.5 rounded-2xl font-black text-base flex items-center justify-center gap-2 shadow-lg bg-amber-500 text-black hover:bg-amber-400" onClick={()=>setKycOpen(true)}><ShieldCheck size={18} />{t('kyc.required')}</button>}
-                  {tab==='withdraw'&&isFiatWithdraw&&kycApproved!==false&&<button type="button" className="w-full py-3.5 rounded-2xl font-black text-base flex items-center justify-center gap-2 shadow-lg disabled:opacity-50 bg-accent text-accent-foreground hover:bg-red-500 shadow-red-500/20" disabled={!canSubmitWithdraw} onClick={()=>void onProceedWithdraw()}>{withdrawLoading?<Loader2 size={18} className="animate-spin"/>:<ArrowUpFromLine size={18} />}{withdrawLoading?t('wallet.openingPay'):t('wallet.yfpayWithdrawSubmit')}</button>}
+                  {tab==='withdraw'&&isFiatWithdraw&&<button type="button" className="w-full py-3.5 rounded-2xl font-black text-base flex items-center justify-center gap-2 shadow-lg disabled:opacity-50 bg-accent text-accent-foreground hover:bg-red-500 shadow-red-500/20" disabled={!canSubmitWithdraw} onClick={()=>void onProceedWithdraw()}>{withdrawLoading?<Loader2 size={18} className="animate-spin"/>:<ArrowUpFromLine size={18} />}{withdrawLoading?t('wallet.openingPay'):t('wallet.yfpayWithdrawSubmit')}</button>}
                   {tab==='withdraw'&&!isFiatWithdraw&&!isMatrixWithdraw&&<div className="flex flex-col items-center gap-3 py-6 text-center"><div className="w-14 h-14 rounded-2xl bg-secondary flex items-center justify-center"><span className="text-2xl">🔜</span></div><p className="text-sm font-black text-foreground">{t('wallet.comingSoon')}</p><p className="text-xs text-muted-foreground">{t('wallet.cryptoWithdrawSoon')}</p></div>}
                 </div>
               )}
@@ -573,7 +625,7 @@ export default function WalletModal({ open, onClose }: Props) {
           </div>
         )}
       </div>
-      <KycModal open={kycOpen} onClose={onKycClose} onApproved={onKycApproved} />
+      <KycModal open={kycOpen} onClose={handleKycClose} onApproved={handleKycApproved} />
     </>,
     document.body,
   )
