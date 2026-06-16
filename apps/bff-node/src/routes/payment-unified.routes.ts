@@ -261,6 +261,7 @@ router.post('/payment/withdraw/create', async (ctx) => {
       provider,
       extraData: {
         channelCode,
+        optionCode: provider === 'yfpay' ? channelCode : undefined,
         channelName,
         targetAccount: targetAccount ?? '',
         targetOwner: targetOwner ?? '',

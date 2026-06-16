@@ -39,13 +39,14 @@ export async function approveWithdraw(
 
   if (isYfpay(order)) {
     const ex = (order.extraData ?? {}) as Record<string, unknown>
+    const optionCode = ex.optionCode || ex.channelCode
     try {
       const r = await yfpayCreateWithdrawal({
         merchantSerial: order.orderId,
         amount: order.amount,
         targetOwner: String(ex.targetOwner ?? ''),
         targetAccount: String(ex.targetAccount ?? ''),
-        optionCode: ex.optionCode ? String(ex.optionCode) : undefined,
+        optionCode: optionCode ? String(optionCode) : undefined,
         notifyUrl: env.YFPAY_NOTIFY_URL,
       }, env)
       order.status = 'processing'
