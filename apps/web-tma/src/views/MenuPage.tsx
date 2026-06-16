@@ -1,8 +1,31 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, type ComponentType, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import { CheckCircle2, Copy, ChevronDown, ChevronRight, LogOut, Headphones, X, User, ShieldCheck } from 'lucide-react'
-import BindModal from '@/components/auth/BindModal'
+import {
+  AtSign,
+  Check,
+  CheckCircle2,
+  ChevronDown,
+  ChevronRight,
+  CircleDollarSign,
+  Copy,
+  FileText,
+  Gift,
+  Headphones,
+  History,
+  Info,
+  Languages,
+  LogOut,
+  Mail,
+  MessageCircle,
+  Palette,
+  Send,
+  ShieldCheck,
+  User,
+  Users,
+  X,
+} from 'lucide-react'
 import { createPortal } from 'react-dom'
+import BindModal from '@/components/auth/BindModal'
 import { useAuthStore } from '@/stores/auth'
 import { useLocaleStore } from '@/stores/locale'
 import { useThemeStore, type ThemeMode } from '@/stores/theme'
@@ -23,16 +46,110 @@ interface Props {
   onOpenCashback: () => void
 }
 
+type MenuIcon = ComponentType<{ size?: number; className?: string }>
+
 const CURRENCIES = [
-  { symbol: '₱', name: 'PHP', color: 'from-blue-600 to-blue-800' },
-  { symbol: '₮', name: 'USDT', color: 'from-teal-500 to-emerald-600' },
-  { symbol: '💎', name: 'TON', color: 'from-sky-400 to-blue-600' },
-  { symbol: '₿', name: 'BTC', color: 'from-orange-400 to-amber-600' },
-  { symbol: 'Ξ', name: 'ETH', color: 'from-purple-500 to-indigo-700' },
-  { symbol: '◈', name: 'BNB', color: 'from-yellow-400 to-yellow-600' },
+  { symbol: '₱', name: 'PHP' },
+  { symbol: '₮', name: 'USDT' },
+  { symbol: 'T', name: 'TON' },
+  { symbol: '₿', name: 'BTC' },
+  { symbol: 'Ξ', name: 'ETH' },
+  { symbol: 'B', name: 'BNB' },
 ]
 
 const HOME_DOC_KEYS = new Set(['terms', 'privacy', 'responsible', 'about'])
+
+function MenuSection({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section>
+      <h3 className="mb-2.5 px-1 font-display text-sm font-black text-foreground">{title}</h3>
+      <div className="overflow-hidden rounded-2xl border border-border bg-card">{children}</div>
+    </section>
+  )
+}
+
+function MenuRow({
+  icon: Icon,
+  title,
+  subtitle,
+  right,
+  onClick,
+  danger = false,
+  bordered = false,
+}: {
+  icon: MenuIcon
+  title: string
+  subtitle?: string
+  right?: ReactNode
+  onClick?: () => void
+  danger?: boolean
+  bordered?: boolean
+}) {
+  const content = (
+    <>
+      <span className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl ${danger ? 'bg-red-500/10 text-red-400' : 'bg-secondary text-primary'}`}>
+        <Icon size={17} />
+      </span>
+      <span className="min-w-0 flex-1 text-left">
+        <span className={`block truncate text-sm font-bold ${danger ? 'text-red-400' : 'text-foreground'}`}>{title}</span>
+        {subtitle && <span className="mt-0.5 block truncate text-xs text-muted-foreground">{subtitle}</span>}
+      </span>
+      {right ?? (onClick ? <ChevronRight size={15} className="flex-shrink-0 text-muted-foreground" /> : null)}
+    </>
+  )
+
+  const className = `flex w-full items-center gap-3 px-4 py-3.5 ${bordered ? 'border-b border-border' : ''} ${onClick ? 'transition-colors hover:bg-secondary/50' : ''}`
+
+  if (!onClick) return <div className={className}>{content}</div>
+  return (
+    <button type="button" className={className} onClick={onClick}>
+      {content}
+    </button>
+  )
+}
+
+function QuickAction({
+  icon: Icon,
+  label,
+  onClick,
+}: {
+  icon: MenuIcon
+  label: string
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      className="flex min-h-20 flex-col items-center justify-center gap-2 rounded-2xl border border-border bg-card px-2 py-3 text-center transition-colors hover:bg-secondary/50"
+      onClick={onClick}
+    >
+      <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
+        <Icon size={18} />
+      </span>
+      <span className="text-xs font-black leading-tight text-foreground">{label}</span>
+    </button>
+  )
+}
+
+function BottomSheet({ title, children, onClose }: { title: string; children: ReactNode; onClose: () => void }) {
+  return createPortal(
+    <div className="fixed inset-0 z-[200] flex justify-center" role="dialog" aria-modal="true">
+      <div className="relative flex h-full w-full max-w-[430px] flex-col justify-end">
+        <div className="absolute inset-0 bg-black/60" aria-hidden="true" onClick={onClose} />
+        <div className="relative z-10 flex max-h-[86vh] flex-col rounded-t-2xl bg-card shadow-2xl">
+          <div className="flex flex-shrink-0 items-center justify-between border-b border-border px-5 py-4">
+            <h2 className="font-display text-base font-black text-foreground">{title}</h2>
+            <button type="button" className="flex h-8 w-8 items-center justify-center rounded-full bg-secondary" onClick={onClose}>
+              <X size={15} className="text-muted-foreground" />
+            </button>
+          </div>
+          <div className="overflow-y-auto px-5 py-5">{children}</div>
+        </div>
+      </div>
+    </div>,
+    document.getElementById('app') ?? document.body,
+  )
+}
 
 export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory, onOpenReferralPromo, onOpenCashback }: Props) {
   const { t } = useTranslation()
@@ -44,6 +161,8 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
   const [loggingOut, setLoggingOut] = useState(false)
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false)
   const [bindOpen, setBindOpen] = useState(false)
+  const [profileSheetOpen, setProfileSheetOpen] = useState(false)
+  const [contactSheetOpen, setContactSheetOpen] = useState(false)
   const [personalSaved, setPersonalSaved] = useState(false)
   const [personalSaving, setPersonalSaving] = useState(false)
   const [personalError, setPersonalError] = useState('')
@@ -65,11 +184,16 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
 
   const USER_ID = auth.user?.id ?? '—'
   const displayName = auth.user?.displayName ?? t('profile.playerAccount')
+  const currentLang = LANGUAGES.find((l) => l.code === locale) ?? LANGUAGES[0]
 
   useEffect(() => {
-    if (!isLoggedIn) { setRebateLevel(null); return }
+    if (!isLoggedIn) {
+      setRebateLevel(null)
+      return
+    }
     fetchRebateProgress().then((p) => setRebateLevel(p.level)).catch(() => setRebateLevel(null))
   }, [isLoggedIn])
+
   const loginProvider: LoginProvider = auth.user?.loginProvider ?? (auth.user?.telegramUserId ? 'telegram' : 'google')
   const isTelegramLogin = loginProvider === 'telegram'
   const isGoogleLogin = loginProvider === 'google'
@@ -81,43 +205,51 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
   const emailRowSubtitle = isGoogleLogin ? (googleEmail || t('profile.notConnected')) : (emailExtra.trim() || t('profile.addEmailOptional'))
   const contactOrder: Array<'telegram' | 'email' | 'phone'> = loginProvider === 'google' ? ['email', 'telegram', 'phone'] : ['telegram', 'phone', 'email']
 
-  const currentLang = LANGUAGES.find((l) => l.code === locale)!
   const MONTHS = Array.from({ length: 12 }, (_, i) => t(`profile.months.${i + 1}`))
   const genderOptions = [{ id: 'Male', label: t('profile.male') }, { id: 'Female', label: t('profile.female') }, { id: 'Other', label: t('profile.other') }]
   const years = Array.from({ length: new Date().getFullYear() - 1924 }, (_, i) => new Date().getFullYear() - 18 - i)
   const days = Array.from({ length: 31 }, (_, i) => String(i + 1).padStart(2, '0'))
   const dobFilled = !!(dobMonth && dobDay && dobYear)
   const dobDisplay = dobFilled ? `${MONTHS[parseInt(dobMonth, 10) - 1]} ${parseInt(dobDay, 10)}, ${dobYear}` : ''
+  const profileComplete = Boolean(firstName && lastName && dobFilled && gender)
+  const canSavePersonal = profileComplete && !personalSaved
 
-  const LINKS = [
-    { icon: '📢', label: t('profile.links.channel'), sub: t('profile.links.channelSub'), color: 'from-blue-600 to-blue-800' },
-    { icon: '💬', label: t('profile.links.community'), sub: t('profile.links.communitySub'), color: 'from-indigo-600 to-violet-700' },
-    { icon: '🎰', label: t('profile.links.vip'), sub: t('profile.links.vipSub'), color: 'from-yellow-500 to-amber-600' },
-    { icon: '📱', label: t('profile.links.facebook'), sub: t('profile.links.facebookSub'), color: 'from-blue-500 to-blue-700' },
-  ]
   const SUPPORT_ITEMS = [
-    { icon: '💬', label: t('profile.supportItems.liveChat'), sub: t('profile.supportItems.liveChatSub'), badge: t('common.online'), badgeColor: 'bg-emerald-500/20 text-emerald-400' },
-    { icon: '📩', label: t('profile.supportItems.telegram'), sub: '@BetoGo_Support', badge: null, badgeColor: '' },
-    { icon: '📧', label: t('profile.supportItems.email'), sub: 'support@betogo.com', badge: null, badgeColor: '' },
+    { icon: MessageCircle, label: t('profile.supportItems.liveChat'), sub: t('profile.supportItems.liveChatSub'), badge: t('common.online'), onClick: onOpenCs },
+    { icon: Send, label: t('profile.supportItems.telegram'), sub: '@BetoGo_Support', badge: null, onClick: showComingSoon },
+    { icon: Mail, label: t('profile.supportItems.email'), sub: 'support@betogo.com', badge: null, onClick: showComingSoon },
+  ]
+  const COMMUNITY_LINKS = [
+    { icon: Send, label: t('profile.links.channel'), sub: t('profile.links.channelSub') },
+    { icon: Users, label: t('profile.links.community'), sub: t('profile.links.communitySub') },
+    { icon: Gift, label: t('profile.links.vip'), sub: t('profile.links.vipSub') },
+    { icon: MessageCircle, label: t('profile.links.facebook'), sub: t('profile.links.facebookSub') },
   ]
   const DOCS = [
-    { key: 'terms', label: t('profile.docs.terms'), icon: '📋' },
-    { key: 'privacy', label: t('profile.docs.privacy'), icon: '🔒' },
-    { key: 'responsible', label: t('profile.docs.responsible'), icon: '🛡️' },
-    { key: 'aml', label: t('profile.docs.aml'), icon: '⚖️' },
-    { key: 'bonusTerms', label: t('profile.docs.bonusTerms'), icon: '🎁' },
-    { key: 'about', label: t('profile.docs.about'), icon: 'ℹ️' },
+    { key: 'terms', label: t('profile.docs.terms') },
+    { key: 'privacy', label: t('profile.docs.privacy') },
+    { key: 'responsible', label: t('profile.docs.responsible') },
+    { key: 'aml', label: t('profile.docs.aml') },
+    { key: 'bonusTerms', label: t('profile.docs.bonusTerms') },
+    { key: 'about', label: t('profile.docs.about') },
   ]
 
   useEffect(() => {
     const p = auth.user?.profile
-    if (p) { setFirstName(p.firstName ?? ''); setLastName(p.lastName ?? ''); setGender(p.gender ?? ''); setDobMonth(p.dobMonth ?? ''); setDobDay(p.dobDay ?? ''); setDobYear(p.dobYear ?? '') }
+    if (p) {
+      setFirstName(p.firstName ?? '')
+      setLastName(p.lastName ?? '')
+      setGender(p.gender ?? '')
+      setDobMonth(p.dobMonth ?? '')
+      setDobDay(p.dobDay ?? '')
+      setDobYear(p.dobYear ?? '')
+    }
   }, [auth.user?.id])
 
   useEffect(() => {
-    document.body.style.overflow = docModalKey ? 'hidden' : ''
+    document.body.style.overflow = docModalKey || profileSheetOpen || contactSheetOpen ? 'hidden' : ''
     return () => { document.body.style.overflow = '' }
-  }, [docModalKey])
+  }, [docModalKey, profileSheetOpen, contactSheetOpen])
 
   useEffect(() => () => { if (comingSoonTimer.current) clearTimeout(comingSoonTimer.current) }, [])
 
@@ -130,24 +262,35 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
   function copyId() {
     if (!auth.user?.id) return
     navigator.clipboard?.writeText(auth.user.id).catch(() => {})
-    setCopied(true); setTimeout(() => setCopied(false), 2000)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
   }
 
   async function confirmLogout() {
     setLoggingOut(true)
-    try { await auth.logout(); setLogoutConfirmOpen(false); onLogout() }
-    finally { setLoggingOut(false) }
+    try {
+      await auth.logout()
+      setLogoutConfirmOpen(false)
+      onLogout()
+    } finally {
+      setLoggingOut(false)
+    }
   }
 
   async function savePersonal() {
-    if (!firstName || !lastName || !dobFilled || !gender) return
-    setPersonalSaving(true); setPersonalError('')
+    if (!canSavePersonal) return
+    setPersonalSaving(true)
+    setPersonalError('')
     try {
       const saved = await patchProfile({ firstName, lastName, gender: gender as 'male' | 'female' | 'other' | '', dobMonth, dobDay, dobYear })
       if (auth.user) useAuthStore.setState((s) => ({ ...s, user: { ...s.user!, profile: saved } }))
-      setPersonalSaved(true); setDobOpen(false)
-    } catch (e) { setPersonalError(e instanceof Error ? e.message : '保存失败') }
-    finally { setPersonalSaving(false) }
+      setPersonalSaved(true)
+      setDobOpen(false)
+    } catch (e) {
+      setPersonalError(e instanceof Error ? e.message : '保存失败')
+    } finally {
+      setPersonalSaving(false)
+    }
   }
 
   const docTitle = docModalKey ? t(`profile.docs.${docModalKey}`) : ''
@@ -159,48 +302,41 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
     for (let i = 0; i < chunks.length; i++) {
       const chunk = chunks[i]
       const isHeading = chunk.length <= 60 && !chunk.includes('\n') && !/[.?!,。，！？]$/.test(chunk)
-      if (isHeading && i + 1 < chunks.length) { sections.push({ heading: chunk, body: chunks[i + 1] }); i++ }
-      else sections.push({ heading: null, body: chunk })
+      if (isHeading && i + 1 < chunks.length) {
+        sections.push({ heading: chunk, body: chunks[i + 1] })
+        i++
+      } else {
+        sections.push({ heading: null, body: chunk })
+      }
     }
     return sections
   }
 
   return (
     <div className="min-h-full pb-24">
-      {/* Header */}
       {isLoggedIn ? (
-        <div className="flex items-center gap-4 border-b border-border bg-card px-5 py-4">
-          <div className="h-12 w-12 flex-shrink-0 overflow-hidden rounded-full bg-gradient-to-br from-amber-400 to-orange-500 shadow-lg shadow-amber-500/30">
-            <svg viewBox="0 0 40 40" width="48" height="48" className="h-full w-full" aria-hidden="true">
-              <ellipse cx="20" cy="26" rx="11" ry="9" fill="#92400e" /><ellipse cx="20" cy="19" rx="13" ry="13" fill="#a16207" /><ellipse cx="20" cy="20" rx="9" ry="9" fill="#b45309" />
-              <circle cx="14" cy="17" r="6" fill="white" /><circle cx="26" cy="17" r="6" fill="white" />
-              <circle cx="14" cy="17" r="4.2" fill="#1e293b" /><circle cx="26" cy="17" r="4.2" fill="#1e293b" />
-              <circle cx="15.5" cy="15.5" r="1.4" fill="white" /><circle cx="27.5" cy="15.5" r="1.4" fill="white" />
-              <ellipse cx="20" cy="22" rx="1.8" ry="1.2" fill="#7c2d12" />
-              <ellipse cx="8" cy="12" rx="4" ry="5" fill="#92400e" /><ellipse cx="32" cy="12" rx="4" ry="5" fill="#92400e" />
-              <ellipse cx="8" cy="12" rx="2.2" ry="3.2" fill="#b45309" /><ellipse cx="32" cy="12" rx="2.2" ry="3.2" fill="#b45309" />
-            </svg>
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="mb-1 flex items-center gap-2">
-              <p className="text-sm font-black leading-none text-foreground truncate">{displayName}</p>
-              {rebateLevel != null && (
-                <span className={`flex-shrink-0 rounded-full px-2 py-0.5 text-[10px] font-black leading-none ${
-                  rebateLevel === 6
-                    ? 'bg-gradient-to-r from-purple-500 to-amber-400 text-white'
-                    : 'bg-gradient-to-r from-amber-400 to-yellow-500 text-emerald-950'
-                }`}>
-                  {rebateLevel === 6 && '👑 '}{t('cashback.levelTag', { level: rebateLevel })}
-                </span>
-              )}
+        <div className="border-b border-border bg-card px-5 py-4">
+          <div className="flex items-center gap-4">
+            <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+              <User size={24} />
             </div>
-            <button type="button" className="flex items-center gap-1.5 transition-opacity hover:opacity-80" onClick={copyId}>
-              <span className="text-xs text-muted-foreground">ID: </span>
-              <span className="text-xs font-bold text-primary">{USER_ID}</span>
-              {copied ? <CheckCircle2 size={11} className="text-emerald-400" /> : <Copy size={11} className="text-muted-foreground" />}
-            </button>
-            {copied && <p className="mt-0.5 text-[10px] font-semibold text-emerald-400">{t('common.copied')}</p>}
+            <div className="min-w-0 flex-1">
+              <div className="mb-1 flex items-center gap-2">
+                <p className="truncate text-sm font-black leading-none text-foreground">{displayName}</p>
+                {rebateLevel != null && (
+                  <span className="flex-shrink-0 rounded-full bg-primary px-2 py-0.5 text-[10px] font-black leading-none text-primary-foreground">
+                    {t('cashback.levelTag', { level: rebateLevel })}
+                  </span>
+                )}
+              </div>
+              <button type="button" className="flex max-w-full items-center gap-1.5 transition-opacity hover:opacity-80" onClick={copyId}>
+                <span className="text-xs text-muted-foreground">ID:</span>
+                <span className="truncate text-xs font-bold text-primary">{USER_ID}</span>
+                {copied ? <CheckCircle2 size={11} className="flex-shrink-0 text-emerald-400" /> : <Copy size={11} className="flex-shrink-0 text-muted-foreground" />}
+              </button>
+            </div>
           </div>
+          {copied && <p className="mt-2 text-center text-[10px] font-semibold text-emerald-400">{t('common.copied')}</p>}
         </div>
       ) : (
         <div className="flex items-center gap-4 border-b border-border bg-card px-5 py-4">
@@ -221,23 +357,157 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
         </div>
       )}
 
-      <div className="mt-4 space-y-4 px-5">
-        {/* 账号与登录方式 — only when logged in */}
+      <div className="mt-4 space-y-5 px-5">
+        <div className={`grid gap-2 ${isLoggedIn ? 'grid-cols-4' : 'grid-cols-2'}`}>
+          <QuickAction icon={CircleDollarSign} label={t('cashback.pageTitle')} onClick={onOpenCashback} />
+          {isLoggedIn && <QuickAction icon={History} label={t('profile.betHistory')} onClick={onOpenBetHistory} />}
+          {isLoggedIn && <QuickAction icon={Gift} label={t('referralPromo.title')} onClick={onOpenReferralPromo} />}
+          <QuickAction icon={Headphones} label={t('menu.customerSupport')} onClick={onOpenCs} />
+        </div>
+
         {isLoggedIn && (
-          <section>
-            <button type="button" onClick={() => setBindOpen(true)} className="flex w-full items-center justify-between rounded-2xl border border-border bg-card px-4 py-3.5">
-              <span className="flex items-center gap-2 text-sm font-bold text-foreground"><ShieldCheck size={16} className="text-primary" />{t('bind.entry')}</span>
-              <ChevronRight size={16} className="text-muted-foreground" />
-            </button>
-          </section>
+          <MenuSection title={t('profile.account')}>
+            <MenuRow icon={ShieldCheck} title={t('bind.entry')} subtitle={loginProvider === 'google' ? t('profile.google') : t('profile.telegram')} onClick={() => setBindOpen(true)} bordered />
+            <MenuRow
+              icon={User}
+              title={t('profile.personalInfo')}
+              subtitle={profileComplete || personalSaved ? t('common.verified') : t('profile.saveLock')}
+              right={profileComplete || personalSaved ? <CheckCircle2 size={15} className="text-emerald-400" /> : <ChevronRight size={15} className="text-muted-foreground" />}
+              onClick={() => setProfileSheetOpen(true)}
+              bordered
+            />
+            <MenuRow icon={AtSign} title={t('profile.contactInfo')} subtitle={telegramSubtitle} onClick={() => setContactSheetOpen(true)} />
+          </MenuSection>
         )}
-        {/* Personal Info — only when logged in */}
-        {isLoggedIn && (
-          <section>
-            <div className="mb-3 flex items-center justify-between">
-              <h3 className="font-display text-sm font-black text-foreground">{t('profile.personalInfo')}</h3>
-              {personalSaved && <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-400"><CheckCircle2 size={11} /> {t('common.verified')}</span>}
+
+        <MenuSection title={t('menu.appearance')}>
+          <div className="border-b border-border px-4 py-3.5">
+            <button type="button" className="flex w-full items-center gap-3 text-left" onClick={() => setLangOpen(!langOpen)}>
+              <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-secondary text-primary">
+                <Languages size={17} />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-bold text-foreground">{t('menu.language')}</span>
+                <span className="mt-0.5 block truncate text-xs text-muted-foreground">{currentLang.flag} {t(`languages.${currentLang.code}`)}</span>
+              </span>
+              <ChevronDown size={15} className={`text-muted-foreground transition-transform ${langOpen ? 'rotate-180' : ''}`} />
+            </button>
+            {langOpen && (
+              <div className="mt-3 overflow-hidden rounded-xl border border-border bg-secondary/40">
+                {LANGUAGES.map((l, i) => (
+                  <button
+                    key={l.code}
+                    type="button"
+                    className={`flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-secondary ${i < LANGUAGES.length - 1 ? 'border-b border-border' : ''}`}
+                    onClick={() => { setLocale(l.code as Parameters<typeof setLocale>[0]); setLangOpen(false) }}
+                  >
+                    <span className="text-lg">{l.flag}</span>
+                    <span className={`flex-1 text-sm font-bold ${locale === l.code ? 'text-primary' : 'text-foreground'}`}>{t(`languages.${l.code}`)}</span>
+                    {locale === l.code && <Check size={14} className="text-primary" />}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <div className="px-4 py-3.5">
+            <div className="mb-3 flex items-center gap-3">
+              <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-secondary text-primary">
+                <Palette size={17} />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-bold text-foreground">{t('menu.appearance')}</p>
+                <p className="text-xs text-muted-foreground">{t(`menu.theme${themeMode.charAt(0).toUpperCase()}${themeMode.slice(1)}`)}</p>
+              </div>
             </div>
+            <div className="grid grid-cols-3 gap-2">
+              {([
+                { key: 'dark', label: t('menu.themeDark') },
+                { key: 'light', label: t('menu.themeLight') },
+                { key: 'system', label: t('menu.themeSystem') },
+              ] as { key: ThemeMode; label: string }[]).map((opt) => (
+                <button
+                  key={opt.key}
+                  type="button"
+                  className={`min-h-9 rounded-xl border px-2 text-xs font-bold transition-colors ${themeMode === opt.key ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-secondary text-muted-foreground hover:text-foreground'}`}
+                  onClick={() => setThemeMode(opt.key)}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </MenuSection>
+
+        <MenuSection title={t('profile.customerSupportSection')}>
+          {SUPPORT_ITEMS.map((item, i) => (
+            <MenuRow
+              key={item.label}
+              icon={item.icon}
+              title={item.label}
+              subtitle={item.sub}
+              bordered={i < SUPPORT_ITEMS.length - 1}
+              right={item.badge ? <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold text-emerald-400">{item.badge}</span> : <ChevronRight size={15} className="text-muted-foreground" />}
+              onClick={item.onClick}
+            />
+          ))}
+        </MenuSection>
+
+        <MenuSection title={t('profile.communityMedia')}>
+          {COMMUNITY_LINKS.map((item, i) => (
+            <MenuRow key={item.label} icon={item.icon} title={item.label} subtitle={item.sub} bordered={i < COMMUNITY_LINKS.length - 1} onClick={showComingSoon} />
+          ))}
+        </MenuSection>
+
+        <MenuSection title={t('profile.supportedCurrencies')}>
+          <div className="grid grid-cols-6 gap-2 px-4 py-4">
+            {CURRENCIES.map((c) => (
+              <div key={c.name} className="flex flex-col items-center gap-1.5">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-secondary text-sm font-black text-foreground">{c.symbol}</div>
+                <span className="text-[10px] font-bold text-muted-foreground">{c.name}</span>
+              </div>
+            ))}
+          </div>
+        </MenuSection>
+
+        <MenuSection title={t('profile.legalPolicies')}>
+          {DOCS.map((d, i) => (
+            <MenuRow key={d.key} icon={i === DOCS.length - 1 ? Info : FileText} title={d.label} bordered={i < DOCS.length - 1} onClick={() => setDocModalKey(d.key)} />
+          ))}
+        </MenuSection>
+
+        {isLoggedIn && (
+          <button
+            type="button"
+            className="flex w-full items-center justify-center gap-2 rounded-2xl border border-red-500/30 bg-red-500/10 py-3 text-sm font-black text-red-400 transition-colors hover:bg-red-500/20 disabled:opacity-60"
+            disabled={loggingOut}
+            onClick={() => setLogoutConfirmOpen(true)}
+          >
+            <LogOut size={16} />
+            {t('profile.logout')}
+          </button>
+        )}
+
+        <div className="space-y-1 py-4 text-center">
+          <p className="text-xs text-muted-foreground">{t('profile.footerVersion')}</p>
+          <p className="text-xs text-muted-foreground">{t('profile.footerCopyright')}</p>
+          <p className="mt-2 px-4 text-[10px] leading-relaxed text-muted-foreground">{t('profile.footerLegal')}</p>
+        </div>
+      </div>
+
+      {comingSoonToast && createPortal(
+        <div className="profile-toast fixed left-1/2 z-[200] flex max-w-[min(320px,calc(100vw-2rem))] -translate-x-1/2 items-center gap-3 rounded-2xl px-4 py-3" role="status" aria-live="polite">
+          <span className="profile-toast__icon flex-shrink-0 text-lg leading-none">↗</span>
+          <div className="min-w-0">
+            <p className="profile-toast__title text-sm font-black leading-tight">{t('profile.comingSoon')}</p>
+            <p className="mt-0.5 text-xs leading-snug text-foreground/75">{t('profile.comingSoonSub')}</p>
+          </div>
+        </div>,
+        document.getElementById('app') ?? document.body,
+      )}
+
+      {profileSheetOpen && (
+        <BottomSheet title={t('profile.personalInfo')} onClose={() => setProfileSheetOpen(false)}>
+          <div className="space-y-4">
             <div className="overflow-hidden rounded-2xl border border-border bg-card">
               <div className="border-b border-border px-4 py-3">
                 <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{t('profile.firstName')}</label>
@@ -293,237 +563,51 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
                 </div>
               </div>
             </div>
-            {personalError && <p className="mt-1 text-center text-xs font-bold text-red-400">{personalError}</p>}
+            {personalError && <p className="text-center text-xs font-bold text-red-400">{personalError}</p>}
             {!personalSaved && (
-              <button type="button" className="mt-2.5 w-full rounded-2xl bg-primary py-3 text-sm font-black text-primary-foreground shadow shadow-amber-500/20 transition-colors hover:bg-yellow-400 disabled:opacity-50" disabled={personalSaving} onClick={() => void savePersonal()}>
+              <button type="button" className="w-full rounded-2xl bg-primary py-3 text-sm font-black text-primary-foreground shadow shadow-amber-500/20 transition-colors hover:bg-yellow-400 disabled:opacity-50" disabled={personalSaving || !canSavePersonal} onClick={() => void savePersonal()}>
                 {personalSaving ? '保存中…' : t('profile.saveLock')}
               </button>
             )}
-          </section>
-        )}
-
-        {/* Contact Info — only when logged in */}
-        {isLoggedIn && (
-          <section>
-            <h3 className="mb-3 font-display text-sm font-black text-foreground">{t('profile.contactInfo')}</h3>
-            <div className="overflow-hidden rounded-2xl border border-border bg-card">
-              {contactOrder.map((block, idx) => (
-                <div key={block} className={idx < contactOrder.length - 1 ? 'border-b border-border' : ''}>
-                  {block === 'telegram' && (
-                    <ContactMethodRow title={t('profile.telegram')} subtitle={telegramSubtitle} connected={isTelegramLogin} subtitleConnected={isTelegramLogin} icon={<ContactBrandIcon brand="telegram" />} />
-                  )}
-                  {block === 'email' && (
-                    <ContactMethodRow title={emailRowTitle} subtitle={emailRowSubtitle} connected={isGoogleEmailConnected} subtitleConnected={isGoogleEmailConnected} icon={<ContactBrandIcon brand={isGoogleLogin ? 'google' : 'email'} />}
-                      subtitleSlot={!isGoogleLogin ? <input value={emailExtra} type="email" placeholder="your@email.com" className="w-full bg-transparent text-xs font-semibold text-foreground placeholder:text-muted-foreground/40 focus:outline-none" onChange={(e) => setEmailExtra(e.target.value)} /> : undefined}
-                    />
-                  )}
-                  {block === 'phone' && (
-                    <ContactMethodRow title={t('profile.phoneNumber')} subtitle={t('profile.addPhoneOptional')} icon={<ContactBrandIcon brand="phone" />}
-                      subtitleSlot={<div className="flex items-center gap-1.5"><span className="text-xs text-muted-foreground">🇵🇭 +63</span><input value={phone} type="tel" placeholder="9XX XXX XXXX" className="min-w-0 flex-1 bg-transparent text-xs font-semibold text-foreground placeholder:text-muted-foreground/40 focus:outline-none" onChange={(e) => setPhone(e.target.value)} /></div>}
-                    />
-                  )}
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {/* Cash Rebate — always visible */}
-        <section>
-          <div className="overflow-hidden rounded-2xl border border-border bg-card">
-            <button type="button" className="flex w-full items-center justify-between px-4 py-3 transition-colors hover:bg-secondary/50" onClick={onOpenCashback}>
-              <div className="flex items-center gap-3">
-                <span className="text-base">🧧</span>
-                <div className="text-left">
-                  <p className="text-sm font-semibold text-foreground">{t('cashback.pageTitle')}</p>
-                  <p className="text-[11px] text-muted-foreground">{t('cashback.pageSubtitle')}</p>
-                </div>
-              </div>
-              <ChevronRight size={14} className="text-muted-foreground" />
-            </button>
           </div>
-        </section>
-
-        {/* Activity — only when logged in */}
-        {isLoggedIn && (
-          <section>
-            <h3 className="mb-3 font-display text-sm font-black text-foreground">{t('profile.activity')}</h3>
-            <div className="overflow-hidden rounded-2xl border border-border bg-card">
-              <button type="button" className="flex w-full items-center justify-between px-4 py-3 transition-colors hover:bg-secondary/50 border-b border-border" onClick={onOpenBetHistory}>
-                <div className="flex items-center gap-3"><span className="text-base">🎰</span><span className="text-sm font-semibold text-foreground">{t('profile.betHistory')}</span></div>
-                <ChevronRight size={14} className="text-muted-foreground" />
-              </button>
-              <button type="button" className="flex w-full items-center justify-between px-4 py-3 transition-colors hover:bg-secondary/50" onClick={onOpenReferralPromo}>
-                <div className="flex items-center gap-3">
-                  <span className="text-base">💎</span>
-                  <div className="text-left">
-                    <p className="text-sm font-semibold text-foreground">{t('referralPromo.title')}</p>
-                    <p className="text-[11px] text-muted-foreground">{t('referralPromo.subtitle')}</p>
-                  </div>
-                </div>
-                <ChevronRight size={14} className="text-muted-foreground" />
-              </button>
-            </div>
-          </section>
-        )}
-
-        {/* Language */}
-        <section>
-          <div className="flex items-center gap-2.5 mb-3">
-            <span className="w-2 h-2 rounded-full bg-indigo-400 flex-shrink-0" style={{ boxShadow: '0 0 6px #818cf8' }} />
-            <h3 className="text-foreground font-black text-sm tracking-tight font-display">{t('menu.language')}</h3>
-          </div>
-          <button
-            type="button"
-            className="w-full flex items-center gap-3 py-3 px-3.5 rounded-2xl bg-secondary border border-border text-left"
-            onClick={() => setLangOpen(!langOpen)}
-          >
-            <span className="text-xl">{currentLang.flag}</span>
-            <span className="flex-1 text-foreground font-bold text-sm">{t(`languages.${currentLang.code}`)}</span>
-            <ChevronDown size={14} className={`text-muted-foreground transition-transform ${langOpen ? 'rotate-180' : ''}`} />
-          </button>
-          {langOpen && (
-            <div className="mt-1.5 rounded-2xl overflow-hidden border border-border bg-card">
-              {LANGUAGES.map((l, i) => (
-                <button
-                  key={l.code}
-                  type="button"
-                  className={`w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-secondary transition-colors ${i < LANGUAGES.length - 1 ? 'border-b border-border' : ''} ${locale === l.code ? 'bg-primary/8' : ''}`}
-                  onClick={() => { setLocale(l.code as Parameters<typeof setLocale>[0]); setLangOpen(false) }}
-                >
-                  <span className="text-lg">{l.flag}</span>
-                  <span className={`text-sm font-bold flex-1 ${locale === l.code ? 'text-primary' : 'text-foreground'}`}>{t(`languages.${l.code}`)}</span>
-                  {locale === l.code && <CheckCircle2 size={13} className="text-primary" />}
-                </button>
-              ))}
-            </div>
-          )}
-        </section>
-
-        {/* Appearance */}
-        <section>
-          <div className="flex items-center gap-2.5 mb-3">
-            <span className="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0" style={{ boxShadow: '0 0 6px #fbbf24' }} />
-            <h3 className="text-foreground font-black text-sm tracking-tight font-display">{t('menu.appearance')}</h3>
-          </div>
-          <div className="flex rounded-2xl overflow-hidden border border-border bg-card">
-            {([
-              { key: 'dark', icon: '🌙', label: t('menu.themeDark') },
-              { key: 'light', icon: '☀️', label: t('menu.themeLight') },
-              { key: 'system', icon: '📱', label: t('menu.themeSystem') },
-            ] as { key: ThemeMode; icon: string; label: string }[]).map((opt, i) => (
-              <button
-                key={opt.key}
-                type="button"
-                className={`flex flex-1 flex-col items-center gap-1 py-3 text-center transition-colors ${i < 2 ? 'border-r border-border' : ''} ${themeMode === opt.key ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:text-foreground'}`}
-                onClick={() => setThemeMode(opt.key)}
-              >
-                <span className="text-lg leading-none">{opt.icon}</span>
-                <span className="text-[10px] font-bold">{opt.label}</span>
-              </button>
-            ))}
-          </div>
-        </section>
-
-        {/* Customer Support */}
-        <section>
-          <h3 className="mb-3 font-display text-sm font-black text-foreground">{t('profile.customerSupportSection')}</h3>
-          <div className="overflow-hidden rounded-2xl border border-border bg-card">
-            {SUPPORT_ITEMS.map((item, i) => (
-              <button key={item.label} type="button" className={`flex w-full items-center justify-between px-4 py-3 transition-colors hover:bg-secondary/50 ${i < SUPPORT_ITEMS.length - 1 ? 'border-b border-border' : ''}`} onClick={() => i === 0 ? onOpenCs() : showComingSoon()}>
-                <div className="flex items-center gap-3"><span className="text-xl">{item.icon}</span><div className="text-left"><p className="text-sm font-bold text-foreground">{item.label}</p><p className="text-xs text-muted-foreground">{item.sub}</p></div></div>
-                <div className="flex items-center gap-2">{item.badge && <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${item.badgeColor}`}>{item.badge}</span>}<ChevronRight size={14} className="text-muted-foreground" /></div>
-              </button>
-            ))}
-          </div>
-        </section>
-
-        {/* Community & Media */}
-        <section>
-          <h3 className="mb-3 font-display text-sm font-black text-foreground">{t('profile.communityMedia')}</h3>
-          <div className="grid grid-cols-2 gap-2">
-            {LINKS.map((l) => (
-              <button key={l.label} type="button" className={`relative rounded-2xl bg-gradient-to-br p-4 text-left transition-opacity hover:opacity-90 ${l.color}`} onClick={showComingSoon}>
-                <span className="mb-2 block text-2xl">{l.icon}</span>
-                <p className="text-xs font-black leading-tight text-white">{l.label}</p>
-                <p className="mt-0.5 text-[10px] text-white/60">{l.sub}</p>
-                <ChevronRight size={12} className="absolute right-3 top-3 text-white/50" />
-              </button>
-            ))}
-          </div>
-        </section>
-
-        {/* Supported Currencies */}
-        <section>
-          <h3 className="mb-3 font-display text-sm font-black text-foreground">{t('profile.supportedCurrencies')}</h3>
-          <div className="grid grid-cols-6 gap-2">
-            {CURRENCIES.map((c) => (
-              <div key={c.name} className="flex flex-col items-center gap-1">
-                <div className={`flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br shadow-md ${c.color}`}><span className="text-sm font-black text-white">{c.symbol}</span></div>
-                <span className="text-[10px] font-bold text-muted-foreground">{c.name}</span>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* Legal */}
-        <section>
-          <h3 className="mb-3 font-display text-sm font-black text-foreground">{t('profile.legalPolicies')}</h3>
-          <div className="overflow-hidden rounded-2xl border border-border bg-card">
-            {DOCS.map((d, i) => (
-              <button key={d.key} type="button" className={`flex w-full items-center justify-between px-4 py-3 transition-colors hover:bg-secondary/50 ${i < DOCS.length - 1 ? 'border-b border-border' : ''}`} onClick={() => setDocModalKey(d.key)}>
-                <div className="flex items-center gap-3"><span className="text-base">{d.icon}</span><span className="text-sm font-semibold text-foreground">{d.label}</span></div>
-                <ChevronRight size={14} className="text-muted-foreground" />
-              </button>
-            ))}
-          </div>
-        </section>
-
-        {/* Account — only when logged in */}
-        {isLoggedIn && (
-          <section>
-            <h3 className="mb-3 font-display text-sm font-black text-foreground">{t('profile.account')}</h3>
-            <button type="button" className="flex w-full items-center justify-center gap-2 rounded-2xl border border-primary/30 bg-primary/10 py-3 text-sm font-black text-primary transition-colors hover:bg-primary/20 mb-3" onClick={onOpenCs}><Headphones size={16} />{t('menu.customerSupport')}</button>
-            <button type="button" className="flex w-full items-center justify-center gap-2 rounded-2xl border border-red-500/30 bg-red-500/10 py-3 text-sm font-black text-red-400 transition-colors hover:bg-red-500/20 disabled:opacity-60" disabled={loggingOut} onClick={() => setLogoutConfirmOpen(true)}><LogOut size={16} />{t('profile.logout')}</button>
-          </section>
-        )}
-
-        <div className="space-y-1 py-4 text-center">
-          <p className="text-xs text-muted-foreground">{t('profile.footerVersion')}</p>
-          <p className="text-xs text-muted-foreground">{t('profile.footerCopyright')}</p>
-          <p className="mt-2 px-4 text-[10px] leading-relaxed text-muted-foreground">{t('profile.footerLegal')}</p>
-        </div>
-      </div>
-
-      {comingSoonToast && createPortal(
-        <div className="profile-toast fixed left-1/2 z-[200] flex max-w-[min(320px,calc(100vw-2rem))] -translate-x-1/2 items-center gap-3 rounded-2xl px-4 py-3" role="status" aria-live="polite">
-          <span className="profile-toast__icon text-lg leading-none">🚀</span>
-          <div className="min-w-0"><p className="profile-toast__title text-sm font-black leading-tight">{t('profile.comingSoon')}</p><p className="mt-0.5 text-xs leading-snug text-foreground/75">{t('profile.comingSoonSub')}</p></div>
-        </div>,
-        document.getElementById('app') ?? document.body,
+        </BottomSheet>
       )}
 
-      {docModalKey && createPortal(
-        <div className="fixed inset-0 z-[200] flex justify-center" role="dialog" aria-modal="true">
-          <div className="relative flex h-full w-full max-w-[430px] flex-col justify-end">
-            <div className="absolute inset-0 bg-black/60" aria-hidden="true" onClick={() => setDocModalKey(null)} />
-            <div className="relative z-10 flex max-h-[82vh] flex-col rounded-t-2xl bg-card shadow-2xl">
-              <div className="flex flex-shrink-0 items-center justify-between border-b border-border px-5 py-4">
-                <h2 className="font-display text-base font-black text-foreground">{docTitle}</h2>
-                <button type="button" className="flex h-8 w-8 items-center justify-center rounded-full bg-secondary" onClick={() => setDocModalKey(null)}><X size={15} className="text-muted-foreground" /></button>
+      {contactSheetOpen && (
+        <BottomSheet title={t('profile.contactInfo')} onClose={() => setContactSheetOpen(false)}>
+          <div className="overflow-hidden rounded-2xl border border-border bg-card">
+            {contactOrder.map((block, idx) => (
+              <div key={block} className={idx < contactOrder.length - 1 ? 'border-b border-border' : ''}>
+                {block === 'telegram' && (
+                  <ContactMethodRow title={t('profile.telegram')} subtitle={telegramSubtitle} connected={isTelegramLogin} subtitleConnected={isTelegramLogin} icon={<ContactBrandIcon brand="telegram" />} />
+                )}
+                {block === 'email' && (
+                  <ContactMethodRow title={emailRowTitle} subtitle={emailRowSubtitle} connected={isGoogleEmailConnected} subtitleConnected={isGoogleEmailConnected} icon={<ContactBrandIcon brand={isGoogleLogin ? 'google' : 'email'} />}
+                    subtitleSlot={!isGoogleLogin ? <input value={emailExtra} type="email" placeholder="your@email.com" className="w-full bg-transparent text-xs font-semibold text-foreground placeholder:text-muted-foreground/40 focus:outline-none" onChange={(e) => setEmailExtra(e.target.value)} /> : undefined}
+                  />
+                )}
+                {block === 'phone' && (
+                  <ContactMethodRow title={t('profile.phoneNumber')} subtitle={t('profile.addPhoneOptional')} icon={<ContactBrandIcon brand="phone" />}
+                    subtitleSlot={<div className="flex items-center gap-1.5"><span className="text-xs text-muted-foreground">+63</span><input value={phone} type="tel" placeholder="9XX XXX XXXX" className="min-w-0 flex-1 bg-transparent text-xs font-semibold text-foreground placeholder:text-muted-foreground/40 focus:outline-none" onChange={(e) => setPhone(e.target.value)} /></div>}
+                  />
+                )}
               </div>
-              <div className="overflow-y-auto px-5 py-5 space-y-4">
-                {parsedDocContent().map((s, i) => (
-                  <div key={i}>
-                    {s.heading && <p className="mb-1.5 border-l-2 border-primary pl-2.5 font-display text-[11px] font-black uppercase tracking-widest text-primary">{s.heading}</p>}
-                    <p className="whitespace-pre-line text-[13px] leading-relaxed text-foreground/70">{s.body}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
+            ))}
           </div>
-        </div>,
-        document.getElementById('app') ?? document.body,
+        </BottomSheet>
+      )}
+
+      {docModalKey && (
+        <BottomSheet title={docTitle} onClose={() => setDocModalKey(null)}>
+          <div className="space-y-4">
+            {parsedDocContent().map((s, i) => (
+              <div key={i}>
+                {s.heading && <p className="mb-1.5 border-l-2 border-primary pl-2.5 font-display text-[11px] font-black uppercase tracking-widest text-primary">{s.heading}</p>}
+                <p className="whitespace-pre-line text-[13px] leading-relaxed text-foreground/70">{s.body}</p>
+              </div>
+            ))}
+          </div>
+        </BottomSheet>
       )}
 
       <BindModal open={bindOpen} onClose={() => setBindOpen(false)} />
