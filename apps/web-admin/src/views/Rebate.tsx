@@ -137,6 +137,12 @@ export default function Rebate() {
     ))
   }
 
+  function updateMaxBonus(level: number, category: string, value: number) {
+    setConfigItems((prev) => prev.map((item) =>
+      item.level === level && item.gameCategory === category ? { ...item, maxBonus: value } : item
+    ))
+  }
+
   // 大类启用为级别无关：切换时同步该大类全部等级
   function updateCategoryEnabled(category: string, enabled: boolean) {
     setConfigItems((prev) => prev.map((item) =>
@@ -218,17 +224,29 @@ export default function Rebate() {
     ...levels.map((lv) => ({
       title: `LV${lv}`,
       key: `lv${lv}`,
-      width: 110,
+      width: 130,
       render: (_: unknown, row: { category: string }) => {
         const item = rateOf(lv, row.category)
+        const disabled = !isCatEnabled(row.category)
         return (
-          <InputNumber
-            value={item?.ratePct}
-            onChange={(v) => { if (v !== null) updateRate(lv, row.category, v) }}
-            min={0} max={10} step={0.1} precision={3}
-            suffix="%" size="small" style={{ width: '100%' }}
-            disabled={!isCatEnabled(row.category)}
-          />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <InputNumber
+              value={item?.ratePct}
+              onChange={(v) => { if (v !== null) updateRate(lv, row.category, v) }}
+              min={0} max={10} step={0.1} precision={3}
+              suffix="%" size="small" style={{ width: '100%' }}
+              disabled={disabled}
+            />
+            <InputNumber
+              value={item?.maxBonus}
+              onChange={(v) => { if (v !== null) updateMaxBonus(lv, row.category, v) }}
+              min={0} step={100} size="small" style={{ width: '100%' }}
+              prefix="≤" placeholder="封顶(0不限)"
+              disabled={disabled}
+              formatter={(v) => `${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+              parser={(v) => Number((v ?? '').replace(/,/g, ''))}
+            />
+          </div>
         )
       },
     })),
@@ -280,6 +298,7 @@ export default function Rebate() {
       >
         <Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>
           每日凌晨（PHT 00:00）按用户当前等级 × 下注流水 × 对应费率结算洗码，用户在客户端手动领取。
+          每格上行=费率%，下行=该等级该大类每日洗码封顶额（≤，0=不封顶）。
         </Text>
         <Table
           rowKey="category"

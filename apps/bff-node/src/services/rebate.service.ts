@@ -6,6 +6,7 @@ import { randomBytes } from 'node:crypto'
 export interface RebateConfig {
   gameCategory: string
   ratePct: number
+  maxBonus: number
   enabled: boolean
 }
 
@@ -13,6 +14,7 @@ export interface RebateLevelConfigItem {
   level: number
   gameCategory: string
   ratePct: number
+  maxBonus: number
   enabled: boolean
 }
 
@@ -94,6 +96,18 @@ const SQL_EFFECTIVE_RATE_PCT = `
   END
 `
 
+/** 大类当日洗码原始合计 */
+const SQL_REBATE_RAW = `SUM(tl.bet_amount * (${SQL_EFFECTIVE_RATE_PCT}) / 100)`
+
+/** 按等级·大类的每日封顶额封顶后的洗码金额（max_bonus=0 表示不封顶） */
+const SQL_REBATE_CAPPED = `
+  CASE
+    WHEN MAX(COALESCE(lc.max_bonus, 0)) > 0
+      THEN LEAST(ROUND(${SQL_REBATE_RAW}, 4), MAX(COALESCE(lc.max_bonus, 0)))
+    ELSE ROUND(${SQL_REBATE_RAW}, 4)
+  END
+`
+
 /** PHT = UTC+8，计算给定 Date 对象的 PHT 日期字符串 YYYY-MM-DD */
 function toPhtDateStr(d: Date): string {
   const pht = new Date(d.getTime() + 8 * 60 * 60 * 1000)
@@ -118,12 +132,13 @@ export async function getLevelConfig(env: Env): Promise<RebateLevelConfigItem[]>
   if (!isMysqlEnabled(env)) return []
   const pool = getMysqlPool(env)
   const [rows] = await pool.query<RowDataPacket[]>(
-    'SELECT level, game_category, rate_pct, enabled FROM bg_rebate_level_config ORDER BY level, game_category',
+    'SELECT level, game_category, rate_pct, max_bonus, enabled FROM bg_rebate_level_config ORDER BY level, game_category',
   )
   return rows.map((r) => ({
     level: Number(r.level),
     gameCategory: String(r.game_category),
     ratePct: Number(r.rate_pct),
+    maxBonus: Number(r.max_bonus),
     enabled: Boolean(r.enabled),
   }))
 }
@@ -132,10 +147,10 @@ export async function saveLevelConfig(env: Env, items: RebateLevelConfigItem[]):
   const pool = getMysqlPool(env)
   for (const item of items) {
     await pool.execute(
-      `INSERT INTO bg_rebate_level_config (level, game_category, rate_pct, enabled)
-       VALUES (?, ?, ?, ?)
-       ON DUPLICATE KEY UPDATE rate_pct = VALUES(rate_pct), enabled = VALUES(enabled)`,
-      [item.level, item.gameCategory, item.ratePct, item.enabled ? 1 : 0],
+      `INSERT INTO bg_rebate_level_config (level, game_category, rate_pct, max_bonus, enabled)
+       VALUES (?, ?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE rate_pct = VALUES(rate_pct), max_bonus = VALUES(max_bonus), enabled = VALUES(enabled)`,
+      [item.level, item.gameCategory, item.ratePct, item.maxBonus ?? 0, item.enabled ? 1 : 0],
     )
   }
 }
@@ -145,12 +160,13 @@ export async function getLevelRates(env: Env, level: number): Promise<RebateConf
   if (!isMysqlEnabled(env)) return []
   const pool = getMysqlPool(env)
   const [rows] = await pool.query<RowDataPacket[]>(
-    'SELECT game_category, rate_pct, enabled FROM bg_rebate_level_config WHERE level = ? ORDER BY game_category',
+    'SELECT game_category, rate_pct, max_bonus, enabled FROM bg_rebate_level_config WHERE level = ? ORDER BY game_category',
     [level],
   )
   return rows.map((r) => ({
     gameCategory: String(r.game_category),
     ratePct: Number(r.rate_pct),
+    maxBonus: Number(r.max_bonus),
     enabled: Boolean(r.enabled),
   }))
 }
@@ -160,7 +176,7 @@ export async function getAllLevelRates(env: Env): Promise<RebateLevelRates[]> {
   if (!isMysqlEnabled(env)) return []
   const pool = getMysqlPool(env)
   const [rows] = await pool.query<RowDataPacket[]>(
-    'SELECT level, game_category, rate_pct, enabled FROM bg_rebate_level_config ORDER BY level, game_category',
+    'SELECT level, game_category, rate_pct, max_bonus, enabled FROM bg_rebate_level_config ORDER BY level, game_category',
   )
   const thresholds = await getLevelThresholds(env)
   const thMap = new Map(thresholds.map((t) => [t.level, t.minTurnover]))
@@ -171,6 +187,7 @@ export async function getAllLevelRates(env: Env): Promise<RebateLevelRates[]> {
     byLevel.get(lv)!.push({
       gameCategory: String(r.game_category),
       ratePct: Number(r.rate_pct),
+      maxBonus: Number(r.max_bonus),
       enabled: Boolean(r.enabled),
     })
   }
@@ -320,7 +337,7 @@ export async function getUserRebateSummary(env: Env, userId: string, phtDate: st
          COALESCE(tl.sort_category, 'other') AS game_category,
          tl.currency,
          SUM(tl.bet_amount) AS bet_amount,
-         SUM(tl.bet_amount * (${SQL_EFFECTIVE_RATE_PCT}) / 100) AS rebate_amount_raw
+         ${SQL_REBATE_CAPPED} AS rebate_amount_capped
        FROM bg_turnover_logs tl
        LEFT JOIN bg_bet_order bo ON bo.id = tl.bet_order_id
        LEFT JOIN bg_rebate_featured_game rfg
@@ -336,7 +353,7 @@ export async function getUserRebateSummary(env: Env, userId: string, phtDate: st
     )
     const breakdown: RebateSummaryItem[] = rows.map((r) => {
       const betAmt = Number(r.bet_amount)
-      const rebateAmount = Math.floor(Number(r.rebate_amount_raw) * 10000) / 10000
+      const rebateAmount = Math.floor(Number(r.rebate_amount_capped) * 10000) / 10000
       const ratePct = betAmt > 0
         ? Math.round(rebateAmount / betAmt * 100 * 1000) / 1000
         : 0
@@ -445,10 +462,10 @@ export async function runDailyRebateSettlement(env: Env, date: string): Promise<
        COALESCE(tl.sort_category, 'other') AS game_category,
        tl.currency AS currency_code,
        SUM(tl.bet_amount) AS bet_amount,
-       ROUND(SUM(tl.bet_amount * (${SQL_EFFECTIVE_RATE_PCT}) / 100), 4) AS rebate_amount,
+       ${SQL_REBATE_CAPPED} AS rebate_amount,
        CASE
          WHEN SUM(tl.bet_amount) > 0
-         THEN ROUND(SUM(tl.bet_amount * (${SQL_EFFECTIVE_RATE_PCT}) / 100) / SUM(tl.bet_amount) * 100, 3)
+         THEN ROUND(${SQL_REBATE_CAPPED} / SUM(tl.bet_amount) * 100, 3)
          ELSE 0
        END AS rate_pct,
        'pending'
@@ -470,7 +487,7 @@ export async function runDailyRebateSettlement(env: Env, date: string): Promise<
      WHERE tl.is_reversed = 0
        AND DATE(CONVERT_TZ(tl.created_at, '+00:00', '+08:00')) = ?
      GROUP BY tl.user_id, COALESCE(tl.sort_category, 'other'), tl.currency
-     HAVING ROUND(SUM(tl.bet_amount * (${SQL_EFFECTIVE_RATE_PCT}) / 100), 4) > 0`,
+     HAVING rebate_amount > 0`,
     [date, date],
   )
 

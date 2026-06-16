@@ -624,6 +624,7 @@ export interface RebateConfigItem {
   level: number
   gameCategory: string
   ratePct: number
+  maxBonus: number
   enabled: boolean
 }
 export interface RebateThresholdItem {

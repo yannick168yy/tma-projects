@@ -29,7 +29,7 @@ router.get('/config', async (ctx) => {
 // PUT /admin/rebate/config — 保存分级费率矩阵
 router.put('/config', async (ctx) => {
   const body = ctx.request.body as {
-    config?: { level: number; gameCategory: string; ratePct: number; enabled: boolean }[]
+    config?: { level: number; gameCategory: string; ratePct: number; maxBonus: number; enabled: boolean }[]
   }
   if (!Array.isArray(body.config) || body.config.length === 0) {
     fail(ctx, 400, 'config array required')
@@ -46,6 +46,10 @@ router.put('/config', async (ctx) => {
     }
     if (item.ratePct < 0 || item.ratePct > 100) {
       fail(ctx, 400, `rate_pct out of range for L${item.level}/${item.gameCategory}`)
+      return
+    }
+    if (item.maxBonus != null && (typeof item.maxBonus !== 'number' || item.maxBonus < 0)) {
+      fail(ctx, 400, `invalid max_bonus for L${item.level}/${item.gameCategory}`)
       return
     }
   }

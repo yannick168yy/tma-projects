@@ -16,12 +16,8 @@ const CATEGORY_ICONS: Record<string, string> = {
   table: '🃏', bingo: '🎱', crash: '🚀', pinoy: '🐓', other: '🎮',
 }
 
-// 与首页游戏大类选项保持一致的展示顺序
-const CATEGORY_ORDER = ['slots', 'live', 'table', 'bingo', 'sports', 'fishing', 'crash', 'pinoy', 'other']
-const catRank = (cat: string) => {
-  const i = CATEGORY_ORDER.indexOf(cat)
-  return i === -1 ? CATEGORY_ORDER.length : i
-}
+// 洗码等级卡片固定展示的 6 个大类（Slot/Casino/Sports/Fish/Poker/Bingo）
+const CARD_CATEGORIES = ['slots', 'live', 'sports', 'fishing', 'table', 'bingo']
 
 interface Props {
   onOpenGame: (url: string) => void
@@ -106,6 +102,20 @@ export default function CashbackPage({ onOpenGame, onOpenCategory }: Props) {
 
   const levelCards = config?.levels ?? []
   const userLevel = progress?.level ?? 1
+
+  // 今日各大类已得洗码（用于当前等级卡内 Bonus 显示）
+  const categoryBonusMap = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const b of summary?.breakdown ?? []) m.set(b.gameCategory, b.rebateAmount)
+    return m
+  }, [summary?.breakdown])
+
+  // 顶部 banner：取最高等级费率最高的大类
+  const topTier = levelCards.length ? levelCards[levelCards.length - 1] : null
+  const topBest = topTier
+    ? topTier.rates.filter((r) => r.enabled && CARD_CATEGORIES.includes(r.gameCategory))
+        .reduce<typeof topTier.rates[number] | null>((best, r) => (!best || r.ratePct > best.ratePct ? r : best), null)
+    : null
 
   const scrollRef = useRef<HTMLDivElement | null>(null)
   const activeCardRef = useRef<HTMLDivElement | null>(null)
@@ -301,7 +311,7 @@ export default function CashbackPage({ onOpenGame, onOpenCategory }: Props) {
         </div>
       )}
 
-      {/* REBATE RATES：升级进度 + 分级费率卡片（可左右翻动，默认当前等级） */}
+      {/* REBATE RATES：顶部引导 + 升级进度 + 分级费率卡片（可左右翻动，默认当前等级） */}
       {levelCards.length > 0 && (
         <div className="mt-5">
           <div className="flex items-center justify-between mb-3 mx-4">
@@ -312,6 +322,20 @@ export default function CashbackPage({ onOpenGame, onOpenCategory }: Props) {
               </span>
             )}
           </div>
+
+          {/* 冲刺最高级 banner */}
+          {topBest && (
+            <div className="mx-4 mb-3 flex items-center gap-2.5 rounded-xl border border-amber-400/40 bg-gradient-to-r from-amber-700/40 via-amber-800/30 to-purple-900/40 px-3.5 py-2.5">
+              <span className="text-xl leading-none">👑</span>
+              <p className="text-[12px] font-bold text-amber-100 leading-snug">
+                {t('cashback.topTierBanner', {
+                  cat: t(catKeyOf(topBest.gameCategory)),
+                  rate: topBest.ratePct,
+                  amount: topBest.maxBonus > 0 ? amtStr(currency, topBest.maxBonus) : t('cashback.unlimited'),
+                })}
+              </p>
+            </div>
+          )}
 
           {/* total turnover：标签 + 数值 + 升级进度条 */}
           {token && progress && (
@@ -345,51 +369,85 @@ export default function CashbackPage({ onOpenGame, onOpenCategory }: Props) {
                 : isCurrent
                   ? 'border-amber-400/55 bg-emerald-900/55'
                   : 'border-emerald-700/30 bg-emerald-950/40'
-              const catRates = lc.rates.filter((r) => r.enabled).sort((a, b) => catRank(a.gameCategory) - catRank(b.gameCategory))
+              // 固定 6 类，按设计顺序，仅取启用项
+              const catRates = CARD_CATEGORIES
+                .map((cat) => lc.rates.find((r) => r.gameCategory === cat && r.enabled))
+                .filter((r): r is NonNullable<typeof r> => Boolean(r))
+              const toUnlock = progress ? Math.max(0, lc.minTurnover - progress.totalTurnover) : lc.minTurnover
               return (
                 <div
                   key={lc.level}
                   ref={isCurrent ? activeCardRef : undefined}
-                  className={`snap-center shrink-0 w-[80%] max-w-[320px] rounded-2xl border p-4 ${cardCls}`}
+                  className={`snap-center shrink-0 w-[82%] max-w-[330px] rounded-2xl border p-4 flex flex-col ${cardCls}`}
                 >
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      <span className={`font-black text-lg font-display ${isMax ? 'text-amber-300' : 'text-emerald-50'}`}>
-                        {isMax && '👑 '}{t('cashback.levelTag', { level: lc.level })}
-                      </span>
-                      {isCurrent && (
-                        <span className="bg-amber-400/90 text-emerald-950 text-[10px] font-black rounded-full px-2 py-0.5">
-                          {t('cashback.levelCurrent')}
+                  <div className="flex items-start justify-between mb-3">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className={`font-black text-xl font-display ${isMax ? 'text-amber-300' : 'text-emerald-50'}`}>
+                          {t('cashback.levelTag', { level: lc.level })}
                         </span>
-                      )}
+                        {isCurrent && (
+                          <span className="bg-amber-400/90 text-emerald-950 text-[10px] font-black rounded-full px-2 py-0.5">
+                            {t('cashback.levelCurrent')}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-emerald-300/70 mt-0.5">
+                        {lc.minTurnover > 0
+                          ? t('cashback.levelReq', { amount: amtStr(currency, lc.minTurnover) })
+                          : t('cashback.levelEntry')}
+                      </p>
                     </div>
-                    <span className="text-[10px] text-emerald-300/60 text-right">
-                      {lc.minTurnover > 0
-                        ? t('cashback.levelReq', { amount: amtStr(currency, lc.minTurnover) })
-                        : t('cashback.levelEntry')}
-                    </span>
+                    {isMax && (
+                      <span className="bg-gradient-to-r from-amber-400 to-yellow-500 text-emerald-950 text-[10px] font-black rounded-md px-2 py-1">MAX</span>
+                    )}
                   </div>
-                  <div className="space-y-1">
-                    {catRates.map((r) => (
-                      <button
-                        key={r.gameCategory}
-                        type="button"
-                        onClick={() => onOpenCategory({ title: t(catKeyOf(r.gameCategory)), sortCategory: r.gameCategory })}
-                        className="w-full flex items-center justify-between py-1 active:opacity-70 transition-opacity"
-                      >
-                        <span className="flex items-center gap-2 text-sm text-emerald-50/90">
-                          <span className="text-lg leading-none">{CATEGORY_ICONS[r.gameCategory] ?? '🎮'}</span>
-                          {t(catKeyOf(r.gameCategory))}
-                        </span>
-                        <span className={`font-black text-sm ${isMax ? 'text-amber-300' : 'text-amber-300/90'}`}>{r.ratePct}%</span>
-                      </button>
-                    ))}
+
+                  <div className="space-y-2 flex-1">
+                    {catRates.map((r) => {
+                      const bonus = isCurrent ? (categoryBonusMap.get(r.gameCategory) ?? 0) : 0
+                      return (
+                        <button
+                          key={r.gameCategory}
+                          type="button"
+                          onClick={() => onOpenCategory({ title: t(catKeyOf(r.gameCategory)), sortCategory: r.gameCategory })}
+                          className="w-full flex items-center gap-2 active:opacity-70 transition-opacity"
+                        >
+                          <span className="text-xl leading-none flex-shrink-0">{CATEGORY_ICONS[r.gameCategory] ?? '🎮'}</span>
+                          <span className="text-sm font-semibold text-emerald-50/90 w-16 text-left truncate">{t(catKeyOf(r.gameCategory))}</span>
+                          <span className="flex-1 text-right leading-tight">
+                            <span className="block text-amber-300 font-bold text-sm">+{amtStr(currency, bonus)}</span>
+                            <span className="block text-[9px] text-emerald-300/50">
+                              {t('cashback.maxShort')} {r.maxBonus > 0 ? amtStr(currency, r.maxBonus) : t('cashback.unlimited')}
+                            </span>
+                          </span>
+                          <span className={`w-10 text-right font-black text-sm ${isMax ? 'text-amber-300' : 'text-amber-300/90'}`}>{r.ratePct}%</span>
+                        </button>
+                      )
+                    })}
+                  </div>
+
+                  {/* 底部解锁状态 */}
+                  <div className={`mt-3 rounded-lg py-2 text-center text-xs font-black ${
+                    isCurrent || (progress && lc.level < userLevel)
+                      ? 'bg-emerald-700/40 text-emerald-100'
+                      : isMax
+                        ? 'bg-gradient-to-r from-amber-400 to-yellow-500 text-emerald-950'
+                        : 'bg-emerald-900/50 text-amber-200'
+                  }`}>
+                    {isCurrent
+                      ? t('cashback.levelCurrent')
+                      : progress && lc.level < userLevel
+                        ? t('cashback.unlocked')
+                        : t('cashback.toUnlock', { amount: amtStr(currency, toUnlock) })}
                   </div>
                 </div>
               )
             })}
           </div>
-          <p className="text-[10px] text-emerald-400/50 mt-1 px-4">{t('cashback.rateTableDesc')}</p>
+          <p className="text-[10px] text-emerald-400/50 mt-1 px-4 text-center">
+            {t('cashback.creditedTomorrow')} · {t('cashback.unsettledNotCounted')}
+          </p>
         </div>
       )}
     </div>

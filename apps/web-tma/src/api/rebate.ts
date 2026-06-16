@@ -3,6 +3,7 @@ import { apiRequest } from '@/api/client'
 export interface RebateConfigItem {
   gameCategory: string
   ratePct: number
+  maxBonus: number
   enabled: boolean
 }
 
