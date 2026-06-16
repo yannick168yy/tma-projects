@@ -5,13 +5,14 @@ import {
   Popconfirm, Select, Modal,
 } from 'antd'
 import { PercentageOutlined, StarOutlined, DeleteOutlined, PlusOutlined, ThunderboltOutlined } from '@ant-design/icons'
+import type { ColumnsType } from 'antd/es/table'
 import dayjs from 'dayjs'
 import {
-  getRebateConfig, saveRebateConfig,
+  getRebateConfig, saveRebateConfig, saveRebateThresholds,
   getFeaturedGames, addFeaturedGame, removeFeaturedGame,
   triggerRebatePayout, getRebateRecords,
   getProviderStats, getAdminGames,
-  type RebateConfigItem, type RebateFeaturedGame, type RebateRecord, type AdminGame,
+  type RebateConfigItem, type RebateThresholdItem, type RebateFeaturedGame, type RebateRecord, type AdminGame,
 } from '../api'
 
 const { Title, Text } = Typography
@@ -37,6 +38,8 @@ export default function Rebate() {
   const [configLoading, setConfigLoading] = useState(true)
   const [configSaving, setConfigSaving] = useState(false)
   const [configItems, setConfigItems] = useState<RebateConfigItem[]>([])
+  const [thresholds, setThresholds] = useState<RebateThresholdItem[]>([])
+  const [thresholdsSaving, setThresholdsSaving] = useState(false)
 
   const [featuredGames, setFeaturedGames] = useState<RebateFeaturedGame[]>([])
   const [featuredLoading, setFeaturedLoading] = useState(false)
@@ -64,6 +67,7 @@ export default function Rebate() {
     try {
       const res = await getRebateConfig()
       setConfigItems(res.config)
+      setThresholds(res.thresholds)
     } catch (e) {
       message.error(e instanceof Error ? e.message : '加载失败')
     } finally { setConfigLoading(false) }
@@ -127,20 +131,41 @@ export default function Rebate() {
     void loadRecords()
   }, [])
 
-  function updateItem(category: string, field: 'ratePct' | 'enabled', value: number | boolean) {
+  function updateRate(level: number, category: string, value: number) {
     setConfigItems((prev) => prev.map((item) =>
-      item.gameCategory === category ? { ...item, [field]: value } : item
+      item.level === level && item.gameCategory === category ? { ...item, ratePct: value } : item
     ))
+  }
+
+  // 大类启用为级别无关：切换时同步该大类全部等级
+  function updateCategoryEnabled(category: string, enabled: boolean) {
+    setConfigItems((prev) => prev.map((item) =>
+      item.gameCategory === category ? { ...item, enabled } : item
+    ))
+  }
+
+  function updateThreshold(level: number, value: number) {
+    setThresholds((prev) => prev.map((t) => t.level === level ? { ...t, minTurnover: value } : t))
   }
 
   async function handleSaveConfig() {
     setConfigSaving(true)
     try {
       await saveRebateConfig(configItems)
-      message.success('洗码费率已保存')
+      message.success('分级费率已保存')
     } catch (e) {
       message.error(e instanceof Error ? e.message : '保存失败')
     } finally { setConfigSaving(false) }
+  }
+
+  async function handleSaveThresholds() {
+    setThresholdsSaving(true)
+    try {
+      await saveRebateThresholds(thresholds)
+      message.success('等级流水阈值已保存')
+    } catch (e) {
+      message.error(e instanceof Error ? e.message : '保存失败')
+    } finally { setThresholdsSaving(false) }
   }
 
   async function handleRemoveFeatured(id: number) {
@@ -173,47 +198,97 @@ export default function Rebate() {
     setPayoutLoading(true)
     try {
       const res = await triggerRebatePayout(date)
-      message.success(`已派发 ${date}：${res.users} 用户，共 ₱${Number(res.totalRebate).toFixed(4)}`)
+      message.success(`已结算 ${date}：${res.users} 用户，共 ₱${Number(res.totalRebate).toFixed(4)} 待领取`)
       void loadRecords()
     } catch (e) {
       message.error(e instanceof Error ? e.message : '派发失败')
     } finally { setPayoutLoading(false) }
   }
 
+  const levels = Array.from(new Set(configItems.map((i) => i.level))).sort((a, b) => a - b)
+  const categories = Array.from(new Set(configItems.map((i) => i.gameCategory)))
+  const rateOf = (level: number, cat: string) => configItems.find((i) => i.level === level && i.gameCategory === cat)
+  const isCatEnabled = (cat: string) => configItems.find((i) => i.gameCategory === cat)?.enabled ?? true
+
+  const matrixColumns: ColumnsType<{ category: string }> = [
+    {
+      title: '游戏大类', dataIndex: 'category', fixed: 'left', width: 150,
+      render: (cat: string) => <Text strong>{CATEGORY_LABELS[cat] ?? cat}</Text>,
+    },
+    ...levels.map((lv) => ({
+      title: `LV${lv}`,
+      key: `lv${lv}`,
+      width: 110,
+      render: (_: unknown, row: { category: string }) => {
+        const item = rateOf(lv, row.category)
+        return (
+          <InputNumber
+            value={item?.ratePct}
+            onChange={(v) => { if (v !== null) updateRate(lv, row.category, v) }}
+            min={0} max={10} step={0.1} precision={3}
+            suffix="%" size="small" style={{ width: '100%' }}
+            disabled={!isCatEnabled(row.category)}
+          />
+        )
+      },
+    })),
+    {
+      title: '参与', key: 'enabled', fixed: 'right', width: 70,
+      render: (_: unknown, row: { category: string }) => (
+        <Switch
+          size="small"
+          checked={isCatEnabled(row.category)}
+          onChange={(v) => updateCategoryEnabled(row.category, v)}
+          checkedChildren="开" unCheckedChildren="关"
+        />
+      ),
+    },
+  ]
+
   const configTab = (
     <Spin spinning={configLoading}>
       <Card
-        title={<span><PercentageOutlined /> 各游戏大类洗码费率</span>}
-        extra={<Button type="primary" loading={configSaving} onClick={handleSaveConfig}>保存费率</Button>}
+        title={<span>📈 等级流水阈值</span>}
+        extra={<Button type="primary" loading={thresholdsSaving} onClick={handleSaveThresholds}>保存阈值</Button>}
         style={{ marginBottom: 16 }}
       >
         <Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>
-          每日凌晨（PHT 00:00）自动按下注流水 × 费率派发洗码到余额，无流水要求。
+          用户累计有效流水达到阈值即升级（只升不降）。LV1 固定为 0。
         </Text>
         <Row gutter={[16, 16]}>
-          {configItems.map((item) => (
-            <Col key={item.gameCategory} xs={24} sm={12} md={8}>
+          {thresholds.map((t) => (
+            <Col key={t.level} xs={12} sm={8} md={4}>
               <Card size="small" style={{ background: '#fafafa' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                  <Text strong>{CATEGORY_LABELS[item.gameCategory] ?? item.gameCategory}</Text>
-                  <Switch
-                    size="small"
-                    checked={item.enabled}
-                    onChange={(v) => updateItem(item.gameCategory, 'enabled', v)}
-                    checkedChildren="开" unCheckedChildren="关"
-                  />
-                </div>
+                <Text strong style={{ display: 'block', marginBottom: 8 }}>LV{t.level}</Text>
                 <InputNumber
-                  value={item.ratePct}
-                  onChange={(v) => { if (v !== null) updateItem(item.gameCategory, 'ratePct', v) }}
-                  min={0} max={10} step={0.1} precision={3}
-                  suffix="%" style={{ width: '100%' }}
-                  disabled={!item.enabled}
+                  value={t.minTurnover}
+                  onChange={(v) => { if (v !== null) updateThreshold(t.level, v) }}
+                  min={0} step={1000} style={{ width: '100%' }}
+                  disabled={t.level === 1}
+                  formatter={(v) => `${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                  parser={(v) => Number((v ?? '').replace(/,/g, ''))}
                 />
               </Card>
             </Col>
           ))}
         </Row>
+      </Card>
+
+      <Card
+        title={<span><PercentageOutlined /> 分级洗码费率（LV1–{levels.length ? levels[levels.length - 1] : 6} × 游戏大类）</span>}
+        extra={<Button type="primary" loading={configSaving} onClick={handleSaveConfig}>保存费率</Button>}
+      >
+        <Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>
+          每日凌晨（PHT 00:00）按用户当前等级 × 下注流水 × 对应费率结算洗码，用户在客户端手动领取。
+        </Text>
+        <Table
+          rowKey="category"
+          size="small"
+          pagination={false}
+          scroll={{ x: 'max-content' }}
+          dataSource={categories.map((c) => ({ category: c }))}
+          columns={matrixColumns}
+        />
       </Card>
     </Spin>
   )
@@ -321,15 +396,15 @@ export default function Rebate() {
 
   const recordsTab = (
     <Card
-      title="洗码派发记录"
+      title="洗码结算记录"
       extra={
         <Space>
           <Popconfirm
-            title={`手动触发 ${recordsDate ?? '昨日'} 洗码派发？`}
-            description="幂等操作，已派发记录不会重复发放"
+            title={`手动结算 ${recordsDate ?? '昨日'} 洗码？`}
+            description="幂等操作，已结算记录不会重复生成；结算后用户在客户端手动领取"
             onConfirm={handleManualPayout}
           >
-            <Button icon={<ThunderboltOutlined />} loading={payoutLoading}>手动触发</Button>
+            <Button icon={<ThunderboltOutlined />} loading={payoutLoading}>手动结算</Button>
           </Popconfirm>
         </Space>
       }
@@ -375,9 +450,9 @@ export default function Rebate() {
           { title: '费率', dataIndex: 'ratePct', key: 'ratePct',
             render: (v: number) => `${v}%`, width: 70 },
           { title: '状态', dataIndex: 'status', key: 'status',
-            render: (v: string) => <Tag color={v === 'paid' ? 'success' : 'processing'}>{v === 'paid' ? '已发放' : '处理中'}</Tag>,
+            render: (v: string) => <Tag color={v === 'paid' ? 'success' : 'warning'}>{v === 'paid' ? '已领取' : '待领取'}</Tag>,
             width: 80 },
-          { title: '发放时间', dataIndex: 'paidAt', key: 'paidAt',
+          { title: '领取时间', dataIndex: 'paidAt', key: 'paidAt',
             render: (v: string | null) => v ? dayjs(v).format('MM-DD HH:mm') : '—', width: 110 },
         ]}
       />
@@ -388,7 +463,7 @@ export default function Rebate() {
     <div>
       <div style={{ background: '#fff', marginBottom: 16, padding: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
         <Title level={4} style={{ margin: 0 }}>💰 洗码管理</Title>
-        <Text type="secondary">每日凌晨 PHT 00:00 自动派发，无流水要求</Text>
+        <Text type="secondary">分级费率（LV1–6），每日凌晨 PHT 00:00 结算，用户客户端手动领取</Text>
       </div>
       <Tabs
         items={[

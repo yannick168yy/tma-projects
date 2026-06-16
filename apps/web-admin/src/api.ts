@@ -619,9 +619,14 @@ export const getPromoClaims = (params?: { page?: number; pageSize?: number; prom
 
 // Rebate
 export interface RebateConfigItem {
+  level: number
   gameCategory: string
   ratePct: number
   enabled: boolean
+}
+export interface RebateThresholdItem {
+  level: number
+  minTurnover: number
 }
 export interface RebateFeaturedGame {
   id: number
@@ -647,9 +652,11 @@ export interface RebateRecord {
   paidAt: string | null
 }
 export const getRebateConfig = () =>
-  get<{ config: RebateConfigItem[] }>('/admin/rebate/config')
+  get<{ config: RebateConfigItem[]; thresholds: RebateThresholdItem[] }>('/admin/rebate/config')
 export const saveRebateConfig = (config: RebateConfigItem[]) =>
   req<{ saved: number }>('PUT', '/admin/rebate/config', { config })
+export const saveRebateThresholds = (thresholds: RebateThresholdItem[]) =>
+  req<{ saved: number }>('PUT', '/admin/rebate/thresholds', { thresholds })
 export const getFeaturedGames = () =>
   get<{ games: RebateFeaturedGame[] }>('/admin/rebate/featured-games')
 export const addFeaturedGame = (data: { gameUuid: string; tier: string; sortOrder?: number }) =>
