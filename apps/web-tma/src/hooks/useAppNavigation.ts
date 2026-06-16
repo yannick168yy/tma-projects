@@ -12,6 +12,15 @@ import type { CategoryLobbyParams, FullPageView } from '@/hooks/useFullPageOverl
 
 type NavId = TabId | 'cashier'
 
+function hasSameOriginReferrer() {
+  if (typeof document === 'undefined' || !document.referrer) return false
+  try {
+    return new URL(document.referrer).origin === window.location.origin
+  } catch {
+    return false
+  }
+}
+
 export function useAppNavigation() {
   const navigate = useNavigate()
   const location = useLocation()
@@ -50,7 +59,7 @@ export function useAppNavigation() {
       navigate(state.returnTo, { replace: true })
       return
     }
-    if (window.history.length > 1) {
+    if (hasSameOriginReferrer() && window.history.length > 1) {
       navigate(-1)
       return
     }
