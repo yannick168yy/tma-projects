@@ -11,7 +11,7 @@ export type CategoryLobbyParams = {
 }
 
 // 互斥全屏 overlay 的状态机——同一时刻只有一个可见
-type FullPageView =
+export type FullPageView =
   | { type: 'none' }
   | { type: 'search' }
   | { type: 'slotsLobby' }

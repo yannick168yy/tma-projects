@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ChevronDown, ChevronLeft, Wallet, Gift, Home, Menu, Dices, Check, Search } from 'lucide-react'
 import BetogoLogo from '@/components/BetogoLogo'
@@ -25,8 +25,8 @@ import {
   isFiatCurrency,
   displayCurrencyCode,
 } from '@/stores/wallet'
-import { useFullPageOverlay, isImmersiveFullPage } from '@/hooks/useFullPageOverlay'
-import type { CategoryLobbyParams } from '@/hooks/useFullPageOverlay'
+import { isImmersiveFullPage } from '@/hooks/useFullPageOverlay'
+import { useAppNavigation } from '@/hooks/useAppNavigation'
 
 type NavId = (typeof NAV_ITEMS)[number]['id']
 
@@ -61,13 +61,25 @@ export default function AppShell() {
     ? formatHeaderBalance(activeCurrency, activeAvailable)
     : (activeCurrency === 'PHP' ? '₱ —' : '—')
 
-  // 互斥全屏 overlay——用状态机显式化互斥关系
-  const overlay = useFullPageOverlay()
-  const { view } = overlay
+  const nav = useAppNavigation()
+  const {
+    activeNav,
+    promoFilter,
+    view,
+    setNav: navigateTab,
+    goHome,
+    goBonuses,
+    openSearch,
+    openCategoryLobby,
+    openTeamCenter,
+    openBetHistory,
+    openReferralPromo,
+    openCashback,
+    closeImmersive,
+    closeOverlay,
+    resetToTab,
+  } = nav
   const isImmersive = isImmersiveFullPage(view)
-
-  const [activeNav, setActiveNav] = useState<NavId>('casino')
-  const [promoFilter, setPromoFilter] = useState<string | null>(null)
   const [balanceVisible, setBalanceVisible] = useState(true)
   const [walletOpen, setWalletOpen] = useState(false)
   const [walletModalOpen, setWalletModalOpen] = useState(false)
@@ -130,45 +142,61 @@ export default function AppShell() {
 
   async function onGameTap() { await auth.ensureLoggedIn(t('auth.signInPlay')) }
 
-  const goBonuses = useCallback((promo: string | null = null) => {
-    setPromoFilter(promo); setActiveNav('bonuses'); overlay.close()
-  }, [overlay])
-
   function setNav(id: NavId) {
-    if (id === 'cashier') { overlay.close(); void openWallet(); return }
-    setActiveNav(id); overlay.close()
-    if (id !== 'bonuses') setPromoFilter(null)
-    window.scrollTo({ top: 0, behavior: 'instant' })
+    setWalletOpen(false)
+    navigateTab(id, () => { void openWallet() })
   }
 
-  function goHome() {
-    setActiveNav('casino'); overlay.close(); setPromoFilter(null)
-    window.scrollTo({ top: 0, behavior: 'instant' })
+  function onOpenSearch() {
+    setWalletOpen(false)
+    openSearch()
   }
 
-  function openSearch() {
-    setWalletOpen(false); overlay.openSearch()
-    window.scrollTo({ top: 0, behavior: 'instant' })
+  function onOpenCategoryLobby(params: Parameters<typeof openCategoryLobby>[0]) {
+    setWalletOpen(false)
+    openCategoryLobby(params)
   }
 
-  function openCategoryLobby(params: CategoryLobbyParams) {
-    setWalletOpen(false); overlay.openCategoryLobby(params)
-    window.scrollTo({ top: 0, behavior: 'instant' })
+  function onOpenTeamCenter() {
+    setWalletOpen(false)
+    openTeamCenter()
   }
 
-  function openCs() { overlay.close(); setWalletOpen(false); setCsOpen(true) }
-  function openTeamCenter() { setWalletOpen(false); overlay.openTeamCenter(); window.scrollTo({ top: 0, behavior: 'instant' }) }
-  function openBetHistory() { setWalletOpen(false); overlay.openBetHistory() }
-  function openReferralPromo() { setWalletOpen(false); overlay.openReferralPromo(); window.scrollTo({ top: 0, behavior: 'instant' }) }
-  function openCashback() { setWalletOpen(false); overlay.openCashback(); window.scrollTo({ top: 0, behavior: 'instant' }) }
-  function onLogout() { overlay.close(); setWalletOpen(false); setWalletModalOpen(false) }
+  function onOpenBetHistory() {
+    setWalletOpen(false)
+    openBetHistory()
+  }
+
+  function onOpenReferralPromo() {
+    setWalletOpen(false)
+    openReferralPromo()
+  }
+
+  function onOpenCashback() {
+    setWalletOpen(false)
+    openCashback()
+  }
+
+  function openCs() { closeOverlay(); setWalletOpen(false); setCsOpen(true) }
+  function onLogout() { resetToTab('menu'); setWalletOpen(false); setWalletModalOpen(false) }
 
   const navItems = useMemo(() => NAV_ITEMS.map((item) => ({ ...item, label: t(`nav.${item.id}`) })), [t])
 
-  function closeImmersive() {
-    overlay.close()
-    window.scrollTo({ top: 0, behavior: 'instant' })
-  }
+  useEffect(() => {
+    const tg = window.Telegram?.WebApp
+    if (!tg?.BackButton || gamePlayerUrl) return
+    const showBack = view.type !== 'none'
+    if (!showBack) {
+      tg.BackButton.hide()
+      return
+    }
+    tg.BackButton.show()
+    tg.BackButton.onClick(closeOverlay)
+    return () => {
+      tg.BackButton?.offClick(closeOverlay)
+      tg.BackButton?.hide()
+    }
+  }, [view.type, gamePlayerUrl, closeOverlay])
 
   function renderCurrencyRow(b: { code: string; available: number }) {
     const isActive = b.code === activeCurrency
@@ -224,7 +252,7 @@ export default function AppShell() {
             <button
               type="button"
               className="flex-shrink-0 flex h-9 w-9 items-center justify-center rounded-full bg-secondary text-muted-foreground hover:text-foreground hover:bg-white/10 active:scale-95 transition-all"
-              onClick={openSearch}
+              onClick={onOpenSearch}
             >
               <Search size={18} />
             </button>
@@ -304,13 +332,13 @@ export default function AppShell() {
           style={mainStyle}
         >
           {view.type === 'search' && (
-            <SearchOverlay onClose={() => { overlay.close(); window.scrollTo({ top: 0, behavior: 'instant' }) }} onGameTap={() => void onGameTap()} onOpenGame={(url) => setGamePlayerUrl(url)} />
+            <SearchOverlay onClose={closeOverlay} onGameTap={() => void onGameTap()} onOpenGame={(url) => setGamePlayerUrl(url)} />
           )}
           {view.type === 'slotsLobby' && (
-            <SlotsLobby onClose={() => { overlay.close(); window.scrollTo({ top: 0, behavior: 'instant' }) }} onGameTap={() => void onGameTap()} onOpenGame={(url) => setGamePlayerUrl(url)} />
+            <SlotsLobby onClose={closeOverlay} onGameTap={() => void onGameTap()} onOpenGame={(url) => setGamePlayerUrl(url)} />
           )}
           {view.type === 'categoryLobby' && (
-            <SlotsLobby {...view.params} onClose={() => { overlay.close(); window.scrollTo({ top: 0, behavior: 'instant' }) }} onGameTap={() => void onGameTap()} onOpenGame={(url) => setGamePlayerUrl(url)} />
+            <SlotsLobby {...view.params} onClose={closeOverlay} onGameTap={() => void onGameTap()} onOpenGame={(url) => setGamePlayerUrl(url)} />
           )}
           {view.type === 'teamCenter' && (
             <div className="app-safe-header">
@@ -332,7 +360,7 @@ export default function AppShell() {
               >
                 <ChevronLeft size={20} />
               </button>
-              <ReferralPromoPage onOpenTeamCenter={() => { overlay.openTeamCenter() }} />
+              <ReferralPromoPage onOpenTeamCenter={onOpenTeamCenter} />
             </div>
           )}
           {view.type === 'cashback' && (
@@ -344,14 +372,14 @@ export default function AppShell() {
               >
                 <ChevronLeft size={20} />
               </button>
-              <CashbackPage onOpenGame={(url) => setGamePlayerUrl(url)} onOpenCategory={openCategoryLobby} />
+              <CashbackPage onOpenGame={(url) => setGamePlayerUrl(url)} onOpenCategory={onOpenCategoryLobby} />
             </div>
           )}
-          {view.type === 'none' && activeNav === 'bonuses' && <BonusesPage promoFilter={promoFilter} onOpenWallet={() => void openWallet()} onOpenTeam={openTeamCenter} />}
-          {view.type === 'none' && activeNav === 'bingo' && <BingoPage onOpenWallet={() => void openWallet()} onGameTap={() => void onGameTap()} onOpenGame={(url) => setGamePlayerUrl(url)} onOpenCategoryLobby={openCategoryLobby} />}
-          {view.type === 'none' && activeNav === 'menu' && <MenuPage onOpenCs={openCs} onLogin={() => void auth.ensureLoggedIn(t('auth.signInProfile'))} onLogout={onLogout} onOpenBetHistory={openBetHistory} onOpenReferralPromo={openReferralPromo} onOpenCashback={openCashback} />}
+          {view.type === 'none' && activeNav === 'bonuses' && <BonusesPage promoFilter={promoFilter} onOpenWallet={() => void openWallet()} onOpenTeam={onOpenTeamCenter} />}
+          {view.type === 'none' && activeNav === 'bingo' && <BingoPage onOpenWallet={() => void openWallet()} onGameTap={() => void onGameTap()} onOpenGame={(url) => setGamePlayerUrl(url)} onOpenCategoryLobby={onOpenCategoryLobby} />}
+          {view.type === 'none' && activeNav === 'menu' && <MenuPage onOpenCs={openCs} onLogin={() => void auth.ensureLoggedIn(t('auth.signInProfile'))} onLogout={onLogout} onOpenBetHistory={onOpenBetHistory} onOpenReferralPromo={onOpenReferralPromo} onOpenCashback={onOpenCashback} />}
           {view.type === 'none' && activeNav === 'casino' && (
-            <HomeContent onOpenPromo={goBonuses} onOpenCategoryLobby={openCategoryLobby} onOpenCs={openCs} onOpenGame={(url) => setGamePlayerUrl(url)} onOpenReferralPromo={openReferralPromo} onOpenCashback={openCashback} />
+            <HomeContent onOpenPromo={goBonuses} onOpenCategoryLobby={onOpenCategoryLobby} onOpenCs={openCs} onOpenGame={(url) => setGamePlayerUrl(url)} onOpenReferralPromo={onOpenReferralPromo} onOpenCashback={onOpenCashback} />
           )}
         </main>
 
