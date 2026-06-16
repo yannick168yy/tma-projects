@@ -65,7 +65,11 @@ export default function PaymentAccounting() {
   ]
 
   return (
-    <>
+    <div>
+      <div style={{ background: '#fff', marginBottom: 16, padding: 16 }}>
+        <h2 style={{ margin: 0 }}>服务商余额</h2>
+      </div>
+
       <Card
         size="small"
         style={{ marginBottom: 16 }}
@@ -145,6 +149,6 @@ export default function PaymentAccounting() {
           代收 = 充值成功（status=paid）金额；代付 = 提现成功（status=completed）金额；按服务商汇总，金额单位为元。
         </div>
       </Card>
-    </>
+    </div>
   )
 }

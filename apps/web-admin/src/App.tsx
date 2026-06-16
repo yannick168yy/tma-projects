@@ -29,6 +29,7 @@ import Rebate from './views/Rebate'
 import KycList from './views/KycList'
 import KycDetail from './views/KycDetail'
 import PaymentChannels from './views/PaymentChannels'
+import PaymentAccounting from './views/PaymentAccounting'
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const token = localStorage.getItem('admin_token')
@@ -81,6 +82,7 @@ export default function App() {
           <Route path="promotions/claims" element={<PromotionClaims />} />
           <Route path="rebate" element={<Rebate />} />
           <Route path="payment/channels" element={<PaymentChannels />} />
+          <Route path="payment/accounting" element={<PaymentAccounting />} />
         </Route>
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>

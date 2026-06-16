@@ -11,7 +11,6 @@ import {
   type PaymentChannel, type PaymentChannelRule, type PaymentTxType,
 } from '../api'
 import { useAuthStore } from '../stores/auth'
-import PaymentAccounting from './PaymentAccounting'
 
 function RuleTable({
   channel, onReload,
@@ -321,8 +320,6 @@ export default function PaymentChannels() {
           <Button type="primary" icon={<PlusOutlined />} onClick={openAdd}>新增渠道</Button>
         )}
       </div>
-
-      <PaymentAccounting />
 
       <Table
         dataSource={channels}

@@ -38,6 +38,7 @@ function buildMenuItems(badges: AdminBadges) {
         { key: '/deposits', label: '存款管理' },
         { key: '/sg-settlement', label: '结算对账' },
         { key: '/payment/channels', label: '支付渠道' },
+        { key: '/payment/accounting', label: '服务商余额' },
       ],
     },
     {
