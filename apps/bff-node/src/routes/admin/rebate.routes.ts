@@ -1,12 +1,15 @@
 import Router from '@koa/router'
 import { ok, fail } from '../../utils/response.js'
 import {
-  getRebateConfig,
-  saveRebateConfig,
+  getLevelConfig,
+  saveLevelConfig,
+  getLevelThresholds,
+  saveLevelThresholds,
+  MAX_LEVEL,
   getFeaturedGames,
   addFeaturedGame,
   removeFeaturedGame,
-  runDailyRebatePayout,
+  runDailyRebateSettlement,
   yesterdayPHT,
 } from '../../services/rebate.service.js'
 import { getMysqlPool, isMysqlEnabled } from '../../clients/mysql.client.js'
@@ -14,33 +17,61 @@ import type { RowDataPacket } from 'mysql2/promise'
 
 const router = new Router({ prefix: '/rebate' })
 
-// GET /admin/rebate/config
+// GET /admin/rebate/config — 分级费率矩阵 + 等级流水阈值
 router.get('/config', async (ctx) => {
-  const config = await getRebateConfig(ctx.state.env)
-  ok(ctx, { config })
+  const [config, thresholds] = await Promise.all([
+    getLevelConfig(ctx.state.env),
+    getLevelThresholds(ctx.state.env),
+  ])
+  ok(ctx, { config, thresholds })
 })
 
-// PUT /admin/rebate/config
+// PUT /admin/rebate/config — 保存分级费率矩阵
 router.put('/config', async (ctx) => {
   const body = ctx.request.body as {
-    config?: { gameCategory: string; ratePct: number; enabled: boolean }[]
+    config?: { level: number; gameCategory: string; ratePct: number; enabled: boolean }[]
   }
   if (!Array.isArray(body.config) || body.config.length === 0) {
     fail(ctx, 400, 'config array required')
     return
   }
   for (const item of body.config) {
+    if (!Number.isInteger(item.level) || item.level < 1 || item.level > MAX_LEVEL) {
+      fail(ctx, 400, `invalid level ${item.level}`)
+      return
+    }
     if (typeof item.gameCategory !== 'string' || typeof item.ratePct !== 'number') {
       fail(ctx, 400, 'invalid config item')
       return
     }
     if (item.ratePct < 0 || item.ratePct > 100) {
-      fail(ctx, 400, `rate_pct out of range for ${item.gameCategory}`)
+      fail(ctx, 400, `rate_pct out of range for L${item.level}/${item.gameCategory}`)
       return
     }
   }
-  await saveRebateConfig(ctx.state.env, body.config)
+  await saveLevelConfig(ctx.state.env, body.config)
   ok(ctx, { saved: body.config.length })
+})
+
+// PUT /admin/rebate/thresholds — 保存等级流水阈值（LV1 固定 0，服务层忽略）
+router.put('/thresholds', async (ctx) => {
+  const body = ctx.request.body as { thresholds?: { level: number; minTurnover: number }[] }
+  if (!Array.isArray(body.thresholds) || body.thresholds.length === 0) {
+    fail(ctx, 400, 'thresholds array required')
+    return
+  }
+  for (const item of body.thresholds) {
+    if (!Number.isInteger(item.level) || item.level < 1 || item.level > MAX_LEVEL) {
+      fail(ctx, 400, `invalid level ${item.level}`)
+      return
+    }
+    if (typeof item.minTurnover !== 'number' || item.minTurnover < 0) {
+      fail(ctx, 400, `invalid min_turnover for L${item.level}`)
+      return
+    }
+  }
+  await saveLevelThresholds(ctx.state.env, body.thresholds)
+  ok(ctx, { saved: body.thresholds.length })
 })
 
 // GET /admin/rebate/featured-games
@@ -78,7 +109,7 @@ router.delete('/featured-games/:id', async (ctx) => {
   ok(ctx, { deleted: id })
 })
 
-// POST /admin/rebate/payout/manual — 手动触发指定日期的洗码派发（补跑或测试用）
+// POST /admin/rebate/payout/manual — 手动触发指定日期的洗码结算（写待领取记录，补跑或测试用）
 router.post('/payout/manual', async (ctx) => {
   const body = ctx.request.body as { date?: string }
   const date = body.date ?? yesterdayPHT()
@@ -86,7 +117,7 @@ router.post('/payout/manual', async (ctx) => {
     fail(ctx, 400, 'invalid date, expected YYYY-MM-DD')
     return
   }
-  const result = await runDailyRebatePayout(ctx.state.env, date)
+  const result = await runDailyRebateSettlement(ctx.state.env, date)
   ok(ctx, { date, ...result })
 })
 

@@ -1,21 +1,21 @@
 import Router from '@koa/router'
 import { ok, fail } from '../utils/response.js'
 import {
-  getRebateConfig,
+  getLevelRates,
   getFeaturedGames,
   getUserRebateSummary,
+  getUserLevelProgress,
+  claimRebate,
   todayPHT,
   yesterdayPHT,
 } from '../services/rebate.service.js'
 
 const router = new Router({ prefix: '/rebate' })
 
-// summary 路由需要登录（userId 由 optionalAuth 注入后在 handler 检查）
-
-// GET /rebate/config — 公开：各大类洗码费率 + 精选游戏
+// GET /rebate/config — 公开：LV1（入门级）各大类洗码费率 + 精选游戏（登录用户用 /rebate/progress 取本级费率）
 router.get('/config', async (ctx) => {
   const [config, featured] = await Promise.all([
-    getRebateConfig(ctx.state.env),
+    getLevelRates(ctx.state.env, 1),
     getFeaturedGames(ctx.state.env),
   ])
   const featuredByTier: Record<string, typeof featured> = {}
@@ -24,6 +24,24 @@ router.get('/config', async (ctx) => {
     featuredByTier[g.tier].push(g)
   }
   ok(ctx, { config, featured: featuredByTier })
+})
+
+// GET /rebate/progress — 需要登录：用户总流水 / 当前等级 / 下一级阈值 / 本级费率 / 可领取总额
+router.get('/progress', async (ctx) => {
+  if (!ctx.state.userId) { fail(ctx, 401, 'Unauthorized', 401); return }
+  const currency = (ctx.query.currency as string) || 'PHP'
+  const progress = await getUserLevelProgress(ctx.state.env, ctx.state.userId, currency)
+  ok(ctx, progress)
+})
+
+// POST /rebate/claim — 需要登录：领取所有已结算待领取的洗码
+router.post('/claim', async (ctx) => {
+  if (!ctx.state.userId) { fail(ctx, 401, 'Unauthorized', 401); return }
+  const body = (ctx.request.body ?? {}) as { currency?: string }
+  const currency = body.currency || 'PHP'
+  const result = await claimRebate(ctx.state.env, ctx.state.userId, currency)
+  if (result.claimed === 0) { fail(ctx, 400, 'No rebate to claim'); return }
+  ok(ctx, result)
 })
 
 // GET /rebate/summary?date=today|yesterday|YYYY-MM-DD — 需要登录

@@ -16,7 +16,7 @@ import { stripMobileNamesInDb } from './services/sg-game.service.js'
 import { refreshRates } from './services/exchange-rate.service.js'
 import { refreshBalances } from './services/payment-accounting.service.js'
 import { runDailyReconciliation, yesterday } from './services/sg-settlement.service.js'
-import { runDailyRebatePayout, yesterdayPHT } from './services/rebate.service.js'
+import { runDailyRebateSettlement, yesterdayPHT } from './services/rebate.service.js'
 import { isMysqlEnabled } from './clients/mysql.client.js'
 import { ok } from './utils/response.js'
 import { seedDefaultAdmin } from './services/admin-auth.service.js'
@@ -79,14 +79,14 @@ export function createApp(env: Env): Koa {
     }, 60_000)
   }
 
-  // 洗码自动派发：每天 UTC 16:00（PHT 00:00 凌晨）结算昨日流水并发放余额
+  // 洗码每日结算：每天 UTC 16:00（PHT 00:00 凌晨）结算昨日流水写入待领取记录（不自动入账，用户手动领取）
   if (isMysqlEnabled(env)) {
     const runRebate = () =>
-      runDailyRebatePayout(env, yesterdayPHT())
+      runDailyRebateSettlement(env, yesterdayPHT())
         .then(({ users, totalRebate }) =>
-          log.rebate.info({ users, totalRebate }, 'rebate payout done'),
+          log.rebate.info({ users, totalRebate }, 'rebate settlement done'),
         )
-        .catch((err) => log.rebate.error({ err }, 'rebate payout error'))
+        .catch((err) => log.rebate.error({ err }, 'rebate settlement error'))
     const msUntilRebate = () => {
       const now = new Date()
       const next = new Date()
