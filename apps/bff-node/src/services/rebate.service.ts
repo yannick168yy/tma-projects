@@ -21,6 +21,12 @@ export interface RebateLevelThreshold {
   minTurnover: number
 }
 
+export interface RebateLevelRates {
+  level: number
+  minTurnover: number
+  rates: RebateConfig[]
+}
+
 export interface RebateLevelProgress {
   currency: string
   totalTurnover: number
@@ -147,6 +153,30 @@ export async function getLevelRates(env: Env, level: number): Promise<RebateConf
     ratePct: Number(r.rate_pct),
     enabled: Boolean(r.enabled),
   }))
+}
+
+/** 全部等级各大类费率 + 该级阈值（C 端分级卡片展示用） */
+export async function getAllLevelRates(env: Env): Promise<RebateLevelRates[]> {
+  if (!isMysqlEnabled(env)) return []
+  const pool = getMysqlPool(env)
+  const [rows] = await pool.query<RowDataPacket[]>(
+    'SELECT level, game_category, rate_pct, enabled FROM bg_rebate_level_config ORDER BY level, game_category',
+  )
+  const thresholds = await getLevelThresholds(env)
+  const thMap = new Map(thresholds.map((t) => [t.level, t.minTurnover]))
+  const byLevel = new Map<number, RebateConfig[]>()
+  for (const r of rows) {
+    const lv = Number(r.level)
+    if (!byLevel.has(lv)) byLevel.set(lv, [])
+    byLevel.get(lv)!.push({
+      gameCategory: String(r.game_category),
+      ratePct: Number(r.rate_pct),
+      enabled: Boolean(r.enabled),
+    })
+  }
+  return [...byLevel.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([level, rates]) => ({ level, minTurnover: thMap.get(level) ?? 0, rates }))
 }
 
 export async function getLevelThresholds(env: Env): Promise<RebateLevelThreshold[]> {

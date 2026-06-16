@@ -4,6 +4,7 @@ import { getUser, saveUser, getWallet, listLedger, adminAdjustBalance, getKyc, s
 import { buildKycStatusResponse, getKycStepConfig } from '../../services/kyc.service.js'
 import { verifyPassword } from '../../services/admin-auth.service.js'
 import { getMysqlPool, isMysqlEnabled } from '../../clients/mysql.client.js'
+import { getUserTotalTurnover, getLevelThresholds, resolveLevel } from '../../services/rebate.service.js'
 import { fail, ok } from '../../utils/response.js'
 import type { RowDataPacket, OkPacket } from 'mysql2/promise'
 
@@ -21,7 +22,7 @@ router.get('/', async (ctx) => {
 router.get('/:id', async (ctx) => {
   const user = await getUser(ctx.state.redis, ctx.params.id)
   if (!user) { fail(ctx, 404, 'User not found', 404); return }
-  const [wallet, ledger, loginLogs, betOrders, kyc, systemCfg, effectiveCfg] = await Promise.all([
+  const [wallet, ledger, loginLogs, betOrders, kyc, systemCfg, effectiveCfg, totalTurnover, thresholds] = await Promise.all([
     getWallet(ctx.state.redis, ctx.params.id),
     listLedger(ctx.state.redis, ctx.params.id, 20),
     getLoginLogs(ctx.state.env, ctx.params.id, 20),
@@ -29,9 +30,13 @@ router.get('/:id', async (ctx) => {
     getKyc(ctx.state.redis, ctx.params.id),
     getKycStepConfig(ctx.state.redis, ctx.state.env),
     getKycStepConfig(ctx.state.redis, ctx.state.env, ctx.params.id),
+    getUserTotalTurnover(ctx.state.env, ctx.params.id),
+    getLevelThresholds(ctx.state.env),
   ])
   ok(ctx, {
     user,
+    level: resolveLevel(thresholds, totalTurnover),
+    totalTurnover,
     wallet,
     ledger,
     loginLogs,

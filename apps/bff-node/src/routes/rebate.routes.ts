@@ -2,6 +2,7 @@ import Router from '@koa/router'
 import { ok, fail } from '../utils/response.js'
 import {
   getLevelRates,
+  getAllLevelRates,
   getFeaturedGames,
   getUserRebateSummary,
   getUserLevelProgress,
@@ -12,10 +13,11 @@ import {
 
 const router = new Router({ prefix: '/rebate' })
 
-// GET /rebate/config — 公开：LV1（入门级）各大类洗码费率 + 精选游戏（登录用户用 /rebate/progress 取本级费率）
+// GET /rebate/config — 公开：LV1 费率 + 全等级费率矩阵(分级卡片) + 精选游戏（登录用户用 /rebate/progress 取本级与进度）
 router.get('/config', async (ctx) => {
-  const [config, featured] = await Promise.all([
+  const [config, levels, featured] = await Promise.all([
     getLevelRates(ctx.state.env, 1),
+    getAllLevelRates(ctx.state.env),
     getFeaturedGames(ctx.state.env),
   ])
   const featuredByTier: Record<string, typeof featured> = {}
@@ -23,7 +25,7 @@ router.get('/config', async (ctx) => {
     if (!featuredByTier[g.tier]) featuredByTier[g.tier] = []
     featuredByTier[g.tier].push(g)
   }
-  ok(ctx, { config, featured: featuredByTier })
+  ok(ctx, { config, levels, featured: featuredByTier })
 })
 
 // GET /rebate/progress — 需要登录：用户总流水 / 当前等级 / 下一级阈值 / 本级费率 / 可领取总额

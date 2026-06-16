@@ -20,6 +20,10 @@ export default function UserInfo({ detail }: Props) {
       <Descriptions column={1} bordered size="small">
         <Descriptions.Item label="ID">{String(u.id ?? '')}</Descriptions.Item>
         <Descriptions.Item label="显示名">{String(u.displayName ?? '')}</Descriptions.Item>
+        <Descriptions.Item label="洗码等级">
+          <Tag color={detail.level === 6 ? 'gold' : 'blue'}>LV{detail.level}</Tag>
+          <Typography.Text type="secondary" style={{ fontSize: 12 }}>累计有效流水 ₱{Number(detail.totalTurnover).toFixed(2)}</Typography.Text>
+        </Descriptions.Item>
         <Descriptions.Item label="Email">{String(u.email ?? '') || '-'}</Descriptions.Item>
         <Descriptions.Item label="TG用户名">{String(u.telegramUsername ?? '') || '-'}</Descriptions.Item>
         <Descriptions.Item label="状态"><Tag color={statusColor(String(u.status ?? ''))}>{String(u.status ?? '')}</Tag></Descriptions.Item>

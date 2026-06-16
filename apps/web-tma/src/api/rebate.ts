@@ -16,8 +16,15 @@ export interface FeaturedGame {
   coverUrl?: string
 }
 
+export interface RebateLevelRates {
+  level: number
+  minTurnover: number
+  rates: RebateConfigItem[]
+}
+
 export interface RebateConfig {
   config: RebateConfigItem[]
+  levels: RebateLevelRates[]
   featured: Record<string, FeaturedGame[]>
 }
 

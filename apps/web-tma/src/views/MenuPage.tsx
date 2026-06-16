@@ -10,6 +10,7 @@ import { LANGUAGES } from '@/data/languages'
 import type { LoginProvider } from '@/types/api'
 import { formatTelegramHandle, getTelegramWebAppUser } from '@/utils/telegramUser'
 import { patchProfile } from '@/api/auth'
+import { fetchRebateProgress } from '@/api/rebate'
 import ContactBrandIcon from '@/components/profile/ContactBrandIcon'
 import ContactMethodRow from '@/components/profile/ContactMethodRow'
 
@@ -47,6 +48,7 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
   const [personalSaving, setPersonalSaving] = useState(false)
   const [personalError, setPersonalError] = useState('')
   const [copied, setCopied] = useState(false)
+  const [rebateLevel, setRebateLevel] = useState<number | null>(null)
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
   const [dobMonth, setDobMonth] = useState('')
@@ -63,6 +65,11 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
 
   const USER_ID = auth.user?.id ?? '—'
   const displayName = auth.user?.displayName ?? t('profile.playerAccount')
+
+  useEffect(() => {
+    if (!isLoggedIn) { setRebateLevel(null); return }
+    fetchRebateProgress().then((p) => setRebateLevel(p.level)).catch(() => setRebateLevel(null))
+  }, [isLoggedIn])
   const loginProvider: LoginProvider = auth.user?.loginProvider ?? (auth.user?.telegramUserId ? 'telegram' : 'google')
   const isTelegramLogin = loginProvider === 'telegram'
   const isGoogleLogin = loginProvider === 'google'
@@ -175,7 +182,18 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
             </svg>
           </div>
           <div className="min-w-0 flex-1">
-            <p className="mb-1 text-sm font-black leading-none text-foreground">{displayName}</p>
+            <div className="mb-1 flex items-center gap-2">
+              <p className="text-sm font-black leading-none text-foreground truncate">{displayName}</p>
+              {rebateLevel != null && (
+                <span className={`flex-shrink-0 rounded-full px-2 py-0.5 text-[10px] font-black leading-none ${
+                  rebateLevel === 6
+                    ? 'bg-gradient-to-r from-purple-500 to-amber-400 text-white'
+                    : 'bg-gradient-to-r from-amber-400 to-yellow-500 text-emerald-950'
+                }`}>
+                  {rebateLevel === 6 && '👑 '}{t('cashback.levelTag', { level: rebateLevel })}
+                </span>
+              )}
+            </div>
             <button type="button" className="flex items-center gap-1.5 transition-opacity hover:opacity-80" onClick={copyId}>
               <span className="text-xs text-muted-foreground">ID: </span>
               <span className="text-xs font-bold text-primary">{USER_ID}</span>

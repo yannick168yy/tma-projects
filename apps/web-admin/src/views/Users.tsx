@@ -69,6 +69,7 @@ export default function Users() {
   const columns = [
     { title: 'ID', dataIndex: 'id', key: 'id', width: 100 },
     { title: '显示名', dataIndex: 'displayName', key: 'displayName' },
+    { title: '等级', key: 'level', width: 70, render: (_: unknown, r: AdminUser) => <Tag color={r.level === 6 ? 'gold' : 'blue'}>LV{r.level}</Tag> },
     { title: 'TG用户名', dataIndex: 'telegramUsername', key: 'tg', render: (v: string | null) => v || '-' },
     { title: '余额', key: 'balance', width: 100, render: (_: unknown, r: AdminUser) => `₱${Number(r.balance).toFixed(2)}` },
     { title: '状态', key: 'status', width: 80, render: (_: unknown, r: AdminUser) => <Tag color={statusColor(r.status)}>{statusLabel(r.status)}</Tag> },

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { fetchRebateConfig, fetchRebateSummary, fetchRebateProgress, claimRebate, type RebateConfig, type RebateSummary, type RebateProgress } from '@/api/rebate'
 import { launchGame } from '@/api/slots'
@@ -104,8 +104,16 @@ export default function CashbackPage({ onOpenGame, onOpenCategory }: Props) {
     finally { setLaunchingUuid(null) }
   }
 
-  const rates = (token && progress ? progress.rates : config?.config) ?? []
-  const enabledRates = rates.filter((r) => r.enabled).sort((a, b) => catRank(a.gameCategory) - catRank(b.gameCategory))
+  const levelCards = config?.levels ?? []
+  const userLevel = progress?.level ?? 1
+
+  const scrollRef = useRef<HTMLDivElement | null>(null)
+  const activeCardRef = useRef<HTMLDivElement | null>(null)
+  // 默认把当前等级卡片居中
+  useEffect(() => {
+    const c = scrollRef.current, a = activeCardRef.current
+    if (c && a) c.scrollLeft = a.offsetLeft - (c.clientWidth - a.clientWidth) / 2
+  }, [levelCards.length, userLevel])
 
   const remaining = progress && progress.nextThreshold != null
     ? Math.max(0, progress.nextThreshold - progress.totalTurnover) : 0
@@ -293,10 +301,10 @@ export default function CashbackPage({ onOpenGame, onOpenCategory }: Props) {
         </div>
       )}
 
-      {/* 等级 + 升级进度 + 分级返利费率 */}
-      {(token && progress) || enabledRates.length > 0 ? (
-        <div className="mx-4 mt-5">
-          <div className="flex items-center justify-between mb-3">
+      {/* REBATE RATES：升级进度 + 分级费率卡片（可左右翻动，默认当前等级） */}
+      {levelCards.length > 0 && (
+        <div className="mt-5">
+          <div className="flex items-center justify-between mb-3 mx-4">
             <h3 className="font-black text-emerald-100 text-base tracking-wide">{t('cashback.rateTable').toUpperCase()}</h3>
             {token && progress && (
               <span className="bg-gradient-to-r from-amber-400 to-yellow-500 text-emerald-950 font-black text-xs rounded-full px-3 py-1">
@@ -305,13 +313,12 @@ export default function CashbackPage({ onOpenGame, onOpenCategory }: Props) {
             )}
           </div>
 
+          {/* total turnover：标签 + 数值 + 升级进度条 */}
           {token && progress && (
-            <div className="bg-emerald-950/40 rounded-2xl border border-emerald-700/30 px-4 py-3 mb-3">
-              <div className="flex items-center justify-between text-[11px] mb-1.5">
-                <span className="text-emerald-300/70">{t('cashback.totalTurnover')}</span>
-                <span className="text-emerald-100 font-bold">{amtStr(currency, progress.totalTurnover)}</span>
-              </div>
-              <div className="h-2 rounded-full bg-emerald-900/60 overflow-hidden">
+            <div className="mx-4 mb-3 bg-emerald-950/40 rounded-2xl border border-emerald-700/30 px-4 py-3">
+              <p className="text-emerald-300/70 text-[11px]">{t('cashback.totalTurnover')}</p>
+              <p className="text-emerald-50 font-black text-2xl font-display mt-0.5">{amtStr(currency, progress.totalTurnover)}</p>
+              <div className="h-2 rounded-full bg-emerald-900/60 overflow-hidden mt-2">
                 <div
                   className="h-full bg-gradient-to-r from-amber-400 to-yellow-500 rounded-full transition-all"
                   style={{ width: `${progressPct}%` }}
@@ -325,36 +332,66 @@ export default function CashbackPage({ onOpenGame, onOpenCategory }: Props) {
             </div>
           )}
 
-          {enabledRates.length > 0 && (
-          <div className="bg-emerald-950/35 rounded-2xl border border-emerald-700/30 overflow-hidden">
-            {enabledRates.map((r, i) => (
-              <div
-                key={r.gameCategory}
-                className={`flex items-center gap-3 px-4 py-3.5 ${i < enabledRates.length - 1 ? 'border-b border-emerald-800/30' : ''}`}
-              >
-                <span className="text-2xl leading-none flex-shrink-0">{CATEGORY_ICONS[r.gameCategory] ?? '🎮'}</span>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-emerald-50 truncate">{t(catKeyOf(r.gameCategory))}</p>
-                  <p className="text-[11px] text-emerald-300/60">
-                    {t('cashback.cashbackRate')} <span className="text-amber-300 font-bold">{r.ratePct}%</span>
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => onOpenCategory({ title: t(catKeyOf(r.gameCategory)), sortCategory: r.gameCategory })}
-                  className="flex-shrink-0 bg-gradient-to-r from-emerald-600 to-emerald-700 border border-amber-400/35 text-amber-100 rounded-full px-4 py-2 font-bold text-xs active:opacity-80 transition-opacity"
+          {/* 分级费率卡片横向轮播 */}
+          <div
+            ref={scrollRef}
+            className="flex gap-3 overflow-x-auto snap-x snap-mandatory px-4 pb-2 hide-scrollbar"
+          >
+            {levelCards.map((lc) => {
+              const isCurrent = token && lc.level === userLevel
+              const isMax = lc.level === 6
+              const cardCls = isMax
+                ? 'border-amber-400/70 bg-gradient-to-br from-purple-900/70 via-fuchsia-900/40 to-amber-600/40 shadow-lg shadow-amber-500/20'
+                : isCurrent
+                  ? 'border-amber-400/55 bg-emerald-900/55'
+                  : 'border-emerald-700/30 bg-emerald-950/40'
+              const catRates = lc.rates.filter((r) => r.enabled).sort((a, b) => catRank(a.gameCategory) - catRank(b.gameCategory))
+              return (
+                <div
+                  key={lc.level}
+                  ref={isCurrent ? activeCardRef : undefined}
+                  className={`snap-center shrink-0 w-[80%] max-w-[320px] rounded-2xl border p-4 ${cardCls}`}
                 >
-                  {t('cashback.goBet')}
-                </button>
-              </div>
-            ))}
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <span className={`font-black text-lg font-display ${isMax ? 'text-amber-300' : 'text-emerald-50'}`}>
+                        {isMax && '👑 '}{t('cashback.levelTag', { level: lc.level })}
+                      </span>
+                      {isCurrent && (
+                        <span className="bg-amber-400/90 text-emerald-950 text-[10px] font-black rounded-full px-2 py-0.5">
+                          {t('cashback.levelCurrent')}
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-[10px] text-emerald-300/60 text-right">
+                      {lc.minTurnover > 0
+                        ? t('cashback.levelReq', { amount: amtStr(currency, lc.minTurnover) })
+                        : t('cashback.levelEntry')}
+                    </span>
+                  </div>
+                  <div className="space-y-1">
+                    {catRates.map((r) => (
+                      <button
+                        key={r.gameCategory}
+                        type="button"
+                        onClick={() => onOpenCategory({ title: t(catKeyOf(r.gameCategory)), sortCategory: r.gameCategory })}
+                        className="w-full flex items-center justify-between py-1 active:opacity-70 transition-opacity"
+                      >
+                        <span className="flex items-center gap-2 text-sm text-emerald-50/90">
+                          <span className="text-lg leading-none">{CATEGORY_ICONS[r.gameCategory] ?? '🎮'}</span>
+                          {t(catKeyOf(r.gameCategory))}
+                        </span>
+                        <span className={`font-black text-sm ${isMax ? 'text-amber-300' : 'text-amber-300/90'}`}>{r.ratePct}%</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )
+            })}
           </div>
-          )}
-          <p className="text-[10px] text-emerald-400/50 mt-2 px-1">
-            {token && progress ? t('cashback.rateTableLeveled', { level: progress.level }) : t('cashback.rateTableDesc')}
-          </p>
+          <p className="text-[10px] text-emerald-400/50 mt-1 px-4">{t('cashback.rateTableDesc')}</p>
         </div>
-      ) : null}
+      )}
     </div>
   )
 }

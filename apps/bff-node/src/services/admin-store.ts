@@ -2,6 +2,7 @@ import type { Redis } from 'ioredis'
 import type { Pool, RowDataPacket } from 'mysql2/promise'
 import { getMysqlPool } from '../clients/mysql.client.js'
 import type { Env } from '../config/env.js'
+import { getLevelThresholds, resolveLevel } from './rebate.service.js'
 
 export const SMS_TEST_MODE_KEY = 'sms_test_mode'
 const SMS_TEST_MODE_CACHE_KEY = 'admin:setting:sms_test_mode'
@@ -225,6 +226,20 @@ export async function listAdminUsers(
     [...params, opts.pageSize, offset],
   )
 
+  // 计算本页用户的洗码等级（按累计有效流水批量查 + 阈值映射）
+  const ids = rows.map((r) => String(r.id))
+  const levelMap = new Map<string, number>()
+  if (ids.length) {
+    const placeholders = ids.map(() => '?').join(',')
+    const [tRows] = await pool(env).query<RowDataPacket[]>(
+      `SELECT user_id, SUM(effective_amount) AS total FROM bg_turnover_logs
+       WHERE is_reversed = 0 AND user_id IN (${placeholders}) GROUP BY user_id`,
+      ids,
+    )
+    const thresholds = await getLevelThresholds(env)
+    for (const tr of tRows) levelMap.set(String(tr.user_id), resolveLevel(thresholds, Number(tr.total)))
+  }
+
   const items = rows.map((r) => ({
     id: String(r.id),
     displayName: String(r.display_name),
@@ -237,6 +252,7 @@ export async function listAdminUsers(
     registerRegion: r.register_region ? String(r.register_region) : null,
     registeredAt: (() => { const d = new Date(r.registered_at as Date); return isNaN(d.getTime()) ? null : d.toISOString() })(),
     balance: Number(r.available),
+    level: levelMap.get(String(r.id)) ?? 1,
   }))
 
   return { total, items }

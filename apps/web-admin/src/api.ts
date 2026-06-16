@@ -61,7 +61,7 @@ export interface AdminUser {
   status: string; label: string
   lastLoginAt: string | null; lastLoginRegion: string | null
   registerRegion: string | null
-  registeredAt: string; balance: number
+  registeredAt: string; balance: number; level: number
 }
 export interface LoginLog {
   id: number; ip: string | null; region: string | null; userAgent: string | null; authMethod: string; createdAt: string
@@ -88,6 +88,8 @@ export interface KycUserConfig {
 export const getUserDetail = (id: string) =>
   get<{
     user: Record<string, unknown>
+    level: number
+    totalTurnover: number
     wallet: { available: number; frozen: number }
     ledger: LedgerEntry[]
     loginLogs: LoginLog[]
