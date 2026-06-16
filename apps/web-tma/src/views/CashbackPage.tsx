@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { fetchRebateConfig, fetchRebateSummary, type RebateConfig, type RebateSummary } from '@/api/rebate'
+import { fetchRebateConfig, fetchRebateSummary, fetchRebateProgress, claimRebate, type RebateConfig, type RebateSummary, type RebateProgress } from '@/api/rebate'
 import { launchGame } from '@/api/slots'
 import { useAuthStore } from '@/stores/auth'
 import { useWalletStore, formatCurrencyAmount } from '@/stores/wallet'
@@ -47,7 +47,8 @@ export default function CashbackPage({ onOpenGame, onOpenCategory }: Props) {
   const [activeTab, setActiveTab] = useState<DateTab>('today')
   const [config, setConfig] = useState<RebateConfig | null>(null)
   const [summary, setSummary] = useState<RebateSummary | null>(null)
-  const [summaryLoading, setSummaryLoading] = useState(false)
+  const [progress, setProgress] = useState<RebateProgress | null>(null)
+  const [claiming, setClaiming] = useState(false)
   const [expandedTier, setExpandedTier] = useState<string | null>(null)
   const [launchingUuid, setLaunchingUuid] = useState<string | null>(null)
   void launchingUuid // 保留，后续可扩展 loading 状态展示
@@ -58,18 +59,35 @@ export default function CashbackPage({ onOpenGame, onOpenCategory }: Props) {
 
   const loadSummary = useCallback(async (tab: DateTab) => {
     if (!token) return
-    setSummaryLoading(true)
     try {
       const s = await fetchRebateSummary(tab, currency)
       setSummary(s)
     } catch {
       setSummary(null)
-    } finally {
-      setSummaryLoading(false)
     }
   }, [token, currency])
 
   useEffect(() => { void loadSummary(activeTab) }, [activeTab, loadSummary])
+
+  const loadProgress = useCallback(async () => {
+    if (!token) { setProgress(null); return }
+    try { setProgress(await fetchRebateProgress(currency)) } catch { setProgress(null) }
+  }, [token, currency])
+
+  useEffect(() => { void loadProgress() }, [loadProgress])
+
+  async function onClaim() {
+    if (!(await auth.ensureLoggedIn(t('auth.signInPlay')))) return
+    if (claiming || !progress || progress.claimable <= 0) return
+    setClaiming(true)
+    try {
+      const res = await claimRebate(currency)
+      alert(t('cashback.claimSuccess', { amount: amtStr(currency, res.totalRebate) }))
+      await Promise.all([loadProgress(), loadSummary(activeTab), useWalletStore.getState().refresh()])
+    } catch (e) {
+      alert(e instanceof ApiError ? e.message : 'Claim failed')
+    } finally { setClaiming(false) }
+  }
 
   function toggleTier(tier: string) {
     setExpandedTier((prev) => prev === tier ? null : tier)
@@ -86,8 +104,14 @@ export default function CashbackPage({ onOpenGame, onOpenCategory }: Props) {
     finally { setLaunchingUuid(null) }
   }
 
-  const rates = config?.config ?? []
+  const rates = (token && progress ? progress.rates : config?.config) ?? []
   const enabledRates = rates.filter((r) => r.enabled).sort((a, b) => catRank(a.gameCategory) - catRank(b.gameCategory))
+
+  const remaining = progress && progress.nextThreshold != null
+    ? Math.max(0, progress.nextThreshold - progress.totalTurnover) : 0
+  const progressPct = progress && progress.nextThreshold != null
+    ? Math.min(100, Math.max(0, (progress.totalTurnover - progress.currentThreshold) / Math.max(1, progress.nextThreshold - progress.currentThreshold) * 100))
+    : 100
   const tiers = config ? Object.entries(config.featured ?? {}) : []
 
   const tierRate = (tier: string) => tier === 'elite' ? t('cashback.tierEliteRate') : t('cashback.tierProRate')
@@ -153,20 +177,25 @@ export default function CashbackPage({ onOpenGame, onOpenCategory }: Props) {
         </div>
       </div>
 
-      {/* 绿金 Total Bonus 横条 */}
+      {/* 绿金 Total Bonus 横条 + 领取按钮（金额=可领取池） */}
       <div className="mx-4 mt-3 relative overflow-hidden rounded-2xl border border-emerald-600/30">
         <div className="absolute inset-0 bg-gradient-to-r from-emerald-700 via-emerald-800 to-amber-500" />
         <div className="absolute -top-6 -right-2 h-20 w-20 rounded-full bg-white/15" />
-        <div className="relative flex items-center justify-between px-5 py-4">
-          <div>
-            <p className="text-amber-200 font-black text-xl leading-tight font-display">{t('cashback.totalBonus')}</p>
-            <p className="text-emerald-100/80 text-[11px] mt-0.5">{t('cashback.dataUpdates')}</p>
+        <div className="relative flex items-center justify-between gap-3 px-5 py-4">
+          <div className="min-w-0">
+            <p className="text-amber-200 font-black text-lg leading-tight font-display">{t('cashback.totalBonus')}</p>
+            <p className="text-emerald-50 font-black text-2xl font-display drop-shadow mt-0.5">
+              {amtStr(currency, token ? (progress?.claimable ?? 0) : 0)}
+            </p>
           </div>
-          {summaryLoading ? (
-            <div className="w-6 h-6 border-2 border-amber-200 border-t-transparent rounded-full animate-spin" />
-          ) : (
-            <p className="text-amber-200 font-black text-2xl font-display drop-shadow">{amtStr(currency, token ? (summary?.totalRebate ?? 0) : 0)}</p>
-          )}
+          <button
+            type="button"
+            onClick={() => void onClaim()}
+            disabled={claiming || !token || !progress || progress.claimable <= 0}
+            className="flex-shrink-0 bg-gradient-to-r from-amber-400 to-yellow-500 text-emerald-950 font-black text-sm rounded-full px-6 py-2.5 shadow-md shadow-amber-500/25 active:opacity-80 transition disabled:opacity-50"
+          >
+            {claiming ? t('cashback.claiming') : t('cashback.claimBtn')}
+          </button>
         </div>
       </div>
 
@@ -264,10 +293,39 @@ export default function CashbackPage({ onOpenGame, onOpenCategory }: Props) {
         </div>
       )}
 
-      {/* 各分类返利费率 + GO BET */}
-      {enabledRates.length > 0 && (
+      {/* 等级 + 升级进度 + 分级返利费率 */}
+      {(token && progress) || enabledRates.length > 0 ? (
         <div className="mx-4 mt-5">
-          <h3 className="font-black text-emerald-100 text-base tracking-wide mb-3">{t('cashback.rateTable').toUpperCase()}</h3>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="font-black text-emerald-100 text-base tracking-wide">{t('cashback.rateTable').toUpperCase()}</h3>
+            {token && progress && (
+              <span className="bg-gradient-to-r from-amber-400 to-yellow-500 text-emerald-950 font-black text-xs rounded-full px-3 py-1">
+                {t('cashback.levelTag', { level: progress.level })}
+              </span>
+            )}
+          </div>
+
+          {token && progress && (
+            <div className="bg-emerald-950/40 rounded-2xl border border-emerald-700/30 px-4 py-3 mb-3">
+              <div className="flex items-center justify-between text-[11px] mb-1.5">
+                <span className="text-emerald-300/70">{t('cashback.totalTurnover')}</span>
+                <span className="text-emerald-100 font-bold">{amtStr(currency, progress.totalTurnover)}</span>
+              </div>
+              <div className="h-2 rounded-full bg-emerald-900/60 overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-amber-400 to-yellow-500 rounded-full transition-all"
+                  style={{ width: `${progressPct}%` }}
+                />
+              </div>
+              <p className="text-[11px] text-amber-300/80 mt-1.5">
+                {progress.nextThreshold != null
+                  ? t('cashback.progressToNext', { remaining: amtStr(currency, remaining), level: progress.nextLevel })
+                  : t('cashback.maxLevel')}
+              </p>
+            </div>
+          )}
+
+          {enabledRates.length > 0 && (
           <div className="bg-emerald-950/35 rounded-2xl border border-emerald-700/30 overflow-hidden">
             {enabledRates.map((r, i) => (
               <div
@@ -291,9 +349,12 @@ export default function CashbackPage({ onOpenGame, onOpenCategory }: Props) {
               </div>
             ))}
           </div>
-          <p className="text-[10px] text-emerald-400/50 mt-2 px-1">{t('cashback.rateTableDesc')}</p>
+          )}
+          <p className="text-[10px] text-emerald-400/50 mt-2 px-1">
+            {token && progress ? t('cashback.rateTableLeveled', { level: progress.level }) : t('cashback.rateTableDesc')}
+          </p>
         </div>
-      )}
+      ) : null}
     </div>
   )
 }

@@ -44,8 +44,34 @@ export interface RebateSummary {
   tierBreakdown: RebateTierSummaryItem[]
 }
 
+export interface RebateProgress {
+  currency: string
+  totalTurnover: number
+  level: number
+  currentThreshold: number
+  nextLevel: number | null
+  nextThreshold: number | null
+  rates: RebateConfigItem[]
+  claimable: number
+}
+
 export async function fetchRebateConfig(): Promise<RebateConfig> {
   return apiRequest<RebateConfig>('/rebate/config')
+}
+
+export async function fetchRebateProgress(currency?: string): Promise<RebateProgress> {
+  const params = new URLSearchParams()
+  if (currency) params.set('currency', currency)
+  const qs = params.toString()
+  return apiRequest<RebateProgress>(`/rebate/progress${qs ? `?${qs}` : ''}`)
+}
+
+export async function claimRebate(currency?: string): Promise<{ claimed: number; totalRebate: number }> {
+  return apiRequest<{ claimed: number; totalRebate: number }>('/rebate/claim', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ currency }),
+  })
 }
 
 export async function fetchRebateSummary(date: 'today' | 'yesterday', currency?: string): Promise<RebateSummary> {
