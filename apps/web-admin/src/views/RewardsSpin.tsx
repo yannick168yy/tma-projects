@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   Button, Card, Col, Collapse, Form, Input, InputNumber, message, Row, Select, Space, Spin, Switch, Table, Tabs, Tag, Typography,
 } from 'antd'
@@ -19,6 +19,7 @@ const { Title, Text } = Typography
 const LEVEL_COUNT = 6
 const PRIZE_COUNT = 8
 const DEFAULT_AMOUNTS = [108, 580, 1080, 2000, 5000, 10000]
+const PRIZE_SLOTS = Array.from({ length: PRIZE_COUNT }, (_, i) => i)
 const IMAGE_OPTIONS = Array.from({ length: PRIZE_COUNT }, (_, i) => ({
   value: `prize-${i + 1}`,
   label: `奖品图 ${i + 1}`,
@@ -33,6 +34,10 @@ const recordColumns: ColumnsType<SpinRecord> = [
   { title: '入账金额', dataIndex: 'amountPhp', width: 120, render: (v) => <b>₱{Number(v).toFixed(2)}</b> },
   { title: '中奖时间', dataIndex: 'createdAt', width: 170, render: (v) => new Date(v).toLocaleString('zh-CN', { hour12: false }) },
 ]
+
+function prizeFlatIndex(ruleIndex: number, prizeIndex: number): number {
+  return ruleIndex * PRIZE_COUNT + prizeIndex
+}
 
 function defaultRule(i: number): SpinDepositRule {
   const amount = DEFAULT_AMOUNTS[i] ?? (i + 1) * 1000
@@ -61,6 +66,24 @@ function defaultPrize(ruleId: number | null | undefined, i: number): SpinPrize {
   }
 }
 
+function prizesForRule(config: SpinConfig, rule: SpinDepositRule, ruleIndex: number): SpinPrize[] {
+  const byRuleId = config.prizes
+    .filter((p) => rule.id != null && Number(p.ruleId) === Number(rule.id))
+    .sort((a, b) => a.sortOrder - b.sortOrder || Number(a.id ?? 0) - Number(b.id ?? 0))
+  const byPosition = config.prizes.slice(
+    prizeFlatIndex(ruleIndex, 0),
+    prizeFlatIndex(ruleIndex, 0) + PRIZE_COUNT,
+  )
+  const source = byRuleId.length > 0 ? byRuleId : byPosition
+  return Array.from({ length: PRIZE_COUNT }, (_, i) => ({
+    ...defaultPrize(rule.id, i),
+    ...source[i],
+    ruleId: rule.id,
+    imageKey: source[i]?.imageKey || `prize-${i + 1}`,
+    sortOrder: (i + 1) * 10,
+  }))
+}
+
 function normalizeConfig(config: SpinConfig): SpinConfig {
   const rules = Array.from({ length: LEVEL_COUNT }, (_, i) => {
     const existing = config.depositRules[i]
@@ -77,20 +100,19 @@ function normalizeConfig(config: SpinConfig): SpinConfig {
     }
   })
 
-  const prizes = rules.flatMap((rule) => {
-    const byRule = config.prizes
-      .filter((p) => Number(p.ruleId) === Number(rule.id))
-      .sort((a, b) => a.sortOrder - b.sortOrder || Number(a.id ?? 0) - Number(b.id ?? 0))
-    return Array.from({ length: PRIZE_COUNT }, (_, i) => ({
-      ...defaultPrize(rule.id, i),
-      ...byRule[i],
-      ruleId: rule.id,
-      imageKey: byRule[i]?.imageKey || `prize-${i + 1}`,
-      sortOrder: (i + 1) * 10,
-    }))
-  })
+  const prizes = rules.flatMap((rule, ruleIndex) => prizesForRule(config, rule, ruleIndex))
 
   return { enabled: config.enabled, depositRules: rules, prizes }
+}
+
+function PrizeRowFields({ flatIndex }: { flatIndex: number }) {
+  return (
+    <>
+      <Form.Item name={['prizes', flatIndex, 'id']} hidden><InputNumber /></Form.Item>
+      <Form.Item name={['prizes', flatIndex, 'ruleId']} hidden><InputNumber /></Form.Item>
+      <Form.Item name={['prizes', flatIndex, 'sortOrder']} hidden><InputNumber /></Form.Item>
+    </>
+  )
 }
 
 export default function RewardsSpin() {
@@ -103,17 +125,6 @@ export default function RewardsSpin() {
   const [userId, setUserId] = useState('')
   const [form] = Form.useForm<SpinConfig>()
   const watchedRules = Form.useWatch('depositRules', form) ?? []
-  const watchedPrizes = Form.useWatch('prizes', form) ?? []
-
-  const prizeIndexByRule = useMemo(() => {
-    const map = new Map<number, number[]>()
-    watchedPrizes.forEach((p, i) => {
-      const rid = Number(p?.ruleId)
-      if (!rid) return
-      map.set(rid, [...(map.get(rid) ?? []), i])
-    })
-    return map
-  }, [watchedPrizes])
 
   async function loadConfig() {
     setLoading(true)
@@ -186,62 +197,69 @@ export default function RewardsSpin() {
                 <Card title="存款级别" style={{ marginBottom: 16 }}>
                   <Text type="secondary">客户端固定显示为 DEPOSIT {'{金额}'}。单次存款达到多个级别时，只发放最高级别 1 次机会。</Text>
                   <div style={{ marginTop: 16 }}>
-                    {Array.from({ length: LEVEL_COUNT }, (_, i) => {
-                      const rule = watchedRules[i]
-                      const rid = Number(rule?.id)
-                      const prizeIndexes = prizeIndexByRule.get(rid) ?? []
+                    {Array.from({ length: LEVEL_COUNT }, (_, ruleIndex) => {
+                      const rule = watchedRules[ruleIndex]
                       return (
                         <Collapse
-                          key={i}
+                          key={ruleIndex}
                           style={{ marginBottom: 12 }}
                           items={[{
-                            key: String(i),
+                            key: String(ruleIndex),
+                            forceRender: true,
                             label: (
                               <Space>
-                                <b>存款级别 {i + 1}</b>
+                                <b>存款级别 {ruleIndex + 1}</b>
                                 <Tag color={rule?.enabled ? 'green' : 'default'}>{rule?.enabled ? '启用' : '关闭'}</Tag>
-                                <Tag color="blue">DEPOSIT {Number(rule?.depositAmountPhp ?? rule?.minDepositPhp ?? 0).toLocaleString('en-PH')}</Tag>
+                                <Tag color="blue">DEPOSIT {Number(rule?.depositAmountPhp ?? rule?.minDepositPhp ?? DEFAULT_AMOUNTS[ruleIndex]).toLocaleString('en-PH')}</Tag>
                               </Space>
                             ),
                             children: (
                               <>
-                                <Form.Item name={['depositRules', i, 'id']} hidden><InputNumber /></Form.Item>
+                                <Form.Item name={['depositRules', ruleIndex, 'id']} hidden><InputNumber /></Form.Item>
+                                <Form.Item name={['depositRules', ruleIndex, 'name']} hidden><Input /></Form.Item>
+                                <Form.Item name={['depositRules', ruleIndex, 'sortOrder']} hidden><InputNumber /></Form.Item>
                                 <Row gutter={16}>
                                   <Col span={8}>
-                                    <Form.Item label="达标金额 PHP" name={['depositRules', i, 'depositAmountPhp']} rules={[{ required: true, type: 'number', min: 1 }]}>
+                                    <Form.Item label="达标金额 PHP" name={['depositRules', ruleIndex, 'depositAmountPhp']} rules={[{ required: true, type: 'number', min: 1 }]}>
                                       <InputNumber prefix="₱" min={1} precision={2} style={{ width: '100%' }} />
                                     </Form.Item>
                                   </Col>
                                   <Col span={4}>
-                                    <Form.Item label="启用" name={['depositRules', i, 'enabled']} valuePropName="checked">
+                                    <Form.Item label="启用" name={['depositRules', ruleIndex, 'enabled']} valuePropName="checked">
                                       <Switch />
                                     </Form.Item>
                                   </Col>
                                 </Row>
                                 <Table
-                                  rowKey={(idx) => String(idx)}
+                                  rowKey={(slot) => String(slot)}
                                   pagination={false}
                                   size="small"
-                                  dataSource={prizeIndexes}
+                                  dataSource={PRIZE_SLOTS}
                                   columns={[
                                     {
                                       title: '位置',
                                       width: 60,
-                                      render: (_, __, idx) => idx + 1,
+                                      render: (_, __, slot) => slot + 1,
                                     },
                                     {
                                       title: '奖品图',
                                       width: 130,
-                                      render: (idx: number) => (
-                                        <Form.Item name={['prizes', idx, 'imageKey']} noStyle rules={[{ required: true }]}>
-                                          <Select options={IMAGE_OPTIONS} />
-                                        </Form.Item>
-                                      ),
+                                      render: (_, __, slot) => {
+                                        const flatIndex = prizeFlatIndex(ruleIndex, slot)
+                                        return (
+                                          <>
+                                            <PrizeRowFields flatIndex={flatIndex} />
+                                            <Form.Item name={['prizes', flatIndex, 'imageKey']} noStyle rules={[{ required: true }]}>
+                                              <Select options={IMAGE_OPTIONS} />
+                                            </Form.Item>
+                                          </>
+                                        )
+                                      },
                                     },
                                     {
                                       title: '展示名称',
-                                      render: (idx: number) => (
-                                        <Form.Item name={['prizes', idx, 'name']} noStyle rules={[{ required: true }]}>
+                                      render: (_, __, slot) => (
+                                        <Form.Item name={['prizes', prizeFlatIndex(ruleIndex, slot), 'name']} noStyle rules={[{ required: true }]}>
                                           <Input />
                                         </Form.Item>
                                       ),
@@ -249,8 +267,8 @@ export default function RewardsSpin() {
                                     {
                                       title: '奖金 PHP',
                                       width: 130,
-                                      render: (idx: number) => (
-                                        <Form.Item name={['prizes', idx, 'amountPhp']} noStyle rules={[{ required: true, type: 'number', min: 0.01 }]}>
+                                      render: (_, __, slot) => (
+                                        <Form.Item name={['prizes', prizeFlatIndex(ruleIndex, slot), 'amountPhp']} noStyle rules={[{ required: true, type: 'number', min: 0.01 }]}>
                                           <InputNumber prefix="₱" min={0.01} precision={2} style={{ width: '100%' }} />
                                         </Form.Item>
                                       ),
@@ -258,8 +276,8 @@ export default function RewardsSpin() {
                                     {
                                       title: '权重',
                                       width: 110,
-                                      render: (idx: number) => (
-                                        <Form.Item name={['prizes', idx, 'weight']} noStyle rules={[{ required: true, type: 'number', min: 1 }]}>
+                                      render: (_, __, slot) => (
+                                        <Form.Item name={['prizes', prizeFlatIndex(ruleIndex, slot), 'weight']} noStyle rules={[{ required: true, type: 'number', min: 1 }]}>
                                           <InputNumber min={1} precision={0} style={{ width: '100%' }} />
                                         </Form.Item>
                                       ),
@@ -267,8 +285,8 @@ export default function RewardsSpin() {
                                     {
                                       title: '流水倍率',
                                       width: 120,
-                                      render: (idx: number) => (
-                                        <Form.Item name={['prizes', idx, 'turnoverX']} noStyle rules={[{ required: true, type: 'number', min: 0 }]}>
+                                      render: (_, __, slot) => (
+                                        <Form.Item name={['prizes', prizeFlatIndex(ruleIndex, slot), 'turnoverX']} noStyle rules={[{ required: true, type: 'number', min: 0 }]}>
                                           <InputNumber suffix="x" min={0} precision={2} style={{ width: '100%' }} />
                                         </Form.Item>
                                       ),
@@ -276,8 +294,8 @@ export default function RewardsSpin() {
                                     {
                                       title: '启用',
                                       width: 80,
-                                      render: (idx: number) => (
-                                        <Form.Item name={['prizes', idx, 'enabled']} noStyle valuePropName="checked">
+                                      render: (_, __, slot) => (
+                                        <Form.Item name={['prizes', prizeFlatIndex(ruleIndex, slot), 'enabled']} noStyle valuePropName="checked">
                                           <Switch size="small" />
                                         </Form.Item>
                                       ),
