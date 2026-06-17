@@ -5,10 +5,10 @@ import { ApiError } from '@/api/client'
 import { drawSpin, fetchSpinStatus, type SpinStatus, type SpinDrawResult } from '@/api/spin'
 import { useWalletStore } from '@/stores/wallet'
 import SpinWheel from '@/components/spin/SpinWheel'
-import spinBg from '@/assets/spin/decor/bg.webp'
-import giftBoxImg from '@/assets/spin/decor/gift-box.webp'
-import mascotLeftImg from '@/assets/spin/decor/mascot-left.webp'
-import mascotRightImg from '@/assets/spin/decor/mascot-right.webp'
+import spinBg from '@/assets/spin/fbm/bg.webp'
+import titleImg from '@/assets/spin/fbm/title.png'
+import mascotLeftImg from '@/assets/spin/fbm/item-left.webp'
+import mascotRightImg from '@/assets/spin/fbm/item-right.webp'
 
 interface Props {
   onOpenWallet: () => void
@@ -112,39 +112,34 @@ export default function RewardsSpinPage({ onOpenWallet, onOpenCs, onClose }: Pro
   }
 
   return (
-    <div className="page-main min-h-screen overflow-hidden bg-[#183d9b] pb-5 text-white">
+    <div className="page-main min-h-screen overflow-hidden bg-[#2448bd] pb-5 text-white">
       <div className="fixed inset-0 -z-10 bg-cover bg-top" style={{ backgroundImage: `url(${spinBg})` }} />
-      <div className="pointer-events-none fixed inset-0 -z-10 bg-[radial-gradient(circle_at_50%_22%,rgba(255,255,255,0.18),transparent_22%),linear-gradient(180deg,rgba(33,75,185,0.12),rgba(25,40,132,0.72))]" />
 
-      <header className="relative px-5 pt-[calc(var(--app-safe-top)+16px)]">
+      <header className="relative px-5 pt-[calc(var(--app-safe-top)+18px)]">
         <div className="flex items-center justify-between">
-          <button type="button" className="flex h-11 w-11 items-center justify-center rounded-xl bg-sky-400/90 text-white shadow-lg shadow-blue-950/25 active:scale-95" onClick={onClose}>
-            <ChevronLeft size={28} strokeWidth={3} />
+          <button type="button" className="flex h-12 w-12 items-center justify-center rounded-lg bg-[#35aaf8] text-white shadow-lg shadow-blue-950/25 active:scale-95" onClick={onClose}>
+            <ChevronLeft size={32} strokeWidth={3.2} />
           </button>
-          <button type="button" className="flex h-11 w-11 items-center justify-center rounded-xl bg-sky-400/90 text-white shadow-lg shadow-blue-950/25 active:scale-95" onClick={onOpenWallet}>
-            <Gift size={26} strokeWidth={2.8} />
+          <button type="button" className="flex h-12 w-12 items-center justify-center rounded-lg bg-[#35aaf8] text-white shadow-lg shadow-blue-950/25 active:scale-95" onClick={onOpenWallet}>
+            <Gift size={30} strokeWidth={3} />
           </button>
         </div>
         <div className="mt-5 text-center">
-          <h1 className="font-display text-[clamp(3.2rem,14vw,5.6rem)] font-black leading-none tracking-normal">
-            <span className="text-[#f0ce00] drop-shadow-[0_5px_0_rgba(79,53,58,0.72)]">Rewards</span>
-            <span className="ml-3 text-[#fff7dd] drop-shadow-[0_5px_0_rgba(43,52,107,0.7)]">Spin</span>
-          </h1>
-          <p className="mt-3 text-[clamp(1.35rem,5.8vw,2.4rem)] font-black text-[#fff8b6] drop-shadow-[0_2px_7px_rgba(255,255,160,0.55)]">
+          <img src={titleImg} alt="Rewards Spin" draggable={false} className="mx-auto w-[86%] max-w-[520px]" />
+          <p className="mt-3 text-[clamp(1.35rem,5.8vw,2.35rem)] font-black text-[#fff8b6] drop-shadow-[0_2px_7px_rgba(255,255,160,0.55)]">
             {t('spin.remaining')}: {remaining}
           </p>
         </div>
       </header>
 
-      <main className="relative mt-3">
-        <img src={mascotLeftImg} alt="" draggable={false} className="spin-mascot-left pointer-events-none absolute left-0 top-3 z-10 w-[27vw] max-w-[128px]" />
-        <img src={giftBoxImg} alt="" draggable={false} className="spin-gift-float pointer-events-none absolute left-1/2 top-0 z-10 w-[15vw] max-w-[72px] -translate-x-1/2" />
-        <img src={mascotRightImg} alt="" draggable={false} className="spin-mascot-right pointer-events-none absolute right-1 top-[54vw] z-20 w-[27vw] max-w-[128px]" />
+      <main className="relative mt-1">
+        <img src={mascotLeftImg} alt="" draggable={false} className="spin-mascot-left pointer-events-none absolute -left-1 top-[-1vw] z-20 w-[27vw] max-w-[132px]" />
+        <img src={mascotRightImg} alt="" draggable={false} className="spin-mascot-right pointer-events-none absolute right-1 top-[62vw] z-30 w-[29vw] max-w-[136px]" />
 
-        <div className="px-4">
-          <div className="relative mx-auto max-w-[430px] rounded-[34px] bg-gradient-to-b from-cyan-400/55 via-indigo-500/35 to-purple-700/65 p-2 shadow-[0_18px_38px_rgba(20,18,96,0.45)]">
+        <div className="px-0">
+          <div className="relative mx-auto w-[96vw] max-w-[510px]">
             {loading ? (
-              <div className="flex aspect-square items-center justify-center">
+              <div className="flex aspect-[760/838] items-center justify-center">
                 <Loader2 size={34} className="animate-spin text-white/80" />
               </div>
             ) : wheelPrizes.length > 0 ? (
@@ -173,15 +168,15 @@ export default function RewardsSpinPage({ onOpenWallet, onOpenCs, onClose }: Pro
         )}
 
         {rules.length > 0 && (
-          <div className="mt-4 flex gap-3 overflow-x-auto px-3 pb-1 hide-scrollbar">
+          <div className="mt-[-1px] flex gap-3 overflow-x-auto px-2 pb-1 hide-scrollbar">
             {rules.map((rule, idx) => {
               const active = rule.id === selectedRule?.id
               return (
                 <button
                   key={rule.id}
                   type="button"
-                  className={`min-w-[150px] flex-shrink-0 rounded-t-2xl px-3 py-2.5 text-center shadow-[0_4px_0_rgba(120,34,0,0.3)] active:scale-[0.98] ${
-                    active ? 'bg-[#ff5139] text-white' : 'bg-gradient-to-b from-[#fff139] to-[#ffc312] text-[#7a2d25]'
+                  className={`min-w-[152px] flex-shrink-0 rounded-t-2xl px-3 py-2.5 text-center shadow-[0_4px_0_rgba(120,34,0,0.3)] active:scale-[0.98] ${
+                    active ? 'bg-[#ff553d] text-white' : 'bg-gradient-to-b from-[#fff139] to-[#ffc312] text-[#7a2d25]'
                   }`}
                   onClick={() => { setSelectedRuleId(rule.id!); setResult(null); setMessage('') }}
                 >
@@ -195,7 +190,7 @@ export default function RewardsSpinPage({ onOpenWallet, onOpenCs, onClose }: Pro
           </div>
         )}
 
-        <section className="mt-0 border-t-4 border-[#ff5139] bg-[#fff0e9] pb-3 text-[#0b4c2d]">
+        <section className="mt-0 border-t-4 border-[#ff553d] bg-[#fff0e9] pb-3 text-[#0b4c2d]">
           {(status?.recentRecords ?? []).slice(0, 10).map((rec, idx) => (
             <div
               key={rec.id}
