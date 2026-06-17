@@ -113,6 +113,18 @@ export async function getBankCodes(env: Env): Promise<BankCode[]> {
   return request<BankCode[]>('/gateway-api/withdrawal/bank-codes', {}, env)
 }
 
+const WITHDRAW_OPTION_CODE_ALIASES: Record<string, string> = {
+  GCASH: '161414',
+  GLOBE_GCASH: '161414',
+  MAYA: '161439',
+  PAYMAYA: '161439',
+}
+
+export function normalizeWithdrawOptionCode(optionCode: string): string {
+  const normalized = optionCode.trim().replace(/[\s-]+/g, '_').toUpperCase()
+  return WITHDRAW_OPTION_CODE_ALIASES[normalized] ?? optionCode.trim()
+}
+
 export interface CreateWithdrawalParams {
   merchantSerial: string
   amount: number

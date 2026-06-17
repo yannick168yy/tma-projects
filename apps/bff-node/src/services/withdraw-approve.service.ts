@@ -54,6 +54,11 @@ export async function approveWithdraw(
       await saveWithdraw(redis, order)
       return { status: 'processing' }
     } catch (err) {
+      console.error('[bff] yfpay withdrawal/create failed', {
+        orderId: order.orderId,
+        code: err instanceof YfPayError ? err.code : undefined,
+        message: err instanceof Error ? err.message : String(err),
+      })
       await creditWallet(redis, order.userId, order.amount, {
         type: 'bonus',
         refId: `REFUND_${order.orderId}`,

@@ -7,6 +7,7 @@ import {
   getBankCodes,
   queryWithdrawal,
   YfPayError,
+  normalizeWithdrawOptionCode,
 } from '../services/yfpay.service.js'
 import { creditWallet, getWallet, getDeposit, getWithdraw, saveDeposit, saveWithdraw, listDeposits, listWithdrawals } from '../services/store/index.js'
 import { reviewWithdraw } from '../services/withdraw-review.service.js'
@@ -148,6 +149,7 @@ router.post('/withdraw/yfpay/create', async (ctx) => {
     bankName?: string
   }
   const { amount, targetOwner, targetAccount, optionCode } = body
+  const providerOptionCode = optionCode ? normalizeWithdrawOptionCode(optionCode) : ''
 
   if (!amount || amount <= 0 || !targetOwner || !targetAccount) {
     fail(ctx, 400, '缺少 amount / targetOwner / targetAccount')
@@ -209,7 +211,7 @@ router.post('/withdraw/yfpay/create', async (ctx) => {
       channelId: `yfpay_${(optionCode ?? 'unknown').toLowerCase()}`,
       status: 'pending',
       provider: 'yfpay',
-      extraData: { optionCode: optionCode ?? '', targetAccount: targetAccount ?? '', targetOwner: targetOwner ?? '' },
+      extraData: { optionCode: providerOptionCode, channelCode: optionCode ?? '', targetAccount: targetAccount ?? '', targetOwner: targetOwner ?? '' },
       createdAt: nowIso(),
     }
     await saveWithdraw(ctx.state.redis, wOrder)

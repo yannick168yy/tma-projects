@@ -13,6 +13,7 @@ import {
   createDeposit as yfpayCreateDeposit,
   queryDeposit as yfpayQueryDeposit,
   YfPayError,
+  normalizeWithdrawOptionCode,
 } from '../services/yfpay.service.js'
 import {
   createDeposit as beepayCreateDeposit,
@@ -239,8 +240,9 @@ router.post('/payment/withdraw/create', async (ctx) => {
     const provider = await resolveChannel(ctx.state.env, channelName, 'withdraw', amount, 'PHP')
     if (!provider) { fail(ctx, 400, '当前金额或渠道暂不可用'); return }
 
-    // provider 专用渠道码：yfpay 用大写，beepay 待文档确认
+    // provider 专用渠道码：yfpay 代付使用 bank-codes 数字编码，beepay 待文档确认
     const channelCode = channelName.toUpperCase()
+    const optionCode = normalizeWithdrawOptionCode(channelCode)
     const merchantSerial = randomOrderId(provider === 'yfpay' ? 'YFW' : 'BPW')
 
     await creditWallet(redis, userId, -amount, {
@@ -261,7 +263,7 @@ router.post('/payment/withdraw/create', async (ctx) => {
       provider,
       extraData: {
         channelCode,
-        optionCode: provider === 'yfpay' ? channelCode : undefined,
+        optionCode: provider === 'yfpay' ? optionCode : undefined,
         channelName,
         targetAccount: targetAccount ?? '',
         targetOwner: targetOwner ?? '',
