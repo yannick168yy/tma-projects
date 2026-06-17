@@ -384,7 +384,7 @@ export default function AppShell() {
             </div>
           )}
           {view.type === 'spin' && (
-            <RewardsSpinPage onOpenWallet={() => void openWallet()} onOpenCs={openCs} onClose={closeImmersive} />
+            <RewardsSpinPage onOpenWallet={() => void openWallet()} onClose={closeImmersive} />
           )}
           {view.type === 'none' && activeNav === 'bonuses' && <BonusesPage promoFilter={promoFilter} onOpenWallet={() => void openWallet()} onOpenTeam={onOpenTeamCenter} />}
           {view.type === 'none' && activeNav === 'bingo' && <BingoPage onOpenWallet={() => void openWallet()} onGameTap={() => void onGameTap()} onOpenGame={(url) => setGamePlayerUrl(url)} onOpenCategoryLobby={onOpenCategoryLobby} />}

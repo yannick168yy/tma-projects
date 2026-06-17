@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ChevronLeft, Gift, Headphones, Loader2 } from 'lucide-react'
+import { ChevronLeft, Gift, Loader2 } from 'lucide-react'
 import { ApiError } from '@/api/client'
 import { drawSpin, fetchSpinStatus, type SpinStatus, type SpinDrawResult } from '@/api/spin'
 import { useWalletStore } from '@/stores/wallet'
@@ -9,10 +9,10 @@ import spinBg from '@/assets/spin/fbm/bg.webp'
 import titleImg from '@/assets/spin/fbm/title.png'
 import mascotLeftImg from '@/assets/spin/fbm/item-left.webp'
 import mascotRightImg from '@/assets/spin/fbm/item-right.webp'
+import winIconImg from '@/assets/spin/fbm/icon-win.webp'
 
 interface Props {
   onOpenWallet: () => void
-  onOpenCs: () => void
   onClose: () => void
 }
 
@@ -27,7 +27,7 @@ function fmtDate(value: string): string {
   return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`
 }
 
-export default function RewardsSpinPage({ onOpenWallet, onOpenCs, onClose }: Props) {
+export default function RewardsSpinPage({ onOpenWallet, onClose }: Props) {
   const { t } = useTranslation()
   const wallet = useWalletStore()
   const [status, setStatus] = useState<SpinStatus | null>(null)
@@ -99,7 +99,7 @@ export default function RewardsSpinPage({ onOpenWallet, onOpenCs, onClose }: Pro
       setRotation((prev) => {
         const current = ((prev % 360) + 360) % 360
         const delta = (desired - current + 360) % 360
-        return prev + 1800 + delta
+        return prev + 2160 + delta
       })
       window.setTimeout(async () => {
         setResult(res)
@@ -110,7 +110,7 @@ export default function RewardsSpinPage({ onOpenWallet, onOpenCs, onClose }: Pro
         } finally {
           setSpinning(false)
         }
-      }, 4300)
+      }, 5700)
     } catch (e) {
       setMessage(e instanceof ApiError ? e.message : t('spin.spinFailed'))
       setSpinning(false)
@@ -118,10 +118,10 @@ export default function RewardsSpinPage({ onOpenWallet, onOpenCs, onClose }: Pro
   }
 
   return (
-    <div className="page-main relative min-h-screen overflow-hidden bg-[#2448bd] pb-5 text-white">
+    <div className="page-main relative min-h-screen overflow-hidden bg-[#2448bd] pb-[calc(88px+env(safe-area-inset-bottom))] text-white">
       <div className="absolute inset-0 z-0 bg-cover bg-top" style={{ backgroundImage: `url(${spinBg})` }} />
 
-      <header className="relative z-10 px-5 pt-[calc(var(--app-safe-top)+18px)]">
+      <header className="relative z-10 px-5 pt-[calc(var(--app-safe-top)+10px)]">
         <div className="flex items-center justify-between">
           <button type="button" className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#35aaf8] text-white shadow-lg shadow-blue-950/25 active:scale-95" onClick={onClose}>
             <ChevronLeft size={27} strokeWidth={3.2} />
@@ -140,10 +140,10 @@ export default function RewardsSpinPage({ onOpenWallet, onOpenCs, onClose }: Pro
 
       <main className="relative z-10 mt-0">
         <img src={mascotLeftImg} alt="" draggable={false} className="spin-mascot-left pointer-events-none absolute left-0 top-[2vw] z-20 w-[21vw] max-w-[104px]" />
-        <img src={mascotRightImg} alt="" draggable={false} className="spin-mascot-right pointer-events-none absolute right-2 top-[49vw] z-30 w-[22vw] max-w-[108px]" />
+        <img src={mascotRightImg} alt="" draggable={false} className="spin-mascot-right pointer-events-none absolute right-2 top-[58vw] z-30 w-[21vw] max-w-[100px]" />
 
         <div className="px-0">
-          <div className="relative mx-auto w-[88vw] max-w-[430px]">
+          <div className="relative mx-auto w-[86vw] max-w-[420px]">
             {loading ? (
               <div className="flex aspect-[760/838] items-center justify-center">
                 <Loader2 size={34} className="animate-spin text-white/80" />
@@ -166,15 +166,8 @@ export default function RewardsSpinPage({ onOpenWallet, onOpenCs, onClose }: Pro
         </div>
 
         {message && <p className="mx-5 mt-3 rounded-xl bg-red-500/20 px-3 py-2 text-center text-xs font-black text-red-100">{message}</p>}
-        {result && (
-          <div className="mx-5 mt-3 rounded-2xl border border-yellow-200/60 bg-gradient-to-r from-[#ff4b37] to-[#ffc927] px-4 py-3 text-center shadow-lg shadow-orange-900/25">
-            <p className="text-xs font-black uppercase text-white/85">{t('spin.youWon')}</p>
-            <p className="mt-0.5 font-display text-3xl font-black text-white drop-shadow">{fmtPhp(result.amountPhp)}</p>
-          </div>
-        )}
-
         {rules.length > 0 && (
-          <div className="mt-[-5px] flex gap-2 overflow-x-auto px-2 pb-1 hide-scrollbar">
+          <div className="mt-3 flex gap-2 overflow-x-auto px-2 pb-1 hide-scrollbar">
             {rules.map((rule, idx) => {
               const active = rule.id === selectedRule?.id
               return (
@@ -212,14 +205,35 @@ export default function RewardsSpinPage({ onOpenWallet, onOpenCs, onClose }: Pro
           )}
         </section>
 
-        <button
-          type="button"
-          onClick={onOpenCs}
-          className="fixed bottom-5 right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-[#f61e1e] text-white shadow-[0_8px_18px_rgba(91,0,0,0.35)] active:scale-95"
-        >
-          <Headphones size={30} strokeWidth={2.5} />
-        </button>
       </main>
+
+      {result && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#06102a]/72 px-8">
+          <div className="relative w-full max-w-[370px] rounded-2xl bg-white px-8 pb-9 pt-28 text-center text-[#464646] shadow-[0_18px_44px_rgba(0,0,0,0.35)]">
+            <img src={winIconImg} alt="" draggable={false} className="absolute left-1/2 top-[-72px] w-[190px] -translate-x-1/2" />
+            <h2 className="text-2xl font-black">Congratulations!</h2>
+            <p className="mt-5 text-xl leading-relaxed text-[#777]">
+              You won {fmtPhp(result.amountPhp)}! Cash has been credited to your wallet.
+            </p>
+            <div className="mt-8 grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                className="h-12 rounded-lg bg-[#b6b6b6] text-lg font-bold text-white active:scale-[0.98]"
+                onClick={() => setResult(null)}
+              >
+                OK
+              </button>
+              <button
+                type="button"
+                className="h-12 rounded-lg bg-[#f42424] text-lg font-bold text-white active:scale-[0.98]"
+                onClick={() => { setResult(null); void onSpin() }}
+              >
+                Spin Again
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

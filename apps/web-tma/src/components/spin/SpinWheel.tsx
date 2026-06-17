@@ -1,4 +1,3 @@
-import { Loader2 } from 'lucide-react'
 import type { SpinPrize } from '@/api/spin'
 import boxImg from '@/assets/spin/fbm/box.webp'
 import wheelImg from '@/assets/spin/fbm/wheel.webp'
@@ -37,8 +36,8 @@ export default function SpinWheel({ prizes, rotation, spinning, disabled, spinLa
       <img src={boxImg} alt="" draggable={false} className="pointer-events-none absolute inset-0 h-full w-full object-contain" />
 
       <div
-        className="spin-wheel-rotor absolute left-[8.3%] top-[10.4%] h-auto w-[83.4%]"
-        style={{ aspectRatio: '1 / 1', transform: `rotate(${rotation}deg)`, transitionDuration: spinning ? '4300ms' : '0ms' }}
+          className="spin-wheel-rotor absolute left-[8.3%] top-[10.4%] h-auto w-[83.4%]"
+        style={{ aspectRatio: '1 / 1', transform: `rotate(${rotation}deg)`, transitionDuration: spinning ? '5600ms' : '0ms' }}
       >
         <img src={wheelImg} alt="" draggable={false} className="pointer-events-none absolute inset-0 h-full w-full object-contain" />
         {prizes.map((prize, i) => {
@@ -49,9 +48,9 @@ export default function SpinWheel({ prizes, rotation, spinning, disabled, spinLa
               className="absolute left-1/2 top-1/2 h-[50%] w-[26%] origin-bottom"
               style={{ transform: `translate(-50%, -100%) rotate(${angle}deg)` }}
             >
-              <div className="flex h-full origin-bottom flex-col items-center pt-[9%]">
-                <img src={PRIZE_IMAGES[i % PRIZE_IMAGES.length]} alt="" draggable={false} className="h-[48%] w-[78%] object-contain" />
-                <span className="mt-[-2px] whitespace-nowrap font-display text-[clamp(9px,2.6vw,15px)] font-black leading-none text-[#82382d] drop-shadow-[0_1px_0_rgba(255,246,190,0.95)]">
+              <div className="flex h-full origin-bottom flex-col items-center pt-[12%]">
+                <img src={PRIZE_IMAGES[i % PRIZE_IMAGES.length]} alt="" draggable={false} className="h-[40%] w-[66%] object-contain" />
+                <span className="mt-[-1px] whitespace-nowrap font-display text-[clamp(9px,2.45vw,14px)] font-black leading-none text-[#82382d] drop-shadow-[0_1px_0_rgba(255,246,190,0.95)]">
                   {fmtPrize(prize)}
                 </span>
               </div>
@@ -64,15 +63,10 @@ export default function SpinWheel({ prizes, rotation, spinning, disabled, spinLa
         type="button"
         disabled={disabled || spinning}
         onClick={onSpin}
-        className="absolute left-1/2 top-[50.4%] z-20 h-[23.5%] w-[29%] active:opacity-90 disabled:opacity-65"
+        className="absolute left-1/2 top-[49.7%] z-20 h-[22%] w-[27.5%] active:opacity-90 disabled:opacity-65"
         style={{ transform: 'translate(-50%, -50%)' }}
       >
         <img src={spinButtonImg} alt="" draggable={false} className="spin-center-button-visual absolute inset-0 h-full w-full object-contain" />
-        {spinning && (
-          <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/10">
-            <Loader2 size={30} className="animate-spin text-white drop-shadow" />
-          </span>
-        )}
         {!spinning && !spinLabel && <span className="sr-only">Spin</span>}
       </button>
     </div>
