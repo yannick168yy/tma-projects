@@ -1,13 +1,17 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Gift, Loader2, Wallet, Trophy, Sparkles } from 'lucide-react'
+import { Gift, Loader2, Wallet, Trophy, ChevronRight, Sparkles, Coins } from 'lucide-react'
 import { ApiError } from '@/api/client'
 import { drawSpin, fetchSpinStatus, type SpinStatus, type SpinDrawResult } from '@/api/spin'
 import { useWalletStore } from '@/stores/wallet'
+import SpinWheel from '@/components/spin/SpinWheel'
+import BuntingStrip from '@/components/bingo/BuntingStrip'
 
 interface Props {
   onOpenWallet: () => void
 }
+
+const BUNTING = ['#a855f7', '#f59e0b', '#ec4899', '#f97316', '#7c3aed', '#fbbf24', '#db2777', '#c084fc'] as const
 
 function fmtPhp(amount: number): string {
   return `₱${amount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
@@ -33,13 +37,13 @@ export default function RewardsSpinPage({ onOpenWallet }: Props) {
     () => status?.prizes.filter((p) => p.enabled && p.ruleId === selectedRule?.id) ?? [],
     [selectedRule?.id, status],
   )
-  const wheelBg = useMemo(() => {
-    if (!prizes.length) return '#2b2340'
-    const colors = ['#fbbf24', '#064e3b', '#10b981', '#78350f', '#047857', '#f59e0b', '#065f46', '#d97706']
-    const step = 100 / prizes.length
-    return `conic-gradient(${prizes.map((_, i) => `${colors[i % colors.length]} ${i * step}% ${(i + 1) * step}%`).join(',')})`
-  }, [prizes])
-  const visiblePrizes = useMemo(() => prizes.slice(0, 8), [prizes])
+  const wheelPrizes = useMemo(() => prizes.slice(0, 8), [prizes])
+  const canSpin = Boolean(
+    selectedRule?.id
+    && status?.enabled
+    && (selectedRule.remainingChances ?? 0) > 0
+    && wheelPrizes.length > 0,
+  )
 
   async function load() {
     setLoading(true)
@@ -61,14 +65,14 @@ export default function RewardsSpinPage({ onOpenWallet }: Props) {
   useEffect(() => { void load() }, [])
 
   async function onSpin() {
-    if (!selectedRule?.id || spinning || !status?.enabled || (selectedRule.remainingChances ?? 0) <= 0 || prizes.length === 0) return
+    if (!selectedRule?.id || spinning || !canSpin) return
     setSpinning(true)
     setResult(null)
     setMessage('')
     try {
       const res = await drawSpin(selectedRule.id)
-      const idx = Math.max(0, prizes.findIndex((p) => p.id === res.prizeId))
-      const segment = 360 / Math.max(1, prizes.length)
+      const idx = Math.max(0, wheelPrizes.findIndex((p) => p.id === res.prizeId))
+      const segment = 360 / Math.max(1, wheelPrizes.length)
       const target = 360 - (idx * segment + segment / 2)
       setRotation((prev) => prev + 1440 + target)
       window.setTimeout(async () => {
@@ -85,145 +89,216 @@ export default function RewardsSpinPage({ onOpenWallet }: Props) {
   }
 
   return (
-    <div className="page-main min-h-screen bg-[#080b14] pb-6 text-white">
+    <div className="page-main min-h-screen bg-[#080b14] pb-8 text-white">
       <section
         className="relative overflow-hidden px-4 pb-5 pt-[calc(var(--app-safe-top)+58px)]"
-        style={{ background: 'linear-gradient(160deg, #14532d 0%, #0a2e1a 44%, #080b14 78%)' }}
+        style={{ background: 'linear-gradient(160deg, #5b21b6 0%, #3b0764 38%, #1a0533 68%, #080b14 92%)' }}
       >
+        <div className="pointer-events-none absolute -right-8 top-6 h-28 w-28 rounded-full bg-fuchsia-500/25 blur-2xl" />
+        <div className="pointer-events-none absolute bottom-0 left-0 h-24 w-24 rounded-full bg-violet-500/20 blur-xl" />
+
         <div className="relative">
-          <div className="flex items-center justify-between">
+          <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <p className="text-[11px] font-bold uppercase tracking-widest text-emerald-200/90">{t('spin.kicker')}</p>
-              <h1 className="mt-1 bg-gradient-to-r from-white via-emerald-100 to-amber-300 bg-clip-text font-display text-[1.8rem] font-black leading-tight text-transparent drop-shadow-sm">
+              <p className="text-[11px] font-bold uppercase tracking-widest text-violet-200/90">{t('spin.kicker')}</p>
+              <h1 className="mt-1 bg-gradient-to-r from-white via-violet-100 to-amber-300 bg-clip-text font-display text-[1.85rem] font-black leading-tight text-transparent drop-shadow-sm">
                 {t('spin.title')}
               </h1>
+              <p className="mt-2 max-w-[300px] text-xs font-semibold leading-relaxed text-violet-100/60">{t('spin.subtitle')}</p>
             </div>
-            <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl bg-gradient-to-r from-amber-400 to-yellow-500 text-emerald-950 shadow-md shadow-amber-500/25">
-              <Gift size={24} />
+            <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-fuchsia-500 to-violet-600 text-white shadow-lg shadow-fuchsia-500/35">
+              <Gift size={28} strokeWidth={2.2} />
             </div>
           </div>
-          <p className="mt-2 max-w-[290px] text-xs font-semibold leading-relaxed text-emerald-100/65">{t('spin.subtitle')}</p>
-          <div className="mt-4 grid grid-cols-3 gap-3">
-            <div className="rounded-xl border border-emerald-400/25 bg-emerald-950/40 px-2.5 py-2.5 text-center backdrop-blur-sm">
-              <p className="text-amber-300 font-black text-xl leading-none">{selectedRule?.remainingChances ?? 0}</p>
-              <p className="mt-1 text-[9px] leading-tight text-emerald-200/55">{selectedRule?.name ?? t('spin.remaining')}</p>
+
+          <div className="mt-4 grid grid-cols-3 gap-2.5">
+            <div className="rounded-2xl border border-violet-400/25 bg-purple-950/50 px-2 py-3 text-center backdrop-blur-sm">
+              <p className="font-display text-2xl font-black leading-none text-amber-300">{selectedRule?.remainingChances ?? 0}</p>
+              <p className="mt-1.5 text-[9px] font-bold leading-tight text-violet-200/55">{t('spin.remaining')}</p>
             </div>
-            <div className="rounded-xl border border-emerald-400/25 bg-emerald-950/40 px-2.5 py-2.5 text-center backdrop-blur-sm">
-              <p className="text-amber-300 font-black text-xl leading-none">{visiblePrizes.length || '-'}</p>
-              <p className="mt-1 text-[9px] leading-tight text-emerald-200/55">{t('spin.prizes')}</p>
+            <div className="rounded-2xl border border-violet-400/25 bg-purple-950/50 px-2 py-3 text-center backdrop-blur-sm">
+              <p className="font-display text-2xl font-black leading-none text-amber-300">{wheelPrizes.length || '—'}</p>
+              <p className="mt-1.5 text-[9px] font-bold leading-tight text-violet-200/55">{t('spin.prizes')}</p>
             </div>
-            <button type="button" className="rounded-xl bg-gradient-to-r from-amber-400 to-yellow-500 px-2.5 py-2.5 text-center text-emerald-950 shadow-md shadow-amber-500/25 active:opacity-80" onClick={onOpenWallet}>
-              <Wallet size={18} className="mx-auto" />
+            <button
+              type="button"
+              className="rounded-2xl bg-gradient-to-r from-amber-400 to-yellow-500 px-2 py-3 text-center text-purple-950 shadow-md shadow-amber-500/25 active:scale-[0.98] transition-transform"
+              onClick={onOpenWallet}
+            >
+              <Wallet size={20} className="mx-auto" strokeWidth={2.2} />
               <p className="mt-1 text-[10px] font-black leading-tight">{t('spin.depositNow')}</p>
             </button>
           </div>
         </div>
       </section>
 
-      <main className="relative px-4 pb-8">
+      <main className="relative px-4">
         {loading ? (
-          <div className="flex h-80 items-center justify-center text-white/50">
+          <div className="flex h-96 items-center justify-center text-white/50">
             <Loader2 size={28} className="animate-spin" />
           </div>
         ) : (
           <>
-            <div className="mt-3 flex gap-2 overflow-x-auto pb-1 hide-scrollbar">
-              {rules.map((rule) => {
-                const active = rule.id === selectedRule?.id
-                const max = rule.maxDepositPhp == null ? '+' : ` - ${fmtPhp(rule.maxDepositPhp)}`
-                return (
-                  <button
-                    key={rule.id}
-                    type="button"
-                    className={`min-w-[132px] flex-shrink-0 rounded-full border px-3 py-2 text-left active:scale-95 transition-transform ${
-                      active
-                        ? 'border-amber-300 bg-gradient-to-r from-amber-400 to-yellow-500 text-emerald-950'
-                        : 'border-emerald-700/35 bg-emerald-950/45 text-emerald-100'
-                    }`}
-                    onClick={() => { setSelectedRuleId(rule.id!); setResult(null); setMessage('') }}
-                  >
-                    <p className="truncate text-xs font-black">{rule.name}</p>
-                    <p className={`mt-0.5 text-[10px] font-bold ${active ? 'text-emerald-900/80' : 'text-amber-300/80'}`}>
-                      {fmtPhp(rule.minDepositPhp)}{max} · {rule.remainingChances ?? 0}
-                    </p>
-                  </button>
-                )
-              })}
+            {rules.length > 0 && (
+              <div className="mt-3 flex gap-2 overflow-x-auto pb-1 hide-scrollbar">
+                {rules.map((rule) => {
+                  const active = rule.id === selectedRule?.id
+                  const max = rule.maxDepositPhp == null ? '+' : ` – ${fmtPhp(rule.maxDepositPhp)}`
+                  return (
+                    <button
+                      key={rule.id}
+                      type="button"
+                      className={`min-w-[140px] flex-shrink-0 rounded-2xl border px-3.5 py-2.5 text-left transition-all active:scale-[0.98] ${
+                        active
+                          ? 'border-fuchsia-300/50 bg-gradient-to-r from-fuchsia-500 to-violet-600 text-white shadow-md shadow-fuchsia-500/25'
+                          : 'border-purple-700/35 bg-purple-950/55 text-violet-100'
+                      }`}
+                      onClick={() => { setSelectedRuleId(rule.id!); setResult(null); setMessage('') }}
+                    >
+                      <p className="truncate text-xs font-black">{rule.name}</p>
+                      <p className={`mt-0.5 text-[10px] font-bold ${active ? 'text-violet-100/85' : 'text-amber-300/85'}`}>
+                        {fmtPhp(rule.minDepositPhp)}{max}
+                      </p>
+                      <p className={`mt-1 text-[10px] font-black ${active ? 'text-white/90' : 'text-violet-300/65'}`}>
+                        {rule.remainingChances ?? 0} {t('spin.chances')}
+                      </p>
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+
+            <div className="relative mt-5 overflow-hidden rounded-3xl border border-purple-700/40 bg-gradient-to-b from-purple-950/70 to-[#080b14] px-3 pb-5 pt-2">
+              <BuntingStrip colors={[...BUNTING]} />
+              <div className="mt-2 flex items-center justify-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-violet-200/80">
+                <Sparkles size={12} className="text-fuchsia-300" />
+                <span>{t('spin.title')}</span>
+                <Sparkles size={12} className="text-fuchsia-300" />
+              </div>
+
+              <div className="mt-3">
+                {wheelPrizes.length > 0 ? (
+                  <SpinWheel
+                    prizes={wheelPrizes}
+                    rotation={rotation}
+                    spinning={spinning}
+                    disabled={!canSpin}
+                    spinLabel={t('spin.spinBtn')}
+                    onSpin={() => void onSpin()}
+                  />
+                ) : (
+                  <div className="flex h-64 items-center justify-center text-sm font-bold text-violet-200/40">
+                    {t('spin.noRecords')}
+                  </div>
+                )}
+              </div>
+
+              {!canSpin && !spinning && wheelPrizes.length > 0 && (
+                <p className="mt-2 text-center text-[11px] font-bold text-violet-200/50">
+                  {(selectedRule?.remainingChances ?? 0) <= 0 ? t('spin.depositNow') : ''}
+                </p>
+              )}
             </div>
 
-            <div className="relative mx-auto mt-4 mb-5 flex aspect-square w-full max-w-[354px] items-center justify-center overflow-hidden rounded-[28px] border border-emerald-700/30 bg-emerald-950/35 px-4">
-              <div className="absolute left-1/2 top-4 z-20 h-0 w-0 -translate-x-1/2 border-l-[15px] border-r-[15px] border-t-[28px] border-l-transparent border-r-transparent border-t-amber-300 drop-shadow-lg" />
-              <div className="absolute inset-4 rounded-full border border-amber-300/25" />
-              <div
-                className="relative h-[78%] w-[78%] rounded-full border-[10px] border-emerald-950 shadow-2xl transition-transform duration-[2600ms] ease-out"
-                style={{ background: wheelBg, transform: `rotate(${rotation}deg)` }}
-              />
-              <div className="pointer-events-none absolute inset-0">
-                {visiblePrizes.map((prize, i) => {
-                  const rad = ((360 / visiblePrizes.length) * i - 90) * Math.PI / 180
-                  const left = 50 + Math.cos(rad) * 34
-                  const top = 50 + Math.sin(rad) * 34
+            {result && (
+              <div className="mt-4 overflow-hidden rounded-2xl border border-fuchsia-400/35 shadow-lg shadow-fuchsia-500/20">
+                <div className="relative overflow-hidden bg-gradient-to-r from-violet-700 via-fuchsia-700 to-amber-500 px-5 py-5 text-center">
+                  <div className="pointer-events-none absolute -right-4 -top-4 h-20 w-20 rounded-full bg-white/10" />
+                  <div className="pointer-events-none absolute -bottom-6 -left-4 h-24 w-24 rounded-full bg-amber-300/15" />
+                  <p className="relative text-xs font-bold uppercase tracking-widest text-violet-100/85">{t('spin.youWon')}</p>
+                  <p className="relative mt-1 font-display text-3xl font-black text-white drop-shadow-md">{fmtPhp(result.amountPhp)}</p>
+                  <p className="relative mt-1 text-sm font-bold text-violet-50/90">{result.prizeName}</p>
+                </div>
+              </div>
+            )}
+            {message && <p className="mt-4 text-center text-xs font-bold text-rose-300">{message}</p>}
+
+            <section className="mt-6">
+              <div className="mb-3 flex items-center gap-2">
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-purple-900/70">
+                  <Coins size={14} className="text-fuchsia-300" />
+                </div>
+                <h2 className="text-sm font-black text-violet-100">{t('spin.howToGet')}</h2>
+              </div>
+              <div className="space-y-2">
+                {rules.map((rule) => {
+                  const active = rule.id === selectedRule?.id
+                  const max = rule.maxDepositPhp == null ? '+' : ` – ${fmtPhp(rule.maxDepositPhp)}`
                   return (
-                    <span
-                      key={prize.id ?? i}
-                      className="absolute flex h-9 min-w-[58px] items-center justify-center rounded-full border border-amber-200/60 bg-emerald-950/90 px-2 text-[10px] font-black text-amber-200 shadow-md"
-                      style={{ left: `${left}%`, top: `${top}%`, transform: 'translate(-50%, -50%)' }}
+                    <button
+                      key={rule.id ?? rule.minDepositPhp}
+                      type="button"
+                      className={`flex w-full items-center gap-3 rounded-2xl border px-3.5 py-3.5 text-left transition-all active:scale-[0.98] ${
+                        active
+                          ? 'border-fuchsia-400/35 bg-gradient-to-r from-purple-900/80 to-purple-950/60'
+                          : 'border-purple-700/30 bg-purple-950/40'
+                      }`}
+                      onClick={() => { setSelectedRuleId(rule.id!); setResult(null) }}
                     >
-                      {prize.name}
-                    </span>
+                      <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-fuchsia-500 to-violet-600 text-white">
+                        <Wallet size={18} strokeWidth={2.2} />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-black text-white">{rule.name}</p>
+                        <p className="mt-0.5 text-[11px] font-bold text-violet-200/55">
+                          Deposit {fmtPhp(rule.minDepositPhp)}{max}
+                        </p>
+                      </div>
+                      <div className="flex flex-shrink-0 flex-col items-end gap-0.5">
+                        <span className="rounded-full bg-fuchsia-400/15 px-2.5 py-1 text-[11px] font-black text-fuchsia-300">
+                          {rule.chances} {t('spin.chances')}
+                        </span>
+                        <ChevronRight size={14} className="text-violet-400/50" />
+                      </div>
+                    </button>
                   )
                 })}
               </div>
               <button
                 type="button"
-                disabled={spinning || !status?.enabled || (status?.remainingChances ?? 0) <= 0}
-                className="absolute left-1/2 top-1/2 z-10 flex h-24 w-24 -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center rounded-full border-4 border-amber-100 bg-gradient-to-br from-amber-400 to-yellow-500 text-emerald-950 shadow-xl shadow-amber-500/25 active:scale-95 disabled:opacity-60"
-                onClick={() => void onSpin()}
+                onClick={onOpenWallet}
+                className="mt-3 w-full rounded-2xl bg-gradient-to-r from-fuchsia-500 to-violet-600 py-3.5 text-sm font-black text-white shadow-md shadow-fuchsia-500/25 active:opacity-85"
               >
-                {spinning ? <Loader2 size={24} className="animate-spin" /> : <Sparkles size={22} />}
-                <span className="mt-1 text-sm font-black leading-none">{t('spin.spinBtn')}</span>
+                {t('spin.depositNow')}
               </button>
-            </div>
-
-            {result && (
-              <div className="mx-0 mb-4 overflow-hidden rounded-2xl border border-emerald-600/30">
-                <div className="bg-gradient-to-r from-emerald-700 via-emerald-800 to-amber-500 px-5 py-4 text-center">
-                  <p className="text-xs font-bold text-amber-100/75">{t('spin.youWon')}</p>
-                  <p className="mt-1 font-display text-2xl font-black text-white drop-shadow">{fmtPhp(result.amountPhp)}</p>
-                </div>
-              </div>
-            )}
-            {message && <p className="mb-4 text-center text-xs font-bold text-rose-300">{message}</p>}
-
-            <section className="mb-5">
-              <div className="mb-2 flex items-center gap-2">
-                <Wallet size={15} className="text-amber-300" />
-                <h2 className="text-sm font-black text-emerald-100">{t('spin.howToGet')}</h2>
-              </div>
-              <div className="grid grid-cols-3 gap-2">
-                {rules.map((rule) => (
-                  <button key={rule.id ?? rule.minDepositPhp} type="button" className="rounded-xl border border-emerald-700/30 bg-emerald-950/40 px-2 py-3 text-center active:scale-95 transition-transform" onClick={() => setSelectedRuleId(rule.id!)}>
-                    <p className="truncate text-xs font-black text-white">{rule.name}</p>
-                    <p className="mt-1 text-[10px] font-bold text-amber-300">{rule.chances} {t('spin.chances')}</p>
-                  </button>
-                ))}
-              </div>
             </section>
 
-            <section>
-              <div className="mb-2 flex items-center gap-2">
-                <Trophy size={15} className="text-amber-300" />
-                <h2 className="text-sm font-black text-emerald-100">{t('spin.recentWins')}</h2>
+            <section className="mt-6">
+              <div className="mb-3 flex items-center gap-2">
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-purple-900/70">
+                  <Trophy size={14} className="text-amber-300" />
+                </div>
+                <h2 className="text-sm font-black text-violet-100">{t('spin.recentWins')}</h2>
               </div>
-              <div className="overflow-hidden rounded-xl border border-emerald-700/30 bg-emerald-950/35">
-                {(status?.recentRecords ?? []).slice(0, 8).map((rec) => (
-                  <div key={rec.id} className="flex items-center justify-between border-b border-emerald-700/25 px-3 py-2.5 last:border-0">
-                    <span className="text-xs font-bold text-emerald-100/72">{rec.displayName}</span>
-                    <span className="text-xs font-black text-amber-300">{t('common.won')} {fmtPhp(rec.amountPhp)}</span>
+              <div className="overflow-hidden rounded-2xl border border-purple-700/30 bg-purple-950/35">
+                {(status?.recentRecords ?? []).slice(0, 8).map((rec, idx) => (
+                  <div
+                    key={rec.id}
+                    className="flex items-center justify-between gap-3 border-b border-purple-700/20 px-3.5 py-3 last:border-0"
+                  >
+                    <div className="flex min-w-0 items-center gap-2.5">
+                      <span
+                        className={`flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-[10px] font-black ${
+                          idx === 0
+                            ? 'bg-amber-400 text-purple-950'
+                            : idx === 1
+                              ? 'bg-fuchsia-600 text-white'
+                              : idx === 2
+                                ? 'bg-violet-700 text-violet-100'
+                                : 'bg-purple-950 text-violet-400/70'
+                        }`}
+                      >
+                        {idx + 1}
+                      </span>
+                      <span className="truncate text-xs font-bold text-violet-100/80">{rec.displayName}</span>
+                    </div>
+                    <span className="flex-shrink-0 text-xs font-black text-amber-300">
+                      {t('common.won')} {fmtPhp(rec.amountPhp)}
+                    </span>
                   </div>
                 ))}
                 {status?.recentRecords.length === 0 && (
-                  <p className="px-3 py-5 text-center text-xs font-bold text-white/40">{t('spin.noRecords')}</p>
+                  <p className="px-3 py-6 text-center text-xs font-bold text-white/40">{t('spin.noRecords')}</p>
                 )}
               </div>
             </section>
