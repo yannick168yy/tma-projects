@@ -15,7 +15,9 @@ router.post('/draw', async (ctx) => {
   const userId = ctx.state.userId
   if (!userId) { fail(ctx, 401, 'Unauthorized', 401); return }
   try {
-    const result = await drawSpin(ctx.state.env, userId, ctx.state.traceId)
+    const body = (ctx.request.body ?? {}) as { ruleId?: number }
+    const ruleId = body.ruleId ? Number(body.ruleId) : undefined
+    const result = await drawSpin(ctx.state.env, userId, ruleId, ctx.state.traceId)
     ok(ctx, result)
   } catch (e) {
     fail(ctx, 400, e instanceof Error ? e.message : 'Spin failed')

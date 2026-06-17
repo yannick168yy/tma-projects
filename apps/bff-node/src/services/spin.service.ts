@@ -4,14 +4,18 @@ import { getMysqlPool, isMysqlEnabled } from '../clients/mysql.client.js'
 
 export interface SpinDepositRule {
   id?: number
+  name: string
   minDepositPhp: number
+  maxDepositPhp: number | null
   chances: number
   enabled: boolean
   sortOrder: number
+  remainingChances?: number
 }
 
 export interface SpinPrize {
   id?: number
+  ruleId?: number | null
   name: string
   amountPhp: number
   weight: number
@@ -72,7 +76,9 @@ function maskName(name: string, fallback: string): string {
 function mapRule(r: RowDataPacket): SpinDepositRule {
   return {
     id: Number(r.id),
+    name: String(r.name ?? ''),
     minDepositPhp: Number(r.min_deposit_php),
+    maxDepositPhp: r.max_deposit_php == null ? null : Number(r.max_deposit_php),
     chances: Number(r.chances),
     enabled: Boolean(r.enabled),
     sortOrder: Number(r.sort_order),
@@ -82,6 +88,7 @@ function mapRule(r: RowDataPacket): SpinDepositRule {
 function mapPrize(r: RowDataPacket): SpinPrize {
   return {
     id: Number(r.id),
+    ruleId: r.rule_id == null ? null : Number(r.rule_id),
     name: String(r.name),
     amountPhp: Number(r.amount_php),
     weight: Number(r.weight),
@@ -96,13 +103,13 @@ async function getEnabledConfig(conn: PoolConnection): Promise<SpinConfig> {
     `SELECT enabled FROM bg_spin_config WHERE id = 1 LIMIT 1`,
   )
   const [rules] = await conn.query<RowDataPacket[]>(
-    `SELECT id, min_deposit_php, chances, enabled, sort_order
+    `SELECT id, name, min_deposit_php, max_deposit_php, chances, enabled, sort_order
      FROM bg_spin_deposit_rule
      WHERE enabled = 1
      ORDER BY sort_order ASC, min_deposit_php ASC`,
   )
   const [prizes] = await conn.query<RowDataPacket[]>(
-    `SELECT id, name, amount_php, weight, turnover_x, enabled, sort_order
+    `SELECT id, rule_id, name, amount_php, weight, turnover_x, enabled, sort_order
      FROM bg_spin_prize
      WHERE enabled = 1
      ORDER BY sort_order ASC, id ASC`,
@@ -122,12 +129,12 @@ export async function getSpinConfig(env: Env): Promise<SpinConfig> {
       `SELECT enabled FROM bg_spin_config WHERE id = 1 LIMIT 1`,
     )
     const [rules] = await conn.query<RowDataPacket[]>(
-      `SELECT id, min_deposit_php, chances, enabled, sort_order
+      `SELECT id, name, min_deposit_php, max_deposit_php, chances, enabled, sort_order
        FROM bg_spin_deposit_rule
        ORDER BY sort_order ASC, min_deposit_php ASC`,
     )
     const [prizes] = await conn.query<RowDataPacket[]>(
-      `SELECT id, name, amount_php, weight, turnover_x, enabled, sort_order
+      `SELECT id, rule_id, name, amount_php, weight, turnover_x, enabled, sort_order
        FROM bg_spin_prize
        ORDER BY sort_order ASC, id ASC`,
     )
@@ -142,11 +149,18 @@ export async function getSpinConfig(env: Env): Promise<SpinConfig> {
 }
 
 function validRule(rule: SpinDepositRule): boolean {
-  return rule.minDepositPhp > 0 && rule.chances > 0
+  return rule.name.trim().length > 0
+    && rule.minDepositPhp > 0
+    && (rule.maxDepositPhp == null || rule.maxDepositPhp >= rule.minDepositPhp)
+    && rule.chances > 0
 }
 
 function validPrize(prize: SpinPrize): boolean {
-  return prize.name.trim().length > 0 && prize.amountPhp > 0 && prize.weight > 0 && prize.turnoverX >= 0
+  return Number(prize.ruleId) > 0
+    && prize.name.trim().length > 0
+    && prize.amountPhp > 0
+    && prize.weight > 0
+    && prize.turnoverX >= 0
 }
 
 export async function saveSpinConfig(env: Env, config: SpinConfig): Promise<SpinConfig> {
@@ -171,15 +185,15 @@ export async function saveSpinConfig(env: Env, config: SpinConfig): Promise<Spin
         keptRuleIds.push(rule.id)
         await conn.execute(
           `UPDATE bg_spin_deposit_rule
-           SET min_deposit_php = ?, chances = ?, enabled = ?, sort_order = ?
+           SET name = ?, min_deposit_php = ?, max_deposit_php = ?, chances = ?, enabled = ?, sort_order = ?
            WHERE id = ?`,
-          [rule.minDepositPhp, rule.chances, rule.enabled ? 1 : 0, rule.sortOrder, rule.id],
+          [rule.name.trim(), rule.minDepositPhp, rule.maxDepositPhp ?? null, rule.chances, rule.enabled ? 1 : 0, rule.sortOrder, rule.id],
         )
       } else {
         const [res] = await conn.execute(
-          `INSERT INTO bg_spin_deposit_rule (min_deposit_php, chances, enabled, sort_order)
-           VALUES (?, ?, ?, ?)`,
-          [rule.minDepositPhp, rule.chances, rule.enabled ? 1 : 0, rule.sortOrder],
+          `INSERT INTO bg_spin_deposit_rule (name, min_deposit_php, max_deposit_php, chances, enabled, sort_order)
+           VALUES (?, ?, ?, ?, ?, ?)`,
+          [rule.name.trim(), rule.minDepositPhp, rule.maxDepositPhp ?? null, rule.chances, rule.enabled ? 1 : 0, rule.sortOrder],
         )
         keptRuleIds.push(Number((res as { insertId: number }).insertId))
       }
@@ -197,15 +211,15 @@ export async function saveSpinConfig(env: Env, config: SpinConfig): Promise<Spin
         keptPrizeIds.push(prize.id)
         await conn.execute(
           `UPDATE bg_spin_prize
-           SET name = ?, amount_php = ?, weight = ?, turnover_x = ?, enabled = ?, sort_order = ?
+           SET rule_id = ?, name = ?, amount_php = ?, weight = ?, turnover_x = ?, enabled = ?, sort_order = ?
            WHERE id = ?`,
-          [prize.name.trim(), prize.amountPhp, prize.weight, prize.turnoverX, prize.enabled ? 1 : 0, prize.sortOrder, prize.id],
+          [prize.ruleId ?? null, prize.name.trim(), prize.amountPhp, prize.weight, prize.turnoverX, prize.enabled ? 1 : 0, prize.sortOrder, prize.id],
         )
       } else {
         const [res] = await conn.execute(
-          `INSERT INTO bg_spin_prize (name, amount_php, weight, turnover_x, enabled, sort_order)
-           VALUES (?, ?, ?, ?, ?, ?)`,
-          [prize.name.trim(), prize.amountPhp, prize.weight, prize.turnoverX, prize.enabled ? 1 : 0, prize.sortOrder],
+          `INSERT INTO bg_spin_prize (rule_id, name, amount_php, weight, turnover_x, enabled, sort_order)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          [prize.ruleId ?? null, prize.name.trim(), prize.amountPhp, prize.weight, prize.turnoverX, prize.enabled ? 1 : 0, prize.sortOrder],
         )
         keptPrizeIds.push(Number((res as { insertId: number }).insertId))
       }
@@ -227,12 +241,11 @@ export async function saveSpinConfig(env: Env, config: SpinConfig): Promise<Spin
   }
 }
 
-function chancesForDeposit(amount: number, rules: SpinDepositRule[]): number {
-  let chances = 0
-  for (const rule of rules) {
-    if (amount >= rule.minDepositPhp) chances = Math.max(chances, rule.chances)
-  }
-  return chances
+function ruleForDeposit(amount: number, rules: SpinDepositRule[]): SpinDepositRule | null {
+  const matched = rules
+    .filter((rule) => amount >= rule.minDepositPhp && (rule.maxDepositPhp == null || amount <= rule.maxDepositPhp))
+    .sort((a, b) => b.minDepositPhp - a.minDepositPhp || a.sortOrder - b.sortOrder)
+  return matched[0] ?? null
 }
 
 export async function syncSpinChances(env: Env, userId: string): Promise<void> {
@@ -257,13 +270,13 @@ export async function syncSpinChances(env: Env, userId: string): Promise<void> {
 
     for (const order of orders) {
       const amount = Number(order.amount)
-      const chances = chancesForDeposit(amount, config.depositRules)
-      if (chances <= 0) continue
+      const rule = ruleForDeposit(amount, config.depositRules)
+      if (!rule?.id || rule.chances <= 0) continue
       await conn.execute(
         `INSERT IGNORE INTO bg_spin_chance
-           (user_id, source_order_id, deposit_amount_php, chances_total)
-         VALUES (?, ?, ?, ?)`,
-        [userId, String(order.order_id), amount, chances],
+           (user_id, source_order_id, rule_id, deposit_amount_php, chances_total)
+         VALUES (?, ?, ?, ?, ?)`,
+        [userId, String(order.order_id), rule.id, amount, rule.chances],
       )
     }
   } finally {
@@ -271,14 +284,25 @@ export async function syncSpinChances(env: Env, userId: string): Promise<void> {
   }
 }
 
-async function remainingChances(conn: PoolConnection, userId: string): Promise<number> {
+async function remainingChances(conn: PoolConnection, userId: string, ruleId?: number): Promise<number> {
   const [[row]] = await conn.query<RowDataPacket[]>(
     `SELECT COALESCE(SUM(chances_total - chances_used), 0) AS total
      FROM bg_spin_chance
-     WHERE user_id = ? AND chances_used < chances_total`,
-    [userId],
+     WHERE user_id = ? AND chances_used < chances_total ${ruleId ? 'AND rule_id = ?' : ''}`,
+    ruleId ? [userId, ruleId] : [userId],
   )
   return Number(row?.total ?? 0)
+}
+
+async function remainingByRule(conn: PoolConnection, userId: string): Promise<Map<number, number>> {
+  const [rows] = await conn.query<RowDataPacket[]>(
+    `SELECT rule_id, COALESCE(SUM(chances_total - chances_used), 0) AS total
+     FROM bg_spin_chance
+     WHERE user_id = ? AND rule_id IS NOT NULL AND chances_used < chances_total
+     GROUP BY rule_id`,
+    [userId],
+  )
+  return new Map(rows.map((r) => [Number(r.rule_id), Number(r.total)]))
 }
 
 async function recentRecords(conn: PoolConnection, limit: number): Promise<SpinRecord[]> {
@@ -306,8 +330,13 @@ export async function getSpinStatus(env: Env, userId: string): Promise<SpinStatu
   const conn = await pool.getConnection()
   try {
     const config = await getEnabledConfig(conn)
+    const byRule = await remainingByRule(conn, userId)
     return {
       ...config,
+      depositRules: config.depositRules.map((rule) => ({
+        ...rule,
+        remainingChances: rule.id ? (byRule.get(rule.id) ?? 0) : 0,
+      })),
       remainingChances: await remainingChances(conn, userId),
       recentRecords: await recentRecords(conn, 20),
     }
@@ -326,7 +355,7 @@ function pickPrize(prizes: SpinPrize[]): SpinPrize {
   return prizes[prizes.length - 1]
 }
 
-export async function drawSpin(env: Env, userId: string, traceId?: string): Promise<SpinDrawResult> {
+export async function drawSpin(env: Env, userId: string, ruleId?: number, traceId?: string): Promise<SpinDrawResult> {
   await syncSpinChances(env, userId)
   const pool = getMysqlPool(env)
   const conn = await pool.getConnection()
@@ -337,18 +366,21 @@ export async function drawSpin(env: Env, userId: string, traceId?: string): Prom
     if (!config.prizes.length) throw new Error('No active prize')
 
     const [chances] = await conn.query<RowDataPacket[]>(
-      `SELECT id, chances_total, chances_used
+      `SELECT id, rule_id, chances_total, chances_used
        FROM bg_spin_chance
-       WHERE user_id = ? AND chances_used < chances_total
+       WHERE user_id = ? AND chances_used < chances_total ${ruleId ? 'AND rule_id = ?' : ''}
        ORDER BY created_at ASC
        LIMIT 1
        FOR UPDATE`,
-      [userId],
+      ruleId ? [userId, ruleId] : [userId],
     )
     const chance = chances[0]
     if (!chance) throw new Error('No spin chances')
 
-    const prize = pickPrize(config.prizes)
+    const pickedRuleId = ruleId ?? (chance.rule_id == null ? undefined : Number(chance.rule_id))
+    const prizes = config.prizes.filter((prize) => prize.ruleId === pickedRuleId)
+    if (!pickedRuleId || prizes.length === 0) throw new Error('No active prize for this spin')
+    const prize = pickPrize(prizes)
     const recordId = spinId()
     const lgId = ledgerId()
     const prizeId = prize.id!

@@ -2,14 +2,18 @@ import { apiRequest } from '@/api/client'
 
 export interface SpinDepositRule {
   id?: number
+  name: string
   minDepositPhp: number
+  maxDepositPhp: number | null
   chances: number
   enabled: boolean
   sortOrder: number
+  remainingChances?: number
 }
 
 export interface SpinPrize {
   id?: number
+  ruleId?: number | null
   name: string
   amountPhp: number
   weight: number
@@ -47,6 +51,6 @@ export function fetchSpinStatus(): Promise<SpinStatus> {
   return apiRequest<SpinStatus>('/spin/status')
 }
 
-export function drawSpin(): Promise<SpinDrawResult> {
-  return apiRequest<SpinDrawResult>('/spin/draw', { method: 'POST' })
+export function drawSpin(ruleId: number): Promise<SpinDrawResult> {
+  return apiRequest<SpinDrawResult>('/spin/draw', { method: 'POST', body: JSON.stringify({ ruleId }) })
 }

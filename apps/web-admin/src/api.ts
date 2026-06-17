@@ -622,13 +622,17 @@ export const getPromoClaims = (params?: { page?: number; pageSize?: number; prom
 // Rewards Spin
 export interface SpinDepositRule {
   id?: number
+  name: string
   minDepositPhp: number
+  maxDepositPhp: number | null
   chances: number
   enabled: boolean
   sortOrder: number
+  remainingChances?: number
 }
 export interface SpinPrize {
   id?: number
+  ruleId?: number | null
   name: string
   amountPhp: number
   weight: number

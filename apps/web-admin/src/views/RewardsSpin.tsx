@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import {
-  Button, Card, Col, Form, Input, InputNumber, message, Row, Space, Spin, Switch, Table, Tabs, Tag, Typography,
+  Button, Card, Col, Form, Input, InputNumber, message, Row, Select, Space, Spin, Switch, Table, Tabs, Tag, Typography,
 } from 'antd'
 import { GiftOutlined, PlusOutlined } from '@ant-design/icons'
 import type { ColumnsType } from 'antd/es/table'
@@ -14,8 +14,8 @@ import {
 
 const { Title, Text } = Typography
 
-const emptyRule = { minDepositPhp: 108, chances: 1, enabled: true, sortOrder: 10 }
-const emptyPrize = { name: '₱7.77', amountPhp: 7.77, weight: 100, turnoverX: 1, enabled: true, sortOrder: 10 }
+const emptyRule = { name: 'New Spin', minDepositPhp: 108, maxDepositPhp: null, chances: 1, enabled: true, sortOrder: 10 }
+const emptyPrize = { ruleId: null, name: '₱7.77', amountPhp: 7.77, weight: 100, turnoverX: 1, enabled: true, sortOrder: 10 }
 
 const recordColumns: ColumnsType<SpinRecord> = [
   { title: '记录ID', dataIndex: 'id', width: 170, render: (v) => <span style={{ fontFamily: 'monospace', fontSize: 12 }}>{v}</span> },
@@ -36,6 +36,10 @@ export default function RewardsSpin() {
   const [recordPage, setRecordPage] = useState(1)
   const [userId, setUserId] = useState('')
   const [form] = Form.useForm<SpinConfig>()
+  const watchedRules = Form.useWatch('depositRules', form) ?? []
+  const ruleOptions = watchedRules
+    .filter((rule) => rule.id)
+    .map((rule) => ({ value: rule.id!, label: `${rule.name} · ₱${rule.minDepositPhp}${rule.maxDepositPhp ? `-₱${rule.maxDepositPhp}` : '+'}` }))
 
   async function loadConfig() {
     setLoading(true)
@@ -112,27 +116,37 @@ export default function RewardsSpin() {
                           <Card key={field.key} size="small">
                             <Form.Item name={[field.name, 'id']} hidden><InputNumber /></Form.Item>
                             <Row gutter={16}>
-                              <Col span={6}>
+                              <Col span={5}>
+                                <Form.Item label="区间名称" name={[field.name, 'name']} rules={[{ required: true }]}>
+                                  <Input />
+                                </Form.Item>
+                              </Col>
+                              <Col span={4}>
                                 <Form.Item label="最低存款 PHP" name={[field.name, 'minDepositPhp']} rules={[{ required: true, type: 'number', min: 1 }]}>
                                   <InputNumber prefix="₱" min={1} precision={2} style={{ width: '100%' }} />
                                 </Form.Item>
                               </Col>
-                              <Col span={5}>
+                              <Col span={4}>
+                                <Form.Item label="最高存款 PHP" name={[field.name, 'maxDepositPhp']}>
+                                  <InputNumber prefix="₱" min={1} precision={2} style={{ width: '100%' }} placeholder="不封顶" />
+                                </Form.Item>
+                              </Col>
+                              <Col span={3}>
                                 <Form.Item label="机会次数" name={[field.name, 'chances']} rules={[{ required: true, type: 'number', min: 1 }]}>
                                   <InputNumber min={1} precision={0} style={{ width: '100%' }} />
                                 </Form.Item>
                               </Col>
-                              <Col span={5}>
+                              <Col span={3}>
                                 <Form.Item label="排序" name={[field.name, 'sortOrder']} rules={[{ required: true, type: 'number' }]}>
                                   <InputNumber precision={0} style={{ width: '100%' }} />
                                 </Form.Item>
                               </Col>
-                              <Col span={4}>
+                              <Col span={2}>
                                 <Form.Item label="启用" name={[field.name, 'enabled']} valuePropName="checked">
                                   <Switch />
                                 </Form.Item>
                               </Col>
-                              <Col span={4}>
+                              <Col span={3}>
                                 <Form.Item label="操作">
                                   <Button danger onClick={() => remove(field.name)}>移除</Button>
                                 </Form.Item>
@@ -154,22 +168,27 @@ export default function RewardsSpin() {
                           <Card key={field.key} size="small">
                             <Form.Item name={[field.name, 'id']} hidden><InputNumber /></Form.Item>
                             <Row gutter={16}>
-                              <Col span={5}>
+                              <Col span={4}>
+                                <Form.Item label="所属区间" name={[field.name, 'ruleId']} rules={[{ required: true, message: '请选择区间' }]}>
+                                  <Select options={ruleOptions} placeholder="选择区间" />
+                                </Form.Item>
+                              </Col>
+                              <Col span={4}>
                                 <Form.Item label="展示名称" name={[field.name, 'name']} rules={[{ required: true }]}>
                                   <Input />
                                 </Form.Item>
                               </Col>
-                              <Col span={4}>
+                              <Col span={3}>
                                 <Form.Item label="奖金 PHP" name={[field.name, 'amountPhp']} rules={[{ required: true, type: 'number', min: 0.01 }]}>
                                   <InputNumber prefix="₱" min={0.01} precision={2} style={{ width: '100%' }} />
                                 </Form.Item>
                               </Col>
-                              <Col span={4}>
+                              <Col span={3}>
                                 <Form.Item label="权重" name={[field.name, 'weight']} rules={[{ required: true, type: 'number', min: 1 }]}>
                                   <InputNumber min={1} precision={0} style={{ width: '100%' }} />
                                 </Form.Item>
                               </Col>
-                              <Col span={4}>
+                              <Col span={3}>
                                 <Form.Item label="流水倍率" name={[field.name, 'turnoverX']} rules={[{ required: true, type: 'number', min: 0 }]}>
                                   <InputNumber suffix="x" min={0} precision={2} style={{ width: '100%' }} />
                                 </Form.Item>

@@ -22,8 +22,17 @@ export default function RewardsSpinPage({ onOpenWallet }: Props) {
   const [rotation, setRotation] = useState(0)
   const [message, setMessage] = useState('')
   const [result, setResult] = useState<SpinDrawResult | null>(null)
+  const [selectedRuleId, setSelectedRuleId] = useState<number | null>(null)
 
-  const prizes = useMemo(() => status?.prizes.filter((p) => p.enabled) ?? [], [status])
+  const rules = useMemo(() => (status?.depositRules ?? []).filter((r) => r.enabled && r.id), [status])
+  const selectedRule = useMemo(
+    () => rules.find((rule) => rule.id === selectedRuleId) ?? rules[0] ?? null,
+    [rules, selectedRuleId],
+  )
+  const prizes = useMemo(
+    () => status?.prizes.filter((p) => p.enabled && p.ruleId === selectedRule?.id) ?? [],
+    [selectedRule?.id, status],
+  )
   const wheelBg = useMemo(() => {
     if (!prizes.length) return '#2b2340'
     const colors = ['#fbbf24', '#064e3b', '#10b981', '#78350f', '#047857', '#f59e0b', '#065f46', '#d97706']
@@ -35,7 +44,13 @@ export default function RewardsSpinPage({ onOpenWallet }: Props) {
   async function load() {
     setLoading(true)
     try {
-      setStatus(await fetchSpinStatus())
+      const next = await fetchSpinStatus()
+      setStatus(next)
+      setSelectedRuleId((current) => {
+        if (current && next.depositRules.some((rule) => rule.id === current)) return current
+        const available = next.depositRules.find((rule) => rule.enabled && (rule.remainingChances ?? 0) > 0)
+        return available?.id ?? next.depositRules.find((rule) => rule.enabled)?.id ?? null
+      })
     } catch (e) {
       setMessage(e instanceof ApiError ? e.message : t('spin.loadFailed'))
     } finally {
@@ -46,12 +61,12 @@ export default function RewardsSpinPage({ onOpenWallet }: Props) {
   useEffect(() => { void load() }, [])
 
   async function onSpin() {
-    if (spinning || !status?.enabled || status.remainingChances <= 0 || prizes.length === 0) return
+    if (!selectedRule?.id || spinning || !status?.enabled || (selectedRule.remainingChances ?? 0) <= 0 || prizes.length === 0) return
     setSpinning(true)
     setResult(null)
     setMessage('')
     try {
-      const res = await drawSpin()
+      const res = await drawSpin(selectedRule.id)
       const idx = Math.max(0, prizes.findIndex((p) => p.id === res.prizeId))
       const segment = 360 / Math.max(1, prizes.length)
       const target = 360 - (idx * segment + segment / 2)
@@ -90,8 +105,8 @@ export default function RewardsSpinPage({ onOpenWallet }: Props) {
           <p className="mt-2 max-w-[290px] text-xs font-semibold leading-relaxed text-emerald-100/65">{t('spin.subtitle')}</p>
           <div className="mt-4 grid grid-cols-3 gap-3">
             <div className="rounded-xl border border-emerald-400/25 bg-emerald-950/40 px-2.5 py-2.5 text-center backdrop-blur-sm">
-              <p className="text-amber-300 font-black text-xl leading-none">{status?.remainingChances ?? 0}</p>
-              <p className="mt-1 text-[9px] leading-tight text-emerald-200/55">{t('spin.remaining')}</p>
+              <p className="text-amber-300 font-black text-xl leading-none">{selectedRule?.remainingChances ?? 0}</p>
+              <p className="mt-1 text-[9px] leading-tight text-emerald-200/55">{selectedRule?.name ?? t('spin.remaining')}</p>
             </div>
             <div className="rounded-xl border border-emerald-400/25 bg-emerald-950/40 px-2.5 py-2.5 text-center backdrop-blur-sm">
               <p className="text-amber-300 font-black text-xl leading-none">{visiblePrizes.length || '-'}</p>
@@ -112,6 +127,30 @@ export default function RewardsSpinPage({ onOpenWallet }: Props) {
           </div>
         ) : (
           <>
+            <div className="mt-3 flex gap-2 overflow-x-auto pb-1 hide-scrollbar">
+              {rules.map((rule) => {
+                const active = rule.id === selectedRule?.id
+                const max = rule.maxDepositPhp == null ? '+' : ` - ${fmtPhp(rule.maxDepositPhp)}`
+                return (
+                  <button
+                    key={rule.id}
+                    type="button"
+                    className={`min-w-[132px] flex-shrink-0 rounded-full border px-3 py-2 text-left active:scale-95 transition-transform ${
+                      active
+                        ? 'border-amber-300 bg-gradient-to-r from-amber-400 to-yellow-500 text-emerald-950'
+                        : 'border-emerald-700/35 bg-emerald-950/45 text-emerald-100'
+                    }`}
+                    onClick={() => { setSelectedRuleId(rule.id!); setResult(null); setMessage('') }}
+                  >
+                    <p className="truncate text-xs font-black">{rule.name}</p>
+                    <p className={`mt-0.5 text-[10px] font-bold ${active ? 'text-emerald-900/80' : 'text-amber-300/80'}`}>
+                      {fmtPhp(rule.minDepositPhp)}{max} · {rule.remainingChances ?? 0}
+                    </p>
+                  </button>
+                )
+              })}
+            </div>
+
             <div className="relative mx-auto mt-4 mb-5 flex aspect-square w-full max-w-[354px] items-center justify-center overflow-hidden rounded-[28px] border border-emerald-700/30 bg-emerald-950/35 px-4">
               <div className="absolute left-1/2 top-4 z-20 h-0 w-0 -translate-x-1/2 border-l-[15px] border-r-[15px] border-t-[28px] border-l-transparent border-r-transparent border-t-amber-300 drop-shadow-lg" />
               <div className="absolute inset-4 rounded-full border border-amber-300/25" />
@@ -162,9 +201,9 @@ export default function RewardsSpinPage({ onOpenWallet }: Props) {
                 <h2 className="text-sm font-black text-emerald-100">{t('spin.howToGet')}</h2>
               </div>
               <div className="grid grid-cols-3 gap-2">
-                {(status?.depositRules ?? []).filter((r) => r.enabled).map((rule) => (
-                  <button key={rule.id ?? rule.minDepositPhp} type="button" className="rounded-xl border border-emerald-700/30 bg-emerald-950/40 px-2 py-3 text-center active:scale-95 transition-transform" onClick={onOpenWallet}>
-                    <p className="text-xs font-black text-white">{fmtPhp(rule.minDepositPhp)}</p>
+                {rules.map((rule) => (
+                  <button key={rule.id ?? rule.minDepositPhp} type="button" className="rounded-xl border border-emerald-700/30 bg-emerald-950/40 px-2 py-3 text-center active:scale-95 transition-transform" onClick={() => setSelectedRuleId(rule.id!)}>
+                    <p className="truncate text-xs font-black text-white">{rule.name}</p>
                     <p className="mt-1 text-[10px] font-bold text-amber-300">{rule.chances} {t('spin.chances')}</p>
                   </button>
                 ))}
