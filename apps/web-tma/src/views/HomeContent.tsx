@@ -55,9 +55,10 @@ interface Props {
   onOpenGame: (url: string) => void
   onOpenReferralPromo: () => void
   onOpenCashback: () => void
+  onOpenSpin: () => void
 }
 
-export default function HomeContent({ onOpenPromo, onOpenCategoryLobby, onOpenCs, onOpenGame, onOpenReferralPromo, onOpenCashback }: Props) {
+export default function HomeContent({ onOpenPromo, onOpenCategoryLobby, onOpenCs, onOpenGame, onOpenReferralPromo, onOpenCashback, onOpenSpin }: Props) {
   const { t, i18n } = useTranslation()
   const locale = i18n.language
   const promotion = usePromotionStore()
@@ -253,7 +254,7 @@ const [gamesLoading, setGamesLoading] = useState(true)
           <HomeCategoryShortcut
             key={c.id}
             category={c}
-            onClick={() => { if (c.nav === 'cashback') { onOpenCashback(); return } onOpenPromo(c.promo) }}
+            onClick={() => { if (c.nav === 'cashback') { onOpenCashback(); return } if (c.nav === 'spin') { onOpenSpin(); return } onOpenPromo(c.promo) }}
           />
         ))}
       </div>

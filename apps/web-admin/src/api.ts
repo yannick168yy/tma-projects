@@ -619,6 +619,41 @@ export interface PromoClaimRecord {
 export const getPromoClaims = (params?: { page?: number; pageSize?: number; promoId?: string }) =>
   get<{ items: PromoClaimRecord[]; total: number; page: number; pageSize: number }>('/admin/promotions/claims', params)
 
+// Rewards Spin
+export interface SpinDepositRule {
+  id?: number
+  minDepositPhp: number
+  chances: number
+  enabled: boolean
+  sortOrder: number
+}
+export interface SpinPrize {
+  id?: number
+  name: string
+  amountPhp: number
+  weight: number
+  turnoverX: number
+  enabled: boolean
+  sortOrder: number
+}
+export interface SpinConfig {
+  enabled: boolean
+  depositRules: SpinDepositRule[]
+  prizes: SpinPrize[]
+}
+export interface SpinRecord {
+  id: string
+  userId: string
+  displayName: string
+  prizeName: string
+  amountPhp: number
+  createdAt: string
+}
+export const getSpinConfig = () => get<SpinConfig>('/admin/spin/config')
+export const saveSpinConfig = (data: SpinConfig) => req<SpinConfig>('PUT', '/admin/spin/config', data)
+export const getSpinRecords = (params?: { page?: number; pageSize?: number; userId?: string }) =>
+  get<{ items: SpinRecord[]; total: number; page: number; pageSize: number }>('/admin/spin/records', params)
+
 // Rebate
 export interface RebateConfigItem {
   level: number

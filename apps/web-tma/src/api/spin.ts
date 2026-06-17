@@ -1,0 +1,52 @@
+import { apiRequest } from '@/api/client'
+
+export interface SpinDepositRule {
+  id?: number
+  minDepositPhp: number
+  chances: number
+  enabled: boolean
+  sortOrder: number
+}
+
+export interface SpinPrize {
+  id?: number
+  name: string
+  amountPhp: number
+  weight: number
+  turnoverX: number
+  enabled: boolean
+  sortOrder: number
+}
+
+export interface SpinRecord {
+  id: string
+  userId: string
+  displayName: string
+  prizeName: string
+  amountPhp: number
+  createdAt: string
+}
+
+export interface SpinStatus {
+  enabled: boolean
+  remainingChances: number
+  depositRules: SpinDepositRule[]
+  prizes: SpinPrize[]
+  recentRecords: SpinRecord[]
+}
+
+export interface SpinDrawResult {
+  recordId: string
+  prizeId: number
+  prizeName: string
+  amountPhp: number
+  remainingChances: number
+}
+
+export function fetchSpinStatus(): Promise<SpinStatus> {
+  return apiRequest<SpinStatus>('/spin/status')
+}
+
+export function drawSpin(): Promise<SpinDrawResult> {
+  return apiRequest<SpinDrawResult>('/spin/draw', { method: 'POST' })
+}

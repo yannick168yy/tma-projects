@@ -14,6 +14,7 @@ import TeamCenterPage from '@/views/TeamCenterPage'
 import BetHistoryPage from '@/views/BetHistoryPage'
 import ReferralPromoPage from '@/views/ReferralPromoPage'
 import CashbackPage from '@/views/CashbackPage'
+import RewardsSpinPage from '@/views/RewardsSpinPage'
 import GamePlayer from '@/components/GamePlayer'
 import { NAV_ITEMS } from '@/data/home'
 import { useAuthStore } from '@/stores/auth'
@@ -75,6 +76,7 @@ export default function AppShell() {
     openBetHistory,
     openReferralPromo,
     openCashback,
+    openSpin,
     closeImmersive,
     closeOverlay,
     resetToTab,
@@ -175,6 +177,12 @@ export default function AppShell() {
   function onOpenCashback() {
     setWalletOpen(false)
     openCashback()
+  }
+
+  async function onOpenSpin() {
+    setWalletOpen(false)
+    if (!(await auth.ensureLoggedIn(t('auth.signInBonus')))) return
+    openSpin()
   }
 
   function openCs() { closeOverlay(); setWalletOpen(false); setCsOpen(true) }
@@ -375,11 +383,23 @@ export default function AppShell() {
               <CashbackPage onOpenGame={(url) => setGamePlayerUrl(url)} onOpenCategory={onOpenCategoryLobby} />
             </div>
           )}
+          {view.type === 'spin' && (
+            <div className="relative">
+              <button
+                type="button"
+                className="cashback-back-btn absolute left-3 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur-sm border border-white/15 active:scale-95 transition-transform"
+                onClick={closeImmersive}
+              >
+                <ChevronLeft size={20} />
+              </button>
+              <RewardsSpinPage onOpenWallet={() => void openWallet()} />
+            </div>
+          )}
           {view.type === 'none' && activeNav === 'bonuses' && <BonusesPage promoFilter={promoFilter} onOpenWallet={() => void openWallet()} onOpenTeam={onOpenTeamCenter} />}
           {view.type === 'none' && activeNav === 'bingo' && <BingoPage onOpenWallet={() => void openWallet()} onGameTap={() => void onGameTap()} onOpenGame={(url) => setGamePlayerUrl(url)} onOpenCategoryLobby={onOpenCategoryLobby} />}
           {view.type === 'none' && activeNav === 'menu' && <MenuPage onOpenCs={openCs} onLogin={() => void auth.ensureLoggedIn(t('auth.signInProfile'))} onLogout={onLogout} onOpenBetHistory={onOpenBetHistory} onOpenReferralPromo={onOpenReferralPromo} onOpenCashback={onOpenCashback} />}
           {view.type === 'none' && activeNav === 'casino' && (
-            <HomeContent onOpenPromo={goBonuses} onOpenCategoryLobby={onOpenCategoryLobby} onOpenCs={openCs} onOpenGame={(url) => setGamePlayerUrl(url)} onOpenReferralPromo={onOpenReferralPromo} onOpenCashback={onOpenCashback} />
+            <HomeContent onOpenPromo={goBonuses} onOpenCategoryLobby={onOpenCategoryLobby} onOpenCs={openCs} onOpenGame={(url) => setGamePlayerUrl(url)} onOpenReferralPromo={onOpenReferralPromo} onOpenCashback={onOpenCashback} onOpenSpin={() => void onOpenSpin()} />
           )}
         </main>
 

@@ -20,6 +20,7 @@ export type FullPageView =
   | { type: 'betHistory' }
   | { type: 'referralPromo' }
   | { type: 'cashback' }
+  | { type: 'spin' }
 
 /** 全屏专题页：走 document/body 滚动，勿用 fixed + 内部 overflow-y-auto */
 export function isImmersiveFullPage(view: FullPageView): boolean {
@@ -27,6 +28,7 @@ export function isImmersiveFullPage(view: FullPageView): boolean {
     || view.type === 'betHistory'
     || view.type === 'referralPromo'
     || view.type === 'cashback'
+    || view.type === 'spin'
 }
 
 export function useFullPageOverlay() {
@@ -41,6 +43,7 @@ export function useFullPageOverlay() {
     openBetHistory:    () => setView({ type: 'betHistory' }),
     openReferralPromo: () => setView({ type: 'referralPromo' }),
     openCashback:      () => setView({ type: 'cashback' }),
+    openSpin:          () => setView({ type: 'spin' }),
     close:             () => setView({ type: 'none' }),
     is: (t: FullPageView['type']) => view.type === t,
   }

@@ -1,0 +1,25 @@
+import Router from '@koa/router'
+import { drawSpin, getSpinStatus } from '../services/spin.service.js'
+import { fail, ok } from '../utils/response.js'
+
+const router = new Router({ prefix: '/spin' })
+
+router.get('/status', async (ctx) => {
+  const userId = ctx.state.userId
+  if (!userId) { fail(ctx, 401, 'Unauthorized', 401); return }
+  const status = await getSpinStatus(ctx.state.env, userId)
+  ok(ctx, status)
+})
+
+router.post('/draw', async (ctx) => {
+  const userId = ctx.state.userId
+  if (!userId) { fail(ctx, 401, 'Unauthorized', 401); return }
+  try {
+    const result = await drawSpin(ctx.state.env, userId, ctx.state.traceId)
+    ok(ctx, result)
+  } catch (e) {
+    fail(ctx, 400, e instanceof Error ? e.message : 'Spin failed')
+  }
+})
+
+export default router

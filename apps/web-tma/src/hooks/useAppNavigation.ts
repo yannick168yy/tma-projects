@@ -114,6 +114,11 @@ export function useAppNavigation() {
     window.scrollTo({ top: 0, behavior: 'instant' })
   }, [pushOverlay])
 
+  const openSpin = useCallback(() => {
+    pushOverlay('/rewards-spin')
+    window.scrollTo({ top: 0, behavior: 'instant' })
+  }, [pushOverlay])
+
   const closeImmersive = useCallback(() => {
     closeOverlayPage()
     window.scrollTo({ top: 0, behavior: 'instant' })
@@ -141,6 +146,7 @@ export function useAppNavigation() {
     openBetHistory,
     openReferralPromo,
     openCashback,
+    openSpin,
     closeImmersive,
     closeOverlay,
     resetToTab,

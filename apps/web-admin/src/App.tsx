@@ -26,6 +26,7 @@ import TeamReferralConfig from './views/TeamReferralConfig'
 import Promotions from './views/Promotions'
 import PromotionClaims from './views/PromotionClaims'
 import Rebate from './views/Rebate'
+import RewardsSpin from './views/RewardsSpin'
 import KycList from './views/KycList'
 import KycDetail from './views/KycDetail'
 import PaymentChannels from './views/PaymentChannels'
@@ -80,6 +81,7 @@ export default function App() {
           <Route path="team-referral/config" element={<TeamReferralConfig />} />
           <Route path="promotions" element={<Promotions />} />
           <Route path="promotions/claims" element={<PromotionClaims />} />
+          <Route path="rewards-spin" element={<RewardsSpin />} />
           <Route path="rebate" element={<Rebate />} />
           <Route path="payment/channels" element={<PaymentChannels />} />
           <Route path="payment/accounting" element={<PaymentAccounting />} />

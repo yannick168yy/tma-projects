@@ -17,6 +17,7 @@ import rebateRoutes from './rebate.routes.js'
 import reviewRoutes from './review.routes.js'
 import kycRoutes from './kyc.routes.js'
 import paymentRoutes from './payment.routes.js'
+import spinRoutes from './spin.routes.js'
 
 export function createAdminRouter(): Router {
   const admin = new Router({ prefix: '/admin' })
@@ -26,7 +27,7 @@ export function createAdminRouter(): Router {
 
   // 需要 admin token
   const guard = adminAuthMiddleware()
-  for (const r of [dashboardRoutes, usersRoutes, depositsRoutes, withdrawalsRoutes, auditRoutes, gamesRoutes, settingsRoutes, csRoutes, betOrdersRoutes, sgSettlementRoutes, teamRoutes, promotionsRoutes, rebateRoutes, reviewRoutes, kycRoutes, paymentRoutes]) {
+  for (const r of [dashboardRoutes, usersRoutes, depositsRoutes, withdrawalsRoutes, auditRoutes, gamesRoutes, settingsRoutes, csRoutes, betOrdersRoutes, sgSettlementRoutes, teamRoutes, promotionsRoutes, rebateRoutes, spinRoutes, reviewRoutes, kycRoutes, paymentRoutes]) {
     admin.use(guard, r.routes(), r.allowedMethods())
   }
 
