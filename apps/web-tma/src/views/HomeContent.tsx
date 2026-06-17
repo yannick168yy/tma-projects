@@ -266,12 +266,11 @@ const [gamesLoading, setGamesLoading] = useState(true)
             {localizedBanners.map((banner) => (
               <article key={banner.id} className="relative h-56 w-full flex-shrink-0 snap-center">
                 <div className={`absolute inset-0 bg-gradient-to-br ${banner.gradient}`} />
-                <div className="absolute -top-8 -right-8 h-28 w-28 rounded-full bg-white/5" />
-                <div className="absolute -bottom-6 -left-6 h-20 w-20 rounded-full bg-white/5" />
+                <img src={banner.image} alt="" draggable={false} className="absolute inset-0 h-full w-full object-cover" />
+                <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/35 to-black/10" />
                 <div className="absolute inset-0 flex flex-col justify-between p-4">
                   <div className="flex items-start justify-between">
                     <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${banner.badgeColor}`}>{banner.tag}</span>
-                    <span className="text-3xl">{banner.badge}</span>
                   </div>
                   <div>
                     <h2 className="mb-1 whitespace-pre-line font-display text-[1.55rem] font-black leading-tight text-white">{banner.title}</h2>
