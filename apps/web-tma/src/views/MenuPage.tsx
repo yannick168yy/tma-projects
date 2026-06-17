@@ -128,15 +128,15 @@ function QuickAction({
   return (
     <button
       type="button"
-      className={`relative flex min-h-[92px] flex-col justify-between overflow-hidden rounded-2xl border px-3 py-3 text-left transition-transform active:scale-[0.98] ${featured ? 'border-amber-500/35 bg-gradient-to-br from-[#78350f] via-[#7c2d12] to-[#111827]' : 'border-border bg-card hover:bg-secondary/50'}`}
+      className={`relative flex min-h-[92px] flex-col justify-between overflow-hidden rounded-2xl border px-3 py-3 text-left transition-transform active:scale-[0.98] ${featured ? 'border-primary/30 bg-primary/10' : 'border-border bg-card hover:bg-secondary/50'}`}
       onClick={onClick}
     >
-      <span className={`flex h-9 w-9 items-center justify-center rounded-xl ${featured ? 'bg-amber-400 text-black' : 'bg-primary/10 text-primary'}`}>
+      <span className={`flex h-9 w-9 items-center justify-center rounded-xl ${featured ? 'bg-primary text-primary-foreground' : 'bg-primary/10 text-primary'}`}>
         <Icon size={18} />
       </span>
       <span>
-        <span className={`block text-xs font-black leading-tight ${featured ? 'text-white' : 'text-foreground'}`}>{label}</span>
-        <span className={`mt-1 block truncate text-[10px] font-semibold ${featured ? 'text-amber-100/70' : 'text-muted-foreground'}`}>{subtitle}</span>
+        <span className="block text-xs font-black leading-tight text-foreground">{label}</span>
+        <span className="mt-1 block truncate text-[10px] font-semibold text-muted-foreground">{subtitle}</span>
       </span>
     </button>
   )
@@ -327,13 +327,13 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
     <div className="page-main min-h-full pb-24">
       <div
         className="relative overflow-hidden px-4 pb-5 pt-3"
-        style={{ background: 'linear-gradient(160deg, #0f172a 0%, #1a0060 48%, #080b14 100%)' }}
+        style={{ background: 'linear-gradient(150deg, #063b36 0%, #0f5132 48%, #18181b 100%)' }}
       >
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-emerald-300/40 to-transparent" />
         {isLoggedIn ? (
           <>
             <div className="flex items-start gap-3">
-              <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/10 text-primary shadow-[0_12px_30px_rgba(0,0,0,0.28)]">
+              <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-2xl border border-emerald-200/15 bg-white/10 text-emerald-200 shadow-[0_12px_30px_rgba(0,0,0,0.24)]">
                 <User size={25} />
               </div>
               <div className="min-w-0 flex-1 pt-0.5">
@@ -357,7 +357,7 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
           </>
         ) : (
           <div className="flex items-center gap-4">
-            <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/10 text-primary">
+            <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-2xl border border-emerald-200/15 bg-white/10 text-emerald-200">
               <User size={25} />
             </div>
             <div className="min-w-0 flex-1">
@@ -382,7 +382,7 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
           </div>
           <div className="rounded-xl border border-white/8 bg-white/5 px-2.5 py-2 text-center">
             <p className="truncate text-[9px] font-black uppercase text-white/35">{t('menu.customerSupport')}</p>
-            <p className="mt-1 truncate text-xs font-black text-emerald-300">{t('menu.live247')}</p>
+            <p className="mt-1 truncate text-xs font-black text-cyan-200">{t('menu.live247')}</p>
           </div>
           <div className="rounded-xl border border-white/8 bg-white/5 px-2.5 py-2 text-center">
             <p className="truncate text-[9px] font-black uppercase text-white/35">{t('cashback.pageTitle')}</p>
@@ -391,22 +391,27 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
         </div>
       </div>
 
-      <div className="mx-4 mt-3 flex items-center gap-2 overflow-hidden rounded-xl bg-secondary px-3 py-2">
-        <div className="flex flex-shrink-0 items-center gap-1 text-primary">
-          <Headphones size={12} />
-          <span className="whitespace-nowrap text-[10px] font-black uppercase">{t('profile.customerSupportSection')}</span>
-        </div>
-        <div className="h-3 w-px flex-shrink-0 bg-border" />
-        <div className="min-w-0 flex-1 overflow-hidden">
-          <div className="flex animate-marquee gap-5 whitespace-nowrap" style={{ animationDuration: '16s' }}>
-            {[0, 1].map((round) => (
-              <span key={round} className="flex flex-shrink-0 gap-5 text-[11px]">
-                <span><span className="font-bold text-emerald-400">{t('common.online')}</span><span className="text-muted-foreground"> · {t('profile.supportItems.liveChatSub')}</span></span>
-                <span><span className="font-bold text-primary">{t('referralPromo.title')}</span><span className="text-muted-foreground"> · {t('common.ongoing')}</span></span>
-                <span><span className="font-bold text-primary">{t('cashback.pageTitle')}</span><span className="text-muted-foreground"> · {t('common.featured')}</span></span>
-              </span>
-            ))}
+      <div className="mx-4 mt-3 grid grid-cols-3 gap-2">
+        <div className="rounded-xl border border-border bg-card px-2.5 py-2">
+          <div className="mb-1 flex items-center gap-1 text-emerald-400">
+            <Headphones size={12} />
+            <span className="text-[10px] font-black">{t('common.online')}</span>
           </div>
+          <p className="truncate text-[10px] font-semibold text-muted-foreground">{t('profile.supportItems.liveChatSub')}</p>
+        </div>
+        <div className="rounded-xl border border-border bg-card px-2.5 py-2">
+          <div className="mb-1 flex items-center gap-1 text-primary">
+            <ShieldCheck size={12} />
+            <span className="text-[10px] font-black">{t('bind.entry')}</span>
+          </div>
+          <p className="truncate text-[10px] font-semibold text-muted-foreground">{isLoggedIn ? t('common.verified') : t('shell.signIn')}</p>
+        </div>
+        <div className="rounded-xl border border-border bg-card px-2.5 py-2">
+          <div className="mb-1 flex items-center gap-1 text-primary">
+            <Languages size={12} />
+            <span className="text-[10px] font-black">{t('menu.language')}</span>
+          </div>
+          <p className="truncate text-[10px] font-semibold text-muted-foreground">{currentLang.flag} {t(`languages.${currentLang.code}`)}</p>
         </div>
       </div>
 
@@ -419,26 +424,30 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
         </div>
 
         {isLoggedIn ? (
-          <div className="overflow-hidden rounded-2xl border border-amber-500/30">
-            <div className="relative bg-gradient-to-br from-[#78350f] via-[#92400e] to-[#111827] px-4 py-4">
-              <span className="text-[10px] font-black uppercase text-amber-300">{t('profile.account')}</span>
-              <h2 className="mt-0.5 font-display text-[1.3rem] font-black leading-tight text-white">{t('profile.personalInfo')}</h2>
-              <p className="mt-0.5 text-xs text-white/60">{profileComplete || personalSaved ? t('common.verified') : t('profile.saveLock')}</p>
-              <div className="mt-3 flex gap-2">
-                <div className="flex-1 rounded-xl bg-black/30 px-3 py-2">
-                  <p className="text-[9px] font-bold uppercase text-white/45">{t('bind.entry')}</p>
-                  <p className="mt-1 truncate text-xs font-black text-amber-300">{loginProvider === 'google' ? t('profile.google') : t('profile.telegram')}</p>
-                </div>
-                <div className="flex-1 rounded-xl bg-black/30 px-3 py-2">
-                  <p className="text-[9px] font-bold uppercase text-white/45">{t('profile.contactInfo')}</p>
-                  <p className="mt-1 truncate text-xs font-black text-amber-300">{telegramSubtitle}</p>
-                </div>
+          <div className="rounded-2xl border border-border bg-card p-4 shadow-[0_10px_30px_rgba(0,0,0,0.12)]">
+            <div className="flex items-center gap-3">
+              <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-secondary text-primary">
+                <ShieldCheck size={18} />
+              </span>
+              <div className="min-w-0 flex-1">
+                <h2 className="font-display text-base font-black text-foreground">{t('profile.account')}</h2>
+                <p className="truncate text-xs text-muted-foreground">{profileComplete || personalSaved ? t('common.verified') : t('profile.saveLock')}</p>
               </div>
             </div>
-            <div className="bg-card px-4 py-3">
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <div className="rounded-xl bg-secondary/60 px-3 py-2">
+                <p className="text-[10px] font-bold text-muted-foreground">{t('bind.entry')}</p>
+                <p className="mt-1 truncate text-xs font-black text-foreground">{loginProvider === 'google' ? t('profile.google') : t('profile.telegram')}</p>
+              </div>
+              <div className="rounded-xl bg-secondary/60 px-3 py-2">
+                <p className="text-[10px] font-bold text-muted-foreground">{t('profile.contactInfo')}</p>
+                <p className="mt-1 truncate text-xs font-black text-foreground">{telegramSubtitle}</p>
+              </div>
+            </div>
+            <div className="mt-3">
               <button
                 type="button"
-                className="flex w-full items-center justify-between rounded-xl bg-primary px-4 py-3 text-left text-sm font-black text-primary-foreground transition-colors hover:bg-yellow-400"
+                className="flex w-full items-center justify-between rounded-xl border border-primary/30 bg-primary/10 px-4 py-3 text-left text-sm font-black text-foreground transition-colors hover:bg-primary/15"
                 onClick={() => setProfileSheetOpen(true)}
               >
                 <span>{t('profile.personalInfo')}</span>
