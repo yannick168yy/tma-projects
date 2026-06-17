@@ -62,8 +62,12 @@ const HOME_DOC_KEYS = new Set(['terms', 'privacy', 'responsible', 'about'])
 function MenuSection({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section>
-      <h3 className="mb-2.5 px-1 font-display text-sm font-black text-foreground">{title}</h3>
-      <div className="overflow-hidden rounded-2xl border border-border bg-card">{children}</div>
+      <div className="mb-2.5 flex items-center gap-2 px-1">
+        <span className="h-2 w-2 flex-shrink-0 rounded-full bg-primary shadow-[0_0_8px_rgba(255,184,0,0.55)]" />
+        <h3 className="font-display text-sm font-black uppercase text-foreground">{title}</h3>
+        <span className="h-px flex-1 bg-gradient-to-r from-primary/30 to-transparent" />
+      </div>
+      <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-[0_10px_30px_rgba(0,0,0,0.16)]">{children}</div>
     </section>
   )
 }
@@ -111,22 +115,29 @@ function MenuRow({
 function QuickAction({
   icon: Icon,
   label,
+  subtitle,
   onClick,
+  featured = false,
 }: {
   icon: MenuIcon
   label: string
+  subtitle: string
   onClick: () => void
+  featured?: boolean
 }) {
   return (
     <button
       type="button"
-      className="flex min-h-20 flex-col items-center justify-center gap-2 rounded-2xl border border-border bg-card px-2 py-3 text-center transition-colors hover:bg-secondary/50"
+      className={`relative flex min-h-[92px] flex-col justify-between overflow-hidden rounded-2xl border px-3 py-3 text-left transition-transform active:scale-[0.98] ${featured ? 'border-amber-500/35 bg-gradient-to-br from-[#78350f] via-[#7c2d12] to-[#111827]' : 'border-border bg-card hover:bg-secondary/50'}`}
       onClick={onClick}
     >
-      <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
+      <span className={`flex h-9 w-9 items-center justify-center rounded-xl ${featured ? 'bg-amber-400 text-black' : 'bg-primary/10 text-primary'}`}>
         <Icon size={18} />
       </span>
-      <span className="text-xs font-black leading-tight text-foreground">{label}</span>
+      <span>
+        <span className={`block text-xs font-black leading-tight ${featured ? 'text-white' : 'text-foreground'}`}>{label}</span>
+        <span className={`mt-1 block truncate text-[10px] font-semibold ${featured ? 'text-amber-100/70' : 'text-muted-foreground'}`}>{subtitle}</span>
+      </span>
     </button>
   )
 }
@@ -313,57 +324,129 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
   }
 
   return (
-    <div className="min-h-full pb-24">
-      {isLoggedIn ? (
-        <div className="border-b border-border bg-card px-5 py-4">
+    <div className="page-main min-h-full pb-24">
+      <div
+        className="relative overflow-hidden px-4 pb-5 pt-3"
+        style={{ background: 'linear-gradient(160deg, #0f172a 0%, #1a0060 48%, #080b14 100%)' }}
+      >
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
+        {isLoggedIn ? (
+          <>
+            <div className="flex items-start gap-3">
+              <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/10 text-primary shadow-[0_12px_30px_rgba(0,0,0,0.28)]">
+                <User size={25} />
+              </div>
+              <div className="min-w-0 flex-1 pt-0.5">
+                <p className="mb-1 text-[10px] font-black uppercase text-white/45">{t('profile.playerAccount')}</p>
+                <div className="flex items-center gap-2">
+                  <h1 className="truncate font-display text-[1.75rem] font-black leading-none text-white">{displayName}</h1>
+                  {rebateLevel != null && (
+                    <span className="flex-shrink-0 rounded-full bg-primary px-2 py-1 text-[10px] font-black leading-none text-primary-foreground">
+                      {t('cashback.levelTag', { level: rebateLevel })}
+                    </span>
+                  )}
+                </div>
+                <button type="button" className="mt-2 flex max-w-full items-center gap-1.5 transition-opacity hover:opacity-80" onClick={copyId}>
+                  <span className="text-xs font-semibold text-white/45">ID:</span>
+                  <span className="truncate text-xs font-black text-primary">{USER_ID}</span>
+                  {copied ? <CheckCircle2 size={12} className="flex-shrink-0 text-emerald-300" /> : <Copy size={12} className="flex-shrink-0 text-white/45" />}
+                </button>
+              </div>
+            </div>
+            {copied && <p className="mt-2 text-center text-[10px] font-semibold text-emerald-300">{t('common.copied')}</p>}
+          </>
+        ) : (
           <div className="flex items-center gap-4">
-            <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-              <User size={24} />
+            <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/10 text-primary">
+              <User size={25} />
             </div>
             <div className="min-w-0 flex-1">
-              <div className="mb-1 flex items-center gap-2">
-                <p className="truncate text-sm font-black leading-none text-foreground">{displayName}</p>
-                {rebateLevel != null && (
-                  <span className="flex-shrink-0 rounded-full bg-primary px-2 py-0.5 text-[10px] font-black leading-none text-primary-foreground">
-                    {t('cashback.levelTag', { level: rebateLevel })}
-                  </span>
-                )}
+              <p className="mb-1 text-[10px] font-black uppercase text-white/45">{t('nav.menu')}</p>
+              <h1 className="font-display text-[1.75rem] font-black leading-none text-white">{t('auth.signInTitle')}</h1>
+              <p className="mt-1 text-xs leading-relaxed text-white/55">{t('auth.signInSubtitle')}</p>
+            </div>
+            <button
+              type="button"
+              className="rounded-xl bg-primary px-4 py-2 text-sm font-black text-primary-foreground shadow shadow-amber-500/20 transition-colors hover:bg-yellow-400"
+              onClick={onLogin}
+            >
+              {t('shell.signIn')}
+            </button>
+          </div>
+        )}
+
+        <div className="mt-4 grid grid-cols-3 gap-2">
+          <div className="rounded-xl border border-white/8 bg-white/5 px-2.5 py-2 text-center">
+            <p className="truncate text-[9px] font-black uppercase text-white/35">{t('menu.language')}</p>
+            <p className="mt-1 truncate text-xs font-black text-primary">{currentLang.flag} {t(`languages.${currentLang.code}`)}</p>
+          </div>
+          <div className="rounded-xl border border-white/8 bg-white/5 px-2.5 py-2 text-center">
+            <p className="truncate text-[9px] font-black uppercase text-white/35">{t('menu.customerSupport')}</p>
+            <p className="mt-1 truncate text-xs font-black text-emerald-300">{t('menu.live247')}</p>
+          </div>
+          <div className="rounded-xl border border-white/8 bg-white/5 px-2.5 py-2 text-center">
+            <p className="truncate text-[9px] font-black uppercase text-white/35">{t('cashback.pageTitle')}</p>
+            <p className="mt-1 truncate text-xs font-black text-primary">{rebateLevel != null ? t('cashback.levelTag', { level: rebateLevel }) : t('common.ongoing')}</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="mx-4 mt-3 flex items-center gap-2 overflow-hidden rounded-xl bg-secondary px-3 py-2">
+        <div className="flex flex-shrink-0 items-center gap-1 text-primary">
+          <Headphones size={12} />
+          <span className="whitespace-nowrap text-[10px] font-black uppercase">{t('profile.customerSupportSection')}</span>
+        </div>
+        <div className="h-3 w-px flex-shrink-0 bg-border" />
+        <div className="min-w-0 flex-1 overflow-hidden">
+          <div className="flex animate-marquee gap-5 whitespace-nowrap" style={{ animationDuration: '16s' }}>
+            {[0, 1].map((round) => (
+              <span key={round} className="flex flex-shrink-0 gap-5 text-[11px]">
+                <span><span className="font-bold text-emerald-400">{t('common.online')}</span><span className="text-muted-foreground"> · {t('profile.supportItems.liveChatSub')}</span></span>
+                <span><span className="font-bold text-primary">{t('referralPromo.title')}</span><span className="text-muted-foreground"> · {t('common.ongoing')}</span></span>
+                <span><span className="font-bold text-primary">{t('cashback.pageTitle')}</span><span className="text-muted-foreground"> · {t('common.featured')}</span></span>
+              </span>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-4 space-y-5 px-4">
+        <div className="grid grid-cols-2 gap-2">
+          <QuickAction icon={CircleDollarSign} label={t('cashback.pageTitle')} subtitle={t('common.ongoing')} featured onClick={onOpenCashback} />
+          {isLoggedIn && <QuickAction icon={History} label={t('profile.betHistory')} subtitle={t('profile.account')} onClick={onOpenBetHistory} />}
+          {isLoggedIn && <QuickAction icon={Gift} label={t('referralPromo.title')} subtitle={t('common.featured')} onClick={onOpenReferralPromo} />}
+          <QuickAction icon={Headphones} label={t('menu.customerSupport')} subtitle={t('menu.live247')} onClick={onOpenCs} />
+        </div>
+
+        {isLoggedIn ? (
+          <div className="overflow-hidden rounded-2xl border border-amber-500/30">
+            <div className="relative bg-gradient-to-br from-[#78350f] via-[#92400e] to-[#111827] px-4 py-4">
+              <span className="text-[10px] font-black uppercase text-amber-300">{t('profile.account')}</span>
+              <h2 className="mt-0.5 font-display text-[1.3rem] font-black leading-tight text-white">{t('profile.personalInfo')}</h2>
+              <p className="mt-0.5 text-xs text-white/60">{profileComplete || personalSaved ? t('common.verified') : t('profile.saveLock')}</p>
+              <div className="mt-3 flex gap-2">
+                <div className="flex-1 rounded-xl bg-black/30 px-3 py-2">
+                  <p className="text-[9px] font-bold uppercase text-white/45">{t('bind.entry')}</p>
+                  <p className="mt-1 truncate text-xs font-black text-amber-300">{loginProvider === 'google' ? t('profile.google') : t('profile.telegram')}</p>
+                </div>
+                <div className="flex-1 rounded-xl bg-black/30 px-3 py-2">
+                  <p className="text-[9px] font-bold uppercase text-white/45">{t('profile.contactInfo')}</p>
+                  <p className="mt-1 truncate text-xs font-black text-amber-300">{telegramSubtitle}</p>
+                </div>
               </div>
-              <button type="button" className="flex max-w-full items-center gap-1.5 transition-opacity hover:opacity-80" onClick={copyId}>
-                <span className="text-xs text-muted-foreground">ID:</span>
-                <span className="truncate text-xs font-bold text-primary">{USER_ID}</span>
-                {copied ? <CheckCircle2 size={11} className="flex-shrink-0 text-emerald-400" /> : <Copy size={11} className="flex-shrink-0 text-muted-foreground" />}
+            </div>
+            <div className="bg-card px-4 py-3">
+              <button
+                type="button"
+                className="flex w-full items-center justify-between rounded-xl bg-primary px-4 py-3 text-left text-sm font-black text-primary-foreground transition-colors hover:bg-yellow-400"
+                onClick={() => setProfileSheetOpen(true)}
+              >
+                <span>{t('profile.personalInfo')}</span>
+                {profileComplete || personalSaved ? <CheckCircle2 size={16} /> : <ChevronRight size={16} />}
               </button>
             </div>
           </div>
-          {copied && <p className="mt-2 text-center text-[10px] font-semibold text-emerald-400">{t('common.copied')}</p>}
-        </div>
-      ) : (
-        <div className="flex items-center gap-4 border-b border-border bg-card px-5 py-4">
-          <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-secondary">
-            <User size={24} className="text-muted-foreground" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-black text-foreground">{t('shell.signIn')}</p>
-            <p className="text-xs text-muted-foreground">{t('shell.tapToLogin')}</p>
-          </div>
-          <button
-            type="button"
-            className="rounded-full bg-primary px-4 py-2 text-sm font-black text-primary-foreground shadow shadow-amber-500/20 transition-colors hover:bg-yellow-400"
-            onClick={onLogin}
-          >
-            {t('shell.signIn')}
-          </button>
-        </div>
-      )}
-
-      <div className="mt-4 space-y-5 px-5">
-        <div className={`grid gap-2 ${isLoggedIn ? 'grid-cols-4' : 'grid-cols-2'}`}>
-          <QuickAction icon={CircleDollarSign} label={t('cashback.pageTitle')} onClick={onOpenCashback} />
-          {isLoggedIn && <QuickAction icon={History} label={t('profile.betHistory')} onClick={onOpenBetHistory} />}
-          {isLoggedIn && <QuickAction icon={Gift} label={t('referralPromo.title')} onClick={onOpenReferralPromo} />}
-          <QuickAction icon={Headphones} label={t('menu.customerSupport')} onClick={onOpenCs} />
-        </div>
+        ) : null}
 
         {isLoggedIn && (
           <MenuSection title={t('profile.account')}>
