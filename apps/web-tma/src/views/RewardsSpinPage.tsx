@@ -165,11 +165,8 @@ export default function RewardsSpinPage({ onOpenWallet, onClose }: Props) {
       </header>
 
       <main className="relative z-10 flex min-h-0 flex-1 flex-col">
-        <img src={mascotLeftImg} alt="" draggable={false} className="spin-mascot-left pointer-events-none absolute left-0 top-[1vw] z-20 w-[18vw] max-w-[92px]" />
-        <img src={mascotRightImg} alt="" draggable={false} className="spin-mascot-right pointer-events-none absolute right-2 top-[48%] z-30 w-[18vw] max-w-[88px]" />
-
-        <div className="flex-shrink-0 px-0">
-          <div className="relative mx-auto w-[78vw] max-w-[380px]">
+        <div className="spin-wheel-stage">
+          <div className="spin-wheel-box">
             {loading ? (
               <div className="flex aspect-[760/838] items-center justify-center">
                 <Loader2 size={34} className="animate-spin text-white/80" />
@@ -184,17 +181,19 @@ export default function RewardsSpinPage({ onOpenWallet, onClose }: Props) {
                 onSpin={() => void onSpin()}
               />
             ) : (
-              <div className="flex aspect-square items-center justify-center text-sm font-black text-white/70">
+              <div className="flex aspect-[760/838] items-center justify-center text-sm font-normal text-white/70">
                 {t('spin.noRecords')}
               </div>
             )}
           </div>
+          <img src={mascotLeftImg} alt="" draggable={false} className="spin-mascot-left pointer-events-none absolute left-0 bottom-[28%] z-20 w-[20%] max-w-[100px]" />
+          <img src={mascotRightImg} alt="" draggable={false} className="spin-mascot-right pointer-events-none absolute right-0 bottom-[18%] z-30 w-[20%] max-w-[96px]" />
         </div>
 
         {message && <p className="mx-5 mt-1 flex-shrink-0 rounded-xl bg-red-500/20 px-3 py-2 text-center text-xs font-black text-red-100">{message}</p>}
 
         {rules.length > 0 && (
-          <div className="mt-1 flex flex-shrink-0 gap-2 overflow-x-auto px-2 pb-1 hide-scrollbar">
+          <div className="flex flex-shrink-0 gap-2 overflow-x-auto px-1 pb-0 hide-scrollbar">
             {rules.map((rule) => {
               const active = rule.id === selectedRule?.id
               return (

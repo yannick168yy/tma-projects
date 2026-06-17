@@ -35,6 +35,30 @@
   animation: spinMascotRightFloat 2.9s ease-in-out infinite;
 }
 
+.spin-wheel-stage {
+  position: relative;
+  flex: 1 1 0;
+  min-height: 0;
+  width: 100%;
+  padding-inline: 2px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.spin-wheel-box {
+  width: 100%;
+  max-width: 430px;
+  margin-inline: auto;
+  max-height: 100%;
+}
+
+.spin-wheel-root {
+  width: 100%;
+  max-height: 100%;
+  aspect-ratio: 760 / 838;
+}
+
 .spin-page {
   touch-action: none;
   -ms-touch-action: none;
