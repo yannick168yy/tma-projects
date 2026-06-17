@@ -193,6 +193,7 @@ export default {
     title: 'Rewards Spin',
     subtitle: 'Nạp PHP đủ điều kiện để nhận lượt quay và thưởng ví ngay lập tức.',
     remaining: 'Lượt còn lại',
+    prizes: 'Giải thưởng',
     depositNow: 'Nạp ngay',
     spinBtn: 'QUAY',
     youWon: 'Bạn thắng',

@@ -264,6 +264,7 @@ export default {
     title: 'Rewards Spin',
     subtitle: 'Make a qualifying PHP deposit, get spin chances, and win instant wallet rewards.',
     remaining: 'Remaining chances',
+    prizes: 'Prizes',
     depositNow: 'Deposit now',
     spinBtn: 'SPIN',
     youWon: 'You won',

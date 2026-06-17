@@ -193,6 +193,7 @@ export default {
     title: 'Rewards Spin',
     subtitle: 'Deposit PHP yang memenuhi syarat untuk mendapat kesempatan spin dan hadiah dompet instan.',
     remaining: 'Sisa kesempatan',
+    prizes: 'Hadiah',
     depositNow: 'Deposit sekarang',
     spinBtn: 'SPIN',
     youWon: 'Anda menang',

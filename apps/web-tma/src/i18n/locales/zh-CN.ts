@@ -263,6 +263,7 @@ export default {
     title: '奖励转盘',
     subtitle: '完成达标 PHP 存款即可获得抽奖机会，中奖奖金直接进入钱包。',
     remaining: '剩余机会',
+    prizes: '奖品',
     depositNow: '立即存款',
     spinBtn: '抽奖',
     youWon: '你赢得',
