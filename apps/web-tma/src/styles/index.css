@@ -4,8 +4,8 @@
 @import './app-shell.css';
 
 @keyframes spinCenterPulse {
-  0%, 100% { transform: translate(-50%, -50%) scale(1); }
-  50% { transform: translate(-50%, -50%) scale(1.075); }
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.075); }
 }
 
 @keyframes spinMascotLeftFloat {
@@ -23,7 +23,7 @@
   transition-timing-function: cubic-bezier(0.08, 0.76, 0.14, 1);
 }
 
-.spin-center-button {
+.spin-center-button-visual {
   animation: spinCenterPulse 1.15s ease-in-out infinite;
 }
 

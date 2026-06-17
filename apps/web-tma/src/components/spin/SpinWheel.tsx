@@ -45,13 +45,13 @@ export default function SpinWheel({ prizes, rotation, spinning, disabled, spinLa
           const angle = i * step
           return (
             <div
-              key={prize.id ?? i}
+              key={`${prize.id ?? 'prize'}-${i}`}
               className="absolute left-1/2 top-1/2 h-[50%] w-[26%] origin-bottom"
               style={{ transform: `translate(-50%, -100%) rotate(${angle}deg)` }}
             >
-              <div className="flex h-full origin-bottom flex-col items-center pt-[8%]" style={{ transform: `rotate(${-angle}deg)` }}>
-                <img src={PRIZE_IMAGES[i % PRIZE_IMAGES.length]} alt="" draggable={false} className="h-[55%] w-[85%] object-contain" />
-                <span className="mt-[-3px] whitespace-nowrap font-display text-[clamp(10px,3vw,17px)] font-black leading-none text-[#82382d] drop-shadow-[0_1px_0_rgba(255,246,190,0.95)]">
+              <div className="flex h-full origin-bottom flex-col items-center pt-[9%]">
+                <img src={PRIZE_IMAGES[i % PRIZE_IMAGES.length]} alt="" draggable={false} className="h-[48%] w-[78%] object-contain" />
+                <span className="mt-[-2px] whitespace-nowrap font-display text-[clamp(9px,2.6vw,15px)] font-black leading-none text-[#82382d] drop-shadow-[0_1px_0_rgba(255,246,190,0.95)]">
                   {fmtPrize(prize)}
                 </span>
               </div>
@@ -64,9 +64,10 @@ export default function SpinWheel({ prizes, rotation, spinning, disabled, spinLa
         type="button"
         disabled={disabled || spinning}
         onClick={onSpin}
-        className="spin-center-button absolute left-1/2 top-[50.4%] z-20 h-[25.6%] w-[31.6%] -translate-x-1/2 -translate-y-1/2 active:scale-95 disabled:opacity-65"
+        className="absolute left-1/2 top-[50.4%] z-20 h-[23.5%] w-[29%] active:opacity-90 disabled:opacity-65"
+        style={{ transform: 'translate(-50%, -50%)' }}
       >
-        <img src={spinButtonImg} alt="" draggable={false} className="absolute inset-0 h-full w-full object-contain" />
+        <img src={spinButtonImg} alt="" draggable={false} className="spin-center-button-visual absolute inset-0 h-full w-full object-contain" />
         {spinning && (
           <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/10">
             <Loader2 size={30} className="animate-spin text-white drop-shadow" />
