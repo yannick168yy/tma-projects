@@ -271,6 +271,8 @@ export default {
     chances: '次机会',
     recentWins: '最近中奖',
     noRecords: '暂无中奖记录',
+    oopsTitle: 'Oops!',
+    oopsBody: '再存款一点就可以啦！累计存款达到 {{amount}} 即可解锁幸运转盘。',
     loadFailed: '奖励转盘加载失败',
     spinFailed: '抽奖失败',
   },

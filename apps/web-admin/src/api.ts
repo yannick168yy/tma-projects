@@ -624,6 +624,7 @@ export interface SpinDepositRule {
   id?: number
   name: string
   minDepositPhp: number
+  depositAmountPhp?: number
   maxDepositPhp: number | null
   chances: number
   enabled: boolean
@@ -634,6 +635,7 @@ export interface SpinPrize {
   id?: number
   ruleId?: number | null
   name: string
+  imageKey: string
   amountPhp: number
   weight: number
   turnoverX: number

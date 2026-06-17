@@ -10,6 +10,7 @@ import titleImg from '@/assets/spin/fbm/title.png'
 import mascotLeftImg from '@/assets/spin/fbm/item-left.webp'
 import mascotRightImg from '@/assets/spin/fbm/item-right.webp'
 import winIconImg from '@/assets/spin/fbm/icon-win.webp'
+import oopsIconImg from '@/assets/spin/fbm/icon-oops.webp'
 
 interface Props {
   onOpenWallet: () => void
@@ -19,6 +20,10 @@ interface Props {
 function fmtPhp(amount: number): string {
   if (amount >= 1000) return `₱${Math.round(amount).toLocaleString('en-PH')}`
   return `₱${amount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+}
+
+function fmtDepositAmount(amount: number): string {
+  return Math.round(amount).toLocaleString('en-PH')
 }
 
 function fmtDate(value: string): string {
@@ -36,6 +41,7 @@ export default function RewardsSpinPage({ onOpenWallet, onClose }: Props) {
   const [rotation, setRotation] = useState(0)
   const [message, setMessage] = useState('')
   const [result, setResult] = useState<SpinDrawResult | null>(null)
+  const [oopsOpen, setOopsOpen] = useState(false)
   const [selectedRuleId, setSelectedRuleId] = useState<number | null>(null)
 
   const rules = useMemo(() => (status?.depositRules ?? []).filter((r) => r.enabled && r.id), [status])
@@ -55,6 +61,7 @@ export default function RewardsSpinPage({ onOpenWallet, onClose }: Props) {
     return Array.from({ length: 8 }, (_, i) => source[i % source.length])
   }, [allEnabledPrizes, prizes])
   const remaining = selectedRule?.remainingChances ?? status?.remainingChances ?? 0
+  const selectedAmount = selectedRule ? Number(selectedRule.depositAmountPhp ?? selectedRule.minDepositPhp) : 580
   const canSpin = Boolean(selectedRule?.id && status?.enabled && remaining > 0 && wheelPrizes.length > 0)
 
   async function load() {
@@ -87,7 +94,14 @@ export default function RewardsSpinPage({ onOpenWallet, onClose }: Props) {
   useEffect(() => { void load() }, [])
 
   async function onSpin() {
-    if (!selectedRule?.id || spinning || !canSpin) return
+    if (spinning) return
+    if (!canSpin) {
+      setOopsOpen(true)
+      setResult(null)
+      setMessage('')
+      return
+    }
+    if (!selectedRule?.id) return
     setSpinning(true)
     setResult(null)
     setMessage('')
@@ -140,7 +154,7 @@ export default function RewardsSpinPage({ onOpenWallet, onClose }: Props) {
 
       <main className="relative z-10 mt-0">
         <img src={mascotLeftImg} alt="" draggable={false} className="spin-mascot-left pointer-events-none absolute left-0 top-[2vw] z-20 w-[21vw] max-w-[104px]" />
-        <img src={mascotRightImg} alt="" draggable={false} className="spin-mascot-right pointer-events-none absolute right-2 top-[58vw] z-30 w-[21vw] max-w-[100px]" />
+        <img src={mascotRightImg} alt="" draggable={false} className="spin-mascot-right pointer-events-none absolute right-2 top-[66vw] z-30 w-[21vw] max-w-[100px]" />
 
         <div className="px-0">
           <div className="relative mx-auto w-[86vw] max-w-[420px]">
@@ -168,7 +182,7 @@ export default function RewardsSpinPage({ onOpenWallet, onClose }: Props) {
         {message && <p className="mx-5 mt-3 rounded-xl bg-red-500/20 px-3 py-2 text-center text-xs font-black text-red-100">{message}</p>}
         {rules.length > 0 && (
           <div className="mt-3 flex gap-2 overflow-x-auto px-2 pb-1 hide-scrollbar">
-            {rules.map((rule, idx) => {
+            {rules.map((rule) => {
               const active = rule.id === selectedRule?.id
               return (
                 <button
@@ -180,7 +194,7 @@ export default function RewardsSpinPage({ onOpenWallet, onClose }: Props) {
                   onClick={() => { setSelectedRuleId(rule.id!); setResult(null); setMessage('') }}
                 >
                   <p className="truncate text-sm font-black uppercase leading-none">
-                    {idx === 0 ? 'VIP Exclusive' : `DEPOSIT ${Math.round(rule.minDepositPhp)}`}
+                    DEPOSIT {fmtDepositAmount(Number(rule.depositAmountPhp ?? rule.minDepositPhp))}
                   </p>
                   <p className="mt-1 text-xs font-black">{rule.remainingChances ?? 0} {t('spin.chances')}</p>
                 </button>
@@ -209,28 +223,47 @@ export default function RewardsSpinPage({ onOpenWallet, onClose }: Props) {
 
       {result && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#06102a]/72 px-8">
-          <div className="relative w-full max-w-[370px] rounded-2xl bg-white px-8 pb-9 pt-28 text-center text-[#464646] shadow-[0_18px_44px_rgba(0,0,0,0.35)]">
-            <img src={winIconImg} alt="" draggable={false} className="absolute left-1/2 top-[-72px] w-[190px] -translate-x-1/2" />
-            <h2 className="text-2xl font-black">Congratulations!</h2>
-            <p className="mt-5 text-xl leading-relaxed text-[#777]">
+          <div className="relative w-full max-w-[370px] rounded-2xl bg-white px-8 pb-8 pt-24 text-center text-[#464646] shadow-[0_18px_44px_rgba(0,0,0,0.35)]">
+            <img src={winIconImg} alt="" draggable={false} className="absolute left-1/2 top-[-64px] w-[170px] -translate-x-1/2" />
+            <h2 className="text-xl font-black">Congratulations!</h2>
+            <p className="mt-4 text-base leading-relaxed text-[#777]">
               You won {fmtPhp(result.amountPhp)}! Cash has been credited to your wallet.
             </p>
-            <div className="mt-8 grid grid-cols-2 gap-3">
+            <div className="mt-7 grid grid-cols-2 gap-3">
               <button
                 type="button"
-                className="h-12 rounded-lg bg-[#b6b6b6] text-lg font-bold text-white active:scale-[0.98]"
+                className="h-11 rounded-lg bg-[#b6b6b6] text-base font-bold text-white active:scale-[0.98]"
                 onClick={() => setResult(null)}
               >
                 OK
               </button>
               <button
                 type="button"
-                className="h-12 rounded-lg bg-[#f42424] text-lg font-bold text-white active:scale-[0.98]"
+                className="h-11 rounded-lg bg-[#f42424] text-base font-bold text-white active:scale-[0.98]"
                 onClick={() => { setResult(null); void onSpin() }}
               >
                 Spin Again
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {oopsOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#06102a]/72 px-8">
+          <div className="relative w-full max-w-[370px] rounded-2xl bg-white px-8 pb-8 pt-24 text-center text-[#464646] shadow-[0_18px_44px_rgba(0,0,0,0.35)]">
+            <img src={oopsIconImg} alt="" draggable={false} className="absolute left-1/2 top-[-62px] w-[158px] -translate-x-1/2" />
+            <h2 className="text-xl font-black">{t('spin.oopsTitle')}</h2>
+            <p className="mt-4 text-base leading-relaxed text-[#777]">
+              {t('spin.oopsBody', { amount: fmtDepositAmount(selectedAmount) })}
+            </p>
+            <button
+              type="button"
+              className="mt-7 h-11 w-full rounded-lg bg-[#f42424] text-base font-bold text-white active:scale-[0.98]"
+              onClick={() => setOopsOpen(false)}
+            >
+              OK
+            </button>
           </div>
         </div>
       )}
