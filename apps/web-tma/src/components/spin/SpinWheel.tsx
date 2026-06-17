@@ -1,15 +1,19 @@
 import { Loader2 } from 'lucide-react'
 import type { SpinPrize } from '@/api/spin'
-
-const SEGMENT_COLORS = [
-  '#6d28d9', '#f59e0b', '#9333ea', '#ec4899',
-  '#7c3aed', '#fbbf24', '#a855f7', '#f97316',
-] as const
+import spinButtonImg from '@/assets/spin/decor/spin-button.webp'
+import peso17Img from '@/assets/spin/prizes/peso-17.webp'
+import peso37Img from '@/assets/spin/prizes/peso-37.webp'
+import peso77Img from '@/assets/spin/prizes/peso-77.webp'
+import peso777Img from '@/assets/spin/prizes/peso-777.webp'
+import peso7777Img from '@/assets/spin/prizes/peso-7777.webp'
+import points77777Img from '@/assets/spin/prizes/points-77777.webp'
 
 const CX = 200
 const CY = 200
-const RIM_R = 188
-const SEG_R = 158
+const WHEEL_R = 188
+const SEG_R = 165
+
+const PRIZE_IMAGES = [peso77Img, points77777Img, peso17Img, peso37Img, peso777Img, peso7777Img, peso17Img, peso77Img]
 
 function polar(cx: number, cy: number, r: number, deg: number) {
   const rad = ((deg - 90) * Math.PI) / 180
@@ -18,17 +22,17 @@ function polar(cx: number, cy: number, r: number, deg: number) {
 
 function segmentPath(i: number, total: number) {
   const step = 360 / total
-  const start = i * step
-  const end = (i + 1) * step
+  const start = i * step + 3
+  const end = (i + 1) * step - 3
   const p1 = polar(CX, CY, SEG_R, end)
   const p2 = polar(CX, CY, SEG_R, start)
   const large = step > 180 ? 1 : 0
   return `M ${CX} ${CY} L ${p1.x} ${p1.y} A ${SEG_R} ${SEG_R} 0 ${large} 0 ${p2.x} ${p2.y} Z`
 }
 
-function truncateLabel(name: string, max = 8) {
-  const s = name.trim()
-  return s.length > max ? `${s.slice(0, max - 1)}…` : s
+function fmtPrize(prize: SpinPrize) {
+  if (prize.amountPhp >= 1000) return `₱${Math.round(prize.amountPhp).toLocaleString('en-PH')}`
+  return `₱${prize.amountPhp.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
 interface Props {
@@ -43,131 +47,98 @@ interface Props {
 export default function SpinWheel({ prizes, rotation, spinning, disabled, spinLabel, onSpin }: Props) {
   const n = Math.max(1, prizes.length)
   const step = 360 / n
-  const bulbs = 32
+  const bulbs = 24
 
   return (
-    <div className="relative mx-auto w-full max-w-[360px]">
-      <div
-        className="pointer-events-none absolute inset-0 rounded-full opacity-75 blur-2xl"
-        style={{ background: 'radial-gradient(circle, rgba(168,85,247,0.32) 0%, rgba(236,72,153,0.14) 38%, transparent 68%)' }}
-      />
-
+    <div className="relative mx-auto w-full max-w-[390px]">
+      <div className="pointer-events-none absolute -inset-5 rounded-full bg-cyan-300/15 blur-2xl" />
       <div className="relative aspect-square">
-        <svg viewBox="0 0 400 400" className="absolute inset-0 h-full w-full" aria-hidden="true">
+        <svg viewBox="0 0 400 400" className="absolute inset-0 h-full w-full drop-shadow-[0_18px_28px_rgba(23,18,95,0.55)]" aria-hidden="true">
           <defs>
-            <linearGradient id="spin-rim" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#fcd34d" />
-              <stop offset="45%" stopColor="#f59e0b" />
-              <stop offset="100%" stopColor="#d97706" />
+            <radialGradient id="spin-wheel-rim" cx="50%" cy="44%" r="58%">
+              <stop offset="0%" stopColor="#9be8ff" />
+              <stop offset="58%" stopColor="#4f7de4" />
+              <stop offset="100%" stopColor="#4535aa" />
+            </radialGradient>
+            <linearGradient id="spin-segment" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stopColor="#fff8c7" />
+              <stop offset="100%" stopColor="#ffd87a" />
             </linearGradient>
-            <linearGradient id="spin-rim-inner" x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" stopColor="#4c1d95" />
-              <stop offset="100%" stopColor="#1a0533" />
-            </linearGradient>
-            <filter id="spin-glow" x="-40%" y="-40%" width="180%" height="180%">
-              <feGaussianBlur stdDeviation="3" result="blur" />
-              <feMerge>
-                <feMergeNode in="blur" />
-                <feMergeNode in="SourceGraphic" />
-              </feMerge>
-            </filter>
           </defs>
-
-          <circle cx={CX} cy={CY} r={RIM_R + 6} fill="url(#spin-rim-inner)" />
-          <circle cx={CX} cy={CY} r={RIM_R + 4} fill="none" stroke="url(#spin-rim)" strokeWidth="10" />
-          <circle cx={CX} cy={CY} r={RIM_R - 2} fill="none" stroke="#e9d5ff" strokeWidth="1.5" opacity="0.3" />
-
+          <path d="M200 18 C302 20 380 98 382 202 C384 308 306 382 200 386 C94 382 16 308 18 202 C20 98 98 20 200 18Z" fill="url(#spin-wheel-rim)" />
+          <circle cx={CX} cy={CY} r={WHEEL_R - 22} fill="#6d77dc" opacity="0.68" />
           {Array.from({ length: bulbs }).map((_, i) => {
-            const deg = (360 / bulbs) * i
-            const p = polar(CX, CY, RIM_R - 1, deg)
-            const lit = i % 2 === 0
+            const p = polar(CX, CY, WHEEL_R - 16, (360 / bulbs) * i)
             return (
               <circle
                 key={i}
                 cx={p.x}
                 cy={p.y}
-                r={lit ? 5.5 : 4.5}
-                fill={lit ? '#fde68a' : '#f472b6'}
-                opacity={lit ? 0.95 : 0.7}
-                className={lit ? 'animate-pulse' : undefined}
-                style={{ animationDelay: `${(i % 4) * 0.35}s`, animationDuration: '1.8s' }}
+                r={i % 2 === 0 ? 5.2 : 4}
+                fill={i % 2 === 0 ? '#fff4a5' : '#75e9ff'}
+                className="spin-bulb"
+                style={{ animationDelay: `${i * 0.06}s` }}
               />
             )
           })}
-
-          <g filter="url(#spin-glow)">
-            <path
-              d={`M ${CX} 18 L ${CX + 22} 58 L ${CX} 48 L ${CX - 22} 58 Z`}
-              fill="#ec4899"
-            />
-            <path
-              d={`M ${CX} 22 L ${CX + 14} 52 L ${CX} 44 L ${CX - 14} 52 Z`}
-              fill="#fbcfe8"
-              opacity="0.55"
-            />
-            <circle cx={CX} cy={58} r="9" fill="#fbbf24" stroke="#fef3c7" strokeWidth="2" />
-          </g>
         </svg>
 
         <div
-          className="absolute inset-[9%] transition-transform duration-[2600ms] ease-[cubic-bezier(0.15,0.85,0.25,1)]"
-          style={{ transform: `rotate(${rotation}deg)` }}
+          className="absolute inset-[8.5%] spin-wheel-rotor"
+          style={{ transform: `rotate(${rotation}deg)`, transitionDuration: spinning ? '4200ms' : '0ms' }}
         >
-          <svg viewBox="0 0 400 400" className="h-full w-full drop-shadow-2xl">
-            <circle cx={CX} cy={CY} r={SEG_R + 2} fill="#1a0533" />
-            {prizes.map((prize, i) => {
-              const mid = i * step + step / 2
-              const labelPos = polar(CX, CY, SEG_R * 0.62, mid)
-              const dividerEnd = polar(CX, CY, SEG_R, i * step)
-              return (
-                <g key={prize.id ?? i}>
-                  <path d={segmentPath(i, n)} fill={SEGMENT_COLORS[i % SEGMENT_COLORS.length]} />
-                  <path
-                    d={`M ${CX} ${CY} L ${dividerEnd.x} ${dividerEnd.y}`}
-                    stroke="#f3e8ff"
-                    strokeWidth="1.2"
-                    opacity="0.2"
-                  />
-                  <text
-                    x={labelPos.x}
-                    y={labelPos.y}
-                    fill="#fff"
-                    fontSize="13"
-                    fontWeight="900"
-                    textAnchor="middle"
-                    dominantBaseline="middle"
-                    transform={`rotate(${mid}, ${labelPos.x}, ${labelPos.y})`}
-                    style={{ paintOrder: 'stroke', stroke: 'rgba(46,16,101,0.65)', strokeWidth: 3 }}
-                  >
-                    {truncateLabel(prize.name)}
-                  </text>
-                </g>
-              )
-            })}
-            <circle cx={CX} cy={CY} r={52} fill="#1a0533" stroke="#c084fc" strokeWidth="3" />
-            <circle cx={CX} cy={CY} r={46} fill="none" stroke="#e9d5ff" strokeWidth="1" opacity="0.22" />
+          <svg viewBox="0 0 400 400" className="absolute inset-0 h-full w-full">
+            <circle cx={CX} cy={CY} r={SEG_R + 8} fill="#324cb8" opacity="0.78" />
+            {prizes.map((_, i) => (
+              <path
+                key={i}
+                d={segmentPath(i, n)}
+                fill="url(#spin-segment)"
+                stroke="#ffba54"
+                strokeWidth="5"
+                strokeLinejoin="round"
+              />
+            ))}
           </svg>
+          {prizes.map((prize, i) => {
+            const mid = i * step + step / 2
+            return (
+              <div
+                key={prize.id ?? i}
+                className="absolute left-1/2 top-1/2 h-[44%] w-[30%] origin-[50%_100%]"
+                style={{ transform: `translate(-50%, -100%) rotate(${mid}deg)` }}
+              >
+                <div className="flex h-full origin-bottom flex-col items-center justify-start pt-[7%]" style={{ transform: `rotate(${-mid}deg)` }}>
+                  <img src={PRIZE_IMAGES[i % PRIZE_IMAGES.length]} alt="" draggable={false} className="h-[56%] w-[92%] object-contain drop-shadow-[0_5px_6px_rgba(120,48,0,0.35)]" />
+                  <span className="mt-[-5px] whitespace-nowrap font-display text-[clamp(11px,3.2vw,18px)] font-black leading-none text-[#7a2d25] drop-shadow-[0_1px_0_rgba(255,255,255,0.75)]">
+                    {fmtPrize(prize)}
+                  </span>
+                </div>
+              </div>
+            )
+          })}
         </div>
 
         <button
           type="button"
           disabled={disabled || spinning}
           onClick={onSpin}
-          className="absolute left-1/2 top-1/2 z-10 flex h-[88px] w-[88px] -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center rounded-full border-[3px] border-amber-200 bg-gradient-to-br from-amber-300 via-amber-400 to-yellow-500 text-purple-950 shadow-[0_8px_28px_rgba(251,191,36,0.5),inset_0_2px_0_rgba(255,255,255,0.45)] active:scale-95 disabled:opacity-55 transition-transform"
+          className="spin-center-button absolute left-1/2 top-1/2 z-20 flex h-[25%] w-[25%] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-[28%] active:scale-95 disabled:opacity-65"
         >
+          <img src={spinButtonImg} alt="" draggable={false} className="absolute inset-0 h-full w-full object-contain" />
           {spinning ? (
-            <Loader2 size={26} className="animate-spin" />
+            <Loader2 size={26} className="relative animate-spin text-white drop-shadow" />
           ) : (
-            <>
-              <span className="text-[11px] font-black uppercase tracking-[0.2em] text-purple-900/65">GO</span>
-              <span className="mt-0.5 font-display text-lg font-black leading-none">{spinLabel}</span>
-            </>
+            <span className="relative px-2 text-center font-display text-[clamp(16px,4.4vw,26px)] font-black leading-[0.92] text-[#ff2d70] drop-shadow-[0_2px_0_rgba(255,246,160,0.9)]">
+              {spinLabel}<br />WIN
+            </span>
           )}
         </button>
-      </div>
 
-      <div className="relative mx-auto -mt-1 h-5 w-[72%] rounded-b-2xl bg-gradient-to-b from-violet-700 to-purple-900 shadow-lg shadow-purple-900/50" />
-      <div className="mx-auto h-2 w-[58%] rounded-b-xl bg-gradient-to-b from-purple-950 to-[#080b14]" />
+        <div className="pointer-events-none absolute left-1/2 top-[6%] z-30 h-[12%] w-[12%] -translate-x-1/2">
+          <div className="mx-auto h-full w-[76%] rounded-t-full bg-gradient-to-b from-[#ff6b14] to-[#ffcf39] shadow-[0_4px_12px_rgba(255,92,0,0.45)]" />
+        </div>
+      </div>
     </div>
   )
 }

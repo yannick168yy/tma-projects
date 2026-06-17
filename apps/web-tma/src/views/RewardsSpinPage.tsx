@@ -1,23 +1,33 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Gift, Loader2, Wallet, Trophy, ChevronRight, Sparkles, Coins } from 'lucide-react'
+import { ChevronLeft, Gift, Headphones, Loader2, Wallet } from 'lucide-react'
 import { ApiError } from '@/api/client'
 import { drawSpin, fetchSpinStatus, type SpinStatus, type SpinDrawResult } from '@/api/spin'
 import { useWalletStore } from '@/stores/wallet'
 import SpinWheel from '@/components/spin/SpinWheel'
-import BuntingStrip from '@/components/bingo/BuntingStrip'
+import spinBg from '@/assets/spin/decor/bg.webp'
+import giftBoxImg from '@/assets/spin/decor/gift-box.webp'
+import mascotLeftImg from '@/assets/spin/decor/mascot-left.webp'
+import mascotRightImg from '@/assets/spin/decor/mascot-right.webp'
 
 interface Props {
   onOpenWallet: () => void
+  onOpenCs: () => void
+  onClose: () => void
 }
 
-const BUNTING = ['#a855f7', '#f59e0b', '#ec4899', '#f97316', '#7c3aed', '#fbbf24', '#db2777', '#c084fc'] as const
-
 function fmtPhp(amount: number): string {
+  if (amount >= 1000) return `₱${Math.round(amount).toLocaleString('en-PH')}`
   return `₱${amount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
-export default function RewardsSpinPage({ onOpenWallet }: Props) {
+function fmtDate(value: string): string {
+  const d = new Date(value)
+  if (Number.isNaN(d.getTime())) return ''
+  return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`
+}
+
+export default function RewardsSpinPage({ onOpenWallet, onOpenCs, onClose }: Props) {
   const { t } = useTranslation()
   const wallet = useWalletStore()
   const [status, setStatus] = useState<SpinStatus | null>(null)
@@ -38,12 +48,8 @@ export default function RewardsSpinPage({ onOpenWallet }: Props) {
     [selectedRule?.id, status],
   )
   const wheelPrizes = useMemo(() => prizes.slice(0, 8), [prizes])
-  const canSpin = Boolean(
-    selectedRule?.id
-    && status?.enabled
-    && (selectedRule.remainingChances ?? 0) > 0
-    && wheelPrizes.length > 0,
-  )
+  const remaining = selectedRule?.remainingChances ?? status?.remainingChances ?? 0
+  const canSpin = Boolean(selectedRule?.id && status?.enabled && remaining > 0 && wheelPrizes.length > 0)
 
   async function load() {
     setLoading(true)
@@ -62,6 +68,16 @@ export default function RewardsSpinPage({ onOpenWallet }: Props) {
     }
   }
 
+  async function refreshStatus() {
+    const next = await fetchSpinStatus()
+    setStatus(next)
+    setSelectedRuleId((current) => {
+      if (current && next.depositRules.some((rule) => rule.id === current)) return current
+      const available = next.depositRules.find((rule) => rule.enabled && (rule.remainingChances ?? 0) > 0)
+      return available?.id ?? next.depositRules.find((rule) => rule.enabled)?.id ?? null
+    })
+  }
+
   useEffect(() => { void load() }, [])
 
   async function onSpin() {
@@ -73,15 +89,22 @@ export default function RewardsSpinPage({ onOpenWallet }: Props) {
       const res = await drawSpin(selectedRule.id)
       const idx = Math.max(0, wheelPrizes.findIndex((p) => p.id === res.prizeId))
       const segment = 360 / Math.max(1, wheelPrizes.length)
-      const target = 360 - (idx * segment + segment / 2)
-      setRotation((prev) => prev + 1440 + target)
+      const desired = 360 - (idx * segment + segment / 2)
+      setRotation((prev) => {
+        const current = ((prev % 360) + 360) % 360
+        const delta = (desired - current + 360) % 360
+        return prev + 1800 + delta
+      })
       window.setTimeout(async () => {
         setResult(res)
         setStatus((prev) => prev ? { ...prev, remainingChances: res.remainingChances } : prev)
-        await wallet.refresh()
-        await load()
-        setSpinning(false)
-      }, 2600)
+        try {
+          await wallet.refresh()
+          await refreshStatus()
+        } finally {
+          setSpinning(false)
+        }
+      }, 4300)
     } catch (e) {
       setMessage(e instanceof ApiError ? e.message : t('spin.spinFailed'))
       setSpinning(false)
@@ -89,220 +112,121 @@ export default function RewardsSpinPage({ onOpenWallet }: Props) {
   }
 
   return (
-    <div className="page-main min-h-screen bg-[#080b14] pb-8 text-white">
-      <section
-        className="relative overflow-hidden px-4 pb-5 pt-[calc(var(--app-safe-top)+58px)]"
-        style={{ background: 'linear-gradient(160deg, #5b21b6 0%, #3b0764 38%, #1a0533 68%, #080b14 92%)' }}
-      >
-        <div className="pointer-events-none absolute -right-8 top-6 h-28 w-28 rounded-full bg-fuchsia-500/25 blur-2xl" />
-        <div className="pointer-events-none absolute bottom-0 left-0 h-24 w-24 rounded-full bg-violet-500/20 blur-xl" />
+    <div className="page-main min-h-screen overflow-hidden bg-[#183d9b] pb-5 text-white">
+      <div className="fixed inset-0 -z-10 bg-cover bg-top" style={{ backgroundImage: `url(${spinBg})` }} />
+      <div className="pointer-events-none fixed inset-0 -z-10 bg-[radial-gradient(circle_at_50%_22%,rgba(255,255,255,0.18),transparent_22%),linear-gradient(180deg,rgba(33,75,185,0.12),rgba(25,40,132,0.72))]" />
 
-        <div className="relative">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-[11px] font-bold uppercase tracking-widest text-violet-200/90">{t('spin.kicker')}</p>
-              <h1 className="mt-1 bg-gradient-to-r from-white via-violet-100 to-amber-300 bg-clip-text font-display text-[1.85rem] font-black leading-tight text-transparent drop-shadow-sm">
-                {t('spin.title')}
-              </h1>
-              <p className="mt-2 max-w-[300px] text-xs font-semibold leading-relaxed text-violet-100/60">{t('spin.subtitle')}</p>
-            </div>
-            <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-fuchsia-500 to-violet-600 text-white shadow-lg shadow-fuchsia-500/35">
-              <Gift size={28} strokeWidth={2.2} />
-            </div>
-          </div>
+      <header className="relative px-5 pt-[calc(var(--app-safe-top)+16px)]">
+        <div className="flex items-center justify-between">
+          <button type="button" className="flex h-11 w-11 items-center justify-center rounded-xl bg-sky-400/90 text-white shadow-lg shadow-blue-950/25 active:scale-95" onClick={onClose}>
+            <ChevronLeft size={28} strokeWidth={3} />
+          </button>
+          <button type="button" className="flex h-11 w-11 items-center justify-center rounded-xl bg-sky-400/90 text-white shadow-lg shadow-blue-950/25 active:scale-95" onClick={onOpenWallet}>
+            <Gift size={26} strokeWidth={2.8} />
+          </button>
+        </div>
+        <div className="mt-5 text-center">
+          <h1 className="font-display text-[clamp(3.2rem,14vw,5.6rem)] font-black leading-none tracking-normal">
+            <span className="text-[#f0ce00] drop-shadow-[0_5px_0_rgba(79,53,58,0.72)]">Rewards</span>
+            <span className="ml-3 text-[#fff7dd] drop-shadow-[0_5px_0_rgba(43,52,107,0.7)]">Spin</span>
+          </h1>
+          <p className="mt-3 text-[clamp(1.35rem,5.8vw,2.4rem)] font-black text-[#fff8b6] drop-shadow-[0_2px_7px_rgba(255,255,160,0.55)]">
+            {t('spin.remaining')}: {remaining}
+          </p>
+        </div>
+      </header>
 
-          <div className="mt-4 grid grid-cols-3 gap-2.5">
-            <div className="rounded-2xl border border-violet-400/25 bg-purple-950/50 px-2 py-3 text-center backdrop-blur-sm">
-              <p className="font-display text-2xl font-black leading-none text-amber-300">{selectedRule?.remainingChances ?? 0}</p>
-              <p className="mt-1.5 text-[9px] font-bold leading-tight text-violet-200/55">{t('spin.remaining')}</p>
-            </div>
-            <div className="rounded-2xl border border-violet-400/25 bg-purple-950/50 px-2 py-3 text-center backdrop-blur-sm">
-              <p className="font-display text-2xl font-black leading-none text-amber-300">{wheelPrizes.length || '—'}</p>
-              <p className="mt-1.5 text-[9px] font-bold leading-tight text-violet-200/55">{t('spin.prizes')}</p>
-            </div>
-            <button
-              type="button"
-              className="rounded-2xl bg-gradient-to-r from-amber-400 to-yellow-500 px-2 py-3 text-center text-purple-950 shadow-md shadow-amber-500/25 active:scale-[0.98] transition-transform"
-              onClick={onOpenWallet}
-            >
-              <Wallet size={20} className="mx-auto" strokeWidth={2.2} />
-              <p className="mt-1 text-[10px] font-black leading-tight">{t('spin.depositNow')}</p>
-            </button>
+      <main className="relative mt-3">
+        <img src={mascotLeftImg} alt="" draggable={false} className="spin-mascot-left pointer-events-none absolute left-0 top-3 z-10 w-[27vw] max-w-[128px]" />
+        <img src={giftBoxImg} alt="" draggable={false} className="spin-gift-float pointer-events-none absolute left-1/2 top-0 z-10 w-[15vw] max-w-[72px] -translate-x-1/2" />
+        <img src={mascotRightImg} alt="" draggable={false} className="spin-mascot-right pointer-events-none absolute right-1 top-[54vw] z-20 w-[27vw] max-w-[128px]" />
+
+        <div className="px-4">
+          <div className="relative mx-auto max-w-[430px] rounded-[34px] bg-gradient-to-b from-cyan-400/55 via-indigo-500/35 to-purple-700/65 p-2 shadow-[0_18px_38px_rgba(20,18,96,0.45)]">
+            {loading ? (
+              <div className="flex aspect-square items-center justify-center">
+                <Loader2 size={34} className="animate-spin text-white/80" />
+              </div>
+            ) : wheelPrizes.length > 0 ? (
+              <SpinWheel
+                prizes={wheelPrizes}
+                rotation={rotation}
+                spinning={spinning}
+                disabled={!canSpin}
+                spinLabel={t('spin.spinBtn')}
+                onSpin={() => void onSpin()}
+              />
+            ) : (
+              <div className="flex aspect-square items-center justify-center text-sm font-black text-white/70">
+                {t('spin.noRecords')}
+              </div>
+            )}
           </div>
         </div>
-      </section>
 
-      <main className="relative px-4">
-        {loading ? (
-          <div className="flex h-96 items-center justify-center text-white/50">
-            <Loader2 size={28} className="animate-spin" />
+        {message && <p className="mx-5 mt-3 rounded-xl bg-red-500/20 px-3 py-2 text-center text-xs font-black text-red-100">{message}</p>}
+        {result && (
+          <div className="mx-5 mt-3 rounded-2xl border border-yellow-200/60 bg-gradient-to-r from-[#ff4b37] to-[#ffc927] px-4 py-3 text-center shadow-lg shadow-orange-900/25">
+            <p className="text-xs font-black uppercase text-white/85">{t('spin.youWon')}</p>
+            <p className="mt-0.5 font-display text-3xl font-black text-white drop-shadow">{fmtPhp(result.amountPhp)}</p>
           </div>
-        ) : (
-          <>
-            {rules.length > 0 && (
-              <div className="mt-3 flex gap-2 overflow-x-auto pb-1 hide-scrollbar">
-                {rules.map((rule) => {
-                  const active = rule.id === selectedRule?.id
-                  const max = rule.maxDepositPhp == null ? '+' : ` – ${fmtPhp(rule.maxDepositPhp)}`
-                  return (
-                    <button
-                      key={rule.id}
-                      type="button"
-                      className={`min-w-[140px] flex-shrink-0 rounded-2xl border px-3.5 py-2.5 text-left transition-all active:scale-[0.98] ${
-                        active
-                          ? 'border-fuchsia-300/50 bg-gradient-to-r from-fuchsia-500 to-violet-600 text-white shadow-md shadow-fuchsia-500/25'
-                          : 'border-purple-700/35 bg-purple-950/55 text-violet-100'
-                      }`}
-                      onClick={() => { setSelectedRuleId(rule.id!); setResult(null); setMessage('') }}
-                    >
-                      <p className="truncate text-xs font-black">{rule.name}</p>
-                      <p className={`mt-0.5 text-[10px] font-bold ${active ? 'text-violet-100/85' : 'text-amber-300/85'}`}>
-                        {fmtPhp(rule.minDepositPhp)}{max}
-                      </p>
-                      <p className={`mt-1 text-[10px] font-black ${active ? 'text-white/90' : 'text-violet-300/65'}`}>
-                        {rule.remainingChances ?? 0} {t('spin.chances')}
-                      </p>
-                    </button>
-                  )
-                })}
-              </div>
-            )}
+        )}
 
-            <div className="relative mt-5 overflow-hidden rounded-3xl border border-purple-700/40 bg-gradient-to-b from-purple-950/70 to-[#080b14] px-3 pb-5 pt-2">
-              <BuntingStrip colors={[...BUNTING]} />
-              <div className="mt-2 flex items-center justify-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-violet-200/80">
-                <Sparkles size={12} className="text-fuchsia-300" />
-                <span>{t('spin.title')}</span>
-                <Sparkles size={12} className="text-fuchsia-300" />
-              </div>
+        {rules.length > 0 && (
+          <div className="mt-4 flex gap-3 overflow-x-auto px-3 pb-1 hide-scrollbar">
+            {rules.map((rule, idx) => {
+              const active = rule.id === selectedRule?.id
+              return (
+                <button
+                  key={rule.id}
+                  type="button"
+                  className={`min-w-[150px] flex-shrink-0 rounded-t-2xl px-3 py-2.5 text-center shadow-[0_4px_0_rgba(120,34,0,0.3)] active:scale-[0.98] ${
+                    active ? 'bg-[#ff5139] text-white' : 'bg-gradient-to-b from-[#fff139] to-[#ffc312] text-[#7a2d25]'
+                  }`}
+                  onClick={() => { setSelectedRuleId(rule.id!); setResult(null); setMessage('') }}
+                >
+                  <p className="truncate text-lg font-black uppercase leading-none">
+                    {idx === 0 ? 'VIP Exclusive' : `DEPOSIT ${Math.round(rule.minDepositPhp)}`}
+                  </p>
+                  <p className="mt-1 text-sm font-black">{rule.remainingChances ?? 0} {t('spin.chances')}</p>
+                </button>
+              )
+            })}
+          </div>
+        )}
 
-              <div className="mt-3">
-                {wheelPrizes.length > 0 ? (
-                  <SpinWheel
-                    prizes={wheelPrizes}
-                    rotation={rotation}
-                    spinning={spinning}
-                    disabled={!canSpin}
-                    spinLabel={t('spin.spinBtn')}
-                    onSpin={() => void onSpin()}
-                  />
-                ) : (
-                  <div className="flex h-64 items-center justify-center text-sm font-bold text-violet-200/40">
-                    {t('spin.noRecords')}
-                  </div>
-                )}
-              </div>
-
-              {!canSpin && !spinning && wheelPrizes.length > 0 && (
-                <p className="mt-2 text-center text-[11px] font-bold text-violet-200/50">
-                  {(selectedRule?.remainingChances ?? 0) <= 0 ? t('spin.depositNow') : ''}
-                </p>
-              )}
+        <section className="mt-0 border-t-4 border-[#ff5139] bg-[#fff0e9] pb-3 text-[#0b4c2d]">
+          {(status?.recentRecords ?? []).slice(0, 10).map((rec, idx) => (
+            <div
+              key={rec.id}
+              className={`grid grid-cols-[1fr_1.35fr_0.9fr] items-center gap-2 px-5 py-3 text-[clamp(0.95rem,4vw,1.35rem)] font-black ${idx % 2 ? 'bg-[#ece3ff]' : 'bg-[#fff0e9]'}`}
+            >
+              <span className="truncate">{rec.displayName}</span>
+              <span className="truncate text-center text-[#ff553d]">{t('common.won')} {fmtPhp(rec.amountPhp)}</span>
+              <span className="text-right">{fmtDate(rec.createdAt)}</span>
             </div>
+          ))}
+          {status?.recentRecords.length === 0 && (
+            <p className="px-5 py-8 text-center text-sm font-black text-[#0b4c2d]/55">{t('spin.noRecords')}</p>
+          )}
+        </section>
 
-            {result && (
-              <div className="mt-4 overflow-hidden rounded-2xl border border-fuchsia-400/35 shadow-lg shadow-fuchsia-500/20">
-                <div className="relative overflow-hidden bg-gradient-to-r from-violet-700 via-fuchsia-700 to-amber-500 px-5 py-5 text-center">
-                  <div className="pointer-events-none absolute -right-4 -top-4 h-20 w-20 rounded-full bg-white/10" />
-                  <div className="pointer-events-none absolute -bottom-6 -left-4 h-24 w-24 rounded-full bg-amber-300/15" />
-                  <p className="relative text-xs font-bold uppercase tracking-widest text-violet-100/85">{t('spin.youWon')}</p>
-                  <p className="relative mt-1 font-display text-3xl font-black text-white drop-shadow-md">{fmtPhp(result.amountPhp)}</p>
-                  <p className="relative mt-1 text-sm font-bold text-violet-50/90">{result.prizeName}</p>
-                </div>
-              </div>
-            )}
-            {message && <p className="mt-4 text-center text-xs font-bold text-rose-300">{message}</p>}
-
-            <section className="mt-6">
-              <div className="mb-3 flex items-center gap-2">
-                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-purple-900/70">
-                  <Coins size={14} className="text-fuchsia-300" />
-                </div>
-                <h2 className="text-sm font-black text-violet-100">{t('spin.howToGet')}</h2>
-              </div>
-              <div className="space-y-2">
-                {rules.map((rule) => {
-                  const active = rule.id === selectedRule?.id
-                  const max = rule.maxDepositPhp == null ? '+' : ` – ${fmtPhp(rule.maxDepositPhp)}`
-                  return (
-                    <button
-                      key={rule.id ?? rule.minDepositPhp}
-                      type="button"
-                      className={`flex w-full items-center gap-3 rounded-2xl border px-3.5 py-3.5 text-left transition-all active:scale-[0.98] ${
-                        active
-                          ? 'border-fuchsia-400/35 bg-gradient-to-r from-purple-900/80 to-purple-950/60'
-                          : 'border-purple-700/30 bg-purple-950/40'
-                      }`}
-                      onClick={() => { setSelectedRuleId(rule.id!); setResult(null) }}
-                    >
-                      <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-fuchsia-500 to-violet-600 text-white">
-                        <Wallet size={18} strokeWidth={2.2} />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-black text-white">{rule.name}</p>
-                        <p className="mt-0.5 text-[11px] font-bold text-violet-200/55">
-                          Deposit {fmtPhp(rule.minDepositPhp)}{max}
-                        </p>
-                      </div>
-                      <div className="flex flex-shrink-0 flex-col items-end gap-0.5">
-                        <span className="rounded-full bg-fuchsia-400/15 px-2.5 py-1 text-[11px] font-black text-fuchsia-300">
-                          {rule.chances} {t('spin.chances')}
-                        </span>
-                        <ChevronRight size={14} className="text-violet-400/50" />
-                      </div>
-                    </button>
-                  )
-                })}
-              </div>
-              <button
-                type="button"
-                onClick={onOpenWallet}
-                className="mt-3 w-full rounded-2xl bg-gradient-to-r from-fuchsia-500 to-violet-600 py-3.5 text-sm font-black text-white shadow-md shadow-fuchsia-500/25 active:opacity-85"
-              >
-                {t('spin.depositNow')}
-              </button>
-            </section>
-
-            <section className="mt-6">
-              <div className="mb-3 flex items-center gap-2">
-                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-purple-900/70">
-                  <Trophy size={14} className="text-amber-300" />
-                </div>
-                <h2 className="text-sm font-black text-violet-100">{t('spin.recentWins')}</h2>
-              </div>
-              <div className="overflow-hidden rounded-2xl border border-purple-700/30 bg-purple-950/35">
-                {(status?.recentRecords ?? []).slice(0, 8).map((rec, idx) => (
-                  <div
-                    key={rec.id}
-                    className="flex items-center justify-between gap-3 border-b border-purple-700/20 px-3.5 py-3 last:border-0"
-                  >
-                    <div className="flex min-w-0 items-center gap-2.5">
-                      <span
-                        className={`flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-[10px] font-black ${
-                          idx === 0
-                            ? 'bg-amber-400 text-purple-950'
-                            : idx === 1
-                              ? 'bg-fuchsia-600 text-white'
-                              : idx === 2
-                                ? 'bg-violet-700 text-violet-100'
-                                : 'bg-purple-950 text-violet-400/70'
-                        }`}
-                      >
-                        {idx + 1}
-                      </span>
-                      <span className="truncate text-xs font-bold text-violet-100/80">{rec.displayName}</span>
-                    </div>
-                    <span className="flex-shrink-0 text-xs font-black text-amber-300">
-                      {t('common.won')} {fmtPhp(rec.amountPhp)}
-                    </span>
-                  </div>
-                ))}
-                {status?.recentRecords.length === 0 && (
-                  <p className="px-3 py-6 text-center text-xs font-bold text-white/40">{t('spin.noRecords')}</p>
-                )}
-              </div>
-            </section>
-          </>
+        <button
+          type="button"
+          onClick={onOpenCs}
+          className="fixed bottom-5 right-5 z-40 flex h-16 w-16 items-center justify-center rounded-full bg-[#f61e1e] text-white shadow-[0_8px_18px_rgba(91,0,0,0.35)] active:scale-95"
+        >
+          <Headphones size={34} strokeWidth={2.5} />
+        </button>
+        {!canSpin && !loading && (
+          <button
+            type="button"
+            onClick={onOpenWallet}
+            className="fixed bottom-5 left-5 z-40 flex h-12 items-center gap-2 rounded-full bg-gradient-to-r from-yellow-300 to-orange-400 px-4 text-sm font-black text-[#7a2d25] shadow-[0_8px_18px_rgba(91,38,0,0.28)] active:scale-95"
+          >
+            <Wallet size={18} strokeWidth={2.6} />
+            {t('spin.depositNow')}
+          </button>
         )}
       </main>
     </div>
