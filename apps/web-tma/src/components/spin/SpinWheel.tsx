@@ -33,7 +33,7 @@ export default function SpinWheel({ prizes, rotation, spinning, disabled, spinLa
   const step = 360 / n
 
   return (
-    <div className="spin-wheel-root relative mx-auto">
+    <div className="relative mx-auto w-full max-w-[430px]" style={{ aspectRatio: '760 / 838' }}>
       <img src={boxImg} alt="" draggable={false} className="pointer-events-none absolute inset-0 h-full w-full object-contain" />
 
       <div

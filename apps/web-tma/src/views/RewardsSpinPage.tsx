@@ -165,8 +165,12 @@ export default function RewardsSpinPage({ onOpenWallet, onClose }: Props) {
       </header>
 
       <main className="relative z-10 flex min-h-0 flex-1 flex-col">
-        <div className="spin-wheel-stage">
-          <div className="spin-wheel-box">
+        <div className="min-h-0 flex-1" aria-hidden />
+        <img src={mascotLeftImg} alt="" draggable={false} className="spin-mascot-left pointer-events-none absolute left-0 top-[2vw] z-20 w-[21vw] max-w-[104px]" />
+        <img src={mascotRightImg} alt="" draggable={false} className="spin-mascot-right pointer-events-none absolute right-2 top-[66vw] z-30 w-[21vw] max-w-[100px]" />
+
+        <div className="relative z-10 flex-shrink-0 px-0">
+          <div className="relative mx-auto w-[78vw] max-w-[380px]">
             {loading ? (
               <div className="flex aspect-[760/838] items-center justify-center">
                 <Loader2 size={34} className="animate-spin text-white/80" />
@@ -186,8 +190,6 @@ export default function RewardsSpinPage({ onOpenWallet, onClose }: Props) {
               </div>
             )}
           </div>
-          <img src={mascotLeftImg} alt="" draggable={false} className="spin-mascot-left pointer-events-none absolute left-0 bottom-[28%] z-20 w-[20%] max-w-[100px]" />
-          <img src={mascotRightImg} alt="" draggable={false} className="spin-mascot-right pointer-events-none absolute right-0 bottom-[18%] z-30 w-[20%] max-w-[96px]" />
         </div>
 
         {message && <p className="mx-5 mt-1 flex-shrink-0 rounded-xl bg-red-500/20 px-3 py-2 text-center text-xs font-black text-red-100">{message}</p>}
