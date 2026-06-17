@@ -424,25 +424,25 @@ export default {
         step3: 'Wager {{turnoverX}}x to withdraw',
       },
       agent: {
-        tag: 'AGENT PROGRAM',
-        title: '3-Level Referral Agent',
-        tagline: 'Earn Ongoing GGR Commission',
-        rewardLabel: 'GGR Commission',
-        desc: 'Become a BetoGo agent. Build a 3-level network and earn monthly GGR commissions — 25% from direct referrals, 8% from L2, 3% from L3.',
-        badge: 'Ongoing',
-        cta: 'Activate Now',
-        ctaActive: 'Open Team Center',
-        activating: 'Activating...',
-        step1: 'Click Activate to open your agent account',
-        step2: 'Share your link and recruit downlines',
-        step3: 'Earn monthly GGR commissions from your 3-level network',
-        rateL1: 'L1 Direct',
-        rateL2: 'L2 Indirect',
-        rateL3: 'L3 Tertiary',
-        teamLabel: 'Team',
-        commissionLabel: 'Commission',
-        activationHint: 'Deposit ₱100 to activate — your network starts generating GGR commissions',
-        signInHint: 'Sign in to activate your agent account',
+        tag: '3-CIRCLE REWARDS',
+        title: '3-Circle Rewards',
+        tagline: 'Share Once. Earn from 3 Circles',
+        rewardLabel: 'Circle Rewards',
+        desc: 'Turn your invite link into three circles of rewards. Your friends are C1, their friends are C2, and one more circle is C3 — rewards are based on valid play.',
+        badge: '3 Circles',
+        cta: 'Start 3 Circles',
+        ctaActive: 'Open Circle Center',
+        activating: 'Starting...',
+        step1: 'Start your 3-Circle Rewards',
+        step2: 'Share your invite link with friends',
+        step3: 'Earn rewards as C1, C2, and C3 activity grows',
+        rateL1: 'C1 Friends',
+        rateL2: 'C2 Friends',
+        rateL3: 'C3 Friends',
+        teamLabel: 'Circles',
+        commissionLabel: 'Rewards',
+        activationHint: 'Deposit ₱100 to activate — your circles start generating rewards',
+        signInHint: 'Sign in to start 3-Circle Rewards',
       },
     },
     featuredBadge: '⭐ FEATURED',
@@ -454,20 +454,20 @@ export default {
     awesome: 'Awesome!',
   },
   team: {
-    title: 'Team Center',
-    myReferralCode: 'My Referral Code',
+    title: 'Circle Center',
+    myReferralCode: 'My Invite Code',
     shareOnTelegram: 'Share on Telegram',
     shareLink: 'Share Link',
     copied: 'Link copied!',
-    tabTeam: 'My Team',
-    tabCommissions: 'Earnings',
+    tabTeam: 'My Circles',
+    tabCommissions: 'Reward Details',
     tabWithdraw: 'Withdraw',
-    available: 'Available Commission',
+    available: 'Available Rewards',
     frozen: 'Pending',
     lifetime: 'Lifetime',
     total: 'Total',
-    noDownlines: 'No downlines yet — share your link to recruit!',
-    noCommissions: 'No commission records for this period.',
+    noDownlines: 'No circle members yet — share your link to grow your first circle!',
+    noCommissions: 'No rewards for this period.',
     noWithdrawals: 'No withdrawal records yet.',
     activated: 'Active',
     pending: 'Inactive',
@@ -479,7 +479,7 @@ export default {
     withdrawSubmit: 'Submit Withdrawal',
     withdrawing: 'Submitting...',
     withdrawHistory: 'Withdrawal History',
-    tabEarnings: 'Team Earnings',
+    tabEarnings: 'Circle Rewards',
     settled: 'Settled',
     expandAll: 'Expand All',
     collapse: 'Collapse',
@@ -487,39 +487,39 @@ export default {
     periodSettled: '{{period}} Settled',
     invalidAmount: 'Please enter a valid amount',
     withdrawFailed: 'Withdrawal failed, please try again',
-    debtWarning: 'Your account has an outstanding debt of {{amount}}. Withdrawals are disabled until the debt is settled in the next commission cycle.',
+    debtWarning: 'Your account has an outstanding debt of {{amount}}. Withdrawals are disabled until the debt is settled in the next reward cycle.',
     debtLabel: 'Debt',
     minWithdrawPhp: 'Min ₱100',
-    turnover: 'Turnover',
+    turnover: 'Valid Play',
     guideEntry: 'How it works',
     guide: {
-      title: '3-Tier Referral Program',
+      title: '3-Circle Rewards',
       content:
-        'What is the 3-tier program\n\n' +
-        'Share your invite link to build a team. Once you enable the agent program, you earn commission from up to three downline levels. Commissions are turnover-based: calculated on valid bet amounts only (wins/losses are not deducted). Multi-currency bets are converted to PHP equivalent at the daily FX rate.\n\n' +
-        'Team structure\n\n' +
-        'L1: Players you invited directly\n' +
-        'L2: Players invited by your L1 members\n' +
-        'L3: Players invited by your L2 members\n' +
-        'The L1 / L2 / L3 counts at the top show your current team size per level.\n\n' +
-        'Commission rates\n\n' +
-        'L1 commission = member\'s monthly valid bets (PHP equiv.) × {{l1Rate}}%\n' +
-        'L2 commission = member\'s monthly valid bets (PHP equiv.) × {{l2Rate}}%\n' +
-        'L3 commission = member\'s monthly valid bets (PHP equiv.) × {{l3Rate}}%\n' +
-        'Rates shown on this page apply to your account; different agents may have different plans.\n\n' +
-        'Downline activation\n\n' +
-        'A downline must make a first deposit of at least ₱100 and become activated before their bets earn you commission. Bets from inactive downlines do not generate commission (same-day turnover may still appear in the team tree for reference).\n\n' +
-        'Turnover & settlement\n\n' +
+        'What are 3 circles\n\n' +
+        'Share your invite link and grow rewards through three circles. Circle 1 is friends you invite directly. Circle 2 is friends invited by Circle 1. Circle 3 is one more circle beyond that. Rewards are based on valid bet amounts only (wins/losses are not deducted). Multi-currency bets are converted to PHP equivalent at the daily FX rate.\n\n' +
+        'Circle structure\n\n' +
+        'C1: Friends you invited directly\n' +
+        'C2: Friends invited by your C1 members\n' +
+        'C3: Friends invited by your C2 members\n' +
+        'The C1 / C2 / C3 counts at the top show your current circle size.\n\n' +
+        'Reward rates\n\n' +
+        'C1 reward = member\'s monthly valid bets (PHP equiv.) × {{l1Rate}}%\n' +
+        'C2 reward = member\'s monthly valid bets (PHP equiv.) × {{l2Rate}}%\n' +
+        'C3 reward = member\'s monthly valid bets (PHP equiv.) × {{l3Rate}}%\n' +
+        'Rates shown on this page apply to your account.\n\n' +
+        'Circle activation\n\n' +
+        'A circle member must make a first deposit of at least ₱100 and become activated before their play generates rewards. Play from inactive members does not generate rewards (same-day valid play may still appear in the circle tree for reference).\n\n' +
+        'Valid play & settlement\n\n' +
         'Valid bets: only settled bet orders count; win payouts are not subtracted.\n' +
-        'Multi-currency: PHP, USDT, USDC, TON, etc. are tracked separately and converted to PHP for commission.\n' +
-        'Team tree turnover: past days use daily snapshots; today\'s bets update in real time.\n' +
-        'Commission settlement: runs daily (Philippines time) for the previous day\'s bets. After settlement, earnings appear under Team Earnings and your withdrawable balance.\n\n' +
+        'Multi-currency: PHP, USDT, USDC, TON, etc. are tracked separately and converted to PHP for rewards.\n' +
+        'Circle tree valid play: past days use daily snapshots; today\'s bets update in real time.\n' +
+        'Reward settlement: runs daily (Philippines time) for the previous day\'s bets. After settlement, rewards appear under Circle Rewards and your withdrawable balance.\n\n' +
         'Viewing & withdrawal\n\n' +
-        'Team Earnings: browse monthly L1/L2/L3 totals and details; switch between tree and list views.\n' +
+        'Circle Rewards: browse monthly C1/C2/C3 totals and details; switch between tree and list views.\n' +
         'Withdraw: submit a request on the Withdraw tab. Minimum amount is shown on the page. Review usually takes 1–3 business days.\n\n' +
         'Notes\n\n' +
-        'Always recruit via your official invite link so downlines are attributed correctly.\n' +
-        'Commissions are credited in PHP equivalent regardless of which currency your downlines play with.\n' +
+        'Always share your official invite link so circle members are attributed correctly.\n' +
+        'Rewards are credited in PHP equivalent regardless of which currency your circle members play with.\n' +
         'Contact live support if you have questions.',
     },
   },
@@ -748,46 +748,46 @@ export default {
     range: { today: 'Today', '7d': 'Last 7 days', '30d': 'Last 30 days' },
   },
   referralPromo: {
-    title: 'Referral Program',
-    subtitle: 'Passive Income Plan',
-    heading1: 'Invite & Earn',
-    heading2: 'All 3 Tiers',
-    heroParagraph: 'Friends bet, you earn commission. Friends invite friends, rewards keep stacking.',
+    title: '3-Circle Rewards',
+    subtitle: 'Share Once. Earn from 3 Circles',
+    heading1: 'Share Once',
+    heading2: 'Earn from 3 Circles',
+    heroParagraph: 'Your friends are Circle 1. Their friends are Circle 2. One more circle makes Circle 3.',
     pyramidYou: 'You',
-    pyramidL1: 'L1 Direct Friends',
-    pyramidL2: "Friend's Friends",
-    pyramidL3: 'Third Tier',
-    ratesTitle: 'Commission Rates',
-    l1Label: 'Direct Referrals',
-    l1Desc: 'Players you personally invite — on every bet they place',
-    l2Label: "Friend's Friends",
-    l2Desc: 'Players invited by your L1 — on every bet they place',
-    l3Label: 'Third Tier Downline',
-    l3Desc: 'Players invited by your L2 — on every bet they place',
-    rateLabel: 'Commission',
-    teamTitle: 'My Team',
+    pyramidL1: 'C1 Friends',
+    pyramidL2: 'C2 Friends',
+    pyramidL3: 'C3 Friends',
+    ratesTitle: 'Circle Reward Rates',
+    l1Label: 'Circle 1 Friends',
+    l1Desc: 'Friends you invite directly — rewards from their valid play',
+    l2Label: 'Circle 2 Friends',
+    l2Desc: 'Friends invited by your C1 — rewards from their valid play',
+    l3Label: 'Circle 3 Friends',
+    l3Desc: 'Friends invited by your C2 — rewards from their valid play',
+    rateLabel: 'Reward Rate',
+    teamTitle: 'My Circles',
     teamDetails: 'View Details',
-    teamL1: 'L1 Members',
-    teamTotal: 'All Downlines',
-    teamEarned: 'Lifetime Earned',
+    teamL1: 'C1 Friends',
+    teamTotal: 'All Circles',
+    teamEarned: 'Lifetime Rewards',
     stepsTitle: 'How to Start',
-    step1Title: 'Copy your referral link',
+    step1Title: 'Copy your 3-circle link',
     step1Desc: 'Tap the button below to copy your unique invite address',
     step2Title: 'Share with Telegram friends',
     step2Desc: 'Send the link to friends — anyone who registers is linked to you',
-    step3Title: 'Friends bet, you earn forever',
-    step3Desc: 'Every bet automatically earns commission to your agent wallet',
+    step3Title: 'Your circles grow rewards',
+    step3Desc: 'Valid play from your circles settles into your reward wallet',
     codeLabel: 'My Invite Code',
     copy: 'Copy',
     copied: 'Copied',
-    ctaShare: 'Share Referral Link & Earn',
+    ctaShare: 'Share 3-Circle Link',
     ctaTelegram: 'Share on Telegram',
-    ctaTeam: 'View Team Center',
-    widget: 'Invite & Earn',
-    enableTitle: 'Enable Referral Program',
-    enableDesc: 'Join the agent plan to start earning passive commission from your invitees.',
-    enableCta: 'Enable Now',
-    enabling: 'Enabling...',
-    notActivatedHint: 'Make a first deposit ≥ ₱100 to activate — your downlines\' bets will then earn you commission.',
+    ctaTeam: 'View Circle Center',
+    widget: '3-Circle Rewards',
+    enableTitle: 'Start 3-Circle Rewards',
+    enableDesc: 'Open your 3 circles and start growing rewards from shared play.',
+    enableCta: 'Start Now',
+    enabling: 'Starting...',
+    notActivatedHint: 'Make a first deposit ≥ ₱100 to activate — valid play from your circles will then generate rewards.',
   },
 }

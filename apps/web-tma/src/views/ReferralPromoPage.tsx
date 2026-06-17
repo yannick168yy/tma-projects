@@ -15,7 +15,7 @@ function phpDisplay(cents: number) {
   return '₱' + val.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
-// 一对多 SVG 树形结构示意图
+// 3-circle growth diagram
 function TreeDiagram({ youLabel }: { youLabel: string }) {
   return (
     <svg viewBox="0 0 320 186" className="w-full" aria-hidden="true" style={{ maxHeight: 186 }}>
@@ -34,22 +34,22 @@ function TreeDiagram({ youLabel }: { youLabel: string }) {
         </linearGradient>
       </defs>
 
-      {/* YOU → L1 连线 */}
+      {/* YOU -> Circle 1 */}
       <line x1="160" y1="26" x2="52" y2="62" stroke="url(#tg01)" strokeWidth="1.5" strokeLinecap="round" />
       <line x1="160" y1="26" x2="160" y2="62" stroke="url(#tg01)" strokeWidth="1.5" strokeLinecap="round" />
       <line x1="160" y1="26" x2="268" y2="62" stroke="url(#tg01)" strokeWidth="1.5" strokeLinecap="round" />
 
-      {/* L1a → L2 */}
+      {/* Circle 1 -> Circle 2 */}
       <line x1="52" y1="84" x2="28" y2="118" stroke="url(#tg12)" strokeWidth="1.2" strokeLinecap="round" />
       <line x1="52" y1="84" x2="72" y2="118" stroke="url(#tg12)" strokeWidth="1.2" strokeLinecap="round" />
-      {/* L1b → L2 */}
+      {/* Circle 1 middle branch */}
       <line x1="160" y1="84" x2="138" y2="118" stroke="url(#tg12)" strokeWidth="1.2" strokeLinecap="round" />
       <line x1="160" y1="84" x2="182" y2="118" stroke="url(#tg12)" strokeWidth="1.2" strokeLinecap="round" />
-      {/* L1c → L2 */}
+      {/* Circle 1 right branch */}
       <line x1="268" y1="84" x2="248" y2="118" stroke="url(#tg12)" strokeWidth="1.2" strokeLinecap="round" />
       <line x1="268" y1="84" x2="290" y2="118" stroke="url(#tg12)" strokeWidth="1.2" strokeLinecap="round" />
 
-      {/* L2 → L3（仅部分展示，暗示更多） */}
+      {/* Circle 2 -> Circle 3 */}
       <line x1="28" y1="138" x2="28" y2="165" stroke="url(#tg23)" strokeWidth="1.1" strokeLinecap="round" />
       <line x1="138" y1="138" x2="115" y2="165" stroke="url(#tg23)" strokeWidth="1.1" strokeLinecap="round" />
       <line x1="138" y1="138" x2="155" y2="165" stroke="url(#tg23)" strokeWidth="1.1" strokeLinecap="round" />
@@ -63,39 +63,39 @@ function TreeDiagram({ youLabel }: { youLabel: string }) {
         {youLabel}
       </text>
 
-      {/* L1 × 3 */}
+      {/* Circle 1 */}
       {[52, 160, 268].map((cx) => (
         <g key={cx}>
           <rect x={cx - 30} y="62" width="60" height="22" rx="7"
             fill="rgba(59,130,246,0.2)" stroke="rgba(147,197,253,0.45)" strokeWidth="1" />
           <text x={cx} y="73" dominantBaseline="central" textAnchor="middle"
-            fill="#93c5fd" fontSize="9" fontWeight="800">L1</text>
+            fill="#93c5fd" fontSize="9" fontWeight="800">C1</text>
         </g>
       ))}
-      {/* L1 行末的 ··· 提示"还有更多" */}
+      {/* More people in the circle */}
       <text x="308" y="73" dominantBaseline="central" textAnchor="middle"
         fill="rgba(147,197,253,0.45)" fontSize="11">···</text>
 
-      {/* L2 × 6 */}
+      {/* Circle 2 */}
       {[28, 72, 138, 182, 248, 290].map((cx) => (
         <g key={cx}>
           <rect x={cx - 21} y="118" width="42" height="20" rx="6"
             fill="rgba(168,85,247,0.18)" stroke="rgba(216,180,254,0.35)" strokeWidth="1" />
           <text x={cx} y="128" dominantBaseline="central" textAnchor="middle"
-            fill="#d8b4fe" fontSize="8" fontWeight="800">L2</text>
+            fill="#d8b4fe" fontSize="8" fontWeight="800">C2</text>
         </g>
       ))}
 
-      {/* L3 × 4 */}
+      {/* Circle 3 */}
       {[28, 115, 155, 270].map((cx) => (
         <g key={cx}>
           <rect x={cx - 17} y="165" width="34" height="17" rx="5"
             fill="rgba(251,113,133,0.14)" stroke="rgba(253,164,175,0.3)" strokeWidth="1" />
           <text x={cx} y="173" dominantBaseline="central" textAnchor="middle"
-            fill="#fda4af" fontSize="8" fontWeight="800">L3</text>
+            fill="#fda4af" fontSize="8" fontWeight="800">C3</text>
         </g>
       ))}
-      {/* L3 行末 ··· */}
+      {/* More people in the circle */}
       <text x="213" y="173" dominantBaseline="central" textAnchor="middle"
         fill="rgba(253,164,175,0.35)" fontSize="11">···</text>
     </svg>
@@ -154,7 +154,7 @@ export default function ReferralPromoPage({ onOpenTeamCenter }: Props) {
   }
 
   function onShareTelegram() {
-    const text = encodeURIComponent(`Join BetoGo — use my code ${inviteCode}!\n${telegramLink}`)
+    const text = encodeURIComponent(`Join my 3-Circle Rewards on BetoGo — use my code ${inviteCode}!\n${telegramLink}`)
     const url = `https://t.me/share/url?url=${encodeURIComponent(telegramLink)}&text=${text}`
     window.open(url, '_blank')
   }
@@ -185,16 +185,16 @@ export default function ReferralPromoPage({ onOpenTeamCenter }: Props) {
 
   return (
     <div className="flex flex-col bg-background min-h-full">
-      {/* Hero - 集成树图 + 层级介绍 */}
+      {/* Hero - 3-circle diagram + rewards */}
       <div className="relative overflow-hidden px-4 pt-6 pb-8 flex-shrink-0">
-        {/* 背景光晕 */}
+        {/* Background glow */}
         <div className="absolute inset-0 pointer-events-none">
           <div className="absolute -top-10 -right-16 w-64 h-64 rounded-full bg-amber-500/12 blur-3xl" />
           <div className="absolute top-8 -left-20 w-56 h-56 rounded-full bg-blue-500/10 blur-3xl" />
           <div className="absolute bottom-0 right-4 w-48 h-48 rounded-full bg-purple-500/10 blur-2xl" />
         </div>
 
-        {/* 标题区 */}
+        {/* Header */}
         <div className="relative text-center mb-4">
           <div className="inline-flex items-center gap-1.5 bg-primary/15 border border-primary/30 rounded-full px-3 py-1 mb-3">
             <Gem size={11} className="text-primary" />
@@ -207,12 +207,12 @@ export default function ReferralPromoPage({ onOpenTeamCenter }: Props) {
           <p className="mt-2 text-sm text-muted-foreground">{t('referralPromo.heroParagraph')}</p>
         </div>
 
-        {/* 树图：全宽展示层级结构 */}
+        {/* 3-circle visual */}
         <div className="relative mb-4 px-1">
           <TreeDiagram youLabel={t('referralPromo.pyramidYou')} />
         </div>
 
-        {/* 三层介绍卡：图标 + 说明 + 费率 */}
+        {/* Circle reward cards */}
         <div className="relative space-y-2.5">
           <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest px-0.5">{t('referralPromo.ratesTitle')}</p>
           {tiers.map((tier) => (
@@ -225,7 +225,7 @@ export default function ReferralPromoPage({ onOpenTeamCenter }: Props) {
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5 mb-0.5">
-                  <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full ${tier.badge}`}>L{tier.level}</span>
+                  <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full ${tier.badge}`}>C{tier.level}</span>
                   <span className="text-sm font-black text-foreground">{tier.label}</span>
                 </div>
                 <p className="text-[11px] text-muted-foreground leading-snug">{tier.desc}</p>
@@ -245,7 +245,7 @@ export default function ReferralPromoPage({ onOpenTeamCenter }: Props) {
         </div>
       </div>
 
-      {/* ── 已开启：团队快照 + 邀请码 + 分享 CTA ── */}
+      {/* Active: circle snapshot + invite code + share CTA */}
       {!loading && isAgent && (
         <>
           {status && (status.l1Count > 0 || status.lifetimeEarnedCents > 0) && (
@@ -334,7 +334,7 @@ export default function ReferralPromoPage({ onOpenTeamCenter }: Props) {
         </>
       )}
 
-      {/* ── 未开启：三步流程 + 开启 CTA ── */}
+      {/* Inactive: steps + enable CTA */}
       {!loading && !isAgent && (
         <>
           <div className="px-4 mt-5 flex-shrink-0">
@@ -375,7 +375,7 @@ export default function ReferralPromoPage({ onOpenTeamCenter }: Props) {
         </>
       )}
 
-      {/* 加载骨架 */}
+      {/* Loading skeleton */}
       {loading && (
         <div className="px-4 mt-5 space-y-3 flex-shrink-0">
           <div className="h-12 rounded-2xl animate-pulse bg-white/8" />

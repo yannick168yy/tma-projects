@@ -331,25 +331,25 @@ export default {
         step3: 'Cược {{turnoverX}}x để rút',
       },
       agent: {
-        tag: 'CHƯƠNG TRÌNH ĐẠI LÝ',
-        title: 'Đại Lý 3 Cấp',
-        tagline: 'Kiếm hoa hồng GGR liên tục',
-        rewardLabel: 'Hoa hồng GGR',
-        desc: 'Trở thành đại lý BetoGo. Phát triển mạng lưới 3 cấp và nhận hoa hồng GGR hàng tháng — 25% cấp 1, 8% cấp 2, 3% cấp 3.',
-        badge: 'Liên tục',
-        cta: 'Kích hoạt ngay',
-        ctaActive: 'Mở Trung tâm Nhóm',
-        activating: 'Đang kích hoạt...',
-        step1: 'Nhấn Kích hoạt để mở tài khoản đại lý',
-        step2: 'Chia sẻ liên kết và tuyển thành viên',
-        step3: 'Nhận hoa hồng GGR hàng tháng từ mạng lưới 3 cấp',
-        rateL1: 'Cấp 1 Trực tiếp',
-        rateL2: 'Cấp 2 Gián tiếp',
-        rateL3: 'Cấp 3',
-        teamLabel: 'Nhóm',
-        commissionLabel: 'Hoa hồng',
-        activationHint: 'Nạp ₱100 để kích hoạt — mạng lưới của bạn bắt đầu tạo ra hoa hồng GGR',
-        signInHint: 'Đăng nhập để kích hoạt tài khoản đại lý',
+        tag: '3-CIRCLE REWARDS',
+        title: '3-Circle Rewards',
+        tagline: 'Chia sẻ một lần. Nhận từ 3 vòng',
+        rewardLabel: 'Circle Rewards',
+        desc: 'Biến liên kết mời của bạn thành ba vòng thưởng. Bạn bè của bạn là C1, bạn của họ là C2, và thêm một vòng nữa là C3 — thưởng dựa trên lượt chơi hợp lệ.',
+        badge: '3 Vòng',
+        cta: 'Bắt đầu 3 vòng',
+        ctaActive: 'Mở Circle Center',
+        activating: 'Đang bắt đầu...',
+        step1: 'Bắt đầu 3-Circle Rewards',
+        step2: 'Chia sẻ liên kết mời với bạn bè',
+        step3: 'Nhận thưởng khi hoạt động C1, C2 và C3 tăng',
+        rateL1: 'C1 Bạn bè',
+        rateL2: 'C2 Bạn bè',
+        rateL3: 'C3 Bạn bè',
+        teamLabel: 'Circles',
+        commissionLabel: 'Rewards',
+        activationHint: 'Nạp ₱100 để kích hoạt — các vòng của bạn bắt đầu tạo thưởng',
+        signInHint: 'Đăng nhập để bắt đầu 3-Circle Rewards',
       },
     },
     featuredBadge: '⭐ NỔI BẬT',
@@ -361,16 +361,16 @@ export default {
     awesome: 'Tuyệt vời!',
   },
   team: {
-    title: 'Trung tâm Nhóm',
-    myReferralCode: 'Mã giới thiệu của tôi',
+    title: 'Circle Center',
+    myReferralCode: 'Mã mời của tôi',
     shareOnTelegram: 'Chia sẻ qua Telegram',
     shareLink: 'Chia sẻ liên kết',
     copied: 'Đã sao chép liên kết!',
-    tabTeam: 'Nhóm của tôi',
-    tabCommissions: 'Thu nhập',
+    tabTeam: 'Vòng của tôi',
+    tabCommissions: 'Chi tiết thưởng',
     tabWithdraw: 'Rút tiền',
-    tabEarnings: 'Thu nhập nhóm',
-    available: 'Hoa hồng khả dụng',
+    tabEarnings: 'Circle Rewards',
+    available: 'Thưởng khả dụng',
     frozen: 'Đang xử lý',
     lifetime: 'Tổng tích lũy',
     total: 'Tổng',
@@ -379,8 +379,8 @@ export default {
     collapse: 'Thu gọn',
     periodEarned: '{{period}} Thu được',
     periodSettled: '{{period}} Đã quyết toán',
-    noDownlines: 'Chưa có thành viên — chia sẻ liên kết để tuyển!',
-    noCommissions: 'Không có hoa hồng cho kỳ này.',
+    noDownlines: 'Chưa có thành viên trong vòng — chia sẻ liên kết để phát triển vòng đầu tiên!',
+    noCommissions: 'Không có thưởng cho kỳ này.',
     noWithdrawals: 'Chưa có lịch sử rút tiền.',
     activated: 'Đã kích hoạt',
     pending: 'Chưa kích hoạt',
@@ -394,39 +394,39 @@ export default {
     withdrawHistory: 'Lịch sử rút tiền',
     invalidAmount: 'Vui lòng nhập số tiền hợp lệ',
     withdrawFailed: 'Rút tiền thất bại, vui lòng thử lại',
-    debtWarning: 'Tài khoản có nợ {{amount}}. Rút tiền bị tạm khóa cho đến khi nợ được thanh toán trong chu kỳ hoa hồng tiếp theo.',
+    debtWarning: 'Tài khoản có nợ {{amount}}. Rút tiền bị tạm khóa cho đến khi nợ được thanh toán trong chu kỳ thưởng tiếp theo.',
     debtLabel: 'Nợ',
     minWithdrawPhp: 'Tối thiểu ₱100',
-    turnover: 'Doanh thu cược',
+    turnover: 'Lượt chơi hợp lệ',
     guideEntry: 'Cơ chế',
     guide: {
-      title: 'Chương trình giới thiệu 3 cấp',
+      title: '3-Circle Rewards',
       content:
-        'Chương trình 3 cấp là gì\n\n' +
-        'Chia sẻ liên kết mời để xây dựng đội nhóm. Sau khi bật chương trình đại lý, bạn nhận hoa hồng từ tối đa ba cấp downline. Hoa hồng tính theo turnover: chỉ dựa trên số tiền cược hợp lệ (không trừ thắng/thua). Cược đa tiền tệ được quy đổi sang PHP theo tỷ giá ngày.\n\n' +
-        'Cấu trúc đội\n\n' +
-        'L1: Người chơi bạn mời trực tiếp\n' +
-        'L2: Người chơi do thành viên L1 mời\n' +
-        'L3: Người chơi do thành viên L2 mời\n' +
-        'Số L1 / L2 / L3 phía trên là quy mô đội hiện tại theo từng cấp.\n\n' +
-        'Tỷ lệ hoa hồng\n\n' +
-        'Hoa hồng L1 = cược hợp lệ tháng của thành viên (quy PHP) × {{l1Rate}}%\n' +
-        'Hoa hồng L2 = cược hợp lệ tháng của thành viên (quy PHP) × {{l2Rate}}%\n' +
-        'Hoa hồng L3 = cược hợp lệ tháng của thành viên (quy PHP) × {{l3Rate}}%\n' +
-        'Tỷ lệ trên trang áp dụng cho tài khoản của bạn; đại lý khác có thể có gói khác.\n\n' +
-        'Kích hoạt downline\n\n' +
-        'Downline phải nạp lần đầu tối thiểu ₱100 và được kích hoạt thì cược mới tạo hoa hồng cho bạn. Cược từ downline chưa kích hoạt không có hoa hồng (turnover trong ngày vẫn có thể hiển thị trên cây đội để tham khảo).\n\n' +
-        'Turnover & quyết toán\n\n' +
+        '3 vòng là gì\n\n' +
+        'Chia sẻ liên kết mời và phát triển thưởng qua ba vòng. C1 là bạn bè bạn mời trực tiếp. C2 là bạn bè do C1 mời. C3 là thêm một vòng tiếp theo. Thưởng tính theo số tiền cược hợp lệ (không trừ thắng/thua). Cược đa tiền tệ được quy đổi sang PHP theo tỷ giá ngày.\n\n' +
+        'Cấu trúc vòng\n\n' +
+        'C1: Bạn bè bạn mời trực tiếp\n' +
+        'C2: Bạn bè do thành viên C1 của bạn mời\n' +
+        'C3: Bạn bè do thành viên C2 của bạn mời\n' +
+        'Số C1 / C2 / C3 phía trên là quy mô vòng hiện tại của bạn.\n\n' +
+        'Tỷ lệ thưởng\n\n' +
+        'Thưởng C1 = cược hợp lệ tháng của thành viên (quy PHP) × {{l1Rate}}%\n' +
+        'Thưởng C2 = cược hợp lệ tháng của thành viên (quy PHP) × {{l2Rate}}%\n' +
+        'Thưởng C3 = cược hợp lệ tháng của thành viên (quy PHP) × {{l3Rate}}%\n' +
+        'Tỷ lệ trên trang áp dụng cho tài khoản của bạn.\n\n' +
+        'Kích hoạt vòng\n\n' +
+        'Thành viên trong vòng phải nạp lần đầu tối thiểu ₱100 và được kích hoạt thì lượt chơi mới tạo thưởng cho bạn. Lượt chơi từ thành viên chưa kích hoạt không có thưởng (lượt chơi hợp lệ trong ngày vẫn có thể hiển thị trên cây vòng để tham khảo).\n\n' +
+        'Lượt chơi hợp lệ & quyết toán\n\n' +
         'Cược hợp lệ: chỉ tính lệnh bet đã settled; tiền thắng không bị trừ.\n' +
-        'Đa tiền tệ: PHP, USDT, USDC, TON... ghi riêng rồi quy PHP để tính hoa hồng.\n' +
-        'Turnover cây đội: ngày trước từ snapshot; cược hôm nay cập nhật thời gian thực.\n' +
-        'Quyết toán hoa hồng: chạy hàng ngày (giờ Philippines) cho cược ngày hôm trước. Sau quyết toán, thu nhập vào Thu nhập nhóm và số dư có thể rút.\n\n' +
+        'Đa tiền tệ: PHP, USDT, USDC, TON... ghi riêng rồi quy PHP để tính thưởng.\n' +
+        'Lượt chơi hợp lệ cây vòng: ngày trước từ snapshot; cược hôm nay cập nhật thời gian thực.\n' +
+        'Quyết toán thưởng: chạy hàng ngày (giờ Philippines) cho cược ngày hôm trước. Sau quyết toán, thưởng vào Circle Rewards và số dư có thể rút.\n\n' +
         'Xem & rút tiền\n\n' +
-        'Thu nhập nhóm: xem tổng và chi tiết L1/L2/L3 theo tháng; chuyển giữa cây và danh sách.\n' +
+        'Circle Rewards: xem tổng và chi tiết C1/C2/C3 theo tháng; chuyển giữa cây và danh sách.\n' +
         'Rút tiền: gửi yêu cầu ở tab Rút tiền. Số tối thiểu hiển thị trên trang. Duyệt thường 1–3 ngày làm việc.\n\n' +
         'Lưu ý\n\n' +
-        'Luôn tuyển qua liên kết mời chính thức để downline được gán đúng.\n' +
-        'Hoa hồng ghi bằng PHP quy đổi, không phụ thuộc tiền tệ downline chơi.\n' +
+        'Luôn chia sẻ liên kết mời chính thức để thành viên trong vòng được gán đúng.\n' +
+        'Thưởng ghi bằng PHP quy đổi, không phụ thuộc tiền tệ thành viên trong vòng chơi.\n' +
         'Liên hệ hỗ trợ trực tuyến nếu cần.',
     },
   },
@@ -644,47 +644,47 @@ export default {
     range: { today: 'Hôm nay', '7d': '7 ngày', '30d': '30 ngày' },
   },
   referralPromo: {
-    title: 'Chương Trình Giới Thiệu',
-    subtitle: 'Kế hoạch thu nhập thụ động',
-    heading1: 'Mời & Kiếm tiền',
-    heading2: 'Cả 3 tầng',
-    heroParagraph: 'Bạn bè đặt cược, bạn kiếm hoa hồng. Bạn bè giới thiệu bạn bè, lợi nhuận tiếp tục tích lũy.',
+    title: '3-Circle Rewards',
+    subtitle: 'Chia sẻ một lần. Nhận từ 3 vòng',
+    heading1: 'Chia sẻ một lần',
+    heading2: 'Nhận từ 3 vòng',
+    heroParagraph: 'Bạn bè của bạn là Circle 1. Bạn của họ là Circle 2. Thêm một vòng nữa là Circle 3.',
     pyramidYou: 'Bạn',
-    pyramidL1: 'L1 Bạn bè trực tiếp',
-    pyramidL2: 'Bạn bè của bạn bè',
-    pyramidL3: 'Tầng thứ ba',
-    ratesTitle: 'Tỷ lệ hoa hồng',
-    l1Label: 'Giới thiệu trực tiếp',
-    l1Desc: 'Người chơi bạn mời trực tiếp — mỗi lần họ đặt cược',
-    l2Label: 'Bạn bè của bạn bè',
-    l2Desc: 'Người chơi do L1 mời — mỗi lần họ đặt cược',
-    l3Label: 'Tuyến thứ ba',
-    l3Desc: 'Người chơi do L2 mời — mỗi lần họ đặt cược',
-    rateLabel: 'Hoa hồng',
-    teamTitle: 'Nhóm của tôi',
+    pyramidL1: 'C1 Bạn bè',
+    pyramidL2: 'C2 Bạn bè',
+    pyramidL3: 'C3 Bạn bè',
+    ratesTitle: 'Tỷ lệ Circle Reward',
+    l1Label: 'Circle 1 Bạn bè',
+    l1Desc: 'Bạn bè bạn mời trực tiếp — thưởng từ lượt chơi hợp lệ',
+    l2Label: 'Circle 2 Bạn bè',
+    l2Desc: 'Bạn bè do C1 mời — thưởng từ lượt chơi hợp lệ',
+    l3Label: 'Circle 3 Bạn bè',
+    l3Desc: 'Bạn bè do C2 mời — thưởng từ lượt chơi hợp lệ',
+    rateLabel: 'Tỷ lệ thưởng',
+    teamTitle: 'Vòng của tôi',
     teamDetails: 'Xem chi tiết',
-    teamL1: 'Thành viên L1',
-    teamTotal: 'Tổng thành viên',
+    teamL1: 'C1 Bạn bè',
+    teamTotal: 'Tất cả vòng',
     teamEarned: 'Thu nhập tích lũy',
     stepsTitle: 'Cách bắt đầu',
-    step1Title: 'Sao chép liên kết giới thiệu',
+    step1Title: 'Sao chép liên kết 3-circle',
     step1Desc: 'Nhấn nút bên dưới để sao chép địa chỉ giới thiệu của bạn',
     step2Title: 'Chia sẻ với bạn bè Telegram',
     step2Desc: 'Gửi liên kết cho bạn bè — ai đăng ký qua đó sẽ được liên kết với bạn',
-    step3Title: 'Bạn bè đặt cược, bạn kiếm mãi',
-    step3Desc: 'Mỗi lần bạn bè đặt cược tự động tạo hoa hồng vào ví đại lý của bạn',
+    step3Title: 'Vòng tăng, thưởng tăng',
+    step3Desc: 'Lượt chơi hợp lệ từ các vòng sẽ vào ví thưởng của bạn',
     codeLabel: 'Mã mời của tôi',
     copy: 'Sao chép',
     copied: 'Đã sao chép',
-    ctaShare: 'Chia sẻ & Kiếm tiền ngay',
+    ctaShare: 'Chia sẻ liên kết 3-Circle',
     ctaTelegram: 'Chia sẻ trên Telegram',
-    ctaTeam: 'Xem trung tâm nhóm',
-    widget: 'Mời & Kiếm',
-    enableTitle: 'Kích hoạt chương trình giới thiệu',
-    enableDesc: 'Tham gia chương trình đại lý để bắt đầu kiếm hoa hồng thụ động.',
-    enableCta: 'Kích hoạt ngay',
-    enabling: 'Đang kích hoạt...',
-    notActivatedHint: 'Nạp tiền lần đầu ≥ ₱100 để kích hoạt — sau đó cược của downline sẽ tính hoa hồng cho bạn.',
+    ctaTeam: 'Xem Circle Center',
+    widget: '3-Circle Rewards',
+    enableTitle: 'Bắt đầu 3-Circle Rewards',
+    enableDesc: 'Mở ba vòng của bạn và bắt đầu tăng thưởng từ lượt chơi được chia sẻ.',
+    enableCta: 'Bắt đầu ngay',
+    enabling: 'Đang bắt đầu...',
+    notActivatedHint: 'Nạp tiền lần đầu ≥ ₱100 để kích hoạt — lượt chơi hợp lệ từ các vòng sẽ tạo thưởng.',
   },
   kyc: {
     reviewing: 'Đang xem xét…',

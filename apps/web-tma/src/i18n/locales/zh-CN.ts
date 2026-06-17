@@ -423,25 +423,25 @@ export default {
         step3: '{{turnoverX}} 倍流水可提现',
       },
       agent: {
-        tag: '代理计划',
-        title: '三级分销代理',
-        tagline: '发展下线，持续获得 GGR 提成',
-        rewardLabel: 'GGR 提成',
-        desc: '成为 BetoGo 代理，分享专属链接，发展三级下线网络，每月坐享 GGR 提成——一级 25%、二级 8%、三级 3%。',
-        badge: '持续收益',
-        cta: '立即开启',
-        ctaActive: '进入分销中心',
+        tag: '三圈奖励',
+        title: '3-Circle Rewards',
+        tagline: '分享一次，奖励扩散三圈',
+        rewardLabel: '圈层奖励',
+        desc: '把你的邀请链接变成三圈奖励：你邀请的好友是 C1，好友邀请的好友是 C2，再往外一圈是 C3，奖励按有效游戏流水计算。',
+        badge: '三圈扩散',
+        cta: '开启三圈奖励',
+        ctaActive: '进入圈层中心',
         activating: '开启中...',
-        step1: '点击开启，激活代理账号',
-        step2: '分享邀请链接，发展下线',
-        step3: '每月获得三级下线的 GGR 提成',
-        rateL1: 'L1 直邀',
-        rateL2: 'L2 间接',
-        rateL3: 'L3 三级',
-        teamLabel: '团队',
-        commissionLabel: '可提佣金',
-        activationHint: '首充 ₱100 即可激活，下线开始贡献 GGR 提成',
-        signInHint: '登录后即可开启代理账号',
+        step1: '开启你的三圈奖励',
+        step2: '把邀请链接分享给好友',
+        step3: 'C1 / C2 / C3 活跃后持续产生奖励',
+        rateL1: 'C1 好友',
+        rateL2: 'C2 好友',
+        rateL3: 'C3 好友',
+        teamLabel: '圈层',
+        commissionLabel: '奖励',
+        activationHint: '首充 ₱100 即可激活，圈层开始产生奖励',
+        signInHint: '登录后即可开启三圈奖励',
       },
     },
     featuredBadge: '⭐ 精选',
@@ -452,20 +452,20 @@ export default {
     awesome: '太棒了！',
   },
   team: {
-    title: '分销中心',
+    title: '圈层中心',
     myReferralCode: '我的邀请码',
     shareOnTelegram: '分享到 Telegram',
     shareLink: '分享链接',
     copied: '链接已复制！',
-    tabTeam: '我的团队',
-    tabCommissions: '收益明细',
+    tabTeam: '我的圈层',
+    tabCommissions: '奖励明细',
     tabWithdraw: '提现',
-    available: '可提佣金',
+    available: '可提奖励',
     frozen: '冻结中',
     lifetime: '累计收益',
     total: '合计',
-    noDownlines: '暂无下线，快去分享邀请链接吧！',
-    noCommissions: '本月暂无佣金记录。',
+    noDownlines: '暂无圈层成员，快去分享邀请链接吧！',
+    noCommissions: '本月暂无奖励记录。',
     noWithdrawals: '暂无提现记录。',
     activated: '已激活',
     pending: '未激活',
@@ -477,7 +477,7 @@ export default {
     withdrawSubmit: '提交提现申请',
     withdrawing: '提交中...',
     withdrawHistory: '提现记录',
-    tabEarnings: '团队收益',
+    tabEarnings: '圈层奖励',
     settled: '已结算',
     expandAll: '全部展开',
     collapse: '折叠',
@@ -485,39 +485,39 @@ export default {
     periodSettled: '{{period}} 已结算',
     invalidAmount: '请输入有效金额',
     withdrawFailed: '提现失败，请重试',
-    debtWarning: '账户存在欠款 {{amount}}，下月结算补平后即可提现。',
+    debtWarning: '账户存在欠款 {{amount}}，下个奖励周期补平后即可提现。',
     debtLabel: '欠款',
     minWithdrawPhp: '最低 ₱100',
-    turnover: '流水',
+    turnover: '有效游戏',
     guideEntry: '机制说明',
     guide: {
-      title: '三级分销机制',
+      title: '3-Circle Rewards',
       content:
-        '什么是三级分销\n\n' +
-        '分享邀请链接发展团队，开启代理后，您可从最多三层下级获得佣金。佣金按流水制计算，按下线有效投注额（不含输赢）结算，多币种投注将按汇率折算为 PHP 等值佣金。\n\n' +
-        '三级团队结构\n\n' +
-        'L1：您直接邀请注册的玩家\n' +
-        'L2：由您的 L1 邀请注册的玩家\n' +
-        'L3：由您的 L2 邀请注册的玩家\n' +
-        '页面上方 L1 / L2 / L3 数字为各层当前团队人数。\n\n' +
-        '佣金费率\n\n' +
-        'L1 佣金 = 该下线当月有效投注（PHP 等值）× {{l1Rate}}%\n' +
-        'L2 佣金 = 该下线当月有效投注（PHP 等值）× {{l2Rate}}%\n' +
-        'L3 佣金 = 该下线当月有效投注（PHP 等值）× {{l3Rate}}%\n' +
-        '实际费率以本页及优惠页展示为准，平台可能为不同代理配置套餐。\n\n' +
-        '下线激活条件\n\n' +
-        '下级玩家须首充满 ₱100 并完成激活后，其投注才会为您产生佣金。未激活下线的投注不计佣金（团队树中仍可能显示当日流水供参考）。\n\n' +
-        '流水与结算\n\n' +
+        '什么是三圈奖励\n\n' +
+        '分享邀请链接后，奖励可沿三圈扩散。C1 是你直接邀请的好友，C2 是由 C1 邀请的好友，C3 是再往外一圈的好友。奖励按有效游戏流水计算，不扣减输赢，多币种游戏将按汇率折算为 PHP 等值奖励。\n\n' +
+        '三圈结构\n\n' +
+        'C1：您直接邀请注册的好友\n' +
+        'C2：由您的 C1 好友邀请注册的玩家\n' +
+        'C3：由您的 C2 好友邀请注册的玩家\n' +
+        '页面上方 C1 / C2 / C3 数字为各圈当前人数。\n\n' +
+        '奖励费率\n\n' +
+        'C1 奖励 = 该成员当月有效投注（PHP 等值）× {{l1Rate}}%\n' +
+        'C2 奖励 = 该成员当月有效投注（PHP 等值）× {{l2Rate}}%\n' +
+        'C3 奖励 = 该成员当月有效投注（PHP 等值）× {{l3Rate}}%\n' +
+        '实际费率以本页及优惠页展示为准。\n\n' +
+        '圈层激活条件\n\n' +
+        '圈层成员须首充满 ₱100 并完成激活后，其有效游戏才会为您产生奖励。未激活成员的游戏不计奖励（圈层树中仍可能显示当日流水供参考）。\n\n' +
+        '有效游戏与结算\n\n' +
         '有效投注：仅统计已结算的 bet 注单，不扣减 win 派彩。\n' +
-        '多币种：PHP、USDT、USDC、TON 等分别记录，折算 PHP 后计入佣金。\n' +
-        '团队树流水：历史日来自日结快照；当天投注实时更新，无需等到次日。\n' +
-        '佣金结算：每日凌晨（菲律宾时间）结算前一日投注，结算后计入「团队收益」并进入可提佣金余额。\n\n' +
+        '多币种：PHP、USDT、USDC、TON 等分别记录，折算 PHP 后计入奖励。\n' +
+        '圈层树流水：历史日来自日结快照；当天投注实时更新，无需等到次日。\n' +
+        '奖励结算：每日凌晨（菲律宾时间）结算前一日投注，结算后计入「圈层奖励」并进入可提余额。\n\n' +
         '查看与提现\n\n' +
-        '团队收益：按月份查看 L1/L2/L3 汇总及明细，可切换树形/列表视图。\n' +
+        '圈层奖励：按月份查看 C1/C2/C3 汇总及明细，可切换树形/列表视图。\n' +
         '提现：在「提现」页提交申请，最低金额以页面提示为准，审核通常 1–3 个工作日。\n\n' +
         '温馨提示\n\n' +
-        '请通过官方邀请链接招募，确保下线正确归属您的团队。\n' +
-        '佣金以 PHP 等值入账团队钱包，与下线使用的游戏币种无关。\n' +
+        '请通过官方邀请链接分享，确保圈层成员正确归属。\n' +
+        '奖励以 PHP 等值入账钱包，与圈层成员使用的游戏币种无关。\n' +
         '如有疑问请联系在线客服。',
     },
   },
@@ -744,46 +744,46 @@ export default {
     range: { today: '今天', '7d': '近 7 天', '30d': '近 30 天' },
   },
   referralPromo: {
-    title: '三级分销',
-    subtitle: '被动收入计划',
-    heading1: '邀请赚钱',
-    heading2: '三层通吃',
-    heroParagraph: '好友下注，你躺赚佣金。好友再邀好友，收益持续叠加。',
+    title: '3-Circle Rewards',
+    subtitle: '分享一次，奖励扩散三圈',
+    heading1: '分享一次',
+    heading2: '奖励扩散三圈',
+    heroParagraph: '你的好友是第一圈，好友的好友是第二圈，再往外一圈是第三圈。',
     pyramidYou: '你',
-    pyramidL1: 'L1 直邀好友',
-    pyramidL2: 'L2 好友的好友',
-    pyramidL3: 'L3 第三层下线',
-    ratesTitle: '佣金费率',
-    l1Label: '直邀好友',
-    l1Desc: '你亲自邀请的玩家每次下注',
-    l2Label: '好友的好友',
-    l2Desc: 'L1 好友邀请的玩家每次下注',
-    l3Label: '第三层下线',
-    l3Desc: 'L2 下线再邀请的玩家下注',
-    rateLabel: '佣金率',
-    teamTitle: '我的团队',
+    pyramidL1: 'C1 第一圈',
+    pyramidL2: 'C2 第二圈',
+    pyramidL3: 'C3 第三圈',
+    ratesTitle: '圈层奖励费率',
+    l1Label: '第一圈好友',
+    l1Desc: '你直接邀请的好友，有效游戏产生奖励',
+    l2Label: '第二圈好友',
+    l2Desc: 'C1 好友邀请的玩家，有效游戏产生奖励',
+    l3Label: '第三圈好友',
+    l3Desc: 'C2 好友再邀请的玩家，有效游戏产生奖励',
+    rateLabel: '奖励率',
+    teamTitle: '我的圈层',
     teamDetails: '查看详情',
-    teamL1: 'L1 人数',
-    teamTotal: '全部下线',
-    teamEarned: '累计收益',
+    teamL1: 'C1 好友',
+    teamTotal: '全部圈层',
+    teamEarned: '累计奖励',
     stepsTitle: '如何开始',
-    step1Title: '复制专属邀请链接',
+    step1Title: '复制三圈邀请链接',
     step1Desc: '点击下方按钮，一键复制你的专属邀请地址',
     step2Title: '分享给 Telegram 好友',
     step2Desc: '把链接发给好友，他们通过你的链接注册即绑定关系',
-    step3Title: '好友下注，你持续收益',
-    step3Desc: '好友每次下注，佣金自动结算到你的代理钱包',
+    step3Title: '圈层活跃，奖励增长',
+    step3Desc: '圈层有效游戏会结算到你的奖励钱包',
     codeLabel: '我的邀请码',
     copy: '复制',
     copied: '已复制',
-    ctaShare: '分享邀请链接，开始赚佣金',
+    ctaShare: '分享三圈邀请链接',
     ctaTelegram: '分享到 Telegram',
-    ctaTeam: '查看团队中心',
-    widget: '邀请赚钱',
-    enableTitle: '开启三级分销',
-    enableDesc: '加入代理计划，开始赚取被动佣金收入。',
+    ctaTeam: '查看圈层中心',
+    widget: '三圈奖励',
+    enableTitle: '开启三圈奖励',
+    enableDesc: '打开你的三圈关系，开始让分享产生奖励。',
     enableCta: '立即开启',
     enabling: '开启中...',
-    notActivatedHint: '首次存款 ≥ ₱100 后激活代理，下线投注方可计佣金。',
+    notActivatedHint: '首次存款 ≥ ₱100 后激活，圈层有效游戏方可产生奖励。',
   },
 }

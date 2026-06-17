@@ -99,7 +99,7 @@ function TreeNodeRow({ node, depth, expandedIds, onToggle }: {
         {hasKids
           ? <ChevronRight size={12} className={`text-muted-foreground flex-shrink-0 transition-transform duration-150 ${isExpanded ? 'rotate-90' : ''}`} />
           : <span className="w-3 flex-shrink-0" />}
-        <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full flex-shrink-0 ${badge}`}>L{depth}</span>
+        <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full flex-shrink-0 ${badge}`}>C{depth}</span>
         <div className="flex-1 min-w-0 mr-2">
           <p className="text-sm font-medium text-foreground truncate leading-none mb-0.5">{node.displayName}</p>
           {(node.turnoverCents !== 0 || node.currencyBreakdown?.length > 0) && (
@@ -208,11 +208,11 @@ export default function TeamCenterPage({ onClose }: { onClose?: () => void }) {
     setCopyTip(true); setTimeout(() => setCopyTip(false), 1800)
   }
   function shareToTelegram() {
-    const text = encodeURIComponent(`Join BetoGo — use my code ${inviteCode}!\n${telegramLink}`)
+    const text = encodeURIComponent(`Join my 3-Circle Rewards on BetoGo — use my code ${inviteCode}!\n${telegramLink}`)
     window.open(`https://t.me/share/url?url=${encodeURIComponent(telegramLink)}&text=${text}`, '_blank')
   }
   async function shareToWeb() {
-    const shareData = { title: 'BetoGo', text: `Join BetoGo — use my code ${inviteCode}!`, url: webShareLink }
+    const shareData = { title: 'BetoGo', text: `Join my 3-Circle Rewards on BetoGo — use my code ${inviteCode}!`, url: webShareLink }
     if (navigator.share) { try { await navigator.share(shareData) } catch { /* cancelled */ } }
     else { await copyWebLink() }
   }
@@ -281,7 +281,7 @@ export default function TeamCenterPage({ onClose }: { onClose?: () => void }) {
         </div>
       </div>
 
-      {/* ── L1/L2/L3 人数 + 月份导航 + Tab 栏（sticky，吸在 AppShell header 下）── */}
+      {/* Circle counts + month navigation + tabs */}
       <div className="sticky z-20 bg-background" style={{ top: 'var(--app-header-height)' }}>
       <div className="flex items-center px-4 py-2.5 border-b border-border gap-4">
         <div className="flex gap-5">
@@ -290,7 +290,7 @@ export default function TeamCenterPage({ onClose }: { onClose?: () => void }) {
               <div className="text-base font-black text-amber-400 leading-none">
                 {teamStatus?.[`l${lvl}Count` as 'l1Count' | 'l2Count' | 'l3Count'] ?? 0}
               </div>
-              <div className="text-[9px] text-muted-foreground mt-0.5">L{lvl}</div>
+              <div className="text-[9px] text-muted-foreground mt-0.5">C{lvl}</div>
             </div>
           ))}
         </div>
@@ -335,26 +335,26 @@ export default function TeamCenterPage({ onClose }: { onClose?: () => void }) {
       {/* ── 内容区（document scroll）── */}
       <div className="min-h-0">
 
-        {/* ══ 团队收益 Tab ══ */}
+        {/* Circle rewards tab */}
         {activeTab === 'earnings' && (
           <>
-            {/* 佣金汇总卡片 */}
+            {/* Rewards summary */}
             <div className="px-4 pt-4 pb-3">
               <div className="amber-card-bg rounded-2xl border border-amber-500/20 p-3">
                 <div className="grid grid-cols-2 gap-2 mb-2">
                   <div className="bg-foreground/6 rounded-xl p-2 text-center">
                     <div className="text-amber-400 font-black text-base leading-none">{phpDisplay(summary?.l1Cents ?? 0)}</div>
-                    <div className="text-foreground/50 text-[9px] mt-0.5">L1 · {teamStatus?.ratePlan?.l1RatePct ?? 25}%</div>
+                    <div className="text-foreground/50 text-[9px] mt-0.5">C1 · {teamStatus?.ratePlan?.l1RatePct ?? 25}%</div>
                   </div>
                   <div className="bg-foreground/6 rounded-xl p-2 text-center">
                     <div className="text-amber-400 font-black text-base leading-none">{phpDisplay(summary?.l2Cents ?? 0)}</div>
-                    <div className="text-foreground/50 text-[9px] mt-0.5">L2 · {teamStatus?.ratePlan?.l2RatePct ?? 8}%</div>
+                    <div className="text-foreground/50 text-[9px] mt-0.5">C2 · {teamStatus?.ratePlan?.l2RatePct ?? 8}%</div>
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div className="bg-foreground/6 rounded-xl p-2 text-center">
                     <div className="text-amber-400 font-black text-base leading-none">{phpDisplay(summary?.l3Cents ?? 0)}</div>
-                    <div className="text-foreground/50 text-[9px] mt-0.5">L3 · {teamStatus?.ratePlan?.l3RatePct ?? 3}%</div>
+                    <div className="text-foreground/50 text-[9px] mt-0.5">C3 · {teamStatus?.ratePlan?.l3RatePct ?? 3}%</div>
                   </div>
                   <div className="bg-amber-500/20 rounded-xl p-2 text-center border border-amber-500/30">
                     <div className="text-amber-300 font-black text-base leading-none">{phpDisplay(summary?.totalCents ?? 0)}</div>
@@ -417,7 +417,7 @@ export default function TeamCenterPage({ onClose }: { onClose?: () => void }) {
                   </div>
                 ) : commItems.map((item, i) => (
                   <div key={i} className="flex items-center gap-3 bg-secondary rounded-xl px-3 py-2.5">
-                    <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full flex-shrink-0 ${levelBadge[item.level]}`}>L{item.level}</span>
+                    <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full flex-shrink-0 ${levelBadge[item.level]}`}>C{item.level}</span>
                     <div className="flex-1 min-w-0">
                       <p className="text-foreground font-bold text-xs leading-none mb-0.5">{item.displayName}</p>
                       <p className="text-[10px] text-muted-foreground">
@@ -539,7 +539,7 @@ export default function TeamCenterPage({ onClose }: { onClose?: () => void }) {
         <div className="h-4" />{/* 底部留白 */}
       </div>
 
-      {/* ── 三级分销机制说明 ── */}
+      {/* 3-Circle Rewards guide */}
       {guideOpen && (
         <div className="fixed inset-0 z-50 flex flex-col justify-end" onClick={() => setGuideOpen(false)}>
           <div className="absolute inset-0 bg-black/65 backdrop-blur-[2px]" />

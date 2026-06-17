@@ -215,7 +215,7 @@ export default function BonusesPage({ promoFilter, onOpenWallet, onOpenTeam }: P
                       <span className="text-white/50 text-[9px]">{t('bonuses.promos.agent.teamLabel')}</span>
                     </div>
                     <div className="text-amber-400 font-black text-sm leading-none">
-                      L1 {teamStatus.l1Count} · L2 {teamStatus.l2Count} · L3 {teamStatus.l3Count}
+                      C1 {teamStatus.l1Count} · C2 {teamStatus.l2Count} · C3 {teamStatus.l3Count}
                     </div>
                   </div>
                   <div className="bg-black/30 rounded-xl px-3 py-2 text-right">

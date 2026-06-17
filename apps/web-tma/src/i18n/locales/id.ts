@@ -353,25 +353,25 @@ export default {
         step3: 'Turnover {{turnoverX}}x untuk tarik',
       },
       agent: {
-        tag: 'PROGRAM AGEN',
-        title: 'Agen Referral 3 Level',
-        tagline: 'Dapatkan Komisi GGR Berkelanjutan',
-        rewardLabel: 'Komisi GGR',
-        desc: 'Jadilah agen BetoGo. Bangun jaringan 3 level dan dapatkan komisi GGR bulanan — 25% dari L1, 8% dari L2, 3% dari L3.',
-        badge: 'Berkelanjutan',
-        cta: 'Aktifkan Sekarang',
-        ctaActive: 'Buka Pusat Tim',
-        activating: 'Mengaktifkan...',
-        step1: 'Klik Aktifkan untuk membuka akun agen',
-        step2: 'Bagikan tautan dan rekrut anggota',
-        step3: 'Dapatkan komisi GGR bulanan dari jaringan 3 level',
-        rateL1: 'L1 Langsung',
-        rateL2: 'L2 Tidak Langsung',
-        rateL3: 'L3 Tersier',
-        teamLabel: 'Tim',
-        commissionLabel: 'Komisi',
-        activationHint: 'Deposit ₱100 untuk aktif — jaringan Anda mulai menghasilkan komisi GGR',
-        signInHint: 'Masuk untuk mengaktifkan akun agen Anda',
+        tag: '3-CIRCLE REWARDS',
+        title: '3-Circle Rewards',
+        tagline: 'Bagikan Sekali. Dapat dari 3 Circle',
+        rewardLabel: 'Circle Rewards',
+        desc: 'Ubah tautan undangan Anda menjadi tiga circle reward. Teman Anda adalah C1, teman mereka C2, dan satu circle lagi adalah C3 — reward dihitung dari permainan valid.',
+        badge: '3 Circle',
+        cta: 'Mulai 3 Circle',
+        ctaActive: 'Buka Circle Center',
+        activating: 'Memulai...',
+        step1: 'Mulai 3-Circle Rewards',
+        step2: 'Bagikan tautan undangan ke teman',
+        step3: 'Dapatkan reward saat aktivitas C1, C2, dan C3 tumbuh',
+        rateL1: 'C1 Teman',
+        rateL2: 'C2 Teman',
+        rateL3: 'C3 Teman',
+        teamLabel: 'Circles',
+        commissionLabel: 'Rewards',
+        activationHint: 'Deposit ₱100 untuk aktif — circle Anda mulai menghasilkan reward',
+        signInHint: 'Masuk untuk memulai 3-Circle Rewards',
       },
     },
     featuredBadge: '⭐ UNGGULAN',
@@ -383,16 +383,16 @@ export default {
     awesome: 'Mantap!',
   },
   team: {
-    title: 'Pusat Tim',
-    myReferralCode: 'Kode Referral Saya',
+    title: 'Circle Center',
+    myReferralCode: 'Kode Undangan Saya',
     shareOnTelegram: 'Bagikan ke Telegram',
     shareLink: 'Bagikan Tautan',
     copied: 'Tautan disalin!',
-    tabTeam: 'Tim Saya',
-    tabCommissions: 'Pendapatan',
+    tabTeam: 'Circle Saya',
+    tabCommissions: 'Detail Reward',
     tabWithdraw: 'Tarik Dana',
-    tabEarnings: 'Pendapatan Tim',
-    available: 'Komisi Tersedia',
+    tabEarnings: 'Circle Rewards',
+    available: 'Reward Tersedia',
     frozen: 'Tertunda',
     lifetime: 'Seumur Hidup',
     total: 'Total',
@@ -401,8 +401,8 @@ export default {
     collapse: 'Ciutkan',
     periodEarned: '{{period}} Diperoleh',
     periodSettled: '{{period}} Diselesaikan',
-    noDownlines: 'Belum ada anggota — bagikan tautan untuk merekrut!',
-    noCommissions: 'Tidak ada catatan komisi untuk periode ini.',
+    noDownlines: 'Belum ada anggota circle — bagikan tautan untuk menumbuhkan circle pertama!',
+    noCommissions: 'Tidak ada reward untuk periode ini.',
     noWithdrawals: 'Belum ada catatan penarikan.',
     activated: 'Aktif',
     pending: 'Tidak Aktif',
@@ -416,39 +416,39 @@ export default {
     withdrawHistory: 'Riwayat Penarikan',
     invalidAmount: 'Masukkan jumlah yang valid',
     withdrawFailed: 'Penarikan gagal, coba lagi',
-    debtWarning: 'Akun Anda memiliki hutang {{amount}}. Penarikan dinonaktifkan hingga hutang lunas pada siklus komisi berikutnya.',
+    debtWarning: 'Akun Anda memiliki hutang {{amount}}. Penarikan dinonaktifkan hingga hutang lunas pada siklus reward berikutnya.',
     debtLabel: 'Hutang',
     minWithdrawPhp: 'Min ₱100',
-    turnover: 'Turnover',
+    turnover: 'Permainan Valid',
     guideEntry: 'Cara kerja',
     guide: {
-      title: 'Program Referral 3 Tingkat',
+      title: '3-Circle Rewards',
       content:
-        'Apa itu program 3 tingkat\n\n' +
-        'Bagikan tautan undangan untuk membangun tim. Setelah mengaktifkan program agen, Anda mendapat komisi dari maksimal tiga level downline. Komisi berbasis turnover: dihitung dari jumlah taruhan valid saja (menang/kalah tidak dikurangi). Taruhan multi-mata uang dikonversi ke setara PHP dengan kurs harian.\n\n' +
-        'Struktur tim\n\n' +
-        'L1: Pemain yang Anda undang langsung\n' +
-        'L2: Pemain yang diundang oleh anggota L1 Anda\n' +
-        'L3: Pemain yang diundang oleh anggota L2 Anda\n' +
-        'Angka L1 / L2 / L3 di atas menunjukkan jumlah tim per level.\n\n' +
-        'Tarif komisi\n\n' +
-        'Komisi L1 = taruhan valid bulanan anggota (setara PHP) × {{l1Rate}}%\n' +
-        'Komisi L2 = taruhan valid bulanan anggota (setara PHP) × {{l2Rate}}%\n' +
-        'Komisi L3 = taruhan valid bulanan anggota (setara PHP) × {{l3Rate}}%\n' +
-        'Tarif di halaman ini berlaku untuk akun Anda; agen berbeda dapat memiliki paket berbeda.\n\n' +
-        'Aktivasi downline\n\n' +
-        'Downline harus deposit pertama minimal ₱100 dan aktif sebelum taruhannya menghasilkan komisi untuk Anda. Taruhan dari downline yang belum aktif tidak menghasilkan komisi (turnover hari yang sama mungkin tetap tampil di pohon tim sebagai referensi).\n\n' +
-        'Turnover & penyelesaian\n\n' +
+        'Apa itu 3 circle\n\n' +
+        'Bagikan tautan undangan dan tumbuhkan reward melalui tiga circle. C1 adalah teman yang Anda undang langsung. C2 adalah teman yang diundang oleh C1. C3 adalah satu circle berikutnya. Reward dihitung dari jumlah taruhan valid saja (menang/kalah tidak dikurangi). Taruhan multi-mata uang dikonversi ke setara PHP dengan kurs harian.\n\n' +
+        'Struktur circle\n\n' +
+        'C1: Teman yang Anda undang langsung\n' +
+        'C2: Teman yang diundang oleh anggota C1 Anda\n' +
+        'C3: Teman yang diundang oleh anggota C2 Anda\n' +
+        'Angka C1 / C2 / C3 di atas menunjukkan ukuran circle Anda saat ini.\n\n' +
+        'Tarif reward\n\n' +
+        'Reward C1 = taruhan valid bulanan anggota (setara PHP) × {{l1Rate}}%\n' +
+        'Reward C2 = taruhan valid bulanan anggota (setara PHP) × {{l2Rate}}%\n' +
+        'Reward C3 = taruhan valid bulanan anggota (setara PHP) × {{l3Rate}}%\n' +
+        'Tarif di halaman ini berlaku untuk akun Anda.\n\n' +
+        'Aktivasi circle\n\n' +
+        'Anggota circle harus deposit pertama minimal ₱100 dan aktif sebelum permainannya menghasilkan reward untuk Anda. Permainan dari anggota yang belum aktif tidak menghasilkan reward (permainan valid hari yang sama mungkin tetap tampil di pohon circle sebagai referensi).\n\n' +
+        'Permainan valid & penyelesaian\n\n' +
         'Taruhan valid: hanya order bet yang sudah settled; payout win tidak dikurangi.\n' +
-        'Multi-mata uang: PHP, USDT, USDC, TON, dll. dicatat terpisah lalu dikonversi ke PHP untuk komisi.\n' +
-        'Turnover pohon tim: hari lalu dari snapshot harian; taruhan hari ini diperbarui secara real time.\n' +
-        'Penyelesaian komisi: berjalan setiap hari (waktu Filipina) untuk taruhan hari sebelumnya. Setelah selesai, pendapatan masuk ke Pendapatan Tim dan saldo yang bisa ditarik.\n\n' +
+        'Multi-mata uang: PHP, USDT, USDC, TON, dll. dicatat terpisah lalu dikonversi ke PHP untuk reward.\n' +
+        'Permainan valid pohon circle: hari lalu dari snapshot harian; taruhan hari ini diperbarui secara real time.\n' +
+        'Penyelesaian reward: berjalan setiap hari (waktu Filipina) untuk taruhan hari sebelumnya. Setelah selesai, reward masuk ke Circle Rewards dan saldo yang bisa ditarik.\n\n' +
         'Lihat & tarik dana\n\n' +
-        'Pendapatan Tim: lihat total dan detail L1/L2/L3 per bulan; beralih antara tampilan pohon dan daftar.\n' +
+        'Circle Rewards: lihat total dan detail C1/C2/C3 per bulan; beralih antara tampilan pohon dan daftar.\n' +
         'Tarik dana: ajukan di tab Tarik Dana. Jumlah minimum ditampilkan di halaman. Review biasanya 1–3 hari kerja.\n\n' +
         'Catatan\n\n' +
-        'Selalu rekrut melalui tautan undangan resmi agar downline teratribusi dengan benar.\n' +
-        'Komisi dikreditkan dalam setara PHP terlepas dari mata uang yang dipakai downline.\n' +
+        'Selalu bagikan tautan undangan resmi agar anggota circle teratribusi dengan benar.\n' +
+        'Reward dikreditkan dalam setara PHP terlepas dari mata uang yang dipakai anggota circle.\n' +
         'Hubungi dukungan langsung jika ada pertanyaan.',
     },
   },
@@ -663,47 +663,47 @@ export default {
     range: { today: 'Hari ini', '7d': '7 Hari', '30d': '30 Hari' },
   },
   referralPromo: {
-    title: 'Program Referral',
-    subtitle: 'Rencana Penghasilan Pasif',
-    heading1: 'Undang & Hasilkan',
-    heading2: 'Semua 3 Level',
-    heroParagraph: 'Teman bertaruh, kamu dapat komisi. Teman undang teman, keuntungan terus bertambah.',
+    title: '3-Circle Rewards',
+    subtitle: 'Bagikan Sekali. Dapat dari 3 Circle',
+    heading1: 'Bagikan Sekali',
+    heading2: 'Dapat dari 3 Circle',
+    heroParagraph: 'Teman Anda adalah Circle 1. Teman mereka adalah Circle 2. Satu circle lagi menjadi Circle 3.',
     pyramidYou: 'Kamu',
-    pyramidL1: 'L1 Teman Langsung',
-    pyramidL2: 'Teman dari Teman',
-    pyramidL3: 'Level Ketiga',
-    ratesTitle: 'Tarif Komisi',
-    l1Label: 'Referral Langsung',
-    l1Desc: 'Pemain yang kamu undang langsung — setiap taruhan mereka',
-    l2Label: 'Teman dari Teman',
-    l2Desc: 'Pemain yang diundang L1 — setiap taruhan mereka',
-    l3Label: 'Downline Level Ketiga',
-    l3Desc: 'Pemain yang diundang L2 — setiap taruhan mereka',
-    rateLabel: 'Komisi',
-    teamTitle: 'Tim Saya',
+    pyramidL1: 'C1 Teman',
+    pyramidL2: 'C2 Teman',
+    pyramidL3: 'C3 Teman',
+    ratesTitle: 'Tarif Circle Reward',
+    l1Label: 'Circle 1 Teman',
+    l1Desc: 'Teman yang kamu undang langsung — reward dari permainan valid',
+    l2Label: 'Circle 2 Teman',
+    l2Desc: 'Teman yang diundang C1 — reward dari permainan valid',
+    l3Label: 'Circle 3 Teman',
+    l3Desc: 'Teman yang diundang C2 — reward dari permainan valid',
+    rateLabel: 'Tarif Reward',
+    teamTitle: 'Circle Saya',
     teamDetails: 'Lihat Detail',
-    teamL1: 'Anggota L1',
-    teamTotal: 'Semua Downline',
+    teamL1: 'C1 Teman',
+    teamTotal: 'Semua Circle',
     teamEarned: 'Total Pendapatan',
     stepsTitle: 'Cara Mulai',
-    step1Title: 'Salin tautan referral kamu',
+    step1Title: 'Salin tautan 3-circle kamu',
     step1Desc: 'Ketuk tombol di bawah untuk menyalin tautan undangan unikmu',
     step2Title: 'Bagikan ke teman Telegram',
     step2Desc: 'Kirim tautan ke teman — siapa pun yang mendaftar terhubung denganmu',
-    step3Title: 'Teman bertaruh, kamu terus untung',
-    step3Desc: 'Setiap taruhan teman secara otomatis menghasilkan komisi ke dompet agenmu',
+    step3Title: 'Circle tumbuh, reward bertambah',
+    step3Desc: 'Permainan valid dari circle masuk ke dompet reward kamu',
     codeLabel: 'Kode Undangan Saya',
     copy: 'Salin',
     copied: 'Disalin',
-    ctaShare: 'Bagikan Tautan & Hasilkan',
+    ctaShare: 'Bagikan Tautan 3-Circle',
     ctaTelegram: 'Bagikan di Telegram',
-    ctaTeam: 'Lihat Pusat Tim',
-    widget: 'Undang & Untung',
-    enableTitle: 'Aktifkan Program Referral',
-    enableDesc: 'Bergabunglah dengan program agen untuk mulai mendapatkan komisi pasif.',
-    enableCta: 'Aktifkan Sekarang',
-    enabling: 'Mengaktifkan...',
-    notActivatedHint: 'Lakukan deposit pertama ≥ ₱100 untuk aktivasi — taruhan downline baru menghasilkan komisi.',
+    ctaTeam: 'Lihat Circle Center',
+    widget: '3-Circle Rewards',
+    enableTitle: 'Mulai 3-Circle Rewards',
+    enableDesc: 'Buka tiga circle Anda dan mulai tumbuhkan reward dari permainan bersama.',
+    enableCta: 'Mulai Sekarang',
+    enabling: 'Memulai...',
+    notActivatedHint: 'Lakukan deposit pertama ≥ ₱100 untuk aktivasi — permainan valid dari circle akan menghasilkan reward.',
   },
   kyc: {
     reviewing: 'Sedang ditinjau…',

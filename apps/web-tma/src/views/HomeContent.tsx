@@ -688,7 +688,7 @@ const [gamesLoading, setGamesLoading] = useState(true)
 
       </>}{/* end hot mode */}
 
-      {/* 三级分销浮动挂件：未成为代理前始终显示，成为代理后自动消失 */}
+      {/* 3-Circle Rewards floating entry: visible before activation */}
       {auth.token && !promotion.teamStatus?.isAgent && (
         <div className="fixed bottom-24 right-4 z-30 flex flex-col items-end gap-1.5">
           <span className="absolute inset-0 rounded-2xl animate-ping bg-amber-400/30 pointer-events-none" style={{ animationDuration: '2.4s' }} />
