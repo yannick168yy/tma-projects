@@ -1,6 +1,12 @@
+import type { Redis } from 'ioredis'
 import type { PoolConnection, RowDataPacket } from 'mysql2/promise'
 import type { Env } from '../config/env.js'
 import { getMysqlPool, isMysqlEnabled } from '../clients/mysql.client.js'
+
+const TICKER_SIZE = 100
+const TICKER_TTL_SEC = 3600
+const NAME_HEADS = 'ABCDEFGHJKLMNPRSTVW'
+const NAME_TAILS = 'abcefghjklmnprstvy'
 
 export interface SpinDepositRule {
   id?: number
@@ -47,6 +53,7 @@ export interface SpinStatus {
   depositRules: SpinDepositRule[]
   prizes: SpinPrize[]
   recentRecords: SpinRecord[]
+  tickerRecords: SpinRecord[]
 }
 
 export interface SpinDrawResult {
@@ -336,13 +343,95 @@ async function recentRecords(conn: PoolConnection, limit: number): Promise<SpinR
   }))
 }
 
-export async function getSpinStatus(env: Env, userId: string): Promise<SpinStatus> {
+function tickerHourBucket(): number {
+  return Math.floor(Date.now() / 3_600_000)
+}
+
+function tickerCacheKey(bucket: number): string {
+  return `spin:ticker:feed:${bucket}`
+}
+
+function syntheticDisplayName(): string {
+  const h = NAME_HEADS[Math.floor(Math.random() * NAME_HEADS.length)]
+  const t = NAME_TAILS[Math.floor(Math.random() * NAME_TAILS.length)]
+  return `${h}*****${t}`
+}
+
+function pickSyntheticPrize(prizes: SpinPrize[]): { amountPhp: number; prizeName: string } {
+  const pool = prizes.filter((p) => p.enabled && p.amountPhp > 0)
+  if (!pool.length) return { amountPhp: 7.77, prizeName: '₱7.77' }
+  const total = pool.reduce((sum, prize) => sum + prize.weight, 0)
+  let n = Math.random() * total
+  for (const prize of pool) {
+    n -= prize.weight
+    if (n <= 0) return { amountPhp: prize.amountPhp, prizeName: prize.name }
+  }
+  const last = pool[pool.length - 1]
+  return { amountPhp: last.amountPhp, prizeName: last.name }
+}
+
+function buildRuleTicker(ruleId: number, prizes: SpinPrize[], bucket: number): SpinRecord[] {
+  const now = Date.now()
+  return Array.from({ length: TICKER_SIZE }, (_, i) => {
+    const picked = pickSyntheticPrize(prizes)
+    const ageMs = Math.floor(Math.random() * TICKER_TTL_SEC * 1000)
+    return {
+      id: `ST_${ruleId}_${bucket}_${i}`,
+      userId: `syn_${ruleId}_${i}`,
+      displayName: syntheticDisplayName(),
+      prizeName: picked.prizeName,
+      amountPhp: picked.amountPhp,
+      createdAt: new Date(now - ageMs).toISOString(),
+    }
+  }).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+}
+
+const memoryTickerCache = new Map<number, Record<number, SpinRecord[]>>()
+
+async function getAllTickerFeeds(redis: Redis, config: SpinConfig): Promise<Record<number, SpinRecord[]>> {
+  const bucket = tickerHourBucket()
+  const key = tickerCacheKey(bucket)
+
+  try {
+    const cached = await redis.get(key)
+    if (cached) return JSON.parse(cached) as Record<number, SpinRecord[]>
+  } catch {
+    const mem = memoryTickerCache.get(bucket)
+    if (mem) return mem
+  }
+
+  const feeds: Record<number, SpinRecord[]> = {}
+  for (const rule of config.depositRules) {
+    if (!rule.id || !rule.enabled) continue
+    const prizes = config.prizes.filter((p) => Number(p.ruleId) === Number(rule.id) && p.enabled)
+    if (!prizes.length) continue
+    feeds[rule.id] = buildRuleTicker(rule.id, prizes, bucket)
+  }
+
+  try {
+    await redis.setex(key, TICKER_TTL_SEC, JSON.stringify(feeds))
+  } catch {
+    memoryTickerCache.set(bucket, feeds)
+  }
+
+  return feeds
+}
+
+async function getTickerRecords(redis: Redis, config: SpinConfig, ruleId?: number): Promise<SpinRecord[]> {
+  if (!ruleId) return []
+  const feeds = await getAllTickerFeeds(redis, config)
+  return feeds[ruleId] ?? []
+}
+
+export async function getSpinStatus(env: Env, userId: string, redis: Redis, ruleId?: number): Promise<SpinStatus> {
   await syncSpinChances(env, userId)
   const pool = getMysqlPool(env)
   const conn = await pool.getConnection()
   try {
     const config = await getEnabledConfig(conn)
     const byRule = await remainingByRule(conn, userId)
+    const fullConfig = await getSpinConfig(env)
+    const tickerRecords = await getTickerRecords(redis, fullConfig, ruleId)
     return {
       ...config,
       depositRules: config.depositRules.map((rule) => ({
@@ -351,6 +440,7 @@ export async function getSpinStatus(env: Env, userId: string): Promise<SpinStatu
       })),
       remainingChances: await remainingChances(conn, userId),
       recentRecords: await recentRecords(conn, 20),
+      tickerRecords,
     }
   } finally {
     conn.release()

@@ -7,7 +7,8 @@ const router = new Router({ prefix: '/spin' })
 router.get('/status', async (ctx) => {
   const userId = ctx.state.userId
   if (!userId) { fail(ctx, 401, 'Unauthorized', 401); return }
-  const status = await getSpinStatus(ctx.state.env, userId)
+  const ruleId = ctx.query.ruleId ? Number(ctx.query.ruleId) : undefined
+  const status = await getSpinStatus(ctx.state.env, userId, ctx.state.redis, ruleId)
   ok(ctx, status)
 })
 

@@ -5,6 +5,8 @@ import { ApiError } from '@/api/client'
 import { drawSpin, fetchSpinStatus, type SpinStatus, type SpinDrawResult } from '@/api/spin'
 import { useWalletStore } from '@/stores/wallet'
 import SpinWheel from '@/components/spin/SpinWheel'
+import SpinWinnerTicker from '@/components/spin/SpinWinnerTicker'
+import { computeSpinRotation, SPIN_ROTATION_MS } from '@/components/spin/spinWheelMath'
 import spinBg from '@/assets/spin/fbm/bg.webp'
 import titleImg from '@/assets/spin/fbm/title.png'
 import mascotLeftImg from '@/assets/spin/fbm/item-left.webp'
@@ -24,12 +26,6 @@ function fmtPhp(amount: number): string {
 
 function fmtDepositAmount(amount: number): string {
   return Math.round(amount).toLocaleString('en-PH')
-}
-
-function fmtDate(value: string): string {
-  const d = new Date(value)
-  if (Number.isNaN(d.getTime())) return ''
-  return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`
 }
 
 export default function RewardsSpinPage({ onOpenWallet, onClose }: Props) {
@@ -63,14 +59,27 @@ export default function RewardsSpinPage({ onOpenWallet, onClose }: Props) {
   const remaining = selectedRule?.remainingChances ?? status?.remainingChances ?? 0
   const selectedAmount = selectedRule ? Number(selectedRule.depositAmountPhp ?? selectedRule.minDepositPhp) : 580
   const canSpin = Boolean(selectedRule?.id && status?.enabled && remaining > 0 && wheelPrizes.length > 0)
+  const tickerRecords = status?.tickerRecords ?? []
 
-  async function load() {
+  useEffect(() => {
+    const prevBody = document.body.style.overflow
+    const prevHtml = document.documentElement.style.overflow
+    document.body.style.overflow = 'hidden'
+    document.documentElement.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = prevBody
+      document.documentElement.style.overflow = prevHtml
+    }
+  }, [])
+
+  async function load(ruleId?: number | null) {
     setLoading(true)
     try {
-      const next = await fetchSpinStatus()
+      const next = await fetchSpinStatus(ruleId ?? undefined)
       setStatus(next)
       setSelectedRuleId((current) => {
-        if (current && next.depositRules.some((rule) => rule.id === current)) return current
+        const nextId = current ?? null
+        if (nextId && next.depositRules.some((rule) => rule.id === nextId)) return nextId
         const available = next.depositRules.find((rule) => rule.enabled && (rule.remainingChances ?? 0) > 0)
         return available?.id ?? next.depositRules.find((rule) => rule.enabled)?.id ?? null
       })
@@ -81,8 +90,8 @@ export default function RewardsSpinPage({ onOpenWallet, onClose }: Props) {
     }
   }
 
-  async function refreshStatus() {
-    const next = await fetchSpinStatus()
+  async function refreshStatus(ruleId?: number | null) {
+    const next = await fetchSpinStatus(ruleId ?? selectedRuleId ?? undefined)
     setStatus(next)
     setSelectedRuleId((current) => {
       if (current && next.depositRules.some((rule) => rule.id === current)) return current
@@ -92,6 +101,15 @@ export default function RewardsSpinPage({ onOpenWallet, onClose }: Props) {
   }
 
   useEffect(() => { void load() }, [])
+
+  useEffect(() => {
+    if (!selectedRuleId || loading) return
+    void fetchSpinStatus(selectedRuleId)
+      .then((next) => {
+        setStatus((prev) => prev ? { ...prev, tickerRecords: next.tickerRecords ?? [] } : prev)
+      })
+      .catch(() => {})
+  }, [selectedRuleId, loading])
 
   async function onSpin() {
     if (spinning) return
@@ -108,23 +126,17 @@ export default function RewardsSpinPage({ onOpenWallet, onClose }: Props) {
     try {
       const res = await drawSpin(selectedRule.id)
       const idx = Math.max(0, wheelPrizes.findIndex((p) => p.id === res.prizeId))
-      const segment = 360 / Math.max(1, wheelPrizes.length)
-      const desired = 360 - (idx * segment + segment / 2)
-      setRotation((prev) => {
-        const current = ((prev % 360) + 360) % 360
-        const delta = (desired - current + 360) % 360
-        return prev + 2160 + delta
-      })
+      setRotation((prev) => computeSpinRotation(prev, idx, wheelPrizes.length))
       window.setTimeout(async () => {
         setResult(res)
         setStatus((prev) => prev ? { ...prev, remainingChances: res.remainingChances } : prev)
         try {
           await wallet.refresh()
-          await refreshStatus()
+          await refreshStatus(selectedRule.id)
         } finally {
           setSpinning(false)
         }
-      }, 5700)
+      }, SPIN_ROTATION_MS + 200)
     } catch (e) {
       setMessage(e instanceof ApiError ? e.message : t('spin.spinFailed'))
       setSpinning(false)
@@ -132,10 +144,10 @@ export default function RewardsSpinPage({ onOpenWallet, onClose }: Props) {
   }
 
   return (
-    <div className="page-main relative min-h-screen overflow-hidden bg-[#2448bd] pb-[calc(88px+env(safe-area-inset-bottom))] text-white">
-      <div className="absolute inset-0 z-0 bg-cover bg-top" style={{ backgroundImage: `url(${spinBg})` }} />
+    <div className="spin-page fixed inset-x-0 top-0 z-10 mx-auto flex h-[100dvh] w-full max-w-[430px] flex-col overflow-hidden bg-[#2448bd] text-white">
+      <div className="pointer-events-none absolute inset-0 z-0 bg-cover bg-top" style={{ backgroundImage: `url(${spinBg})` }} />
 
-      <header className="relative z-10 px-5 pt-[calc(var(--app-safe-top)+10px)]">
+      <header className="relative z-10 flex-shrink-0 px-5 pt-[calc(var(--app-safe-top)+10px)]">
         <div className="flex items-center justify-between">
           <button type="button" className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#35aaf8] text-white shadow-lg shadow-blue-950/25 active:scale-95" onClick={onClose}>
             <ChevronLeft size={27} strokeWidth={3.2} />
@@ -144,20 +156,20 @@ export default function RewardsSpinPage({ onOpenWallet, onClose }: Props) {
             <Gift size={25} strokeWidth={3} />
           </button>
         </div>
-        <div className="mt-4 text-center">
-          <img src={titleImg} alt="Rewards Spin" draggable={false} className="mx-auto w-[80%] max-w-[470px]" />
-          <p className="mt-2 text-[clamp(1.1rem,5vw,1.9rem)] font-black text-[#fff8b6] drop-shadow-[0_2px_7px_rgba(255,255,160,0.55)]">
+        <div className="mt-2 text-center">
+          <img src={titleImg} alt="Rewards Spin" draggable={false} className="mx-auto w-[72%] max-w-[400px]" />
+          <p className="mt-1 text-[clamp(1rem,4.6vw,1.65rem)] font-black text-[#fff8b6] drop-shadow-[0_2px_7px_rgba(255,255,160,0.55)]">
             {t('spin.remaining')}: {remaining}
           </p>
         </div>
       </header>
 
-      <main className="relative z-10 mt-0">
-        <img src={mascotLeftImg} alt="" draggable={false} className="spin-mascot-left pointer-events-none absolute left-0 top-[2vw] z-20 w-[21vw] max-w-[104px]" />
-        <img src={mascotRightImg} alt="" draggable={false} className="spin-mascot-right pointer-events-none absolute right-2 top-[66vw] z-30 w-[21vw] max-w-[100px]" />
+      <main className="relative z-10 flex min-h-0 flex-1 flex-col">
+        <img src={mascotLeftImg} alt="" draggable={false} className="spin-mascot-left pointer-events-none absolute left-0 top-[1vw] z-20 w-[18vw] max-w-[92px]" />
+        <img src={mascotRightImg} alt="" draggable={false} className="spin-mascot-right pointer-events-none absolute right-2 top-[48%] z-30 w-[18vw] max-w-[88px]" />
 
-        <div className="px-0">
-          <div className="relative mx-auto w-[86vw] max-w-[420px]">
+        <div className="flex-shrink-0 px-0">
+          <div className="relative mx-auto w-[78vw] max-w-[380px]">
             {loading ? (
               <div className="flex aspect-[760/838] items-center justify-center">
                 <Loader2 size={34} className="animate-spin text-white/80" />
@@ -179,16 +191,17 @@ export default function RewardsSpinPage({ onOpenWallet, onClose }: Props) {
           </div>
         </div>
 
-        {message && <p className="mx-5 mt-3 rounded-xl bg-red-500/20 px-3 py-2 text-center text-xs font-black text-red-100">{message}</p>}
+        {message && <p className="mx-5 mt-1 flex-shrink-0 rounded-xl bg-red-500/20 px-3 py-2 text-center text-xs font-black text-red-100">{message}</p>}
+
         {rules.length > 0 && (
-          <div className="mt-3 flex gap-2 overflow-x-auto px-2 pb-1 hide-scrollbar">
+          <div className="mt-1 flex flex-shrink-0 gap-2 overflow-x-auto px-2 pb-1 hide-scrollbar">
             {rules.map((rule) => {
               const active = rule.id === selectedRule?.id
               return (
                 <button
                   key={rule.id}
                   type="button"
-                  className={`min-w-[126px] flex-shrink-0 rounded-t-xl px-2.5 py-2 text-center shadow-[0_3px_0_rgba(120,34,0,0.3)] active:scale-[0.98] ${
+                  className={`min-w-[118px] flex-shrink-0 rounded-t-xl px-2.5 py-1.5 text-center shadow-[0_3px_0_rgba(120,34,0,0.3)] active:scale-[0.98] ${
                     active ? 'bg-[#ff553d] text-white' : 'bg-gradient-to-b from-[#fff139] to-[#ffc312] text-[#7a2d25]'
                   }`}
                   onClick={() => { setSelectedRuleId(rule.id!); setResult(null); setMessage('') }}
@@ -203,22 +216,7 @@ export default function RewardsSpinPage({ onOpenWallet, onClose }: Props) {
           </div>
         )}
 
-        <section className="mt-0 border-t-4 border-[#ff553d] bg-[#fff0e9] pb-3 text-[#0b4c2d]">
-          {(status?.recentRecords ?? []).slice(0, 10).map((rec, idx) => (
-            <div
-              key={rec.id}
-              className={`grid grid-cols-[1fr_1.35fr_0.9fr] items-center gap-2 px-4 py-2.5 text-[clamp(0.82rem,3.4vw,1.05rem)] font-black ${idx % 2 ? 'bg-[#ece3ff]' : 'bg-[#fff0e9]'}`}
-            >
-              <span className="truncate">{rec.displayName}</span>
-              <span className="truncate text-center text-[#ff553d]">{t('common.won')} {fmtPhp(rec.amountPhp)}</span>
-              <span className="text-right">{fmtDate(rec.createdAt)}</span>
-            </div>
-          ))}
-          {status?.recentRecords.length === 0 && (
-            <p className="px-5 py-8 text-center text-sm font-black text-[#0b4c2d]/55">{t('spin.noRecords')}</p>
-          )}
-        </section>
-
+        <SpinWinnerTicker records={tickerRecords} />
       </main>
 
       {result && (

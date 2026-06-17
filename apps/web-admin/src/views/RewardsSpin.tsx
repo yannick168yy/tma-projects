@@ -13,6 +13,7 @@ import {
   type SpinPrize,
   type SpinRecord,
 } from '../api'
+import { SPIN_PRIZE_IMAGES } from '../assets/spin/prizeImages'
 
 const { Title, Text } = Typography
 
@@ -20,10 +21,36 @@ const LEVEL_COUNT = 6
 const PRIZE_COUNT = 8
 const DEFAULT_AMOUNTS = [108, 580, 1080, 2000, 5000, 10000]
 const PRIZE_SLOTS = Array.from({ length: PRIZE_COUNT }, (_, i) => i)
-const IMAGE_OPTIONS = Array.from({ length: PRIZE_COUNT }, (_, i) => ({
-  value: `prize-${i + 1}`,
-  label: `奖品图 ${i + 1}`,
-}))
+const IMAGE_OPTIONS = Array.from({ length: PRIZE_COUNT }, (_, i) => {
+  const value = `prize-${i + 1}`
+  return {
+    value,
+    label: `奖品图 ${i + 1}`,
+    image: SPIN_PRIZE_IMAGES[value],
+  }
+})
+
+function PrizeImageSelect({ value, onChange }: { value?: string; onChange?: (v: string) => void }) {
+  return (
+    <Select
+      value={value}
+      onChange={onChange}
+      options={IMAGE_OPTIONS}
+      optionRender={(option) => (
+        <Space>
+          <img src={option.data.image} alt="" width={36} height={36} style={{ objectFit: 'contain' }} />
+          <span>{option.label}</span>
+        </Space>
+      )}
+      labelRender={(option) => (
+        <Space>
+          <img src={SPIN_PRIZE_IMAGES[String(option.value)]} alt="" width={28} height={28} style={{ objectFit: 'contain' }} />
+          <span>{option.label}</span>
+        </Space>
+      )}
+    />
+  )
+}
 
 const recordColumns: ColumnsType<SpinRecord> = [
   { title: '记录ID', dataIndex: 'id', width: 170, render: (v) => <span style={{ fontFamily: 'monospace', fontSize: 12 }}>{v}</span> },
@@ -250,7 +277,7 @@ export default function RewardsSpin() {
                                           <>
                                             <PrizeRowFields flatIndex={flatIndex} />
                                             <Form.Item name={['prizes', flatIndex, 'imageKey']} noStyle rules={[{ required: true }]}>
-                                              <Select options={IMAGE_OPTIONS} />
+                                              <PrizeImageSelect />
                                             </Form.Item>
                                           </>
                                         )

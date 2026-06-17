@@ -34,3 +34,33 @@
 .spin-mascot-right {
   animation: spinMascotRightFloat 2.9s ease-in-out infinite;
 }
+
+.spin-page {
+  touch-action: none;
+  -ms-touch-action: none;
+  overscroll-behavior: none;
+}
+
+.spin-ticker {
+  --spin-ticker-row: clamp(2rem, 5.4vw, 2.45rem);
+  flex-shrink: 0;
+}
+
+.spin-ticker-viewport {
+  height: calc(var(--spin-ticker-row) * 8);
+  overflow: hidden;
+  position: relative;
+}
+
+.spin-ticker-track {
+  animation: spinTickerScroll linear infinite;
+}
+
+.spin-ticker-row {
+  height: var(--spin-ticker-row);
+}
+
+@keyframes spinTickerScroll {
+  from { transform: translateY(0); }
+  to { transform: translateY(-50%); }
+}

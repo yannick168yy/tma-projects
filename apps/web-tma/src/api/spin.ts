@@ -39,6 +39,7 @@ export interface SpinStatus {
   depositRules: SpinDepositRule[]
   prizes: SpinPrize[]
   recentRecords: SpinRecord[]
+  tickerRecords: SpinRecord[]
 }
 
 export interface SpinDrawResult {
@@ -49,8 +50,9 @@ export interface SpinDrawResult {
   remainingChances: number
 }
 
-export function fetchSpinStatus(): Promise<SpinStatus> {
-  return apiRequest<SpinStatus>('/spin/status')
+export function fetchSpinStatus(ruleId?: number): Promise<SpinStatus> {
+  const qs = ruleId ? `?ruleId=${ruleId}` : ''
+  return apiRequest<SpinStatus>(`/spin/status${qs}`)
 }
 
 export function drawSpin(ruleId: number): Promise<SpinDrawResult> {

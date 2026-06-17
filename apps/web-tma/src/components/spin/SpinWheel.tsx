@@ -1,4 +1,5 @@
 import type { SpinPrize } from '@/api/spin'
+import { SPIN_ROTATION_MS } from '@/components/spin/spinWheelMath'
 import boxImg from '@/assets/spin/fbm/box.webp'
 import wheelImg from '@/assets/spin/fbm/wheel.webp'
 import spinButtonImg from '@/assets/spin/fbm/btn-spin.webp'
@@ -37,7 +38,7 @@ export default function SpinWheel({ prizes, rotation, spinning, disabled, spinLa
 
       <div
           className="spin-wheel-rotor absolute left-[8.3%] top-[10.4%] h-auto w-[83.4%]"
-        style={{ aspectRatio: '1 / 1', transform: `rotate(${rotation}deg)`, transitionDuration: spinning ? '5600ms' : '0ms' }}
+        style={{ aspectRatio: '1 / 1', transform: `rotate(${rotation}deg)`, transitionDuration: spinning ? `${SPIN_ROTATION_MS}ms` : '0ms' }}
       >
         <img src={wheelImg} alt="" draggable={false} className="pointer-events-none absolute inset-0 h-full w-full object-contain" />
         {prizes.map((prize, i) => {
