@@ -176,18 +176,18 @@ export default function ReferralPromoPage({ onOpenTeamCenter }: Props) {
   const tiers = [
     {
       level: 1, label: t('referralPromo.l1Label'), desc: t('referralPromo.l1Desc'),
-      color: 'from-[#241806]/95 via-[#10251f]/90 to-[#05070c]/95', badge: 'bg-amber-300/15 text-amber-200 border border-amber-200/25',
-      border: 'border-amber-200/25 shadow-[0_14px_36px_rgba(0,0,0,0.28)]', icon: 'text-amber-200', rate: l1,
+      color: 'from-amber-500/20 to-amber-600/10', badge: 'bg-amber-500/20 text-amber-400',
+      border: 'border-amber-500/20', icon: 'text-amber-400', rate: l1,
     },
     {
       level: 2, label: t('referralPromo.l2Label'), desc: t('referralPromo.l2Desc'),
-      color: 'from-[#061c18]/95 via-[#0c3027]/90 to-[#05070c]/95', badge: 'bg-emerald-300/12 text-emerald-200 border border-emerald-200/20',
-      border: 'border-emerald-200/20 shadow-[0_14px_36px_rgba(0,0,0,0.28)]', icon: 'text-emerald-200', rate: l2,
+      color: 'from-blue-500/20 to-blue-600/10', badge: 'bg-blue-500/20 text-blue-400',
+      border: 'border-blue-500/20', icon: 'text-blue-400', rate: l2,
     },
     {
       level: 3, label: t('referralPromo.l3Label'), desc: t('referralPromo.l3Desc'),
-      color: 'from-[#061923]/95 via-[#083044]/90 to-[#05070c]/95', badge: 'bg-cyan-300/12 text-cyan-200 border border-cyan-200/20',
-      border: 'border-cyan-200/20 shadow-[0_14px_36px_rgba(0,0,0,0.28)]', icon: 'text-cyan-200', rate: l3,
+      color: 'from-purple-500/20 to-purple-600/10', badge: 'bg-purple-500/20 text-purple-400',
+      border: 'border-purple-500/20', icon: 'text-purple-400', rate: l3,
     },
   ]
 
@@ -202,61 +202,61 @@ export default function ReferralPromoPage({ onOpenTeamCenter }: Props) {
       icon: <Share2 size={15} />,
       title: t('referralPromo.questShareTitle'),
       desc: t('referralPromo.questShareDesc'),
-      className: 'from-[#261907] via-[#10231e] to-[#05070c] text-amber-50 border border-amber-200/25',
+      className: 'from-yellow-300 to-amber-400 text-amber-950',
     },
     {
       icon: <Users size={15} />,
       title: t('referralPromo.questCircleTitle'),
       desc: t('referralPromo.questCircleDesc'),
-      className: 'from-[#061b17] via-[#0b3128] to-[#05070c] text-emerald-50 border border-emerald-200/20',
+      className: 'from-emerald-300 to-teal-400 text-teal-950',
     },
     {
       icon: <Wallet size={15} />,
       title: t('referralPromo.questRewardTitle'),
       desc: t('referralPromo.questRewardDesc'),
-      className: 'from-[#061923] via-[#083044] to-[#05070c] text-cyan-50 border border-cyan-200/20',
+      className: 'from-sky-300 to-cyan-400 text-cyan-950',
     },
   ]
 
   return (
-    <div className="flex flex-col bg-[#05070c] min-h-full">
+    <div className="flex flex-col bg-background min-h-full">
       {/* Hero - 3-circle diagram + rewards */}
       <div className="relative overflow-hidden px-4 pt-[calc(var(--app-safe-top)+3rem)] pb-8 flex-shrink-0">
         <div
           className="absolute inset-0 pointer-events-none"
           style={{
-            background: 'linear-gradient(155deg, #030407 0%, #07110f 24%, #0a2b24 52%, #120f08 78%, #05070c 100%)',
+            background: 'linear-gradient(150deg, rgba(5, 45, 39, 0.98) 0%, rgba(7, 92, 70, 0.94) 42%, rgba(8, 11, 20, 0.98) 100%)',
           }}
         />
         <img
           src={referralHero}
           alt=""
-          className="pointer-events-none absolute -right-16 top-9 w-[58%] max-w-[235px] opacity-20 mix-blend-screen"
+          className="pointer-events-none absolute -right-14 top-7 w-[58%] max-w-[235px] opacity-25 mix-blend-screen"
         />
-        <div className="absolute inset-0 pointer-events-none bg-[linear-gradient(135deg,rgba(251,191,36,0.16)_0%,transparent_34%),linear-gradient(315deg,rgba(16,185,129,0.14)_0%,transparent_38%)]" />
-        <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-b from-transparent to-[#05070c] pointer-events-none" />
+        <div className="absolute inset-0 pointer-events-none bg-[linear-gradient(135deg,rgba(250,204,21,0.18)_0%,transparent_34%),linear-gradient(315deg,rgba(45,212,191,0.16)_0%,transparent_36%)]" />
+        <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-b from-transparent to-background pointer-events-none" />
 
         <div className="relative mb-4">
           <div className="flex items-center justify-between gap-2 mb-4">
-            <div className="inline-flex items-center gap-1.5 rounded-full border border-amber-200/30 bg-black/45 px-3 py-1 text-amber-200 shadow-[0_10px_28px_rgba(0,0,0,0.35)] backdrop-blur">
+            <div className="inline-flex items-center gap-1.5 bg-yellow-300 text-yellow-950 rounded-full px-3 py-1 shadow-[0_8px_24px_rgba(250,204,21,0.28)]">
               <Gem size={11} />
               <span className="text-[10px] font-black uppercase tracking-widest">{t('referralPromo.subtitle')}</span>
             </div>
-            <div className="rounded-full border border-emerald-200/25 bg-emerald-300/12 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-emerald-100 shadow-[0_10px_28px_rgba(0,0,0,0.3)] backdrop-blur">
+            <div className="rounded-full bg-teal-300 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-teal-950 shadow-[0_8px_24px_rgba(45,212,191,0.28)]">
               {t('referralPromo.questBadge')}
             </div>
           </div>
           <h2 className="font-display font-black text-[2rem] text-white leading-[0.95] drop-shadow-[0_3px_0_rgba(0,0,0,0.24)]">
             {t('referralPromo.heading1')}<br />
-            <span className="text-amber-200 drop-shadow-[0_0_18px_rgba(251,191,36,0.35)]">{t('referralPromo.heading2')}</span>
+            <span className="text-yellow-300">{t('referralPromo.heading2')}</span>
           </h2>
-          <p className="mt-3 max-w-[330px] text-sm font-semibold leading-relaxed text-amber-50/78">{t('referralPromo.heroParagraph')}</p>
+          <p className="mt-3 max-w-[330px] text-sm font-semibold leading-relaxed text-white/80">{t('referralPromo.heroParagraph')}</p>
         </div>
 
-        <div className="relative mb-4 rounded-[1.5rem] border border-amber-200/20 bg-[#05070c]/78 p-3.5 shadow-[0_18px_50px_rgba(0,0,0,0.36)] backdrop-blur">
+        <div className="relative mb-4 rounded-[1.5rem] border border-white/15 bg-black/30 p-3.5 shadow-[0_18px_50px_rgba(0,0,0,0.28)] backdrop-blur">
           <div className="mb-3 flex items-center justify-between gap-3">
-            <p className="font-display text-[11px] font-black uppercase tracking-widest text-amber-100/85">{t('referralPromo.questMapTitle')}</p>
-            <span className="rounded-full border border-amber-200/20 bg-amber-300/10 px-2 py-1 text-[10px] font-black text-amber-200">{t('referralPromo.questRewardTag')}</span>
+            <p className="font-display text-[11px] font-black uppercase tracking-widest text-white/70">{t('referralPromo.questMapTitle')}</p>
+            <span className="rounded-full bg-white/12 px-2 py-1 text-[10px] font-black text-yellow-200">{t('referralPromo.questRewardTag')}</span>
           </div>
           <div className="grid grid-cols-[1fr_auto_1fr_auto_1fr] items-stretch gap-1.5">
             {[
@@ -266,7 +266,7 @@ export default function ReferralPromoPage({ onOpenTeamCenter }: Props) {
             ].map((item, index) => (
               <Fragment key={item.code}>
                 {index > 0 && <div className="flex items-center justify-center text-sm font-black text-white/45">›</div>}
-                <div className="min-w-0 rounded-2xl border border-white/10 bg-white/6 p-2 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+                <div className="min-w-0 rounded-2xl bg-white/10 p-2 text-center">
                   <div className={`mx-auto mb-1 flex h-7 w-7 items-center justify-center rounded-xl text-xs font-black ${item.className}`}>{item.code}</div>
                   <p className="truncate text-[11px] font-black text-white">{item.title}</p>
                   <p className="mt-0.5 text-[9px] font-semibold leading-snug text-white/60">{item.desc}</p>
@@ -277,16 +277,16 @@ export default function ReferralPromoPage({ onOpenTeamCenter }: Props) {
         </div>
 
         {/* 3-circle visual */}
-        <div className="relative mb-4 rounded-[1.5rem] border border-amber-200/16 bg-gradient-to-br from-[#07090f] via-[#062620] to-[#171106] px-2 py-3 shadow-[0_20px_55px_rgba(0,0,0,0.34)]">
+        <div className="relative mb-4 rounded-[1.5rem] border border-white/10 bg-gradient-to-br from-emerald-950/78 via-slate-950/82 to-cyan-950/58 px-2 py-3 shadow-[0_18px_50px_rgba(0,0,0,0.24)]">
           <TreeDiagram youLabel={t('referralPromo.pyramidYou')} />
         </div>
 
         <div className="relative mb-4 grid grid-cols-3 gap-2">
           {questRules.map((item) => (
-            <div key={item.title} className={`min-h-[104px] rounded-2xl bg-gradient-to-br ${item.className} p-2.5 shadow-[0_16px_36px_rgba(0,0,0,0.34)]`}>
-              <div className="mb-2 flex h-7 w-7 items-center justify-center rounded-xl border border-white/15 bg-white/10 text-amber-100">{item.icon}</div>
+            <div key={item.title} className={`min-h-[104px] rounded-2xl bg-gradient-to-br ${item.className} p-2.5 shadow-[0_10px_28px_rgba(0,0,0,0.22)]`}>
+              <div className="mb-2 flex h-7 w-7 items-center justify-center rounded-xl bg-white/45">{item.icon}</div>
               <p className="text-[11px] font-black leading-tight">{item.title}</p>
-              <p className="mt-1 text-[9px] font-bold leading-snug opacity-70">{item.desc}</p>
+              <p className="mt-1 text-[9px] font-bold leading-snug opacity-75">{item.desc}</p>
             </div>
           ))}
         </div>
@@ -328,29 +328,29 @@ export default function ReferralPromoPage({ onOpenTeamCenter }: Props) {
       {!loading && isAgent && (
         <>
           {status && (status.l1Count > 0 || status.lifetimeEarnedCents > 0) && (
-            <div className="mx-4 mt-5 rounded-2xl bg-[#07100f] border border-amber-200/15 overflow-hidden flex-shrink-0 shadow-[0_16px_42px_rgba(0,0,0,0.28)]">
-              <div className="px-4 py-3 border-b border-amber-200/10 flex items-center justify-between">
+            <div className="mx-4 mt-5 rounded-2xl bg-card border border-border overflow-hidden flex-shrink-0">
+              <div className="px-4 py-3 border-b border-border flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <TrendingUp size={14} className="text-amber-200" />
-                  <span className="font-display font-black text-sm text-amber-50">{t('referralPromo.teamTitle')}</span>
+                  <TrendingUp size={14} className="text-primary" />
+                  <span className="font-display font-black text-sm text-foreground">{t('referralPromo.teamTitle')}</span>
                 </div>
                 <button
                   type="button"
-                  className="flex items-center gap-1 text-[11px] text-amber-200 font-bold active:opacity-60"
+                  className="flex items-center gap-1 text-[11px] text-primary font-bold active:opacity-60"
                   onClick={onOpenTeamCenter}
                 >
                   {t('referralPromo.teamDetails')} <ChevronRight size={12} />
                 </button>
               </div>
-              <div className="grid grid-cols-3 divide-x divide-amber-200/10">
+              <div className="grid grid-cols-3 divide-x divide-border">
                 {[
                   { label: t('referralPromo.teamL1'), value: String(status.l1Count) },
                   { label: t('referralPromo.teamTotal'), value: String(status.l1Count + status.l2Count + status.l3Count) },
                   { label: t('referralPromo.teamEarned'), value: phpDisplay(status.lifetimeEarnedCents) },
                 ].map((item) => (
                   <div key={item.label} className="py-3 px-2 text-center">
-                    <p className="text-base font-black text-amber-50">{item.value}</p>
-                    <p className="text-[10px] text-amber-100/55 mt-0.5">{item.label}</p>
+                    <p className="text-base font-black text-foreground">{item.value}</p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">{item.label}</p>
                   </div>
                 ))}
               </div>
@@ -358,28 +358,28 @@ export default function ReferralPromoPage({ onOpenTeamCenter }: Props) {
           )}
 
           {!isActivated && (
-            <div className="mx-4 mt-4 rounded-2xl bg-[#1d1305]/90 border border-amber-300/25 p-3 flex items-start gap-2.5 flex-shrink-0 shadow-[0_12px_30px_rgba(0,0,0,0.24)]">
-              <Info size={14} className="text-amber-200 flex-shrink-0 mt-0.5" />
-              <p className="text-[11px] text-amber-100/82 leading-relaxed">{t('referralPromo.notActivatedHint')}</p>
+            <div className="mx-4 mt-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 p-3 flex items-start gap-2.5 flex-shrink-0">
+              <Info size={14} className="text-amber-400 flex-shrink-0 mt-0.5" />
+              <p className="text-[11px] text-amber-300/80 leading-relaxed">{t('referralPromo.notActivatedHint')}</p>
             </div>
           )}
 
           {inviteCode && (
-            <div className="mx-4 mt-5 rounded-2xl bg-[#07100f] border border-amber-200/15 p-4 flex items-center gap-3 flex-shrink-0 shadow-[0_16px_42px_rgba(0,0,0,0.28)]">
-              <Wallet size={16} className="text-amber-200 flex-shrink-0" />
+            <div className="mx-4 mt-5 rounded-2xl bg-secondary border border-border p-4 flex items-center gap-3 flex-shrink-0">
+              <Wallet size={16} className="text-primary flex-shrink-0" />
               <div className="flex-1 min-w-0">
-                <p className="text-[10px] text-amber-100/55">{t('referralPromo.codeLabel')}</p>
-                <p className="font-display font-black text-amber-200 tracking-widest text-base truncate">{inviteCode}</p>
+                <p className="text-[10px] text-muted-foreground">{t('referralPromo.codeLabel')}</p>
+                <p className="font-display font-black text-primary tracking-widest text-base truncate">{inviteCode}</p>
               </div>
               <button
                 type="button"
                 onClick={onCopyLink}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-300/10 border border-amber-200/20 active:scale-95 transition-transform"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/10 border border-primary/20 active:scale-95 transition-transform"
               >
                 {copied
                   ? <CheckCircle2 size={13} className="text-emerald-400" />
-                  : <Copy size={13} className="text-amber-200" />}
-                <span className="text-[11px] font-bold text-amber-200">{copied ? t('referralPromo.copied') : t('referralPromo.copy')}</span>
+                  : <Copy size={13} className="text-primary" />}
+                <span className="text-[11px] font-bold text-primary">{copied ? t('referralPromo.copied') : t('referralPromo.copy')}</span>
               </button>
             </div>
           )}
@@ -396,7 +396,7 @@ export default function ReferralPromoPage({ onOpenTeamCenter }: Props) {
             <button
               type="button"
               onClick={onShareTelegram}
-              className="w-full h-11 rounded-2xl border border-cyan-300/25 bg-cyan-300/8 text-cyan-100 font-bold text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
+              className="w-full h-11 rounded-2xl border border-blue-500/30 bg-blue-500/10 text-blue-400 font-bold text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
             >
               <Send size={15} />
               {t('referralPromo.ctaTelegram')}
@@ -404,9 +404,9 @@ export default function ReferralPromoPage({ onOpenTeamCenter }: Props) {
             <button
               type="button"
               onClick={onOpenTeamCenter}
-              className="w-full h-11 rounded-2xl bg-[#07100f] border border-amber-200/15 text-amber-50 font-bold text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
+              className="w-full h-11 rounded-2xl bg-secondary border border-border text-foreground font-bold text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
             >
-              <TrendingUp size={15} className="text-amber-200" />
+              <TrendingUp size={15} className="text-primary" />
               {t('referralPromo.ctaTeam')}
             </button>
           </div>
@@ -417,16 +417,16 @@ export default function ReferralPromoPage({ onOpenTeamCenter }: Props) {
       {!loading && !isAgent && (
         <>
           <div className="px-4 mt-5 flex-shrink-0">
-            <h3 className="font-display font-black text-xs text-amber-200/80 uppercase tracking-widest mb-3">{t('referralPromo.stepsTitle')}</h3>
+            <h3 className="font-display font-black text-xs text-muted-foreground uppercase tracking-widest mb-3">{t('referralPromo.stepsTitle')}</h3>
             <div className="space-y-3">
               {steps.map((item) => (
                 <div key={item.step} className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-xl bg-amber-300/10 border border-amber-200/20 flex items-center justify-center flex-shrink-0">
-                    <span className="font-display font-black text-[10px] text-amber-200">{item.step}</span>
+                  <div className="w-8 h-8 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center flex-shrink-0">
+                    <span className="font-display font-black text-[10px] text-primary">{item.step}</span>
                   </div>
                   <div className="pt-0.5">
-                    <p className="text-sm font-bold text-amber-50">{item.title}</p>
-                    <p className="text-[11px] text-amber-100/60 mt-0.5 leading-relaxed">{item.desc}</p>
+                    <p className="text-sm font-bold text-foreground">{item.title}</p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">{item.desc}</p>
                   </div>
                 </div>
               ))}
@@ -434,12 +434,12 @@ export default function ReferralPromoPage({ onOpenTeamCenter }: Props) {
           </div>
 
           <div className="px-4 mt-6 flex-shrink-0">
-            <div className="rounded-2xl bg-gradient-to-br from-[#1d1305] via-[#10231e] to-[#05070c] border border-amber-200/20 p-4 mb-4 shadow-[0_16px_42px_rgba(0,0,0,0.28)]">
+            <div className="rounded-2xl bg-gradient-to-br from-amber-500/15 to-amber-600/5 border border-amber-500/20 p-4 mb-4">
               <div className="flex items-center gap-2 mb-1">
-                <Zap size={14} className="text-amber-200" />
-                <span className="font-display font-black text-sm text-amber-50">{t('referralPromo.enableTitle')}</span>
+                <Zap size={14} className="text-primary" />
+                <span className="font-display font-black text-sm text-foreground">{t('referralPromo.enableTitle')}</span>
               </div>
-              <p className="text-[11px] text-amber-100/65 leading-relaxed">{t('referralPromo.enableDesc')}</p>
+              <p className="text-[11px] text-muted-foreground leading-relaxed">{t('referralPromo.enableDesc')}</p>
             </div>
             <button
               type="button"
