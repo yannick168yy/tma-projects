@@ -74,7 +74,16 @@ body {
 
 /* Home promo row: room for flag ribbons above tiles */
 .category-shortcut-row {
+  overflow-x: auto;
   overflow-y: visible;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  touch-action: pan-x pan-y;
+  scroll-snap-type: x proximity;
+}
+
+.category-shortcut-row > button {
+  scroll-snap-align: start;
 }
 
 /* Banner: native overflow scroll + JS drag fallback (see HomeContent.vue) */

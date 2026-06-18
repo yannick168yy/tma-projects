@@ -17,10 +17,10 @@ export interface Category {
 }
 
 export const CATEGORIES: Category[] = [
-  { id: 'cashback', icon: '🧧', image: cashbackImg, color: 'from-fuchsia-400 to-purple-600', badge: '2%', offer: '1.50%', nav: 'cashback', promo: null },
-  { id: 'rewardsSpin', icon: '🎡', image: rewardsSpinImg, color: 'from-lime-500 to-emerald-600', badge: 'SPIN', offer: '₱15,780', nav: 'spin', promo: null },
-  { id: 'referWin', icon: '🤝', image: referWinImg, color: 'from-orange-400 to-orange-600', badge: '₱50', offer: '₱4,700', nav: 'bonuses', promo: 'referral' },
-  { id: 'firstDep', icon: '💰', image: firstDepImg, color: 'from-emerald-500 to-teal-700', badge: '120%', offer: '120%', nav: 'bonuses', promo: 'firstdep' },
-  { id: 'firstPlay', icon: '🎖️', image: firstPlayImg, color: 'from-violet-500 to-fuchsia-600', badge: '₱88', offer: '₱88', nav: 'bonuses', promo: 'trial' },
-  { id: 'bonuses', icon: '🎁', image: bonusesImg, color: 'from-sky-500 to-blue-700', badge: null, offer: '777', nav: 'bonuses', promo: null },
+  { id: 'cashback', icon: '🧧', image: cashbackImg, color: 'from-fuchsia-500/85 to-purple-800', badge: '2%', offer: '1.50%', nav: 'cashback', promo: null },
+  { id: 'rewardsSpin', icon: '🎡', image: rewardsSpinImg, color: 'from-lime-600/85 to-emerald-800', badge: 'SPIN', offer: '₱15,780', nav: 'spin', promo: null },
+  { id: 'referWin', icon: '🤝', image: referWinImg, color: 'from-orange-500/90 to-orange-800', badge: '₱50', offer: '₱4,700', nav: 'bonuses', promo: 'referral' },
+  { id: 'firstDep', icon: '💰', image: firstDepImg, color: 'from-emerald-600/85 to-teal-900', badge: '120%', offer: '120%', nav: 'bonuses', promo: 'firstdep' },
+  { id: 'firstPlay', icon: '🎖️', image: firstPlayImg, color: 'from-violet-600/85 to-fuchsia-900', badge: '₱88', offer: '₱88', nav: 'bonuses', promo: 'trial' },
+  { id: 'bonuses', icon: '🎁', image: bonusesImg, color: 'from-sky-600/85 to-blue-900', badge: null, offer: '777', nav: 'bonuses', promo: null },
 ]
