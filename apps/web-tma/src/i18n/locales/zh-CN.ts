@@ -447,7 +447,7 @@ export default {
         title: '3-Circle Rewards',
         tagline: '分享一次，奖励扩散三圈',
         rewardLabel: '圈层奖励',
-        desc: '把你的邀请链接变成三圈奖励：你邀请的好友是 C1，好友邀请的好友是 C2，再往外一圈是 C3，奖励按有效游戏流水计算。',
+        desc: '把你的邀请链接变成三圈奖励：你直接邀请的是 C1，C1 邀请的是 C2，再往外一圈是 C3，奖励按圈层用户投注计算。',
         badge: '三圈扩散',
         cta: '开启三圈奖励',
         ctaActive: '进入圈层中心',
@@ -508,13 +508,13 @@ export default {
     debtWarning: '账户存在欠款 {{amount}}，下个奖励周期补平后即可提现。',
     debtLabel: '欠款',
     minWithdrawPhp: '最低 ₱100',
-    turnover: '有效游戏',
+    turnover: '投注额',
     guideEntry: '机制说明',
     guide: {
       title: '3-Circle Rewards',
       content:
         '什么是三圈奖励\n\n' +
-        '分享邀请链接后，奖励可沿三圈扩散。C1 是你直接邀请的好友，C2 是由 C1 邀请的好友，C3 是再往外一圈的好友。奖励按有效游戏流水计算，不扣减输赢，多币种游戏将按汇率折算为 PHP 等值奖励。\n\n' +
+        '分享邀请链接后，奖励可沿三圈扩散。C1 是你直接邀请的好友，C2 是由 C1 邀请的好友，C3 是再往外一圈的好友。奖励按圈层用户投注计算，不扣减输赢，多币种游戏将按汇率折算为 PHP 等值奖励。\n\n' +
         '三圈结构\n\n' +
         'C1：您直接邀请注册的好友\n' +
         'C2：由您的 C1 好友邀请注册的玩家\n' +
@@ -526,8 +526,8 @@ export default {
         'C3 奖励 = 该成员当月有效投注（PHP 等值）× {{l3Rate}}%\n' +
         '实际费率以本页及优惠页展示为准。\n\n' +
         '圈层激活条件\n\n' +
-        '圈层成员须首充满 ₱100 并完成激活后，其有效游戏才会为您产生奖励。未激活成员的游戏不计奖励（圈层树中仍可能显示当日流水供参考）。\n\n' +
-        '有效游戏与结算\n\n' +
+        '圈层成员须首充满 ₱100 并完成激活后，其投注才会为您产生奖励。未激活成员的投注不计奖励（圈层树中仍可能显示当日投注供参考）。\n\n' +
+        '投注与结算\n\n' +
         '有效投注：仅统计已结算的 bet 注单，不扣减 win 派彩。\n' +
         '多币种：PHP、USDT、USDC、TON 等分别记录，折算 PHP 后计入奖励。\n' +
         '圈层树流水：历史日来自日结快照；当天投注实时更新，无需等到次日。\n' +
@@ -769,9 +769,9 @@ export default {
     questBadge: '奖励任务',
     heading1: '分享一次',
     heading2: '奖励扩散三圈',
-    heroParagraph: '只分享你的官方邀请链接。直接邀请的玩家进入 C1，C1 邀请的玩家进入 C2，C2 再邀请的玩家进入 C3；已激活圈层的有效游戏可产生奖励。',
+    heroParagraph: '把邀请链接分享给朋友：通过你链接加入的是 C1；由 C1 邀请加入的是 C2；再往外一圈是 C3。圈层用户投注后，系统会按对应圈层费率计算奖励。',
     questMapTitle: '三圈奖励任务图',
-    questRewardTag: '有效游戏 -> 奖励',
+    questRewardTag: '用户投注 -> 奖励',
     mapC1Title: '直接邀请',
     mapC1Desc: '使用你链接的好友',
     mapC2Title: '继续分享',
@@ -783,18 +783,18 @@ export default {
     questCircleTitle: '扩展三圈关系',
     questCircleDesc: 'C1、C2、C3 展示邀请路径如何延伸。',
     questRewardTitle: '按费率拿奖励',
-    questRewardDesc: '有效游戏按圈层费率结算到奖励钱包。',
+    questRewardDesc: '圈层用户投注后，按对应费率结算到奖励钱包。',
     pyramidYou: '你',
     pyramidL1: 'C1 第一圈',
     pyramidL2: 'C2 第二圈',
     pyramidL3: 'C3 第三圈',
     ratesTitle: '圈层奖励费率',
     l1Label: '第一圈好友',
-    l1Desc: '你直接邀请的好友，有效游戏产生奖励',
+    l1Desc: '你直接邀请的好友，投注后产生奖励',
     l2Label: '第二圈好友',
-    l2Desc: 'C1 好友邀请的玩家，有效游戏产生奖励',
+    l2Desc: 'C1 好友邀请的玩家，投注后产生奖励',
     l3Label: '第三圈好友',
-    l3Desc: 'C2 好友再邀请的玩家，有效游戏产生奖励',
+    l3Desc: 'C2 好友再邀请的玩家，投注后产生奖励',
     rateLabel: '奖励率',
     teamTitle: '我的圈层',
     teamDetails: '查看详情',
@@ -807,7 +807,7 @@ export default {
     step2Title: '分享给 Telegram 好友',
     step2Desc: '把链接发给好友，他们通过你的链接注册即绑定关系',
     step3Title: '圈层活跃，奖励增长',
-    step3Desc: '圈层有效游戏会结算到你的奖励钱包',
+    step3Desc: '圈层用户投注会结算到你的奖励钱包',
     codeLabel: '我的邀请码',
     copy: '复制',
     copied: '已复制',
@@ -819,6 +819,6 @@ export default {
     enableDesc: '打开你的三圈关系，开始让分享产生奖励。',
     enableCta: '立即开启',
     enabling: '开启中...',
-    notActivatedHint: '首次存款 ≥ ₱100 后激活，圈层有效游戏方可产生奖励。',
+    notActivatedHint: '首次存款 ≥ ₱100 后激活，圈层用户投注即可产生奖励。',
   },
 }

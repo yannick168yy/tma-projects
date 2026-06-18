@@ -448,7 +448,7 @@ export default {
         title: '3-Circle Rewards',
         tagline: 'Share Once. Earn from 3 Circles',
         rewardLabel: 'Circle Rewards',
-        desc: 'Turn your invite link into three circles of rewards. Your friends are C1, their friends are C2, and one more circle is C3 — rewards are based on valid play.',
+        desc: 'Turn your invite link into three circles of rewards. Your friends are C1, their friends are C2, and one more circle is C3 — rewards are based on qualified bets.',
         badge: '3 Circles',
         cta: 'Start 3 Circles',
         ctaActive: 'Open Circle Center',
@@ -510,7 +510,7 @@ export default {
     debtWarning: 'Your account has an outstanding debt of {{amount}}. Withdrawals are disabled until the debt is settled in the next reward cycle.',
     debtLabel: 'Debt',
     minWithdrawPhp: 'Min ₱100',
-    turnover: 'Valid Play',
+    turnover: 'Qualified Bets',
     guideEntry: 'How it works',
     guide: {
       title: '3-Circle Rewards',
@@ -528,11 +528,11 @@ export default {
         'C3 reward = member\'s monthly valid bets (PHP equiv.) × {{l3Rate}}%\n' +
         'Rates shown on this page apply to your account.\n\n' +
         'Circle activation\n\n' +
-        'A circle member must make a first deposit of at least ₱100 and become activated before their play generates rewards. Play from inactive members does not generate rewards (same-day valid play may still appear in the circle tree for reference).\n\n' +
-        'Valid play & settlement\n\n' +
+        'A circle member must make a first deposit of at least ₱100 and become activated before their bets generate rewards. Bets from inactive members do not generate rewards (same-day qualifying bets may still appear in the circle tree for reference).\n\n' +
+        'Qualified bets & settlement\n\n' +
         'Valid bets: only settled bet orders count; win payouts are not subtracted.\n' +
         'Multi-currency: PHP, USDT, USDC, TON, etc. are tracked separately and converted to PHP for rewards.\n' +
-        'Circle tree valid play: past days use daily snapshots; today\'s bets update in real time.\n' +
+        'Circle tree bets: past days use daily snapshots; today\'s bets update in real time.\n' +
         'Reward settlement: runs daily (Philippines time) for the previous day\'s bets. After settlement, rewards appear under Circle Rewards and your withdrawable balance.\n\n' +
         'Viewing & withdrawal\n\n' +
         'Circle Rewards: browse monthly C1/C2/C3 totals and details; switch between tree and list views.\n' +
@@ -773,9 +773,9 @@ export default {
     questBadge: 'Reward Quest',
     heading1: 'Share Once',
     heading2: 'Earn from 3 Circles',
-    heroParagraph: 'Share your official link once. Direct invites become C1, their invites become C2, and one more invite circle becomes C3. Valid play from activated circles can generate rewards.',
+    heroParagraph: 'Share your invite link with friends. People who join from your link are C1; people invited by C1 are C2; one more invite circle is C3. When circle members place qualified bets, rewards are calculated by circle rate.',
     questMapTitle: '3-Circle Quest Map',
-    questRewardTag: 'Valid play -> rewards',
+    questRewardTag: 'Qualified bets -> rewards',
     mapC1Title: 'Direct',
     mapC1Desc: 'Friends using your link',
     mapC2Title: 'Shared',
@@ -787,18 +787,18 @@ export default {
     questCircleTitle: 'Grow 3 circles',
     questCircleDesc: 'C1, C2 and C3 show how the invite path expands.',
     questRewardTitle: 'Earn by rates',
-    questRewardDesc: 'Valid play settles by circle rate into your reward wallet.',
+    questRewardDesc: 'Qualified bets settle by circle rate into your reward wallet.',
     pyramidYou: 'You',
     pyramidL1: 'C1 Friends',
     pyramidL2: 'C2 Friends',
     pyramidL3: 'C3 Friends',
     ratesTitle: 'Circle Reward Rates',
     l1Label: 'Circle 1 Friends',
-    l1Desc: 'Friends you invite directly — rewards from their valid play',
+    l1Desc: 'Friends you invite directly — rewards from their bets',
     l2Label: 'Circle 2 Friends',
-    l2Desc: 'Friends invited by your C1 — rewards from their valid play',
+    l2Desc: 'Friends invited by your C1 — rewards from their bets',
     l3Label: 'Circle 3 Friends',
-    l3Desc: 'Friends invited by your C2 — rewards from their valid play',
+    l3Desc: 'Friends invited by your C2 — rewards from their bets',
     rateLabel: 'Reward Rate',
     teamTitle: 'My Circles',
     teamDetails: 'View Details',
@@ -811,7 +811,7 @@ export default {
     step2Title: 'Share with Telegram friends',
     step2Desc: 'Send the link to friends — anyone who registers is linked to you',
     step3Title: 'Your circles grow rewards',
-    step3Desc: 'Valid play from your circles settles into your reward wallet',
+    step3Desc: 'Circle member bets settle into your reward wallet',
     codeLabel: 'My Invite Code',
     copy: 'Copy',
     copied: 'Copied',
@@ -823,6 +823,6 @@ export default {
     enableDesc: 'Open your 3 circles and start growing rewards from shared play.',
     enableCta: 'Start Now',
     enabling: 'Starting...',
-    notActivatedHint: 'Make a first deposit ≥ ₱100 to activate — valid play from your circles will then generate rewards.',
+    notActivatedHint: 'Make a first deposit ≥ ₱100 to activate — qualified bets from your circles will then generate rewards.',
   },
 }

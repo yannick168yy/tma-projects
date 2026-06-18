@@ -355,7 +355,7 @@ export default {
         title: '3-Circle Rewards',
         tagline: 'Chia sẻ một lần. Nhận từ 3 vòng',
         rewardLabel: 'Circle Rewards',
-        desc: 'Biến liên kết mời của bạn thành ba vòng thưởng. Bạn bè của bạn là C1, bạn của họ là C2, và thêm một vòng nữa là C3 — thưởng dựa trên lượt chơi hợp lệ.',
+        desc: 'Biến liên kết mời của bạn thành ba vòng thưởng. Bạn bè của bạn là C1, bạn của họ là C2, và thêm một vòng nữa là C3 — thưởng dựa trên cược đủ điều kiện.',
         badge: '3 Vòng',
         cta: 'Bắt đầu 3 vòng',
         ctaActive: 'Mở Circle Center',
@@ -417,7 +417,7 @@ export default {
     debtWarning: 'Tài khoản có nợ {{amount}}. Rút tiền bị tạm khóa cho đến khi nợ được thanh toán trong chu kỳ thưởng tiếp theo.',
     debtLabel: 'Nợ',
     minWithdrawPhp: 'Tối thiểu ₱100',
-    turnover: 'Lượt chơi hợp lệ',
+    turnover: 'Cược đủ điều kiện',
     guideEntry: 'Cơ chế',
     guide: {
       title: '3-Circle Rewards',
@@ -435,11 +435,11 @@ export default {
         'Thưởng C3 = cược hợp lệ tháng của thành viên (quy PHP) × {{l3Rate}}%\n' +
         'Tỷ lệ trên trang áp dụng cho tài khoản của bạn.\n\n' +
         'Kích hoạt vòng\n\n' +
-        'Thành viên trong vòng phải nạp lần đầu tối thiểu ₱100 và được kích hoạt thì lượt chơi mới tạo thưởng cho bạn. Lượt chơi từ thành viên chưa kích hoạt không có thưởng (lượt chơi hợp lệ trong ngày vẫn có thể hiển thị trên cây vòng để tham khảo).\n\n' +
-        'Lượt chơi hợp lệ & quyết toán\n\n' +
+        'Thành viên trong vòng phải nạp lần đầu tối thiểu ₱100 và được kích hoạt thì cược mới tạo thưởng cho bạn. Cược từ thành viên chưa kích hoạt không có thưởng (cược đủ điều kiện trong ngày vẫn có thể hiển thị trên cây vòng để tham khảo).\n\n' +
+        'Cược đủ điều kiện & quyết toán\n\n' +
         'Cược hợp lệ: chỉ tính lệnh bet đã settled; tiền thắng không bị trừ.\n' +
         'Đa tiền tệ: PHP, USDT, USDC, TON... ghi riêng rồi quy PHP để tính thưởng.\n' +
-        'Lượt chơi hợp lệ cây vòng: ngày trước từ snapshot; cược hôm nay cập nhật thời gian thực.\n' +
+        'Cược trên cây vòng: ngày trước từ snapshot; cược hôm nay cập nhật thời gian thực.\n' +
         'Quyết toán thưởng: chạy hàng ngày (giờ Philippines) cho cược ngày hôm trước. Sau quyết toán, thưởng vào Circle Rewards và số dư có thể rút.\n\n' +
         'Xem & rút tiền\n\n' +
         'Circle Rewards: xem tổng và chi tiết C1/C2/C3 theo tháng; chuyển giữa cây và danh sách.\n' +
@@ -669,9 +669,9 @@ export default {
     questBadge: 'Nhiệm vụ thưởng',
     heading1: 'Chia sẻ một lần',
     heading2: 'Nhận từ 3 vòng',
-    heroParagraph: 'Chia sẻ liên kết chính thức của bạn một lần. Người bạn mời trực tiếp là C1, người do C1 mời là C2, và thêm một vòng nữa là C3. Lượt chơi hợp lệ từ các vòng đã kích hoạt có thể tạo thưởng.',
+    heroParagraph: 'Chia sẻ liên kết mời với bạn bè. Người tham gia qua link của bạn là C1; người do C1 mời là C2; thêm một vòng nữa là C3. Khi thành viên trong vòng đặt cược đủ điều kiện, thưởng được tính theo tỷ lệ từng vòng.',
     questMapTitle: 'Bản đồ nhiệm vụ 3 vòng',
-    questRewardTag: 'Chơi hợp lệ -> thưởng',
+    questRewardTag: 'Cược đủ điều kiện -> thưởng',
     mapC1Title: 'Trực tiếp',
     mapC1Desc: 'Bạn bè dùng link của bạn',
     mapC2Title: 'Chia sẻ tiếp',
@@ -683,18 +683,18 @@ export default {
     questCircleTitle: 'Tăng 3 vòng',
     questCircleDesc: 'C1, C2 và C3 thể hiện đường mời mở rộng.',
     questRewardTitle: 'Nhận theo tỷ lệ',
-    questRewardDesc: 'Lượt chơi hợp lệ được kết toán vào ví thưởng.',
+    questRewardDesc: 'Cược đủ điều kiện được kết toán vào ví thưởng.',
     pyramidYou: 'Bạn',
     pyramidL1: 'C1 Bạn bè',
     pyramidL2: 'C2 Bạn bè',
     pyramidL3: 'C3 Bạn bè',
     ratesTitle: 'Tỷ lệ Circle Reward',
     l1Label: 'Circle 1 Bạn bè',
-    l1Desc: 'Bạn bè bạn mời trực tiếp — thưởng từ lượt chơi hợp lệ',
+    l1Desc: 'Bạn bè bạn mời trực tiếp — thưởng từ cược của họ',
     l2Label: 'Circle 2 Bạn bè',
-    l2Desc: 'Bạn bè do C1 mời — thưởng từ lượt chơi hợp lệ',
+    l2Desc: 'Bạn bè do C1 mời — thưởng từ cược của họ',
     l3Label: 'Circle 3 Bạn bè',
-    l3Desc: 'Bạn bè do C2 mời — thưởng từ lượt chơi hợp lệ',
+    l3Desc: 'Bạn bè do C2 mời — thưởng từ cược của họ',
     rateLabel: 'Tỷ lệ thưởng',
     teamTitle: 'Vòng của tôi',
     teamDetails: 'Xem chi tiết',
@@ -707,7 +707,7 @@ export default {
     step2Title: 'Chia sẻ với bạn bè Telegram',
     step2Desc: 'Gửi liên kết cho bạn bè — ai đăng ký qua đó sẽ được liên kết với bạn',
     step3Title: 'Vòng tăng, thưởng tăng',
-    step3Desc: 'Lượt chơi hợp lệ từ các vòng sẽ vào ví thưởng của bạn',
+    step3Desc: 'Cược từ các vòng sẽ vào ví thưởng của bạn',
     codeLabel: 'Mã mời của tôi',
     copy: 'Sao chép',
     copied: 'Đã sao chép',
@@ -719,7 +719,7 @@ export default {
     enableDesc: 'Mở ba vòng của bạn và bắt đầu tăng thưởng từ lượt chơi được chia sẻ.',
     enableCta: 'Bắt đầu ngay',
     enabling: 'Đang bắt đầu...',
-    notActivatedHint: 'Nạp tiền lần đầu ≥ ₱100 để kích hoạt — lượt chơi hợp lệ từ các vòng sẽ tạo thưởng.',
+    notActivatedHint: 'Nạp tiền lần đầu ≥ ₱100 để kích hoạt — cược đủ điều kiện từ các vòng sẽ tạo thưởng.',
   },
   kyc: {
     reviewing: 'Đang xem xét…',

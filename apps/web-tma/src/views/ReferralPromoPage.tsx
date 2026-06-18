@@ -94,10 +94,12 @@ function TreeDiagram({ youLabel }: { youLabel: string }) {
       {[28, 72, 138, 182, 248, 290].map((cx) => (
         <g key={cx} filter="url(#tgGlow)">
           <rect x={cx - 23} y="128" width="46" height="25" rx="9" fill="rgba(8,13,24,0.66)" stroke="rgba(52,211,153,0.48)" />
+          <path d={`M${cx - 20} 131H${cx + 20}`} stroke="rgba(255,255,255,0.2)" strokeWidth="1" strokeLinecap="round" />
           <circle cx={cx - 10} cy="140.5" r="6.5" fill="url(#tgC2)" />
           <path d={`M${cx - 14} 144C${cx - 11.5} 141.5 ${cx - 8.5} 141.5 ${cx - 6} 144`} stroke="#064e3b" strokeWidth="1.1" strokeLinecap="round" />
-          <text x={cx + 10} y="141" dominantBaseline="central" textAnchor="middle" fill="#6ee7b7" fontSize="8.5" fontWeight="900">C2</text>
-          <path d={`M${cx + 15} 132L${cx + 17} 136L${cx + 21} 137L${cx + 17.5} 139.5L${cx + 18} 144L${cx + 15} 141.5L${cx + 12} 144L${cx + 12.5} 139.5L${cx + 9} 137L${cx + 13} 136Z`} fill="#fde047" opacity="0.9" />
+          <text x={cx + 8} y="141" dominantBaseline="central" textAnchor="middle" fill="#a7f3d0" fontSize="8.5" fontWeight="900">C2</text>
+          <circle cx={cx + 18} cy="132" r="4" fill="#fde047" opacity="0.95" />
+          <path d={`M${cx + 16} 132H${cx + 20}M${cx + 18} 130V134`} stroke="#78350f" strokeWidth="0.9" strokeLinecap="round" />
         </g>
       ))}
 
@@ -291,7 +293,7 @@ export default function ReferralPromoPage({ onOpenTeamCenter }: Props) {
 
         {/* Circle reward cards */}
         <div className="relative space-y-2.5">
-          <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest px-0.5">{t('referralPromo.ratesTitle')}</p>
+          <p className="text-[10px] font-black text-amber-200/90 uppercase tracking-widest px-0.5">{t('referralPromo.ratesTitle')}</p>
           {tiers.map((tier) => (
             <div
               key={tier.level}
@@ -305,13 +307,13 @@ export default function ReferralPromoPage({ onOpenTeamCenter }: Props) {
                   <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full ${tier.badge}`}>C{tier.level}</span>
                   <span className="text-sm font-black text-foreground">{tier.label}</span>
                 </div>
-                <p className="text-[11px] text-muted-foreground leading-snug">{tier.desc}</p>
+                <p className="text-[11px] text-foreground/75 leading-snug">{tier.desc}</p>
               </div>
               <div className="flex-shrink-0 text-right pl-1">
                 {tier.rate !== null ? (
                   <>
                     <p className={`text-2xl font-black font-display leading-none ${tier.icon}`}>{tier.rate}%</p>
-                    <p className="text-[9px] text-muted-foreground mt-0.5">{t('referralPromo.rateLabel')}</p>
+                    <p className="text-[9px] text-foreground/55 mt-0.5">{t('referralPromo.rateLabel')}</p>
                   </>
                 ) : (
                   <div className="w-10 h-7 rounded animate-pulse bg-white/10" />
