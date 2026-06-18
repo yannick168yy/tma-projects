@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ChevronLeft, Gift, Loader2 } from 'lucide-react'
+import { ChevronLeft, History, Loader2 } from 'lucide-react'
 import { ApiError } from '@/api/client'
 import { drawSpin, fetchSpinStatus, type SpinStatus, type SpinDrawResult } from '@/api/spin'
 import { useWalletStore } from '@/stores/wallet'
@@ -15,7 +15,7 @@ import winIconImg from '@/assets/spin/fbm/icon-win.webp'
 import oopsIconImg from '@/assets/spin/fbm/icon-oops.webp'
 
 interface Props {
-  onOpenWallet: () => void
+  onOpenHistory: () => void
   onClose: () => void
 }
 
@@ -28,7 +28,7 @@ function fmtDepositAmount(amount: number): string {
   return Math.round(amount).toLocaleString('en-PH')
 }
 
-export default function RewardsSpinPage({ onOpenWallet, onClose }: Props) {
+export default function RewardsSpinPage({ onOpenHistory, onClose }: Props) {
   const { t } = useTranslation()
   const wallet = useWalletStore()
   const [status, setStatus] = useState<SpinStatus | null>(null)
@@ -152,8 +152,8 @@ export default function RewardsSpinPage({ onOpenWallet, onClose }: Props) {
           <button type="button" className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#35aaf8] text-white shadow-lg shadow-blue-950/25 active:scale-95" onClick={onClose}>
             <ChevronLeft size={27} strokeWidth={3.2} />
           </button>
-          <button type="button" className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#35aaf8] text-white shadow-lg shadow-blue-950/25 active:scale-95" onClick={onOpenWallet}>
-            <Gift size={25} strokeWidth={3} />
+          <button type="button" className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#35aaf8] text-white shadow-lg shadow-blue-950/25 active:scale-95" onClick={onOpenHistory}>
+            <History size={25} strokeWidth={3} />
           </button>
         </div>
         <div className="mt-2 text-center">

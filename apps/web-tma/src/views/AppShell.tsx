@@ -85,6 +85,7 @@ export default function AppShell() {
   const [balanceVisible, setBalanceVisible] = useState(true)
   const [walletOpen, setWalletOpen] = useState(false)
   const [walletModalOpen, setWalletModalOpen] = useState(false)
+  const [walletInitialTab, setWalletInitialTab] = useState<'deposit' | 'withdraw' | 'history'>('deposit')
   const [csOpen, setCsOpen] = useState(false)
   const [gamePlayerUrl, setGamePlayerUrl] = useState<string | null>(null)
 
@@ -131,8 +132,9 @@ export default function AppShell() {
     return { paddingTop: `${headerH}px`, paddingBottom: `${navH}px` }
   }, [headerH, navH, isImmersive])
 
-  async function openWallet() {
+  async function openWallet(tab: 'deposit' | 'withdraw' | 'history' = 'deposit') {
     if (!(await auth.ensureLoggedIn(t('auth.signInDepositWithdraw')))) return
+    setWalletInitialTab(tab)
     setWalletOpen(false); setWalletModalOpen(true)
   }
 
@@ -383,7 +385,7 @@ export default function AppShell() {
             </div>
           )}
           {view.type === 'spin' && (
-            <RewardsSpinPage onOpenWallet={() => void openWallet()} onClose={closeImmersive} />
+            <RewardsSpinPage onOpenHistory={() => void openWallet('history')} onClose={closeImmersive} />
           )}
           {view.type === 'none' && activeNav === 'bonuses' && <BonusesPage promoFilter={promoFilter} onOpenWallet={() => void openWallet()} onOpenTeam={onOpenTeamCenter} />}
           {view.type === 'none' && activeNav === 'bingo' && <BingoPage onOpenWallet={() => void openWallet()} onGameTap={() => void onGameTap()} onOpenGame={(url) => setGamePlayerUrl(url)} onOpenCategoryLobby={onOpenCategoryLobby} />}
@@ -413,7 +415,7 @@ export default function AppShell() {
       </div>
 
       {walletModalOpen && (
-        <WalletModal open onClose={() => setWalletModalOpen(false)} />
+        <WalletModal open initialTab={walletInitialTab} onClose={() => setWalletModalOpen(false)} />
       )}
 
       {csOpen && (
