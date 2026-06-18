@@ -5,6 +5,7 @@ import { fetchTeamStatus, enableAgent } from '@/api/promotion'
 import type { TeamAgentStatus } from '@/types/api'
 import { buildInviteDeepLink, buildInviteWebLink } from '@/constants/telegram'
 import { useAuthStore } from '@/stores/auth'
+import referralHeroImg from '@/assets/referral/hero-3-circles.svg'
 
 interface Props {
   onOpenTeamCenter: () => void
@@ -13,93 +14,6 @@ interface Props {
 function phpDisplay(cents: number) {
   const val = (cents ?? 0) / 100
   return '₱' + val.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-}
-
-// 3-circle growth diagram
-function TreeDiagram({ youLabel }: { youLabel: string }) {
-  return (
-    <svg viewBox="0 0 320 186" className="w-full" aria-hidden="true" style={{ maxHeight: 186 }}>
-      <defs>
-        <linearGradient id="tg01" x1="0%" y1="0%" x2="0%" y2="100%">
-          <stop offset="0%" stopColor="#f59e0b" stopOpacity="0.7" />
-          <stop offset="100%" stopColor="#60a5fa" stopOpacity="0.7" />
-        </linearGradient>
-        <linearGradient id="tg12" x1="0%" y1="0%" x2="0%" y2="100%">
-          <stop offset="0%" stopColor="#60a5fa" stopOpacity="0.6" />
-          <stop offset="100%" stopColor="#c084fc" stopOpacity="0.6" />
-        </linearGradient>
-        <linearGradient id="tg23" x1="0%" y1="0%" x2="0%" y2="100%">
-          <stop offset="0%" stopColor="#c084fc" stopOpacity="0.5" />
-          <stop offset="100%" stopColor="#fb7185" stopOpacity="0.45" />
-        </linearGradient>
-      </defs>
-
-      {/* YOU -> Circle 1 */}
-      <line x1="160" y1="26" x2="52" y2="62" stroke="url(#tg01)" strokeWidth="1.5" strokeLinecap="round" />
-      <line x1="160" y1="26" x2="160" y2="62" stroke="url(#tg01)" strokeWidth="1.5" strokeLinecap="round" />
-      <line x1="160" y1="26" x2="268" y2="62" stroke="url(#tg01)" strokeWidth="1.5" strokeLinecap="round" />
-
-      {/* Circle 1 -> Circle 2 */}
-      <line x1="52" y1="84" x2="28" y2="118" stroke="url(#tg12)" strokeWidth="1.2" strokeLinecap="round" />
-      <line x1="52" y1="84" x2="72" y2="118" stroke="url(#tg12)" strokeWidth="1.2" strokeLinecap="round" />
-      {/* Circle 1 middle branch */}
-      <line x1="160" y1="84" x2="138" y2="118" stroke="url(#tg12)" strokeWidth="1.2" strokeLinecap="round" />
-      <line x1="160" y1="84" x2="182" y2="118" stroke="url(#tg12)" strokeWidth="1.2" strokeLinecap="round" />
-      {/* Circle 1 right branch */}
-      <line x1="268" y1="84" x2="248" y2="118" stroke="url(#tg12)" strokeWidth="1.2" strokeLinecap="round" />
-      <line x1="268" y1="84" x2="290" y2="118" stroke="url(#tg12)" strokeWidth="1.2" strokeLinecap="round" />
-
-      {/* Circle 2 -> Circle 3 */}
-      <line x1="28" y1="138" x2="28" y2="165" stroke="url(#tg23)" strokeWidth="1.1" strokeLinecap="round" />
-      <line x1="138" y1="138" x2="115" y2="165" stroke="url(#tg23)" strokeWidth="1.1" strokeLinecap="round" />
-      <line x1="138" y1="138" x2="155" y2="165" stroke="url(#tg23)" strokeWidth="1.1" strokeLinecap="round" />
-      <line x1="248" y1="138" x2="270" y2="165" stroke="url(#tg23)" strokeWidth="1.1" strokeLinecap="round" />
-
-      {/* ── 节点 ── */}
-
-      {/* YOU */}
-      <rect x="130" y="0" width="60" height="26" rx="10" fill="#f59e0b" />
-      <text x="160" y="13" dominantBaseline="central" textAnchor="middle" fill="#78350f" fontSize="10" fontWeight="900">
-        {youLabel}
-      </text>
-
-      {/* Circle 1 */}
-      {[52, 160, 268].map((cx) => (
-        <g key={cx}>
-          <rect x={cx - 30} y="62" width="60" height="22" rx="7"
-            fill="rgba(59,130,246,0.2)" stroke="rgba(147,197,253,0.45)" strokeWidth="1" />
-          <text x={cx} y="73" dominantBaseline="central" textAnchor="middle"
-            fill="#93c5fd" fontSize="9" fontWeight="800">C1</text>
-        </g>
-      ))}
-      {/* More people in the circle */}
-      <text x="308" y="73" dominantBaseline="central" textAnchor="middle"
-        fill="rgba(147,197,253,0.45)" fontSize="11">···</text>
-
-      {/* Circle 2 */}
-      {[28, 72, 138, 182, 248, 290].map((cx) => (
-        <g key={cx}>
-          <rect x={cx - 21} y="118" width="42" height="20" rx="6"
-            fill="rgba(168,85,247,0.18)" stroke="rgba(216,180,254,0.35)" strokeWidth="1" />
-          <text x={cx} y="128" dominantBaseline="central" textAnchor="middle"
-            fill="#d8b4fe" fontSize="8" fontWeight="800">C2</text>
-        </g>
-      ))}
-
-      {/* Circle 3 */}
-      {[28, 115, 155, 270].map((cx) => (
-        <g key={cx}>
-          <rect x={cx - 17} y="165" width="34" height="17" rx="5"
-            fill="rgba(251,113,133,0.14)" stroke="rgba(253,164,175,0.3)" strokeWidth="1" />
-          <text x={cx} y="173" dominantBaseline="central" textAnchor="middle"
-            fill="#fda4af" fontSize="8" fontWeight="800">C3</text>
-        </g>
-      ))}
-      {/* More people in the circle */}
-      <text x="213" y="173" dominantBaseline="central" textAnchor="middle"
-        fill="rgba(253,164,175,0.35)" fontSize="11">···</text>
-    </svg>
-  )
 }
 
 export default function ReferralPromoPage({ onOpenTeamCenter }: Props) {
@@ -208,8 +122,13 @@ export default function ReferralPromoPage({ onOpenTeamCenter }: Props) {
         </div>
 
         {/* 3-circle visual */}
-        <div className="relative mb-4 px-1">
-          <TreeDiagram youLabel={t('referralPromo.pyramidYou')} />
+        <div className="relative mb-4">
+          <img
+            src={referralHeroImg}
+            alt={t('referralPromo.title')}
+            draggable={false}
+            className="w-full rounded-[22px] border border-white/10 shadow-[0_16px_36px_rgba(0,0,0,0.24)]"
+          />
         </div>
 
         {/* Circle reward cards */}
