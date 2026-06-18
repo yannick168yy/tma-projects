@@ -380,6 +380,9 @@ export default {
   },
   ledger: {
     balanceAfter: '余额',
+    all: '全部',
+    last7Days: '仅展示近 7 天额度记录',
+    loadMore: '加载更多',
     types: {
       deposit: '充值',
       withdraw: '提现',

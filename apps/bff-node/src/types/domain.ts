@@ -139,7 +139,7 @@ export interface LedgerEntry {
   id: string
   userId: string
   currency?: string  // 默认 'PHP'
-  type: 'deposit' | 'withdraw' | 'bet' | 'red_packet' | 'bonus' | 'admin_adjust'
+  type: 'deposit' | 'withdraw' | 'bet' | 'win' | 'red_packet' | 'bonus' | 'adjust' | 'admin_adjust' | 'rebate'
   amount: number
   balanceAfter: number
   refId?: string

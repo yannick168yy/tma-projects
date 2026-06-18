@@ -1,20 +1,64 @@
 import Router from '@koa/router'
 import { getLedgerEntry, listLedger } from '../services/store.js'
+import { getMysqlPool, isMysqlEnabled } from '../clients/mysql.client.js'
 import { fail, ok } from '../utils/response.js'
+import type { RowDataPacket } from 'mysql2/promise'
 
 const router = new Router({ prefix: '/ledger' })
 
 router.get('/', async (ctx) => {
-  const page = Number(ctx.query.page ?? 1)
+  const pageValue = Number(ctx.query.page ?? 1)
+  const page = Number.isFinite(pageValue) ? Math.max(1, Math.floor(pageValue)) : 1
   const type = String(ctx.query.type ?? 'all')
-  const limit = 50
+  const pageSize = 20
+  if (isMysqlEnabled(ctx.state.env)) {
+    const where = ['user_id = ?', 'created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)']
+    const params: unknown[] = [ctx.state.userId!]
+    if (type !== 'all') {
+      where.push('type = ?')
+      params.push(type)
+    }
+    const offset = (page - 1) * pageSize
+    const pool = getMysqlPool(ctx.state.env)
+    const [rows] = await pool.query<RowDataPacket[]>(
+      `SELECT id, type, currency, amount, balance_after, description, created_at
+       FROM bg_wallet_ledger
+       WHERE ${where.join(' AND ')}
+       ORDER BY created_at DESC
+       LIMIT ? OFFSET ?`,
+      [...params, pageSize, offset],
+    )
+    const [[countRow]] = await pool.query<RowDataPacket[]>(
+      `SELECT COUNT(*) AS total FROM bg_wallet_ledger WHERE ${where.join(' AND ')}`,
+      params,
+    )
+    ok(ctx, {
+      items: rows.map((r) => ({
+        id: String(r.id),
+        type: String(r.type),
+        currency: String(r.currency ?? 'PHP'),
+        amount: Number(r.amount),
+        balanceAfter: Number(r.balance_after),
+        description: String(r.description ?? ''),
+        createdAt: new Date(r.created_at as Date).toISOString(),
+      })),
+      total: Number(countRow?.total ?? 0),
+      page,
+      pageSize,
+    })
+    return
+  }
+
+  const limit = 200
   let items = await listLedger(ctx.state.redis, ctx.state.userId!, limit)
+  const since = Date.now() - 7 * 24 * 60 * 60 * 1000
+  items = items.filter((e) => new Date(e.createdAt).getTime() >= since)
   if (type !== 'all') {
     items = items.filter((e) => e.type === type)
   }
-  const start = (page - 1) * 20
+  const start = (page - 1) * pageSize
   ok(ctx, {
-    items: items.slice(start, start + 20).map((e) => ({
+    items: items.slice(start, start + pageSize).map((e) => ({
       id: e.id,
       type: e.type,
       currency: e.currency ?? 'PHP',
@@ -23,7 +67,9 @@ router.get('/', async (ctx) => {
       description: e.description,
       createdAt: e.createdAt,
     })),
+    total: items.length,
     page,
+    pageSize,
   })
 })
 

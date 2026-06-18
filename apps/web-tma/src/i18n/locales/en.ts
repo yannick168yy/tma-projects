@@ -381,6 +381,9 @@ export default {
   },
   ledger: {
     balanceAfter: 'Balance',
+    all: 'All',
+    last7Days: 'Showing records from the last 7 days',
+    loadMore: 'Load more',
     types: {
       deposit: 'Deposit',
       withdraw: 'Withdrawal',

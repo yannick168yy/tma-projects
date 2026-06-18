@@ -120,6 +120,31 @@ export type SupportedCurrency = typeof SUPPORTED_CURRENCIES[number]
 export const adjustBalance = (id: string, amount: number, opPassword: string, currency: string, note?: string) =>
   post<{ available: number; orderId: string }>(`/admin/users/${id}/adjust-balance`, { amount, opPassword, currency, note })
 
+export interface AdminLedgerRecord {
+  id: string
+  userId: string
+  type: string
+  currency: string
+  amount: number
+  balanceAfter: number
+  refType: string | null
+  refId: string | null
+  description: string
+  traceId: string | null
+  createdAt: string
+}
+
+export const getLedgerRecords = (params: {
+  page?: number
+  pageSize?: number
+  userId?: string
+  type?: string
+  currency?: string
+  from?: string
+  to?: string
+}) =>
+  get<{ total: number; items: AdminLedgerRecord[]; page: number; pageSize: number }>('/admin/ledger', params)
+
 // KYC
 export interface AdminKycSummary {
   status: string

@@ -58,6 +58,7 @@ const CURRENCIES = [
 ]
 
 const HOME_DOC_KEYS = new Set(['terms', 'privacy', 'responsible', 'about'])
+const LEDGER_FILTERS = ['all', 'deposit', 'withdraw', 'bonus', 'rebate', 'bet', 'win', 'admin_adjust'] as const
 
 function MenuSection({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -191,6 +192,9 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
   const [ledgerOpen, setLedgerOpen] = useState(false)
   const [ledgerLoading, setLedgerLoading] = useState(false)
   const [ledgerItems, setLedgerItems] = useState<LedgerItem[]>([])
+  const [ledgerType, setLedgerType] = useState('all')
+  const [ledgerPage, setLedgerPage] = useState(1)
+  const [ledgerTotal, setLedgerTotal] = useState(0)
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
   const [dobMonth, setDobMonth] = useState('')
@@ -262,9 +266,9 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
   }, [auth.user?.id])
 
   useEffect(() => {
-    document.body.style.overflow = docModalKey || profileSheetOpen || contactSheetOpen ? 'hidden' : ''
+    document.body.style.overflow = docModalKey || profileSheetOpen || contactSheetOpen || ledgerOpen ? 'hidden' : ''
     return () => { document.body.style.overflow = '' }
-  }, [docModalKey, profileSheetOpen, contactSheetOpen])
+  }, [docModalKey, profileSheetOpen, contactSheetOpen, ledgerOpen])
 
   useEffect(() => () => { if (comingSoonTimer.current) clearTimeout(comingSoonTimer.current) }, [])
 
@@ -277,15 +281,30 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
   async function openLedger() {
     if (!isLoggedIn) { onLogin(); return }
     setLedgerOpen(true)
+    setLedgerType('all')
+    await loadLedger(1, 'all')
+  }
+
+  async function loadLedger(page: number, type: string) {
     setLedgerLoading(true)
     try {
-      const res = await fetchLedger(1)
-      setLedgerItems(res.items)
+      const res = await fetchLedger(page, type)
+      setLedgerPage(res.page)
+      setLedgerTotal(res.total)
+      setLedgerItems((prev) => page === 1 ? res.items : [...prev, ...res.items])
     } catch {
-      setLedgerItems([])
+      if (page === 1) {
+        setLedgerItems([])
+        setLedgerTotal(0)
+      }
     } finally {
       setLedgerLoading(false)
     }
+  }
+
+  function changeLedgerType(type: string) {
+    setLedgerType(type)
+    void loadLedger(1, type)
   }
 
   function copyId() {
@@ -704,7 +723,23 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
 
       {ledgerOpen && (
         <BottomSheet title={t('menu.creditRecords')} onClose={() => setLedgerOpen(false)}>
-          {ledgerLoading ? (
+          <div className="mb-4 space-y-3">
+            <p className="text-xs font-semibold text-muted-foreground">{t('ledger.last7Days')}</p>
+            <div className="flex gap-2 overflow-x-auto pb-1">
+              {LEDGER_FILTERS.map((type) => (
+                <button
+                  key={type}
+                  type="button"
+                  disabled={ledgerLoading && ledgerType === type}
+                  className={`flex-shrink-0 rounded-full border px-3 py-1.5 text-xs font-black transition-colors ${ledgerType === type ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-secondary text-muted-foreground hover:text-foreground'}`}
+                  onClick={() => changeLedgerType(type)}
+                >
+                  {type === 'all' ? t('ledger.all') : t(`ledger.types.${type}`, { defaultValue: type })}
+                </button>
+              ))}
+            </div>
+          </div>
+          {ledgerLoading && ledgerItems.length === 0 ? (
             <div className="flex h-44 items-center justify-center">
               <Loader2 size={28} className="animate-spin text-primary" />
             </div>
@@ -714,7 +749,7 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
               <p className="text-sm font-bold">{t('common.noRecords')}</p>
             </div>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-3">
               {ledgerItems.map((item) => {
                 const positive = item.amount > 0
                 const typeLabel = t(`ledger.types.${item.type}`, { defaultValue: item.type })
@@ -743,6 +778,17 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
                   </div>
                 )
               })}
+              {ledgerItems.length < ledgerTotal && (
+                <button
+                  type="button"
+                  className="flex w-full items-center justify-center gap-2 rounded-2xl border border-border bg-secondary py-3 text-sm font-black text-foreground transition-colors hover:bg-secondary/70 disabled:opacity-60"
+                  disabled={ledgerLoading}
+                  onClick={() => void loadLedger(ledgerPage + 1, ledgerType)}
+                >
+                  {ledgerLoading && <Loader2 size={15} className="animate-spin" />}
+                  {t('ledger.loadMore')}
+                </button>
+              )}
             </div>
           )}
         </BottomSheet>

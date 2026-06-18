@@ -10,6 +10,14 @@ export interface LedgerItem {
   createdAt: string
 }
 
-export async function fetchLedger(page = 1): Promise<{ items: LedgerItem[]; page: number }> {
-  return apiRequest<{ items: LedgerItem[]; page: number }>(`/ledger?page=${page}`)
+export interface LedgerResponse {
+  items: LedgerItem[]
+  total: number
+  page: number
+  pageSize: number
+}
+
+export async function fetchLedger(page = 1, type = 'all'): Promise<LedgerResponse> {
+  const params = new URLSearchParams({ page: String(page), type })
+  return apiRequest<LedgerResponse>(`/ledger?${params.toString()}`)
 }

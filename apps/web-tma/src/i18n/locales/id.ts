@@ -310,6 +310,9 @@ export default {
   },
   ledger: {
     balanceAfter: 'Saldo',
+    all: 'Semua',
+    last7Days: 'Menampilkan catatan 7 hari terakhir',
+    loadMore: 'Muat lagi',
     types: {
       deposit: 'Deposit',
       withdraw: 'Penarikan',

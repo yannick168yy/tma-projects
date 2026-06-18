@@ -288,6 +288,9 @@ export default {
   },
   ledger: {
     balanceAfter: 'Số dư',
+    all: 'Tất cả',
+    last7Days: 'Hiển thị bản ghi trong 7 ngày gần nhất',
+    loadMore: 'Tải thêm',
     types: {
       deposit: 'Nạp tiền',
       withdraw: 'Rút tiền',
