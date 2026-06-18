@@ -76,7 +76,7 @@ const PAGE_SIZE = 20
 
 export default function BetHistoryPage({ onClose }: Props) {
   const { t, i18n } = useTranslation()
-  const [range, setRange] = useState<Range>('7d')
+  const [range, setRange] = useState<Range>('today')
   const [items, setItems] = useState<BetRound[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
@@ -104,7 +104,7 @@ export default function BetHistoryPage({ onClose }: Props) {
     }
   }, [])
 
-  useEffect(() => { void loadPage(1, '7d') }, [])
+  useEffect(() => { void loadPage(1, 'today') }, [])
 
   // tab 切换：重置列表后重新加载
   function switchRange(r: Range) {

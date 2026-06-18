@@ -6,7 +6,6 @@ import {
   CheckCircle2,
   ChevronDown,
   ChevronRight,
-  CircleDollarSign,
   Copy,
   FileText,
   Gift,
@@ -407,7 +406,7 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
 
       <div className="mt-4 space-y-5 px-4">
         <div className="grid grid-cols-2 gap-2">
-          <QuickAction icon={CircleDollarSign} label={t('menu.creditRecords')} subtitle={t('menu.creditRecordsSub')} featured onClick={() => void openLedger()} />
+          <QuickAction icon={Gift} label={t('menu.creditRecords')} subtitle={t('menu.creditRecordsSub')} featured onClick={() => void openLedger()} />
           {isLoggedIn && <QuickAction icon={History} label={t('profile.betHistory')} subtitle={t('profile.account')} onClick={onOpenBetHistory} />}
           {isLoggedIn && <QuickAction icon={Gift} label={t('referralPromo.title')} subtitle={t('common.featured')} onClick={onOpenReferralPromo} />}
           <QuickAction icon={Headphones} label={t('menu.customerSupport')} subtitle={t('menu.live247')} onClick={onOpenCs} />
