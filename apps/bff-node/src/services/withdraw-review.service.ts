@@ -67,10 +67,10 @@ export const RULE_META: Record<string, { name: string; desc: string }> = {
   high_multiple_profit:     { name: '高倍盈利', desc: '窗口内 净盈利 ÷ 累计存款 的倍数 ≥ 阈值倍数转人工；无存款时跳过。' },
   high_multiple_profit_24h: { name: '24小时高倍盈利', desc: '近 24 小时内 盈利 ÷ 存款 的倍数 ≥ 阈值倍数转人工，用于抓短时暴赚；近 24h 无存款时跳过。' },
   deposit_source:           { name: '存款来源', desc: '账号历史从未有过真实成功存款（即纯靠彩金/盈利出款）转人工。' },
-  total_bonus:              { name: '总优惠金额', desc: '窗口内累计领取的优惠（彩金）总额超过阈值（PHP 分）转人工。阈值≤0 表示不启用。' },
+  total_bonus:              { name: '总优惠金额', desc: '历史优惠领取表已废弃；当前无可用统计源。阈值≤0 表示不启用。' },
   first_withdraw_no_deposit:{ name: '首次取款', desc: '该账号此前无任何成功取款，且历史无真实存款，首次取款即转人工。' },
   upline_blacklist:         { name: '上线黑名单', desc: '该用户的邀请人（上线）处于封禁/冻结或风控黑名单中，则本次取款转人工。' },
-  same_ip_device:           { name: '同IP同设备', desc: '与其它账号共用同一 IP 的数量 ≥ ip 阈值，或共用同一设备的数量 ≥ device 阈值（默认各 3），疑似多账号/对打，转人工。' },
+  same_ip_device:           { name: '同IP同设备', desc: '与其它账号共用同一 IP 的数量 ≥ ip 阈值；设备会话表已废弃。' },
   promo_turnover:           { name: '优惠流水', desc: '存在已领取但尚未打完所需流水的优惠（剩余打码 > 0）则转人工。' },
   tampered_bet:             { name: '篡改注单', desc: '存在无对应投注却凭空派彩的 round，或命中投注/派彩对账差异日，疑似数据被篡改，转人工。' },
   commission_anomaly:       { name: '三级分销佣金', desc: '三级分销佣金出现重复入账，或自身有佣金收益但下线累计 GGR ≤ 0（疑似刷佣），转人工。' },
@@ -140,13 +140,12 @@ const RULES: Record<string, Rule> = {
   same_ip_device(ctx, cfg) {
     const params = cfg.params ?? {}
     const ipTh = Number(params.ip ?? 3)
-    const devTh = Number(params.device ?? 3)
-    const hit = ctx.relatedIpAccounts >= ipTh || ctx.relatedDeviceAccounts >= devTh
+    const hit = ctx.relatedIpAccounts >= ipTh
     return {
       code: 'same_ip_device',
       verdict: hit ? 'manual' : 'pass',
       actualValue: Math.max(ctx.relatedIpAccounts, ctx.relatedDeviceAccounts),
-      threshold: Math.min(ipTh, devTh),
+      threshold: ipTh,
       detail: { relatedIpAccounts: ctx.relatedIpAccounts, relatedDeviceAccounts: ctx.relatedDeviceAccounts },
     }
   },
@@ -252,12 +251,6 @@ async function buildContext(pool: Pool, order: OrderWithdraw): Promise<ReviewCon
     [sinceDate, sinceDate, userId],
   )
 
-  const [promo] = await safeQuery(pool,
-    `SELECT COALESCE(SUM(amount_cents), 0) AS bonus_cents
-     FROM bg_promo_claim WHERE user_id = ? AND claimed_at > ?`,
-    [userId, sinceDate],
-  )
-
   // 优惠流水未完成（promotion 类型），只检查与本次取款同币种的要求，跨币种不拦截
   const [[pt]] = await pool.query<RowDataPacket[]>(
     `SELECT COALESCE(SUM(required_amount - completed_amount), 0) AS remaining
@@ -266,19 +259,12 @@ async function buildContext(pool: Pool, order: OrderWithdraw): Promise<ReviewCon
     [userId, order.currency],
   )
 
-  // 同 IP（近30天）/ 同设备 的其他账号数
+  // 同 IP（近30天）的其他账号数；设备会话表已废弃。
   const [[ip]] = await pool.query<RowDataPacket[]>(
     `SELECT COUNT(DISTINCT l2.user_id) AS cnt
      FROM bg_login_log l1
      JOIN bg_login_log l2 ON l2.ip = l1.ip AND l2.user_id <> l1.user_id
      WHERE l1.user_id = ? AND l1.ip IS NOT NULL AND l1.created_at > NOW() - INTERVAL 30 DAY`,
-    [userId],
-  )
-  const [dev] = await safeQuery(pool,
-    `SELECT COUNT(DISTINCT s2.user_id) AS cnt
-     FROM bg_game_session s1
-     JOIN bg_game_session s2 ON s2.device_id = s1.device_id AND s2.user_id <> s1.user_id
-     WHERE s1.user_id = ? AND s1.device_id IS NOT NULL`,
     [userId],
   )
 
@@ -325,12 +311,12 @@ async function buildContext(pool: Pool, order: OrderWithdraw): Promise<ReviewCon
     lifetimeDepositCount: Number(dep?.lifetime_cnt ?? 0),
     profitCents: Number(bet?.window_profit ?? 0),
     profit24hCents: Number(bet?.d24_profit ?? 0),
-    bonusCents: Number(promo?.bonus_cents ?? 0),
+    bonusCents: 0,
     completedWithdrawCount,
     uplineBlacklisted,
     promoTurnoverRemaining: Number(pt?.remaining ?? 0),
     relatedIpAccounts: Number(ip?.cnt ?? 0),
-    relatedDeviceAccounts: Number(dev?.cnt ?? 0),
+    relatedDeviceAccounts: 0,
     tamperOrphanRounds: Number(orphan?.cnt ?? 0),
     tamperDiscrepancyDays: Number(disc?.cnt ?? 0),
     commissionEarnedCents: Number(comm?.earned ?? 0),
@@ -471,7 +457,7 @@ export async function getReviewLog(env: Env, orderId: string) {
   }))
 }
 
-/** 与某用户共用同 IP / 同设备的关联账号（人工核查辅助，实时查询） */
+/** 与某用户共用同 IP 的关联账号（人工核查辅助，实时查询） */
 export async function getRelatedAccounts(env: Env, userId: string) {
   if (!isMysqlEnabled(env)) return { ip: [], device: [] }
   const pool = getMysqlPool(env)
@@ -483,16 +469,8 @@ export async function getRelatedAccounts(env: Env, userId: string) {
      LIMIT 50`,
     [userId],
   )
-  const devRows = await safeQuery(pool,
-    `SELECT DISTINCT s2.user_id, s1.device_id
-     FROM bg_game_session s1
-     JOIN bg_game_session s2 ON s2.device_id = s1.device_id AND s2.user_id <> s1.user_id
-     WHERE s1.user_id = ? AND s1.device_id IS NOT NULL
-     LIMIT 50`,
-    [userId],
-  )
   return {
     ip: ipRows.map((r) => ({ userId: String(r.user_id), ip: String(r.ip) })),
-    device: devRows.map((r) => ({ userId: String(r.user_id), deviceId: String(r.device_id) })),
+    device: [],
   }
 }
