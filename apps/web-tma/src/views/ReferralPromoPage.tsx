@@ -1,10 +1,11 @@
-import { useEffect, useState, useMemo } from 'react'
+import { Fragment, useEffect, useState, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Copy, Share2, Users, TrendingUp, Wallet, CheckCircle2, ChevronRight, Send, Zap, Info, Gem } from 'lucide-react'
 import { fetchTeamStatus, enableAgent } from '@/api/promotion'
 import type { TeamAgentStatus } from '@/types/api'
 import { buildInviteDeepLink, buildInviteWebLink } from '@/constants/telegram'
 import { useAuthStore } from '@/stores/auth'
+import referralHero from '@/assets/home/promos/refer-win.webp'
 
 interface Props {
   onOpenTeamCenter: () => void
@@ -183,33 +184,95 @@ export default function ReferralPromoPage({ onOpenTeamCenter }: Props) {
     { step: '03', title: t('referralPromo.step3Title'), desc: t('referralPromo.step3Desc') },
   ]
 
+  const questRules = [
+    {
+      icon: <Share2 size={15} />,
+      title: t('referralPromo.questShareTitle'),
+      desc: t('referralPromo.questShareDesc'),
+      className: 'from-lime-300 to-emerald-400 text-emerald-950',
+    },
+    {
+      icon: <Users size={15} />,
+      title: t('referralPromo.questCircleTitle'),
+      desc: t('referralPromo.questCircleDesc'),
+      className: 'from-sky-300 to-fuchsia-400 text-fuchsia-950',
+    },
+    {
+      icon: <Wallet size={15} />,
+      title: t('referralPromo.questRewardTitle'),
+      desc: t('referralPromo.questRewardDesc'),
+      className: 'from-amber-300 to-orange-400 text-orange-950',
+    },
+  ]
+
   return (
     <div className="flex flex-col bg-background min-h-full">
       {/* Hero - 3-circle diagram + rewards */}
       <div className="relative overflow-hidden px-4 pt-6 pb-8 flex-shrink-0">
-        {/* Background glow */}
-        <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute -top-10 -right-16 w-64 h-64 rounded-full bg-amber-500/12 blur-3xl" />
-          <div className="absolute top-8 -left-20 w-56 h-56 rounded-full bg-blue-500/10 blur-3xl" />
-          <div className="absolute bottom-0 right-4 w-48 h-48 rounded-full bg-purple-500/10 blur-2xl" />
+        <div
+          className="absolute inset-0 pointer-events-none opacity-70"
+          style={{
+            backgroundImage: `linear-gradient(180deg, rgba(255, 184, 0, 0.24) 0%, rgba(236, 72, 153, 0.16) 42%, rgba(8, 11, 20, 0.96) 100%), url(${referralHero})`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center top',
+          }}
+        />
+        <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_18%_18%,rgba(190,242,100,0.28),transparent_28%),radial-gradient(circle_at_84%_8%,rgba(56,189,248,0.28),transparent_26%),radial-gradient(circle_at_76%_58%,rgba(244,114,182,0.24),transparent_30%)]" />
+        <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-b from-transparent to-background pointer-events-none" />
+
+        <div className="relative mb-4">
+          <div className="flex items-center justify-between gap-2 mb-4">
+            <div className="inline-flex items-center gap-1.5 bg-yellow-300 text-yellow-950 rounded-full px-3 py-1 shadow-[0_8px_24px_rgba(250,204,21,0.28)]">
+              <Gem size={11} />
+              <span className="text-[10px] font-black uppercase tracking-widest">{t('referralPromo.subtitle')}</span>
+            </div>
+            <div className="rounded-full bg-fuchsia-500 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-white shadow-[0_8px_24px_rgba(217,70,239,0.3)]">
+              {t('referralPromo.questBadge')}
+            </div>
+          </div>
+          <h2 className="font-display font-black text-[2rem] text-white leading-[0.95] drop-shadow-[0_3px_0_rgba(0,0,0,0.24)]">
+            {t('referralPromo.heading1')}<br />
+            <span className="text-yellow-300">{t('referralPromo.heading2')}</span>
+          </h2>
+          <p className="mt-3 max-w-[330px] text-sm font-semibold leading-relaxed text-white/80">{t('referralPromo.heroParagraph')}</p>
         </div>
 
-        {/* Header */}
-        <div className="relative text-center mb-4">
-          <div className="inline-flex items-center gap-1.5 bg-primary/15 border border-primary/30 rounded-full px-3 py-1 mb-3">
-            <Gem size={11} className="text-primary" />
-            <span className="text-[10px] font-black text-primary uppercase tracking-widest">{t('referralPromo.subtitle')}</span>
+        <div className="relative mb-4 rounded-[1.5rem] border border-white/15 bg-black/30 p-3.5 shadow-[0_18px_50px_rgba(0,0,0,0.28)] backdrop-blur">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <p className="font-display text-[11px] font-black uppercase tracking-widest text-white/70">{t('referralPromo.questMapTitle')}</p>
+            <span className="rounded-full bg-white/12 px-2 py-1 text-[10px] font-black text-yellow-200">{t('referralPromo.questRewardTag')}</span>
           </div>
-          <h2 className="font-display font-black text-3xl text-foreground leading-tight">
-            {t('referralPromo.heading1')}<br />
-            <span className="text-primary">{t('referralPromo.heading2')}</span>
-          </h2>
-          <p className="mt-2 text-sm text-muted-foreground">{t('referralPromo.heroParagraph')}</p>
+          <div className="grid grid-cols-[1fr_auto_1fr_auto_1fr] items-stretch gap-1.5">
+            {[
+              { code: 'C1', title: t('referralPromo.mapC1Title'), desc: t('referralPromo.mapC1Desc'), className: 'bg-lime-300 text-lime-950' },
+              { code: 'C2', title: t('referralPromo.mapC2Title'), desc: t('referralPromo.mapC2Desc'), className: 'bg-sky-300 text-sky-950' },
+              { code: 'C3', title: t('referralPromo.mapC3Title'), desc: t('referralPromo.mapC3Desc'), className: 'bg-fuchsia-300 text-fuchsia-950' },
+            ].map((item, index) => (
+              <Fragment key={item.code}>
+                {index > 0 && <div className="flex items-center justify-center text-sm font-black text-white/45">›</div>}
+                <div className="min-w-0 rounded-2xl bg-white/10 p-2 text-center">
+                  <div className={`mx-auto mb-1 flex h-7 w-7 items-center justify-center rounded-xl text-xs font-black ${item.className}`}>{item.code}</div>
+                  <p className="truncate text-[11px] font-black text-white">{item.title}</p>
+                  <p className="mt-0.5 text-[9px] font-semibold leading-snug text-white/60">{item.desc}</p>
+                </div>
+              </Fragment>
+            ))}
+          </div>
         </div>
 
         {/* 3-circle visual */}
-        <div className="relative mb-4 px-1">
+        <div className="relative mb-4 rounded-[1.5rem] border border-white/10 bg-gradient-to-br from-indigo-950/74 via-slate-950/78 to-rose-950/54 px-2 py-3 shadow-[0_18px_50px_rgba(0,0,0,0.24)]">
           <TreeDiagram youLabel={t('referralPromo.pyramidYou')} />
+        </div>
+
+        <div className="relative mb-4 grid grid-cols-3 gap-2">
+          {questRules.map((item) => (
+            <div key={item.title} className={`min-h-[104px] rounded-2xl bg-gradient-to-br ${item.className} p-2.5 shadow-[0_10px_28px_rgba(0,0,0,0.22)]`}>
+              <div className="mb-2 flex h-7 w-7 items-center justify-center rounded-xl bg-white/45">{item.icon}</div>
+              <p className="text-[11px] font-black leading-tight">{item.title}</p>
+              <p className="mt-1 text-[9px] font-bold leading-snug opacity-75">{item.desc}</p>
+            </div>
+          ))}
         </div>
 
         {/* Circle reward cards */}
