@@ -50,6 +50,13 @@ export interface SpinDrawResult {
   remainingChances: number
 }
 
+export interface SpinRecordsResult {
+  items: SpinRecord[]
+  total: number
+  page: number
+  pageSize: number
+}
+
 export function fetchSpinStatus(ruleId?: number): Promise<SpinStatus> {
   const qs = ruleId ? `?ruleId=${ruleId}` : ''
   return apiRequest<SpinStatus>(`/spin/status${qs}`)
@@ -57,4 +64,8 @@ export function fetchSpinStatus(ruleId?: number): Promise<SpinStatus> {
 
 export function drawSpin(ruleId: number): Promise<SpinDrawResult> {
   return apiRequest<SpinDrawResult>('/spin/draw', { method: 'POST', body: JSON.stringify({ ruleId }) })
+}
+
+export function fetchSpinRecords(page = 1, pageSize = 20): Promise<SpinRecordsResult> {
+  return apiRequest<SpinRecordsResult>(`/spin/records?page=${page}&pageSize=${pageSize}`)
 }

@@ -201,6 +201,8 @@ export default {
     chances: 'kesempatan',
     recentWins: 'Menang terbaru',
     noRecords: 'Belum ada kemenangan spin',
+    historyTitle: 'Riwayat Spin',
+    noHistory: 'Belum ada riwayat spin',
     oopsTitle: 'Oops!',
     oopsBody: 'Sedikit lagi! Capai total deposit {{amount}} untuk membuka Lucky Spin.',
     loadFailed: 'Gagal memuat Rewards Spin',

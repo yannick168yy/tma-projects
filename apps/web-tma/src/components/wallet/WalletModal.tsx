@@ -19,9 +19,7 @@ import { useKycGate } from '@/hooks/useKycGate'
 import { CRYPTO_DEPOSIT, CRYPTO_WITHDRAW, FIAT_DEPOSIT, FIAT_WITHDRAW, TG_WALLET_DEPOSIT, WALLET_BANNERS, type PayMethod } from '@/data/wallet'
 import { useBottomSheetDrag } from '@/hooks/useBottomSheetDrag'
 
-type WalletTab = 'deposit' | 'withdraw' | 'history'
-
-interface Props { open: boolean; onClose: () => void; initialTab?: WalletTab }
+interface Props { open: boolean; onClose: () => void }
 
 interface HistoryItem { id: string; orderId: string; type: 'deposit'|'withdraw'; method: string; amount: string; date: string; sortKey: string; status: 'success'|'pending'|'rejected'|'admin_rejected'|'failed' }
 
@@ -50,7 +48,7 @@ function fmtTurnoverAmount(amount: number, currency: string) {
   return `${parseFloat(amount.toFixed(6))} ${currency}`
 }
 
-export default function WalletModal({ open, onClose, initialTab = 'deposit' }: Props) {
+export default function WalletModal({ open, onClose }: Props) {
   const { t } = useTranslation()
   const walletStore = useWalletStore()
   const activeCurrency = useWalletStore((s) => s.activeCurrency)
@@ -65,7 +63,7 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit' }: P
   const backdropRef = useRef<HTMLDivElement>(null)
   const { onPointerDown, onPointerUp, onPointerCancel } = useBottomSheetDrag(open, onClose, sheetRef, backdropRef)
 
-  const [tab, setTab] = useState<WalletTab>(initialTab)
+  const [tab, setTab] = useState<'deposit'|'withdraw'|'history'>('deposit')
   const [depositView, setDepositView] = useState<'select'|'input'|'matrix_address'>('select')
   const [selectedMethod, setSelectedMethod] = useState<string|null>(null)
   const [amount, setAmount] = useState('')
@@ -161,7 +159,7 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit' }: P
   useEffect(() => {
     document.body.style.overflow = open ? 'hidden' : ''
     if (open) {
-      setTab(initialTab); setDepositView('select'); setSelectedMethod(null); setAmount(''); setHistoryFilter('all'); setHistoryStatus('all'); setBannerIdx(0)
+      setTab('deposit'); setDepositView('select'); setSelectedMethod(null); setAmount(''); setHistoryFilter('all'); setHistoryStatus('all'); setBannerIdx(0)
       if(walletBannerTrackRef.current)walletBannerTrackRef.current.scrollLeft=0
       setDepositLoading(false); setDepositMessage(''); setDepositSuccess(false)
       setWithdrawAccount(''); setWithdrawOwner(''); setWithdrawMessage(''); setWithdrawSuccess(false)
@@ -174,7 +172,7 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit' }: P
       void fetchCryptoChannels().then((list)=>setCryptoEnabled(Object.fromEntries(list.map((c)=>[c.name,c.enabled])))).catch(()=>{})
     } else { stopPolling(); stopTonPolling() }
     return () => { document.body.style.overflow = '' }
-  }, [initialTab, open])
+  }, [open])
 
   useEffect(() => { if(tab==='history')void loadHistory() }, [tab])
 

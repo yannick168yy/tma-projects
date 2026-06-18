@@ -272,6 +272,8 @@ export default {
     chances: 'chances',
     recentWins: 'Recent wins',
     noRecords: 'No spin wins yet',
+    historyTitle: 'Spin History',
+    noHistory: 'No spin history yet',
     oopsTitle: 'Oops!',
     oopsBody: "You're almost there! Reach a total deposit of {{amount}} to unlock the Lucky Spin.",
     loadFailed: 'Failed to load Rewards Spin',

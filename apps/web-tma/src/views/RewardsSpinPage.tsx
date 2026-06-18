@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ChevronLeft, History, Loader2 } from 'lucide-react'
 import { ApiError } from '@/api/client'
-import { drawSpin, fetchSpinStatus, type SpinStatus, type SpinDrawResult } from '@/api/spin'
+import { drawSpin, fetchSpinRecords, fetchSpinStatus, type SpinRecord, type SpinStatus, type SpinDrawResult } from '@/api/spin'
 import { useWalletStore } from '@/stores/wallet'
 import SpinWheel from '@/components/spin/SpinWheel'
 import SpinWinnerTicker from '@/components/spin/SpinWinnerTicker'
@@ -14,10 +14,7 @@ import mascotRightImg from '@/assets/spin/fbm/item-right.webp'
 import winIconImg from '@/assets/spin/fbm/icon-win.webp'
 import oopsIconImg from '@/assets/spin/fbm/icon-oops.webp'
 
-interface Props {
-  onOpenHistory: () => void
-  onClose: () => void
-}
+interface Props { onClose: () => void }
 
 function fmtPhp(amount: number): string {
   if (amount >= 1000) return `₱${Math.round(amount).toLocaleString('en-PH')}`
@@ -28,7 +25,11 @@ function fmtDepositAmount(amount: number): string {
   return Math.round(amount).toLocaleString('en-PH')
 }
 
-export default function RewardsSpinPage({ onOpenHistory, onClose }: Props) {
+function fmtRecordDate(iso: string): string {
+  try { return new Date(iso).toLocaleString('en-PH', { dateStyle: 'medium', timeStyle: 'short' }) } catch { return iso }
+}
+
+export default function RewardsSpinPage({ onClose }: Props) {
   const { t } = useTranslation()
   const wallet = useWalletStore()
   const [status, setStatus] = useState<SpinStatus | null>(null)
@@ -39,6 +40,9 @@ export default function RewardsSpinPage({ onOpenHistory, onClose }: Props) {
   const [result, setResult] = useState<SpinDrawResult | null>(null)
   const [oopsOpen, setOopsOpen] = useState(false)
   const [selectedRuleId, setSelectedRuleId] = useState<number | null>(null)
+  const [historyOpen, setHistoryOpen] = useState(false)
+  const [historyLoading, setHistoryLoading] = useState(false)
+  const [historyRecords, setHistoryRecords] = useState<SpinRecord[]>([])
 
   const rules = useMemo(() => (status?.depositRules ?? []).filter((r) => r.enabled && r.id), [status])
   const selectedRule = useMemo(
@@ -143,6 +147,19 @@ export default function RewardsSpinPage({ onOpenHistory, onClose }: Props) {
     }
   }
 
+  async function openHistory() {
+    setHistoryOpen(true)
+    setHistoryLoading(true)
+    try {
+      const res = await fetchSpinRecords(1, 30)
+      setHistoryRecords(res.items)
+    } catch {
+      setHistoryRecords([])
+    } finally {
+      setHistoryLoading(false)
+    }
+  }
+
   return (
     <div className="spin-page fixed inset-x-0 top-0 z-10 mx-auto flex h-[100dvh] w-full max-w-[430px] flex-col overflow-hidden bg-[#2448bd] text-white">
       <div className="pointer-events-none absolute inset-0 z-0 bg-cover bg-top" style={{ backgroundImage: `url(${spinBg})` }} />
@@ -152,7 +169,7 @@ export default function RewardsSpinPage({ onOpenHistory, onClose }: Props) {
           <button type="button" className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#35aaf8] text-white shadow-lg shadow-blue-950/25 active:scale-95" onClick={onClose}>
             <ChevronLeft size={27} strokeWidth={3.2} />
           </button>
-          <button type="button" className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#35aaf8] text-white shadow-lg shadow-blue-950/25 active:scale-95" onClick={onOpenHistory}>
+          <button type="button" className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#35aaf8] text-white shadow-lg shadow-blue-950/25 active:scale-95" onClick={() => void openHistory()}>
             <History size={25} strokeWidth={3} />
           </button>
         </div>
@@ -263,6 +280,42 @@ export default function RewardsSpinPage({ onOpenHistory, onClose }: Props) {
             >
               OK
             </button>
+          </div>
+        </div>
+      )}
+
+      {historyOpen && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-[#06102a]/72 px-0">
+          <div className="max-h-[76vh] w-full max-w-[430px] rounded-t-3xl bg-[#fff0e9] text-[#0b4c2d] shadow-[0_-18px_44px_rgba(0,0,0,0.35)]">
+            <div className="flex items-center justify-between border-b-4 border-[#ff553d] px-5 py-4">
+              <h2 className="text-lg font-black">{t('spin.historyTitle')}</h2>
+              <button type="button" className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#35aaf8] text-white active:scale-95" onClick={() => setHistoryOpen(false)}>
+                <ChevronLeft size={22} className="-rotate-90" strokeWidth={3} />
+              </button>
+            </div>
+            <div className="max-h-[calc(76vh-72px)] overflow-y-auto px-4 py-3">
+              {historyLoading ? (
+                <div className="flex h-40 items-center justify-center">
+                  <Loader2 size={28} className="animate-spin text-[#ff553d]" />
+                </div>
+              ) : historyRecords.length === 0 ? (
+                <div className="flex h-40 items-center justify-center text-sm font-bold text-[#0b4c2d]/55">
+                  {t('spin.noHistory')}
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {historyRecords.map((record) => (
+                    <div key={record.id} className="grid grid-cols-[1fr_auto] gap-3 rounded-xl bg-white px-4 py-3 shadow-sm">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-black text-[#0b4c2d]">{record.prizeName}</p>
+                        <p className="mt-1 text-xs font-bold text-[#0b4c2d]/55">{fmtRecordDate(record.createdAt)}</p>
+                      </div>
+                      <p className="self-center whitespace-nowrap text-base font-black text-[#ff553d]">+{fmtPhp(record.amountPhp)}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

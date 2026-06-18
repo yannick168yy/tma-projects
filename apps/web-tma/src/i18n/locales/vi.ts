@@ -201,6 +201,8 @@ export default {
     chances: 'lượt',
     recentWins: 'Thắng gần đây',
     noRecords: 'Chưa có lượt thắng',
+    historyTitle: 'Lịch sử quay',
+    noHistory: 'Chưa có lịch sử quay',
     oopsTitle: 'Oops!',
     oopsBody: 'Bạn sắp đạt rồi! Nạp tổng cộng {{amount}} để mở khóa Lucky Spin.',
     loadFailed: 'Tải Rewards Spin thất bại',
