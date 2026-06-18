@@ -14,6 +14,7 @@ import {
   History,
   Info,
   Languages,
+  Loader2,
   LogOut,
   Mail,
   MessageCircle,
@@ -33,7 +34,7 @@ import { LANGUAGES } from '@/data/languages'
 import type { LoginProvider } from '@/types/api'
 import { formatTelegramHandle, getTelegramWebAppUser } from '@/utils/telegramUser'
 import { patchProfile } from '@/api/auth'
-import { fetchRebateProgress } from '@/api/rebate'
+import { fetchLedger, type LedgerItem } from '@/api/ledger'
 import ContactBrandIcon from '@/components/profile/ContactBrandIcon'
 import ContactMethodRow from '@/components/profile/ContactMethodRow'
 
@@ -43,7 +44,6 @@ interface Props {
   onLogout: () => void
   onOpenBetHistory: () => void
   onOpenReferralPromo: () => void
-  onOpenCashback: () => void
 }
 
 type MenuIcon = ComponentType<{ size?: number; className?: string }>
@@ -162,7 +162,17 @@ function BottomSheet({ title, children, onClose }: { title: string; children: Re
   )
 }
 
-export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory, onOpenReferralPromo, onOpenCashback }: Props) {
+function formatLedgerMoney(amount: number, currency: string): string {
+  const sign = amount > 0 ? '+' : ''
+  if (currency === 'PHP') return `${sign}₱${amount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  return `${sign}${parseFloat(amount.toFixed(6))} ${currency}`
+}
+
+function formatLedgerDate(iso: string): string {
+  try { return new Date(iso).toLocaleString('en-PH', { dateStyle: 'short', timeStyle: 'short' }) } catch { return iso }
+}
+
+export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory, onOpenReferralPromo }: Props) {
   const { t } = useTranslation()
   const auth = useAuthStore()
   const { locale, setLocale } = useLocaleStore()
@@ -178,7 +188,9 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
   const [personalSaving, setPersonalSaving] = useState(false)
   const [personalError, setPersonalError] = useState('')
   const [copied, setCopied] = useState(false)
-  const [rebateLevel, setRebateLevel] = useState<number | null>(null)
+  const [ledgerOpen, setLedgerOpen] = useState(false)
+  const [ledgerLoading, setLedgerLoading] = useState(false)
+  const [ledgerItems, setLedgerItems] = useState<LedgerItem[]>([])
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
   const [dobMonth, setDobMonth] = useState('')
@@ -196,14 +208,6 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
   const USER_ID = auth.user?.id ?? '—'
   const displayName = auth.user?.displayName ?? t('profile.playerAccount')
   const currentLang = LANGUAGES.find((l) => l.code === locale) ?? LANGUAGES[0]
-
-  useEffect(() => {
-    if (!isLoggedIn) {
-      setRebateLevel(null)
-      return
-    }
-    fetchRebateProgress().then((p) => setRebateLevel(p.level)).catch(() => setRebateLevel(null))
-  }, [isLoggedIn])
 
   const loginProvider: LoginProvider = auth.user?.loginProvider ?? (auth.user?.telegramUserId ? 'telegram' : 'google')
   const isTelegramLogin = loginProvider === 'telegram'
@@ -268,6 +272,20 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
     if (comingSoonTimer.current) clearTimeout(comingSoonTimer.current)
     setComingSoonToast(true)
     comingSoonTimer.current = setTimeout(() => setComingSoonToast(false), 2200)
+  }
+
+  async function openLedger() {
+    if (!isLoggedIn) { onLogin(); return }
+    setLedgerOpen(true)
+    setLedgerLoading(true)
+    try {
+      const res = await fetchLedger(1)
+      setLedgerItems(res.items)
+    } catch {
+      setLedgerItems([])
+    } finally {
+      setLedgerLoading(false)
+    }
   }
 
   function copyId() {
@@ -340,11 +358,6 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
                 <p className="mb-1 text-[10px] font-black uppercase text-white/45">{t('profile.playerAccount')}</p>
                 <div className="flex items-center gap-2">
                   <h1 className="truncate font-display text-[1.75rem] font-black leading-none text-white">{displayName}</h1>
-                  {rebateLevel != null && (
-                    <span className="flex-shrink-0 rounded-full bg-primary px-2 py-1 text-[10px] font-black leading-none text-primary-foreground">
-                      {t('cashback.levelTag', { level: rebateLevel })}
-                    </span>
-                  )}
                 </div>
                 <button type="button" className="mt-2 flex max-w-full items-center gap-1.5 transition-opacity hover:opacity-80" onClick={copyId}>
                   <span className="text-xs font-semibold text-white/45">ID:</span>
@@ -385,8 +398,8 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
             <p className="mt-1 truncate text-xs font-black text-cyan-200">{t('menu.live247')}</p>
           </div>
           <div className="rounded-xl border border-white/8 bg-white/5 px-2.5 py-2 text-center">
-            <p className="truncate text-[9px] font-black uppercase text-white/35">{t('cashback.pageTitle')}</p>
-            <p className="mt-1 truncate text-xs font-black text-primary">{rebateLevel != null ? t('cashback.levelTag', { level: rebateLevel }) : t('common.ongoing')}</p>
+            <p className="truncate text-[9px] font-black uppercase text-white/35">{t('menu.creditRecords')}</p>
+            <p className="mt-1 truncate text-xs font-black text-primary">{t('menu.creditRecordsSub')}</p>
           </div>
         </div>
       </div>
@@ -417,7 +430,7 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
 
       <div className="mt-4 space-y-5 px-4">
         <div className="grid grid-cols-2 gap-2">
-          <QuickAction icon={CircleDollarSign} label={t('cashback.pageTitle')} subtitle={t('common.ongoing')} featured onClick={onOpenCashback} />
+          <QuickAction icon={CircleDollarSign} label={t('menu.creditRecords')} subtitle={t('menu.creditRecordsSub')} featured onClick={() => void openLedger()} />
           {isLoggedIn && <QuickAction icon={History} label={t('profile.betHistory')} subtitle={t('profile.account')} onClick={onOpenBetHistory} />}
           {isLoggedIn && <QuickAction icon={Gift} label={t('referralPromo.title')} subtitle={t('common.featured')} onClick={onOpenReferralPromo} />}
           <QuickAction icon={Headphones} label={t('menu.customerSupport')} subtitle={t('menu.live247')} onClick={onOpenCs} />
@@ -686,6 +699,52 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
               </div>
             ))}
           </div>
+        </BottomSheet>
+      )}
+
+      {ledgerOpen && (
+        <BottomSheet title={t('menu.creditRecords')} onClose={() => setLedgerOpen(false)}>
+          {ledgerLoading ? (
+            <div className="flex h-44 items-center justify-center">
+              <Loader2 size={28} className="animate-spin text-primary" />
+            </div>
+          ) : ledgerItems.length === 0 ? (
+            <div className="flex h-44 flex-col items-center justify-center gap-2 text-muted-foreground">
+              <CircleDollarSign size={34} className="opacity-30" />
+              <p className="text-sm font-bold">{t('common.noRecords')}</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {ledgerItems.map((item) => {
+                const positive = item.amount > 0
+                const typeLabel = t(`ledger.types.${item.type}`, { defaultValue: item.type })
+                return (
+                  <div key={item.id} className="rounded-2xl border border-border bg-secondary/40 px-4 py-3">
+                    <div className="flex items-start gap-3">
+                      <span className={`mt-0.5 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl ${positive ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'}`}>
+                        <CircleDollarSign size={17} />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-black text-foreground">{typeLabel}</p>
+                            <p className="mt-0.5 truncate text-xs text-muted-foreground">{item.description || item.id}</p>
+                          </div>
+                          <p className={`flex-shrink-0 text-sm font-black tabular-nums ${positive ? 'text-emerald-400' : 'text-red-400'}`}>
+                            {formatLedgerMoney(item.amount, item.currency)}
+                          </p>
+                        </div>
+                        <div className="mt-2 flex items-center justify-between gap-3 text-[11px] font-semibold text-muted-foreground">
+                          <span>{formatLedgerDate(item.createdAt)}</span>
+                          <span>{t('ledger.balanceAfter')}: {formatLedgerMoney(item.balanceAfter, item.currency).replace(/^\+/, '')}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
         </BottomSheet>
       )}
 

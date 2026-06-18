@@ -17,6 +17,7 @@ router.get('/', async (ctx) => {
     items: items.slice(start, start + 20).map((e) => ({
       id: e.id,
       type: e.type,
+      currency: e.currency ?? 'PHP',
       amount: e.amount,
       balanceAfter: e.balanceAfter,
       description: e.description,
