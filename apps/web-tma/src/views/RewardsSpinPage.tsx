@@ -170,7 +170,7 @@ export default function RewardsSpinPage({ onOpenWallet, onClose }: Props) {
         <img src={mascotRightImg} alt="" draggable={false} className="spin-mascot-right pointer-events-none absolute right-2 top-[66vw] z-30 w-[21vw] max-w-[100px]" />
 
         <div className="relative z-10 flex-shrink-0 px-0">
-          <div className="relative mx-auto w-[78vw] max-w-[380px]">
+          <div className="relative mx-auto w-[88vw] max-w-[405px]">
             {loading ? (
               <div className="flex aspect-[760/838] items-center justify-center">
                 <Loader2 size={34} className="animate-spin text-white/80" />
