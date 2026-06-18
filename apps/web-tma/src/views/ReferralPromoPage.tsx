@@ -189,19 +189,19 @@ export default function ReferralPromoPage({ onOpenTeamCenter }: Props) {
       icon: <Share2 size={15} />,
       title: t('referralPromo.questShareTitle'),
       desc: t('referralPromo.questShareDesc'),
-      className: 'from-lime-300 to-emerald-400 text-emerald-950',
+      className: 'from-yellow-300 to-amber-400 text-amber-950',
     },
     {
       icon: <Users size={15} />,
       title: t('referralPromo.questCircleTitle'),
       desc: t('referralPromo.questCircleDesc'),
-      className: 'from-sky-300 to-fuchsia-400 text-fuchsia-950',
+      className: 'from-emerald-300 to-teal-400 text-teal-950',
     },
     {
       icon: <Wallet size={15} />,
       title: t('referralPromo.questRewardTitle'),
       desc: t('referralPromo.questRewardDesc'),
-      className: 'from-amber-300 to-orange-400 text-orange-950',
+      className: 'from-sky-300 to-cyan-400 text-cyan-950',
     },
   ]
 
@@ -210,14 +210,17 @@ export default function ReferralPromoPage({ onOpenTeamCenter }: Props) {
       {/* Hero - 3-circle diagram + rewards */}
       <div className="relative overflow-hidden px-4 pt-6 pb-8 flex-shrink-0">
         <div
-          className="absolute inset-0 pointer-events-none opacity-70"
+          className="absolute inset-0 pointer-events-none"
           style={{
-            backgroundImage: `linear-gradient(180deg, rgba(255, 184, 0, 0.24) 0%, rgba(236, 72, 153, 0.16) 42%, rgba(8, 11, 20, 0.96) 100%), url(${referralHero})`,
-            backgroundSize: 'cover',
-            backgroundPosition: 'center top',
+            background: 'linear-gradient(150deg, rgba(5, 45, 39, 0.98) 0%, rgba(7, 92, 70, 0.94) 42%, rgba(8, 11, 20, 0.98) 100%)',
           }}
         />
-        <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_18%_18%,rgba(190,242,100,0.28),transparent_28%),radial-gradient(circle_at_84%_8%,rgba(56,189,248,0.28),transparent_26%),radial-gradient(circle_at_76%_58%,rgba(244,114,182,0.24),transparent_30%)]" />
+        <img
+          src={referralHero}
+          alt=""
+          className="pointer-events-none absolute -right-14 top-7 w-[58%] max-w-[235px] opacity-25 mix-blend-screen"
+        />
+        <div className="absolute inset-0 pointer-events-none bg-[linear-gradient(135deg,rgba(250,204,21,0.18)_0%,transparent_34%),linear-gradient(315deg,rgba(45,212,191,0.16)_0%,transparent_36%)]" />
         <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-b from-transparent to-background pointer-events-none" />
 
         <div className="relative mb-4">
@@ -226,7 +229,7 @@ export default function ReferralPromoPage({ onOpenTeamCenter }: Props) {
               <Gem size={11} />
               <span className="text-[10px] font-black uppercase tracking-widest">{t('referralPromo.subtitle')}</span>
             </div>
-            <div className="rounded-full bg-fuchsia-500 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-white shadow-[0_8px_24px_rgba(217,70,239,0.3)]">
+            <div className="rounded-full bg-teal-300 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-teal-950 shadow-[0_8px_24px_rgba(45,212,191,0.28)]">
               {t('referralPromo.questBadge')}
             </div>
           </div>
@@ -244,9 +247,9 @@ export default function ReferralPromoPage({ onOpenTeamCenter }: Props) {
           </div>
           <div className="grid grid-cols-[1fr_auto_1fr_auto_1fr] items-stretch gap-1.5">
             {[
-              { code: 'C1', title: t('referralPromo.mapC1Title'), desc: t('referralPromo.mapC1Desc'), className: 'bg-lime-300 text-lime-950' },
-              { code: 'C2', title: t('referralPromo.mapC2Title'), desc: t('referralPromo.mapC2Desc'), className: 'bg-sky-300 text-sky-950' },
-              { code: 'C3', title: t('referralPromo.mapC3Title'), desc: t('referralPromo.mapC3Desc'), className: 'bg-fuchsia-300 text-fuchsia-950' },
+              { code: 'C1', title: t('referralPromo.mapC1Title'), desc: t('referralPromo.mapC1Desc'), className: 'bg-yellow-300 text-yellow-950' },
+              { code: 'C2', title: t('referralPromo.mapC2Title'), desc: t('referralPromo.mapC2Desc'), className: 'bg-emerald-300 text-emerald-950' },
+              { code: 'C3', title: t('referralPromo.mapC3Title'), desc: t('referralPromo.mapC3Desc'), className: 'bg-cyan-300 text-cyan-950' },
             ].map((item, index) => (
               <Fragment key={item.code}>
                 {index > 0 && <div className="flex items-center justify-center text-sm font-black text-white/45">›</div>}
@@ -261,7 +264,7 @@ export default function ReferralPromoPage({ onOpenTeamCenter }: Props) {
         </div>
 
         {/* 3-circle visual */}
-        <div className="relative mb-4 rounded-[1.5rem] border border-white/10 bg-gradient-to-br from-indigo-950/74 via-slate-950/78 to-rose-950/54 px-2 py-3 shadow-[0_18px_50px_rgba(0,0,0,0.24)]">
+        <div className="relative mb-4 rounded-[1.5rem] border border-white/10 bg-gradient-to-br from-emerald-950/78 via-slate-950/82 to-cyan-950/58 px-2 py-3 shadow-[0_18px_50px_rgba(0,0,0,0.24)]">
           <TreeDiagram youLabel={t('referralPromo.pyramidYou')} />
         </div>
 
