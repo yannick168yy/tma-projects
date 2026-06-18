@@ -17,7 +17,9 @@ export interface LedgerResponse {
   pageSize: number
 }
 
-export async function fetchLedger(page = 1, type = 'all'): Promise<LedgerResponse> {
-  const params = new URLSearchParams({ page: String(page), type })
+export async function fetchLedger(page = 1, dateFrom?: string, types?: string[]): Promise<LedgerResponse> {
+  const params = new URLSearchParams({ page: String(page) })
+  if (dateFrom) params.set('dateFrom', dateFrom)
+  if (types?.length) params.set('types', types.join(','))
   return apiRequest<LedgerResponse>(`/ledger?${params.toString()}`)
 }

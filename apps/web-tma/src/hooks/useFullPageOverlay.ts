@@ -18,6 +18,7 @@ export type FullPageView =
   | { type: 'categoryLobby'; params: CategoryLobbyParams }
   | { type: 'teamCenter' }
   | { type: 'betHistory' }
+  | { type: 'ledgerRecords' }
   | { type: 'referralPromo' }
   | { type: 'cashback' }
   | { type: 'spin' }
@@ -26,6 +27,7 @@ export type FullPageView =
 export function isImmersiveFullPage(view: FullPageView): boolean {
   return view.type === 'teamCenter'
     || view.type === 'betHistory'
+    || view.type === 'ledgerRecords'
     || view.type === 'referralPromo'
     || view.type === 'cashback'
     || view.type === 'spin'
@@ -41,6 +43,7 @@ export function useFullPageOverlay() {
     openCategoryLobby: (params: CategoryLobbyParams) => setView({ type: 'categoryLobby', params }),
     openTeamCenter:    () => setView({ type: 'teamCenter' }),
     openBetHistory:    () => setView({ type: 'betHistory' }),
+    openLedgerRecords: () => setView({ type: 'ledgerRecords' }),
     openReferralPromo: () => setView({ type: 'referralPromo' }),
     openCashback:      () => setView({ type: 'cashback' }),
     openSpin:          () => setView({ type: 'spin' }),

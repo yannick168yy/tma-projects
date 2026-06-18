@@ -10,13 +10,24 @@ router.get('/', async (ctx) => {
   const pageValue = Number(ctx.query.page ?? 1)
   const page = Number.isFinite(pageValue) ? Math.max(1, Math.floor(pageValue)) : 1
   const type = String(ctx.query.type ?? 'all')
+  const types = String(ctx.query.types ?? '').split(',').map((v) => v.trim()).filter(Boolean)
+  const dateFrom = ctx.query.dateFrom ? String(ctx.query.dateFrom) : ''
   const pageSize = 20
   if (isMysqlEnabled(ctx.state.env)) {
-    const where = ['user_id = ?', 'created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)']
+    const where = ['user_id = ?']
     const params: unknown[] = [ctx.state.userId!]
-    if (type !== 'all') {
+    if (types.length > 0) {
+      where.push(`type IN (${types.map(() => '?').join(', ')})`)
+      params.push(...types)
+    } else if (type !== 'all') {
       where.push('type = ?')
       params.push(type)
+    }
+    if (dateFrom) {
+      where.push('created_at >= ?')
+      params.push(dateFrom)
+    } else {
+      where.push('created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)')
     }
     const offset = (page - 1) * pageSize
     const pool = getMysqlPool(ctx.state.env)
@@ -51,9 +62,11 @@ router.get('/', async (ctx) => {
 
   const limit = 200
   let items = await listLedger(ctx.state.redis, ctx.state.userId!, limit)
-  const since = Date.now() - 7 * 24 * 60 * 60 * 1000
+  const since = dateFrom ? new Date(dateFrom).getTime() : Date.now() - 7 * 24 * 60 * 60 * 1000
   items = items.filter((e) => new Date(e.createdAt).getTime() >= since)
-  if (type !== 'all') {
+  if (types.length > 0) {
+    items = items.filter((e) => types.includes(e.type))
+  } else if (type !== 'all') {
     items = items.filter((e) => e.type === type)
   }
   const start = (page - 1) * pageSize

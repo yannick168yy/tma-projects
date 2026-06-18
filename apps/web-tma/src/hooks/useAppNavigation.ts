@@ -104,6 +104,10 @@ export function useAppNavigation() {
     pushOverlay('/bet-history')
   }, [pushOverlay])
 
+  const openLedgerRecords = useCallback(() => {
+    pushOverlay('/rewards')
+  }, [pushOverlay])
+
   const openReferralPromo = useCallback(() => {
     pushOverlay('/referral')
     window.scrollTo({ top: 0, behavior: 'instant' })
@@ -144,6 +148,7 @@ export function useAppNavigation() {
     openCategoryLobby,
     openTeamCenter,
     openBetHistory,
+    openLedgerRecords,
     openReferralPromo,
     openCashback,
     openSpin,

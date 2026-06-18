@@ -22,6 +22,7 @@ const OVERLAY_PATHS: Record<string, FullPageView['type']> = {
   '/slots': 'slotsLobby',
   '/team': 'teamCenter',
   '/bet-history': 'betHistory',
+  '/rewards': 'ledgerRecords',
   '/referral': 'referralPromo',
   '/cashback': 'cashback',
   '/rewards-spin': 'spin',
@@ -65,6 +66,7 @@ export function parseAppRoute(pathname: string, search: string): ParsedAppRoute 
   if (overlayType === 'search') return { kind: 'overlay', overlay: { type: 'search' } }
   if (overlayType === 'teamCenter') return { kind: 'overlay', overlay: { type: 'teamCenter' } }
   if (overlayType === 'betHistory') return { kind: 'overlay', overlay: { type: 'betHistory' } }
+  if (overlayType === 'ledgerRecords') return { kind: 'overlay', overlay: { type: 'ledgerRecords' } }
   if (overlayType === 'referralPromo') return { kind: 'overlay', overlay: { type: 'referralPromo' } }
   if (overlayType === 'cashback') return { kind: 'overlay', overlay: { type: 'cashback' } }
   if (overlayType === 'spin') return { kind: 'overlay', overlay: { type: 'spin' } }
