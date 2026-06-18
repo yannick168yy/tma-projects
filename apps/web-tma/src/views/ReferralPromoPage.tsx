@@ -19,86 +19,97 @@ function phpDisplay(cents: number) {
 // 3-circle growth diagram
 function TreeDiagram({ youLabel }: { youLabel: string }) {
   return (
-    <svg viewBox="0 0 320 186" className="w-full" aria-hidden="true" style={{ maxHeight: 186 }}>
+    <svg viewBox="0 0 320 204" className="w-full" aria-hidden="true" style={{ maxHeight: 204 }}>
       <defs>
-        <linearGradient id="tg01" x1="0%" y1="0%" x2="0%" y2="100%">
-          <stop offset="0%" stopColor="#f59e0b" stopOpacity="0.7" />
-          <stop offset="100%" stopColor="#60a5fa" stopOpacity="0.7" />
+        <linearGradient id="tgLink01" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#fde047" stopOpacity="0.9" />
+          <stop offset="100%" stopColor="#34d399" stopOpacity="0.75" />
         </linearGradient>
-        <linearGradient id="tg12" x1="0%" y1="0%" x2="0%" y2="100%">
-          <stop offset="0%" stopColor="#60a5fa" stopOpacity="0.6" />
-          <stop offset="100%" stopColor="#c084fc" stopOpacity="0.6" />
+        <linearGradient id="tgLink12" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#34d399" stopOpacity="0.72" />
+          <stop offset="100%" stopColor="#22d3ee" stopOpacity="0.62" />
         </linearGradient>
-        <linearGradient id="tg23" x1="0%" y1="0%" x2="0%" y2="100%">
-          <stop offset="0%" stopColor="#c084fc" stopOpacity="0.5" />
-          <stop offset="100%" stopColor="#fb7185" stopOpacity="0.45" />
+        <linearGradient id="tgLink23" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#22d3ee" stopOpacity="0.58" />
+          <stop offset="100%" stopColor="#fbbf24" stopOpacity="0.45" />
         </linearGradient>
+        <linearGradient id="tgYou" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#fde047" />
+          <stop offset="100%" stopColor="#f59e0b" />
+        </linearGradient>
+        <linearGradient id="tgC1" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#fef08a" />
+          <stop offset="100%" stopColor="#fbbf24" />
+        </linearGradient>
+        <linearGradient id="tgC2" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#6ee7b7" />
+          <stop offset="100%" stopColor="#14b8a6" />
+        </linearGradient>
+        <linearGradient id="tgC3" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#67e8f9" />
+          <stop offset="100%" stopColor="#38bdf8" />
+        </linearGradient>
+        <filter id="tgGlow" x="-30%" y="-40%" width="160%" height="180%">
+          <feDropShadow dx="0" dy="5" stdDeviation="5" floodColor="#000000" floodOpacity="0.28" />
+          <feDropShadow dx="0" dy="0" stdDeviation="3" floodColor="#fde047" floodOpacity="0.18" />
+        </filter>
       </defs>
 
-      {/* YOU -> Circle 1 */}
-      <line x1="160" y1="26" x2="52" y2="62" stroke="url(#tg01)" strokeWidth="1.5" strokeLinecap="round" />
-      <line x1="160" y1="26" x2="160" y2="62" stroke="url(#tg01)" strokeWidth="1.5" strokeLinecap="round" />
-      <line x1="160" y1="26" x2="268" y2="62" stroke="url(#tg01)" strokeWidth="1.5" strokeLinecap="round" />
+      <g opacity="0.5">
+        <path d="M18 18H302M30 98H290M18 184H302" stroke="rgba(255,255,255,0.08)" strokeWidth="1" strokeDasharray="4 8" />
+      </g>
 
-      {/* Circle 1 -> Circle 2 */}
-      <line x1="52" y1="84" x2="28" y2="118" stroke="url(#tg12)" strokeWidth="1.2" strokeLinecap="round" />
-      <line x1="52" y1="84" x2="72" y2="118" stroke="url(#tg12)" strokeWidth="1.2" strokeLinecap="round" />
-      {/* Circle 1 middle branch */}
-      <line x1="160" y1="84" x2="138" y2="118" stroke="url(#tg12)" strokeWidth="1.2" strokeLinecap="round" />
-      <line x1="160" y1="84" x2="182" y2="118" stroke="url(#tg12)" strokeWidth="1.2" strokeLinecap="round" />
-      {/* Circle 1 right branch */}
-      <line x1="268" y1="84" x2="248" y2="118" stroke="url(#tg12)" strokeWidth="1.2" strokeLinecap="round" />
-      <line x1="268" y1="84" x2="290" y2="118" stroke="url(#tg12)" strokeWidth="1.2" strokeLinecap="round" />
+      <g strokeLinecap="round" fill="none">
+        <path d="M160 34C132 46 94 54 52 70" stroke="url(#tgLink01)" strokeWidth="2.4" />
+        <path d="M160 34V70" stroke="url(#tgLink01)" strokeWidth="2.4" />
+        <path d="M160 34C188 46 226 54 268 70" stroke="url(#tgLink01)" strokeWidth="2.4" />
+        <path d="M52 94C44 106 35 114 27 128M52 94C59 106 66 114 73 128" stroke="url(#tgLink12)" strokeWidth="2" />
+        <path d="M160 94C152 106 145 114 138 128M160 94C168 106 175 114 182 128" stroke="url(#tgLink12)" strokeWidth="2" />
+        <path d="M268 94C260 106 254 114 248 128M268 94C276 106 283 114 290 128" stroke="url(#tgLink12)" strokeWidth="2" />
+        <path d="M27 151V174M138 151C130 160 122 167 115 174M138 151C145 160 151 167 156 174M248 151C256 160 264 167 270 174" stroke="url(#tgLink23)" strokeWidth="1.8" />
+      </g>
 
-      {/* Circle 2 -> Circle 3 */}
-      <line x1="28" y1="138" x2="28" y2="165" stroke="url(#tg23)" strokeWidth="1.1" strokeLinecap="round" />
-      <line x1="138" y1="138" x2="115" y2="165" stroke="url(#tg23)" strokeWidth="1.1" strokeLinecap="round" />
-      <line x1="138" y1="138" x2="155" y2="165" stroke="url(#tg23)" strokeWidth="1.1" strokeLinecap="round" />
-      <line x1="248" y1="138" x2="270" y2="165" stroke="url(#tg23)" strokeWidth="1.1" strokeLinecap="round" />
-
-      {/* ── 节点 ── */}
-
-      {/* YOU */}
-      <rect x="130" y="0" width="60" height="26" rx="10" fill="#f59e0b" />
-      <text x="160" y="13" dominantBaseline="central" textAnchor="middle" fill="#78350f" fontSize="10" fontWeight="900">
+      <g filter="url(#tgGlow)">
+        <rect x="121" y="0" width="78" height="34" rx="14" fill="url(#tgYou)" />
+        <circle cx="140" cy="17" r="8" fill="#fff7ed" opacity="0.92" />
+        <circle cx="140" cy="14" r="2.7" fill="#78350f" opacity="0.8" />
+        <path d="M135.5 22C137 19.8 143 19.8 144.5 22" stroke="#78350f" strokeWidth="1.4" strokeLinecap="round" />
+      </g>
+      <text x="166" y="17" dominantBaseline="central" textAnchor="middle" fill="#78350f" fontSize="10" fontWeight="900">
         {youLabel}
       </text>
 
-      {/* Circle 1 */}
       {[52, 160, 268].map((cx) => (
-        <g key={cx}>
-          <rect x={cx - 30} y="62" width="60" height="22" rx="7"
-            fill="rgba(59,130,246,0.2)" stroke="rgba(147,197,253,0.45)" strokeWidth="1" />
-          <text x={cx} y="73" dominantBaseline="central" textAnchor="middle"
-            fill="#93c5fd" fontSize="9" fontWeight="800">C1</text>
+        <g key={cx} filter="url(#tgGlow)">
+          <rect x={cx - 32} y="68" width="64" height="28" rx="10" fill="rgba(8,13,24,0.72)" stroke="rgba(253,224,71,0.55)" />
+          <circle cx={cx - 17} cy="82" r="8" fill="url(#tgC1)" />
+          <circle cx={cx - 17} cy="79.5" r="2.4" fill="#78350f" opacity="0.72" />
+          <path d={`M${cx - 22} 87C${cx - 19} 83.5 ${cx - 15} 83.5 ${cx - 12} 87`} stroke="#78350f" strokeWidth="1.2" strokeLinecap="round" />
+          <circle cx={cx + 20} cy="76" r="5" fill="#fbbf24" stroke="#fef3c7" strokeWidth="1" />
+          <text x={cx + 7} y="84" dominantBaseline="central" textAnchor="middle" fill="#fde047" fontSize="10" fontWeight="900">C1</text>
         </g>
       ))}
-      {/* More people in the circle */}
-      <text x="308" y="73" dominantBaseline="central" textAnchor="middle"
-        fill="rgba(147,197,253,0.45)" fontSize="11">···</text>
+      <text x="308" y="84" dominantBaseline="central" textAnchor="middle" fill="rgba(253,224,71,0.55)" fontSize="13" fontWeight="900">+</text>
 
-      {/* Circle 2 */}
       {[28, 72, 138, 182, 248, 290].map((cx) => (
-        <g key={cx}>
-          <rect x={cx - 21} y="118" width="42" height="20" rx="6"
-            fill="rgba(168,85,247,0.18)" stroke="rgba(216,180,254,0.35)" strokeWidth="1" />
-          <text x={cx} y="128" dominantBaseline="central" textAnchor="middle"
-            fill="#d8b4fe" fontSize="8" fontWeight="800">C2</text>
+        <g key={cx} filter="url(#tgGlow)">
+          <rect x={cx - 23} y="128" width="46" height="25" rx="9" fill="rgba(8,13,24,0.66)" stroke="rgba(52,211,153,0.48)" />
+          <circle cx={cx - 10} cy="140.5" r="6.5" fill="url(#tgC2)" />
+          <path d={`M${cx - 14} 144C${cx - 11.5} 141.5 ${cx - 8.5} 141.5 ${cx - 6} 144`} stroke="#064e3b" strokeWidth="1.1" strokeLinecap="round" />
+          <text x={cx + 10} y="141" dominantBaseline="central" textAnchor="middle" fill="#6ee7b7" fontSize="8.5" fontWeight="900">C2</text>
+          <path d={`M${cx + 15} 132L${cx + 17} 136L${cx + 21} 137L${cx + 17.5} 139.5L${cx + 18} 144L${cx + 15} 141.5L${cx + 12} 144L${cx + 12.5} 139.5L${cx + 9} 137L${cx + 13} 136Z`} fill="#fde047" opacity="0.9" />
         </g>
       ))}
 
-      {/* Circle 3 */}
       {[28, 115, 155, 270].map((cx) => (
-        <g key={cx}>
-          <rect x={cx - 17} y="165" width="34" height="17" rx="5"
-            fill="rgba(251,113,133,0.14)" stroke="rgba(253,164,175,0.3)" strokeWidth="1" />
-          <text x={cx} y="173" dominantBaseline="central" textAnchor="middle"
-            fill="#fda4af" fontSize="8" fontWeight="800">C3</text>
+        <g key={cx} filter="url(#tgGlow)">
+          <rect x={cx - 19} y="174" width="38" height="22" rx="8" fill="rgba(8,13,24,0.62)" stroke="rgba(103,232,249,0.42)" />
+          <circle cx={cx - 9} cy="185" r="5.4" fill="url(#tgC3)" />
+          <text x={cx + 8} y="185" dominantBaseline="central" textAnchor="middle" fill="#67e8f9" fontSize="8" fontWeight="900">C3</text>
+          <circle cx={cx + 14} cy="178" r="3.6" fill="#fbbf24" opacity="0.95" />
         </g>
       ))}
-      {/* More people in the circle */}
-      <text x="213" y="173" dominantBaseline="central" textAnchor="middle"
-        fill="rgba(253,164,175,0.35)" fontSize="11">···</text>
+      <text x="214" y="187" dominantBaseline="central" textAnchor="middle" fill="rgba(103,232,249,0.5)" fontSize="13" fontWeight="900">+</text>
     </svg>
   )
 }
@@ -208,7 +219,7 @@ export default function ReferralPromoPage({ onOpenTeamCenter }: Props) {
   return (
     <div className="flex flex-col bg-background min-h-full">
       {/* Hero - 3-circle diagram + rewards */}
-      <div className="relative overflow-hidden px-4 pt-6 pb-8 flex-shrink-0">
+      <div className="relative overflow-hidden px-4 pt-[calc(var(--app-safe-top)+3rem)] pb-8 flex-shrink-0">
         <div
           className="absolute inset-0 pointer-events-none"
           style={{
