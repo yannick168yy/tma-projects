@@ -76,7 +76,7 @@ router.get('/users', async (ctx) => {
   )
   const [rows] = await db.query<RowDataPacket[]>(
     `SELECT ua.user_id, ua.bound_at, u.display_name,
-            ROUND((
+            CAST(ROUND((
               (SELECT COALESCE(SUM(CASE WHEN bo.bet_type = 'bet' THEN bo.amount
                                         WHEN bo.bet_type = 'win' THEN -bo.amount ELSE 0 END), 0)
                FROM bg_bet_order bo
@@ -84,7 +84,7 @@ router.get('/users', async (ctx) => {
               - (SELECT COALESCE(SUM(l.amount), 0) FROM bg_wallet_ledger l
                  WHERE l.user_id = ua.user_id AND l.type IN ('bonus', 'red_packet')
                    AND l.created_at >= ? AND l.created_at < ?)
-            ) * 100) AS ggr_cents
+            ) * 100) AS SIGNED) AS ggr_cents
      FROM bg_user_agent ua JOIN bg_user u ON u.id = ua.user_id
      WHERE ua.agent_id = ? ORDER BY ua.bound_at DESC LIMIT ? OFFSET ?`,
     [start, end, start, end, userId, pageSize, offset],
