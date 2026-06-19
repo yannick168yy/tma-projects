@@ -20,7 +20,7 @@ router.get('/overview', async (ctx) => {
     ),
     db.query<RowDataPacket[]>(
       `SELECT COUNT(*) AS cnt, COALESCE(SUM(amount_cents), 0) AS total
-       FROM bg_team_withdrawal WHERE status = 'pending'`,
+       FROM bg_team_withdrawal WHERE status = 'pending' AND review_verdict = 'manual'`,
     ),
   ])
 

@@ -2,6 +2,7 @@ import Router from '@koa/router'
 import { ok, fail } from '../../utils/response.js'
 import { getMysqlPool, isMysqlEnabled } from '../../clients/mysql.client.js'
 import { RULE_META, getReviewLog, getRelatedAccounts, rerunReview } from '../../services/withdraw-review.service.js'
+import { rerunTeamWithdrawalReview } from '../../services/team-withdraw-review.service.js'
 import { writeAuditLog } from '../../services/admin-store.js'
 import type { RowDataPacket } from 'mysql2/promise'
 
@@ -26,9 +27,10 @@ router.get('/overview', async (ctx) => {
 
   const [[bl]] = await pool.query<RowDataPacket[]>(
     `SELECT
-       COUNT(*) AS backlog,
-       SUM(reviewed_at < NOW() - INTERVAL 6 HOUR) AS overdue
-     FROM bg_withdraw_order WHERE status = 'pending' AND review_verdict = 'manual'`,
+       (SELECT COUNT(*) FROM bg_withdraw_order WHERE status = 'pending' AND review_verdict = 'manual')
+       + (SELECT COUNT(*) FROM bg_team_withdrawal WHERE status = 'pending' AND review_verdict = 'manual') AS backlog,
+       (SELECT COUNT(*) FROM bg_withdraw_order WHERE status = 'pending' AND review_verdict = 'manual' AND reviewed_at < NOW() - INTERVAL 6 HOUR)
+       + (SELECT COUNT(*) FROM bg_team_withdrawal WHERE status = 'pending' AND review_verdict = 'manual' AND reviewed_at < NOW() - INTERVAL 6 HOUR) AS overdue`,
   )
 
   const [hitRows] = await pool.query<RowDataPacket[]>(
@@ -319,7 +321,7 @@ router.get('/manual-queue', async (ctx) => {
      WHERE w.status = 'pending' AND w.review_verdict = 'manual'`,
   )
 
-  // 佣金提现：pending 即转人工
+  // 佣金提现：自动审核不通过才转人工
   const [teamRows] = await pool.query<RowDataPacket[]>(
     `SELECT 'team' AS kind,
             CAST(tw.id AS CHAR) AS id,
@@ -331,10 +333,17 @@ router.get('/manual-queue', async (ctx) => {
             tw.handled_by,
             tw.handled_at,
             tw.created_at,
-            NULL AS hit_rules
+            hr.hit_rules
      FROM bg_team_withdrawal tw
      LEFT JOIN bg_user u ON u.id = tw.user_id
-     WHERE tw.status = 'pending'`,
+     LEFT JOIN (
+       SELECT l.withdrawal_id, GROUP_CONCAT(l.rule_code) AS hit_rules
+       FROM bg_team_withdraw_review_log l
+       WHERE l.verdict = 'manual'
+         AND l.round = (SELECT MAX(l2.round) FROM bg_team_withdraw_review_log l2 WHERE l2.withdrawal_id = l.withdrawal_id)
+       GROUP BY l.withdrawal_id
+     ) hr ON hr.withdrawal_id = tw.id
+     WHERE tw.status = 'pending' AND tw.review_verdict = 'manual'`,
   )
 
   const allRows = [...userRows, ...teamRows].sort(
@@ -361,6 +370,17 @@ router.get('/manual-queue', async (ctx) => {
       hitRules: r.hit_rules ? String(r.hit_rules).split(',').map((c) => ({ code: c, name: ruleName(c) })) : [],
     })),
   })
+})
+
+router.post('/team-withdrawals/:id/rerun', async (ctx) => {
+  const id = Number(ctx.params.id)
+  const result = await rerunTeamWithdrawalReview(ctx.state.env, ctx.state.redis, id)
+  await writeAuditLog(ctx.state.env, {
+    adminId: ctx.state.adminId!, adminUsername: ctx.state.adminUsername!,
+    action: 'team_withdrawal.review.rerun', targetType: 'team_withdrawal', targetId: String(id),
+    detail: { round: result.round }, ip: ctx.ip,
+  })
+  ok(ctx, result)
 })
 
 // ── 佣金提现：人工通过 ────────────────────────────────────────────────────────

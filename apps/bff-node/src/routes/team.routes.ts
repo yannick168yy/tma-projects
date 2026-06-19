@@ -5,6 +5,7 @@ import { isKycApproved } from '../services/kyc.service.js'
 import { ok, fail } from '../utils/response.js'
 import { nowMysql } from '../utils/format.js'
 import { fetchMonthTurnoverBreakdown, sumBreakdownCents } from '../utils/team-turnover.js'
+import { reviewTeamWithdrawal } from '../services/team-withdraw-review.service.js'
 
 const router = new Router({ prefix: '/promotions/team' })
 
@@ -257,6 +258,7 @@ router.post('/withdraw', async (ctx) => {
     }
   }
   if (!withdrawalId) { fail(ctx, 500, '提现申请失败，请重试'); return }
+  await reviewTeamWithdrawal(ctx.state.env, ctx.state.redis, withdrawalId)
   ok(ctx, { withdrawalId })
 })
 
