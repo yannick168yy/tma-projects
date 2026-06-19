@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
-import { Table, Button, Space, Tag, Tooltip, DatePicker, message } from 'antd'
+import { Table, Button, Space, Tag, Tooltip, DatePicker, message, Card } from 'antd'
 import type { TablePaginationConfig } from 'antd'
+import dayjs from 'dayjs'
 import type { Dayjs } from 'dayjs'
 import { getSgSettlements, triggerReconcile, markReconciled, type SgSettlementRecord } from '../api'
 
@@ -9,6 +10,7 @@ function fmtTime(t: string) {
 }
 
 const pageSize = 20
+const yesterday = () => dayjs().subtract(1, 'day')
 
 export default function SgSettlement() {
   const [loading, setLoading] = useState(false)
@@ -16,7 +18,7 @@ export default function SgSettlement() {
   const [items, setItems] = useState<SgSettlementRecord[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
-  const [reconcileDate, setReconcileDate] = useState<Dayjs | null>(null)
+  const [reconcileDate, setReconcileDate] = useState<Dayjs | null>(yesterday())
   const [markingId, setMarkingId] = useState<number | null>(null)
 
   async function load(p = 1) {
@@ -36,8 +38,11 @@ export default function SgSettlement() {
     try {
       await triggerReconcile(reconcileDate.format('YYYY-MM-DD'))
       message.success(`${reconcileDate.format('YYYY-MM-DD')} 对账完成`)
-      setReconcileDate(null); void load()
-    } catch (e) { message.error(e instanceof Error ? e.message : '对账失败') }
+      void load()
+    } catch (e) {
+      message.error(e instanceof Error ? e.message : '对账失败')
+      void load()
+    }
     finally { setReconciling(false) }
   }
 
@@ -101,12 +106,22 @@ export default function SgSettlement() {
     <div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
         <h2 style={{ margin: 0 }}>SG 结算对账</h2>
-        <Space>
-          <DatePicker value={reconcileDate} format="YYYY-MM-DD" placeholder="选择日期" onChange={setReconcileDate} />
-          <Button type="primary" loading={reconciling} disabled={!reconcileDate} onClick={handleReconcile}>触发对账</Button>
-        </Space>
       </div>
-      <Table dataSource={items} columns={columns} rowKey="id" loading={loading} pagination={pagination} size="small" />
+      <Card size="small" title="手动对账" style={{ marginBottom: 16 }}>
+        <Space wrap>
+          <DatePicker value={reconcileDate} format="YYYY-MM-DD" placeholder="选择日期" onChange={setReconcileDate} />
+          <Button type="primary" loading={reconciling} disabled={!reconcileDate} onClick={handleReconcile}>手动触发对账</Button>
+        </Space>
+      </Card>
+      <Table
+        dataSource={items}
+        columns={columns}
+        rowKey="id"
+        loading={loading}
+        pagination={pagination}
+        size="small"
+        locale={{ emptyText: '暂无对账记录，请选择日期后手动触发对账' }}
+      />
     </div>
   )
 }

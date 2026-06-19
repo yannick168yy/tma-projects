@@ -15,10 +15,11 @@ router.get('/', async (ctx) => {
     'SELECT COUNT(*) AS total FROM sg_settlement_report',
   )
   const [items] = await pool.query<import('mysql2/promise').RowDataPacket[]>(
-    `SELECT id, report_date, currency,
-            sg_bet_amount, sg_win_amount, sg_ggr, sg_round_count,
-            local_bet, local_win,
-            discrepancy_note, reconciled, fetched_at
+    `SELECT id, DATE_FORMAT(report_date, '%Y-%m-%d') AS reportDate, currency,
+            sg_bet_amount AS sgBetAmount, sg_win_amount AS sgWinAmount,
+            sg_ggr AS sgGgr, sg_round_count AS sgRoundCount,
+            local_bet AS localBet, local_win AS localWin,
+            discrepancy_note AS discrepancyNote, reconciled, fetched_at AS fetchedAt
      FROM sg_settlement_report
      ORDER BY report_date DESC, id DESC
      LIMIT ? OFFSET ?`,
@@ -37,8 +38,12 @@ router.post('/reconcile', async (ctx) => {
   if (!ctx.state.env.SG_BASE_URL || !ctx.state.env.SG_MERCHANT_ID) {
     fail(ctx, 400, 'SG 未配置'); return
   }
-  await runDailyReconciliation(ctx.state.env, date)
-  ok(ctx, { date })
+  try {
+    await runDailyReconciliation(ctx.state.env, date)
+    ok(ctx, { date })
+  } catch (e) {
+    fail(ctx, 502, e instanceof Error ? e.message : 'SG 对账失败', 502)
+  }
 })
 
 // 标记已核对

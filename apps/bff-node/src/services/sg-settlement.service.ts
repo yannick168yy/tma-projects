@@ -65,12 +65,13 @@ async function fetchAllSgTransactions(env: Env, date: string): Promise<SgTxnItem
 async function queryLocalTotals(
   env: Env,
   date: string,
-): Promise<{ betTotal: number; winTotal: number }> {
+): Promise<{ betTotal: number; winTotal: number; txnCount: number }> {
   const db = getMysqlPool(env)
   const [rows] = await db.query<RowDataPacket[]>(
     `SELECT
        SUM(CASE WHEN bet_type = 'bet'    THEN amount ELSE 0 END) AS bet_total,
-       SUM(CASE WHEN bet_type IN ('win','refund') THEN amount ELSE 0 END) AS win_total
+       SUM(CASE WHEN bet_type IN ('win','refund') THEN amount ELSE 0 END) AS win_total,
+       COUNT(*) AS txn_count
      FROM bg_bet_order
      WHERE aggregator_id = 'slotegrator'
        AND DATE(created_at) = ?`,
@@ -79,7 +80,49 @@ async function queryLocalTotals(
   return {
     betTotal: Number(rows[0]?.bet_total ?? 0),
     winTotal: Number(rows[0]?.win_total ?? 0),
+    txnCount: Number(rows[0]?.txn_count ?? 0),
   }
+}
+
+async function saveSettlementReport(
+  env: Env,
+  data: {
+    date: string
+    sgBet: number
+    sgWin: number
+    sgRoundCount: number
+    localBet: number
+    localWin: number
+    discrepancyNote: string | null
+    rawData: unknown
+    reconciled: 0 | 1
+  },
+): Promise<void> {
+  const db = getMysqlPool(env)
+  await db.execute(
+    `INSERT INTO sg_settlement_report
+       (report_date, currency, sg_bet_amount, sg_win_amount, sg_ggr, sg_round_count,
+        local_bet, local_win, discrepancy_note, raw_data, fetched_at, reconciled)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(3), ?)
+     ON DUPLICATE KEY UPDATE
+       sg_bet_amount=VALUES(sg_bet_amount), sg_win_amount=VALUES(sg_win_amount),
+       sg_ggr=VALUES(sg_ggr), sg_round_count=VALUES(sg_round_count),
+       local_bet=VALUES(local_bet), local_win=VALUES(local_win),
+       discrepancy_note=VALUES(discrepancy_note), raw_data=VALUES(raw_data),
+       fetched_at=VALUES(fetched_at), reconciled=VALUES(reconciled)`,
+    [
+      data.date, env.SG_CURRENCY,
+      data.sgBet.toFixed(4), data.sgWin.toFixed(4), (data.sgBet - data.sgWin).toFixed(4), data.sgRoundCount,
+      data.localBet, data.localWin,
+      data.discrepancyNote,
+      JSON.stringify(data.rawData),
+      data.reconciled,
+    ],
+  )
+}
+
+function errMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err)
 }
 
 // 核心：拉取 SG 日结算并与本地对账，结果写入 sg_settlement_report
@@ -89,15 +132,27 @@ export async function runDailyReconciliation(env: Env, date: string): Promise<vo
     return
   }
 
-  const db = getMysqlPool(env)
   console.log(`[sg-settlement] reconciling ${date}...`)
 
   let sgItems: SgTxnItem[]
   try {
     sgItems = await fetchAllSgTransactions(env, date)
   } catch (err) {
+    const local = await queryLocalTotals(env, date)
+    const message = `SG 报告拉取失败: ${errMessage(err)}`
+    await saveSettlementReport(env, {
+      date,
+      sgBet: 0,
+      sgWin: 0,
+      sgRoundCount: 0,
+      localBet: local.betTotal,
+      localWin: local.winTotal,
+      discrepancyNote: message,
+      rawData: { error: message },
+      reconciled: 0,
+    })
     console.error(`[sg-settlement] failed to fetch SG report for ${date}:`, err)
-    return
+    throw err
   }
 
   // SG 汇总（原币）
@@ -114,44 +169,32 @@ export async function runDailyReconciliation(env: Env, date: string): Promise<vo
   const local = await queryLocalTotals(env, date)
 
   const sgRoundCount = new Set(sgItems.map((i) => i.round_id)).size
-  let discrepancyNote: string | null = null
+  const discrepancyNotes: string[] = []
 
-  if (sgItems.length === 0 && local.betTotal === 0) {
-    discrepancyNote = null // 当日无数据，一致
-  } else if (Math.abs(sgItems.length - (local.betTotal > 0 ? sgItems.length : 0)) > 0) {
-    // 粗略检查：SG 事务数 vs 本地记录数
-    const localTxnCount = await db.query<RowDataPacket[]>(
-      `SELECT COUNT(*) AS cnt FROM bg_bet_order
-       WHERE aggregator_id = 'slotegrator' AND DATE(created_at) = ?`, [date],
-    ).then(([r]) => Number(r[0]?.cnt ?? 0))
-
-    if (Math.abs(sgItems.length - localTxnCount) > 0) {
-      discrepancyNote = `SG txn count: ${sgItems.length}, local count: ${localTxnCount}`
-      console.warn(`[sg-settlement] discrepancy on ${date}: ${discrepancyNote}`)
-    }
+  if (sgItems.length !== local.txnCount) {
+    discrepancyNotes.push(`SG txn count: ${sgItems.length}, local count: ${local.txnCount}`)
   }
+  if (Math.abs(sgBet - local.betTotal) >= 0.0001) {
+    discrepancyNotes.push(`SG bet: ${sgBet.toFixed(4)}, local bet: ${local.betTotal.toFixed(4)}`)
+  }
+  if (Math.abs(sgWin - local.winTotal) >= 0.0001) {
+    discrepancyNotes.push(`SG win: ${sgWin.toFixed(4)}, local win: ${local.winTotal.toFixed(4)}`)
+  }
+  const discrepancyNote = discrepancyNotes.length > 0 ? discrepancyNotes.join('; ') : null
 
-  // UPSERT 结果
-  await db.execute(
-    `INSERT INTO sg_settlement_report
-       (report_date, currency, sg_bet_amount, sg_win_amount, sg_ggr, sg_round_count,
-        local_bet, local_win, discrepancy_note, raw_data, fetched_at, reconciled)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(3), ?)
-     ON DUPLICATE KEY UPDATE
-       sg_bet_amount=VALUES(sg_bet_amount), sg_win_amount=VALUES(sg_win_amount),
-       sg_ggr=VALUES(sg_ggr), sg_round_count=VALUES(sg_round_count),
-       local_bet=VALUES(local_bet), local_win=VALUES(local_win),
-       discrepancy_note=VALUES(discrepancy_note), raw_data=VALUES(raw_data),
-       fetched_at=VALUES(fetched_at), reconciled=VALUES(reconciled)`,
-    [
-      date, sgCurrency,
-      sgBet.toFixed(4), sgWin.toFixed(4), sgGgr.toFixed(4), sgRoundCount,
-      local.betTotal, local.winTotal,
-      discrepancyNote,
-      JSON.stringify({ total: sgItems.length, sample: sgItems.slice(0, 3) }),
-      discrepancyNote === null ? 1 : 0,
-    ],
-  )
+  if (discrepancyNote) console.warn(`[sg-settlement] discrepancy on ${date}: ${discrepancyNote}`)
+
+  await saveSettlementReport(env, {
+    date,
+    sgBet,
+    sgWin,
+    sgRoundCount,
+    localBet: local.betTotal,
+    localWin: local.winTotal,
+    discrepancyNote,
+    rawData: { total: sgItems.length, sample: sgItems.slice(0, 3) },
+    reconciled: discrepancyNote === null ? 1 : 0,
+  })
 
   console.log(`[sg-settlement] ${date} done — SG bet=${sgBet} ${sgCurrency}, GGR=${sgGgr.toFixed(2)}, discrepancy=${discrepancyNote ?? 'none'}`)
 }
