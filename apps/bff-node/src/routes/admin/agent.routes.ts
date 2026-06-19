@@ -283,13 +283,15 @@ router.get('/:agentId/users', async (ctx) => {
   )
   const [rows] = await db.query<RowDataPacket[]>(
     `SELECT ua.user_id, ua.source, ua.bound_at, u.display_name, u.registered_at,
-            (SELECT COALESCE(SUM(CASE WHEN bo.bet_type = 'bet' THEN bo.amount_cents
-                                      WHEN bo.bet_type = 'win' THEN -bo.amount_cents ELSE 0 END), 0)
-             FROM bg_bet_order bo
-             WHERE bo.user_id = ua.user_id AND bo.status = 'settled' AND bo.created_at >= ? AND bo.created_at < ?)
-            - (SELECT COALESCE(SUM(l.amount_cents), 0) FROM bg_wallet_ledger l
-               WHERE l.user_id = ua.user_id AND l.type IN ('bonus', 'red_packet')
-                 AND l.created_at >= ? AND l.created_at < ?) AS ggr_cents
+            ROUND((
+              (SELECT COALESCE(SUM(CASE WHEN bo.bet_type = 'bet' THEN bo.amount
+                                        WHEN bo.bet_type = 'win' THEN -bo.amount ELSE 0 END), 0)
+               FROM bg_bet_order bo
+               WHERE bo.user_id = ua.user_id AND bo.status = 'settled' AND bo.created_at >= ? AND bo.created_at < ?)
+              - (SELECT COALESCE(SUM(l.amount), 0) FROM bg_wallet_ledger l
+                 WHERE l.user_id = ua.user_id AND l.type IN ('bonus', 'red_packet')
+                   AND l.created_at >= ? AND l.created_at < ?)
+            ) * 100) AS ggr_cents
      FROM bg_user_agent ua JOIN bg_user u ON u.id = ua.user_id
      WHERE ua.agent_id = ? ORDER BY ua.bound_at DESC LIMIT ? OFFSET ?`,
     [start, end, start, end, agentId, pageSize, offset],
