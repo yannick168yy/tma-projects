@@ -11,6 +11,9 @@ export default function ManualQueue() {
   const [items, setItems] = useState<ManualQueueItem[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
+  const [rejecting, setRejecting] = useState<ManualQueueItem | null>(null)
+  const [rejectReason, setRejectReason] = useState('')
+  const [opLoading, setOpLoading] = useState(false)
 
   async function load(p = 1) {
     setPage(p); setLoading(true)
@@ -36,24 +39,23 @@ export default function ManualQueue() {
   }
 
   function handleReject(item: ManualQueueItem) {
-    let reason = ''
-    Modal.confirm({
-      title: '拒绝提现',
-      content: (
-        <Input.TextArea
-          rows={3}
-          placeholder="拒绝原因（可选，将退回佣金钱包）"
-          onChange={(e) => { reason = e.target.value }}
-        />
-      ),
-      okText: '确认拒绝',
-      okButtonProps: { danger: true },
-      onOk: async () => {
-        await rejectTeamWithdrawal(item.id, reason.trim() || undefined)
-        message.success('已拒绝，金额已退回佣金钱包')
-        void load(page)
-      },
-    })
+    setRejecting(item)
+    setRejectReason('')
+  }
+
+  async function doReject() {
+    if (!rejecting) return
+    setOpLoading(true)
+    try {
+      await rejectTeamWithdrawal(rejecting.id, rejectReason.trim() || undefined)
+      message.success('已拒绝，金额已退回佣金钱包')
+      setRejecting(null)
+      await load(page)
+    } catch (e) {
+      message.error(e instanceof Error ? e.message : '操作失败')
+    } finally {
+      setOpLoading(false)
+    }
   }
 
   const columns = [
@@ -124,6 +126,22 @@ export default function ManualQueue() {
         <h2 style={{ margin: 0 }}>待人工处理</h2>
         <Button onClick={() => load(page)}>刷新</Button>
       </Space>
+      <Modal
+        open={!!rejecting}
+        title="拒绝提现"
+        okText="确认拒绝"
+        okButtonProps={{ danger: true }}
+        confirmLoading={opLoading}
+        onOk={doReject}
+        onCancel={() => setRejecting(null)}
+      >
+        <Input.TextArea
+          rows={3}
+          value={rejectReason}
+          placeholder="拒绝原因（可选，将退回佣金钱包）"
+          onChange={(e) => setRejectReason(e.target.value)}
+        />
+      </Modal>
       <Table
         columns={columns}
         dataSource={items}

@@ -4,7 +4,7 @@ import { getMysqlPool, isMysqlEnabled } from '../../clients/mysql.client.js'
 import { RULE_META, getReviewLog, getRelatedAccounts, rerunReview } from '../../services/withdraw-review.service.js'
 import { rerunTeamWithdrawalReview } from '../../services/team-withdraw-review.service.js'
 import { writeAuditLog } from '../../services/admin-store.js'
-import type { RowDataPacket } from 'mysql2/promise'
+import type { ResultSetHeader, RowDataPacket } from 'mysql2/promise'
 
 const router = new Router({ prefix: '/review' })
 
@@ -430,18 +430,27 @@ router.post('/team-withdrawals/:id/reject', async (ctx) => {
   const conn = await pool.getConnection()
   try {
     await conn.beginTransaction()
-    await conn.execute(
-      `UPDATE bg_team_wallet SET frozen_cents = frozen_cents - ?, available_cents = available_cents + ? WHERE user_id = ?`,
-      [wd.amount_cents, wd.amount_cents, wd.user_id],
+    const [walletRes] = await conn.execute<ResultSetHeader>(
+      `UPDATE bg_team_wallet
+       SET frozen_cents = frozen_cents - ?, available_cents = available_cents + ?
+       WHERE user_id = ? AND currency = 'PHP' AND frozen_cents >= ?`,
+      [wd.amount_cents, wd.amount_cents, wd.user_id, wd.amount_cents],
     )
+    if (walletRes.affectedRows === 0) throw new Error('佣金钱包冻结余额不足')
     await conn.execute(
-      `UPDATE bg_team_withdrawal SET status = 'rejected', reject_reason = ?, handled_by = ?, handled_at = NOW(3), reviewed_at = NOW(3) WHERE id = ?`,
+      `UPDATE bg_team_withdrawal
+       SET status = 'rejected', reject_reason = ?, handled_by = ?, handled_at = NOW(3), reviewed_at = NOW(3)
+       WHERE id = ?`,
       [body.reason ?? null, ctx.state.adminUsername ?? null, id],
     )
     await conn.commit()
   } catch (e) {
     await conn.rollback()
-    fail(ctx, 500, '操作失败'); return
+    console.error('[bff] team withdrawal reject failed', {
+      id,
+      error: e instanceof Error ? e.message : String(e),
+    })
+    fail(ctx, 500, e instanceof Error ? e.message : '操作失败'); return
   } finally {
     conn.release()
   }
