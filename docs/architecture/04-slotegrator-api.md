@@ -518,16 +518,6 @@ POST {SG_BASE_URL}/games/init-demo
 
 ---
 
-### 3.6 交易报告（对账）
-
-```
-POST {SG_BASE_URL}/report/transactions
-```
-
-后台对账服务（`sg-settlement.service.ts`）调用，拉取指定日期交易汇总与本地 `bg_bet_order` 核对，结果写入 `sg_settlement_report`。
-
----
-
 ## 四、数据库表
 
 | 表名 | 说明 |
@@ -537,7 +527,6 @@ POST {SG_BASE_URL}/report/transactions
 | `bg_wallet` | 玩家钱包（available 余额，**多货币后按 currency 分行**） |
 | `bg_wallet_ledger` | 钱包流水（bet / win / adjust，含 currency） |
 | `bg_idempotency` | 幂等缓存（scope='sg_callback'，TTL 24h） |
-| `sg_settlement_report` | 日对账报告 |
 | `bg_turnover_requirements` | 流水要求（含 currency 字段） |
 | `bg_turnover_logs` | 投注流水贡献记录（含 currency 字段） |
 | `bg_game_turnover_rates` | 各游戏大类贡献率（与货币无关） |

@@ -698,24 +698,3 @@ CREATE TABLE `sg_games` (
   KEY `idx_category` (`category`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Slotegrator 游戏列表缓存';
 /*!40101 SET character_set_client = @saved_cs_client */;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `sg_settlement_report` (
-  `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '自增主键',
-  `report_date` date NOT NULL COMMENT 'ç»“ç®—æ—¥æœŸï¼ˆUTCï¼‰',
-  `currency` char(3) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'SG ç»“ç®—å¸ç§',
-  `sg_bet_amount` decimal(18,4) NOT NULL DEFAULT '0.0000' COMMENT 'SG 报告总投注（原币）',
-  `sg_win_amount` decimal(18,4) NOT NULL DEFAULT '0.0000' COMMENT 'SG 报告总派彩（原币）',
-  `sg_ggr` decimal(18,4) NOT NULL DEFAULT '0.0000' COMMENT 'SG GGR = bet - win（原币）',
-  `sg_round_count` int unsigned NOT NULL DEFAULT '0' COMMENT 'SG 报告局数',
-  `local_bet` decimal(18,4) NOT NULL DEFAULT '0.0000' COMMENT '本地 bg_bet_order 投注总额（PHP 元）',
-  `local_win` decimal(18,4) NOT NULL DEFAULT '0.0000' COMMENT '本地 bg_bet_order 派彩总额（PHP 元）',
-  `discrepancy_note` text COLLATE utf8mb4_unicode_ci COMMENT '差异说明，NULL 表示核对一致',
-  `raw_data` json DEFAULT NULL COMMENT 'SG 原始响应快照',
-  `fetched_at` datetime(3) NOT NULL COMMENT '报告拉取时间',
-  `reconciled` tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否已核对（0=待核，1=已核）',
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_date_currency` (`report_date`,`currency`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Slotegrator 日结算报告及本地核对结果';
-/*!40101 SET character_set_client = @saved_cs_client */;
-

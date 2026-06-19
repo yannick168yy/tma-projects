@@ -20,7 +20,6 @@ const SNAP_LABELS: Record<string, { label: string; cents?: boolean }> = {
   relatedIpAccounts: { label: '同IP关联账号数' },
   relatedDeviceAccounts: { label: '同设备关联账号数' },
   tamperOrphanRounds: { label: '凭空派彩round数' },
-  tamperDiscrepancyDays: { label: '对账差异日数' },
   commissionEarnedCents: { label: '累计佣金收入', cents: true },
   commissionDownlineGgrCents: { label: '下线累计GGR', cents: true },
   commissionDupGroups: { label: '佣金重复入账组' },

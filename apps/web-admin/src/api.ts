@@ -609,20 +609,6 @@ export const getBetRounds = (params: {
   userId?: string; dateFrom?: string; dateTo?: string
 }) => get<{ total: number; page: number; pageSize: number; stats: BetOrderStats; items: BetRoundRecord[] }>('/admin/bet-orders', { ...params, view: 'round' })
 
-// SG 结算报告
-export interface SgSettlementRecord {
-  id: number; reportDate: string; currency: string
-  sgBetAmount: number; sgWinAmount: number; sgGgr: number; sgRoundCount: number
-  localBet: number; localWin: number
-  discrepancyNote: string | null; reconciled: number; fetchedAt: string
-}
-export const getSgSettlements = (params: { page?: number; pageSize?: number }) =>
-  get<{ total: number; page: number; pageSize: number; items: SgSettlementRecord[] }>('/admin/sg-settlement', params)
-export const triggerReconcile = (date: string) =>
-  post('/admin/sg-settlement/reconcile', { date })
-export const markReconciled = (id: number) =>
-  req<{ id: number }>('PATCH', `/admin/sg-settlement/${id}/reconcile`)
-
 // Promo Config
 export interface PromoConfig {
   trial:    { amount: number; enabled: boolean; turnoverX: number; turnoverDays: number }

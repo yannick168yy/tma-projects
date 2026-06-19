@@ -15,7 +15,6 @@ import { refreshLatestPool, refreshWeekTop, refreshMonthTop } from './services/b
 import { stripMobileNamesInDb } from './services/sg-game.service.js'
 import { refreshRates } from './services/exchange-rate.service.js'
 import { refreshBalances } from './services/payment-accounting.service.js'
-import { runDailyReconciliation, yesterday } from './services/sg-settlement.service.js'
 import { runDailyRebateSettlement, yesterdayPHT } from './services/rebate.service.js'
 import { isMysqlEnabled } from './clients/mysql.client.js'
 import { ok } from './utils/response.js'
@@ -30,7 +29,6 @@ export function createApp(env: Env): Koa {
     ton: childLogger('ton-poller'),
     admin: childLogger('admin-seed'),
     rates: childLogger('exchange-rate'),
-    settlement: childLogger('sg-settlement'),
     betting: childLogger('betting-activity'),
     games: childLogger('games-cache'),
     homepage: childLogger('homepage'),
@@ -98,25 +96,6 @@ export function createApp(env: Env): Koa {
       runRebate()
       setInterval(runRebate, 24 * 60 * 60 * 1000)
     }, msUntilRebate())
-  }
-
-  // SG 日结算对账：每天 UTC 02:05（新加坡时间 10:05）跑昨日数据
-  if (isMysqlEnabled(env) && env.SG_BASE_URL && env.SG_MERCHANT_ID) {
-    const runReconcile = () =>
-      runDailyReconciliation(env, yesterday()).catch((err) =>
-        log.settlement.error({ err }, 'reconcile error'),
-      )
-    const msUntilNext = () => {
-      const now = new Date()
-      const next = new Date()
-      next.setUTCHours(2, 5, 0, 0)
-      if (next <= now) next.setUTCDate(next.getUTCDate() + 1)
-      return next.getTime() - now.getTime()
-    }
-    setTimeout(() => {
-      runReconcile()
-      setInterval(runReconcile, 24 * 60 * 60 * 1000)
-    }, msUntilNext())
   }
 
   // Betting activity 初始化（需要 games cache 已加载）

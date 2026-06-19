@@ -50,8 +50,6 @@ interface ReviewContext {
   relatedDeviceAccounts: number
   /** 窗口内"有派彩无下注"的异常 round 数 */
   tamperOrphanRounds: number
-  /** 窗口内命中对账差异的结算日数 */
-  tamperDiscrepancyDays: number
   /** 作为收益人累计佣金（PHP 分） */
   commissionEarnedCents: number
   /** 名下下线累计 GGR（PHP 分，可为负） */
@@ -72,7 +70,7 @@ export const RULE_META: Record<string, { name: string; desc: string }> = {
   upline_blacklist:         { name: '上线黑名单', desc: '该用户的邀请人（上线）处于封禁/冻结或风控黑名单中，则本次取款转人工。' },
   same_ip_device:           { name: '同IP同设备', desc: '与其它账号共用同一 IP 的数量 ≥ ip 阈值；设备会话表已废弃。' },
   promo_turnover:           { name: '优惠流水', desc: '存在已领取但尚未打完所需流水的优惠（剩余打码 > 0）则转人工。' },
-  tampered_bet:             { name: '篡改注单', desc: '存在无对应投注却凭空派彩的 round，或命中投注/派彩对账差异日，疑似数据被篡改，转人工。' },
+  tampered_bet:             { name: '篡改注单', desc: '存在无对应投注却凭空派彩的 round，疑似数据被篡改，转人工。' },
   commission_anomaly:       { name: '三级分销佣金', desc: '三级分销佣金出现重复入账，或自身有佣金收益但下线累计 GGR ≤ 0（疑似刷佣），转人工。' },
 }
 
@@ -156,11 +154,11 @@ const RULES: Record<string, Rule> = {
   },
 
   tampered_bet(ctx) {
-    const hit = ctx.tamperOrphanRounds > 0 || ctx.tamperDiscrepancyDays > 0
+    const hit = ctx.tamperOrphanRounds > 0
     return {
       code: 'tampered_bet',
       verdict: hit ? 'manual' : 'pass',
-      detail: { orphanRounds: ctx.tamperOrphanRounds, discrepancyDays: ctx.tamperDiscrepancyDays },
+      detail: { orphanRounds: ctx.tamperOrphanRounds },
     }
   },
 
@@ -180,17 +178,6 @@ const RULES: Record<string, Rule> = {
 }
 
 function round2(n: number): number { return Math.round(n * 100) / 100 }
-
-/** 查询可能缺失的数据源表：表不存在(errno 1146)时按零值/空集处理，不让审核整体失败 */
-async function safeQuery(pool: Pool, sql: string, params: unknown[]): Promise<RowDataPacket[]> {
-  try {
-    const [rows] = await pool.query<RowDataPacket[]>(sql, params)
-    return rows
-  } catch (err) {
-    if ((err as { errno?: number }).errno === 1146) return []
-    throw err
-  }
-}
 
 // ── 配置加载 ──────────────────────────────────────────────────────────────────
 
@@ -268,7 +255,7 @@ async function buildContext(pool: Pool, order: OrderWithdraw): Promise<ReviewCon
     [userId],
   )
 
-  // 篡改注单：凭空派彩 round + 对账差异日
+  // 篡改注单：凭空派彩 round
   const [[orphan]] = await pool.query<RowDataPacket[]>(
     `SELECT COUNT(*) AS cnt FROM (
        SELECT round_id
@@ -279,14 +266,6 @@ async function buildContext(pool: Pool, order: OrderWithdraw): Promise<ReviewCon
      ) t`,
     [userId, sinceDate],
   )
-  const [disc] = await safeQuery(pool,
-    `SELECT COUNT(DISTINCT r.report_date) AS cnt
-     FROM sg_settlement_report r
-     JOIN bg_bet_order b ON DATE(b.created_at) = r.report_date AND b.user_id = ?
-     WHERE r.discrepancy_note IS NOT NULL AND b.created_at > ?`,
-    [userId, sinceDate],
-  )
-
   // 三级分销佣金
   const [[comm]] = await pool.query<RowDataPacket[]>(
     `SELECT
@@ -318,7 +297,6 @@ async function buildContext(pool: Pool, order: OrderWithdraw): Promise<ReviewCon
     relatedIpAccounts: Number(ip?.cnt ?? 0),
     relatedDeviceAccounts: 0,
     tamperOrphanRounds: Number(orphan?.cnt ?? 0),
-    tamperDiscrepancyDays: Number(disc?.cnt ?? 0),
     commissionEarnedCents: Number(comm?.earned ?? 0),
     commissionDownlineGgrCents: Number(comm?.downline_ggr ?? 0),
     commissionDupGroups: Number(dup?.cnt ?? 0),
@@ -340,7 +318,6 @@ function snapshotOf(ctx: ReviewContext): Record<string, number | string | boolea
     relatedIpAccounts: ctx.relatedIpAccounts,
     relatedDeviceAccounts: ctx.relatedDeviceAccounts,
     tamperOrphanRounds: ctx.tamperOrphanRounds,
-    tamperDiscrepancyDays: ctx.tamperDiscrepancyDays,
     commissionEarnedCents: ctx.commissionEarnedCents,
     commissionDownlineGgrCents: ctx.commissionDownlineGgrCents,
     commissionDupGroups: ctx.commissionDupGroups,

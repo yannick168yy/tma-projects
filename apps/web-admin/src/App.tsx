@@ -20,7 +20,6 @@ import ExchangeRates from './views/ExchangeRates'
 import CustomerService from './views/CustomerService'
 import CsFaq from './views/CsFaq'
 import BetOrders from './views/BetOrders'
-import SgSettlement from './views/SgSettlement'
 import TeamReferral from './views/TeamReferral'
 import TeamReferralConfig from './views/TeamReferralConfig'
 import Promotions from './views/Promotions'
@@ -77,7 +76,6 @@ export default function App() {
           <Route path="customer-service" element={<CustomerService />} />
           <Route path="cs-faq" element={<CsFaq />} />
           <Route path="bet-orders" element={<BetOrders />} />
-          <Route path="sg-settlement" element={<SgSettlement />} />
           <Route path="team-referral" element={<Navigate to="/team-referral/agents" replace />} />
           <Route path="team-referral/agents" element={<TeamReferral tab="agents" />} />
           <Route path="team-referral/commissions" element={<TeamReferral tab="commissions" />} />

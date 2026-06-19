@@ -36,7 +36,6 @@ function buildMenuItems(badges: AdminBadges) {
       label: '财务管理',
       children: [
         { key: '/deposits', label: '存款管理' },
-        { key: '/sg-settlement', label: '结算对账' },
         { key: '/payment/channels', label: '支付渠道' },
         { key: '/payment/accounting', label: '服务商余额' },
         { key: '/wallet-ledger', label: '账变记录' },
@@ -117,7 +116,7 @@ function buildMenuItems(badges: AdminBadges) {
 
 function getDefaultOpenKey(pathname: string): string {
   if (pathname.startsWith('/review')) return 'review'
-  if (['/deposits', '/sg-settlement', '/payment', '/wallet-ledger'].some((p) => pathname.startsWith(p))) return 'finance'
+  if (['/deposits', '/payment', '/wallet-ledger'].some((p) => pathname.startsWith(p))) return 'finance'
   if (['/games', '/bet-orders', '/promotions', '/rewards-spin', '/rebate'].some((p) => pathname.startsWith(p))) return 'content'
   if (pathname.startsWith('/team-referral')) return 'team'
   if (pathname.startsWith('/agents')) return 'agent'
