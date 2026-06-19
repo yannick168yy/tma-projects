@@ -108,8 +108,8 @@ export async function settleAgentMonth(env: Env, period: string): Promise<Settle
   // 1. 各代理名下用户 bet/win/用户数
   const [betRows] = await db.query<RowDataPacket[]>(
     `SELECT ua.agent_id,
-            SUM(CASE WHEN bo.bet_type = 'bet' THEN bo.amount_cents ELSE 0 END) AS bet_cents,
-            SUM(CASE WHEN bo.bet_type = 'win' THEN bo.amount_cents ELSE 0 END) AS win_cents,
+            CAST(ROUND(SUM(CASE WHEN bo.bet_type = 'bet' THEN bo.amount ELSE 0 END) * 100) AS SIGNED) AS bet_cents,
+            CAST(ROUND(SUM(CASE WHEN bo.bet_type = 'win' THEN bo.amount ELSE 0 END) * 100) AS SIGNED) AS win_cents,
             COUNT(DISTINCT bo.user_id) AS user_count
      FROM bg_user_agent ua
      JOIN bg_bet_order bo ON bo.user_id = ua.user_id
@@ -120,7 +120,7 @@ export async function settleAgentMonth(env: Env, period: string): Promise<Settle
 
   // 2. 各代理名下用户 赠金+红利（扣减项）
   const [bonusRows] = await db.query<RowDataPacket[]>(
-    `SELECT ua.agent_id, SUM(l.amount_cents) AS bonus_cents
+    `SELECT ua.agent_id, CAST(ROUND(SUM(l.amount) * 100) AS SIGNED) AS bonus_cents
      FROM bg_user_agent ua
      JOIN bg_wallet_ledger l ON l.user_id = ua.user_id
      WHERE l.type IN ('bonus', 'red_packet') AND l.created_at >= ? AND l.created_at < ?
