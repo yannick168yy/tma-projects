@@ -3,12 +3,20 @@ import type { PasswordMethod } from '../services/auth.service.js'
 import { AuthError, loginWithGoogleCode, loginWithInitData, loginWithPassword, loginWithTelegramOidc, loginWithTelegramWidget, logout, refreshSession, registerWithPassword, resolveSession, toAuthUser } from '../services/auth.service.js'
 import { recordUserLogin } from '../services/store/index.js'
 import { lookupRegion } from '../services/geo.service.js'
+import { attributeAgentByDomain } from '../services/agent.service.js'
 import { fail, ok } from '../utils/response.js'
 
 const router = new Router({ prefix: '/auth' })
 
 function cleanIp(raw: string): string {
   return raw.replace(/^::ffff:/i, '')
+}
+
+// 新注册用户按来源域名归因到代理（非致命，不阻塞登录）
+function attributeAgent(ctx: import('koa').Context, isNewUser: boolean, userId: string): void {
+  if (!isNewUser) return
+  const host = ctx.get('origin') || ctx.get('host')
+  attributeAgentByDomain(ctx.state.env, userId, host).catch(() => {})
 }
 
 const LOGIN_MAX_FAILS = 5
@@ -31,6 +39,7 @@ router.post('/telegram', async (ctx) => {
       trialRedPacketEligible: result.trialRedPacketEligible,
       user: toAuthUser(result.user),
     })
+    attributeAgent(ctx, result.isNewUser, result.user.id)
     recordUserLogin(ctx.state.redis, result.user.id, {
       ip,
       region: lookupRegion(ip),
@@ -69,6 +78,7 @@ router.post('/google', async (ctx) => {
       trialRedPacketEligible: result.trialRedPacketEligible,
       user: toAuthUser(result.user),
     })
+    attributeAgent(ctx, result.isNewUser, result.user.id)
     recordUserLogin(ctx.state.redis, result.user.id, {
       ip,
       region: lookupRegion(ip),
@@ -107,6 +117,7 @@ router.post('/telegram-oidc', async (ctx) => {
       trialRedPacketEligible: result.trialRedPacketEligible,
       user: toAuthUser(result.user),
     })
+    attributeAgent(ctx, result.isNewUser, result.user.id)
     recordUserLogin(ctx.state.redis, result.user.id, {
       ip,
       region: lookupRegion(ip),
@@ -143,6 +154,7 @@ router.post('/register', async (ctx) => {
       trialRedPacketEligible: result.trialRedPacketEligible,
       user: toAuthUser(result.user),
     })
+    attributeAgent(ctx, result.isNewUser, result.user.id)
     recordUserLogin(ctx.state.redis, result.user.id, {
       ip,
       region: lookupRegion(ip),
@@ -186,6 +198,7 @@ router.post('/login', async (ctx) => {
       trialRedPacketEligible: result.trialRedPacketEligible,
       user: toAuthUser(result.user),
     })
+    attributeAgent(ctx, result.isNewUser, result.user.id)
     recordUserLogin(ctx.state.redis, result.user.id, {
       ip,
       region: lookupRegion(ip),
@@ -220,6 +233,7 @@ router.post('/telegram-widget', async (ctx) => {
       trialRedPacketEligible: result.trialRedPacketEligible,
       user: toAuthUser(result.user),
     })
+    attributeAgent(ctx, result.isNewUser, result.user.id)
     recordUserLogin(ctx.state.redis, result.user.id, {
       ip,
       region: lookupRegion(ip),

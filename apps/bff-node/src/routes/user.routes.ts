@@ -1,4 +1,6 @@
 import Router from '@koa/router'
+import type { RowDataPacket } from 'mysql2/promise'
+import { getMysqlPool } from '../clients/mysql.client.js'
 import { getUser, getUserByEmail, saveUser } from '../services/store.js'
 import { toPublicUser } from '../services/userPresentation.js'
 import { AuthError, bindAccount, bindGoogleAccount, bindPhone, bindTelegramOidc, bindTelegramWidget } from '../services/auth.service.js'
@@ -21,11 +23,16 @@ router.get('/me', async (ctx) => {
     fail(ctx, 404, 'User not found', 404)
     return
   }
+  const [[agent]] = await getMysqlPool(ctx.state.env).query<RowDataPacket[]>(
+    `SELECT 1 FROM bg_agent WHERE agent_id = ? AND status = 'active'`,
+    [user.id],
+  )
   ok(ctx, {
     ...toPublicUser(user),
     registeredAt: user.registeredAt,
     locale: user.locale,
     profile: user.profile,
+    isAgent: Boolean(agent),
   })
 })
 
