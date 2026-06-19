@@ -11,6 +11,23 @@ function currentPeriod(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
 }
 
+// 当前自然月的 [start, end) 区间，用于按用户聚合当月 GGR
+function currentMonthRange(): { start: string; end: string } {
+  const d = new Date()
+  const y = d.getFullYear()
+  const m = d.getMonth() + 1
+  const start = `${y}-${String(m).padStart(2, '0')}-01 00:00:00`
+  const ny = m === 12 ? y + 1 : y
+  const nm = m === 12 ? 1 : m + 1
+  const end = `${ny}-${String(nm).padStart(2, '0')}-01 00:00:00`
+  return { start, end }
+}
+
+async function agentExists(db: ReturnType<typeof getMysqlPool>, agentId: string): Promise<boolean> {
+  const [[row]] = await db.query<RowDataPacket[]>(`SELECT 1 FROM bg_agent WHERE agent_id = ? LIMIT 1`, [agentId])
+  return Boolean(row)
+}
+
 // GET /admin/agent/list?search=&page=&pageSize=
 router.get('/list', async (ctx) => {
   const search = ctx.query.search ? String(ctx.query.search) : ''
@@ -85,7 +102,10 @@ router.patch('/domains/:id', async (ctx) => {
   const params: (string | number | null)[] = []
   if (body.label !== undefined) { sets.push('label = ?'); params.push(body.label) }
   if (body.enabled !== undefined) { sets.push('enabled = ?'); params.push(body.enabled ? 1 : 0) }
-  if ('agentId' in body) { sets.push('agent_id = ?'); params.push(body.agentId ?? null) }
+  if ('agentId' in body) {
+    if (body.agentId && !(await agentExists(db, body.agentId))) { fail(ctx, 400, '目标代理不存在，请先在「代理管理」中设为代理'); return }
+    sets.push('agent_id = ?'); params.push(body.agentId ?? null)
+  }
   if (!sets.length) { fail(ctx, 400, '无更新字段'); return }
   params.push(id)
   await db.execute(`UPDATE bg_agent_domain SET ${sets.join(', ')} WHERE id = ?`, params)
@@ -149,7 +169,10 @@ router.patch('/bots/:id', async (ctx) => {
   const params: (string | number | null)[] = []
   if (body.label !== undefined) { sets.push('label = ?'); params.push(body.label) }
   if (body.enabled !== undefined) { sets.push('enabled = ?'); params.push(body.enabled ? 1 : 0) }
-  if ('agentId' in body) { sets.push('agent_id = ?'); params.push(body.agentId ?? null) }
+  if ('agentId' in body) {
+    if (body.agentId && !(await agentExists(db, body.agentId))) { fail(ctx, 400, '目标代理不存在，请先在「代理管理」中设为代理'); return }
+    sets.push('agent_id = ?'); params.push(body.agentId ?? null)
+  }
   if (!sets.length) { fail(ctx, 400, '无更新字段'); return }
   params.push(id)
   await db.execute(`UPDATE bg_agent_bot SET ${sets.join(', ')} WHERE id = ?`, params)
@@ -254,14 +277,22 @@ router.get('/:agentId/users', async (ctx) => {
   const pageSize = Math.min(100, Math.max(10, Number(ctx.query.pageSize ?? 20)))
   const offset = (page - 1) * pageSize
   const db = getMysqlPool(ctx.state.env)
+  const { start, end } = currentMonthRange()
   const [[{ total }]] = await db.query<RowDataPacket[]>(
     `SELECT COUNT(*) AS total FROM bg_user_agent WHERE agent_id = ?`, [agentId],
   )
   const [rows] = await db.query<RowDataPacket[]>(
-    `SELECT ua.user_id, ua.source, ua.bound_at, u.display_name, u.registered_at
+    `SELECT ua.user_id, ua.source, ua.bound_at, u.display_name, u.registered_at,
+            (SELECT COALESCE(SUM(CASE WHEN bo.bet_type = 'bet' THEN bo.amount_cents
+                                      WHEN bo.bet_type = 'win' THEN -bo.amount_cents ELSE 0 END), 0)
+             FROM bg_bet_order bo
+             WHERE bo.user_id = ua.user_id AND bo.status = 'settled' AND bo.created_at >= ? AND bo.created_at < ?)
+            - (SELECT COALESCE(SUM(l.amount_cents), 0) FROM bg_wallet_ledger l
+               WHERE l.user_id = ua.user_id AND l.type IN ('bonus', 'red_packet')
+                 AND l.created_at >= ? AND l.created_at < ?) AS ggr_cents
      FROM bg_user_agent ua JOIN bg_user u ON u.id = ua.user_id
      WHERE ua.agent_id = ? ORDER BY ua.bound_at DESC LIMIT ? OFFSET ?`,
-    [agentId, pageSize, offset],
+    [start, end, start, end, agentId, pageSize, offset],
   )
   ok(ctx, { total: Number(total), page, pageSize, items: rows })
 })

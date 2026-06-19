@@ -134,13 +134,17 @@ export default function AgentDetail() {
         />
       </Card>
 
-      <Card title="名下用户" size="small" style={{ marginBottom: 16 }}>
+      <Card title="名下用户" size="small" style={{ marginBottom: 16 }} extra={<span style={{ color: '#999', fontSize: 12 }}>GGR 为本月（投注-派彩-赠金）</span>}>
         <Table<AgentUser>
           rowKey="user_id" size="small" dataSource={users}
           pagination={{ current: usersPage, total: usersTotal, pageSize: 20, onChange: setUsersPage }}
           columns={[
             { title: '用户ID', dataIndex: 'user_id', render: (id) => <a onClick={() => navigate(`/users/${id}`)}>{id}</a> },
             { title: '昵称', dataIndex: 'display_name' },
+            {
+              title: '本月GGR', dataIndex: 'ggr_cents', align: 'right',
+              render: (v: number) => <span style={{ color: v < 0 ? '#ff4d4f' : '#52c41a' }}>{peso(v)}</span>,
+            },
             { title: '来源', dataIndex: 'source', render: (s) => SOURCE_LABEL[s] ?? s },
             { title: '归属时间', dataIndex: 'bound_at', render: (t) => new Date(t).toLocaleString() },
           ]}

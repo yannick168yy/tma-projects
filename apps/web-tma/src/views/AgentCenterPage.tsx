@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ChevronLeft, Users, Wallet, TrendingUp, Link2, Bot, CheckCircle2, Clock, XCircle } from 'lucide-react'
-import { getAgentCenter, type AgentCenter } from '@/api/agent'
+import { getAgentCenter, getAgentUsers, type AgentCenter, type AgentUser } from '@/api/agent'
 
 function phpDisplay(cents: number) {
   const val = (cents ?? 0) / 100
@@ -13,6 +13,8 @@ export default function AgentCenterPage({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation()
   const [loading, setLoading] = useState(true)
   const [data, setData] = useState<AgentCenter | null>(null)
+  const [users, setUsers] = useState<AgentUser[]>([])
+  const [usersLoading, setUsersLoading] = useState(true)
 
   useEffect(() => {
     let alive = true
@@ -20,6 +22,10 @@ export default function AgentCenterPage({ onClose }: { onClose: () => void }) {
       .then((d) => { if (alive) setData(d) })
       .catch(() => {})
       .finally(() => { if (alive) setLoading(false) })
+    getAgentUsers(1, 50)
+      .then((r) => { if (alive) setUsers(r.items) })
+      .catch(() => {})
+      .finally(() => { if (alive) setUsersLoading(false) })
     return () => { alive = false }
   }, [])
 
@@ -81,6 +87,34 @@ export default function AgentCenterPage({ onClose }: { onClose: () => void }) {
               ))
             ) : (
               <div className="px-4 py-6 text-center text-sm text-muted-foreground">{t('agentCenter.noChannels')}</div>
+            )}
+          </div>
+        </section>
+
+        <section>
+          <div className="mb-2.5 flex items-end justify-between px-1">
+            <h3 className="font-display text-sm font-black uppercase text-foreground">{t('agentCenter.usersTitle')}</h3>
+            <span className="text-[10px] font-bold uppercase text-muted-foreground">{t('agentCenter.usersGgrHint')}</span>
+          </div>
+          <div className="overflow-hidden rounded-2xl border border-border bg-card">
+            <div className="flex items-center gap-2 border-b border-border bg-secondary/40 px-4 py-2 text-[10px] font-black uppercase text-muted-foreground">
+              <span className="flex-1">{t('agentCenter.colUser')}</span>
+              <span className="w-28 text-right">{t('agentCenter.colMonthGgr')}</span>
+            </div>
+            {usersLoading ? (
+              <div className="px-4 py-6 text-center text-sm text-muted-foreground">…</div>
+            ) : users.length > 0 ? (
+              users.map((u) => (
+                <div key={u.user_id} className="flex items-center gap-2 border-b border-border px-4 py-3 last:border-b-0">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-bold text-foreground">{u.display_name || u.user_id}</p>
+                    <p className="text-[11px] text-muted-foreground">{new Date(u.bound_at).toLocaleDateString()}</p>
+                  </div>
+                  <span className={`w-28 text-right text-sm font-black ${u.ggr_cents < 0 ? 'text-rose-400' : 'text-emerald-300'}`}>{phpDisplay(u.ggr_cents)}</span>
+                </div>
+              ))
+            ) : (
+              <div className="px-4 py-6 text-center text-sm text-muted-foreground">{t('agentCenter.noUsers')}</div>
             )}
           </div>
         </section>

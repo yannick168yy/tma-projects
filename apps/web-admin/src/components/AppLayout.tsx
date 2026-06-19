@@ -85,8 +85,7 @@ function buildMenuItems(badges: AdminBadges) {
       label: '代理分成',
       children: [
         { key: '/agents', label: '代理管理' },
-        { key: '/agent-domains', label: '域名管理' },
-        { key: '/agent-bots', label: '机器人管理' },
+        { key: '/agent-channels', label: '渠道管理' },
         { key: '/agents/commissions', label: '分成报表' },
       ],
     },

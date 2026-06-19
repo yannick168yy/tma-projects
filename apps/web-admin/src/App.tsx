@@ -34,8 +34,7 @@ import LedgerRecords from './views/LedgerRecords'
 import Agents from './views/Agents'
 import AgentDetail from './views/AgentDetail'
 import AgentCommissions from './views/AgentCommissions'
-import AgentDomains from './views/AgentDomains'
-import AgentBots from './views/AgentBots'
+import AgentChannels from './views/AgentChannels'
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const token = localStorage.getItem('admin_token')
@@ -92,8 +91,7 @@ export default function App() {
           <Route path="wallet-ledger" element={<LedgerRecords />} />
           <Route path="agents" element={<Agents />} />
           <Route path="agents/commissions" element={<AgentCommissions />} />
-          <Route path="agent-domains" element={<AgentDomains />} />
-          <Route path="agent-bots" element={<AgentBots />} />
+          <Route path="agent-channels" element={<AgentChannels />} />
           <Route path="agents/:agentId" element={<AgentDetail />} />
         </Route>
         <Route path="*" element={<Navigate to="/dashboard" replace />} />

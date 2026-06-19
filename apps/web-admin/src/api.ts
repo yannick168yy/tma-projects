@@ -827,7 +827,7 @@ export interface AgentDetail {
 }
 export interface AgentUser {
   user_id: string; source: 'domain' | 'bot' | 'manual'; bound_at: string
-  display_name: string; registered_at: string
+  display_name: string; registered_at: string; ggr_cents: number
 }
 export interface AgentCommission {
   period: string; ggr_cents: number; carry_in_cents: number; net_ggr_cents: number

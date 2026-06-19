@@ -49,4 +49,45 @@ router.get('/center', async (ctx) => {
   })
 })
 
+// GET /api/v1/agent/users?page=&pageSize=  名下用户（含本月 GGR，仅代理本人可见）
+router.get('/users', async (ctx) => {
+  const userId = ctx.state.userId!
+  const db = getMysqlPool(ctx.state.env)
+
+  const [[agent]] = await db.query<RowDataPacket[]>(
+    `SELECT status FROM bg_agent WHERE agent_id = ?`, [userId],
+  )
+  if (!agent || agent.status !== 'active') { fail(ctx, 403, '非代理用户', 403); return }
+
+  const page = Math.max(1, Number(ctx.query.page ?? 1))
+  const pageSize = Math.min(50, Math.max(10, Number(ctx.query.pageSize ?? 20)))
+  const offset = (page - 1) * pageSize
+
+  const now = new Date()
+  const y = now.getFullYear()
+  const m = now.getMonth() + 1
+  const start = `${y}-${String(m).padStart(2, '0')}-01 00:00:00`
+  const ny = m === 12 ? y + 1 : y
+  const nm = m === 12 ? 1 : m + 1
+  const end = `${ny}-${String(nm).padStart(2, '0')}-01 00:00:00`
+
+  const [[{ total }]] = await db.query<RowDataPacket[]>(
+    `SELECT COUNT(*) AS total FROM bg_user_agent WHERE agent_id = ?`, [userId],
+  )
+  const [rows] = await db.query<RowDataPacket[]>(
+    `SELECT ua.user_id, ua.bound_at, u.display_name,
+            (SELECT COALESCE(SUM(CASE WHEN bo.bet_type = 'bet' THEN bo.amount_cents
+                                      WHEN bo.bet_type = 'win' THEN -bo.amount_cents ELSE 0 END), 0)
+             FROM bg_bet_order bo
+             WHERE bo.user_id = ua.user_id AND bo.status = 'settled' AND bo.created_at >= ? AND bo.created_at < ?)
+            - (SELECT COALESCE(SUM(l.amount_cents), 0) FROM bg_wallet_ledger l
+               WHERE l.user_id = ua.user_id AND l.type IN ('bonus', 'red_packet')
+                 AND l.created_at >= ? AND l.created_at < ?) AS ggr_cents
+     FROM bg_user_agent ua JOIN bg_user u ON u.id = ua.user_id
+     WHERE ua.agent_id = ? ORDER BY ua.bound_at DESC LIMIT ? OFFSET ?`,
+    [start, end, start, end, userId, pageSize, offset],
+  )
+  ok(ctx, { total: Number(total), page, pageSize, items: rows })
+})
+
 export default router

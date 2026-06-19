@@ -25,3 +25,21 @@ export interface AgentCenter {
 export function getAgentCenter(): Promise<AgentCenter> {
   return apiRequest<AgentCenter>('/agent/center')
 }
+
+export interface AgentUser {
+  user_id: string
+  display_name: string
+  bound_at: string
+  ggr_cents: number
+}
+
+export interface AgentUsersPage {
+  total: number
+  page: number
+  pageSize: number
+  items: AgentUser[]
+}
+
+export function getAgentUsers(page = 1, pageSize = 20): Promise<AgentUsersPage> {
+  return apiRequest<AgentUsersPage>(`/agent/users?page=${page}&pageSize=${pageSize}`)
+}
