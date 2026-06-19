@@ -756,18 +756,27 @@ export interface PaymentChannelRule {
 }
 export interface PaymentChannel {
   id: number; name: string; provider: string; label: string; category: string
+  depositFeeType: FeeType; depositFeeValue: number
+  withdrawFeeType: FeeType; withdrawFeeValue: number
   enabled: boolean; sortOrder: number; rules: PaymentChannelRule[]
   createdAt: string; updatedAt: string
 }
+export type FeeType = 'none' | 'percent' | 'fixed'
 
 export const getPaymentChannels = () => get<PaymentChannel[]>('/admin/payment/channels')
 
 export const createPaymentChannel = (data: {
-  name: string; provider: string; label: string; category?: string; enabled: boolean; sortOrder: number
+  name: string; provider: string; label: string; category?: string
+  depositFeeType?: FeeType; depositFeeValue?: number
+  withdrawFeeType?: FeeType; withdrawFeeValue?: number
+  enabled: boolean; sortOrder: number
 }) => post<{ id: number }>('/admin/payment/channels', data)
 
 export const updatePaymentChannel = (id: number, data: Partial<{
-  name: string; provider: string; label: string; category: string; enabled: boolean; sortOrder: number
+  name: string; provider: string; label: string; category: string
+  depositFeeType: FeeType; depositFeeValue: number
+  withdrawFeeType: FeeType; withdrawFeeValue: number
+  enabled: boolean; sortOrder: number
 }>) => req<null>('PUT', `/admin/payment/channels/${id}`, data)
 
 export const deletePaymentChannel = (id: number) =>
@@ -790,7 +799,7 @@ export interface PaymentAccountingRow {
   provider: string; label: string
   depositAmount: number; depositCount: number
   withdrawAmount: number; withdrawCount: number
-  netAmount: number
+  feeAmount: number; netAmount: number; bookBalance: number
 }
 export interface ProviderBalanceRow {
   provider: string; label: string

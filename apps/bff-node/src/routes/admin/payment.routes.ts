@@ -2,12 +2,13 @@ import Router from '@koa/router'
 import { ok, fail } from '../../utils/response.js'
 import {
   listChannels, createChannel, updateChannel, deleteChannel,
-  createRule, updateRule, deleteRule, type TxType,
+  createRule, updateRule, deleteRule, type FeeType, type TxType,
 } from '../../services/payment-channel.service.js'
 import { getAccounting, getBalances, refreshBalances } from '../../services/payment-accounting.service.js'
 import { writeAuditLog } from '../../services/admin-store.js'
 
 const router = new Router({ prefix: '/payment' })
+const FEE_TYPES: FeeType[] = ['none', 'percent', 'fixed']
 
 // ── 渠道管理 ──────────────────────────────────────────────────────────────────
 
@@ -20,6 +21,8 @@ router.post('/channels', async (ctx) => {
   if (ctx.state.adminRole !== 'super_admin') { fail(ctx, 403, '无操作权限'); return }
   const body = ctx.request.body as {
     name?: string; provider?: string; label?: string; category?: string
+    depositFeeType?: string; depositFeeValue?: unknown
+    withdrawFeeType?: string; withdrawFeeValue?: unknown
     enabled?: unknown; sortOrder?: unknown
   }
   if (!body.name || !body.provider || !body.label) {
@@ -30,6 +33,10 @@ router.post('/channels', async (ctx) => {
     provider: String(body.provider).trim(),
     label: String(body.label).trim(),
     category: body.category === 'crypto' ? 'crypto' : 'fiat',
+    depositFeeType: normalizeFeeType(body.depositFeeType),
+    depositFeeValue: Number(body.depositFeeValue ?? 0),
+    withdrawFeeType: normalizeFeeType(body.withdrawFeeType),
+    withdrawFeeValue: Number(body.withdrawFeeValue ?? 0),
     enabled: body.enabled !== false,
     sortOrder: Number(body.sortOrder ?? 0),
   })
@@ -46,6 +53,8 @@ router.put('/channels/:id', async (ctx) => {
   const id = Number(ctx.params.id)
   const body = ctx.request.body as {
     name?: string; provider?: string; label?: string; category?: string
+    depositFeeType?: string; depositFeeValue?: unknown
+    withdrawFeeType?: string; withdrawFeeValue?: unknown
     enabled?: unknown; sortOrder?: unknown
   }
   const data: Parameters<typeof updateChannel>[2] = {}
@@ -53,6 +62,10 @@ router.put('/channels/:id', async (ctx) => {
   if (body.provider !== undefined) data.provider = String(body.provider).trim()
   if (body.label !== undefined) data.label = String(body.label).trim()
   if (body.category !== undefined) data.category = body.category === 'crypto' ? 'crypto' : 'fiat'
+  if (body.depositFeeType !== undefined) data.depositFeeType = normalizeFeeType(body.depositFeeType)
+  if (body.depositFeeValue !== undefined) data.depositFeeValue = Number(body.depositFeeValue)
+  if (body.withdrawFeeType !== undefined) data.withdrawFeeType = normalizeFeeType(body.withdrawFeeType)
+  if (body.withdrawFeeValue !== undefined) data.withdrawFeeValue = Number(body.withdrawFeeValue)
   if (body.enabled !== undefined) data.enabled = Boolean(body.enabled)
   if (body.sortOrder !== undefined) data.sortOrder = Number(body.sortOrder)
   const updated = await updateChannel(ctx.state.env, id, data)
@@ -97,6 +110,10 @@ router.post('/balance/refresh', async (ctx) => {
 // ── 规则管理 ──────────────────────────────────────────────────────────────────
 
 const TX_TYPES: TxType[] = ['deposit', 'withdraw', 'both']
+
+function normalizeFeeType(v: unknown): FeeType {
+  return FEE_TYPES.includes(v as FeeType) ? v as FeeType : 'none'
+}
 
 router.post('/channels/:channelId/rules', async (ctx) => {
   if (ctx.state.adminRole !== 'super_admin') { fail(ctx, 403, '无操作权限'); return }

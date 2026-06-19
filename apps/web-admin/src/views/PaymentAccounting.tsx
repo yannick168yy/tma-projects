@@ -67,7 +67,9 @@ export default function PaymentAccounting() {
     { title: '代收笔数', dataIndex: 'depositCount', align: 'right', width: 90 },
     { title: '代付金额', dataIndex: 'withdrawAmount', align: 'right', render: (v: number) => <span style={{ color: '#cf1322' }}>{fmtMoney(v)}</span> },
     { title: '代付笔数', dataIndex: 'withdrawCount', align: 'right', width: 90 },
+    { title: '手续费', dataIndex: 'feeAmount', align: 'right', render: (v: number) => <span style={{ color: '#d46b08' }}>{fmtMoney(v)}</span> },
     { title: '净额（代收−代付）', dataIndex: 'netAmount', align: 'right', render: (v: number) => <b style={{ color: v >= 0 ? '#3f8600' : '#cf1322' }}>{fmtMoney(v)}</b> },
+    { title: '账面余额', dataIndex: 'bookBalance', align: 'right', render: (v: number) => <b style={{ color: v >= 0 ? '#3f8600' : '#cf1322' }}>{fmtMoney(v)}</b> },
   ]
 
   return (
@@ -111,7 +113,7 @@ export default function PaymentAccounting() {
                 </div>
                 <div style={{ color: '#666', fontSize: 12, marginTop: 8, lineHeight: 1.8 }}>
                   <div>服务商合计：{fmtMoney(b.observedBalance)} {b.currency}</div>
-                  <div>我方净额：{fmtMoney(b.bookBalance)} {b.currency}</div>
+                  <div>我方账面：{fmtMoney(b.bookBalance)} {b.currency}</div>
                   <div style={{ color: Math.abs(b.diffAmount) > 1 ? '#d46b08' : '#3f8600' }}>
                     差异：{fmtMoney(b.diffAmount)} {b.currency}
                   </div>
@@ -153,15 +155,17 @@ export default function PaymentAccounting() {
               <Table.Summary.Cell index={0}><b>{total.label}</b></Table.Summary.Cell>
               <Table.Summary.Cell index={1} align="right"><b style={{ color: '#3f8600' }}>{fmtMoney(total.depositAmount)}</b></Table.Summary.Cell>
               <Table.Summary.Cell index={2} align="right"><b>{total.depositCount}</b></Table.Summary.Cell>
-              <Table.Summary.Cell index={3} align="right"><b style={{ color: '#cf1322' }}>{fmtMoney(total.withdrawAmount)}</b></Table.Summary.Cell>
-              <Table.Summary.Cell index={4} align="right"><b>{total.withdrawCount}</b></Table.Summary.Cell>
-              <Table.Summary.Cell index={5} align="right"><b style={{ color: total.netAmount >= 0 ? '#3f8600' : '#cf1322' }}>{fmtMoney(total.netAmount)}</b></Table.Summary.Cell>
-            </Table.Summary.Row>
-          ) : null}
-        />
-        <div style={{ color: '#999', fontSize: 12, marginTop: 8 }}>
-          代收 = 充值成功（status=paid）金额；代付 = 提现成功（status=completed）金额；按服务商汇总，金额单位为元。
-        </div>
+                <Table.Summary.Cell index={3} align="right"><b style={{ color: '#cf1322' }}>{fmtMoney(total.withdrawAmount)}</b></Table.Summary.Cell>
+                <Table.Summary.Cell index={4} align="right"><b>{total.withdrawCount}</b></Table.Summary.Cell>
+                <Table.Summary.Cell index={5} align="right"><b style={{ color: '#d46b08' }}>{fmtMoney(total.feeAmount)}</b></Table.Summary.Cell>
+                <Table.Summary.Cell index={6} align="right"><b style={{ color: total.netAmount >= 0 ? '#3f8600' : '#cf1322' }}>{fmtMoney(total.netAmount)}</b></Table.Summary.Cell>
+                <Table.Summary.Cell index={7} align="right"><b style={{ color: total.bookBalance >= 0 ? '#3f8600' : '#cf1322' }}>{fmtMoney(total.bookBalance)}</b></Table.Summary.Cell>
+              </Table.Summary.Row>
+            ) : null}
+          />
+          <div style={{ color: '#999', fontSize: 12, marginTop: 8 }}>
+            代收 = 充值成功（status=paid）金额；代付 = 提现成功（status=completed）金额；账面余额 = 代收 - 代付 - 手续费。
+          </div>
       </Card>
     </div>
   )

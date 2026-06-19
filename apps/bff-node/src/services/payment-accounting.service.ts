@@ -42,14 +42,27 @@ export interface AccountingRow {
   /** 代付：提现成功金额合计（元） */
   withdrawAmount: number
   withdrawCount: number
+  /** 服务商手续费 */
+  feeAmount: number
   /** 净额 = 代收 − 代付 */
   netAmount: number
+  /** 账面余额 = 代收 − 代付 − 手续费 */
+  bookBalance: number
 }
 
 interface ChannelAggRow extends RowDataPacket {
   channel: string
   amt: string | number
   cnt: number
+}
+
+interface ChannelFeeRow extends RowDataPacket {
+  name: string
+  provider: string
+  deposit_fee_type: string
+  deposit_fee_value: string | number
+  withdraw_fee_type: string
+  withdraw_fee_value: string | number
 }
 
 /**
@@ -76,43 +89,61 @@ export async function getAccounting(
        FROM bg_withdraw_order WHERE status = 'completed'${rangeSql} GROUP BY channel`,
     params,
   )
+  const feeMap = await getChannelFeeMap(env)
 
   const map = new Map<string, AccountingRow>()
   const get = (provider: string): AccountingRow => {
     let r = map.get(provider)
     if (!r) {
-      r = { provider, label: PROVIDER_LABELS[provider] ?? provider, depositAmount: 0, depositCount: 0, withdrawAmount: 0, withdrawCount: 0, netAmount: 0 }
+      r = {
+        provider, label: PROVIDER_LABELS[provider] ?? provider,
+        depositAmount: 0, depositCount: 0, withdrawAmount: 0, withdrawCount: 0,
+        feeAmount: 0, netAmount: 0, bookBalance: 0,
+      }
       map.set(provider, r)
     }
     return r
   }
   for (const row of depRows) {
     const r = get(deriveProvider(row.channel))
-    r.depositAmount += Number(row.amt)
+    const amount = Number(row.amt)
+    r.depositAmount += amount
     r.depositCount += Number(row.cnt)
+    r.feeAmount += calcChannelFee(feeMap, row.channel, 'deposit', amount, Number(row.cnt))
   }
   for (const row of witRows) {
     const r = get(deriveProvider(row.channel))
-    r.withdrawAmount += Number(row.amt)
+    const amount = Number(row.amt)
+    r.withdrawAmount += amount
     r.withdrawCount += Number(row.cnt)
+    r.feeAmount += calcChannelFee(feeMap, row.channel, 'withdraw', amount, Number(row.cnt))
   }
 
   const rows = [...map.values()]
-  rows.forEach((r) => { r.netAmount = round2(r.depositAmount - r.withdrawAmount) })
+  rows.forEach((r) => {
+    r.feeAmount = round2(r.feeAmount)
+    r.netAmount = round2(r.depositAmount - r.withdrawAmount)
+    r.bookBalance = round2(r.netAmount - r.feeAmount)
+  })
   rows.sort((a, b) => b.depositAmount - a.depositAmount)
 
   const total: AccountingRow = {
-    provider: '__total__', label: '合计', depositAmount: 0, depositCount: 0, withdrawAmount: 0, withdrawCount: 0, netAmount: 0,
+    provider: '__total__', label: '合计',
+    depositAmount: 0, depositCount: 0, withdrawAmount: 0, withdrawCount: 0,
+    feeAmount: 0, netAmount: 0, bookBalance: 0,
   }
   for (const r of rows) {
     total.depositAmount += r.depositAmount
     total.depositCount += r.depositCount
     total.withdrawAmount += r.withdrawAmount
     total.withdrawCount += r.withdrawCount
+    total.feeAmount += r.feeAmount
   }
   total.depositAmount = round2(total.depositAmount)
   total.withdrawAmount = round2(total.withdrawAmount)
+  total.feeAmount = round2(total.feeAmount)
   total.netAmount = round2(total.depositAmount - total.withdrawAmount)
+  total.bookBalance = round2(total.netAmount - total.feeAmount)
   rows.forEach((r) => { r.depositAmount = round2(r.depositAmount); r.withdrawAmount = round2(r.withdrawAmount) })
 
   return { rows, total }
@@ -150,7 +181,7 @@ export async function getBalances(env: Env): Promise<BalanceRow[]> {
   )
   const byProvider = new Map(rows.map((r) => [r.provider, r]))
   const accounting = await getAccounting(env)
-  const bookBalanceByProvider = new Map(accounting.rows.map((r) => [r.provider, r.netAmount]))
+  const bookBalanceByProvider = new Map(accounting.rows.map((r) => [r.provider, r.bookBalance]))
   return BALANCE_PROVIDERS.map((p) => {
     const r = byProvider.get(p)
     const balance = r ? Number(r.balance) : 0
@@ -249,3 +280,36 @@ async function insertBalanceHistory(
 }
 
 function round2(n: number): number { return Math.round(n * 100) / 100 }
+
+async function getChannelFeeMap(env: Env): Promise<Map<string, ChannelFeeRow>> {
+  const [rows] = await pool(env).query<ChannelFeeRow[]>(
+    `SELECT name, provider, deposit_fee_type, deposit_fee_value, withdraw_fee_type, withdraw_fee_value
+       FROM payment_channels`,
+  )
+  return new Map(rows.map((r) => [`${r.provider}:${r.name}`, r]))
+}
+
+function calcChannelFee(
+  feeMap: Map<string, ChannelFeeRow>,
+  channel: string,
+  txType: 'deposit' | 'withdraw',
+  amount: number,
+  count: number,
+): number {
+  const provider = deriveProvider(channel)
+  const name = deriveChannelName(channel, provider)
+  const fee = feeMap.get(`${provider}:${name}`)
+  if (!fee) return 0
+  const type = txType === 'deposit' ? fee.deposit_fee_type : fee.withdraw_fee_type
+  const value = Number(txType === 'deposit' ? fee.deposit_fee_value : fee.withdraw_fee_value)
+  if (type === 'percent') return amount * value
+  if (type === 'fixed') return count * value
+  return 0
+}
+
+function deriveChannelName(channel: string, provider: string): string {
+  if (channel.startsWith(`${provider}_`) || channel.startsWith(`${provider}-`)) {
+    return channel.slice(provider.length + 1)
+  }
+  return channel
+}

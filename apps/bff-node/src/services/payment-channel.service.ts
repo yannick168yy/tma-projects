@@ -12,6 +12,10 @@ export interface PaymentChannel {
   provider: string
   label: string
   category: string
+  depositFeeType: FeeType
+  depositFeeValue: number
+  withdrawFeeType: FeeType
+  withdrawFeeValue: number
   enabled: boolean
   sortOrder: number
   rules: PaymentChannelRule[]
@@ -20,6 +24,7 @@ export interface PaymentChannel {
 }
 
 export type TxType = 'deposit' | 'withdraw' | 'both'
+export type FeeType = 'none' | 'percent' | 'fixed'
 
 export interface PaymentChannelRule {
   id: number
@@ -36,6 +41,8 @@ export interface PaymentChannelRule {
 
 type ChannelRow = RowDataPacket & {
   id: number; name: string; provider: string; label: string; category: string
+  deposit_fee_type: FeeType; deposit_fee_value: string | number
+  withdraw_fee_type: FeeType; withdraw_fee_value: string | number
   enabled: number; sort_order: number; created_at: Date; updated_at: Date
 }
 
@@ -49,6 +56,10 @@ function mapChannel(row: ChannelRow, rules: PaymentChannelRule[]): PaymentChanne
   return {
     id: row.id, name: row.name, provider: row.provider, label: row.label,
     category: row.category ?? 'fiat',
+    depositFeeType: row.deposit_fee_type ?? 'none',
+    depositFeeValue: Number(row.deposit_fee_value ?? 0),
+    withdrawFeeType: row.withdraw_fee_type ?? 'none',
+    withdrawFeeValue: Number(row.withdraw_fee_value ?? 0),
     enabled: row.enabled === 1, sortOrder: row.sort_order,
     rules,
     createdAt: new Date(row.created_at).toISOString(),
@@ -90,11 +101,23 @@ export async function listChannels(env: Env): Promise<PaymentChannel[]> {
 
 export async function createChannel(
   env: Env,
-  data: { name: string; provider: string; label: string; category?: string; enabled: boolean; sortOrder: number }
+  data: {
+    name: string; provider: string; label: string; category?: string
+    depositFeeType?: FeeType; depositFeeValue?: number
+    withdrawFeeType?: FeeType; withdrawFeeValue?: number
+    enabled: boolean; sortOrder: number
+  }
 ): Promise<number> {
   const [res] = await pool(env).query<ResultSetHeader>(
-    `INSERT INTO payment_channels (name, provider, label, category, enabled, sort_order) VALUES (?, ?, ?, ?, ?, ?)`,
-    [data.name, data.provider, data.label, data.category ?? 'fiat', data.enabled ? 1 : 0, data.sortOrder]
+    `INSERT INTO payment_channels
+       (name, provider, label, category, deposit_fee_type, deposit_fee_value, withdraw_fee_type, withdraw_fee_value, enabled, sort_order)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      data.name, data.provider, data.label, data.category ?? 'fiat',
+      data.depositFeeType ?? 'none', data.depositFeeValue ?? 0,
+      data.withdrawFeeType ?? 'none', data.withdrawFeeValue ?? 0,
+      data.enabled ? 1 : 0, data.sortOrder,
+    ]
   )
   return res.insertId
 }
@@ -102,7 +125,12 @@ export async function createChannel(
 export async function updateChannel(
   env: Env,
   id: number,
-  data: Partial<{ name: string; provider: string; label: string; category: string; enabled: boolean; sortOrder: number }>
+  data: Partial<{
+    name: string; provider: string; label: string; category: string
+    depositFeeType: FeeType; depositFeeValue: number
+    withdrawFeeType: FeeType; withdrawFeeValue: number
+    enabled: boolean; sortOrder: number
+  }>
 ): Promise<boolean> {
   const sets: string[] = []
   const vals: unknown[] = []
@@ -110,6 +138,10 @@ export async function updateChannel(
   if (data.provider !== undefined) { sets.push('provider = ?'); vals.push(data.provider) }
   if (data.label !== undefined) { sets.push('label = ?'); vals.push(data.label) }
   if (data.category !== undefined) { sets.push('category = ?'); vals.push(data.category) }
+  if (data.depositFeeType !== undefined) { sets.push('deposit_fee_type = ?'); vals.push(data.depositFeeType) }
+  if (data.depositFeeValue !== undefined) { sets.push('deposit_fee_value = ?'); vals.push(data.depositFeeValue) }
+  if (data.withdrawFeeType !== undefined) { sets.push('withdraw_fee_type = ?'); vals.push(data.withdrawFeeType) }
+  if (data.withdrawFeeValue !== undefined) { sets.push('withdraw_fee_value = ?'); vals.push(data.withdrawFeeValue) }
   if (data.enabled !== undefined) { sets.push('enabled = ?'); vals.push(data.enabled ? 1 : 0) }
   if (data.sortOrder !== undefined) { sets.push('sort_order = ?'); vals.push(data.sortOrder) }
   if (sets.length === 0) return false

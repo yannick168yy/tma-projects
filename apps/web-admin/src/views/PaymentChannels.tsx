@@ -8,7 +8,7 @@ import type { ColumnsType } from 'antd/es/table'
 import {
   getPaymentChannels, createPaymentChannel, updatePaymentChannel, deletePaymentChannel,
   createPaymentRule, updatePaymentRule, deletePaymentRule,
-  type PaymentChannel, type PaymentChannelRule, type PaymentTxType,
+  type FeeType, type PaymentChannel, type PaymentChannelRule, type PaymentTxType,
 } from '../api'
 import { useAuthStore } from '../stores/auth'
 
@@ -202,13 +202,38 @@ const CRYPTO_NAME_OPTIONS: Record<string, { value: string; label: string }[]> = 
   ],
 }
 
+type ChannelFormValues = {
+  name: string
+  provider: string
+  label: string
+  category: string
+  depositFeeType: FeeType
+  depositFeeValue: number
+  withdrawFeeType: FeeType
+  withdrawFeeValue: number
+  enabled: boolean
+  sortOrder: number
+}
+
+const FEE_TYPE_OPTIONS = [
+  { value: 'none', label: '无' },
+  { value: 'percent', label: '按比例' },
+  { value: 'fixed', label: '固定金额' },
+]
+
+function formatFee(type: FeeType, value: number) {
+  if (type === 'percent') return `${(value * 100).toFixed(3).replace(/0+$/, '').replace(/\.$/, '')}%`
+  if (type === 'fixed') return `${value.toFixed(2)}`
+  return '无'
+}
+
 export default function PaymentChannels() {
   const { role } = useAuthStore()
   const isSuperAdmin = role === 'super_admin'
   const [channels, setChannels] = useState<PaymentChannel[]>([])
   const [loading, setLoading] = useState(false)
   const [channelModal, setChannelModal] = useState<{ open: boolean; channel?: PaymentChannel }>({ open: false })
-  const [channelForm] = Form.useForm<{ name: string; provider: string; label: string; category: string; enabled: boolean; sortOrder: number }>()
+  const [channelForm] = Form.useForm<ChannelFormValues>()
   const formCategory = Form.useWatch('category', channelForm)
   const formProvider = Form.useWatch('provider', channelForm)
   const [saving, setSaving] = useState(false)
@@ -240,11 +265,19 @@ export default function PaymentChannels() {
         await updatePaymentChannel(channelModal.channel.id, {
           name: vals.name, provider: vals.provider, label: vals.label,
           category: vals.category ?? 'fiat', enabled: vals.enabled, sortOrder: vals.sortOrder ?? 0,
+          depositFeeType: vals.depositFeeType ?? 'none',
+          depositFeeValue: vals.depositFeeValue ?? 0,
+          withdrawFeeType: vals.withdrawFeeType ?? 'none',
+          withdrawFeeValue: vals.withdrawFeeValue ?? 0,
         })
       } else {
         await createPaymentChannel({
           name: vals.name, provider: vals.provider, label: vals.label,
           category: vals.category ?? 'fiat', enabled: vals.enabled !== false, sortOrder: vals.sortOrder ?? 0,
+          depositFeeType: vals.depositFeeType ?? 'none',
+          depositFeeValue: vals.depositFeeValue ?? 0,
+          withdrawFeeType: vals.withdrawFeeType ?? 'none',
+          withdrawFeeValue: vals.withdrawFeeValue ?? 0,
         })
       }
       message.success('已保存')
@@ -257,7 +290,11 @@ export default function PaymentChannels() {
 
   function openAdd() {
     channelForm.resetFields()
-    channelForm.setFieldsValue({ enabled: true, sortOrder: 0, category: 'fiat' })
+    channelForm.setFieldsValue({
+      enabled: true, sortOrder: 0, category: 'fiat',
+      depositFeeType: 'none', depositFeeValue: 0,
+      withdrawFeeType: 'none', withdrawFeeValue: 0,
+    })
     setChannelModal({ open: true })
   }
 
@@ -265,6 +302,10 @@ export default function PaymentChannels() {
     channelForm.setFieldsValue({
       name: channel.name, provider: channel.provider, label: channel.label,
       category: channel.category ?? 'fiat', enabled: channel.enabled, sortOrder: channel.sortOrder,
+      depositFeeType: channel.depositFeeType ?? 'none',
+      depositFeeValue: channel.depositFeeValue ?? 0,
+      withdrawFeeType: channel.withdrawFeeType ?? 'none',
+      withdrawFeeValue: channel.withdrawFeeValue ?? 0,
     })
     setChannelModal({ open: true, channel })
   }
@@ -279,6 +320,16 @@ export default function PaymentChannels() {
         : <Tag color="green">法币</Tag>,
     },
     { title: '服务商', dataIndex: 'provider', width: 100, render: (v: string) => <Tag color="blue">{v}</Tag> },
+    {
+      title: '手续费',
+      width: 180,
+      render: (_: unknown, r: PaymentChannel) => (
+        <Space direction="vertical" size={0}>
+          <span>代收 {formatFee(r.depositFeeType, r.depositFeeValue)}</span>
+          <span>代付 {formatFee(r.withdrawFeeType, r.withdrawFeeValue)}</span>
+        </Space>
+      ),
+    },
     { title: '排序', dataIndex: 'sortOrder', width: 70 },
     {
       title: '启用',
@@ -399,6 +450,18 @@ export default function PaymentChannels() {
           )}
           <Form.Item label="排序（数字越小越靠前）" name="sortOrder">
             <InputNumber min={0} style={{ width: '100%' }} />
+          </Form.Item>
+          <Form.Item label="代收手续费类型" name="depositFeeType">
+            <Select options={FEE_TYPE_OPTIONS} />
+          </Form.Item>
+          <Form.Item label="代收手续费值" name="depositFeeValue">
+            <InputNumber min={0} step={0.0001} precision={6} style={{ width: '100%' }} />
+          </Form.Item>
+          <Form.Item label="代付手续费类型" name="withdrawFeeType">
+            <Select options={FEE_TYPE_OPTIONS} />
+          </Form.Item>
+          <Form.Item label="代付手续费值" name="withdrawFeeValue">
+            <InputNumber min={0} step={0.01} precision={6} style={{ width: '100%' }} />
           </Form.Item>
           <Form.Item label="启用" name="enabled" valuePropName="checked">
             <Switch />
