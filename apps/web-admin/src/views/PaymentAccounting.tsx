@@ -14,6 +14,12 @@ function fmtMoney(n: number) {
   return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
+function diffTag(b: ProviderBalanceRow) {
+  if (b.diffStatus === 'error') return <Tag color="red">异常</Tag>
+  if (b.diffStatus === 'mismatch') return <Tag color="orange">需核对</Tag>
+  return <Tag color="green">正常</Tag>
+}
+
 export default function PaymentAccounting() {
   const [range, setRange] = useState<[Dayjs, Dayjs] | null>(null)
   const [rows, setRows] = useState<PaymentAccountingRow[]>([])
@@ -93,6 +99,7 @@ export default function PaymentAccounting() {
                       {b.status === 'error'
                         ? <Tooltip title={b.errorMsg ?? '查询失败'}><Tag color="red">异常</Tag></Tooltip>
                         : <Tag color="green">正常</Tag>}
+                      {diffTag(b)}
                     </Space>
                   }
                   value={b.status === 'ok' ? fmtMoney(b.balance) : '—'}
@@ -101,6 +108,13 @@ export default function PaymentAccounting() {
                 <div style={{ color: '#999', fontSize: 12, marginTop: 4 }}>
                   {b.frozen > 0 && <span>冻结 {fmtMoney(b.frozen)} · </span>}
                   更新于 {b.updatedAt ? dayjs(b.updatedAt).format('MM-DD HH:mm') : '从未'}
+                </div>
+                <div style={{ color: '#666', fontSize: 12, marginTop: 8, lineHeight: 1.8 }}>
+                  <div>服务商合计：{fmtMoney(b.observedBalance)} {b.currency}</div>
+                  <div>我方净额：{fmtMoney(b.bookBalance)} {b.currency}</div>
+                  <div style={{ color: Math.abs(b.diffAmount) > 1 ? '#d46b08' : '#3f8600' }}>
+                    差异：{fmtMoney(b.diffAmount)} {b.currency}
+                  </div>
                 </div>
               </Card>
             </Col>

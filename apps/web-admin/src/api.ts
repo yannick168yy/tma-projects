@@ -794,7 +794,9 @@ export interface PaymentAccountingRow {
 }
 export interface ProviderBalanceRow {
   provider: string; label: string
-  balance: number; frozen: number; currency: string
+  balance: number; frozen: number; observedBalance: number; bookBalance: number; diffAmount: number
+  diffStatus: 'normal' | 'mismatch' | 'error'
+  currency: string
   status: 'ok' | 'error'; errorMsg: string | null; updatedAt: string | null
 }
 

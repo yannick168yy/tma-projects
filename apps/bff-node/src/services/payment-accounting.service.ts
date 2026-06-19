@@ -123,6 +123,10 @@ export interface BalanceRow {
   label: string
   balance: number
   frozen: number
+  observedBalance: number
+  bookBalance: number
+  diffAmount: number
+  diffStatus: 'normal' | 'mismatch' | 'error'
   currency: string
   status: 'ok' | 'error'
   errorMsg: string | null
@@ -145,15 +149,27 @@ export async function getBalances(env: Env): Promise<BalanceRow[]> {
     `SELECT provider, balance, frozen, currency, status, error_msg, updated_at FROM provider_balance_snapshot`,
   )
   const byProvider = new Map(rows.map((r) => [r.provider, r]))
+  const accounting = await getAccounting(env)
+  const bookBalanceByProvider = new Map(accounting.rows.map((r) => [r.provider, r.netAmount]))
   return BALANCE_PROVIDERS.map((p) => {
     const r = byProvider.get(p)
+    const balance = r ? Number(r.balance) : 0
+    const frozen = r ? Number(r.frozen) : 0
+    const observedBalance = round2(balance + frozen)
+    const bookBalance = round2(bookBalanceByProvider.get(p) ?? 0)
+    const diffAmount = round2(observedBalance - bookBalance)
+    const status = (r?.status as 'ok' | 'error') ?? 'error'
     return {
       provider: p,
       label: PROVIDER_LABELS[p] ?? p,
-      balance: r ? Number(r.balance) : 0,
-      frozen: r ? Number(r.frozen) : 0,
+      balance,
+      frozen,
+      observedBalance,
+      bookBalance,
+      diffAmount,
+      diffStatus: status === 'error' ? 'error' : Math.abs(diffAmount) > 1 ? 'mismatch' : 'normal',
       currency: r?.currency ?? 'PHP',
-      status: (r?.status as 'ok' | 'error') ?? 'error',
+      status,
       errorMsg: r?.error_msg ?? (r ? null : '尚未刷新'),
       updatedAt: r ? new Date(r.updated_at).toISOString() : null,
     }
@@ -175,15 +191,18 @@ async function refreshOne(env: Env, provider: (typeof BALANCE_PROVIDERS)[number]
       const r = await yfpayGetBalance(env)
       balance = Number(r.balance) || 0
       frozen = Number(r.frozen) || 0
+      await insertBalanceHistory(env, { provider, balance, frozen, currency, status: 'ok', errorMsg: null, rawResponse: r })
     } else {
       const r = await beepayGetBalance(env)
       balance = Number(r.balance) || 0
       currency = r.currency || 'PHP'
+      await insertBalanceHistory(env, { provider, balance, frozen, currency, status: 'ok', errorMsg: null, rawResponse: r })
     }
     await upsertBalance(env, { provider, balance, frozen, currency, status: 'ok', errorMsg: null })
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
-    await upsertBalance(env, { provider, balance: 0, frozen: 0, currency: 'PHP', status: 'error', errorMsg: msg.slice(0, 500) })
+    await insertBalanceHistory(env, { provider, balance: null, frozen: null, currency: 'PHP', status: 'error', errorMsg: msg.slice(0, 500), rawResponse: null })
+    await markBalanceError(env, provider, msg.slice(0, 500))
   }
 }
 
@@ -195,8 +214,37 @@ async function upsertBalance(
     `INSERT INTO provider_balance_snapshot (provider, balance, frozen, currency, status, error_msg)
        VALUES (?,?,?,?,?,?)
      ON DUPLICATE KEY UPDATE balance=VALUES(balance), frozen=VALUES(frozen), currency=VALUES(currency),
-       status=VALUES(status), error_msg=VALUES(error_msg)`,
+       status=VALUES(status), error_msg=VALUES(error_msg), updated_at=CURRENT_TIMESTAMP`,
     [d.provider, d.balance, d.frozen, d.currency, d.status, d.errorMsg],
+  )
+}
+
+async function markBalanceError(env: Env, provider: string, errorMsg: string): Promise<void> {
+  await pool(env).execute(
+    `INSERT INTO provider_balance_snapshot (provider, balance, frozen, currency, status, error_msg)
+       VALUES (?,0,0,'PHP','error',?)
+     ON DUPLICATE KEY UPDATE status=VALUES(status), error_msg=VALUES(error_msg), updated_at=CURRENT_TIMESTAMP`,
+    [provider, errorMsg],
+  )
+}
+
+async function insertBalanceHistory(
+  env: Env,
+  d: {
+    provider: string
+    balance: number | null
+    frozen: number | null
+    currency: string
+    status: 'ok' | 'error'
+    errorMsg: string | null
+    rawResponse: unknown
+  },
+): Promise<void> {
+  await pool(env).execute(
+    `INSERT INTO provider_balance_snapshot_history
+       (provider, balance, frozen, currency, status, error_msg, raw_response)
+     VALUES (?,?,?,?,?,?,?)`,
+    [d.provider, d.balance, d.frozen, d.currency, d.status, d.errorMsg, d.rawResponse === null ? null : JSON.stringify(d.rawResponse)],
   )
 }
 
