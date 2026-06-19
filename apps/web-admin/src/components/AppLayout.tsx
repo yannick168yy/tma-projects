@@ -81,6 +81,15 @@ function buildMenuItems(badges: AdminBadges) {
       ],
     },
     {
+      key: 'agent',
+      icon: <ApartmentOutlined />,
+      label: '代理分成',
+      children: [
+        { key: '/agents', label: '代理管理' },
+        { key: '/agents/commissions', label: '分成报表' },
+      ],
+    },
+    {
       key: 'cs',
       icon: <CustomerServiceOutlined />,
       label: <MenuBadgeLabel text="客服系统" count={badges.pendingCs} />,
@@ -111,6 +120,7 @@ function getDefaultOpenKey(pathname: string): string {
   if (['/deposits', '/sg-settlement', '/payment', '/wallet-ledger'].some((p) => pathname.startsWith(p))) return 'finance'
   if (['/games', '/bet-orders', '/promotions', '/rewards-spin', '/rebate'].some((p) => pathname.startsWith(p))) return 'content'
   if (pathname.startsWith('/team-referral')) return 'team'
+  if (pathname.startsWith('/agents')) return 'agent'
   if (['/customer-service', '/cs-faq'].some((p) => pathname.startsWith(p))) return 'cs'
   if (['/exchange-rates', '/audit-log', '/settings', '/sms-test'].some((p) => pathname.startsWith(p))) return 'system'
   return ''

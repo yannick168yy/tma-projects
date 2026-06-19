@@ -17,6 +17,7 @@ export type FullPageView =
   | { type: 'slotsLobby' }
   | { type: 'categoryLobby'; params: CategoryLobbyParams }
   | { type: 'teamCenter' }
+  | { type: 'agentCenter' }
   | { type: 'betHistory' }
   | { type: 'ledgerRecords' }
   | { type: 'referralPromo' }
@@ -26,6 +27,7 @@ export type FullPageView =
 /** 全屏专题页：走 document/body 滚动，勿用 fixed + 内部 overflow-y-auto */
 export function isImmersiveFullPage(view: FullPageView): boolean {
   return view.type === 'teamCenter'
+    || view.type === 'agentCenter'
     || view.type === 'betHistory'
     || view.type === 'ledgerRecords'
     || view.type === 'referralPromo'
@@ -42,6 +44,7 @@ export function useFullPageOverlay() {
     openSlotsLobby:    () => setView({ type: 'slotsLobby' }),
     openCategoryLobby: (params: CategoryLobbyParams) => setView({ type: 'categoryLobby', params }),
     openTeamCenter:    () => setView({ type: 'teamCenter' }),
+    openAgentCenter:   () => setView({ type: 'agentCenter' }),
     openBetHistory:    () => setView({ type: 'betHistory' }),
     openLedgerRecords: () => setView({ type: 'ledgerRecords' }),
     openReferralPromo: () => setView({ type: 'referralPromo' }),

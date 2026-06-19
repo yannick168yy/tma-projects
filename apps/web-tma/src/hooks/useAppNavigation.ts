@@ -100,6 +100,11 @@ export function useAppNavigation() {
     window.scrollTo({ top: 0, behavior: 'instant' })
   }, [pushOverlay])
 
+  const openAgentCenter = useCallback(() => {
+    pushOverlay('/agent')
+    window.scrollTo({ top: 0, behavior: 'instant' })
+  }, [pushOverlay])
+
   const openBetHistory = useCallback(() => {
     pushOverlay('/bet-history')
   }, [pushOverlay])
@@ -147,6 +152,7 @@ export function useAppNavigation() {
     openSearch,
     openCategoryLobby,
     openTeamCenter,
+    openAgentCenter,
     openBetHistory,
     openLedgerRecords,
     openReferralPromo,

@@ -818,3 +818,64 @@ export const getPaymentAccounting = (range: { from?: string; to?: string } = {})
 }
 export const getProviderBalances = () => get<ProviderBalanceRow[]>('/admin/payment/balance')
 export const refreshProviderBalances = () => post<ProviderBalanceRow[]>('/admin/payment/balance/refresh', {})
+
+// ── 代理分成 ───────────────────────────────────────────────────────────────
+const del = <T>(url: string) => req<T>('DELETE', url)
+
+export interface AgentListItem {
+  agent_id: string; name: string; ggr_rate_pct: string; status: 'active' | 'disabled'
+  display_name: string; user_count: number; channel_count: number
+  this_month_commission_cents: number; created_at: string
+}
+export interface AgentChannel {
+  id: number; channel_type: 'domain' | 'bot'; channel_value: string; enabled: number; created_at: string
+}
+export interface AgentDetail {
+  agent_id: string; name: string; ggr_rate_pct: string; status: 'active' | 'disabled'
+  remark: string; display_name: string; user_count: number; created_at: string
+}
+export interface AgentUser {
+  user_id: string; source: 'domain' | 'bot' | 'manual'; bound_at: string
+  display_name: string; registered_at: string
+}
+export interface AgentCommission {
+  period: string; ggr_cents: number; carry_in_cents: number; net_ggr_cents: number
+  carry_out_cents: number; rate_pct: string; commission_cents: number
+  status: 'pending' | 'paid' | 'voided'; paid_at: string | null; settled_at: string
+}
+export interface AgentCommissionReportItem {
+  agent_id: string; name: string; ggr_cents: number; carry_in_cents: number; net_ggr_cents: number
+  carry_out_cents: number; rate_pct: string; commission_cents: number
+  status: 'pending' | 'paid' | 'voided'; paid_at: string | null
+}
+
+export const getAgentList = (params: { search?: string; page?: number; pageSize?: number }) =>
+  get<{ total: number; page: number; pageSize: number; items: AgentListItem[] }>('/admin/agent/list', params)
+export const createAgent = (data: { userId: string; name?: string; ggrRatePct: number; remark?: string }) =>
+  post<{ agentId: string }>('/admin/agent', data)
+export const updateAgent = (agentId: string, data: { name?: string; ggrRatePct?: number; status?: string; remark?: string }) =>
+  patch(`/admin/agent/${agentId}`, data)
+export const getAgentDetail = (agentId: string) =>
+  get<{ agent: AgentDetail; channels: AgentChannel[] }>(`/admin/agent/${agentId}`)
+export const getAgentUsers = (agentId: string, params: { page?: number; pageSize?: number }) =>
+  get<{ total: number; page: number; pageSize: number; items: AgentUser[] }>(`/admin/agent/${agentId}/users`, params)
+export const getAgentCommissions = (agentId: string) =>
+  get<{ items: AgentCommission[] }>(`/admin/agent/${agentId}/commissions`)
+export const addAgentChannel = (agentId: string, data: { channelType: string; channelValue: string }) =>
+  post<{ id: number; channelValue: string }>(`/admin/agent/${agentId}/channel`, data)
+export const toggleAgentChannel = (id: number, enabled: boolean) =>
+  patch(`/admin/agent/channel/${id}`, { enabled })
+export const deleteAgentChannel = (id: number) =>
+  del(`/admin/agent/channel/${id}`)
+export const bindUserToAgent = (userId: string, agentId: string) =>
+  post('/admin/agent/bind-user', { userId, agentId })
+export const unbindUserAgent = (userId: string) =>
+  del(`/admin/agent/user/${userId}`)
+export const getUserAgentInfo = (userId: string) =>
+  get<{ isAgent: boolean; agent: AgentDetail | null; attributedTo: { agent_id: string; agent_name: string; source: string; bound_at: string } | null }>(`/admin/agent/user/${userId}/info`)
+export const settleAgentMonth = (period?: string) =>
+  post<{ period: string; agentCount: number; totalCommissionCents: number }>('/admin/agent/settle', { period })
+export const getAgentCommissionReport = (period?: string) =>
+  get<{ period: string; summary: { total_commission_cents: number; pending_cents: number }; items: AgentCommissionReportItem[] }>('/admin/agent/commissions/report', period ? { period } : undefined)
+export const payAgentCommission = (agentId: string, period: string) =>
+  post('/admin/agent/commission/pay', { agentId, period })

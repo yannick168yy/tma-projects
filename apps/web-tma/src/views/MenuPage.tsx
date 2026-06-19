@@ -42,6 +42,7 @@ interface Props {
   onOpenBetHistory: () => void
   onOpenLedgerRecords: () => void
   onOpenReferralPromo: () => void
+  onOpenAgentCenter: () => void
 }
 
 type MenuIcon = ComponentType<{ size?: number; className?: string }>
@@ -160,7 +161,7 @@ function BottomSheet({ title, children, onClose }: { title: string; children: Re
   )
 }
 
-export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory, onOpenLedgerRecords, onOpenReferralPromo }: Props) {
+export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory, onOpenLedgerRecords, onOpenReferralPromo, onOpenAgentCenter }: Props) {
   const { t } = useTranslation()
   const auth = useAuthStore()
   const { locale, setLocale } = useLocaleStore()
@@ -409,6 +410,7 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
           <QuickAction icon={Gift} label={t('menu.creditRecords')} subtitle={t('menu.creditRecordsSub')} featured onClick={() => void openLedger()} />
           {isLoggedIn && <QuickAction icon={History} label={t('profile.betHistory')} subtitle={t('profile.account')} onClick={onOpenBetHistory} />}
           {isLoggedIn && <QuickAction icon={Gift} label={t('referralPromo.title')} subtitle={t('common.featured')} onClick={onOpenReferralPromo} />}
+          {isLoggedIn && auth.user?.isAgent && <QuickAction icon={Users} label={t('agentCenter.entry')} subtitle={t('agentCenter.entrySub')} onClick={onOpenAgentCenter} />}
           <QuickAction icon={Headphones} label={t('menu.customerSupport')} subtitle={t('menu.live247')} onClick={onOpenCs} />
         </div>
 

@@ -21,6 +21,7 @@ interface MeResponse {
   boundGoogle?: boolean
   boundPhone?: boolean
   boundAccount?: boolean
+  isAgent?: boolean
 }
 
 function toAuthUser(me: MeResponse): AuthUser {
@@ -39,6 +40,7 @@ function toAuthUser(me: MeResponse): AuthUser {
     boundGoogle: me.boundGoogle,
     boundPhone: me.boundPhone,
     boundAccount: me.boundAccount,
+    isAgent: me.isAgent,
   }
 }
 
