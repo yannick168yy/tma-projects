@@ -17,9 +17,13 @@ router.get('/center', async (ctx) => {
   if (!agent || agent.status !== 'active') { fail(ctx, 403, '非代理用户', 403); return }
 
   const [channels] = await db.query<RowDataPacket[]>(
-    `SELECT channel_type, channel_value, enabled FROM bg_agent_channel
-     WHERE agent_id = ? AND enabled = 1 ORDER BY created_at DESC`,
-    [userId],
+    `SELECT 'domain' AS channel_type, domain AS channel_value, enabled, created_at
+       FROM bg_agent_domain WHERE agent_id = ? AND enabled = 1
+     UNION ALL
+     SELECT 'bot' AS channel_type, bot_username AS channel_value, enabled, created_at
+       FROM bg_agent_bot WHERE agent_id = ? AND enabled = 1
+     ORDER BY created_at DESC`,
+    [userId, userId],
   )
   const [[userCount]] = await db.query<RowDataPacket[]>(
     `SELECT COUNT(*) AS cnt FROM bg_user_agent WHERE agent_id = ?`, [userId],

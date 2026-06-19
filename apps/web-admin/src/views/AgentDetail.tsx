@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
-  Card, Descriptions, Button, Table, Tag, Space, Input, Select, message, Popconfirm, Switch,
+  Card, Descriptions, Button, Table, Tag, Space, Select, message, Popconfirm,
 } from 'antd'
 import {
   getAgentDetail, getAgentUsers, getAgentCommissions,
-  addAgentChannel, deleteAgentChannel, toggleAgentChannel,
-  type AgentDetail as TAgentDetail, type AgentChannel, type AgentUser, type AgentCommission,
+  getAgentDomains, getAgentBots, assignDomainToAgent, assignBotToAgent,
+  updateAgentDomain, updateAgentBot,
+  type AgentDetail as TAgentDetail, type AgentDomain, type AgentBot, type AgentUser, type AgentCommission,
 } from '../api'
 
 const peso = (c: number) => `₱${(c / 100).toFixed(2)}`
@@ -17,19 +18,27 @@ export default function AgentDetail() {
   const { agentId } = useParams<{ agentId: string }>()
   const navigate = useNavigate()
   const [agent, setAgent] = useState<TAgentDetail | null>(null)
-  const [channels, setChannels] = useState<AgentChannel[]>([])
+  const [domains, setDomains] = useState<AgentDomain[]>([])
+  const [bots, setBots] = useState<AgentBot[]>([])
   const [users, setUsers] = useState<AgentUser[]>([])
   const [usersTotal, setUsersTotal] = useState(0)
   const [usersPage, setUsersPage] = useState(1)
   const [commissions, setCommissions] = useState<AgentCommission[]>([])
-  const [chType, setChType] = useState<'domain' | 'bot'>('domain')
-  const [chValue, setChValue] = useState('')
+  const [freeDomains, setFreeDomains] = useState<AgentDomain[]>([])
+  const [freeBots, setFreeBots] = useState<AgentBot[]>([])
+  const [pickDomain, setPickDomain] = useState<number | undefined>()
+  const [pickBot, setPickBot] = useState<number | undefined>()
 
   async function loadDetail() {
     if (!agentId) return
     const data = await getAgentDetail(agentId)
     setAgent(data.agent)
-    setChannels(data.channels)
+    setDomains(data.domains)
+    setBots(data.bots)
+  }
+  async function loadFree() {
+    setFreeDomains((await getAgentDomains(true)).items)
+    setFreeBots((await getAgentBots(true)).items)
   }
   async function loadUsers() {
     if (!agentId) return
@@ -39,21 +48,29 @@ export default function AgentDetail() {
   }
   async function loadCommissions() {
     if (!agentId) return
-    const data = await getAgentCommissions(agentId)
-    setCommissions(data.items)
+    setCommissions((await getAgentCommissions(agentId)).items)
   }
 
-  useEffect(() => { void loadDetail(); void loadCommissions() }, [agentId])
+  useEffect(() => { void loadDetail(); void loadFree(); void loadCommissions() }, [agentId])
   useEffect(() => { void loadUsers() }, [agentId, usersPage])
 
-  async function handleAddChannel() {
-    if (!agentId || !chValue.trim()) { message.warning('请输入渠道值'); return }
-    try {
-      await addAgentChannel(agentId, { channelType: chType, channelValue: chValue.trim() })
-      message.success('已添加渠道')
-      setChValue('')
-      await loadDetail()
-    } catch (e) { message.error(e instanceof Error ? e.message : '添加失败') }
+  async function handleAssignDomain() {
+    if (!agentId || !pickDomain) return
+    try { await assignDomainToAgent(agentId, pickDomain); message.success('已分配域名'); setPickDomain(undefined); await loadDetail(); await loadFree() }
+    catch (e) { message.error(e instanceof Error ? e.message : '操作失败') }
+  }
+  async function handleAssignBot() {
+    if (!agentId || !pickBot) return
+    try { await assignBotToAgent(agentId, pickBot); message.success('已分配机器人'); setPickBot(undefined); await loadDetail(); await loadFree() }
+    catch (e) { message.error(e instanceof Error ? e.message : '操作失败') }
+  }
+  async function unassignDomain(id: number) {
+    try { await updateAgentDomain(id, { agentId: null }); message.success('已解绑'); await loadDetail(); await loadFree() }
+    catch (e) { message.error(e instanceof Error ? e.message : '操作失败') }
+  }
+  async function unassignBot(id: number) {
+    try { await updateAgentBot(id, { agentId: null }); message.success('已解绑'); await loadDetail(); await loadFree() }
+    catch (e) { message.error(e instanceof Error ? e.message : '操作失败') }
   }
 
   return (
@@ -76,51 +93,50 @@ export default function AgentDetail() {
         </Descriptions>
       </Card>
 
-      <Card title="导流渠道" size="small" style={{ marginBottom: 16 }}>
+      <Card title="导流域名" size="small" style={{ marginBottom: 16 }}>
         <Space style={{ marginBottom: 12 }}>
-          <Select value={chType} onChange={setChType} style={{ width: 110 }}
-            options={[{ value: 'domain', label: '域名' }, { value: 'bot', label: '机器人' }]} />
-          <Input
-            value={chValue}
-            onChange={(e) => setChValue(e.target.value)}
-            placeholder={chType === 'domain' ? '如 play.agent1.com' : 'bot 标识'}
-            style={{ width: 280 }}
+          <Select
+            style={{ width: 280 }} placeholder="选择未分配域名" allowClear
+            value={pickDomain} onChange={setPickDomain}
+            options={freeDomains.map((d) => ({ value: d.id, label: d.label ? `${d.domain}（${d.label}）` : d.domain }))}
           />
-          <Button type="primary" onClick={handleAddChannel}>添加</Button>
+          <Button type="primary" disabled={!pickDomain} onClick={handleAssignDomain}>分配</Button>
         </Space>
-        <Table<AgentChannel>
-          rowKey="id"
-          size="small"
-          dataSource={channels}
-          pagination={false}
+        <Table<AgentDomain>
+          rowKey="id" size="small" dataSource={domains} pagination={false}
           columns={[
-            { title: '类型', dataIndex: 'channel_type', render: (t) => SOURCE_LABEL[t] ?? t },
-            { title: '渠道值', dataIndex: 'channel_value' },
-            {
-              title: '启用', dataIndex: 'enabled',
-              render: (v, r) => (
-                <Switch checked={!!v} size="small" onChange={async (c) => {
-                  await toggleAgentChannel(r.id, c); await loadDetail()
-                }} />
-              ),
-            },
-            {
-              title: '操作',
-              render: (_, r) => (
-                <Popconfirm title="确认删除该渠道？" onConfirm={async () => { await deleteAgentChannel(r.id); await loadDetail() }}>
-                  <a style={{ color: '#ff4d4f' }}>删除</a>
-                </Popconfirm>
-              ),
-            },
+            { title: '域名', dataIndex: 'domain' },
+            { title: '备注', dataIndex: 'label', render: (v) => v || '-' },
+            { title: '启用', dataIndex: 'enabled', render: (v) => <Tag color={v ? 'green' : 'default'}>{v ? '启用' : '停用'}</Tag> },
+            { title: '操作', render: (_, r) => <Popconfirm title="确认解绑？" onConfirm={() => unassignDomain(r.id)}><a style={{ color: '#ff4d4f' }}>解绑</a></Popconfirm> },
+          ]}
+        />
+      </Card>
+
+      <Card title="导流机器人" size="small" style={{ marginBottom: 16 }}>
+        <Space style={{ marginBottom: 12 }}>
+          <Select
+            style={{ width: 280 }} placeholder="选择未分配机器人" allowClear
+            value={pickBot} onChange={setPickBot}
+            options={freeBots.map((b) => ({ value: b.id, label: b.label ? `@${b.bot_username}（${b.label}）` : `@${b.bot_username}` }))}
+          />
+          <Button type="primary" disabled={!pickBot} onClick={handleAssignBot}>分配</Button>
+        </Space>
+        <Table<AgentBot>
+          rowKey="id" size="small" dataSource={bots} pagination={false}
+          columns={[
+            { title: '机器人', dataIndex: 'bot_username', render: (v) => `@${v}` },
+            { title: 'Bot ID', dataIndex: 'bot_id', render: (v) => v ?? '-' },
+            { title: '备注', dataIndex: 'label', render: (v) => v || '-' },
+            { title: '启用', dataIndex: 'enabled', render: (v) => <Tag color={v ? 'green' : 'default'}>{v ? '启用' : '停用'}</Tag> },
+            { title: '操作', render: (_, r) => <Popconfirm title="确认解绑？" onConfirm={() => unassignBot(r.id)}><a style={{ color: '#ff4d4f' }}>解绑</a></Popconfirm> },
           ]}
         />
       </Card>
 
       <Card title="名下用户" size="small" style={{ marginBottom: 16 }}>
         <Table<AgentUser>
-          rowKey="user_id"
-          size="small"
-          dataSource={users}
+          rowKey="user_id" size="small" dataSource={users}
           pagination={{ current: usersPage, total: usersTotal, pageSize: 20, onChange: setUsersPage }}
           columns={[
             { title: '用户ID', dataIndex: 'user_id', render: (id) => <a onClick={() => navigate(`/users/${id}`)}>{id}</a> },
@@ -133,10 +149,7 @@ export default function AgentDetail() {
 
       <Card title="月度分成" size="small">
         <Table<AgentCommission>
-          rowKey="period"
-          size="small"
-          dataSource={commissions}
-          pagination={false}
+          rowKey="period" size="small" dataSource={commissions} pagination={false}
           columns={[
             { title: '月份', dataIndex: 'period' },
             { title: '当月GGR', dataIndex: 'ggr_cents', render: peso },

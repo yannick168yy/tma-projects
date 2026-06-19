@@ -2,7 +2,7 @@ import Router from '@koa/router'
 import type { RowDataPacket, ResultSetHeader } from 'mysql2/promise'
 import { getMysqlPool } from '../../clients/mysql.client.js'
 import { ok, fail } from '../../utils/response.js'
-import { normalizeDomain, settleAgentMonth } from '../../services/agent.service.js'
+import { normalizeDomain, settleAgentMonth, verifyBotToken } from '../../services/agent.service.js'
 
 const router = new Router({ prefix: '/agent' })
 
@@ -31,7 +31,8 @@ router.get('/list', async (ctx) => {
     `SELECT a.agent_id, a.name, a.ggr_rate_pct, a.status, a.created_at,
             u.display_name,
             (SELECT COUNT(*) FROM bg_user_agent ua WHERE ua.agent_id = a.agent_id) AS user_count,
-            (SELECT COUNT(*) FROM bg_agent_channel c WHERE c.agent_id = a.agent_id) AS channel_count,
+            ((SELECT COUNT(*) FROM bg_agent_domain d WHERE d.agent_id = a.agent_id)
+             + (SELECT COUNT(*) FROM bg_agent_bot b WHERE b.agent_id = a.agent_id)) AS channel_count,
             COALESCE((SELECT commission_cents FROM bg_agent_commission ac
                       WHERE ac.agent_id = a.agent_id AND ac.period = ?), 0) AS this_month_commission_cents
      FROM bg_agent a JOIN bg_user u ON u.id = a.agent_id
@@ -43,9 +44,132 @@ router.get('/list', async (ctx) => {
   ok(ctx, { total: Number(total), page, pageSize, items: rows })
 })
 
-// POST /admin/agent  设为代理 { userId, name?, ggrRatePct, remark? }
+// ── 域名管理 ─────────────────────────────────────────────────────────────────
+// GET /admin/agent/domains?onlyUnassigned=1
+router.get('/domains', async (ctx) => {
+  const onlyUnassigned = ctx.query.onlyUnassigned === '1'
+  const db = getMysqlPool(ctx.state.env)
+  const [rows] = await db.query<RowDataPacket[]>(
+    `SELECT d.id, d.domain, d.label, d.enabled, d.agent_id, a.name AS agent_name, d.created_at
+     FROM bg_agent_domain d LEFT JOIN bg_agent a ON a.agent_id = d.agent_id
+     ${onlyUnassigned ? 'WHERE d.agent_id IS NULL' : ''}
+     ORDER BY d.created_at DESC`,
+  )
+  ok(ctx, { items: rows })
+})
+
+// POST /admin/agent/domains  { domain, label?, agentId? }
+router.post('/domains', async (ctx) => {
+  const body = ctx.request.body as { domain?: string; label?: string; agentId?: string }
+  const domain = normalizeDomain(body.domain)
+  if (!domain) { fail(ctx, 400, 'domain 必填'); return }
+  const db = getMysqlPool(ctx.state.env)
+  try {
+    const [r] = await db.execute<ResultSetHeader>(
+      `INSERT INTO bg_agent_domain (domain, label, agent_id, created_by) VALUES (?, ?, ?, ?)`,
+      [domain, body.label || '', body.agentId || null, ctx.state.adminId ?? null],
+    )
+    ok(ctx, { id: r.insertId, domain })
+  } catch (e) {
+    if ((e as { code?: string }).code === 'ER_DUP_ENTRY') { fail(ctx, 409, '该域名已存在'); return }
+    throw e
+  }
+})
+
+// PATCH /admin/agent/domains/:id  { label?, enabled?, agentId?(null=解绑) }
+router.patch('/domains/:id', async (ctx) => {
+  const { id } = ctx.params
+  const body = ctx.request.body as { label?: string; enabled?: boolean; agentId?: string | null }
+  const db = getMysqlPool(ctx.state.env)
+  const sets: string[] = []
+  const params: (string | number | null)[] = []
+  if (body.label !== undefined) { sets.push('label = ?'); params.push(body.label) }
+  if (body.enabled !== undefined) { sets.push('enabled = ?'); params.push(body.enabled ? 1 : 0) }
+  if ('agentId' in body) { sets.push('agent_id = ?'); params.push(body.agentId ?? null) }
+  if (!sets.length) { fail(ctx, 400, '无更新字段'); return }
+  params.push(id)
+  await db.execute(`UPDATE bg_agent_domain SET ${sets.join(', ')} WHERE id = ?`, params)
+  ok(ctx, { id })
+})
+
+// DELETE /admin/agent/domains/:id
+router.delete('/domains/:id', async (ctx) => {
+  const { id } = ctx.params
+  const db = getMysqlPool(ctx.state.env)
+  await db.execute(`DELETE FROM bg_agent_domain WHERE id = ?`, [id])
+  ok(ctx, { id })
+})
+
+// ── 机器人管理 ───────────────────────────────────────────────────────────────
+// GET /admin/agent/bots?onlyUnassigned=1   （不回传 bot_token）
+router.get('/bots', async (ctx) => {
+  const onlyUnassigned = ctx.query.onlyUnassigned === '1'
+  const db = getMysqlPool(ctx.state.env)
+  const [rows] = await db.query<RowDataPacket[]>(
+    `SELECT b.id, b.bot_username, b.bot_id, b.label, b.enabled, b.agent_id, a.name AS agent_name, b.created_at
+     FROM bg_agent_bot b LEFT JOIN bg_agent a ON a.agent_id = b.agent_id
+     ${onlyUnassigned ? 'WHERE b.agent_id IS NULL' : ''}
+     ORDER BY b.created_at DESC`,
+  )
+  ok(ctx, { items: rows })
+})
+
+// POST /admin/agent/bots  { botToken, label?, agentId? } — 调 getMe 校验并取 bot_id/username
+router.post('/bots', async (ctx) => {
+  const body = ctx.request.body as { botToken?: string; label?: string; agentId?: string }
+  const token = (body.botToken || '').trim()
+  if (!token) { fail(ctx, 400, 'botToken 必填'); return }
+  let info: { botId: number; username: string }
+  try {
+    info = await verifyBotToken(token)
+  } catch {
+    fail(ctx, 400, 'bot token 无效，getMe 校验失败'); return
+  }
+  if (!info.username) { fail(ctx, 400, '该 bot 未设置 username'); return }
+  const db = getMysqlPool(ctx.state.env)
+  try {
+    const [r] = await db.execute<ResultSetHeader>(
+      `INSERT INTO bg_agent_bot (bot_username, bot_id, bot_token, label, agent_id, created_by)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [info.username, info.botId, token, body.label || '', body.agentId || null, ctx.state.adminId ?? null],
+    )
+    ok(ctx, { id: r.insertId, botUsername: info.username, botId: info.botId })
+  } catch (e) {
+    if ((e as { code?: string }).code === 'ER_DUP_ENTRY') { fail(ctx, 409, '该机器人已存在'); return }
+    throw e
+  }
+})
+
+// PATCH /admin/agent/bots/:id  { label?, enabled?, agentId?(null=解绑) }
+router.patch('/bots/:id', async (ctx) => {
+  const { id } = ctx.params
+  const body = ctx.request.body as { label?: string; enabled?: boolean; agentId?: string | null }
+  const db = getMysqlPool(ctx.state.env)
+  const sets: string[] = []
+  const params: (string | number | null)[] = []
+  if (body.label !== undefined) { sets.push('label = ?'); params.push(body.label) }
+  if (body.enabled !== undefined) { sets.push('enabled = ?'); params.push(body.enabled ? 1 : 0) }
+  if ('agentId' in body) { sets.push('agent_id = ?'); params.push(body.agentId ?? null) }
+  if (!sets.length) { fail(ctx, 400, '无更新字段'); return }
+  params.push(id)
+  await db.execute(`UPDATE bg_agent_bot SET ${sets.join(', ')} WHERE id = ?`, params)
+  ok(ctx, { id })
+})
+
+// DELETE /admin/agent/bots/:id
+router.delete('/bots/:id', async (ctx) => {
+  const { id } = ctx.params
+  const db = getMysqlPool(ctx.state.env)
+  await db.execute(`DELETE FROM bg_agent_bot WHERE id = ?`, [id])
+  ok(ctx, { id })
+})
+
+// POST /admin/agent  设为代理 { userId, name?, ggrRatePct, remark?, domainIds?, botIds? }
 router.post('/', async (ctx) => {
-  const body = ctx.request.body as { userId?: string; name?: string; ggrRatePct?: number; remark?: string }
+  const body = ctx.request.body as {
+    userId?: string; name?: string; ggrRatePct?: number; remark?: string
+    domainIds?: number[]; botIds?: number[]
+  }
   if (!body.userId) { fail(ctx, 400, 'userId is required'); return }
   const rate = Number(body.ggrRatePct ?? 0)
   if (!(rate >= 0 && rate <= 100)) { fail(ctx, 400, 'ggrRatePct 须在 0-100 之间'); return }
@@ -61,6 +185,16 @@ router.post('/', async (ctx) => {
        remark = VALUES(remark), status = 'active'`,
     [body.userId, body.name || user.display_name || '', rate, body.remark || '', ctx.state.adminId ?? null],
   )
+
+  // 分配选中的域名/机器人（仅分配未被占用的）
+  const domainIds = (body.domainIds ?? []).filter((n) => Number.isInteger(n))
+  const botIds = (body.botIds ?? []).filter((n) => Number.isInteger(n))
+  if (domainIds.length) {
+    await db.query(`UPDATE bg_agent_domain SET agent_id = ? WHERE id IN (?) AND agent_id IS NULL`, [body.userId, domainIds])
+  }
+  if (botIds.length) {
+    await db.query(`UPDATE bg_agent_bot SET agent_id = ? WHERE id IN (?) AND agent_id IS NULL`, [body.userId, botIds])
+  }
   ok(ctx, { agentId: body.userId })
 })
 
@@ -100,12 +234,17 @@ router.get('/:agentId', async (ctx) => {
     [agentId],
   )
   if (!agent) { fail(ctx, 404, '代理不存在'); return }
-  const [channels] = await db.query<RowDataPacket[]>(
-    `SELECT id, channel_type, channel_value, enabled, created_at FROM bg_agent_channel
+  const [domains] = await db.query<RowDataPacket[]>(
+    `SELECT id, domain, label, enabled, created_at FROM bg_agent_domain
      WHERE agent_id = ? ORDER BY created_at DESC`,
     [agentId],
   )
-  ok(ctx, { agent, channels })
+  const [bots] = await db.query<RowDataPacket[]>(
+    `SELECT id, bot_username, bot_id, label, enabled, created_at FROM bg_agent_bot
+     WHERE agent_id = ? ORDER BY created_at DESC`,
+    [agentId],
+  )
+  ok(ctx, { agent, domains, bots })
 })
 
 // GET /admin/agent/:agentId/users?page=&pageSize=
@@ -140,41 +279,24 @@ router.get('/:agentId/commissions', async (ctx) => {
   ok(ctx, { items: rows })
 })
 
-// POST /admin/agent/:agentId/channel  { channelType, channelValue }
-router.post('/:agentId/channel', async (ctx) => {
+// PATCH /admin/agent/:agentId/assign-domain  { domainId }  分配域名给代理
+router.patch('/:agentId/assign-domain', async (ctx) => {
   const { agentId } = ctx.params
-  const body = ctx.request.body as { channelType?: string; channelValue?: string }
-  if (body.channelType !== 'domain' && body.channelType !== 'bot') { fail(ctx, 400, 'channelType 非法'); return }
-  const value = body.channelType === 'domain' ? normalizeDomain(body.channelValue) : (body.channelValue || '').trim()
-  if (!value) { fail(ctx, 400, 'channelValue 必填'); return }
+  const body = ctx.request.body as { domainId?: number }
+  if (!body.domainId) { fail(ctx, 400, 'domainId 必填'); return }
   const db = getMysqlPool(ctx.state.env)
-  try {
-    const [r] = await db.execute<ResultSetHeader>(
-      `INSERT INTO bg_agent_channel (agent_id, channel_type, channel_value) VALUES (?, ?, ?)`,
-      [agentId, body.channelType, value],
-    )
-    ok(ctx, { id: r.insertId, channelValue: value })
-  } catch (e) {
-    if ((e as { code?: string }).code === 'ER_DUP_ENTRY') { fail(ctx, 409, '该渠道已被占用'); return }
-    throw e
-  }
+  await db.execute(`UPDATE bg_agent_domain SET agent_id = ? WHERE id = ?`, [agentId, body.domainId])
+  ok(ctx, { domainId: body.domainId, agentId })
 })
 
-// PATCH /admin/agent/channel/:id  { enabled }
-router.patch('/channel/:id', async (ctx) => {
-  const { id } = ctx.params
-  const body = ctx.request.body as { enabled?: boolean }
+// PATCH /admin/agent/:agentId/assign-bot  { botId }  分配机器人给代理
+router.patch('/:agentId/assign-bot', async (ctx) => {
+  const { agentId } = ctx.params
+  const body = ctx.request.body as { botId?: number }
+  if (!body.botId) { fail(ctx, 400, 'botId 必填'); return }
   const db = getMysqlPool(ctx.state.env)
-  await db.execute(`UPDATE bg_agent_channel SET enabled = ? WHERE id = ?`, [body.enabled ? 1 : 0, id])
-  ok(ctx, { id })
-})
-
-// DELETE /admin/agent/channel/:id
-router.delete('/channel/:id', async (ctx) => {
-  const { id } = ctx.params
-  const db = getMysqlPool(ctx.state.env)
-  await db.execute(`DELETE FROM bg_agent_channel WHERE id = ?`, [id])
-  ok(ctx, { id })
+  await db.execute(`UPDATE bg_agent_bot SET agent_id = ? WHERE id = ?`, [agentId, body.botId])
+  ok(ctx, { botId: body.botId, agentId })
 })
 
 // POST /admin/agent/bind-user  手动归因 { userId, agentId }

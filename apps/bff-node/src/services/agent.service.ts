@@ -1,4 +1,5 @@
 import type { RowDataPacket } from 'mysql2/promise'
+import { validate } from '@tma.js/init-data-node'
 import { getMysqlPool } from '../clients/mysql.client.js'
 import type { Env } from '../config/env.js'
 
@@ -13,18 +14,17 @@ export function normalizeDomain(raw?: string): string {
   return host
 }
 
-// 注册时按来源域名归因：命中启用中的域名渠道 → 写入 bg_user_agent（幂等）。
+// 注册时按来源域名归因：命中已分配代理且启用的域名 → 写入 bg_user_agent（幂等）。
 // 非致命：失败仅记录，不影响登录。
 export async function attributeAgentByDomain(env: Env, userId: string, host?: string): Promise<void> {
   const domain = normalizeDomain(host)
   if (!domain) return
   const db = getMysqlPool(env)
   const [rows] = await db.query<RowDataPacket[]>(
-    `SELECT c.agent_id
-     FROM bg_agent_channel c
-     JOIN bg_agent a ON a.agent_id = c.agent_id
-     WHERE c.channel_type = 'domain' AND c.channel_value = ? AND c.enabled = 1
-       AND a.status = 'active'
+    `SELECT d.agent_id
+     FROM bg_agent_domain d
+     JOIN bg_agent a ON a.agent_id = d.agent_id
+     WHERE d.domain = ? AND d.enabled = 1 AND d.agent_id IS NOT NULL AND a.status = 'active'
      LIMIT 1`,
     [domain],
   )
@@ -34,6 +34,49 @@ export async function attributeAgentByDomain(env: Env, userId: string, host?: st
     `INSERT IGNORE INTO bg_user_agent (user_id, agent_id, source) VALUES (?, ?, 'domain')`,
     [userId, agentId],
   )
+}
+
+// 多 token 验签识别入口 bot：依次用各启用且已分配代理的 bot token 验签 initData，
+// 验过的即用户入口 bot，返回其 agent_id。任何一个都验不过返回 null。
+export async function findEntryBotAgent(env: Env, initDataRaw: string): Promise<string | null> {
+  const db = getMysqlPool(env)
+  const [bots] = await db.query<RowDataPacket[]>(
+    `SELECT b.bot_token, b.agent_id
+     FROM bg_agent_bot b
+     JOIN bg_agent a ON a.agent_id = b.agent_id
+     WHERE b.enabled = 1 AND b.agent_id IS NOT NULL AND a.status = 'active'`,
+  )
+  for (const b of bots) {
+    try {
+      validate(initDataRaw, String(b.bot_token), { expiresIn: 86400 })
+      return String(b.agent_id)
+    } catch {
+      // 不是这个 bot，继续试
+    }
+  }
+  return null
+}
+
+export async function attributeAgentByBot(env: Env, userId: string, agentId: string): Promise<void> {
+  const db = getMysqlPool(env)
+  await db.execute(
+    `INSERT IGNORE INTO bg_user_agent (user_id, agent_id, source) VALUES (?, ?, 'bot')`,
+    [userId, agentId],
+  )
+}
+
+// 调 Telegram getMe 校验 token 真伪并取 bot id/username
+export async function verifyBotToken(token: string): Promise<{ botId: number; username: string }> {
+  const ctrl = new AbortController()
+  const timer = setTimeout(() => ctrl.abort(), 8000)
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${token}/getMe`, { signal: ctrl.signal })
+    const json = (await res.json()) as { ok: boolean; result?: { id: number; username?: string } }
+    if (!json.ok || !json.result) throw new Error('token 无效或 getMe 失败')
+    return { botId: json.result.id, username: json.result.username ?? '' }
+  } finally {
+    clearTimeout(timer)
+  }
 }
 
 function monthRange(period: string): { start: string; end: string } {

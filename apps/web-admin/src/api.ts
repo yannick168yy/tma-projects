@@ -813,8 +813,13 @@ export interface AgentListItem {
   display_name: string; user_count: number; channel_count: number
   this_month_commission_cents: number; created_at: string
 }
-export interface AgentChannel {
-  id: number; channel_type: 'domain' | 'bot'; channel_value: string; enabled: number; created_at: string
+export interface AgentDomain {
+  id: number; domain: string; label: string; enabled: number
+  agent_id: string | null; agent_name: string | null; created_at: string
+}
+export interface AgentBot {
+  id: number; bot_username: string; bot_id: number | null; label: string; enabled: number
+  agent_id: string | null; agent_name: string | null; created_at: string
 }
 export interface AgentDetail {
   agent_id: string; name: string; ggr_rate_pct: string; status: 'active' | 'disabled'
@@ -837,22 +842,40 @@ export interface AgentCommissionReportItem {
 
 export const getAgentList = (params: { search?: string; page?: number; pageSize?: number }) =>
   get<{ total: number; page: number; pageSize: number; items: AgentListItem[] }>('/admin/agent/list', params)
-export const createAgent = (data: { userId: string; name?: string; ggrRatePct: number; remark?: string }) =>
+export const createAgent = (data: { userId: string; name?: string; ggrRatePct: number; remark?: string; domainIds?: number[]; botIds?: number[] }) =>
   post<{ agentId: string }>('/admin/agent', data)
 export const updateAgent = (agentId: string, data: { name?: string; ggrRatePct?: number; status?: string; remark?: string }) =>
   patch(`/admin/agent/${agentId}`, data)
 export const getAgentDetail = (agentId: string) =>
-  get<{ agent: AgentDetail; channels: AgentChannel[] }>(`/admin/agent/${agentId}`)
+  get<{ agent: AgentDetail; domains: AgentDomain[]; bots: AgentBot[] }>(`/admin/agent/${agentId}`)
 export const getAgentUsers = (agentId: string, params: { page?: number; pageSize?: number }) =>
   get<{ total: number; page: number; pageSize: number; items: AgentUser[] }>(`/admin/agent/${agentId}/users`, params)
 export const getAgentCommissions = (agentId: string) =>
   get<{ items: AgentCommission[] }>(`/admin/agent/${agentId}/commissions`)
-export const addAgentChannel = (agentId: string, data: { channelType: string; channelValue: string }) =>
-  post<{ id: number; channelValue: string }>(`/admin/agent/${agentId}/channel`, data)
-export const toggleAgentChannel = (id: number, enabled: boolean) =>
-  patch(`/admin/agent/channel/${id}`, { enabled })
-export const deleteAgentChannel = (id: number) =>
-  del(`/admin/agent/channel/${id}`)
+
+// 域名管理
+export const getAgentDomains = (onlyUnassigned?: boolean) =>
+  get<{ items: AgentDomain[] }>('/admin/agent/domains', onlyUnassigned ? { onlyUnassigned: '1' } : undefined)
+export const createAgentDomain = (data: { domain: string; label?: string; agentId?: string }) =>
+  post<{ id: number; domain: string }>('/admin/agent/domains', data)
+export const updateAgentDomain = (id: number, data: { label?: string; enabled?: boolean; agentId?: string | null }) =>
+  patch(`/admin/agent/domains/${id}`, data)
+export const deleteAgentDomain = (id: number) =>
+  del(`/admin/agent/domains/${id}`)
+export const assignDomainToAgent = (agentId: string, domainId: number) =>
+  patch(`/admin/agent/${agentId}/assign-domain`, { domainId })
+
+// 机器人管理
+export const getAgentBots = (onlyUnassigned?: boolean) =>
+  get<{ items: AgentBot[] }>('/admin/agent/bots', onlyUnassigned ? { onlyUnassigned: '1' } : undefined)
+export const createAgentBot = (data: { botToken: string; label?: string; agentId?: string }) =>
+  post<{ id: number; botUsername: string; botId: number }>('/admin/agent/bots', data)
+export const updateAgentBot = (id: number, data: { label?: string; enabled?: boolean; agentId?: string | null }) =>
+  patch(`/admin/agent/bots/${id}`, data)
+export const deleteAgentBot = (id: number) =>
+  del(`/admin/agent/bots/${id}`)
+export const assignBotToAgent = (agentId: string, botId: number) =>
+  patch(`/admin/agent/${agentId}/assign-bot`, { botId })
 export const bindUserToAgent = (userId: string, agentId: string) =>
   post('/admin/agent/bind-user', { userId, agentId })
 export const unbindUserAgent = (userId: string) =>

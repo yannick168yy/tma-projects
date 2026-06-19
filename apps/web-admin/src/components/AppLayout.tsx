@@ -85,6 +85,8 @@ function buildMenuItems(badges: AdminBadges) {
       label: '代理分成',
       children: [
         { key: '/agents', label: '代理管理' },
+        { key: '/agent-domains', label: '域名管理' },
+        { key: '/agent-bots', label: '机器人管理' },
         { key: '/agents/commissions', label: '分成报表' },
       ],
     },
@@ -119,7 +121,7 @@ function getDefaultOpenKey(pathname: string): string {
   if (['/deposits', '/payment', '/wallet-ledger'].some((p) => pathname.startsWith(p))) return 'finance'
   if (['/games', '/bet-orders', '/promotions', '/rewards-spin', '/rebate'].some((p) => pathname.startsWith(p))) return 'content'
   if (pathname.startsWith('/team-referral')) return 'team'
-  if (pathname.startsWith('/agents')) return 'agent'
+  if (pathname.startsWith('/agents') || pathname.startsWith('/agent-')) return 'agent'
   if (['/customer-service', '/cs-faq'].some((p) => pathname.startsWith(p))) return 'cs'
   if (['/exchange-rates', '/audit-log', '/settings', '/sms-test'].some((p) => pathname.startsWith(p))) return 'system'
   return ''

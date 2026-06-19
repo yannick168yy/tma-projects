@@ -30,6 +30,7 @@ import { exchangeGoogleCode } from './google.service.js'
 import { exchangeTelegramOidcCode } from './telegramOidc.service.js'
 import { toPublicUser } from './userPresentation.js'
 import { lookupRegion } from './geo.service.js'
+import { findEntryBotAgent, attributeAgentByBot } from './agent.service.js'
 
 export type PasswordMethod = 'phone' | 'account'
 
@@ -72,10 +73,13 @@ export async function loginWithInitData(
 
   if (!initDataRaw) throw new AuthError('Missing Telegram initData')
 
+  // 先用主 bot token 验签；失败则尝试各代理 bot token，识别入口 bot 以归因。
+  let entryBotAgentId: string | null = null
   try {
     validate(initDataRaw, env.TELEGRAM_BOT_TOKEN, { expiresIn: 86400 })
   } catch {
-    throw new AuthError('Invalid or expired Telegram initData')
+    entryBotAgentId = await findEntryBotAgent(env, initDataRaw)
+    if (!entryBotAgentId) throw new AuthError('Invalid or expired Telegram initData')
   }
 
   const parsed = parse(initDataRaw)
@@ -107,6 +111,11 @@ export async function loginWithInitData(
   // banned 状态除外：完全封禁
   if (user.status === 'banned') {
     throw new AuthError('Account has been permanently banned. Please contact support.')
+  }
+
+  // 经代理 bot 进入的新用户：归因到该代理（非致命）
+  if (isNewUser && entryBotAgentId) {
+    await attributeAgentByBot(env, user.id, entryBotAgentId).catch(() => {})
   }
 
   return issueSession(redis, env, user, isNewUser)
