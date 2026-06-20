@@ -5,16 +5,16 @@
   --tg-safe-left: 0px;
   --tg-safe-right: 0px;
   /* Plain browser / desktop: notch env only, default pt-5 */
-  --app-safe-top: max(1.25rem, env(safe-area-inset-top, 0px));
-  --app-safe-bottom: max(0.75rem, env(safe-area-inset-bottom, 0px));
+  --app-safe-top: max(0.75rem, env(safe-area-inset-top, 0px));
+  --app-safe-bottom: max(0.5rem, env(safe-area-inset-bottom, 0px));
   --app-safe-left: env(safe-area-inset-left, 0px);
   --app-safe-right: env(safe-area-inset-right, 0px);
 }
 
 /* Telegram only: single JS-computed inset (no double env + CSS var sum) */
 html.is-telegram-webapp {
-  --app-safe-top: max(1.25rem, var(--tg-safe-top));
-  --app-safe-bottom: max(0.75rem, var(--tg-safe-bottom));
+  --app-safe-top: max(0.75rem, var(--tg-safe-top));
+  --app-safe-bottom: max(0.5rem, var(--tg-safe-bottom));
   --app-safe-left: var(--tg-safe-left);
   --app-safe-right: var(--tg-safe-right);
   /* 防止下滑触发 TMA 收起（API 不可用时的 CSS 兜底） */

@@ -242,7 +242,7 @@ export default function AppShell() {
       <div className="app-frame w-full max-w-[430px] bg-background">
         {!isImmersive && (
         <header ref={headerRef} className={`app-fixed-top bg-background ${walletOpen ? 'z-50' : ''}`}>
-          <div className="app-safe-header flex items-center gap-3 px-4 pb-4">
+          <div className="app-safe-header flex items-center gap-3 px-4 pb-2">
             <button type="button" className="flex-shrink-0 cursor-pointer" onClick={goHome}><BetogoLogo /></button>
 
             <div className="flex flex-1 items-center justify-center gap-3">
@@ -409,13 +409,13 @@ export default function AppShell() {
         </main>
 
         {!isImmersive && (
-        <nav ref={navRef} className="app-fixed-bottom app-safe-nav flex items-center justify-around border-t border-border bg-background px-2 pt-2">
+        <nav ref={navRef} className="app-fixed-bottom app-safe-nav flex items-center justify-around border-t border-border bg-background px-2 pt-1">
           {navItems.map((item) => {
             const Icon = navIcon(item.id)
             return (
-              <button key={item.id} type="button" className={`relative flex flex-col items-center gap-0.5 rounded-xl px-3 py-1 transition-colors ${activeNav === item.id ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`} onClick={() => setNav(item.id)}>
-                {activeNav === item.id && <span className="absolute -top-2 left-1/2 h-0.5 w-7 -translate-x-1/2 rounded-full bg-primary" />}
-                <div className={activeNav === item.id ? 'rounded-xl bg-primary/10 p-1.5' : 'p-1.5'}><Icon size={20} /></div>
+              <button key={item.id} type="button" className={`relative flex flex-col items-center gap-0.5 rounded-xl px-3 py-0.5 transition-colors ${activeNav === item.id ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`} onClick={() => setNav(item.id)}>
+                {activeNav === item.id && <span className="absolute -top-1 left-1/2 h-0.5 w-7 -translate-x-1/2 rounded-full bg-primary" />}
+                <div className={activeNav === item.id ? 'rounded-xl bg-primary/10 p-1' : 'p-1'}><Icon size={20} /></div>
                 {'badge' in item && item.badge && (
                   <span className="absolute right-1 top-0 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-accent px-1 text-[9px] font-black text-white">{item.badge}</span>
                 )}
