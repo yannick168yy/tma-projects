@@ -630,6 +630,27 @@ export interface PromoClaimRecord {
 export const getPromoClaims = (params?: { page?: number; pageSize?: number; promoId?: string }) =>
   get<{ items: PromoClaimRecord[]; total: number; page: number; pageSize: number }>('/admin/promotions/claims', params)
 
+// 首页装修
+export interface HomeContentItem {
+  kind: 'banner' | 'card'
+  slot: number
+  imageKey: string
+  imageUrl: string
+  actionType: 'promo' | 'cashback' | 'spin' | 'lobby' | 'none'
+  actionValue: string | null
+  enabled: boolean
+  updatedAt: string | null
+}
+export interface HomeContent {
+  banners: HomeContentItem[]
+  cards: HomeContentItem[]
+}
+export const getHomeContent = () => get<HomeContent>('/admin/home-content')
+export const uploadHomeImage = (kind: 'banner' | 'card', imageData: string) =>
+  post<{ imageKey: string; imageUrl: string }>('/admin/home-content/upload', { kind, imageData })
+export const saveHomeContentItem = (item: Pick<HomeContentItem, 'kind' | 'slot' | 'imageKey' | 'actionType' | 'actionValue' | 'enabled'>) =>
+  req<HomeContentItem>('PUT', '/admin/home-content/item', item)
+
 // Rewards Spin
 export interface SpinDepositRule {
   id?: number

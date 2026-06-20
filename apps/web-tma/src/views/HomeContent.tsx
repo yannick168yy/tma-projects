@@ -10,7 +10,10 @@ import EGameCard from '@/components/home/EGameCard'
 import LiveCard from '@/components/home/LiveCard'
 import { CATEGORIES } from '@/data/categories'
 import { BANNERS, WINNERS, INFO_LINKS } from '@/data/home'
+import type { Banner } from '@/data/home'
+import type { Category } from '@/data/categories'
 import { fetchHomepageGames, fetchGames, fetchProviders, launchGame, fetchBettingActivity, type SlotGame, type BetRecord, type BetTab } from '@/api/slots'
+import { fetchHomeContent, type HomeContentItem } from '@/api/home'
 import { ApiError } from '@/api/client'
 import { usePromotionStore } from '@/stores/promotion'
 import { useAuthStore } from '@/stores/auth'
@@ -64,11 +67,26 @@ export default function HomeContent({ onOpenPromo, onOpenCategoryLobby, onOpenCs
   const promotion = usePromotionStore()
   const auth = useAuthStore()
   const activeCurrency = useWalletStore((s) => s.activeCurrency)
-  const localizedBanners = useMemo(() => BANNERS.map((b) => ({ ...b, tag: t(`home.banners.${b.id}.tag`), title: t(`home.banners.${b.id}.title`), sub: t(`home.banners.${b.id}.sub`), cta: t(`home.banners.${b.id}.cta`) })), [t])
+  const [homeBanners, setHomeBanners] = useState<Banner[]>(BANNERS)
+  const [homeCards, setHomeCards] = useState<Category[]>(CATEGORIES)
+  const localizedBanners = useMemo(() => homeBanners.map((b) => ({ ...b, tag: t(`home.banners.${b.id}.tag`), title: t(`home.banners.${b.id}.title`), sub: t(`home.banners.${b.id}.sub`), cta: t(`home.banners.${b.id}.cta`) })), [homeBanners, t])
+
+  function resolveHomeAction(item: HomeContentItem): Pick<Category, 'nav' | 'promo'> {
+    if (item.actionType === 'cashback') return { nav: 'cashback', promo: null }
+    if (item.actionType === 'spin') return { nav: 'spin', promo: null }
+    if (item.actionType === 'promo') return { nav: 'bonuses', promo: item.actionValue }
+    return { nav: 'bonuses', promo: null }
+  }
 
   function onBannerCta(action: string) {
     if (action === 'lobby') {
       onOpenCategoryLobby({ sortBy: 'ph_bonus', title: t('home.popularGames') })
+    } else if (action === 'cashback') {
+      onOpenCashback()
+    } else if (action === 'spin') {
+      onOpenSpin()
+    } else if (action === 'none' || !action) {
+      return
     } else {
       onOpenPromo(action)
     }
@@ -82,7 +100,7 @@ export default function HomeContent({ onOpenPromo, onOpenCategoryLobby, onOpenCs
 
   function onBannerScroll() {
     const el = bannerTrackRef.current; if (!el || el.clientWidth <= 0) return
-    setActiveBanner(Math.max(0, Math.min(BANNERS.length - 1, Math.round(el.scrollLeft / el.clientWidth))))
+    setActiveBanner(Math.max(0, Math.min(homeBanners.length - 1, Math.round(el.scrollLeft / el.clientWidth))))
   }
   function scrollToBanner(index: number) {
     const el = bannerTrackRef.current; if (!el) return
@@ -106,7 +124,7 @@ export default function HomeContent({ onOpenPromo, onOpenCategoryLobby, onOpenCs
         const dx = bannerDragRef.current.startX - bannerDragRef.current.lastX
         const velocity = dx / Math.max(1, Date.now() - bannerDragRef.current.lastT)
         const threshold = el.clientWidth * 0.18; const cur = activeBanner
-        if (dx > threshold || velocity > 0.35) { const next = Math.min(BANNERS.length - 1, cur + 1); el.scrollTo({ left: next * el.clientWidth, behavior: 'smooth' }); setActiveBanner(next) }
+        if (dx > threshold || velocity > 0.35) { const next = Math.min(homeBanners.length - 1, cur + 1); el.scrollTo({ left: next * el.clientWidth, behavior: 'smooth' }); setActiveBanner(next) }
         else if (dx < -threshold || velocity < -0.35) { const prev = Math.max(0, cur - 1); el.scrollTo({ left: prev * el.clientWidth, behavior: 'smooth' }); setActiveBanner(prev) }
         else el.scrollTo({ left: cur * el.clientWidth, behavior: 'smooth' })
       }
@@ -239,6 +257,29 @@ const [gamesLoading, setGamesLoading] = useState(true)
   useEffect(() => {
     setGamesLoading(true)
     fetchHomepageGames().then(setHomepageGames).catch(() => {}).finally(() => setGamesLoading(false))
+    fetchHomeContent().then((content) => {
+      if (content.banners.length > 0) {
+        setHomeBanners(content.banners.map((item) => ({
+          id: item.slot,
+          gradient: 'from-[#2d1200] via-[#8b4000] to-[#c07000]',
+          image: item.imageUrl,
+          imageOnly: true,
+          tag: '',
+          title: '',
+          sub: '',
+          badge: '',
+          badgeColor: '',
+          ctaAction: item.actionType === 'promo' ? (item.actionValue ?? '') : item.actionType,
+        })))
+      }
+      if (content.cards.length > 0) {
+        setHomeCards(CATEGORIES.map((category, index) => {
+          const item = content.cards.find((card) => card.slot === index + 1)
+          if (!item) return category
+          return { ...category, ...resolveHomeAction(item), image: item.imageUrl, imageOnly: true }
+        }))
+      }
+    }).catch(() => {})
     void loadBetTab('latest')
     if (auth.token && auth.user) void promotion.loadTeamStatus()
   }, [])
@@ -249,8 +290,8 @@ const [gamesLoading, setGamesLoading] = useState(true)
     <div className="page-main">
       {/* Category shortcuts */}
       {/* 优惠菜单 */}
-      <div className="category-shortcut-row flex gap-3 px-4 pb-2 pt-1.5 overflow-x-auto hide-scrollbar">
-        {CATEGORIES.map((c) => (
+      <div className="category-shortcut-row flex gap-3 pl-4 pr-4 pb-2 pt-1.5 overflow-x-auto hide-scrollbar scroll-ps-4">
+        {homeCards.map((c) => (
           <HomeCategoryShortcut
             key={c.id}
             category={c}
@@ -261,12 +302,14 @@ const [gamesLoading, setGamesLoading] = useState(true)
 
       {/* Banner carousel */}
       <div className="px-4">
-        <div className="relative h-56 overflow-hidden rounded-2xl">
+        <div className="relative aspect-[1959/803] overflow-hidden rounded-2xl">
           <div ref={bannerTrackRef} className="banner-carousel flex h-full snap-x snap-mandatory hide-scrollbar" onScroll={onBannerScroll} onTouchStart={onBannerTouchStart} onTouchMove={onBannerTouchMove} onTouchEnd={onBannerTouchEnd} onTouchCancel={onBannerTouchEnd}>
             {localizedBanners.map((banner) => (
-              <article key={banner.id} className="relative h-56 w-full flex-shrink-0 snap-center">
+              <article key={banner.id} className="relative h-full w-full flex-shrink-0 snap-center" onClick={() => { if (banner.imageOnly) onBannerCta(banner.ctaAction) }}>
                 <div className={`absolute inset-0 bg-gradient-to-br ${banner.gradient}`} />
                 <img src={banner.image} alt="" draggable={false} className="absolute inset-0 h-full w-full object-cover" />
+                {!banner.imageOnly && (
+                  <>
                 <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/35 to-black/10" />
                 <div className="absolute inset-0 flex flex-col justify-between p-4">
                   <div className="flex items-start justify-between">
@@ -286,11 +329,13 @@ const [gamesLoading, setGamesLoading] = useState(true)
                     </div>
                   </div>
                 </div>
+                  </>
+                )}
               </article>
             ))}
           </div>
           <div className="pointer-events-none absolute bottom-3 left-1/2 flex -translate-x-1/2 gap-1.5">
-            {BANNERS.map((_, i) => (
+            {homeBanners.map((_, i) => (
               <button key={i} type="button" className={`pointer-events-auto h-1.5 rounded-full transition-all ${i === activeBanner ? 'w-5 bg-white' : 'w-1.5 bg-white/40'}`} onClick={() => scrollToBanner(i)} />
             ))}
           </div>

@@ -1,4 +1,4 @@
-import firstDepositBanner from '@/assets/home/banners/first-deposit.webp'
+import firstDepositBanner from '@/assets/home/new-banners/first-deposit.png'
 import gamesBanner from '@/assets/home/banners/games.webp'
 import referralBanner from '@/assets/home/banners/referral.webp'
 import trialChipsBanner from '@/assets/home/banners/trial-chips.webp'
@@ -7,6 +7,7 @@ export interface Banner {
   id: number
   gradient: string
   image: string
+  imageOnly?: boolean
   tag: string
   title: string
   sub: string
@@ -26,6 +27,7 @@ export const BANNERS: Banner[] = [
     id: 1,
     gradient: 'from-[#2d1200] via-[#8b4000] to-[#c07000]',
     image: firstDepositBanner,
+    imageOnly: true,
     tag: 'FIRST DEPOSIT',
     title: '120% UP TO\n₱1,000',
     sub: 'Min ₱100 · 15x wagering req',

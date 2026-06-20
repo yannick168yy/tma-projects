@@ -12,6 +12,14 @@ export default function HomeCategoryShortcut({ category, onClick }: Props) {
 
   return (
     <button type="button" className="flex-shrink-0 active:scale-[0.98] transition-transform" onClick={onClick}>
+      {category.imageOnly ? (
+        <img
+          src={category.image}
+          alt={label}
+          draggable={false}
+          className="h-[78px] w-[132px] rounded-xl object-cover shadow-[0_6px_14px_rgba(0,0,0,0.16)]"
+        />
+      ) : (
       <div
         className={`relative h-[60px] w-[111px] overflow-hidden rounded-xl bg-gradient-to-br ${category.color}`}
         style={{ boxShadow: '0 6px 14px rgba(0,0,0,0.16)' }}
@@ -26,6 +34,7 @@ export default function HomeCategoryShortcut({ category, onClick }: Props) {
           <span className="mt-0.5 block text-[0.66rem] font-black uppercase leading-[0.98] text-white drop-shadow-sm">{label}</span>
         </span>
       </div>
+      )}
     </button>
   )
 }

@@ -23,7 +23,7 @@ class LocalStorage implements StorageProvider {
     try {
       const full = join(this.baseDir, key)
       const data = await readFile(full)
-      const mimeType = key.endsWith('.png') ? 'image/png' : 'image/jpeg'
+      const mimeType = key.endsWith('.png') ? 'image/png' : key.endsWith('.webp') ? 'image/webp' : 'image/jpeg'
       return { data, mimeType }
     } catch {
       return null

@@ -22,6 +22,7 @@ import sgRoutes from './sg.routes.js'
 import turnoverRoutes from './turnover.routes.js'
 import rebateRoutes from './rebate.routes.js'
 import spinRoutes from './spin.routes.js'
+import homeContentRoutes from './home-content.routes.js'
 import { authMiddleware, optionalAuthMiddleware } from '../middleware/auth.js'
 import { getDepositChannels, YfPayError } from '../services/yfpay.service.js'
 import { ok, fail } from '../utils/response.js'
@@ -40,6 +41,7 @@ export function createApiRouter(): Router {
   api.use(webhookRoutes.routes(), webhookRoutes.allowedMethods())
   api.use(authRoutes.routes(), authRoutes.allowedMethods())
   api.use(sgRoutes.routes(), sgRoutes.allowedMethods())
+  api.use(homeContentRoutes.routes(), homeContentRoutes.allowedMethods())
 
   // 公开：YF Pay 存款频道
   api.get('/deposit/yfpay/channels', async (ctx) => {
