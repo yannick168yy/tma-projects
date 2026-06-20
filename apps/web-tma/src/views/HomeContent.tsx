@@ -270,18 +270,9 @@ const [gamesLoading, setGamesLoading] = useState(true)
 
   return (
     <div className="page-main">
-      {/* 首页彩色小卡片（后台装修配置） */}
-      {homeCards.length > 0 && (
-        <div ref={cardTrackRef} className="category-shortcut-row flex gap-3 pl-4 pr-4 pb-2 pt-1.5 overflow-x-auto hide-scrollbar scroll-ps-4">
-          {homeCards.map((c) => (
-            <HomeCategoryShortcut key={c.slot} image={c.image} onClick={() => navHomeTarget(c.target)} />
-          ))}
-        </div>
-      )}
-
       {/* Banner 轮播（后台装修配置） */}
       {homeBanners.length > 0 && (
-        <div className="px-4 mt-2">
+        <div className="px-4 pt-1.5">
           <div className="relative h-56 overflow-hidden rounded-2xl">
             <div ref={bannerTrackRef} className="banner-carousel flex h-full snap-x snap-mandatory hide-scrollbar" onScroll={onBannerScroll} onTouchStart={onBannerTouchStart} onTouchMove={onBannerTouchMove} onTouchEnd={onBannerTouchEnd} onTouchCancel={onBannerTouchEnd}>
               {homeBanners.map((banner) => (
@@ -296,6 +287,15 @@ const [gamesLoading, setGamesLoading] = useState(true)
               ))}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* 首页彩色小卡片（后台装修配置） */}
+      {homeCards.length > 0 && (
+        <div ref={cardTrackRef} className="category-shortcut-row flex gap-3 pl-4 pr-4 pb-2 pt-1.5 mt-2 overflow-x-auto hide-scrollbar scroll-ps-4">
+          {homeCards.map((c) => (
+            <HomeCategoryShortcut key={c.slot} image={c.image} onClick={() => navHomeTarget(c.target)} />
+          ))}
         </div>
       )}
 
