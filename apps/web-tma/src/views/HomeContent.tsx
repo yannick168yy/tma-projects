@@ -277,7 +277,7 @@ const [gamesLoading, setGamesLoading] = useState(true)
       {homeCards.length > 0 && (
         <div ref={cardTrackRef} className="category-shortcut-row flex gap-3 pl-4 pr-4 pb-2 pt-1.5 overflow-x-auto hide-scrollbar scroll-ps-4">
           {homeCards.map((c, i) => (
-            <HomeCategoryShortcut key={c.slot} index={i} icon={c.icon} value={c.value} label={c.label} onClick={() => navHomeTarget(c.target)} />
+            <HomeCategoryShortcut key={c.slot} index={i} total={homeCards.length} icon={c.icon} value={c.value} label={c.label} onClick={() => navHomeTarget(c.target)} />
           ))}
         </div>
       )}

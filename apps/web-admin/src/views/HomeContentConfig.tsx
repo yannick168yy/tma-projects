@@ -252,7 +252,7 @@ export default function HomeContentConfig() {
           ) : (
             // 小卡片：固定背景皮肤 + 图标 + 文字 的实时预览（与前台 1:1）
             <div style={{ display: 'flex', justifyContent: 'center', padding: '16px 0', background: '#0f1117', borderRadius: 6 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, width: 148, height: 80, borderRadius: 16, padding: '0 11px', overflow: 'hidden', ...CARD_SKIN }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, width: 160, height: 80, borderRadius: 16, padding: '0 11px', overflow: 'hidden', ...CARD_SKIN }}>
                 {item.imageUrl
                   ? <img src={item.imageUrl} alt="" style={{ width: 43, height: 43, objectFit: 'contain', flexShrink: 0 }} />
                   : <div style={{ width: 43, height: 43, borderRadius: 10, flexShrink: 0, border: '1px dashed rgba(255,255,255,0.25)' }} />}
