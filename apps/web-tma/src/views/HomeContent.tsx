@@ -8,10 +8,7 @@ import HomeCategoryShortcut from '@/components/home/HomeCategoryShortcut'
 import GameCard from '@/components/home/GameCard'
 import EGameCard from '@/components/home/EGameCard'
 import LiveCard from '@/components/home/LiveCard'
-import { CATEGORIES } from '@/data/categories'
-import { BANNERS, WINNERS, INFO_LINKS } from '@/data/home'
-import type { Banner } from '@/data/home'
-import type { Category } from '@/data/categories'
+import { WINNERS, INFO_LINKS } from '@/data/home'
 import { fetchHomepageGames, fetchGames, fetchProviders, launchGame, fetchBettingActivity, type SlotGame, type BetRecord, type BetTab } from '@/api/slots'
 import { fetchHomeContent } from '@/api/home'
 import { resolveHomeActionPath } from '@/navigation/appRoutes'
@@ -52,26 +49,26 @@ const INFO_ICONS: Record<string, React.ComponentType<{ size: number; className?:
 
 interface CategoryLobbyParams { sortCategory?: string; sortBy?: 'weight' | 'ph_bonus'; title: string }
 
+// 首页 banner / 小卡片均来自后台装修配置，只需图片 + 跳转目标
+interface HomeBanner { id: number; image: string; target: string }
+interface HomeCard { slot: number; image: string; target: string }
+
 interface Props {
-  onOpenPromo: (promo: string | null) => void
   onNavigatePath: (path: string) => void
   onOpenCategoryLobby: (params: CategoryLobbyParams) => void
   onOpenCs: () => void
   onOpenGame: (url: string) => void
   onOpenReferralPromo: () => void
-  onOpenCashback: () => void
-  onOpenSpin: () => void
 }
 
-export default function HomeContent({ onOpenPromo, onNavigatePath, onOpenCategoryLobby, onOpenCs, onOpenGame, onOpenReferralPromo, onOpenCashback, onOpenSpin }: Props) {
+export default function HomeContent({ onNavigatePath, onOpenCategoryLobby, onOpenCs, onOpenGame, onOpenReferralPromo }: Props) {
   const { t, i18n } = useTranslation()
   const locale = i18n.language
   const promotion = usePromotionStore()
   const auth = useAuthStore()
   const activeCurrency = useWalletStore((s) => s.activeCurrency)
-  const [homeBanners, setHomeBanners] = useState<Banner[]>(BANNERS)
-  const [homeCards, setHomeCards] = useState<Category[]>(CATEGORIES)
-  const localizedBanners = useMemo(() => homeBanners.map((b) => ({ ...b, tag: t(`home.banners.${b.id}.tag`), title: t(`home.banners.${b.id}.title`), sub: t(`home.banners.${b.id}.sub`), cta: t(`home.banners.${b.id}.cta`) })), [homeBanners, t])
+  const [homeBanners, setHomeBanners] = useState<HomeBanner[]>([])
+  const [homeCards, setHomeCards] = useState<HomeCard[]>([])
 
   // 首页装修配置的统一跳转：内部路由走 navigate，外链走 window.open，空串不跳转
   function navHomeTarget(target: string) {
@@ -81,20 +78,6 @@ export default function HomeContent({ onOpenPromo, onNavigatePath, onOpenCategor
       return
     }
     onNavigatePath(target)
-  }
-
-  function onBannerCta(action: string) {
-    if (action === 'lobby') {
-      onOpenCategoryLobby({ sortBy: 'ph_bonus', title: t('home.popularGames') })
-    } else if (action === 'cashback') {
-      onOpenCashback()
-    } else if (action === 'spin') {
-      onOpenSpin()
-    } else if (action === 'none' || !action) {
-      return
-    } else {
-      onOpenPromo(action)
-    }
   }
 
   // Banner
@@ -264,29 +247,16 @@ const [gamesLoading, setGamesLoading] = useState(true)
     setGamesLoading(true)
     fetchHomepageGames().then(setHomepageGames).catch(() => {}).finally(() => setGamesLoading(false))
     fetchHomeContent().then((content) => {
-      if (content.banners.length > 0) {
-        setHomeBanners(content.banners.map((item) => ({
-          id: item.slot,
-          gradient: 'from-[#2d1200] via-[#8b4000] to-[#c07000]',
-          image: item.imageUrl,
-          imageOnly: true,
-          tag: '',
-          title: '',
-          sub: '',
-          badge: '',
-          badgeColor: '',
-          ctaAction: resolveHomeActionPath(item.actionType, item.actionValue),
-        })))
-      }
-      if (content.cards.length > 0) {
-        setHomeCards(content.cards.map((item, index) => ({
-          ...CATEGORIES[index % CATEGORIES.length],
-          slot: item.slot,
-          image: item.imageUrl,
-          imageOnly: true,
-          target: resolveHomeActionPath(item.actionType, item.actionValue),
-        })))
-      }
+      setHomeBanners(content.banners.map((item) => ({
+        id: item.slot,
+        image: item.imageUrl,
+        target: resolveHomeActionPath(item.actionType, item.actionValue),
+      })))
+      setHomeCards(content.cards.map((item) => ({
+        slot: item.slot,
+        image: item.imageUrl,
+        target: resolveHomeActionPath(item.actionType, item.actionValue),
+      })))
     }).catch(() => {})
     void loadBetTab('latest')
     if (auth.token && auth.user) void promotion.loadTeamStatus()
@@ -300,64 +270,34 @@ const [gamesLoading, setGamesLoading] = useState(true)
 
   return (
     <div className="page-main">
-      {/* Category shortcuts */}
-      {/* 优惠菜单 */}
-      <div ref={cardTrackRef} className="category-shortcut-row flex gap-3 pl-4 pr-4 pb-2 pt-1.5 overflow-x-auto hide-scrollbar scroll-ps-4">
-        {homeCards.map((c, index) => (
-          <HomeCategoryShortcut
-            key={`${c.id}-${c.slot ?? index}`}
-            category={c}
-            onClick={() => {
-              if (c.target !== undefined) { navHomeTarget(c.target); return }
-              if (c.nav === 'cashback') { onOpenCashback(); return }
-              if (c.nav === 'spin') { onOpenSpin(); return }
-              onOpenPromo(c.promo)
-            }}
-          />
-        ))}
-      </div>
+      {/* 首页彩色小卡片（后台装修配置） */}
+      {homeCards.length > 0 && (
+        <div ref={cardTrackRef} className="category-shortcut-row flex gap-3 pl-4 pr-4 pb-2 pt-1.5 overflow-x-auto hide-scrollbar scroll-ps-4">
+          {homeCards.map((c) => (
+            <HomeCategoryShortcut key={c.slot} image={c.image} onClick={() => navHomeTarget(c.target)} />
+          ))}
+        </div>
+      )}
 
-      {/* Banner carousel */}
-      <div className="px-4">
-        <div className="relative h-56 overflow-hidden rounded-2xl">
-          <div ref={bannerTrackRef} className="banner-carousel flex h-full snap-x snap-mandatory hide-scrollbar" onScroll={onBannerScroll} onTouchStart={onBannerTouchStart} onTouchMove={onBannerTouchMove} onTouchEnd={onBannerTouchEnd} onTouchCancel={onBannerTouchEnd}>
-            {localizedBanners.map((banner) => (
-              <article key={banner.id} className="relative h-56 w-full flex-shrink-0 snap-center" onClick={() => { if (banner.imageOnly) navHomeTarget(banner.ctaAction) }}>
-                <div className={`absolute inset-0 bg-gradient-to-br ${banner.gradient}`} />
-                <img src={banner.image} alt="" draggable={false} className="absolute inset-0 h-full w-full object-cover" />
-                {!banner.imageOnly && (
-                  <>
-                <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/35 to-black/10" />
-                <div className="absolute inset-0 flex flex-col justify-between p-4">
-                  <div className="flex items-start justify-between">
-                    <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${banner.badgeColor}`}>{banner.tag}</span>
-                  </div>
-                  <div>
-                    <h2 className="mb-1 whitespace-pre-line font-display text-[1.55rem] font-black leading-tight text-white">{banner.title}</h2>
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="text-xs text-white/70">{banner.sub}</p>
-                      <button
-                        type="button"
-                        className="flex-shrink-0 rounded-full bg-white/15 backdrop-blur-sm border border-white/30 px-3 py-1 text-[11px] font-black text-white active:scale-95 transition-transform"
-                        onClick={() => onBannerCta(banner.ctaAction)}
-                      >
-                        {banner.cta}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-                  </>
-                )}
-              </article>
-            ))}
-          </div>
-          <div className="pointer-events-none absolute bottom-3 left-1/2 flex -translate-x-1/2 gap-1.5">
-            {homeBanners.map((_, i) => (
-              <button key={i} type="button" className={`pointer-events-auto h-1.5 rounded-full transition-all ${i === activeBanner ? 'w-5 bg-white' : 'w-1.5 bg-white/40'}`} onClick={() => scrollToBanner(i)} />
-            ))}
+      {/* Banner 轮播（后台装修配置） */}
+      {homeBanners.length > 0 && (
+        <div className="px-4">
+          <div className="relative h-56 overflow-hidden rounded-2xl">
+            <div ref={bannerTrackRef} className="banner-carousel flex h-full snap-x snap-mandatory hide-scrollbar" onScroll={onBannerScroll} onTouchStart={onBannerTouchStart} onTouchMove={onBannerTouchMove} onTouchEnd={onBannerTouchEnd} onTouchCancel={onBannerTouchEnd}>
+              {homeBanners.map((banner) => (
+                <article key={banner.id} className="relative h-56 w-full flex-shrink-0 snap-center" onClick={() => navHomeTarget(banner.target)}>
+                  <img src={banner.image} alt="" draggable={false} className="absolute inset-0 h-full w-full object-cover" />
+                </article>
+              ))}
+            </div>
+            <div className="pointer-events-none absolute bottom-3 left-1/2 flex -translate-x-1/2 gap-1.5">
+              {homeBanners.map((_, i) => (
+                <button key={i} type="button" className={`pointer-events-auto h-1.5 rounded-full transition-all ${i === activeBanner ? 'w-5 bg-white' : 'w-1.5 bg-white/40'}`} onClick={() => scrollToBanner(i)} />
+              ))}
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Game type chip 条 — 实物 emoji 无底色 */}
       <div className="mt-4 border-b border-white/5">

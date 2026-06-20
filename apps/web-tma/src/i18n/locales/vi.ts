@@ -88,32 +88,6 @@ export default {
     referralCodePlaceholder: 'Nhập mã giới thiệu (tùy chọn)',
   },
   home: {
-    banners: {
-      '1': {
-        tag: 'NẠP LẦN ĐẦU',
-        title: '120% LÊN TỚI\n₱1.000',
-        sub: 'Nạp tối thiểu ₱100 · Yêu cầu 15x cược',
-        cta: 'NHẬN NGAY',
-      },
-      '2': {
-        tag: 'CHIP THỬ MIỄN PHÍ',
-        title: 'NHẬN ₱88\nMIỄN PHÍ',
-        sub: 'Không cần nạp · Chỉ dành người chơi mới',
-        cta: 'NHẬN MIỄN PHÍ',
-      },
-      '3': {
-        tag: 'GIỚI THIỆU & NHẬN',
-        title: 'KIẾM ₱50\nMỖI BẠN BÈ',
-        sub: 'Bạn được mời cũng nhận ₱30 thưởng',
-        cta: 'MỜI NGAY',
-      },
-      '4': {
-        tag: 'GAME CAO CẤP',
-        title: '1000+\nTRÒ CHƠI',
-        sub: 'JILI · PGSOFT · Evolution · 20+ nhà cung cấp',
-        cta: 'CHƠI NGAY',
-      },
-    },
     gameTabs: {
       all: 'Tất cả game',
       slots: 'Slots',

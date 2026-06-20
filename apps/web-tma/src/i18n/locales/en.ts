@@ -159,32 +159,6 @@ export default {
     entry: 'Account & login methods',
   },
   home: {
-    banners: {
-      '1': {
-        tag: 'FIRST DEPOSIT',
-        title: '120% UP TO\n₱1,000',
-        sub: 'Min ₱100 · 15x wagering req',
-        cta: 'CLAIM NOW',
-      },
-      '2': {
-        tag: 'FREE TRIAL CHIPS',
-        title: 'GET ₱88\nFREE CHIPS',
-        sub: 'No deposit · New players only',
-        cta: 'CLAIM FREE',
-      },
-      '3': {
-        tag: 'REFER & EARN',
-        title: 'EARN ₱50\nPER FRIEND',
-        sub: 'Your friend gets ₱30 bonus too',
-        cta: 'INVITE NOW',
-      },
-      '4': {
-        tag: 'PREMIUM GAMES',
-        title: '1000+\nGAMES',
-        sub: 'JILI · PGSOFT · Evolution · 20+ studios',
-        cta: 'PLAY NOW',
-      },
-    },
     gameTabs: {
       all: 'All Games',
       slots: 'Slots',

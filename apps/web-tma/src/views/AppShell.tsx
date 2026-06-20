@@ -73,7 +73,6 @@ export default function AppShell() {
     setNav: navigateTab,
     goHome,
     navigatePath,
-    goBonuses,
     openSearch,
     openCategoryLobby,
     openTeamCenter,
@@ -81,8 +80,6 @@ export default function AppShell() {
     openBetHistory,
     openLedgerRecords,
     openReferralPromo,
-    openCashback,
-    openSpin,
     closeImmersive,
     closeOverlay,
     resetToTab,
@@ -190,16 +187,6 @@ export default function AppShell() {
     openReferralPromo()
   }
 
-  function onOpenCashback() {
-    setWalletOpen(false)
-    openCashback()
-  }
-
-  async function onOpenSpin() {
-    setWalletOpen(false)
-    if (!(await auth.ensureLoggedIn(t('auth.signInBonus')))) return
-    openSpin()
-  }
 
   function openCs() { closeOverlay(); setWalletOpen(false); setCsOpen(true) }
   function onLogout() { resetToTab('menu'); setWalletOpen(false); setWalletModalOpen(false) }
@@ -416,7 +403,7 @@ export default function AppShell() {
           {view.type === 'none' && activeNav === 'bingo' && <BingoPage onOpenWallet={() => void openWallet()} onGameTap={() => void onGameTap()} onOpenGame={(url) => setGamePlayerUrl(url)} onOpenCategoryLobby={onOpenCategoryLobby} />}
           {view.type === 'none' && activeNav === 'menu' && <MenuPage onOpenCs={openCs} onLogin={() => void auth.ensureLoggedIn(t('auth.signInProfile'))} onLogout={onLogout} onOpenBetHistory={onOpenBetHistory} onOpenLedgerRecords={onOpenLedgerRecords} onOpenReferralPromo={onOpenReferralPromo} onOpenAgentCenter={onOpenAgentCenter} />}
           {view.type === 'none' && activeNav === 'casino' && (
-            <HomeContent onOpenPromo={goBonuses} onNavigatePath={navigatePath} onOpenCategoryLobby={onOpenCategoryLobby} onOpenCs={openCs} onOpenGame={(url) => setGamePlayerUrl(url)} onOpenReferralPromo={onOpenReferralPromo} onOpenCashback={onOpenCashback} onOpenSpin={() => void onOpenSpin()} />
+            <HomeContent onNavigatePath={navigatePath} onOpenCategoryLobby={onOpenCategoryLobby} onOpenCs={openCs} onOpenGame={(url) => setGamePlayerUrl(url)} onOpenReferralPromo={onOpenReferralPromo} />
           )}
           </Suspense>
         </main>

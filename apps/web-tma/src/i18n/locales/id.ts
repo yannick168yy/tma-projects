@@ -88,32 +88,6 @@ export default {
     referralCodePlaceholder: 'Masukkan kode referral (opsional)',
   },
   home: {
-    banners: {
-      '1': {
-        tag: 'DEPOSIT PERTAMA',
-        title: '120% HINGGA\n₱1.000',
-        sub: 'Min. deposit ₱100 · Syarat taruhan 15x',
-        cta: 'KLAIM SEKARANG',
-      },
-      '2': {
-        tag: 'CHIP COBA GRATIS',
-        title: 'DAPATKAN ₱88\nGRATIS',
-        sub: 'Tanpa deposit · Khusus pemain baru',
-        cta: 'KLAIM GRATIS',
-      },
-      '3': {
-        tag: 'AJAK & MENANG',
-        title: 'RAIH ₱50\nPER TEMAN',
-        sub: 'Teman kamu juga dapat bonus ₱30',
-        cta: 'UNDANG SEKARANG',
-      },
-      '4': {
-        tag: 'GAME PREMIUM',
-        title: '1000+\nPERMAINAN',
-        sub: 'JILI · PGSOFT · Evolution · 20+ provider',
-        cta: 'MAIN SEKARANG',
-      },
-    },
     gameTabs: {
       all: 'Semua Game',
       slots: 'Slot',
