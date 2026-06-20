@@ -160,8 +160,8 @@ export default function HomeContentConfig() {
 
   function renderEditor(item: FormItemState) {
     const ratioText = item.kind === 'banner'
-      ? '推荐尺寸：1959 x 803，PNG/JPG/WEBP，≤5MB'
-      : '推荐尺寸：543 x 330，PNG/JPG/WEBP，≤5MB'
+      ? '推荐尺寸：1280 x 720（16:9，与首页 banner 区块一致），PNG/JPG/WEBP，≤5MB'
+      : '推荐尺寸：444 x 240（约 1.85:1，与首页彩色小卡片区块一致），PNG/JPG/WEBP，≤5MB'
     return (
       <Card
         size="small"
