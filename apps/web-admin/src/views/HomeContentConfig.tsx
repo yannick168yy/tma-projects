@@ -26,11 +26,12 @@ interface FormItemState {
   enabled: boolean
 }
 
-// 前台小卡片固定背景皮肤（与 web-tma HomeCategoryShortcut 保持一致），用于后台预览
+// 前台小卡片固定背景皮肤（扁平风格，与 web-tma HomeCategoryShortcut 保持一致），用于后台预览。
+// 实际底色按卡片在整排中的位置从紫色渐变到灰色，此处用代表色（紫）展示。
 const CARD_SKIN: React.CSSProperties = {
-  background: 'radial-gradient(120% 120% at 0% 0%, #5b3fa0 0%, #382a6b 45%, #271d52 100%)',
-  boxShadow: '0 6px 14px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.06)',
-  border: '1px solid rgba(255,255,255,0.08)',
+  background: 'rgb(74, 62, 120)',
+  boxShadow: '0 4px 10px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.06)',
+  border: '1px solid rgba(255,255,255,0.07)',
 }
 
 const promoOptions = [
@@ -216,7 +217,7 @@ export default function HomeContentConfig() {
   function renderEditor(item: FormItemState) {
     const ratioText = item.kind === 'banner'
       ? '推荐尺寸：1280 x 720（16:9，与首页 banner 区块一致），PNG/JPG/WEBP，≤5MB'
-      : '卡片背景与排版已固定，只需上传图标 + 填写文字。图标建议：120 x 120 透明背景 PNG/WEBP，≤5MB'
+      : '卡片背景（扁平风格，整排底色自动从紫渐变到灰）与排版已固定，只需上传图标 + 填写文字。图标建议：120 x 120 透明背景 PNG/WEBP，≤5MB'
     return (
       <Card
         size="small"
