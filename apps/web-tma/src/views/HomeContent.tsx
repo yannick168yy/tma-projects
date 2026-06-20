@@ -281,7 +281,7 @@ const [gamesLoading, setGamesLoading] = useState(true)
 
       {/* Banner 轮播（后台装修配置） */}
       {homeBanners.length > 0 && (
-        <div className="px-4">
+        <div className="px-4 mt-2">
           <div className="relative h-56 overflow-hidden rounded-2xl">
             <div ref={bannerTrackRef} className="banner-carousel flex h-full snap-x snap-mandatory hide-scrollbar" onScroll={onBannerScroll} onTouchStart={onBannerTouchStart} onTouchMove={onBannerTouchMove} onTouchEnd={onBannerTouchEnd} onTouchCancel={onBannerTouchEnd}>
               {homeBanners.map((banner) => (
