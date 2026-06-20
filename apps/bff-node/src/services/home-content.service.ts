@@ -36,7 +36,9 @@ interface HomeContentRow extends RowDataPacket {
 const VALID_MIME = new Set(['image/png', 'image/jpeg', 'image/webp'])
 
 function imageUrl(key: string): string {
-  return `/api/v1/home/images/${encodeURIComponent(key)}`
+  // key 形如 home/banner/xxx.webp，斜杠须保留为路径分隔符（nginx 会解码 %2F），
+  // 仅对各段做编码，不编码斜杠
+  return `/api/v1/home/images/${key.split('/').map(encodeURIComponent).join('/')}`
 }
 
 function mapRow(row: HomeContentRow): HomeContentItem {
