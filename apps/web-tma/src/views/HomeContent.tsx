@@ -95,6 +95,7 @@ export default function HomeContent({ onOpenPromo, onOpenCategoryLobby, onOpenCs
   // Banner
   const [activeBanner, setActiveBanner] = useState(0)
   const bannerTrackRef = useRef<HTMLDivElement>(null)
+  const cardTrackRef = useRef<HTMLDivElement>(null)
   const bannerDragRef = useRef({ startX: 0, startY: 0, startScroll: 0, axis: null as 'x'|'y'|null, lastX: 0, lastT: 0 })
   const marqueeWinners = useMemo(() => [...WINNERS, ...WINNERS], [])
 
@@ -273,16 +274,22 @@ const [gamesLoading, setGamesLoading] = useState(true)
         })))
       }
       if (content.cards.length > 0) {
-        setHomeCards(CATEGORIES.map((category, index) => {
-          const item = content.cards.find((card) => card.slot === index + 1)
-          if (!item) return category
-          return { ...category, ...resolveHomeAction(item), image: item.imageUrl, imageOnly: true }
-        }))
+        setHomeCards(content.cards.map((item, index) => ({
+          ...CATEGORIES[index % CATEGORIES.length],
+          ...resolveHomeAction(item),
+          slot: item.slot,
+          image: item.imageUrl,
+          imageOnly: true,
+        })))
       }
     }).catch(() => {})
     void loadBetTab('latest')
     if (auth.token && auth.user) void promotion.loadTeamStatus()
   }, [])
+
+  useEffect(() => {
+    if (cardTrackRef.current) cardTrackRef.current.scrollLeft = 0
+  }, [homeCards])
 
   const providerList = ['JILI', 'PGSOFT', 'PRAGMATIC', 'BGAMING', 'EVOLUTION', 'HABANERO', 'NOLIMIT', 'NETENT', 'POPIPLAY', 'SPRIBE', 'BOOONGO']
 
@@ -290,10 +297,10 @@ const [gamesLoading, setGamesLoading] = useState(true)
     <div className="page-main">
       {/* Category shortcuts */}
       {/* 优惠菜单 */}
-      <div className="category-shortcut-row flex gap-3 pl-4 pr-4 pb-2 pt-1.5 overflow-x-auto hide-scrollbar scroll-ps-4">
-        {homeCards.map((c) => (
+      <div ref={cardTrackRef} className="category-shortcut-row flex gap-3 pl-4 pr-4 pb-2 pt-1.5 overflow-x-auto hide-scrollbar scroll-ps-4">
+        {homeCards.map((c, index) => (
           <HomeCategoryShortcut
-            key={c.id}
+            key={`${c.id}-${c.slot ?? index}`}
             category={c}
             onClick={() => { if (c.nav === 'cashback') { onOpenCashback(); return } if (c.nav === 'spin') { onOpenSpin(); return } onOpenPromo(c.promo) }}
           />
@@ -302,10 +309,10 @@ const [gamesLoading, setGamesLoading] = useState(true)
 
       {/* Banner carousel */}
       <div className="px-4">
-        <div className="relative aspect-[1959/803] overflow-hidden rounded-2xl">
+        <div className="relative h-56 overflow-hidden rounded-2xl">
           <div ref={bannerTrackRef} className="banner-carousel flex h-full snap-x snap-mandatory hide-scrollbar" onScroll={onBannerScroll} onTouchStart={onBannerTouchStart} onTouchMove={onBannerTouchMove} onTouchEnd={onBannerTouchEnd} onTouchCancel={onBannerTouchEnd}>
             {localizedBanners.map((banner) => (
-              <article key={banner.id} className="relative h-full w-full flex-shrink-0 snap-center" onClick={() => { if (banner.imageOnly) onBannerCta(banner.ctaAction) }}>
+              <article key={banner.id} className="relative h-56 w-full flex-shrink-0 snap-center" onClick={() => { if (banner.imageOnly) onBannerCta(banner.ctaAction) }}>
                 <div className={`absolute inset-0 bg-gradient-to-br ${banner.gradient}`} />
                 <img src={banner.image} alt="" draggable={false} className="absolute inset-0 h-full w-full object-cover" />
                 {!banner.imageOnly && (

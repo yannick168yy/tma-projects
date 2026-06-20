@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
-import { Button, Card, Col, Form, Image, Input, Row, Select, Space, Switch, Typography, Upload, message, Spin } from 'antd'
-import { HomeOutlined, UploadOutlined } from '@ant-design/icons'
+import { Button, Card, Col, Form, Image, Input, Popconfirm, Row, Select, Space, Switch, Tabs, Typography, Upload, message, Spin } from 'antd'
+import { DeleteOutlined, HomeOutlined, PlusOutlined, UploadOutlined } from '@ant-design/icons'
 import type { UploadFile } from 'antd'
 import {
+  deleteHomeContentItem,
   getHomeContent,
   saveHomeContentItem,
   uploadHomeImage,
@@ -41,14 +42,6 @@ function emptyItem(kind: Kind, slot: number): FormItemState {
   return { kind, slot, imageKey: '', imageUrl: '', actionType: 'none', actionValue: null, enabled: true }
 }
 
-function mergeItems(kind: Kind, count: number, items: HomeContentItem[]): FormItemState[] {
-  return Array.from({ length: count }, (_, index) => {
-    const slot = index + 1
-    const item = items.find((i) => i.slot === slot)
-    return item ? { ...item } : emptyItem(kind, slot)
-  })
-}
-
 function readFileDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
@@ -58,9 +51,16 @@ function readFileDataUrl(file: File): Promise<string> {
   })
 }
 
+function nextSlot(items: FormItemState[]): number {
+  return items.reduce((max, item) => Math.max(max, item.slot), 0) + 1
+}
+
 export default function HomeContentConfig() {
   const [loading, setLoading] = useState(true)
   const [savingKey, setSavingKey] = useState('')
+  const [activeKind, setActiveKind] = useState<Kind>('banner')
+  const [activeBannerSlot, setActiveBannerSlot] = useState('1')
+  const [activeCardSlot, setActiveCardSlot] = useState('1')
   const [banners, setBanners] = useState<FormItemState[]>([])
   const [cards, setCards] = useState<FormItemState[]>([])
 
@@ -68,8 +68,12 @@ export default function HomeContentConfig() {
     setLoading(true)
     try {
       const data = await getHomeContent()
-      setBanners(mergeItems('banner', 4, data.banners))
-      setCards(mergeItems('card', 6, data.cards))
+      const nextBanners = data.banners.map((item) => ({ ...item })).sort((a, b) => a.slot - b.slot)
+      const nextCards = data.cards.map((item) => ({ ...item })).sort((a, b) => a.slot - b.slot)
+      setBanners(nextBanners)
+      setCards(nextCards)
+      setActiveBannerSlot(String(nextBanners[0]?.slot ?? 1))
+      setActiveCardSlot(String(nextCards[0]?.slot ?? 1))
     } catch (e) {
       message.error(e instanceof Error ? e.message : '加载失败')
     } finally {
@@ -79,9 +83,44 @@ export default function HomeContentConfig() {
 
   useEffect(() => { void load() }, [])
 
-  function updateItem(kind: Kind, slot: number, patch: Partial<FormItemState>) {
+  function itemsOf(kind: Kind) {
+    return kind === 'banner' ? banners : cards
+  }
+
+  function setItemsOf(kind: Kind, updater: (items: FormItemState[]) => FormItemState[]) {
     const setter = kind === 'banner' ? setBanners : setCards
-    setter((prev) => prev.map((item) => item.slot === slot ? { ...item, ...patch } : item))
+    setter((prev) => updater(prev).sort((a, b) => a.slot - b.slot))
+  }
+
+  function activeSlotOf(kind: Kind) {
+    return kind === 'banner' ? activeBannerSlot : activeCardSlot
+  }
+
+  function setActiveSlotOf(kind: Kind, slot: string) {
+    if (kind === 'banner') setActiveBannerSlot(slot)
+    else setActiveCardSlot(slot)
+  }
+
+  function updateItem(kind: Kind, slot: number, patch: Partial<FormItemState>) {
+    setItemsOf(kind, (prev) => prev.map((item) => item.slot === slot ? { ...item, ...patch } : item))
+  }
+
+  function handleAdd(kind: Kind) {
+    const slot = nextSlot(itemsOf(kind))
+    setItemsOf(kind, (prev) => [...prev, emptyItem(kind, slot)])
+    setActiveSlotOf(kind, String(slot))
+  }
+
+  async function handleDelete(item: FormItemState) {
+    if (item.imageKey) {
+      await deleteHomeContentItem(item.kind, item.slot)
+    }
+    setItemsOf(item.kind, (prev) => {
+      const next = prev.filter((entry) => entry.slot !== item.slot)
+      setActiveSlotOf(item.kind, String(next[0]?.slot ?? 1))
+      return next
+    })
+    message.success('已删除')
   }
 
   async function handleUpload(kind: Kind, slot: number, file: File) {
@@ -120,86 +159,115 @@ export default function HomeContentConfig() {
   }
 
   function renderEditor(item: FormItemState) {
-    const title = item.kind === 'banner' ? `Banner ${item.slot}` : `首页小卡片 ${item.slot}`
     const ratioText = item.kind === 'banner'
       ? '推荐尺寸：1959 x 803，PNG/JPG/WEBP，≤5MB'
       : '推荐尺寸：543 x 330，PNG/JPG/WEBP，≤5MB'
     return (
-      <Col span={item.kind === 'banner' ? 24 : 12} key={`${item.kind}-${item.slot}`}>
-        <Card
-          title={title}
-          size="small"
-          extra={
+      <Card
+        size="small"
+        extra={
+          <Space>
             <Switch
               checkedChildren="启用"
               unCheckedChildren="关闭"
               checked={item.enabled}
               onChange={(enabled) => updateItem(item.kind, item.slot, { enabled })}
             />
-          }
-        >
-          <Space direction="vertical" style={{ width: '100%' }} size={12}>
-            <Text type="secondary">{ratioText}</Text>
-            {item.imageUrl ? (
-              <Image
-                src={item.imageUrl}
-                height={item.kind === 'banner' ? 160 : 120}
-                style={{ width: '100%', objectFit: 'cover', borderRadius: 6, background: '#111827' }}
-              />
-            ) : (
-              <div style={{ height: item.kind === 'banner' ? 160 : 120, border: '1px dashed #d9d9d9', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#999' }}>
-                未上传图片
-              </div>
-            )}
-            <Upload
-              accept="image/png,image/jpeg,image/webp"
-              maxCount={1}
-              fileList={[] as UploadFile[]}
-              beforeUpload={(file) => {
-                void handleUpload(item.kind, item.slot, file)
-                return false
-              }}
-            >
-              <Button icon={<UploadOutlined />}>上传图片</Button>
-            </Upload>
-            <Form layout="vertical" requiredMark={false}>
-              <Row gutter={12}>
-                <Col span={item.actionType === 'promo' ? 12 : 24}>
-                  <Form.Item label="点击跳转" style={{ marginBottom: 8 }}>
+            <Popconfirm title="确定删除这一项？" onConfirm={() => void handleDelete(item)}>
+              <Button danger icon={<DeleteOutlined />}>删除</Button>
+            </Popconfirm>
+          </Space>
+        }
+      >
+        <Space direction="vertical" style={{ width: '100%' }} size={12}>
+          <Text type="secondary">{ratioText}</Text>
+          {item.imageUrl ? (
+            <Image
+              src={item.imageUrl}
+              height={item.kind === 'banner' ? 220 : 160}
+              style={{ width: '100%', objectFit: 'cover', borderRadius: 6, background: '#111827' }}
+            />
+          ) : (
+            <div style={{ height: item.kind === 'banner' ? 220 : 160, border: '1px dashed #d9d9d9', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#999' }}>
+              未上传图片
+            </div>
+          )}
+          <Upload
+            accept="image/png,image/jpeg,image/webp"
+            maxCount={1}
+            fileList={[] as UploadFile[]}
+            beforeUpload={(file) => {
+              void handleUpload(item.kind, item.slot, file)
+              return false
+            }}
+          >
+            <Button icon={<UploadOutlined />}>上传图片</Button>
+          </Upload>
+          <Form layout="vertical" requiredMark={false}>
+            <Row gutter={12}>
+              <Col span={item.actionType === 'promo' ? 12 : 24}>
+                <Form.Item label="点击跳转" style={{ marginBottom: 8 }}>
+                  <Select
+                    value={item.actionType}
+                    options={actionOptions}
+                    onChange={(actionType) => updateItem(item.kind, item.slot, { actionType, actionValue: actionType === 'promo' ? item.actionValue : null })}
+                  />
+                </Form.Item>
+              </Col>
+              {item.actionType === 'promo' && (
+                <Col span={12}>
+                  <Form.Item label="活动类型" style={{ marginBottom: 8 }}>
                     <Select
-                      value={item.actionType}
-                      options={actionOptions}
-                      onChange={(actionType) => updateItem(item.kind, item.slot, { actionType, actionValue: actionType === 'promo' ? item.actionValue : null })}
+                      value={item.actionValue ?? undefined}
+                      options={promoOptions}
+                      placeholder="请选择"
+                      onChange={(actionValue) => updateItem(item.kind, item.slot, { actionValue })}
                     />
                   </Form.Item>
                 </Col>
-                {item.actionType === 'promo' && (
-                  <Col span={12}>
-                    <Form.Item label="活动类型" style={{ marginBottom: 8 }}>
-                      <Select
-                        value={item.actionValue ?? undefined}
-                        options={promoOptions}
-                        placeholder="请选择"
-                        onChange={(actionValue) => updateItem(item.kind, item.slot, { actionValue })}
-                      />
-                    </Form.Item>
-                  </Col>
-                )}
-              </Row>
-              <Form.Item label="图片 key" style={{ marginBottom: 8 }}>
-                <Input value={item.imageKey} readOnly placeholder="上传后自动生成" />
-              </Form.Item>
-            </Form>
-            <Button
-              type="primary"
-              loading={savingKey === `${item.kind}-${item.slot}`}
-              onClick={() => void handleSave(item)}
-            >
-              保存设置
-            </Button>
-          </Space>
-        </Card>
-      </Col>
+              )}
+            </Row>
+            <Form.Item label="图片 key" style={{ marginBottom: 8 }}>
+              <Input value={item.imageKey} readOnly placeholder="上传后自动生成" />
+            </Form.Item>
+          </Form>
+          <Button
+            type="primary"
+            loading={savingKey === `${item.kind}-${item.slot}`}
+            onClick={() => void handleSave(item)}
+          >
+            保存设置
+          </Button>
+        </Space>
+      </Card>
+    )
+  }
+
+  function renderKind(kind: Kind) {
+    const items = itemsOf(kind)
+    const activeSlot = activeSlotOf(kind)
+    return (
+      <Space direction="vertical" size={16} style={{ width: '100%' }}>
+        <Button type="primary" icon={<PlusOutlined />} onClick={() => handleAdd(kind)}>
+          新增{kind === 'banner' ? 'Banner' : '小卡片'}
+        </Button>
+        {items.length === 0 ? (
+          <Card>
+            <Text type="secondary">暂无内容，点击上方按钮新增。</Text>
+          </Card>
+        ) : (
+          <Tabs
+            type="card"
+            activeKey={items.some((item) => String(item.slot) === activeSlot) ? activeSlot : String(items[0].slot)}
+            onChange={(key) => setActiveSlotOf(kind, key)}
+            items={items.map((item) => ({
+              key: String(item.slot),
+              label: `${kind === 'banner' ? 'Banner' : '小卡片'} ${item.slot}`,
+              children: renderEditor(item),
+            }))}
+          />
+        )}
+      </Space>
     )
   }
 
@@ -213,15 +281,14 @@ export default function HomeContentConfig() {
         <Text type="secondary" style={{ fontSize: 13 }}>设置首页 banner 和彩色小卡片图片</Text>
       </div>
 
-      <Title level={5}>Banner</Title>
-      <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
-        {banners.map(renderEditor)}
-      </Row>
-
-      <Title level={5}>首页彩色小卡片</Title>
-      <Row gutter={[16, 16]}>
-        {cards.map(renderEditor)}
-      </Row>
+      <Tabs
+        activeKey={activeKind}
+        onChange={(key) => setActiveKind(key as Kind)}
+        items={[
+          { key: 'banner', label: 'Banner', children: renderKind('banner') },
+          { key: 'card', label: '首页彩色小卡片', children: renderKind('card') },
+        ]}
+      />
     </div>
   )
 }

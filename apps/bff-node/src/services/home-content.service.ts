@@ -99,6 +99,14 @@ export async function saveHomeContentItem(env: Env, item: {
   }
 }
 
+export async function deleteHomeContentItem(env: Env, kind: HomeContentKind, slot: number): Promise<void> {
+  const db = getMysqlPool(env)
+  await db.query<ResultSetHeader>(
+    'DELETE FROM bg_home_content WHERE kind = ? AND slot = ?',
+    [kind, slot],
+  )
+}
+
 export function parseImageDataUrl(dataUrl: string): { data: Buffer; mimeType: string; ext: string } | null {
   const match = dataUrl.match(/^data:(image\/(?:png|jpeg|webp));base64,([A-Za-z0-9+/=]+)$/)
   if (!match) return null

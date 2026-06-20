@@ -650,6 +650,8 @@ export const uploadHomeImage = (kind: 'banner' | 'card', imageData: string) =>
   post<{ imageKey: string; imageUrl: string }>('/admin/home-content/upload', { kind, imageData })
 export const saveHomeContentItem = (item: Pick<HomeContentItem, 'kind' | 'slot' | 'imageKey' | 'actionType' | 'actionValue' | 'enabled'>) =>
   req<HomeContentItem>('PUT', '/admin/home-content/item', item)
+export const deleteHomeContentItem = (kind: 'banner' | 'card', slot: number) =>
+  req<{ ok: boolean }>('DELETE', `/admin/home-content/item/${kind}/${slot}`)
 
 // Rewards Spin
 export interface SpinDepositRule {

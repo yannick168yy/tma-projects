@@ -1,6 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
-import AppShell from '@/views/AppShell'
 import SplashPage from '@/views/SplashPage'
 import GoogleAuthCallback from '@/views/GoogleAuthCallback'
 import TelegramAuthCallback from '@/views/TelegramAuthCallback'
@@ -9,6 +8,8 @@ import RedPacketSheet from '@/components/promotion/RedPacketSheet'
 import TrialWelcomeSheet, { TRIAL_SHEET_SEEN_KEY } from '@/components/promotion/TrialWelcomeSheet'
 import { useAuthStore } from '@/stores/auth'
 import { usePromotionStore } from '@/stores/promotion'
+
+const AppShell = lazy(() => import('@/views/AppShell'))
 
 function MainApp() {
   const phase = useAuthStore((s) => s.phase)
@@ -49,7 +50,9 @@ function MainApp() {
 
   return (
     <>
-      <AppShell />
+      <Suspense fallback={null}>
+        <AppShell />
+      </Suspense>
       <LoginSheet open={loginSheetOpen} onClose={closeLoginSheet} />
       {trialWelcomeOpen && (
         <TrialWelcomeSheet

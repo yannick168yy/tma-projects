@@ -1,6 +1,7 @@
 import Router from '@koa/router'
 import {
   getHomeContent,
+  deleteHomeContentItem,
   saveHomeContentItem,
   storeHomeImage,
   type HomeContentActionType,
@@ -76,6 +77,20 @@ router.put('/item', async (ctx) => {
     actionValue: typeof body.actionValue === 'string' && body.actionValue ? body.actionValue : null,
     enabled: body.enabled !== false,
   }))
+})
+
+router.delete('/item/:kind/:slot', async (ctx) => {
+  if (!validKind(ctx.params.kind)) {
+    fail(ctx, 400, 'kind 必须是 banner 或 card')
+    return
+  }
+  const slot = Number(ctx.params.slot)
+  if (!Number.isInteger(slot) || slot < 1 || slot > 20) {
+    fail(ctx, 400, 'slot 必须是 1-20 的整数')
+    return
+  }
+  await deleteHomeContentItem(ctx.state.env, ctx.params.kind, slot)
+  ok(ctx, { ok: true })
 })
 
 export default router

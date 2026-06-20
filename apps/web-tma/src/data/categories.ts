@@ -1,12 +1,13 @@
 import bonusesImg from '@/assets/home/promos/bonuses.webp'
-import cashbackImg from '@/assets/home/new-cards/cashback.png'
-import firstDepImg from '@/assets/home/new-cards/first-dep.png'
+import cashbackImg from '@/assets/home/new-cards/cashback.webp'
+import firstDepImg from '@/assets/home/new-cards/first-dep.webp'
 import firstPlayImg from '@/assets/home/promos/first-play.webp'
-import referWinImg from '@/assets/home/new-cards/refer-win.png'
-import rewardsSpinImg from '@/assets/home/new-cards/rewards-spin.png'
+import referWinImg from '@/assets/home/new-cards/refer-win.webp'
+import rewardsSpinImg from '@/assets/home/new-cards/rewards-spin.webp'
 
 export interface Category {
   id: 'bonuses' | 'firstPlay' | 'referWin' | 'firstDep' | 'cashback' | 'rewardsSpin'
+  slot?: number
   icon: string
   image: string
   imageOnly?: boolean

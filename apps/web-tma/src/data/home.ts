@@ -1,4 +1,4 @@
-import firstDepositBanner from '@/assets/home/new-banners/first-deposit.png'
+import firstDepositBanner from '@/assets/home/new-banners/first-deposit.webp'
 import gamesBanner from '@/assets/home/banners/games.webp'
 import referralBanner from '@/assets/home/banners/referral.webp'
 import trialChipsBanner from '@/assets/home/banners/trial-chips.webp'

@@ -1,23 +1,7 @@
-import { useState, useEffect, useRef, useMemo } from 'react'
+import { lazy, Suspense, useState, useEffect, useRef, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ChevronDown, ChevronLeft, Wallet, Gift, Home, Menu, Dices, Check, Search } from 'lucide-react'
 import BetogoLogo from '@/components/BetogoLogo'
-import WalletModal from '@/components/wallet/WalletModal'
-import SearchOverlay from '@/components/search/SearchOverlay'
-import HomeContent from '@/views/HomeContent'
-import BonusesPage from '@/views/BonusesPage'
-import BingoPage from '@/views/BingoPage'
-import MenuPage from '@/views/MenuPage'
-import SlotsLobby from '@/views/SlotsLobby'
-import CustomerServicePage from '@/views/CustomerServicePage'
-import TeamCenterPage from '@/views/TeamCenterPage'
-import AgentCenterPage from '@/views/AgentCenterPage'
-import BetHistoryPage from '@/views/BetHistoryPage'
-import LedgerRecordsPage from '@/views/LedgerRecordsPage'
-import ReferralPromoPage from '@/views/ReferralPromoPage'
-import CashbackPage from '@/views/CashbackPage'
-import RewardsSpinPage from '@/views/RewardsSpinPage'
-import GamePlayer from '@/components/GamePlayer'
 import { NAV_ITEMS } from '@/data/home'
 import { useAuthStore } from '@/stores/auth'
 import {
@@ -30,6 +14,23 @@ import {
 } from '@/stores/wallet'
 import { isImmersiveFullPage } from '@/hooks/useFullPageOverlay'
 import { useAppNavigation } from '@/hooks/useAppNavigation'
+
+const WalletModal = lazy(() => import('@/components/wallet/WalletModal'))
+const SearchOverlay = lazy(() => import('@/components/search/SearchOverlay'))
+const HomeContent = lazy(() => import('@/views/HomeContent'))
+const BonusesPage = lazy(() => import('@/views/BonusesPage'))
+const BingoPage = lazy(() => import('@/views/BingoPage'))
+const MenuPage = lazy(() => import('@/views/MenuPage'))
+const SlotsLobby = lazy(() => import('@/views/SlotsLobby'))
+const CustomerServicePage = lazy(() => import('@/views/CustomerServicePage'))
+const TeamCenterPage = lazy(() => import('@/views/TeamCenterPage'))
+const AgentCenterPage = lazy(() => import('@/views/AgentCenterPage'))
+const BetHistoryPage = lazy(() => import('@/views/BetHistoryPage'))
+const LedgerRecordsPage = lazy(() => import('@/views/LedgerRecordsPage'))
+const ReferralPromoPage = lazy(() => import('@/views/ReferralPromoPage'))
+const CashbackPage = lazy(() => import('@/views/CashbackPage'))
+const RewardsSpinPage = lazy(() => import('@/views/RewardsSpinPage'))
+const GamePlayer = lazy(() => import('@/components/GamePlayer'))
 
 type NavId = (typeof NAV_ITEMS)[number]['id']
 
@@ -353,6 +354,7 @@ export default function AppShell() {
           className="relative overflow-x-clip"
           style={mainStyle}
         >
+          <Suspense fallback={null}>
           {view.type === 'search' && (
             <SearchOverlay onClose={closeOverlay} onGameTap={() => void onGameTap()} onOpenGame={(url) => setGamePlayerUrl(url)} />
           )}
@@ -415,6 +417,7 @@ export default function AppShell() {
           {view.type === 'none' && activeNav === 'casino' && (
             <HomeContent onOpenPromo={goBonuses} onOpenCategoryLobby={onOpenCategoryLobby} onOpenCs={openCs} onOpenGame={(url) => setGamePlayerUrl(url)} onOpenReferralPromo={onOpenReferralPromo} onOpenCashback={onOpenCashback} onOpenSpin={() => void onOpenSpin()} />
           )}
+          </Suspense>
         </main>
 
         {!isImmersive && (
@@ -436,19 +439,21 @@ export default function AppShell() {
         )}
       </div>
 
-      {walletModalOpen && (
-        <WalletModal open onClose={() => setWalletModalOpen(false)} />
-      )}
+      <Suspense fallback={null}>
+        {walletModalOpen && (
+          <WalletModal open onClose={() => setWalletModalOpen(false)} />
+        )}
 
-      {csOpen && (
-        <div className="fixed inset-0 z-[60] flex justify-center">
-          <div className="w-full max-w-[430px] bg-background flex flex-col overflow-hidden">
-            <CustomerServicePage onClose={() => setCsOpen(false)} />
+        {csOpen && (
+          <div className="fixed inset-0 z-[60] flex justify-center">
+            <div className="w-full max-w-[430px] bg-background flex flex-col overflow-hidden">
+              <CustomerServicePage onClose={() => setCsOpen(false)} />
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {gamePlayerUrl && <GamePlayer url={gamePlayerUrl} onClose={() => setGamePlayerUrl(null)} />}
+        {gamePlayerUrl && <GamePlayer url={gamePlayerUrl} onClose={() => setGamePlayerUrl(null)} />}
+      </Suspense>
     </div>
   )
 }
