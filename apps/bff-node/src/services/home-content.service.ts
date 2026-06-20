@@ -5,7 +5,7 @@ import type { Env } from '../config/env.js'
 import { getStorageProvider } from './storage/index.js'
 
 export type HomeContentKind = 'banner' | 'card'
-export type HomeContentActionType = 'promo' | 'cashback' | 'spin' | 'lobby' | 'none'
+export type HomeContentActionType = 'promo' | 'cashback' | 'spin' | 'lobby' | 'none' | 'path' | 'url'
 
 export interface HomeContentItem {
   kind: HomeContentKind

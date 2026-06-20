@@ -5,7 +5,7 @@ export interface HomeContentItem {
   slot: number
   imageKey: string
   imageUrl: string
-  actionType: 'promo' | 'cashback' | 'spin' | 'lobby' | 'none'
+  actionType: 'promo' | 'cashback' | 'spin' | 'lobby' | 'none' | 'path' | 'url'
   actionValue: string | null
   enabled: boolean
 }

@@ -81,6 +81,12 @@ export function useAppNavigation() {
     window.scrollTo({ top: 0, behavior: 'instant' })
   }, [navigate])
 
+  const navigatePath = useCallback((path: string) => {
+    if (!path) return
+    navigate(path)
+    window.scrollTo({ top: 0, behavior: 'instant' })
+  }, [navigate])
+
   const goBonuses = useCallback((promo: string | null = null) => {
     navigate(buildTabPath('bonuses', promo))
   }, [navigate])
@@ -148,6 +154,7 @@ export function useAppNavigation() {
     view,
     setNav,
     goHome,
+    navigatePath,
     goBonuses,
     openSearch,
     openCategoryLobby,

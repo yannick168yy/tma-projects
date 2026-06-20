@@ -100,6 +100,26 @@ export function buildTabPath(tab: TabId, promoFilter: string | null = null): str
   return TAB_PATHS[tab]
 }
 
+// 把首页装修配置的 action 统一解析成"导航目标"：内部路由 path 或外部 url（空串=不跳转）。
+// 旧类型(promo/cashback/spin/lobby)做向后兼容映射。
+export function resolveHomeActionPath(actionType: string, actionValue: string | null): string {
+  switch (actionType) {
+    case 'path':
+    case 'url':
+      return actionValue ?? ''
+    case 'promo':
+      return actionValue ? buildTabPath('bonuses', actionValue) : TAB_PATHS.bonuses
+    case 'cashback':
+      return '/cashback'
+    case 'spin':
+      return '/rewards-spin'
+    case 'lobby':
+      return '/slots/popular?sortBy=ph_bonus'
+    default:
+      return ''
+  }
+}
+
 export type OverlayNavigateState = { returnTo?: string }
 
 export function currentReturnTo(pathname: string, search: string): string {

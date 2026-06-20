@@ -30,13 +30,57 @@ const promoOptions = [
   { label: '首席体验官', value: 'trial' },
 ]
 
-const actionOptions = [
+// 跳转目标 = 前台路由 path（'none' 不跳转，'url' 外链）。优惠页可再选具体优惠区块。
+const destinations = [
   { label: '无跳转', value: 'none' },
-  { label: '活动页', value: 'promo' },
-  { label: '洗码页', value: 'cashback' },
-  { label: '转盘页', value: 'spin' },
-  { label: '游戏大厅', value: 'lobby' },
+  { label: '首页', value: '/casino' },
+  { label: '优惠页（Bonuses）', value: '/bonuses' },
+  { label: 'Bingo 宾果', value: '/bingo' },
+  { label: '老虎机大厅', value: '/slots' },
+  { label: '洗码返水页', value: '/cashback' },
+  { label: '幸运转盘', value: '/rewards-spin' },
+  { label: '团队中心', value: '/team' },
+  { label: '代理中心', value: '/agent' },
+  { label: '推荐返利', value: '/referral' },
+  { label: '投注记录', value: '/bet-history' },
+  { label: '奖励记录', value: '/rewards' },
+  { label: '菜单', value: '/menu' },
+  { label: '外部链接', value: 'url' },
 ]
+const destValues = new Set(destinations.map((d) => d.value))
+
+// 旧类型(promo/cashback/spin/lobby)与新 path/url 统一映射到目标下拉
+function itemToDest(item: FormItemState): string {
+  switch (item.actionType) {
+    case 'none': return 'none'
+    case 'url': return 'url'
+    case 'promo': return '/bonuses'
+    case 'cashback': return '/cashback'
+    case 'spin': return '/rewards-spin'
+    case 'lobby': return '/slots'
+    case 'path': {
+      const base = (item.actionValue ?? '').split('?')[0]
+      return destValues.has(base) ? base : 'none'
+    }
+    default: return 'none'
+  }
+}
+
+function itemToPromo(item: FormItemState): string | undefined {
+  if (item.actionType === 'promo') return item.actionValue ?? undefined
+  if (item.actionType === 'path' && (item.actionValue ?? '').startsWith('/bonuses?promo=')) {
+    return new URLSearchParams((item.actionValue ?? '').split('?')[1]).get('promo') ?? undefined
+  }
+  return undefined
+}
+
+// 目标下拉 → 存储用的 actionType/actionValue
+function destToAction(dest: string, promo?: string): Pick<FormItemState, 'actionType' | 'actionValue'> {
+  if (dest === 'none') return { actionType: 'none', actionValue: null }
+  if (dest === 'url') return { actionType: 'url', actionValue: '' }
+  if (dest === '/bonuses') return { actionType: 'path', actionValue: promo ? `/bonuses?promo=${promo}` : '/bonuses' }
+  return { actionType: 'path', actionValue: dest }
+}
 
 function emptyItem(kind: Kind, slot: number): FormItemState {
   return { kind, slot, imageKey: '', imageUrl: '', actionType: 'none', actionValue: null, enabled: true }
@@ -147,7 +191,7 @@ export default function HomeContentConfig() {
         slot: item.slot,
         imageKey: item.imageKey,
         actionType: item.actionType,
-        actionValue: item.actionType === 'promo' ? item.actionValue : null,
+        actionValue: item.actionValue,
         enabled: item.enabled,
       })
       message.success('已保存')
@@ -204,29 +248,47 @@ export default function HomeContentConfig() {
             <Button icon={<UploadOutlined />}>上传图片</Button>
           </Upload>
           <Form layout="vertical" requiredMark={false}>
-            <Row gutter={12}>
-              <Col span={item.actionType === 'promo' ? 12 : 24}>
-                <Form.Item label="点击跳转" style={{ marginBottom: 8 }}>
-                  <Select
-                    value={item.actionType}
-                    options={actionOptions}
-                    onChange={(actionType) => updateItem(item.kind, item.slot, { actionType, actionValue: actionType === 'promo' ? item.actionValue : null })}
-                  />
-                </Form.Item>
-              </Col>
-              {item.actionType === 'promo' && (
-                <Col span={12}>
-                  <Form.Item label="活动类型" style={{ marginBottom: 8 }}>
-                    <Select
-                      value={item.actionValue ?? undefined}
-                      options={promoOptions}
-                      placeholder="请选择"
-                      onChange={(actionValue) => updateItem(item.kind, item.slot, { actionValue })}
-                    />
-                  </Form.Item>
-                </Col>
-              )}
-            </Row>
+            {(() => {
+              const dest = itemToDest(item)
+              const promo = itemToPromo(item)
+              return (
+                <Row gutter={12}>
+                  <Col span={dest === '/bonuses' || dest === 'url' ? 12 : 24}>
+                    <Form.Item label="点击跳转" style={{ marginBottom: 8 }}>
+                      <Select
+                        value={dest}
+                        options={destinations}
+                        onChange={(d) => updateItem(item.kind, item.slot, destToAction(d))}
+                      />
+                    </Form.Item>
+                  </Col>
+                  {dest === '/bonuses' && (
+                    <Col span={12}>
+                      <Form.Item label="优惠区块（可选）" style={{ marginBottom: 8 }}>
+                        <Select
+                          allowClear
+                          value={promo}
+                          options={promoOptions}
+                          placeholder="不指定则停在优惠页顶部"
+                          onChange={(p) => updateItem(item.kind, item.slot, destToAction('/bonuses', p))}
+                        />
+                      </Form.Item>
+                    </Col>
+                  )}
+                  {dest === 'url' && (
+                    <Col span={12}>
+                      <Form.Item label="外部链接" style={{ marginBottom: 8 }}>
+                        <Input
+                          value={item.actionValue ?? ''}
+                          placeholder="https://..."
+                          onChange={(e) => updateItem(item.kind, item.slot, { actionType: 'url', actionValue: e.target.value })}
+                        />
+                      </Form.Item>
+                    </Col>
+                  )}
+                </Row>
+              )
+            })()}
             <Form.Item label="图片 key" style={{ marginBottom: 8 }}>
               <Input value={item.imageKey} readOnly placeholder="上传后自动生成" />
             </Form.Item>

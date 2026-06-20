@@ -16,6 +16,8 @@ export interface Category {
   offer: string
   nav: 'bonuses' | 'cashback' | 'spin'
   promo: string | null
+  // 首页装修配置的卡片跳转目标（内部路由 path 或外链 url，空串=不跳转）；静态默认卡片无此字段
+  target?: string
 }
 
 export const CATEGORIES: Category[] = [

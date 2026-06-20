@@ -11,7 +11,7 @@ import { fail, ok } from '../../utils/response.js'
 
 const router = new Router({ prefix: '/home-content' })
 
-const actionTypes = new Set<HomeContentActionType>(['promo', 'cashback', 'spin', 'lobby', 'none'])
+const actionTypes = new Set<HomeContentActionType>(['promo', 'cashback', 'spin', 'lobby', 'none', 'path', 'url'])
 const kinds = new Set<HomeContentKind>(['banner', 'card'])
 
 function validKind(value: unknown): value is HomeContentKind {
