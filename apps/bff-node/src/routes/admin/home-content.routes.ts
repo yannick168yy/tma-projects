@@ -50,6 +50,8 @@ router.put('/item', async (ctx) => {
     imageKey?: unknown
     actionType?: unknown
     actionValue?: unknown
+    valueText?: unknown
+    labelText?: unknown
     enabled?: unknown
   }
   if (!validKind(body.kind)) {
@@ -75,6 +77,8 @@ router.put('/item', async (ctx) => {
     imageKey: body.imageKey,
     actionType: body.actionType,
     actionValue: typeof body.actionValue === 'string' && body.actionValue ? body.actionValue : null,
+    valueText: typeof body.valueText === 'string' && body.valueText ? body.valueText.slice(0, 32) : null,
+    labelText: typeof body.labelText === 'string' && body.labelText ? body.labelText.slice(0, 32) : null,
     enabled: body.enabled !== false,
   }))
 })

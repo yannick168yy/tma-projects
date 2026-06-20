@@ -21,7 +21,16 @@ interface FormItemState {
   imageUrl: string
   actionType: HomeContentItem['actionType']
   actionValue: string | null
+  valueText: string | null
+  labelText: string | null
   enabled: boolean
+}
+
+// 前台小卡片固定背景皮肤（与 web-tma HomeCategoryShortcut 保持一致），用于后台预览
+const CARD_SKIN: React.CSSProperties = {
+  background: 'radial-gradient(120% 120% at 0% 0%, #5b3fa0 0%, #382a6b 45%, #271d52 100%)',
+  boxShadow: '0 6px 14px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.06)',
+  border: '1px solid rgba(255,255,255,0.08)',
 }
 
 const promoOptions = [
@@ -83,7 +92,7 @@ function destToAction(dest: string, promo?: string): Pick<FormItemState, 'action
 }
 
 function emptyItem(kind: Kind, slot: number): FormItemState {
-  return { kind, slot, imageKey: '', imageUrl: '', actionType: 'none', actionValue: null, enabled: true }
+  return { kind, slot, imageKey: '', imageUrl: '', actionType: 'none', actionValue: null, valueText: null, labelText: null, enabled: true }
 }
 
 function readFileDataUrl(file: File): Promise<string> {
@@ -192,6 +201,8 @@ export default function HomeContentConfig() {
         imageKey: item.imageKey,
         actionType: item.actionType,
         actionValue: item.actionValue,
+        valueText: item.kind === 'card' ? item.valueText : null,
+        labelText: item.kind === 'card' ? item.labelText : null,
         enabled: item.enabled,
       })
       message.success('已保存')
@@ -205,7 +216,7 @@ export default function HomeContentConfig() {
   function renderEditor(item: FormItemState) {
     const ratioText = item.kind === 'banner'
       ? '推荐尺寸：1280 x 720（16:9，与首页 banner 区块一致），PNG/JPG/WEBP，≤5MB'
-      : '推荐尺寸：444 x 240（约 1.85:1，与首页彩色小卡片区块一致），PNG/JPG/WEBP，≤5MB'
+      : '卡片背景与排版已固定，只需上传图标 + 填写文字。图标建议：120 x 120 透明背景 PNG/WEBP，≤5MB'
     return (
       <Card
         size="small"
@@ -225,15 +236,30 @@ export default function HomeContentConfig() {
       >
         <Space direction="vertical" style={{ width: '100%' }} size={12}>
           <Text type="secondary">{ratioText}</Text>
-          {item.imageUrl ? (
-            <Image
-              src={item.imageUrl}
-              height={item.kind === 'banner' ? 220 : 160}
-              style={{ width: '100%', objectFit: 'cover', borderRadius: 6, background: '#111827' }}
-            />
+          {item.kind === 'banner' ? (
+            item.imageUrl ? (
+              <Image
+                src={item.imageUrl}
+                height={220}
+                style={{ width: '100%', objectFit: 'cover', borderRadius: 6, background: '#111827' }}
+              />
+            ) : (
+              <div style={{ height: 220, border: '1px dashed #d9d9d9', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#999' }}>
+                未上传图片
+              </div>
+            )
           ) : (
-            <div style={{ height: item.kind === 'banner' ? 220 : 160, border: '1px dashed #d9d9d9', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#999' }}>
-              未上传图片
+            // 小卡片：固定背景皮肤 + 图标 + 文字 的实时预览（与前台 1:1）
+            <div style={{ display: 'flex', justifyContent: 'center', padding: '16px 0', background: '#0f1117', borderRadius: 6 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, width: 160, height: 80, borderRadius: 16, padding: '0 11px', overflow: 'hidden', ...CARD_SKIN }}>
+                {item.imageUrl
+                  ? <img src={item.imageUrl} alt="" style={{ width: 43, height: 43, objectFit: 'contain', flexShrink: 0 }} />
+                  : <div style={{ width: 43, height: 43, borderRadius: 10, flexShrink: 0, border: '1px dashed rgba(255,255,255,0.25)' }} />}
+                <div style={{ minWidth: 0, lineHeight: 1.2 }}>
+                  <div style={{ fontSize: 17, fontWeight: 900, color: '#fcd34d', textShadow: '0 1px 2px rgba(0,0,0,0.4)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.valueText || '1.50%'}</div>
+                  <div style={{ fontSize: 15, fontWeight: 600, color: 'rgba(255,255,255,0.85)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.labelText || '返水中心'}</div>
+                </div>
+              </div>
             </div>
           )}
           <Upload
@@ -245,7 +271,7 @@ export default function HomeContentConfig() {
               return false
             }}
           >
-            <Button icon={<UploadOutlined />}>上传图片</Button>
+            <Button icon={<UploadOutlined />}>{item.kind === 'banner' ? '上传图片' : '上传图标'}</Button>
           </Upload>
           <Form layout="vertical" requiredMark={false}>
             {(() => {
@@ -289,7 +315,31 @@ export default function HomeContentConfig() {
                 </Row>
               )
             })()}
-            <Form.Item label="图片 key" style={{ marginBottom: 8 }}>
+            {item.kind === 'card' && (
+              <Row gutter={12}>
+                <Col span={12}>
+                  <Form.Item label="数值文案（金色）" style={{ marginBottom: 8 }}>
+                    <Input
+                      value={item.valueText ?? ''}
+                      maxLength={32}
+                      placeholder="如 1.50% / ₱15,780 / 120%"
+                      onChange={(e) => updateItem(item.kind, item.slot, { valueText: e.target.value })}
+                    />
+                  </Form.Item>
+                </Col>
+                <Col span={12}>
+                  <Form.Item label="标签文案（浅色）" style={{ marginBottom: 8 }}>
+                    <Input
+                      value={item.labelText ?? ''}
+                      maxLength={32}
+                      placeholder="如 返水中心 / 奖励转盘"
+                      onChange={(e) => updateItem(item.kind, item.slot, { labelText: e.target.value })}
+                    />
+                  </Form.Item>
+                </Col>
+              </Row>
+            )}
+            <Form.Item label={item.kind === 'banner' ? '图片 key' : '图标 key'} style={{ marginBottom: 8 }}>
               <Input value={item.imageKey} readOnly placeholder="上传后自动生成" />
             </Form.Item>
           </Form>

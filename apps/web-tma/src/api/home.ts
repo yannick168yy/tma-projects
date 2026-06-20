@@ -7,6 +7,8 @@ export interface HomeContentItem {
   imageUrl: string
   actionType: 'promo' | 'cashback' | 'spin' | 'lobby' | 'none' | 'path' | 'url'
   actionValue: string | null
+  valueText: string | null
+  labelText: string | null
   enabled: boolean
 }
 

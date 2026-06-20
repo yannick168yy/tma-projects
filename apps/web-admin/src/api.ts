@@ -638,6 +638,8 @@ export interface HomeContentItem {
   imageUrl: string
   actionType: 'promo' | 'cashback' | 'spin' | 'lobby' | 'none' | 'path' | 'url'
   actionValue: string | null
+  valueText: string | null
+  labelText: string | null
   enabled: boolean
   updatedAt: string | null
 }
@@ -648,7 +650,7 @@ export interface HomeContent {
 export const getHomeContent = () => get<HomeContent>('/admin/home-content')
 export const uploadHomeImage = (kind: 'banner' | 'card', imageData: string) =>
   post<{ imageKey: string; imageUrl: string }>('/admin/home-content/upload', { kind, imageData })
-export const saveHomeContentItem = (item: Pick<HomeContentItem, 'kind' | 'slot' | 'imageKey' | 'actionType' | 'actionValue' | 'enabled'>) =>
+export const saveHomeContentItem = (item: Pick<HomeContentItem, 'kind' | 'slot' | 'imageKey' | 'actionType' | 'actionValue' | 'valueText' | 'labelText' | 'enabled'>) =>
   req<HomeContentItem>('PUT', '/admin/home-content/item', item)
 export const deleteHomeContentItem = (kind: 'banner' | 'card', slot: number) =>
   req<{ ok: boolean }>('DELETE', `/admin/home-content/item/${kind}/${slot}`)

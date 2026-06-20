@@ -14,6 +14,9 @@ export interface HomeContentItem {
   imageUrl: string
   actionType: HomeContentActionType
   actionValue: string | null
+  // card 专用：image_key 为图标，背景已固定到前端，仅需金色数值 + 浅色标签文案
+  valueText: string | null
+  labelText: string | null
   enabled: boolean
   updatedAt: string | null
 }
@@ -29,6 +32,8 @@ interface HomeContentRow extends RowDataPacket {
   image_key: string
   action_type: HomeContentActionType
   action_value: string | null
+  value_text: string | null
+  label_text: string | null
   enabled: number
   updated_at: Date | string | null
 }
@@ -49,6 +54,8 @@ function mapRow(row: HomeContentRow): HomeContentItem {
     imageUrl: imageUrl(row.image_key),
     actionType: row.action_type,
     actionValue: row.action_value ?? null,
+    valueText: row.value_text ?? null,
+    labelText: row.label_text ?? null,
     enabled: Boolean(row.enabled),
     updatedAt: row.updated_at instanceof Date ? row.updated_at.toISOString() : row.updated_at ? String(row.updated_at) : null,
   }
@@ -58,7 +65,7 @@ export async function getHomeContent(env: Env, includeDisabled = false): Promise
   if (!isMysqlEnabled(env)) return { banners: [], cards: [] }
   const db = getMysqlPool(env)
   const [rows] = await db.query<HomeContentRow[]>(
-    `SELECT kind, slot, image_key, action_type, action_value, enabled, updated_at
+    `SELECT kind, slot, image_key, action_type, action_value, value_text, label_text, enabled, updated_at
      FROM bg_home_content
      ${includeDisabled ? '' : 'WHERE enabled = 1'}
      ORDER BY kind, slot`,
@@ -76,18 +83,22 @@ export async function saveHomeContentItem(env: Env, item: {
   imageKey: string
   actionType: HomeContentActionType
   actionValue: string | null
+  valueText: string | null
+  labelText: string | null
   enabled: boolean
 }): Promise<HomeContentItem> {
   const db = getMysqlPool(env)
   await db.query<ResultSetHeader>(
-    `INSERT INTO bg_home_content (kind, slot, image_key, action_type, action_value, enabled)
-     VALUES (?, ?, ?, ?, ?, ?)
+    `INSERT INTO bg_home_content (kind, slot, image_key, action_type, action_value, value_text, label_text, enabled)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
      ON DUPLICATE KEY UPDATE
        image_key = VALUES(image_key),
        action_type = VALUES(action_type),
        action_value = VALUES(action_value),
+       value_text = VALUES(value_text),
+       label_text = VALUES(label_text),
        enabled = VALUES(enabled)`,
-    [item.kind, item.slot, item.imageKey, item.actionType, item.actionValue, item.enabled ? 1 : 0],
+    [item.kind, item.slot, item.imageKey, item.actionType, item.actionValue, item.valueText, item.labelText, item.enabled ? 1 : 0],
   )
   return {
     kind: item.kind,
@@ -96,6 +107,8 @@ export async function saveHomeContentItem(env: Env, item: {
     imageUrl: imageUrl(item.imageKey),
     actionType: item.actionType,
     actionValue: item.actionValue,
+    valueText: item.valueText,
+    labelText: item.labelText,
     enabled: item.enabled,
     updatedAt: null,
   }

@@ -51,7 +51,8 @@ interface CategoryLobbyParams { sortCategory?: string; sortBy?: 'weight' | 'ph_b
 
 // 首页 banner / 小卡片均来自后台装修配置，只需图片 + 跳转目标
 interface HomeBanner { id: number; image: string; target: string }
-interface HomeCard { slot: number; image: string; target: string }
+// 小卡片：固定背景皮肤（前端写死）+ 图标 image + 金色数值 value + 浅色标签 label
+interface HomeCard { slot: number; icon: string; value: string; label: string; target: string }
 
 interface Props {
   onNavigatePath: (path: string) => void
@@ -254,7 +255,9 @@ const [gamesLoading, setGamesLoading] = useState(true)
       })))
       setHomeCards(content.cards.map((item) => ({
         slot: item.slot,
-        image: item.imageUrl,
+        icon: item.imageUrl,
+        value: item.valueText ?? '',
+        label: item.labelText ?? '',
         target: resolveHomeActionPath(item.actionType, item.actionValue),
       })))
     }).catch(() => {})
@@ -274,7 +277,7 @@ const [gamesLoading, setGamesLoading] = useState(true)
       {homeCards.length > 0 && (
         <div ref={cardTrackRef} className="category-shortcut-row flex gap-3 pl-4 pr-4 pb-2 pt-1.5 overflow-x-auto hide-scrollbar scroll-ps-4">
           {homeCards.map((c) => (
-            <HomeCategoryShortcut key={c.slot} image={c.image} onClick={() => navHomeTarget(c.target)} />
+            <HomeCategoryShortcut key={c.slot} icon={c.icon} value={c.value} label={c.label} onClick={() => navHomeTarget(c.target)} />
           ))}
         </div>
       )}
