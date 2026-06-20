@@ -98,9 +98,15 @@ for TARGET in "${TARGETS[@]}"; do
     web-tma)
       echo "==> [web-tma] 本地构建..."
       (cd "$ROOT/apps/web-tma" && npm run build)
+      echo "==> [web-tma] 生成 gzip 静态资源..."
+      find "$ROOT/apps/web-tma/dist" -type f \( -name '*.js' -o -name '*.css' -o -name '*.json' -o -name '*.svg' -o -name '*.html' \) \
+        -exec gzip -9 -k -f {} \;
       echo "==> [web-tma] 同步 dist..."
       RSYNC_RSH="$RSYNC_RSH" rsync -az --delete \
         "$ROOT/apps/web-tma/dist/" "$HOST:$DIR/apps/web-tma/dist/"
+      echo "==> [web-tma] 同步站点静态目录..."
+      RSYNC_RSH="$RSYNC_RSH" rsync -az --delete --exclude .user.ini \
+        "$ROOT/apps/web-tma/dist/" "$HOST:/www/wwwroot/188facai.com/"
       echo "==> [web-tma] 完成（nginx 即时生效，无需重启）"
       ;;
     web-admin)
