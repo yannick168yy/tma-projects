@@ -147,16 +147,13 @@ export default function CashbackPage({ onOpenGame, onOpenCategory }: Props) {
       className="page-main pb-8 min-h-screen"
       style={{ background: 'linear-gradient(180deg,#2a1d4e 0%,#1d1539 20%,#161031 46%,#100b24 100%)' }}
     >
-      {/* Hero —— 成品 banner 图贴顶，底部渐隐融入页面（无硬边框） */}
-      <div className="relative">
-        <img
-          src={cashbackHero}
-          alt={t('cashback.pageTitle')}
-          className="block w-full select-none"
-          draggable={false}
-        />
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-b from-transparent to-[#2a1d4e]" />
-      </div>
+      {/* Hero —— 成品 banner 图贴顶 */}
+      <img
+        src={cashbackHero}
+        alt={t('cashback.pageTitle')}
+        className="block w-full select-none"
+        draggable={false}
+      />
 
       {/* 今日 / 昨日 分段控件 —— 紧凑 + 金色质感选中 */}
       <div className="mx-4 mt-4">
