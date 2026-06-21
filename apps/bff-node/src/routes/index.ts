@@ -65,9 +65,12 @@ export function createApiRouter(): Router {
   // rebate config 公开（无需登录），summary 需登录
   api.use(optMw, rebateRoutes.routes(), rebateRoutes.allowedMethods())
 
+  // 转盘：/status 游客可见（次数为 0），/draw /records 在 handler 内自查 userId
+  api.use(optMw, spinRoutes.routes(), spinRoutes.allowedMethods())
+
   for (const r of [
     userRoutes, walletRoutes, depositRoutes, tonDepositRoutes, withdrawRoutes,
-    ledgerRoutes, kycRoutes, promotionRoutes, teamRoutes, agentRoutes, yfpayRoutes, paymentUnifiedRoutes, betsRoutes, turnoverRoutes, spinRoutes,
+    ledgerRoutes, kycRoutes, promotionRoutes, teamRoutes, agentRoutes, yfpayRoutes, paymentUnifiedRoutes, betsRoutes, turnoverRoutes,
   ]) {
     api.use(protectedMw, r.routes(), r.allowedMethods())
   }

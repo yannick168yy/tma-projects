@@ -447,6 +447,26 @@ export async function getSpinStatus(env: Env, userId: string, redis: Redis, rule
   }
 }
 
+// 未登录时返回公共配置（奖品/规则），所有抽奖次数为 0
+export async function getPublicSpinStatus(env: Env, redis: Redis, ruleId?: number): Promise<SpinStatus> {
+  const pool = getMysqlPool(env)
+  const conn = await pool.getConnection()
+  try {
+    const config = await getEnabledConfig(conn)
+    const fullConfig = await getSpinConfig(env)
+    const tickerRecords = await getTickerRecords(redis, fullConfig, ruleId)
+    return {
+      ...config,
+      depositRules: config.depositRules.map((rule) => ({ ...rule, remainingChances: 0 })),
+      remainingChances: 0,
+      recentRecords: await recentRecords(conn, 20),
+      tickerRecords,
+    }
+  } finally {
+    conn.release()
+  }
+}
+
 function pickPrize(prizes: SpinPrize[]): SpinPrize {
   const total = prizes.reduce((sum, prize) => sum + prize.weight, 0)
   let n = Math.random() * total

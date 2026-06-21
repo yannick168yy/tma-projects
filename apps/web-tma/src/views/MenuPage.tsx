@@ -120,7 +120,7 @@ function QuickAction({
       <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-secondary">
         <img src={icon} alt="" className="h-6 w-6 object-contain" />
       </span>
-      <span className="block text-xs font-black uppercase leading-tight text-foreground">{label}</span>
+      <span className="block text-xs font-black capitalize leading-tight text-foreground">{label}</span>
     </button>
   )
 }
@@ -386,22 +386,20 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
             <h3 className="font-display text-sm font-black uppercase text-foreground">{t('profile.account')}</h3>
             <span className="h-px flex-1 bg-gradient-to-r from-primary/30 to-transparent" />
           </div>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-4 gap-2">
             <QuickAction icon={icon('02_Bet_History')} label={t('profile.betHistory')} onClick={() => (isLoggedIn ? onOpenBetHistory() : onLogin())} />
             <QuickAction icon={icon('01_rewards')} label={t('menu.creditRecords')} onClick={() => void openLedger()} />
             <QuickAction icon={icon('account_login_methods')} label={t('bind.entry')} onClick={() => (isLoggedIn ? setBindOpen(true) : onLogin())} />
-            <QuickAction icon={icon('07_personal_information')} label={t('profile.personalInfo')} onClick={() => (isLoggedIn ? setProfileSheetOpen(true) : onLogin())} />
+            <QuickAction icon={icon('07_personal_information')} label={t('profile.info')} onClick={() => (isLoggedIn ? setProfileSheetOpen(true) : onLogin())} />
           </div>
         </section>
 
-        {isLoggedIn && (
-          <MenuSection title={t('menu.rewards')}>
-            <MenuRow icon={icon('03_3_circle_rewards')} title={t('referralPromo.title')} subtitle={t('referralPromo.subtitle')} onClick={onOpenReferralPromo} bordered />
-            <MenuRow icon={icon('cashback')} title={t('category.cashback')} subtitle={t('cashback.pageSubtitle')} onClick={onOpenCashback} bordered />
-            <MenuRow icon={icon('rewards_spin')} title={t('category.rewardsSpin')} subtitle={t('spin.kicker')} onClick={onOpenRewardsSpin} bordered={auth.user?.isAgent} />
-            {auth.user?.isAgent && <MenuRow icon={icon('04_agent_center')} title={t('agentCenter.entry')} subtitle={t('agentCenter.entrySub')} onClick={onOpenAgentCenter} />}
-          </MenuSection>
-        )}
+        <MenuSection title={t('menu.rewards')}>
+          <MenuRow icon={icon('03_3_circle_rewards')} title={t('referralPromo.title')} subtitle={t('referralPromo.subtitle')} onClick={onOpenReferralPromo} bordered />
+          <MenuRow icon={icon('cashback')} title={t('category.cashback')} subtitle={t('cashback.pageSubtitle')} onClick={onOpenCashback} bordered />
+          <MenuRow icon={icon('rewards_spin')} title={t('category.rewardsSpin')} subtitle={t('spin.kicker')} onClick={onOpenRewardsSpin} bordered={auth.user?.isAgent} />
+          {auth.user?.isAgent && <MenuRow icon={icon('04_agent_center')} title={t('agentCenter.entry')} subtitle={t('agentCenter.entrySub')} onClick={onOpenAgentCenter} />}
+        </MenuSection>
 
         <MenuSection title={t('menu.appearance')}>
           <div className="border-b border-border px-4 py-3.5">

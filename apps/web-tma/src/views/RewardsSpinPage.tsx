@@ -4,6 +4,7 @@ import { ChevronLeft, History, Loader2 } from 'lucide-react'
 import { ApiError } from '@/api/client'
 import { drawSpin, fetchSpinRecords, fetchSpinStatus, type SpinRecord, type SpinStatus, type SpinDrawResult } from '@/api/spin'
 import { useWalletStore } from '@/stores/wallet'
+import { useAuthStore } from '@/stores/auth'
 import SpinWheel from '@/components/spin/SpinWheel'
 import SpinWinnerTicker from '@/components/spin/SpinWinnerTicker'
 import { computeSpinRotation, SPIN_ROTATION_MS } from '@/components/spin/spinWheelMath'
@@ -32,6 +33,8 @@ function fmtRecordDate(iso: string): string {
 export default function RewardsSpinPage({ onClose }: Props) {
   const { t } = useTranslation()
   const wallet = useWalletStore()
+  const user = useAuthStore((s) => s.user)
+  const ensureLoggedIn = useAuthStore((s) => s.ensureLoggedIn)
   const [status, setStatus] = useState<SpinStatus | null>(null)
   const [loading, setLoading] = useState(true)
   const [spinning, setSpinning] = useState(false)
@@ -117,6 +120,7 @@ export default function RewardsSpinPage({ onClose }: Props) {
 
   async function onSpin() {
     if (spinning) return
+    if (!user) { void ensureLoggedIn(t('auth.signInProfile')); return }
     if (!canSpin) {
       setOopsOpen(true)
       setResult(null)

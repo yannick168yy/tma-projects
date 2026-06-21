@@ -467,6 +467,7 @@ export default {
   profile: {
     playerAccount: 'Tài khoản người chơi',
     personalInfo: 'THÔNG TIN CÁ NHÂN',
+    info: 'Thông tin',
     firstName: 'Tên',
     lastName: 'Họ',
     firstNamePh: 'Nhập tên',
@@ -766,7 +767,7 @@ export default {
     },
   },
   bind: {
-    title: 'Tài khoản & Bảo mật',
+    title: 'Liên kết tài khoản',
     subtitle: 'Liên kết thêm phương thức đăng nhập cho tài khoản này.',
     bound: 'Đã liên kết',
     action: 'Liên kết',
@@ -775,6 +776,6 @@ export default {
     phone: 'Điện thoại',
     account: 'Tên đăng nhập & mật khẩu',
     telegramBrowserOnly: 'Liên kết trong trình duyệt',
-    entry: 'Tài khoản & phương thức đăng nhập',
+    entry: 'Liên kết tài khoản',
   },
 }

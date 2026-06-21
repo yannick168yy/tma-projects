@@ -489,6 +489,7 @@ export default {
   profile: {
     playerAccount: 'Akun Pemain',
     personalInfo: 'INFORMASI PRIBADI',
+    info: 'Info',
     firstName: 'Nama Depan',
     lastName: 'Nama Belakang',
     firstNamePh: 'Masukkan nama depan',
@@ -770,7 +771,7 @@ export default {
     },
   },
   bind: {
-    title: 'Akun & Keamanan',
+    title: 'Tautkan Akun',
     subtitle: 'Hubungkan lebih banyak cara masuk ke akun ini.',
     bound: 'Terhubung',
     action: 'Hubungkan',
@@ -779,6 +780,6 @@ export default {
     phone: 'Telepon',
     account: 'Nama pengguna & kata sandi',
     telegramBrowserOnly: 'Hubungkan di browser',
-    entry: 'Akun & metode login',
+    entry: 'Tautkan Akun',
   },
 }

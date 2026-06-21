@@ -88,6 +88,7 @@ function TreeDiagram({ youLabel }: { youLabel: string }) {
 export default function ReferralPromoPage({ onOpenTeamCenter }: Props) {
   const { t } = useTranslation()
   const user = useAuthStore((s) => s.user)
+  const ensureLoggedIn = useAuthStore((s) => s.ensureLoggedIn)
   const [status, setStatus] = useState<TeamAgentStatus | null>(null)
   const [loading, setLoading] = useState(true)
   const [enabling, setEnabling] = useState(false)
@@ -107,9 +108,10 @@ export default function ReferralPromoPage({ onOpenTeamCenter }: Props) {
 
   const isAgent = status?.isAgent ?? false
   const isActivated = status?.activated ?? false
-  const l1 = status?.ratePlan.l1RatePct ?? null
-  const l2 = status?.ratePlan.l2RatePct ?? null
-  const l3 = status?.ratePlan.l3RatePct ?? null
+  // 未登录时用默认费率展示（与后端默认套餐一致）
+  const l1 = status?.ratePlan.l1RatePct ?? (user ? null : 0.6)
+  const l2 = status?.ratePlan.l2RatePct ?? (user ? null : 0.3)
+  const l3 = status?.ratePlan.l3RatePct ?? (user ? null : 0.2)
 
   async function onEnable() {
     setEnabling(true)
@@ -402,7 +404,7 @@ export default function ReferralPromoPage({ onOpenTeamCenter }: Props) {
             </div>
             <button
               type="button"
-              onClick={() => void onEnable()}
+              onClick={() => (user ? void onEnable() : void ensureLoggedIn(t('auth.signInProfile')))}
               disabled={enabling}
               className="w-full h-12 rounded-2xl bg-gradient-to-r from-amber-400 to-amber-500 text-amber-950 font-black text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-transform shadow-lg shadow-amber-500/30 disabled:opacity-60 disabled:pointer-events-none"
             >

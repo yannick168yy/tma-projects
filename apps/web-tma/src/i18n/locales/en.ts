@@ -147,7 +147,7 @@ export default {
     },
   },
   bind: {
-    title: 'Account & Security',
+    title: 'Link Account',
     subtitle: 'Link more ways to sign in to this account.',
     bound: 'Linked',
     action: 'Link',
@@ -156,7 +156,7 @@ export default {
     phone: 'Phone',
     account: 'Username & password',
     telegramBrowserOnly: 'Link in a browser',
-    entry: 'Account & login methods',
+    entry: 'Link Account',
   },
   home: {
     gameTabs: {
@@ -560,6 +560,7 @@ export default {
   profile: {
     playerAccount: 'Player Account',
     personalInfo: 'PERSONAL INFORMATION',
+    info: 'Info',
     firstName: 'First Name',
     lastName: 'Last Name',
     firstNamePh: 'Enter first name',

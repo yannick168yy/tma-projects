@@ -146,7 +146,7 @@ export default {
     },
   },
   bind: {
-    title: '账号与安全',
+    title: '关联账号',
     subtitle: '为当前账号绑定更多登录方式。',
     bound: '已绑定',
     action: '绑定',
@@ -155,7 +155,7 @@ export default {
     phone: '手机号',
     account: '账号密码',
     telegramBrowserOnly: '请在浏览器中绑定',
-    entry: '账号与登录方式',
+    entry: '关联账号',
   },
   home: {
     gameTabs: {
@@ -558,6 +558,7 @@ export default {
   profile: {
     playerAccount: '玩家账户',
     personalInfo: '个人信息',
+    info: '资料',
     firstName: '名',
     lastName: '姓',
     firstNamePh: '请输入名',
