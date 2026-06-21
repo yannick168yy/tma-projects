@@ -507,11 +507,14 @@ const [gamesLoading, setGamesLoading] = useState(true)
 
       {/* 首页彩色小卡片（后台装修配置） */}
       {homeCards.length > 0 && (
-        <div ref={cardTrackRef} className="category-shortcut-row flex gap-3 pl-4 pr-4 pb-2 pt-3 mt-8 overflow-x-auto hide-scrollbar scroll-ps-4">
-          {homeCards.map((c) => (
-            <HomeCategoryShortcut key={c.slot} image={c.image} onClick={() => navHomeTarget(c.target)} />
-          ))}
-        </div>
+        <section className="mt-8">
+          <p className="text-muted-foreground text-[10px] uppercase tracking-widest font-black mb-3 px-4">Rewards Hub</p>
+          <div ref={cardTrackRef} className="category-shortcut-row flex gap-3 pl-4 pr-4 pb-2 overflow-x-auto hide-scrollbar scroll-ps-4">
+            {homeCards.map((c) => (
+              <HomeCategoryShortcut key={c.slot} image={c.image} onClick={() => navHomeTarget(c.target)} />
+            ))}
+          </div>
+        </section>
       )}
 
       {/* Betting Table */}
