@@ -335,14 +335,14 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
     <div className="page-main min-h-full pb-24">
       <div className="px-4 pb-1 pt-3">
         <div
-          className="relative min-h-[194px] overflow-hidden rounded-3xl px-4 pb-4 pt-5 shadow-[0_18px_40px_rgba(0,0,0,0.32)]"
+          className="relative overflow-hidden rounded-3xl px-4 pb-3 pt-4 shadow-[0_18px_40px_rgba(0,0,0,0.32)]"
           style={{ background: 'linear-gradient(135deg, #e2af37 0%, #c79023 52%, #946615 100%)' }}
         >
           <img
             src={menuCasino}
             alt=""
             aria-hidden="true"
-            className="pointer-events-none absolute -right-2 top-2 h-32 w-auto select-none"
+            className="pointer-events-none absolute -right-2 top-1 h-[112px] w-auto select-none"
           />
           {isLoggedIn ? (
             <div className="relative pr-24">
@@ -385,7 +385,7 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
             </div>
           )}
 
-          <div className="absolute bottom-4 left-4 right-4 grid grid-cols-3 overflow-hidden rounded-2xl bg-black/15">
+          <div className="relative mt-4 grid grid-cols-3 overflow-hidden rounded-2xl bg-black/15">
             <div className="flex items-center gap-1.5 px-2.5 py-2.5">
               <Languages size={14} className="flex-shrink-0 text-amber-100/80" />
               <div className="min-w-0">
