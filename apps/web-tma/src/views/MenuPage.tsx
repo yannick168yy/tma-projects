@@ -340,7 +340,6 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
                   <User size={25} />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="mb-1 text-[10px] font-black uppercase tracking-wide text-black/45">{t('nav.menu')}</p>
                   <h1 className="font-display text-[1.6rem] font-black leading-none text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.22)]">{t('auth.signInTitle')}</h1>
                 </div>
               </div>
