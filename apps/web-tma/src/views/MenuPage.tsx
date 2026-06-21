@@ -334,22 +334,16 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
               {copied && <p className="mt-2 text-[10px] font-semibold text-emerald-900">{t('common.copied')}</p>}
             </div>
           ) : (
-            <div className="relative flex items-center gap-4 pr-20">
-              <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-full border border-white/40 bg-white/15 text-white">
-                <User size={25} />
+            <div className="relative pr-24">
+              <div className="flex min-h-[86px] items-center gap-3">
+                <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-full border border-white/40 bg-white/15 text-white shadow-[0_10px_24px_rgba(0,0,0,0.22)]">
+                  <User size={25} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="mb-1 text-[10px] font-black uppercase tracking-wide text-black/45">{t('nav.menu')}</p>
+                  <h1 className="font-display text-[1.6rem] font-black leading-none text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.22)]">{t('auth.signInTitle')}</h1>
+                </div>
               </div>
-              <div className="min-w-0 flex-1">
-                <p className="mb-1 text-[10px] font-black uppercase tracking-wide text-black/45">{t('nav.menu')}</p>
-                <h1 className="font-display text-[1.5rem] font-black leading-none text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.22)]">{t('auth.signInTitle')}</h1>
-                <p className="mt-1 text-xs leading-relaxed text-black/55">{t('auth.signInSubtitle')}</p>
-              </div>
-              <button
-                type="button"
-                className="flex-shrink-0 rounded-xl bg-zinc-900 px-4 py-2 text-sm font-black text-amber-300 shadow-lg transition-colors hover:bg-zinc-800"
-                onClick={onLogin}
-              >
-                {t('shell.signIn')}
-              </button>
             </div>
           )}
 
