@@ -93,7 +93,6 @@ export default function WalletModal({ open, onClose }: Props) {
   const isLoggedIn = useAuthStore((s) => Boolean(s.user))
   const [selectedMethod, setSelectedMethod] = useState<string|null>(null)
   const [amount, setAmount] = useState('')
-  const [hasSuccessfulDeposit, setHasSuccessfulDeposit] = useState<boolean | null>(null)
   const [historyFilter, setHistoryFilter] = useState<'all'|'deposit'|'withdraw'>('all')
   const [historyStatus, setHistoryStatus] = useState<'all'|'success'|'pending'|'rejected'|'admin_rejected'|'failed'>('all')
   const [depositLoading, setDepositLoading] = useState(false)
@@ -190,9 +189,7 @@ export default function WalletModal({ open, onClose }: Props) {
       pendingWithdrawMethodRef.current = null
       setTurnoverProgress(null); setTurnoverLoading(false)
       setTonLoading(false); setTonMessage(''); setTonSuccess(false)
-      setHasSuccessfulDeposit(null)
       void walletStore.refresh()
-      void loadFirstDepDepositState()
       void fetchPaymentChannels('deposit').then(setPaymentDepositChannels).catch(()=>{})
       void fetchPaymentChannels('withdraw').then(setPaymentWithdrawChannels).catch(()=>{})
       void fetchCryptoChannels().then((list)=>setCryptoEnabled(Object.fromEntries(list.map((c)=>[c.name,c.enabled])))).catch(()=>{})
@@ -298,7 +295,7 @@ export default function WalletModal({ open, onClose }: Props) {
     ewallet: liveFiatDeposit, crypto: liveCryptoDeposit, telegram: liveTgWalletDeposit,
   }), [liveFiatDeposit, liveCryptoDeposit, liveTgWalletDeposit])
   const currentCategoryMethods = depositCategoryMethods[depositCategory]
-  const firstDepEligible = isLoggedIn && !firstDepClaimed && hasSuccessfulDeposit === false && (promoConfig?.firstdep.enabled ?? false)
+  const firstDepEligible = isLoggedIn && !firstDepClaimed && (promoConfig?.firstdep.enabled ?? false)
   const depositPresets = DEPOSIT_PRESETS[depositCurrency] ?? DEPOSIT_PRESETS.PHP
   const depositTierList = promoConfig?.firstdep.tiers?.[depositCurrency]
 
@@ -322,12 +319,6 @@ export default function WalletModal({ open, onClose }: Props) {
     { id:'crypto' as const, label:t('wallet.catCrypto'), Icon:Zap },
     { id:'telegram' as const, label:t('wallet.catTelegram'), Icon:Send },
   ], [t])
-
-  function addPresetAmount(amt: number) {
-    const current = Number(amount)
-    const next = (Number.isFinite(current) ? current : 0) + amt
-    setAmount(String(Math.round(next * 1000000) / 1000000))
-  }
 
   const pollFiatDepositCountRef = useRef(0)
   async function pollFiatDeposit() {
@@ -426,17 +417,6 @@ export default function WalletModal({ open, onClose }: Props) {
       for(const w of yfWithdrawals)if(!seen.has(w.merchantSerial))items.push({id:w.merchantSerial,orderId:w.merchantSerial,type:'withdraw',method:methodDisplayName(w.optionCode??''),amount:`-₱${w.amount.toFixed(2)}`,date:formatOrderDate(w.createdAt),sortKey:w.createdAt,status:mapWithdrawState(w.state)})
       items.sort((a,b)=>b.sortKey.localeCompare(a.sortKey)); setHistoryOrders(items)
     }catch{setHistoryOrders([])}finally{setHistoryLoading(false)}
-  }
-
-  async function loadFirstDepDepositState() {
-    if (!isLoggedIn) { setHasSuccessfulDeposit(null); return }
-    try {
-      const [bgDeposits, yfDeposits] = await Promise.all([
-        fetchDepositHistory().catch(()=>[]),
-        fetchYfDepositOrders().catch(()=>[]),
-      ])
-      setHasSuccessfulDeposit(bgDeposits.some((d) => d.status === 'paid' || d.status === 'completed') || yfDeposits.some((d) => d.state === 2))
-    } catch { setHasSuccessfulDeposit(null) }
   }
 
   async function copyOrderId(id: string) { try{await navigator.clipboard.writeText(id);setCopiedId(id);setTimeout(()=>setCopiedId(null),2000)}catch{/***/} }
@@ -552,7 +532,7 @@ export default function WalletModal({ open, onClose }: Props) {
                         {depositPresets.map((amt)=>{
                           const sel=amount===String(amt); const bonus=firstDepEligible?matchTierBonus(depositTierList,amt):0
                           return (
-                            <button key={amt} type="button" onClick={()=>addPresetAmount(amt)} className={`rounded-xl border py-2 px-1 flex flex-col items-center transition-colors ${sel?'border-primary bg-primary/10':'border-border bg-secondary'}`}>
+                            <button key={amt} type="button" onClick={()=>setAmount(String(amt))} className={`rounded-xl border py-2 px-1 flex flex-col items-center transition-colors ${sel?'border-primary bg-primary/10':'border-border bg-secondary'}`}>
                               <span className="text-sm font-black text-foreground">+{fmtPreset(amt,depositCurrency)}</span>
                               {bonus>0 && <span className="text-[10px] font-bold text-primary mt-0.5 leading-none">{t('wallet.firstDepBonusBadge',{amount:fmtPreset(bonus,depositCurrency)})}</span>}
                             </button>
