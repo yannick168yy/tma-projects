@@ -4,6 +4,7 @@ import {
   ChevronLeft, ChevronRight, Trophy, TrendingUp, Gamepad2,
   Headphones, Fish, LayoutGrid, FileText, Shield, Heart, Info, X, Gem,
 } from 'lucide-react'
+import HomeCategoryShortcut from '@/components/home/HomeCategoryShortcut'
 import GameCard from '@/components/home/GameCard'
 import EGameCard from '@/components/home/EGameCard'
 import LiveCard from '@/components/home/LiveCard'
@@ -48,8 +49,9 @@ const INFO_ICONS: Record<string, React.ComponentType<{ size: number; className?:
 
 interface CategoryLobbyParams { sortCategory?: string; sortBy?: 'weight' | 'ph_bonus'; title: string }
 
-// 首页 banner 来自后台装修配置，只需图片 + 跳转目标
+// 首页 banner / 小卡片均来自后台装修配置，只需图片 + 跳转目标
 interface HomeBanner { id: number; image: string; target: string }
+interface HomeCard { slot: number; image: string; target: string }
 
 interface Props {
   onNavigatePath: (path: string) => void
@@ -66,6 +68,7 @@ export default function HomeContent({ onNavigatePath, onOpenCategoryLobby, onOpe
   const auth = useAuthStore()
   const activeCurrency = useWalletStore((s) => s.activeCurrency)
   const [homeBanners, setHomeBanners] = useState<HomeBanner[]>([])
+  const [homeCards, setHomeCards] = useState<HomeCard[]>([])
 
   // 首页装修配置的统一跳转：内部路由走 navigate，外链走 window.open，空串不跳转
   function navHomeTarget(target: string) {
@@ -80,6 +83,7 @@ export default function HomeContent({ onNavigatePath, onOpenCategoryLobby, onOpe
   // Banner
   const [activeBanner, setActiveBanner] = useState(0)
   const bannerTrackRef = useRef<HTMLDivElement>(null)
+  const cardTrackRef = useRef<HTMLDivElement>(null)
   const bannerDragRef = useRef({ startX: 0, startY: 0, startScroll: 0, axis: null as 'x'|'y'|null, lastX: 0, lastT: 0 })
   const marqueeWinners = useMemo(() => [...WINNERS, ...WINNERS], [])
 
@@ -248,15 +252,33 @@ const [gamesLoading, setGamesLoading] = useState(true)
         image: item.imageUrl,
         target: resolveHomeActionPath(item.actionType, item.actionValue),
       })))
+      setHomeCards(content.cards.map((item) => ({
+        slot: item.slot,
+        image: item.imageUrl,
+        target: resolveHomeActionPath(item.actionType, item.actionValue),
+      })))
     }).catch(() => {})
     void loadBetTab('latest')
     if (auth.token && auth.user) void promotion.loadTeamStatus()
   }, [])
 
+  useEffect(() => {
+    if (cardTrackRef.current) cardTrackRef.current.scrollLeft = 0
+  }, [homeCards])
+
   const providerList = ['JILI', 'PGSOFT', 'PRAGMATIC', 'BGAMING', 'EVOLUTION', 'HABANERO', 'NOLIMIT', 'NETENT', 'POPIPLAY', 'SPRIBE', 'BOOONGO']
 
   return (
     <div className="page-main">
+      {/* 首页彩色小卡片（后台装修配置） */}
+      {homeCards.length > 0 && (
+        <div ref={cardTrackRef} className="category-shortcut-row flex gap-3 pl-4 pr-4 pb-2 pt-1.5 overflow-x-auto hide-scrollbar scroll-ps-4">
+          {homeCards.map((c) => (
+            <HomeCategoryShortcut key={c.slot} image={c.image} onClick={() => navHomeTarget(c.target)} />
+          ))}
+        </div>
+      )}
+
       {/* Banner 轮播（后台装修配置） */}
       {homeBanners.length > 0 && (
         <div className="px-4 mt-2">
