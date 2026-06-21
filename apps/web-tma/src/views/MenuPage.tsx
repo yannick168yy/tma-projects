@@ -420,40 +420,6 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
           <QuickAction icon={Headphones} label={t('menu.customerSupport')} subtitle={t('menu.live247')} onClick={onOpenCs} />
         </div>
 
-        {isLoggedIn ? (
-          <div className="rounded-2xl border border-border bg-card p-4 shadow-[0_10px_30px_rgba(0,0,0,0.12)]">
-            <div className="flex items-center gap-3">
-              <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-secondary text-primary">
-                <ShieldCheck size={18} />
-              </span>
-              <div className="min-w-0 flex-1">
-                <h2 className="font-display text-base font-black text-foreground">{t('profile.account')}</h2>
-                <p className="truncate text-xs text-muted-foreground">{profileComplete || personalSaved ? t('common.verified') : t('profile.saveLock')}</p>
-              </div>
-            </div>
-            <div className="mt-3 grid grid-cols-2 gap-2">
-              <div className="rounded-xl bg-secondary/60 px-3 py-2">
-                <p className="text-[10px] font-bold text-muted-foreground">{t('bind.entry')}</p>
-                <p className="mt-1 truncate text-xs font-black text-foreground">{loginProvider === 'google' ? t('profile.google') : t('profile.telegram')}</p>
-              </div>
-              <div className="rounded-xl bg-secondary/60 px-3 py-2">
-                <p className="text-[10px] font-bold text-muted-foreground">{t('profile.contactInfo')}</p>
-                <p className="mt-1 truncate text-xs font-black text-foreground">{telegramSubtitle}</p>
-              </div>
-            </div>
-            <div className="mt-3">
-              <button
-                type="button"
-                className="flex w-full items-center justify-between rounded-xl border border-primary/30 bg-primary/10 px-4 py-3 text-left text-sm font-black text-foreground transition-colors hover:bg-primary/15"
-                onClick={() => setProfileSheetOpen(true)}
-              >
-                <span>{t('profile.personalInfo')}</span>
-                {profileComplete || personalSaved ? <CheckCircle2 size={16} /> : <ChevronRight size={16} />}
-              </button>
-            </div>
-          </div>
-        ) : null}
-
         {isLoggedIn && (
           <MenuSection title={t('profile.account')}>
             <MenuRow icon={ShieldCheck} title={t('bind.entry')} subtitle={loginProvider === 'google' ? t('profile.google') : t('profile.telegram')} onClick={() => setBindOpen(true)} bordered />
