@@ -397,8 +397,8 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
         {isLoggedIn && (
           <MenuSection title={t('menu.rewards')}>
             <MenuRow icon={icon('03_3_circle_rewards')} title={t('referralPromo.title')} onClick={onOpenReferralPromo} bordered />
-            <MenuRow icon={icon('01_rewards')} title={t('category.cashback')} onClick={onOpenCashback} bordered />
-            <MenuRow icon={icon('01_rewards')} title={t('category.rewardsSpin')} onClick={onOpenRewardsSpin} bordered={auth.user?.isAgent} />
+            <MenuRow icon={icon('cashback')} title={t('category.cashback')} onClick={onOpenCashback} bordered />
+            <MenuRow icon={icon('rewards_spin')} title={t('category.rewardsSpin')} onClick={onOpenRewardsSpin} bordered={auth.user?.isAgent} />
             {auth.user?.isAgent && <MenuRow icon={icon('04_agent_center')} title={t('agentCenter.entry')} onClick={onOpenAgentCenter} />}
           </MenuSection>
         )}
