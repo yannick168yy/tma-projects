@@ -9,6 +9,10 @@ import { startTelegramLoginRedirect } from '@/utils/telegramOAuth'
 import { useAuthStore } from '@/stores/auth'
 import { isInsideTelegram } from '@/utils/initTelegramWebApp'
 import type { AuthUser } from '@/types/api'
+import iconTelegram from '@/assets/menu/icons/22_telegram.webp'
+import iconGoogle from '@/assets/menu/icons/06_google.webp'
+import iconPhone from '@/assets/menu/icons/01_Phone.webp'
+import iconAccount from '@/assets/menu/icons/02_Username_password.webp'
 
 interface Props {
   open: boolean
@@ -67,7 +71,10 @@ export default function BindModal({ open, onClose }: Props) {
         <div className="space-y-3">
           {/* Telegram */}
           <div className={rowCls}>
-            <span className="text-sm font-bold text-foreground">Telegram</span>
+            <span className="flex items-center gap-2.5">
+              <img src={iconTelegram} alt="" className="h-6 w-6 object-contain" />
+              <span className="text-sm font-bold text-foreground">Telegram</span>
+            </span>
             {user.boundTelegram ? boundTag : isInsideTelegram()
               ? <span className="text-[11px] text-muted-foreground">{t('bind.telegramBrowserOnly')}</span>
               : <button type="button" className="rounded-lg bg-primary px-3 py-1.5 text-xs font-bold text-primary-foreground" onClick={onBindTelegram}>{t('bind.action')}</button>}
@@ -75,7 +82,10 @@ export default function BindModal({ open, onClose }: Props) {
 
           {/* Google */}
           <div className={rowCls}>
-            <span className="text-sm font-bold text-foreground">Google</span>
+            <span className="flex items-center gap-2.5">
+              <img src={iconGoogle} alt="" className="h-6 w-6 object-contain" />
+              <span className="text-sm font-bold text-foreground">Google</span>
+            </span>
             {user.boundGoogle ? boundTag : (
               <button type="button" className="rounded-lg bg-primary px-3 py-1.5 text-xs font-bold text-primary-foreground" onClick={onBindGoogle}>{t('bind.action')}</button>
             )}
@@ -84,7 +94,10 @@ export default function BindModal({ open, onClose }: Props) {
           {/* Phone */}
           <div>
             <div className={rowCls}>
-              <span className="text-sm font-bold text-foreground">{t('bind.phone')}</span>
+              <span className="flex items-center gap-2.5">
+                <img src={iconPhone} alt="" className="h-6 w-6 object-contain" />
+                <span className="text-sm font-bold text-foreground">{t('bind.phone')}</span>
+              </span>
               {user.boundPhone ? boundTag : (
                 <button type="button" className="rounded-lg bg-primary px-3 py-1.5 text-xs font-bold text-primary-foreground" onClick={() => setExpand(expand === 'phone' ? null : 'phone')}>{t('bind.action')}</button>
               )}
@@ -100,7 +113,10 @@ export default function BindModal({ open, onClose }: Props) {
           {/* Account */}
           <div>
             <div className={rowCls}>
-              <span className="text-sm font-bold text-foreground">{t('bind.account')}</span>
+              <span className="flex items-center gap-2.5">
+                <img src={iconAccount} alt="" className="h-6 w-6 object-contain" />
+                <span className="text-sm font-bold text-foreground">{t('bind.account')}</span>
+              </span>
               {user.boundAccount ? boundTag : (
                 <button type="button" className="rounded-lg bg-primary px-3 py-1.5 text-xs font-bold text-primary-foreground" onClick={() => setExpand(expand === 'account' ? null : 'account')}>{t('bind.action')}</button>
               )}

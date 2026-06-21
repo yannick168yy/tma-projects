@@ -206,12 +206,12 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
     { icon: '27_facebook', label: t('profile.links.facebook'), sub: t('profile.links.facebookSub') },
   ]
   const DOCS = [
-    { key: 'terms', icon: '24_terms_of_service', label: t('profile.docs.terms') },
-    { key: 'privacy', icon: '25_privacy_policy', label: t('profile.docs.privacy') },
-    { key: 'responsible', icon: '26_responsible_gaming', label: t('profile.docs.responsible') },
-    { key: 'aml', icon: '27_aml_policy', label: t('profile.docs.aml') },
-    { key: 'bonusTerms', icon: '28_bonus_terms', label: t('profile.docs.bonusTerms') },
-    { key: 'about', icon: '29_about_us', label: t('profile.docs.about') },
+    { key: 'terms', icon: '05_terms_of_service', label: t('profile.docs.terms') },
+    { key: 'privacy', icon: '06_privacy_policy', label: t('profile.docs.privacy') },
+    { key: 'responsible', icon: '07_responsible_gaming', label: t('profile.docs.responsible') },
+    { key: 'aml', icon: '08_aml_policy', label: t('profile.docs.aml') },
+    { key: 'bonusTerms', icon: '09_bonus_terms', label: t('profile.docs.bonusTerms') },
+    { key: 'about', icon: '10_about_us', label: t('profile.docs.about') },
   ]
 
   useEffect(() => {
@@ -398,7 +398,7 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
 
         {isLoggedIn && (
           <MenuSection title={t('profile.account')}>
-            <MenuRow icon={loginProvider === 'google' ? icon('06_google') : icon('22_telegram')} title={t('bind.entry')} subtitle={loginProvider === 'google' ? t('profile.google') : t('profile.telegram')} onClick={() => setBindOpen(true)} bordered />
+            <MenuRow icon={icon('06_account_login_methods')} title={t('bind.entry')} subtitle={loginProvider === 'google' ? t('profile.google') : t('profile.telegram')} onClick={() => setBindOpen(true)} bordered />
             <MenuRow
               icon={icon('07_personal_information')}
               title={t('profile.personalInfo')}
@@ -413,7 +413,7 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
           <div className="border-b border-border px-4 py-3.5">
             <button type="button" className="flex w-full items-center gap-3 text-left" onClick={() => setLangOpen(!langOpen)}>
               <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-secondary">
-                <img src={icon('09_language')} alt="" className="h-6 w-6 object-contain" />
+                <img src={icon('03_language')} alt="" className="h-6 w-6 object-contain" />
               </span>
               <span className="min-w-0 flex-1">
                 <span className="block text-sm font-bold text-foreground">{t('menu.language')}</span>
@@ -441,7 +441,7 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
           <div className="px-4 py-3.5">
             <div className="mb-3 flex items-center gap-3">
               <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-secondary">
-                <img src={icon('10_appearance')} alt="" className="h-6 w-6 object-contain" />
+                <img src={icon('04_appearance')} alt="" className="h-6 w-6 object-contain" />
               </span>
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-bold text-foreground">{t('menu.appearance')}</p>
