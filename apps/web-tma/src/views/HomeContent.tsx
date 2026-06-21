@@ -266,7 +266,6 @@ const [gamesLoading, setGamesLoading] = useState(true)
     if (cardTrackRef.current) cardTrackRef.current.scrollLeft = 0
   }, [homeCards])
 
-  const providerList = ['JILI', 'PGSOFT', 'PRAGMATIC', 'BGAMING', 'EVOLUTION', 'HABANERO', 'NOLIMIT', 'NETENT', 'POPIPLAY', 'SPRIBE', 'BOOONGO']
 
   return (
     <div className="page-main">
@@ -506,22 +505,14 @@ const [gamesLoading, setGamesLoading] = useState(true)
         </section>
       )}
 
-      {/* Providers */}
-      <section className="mt-8 px-4">
-        <p className="text-muted-foreground text-[10px] uppercase tracking-widest font-black mb-3">
-          {t('home.providersSection')}
-        </p>
-        <div className="flex gap-2 overflow-x-auto hide-scrollbar pb-1">
-          {providerList.map((p) => (
-            <span
-              key={p}
-              className="flex-shrink-0 text-[10px] font-black text-muted-foreground bg-secondary px-3 py-1.5 rounded-full border border-border"
-            >
-              {p}
-            </span>
+      {/* 首页彩色小卡片（后台装修配置） */}
+      {homeCards.length > 0 && (
+        <div ref={cardTrackRef} className="category-shortcut-row flex gap-3 pl-4 pr-4 pb-2 pt-3 mt-8 overflow-x-auto hide-scrollbar scroll-ps-4">
+          {homeCards.map((c) => (
+            <HomeCategoryShortcut key={c.slot} image={c.image} onClick={() => navHomeTarget(c.target)} />
           ))}
         </div>
-      </section>
+      )}
 
       {/* Betting Table */}
       <section className="mt-8 px-4">
@@ -626,15 +617,6 @@ const [gamesLoading, setGamesLoading] = useState(true)
           </div>
         )}
       </section>
-
-      {/* 首页彩色小卡片（后台装修配置） */}
-      {homeCards.length > 0 && (
-        <div ref={cardTrackRef} className="category-shortcut-row flex gap-3 pl-4 pr-4 pb-2 pt-3 overflow-x-auto hide-scrollbar scroll-ps-4">
-          {homeCards.map((c) => (
-            <HomeCategoryShortcut key={c.slot} image={c.image} onClick={() => navHomeTarget(c.target)} />
-          ))}
-        </div>
-      )}
 
       {/* Info Links */}
       <section className="mt-6 px-4">
