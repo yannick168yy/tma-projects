@@ -418,15 +418,6 @@ const [gamesLoading, setGamesLoading] = useState(true)
         </div>
       </div>
 
-      {/* 首页彩色小卡片（后台装修配置） */}
-      {homeCards.length > 0 && (
-        <div ref={cardTrackRef} className="category-shortcut-row flex gap-3 pl-4 pr-4 pb-2 pt-3 overflow-x-auto hide-scrollbar scroll-ps-4">
-          {homeCards.map((c) => (
-            <HomeCategoryShortcut key={c.slot} image={c.image} onClick={() => navHomeTarget(c.target)} />
-          ))}
-        </div>
-      )}
-
       {/* Popular Games */}
       <section className="mt-5">
         <div className="flex items-center justify-between px-4 mb-3">
@@ -635,6 +626,15 @@ const [gamesLoading, setGamesLoading] = useState(true)
           </div>
         )}
       </section>
+
+      {/* 首页彩色小卡片（后台装修配置） */}
+      {homeCards.length > 0 && (
+        <div ref={cardTrackRef} className="category-shortcut-row flex gap-3 pl-4 pr-4 pb-2 pt-3 overflow-x-auto hide-scrollbar scroll-ps-4">
+          {homeCards.map((c) => (
+            <HomeCategoryShortcut key={c.slot} image={c.image} onClick={() => navHomeTarget(c.target)} />
+          ))}
+        </div>
+      )}
 
       {/* Info Links */}
       <section className="mt-6 px-4">
