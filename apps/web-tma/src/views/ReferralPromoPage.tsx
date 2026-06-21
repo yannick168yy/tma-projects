@@ -1,11 +1,11 @@
-import { Fragment, useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Copy, Share2, Users, TrendingUp, Wallet, CheckCircle2, ChevronRight, Send, Zap, Info, Gem } from 'lucide-react'
+import { Copy, Share2, Users, TrendingUp, Wallet, CheckCircle2, ChevronRight, Send, Zap, Info, Gift, Link2, Network } from 'lucide-react'
 import { fetchTeamStatus, enableAgent } from '@/api/promotion'
 import type { TeamAgentStatus } from '@/types/api'
 import { buildInviteDeepLink, buildInviteWebLink } from '@/constants/telegram'
 import { useAuthStore } from '@/stores/auth'
-import referralHero from '@/assets/home/promos/refer-win.webp'
+import referralPeople from '@/assets/home/promos/referral-people.webp'
 
 interface Props {
   onOpenTeamCenter: () => void
@@ -16,102 +16,71 @@ function phpDisplay(cents: number) {
   return '₱' + val.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
-// 3-circle growth diagram
+// 3-circle structure tree: You -> C1 -> C2 -> C3 across three branches
 function TreeDiagram({ youLabel }: { youLabel: string }) {
+  const cols = [60, 170, 280]
   return (
-    <svg viewBox="0 0 320 204" className="w-full" aria-hidden="true" style={{ maxHeight: 204 }}>
+    <svg viewBox="0 0 340 232" className="w-full" aria-hidden="true">
       <defs>
-        <linearGradient id="tgLink01" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#fde047" stopOpacity="0.9" />
-          <stop offset="100%" stopColor="#34d399" stopOpacity="0.75" />
+        <linearGradient id="tgYou" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#86efac" />
+          <stop offset="100%" stopColor="#22c55e" />
         </linearGradient>
-        <linearGradient id="tgLink12" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#34d399" stopOpacity="0.72" />
-          <stop offset="100%" stopColor="#22d3ee" stopOpacity="0.62" />
-        </linearGradient>
-        <linearGradient id="tgLink23" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#22d3ee" stopOpacity="0.58" />
-          <stop offset="100%" stopColor="#fbbf24" stopOpacity="0.45" />
-        </linearGradient>
-        <linearGradient id="tgYou" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#fde047" />
-          <stop offset="100%" stopColor="#f59e0b" />
-        </linearGradient>
-        <linearGradient id="tgC1" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#fef08a" />
-          <stop offset="100%" stopColor="#fbbf24" />
-        </linearGradient>
-        <linearGradient id="tgC2" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#6ee7b7" />
-          <stop offset="100%" stopColor="#14b8a6" />
-        </linearGradient>
-        <linearGradient id="tgC3" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#67e8f9" />
-          <stop offset="100%" stopColor="#38bdf8" />
-        </linearGradient>
-        <filter id="tgGlow" x="-30%" y="-40%" width="160%" height="180%">
-          <feDropShadow dx="0" dy="5" stdDeviation="5" floodColor="#000000" floodOpacity="0.28" />
-          <feDropShadow dx="0" dy="0" stdDeviation="3" floodColor="#fde047" floodOpacity="0.18" />
-        </filter>
       </defs>
 
-      <g opacity="0.5">
-        <path d="M18 18H302M30 98H290M18 184H302" stroke="rgba(255,255,255,0.08)" strokeWidth="1" strokeDasharray="4 8" />
+      {/* You -> C1 (dashed) */}
+      <g stroke="#22c55e" strokeWidth="1.6" strokeDasharray="3 4" opacity="0.7" fill="none">
+        {cols.map((cx) => <path key={cx} d={`M170 44 L${cx} 70`} />)}
+      </g>
+      {/* C1 -> C2 */}
+      <g stroke="#3b82f6" strokeWidth="1.6" opacity="0.6" fill="none">
+        {cols.map((cx) => <path key={cx} d={`M${cx} 94 L${cx} 122`} />)}
+      </g>
+      {/* C2 -> C3 */}
+      <g stroke="#f59e0b" strokeWidth="1.6" opacity="0.55" fill="none">
+        <path d="M60 146 C60 159 42 160 42 174" />
+        <path d="M60 146 C60 159 78 160 78 174" />
+        <path d="M170 146 L170 174" />
+        <path d="M280 146 C280 159 262 160 262 174" />
+        <path d="M280 146 C280 159 298 160 298 174" />
       </g>
 
-      <g strokeLinecap="round" fill="none">
-        <path d="M160 34C132 46 94 54 52 70" stroke="url(#tgLink01)" strokeWidth="2.4" />
-        <path d="M160 34V70" stroke="url(#tgLink01)" strokeWidth="2.4" />
-        <path d="M160 34C188 46 226 54 268 70" stroke="url(#tgLink01)" strokeWidth="2.4" />
-        <path d="M52 94C44 106 35 114 27 128M52 94C59 106 66 114 73 128" stroke="url(#tgLink12)" strokeWidth="2" />
-        <path d="M160 94C152 106 145 114 138 128M160 94C168 106 175 114 182 128" stroke="url(#tgLink12)" strokeWidth="2" />
-        <path d="M268 94C260 106 254 114 248 128M268 94C276 106 283 114 290 128" stroke="url(#tgLink12)" strokeWidth="2" />
-        <path d="M27 151V174M138 151C130 160 122 167 115 174M138 151C145 160 151 167 156 174M248 151C256 160 264 167 270 174" stroke="url(#tgLink23)" strokeWidth="1.8" />
-      </g>
+      {/* You node */}
+      <circle cx="170" cy="26" r="16" fill="url(#tgYou)" />
+      <circle cx="170" cy="22" r="4.6" fill="#06281a" opacity="0.85" />
+      <path d="M162 33 C164 28.5 176 28.5 178 33" stroke="#06281a" strokeWidth="2" fill="none" strokeLinecap="round" opacity="0.85" />
+      <text x="192" y="26" dominantBaseline="central" fill="#ffffff" fontSize="11" fontWeight="800">{youLabel}</text>
 
-      <g filter="url(#tgGlow)">
-        <rect x="121" y="0" width="78" height="34" rx="14" fill="url(#tgYou)" />
-        <circle cx="140" cy="17" r="8" fill="#fff7ed" opacity="0.92" />
-        <circle cx="140" cy="14" r="2.7" fill="#78350f" opacity="0.8" />
-        <path d="M135.5 22C137 19.8 143 19.8 144.5 22" stroke="#78350f" strokeWidth="1.4" strokeLinecap="round" />
-      </g>
-      <text x="166" y="17" dominantBaseline="central" textAnchor="middle" fill="#78350f" fontSize="10" fontWeight="900">
-        {youLabel}
-      </text>
-
-      {[52, 160, 268].map((cx) => (
-        <g key={cx} filter="url(#tgGlow)">
-          <rect x={cx - 32} y="68" width="64" height="28" rx="10" fill="rgba(8,13,24,0.72)" stroke="rgba(253,224,71,0.55)" />
-          <circle cx={cx - 17} cy="82" r="8" fill="url(#tgC1)" />
-          <circle cx={cx - 17} cy="79.5" r="2.4" fill="#78350f" opacity="0.72" />
-          <path d={`M${cx - 22} 87C${cx - 19} 83.5 ${cx - 15} 83.5 ${cx - 12} 87`} stroke="#78350f" strokeWidth="1.2" strokeLinecap="round" />
-          <circle cx={cx + 20} cy="76" r="5" fill="#fbbf24" stroke="#fef3c7" strokeWidth="1" />
-          <text x={cx + 7} y="84" dominantBaseline="central" textAnchor="middle" fill="#fde047" fontSize="10" fontWeight="900">C1</text>
+      {/* C1 (green) */}
+      {cols.map((cx) => (
+        <g key={`c1-${cx}`}>
+          <rect x={cx - 21} y="70" width="42" height="24" rx="8" fill="#0f2c1b" stroke="#22c55e" strokeWidth="1.2" />
+          <text x={cx} y="82" dominantBaseline="central" textAnchor="middle" fill="#4ade80" fontSize="11" fontWeight="900">C1</text>
         </g>
       ))}
-      <text x="308" y="84" dominantBaseline="central" textAnchor="middle" fill="rgba(253,224,71,0.55)" fontSize="13" fontWeight="900">+</text>
-
-      {[28, 72, 138, 182, 248, 290].map((cx) => (
-        <g key={cx} filter="url(#tgGlow)">
-          <rect x={cx - 23} y="128" width="46" height="25" rx="9" fill="rgba(8,13,24,0.66)" stroke="rgba(52,211,153,0.48)" />
-          <path d={`M${cx - 20} 131H${cx + 20}`} stroke="rgba(255,255,255,0.2)" strokeWidth="1" strokeLinecap="round" />
-          <circle cx={cx - 10} cy="140.5" r="6.5" fill="url(#tgC2)" />
-          <path d={`M${cx - 14} 144C${cx - 11.5} 141.5 ${cx - 8.5} 141.5 ${cx - 6} 144`} stroke="#064e3b" strokeWidth="1.1" strokeLinecap="round" />
-          <text x={cx + 8} y="141" dominantBaseline="central" textAnchor="middle" fill="#a7f3d0" fontSize="8.5" fontWeight="900">C2</text>
-          <circle cx={cx + 18} cy="132" r="4" fill="#fde047" opacity="0.95" />
-          <path d={`M${cx + 16} 132H${cx + 20}M${cx + 18} 130V134`} stroke="#78350f" strokeWidth="0.9" strokeLinecap="round" />
+      {/* C2 (blue) */}
+      {cols.map((cx) => (
+        <g key={`c2-${cx}`}>
+          <rect x={cx - 21} y="122" width="42" height="24" rx="8" fill="#0e2240" stroke="#3b82f6" strokeWidth="1.2" />
+          <text x={cx} y="134" dominantBaseline="central" textAnchor="middle" fill="#60a5fa" fontSize="11" fontWeight="900">C2</text>
         </g>
       ))}
-
-      {[28, 115, 155, 270].map((cx) => (
-        <g key={cx} filter="url(#tgGlow)">
-          <rect x={cx - 19} y="174" width="38" height="22" rx="8" fill="rgba(8,13,24,0.62)" stroke="rgba(103,232,249,0.42)" />
-          <circle cx={cx - 9} cy="185" r="5.4" fill="url(#tgC3)" />
-          <text x={cx + 8} y="185" dominantBaseline="central" textAnchor="middle" fill="#67e8f9" fontSize="8" fontWeight="900">C3</text>
-          <circle cx={cx + 14} cy="178" r="3.6" fill="#fbbf24" opacity="0.95" />
+      {/* C3 (amber) */}
+      {[42, 78, 170, 262, 298].map((cx) => (
+        <g key={`c3-${cx}`}>
+          <rect x={cx - 18} y="174" width="36" height="22" rx="7" fill="#34250d" stroke="#f59e0b" strokeWidth="1.1" />
+          <text x={cx} y="185.5" dominantBaseline="central" textAnchor="middle" fill="#fbbf24" fontSize="10" fontWeight="900">C3</text>
         </g>
       ))}
-      <text x="214" y="187" dominantBaseline="central" textAnchor="middle" fill="rgba(103,232,249,0.5)" fontSize="13" fontWeight="900">+</text>
+      {/* people icons under each branch */}
+      {cols.map((cx) => (
+        <g key={`p-${cx}`} opacity="0.4" fill="none" stroke="#94a3b8" strokeWidth="1.4">
+          <circle cx={cx - 6} cy="211" r="3" />
+          <path d={`M${cx - 11} 220 C${cx - 11} 215 ${cx - 1} 215 ${cx - 1} 220`} />
+          <circle cx={cx + 6} cy="211" r="3" />
+          <path d={`M${cx + 1} 220 C${cx + 1} 215 ${cx + 11} 215 ${cx + 11} 220`} />
+        </g>
+      ))}
     </svg>
   )
 }
@@ -176,19 +145,25 @@ export default function ReferralPromoPage({ onOpenTeamCenter }: Props) {
   const tiers = [
     {
       level: 1, label: t('referralPromo.l1Label'), desc: t('referralPromo.l1Desc'),
-      color: 'from-amber-500/20 to-amber-600/10', badge: 'bg-amber-500/20 text-amber-400',
-      border: 'border-amber-500/20', icon: 'text-amber-400', rate: l1,
+      color: 'from-emerald-500/20 to-emerald-600/10', badge: 'bg-emerald-500/20 text-emerald-400',
+      border: 'border-emerald-500/25', icon: 'text-emerald-400', rate: l1,
     },
     {
       level: 2, label: t('referralPromo.l2Label'), desc: t('referralPromo.l2Desc'),
       color: 'from-blue-500/20 to-blue-600/10', badge: 'bg-blue-500/20 text-blue-400',
-      border: 'border-blue-500/20', icon: 'text-blue-400', rate: l2,
+      border: 'border-blue-500/25', icon: 'text-blue-400', rate: l2,
     },
     {
       level: 3, label: t('referralPromo.l3Label'), desc: t('referralPromo.l3Desc'),
-      color: 'from-purple-500/20 to-purple-600/10', badge: 'bg-purple-500/20 text-purple-400',
-      border: 'border-purple-500/20', icon: 'text-purple-400', rate: l3,
+      color: 'from-amber-500/20 to-amber-600/10', badge: 'bg-amber-500/20 text-amber-400',
+      border: 'border-amber-500/25', icon: 'text-amber-400', rate: l3,
     },
+  ]
+
+  const features = [
+    { icon: <Link2 size={18} />, ring: 'bg-emerald-400/15 text-emerald-300', title: t('referralPromo.featShareTitle'), desc: t('referralPromo.featShareDesc') },
+    { icon: <Users size={18} />, ring: 'bg-emerald-400/15 text-emerald-300', title: t('referralPromo.featGrowTitle'), desc: t('referralPromo.featGrowDesc') },
+    { icon: <Wallet size={18} />, ring: 'bg-amber-400/15 text-amber-300', title: t('referralPromo.featEarnTitle'), desc: t('referralPromo.featEarnDesc') },
   ]
 
   const steps = [
@@ -197,98 +172,82 @@ export default function ReferralPromoPage({ onOpenTeamCenter }: Props) {
     { step: '03', title: t('referralPromo.step3Title'), desc: t('referralPromo.step3Desc') },
   ]
 
-  const questRules = [
-    {
-      icon: <Share2 size={15} />,
-      title: t('referralPromo.questShareTitle'),
-      desc: t('referralPromo.questShareDesc'),
-      className: 'from-yellow-300 to-amber-400 text-amber-950',
-    },
-    {
-      icon: <Users size={15} />,
-      title: t('referralPromo.questCircleTitle'),
-      desc: t('referralPromo.questCircleDesc'),
-      className: 'from-emerald-300 to-teal-400 text-teal-950',
-    },
-    {
-      icon: <Wallet size={15} />,
-      title: t('referralPromo.questRewardTitle'),
-      desc: t('referralPromo.questRewardDesc'),
-      className: 'from-sky-300 to-cyan-400 text-cyan-950',
-    },
-  ]
-
   return (
     <div className="flex flex-col bg-background min-h-full">
-      {/* Hero - 3-circle diagram + rewards */}
-      <div className="relative overflow-hidden px-4 pt-[calc(var(--app-safe-top)+3rem)] pb-8 flex-shrink-0">
+      {/* Hero - people + headline */}
+      <div className="relative overflow-hidden px-4 pt-[calc(var(--app-safe-top)+3rem)] pb-7 flex-shrink-0">
         <div
           className="absolute inset-0 pointer-events-none"
           style={{
-            background: 'linear-gradient(150deg, rgba(5, 45, 39, 0.98) 0%, rgba(7, 92, 70, 0.94) 42%, rgba(8, 11, 20, 0.98) 100%)',
+            background: 'linear-gradient(165deg, #0c1626 0%, #0e1c30 42%, #070b14 100%)',
           }}
         />
-        <img
-          src={referralHero}
-          alt=""
-          className="pointer-events-none absolute -right-14 top-7 w-[58%] max-w-[235px] opacity-25 mix-blend-screen"
-        />
-        <div className="absolute inset-0 pointer-events-none bg-[linear-gradient(135deg,rgba(250,204,21,0.18)_0%,transparent_34%),linear-gradient(315deg,rgba(45,212,191,0.16)_0%,transparent_36%)]" />
-        <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-b from-transparent to-background pointer-events-none" />
+        <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(60%_42%_at_85%_12%,rgba(34,197,94,0.16)_0%,transparent_70%),radial-gradient(52%_40%_at_8%_28%,rgba(56,189,248,0.10)_0%,transparent_70%)]" />
+        <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-b from-transparent to-background pointer-events-none" />
 
-        <div className="relative mb-4">
-          <div className="flex items-center justify-between gap-2 mb-4">
-            <div className="inline-flex items-center gap-1.5 bg-yellow-300 text-yellow-950 rounded-full px-3 py-1 shadow-[0_8px_24px_rgba(250,204,21,0.28)]">
-              <Gem size={11} />
-              <span className="text-[10px] font-black uppercase tracking-widest">{t('referralPromo.subtitle')}</span>
-            </div>
-            <div className="rounded-full bg-teal-300 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-teal-950 shadow-[0_8px_24px_rgba(45,212,191,0.28)]">
-              {t('referralPromo.questBadge')}
-            </div>
+        {/* top badges */}
+        <div className="relative flex items-center justify-between gap-2 mb-4">
+          <div className="inline-flex items-center gap-1.5 rounded-full border border-amber-400/50 bg-amber-400/10 px-3 py-1 text-amber-300">
+            <Users size={11} />
+            <span className="text-[9px] font-black uppercase tracking-widest">{t('referralPromo.subtitle')}</span>
           </div>
-          <h2 className="font-display font-black text-[2rem] text-white leading-[0.95] drop-shadow-[0_3px_0_rgba(0,0,0,0.24)]">
-            {t('referralPromo.heading1')}<br />
-            <span className="text-yellow-300">{t('referralPromo.heading2')}</span>
-          </h2>
-          <p className="mt-3 max-w-[330px] text-sm font-semibold leading-relaxed text-white/80">{t('referralPromo.heroParagraph')}</p>
+          <div className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/50 bg-emerald-400/10 px-3 py-1 text-emerald-300">
+            <Gift size={11} />
+            <span className="text-[9px] font-black uppercase tracking-widest">{t('referralPromo.questBadge')}</span>
+          </div>
         </div>
 
-        <div className="relative mb-4 rounded-[1.5rem] border border-white/15 bg-black/30 p-3.5 shadow-[0_18px_50px_rgba(0,0,0,0.28)] backdrop-blur">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <p className="font-display text-[11px] font-black uppercase tracking-widest text-white/70">{t('referralPromo.questMapTitle')}</p>
-            <span className="rounded-full bg-white/12 px-2 py-1 text-[10px] font-black text-yellow-200">{t('referralPromo.questRewardTag')}</span>
-          </div>
-          <div className="grid grid-cols-[1fr_auto_1fr_auto_1fr] items-stretch gap-1.5">
-            {[
-              { code: 'C1', title: t('referralPromo.mapC1Title'), desc: t('referralPromo.mapC1Desc'), className: 'bg-yellow-300 text-yellow-950' },
-              { code: 'C2', title: t('referralPromo.mapC2Title'), desc: t('referralPromo.mapC2Desc'), className: 'bg-emerald-300 text-emerald-950' },
-              { code: 'C3', title: t('referralPromo.mapC3Title'), desc: t('referralPromo.mapC3Desc'), className: 'bg-cyan-300 text-cyan-950' },
-            ].map((item, index) => (
-              <Fragment key={item.code}>
-                {index > 0 && <div className="flex items-center justify-center text-sm font-black text-white/45">›</div>}
-                <div className="min-w-0 rounded-2xl bg-white/10 p-2 text-center">
-                  <div className={`mx-auto mb-1 flex h-7 w-7 items-center justify-center rounded-xl text-xs font-black ${item.className}`}>{item.code}</div>
-                  <p className="truncate text-[11px] font-black text-white">{item.title}</p>
-                  <p className="mt-0.5 text-[9px] font-semibold leading-snug text-white/60">{item.desc}</p>
-                </div>
-              </Fragment>
+        {/* headline */}
+        <div className="relative mb-1">
+          <h2 className="font-display font-black text-[2rem] text-white leading-[0.98] drop-shadow-[0_3px_0_rgba(0,0,0,0.3)]">
+            {t('referralPromo.heading1')}<br />
+            <span className="text-emerald-400">{t('referralPromo.heading2')}</span>
+          </h2>
+          <p className="mt-3 max-w-[330px] text-sm font-semibold leading-relaxed text-white/75">{t('referralPromo.heroParagraph')}</p>
+        </div>
+
+        {/* people image, edges blended into background */}
+        <div className="relative -mx-4 -mt-2 mb-2">
+          <img
+            src={referralPeople}
+            alt=""
+            className="pointer-events-none mx-auto w-full max-w-[460px]"
+            style={{
+              WebkitMaskImage: 'radial-gradient(76% 80% at 50% 44%, #000 48%, transparent 86%)',
+              maskImage: 'radial-gradient(76% 80% at 50% 44%, #000 48%, transparent 86%)',
+            }}
+          />
+          <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-b from-transparent to-background pointer-events-none" />
+        </div>
+
+        {/* feature row */}
+        <div className="relative mb-4 rounded-[1.5rem] border border-white/10 bg-white/[0.03] p-3">
+          <div className="grid grid-cols-3 divide-x divide-white/10">
+            {features.map((f) => (
+              <div key={f.title} className="flex flex-col items-center px-1 text-center">
+                <div className={`mb-1.5 flex h-9 w-9 items-center justify-center rounded-full ${f.ring}`}>{f.icon}</div>
+                <p className="text-[11px] font-black leading-tight text-white">{f.title}</p>
+                <p className="mt-0.5 text-[9px] font-semibold leading-snug text-white/55">{f.desc}</p>
+              </div>
             ))}
           </div>
         </div>
 
-        {/* 3-circle visual */}
-        <div className="relative mb-4 rounded-[1.5rem] border border-white/10 bg-gradient-to-br from-emerald-950/78 via-slate-950/82 to-cyan-950/58 px-2 py-3 shadow-[0_18px_50px_rgba(0,0,0,0.24)]">
-          <TreeDiagram youLabel={t('referralPromo.pyramidYou')} />
-        </div>
-
-        <div className="relative mb-4 grid grid-cols-3 gap-2">
-          {questRules.map((item) => (
-            <div key={item.title} className={`min-h-[104px] rounded-2xl bg-gradient-to-br ${item.className} p-2.5 shadow-[0_10px_28px_rgba(0,0,0,0.22)]`}>
-              <div className="mb-2 flex h-7 w-7 items-center justify-center rounded-xl bg-white/45">{item.icon}</div>
-              <p className="text-[11px] font-black leading-tight">{item.title}</p>
-              <p className="mt-1 text-[9px] font-bold leading-snug opacity-75">{item.desc}</p>
+        {/* 3-circle structure */}
+        <div className="relative mb-4 rounded-[1.5rem] border border-white/10 bg-white/[0.03] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.24)]">
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Network size={14} className="text-emerald-400" />
+              <p className="font-display text-[11px] font-black uppercase tracking-widest text-white/80">{t('referralPromo.structureTitle')}</p>
             </div>
-          ))}
+            <span className="rounded-full border border-emerald-400/40 bg-emerald-400/10 px-2.5 py-1 text-[9px] font-black text-emerald-300">{t('referralPromo.questRewardTag')}</span>
+          </div>
+          <TreeDiagram youLabel={t('referralPromo.pyramidYou')} />
+          <div className="mt-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5 text-[9.5px] font-bold">
+            <span className="flex items-center gap-1 text-emerald-300"><span className="h-2 w-2 rounded-sm bg-emerald-400" />C1 · {t('referralPromo.treeDirect')}</span>
+            <span className="flex items-center gap-1 text-blue-300"><span className="h-2 w-2 rounded-sm bg-blue-400" />C2 · {t('referralPromo.treeFriendsC1')}</span>
+            <span className="flex items-center gap-1 text-amber-300"><span className="h-2 w-2 rounded-sm bg-amber-400" />C3 · {t('referralPromo.treeFriendsC2')}</span>
+          </div>
         </div>
 
         {/* Circle reward cards */}
