@@ -130,16 +130,30 @@ export async function fetchTeamTree(month: string): Promise<{ l1Members: TeamTre
   return apiRequest(`/promotions/team/tree?month=${encodeURIComponent(month)}`)
 }
 
+export interface FirstDepTier { depositAmount: number; bonusAmount: number }
+
 export interface PromoConfig {
   trial:    { amount: number; enabled: boolean }
   referral: { inviterAmount: number; inviteeAmount: number; enabled: boolean }
-  firstdep: { matchPct: number; maxBonus: number; minDeposit: number; turnoverX: number; enabled: boolean }
+  firstdep: { enabled: boolean; turnoverX: number; turnoverDays?: number; tiers: Record<string, FirstDepTier[]> }
 }
 
 const DEFAULT_PROMO_CONFIG: PromoConfig = {
   trial:    { amount: 88, enabled: true },
   referral: { inviterAmount: 50, inviteeAmount: 30, enabled: true },
-  firstdep: { matchPct: 120, maxBonus: 1000, minDeposit: 100, turnoverX: 15, enabled: true },
+  firstdep: {
+    enabled: true,
+    turnoverX: 15,
+    tiers: {
+      PHP: [
+        { depositAmount: 20, bonusAmount: 5 }, { depositAmount: 50, bonusAmount: 10 },
+        { depositAmount: 100, bonusAmount: 15 }, { depositAmount: 200, bonusAmount: 30 },
+        { depositAmount: 500, bonusAmount: 60 }, { depositAmount: 1000, bonusAmount: 70 },
+        { depositAmount: 5000, bonusAmount: 100 }, { depositAmount: 10000, bonusAmount: 150 },
+        { depositAmount: 50000, bonusAmount: 1000 },
+      ],
+    },
+  },
 }
 
 export async function fetchPromoConfig(): Promise<PromoConfig> {

@@ -25,6 +25,7 @@ export interface AuthUser {
   boundPhone?: boolean
   boundAccount?: boolean
   isAgent?: boolean
+  firstDepClaimed?: boolean
 }
 
 export interface TelegramWidgetUser {

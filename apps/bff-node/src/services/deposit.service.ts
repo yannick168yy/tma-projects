@@ -11,7 +11,8 @@ import {
   saveUser,
 } from './store/index.js'
 import { nowIso } from '../utils/format.js'
-import { createDepositRequirement } from './turnover.service.js'
+import { createDepositRequirement, createPromoRequirement } from './turnover.service.js'
+import { getFirstDepConfigByPool, matchFirstDepBonus, PROMO_DEFAULTS } from './promo-config.service.js'
 
 export type DepositCurrency = 'PHP' | 'USDT' | 'TON'
 
@@ -65,11 +66,42 @@ async function applyReferralMilestone(
   await saveUser(redis, inviter)
 }
 
-async function applyFirstDepPromo(redis: Redis, userId: string): Promise<void> {
+/**
+ * 首充嘉年华：仅首充一次，充值成功后按「该笔充值币种」向下匹配档位自动发同币种奖励。
+ * 命中档位（bonus>0）才消耗首充资格；低于最小档位不发奖励、也不消耗资格。
+ */
+async function applyFirstDepPromo(
+  redis: Redis,
+  userId: string,
+  depositAmount: number,
+  currency: string,
+  opts: { pool?: Pool; traceId?: string },
+): Promise<void> {
   const user = await getUser(redis, userId)
   if (!user || user.firstDepClaimed || user.firstDepReady) return
-  user.firstDepReady = true
+
+  const cfg = opts.pool ? await getFirstDepConfigByPool(opts.pool) : PROMO_DEFAULTS.firstdep
+  if (!cfg.enabled) return
+  const bonus = matchFirstDepBonus(cfg.tiers[currency], depositAmount)
+  if (bonus <= 0) return
+
+  user.firstDepClaimed = true
   await saveUser(redis, user)
+
+  await creditWallet(redis, userId, bonus, {
+    type: 'bonus',
+    description: 'First deposit bonus',
+    createdAt: nowIso(),
+    traceId: opts.traceId,
+    ...(currency !== 'PHP' ? { currency } : {}),
+  })
+
+  if (cfg.turnoverX > 0 && opts.pool) {
+    const expiresAt = cfg.turnoverDays > 0
+      ? new Date(Date.now() + cfg.turnoverDays * 86400000).toISOString().slice(0, 19).replace('T', ' ')
+      : null
+    await createPromoRequirement(opts.pool, userId, 'firstdep', bonus, cfg.turnoverX, expiresAt, currency)
+  }
 }
 
 /**
@@ -127,7 +159,7 @@ export async function settlePaidDeposit(
     ...(creditedCurrency !== 'PHP' ? { currency: creditedCurrency } : {}),
   })
 
-  await applyFirstDepPromo(redis, order.userId)
+  await applyFirstDepPromo(redis, order.userId, opts.amountPhpUnits, opts.currency, { pool: opts.mysqlPool, traceId: opts.traceId })
   await applyReferralMilestone(redis, order.userId, order.orderId, credited)
 
   if (opts.mysqlPool) {

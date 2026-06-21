@@ -610,10 +610,13 @@ export const getBetRounds = (params: {
 }) => get<{ total: number; page: number; pageSize: number; stats: BetOrderStats; items: BetRoundRecord[] }>('/admin/bet-orders', { ...params, view: 'round' })
 
 // Promo Config
+export interface FirstDepTier { depositAmount: number; bonusAmount: number }
+export const FIRSTDEP_CURRENCIES = ['PHP', 'USDT', 'USDC', 'TON', 'TRX'] as const
+export type FirstDepCurrency = (typeof FIRSTDEP_CURRENCIES)[number]
 export interface PromoConfig {
   trial:    { amount: number; enabled: boolean; turnoverX: number; turnoverDays: number }
   referral: { inviterAmount: number; inviteeAmount: number; enabled: boolean; turnoverX: number; turnoverDays: number }
-  firstdep: { matchPct: number; maxBonus: number; minDeposit: number; turnoverX: number; turnoverDays: number; enabled: boolean }
+  firstdep: { enabled: boolean; turnoverX: number; turnoverDays: number; tiers: Record<string, FirstDepTier[]> }
 }
 export const getPromoConfig = () => get<PromoConfig>('/admin/promotions/config')
 export const savePromoConfig = (data: PromoConfig) => req<PromoConfig>('PUT', '/admin/promotions/config', data)

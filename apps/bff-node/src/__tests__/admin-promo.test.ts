@@ -27,7 +27,7 @@ const mockGetAdminSession = vi.mocked(adminAuthSvc.getAdminSession)
 const DEFAULT_CONFIG = {
   trial:    { amount: 88, enabled: true, turnoverX: 0, turnoverDays: 0 },
   referral: { inviterAmount: 50, inviteeAmount: 30, enabled: true, turnoverX: 0, turnoverDays: 0 },
-  firstdep: { matchPct: 120, maxBonus: 1000, minDeposit: 100, turnoverX: 15, turnoverDays: 30, enabled: true },
+  firstdep: { enabled: true, turnoverX: 15, turnoverDays: 30, tiers: { PHP: [{ depositAmount: 100, bonusAmount: 15 }] } },
 }
 
 function createAdminApp() {
@@ -66,7 +66,8 @@ describe('后台活动配置 (Admin Promotions Config)', () => {
     expect(res.status).toBe(200)
     expect(res.body.data.trial.amount).toBe(88)
     expect(res.body.data.referral.inviterAmount).toBe(50)
-    expect(res.body.data.firstdep.maxBonus).toBe(1000)
+    expect(res.body.data.firstdep.turnoverX).toBe(15)
+    expect(res.body.data.firstdep.tiers.PHP[0].bonusAmount).toBe(15)
   })
 
   it('PUT /promotions/config — 修改 trial 金额为 120', async () => {
@@ -88,7 +89,7 @@ describe('后台活动配置 (Admin Promotions Config)', () => {
 
     expect(res.status).toBe(200)
     expect(res.body.data.firstdep.enabled).toBe(false)
-    expect(res.body.data.firstdep.maxBonus).toBe(1000) // 其他字段不变
+    expect(res.body.data.firstdep.turnoverX).toBe(15) // 其他字段不变
   })
 
   it('PUT /promotions/config — trial.amount 超出范围（>50000）返回 400', async () => {
@@ -118,10 +119,10 @@ describe('后台活动配置 (Admin Promotions Config)', () => {
     expect(mockSavePromoConfig).not.toHaveBeenCalled()
   })
 
-  it('PUT /promotions/config — firstdep.matchPct 超出范围（>1000）返回 400', async () => {
+  it('PUT /promotions/config — firstdep 档位金额为 0 返回 400', async () => {
     const res = await request(createAdminApp())
       .put('/promotions/config')
-      .send({ firstdep: { matchPct: 2000 } })
+      .send({ firstdep: { tiers: { PHP: [{ depositAmount: 0, bonusAmount: 5 }] } } })
 
     expect(res.status).toBe(400)
     expect(mockSavePromoConfig).not.toHaveBeenCalled()
@@ -133,14 +134,14 @@ describe('后台活动配置 (Admin Promotions Config)', () => {
       .send({
         trial: { amount: 100, enabled: false },
         referral: { inviterAmount: 60, inviteeAmount: 40 },
-        firstdep: { maxBonus: 800 },
+        firstdep: { turnoverX: 20 },
       })
 
     expect(res.status).toBe(200)
     expect(res.body.data.trial.amount).toBe(100)
     expect(res.body.data.trial.enabled).toBe(false)
     expect(res.body.data.referral.inviterAmount).toBe(60)
-    expect(res.body.data.firstdep.maxBonus).toBe(800)
+    expect(res.body.data.firstdep.turnoverX).toBe(20)
     expect(mockSavePromoConfig).toHaveBeenCalledOnce()
   })
 })

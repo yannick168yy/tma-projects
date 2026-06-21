@@ -32,5 +32,7 @@ export function toPublicUser(user: UserRecord) {
     boundGoogle: Boolean(user.googleSub),
     boundPhone: Boolean(user.phoneAccount),
     boundAccount: Boolean(user.username),
+    // 首充嘉年华是否已发放（充值页首存奖励角标用）
+    firstDepClaimed: user.firstDepClaimed,
   }
 }

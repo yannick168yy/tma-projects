@@ -24,8 +24,8 @@ const PROMOS = [
   {
     promoId: 'firstdep',
     title: 'First Deposit',
-    subtitle: '120% bonus up to ₱1,000',
-    description: 'First Telegram Wallet deposit earns up to ₱1,000 bonus.',
+    subtitle: 'Bonus on your first top-up',
+    description: 'Your first deposit auto-earns a bonus based on the amount you top up.',
     ctaLabel: 'Deposit',
   },
 ] as const
@@ -45,11 +45,8 @@ function promoHighlights(user: Awaited<ReturnType<typeof getUser>>) {
         flagLabel: user.referralReady && !user.referralClaimed ? 'Claim' : null,
       }
     }
-    return {
-      promoId: p.promoId,
-      highlight: user.firstDepReady && !user.firstDepClaimed,
-      flagLabel: user.firstDepReady && !user.firstDepClaimed ? '120%' : null,
-    }
+    // 首充嘉年华改为充值自动入账，不再有「待领取」高亮态
+    return { promoId: p.promoId, highlight: false, flagLabel: null }
   })
 }
 
@@ -181,11 +178,14 @@ router.get('/:promoId', async (ctx) => {
     fail(ctx, 404, 'Promotion not found', 404)
     return
   }
+  const cfg = await getPromoConfig(ctx.state.env)
+  const phpTiers = cfg.firstdep.tiers.PHP ?? []
+  const maxPhpBonus = phpTiers.length ? Math.max(...phpTiers.map((tier) => tier.bonusAmount)) : 0
   ok(ctx, {
     ...promo,
     rules: promo.description,
-    turnoverMultiplier: promo.promoId === 'firstdep' ? 3 : 1,
-    maxBonusPhp: promo.promoId === 'firstdep' ? 1000 : 88,
+    turnoverMultiplier: promo.promoId === 'firstdep' ? cfg.firstdep.turnoverX : 1,
+    maxBonusPhp: promo.promoId === 'firstdep' ? maxPhpBonus : 88,
   })
 })
 
@@ -227,29 +227,8 @@ router.post('/:promoId/claim', async (ctx) => {
     return
   }
   if (promoId === 'firstdep') {
-    if (!user.firstDepReady || user.firstDepClaimed) {
-      fail(ctx, 409, 'First deposit bonus not available')
-      return
-    }
-    const cfg = await getPromoConfig(ctx.state.env)
-    if (!cfg.firstdep.enabled) { fail(ctx, 409, 'First deposit bonus is currently disabled'); return }
-    const amount = cfg.firstdep.maxBonus
-    user.firstDepClaimed = true
-    user.firstDepReady = false
-    await saveUser(ctx.state.redis, user)
-    await creditWallet(ctx.state.redis, user.id, amount, {
-      type: 'bonus',
-      description: 'First deposit bonus',
-      createdAt: nowIso(),
-      traceId: ctx.state.traceId,
-    })
-    if (cfg.firstdep.turnoverX > 0 && isMysqlEnabled(ctx.state.env)) {
-      const expiresAt = cfg.firstdep.turnoverDays > 0
-        ? new Date(Date.now() + cfg.firstdep.turnoverDays * 86400000).toISOString().slice(0, 19).replace('T', ' ')
-        : null
-      await createPromoRequirement(getMysqlPool(ctx.state.env), user.id, 'firstdep', amount, cfg.firstdep.turnoverX, expiresAt)
-    }
-    ok(ctx, { amountPhp: amount, amountCents: amount })
+    // 首充嘉年华改为充值成功后按档位自动入账，无需手动领取
+    fail(ctx, 409, 'First deposit bonus is credited automatically on deposit')
     return
   }
   fail(ctx, 404, 'Promotion not found', 404)

@@ -28,11 +28,15 @@ router.put('/config', async (ctx) => {
   if (updated.referral.inviterAmount < 0 || updated.referral.inviteeAmount < 0) {
     fail(ctx, 400, 'referral 金额不能为负数'); return
   }
-  if (updated.firstdep.matchPct <= 0 || updated.firstdep.matchPct > 1000) {
-    fail(ctx, 400, 'firstdep.matchPct 必须在 1-1000 之间'); return
+  if (updated.firstdep.turnoverX < 0 || updated.firstdep.turnoverDays < 0) {
+    fail(ctx, 400, 'firstdep 流水倍率/有效期不能为负'); return
   }
-  if (updated.firstdep.maxBonus <= 0 || updated.firstdep.minDeposit <= 0 || updated.firstdep.turnoverX <= 0) {
-    fail(ctx, 400, 'firstdep 金额/流水倍率必须大于 0'); return
+  for (const [currency, list] of Object.entries(updated.firstdep.tiers)) {
+    for (const tier of list) {
+      if (!(tier.depositAmount > 0) || tier.bonusAmount < 0) {
+        fail(ctx, 400, `firstdep ${currency} 档位金额必须大于 0、奖励不能为负`); return
+      }
+    }
   }
 
   await savePromoConfig(ctx.state.env, updated)

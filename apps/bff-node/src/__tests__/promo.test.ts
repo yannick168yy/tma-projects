@@ -62,7 +62,7 @@ function makeUser(overrides: Partial<UserRecord> = {}): UserRecord {
 const DEFAULT_CONFIG = {
   trial: { amount: 88, enabled: true, turnoverX: 0, turnoverDays: 0 },
   referral: { inviterAmount: 50, inviteeAmount: 30, enabled: true, turnoverX: 0, turnoverDays: 0 },
-  firstdep: { matchPct: 120, maxBonus: 1000, minDeposit: 100, turnoverX: 15, turnoverDays: 30, enabled: true },
+  firstdep: { enabled: true, turnoverX: 15, turnoverDays: 30, tiers: { PHP: [{ depositAmount: 100, bonusAmount: 15 }, { depositAmount: 1000, bonusAmount: 70 }] } },
 }
 
 function createApp() {
@@ -318,70 +318,8 @@ describe('首充嘉年华 (firstdep)', () => {
     mockCreditWallet.mockResolvedValue({ available: 1000, frozen: 0 })
   })
 
-  it('POST /promotions/firstdep/claim — 就绪时成功领取 maxBonus', async () => {
-    mockGetUser.mockResolvedValue(makeUser({
-      firstDepReady: true,
-      firstDepClaimed: false,
-    }))
-    const res = await request(createApp()).post('/promotions/firstdep/claim')
-
-    expect(res.status).toBe(200)
-    expect(res.body.data.amountPhp).toBe(1000)
-    const savedUser = mockSaveUser.mock.calls[0][1] as UserRecord
-    expect(savedUser.firstDepClaimed).toBe(true)
-    expect(savedUser.firstDepReady).toBe(false)
-    expect(mockCreditWallet).toHaveBeenCalledWith(
-      expect.anything(), 'BG-10001', 1000, expect.objectContaining({ type: 'bonus' }),
-    )
-  })
-
-  it('POST /promotions/firstdep/claim — maxBonus 改为 500 时领取 500', async () => {
-    mockGetPromoConfig.mockResolvedValue({
-      ...DEFAULT_CONFIG,
-      firstdep: { matchPct: 120, maxBonus: 500, minDeposit: 100, turnoverX: 15, turnoverDays: 30, enabled: true },
-    })
-    mockGetUser.mockResolvedValue(makeUser({ firstDepReady: true, firstDepClaimed: false }))
-    mockCreditWallet.mockResolvedValue({ available: 500, frozen: 0 })
-
-    const res = await request(createApp()).post('/promotions/firstdep/claim')
-
-    expect(res.status).toBe(200)
-    expect(res.body.data.amountPhp).toBe(500)
-    expect(mockCreditWallet).toHaveBeenCalledWith(
-      expect.anything(), 'BG-10001', 500, expect.anything(),
-    )
-  })
-
-  it('POST /promotions/firstdep/claim — 未就绪时返回 409', async () => {
-    mockGetUser.mockResolvedValue(makeUser({
-      firstDepReady: false,
-      firstDepClaimed: false,
-    }))
-    const res = await request(createApp()).post('/promotions/firstdep/claim')
-
-    expect(res.status).toBe(400)
-    expect(res.body.code).toBe(409)
-    expect(mockCreditWallet).not.toHaveBeenCalled()
-  })
-
-  it('POST /promotions/firstdep/claim — 已领取时返回 409', async () => {
-    mockGetUser.mockResolvedValue(makeUser({
-      firstDepReady: true,
-      firstDepClaimed: true,
-    }))
-    const res = await request(createApp()).post('/promotions/firstdep/claim')
-
-    expect(res.status).toBe(400)
-    expect(res.body.code).toBe(409)
-    expect(mockCreditWallet).not.toHaveBeenCalled()
-  })
-
-  it('POST /promotions/firstdep/claim — 活动关闭时返回 409', async () => {
-    mockGetPromoConfig.mockResolvedValue({
-      ...DEFAULT_CONFIG,
-      firstdep: { matchPct: 120, maxBonus: 1000, minDeposit: 100, turnoverX: 15, turnoverDays: 30, enabled: false },
-    })
-    mockGetUser.mockResolvedValue(makeUser({ firstDepReady: true, firstDepClaimed: false }))
+  it('POST /promotions/firstdep/claim — 改为充值自动入账，手动领取返回 409', async () => {
+    mockGetUser.mockResolvedValue(makeUser({ firstDepClaimed: false }))
     const res = await request(createApp()).post('/promotions/firstdep/claim')
 
     expect(res.status).toBe(400)
@@ -434,7 +372,7 @@ describe('活动列表 GET /promotions', () => {
     expect(referral?.flagLabel).toBe('Claim')
   })
 
-  it('firstDepReady=true 且未领取 — firstdep 高亮', async () => {
+  it('firstdep 自动入账 — 始终不高亮', async () => {
     mockGetUser.mockResolvedValue(makeUser({
       trialClaimed: true,
       firstDepReady: true,
@@ -444,8 +382,8 @@ describe('活动列表 GET /promotions', () => {
 
     const items: Array<{ promoId: string; highlight: boolean; flagLabel: string | null }> = res.body.data
     const firstdep = items.find(i => i.promoId === 'firstdep')
-    expect(firstdep?.highlight).toBe(true)
-    expect(firstdep?.flagLabel).toBe('120%')
+    expect(firstdep?.highlight).toBe(false)
+    expect(firstdep?.flagLabel).toBe(null)
   })
 
   it('全部已领取 — 无高亮', async () => {

@@ -89,8 +89,10 @@ export default function BonusesPage({ promoFilter, onOpenWallet, onOpenTeam }: P
           vars = { inviterAmount: cfg.referral.inviterAmount, inviteeAmount: cfg.referral.inviteeAmount }
           reward = `₱${cfg.referral.inviterAmount} / ₱${cfg.referral.inviteeAmount}`
         } else if (p.id === 'firstdep' && cfg) {
-          vars = { matchPct: cfg.firstdep.matchPct, maxBonus: cfg.firstdep.maxBonus.toLocaleString('en-PH'), minDeposit: cfg.firstdep.minDeposit, turnoverX: cfg.firstdep.turnoverX }
-          reward = `${cfg.firstdep.matchPct}%`
+          const phpTiers = cfg.firstdep.tiers?.PHP ?? []
+          const maxBonus = phpTiers.length ? Math.max(...phpTiers.map((tier) => tier.bonusAmount)) : 0
+          vars = { maxBonus: maxBonus.toLocaleString('en-PH'), turnoverX: cfg.firstdep.turnoverX }
+          reward = `₱${maxBonus.toLocaleString('en-PH')}`
         }
 
         const stepList =
