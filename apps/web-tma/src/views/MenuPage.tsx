@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef, type ComponentType, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
-  AtSign,
   Check,
   CheckCircle2,
   ChevronDown,
@@ -30,11 +29,8 @@ import { useLocaleStore } from '@/stores/locale'
 import { useThemeStore, type ThemeMode } from '@/stores/theme'
 import { LANGUAGES } from '@/data/languages'
 import type { LoginProvider } from '@/types/api'
-import { formatTelegramHandle, getTelegramWebAppUser } from '@/utils/telegramUser'
 import { patchProfile } from '@/api/auth'
 import { fetchRebateProgress } from '@/api/rebate'
-import ContactBrandIcon from '@/components/profile/ContactBrandIcon'
-import ContactMethodRow from '@/components/profile/ContactMethodRow'
 import menuCasino from '@/assets/home/promos/menu-card-casino.webp'
 
 interface Props {
@@ -174,7 +170,6 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false)
   const [bindOpen, setBindOpen] = useState(false)
   const [profileSheetOpen, setProfileSheetOpen] = useState(false)
-  const [contactSheetOpen, setContactSheetOpen] = useState(false)
   const [personalSaved, setPersonalSaved] = useState(false)
   const [personalSaving, setPersonalSaving] = useState(false)
   const [personalError, setPersonalError] = useState('')
@@ -186,8 +181,6 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
   const [dobYear, setDobYear] = useState('')
   const [dobOpen, setDobOpen] = useState(false)
   const [gender, setGender] = useState('')
-  const [phone, setPhone] = useState('')
-  const [emailExtra, setEmailExtra] = useState('')
   const [comingSoonToast, setComingSoonToast] = useState(false)
   const [docModalKey, setDocModalKey] = useState<string | null>(null)
   const [langOpen, setLangOpen] = useState(false)
@@ -199,15 +192,6 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
   const currentLang = LANGUAGES.find((l) => l.code === locale) ?? LANGUAGES[0]
 
   const loginProvider: LoginProvider = auth.user?.loginProvider ?? (auth.user?.telegramUserId ? 'telegram' : 'google')
-  const isTelegramLogin = loginProvider === 'telegram'
-  const isGoogleLogin = loginProvider === 'google'
-  const telegramHandle = formatTelegramHandle(auth.user?.telegramUsername) ?? formatTelegramHandle(getTelegramWebAppUser()?.username)
-  const telegramSubtitle = isTelegramLogin ? (telegramHandle ?? t('profile.connected')) : t('profile.notConnected')
-  const googleEmail = auth.user?.email?.trim() ?? ''
-  const isGoogleEmailConnected = isGoogleLogin && Boolean(googleEmail)
-  const emailRowTitle = isGoogleLogin ? t('profile.google') : t('profile.emailAddress')
-  const emailRowSubtitle = isGoogleLogin ? (googleEmail || t('profile.notConnected')) : (emailExtra.trim() || t('profile.addEmailOptional'))
-  const contactOrder: Array<'telegram' | 'email' | 'phone'> = loginProvider === 'google' ? ['email', 'telegram', 'phone'] : ['telegram', 'phone', 'email']
 
   const MONTHS = Array.from({ length: 12 }, (_, i) => t(`profile.months.${i + 1}`))
   const genderOptions = [{ id: 'Male', label: t('profile.male') }, { id: 'Female', label: t('profile.female') }, { id: 'Other', label: t('profile.other') }]
@@ -251,9 +235,9 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
   }, [auth.user?.id])
 
   useEffect(() => {
-    document.body.style.overflow = docModalKey || profileSheetOpen || contactSheetOpen ? 'hidden' : ''
+    document.body.style.overflow = docModalKey || profileSheetOpen ? 'hidden' : ''
     return () => { document.body.style.overflow = '' }
-  }, [docModalKey, profileSheetOpen, contactSheetOpen])
+  }, [docModalKey, profileSheetOpen])
 
   useEffect(() => () => { if (comingSoonTimer.current) clearTimeout(comingSoonTimer.current) }, [])
 
@@ -429,9 +413,7 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
               subtitle={profileComplete || personalSaved ? t('common.verified') : t('profile.saveLock')}
               right={profileComplete || personalSaved ? <CheckCircle2 size={15} className="text-emerald-400" /> : <ChevronRight size={15} className="text-muted-foreground" />}
               onClick={() => setProfileSheetOpen(true)}
-              bordered
             />
-            <MenuRow icon={AtSign} title={t('profile.contactInfo')} subtitle={telegramSubtitle} onClick={() => setContactSheetOpen(true)} />
           </MenuSection>
         )}
 
@@ -624,30 +606,6 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
                 {personalSaving ? '保存中…' : t('profile.saveLock')}
               </button>
             )}
-          </div>
-        </BottomSheet>
-      )}
-
-      {contactSheetOpen && (
-        <BottomSheet title={t('profile.contactInfo')} onClose={() => setContactSheetOpen(false)}>
-          <div className="overflow-hidden rounded-2xl border border-border bg-card">
-            {contactOrder.map((block, idx) => (
-              <div key={block} className={idx < contactOrder.length - 1 ? 'border-b border-border' : ''}>
-                {block === 'telegram' && (
-                  <ContactMethodRow title={t('profile.telegram')} subtitle={telegramSubtitle} connected={isTelegramLogin} subtitleConnected={isTelegramLogin} icon={<ContactBrandIcon brand="telegram" />} />
-                )}
-                {block === 'email' && (
-                  <ContactMethodRow title={emailRowTitle} subtitle={emailRowSubtitle} connected={isGoogleEmailConnected} subtitleConnected={isGoogleEmailConnected} icon={<ContactBrandIcon brand={isGoogleLogin ? 'google' : 'email'} />}
-                    subtitleSlot={!isGoogleLogin ? <input value={emailExtra} type="email" placeholder="your@email.com" className="w-full bg-transparent text-xs font-semibold text-foreground placeholder:text-muted-foreground/40 focus:outline-none" onChange={(e) => setEmailExtra(e.target.value)} /> : undefined}
-                  />
-                )}
-                {block === 'phone' && (
-                  <ContactMethodRow title={t('profile.phoneNumber')} subtitle={t('profile.addPhoneOptional')} icon={<ContactBrandIcon brand="phone" />}
-                    subtitleSlot={<div className="flex items-center gap-1.5"><span className="text-xs text-muted-foreground">+63</span><input value={phone} type="tel" placeholder="9XX XXX XXXX" className="min-w-0 flex-1 bg-transparent text-xs font-semibold text-foreground placeholder:text-muted-foreground/40 focus:outline-none" onChange={(e) => setPhone(e.target.value)} /></div>}
-                  />
-                )}
-              </div>
-            ))}
           </div>
         </BottomSheet>
       )}
