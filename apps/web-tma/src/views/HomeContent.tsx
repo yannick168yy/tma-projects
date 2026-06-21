@@ -649,7 +649,7 @@ const [gamesLoading, setGamesLoading] = useState(true)
             const iconBg = iconColors[link.key] ?? 'bg-secondary'
             return (
               <button key={link.key} type="button" className="bg-secondary border border-border rounded-2xl p-4 text-left flex flex-col gap-3 active:scale-95 transition-transform" onClick={() => setInfoModal(link.key)}>
-                <div className={`w-9 h-9 rounded-xl flex items-center justify-center overflow-hidden ${iconBg}`}>{iconImage && <img src={iconImage} alt="" className="h-full w-full object-cover" />}</div>
+                <div className={`w-9 h-9 rounded-xl flex items-center justify-center overflow-hidden ${iconBg}`}>{iconImage && <img src={iconImage} alt="" className="h-7 w-7 rounded-md object-contain" />}</div>
                 <div className="flex items-end justify-between gap-1 flex-1">
                   <p className="text-xs font-bold text-foreground leading-snug">{t(`home.info${link.key.charAt(0).toUpperCase() + link.key.slice(1)}`)}</p>
                   <ChevronRight size={14} className="text-muted-foreground flex-shrink-0" />
@@ -685,7 +685,7 @@ const [gamesLoading, setGamesLoading] = useState(true)
       <section className="mt-8 px-4">
         <h3 className="text-muted-foreground font-black text-xs font-display tracking-widest mb-3">{t('home.supportSection')}</h3>
         <button type="button" className="w-full bg-secondary rounded-xl p-4 flex items-center justify-between border border-border" onClick={onOpenCs}>
-          <div className="flex items-center gap-3"><div className="w-9 h-9 rounded-lg bg-primary/15 flex items-center justify-center flex-shrink-0 overflow-hidden"><img src={supportOnlineImg} alt="" className="h-full w-full object-cover" /></div><span className="text-sm font-bold text-foreground">{t('home.supportOnline')}</span></div>
+          <div className="flex items-center gap-3"><div className="w-9 h-9 rounded-lg bg-primary/15 flex items-center justify-center flex-shrink-0 overflow-hidden"><img src={supportOnlineImg} alt="" className="h-7 w-7 rounded-md object-contain" /></div><span className="text-sm font-bold text-foreground">{t('home.supportOnline')}</span></div>
           <ChevronRight size={16} className="text-muted-foreground" />
         </button>
       </section>
