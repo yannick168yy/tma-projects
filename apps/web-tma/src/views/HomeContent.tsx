@@ -505,18 +505,6 @@ const [gamesLoading, setGamesLoading] = useState(true)
         </section>
       )}
 
-      {/* 首页彩色小卡片（后台装修配置） */}
-      {homeCards.length > 0 && (
-        <section className="mt-8">
-          <p className="text-muted-foreground text-[10px] uppercase tracking-widest font-black mb-3 px-4">Rewards Hub</p>
-          <div ref={cardTrackRef} className="category-shortcut-row flex gap-3 pl-4 pr-4 pb-2 overflow-x-auto hide-scrollbar scroll-ps-4">
-            {homeCards.map((c) => (
-              <HomeCategoryShortcut key={c.slot} image={c.image} onClick={() => navHomeTarget(c.target)} />
-            ))}
-          </div>
-        </section>
-      )}
-
       {/* Betting Table */}
       <section className="mt-8 px-4">
         <h3 className="text-muted-foreground font-black text-xs font-display tracking-widest mb-3">
@@ -620,6 +608,18 @@ const [gamesLoading, setGamesLoading] = useState(true)
           </div>
         )}
       </section>
+
+      {/* 首页彩色小卡片（后台装修配置） */}
+      {homeCards.length > 0 && (
+        <section className="mt-8">
+          <p className="text-muted-foreground text-[10px] uppercase tracking-widest font-black mb-3 px-4">Rewards Hub</p>
+          <div ref={cardTrackRef} className="category-shortcut-row flex gap-3 pl-4 pr-4 pb-2 overflow-x-auto hide-scrollbar scroll-ps-4">
+            {homeCards.map((c) => (
+              <HomeCategoryShortcut key={c.slot} image={c.image} onClick={() => navHomeTarget(c.target)} />
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Info Links */}
       <section className="mt-6 px-4">
