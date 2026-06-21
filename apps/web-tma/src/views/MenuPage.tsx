@@ -32,6 +32,7 @@ import { LANGUAGES } from '@/data/languages'
 import type { LoginProvider } from '@/types/api'
 import { formatTelegramHandle, getTelegramWebAppUser } from '@/utils/telegramUser'
 import { patchProfile } from '@/api/auth'
+import { fetchRebateProgress } from '@/api/rebate'
 import ContactBrandIcon from '@/components/profile/ContactBrandIcon'
 import ContactMethodRow from '@/components/profile/ContactMethodRow'
 import menuCasino from '@/assets/home/promos/menu-card-casino.webp'
@@ -190,6 +191,7 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
   const [comingSoonToast, setComingSoonToast] = useState(false)
   const [docModalKey, setDocModalKey] = useState<string | null>(null)
   const [langOpen, setLangOpen] = useState(false)
+  const [rebateLevel, setRebateLevel] = useState<number | null>(null)
   const comingSoonTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const USER_ID = auth.user?.id ?? '—'
@@ -254,6 +256,16 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
   }, [docModalKey, profileSheetOpen, contactSheetOpen])
 
   useEffect(() => () => { if (comingSoonTimer.current) clearTimeout(comingSoonTimer.current) }, [])
+
+  useEffect(() => {
+    if (!isLoggedIn) {
+      setRebateLevel(null)
+      return
+    }
+    fetchRebateProgress()
+      .then((progress) => setRebateLevel(progress.level))
+      .catch(() => setRebateLevel(null))
+  }, [isLoggedIn, auth.user?.id])
 
   function showComingSoon() {
     if (comingSoonTimer.current) clearTimeout(comingSoonTimer.current)
@@ -323,14 +335,14 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
     <div className="page-main min-h-full pb-24">
       <div className="px-4 pb-1 pt-3">
         <div
-          className="relative overflow-hidden rounded-3xl px-4 pb-3 pt-4 shadow-[0_18px_40px_rgba(0,0,0,0.32)]"
+          className="relative min-h-[194px] overflow-hidden rounded-3xl px-4 pb-4 pt-5 shadow-[0_18px_40px_rgba(0,0,0,0.32)]"
           style={{ background: 'linear-gradient(135deg, #e2af37 0%, #c79023 52%, #946615 100%)' }}
         >
           <img
             src={menuCasino}
             alt=""
             aria-hidden="true"
-            className="pointer-events-none absolute -right-2 top-1 h-[112px] w-auto select-none"
+            className="pointer-events-none absolute -right-2 top-2 h-32 w-auto select-none"
           />
           {isLoggedIn ? (
             <div className="relative pr-24">
@@ -339,7 +351,7 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
                   <div className="flex h-14 w-14 items-center justify-center rounded-full border border-white/40 bg-white/15 text-white shadow-[0_10px_24px_rgba(0,0,0,0.22)]">
                     <User size={25} />
                   </div>
-                  <span className="absolute -right-1 -top-1 rounded-full bg-zinc-900 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wide text-amber-300 shadow">VIP</span>
+                  <span className="absolute -right-1 -top-1 rounded-full bg-zinc-900 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wide text-amber-300 shadow">LV{rebateLevel ?? 1}</span>
                 </div>
                 <div className="min-w-0 flex-1 pt-0.5">
                   <p className="mb-1 text-[10px] font-black uppercase tracking-wide text-black/45">{t('profile.playerAccount')}</p>
@@ -373,7 +385,7 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
             </div>
           )}
 
-          <div className="relative mt-4 grid grid-cols-3 overflow-hidden rounded-2xl bg-black/15">
+          <div className="relative mt-5 grid grid-cols-3 overflow-hidden rounded-2xl bg-black/15">
             <div className="flex items-center gap-1.5 px-2.5 py-2.5">
               <Languages size={14} className="flex-shrink-0 text-amber-100/80" />
               <div className="min-w-0">
