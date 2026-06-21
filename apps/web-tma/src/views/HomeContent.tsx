@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   ChevronLeft, ChevronRight, Trophy, TrendingUp, Gamepad2,
-  Headphones, Fish, LayoutGrid, FileText, Shield, Heart, Info, X, Gem,
+  Fish, LayoutGrid, X, Gem,
 } from 'lucide-react'
 import HomeCategoryShortcut from '@/components/home/HomeCategoryShortcut'
 import GameCard from '@/components/home/GameCard'
@@ -24,6 +24,11 @@ import chipPokerImg from '@/assets/chips/poker.png'
 import chipBingoImg from '@/assets/chips/bingo.png'
 import chipSportsImg from '@/assets/chips/sports.png'
 import chipFishingImg from '@/assets/chips/fishing.png'
+import infoTermsImg from '@/assets/home/info-support/infor01.webp'
+import infoPrivacyImg from '@/assets/home/info-support/infor02.webp'
+import infoResponsibleImg from '@/assets/home/info-support/infor03.webp'
+import infoAboutImg from '@/assets/home/info-support/infor04.webp'
+import supportOnlineImg from '@/assets/home/info-support/online01.webp'
 import { shortProviderName } from '@/utils/providers'
 
 type GameChip = string
@@ -45,7 +50,7 @@ const GAME_CHIPS: GameChipDef[] = [
   { id: 'other',   icon: '🎮', labelKey: 'home.chipOther',  sortCategory: OTHER_CATEGORIES },
 ]
 
-const INFO_ICONS: Record<string, React.ComponentType<{ size: number; className?: string }>> = { terms: FileText, privacy: Shield, responsible: Heart, about: Info }
+const INFO_ICONS: Record<string, string> = { terms: infoTermsImg, privacy: infoPrivacyImg, responsible: infoResponsibleImg, about: infoAboutImg }
 
 interface CategoryLobbyParams { sortCategory?: string; sortBy?: 'weight' | 'ph_bonus'; title: string }
 
@@ -639,12 +644,12 @@ const [gamesLoading, setGamesLoading] = useState(true)
         <h3 className="text-muted-foreground font-black text-xs font-display tracking-widest mb-3">{t('home.infoSection')}</h3>
         <div className="grid grid-cols-2 gap-3">
           {INFO_LINKS.map((link) => {
-            const IconComp = INFO_ICONS[link.key]
-            const iconColors: Record<string, { bg: string; text: string }> = { terms: { bg: 'bg-amber-500/15', text: 'text-amber-400' }, privacy: { bg: 'bg-blue-500/15', text: 'text-blue-400' }, responsible: { bg: 'bg-rose-500/15', text: 'text-rose-400' }, about: { bg: 'bg-emerald-500/15', text: 'text-emerald-400' } }
-            const colors = iconColors[link.key] ?? { bg: 'bg-secondary', text: 'text-muted-foreground' }
+            const iconImage = INFO_ICONS[link.key]
+            const iconColors: Record<string, string> = { terms: 'bg-amber-500/15', privacy: 'bg-blue-500/15', responsible: 'bg-rose-500/15', about: 'bg-emerald-500/15' }
+            const iconBg = iconColors[link.key] ?? 'bg-secondary'
             return (
               <button key={link.key} type="button" className="bg-secondary border border-border rounded-2xl p-4 text-left flex flex-col gap-3 active:scale-95 transition-transform" onClick={() => setInfoModal(link.key)}>
-                <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${colors.bg}`}>{IconComp && <IconComp size={16} className={colors.text} />}</div>
+                <div className={`w-9 h-9 rounded-xl flex items-center justify-center overflow-hidden ${iconBg}`}>{iconImage && <img src={iconImage} alt="" className="h-full w-full object-cover" />}</div>
                 <div className="flex items-end justify-between gap-1 flex-1">
                   <p className="text-xs font-bold text-foreground leading-snug">{t(`home.info${link.key.charAt(0).toUpperCase() + link.key.slice(1)}`)}</p>
                   <ChevronRight size={14} className="text-muted-foreground flex-shrink-0" />
@@ -680,7 +685,7 @@ const [gamesLoading, setGamesLoading] = useState(true)
       <section className="mt-8 px-4">
         <h3 className="text-muted-foreground font-black text-xs font-display tracking-widest mb-3">{t('home.supportSection')}</h3>
         <button type="button" className="w-full bg-secondary rounded-xl p-4 flex items-center justify-between border border-border" onClick={onOpenCs}>
-          <div className="flex items-center gap-3"><div className="w-9 h-9 rounded-lg bg-primary/15 flex items-center justify-center flex-shrink-0"><Headphones size={16} className="text-primary" /></div><span className="text-sm font-bold text-foreground">{t('home.supportOnline')}</span></div>
+          <div className="flex items-center gap-3"><div className="w-9 h-9 rounded-lg bg-primary/15 flex items-center justify-center flex-shrink-0 overflow-hidden"><img src={supportOnlineImg} alt="" className="h-full w-full object-cover" /></div><span className="text-sm font-bold text-foreground">{t('home.supportOnline')}</span></div>
           <ChevronRight size={16} className="text-muted-foreground" />
         </button>
       </section>
