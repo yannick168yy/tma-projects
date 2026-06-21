@@ -121,6 +121,19 @@ export default function HomeContent({ onNavigatePath, onOpenCategoryLobby, onOpe
     bannerDragRef.current.axis = null
   }
 
+  useEffect(() => {
+    if (homeBanners.length <= 1) return
+    const id = setInterval(() => {
+      setActiveBanner((cur) => {
+        const next = (cur + 1) % homeBanners.length
+        const el = bannerTrackRef.current
+        if (el && el.clientWidth > 0) el.scrollTo({ left: next * el.clientWidth, behavior: 'smooth' })
+        return next
+      })
+    }, 3500)
+    return () => clearInterval(id)
+  }, [homeBanners.length])
+
   // Game data
   const [launchingUuid, setLaunchingUuid] = useState<string | null>(null)
   const [homepageGames, setHomepageGames] = useState<{ popular: SlotGame[]; slots: SlotGame[]; live: SlotGame[]; fishing: SlotGame[]; crash: SlotGame[]; table: SlotGame[] }>({ popular: [], slots: [], live: [], fishing: [], crash: [], table: [] })
