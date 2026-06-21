@@ -7,7 +7,8 @@ import { useWalletStore, formatCurrencyAmount } from '@/stores/wallet'
 import { useLocaleStore } from '@/stores/locale'
 import { localizedGameName } from '@/utils/game'
 import { ApiError } from '@/api/client'
-import { AutoCreditIcon, EveryBetIcon, MaxRateIcon } from '@/components/cashback/CashbackHeroIcons'
+import cashbackHero from '@/assets/home/promos/cashback-hero.webp'
+import cashbackCoins from '@/assets/home/promos/cashback-coins.webp'
 
 type DateTab = 'today' | 'yesterday'
 
@@ -144,40 +145,17 @@ export default function CashbackPage({ onOpenGame, onOpenCategory }: Props) {
 
   return (
     <div className="page-main pb-6">
-      {/* Hero —— 暗绿渐变 + 绿金搭配 */}
-      <div
-        className="relative px-4 pt-14 pb-5 overflow-hidden"
-        style={{ background: 'linear-gradient(160deg, #14532d 0%, #0a2e1a 42%, #080b14 75%)' }}
-      >
-        <div className="pointer-events-none absolute -top-8 -right-6 h-28 w-28 rounded-full bg-amber-400/20 blur-2xl" />
-        <div className="pointer-events-none absolute bottom-0 left-0 h-24 w-24 rounded-full bg-emerald-500/15 blur-xl" />
-        <p className="relative text-emerald-200/90 text-[11px] uppercase tracking-widest font-bold mb-1">
-          {t('cashback.pageSubtitle')}
-        </p>
-        <h1 className="relative font-black leading-tight mb-1 font-display text-[1.8rem] drop-shadow-sm bg-gradient-to-r from-white via-emerald-100 to-amber-300 bg-clip-text text-transparent">
-          {t('cashback.pageTitle')}
-        </h1>
-        <p className="relative text-emerald-100/65 text-xs max-w-[280px] leading-relaxed">{t('cashback.bannerSub')}</p>
-        <div className="relative flex gap-3 mt-4">
-          {[
-            { Icon: MaxRateIcon, value: t('cashback.tierEliteRate'), label: t('cashback.heroRateLabel') },
-            { Icon: AutoCreditIcon, value: t('cashback.heroCreditValue'), label: t('cashback.heroCreditLabel') },
-            { Icon: EveryBetIcon, value: t('cashback.heroFeaturedValue'), label: t('cashback.heroFeaturedLabel') },
-          ].map((s) => (
-            <div key={s.label} className="flex-1 bg-emerald-950/40 rounded-xl px-2.5 py-2.5 text-center border border-emerald-400/25 backdrop-blur-sm">
-              <div className="flex justify-center mb-1">
-                <s.Icon className="h-6 w-6" />
-              </div>
-              <p className="text-amber-300 font-black text-sm leading-none">{s.value}</p>
-              <p className="text-emerald-200/55 text-[9px] mt-1 leading-tight">{s.label}</p>
-            </div>
-          ))}
-        </div>
-      </div>
+      {/* Hero —— 成品 banner 图（含徽章 / 标题 / 数据卡） */}
+      <img
+        src={cashbackHero}
+        alt={t('cashback.pageTitle')}
+        className="block w-full select-none"
+        draggable={false}
+      />
 
       {/* 今日 / 昨日 药丸 Tab */}
       <div className="mx-4 mt-3">
-        <div className="flex rounded-full p-1 gap-1 bg-emerald-950/60 border border-emerald-700/35">
+        <div className="flex rounded-full p-1 gap-1 bg-violet-950/60 border border-violet-700/35">
           {(['today', 'yesterday'] as DateTab[]).map((tab) => (
             <button
               key={tab}
@@ -185,8 +163,8 @@ export default function CashbackPage({ onOpenGame, onOpenCategory }: Props) {
               onClick={() => setActiveTab(tab)}
               className={`flex-1 py-2.5 rounded-full text-sm font-bold transition-all ${
                 activeTab === tab
-                  ? 'bg-gradient-to-r from-amber-400 to-yellow-500 text-emerald-950 shadow-md shadow-amber-500/25'
-                  : 'text-emerald-300/70'
+                  ? 'bg-gradient-to-r from-amber-400 to-yellow-500 text-violet-950 shadow-md shadow-amber-500/25'
+                  : 'text-violet-300/70'
               }`}
             >
               {t(tab === 'today' ? 'cashback.tabToday' : 'cashback.tabYesterday')}
@@ -195,22 +173,25 @@ export default function CashbackPage({ onOpenGame, onOpenCategory }: Props) {
         </div>
       </div>
 
-      {/* 绿金 Total Bonus 横条 + 领取按钮（金额=可领取池） */}
-      <div className="mx-4 mt-3 relative overflow-hidden rounded-2xl border border-emerald-600/30">
-        <div className="absolute inset-0 bg-gradient-to-r from-emerald-700 via-emerald-800 to-amber-500" />
-        <div className="absolute -top-6 -right-2 h-20 w-20 rounded-full bg-white/15" />
-        <div className="relative flex items-center justify-between gap-3 px-5 py-4">
-          <div className="min-w-0">
-            <p className="text-amber-200 font-black text-lg leading-tight font-display">{t('cashback.totalBonus')}</p>
-            <p className="text-emerald-50 font-black text-2xl font-display drop-shadow mt-0.5">
-              {amtStr(currency, token ? (progress?.claimable ?? 0) : 0)}
-            </p>
-          </div>
+      {/* 深紫 Total Bonus 卡 + 金币插画 + 领取按钮（金额=可领取池） */}
+      <div className="mx-4 mt-3 relative overflow-hidden rounded-2xl border border-violet-500/25 bg-gradient-to-br from-violet-900/45 via-[#1a1138]/85 to-[#130c26]/95">
+        <img
+          src={cashbackCoins}
+          alt=""
+          aria-hidden="true"
+          className="pointer-events-none absolute -right-3 top-1/2 -translate-y-1/2 h-[150%] w-auto opacity-90"
+          draggable={false}
+        />
+        <div className="relative px-5 py-4">
+          <p className="text-amber-200 font-black text-base leading-tight font-display">{t('cashback.totalBonus')}</p>
+          <p className="text-white font-black text-3xl font-display drop-shadow mt-1">
+            {amtStr(currency, token ? (progress?.claimable ?? 0) : 0)}
+          </p>
           <button
             type="button"
             onClick={() => void onClaim()}
             disabled={claiming || !token || !progress || progress.claimable <= 0}
-            className="flex-shrink-0 bg-gradient-to-r from-amber-400 to-yellow-500 text-emerald-950 font-black text-sm rounded-full px-6 py-2.5 shadow-md shadow-amber-500/25 active:opacity-80 transition disabled:opacity-50"
+            className="mt-3 bg-gradient-to-r from-amber-400 to-yellow-500 text-violet-950 font-black text-sm rounded-full px-6 py-2.5 shadow-md shadow-amber-500/25 active:opacity-80 transition disabled:opacity-50"
           >
             {claiming ? t('cashback.claiming') : t('cashback.claimBtn')}
           </button>
@@ -219,10 +200,10 @@ export default function CashbackPage({ onOpenGame, onOpenCategory }: Props) {
 
       {/* 投注明细（有数据时展示） */}
       {token && summary && summary.breakdown.length > 0 && (
-        <div className="mx-4 mt-2 bg-emerald-950/40 rounded-2xl px-4 py-3 space-y-1.5 border border-emerald-800/30">
+        <div className="mx-4 mt-2 bg-violet-950/40 rounded-2xl px-4 py-3 space-y-1.5 border border-violet-800/30">
           {summary.breakdown.map((item) => (
             <div key={item.gameCategory} className="flex items-center justify-between text-xs">
-              <span className="flex items-center gap-1.5 text-emerald-200/70">
+              <span className="flex items-center gap-1.5 text-violet-200/70">
                 <span>{CATEGORY_ICONS[item.gameCategory] ?? '🎮'}</span>
                 <span>{t(catKeyOf(item.gameCategory))}</span>
                 <span className="text-[10px] text-amber-300/80">{item.ratePct}%</span>
@@ -236,15 +217,15 @@ export default function CashbackPage({ onOpenGame, onOpenCategory }: Props) {
       {/* CASHBACK GAMES */}
       {tiers.length > 0 && (
         <div className="mx-4 mt-5">
-          <h3 className="font-black text-emerald-100 text-base tracking-wide mb-3">{t('cashback.cashbackGames').toUpperCase()}</h3>
+          <h3 className="font-black text-violet-100 text-base tracking-wide mb-3">{t('cashback.cashbackGames').toUpperCase()}</h3>
           <div className="space-y-3">
             {tiers.map(([tier, games]) => {
               const cover = games[0]?.coverUrl
               const expanded = expandedTier === tier
               return (
-                <div key={tier} className="rounded-2xl bg-emerald-950/35 border border-emerald-700/30 overflow-hidden">
+                <div key={tier} className="rounded-2xl bg-violet-950/35 border border-violet-700/30 overflow-hidden">
                   <div className="flex items-center gap-3 p-3">
-                    <div className="w-16 h-16 rounded-xl overflow-hidden flex-shrink-0 bg-emerald-950/60 border border-emerald-700/25">
+                    <div className="w-16 h-16 rounded-xl overflow-hidden flex-shrink-0 bg-violet-950/60 border border-violet-700/25">
                       {cover
                         ? <img src={cover} alt="" className="w-full h-full object-cover" />
                         : <div className="w-full h-full flex items-center justify-center text-2xl">🎰</div>
@@ -256,11 +237,11 @@ export default function CashbackPage({ onOpenGame, onOpenCategory }: Props) {
                       </p>
                       <div className="flex gap-5 mt-1">
                         <div>
-                          <p className="text-emerald-300/60 text-[10px]">{t('cashback.cashbackRate')}</p>
-                          <p className="text-emerald-100 font-bold text-sm">{tierRate(tier)}</p>
+                          <p className="text-violet-300/60 text-[10px]">{t('cashback.cashbackRate')}</p>
+                          <p className="text-violet-100 font-bold text-sm">{tierRate(tier)}</p>
                         </div>
                         <div>
-                          <p className="text-emerald-300/60 text-[10px]">{t('cashback.bonusLabel')}</p>
+                          <p className="text-violet-300/60 text-[10px]">{t('cashback.bonusLabel')}</p>
                           <p className="text-amber-300 font-bold text-sm">{amtStr(currency, token ? (tierBonusMap.get(tier) ?? 0) : 0)}</p>
                         </div>
                       </div>
@@ -268,16 +249,16 @@ export default function CashbackPage({ onOpenGame, onOpenCategory }: Props) {
                     <button
                       type="button"
                       onClick={() => toggleTier(tier)}
-                      className="flex-shrink-0 flex items-center gap-1.5 bg-gradient-to-r from-amber-400 to-yellow-500 text-emerald-950 rounded-full pl-4 pr-1.5 py-1.5 active:opacity-80 transition-opacity"
+                      className="flex-shrink-0 flex items-center gap-1.5 bg-gradient-to-r from-amber-400 to-yellow-500 text-violet-950 rounded-full pl-4 pr-1.5 py-1.5 active:opacity-80 transition-opacity"
                     >
                       <span className="font-bold text-xs">{t('cashback.viewBtn')}</span>
-                      <span className="bg-emerald-900/40 text-amber-100 text-[11px] font-bold rounded-full min-w-5 h-5 px-1.5 flex items-center justify-center">
+                      <span className="bg-violet-900/40 text-amber-100 text-[11px] font-bold rounded-full min-w-5 h-5 px-1.5 flex items-center justify-center">
                         {games.length}
                       </span>
                     </button>
                   </div>
                   {expanded && (
-                    <div className="px-3 pb-3 border-t border-emerald-700/30 pt-3">
+                    <div className="px-3 pb-3 border-t border-violet-700/30 pt-3">
                       {games.length > 0 ? (
                         <div className="grid grid-cols-3 gap-2">
                           {games.map((g) => (
@@ -315,9 +296,9 @@ export default function CashbackPage({ onOpenGame, onOpenCategory }: Props) {
       {levelCards.length > 0 && (
         <div className="mt-5">
           <div className="flex items-center justify-between mb-3 mx-4">
-            <h3 className="font-black text-emerald-100 text-base tracking-wide">{t('cashback.rateTable').toUpperCase()}</h3>
+            <h3 className="font-black text-violet-100 text-base tracking-wide">{t('cashback.rateTable').toUpperCase()}</h3>
             {token && progress && (
-              <span className="bg-gradient-to-r from-amber-400 to-yellow-500 text-emerald-950 font-black text-xs rounded-full px-3 py-1">
+              <span className="bg-gradient-to-r from-amber-400 to-yellow-500 text-violet-950 font-black text-xs rounded-full px-3 py-1">
                 {t('cashback.levelTag', { level: progress.level })}
               </span>
             )}
@@ -339,10 +320,10 @@ export default function CashbackPage({ onOpenGame, onOpenCategory }: Props) {
 
           {/* total turnover：标签 + 数值 + 升级进度条 */}
           {token && progress && (
-            <div className="mx-4 mb-3 bg-emerald-950/40 rounded-2xl border border-emerald-700/30 px-4 py-3">
-              <p className="text-emerald-300/70 text-[11px]">{t('cashback.totalTurnover')}</p>
-              <p className="text-emerald-50 font-black text-2xl font-display mt-0.5">{amtStr(currency, progress.totalTurnover)}</p>
-              <div className="h-2 rounded-full bg-emerald-900/60 overflow-hidden mt-2">
+            <div className="mx-4 mb-3 bg-violet-950/40 rounded-2xl border border-violet-700/30 px-4 py-3">
+              <p className="text-violet-300/70 text-[11px]">{t('cashback.totalTurnover')}</p>
+              <p className="text-violet-50 font-black text-2xl font-display mt-0.5">{amtStr(currency, progress.totalTurnover)}</p>
+              <div className="h-2 rounded-full bg-violet-900/60 overflow-hidden mt-2">
                 <div
                   className="h-full bg-gradient-to-r from-amber-400 to-yellow-500 rounded-full transition-all"
                   style={{ width: `${progressPct}%` }}
@@ -367,8 +348,8 @@ export default function CashbackPage({ onOpenGame, onOpenCategory }: Props) {
               const cardCls = isMax
                 ? 'border-amber-400/70 bg-gradient-to-br from-purple-900/70 via-fuchsia-900/40 to-amber-600/40 shadow-lg shadow-amber-500/20'
                 : isCurrent
-                  ? 'border-amber-400/55 bg-emerald-900/55'
-                  : 'border-emerald-700/30 bg-emerald-950/40'
+                  ? 'border-amber-400/55 bg-violet-900/55'
+                  : 'border-violet-700/30 bg-violet-950/40'
               // 固定 6 类，按设计顺序，仅取启用项
               const catRates = CARD_CATEGORIES
                 .map((cat) => lc.rates.find((r) => r.gameCategory === cat && r.enabled))
@@ -383,23 +364,23 @@ export default function CashbackPage({ onOpenGame, onOpenCategory }: Props) {
                   <div className="flex items-start justify-between mb-3">
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className={`font-black text-xl font-display ${isMax ? 'text-amber-300' : 'text-emerald-50'}`}>
+                        <span className={`font-black text-xl font-display ${isMax ? 'text-amber-300' : 'text-violet-50'}`}>
                           {t('cashback.levelTag', { level: lc.level })}
                         </span>
                         {isCurrent && (
-                          <span className="bg-amber-400/90 text-emerald-950 text-[10px] font-black rounded-full px-2 py-0.5">
+                          <span className="bg-amber-400/90 text-violet-950 text-[10px] font-black rounded-full px-2 py-0.5">
                             {t('cashback.levelCurrent')}
                           </span>
                         )}
                       </div>
-                      <p className="text-[11px] text-emerald-300/70 mt-0.5">
+                      <p className="text-[11px] text-violet-300/70 mt-0.5">
                         {lc.minTurnover > 0
                           ? t('cashback.levelReq', { amount: amtStr(currency, lc.minTurnover) })
                           : t('cashback.levelEntry')}
                       </p>
                     </div>
                     {isMax && (
-                      <span className="bg-gradient-to-r from-amber-400 to-yellow-500 text-emerald-950 text-[10px] font-black rounded-md px-2 py-1">MAX</span>
+                      <span className="bg-gradient-to-r from-amber-400 to-yellow-500 text-violet-950 text-[10px] font-black rounded-md px-2 py-1">MAX</span>
                     )}
                   </div>
 
@@ -414,10 +395,10 @@ export default function CashbackPage({ onOpenGame, onOpenCategory }: Props) {
                           className="w-full flex items-center gap-2 active:opacity-70 transition-opacity"
                         >
                           <span className="text-xl leading-none flex-shrink-0">{CATEGORY_ICONS[r.gameCategory] ?? '🎮'}</span>
-                          <span className="text-sm font-semibold text-emerald-50/90 w-16 text-left truncate">{t(catKeyOf(r.gameCategory))}</span>
+                          <span className="text-sm font-semibold text-violet-50/90 w-16 text-left truncate">{t(catKeyOf(r.gameCategory))}</span>
                           <span className="flex-1 text-right leading-tight">
                             <span className="block text-amber-300 font-bold text-sm">+{amtStr(currency, bonus)}</span>
-                            <span className="block text-[9px] text-emerald-300/50">
+                            <span className="block text-[9px] text-violet-300/50">
                               {t('cashback.maxShort')} {r.maxBonus > 0 ? amtStr(currency, r.maxBonus) : t('cashback.unlimited')}
                             </span>
                           </span>
@@ -430,10 +411,10 @@ export default function CashbackPage({ onOpenGame, onOpenCategory }: Props) {
                   {/* 底部解锁状态 */}
                   <div className={`mt-3 rounded-lg py-2 text-center text-xs font-black ${
                     isCurrent || (progress && lc.level < userLevel)
-                      ? 'bg-emerald-700/40 text-emerald-100'
+                      ? 'bg-violet-700/40 text-violet-100'
                       : isMax
-                        ? 'bg-gradient-to-r from-amber-400 to-yellow-500 text-emerald-950'
-                        : 'bg-emerald-900/50 text-amber-200'
+                        ? 'bg-gradient-to-r from-amber-400 to-yellow-500 text-violet-950'
+                        : 'bg-violet-900/50 text-amber-200'
                   }`}>
                     {isCurrent
                       ? t('cashback.levelCurrent')
@@ -445,7 +426,7 @@ export default function CashbackPage({ onOpenGame, onOpenCategory }: Props) {
               )
             })}
           </div>
-          <p className="text-[10px] text-emerald-400/50 mt-1 px-4 text-center">
+          <p className="text-[10px] text-violet-400/50 mt-1 px-4 text-center">
             {t('cashback.creditedTomorrow')} · {t('cashback.unsettledNotCounted')}
           </p>
         </div>
