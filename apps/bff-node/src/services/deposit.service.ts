@@ -73,12 +73,14 @@ async function applyReferralMilestone(
 async function applyFirstDepPromo(
   redis: Redis,
   userId: string,
+  orderId: string,
   depositAmount: number,
   currency: string,
   opts: { pool?: Pool; traceId?: string },
 ): Promise<void> {
   const user = await getUser(redis, userId)
   if (!user || user.firstDepClaimed || user.firstDepReady) return
+  if (await countPaidDeposits(redis, userId, orderId) > 0) return
 
   const cfg = opts.pool ? await getFirstDepConfigByPool(opts.pool) : PROMO_DEFAULTS.firstdep
   if (!cfg.enabled) return
@@ -159,7 +161,7 @@ export async function settlePaidDeposit(
     ...(creditedCurrency !== 'PHP' ? { currency: creditedCurrency } : {}),
   })
 
-  await applyFirstDepPromo(redis, order.userId, opts.amountPhpUnits, opts.currency, { pool: opts.mysqlPool, traceId: opts.traceId })
+  await applyFirstDepPromo(redis, order.userId, order.orderId, opts.amountPhpUnits, opts.currency, { pool: opts.mysqlPool, traceId: opts.traceId })
   await applyReferralMilestone(redis, order.userId, order.orderId, credited)
 
   if (opts.mysqlPool) {
