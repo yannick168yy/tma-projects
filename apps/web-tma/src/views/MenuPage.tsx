@@ -385,7 +385,7 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
             </div>
           )}
 
-          <div className="relative mt-5 grid grid-cols-3 overflow-hidden rounded-2xl bg-black/15">
+          <div className="absolute bottom-4 left-4 right-4 grid grid-cols-3 overflow-hidden rounded-2xl bg-black/15">
             <div className="flex items-center gap-1.5 px-2.5 py-2.5">
               <Languages size={14} className="flex-shrink-0 text-amber-100/80" />
               <div className="min-w-0">
@@ -408,30 +408,6 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
               </div>
             </div>
           </div>
-        </div>
-      </div>
-
-      <div className="mx-4 mt-3 grid grid-cols-3 gap-2">
-        <div className="rounded-xl border border-border bg-card px-2.5 py-2">
-          <div className="mb-1 flex items-center gap-1 text-emerald-400">
-            <Headphones size={12} />
-            <span className="text-[10px] font-black">{t('common.online')}</span>
-          </div>
-          <p className="truncate text-[10px] font-semibold text-muted-foreground">{t('profile.supportItems.liveChatSub')}</p>
-        </div>
-        <div className="rounded-xl border border-border bg-card px-2.5 py-2">
-          <div className="mb-1 flex items-center gap-1 text-primary">
-            <ShieldCheck size={12} />
-            <span className="text-[10px] font-black">{t('bind.entry')}</span>
-          </div>
-          <p className="truncate text-[10px] font-semibold text-muted-foreground">{isLoggedIn ? t('common.verified') : t('shell.signIn')}</p>
-        </div>
-        <div className="rounded-xl border border-border bg-card px-2.5 py-2">
-          <div className="mb-1 flex items-center gap-1 text-primary">
-            <Languages size={12} />
-            <span className="text-[10px] font-black">{t('menu.language')}</span>
-          </div>
-          <p className="truncate text-[10px] font-semibold text-muted-foreground">{currentLang.flag} {t(`languages.${currentLang.code}`)}</p>
         </div>
       </div>
 
