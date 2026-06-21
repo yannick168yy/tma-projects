@@ -144,27 +144,35 @@ export default function CashbackPage({ onOpenGame, onOpenCategory }: Props) {
   }, [summary?.tierBreakdown])
 
   return (
-    <div className="page-main pb-6">
-      {/* Hero —— 成品 banner 图（含徽章 / 标题 / 数据卡） */}
-      <img
-        src={cashbackHero}
-        alt={t('cashback.pageTitle')}
-        className="block w-full select-none"
-        draggable={false}
-      />
+    <div
+      className="page-main pb-8 min-h-screen"
+      style={{ background: 'linear-gradient(180deg,#2a1d4e 0%,#1d1539 20%,#161031 46%,#100b24 100%)' }}
+    >
+      {/* Hero —— 成品 banner 图，顶部留白给返回按钮、上下渐隐融入页面（无硬边框） */}
+      <div className="relative">
+        <div className="h-9" style={{ height: 'calc(2.25rem + env(safe-area-inset-top, 0px))' }} />
+        <img
+          src={cashbackHero}
+          alt={t('cashback.pageTitle')}
+          className="block w-full select-none"
+          draggable={false}
+        />
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-[#2a1d4e] from-[42%] to-transparent" />
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-b from-transparent to-[#2a1d4e]" />
+      </div>
 
-      {/* 今日 / 昨日 药丸 Tab */}
-      <div className="mx-4 mt-3">
-        <div className="flex rounded-full p-1 gap-1 bg-violet-950/60 border border-violet-700/35">
+      {/* 今日 / 昨日 分段控件 —— 紧凑 + 金色质感选中 */}
+      <div className="mx-4 -mt-1">
+        <div className="flex rounded-2xl p-1 gap-1 bg-[#1f1740]/70 border border-violet-300/15 backdrop-blur-sm shadow-inner shadow-black/30">
           {(['today', 'yesterday'] as DateTab[]).map((tab) => (
             <button
               key={tab}
               type="button"
               onClick={() => setActiveTab(tab)}
-              className={`flex-1 py-2.5 rounded-full text-sm font-bold transition-all ${
+              className={`flex-1 py-2 rounded-xl text-sm font-bold transition-all ${
                 activeTab === tab
-                  ? 'bg-gradient-to-r from-amber-400 to-yellow-500 text-violet-950 shadow-md shadow-amber-500/25'
-                  : 'text-violet-300/70'
+                  ? 'bg-gradient-to-b from-amber-300 to-yellow-500 text-[#2a1a05] shadow-[0_2px_10px_rgba(245,158,11,0.4)]'
+                  : 'text-violet-200/55'
               }`}
             >
               {t(tab === 'today' ? 'cashback.tabToday' : 'cashback.tabYesterday')}
@@ -173,25 +181,28 @@ export default function CashbackPage({ onOpenGame, onOpenCategory }: Props) {
         </div>
       </div>
 
-      {/* 深紫 Total Bonus 卡 + 金币插画 + 领取按钮（金额=可领取池） */}
-      <div className="mx-4 mt-3 relative overflow-hidden rounded-2xl border border-violet-500/25 bg-gradient-to-br from-violet-900/45 via-[#1a1138]/85 to-[#130c26]/95">
+      {/* Total Bonus —— 紧凑横排，Claim 在右，金币暖光水印融入背景 */}
+      <div className="mx-4 mt-3 relative overflow-hidden rounded-2xl border border-amber-400/15 bg-gradient-to-r from-[#241844]/70 via-[#2c1e4a]/55 to-amber-900/20">
+        <div className="pointer-events-none absolute right-20 top-1/2 -translate-y-1/2 h-28 w-28 rounded-full bg-amber-400/20 blur-2xl" />
         <img
           src={cashbackCoins}
           alt=""
           aria-hidden="true"
-          className="pointer-events-none absolute -right-3 top-1/2 -translate-y-1/2 h-[150%] w-auto opacity-90"
+          className="pointer-events-none absolute right-24 top-1/2 -translate-y-1/2 h-[135%] w-auto opacity-55"
           draggable={false}
         />
-        <div className="relative px-5 py-4">
-          <p className="text-amber-200 font-black text-base leading-tight font-display">{t('cashback.totalBonus')}</p>
-          <p className="text-white font-black text-3xl font-display drop-shadow mt-1">
-            {amtStr(currency, token ? (progress?.claimable ?? 0) : 0)}
-          </p>
+        <div className="relative flex items-center justify-between gap-3 px-4 py-3.5">
+          <div className="min-w-0">
+            <p className="text-amber-200/90 font-bold text-[11px] uppercase tracking-wider">{t('cashback.totalBonus')}</p>
+            <p className="text-white font-black text-2xl font-display drop-shadow mt-0.5">
+              {amtStr(currency, token ? (progress?.claimable ?? 0) : 0)}
+            </p>
+          </div>
           <button
             type="button"
             onClick={() => void onClaim()}
             disabled={claiming || !token || !progress || progress.claimable <= 0}
-            className="mt-3 bg-gradient-to-r from-amber-400 to-yellow-500 text-violet-950 font-black text-sm rounded-full px-6 py-2.5 shadow-md shadow-amber-500/25 active:opacity-80 transition disabled:opacity-50"
+            className="flex-shrink-0 bg-gradient-to-b from-amber-300 to-yellow-500 text-[#2a1a05] font-black text-sm rounded-full px-6 py-2.5 shadow-[0_3px_12px_rgba(245,158,11,0.45)] active:opacity-80 transition disabled:opacity-50"
           >
             {claiming ? t('cashback.claiming') : t('cashback.claimBtn')}
           </button>
