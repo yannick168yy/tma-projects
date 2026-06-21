@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, type ComponentType, type ReactNode } from 'react'
+import { useState, useEffect, useRef, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Check,
@@ -6,20 +6,11 @@ import {
   ChevronDown,
   ChevronRight,
   Copy,
-  FileText,
   Gift,
   Headphones,
-  History,
-  Info,
   Languages,
   LogOut,
-  Mail,
-  MessageCircle,
-  Palette,
-  Send,
-  ShieldCheck,
   User,
-  Users,
   X,
 } from 'lucide-react'
 import { createPortal } from 'react-dom'
@@ -33,6 +24,9 @@ import { patchProfile } from '@/api/auth'
 import { fetchRebateProgress } from '@/api/rebate'
 import menuCasino from '@/assets/home/promos/menu-card-casino.webp'
 
+const ICONS = import.meta.glob('../assets/menu/icons/*.webp', { eager: true, import: 'default' }) as Record<string, string>
+const icon = (name: string): string => ICONS[`../assets/menu/icons/${name}.webp`]
+
 interface Props {
   onOpenCs: () => void
   onLogin: () => void
@@ -43,15 +37,13 @@ interface Props {
   onOpenAgentCenter: () => void
 }
 
-type MenuIcon = ComponentType<{ size?: number; className?: string }>
-
 const CURRENCIES = [
-  { symbol: '₱', name: 'PHP' },
-  { symbol: '₮', name: 'USDT' },
-  { symbol: 'T', name: 'TON' },
-  { symbol: '₿', name: 'BTC' },
-  { symbol: 'Ξ', name: 'ETH' },
-  { symbol: 'B', name: 'BNB' },
+  { icon: '28_php', name: 'PHP' },
+  { icon: '29_usdt', name: 'USDT' },
+  { icon: '30_ton', name: 'TON' },
+  { icon: '21_btc', name: 'BTC' },
+  { icon: '22_eth', name: 'ETH' },
+  { icon: '23_bnb', name: 'BNB' },
 ]
 
 const HOME_DOC_KEYS = new Set(['terms', 'privacy', 'responsible', 'about'])
@@ -70,7 +62,7 @@ function MenuSection({ title, children }: { title: string; children: ReactNode }
 }
 
 function MenuRow({
-  icon: Icon,
+  icon,
   title,
   subtitle,
   right,
@@ -78,7 +70,7 @@ function MenuRow({
   danger = false,
   bordered = false,
 }: {
-  icon: MenuIcon
+  icon: string
   title: string
   subtitle?: string
   right?: ReactNode
@@ -88,8 +80,8 @@ function MenuRow({
 }) {
   const content = (
     <>
-      <span className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl ${danger ? 'bg-red-500/10 text-red-400' : 'bg-secondary text-primary'}`}>
-        <Icon size={17} />
+      <span className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl ${danger ? 'bg-red-500/10' : 'bg-secondary'}`}>
+        <img src={icon} alt="" className="h-6 w-6 object-contain" />
       </span>
       <span className="min-w-0 flex-1 text-left">
         <span className={`block truncate text-sm font-bold ${danger ? 'text-red-400' : 'text-foreground'}`}>{title}</span>
@@ -110,13 +102,13 @@ function MenuRow({
 }
 
 function QuickAction({
-  icon: Icon,
+  icon,
   label,
   subtitle,
   onClick,
   featured = false,
 }: {
-  icon: MenuIcon
+  icon: string
   label: string
   subtitle: string
   onClick: () => void
@@ -128,8 +120,8 @@ function QuickAction({
       className={`relative flex min-h-[92px] flex-col justify-between overflow-hidden rounded-2xl border px-3 py-3 text-left transition-transform active:scale-[0.98] ${featured ? 'border-primary/30 bg-primary/10' : 'border-border bg-card hover:bg-secondary/50'}`}
       onClick={onClick}
     >
-      <span className={`flex h-9 w-9 items-center justify-center rounded-xl ${featured ? 'bg-primary text-primary-foreground' : 'bg-primary/10 text-primary'}`}>
-        <Icon size={18} />
+      <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-secondary">
+        <img src={icon} alt="" className="h-6 w-6 object-contain" />
       </span>
       <span>
         <span className="block text-xs font-black leading-tight text-foreground">{label}</span>
@@ -203,23 +195,23 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
   const canSavePersonal = profileComplete && !personalSaved
 
   const SUPPORT_ITEMS = [
-    { icon: MessageCircle, label: t('profile.supportItems.liveChat'), sub: t('profile.supportItems.liveChatSub'), badge: t('common.online'), onClick: onOpenCs },
-    { icon: Send, label: t('profile.supportItems.telegram'), sub: '@BetoGo_Support', badge: null, onClick: showComingSoon },
-    { icon: Mail, label: t('profile.supportItems.email'), sub: 'support@betogo.com', badge: null, onClick: showComingSoon },
+    { icon: '21_live_chat', label: t('profile.supportItems.liveChat'), sub: t('profile.supportItems.liveChatSub'), badge: t('common.online'), onClick: onOpenCs },
+    { icon: '22_telegram', label: t('profile.supportItems.telegram'), sub: '@BetoGo_Support', badge: null, onClick: showComingSoon },
+    { icon: '23_email', label: t('profile.supportItems.email'), sub: 'support@betogo.com', badge: null, onClick: showComingSoon },
   ]
   const COMMUNITY_LINKS = [
-    { icon: Send, label: t('profile.links.channel'), sub: t('profile.links.channelSub') },
-    { icon: Users, label: t('profile.links.community'), sub: t('profile.links.communitySub') },
-    { icon: Gift, label: t('profile.links.vip'), sub: t('profile.links.vipSub') },
-    { icon: MessageCircle, label: t('profile.links.facebook'), sub: t('profile.links.facebookSub') },
+    { icon: '24_official_channel', label: t('profile.links.channel'), sub: t('profile.links.channelSub') },
+    { icon: '25_community_group', label: t('profile.links.community'), sub: t('profile.links.communitySub') },
+    { icon: '26_vip_club', label: t('profile.links.vip'), sub: t('profile.links.vipSub') },
+    { icon: '27_facebook', label: t('profile.links.facebook'), sub: t('profile.links.facebookSub') },
   ]
   const DOCS = [
-    { key: 'terms', label: t('profile.docs.terms') },
-    { key: 'privacy', label: t('profile.docs.privacy') },
-    { key: 'responsible', label: t('profile.docs.responsible') },
-    { key: 'aml', label: t('profile.docs.aml') },
-    { key: 'bonusTerms', label: t('profile.docs.bonusTerms') },
-    { key: 'about', label: t('profile.docs.about') },
+    { key: 'terms', icon: '24_terms_of_service', label: t('profile.docs.terms') },
+    { key: 'privacy', icon: '25_privacy_policy', label: t('profile.docs.privacy') },
+    { key: 'responsible', icon: '26_responsible_gaming', label: t('profile.docs.responsible') },
+    { key: 'aml', icon: '27_aml_policy', label: t('profile.docs.aml') },
+    { key: 'bonusTerms', icon: '28_bonus_terms', label: t('profile.docs.bonusTerms') },
+    { key: 'about', icon: '29_about_us', label: t('profile.docs.about') },
   ]
 
   useEffect(() => {
@@ -397,18 +389,18 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
 
       <div className="mt-4 space-y-5 px-4">
         <div className="grid grid-cols-2 gap-2">
-          <QuickAction icon={Gift} label={t('menu.creditRecords')} subtitle={t('menu.creditRecordsSub')} featured onClick={() => void openLedger()} />
-          {isLoggedIn && <QuickAction icon={History} label={t('profile.betHistory')} subtitle={t('profile.account')} onClick={onOpenBetHistory} />}
-          {isLoggedIn && <QuickAction icon={Gift} label={t('referralPromo.title')} subtitle={t('common.featured')} onClick={onOpenReferralPromo} />}
-          {isLoggedIn && auth.user?.isAgent && <QuickAction icon={Users} label={t('agentCenter.entry')} subtitle={t('agentCenter.entrySub')} onClick={onOpenAgentCenter} />}
-          <QuickAction icon={Headphones} label={t('menu.customerSupport')} subtitle={t('menu.live247')} onClick={onOpenCs} />
+          <QuickAction icon={icon('01_rewards')} label={t('menu.creditRecords')} subtitle={t('menu.creditRecordsSub')} featured onClick={() => void openLedger()} />
+          {isLoggedIn && <QuickAction icon={icon('02_Bet_History')} label={t('profile.betHistory')} subtitle={t('profile.account')} onClick={onOpenBetHistory} />}
+          {isLoggedIn && <QuickAction icon={icon('03_3_circle_rewards')} label={t('referralPromo.title')} subtitle={t('common.featured')} onClick={onOpenReferralPromo} />}
+          {isLoggedIn && auth.user?.isAgent && <QuickAction icon={icon('04_agent_center')} label={t('agentCenter.entry')} subtitle={t('agentCenter.entrySub')} onClick={onOpenAgentCenter} />}
+          <QuickAction icon={icon('05_customer_support')} label={t('menu.customerSupport')} subtitle={t('menu.live247')} onClick={onOpenCs} />
         </div>
 
         {isLoggedIn && (
           <MenuSection title={t('profile.account')}>
-            <MenuRow icon={ShieldCheck} title={t('bind.entry')} subtitle={loginProvider === 'google' ? t('profile.google') : t('profile.telegram')} onClick={() => setBindOpen(true)} bordered />
+            <MenuRow icon={loginProvider === 'google' ? icon('06_google') : icon('22_telegram')} title={t('bind.entry')} subtitle={loginProvider === 'google' ? t('profile.google') : t('profile.telegram')} onClick={() => setBindOpen(true)} bordered />
             <MenuRow
-              icon={User}
+              icon={icon('07_personal_information')}
               title={t('profile.personalInfo')}
               subtitle={profileComplete || personalSaved ? t('common.verified') : t('profile.saveLock')}
               right={profileComplete || personalSaved ? <CheckCircle2 size={15} className="text-emerald-400" /> : <ChevronRight size={15} className="text-muted-foreground" />}
@@ -420,8 +412,8 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
         <MenuSection title={t('menu.appearance')}>
           <div className="border-b border-border px-4 py-3.5">
             <button type="button" className="flex w-full items-center gap-3 text-left" onClick={() => setLangOpen(!langOpen)}>
-              <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-secondary text-primary">
-                <Languages size={17} />
+              <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-secondary">
+                <img src={icon('09_language')} alt="" className="h-6 w-6 object-contain" />
               </span>
               <span className="min-w-0 flex-1">
                 <span className="block text-sm font-bold text-foreground">{t('menu.language')}</span>
@@ -448,8 +440,8 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
           </div>
           <div className="px-4 py-3.5">
             <div className="mb-3 flex items-center gap-3">
-              <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-secondary text-primary">
-                <Palette size={17} />
+              <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-secondary">
+                <img src={icon('10_appearance')} alt="" className="h-6 w-6 object-contain" />
               </span>
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-bold text-foreground">{t('menu.appearance')}</p>
@@ -479,7 +471,7 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
           {SUPPORT_ITEMS.map((item, i) => (
             <MenuRow
               key={item.label}
-              icon={item.icon}
+              icon={icon(item.icon)}
               title={item.label}
               subtitle={item.sub}
               bordered={i < SUPPORT_ITEMS.length - 1}
@@ -491,7 +483,7 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
 
         <MenuSection title={t('profile.communityMedia')}>
           {COMMUNITY_LINKS.map((item, i) => (
-            <MenuRow key={item.label} icon={item.icon} title={item.label} subtitle={item.sub} bordered={i < COMMUNITY_LINKS.length - 1} onClick={showComingSoon} />
+            <MenuRow key={item.label} icon={icon(item.icon)} title={item.label} subtitle={item.sub} bordered={i < COMMUNITY_LINKS.length - 1} onClick={showComingSoon} />
           ))}
         </MenuSection>
 
@@ -499,7 +491,7 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
           <div className="grid grid-cols-6 gap-2 px-4 py-4">
             {CURRENCIES.map((c) => (
               <div key={c.name} className="flex flex-col items-center gap-1.5">
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-secondary text-sm font-black text-foreground">{c.symbol}</div>
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-secondary"><img src={icon(c.icon)} alt="" className="h-7 w-7 object-contain" /></div>
                 <span className="text-[10px] font-bold text-muted-foreground">{c.name}</span>
               </div>
             ))}
@@ -508,7 +500,7 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
 
         <MenuSection title={t('profile.legalPolicies')}>
           {DOCS.map((d, i) => (
-            <MenuRow key={d.key} icon={i === DOCS.length - 1 ? Info : FileText} title={d.label} bordered={i < DOCS.length - 1} onClick={() => setDocModalKey(d.key)} />
+            <MenuRow key={d.key} icon={icon(d.icon)} title={d.label} bordered={i < DOCS.length - 1} onClick={() => setDocModalKey(d.key)} />
           ))}
         </MenuSection>
 
