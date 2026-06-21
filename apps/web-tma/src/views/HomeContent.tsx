@@ -270,14 +270,16 @@ const [gamesLoading, setGamesLoading] = useState(true)
 
   return (
     <div className="page-main">
-      {/* 首页彩色小卡片（后台装修配置） */}
-      {homeCards.length > 0 && (
-        <div ref={cardTrackRef} className="category-shortcut-row flex gap-3 pl-4 pr-4 pb-2 pt-1.5 overflow-x-auto hide-scrollbar scroll-ps-4">
-          {homeCards.map((c) => (
-            <HomeCategoryShortcut key={c.slot} image={c.image} onClick={() => navHomeTarget(c.target)} />
-          ))}
+      {/* Recent Wins marquee */}
+      <div className="mx-4 mt-4 bg-secondary rounded-xl p-3 flex items-center gap-2 overflow-hidden">
+        <div className="flex-shrink-0 flex items-center gap-1.5 text-primary"><Trophy size={13} /><span className="text-xs font-bold uppercase tracking-wide whitespace-nowrap">{t('home.recentWins')}</span></div>
+        <div className="w-px h-4 bg-border flex-shrink-0" />
+        <div className="overflow-hidden flex-1">
+          <div className="flex gap-6 animate-marquee whitespace-nowrap">
+            {marqueeWinners.map((w, i) => <span key={i} className="text-xs text-foreground/80 flex-shrink-0"><span className="text-primary font-bold">{w.name}</span> {t('common.won')} <span className="text-emerald-400 font-bold">{w.amount}</span> · <span className="text-muted-foreground">{w.game}</span></span>)}
+          </div>
         </div>
-      )}
+      </div>
 
       {/* Banner 轮播（后台装修配置） */}
       {homeBanners.length > 0 && (
@@ -296,6 +298,15 @@ const [gamesLoading, setGamesLoading] = useState(true)
               ))}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* 首页彩色小卡片（后台装修配置） */}
+      {homeCards.length > 0 && (
+        <div ref={cardTrackRef} className="category-shortcut-row flex gap-3 pl-4 pr-4 pb-2 pt-1.5 overflow-x-auto hide-scrollbar scroll-ps-4">
+          {homeCards.map((c) => (
+            <HomeCategoryShortcut key={c.slot} image={c.image} onClick={() => navHomeTarget(c.target)} />
+          ))}
         </div>
       )}
 
@@ -415,17 +426,6 @@ const [gamesLoading, setGamesLoading] = useState(true)
 
       {/* Hot 模式：原有首页内容 */}
       {activeChip === 'hot' && <>
-
-      {/* Recent Wins marquee */}
-      <div className="mx-4 mt-4 bg-secondary rounded-xl p-3 flex items-center gap-2 overflow-hidden">
-        <div className="flex-shrink-0 flex items-center gap-1.5 text-primary"><Trophy size={13} /><span className="text-xs font-bold uppercase tracking-wide whitespace-nowrap">{t('home.recentWins')}</span></div>
-        <div className="w-px h-4 bg-border flex-shrink-0" />
-        <div className="overflow-hidden flex-1">
-          <div className="flex gap-6 animate-marquee whitespace-nowrap">
-            {marqueeWinners.map((w, i) => <span key={i} className="text-xs text-foreground/80 flex-shrink-0"><span className="text-primary font-bold">{w.name}</span> {t('common.won')} <span className="text-emerald-400 font-bold">{w.amount}</span> · <span className="text-muted-foreground">{w.game}</span></span>)}
-          </div>
-        </div>
-      </div>
 
       {/* Popular Games */}
       <section className="mt-5">
