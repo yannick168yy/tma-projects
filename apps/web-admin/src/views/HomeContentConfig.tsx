@@ -12,7 +12,7 @@ import {
 
 const { Title, Text } = Typography
 
-type Kind = 'banner' | 'card'
+type Kind = HomeContentItem['kind']
 
 interface FormItemState {
   kind: Kind
@@ -105,8 +105,10 @@ export default function HomeContentConfig() {
   const [activeKind, setActiveKind] = useState<Kind>('banner')
   const [activeBannerSlot, setActiveBannerSlot] = useState('1')
   const [activeCardSlot, setActiveCardSlot] = useState('1')
+  const [activeWalletBannerSlot, setActiveWalletBannerSlot] = useState('1')
   const [banners, setBanners] = useState<FormItemState[]>([])
   const [cards, setCards] = useState<FormItemState[]>([])
+  const [walletBanners, setWalletBanners] = useState<FormItemState[]>([])
 
   async function load() {
     setLoading(true)
@@ -114,10 +116,13 @@ export default function HomeContentConfig() {
       const data = await getHomeContent()
       const nextBanners = data.banners.map((item) => ({ ...item })).sort((a, b) => a.slot - b.slot)
       const nextCards = data.cards.map((item) => ({ ...item })).sort((a, b) => a.slot - b.slot)
+      const nextWalletBanners = data.walletBanners.map((item) => ({ ...item })).sort((a, b) => a.slot - b.slot)
       setBanners(nextBanners)
       setCards(nextCards)
+      setWalletBanners(nextWalletBanners)
       setActiveBannerSlot(String(nextBanners[0]?.slot ?? 1))
       setActiveCardSlot(String(nextCards[0]?.slot ?? 1))
+      setActiveWalletBannerSlot(String(nextWalletBanners[0]?.slot ?? 1))
     } catch (e) {
       message.error(e instanceof Error ? e.message : '加载失败')
     } finally {
@@ -128,21 +133,26 @@ export default function HomeContentConfig() {
   useEffect(() => { void load() }, [])
 
   function itemsOf(kind: Kind) {
-    return kind === 'banner' ? banners : cards
+    if (kind === 'banner') return banners
+    if (kind === 'card') return cards
+    return walletBanners
   }
 
   function setItemsOf(kind: Kind, updater: (items: FormItemState[]) => FormItemState[]) {
-    const setter = kind === 'banner' ? setBanners : setCards
+    const setter = kind === 'banner' ? setBanners : kind === 'card' ? setCards : setWalletBanners
     setter((prev) => updater(prev).sort((a, b) => a.slot - b.slot))
   }
 
   function activeSlotOf(kind: Kind) {
-    return kind === 'banner' ? activeBannerSlot : activeCardSlot
+    if (kind === 'banner') return activeBannerSlot
+    if (kind === 'card') return activeCardSlot
+    return activeWalletBannerSlot
   }
 
   function setActiveSlotOf(kind: Kind, slot: string) {
     if (kind === 'banner') setActiveBannerSlot(slot)
-    else setActiveCardSlot(slot)
+    else if (kind === 'card') setActiveCardSlot(slot)
+    else setActiveWalletBannerSlot(slot)
   }
 
   function updateItem(kind: Kind, slot: number, patch: Partial<FormItemState>) {
@@ -203,9 +213,12 @@ export default function HomeContentConfig() {
   }
 
   function renderEditor(item: FormItemState) {
-    const ratioText = item.kind === 'banner'
-      ? '推荐尺寸：1280 x 720（16:9，与首页 banner 区块一致），PNG/JPG/WEBP，≤5MB'
-      : '推荐尺寸：444 x 240（约 1.85:1，与首页彩色小卡片区块一致），PNG/JPG/WEBP，≤5MB'
+    const ratioText =
+      item.kind === 'banner'
+        ? '推荐尺寸：1280 x 720（16:9，与首页 banner 区块一致），PNG/JPG/WEBP，≤5MB'
+        : item.kind === 'wallet_banner'
+          ? '推荐尺寸：824 x 205（约 4:1，用于充值/提现窗口），PNG/JPG/WEBP，≤5MB'
+          : '推荐尺寸：444 x 240（约 1.85:1，与首页彩色小卡片区块一致），PNG/JPG/WEBP，≤5MB'
     return (
       <Card
         size="small"
@@ -228,11 +241,11 @@ export default function HomeContentConfig() {
           {item.imageUrl ? (
             <Image
               src={item.imageUrl}
-              height={item.kind === 'banner' ? 220 : 160}
+              height={item.kind === 'banner' ? 220 : item.kind === 'wallet_banner' ? 140 : 160}
               style={{ width: '100%', objectFit: 'cover', borderRadius: 6, background: '#111827' }}
             />
           ) : (
-            <div style={{ height: item.kind === 'banner' ? 220 : 160, border: '1px dashed #d9d9d9', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#999' }}>
+            <div style={{ height: item.kind === 'banner' ? 220 : item.kind === 'wallet_banner' ? 140 : 160, border: '1px dashed #d9d9d9', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#999' }}>
               未上传图片
             </div>
           )}
@@ -248,7 +261,7 @@ export default function HomeContentConfig() {
             <Button icon={<UploadOutlined />}>上传图片</Button>
           </Upload>
           <Form layout="vertical" requiredMark={false}>
-            {(() => {
+            {item.kind !== 'wallet_banner' && (() => {
               const dest = itemToDest(item)
               const promo = itemToPromo(item)
               return (
@@ -311,7 +324,7 @@ export default function HomeContentConfig() {
     return (
       <Space direction="vertical" size={16} style={{ width: '100%' }}>
         <Button type="primary" icon={<PlusOutlined />} onClick={() => handleAdd(kind)}>
-          新增{kind === 'banner' ? 'Banner' : '小卡片'}
+          新增{kind === 'banner' ? 'Banner' : kind === 'wallet_banner' ? '充值/提现 Banner' : '小卡片'}
         </Button>
         {items.length === 0 ? (
           <Card>
@@ -324,7 +337,7 @@ export default function HomeContentConfig() {
             onChange={(key) => setActiveSlotOf(kind, key)}
             items={items.map((item) => ({
               key: String(item.slot),
-              label: `${kind === 'banner' ? 'Banner' : '小卡片'} ${item.slot}`,
+              label: `${kind === 'banner' ? 'Banner' : kind === 'wallet_banner' ? '充值/提现 Banner' : '小卡片'} ${item.slot}`,
               children: renderEditor(item),
             }))}
           />
@@ -340,7 +353,7 @@ export default function HomeContentConfig() {
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20 }}>
         <HomeOutlined style={{ fontSize: 20, color: '#1677ff' }} />
         <Title level={4} style={{ margin: 0 }}>首页装修</Title>
-        <Text type="secondary" style={{ fontSize: 13 }}>设置首页 banner 和彩色小卡片图片</Text>
+        <Text type="secondary" style={{ fontSize: 13 }}>设置首页 banner、彩色小卡片和充值/提现窗口 banner 图片</Text>
       </div>
 
       <Tabs
@@ -349,6 +362,7 @@ export default function HomeContentConfig() {
         items={[
           { key: 'banner', label: 'Banner', children: renderKind('banner') },
           { key: 'card', label: '首页彩色小卡片', children: renderKind('card') },
+          { key: 'wallet_banner', label: '充值/提现 Banner', children: renderKind('wallet_banner') },
         ]}
       />
     </div>

@@ -603,6 +603,7 @@ export default {
     catTelegram: 'Telegram',
     firstDepBonusBadge: '+{{amount}}',
     firstDepBonusHint: 'Bonus deposit pertama {{amount}}',
+    editAmount: 'Ubah Jumlah',
     depositAmount: 'Jumlah Deposit',
     withdrawAmount: 'Jumlah Penarikan',
     payTelegram: 'Bayar dengan Telegram Wallet',

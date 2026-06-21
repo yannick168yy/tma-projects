@@ -581,6 +581,7 @@ export default {
     catTelegram: 'Telegram',
     firstDepBonusBadge: '+{{amount}}',
     firstDepBonusHint: 'Thưởng nạp lần đầu {{amount}}',
+    editAmount: 'Sửa số tiền',
     depositAmount: 'Số tiền nạp',
     withdrawAmount: 'Số tiền rút',
     payTelegram: 'Thanh toán bằng Telegram Wallet',

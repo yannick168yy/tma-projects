@@ -672,6 +672,7 @@ export default {
     catTelegram: 'Telegram',
     firstDepBonusBadge: '送{{amount}}',
     firstDepBonusHint: '首存奖励 {{amount}}',
+    editAmount: '编辑金额',
     depositAmount: '充值金额',
     withdrawAmount: '提现金额',
     payTelegram: '使用 Telegram 钱包支付',

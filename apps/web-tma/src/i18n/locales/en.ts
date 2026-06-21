@@ -676,6 +676,7 @@ export default {
     catTelegram: 'Telegram',
     firstDepBonusBadge: '+{{amount}}',
     firstDepBonusHint: 'First deposit bonus {{amount}}',
+    editAmount: 'Edit Amount',
     depositAmount: 'Deposit Amount',
     withdrawAmount: 'Withdraw Amount',
     payTelegram: 'Pay with Telegram Wallet',

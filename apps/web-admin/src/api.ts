@@ -635,7 +635,7 @@ export const getPromoClaims = (params?: { page?: number; pageSize?: number; prom
 
 // 首页装修
 export interface HomeContentItem {
-  kind: 'banner' | 'card'
+  kind: 'banner' | 'card' | 'wallet_banner'
   slot: number
   imageKey: string
   imageUrl: string
@@ -647,13 +647,14 @@ export interface HomeContentItem {
 export interface HomeContent {
   banners: HomeContentItem[]
   cards: HomeContentItem[]
+  walletBanners: HomeContentItem[]
 }
 export const getHomeContent = () => get<HomeContent>('/admin/home-content')
-export const uploadHomeImage = (kind: 'banner' | 'card', imageData: string) =>
+export const uploadHomeImage = (kind: HomeContentItem['kind'], imageData: string) =>
   post<{ imageKey: string; imageUrl: string }>('/admin/home-content/upload', { kind, imageData })
 export const saveHomeContentItem = (item: Pick<HomeContentItem, 'kind' | 'slot' | 'imageKey' | 'actionType' | 'actionValue' | 'enabled'>) =>
   req<HomeContentItem>('PUT', '/admin/home-content/item', item)
-export const deleteHomeContentItem = (kind: 'banner' | 'card', slot: number) =>
+export const deleteHomeContentItem = (kind: HomeContentItem['kind'], slot: number) =>
   req<{ ok: boolean }>('DELETE', `/admin/home-content/item/${kind}/${slot}`)
 
 // Rewards Spin
