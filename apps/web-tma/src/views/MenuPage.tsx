@@ -104,29 +104,22 @@ function MenuRow({
 function QuickAction({
   icon,
   label,
-  subtitle,
   onClick,
-  featured = false,
 }: {
   icon: string
   label: string
-  subtitle: string
   onClick: () => void
-  featured?: boolean
 }) {
   return (
     <button
       type="button"
-      className={`relative flex min-h-[92px] flex-col justify-between overflow-hidden rounded-2xl border px-3 py-3 text-left transition-transform active:scale-[0.98] ${featured ? 'border-primary/30 bg-primary/10' : 'border-border bg-card hover:bg-secondary/50'}`}
+      className="flex flex-col items-center gap-2 rounded-2xl border border-border bg-card px-2 py-3 text-center transition-transform active:scale-[0.98] hover:bg-secondary/50"
       onClick={onClick}
     >
       <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-secondary">
         <img src={icon} alt="" className="h-6 w-6 object-contain" />
       </span>
-      <span>
-        <span className="block text-xs font-black leading-tight text-foreground">{label}</span>
-        <span className="mt-1 block truncate text-[10px] font-semibold text-muted-foreground">{subtitle}</span>
-      </span>
+      <span className="block text-xs font-black leading-tight text-foreground">{label}</span>
     </button>
   )
 }
@@ -157,6 +150,7 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
   const { locale, setLocale } = useLocaleStore()
   const { mode: themeMode, setMode: setThemeMode } = useThemeStore()
   const isLoggedIn = Boolean(auth.token && auth.user)
+  const quickActionCount = 1 + (isLoggedIn ? 2 : 0) + (isLoggedIn && auth.user?.isAgent ? 1 : 0)
 
   const [loggingOut, setLoggingOut] = useState(false)
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false)
@@ -388,12 +382,11 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
       </div>
 
       <div className="mt-4 space-y-5 px-4">
-        <div className="grid grid-cols-2 gap-2">
-          <QuickAction icon={icon('01_rewards')} label={t('menu.creditRecords')} subtitle={t('menu.creditRecordsSub')} featured onClick={() => void openLedger()} />
-          {isLoggedIn && <QuickAction icon={icon('02_Bet_History')} label={t('profile.betHistory')} subtitle={t('profile.account')} onClick={onOpenBetHistory} />}
-          {isLoggedIn && <QuickAction icon={icon('03_3_circle_rewards')} label={t('referralPromo.title')} subtitle={t('common.featured')} onClick={onOpenReferralPromo} />}
-          {isLoggedIn && auth.user?.isAgent && <QuickAction icon={icon('04_agent_center')} label={t('agentCenter.entry')} subtitle={t('agentCenter.entrySub')} onClick={onOpenAgentCenter} />}
-          <QuickAction icon={icon('05_customer_support')} label={t('menu.customerSupport')} subtitle={t('menu.live247')} onClick={onOpenCs} />
+        <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${quickActionCount}, minmax(0, 1fr))` }}>
+          <QuickAction icon={icon('01_rewards')} label={t('menu.creditRecords')} onClick={() => void openLedger()} />
+          {isLoggedIn && <QuickAction icon={icon('02_Bet_History')} label={t('profile.betHistory')} onClick={onOpenBetHistory} />}
+          {isLoggedIn && <QuickAction icon={icon('03_3_circle_rewards')} label={t('referralPromo.title')} onClick={onOpenReferralPromo} />}
+          {isLoggedIn && auth.user?.isAgent && <QuickAction icon={icon('04_agent_center')} label={t('agentCenter.entry')} onClick={onOpenAgentCenter} />}
         </div>
 
         {isLoggedIn && (
