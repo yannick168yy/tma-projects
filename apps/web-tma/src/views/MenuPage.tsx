@@ -19,7 +19,6 @@ import { useAuthStore } from '@/stores/auth'
 import { useLocaleStore } from '@/stores/locale'
 import { useThemeStore, type ThemeMode } from '@/stores/theme'
 import { LANGUAGES } from '@/data/languages'
-import type { LoginProvider } from '@/types/api'
 import { patchProfile } from '@/api/auth'
 import { fetchRebateProgress } from '@/api/rebate'
 import menuCasino from '@/assets/home/promos/menu-card-casino.webp'
@@ -35,6 +34,8 @@ interface Props {
   onOpenLedgerRecords: () => void
   onOpenReferralPromo: () => void
   onOpenAgentCenter: () => void
+  onOpenCashback: () => void
+  onOpenRewardsSpin: () => void
 }
 
 const CURRENCIES = [
@@ -144,13 +145,12 @@ function BottomSheet({ title, children, onClose }: { title: string; children: Re
   )
 }
 
-export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory, onOpenLedgerRecords, onOpenReferralPromo, onOpenAgentCenter }: Props) {
+export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory, onOpenLedgerRecords, onOpenReferralPromo, onOpenAgentCenter, onOpenCashback, onOpenRewardsSpin }: Props) {
   const { t } = useTranslation()
   const auth = useAuthStore()
   const { locale, setLocale } = useLocaleStore()
   const { mode: themeMode, setMode: setThemeMode } = useThemeStore()
   const isLoggedIn = Boolean(auth.token && auth.user)
-  const quickActionCount = 1 + (isLoggedIn ? 2 : 0) + (isLoggedIn && auth.user?.isAgent ? 1 : 0)
 
   const [loggingOut, setLoggingOut] = useState(false)
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false)
@@ -176,8 +176,6 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
   const USER_ID = auth.user?.id ?? '—'
   const displayName = auth.user?.displayName ?? t('profile.playerAccount')
   const currentLang = LANGUAGES.find((l) => l.code === locale) ?? LANGUAGES[0]
-
-  const loginProvider: LoginProvider = auth.user?.loginProvider ?? (auth.user?.telegramUserId ? 'telegram' : 'google')
 
   const MONTHS = Array.from({ length: 12 }, (_, i) => t(`profile.months.${i + 1}`))
   const genderOptions = [{ id: 'Male', label: t('profile.male') }, { id: 'Female', label: t('profile.female') }, { id: 'Other', label: t('profile.other') }]
@@ -382,23 +380,26 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
       </div>
 
       <div className="mt-4 space-y-5 px-4">
-        <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${quickActionCount}, minmax(0, 1fr))` }}>
-          <QuickAction icon={icon('01_rewards')} label={t('menu.creditRecords')} onClick={() => void openLedger()} />
-          {isLoggedIn && <QuickAction icon={icon('02_Bet_History')} label={t('profile.betHistory')} onClick={onOpenBetHistory} />}
-          {isLoggedIn && <QuickAction icon={icon('03_3_circle_rewards')} label={t('referralPromo.title')} onClick={onOpenReferralPromo} />}
-          {isLoggedIn && auth.user?.isAgent && <QuickAction icon={icon('04_agent_center')} label={t('agentCenter.entry')} onClick={onOpenAgentCenter} />}
-        </div>
+        <section>
+          <div className="mb-2.5 flex items-center gap-2 px-1">
+            <span className="h-2 w-2 flex-shrink-0 rounded-full bg-primary shadow-[0_0_8px_rgba(255,184,0,0.55)]" />
+            <h3 className="font-display text-sm font-black uppercase text-foreground">{t('profile.account')}</h3>
+            <span className="h-px flex-1 bg-gradient-to-r from-primary/30 to-transparent" />
+          </div>
+          <div className="grid grid-cols-4 gap-2">
+            <QuickAction icon={icon('02_Bet_History')} label={t('profile.betHistory')} onClick={() => (isLoggedIn ? onOpenBetHistory() : onLogin())} />
+            <QuickAction icon={icon('01_rewards')} label={t('menu.creditRecords')} onClick={() => void openLedger()} />
+            <QuickAction icon={icon('account_login_methods')} label={t('bind.entry')} onClick={() => (isLoggedIn ? setBindOpen(true) : onLogin())} />
+            <QuickAction icon={icon('07_personal_information')} label={t('profile.personalInfo')} onClick={() => (isLoggedIn ? setProfileSheetOpen(true) : onLogin())} />
+          </div>
+        </section>
 
         {isLoggedIn && (
-          <MenuSection title={t('profile.account')}>
-            <MenuRow icon={icon('account_login_methods')} title={t('bind.entry')} subtitle={loginProvider === 'google' ? t('profile.google') : t('profile.telegram')} onClick={() => setBindOpen(true)} bordered />
-            <MenuRow
-              icon={icon('07_personal_information')}
-              title={t('profile.personalInfo')}
-              subtitle={profileComplete || personalSaved ? t('common.verified') : t('profile.saveLock')}
-              right={profileComplete || personalSaved ? <CheckCircle2 size={15} className="text-emerald-400" /> : <ChevronRight size={15} className="text-muted-foreground" />}
-              onClick={() => setProfileSheetOpen(true)}
-            />
+          <MenuSection title={t('menu.rewards')}>
+            <MenuRow icon={icon('03_3_circle_rewards')} title={t('referralPromo.title')} onClick={onOpenReferralPromo} bordered />
+            <MenuRow icon={icon('01_rewards')} title={t('category.cashback')} onClick={onOpenCashback} bordered />
+            <MenuRow icon={icon('01_rewards')} title={t('category.rewardsSpin')} onClick={onOpenRewardsSpin} bordered={auth.user?.isAgent} />
+            {auth.user?.isAgent && <MenuRow icon={icon('04_agent_center')} title={t('agentCenter.entry')} onClick={onOpenAgentCenter} />}
           </MenuSection>
         )}
 

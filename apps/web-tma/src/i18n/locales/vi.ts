@@ -231,6 +231,7 @@ export default {
     searchPlaceholder: 'Tìm bất kỳ game nào…',
     language: 'NGÔN NGỮ',
     appearance: 'GIAO DIỆN',
+    rewards: 'Phần thưởng',
     creditRecords: 'Rewards',
     creditRecordsSub: 'Thưởng & hoàn tiền',
     themeDark: 'Tối',

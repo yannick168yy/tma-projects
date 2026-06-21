@@ -323,6 +323,7 @@ export default {
     searchPlaceholder: '搜索任意游戏…',
     language: '语言',
     appearance: '外观',
+    rewards: '奖励',
     creditRecords: '奖励记录',
     creditRecordsSub: '奖励与洗码',
     themeDark: '深色',

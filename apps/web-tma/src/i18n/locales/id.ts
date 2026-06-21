@@ -253,6 +253,7 @@ export default {
     searchPlaceholder: 'Cari game apa saja…',
     language: 'BAHASA',
     appearance: 'TAMPILAN',
+    rewards: 'Hadiah',
     creditRecords: 'Rewards',
     creditRecordsSub: 'Bonus & Cash Rebate',
     themeDark: 'Gelap',

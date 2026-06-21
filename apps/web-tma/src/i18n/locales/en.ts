@@ -324,6 +324,7 @@ export default {
     searchPlaceholder: 'Search any game…',
     language: 'LANGUAGE',
     appearance: 'APPEARANCE',
+    rewards: 'Rewards',
     creditRecords: 'Rewards',
     creditRecordsSub: 'Bonus & Cash Rebate',
     themeDark: 'Dark',
