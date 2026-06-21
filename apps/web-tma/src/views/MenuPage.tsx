@@ -34,6 +34,7 @@ import { formatTelegramHandle, getTelegramWebAppUser } from '@/utils/telegramUse
 import { patchProfile } from '@/api/auth'
 import ContactBrandIcon from '@/components/profile/ContactBrandIcon'
 import ContactMethodRow from '@/components/profile/ContactMethodRow'
+import menuCasino from '@/assets/home/promos/menu-card-casino.webp'
 
 interface Props {
   onOpenCs: () => void
@@ -320,63 +321,80 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
 
   return (
     <div className="page-main min-h-full pb-24">
-      <div
-        className="relative overflow-hidden px-4 pb-5 pt-3"
-        style={{ background: 'linear-gradient(150deg, #063b36 0%, #0f5132 48%, #18181b 100%)' }}
-      >
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-emerald-300/40 to-transparent" />
-        {isLoggedIn ? (
-          <>
-            <div className="flex items-start gap-3">
-              <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-2xl border border-emerald-200/15 bg-white/10 text-emerald-200 shadow-[0_12px_30px_rgba(0,0,0,0.24)]">
+      <div className="px-4 pb-1 pt-3">
+        <div
+          className="relative overflow-hidden rounded-3xl px-4 pb-3 pt-4 shadow-[0_18px_40px_rgba(0,0,0,0.32)]"
+          style={{ background: 'linear-gradient(135deg, #e2af37 0%, #c79023 52%, #946615 100%)' }}
+        >
+          <img
+            src={menuCasino}
+            alt=""
+            aria-hidden="true"
+            className="pointer-events-none absolute -right-2 top-1 h-[112px] w-auto select-none"
+          />
+          {isLoggedIn ? (
+            <div className="relative pr-24">
+              <div className="flex items-start gap-3">
+                <div className="relative flex-shrink-0">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-full border border-white/40 bg-white/15 text-white shadow-[0_10px_24px_rgba(0,0,0,0.22)]">
+                    <User size={25} />
+                  </div>
+                  <span className="absolute -right-1 -top-1 rounded-full bg-zinc-900 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wide text-amber-300 shadow">VIP</span>
+                </div>
+                <div className="min-w-0 flex-1 pt-0.5">
+                  <p className="mb-1 text-[10px] font-black uppercase tracking-wide text-black/45">{t('profile.playerAccount')}</p>
+                  <h1 className="truncate font-display text-[1.6rem] font-black leading-none text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.22)]">{displayName}</h1>
+                  <button type="button" className="mt-2 flex max-w-full items-center gap-1.5 transition-opacity hover:opacity-80" onClick={copyId}>
+                    <span className="text-xs font-semibold text-black/50">ID:</span>
+                    <span className="truncate text-xs font-black text-amber-950">{USER_ID}</span>
+                    {copied ? <CheckCircle2 size={12} className="flex-shrink-0 text-emerald-800" /> : <Copy size={12} className="flex-shrink-0 text-black/45" />}
+                  </button>
+                </div>
+              </div>
+              {copied && <p className="mt-2 text-[10px] font-semibold text-emerald-900">{t('common.copied')}</p>}
+            </div>
+          ) : (
+            <div className="relative flex items-center gap-4 pr-20">
+              <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-full border border-white/40 bg-white/15 text-white">
                 <User size={25} />
               </div>
-              <div className="min-w-0 flex-1 pt-0.5">
-                <p className="mb-1 text-[10px] font-black uppercase text-white/45">{t('profile.playerAccount')}</p>
-                <div className="flex items-center gap-2">
-                  <h1 className="truncate font-display text-[1.75rem] font-black leading-none text-white">{displayName}</h1>
-                </div>
-                <button type="button" className="mt-2 flex max-w-full items-center gap-1.5 transition-opacity hover:opacity-80" onClick={copyId}>
-                  <span className="text-xs font-semibold text-white/45">ID:</span>
-                  <span className="truncate text-xs font-black text-primary">{USER_ID}</span>
-                  {copied ? <CheckCircle2 size={12} className="flex-shrink-0 text-emerald-300" /> : <Copy size={12} className="flex-shrink-0 text-white/45" />}
-                </button>
+              <div className="min-w-0 flex-1">
+                <p className="mb-1 text-[10px] font-black uppercase tracking-wide text-black/45">{t('nav.menu')}</p>
+                <h1 className="font-display text-[1.5rem] font-black leading-none text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.22)]">{t('auth.signInTitle')}</h1>
+                <p className="mt-1 text-xs leading-relaxed text-black/55">{t('auth.signInSubtitle')}</p>
+              </div>
+              <button
+                type="button"
+                className="flex-shrink-0 rounded-xl bg-zinc-900 px-4 py-2 text-sm font-black text-amber-300 shadow-lg transition-colors hover:bg-zinc-800"
+                onClick={onLogin}
+              >
+                {t('shell.signIn')}
+              </button>
+            </div>
+          )}
+
+          <div className="relative mt-4 grid grid-cols-3 overflow-hidden rounded-2xl bg-black/15">
+            <div className="flex items-center gap-1.5 px-2.5 py-2.5">
+              <Languages size={14} className="flex-shrink-0 text-amber-100/80" />
+              <div className="min-w-0">
+                <p className="truncate text-[8px] font-black uppercase tracking-wide text-black/45">{t('menu.language')}</p>
+                <p className="truncate text-[11px] font-black text-white">{currentLang.flag} {t(`languages.${currentLang.code}`)}</p>
               </div>
             </div>
-            {copied && <p className="mt-2 text-center text-[10px] font-semibold text-emerald-300">{t('common.copied')}</p>}
-          </>
-        ) : (
-          <div className="flex items-center gap-4">
-            <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-2xl border border-emerald-200/15 bg-white/10 text-emerald-200">
-              <User size={25} />
+            <div className="flex items-center gap-1.5 border-x border-white/15 px-2.5 py-2.5">
+              <Headphones size={14} className="flex-shrink-0 text-amber-100/80" />
+              <div className="min-w-0">
+                <p className="truncate text-[8px] font-black uppercase tracking-wide text-black/45">{t('menu.customerSupport')}</p>
+                <p className="truncate text-[11px] font-black text-white">{t('menu.live247')}</p>
+              </div>
             </div>
-            <div className="min-w-0 flex-1">
-              <p className="mb-1 text-[10px] font-black uppercase text-white/45">{t('nav.menu')}</p>
-              <h1 className="font-display text-[1.75rem] font-black leading-none text-white">{t('auth.signInTitle')}</h1>
-              <p className="mt-1 text-xs leading-relaxed text-white/55">{t('auth.signInSubtitle')}</p>
+            <div className="flex items-center gap-1.5 px-2.5 py-2.5">
+              <Gift size={14} className="flex-shrink-0 text-amber-100/80" />
+              <div className="min-w-0">
+                <p className="truncate text-[8px] font-black uppercase tracking-wide text-black/45">{t('menu.creditRecords')}</p>
+                <p className="truncate text-[11px] font-black text-white">{t('menu.creditRecordsSub')}</p>
+              </div>
             </div>
-            <button
-              type="button"
-              className="rounded-xl bg-primary px-4 py-2 text-sm font-black text-primary-foreground shadow shadow-amber-500/20 transition-colors hover:bg-yellow-400"
-              onClick={onLogin}
-            >
-              {t('shell.signIn')}
-            </button>
-          </div>
-        )}
-
-        <div className="mt-4 grid grid-cols-3 gap-2">
-          <div className="rounded-xl border border-white/8 bg-white/5 px-2.5 py-2 text-center">
-            <p className="truncate text-[9px] font-black uppercase text-white/35">{t('menu.language')}</p>
-            <p className="mt-1 truncate text-xs font-black text-primary">{currentLang.flag} {t(`languages.${currentLang.code}`)}</p>
-          </div>
-          <div className="rounded-xl border border-white/8 bg-white/5 px-2.5 py-2 text-center">
-            <p className="truncate text-[9px] font-black uppercase text-white/35">{t('menu.customerSupport')}</p>
-            <p className="mt-1 truncate text-xs font-black text-cyan-200">{t('menu.live247')}</p>
-          </div>
-          <div className="rounded-xl border border-white/8 bg-white/5 px-2.5 py-2 text-center">
-            <p className="truncate text-[9px] font-black uppercase text-white/35">{t('menu.creditRecords')}</p>
-            <p className="mt-1 truncate text-xs font-black text-primary">{t('menu.creditRecordsSub')}</p>
           </div>
         </div>
       </div>
