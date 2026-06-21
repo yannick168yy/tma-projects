@@ -398,7 +398,7 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
 
         {isLoggedIn && (
           <MenuSection title={t('profile.account')}>
-            <MenuRow icon={icon('06_account_login_methods')} title={t('bind.entry')} subtitle={loginProvider === 'google' ? t('profile.google') : t('profile.telegram')} onClick={() => setBindOpen(true)} bordered />
+            <MenuRow icon={icon('account_login_methods')} title={t('bind.entry')} subtitle={loginProvider === 'google' ? t('profile.google') : t('profile.telegram')} onClick={() => setBindOpen(true)} bordered />
             <MenuRow
               icon={icon('07_personal_information')}
               title={t('profile.personalInfo')}
