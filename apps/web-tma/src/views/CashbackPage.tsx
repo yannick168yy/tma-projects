@@ -8,7 +8,6 @@ import { useLocaleStore } from '@/stores/locale'
 import { localizedGameName } from '@/utils/game'
 import { ApiError } from '@/api/client'
 import cashbackHero from '@/assets/home/promos/cashback-hero.webp'
-import cashbackCoins from '@/assets/home/promos/cashback-coins.webp'
 
 type DateTab = 'today' | 'yesterday'
 
@@ -148,21 +147,19 @@ export default function CashbackPage({ onOpenGame, onOpenCategory }: Props) {
       className="page-main pb-8 min-h-screen"
       style={{ background: 'linear-gradient(180deg,#2a1d4e 0%,#1d1539 20%,#161031 46%,#100b24 100%)' }}
     >
-      {/* Hero —— 成品 banner 图，顶部留白给返回按钮、上下渐隐融入页面（无硬边框） */}
+      {/* Hero —— 成品 banner 图贴顶，底部渐隐融入页面（无硬边框） */}
       <div className="relative">
-        <div className="h-9" style={{ height: 'calc(2.25rem + env(safe-area-inset-top, 0px))' }} />
         <img
           src={cashbackHero}
           alt={t('cashback.pageTitle')}
           className="block w-full select-none"
           draggable={false}
         />
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-[#2a1d4e] from-[42%] to-transparent" />
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-b from-transparent to-[#2a1d4e]" />
       </div>
 
       {/* 今日 / 昨日 分段控件 —— 紧凑 + 金色质感选中 */}
-      <div className="mx-4 -mt-1">
+      <div className="mx-4 mt-4">
         <div className="flex rounded-2xl p-1 gap-1 bg-[#1f1740]/70 border border-violet-300/15 backdrop-blur-sm shadow-inner shadow-black/30">
           {(['today', 'yesterday'] as DateTab[]).map((tab) => (
             <button
@@ -181,16 +178,9 @@ export default function CashbackPage({ onOpenGame, onOpenCategory }: Props) {
         </div>
       </div>
 
-      {/* Total Bonus —— 紧凑横排，Claim 在右，金币暖光水印融入背景 */}
+      {/* Total Bonus —— 紧凑横排，Claim 在右 */}
       <div className="mx-4 mt-3 relative overflow-hidden rounded-2xl border border-amber-400/15 bg-gradient-to-r from-[#241844]/70 via-[#2c1e4a]/55 to-amber-900/20">
-        <div className="pointer-events-none absolute right-20 top-1/2 -translate-y-1/2 h-28 w-28 rounded-full bg-amber-400/20 blur-2xl" />
-        <img
-          src={cashbackCoins}
-          alt=""
-          aria-hidden="true"
-          className="pointer-events-none absolute right-24 top-1/2 -translate-y-1/2 h-[135%] w-auto opacity-55"
-          draggable={false}
-        />
+        <div className="pointer-events-none absolute right-20 top-1/2 -translate-y-1/2 h-28 w-28 rounded-full bg-amber-400/15 blur-2xl" />
         <div className="relative flex items-center justify-between gap-3 px-4 py-3.5">
           <div className="min-w-0">
             <p className="text-amber-200/90 font-bold text-[11px] uppercase tracking-wider">{t('cashback.totalBonus')}</p>
@@ -211,7 +201,7 @@ export default function CashbackPage({ onOpenGame, onOpenCategory }: Props) {
 
       {/* 投注明细（有数据时展示） */}
       {token && summary && summary.breakdown.length > 0 && (
-        <div className="mx-4 mt-2 bg-violet-950/40 rounded-2xl px-4 py-3 space-y-1.5 border border-violet-800/30">
+        <div className="mx-4 mt-2 bg-[#160f30]/45 rounded-2xl px-4 py-3 space-y-1.5 border border-violet-300/10">
           {summary.breakdown.map((item) => (
             <div key={item.gameCategory} className="flex items-center justify-between text-xs">
               <span className="flex items-center gap-1.5 text-violet-200/70">
@@ -234,9 +224,9 @@ export default function CashbackPage({ onOpenGame, onOpenCategory }: Props) {
               const cover = games[0]?.coverUrl
               const expanded = expandedTier === tier
               return (
-                <div key={tier} className="rounded-2xl bg-violet-950/35 border border-violet-700/30 overflow-hidden">
+                <div key={tier} className="rounded-2xl bg-[#160f30]/45 border border-violet-300/10 overflow-hidden">
                   <div className="flex items-center gap-3 p-3">
-                    <div className="w-16 h-16 rounded-xl overflow-hidden flex-shrink-0 bg-violet-950/60 border border-violet-700/25">
+                    <div className="w-16 h-16 rounded-xl overflow-hidden flex-shrink-0 bg-black/25 border border-violet-300/10">
                       {cover
                         ? <img src={cover} alt="" className="w-full h-full object-cover" />
                         : <div className="w-full h-full flex items-center justify-center text-2xl">🎰</div>
@@ -269,7 +259,7 @@ export default function CashbackPage({ onOpenGame, onOpenCategory }: Props) {
                     </button>
                   </div>
                   {expanded && (
-                    <div className="px-3 pb-3 border-t border-violet-700/30 pt-3">
+                    <div className="px-3 pb-3 border-t border-violet-300/10 pt-3">
                       {games.length > 0 ? (
                         <div className="grid grid-cols-3 gap-2">
                           {games.map((g) => (
@@ -331,10 +321,10 @@ export default function CashbackPage({ onOpenGame, onOpenCategory }: Props) {
 
           {/* total turnover：标签 + 数值 + 升级进度条 */}
           {token && progress && (
-            <div className="mx-4 mb-3 bg-violet-950/40 rounded-2xl border border-violet-700/30 px-4 py-3">
+            <div className="mx-4 mb-3 bg-[#160f30]/45 rounded-2xl border border-violet-300/10 px-4 py-3">
               <p className="text-violet-300/70 text-[11px]">{t('cashback.totalTurnover')}</p>
               <p className="text-violet-50 font-black text-2xl font-display mt-0.5">{amtStr(currency, progress.totalTurnover)}</p>
-              <div className="h-2 rounded-full bg-violet-900/60 overflow-hidden mt-2">
+              <div className="h-2 rounded-full bg-black/30 overflow-hidden mt-2">
                 <div
                   className="h-full bg-gradient-to-r from-amber-400 to-yellow-500 rounded-full transition-all"
                   style={{ width: `${progressPct}%` }}
@@ -357,10 +347,10 @@ export default function CashbackPage({ onOpenGame, onOpenCategory }: Props) {
               const isCurrent = token && lc.level === userLevel
               const isMax = lc.level === 6
               const cardCls = isMax
-                ? 'border-amber-400/70 bg-gradient-to-br from-purple-900/70 via-fuchsia-900/40 to-amber-600/40 shadow-lg shadow-amber-500/20'
+                ? 'border-amber-400/60 bg-gradient-to-br from-[#1f1640]/70 via-[#221646]/55 to-amber-900/25 shadow-lg shadow-amber-500/10'
                 : isCurrent
-                  ? 'border-amber-400/55 bg-violet-900/55'
-                  : 'border-violet-700/30 bg-violet-950/40'
+                  ? 'border-amber-400/45 bg-[#1a1238]/55'
+                  : 'border-violet-300/10 bg-[#160f30]/45'
               // 固定 6 类，按设计顺序，仅取启用项
               const catRates = CARD_CATEGORIES
                 .map((cat) => lc.rates.find((r) => r.gameCategory === cat && r.enabled))
