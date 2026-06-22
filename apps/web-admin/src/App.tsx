@@ -12,6 +12,7 @@ import ReviewProposalDetail from './views/review/ProposalDetail'
 import ReviewRuleConfig from './views/review/RuleConfig'
 import ReviewBlacklist from './views/review/Blacklist'
 import ReviewManualQueue from './views/review/ManualQueue'
+import WithdrawRecords from './views/review/WithdrawRecords'
 import AuditLog from './views/AuditLog'
 import Games from './views/Games'
 import Settings from './views/Settings'
@@ -68,6 +69,7 @@ export default function App() {
           <Route path="review/proposals" element={<ReviewProposals />} />
           <Route path="review/proposals/:orderId" element={<ReviewProposalDetail />} />
           <Route path="review/manual" element={<ReviewManualQueue />} />
+          <Route path="review/records" element={<WithdrawRecords />} />
           <Route path="review/config" element={<ReviewRuleConfig />} />
           <Route path="review/blacklist" element={<ReviewBlacklist />} />
           <Route path="audit-log" element={<AuditLog />} />

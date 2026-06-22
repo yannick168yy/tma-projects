@@ -7,6 +7,7 @@ import {
   DashboardOutlined, TeamOutlined, UserOutlined, DownOutlined,
   AppstoreOutlined, SettingOutlined, CustomerServiceOutlined,
   TransactionOutlined, ApartmentOutlined, GiftOutlined,
+  SafetyCertificateOutlined,
 } from '@ant-design/icons'
 import { useAuthStore } from '../stores/auth'
 import { adminChangePassword, getAdminBadges, type AdminBadges } from '../api'
@@ -44,24 +45,24 @@ function buildMenuItems(badges: AdminBadges) {
       label: '财务中心',
       children: [
         { key: '/deposits', label: '存款记录' },
-        { key: '/withdrawals', label: '取款记录' },
-        {
-          key: 'review',
-          label: <MenuBadgeLabel text="取款审核" count={badges.manualWithdrawals} />,
-          children: [
-            { key: '/review/overview', label: '审核总览' },
-            {
-              key: '/review/manual',
-              label: <MenuBadgeLabel text="待人工处理" count={badges.manualWithdrawals} />,
-            },
-            { key: '/review/proposals', label: '提案审核记录' },
-            { key: '/review/config', label: '审核规则配置' },
-          ],
-        },
         { key: '/wallet-ledger', label: '账变流水' },
         { key: '/payment/channels', label: '支付渠道' },
         { key: '/payment/accounting', label: '服务商余额' },
         { key: '/exchange-rates', label: '汇率管理' },
+      ],
+    },
+    {
+      key: 'review',
+      icon: <SafetyCertificateOutlined />,
+      label: <MenuBadgeLabel text="取款审核" count={badges.manualWithdrawals} />,
+      children: [
+        { key: '/review/overview', label: '审核总览' },
+        {
+          key: '/review/manual',
+          label: <MenuBadgeLabel text="待审队列" count={badges.manualWithdrawals} />,
+        },
+        { key: '/review/records', label: '审核记录' },
+        { key: '/review/config', label: '审核策略' },
       ],
     },
     {
@@ -132,9 +133,9 @@ function buildMenuItems(badges: AdminBadges) {
 
 function getDefaultOpenKeys(pathname: string): string[] {
   if (pathname.startsWith('/review/blacklist')) return ['user-center']
-  if (pathname.startsWith('/review')) return ['finance', 'review']
+  if (pathname.startsWith('/review') || pathname.startsWith('/withdrawals')) return ['review']
   if (['/users', '/kyc'].some((p) => pathname.startsWith(p))) return ['user-center']
-  if (['/deposits', '/withdrawals', '/payment', '/wallet-ledger', '/exchange-rates'].some((p) => pathname.startsWith(p))) return ['finance']
+  if (['/deposits', '/payment', '/wallet-ledger', '/exchange-rates'].some((p) => pathname.startsWith(p))) return ['finance']
   if (['/games', '/bet-orders'].some((p) => pathname.startsWith(p))) return ['game']
   if (['/promotions', '/rewards-spin', '/rebate', '/home-content'].some((p) => pathname.startsWith(p))) return ['marketing']
   if (pathname.startsWith('/team-referral')) return ['team']
