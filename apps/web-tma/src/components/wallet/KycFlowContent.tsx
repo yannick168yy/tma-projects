@@ -24,13 +24,13 @@ export default function KycFlowContent({ flow, onClose, compactFace }: Props) {
 
   return (
     <>
-      {!(compactFace && step === 'face') && <div className="mb-1 flex items-center gap-2">
+      <div className="mb-1 flex items-center gap-2">
         <ShieldCheck size={20} className="text-primary" />
-        <h2 className="text-lg font-black text-foreground">{t('kyc.title')}</h2>
-      </div>}
-      {!(compactFace && step === 'face') && <p className="mb-5 text-xs text-muted-foreground">{t('kyc.subtitle')}</p>}
+        <h2 className={`${compactFace && step === 'face' ? 'text-base' : 'text-lg'} font-black text-foreground`}>{t('kyc.title')}</h2>
+      </div>
+      <p className={`${compactFace && step === 'face' ? 'mb-3 truncate' : 'mb-5'} text-xs text-muted-foreground`}>{t('kyc.subtitle')}</p>
 
-      {!(compactFace && step === 'face') && <div className="mb-5 flex items-center gap-1 text-[10px] font-bold">
+      <div className={`${compactFace && step === 'face' ? 'mb-3' : 'mb-5'} flex items-center gap-1 text-[10px] font-bold`}>
         <span className={step === 'phone' ? 'text-primary' : ['document', 'reviewing', 'face', 'done'].includes(step) ? 'text-emerald-400' : 'text-muted-foreground'}>
           {t('kyc.stepPhone')}
         </span>
@@ -50,7 +50,7 @@ export default function KycFlowContent({ flow, onClose, compactFace }: Props) {
             </span>
           </>
         )}
-      </div>}
+      </div>
 
       {step === 'phone' && (
         <div className="space-y-3">
