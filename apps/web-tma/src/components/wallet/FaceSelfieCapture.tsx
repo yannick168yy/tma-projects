@@ -81,7 +81,7 @@ export default function FaceSelfieCapture({ onComplete, loading }: Props) {
 
   return (
     <div className="space-y-3">
-      <div className="relative aspect-[3/4] max-h-64 overflow-hidden rounded-xl bg-black">
+      <div className="relative h-[min(68vh,620px)] min-h-[360px] w-full overflow-hidden rounded-2xl border border-primary/15 bg-black shadow-[0_18px_45px_rgba(0,0,0,0.32)]">
         {shot ? (
           <img src={shot} alt="selfie" className="h-full w-full object-cover" style={{ transform: 'scaleX(-1)' }} />
         ) : (

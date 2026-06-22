@@ -26,11 +26,11 @@ export default function KycModal({ open, onClose, onApproved }: Props) {
 
   if (fullScreenFace) {
     return createPortal(
-      <div className="fixed inset-0 z-[95] flex flex-col overflow-y-auto bg-card p-6">
+      <div className="fixed inset-0 z-[95] flex flex-col overflow-y-auto bg-card px-3 py-5">
         <button type="button" className="absolute right-4 top-4 z-10 rounded-full p-1 text-muted-foreground hover:text-foreground" onClick={onClose}>
           <X size={20} />
         </button>
-        <div className="mx-auto w-full max-w-[480px]">
+        <div className="mx-auto w-full max-w-[520px]">
           <KycFlowContent flow={flow} onClose={onClose} />
         </div>
       </div>,
