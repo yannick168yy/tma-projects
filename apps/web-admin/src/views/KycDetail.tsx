@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Card, Descriptions, Tag, Button, Space, Spin, Alert, Image, Collapse, Modal, Input, Table, message } from 'antd'
+import { Card, Descriptions, Tag, Button, Space, Spin, Alert, Image, Collapse, Modal, Input, Table, Progress, message } from 'antd'
 import { fetchKycImageBlob, getKycDetail, getKycDocLog, reviewKyc, type AdminKycDetail, type KycDocLogItem } from '../api'
 
 function kycStatusTag(status: string) {
@@ -105,6 +105,15 @@ export default function KycDetail() {
   if (!data) return <Alert type="error" message="KYC 记录不存在" />
 
   const { kyc, user } = data
+  const gemini = (kyc.geminiResult ?? {}) as {
+    face?: { isLivePerson?: boolean; faceMatchWithId?: number; confidence?: number; reasons?: string[]; threshold?: number }
+    document?: { isValidDocument?: boolean; nameMatches?: boolean; dob?: string; reasons?: string[] }
+  }
+  const face = gemini.face
+  const doc = gemini.document
+  const faceMatch = typeof face?.faceMatchWithId === 'number' ? face.faceMatchWithId : null
+  const faceThreshold = typeof face?.threshold === 'number' ? face.threshold : null
+  const faceMatchPass = faceMatch != null && faceThreshold != null ? faceMatch >= faceThreshold : null
 
   return (
     <div>
@@ -155,6 +164,55 @@ export default function KycDetail() {
           )}
         </Descriptions>
       </Card>
+
+      {face && (
+        <Card title="人脸对比" size="small" style={{ marginBottom: 16 }}>
+          <Descriptions column={2} size="small" bordered>
+            <Descriptions.Item label="自拍 vs 证件照 相似度">
+              {faceMatch == null ? '—' : (
+                <Space>
+                  <Progress
+                    percent={Math.round(faceMatch * 100)}
+                    size="small"
+                    style={{ width: 140 }}
+                    status={faceMatchPass === false ? 'exception' : 'success'}
+                  />
+                  {faceMatchPass != null && (
+                    <Tag color={faceMatchPass ? 'green' : 'red'}>{faceMatchPass ? '达标' : '未达标'}</Tag>
+                  )}
+                </Space>
+              )}
+            </Descriptions.Item>
+            <Descriptions.Item label="通过阈值">
+              {faceThreshold == null ? '—' : `${Math.round(faceThreshold * 100)}%`}
+            </Descriptions.Item>
+            <Descriptions.Item label="活体检测">
+              {face.isLivePerson == null ? '—' : <Tag color={face.isLivePerson ? 'green' : 'red'}>{face.isLivePerson ? '真人' : '非真人'}</Tag>}
+            </Descriptions.Item>
+            <Descriptions.Item label="人脸置信度">{face.confidence ?? '—'}</Descriptions.Item>
+            {face.reasons?.length ? (
+              <Descriptions.Item label="模型说明" span={2}>{face.reasons.join('；')}</Descriptions.Item>
+            ) : null}
+          </Descriptions>
+        </Card>
+      )}
+
+      {doc && (
+        <Card title="证件识别（Gemini）" size="small" style={{ marginBottom: 16 }}>
+          <Descriptions column={2} size="small" bordered>
+            <Descriptions.Item label="证件有效">
+              {doc.isValidDocument == null ? '—' : <Tag color={doc.isValidDocument ? 'green' : 'red'}>{doc.isValidDocument ? '是' : '否'}</Tag>}
+            </Descriptions.Item>
+            <Descriptions.Item label="姓名匹配">
+              {doc.nameMatches == null ? '—' : <Tag color={doc.nameMatches ? 'green' : 'red'}>{doc.nameMatches ? '匹配' : '不匹配'}</Tag>}
+            </Descriptions.Item>
+            <Descriptions.Item label="出生日期">{doc.dob || '—'}</Descriptions.Item>
+            {doc.reasons?.length ? (
+              <Descriptions.Item label="模型说明" span={2}>{doc.reasons.join('；')}</Descriptions.Item>
+            ) : null}
+          </Descriptions>
+        </Card>
+      )}
 
       <Card title="影像资料" size="small" style={{ marginBottom: 16 }}>
         <Space wrap size={16}>
