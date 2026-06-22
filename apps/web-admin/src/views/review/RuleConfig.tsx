@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Table, Switch, InputNumber, Button, Space, Card, Tag, message } from 'antd'
-import { getReviewConfig, saveReviewConfig, type ReviewConfigItem } from '../../api'
+import { Table, Switch, InputNumber, Button, Space, Card, Tag, Tabs, message } from 'antd'
+import { getReviewConfig, saveReviewConfig, type ReviewConfigItem, type ReviewScope } from '../../api'
 
 const THRESHOLD_HINT: Record<string, string> = {
   large_profit: '净盈利（PHP分），如 20000000 = 20万',
@@ -9,17 +9,17 @@ const THRESHOLD_HINT: Record<string, string> = {
   total_bonus: '优惠总额（PHP分），如 5000000 = 5万',
 }
 
-export default function RuleConfig() {
+function ScopePanel({ scope }: { scope: ReviewScope }) {
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [rows, setRows] = useState<ReviewConfigItem[]>([])
 
   async function load() {
     setLoading(true)
-    try { setRows((await getReviewConfig()).config) }
+    try { setRows((await getReviewConfig(scope)).config) }
     finally { setLoading(false) }
   }
-  useEffect(() => { void load() }, [])
+  useEffect(() => { void load() }, [scope])
 
   function update(ruleCode: string, patch: Partial<ReviewConfigItem>) {
     setRows((rs) => rs.map((r) => r.ruleCode === ruleCode ? { ...r, ...patch } : r))
@@ -31,7 +31,7 @@ export default function RuleConfig() {
   async function save() {
     setSaving(true)
     try {
-      await saveReviewConfig(rows.map((r) => ({ ruleCode: r.ruleCode, enabled: r.enabled, threshold: r.threshold, params: r.params })))
+      await saveReviewConfig(scope, rows.map((r) => ({ ruleCode: r.ruleCode, enabled: r.enabled, threshold: r.threshold, params: r.params })))
       message.success('已保存，实时生效'); await load()
     } catch (e) {
       message.error(e instanceof Error ? e.message : '保存失败（需超级管理员权限）')
@@ -59,15 +59,27 @@ export default function RuleConfig() {
   ]
 
   return (
+    <Card extra={<Button type="primary" loading={saving} onClick={save}>保存（实时生效）</Button>}>
+      <p style={{ color: '#999', marginTop: 0 }}>
+        <Tag color="green">全通过=自动出款</Tag><Tag color="orange">任一命中=转人工</Tag>
+        阈值偏宽松以覆盖大多数提案，调整后实时生效（仅超级管理员可改）。
+      </p>
+      <Table rowKey="ruleCode" columns={columns} dataSource={rows} loading={loading} pagination={false} size="small" />
+    </Card>
+  )
+}
+
+export default function RuleConfig() {
+  return (
     <div>
-      <h2>审核规则配置</h2>
-      <Card extra={<Button type="primary" loading={saving} onClick={save}>保存（实时生效）</Button>}>
-        <p style={{ color: '#999', marginTop: 0 }}>
-          <Tag color="green">全通过=自动出款</Tag><Tag color="orange">任一命中=转人工</Tag>
-          阈值偏宽松以覆盖大多数提案，调整后实时生效（仅超级管理员可改）。
-        </p>
-        <Table rowKey="ruleCode" columns={columns} dataSource={rows} loading={loading} pagination={false} size="small" />
-      </Card>
+      <h2>审核策略</h2>
+      <Tabs
+        defaultActiveKey="user"
+        items={[
+          { key: 'user', label: '玩家提款', children: <ScopePanel scope="user" /> },
+          { key: 'team', label: '佣金提现', children: <ScopePanel scope="team" /> },
+        ]}
+      />
     </div>
   )
 }

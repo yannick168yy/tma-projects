@@ -181,9 +181,12 @@ function round2(n: number): number { return Math.round(n * 100) / 100 }
 
 // ── 配置加载 ──────────────────────────────────────────────────────────────────
 
-export async function loadReviewConfig(pool: Pool): Promise<Record<string, RuleConfig>> {
+export type ReviewScope = 'user' | 'team'
+
+export async function loadReviewConfig(pool: Pool, scope: ReviewScope = 'user'): Promise<Record<string, RuleConfig>> {
   const [rows] = await pool.query<RowDataPacket[]>(
-    `SELECT rule_code, enabled, threshold, params FROM bg_withdraw_review_config`,
+    `SELECT rule_code, enabled, threshold, params FROM bg_withdraw_review_config WHERE scope = ?`,
+    [scope],
   )
   const out: Record<string, RuleConfig> = {}
   for (const r of rows) {

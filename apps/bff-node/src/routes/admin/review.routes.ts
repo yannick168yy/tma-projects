@@ -198,9 +198,11 @@ router.post('/proposals/:orderId/rerun', async (ctx) => {
 // ── 规则配置 ──────────────────────────────────────────────────────────────────
 router.get('/config', async (ctx) => {
   if (!isMysqlEnabled(ctx.state.env)) { ok(ctx, { config: [] }); return }
+  const scope = ctx.query.scope === 'team' ? 'team' : 'user'
   const pool = getMysqlPool(ctx.state.env)
   const [rows] = await pool.query<RowDataPacket[]>(
-    `SELECT rule_code, enabled, threshold, params, updated_at FROM bg_withdraw_review_config`,
+    `SELECT rule_code, enabled, threshold, params, updated_at FROM bg_withdraw_review_config WHERE scope = ?`,
+    [scope],
   )
   ok(ctx, {
     config: rows.map((r) => {
@@ -220,21 +222,23 @@ router.put('/config', async (ctx) => {
   if (ctx.state.adminRole !== 'super_admin') { fail(ctx, 403, '仅超级管理员可修改审核规则配置'); return }
   if (!isMysqlEnabled(ctx.state.env)) { fail(ctx, 503, 'DB not available'); return }
   const body = ctx.request.body as {
+    scope?: string
     config?: { ruleCode: string; enabled: boolean; threshold?: number | null; params?: Record<string, unknown> | null }[]
   }
+  const scope = body.scope === 'team' ? 'team' : 'user'
   if (!Array.isArray(body.config) || body.config.length === 0) { fail(ctx, 400, 'config array required'); return }
   const pool = getMysqlPool(ctx.state.env)
   for (const item of body.config) {
     if (!item.ruleCode || !(item.ruleCode in RULE_META)) { fail(ctx, 400, `unknown ruleCode: ${item.ruleCode}`); return }
     await pool.execute(
-      `UPDATE bg_withdraw_review_config SET enabled = ?, threshold = ?, params = ? WHERE rule_code = ?`,
-      [item.enabled ? 1 : 0, item.threshold ?? null, item.params == null ? null : JSON.stringify(item.params), item.ruleCode],
+      `UPDATE bg_withdraw_review_config SET enabled = ?, threshold = ?, params = ? WHERE scope = ? AND rule_code = ?`,
+      [item.enabled ? 1 : 0, item.threshold ?? null, item.params == null ? null : JSON.stringify(item.params), scope, item.ruleCode],
     )
   }
   await writeAuditLog(ctx.state.env, {
     adminId: ctx.state.adminId!, adminUsername: ctx.state.adminUsername!,
     action: 'review.config.update', targetType: 'review_config',
-    detail: { rules: body.config.map((c) => c.ruleCode) }, ip: ctx.ip,
+    detail: { scope, rules: body.config.map((c) => c.ruleCode) }, ip: ctx.ip,
   })
   ok(ctx, { saved: body.config.length })
 })

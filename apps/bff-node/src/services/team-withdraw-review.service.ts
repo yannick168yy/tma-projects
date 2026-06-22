@@ -212,7 +212,7 @@ export async function reviewTeamWithdrawal(env: Env, _redis: Redis, withdrawalId
   let snapshot: Record<string, unknown> | null = null
 
   try {
-    const config = await loadReviewConfig(pool)
+    const config = await loadReviewConfig(pool, 'team')
     const ctx = await buildContext(pool, withdrawal)
     snapshot = snapshotOf(ctx)
     const results: RuleResult[] = []

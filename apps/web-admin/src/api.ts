@@ -288,10 +288,11 @@ export interface ReviewConfigItem {
   enabled: boolean; threshold: number | null
   params: Record<string, number> | null; updatedAt: string | null
 }
-export const getReviewConfig = () =>
-  get<{ config: ReviewConfigItem[] }>('/admin/review/config')
-export const saveReviewConfig = (config: { ruleCode: string; enabled: boolean; threshold?: number | null; params?: Record<string, number> | null }[]) =>
-  req<{ saved: number }>('PUT', '/admin/review/config', { config })
+export type ReviewScope = 'user' | 'team'
+export const getReviewConfig = (scope: ReviewScope = 'user') =>
+  get<{ config: ReviewConfigItem[] }>(`/admin/review/config?scope=${scope}`)
+export const saveReviewConfig = (scope: ReviewScope, config: { ruleCode: string; enabled: boolean; threshold?: number | null; params?: Record<string, number> | null }[]) =>
+  req<{ saved: number }>('PUT', '/admin/review/config', { scope, config })
 
 // 审核总览
 export interface ReviewOverview {
