@@ -65,6 +65,8 @@ const schema = z.object({
   // ── KYC ────────────────────────────────────────────────────────────────────
   // Gemini 证件/人脸自动放行的最低置信度（0~1）
   KYC_GEMINI_MIN_CONFIDENCE: z.coerce.number().min(0).max(1).default(0.85),
+  // 人脸与证件照相似度通过阈值（0~1）兜底；后台 kyc_face_match_threshold 可覆盖
+  KYC_FACE_MATCH_MIN: z.coerce.number().min(0).max(1).default(0.75),
   // 每用户每日证件/人脸提交次数上限（各自独立计，防刷 Gemini 调用）
   KYC_VERIFY_MAX_PER_DAY: z.coerce.number().int().min(1).default(10),
   // KYC 证件图片本地兜底存储目录（未配置 S3 时使用）

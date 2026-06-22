@@ -83,19 +83,24 @@ router.get('/sms/logs', async (ctx) => {
 // ── KYC 证件/人脸验证开关 ─────────────────────────────────────────────────────
 
 router.get('/kyc', async (ctx) => {
-  const [doc, face] = await Promise.all([
+  const [doc, face, threshold] = await Promise.all([
     getAdminSetting(ctx.state.env, 'kyc_require_document'),
     getAdminSetting(ctx.state.env, 'kyc_require_face'),
+    getAdminSetting(ctx.state.env, 'kyc_face_match_threshold'),
   ])
   const requireDocument = doc !== '0'
-  ok(ctx, { requireDocument, requireFace: requireDocument && face !== '0' })
+  const parsed = threshold != null ? Number(threshold) : NaN
+  const faceMatchThreshold = Number.isFinite(parsed) && parsed >= 0 && parsed <= 1
+    ? parsed
+    : ctx.state.env.KYC_FACE_MATCH_MIN
+  ok(ctx, { requireDocument, requireFace: requireDocument && face !== '0', faceMatchThreshold })
 })
 
 router.put('/kyc', async (ctx) => {
   if (ctx.state.adminRole !== 'super_admin') {
     fail(ctx, 403, 'Only super_admin can manage KYC verification settings'); return
   }
-  const body = ctx.request.body as { requireDocument?: unknown; requireFace?: unknown }
+  const body = ctx.request.body as { requireDocument?: unknown; requireFace?: unknown; faceMatchThreshold?: unknown }
   if (typeof body.requireDocument !== 'boolean' || typeof body.requireFace !== 'boolean') {
     fail(ctx, 400, 'requireDocument and requireFace must be booleans'); return
   }
@@ -104,16 +109,26 @@ router.put('/kyc', async (ctx) => {
   const requireFace = requireDocument && body.requireFace
   await setAdminSetting(ctx.state.env, 'kyc_require_document', requireDocument ? '1' : '0')
   await setAdminSetting(ctx.state.env, 'kyc_require_face', requireFace ? '1' : '0')
+
+  let faceMatchThreshold = ctx.state.env.KYC_FACE_MATCH_MIN
+  if (body.faceMatchThreshold !== undefined) {
+    const n = Number(body.faceMatchThreshold)
+    if (!Number.isFinite(n) || n < 0 || n > 1) {
+      fail(ctx, 400, 'faceMatchThreshold must be a number between 0 and 1'); return
+    }
+    faceMatchThreshold = n
+    await setAdminSetting(ctx.state.env, 'kyc_face_match_threshold', String(n))
+  }
   await writeAuditLog(ctx.state.env, {
     adminId: ctx.state.adminId!,
     adminUsername: ctx.state.adminUsername!,
     action: 'kyc_steps_update',
     targetType: 'settings',
     targetId: 'kyc_steps',
-    detail: { requireDocument, requireFace },
+    detail: { requireDocument, requireFace, faceMatchThreshold },
     ip: ctx.ip,
   })
-  ok(ctx, { requireDocument, requireFace })
+  ok(ctx, { requireDocument, requireFace, faceMatchThreshold })
 })
 
 // ── 汇率管理 ──────────────────────────────────────────────────────────────────

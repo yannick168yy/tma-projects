@@ -10,8 +10,7 @@ import {
   submitKycFace,
   verifyKycOtp,
 } from '@/api/kyc'
-import type { LivenessAction } from '@/api/kyc'
-import FaceLivenessCapture from '@/components/wallet/FaceLivenessCapture'
+import FaceSelfieCapture from '@/components/wallet/FaceSelfieCapture'
 
 interface Props {
   open: boolean
@@ -197,10 +196,10 @@ export default function KycModal({ open, onClose, onApproved }: Props) {
     } finally { setLoading(false) }
   }
 
-  async function onSubmitFace(frames: Array<{ action: LivenessAction; image: string }>) {
+  async function onSubmitFace(selfieImage: string) {
     setLoading(true); setError(null)
     try {
-      const res = await submitKycFace(frames)
+      const res = await submitKycFace(selfieImage)
       if (res.faceVerified) {
         setStep('done')
         onApproved?.()
@@ -306,7 +305,7 @@ export default function KycModal({ open, onClose, onApproved }: Props) {
         )}
 
         {step === 'face' && (
-          <FaceLivenessCapture loading={loading} onComplete={(frames) => void onSubmitFace(frames)} />
+          <FaceSelfieCapture loading={loading} onComplete={(selfie) => void onSubmitFace(selfie)} />
         )}
 
         {step === 'done' && (

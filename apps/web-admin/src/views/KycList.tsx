@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Table, Tag, Select, Button, Space, Switch, Card, message } from 'antd'
+import { Table, Tag, Select, Button, Space, Switch, Card, InputNumber, message } from 'antd'
 import { getKycList, getKycSettings, setKycSettings, type AdminKycListItem, type KycStepSettings } from '../api'
 
 function kycStatusTag(status: string) {
@@ -97,7 +97,7 @@ export default function KycList() {
               checked={cfg?.requireDocument ?? true}
               loading={savingCfg}
               disabled={!cfg}
-              onChange={(v) => void saveCfg({ requireDocument: v, requireFace: v && (cfg?.requireFace ?? true) })}
+              onChange={(v) => void saveCfg({ requireDocument: v, requireFace: v && (cfg?.requireFace ?? true), faceMatchThreshold: cfg?.faceMatchThreshold ?? 0.75 })}
             />
           </Space>
           <Space>
@@ -106,8 +106,20 @@ export default function KycList() {
               checked={cfg?.requireFace ?? true}
               loading={savingCfg}
               disabled={!cfg || !cfg.requireDocument}
-              onChange={(v) => void saveCfg({ requireDocument: cfg?.requireDocument ?? true, requireFace: v })}
+              onChange={(v) => void saveCfg({ requireDocument: cfg?.requireDocument ?? true, requireFace: v, faceMatchThreshold: cfg?.faceMatchThreshold ?? 0.75 })}
             />
+          </Space>
+          <Space>
+            <span>人脸通过相似度阈值</span>
+            <InputNumber
+              min={0}
+              max={1}
+              step={0.05}
+              value={cfg?.faceMatchThreshold ?? 0.75}
+              disabled={!cfg || !cfg.requireFace}
+              onChange={(v) => { if (cfg && typeof v === 'number') void saveCfg({ ...cfg, faceMatchThreshold: v }) }}
+            />
+            <span style={{ color: '#999', fontSize: 12 }}>0~1，自拍与证件照相似度达到此值才通过</span>
           </Space>
           <span style={{ color: '#999', fontSize: 12 }}>关闭证件验证将一并关闭人脸验证（人脸需证件照比对）。手机验证始终开启。</span>
         </Space>

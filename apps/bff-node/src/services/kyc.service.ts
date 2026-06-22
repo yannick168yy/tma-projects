@@ -2,7 +2,7 @@ import { randomInt } from 'node:crypto'
 import { GoogleGenerativeAI, GoogleGenerativeAIFetchError } from '@google/generative-ai'
 import type { Redis } from 'ioredis'
 import type { Env } from '../config/env.js'
-import type { KycSubmission, LivenessAction, LivenessFrameMeta } from '../types/domain.js'
+import type { KycSubmission, LivenessFrameMeta } from '../types/domain.js'
 import { normalizePhonePH } from '../utils/phone.js'
 import { nowIso } from '../utils/format.js'
 import { getAdminSetting } from './admin-store.js'
@@ -38,8 +38,15 @@ function normalizeDocType(raw: string): string {
   if (s === 'acr_i_card' || s === 'i_card' || s === 'icard') return 'acr_icard'
   return s
 }
-const REQUIRED_LIVENESS_ACTIONS: LivenessAction[] = ['neutral', 'blink', 'mouth']
 const VERIFY_RL_WINDOW_SEC = 86400
+
+/** 人脸 vs 证件照相似度通过阈值：后台 kyc_face_match_threshold 优先，否则用 env 兜底 */
+async function getKycFaceMatchThreshold(env: Env): Promise<number> {
+  const raw = await getAdminSetting(env, 'kyc_face_match_threshold')
+  const n = raw != null ? Number(raw) : NaN
+  if (Number.isFinite(n) && n >= 0 && n <= 1) return n
+  return env.KYC_FACE_MATCH_MIN
+}
 
 /** 每用户每日证件/人脸提交频控，防刷 Gemini 调用 */
 async function enforceVerifyRateLimit(
@@ -307,9 +314,6 @@ interface GeminiDocVerdict {
 
 interface GeminiFaceVerdict {
   isLivePerson: boolean
-  blinkDetected: boolean
-  mouthOpenDetected: boolean
-  samePersonAcrossFrames: boolean
   faceMatchWithId: number
   confidence: number
   reasons: string[]
@@ -463,41 +467,34 @@ Return ONLY a valid JSON object (no markdown) with exactly these keys:
 async function runGeminiFace(
   env: Env,
   idImageBase64: string,
-  frames: Array<{ action: LivenessAction; image: string }>,
+  selfieImage: string,
 ): Promise<GeminiFaceVerdict> {
-  const prompt = `You are a KYC liveness and face-matching system. You receive:
+  const prompt = `You are a KYC face-matching system. You receive:
 1. An ID document photo (reference face on the document)
-2. Three live camera frames from the same person: neutral (look straight), blink (eyes closed/blinking), mouth (mouth open)
+2. A single live selfie photo captured from the user's front camera
 
 Verify:
-- All three frames show the same live person (not a photo of a photo or screen)
-- The blink frame shows eyes closed or mid-blink
-- The mouth frame shows mouth clearly open
-- The live person matches the face on the ID document
+- The selfie shows a real live person, not a photo of a photo / screen / printout
+- The person in the selfie is the same person as the face on the ID document
 
 Return ONLY a valid JSON object (no markdown) with exactly these keys:
 {
   "isLivePerson": boolean,
-  "blinkDetected": boolean,
-  "mouthOpenDetected": boolean,
-  "samePersonAcrossFrames": boolean,
   "faceMatchWithId": number,
   "confidence": number,
   "reasons": string[]
 }
-faceMatchWithId is 0..1 similarity between live face and ID photo face.`
+faceMatchWithId is a 0..1 similarity score between the selfie face and the ID photo face (1 = identical person).`
 
   const idImg = stripBase64(idImageBase64)
+  const selfie = stripBase64(selfieImage)
   const parts: Array<{ text: string } | { inlineData: { mimeType: string; data: string } }> = [
     { text: prompt },
     { text: 'ID document image:' },
     { inlineData: { mimeType: idImg.mimeType, data: idImg.data } },
+    { text: 'Live selfie image:' },
+    { inlineData: { mimeType: selfie.mimeType, data: selfie.data } },
   ]
-  for (const frame of frames) {
-    const img = stripBase64(frame.image)
-    parts.push({ text: `Live frame (${frame.action}):` })
-    parts.push({ inlineData: { mimeType: img.mimeType, data: img.data } })
-  }
 
   const text = await generateGeminiContent(env, parts, '人脸识别失败，请重试')
   const jsonMatch = text.match(/\{[\s\S]*\}/)
@@ -603,7 +600,7 @@ export async function submitKycFace(
   redis: Redis,
   env: Env,
   userId: string,
-  frames: Array<{ action: LivenessAction; image: string }>,
+  selfieImage: string,
 ): Promise<{ faceVerified: boolean; status: KycSubmission['status']; rejectReason?: string; rejectStep?: string }> {
   const existing = await getKyc(redis, userId)
   if (!existing?.phoneVerified) throw new KycError('请先完成手机验证', 400)
@@ -614,13 +611,6 @@ export async function submitKycFace(
     throw new KycError('请先完成证件验证', 400)
   }
 
-  const actions = frames.map((f) => f.action)
-  for (const required of REQUIRED_LIVENESS_ACTIONS) {
-    if (!actions.includes(required)) {
-      throw new KycError(`缺少活体帧: ${required}`, 400)
-    }
-  }
-
   await enforceVerifyRateLimit(redis, env, userId, 'face')
 
   const storage = getStorageProvider(env)
@@ -628,30 +618,22 @@ export async function submitKycFace(
   if (!docFile) throw new KycError('证件图片不存在，请重新提交证件', 400)
 
   const idImageBase64 = `data:${docFile.mimeType};base64,${docFile.data.toString('base64')}`
-  const verdict = await runGeminiFace(env, idImageBase64, frames)
+  const verdict = await runGeminiFace(env, idImageBase64, selfieImage)
 
   const ts = Date.now()
   const livenessFrames: LivenessFrameMeta[] = []
   try {
-    for (const frame of frames) {
-      const img = stripBase64(frame.image)
-      const key = await storage.put(
-        `${userId}/${ts}_${frame.action}.jpg`,
-        Buffer.from(img.data, 'base64'),
-        img.mimeType,
-      )
-      livenessFrames.push({ action: frame.action, key, capturedAt: nowIso() })
-    }
+    const img = stripBase64(selfieImage)
+    const key = await storage.put(`${userId}/${ts}_selfie.jpg`, Buffer.from(img.data, 'base64'), img.mimeType)
+    livenessFrames.push({ action: 'neutral', key, capturedAt: nowIso() })
   } catch (e) {
-    console.error('[kyc] store liveness frames failed:', e)
+    console.error('[kyc] store selfie image failed:', e)
   }
 
+  const threshold = await getKycFaceMatchThreshold(env)
   const reasons: string[] = []
   if (!verdict.isLivePerson) reasons.push('no_live_person')
-  if (!verdict.blinkDetected) reasons.push('no_blink')
-  if (!verdict.mouthOpenDetected) reasons.push('no_mouth_open')
-  if (!verdict.samePersonAcrossFrames) reasons.push('different_person')
-  if ((verdict.faceMatchWithId ?? 0) < 0.8) reasons.push('face_id_mismatch')
+  if ((verdict.faceMatchWithId ?? 0) < threshold) reasons.push('face_id_mismatch')
   if (verdict.confidence < env.KYC_GEMINI_MIN_CONFIDENCE) reasons.push('low_liveness_confidence')
 
   const faceVerified = reasons.length === 0
@@ -661,7 +643,7 @@ export async function submitKycFace(
     status: faceVerified ? 'approved' : 'rejected',
     verifyMode: 'face',
     faceVerified,
-    geminiResult: { ...(existing.geminiResult ?? {}), face: verdict },
+    geminiResult: { ...(existing.geminiResult ?? {}), face: { ...verdict, threshold } },
     geminiConfidence: verdict.confidence,
     livenessFrames,
     selfieImageKey: livenessFrames[0]?.key,
@@ -702,11 +684,7 @@ export async function submitKyc(
     return { status: docResult.status, rejectReason: docResult.rejectReason }
   }
   if (input.verifyMode === 'face' && input.selfieImage) {
-    const faceResult = await submitKycFace(redis, env, userId, [
-      { action: 'neutral', image: input.selfieImage },
-      { action: 'blink', image: input.selfieImage },
-      { action: 'mouth', image: input.selfieImage },
-    ])
+    const faceResult = await submitKycFace(redis, env, userId, input.selfieImage)
     return { status: faceResult.status, rejectReason: faceResult.rejectReason }
   }
   return { status: docResult.status, rejectReason: docResult.rejectReason }

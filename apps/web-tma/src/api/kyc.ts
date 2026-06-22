@@ -2,7 +2,6 @@ import { apiRequest } from '@/api/client'
 
 export type KycStatusValue = 'none' | 'pending' | 'approved' | 'rejected'
 export type KycRejectStep = 'phone' | 'document' | 'face'
-export type LivenessAction = 'neutral' | 'blink' | 'mouth'
 
 export interface KycStatus {
   status: KycStatusValue
@@ -39,11 +38,11 @@ export function submitKycDocument(input: {
   return apiRequest('/kyc/document', { method: 'POST', body: JSON.stringify(input) })
 }
 
-export function submitKycFace(frames: Array<{ action: LivenessAction; image: string }>): Promise<{
+export function submitKycFace(selfieImage: string): Promise<{
   faceVerified: boolean
   status: KycStatusValue
   rejectReason?: string
   rejectStep?: string
 }> {
-  return apiRequest('/kyc/face', { method: 'POST', body: JSON.stringify({ frames }) })
+  return apiRequest('/kyc/face', { method: 'POST', body: JSON.stringify({ selfieImage }) })
 }

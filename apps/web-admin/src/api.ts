@@ -213,7 +213,7 @@ export const getKycDetail = (userId: string) =>
 export const reviewKyc = (userId: string, decision: 'approve' | 'reject', note?: string) =>
   post<{ status: string }>(`/admin/kyc/${userId}/${decision}`, { note })
 
-export interface KycStepSettings { requireDocument: boolean; requireFace: boolean }
+export interface KycStepSettings { requireDocument: boolean; requireFace: boolean; faceMatchThreshold: number }
 export const getKycSettings = () => get<KycStepSettings>('/admin/settings/kyc')
 export const setKycSettings = (s: KycStepSettings) => put<KycStepSettings>('/admin/settings/kyc', s)
 
