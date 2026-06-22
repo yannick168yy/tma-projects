@@ -100,6 +100,7 @@ export default function WalletModal({ open, onClose }: Props) {
   const [depositLoading, setDepositLoading] = useState(false)
   const [depositMessage, setDepositMessage] = useState('')
   const [depositSuccess, setDepositSuccess] = useState(false)
+  const [channelsLoading, setChannelsLoading] = useState(true)
   const [paymentDepositChannels, setPaymentDepositChannels] = useState<PaymentChannel[]>([])
   const [paymentWithdrawChannels, setPaymentWithdrawChannels] = useState<PaymentChannel[]>([])
   const [cryptoEnabled, setCryptoEnabled] = useState<Record<string, boolean>>({})
@@ -200,9 +201,11 @@ export default function WalletModal({ open, onClose }: Props) {
       setTonLoading(false); setTonMessage(''); setTonSuccess(false)
       void walletStore.refresh()
       void fetchHomeContent().then((content) => setWalletBannerUrl(content.walletBanners[0]?.imageUrl ?? defaultTopupBanner)).catch(()=>setWalletBannerUrl(defaultTopupBanner))
-      void fetchPaymentChannels('deposit').then(setPaymentDepositChannels).catch(()=>{})
+      setChannelsLoading(true)
+      const depP = fetchPaymentChannels('deposit').then(setPaymentDepositChannels).catch(()=>{})
+      const cryP = fetchCryptoChannels().then((list)=>setCryptoEnabled(Object.fromEntries(list.map((c)=>[c.name,c.enabled])))).catch(()=>{})
+      void Promise.all([depP, cryP]).finally(()=>setChannelsLoading(false))
       void fetchPaymentChannels('withdraw').then(setPaymentWithdrawChannels).catch(()=>{})
-      void fetchCryptoChannels().then((list)=>setCryptoEnabled(Object.fromEntries(list.map((c)=>[c.name,c.enabled])))).catch(()=>{})
     } else { stopPolling(); stopTonPolling() }
     return () => { document.body.style.overflow = '' }
   }, [open])
@@ -494,7 +497,11 @@ export default function WalletModal({ open, onClose }: Props) {
                     ))}
                   </div>
                   {/* 渠道 chips：单行横向滑动，可见约 3.5 个 */}
-                  {currentCategoryMethods.length===0 ? <p className="text-xs text-muted-foreground py-3">{t('wallet.comingSoon')}</p> : (
+                  {currentCategoryMethods.length===0 ? (channelsLoading ? (
+                    <div className="flex gap-2 overflow-hidden -mx-1 px-1 pb-1">
+                      {Array.from({length:4}).map((_,i)=><div key={i} className="flex-shrink-0 w-[27%] h-[92px] rounded-2xl bg-white/5 animate-pulse" />)}
+                    </div>
+                  ) : <p className="text-xs text-muted-foreground py-3">{t('wallet.comingSoon')}</p>) : (
                   <div className="flex gap-2 overflow-x-auto hide-scrollbar -mx-1 px-1 pb-1">
                     {currentCategoryMethods.map((m)=>{
                       const disabled=m.enabled===false; const sel=selectedMethod===m.id
@@ -593,6 +600,16 @@ export default function WalletModal({ open, onClose }: Props) {
                       {isUnifiedFiat&&!isTonConnect&&<button type="button" className="w-full py-3 rounded-2xl font-black text-base flex items-center justify-center gap-2 shadow-lg disabled:opacity-50 bg-primary text-black hover:bg-yellow-400 shadow-amber-500/25" disabled={!canSubmitDeposit||depositLoading} onClick={()=>void onProceedUnifiedFiatDeposit()}>{depositLoading?<Loader2 size={18} className="animate-spin"/>:<ArrowDownToLine size={22} />}{depositLoading?t('wallet.yfpayWaitingPayment'):t('wallet.yfpayProceedDeposit')}</button>}
                     </>
                     )
+                  ) : channelsLoading ? (
+                    /* 弱网渠道未就绪时，先把金额档位与输入框骨架预渲染出来 */
+                    <div className="space-y-4">
+                      <div className="h-3 w-28 rounded bg-white/5 animate-pulse" />
+                      <div className="grid grid-cols-3 gap-2">
+                        {Array.from({length:9}).map((_,i)=><div key={i} className="h-[58px] rounded-xl bg-white/5 animate-pulse" />)}
+                      </div>
+                      <div className="h-[52px] rounded-2xl bg-white/5 animate-pulse" />
+                      <div className="h-[52px] rounded-2xl bg-white/5 animate-pulse" />
+                    </div>
                   ) : <p className="text-center text-sm text-muted-foreground py-8">{t('wallet.comingSoon')}</p>}
                 </div>
               ) : depositView === 'select' ? (
