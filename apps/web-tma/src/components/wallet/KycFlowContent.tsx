@@ -7,10 +7,11 @@ interface Props {
   flow: KycFlow
   /** 完成/复核中点击"关闭"的行为：弹窗=关闭，独立页=返回 */
   onClose: () => void
+  compactFace?: boolean
 }
 
 /** 实名认证流程的步骤 UI（进度条 + 各步骤表单），提现弹窗与 KYC Setting 页共用。 */
-export default function KycFlowContent({ flow, onClose }: Props) {
+export default function KycFlowContent({ flow, onClose, compactFace }: Props) {
   const { t } = useTranslation()
   const {
     step, requireDocument, requireFace, loading, error,
@@ -23,13 +24,13 @@ export default function KycFlowContent({ flow, onClose }: Props) {
 
   return (
     <>
-      <div className="mb-1 flex items-center gap-2">
+      {!(compactFace && step === 'face') && <div className="mb-1 flex items-center gap-2">
         <ShieldCheck size={20} className="text-primary" />
         <h2 className="text-lg font-black text-foreground">{t('kyc.title')}</h2>
-      </div>
-      <p className="mb-5 text-xs text-muted-foreground">{t('kyc.subtitle')}</p>
+      </div>}
+      {!(compactFace && step === 'face') && <p className="mb-5 text-xs text-muted-foreground">{t('kyc.subtitle')}</p>}
 
-      <div className="mb-5 flex items-center gap-1 text-[10px] font-bold">
+      {!(compactFace && step === 'face') && <div className="mb-5 flex items-center gap-1 text-[10px] font-bold">
         <span className={step === 'phone' ? 'text-primary' : ['document', 'reviewing', 'face', 'done'].includes(step) ? 'text-emerald-400' : 'text-muted-foreground'}>
           {t('kyc.stepPhone')}
         </span>
@@ -49,7 +50,7 @@ export default function KycFlowContent({ flow, onClose }: Props) {
             </span>
           </>
         )}
-      </div>
+      </div>}
 
       {step === 'phone' && (
         <div className="space-y-3">
@@ -105,7 +106,7 @@ export default function KycFlowContent({ flow, onClose }: Props) {
       )}
 
       {step === 'face' && (
-        <FaceSelfieCapture loading={loading} onComplete={(selfie) => void onSubmitFace(selfie)} />
+        <FaceSelfieCapture loading={loading} compact={compactFace} onComplete={(selfie) => void onSubmitFace(selfie)} />
       )}
 
       {step === 'done' && (

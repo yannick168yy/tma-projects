@@ -5,6 +5,7 @@ import { Camera, Loader2, RotateCcw } from 'lucide-react'
 interface Props {
   onComplete: (selfieImage: string) => void
   loading?: boolean
+  compact?: boolean
 }
 
 function canvasToDataUrl(canvas: HTMLCanvasElement, maxDim = 1280, quality = 0.82): string {
@@ -19,7 +20,7 @@ function canvasToDataUrl(canvas: HTMLCanvasElement, maxDim = 1280, quality = 0.8
   return out.toDataURL('image/jpeg', quality)
 }
 
-export default function FaceSelfieCapture({ onComplete, loading }: Props) {
+export default function FaceSelfieCapture({ onComplete, loading, compact }: Props) {
   const { t } = useTranslation()
   const videoRef = useRef<HTMLVideoElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
@@ -81,7 +82,7 @@ export default function FaceSelfieCapture({ onComplete, loading }: Props) {
 
   return (
     <div className="space-y-3">
-      <div className="relative h-[min(68vh,620px)] min-h-[360px] w-full overflow-hidden rounded-2xl border border-primary/15 bg-black shadow-[0_18px_45px_rgba(0,0,0,0.32)]">
+      <div className={`relative w-full overflow-hidden rounded-2xl border border-primary/15 bg-black shadow-[0_18px_45px_rgba(0,0,0,0.32)] ${compact ? 'h-[min(52vh,460px)] min-h-[300px]' : 'h-[min(68vh,620px)] min-h-[360px]'}`}>
         {shot ? (
           <img src={shot} alt="selfie" className="h-full w-full object-cover" style={{ transform: 'scaleX(-1)' }} />
         ) : (
