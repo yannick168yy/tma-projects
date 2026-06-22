@@ -460,7 +460,7 @@ export default function WalletModal({ open, onClose }: Props) {
         {tab !== 'history' && (
           <div className="flex-shrink-0 px-5 pt-3">
             <div className="overflow-hidden rounded-2xl border border-primary/50 bg-[#0b1424] shadow-[0_0_24px_rgba(245,158,11,0.18)]">
-              <img src={walletBannerUrl} alt="" className="block w-full aspect-[4.02/1] object-cover" />
+              <img src={walletBannerUrl} alt="" className="block w-full aspect-[5.6/1] object-cover" />
             </div>
           </div>
         )}
@@ -492,25 +492,26 @@ export default function WalletModal({ open, onClose }: Props) {
                   {/* 充值分类 tab：电子钱包 / 虚拟币 / Telegram */}
                   <div className="grid grid-cols-3 rounded-2xl border border-white/10 bg-[#0a1424] p-1">
                     {depositCategoryTabs.map(({id, label, Icon})=>(
-                      <button key={id} type="button" onClick={()=>setDepositCategory(id)} className={`flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-black transition-colors border ${depositCategory===id?'border-primary bg-primary/10 text-primary shadow-[0_0_18px_rgba(245,158,11,0.20)]':'border-transparent text-white/45 hover:text-white/75'}`}><Icon size={14} />{label}</button>
+                      <button key={id} type="button" onClick={()=>setDepositCategory(id)} className={`flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-black transition-colors border ${depositCategory===id?'border-primary bg-primary/10 text-primary shadow-[0_0_18px_rgba(245,158,11,0.20)]':'border-transparent text-white/45 hover:text-white/75'}`}><Icon size={14} />{label}</button>
                     ))}
                   </div>
-                  {/* 渠道 chips */}
-                  <div className="grid grid-cols-2 gap-3">
-                    {currentCategoryMethods.length===0 ? <p className="text-xs text-muted-foreground py-3">{t('wallet.comingSoon')}</p> : currentCategoryMethods.map((m)=>{
+                  {/* 渠道 chips：单行横向滑动，可见约 3.5 个 */}
+                  {currentCategoryMethods.length===0 ? <p className="text-xs text-muted-foreground py-3">{t('wallet.comingSoon')}</p> : (
+                  <div className="flex gap-2 overflow-x-auto hide-scrollbar -mx-1 px-1 pb-1">
+                    {currentCategoryMethods.map((m)=>{
                       const disabled=m.enabled===false; const sel=selectedMethod===m.id
                       return (
                         <button key={m.id} type="button" disabled={disabled} onClick={()=>{setSelectedMethod(m.id);setAmount('');setDepositMessage('')}}
-                          className={`relative min-h-[110px] rounded-2xl border p-3 flex flex-col items-center justify-center gap-2 transition-colors ${sel?'border-primary bg-primary/10 shadow-[0_0_22px_rgba(245,158,11,0.20)]':'border-white/10 bg-[#101a2c]'} ${disabled?'opacity-40':''}`}>
-                          <span className={`absolute right-3 top-3 flex h-5 w-5 items-center justify-center rounded-full border ${sel?'border-primary bg-primary text-black':'border-white/30'}`}>{sel&&<Check size={12} strokeWidth={3}/>}</span>
-                          {m.iconUrl ? <div className="w-14 h-14 rounded-2xl overflow-hidden flex-shrink-0"><img src={m.iconUrl} alt={m.name} className="w-full h-full object-contain" /></div>
-                            : <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br flex items-center justify-center flex-shrink-0 ${m.color}`}>{m.iconKind==='telegram'?<Send size={24} className="text-white" strokeWidth={2.5}/>:<span className="text-white text-lg font-black">{m.icon}</span>}</div>}
-                          <span className="text-sm font-black text-white truncate w-full text-center">{m.name}</span>
-                          <span className="text-[10px] font-semibold text-white/45">Instant · Secure</span>
+                          className={`relative flex-shrink-0 w-[27%] rounded-2xl border p-2 flex flex-col items-center justify-center gap-1.5 transition-colors ${sel?'border-primary bg-primary/10 shadow-[0_0_22px_rgba(245,158,11,0.20)]':'border-white/10 bg-[#101a2c]'} ${disabled?'opacity-40':''}`}>
+                          {sel&&<span className="absolute right-1.5 top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-black"><Check size={10} strokeWidth={3}/></span>}
+                          {m.iconUrl ? <div className="w-10 h-10 rounded-xl overflow-hidden flex-shrink-0"><img src={m.iconUrl} alt={m.name} className="w-full h-full object-contain" /></div>
+                            : <div className={`w-10 h-10 rounded-xl bg-gradient-to-br flex items-center justify-center flex-shrink-0 ${m.color}`}>{m.iconKind==='telegram'?<Send size={18} className="text-white" strokeWidth={2.5}/>:<span className="text-white text-base font-black">{m.icon}</span>}</div>}
+                          <span className="text-xs font-black text-white truncate w-full text-center">{m.name}</span>
                         </button>
                       )
                     })}
                   </div>
+                  )}
                   {selectedPayMethod ? (
                     isMatrixDeposit ? (
                       <div className="space-y-4">
@@ -556,7 +557,7 @@ export default function WalletModal({ open, onClose }: Props) {
                         {depositPresets.map((amt)=>{
                           const sel=amount===String(amt); const bonus=firstDepEligible?matchTierBonus(depositTierList,amt):0
                           return (
-                            <button key={amt} type="button" onClick={()=>setAmount(String(amt))} className={`relative rounded-xl border py-3 px-1 flex flex-col items-center transition-colors ${sel?'border-primary bg-primary/15 shadow-[0_0_18px_rgba(245,158,11,0.24)]':'border-white/10 bg-[#101a2c]'}`}>
+                            <button key={amt} type="button" onClick={()=>setAmount(String(amt))} className={`relative rounded-xl border py-2.5 px-1 flex flex-col items-center transition-colors ${sel?'border-primary bg-primary/15 shadow-[0_0_18px_rgba(245,158,11,0.24)]':'border-white/10 bg-[#101a2c]'}`}>
                               {sel&&<span className="absolute right-2 top-2 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-black"><Check size={10} strokeWidth={3}/></span>}
                               <span className="text-base font-black text-white">+{fmtPreset(amt,depositCurrency)}</span>
                               {bonus>0 && <span className="text-[11px] font-black text-primary mt-1 leading-none">+{fmtPreset(bonus,depositCurrency)}</span>}
@@ -566,7 +567,7 @@ export default function WalletModal({ open, onClose }: Props) {
                       </div>
                       <div className="relative rounded-2xl border border-white/10 bg-[#07111f]">
                         <span className="absolute left-4 top-1/2 -translate-y-1/2 text-white/45 font-bold text-sm">{isTonConnect?'TON':depositCurrency==='USDT'||depositCurrency==='USDC'?'$':isCryptoMethod?'≈ $':'₱'}</span>
-                        <input value={amount} type="number" placeholder="0.00" className={`w-full bg-transparent pr-32 py-3.5 text-white font-black text-2xl focus:outline-none ${isTonConnect?'pl-14':'pl-10'}`} onChange={(e)=>setAmount(e.target.value)} />
+                        <input value={amount} type="number" placeholder="0.00" className={`w-full bg-transparent pr-32 py-3 text-white font-black text-xl focus:outline-none ${isTonConnect?'pl-14':'pl-10'}`} onChange={(e)=>setAmount(e.target.value)} />
                         <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-white/65">{t('wallet.editAmount')}</span>
                       </div>
                       {firstDepEligible&&Number(amount)>0&&selectedBonus>0&&<p className="text-[11px] font-bold text-primary text-center -mt-1">{t('wallet.firstDepBonusHint',{amount:fmtPreset(selectedBonus,depositCurrency)})}</p>}
@@ -588,10 +589,10 @@ export default function WalletModal({ open, onClose }: Props) {
                       {isTonConnect&&<>
                         {tonIsConnected&&<div className="flex items-center gap-2 bg-secondary rounded-xl px-3 py-2"><div className="w-2 h-2 rounded-full bg-emerald-400 flex-shrink-0" /><span className="text-xs font-bold text-muted-foreground flex-1 truncate font-mono">{tonAddressShort}</span><button type="button" className="text-xs text-muted-foreground hover:text-foreground transition-colors" onClick={()=>void disconnectTon()}>{t('wallet.tonDisconnect')}</button></div>}
                         {tonMessage&&<p className={`text-xs font-bold text-center ${tonSuccess?'text-emerald-400':'text-amber-400'}`}>{tonMessage}</p>}
-                        <button type="button" className="w-full py-4 rounded-2xl font-black text-xl flex items-center justify-center gap-2 shadow-lg disabled:opacity-50 bg-primary text-black hover:bg-yellow-400 shadow-amber-500/25" disabled={tonLoading||!amount||Number(amount)<0.01} onClick={()=>void onProceedTonDeposit()}>{tonLoading?<Loader2 size={18} className="animate-spin"/>:<span className="font-black text-xs leading-none">TON</span>}{tonLoading?t('wallet.tonLoading'):tonIsConnected?t('wallet.tonPay'):t('wallet.tonConnect')}</button>
+                        <button type="button" className="w-full py-3 rounded-2xl font-black text-base flex items-center justify-center gap-2 shadow-lg disabled:opacity-50 bg-primary text-black hover:bg-yellow-400 shadow-amber-500/25" disabled={tonLoading||!amount||Number(amount)<0.01} onClick={()=>void onProceedTonDeposit()}>{tonLoading?<Loader2 size={18} className="animate-spin"/>:<span className="font-black text-xs leading-none">TON</span>}{tonLoading?t('wallet.tonLoading'):tonIsConnected?t('wallet.tonPay'):t('wallet.tonConnect')}</button>
                       </>}
-                      {isTgWallet&&<button type="button" className="w-full py-4 rounded-2xl font-black text-xl flex items-center justify-center gap-2 shadow-lg disabled:opacity-50 bg-primary text-black hover:bg-yellow-400 shadow-amber-500/25" disabled={!canSubmitDeposit} onClick={()=>void onProceedDeposit()}>{depositLoading?<Loader2 size={18} className="animate-spin"/>:<ArrowDownToLine size={22} />}{depositLoading?t('wallet.openingPay'):t('wallet.payTelegram')}</button>}
-                      {isUnifiedFiat&&!isTonConnect&&<button type="button" className="w-full py-4 rounded-2xl font-black text-xl flex items-center justify-center gap-2 shadow-lg disabled:opacity-50 bg-primary text-black hover:bg-yellow-400 shadow-amber-500/25" disabled={!canSubmitDeposit||depositLoading} onClick={()=>void onProceedUnifiedFiatDeposit()}>{depositLoading?<Loader2 size={18} className="animate-spin"/>:<ArrowDownToLine size={22} />}{depositLoading?t('wallet.yfpayWaitingPayment'):t('wallet.yfpayProceedDeposit')}</button>}
+                      {isTgWallet&&<button type="button" className="w-full py-3 rounded-2xl font-black text-base flex items-center justify-center gap-2 shadow-lg disabled:opacity-50 bg-primary text-black hover:bg-yellow-400 shadow-amber-500/25" disabled={!canSubmitDeposit} onClick={()=>void onProceedDeposit()}>{depositLoading?<Loader2 size={18} className="animate-spin"/>:<ArrowDownToLine size={22} />}{depositLoading?t('wallet.openingPay'):t('wallet.payTelegram')}</button>}
+                      {isUnifiedFiat&&!isTonConnect&&<button type="button" className="w-full py-3 rounded-2xl font-black text-base flex items-center justify-center gap-2 shadow-lg disabled:opacity-50 bg-primary text-black hover:bg-yellow-400 shadow-amber-500/25" disabled={!canSubmitDeposit||depositLoading} onClick={()=>void onProceedUnifiedFiatDeposit()}>{depositLoading?<Loader2 size={18} className="animate-spin"/>:<ArrowDownToLine size={22} />}{depositLoading?t('wallet.yfpayWaitingPayment'):t('wallet.yfpayProceedDeposit')}</button>}
                     </>
                     )
                   ) : <p className="text-center text-sm text-muted-foreground py-8">{t('wallet.comingSoon')}</p>}
