@@ -16,10 +16,10 @@ export function removeSseBadgeClient(client: SseClient): void {
   clients.delete(client)
 }
 
-async function fetchCounts(env: Env): Promise<{ manualWithdrawals: number; pendingCs: number }> {
-  if (!isMysqlEnabled(env)) return { manualWithdrawals: 0, pendingCs: 0 }
+async function fetchCounts(env: Env): Promise<{ manualWithdrawals: number; pendingCs: number; rejectedKyc: number }> {
+  if (!isMysqlEnabled(env)) return { manualWithdrawals: 0, pendingCs: 0, rejectedKyc: 0 }
   const db = getMysqlPool(env)
-  const [[wRow], [csRow]] = await Promise.all([
+  const [[wRow], [csRow], [kycRow]] = await Promise.all([
     db.query<RowDataPacket[]>(
       `SELECT (
          SELECT COUNT(*) FROM bg_withdraw_order WHERE status = 'pending' AND review_verdict = 'manual'
@@ -30,10 +30,14 @@ async function fetchCounts(env: Env): Promise<{ manualWithdrawals: number; pendi
     db.query<RowDataPacket[]>(
       `SELECT COUNT(*) AS cnt FROM cs_conversation WHERE status = 'human_taken'`,
     ),
+    db.query<RowDataPacket[]>(
+      `SELECT COUNT(*) AS cnt FROM bg_kyc WHERE status = 'rejected' AND badge_ignored = 0`,
+    ),
   ])
   return {
     manualWithdrawals: Number(wRow[0]?.cnt ?? 0),
     pendingCs: Number(csRow[0]?.cnt ?? 0),
+    rejectedKyc: Number(kycRow[0]?.cnt ?? 0),
   }
 }
 

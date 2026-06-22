@@ -776,6 +776,7 @@ function mapKyc(r: RowDataPacket): KycSubmission {
     faceSubmittedAt: r.face_submitted_at ? new Date(r.face_submitted_at as Date).toISOString() : undefined,
     reviewedAt: r.reviewed_at ? new Date(r.reviewed_at as Date).toISOString() : undefined,
     reviewedBy: (r.reviewed_by as string) ?? undefined,
+    badgeIgnored: Boolean(r.badge_ignored),
   }
 }
 
@@ -788,8 +789,8 @@ export async function saveKyc(env: Env, s: KycSubmission): Promise<void> {
   await pool(env).execute(
     `INSERT INTO bg_kyc (user_id, status, phone, phone_verified, doc_verified, face_verified, full_name, doc_type, verify_mode,
        extracted_id_no, gemini_confidence, gemini_result, doc_image_key, selfie_image_key, liveness_frames,
-       reject_reason, reject_step, submitted_at, doc_submitted_at, face_submitted_at, reviewed_at, reviewed_by)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+       reject_reason, reject_step, submitted_at, doc_submitted_at, face_submitted_at, reviewed_at, reviewed_by, badge_ignored)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
      ON DUPLICATE KEY UPDATE
        status=VALUES(status), phone=COALESCE(VALUES(phone), phone),
        phone_verified=VALUES(phone_verified), doc_verified=VALUES(doc_verified), face_verified=VALUES(face_verified),
@@ -802,7 +803,7 @@ export async function saveKyc(env: Env, s: KycSubmission): Promise<void> {
        submitted_at=COALESCE(VALUES(submitted_at), submitted_at),
        doc_submitted_at=COALESCE(VALUES(doc_submitted_at), doc_submitted_at),
        face_submitted_at=VALUES(face_submitted_at),
-       reviewed_at=VALUES(reviewed_at), reviewed_by=VALUES(reviewed_by)`,
+       reviewed_at=VALUES(reviewed_at), reviewed_by=VALUES(reviewed_by), badge_ignored=VALUES(badge_ignored)`,
     [
       s.userId, s.status, s.phone ?? null, s.phoneVerified ? 1 : 0, s.docVerified ? 1 : 0, s.faceVerified ? 1 : 0,
       s.fullName || null, s.docType ?? null, s.verifyMode ?? null, s.extractedIdNo ?? null,
@@ -815,6 +816,7 @@ export async function saveKyc(env: Env, s: KycSubmission): Promise<void> {
       s.faceSubmittedAt ? new Date(s.faceSubmittedAt) : null,
       s.reviewedAt ? new Date(s.reviewedAt) : null,
       s.reviewedBy ?? null,
+      s.badgeIgnored ? 1 : 0,
     ],
   )
 }

@@ -178,6 +178,8 @@ export interface KycSubmission {
   reviewedAt?: string
   /** 人工复核管理员用户名；自动放行为空 */
   reviewedBy?: string
+  /** 后台已忽略该被拒认证的气泡提醒；用户重新提交时重置 */
+  badgeIgnored?: boolean
 }
 
 export interface PromotionItem {

@@ -10,6 +10,7 @@ import { getMysqlPool, isMysqlEnabled } from '../clients/mysql.client.js'
 import { getSmsProvider, isSmsTestModeEnabled } from './sms/index.js'
 import { appendSmsSendLog } from './sms/send-log.js'
 import { getStorageProvider } from './storage/index.js'
+import { broadcastBadges } from './sse-badges.js'
 import {
   findKycByExtractedIdNo,
   findKycByVerifiedPhone,
@@ -577,8 +578,10 @@ export async function submitKycDocument(
     faceSubmittedAt: undefined,
     reviewedAt: approvedByDoc ? now : undefined,
     reviewedBy: undefined,
+    badgeIgnored: false,
   }
   await saveApprovedWithIdGuard(redis, submission)
+  broadcastBadges(env).catch(() => {})
 
   // 记录历史提交（MySQL），管理后台可查看所有提交记录
   if (isMysqlEnabled(env)) {
@@ -652,9 +655,11 @@ export async function submitKycFace(
     rejectStep: faceVerified ? undefined : 'face',
     faceSubmittedAt: now,
     reviewedAt: faceVerified ? now : undefined,
+    badgeIgnored: false,
   }
 
   await saveApprovedWithIdGuard(redis, submission)
+  broadcastBadges(env).catch(() => {})
   return {
     faceVerified,
     status: submission.status,

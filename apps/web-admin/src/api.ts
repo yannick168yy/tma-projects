@@ -187,6 +187,7 @@ export interface AdminKycDetail {
     docImageKey: string | null
     livenessFrames: { action: string; key: string; capturedAt: string }[] | null
     submittedAt: string | null
+    badgeIgnored: boolean
   }
 }
 
@@ -212,6 +213,8 @@ export const getKycDetail = (userId: string) =>
 
 export const reviewKyc = (userId: string, decision: 'approve' | 'reject', note?: string) =>
   post<{ status: string }>(`/admin/kyc/${userId}/${decision}`, { note })
+export const ignoreKyc = (userId: string) =>
+  post<{ ignored: boolean }>(`/admin/kyc/${userId}/ignore`)
 
 export interface KycStepSettings { requireDocument: boolean; requireFace: boolean; faceMatchThreshold: number }
 export const getKycSettings = () => get<KycStepSettings>('/admin/settings/kyc')
@@ -754,6 +757,7 @@ export const getRebateRecords = (params?: { page?: number; pageSize?: number; da
 export interface AdminBadges {
   manualWithdrawals: number
   pendingCs: number
+  rejectedKyc: number
 }
 export const getAdminBadges = () => get<AdminBadges>('/admin/dashboard/badges')
 

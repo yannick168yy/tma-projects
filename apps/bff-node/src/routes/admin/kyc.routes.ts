@@ -1,9 +1,11 @@
 import Router from '@koa/router'
-import type { RowDataPacket } from 'mysql2/promise'
+import type { RowDataPacket, ResultSetHeader } from 'mysql2/promise'
 import { getMysqlPool } from '../../clients/mysql.client.js'
 import { getKyc } from '../../services/store/index.js'
 import { KycError, adminReviewKyc, buildKycStatusResponse } from '../../services/kyc.service.js'
 import { getStorageProvider } from '../../services/storage/index.js'
+import { broadcastBadges } from '../../services/sse-badges.js'
+import { writeAuditLog } from '../../services/admin-store.js'
 import { fail, ok } from '../../utils/response.js'
 
 const router = new Router({ prefix: '/kyc' })
@@ -150,6 +152,7 @@ router.get('/:userId', async (ctx) => {
       reviewedAt: kyc.reviewedAt ?? null,
       reviewedBy: kyc.reviewedBy ?? null,
       submittedAt: kyc.submittedAt || null,
+      badgeIgnored: kyc.badgeIgnored ?? false,
     },
   })
 })
@@ -164,6 +167,7 @@ async function review(ctx: import('koa').Context, decision: 'approved' | 'reject
       ctx.state.adminUsername!,
       body.note,
     )
+    broadcastBadges(ctx.state.env).catch(() => {})
     ok(ctx, { status })
   } catch (e) {
     if (e instanceof KycError) {
@@ -176,5 +180,22 @@ async function review(ctx: import('koa').Context, decision: 'approved' | 'reject
 
 router.post('/:userId/approve', (ctx) => review(ctx, 'approved'))
 router.post('/:userId/reject', (ctx) => review(ctx, 'rejected'))
+
+// 忽略某被拒认证的气泡提醒：不再计入红点，用户重新提交时会自动恢复提醒
+router.post('/:userId/ignore', async (ctx) => {
+  const userId = ctx.params.userId
+  const [res] = await getMysqlPool(ctx.state.env).execute<ResultSetHeader>(
+    `UPDATE bg_kyc SET badge_ignored = 1 WHERE user_id = ? AND status = 'rejected'`,
+    [userId],
+  )
+  if (res.affectedRows === 0) { fail(ctx, 404, '无可忽略的被拒认证', 404); return }
+  await writeAuditLog(ctx.state.env, {
+    adminId: ctx.state.adminId!, adminUsername: ctx.state.adminUsername!,
+    action: 'kyc.badge_ignore', targetType: 'kyc', targetId: userId,
+    detail: {}, ip: ctx.ip,
+  })
+  broadcastBadges(ctx.state.env).catch(() => {})
+  ok(ctx, { ignored: true })
+})
 
 export default router

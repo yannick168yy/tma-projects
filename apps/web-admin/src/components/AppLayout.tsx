@@ -32,10 +32,10 @@ function buildMenuItems(badges: AdminBadges) {
     {
       key: 'user-center',
       icon: <TeamOutlined />,
-      label: '用户中心',
+      label: <MenuBadgeLabel text="用户中心" count={badges.rejectedKyc} />,
       children: [
         { key: '/users', label: '用户列表' },
-        { key: '/kyc', label: '实名认证' },
+        { key: '/kyc', label: <MenuBadgeLabel text="实名认证" count={badges.rejectedKyc} /> },
         { key: '/review/blacklist', label: '风控名单' },
       ],
     },
@@ -146,7 +146,7 @@ function getDefaultOpenKeys(pathname: string): string[] {
 }
 
 function useAdminBadges(): AdminBadges {
-  const [badges, setBadges] = useState<AdminBadges>({ manualWithdrawals: 0, pendingCs: 0 })
+  const [badges, setBadges] = useState<AdminBadges>({ manualWithdrawals: 0, pendingCs: 0, rejectedKyc: 0 })
 
   const refresh = useCallback(async () => {
     try {

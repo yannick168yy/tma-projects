@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Card, Descriptions, Tag, Button, Space, Spin, Alert, Image, Collapse, Modal, Input, Table, Progress, message } from 'antd'
-import { fetchKycImageBlob, getKycDetail, getKycDocLog, reviewKyc, type AdminKycDetail, type KycDocLogItem } from '../api'
+import { fetchKycImageBlob, getKycDetail, getKycDocLog, reviewKyc, ignoreKyc, type AdminKycDetail, type KycDocLogItem } from '../api'
 
 function kycStatusTag(status: string) {
   const map: Record<string, { color: string; label: string }> = {
@@ -27,6 +27,7 @@ export default function KycDetail() {
   const [data, setData] = useState<AdminKycDetail | null>(null)
   const [imageUrls, setImageUrls] = useState<Record<string, string>>({})
   const [reviewing, setReviewing] = useState(false)
+  const [ignoring, setIgnoring] = useState(false)
   const [docLog, setDocLog] = useState<KycDocLogItem[]>([])
   const [docLogImgUrls, setDocLogImgUrls] = useState<Record<number, string>>({})
 
@@ -101,6 +102,19 @@ export default function KycDetail() {
     })
   }
 
+  async function onIgnore() {
+    setIgnoring(true)
+    try {
+      await ignoreKyc(userId)
+      message.success('已忽略，不再提醒')
+      await load()
+    } catch (e) {
+      message.error(e instanceof Error ? e.message : '操作失败')
+    } finally {
+      setIgnoring(false)
+    }
+  }
+
   if (loading) return <Spin />
   if (!data) return <Alert type="error" message="KYC 记录不存在" />
 
@@ -130,6 +144,11 @@ export default function KycDetail() {
           <Button danger loading={reviewing} onClick={() => onReview('reject')}>
             {kyc.status === 'approved' ? '撤销认证' : '驳回'}
           </Button>
+        )}
+        {kyc.status === 'rejected' && (
+          kyc.badgeIgnored
+            ? <Tag color="default">已忽略提醒</Tag>
+            : <Button loading={ignoring} onClick={() => void onIgnore()}>忽略提醒</Button>
         )}
       </Space>
 
