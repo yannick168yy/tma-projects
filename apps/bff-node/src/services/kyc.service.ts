@@ -164,8 +164,9 @@ export async function adminReviewKyc(
   await saveKyc(redis, {
     ...existing,
     status: decision,
-    docVerified: decision === 'approved' ? true : existing.docVerified,
-    faceVerified: decision === 'approved' ? true : existing.faceVerified,
+    // 撤销/驳回时清掉验证标志，让客户端与后台都不再显示"已认证"，用户需重新走流程
+    docVerified: decision === 'approved',
+    faceVerified: decision === 'approved',
     rejectReason: decision === 'rejected' ? note?.trim() || '人工审核未通过' : undefined,
     rejectStep: undefined,
     reviewedAt: now,

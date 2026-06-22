@@ -69,6 +69,8 @@ function resolveStep(s: Awaited<ReturnType<typeof fetchKycStatus>>): Step {
     return 'document'
   }
   if (s.requireFace && !s.faceVerified) return 'face'
+  // 被人工驳回/撤销：即便 verified 标志陈旧仍为 true，也不能显示"已通过"，回到重做
+  if (s.status === 'rejected') return s.requireDocument ? 'document' : 'face'
   return 'done'
 }
 
