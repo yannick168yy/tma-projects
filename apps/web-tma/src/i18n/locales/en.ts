@@ -90,6 +90,9 @@ export default {
   kyc: {
     title: 'Identity Verification',
     subtitle: 'Required before your first withdrawal.',
+    settingEntry: 'KYC Setting',
+    settingTitle: 'KYC Setting',
+    settingSubtitle: 'Complete identity verification to unlock withdrawals.',
     stepPhone: 'Verify phone',
     stepDocument: 'Verify identity',
     stepFace: 'Face match',

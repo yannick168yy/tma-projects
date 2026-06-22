@@ -19,7 +19,6 @@ import { useAuthStore } from '@/stores/auth'
 import { useLocaleStore } from '@/stores/locale'
 import { useThemeStore, type ThemeMode } from '@/stores/theme'
 import { LANGUAGES } from '@/data/languages'
-import { patchProfile } from '@/api/auth'
 import { fetchRebateProgress } from '@/api/rebate'
 import menuCasino from '@/assets/home/promos/menu-card-casino.webp'
 
@@ -36,6 +35,7 @@ interface Props {
   onOpenAgentCenter: () => void
   onOpenCashback: () => void
   onOpenRewardsSpin: () => void
+  onOpenKycSetting: () => void
 }
 
 const CURRENCIES = [
@@ -145,7 +145,7 @@ function BottomSheet({ title, children, onClose }: { title: string; children: Re
   )
 }
 
-export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory, onOpenLedgerRecords, onOpenReferralPromo, onOpenAgentCenter, onOpenCashback, onOpenRewardsSpin }: Props) {
+export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory, onOpenLedgerRecords, onOpenReferralPromo, onOpenAgentCenter, onOpenCashback, onOpenRewardsSpin, onOpenKycSetting }: Props) {
   const { t } = useTranslation()
   const auth = useAuthStore()
   const { locale, setLocale } = useLocaleStore()
@@ -155,18 +155,7 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
   const [loggingOut, setLoggingOut] = useState(false)
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false)
   const [bindOpen, setBindOpen] = useState(false)
-  const [profileSheetOpen, setProfileSheetOpen] = useState(false)
-  const [personalSaved, setPersonalSaved] = useState(false)
-  const [personalSaving, setPersonalSaving] = useState(false)
-  const [personalError, setPersonalError] = useState('')
   const [copied, setCopied] = useState(false)
-  const [firstName, setFirstName] = useState('')
-  const [lastName, setLastName] = useState('')
-  const [dobMonth, setDobMonth] = useState('')
-  const [dobDay, setDobDay] = useState('')
-  const [dobYear, setDobYear] = useState('')
-  const [dobOpen, setDobOpen] = useState(false)
-  const [gender, setGender] = useState('')
   const [comingSoonToast, setComingSoonToast] = useState(false)
   const [docModalKey, setDocModalKey] = useState<string | null>(null)
   const [langOpen, setLangOpen] = useState(false)
@@ -176,15 +165,6 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
   const USER_ID = auth.user?.id ?? '—'
   const displayName = auth.user?.displayName ?? t('profile.playerAccount')
   const currentLang = LANGUAGES.find((l) => l.code === locale) ?? LANGUAGES[0]
-
-  const MONTHS = Array.from({ length: 12 }, (_, i) => t(`profile.months.${i + 1}`))
-  const genderOptions = [{ id: 'Male', label: t('profile.male') }, { id: 'Female', label: t('profile.female') }, { id: 'Other', label: t('profile.other') }]
-  const years = Array.from({ length: new Date().getFullYear() - 1924 }, (_, i) => new Date().getFullYear() - 18 - i)
-  const days = Array.from({ length: 31 }, (_, i) => String(i + 1).padStart(2, '0'))
-  const dobFilled = !!(dobMonth && dobDay && dobYear)
-  const dobDisplay = dobFilled ? `${MONTHS[parseInt(dobMonth, 10) - 1]} ${parseInt(dobDay, 10)}, ${dobYear}` : ''
-  const profileComplete = Boolean(firstName && lastName && dobFilled && gender)
-  const canSavePersonal = profileComplete && !personalSaved
 
   const SUPPORT_ITEMS = [
     { icon: '21_live_chat', label: t('profile.supportItems.liveChat'), sub: t('profile.supportItems.liveChatSub'), badge: t('common.online'), onClick: onOpenCs },
@@ -207,21 +187,9 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
   ]
 
   useEffect(() => {
-    const p = auth.user?.profile
-    if (p) {
-      setFirstName(p.firstName ?? '')
-      setLastName(p.lastName ?? '')
-      setGender(p.gender ?? '')
-      setDobMonth(p.dobMonth ?? '')
-      setDobDay(p.dobDay ?? '')
-      setDobYear(p.dobYear ?? '')
-    }
-  }, [auth.user?.id])
-
-  useEffect(() => {
-    document.body.style.overflow = docModalKey || profileSheetOpen ? 'hidden' : ''
+    document.body.style.overflow = docModalKey ? 'hidden' : ''
     return () => { document.body.style.overflow = '' }
-  }, [docModalKey, profileSheetOpen])
+  }, [docModalKey])
 
   useEffect(() => () => { if (comingSoonTimer.current) clearTimeout(comingSoonTimer.current) }, [])
 
@@ -261,22 +229,6 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
       onLogout()
     } finally {
       setLoggingOut(false)
-    }
-  }
-
-  async function savePersonal() {
-    if (!canSavePersonal) return
-    setPersonalSaving(true)
-    setPersonalError('')
-    try {
-      const saved = await patchProfile({ firstName, lastName, gender: gender as 'male' | 'female' | 'other' | '', dobMonth, dobDay, dobYear })
-      if (auth.user) useAuthStore.setState((s) => ({ ...s, user: { ...s.user!, profile: saved } }))
-      setPersonalSaved(true)
-      setDobOpen(false)
-    } catch (e) {
-      setPersonalError(e instanceof Error ? e.message : '保存失败')
-    } finally {
-      setPersonalSaving(false)
     }
   }
 
@@ -383,7 +335,7 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
             <QuickAction icon={icon('02_Bet_History')} label={t('profile.betHistory')} onClick={() => (isLoggedIn ? onOpenBetHistory() : onLogin())} />
             <QuickAction icon={icon('01_rewards')} label={t('menu.creditRecords')} onClick={() => void openLedger()} />
             <QuickAction icon={icon('account_login_methods')} label={t('bind.entry')} onClick={() => (isLoggedIn ? setBindOpen(true) : onLogin())} />
-            <QuickAction icon={icon('07_personal_information')} label={t('profile.info')} onClick={() => (isLoggedIn ? setProfileSheetOpen(true) : onLogin())} />
+            <QuickAction icon={icon('07_personal_information')} label={t('kyc.settingEntry')} onClick={() => (isLoggedIn ? onOpenKycSetting() : onLogin())} />
           </div>
         </section>
 
@@ -517,74 +469,6 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
           </div>
         </div>,
         document.getElementById('app') ?? document.body,
-      )}
-
-      {profileSheetOpen && (
-        <BottomSheet title={t('profile.personalInfo')} onClose={() => setProfileSheetOpen(false)}>
-          <div className="space-y-4">
-            <div className="overflow-hidden rounded-2xl border border-border bg-card">
-              <div className="border-b border-border px-4 py-3">
-                <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{t('profile.firstName')}</label>
-                <input value={firstName} type="text" placeholder={t('profile.firstNamePh')} readOnly={personalSaved} className="w-full bg-transparent text-sm font-semibold text-foreground placeholder:text-muted-foreground/40 focus:outline-none" onChange={(e) => setFirstName(e.target.value)} />
-              </div>
-              <div className="border-b border-border px-4 py-3">
-                <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{t('profile.lastName')}</label>
-                <input value={lastName} type="text" placeholder={t('profile.lastNamePh')} readOnly={personalSaved} className="w-full bg-transparent text-sm font-semibold text-foreground placeholder:text-muted-foreground/40 focus:outline-none" onChange={(e) => setLastName(e.target.value)} />
-              </div>
-              <div className="cursor-pointer border-b border-border px-4 py-3" onClick={() => !personalSaved && setDobOpen(!dobOpen)}>
-                <label className="mb-1 block cursor-pointer text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{t('profile.dateOfBirth')}</label>
-                {personalSaved ? <p className="text-sm font-semibold text-foreground">{dobDisplay || '—'}</p> : (
-                  <>
-                    <div className="flex items-center justify-between">
-                      <span className={`text-sm font-semibold ${dobFilled ? 'text-foreground' : 'text-muted-foreground/50'}`}>{dobFilled ? dobDisplay : t('profile.selectDob')}</span>
-                      <ChevronDown size={14} className={`text-muted-foreground transition-transform duration-200 ${dobOpen ? 'rotate-180' : ''}`} />
-                    </div>
-                    {dobOpen && (
-                      <div className="mt-3 grid grid-cols-3 gap-2" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex flex-col gap-1">
-                          <span className="text-[10px] font-bold uppercase text-muted-foreground">{t('profile.month')}</span>
-                          <select value={dobMonth} className="appearance-none rounded-lg border border-border bg-secondary px-2 py-1.5 text-xs font-semibold text-foreground focus:border-primary focus:outline-none" onChange={(e) => setDobMonth(e.target.value)}>
-                            <option value="">{t('profile.month')}</option>
-                            {MONTHS.map((m, i) => <option key={m} value={String(i + 1).padStart(2, '0')}>{m}</option>)}
-                          </select>
-                        </div>
-                        <div className="flex flex-col gap-1">
-                          <span className="text-[10px] font-bold uppercase text-muted-foreground">{t('profile.day')}</span>
-                          <select value={dobDay} className="appearance-none rounded-lg border border-border bg-secondary px-2 py-1.5 text-xs font-semibold text-foreground focus:border-primary focus:outline-none" onChange={(e) => setDobDay(e.target.value)}>
-                            <option value="">{t('profile.day')}</option>
-                            {days.map((d) => <option key={d} value={d}>{parseInt(d, 10)}</option>)}
-                          </select>
-                        </div>
-                        <div className="flex flex-col gap-1">
-                          <span className="text-[10px] font-bold uppercase text-muted-foreground">{t('profile.year')}</span>
-                          <select value={dobYear} className="appearance-none rounded-lg border border-border bg-secondary px-2 py-1.5 text-xs font-semibold text-foreground focus:border-primary focus:outline-none" onChange={(e) => setDobYear(e.target.value)}>
-                            <option value="">{t('profile.year')}</option>
-                            {years.map((y) => <option key={y} value={String(y)}>{y}</option>)}
-                          </select>
-                        </div>
-                        {dobFilled && <button type="button" className="col-span-3 mt-1 rounded-lg bg-primary/20 py-1.5 text-xs font-black text-primary transition-colors hover:bg-primary/30" onClick={() => setDobOpen(false)}>{t('profile.confirmDob', { date: dobDisplay })}</button>}
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-              <div className="px-4 py-3">
-                <label className="mb-2 block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{t('profile.gender')}</label>
-                <div className="flex gap-2">
-                  {genderOptions.map((g) => (
-                    <button key={g.id} type="button" disabled={personalSaved} className={`flex-1 rounded-lg py-1.5 text-xs font-bold transition-colors ${gender === g.id ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground'} ${personalSaved ? 'cursor-default opacity-60' : 'hover:text-foreground'}`} onClick={() => !personalSaved && setGender(g.id)}>{g.label}</button>
-                  ))}
-                </div>
-              </div>
-            </div>
-            {personalError && <p className="text-center text-xs font-bold text-red-400">{personalError}</p>}
-            {!personalSaved && (
-              <button type="button" className="w-full rounded-2xl bg-primary py-3 text-sm font-black text-primary-foreground shadow shadow-amber-500/20 transition-colors hover:bg-yellow-400 disabled:opacity-50" disabled={personalSaving || !canSavePersonal} onClick={() => void savePersonal()}>
-                {personalSaving ? '保存中…' : t('profile.saveLock')}
-              </button>
-            )}
-          </div>
-        </BottomSheet>
       )}
 
       {docModalKey && (

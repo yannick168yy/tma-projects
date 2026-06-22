@@ -4,7 +4,6 @@ import { Row, Col, Button, Spin } from 'antd'
 import { getUserDetail } from '../api'
 import UserInfo from './user/UserInfo'
 import UserActions from './user/UserActions'
-import UserProfile from './user/UserProfile'
 import UserLogs from './user/UserLogs'
 import UserKyc from './user/UserKyc'
 import UserAgent from './user/UserAgent'
@@ -27,7 +26,6 @@ export default function UserDetail() {
   useEffect(() => { void loadDetail() }, [id])
 
   const u = detail?.user as Record<string, unknown> | undefined
-  const profile = (u?.profile as Record<string, string>) ?? {}
 
   return (
     <div>
@@ -47,7 +45,6 @@ export default function UserDetail() {
                 onSuccess={loadDetail}
               />
             </Col>
-            <Col span={24}><UserProfile userId={id!} profile={profile} onSuccess={loadDetail} /></Col>
             <Col span={24}>
               <UserKyc
                 userId={id!}

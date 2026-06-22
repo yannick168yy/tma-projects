@@ -412,7 +412,6 @@ export async function bindGoogleAccount(
   user.googleSub = profile.sub
   if (profile.email) {
     user.email = profile.email
-    user.profile.email = profile.email
   }
   await saveUser(redis, user)
   return user

@@ -134,6 +134,11 @@ export function useAppNavigation() {
     window.scrollTo({ top: 0, behavior: 'instant' })
   }, [pushOverlay])
 
+  const openKycSetting = useCallback(() => {
+    pushOverlay('/kyc-setting')
+    window.scrollTo({ top: 0, behavior: 'instant' })
+  }, [pushOverlay])
+
   const closeImmersive = useCallback(() => {
     closeOverlayPage()
     window.scrollTo({ top: 0, behavior: 'instant' })
@@ -165,6 +170,7 @@ export function useAppNavigation() {
     openReferralPromo,
     openCashback,
     openSpin,
+    openKycSetting,
     closeImmersive,
     closeOverlay,
     resetToTab,

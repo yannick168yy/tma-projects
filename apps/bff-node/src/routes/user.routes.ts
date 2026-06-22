@@ -1,7 +1,7 @@
 import Router from '@koa/router'
 import type { RowDataPacket } from 'mysql2/promise'
 import { getMysqlPool } from '../clients/mysql.client.js'
-import { getUser, getUserByEmail, saveUser } from '../services/store.js'
+import { getUser, saveUser } from '../services/store.js'
 import { toPublicUser } from '../services/userPresentation.js'
 import { AuthError, bindAccount, bindGoogleAccount, bindPhone, bindTelegramOidc, bindTelegramWidget } from '../services/auth.service.js'
 import { isAppLocale } from '../types/locale.js'
@@ -31,7 +31,6 @@ router.get('/me', async (ctx) => {
     ...toPublicUser(user),
     registeredAt: user.registeredAt,
     locale: user.locale,
-    profile: user.profile,
     isAgent: Boolean(agent),
   })
 })
@@ -46,30 +45,6 @@ router.get('/status', async (ctx) => {
     status: user.status,
     reason: user.statusReason ?? null,
   })
-})
-
-router.patch('/me', async (ctx) => {
-  const user = await getUser(ctx.state.redis, ctx.state.userId!)
-  if (!user) {
-    fail(ctx, 404, 'User not found', 404)
-    return
-  }
-  const body = ctx.request.body as Partial<typeof user.profile>
-  // 邮箱跨账号唯一
-  if (body.email && body.email !== user.email) {
-    const owner = await getUserByEmail(ctx.state.redis, body.email)
-    if (owner && owner.id !== user.id) {
-      fail(ctx, 409, '该邮箱已被其他账号使用', 409)
-      return
-    }
-    user.email = body.email
-  }
-  user.profile = {
-    ...user.profile,
-    ...body,
-  }
-  await saveUser(ctx.state.redis, user)
-  ok(ctx, { profile: user.profile })
 })
 
 router.patch('/language', async (ctx) => {

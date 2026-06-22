@@ -2,7 +2,7 @@ import { apiRequest, getInitData } from '@/api/client'
 import * as mock from '@/api/mock/auth.mock'
 import { getGoogleRedirectUri, startGoogleLoginRedirect } from '@/utils/googleOAuth'
 import { getTelegramRedirectUri, startTelegramLoginRedirect } from '@/utils/telegramOAuth'
-import type { AuthSession, AuthUser, LoginProvider, PasswordMethod, TelegramWidgetUser, UserProfile } from '@/types/api'
+import type { AuthSession, AuthUser, LoginProvider, PasswordMethod, TelegramWidgetUser } from '@/types/api'
 
 const useMock = import.meta.env.VITE_USE_MOCK_API !== 'false'
 
@@ -16,7 +16,6 @@ interface MeResponse {
   inviteCode?: string
   loginProvider?: LoginProvider
   email?: string
-  profile?: UserProfile
   boundTelegram?: boolean
   boundGoogle?: boolean
   boundPhone?: boolean
@@ -35,7 +34,6 @@ function toAuthUser(me: MeResponse): AuthUser {
     inviteCode: me.inviteCode,
     loginProvider: me.loginProvider,
     email: me.email,
-    profile: me.profile,
     boundTelegram: me.boundTelegram,
     boundGoogle: me.boundGoogle,
     boundPhone: me.boundPhone,
@@ -65,14 +63,6 @@ export async function bindPhone(phone: string, password?: string): Promise<{ use
 
 export async function bindAccount(username: string, password: string): Promise<{ user: AuthUser }> {
   return apiRequest('/user/bind/account', { method: 'POST', body: JSON.stringify({ username, password }) })
-}
-
-export async function patchProfile(profile: Partial<UserProfile>): Promise<UserProfile> {
-  const res = await apiRequest<{ profile: UserProfile }>('/user/me', {
-    method: 'PATCH',
-    body: JSON.stringify(profile),
-  })
-  return res.profile
 }
 
 export async function loginTelegram(): Promise<AuthSession> {

@@ -33,17 +33,6 @@ const KEYS = {
   inviteCode: (code: string) => `tma:invite:${code}`,
 }
 
-function defaultProfile(): UserRecord['profile'] {
-  return {
-    firstName: '',
-    lastName: '',
-    gender: '',
-    dobMonth: '',
-    dobDay: '',
-    dobYear: '',
-  }
-}
-
 function defaultWallet(): WalletRecord {
   return { available: 0, frozen: 0 }
 }
@@ -152,7 +141,6 @@ export async function createUserFromTelegram(
     locale: 'en',
     status: 'active',
     registeredAt: nowIso(),
-    profile: defaultProfile(),
     trialClaimed: false,
     referralClaimed: false,
     firstDepClaimed: false,
@@ -210,7 +198,6 @@ export async function createUserFromTelegramOidc(
     locale: 'en',
     status: 'active',
     registeredAt: nowIso(),
-    profile: defaultProfile(),
     trialClaimed: false,
     referralClaimed: false,
     firstDepClaimed: false,
@@ -246,7 +233,6 @@ export async function createUserFromGoogle(
     if (input.avatarUrl) existing.avatarUrl = input.avatarUrl
     if (input.email) {
       existing.email = input.email
-      existing.profile.email = input.email
     }
     await saveUser(redis, existing)
     return { user: existing, isNewUser: false }
@@ -268,7 +254,6 @@ export async function createUserFromGoogle(
     locale: 'en',
     status: 'active',
     registeredAt: nowIso(),
-    profile: { ...defaultProfile(), email: input.email ?? '' },
     trialClaimed: false,
     referralClaimed: false,
     firstDepClaimed: false,
@@ -330,9 +315,6 @@ export async function createUserFromPassword(
     registerIp: input.registerIp,
     registerRegion: input.registerRegion,
     registeredAt: nowIso(),
-    profile: input.identifierType === 'phone'
-      ? { ...defaultProfile(), phone: input.identifier }
-      : defaultProfile(),
     trialClaimed: false,
     referralClaimed: false,
     firstDepClaimed: false,

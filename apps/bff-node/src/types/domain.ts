@@ -12,17 +12,6 @@ export interface LivenessFrameMeta {
 }
 export type DepositCurrency = 'PHP' | 'USDT' | 'TON'
 
-export interface UserProfile {
-  firstName: string
-  lastName: string
-  gender: '' | 'male' | 'female' | 'other'
-  dobMonth: string
-  dobDay: string
-  dobYear: string
-  phone?: string
-  email?: string
-}
-
 export interface UserRecord {
   id: string
   telegramUserId?: number
@@ -58,7 +47,6 @@ export interface UserRecord {
   registerIp?: string
   registerRegion?: string
   registeredAt: string
-  profile: UserProfile
   trialClaimed: boolean
   referralClaimed: boolean
   firstDepClaimed: boolean

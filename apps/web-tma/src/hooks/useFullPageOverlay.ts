@@ -23,6 +23,7 @@ export type FullPageView =
   | { type: 'referralPromo' }
   | { type: 'cashback' }
   | { type: 'spin' }
+  | { type: 'kycSetting' }
 
 /** 全屏专题页：走 document/body 滚动，勿用 fixed + 内部 overflow-y-auto */
 export function isImmersiveFullPage(view: FullPageView): boolean {
@@ -33,6 +34,7 @@ export function isImmersiveFullPage(view: FullPageView): boolean {
     || view.type === 'referralPromo'
     || view.type === 'cashback'
     || view.type === 'spin'
+    || view.type === 'kycSetting'
 }
 
 export function useFullPageOverlay() {
@@ -50,6 +52,7 @@ export function useFullPageOverlay() {
     openReferralPromo: () => setView({ type: 'referralPromo' }),
     openCashback:      () => setView({ type: 'cashback' }),
     openSpin:          () => setView({ type: 'spin' }),
+    openKycSetting:    () => setView({ type: 'kycSetting' }),
     close:             () => setView({ type: 'none' }),
     is: (t: FullPageView['type']) => view.type === t,
   }

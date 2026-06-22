@@ -18,17 +18,6 @@ function pool(env: Env): Pool {
   return getMysqlPool(env)
 }
 
-function defaultProfile(): UserRecord['profile'] {
-  return {
-    firstName: '',
-    lastName: '',
-    gender: '',
-    dobMonth: '',
-    dobDay: '',
-    dobYear: '',
-  }
-}
-
 type UserRow = RowDataPacket & {
   id: string
   telegram_user_id: number | null
@@ -55,13 +44,6 @@ type UserRow = RowDataPacket & {
   register_ip: string | null
   register_region: string | null
   registered_at: Date
-  first_name: string
-  last_name: string
-  gender: string
-  dob_month: string
-  dob_day: string
-  dob_year: string
-  phone: string | null
   trial_claimed: number
   referral_claimed: number
   first_dep_claimed: number
@@ -97,16 +79,6 @@ function mapUser(row: UserRow): UserRecord {
     registerIp: row.register_ip ?? undefined,
     registerRegion: row.register_region ?? undefined,
     registeredAt: new Date(row.registered_at).toISOString(),
-    profile: {
-      firstName: row.first_name,
-      lastName: row.last_name,
-      gender: (row.gender || '') as UserRecord['profile']['gender'],
-      dobMonth: row.dob_month,
-      dobDay: row.dob_day,
-      dobYear: row.dob_year,
-      phone: row.phone ?? undefined,
-      email: row.email ?? undefined,
-    },
     trialClaimed: Boolean(row.trial_claimed),
     referralClaimed: Boolean(row.referral_claimed),
     firstDepClaimed: Boolean(row.first_dep_claimed),
@@ -117,11 +89,10 @@ function mapUser(row: UserRow): UserRecord {
 }
 
 const USER_SELECT = `
-  SELECT u.*, p.first_name, p.last_name, p.gender, p.dob_month, p.dob_day, p.dob_year, p.phone,
+  SELECT u.*,
     ps.trial_claimed, ps.referral_claimed, ps.first_dep_claimed, ps.referral_ready,
     ps.first_dep_ready, ps.referral_milestone_met
   FROM bg_user u
-  JOIN bg_user_profile p ON p.user_id = u.id
   JOIN bg_user_promo_state ps ON ps.user_id = u.id
 `
 
@@ -172,22 +143,6 @@ export async function saveUser(env: Env, user: UserRecord): Promise<void> {
         user.registerIp ?? null,
         user.registerRegion ?? null,
         new Date(user.registeredAt),
-      ],
-    )
-    await conn.execute(
-      `INSERT INTO bg_user_profile (user_id, first_name, last_name, gender, dob_month, dob_day, dob_year, phone)
-       VALUES (?,?,?,?,?,?,?,?)
-       ON DUPLICATE KEY UPDATE first_name=VALUES(first_name), last_name=VALUES(last_name),
-         gender=VALUES(gender), dob_month=VALUES(dob_month), dob_day=VALUES(dob_day), dob_year=VALUES(dob_year), phone=VALUES(phone)`,
-      [
-        user.id,
-        user.profile.firstName,
-        user.profile.lastName,
-        user.profile.gender || '',
-        user.profile.dobMonth,
-        user.profile.dobDay,
-        user.profile.dobYear,
-        user.profile.phone ?? null,
       ],
     )
     await conn.execute(
@@ -344,7 +299,6 @@ export async function createUserFromTelegram(
     registerRegion: input.registerRegion,
     locale: 'en',
     status: 'active',
-    profile: defaultProfile(),
     trialClaimed: false,
     referralClaimed: false,
     firstDepClaimed: false,
@@ -383,7 +337,6 @@ export async function createUserFromTelegramOidc(
     registerRegion: input.registerRegion,
     locale: 'en',
     status: 'active',
-    profile: defaultProfile(),
     trialClaimed: false,
     referralClaimed: false,
     firstDepClaimed: false,
@@ -410,7 +363,6 @@ export async function createUserFromGoogle(
     if (input.avatarUrl) existing.avatarUrl = input.avatarUrl
     if (input.email) {
       existing.email = input.email
-      existing.profile.email = input.email
     }
     await saveUser(env, existing)
     return { user: existing, isNewUser: false }
@@ -425,7 +377,6 @@ export async function createUserFromGoogle(
     registerRegion: input.registerRegion,
     locale: 'en',
     status: 'active',
-    profile: { ...defaultProfile(), email: input.email ?? '' },
     trialClaimed: false,
     referralClaimed: false,
     firstDepClaimed: false,
@@ -456,9 +407,6 @@ export async function createUserFromPassword(
     registerRegion: input.registerRegion,
     locale: 'en',
     status: 'active',
-    profile: input.identifierType === 'phone'
-      ? { ...defaultProfile(), phone: input.identifier }
-      : defaultProfile(),
     trialClaimed: false,
     referralClaimed: false,
     firstDepClaimed: false,

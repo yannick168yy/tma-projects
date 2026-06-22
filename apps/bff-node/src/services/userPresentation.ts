@@ -12,10 +12,7 @@ export function resolveLoginProvider(user: UserRecord): LoginProvider {
 
 export function toPublicUser(user: UserRecord) {
   const loginProvider = resolveLoginProvider(user)
-  const email =
-    loginProvider === 'google'
-      ? user.email ?? user.profile.email ?? undefined
-      : user.profile.email || undefined
+  const email = user.email || undefined
 
   return {
     id: user.id,

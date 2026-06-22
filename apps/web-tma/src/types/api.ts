@@ -19,7 +19,6 @@ export interface AuthUser {
   loginProvider?: LoginProvider
   email?: string
   isNewUser?: boolean
-  profile?: UserProfile
   boundTelegram?: boolean
   boundGoogle?: boolean
   boundPhone?: boolean
@@ -58,15 +57,6 @@ export interface WalletBalance {
   frozenCents: number
   displayPhp: string
   balances: CurrencyBalance[]
-}
-
-export interface UserProfile {
-  firstName: string
-  lastName: string
-  gender: '' | 'male' | 'female' | 'other'
-  dobMonth: string
-  dobDay: string
-  dobYear: string
 }
 
 export type PromoId = 'trial' | 'referral' | 'firstdep'

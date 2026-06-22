@@ -25,6 +25,7 @@ const SlotsLobby = lazy(() => import('@/views/SlotsLobby'))
 const CustomerServicePage = lazy(() => import('@/views/CustomerServicePage'))
 const TeamCenterPage = lazy(() => import('@/views/TeamCenterPage'))
 const AgentCenterPage = lazy(() => import('@/views/AgentCenterPage'))
+const KycSettingPage = lazy(() => import('@/views/KycSettingPage'))
 const BetHistoryPage = lazy(() => import('@/views/BetHistoryPage'))
 const LedgerRecordsPage = lazy(() => import('@/views/LedgerRecordsPage'))
 const ReferralPromoPage = lazy(() => import('@/views/ReferralPromoPage'))
@@ -82,6 +83,7 @@ export default function AppShell() {
     openReferralPromo,
     openCashback,
     openSpin,
+    openKycSetting,
     closeImmersive,
     closeOverlay,
     resetToTab,
@@ -197,6 +199,11 @@ export default function AppShell() {
   function onOpenRewardsSpin() {
     setWalletOpen(false)
     openSpin()
+  }
+
+  function onOpenKycSetting() {
+    setWalletOpen(false)
+    openKycSetting()
   }
 
 
@@ -374,6 +381,11 @@ export default function AppShell() {
               <AgentCenterPage onClose={closeImmersive} />
             </div>
           )}
+          {view.type === 'kycSetting' && (
+            <div className="app-safe-header">
+              <KycSettingPage onClose={closeImmersive} />
+            </div>
+          )}
           {view.type === 'betHistory' && (
             <div className="app-safe-header">
               <BetHistoryPage onClose={closeImmersive} />
@@ -413,7 +425,7 @@ export default function AppShell() {
           )}
           {view.type === 'none' && activeNav === 'bonuses' && <BonusesPage promoFilter={promoFilter} onOpenWallet={() => void openWallet()} onOpenTeam={onOpenTeamCenter} />}
           {view.type === 'none' && activeNav === 'bingo' && <BingoPage onOpenWallet={() => void openWallet()} onGameTap={() => void onGameTap()} onOpenGame={(url) => setGamePlayerUrl(url)} onOpenCategoryLobby={onOpenCategoryLobby} />}
-          {view.type === 'none' && activeNav === 'menu' && <MenuPage onOpenCs={openCs} onLogin={() => void auth.ensureLoggedIn(t('auth.signInProfile'))} onLogout={onLogout} onOpenBetHistory={onOpenBetHistory} onOpenLedgerRecords={onOpenLedgerRecords} onOpenReferralPromo={onOpenReferralPromo} onOpenAgentCenter={onOpenAgentCenter} onOpenCashback={onOpenCashback} onOpenRewardsSpin={onOpenRewardsSpin} />}
+          {view.type === 'none' && activeNav === 'menu' && <MenuPage onOpenCs={openCs} onLogin={() => void auth.ensureLoggedIn(t('auth.signInProfile'))} onLogout={onLogout} onOpenBetHistory={onOpenBetHistory} onOpenLedgerRecords={onOpenLedgerRecords} onOpenReferralPromo={onOpenReferralPromo} onOpenAgentCenter={onOpenAgentCenter} onOpenCashback={onOpenCashback} onOpenRewardsSpin={onOpenRewardsSpin} onOpenKycSetting={onOpenKycSetting} />}
           {view.type === 'none' && activeNav === 'casino' && (
             <HomeContent onNavigatePath={navigatePath} onOpenCategoryLobby={onOpenCategoryLobby} onOpenCs={openCs} onOpenGame={(url) => setGamePlayerUrl(url)} onOpenReferralPromo={onOpenReferralPromo} />
           )}
