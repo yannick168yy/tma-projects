@@ -34,7 +34,6 @@ function mapDepositState(state: number): HistoryItem['status'] { if(state===2)re
 function mapWithdrawState(state: number): HistoryItem['status'] { if(state===1)return 'success'; if(state===2||state===3)return 'rejected'; return 'pending' }
 function mapDepositStatus(status: string): HistoryItem['status'] { if(status==='paid'||status==='completed')return 'success'; if(status==='rejected')return 'rejected'; if(status==='admin_rejected')return 'admin_rejected'; if(status==='cancelled'||status==='failed')return 'failed'; return 'pending' }
 function mapDepositChannelName(channelId: string) { const m: Record<string,string>={admin:'Admin',tg_wallet:'Telegram',ammer_pay:'Telegram',ton_connect:'TON',yfpay_gcash:'GCash',yfpay_maya:'Maya',yfpay_bdo:'BDO Bank',yfpay_bpi:'BPI Bank',yfpay_unknown:'YF Pay',matrix:'Matrix TRX'}; return m[channelId]??channelId??'—' }
-const DEFAULT_DEPOSIT_AMOUNTS: Record<string,string>={tg_wallet_php:'1000',tg_wallet_usdt:'20',fiat_gcash:'500',fiat_maya:'500'}
 
 // 各币种充值预设档位（与后台首充档位口径一致），用于充值金额网格
 const DEPOSIT_PRESETS: Record<string, number[]> = {
@@ -84,6 +83,7 @@ export default function WalletModal({ open, onClose }: Props) {
 
   const sheetRef = useRef<HTMLDivElement>(null)
   const backdropRef = useRef<HTMLDivElement>(null)
+  const scrollRef = useRef<HTMLDivElement>(null)
   const { onPointerDown, onPointerUp, onPointerCancel } = useBottomSheetDrag(open, onClose, sheetRef, backdropRef)
 
   const [tab, setTab] = useState<'deposit'|'withdraw'|'history'>('deposit')
@@ -128,6 +128,12 @@ export default function WalletModal({ open, onClose }: Props) {
   const [turnoverLoading, setTurnoverLoading] = useState(false)
   const [turnoverShake, setTurnoverShake] = useState(false)
   const [walletBannerUrl, setWalletBannerUrl] = useState(defaultTopupBanner)
+
+  function selectDepositAmount(amt: string) {
+    setAmount(amt)
+    // 等"You will receive"与支付按钮渲染后再滚到底，确保用户看到充值按钮
+    setTimeout(() => { const el = scrollRef.current; if (el) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' }) }, 60)
+  }
 
   function stopPolling() { if(pollTimerRef.current){clearInterval(pollTimerRef.current);pollTimerRef.current=null} }
   function stopTonPolling() { if(tonPollTimerRef.current){clearInterval(tonPollTimerRef.current);tonPollTimerRef.current=null} }
@@ -247,10 +253,6 @@ export default function WalletModal({ open, onClose }: Props) {
         .finally(() => setMatrixAddressLoading(false))
     } else {
       setDepositView('input')
-      if (tab === 'deposit') {
-        const isCrypto = /^(usdt|ton|btc|eth|bnb|matrix)/.test(selectedMethod) && !selectedMethod.startsWith('tg_wallet')
-        if (!isCrypto) setAmount(DEFAULT_DEPOSIT_AMOUNTS[selectedMethod] ?? '')
-      }
       setMatrixAddress(''); setMatrixAddressLoading(false); setCopiedAddress(false)
     }
   }, [selectedMethod])
@@ -457,14 +459,6 @@ export default function WalletModal({ open, onClose }: Props) {
           ))}
         </div>
 
-        {tab !== 'history' && (
-          <div className="flex-shrink-0 px-5 pt-3">
-            <div className="overflow-hidden rounded-2xl border border-primary/50 bg-[#0b1424] shadow-[0_0_24px_rgba(245,158,11,0.18)]">
-              <img src={walletBannerUrl} alt="" className="block w-full aspect-[5.6/1] object-cover" />
-            </div>
-          </div>
-        )}
-
         {tab === 'history' && (
           <div className="px-5 pt-3 space-y-2 flex-shrink-0">
             <div className="flex gap-1.5">
@@ -484,9 +478,13 @@ export default function WalletModal({ open, onClose }: Props) {
           </div>
         )}
 
-        <div data-sheet-scroll className="page-scroll flex-1 px-5 pb-4 pt-4 hide-scrollbar overflow-y-auto">
+        <div ref={scrollRef} data-sheet-scroll className="page-scroll flex-1 px-5 pb-4 pt-4 hide-scrollbar overflow-y-auto">
           {tab !== 'history' ? (
             <>
+              {/* Banner 随内容滚动，可向上滑动隐藏 */}
+              <div className="overflow-hidden rounded-2xl border border-primary/50 bg-[#0b1424] shadow-[0_0_24px_rgba(245,158,11,0.18)] mb-4">
+                <img src={walletBannerUrl} alt="" className="block w-full aspect-[5.6/1] object-cover" />
+              </div>
               {tab === 'deposit' ? (
                 <div className="space-y-4">
                   {/* 充值分类 tab：电子钱包 / 虚拟币 / Telegram */}
@@ -557,7 +555,7 @@ export default function WalletModal({ open, onClose }: Props) {
                         {depositPresets.map((amt)=>{
                           const sel=amount===String(amt); const bonus=firstDepEligible?matchTierBonus(depositTierList,amt):0
                           return (
-                            <button key={amt} type="button" onClick={()=>setAmount(String(amt))} className={`relative rounded-xl border py-2.5 px-1 flex flex-col items-center transition-colors ${sel?'border-primary bg-primary/15 shadow-[0_0_18px_rgba(245,158,11,0.24)]':'border-white/10 bg-[#101a2c]'}`}>
+                            <button key={amt} type="button" onClick={()=>selectDepositAmount(String(amt))} className={`relative rounded-xl border py-2.5 px-1 flex flex-col items-center transition-colors ${sel?'border-primary bg-primary/15 shadow-[0_0_18px_rgba(245,158,11,0.24)]':'border-white/10 bg-[#101a2c]'}`}>
                               {sel&&<span className="absolute right-2 top-2 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-black"><Check size={10} strokeWidth={3}/></span>}
                               <span className="text-base font-black text-white">+{fmtPreset(amt,depositCurrency)}</span>
                               {bonus>0 && <span className="text-[11px] font-black text-primary mt-1 leading-none">+{fmtPreset(bonus,depositCurrency)}</span>}
