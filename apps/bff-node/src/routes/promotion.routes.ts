@@ -50,10 +50,7 @@ function promoHighlights(user: Awaited<ReturnType<typeof getUser>>) {
   })
 }
 
-router.get('/config', async (ctx) => {
-  const cfg = await getPromoConfig(ctx.state.env)
-  ok(ctx, cfg)
-})
+// GET /promotions/config 已移至公开路由（routes/index.ts），无需登录即可拉取活动配置
 
 router.get('/', async (ctx) => {
   const user = await getUser(ctx.state.redis, ctx.state.userId!)

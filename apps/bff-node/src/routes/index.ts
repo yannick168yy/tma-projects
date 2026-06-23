@@ -25,6 +25,7 @@ import spinRoutes from './spin.routes.js'
 import homeContentRoutes from './home-content.routes.js'
 import { authMiddleware, optionalAuthMiddleware } from '../middleware/auth.js'
 import { getDepositChannels, YfPayError } from '../services/yfpay.service.js'
+import { getPromoConfig } from '../services/promo-config.service.js'
 import { ok, fail } from '../utils/response.js'
 
 export function createApiRouter(): Router {
@@ -42,6 +43,11 @@ export function createApiRouter(): Router {
   api.use(authRoutes.routes(), authRoutes.allowedMethods())
   api.use(sgRoutes.routes(), sgRoutes.allowedMethods())
   api.use(homeContentRoutes.routes(), homeContentRoutes.allowedMethods())
+
+  // 公开：活动参数配置（App 启动即拉，先于登录完成，不含用户数据）
+  api.get('/promotions/config', async (ctx) => {
+    ok(ctx, await getPromoConfig(ctx.state.env))
+  })
 
   // 公开：YF Pay 存款频道
   api.get('/deposit/yfpay/channels', async (ctx) => {
