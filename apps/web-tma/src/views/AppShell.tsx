@@ -1,8 +1,7 @@
 import { lazy, Suspense, useState, useEffect, useRef, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ChevronDown, ChevronLeft, Wallet, Gift, Home, Menu, Dices, Check, Search } from 'lucide-react'
+import { ChevronDown, ChevronLeft, Wallet, Gift, Home, Menu, Dices, Check, Search, Headset } from 'lucide-react'
 import BetogoLogo from '@/components/BetogoLogo'
-import csIcon from '@/assets/home/cs-icon.png'
 import { NAV_ITEMS } from '@/data/home'
 import { useAuthStore } from '@/stores/auth'
 import {
@@ -293,7 +292,7 @@ export default function AppShell() {
               className="relative flex-shrink-0 flex h-9 w-9 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg shadow-amber-500/30 hover:bg-yellow-400 active:scale-95 transition-all"
               onClick={openCs}
             >
-              <img src={csIcon} alt="客服" className="h-5 w-5 object-contain" />
+              <Headset size={18} />
             </button>
           </div>
 
