@@ -2,6 +2,7 @@ import { lazy, Suspense, useState, useEffect, useRef, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ChevronDown, ChevronLeft, Wallet, Gift, Home, Menu, Dices, Check, Search } from 'lucide-react'
 import BetogoLogo from '@/components/BetogoLogo'
+import csIcon from '@/assets/home/cs-icon.png'
 import { NAV_ITEMS } from '@/data/home'
 import { useAuthStore } from '@/stores/auth'
 import {
@@ -292,19 +293,7 @@ export default function AppShell() {
               className="relative flex-shrink-0 flex h-9 w-9 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg shadow-amber-500/30 hover:bg-yellow-400 active:scale-95 transition-all"
               onClick={openCs}
             >
-              <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
-                {/* 头带弧 */}
-                <path d="M3.5 10C3.5 6.41 6.41 3.5 10 3.5s6.5 2.91 6.5 6.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
-                {/* 左耳罩 */}
-                <rect x="2" y="10" width="3.5" height="5.5" rx="1.75" fill="currentColor"/>
-                {/* 右耳罩 */}
-                <rect x="14.5" y="10" width="3.5" height="5.5" rx="1.75" fill="currentColor"/>
-                {/* 话筒悬臂 */}
-                <path d="M16.25 15.2c0 1.2-.8 2-2.25 2.3" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
-                {/* 话筒头 */}
-                <circle cx="14" cy="17.6" r="0.9" fill="currentColor"/>
-              </svg>
-              {/* 在线状态 */}
+              <img src={csIcon} alt="客服" className="h-5 w-5 object-contain" />
             </button>
           </div>
 
