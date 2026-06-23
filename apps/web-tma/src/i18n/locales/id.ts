@@ -261,6 +261,9 @@ export default {
     themeSystem: 'Sistem',
     customerSupport: 'Dukungan Pelanggan',
     live247: 'Live · 24/7',
+    walletTopUp: 'Isi Ulang',
+    walletCashOut: 'Tarik Dana',
+    walletRecords: 'Riwayat',
     sections: {
       theme: 'Tema Game',
       gameStyle: 'Gaya Game',

@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
+  ArrowDownToLine,
+  ArrowUpFromLine,
   Check,
   CheckCircle2,
   ChevronDown,
@@ -8,6 +10,7 @@ import {
   Copy,
   Gift,
   Headphones,
+  History,
   Languages,
   LogOut,
   User,
@@ -36,6 +39,9 @@ interface Props {
   onOpenCashback: () => void
   onOpenRewardsSpin: () => void
   onOpenKycSetting: () => void
+  onOpenTopUp: () => void
+  onOpenCashOut: () => void
+  onOpenWalletHistory: () => void
 }
 
 const CURRENCIES = [
@@ -145,7 +151,7 @@ function BottomSheet({ title, children, onClose }: { title: string; children: Re
   )
 }
 
-export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory, onOpenLedgerRecords, onOpenReferralPromo, onOpenAgentCenter, onOpenCashback, onOpenRewardsSpin, onOpenKycSetting }: Props) {
+export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory, onOpenLedgerRecords, onOpenReferralPromo, onOpenAgentCenter, onOpenCashback, onOpenRewardsSpin, onOpenKycSetting, onOpenTopUp, onOpenCashOut, onOpenWalletHistory }: Props) {
   const { t } = useTranslation()
   const auth = useAuthStore()
   const { locale, setLocale } = useLocaleStore()
@@ -321,6 +327,27 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
               </div>
             </div>
           </div>
+        </div>
+      </div>
+
+      <div className="mt-3 px-4">
+        <div className="grid grid-cols-3 overflow-hidden rounded-2xl border border-border bg-card shadow-[0_10px_30px_rgba(0,0,0,0.16)]">
+          {([
+            { Icon: ArrowDownToLine, label: t('menu.walletTopUp'), onClick: onOpenTopUp },
+            { Icon: ArrowUpFromLine, label: t('menu.walletCashOut'), onClick: onOpenCashOut },
+            { Icon: History, label: t('menu.walletRecords'), onClick: onOpenWalletHistory },
+          ] as { Icon: typeof History; label: string; onClick: () => void }[]).map(({ Icon, label, onClick }, i) => (
+            <button
+              key={label}
+              type="button"
+              className={`flex items-center justify-center gap-1 px-1 py-4 transition-colors hover:bg-secondary/50 ${i < 2 ? 'border-r border-border' : ''}`}
+              onClick={onClick}
+            >
+              <Icon size={17} className="flex-shrink-0 text-primary" />
+              <span className="whitespace-nowrap text-xs font-black text-foreground">{label}</span>
+              <ChevronRight size={13} className="flex-shrink-0 text-muted-foreground" />
+            </button>
+          ))}
         </div>
       </div>
 

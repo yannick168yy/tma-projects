@@ -336,6 +336,9 @@ export default {
     themeSystem: 'System',
     customerSupport: 'Customer Support',
     live247: 'Live · 24/7',
+    walletTopUp: 'Top Up',
+    walletCashOut: 'Cash Out',
+    walletRecords: 'History',
     sections: {
       theme: 'Game Theme',
       gameStyle: 'Game Style',

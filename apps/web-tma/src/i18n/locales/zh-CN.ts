@@ -335,6 +335,9 @@ export default {
     themeSystem: '跟随系统',
     customerSupport: '客服支持',
     live247: '在线 · 7×24',
+    walletTopUp: '充值',
+    walletCashOut: '提现',
+    walletRecords: '记录',
     sections: {
       theme: '游戏主题',
       gameStyle: '游戏风格',

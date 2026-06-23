@@ -239,6 +239,9 @@ export default {
     themeSystem: 'Hệ thống',
     customerSupport: 'Hỗ trợ khách hàng',
     live247: 'Trực tuyến · 24/7',
+    walletTopUp: 'Nạp tiền',
+    walletCashOut: 'Rút tiền',
+    walletRecords: 'Lịch sử',
     sections: {
       theme: 'Chủ đề game',
       gameStyle: 'Phong cách',

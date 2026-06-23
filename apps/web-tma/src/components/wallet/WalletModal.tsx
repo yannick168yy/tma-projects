@@ -24,7 +24,7 @@ import { CRYPTO_DEPOSIT, CRYPTO_WITHDRAW, FIAT_DEPOSIT, FIAT_WITHDRAW, TG_WALLET
 import { useBottomSheetDrag } from '@/hooks/useBottomSheetDrag'
 import defaultTopupBanner from '@/assets/wallet/topup-banner.webp'
 
-interface Props { open: boolean; onClose: () => void }
+interface Props { open: boolean; onClose: () => void; initialTab?: 'deposit'|'withdraw'|'history'; fullscreen?: boolean }
 
 interface HistoryItem { id: string; orderId: string; type: 'deposit'|'withdraw'; method: string; amount: string; date: string; sortKey: string; status: 'success'|'pending'|'rejected'|'admin_rejected'|'failed' }
 
@@ -70,7 +70,7 @@ function fmtTurnoverAmount(amount: number, currency: string) {
   return `${parseFloat(amount.toFixed(6))} ${currency}`
 }
 
-export default function WalletModal({ open, onClose }: Props) {
+export default function WalletModal({ open, onClose, initialTab = 'deposit', fullscreen = false }: Props) {
   const { t } = useTranslation()
   const walletStore = useWalletStore()
   const activeCurrency = useWalletStore((s) => s.activeCurrency)
@@ -192,7 +192,7 @@ export default function WalletModal({ open, onClose }: Props) {
   useEffect(() => {
     document.body.style.overflow = open ? 'hidden' : ''
     if (open) {
-      setTab('deposit'); setDepositView('select'); setSelectedMethod(null); setAmount(''); setHistoryFilter('all'); setHistoryStatus('all'); setDepositCategory('ewallet')
+      setTab(initialTab); setDepositView('select'); setSelectedMethod(null); setAmount(''); setHistoryFilter('all'); setHistoryStatus('all'); setDepositCategory('ewallet')
       void loadPromoConfig()
       setDepositLoading(false); setDepositMessage(''); setDepositSuccess(false)
       setWithdrawAccount(''); setWithdrawOwner(''); setWithdrawMessage(''); setWithdrawSuccess(false)
@@ -438,16 +438,18 @@ export default function WalletModal({ open, onClose }: Props) {
 
   return createPortal(
     <>
-      <div ref={backdropRef} className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm" onClick={onClose} />
+      <div ref={backdropRef} className={fullscreen ? 'fixed inset-0 z-50 bg-[#07111f]' : 'fixed inset-0 z-50 bg-black/70 backdrop-blur-sm'} onClick={fullscreen ? undefined : onClose} />
       <div
         ref={sheetRef}
-        className="fixed bottom-0 left-1/2 z-50 flex w-full max-w-[430px] flex-col rounded-t-[1.8rem] border border-amber-300/10 bg-[#07111f] shadow-[0_-18px_70px_rgba(0,0,0,0.55)]"
-        style={{ height: '86vh', maxHeight: '86vh', transform: 'translateX(-50%)' }}
-        onPointerDown={(e) => onPointerDown(e.nativeEvent)}
-        onPointerUp={(e) => onPointerUp(e.nativeEvent)}
-        onPointerCancel={(e) => onPointerCancel(e.nativeEvent)}
+        className={fullscreen
+          ? 'fixed bottom-0 left-1/2 top-0 z-50 flex w-full max-w-[430px] flex-col border-x border-amber-300/10 bg-[#07111f]'
+          : 'fixed bottom-0 left-1/2 z-50 flex w-full max-w-[430px] flex-col rounded-t-[1.8rem] border border-amber-300/10 bg-[#07111f] shadow-[0_-18px_70px_rgba(0,0,0,0.55)]'}
+        style={fullscreen ? { transform: 'translateX(-50%)', paddingTop: 'var(--app-safe-top)' } : { height: '86vh', maxHeight: '86vh', transform: 'translateX(-50%)' }}
+        onPointerDown={fullscreen ? undefined : (e) => onPointerDown(e.nativeEvent)}
+        onPointerUp={fullscreen ? undefined : (e) => onPointerUp(e.nativeEvent)}
+        onPointerCancel={fullscreen ? undefined : (e) => onPointerCancel(e.nativeEvent)}
       >
-        <div className="flex flex-shrink-0 justify-center pb-1 pt-3"><div className="h-1 w-11 rounded-full bg-white/20" /></div>
+        {!fullscreen && <div className="flex flex-shrink-0 justify-center pb-1 pt-3"><div className="h-1 w-11 rounded-full bg-white/20" /></div>}
         <div className="flex flex-shrink-0 items-center justify-between border-b border-white/10 px-5 py-4">
           <div className="flex items-center gap-2.5"><Wallet size={20} className="text-primary" /><span className="font-display text-lg font-black uppercase tracking-wide text-white">{t('wallet.title')}</span></div>
           <span className="text-lg font-black tabular-nums text-primary">{displayActive}</span>

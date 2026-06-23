@@ -92,6 +92,8 @@ export default function AppShell() {
   const [balanceVisible, setBalanceVisible] = useState(true)
   const [walletOpen, setWalletOpen] = useState(false)
   const [walletModalOpen, setWalletModalOpen] = useState(false)
+  const [walletInitialTab, setWalletInitialTab] = useState<'deposit'|'withdraw'|'history'>('deposit')
+  const [walletFullscreen, setWalletFullscreen] = useState(false)
   const [csOpen, setCsOpen] = useState(false)
   const [gamePlayerUrl, setGamePlayerUrl] = useState<string | null>(null)
 
@@ -140,6 +142,13 @@ export default function AppShell() {
 
   async function openWallet() {
     if (!(await auth.ensureLoggedIn(t('auth.signInDepositWithdraw')))) return
+    setWalletInitialTab('deposit'); setWalletFullscreen(false)
+    setWalletOpen(false); setWalletModalOpen(true)
+  }
+
+  async function openWalletFull(tab: 'deposit'|'withdraw'|'history') {
+    if (!(await auth.ensureLoggedIn(t('auth.signInDepositWithdraw')))) return
+    setWalletInitialTab(tab); setWalletFullscreen(true)
     setWalletOpen(false); setWalletModalOpen(true)
   }
 
@@ -413,7 +422,7 @@ export default function AppShell() {
           )}
           {view.type === 'none' && activeNav === 'bonuses' && <BonusesPage promoFilter={promoFilter} onOpenWallet={() => void openWallet()} onOpenTeam={onOpenTeamCenter} />}
           {view.type === 'none' && activeNav === 'bingo' && <BingoPage onOpenWallet={() => void openWallet()} onGameTap={() => void onGameTap()} onOpenGame={(url) => setGamePlayerUrl(url)} onOpenCategoryLobby={onOpenCategoryLobby} />}
-          {view.type === 'none' && activeNav === 'menu' && <MenuPage onOpenCs={openCs} onLogin={() => void auth.ensureLoggedIn(t('auth.signInProfile'))} onLogout={onLogout} onOpenBetHistory={onOpenBetHistory} onOpenLedgerRecords={onOpenLedgerRecords} onOpenReferralPromo={onOpenReferralPromo} onOpenAgentCenter={onOpenAgentCenter} onOpenCashback={onOpenCashback} onOpenRewardsSpin={onOpenRewardsSpin} onOpenKycSetting={onOpenKycSetting} />}
+          {view.type === 'none' && activeNav === 'menu' && <MenuPage onOpenCs={openCs} onLogin={() => void auth.ensureLoggedIn(t('auth.signInProfile'))} onLogout={onLogout} onOpenBetHistory={onOpenBetHistory} onOpenLedgerRecords={onOpenLedgerRecords} onOpenReferralPromo={onOpenReferralPromo} onOpenAgentCenter={onOpenAgentCenter} onOpenCashback={onOpenCashback} onOpenRewardsSpin={onOpenRewardsSpin} onOpenKycSetting={onOpenKycSetting} onOpenTopUp={() => void openWalletFull('deposit')} onOpenCashOut={() => void openWalletFull('withdraw')} onOpenWalletHistory={() => void openWalletFull('history')} />}
           {view.type === 'none' && activeNav === 'casino' && (
             <HomeContent onNavigatePath={navigatePath} onOpenCategoryLobby={onOpenCategoryLobby} onOpenCs={openCs} onOpenGame={(url) => setGamePlayerUrl(url)} onOpenReferralPromo={onOpenReferralPromo} />
           )}
@@ -441,7 +450,7 @@ export default function AppShell() {
 
       <Suspense fallback={null}>
         {walletModalOpen && (
-          <WalletModal open onClose={() => setWalletModalOpen(false)} />
+          <WalletModal open onClose={() => setWalletModalOpen(false)} initialTab={walletInitialTab} fullscreen={walletFullscreen} />
         )}
 
         {csOpen && (
