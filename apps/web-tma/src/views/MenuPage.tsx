@@ -56,8 +56,7 @@ const CURRENCIES = [
 
 const HOME_DOC_KEYS = new Set(['terms', 'privacy', 'responsible', 'about'])
 type StatusIcon = ComponentType<{ size?: number; strokeWidth?: number }>
-const VERIFY_IDENTITY_SELECTED_ICON = icon('verify_identity_selected_white')
-const VERIFY_IDENTITY_UNSELECTED_ICON = icon('verify_identity_unselected_white')
+const VERIFY_IDENTITY_ICON = icon('verify_identity_unselected_white')
 
 function MenuSection({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -412,7 +411,7 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
             <AccountInfoItem
               title={t('kyc.stepDocument')}
               value={docVerified ? t('common.verified') : t('kyc.verify')}
-              image={docVerified ? VERIFY_IDENTITY_SELECTED_ICON : VERIFY_IDENTITY_UNSELECTED_ICON}
+              image={VERIFY_IDENTITY_ICON}
               done={docVerified}
               onClick={openKycFromStatus}
             />
