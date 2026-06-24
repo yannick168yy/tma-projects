@@ -148,10 +148,10 @@ function IdentityCardIcon({ size = 24, strokeWidth = 1.8 }: { size?: number; str
 
 function KycStatusIcon({ Icon, done, size = 20 }: { Icon: StatusIcon; done: boolean; size?: number }) {
   return (
-    <span className={`relative flex h-5 w-5 flex-shrink-0 items-center justify-center ${done ? 'text-[#f8d978]' : 'text-white/60'}`}>
+    <span className={`relative flex flex-shrink-0 items-center justify-center ${done ? 'text-[#f8d978]' : 'text-white/60'}`} style={{ width: size, height: size }}>
       <Icon size={size} strokeWidth={1.8} />
       {done && (
-        <span className="absolute -bottom-px -right-0.5 flex h-2 w-2 items-center justify-center rounded-full bg-white text-[#c79023] shadow-[0_1px_2px_rgba(0,0,0,0.22)]">
+        <span className="absolute -bottom-px -right-0.5 flex h-2 w-2 items-center justify-center rounded-full bg-white text-[#f8d978] shadow-[0_1px_2px_rgba(0,0,0,0.22)]">
           <Check size={5} strokeWidth={3} />
         </span>
       )}
