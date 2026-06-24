@@ -148,7 +148,7 @@ function IdentityCardIcon({ size = 24, strokeWidth = 1.8 }: { size?: number; str
 
 function KycStatusIcon({ Icon, done, size = 20 }: { Icon: StatusIcon; done: boolean; size?: number }) {
   return (
-    <span className={`relative flex h-5 w-5 flex-shrink-0 items-center justify-center ${done ? 'text-white' : 'text-white/60'}`}>
+    <span className={`relative flex h-5 w-5 flex-shrink-0 items-center justify-center ${done ? 'text-[#f8d978]' : 'text-white/60'}`}>
       <Icon size={size} strokeWidth={1.8} />
       {done && (
         <span className="absolute -bottom-px -right-0.5 flex h-2 w-2 items-center justify-center rounded-full bg-white text-[#c79023] shadow-[0_1px_2px_rgba(0,0,0,0.22)]">
@@ -179,7 +179,7 @@ function AccountInfoItem({
       <p className="truncate text-[7px] font-black uppercase text-black/45">{title}</p>
       <div className="mt-1 flex min-w-0 items-center justify-center gap-1">
         <KycStatusIcon Icon={icon} done={done} size={iconSize} />
-        <p className={`min-w-0 truncate text-[10px] font-black ${done ? 'text-white' : 'text-white/60'}`}>{value}</p>
+        <p className={`min-w-0 truncate text-[10px] font-black ${done ? 'text-[#f8d978]' : 'text-white/60'}`}>{value}</p>
       </div>
     </>
   )
@@ -396,8 +396,8 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
             <div className="min-w-0 px-1.5 py-2.5 text-center">
               <p className="truncate text-[7px] font-black uppercase text-black/45">{t('menu.language')}</p>
               <div className="mt-1 flex min-w-0 items-center justify-center gap-1">
-                <Languages size={20} className="flex-shrink-0 text-white" strokeWidth={1.8} />
-                <p className="min-w-0 truncate text-[10px] font-black text-white">{currentLang.flag} {t(`languages.${currentLang.code}`)}</p>
+                <Languages size={20} className="flex-shrink-0 text-[#f8d978]" strokeWidth={1.8} />
+                <p className="min-w-0 truncate text-[10px] font-black text-[#f8d978]">{currentLang.flag} {t(`languages.${currentLang.code}`)}</p>
               </div>
             </div>
             <AccountInfoItem
@@ -411,7 +411,7 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
               title={t('kyc.stepDocument')}
               value={docVerified ? t('common.verified') : t('kyc.verify')}
               icon={IdentityCardIcon}
-              iconSize={30}
+              iconSize={34}
               done={docVerified}
               onClick={openKycFromStatus}
             />
