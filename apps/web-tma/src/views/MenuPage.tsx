@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, type ReactNode } from 'react'
+import { useState, useEffect, useRef, type ComponentType, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   ArrowDownToLine,
@@ -9,14 +9,12 @@ import {
   ChevronRight,
   Copy,
   History,
-  IdCard,
   Languages,
   LogOut,
   ScanFace,
   Smartphone,
   User,
   X,
-  type LucideIcon,
 } from 'lucide-react'
 import { createPortal } from 'react-dom'
 import BindModal from '@/components/auth/BindModal'
@@ -57,6 +55,7 @@ const CURRENCIES = [
 ]
 
 const HOME_DOC_KEYS = new Set(['terms', 'privacy', 'responsible', 'about'])
+type StatusIcon = ComponentType<{ size?: number; strokeWidth?: number }>
 
 function MenuSection({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -134,7 +133,20 @@ function QuickAction({
   )
 }
 
-function KycStatusIcon({ Icon, done, size = 20 }: { Icon: LucideIcon; done: boolean; size?: number }) {
+function IdentityCardIcon({ size = 24, strokeWidth = 1.8 }: { size?: number; strokeWidth?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="3.8" y="5.2" width="16.4" height="13.6" rx="2.2" />
+      <path d="M8 8.5h3.2" />
+      <circle cx="8.9" cy="12.1" r="1.55" />
+      <path d="M6.4 16c.6-1.3 1.45-1.95 2.5-1.95S10.8 14.7 11.4 16" />
+      <path d="M14 11h3.7" />
+      <path d="M14 14.4h3" />
+    </svg>
+  )
+}
+
+function KycStatusIcon({ Icon, done, size = 20 }: { Icon: StatusIcon; done: boolean; size?: number }) {
   return (
     <span className="relative flex h-5 w-5 flex-shrink-0 items-center justify-center text-[#ffd04a]">
       <Icon size={size} strokeWidth={1.8} />
@@ -156,7 +168,7 @@ function AccountInfoItem({
 }: {
   title: string
   value: string
-  icon: LucideIcon
+  icon: StatusIcon
   iconSize?: number
   done: boolean
 }) {
@@ -376,7 +388,7 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
             <AccountInfoItem
               title={t('kyc.stepDocument')}
               value={docVerified ? t('common.verified') : t('kyc.verify')}
-              icon={IdCard}
+              icon={IdentityCardIcon}
               iconSize={30}
               done={docVerified}
             />
