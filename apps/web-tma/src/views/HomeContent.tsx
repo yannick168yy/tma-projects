@@ -224,6 +224,7 @@ const [gamesLoading, setGamesLoading] = useState(true)
   }, [activeChip, activeProvider, gridLoading, gridPage, gridTotalPages])
 
   // Betting table
+  const betSectionRef = useRef<HTMLElement>(null)
   const [activeBetTab, setActiveBetTab] = useState<BetTab>('latest')
   const [latestBets, setLatestBets] = useState<BetRecord[]>([]); const [weekBets, setWeekBets] = useState<BetRecord[]>([]); const [monthBets, setMonthBets] = useState<BetRecord[]>([])
   const [betLoaded, setBetLoaded] = useState<Record<BetTab, boolean>>({ latest: false, week: false, month: false })
@@ -276,8 +277,21 @@ const [gamesLoading, setGamesLoading] = useState(true)
         target: resolveHomeActionPath(item.actionType, item.actionValue),
       })))
     }).catch(() => {})
-    void loadBetTab('latest')
     if (auth.token && auth.user) void promotion.loadTeamStatus()
+  }, [])
+
+  // 投注流非首屏关键，进入视口前不拉，避免与首页游戏/内容抢首屏带宽
+  useEffect(() => {
+    const el = betSectionRef.current
+    if (!el) return
+    const observer = new IntersectionObserver((entries) => {
+      if (entries[0]?.isIntersecting) {
+        void loadBetTab('latest')
+        observer.disconnect()
+      }
+    }, { threshold: 0.1, rootMargin: '200px' })
+    observer.observe(el)
+    return () => observer.disconnect()
   }, [])
 
   useEffect(() => {
@@ -524,7 +538,7 @@ const [gamesLoading, setGamesLoading] = useState(true)
       )}
 
       {/* Betting Table */}
-      <section className="mt-8 px-4">
+      <section ref={betSectionRef} className="mt-8 px-4">
         <h3 className="text-muted-foreground font-black text-xs font-display tracking-widest mb-3">
           {t('home.bettingTable')}
         </h3>

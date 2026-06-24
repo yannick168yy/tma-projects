@@ -27,12 +27,12 @@ function MainApp() {
     if (bootstrapped.current) return
     bootstrapped.current = true
     void useAuthStore.getState().bootstrap()
-    void loadPromoConfig()
   }, [])
 
   useEffect(() => {
     if (phase !== 'ready' || !token || !trialEligible) return
     if (sessionStorage.getItem(TRIAL_SHEET_SEEN_KEY)) return
+    if (!promoConfig) void loadPromoConfig() // 仅在试玩弹窗需要金额时才拉促销配置
     setTrialWelcomeOpen(true)
   }, [phase, token, trialEligible])
 

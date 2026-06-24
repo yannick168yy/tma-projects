@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { loginPassword, loginTelegram, loginTelegramWidget, loginWithGoogleRedirect, loginWithTelegramRedirect, logoutSession, registerPassword, restoreSession } from '@/api/auth'
+import { loginPassword, loginTelegram, loginTelegramWidget, loginWithGoogleRedirect, loginWithTelegramRedirect, logoutSession, registerPassword, restoreSession, TRIAL_CLAIMED_KEY } from '@/api/auth'
 import { getInitData } from '@/api/client'
 import { fetchBalance } from '@/api/wallet'
 import { fetchPromoHighlights } from '@/api/promotion'
@@ -78,8 +78,9 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
       }
 
       if (get().token && get().user) {
-        promotion.setHighlights(await fetchPromoHighlights())
-        wallet.setBalance(await fetchBalance())
+        const [highlights, balance] = await Promise.all([fetchPromoHighlights(), fetchBalance()])
+        promotion.setHighlights(highlights)
+        wallet.setBalance(balance)
       }
     } catch (e) {
       set({ bootError: e instanceof Error ? e.message : i18n.t('auth.startupFailed') })
@@ -107,6 +108,9 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
     })
     localStorage.setItem('betogo_token', session.token)
     localStorage.removeItem(LOGOUT_FLAG) // 成功登录后解除登出抑制
+    // 用权威资格同步本地试玩标记，供下次恢复会话时决定是否跳过 trial-play 请求
+    if (session.trialRedPacketEligible) localStorage.removeItem(TRIAL_CLAIMED_KEY)
+    else localStorage.setItem(TRIAL_CLAIMED_KEY, '1')
     if (session.isNewUser) {
       localStorage.setItem('betogo_seen', '1')
       clearStoredReferral()
@@ -134,6 +138,7 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
   },
 
   clearTrialEligible() {
+    localStorage.setItem(TRIAL_CLAIMED_KEY, '1')
     set({ trialEligible: false })
   },
 

@@ -6,6 +6,9 @@ import type { AuthSession, AuthUser, LoginProvider, PasswordMethod, TelegramWidg
 
 const useMock = import.meta.env.VITE_USE_MOCK_API !== 'false'
 
+/** 本地标记：试玩红包已领取/无资格，置位后恢复会话时跳过 /promotions/trial-play 请求 */
+export const TRIAL_CLAIMED_KEY = 'betogo_trial_claimed'
+
 interface MeResponse {
   id: string
   telegramUserId?: number
@@ -152,14 +155,15 @@ export async function restoreSession(): Promise<AuthSession | null> {
   const token = localStorage.getItem('betogo_token')
   if (!token) return null
   try {
-    const session = await apiRequest<{ valid: boolean; userId?: string; expiresAt?: string }>(
-      '/auth/session',
-    )
+    const trialClaimed = localStorage.getItem(TRIAL_CLAIMED_KEY) === '1'
+    const [session, me, trial] = await Promise.all([
+      apiRequest<{ valid: boolean; userId?: string; expiresAt?: string }>('/auth/session'),
+      apiRequest<MeResponse>('/user/me'),
+      trialClaimed
+        ? Promise.resolve({ claimed: true })
+        : apiRequest<{ claimed: boolean }>('/promotions/trial-play').catch(() => ({ claimed: true })),
+    ])
     if (!session.valid) return null
-    const me = await apiRequest<MeResponse>('/user/me')
-    const trial = await apiRequest<{ claimed: boolean }>('/promotions/trial-play').catch(() => ({
-      claimed: true,
-    }))
     return {
       token,
       expiresIn: 0,
