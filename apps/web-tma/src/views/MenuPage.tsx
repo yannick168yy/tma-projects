@@ -148,10 +148,10 @@ function IdentityCardIcon({ size = 24, strokeWidth = 1.8 }: { size?: number; str
 
 function KycStatusIcon({ Icon, done, size = 20 }: { Icon: StatusIcon; done: boolean; size?: number }) {
   return (
-    <span className={`relative flex flex-shrink-0 items-center justify-center ${done ? 'text-[#f8d978]' : 'text-white/60'}`} style={{ width: size, height: size }}>
+    <span className={`relative flex flex-shrink-0 items-center justify-center ${done ? 'text-white' : 'text-white/60'}`} style={{ width: size, height: size }}>
       <Icon size={size} strokeWidth={1.8} />
       {done && (
-        <span className="absolute -bottom-px -right-0.5 flex h-2 w-2 items-center justify-center rounded-full bg-white text-[#f8d978] shadow-[0_1px_2px_rgba(0,0,0,0.22)]">
+        <span className="absolute -bottom-px -right-0.5 flex h-2 w-2 items-center justify-center rounded-full bg-white/20 text-white shadow-[0_1px_2px_rgba(0,0,0,0.22)]">
           <Check size={5} strokeWidth={3} />
         </span>
       )}
@@ -179,7 +179,7 @@ function AccountInfoItem({
       <p className="truncate text-[7px] font-black uppercase text-black/45">{title}</p>
       <div className="mt-1 flex min-w-0 items-center justify-center gap-1">
         <KycStatusIcon Icon={icon} done={done} size={iconSize} />
-        <p className={`min-w-0 truncate text-[10px] font-black ${done ? 'text-[#f8d978]' : 'text-white/60'}`}>{value}</p>
+        <p className={`min-w-0 truncate text-[10px] font-black ${done ? 'text-white' : 'text-white/60'}`}>{value}</p>
       </div>
     </>
   )
@@ -239,6 +239,7 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
 
   const USER_ID = auth.user?.id ?? '—'
   const displayName = auth.user?.displayName ?? t('profile.playerAccount')
+  const avatarUrl = auth.user?.avatarUrl
   const currentLang = LANGUAGES.find((l) => l.code === locale) ?? LANGUAGES[0]
   const kycApproved = kycStatus?.status === 'approved'
   const phoneVerified = kycApproved || Boolean(kycStatus?.phoneVerified)
@@ -362,8 +363,18 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
             <div className="relative pr-24">
               <div className="flex items-start gap-3">
                 <div className="relative flex-shrink-0">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-full border border-white/40 bg-white/15 text-white shadow-[0_10px_24px_rgba(0,0,0,0.22)]">
-                    <User size={25} />
+                  <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-full border border-white/40 bg-white/15 text-white shadow-[0_10px_24px_rgba(0,0,0,0.22)]">
+                    {avatarUrl ? (
+                      <img
+                        src={avatarUrl}
+                        alt=""
+                        className="h-full w-full object-cover"
+                        referrerPolicy="no-referrer"
+                        onError={(e) => { e.currentTarget.style.display = 'none' }}
+                      />
+                    ) : (
+                      <User size={25} />
+                    )}
                   </div>
                   <span className="absolute -right-1 -top-1 rounded-full bg-zinc-900 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wide text-amber-300 shadow">LV{rebateLevel ?? 1}</span>
                 </div>
@@ -396,8 +407,8 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
             <div className="min-w-0 px-1.5 py-2.5 text-center">
               <p className="truncate text-[7px] font-black uppercase text-black/45">{t('menu.language')}</p>
               <div className="mt-1 flex min-w-0 items-center justify-center gap-1">
-                <Languages size={20} className="flex-shrink-0 text-[#f8d978]" strokeWidth={1.8} />
-                <p className="min-w-0 truncate text-[10px] font-black text-[#f8d978]">{currentLang.flag} {t(`languages.${currentLang.code}`)}</p>
+                <Languages size={20} className="flex-shrink-0 text-white" strokeWidth={1.8} />
+                <p className="min-w-0 truncate text-[10px] font-black text-white">{currentLang.flag} {t(`languages.${currentLang.code}`)}</p>
               </div>
             </div>
             <AccountInfoItem
@@ -411,7 +422,7 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
               title={t('kyc.stepDocument')}
               value={docVerified ? t('common.verified') : t('kyc.verify')}
               icon={IdentityCardIcon}
-              iconSize={34}
+              iconSize={28}
               done={docVerified}
               onClick={openKycFromStatus}
             />

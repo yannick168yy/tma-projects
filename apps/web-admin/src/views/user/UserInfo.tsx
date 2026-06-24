@@ -1,4 +1,5 @@
-import { Card, Descriptions, Tag, Typography } from 'antd'
+import { Avatar, Card, Descriptions, Tag, Typography } from 'antd'
+import { UserOutlined } from '@ant-design/icons'
 import { getUserDetail } from '../../api'
 
 type Detail = Awaited<ReturnType<typeof getUserDetail>>
@@ -15,8 +16,18 @@ interface Props { detail: Detail }
 
 export default function UserInfo({ detail }: Props) {
   const u = detail.user as Record<string, unknown>
+  const avatarUrl = typeof u.avatarUrl === 'string' ? u.avatarUrl : undefined
   return (
-    <Card title="基本信息" bordered={false} style={{ marginBottom: 16 }}>
+    <Card
+      title={
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
+          <Avatar size={40} src={avatarUrl} icon={<UserOutlined />} />
+          基本信息
+        </span>
+      }
+      bordered={false}
+      style={{ marginBottom: 16 }}
+    >
       <Descriptions column={1} bordered size="small">
         <Descriptions.Item label="ID">{String(u.id ?? '')}</Descriptions.Item>
         <Descriptions.Item label="显示名">{String(u.displayName ?? '')}</Descriptions.Item>
