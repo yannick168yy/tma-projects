@@ -56,6 +56,8 @@ const CURRENCIES = [
 
 const HOME_DOC_KEYS = new Set(['terms', 'privacy', 'responsible', 'about'])
 type StatusIcon = ComponentType<{ size?: number; strokeWidth?: number }>
+const VERIFY_IDENTITY_SELECTED_ICON = icon('verify_identity_selected_white')
+const VERIFY_IDENTITY_UNSELECTED_ICON = icon('verify_identity_unselected_white')
 
 function MenuSection({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -133,23 +135,10 @@ function QuickAction({
   )
 }
 
-function IdentityCardIcon({ size = 24, strokeWidth = 1.8 }: { size?: number; strokeWidth?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <rect x="3.8" y="5.2" width="16.4" height="13.6" rx="2.2" />
-      <path d="M8 8.5h3.2" />
-      <circle cx="8.9" cy="12.1" r="1.55" />
-      <path d="M6.4 16c.6-1.3 1.45-1.95 2.5-1.95S10.8 14.7 11.4 16" />
-      <path d="M14 11h3.7" />
-      <path d="M14 14.4h3" />
-    </svg>
-  )
-}
-
-function KycStatusIcon({ Icon, done, size = 20 }: { Icon: StatusIcon; done: boolean; size?: number }) {
+function KycStatusIcon({ Icon, image, done, size = 20 }: { Icon?: StatusIcon; image?: string; done: boolean; size?: number }) {
   return (
     <span className={`relative flex flex-shrink-0 items-center justify-center ${done ? 'text-white' : 'text-white/60'}`} style={{ width: size, height: size }}>
-      <Icon size={size} strokeWidth={1.8} />
+      {image ? <img src={image} alt="" className="h-full w-full object-contain" /> : Icon ? <Icon size={size} strokeWidth={1.8} /> : null}
       {done && (
         <span className="absolute -bottom-px -right-0.5 flex h-2 w-2 items-center justify-center rounded-full bg-white text-[#c79023] shadow-[0_1px_2px_rgba(0,0,0,0.22)]">
           <Check size={5} strokeWidth={3} />
@@ -163,13 +152,15 @@ function AccountInfoItem({
   title,
   value,
   icon,
+  image,
   iconSize,
   done,
   onClick,
 }: {
   title: string
   value: string
-  icon: StatusIcon
+  icon?: StatusIcon
+  image?: string
   iconSize?: number
   done: boolean
   onClick?: () => void
@@ -178,7 +169,7 @@ function AccountInfoItem({
     <>
       <p className="truncate text-[7px] font-black uppercase text-black/45">{title}</p>
       <div className="mt-1 flex min-w-0 items-center justify-center gap-1">
-        <KycStatusIcon Icon={icon} done={done} size={iconSize} />
+        <KycStatusIcon Icon={icon} image={image} done={done} size={iconSize} />
         <p className={`min-w-0 truncate text-[10px] font-black ${done ? 'text-white' : 'text-white/60'}`}>{value}</p>
       </div>
     </>
@@ -421,7 +412,7 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
             <AccountInfoItem
               title={t('kyc.stepDocument')}
               value={docVerified ? t('common.verified') : t('kyc.verify')}
-              icon={IdentityCardIcon}
+              image={docVerified ? VERIFY_IDENTITY_SELECTED_ICON : VERIFY_IDENTITY_UNSELECTED_ICON}
               done={docVerified}
               onClick={openKycFromStatus}
             />
