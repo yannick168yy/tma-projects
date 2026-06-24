@@ -136,8 +136,8 @@ function QuickAction({
 
 function KycStatusIcon({ Icon, done }: { Icon: LucideIcon; done: boolean }) {
   return (
-    <span className="relative flex h-5 w-5 flex-shrink-0 items-center justify-center text-white">
-      <Icon size={20} strokeWidth={2.2} />
+    <span className="relative flex h-5 w-5 flex-shrink-0 items-center justify-center text-[#ffd04a]">
+      <Icon size={20} strokeWidth={1.8} />
       {done && (
         <span className="absolute -bottom-0.5 -right-1 flex h-2.5 w-2.5 items-center justify-center rounded-full bg-amber-100 text-amber-700 shadow-[0_1px_2px_rgba(0,0,0,0.22)]">
           <Check size={7} strokeWidth={3} />
@@ -163,7 +163,7 @@ function AccountInfoItem({
       <p className="truncate text-[7px] font-black uppercase text-black/45">{title}</p>
       <div className="mt-1 flex min-w-0 items-center justify-center gap-1">
         <KycStatusIcon Icon={icon} done={done} />
-        <p className="min-w-0 truncate text-[10px] font-black text-white">{value}</p>
+        <p className={`min-w-0 truncate text-[10px] font-black ${done ? 'text-white' : 'text-white/60'}`}>{value}</p>
       </div>
     </div>
   )
@@ -210,6 +210,10 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
   const USER_ID = auth.user?.id ?? '—'
   const displayName = auth.user?.displayName ?? t('profile.playerAccount')
   const currentLang = LANGUAGES.find((l) => l.code === locale) ?? LANGUAGES[0]
+  const kycApproved = kycStatus?.status === 'approved'
+  const phoneVerified = kycApproved || Boolean(kycStatus?.phoneVerified)
+  const docVerified = kycApproved || Boolean(kycStatus?.docVerified)
+  const faceVerified = kycApproved || Boolean(kycStatus?.faceVerified)
 
   const SUPPORT_ITEMS = [
     { icon: '21_live_chat', label: t('profile.supportItems.liveChat'), sub: t('profile.supportItems.liveChatSub'), badge: t('common.online'), onClick: onOpenCs },
@@ -357,27 +361,27 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
             <div className="min-w-0 px-1.5 py-2.5 text-center">
               <p className="truncate text-[7px] font-black uppercase text-black/45">{t('menu.language')}</p>
               <div className="mt-1 flex min-w-0 items-center justify-center gap-1">
-                <Languages size={20} className="flex-shrink-0 text-white" strokeWidth={2.2} />
+                <Languages size={20} className="flex-shrink-0 text-[#ffd04a]" strokeWidth={1.8} />
                 <p className="min-w-0 truncate text-[10px] font-black text-white">{currentLang.flag} {t(`languages.${currentLang.code}`)}</p>
               </div>
             </div>
             <AccountInfoItem
               title={t('kyc.stepPhone')}
-              value={kycStatus?.phoneVerified ? t('common.verified') : t('kyc.verify')}
+              value={phoneVerified ? t('common.verified') : t('kyc.verify')}
               icon={Smartphone}
-              done={Boolean(kycStatus?.phoneVerified)}
+              done={phoneVerified}
             />
             <AccountInfoItem
               title={t('kyc.stepDocument')}
-              value={kycStatus?.docVerified ? t('common.verified') : t('kyc.verify')}
+              value={docVerified ? t('common.verified') : t('kyc.verify')}
               icon={IdCard}
-              done={Boolean(kycStatus?.docVerified)}
+              done={docVerified}
             />
             <AccountInfoItem
               title={t('kyc.stepFace')}
-              value={kycStatus?.faceVerified ? t('kyc.matched') : t('kyc.match')}
+              value={faceVerified ? t('kyc.matched') : t('kyc.match')}
               icon={ScanFace}
-              done={Boolean(kycStatus?.faceVerified)}
+              done={faceVerified}
             />
           </div>
         </div>
