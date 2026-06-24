@@ -774,6 +774,8 @@ export default {
     reviewing: 'Đang xem xét…',
     reviewingHint: 'Hồ sơ của bạn đã được gửi và đang được xem xét. Chúng tôi sẽ thông báo kết quả.',
     docAcrIcard: 'ACR I-Card',
+    match: 'Khớp',
+    matched: 'Đã khớp',
     reuploadId: 'Tải lại ảnh giấy tờ',
     docReuploadHint: 'Vui lòng tải lại ảnh giấy tờ rồi gửi lại.',
     errors: {

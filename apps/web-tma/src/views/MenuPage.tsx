@@ -8,13 +8,15 @@ import {
   ChevronDown,
   ChevronRight,
   Copy,
-  Gift,
-  Headphones,
   History,
+  IdCard,
   Languages,
   LogOut,
+  ScanFace,
+  Smartphone,
   User,
   X,
+  type LucideIcon,
 } from 'lucide-react'
 import { createPortal } from 'react-dom'
 import BindModal from '@/components/auth/BindModal'
@@ -23,6 +25,7 @@ import { useLocaleStore } from '@/stores/locale'
 import { useThemeStore, type ThemeMode } from '@/stores/theme'
 import { LANGUAGES } from '@/data/languages'
 import { fetchRebateProgress } from '@/api/rebate'
+import { fetchKycStatus, type KycStatus } from '@/api/kyc'
 import menuCasino from '@/assets/home/promos/menu-card-casino.webp'
 
 const ICONS = import.meta.glob('../assets/menu/icons/*.webp', { eager: true, import: 'default' }) as Record<string, string>
@@ -131,6 +134,41 @@ function QuickAction({
   )
 }
 
+function KycStatusIcon({ Icon, done }: { Icon: LucideIcon; done: boolean }) {
+  return (
+    <span className="relative flex h-5 w-5 flex-shrink-0 items-center justify-center text-white">
+      <Icon size={20} strokeWidth={2.2} />
+      {done && (
+        <span className="absolute -bottom-0.5 -right-1 flex h-2.5 w-2.5 items-center justify-center rounded-full bg-amber-100 text-amber-700 shadow-[0_1px_2px_rgba(0,0,0,0.22)]">
+          <Check size={7} strokeWidth={3} />
+        </span>
+      )}
+    </span>
+  )
+}
+
+function AccountInfoItem({
+  title,
+  value,
+  icon,
+  done,
+}: {
+  title: string
+  value: string
+  icon: LucideIcon
+  done: boolean
+}) {
+  return (
+    <div className="min-w-0 border-l border-white/20 px-1.5 py-2.5 text-center">
+      <p className="truncate text-[7px] font-black uppercase text-black/45">{title}</p>
+      <div className="mt-1 flex min-w-0 items-center justify-center gap-1">
+        <KycStatusIcon Icon={icon} done={done} />
+        <p className="min-w-0 truncate text-[10px] font-black text-white">{value}</p>
+      </div>
+    </div>
+  )
+}
+
 function BottomSheet({ title, children, onClose }: { title: string; children: ReactNode; onClose: () => void }) {
   return createPortal(
     <div className="fixed inset-0 z-[200] flex justify-center" role="dialog" aria-modal="true">
@@ -166,6 +204,7 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
   const [docModalKey, setDocModalKey] = useState<string | null>(null)
   const [langOpen, setLangOpen] = useState(false)
   const [rebateLevel, setRebateLevel] = useState<number | null>(null)
+  const [kycStatus, setKycStatus] = useState<KycStatus | null>(null)
   const comingSoonTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const USER_ID = auth.user?.id ?? '—'
@@ -207,6 +246,16 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
     fetchRebateProgress()
       .then((progress) => setRebateLevel(progress.level))
       .catch(() => setRebateLevel(null))
+  }, [isLoggedIn, auth.user?.id])
+
+  useEffect(() => {
+    if (!isLoggedIn) {
+      setKycStatus(null)
+      return
+    }
+    fetchKycStatus()
+      .then(setKycStatus)
+      .catch(() => setKycStatus(null))
   }, [isLoggedIn, auth.user?.id])
 
   function showComingSoon() {
@@ -304,28 +353,32 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
             </div>
           )}
 
-          <div className="relative mt-4 grid grid-cols-3 overflow-hidden rounded-2xl bg-black/15">
-            <div className="flex items-center gap-1.5 px-2.5 py-2.5">
-              <Languages size={14} className="flex-shrink-0 text-amber-100/80" />
-              <div className="min-w-0">
-                <p className="truncate text-[8px] font-black uppercase tracking-wide text-black/45">{t('menu.language')}</p>
-                <p className="truncate text-[11px] font-black text-white">{currentLang.flag} {t(`languages.${currentLang.code}`)}</p>
+          <div className="relative mt-4 grid grid-cols-4 overflow-hidden rounded-2xl bg-black/15">
+            <div className="min-w-0 px-1.5 py-2.5 text-center">
+              <p className="truncate text-[7px] font-black uppercase text-black/45">{t('menu.language')}</p>
+              <div className="mt-1 flex min-w-0 items-center justify-center gap-1">
+                <Languages size={20} className="flex-shrink-0 text-white" strokeWidth={2.2} />
+                <p className="min-w-0 truncate text-[10px] font-black text-white">{currentLang.flag} {t(`languages.${currentLang.code}`)}</p>
               </div>
             </div>
-            <div className="flex items-center gap-1.5 border-x border-white/15 px-2.5 py-2.5">
-              <Headphones size={14} className="flex-shrink-0 text-amber-100/80" />
-              <div className="min-w-0">
-                <p className="truncate text-[8px] font-black uppercase tracking-wide text-black/45">{t('menu.customerSupport')}</p>
-                <p className="truncate text-[11px] font-black text-white">{t('menu.live247')}</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-1.5 px-2.5 py-2.5">
-              <Gift size={14} className="flex-shrink-0 text-amber-100/80" />
-              <div className="min-w-0">
-                <p className="truncate text-[8px] font-black uppercase tracking-wide text-black/45">{t('menu.creditRecords')}</p>
-                <p className="truncate text-[11px] font-black text-white">{t('menu.creditRecordsSub')}</p>
-              </div>
-            </div>
+            <AccountInfoItem
+              title={t('kyc.stepPhone')}
+              value={kycStatus?.phoneVerified ? t('common.verified') : t('kyc.verify')}
+              icon={Smartphone}
+              done={Boolean(kycStatus?.phoneVerified)}
+            />
+            <AccountInfoItem
+              title={t('kyc.stepDocument')}
+              value={kycStatus?.docVerified ? t('common.verified') : t('kyc.verify')}
+              icon={IdCard}
+              done={Boolean(kycStatus?.docVerified)}
+            />
+            <AccountInfoItem
+              title={t('kyc.stepFace')}
+              value={kycStatus?.faceVerified ? t('kyc.matched') : t('kyc.match')}
+              icon={ScanFace}
+              done={Boolean(kycStatus?.faceVerified)}
+            />
           </div>
         </div>
       </div>

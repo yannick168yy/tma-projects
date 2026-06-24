@@ -778,6 +778,8 @@ export default {
     reviewing: 'Sedang ditinjau…',
     reviewingHint: 'Dokumen Anda telah dikirim dan sedang dalam peninjauan. Kami akan memberitahu hasilnya.',
     docAcrIcard: 'ACR I-Card',
+    match: 'Cocokkan',
+    matched: 'Cocok',
     reuploadId: 'Unggah ulang foto ID',
     docReuploadHint: 'Silakan unggah ulang foto ID Anda lalu kirim lagi.',
     errors: {

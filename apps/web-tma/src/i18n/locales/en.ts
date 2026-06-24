@@ -101,6 +101,8 @@ export default {
     resendIn: 'Resend in {{s}}s',
     codeLabel: 'Verification code',
     verify: 'Verify',
+    match: 'Match',
+    matched: 'Matched',
     fullName: 'Full name (as on ID)',
     docPassport: 'Passport',
     docDriversLicense: "Driver's license",

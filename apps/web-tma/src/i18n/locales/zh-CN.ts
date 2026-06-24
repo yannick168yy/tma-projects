@@ -100,6 +100,8 @@ export default {
     resendIn: '{{s}} 秒后重发',
     codeLabel: '验证码',
     verify: '验证',
+    match: '匹配',
+    matched: '已匹配',
     fullName: '真实姓名（与证件一致）',
     docPassport: '护照',
     docDriversLicense: '驾驶证',
