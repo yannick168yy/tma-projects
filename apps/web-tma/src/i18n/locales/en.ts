@@ -53,6 +53,9 @@ export default {
     cryptoCurrencies: 'Crypto',
   },
   auth: {
+    signingInGoogle: 'Signing you in with Google…',
+    googleSignInFailed: 'Google sign-in failed',
+    bindFailed: 'Linking failed',
     signInTitle: 'Sign in to BetoGo',
     signInSubtitle: 'Continue to play, deposit, and claim bonuses.',
     telegramHint:
@@ -87,7 +90,19 @@ export default {
     haveReferralCode: 'Have a referral code?',
     referralCodePlaceholder: 'Enter referral code (optional)',
   },
+  cs: {
+    title: 'Support Center',
+    aiService: 'AI Assistant',
+    humanService: 'A support agent is assisting you',
+    aiLabel: '🤖 AI',
+    agentLabel: '👤 Agent',
+    welcome: 'Hi! I’m Kaya, BetoGo’s AI assistant. How can I help you today?',
+    sendFailed: 'Sorry, the message failed to send. Please try again later.',
+    inputPlaceholder: 'Type your question…',
+  },
   kyc: {
+    faceFailed: 'Face verification failed, please try again',
+    docRecognitionFailed: 'Document recognition failed, please try again',
     title: 'Identity Verification',
     subtitle: 'Required before your first withdrawal.',
     settingEntry: 'KYC Setting',

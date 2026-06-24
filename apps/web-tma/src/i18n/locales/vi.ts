@@ -53,6 +53,9 @@ export default {
     cryptoCurrencies: 'Tiền mã hóa',
   },
   auth: {
+    signingInGoogle: 'Đang đăng nhập bằng Google…',
+    googleSignInFailed: 'Đăng nhập Google thất bại',
+    bindFailed: 'Liên kết thất bại',
     signInTitle: 'Đăng nhập BetoGo',
     signInSubtitle: 'Tiếp tục chơi, nạp tiền và nhận thưởng.',
     telegramHint:
@@ -770,7 +773,19 @@ export default {
     enabling: 'Đang bắt đầu...',
     notActivatedHint: 'Nạp tiền lần đầu ≥ ₱100 để kích hoạt — cược đủ điều kiện từ các vòng sẽ tạo thưởng.',
   },
+  cs: {
+    title: 'Trung tâm hỗ trợ',
+    aiService: 'Trợ lý AI',
+    humanService: 'Nhân viên hỗ trợ đang phục vụ bạn',
+    aiLabel: '🤖 AI',
+    agentLabel: '👤 Nhân viên',
+    welcome: 'Xin chào! Tôi là Kaya, trợ lý AI của BetoGo. Tôi có thể giúp gì cho bạn?',
+    sendFailed: 'Xin lỗi, không gửi được tin nhắn. Vui lòng thử lại sau.',
+    inputPlaceholder: 'Nhập câu hỏi của bạn…',
+  },
   kyc: {
+    faceFailed: 'Xác thực khuôn mặt thất bại, vui lòng thử lại',
+    docRecognitionFailed: 'Nhận dạng giấy tờ thất bại, vui lòng thử lại',
     reviewing: 'Đang xem xét…',
     reviewingHint: 'Hồ sơ của bạn đã được gửi và đang được xem xét. Chúng tôi sẽ thông báo kết quả.',
     docAcrIcard: 'ACR I-Card',

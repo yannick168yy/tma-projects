@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Send, Headphones, Loader2 } from 'lucide-react'
 import { sendCsMessage, fetchCsHistory } from '@/api/cs'
 import type { CsMessage } from '@/api/cs'
@@ -7,6 +8,7 @@ import { useAuthStore } from '@/stores/auth'
 interface Props { onClose: () => void }
 
 export default function CustomerServicePage({ onClose }: Props) {
+  const { t } = useTranslation()
   const isLoggedIn = useAuthStore((s) => Boolean(s.token && s.user))
   const [messages, setMessages] = useState<CsMessage[]>([])
   const [inputText, setInputText] = useState('')
@@ -42,7 +44,7 @@ export default function CustomerServicePage({ onClose }: Props) {
       setMessages((prev) => [...prev, reply])
       scrollToBottom()
     } catch {
-      const errMsg: CsMessage = { id: Date.now() + 1, conversationId: 0, role: 'assistant', content: '抱歉，消息发送失败，请稍后再试。', createdAt: new Date().toISOString() }
+      const errMsg: CsMessage = { id: Date.now() + 1, conversationId: 0, role: 'assistant', content: t('cs.sendFailed'), createdAt: new Date().toISOString() }
       setMessages((prev) => [...prev, errMsg])
     } finally {
       setSending(false)
@@ -64,8 +66,8 @@ export default function CustomerServicePage({ onClose }: Props) {
           <Headphones size={18} className="text-primary" />
         </div>
         <div className="flex-1">
-          <p className="text-sm font-bold text-foreground">客服中心</p>
-          <p className="text-xs text-muted-foreground">{conversationStatus === 'human_taken' ? '人工客服为您服务' : 'AI 智能客服'}</p>
+          <p className="text-sm font-bold text-foreground">{t('cs.title')}</p>
+          <p className="text-xs text-muted-foreground">{conversationStatus === 'human_taken' ? t('cs.humanService') : t('cs.aiService')}</p>
         </div>
         <button type="button" className="text-muted-foreground hover:text-foreground p-1" onClick={onClose}>
           <span className="text-lg leading-none">×</span>
@@ -80,15 +82,15 @@ export default function CustomerServicePage({ onClose }: Props) {
             {messages.length === 0 && (
               <div className="flex justify-start">
                 <div className="max-w-[85%] rounded-2xl rounded-tl-sm bg-secondary px-3.5 py-2.5">
-                  <p className="text-xs text-muted-foreground mb-1">🤖 AI</p>
-                  <p className="text-sm text-foreground">您好！我是 BetoGo 的智能客服 Kaya，很高兴为您服务。有什么可以帮到您？</p>
+                  <p className="text-xs text-muted-foreground mb-1">{t('cs.aiLabel')}</p>
+                  <p className="text-sm text-foreground">{t('cs.welcome')}</p>
                 </div>
               </div>
             )}
             {messages.map((msg) => (
               <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                 <div className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 ${msg.role === 'user' ? 'rounded-tr-sm bg-primary text-primary-foreground' : 'rounded-tl-sm bg-secondary text-foreground'}`}>
-                  {msg.role !== 'user' && <p className="text-xs text-muted-foreground mb-1">{msg.role === 'assistant' ? '🤖 AI' : '👤 客服'}</p>}
+                  {msg.role !== 'user' && <p className="text-xs text-muted-foreground mb-1">{msg.role === 'assistant' ? t('cs.aiLabel') : t('cs.agentLabel')}</p>}
                   <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
                   <p className="text-[10px] mt-1 opacity-60 text-right">{formatTime(msg.createdAt)}</p>
                 </div>
@@ -97,7 +99,7 @@ export default function CustomerServicePage({ onClose }: Props) {
             {sending && (
               <div className="flex justify-start">
                 <div className="rounded-2xl rounded-tl-sm bg-secondary px-3.5 py-2.5">
-                  <p className="text-xs text-muted-foreground mb-1">🤖 AI</p>
+                  <p className="text-xs text-muted-foreground mb-1">{t('cs.aiLabel')}</p>
                   <div className="flex gap-1 items-center h-5">
                     {[0, 150, 300].map((d) => <span key={d} className="w-1.5 h-1.5 rounded-full bg-muted-foreground animate-bounce" style={{ animationDelay: `${d}ms` }} />)}
                   </div>
@@ -112,7 +114,7 @@ export default function CustomerServicePage({ onClose }: Props) {
         <textarea
           value={inputText}
           rows={1}
-          placeholder="输入您的问题…"
+          placeholder={t('cs.inputPlaceholder')}
           className="flex-1 resize-none rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
           style={{ maxHeight: '80px', overflowY: 'auto' }}
           disabled={sending}

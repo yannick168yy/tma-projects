@@ -183,7 +183,7 @@ export const usePromotionStore = create<PromotionState & PromotionActions>((set,
       ])
       return { ok: true }
     } catch (e) {
-      return { ok: false, message: e instanceof Error ? e.message : '提现失败' }
+      return { ok: false, message: e instanceof Error ? e.message : i18n.t('team.withdrawFailed') }
     }
   },
 

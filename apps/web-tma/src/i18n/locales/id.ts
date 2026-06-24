@@ -53,6 +53,9 @@ export default {
     cryptoCurrencies: 'Kripto',
   },
   auth: {
+    signingInGoogle: 'Masuk dengan Google…',
+    googleSignInFailed: 'Gagal masuk dengan Google',
+    bindFailed: 'Penautan gagal',
     signInTitle: 'Masuk ke BetoGo',
     signInSubtitle: 'Lanjutkan bermain, deposit, dan klaim bonus.',
     telegramHint:
@@ -774,7 +777,19 @@ export default {
     enabling: 'Memulai...',
     notActivatedHint: 'Lakukan deposit pertama ≥ ₱100 untuk aktivasi — permainan valid dari circle akan menghasilkan reward.',
   },
+  cs: {
+    title: 'Pusat Bantuan',
+    aiService: 'Asisten AI',
+    humanService: 'Agen dukungan sedang membantu Anda',
+    aiLabel: '🤖 AI',
+    agentLabel: '👤 Agen',
+    welcome: 'Hai! Saya Kaya, asisten AI BetoGo. Ada yang bisa saya bantu?',
+    sendFailed: 'Maaf, pesan gagal terkirim. Silakan coba lagi nanti.',
+    inputPlaceholder: 'Ketik pertanyaan Anda…',
+  },
   kyc: {
+    faceFailed: 'Verifikasi wajah gagal, silakan coba lagi',
+    docRecognitionFailed: 'Pengenalan dokumen gagal, silakan coba lagi',
     reviewing: 'Sedang ditinjau…',
     reviewingHint: 'Dokumen Anda telah dikirim dan sedang dalam peninjauan. Kami akan memberitahu hasilnya.',
     docAcrIcard: 'ACR I-Card',

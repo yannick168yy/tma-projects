@@ -28,13 +28,14 @@ function compressImage(file: File, maxDim = 1280, quality = 0.82): Promise<strin
 
 type Translate = (key: string, opts?: Record<string, unknown>) => string
 
-function translateKycError(message: string, t: Translate): string {
+function translateKycError(message: string, t: Translate, fallback?: string): string {
   if (message.startsWith('kyc.errors.smsFailedWithCode:')) {
     const code = message.slice('kyc.errors.smsFailedWithCode:'.length)
     return t('kyc.errors.smsFailedWithCode', { code })
   }
   if (message.startsWith('kyc.')) return t(message)
-  return message
+  // 后端可能返回未做 key 化的中文文案（如人脸/证件识别失败），用本地化兜底而非原样透传
+  return fallback ?? message
 }
 
 function translateRejectReason(reason: string, t: Translate): string {
@@ -140,7 +141,7 @@ export function useKycFlow(active: boolean, onApproved?: () => void) {
         setStep('document')
       }
     } catch (e) {
-      setError(e instanceof ApiError ? translateKycError(e.message, t) : t('kyc.rejected'))
+      setError(e instanceof ApiError ? translateKycError(e.message, t, t('kyc.rejected')) : t('kyc.rejected'))
     } finally { setLoading(false) }
   }
 
@@ -179,7 +180,7 @@ export function useKycFlow(active: boolean, onApproved?: () => void) {
         setError(formatDocRejectError(res.rejectReason, t))
       }
     } catch (e) {
-      setError(e instanceof ApiError ? translateKycError(e.message, t) : t('kyc.rejected'))
+      setError(e instanceof ApiError ? translateKycError(e.message, t, t('kyc.docRecognitionFailed')) : t('kyc.rejected'))
     } finally { setLoading(false) }
   }
 
@@ -194,7 +195,7 @@ export function useKycFlow(active: boolean, onApproved?: () => void) {
         setError(res.rejectReason ? translateRejectReason(res.rejectReason, t) : t('kyc.rejected'))
       }
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : t('kyc.rejected'))
+      setError(e instanceof ApiError ? translateKycError(e.message, t, t('kyc.faceFailed')) : t('kyc.rejected'))
     } finally { setLoading(false) }
   }
 

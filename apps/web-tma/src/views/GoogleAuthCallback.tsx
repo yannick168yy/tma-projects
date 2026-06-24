@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Loader2 } from 'lucide-react'
 import BetogoLogo from '@/components/BetogoLogo'
 import { bindGoogle, completeGoogleLogin } from '@/api/auth'
@@ -6,6 +7,7 @@ import { clearStoredOAuthState, extractRefFromOAuthState, getGoogleRedirectUri, 
 import { useAuthStore } from '@/stores/auth'
 
 export default function GoogleAuthCallback() {
+  const { t } = useTranslation()
   const applySession = useAuthStore((s) => s.applySession)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -16,11 +18,11 @@ export default function GoogleAuthCallback() {
     const code = params.get('code')
     const state = params.get('state')
 
-    if (oauthError) { setLoading(false); setError(`Google sign-in failed (${oauthError}).`); return }
-    if (!code) { setLoading(false); setError('Missing authorization code from Google.'); return }
+    if (oauthError) { setLoading(false); setError(`${t('auth.googleSignInFailed')} (${oauthError})`); return }
+    if (!code) { setLoading(false); setError(t('auth.googleSignInFailed')); return }
     const storedState = readStoredOAuthState()
     if (state !== storedState) {
-      setLoading(false); clearStoredOAuthState(); setError('Invalid OAuth state. Please sign in again.'); return
+      setLoading(false); clearStoredOAuthState(); setError(t('auth.stateInvalid')); return
     }
 
     // 绑定意图：已登录用户把 Google 挂到当前账号（而非登录/新建）
@@ -28,7 +30,7 @@ export default function GoogleAuthCallback() {
       sessionStorage.removeItem('google_bind_intent')
       bindGoogle(code, getGoogleRedirectUri())
         .then(() => { clearStoredOAuthState(); window.location.replace('/?bound=google') })
-        .catch((e) => { clearStoredOAuthState(); setError(e instanceof Error ? e.message : 'Google 绑定失败'); setLoading(false) })
+        .catch(() => { clearStoredOAuthState(); setError(t('auth.bindFailed')); setLoading(false) })
       return
     }
 
@@ -39,18 +41,18 @@ export default function GoogleAuthCallback() {
         clearStoredOAuthState()
         window.location.replace('/')
       })
-      .catch((e) => {
+      .catch(() => {
         clearStoredOAuthState()
-        setError(e instanceof Error ? e.message : 'Google login failed')
+        setError(t('auth.googleSignInFailed'))
         setLoading(false)
       })
-  }, [applySession])
+  }, [applySession, t])
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background px-6 text-center">
       <BetogoLogo />
       {loading && <Loader2 size={32} className="mt-6 animate-spin text-primary" />}
-      {loading && <p className="mt-4 text-sm text-muted-foreground">Signing you in with Google…</p>}
+      {loading && <p className="mt-4 text-sm text-muted-foreground">{t('auth.signingInGoogle')}</p>}
       {error && !loading && <p className="mt-6 text-sm text-red-400">{error}</p>}
       {error && !loading && (
         <button
@@ -58,7 +60,7 @@ export default function GoogleAuthCallback() {
           className="mt-4 rounded-xl bg-primary px-4 py-2 text-sm font-bold text-primary-foreground"
           onClick={() => window.location.replace('/')}
         >
-          Back to home
+          {t('auth.backHome')}
         </button>
       )}
     </div>
