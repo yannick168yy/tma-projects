@@ -136,12 +136,9 @@ function QuickAction({
 function IdentityCardIcon({ size = 24, strokeWidth = 1.8 }: { size?: number; strokeWidth?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <rect x="3.8" y="5.2" width="16.4" height="13.6" rx="2.2" />
-      <path d="M8 8.5h3.2" />
-      <circle cx="8.9" cy="12.1" r="1.55" />
-      <path d="M6.4 16c.6-1.3 1.45-1.95 2.5-1.95S10.8 14.7 11.4 16" />
-      <path d="M14 11h3.7" />
-      <path d="M14 14.4h3" />
+      <rect x="4.5" y="6" width="15" height="12" rx="2.2" />
+      <circle cx="9" cy="12" r="2" />
+      <path d="M13.5 10.5h3.2M13.5 13.5h2.4" />
     </svg>
   )
 }
@@ -422,7 +419,6 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
               title={t('kyc.stepDocument')}
               value={docVerified ? t('common.verified') : t('kyc.verify')}
               icon={IdentityCardIcon}
-              iconSize={24}
               done={docVerified}
               onClick={openKycFromStatus}
             />
