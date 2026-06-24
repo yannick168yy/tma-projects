@@ -433,7 +433,7 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
                 <img src={icon('03_language')} alt="" className="h-6 w-6 object-contain" />
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block text-sm font-bold text-foreground">{t('menu.language')}</span>
+                <span className="block text-sm font-normal text-foreground">{t('menu.language')}</span>
                 <span className="mt-0.5 block truncate text-xs text-muted-foreground">{currentLang.flag} {t(`languages.${currentLang.code}`)}</span>
               </span>
               <ChevronDown size={15} className={`text-muted-foreground transition-transform ${langOpen ? 'rotate-180' : ''}`} />
@@ -448,7 +448,7 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
                     onClick={() => { setLocale(l.code as Parameters<typeof setLocale>[0]); setLangOpen(false) }}
                   >
                     <span className="text-lg">{l.flag}</span>
-                    <span className={`flex-1 text-sm font-bold ${locale === l.code ? 'text-primary' : 'text-foreground'}`}>{t(`languages.${l.code}`)}</span>
+                    <span className={`flex-1 text-sm font-normal ${locale === l.code ? 'text-primary' : 'text-white/70'}`}>{t(`languages.${l.code}`)}</span>
                     {locale === l.code && <Check size={14} className="text-primary" />}
                   </button>
                 ))}
