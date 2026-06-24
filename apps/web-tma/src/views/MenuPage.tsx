@@ -148,10 +148,10 @@ function IdentityCardIcon({ size = 24, strokeWidth = 1.8 }: { size?: number; str
 
 function KycStatusIcon({ Icon, done, size = 20 }: { Icon: StatusIcon; done: boolean; size?: number }) {
   return (
-    <span className="relative flex h-5 w-5 flex-shrink-0 items-center justify-center text-[#ffd04a]">
+    <span className={`relative flex h-5 w-5 flex-shrink-0 items-center justify-center ${done ? 'text-white' : 'text-white/60'}`}>
       <Icon size={size} strokeWidth={1.8} />
       {done && (
-        <span className="absolute -bottom-px -right-0.5 flex h-2 w-2 items-center justify-center rounded-full bg-[#ffd04a] text-amber-950 shadow-[0_1px_2px_rgba(0,0,0,0.22)]">
+        <span className="absolute -bottom-px -right-0.5 flex h-2 w-2 items-center justify-center rounded-full bg-white/20 text-white shadow-[0_1px_2px_rgba(0,0,0,0.22)]">
           <Check size={5} strokeWidth={3} />
         </span>
       )}
@@ -165,20 +165,36 @@ function AccountInfoItem({
   icon,
   iconSize,
   done,
+  onClick,
 }: {
   title: string
   value: string
   icon: StatusIcon
   iconSize?: number
   done: boolean
+  onClick?: () => void
 }) {
-  return (
-    <div className="min-w-0 border-l border-white/20 px-1.5 py-2.5 text-center">
+  const content = (
+    <>
       <p className="truncate text-[7px] font-black uppercase text-black/45">{title}</p>
       <div className="mt-1 flex min-w-0 items-center justify-center gap-1">
         <KycStatusIcon Icon={icon} done={done} size={iconSize} />
         <p className={`min-w-0 truncate text-[10px] font-black ${done ? 'text-white' : 'text-white/60'}`}>{value}</p>
       </div>
+    </>
+  )
+
+  if (onClick && !done) {
+    return (
+      <button type="button" className="min-w-0 border-l border-white/20 px-1.5 py-2.5 text-center transition-colors hover:bg-white/10" onClick={onClick}>
+        {content}
+      </button>
+    )
+  }
+
+  return (
+    <div className="min-w-0 border-l border-white/20 px-1.5 py-2.5 text-center">
+      {content}
     </div>
   )
 }
@@ -282,6 +298,11 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
     comingSoonTimer.current = setTimeout(() => setComingSoonToast(false), 2200)
   }
 
+  function openKycFromStatus() {
+    if (!isLoggedIn) { onLogin(); return }
+    onOpenKycSetting()
+  }
+
   async function openLedger() {
     if (!isLoggedIn) { onLogin(); return }
     onOpenLedgerRecords()
@@ -375,7 +396,7 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
             <div className="min-w-0 px-1.5 py-2.5 text-center">
               <p className="truncate text-[7px] font-black uppercase text-black/45">{t('menu.language')}</p>
               <div className="mt-1 flex min-w-0 items-center justify-center gap-1">
-                <Languages size={20} className="flex-shrink-0 text-[#ffd04a]" strokeWidth={1.8} />
+                <Languages size={20} className="flex-shrink-0 text-white" strokeWidth={1.8} />
                 <p className="min-w-0 truncate text-[10px] font-black text-white">{currentLang.flag} {t(`languages.${currentLang.code}`)}</p>
               </div>
             </div>
@@ -384,6 +405,7 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
               value={phoneVerified ? t('common.verified') : t('kyc.verify')}
               icon={Smartphone}
               done={phoneVerified}
+              onClick={openKycFromStatus}
             />
             <AccountInfoItem
               title={t('kyc.stepDocument')}
@@ -391,12 +413,14 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
               icon={IdentityCardIcon}
               iconSize={30}
               done={docVerified}
+              onClick={openKycFromStatus}
             />
             <AccountInfoItem
               title={t('kyc.stepFace')}
               value={faceVerified ? t('kyc.matched') : t('kyc.match')}
               icon={ScanFace}
               done={faceVerified}
+              onClick={openKycFromStatus}
             />
           </div>
         </div>
