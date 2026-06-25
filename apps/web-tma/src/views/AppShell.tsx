@@ -355,7 +355,7 @@ export default function AppShell() {
 
         {walletOpen && isLoggedIn && !isImmersive && (
           <div
-            className="fixed left-1/2 z-30 w-full max-w-[430px] bg-black/70 backdrop-blur-sm"
+            className="pointer-events-auto fixed left-1/2 z-[49] w-full max-w-[430px] bg-black/70 backdrop-blur-sm"
             style={{ top: headerH, bottom: navH, transform: 'translateX(-50%)' }}
             onClick={() => setWalletOpen(false)}
           />
