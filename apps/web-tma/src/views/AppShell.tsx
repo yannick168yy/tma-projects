@@ -307,6 +307,7 @@ export default function AppShell() {
 
           {walletOpen && isLoggedIn && (
             <>
+              <div className="fixed inset-0 z-[55] bg-black/70 backdrop-blur-sm" onClick={() => setWalletOpen(false)} />
               <div
                 ref={walletPanelRef}
                 className="absolute left-4 right-4 top-full z-[60] -mt-1 overflow-hidden rounded-2xl border border-border bg-card shadow-2xl"
