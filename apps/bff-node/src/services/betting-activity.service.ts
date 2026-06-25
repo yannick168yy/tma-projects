@@ -24,13 +24,23 @@ function randInt(min: number, max: number): number {
   return Math.floor(Math.random() * (max - min + 1)) + min
 }
 
+function randStep(min: number, max: number, step: number): number {
+  return randInt(Math.ceil(min / step), Math.floor(max / step)) * step
+}
+
+function latestBetAmount(min: number, max: number, step: number): number {
+  if (Math.random() < 0.84) return randStep(min, max, step)
+  return randInt(min, max)
+}
+
 function skewedBetAmount(): number {
   const r = Math.random()
-  if (r < 0.60) return randInt(1, 99)
-  if (r < 0.80) return randInt(100, 499)
-  if (r < 0.90) return randInt(500, 1499)
-  if (r < 0.97) return randInt(1500, 3000)
-  return randInt(3001, 5000)
+  if (r < 0.08) return randInt(1, 9)
+  if (r < 0.60) return latestBetAmount(10, 99, 10)
+  if (r < 0.80) return latestBetAmount(100, 499, 50)
+  if (r < 0.90) return latestBetAmount(500, 1499, 100)
+  if (r < 0.97) return latestBetAmount(1500, 3000, 100)
+  return latestBetAmount(3001, 9999, 500)
 }
 
 function shuffle<T>(arr: T[]): T[] {

@@ -239,6 +239,9 @@ const [gamesLoading, setGamesLoading] = useState(true)
   async function switchBetTab(tab: BetTab) { setActiveBetTab(tab); await loadBetTab(tab) }
   const latestBetsLoop = useMemo(() => [...latestBets, ...latestBets], [latestBets])
   const rankBets = activeBetTab === 'week' ? weekBets : monthBets
+  const rankBetsLoop = useMemo(() => [...rankBets, ...rankBets], [rankBets])
+  const latestBetScrollDuration = `${Math.max(10, latestBets.length)}s`
+  const rankBetScrollDuration = `${Math.max(10, rankBets.length)}s`
 
   function betTabLabel(tab: BetTab) {
     if (tab === 'latest') return t('home.latestBets')
@@ -572,7 +575,7 @@ const [gamesLoading, setGamesLoading] = useState(true)
                 ))}
               </div>
             ) : (
-              <div className="animate-scroll-up">
+              <div className="animate-scroll-up" style={{ animationDuration: latestBetScrollDuration }}>
                 {latestBetsLoop.map((rec, i) => (
                   <button
                     key={i}
@@ -612,17 +615,18 @@ const [gamesLoading, setGamesLoading] = useState(true)
                 ))}
               </div>
             ) : (
-              rankBets.map((rec, idx) => (
+              <div className="animate-scroll-up" style={{ animationDuration: rankBetScrollDuration }}>
+                {rankBetsLoop.map((rec, idx) => (
                 <button
-                  key={rec.uuid}
+                  key={`${rec.uuid}-${idx}`}
                   type="button"
                   className="w-full flex items-center gap-3 px-3 py-2.5 border-b border-white/5 last:border-0 active:bg-white/5 transition-colors text-left"
                   onClick={() => void onGameTapAction(rec.uuid)}
                 >
                   <span
-                    className={`w-5 text-center text-xs font-black flex-shrink-0 ${idx === 0 ? 'text-primary' : idx === 1 ? 'text-white/50' : idx === 2 ? 'text-amber-600' : 'text-muted-foreground'}`}
+                    className={`w-5 text-center text-xs font-black flex-shrink-0 ${idx % rankBets.length === 0 ? 'text-primary' : idx % rankBets.length === 1 ? 'text-white/50' : idx % rankBets.length === 2 ? 'text-amber-600' : 'text-muted-foreground'}`}
                   >
-                    #{idx + 1}
+                    #{idx % rankBets.length + 1}
                   </span>
                   {rec.imageUrl ? (
                     <img src={rec.imageUrl} alt={rec.name} className="w-10 h-10 rounded-lg object-cover flex-shrink-0 bg-white/5" />
@@ -635,7 +639,8 @@ const [gamesLoading, setGamesLoading] = useState(true)
                   </div>
                   <span className="text-xs font-bold text-primary flex-shrink-0">{formatBet(rec.betAmount)}</span>
                 </button>
-              ))
+                ))}
+              </div>
             )}
           </div>
         )}

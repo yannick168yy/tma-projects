@@ -26,7 +26,7 @@ export default function SpinWinnerTicker({ records }: Props) {
     return [...records, ...records]
   }, [records])
 
-  const durationSec = Math.max(40, records.length * 2.2)
+  const durationSec = Math.max(20, records.length * 1.1)
 
   if (!records.length) {
     return (
