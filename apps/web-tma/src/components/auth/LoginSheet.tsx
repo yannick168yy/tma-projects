@@ -169,7 +169,7 @@ export default function LoginSheet({ open, onClose }: Props) {
     <div className="fixed inset-0 z-[90] flex items-end justify-center sm:items-center">
       <div className="absolute inset-0 bg-black/75 backdrop-blur-sm" onClick={onClose} />
       <div
-        className="relative z-10 max-h-[96vh] w-full max-w-[430px] overflow-y-auto rounded-t-[28px] border border-primary/25 bg-[#090d17] shadow-[0_-8px_60px_rgba(0,0,0,0.6)] sm:rounded-[28px]"
+        className="relative z-10 max-h-[90vh] w-full max-w-[390px] overflow-y-auto rounded-t-[24px] border border-primary/25 bg-[#090d17] shadow-[0_-8px_60px_rgba(0,0,0,0.6)] sm:rounded-[24px]"
         role="dialog"
         aria-modal="true"
       >
@@ -179,103 +179,103 @@ export default function LoginSheet({ open, onClose }: Props) {
 
         <button
           type="button"
-          className="absolute right-4 top-4 z-10 rounded-full bg-white/8 p-3 text-[#a9b0c7] transition-colors hover:bg-white/12 hover:text-foreground"
+          className="absolute right-4 top-4 z-10 rounded-full bg-white/8 p-2.5 text-[#a9b0c7] transition-colors hover:bg-white/12 hover:text-foreground"
           onClick={onClose}
         >
-          <X size={22} />
+          <X size={20} />
         </button>
 
-        <div className="relative px-6 pb-7 pt-8">
-          <div className="mb-6 flex justify-center">
+        <div className="relative px-5 pb-5 pt-6">
+          <div className="mb-4 flex justify-center">
             <BetogoLogo />
           </div>
-          <h2 className="text-center text-[28px] font-black leading-tight text-white">
+          <h2 className="text-center text-[24px] font-black leading-tight text-white">
             {view === 'forgot' ? t('auth.forgotTitle') : (
               <>
                 {t('auth.welcomeTo')} <span className="text-primary">BetoGo</span>
               </>
             )}
           </h2>
-          <p className="mx-auto mt-3 max-w-[18rem] text-center text-sm font-bold leading-relaxed text-[#9aa1b8]">
+          <p className="mx-auto mt-2 max-w-[17rem] text-center text-xs font-bold leading-relaxed text-[#9aa1b8]">
             {view === 'forgot' ? t('auth.forgotSubtitle') : loginReason ?? t('auth.signInSubtitle')}
           </p>
 
           {storedRef && view === 'auth' && (
-            <div className="mt-4 rounded-xl border border-primary/30 bg-primary/8 px-4 py-2.5 text-center text-xs font-bold text-primary">
+            <div className="mt-3 rounded-xl border border-primary/30 bg-primary/8 px-3 py-2 text-center text-[11px] font-bold text-primary">
               {t('auth.invitedBanner')}
             </div>
           )}
 
           {view === 'auth' ? (
             <>
-              <div className="mt-7 grid grid-cols-2 rounded-[22px] border border-white/8 bg-[#121827] p-1">
+              <div className="mt-5 grid grid-cols-2 rounded-[18px] border border-white/8 bg-[#121827] p-1">
                 {(['phone', 'account'] as const).map((m) => (
                   <button
                     key={m}
                     type="button"
-                    className={`flex items-center justify-center gap-2 rounded-[18px] border py-3 text-sm font-black transition-all ${
+                    className={`flex items-center justify-center gap-1.5 rounded-[14px] border py-2.5 text-xs font-black transition-all ${
                       method === m
                         ? 'border-primary/35 bg-primary/8 text-primary shadow-[0_0_18px_rgba(255,184,0,0.12)]'
                         : 'border-transparent text-[#8f96ad]'
                     }`}
                     onClick={() => { setMethod(m); setError(null); setNotice(null); setIdentifier('') }}
                   >
-                    {m === 'account' ? <User size={18} /> : <Phone size={18} />}
+                    {m === 'account' ? <User size={16} /> : <Phone size={16} />}
                     {m === 'account' ? t('auth.tabAccount') : t('auth.tabPhone')}
                   </button>
                 ))}
               </div>
 
-              <div className="mt-6 space-y-4">
+              <div className="mt-4 space-y-3">
                 <div className="relative">
-                  <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#9aa1c7]">
-                    {method === 'phone' ? <Phone size={22} /> : <User size={22} />}
+                  <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[#9aa1c7]">
+                    {method === 'phone' ? <Phone size={18} /> : <User size={18} />}
                   </span>
                   <input
                     value={identifier}
                     type={method === 'phone' ? 'tel' : 'text'}
                     autoComplete={method === 'phone' ? 'tel' : 'username'}
                     placeholder={method === 'phone' ? t('auth.phonePlaceholder') : t('auth.usernamePlaceholder')}
-                    className="w-full rounded-[18px] border border-white/12 bg-[#121824] py-4 pl-14 pr-4 text-base font-bold text-foreground transition-colors placeholder:text-[#798098] focus:border-primary focus:outline-none"
+                    className="w-full rounded-[14px] border border-white/12 bg-[#121824] py-3.5 pl-11 pr-4 text-sm font-bold text-foreground transition-colors placeholder:text-[#798098] focus:border-primary focus:outline-none"
                     onChange={(e) => onIdentifierChange(e.target.value)}
                   />
                 </div>
                 <div className="relative">
-                  <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#9aa1c7]">
-                    <Lock size={22} />
+                  <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[#9aa1c7]">
+                    <Lock size={18} />
                   </span>
                   <input
                     value={password}
                     type={showPassword ? 'text' : 'password'}
                     autoComplete="current-password"
                     placeholder={t('auth.passwordPlaceholder')}
-                    className="w-full rounded-[18px] border border-white/12 bg-[#121824] py-4 pl-14 pr-12 text-base font-bold text-foreground transition-colors placeholder:text-[#798098] focus:border-primary focus:outline-none"
+                    className="w-full rounded-[14px] border border-white/12 bg-[#121824] py-3.5 pl-11 pr-11 text-sm font-bold text-foreground transition-colors placeholder:text-[#798098] focus:border-primary focus:outline-none"
                     onChange={(e) => setPassword(e.target.value)}
                     onKeyDown={(e) => { if (e.key === 'Enter') void onPasswordSubmit() }}
                   />
                   <button
                     type="button"
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-[#9aa1c7] hover:text-foreground"
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#9aa1c7] hover:text-foreground"
                     onClick={() => setShowPassword((p) => !p)}
                     tabIndex={-1}
                   >
-                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                   </button>
                 </div>
                 <div className="flex items-center justify-between gap-3">
                   <button
                     type="button"
-                    className="flex items-center gap-2 text-sm font-bold text-[#bcc3d7]"
+                    className="flex items-center gap-2 text-xs font-bold text-[#bcc3d7]"
                     onClick={() => setRememberMe((v) => !v)}
                   >
-                    <span className={`flex h-5 w-5 items-center justify-center rounded-full border ${rememberMe ? 'border-primary bg-primary text-black' : 'border-white/20 bg-transparent text-transparent'}`}>
-                      <Check size={14} strokeWidth={3} />
+                    <span className={`flex h-[18px] w-[18px] items-center justify-center rounded-full border ${rememberMe ? 'border-primary bg-primary text-black' : 'border-white/20 bg-transparent text-transparent'}`}>
+                      <Check size={12} strokeWidth={3} />
                     </span>
                     {t('auth.rememberMe')}
                   </button>
                   <button
                     type="button"
-                    className="text-sm font-black text-primary"
+                    className="text-xs font-black text-primary"
                     onClick={() => { setView('forgot'); setError(null); setNotice(null); setResetPhone(method === 'phone' ? identifier : '') }}
                   >
                     {t('auth.forgotPassword')}
@@ -283,7 +283,7 @@ export default function LoginSheet({ open, onClose }: Props) {
                 </div>
                 <button
                   type="button"
-                  className="w-full rounded-[18px] bg-gradient-to-b from-[#ffcc19] to-[#ffae00] py-4 text-base font-black text-black shadow-[0_8px_24px_rgba(255,184,0,0.28)] transition-all active:scale-[0.98] disabled:opacity-60"
+                  className="w-full rounded-[14px] bg-gradient-to-b from-[#ffcc19] to-[#ffae00] py-3.5 text-sm font-black text-black shadow-[0_8px_24px_rgba(255,184,0,0.28)] transition-all active:scale-[0.98] disabled:opacity-60"
                   disabled={loading}
                   onClick={() => void onPasswordSubmit()}
                 >
@@ -292,25 +292,25 @@ export default function LoginSheet({ open, onClose }: Props) {
               </div>
             </>
           ) : (
-            <div className="mt-7 space-y-4">
+            <div className="mt-5 space-y-3">
               <button
                 type="button"
-                className="flex items-center gap-2 text-sm font-black text-[#bcc3d7]"
+                className="flex items-center gap-2 text-xs font-black text-[#bcc3d7]"
                 onClick={() => { setView('auth'); setError(null); setNotice(null) }}
               >
-                <ArrowLeft size={18} />
+                <ArrowLeft size={16} />
                 {t('auth.backToLogin')}
               </button>
               <div className="relative">
-                <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#9aa1c7]">
-                  <Phone size={22} />
+                <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[#9aa1c7]">
+                  <Phone size={18} />
                 </span>
                 <input
                   value={resetPhone}
                   type="tel"
                   autoComplete="tel"
                   placeholder={t('auth.phonePlaceholder')}
-                  className="w-full rounded-[18px] border border-white/12 bg-[#121824] py-4 pl-14 pr-4 text-base font-bold text-foreground transition-colors placeholder:text-[#798098] focus:border-primary focus:outline-none"
+                  className="w-full rounded-[14px] border border-white/12 bg-[#121824] py-3.5 pl-11 pr-4 text-sm font-bold text-foreground transition-colors placeholder:text-[#798098] focus:border-primary focus:outline-none"
                   onChange={(e) => setResetPhone(normalizePhoneInput(e.target.value))}
                 />
               </div>
@@ -321,7 +321,7 @@ export default function LoginSheet({ open, onClose }: Props) {
                     type="text"
                     inputMode="numeric"
                     placeholder={t('auth.otpPlaceholder')}
-                    className="w-full rounded-[18px] border border-white/12 bg-[#121824] px-4 py-4 text-base font-bold text-foreground transition-colors placeholder:text-[#798098] focus:border-primary focus:outline-none"
+                    className="w-full rounded-[14px] border border-white/12 bg-[#121824] px-4 py-3.5 text-sm font-bold text-foreground transition-colors placeholder:text-[#798098] focus:border-primary focus:outline-none"
                     onChange={(e) => setResetCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
                   />
                   <input
@@ -329,7 +329,7 @@ export default function LoginSheet({ open, onClose }: Props) {
                     type="password"
                     autoComplete="new-password"
                     placeholder={t('auth.newPasswordPlaceholder')}
-                    className="w-full rounded-[18px] border border-white/12 bg-[#121824] px-4 py-4 text-base font-bold text-foreground transition-colors placeholder:text-[#798098] focus:border-primary focus:outline-none"
+                    className="w-full rounded-[14px] border border-white/12 bg-[#121824] px-4 py-3.5 text-sm font-bold text-foreground transition-colors placeholder:text-[#798098] focus:border-primary focus:outline-none"
                     onChange={(e) => setResetPassword(e.target.value)}
                     onKeyDown={(e) => { if (e.key === 'Enter') void onResetPassword() }}
                   />
@@ -337,7 +337,7 @@ export default function LoginSheet({ open, onClose }: Props) {
               )}
               <button
                 type="button"
-                className="w-full rounded-[18px] bg-gradient-to-b from-[#ffcc19] to-[#ffae00] py-4 text-base font-black text-black shadow-[0_8px_24px_rgba(255,184,0,0.28)] transition-all active:scale-[0.98] disabled:opacity-60"
+                className="w-full rounded-[14px] bg-gradient-to-b from-[#ffcc19] to-[#ffae00] py-3.5 text-sm font-black text-black shadow-[0_8px_24px_rgba(255,184,0,0.28)] transition-all active:scale-[0.98] disabled:opacity-60"
                 disabled={loading}
                 onClick={() => resetSent ? void onResetPassword() : void onSendResetCode()}
               >
@@ -359,28 +359,28 @@ export default function LoginSheet({ open, onClose }: Props) {
 
           {view === 'auth' && (
             <>
-              <div className="my-6 flex items-center gap-4">
+              <div className="my-4 flex items-center gap-3">
                 <span className="h-px flex-1 bg-white/10" />
-                <span className="text-xs font-black uppercase text-[#8f96ad]">{t('auth.or')}</span>
+                <span className="text-[11px] font-black uppercase text-[#8f96ad]">{t('auth.or')}</span>
                 <span className="h-px flex-1 bg-white/10" />
               </div>
 
-              <p className="mb-4 text-center text-sm font-bold text-[#9aa1b8]">{t('auth.continueWith')}</p>
-              <div className="grid grid-cols-2 gap-4">
+              <p className="mb-3 text-center text-xs font-bold text-[#9aa1b8]">{t('auth.continueWith')}</p>
+              <div className="grid grid-cols-2 gap-3">
                 <button
                   type="button"
-                  className="flex min-w-0 items-center justify-center gap-2 rounded-[18px] border border-white/12 bg-[#121824] px-2 py-3 text-sm font-black text-white transition-all active:scale-[0.98] disabled:opacity-60"
+                  className="flex min-w-0 items-center justify-center gap-2 rounded-[14px] border border-white/12 bg-[#121824] px-2 py-2.5 text-xs font-black text-white transition-all active:scale-[0.98] disabled:opacity-60"
                   disabled={loading}
                   onClick={() => (isTelegram ? void onTelegramLogin() : onTelegramOidcLogin())}
                 >
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#2AABEE] text-white">
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#2AABEE] text-white">
                     <TelegramIcon />
                   </span>
                   <span className="truncate">Telegram</span>
                 </button>
                 <button
                   type="button"
-                  className="flex min-w-0 items-center justify-center gap-2 rounded-[18px] border border-white/12 bg-[#121824] px-2 py-3 text-sm font-black text-white transition-all active:scale-[0.98] disabled:opacity-60"
+                  className="flex min-w-0 items-center justify-center gap-2 rounded-[14px] border border-white/12 bg-[#121824] px-2 py-2.5 text-xs font-black text-white transition-all active:scale-[0.98] disabled:opacity-60"
                   disabled={loading}
                   onClick={onGoogleLogin}
                 >
@@ -388,7 +388,7 @@ export default function LoginSheet({ open, onClose }: Props) {
                   <span className="truncate">Google</span>
                 </button>
               </div>
-              <p className="mx-auto mt-6 max-w-[18rem] text-center text-xs font-bold leading-relaxed text-[#8f96ad]">
+              <p className="mx-auto mt-4 max-w-[17rem] text-center text-[11px] font-bold leading-relaxed text-[#8f96ad]">
                 {t('auth.termsPrefix')} <span className="text-primary">{t('home.infoTerms')}</span> {t('auth.termsAnd')} <span className="text-primary">{t('home.infoPrivacy')}</span>
               </p>
             </>
