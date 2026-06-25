@@ -80,7 +80,6 @@ DELETE FROM bg_login_log WHERE user_id != 'BG-10001';
 DELETE FROM bg_kyc_submission WHERE user_id != 'BG-10001';
 -- 实名认证记录（含进行中/已通过；影像文件由 reset-and-test.sh 同步清理）
 DELETE FROM bg_kyc WHERE user_id != 'BG-10001';
-DELETE FROM bg_user_profile WHERE user_id != 'BG-10001';
 
 -- ── 删除用户（最后）───────────────────────────────────────────
 DELETE FROM bg_user WHERE id != 'BG-10001';

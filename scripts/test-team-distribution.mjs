@@ -88,7 +88,6 @@ async function createUser(db, { displayName, inviterId }) {
        VALUES (?, ?, ?, ?, 'en', 'active', 'test', NOW(3))`,
       [id, displayName, inviteCode, inviterId ?? null]
     )
-    await conn.execute(`INSERT IGNORE INTO bg_user_profile (user_id) VALUES (?)`, [id])
     await conn.execute(
       `INSERT INTO bg_wallet (user_id, currency, available, frozen)
        VALUES (?, 'PHP', 0, 0) ON DUPLICATE KEY UPDATE user_id=user_id`,
@@ -177,7 +176,6 @@ async function cleanupPreviousRun(db) {
     await db.execute(`DELETE FROM bg_bet_order         WHERE user_id IN (SELECT id FROM bg_user WHERE label='test')`)
     await db.execute(`DELETE FROM bg_wallet_ledger     WHERE user_id IN (SELECT id FROM bg_user WHERE label='test')`)
     await db.execute(`DELETE FROM bg_wallet            WHERE user_id IN (SELECT id FROM bg_user WHERE label='test')`)
-    await db.execute(`DELETE FROM bg_user_profile      WHERE user_id IN (SELECT id FROM bg_user WHERE label='test')`)
     await db.execute(`DELETE FROM bg_user              WHERE label='test'`)
   } finally {
     await db.execute('SET FOREIGN_KEY_CHECKS=1')
