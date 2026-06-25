@@ -269,7 +269,7 @@ export default function AppShell() {
     <div className="flex w-full justify-center bg-background">
       <div className="app-frame w-full max-w-[430px] bg-background">
         {!isImmersive && (
-        <header ref={headerRef} className={`app-fixed-top bg-background ${walletOpen ? 'z-50' : ''}`}>
+        <header ref={headerRef} className="app-fixed-top bg-background" style={walletOpen ? { zIndex: 50 } : undefined}>
           <div className="app-safe-header flex items-center gap-3 px-4 pb-2">
             <button type="button" className="flex-shrink-0 cursor-pointer" onClick={goHome}><BetogoLogo /></button>
 
@@ -355,8 +355,8 @@ export default function AppShell() {
 
         {walletOpen && isLoggedIn && !isImmersive && (
           <div
-            className="fixed bottom-0 left-1/2 z-40 w-full max-w-[430px] bg-black/70 backdrop-blur-sm"
-            style={{ top: headerH, transform: 'translateX(-50%)' }}
+            className="fixed left-1/2 z-30 w-full max-w-[430px] bg-black/70 backdrop-blur-sm"
+            style={{ top: headerH, bottom: navH, transform: 'translateX(-50%)' }}
             onClick={() => setWalletOpen(false)}
           />
         )}
@@ -438,7 +438,7 @@ export default function AppShell() {
         </main>
 
         {!isImmersive && (
-        <nav ref={navRef} className="app-fixed-bottom app-safe-nav flex items-center justify-around border-t border-border bg-background px-2 pt-1">
+        <nav ref={navRef} className="app-fixed-bottom app-safe-nav flex items-center justify-around border-t border-border bg-background px-2 pt-1" style={walletOpen ? { zIndex: 50 } : undefined}>
           {navItems.map((item) => {
             const Icon = navIcon(item.id)
             return (
