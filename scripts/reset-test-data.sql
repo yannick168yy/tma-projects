@@ -3,7 +3,7 @@
 -- 适用：测试环境重置，不可用于生产
 --
 -- 清理范围：
---   存款记录、提款记录、账变记录、投注记录、流水记录
+--   存款记录、提款记录、账变记录、投注记录、流水记录、操作日志
 --   三级分销佣金/GGR/提现、佣金提现审核日志、渠道代理数据
 --   洗码返佣记录、转盘抽奖参与记录、提款审核日志、实名认证记录
 --   除 BG-10001 外的所有用户及其关联数据
@@ -14,6 +14,9 @@
 --   bg_rebate_config、bg_rebate_featured_game、bg_withdraw_review_config
 
 SET FOREIGN_KEY_CHECKS = 0;
+
+-- ── 后台操作日志 ─────────────────────────────────────────────
+DELETE FROM admin_audit_log;
 
 -- ── 三级分销：佣金、GGR、提现、钱包、归属树、日流水快照 ─────
 DELETE FROM bg_team_commission;
@@ -89,6 +92,7 @@ SET FOREIGN_KEY_CHECKS = 1;
 
 -- ── 验证 ─────────────────────────────────────────────────────
 SELECT 'bg_user'           AS tbl, COUNT(*) AS remaining FROM bg_user
+UNION ALL SELECT 'admin_audit_log',   COUNT(*) FROM admin_audit_log
 UNION ALL SELECT 'bg_bet_order',       COUNT(*) FROM bg_bet_order
 UNION ALL SELECT 'bg_team_commission', COUNT(*) FROM bg_team_commission
 UNION ALL SELECT 'bg_team_withdraw_review_log', COUNT(*) FROM bg_team_withdraw_review_log

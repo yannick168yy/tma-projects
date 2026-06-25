@@ -5,7 +5,7 @@
 #
 # 注意：本脚本不修改 bg_team_rate_plan / bg_team_config（佣金套餐与费率）。
 #       勿在 bff-node 部署迁移中用 team_config 覆盖已配置的套餐（见 044 迁移）。
-#       重置会清空 KYC 数据、Redis KYC 缓存与 data/kyc 影像文件（含 BG-10001）。
+#       重置会清空投注记录、操作日志、KYC 数据、Redis KYC 缓存与 data/kyc 影像文件（含 BG-10001）。
 set -euo pipefail
 
 HOST=root@47.84.34.139
