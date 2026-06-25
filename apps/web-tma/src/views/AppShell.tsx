@@ -102,6 +102,7 @@ export default function AppShell() {
   const mainRef = useRef<HTMLElement>(null)
   const balanceTriggerRef = useRef<HTMLButtonElement>(null)
   const walletPanelRef = useRef<HTMLDivElement>(null)
+  const walletBackdropRef = useRef<HTMLDivElement>(null)
   const [headerH, setHeaderH] = useState(80)
   const [navH, setNavH] = useState(64)
 
@@ -113,6 +114,7 @@ export default function AppShell() {
     function onPointerDown(e: PointerEvent) {
       const target = e.target as Node
       if (walletPanelRef.current?.contains(target)) return
+      if (walletBackdropRef.current?.contains(target)) return
       if (balanceTriggerRef.current?.contains(target)) return
       setWalletOpen(false)
     }
@@ -355,9 +357,11 @@ export default function AppShell() {
 
         {walletOpen && isLoggedIn && !isImmersive && (
           <div
+            ref={walletBackdropRef}
             className="pointer-events-auto fixed left-1/2 z-[49] w-full max-w-[430px] bg-black/70 backdrop-blur-sm"
             style={{ top: headerH, bottom: navH, transform: 'translateX(-50%)' }}
-            onClick={() => setWalletOpen(false)}
+            onPointerDown={(e) => { e.stopPropagation() }}
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setWalletOpen(false) }}
           />
         )}
 
