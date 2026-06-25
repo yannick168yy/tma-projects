@@ -13,7 +13,7 @@ const router = new Router({ prefix: '/deposits/ton' })
 
 router.post('/', async (ctx) => {
   if (isMysqlEnabled(ctx.state.env) && !(await isCryptoChannelEnabled(ctx.state.env, 'ton'))) {
-    fail(ctx, 403, '该渠道已关闭'); return
+    fail(ctx, 403, 'errors.channelClosed'); return
   }
   const body = ctx.request.body as { amount?: number; walletAddress?: string }
 

@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next'
 import { Send, Headphones, Loader2 } from 'lucide-react'
 import { sendCsMessage, fetchCsHistory } from '@/api/cs'
 import type { CsMessage } from '@/api/cs'
+import { ApiError } from '@/api/client'
+import { translateApiError } from '@/utils/translateApiError'
 import { useAuthStore } from '@/stores/auth'
 
 interface Props { onClose: () => void }
@@ -43,8 +45,9 @@ export default function CustomerServicePage({ onClose }: Props) {
       const reply: CsMessage = { id: Date.now() + 1, conversationId: res.conversationId, role: res.status === 'human_taken' ? 'admin' : 'assistant', content: res.reply, createdAt: new Date().toISOString() }
       setMessages((prev) => [...prev, reply])
       scrollToBottom()
-    } catch {
-      const errMsg: CsMessage = { id: Date.now() + 1, conversationId: 0, role: 'assistant', content: t('cs.sendFailed'), createdAt: new Date().toISOString() }
+    } catch (e) {
+      const content = e instanceof ApiError ? translateApiError(e.message, t) : t('cs.sendFailed')
+      const errMsg: CsMessage = { id: Date.now() + 1, conversationId: 0, role: 'assistant', content, createdAt: new Date().toISOString() }
       setMessages((prev) => [...prev, errMsg])
     } finally {
       setSending(false)

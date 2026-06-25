@@ -35,11 +35,11 @@ const router = new Router()
 router.post('/cs/message', async (ctx) => {
   const { message } = ctx.request.body as { message?: string }
   if (!message?.trim()) {
-    fail(ctx, 400, '消息不能为空')
+    fail(ctx, 400, 'errors.csEmpty')
     return
   }
   if (message.length > 2000) {
-    fail(ctx, 400, '消息过长')
+    fail(ctx, 400, 'errors.csTooLong')
     return
   }
 
@@ -56,7 +56,7 @@ router.post('/cs/message', async (ctx) => {
       3600,
     )
     if (limited) {
-      fail(ctx, 429, `发送消息过于频繁，请 ${Math.ceil(retryAfter / 60)} 分钟后重试`)
+      fail(ctx, 429, `errors.csTooFrequent:${Math.ceil(retryAfter / 60)}`)
       return
     }
   } else {
@@ -68,7 +68,7 @@ router.post('/cs/message', async (ctx) => {
       60,
     )
     if (limited) {
-      fail(ctx, 429, `每分钟最多发送 ${USER_MINUTE_LIMIT} 条消息，请稍后再试`)
+      fail(ctx, 429, `errors.csMinuteLimit:${USER_MINUTE_LIMIT}`)
       return
     }
   }

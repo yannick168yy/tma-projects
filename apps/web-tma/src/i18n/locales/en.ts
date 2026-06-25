@@ -1,4 +1,23 @@
 export default {
+  errors: {
+    channelClosed: 'This channel is currently closed',
+    kycRequired: 'Please complete identity verification (KYC) first',
+    duplicateWithdraw: 'Please do not submit duplicate withdrawal requests',
+    turnoverIncomplete: 'Turnover not yet met, withdrawal unavailable',
+    insufficientBalance: 'Insufficient balance',
+    withdrawableInsufficient: 'Insufficient withdrawable balance',
+    amountOrChannelUnavailable: 'This amount or channel is unavailable, please adjust the amount and try again',
+    minWithdrawal: 'Minimum withdrawal ₱{{value}}',
+    accountDebt: 'Your account has an outstanding balance, please contact support first',
+    withdrawSubmitFailed: 'Withdrawal request failed, please try again',
+    notAgent: 'Not an agent account',
+    tooManyAttempts: 'Too many attempts, please try again later',
+    noPermission: 'Operation not allowed',
+    csEmpty: 'Message cannot be empty',
+    csTooLong: 'Message is too long',
+    csTooFrequent: 'Sending messages too frequently, please try again in {{value}} min',
+    csMinuteLimit: 'You can send at most {{value}} messages per minute, please try again later',
+  },
   common: {
     hot: 'HOT',
     new: 'NEW',

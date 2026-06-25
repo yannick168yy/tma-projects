@@ -95,7 +95,7 @@ router.post('/payment/deposit/create', async (ctx) => {
 
   const provider = await resolveChannel(ctx.state.env, channelName, 'deposit', amount, 'PHP')
   if (!provider) {
-    fail(ctx, 400, '当前金额或渠道暂不可用，请调整金额后重试'); return
+    fail(ctx, 400, 'errors.amountOrChannelUnavailable'); return
   }
 
   const merchantSerial = randomOrderId(provider === 'yfpay' ? 'YFD' : 'BPD')
@@ -164,7 +164,7 @@ router.post('/payment/deposit/query', async (ctx) => {
   let provider = 'yfpay'
   if (isMysqlEnabled(ctx.state.env)) {
     const order = await getDeposit(ctx.state.redis, body.merchantSerial)
-    if (!order || order.userId !== ctx.state.userId) { fail(ctx, 403, '无权查询此订单'); return }
+    if (!order || order.userId !== ctx.state.userId) { fail(ctx, 403, 'errors.noPermission'); return }
     provider = order.provider ?? 'yfpay'
   }
 
@@ -220,25 +220,25 @@ router.post('/payment/withdraw/create', async (ctx) => {
   const redis = ctx.state.redis as Redis
 
   if (!(await isKycApproved(redis, ctx.state.env, userId))) {
-    fail(ctx, 403, '请先完成实名认证（KYC）', 403); return
+    fail(ctx, 403, 'errors.kycRequired', 403); return
   }
 
   const lockKey = `withdraw:lock:${userId}`
   const lockVal = randomBytes(8).toString('hex')
   const locked = await redis.set(lockKey, lockVal, 'EX', 30, 'NX')
-  if (!locked) { fail(ctx, 429, '请勿重复提交提现请求'); return }
+  if (!locked) { fail(ctx, 429, 'errors.duplicateWithdraw'); return }
 
   try {
     if (isMysqlEnabled(ctx.state.env)) {
       const turnoverOk = await checkTurnover(getMysqlPool(ctx.state.env), userId, 'PHP')
-      if (!turnoverOk) { fail(ctx, 403, '流水未完成，暂不可提现'); return }
+      if (!turnoverOk) { fail(ctx, 403, 'errors.turnoverIncomplete'); return }
     }
 
     const wallet = await getWallet(redis, userId)
-    if (wallet.available < amount) { fail(ctx, 400, '余额不足'); return }
+    if (wallet.available < amount) { fail(ctx, 400, 'errors.insufficientBalance'); return }
 
     const provider = await resolveChannel(ctx.state.env, channelName, 'withdraw', amount, 'PHP')
-    if (!provider) { fail(ctx, 400, '当前金额或渠道暂不可用'); return }
+    if (!provider) { fail(ctx, 400, 'errors.amountOrChannelUnavailable'); return }
 
     // provider 专用渠道码：yfpay 代付使用 bank-codes 数字编码，beepay 待文档确认
     const channelCode = channelName.toUpperCase()

@@ -75,7 +75,7 @@ router.post('/', async (ctx) => {
       return
     }
     if (isMysqlEnabled(ctx.state.env) && !(await isCryptoChannelEnabled(ctx.state.env, `matrix_${symbol.toLowerCase()}_w`))) {
-      fail(ctx, 403, '该渠道已关闭'); return
+      fail(ctx, 403, 'errors.channelClosed'); return
     }
     const cryptoAmt = Number(cryptoAmount)
     if (!Number.isFinite(cryptoAmt) || cryptoAmt <= 0) {
@@ -88,7 +88,7 @@ router.post('/', async (ctx) => {
 
     // KYC 硬闸门：未实名禁止提款
     if (!(await isKycApproved(redis, ctx.state.env, userId))) {
-      fail(ctx, 403, '请先完成实名认证（KYC）', 403)
+      fail(ctx, 403, 'errors.kycRequired', 403)
       return
     }
 
@@ -96,7 +96,7 @@ router.post('/', async (ctx) => {
     const lockVal = randomBytes(8).toString('hex')
     const locked = await redis.set(lockKey, lockVal, 'EX', 30, 'NX')
     if (!locked) {
-      fail(ctx, 429, '请勿重复提交提现请求')
+      fail(ctx, 429, 'errors.duplicateWithdraw')
       return
     }
 
@@ -107,7 +107,7 @@ router.post('/', async (ctx) => {
       if (isMysqlEnabled(ctx.state.env)) {
         const turnoverOk = await checkTurnover(getMysqlPool(ctx.state.env), userId, currency)
         if (!turnoverOk) {
-          fail(ctx, 403, '流水未完成，暂不可提现')
+          fail(ctx, 403, 'errors.turnoverIncomplete')
           return
         }
       }
@@ -179,7 +179,7 @@ router.post('/', async (ctx) => {
 
   // KYC 硬闸门：未实名禁止提款
   if (!(await isKycApproved(redis, ctx.state.env, userId))) {
-    fail(ctx, 403, '请先完成实名认证（KYC）', 403)
+    fail(ctx, 403, 'errors.kycRequired', 403)
     return
   }
 
@@ -188,7 +188,7 @@ router.post('/', async (ctx) => {
   const lockVal = randomBytes(8).toString('hex')
   const locked = await redis.set(lockKey, lockVal, 'EX', 30, 'NX')
   if (!locked) {
-    fail(ctx, 429, '请勿重复提交提现请求')
+    fail(ctx, 429, 'errors.duplicateWithdraw')
     return
   }
 
@@ -197,7 +197,7 @@ router.post('/', async (ctx) => {
     if (isMysqlEnabled(ctx.state.env)) {
       const turnoverOk = await checkTurnover(getMysqlPool(ctx.state.env), userId, 'PHP')
       if (!turnoverOk) {
-        fail(ctx, 403, '流水未完成，暂不可提现')
+        fail(ctx, 403, 'errors.turnoverIncomplete')
         return
       }
     }

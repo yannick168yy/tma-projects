@@ -4,6 +4,7 @@ import { ChevronLeft, Copy, Share2, Link2, Wallet, TrendingUp, CheckCircle2, Clo
 import KycModal from '@/components/wallet/KycModal'
 import { useKycGate } from '@/hooks/useKycGate'
 import { fetchTeamTree, type TeamTreeNode, type CurrencyBreakdownItem } from '@/api/promotion'
+import { translateApiError } from '@/utils/translateApiError'
 import { buildInviteDeepLink, buildInviteWebLink } from '@/constants/telegram'
 import { useAuthStore } from '@/stores/auth'
 import { usePromotionStore } from '@/stores/promotion'
@@ -226,7 +227,7 @@ export default function TeamCenterPage({ onClose }: { onClose?: () => void }) {
     const res = await store.submitWithdrawal(cents)
     setWithdrawing(false)
     if (res.ok) setWithdrawInput('')
-    else setWithdrawError(res.message ?? t('team.withdrawFailed'))
+    else setWithdrawError(res.message ? translateApiError(res.message, t) : t('team.withdrawFailed'))
   }
 
   // ── 数据引用 ──────────────────────────────────────────────────────────────────

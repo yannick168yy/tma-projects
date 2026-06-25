@@ -95,7 +95,7 @@ router.post('/deposit/yfpay/query', async (ctx) => {
   if (isMysqlEnabled(ctx.state.env)) {
     const order = await getDeposit(ctx.state.redis, body.merchantSerial)
     if (!order || order.userId !== ctx.state.userId) {
-      fail(ctx, 403, '无权查询此订单')
+      fail(ctx, 403, 'errors.noPermission')
       return
     }
   }
@@ -161,7 +161,7 @@ router.post('/withdraw/yfpay/create', async (ctx) => {
 
   // KYC 硬闸门：未实名禁止提款
   if (!(await isKycApproved(redis, ctx.state.env, userId))) {
-    fail(ctx, 403, '请先完成实名认证（KYC）', 403)
+    fail(ctx, 403, 'errors.kycRequired', 403)
     return
   }
 
@@ -170,7 +170,7 @@ router.post('/withdraw/yfpay/create', async (ctx) => {
   const lockVal = randomBytes(8).toString('hex')
   const locked = await redis.set(lockKey, lockVal, 'EX', 30, 'NX')
   if (!locked) {
-    fail(ctx, 429, '请勿重复提交提现请求')
+    fail(ctx, 429, 'errors.duplicateWithdraw')
     return
   }
 
@@ -179,7 +179,7 @@ router.post('/withdraw/yfpay/create', async (ctx) => {
     if (isMysqlEnabled(ctx.state.env)) {
       const turnoverOk = await checkTurnover(getMysqlPool(ctx.state.env), userId, 'PHP')
       if (!turnoverOk) {
-        fail(ctx, 403, '流水未完成，暂不可提现')
+        fail(ctx, 403, 'errors.turnoverIncomplete')
         return
       }
     }
@@ -187,7 +187,7 @@ router.post('/withdraw/yfpay/create', async (ctx) => {
     // 检查余额是否充足
     const wallet = await getWallet(redis, userId)
     if (wallet.available < amount) {
-      fail(ctx, 400, '余额不足')
+      fail(ctx, 400, 'errors.insufficientBalance')
       return
     }
 
@@ -244,7 +244,7 @@ router.post('/withdraw/yfpay/query', async (ctx) => {
   if (isMysqlEnabled(ctx.state.env)) {
     const order = await getWithdraw(ctx.state.redis, body.merchantSerial)
     if (!order || order.userId !== ctx.state.userId) {
-      fail(ctx, 403, '无权查询此订单')
+      fail(ctx, 403, 'errors.noPermission')
       return
     }
   }

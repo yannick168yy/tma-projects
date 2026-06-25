@@ -181,7 +181,7 @@ router.post('/login', async (ctx) => {
   const throttleKey = `auth:login:fails:${ip}:${body.method}:${body.identifier}`
   const fails = Number((await ctx.state.redis.get(throttleKey)) ?? 0)
   if (fails >= LOGIN_MAX_FAILS) {
-    fail(ctx, 429, '尝试次数过多，请稍后再试', 429)
+    fail(ctx, 429, 'errors.tooManyAttempts', 429)
     return
   }
   try {

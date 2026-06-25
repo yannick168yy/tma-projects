@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom'
 import BetogoLogo from '@/components/BetogoLogo'
 import { useAuthStore } from '@/stores/auth'
 import { getStoredReferral } from '@/utils/referral'
+import { translateApiError } from '@/utils/translateApiError'
 import type { PasswordMethod } from '@/types/api'
 
 interface Props {
@@ -58,7 +59,7 @@ export default function LoginSheet({ open, onClose }: Props) {
     try {
       await loginWithTelegram()
     } catch (e) {
-      setError(e instanceof Error ? e.message : t('auth.loginFailed'))
+      setError(e instanceof Error ? translateApiError(e.message, t) : t('auth.loginFailed'))
     } finally {
       setLoading(false)
     }
@@ -70,7 +71,7 @@ export default function LoginSheet({ open, onClose }: Props) {
     try {
       loginWithGoogle()
     } catch (e) {
-      setError(e instanceof Error ? e.message : t('auth.loginFailed'))
+      setError(e instanceof Error ? translateApiError(e.message, t) : t('auth.loginFailed'))
       setLoading(false)
     }
   }
@@ -81,7 +82,7 @@ export default function LoginSheet({ open, onClose }: Props) {
     try {
       loginWithTelegramOidc()
     } catch (e) {
-      setError(e instanceof Error ? e.message : t('auth.loginFailed'))
+      setError(e instanceof Error ? translateApiError(e.message, t) : t('auth.loginFailed'))
       setLoading(false)
     }
   }
@@ -97,7 +98,7 @@ export default function LoginSheet({ open, onClose }: Props) {
       if (mode === 'login') await loginWithPassword(method, identifier.trim(), password)
       else await registerWithPassword(method, identifier.trim(), password, manualRefCode.trim() || undefined)
     } catch (e) {
-      setError(e instanceof Error ? e.message : t('auth.loginFailed'))
+      setError(e instanceof Error ? translateApiError(e.message, t) : t('auth.loginFailed'))
     } finally {
       setLoading(false)
     }

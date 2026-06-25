@@ -1,4 +1,23 @@
 export default {
+  errors: {
+    channelClosed: 'Saluran ini sedang ditutup',
+    kycRequired: 'Selesaikan verifikasi identitas (KYC) terlebih dahulu',
+    duplicateWithdraw: 'Jangan mengirim permintaan penarikan berulang',
+    turnoverIncomplete: 'Turnover belum terpenuhi, penarikan belum tersedia',
+    insufficientBalance: 'Saldo tidak mencukupi',
+    withdrawableInsufficient: 'Saldo yang dapat ditarik tidak mencukupi',
+    amountOrChannelUnavailable: 'Jumlah atau saluran ini tidak tersedia, sesuaikan jumlah lalu coba lagi',
+    minWithdrawal: 'Penarikan minimum ₱{{value}}',
+    accountDebt: 'Akun Anda memiliki tunggakan, silakan hubungi dukungan terlebih dahulu',
+    withdrawSubmitFailed: 'Permintaan penarikan gagal, silakan coba lagi',
+    notAgent: 'Bukan akun agen',
+    tooManyAttempts: 'Terlalu banyak percobaan, coba lagi nanti',
+    noPermission: 'Operasi tidak diizinkan',
+    csEmpty: 'Pesan tidak boleh kosong',
+    csTooLong: 'Pesan terlalu panjang',
+    csTooFrequent: 'Mengirim pesan terlalu sering, coba lagi dalam {{value}} menit',
+    csMinuteLimit: 'Maksimal {{value}} pesan per menit, coba lagi nanti',
+  },
   common: {
     hot: 'HOT',
     new: 'BARU',

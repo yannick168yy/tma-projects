@@ -14,7 +14,7 @@ router.get('/center', async (ctx) => {
     `SELECT agent_id, name, ggr_rate_pct, status FROM bg_agent WHERE agent_id = ?`,
     [userId],
   )
-  if (!agent || agent.status !== 'active') { fail(ctx, 403, '非代理用户', 403); return }
+  if (!agent || agent.status !== 'active') { fail(ctx, 403, 'errors.notAgent', 403); return }
 
   const [channels] = await db.query<RowDataPacket[]>(
     `SELECT 'domain' AS channel_type, domain AS channel_value, enabled, created_at
@@ -57,7 +57,7 @@ router.get('/users', async (ctx) => {
   const [[agent]] = await db.query<RowDataPacket[]>(
     `SELECT status FROM bg_agent WHERE agent_id = ?`, [userId],
   )
-  if (!agent || agent.status !== 'active') { fail(ctx, 403, '非代理用户', 403); return }
+  if (!agent || agent.status !== 'active') { fail(ctx, 403, 'errors.notAgent', 403); return }
 
   const page = Math.max(1, Number(ctx.query.page ?? 1))
   const pageSize = Math.min(50, Math.max(10, Number(ctx.query.pageSize ?? 20)))

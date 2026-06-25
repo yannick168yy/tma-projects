@@ -1,0 +1,12 @@
+type Translate = (key: string, opts?: Record<string, unknown>) => string
+
+/**
+ * 后端把可本地化的错误以 i18n key 返回（约定 `errors.*`；带参数用 `errors.x:值`），
+ * 前端展示前翻译；非 key 文案原样返回，兼容尚未 key 化的旧消息。
+ */
+export function translateApiError(message: string, t: Translate): string {
+  const withParam = message.match(/^(errors\.[a-zA-Z]+):(.+)$/)
+  if (withParam) return t(withParam[1], { value: withParam[2] })
+  if (/^errors\.[a-zA-Z]+$/.test(message)) return t(message)
+  return message
+}

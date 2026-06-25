@@ -1,4 +1,23 @@
 export default {
+  errors: {
+    channelClosed: 'Kênh này hiện đang đóng',
+    kycRequired: 'Vui lòng hoàn tất xác minh danh tính (KYC) trước',
+    duplicateWithdraw: 'Vui lòng không gửi yêu cầu rút tiền trùng lặp',
+    turnoverIncomplete: 'Chưa đạt doanh số, chưa thể rút tiền',
+    insufficientBalance: 'Số dư không đủ',
+    withdrawableInsufficient: 'Số dư có thể rút không đủ',
+    amountOrChannelUnavailable: 'Số tiền hoặc kênh này không khả dụng, vui lòng điều chỉnh số tiền và thử lại',
+    minWithdrawal: 'Rút tối thiểu ₱{{value}}',
+    accountDebt: 'Tài khoản của bạn đang có khoản nợ, vui lòng liên hệ hỗ trợ trước',
+    withdrawSubmitFailed: 'Yêu cầu rút tiền thất bại, vui lòng thử lại',
+    notAgent: 'Không phải tài khoản đại lý',
+    tooManyAttempts: 'Quá nhiều lần thử, vui lòng thử lại sau',
+    noPermission: 'Thao tác không được phép',
+    csEmpty: 'Tin nhắn không được để trống',
+    csTooLong: 'Tin nhắn quá dài',
+    csTooFrequent: 'Gửi tin nhắn quá thường xuyên, vui lòng thử lại sau {{value}} phút',
+    csMinuteLimit: 'Tối đa {{value}} tin nhắn mỗi phút, vui lòng thử lại sau',
+  },
   common: {
     hot: 'HOT',
     new: 'MỚI',

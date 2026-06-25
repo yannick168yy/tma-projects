@@ -1,4 +1,23 @@
 export default {
+  errors: {
+    channelClosed: '该渠道已关闭',
+    kycRequired: '请先完成实名认证（KYC）',
+    duplicateWithdraw: '请勿重复提交提现请求',
+    turnoverIncomplete: '流水未完成，暂不可提现',
+    insufficientBalance: '余额不足',
+    withdrawableInsufficient: '可提余额不足',
+    amountOrChannelUnavailable: '当前金额或渠道暂不可用，请调整金额后重试',
+    minWithdrawal: '最低提现 ₱{{value}}',
+    accountDebt: '账户存在欠款，请先联系客服处理',
+    withdrawSubmitFailed: '提现申请失败，请重试',
+    notAgent: '非代理用户',
+    tooManyAttempts: '尝试次数过多，请稍后再试',
+    noPermission: '无权操作',
+    csEmpty: '消息不能为空',
+    csTooLong: '消息过长',
+    csTooFrequent: '发送消息过于频繁，请 {{value}} 分钟后重试',
+    csMinuteLimit: '每分钟最多发送 {{value}} 条消息，请稍后再试',
+  },
   common: {
     hot: '热门',
     new: '新品',

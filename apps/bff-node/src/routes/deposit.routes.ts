@@ -30,7 +30,7 @@ router.post('/', async (ctx) => {
     return
   }
   if (isMysqlEnabled(ctx.state.env) && !(await isCryptoChannelEnabled(ctx.state.env, `tg_wallet_${currency.toLowerCase()}`))) {
-    fail(ctx, 403, '该渠道已关闭'); return
+    fail(ctx, 403, 'errors.channelClosed'); return
   }
 
   const orderId = randomOrderId('DEP')
@@ -148,7 +148,7 @@ router.get('/matrix/address', async (ctx) => {
     return
   }
   if (isMysqlEnabled(ctx.state.env) && !(await isCryptoChannelEnabled(ctx.state.env, `matrix_${symbol.toLowerCase()}`))) {
-    fail(ctx, 403, '该渠道已关闭'); return
+    fail(ctx, 403, 'errors.channelClosed'); return
   }
 
   try {

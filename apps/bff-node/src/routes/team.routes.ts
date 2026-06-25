@@ -222,11 +222,11 @@ router.post('/withdraw', async (ctx) => {
     `SELECT min_withdrawal_cents FROM bg_team_config WHERE id = 1 LIMIT 1`,
   )
   if (amountCents < Number(cfg?.min_withdrawal_cents ?? 5000)) {
-    fail(ctx, 400, `最低提现 ₱${(Number(cfg?.min_withdrawal_cents ?? 5000) / 100).toFixed(0)}`); return
+    fail(ctx, 400, `errors.minWithdrawal:${(Number(cfg?.min_withdrawal_cents ?? 5000) / 100).toFixed(0)}`); return
   }
 
   if (!(await isKycApproved(ctx.state.redis, ctx.state.env, userId))) {
-    fail(ctx, 403, '请先完成实名认证（KYC）', 403)
+    fail(ctx, 403, 'errors.kycRequired', 403)
     return
   }
 
@@ -236,10 +236,10 @@ router.post('/withdraw', async (ctx) => {
       `SELECT available_cents, version FROM bg_team_wallet WHERE user_id = ? AND currency = 'PHP' LIMIT 1`,
       [userId],
     )
-    if (!wallet) { fail(ctx, 400, '可提余额不足'); return }
+    if (!wallet) { fail(ctx, 400, 'errors.withdrawableInsufficient'); return }
     const available = Number(wallet.available_cents)
-    if (available < 0) { fail(ctx, 400, '账户存在欠款，请先联系客服处理'); return }
-    if (available < amountCents) { fail(ctx, 400, '可提余额不足'); return }
+    if (available < 0) { fail(ctx, 400, 'errors.accountDebt'); return }
+    if (available < amountCents) { fail(ctx, 400, 'errors.withdrawableInsufficient'); return }
     const [res] = await db.execute<import('mysql2/promise').ResultSetHeader>(
       `UPDATE bg_team_wallet
        SET available_cents = available_cents - ?,
@@ -257,7 +257,7 @@ router.post('/withdraw', async (ctx) => {
       break
     }
   }
-  if (!withdrawalId) { fail(ctx, 500, '提现申请失败，请重试'); return }
+  if (!withdrawalId) { fail(ctx, 500, 'errors.withdrawSubmitFailed'); return }
   await reviewTeamWithdrawal(ctx.state.env, ctx.state.redis, withdrawalId)
   ok(ctx, { withdrawalId })
 })
