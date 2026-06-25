@@ -27,6 +27,7 @@ export default function BonusesPage({ promoFilter, onOpenWallet, onOpenTeam }: P
   const ensureLoggedIn = useAuthStore((s) => s.ensureLoggedIn)
 
   const highlightMap = useMemo(() => getHighlightMap(), [highlights])
+  const bonusWinners = useMemo(() => Array.from({ length: 50 }, (_, i) => BONUS_WINNERS[i % BONUS_WINNERS.length]), [])
 
   const [expanded, setExpanded] = useState<string | null>(promoFilter ?? null)
   const [promoError, setPromoError] = useState<string | null>(null)
@@ -163,8 +164,8 @@ export default function BonusesPage({ promoFilter, onOpenWallet, onOpenTeam }: P
         </div>
         <div className="w-px h-3 bg-border flex-shrink-0" />
         <div className="overflow-hidden flex-1">
-          <div className="flex gap-5 animate-marquee whitespace-nowrap" style={{ animationDuration: '3.5s' }}>
-            {[...BONUS_WINNERS, ...BONUS_WINNERS].map((w, i) => (
+          <div className="flex gap-5 animate-marquee whitespace-nowrap" style={{ animationDuration: '35s' }}>
+            {[...bonusWinners, ...bonusWinners].map((w, i) => (
               <span key={i} className="text-[11px] flex-shrink-0">
                 <span className="text-primary font-bold">{w.name}</span>
                 <span className="text-white/50"> {t('common.claimed')} </span>

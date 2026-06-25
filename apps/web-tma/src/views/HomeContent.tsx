@@ -90,7 +90,10 @@ export default function HomeContent({ onNavigatePath, onOpenCategoryLobby, onOpe
   const bannerTrackRef = useRef<HTMLDivElement>(null)
   const cardTrackRef = useRef<HTMLDivElement>(null)
   const bannerDragRef = useRef({ startX: 0, startY: 0, startScroll: 0, axis: null as 'x'|'y'|null, lastX: 0, lastT: 0 })
-  const marqueeWinners = useMemo(() => [...WINNERS, ...WINNERS], [])
+  const marqueeWinners = useMemo(() => {
+    const items = Array.from({ length: 50 }, (_, i) => WINNERS[i % WINNERS.length])
+    return [...items, ...items]
+  }, [])
 
   function onBannerScroll() {
     const el = bannerTrackRef.current; if (!el || el.clientWidth <= 0) return
@@ -446,7 +449,7 @@ const [gamesLoading, setGamesLoading] = useState(true)
         <div className="flex-shrink-0 flex items-center gap-1.5 text-primary"><Trophy size={13} /><span className="text-xs font-bold uppercase tracking-wide whitespace-nowrap">{t('home.recentWins')}</span></div>
         <div className="w-px h-4 bg-border flex-shrink-0" />
         <div className="overflow-hidden flex-1">
-          <div className="flex gap-6 animate-marquee whitespace-nowrap">
+          <div className="flex gap-6 animate-marquee whitespace-nowrap" style={{ animationDuration: '45s' }}>
             {marqueeWinners.map((w, i) => <span key={i} className="text-xs text-foreground/80 flex-shrink-0"><span className="text-primary font-bold">{w.name}</span> {t('common.won')} <span className="text-emerald-400 font-bold">{w.amount}</span> · <span className="text-muted-foreground">{w.game}</span></span>)}
           </div>
         </div>
