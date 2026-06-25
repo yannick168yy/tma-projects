@@ -41,6 +41,7 @@ interface AuthActions {
   loginWithGoogle: () => void
   loginWithTelegramOidc: () => void
   loginWithPassword: (method: PasswordMethod, identifier: string, password: string) => Promise<void>
+  loginOrRegisterWithPassword: (method: PasswordMethod, identifier: string, password: string, refCodeOverride?: string) => Promise<void>
   registerWithPassword: (method: PasswordMethod, identifier: string, password: string, refCodeOverride?: string) => Promise<void>
   logout: () => Promise<void>
 }
@@ -172,6 +173,15 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
     get().closeLoginSheet()
     useWalletStore.getState().setBalance(await fetchBalance())
     await usePromotionStore.getState().refreshHighlights()
+  },
+
+  async loginOrRegisterWithPassword(method, identifier, password, refCodeOverride?: string) {
+    try {
+      await get().loginWithPassword(method, identifier, password)
+    } catch (e) {
+      if (!(e instanceof Error) || e.message !== 'Invalid credentials') throw e
+      await get().registerWithPassword(method, identifier, password, refCodeOverride)
+    }
   },
 
   async registerWithPassword(method, identifier, password, refCodeOverride?: string) {

@@ -141,6 +141,20 @@ export async function loginPassword(
   })
 }
 
+export async function sendForgotPasswordOtp(phone: string): Promise<{ phone: string; resendInSec: number }> {
+  return apiRequest('/auth/forgot-password/send-otp', {
+    method: 'POST',
+    body: JSON.stringify({ phone }),
+  })
+}
+
+export async function resetForgotPassword(phone: string, code: string, password: string): Promise<null> {
+  return apiRequest('/auth/forgot-password/reset', {
+    method: 'POST',
+    body: JSON.stringify({ phone, code, password }),
+  })
+}
+
 export async function logoutSession(): Promise<void> {
   if (useMock) return
   try {

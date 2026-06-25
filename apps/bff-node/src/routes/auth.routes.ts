@@ -1,6 +1,6 @@
 import Router from '@koa/router'
 import type { PasswordMethod } from '../services/auth.service.js'
-import { AuthError, loginWithGoogleCode, loginWithInitData, loginWithPassword, loginWithTelegramOidc, loginWithTelegramWidget, logout, refreshSession, registerWithPassword, resolveSession, toAuthUser } from '../services/auth.service.js'
+import { AuthError, loginWithGoogleCode, loginWithInitData, loginWithPassword, loginWithTelegramOidc, loginWithTelegramWidget, logout, refreshSession, registerWithPassword, resetForgotPassword, resolveSession, sendForgotPasswordOtp, toAuthUser } from '../services/auth.service.js'
 import { recordUserLogin } from '../services/store/index.js'
 import { lookupRegion } from '../services/geo.service.js'
 import { attributeAgentByDomain } from '../services/agent.service.js'
@@ -210,6 +210,44 @@ router.post('/login', async (ctx) => {
       const n = await ctx.state.redis.incr(throttleKey)
       if (n === 1) await ctx.state.redis.expire(throttleKey, LOGIN_WINDOW_SEC)
       fail(ctx, 401, e.message, 401)
+      return
+    }
+    throw e
+  }
+})
+
+router.post('/forgot-password/send-otp', async (ctx) => {
+  const body = ctx.request.body as { phone?: string }
+  if (!body.phone) {
+    fail(ctx, 400, 'phone is required')
+    return
+  }
+  try {
+    const result = await sendForgotPasswordOtp(ctx.state.redis, ctx.state.env, body.phone)
+    ok(ctx, result)
+  } catch (e) {
+    if (e instanceof AuthError) {
+      const status = e.status ?? 400
+      fail(ctx, status, e.message, status)
+      return
+    }
+    throw e
+  }
+})
+
+router.post('/forgot-password/reset', async (ctx) => {
+  const body = ctx.request.body as { phone?: string; code?: string; password?: string }
+  if (!body.phone || !body.code || !body.password) {
+    fail(ctx, 400, 'phone, code and password are required')
+    return
+  }
+  try {
+    await resetForgotPassword(ctx.state.redis, body.phone, body.code, body.password)
+    ok(ctx, null)
+  } catch (e) {
+    if (e instanceof AuthError) {
+      const status = e.status ?? 400
+      fail(ctx, status, e.message, status)
       return
     }
     throw e
