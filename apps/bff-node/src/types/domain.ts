@@ -11,21 +11,22 @@ export interface LivenessFrameMeta {
   capturedAt: string
 }
 export type DepositCurrency = 'PHP' | 'USDT' | 'TON'
+export type IdentityProvider = 'phone' | 'account' | 'google' | 'telegram' | 'telegram_oidc'
+
+export interface UserIdentity {
+  id?: number
+  userId: string
+  provider: IdentityProvider
+  identifier: string
+  credentialHash?: string
+  displayLabel?: string
+  verifiedAt?: string
+  createdAt?: string
+  updatedAt?: string
+}
 
 export interface UserRecord {
   id: string
-  telegramUserId?: number
-  /** Telegram @username without @ */
-  telegramUsername?: string
-  /** Telegram 网页登录(OIDC) 的 sub：按 bot 派生的匿名 id，与 telegramUserId 不同 */
-  telegramOidcSub?: string
-  googleSub?: string
-  /** 账号登录用户名 */
-  username?: string
-  /** scrypt 密码哈希，账号/手机模式共用 */
-  passwordHash?: string
-  /** 手机号登录凭证(E.164)，未验证，与 KYC 已验手机分离 */
-  phoneAccount?: string
   email?: string
   displayName: string
   avatarUrl?: string

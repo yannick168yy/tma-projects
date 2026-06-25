@@ -197,7 +197,11 @@ export async function listAdminUsers(
   const params: unknown[] = []
 
   if (opts.search) {
-    conditions.push(`(u.id LIKE ? OR u.display_name LIKE ? OR u.email LIKE ? OR u.telegram_username LIKE ?)`)
+    conditions.push(`(u.id LIKE ? OR u.display_name LIKE ? OR u.email LIKE ?
+      OR EXISTS (
+        SELECT 1 FROM bg_user_identity i
+        WHERE i.user_id = u.id AND i.provider IN ('telegram','telegram_oidc') AND i.display_label LIKE ?
+      ))`)
     const like = `%${opts.search}%`
     params.push(like, like, like, like)
   }
@@ -215,11 +219,17 @@ export async function listAdminUsers(
   const total = Number(countRows[0]?.cnt ?? 0)
 
   const [rows] = await pool(env).query<RowDataPacket[]>(
-    `SELECT u.id, u.display_name, u.email, u.telegram_username, u.status, u.label,
+    `SELECT u.id, u.display_name, u.email, tg.display_label AS telegram_username, u.status, u.label,
             u.last_login_at, u.last_login_region, u.register_region, u.registered_at,
             COALESCE(w.available,0) as available
      FROM bg_user u
      LEFT JOIN bg_wallet w ON w.user_id = u.id AND w.currency = 'PHP'
+     LEFT JOIN (
+       SELECT user_id, MAX(display_label) AS display_label
+       FROM bg_user_identity
+       WHERE provider IN ('telegram','telegram_oidc')
+       GROUP BY user_id
+     ) tg ON tg.user_id = u.id
      ${where}
      ORDER BY u.registered_at DESC
      LIMIT ? OFFSET ?`,

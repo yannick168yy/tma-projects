@@ -3,6 +3,7 @@ import { randomInt } from 'node:crypto'
 import type { Env } from '../config/env.js'
 import type { Redis } from 'ioredis'
 import {
+  bindIdentity,
   createDevUser,
   createUserFromGoogle,
   createUserFromPassword,
@@ -12,6 +13,7 @@ import {
   findKycByVerifiedPhone,
   getSession,
   getUser,
+  getUserIdentity,
   getUserByEmail,
   getUserByGoogleSub,
   getUserByTelegramOidcSub,
@@ -19,6 +21,7 @@ import {
   getUserByPhoneAccount,
   getUserByTelegramId,
   getUserByUsername,
+  listUserIdentities,
   saveSession,
   saveUser,
 } from './store/index.js'
@@ -264,11 +267,10 @@ export async function loginWithPassword(
   trialRedPacketEligible: boolean
 }> {
   const identifier = normalizeIdentifier(input.method, input.identifier)
-  const user = input.method === 'phone'
-    ? await getUserByPhoneAccount(redis, identifier)
-    : await getUserByUsername(redis, identifier)
+  const identity = await getUserIdentity(redis, input.method, identifier)
+  const user = identity ? await getUser(redis, identity.userId) : null
 
-  if (!user || !user.passwordHash || !(await verifyPassword(input.password, user.passwordHash))) {
+  if (!user || !identity?.credentialHash || !(await verifyPassword(input.password, identity.credentialHash))) {
     throw new AuthError('Invalid credentials')
   }
   if (user.status === 'banned' || user.status === 'frozen') {
@@ -283,8 +285,9 @@ export async function sendForgotPasswordOtp(
   phoneRaw: string,
 ): Promise<{ phone: string; resendInSec: number }> {
   const phone = normalizeIdentifier('phone', phoneRaw)
-  const user = await getUserByPhoneAccount(redis, phone)
-  if (!user || !user.passwordHash) {
+  const identity = await getUserIdentity(redis, 'phone', phone)
+  const user = identity ? await getUser(redis, identity.userId) : null
+  if (!user || !identity?.credentialHash) {
     throw new AuthError('auth.errors.phoneAccountNotFound', 404)
   }
   if (await redis.get(forgotResendKey(phone))) {
@@ -327,8 +330,9 @@ export async function resetForgotPassword(
     throw new AuthError('Password must be at least 8 characters', 400)
   }
   const phone = normalizeIdentifier('phone', phoneRaw)
-  const user = await getUserByPhoneAccount(redis, phone)
-  if (!user || !user.passwordHash) {
+  const identity = await getUserIdentity(redis, 'phone', phone)
+  const user = identity ? await getUser(redis, identity.userId) : null
+  if (!user || !identity?.credentialHash) {
     throw new AuthError('auth.errors.phoneAccountNotFound', 404)
   }
 
@@ -346,8 +350,10 @@ export async function resetForgotPassword(
     throw new AuthError('kyc.errors.otpInvalid', 400)
   }
 
-  user.passwordHash = await hashPassword(password)
-  await saveUser(redis, user)
+  await bindIdentity(redis, {
+    ...identity,
+    credentialHash: await hashPassword(password),
+  })
   await redis.del(forgotOtpKey(phone), forgotResendKey(phone))
 }
 
@@ -458,8 +464,13 @@ export async function bindTelegramWidget(
   const owner = await getUserByTelegramId(redis, v.id)
   if (owner && owner.id !== userId) throw new AuthError('该 Telegram 已绑定其他账号', 409)
   const user = await loadUser(redis, userId)
-  user.telegramUserId = v.id
-  if (v.username) user.telegramUsername = v.username
+  await bindIdentity(redis, {
+    userId,
+    provider: 'telegram',
+    identifier: String(v.id),
+    displayLabel: v.username,
+    verifiedAt: new Date().toISOString(),
+  })
   await saveUser(redis, user)
   return user
 }
@@ -476,8 +487,13 @@ export async function bindTelegramOidc(
   const owner = await getUserByTelegramOidcSub(redis, profile.sub)
   if (owner && owner.id !== userId) throw new AuthError('该 Telegram 已绑定其他账号', 409)
   const user = await loadUser(redis, userId)
-  user.telegramOidcSub = profile.sub
-  if (profile.username) user.telegramUsername = profile.username
+  await bindIdentity(redis, {
+    userId,
+    provider: 'telegram_oidc',
+    identifier: profile.sub,
+    displayLabel: profile.username,
+    verifiedAt: new Date().toISOString(),
+  })
   await saveUser(redis, user)
   return user
 }
@@ -498,10 +514,16 @@ export async function bindGoogleAccount(
     if (emailOwner && emailOwner.id !== userId) throw new AuthError('该邮箱已被其他账号使用', 409)
   }
   const user = await loadUser(redis, userId)
-  user.googleSub = profile.sub
   if (profile.email) {
     user.email = profile.email
   }
+  await bindIdentity(redis, {
+    userId,
+    provider: 'google',
+    identifier: profile.sub,
+    displayLabel: profile.email,
+    verifiedAt: new Date().toISOString(),
+  })
   await saveUser(redis, user)
   return user
 }
@@ -520,11 +542,18 @@ export async function bindPhone(
   const kycOwner = await findKycByVerifiedPhone(redis, phone, userId)
   if (kycOwner) throw new AuthError('该手机号已被其他账号使用', 409)
   const user = await loadUser(redis, userId)
-  user.phoneAccount = phone
   if (password) {
     if (password.length < 8) throw new AuthError('Password must be at least 8 characters', 400)
-    user.passwordHash = await hashPassword(password)
   }
+  const credentialHash = password ? await hashPassword(password) : undefined
+  await bindIdentity(redis, {
+    userId,
+    provider: 'phone',
+    identifier: phone,
+    credentialHash,
+    displayLabel: phone,
+    verifiedAt: new Date().toISOString(),
+  })
   await saveUser(redis, user)
   return user
 }
@@ -544,8 +573,14 @@ export async function bindAccount(
   const owner = await getUserByUsername(redis, username)
   if (owner && owner.id !== userId) throw new AuthError('用户名已被占用', 409)
   const user = await loadUser(redis, userId)
-  user.username = username
-  user.passwordHash = await hashPassword(password)
+  await bindIdentity(redis, {
+    userId,
+    provider: 'account',
+    identifier: username,
+    credentialHash: await hashPassword(password),
+    displayLabel: username,
+    verifiedAt: new Date().toISOString(),
+  })
   await saveUser(redis, user)
   return user
 }
@@ -605,6 +640,6 @@ export async function logout(redis: Redis, token: string): Promise<void> {
   await deleteSession(redis, token)
 }
 
-export function toAuthUser(user: UserRecord) {
-  return { ...toPublicUser(user), isNewUser: false }
+export async function toAuthUser(redis: Redis, user: UserRecord) {
+  return { ...toPublicUser(user, await listUserIdentities(redis, user.id)), isNewUser: false }
 }

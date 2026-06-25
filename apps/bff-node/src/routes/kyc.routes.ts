@@ -1,5 +1,5 @@
 import Router from '@koa/router'
-import { getKyc, getUser } from '../services/store.js'
+import { getKyc, listUserIdentities } from '../services/store.js'
 import {
   KycError,
   buildKycStatusResponse,
@@ -25,8 +25,8 @@ function handleKycError(ctx: import('koa').Context, e: unknown): boolean {
 
 router.get('/status', async (ctx) => {
   const kyc = await getKyc(ctx.state.redis, ctx.state.userId!)
-  const user = await getUser(ctx.state.redis, ctx.state.userId!)
-  const registeredPhone = user?.phoneAccount ? normalizePhonePH(user.phoneAccount) : null
+  const phoneIdentity = (await listUserIdentities(ctx.state.redis, ctx.state.userId!)).find((item) => item.provider === 'phone')
+  const registeredPhone = phoneIdentity ? normalizePhonePH(phoneIdentity.identifier) : null
   const cfg = await getKycStepConfig(ctx.state.redis, ctx.state.env, ctx.state.userId!)
   ok(ctx, {
     ...buildKycStatusResponse(kyc),

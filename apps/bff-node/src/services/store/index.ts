@@ -6,9 +6,11 @@ import * as mysqlStore from './mysql-store.js'
 import type {
   OrderDeposit,
   OrderWithdraw,
+  IdentityProvider,
   KycSubmission,
   LedgerEntry,
   SessionRecord,
+  UserIdentity,
   UserRecord,
   WalletRecord,
   WalletBalance,
@@ -34,6 +36,22 @@ export const saveUser = (redis: Redis, user: UserRecord) =>
 
 export const getUser = (redis: Redis, userId: string) =>
   isMysqlEnabled(env()) ? mysqlStore.getUser(env(), userId) : redisStore.getUser(redis, userId)
+
+export const listUserIdentities = (redis: Redis, userId: string): Promise<UserIdentity[]> =>
+  isMysqlEnabled(env()) ? mysqlStore.listUserIdentities(env(), userId) : redisStore.listUserIdentities(redis, userId)
+
+export const getUserIdentity = (redis: Redis, provider: IdentityProvider, identifier: string) =>
+  isMysqlEnabled(env())
+    ? mysqlStore.getUserIdentity(env(), provider, identifier)
+    : redisStore.getUserIdentity(redis, provider, identifier)
+
+export const getUserByIdentity = (redis: Redis, provider: IdentityProvider, identifier: string) =>
+  isMysqlEnabled(env())
+    ? mysqlStore.getUserByIdentity(env(), provider, identifier)
+    : redisStore.getUserByIdentity(redis, provider, identifier)
+
+export const bindIdentity = (redis: Redis, identity: UserIdentity) =>
+  isMysqlEnabled(env()) ? mysqlStore.bindIdentity(env(), identity) : redisStore.bindIdentity(redis, identity)
 
 export const setUserKycOverride = (redis: Redis, userId: string, doc: boolean | null, face: boolean | null) =>
   isMysqlEnabled(env())

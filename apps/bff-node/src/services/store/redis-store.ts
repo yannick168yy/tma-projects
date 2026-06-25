@@ -1,9 +1,11 @@
 import type { Redis } from 'ioredis'
 import type {
   DepositOrder,
+  IdentityProvider,
   KycSubmission,
   LedgerEntry,
   SessionRecord,
+  UserIdentity,
   UserRecord,
   WalletRecord,
   WithdrawOrder,
@@ -14,11 +16,8 @@ import { nowIso } from '../../utils/format.js'
 const KEYS = {
   userSeq: 'tma:user:seq',
   user: (id: string) => `tma:user:${id}`,
-  userByTg: (tgId: number) => `tma:user:tg:${tgId}`,
-  userByTgOidc: (sub: string) => `tma:user:tgoidc:${sub}`,
-  userByGoogle: (sub: string) => `tma:user:google:${sub}`,
-  userByUsername: (username: string) => `tma:user:username:${username}`,
-  userByPhone: (phone: string) => `tma:user:phone:${phone}`,
+  identity: (provider: IdentityProvider, identifier: string) => `tma:identity:${provider}:${identifier}`,
+  userIdentities: (userId: string) => `tma:identities:user:${userId}`,
   userByEmail: (email: string) => `tma:user:email:${email}`,
   session: (token: string) => `tma:session:${token}`,
   wallet: (userId: string) => `tma:wallet:${userId}`,
@@ -44,25 +43,57 @@ export async function nextUserId(redis: Redis): Promise<string> {
 
 export async function saveUser(redis: Redis, user: UserRecord): Promise<void> {
   await redis.set(KEYS.user(user.id), JSON.stringify(user))
-  if (user.telegramUserId) {
-    await redis.set(KEYS.userByTg(user.telegramUserId), user.id)
-  }
-  if (user.telegramOidcSub) {
-    await redis.set(KEYS.userByTgOidc(user.telegramOidcSub), user.id)
-  }
-  if (user.googleSub) {
-    await redis.set(KEYS.userByGoogle(user.googleSub), user.id)
-  }
-  if (user.username) {
-    await redis.set(KEYS.userByUsername(user.username), user.id)
-  }
-  if (user.phoneAccount) {
-    await redis.set(KEYS.userByPhone(user.phoneAccount), user.id)
-  }
   if (user.email) {
     await redis.set(KEYS.userByEmail(user.email), user.id)
   }
   await redis.set(KEYS.inviteCode(user.inviteCode), user.id)
+}
+
+export async function listUserIdentities(redis: Redis, userId: string): Promise<UserIdentity[]> {
+  const raw = await redis.lrange(KEYS.userIdentities(userId), 0, -1)
+  return raw.map((s) => JSON.parse(s) as UserIdentity)
+}
+
+export async function getUserIdentity(
+  redis: Redis,
+  provider: IdentityProvider,
+  identifier: string,
+): Promise<UserIdentity | null> {
+  const raw = await redis.get(KEYS.identity(provider, identifier))
+  return raw ? (JSON.parse(raw) as UserIdentity) : null
+}
+
+export async function getUserByIdentity(
+  redis: Redis,
+  provider: IdentityProvider,
+  identifier: string,
+): Promise<UserRecord | null> {
+  const identity = await getUserIdentity(redis, provider, identifier)
+  return identity ? getUser(redis, identity.userId) : null
+}
+
+export async function bindIdentity(redis: Redis, identity: UserIdentity): Promise<UserIdentity> {
+  const key = KEYS.identity(identity.provider, identity.identifier)
+  const existing = await getUserIdentity(redis, identity.provider, identity.identifier)
+  if (existing && existing.userId !== identity.userId) throw new Error('Identity already bound to another account')
+  const saved: UserIdentity = {
+    ...existing,
+    ...identity,
+    credentialHash: identity.credentialHash ?? existing?.credentialHash,
+    displayLabel: identity.displayLabel ?? existing?.displayLabel,
+    verifiedAt: identity.verifiedAt ?? existing?.verifiedAt,
+    createdAt: existing?.createdAt ?? nowIso(),
+    updatedAt: nowIso(),
+  }
+  await redis.set(key, JSON.stringify(saved))
+  const identities = (await listUserIdentities(redis, identity.userId))
+    .filter((item) => !(item.provider === identity.provider && item.identifier === identity.identifier))
+  identities.push(saved)
+  await redis.del(KEYS.userIdentities(identity.userId))
+  if (identities.length) {
+    await redis.rpush(KEYS.userIdentities(identity.userId), ...identities.map((item) => JSON.stringify(item)))
+  }
+  return saved
 }
 
 export async function getUser(redis: Redis, userId: string): Promise<UserRecord | null> {
@@ -84,9 +115,7 @@ export async function setUserKycOverride(
 }
 
 export async function getUserByTelegramId(redis: Redis, tgId: number): Promise<UserRecord | null> {
-  const userId = await redis.get(KEYS.userByTg(tgId))
-  if (!userId) return null
-  return getUser(redis, userId)
+  return getUserByIdentity(redis, 'telegram', String(tgId))
 }
 
 export async function getUserByInviteCode(redis: Redis, code: string): Promise<UserRecord | null> {
@@ -98,11 +127,9 @@ export async function getUserByInviteCode(redis: Redis, code: string): Promise<U
 function applyTelegramProfile(user: UserRecord, input: {
   displayName: string
   avatarUrl?: string
-  telegramUsername?: string
 }): void {
   user.displayName = input.displayName
   if (input.avatarUrl) user.avatarUrl = input.avatarUrl
-  if (input.telegramUsername) user.telegramUsername = input.telegramUsername
 }
 
 export async function createUserFromTelegram(
@@ -121,6 +148,13 @@ export async function createUserFromTelegram(
   if (existing) {
     applyTelegramProfile(existing, input)
     await saveUser(redis, existing)
+    await bindIdentity(redis, {
+      userId: existing.id,
+      provider: 'telegram',
+      identifier: String(input.telegramUserId),
+      displayLabel: input.telegramUsername,
+      verifiedAt: nowIso(),
+    })
     return { user: existing, isNewUser: false }
   }
 
@@ -132,8 +166,6 @@ export async function createUserFromTelegram(
 
   const user: UserRecord = {
     id,
-    telegramUserId: input.telegramUserId,
-    telegramUsername: input.telegramUsername,
     displayName: input.displayName,
     avatarUrl: input.avatarUrl,
     inviteCode,
@@ -148,14 +180,19 @@ export async function createUserFromTelegram(
     firstDepReady: false,
   }
   await saveUser(redis, user)
+  await bindIdentity(redis, {
+    userId: user.id,
+    provider: 'telegram',
+    identifier: String(input.telegramUserId),
+    displayLabel: input.telegramUsername,
+    verifiedAt: nowIso(),
+  })
   await redis.set(KEYS.wallet(id), JSON.stringify(defaultWallet()))
   return { user, isNewUser: true }
 }
 
 export async function getUserByTelegramOidcSub(redis: Redis, sub: string): Promise<UserRecord | null> {
-  const userId = await redis.get(KEYS.userByTgOidc(sub))
-  if (!userId) return null
-  return getUser(redis, userId)
+  return getUserByIdentity(redis, 'telegram_oidc', sub)
 }
 
 export async function createUserFromTelegramOidc(
@@ -174,8 +211,14 @@ export async function createUserFromTelegramOidc(
   if (existing) {
     existing.displayName = input.displayName
     if (input.avatarUrl) existing.avatarUrl = input.avatarUrl
-    if (input.telegramUsername) existing.telegramUsername = input.telegramUsername
     await saveUser(redis, existing)
+    await bindIdentity(redis, {
+      userId: existing.id,
+      provider: 'telegram_oidc',
+      identifier: input.telegramOidcSub,
+      displayLabel: input.telegramUsername,
+      verifiedAt: nowIso(),
+    })
     return { user: existing, isNewUser: false }
   }
 
@@ -187,8 +230,6 @@ export async function createUserFromTelegramOidc(
 
   const user: UserRecord = {
     id,
-    telegramOidcSub: input.telegramOidcSub,
-    telegramUsername: input.telegramUsername,
     displayName: input.displayName,
     avatarUrl: input.avatarUrl,
     referredBy: input.referredBy,
@@ -205,14 +246,19 @@ export async function createUserFromTelegramOidc(
     firstDepReady: false,
   }
   await saveUser(redis, user)
+  await bindIdentity(redis, {
+    userId: user.id,
+    provider: 'telegram_oidc',
+    identifier: input.telegramOidcSub,
+    displayLabel: input.telegramUsername,
+    verifiedAt: nowIso(),
+  })
   await redis.set(KEYS.wallet(id), JSON.stringify(defaultWallet()))
   return { user, isNewUser: true }
 }
 
 export async function getUserByGoogleSub(redis: Redis, sub: string): Promise<UserRecord | null> {
-  const userId = await redis.get(KEYS.userByGoogle(sub))
-  if (!userId) return null
-  return getUser(redis, userId)
+  return getUserByIdentity(redis, 'google', sub)
 }
 
 export async function createUserFromGoogle(
@@ -235,6 +281,13 @@ export async function createUserFromGoogle(
       existing.email = input.email
     }
     await saveUser(redis, existing)
+    await bindIdentity(redis, {
+      userId: existing.id,
+      provider: 'google',
+      identifier: input.googleSub,
+      displayLabel: input.email,
+      verifiedAt: nowIso(),
+    })
     return { user: existing, isNewUser: false }
   }
 
@@ -246,7 +299,6 @@ export async function createUserFromGoogle(
 
   const user: UserRecord = {
     id,
-    googleSub: input.googleSub,
     email: input.email,
     displayName: input.displayName,
     avatarUrl: input.avatarUrl,
@@ -261,20 +313,23 @@ export async function createUserFromGoogle(
     firstDepReady: false,
   }
   await saveUser(redis, user)
+  await bindIdentity(redis, {
+    userId: user.id,
+    provider: 'google',
+    identifier: input.googleSub,
+    displayLabel: input.email,
+    verifiedAt: nowIso(),
+  })
   await redis.set(KEYS.wallet(id), JSON.stringify(defaultWallet()))
   return { user, isNewUser: true }
 }
 
 export async function getUserByUsername(redis: Redis, username: string): Promise<UserRecord | null> {
-  const userId = await redis.get(KEYS.userByUsername(username))
-  if (!userId) return null
-  return getUser(redis, userId)
+  return getUserByIdentity(redis, 'account', username)
 }
 
 export async function getUserByPhoneAccount(redis: Redis, phone: string): Promise<UserRecord | null> {
-  const userId = await redis.get(KEYS.userByPhone(phone))
-  if (!userId) return null
-  return getUser(redis, userId)
+  return getUserByIdentity(redis, 'phone', phone)
 }
 
 export async function getUserByEmail(redis: Redis, email: string): Promise<UserRecord | null> {
@@ -303,9 +358,6 @@ export async function createUserFromPassword(
 
   const user: UserRecord = {
     id,
-    username: input.identifierType === 'account' ? input.identifier : undefined,
-    phoneAccount: input.identifierType === 'phone' ? input.identifier : undefined,
-    passwordHash: input.passwordHash,
     displayName: input.displayName,
     avatarUrl: undefined,
     inviteCode,
@@ -322,6 +374,14 @@ export async function createUserFromPassword(
     firstDepReady: false,
   }
   await saveUser(redis, user)
+  await bindIdentity(redis, {
+    userId: user.id,
+    provider: input.identifierType,
+    identifier: input.identifier,
+    credentialHash: input.passwordHash,
+    displayLabel: input.identifier,
+    verifiedAt: nowIso(),
+  })
   await redis.set(KEYS.wallet(id), JSON.stringify(defaultWallet()))
   return { user, isNewUser: true }
 }

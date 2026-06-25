@@ -37,7 +37,7 @@ router.post('/telegram', async (ctx) => {
       expiresIn: result.expiresIn,
       isNewUser: result.isNewUser,
       trialRedPacketEligible: result.trialRedPacketEligible,
-      user: toAuthUser(result.user),
+      user: await toAuthUser(ctx.state.redis, result.user),
     })
     attributeAgent(ctx, result.isNewUser, result.user.id)
     recordUserLogin(ctx.state.redis, result.user.id, {
@@ -76,7 +76,7 @@ router.post('/google', async (ctx) => {
       expiresIn: result.expiresIn,
       isNewUser: result.isNewUser,
       trialRedPacketEligible: result.trialRedPacketEligible,
-      user: toAuthUser(result.user),
+      user: await toAuthUser(ctx.state.redis, result.user),
     })
     attributeAgent(ctx, result.isNewUser, result.user.id)
     recordUserLogin(ctx.state.redis, result.user.id, {
@@ -115,7 +115,7 @@ router.post('/telegram-oidc', async (ctx) => {
       expiresIn: result.expiresIn,
       isNewUser: result.isNewUser,
       trialRedPacketEligible: result.trialRedPacketEligible,
-      user: toAuthUser(result.user),
+      user: await toAuthUser(ctx.state.redis, result.user),
     })
     attributeAgent(ctx, result.isNewUser, result.user.id)
     recordUserLogin(ctx.state.redis, result.user.id, {
@@ -152,7 +152,7 @@ router.post('/register', async (ctx) => {
       expiresIn: result.expiresIn,
       isNewUser: result.isNewUser,
       trialRedPacketEligible: result.trialRedPacketEligible,
-      user: toAuthUser(result.user),
+      user: await toAuthUser(ctx.state.redis, result.user),
     })
     attributeAgent(ctx, result.isNewUser, result.user.id)
     recordUserLogin(ctx.state.redis, result.user.id, {
@@ -196,7 +196,7 @@ router.post('/login', async (ctx) => {
       expiresIn: result.expiresIn,
       isNewUser: result.isNewUser,
       trialRedPacketEligible: result.trialRedPacketEligible,
-      user: toAuthUser(result.user),
+      user: await toAuthUser(ctx.state.redis, result.user),
     })
     attributeAgent(ctx, result.isNewUser, result.user.id)
     recordUserLogin(ctx.state.redis, result.user.id, {
@@ -269,7 +269,7 @@ router.post('/telegram-widget', async (ctx) => {
       expiresIn: result.expiresIn,
       isNewUser: result.isNewUser,
       trialRedPacketEligible: result.trialRedPacketEligible,
-      user: toAuthUser(result.user),
+      user: await toAuthUser(ctx.state.redis, result.user),
     })
     attributeAgent(ctx, result.isNewUser, result.user.id)
     recordUserLogin(ctx.state.redis, result.user.id, {

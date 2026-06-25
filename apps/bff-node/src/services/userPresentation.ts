@@ -1,34 +1,44 @@
-import type { UserRecord } from '../types/domain.js'
+import type { IdentityProvider, UserIdentity, UserRecord } from '../types/domain.js'
 
 export type LoginProvider = 'telegram' | 'google' | 'phone' | 'account'
 
-export function resolveLoginProvider(user: UserRecord): LoginProvider {
-  if (user.telegramUserId != null || user.telegramOidcSub) return 'telegram'
-  if (user.googleSub) return 'google'
-  if (user.phoneAccount) return 'phone'
-  if (user.username) return 'account'
+function hasIdentity(identities: UserIdentity[], provider: IdentityProvider): boolean {
+  return identities.some((item) => item.provider === provider)
+}
+
+function firstIdentity(identities: UserIdentity[], ...providers: IdentityProvider[]): UserIdentity | undefined {
+  return identities.find((item) => providers.includes(item.provider))
+}
+
+export function resolveLoginProvider(identities: UserIdentity[]): LoginProvider {
+  if (hasIdentity(identities, 'telegram') || hasIdentity(identities, 'telegram_oidc')) return 'telegram'
+  if (hasIdentity(identities, 'google')) return 'google'
+  if (hasIdentity(identities, 'phone')) return 'phone'
+  if (hasIdentity(identities, 'account')) return 'account'
   return 'telegram'
 }
 
-export function toPublicUser(user: UserRecord) {
-  const loginProvider = resolveLoginProvider(user)
+export function toPublicUser(user: UserRecord, identities: UserIdentity[] = []) {
+  const loginProvider = resolveLoginProvider(identities)
   const email = user.email || undefined
+  const telegram = firstIdentity(identities, 'telegram', 'telegram_oidc')
+  const account = firstIdentity(identities, 'account')
 
   return {
     id: user.id,
-    telegramUserId: user.telegramUserId,
+    telegramUserId: telegram?.provider === 'telegram' ? Number(telegram.identifier) : undefined,
     displayName: user.displayName,
     avatarUrl: user.avatarUrl,
     inviteCode: user.inviteCode,
     loginProvider,
     email,
-    telegramUsername: user.telegramUsername,
-    username: user.username,
+    telegramUsername: telegram?.displayLabel,
+    username: account?.identifier,
     // 各登录方式是否已绑定（绑定页用）
-    boundTelegram: user.telegramUserId != null || Boolean(user.telegramOidcSub),
-    boundGoogle: Boolean(user.googleSub),
-    boundPhone: Boolean(user.phoneAccount),
-    boundAccount: Boolean(user.username),
+    boundTelegram: hasIdentity(identities, 'telegram') || hasIdentity(identities, 'telegram_oidc'),
+    boundGoogle: hasIdentity(identities, 'google'),
+    boundPhone: hasIdentity(identities, 'phone'),
+    boundAccount: hasIdentity(identities, 'account'),
     // 首充嘉年华是否已发放（充值页首存奖励角标用）
     firstDepClaimed: user.firstDepClaimed,
   }

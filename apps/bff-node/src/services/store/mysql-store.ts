@@ -2,8 +2,10 @@ import type { Pool, RowDataPacket } from 'mysql2/promise'
 import type {
   OrderDeposit,
   OrderWithdraw,
+  IdentityProvider,
   KycSubmission,
   LedgerEntry,
+  UserIdentity,
   UserRecord,
   WalletRecord,
   WalletBalance,
@@ -20,13 +22,6 @@ function pool(env: Env): Pool {
 
 type UserRow = RowDataPacket & {
   id: string
-  telegram_user_id: number | null
-  telegram_username: string | null
-  telegram_oidc_sub: string | null
-  google_sub: string | null
-  username: string | null
-  password_hash: string | null
-  phone_account: string | null
   email: string | null
   display_name: string
   avatar_url: string | null
@@ -52,16 +47,21 @@ type UserRow = RowDataPacket & {
   referral_milestone_met: number
 }
 
+type IdentityRow = RowDataPacket & {
+  id: number
+  user_id: string
+  provider: IdentityProvider
+  identifier: string
+  credential_hash: string | null
+  display_label: string | null
+  verified_at: Date | null
+  created_at: Date
+  updated_at: Date
+}
+
 function mapUser(row: UserRow): UserRecord {
   return {
     id: row.id,
-    telegramUserId: row.telegram_user_id ?? undefined,
-    telegramUsername: row.telegram_username ?? undefined,
-    telegramOidcSub: row.telegram_oidc_sub ?? undefined,
-    googleSub: row.google_sub ?? undefined,
-    username: row.username ?? undefined,
-    passwordHash: row.password_hash ?? undefined,
-    phoneAccount: row.phone_account ?? undefined,
     email: row.email ?? undefined,
     displayName: row.display_name,
     avatarUrl: row.avatar_url ?? undefined,
@@ -88,6 +88,20 @@ function mapUser(row: UserRow): UserRecord {
   }
 }
 
+function mapIdentity(row: IdentityRow): UserIdentity {
+  return {
+    id: Number(row.id),
+    userId: row.user_id,
+    provider: row.provider,
+    identifier: row.identifier,
+    credentialHash: row.credential_hash ?? undefined,
+    displayLabel: row.display_label ?? undefined,
+    verifiedAt: row.verified_at ? new Date(row.verified_at).toISOString() : undefined,
+    createdAt: new Date(row.created_at).toISOString(),
+    updatedAt: new Date(row.updated_at).toISOString(),
+  }
+}
+
 const USER_SELECT = `
   SELECT u.*,
     ps.trial_claimed, ps.referral_claimed, ps.first_dep_claimed, ps.referral_ready,
@@ -109,28 +123,14 @@ export async function saveUser(env: Env, user: UserRecord): Promise<void> {
   try {
     await conn.beginTransaction()
     await conn.execute(
-      `INSERT INTO bg_user (id, telegram_user_id, telegram_username, telegram_oidc_sub, google_sub, username, password_hash, phone_account, email, display_name, avatar_url, invite_code, inviter_id, locale, status, status_reason, label, register_ip, register_region, registered_at)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+      `INSERT INTO bg_user (id, email, display_name, avatar_url, invite_code, inviter_id, locale, status, status_reason, label, register_ip, register_region, registered_at)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
        ON DUPLICATE KEY UPDATE
-         telegram_user_id=COALESCE(VALUES(telegram_user_id), telegram_user_id),
-         telegram_oidc_sub=COALESCE(VALUES(telegram_oidc_sub), telegram_oidc_sub),
-         google_sub=COALESCE(VALUES(google_sub), google_sub),
-         telegram_username=VALUES(telegram_username),
-         username=COALESCE(VALUES(username), username),
-         password_hash=COALESCE(VALUES(password_hash), password_hash),
-         phone_account=COALESCE(VALUES(phone_account), phone_account),
          display_name=VALUES(display_name), avatar_url=VALUES(avatar_url), email=VALUES(email),
          locale=VALUES(locale), status=VALUES(status), status_reason=VALUES(status_reason),
          label=VALUES(label)`,
       [
         user.id,
-        user.telegramUserId ?? null,
-        user.telegramUsername ?? null,
-        user.telegramOidcSub ?? null,
-        user.googleSub ?? null,
-        user.username ?? null,
-        user.passwordHash ?? null,
-        user.phoneAccount ?? null,
         user.email ?? null,
         user.displayName,
         user.avatarUrl ?? null,
@@ -170,6 +170,57 @@ export async function saveUser(env: Env, user: UserRecord): Promise<void> {
   }
 }
 
+export async function listUserIdentities(env: Env, userId: string): Promise<UserIdentity[]> {
+  const [rows] = await pool(env).query<IdentityRow[]>(
+    `SELECT * FROM bg_user_identity WHERE user_id = ? ORDER BY created_at ASC`,
+    [userId],
+  )
+  return rows.map(mapIdentity)
+}
+
+export async function getUserIdentity(
+  env: Env,
+  provider: IdentityProvider,
+  identifier: string,
+): Promise<UserIdentity | null> {
+  const [rows] = await pool(env).query<IdentityRow[]>(
+    `SELECT * FROM bg_user_identity WHERE provider = ? AND identifier = ? LIMIT 1`,
+    [provider, identifier],
+  )
+  return rows[0] ? mapIdentity(rows[0]) : null
+}
+
+export async function getUserByIdentity(
+  env: Env,
+  provider: IdentityProvider,
+  identifier: string,
+): Promise<UserRecord | null> {
+  const identity = await getUserIdentity(env, provider, identifier)
+  return identity ? getUser(env, identity.userId) : null
+}
+
+export async function bindIdentity(env: Env, identity: UserIdentity): Promise<UserIdentity> {
+  await pool(env).execute(
+    `INSERT INTO bg_user_identity (user_id, provider, identifier, credential_hash, display_label, verified_at)
+     VALUES (?, ?, ?, ?, ?, ?)
+     ON DUPLICATE KEY UPDATE
+       credential_hash = IF(user_id = VALUES(user_id), COALESCE(VALUES(credential_hash), credential_hash), credential_hash),
+       display_label = IF(user_id = VALUES(user_id), COALESCE(VALUES(display_label), display_label), display_label),
+       verified_at = IF(user_id = VALUES(user_id), COALESCE(VALUES(verified_at), verified_at), verified_at)`,
+    [
+      identity.userId,
+      identity.provider,
+      identity.identifier,
+      identity.credentialHash ?? null,
+      identity.displayLabel ?? null,
+      identity.verifiedAt ? new Date(identity.verifiedAt) : null,
+    ],
+  )
+  const saved = await getUserIdentity(env, identity.provider, identity.identifier)
+  if (!saved || saved.userId !== identity.userId) throw new Error('Identity already bound to another account')
+  return saved
+}
+
 export async function getUser(env: Env, userId: string): Promise<UserRecord | null> {
   const [rows] = await pool(env).query<UserRow[]>(`${USER_SELECT} WHERE u.id = ?`, [userId])
   return rows[0] ? mapUser(rows[0]) : null
@@ -189,18 +240,15 @@ export async function setUserKycOverride(
 }
 
 export async function getUserByTelegramId(env: Env, tgId: number): Promise<UserRecord | null> {
-  const [rows] = await pool(env).query<UserRow[]>(`${USER_SELECT} WHERE u.telegram_user_id = ?`, [tgId])
-  return rows[0] ? mapUser(rows[0]) : null
+  return getUserByIdentity(env, 'telegram', String(tgId))
 }
 
 export async function getUserByTelegramOidcSub(env: Env, sub: string): Promise<UserRecord | null> {
-  const [rows] = await pool(env).query<UserRow[]>(`${USER_SELECT} WHERE u.telegram_oidc_sub = ?`, [sub])
-  return rows[0] ? mapUser(rows[0]) : null
+  return getUserByIdentity(env, 'telegram_oidc', sub)
 }
 
 export async function getUserByGoogleSub(env: Env, sub: string): Promise<UserRecord | null> {
-  const [rows] = await pool(env).query<UserRow[]>(`${USER_SELECT} WHERE u.google_sub = ?`, [sub])
-  return rows[0] ? mapUser(rows[0]) : null
+  return getUserByIdentity(env, 'google', sub)
 }
 
 export async function getUserByEmail(env: Env, email: string): Promise<UserRecord | null> {
@@ -216,13 +264,11 @@ export async function getUserByInviteCode(env: Env, code: string): Promise<UserR
 }
 
 export async function getUserByUsername(env: Env, username: string): Promise<UserRecord | null> {
-  const [rows] = await pool(env).query<UserRow[]>(`${USER_SELECT} WHERE u.username = ?`, [username])
-  return rows[0] ? mapUser(rows[0]) : null
+  return getUserByIdentity(env, 'account', username)
 }
 
 export async function getUserByPhoneAccount(env: Env, phone: string): Promise<UserRecord | null> {
-  const [rows] = await pool(env).query<UserRow[]>(`${USER_SELECT} WHERE u.phone_account = ?`, [phone])
-  return rows[0] ? mapUser(rows[0]) : null
+  return getUserByIdentity(env, 'phone', phone)
 }
 
 async function createUser(
@@ -285,13 +331,17 @@ export async function createUserFromTelegram(
   if (existing) {
     existing.displayName = input.displayName
     if (input.avatarUrl) existing.avatarUrl = input.avatarUrl
-    if (input.telegramUsername) existing.telegramUsername = input.telegramUsername
     await saveUser(env, existing)
+    await bindIdentity(env, {
+      userId: existing.id,
+      provider: 'telegram',
+      identifier: String(input.telegramUserId),
+      displayLabel: input.telegramUsername,
+      verifiedAt: nowIso(),
+    })
     return { user: existing, isNewUser: false }
   }
-  return createUser(env, {
-    telegramUserId: input.telegramUserId,
-    telegramUsername: input.telegramUsername,
+  const created = await createUser(env, {
     displayName: input.displayName,
     avatarUrl: input.avatarUrl,
     referredBy: input.referredBy,
@@ -305,6 +355,14 @@ export async function createUserFromTelegram(
     referralReady: false,
     firstDepReady: false,
   })
+  await bindIdentity(env, {
+    userId: created.user.id,
+    provider: 'telegram',
+    identifier: String(input.telegramUserId),
+    displayLabel: input.telegramUsername,
+    verifiedAt: nowIso(),
+  })
+  return created
 }
 
 export async function createUserFromTelegramOidc(
@@ -323,13 +381,17 @@ export async function createUserFromTelegramOidc(
   if (existing) {
     existing.displayName = input.displayName
     if (input.avatarUrl) existing.avatarUrl = input.avatarUrl
-    if (input.telegramUsername) existing.telegramUsername = input.telegramUsername
     await saveUser(env, existing)
+    await bindIdentity(env, {
+      userId: existing.id,
+      provider: 'telegram_oidc',
+      identifier: input.telegramOidcSub,
+      displayLabel: input.telegramUsername,
+      verifiedAt: nowIso(),
+    })
     return { user: existing, isNewUser: false }
   }
-  return createUser(env, {
-    telegramOidcSub: input.telegramOidcSub,
-    telegramUsername: input.telegramUsername,
+  const created = await createUser(env, {
     displayName: input.displayName,
     avatarUrl: input.avatarUrl,
     referredBy: input.referredBy,
@@ -343,6 +405,14 @@ export async function createUserFromTelegramOidc(
     referralReady: false,
     firstDepReady: false,
   })
+  await bindIdentity(env, {
+    userId: created.user.id,
+    provider: 'telegram_oidc',
+    identifier: input.telegramOidcSub,
+    displayLabel: input.telegramUsername,
+    verifiedAt: nowIso(),
+  })
+  return created
 }
 
 export async function createUserFromGoogle(
@@ -365,10 +435,16 @@ export async function createUserFromGoogle(
       existing.email = input.email
     }
     await saveUser(env, existing)
+    await bindIdentity(env, {
+      userId: existing.id,
+      provider: 'google',
+      identifier: input.googleSub,
+      displayLabel: input.email,
+      verifiedAt: nowIso(),
+    })
     return { user: existing, isNewUser: false }
   }
-  return createUser(env, {
-    googleSub: input.googleSub,
+  const created = await createUser(env, {
     email: input.email,
     displayName: input.displayName,
     avatarUrl: input.avatarUrl,
@@ -383,6 +459,14 @@ export async function createUserFromGoogle(
     referralReady: false,
     firstDepReady: false,
   })
+  await bindIdentity(env, {
+    userId: created.user.id,
+    provider: 'google',
+    identifier: input.googleSub,
+    displayLabel: input.email,
+    verifiedAt: nowIso(),
+  })
+  return created
 }
 
 export async function createUserFromPassword(
@@ -397,10 +481,7 @@ export async function createUserFromPassword(
     registerRegion?: string
   },
 ): Promise<{ user: UserRecord; isNewUser: boolean }> {
-  return createUser(env, {
-    username: input.identifierType === 'account' ? input.identifier : undefined,
-    phoneAccount: input.identifierType === 'phone' ? input.identifier : undefined,
-    passwordHash: input.passwordHash,
+  const created = await createUser(env, {
     displayName: input.displayName,
     referredBy: input.referredBy,
     registerIp: input.registerIp,
@@ -413,6 +494,15 @@ export async function createUserFromPassword(
     referralReady: false,
     firstDepReady: false,
   })
+  await bindIdentity(env, {
+    userId: created.user.id,
+    provider: input.identifierType,
+    identifier: input.identifier,
+    credentialHash: input.passwordHash,
+    displayLabel: input.identifier,
+    verifiedAt: nowIso(),
+  })
+  return created
 }
 
 export async function createDevUser(env: Env): Promise<{ user: UserRecord; isNewUser: boolean }> {

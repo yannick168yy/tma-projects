@@ -80,6 +80,7 @@ UPDATE bg_user_promo_state
 
 -- ── 用户关联表 ────────────────────────────────────────────────
 DELETE FROM bg_login_log WHERE user_id != 'BG-10001';
+DELETE FROM bg_user_identity WHERE user_id != 'BG-10001';
 -- 实名认证记录（含 BG-10001；影像文件与 Redis KYC 缓存由 reset-and-test.sh 同步清理）
 DELETE FROM bg_kyc_doc_log;
 DELETE FROM bg_kyc_submission;
@@ -106,6 +107,7 @@ UNION ALL SELECT 'bg_wallet_ledger',   COUNT(*) FROM bg_wallet_ledger
 UNION ALL SELECT 'bg_deposit_order',   COUNT(*) FROM bg_deposit_order
 UNION ALL SELECT 'bg_turnover_logs',   COUNT(*) FROM bg_turnover_logs
 UNION ALL SELECT 'bg_team_node',       COUNT(*) FROM bg_team_node
+UNION ALL SELECT 'bg_user_identity',   COUNT(*) FROM bg_user_identity
 UNION ALL SELECT 'bg_kyc',             COUNT(*) FROM bg_kyc
 UNION ALL SELECT 'bg_kyc_doc_log',     COUNT(*) FROM bg_kyc_doc_log
 UNION ALL SELECT 'bg_kyc_submission',  COUNT(*) FROM bg_kyc_submission

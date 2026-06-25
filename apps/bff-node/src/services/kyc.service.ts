@@ -17,6 +17,7 @@ import {
   getKyc,
   getUser,
   getUserByPhoneAccount,
+  listUserIdentities,
   saveKyc,
 } from './store/index.js'
 
@@ -194,9 +195,9 @@ export async function sendKycOtp(
   const phone = normalizePhonePH(phoneRaw)
   if (!phone) throw new KycError('kyc.errors.invalidPhone', 400)
 
-  const user = await getUser(redis, userId)
-  if (user?.phoneAccount) {
-    const bound = normalizePhonePH(user.phoneAccount)
+  const phoneIdentity = (await listUserIdentities(redis, userId)).find((item) => item.provider === 'phone')
+  if (phoneIdentity) {
+    const bound = normalizePhonePH(phoneIdentity.identifier)
     if (bound && bound !== phone) {
       throw new KycError('kyc.errors.phoneUseRegistered', 400)
     }

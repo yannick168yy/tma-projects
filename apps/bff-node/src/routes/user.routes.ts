@@ -1,7 +1,7 @@
 import Router from '@koa/router'
 import type { RowDataPacket } from 'mysql2/promise'
 import { getMysqlPool } from '../clients/mysql.client.js'
-import { getUser, saveUser } from '../services/store.js'
+import { getUser, listUserIdentities, saveUser } from '../services/store.js'
 import { toPublicUser } from '../services/userPresentation.js'
 import { AuthError, bindAccount, bindGoogleAccount, bindPhone, bindTelegramOidc, bindTelegramWidget } from '../services/auth.service.js'
 import { isAppLocale } from '../types/locale.js'
@@ -28,7 +28,7 @@ router.get('/me', async (ctx) => {
     [user.id],
   )
   ok(ctx, {
-    ...toPublicUser(user),
+    ...toPublicUser(user, await listUserIdentities(ctx.state.redis, user.id)),
     registeredAt: user.registeredAt,
     locale: user.locale,
     isAgent: Boolean(agent),
@@ -65,7 +65,7 @@ router.post('/bind/telegram', async (ctx) => {
   if (!body?.id || !body?.hash) { fail(ctx, 400, 'Invalid Telegram login payload'); return }
   try {
     const user = await bindTelegramWidget(ctx.state.redis, ctx.state.env, ctx.state.userId!, body)
-    ok(ctx, { user: toPublicUser(user) })
+    ok(ctx, { user: toPublicUser(user, await listUserIdentities(ctx.state.redis, user.id)) })
   } catch (e) { if (!handleBindError(ctx, e)) throw e }
 })
 
@@ -74,7 +74,7 @@ router.post('/bind/telegram-oidc', async (ctx) => {
   if (!body.code || !body.redirectUri) { fail(ctx, 400, 'code and redirectUri are required'); return }
   try {
     const user = await bindTelegramOidc(ctx.state.redis, ctx.state.env, ctx.state.userId!, body.code, body.redirectUri)
-    ok(ctx, { user: toPublicUser(user) })
+    ok(ctx, { user: toPublicUser(user, await listUserIdentities(ctx.state.redis, user.id)) })
   } catch (e) { if (!handleBindError(ctx, e)) throw e }
 })
 
@@ -83,7 +83,7 @@ router.post('/bind/google', async (ctx) => {
   if (!body.code || !body.redirectUri) { fail(ctx, 400, 'code and redirectUri are required'); return }
   try {
     const user = await bindGoogleAccount(ctx.state.redis, ctx.state.env, ctx.state.userId!, body.code, body.redirectUri)
-    ok(ctx, { user: toPublicUser(user) })
+    ok(ctx, { user: toPublicUser(user, await listUserIdentities(ctx.state.redis, user.id)) })
   } catch (e) { if (!handleBindError(ctx, e)) throw e }
 })
 
@@ -92,7 +92,7 @@ router.post('/bind/phone', async (ctx) => {
   if (!body.phone) { fail(ctx, 400, 'phone is required'); return }
   try {
     const user = await bindPhone(ctx.state.redis, ctx.state.userId!, body.phone, body.password)
-    ok(ctx, { user: toPublicUser(user) })
+    ok(ctx, { user: toPublicUser(user, await listUserIdentities(ctx.state.redis, user.id)) })
   } catch (e) { if (!handleBindError(ctx, e)) throw e }
 })
 
@@ -101,7 +101,7 @@ router.post('/bind/account', async (ctx) => {
   if (!body.username || !body.password) { fail(ctx, 400, 'username and password are required'); return }
   try {
     const user = await bindAccount(ctx.state.redis, ctx.state.userId!, body.username, body.password)
-    ok(ctx, { user: toPublicUser(user) })
+    ok(ctx, { user: toPublicUser(user, await listUserIdentities(ctx.state.redis, user.id)) })
   } catch (e) { if (!handleBindError(ctx, e)) throw e }
 })
 
