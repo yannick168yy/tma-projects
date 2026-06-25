@@ -4,7 +4,8 @@
 --
 -- 清理范围：
 --   存款记录、提款记录、账变记录、投注记录、流水记录
---   三级分销佣金/GGR/提现、洗码返佣记录、提款审核日志、实名认证记录
+--   三级分销佣金/GGR/提现、佣金提现审核日志、渠道代理数据
+--   洗码返佣记录、转盘抽奖参与记录、提款审核日志、实名认证记录
 --   除 BG-10001 外的所有用户及其关联数据
 --   BG-10001 的钱包余额归零
 --
@@ -18,12 +19,21 @@ SET FOREIGN_KEY_CHECKS = 0;
 DELETE FROM bg_team_commission;
 DELETE FROM bg_team_turnover_daily;
 DELETE FROM bg_team_ggr_monthly;
+DELETE FROM bg_team_withdraw_review_log;
 DELETE FROM bg_team_withdrawal;
 DELETE FROM bg_team_wallet WHERE user_id != 'BG-10001';
 UPDATE bg_team_wallet
   SET available_cents=0, frozen_cents=0, lifetime_earned_cents=0, version=version+1
   WHERE user_id='BG-10001';
 DELETE FROM bg_team_node WHERE user_id != 'BG-10001';
+
+-- ── 渠道代理：代理、绑定关系、推广渠道、GGR、佣金 ─────────────
+DELETE FROM bg_agent_commission;
+DELETE FROM bg_agent_ggr_monthly;
+DELETE FROM bg_user_agent;
+DELETE FROM bg_agent_domain;
+DELETE FROM bg_agent_bot;
+DELETE FROM bg_agent;
 
 -- ── 流水记录 ──────────────────────────────────────────────────
 DELETE FROM bg_turnover_allocations;
@@ -35,6 +45,10 @@ DELETE FROM bg_bet_order;
 
 -- ── 洗码返佣记录（按投注流水派生，配置表 bg_rebate_config/featured_game 保留）─
 DELETE FROM bg_rebate_record;
+
+-- ── 转盘抽奖参与记录（配置、规则、奖品保留）──────────────────
+DELETE FROM bg_spin_record;
+DELETE FROM bg_spin_chance;
 
 -- ── 账变记录（含活动领取：red_packet / bonus）──────────────────
 DELETE FROM bg_wallet_ledger;
@@ -77,6 +91,13 @@ SET FOREIGN_KEY_CHECKS = 1;
 SELECT 'bg_user'           AS tbl, COUNT(*) AS remaining FROM bg_user
 UNION ALL SELECT 'bg_bet_order',       COUNT(*) FROM bg_bet_order
 UNION ALL SELECT 'bg_team_commission', COUNT(*) FROM bg_team_commission
+UNION ALL SELECT 'bg_team_withdraw_review_log', COUNT(*) FROM bg_team_withdraw_review_log
+UNION ALL SELECT 'bg_agent',           COUNT(*) FROM bg_agent
+UNION ALL SELECT 'bg_agent_domain',    COUNT(*) FROM bg_agent_domain
+UNION ALL SELECT 'bg_agent_bot',       COUNT(*) FROM bg_agent_bot
+UNION ALL SELECT 'bg_user_agent',      COUNT(*) FROM bg_user_agent
+UNION ALL SELECT 'bg_spin_chance',     COUNT(*) FROM bg_spin_chance
+UNION ALL SELECT 'bg_spin_record',     COUNT(*) FROM bg_spin_record
 UNION ALL SELECT 'bg_wallet_ledger',   COUNT(*) FROM bg_wallet_ledger
 UNION ALL SELECT 'bg_deposit_order',   COUNT(*) FROM bg_deposit_order
 UNION ALL SELECT 'bg_turnover_logs',   COUNT(*) FROM bg_turnover_logs
