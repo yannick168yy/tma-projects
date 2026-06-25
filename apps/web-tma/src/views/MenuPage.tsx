@@ -382,14 +382,14 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
             </div>
           ) : (
             <div className="relative pr-24">
-              <div className="flex min-h-[86px] items-center gap-3">
+              <button type="button" className="flex min-h-[86px] w-full items-center gap-3 text-left transition-opacity active:opacity-80" onClick={onLogin}>
                 <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-full border border-white/40 bg-white/15 text-white shadow-[0_10px_24px_rgba(0,0,0,0.22)]">
                   <User size={25} />
                 </div>
                 <div className="min-w-0 flex-1">
                   <h1 className="font-display text-[1.6rem] font-black leading-none text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.22)]">{t('auth.signInTitle')}</h1>
                 </div>
-              </div>
+              </button>
             </div>
           )}
 

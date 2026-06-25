@@ -166,10 +166,11 @@ export default function LoginSheet({ open, onClose }: Props) {
   if (!open) return null
 
   return createPortal(
-    <div className="fixed inset-0 z-[90] flex items-end justify-center sm:items-center">
-      <div className="absolute inset-0 bg-black/75 backdrop-blur-sm" onClick={onClose} />
+    <>
+      <div className="fixed inset-0 z-[90] bg-black/70 backdrop-blur-sm" onClick={onClose} />
       <div
-        className="relative z-10 max-h-[90vh] w-full max-w-[390px] overflow-y-auto rounded-t-[24px] border border-primary/25 bg-[#090d17] shadow-[0_-8px_60px_rgba(0,0,0,0.6)] sm:rounded-[24px]"
+        className="fixed bottom-0 left-1/2 z-[91] max-h-[90vh] w-full max-w-[430px] overflow-y-auto rounded-t-[1.8rem] bg-[#090d17] shadow-[0_-18px_70px_rgba(0,0,0,0.55)]"
+        style={{ transform: 'translateX(-50%)' }}
         role="dialog"
         aria-modal="true"
       >
@@ -395,7 +396,7 @@ export default function LoginSheet({ open, onClose }: Props) {
           )}
         </div>
       </div>
-    </div>,
+    </>,
     document.body,
   )
 }
