@@ -78,7 +78,7 @@ html.light {
 }
 
 .animate-marquee {
-  animation: marquee 9s linear infinite;
+  animation: marquee 4.5s linear infinite;
 }
 
 @keyframes scroll-up {
