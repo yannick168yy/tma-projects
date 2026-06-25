@@ -810,6 +810,12 @@ export async function adminAdjustBalance(
          VALUES (?,?,?,?,?,?,?)`,
         [orderId, userId, 'admin', currency, amount, 'paid', 1],
       )
+      await conn.execute(
+        `INSERT IGNORE INTO bg_turnover_requirements
+           (user_id, currency, source_type, source_ref, required_amount)
+         VALUES (?, ?, 'deposit', ?, ?)`,
+        [userId, currency, orderId, amount],
+      )
     } else {
       const [wrows] = await conn.query<RowDataPacket[]>(
         `SELECT available FROM bg_wallet WHERE user_id = ? AND currency = ? FOR UPDATE`,
