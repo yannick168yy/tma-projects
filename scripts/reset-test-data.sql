@@ -7,7 +7,7 @@
 --   三级分销佣金/GGR/提现、佣金提现审核日志、渠道代理数据
 --   洗码返佣记录、转盘抽奖参与记录、提款审核日志、实名认证记录
 --   除 BG-10001 外的所有用户及其关联数据
---   BG-10001 的钱包余额归零
+--   BG-10001 的钱包余额与实名认证数据归零
 --
 -- 不清理（保留后台配置）：
 --   bg_team_rate_plan、bg_team_config、BG-10001 的 rate_plan_id
@@ -77,9 +77,10 @@ UPDATE bg_user_promo_state
 
 -- ── 用户关联表 ────────────────────────────────────────────────
 DELETE FROM bg_login_log WHERE user_id != 'BG-10001';
-DELETE FROM bg_kyc_submission WHERE user_id != 'BG-10001';
--- 实名认证记录（含进行中/已通过；影像文件由 reset-and-test.sh 同步清理）
-DELETE FROM bg_kyc WHERE user_id != 'BG-10001';
+-- 实名认证记录（含 BG-10001；影像文件与 Redis KYC 缓存由 reset-and-test.sh 同步清理）
+DELETE FROM bg_kyc_doc_log;
+DELETE FROM bg_kyc_submission;
+DELETE FROM bg_kyc;
 
 -- ── 删除用户（最后）───────────────────────────────────────────
 DELETE FROM bg_user WHERE id != 'BG-10001';
@@ -102,5 +103,7 @@ UNION ALL SELECT 'bg_deposit_order',   COUNT(*) FROM bg_deposit_order
 UNION ALL SELECT 'bg_turnover_logs',   COUNT(*) FROM bg_turnover_logs
 UNION ALL SELECT 'bg_team_node',       COUNT(*) FROM bg_team_node
 UNION ALL SELECT 'bg_kyc',             COUNT(*) FROM bg_kyc
+UNION ALL SELECT 'bg_kyc_doc_log',     COUNT(*) FROM bg_kyc_doc_log
+UNION ALL SELECT 'bg_kyc_submission',  COUNT(*) FROM bg_kyc_submission
 UNION ALL SELECT 'bg_rebate_record',   COUNT(*) FROM bg_rebate_record
 UNION ALL SELECT 'bg_withdraw_review_log', COUNT(*) FROM bg_withdraw_review_log;
