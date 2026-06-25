@@ -73,7 +73,7 @@ export default function BingoPage({ onOpenWallet, onGameTap, onOpenGame, onOpenC
           <div className="flex items-center gap-1 flex-shrink-0"><Trophy size={11} className="text-primary" /><span className="text-primary text-[10px] font-black uppercase tracking-wide">{t('bingo.winners')}</span></div>
           <div className="w-px h-3 bg-white/10 flex-shrink-0" />
           <div className="overflow-hidden flex-1">
-            <div className="flex gap-5 animate-marquee whitespace-nowrap" style={{ animationDuration: '33.333s' }}>
+            <div className="flex gap-5 animate-marquee whitespace-nowrap" style={{ animationDuration: '4s' }}>
               {marqueeWinners.map((w, i) => (
                 <span key={i} className="text-[11px] flex-shrink-0">
                   <span className="text-primary font-bold">{w.name}</span>

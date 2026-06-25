@@ -449,7 +449,7 @@ const [gamesLoading, setGamesLoading] = useState(true)
         <div className="flex-shrink-0 flex items-center gap-1.5 text-primary"><Trophy size={13} /><span className="text-xs font-bold uppercase tracking-wide whitespace-nowrap">{t('home.recentWins')}</span></div>
         <div className="w-px h-4 bg-border flex-shrink-0" />
         <div className="overflow-hidden flex-1">
-          <div className="flex gap-6 animate-marquee whitespace-nowrap" style={{ animationDuration: '45s' }}>
+          <div className="flex gap-6 animate-marquee whitespace-nowrap" style={{ animationDuration: '4.5s' }}>
             {marqueeWinners.map((w, i) => <span key={i} className="text-xs text-foreground/80 flex-shrink-0"><span className="text-primary font-bold">{w.name}</span> {t('common.won')} <span className="text-emerald-400 font-bold">{w.amount}</span> · <span className="text-muted-foreground">{w.game}</span></span>)}
           </div>
         </div>
