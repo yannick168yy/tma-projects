@@ -19,6 +19,24 @@ interface Props {
   onClose: () => void
 }
 
+function maskSegment(value: string): string {
+  if (value.length <= 2) return '*'.repeat(value.length)
+  if (value.length <= 4) return `${value[0]}${'*'.repeat(value.length - 1)}`
+  return `${value.slice(0, 2)}${'*'.repeat(Math.min(4, value.length - 4))}${value.slice(-2)}`
+}
+
+function maskAccountName(value?: string | number): string {
+  const text = String(value ?? '').trim()
+  if (!text) return ''
+  const prefix = text.startsWith('@') ? '@' : ''
+  const source = prefix ? text.slice(1) : text
+  const emailAt = source.indexOf('@')
+  if (emailAt > 0) {
+    return `${maskSegment(source.slice(0, emailAt))}@${source.slice(emailAt + 1)}`
+  }
+  return `${prefix}${maskSegment(source)}`
+}
+
 export default function BindModal({ open, onClose }: Props) {
   const { t } = useTranslation()
   const user = useAuthStore((s) => s.user)
@@ -57,8 +75,16 @@ export default function BindModal({ open, onClose }: Props) {
   if (!open || !user) return null
 
   const inputCls = 'w-full rounded-xl border border-border bg-secondary px-4 py-3 text-sm font-bold text-foreground focus:border-primary focus:outline-none'
-  const rowCls = 'flex items-center justify-between rounded-xl border border-border bg-secondary px-4 py-3'
-  const boundTag = <span className="flex items-center gap-1 text-xs font-bold text-emerald-400"><Check size={14} />{t('bind.bound')}</span>
+  const rowCls = 'flex items-center justify-between gap-3 rounded-xl border border-border bg-secondary px-4 py-3'
+  const boundStatus = (label?: string | number) => {
+    const masked = maskAccountName(label)
+    return (
+      <span className="flex min-w-0 max-w-[160px] flex-col items-end">
+        <span className="flex items-center gap-1 text-xs font-bold text-emerald-400"><Check size={14} />{t('bind.bound')}</span>
+        {masked && <span className="w-full truncate text-right text-[11px] font-bold text-muted-foreground">{masked}</span>}
+      </span>
+    )
+  }
 
   return createPortal(
     <div className="fixed inset-0 z-[95] flex items-end justify-center sm:items-center">
@@ -75,7 +101,7 @@ export default function BindModal({ open, onClose }: Props) {
               <img src={iconTelegram} alt="" className="h-6 w-6 object-contain" />
               <span className="text-sm font-bold text-foreground">Telegram</span>
             </span>
-            {user.boundTelegram ? boundTag : isInsideTelegram()
+            {user.boundTelegram ? boundStatus(user.telegramUsername ?? user.telegramUserId) : isInsideTelegram()
               ? <span className="text-[11px] text-muted-foreground">{t('bind.telegramBrowserOnly')}</span>
               : <button type="button" className="rounded-lg bg-primary px-3 py-1.5 text-xs font-bold text-primary-foreground" onClick={onBindTelegram}>{t('bind.action')}</button>}
           </div>
@@ -86,7 +112,7 @@ export default function BindModal({ open, onClose }: Props) {
               <img src={iconGoogle} alt="" className="h-6 w-6 object-contain" />
               <span className="text-sm font-bold text-foreground">Google</span>
             </span>
-            {user.boundGoogle ? boundTag : (
+            {user.boundGoogle ? boundStatus(user.email) : (
               <button type="button" className="rounded-lg bg-primary px-3 py-1.5 text-xs font-bold text-primary-foreground" onClick={onBindGoogle}>{t('bind.action')}</button>
             )}
           </div>
@@ -98,7 +124,7 @@ export default function BindModal({ open, onClose }: Props) {
                 <img src={iconPhone} alt="" className="h-6 w-6 object-contain" />
                 <span className="text-sm font-bold text-foreground">{t('bind.phone')}</span>
               </span>
-              {user.boundPhone ? boundTag : (
+              {user.boundPhone ? boundStatus(user.phone) : (
                 <button type="button" className="rounded-lg bg-primary px-3 py-1.5 text-xs font-bold text-primary-foreground" onClick={() => setExpand(expand === 'phone' ? null : 'phone')}>{t('bind.action')}</button>
               )}
             </div>
@@ -117,7 +143,7 @@ export default function BindModal({ open, onClose }: Props) {
                 <img src={iconAccount} alt="" className="h-6 w-6 object-contain" />
                 <span className="text-sm font-bold text-foreground">{t('bind.account')}</span>
               </span>
-              {user.boundAccount ? boundTag : (
+              {user.boundAccount ? boundStatus(user.username) : (
                 <button type="button" className="rounded-lg bg-primary px-3 py-1.5 text-xs font-bold text-primary-foreground" onClick={() => setExpand(expand === 'account' ? null : 'account')}>{t('bind.action')}</button>
               )}
             </div>

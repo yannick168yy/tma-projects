@@ -19,6 +19,7 @@ interface MeResponse {
   inviteCode?: string
   loginProvider?: LoginProvider
   email?: string
+  phone?: string
   boundTelegram?: boolean
   boundGoogle?: boolean
   boundPhone?: boolean
@@ -37,6 +38,7 @@ function toAuthUser(me: MeResponse): AuthUser {
     inviteCode: me.inviteCode,
     loginProvider: me.loginProvider,
     email: me.email,
+    phone: me.phone,
     boundTelegram: me.boundTelegram,
     boundGoogle: me.boundGoogle,
     boundPhone: me.boundPhone,

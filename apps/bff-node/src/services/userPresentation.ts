@@ -22,6 +22,7 @@ export function toPublicUser(user: UserRecord, identities: UserIdentity[] = []) 
   const loginProvider = resolveLoginProvider(identities)
   const email = user.email || undefined
   const telegram = firstIdentity(identities, 'telegram', 'telegram_oidc')
+  const phone = firstIdentity(identities, 'phone')
   const account = firstIdentity(identities, 'account')
 
   return {
@@ -33,6 +34,7 @@ export function toPublicUser(user: UserRecord, identities: UserIdentity[] = []) 
     loginProvider,
     email,
     telegramUsername: telegram?.displayLabel,
+    phone: phone?.displayLabel ?? phone?.identifier,
     username: account?.identifier,
     // 各登录方式是否已绑定（绑定页用）
     boundTelegram: hasIdentity(identities, 'telegram') || hasIdentity(identities, 'telegram_oidc'),

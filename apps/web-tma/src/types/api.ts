@@ -18,6 +18,7 @@ export interface AuthUser {
   inviteCode?: string
   loginProvider?: LoginProvider
   email?: string
+  phone?: string
   isNewUser?: boolean
   boundTelegram?: boolean
   boundGoogle?: boolean
