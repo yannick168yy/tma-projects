@@ -9,7 +9,15 @@ import { getAdminSetting } from './admin-store.js'
 import { getMysqlPool, isMysqlEnabled } from '../clients/mysql.client.js'
 import { getSmsProvider, isSmsTestModeEnabled } from './sms/index.js'
 import { appendSmsSendLog } from './sms/send-log.js'
-import { enforceSmsDailyLimit, getOtpLockSeconds, getSmsDailyIpLimit, getSmsDailyLimit, recordSmsSent } from './otp-policy.service.js'
+import {
+  enforceSmsDailyLimit,
+  getKycDocFailureLimit,
+  getKycFaceFailureLimit,
+  getOtpLockSeconds,
+  getSmsDailyIpLimit,
+  getSmsDailyLimit,
+  recordSmsSent,
+} from './otp-policy.service.js'
 import { getStorageProvider } from './storage/index.js'
 import { broadcastBadges } from './sse-badges.js'
 import {
@@ -181,11 +189,32 @@ export async function adminReviewKyc(
 const otpKey = (userId: string) => `kyc:otp:${userId}`
 const resendKey = (userId: string) => `kyc:otp:sent:${userId}`
 const otpLockKey = (userId: string) => `kyc:otp:lock:${userId}`
+const kycFailureKey = (kind: 'doc' | 'face', userId: string) => `kyc:fail:${kind}:${userId}`
 
 interface OtpState {
   code: string
   phone: string
   attempts: number
+}
+
+async function enforceKycFailureLimit(
+  redis: Redis,
+  limit: number,
+  kind: 'doc' | 'face',
+  userId: string,
+): Promise<void> {
+  const failed = Number(await redis.get(kycFailureKey(kind, userId)) ?? 0)
+  if (failed >= limit) {
+    throw new KycError(kind === 'doc' ? 'kyc.errors.docFailureLimitReached' : 'kyc.errors.faceFailureLimitReached', 429)
+  }
+}
+
+async function recordKycFailure(redis: Redis, kind: 'doc' | 'face', userId: string): Promise<void> {
+  await redis.incr(kycFailureKey(kind, userId))
+}
+
+async function clearKycFailure(redis: Redis, kind: 'doc' | 'face', userId: string): Promise<void> {
+  await redis.del(kycFailureKey(kind, userId))
 }
 
 export async function sendKycOtp(
@@ -542,6 +571,7 @@ export async function submitKycDocument(
     throw new KycError('证件验证已关闭', 400)
   }
   await enforceVerifyRateLimit(redis, env, userId, 'doc')
+  await enforceKycFailureLimit(redis, await getKycDocFailureLimit(env), 'doc', userId)
 
   if (!ACCEPTED_DOC_TYPES.includes(normalizeDocType(input.docType))) {
     throw new KycError('kyc.errors.unsupportedDocType', 400)
@@ -574,6 +604,11 @@ export async function submitKycDocument(
   if (age != null && age < 21) reasons.push('underage')
 
   const docVerified = reasons.length === 0
+  if (docVerified) {
+    await clearKycFailure(redis, 'doc', userId)
+  } else {
+    await recordKycFailure(redis, 'doc', userId)
+  }
   // 人脸验证关闭 ⇒ 证件通过即完成实名
   const approvedByDoc = docVerified && !cfg.requireFace
   const now = nowIso()
@@ -639,6 +674,7 @@ export async function submitKycFace(
   }
 
   await enforceVerifyRateLimit(redis, env, userId, 'face')
+  await enforceKycFailureLimit(redis, await getKycFaceFailureLimit(env), 'face', userId)
 
   const storage = getStorageProvider(env)
   const docFile = await storage.get(existing.docImageKey)
@@ -664,6 +700,11 @@ export async function submitKycFace(
   if (verdict.confidence < env.KYC_GEMINI_MIN_CONFIDENCE) reasons.push('low_liveness_confidence')
 
   const faceVerified = reasons.length === 0
+  if (faceVerified) {
+    await clearKycFailure(redis, 'face', userId)
+  } else {
+    await recordKycFailure(redis, 'face', userId)
+  }
   const now = nowIso()
   const submission: KycSubmission = {
     ...existing,

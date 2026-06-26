@@ -162,7 +162,8 @@ export default {
     docAcrIcard: 'ACR I-Card',
     uploadId: '上传证件照',
     reuploadId: '重新上传证件照',
-    docReuploadHint: '请重新上传证件照后再提交审核。',
+    docReuploadHint: '请拍摄证件原件，四角完整入镜，避免反光或模糊，确保文字清晰。',
+    faceRetryHint: '请在光线充足处正对镜头，保持脸部完整清晰入镜。',
     submit: '提交审核',
     reviewing: '审核中…',
     reviewingHint: '资料已提交，正在审核中，结果将通过通知告知。',
@@ -203,6 +204,8 @@ export default {
       smsFailed: '短信发送失败，请稍后再试',
       smsFailedWithCode: '短信发送失败（{{code}}），请稍后再试',
       unsupportedDocType: '不支持的证件类型',
+      docFailureLimitReached: '证件验证失败次数已达上限，请联系客服处理',
+      faceFailureLimitReached: '人脸验证失败次数已达上限，请联系客服处理',
     },
   },
   bind: {

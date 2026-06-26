@@ -3,7 +3,7 @@ import { Alert, Button, Card, InputNumber, Table, Typography, message } from 'an
 import { getSystemParams, updateSystemParams } from '../api'
 import { useAuthStore } from '../stores/auth'
 
-type ParamKey = 'smsDailyLimitPerUser' | 'smsDailyLimitPerIp' | 'otpLockSeconds'
+type ParamKey = 'smsDailyLimitPerUser' | 'smsDailyLimitPerIp' | 'otpLockSeconds' | 'kycDocFailureLimit' | 'kycFaceFailureLimit'
 
 interface ParamRow {
   key: ParamKey
@@ -46,6 +46,20 @@ export default function SystemParams() {
           value: params.otpLockSeconds,
           max: 3600,
         },
+        {
+          key: 'kycDocFailureLimit',
+          name: 'KYC证件验证失败上限次数',
+          description: '同一用户证件验证连续失败达到该次数后停止继续提交。默认 3 次。',
+          value: params.kycDocFailureLimit,
+          max: 20,
+        },
+        {
+          key: 'kycFaceFailureLimit',
+          name: 'KYC人脸验证失败上限次数',
+          description: '同一用户人脸验证连续失败达到该次数后停止继续提交。默认 3 次。',
+          value: params.kycFaceFailureLimit,
+          max: 20,
+        },
       ])
     } catch (e) {
       message.error(e instanceof Error ? e.message : '加载失败')
@@ -80,7 +94,7 @@ export default function SystemParams() {
       <div style={{ background: '#fff', marginBottom: 16, padding: 16 }}>
         <h2 style={{ margin: 0 }}>系统参数</h2>
       </div>
-      <Card title="验证码参数" bordered={false} loading={loading}>
+      <Card title="系统参数" bordered={false} loading={loading}>
         {!isSuperAdmin && (
           <Alert message="仅 super_admin 可修改系统参数" type="warning" showIcon style={{ marginBottom: 16 }} />
         )}
@@ -111,7 +125,7 @@ export default function SystemParams() {
         />
         {isSuperAdmin && <Button type="primary" loading={saving} onClick={save} style={{ marginTop: 16 }}>保存</Button>}
         <Typography.Paragraph type="secondary" style={{ marginTop: 12 }}>
-          计数按菲律宾时间自然日重置。
+          验证码发送计数按菲律宾时间自然日重置；KYC 失败次数按连续失败计数，验证成功后清零。
         </Typography.Paragraph>
       </Card>
     </div>

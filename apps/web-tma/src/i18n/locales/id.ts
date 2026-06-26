@@ -833,7 +833,8 @@ export default {
     match: 'Cocokkan',
     matched: 'Cocok',
     reuploadId: 'Unggah ulang foto ID',
-    docReuploadHint: 'Silakan unggah ulang foto ID Anda lalu kirim lagi.',
+    docReuploadHint: 'Gunakan ID asli, pastikan semua sudut terlihat, hindari silau atau blur, dan teks terbaca jelas.',
+    faceRetryHint: 'Gunakan cahaya yang cukup, hadap kamera langsung, dan pastikan wajah terlihat penuh.',
     errors: {
       otpInvalid: 'Kode verifikasi salah',
       otpExpired: 'Kode verifikasi kedaluwarsa. Silakan minta kode baru.',
@@ -847,6 +848,8 @@ export default {
       smsFailed: 'Gagal mengirim SMS. Coba lagi nanti.',
       smsFailedWithCode: 'Gagal mengirim SMS ({{code}}). Coba lagi nanti.',
       unsupportedDocType: 'Jenis dokumen tidak didukung',
+      docFailureLimitReached: 'Verifikasi dokumen gagal terlalu sering. Hubungi dukungan.',
+      faceFailureLimitReached: 'Verifikasi wajah gagal terlalu sering. Hubungi dukungan.',
     },
     reasons: {
       invalid_doc: 'Dokumen tidak valid atau tidak terbaca',

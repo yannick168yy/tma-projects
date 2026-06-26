@@ -50,6 +50,25 @@ function formatDocRejectError(reason: string | null | undefined, t: Translate): 
   return `${reasonText}. ${t('kyc.docReuploadHint')}`
 }
 
+function formatFaceRejectError(reason: string | null | undefined, t: Translate): string {
+  const reasonText = reason ? translateRejectReason(reason, t) : t('kyc.rejected')
+  return `${reasonText}. ${t('kyc.faceRetryHint')}`
+}
+
+function formatDocApiError(e: unknown, t: Translate): string {
+  if (!(e instanceof ApiError)) return t('kyc.rejected')
+  const message = translateKycError(e.message, t, t('kyc.docRecognitionFailed'))
+  if (e.message === 'kyc.errors.docFailureLimitReached') return message
+  return `${message}. ${t('kyc.docReuploadHint')}`
+}
+
+function formatFaceApiError(e: unknown, t: Translate): string {
+  if (!(e instanceof ApiError)) return t('kyc.rejected')
+  const message = translateKycError(e.message, t, t('kyc.faceFailed'))
+  if (e.message === 'kyc.errors.faceFailureLimitReached') return message
+  return `${message}. ${t('kyc.faceRetryHint')}`
+}
+
 function resolveStep(s: Awaited<ReturnType<typeof fetchKycStatus>>): KycStep {
   if (s.status === 'approved') return 'done'
   if (!s.phoneVerified) return 'phone'
@@ -180,7 +199,7 @@ export function useKycFlow(active: boolean, onApproved?: () => void) {
         setError(formatDocRejectError(res.rejectReason, t))
       }
     } catch (e) {
-      setError(e instanceof ApiError ? translateKycError(e.message, t, t('kyc.docRecognitionFailed')) : t('kyc.rejected'))
+      setError(formatDocApiError(e, t))
     } finally { setLoading(false) }
   }
 
@@ -192,10 +211,10 @@ export function useKycFlow(active: boolean, onApproved?: () => void) {
         setStep('done')
         onApproved?.()
       } else {
-        setError(res.rejectReason ? translateRejectReason(res.rejectReason, t) : t('kyc.rejected'))
+        setError(formatFaceRejectError(res.rejectReason, t))
       }
     } catch (e) {
-      setError(e instanceof ApiError ? translateKycError(e.message, t, t('kyc.faceFailed')) : t('kyc.rejected'))
+      setError(formatFaceApiError(e, t))
     } finally { setLoading(false) }
   }
 

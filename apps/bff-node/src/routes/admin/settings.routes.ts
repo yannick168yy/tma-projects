@@ -7,10 +7,16 @@ import { listSmsSendLogs } from '../../services/sms/send-log.js'
 import {
   DEFAULT_SMS_DAILY_IP_LIMIT,
   DEFAULT_SMS_DAILY_LIMIT,
+  DEFAULT_KYC_DOC_FAILURE_LIMIT,
+  DEFAULT_KYC_FACE_FAILURE_LIMIT,
   DEFAULT_OTP_LOCK_SECONDS,
+  KYC_DOC_FAILURE_LIMIT_KEY,
+  KYC_FACE_FAILURE_LIMIT_KEY,
   OTP_LOCK_SECONDS_KEY,
   SMS_DAILY_IP_LIMIT_KEY,
   SMS_DAILY_LIMIT_KEY,
+  getKycDocFailureLimit,
+  getKycFaceFailureLimit,
   getOtpLockSeconds,
   getSmsDailyIpLimit,
   getSmsDailyLimit,
@@ -94,22 +100,32 @@ router.get('/sms/logs', async (ctx) => {
 // ── 系统参数 ──────────────────────────────────────────────────────────────────
 
 router.get('/system-params', async (ctx) => {
-  const [smsDailyLimitPerUser, smsDailyLimitPerIp, otpLockSeconds] = await Promise.all([
+  const [smsDailyLimitPerUser, smsDailyLimitPerIp, otpLockSeconds, kycDocFailureLimit, kycFaceFailureLimit] = await Promise.all([
     getSmsDailyLimit(ctx.state.env),
     getSmsDailyIpLimit(ctx.state.env),
     getOtpLockSeconds(ctx.state.env),
+    getKycDocFailureLimit(ctx.state.env),
+    getKycFaceFailureLimit(ctx.state.env),
   ])
-  ok(ctx, { smsDailyLimitPerUser, smsDailyLimitPerIp, otpLockSeconds })
+  ok(ctx, { smsDailyLimitPerUser, smsDailyLimitPerIp, otpLockSeconds, kycDocFailureLimit, kycFaceFailureLimit })
 })
 
 router.put('/system-params', async (ctx) => {
   if (ctx.state.adminRole !== 'super_admin') {
     fail(ctx, 403, 'Only super_admin can manage system parameters'); return
   }
-  const body = ctx.request.body as { smsDailyLimitPerUser?: unknown; smsDailyLimitPerIp?: unknown; otpLockSeconds?: unknown }
+  const body = ctx.request.body as {
+    smsDailyLimitPerUser?: unknown
+    smsDailyLimitPerIp?: unknown
+    otpLockSeconds?: unknown
+    kycDocFailureLimit?: unknown
+    kycFaceFailureLimit?: unknown
+  }
   const smsDailyLimitPerUser = Number(body.smsDailyLimitPerUser)
   const smsDailyLimitPerIp = Number(body.smsDailyLimitPerIp)
   const otpLockSeconds = Number(body.otpLockSeconds)
+  const kycDocFailureLimit = Number(body.kycDocFailureLimit)
+  const kycFaceFailureLimit = Number(body.kycFaceFailureLimit)
   if (!Number.isInteger(smsDailyLimitPerUser) || smsDailyLimitPerUser < 1 || smsDailyLimitPerUser > 1000) {
     fail(ctx, 400, 'smsDailyLimitPerUser must be an integer between 1 and 1000'); return
   }
@@ -119,19 +135,27 @@ router.put('/system-params', async (ctx) => {
   if (!Number.isInteger(otpLockSeconds) || otpLockSeconds < 1 || otpLockSeconds > 3600) {
     fail(ctx, 400, 'otpLockSeconds must be an integer between 1 and 3600'); return
   }
+  if (!Number.isInteger(kycDocFailureLimit) || kycDocFailureLimit < 1 || kycDocFailureLimit > 20) {
+    fail(ctx, 400, 'kycDocFailureLimit must be an integer between 1 and 20'); return
+  }
+  if (!Number.isInteger(kycFaceFailureLimit) || kycFaceFailureLimit < 1 || kycFaceFailureLimit > 20) {
+    fail(ctx, 400, 'kycFaceFailureLimit must be an integer between 1 and 20'); return
+  }
   await setAdminSetting(ctx.state.env, SMS_DAILY_LIMIT_KEY, String(smsDailyLimitPerUser || DEFAULT_SMS_DAILY_LIMIT))
   await setAdminSetting(ctx.state.env, SMS_DAILY_IP_LIMIT_KEY, String(smsDailyLimitPerIp || DEFAULT_SMS_DAILY_IP_LIMIT))
   await setAdminSetting(ctx.state.env, OTP_LOCK_SECONDS_KEY, String(otpLockSeconds || DEFAULT_OTP_LOCK_SECONDS))
+  await setAdminSetting(ctx.state.env, KYC_DOC_FAILURE_LIMIT_KEY, String(kycDocFailureLimit || DEFAULT_KYC_DOC_FAILURE_LIMIT))
+  await setAdminSetting(ctx.state.env, KYC_FACE_FAILURE_LIMIT_KEY, String(kycFaceFailureLimit || DEFAULT_KYC_FACE_FAILURE_LIMIT))
   await writeAuditLog(ctx.state.env, {
     adminId: ctx.state.adminId!,
     adminUsername: ctx.state.adminUsername!,
     action: 'system_params_update',
     targetType: 'settings',
     targetId: 'system_params',
-    detail: { smsDailyLimitPerUser, smsDailyLimitPerIp, otpLockSeconds },
+    detail: { smsDailyLimitPerUser, smsDailyLimitPerIp, otpLockSeconds, kycDocFailureLimit, kycFaceFailureLimit },
     ip: ctx.ip,
   })
-  ok(ctx, { smsDailyLimitPerUser, smsDailyLimitPerIp, otpLockSeconds })
+  ok(ctx, { smsDailyLimitPerUser, smsDailyLimitPerIp, otpLockSeconds, kycDocFailureLimit, kycFaceFailureLimit })
 })
 
 // ── KYC 证件/人脸验证开关 ─────────────────────────────────────────────────────

@@ -256,6 +256,8 @@ export interface SystemParams {
   smsDailyLimitPerUser: number
   smsDailyLimitPerIp: number
   otpLockSeconds: number
+  kycDocFailureLimit: number
+  kycFaceFailureLimit: number
 }
 export const getSystemParams = () => get<SystemParams>('/admin/settings/system-params')
 export const updateSystemParams = (params: SystemParams) => put<SystemParams>('/admin/settings/system-params', params)

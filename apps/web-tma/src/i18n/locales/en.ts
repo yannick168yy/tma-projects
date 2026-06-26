@@ -163,7 +163,8 @@ export default {
     docAcrIcard: 'ACR I-Card',
     uploadId: 'Upload ID photo',
     reuploadId: 'Re-upload ID photo',
-    docReuploadHint: 'Please re-upload your ID photo and submit again.',
+    docReuploadHint: 'Use the original ID, keep all corners visible, avoid glare or blur, and make the text readable.',
+    faceRetryHint: 'Use good lighting, face the camera directly, and keep your face fully visible.',
     submit: 'Submit for verification',
     reviewing: 'Under review…',
     reviewingHint: "Your submission is being reviewed. We'll notify you of the result.",
@@ -204,6 +205,8 @@ export default {
       smsFailed: 'Failed to send SMS. Please try again later.',
       smsFailedWithCode: 'Failed to send SMS ({{code}}). Please try again later.',
       unsupportedDocType: 'Unsupported document type',
+      docFailureLimitReached: 'Document verification failed too many times. Please contact support.',
+      faceFailureLimitReached: 'Face verification failed too many times. Please contact support.',
     },
   },
   bind: {

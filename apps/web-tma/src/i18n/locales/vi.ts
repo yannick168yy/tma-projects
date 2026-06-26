@@ -829,7 +829,8 @@ export default {
     match: 'Khớp',
     matched: 'Đã khớp',
     reuploadId: 'Tải lại ảnh giấy tờ',
-    docReuploadHint: 'Vui lòng tải lại ảnh giấy tờ rồi gửi lại.',
+    docReuploadHint: 'Hãy chụp giấy tờ gốc, thấy đủ bốn góc, tránh lóa hoặc mờ và đảm bảo chữ rõ.',
+    faceRetryHint: 'Hãy dùng ánh sáng tốt, nhìn thẳng vào camera và để khuôn mặt hiện rõ đầy đủ.',
     errors: {
       otpInvalid: 'Mã xác minh không đúng',
       otpExpired: 'Mã xác minh đã hết hạn. Vui lòng lấy mã mới.',
@@ -843,6 +844,8 @@ export default {
       smsFailed: 'Gửi SMS thất bại. Vui lòng thử lại sau.',
       smsFailedWithCode: 'Gửi SMS thất bại ({{code}}). Vui lòng thử lại sau.',
       unsupportedDocType: 'Loại giấy tờ không được hỗ trợ',
+      docFailureLimitReached: 'Xác minh giấy tờ thất bại quá nhiều lần. Vui lòng liên hệ hỗ trợ.',
+      faceFailureLimitReached: 'Xác minh khuôn mặt thất bại quá nhiều lần. Vui lòng liên hệ hỗ trợ.',
     },
     reasons: {
       invalid_doc: 'Tài liệu không hợp lệ hoặc không đọc được',
