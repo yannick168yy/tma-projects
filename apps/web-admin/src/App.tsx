@@ -16,6 +16,7 @@ import WithdrawRecords from './views/review/WithdrawRecords'
 import AuditLog from './views/AuditLog'
 import Games from './views/Games'
 import Settings from './views/Settings'
+import SystemParams from './views/SystemParams'
 import SmsTest from './views/SmsTest'
 import ExchangeRates from './views/ExchangeRates'
 import CustomerService from './views/CustomerService'
@@ -75,6 +76,7 @@ export default function App() {
           <Route path="audit-log" element={<AuditLog />} />
           <Route path="games" element={<Games />} />
           <Route path="settings" element={<Settings />} />
+          <Route path="system-params" element={<SystemParams />} />
           <Route path="sms-test" element={<SmsTest />} />
           <Route path="exchange-rates" element={<ExchangeRates />} />
           <Route path="customer-service" element={<CustomerService />} />

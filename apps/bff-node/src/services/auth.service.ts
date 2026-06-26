@@ -34,6 +34,7 @@ import { hashPassword, verifyPassword } from '../utils/password.js'
 import type { UserRecord } from '../types/domain.js'
 import { getSmsProvider, isSmsTestModeEnabled } from './sms/index.js'
 import { appendSmsSendLog } from './sms/send-log.js'
+import { enforceSmsDailyLimit, recordSmsSent } from './otp-policy.service.js'
 import { exchangeGoogleCode } from './google.service.js'
 import { exchangeTelegramOidcCode } from './telegramOidc.service.js'
 import { toPublicUser } from './userPresentation.js'
@@ -44,7 +45,8 @@ export type PasswordMethod = 'phone' | 'account'
 
 const OTP_TTL_SEC = 300
 const RESEND_INTERVAL_SEC = 60
-const MAX_VERIFY_ATTEMPTS = 5
+const MAX_VERIFY_ATTEMPTS = 3
+const OTP_LOCK_SEC = 60
 
 export class AuthError extends Error {
   status?: number
@@ -284,6 +286,7 @@ function normalizeIdentifier(method: PasswordMethod, identifier: string): string
 
 const forgotOtpKey = (phone: string) => `auth:forgot:otp:${phone}`
 const forgotResendKey = (phone: string) => `auth:forgot:sent:${phone}`
+const forgotLockKey = (phone: string) => `auth:forgot:lock:${phone}`
 
 interface ForgotOtpState {
   code: string
@@ -376,6 +379,12 @@ export async function sendForgotPasswordOtp(
   if (await redis.get(forgotResendKey(phone))) {
     throw new AuthError('kyc.errors.rateLimited', 429)
   }
+  if (await redis.get(forgotLockKey(phone))) throw new AuthError('kyc.errors.otpLocked', 429)
+  try {
+    await enforceSmsDailyLimit(redis, env, `user:${user.id}`)
+  } catch (e) {
+    throw new AuthError(e instanceof Error ? e.message : 'kyc.errors.smsDailyLimit', 429)
+  }
 
   const code = String(randomInt(0, 1_000_000)).padStart(6, '0')
   const state: ForgotOtpState = { code, attempts: 0 }
@@ -392,6 +401,7 @@ export async function sendForgotPasswordOtp(
       502,
     )
   }
+  await recordSmsSent(redis, `user:${user.id}`)
   await appendSmsSendLog(redis, {
     scene: 'auth_forgot_password',
     userId: user.id,
@@ -419,17 +429,27 @@ export async function resetForgotPassword(
     throw new AuthError('auth.errors.phoneAccountNotFound', 404)
   }
 
+  if (await redis.get(forgotLockKey(phone))) throw new AuthError('kyc.errors.otpLocked', 429)
   const raw = await redis.get(forgotOtpKey(phone))
   if (!raw) throw new AuthError('kyc.errors.otpExpired', 400)
   const state = JSON.parse(raw) as ForgotOtpState
   if (state.attempts >= MAX_VERIFY_ATTEMPTS) {
-    await redis.del(forgotOtpKey(phone))
+    state.attempts = 0
+    const ttl = await redis.ttl(forgotOtpKey(phone))
+    await redis.set(forgotOtpKey(phone), JSON.stringify(state), 'EX', ttl > 0 ? ttl : OTP_TTL_SEC)
+    await redis.set(forgotLockKey(phone), '1', 'EX', OTP_LOCK_SEC)
     throw new AuthError('kyc.errors.otpTooManyAttempts', 429)
   }
   if (code !== state.code) {
     state.attempts += 1
     const ttl = await redis.ttl(forgotOtpKey(phone))
     await redis.set(forgotOtpKey(phone), JSON.stringify(state), 'EX', ttl > 0 ? ttl : OTP_TTL_SEC)
+    if (state.attempts >= MAX_VERIFY_ATTEMPTS) {
+      state.attempts = 0
+      await redis.set(forgotOtpKey(phone), JSON.stringify(state), 'EX', ttl > 0 ? ttl : OTP_TTL_SEC)
+      await redis.set(forgotLockKey(phone), '1', 'EX', OTP_LOCK_SEC)
+      throw new AuthError('kyc.errors.otpTooManyAttempts', 429)
+    }
     throw new AuthError('kyc.errors.otpInvalid', 400)
   }
 
@@ -437,7 +457,7 @@ export async function resetForgotPassword(
     ...identity,
     credentialHash: await hashPassword(password),
   })
-  await redis.del(forgotOtpKey(phone), forgotResendKey(phone))
+  await redis.del(forgotOtpKey(phone), forgotResendKey(phone), forgotLockKey(phone))
 }
 
 export async function loginWithTelegramWidget(

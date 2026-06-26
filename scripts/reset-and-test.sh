@@ -34,8 +34,8 @@ DB_NAME=$(grep '^MYSQL_DATABASE=' /root/workspace/tma-projects/.env | tail -1 | 
 podman exec -i tma-mysql mysql --default-character-set=utf8mb4 -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" \
   < /root/workspace/tma-projects/scripts/reset-test-data.sql 2>&1 | grep -v Warning
 
-# 清理 KYC Redis 缓存
-for pattern in 'tma:kyc:*' 'kyc:otp:*' 'kyc:otp:sent:*' 'kyc:rl:*' 'kyc:idlock:*'; do
+# 清理 KYC / OTP Redis 缓存
+for pattern in 'tma:kyc:*' 'kyc:otp:*' 'kyc:otp:sent:*' 'kyc:otp:lock:*' 'kyc:rl:*' 'kyc:idlock:*' 'auth:forgot:*' 'sms:daily:*'; do
   podman exec tma-redis sh -c "
     n=0
     for k in \$(redis-cli --scan --pattern '$pattern'); do

@@ -124,6 +124,7 @@ function buildMenuItems(badges: AdminBadges) {
       label: '系统设置',
       children: [
         { key: '/settings', label: '管理员与权限' },
+        { key: '/system-params', label: '系统参数' },
         { key: '/audit-log', label: '操作日志' },
         { key: '/sms-test', label: '短信测试' },
       ],
@@ -141,7 +142,7 @@ function getDefaultOpenKeys(pathname: string): string[] {
   if (pathname.startsWith('/team-referral')) return ['team']
   if (pathname.startsWith('/agents') || pathname.startsWith('/agent-')) return ['agent']
   if (['/customer-service', '/cs-faq'].some((p) => pathname.startsWith(p))) return ['cs']
-  if (['/audit-log', '/settings', '/sms-test'].some((p) => pathname.startsWith(p))) return ['system']
+  if (['/audit-log', '/settings', '/system-params', '/sms-test'].some((p) => pathname.startsWith(p))) return ['system']
   return []
 }
 

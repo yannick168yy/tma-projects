@@ -252,6 +252,11 @@ export interface SmsSendLogEntry {
 export const getSmsSettings = () => get<{ testMode: boolean }>('/admin/settings/sms')
 export const updateSmsSettings = (testMode: boolean) => put<{ testMode: boolean }>('/admin/settings/sms', { testMode })
 export const getSmsSendLogs = () => get<SmsSendLogEntry[]>('/admin/settings/sms/logs')
+export interface SystemParams {
+  smsDailyLimitPerUser: number
+}
+export const getSystemParams = () => get<SystemParams>('/admin/settings/system-params')
+export const updateSystemParams = (params: SystemParams) => put<SystemParams>('/admin/settings/system-params', params)
 
 // Deposits
 export interface AdminDeposit {

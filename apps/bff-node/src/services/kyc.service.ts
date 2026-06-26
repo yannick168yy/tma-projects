@@ -9,6 +9,7 @@ import { getAdminSetting } from './admin-store.js'
 import { getMysqlPool, isMysqlEnabled } from '../clients/mysql.client.js'
 import { getSmsProvider, isSmsTestModeEnabled } from './sms/index.js'
 import { appendSmsSendLog } from './sms/send-log.js'
+import { enforceSmsDailyLimit, recordSmsSent } from './otp-policy.service.js'
 import { getStorageProvider } from './storage/index.js'
 import { broadcastBadges } from './sse-badges.js'
 import {
@@ -32,7 +33,8 @@ const GEMINI_RETRY_DELAY_CAP_MS = 60_000
 const GEMINI_RETRY_DELAY_FALLBACK_MS = 5_000
 const OTP_TTL_SEC = 300
 const RESEND_INTERVAL_SEC = 60
-const MAX_VERIFY_ATTEMPTS = 5
+const MAX_VERIFY_ATTEMPTS = 3
+const OTP_LOCK_SEC = 60
 const ACCEPTED_DOC_TYPES = ['passport', 'drivers_license', 'philid', 'umid', 'acr_icard']
 
 function normalizeDocType(raw: string): string {
@@ -179,6 +181,7 @@ export async function adminReviewKyc(
 
 const otpKey = (userId: string) => `kyc:otp:${userId}`
 const resendKey = (userId: string) => `kyc:otp:sent:${userId}`
+const otpLockKey = (userId: string) => `kyc:otp:lock:${userId}`
 
 interface OtpState {
   code: string
@@ -213,6 +216,12 @@ export async function sendKycOtp(
   if (await redis.get(resendKey(userId))) {
     throw new KycError('kyc.errors.rateLimited', 429)
   }
+  if (await redis.get(otpLockKey(userId))) throw new KycError('kyc.errors.otpLocked', 429)
+  try {
+    await enforceSmsDailyLimit(redis, env, `user:${userId}`)
+  } catch (e) {
+    throw new KycError(e instanceof Error ? e.message : 'kyc.errors.smsDailyLimit', 429)
+  }
 
   const code = String(randomInt(0, 1_000_000)).padStart(6, '0')
   const state: OtpState = { code, phone, attempts: 0 }
@@ -229,6 +238,7 @@ export async function sendKycOtp(
       502,
     )
   }
+  await recordSmsSent(redis, `user:${userId}`)
   await appendSmsSendLog(redis, {
     scene: 'kyc_otp',
     userId,
@@ -246,22 +256,32 @@ export async function verifyKycOtp(
   userId: string,
   code: string,
 ): Promise<{ phoneVerified: true; status: KycSubmission['status'] }> {
+  if (await redis.get(otpLockKey(userId))) throw new KycError('kyc.errors.otpLocked', 429)
   const raw = await redis.get(otpKey(userId))
   if (!raw) throw new KycError('kyc.errors.otpExpired', 400)
   const state = JSON.parse(raw) as OtpState
 
   if (state.attempts >= MAX_VERIFY_ATTEMPTS) {
-    await redis.del(otpKey(userId))
+    state.attempts = 0
+    const ttl = await redis.ttl(otpKey(userId))
+    await redis.set(otpKey(userId), JSON.stringify(state), 'EX', ttl > 0 ? ttl : OTP_TTL_SEC)
+    await redis.set(otpLockKey(userId), '1', 'EX', OTP_LOCK_SEC)
     throw new KycError('kyc.errors.otpTooManyAttempts', 429)
   }
   if (code !== state.code) {
     state.attempts += 1
     const ttl = await redis.ttl(otpKey(userId))
     await redis.set(otpKey(userId), JSON.stringify(state), 'EX', ttl > 0 ? ttl : OTP_TTL_SEC)
+    if (state.attempts >= MAX_VERIFY_ATTEMPTS) {
+      state.attempts = 0
+      await redis.set(otpKey(userId), JSON.stringify(state), 'EX', ttl > 0 ? ttl : OTP_TTL_SEC)
+      await redis.set(otpLockKey(userId), '1', 'EX', OTP_LOCK_SEC)
+      throw new KycError('kyc.errors.otpTooManyAttempts', 429)
+    }
     throw new KycError('kyc.errors.otpInvalid', 400)
   }
 
-  await redis.del(otpKey(userId))
+  await redis.del(otpKey(userId), otpLockKey(userId))
   const existing = await getKyc(redis, userId)
   const cfg = await getKycStepConfig(redis, env, userId)
   // 证件验证关闭 ⇒ 手机验证即完成实名（人脸已被强制关闭）
