@@ -80,8 +80,7 @@ UPDATE bg_user_promo_state
 
 -- ── 用户关联表 ────────────────────────────────────────────────
 DELETE FROM bg_login_log WHERE user_id != 'BG-10001';
-DELETE FROM bg_user_identity WHERE user_id != 'BG-10001';
-DELETE FROM bg_user_identity WHERE user_id='BG-10001' AND provider='account';
+DELETE FROM bg_user_identity;
 -- 实名认证记录（含 BG-10001；影像文件与 Redis KYC 缓存由 reset-and-test.sh 同步清理）
 DELETE FROM bg_kyc_doc_log;
 DELETE FROM bg_kyc_submission;
