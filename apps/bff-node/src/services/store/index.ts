@@ -50,8 +50,16 @@ export const getUserByIdentity = (redis: Redis, provider: IdentityProvider, iden
     ? mysqlStore.getUserByIdentity(env(), provider, identifier)
     : redisStore.getUserByIdentity(redis, provider, identifier)
 
+export const getUserByTelegramOidcUsername = (redis: Redis, username: string) =>
+  isMysqlEnabled(env())
+    ? mysqlStore.getUserByTelegramOidcUsername(env(), username)
+    : redisStore.getUserByTelegramOidcUsername(redis, username)
+
 export const bindIdentity = (redis: Redis, identity: UserIdentity) =>
   isMysqlEnabled(env()) ? mysqlStore.bindIdentity(env(), identity) : redisStore.bindIdentity(redis, identity)
+
+export const reassignIdentity = (redis: Redis, identity: UserIdentity) =>
+  isMysqlEnabled(env()) ? mysqlStore.reassignIdentity(env(), identity) : redisStore.reassignIdentity(redis, identity)
 
 export const setUserKycOverride = (redis: Redis, userId: string, doc: boolean | null, face: boolean | null) =>
   isMysqlEnabled(env())

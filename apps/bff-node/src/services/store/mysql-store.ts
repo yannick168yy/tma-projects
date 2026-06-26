@@ -199,6 +199,18 @@ export async function getUserByIdentity(
   return identity ? getUser(env, identity.userId) : null
 }
 
+export async function getUserByTelegramOidcUsername(env: Env, username: string): Promise<UserRecord | null> {
+  const [rows] = await pool(env).query<IdentityRow[]>(
+    `SELECT * FROM bg_user_identity
+     WHERE provider = 'telegram_oidc' AND display_label = ?
+     ORDER BY created_at ASC
+     LIMIT 2`,
+    [username],
+  )
+  if (rows.length !== 1) return null
+  return getUser(env, String(rows[0].user_id))
+}
+
 export async function bindIdentity(env: Env, identity: UserIdentity): Promise<UserIdentity> {
   await pool(env).execute(
     `INSERT INTO bg_user_identity (user_id, provider, identifier, credential_hash, display_label, verified_at)
@@ -218,6 +230,29 @@ export async function bindIdentity(env: Env, identity: UserIdentity): Promise<Us
   )
   const saved = await getUserIdentity(env, identity.provider, identity.identifier)
   if (!saved || saved.userId !== identity.userId) throw new Error('Identity already bound to another account')
+  return saved
+}
+
+export async function reassignIdentity(env: Env, identity: UserIdentity): Promise<UserIdentity> {
+  await pool(env).execute(
+    `INSERT INTO bg_user_identity (user_id, provider, identifier, credential_hash, display_label, verified_at)
+     VALUES (?, ?, ?, ?, ?, ?)
+     ON DUPLICATE KEY UPDATE
+       user_id = VALUES(user_id),
+       credential_hash = COALESCE(VALUES(credential_hash), credential_hash),
+       display_label = COALESCE(VALUES(display_label), display_label),
+       verified_at = COALESCE(VALUES(verified_at), verified_at)`,
+    [
+      identity.userId,
+      identity.provider,
+      identity.identifier,
+      identity.credentialHash ?? null,
+      identity.displayLabel ?? null,
+      identity.verifiedAt ? new Date(identity.verifiedAt) : null,
+    ],
+  )
+  const saved = await getUserIdentity(env, identity.provider, identity.identifier)
+  if (!saved || saved.userId !== identity.userId) throw new Error('Identity reassign failed')
   return saved
 }
 

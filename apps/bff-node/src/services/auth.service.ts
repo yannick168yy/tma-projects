@@ -17,11 +17,13 @@ import {
   getUserByEmail,
   getUserByGoogleSub,
   getUserByTelegramOidcSub,
+  getUserByTelegramOidcUsername,
   getUserByInviteCode,
   getUserByPhoneAccount,
   getUserByTelegramId,
   getUserByUsername,
   listUserIdentities,
+  reassignIdentity,
   saveSession,
   saveUser,
 } from './store/index.js'
@@ -74,6 +76,21 @@ async function bindTelegramIdentity(
   const owner = await getUserByTelegramId(redis, telegramUserId)
   if (owner && owner.id !== userId) throw new AuthError('该 Telegram 已绑定其他账号', 409)
   await bindIdentity(redis, {
+    userId,
+    provider: 'telegram',
+    identifier: String(telegramUserId),
+    displayLabel: telegramUsername,
+    verifiedAt: new Date().toISOString(),
+  })
+}
+
+async function reassignTelegramIdentity(
+  redis: Redis,
+  userId: string,
+  telegramUserId: number,
+  telegramUsername?: string,
+): Promise<void> {
+  await reassignIdentity(redis, {
     userId,
     provider: 'telegram',
     identifier: String(telegramUserId),
@@ -147,6 +164,20 @@ export async function loginWithInitData(
   }
 
   const region = ip ? lookupRegion(ip) : undefined
+  const oidcUserByUsername = parsed.user.username
+    ? await getUserByTelegramOidcUsername(redis, parsed.user.username)
+    : null
+  if (oidcUserByUsername) {
+    await reassignTelegramIdentity(redis, oidcUserByUsername.id, tgUserId, parsed.user.username)
+    oidcUserByUsername.displayName = displayName
+    if (avatarUrl) oidcUserByUsername.avatarUrl = avatarUrl
+    await saveUser(redis, oidcUserByUsername)
+    if (oidcUserByUsername.status === 'banned') {
+      throw new AuthError('Account has been permanently banned. Please contact support.')
+    }
+    return issueSession(redis, env, oidcUserByUsername, false)
+  }
+
   const oidcUser = await getUserByTelegramOidcSub(redis, String(tgUserId))
   if (oidcUser) {
     await bindTelegramIdentity(redis, oidcUser.id, tgUserId, parsed.user.username)
@@ -433,6 +464,18 @@ export async function loginWithTelegramWidget(
 
   const displayName = [v.firstName, v.lastName].filter(Boolean).join(' ') || v.username || 'Telegram User'
   const region = ip ? lookupRegion(ip) : undefined
+  const oidcUserByUsername = v.username ? await getUserByTelegramOidcUsername(redis, v.username) : null
+  if (oidcUserByUsername) {
+    await reassignTelegramIdentity(redis, oidcUserByUsername.id, v.id, v.username)
+    oidcUserByUsername.displayName = displayName
+    if (v.photoUrl) oidcUserByUsername.avatarUrl = v.photoUrl
+    await saveUser(redis, oidcUserByUsername)
+    if (oidcUserByUsername.status === 'banned') {
+      throw new AuthError('Account has been permanently banned. Please contact support.', 401)
+    }
+    return issueSession(redis, env, oidcUserByUsername, false)
+  }
+
   const oidcUser = await getUserByTelegramOidcSub(redis, String(v.id))
   if (oidcUser) {
     await bindTelegramIdentity(redis, oidcUser.id, v.id, v.username)

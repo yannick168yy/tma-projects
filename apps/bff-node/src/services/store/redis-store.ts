@@ -72,6 +72,19 @@ export async function getUserByIdentity(
   return identity ? getUser(redis, identity.userId) : null
 }
 
+export async function getUserByTelegramOidcUsername(redis: Redis, username: string): Promise<UserRecord | null> {
+  const keys = await redis.keys(KEYS.identity('telegram_oidc', '*'))
+  const matches: UserIdentity[] = []
+  for (const key of keys) {
+    const raw = await redis.get(key)
+    if (!raw) continue
+    const identity = JSON.parse(raw) as UserIdentity
+    if (identity.displayLabel === username) matches.push(identity)
+    if (matches.length > 1) return null
+  }
+  return matches[0] ? getUser(redis, matches[0].userId) : null
+}
+
 export async function bindIdentity(redis: Redis, identity: UserIdentity): Promise<UserIdentity> {
   const key = KEYS.identity(identity.provider, identity.identifier)
   const existing = await getUserIdentity(redis, identity.provider, identity.identifier)
@@ -92,6 +105,31 @@ export async function bindIdentity(redis: Redis, identity: UserIdentity): Promis
   await redis.del(KEYS.userIdentities(identity.userId))
   if (identities.length) {
     await redis.rpush(KEYS.userIdentities(identity.userId), ...identities.map((item) => JSON.stringify(item)))
+  }
+  return saved
+}
+
+export async function reassignIdentity(redis: Redis, identity: UserIdentity): Promise<UserIdentity> {
+  const existing = await getUserIdentity(redis, identity.provider, identity.identifier)
+  const saved: UserIdentity = {
+    ...existing,
+    ...identity,
+    credentialHash: identity.credentialHash ?? existing?.credentialHash,
+    displayLabel: identity.displayLabel ?? existing?.displayLabel,
+    verifiedAt: identity.verifiedAt ?? existing?.verifiedAt,
+    createdAt: existing?.createdAt ?? nowIso(),
+    updatedAt: nowIso(),
+  }
+  await redis.set(KEYS.identity(saved.provider, saved.identifier), JSON.stringify(saved))
+  const userIds = new Set([identity.userId, existing?.userId].filter(Boolean) as string[])
+  for (const userId of userIds) {
+    const identities = (await listUserIdentities(redis, userId))
+      .filter((item) => !(item.provider === saved.provider && item.identifier === saved.identifier))
+    if (userId === identity.userId) identities.push(saved)
+    await redis.del(KEYS.userIdentities(userId))
+    if (identities.length) {
+      await redis.rpush(KEYS.userIdentities(userId), ...identities.map((item) => JSON.stringify(item)))
+    }
   }
   return saved
 }
