@@ -34,7 +34,7 @@ import { hashPassword, verifyPassword } from '../utils/password.js'
 import type { UserRecord } from '../types/domain.js'
 import { getSmsProvider, isSmsTestModeEnabled } from './sms/index.js'
 import { appendSmsSendLog } from './sms/send-log.js'
-import { enforceSmsDailyLimit, getSmsDailyIpLimit, getSmsDailyLimit, recordSmsSent } from './otp-policy.service.js'
+import { enforceSmsDailyLimit, getOtpLockSeconds, getSmsDailyIpLimit, getSmsDailyLimit, recordSmsSent } from './otp-policy.service.js'
 import { exchangeGoogleCode } from './google.service.js'
 import { exchangeTelegramOidcCode } from './telegramOidc.service.js'
 import { toPublicUser } from './userPresentation.js'
@@ -46,7 +46,6 @@ export type PasswordMethod = 'phone' | 'account'
 const OTP_TTL_SEC = 300
 const RESEND_INTERVAL_SEC = 60
 const MAX_VERIFY_ATTEMPTS = 3
-const OTP_LOCK_SEC = 60
 
 export class AuthError extends Error {
   status?: number
@@ -418,6 +417,7 @@ export async function sendForgotPasswordOtp(
 
 export async function resetForgotPassword(
   redis: Redis,
+  env: Env,
   phoneRaw: string,
   code: string,
   password: string,
@@ -440,7 +440,7 @@ export async function resetForgotPassword(
     state.attempts = 0
     const ttl = await redis.ttl(forgotOtpKey(phone))
     await redis.set(forgotOtpKey(phone), JSON.stringify(state), 'EX', ttl > 0 ? ttl : OTP_TTL_SEC)
-    await redis.set(forgotLockKey(phone), '1', 'EX', OTP_LOCK_SEC)
+    await redis.set(forgotLockKey(phone), '1', 'EX', await getOtpLockSeconds(env))
     throw new AuthError('kyc.errors.otpTooManyAttempts', 429)
   }
   if (code !== state.code) {
@@ -450,7 +450,7 @@ export async function resetForgotPassword(
     if (state.attempts >= MAX_VERIFY_ATTEMPTS) {
       state.attempts = 0
       await redis.set(forgotOtpKey(phone), JSON.stringify(state), 'EX', ttl > 0 ? ttl : OTP_TTL_SEC)
-      await redis.set(forgotLockKey(phone), '1', 'EX', OTP_LOCK_SEC)
+      await redis.set(forgotLockKey(phone), '1', 'EX', await getOtpLockSeconds(env))
       throw new AuthError('kyc.errors.otpTooManyAttempts', 429)
     }
     throw new AuthError('kyc.errors.otpInvalid', 400)

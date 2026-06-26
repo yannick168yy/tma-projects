@@ -9,7 +9,7 @@ import { getAdminSetting } from './admin-store.js'
 import { getMysqlPool, isMysqlEnabled } from '../clients/mysql.client.js'
 import { getSmsProvider, isSmsTestModeEnabled } from './sms/index.js'
 import { appendSmsSendLog } from './sms/send-log.js'
-import { enforceSmsDailyLimit, getSmsDailyIpLimit, getSmsDailyLimit, recordSmsSent } from './otp-policy.service.js'
+import { enforceSmsDailyLimit, getOtpLockSeconds, getSmsDailyIpLimit, getSmsDailyLimit, recordSmsSent } from './otp-policy.service.js'
 import { getStorageProvider } from './storage/index.js'
 import { broadcastBadges } from './sse-badges.js'
 import {
@@ -34,7 +34,6 @@ const GEMINI_RETRY_DELAY_FALLBACK_MS = 5_000
 const OTP_TTL_SEC = 300
 const RESEND_INTERVAL_SEC = 60
 const MAX_VERIFY_ATTEMPTS = 3
-const OTP_LOCK_SEC = 60
 const ACCEPTED_DOC_TYPES = ['passport', 'drivers_license', 'philid', 'umid', 'acr_icard']
 
 function normalizeDocType(raw: string): string {
@@ -268,7 +267,7 @@ export async function verifyKycOtp(
     state.attempts = 0
     const ttl = await redis.ttl(otpKey(userId))
     await redis.set(otpKey(userId), JSON.stringify(state), 'EX', ttl > 0 ? ttl : OTP_TTL_SEC)
-    await redis.set(otpLockKey(userId), '1', 'EX', OTP_LOCK_SEC)
+    await redis.set(otpLockKey(userId), '1', 'EX', await getOtpLockSeconds(env))
     throw new KycError('kyc.errors.otpTooManyAttempts', 429)
   }
   if (code !== state.code) {
@@ -278,7 +277,7 @@ export async function verifyKycOtp(
     if (state.attempts >= MAX_VERIFY_ATTEMPTS) {
       state.attempts = 0
       await redis.set(otpKey(userId), JSON.stringify(state), 'EX', ttl > 0 ? ttl : OTP_TTL_SEC)
-      await redis.set(otpLockKey(userId), '1', 'EX', OTP_LOCK_SEC)
+      await redis.set(otpLockKey(userId), '1', 'EX', await getOtpLockSeconds(env))
       throw new KycError('kyc.errors.otpTooManyAttempts', 429)
     }
     throw new KycError('kyc.errors.otpInvalid', 400)

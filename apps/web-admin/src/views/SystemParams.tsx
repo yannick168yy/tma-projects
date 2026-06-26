@@ -3,7 +3,7 @@ import { Alert, Button, Card, InputNumber, Table, Typography, message } from 'an
 import { getSystemParams, updateSystemParams } from '../api'
 import { useAuthStore } from '../stores/auth'
 
-type ParamKey = 'smsDailyLimitPerUser' | 'smsDailyLimitPerIp'
+type ParamKey = 'smsDailyLimitPerUser' | 'smsDailyLimitPerIp' | 'otpLockSeconds'
 
 interface ParamRow {
   key: ParamKey
@@ -38,6 +38,13 @@ export default function SystemParams() {
           description: '限制同一 IP 每天可发送的验证码总数。默认 100 次/IP/天。',
           value: params.smsDailyLimitPerIp,
           max: 10000,
+        },
+        {
+          key: 'otpLockSeconds',
+          name: '验证码错误锁定时长',
+          description: '验证码连续输错 3 次后锁定验证方式的秒数。默认 60 秒。',
+          value: params.otpLockSeconds,
+          max: 3600,
         },
       ])
     } catch (e) {

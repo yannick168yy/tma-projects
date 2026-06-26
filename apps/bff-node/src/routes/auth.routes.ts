@@ -242,7 +242,7 @@ router.post('/forgot-password/reset', async (ctx) => {
     return
   }
   try {
-    await resetForgotPassword(ctx.state.redis, body.phone, body.code, body.password)
+    await resetForgotPassword(ctx.state.redis, ctx.state.env, body.phone, body.code, body.password)
     ok(ctx, null)
   } catch (e) {
     if (e instanceof AuthError) {
