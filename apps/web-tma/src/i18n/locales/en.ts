@@ -205,8 +205,8 @@ export default {
       smsFailed: 'Failed to send SMS. Please try again later.',
       smsFailedWithCode: 'Failed to send SMS ({{code}}). Please try again later.',
       unsupportedDocType: 'Unsupported document type',
-      docFailureLimitReached: 'Document verification failed too many times. Please contact support.',
-      faceFailureLimitReached: 'Face verification failed too many times. Please contact support.',
+      docFailureLimitReached: 'Document verification is locked. Please try again in 3 minutes.',
+      faceFailureLimitReached: 'Face verification is locked. Please try again in 3 minutes.',
     },
   },
   bind: {

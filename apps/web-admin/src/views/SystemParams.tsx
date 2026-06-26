@@ -49,14 +49,14 @@ export default function SystemParams() {
         {
           key: 'kycDocFailureLimit',
           name: 'KYC证件验证失败上限次数',
-          description: '同一用户证件验证连续失败达到该次数后停止继续提交。默认 3 次。',
+          description: '同一用户证件验证连续失败达到该次数后锁定 3 分钟。默认 3 次。',
           value: params.kycDocFailureLimit,
           max: 20,
         },
         {
           key: 'kycFaceFailureLimit',
           name: 'KYC人脸验证失败上限次数',
-          description: '同一用户人脸验证连续失败达到该次数后停止继续提交。默认 3 次。',
+          description: '同一用户人脸验证连续失败达到该次数后锁定 3 分钟。默认 3 次。',
           value: params.kycFaceFailureLimit,
           max: 20,
         },
@@ -125,7 +125,7 @@ export default function SystemParams() {
         />
         {isSuperAdmin && <Button type="primary" loading={saving} onClick={save} style={{ marginTop: 16 }}>保存</Button>}
         <Typography.Paragraph type="secondary" style={{ marginTop: 12 }}>
-          验证码发送计数按菲律宾时间自然日重置；KYC 失败次数按连续失败计数，验证成功后清零。
+          验证码发送计数按菲律宾时间自然日重置；KYC 达到失败上限后锁定 3 分钟，验证成功后清零。
         </Typography.Paragraph>
       </Card>
     </div>

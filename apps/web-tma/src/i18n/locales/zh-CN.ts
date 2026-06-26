@@ -204,8 +204,8 @@ export default {
       smsFailed: '短信发送失败，请稍后再试',
       smsFailedWithCode: '短信发送失败（{{code}}），请稍后再试',
       unsupportedDocType: '不支持的证件类型',
-      docFailureLimitReached: '证件验证失败次数已达上限，请联系客服处理',
-      faceFailureLimitReached: '人脸验证失败次数已达上限，请联系客服处理',
+      docFailureLimitReached: '证件验证已锁定，请 3 分钟后再试',
+      faceFailureLimitReached: '人脸验证已锁定，请 3 分钟后再试',
     },
   },
   bind: {

@@ -844,8 +844,8 @@ export default {
       smsFailed: 'Gửi SMS thất bại. Vui lòng thử lại sau.',
       smsFailedWithCode: 'Gửi SMS thất bại ({{code}}). Vui lòng thử lại sau.',
       unsupportedDocType: 'Loại giấy tờ không được hỗ trợ',
-      docFailureLimitReached: 'Xác minh giấy tờ thất bại quá nhiều lần. Vui lòng liên hệ hỗ trợ.',
-      faceFailureLimitReached: 'Xác minh khuôn mặt thất bại quá nhiều lần. Vui lòng liên hệ hỗ trợ.',
+      docFailureLimitReached: 'Xác minh giấy tờ đang bị khóa. Vui lòng thử lại sau 3 phút.',
+      faceFailureLimitReached: 'Xác minh khuôn mặt đang bị khóa. Vui lòng thử lại sau 3 phút.',
     },
     reasons: {
       invalid_doc: 'Tài liệu không hợp lệ hoặc không đọc được',

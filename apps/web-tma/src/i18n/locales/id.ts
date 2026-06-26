@@ -848,8 +848,8 @@ export default {
       smsFailed: 'Gagal mengirim SMS. Coba lagi nanti.',
       smsFailedWithCode: 'Gagal mengirim SMS ({{code}}). Coba lagi nanti.',
       unsupportedDocType: 'Jenis dokumen tidak didukung',
-      docFailureLimitReached: 'Verifikasi dokumen gagal terlalu sering. Hubungi dukungan.',
-      faceFailureLimitReached: 'Verifikasi wajah gagal terlalu sering. Hubungi dukungan.',
+      docFailureLimitReached: 'Verifikasi dokumen dikunci. Coba lagi dalam 3 menit.',
+      faceFailureLimitReached: 'Verifikasi wajah dikunci. Coba lagi dalam 3 menit.',
     },
     reasons: {
       invalid_doc: 'Dokumen tidak valid atau tidak terbaca',

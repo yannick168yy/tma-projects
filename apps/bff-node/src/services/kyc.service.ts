@@ -42,6 +42,7 @@ const GEMINI_RETRY_DELAY_FALLBACK_MS = 5_000
 const OTP_TTL_SEC = 300
 const RESEND_INTERVAL_SEC = 60
 const MAX_VERIFY_ATTEMPTS = 3
+const KYC_FAILURE_LOCK_SECONDS = 180
 const ACCEPTED_DOC_TYPES = ['passport', 'drivers_license', 'philid', 'umid', 'acr_icard']
 
 function normalizeDocType(raw: string): string {
@@ -190,6 +191,7 @@ const otpKey = (userId: string) => `kyc:otp:${userId}`
 const resendKey = (userId: string) => `kyc:otp:sent:${userId}`
 const otpLockKey = (userId: string) => `kyc:otp:lock:${userId}`
 const kycFailureKey = (kind: 'doc' | 'face', userId: string) => `kyc:fail:${kind}:${userId}`
+const kycFailureLockKey = (kind: 'doc' | 'face', userId: string) => `kyc:fail:lock:${kind}:${userId}`
 
 interface OtpState {
   code: string
@@ -203,18 +205,27 @@ async function enforceKycFailureLimit(
   kind: 'doc' | 'face',
   userId: string,
 ): Promise<void> {
+  if (await redis.get(kycFailureLockKey(kind, userId))) {
+    throw new KycError(kind === 'doc' ? 'kyc.errors.docFailureLimitReached' : 'kyc.errors.faceFailureLimitReached', 429)
+  }
   const failed = Number(await redis.get(kycFailureKey(kind, userId)) ?? 0)
   if (failed >= limit) {
+    await redis.set(kycFailureLockKey(kind, userId), '1', 'EX', KYC_FAILURE_LOCK_SECONDS)
+    await redis.del(kycFailureKey(kind, userId))
     throw new KycError(kind === 'doc' ? 'kyc.errors.docFailureLimitReached' : 'kyc.errors.faceFailureLimitReached', 429)
   }
 }
 
-async function recordKycFailure(redis: Redis, kind: 'doc' | 'face', userId: string): Promise<void> {
-  await redis.incr(kycFailureKey(kind, userId))
+async function recordKycFailure(redis: Redis, limit: number, kind: 'doc' | 'face', userId: string): Promise<void> {
+  const failed = await redis.incr(kycFailureKey(kind, userId))
+  if (failed >= limit) {
+    await redis.set(kycFailureLockKey(kind, userId), '1', 'EX', KYC_FAILURE_LOCK_SECONDS)
+    await redis.del(kycFailureKey(kind, userId))
+  }
 }
 
 async function clearKycFailure(redis: Redis, kind: 'doc' | 'face', userId: string): Promise<void> {
-  await redis.del(kycFailureKey(kind, userId))
+  await redis.del(kycFailureKey(kind, userId), kycFailureLockKey(kind, userId))
 }
 
 export async function sendKycOtp(
@@ -571,7 +582,8 @@ export async function submitKycDocument(
     throw new KycError('证件验证已关闭', 400)
   }
   await enforceVerifyRateLimit(redis, env, userId, 'doc')
-  await enforceKycFailureLimit(redis, await getKycDocFailureLimit(env), 'doc', userId)
+  const failureLimit = await getKycDocFailureLimit(env)
+  await enforceKycFailureLimit(redis, failureLimit, 'doc', userId)
 
   if (!ACCEPTED_DOC_TYPES.includes(normalizeDocType(input.docType))) {
     throw new KycError('kyc.errors.unsupportedDocType', 400)
@@ -607,7 +619,7 @@ export async function submitKycDocument(
   if (docVerified) {
     await clearKycFailure(redis, 'doc', userId)
   } else {
-    await recordKycFailure(redis, 'doc', userId)
+    await recordKycFailure(redis, failureLimit, 'doc', userId)
   }
   // 人脸验证关闭 ⇒ 证件通过即完成实名
   const approvedByDoc = docVerified && !cfg.requireFace
@@ -674,7 +686,8 @@ export async function submitKycFace(
   }
 
   await enforceVerifyRateLimit(redis, env, userId, 'face')
-  await enforceKycFailureLimit(redis, await getKycFaceFailureLimit(env), 'face', userId)
+  const failureLimit = await getKycFaceFailureLimit(env)
+  await enforceKycFailureLimit(redis, failureLimit, 'face', userId)
 
   const storage = getStorageProvider(env)
   const docFile = await storage.get(existing.docImageKey)
@@ -703,7 +716,7 @@ export async function submitKycFace(
   if (faceVerified) {
     await clearKycFailure(redis, 'face', userId)
   } else {
-    await recordKycFailure(redis, 'face', userId)
+    await recordKycFailure(redis, failureLimit, 'face', userId)
   }
   const now = nowIso()
   const submission: KycSubmission = {
