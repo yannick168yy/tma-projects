@@ -258,6 +258,8 @@ export interface SystemParams {
   otpLockSeconds: number
   kycDocFailureLimit: number
   kycFaceFailureLimit: number
+  loginPasswordFailureLimit: number
+  loginPasswordLockSeconds: number
 }
 export const getSystemParams = () => get<SystemParams>('/admin/settings/system-params')
 export const updateSystemParams = (params: SystemParams) => put<SystemParams>('/admin/settings/system-params', params)

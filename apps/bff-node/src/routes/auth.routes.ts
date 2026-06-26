@@ -5,6 +5,7 @@ import { recordUserLogin } from '../services/store/index.js'
 import { lookupRegion } from '../services/geo.service.js'
 import { attributeAgentByDomain } from '../services/agent.service.js'
 import { fail, ok } from '../utils/response.js'
+import { getLoginPasswordFailureLimit, getLoginPasswordLockSeconds } from '../services/otp-policy.service.js'
 
 const router = new Router({ prefix: '/auth' })
 
@@ -18,9 +19,6 @@ function attributeAgent(ctx: import('koa').Context, isNewUser: boolean, userId: 
   const host = ctx.get('origin') || ctx.get('host')
   attributeAgentByDomain(ctx.state.env, userId, host).catch(() => {})
 }
-
-const LOGIN_MAX_FAILS = 5
-const LOGIN_WINDOW_SEC = 600
 
 function isPasswordMethod(m: unknown): m is PasswordMethod {
   return m === 'phone' || m === 'account'
@@ -179,18 +177,22 @@ router.post('/login', async (ctx) => {
   }
   const ip = cleanIp(ctx.ip)
   const throttleKey = `auth:login:fails:${ip}:${body.method}:${body.identifier}`
-  const fails = Number((await ctx.state.redis.get(throttleKey)) ?? 0)
-  if (fails >= LOGIN_MAX_FAILS) {
+  const lockKey = `auth:login:lock:${ip}:${body.method}:${body.identifier}`
+  if (await ctx.state.redis.get(lockKey)) {
     fail(ctx, 429, 'errors.tooManyAttempts', 429)
     return
   }
+  const [failureLimit, lockSeconds] = await Promise.all([
+    getLoginPasswordFailureLimit(ctx.state.env),
+    getLoginPasswordLockSeconds(ctx.state.env),
+  ])
   try {
     const result = await loginWithPassword(ctx.state.redis, ctx.state.env, {
       method: body.method,
       identifier: body.identifier,
       password: body.password,
     })
-    await ctx.state.redis.del(throttleKey)
+    await ctx.state.redis.del(throttleKey, lockKey)
     ok(ctx, {
       token: result.token,
       expiresIn: result.expiresIn,
@@ -208,7 +210,13 @@ router.post('/login', async (ctx) => {
   } catch (e) {
     if (e instanceof AuthError) {
       const n = await ctx.state.redis.incr(throttleKey)
-      if (n === 1) await ctx.state.redis.expire(throttleKey, LOGIN_WINDOW_SEC)
+      if (n === 1) await ctx.state.redis.expire(throttleKey, lockSeconds)
+      if (n >= failureLimit) {
+        await ctx.state.redis.set(lockKey, '1', 'EX', lockSeconds)
+        await ctx.state.redis.del(throttleKey)
+        fail(ctx, 429, 'errors.tooManyAttempts', 429)
+        return
+      }
       fail(ctx, 401, e.message, 401)
       return
     }

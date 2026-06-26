@@ -1,12 +1,22 @@
 import { useEffect, useState } from 'react'
-import { Alert, Button, Card, InputNumber, Table, Typography, message } from 'antd'
+import { Alert, Button, Card, Input, InputNumber, Select, Space, Table, Tag, Typography, message } from 'antd'
 import { getSystemParams, updateSystemParams } from '../api'
 import { useAuthStore } from '../stores/auth'
 
-type ParamKey = 'smsDailyLimitPerUser' | 'smsDailyLimitPerIp' | 'otpLockSeconds' | 'kycDocFailureLimit' | 'kycFaceFailureLimit'
+type ParamKey =
+  | 'smsDailyLimitPerUser'
+  | 'smsDailyLimitPerIp'
+  | 'otpLockSeconds'
+  | 'kycDocFailureLimit'
+  | 'kycFaceFailureLimit'
+  | 'loginPasswordFailureLimit'
+  | 'loginPasswordLockSeconds'
+
+type ParamType = '验证码' | '登录安全' | 'KYC'
 
 interface ParamRow {
   key: ParamKey
+  type: ParamType
   name: string
   description: string
   value: number
@@ -17,6 +27,8 @@ export default function SystemParams() {
   const { role } = useAuthStore()
   const isSuperAdmin = role === 'super_admin'
   const [rows, setRows] = useState<ParamRow[]>([])
+  const [search, setSearch] = useState('')
+  const [typeFilter, setTypeFilter] = useState<ParamType | 'all'>('all')
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
 
@@ -27,6 +39,7 @@ export default function SystemParams() {
       setRows([
         {
           key: 'smsDailyLimitPerUser',
+          type: '验证码',
           name: '每人每日验证码上限',
           description: '适用于 KYC 手机验证、找回密码等所有短信验证码发送。默认 30 次/人/天。',
           value: params.smsDailyLimitPerUser,
@@ -34,6 +47,7 @@ export default function SystemParams() {
         },
         {
           key: 'smsDailyLimitPerIp',
+          type: '验证码',
           name: '每 IP 每日验证码上限',
           description: '限制同一 IP 每天可发送的验证码总数。默认 100 次/IP/天。',
           value: params.smsDailyLimitPerIp,
@@ -41,13 +55,31 @@ export default function SystemParams() {
         },
         {
           key: 'otpLockSeconds',
+          type: '验证码',
           name: '验证码错误锁定时长',
           description: '验证码连续输错 3 次后锁定验证方式的秒数。默认 60 秒。',
           value: params.otpLockSeconds,
           max: 3600,
         },
         {
+          key: 'loginPasswordFailureLimit',
+          type: '登录安全',
+          name: '登录密码错误上限次数',
+          description: '前台账号/手机号密码登录连续错误达到该次数后触发 Too many attempts。默认 5 次。',
+          value: params.loginPasswordFailureLimit,
+          max: 20,
+        },
+        {
+          key: 'loginPasswordLockSeconds',
+          type: '登录安全',
+          name: '登录密码错误锁定时长',
+          description: '前台账号/手机号密码登录达到错误上限后的锁定秒数。默认 600 秒。',
+          value: params.loginPasswordLockSeconds,
+          max: 86400,
+        },
+        {
           key: 'kycDocFailureLimit',
+          type: 'KYC',
           name: 'KYC证件验证失败上限次数',
           description: '同一用户证件验证连续失败达到该次数后锁定 3 分钟。默认 3 次。',
           value: params.kycDocFailureLimit,
@@ -55,6 +87,7 @@ export default function SystemParams() {
         },
         {
           key: 'kycFaceFailureLimit',
+          type: 'KYC',
           name: 'KYC人脸验证失败上限次数',
           description: '同一用户人脸验证连续失败达到该次数后锁定 3 分钟。默认 3 次。',
           value: params.kycFaceFailureLimit,
@@ -71,6 +104,13 @@ export default function SystemParams() {
   function updateValue(key: ParamKey, value: number | null) {
     setRows((items) => items.map((item) => (item.key === key ? { ...item, value: Number(value ?? 0) } : item)))
   }
+
+  const filteredRows = rows.filter((row) => {
+    const q = search.trim().toLowerCase()
+    const matchedType = typeFilter === 'all' || row.type === typeFilter
+    const matchedSearch = !q || row.name.toLowerCase().includes(q) || row.description.toLowerCase().includes(q) || row.key.toLowerCase().includes(q)
+    return matchedType && matchedSearch
+  })
 
   async function save() {
     const next = Object.fromEntries(rows.map((row) => [row.key, row.value])) as Record<ParamKey, number>
@@ -98,11 +138,37 @@ export default function SystemParams() {
         {!isSuperAdmin && (
           <Alert message="仅 super_admin 可修改系统参数" type="warning" showIcon style={{ marginBottom: 16 }} />
         )}
+        <Space style={{ marginBottom: 16 }} wrap>
+          <Input.Search
+            allowClear
+            placeholder="搜索参数名、说明或 key"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            style={{ width: 280 }}
+          />
+          <Select
+            value={typeFilter}
+            style={{ width: 160 }}
+            options={[
+              { label: '全部类型', value: 'all' },
+              { label: '验证码', value: '验证码' },
+              { label: '登录安全', value: '登录安全' },
+              { label: 'KYC', value: 'KYC' },
+            ]}
+            onChange={(value) => setTypeFilter(value)}
+          />
+        </Space>
         <Table<ParamRow>
           rowKey="key"
           pagination={false}
-          dataSource={rows}
+          dataSource={filteredRows}
           columns={[
+            {
+              title: '类型',
+              dataIndex: 'type',
+              width: 120,
+              render: (type: ParamType) => <Tag>{type}</Tag>,
+            },
             { title: '参数', dataIndex: 'name', width: 240 },
             { title: '说明', dataIndex: 'description' },
             {

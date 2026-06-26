@@ -7,11 +7,15 @@ export const SMS_DAILY_IP_LIMIT_KEY = 'sms_daily_limit_per_ip'
 export const OTP_LOCK_SECONDS_KEY = 'otp_lock_seconds'
 export const KYC_DOC_FAILURE_LIMIT_KEY = 'kyc_doc_failure_limit'
 export const KYC_FACE_FAILURE_LIMIT_KEY = 'kyc_face_failure_limit'
+export const LOGIN_PASSWORD_FAILURE_LIMIT_KEY = 'login_password_failure_limit'
+export const LOGIN_PASSWORD_LOCK_SECONDS_KEY = 'login_password_lock_seconds'
 export const DEFAULT_SMS_DAILY_LIMIT = 30
 export const DEFAULT_SMS_DAILY_IP_LIMIT = 100
 export const DEFAULT_OTP_LOCK_SECONDS = 60
 export const DEFAULT_KYC_DOC_FAILURE_LIMIT = 3
 export const DEFAULT_KYC_FACE_FAILURE_LIMIT = 3
+export const DEFAULT_LOGIN_PASSWORD_FAILURE_LIMIT = 5
+export const DEFAULT_LOGIN_PASSWORD_LOCK_SECONDS = 600
 
 const DAY_MS = 86_400_000
 const UTC8_OFFSET_MS = 8 * 60 * 60 * 1000
@@ -56,6 +60,18 @@ export async function getKycFaceFailureLimit(env: Env): Promise<number> {
   const raw = await getAdminSetting(env, KYC_FACE_FAILURE_LIMIT_KEY)
   const n = raw == null ? NaN : Number(raw)
   return Number.isInteger(n) && n > 0 ? n : DEFAULT_KYC_FACE_FAILURE_LIMIT
+}
+
+export async function getLoginPasswordFailureLimit(env: Env): Promise<number> {
+  const raw = await getAdminSetting(env, LOGIN_PASSWORD_FAILURE_LIMIT_KEY)
+  const n = raw == null ? NaN : Number(raw)
+  return Number.isInteger(n) && n > 0 ? n : DEFAULT_LOGIN_PASSWORD_FAILURE_LIMIT
+}
+
+export async function getLoginPasswordLockSeconds(env: Env): Promise<number> {
+  const raw = await getAdminSetting(env, LOGIN_PASSWORD_LOCK_SECONDS_KEY)
+  const n = raw == null ? NaN : Number(raw)
+  return Number.isInteger(n) && n > 0 ? n : DEFAULT_LOGIN_PASSWORD_LOCK_SECONDS
 }
 
 export async function enforceSmsDailyLimit(redis: Redis, limit: number, subject: string): Promise<void> {
