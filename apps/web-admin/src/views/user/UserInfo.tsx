@@ -36,7 +36,10 @@ export default function UserInfo({ detail }: Props) {
           <Typography.Text type="secondary" style={{ fontSize: 12 }}>累计有效流水 ₱{Number(detail.totalTurnover).toFixed(2)}</Typography.Text>
         </Descriptions.Item>
         <Descriptions.Item label="Email">{String(u.email ?? '') || '-'}</Descriptions.Item>
-        <Descriptions.Item label="TG用户名">{String(u.telegramUsername ?? '') || '-'}</Descriptions.Item>
+        <Descriptions.Item label="Telegram">{String(u.telegramUsername ?? u.telegramUserId ?? '') || '-'}</Descriptions.Item>
+        <Descriptions.Item label="Google">{String(u.googleEmail ?? u.email ?? '') || '-'}</Descriptions.Item>
+        <Descriptions.Item label="Phone">{String(u.phone ?? '') || '-'}</Descriptions.Item>
+        <Descriptions.Item label="Username">{String(u.username ?? '') || '-'}</Descriptions.Item>
         <Descriptions.Item label="状态"><Tag color={statusColor(String(u.status ?? ''))}>{String(u.status ?? '')}</Tag></Descriptions.Item>
         <Descriptions.Item label="标记"><Tag color={String(u.label) === 'arbitrage' ? 'red' : 'default'}>{labelText(String(u.label ?? 'normal'))}</Tag></Descriptions.Item>
         <Descriptions.Item label="注册时间">{fmtDate(String(u.registeredAt ?? ''))}</Descriptions.Item>

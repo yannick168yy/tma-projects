@@ -1,6 +1,6 @@
 import Router from '@koa/router'
 import { listAdminUsers, writeAuditLog, updateUserLabel, getLoginLogs, getBetOrders, getOpPasswordHash } from '../../services/admin-store.js'
-import { getUser, saveUser, getWallet, listLedger, adminAdjustBalance, getKyc, setUserKycOverride } from '../../services/store/index.js'
+import { getUser, saveUser, getWallet, listLedger, adminAdjustBalance, getKyc, setUserKycOverride, listUserIdentities } from '../../services/store/index.js'
 import { buildKycStatusResponse, getKycStepConfig } from '../../services/kyc.service.js'
 import { verifyPassword } from '../../services/admin-auth.service.js'
 import { getMysqlPool, isMysqlEnabled } from '../../clients/mysql.client.js'
@@ -22,7 +22,7 @@ router.get('/', async (ctx) => {
 router.get('/:id', async (ctx) => {
   const user = await getUser(ctx.state.redis, ctx.params.id)
   if (!user) { fail(ctx, 404, 'User not found', 404); return }
-  const [wallet, ledger, loginLogs, betOrders, kyc, systemCfg, effectiveCfg, totalTurnover, thresholds] = await Promise.all([
+  const [wallet, ledger, loginLogs, betOrders, kyc, systemCfg, effectiveCfg, totalTurnover, thresholds, identities] = await Promise.all([
     getWallet(ctx.state.redis, ctx.params.id),
     listLedger(ctx.state.redis, ctx.params.id, 20),
     getLoginLogs(ctx.state.env, ctx.params.id, 20),
@@ -32,9 +32,21 @@ router.get('/:id', async (ctx) => {
     getKycStepConfig(ctx.state.redis, ctx.state.env, ctx.params.id),
     getUserTotalTurnover(ctx.state.env, ctx.params.id),
     getLevelThresholds(ctx.state.env),
+    listUserIdentities(ctx.state.redis, ctx.params.id),
   ])
+  const telegram = identities.find((i) => i.provider === 'telegram') ?? identities.find((i) => i.provider === 'telegram_oidc')
+  const google = identities.find((i) => i.provider === 'google')
+  const phone = identities.find((i) => i.provider === 'phone')
+  const account = identities.find((i) => i.provider === 'account')
   ok(ctx, {
-    user,
+    user: {
+      ...user,
+      telegramUserId: telegram?.provider === 'telegram' ? Number(telegram.identifier) : null,
+      telegramUsername: telegram?.displayLabel ?? null,
+      googleEmail: google?.displayLabel ?? user.email ?? null,
+      phone: phone?.displayLabel ?? phone?.identifier ?? null,
+      username: account?.identifier ?? null,
+    },
     level: resolveLevel(thresholds, totalTurnover),
     totalTurnover,
     wallet,

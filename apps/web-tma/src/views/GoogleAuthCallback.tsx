@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Loader2 } from 'lucide-react'
 import BetogoLogo from '@/components/BetogoLogo'
 import { bindGoogle, completeGoogleLogin } from '@/api/auth'
+import { ApiError } from '@/api/client'
 import { clearStoredOAuthState, extractRefFromOAuthState, getGoogleRedirectUri, readStoredOAuthState } from '@/utils/googleOAuth'
 import { useAuthStore } from '@/stores/auth'
 
@@ -30,7 +31,7 @@ export default function GoogleAuthCallback() {
       sessionStorage.removeItem('google_bind_intent')
       bindGoogle(code, getGoogleRedirectUri())
         .then(() => { clearStoredOAuthState(); window.location.replace('/?bound=google') })
-        .catch(() => { clearStoredOAuthState(); setError(t('auth.bindFailed')); setLoading(false) })
+        .catch((e) => { clearStoredOAuthState(); setError(e instanceof ApiError ? e.message : t('auth.bindFailed')); setLoading(false) })
       return
     }
 

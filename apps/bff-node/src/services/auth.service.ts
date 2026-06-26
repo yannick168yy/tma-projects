@@ -59,6 +59,46 @@ function displayNameFromInit(data: ReturnType<typeof parse>): string {
   return [u.firstName, u.lastName].filter(Boolean).join(' ') || u.username || 'Telegram User'
 }
 
+function telegramIdFromOidcSub(sub: string): number | null {
+  if (!/^\d+$/.test(sub)) return null
+  const id = Number(sub)
+  return Number.isSafeInteger(id) ? id : null
+}
+
+async function bindTelegramIdentity(
+  redis: Redis,
+  userId: string,
+  telegramUserId: number,
+  telegramUsername?: string,
+): Promise<void> {
+  const owner = await getUserByTelegramId(redis, telegramUserId)
+  if (owner && owner.id !== userId) throw new AuthError('该 Telegram 已绑定其他账号', 409)
+  await bindIdentity(redis, {
+    userId,
+    provider: 'telegram',
+    identifier: String(telegramUserId),
+    displayLabel: telegramUsername,
+    verifiedAt: new Date().toISOString(),
+  })
+}
+
+async function bindTelegramOidcIdentity(
+  redis: Redis,
+  userId: string,
+  telegramOidcSub: string,
+  telegramUsername?: string,
+): Promise<void> {
+  const owner = await getUserByTelegramOidcSub(redis, telegramOidcSub)
+  if (owner && owner.id !== userId) throw new AuthError('该 Telegram 已绑定其他账号', 409)
+  await bindIdentity(redis, {
+    userId,
+    provider: 'telegram_oidc',
+    identifier: telegramOidcSub,
+    displayLabel: telegramUsername,
+    verifiedAt: new Date().toISOString(),
+  })
+}
+
 export async function loginWithInitData(
   redis: Redis,
   env: Env,
@@ -107,6 +147,18 @@ export async function loginWithInitData(
   }
 
   const region = ip ? lookupRegion(ip) : undefined
+  const oidcUser = await getUserByTelegramOidcSub(redis, String(tgUserId))
+  if (oidcUser) {
+    await bindTelegramIdentity(redis, oidcUser.id, tgUserId, parsed.user.username)
+    oidcUser.displayName = displayName
+    if (avatarUrl) oidcUser.avatarUrl = avatarUrl
+    await saveUser(redis, oidcUser)
+    if (oidcUser.status === 'banned') {
+      throw new AuthError('Account has been permanently banned. Please contact support.')
+    }
+    return issueSession(redis, env, oidcUser, false)
+  }
+
   const { user, isNewUser } = await createUserFromTelegram(redis, {
     telegramUserId: tgUserId,
     displayName,
@@ -381,6 +433,18 @@ export async function loginWithTelegramWidget(
 
   const displayName = [v.firstName, v.lastName].filter(Boolean).join(' ') || v.username || 'Telegram User'
   const region = ip ? lookupRegion(ip) : undefined
+  const oidcUser = await getUserByTelegramOidcSub(redis, String(v.id))
+  if (oidcUser) {
+    await bindTelegramIdentity(redis, oidcUser.id, v.id, v.username)
+    oidcUser.displayName = displayName
+    if (v.photoUrl) oidcUser.avatarUrl = v.photoUrl
+    await saveUser(redis, oidcUser)
+    if (oidcUser.status === 'banned') {
+      throw new AuthError('Account has been permanently banned. Please contact support.', 401)
+    }
+    return issueSession(redis, env, oidcUser, false)
+  }
+
   const { user, isNewUser } = await createUserFromTelegram(redis, {
     telegramUserId: v.id,
     displayName,
@@ -427,6 +491,19 @@ export async function loginWithTelegramOidc(
     }
 
     const region = ip ? lookupRegion(ip) : undefined
+    const telegramUserId = telegramIdFromOidcSub(profile.sub)
+    const telegramUser = telegramUserId ? await getUserByTelegramId(redis, telegramUserId) : null
+    if (telegramUser) {
+      await bindTelegramOidcIdentity(redis, telegramUser.id, profile.sub, profile.username)
+      telegramUser.displayName = profile.displayName
+      if (profile.avatarUrl) telegramUser.avatarUrl = profile.avatarUrl
+      await saveUser(redis, telegramUser)
+      if (telegramUser.status === 'banned' || telegramUser.status === 'frozen') {
+        throw new AuthError('Account has been disabled. Please contact support.')
+      }
+      return issueSession(redis, env, telegramUser, false)
+    }
+
     const { user, isNewUser } = await createUserFromTelegramOidc(redis, {
       telegramOidcSub: profile.sub,
       displayName: profile.displayName,
@@ -436,6 +513,7 @@ export async function loginWithTelegramOidc(
       registerIp: ip,
       registerRegion: region,
     })
+    if (telegramUserId) await bindTelegramIdentity(redis, user.id, telegramUserId, profile.username)
     if (user.status === 'banned' || user.status === 'frozen') {
       throw new AuthError('Account has been disabled. Please contact support.')
     }
@@ -461,16 +539,10 @@ export async function bindTelegramWidget(
 ): Promise<UserRecord> {
   const v = verifyTelegramWidget(data, env.TELEGRAM_BOT_TOKEN)
   if (!v) throw new AuthError('Invalid or expired Telegram login', 401)
-  const owner = await getUserByTelegramId(redis, v.id)
-  if (owner && owner.id !== userId) throw new AuthError('该 Telegram 已绑定其他账号', 409)
+  const oidcOwner = await getUserByTelegramOidcSub(redis, String(v.id))
+  if (oidcOwner && oidcOwner.id !== userId) throw new AuthError('该 Telegram 已绑定其他账号', 409)
   const user = await loadUser(redis, userId)
-  await bindIdentity(redis, {
-    userId,
-    provider: 'telegram',
-    identifier: String(v.id),
-    displayLabel: v.username,
-    verifiedAt: new Date().toISOString(),
-  })
+  await bindTelegramIdentity(redis, userId, v.id, v.username)
   await saveUser(redis, user)
   return user
 }
@@ -484,16 +556,14 @@ export async function bindTelegramOidc(
 ): Promise<UserRecord> {
   if (redirectUri !== env.TELEGRAM_OIDC_REDIRECT_URI) throw new AuthError('Invalid redirect URI', 400)
   const profile = await exchangeTelegramOidcCode(env, code, redirectUri)
-  const owner = await getUserByTelegramOidcSub(redis, profile.sub)
-  if (owner && owner.id !== userId) throw new AuthError('该 Telegram 已绑定其他账号', 409)
+  const telegramUserId = telegramIdFromOidcSub(profile.sub)
+  if (telegramUserId) {
+    const telegramOwner = await getUserByTelegramId(redis, telegramUserId)
+    if (telegramOwner && telegramOwner.id !== userId) throw new AuthError('该 Telegram 已绑定其他账号', 409)
+  }
   const user = await loadUser(redis, userId)
-  await bindIdentity(redis, {
-    userId,
-    provider: 'telegram_oidc',
-    identifier: profile.sub,
-    displayLabel: profile.username,
-    verifiedAt: new Date().toISOString(),
-  })
+  await bindTelegramOidcIdentity(redis, userId, profile.sub, profile.username)
+  if (telegramUserId) await bindTelegramIdentity(redis, userId, telegramUserId, profile.username)
   await saveUser(redis, user)
   return user
 }
