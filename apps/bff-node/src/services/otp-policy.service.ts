@@ -3,7 +3,9 @@ import type { Env } from '../config/env.js'
 import { getAdminSetting } from './admin-store.js'
 
 export const SMS_DAILY_LIMIT_KEY = 'sms_daily_limit_per_user'
+export const SMS_DAILY_IP_LIMIT_KEY = 'sms_daily_limit_per_ip'
 export const DEFAULT_SMS_DAILY_LIMIT = 30
+export const DEFAULT_SMS_DAILY_IP_LIMIT = 100
 
 const DAY_MS = 86_400_000
 const UTC8_OFFSET_MS = 8 * 60 * 60 * 1000
@@ -26,8 +28,13 @@ export async function getSmsDailyLimit(env: Env): Promise<number> {
   return Number.isInteger(n) && n > 0 ? n : DEFAULT_SMS_DAILY_LIMIT
 }
 
-export async function enforceSmsDailyLimit(redis: Redis, env: Env, subject: string): Promise<void> {
-  const limit = await getSmsDailyLimit(env)
+export async function getSmsDailyIpLimit(env: Env): Promise<number> {
+  const raw = await getAdminSetting(env, SMS_DAILY_IP_LIMIT_KEY)
+  const n = raw == null ? NaN : Number(raw)
+  return Number.isInteger(n) && n > 0 ? n : DEFAULT_SMS_DAILY_IP_LIMIT
+}
+
+export async function enforceSmsDailyLimit(redis: Redis, limit: number, subject: string): Promise<void> {
   const sent = Number(await redis.get(smsDailyKey(subject)) ?? 0)
   if (sent >= limit) throw new Error('kyc.errors.smsDailyLimit')
 }

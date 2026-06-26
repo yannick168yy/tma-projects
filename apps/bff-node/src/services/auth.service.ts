@@ -34,7 +34,7 @@ import { hashPassword, verifyPassword } from '../utils/password.js'
 import type { UserRecord } from '../types/domain.js'
 import { getSmsProvider, isSmsTestModeEnabled } from './sms/index.js'
 import { appendSmsSendLog } from './sms/send-log.js'
-import { enforceSmsDailyLimit, recordSmsSent } from './otp-policy.service.js'
+import { enforceSmsDailyLimit, getSmsDailyIpLimit, getSmsDailyLimit, recordSmsSent } from './otp-policy.service.js'
 import { exchangeGoogleCode } from './google.service.js'
 import { exchangeTelegramOidcCode } from './telegramOidc.service.js'
 import { toPublicUser } from './userPresentation.js'
@@ -369,6 +369,7 @@ export async function sendForgotPasswordOtp(
   redis: Redis,
   env: Env,
   phoneRaw: string,
+  ip?: string,
 ): Promise<{ phone: string; resendInSec: number }> {
   const phone = normalizeIdentifier('phone', phoneRaw)
   const identity = await getUserIdentity(redis, 'phone', phone)
@@ -381,7 +382,8 @@ export async function sendForgotPasswordOtp(
   }
   if (await redis.get(forgotLockKey(phone))) throw new AuthError('kyc.errors.otpLocked', 429)
   try {
-    await enforceSmsDailyLimit(redis, env, `user:${user.id}`)
+    await enforceSmsDailyLimit(redis, await getSmsDailyLimit(env), `user:${user.id}`)
+    if (ip) await enforceSmsDailyLimit(redis, await getSmsDailyIpLimit(env), `ip:${ip}`)
   } catch (e) {
     throw new AuthError(e instanceof Error ? e.message : 'kyc.errors.smsDailyLimit', 429)
   }
@@ -402,6 +404,7 @@ export async function sendForgotPasswordOtp(
     )
   }
   await recordSmsSent(redis, `user:${user.id}`)
+  if (ip) await recordSmsSent(redis, `ip:${ip}`)
   await appendSmsSendLog(redis, {
     scene: 'auth_forgot_password',
     userId: user.id,

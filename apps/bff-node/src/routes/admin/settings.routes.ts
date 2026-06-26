@@ -4,7 +4,14 @@ import { getOpPasswordHash, setOpPassword, getSmsTestMode, setSmsTestMode, getAd
 import { hashPassword, verifyPassword } from '../../services/admin-auth.service.js'
 import { fail, ok } from '../../utils/response.js'
 import { listSmsSendLogs } from '../../services/sms/send-log.js'
-import { DEFAULT_SMS_DAILY_LIMIT, SMS_DAILY_LIMIT_KEY, getSmsDailyLimit } from '../../services/otp-policy.service.js'
+import {
+  DEFAULT_SMS_DAILY_IP_LIMIT,
+  DEFAULT_SMS_DAILY_LIMIT,
+  SMS_DAILY_IP_LIMIT_KEY,
+  SMS_DAILY_LIMIT_KEY,
+  getSmsDailyIpLimit,
+  getSmsDailyLimit,
+} from '../../services/otp-policy.service.js'
 import {
   getAllCurrentRates, getRateHistory, setManualRate, clearManualRate, refreshRates,
 } from '../../services/exchange-rate.service.js'
@@ -84,30 +91,38 @@ router.get('/sms/logs', async (ctx) => {
 // ── 系统参数 ──────────────────────────────────────────────────────────────────
 
 router.get('/system-params', async (ctx) => {
-  const smsDailyLimitPerUser = await getSmsDailyLimit(ctx.state.env)
-  ok(ctx, { smsDailyLimitPerUser })
+  const [smsDailyLimitPerUser, smsDailyLimitPerIp] = await Promise.all([
+    getSmsDailyLimit(ctx.state.env),
+    getSmsDailyIpLimit(ctx.state.env),
+  ])
+  ok(ctx, { smsDailyLimitPerUser, smsDailyLimitPerIp })
 })
 
 router.put('/system-params', async (ctx) => {
   if (ctx.state.adminRole !== 'super_admin') {
     fail(ctx, 403, 'Only super_admin can manage system parameters'); return
   }
-  const body = ctx.request.body as { smsDailyLimitPerUser?: unknown }
+  const body = ctx.request.body as { smsDailyLimitPerUser?: unknown; smsDailyLimitPerIp?: unknown }
   const smsDailyLimitPerUser = Number(body.smsDailyLimitPerUser)
+  const smsDailyLimitPerIp = Number(body.smsDailyLimitPerIp)
   if (!Number.isInteger(smsDailyLimitPerUser) || smsDailyLimitPerUser < 1 || smsDailyLimitPerUser > 1000) {
     fail(ctx, 400, 'smsDailyLimitPerUser must be an integer between 1 and 1000'); return
   }
+  if (!Number.isInteger(smsDailyLimitPerIp) || smsDailyLimitPerIp < 1 || smsDailyLimitPerIp > 10000) {
+    fail(ctx, 400, 'smsDailyLimitPerIp must be an integer between 1 and 10000'); return
+  }
   await setAdminSetting(ctx.state.env, SMS_DAILY_LIMIT_KEY, String(smsDailyLimitPerUser || DEFAULT_SMS_DAILY_LIMIT))
+  await setAdminSetting(ctx.state.env, SMS_DAILY_IP_LIMIT_KEY, String(smsDailyLimitPerIp || DEFAULT_SMS_DAILY_IP_LIMIT))
   await writeAuditLog(ctx.state.env, {
     adminId: ctx.state.adminId!,
     adminUsername: ctx.state.adminUsername!,
     action: 'system_params_update',
     targetType: 'settings',
     targetId: 'system_params',
-    detail: { smsDailyLimitPerUser },
+    detail: { smsDailyLimitPerUser, smsDailyLimitPerIp },
     ip: ctx.ip,
   })
-  ok(ctx, { smsDailyLimitPerUser })
+  ok(ctx, { smsDailyLimitPerUser, smsDailyLimitPerIp })
 })
 
 // ── KYC 证件/人脸验证开关 ─────────────────────────────────────────────────────

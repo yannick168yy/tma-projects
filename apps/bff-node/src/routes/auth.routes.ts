@@ -223,7 +223,7 @@ router.post('/forgot-password/send-otp', async (ctx) => {
     return
   }
   try {
-    const result = await sendForgotPasswordOtp(ctx.state.redis, ctx.state.env, body.phone)
+    const result = await sendForgotPasswordOtp(ctx.state.redis, ctx.state.env, body.phone, ctx.ip)
     ok(ctx, result)
   } catch (e) {
     if (e instanceof AuthError) {

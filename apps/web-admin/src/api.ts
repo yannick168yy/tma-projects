@@ -254,6 +254,7 @@ export const updateSmsSettings = (testMode: boolean) => put<{ testMode: boolean 
 export const getSmsSendLogs = () => get<SmsSendLogEntry[]>('/admin/settings/sms/logs')
 export interface SystemParams {
   smsDailyLimitPerUser: number
+  smsDailyLimitPerIp: number
 }
 export const getSystemParams = () => get<SystemParams>('/admin/settings/system-params')
 export const updateSystemParams = (params: SystemParams) => put<SystemParams>('/admin/settings/system-params', params)

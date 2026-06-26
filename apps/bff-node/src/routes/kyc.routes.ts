@@ -43,7 +43,7 @@ router.post('/phone/send-otp', async (ctx) => {
     return
   }
   try {
-    const result = await sendKycOtp(ctx.state.redis, ctx.state.env, ctx.state.userId!, body.phone)
+    const result = await sendKycOtp(ctx.state.redis, ctx.state.env, ctx.state.userId!, body.phone, ctx.ip)
     ok(ctx, result)
   } catch (e) {
     if (!handleKycError(ctx, e)) throw e

@@ -9,7 +9,7 @@ import { getAdminSetting } from './admin-store.js'
 import { getMysqlPool, isMysqlEnabled } from '../clients/mysql.client.js'
 import { getSmsProvider, isSmsTestModeEnabled } from './sms/index.js'
 import { appendSmsSendLog } from './sms/send-log.js'
-import { enforceSmsDailyLimit, recordSmsSent } from './otp-policy.service.js'
+import { enforceSmsDailyLimit, getSmsDailyIpLimit, getSmsDailyLimit, recordSmsSent } from './otp-policy.service.js'
 import { getStorageProvider } from './storage/index.js'
 import { broadcastBadges } from './sse-badges.js'
 import {
@@ -194,6 +194,7 @@ export async function sendKycOtp(
   env: Env,
   userId: string,
   phoneRaw: string,
+  ip?: string,
 ): Promise<{ phone: string; resendInSec: number }> {
   const phone = normalizePhonePH(phoneRaw)
   if (!phone) throw new KycError('kyc.errors.invalidPhone', 400)
@@ -218,7 +219,8 @@ export async function sendKycOtp(
   }
   if (await redis.get(otpLockKey(userId))) throw new KycError('kyc.errors.otpLocked', 429)
   try {
-    await enforceSmsDailyLimit(redis, env, `user:${userId}`)
+    await enforceSmsDailyLimit(redis, await getSmsDailyLimit(env), `user:${userId}`)
+    if (ip) await enforceSmsDailyLimit(redis, await getSmsDailyIpLimit(env), `ip:${ip}`)
   } catch (e) {
     throw new KycError(e instanceof Error ? e.message : 'kyc.errors.smsDailyLimit', 429)
   }
@@ -239,6 +241,7 @@ export async function sendKycOtp(
     )
   }
   await recordSmsSent(redis, `user:${userId}`)
+  if (ip) await recordSmsSent(redis, `ip:${ip}`)
   await appendSmsSendLog(redis, {
     scene: 'kyc_otp',
     userId,
