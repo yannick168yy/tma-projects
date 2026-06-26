@@ -62,7 +62,7 @@ export async function bindGoogle(code: string, redirectUri: string): Promise<{ u
   return apiRequest('/user/bind/google', { method: 'POST', body: JSON.stringify({ code, redirectUri }) })
 }
 
-export async function bindPhone(phone: string, password?: string): Promise<{ user: AuthUser }> {
+export async function bindPhone(phone: string, password: string): Promise<{ user: AuthUser }> {
   return apiRequest('/user/bind/phone', { method: 'POST', body: JSON.stringify({ phone, password }) })
 }
 

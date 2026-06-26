@@ -90,6 +90,7 @@ router.post('/bind/google', async (ctx) => {
 router.post('/bind/phone', async (ctx) => {
   const body = ctx.request.body as { phone?: string; password?: string }
   if (!body.phone) { fail(ctx, 400, 'phone is required'); return }
+  if (!body.password) { fail(ctx, 400, 'password is required'); return }
   try {
     const user = await bindPhone(ctx.state.redis, ctx.state.userId!, body.phone, body.password)
     ok(ctx, { user: toPublicUser(user, await listUserIdentities(ctx.state.redis, user.id)) })

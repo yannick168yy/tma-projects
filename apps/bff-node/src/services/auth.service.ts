@@ -532,7 +532,7 @@ export async function bindPhone(
   redis: Redis,
   userId: string,
   phoneRaw: string,
-  password?: string,
+  password: string,
 ): Promise<UserRecord> {
   const phone = normalizePhonePH(phoneRaw)
   if (!phone) throw new AuthError('Invalid phone number', 400)
@@ -542,10 +542,8 @@ export async function bindPhone(
   const kycOwner = await findKycByVerifiedPhone(redis, phone, userId)
   if (kycOwner) throw new AuthError('该手机号已被其他账号使用', 409)
   const user = await loadUser(redis, userId)
-  if (password) {
-    if (password.length < 8) throw new AuthError('Password must be at least 8 characters', 400)
-  }
-  const credentialHash = password ? await hashPassword(password) : undefined
+  if (password.length < 8) throw new AuthError('Password must be at least 8 characters', 400)
+  const credentialHash = await hashPassword(password)
   await bindIdentity(redis, {
     userId,
     provider: 'phone',
