@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ChevronLeft, Copy, Share2, Link2, Wallet, TrendingUp, CheckCircle2, Clock, XCircle, ChevronRight, GitBranch, List, CircleHelp, X, ShieldCheck, Users, Zap, Network } from 'lucide-react'
+import { ChevronLeft, Copy, Share2, Link2, Wallet, TrendingUp, CheckCircle2, Clock, XCircle, ChevronRight, GitBranch, CircleHelp, X, ShieldCheck, Users, Zap, Network, CalendarDays, ClipboardList, SlidersHorizontal } from 'lucide-react'
 import KycModal from '@/components/wallet/KycModal'
 import { useKycGate } from '@/hooks/useKycGate'
 import { fetchTeamTree, type TeamTreeNode, type CurrencyBreakdownItem } from '@/api/promotion'
@@ -8,7 +8,7 @@ import { translateApiError } from '@/utils/translateApiError'
 import { buildInviteDeepLink, buildInviteWebLink } from '@/constants/telegram'
 import { useAuthStore } from '@/stores/auth'
 import { usePromotionStore } from '@/stores/promotion'
-import referralPeople from '@/assets/home/promos/referral-people.webp'
+import threeCircleHero from '@/assets/home/promos/three-circle-hero.webp'
 
 // ── 月份工具 ─────────────────────────────────────────────────────────────────
 function currentPeriod() {
@@ -77,6 +77,11 @@ const levelBadge: Record<number, string> = {
   2: 'bg-blue-500/20 text-blue-400',
   3: 'bg-purple-500/20 text-purple-400',
 }
+const levelColors: Record<number, { text: string; badge: string; line: string }> = {
+  1: { text: 'text-amber-300', badge: 'border-amber-400/45 bg-amber-400/15 text-amber-300', line: 'border-amber-400/25' },
+  2: { text: 'text-blue-300', badge: 'border-blue-400/45 bg-blue-500/20 text-blue-300', line: 'border-blue-400/25' },
+  3: { text: 'text-purple-300', badge: 'border-purple-400/45 bg-purple-500/20 text-purple-300', line: 'border-purple-400/25' },
+}
 
 type ThreeCircleTab = 'overview' | 'circle' | 'rewards'
 
@@ -90,36 +95,83 @@ function TreeNodeRow({ node, depth, expandedIds, onToggle }: {
   const { t } = useTranslation()
   const isExpanded = expandedIds.has(node.userId)
   const hasKids = node.children.length > 0
-  const badge = depth === 1 ? 'bg-amber-500/20 text-amber-400'
-    : depth === 2 ? 'bg-blue-500/20 text-blue-400'
-    : 'bg-purple-500/20 text-purple-400'
+  const color = levelColors[depth]
   return (
     <>
       <div
-        className={`flex items-center gap-2 py-2.5 border-b border-border/30 ${hasKids ? 'active:bg-secondary/50' : ''}`}
-        style={{ paddingLeft: (depth - 1) * 16 + 12 }}
+        className={`relative flex items-center gap-2 py-3 border-b border-white/6 ${hasKids ? 'active:bg-white/5' : ''}`}
+        style={{ paddingLeft: (depth - 1) * 22 + 6 }}
         onClick={() => hasKids && onToggle(node.userId)}
       >
+        {depth > 1 && <span className={`absolute bottom-0 top-0 border-l border-dashed ${color.line}`} style={{ left: (depth - 1) * 22 - 9 }} />}
         {hasKids
-          ? <ChevronRight size={12} className={`text-muted-foreground flex-shrink-0 transition-transform duration-150 ${isExpanded ? 'rotate-90' : ''}`} />
-          : <span className="w-3 flex-shrink-0" />}
-        <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full flex-shrink-0 ${badge}`}>C{depth}</span>
+          ? <ChevronRight size={16} className={`text-slate-400 flex-shrink-0 transition-transform duration-150 ${isExpanded ? 'rotate-90' : ''}`} />
+          : <span className="w-4 flex-shrink-0" />}
+        <span className={`text-[12px] font-black px-2 py-1 rounded-full border flex-shrink-0 ${color.badge}`}>C{depth}</span>
         <div className="flex-1 min-w-0 mr-2">
-          <p className="text-sm font-medium text-foreground truncate leading-none mb-0.5">{node.displayName}</p>
+          <p className="text-[15px] font-bold text-white truncate leading-none mb-1">{node.displayName}</p>
           {(node.turnoverCents !== 0 || node.currencyBreakdown?.length > 0) && (
-            <p className="text-[10px] leading-none text-muted-foreground">
+            <p className="text-[11px] leading-none text-slate-400 truncate">
               {t('team.turnover')} {node.currencyBreakdown?.length > 0 ? breakdownDisplay(node.currencyBreakdown) : turnoverDisplay(node.turnoverCents)}
             </p>
           )}
         </div>
         {node.thisMonthCents !== 0 && (
-          <span className="font-black text-xs flex-shrink-0 pr-3 text-amber-400">{phpDisplay(node.thisMonthCents)}</span>
+          <span className={`font-black text-sm flex-shrink-0 pr-1 ${color.text}`}>{phpDisplay(node.thisMonthCents)}</span>
         )}
       </div>
       {hasKids && isExpanded && node.children.map((child) => (
         <TreeNodeRow key={child.userId} node={child} depth={Math.min(depth + 1, 3) as 2 | 3} expandedIds={expandedIds} onToggle={onToggle} />
       ))}
     </>
+  )
+}
+
+function CircleStructure({ l1Count, l2Count, l3Count }: { l1Count: number; l2Count: number; l3Count: number }) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-[#111827]/80 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+      <div className="flex items-center justify-between gap-2 mb-3">
+        <div className="inline-flex items-center rounded-full border border-emerald-400/25 bg-emerald-400/8 px-3 py-1 text-[10px] font-bold text-emerald-300">
+          C1 / Direct Friends
+        </div>
+        <div className="rounded-full border border-emerald-400/30 bg-black/20 px-2.5 py-1 text-[9px] font-bold text-emerald-300">
+          Qualified bets {'->'} rewards
+        </div>
+      </div>
+      <div className="grid grid-cols-[0.85fr_1.15fr] gap-3">
+        <div className="flex flex-col justify-center border-r border-white/10 pr-3">
+          <p className="text-3xl font-black leading-none text-emerald-300">{l1Count}</p>
+          <p className="mt-1 text-xs font-bold text-white">Friends</p>
+          <p className="mt-3 text-[10px] text-slate-400">C2: {l2Count} · C3: {l3Count}</p>
+        </div>
+        <div className="relative h-36">
+          <div className="absolute left-1/2 top-1 flex h-9 w-9 -translate-x-1/2 items-center justify-center rounded-full bg-emerald-300 text-[#0b121f] shadow-[0_0_22px_rgba(110,231,183,0.45)]">
+            <Users size={18} />
+          </div>
+          <div className="absolute left-[24%] top-[50px] h-px w-[26%] -rotate-12 border-t border-dashed border-emerald-300/45" />
+          <div className="absolute right-[24%] top-[50px] h-px w-[26%] rotate-12 border-t border-dashed border-emerald-300/45" />
+          {[
+            ['C1', 'left-[14%] top-[54px]', 'border-emerald-400/50 text-emerald-300'],
+            ['C1', 'right-[14%] top-[54px]', 'border-emerald-400/50 text-emerald-300'],
+            ['C2', 'left-[17%] top-[93px]', 'border-blue-400/50 text-blue-300'],
+            ['C2', 'right-[17%] top-[93px]', 'border-blue-400/35 text-blue-300 opacity-50 border-dashed'],
+            ['C3', 'left-[4%] top-[124px]', 'border-amber-400/50 text-amber-300'],
+            ['C3', 'left-[33%] top-[124px]', 'border-amber-400/50 text-amber-300'],
+            ['C3', 'right-[4%] top-[124px]', 'border-purple-400/35 text-purple-300 opacity-50 border-dashed'],
+            ['C3', 'right-[33%] top-[124px]', 'border-purple-400/35 text-purple-300 opacity-50 border-dashed'],
+          ].map(([label, pos, cls]) => (
+            <span key={`${label}-${pos}`} className={`absolute ${pos} rounded-lg border bg-black/25 px-2 py-1 text-[10px] font-black ${cls}`}>
+              {label}
+            </span>
+          ))}
+        </div>
+      </div>
+      <div className="mt-4 flex flex-wrap justify-center gap-x-3 gap-y-1 text-[9.5px] font-bold text-slate-400">
+        <span><span className="mr-1 inline-block h-2 w-2 rounded-full bg-emerald-300" />C1 Direct friends</span>
+        <span><span className="mr-1 inline-block h-2 w-2 rounded-full bg-blue-400" />C2 Friends of C1</span>
+        <span><span className="mr-1 inline-block h-2 w-2 rounded-full bg-amber-300" />C3 Friends of C2</span>
+      </div>
+    </div>
   )
 }
 
@@ -268,11 +320,21 @@ export default function TeamCenterPage({ onClose }: { onClose?: () => void }) {
   const l1Rate       = teamStatus?.ratePlan?.l1RatePct ?? 0.6
   const l2Rate       = teamStatus?.ratePlan?.l2RatePct ?? 0.3
   const l3Rate       = teamStatus?.ratePlan?.l3RatePct ?? 0.2
+  const l1Count      = teamStatus?.l1Count ?? 0
+  const l2Count      = teamStatus?.l2Count ?? 0
+  const l3Count      = teamStatus?.l3Count ?? 0
+  const periodLabel  = formatPeriod(period, i18n.language)
 
   const tabs = [
-    { id: 'overview' as const, label: t('team.tabOverview'), Icon: Network },
+    { id: 'overview' as const, label: t('team.tabOverview'), Icon: ClipboardList },
     { id: 'circle' as const, label: t('team.tabTeam'), Icon: Users },
     { id: 'rewards' as const, label: t('team.tabEarnings'), Icon: Wallet },
+  ]
+
+  const rateCards = [
+    { level: 1, title: 'Circle 1 Friends', desc: 'Friends you invite directly — rewards from their bets.', rate: l1Rate, icon: Users, cls: 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300' },
+    { level: 2, title: 'Circle 2 Friends', desc: 'Friends invited by your C1 — rewards from their bets.', rate: l2Rate, icon: Users, cls: 'border-blue-500/20 bg-blue-500/10 text-blue-300' },
+    { level: 3, title: 'Circle 3 Friends', desc: 'Friends invited by your C2 — rewards from their bets.', rate: l3Rate, icon: Users, cls: 'border-amber-500/20 bg-amber-500/10 text-amber-300' },
   ]
 
   const guideSections = useMemo(() => {
@@ -286,163 +348,181 @@ export default function TeamCenterPage({ onClose }: { onClose?: () => void }) {
   }, [guideOpen, t, teamStatus?.ratePlan])
 
   return (
-    <div className="bg-background flex flex-col">
+    <div className="flex min-h-full flex-col bg-[#07111c] text-white">
+      <div className="relative overflow-hidden rounded-b-[1.75rem] pb-7">
+        <img src={threeCircleHero} alt="" className="absolute inset-0 h-full w-full object-cover object-center" />
+        <div className="absolute inset-0 bg-gradient-to-r from-[#fff0cf]/90 via-[#fff0cf]/56 to-transparent" />
+        <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-b from-transparent to-[#07111c]" />
+        <div className="relative px-4 pt-[calc(var(--app-safe-top)+1rem)]">
+          <div className="mb-6 flex items-center gap-3">
+            {onClose && (
+              <button
+                type="button"
+                className="flex h-11 w-11 items-center justify-center rounded-full bg-[#111827] text-white shadow-lg active:scale-95"
+                onClick={onClose}
+              >
+                <ChevronLeft size={23} />
+              </button>
+            )}
+            <div className="inline-flex items-center gap-2 rounded-full border border-amber-500/45 bg-white/35 px-4 py-2 text-[11px] font-black uppercase tracking-wide text-amber-700 backdrop-blur-sm">
+              <Network size={15} />
+              3-Circle Rewards
+            </div>
+          </div>
 
-      {/* ── 顶部状态区 ── */}
-      <div className="px-4 py-4 amber-hero-bg border-b border-border flex-shrink-0">
-        <div className="flex items-center gap-2 mb-2">
-          {onClose && (
-            <button
-              type="button"
-              className="-ml-1 flex h-8 w-8 items-center justify-center rounded-full bg-black/25 text-foreground border border-white/10 active:scale-95 transition-transform"
-              onClick={onClose}
-            >
-              <ChevronLeft size={18} />
-            </button>
-          )}
-          <p className="text-[10px] font-bold uppercase tracking-widest text-amber-400/80">3-Circle Rewards</p>
+          <div className="max-w-[245px]">
+            <h1 className="font-display text-[2.25rem] font-black leading-[0.98] text-[#08111f] drop-shadow-[0_1px_0_rgba(255,255,255,0.22)]">
+              {t('team.heroTitle')}
+            </h1>
+            <p className="mt-3 text-[14px] font-semibold leading-relaxed text-[#172033]/85">{t('team.heroDesc')}</p>
+          </div>
+
+          {inviteCode ? (
+            <div className="mt-4 flex w-[250px] items-center gap-2 rounded-xl bg-[#202431] px-3 py-3 text-white shadow-[0_12px_28px_rgba(0,0,0,0.2)]">
+              <div className="min-w-0 flex-1">
+                <p className="text-[11px] text-white/55">{t('team.myReferralCode')}</p>
+                <p className="font-display text-lg font-black tracking-[0.18em] text-amber-300 truncate">{inviteCode}</p>
+              </div>
+              <button type="button" className="flex h-8 w-8 items-center justify-center text-slate-300" onClick={copyWebLink}>
+                <Copy size={19} />
+              </button>
+            </div>
+          ) : null}
+          {copyTip && <p className="mt-1 w-[250px] text-center text-xs font-bold text-amber-700">{t('team.copied')}</p>}
+
+          <div className="mt-4 flex gap-2">
+            {inviteCode ? (
+              <>
+                <button type="button" className="flex h-12 flex-1 items-center justify-center gap-2 rounded-xl bg-amber-500 text-sm font-black text-[#08111f] shadow-[0_10px_24px_rgba(245,158,11,0.32)] active:scale-[0.98]" onClick={shareToTelegram}>
+                  <Share2 size={16} />{t('team.shareOnTelegram')}
+                </button>
+                <button type="button" className="flex h-12 flex-1 items-center justify-center gap-2 rounded-xl border border-amber-400/60 bg-[#07111c]/80 text-sm font-black text-amber-300 active:scale-[0.98]" onClick={() => void shareToWeb()}>
+                  <Link2 size={16} />{t('team.shareLink')}
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-amber-500 text-sm font-black text-[#08111f] disabled:opacity-60"
+                disabled={enabling}
+                onClick={() => void onEnable()}
+              >
+                <Zap size={16} />{enabling ? t('bonuses.promos.agent.activating') : t('bonuses.promos.agent.cta')}
+              </button>
+            )}
+          </div>
         </div>
-        <h1 className="font-display text-2xl font-black leading-none text-foreground">{t('team.heroTitle')}</h1>
-        <p className="mt-1.5 text-xs font-semibold leading-relaxed text-muted-foreground">
-          {t('team.heroDesc')}
-        </p>
-        {isAgent && inviteCode ? (
-          <>
-            <div className="mt-3 flex items-center gap-2 bg-foreground/8 rounded-xl px-3 py-2 border border-amber-500/20">
-              <span className="text-[10px] text-muted-foreground">{t('team.myReferralCode')}</span>
-              <span className="flex-1 font-black text-amber-400 tracking-widest text-sm text-right">{inviteCode}</span>
-              <button type="button" className="text-muted-foreground hover:text-amber-400 transition-colors" onClick={copyWebLink}><Copy size={15} /></button>
-            </div>
-            {copyTip && <p className="text-center text-xs text-amber-400 mt-1">{t('team.copied')}</p>}
-            <div className="mt-3 flex gap-2">
-              <button type="button" className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-amber-500 text-black font-black text-sm" onClick={shareToTelegram}><Share2 size={14} />{t('team.shareOnTelegram')}</button>
-              <button type="button" className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border border-amber-500/50 text-amber-400 font-black text-sm" onClick={() => void shareToWeb()}><Link2 size={14} />{t('team.shareLink')}</button>
-            </div>
-          </>
-        ) : (
-          <button
-            type="button"
-            className="mt-4 w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-amber-500 text-black font-black text-sm disabled:opacity-60"
-            disabled={enabling}
-            onClick={() => void onEnable()}
-          >
-            <Zap size={15} />
-            {enabling ? t('bonuses.promos.agent.activating') : t('bonuses.promos.agent.cta')}
-          </button>
-        )}
       </div>
 
-      {/* Circle counts + tab */}
-      <div className="sticky z-20 bg-background" style={{ top: 'var(--app-header-height)' }}>
-      <div className="flex items-center px-4 py-2.5 border-b border-border gap-4">
-        <div className="flex gap-5">
-          {([1, 2, 3] as const).map((lvl) => (
-            <div key={lvl} className="text-center">
-              <div className="text-base font-black text-amber-400 leading-none">
-                {teamStatus?.[`l${lvl}Count` as 'l1Count' | 'l2Count' | 'l3Count'] ?? 0}
+      <div className="sticky z-20 bg-[#07111c]/96 px-4 pt-3 backdrop-blur" style={{ top: 'var(--app-header-height)' }}>
+        <div className="flex items-center rounded-2xl border border-white/10 bg-[#101a27]/90 px-4 py-3 shadow-[0_10px_28px_rgba(0,0,0,0.28)]">
+          <div className="flex flex-1 items-center justify-around">
+            {[
+              ['C1', l1Count, 'text-emerald-300'],
+              ['C2', l2Count, 'text-blue-300'],
+              ['C3', l3Count, 'text-purple-300'],
+            ].map(([label, value, cls]) => (
+              <div key={label as string} className="min-w-0 flex-1 text-center">
+                <p className={`text-xl font-black leading-none ${cls}`}>{value}</p>
+                <p className="mt-1 text-[11px] font-medium text-slate-400">{label}</p>
               </div>
-              <div className="text-[9px] text-muted-foreground mt-0.5">C{lvl}</div>
-            </div>
-          ))}
-        </div>
-        <div className="flex-1 flex items-center justify-end gap-1 min-w-0">
+            ))}
+          </div>
+          <span className="mx-3 h-9 w-px bg-white/10" />
           <button
             type="button"
-            className="relative flex-shrink-0 group mr-0.5"
+            className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full border border-amber-400/40 bg-amber-400/10 text-amber-300 shadow-[0_0_18px_rgba(251,191,36,0.35)]"
             onClick={() => setGuideOpen(true)}
             aria-label={t('team.guide.title')}
           >
-            <span
-              className="pointer-events-none absolute -inset-0.5 rounded-full bg-amber-400/25 blur-[4px] opacity-60 group-hover:opacity-100 transition-opacity"
-              aria-hidden
-            />
-            <span className="relative flex h-7 w-7 items-center justify-center rounded-full border border-amber-500/50 bg-gradient-to-br from-amber-500/35 via-amber-500/12 to-amber-950/20 shadow-[0_0_12px_rgba(251,191,36,0.22)] ring-1 ring-amber-400/20 transition-transform active:scale-90 group-hover:border-amber-400/70 group-hover:shadow-[0_0_14px_rgba(251,191,36,0.35)]">
-              <CircleHelp size={13.5} className="text-amber-200 drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)]" strokeWidth={2.25} />
-            </span>
+            <CircleHelp size={19} />
           </button>
-          <span className="h-3.5 w-px bg-border/80 flex-shrink-0" aria-hidden />
           {activeTab !== 'overview' && (
             <>
-              <button type="button" className="p-1.5 text-muted-foreground hover:text-amber-400 transition-colors" onClick={() => changePeriod(prevPeriod(period))}>
-                <ChevronLeft size={16} />
+              <span className="mx-3 h-9 w-px bg-white/10" />
+              <button type="button" className="text-slate-400" onClick={() => changePeriod(prevPeriod(period))}>
+                <ChevronLeft size={17} />
               </button>
-              <span className="text-sm font-bold text-foreground min-w-[72px] text-center truncate">{formatPeriod(period, i18n.language)}</span>
-              <button type="button" className={`p-1.5 transition-colors ${period >= currentPeriod() ? 'text-border' : 'text-muted-foreground hover:text-amber-400'}`} disabled={period >= currentPeriod()} onClick={() => changePeriod(nextPeriod(period))}>
-                <ChevronRight size={16} />
+              <button type="button" className="mx-1 flex min-w-0 items-center gap-2 rounded-xl px-2 py-1.5 text-sm font-bold text-white" onClick={() => changePeriod(period)}>
+                <CalendarDays size={17} className="text-slate-300" />
+                <span className="max-w-[86px] truncate">{periodLabel}</span>
+              </button>
+              <button type="button" className={`${period >= currentPeriod() ? 'text-slate-700' : 'text-slate-400'}`} disabled={period >= currentPeriod()} onClick={() => changePeriod(nextPeriod(period))}>
+                <ChevronRight size={17} />
               </button>
             </>
           )}
         </div>
+
+        <div className="mt-3 flex border-b border-white/10">
+          {tabs.map(({ id, label, Icon }) => (
+            <button
+              key={id}
+              type="button"
+              className={`flex-1 flex flex-col items-center gap-1 py-3 text-[12px] font-bold transition-colors ${activeTab === id ? 'text-amber-300 border-b-2 border-amber-400 -mb-px' : 'text-slate-400'}`}
+              onClick={() => setActiveTab(id)}
+            >
+              <Icon size={20} />{label}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {/* ── Tab 栏 ── */}
-      <div className="flex border-b border-border">
-        {tabs.map(({ id, label, Icon }) => (
-          <button key={id} type="button"
-            className={`flex-1 flex flex-col items-center gap-0.5 py-2.5 text-[10px] font-bold transition-colors ${activeTab === id ? 'text-amber-400 border-b-2 border-amber-400 -mb-px' : 'text-muted-foreground'}`}
-            onClick={() => setActiveTab(id)}>
-            <Icon size={15} />{label}
-          </button>
-        ))}
-      </div>
-      </div>{/* end sticky wrapper */}
-
-      {/* ── 内容区（document scroll）── */}
-      <div className="min-h-0">
-
+      <div className="min-h-0 px-4 pb-8 pt-4">
         {activeTab === 'overview' && (
-          <div className="px-4 pt-4 pb-6 space-y-4">
-            <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]">
-              <div className="absolute inset-0 bg-[radial-gradient(60%_42%_at_85%_12%,rgba(34,197,94,0.16)_0%,transparent_70%),radial-gradient(52%_40%_at_8%_28%,rgba(56,189,248,0.10)_0%,transparent_70%)]" />
-              <div className="relative px-4 pt-4">
-                <p className="text-[10px] font-black uppercase tracking-widest text-emerald-300">{t('team.overviewEyebrow')}</p>
-                <h2 className="mt-1 font-display text-xl font-black text-foreground">{t('team.overviewTitle')}</h2>
-                <p className="mt-1.5 text-xs font-semibold leading-relaxed text-muted-foreground">
-                  {t('team.overviewDesc')}
-                </p>
-              </div>
-              <img src={referralPeople} alt="" className="relative mx-auto -mt-2 w-full max-w-[360px]" />
-            </div>
-
-            <div className="grid grid-cols-3 gap-2">
+          <div className="space-y-5">
+            <div className="grid grid-cols-3 overflow-hidden rounded-2xl border border-violet-400/20 bg-violet-500/20">
               {[
-                { level: 'C1', label: t('team.overviewC1'), rate: l1Rate, cls: 'border-emerald-500/25 bg-emerald-500/10 text-emerald-300' },
-                { level: 'C2', label: t('team.overviewC2'), rate: l2Rate, cls: 'border-blue-500/25 bg-blue-500/10 text-blue-300' },
-                { level: 'C3', label: t('team.overviewC3'), rate: l3Rate, cls: 'border-amber-500/25 bg-amber-500/10 text-amber-300' },
-              ].map((item) => (
-                <div key={item.level} className={`rounded-2xl border p-3 text-center ${item.cls}`}>
-                  <p className="font-display text-sm font-black">{item.level}</p>
-                  <p className="mt-1 text-2xl font-black leading-none">{item.rate}%</p>
-                  <p className="mt-1 text-[9px] font-semibold text-foreground/60">{item.label}</p>
-                </div>
-              ))}
+                [Link2, 'Share Link', 'Invite friends'],
+                [Users, 'Grow 3 Circles', 'C1 -> C2 -> C3'],
+                [Wallet, 'Earn by Rates', 'Get rewards'],
+              ].map(([Icon, title, desc], i) => {
+                const ItemIcon = Icon as typeof Link2
+                return (
+                  <div key={title as string} className={`px-2 py-4 text-center ${i > 0 ? 'border-l border-white/15' : ''}`}>
+                    <ItemIcon size={18} className="mx-auto mb-2 text-amber-300" />
+                    <p className="text-[11px] font-black text-white">{title as string}</p>
+                    <p className="mt-0.5 text-[9px] text-slate-300">{desc as string}</p>
+                  </div>
+                )
+              })}
             </div>
 
-            <div className="rounded-2xl border border-border bg-secondary p-4">
-              <div className="flex items-center gap-2 mb-3">
-                <Network size={15} className="text-amber-400" />
-                <p className="font-display text-sm font-black text-foreground">{t('team.overviewHowTitle')}</p>
+            <section>
+              <div className="mb-3 flex items-center gap-2">
+                <Network size={18} className="text-amber-300" />
+                <h2 className="font-display text-base font-black text-white">3-Circle Structure</h2>
               </div>
+              <CircleStructure l1Count={l1Count} l2Count={l2Count} l3Count={l3Count} />
+            </section>
+
+            <section>
+              <h2 className="mb-3 font-display text-base font-black text-white">Circle Reward Rates</h2>
               <div className="space-y-3">
-                {[
-                  ['01', t('team.overviewStep1Title'), t('team.overviewStep1Desc')],
-                  ['02', t('team.overviewStep2Title'), t('team.overviewStep2Desc')],
-                  ['03', t('team.overviewStep3Title'), t('team.overviewStep3Desc')],
-                ].map(([step, title, desc]) => (
-                  <div key={step} className="flex gap-3">
-                    <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl bg-amber-500/15 text-[10px] font-black text-amber-400">{step}</span>
-                    <div>
-                      <p className="text-sm font-bold text-foreground">{title}</p>
-                      <p className="text-[11px] leading-relaxed text-muted-foreground">{desc}</p>
+                {rateCards.map(({ level, title, desc, rate, icon: Icon, cls }) => (
+                  <div key={level} className={`flex items-center gap-3 rounded-2xl border bg-[#101824] p-3 ${cls}`}>
+                    <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-current/10">
+                      <Icon size={20} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className={`rounded-md px-1.5 py-0.5 text-[10px] font-black ${levelColors[level].badge}`}>C{level}</span>
+                        <p className="truncate text-sm font-black text-white">{title}</p>
+                      </div>
+                      <p className="mt-1 truncate text-[10px] text-slate-400">{desc}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-2xl font-black leading-none">{rate}%</p>
+                      <p className="mt-1 text-[9px] text-slate-400">Reward Rate</p>
                     </div>
                   </div>
                 ))}
               </div>
-            </div>
+            </section>
 
             <button
               type="button"
-              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-amber-500 text-black font-black text-sm disabled:opacity-60"
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-amber-500 text-[#08111f] font-black text-sm disabled:opacity-60"
               disabled={enabling}
               onClick={() => isAgent ? setActiveTab('circle') : void onEnable()}
             >
@@ -452,68 +532,60 @@ export default function TeamCenterPage({ onClose }: { onClose?: () => void }) {
           </div>
         )}
 
-        {/* Circle rewards tab */}
         {activeTab === 'circle' && (
-          <>
-            {/* Rewards summary */}
-            <div className="px-4 pt-4 pb-3">
-              <div className="amber-card-bg rounded-2xl border border-amber-500/20 p-3">
-                <div className="grid grid-cols-2 gap-2 mb-2">
-                  <div className="bg-foreground/6 rounded-xl p-2 text-center">
-                    <div className="text-amber-400 font-black text-base leading-none">{phpDisplay(summary?.l1Cents ?? 0)}</div>
-                    <div className="text-foreground/50 text-[9px] mt-0.5">C1 · {teamStatus?.ratePlan?.l1RatePct ?? 25}%</div>
-                  </div>
-                  <div className="bg-foreground/6 rounded-xl p-2 text-center">
-                    <div className="text-amber-400 font-black text-base leading-none">{phpDisplay(summary?.l2Cents ?? 0)}</div>
-                    <div className="text-foreground/50 text-[9px] mt-0.5">C2 · {teamStatus?.ratePlan?.l2RatePct ?? 8}%</div>
-                  </div>
+          <div className="space-y-4">
+            <div className="rounded-2xl border border-amber-400/20 bg-[#101824] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+              <div className="grid grid-cols-2 gap-2 mb-2">
+                <div className="rounded-xl bg-white/6 p-3 text-center">
+                  <div className="text-amber-300 font-black text-xl leading-none">{phpDisplay(summary?.l1Cents ?? 0)}</div>
+                  <div className="text-slate-400 text-xs mt-1">C1 · {l1Rate}%</div>
                 </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="bg-foreground/6 rounded-xl p-2 text-center">
-                    <div className="text-amber-400 font-black text-base leading-none">{phpDisplay(summary?.l3Cents ?? 0)}</div>
-                    <div className="text-foreground/50 text-[9px] mt-0.5">C3 · {teamStatus?.ratePlan?.l3RatePct ?? 3}%</div>
-                  </div>
-                  <div className="bg-amber-500/20 rounded-xl p-2 text-center border border-amber-500/30">
-                    <div className="text-amber-300 font-black text-base leading-none">{phpDisplay(summary?.totalCents ?? 0)}</div>
-                    <div className="text-amber-300/60 text-[9px] mt-0.5">{t('team.total')}</div>
-                  </div>
+                <div className="rounded-xl bg-white/6 p-3 text-center">
+                  <div className="text-blue-300 font-black text-xl leading-none">{phpDisplay(summary?.l2Cents ?? 0)}</div>
+                  <div className="text-slate-400 text-xs mt-1">C2 · {l2Rate}%</div>
                 </div>
-                {(summary?.paidCents ?? 0) > 0 && (
-                  <div className="mt-2 pt-2 border-t border-amber-500/20 text-center">
-                    <span className="text-[10px] text-muted-foreground">{t('team.settled')} </span>
-                    <span className="text-[10px] font-bold text-emerald-400">{phpDisplay(summary!.paidCents)}</span>
-                  </div>
-                )}
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="rounded-xl bg-white/6 p-3 text-center">
+                  <div className="text-purple-300 font-black text-xl leading-none">{phpDisplay(summary?.l3Cents ?? 0)}</div>
+                  <div className="text-slate-400 text-xs mt-1">C3 · {l3Rate}%</div>
+                </div>
+                <div className="rounded-xl border border-amber-400/25 bg-amber-400/14 p-3 text-center">
+                  <div className="text-amber-300 font-black text-xl leading-none">{phpDisplay(summary?.totalCents ?? 0)}</div>
+                  <div className="text-amber-100/60 text-xs mt-1">{t('team.total')}</div>
+                </div>
+              </div>
+              <div className="mt-3 border-t border-amber-400/15 pt-3 text-center">
+                <span className="text-sm text-slate-400">{t('team.settled')} </span>
+                <span className="text-sm font-black text-emerald-300">{phpDisplay(summary?.paidCents ?? 0)}</span>
               </div>
             </div>
 
-            {/* 视图切换控件 */}
-            <div className="flex items-center justify-end gap-2 px-4 pb-2">
+            <div className="flex items-center justify-end gap-2">
               {treeView && (
                 <>
-                  <button type="button" className="text-[11px] font-bold text-amber-400 px-2 py-1 bg-amber-500/10 rounded-lg" onClick={expandAll}>{t('team.expandAll')}</button>
-                  <button type="button" className="text-[11px] font-bold text-muted-foreground px-2 py-1 bg-secondary rounded-lg" onClick={() => setExpandedIds(new Set())}>{t('team.collapse')}</button>
+                  <button type="button" className="rounded-xl bg-amber-400/15 px-3 py-2 text-xs font-black text-amber-300" onClick={expandAll}>{t('team.expandAll')}</button>
+                  <button type="button" className="rounded-xl bg-slate-700/50 px-3 py-2 text-xs font-black text-slate-300" onClick={() => setExpandedIds(new Set())}>{t('team.collapse')}</button>
                 </>
               )}
               <button type="button"
-                className="p-1.5 rounded-lg bg-secondary text-muted-foreground hover:text-amber-400 transition-colors"
+                className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-700/50 text-slate-300"
                 onClick={() => treeView ? setTreeView(false) : switchToTree()}>
-                {treeView ? <List size={15} /> : <GitBranch size={15} />}
+                {treeView ? <SlidersHorizontal size={17} /> : <GitBranch size={17} />}
               </button>
             </div>
 
-            {/* 树形视图 */}
             {treeView && (
-              <div className="pb-4">
+              <div className="rounded-2xl bg-[#07111c] pb-2">
                 {treeLoading ? (
-                  <div className="px-4 space-y-1 pt-1">
+                  <div className="space-y-2 pt-1">
                     {Array.from({ length: 6 }).map((_, i) => (
-                      <div key={i} className="h-10 animate-pulse rounded-lg bg-secondary" style={{ marginLeft: (i % 3) * 16 }} />
+                      <div key={i} className="h-12 animate-pulse rounded-xl bg-white/6" style={{ marginLeft: (i % 3) * 20 }} />
                     ))}
                   </div>
                 ) : !treeData || treeData.l1Members.length === 0 ? (
-                  <div className="py-12 text-center text-muted-foreground">
-                    <GitBranch size={36} className="mx-auto mb-3 opacity-30" />
+                  <div className="rounded-2xl border border-white/10 bg-[#101824] py-12 text-center text-slate-400">
+                    <GitBranch size={40} className="mx-auto mb-3 opacity-40" />
                     <p className="text-sm">{t('team.noDownlines')}</p>
                   </div>
                 ) : treeData.l1Members.map((m) => (
@@ -522,104 +594,100 @@ export default function TeamCenterPage({ onClose }: { onClose?: () => void }) {
               </div>
             )}
 
-            {/* 收益明细列表 */}
             {!treeView && (
-              <div className="px-4 space-y-2 pb-4">
+              <div className="space-y-2">
                 {commLoading ? (
-                  Array.from({ length: 5 }).map((_, i) => <div key={i} className="h-14 animate-pulse rounded-xl bg-secondary" />)
+                  Array.from({ length: 5 }).map((_, i) => <div key={i} className="h-14 animate-pulse rounded-xl bg-white/6" />)
                 ) : !commItems.length ? (
-                  <div className="py-8 text-center text-muted-foreground">
-                    <TrendingUp size={36} className="mx-auto mb-3 opacity-30" />
+                  <div className="rounded-2xl border border-white/10 bg-[#101824] py-8 text-center text-slate-400">
+                    <TrendingUp size={36} className="mx-auto mb-3 opacity-40" />
                     <p className="text-sm">{t('team.noCommissions')}</p>
                   </div>
                 ) : commItems.map((item, i) => (
-                  <div key={i} className="flex items-center gap-3 bg-secondary rounded-xl px-3 py-2.5">
-                    <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full flex-shrink-0 ${levelBadge[item.level]}`}>C{item.level}</span>
+                  <div key={i} className="flex items-center gap-3 rounded-xl bg-[#101824] px-3 py-3">
+                    <span className={`text-[10px] font-black px-2 py-1 rounded-full flex-shrink-0 ${levelBadge[item.level]}`}>C{item.level}</span>
                     <div className="flex-1 min-w-0">
-                      <p className="text-foreground font-bold text-xs leading-none mb-0.5">{item.displayName}</p>
-                      <p className="text-[10px] text-muted-foreground">
+                      <p className="text-white font-bold text-sm leading-none mb-1">{item.displayName}</p>
+                      <p className="text-[10px] text-slate-400 truncate">
                         {t('team.turnover')} {item.currencyBreakdown?.length ? breakdownDisplay(item.currencyBreakdown) : turnoverDisplay(item.turnoverCents)} × {item.ratePct}%
                       </p>
                     </div>
                     <div className="text-right flex-shrink-0">
-                      <p className={`font-black text-sm leading-none ${item.phpEquivCents < 0 ? 'text-red-400' : 'text-amber-400'}`}>{phpDisplay(item.phpEquivCents)}</p>
-                      <p className={`text-[9px] mt-0.5 ${statusColor[item.status] ?? 'text-muted-foreground'}`}>{item.status}</p>
+                      <p className={`font-black text-sm leading-none ${item.phpEquivCents < 0 ? 'text-red-400' : 'text-amber-300'}`}>{phpDisplay(item.phpEquivCents)}</p>
+                      <p className={`text-[9px] mt-1 ${statusColor[item.status] ?? 'text-slate-400'}`}>{item.status}</p>
                     </div>
                   </div>
                 ))}
               </div>
             )}
-          </>
+          </div>
         )}
 
-        {/* ══ 提现 Tab ══ */}
         {activeTab === 'rewards' && (
-          <>
-            {/* 钱包大卡 */}
-            <div className="px-4 pt-4 pb-3">
-              <div className={`rounded-2xl border p-4 ${(teamWallet?.availableCents ?? 0) < 0 ? 'bg-gradient-to-br from-red-900/30 to-transparent border-red-500/20' : 'amber-card-bg border-amber-500/20'}`}>
-                <p className="text-[10px] font-bold uppercase tracking-widest text-amber-400/70 mb-1 text-center">
-                  {(teamWallet?.availableCents ?? 0) < 0 ? t('team.debtLabel') : t('team.available')}
-                </p>
-                <p className={`text-4xl font-black leading-none text-center mb-2 ${(teamWallet?.availableCents ?? 0) < 0 ? 'text-red-400' : 'text-amber-400'}`}>{phpDisplay(teamWallet?.availableCents ?? 0)}</p>
-                <div className="flex justify-center gap-4 text-[10px] text-muted-foreground">
-                  <span>{t('team.frozen')}: {phpDisplay(teamWallet?.frozenCents ?? 0)}</span>
-                  <span>{t('team.lifetime')}: {phpDisplay(teamWallet?.lifetimeEarnedCents ?? 0)}</span>
+          <div className="space-y-4">
+            <div className={`rounded-2xl border p-4 ${(teamWallet?.availableCents ?? 0) < 0 ? 'border-red-500/25 bg-red-950/25' : 'border-amber-400/20 bg-[#101824]'}`}>
+              <p className="mb-2 text-center text-[11px] font-black uppercase tracking-[0.22em] text-amber-300/80">
+                {(teamWallet?.availableCents ?? 0) < 0 ? t('team.debtLabel') : t('team.available')}
+              </p>
+              <p className={`text-center text-5xl font-black leading-none ${(teamWallet?.availableCents ?? 0) < 0 ? 'text-red-400' : 'text-amber-300'}`}>
+                {phpDisplay(teamWallet?.availableCents ?? 0)}
+              </p>
+              <div className="mt-4 flex items-center justify-center gap-3 text-sm text-slate-300">
+                <span>{t('team.frozen')}: {phpDisplay(teamWallet?.frozenCents ?? 0)}</span>
+                <span className="text-amber-300">•</span>
+                <span>{t('team.lifetime')}: {phpDisplay(teamWallet?.lifetimeEarnedCents ?? 0)}</span>
+              </div>
+              <div className="mt-5 grid grid-cols-2 gap-3 border-t border-amber-400/15 pt-5">
+                <div className="rounded-xl bg-white/6 p-3 text-center">
+                  <div className="text-amber-300 font-black text-xl leading-none">{phpDisplay(summary?.totalCents ?? 0)}</div>
+                  <div className="text-slate-300 text-xs mt-2">{t('team.periodEarned', { period: periodLabel })}</div>
                 </div>
-                {/* 月份维度 */}
-                <div className="mt-3 pt-3 border-t border-amber-500/20 grid grid-cols-2 gap-2">
-                  <div className="bg-foreground/6 rounded-xl p-2 text-center">
-                    <div className="text-amber-400 font-bold text-sm leading-none">{phpDisplay(summary?.totalCents ?? 0)}</div>
-                    <div className="text-white/40 text-[9px] mt-0.5">{t('team.periodEarned', { period: formatPeriod(period, i18n.language) })}</div>
-                  </div>
-                  <div className="bg-foreground/6 rounded-xl p-2 text-center">
-                    <div className="text-emerald-400 font-bold text-sm leading-none">{phpDisplay(summary?.paidCents ?? 0)}</div>
-                    <div className="text-white/40 text-[9px] mt-0.5">{t('team.periodSettled', { period: formatPeriod(period, i18n.language) })}</div>
-                  </div>
+                <div className="rounded-xl bg-white/6 p-3 text-center">
+                  <div className="text-emerald-300 font-black text-xl leading-none">{phpDisplay(summary?.paidCents ?? 0)}</div>
+                  <div className="text-slate-300 text-xs mt-2">{t('team.periodSettled', { period: periodLabel })}</div>
                 </div>
               </div>
             </div>
 
-            {/* 提现表单 */}
-            <div className="px-4 pb-4">
+            <div>
               {(teamWallet?.availableCents ?? 0) < 0 ? (
-                <div className="bg-red-500/10 border border-red-500/30 rounded-2xl p-4 mb-3">
+                <div className="mb-3 rounded-2xl border border-red-500/30 bg-red-500/10 p-4">
                   <p className="text-xs font-bold text-red-400 mb-1">{t('team.debtLabel')}</p>
                   <p className="text-[11px] text-red-300/80 leading-relaxed">
                     {t('team.debtWarning', { amount: phpDisplay(Math.abs(teamWallet!.availableCents)) })}
                   </p>
                 </div>
               ) : (
-                <div className="bg-secondary rounded-2xl p-4 mb-3">
-                  <p className="text-xs font-bold text-foreground mb-2">{t('team.withdrawAmount')}</p>
-                  <div className="flex gap-2">
+                <div className="mb-4 rounded-2xl border border-white/10 bg-[#121b2b] p-4">
+                  <p className="mb-3 text-lg font-black text-white">{t('team.withdrawAmount')}</p>
+                  <div className="flex gap-3">
                     <div className="flex-1 relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-bold text-sm">₱</span>
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 font-bold text-lg">₱</span>
                       <input type="number" value={withdrawInput} placeholder={t('team.minWithdrawPhp')} min="100" step="1"
-                        className="w-full bg-background rounded-xl pl-7 pr-3 py-2.5 text-sm text-foreground outline-none focus:ring-1 focus:ring-amber-500 border border-border"
+                        className="h-14 w-full rounded-xl border border-white/10 bg-[#06101a] pl-9 pr-3 text-lg font-bold text-white outline-none focus:ring-1 focus:ring-amber-500"
                         onChange={(e) => setWithdrawInput(e.target.value)} />
                     </div>
-                    <button type="button" className="px-3 py-2.5 bg-amber-500/20 text-amber-400 rounded-xl text-xs font-bold"
+                    <button type="button" className="h-14 rounded-xl bg-amber-500/25 px-5 text-sm font-black text-amber-300"
                       onClick={() => setWithdrawInput(String(Math.max(0, (teamWallet?.availableCents ?? 0)) / 100))}>
                       {t('team.max')}
                     </button>
                   </div>
                   {withdrawError && <p className="text-red-400 text-xs mt-1.5">{withdrawError}</p>}
-                  <p className="text-muted-foreground text-[10px] mt-1.5">{t('team.withdrawHint')}</p>
+                  <p className="text-slate-400 text-xs mt-3">{t('team.withdrawHint')}</p>
                 </div>
               )}
               {kycApproved === false ? (
                 <button
                   type="button"
-                  className="w-full py-3 rounded-xl font-black text-sm flex items-center justify-center gap-2 bg-amber-500 text-black"
+                  className="w-full py-4 rounded-xl font-black text-base flex items-center justify-center gap-2 bg-amber-500 text-[#08111f]"
                   onClick={() => setKycOpen(true)}
                 >
-                  <ShieldCheck size={16} />
+                  <ShieldCheck size={18} />
                   {t('kyc.required')}
                 </button>
               ) : (
                 <button type="button"
-                  className={`w-full py-3 rounded-xl font-black text-sm transition-opacity ${(withdrawing || (teamWallet?.availableCents ?? 0) < 0) ? 'bg-amber-500/50 text-black/50' : 'bg-amber-500 text-black'}`}
+                  className={`w-full py-4 rounded-xl font-black text-base transition-opacity ${(withdrawing || (teamWallet?.availableCents ?? 0) < 0) ? 'bg-amber-500/50 text-black/50' : 'bg-amber-500 text-[#08111f]'}`}
                   disabled={withdrawing || (teamWallet?.availableCents ?? 0) < 0}
                   onClick={() => void submitWithdraw()}>
                   {withdrawing ? t('team.withdrawing') : t('team.withdrawSubmit')}
@@ -628,20 +696,23 @@ export default function TeamCenterPage({ onClose }: { onClose?: () => void }) {
             </div>
 
             {/* 提现记录 */}
-            <div className="px-4 pb-6">
-              <p className="text-xs font-bold text-foreground mb-2">{t('team.withdrawHistory')}</p>
+            <div>
+              <p className="mb-3 text-lg font-black text-white">{t('team.withdrawHistory')}</p>
               {wdLoading ? (
-                Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-14 animate-pulse rounded-xl bg-secondary mb-2" />)
+                Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-16 animate-pulse rounded-xl bg-white/6 mb-2" />)
               ) : !withdrawals.length ? (
-                <div className="py-6 text-center text-muted-foreground text-xs">{t('team.noWithdrawals')}</div>
+                <div className="rounded-2xl border border-white/10 bg-[#101824] py-10 text-center text-slate-400">
+                  <ClipboardList size={38} className="mx-auto mb-3 opacity-45" />
+                  <p className="text-sm">{t('team.noWithdrawals')}</p>
+                </div>
               ) : withdrawals.map((wd) => {
                 const StatusIcon = wd.status === 'approved' ? CheckCircle2 : wd.status === 'rejected' ? XCircle : Clock
                 return (
-                  <div key={wd.id} className="flex items-center gap-3 bg-secondary rounded-xl px-3 py-3 mb-2">
-                    <StatusIcon size={18} className={`flex-shrink-0 ${statusColor[wd.status] ?? 'text-muted-foreground'}`} />
+                  <div key={wd.id} className="flex items-center gap-3 bg-[#101824] rounded-xl px-3 py-3 mb-2">
+                    <StatusIcon size={18} className={`flex-shrink-0 ${statusColor[wd.status] ?? 'text-slate-400'}`} />
                     <div className="flex-1 min-w-0">
-                      <p className="text-foreground font-bold text-sm leading-none mb-0.5">{phpDisplay(wd.amountCents)}</p>
-                      <p className="text-muted-foreground text-[10px]">{new Date(wd.createdAt).toLocaleDateString()}</p>
+                      <p className="text-white font-bold text-sm leading-none mb-0.5">{phpDisplay(wd.amountCents)}</p>
+                      <p className="text-slate-400 text-[10px]">{new Date(wd.createdAt).toLocaleDateString()}</p>
                       {wd.rejectReason && <p className="text-red-400 text-[10px] mt-0.5">{wd.rejectReason}</p>}
                     </div>
                     <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full flex-shrink-0 ${wd.status === 'pending' ? 'bg-amber-500/20 text-amber-400' : wd.status === 'approved' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'}`}>
@@ -651,7 +722,7 @@ export default function TeamCenterPage({ onClose }: { onClose?: () => void }) {
                 )
               })}
             </div>
-          </>
+          </div>
         )}
         <div className="h-4" />{/* 底部留白 */}
       </div>
