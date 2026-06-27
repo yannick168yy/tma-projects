@@ -1,9 +1,8 @@
-import { useState, useEffect, useRef, useMemo } from 'react'
-import { useTranslation } from 'react-i18next'
-import { Trophy, ChevronLeft, ChevronRight } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import PeryaCarnivalHero from '@/components/bingo/PeryaCarnivalHero'
 import GameImageCard from '@/components/game/GameImageCard'
-import { PINOY_CLASSICS, MORE_PINOY_GAMES, PERYA_WINNERS } from '@/data/bingo'
+import { PINOY_CLASSICS, MORE_PINOY_GAMES } from '@/data/bingo'
 import { fetchGames, launchGame, type SlotGame } from '@/api/slots'
 import { useAuthStore } from '@/stores/auth'
 import { useWalletStore } from '@/stores/wallet'
@@ -29,7 +28,6 @@ function heroLeftColor(provider: string) { return providerHeroLeft[provider] ?? 
 const fiestaBuntingColors = ['#FFB800','#ec4899','#34d399','#60a5fa','#f97316','#a855f7','#FFB800','#ef4444','#FFB800','#ec4899','#34d399','#60a5fa','#f97316','#a855f7','#FFB800','#ef4444'] as const
 
 export default function BingoPage({ onOpenWallet, onGameTap, onOpenGame, onOpenCategoryLobby }: Props) {
-  const { t } = useTranslation()
   const isLoggedIn = useAuthStore((s) => Boolean(s.token && s.user))
   const activeCurrency = useWalletStore((s) => s.activeCurrency)
   const locale = useLocaleStore((s) => s.locale)
@@ -42,10 +40,6 @@ export default function BingoPage({ onOpenWallet, onGameTap, onOpenGame, onOpenC
 
   const heroGame = bingoGames[0] ?? null
   const subGames = bingoGames.slice(1, 5)
-  const marqueeWinners = useMemo(() => {
-    const items = Array.from({ length: 50 }, (_, i) => PERYA_WINNERS[i % PERYA_WINNERS.length])
-    return [...items, ...items]
-  }, [])
 
   useEffect(() => {
     fetchGames({ sortCategory: 'bingo', sortBy: 'ph_bonus', limit: 8 }).then((res) => setBingoGames(res.items)).catch(() => {})
@@ -61,31 +55,7 @@ export default function BingoPage({ onOpenWallet, onGameTap, onOpenGame, onOpenC
 
   return (
     <div className="page-main">
-      <PeryaCarnivalHero>
-        <p className="text-amber-300 text-[10px] font-black uppercase tracking-widest mb-1">🎪 {t('bingo.carnival')}</p>
-        <h1 className="font-black leading-none mb-1 font-display text-[2.6rem]" style={{ textShadow: '0 2px 20px rgba(168, 85, 247, 0.6)' }}>
-          <span className="text-white">{t('bingo.titlePerya')}</span>
-          <span className="text-primary">{t('bingo.titleAnd')}</span>
-          <span style={{ color: '#ec4899' }}>{t('bingo.titleBingo')}</span>
-        </h1>
-        <p className="text-white/40 text-xs leading-relaxed">{t('bingo.heroSub')}</p>
-        <div className="flex items-center gap-2 mt-4 bg-black/35 rounded-xl px-3 py-2 overflow-hidden" style={{ border: '1px solid rgba(255, 184, 0, 0.14)' }}>
-          <div className="flex items-center gap-1 flex-shrink-0"><Trophy size={11} className="text-primary" /><span className="text-primary text-[10px] font-black uppercase tracking-wide">{t('bingo.winners')}</span></div>
-          <div className="w-px h-3 bg-white/10 flex-shrink-0" />
-          <div className="overflow-hidden flex-1">
-            <div className="flex gap-5 animate-marquee whitespace-nowrap" style={{ animationDuration: '4s' }}>
-              {marqueeWinners.map((w, i) => (
-                <span key={i} className="text-[11px] flex-shrink-0">
-                  <span className="text-primary font-bold">{w.name}</span>
-                  <span className="text-white/40"> {t('common.won')} </span>
-                  <span className="text-emerald-400 font-bold">{w.amount}</span>
-                  <span className="text-white/25"> · {w.game}</span>
-                </span>
-              ))}
-            </div>
-          </div>
-        </div>
-      </PeryaCarnivalHero>
+      <PeryaCarnivalHero />
 
       <div className="mx-4 mt-4 rounded-2xl px-4 py-3 flex items-center gap-3" style={{ background: 'linear-gradient(90deg, #2d1800, #1a0d40)', border: '1px solid rgba(255, 184, 0, 0.25)', boxShadow: '0 4px 20px rgba(255, 184, 0, 0.12)' }}>
         <span className="text-2xl">🏆</span>
