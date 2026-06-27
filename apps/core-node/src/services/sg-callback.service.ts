@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify'
 import type { ResultSetHeader, RowDataPacket } from 'mysql2/promise'
 import type { Redis } from 'ioredis'
 import { lgId, txId } from '../utils/id.js'
-import { allocateBetTurnover, reverseBetTurnover } from './turnover.service.js'
+import { allocateBetTurnoverInTransaction, reverseBetTurnover } from './turnover.service.js'
 
 export interface SgCallbackBody {
   action: string
@@ -112,6 +112,7 @@ export class SgCallbackService {
           [player_id, game_uuid, transaction_id ?? null, round_id ?? null, amount, currency, amount],
         )
         const betOrderId = betResult.insertId
+        await allocateBetTurnoverInTransaction(conn, player_id, betOrderId, amount, game_uuid, currency)
         const resp = { balance: bal, transaction_id: txId() }
         if (transaction_id) {
           await conn.execute(
@@ -121,9 +122,6 @@ export class SgCallbackService {
           )
         }
         await conn.commit()
-        allocateBetTurnover(db, player_id, betOrderId, amount, game_uuid, currency).catch((err) => {
-          this.app.log.error({ err }, '[turnover] allocateBetTurnover failed')
-        })
         return resp
       } catch (e) {
         await conn.rollback()
