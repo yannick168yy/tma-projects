@@ -62,7 +62,7 @@ export default function BingoPage({ onOpenWallet, onGameTap, onOpenGame, onOpenC
   return (
     <div className="page-main">
       <PeryaCarnivalHero>
-        <div className="w-full h-full flex items-center gap-2 rounded-full bg-[#19072b]/95 px-3 overflow-hidden" style={{ border: '1px solid rgba(255, 184, 0, 0.42)' }}>
+        <div className="w-full h-full flex items-center gap-2 rounded-full bg-[#19072b] px-3 overflow-hidden" style={{ border: '1px solid rgba(255, 184, 0, 0.42)' }}>
           <div className="flex items-center gap-1 flex-shrink-0">
             <Trophy size={13} className="text-primary" />
             <span className="text-primary text-[10px] font-black uppercase tracking-wide">{t('bingo.winners')}</span>
