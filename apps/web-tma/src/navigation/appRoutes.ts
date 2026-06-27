@@ -24,7 +24,7 @@ const OVERLAY_PATHS: Record<string, FullPageView['type']> = {
   '/agent': 'agentCenter',
   '/bet-history': 'betHistory',
   '/rewards': 'ledgerRecords',
-  '/referral': 'referralPromo',
+  '/referral': 'teamCenter',
   '/cashback': 'cashback',
   '/rewards-spin': 'spin',
   '/kyc-setting': 'kycSetting',
@@ -70,7 +70,6 @@ export function parseAppRoute(pathname: string, search: string): ParsedAppRoute 
   if (overlayType === 'agentCenter') return { kind: 'overlay', overlay: { type: 'agentCenter' } }
   if (overlayType === 'betHistory') return { kind: 'overlay', overlay: { type: 'betHistory' } }
   if (overlayType === 'ledgerRecords') return { kind: 'overlay', overlay: { type: 'ledgerRecords' } }
-  if (overlayType === 'referralPromo') return { kind: 'overlay', overlay: { type: 'referralPromo' } }
   if (overlayType === 'cashback') return { kind: 'overlay', overlay: { type: 'cashback' } }
   if (overlayType === 'spin') return { kind: 'overlay', overlay: { type: 'spin' } }
   if (overlayType === 'kycSetting') return { kind: 'overlay', overlay: { type: 'kycSetting' } }
