@@ -645,9 +645,9 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
                               const pct=Math.min(100,(req.completedAmount/req.requiredAmount)*100)
                               return (
                                 <div key={req.id} className="space-y-1">
-                                  <div className="flex justify-between">
-                                    <span className="text-[10px] text-amber-300/70">{req.sourceType==='deposit'?t('wallet.turnoverDeposit'):req.sourceRef==='trial'?t('wallet.promoTrial'):req.sourceRef==='referral'?t('wallet.promoReferral'):req.sourceRef==='firstdep'?t('wallet.promoFirstdep'):t('wallet.turnoverPromo')} · {fmtTurnoverAmount(req.requiredAmount,req.currency??'PHP')}</span>
-                                    <span className="text-[10px] font-bold text-amber-300/70">{Math.round(pct)}%</span>
+                                  <div className="flex justify-between gap-2">
+                                    <span className="min-w-0 truncate text-[10px] text-amber-300/70">{req.sourceType==='deposit'?t('wallet.turnoverDeposit'):req.sourceRef==='trial'?t('wallet.promoTrial'):req.sourceRef==='referral'?t('wallet.promoReferral'):req.sourceRef==='firstdep'?t('wallet.promoFirstdep'):t('wallet.turnoverPromo')} · {fmtTurnoverAmount(req.completedAmount,req.currency??'PHP')} / {fmtTurnoverAmount(req.requiredAmount,req.currency??'PHP')}</span>
+                                    <span className="flex-shrink-0 text-[10px] font-bold text-amber-300/70">{Math.round(pct)}%</span>
                                   </div>
                                   <div className="h-1 bg-amber-500/20 rounded-full overflow-hidden">
                                     <div className="h-full bg-amber-400 rounded-full" style={{width:`${pct}%`}} />
