@@ -1,8 +1,9 @@
-import { useState, useEffect, useRef } from 'react'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { useState, useEffect, useRef, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
+import { Trophy, ChevronLeft, ChevronRight } from 'lucide-react'
 import PeryaCarnivalHero from '@/components/bingo/PeryaCarnivalHero'
 import GameImageCard from '@/components/game/GameImageCard'
-import { PINOY_CLASSICS, MORE_PINOY_GAMES } from '@/data/bingo'
+import { PINOY_CLASSICS, MORE_PINOY_GAMES, PERYA_WINNERS } from '@/data/bingo'
 import { fetchGames, launchGame, type SlotGame } from '@/api/slots'
 import { useAuthStore } from '@/stores/auth'
 import { useWalletStore } from '@/stores/wallet'
@@ -28,6 +29,7 @@ function heroLeftColor(provider: string) { return providerHeroLeft[provider] ?? 
 const fiestaBuntingColors = ['#FFB800','#ec4899','#34d399','#60a5fa','#f97316','#a855f7','#FFB800','#ef4444','#FFB800','#ec4899','#34d399','#60a5fa','#f97316','#a855f7','#FFB800','#ef4444'] as const
 
 export default function BingoPage({ onOpenWallet, onGameTap, onOpenGame, onOpenCategoryLobby }: Props) {
+  const { t } = useTranslation()
   const isLoggedIn = useAuthStore((s) => Boolean(s.token && s.user))
   const activeCurrency = useWalletStore((s) => s.activeCurrency)
   const locale = useLocaleStore((s) => s.locale)
@@ -40,6 +42,10 @@ export default function BingoPage({ onOpenWallet, onGameTap, onOpenGame, onOpenC
 
   const heroGame = bingoGames[0] ?? null
   const subGames = bingoGames.slice(1, 5)
+  const marqueeWinners = useMemo(() => {
+    const items = Array.from({ length: 50 }, (_, i) => PERYA_WINNERS[i % PERYA_WINNERS.length])
+    return [...items, ...items]
+  }, [])
 
   useEffect(() => {
     fetchGames({ sortCategory: 'bingo', sortBy: 'ph_bonus', limit: 8 }).then((res) => setBingoGames(res.items)).catch(() => {})
@@ -55,7 +61,27 @@ export default function BingoPage({ onOpenWallet, onGameTap, onOpenGame, onOpenC
 
   return (
     <div className="page-main">
-      <PeryaCarnivalHero />
+      <PeryaCarnivalHero>
+        <div className="w-full h-full flex items-center gap-2 rounded-full bg-[#19072b]/95 px-3 overflow-hidden" style={{ border: '1px solid rgba(255, 184, 0, 0.42)' }}>
+          <div className="flex items-center gap-1 flex-shrink-0">
+            <Trophy size={13} className="text-primary" />
+            <span className="text-primary text-[10px] font-black uppercase tracking-wide">{t('bingo.winners')}</span>
+          </div>
+          <div className="w-px h-4 bg-white/20 flex-shrink-0" />
+          <div className="overflow-hidden flex-1">
+            <div className="flex gap-5 animate-marquee whitespace-nowrap" style={{ animationDuration: '4s' }}>
+              {marqueeWinners.map((w, i) => (
+                <span key={i} className="text-[11px] flex-shrink-0">
+                  <span className="text-primary font-bold">{w.name}</span>
+                  <span className="text-white/70"> {t('common.won')} </span>
+                  <span className="text-emerald-400 font-bold">{w.amount}</span>
+                  <span className="text-white/40"> · {w.game}</span>
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+      </PeryaCarnivalHero>
 
       <div className="mx-4 mt-4 rounded-2xl px-4 py-3 flex items-center gap-3" style={{ background: 'linear-gradient(90deg, #2d1800, #1a0d40)', border: '1px solid rgba(255, 184, 0, 0.25)', boxShadow: '0 4px 20px rgba(255, 184, 0, 0.12)' }}>
         <span className="text-2xl">🏆</span>
