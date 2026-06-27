@@ -4,15 +4,15 @@ import type { FullPageView } from '@/hooks/useFullPageOverlay'
 export type TabId = 'casino' | 'bingo' | 'bonuses' | 'menu'
 
 export const TAB_PATHS: Record<TabId, string> = {
-  casino: '/casino',
-  bingo: '/bingo',
+  casino: '/home',
+  bingo: '/perya',
   bonuses: '/bonuses',
   menu: '/menu',
 }
 
 const PATH_TO_TAB: Record<string, TabId> = {
-  '/casino': 'casino',
-  '/bingo': 'bingo',
+  '/home': 'casino',
+  '/perya': 'bingo',
   '/bonuses': 'bonuses',
   '/menu': 'menu',
 }

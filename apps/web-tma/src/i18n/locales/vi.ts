@@ -49,9 +49,10 @@ export default {
   },
   nav: {
     cashier: 'Thu ngân',
-    bingo: 'Bingo',
+    bingo: 'Perya',
     bonuses: 'Khuyến mãi',
-    casino: 'Casino',
+    casino: 'Home',
+    team: '3-Circle',
     menu: 'Menu',
   },
   shell: {

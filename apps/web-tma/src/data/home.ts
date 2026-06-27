@@ -20,9 +20,9 @@ export const INFO_LINKS = [
 ]
 
 export const NAV_ITEMS = [
-  { id: 'cashier', label: 'Cashier' },
-  { id: 'bingo', label: 'Bingo' },
-  { id: 'casino', label: 'Casino' },
+  { id: 'casino', label: 'Home' },
   { id: 'bonuses', label: 'Bonuses', badge: 3 },
+  { id: 'team', label: '3-Circle' },
+  { id: 'bingo', label: 'Perya' },
   { id: 'menu', label: 'Menu' },
 ] as const

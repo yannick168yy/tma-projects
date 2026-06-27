@@ -49,9 +49,10 @@ export default {
   },
   nav: {
     cashier: 'Cashier',
-    bingo: 'Bingo',
+    bingo: 'Perya',
     bonuses: 'Bonuses',
-    casino: 'Casino',
+    casino: 'Home',
+    team: '3-Circle',
     menu: 'Menu',
   },
   shell: {

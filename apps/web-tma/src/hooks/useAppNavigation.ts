@@ -10,8 +10,6 @@ import {
 } from '@/navigation/appRoutes'
 import type { CategoryLobbyParams, FullPageView } from '@/hooks/useFullPageOverlay'
 
-type NavId = TabId | 'cashier'
-
 function hasSameOriginReferrer() {
   if (typeof document === 'undefined' || !document.referrer) return false
   try {
@@ -30,12 +28,12 @@ export function useAppNavigation() {
 
   useEffect(() => {
     if (location.pathname === '/') {
-      navigate('/casino', { replace: true })
+      navigate('/home', { replace: true })
       return
     }
     const parsed = parseAppRoute(location.pathname, location.search)
     if (!parsed) {
-      navigate('/casino', { replace: true })
+      navigate('/home', { replace: true })
       return
     }
     if (parsed.kind === 'tab') {
@@ -63,21 +61,16 @@ export function useAppNavigation() {
       navigate(-1)
       return
     }
-    navigate('/casino', { replace: true })
+    navigate('/home', { replace: true })
   }, [location.state, navigate])
 
-  const setNav = useCallback((id: NavId, openWallet: () => void) => {
-    if (id === 'cashier') {
-      setView({ type: 'none' })
-      openWallet()
-      return
-    }
+  const setNav = useCallback((id: TabId) => {
     navigate(buildTabPath(id))
     window.scrollTo({ top: 0, behavior: 'instant' })
   }, [navigate])
 
   const goHome = useCallback(() => {
-    navigate('/casino')
+    navigate('/home')
     window.scrollTo({ top: 0, behavior: 'instant' })
   }, [navigate])
 

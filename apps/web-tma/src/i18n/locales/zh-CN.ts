@@ -49,9 +49,10 @@ export default {
   },
   nav: {
     cashier: '收银台',
-    bingo: '宾果',
+    bingo: 'Perya',
     bonuses: '优惠',
-    casino: '娱乐场',
+    casino: 'Home',
+    team: '3-Circle',
     menu: '菜单',
   },
   shell: {

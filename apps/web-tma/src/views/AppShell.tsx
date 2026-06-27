@@ -1,6 +1,6 @@
 import { lazy, Suspense, useState, useEffect, useRef, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ChevronDown, ChevronLeft, Wallet, Gift, Home, Menu, Dices, Check, Search, Headset } from 'lucide-react'
+import { ChevronDown, ChevronLeft, Wallet, Gift, Home, Menu, Dices, Check, Search, Headset, Network } from 'lucide-react'
 import BetogoLogo from '@/components/BetogoLogo'
 import { NAV_ITEMS } from '@/data/home'
 import { useAuthStore } from '@/stores/auth'
@@ -36,7 +36,7 @@ const GamePlayer = lazy(() => import('@/components/GamePlayer'))
 type NavId = (typeof NAV_ITEMS)[number]['id']
 
 function navIcon(id: string) {
-  switch (id) { case 'cashier': return Wallet; case 'bingo': return Dices; case 'bonuses': return Gift; case 'casino': return Home; default: return Menu }
+  switch (id) { case 'team': return Network; case 'bingo': return Dices; case 'bonuses': return Gift; case 'casino': return Home; default: return Menu }
 }
 
 export default function AppShell() {
@@ -164,7 +164,11 @@ export default function AppShell() {
 
   function setNav(id: NavId) {
     setWalletOpen(false)
-    navigateTab(id, () => { void openWallet() })
+    if (id === 'team') {
+      openTeamCenter()
+      return
+    }
+    navigateTab(id)
   }
 
   function onOpenSearch() {
@@ -445,10 +449,11 @@ export default function AppShell() {
         <nav ref={navRef} className="app-fixed-bottom app-safe-nav flex items-center justify-around border-t border-border bg-background px-2 pt-1" style={walletOpen ? { zIndex: 50 } : undefined}>
           {navItems.map((item) => {
             const Icon = navIcon(item.id)
+            const itemActive = item.id === 'team' ? view.type === 'teamCenter' : activeNav === item.id
             return (
-              <button key={item.id} type="button" className={`relative flex flex-col items-center gap-0.5 rounded-xl px-3 py-0.5 transition-colors ${activeNav === item.id ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`} onClick={() => setNav(item.id)}>
-                {activeNav === item.id && <span className="absolute -top-1 left-1/2 h-0.5 w-7 -translate-x-1/2 rounded-full bg-primary" />}
-                <div className={activeNav === item.id ? 'rounded-xl bg-primary/10 p-1' : 'p-1'}><Icon size={20} /></div>
+              <button key={item.id} type="button" className={`relative flex flex-col items-center gap-0.5 rounded-xl px-3 py-0.5 transition-colors ${itemActive ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`} onClick={() => setNav(item.id)}>
+                {itemActive && <span className="absolute -top-1 left-1/2 h-0.5 w-7 -translate-x-1/2 rounded-full bg-primary" />}
+                <div className={itemActive ? 'rounded-xl bg-primary/10 p-1' : 'p-1'}><Icon size={20} /></div>
                 {'badge' in item && item.badge && (
                   <span className="absolute right-1 top-0 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-accent px-1 text-[9px] font-black text-white">{item.badge}</span>
                 )}
