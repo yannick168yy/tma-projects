@@ -12,7 +12,7 @@ export default function PeryaCarnivalHero({ children }: Props) {
         className="block w-full h-auto"
       />
       {children && (
-        <div className="absolute left-[3.6%] bottom-[18.4%] w-[45%] h-[9.6%]">
+        <div className="absolute left-[3.6%] bottom-[16.8%] w-[45%] h-[9.6%]">
           {children}
         </div>
       )}
