@@ -8,7 +8,7 @@ import { translateApiError } from '@/utils/translateApiError'
 import { buildInviteDeepLink, buildInviteWebLink } from '@/constants/telegram'
 import { useAuthStore } from '@/stores/auth'
 import { usePromotionStore } from '@/stores/promotion'
-import threeCircleHero from '@/assets/team/3-circles/hero.webp'
+import threeCircleHero from '@/assets/team/3-circles/hero-height.webp'
 import circleStructureImage from '@/assets/team/3-circles/3-circle-structure.webp'
 import iconFacebook from '@/assets/team/3-circles/facebook.webp'
 import iconViber from '@/assets/team/3-circles/viber.webp'
@@ -256,17 +256,12 @@ export default function TeamCenterPage({ onClose }: { onClose?: () => void }) {
     const text = `Join my 3-Circle Rewards on BetoGo — use my code ${inviteCode}!`
     const message = `${text}\n${webShareLink}`
     if (platform === 'telegram') {
-      const telegramShareUrl = `https://t.me/share/url?url=${encodeURIComponent(telegramLink)}&text=${encodeURIComponent(text)}`
-      if (window.Telegram?.WebApp?.openTelegramLink) {
-        window.Telegram.WebApp.openTelegramLink(telegramShareUrl)
-      } else {
-        openAppLink(`tg://msg_url?url=${encodeURIComponent(telegramLink)}&text=${encodeURIComponent(text)}`, telegramShareUrl)
-      }
+      openAppLink(`tg://msg_url?url=${encodeURIComponent(telegramLink)}&text=${encodeURIComponent(text)}`)
       return
     }
     if (platform === 'facebook') {
       const fallback = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(webShareLink)}`
-      openAppLink(`fb://facewebmodal/f?href=${encodeURIComponent(fallback)}`, fallback)
+      openAppLink(`fb-messenger://share?link=${encodeURIComponent(webShareLink)}`, fallback)
       return
     }
     if (platform === 'viber') {
@@ -348,6 +343,7 @@ export default function TeamCenterPage({ onClose }: { onClose?: () => void }) {
     { id: 'line' as const, label: 'Line', icon: iconLine },
     { id: 'copy' as const, label: 'Share Link', icon: iconShareLink },
   ]
+  const sectionTitleClass = 'mb-3 text-lg font-medium text-white'
 
   const guideSections = useMemo(() => {
     if (!guideOpen) return []
@@ -361,41 +357,41 @@ export default function TeamCenterPage({ onClose }: { onClose?: () => void }) {
 
   return (
     <div className="flex min-h-full flex-col bg-[#07111c] text-white">
-      <div className="relative overflow-hidden bg-[#f8d69b]">
+      <div className="relative -mt-[var(--app-safe-top)] overflow-hidden bg-[#f8d69b]">
         <img src={threeCircleHero} alt="" className="block w-full" />
         {onClose && (
           <button
             type="button"
-            className="absolute left-[3.7%] top-[5.7%] h-[11%] w-[8.5%] rounded-full bg-transparent"
+            className="absolute left-[3.7%] top-[12.8%] h-[8.5%] w-[8.5%] rounded-full bg-transparent"
             onClick={onClose}
             aria-label="返回"
           />
         )}
       </div>
 
-      <div className="sticky z-20 bg-[#07111c]/96 px-4 pt-3 backdrop-blur" style={{ top: 'var(--app-header-height)' }}>
-        <div className="mt-3 flex border-b border-white/10">
+      <div className="sticky z-20 bg-[#07111c]/96 px-4 pt-1 backdrop-blur" style={{ top: 'var(--app-header-height)' }}>
+        <div className="flex border-b border-white/10">
           {tabs.map(({ id, label, Icon }) => (
             <button
               key={id}
               type="button"
-              className={`flex-1 flex flex-col items-center gap-1 py-3 text-[12px] font-bold transition-colors ${activeTab === id ? 'text-amber-300 border-b-2 border-amber-400 -mb-px' : 'text-slate-400'}`}
+              className={`flex-1 flex items-center justify-center gap-2 py-3 text-[13px] font-medium transition-colors ${activeTab === id ? 'text-amber-300 border-b-2 border-amber-400 -mb-px' : 'text-slate-400'}`}
               onClick={() => setActiveTab(id)}
             >
-              <Icon size={20} />{label}
+              <Icon size={19} />{label}
             </button>
           ))}
         </div>
         {activeTab !== 'overview' && (
-          <div className="mt-3 flex items-center rounded-2xl border border-white/14 bg-[#101a27]/90 px-4 py-3 shadow-[0_10px_28px_rgba(0,0,0,0.28)]">
+          <div className="mt-3 flex items-center rounded-2xl border border-white/12 bg-[#101a27]/90 px-4 py-3 shadow-[0_10px_28px_rgba(0,0,0,0.24)]">
             <div className="flex flex-1 items-center justify-around">
               {[
-                ['C1', l1Count, 'text-emerald-300'],
-                ['C2', l2Count, 'text-blue-300'],
-                ['C3', l3Count, 'text-purple-300'],
-              ].map(([label, value, cls]) => (
+                ['C1', l1Count],
+                ['C2', l2Count],
+                ['C3', l3Count],
+              ].map(([label, value]) => (
                 <div key={label as string} className="min-w-0 flex-1 text-center">
-                  <p className={`text-xl font-black leading-none ${cls}`}>{value}</p>
+                  <p className="text-lg font-semibold leading-none text-amber-300">{value}</p>
                   <p className="mt-1 text-[11px] font-medium text-slate-400">{label}</p>
                 </div>
               ))}
@@ -403,11 +399,12 @@ export default function TeamCenterPage({ onClose }: { onClose?: () => void }) {
             <span className="mx-3 h-9 w-px bg-white/12" />
             <button
               type="button"
-              className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full border border-amber-400/60 bg-amber-400/10 text-amber-300"
+              className="flex h-10 min-w-10 flex-shrink-0 items-center justify-center rounded-xl border border-amber-400/20 bg-white/6 px-2 text-amber-300"
               onClick={() => setGuideOpen(true)}
               aria-label={t('team.guide.title')}
             >
-              <CircleHelp size={20} />
+              <CircleHelp size={18} />
+              <span className="ml-1 text-[11px] font-medium">Guide</span>
             </button>
             <span className="mx-3 h-9 w-px bg-white/12" />
             <button type="button" className="text-slate-400" onClick={() => changePeriod(prevPeriod(period))}>
@@ -428,7 +425,7 @@ export default function TeamCenterPage({ onClose }: { onClose?: () => void }) {
         {activeTab === 'overview' && (
           <div className="space-y-5">
             <section>
-              <h2 className="mb-3 text-lg font-medium text-white">Share to more platforms</h2>
+              <h2 className={sectionTitleClass}>Share to more platforms</h2>
               <div className="grid grid-cols-7 gap-2">
                 {sharePlatforms.map(({ id, label, icon }) => (
                   <button
@@ -446,11 +443,12 @@ export default function TeamCenterPage({ onClose }: { onClose?: () => void }) {
             </section>
 
             <section>
+              <h2 className={sectionTitleClass}>3-Circle Structure</h2>
               <img src={circleStructureImage} alt="3-Circle Structure" className="w-full rounded-2xl" />
             </section>
 
             <section>
-              <h2 className="mb-3 font-display text-base font-black text-white">Circle Reward Rates</h2>
+              <h2 className={sectionTitleClass}>Circle Reward Rates</h2>
               <div className="space-y-3">
                 {rateCards.map(({ level, title, desc, rate, icon: Icon, cls }) => (
                   <div key={level} className={`flex items-center gap-3 rounded-2xl border bg-[#101824] p-3 ${cls}`}>
@@ -487,30 +485,24 @@ export default function TeamCenterPage({ onClose }: { onClose?: () => void }) {
 
         {activeTab === 'circle' && (
           <div className="space-y-4">
-            <div className="rounded-2xl border border-amber-400/20 bg-[#101824] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-              <div className="grid grid-cols-2 gap-2 mb-2">
-                <div className="rounded-xl bg-white/6 p-3 text-center">
-                  <div className="text-amber-300 font-black text-xl leading-none">{phpDisplay(summary?.l1Cents ?? 0)}</div>
-                  <div className="text-slate-400 text-xs mt-1">C1 · {l1Rate}%</div>
-                </div>
-                <div className="rounded-xl bg-white/6 p-3 text-center">
-                  <div className="text-blue-300 font-black text-xl leading-none">{phpDisplay(summary?.l2Cents ?? 0)}</div>
-                  <div className="text-slate-400 text-xs mt-1">C2 · {l2Rate}%</div>
-                </div>
-              </div>
+            <div className="rounded-2xl border border-white/10 bg-[#101824] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+              <h2 className={sectionTitleClass}>Settled</h2>
               <div className="grid grid-cols-2 gap-2">
-                <div className="rounded-xl bg-white/6 p-3 text-center">
-                  <div className="text-purple-300 font-black text-xl leading-none">{phpDisplay(summary?.l3Cents ?? 0)}</div>
-                  <div className="text-slate-400 text-xs mt-1">C3 · {l3Rate}%</div>
-                </div>
-                <div className="rounded-xl border border-amber-400/25 bg-amber-400/14 p-3 text-center">
-                  <div className="text-amber-300 font-black text-xl leading-none">{phpDisplay(summary?.totalCents ?? 0)}</div>
-                  <div className="text-amber-100/60 text-xs mt-1">{t('team.total')}</div>
-                </div>
+                {[
+                  ['C1', `${l1Rate}%`, summary?.l1Cents ?? 0],
+                  ['C2', `${l2Rate}%`, summary?.l2Cents ?? 0],
+                  ['C3', `${l3Rate}%`, summary?.l3Cents ?? 0],
+                  [t('team.total'), periodLabel, summary?.totalCents ?? 0],
+                ].map(([label, sub, cents]) => (
+                  <div key={label as string} className="rounded-xl border border-white/8 bg-white/5 px-3 py-3">
+                    <p className="text-[11px] font-medium text-slate-400">{label as string} · {sub as string}</p>
+                    <p className="mt-1 text-[17px] font-semibold leading-none text-white">{phpDisplay(cents as number)}</p>
+                  </div>
+                ))}
               </div>
-              <div className="mt-3 border-t border-amber-400/15 pt-3 text-center">
-                <span className="text-sm text-slate-400">{t('team.settled')} </span>
-                <span className="text-sm font-black text-emerald-300">{phpDisplay(summary?.paidCents ?? 0)}</span>
+              <div className="mt-3 flex items-center justify-between rounded-xl border border-amber-400/20 bg-amber-400/8 px-3 py-3">
+                <span className="text-sm font-medium text-slate-300">{t('team.settled')}</span>
+                <span className="text-lg font-semibold text-amber-300">{phpDisplay(summary?.paidCents ?? 0)}</span>
               </div>
             </div>
 
@@ -578,26 +570,26 @@ export default function TeamCenterPage({ onClose }: { onClose?: () => void }) {
 
         {activeTab === 'rewards' && (
           <div className="space-y-4">
-            <div className={`rounded-2xl border p-4 ${(teamWallet?.availableCents ?? 0) < 0 ? 'border-red-500/25 bg-red-950/25' : 'border-amber-400/20 bg-[#101824]'}`}>
-              <p className="mb-2 text-center text-[11px] font-black uppercase tracking-[0.22em] text-amber-300/80">
+            <div className={`rounded-2xl border p-4 ${(teamWallet?.availableCents ?? 0) < 0 ? 'border-red-500/25 bg-red-950/25' : 'border-white/10 bg-[#101824]'}`}>
+              <p className="mb-2 text-center text-[11px] font-medium uppercase tracking-[0.18em] text-slate-400">
                 {(teamWallet?.availableCents ?? 0) < 0 ? t('team.debtLabel') : t('team.available')}
               </p>
-              <p className={`text-center text-5xl font-black leading-none ${(teamWallet?.availableCents ?? 0) < 0 ? 'text-red-400' : 'text-amber-300'}`}>
+              <p className={`text-center text-[2.5rem] font-semibold leading-none ${(teamWallet?.availableCents ?? 0) < 0 ? 'text-red-400' : 'text-amber-300'}`}>
                 {phpDisplay(teamWallet?.availableCents ?? 0)}
               </p>
-              <div className="mt-4 flex items-center justify-center gap-3 text-sm text-slate-300">
+              <div className="mt-4 flex items-center justify-center gap-3 text-sm text-slate-400">
                 <span>{t('team.frozen')}: {phpDisplay(teamWallet?.frozenCents ?? 0)}</span>
-                <span className="text-amber-300">•</span>
+                <span className="text-slate-600">•</span>
                 <span>{t('team.lifetime')}: {phpDisplay(teamWallet?.lifetimeEarnedCents ?? 0)}</span>
               </div>
-              <div className="mt-5 grid grid-cols-2 gap-3 border-t border-amber-400/15 pt-5">
-                <div className="rounded-xl bg-white/6 p-3 text-center">
-                  <div className="text-amber-300 font-black text-xl leading-none">{phpDisplay(summary?.totalCents ?? 0)}</div>
-                  <div className="text-slate-300 text-xs mt-2">{t('team.periodEarned', { period: periodLabel })}</div>
+              <div className="mt-5 grid grid-cols-2 gap-3 border-t border-white/10 pt-5">
+                <div className="rounded-xl border border-white/8 bg-white/5 p-3 text-center">
+                  <div className="text-lg font-semibold leading-none text-white">{phpDisplay(summary?.totalCents ?? 0)}</div>
+                  <div className="mt-2 text-xs text-slate-400">{t('team.periodEarned', { period: periodLabel })}</div>
                 </div>
-                <div className="rounded-xl bg-white/6 p-3 text-center">
-                  <div className="text-emerald-300 font-black text-xl leading-none">{phpDisplay(summary?.paidCents ?? 0)}</div>
-                  <div className="text-slate-300 text-xs mt-2">{t('team.periodSettled', { period: periodLabel })}</div>
+                <div className="rounded-xl border border-amber-400/18 bg-amber-400/8 p-3 text-center">
+                  <div className="text-lg font-semibold leading-none text-amber-300">{phpDisplay(summary?.paidCents ?? 0)}</div>
+                  <div className="mt-2 text-xs text-slate-400">{t('team.periodSettled', { period: periodLabel })}</div>
                 </div>
               </div>
             </div>
@@ -612,15 +604,15 @@ export default function TeamCenterPage({ onClose }: { onClose?: () => void }) {
                 </div>
               ) : (
                 <div className="mb-4 rounded-2xl border border-white/10 bg-[#121b2b] p-4">
-                  <p className="mb-3 text-lg font-black text-white">{t('team.withdrawAmount')}</p>
+                  <p className={sectionTitleClass}>{t('team.withdrawAmount')}</p>
                   <div className="flex gap-3">
                     <div className="flex-1 relative">
-                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 font-bold text-lg">₱</span>
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 text-lg">₱</span>
                       <input type="number" value={withdrawInput} placeholder={t('team.minWithdrawPhp')} min="100" step="1"
-                        className="h-14 w-full rounded-xl border border-white/10 bg-[#06101a] pl-9 pr-3 text-lg font-bold text-white outline-none focus:ring-1 focus:ring-amber-500"
+                        className="h-12 w-full rounded-xl border border-white/10 bg-[#06101a] pl-9 pr-3 text-base font-medium text-white outline-none focus:ring-1 focus:ring-amber-500"
                         onChange={(e) => setWithdrawInput(e.target.value)} />
                     </div>
-                    <button type="button" className="h-14 rounded-xl bg-amber-500/25 px-5 text-sm font-black text-amber-300"
+                    <button type="button" className="h-12 rounded-xl border border-amber-400/20 bg-amber-400/10 px-5 text-sm font-semibold text-amber-300"
                       onClick={() => setWithdrawInput(String(Math.max(0, (teamWallet?.availableCents ?? 0)) / 100))}>
                       {t('team.max')}
                     </button>
@@ -632,7 +624,7 @@ export default function TeamCenterPage({ onClose }: { onClose?: () => void }) {
               {kycApproved === false ? (
                 <button
                   type="button"
-                  className="w-full py-4 rounded-xl font-black text-base flex items-center justify-center gap-2 bg-amber-500 text-[#08111f]"
+                  className="w-full py-3.5 rounded-xl font-semibold text-base flex items-center justify-center gap-2 bg-amber-500 text-[#08111f]"
                   onClick={() => setKycOpen(true)}
                 >
                   <ShieldCheck size={18} />
@@ -640,7 +632,7 @@ export default function TeamCenterPage({ onClose }: { onClose?: () => void }) {
                 </button>
               ) : (
                 <button type="button"
-                  className={`w-full py-4 rounded-xl font-black text-base transition-opacity ${(withdrawing || (teamWallet?.availableCents ?? 0) < 0) ? 'bg-amber-500/50 text-black/50' : 'bg-amber-500 text-[#08111f]'}`}
+                  className={`w-full py-3.5 rounded-xl font-semibold text-base transition-opacity ${(withdrawing || (teamWallet?.availableCents ?? 0) < 0) ? 'bg-amber-500/50 text-black/50' : 'bg-amber-500 text-[#08111f]'}`}
                   disabled={withdrawing || (teamWallet?.availableCents ?? 0) < 0}
                   onClick={() => void submitWithdraw()}>
                   {withdrawing ? t('team.withdrawing') : t('team.withdrawSubmit')}
@@ -650,7 +642,7 @@ export default function TeamCenterPage({ onClose }: { onClose?: () => void }) {
 
             {/* 提现记录 */}
             <div>
-              <p className="mb-3 text-lg font-black text-white">{t('team.withdrawHistory')}</p>
+              <p className={sectionTitleClass}>{t('team.withdrawHistory')}</p>
               {wdLoading ? (
                 Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-16 animate-pulse rounded-xl bg-white/6 mb-2" />)
               ) : !withdrawals.length ? (
