@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ChevronLeft, Copy, Share2, Link2, Wallet, TrendingUp, CheckCircle2, Clock, XCircle, ChevronRight, GitBranch, CircleHelp, X, ShieldCheck, Users, Zap, Network, CalendarDays, ClipboardList, SlidersHorizontal } from 'lucide-react'
+import { ChevronLeft, Wallet, TrendingUp, CheckCircle2, Clock, XCircle, ChevronRight, GitBranch, CircleHelp, X, ShieldCheck, Users, Zap, CalendarDays, ClipboardList, SlidersHorizontal } from 'lucide-react'
 import KycModal from '@/components/wallet/KycModal'
 import { useKycGate } from '@/hooks/useKycGate'
 import { fetchTeamTree, type TeamTreeNode, type CurrencyBreakdownItem } from '@/api/promotion'
@@ -8,7 +8,15 @@ import { translateApiError } from '@/utils/translateApiError'
 import { buildInviteDeepLink, buildInviteWebLink } from '@/constants/telegram'
 import { useAuthStore } from '@/stores/auth'
 import { usePromotionStore } from '@/stores/promotion'
-import threeCircleHero from '@/assets/home/promos/three-circle-hero.webp'
+import threeCircleHero from '@/assets/team/3-circles/hero.webp'
+import circleStructureImage from '@/assets/team/3-circles/3-circle-structure.webp'
+import iconFacebook from '@/assets/team/3-circles/facebook.webp'
+import iconViber from '@/assets/team/3-circles/viber.webp'
+import iconWhatsApp from '@/assets/team/3-circles/whatsapp.webp'
+import iconTelegram from '@/assets/team/3-circles/telegram.webp'
+import iconX from '@/assets/team/3-circles/x.webp'
+import iconLine from '@/assets/team/3-circles/line.webp'
+import iconShareLink from '@/assets/team/3-circles/share-link.webp'
 
 // ── 月份工具 ─────────────────────────────────────────────────────────────────
 function currentPeriod() {
@@ -84,6 +92,7 @@ const levelColors: Record<number, { text: string; badge: string; line: string }>
 }
 
 type ThreeCircleTab = 'overview' | 'circle' | 'rewards'
+type SharePlatform = 'facebook' | 'viber' | 'whatsapp' | 'telegram' | 'x' | 'line' | 'copy'
 
 // ── 树形节点 ──────────────────────────────────────────────────────────────────
 function TreeNodeRow({ node, depth, expandedIds, onToggle }: {
@@ -124,54 +133,6 @@ function TreeNodeRow({ node, depth, expandedIds, onToggle }: {
         <TreeNodeRow key={child.userId} node={child} depth={Math.min(depth + 1, 3) as 2 | 3} expandedIds={expandedIds} onToggle={onToggle} />
       ))}
     </>
-  )
-}
-
-function CircleStructure({ l1Count, l2Count, l3Count }: { l1Count: number; l2Count: number; l3Count: number }) {
-  return (
-    <div className="rounded-2xl border border-white/10 bg-[#111827]/80 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-      <div className="flex items-center justify-between gap-2 mb-3">
-        <div className="inline-flex items-center rounded-full border border-emerald-400/25 bg-emerald-400/8 px-3 py-1 text-[10px] font-bold text-emerald-300">
-          C1 / Direct Friends
-        </div>
-        <div className="rounded-full border border-emerald-400/30 bg-black/20 px-2.5 py-1 text-[9px] font-bold text-emerald-300">
-          Qualified bets {'->'} rewards
-        </div>
-      </div>
-      <div className="grid grid-cols-[0.85fr_1.15fr] gap-3">
-        <div className="flex flex-col justify-center border-r border-white/10 pr-3">
-          <p className="text-3xl font-black leading-none text-emerald-300">{l1Count}</p>
-          <p className="mt-1 text-xs font-bold text-white">Friends</p>
-          <p className="mt-3 text-[10px] text-slate-400">C2: {l2Count} · C3: {l3Count}</p>
-        </div>
-        <div className="relative h-36">
-          <div className="absolute left-1/2 top-1 flex h-9 w-9 -translate-x-1/2 items-center justify-center rounded-full bg-emerald-300 text-[#0b121f] shadow-[0_0_22px_rgba(110,231,183,0.45)]">
-            <Users size={18} />
-          </div>
-          <div className="absolute left-[24%] top-[50px] h-px w-[26%] -rotate-12 border-t border-dashed border-emerald-300/45" />
-          <div className="absolute right-[24%] top-[50px] h-px w-[26%] rotate-12 border-t border-dashed border-emerald-300/45" />
-          {[
-            ['C1', 'left-[14%] top-[54px]', 'border-emerald-400/50 text-emerald-300'],
-            ['C1', 'right-[14%] top-[54px]', 'border-emerald-400/50 text-emerald-300'],
-            ['C2', 'left-[17%] top-[93px]', 'border-blue-400/50 text-blue-300'],
-            ['C2', 'right-[17%] top-[93px]', 'border-blue-400/35 text-blue-300 opacity-50 border-dashed'],
-            ['C3', 'left-[4%] top-[124px]', 'border-amber-400/50 text-amber-300'],
-            ['C3', 'left-[33%] top-[124px]', 'border-amber-400/50 text-amber-300'],
-            ['C3', 'right-[4%] top-[124px]', 'border-purple-400/35 text-purple-300 opacity-50 border-dashed'],
-            ['C3', 'right-[33%] top-[124px]', 'border-purple-400/35 text-purple-300 opacity-50 border-dashed'],
-          ].map(([label, pos, cls]) => (
-            <span key={`${label}-${pos}`} className={`absolute ${pos} rounded-lg border bg-black/25 px-2 py-1 text-[10px] font-black ${cls}`}>
-              {label}
-            </span>
-          ))}
-        </div>
-      </div>
-      <div className="mt-4 flex flex-wrap justify-center gap-x-3 gap-y-1 text-[9.5px] font-bold text-slate-400">
-        <span><span className="mr-1 inline-block h-2 w-2 rounded-full bg-emerald-300" />C1 Direct friends</span>
-        <span><span className="mr-1 inline-block h-2 w-2 rounded-full bg-blue-400" />C2 Friends of C1</span>
-        <span><span className="mr-1 inline-block h-2 w-2 rounded-full bg-amber-300" />C3 Friends of C2</span>
-      </div>
-    </div>
   )
 }
 
@@ -275,14 +236,55 @@ export default function TeamCenterPage({ onClose }: { onClose?: () => void }) {
     await navigator.clipboard.writeText(webShareLink).catch(() => {})
     setCopyTip(true); setTimeout(() => setCopyTip(false), 1800)
   }
-  function shareToTelegram() {
-    const text = encodeURIComponent(`Join my 3-Circle Rewards on BetoGo — use my code ${inviteCode}!\n${telegramLink}`)
-    window.open(`https://t.me/share/url?url=${encodeURIComponent(telegramLink)}&text=${text}`, '_blank')
+  function openAppLink(url: string, fallback?: string) {
+    window.location.href = url
+    if (fallback) {
+      window.setTimeout(() => {
+        if (!document.hidden) window.location.href = fallback
+      }, 900)
+    }
   }
-  async function shareToWeb() {
-    const shareData = { title: 'BetoGo', text: `Join my 3-Circle Rewards on BetoGo — use my code ${inviteCode}!`, url: webShareLink }
-    if (navigator.share) { try { await navigator.share(shareData) } catch { /* cancelled */ } }
-    else { await copyWebLink() }
+  function shareToPlatform(platform: SharePlatform) {
+    if (!inviteCode) {
+      void onEnable()
+      return
+    }
+    if (platform === 'copy') {
+      void copyWebLink()
+      return
+    }
+    const text = `Join my 3-Circle Rewards on BetoGo — use my code ${inviteCode}!`
+    const message = `${text}\n${webShareLink}`
+    if (platform === 'telegram') {
+      const telegramShareUrl = `https://t.me/share/url?url=${encodeURIComponent(telegramLink)}&text=${encodeURIComponent(text)}`
+      if (window.Telegram?.WebApp?.openTelegramLink) {
+        window.Telegram.WebApp.openTelegramLink(telegramShareUrl)
+      } else {
+        openAppLink(`tg://msg_url?url=${encodeURIComponent(telegramLink)}&text=${encodeURIComponent(text)}`, telegramShareUrl)
+      }
+      return
+    }
+    if (platform === 'facebook') {
+      const fallback = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(webShareLink)}`
+      openAppLink(`fb://facewebmodal/f?href=${encodeURIComponent(fallback)}`, fallback)
+      return
+    }
+    if (platform === 'viber') {
+      openAppLink(`viber://forward?text=${encodeURIComponent(message)}`)
+      return
+    }
+    if (platform === 'whatsapp') {
+      openAppLink(`whatsapp://send?text=${encodeURIComponent(message)}`, `https://wa.me/?text=${encodeURIComponent(message)}`)
+      return
+    }
+    if (platform === 'x') {
+      const fallback = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(webShareLink)}`
+      openAppLink(`twitter://post?message=${encodeURIComponent(message)}`, fallback)
+      return
+    }
+    if (platform === 'line') {
+      openAppLink(`line://msg/text/${encodeURIComponent(message)}`, `https://social-plugins.line.me/lineit/share?url=${encodeURIComponent(webShareLink)}`)
+    }
   }
 
   async function onEnable() {
@@ -337,6 +339,16 @@ export default function TeamCenterPage({ onClose }: { onClose?: () => void }) {
     { level: 3, title: 'Circle 3 Friends', desc: 'Friends invited by your C2 — rewards from their bets.', rate: l3Rate, icon: Users, cls: 'border-amber-500/20 bg-amber-500/10 text-amber-300' },
   ]
 
+  const sharePlatforms = [
+    { id: 'facebook' as const, label: 'Facebook', icon: iconFacebook },
+    { id: 'viber' as const, label: 'Viber', icon: iconViber },
+    { id: 'whatsapp' as const, label: 'WhatsApp', icon: iconWhatsApp },
+    { id: 'telegram' as const, label: 'Telegram', icon: iconTelegram },
+    { id: 'x' as const, label: 'X', icon: iconX },
+    { id: 'line' as const, label: 'Line', icon: iconLine },
+    { id: 'copy' as const, label: 'Share Link', icon: iconShareLink },
+  ]
+
   const guideSections = useMemo(() => {
     if (!guideOpen) return []
     const text = t('team.guide.content', {
@@ -349,111 +361,19 @@ export default function TeamCenterPage({ onClose }: { onClose?: () => void }) {
 
   return (
     <div className="flex min-h-full flex-col bg-[#07111c] text-white">
-      <div className="relative overflow-hidden rounded-b-[1.75rem] pb-7">
-        <img src={threeCircleHero} alt="" className="absolute inset-0 h-full w-full object-cover object-center" />
-        <div className="absolute inset-0 bg-gradient-to-r from-[#fff0cf]/90 via-[#fff0cf]/56 to-transparent" />
-        <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-b from-transparent to-[#07111c]" />
-        <div className="relative px-4 pt-[calc(var(--app-safe-top)+1rem)]">
-          <div className="mb-6 flex items-center gap-3">
-            {onClose && (
-              <button
-                type="button"
-                className="flex h-11 w-11 items-center justify-center rounded-full bg-[#111827] text-white shadow-lg active:scale-95"
-                onClick={onClose}
-              >
-                <ChevronLeft size={23} />
-              </button>
-            )}
-            <div className="inline-flex items-center gap-2 rounded-full border border-amber-500/45 bg-white/35 px-4 py-2 text-[11px] font-black uppercase tracking-wide text-amber-700 backdrop-blur-sm">
-              <Network size={15} />
-              3-Circle Rewards
-            </div>
-          </div>
-
-          <div className="max-w-[245px]">
-            <h1 className="font-display text-[2.25rem] font-black leading-[0.98] text-[#08111f] drop-shadow-[0_1px_0_rgba(255,255,255,0.22)]">
-              {t('team.heroTitle')}
-            </h1>
-            <p className="mt-3 text-[14px] font-semibold leading-relaxed text-[#172033]/85">{t('team.heroDesc')}</p>
-          </div>
-
-          {inviteCode ? (
-            <div className="mt-4 flex w-[250px] items-center gap-2 rounded-xl bg-[#202431] px-3 py-3 text-white shadow-[0_12px_28px_rgba(0,0,0,0.2)]">
-              <div className="min-w-0 flex-1">
-                <p className="text-[11px] text-white/55">{t('team.myReferralCode')}</p>
-                <p className="font-display text-lg font-black tracking-[0.18em] text-amber-300 truncate">{inviteCode}</p>
-              </div>
-              <button type="button" className="flex h-8 w-8 items-center justify-center text-slate-300" onClick={copyWebLink}>
-                <Copy size={19} />
-              </button>
-            </div>
-          ) : null}
-          {copyTip && <p className="mt-1 w-[250px] text-center text-xs font-bold text-amber-700">{t('team.copied')}</p>}
-
-          <div className="mt-4 flex gap-2">
-            {inviteCode ? (
-              <>
-                <button type="button" className="flex h-12 flex-1 items-center justify-center gap-2 rounded-xl bg-amber-500 text-sm font-black text-[#08111f] shadow-[0_10px_24px_rgba(245,158,11,0.32)] active:scale-[0.98]" onClick={shareToTelegram}>
-                  <Share2 size={16} />{t('team.shareOnTelegram')}
-                </button>
-                <button type="button" className="flex h-12 flex-1 items-center justify-center gap-2 rounded-xl border border-amber-400/60 bg-[#07111c]/80 text-sm font-black text-amber-300 active:scale-[0.98]" onClick={() => void shareToWeb()}>
-                  <Link2 size={16} />{t('team.shareLink')}
-                </button>
-              </>
-            ) : (
-              <button
-                type="button"
-                className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-amber-500 text-sm font-black text-[#08111f] disabled:opacity-60"
-                disabled={enabling}
-                onClick={() => void onEnable()}
-              >
-                <Zap size={16} />{enabling ? t('bonuses.promos.agent.activating') : t('bonuses.promos.agent.cta')}
-              </button>
-            )}
-          </div>
-        </div>
+      <div className="relative overflow-hidden bg-[#f8d69b]">
+        <img src={threeCircleHero} alt="" className="block w-full" />
+        {onClose && (
+          <button
+            type="button"
+            className="absolute left-[3.7%] top-[5.7%] h-[11%] w-[8.5%] rounded-full bg-transparent"
+            onClick={onClose}
+            aria-label="返回"
+          />
+        )}
       </div>
 
       <div className="sticky z-20 bg-[#07111c]/96 px-4 pt-3 backdrop-blur" style={{ top: 'var(--app-header-height)' }}>
-        <div className="flex items-center rounded-2xl border border-white/10 bg-[#101a27]/90 px-4 py-3 shadow-[0_10px_28px_rgba(0,0,0,0.28)]">
-          <div className="flex flex-1 items-center justify-around">
-            {[
-              ['C1', l1Count, 'text-emerald-300'],
-              ['C2', l2Count, 'text-blue-300'],
-              ['C3', l3Count, 'text-purple-300'],
-            ].map(([label, value, cls]) => (
-              <div key={label as string} className="min-w-0 flex-1 text-center">
-                <p className={`text-xl font-black leading-none ${cls}`}>{value}</p>
-                <p className="mt-1 text-[11px] font-medium text-slate-400">{label}</p>
-              </div>
-            ))}
-          </div>
-          <span className="mx-3 h-9 w-px bg-white/10" />
-          <button
-            type="button"
-            className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full border border-amber-400/40 bg-amber-400/10 text-amber-300 shadow-[0_0_18px_rgba(251,191,36,0.35)]"
-            onClick={() => setGuideOpen(true)}
-            aria-label={t('team.guide.title')}
-          >
-            <CircleHelp size={19} />
-          </button>
-          {activeTab !== 'overview' && (
-            <>
-              <span className="mx-3 h-9 w-px bg-white/10" />
-              <button type="button" className="text-slate-400" onClick={() => changePeriod(prevPeriod(period))}>
-                <ChevronLeft size={17} />
-              </button>
-              <button type="button" className="mx-1 flex min-w-0 items-center gap-2 rounded-xl px-2 py-1.5 text-sm font-bold text-white" onClick={() => changePeriod(period)}>
-                <CalendarDays size={17} className="text-slate-300" />
-                <span className="max-w-[86px] truncate">{periodLabel}</span>
-              </button>
-              <button type="button" className={`${period >= currentPeriod() ? 'text-slate-700' : 'text-slate-400'}`} disabled={period >= currentPeriod()} onClick={() => changePeriod(nextPeriod(period))}>
-                <ChevronRight size={17} />
-              </button>
-            </>
-          )}
-        </div>
-
         <div className="mt-3 flex border-b border-white/10">
           {tabs.map(({ id, label, Icon }) => (
             <button
@@ -466,34 +386,67 @@ export default function TeamCenterPage({ onClose }: { onClose?: () => void }) {
             </button>
           ))}
         </div>
+        {activeTab !== 'overview' && (
+          <div className="mt-3 flex items-center rounded-2xl border border-white/14 bg-[#101a27]/90 px-4 py-3 shadow-[0_10px_28px_rgba(0,0,0,0.28)]">
+            <div className="flex flex-1 items-center justify-around">
+              {[
+                ['C1', l1Count, 'text-emerald-300'],
+                ['C2', l2Count, 'text-blue-300'],
+                ['C3', l3Count, 'text-purple-300'],
+              ].map(([label, value, cls]) => (
+                <div key={label as string} className="min-w-0 flex-1 text-center">
+                  <p className={`text-xl font-black leading-none ${cls}`}>{value}</p>
+                  <p className="mt-1 text-[11px] font-medium text-slate-400">{label}</p>
+                </div>
+              ))}
+            </div>
+            <span className="mx-3 h-9 w-px bg-white/12" />
+            <button
+              type="button"
+              className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full border border-amber-400/60 bg-amber-400/10 text-amber-300"
+              onClick={() => setGuideOpen(true)}
+              aria-label={t('team.guide.title')}
+            >
+              <CircleHelp size={20} />
+            </button>
+            <span className="mx-3 h-9 w-px bg-white/12" />
+            <button type="button" className="text-slate-400" onClick={() => changePeriod(prevPeriod(period))}>
+              <ChevronLeft size={17} />
+            </button>
+            <button type="button" className="mx-1 flex min-w-0 items-center gap-2 rounded-xl px-2 py-1.5 text-sm font-bold text-white" onClick={() => changePeriod(period)}>
+              <CalendarDays size={20} className="text-white" />
+              <span className="max-w-[88px] truncate">{periodLabel}</span>
+            </button>
+            <button type="button" className={`${period >= currentPeriod() ? 'text-slate-700' : 'text-slate-400'}`} disabled={period >= currentPeriod()} onClick={() => changePeriod(nextPeriod(period))}>
+              <ChevronRight size={17} />
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="min-h-0 px-4 pb-8 pt-4">
         {activeTab === 'overview' && (
           <div className="space-y-5">
-            <div className="grid grid-cols-3 overflow-hidden rounded-2xl border border-violet-400/20 bg-violet-500/20">
-              {[
-                [Link2, 'Share Link', 'Invite friends'],
-                [Users, 'Grow 3 Circles', 'C1 -> C2 -> C3'],
-                [Wallet, 'Earn by Rates', 'Get rewards'],
-              ].map(([Icon, title, desc], i) => {
-                const ItemIcon = Icon as typeof Link2
-                return (
-                  <div key={title as string} className={`px-2 py-4 text-center ${i > 0 ? 'border-l border-white/15' : ''}`}>
-                    <ItemIcon size={18} className="mx-auto mb-2 text-amber-300" />
-                    <p className="text-[11px] font-black text-white">{title as string}</p>
-                    <p className="mt-0.5 text-[9px] text-slate-300">{desc as string}</p>
-                  </div>
-                )
-              })}
-            </div>
+            <section>
+              <h2 className="mb-3 text-lg font-medium text-white">Share to more platforms</h2>
+              <div className="grid grid-cols-7 gap-2">
+                {sharePlatforms.map(({ id, label, icon }) => (
+                  <button
+                    key={id}
+                    type="button"
+                    className="min-w-0 active:scale-95"
+                    onClick={() => shareToPlatform(id)}
+                  >
+                    <img src={icon} alt="" className="mx-auto h-11 w-11" />
+                    <span className="mt-1 block truncate text-center text-[11px] font-medium text-slate-200">{label}</span>
+                  </button>
+                ))}
+              </div>
+              {copyTip && <p className="mt-2 text-center text-xs font-bold text-amber-300">{t('team.copied')}</p>}
+            </section>
 
             <section>
-              <div className="mb-3 flex items-center gap-2">
-                <Network size={18} className="text-amber-300" />
-                <h2 className="font-display text-base font-black text-white">3-Circle Structure</h2>
-              </div>
-              <CircleStructure l1Count={l1Count} l2Count={l2Count} l3Count={l3Count} />
+              <img src={circleStructureImage} alt="3-Circle Structure" className="w-full rounded-2xl" />
             </section>
 
             <section>

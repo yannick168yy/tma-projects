@@ -40,6 +40,7 @@ interface TelegramWebApp {
   enableVerticalSwipes?: () => void
   isVerticalSwipesEnabled?: boolean
   openLink?: (url: string) => void
+  openTelegramLink?: (url: string) => void
   openInvoice?: (url: string, callback?: (status: string) => void) => void
   BackButton?: TelegramBackButton
 }
