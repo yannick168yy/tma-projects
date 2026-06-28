@@ -136,7 +136,7 @@ function TreeNodeRow({ node, depth, expandedIds, onToggle }: {
 }
 
 // ── 页面主体 ──────────────────────────────────────────────────────────────────
-export default function TeamCenterPage({ onClose }: { onClose?: () => void }) {
+export default function TeamCenterPage() {
   const { t, i18n } = useTranslation()
   const user = useAuthStore((s) => s.user)
   const ensureLoggedIn = useAuthStore((s) => s.ensureLoggedIn)
@@ -381,14 +381,6 @@ export default function TeamCenterPage({ onClose }: { onClose?: () => void }) {
       <style>{`@keyframes team-open-shake{0%,100%{transform:translateX(0)}15%{transform:translateX(-8px)}30%{transform:translateX(7px)}45%{transform:translateX(-5px)}60%{transform:translateX(4px)}75%{transform:translateX(-2px)}}`}</style>
       <div className="relative overflow-hidden">
         <img src={threeCircleHero} alt="" className="block w-full" />
-        {onClose && (
-          <button
-            type="button"
-            className="absolute left-[3.7%] top-[5.7%] h-[8.5%] w-[8.5%] rounded-full bg-transparent"
-            onClick={onClose}
-            aria-label="返回"
-          />
-        )}
       </div>
 
       <div className="sticky z-20 bg-[#07111c]/96 px-4 pt-1 backdrop-blur" style={{ top: 'var(--app-header-height)' }}>

@@ -67,7 +67,7 @@ interface Props {
   onOpenCategoryLobby: (params: CategoryLobbyParams) => void
   onOpenCs: () => void
   onOpenGame: (url: string) => void
-  onOpenReferralPromo: () => void
+  onOpenFirstDepositFiesta: () => void
   onOpenRewardsSpin: () => void
   onOpenCashback: () => void
 }
@@ -112,19 +112,28 @@ function HomePromoFloat({ rewardsLabel, cashbackLabel, onOpenRewardsSpin, onOpen
     }
   }, [expanded])
 
+  const defaultPosition = useCallback(() => {
+    const el = widgetRef.current
+    const width = el?.offsetWidth ?? 112
+    const height = el?.offsetHeight ?? (expanded ? 290 : 146)
+    const viewportWidth = window.innerWidth
+    const viewportHeight = window.innerHeight
+    const frameWidth = Math.min(viewportWidth, 430)
+    const frameLeft = (viewportWidth - frameWidth) / 2
+    return clampPosition(frameLeft + frameWidth - width - 8, viewportHeight - height - 96)
+  }, [clampPosition, expanded])
+
   useEffect(() => {
-    const placeDefault = () => {
-      const el = widgetRef.current
-      const height = el?.offsetHeight ?? (expanded ? 290 : 146)
+    const syncPosition = () => {
       setPosition((current) => {
-        const next = current ?? { left: 8, top: window.innerHeight - height - 96 }
+        const next = current ?? defaultPosition()
         return clampPosition(next.left, next.top)
       })
     }
-    placeDefault()
-    window.addEventListener('resize', placeDefault)
-    return () => window.removeEventListener('resize', placeDefault)
-  }, [clampPosition, expanded])
+    syncPosition()
+    window.addEventListener('resize', syncPosition)
+    return () => window.removeEventListener('resize', syncPosition)
+  }, [clampPosition, defaultPosition])
 
   useEffect(() => {
     if (expanded) return
@@ -134,7 +143,7 @@ function HomePromoFloat({ rewardsLabel, cashbackLabel, onOpenRewardsSpin, onOpen
 
   function onPointerDown(event: PointerEvent<HTMLDivElement>) {
     if ((event.target as HTMLElement).closest('[data-float-control]')) return
-    const current = position ?? clampPosition(8, window.innerHeight - (widgetRef.current?.offsetHeight ?? (expanded ? 290 : 146)) - 96)
+    const current = position ?? defaultPosition()
     dragRef.current = {
       pointerId: event.pointerId,
       startX: event.clientX,
@@ -197,7 +206,7 @@ function HomePromoFloat({ rewardsLabel, cashbackLabel, onOpenRewardsSpin, onOpen
     <div
       ref={widgetRef}
       className={`fixed z-30 flex touch-none select-none flex-col items-center gap-1.5 px-1.5 pb-1.5 pt-12 ${expanded ? 'rounded-full bg-neutral-950/70' : ''}`}
-      style={position ? { left: position.left, top: position.top } : { left: 8, bottom: 96 }}
+      style={position ? { left: position.left, top: position.top } : { right: 8, bottom: 96 }}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
@@ -257,7 +266,7 @@ function HomePromoFloat({ rewardsLabel, cashbackLabel, onOpenRewardsSpin, onOpen
   )
 }
 
-export default function HomeContent({ onNavigatePath, onOpenCategoryLobby, onOpenCs, onOpenGame, onOpenReferralPromo, onOpenRewardsSpin, onOpenCashback }: Props) {
+export default function HomeContent({ onNavigatePath, onOpenCategoryLobby, onOpenCs, onOpenGame, onOpenFirstDepositFiesta, onOpenRewardsSpin, onOpenCashback }: Props) {
   const { t, i18n } = useTranslation()
   const locale = i18n.language
   const promotion = usePromotionStore()
@@ -906,21 +915,19 @@ const [gamesLoading, setGamesLoading] = useState(true)
 
       </>}{/* end hot mode */}
 
-      {/* 3-Circle Rewards floating entry: visible before activation */}
-      {auth.token && !promotion.teamStatus?.isAgent && (
-        <div className="fixed bottom-24 right-4 z-30 flex flex-col items-end gap-1.5">
+      {/* First Deposit Fiesta floating entry */}
+      <div className="fixed bottom-24 left-4 z-30 flex flex-col items-start gap-1.5">
           <span className="absolute inset-0 rounded-2xl animate-ping bg-amber-400/30 pointer-events-none" style={{ animationDuration: '2.4s' }} />
           <button
             type="button"
-            onClick={onOpenReferralPromo}
+            onClick={onOpenFirstDepositFiesta}
             className="relative flex items-center gap-2 px-3 py-2 rounded-2xl shadow-lg active:scale-95 transition-transform"
             style={{ background: 'linear-gradient(135deg, #ffb800 0%, #ff7a00 100%)', boxShadow: '0 4px 20px rgba(255,184,0,0.45)' }}
           >
             <Gem size={16} className="text-amber-900 flex-shrink-0" />
-            <span className="text-[12px] font-black text-amber-950 whitespace-nowrap">{t('referralPromo.widget')}</span>
+            <span className="text-[12px] font-black text-amber-950 whitespace-nowrap">{t('bonuses.promos.firstdep.title')}</span>
           </button>
         </div>
-      )}
 
       <HomePromoFloat
         rewardsLabel={t('category.rewardsSpin')}

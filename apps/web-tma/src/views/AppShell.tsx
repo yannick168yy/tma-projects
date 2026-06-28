@@ -74,6 +74,7 @@ export default function AppShell() {
     setNav: navigateTab,
     goHome,
     navigatePath,
+    goBonuses,
     openSearch,
     openCategoryLobby,
     openTeamCenter,
@@ -204,6 +205,11 @@ export default function AppShell() {
   function onOpenReferralPromo() {
     setWalletOpen(false)
     openReferralPromo()
+  }
+
+  function onOpenFirstDepositFiesta() {
+    setWalletOpen(false)
+    goBonuses('firstdep')
   }
 
   function onOpenCashback() {
@@ -427,7 +433,7 @@ export default function AppShell() {
           {view.type === 'none' && activeNav === 'bingo' && <BingoPage onOpenWallet={() => void openWallet()} onGameTap={() => void onGameTap()} onOpenGame={(url) => setGamePlayerUrl(url)} onOpenCategoryLobby={onOpenCategoryLobby} />}
           {view.type === 'none' && activeNav === 'menu' && <MenuPage onOpenCs={openCs} onLogin={() => void auth.ensureLoggedIn(t('auth.signInProfile'))} onLogout={onLogout} onOpenBetHistory={onOpenBetHistory} onOpenLedgerRecords={onOpenLedgerRecords} onOpenReferralPromo={onOpenReferralPromo} onOpenAgentCenter={onOpenAgentCenter} onOpenCashback={onOpenCashback} onOpenRewardsSpin={onOpenRewardsSpin} onOpenKycSetting={onOpenKycSetting} onOpenTopUp={() => void openWalletFull('deposit')} onOpenCashOut={() => void openWalletFull('withdraw')} onOpenWalletHistory={() => void openWalletFull('history')} />}
           {view.type === 'none' && activeNav === 'casino' && (
-            <HomeContent onNavigatePath={navigatePath} onOpenCategoryLobby={onOpenCategoryLobby} onOpenCs={openCs} onOpenGame={(url) => setGamePlayerUrl(url)} onOpenReferralPromo={onOpenReferralPromo} onOpenRewardsSpin={onOpenRewardsSpin} onOpenCashback={onOpenCashback} />
+            <HomeContent onNavigatePath={navigatePath} onOpenCategoryLobby={onOpenCategoryLobby} onOpenCs={openCs} onOpenGame={(url) => setGamePlayerUrl(url)} onOpenFirstDepositFiesta={onOpenFirstDepositFiesta} onOpenRewardsSpin={onOpenRewardsSpin} onOpenCashback={onOpenCashback} />
           )}
           </Suspense>
         </main>
@@ -436,7 +442,7 @@ export default function AppShell() {
         <nav ref={navRef} className="app-fixed-bottom app-safe-nav flex items-center justify-around border-t border-border bg-background px-2 pt-1" style={walletOpen ? { zIndex: 50 } : undefined}>
           {navItems.map((item) => {
             const Icon = navIcon(item.id)
-            const itemActive = item.id === 'team' ? view.type === 'teamCenter' : activeNav === item.id
+            const itemActive = item.id === 'team' ? view.type === 'teamCenter' : view.type === 'none' && activeNav === item.id
             return (
               <button key={item.id} type="button" className={`relative flex flex-col items-center gap-0.5 rounded-xl px-3 py-0.5 transition-colors ${itemActive ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`} onClick={() => setNav(item.id)} aria-label={item.label}>
                 {item.id === 'team' ? (
