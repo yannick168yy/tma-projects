@@ -42,10 +42,7 @@ export default function BingoPage({ onOpenWallet, onGameTap, onOpenGame, onOpenC
 
   const heroGame = bingoGames[0] ?? null
   const subGames = bingoGames.slice(1, 5)
-  const marqueeWinners = useMemo(() => {
-    const items = Array.from({ length: 50 }, (_, i) => PERYA_WINNERS[i % PERYA_WINNERS.length])
-    return [...items, ...items]
-  }, [])
+  const marqueeWinners = useMemo(() => Array.from({ length: 24 }, (_, i) => PERYA_WINNERS[i % PERYA_WINNERS.length]), [])
 
   useEffect(() => {
     fetchGames({ sortCategory: 'bingo', sortBy: 'ph_bonus', limit: 8 }).then((res) => setBingoGames(res.items)).catch(() => {})
@@ -69,14 +66,18 @@ export default function BingoPage({ onOpenWallet, onGameTap, onOpenGame, onOpenC
           </div>
           <div className="w-px h-4 bg-white/20 flex-shrink-0" />
           <div className="overflow-hidden flex-1">
-            <div className="flex gap-5 animate-marquee whitespace-nowrap" style={{ animationDuration: '4s' }}>
-              {marqueeWinners.map((w, i) => (
-                <span key={i} className="text-[11px] flex-shrink-0">
-                  <span className="text-primary font-bold">{w.name}</span>
-                  <span className="text-white/70"> {t('common.won')} </span>
-                  <span className="text-emerald-400 font-bold">{w.amount}</span>
-                  <span className="text-white/40"> · {w.game}</span>
-                </span>
+            <div className="flex w-max animate-marquee whitespace-nowrap" style={{ animationDuration: '46s' }}>
+              {[0, 1].map((group) => (
+                <div key={group} className="flex flex-shrink-0 gap-5 pr-5">
+                  {marqueeWinners.map((w, i) => (
+                    <span key={`${group}-${i}`} className="text-[11px] flex-shrink-0">
+                      <span className="text-primary font-bold">{w.name}</span>
+                      <span className="text-white/70"> {t('common.won')} </span>
+                      <span className="text-emerald-400 font-bold">{w.amount}</span>
+                      <span className="text-white/40"> · {w.game}</span>
+                    </span>
+                  ))}
+                </div>
               ))}
             </div>
           </div>
