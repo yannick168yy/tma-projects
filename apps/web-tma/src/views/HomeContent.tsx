@@ -79,12 +79,15 @@ interface HomePromoFloatProps {
   onOpenCashback: () => void
 }
 
+let homePromoFloatClosedUntilReload = false
+
 function HomePromoFloat({ rewardsLabel, cashbackLabel, onOpenRewardsSpin, onOpenCashback }: HomePromoFloatProps) {
   const widgetRef = useRef<HTMLDivElement>(null)
+  const collapsedPositionRef = useRef<{ left: number; top: number } | null>(null)
   const dragRef = useRef({ pointerId: -1, startX: 0, startY: 0, startLeft: 0, startTop: 0, moved: false, suppressClick: false })
   const [expanded, setExpanded] = useState(false)
   const [activePromo, setActivePromo] = useState(0)
-  const [closed, setClosed] = useState(false)
+  const [closed, setClosed] = useState(homePromoFloatClosedUntilReload)
   const [position, setPosition] = useState<{ left: number; top: number } | null>(null)
   const promos = [
     { key: 'rewards', label: 'rewards', ariaLabel: rewardsLabel, image: rewardsSpinFloatImg, imageClass: 'home-rewards-spin-float', action: onOpenRewardsSpin },
@@ -172,6 +175,21 @@ function HomePromoFloat({ rewardsLabel, cashbackLabel, onOpenRewardsSpin, onOpen
     action()
   }
 
+  function toggleExpanded() {
+    if (expanded) {
+      if (collapsedPositionRef.current) setPosition(collapsedPositionRef.current)
+      setExpanded(false)
+      return
+    }
+    collapsedPositionRef.current = position
+    setExpanded(true)
+  }
+
+  function closeFloat() {
+    homePromoFloatClosedUntilReload = true
+    setClosed(true)
+  }
+
   const visiblePromos = expanded ? promos : [promos[activePromo]]
   if (closed) return null
 
@@ -188,8 +206,8 @@ function HomePromoFloat({ rewardsLabel, cashbackLabel, onOpenRewardsSpin, onOpen
       <button
         type="button"
         data-float-control
-        className="absolute left-1/2 top-0 h-9 w-9 -translate-x-1/2 active:scale-95"
-        onClick={() => setExpanded((current) => !current)}
+        className="absolute left-1/2 top-0 h-6 w-6 -translate-x-1/2 active:scale-95"
+        onClick={toggleExpanded}
         aria-label={expanded ? 'Collapse' : 'Expand'}
       >
         <img src={expanded ? yellowCollapseDownImg : yellowExpandUpImg} alt="" className="h-full w-full object-contain drop-shadow-[0_4px_12px_rgba(255,184,0,0.55)]" />
@@ -199,7 +217,7 @@ function HomePromoFloat({ rewardsLabel, cashbackLabel, onOpenRewardsSpin, onOpen
           type="button"
           data-float-control
           className="absolute right-1 top-3 flex h-6 w-6 items-center justify-center rounded-full bg-black/70 text-white/85 shadow-[0_4px_12px_rgba(0,0,0,0.35)] active:scale-95"
-          onClick={() => setClosed(true)}
+          onClick={closeFloat}
           aria-label="Close"
         >
           <X size={14} strokeWidth={3} />
@@ -215,7 +233,7 @@ function HomePromoFloat({ rewardsLabel, cashbackLabel, onOpenRewardsSpin, onOpen
             aria-label={promo.ariaLabel}
           >
             <img src={promo.image} alt="" className={`${promo.imageClass} h-[94px] w-[94px] object-contain drop-shadow-[0_8px_18px_rgba(0,0,0,0.38)]`} />
-            <span className="text-[11px] font-black leading-none text-white drop-shadow-[0_1px_4px_rgba(0,0,0,0.8)]">{promo.label}</span>
+            <span className="text-xs font-black leading-none text-white drop-shadow-[0_1px_4px_rgba(0,0,0,0.8)]">{promo.label}</span>
           </button>
         ))
       ) : (
