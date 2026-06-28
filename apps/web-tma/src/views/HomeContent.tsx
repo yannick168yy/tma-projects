@@ -29,6 +29,8 @@ import infoPrivacyImg from '@/assets/home/info-support/infor02.webp'
 import infoResponsibleImg from '@/assets/home/info-support/infor03.webp'
 import infoAboutImg from '@/assets/home/info-support/infor04.webp'
 import supportOnlineImg from '@/assets/home/info-support/online01.webp'
+import rewardsSpinFloatImg from '@/assets/home/promos/rewards-spin-float.webp'
+import cashbackFloatImg from '@/assets/home/promos/cashback-float.webp'
 import { shortProviderName } from '@/utils/providers'
 
 type GameChip = string
@@ -64,9 +66,11 @@ interface Props {
   onOpenCs: () => void
   onOpenGame: (url: string) => void
   onOpenReferralPromo: () => void
+  onOpenRewardsSpin: () => void
+  onOpenCashback: () => void
 }
 
-export default function HomeContent({ onNavigatePath, onOpenCategoryLobby, onOpenCs, onOpenGame, onOpenReferralPromo }: Props) {
+export default function HomeContent({ onNavigatePath, onOpenCategoryLobby, onOpenCs, onOpenGame, onOpenReferralPromo, onOpenRewardsSpin, onOpenCashback }: Props) {
   const { t, i18n } = useTranslation()
   const locale = i18n.language
   const promotion = usePromotionStore()
@@ -729,6 +733,25 @@ const [gamesLoading, setGamesLoading] = useState(true)
           </button>
         </div>
       )}
+
+      <div className="fixed bottom-24 left-3 z-30 flex flex-col items-start gap-2">
+        <button
+          type="button"
+          className="h-16 w-16 active:scale-95"
+          onClick={onOpenRewardsSpin}
+          aria-label={t('category.rewardsSpin')}
+        >
+          <img src={rewardsSpinFloatImg} alt="" className="h-full w-full object-contain drop-shadow-[0_8px_18px_rgba(0,0,0,0.38)]" />
+        </button>
+        <button
+          type="button"
+          className="h-16 w-16 active:scale-95"
+          onClick={onOpenCashback}
+          aria-label={t('cashback.title')}
+        >
+          <img src={cashbackFloatImg} alt="" className="h-full w-full object-contain drop-shadow-[0_8px_18px_rgba(0,0,0,0.38)]" />
+        </button>
+      </div>
     </div>
   )
 }

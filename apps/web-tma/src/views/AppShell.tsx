@@ -429,7 +429,7 @@ export default function AppShell() {
           {view.type === 'none' && activeNav === 'bingo' && <BingoPage onOpenWallet={() => void openWallet()} onGameTap={() => void onGameTap()} onOpenGame={(url) => setGamePlayerUrl(url)} onOpenCategoryLobby={onOpenCategoryLobby} />}
           {view.type === 'none' && activeNav === 'menu' && <MenuPage onOpenCs={openCs} onLogin={() => void auth.ensureLoggedIn(t('auth.signInProfile'))} onLogout={onLogout} onOpenBetHistory={onOpenBetHistory} onOpenLedgerRecords={onOpenLedgerRecords} onOpenReferralPromo={onOpenReferralPromo} onOpenAgentCenter={onOpenAgentCenter} onOpenCashback={onOpenCashback} onOpenRewardsSpin={onOpenRewardsSpin} onOpenKycSetting={onOpenKycSetting} onOpenTopUp={() => void openWalletFull('deposit')} onOpenCashOut={() => void openWalletFull('withdraw')} onOpenWalletHistory={() => void openWalletFull('history')} />}
           {view.type === 'none' && activeNav === 'casino' && (
-            <HomeContent onNavigatePath={navigatePath} onOpenCategoryLobby={onOpenCategoryLobby} onOpenCs={openCs} onOpenGame={(url) => setGamePlayerUrl(url)} onOpenReferralPromo={onOpenReferralPromo} />
+            <HomeContent onNavigatePath={navigatePath} onOpenCategoryLobby={onOpenCategoryLobby} onOpenCs={openCs} onOpenGame={(url) => setGamePlayerUrl(url)} onOpenReferralPromo={onOpenReferralPromo} onOpenRewardsSpin={onOpenRewardsSpin} onOpenCashback={onOpenCashback} />
           )}
           </Suspense>
         </main>
