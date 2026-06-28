@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ChevronLeft, Wallet, TrendingUp, CheckCircle2, Clock, XCircle, ChevronRight, GitBranch, CircleHelp, X, ShieldCheck, Users, Zap, CalendarDays, ClipboardList, SlidersHorizontal } from 'lucide-react'
+import { ChevronLeft, Wallet, TrendingUp, CheckCircle2, Clock, XCircle, ChevronRight, GitBranch, CircleHelp, X, ShieldCheck, Users, Zap, CalendarDays, ClipboardList, SlidersHorizontal, Link2 } from 'lucide-react'
 import KycModal from '@/components/wallet/KycModal'
 import { useKycGate } from '@/hooks/useKycGate'
 import { fetchTeamTree, type TeamTreeNode, type CurrencyBreakdownItem } from '@/api/promotion'
@@ -16,7 +16,6 @@ import iconWhatsApp from '@/assets/team/3-circles/whatsapp.webp'
 import iconTelegram from '@/assets/team/3-circles/telegram.webp'
 import iconX from '@/assets/team/3-circles/x.webp'
 import iconLine from '@/assets/team/3-circles/line.webp'
-import iconShareLink from '@/assets/team/3-circles/share-link.webp'
 
 // ── 月份工具 ─────────────────────────────────────────────────────────────────
 function currentPeriod() {
@@ -232,14 +231,17 @@ export default function TeamCenterPage({ onClose }: { onClose?: () => void }) {
     setTreeView(true)
     if (!treeData && !treeLoading) void loadTree(period)
   }
+  function promptOpenCircle() {
+    setActiveTab('overview')
+    window.setTimeout(() => {
+      openCtaRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      setOpenCtaShake(true)
+      window.setTimeout(() => setOpenCtaShake(false), 1300)
+    }, 80)
+  }
   function selectTab(id: ThreeCircleTab) {
     if (id !== 'overview' && !isAgent) {
-      setActiveTab('overview')
-      window.setTimeout(() => {
-        openCtaRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-        setOpenCtaShake(true)
-        window.setTimeout(() => setOpenCtaShake(false), 650)
-      }, 80)
+      promptOpenCircle()
       return
     }
     setActiveTab(id)
@@ -259,6 +261,10 @@ export default function TeamCenterPage({ onClose }: { onClose?: () => void }) {
     }
   }
   function shareToPlatform(platform: SharePlatform) {
+    if (!isAgent) {
+      promptOpenCircle()
+      return
+    }
     if (!inviteCode) {
       void onEnable()
       return
@@ -343,9 +349,9 @@ export default function TeamCenterPage({ onClose }: { onClose?: () => void }) {
   ]
 
   const rateCards = [
-    { level: 1, title: 'Circle 1 Friends', desc: 'Friends you invite directly — rewards from their bets.', rate: l1Rate, icon: Users, cls: 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300' },
-    { level: 2, title: 'Circle 2 Friends', desc: 'Friends invited by your C1 — rewards from their bets.', rate: l2Rate, icon: Users, cls: 'border-blue-500/20 bg-blue-500/10 text-blue-300' },
-    { level: 3, title: 'Circle 3 Friends', desc: 'Friends invited by your C2 — rewards from their bets.', rate: l3Rate, icon: Users, cls: 'border-amber-500/20 bg-amber-500/10 text-amber-300' },
+    { level: 1, title: t('team.rateC1Title'), desc: t('team.rateC1Desc'), rate: l1Rate, icon: Users, cls: 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300' },
+    { level: 2, title: t('team.rateC2Title'), desc: t('team.rateC2Desc'), rate: l2Rate, icon: Users, cls: 'border-blue-500/20 bg-blue-500/10 text-blue-300' },
+    { level: 3, title: t('team.rateC3Title'), desc: t('team.rateC3Desc'), rate: l3Rate, icon: Users, cls: 'border-amber-500/20 bg-amber-500/10 text-amber-300' },
   ]
 
   const sharePlatforms = [
@@ -355,7 +361,7 @@ export default function TeamCenterPage({ onClose }: { onClose?: () => void }) {
     { id: 'telegram' as const, label: 'Telegram', icon: iconTelegram },
     { id: 'x' as const, label: 'X', icon: iconX },
     { id: 'line' as const, label: 'Line', icon: iconLine },
-    { id: 'copy' as const, label: 'Share Link', icon: iconShareLink },
+    { id: 'copy' as const, label: t('team.shareLink'), icon: '' },
   ]
   const sectionTitleClass = 'mb-3 text-lg font-medium text-white'
   const metricCardClass = 'rounded-xl border border-amber-300/12 bg-[radial-gradient(circle_at_top_left,rgba(251,191,36,0.16),transparent_54%),linear-gradient(135deg,rgba(255,255,255,0.08),rgba(255,255,255,0.03))] px-3 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]'
@@ -373,12 +379,12 @@ export default function TeamCenterPage({ onClose }: { onClose?: () => void }) {
   return (
     <div className="flex min-h-full flex-col bg-[#07111c] text-white">
       <style>{`@keyframes team-open-shake{0%,100%{transform:translateX(0)}15%{transform:translateX(-8px)}30%{transform:translateX(7px)}45%{transform:translateX(-5px)}60%{transform:translateX(4px)}75%{transform:translateX(-2px)}}`}</style>
-      <div className="relative overflow-hidden bg-[#fbce97] pt-[var(--app-safe-top)]">
+      <div className="relative overflow-hidden">
         <img src={threeCircleHero} alt="" className="block w-full" />
         {onClose && (
           <button
             type="button"
-            className="absolute left-[3.7%] top-[calc(var(--app-safe-top)+5.7%)] h-[8.5%] w-[8.5%] rounded-full bg-transparent"
+            className="absolute left-[3.7%] top-[5.7%] h-[8.5%] w-[8.5%] rounded-full bg-transparent"
             onClick={onClose}
             aria-label="返回"
           />
@@ -420,7 +426,7 @@ export default function TeamCenterPage({ onClose }: { onClose?: () => void }) {
               aria-label={t('team.guide.title')}
             >
               <CircleHelp size={18} />
-              <span className="ml-1 text-[11px] font-medium">Guide</span>
+              <span className="ml-1 text-[11px] font-medium">{t('team.guideEntry')}</span>
             </button>
             <span className="mx-3 h-9 w-px bg-white/12" />
             <button type="button" className="text-slate-400" onClick={() => changePeriod(prevPeriod(period))}>
@@ -441,7 +447,7 @@ export default function TeamCenterPage({ onClose }: { onClose?: () => void }) {
         {activeTab === 'overview' && (
           <div className="space-y-5">
             <section>
-              <h2 className={sectionTitleClass}>Share to more platforms</h2>
+              <h2 className={sectionTitleClass}>{t('team.sectionShareMore')}</h2>
               <div className="grid grid-cols-7 gap-2">
                 {sharePlatforms.map(({ id, label, icon }) => (
                   <button
@@ -450,7 +456,13 @@ export default function TeamCenterPage({ onClose }: { onClose?: () => void }) {
                     className="min-w-0 active:scale-95"
                     onClick={() => shareToPlatform(id)}
                   >
-                    <img src={icon} alt="" className="mx-auto h-11 w-11" />
+                    {id === 'copy'
+                      ? (
+                        <span className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-[linear-gradient(135deg,#fbbf24,#f59e0b)] text-[#07111c] shadow-[0_8px_18px_rgba(245,158,11,0.28)]">
+                          <Link2 size={24} strokeWidth={2.5} />
+                        </span>
+                      )
+                      : <img src={icon} alt="" className="mx-auto h-11 w-11" />}
                     <span className="mt-1 block truncate text-center text-[11px] font-medium text-slate-200">{label}</span>
                   </button>
                 ))}
@@ -459,12 +471,12 @@ export default function TeamCenterPage({ onClose }: { onClose?: () => void }) {
             </section>
 
             <section>
-              <h2 className={sectionTitleClass}>3-Circle Structure</h2>
+              <h2 className={sectionTitleClass}>{t('team.sectionStructure')}</h2>
               <img src={circleStructureImage} alt="3-Circle Structure" className="w-full rounded-2xl" />
             </section>
 
             <section>
-              <h2 className={sectionTitleClass}>Circle Reward Rates</h2>
+              <h2 className={sectionTitleClass}>{t('team.sectionRates')}</h2>
               <div className="space-y-3">
                 {rateCards.map(({ level, title, desc, rate, icon: Icon, cls }) => (
                   <div key={level} className={`flex items-center gap-3 rounded-2xl border bg-[#101824] p-3 ${cls}`}>
@@ -480,7 +492,7 @@ export default function TeamCenterPage({ onClose }: { onClose?: () => void }) {
                     </div>
                     <div className="text-right">
                       <p className="text-2xl font-black leading-none">{rate}%</p>
-                      <p className="mt-1 text-[9px] text-slate-400">Reward Rate</p>
+                      <p className="mt-1 text-[9px] text-slate-400">{t('team.rewardRate')}</p>
                     </div>
                   </div>
                 ))}
@@ -492,7 +504,7 @@ export default function TeamCenterPage({ onClose }: { onClose?: () => void }) {
                 ref={openCtaRef}
                 type="button"
                 className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-amber-500 text-[#08111f] font-black text-sm disabled:opacity-60 shadow-[0_12px_26px_rgba(245,158,11,0.26)]"
-                style={openCtaShake ? { animation: 'team-open-shake 620ms ease-in-out' } : undefined}
+                style={openCtaShake ? { animation: 'team-open-shake 1240ms ease-in-out' } : undefined}
                 disabled={enabling}
                 onClick={() => void onEnable()}
               >
