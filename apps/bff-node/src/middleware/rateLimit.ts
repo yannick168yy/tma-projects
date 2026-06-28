@@ -17,7 +17,9 @@ const userOrIpKey = (ctx: import('koa').Context) => ctx.state.userId ?? ipKey(ct
 const rules: Rule[] = [
   {
     name: 'admin-login',
-    match: (ctx) => ctx.method === 'POST' && ctx.path === '/api/v1/admin/auth/login',
+    match: (ctx) =>
+      ctx.method === 'POST' &&
+      (ctx.path === '/api/v1/admin/auth/login' || ctx.path === '/api/v1/admin/auth/login/totp'),
     windowSec: 60,
     max: 10,
     keyBy: ipKey,

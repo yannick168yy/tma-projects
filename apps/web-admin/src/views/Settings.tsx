@@ -1,19 +1,36 @@
 import { useEffect, useState } from 'react'
-import { Row, Col, Card, Descriptions, Badge, Form, Input, Button, Alert, Typography, message } from 'antd'
-import { getOpPasswordStatus, setOpPassword } from '../api'
+import { Row, Col, Card, Descriptions, Badge, Form, Input, Button, Alert, Typography, message, QRCode, Space, Modal } from 'antd'
+import {
+  cancelAdminTotpSetup,
+  disableAdminTotp,
+  enableAdminTotp,
+  getAdminTotpStatus,
+  getOpPasswordStatus,
+  setOpPassword,
+  setupAdminTotp,
+  type AdminTotpSetup,
+  type AdminTotpStatus,
+} from '../api'
 import { useAuthStore } from '../stores/auth'
 
 export default function Settings() {
   const { role } = useAuthStore()
   const isSuperAdmin = role === 'super_admin'
   const [opPwdConfigured, setOpPwdConfigured] = useState(false)
+  const [totpStatus, setTotpStatus] = useState<AdminTotpStatus>({ enabled: false, confirmedAt: null })
+  const [totpSetup, setTotpSetup] = useState<AdminTotpSetup | null>(null)
   const [saving, setSaving] = useState(false)
+  const [totpLoading, setTotpLoading] = useState(false)
+  const [disableOpen, setDisableOpen] = useState(false)
   const [form] = Form.useForm<{ current: string; newPwd: string; confirm: string }>()
+  const [totpForm] = Form.useForm<{ code: string }>()
+  const [disableForm] = Form.useForm<{ code: string }>()
 
   async function loadStatus() {
     try {
-      const res = await getOpPasswordStatus()
-      setOpPwdConfigured(res.configured)
+      const [op, totp] = await Promise.all([getOpPasswordStatus(), getAdminTotpStatus()])
+      setOpPwdConfigured(op.configured)
+      setTotpStatus(totp)
     } catch { /* ignore */ }
   }
 
@@ -35,10 +52,58 @@ export default function Settings() {
     } finally { setSaving(false) }
   }
 
+  async function startTotpSetup() {
+    setTotpLoading(true)
+    try {
+      const res = await setupAdminTotp()
+      setTotpSetup(res)
+      totpForm.resetFields()
+      message.success(totpStatus.enabled ? '已生成新的验证器二维码' : '已生成验证器二维码')
+    } catch (e) {
+      message.error(e instanceof Error ? e.message : '生成失败')
+    } finally { setTotpLoading(false) }
+  }
+
+  async function confirmTotpSetup() {
+    const code = totpForm.getFieldValue('code')
+    if (!/^\d{6}$/.test(String(code ?? ''))) { message.warning('请输入 6 位验证码'); return }
+    setTotpLoading(true)
+    try {
+      await enableAdminTotp(code)
+      message.success(totpStatus.enabled ? 'Google Authenticator 已重置' : 'Google Authenticator 已开启')
+      setTotpSetup(null)
+      await loadStatus()
+    } catch (e) {
+      message.error(e instanceof Error ? e.message : '验证失败')
+    } finally { setTotpLoading(false) }
+  }
+
+  async function cancelTotpSetup() {
+    try { await cancelAdminTotpSetup() } catch { /* ignore */ }
+    setTotpSetup(null)
+    totpForm.resetFields()
+  }
+
+  async function confirmDisableTotp() {
+    const code = disableForm.getFieldValue('code')
+    if (totpStatus.enabled && !/^\d{6}$/.test(String(code ?? ''))) { message.warning('请输入 6 位验证码'); return }
+    setTotpLoading(true)
+    try {
+      await disableAdminTotp(code)
+      message.success('Google Authenticator 已取消')
+      setDisableOpen(false)
+      disableForm.resetFields()
+      setTotpSetup(null)
+      await loadStatus()
+    } catch (e) {
+      message.error(e instanceof Error ? e.message : '取消失败')
+    } finally { setTotpLoading(false) }
+  }
+
   return (
     <div>
       <div style={{ background: '#fff', marginBottom: 16, padding: 16 }}>
-        <h2 style={{ margin: 0 }}>系统设置</h2>
+        <h2 style={{ margin: 0 }}>管理员与权限</h2>
       </div>
       <Row gutter={16}>
         <Col span={12}>
@@ -79,7 +144,82 @@ export default function Settings() {
             </Typography.Paragraph>
           </Card>
         </Col>
+        <Col span={12}>
+          <Card title="Google Authenticator" bordered={false}>
+            <Descriptions column={1} bordered size="small" style={{ marginBottom: 16 }}>
+              <Descriptions.Item label="状态">
+                {totpStatus.enabled
+                  ? <Badge status="success" text="已开启" />
+                  : <Badge status="warning" text="未开启" />
+                }
+              </Descriptions.Item>
+              {totpStatus.confirmedAt && (
+                <Descriptions.Item label="开启时间">{new Date(totpStatus.confirmedAt).toLocaleString()}</Descriptions.Item>
+              )}
+            </Descriptions>
+
+            {!totpSetup && (
+              <Space>
+                <Button type="primary" loading={totpLoading} onClick={startTotpSetup}>
+                  {totpStatus.enabled ? '重置验证器' : '开启验证器'}
+                </Button>
+                {totpStatus.enabled && (
+                  <Button danger loading={totpLoading} onClick={() => setDisableOpen(true)}>取消验证器</Button>
+                )}
+              </Space>
+            )}
+
+            {totpSetup && (
+              <div>
+                <Alert
+                  type="info"
+                  showIcon
+                  message="请用 Google Authenticator 扫描二维码，再输入 6 位验证码确认。确认前不会开启或替换当前验证器。"
+                  style={{ marginBottom: 16 }}
+                />
+                <div style={{ display: 'flex', gap: 24, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <QRCode value={totpSetup.otpauthUri} size={180} />
+                  <div style={{ minWidth: 220 }}>
+                    <Typography.Text type="secondary">手动密钥</Typography.Text>
+                    <Typography.Paragraph copyable style={{ fontSize: 18, letterSpacing: 1, marginTop: 8 }}>
+                      {totpSetup.secret}
+                    </Typography.Paragraph>
+                    <Form form={totpForm} layout="vertical">
+                      <Form.Item label="验证码" name="code">
+                        <Input placeholder="6 位验证码" maxLength={6} />
+                      </Form.Item>
+                    </Form>
+                    <Space>
+                      <Button type="primary" loading={totpLoading} onClick={confirmTotpSetup}>确认开启</Button>
+                      <Button onClick={cancelTotpSetup}>取消</Button>
+                    </Space>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <Typography.Paragraph type="secondary" style={{ marginTop: 16 }}>
+              开启后，该管理员账号每次登录后台都需要输入 Google Authenticator 动态验证码。
+            </Typography.Paragraph>
+          </Card>
+        </Col>
       </Row>
+      <Modal
+        title="取消 Google Authenticator"
+        open={disableOpen}
+        confirmLoading={totpLoading}
+        onOk={confirmDisableTotp}
+        onCancel={() => setDisableOpen(false)}
+        okText="确认取消"
+        okButtonProps={{ danger: true }}
+      >
+        <Alert type="warning" showIcon message="取消后，该管理员账号登录后台将不再要求动态验证码。" style={{ marginBottom: 16 }} />
+        <Form form={disableForm} layout="vertical">
+          <Form.Item label="当前验证码" name="code">
+            <Input placeholder="6 位验证码" maxLength={6} />
+          </Form.Item>
+        </Form>
+      </Modal>
     </div>
   )
 }

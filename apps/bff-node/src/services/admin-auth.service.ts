@@ -8,9 +8,11 @@ import {
   updateLastLogin,
   countAdmins,
   createAdmin,
+  type AdminAccount,
 } from './admin-store.js'
 import { getMysqlPool } from '../clients/mysql.client.js'
 import { randomToken } from '../utils/id.js'
+import { verifyTotpCode } from '../utils/totp.js'
 
 const scryptAsync = promisify(scrypt)
 const ADMIN_SESSION_TTL = 8 * 60 * 60 // 8h
@@ -40,23 +42,62 @@ function sessionKey(token: string): string {
   return `admin:sess:${token}`
 }
 
-export async function loginAdmin(
+function totpChallengeKey(token: string): string {
+  return `admin:totp:challenge:${token}`
+}
+
+async function createAdminSession(
   redis: Redis,
   env: Env,
-  username: string,
-  password: string,
-): Promise<{ token: string; expiresIn: number; role: string } | null> {
-  const account = await getAdminByUsername(env, username)
-  if (!account || account.status !== 'active') return null
-  const ok = await verifyPassword(password, account.passwordHash)
-  if (!ok) return null
-
+  account: AdminAccount,
+): Promise<{ token: string; expiresIn: number; role: string }> {
   const token = randomToken()
   const expiresAt = new Date(Date.now() + ADMIN_SESSION_TTL * 1000).toISOString()
   const session: AdminSession = { adminId: account.id, username: account.username, role: account.role, expiresAt }
   await redis.setex(sessionKey(token), ADMIN_SESSION_TTL, JSON.stringify(session))
   await updateLastLogin(env, account.id)
   return { token, expiresIn: ADMIN_SESSION_TTL, role: account.role }
+}
+
+export async function loginAdmin(
+  redis: Redis,
+  env: Env,
+  username: string,
+  password: string,
+): Promise<
+  | { token: string; expiresIn: number; role: string; requiresTotp?: false }
+  | { requiresTotp: true; challengeToken: string; expiresIn: number }
+  | null
+> {
+  const account = await getAdminByUsername(env, username)
+  if (!account || account.status !== 'active') return null
+  const ok = await verifyPassword(password, account.passwordHash)
+  if (!ok) return null
+
+  if (account.totpEnabled && account.totpSecret) {
+    const challengeToken = randomToken()
+    const expiresIn = 300
+    await redis.setex(totpChallengeKey(challengeToken), expiresIn, String(account.id))
+    return { requiresTotp: true, challengeToken, expiresIn }
+  }
+
+  return createAdminSession(redis, env, account)
+}
+
+export async function verifyAdminTotpLogin(
+  redis: Redis,
+  env: Env,
+  challengeToken: string,
+  code: string,
+): Promise<{ token: string; expiresIn: number; role: string } | null> {
+  const key = totpChallengeKey(challengeToken)
+  const adminId = Number(await redis.get(key))
+  if (!adminId) return null
+  const account = await getAdminById(env, adminId)
+  if (!account || account.status !== 'active' || !account.totpEnabled || !account.totpSecret) return null
+  if (!verifyTotpCode(account.totpSecret, code)) return null
+  await redis.del(key)
+  return createAdminSession(redis, env, account)
 }
 
 export async function getAdminSession(redis: Redis, token: string): Promise<AdminSession | null> {

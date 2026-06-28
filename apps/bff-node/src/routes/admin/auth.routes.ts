@@ -1,5 +1,5 @@
 import Router from '@koa/router'
-import { loginAdmin, logoutAdmin, changeAdminPassword } from '../../services/admin-auth.service.js'
+import { loginAdmin, logoutAdmin, changeAdminPassword, verifyAdminTotpLogin } from '../../services/admin-auth.service.js'
 import { adminAuthMiddleware } from '../../middleware/admin-auth.js'
 import { fail, ok } from '../../utils/response.js'
 
@@ -37,7 +37,21 @@ router.post('/login', async (ctx) => {
     return
   }
   await ctx.state.redis.del(failureKey, lockKey)
-  ok(ctx, { token: result.token, expiresIn: result.expiresIn, role: result.role })
+  ok(ctx, result)
+})
+
+router.post('/login/totp', async (ctx) => {
+  const body = ctx.request.body as { challengeToken?: string; code?: string }
+  if (!body.challengeToken || !body.code) {
+    fail(ctx, 400, 'challengeToken and code required')
+    return
+  }
+  const result = await verifyAdminTotpLogin(ctx.state.redis, ctx.state.env, body.challengeToken, body.code)
+  if (!result) {
+    fail(ctx, 401, 'Invalid verification code', 401)
+    return
+  }
+  ok(ctx, result)
 })
 
 router.post('/logout', async (ctx) => {

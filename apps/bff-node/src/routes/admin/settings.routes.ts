@@ -32,8 +32,6 @@ import {
 } from '../../services/exchange-rate.service.js'
 
 const router = new Router({ prefix: '/settings' })
-const ADMIN_GOOGLE_AUTHENTICATOR_ENABLED_KEY = 'admin_google_authenticator_enabled'
-
 // 查询操作密码是否已设置（所有管理员均可查）
 router.get('/op-password', async (ctx) => {
   const hash = await getOpPasswordHash(ctx.state.env)
@@ -115,7 +113,6 @@ router.get('/system-params', async (ctx) => {
     kycFaceFailureLimit,
     loginPasswordFailureLimit,
     loginPasswordLockSeconds,
-    adminGoogleAuthenticatorEnabled,
   ] = await Promise.all([
     getSmsDailyLimit(ctx.state.env),
     getSmsDailyIpLimit(ctx.state.env),
@@ -124,7 +121,6 @@ router.get('/system-params', async (ctx) => {
     getKycFaceFailureLimit(ctx.state.env),
     getLoginPasswordFailureLimit(ctx.state.env),
     getLoginPasswordLockSeconds(ctx.state.env),
-    getAdminSetting(ctx.state.env, ADMIN_GOOGLE_AUTHENTICATOR_ENABLED_KEY),
   ])
   ok(ctx, {
     smsDailyLimitPerUser,
@@ -134,7 +130,6 @@ router.get('/system-params', async (ctx) => {
     kycFaceFailureLimit,
     loginPasswordFailureLimit,
     loginPasswordLockSeconds,
-    adminGoogleAuthenticatorEnabled: adminGoogleAuthenticatorEnabled === '1',
   })
 })
 
@@ -150,7 +145,6 @@ router.put('/system-params', async (ctx) => {
     kycFaceFailureLimit?: unknown
     loginPasswordFailureLimit?: unknown
     loginPasswordLockSeconds?: unknown
-    adminGoogleAuthenticatorEnabled?: unknown
   }
   const smsDailyLimitPerUser = Number(body.smsDailyLimitPerUser)
   const smsDailyLimitPerIp = Number(body.smsDailyLimitPerIp)
@@ -159,7 +153,6 @@ router.put('/system-params', async (ctx) => {
   const kycFaceFailureLimit = Number(body.kycFaceFailureLimit)
   const loginPasswordFailureLimit = Number(body.loginPasswordFailureLimit)
   const loginPasswordLockSeconds = Number(body.loginPasswordLockSeconds)
-  const adminGoogleAuthenticatorEnabled = Boolean(body.adminGoogleAuthenticatorEnabled)
   if (!Number.isInteger(smsDailyLimitPerUser) || smsDailyLimitPerUser < 1 || smsDailyLimitPerUser > 1000) {
     fail(ctx, 400, 'smsDailyLimitPerUser must be an integer between 1 and 1000'); return
   }
@@ -188,7 +181,6 @@ router.put('/system-params', async (ctx) => {
   await setAdminSetting(ctx.state.env, KYC_FACE_FAILURE_LIMIT_KEY, String(kycFaceFailureLimit || DEFAULT_KYC_FACE_FAILURE_LIMIT))
   await setAdminSetting(ctx.state.env, LOGIN_PASSWORD_FAILURE_LIMIT_KEY, String(loginPasswordFailureLimit || DEFAULT_LOGIN_PASSWORD_FAILURE_LIMIT))
   await setAdminSetting(ctx.state.env, LOGIN_PASSWORD_LOCK_SECONDS_KEY, String(loginPasswordLockSeconds || DEFAULT_LOGIN_PASSWORD_LOCK_SECONDS))
-  await setAdminSetting(ctx.state.env, ADMIN_GOOGLE_AUTHENTICATOR_ENABLED_KEY, adminGoogleAuthenticatorEnabled ? '1' : '0')
   await writeAuditLog(ctx.state.env, {
     adminId: ctx.state.adminId!,
     adminUsername: ctx.state.adminUsername!,
@@ -203,7 +195,6 @@ router.put('/system-params', async (ctx) => {
       kycFaceFailureLimit,
       loginPasswordFailureLimit,
       loginPasswordLockSeconds,
-      adminGoogleAuthenticatorEnabled,
     },
     ip: ctx.ip,
   })
@@ -215,7 +206,6 @@ router.put('/system-params', async (ctx) => {
     kycFaceFailureLimit,
     loginPasswordFailureLimit,
     loginPasswordLockSeconds,
-    adminGoogleAuthenticatorEnabled,
   })
 })
 

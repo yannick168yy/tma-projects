@@ -40,11 +40,31 @@ const patch = <T>(url: string, data?: unknown) => req<T>('PATCH', url, data)
 const put = <T>(url: string, data?: unknown) => req<T>('PUT', url, data)
 
 // Auth
+export type AdminLoginResult =
+  | { token: string; expiresIn: number; role: string; requiresTotp?: false }
+  | { requiresTotp: true; challengeToken: string; expiresIn: number }
 export const adminLogin = (username: string, password: string) =>
-  post<{ token: string; expiresIn: number; role: string }>('/admin/auth/login', { username, password })
+  post<AdminLoginResult>('/admin/auth/login', { username, password })
+export const adminLoginTotp = (challengeToken: string, code: string) =>
+  post<{ token: string; expiresIn: number; role: string }>('/admin/auth/login/totp', { challengeToken, code })
 export const adminLogout = () => post('/admin/auth/logout')
 export const adminChangePassword = (currentPassword: string, newPassword: string) =>
   post('/admin/auth/change-password', { currentPassword, newPassword })
+
+export interface AdminTotpStatus {
+  enabled: boolean
+  confirmedAt: string | null
+}
+export interface AdminTotpSetup {
+  secret: string
+  otpauthUri: string
+  expiresIn: number
+}
+export const getAdminTotpStatus = () => get<AdminTotpStatus>('/admin/security/totp/status')
+export const setupAdminTotp = () => post<AdminTotpSetup>('/admin/security/totp/setup')
+export const enableAdminTotp = (code: string) => post<{ enabled: boolean }>('/admin/security/totp/enable', { code })
+export const disableAdminTotp = (code?: string) => post<{ enabled: boolean }>('/admin/security/totp/disable', { code })
+export const cancelAdminTotpSetup = () => post('/admin/security/totp/cancel-setup')
 
 // Dashboard
 export const getDashboard = () => get<{
@@ -260,7 +280,6 @@ export interface SystemParams {
   kycFaceFailureLimit: number
   loginPasswordFailureLimit: number
   loginPasswordLockSeconds: number
-  adminGoogleAuthenticatorEnabled: boolean
 }
 export const getSystemParams = () => get<SystemParams>('/admin/settings/system-params')
 export const updateSystemParams = (params: SystemParams) => put<SystemParams>('/admin/settings/system-params', params)

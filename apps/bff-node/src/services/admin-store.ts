@@ -16,6 +16,9 @@ export interface AdminAccount {
   id: number
   username: string
   passwordHash: string
+  totpSecret: string | null
+  totpEnabled: boolean
+  totpConfirmedAt?: string
   role: 'super_admin' | 'finance' | 'ops' | 'support'
   status: 'active' | 'disabled'
   lastLoginAt?: string
@@ -26,6 +29,9 @@ type AdminRow = RowDataPacket & {
   id: number
   username: string
   password_hash: string
+  totp_secret: string | null
+  totp_enabled: number
+  totp_confirmed_at: Date | null
   role: string
   status: string
   last_login_at: Date | null
@@ -37,6 +43,9 @@ function mapAdmin(row: AdminRow): AdminAccount {
     id: row.id,
     username: row.username,
     passwordHash: row.password_hash,
+    totpSecret: row.totp_secret,
+    totpEnabled: Boolean(row.totp_enabled),
+    totpConfirmedAt: row.totp_confirmed_at ? new Date(row.totp_confirmed_at).toISOString() : undefined,
     role: row.role as AdminAccount['role'],
     status: row.status as AdminAccount['status'],
     lastLoginAt: row.last_login_at ? new Date(row.last_login_at).toISOString() : undefined,
@@ -78,6 +87,24 @@ export async function getAdminById(env: Env, id: number): Promise<AdminAccount |
 export async function updateLastLogin(env: Env, id: number): Promise<void> {
   await pool(env).execute(
     `UPDATE admin_accounts SET last_login_at = NOW(3) WHERE id = ?`,
+    [id],
+  )
+}
+
+export async function setAdminTotpSecret(env: Env, id: number, secret: string): Promise<void> {
+  await pool(env).execute(
+    `UPDATE admin_accounts
+     SET totp_secret = ?, totp_enabled = 1, totp_confirmed_at = NOW(3)
+     WHERE id = ?`,
+    [secret, id],
+  )
+}
+
+export async function disableAdminTotp(env: Env, id: number): Promise<void> {
+  await pool(env).execute(
+    `UPDATE admin_accounts
+     SET totp_secret = NULL, totp_enabled = 0, totp_confirmed_at = NULL
+     WHERE id = ?`,
     [id],
   )
 }

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Alert, Button, Card, Input, InputNumber, Select, Space, Switch, Table, Tag, Typography, message } from 'antd'
+import { Alert, Button, Card, Input, InputNumber, Select, Space, Table, Tag, Typography, message } from 'antd'
 import { getSystemParams, updateSystemParams } from '../api'
 import { useAuthStore } from '../stores/auth'
 
@@ -31,13 +31,11 @@ export default function SystemParams() {
   const [typeFilter, setTypeFilter] = useState<ParamType | 'all'>('all')
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [adminGoogleAuthenticatorEnabled, setAdminGoogleAuthenticatorEnabled] = useState(false)
 
   async function load() {
     setLoading(true)
     try {
       const params = await getSystemParams()
-      setAdminGoogleAuthenticatorEnabled(params.adminGoogleAuthenticatorEnabled)
       setRows([
         {
           key: 'smsDailyLimitPerUser',
@@ -115,10 +113,7 @@ export default function SystemParams() {
   })
 
   async function save() {
-    const next = {
-      ...(Object.fromEntries(rows.map((row) => [row.key, row.value])) as Record<ParamKey, number>),
-      adminGoogleAuthenticatorEnabled,
-    }
+    const next = Object.fromEntries(rows.map((row) => [row.key, row.value])) as Record<ParamKey, number>
     for (const row of rows) {
       if (!Number.isInteger(row.value) || row.value < 1 || row.value > row.max) {
         message.warning(`${row.name}必须是 1-${row.max} 的整数`); return
@@ -163,20 +158,6 @@ export default function SystemParams() {
             onChange={(value) => setTypeFilter(value)}
           />
         </Space>
-        <div style={{ marginBottom: 16 }}>
-          <Space>
-            <Switch
-              checked={adminGoogleAuthenticatorEnabled}
-              disabled={!isSuperAdmin}
-              onChange={setAdminGoogleAuthenticatorEnabled}
-            />
-            <span>后台 Google Authenticator 验证</span>
-            <Tag>登录安全</Tag>
-          </Space>
-          <Typography.Paragraph type="secondary" style={{ marginTop: 8, marginBottom: 0 }}>
-            当前仅保存生产环境启用开关；验证码绑定与登录校验流程上线后生效。
-          </Typography.Paragraph>
-        </div>
         <Table<ParamRow>
           rowKey="key"
           pagination={false}
