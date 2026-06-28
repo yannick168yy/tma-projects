@@ -442,12 +442,15 @@ export default function AppShell() {
             return (
               <button key={item.id} type="button" className={`relative flex flex-col items-center gap-0.5 rounded-xl px-3 py-0.5 transition-colors ${itemActive ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`} onClick={() => setNav(item.id)} aria-label={item.label}>
                 {item.id === 'team' ? (
-                  <img
-                    src={threeCirclesMenu}
-                    alt=""
-                    className="h-14 w-14 object-contain"
-                    style={{ animation: 'team-menu-pulse 1.35s ease-in-out infinite' }}
-                  />
+                  <>
+                    <span className="block h-[34px] w-12" />
+                    <img
+                      src={threeCirclesMenu}
+                      alt=""
+                      className="pointer-events-none absolute -top-6 left-1/2 h-[76px] w-[86px] -translate-x-1/2 object-contain"
+                      style={{ animation: 'team-menu-pulse 1.35s ease-in-out infinite' }}
+                    />
+                  </>
                 ) : (
                   <>
                     {itemActive && <span className="absolute -top-1 left-1/2 h-0.5 w-7 -translate-x-1/2 rounded-full bg-primary" />}
