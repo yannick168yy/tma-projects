@@ -386,9 +386,7 @@ export default function AppShell() {
             <SlotsLobby {...view.params} onClose={closeOverlay} onGameTap={() => void onGameTap()} onOpenGame={(url) => setGamePlayerUrl(url)} />
           )}
           {view.type === 'teamCenter' && (
-            <div className="app-safe-header">
-              <TeamCenterPage onClose={closeImmersive} />
-            </div>
+            <TeamCenterPage />
           )}
           {view.type === 'agentCenter' && (
             <div className="app-safe-header">

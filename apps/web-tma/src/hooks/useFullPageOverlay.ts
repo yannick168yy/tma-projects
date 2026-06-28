@@ -26,8 +26,7 @@ export type FullPageView =
 
 /** 全屏专题页：走 document/body 滚动，勿用 fixed + 内部 overflow-y-auto */
 export function isImmersiveFullPage(view: FullPageView): boolean {
-  return view.type === 'teamCenter'
-    || view.type === 'agentCenter'
+  return view.type === 'agentCenter'
     || view.type === 'betHistory'
     || view.type === 'ledgerRecords'
     || view.type === 'cashback'
