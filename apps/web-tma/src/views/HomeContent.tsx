@@ -734,10 +734,10 @@ const [gamesLoading, setGamesLoading] = useState(true)
         </div>
       )}
 
-      <div className="fixed bottom-24 left-3 z-30 flex flex-col items-start gap-2">
+      <div className="fixed bottom-24 left-2 z-30 flex flex-col items-center gap-1.5 rounded-full bg-neutral-700/35 p-1.5 backdrop-blur-[2px]">
         <button
           type="button"
-          className="h-16 w-16 active:scale-95"
+          className="h-[76px] w-[76px] active:scale-95"
           onClick={onOpenRewardsSpin}
           aria-label={t('category.rewardsSpin')}
         >
@@ -745,7 +745,7 @@ const [gamesLoading, setGamesLoading] = useState(true)
         </button>
         <button
           type="button"
-          className="h-16 w-16 active:scale-95"
+          className="h-[76px] w-[76px] active:scale-95"
           onClick={onOpenCashback}
           aria-label={t('cashback.title')}
         >
