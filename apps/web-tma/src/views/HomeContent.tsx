@@ -84,6 +84,7 @@ function HomePromoFloat({ rewardsLabel, cashbackLabel, onOpenRewardsSpin, onOpen
   const dragRef = useRef({ pointerId: -1, startX: 0, startY: 0, startLeft: 0, startTop: 0, moved: false, suppressClick: false })
   const [expanded, setExpanded] = useState(false)
   const [activePromo, setActivePromo] = useState(0)
+  const [closed, setClosed] = useState(false)
   const [position, setPosition] = useState<{ left: number; top: number } | null>(null)
   const promos = [
     { key: 'rewards', label: 'rewards', ariaLabel: rewardsLabel, image: rewardsSpinFloatImg, imageClass: 'home-rewards-spin-float', action: onOpenRewardsSpin },
@@ -93,7 +94,7 @@ function HomePromoFloat({ rewardsLabel, cashbackLabel, onOpenRewardsSpin, onOpen
   const clampPosition = useCallback((left: number, top: number) => {
     const el = widgetRef.current
     const width = el?.offsetWidth ?? 112
-    const height = el?.offsetHeight ?? (expanded ? 270 : 126)
+    const height = el?.offsetHeight ?? (expanded ? 290 : 146)
     const viewportWidth = window.innerWidth
     const viewportHeight = window.innerHeight
     const frameWidth = Math.min(viewportWidth, 430)
@@ -111,7 +112,7 @@ function HomePromoFloat({ rewardsLabel, cashbackLabel, onOpenRewardsSpin, onOpen
   useEffect(() => {
     const placeDefault = () => {
       const el = widgetRef.current
-      const height = el?.offsetHeight ?? (expanded ? 270 : 126)
+      const height = el?.offsetHeight ?? (expanded ? 290 : 146)
       setPosition((current) => {
         const next = current ?? { left: 8, top: window.innerHeight - height - 96 }
         return clampPosition(next.left, next.top)
@@ -129,8 +130,8 @@ function HomePromoFloat({ rewardsLabel, cashbackLabel, onOpenRewardsSpin, onOpen
   }, [expanded, promos.length])
 
   function onPointerDown(event: PointerEvent<HTMLDivElement>) {
-    if ((event.target as HTMLElement).closest('[data-float-toggle]')) return
-    const current = position ?? clampPosition(8, window.innerHeight - (widgetRef.current?.offsetHeight ?? (expanded ? 270 : 126)) - 96)
+    if ((event.target as HTMLElement).closest('[data-float-control]')) return
+    const current = position ?? clampPosition(8, window.innerHeight - (widgetRef.current?.offsetHeight ?? (expanded ? 290 : 146)) - 96)
     dragRef.current = {
       pointerId: event.pointerId,
       startX: event.clientX,
@@ -172,11 +173,12 @@ function HomePromoFloat({ rewardsLabel, cashbackLabel, onOpenRewardsSpin, onOpen
   }
 
   const visiblePromos = expanded ? promos : [promos[activePromo]]
+  if (closed) return null
 
   return (
     <div
       ref={widgetRef}
-      className={`fixed z-30 flex touch-none select-none flex-col items-center gap-1.5 px-1.5 pb-1.5 pt-7 ${expanded ? 'rounded-full bg-neutral-950/70' : ''}`}
+      className={`fixed z-30 flex touch-none select-none flex-col items-center gap-1.5 px-1.5 pb-1.5 pt-12 ${expanded ? 'rounded-full bg-neutral-950/70' : ''}`}
       style={position ? { left: position.left, top: position.top } : { left: 8, bottom: 96 }}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
@@ -185,13 +187,24 @@ function HomePromoFloat({ rewardsLabel, cashbackLabel, onOpenRewardsSpin, onOpen
     >
       <button
         type="button"
-        data-float-toggle
+        data-float-control
         className="absolute left-1/2 top-0 h-9 w-9 -translate-x-1/2 active:scale-95"
         onClick={() => setExpanded((current) => !current)}
         aria-label={expanded ? 'Collapse' : 'Expand'}
       >
         <img src={expanded ? yellowCollapseDownImg : yellowExpandUpImg} alt="" className="h-full w-full object-contain drop-shadow-[0_4px_12px_rgba(255,184,0,0.55)]" />
       </button>
+      {expanded && (
+        <button
+          type="button"
+          data-float-control
+          className="absolute right-1 top-3 flex h-6 w-6 items-center justify-center rounded-full bg-black/70 text-white/85 shadow-[0_4px_12px_rgba(0,0,0,0.35)] active:scale-95"
+          onClick={() => setClosed(true)}
+          aria-label="Close"
+        >
+          <X size={14} strokeWidth={3} />
+        </button>
+      )}
       {expanded ? (
         visiblePromos.map((promo) => (
           <button
