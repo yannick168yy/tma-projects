@@ -120,6 +120,36 @@ body {
   padding-right: var(--app-safe-right);
 }
 
+.home-rewards-spin-float {
+  animation: home-rewards-spin-float 2.6s linear infinite;
+}
+
+.home-cashback-swing-float {
+  animation: home-cashback-swing-float 1.4s ease-in-out infinite;
+  transform-origin: center bottom;
+}
+
+@keyframes home-rewards-spin-float {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes home-cashback-swing-float {
+  0%,
+  100% {
+    transform: perspective(160px) rotateY(-16deg) scaleX(1.06);
+  }
+
+  50% {
+    transform: perspective(160px) rotateY(16deg) scaleX(0.94);
+  }
+}
+
 /* 洗码页返回：手机浏览器更靠上；TMA 仍用 --app-safe-top */
 .cashback-back-btn {
   top: max(6px, env(safe-area-inset-top, 0px));

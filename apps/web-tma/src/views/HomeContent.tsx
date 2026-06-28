@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
+import { useState, useEffect, useRef, useMemo, useCallback, type PointerEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   ChevronLeft, ChevronRight, Trophy, TrendingUp, Gamepad2,
@@ -68,6 +68,135 @@ interface Props {
   onOpenReferralPromo: () => void
   onOpenRewardsSpin: () => void
   onOpenCashback: () => void
+}
+
+interface HomePromoFloatProps {
+  rewardsLabel: string
+  cashbackLabel: string
+  onOpenRewardsSpin: () => void
+  onOpenCashback: () => void
+}
+
+function HomePromoFloat({ rewardsLabel, cashbackLabel, onOpenRewardsSpin, onOpenCashback }: HomePromoFloatProps) {
+  const widgetRef = useRef<HTMLDivElement>(null)
+  const dragRef = useRef({ pointerId: -1, startX: 0, startY: 0, startLeft: 0, startTop: 0, moved: false, suppressClick: false })
+  const [hidden, setHidden] = useState(false)
+  const [position, setPosition] = useState<{ left: number; top: number } | null>(null)
+
+  const clampPosition = useCallback((left: number, top: number) => {
+    const el = widgetRef.current
+    const width = el?.offsetWidth ?? 92
+    const height = el?.offsetHeight ?? 184
+    const viewportWidth = window.innerWidth
+    const viewportHeight = window.innerHeight
+    const frameWidth = Math.min(viewportWidth, 430)
+    const frameLeft = (viewportWidth - frameWidth) / 2
+    const minLeft = frameLeft + 8
+    const maxLeft = Math.max(minLeft, frameLeft + frameWidth - width - 8)
+    const minTop = 72
+    const maxTop = Math.max(minTop, viewportHeight - height - 92)
+    return {
+      left: Math.min(Math.max(left, minLeft), maxLeft),
+      top: Math.min(Math.max(top, minTop), maxTop),
+    }
+  }, [])
+
+  useEffect(() => {
+    const placeDefault = () => {
+      const el = widgetRef.current
+      const height = el?.offsetHeight ?? 184
+      setPosition((current) => {
+        const next = current ?? { left: 8, top: window.innerHeight - height - 96 }
+        return clampPosition(next.left, next.top)
+      })
+    }
+    placeDefault()
+    window.addEventListener('resize', placeDefault)
+    return () => window.removeEventListener('resize', placeDefault)
+  }, [clampPosition])
+
+  function onPointerDown(event: PointerEvent<HTMLDivElement>) {
+    if ((event.target as HTMLElement).closest('[data-float-close]')) return
+    const current = position ?? clampPosition(8, window.innerHeight - (widgetRef.current?.offsetHeight ?? 184) - 96)
+    dragRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      startLeft: current.left,
+      startTop: current.top,
+      moved: false,
+      suppressClick: false,
+    }
+    setPosition(current)
+    event.currentTarget.setPointerCapture(event.pointerId)
+  }
+
+  function onPointerMove(event: PointerEvent<HTMLDivElement>) {
+    const drag = dragRef.current
+    if (drag.pointerId !== event.pointerId) return
+    const dx = event.clientX - drag.startX
+    const dy = event.clientY - drag.startY
+    if (!drag.moved && Math.hypot(dx, dy) < 5) return
+    drag.moved = true
+    setPosition(clampPosition(drag.startLeft + dx, drag.startTop + dy))
+  }
+
+  function onPointerUp(event: PointerEvent<HTMLDivElement>) {
+    const drag = dragRef.current
+    if (drag.pointerId !== event.pointerId) return
+    drag.suppressClick = drag.moved
+    if (drag.moved) window.setTimeout(() => { dragRef.current.suppressClick = false }, 0)
+    drag.pointerId = -1
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
+  }
+
+  function runAction(action: () => void) {
+    if (dragRef.current.suppressClick) {
+      dragRef.current.suppressClick = false
+      return
+    }
+    action()
+  }
+
+  if (hidden) return null
+
+  return (
+    <div
+      ref={widgetRef}
+      className="fixed z-30 flex touch-none select-none flex-col items-center gap-1.5 rounded-full bg-neutral-950/70 px-1.5 pb-1.5 pt-5"
+      style={position ? { left: position.left, top: position.top } : { left: 8, bottom: 96 }}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerCancel={onPointerUp}
+    >
+      <button
+        type="button"
+        data-float-close
+        className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/65 text-white/80 active:scale-95"
+        onClick={() => setHidden(true)}
+        aria-label="Close"
+      >
+        <X size={12} strokeWidth={3} />
+      </button>
+      <button
+        type="button"
+        className="h-[78px] w-[78px] active:scale-95"
+        onClick={() => runAction(onOpenRewardsSpin)}
+        aria-label={rewardsLabel}
+      >
+        <img src={rewardsSpinFloatImg} alt="" className="home-rewards-spin-float h-full w-full object-contain drop-shadow-[0_8px_18px_rgba(0,0,0,0.38)]" />
+      </button>
+      <button
+        type="button"
+        className="h-[78px] w-[78px] active:scale-95"
+        onClick={() => runAction(onOpenCashback)}
+        aria-label={cashbackLabel}
+      >
+        <img src={cashbackFloatImg} alt="" className="home-cashback-swing-float h-full w-full object-contain drop-shadow-[0_8px_18px_rgba(0,0,0,0.38)]" />
+      </button>
+    </div>
+  )
 }
 
 export default function HomeContent({ onNavigatePath, onOpenCategoryLobby, onOpenCs, onOpenGame, onOpenReferralPromo, onOpenRewardsSpin, onOpenCashback }: Props) {
@@ -734,24 +863,12 @@ const [gamesLoading, setGamesLoading] = useState(true)
         </div>
       )}
 
-      <div className="fixed bottom-24 left-2 z-30 flex flex-col items-center gap-1.5 rounded-full bg-neutral-700/35 p-1.5 backdrop-blur-[2px]">
-        <button
-          type="button"
-          className="h-[76px] w-[76px] active:scale-95"
-          onClick={onOpenRewardsSpin}
-          aria-label={t('category.rewardsSpin')}
-        >
-          <img src={rewardsSpinFloatImg} alt="" className="h-full w-full object-contain drop-shadow-[0_8px_18px_rgba(0,0,0,0.38)]" />
-        </button>
-        <button
-          type="button"
-          className="h-[76px] w-[76px] active:scale-95"
-          onClick={onOpenCashback}
-          aria-label={t('cashback.title')}
-        >
-          <img src={cashbackFloatImg} alt="" className="h-full w-full object-contain drop-shadow-[0_8px_18px_rgba(0,0,0,0.38)]" />
-        </button>
-      </div>
+      <HomePromoFloat
+        rewardsLabel={t('category.rewardsSpin')}
+        cashbackLabel={t('cashback.title')}
+        onOpenRewardsSpin={onOpenRewardsSpin}
+        onOpenCashback={onOpenCashback}
+      />
     </div>
   )
 }
