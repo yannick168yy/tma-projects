@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ChevronLeft, Wallet, TrendingUp, CheckCircle2, Clock, XCircle, ChevronRight, GitBranch, CircleHelp, X, ShieldCheck, Users, Zap, CalendarDays, ClipboardList, SlidersHorizontal } from 'lucide-react'
 import KycModal from '@/components/wallet/KycModal'
@@ -8,7 +8,7 @@ import { translateApiError } from '@/utils/translateApiError'
 import { buildInviteDeepLink, buildInviteWebLink } from '@/constants/telegram'
 import { useAuthStore } from '@/stores/auth'
 import { usePromotionStore } from '@/stores/promotion'
-import threeCircleHero from '@/assets/team/3-circles/hero-height.webp'
+import threeCircleHero from '@/assets/team/3-circles/hero.webp'
 import circleStructureImage from '@/assets/team/3-circles/3-circle-structure.webp'
 import iconFacebook from '@/assets/team/3-circles/facebook.webp'
 import iconViber from '@/assets/team/3-circles/viber.webp'
@@ -158,6 +158,8 @@ export default function TeamCenterPage({ onClose }: { onClose?: () => void }) {
   const [treeLoading, setTreeLoading] = useState(false)
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
   const [guideOpen, setGuideOpen] = useState(false)
+  const [openCtaShake, setOpenCtaShake] = useState(false)
+  const openCtaRef = useRef<HTMLButtonElement | null>(null)
 
   const inviteCode = user?.inviteCode ?? ''
   const telegramLink = useMemo(() => buildInviteDeepLink(inviteCode), [inviteCode])
@@ -229,6 +231,18 @@ export default function TeamCenterPage({ onClose }: { onClose?: () => void }) {
   function switchToTree() {
     setTreeView(true)
     if (!treeData && !treeLoading) void loadTree(period)
+  }
+  function selectTab(id: ThreeCircleTab) {
+    if (id !== 'overview' && !isAgent) {
+      setActiveTab('overview')
+      window.setTimeout(() => {
+        openCtaRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        setOpenCtaShake(true)
+        window.setTimeout(() => setOpenCtaShake(false), 650)
+      }, 80)
+      return
+    }
+    setActiveTab(id)
   }
 
   // ── 分享 ─────────────────────────────────────────────────────────────────────
@@ -344,6 +358,7 @@ export default function TeamCenterPage({ onClose }: { onClose?: () => void }) {
     { id: 'copy' as const, label: 'Share Link', icon: iconShareLink },
   ]
   const sectionTitleClass = 'mb-3 text-lg font-medium text-white'
+  const metricCardClass = 'rounded-xl border border-amber-300/12 bg-[radial-gradient(circle_at_top_left,rgba(251,191,36,0.16),transparent_54%),linear-gradient(135deg,rgba(255,255,255,0.08),rgba(255,255,255,0.03))] px-3 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]'
 
   const guideSections = useMemo(() => {
     if (!guideOpen) return []
@@ -357,12 +372,13 @@ export default function TeamCenterPage({ onClose }: { onClose?: () => void }) {
 
   return (
     <div className="flex min-h-full flex-col bg-[#07111c] text-white">
-      <div className="relative -mt-[var(--app-safe-top)] overflow-hidden bg-[#f8d69b]">
+      <style>{`@keyframes team-open-shake{0%,100%{transform:translateX(0)}15%{transform:translateX(-8px)}30%{transform:translateX(7px)}45%{transform:translateX(-5px)}60%{transform:translateX(4px)}75%{transform:translateX(-2px)}}`}</style>
+      <div className="relative overflow-hidden bg-[#fbce97] pt-[var(--app-safe-top)]">
         <img src={threeCircleHero} alt="" className="block w-full" />
         {onClose && (
           <button
             type="button"
-            className="absolute left-[3.7%] top-[12.8%] h-[8.5%] w-[8.5%] rounded-full bg-transparent"
+            className="absolute left-[3.7%] top-[calc(var(--app-safe-top)+5.7%)] h-[8.5%] w-[8.5%] rounded-full bg-transparent"
             onClick={onClose}
             aria-label="返回"
           />
@@ -376,7 +392,7 @@ export default function TeamCenterPage({ onClose }: { onClose?: () => void }) {
               key={id}
               type="button"
               className={`flex-1 flex items-center justify-center gap-2 py-3 text-[13px] font-medium transition-colors ${activeTab === id ? 'text-amber-300 border-b-2 border-amber-400 -mb-px' : 'text-slate-400'}`}
-              onClick={() => setActiveTab(id)}
+              onClick={() => selectTab(id)}
             >
               <Icon size={19} />{label}
             </button>
@@ -471,15 +487,19 @@ export default function TeamCenterPage({ onClose }: { onClose?: () => void }) {
               </div>
             </section>
 
-            <button
-              type="button"
-              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-amber-500 text-[#08111f] font-black text-sm disabled:opacity-60"
-              disabled={enabling}
-              onClick={() => isAgent ? setActiveTab('circle') : void onEnable()}
-            >
-              <Zap size={15} />
-              {isAgent ? t('bonuses.promos.agent.ctaActive') : enabling ? t('bonuses.promos.agent.activating') : t('bonuses.promos.agent.cta')}
-            </button>
+            {!isAgent && (
+              <button
+                ref={openCtaRef}
+                type="button"
+                className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-amber-500 text-[#08111f] font-black text-sm disabled:opacity-60 shadow-[0_12px_26px_rgba(245,158,11,0.26)]"
+                style={openCtaShake ? { animation: 'team-open-shake 620ms ease-in-out' } : undefined}
+                disabled={enabling}
+                onClick={() => void onEnable()}
+              >
+                <Zap size={15} />
+                {enabling ? t('bonuses.promos.agent.activating') : t('bonuses.promos.agent.cta')}
+              </button>
+            )}
           </div>
         )}
 
@@ -494,13 +514,13 @@ export default function TeamCenterPage({ onClose }: { onClose?: () => void }) {
                   ['C3', `${l3Rate}%`, summary?.l3Cents ?? 0],
                   [t('team.total'), periodLabel, summary?.totalCents ?? 0],
                 ].map(([label, sub, cents]) => (
-                  <div key={label as string} className="rounded-xl border border-white/8 bg-white/5 px-3 py-3">
+                  <div key={label as string} className={metricCardClass}>
                     <p className="text-[11px] font-medium text-slate-400">{label as string} · {sub as string}</p>
                     <p className="mt-1 text-[17px] font-semibold leading-none text-white">{phpDisplay(cents as number)}</p>
                   </div>
                 ))}
               </div>
-              <div className="mt-3 flex items-center justify-between rounded-xl border border-amber-400/20 bg-amber-400/8 px-3 py-3">
+              <div className="mt-3 flex items-center justify-between rounded-xl border border-amber-300/25 bg-[linear-gradient(135deg,rgba(245,158,11,0.18),rgba(255,255,255,0.04))] px-3 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.07)]">
                 <span className="text-sm font-medium text-slate-300">{t('team.settled')}</span>
                 <span className="text-lg font-semibold text-amber-300">{phpDisplay(summary?.paidCents ?? 0)}</span>
               </div>
@@ -583,11 +603,11 @@ export default function TeamCenterPage({ onClose }: { onClose?: () => void }) {
                 <span>{t('team.lifetime')}: {phpDisplay(teamWallet?.lifetimeEarnedCents ?? 0)}</span>
               </div>
               <div className="mt-5 grid grid-cols-2 gap-3 border-t border-white/10 pt-5">
-                <div className="rounded-xl border border-white/8 bg-white/5 p-3 text-center">
+                <div className={`${metricCardClass} text-center`}>
                   <div className="text-lg font-semibold leading-none text-white">{phpDisplay(summary?.totalCents ?? 0)}</div>
                   <div className="mt-2 text-xs text-slate-400">{t('team.periodEarned', { period: periodLabel })}</div>
                 </div>
-                <div className="rounded-xl border border-amber-400/18 bg-amber-400/8 p-3 text-center">
+                <div className={`${metricCardClass} text-center`}>
                   <div className="text-lg font-semibold leading-none text-amber-300">{phpDisplay(summary?.paidCents ?? 0)}</div>
                   <div className="mt-2 text-xs text-slate-400">{t('team.periodSettled', { period: periodLabel })}</div>
                 </div>
