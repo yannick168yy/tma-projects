@@ -114,13 +114,12 @@ function HomePromoFloat({ rewardsLabel, cashbackLabel, onOpenRewardsSpin, onOpen
 
   const defaultPosition = useCallback(() => {
     const el = widgetRef.current
-    const width = el?.offsetWidth ?? 112
     const height = el?.offsetHeight ?? (expanded ? 290 : 146)
     const viewportWidth = window.innerWidth
     const viewportHeight = window.innerHeight
     const frameWidth = Math.min(viewportWidth, 430)
     const frameLeft = (viewportWidth - frameWidth) / 2
-    return clampPosition(frameLeft + frameWidth - width - 8, viewportHeight - height - 96)
+    return clampPosition(frameLeft + 8, viewportHeight - height - 96)
   }, [clampPosition, expanded])
 
   useEffect(() => {
@@ -206,7 +205,7 @@ function HomePromoFloat({ rewardsLabel, cashbackLabel, onOpenRewardsSpin, onOpen
     <div
       ref={widgetRef}
       className={`fixed z-30 flex touch-none select-none flex-col items-center gap-1.5 px-1.5 pb-1.5 pt-12 ${expanded ? 'rounded-full bg-neutral-950/70' : ''}`}
-      style={position ? { left: position.left, top: position.top } : { right: 8, bottom: 96 }}
+      style={position ? { left: position.left, top: position.top } : { left: 8, bottom: 96 }}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
@@ -442,6 +441,8 @@ const [gamesLoading, setGamesLoading] = useState(true)
   const rankBetsLoop = useMemo(() => [...rankBets, ...rankBets], [rankBets])
   const latestBetScrollDuration = `${Math.max(56, latestBets.length * 4.8)}s`
   const rankBetScrollDuration = `${Math.max(56, rankBets.length * 4.8)}s`
+  const firstDepositHighlight = promotion.highlights.find((item) => item.promoId === 'firstdep')
+  const showFirstDepositFiesta = !auth.token || firstDepositHighlight?.highlight !== false
 
   function betTabLabel(tab: BetTab) {
     if (tab === 'latest') return t('home.latestBets')
@@ -916,7 +917,8 @@ const [gamesLoading, setGamesLoading] = useState(true)
       </>}{/* end hot mode */}
 
       {/* First Deposit Fiesta floating entry */}
-      <div className="fixed bottom-24 left-4 z-30 flex flex-col items-start gap-1.5">
+      {showFirstDepositFiesta && (
+        <div className="fixed bottom-24 right-4 z-30 flex flex-col items-end gap-1.5">
           <span className="absolute inset-0 rounded-2xl animate-ping bg-amber-400/30 pointer-events-none" style={{ animationDuration: '2.4s' }} />
           <button
             type="button"
@@ -928,6 +930,7 @@ const [gamesLoading, setGamesLoading] = useState(true)
             <span className="text-[12px] font-black text-amber-950 whitespace-nowrap">{t('bonuses.promos.firstdep.title')}</span>
           </button>
         </div>
+      )}
 
       <HomePromoFloat
         rewardsLabel={t('category.rewardsSpin')}

@@ -1,4 +1,6 @@
 import Router from '@koa/router'
+import type { RowDataPacket } from 'mysql2/promise'
+import type { Env } from '../config/env.js'
 import { creditWallet, getUser, listLedger, saveUser } from '../services/store.js'
 import { formatDisplayTime, nowIso } from '../utils/format.js'
 import { fail, ok } from '../utils/response.js'
@@ -32,7 +34,17 @@ const PROMOS = [
 
 const router = new Router({ prefix: '/promotions' })
 
-function promoHighlights(user: Awaited<ReturnType<typeof getUser>>) {
+async function hasFirstDeposit(env: Env, user: Awaited<ReturnType<typeof getUser>>) {
+  if (!user) return false
+  if (!isMysqlEnabled(env)) return Boolean(user.firstDepClaimed || user.firstDepReady)
+  const [rows] = await getMysqlPool(env).query<RowDataPacket[]>(
+    "SELECT 1 FROM bg_deposit_order WHERE user_id = ? AND status = 'paid' LIMIT 1",
+    [user.id],
+  )
+  return rows.length > 0
+}
+
+function promoHighlights(user: Awaited<ReturnType<typeof getUser>>, firstDepositDone: boolean) {
   if (!user) return []
   return PROMOS.map((p) => {
     if (p.promoId === 'trial') {
@@ -45,8 +57,7 @@ function promoHighlights(user: Awaited<ReturnType<typeof getUser>>) {
         flagLabel: user.referralReady && !user.referralClaimed ? 'Claim' : null,
       }
     }
-    // 首充嘉年华改为充值自动入账，不再有「待领取」高亮态
-    return { promoId: p.promoId, highlight: false, flagLabel: null }
+    return { promoId: p.promoId, highlight: !firstDepositDone, flagLabel: !firstDepositDone ? 'Deposit' : null }
   })
 }
 
@@ -54,7 +65,7 @@ function promoHighlights(user: Awaited<ReturnType<typeof getUser>>) {
 
 router.get('/', async (ctx) => {
   const user = await getUser(ctx.state.redis, ctx.state.userId!)
-  const highlights = promoHighlights(user)
+  const highlights = promoHighlights(user, await hasFirstDeposit(ctx.state.env, user))
   ok(
     ctx,
     PROMOS.map((p) => {

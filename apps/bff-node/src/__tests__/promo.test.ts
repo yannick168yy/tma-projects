@@ -328,7 +328,7 @@ describe('活动列表 GET /promotions', () => {
     vi.clearAllMocks()
   })
 
-  it('新用户（未领取任何活动）— trial 高亮，其余不高亮', async () => {
+  it('新用户（未领取任何活动）— trial 和 firstdep 高亮', async () => {
     mockGetUser.mockResolvedValue(makeUser({
       trialClaimed: false,
       referralReady: false,
@@ -347,7 +347,8 @@ describe('活动列表 GET /promotions', () => {
     expect(trial?.highlight).toBe(true)
     expect(trial?.flagLabel).toBe('₱88')
     expect(referral?.highlight).toBe(false)
-    expect(firstdep?.highlight).toBe(false)
+    expect(firstdep?.highlight).toBe(true)
+    expect(firstdep?.flagLabel).toBe('Deposit')
   })
 
   it('referralReady=true 且未领取 — referral 高亮', async () => {
@@ -364,18 +365,18 @@ describe('活动列表 GET /promotions', () => {
     expect(referral?.flagLabel).toBe('Claim')
   })
 
-  it('firstdep 自动入账 — 始终不高亮', async () => {
+  it('firstdep 未首存时高亮', async () => {
     mockGetUser.mockResolvedValue(makeUser({
       trialClaimed: true,
-      firstDepReady: true,
+      firstDepReady: false,
       firstDepClaimed: false,
     }))
     const res = await request(createApp()).get('/promotions')
 
     const items: Array<{ promoId: string; highlight: boolean; flagLabel: string | null }> = res.body.data
     const firstdep = items.find(i => i.promoId === 'firstdep')
-    expect(firstdep?.highlight).toBe(false)
-    expect(firstdep?.flagLabel).toBe(null)
+    expect(firstdep?.highlight).toBe(true)
+    expect(firstdep?.flagLabel).toBe('Deposit')
   })
 
   it('全部已领取 — 无高亮', async () => {
