@@ -53,11 +53,12 @@ function applyNacosConfig(config: Record<string, string>): void {
 function assertProductionSecurity(env: Env): void {
   if (env.NODE_ENV !== 'production') return
   const missing: string[] = []
+  const warnings: string[] = []
 
   if (env.BFF_DEV_SKIP_TELEGRAM_AUTH) missing.push('BFF_DEV_SKIP_TELEGRAM_AUTH must be false')
   if (!env.INTERNAL_TOKEN.trim()) missing.push('INTERNAL_TOKEN')
   if (env.AMMER_PAY_PROVIDER_TOKEN.trim() && !env.TELEGRAM_WEBHOOK_SECRET.trim()) {
-    missing.push('TELEGRAM_WEBHOOK_SECRET')
+    warnings.push('TELEGRAM_WEBHOOK_SECRET')
   }
   if ((env.SG_BASE_URL.trim() || env.SG_MERCHANT_ID.trim()) && !env.SG_MERCHANT_KEY.trim()) {
     missing.push('SG_MERCHANT_KEY')
@@ -76,6 +77,9 @@ function assertProductionSecurity(env: Env): void {
 
   if (missing.length) {
     throw new Error(`Unsafe production configuration: ${missing.join(', ')}`)
+  }
+  if (warnings.length) {
+    console.warn(`[bff-node] Production security warning: ${warnings.join(', ')}`)
   }
 }
 
