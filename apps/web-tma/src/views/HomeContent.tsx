@@ -91,7 +91,7 @@ function HomePromoFloat({ rewardsLabel, cashbackLabel, onOpenRewardsSpin, onOpen
   const clampPosition = useCallback((left: number, top: number) => {
     const el = widgetRef.current
     const width = el?.offsetWidth ?? 92
-    const height = el?.offsetHeight ?? (expanded ? 224 : 112)
+    const height = el?.offsetHeight ?? (expanded ? 224 : 108)
     const viewportWidth = window.innerWidth
     const viewportHeight = window.innerHeight
     const frameWidth = Math.min(viewportWidth, 430)
@@ -109,7 +109,7 @@ function HomePromoFloat({ rewardsLabel, cashbackLabel, onOpenRewardsSpin, onOpen
   useEffect(() => {
     const placeDefault = () => {
       const el = widgetRef.current
-      const height = el?.offsetHeight ?? (expanded ? 224 : 112)
+      const height = el?.offsetHeight ?? (expanded ? 224 : 108)
       setPosition((current) => {
         const next = current ?? { left: 8, top: window.innerHeight - height - 96 }
         return clampPosition(next.left, next.top)
@@ -122,13 +122,13 @@ function HomePromoFloat({ rewardsLabel, cashbackLabel, onOpenRewardsSpin, onOpen
 
   useEffect(() => {
     if (expanded) return
-    const timer = window.setInterval(() => setActivePromo((current) => (current + 1) % promos.length), 3500)
+    const timer = window.setInterval(() => setActivePromo((current) => (current + 1) % promos.length), 5000)
     return () => window.clearInterval(timer)
   }, [expanded, promos.length])
 
   function onPointerDown(event: PointerEvent<HTMLDivElement>) {
     if ((event.target as HTMLElement).closest('[data-float-toggle]')) return
-    const current = position ?? clampPosition(8, window.innerHeight - (widgetRef.current?.offsetHeight ?? (expanded ? 224 : 112)) - 96)
+    const current = position ?? clampPosition(8, window.innerHeight - (widgetRef.current?.offsetHeight ?? (expanded ? 224 : 108)) - 96)
     dragRef.current = {
       pointerId: event.pointerId,
       startX: event.clientX,
@@ -174,7 +174,7 @@ function HomePromoFloat({ rewardsLabel, cashbackLabel, onOpenRewardsSpin, onOpen
   return (
     <div
       ref={widgetRef}
-      className={`fixed z-30 flex touch-none select-none flex-col items-center gap-1.5 px-1.5 pb-1.5 pt-5 ${expanded ? 'rounded-full bg-neutral-950/70' : ''}`}
+      className={`fixed z-30 flex touch-none select-none flex-col items-center gap-1.5 px-1.5 pb-1.5 pt-7 ${expanded ? 'rounded-full bg-neutral-950/70' : ''}`}
       style={position ? { left: position.left, top: position.top } : { left: 8, bottom: 96 }}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
@@ -184,24 +184,42 @@ function HomePromoFloat({ rewardsLabel, cashbackLabel, onOpenRewardsSpin, onOpen
       <button
         type="button"
         data-float-toggle
-        className="absolute left-1/2 top-1 flex h-5 w-5 -translate-x-1/2 items-center justify-center rounded-full bg-black/65 text-white/80 active:scale-95"
+        className="absolute left-1/2 top-0 flex h-7 w-7 -translate-x-1/2 items-center justify-center rounded-full border border-yellow-200/60 bg-gradient-to-br from-yellow-200 via-primary to-amber-500 text-amber-950 shadow-[0_4px_14px_rgba(255,184,0,0.48)] ring-2 ring-black/35 active:scale-95"
         onClick={() => setExpanded((current) => !current)}
         aria-label={expanded ? 'Collapse' : 'Expand'}
       >
-        {expanded ? <ChevronDown size={13} strokeWidth={3} /> : <ChevronUp size={13} strokeWidth={3} />}
+        {expanded ? <ChevronDown size={18} strokeWidth={3} /> : <ChevronUp size={18} strokeWidth={3} />}
       </button>
-      {visiblePromos.map((promo) => (
-        <button
-          key={promo.key}
-          type="button"
-          className="flex w-[82px] flex-col items-center gap-0.5 active:scale-95"
-          onClick={() => runAction(promo.action)}
-          aria-label={promo.ariaLabel}
-        >
-          <img src={promo.image} alt="" className={`${promo.imageClass} h-[72px] w-[72px] object-contain drop-shadow-[0_8px_18px_rgba(0,0,0,0.38)]`} />
-          <span className="text-[11px] font-black leading-none text-white drop-shadow-[0_1px_4px_rgba(0,0,0,0.8)]">{promo.label}</span>
-        </button>
-      ))}
+      {expanded ? (
+        visiblePromos.map((promo) => (
+          <button
+            key={promo.key}
+            type="button"
+            className="flex w-[82px] flex-col items-center gap-0.5 active:scale-95"
+            onClick={() => runAction(promo.action)}
+            aria-label={promo.ariaLabel}
+          >
+            <img src={promo.image} alt="" className={`${promo.imageClass} h-[72px] w-[72px] object-contain drop-shadow-[0_8px_18px_rgba(0,0,0,0.38)]`} />
+            <span className="text-[11px] font-black leading-none text-white drop-shadow-[0_1px_4px_rgba(0,0,0,0.8)]">{promo.label}</span>
+          </button>
+        ))
+      ) : (
+        <div className="w-[82px] overflow-hidden">
+          <div className="flex transition-transform duration-700 ease-[cubic-bezier(0.22,1,0.36,1)]" style={{ transform: `translateX(-${activePromo * 82}px)` }}>
+            {promos.map((promo) => (
+              <button
+                key={promo.key}
+                type="button"
+                className="flex h-[78px] w-[82px] flex-shrink-0 items-center justify-center active:scale-95"
+                onClick={() => runAction(promo.action)}
+                aria-label={promo.ariaLabel}
+              >
+                <img src={promo.image} alt="" className={`${promo.imageClass} h-[76px] w-[76px] object-contain drop-shadow-[0_8px_18px_rgba(0,0,0,0.38)]`} />
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -380,8 +398,8 @@ const [gamesLoading, setGamesLoading] = useState(true)
   const latestBetsLoop = useMemo(() => [...latestBets, ...latestBets], [latestBets])
   const rankBets = activeBetTab === 'week' ? weekBets : monthBets
   const rankBetsLoop = useMemo(() => [...rankBets, ...rankBets], [rankBets])
-  const latestBetScrollDuration = `${Math.max(28, latestBets.length * 2.4)}s`
-  const rankBetScrollDuration = `${Math.max(28, rankBets.length * 2.4)}s`
+  const latestBetScrollDuration = `${Math.max(56, latestBets.length * 4.8)}s`
+  const rankBetScrollDuration = `${Math.max(56, rankBets.length * 4.8)}s`
 
   function betTabLabel(tab: BetTab) {
     if (tab === 'latest') return t('home.latestBets')
@@ -586,7 +604,7 @@ const [gamesLoading, setGamesLoading] = useState(true)
         <div className="flex-shrink-0 flex items-center gap-1.5 text-primary"><Trophy size={13} /><span className="text-xs font-bold uppercase tracking-wide whitespace-nowrap">{t('home.recentWins')}</span></div>
         <div className="w-px h-4 bg-border flex-shrink-0" />
         <div className="overflow-hidden flex-1">
-          <div className="flex w-max animate-marquee whitespace-nowrap" style={{ animationDuration: '48s' }}>
+          <div className="flex w-max animate-marquee whitespace-nowrap" style={{ animationDuration: '96s' }}>
             {[0, 1].map((group) => (
               <div key={group} className="flex flex-shrink-0 gap-6 pr-6">
                 {marqueeWinners.map((w, i) => <span key={`${group}-${i}`} className="text-xs text-foreground/80 flex-shrink-0"><span className="text-primary font-bold">{w.name}</span> {t('common.won')} <span className="text-emerald-400 font-bold">{w.amount}</span> · <span className="text-muted-foreground">{w.game}</span></span>)}

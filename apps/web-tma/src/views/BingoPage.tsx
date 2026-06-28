@@ -66,7 +66,7 @@ export default function BingoPage({ onOpenWallet, onGameTap, onOpenGame, onOpenC
           </div>
           <div className="w-px h-4 bg-white/20 flex-shrink-0" />
           <div className="overflow-hidden flex-1">
-            <div className="flex w-max animate-marquee whitespace-nowrap" style={{ animationDuration: '46s' }}>
+            <div className="flex w-max animate-marquee whitespace-nowrap" style={{ animationDuration: '92s' }}>
               {[0, 1].map((group) => (
                 <div key={group} className="flex flex-shrink-0 gap-5 pr-5">
                   {marqueeWinners.map((w, i) => (

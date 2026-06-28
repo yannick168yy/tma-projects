@@ -164,7 +164,7 @@ export default function BonusesPage({ promoFilter, onOpenWallet, onOpenTeam }: P
         </div>
         <div className="w-px h-3 bg-border flex-shrink-0" />
         <div className="overflow-hidden flex-1">
-          <div className="flex w-max animate-marquee whitespace-nowrap" style={{ animationDuration: '46s' }}>
+          <div className="flex w-max animate-marquee whitespace-nowrap" style={{ animationDuration: '92s' }}>
             {[0, 1].map((group) => (
               <div key={group} className="flex flex-shrink-0 gap-5 pr-5">
                 {bonusWinners.map((w, i) => (

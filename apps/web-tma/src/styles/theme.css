@@ -78,7 +78,7 @@ html.light {
 }
 
 .animate-marquee {
-  animation: marquee 4.5s linear infinite;
+  animation: marquee 9s linear infinite;
 }
 
 @keyframes scroll-up {
@@ -91,7 +91,7 @@ html.light {
 }
 
 .animate-scroll-up {
-  animation: scroll-up 50s linear infinite;
+  animation: scroll-up 100s linear infinite;
 }
 
 /* Information 底部抽屉 */
