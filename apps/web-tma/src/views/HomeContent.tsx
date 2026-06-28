@@ -86,7 +86,7 @@ function HomePromoFloat({ rewardsLabel, cashbackLabel, onOpenRewardsSpin, onOpen
   const clampPosition = useCallback((left: number, top: number) => {
     const el = widgetRef.current
     const width = el?.offsetWidth ?? 92
-    const height = el?.offsetHeight ?? 184
+    const height = el?.offsetHeight ?? 224
     const viewportWidth = window.innerWidth
     const viewportHeight = window.innerHeight
     const frameWidth = Math.min(viewportWidth, 430)
@@ -104,7 +104,7 @@ function HomePromoFloat({ rewardsLabel, cashbackLabel, onOpenRewardsSpin, onOpen
   useEffect(() => {
     const placeDefault = () => {
       const el = widgetRef.current
-      const height = el?.offsetHeight ?? 184
+      const height = el?.offsetHeight ?? 224
       setPosition((current) => {
         const next = current ?? { left: 8, top: window.innerHeight - height - 96 }
         return clampPosition(next.left, next.top)
@@ -117,7 +117,7 @@ function HomePromoFloat({ rewardsLabel, cashbackLabel, onOpenRewardsSpin, onOpen
 
   function onPointerDown(event: PointerEvent<HTMLDivElement>) {
     if ((event.target as HTMLElement).closest('[data-float-close]')) return
-    const current = position ?? clampPosition(8, window.innerHeight - (widgetRef.current?.offsetHeight ?? 184) - 96)
+    const current = position ?? clampPosition(8, window.innerHeight - (widgetRef.current?.offsetHeight ?? 224) - 96)
     dragRef.current = {
       pointerId: event.pointerId,
       startX: event.clientX,
@@ -181,19 +181,21 @@ function HomePromoFloat({ rewardsLabel, cashbackLabel, onOpenRewardsSpin, onOpen
       </button>
       <button
         type="button"
-        className="h-[78px] w-[78px] active:scale-95"
+        className="flex w-[82px] flex-col items-center gap-0.5 active:scale-95"
         onClick={() => runAction(onOpenRewardsSpin)}
         aria-label={rewardsLabel}
       >
-        <img src={rewardsSpinFloatImg} alt="" className="home-rewards-spin-float h-full w-full object-contain drop-shadow-[0_8px_18px_rgba(0,0,0,0.38)]" />
+        <img src={rewardsSpinFloatImg} alt="" className="home-rewards-spin-float h-[72px] w-[72px] object-contain drop-shadow-[0_8px_18px_rgba(0,0,0,0.38)]" />
+        <span className="text-[11px] font-black leading-none text-white drop-shadow-[0_1px_4px_rgba(0,0,0,0.8)]">rewards</span>
       </button>
       <button
         type="button"
-        className="h-[78px] w-[78px] active:scale-95"
+        className="flex w-[82px] flex-col items-center gap-0.5 active:scale-95"
         onClick={() => runAction(onOpenCashback)}
         aria-label={cashbackLabel}
       >
-        <img src={cashbackFloatImg} alt="" className="home-cashback-swing-float h-full w-full object-contain drop-shadow-[0_8px_18px_rgba(0,0,0,0.38)]" />
+        <img src={cashbackFloatImg} alt="" className="home-cashback-swing-float h-[72px] w-[72px] object-contain drop-shadow-[0_8px_18px_rgba(0,0,0,0.38)]" />
+        <span className="text-[11px] font-black leading-none text-white drop-shadow-[0_1px_4px_rgba(0,0,0,0.8)]">cashback</span>
       </button>
     </div>
   )
@@ -223,10 +225,7 @@ export default function HomeContent({ onNavigatePath, onOpenCategoryLobby, onOpe
   const bannerTrackRef = useRef<HTMLDivElement>(null)
   const cardTrackRef = useRef<HTMLDivElement>(null)
   const bannerDragRef = useRef({ startX: 0, startY: 0, startScroll: 0, axis: null as 'x'|'y'|null, lastX: 0, lastT: 0 })
-  const marqueeWinners = useMemo(() => {
-    const items = Array.from({ length: 50 }, (_, i) => WINNERS[i % WINNERS.length])
-    return [...items, ...items]
-  }, [])
+  const marqueeWinners = useMemo(() => Array.from({ length: 24 }, (_, i) => WINNERS[i % WINNERS.length]), [])
 
   function onBannerScroll() {
     const el = bannerTrackRef.current; if (!el || el.clientWidth <= 0) return
@@ -582,8 +581,12 @@ const [gamesLoading, setGamesLoading] = useState(true)
         <div className="flex-shrink-0 flex items-center gap-1.5 text-primary"><Trophy size={13} /><span className="text-xs font-bold uppercase tracking-wide whitespace-nowrap">{t('home.recentWins')}</span></div>
         <div className="w-px h-4 bg-border flex-shrink-0" />
         <div className="overflow-hidden flex-1">
-          <div className="flex gap-6 animate-marquee whitespace-nowrap" style={{ animationDuration: '4.5s' }}>
-            {marqueeWinners.map((w, i) => <span key={i} className="text-xs text-foreground/80 flex-shrink-0"><span className="text-primary font-bold">{w.name}</span> {t('common.won')} <span className="text-emerald-400 font-bold">{w.amount}</span> · <span className="text-muted-foreground">{w.game}</span></span>)}
+          <div className="flex w-max animate-marquee whitespace-nowrap" style={{ animationDuration: '28s' }}>
+            {[0, 1].map((group) => (
+              <div key={group} className="flex flex-shrink-0 gap-6 pr-6">
+                {marqueeWinners.map((w, i) => <span key={`${group}-${i}`} className="text-xs text-foreground/80 flex-shrink-0"><span className="text-primary font-bold">{w.name}</span> {t('common.won')} <span className="text-emerald-400 font-bold">{w.amount}</span> · <span className="text-muted-foreground">{w.game}</span></span>)}
+              </div>
+            ))}
           </div>
         </div>
       </div>
