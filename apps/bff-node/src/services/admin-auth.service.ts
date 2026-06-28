@@ -91,6 +91,7 @@ export async function changeAdminPassword(
 }
 
 export async function seedDefaultAdmin(env: Env): Promise<void> {
+  if (env.NODE_ENV === 'production') return
   const count = await countAdmins(env)
   if (count > 0) return
   const passwordHash = await hashPassword('Betogo@2025')

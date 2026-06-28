@@ -6,6 +6,7 @@ import { getRedis } from './clients/redis.client.js'
 import { errorHandler } from './middleware/errorHandler.js'
 import { injectDeps, requestIdMiddleware } from './middleware/requestId.js'
 import { accessLogMiddleware } from './middleware/accessLog.js'
+import { rateLimitMiddleware } from './middleware/rateLimit.js'
 import { childLogger } from './lib/logger.js'
 import { createApiRouter } from './routes/index.js'
 import { initStore } from './services/store/index.js'
@@ -180,11 +181,11 @@ export function createApp(env: Env): Koa {
       exposeHeaders: ['X-Request-Id'],
     }),
   )
-  // jsonLimit 提高到 10mb 以容纳 KYC 证件 base64 图片
-  app.use(bodyParser({ jsonLimit: '10mb' }))
   app.use(requestIdMiddleware())
-  app.use(accessLogMiddleware())
   app.use(injectDeps(env, redis))
+  app.use(rateLimitMiddleware())
+  app.use(accessLogMiddleware())
+  app.use(bodyParser({ jsonLimit: '2mb', formLimit: '2mb', textLimit: '2mb' }))
 
   app.use(async (ctx, next) => {
     if (ctx.path === '/health') {

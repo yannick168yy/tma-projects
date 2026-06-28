@@ -1,7 +1,7 @@
 import Router from '@koa/router'
 import { randomUUID } from 'node:crypto'
 import { ok, fail } from '../utils/response.js'
-import { listGames, listProviders, listThemes, syncAllGames, getUserGameHistory, getHomepageSelection } from '../services/sg-game.service.js'
+import { listGames, listProviders, listThemes, getUserGameHistory, getHomepageSelection } from '../services/sg-game.service.js'
 import { sgInitGame, sgInitDemo } from '../services/slotegrator.service.js'
 import { getUser } from '../services/store/index.js'
 import { isMysqlEnabled } from '../clients/mysql.client.js'
@@ -107,20 +107,9 @@ router.get('/history', async (ctx) => {
   }
 })
 
-// POST /slots/sync — manual sync (requires auth)
+// POST /slots/sync — 前台禁用，聚合商同步只能走 /admin/games/sync
 router.post('/sync', async (ctx) => {
-  const env = ctx.state.env
-  if (!ctx.state.userId) { fail(ctx, 401, 'Unauthorized'); return }
-  if (!isMysqlEnabled(env) || !env.SG_BASE_URL) {
-    fail(ctx, 400, 'Slotegrator not configured')
-    return
-  }
-  try {
-    const result = await syncAllGames(env)
-    ok(ctx, result)
-  } catch (e) {
-    fail(ctx, 500, e instanceof Error ? e.message : 'Sync failed')
-  }
+  fail(ctx, 403, 'Use admin game sync endpoint', 403)
 })
 
 // POST /slots/init — launch real-money game (requires auth)

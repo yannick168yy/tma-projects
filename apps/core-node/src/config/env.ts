@@ -46,4 +46,19 @@ const schema = z.object({
   INTERNAL_TOKEN: z.string().default(''),
 })
 
-export const env = schema.parse(process.env)
+const parsed = schema.parse(process.env)
+
+if (parsed.NODE_ENV === 'production') {
+  const missing: string[] = []
+  if (!parsed.INTERNAL_TOKEN.trim()) missing.push('INTERNAL_TOKEN')
+  if ((parsed.SG_MERCHANT_ID.trim() || parsed.SG_MERCHANT_KEY.trim()) && !parsed.SG_MERCHANT_KEY.trim()) {
+    missing.push('SG_MERCHANT_KEY')
+  }
+  if (parsed.MATRIX_MERCHANT_NOTIFY_PRIVATE_KEY.trim() !== '' || parsed.MATRIX_PLATFORM_NOTIFY_PUBLIC_KEY.trim() !== '') {
+    if (!parsed.MATRIX_MERCHANT_NOTIFY_PRIVATE_KEY.trim()) missing.push('MATRIX_MERCHANT_NOTIFY_PRIVATE_KEY')
+    if (!parsed.MATRIX_PLATFORM_NOTIFY_PUBLIC_KEY.trim()) missing.push('MATRIX_PLATFORM_NOTIFY_PUBLIC_KEY')
+  }
+  if (missing.length) throw new Error(`Unsafe production configuration: ${missing.join(', ')}`)
+}
+
+export const env = parsed

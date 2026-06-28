@@ -34,6 +34,27 @@ const PROMOS = [
 
 const router = new Router({ prefix: '/promotions' })
 
+async function withUserPromoLock<T>(
+  ctx: import('koa').Context,
+  userId: string,
+  promoId: string,
+  fn: () => Promise<T>,
+): Promise<T> {
+  if (typeof ctx.state.redis?.set !== 'function') return fn()
+  const key = `promo:claim:lock:${userId}:${promoId}`
+  const val = `${Date.now()}:${Math.random()}`
+  const locked = await ctx.state.redis.set(key, val, 'EX', 10, 'NX')
+  if (!locked) throw new Error('errors.duplicateRequest')
+  try {
+    return await fn()
+  } finally {
+    const current = typeof ctx.state.redis.get === 'function'
+      ? await ctx.state.redis.get(key)
+      : null
+    if (current === val && typeof ctx.state.redis.del === 'function') await ctx.state.redis.del(key)
+  }
+}
+
 async function hasFirstDeposit(env: Env, user: Awaited<ReturnType<typeof getUser>>) {
   if (!user) return false
   if (!isMysqlEnabled(env)) return Boolean(user.firstDepClaimed || user.firstDepReady)
@@ -93,36 +114,43 @@ router.get('/trial-play', async (ctx) => {
 })
 
 router.post('/trial-play/claim', async (ctx) => {
-  const user = await getUser(ctx.state.redis, ctx.state.userId!)
-  if (!user) {
-    fail(ctx, 404, 'User not found', 404)
-    return
+  try {
+    const result = await withUserPromoLock(ctx, ctx.state.userId!, 'trial', async () => {
+      const user = await getUser(ctx.state.redis, ctx.state.userId!)
+      if (!user) throw new Error('User not found')
+      if (user.trialClaimed) throw new Error('Trial bonus already claimed')
+      const cfg = await getPromoConfig(ctx.state.env)
+      if (!cfg.trial.enabled) throw new Error('Trial bonus is currently disabled')
+      const amount = cfg.trial.amount
+      user.trialClaimed = true
+      await saveUser(ctx.state.redis, user)
+      await creditWallet(ctx.state.redis, user.id, amount, {
+        type: 'red_packet',
+        description: 'Trial Officer red packet',
+        createdAt: nowIso(),
+        traceId: ctx.state.traceId,
+      })
+      if (cfg.trial.turnoverX > 0 && isMysqlEnabled(ctx.state.env)) {
+        const expiresAt = cfg.trial.turnoverDays > 0
+          ? new Date(Date.now() + cfg.trial.turnoverDays * 86400000).toISOString().slice(0, 19).replace('T', ' ')
+          : null
+        await createPromoRequirement(getMysqlPool(ctx.state.env), user.id, 'trial', amount, cfg.trial.turnoverX, expiresAt)
+      }
+      return { amountPhp: amount, amountCents: amount }
+    })
+    ok(ctx, result)
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : 'Trial bonus claim failed'
+    if (msg === 'User not found') {
+      fail(ctx, 404, msg, 404)
+      return
+    }
+    if (msg === 'errors.duplicateRequest') {
+      fail(ctx, 429, msg, 429)
+      return
+    }
+    fail(ctx, 409, msg)
   }
-  if (user.trialClaimed) {
-    fail(ctx, 409, 'Trial bonus already claimed')
-    return
-  }
-  const cfg = await getPromoConfig(ctx.state.env)
-  if (!cfg.trial.enabled) {
-    fail(ctx, 409, 'Trial bonus is currently disabled')
-    return
-  }
-  const amount = cfg.trial.amount
-  user.trialClaimed = true
-  await saveUser(ctx.state.redis, user)
-  await creditWallet(ctx.state.redis, user.id, amount, {
-    type: 'red_packet',
-    description: 'Trial Officer red packet',
-    createdAt: nowIso(),
-    traceId: ctx.state.traceId,
-  })
-  if (cfg.trial.turnoverX > 0 && isMysqlEnabled(ctx.state.env)) {
-    const expiresAt = cfg.trial.turnoverDays > 0
-      ? new Date(Date.now() + cfg.trial.turnoverDays * 86400000).toISOString().slice(0, 19).replace('T', ' ')
-      : null
-    await createPromoRequirement(getMysqlPool(ctx.state.env), user.id, 'trial', amount, cfg.trial.turnoverX, expiresAt)
-  }
-  ok(ctx, { amountPhp: amount, amountCents: amount })
 })
 
 router.get('/referral', async (ctx) => {
@@ -209,29 +237,41 @@ router.post('/:promoId/claim', async (ctx) => {
     return
   }
   if (promoId === 'referral') {
-    if (!user.referralReady || user.referralClaimed) {
-      fail(ctx, 409, 'Referral reward not available')
-      return
+    try {
+      const result = await withUserPromoLock(ctx, user.id, 'referral', async () => {
+        const lockedUser = await getUser(ctx.state.redis, user.id)
+        if (!lockedUser || !lockedUser.referralReady || lockedUser.referralClaimed) {
+          throw new Error('Referral reward not available')
+        }
+        const cfg = await getPromoConfig(ctx.state.env)
+        if (!cfg.referral.enabled) throw new Error('Referral bonus is currently disabled')
+        const amount = cfg.referral.inviterAmount
+        lockedUser.referralClaimed = true
+        lockedUser.referralReady = false
+        await saveUser(ctx.state.redis, lockedUser)
+        await creditWallet(ctx.state.redis, lockedUser.id, amount, {
+          type: 'bonus',
+          description: 'Referral bonus',
+          createdAt: nowIso(),
+          traceId: ctx.state.traceId,
+        })
+        if (cfg.referral.turnoverX > 0 && isMysqlEnabled(ctx.state.env)) {
+          const expiresAt = cfg.referral.turnoverDays > 0
+            ? new Date(Date.now() + cfg.referral.turnoverDays * 86400000).toISOString().slice(0, 19).replace('T', ' ')
+            : null
+          await createPromoRequirement(getMysqlPool(ctx.state.env), lockedUser.id, 'referral', amount, cfg.referral.turnoverX, expiresAt)
+        }
+        return { amountPhp: amount, amountCents: amount }
+      })
+      ok(ctx, result)
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Referral claim failed'
+      if (msg === 'errors.duplicateRequest') {
+        fail(ctx, 429, msg, 429)
+        return
+      }
+      fail(ctx, 409, msg)
     }
-    const cfg = await getPromoConfig(ctx.state.env)
-    if (!cfg.referral.enabled) { fail(ctx, 409, 'Referral bonus is currently disabled'); return }
-    const amount = cfg.referral.inviterAmount
-    user.referralClaimed = true
-    user.referralReady = false
-    await saveUser(ctx.state.redis, user)
-    await creditWallet(ctx.state.redis, user.id, amount, {
-      type: 'bonus',
-      description: 'Referral bonus',
-      createdAt: nowIso(),
-      traceId: ctx.state.traceId,
-    })
-    if (cfg.referral.turnoverX > 0 && isMysqlEnabled(ctx.state.env)) {
-      const expiresAt = cfg.referral.turnoverDays > 0
-        ? new Date(Date.now() + cfg.referral.turnoverDays * 86400000).toISOString().slice(0, 19).replace('T', ' ')
-        : null
-      await createPromoRequirement(getMysqlPool(ctx.state.env), user.id, 'referral', amount, cfg.referral.turnoverX, expiresAt)
-    }
-    ok(ctx, { amountPhp: amount, amountCents: amount })
     return
   }
   if (promoId === 'firstdep') {

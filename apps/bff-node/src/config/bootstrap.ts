@@ -50,6 +50,35 @@ function applyNacosConfig(config: Record<string, string>): void {
   void closeMysql()
 }
 
+function assertProductionSecurity(env: Env): void {
+  if (env.NODE_ENV !== 'production') return
+  const missing: string[] = []
+
+  if (env.BFF_DEV_SKIP_TELEGRAM_AUTH) missing.push('BFF_DEV_SKIP_TELEGRAM_AUTH must be false')
+  if (!env.INTERNAL_TOKEN.trim()) missing.push('INTERNAL_TOKEN')
+  if (env.AMMER_PAY_PROVIDER_TOKEN.trim() && !env.TELEGRAM_WEBHOOK_SECRET.trim()) {
+    missing.push('TELEGRAM_WEBHOOK_SECRET')
+  }
+  if ((env.SG_BASE_URL.trim() || env.SG_MERCHANT_ID.trim()) && !env.SG_MERCHANT_KEY.trim()) {
+    missing.push('SG_MERCHANT_KEY')
+  }
+  if (env.MATRIX_GATEWAY_URL.trim()) {
+    for (const key of [
+      'MATRIX_API_KEY',
+      'MATRIX_MERCHANT_API_PRIVATE_KEY',
+      'MATRIX_PLATFORM_API_PUBLIC_KEY',
+      'MATRIX_MERCHANT_NOTIFY_PRIVATE_KEY',
+      'MATRIX_PLATFORM_NOTIFY_PUBLIC_KEY',
+    ] as const) {
+      if (!env[key].trim()) missing.push(key)
+    }
+  }
+
+  if (missing.length) {
+    throw new Error(`Unsafe production configuration: ${missing.join(', ')}`)
+  }
+}
+
 export async function bootstrapEnv(): Promise<Env> {
   pinnedInfraEnv = captureInfraEnv()
   normalizeMysqlEnv()
@@ -87,6 +116,7 @@ export async function bootstrapEnv(): Promise<Env> {
   }
   normalizeMysqlEnv()
   const env = loadEnv()
+  assertProductionSecurity(env)
   process.env.LOG_LEVEL = env.LOG_LEVEL
   initLogger()
   return env

@@ -260,6 +260,7 @@ export interface SystemParams {
   kycFaceFailureLimit: number
   loginPasswordFailureLimit: number
   loginPasswordLockSeconds: number
+  adminGoogleAuthenticatorEnabled: boolean
 }
 export const getSystemParams = () => get<SystemParams>('/admin/settings/system-params')
 export const updateSystemParams = (params: SystemParams) => put<SystemParams>('/admin/settings/system-params', params)
