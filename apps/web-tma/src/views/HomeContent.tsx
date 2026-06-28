@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo, useCallback, type PointerEvent } 
 import { useTranslation } from 'react-i18next'
 import {
   ChevronLeft, ChevronRight, Trophy, TrendingUp, Gamepad2,
-  Fish, LayoutGrid, ChevronUp, ChevronDown, X, Gem,
+  Fish, LayoutGrid, X, Gem,
 } from 'lucide-react'
 import HomeCategoryShortcut from '@/components/home/HomeCategoryShortcut'
 import GameCard from '@/components/home/GameCard'
@@ -31,6 +31,8 @@ import infoAboutImg from '@/assets/home/info-support/infor04.webp'
 import supportOnlineImg from '@/assets/home/info-support/online01.webp'
 import rewardsSpinFloatImg from '@/assets/home/promos/rewards-spin-float.webp'
 import cashbackFloatImg from '@/assets/home/promos/cashback-float.webp'
+import yellowExpandUpImg from '@/assets/home/promos/yellow-expand-up.webp'
+import yellowCollapseDownImg from '@/assets/home/promos/yellow-collapse-down.webp'
 import { shortProviderName } from '@/utils/providers'
 
 type GameChip = string
@@ -90,8 +92,8 @@ function HomePromoFloat({ rewardsLabel, cashbackLabel, onOpenRewardsSpin, onOpen
 
   const clampPosition = useCallback((left: number, top: number) => {
     const el = widgetRef.current
-    const width = el?.offsetWidth ?? 92
-    const height = el?.offsetHeight ?? (expanded ? 224 : 108)
+    const width = el?.offsetWidth ?? 112
+    const height = el?.offsetHeight ?? (expanded ? 270 : 126)
     const viewportWidth = window.innerWidth
     const viewportHeight = window.innerHeight
     const frameWidth = Math.min(viewportWidth, 430)
@@ -109,7 +111,7 @@ function HomePromoFloat({ rewardsLabel, cashbackLabel, onOpenRewardsSpin, onOpen
   useEffect(() => {
     const placeDefault = () => {
       const el = widgetRef.current
-      const height = el?.offsetHeight ?? (expanded ? 224 : 108)
+      const height = el?.offsetHeight ?? (expanded ? 270 : 126)
       setPosition((current) => {
         const next = current ?? { left: 8, top: window.innerHeight - height - 96 }
         return clampPosition(next.left, next.top)
@@ -128,7 +130,7 @@ function HomePromoFloat({ rewardsLabel, cashbackLabel, onOpenRewardsSpin, onOpen
 
   function onPointerDown(event: PointerEvent<HTMLDivElement>) {
     if ((event.target as HTMLElement).closest('[data-float-toggle]')) return
-    const current = position ?? clampPosition(8, window.innerHeight - (widgetRef.current?.offsetHeight ?? (expanded ? 224 : 108)) - 96)
+    const current = position ?? clampPosition(8, window.innerHeight - (widgetRef.current?.offsetHeight ?? (expanded ? 270 : 126)) - 96)
     dragRef.current = {
       pointerId: event.pointerId,
       startX: event.clientX,
@@ -184,37 +186,37 @@ function HomePromoFloat({ rewardsLabel, cashbackLabel, onOpenRewardsSpin, onOpen
       <button
         type="button"
         data-float-toggle
-        className="absolute left-1/2 top-0 flex h-7 w-7 -translate-x-1/2 items-center justify-center rounded-full border border-yellow-200/60 bg-gradient-to-br from-yellow-200 via-primary to-amber-500 text-amber-950 shadow-[0_4px_14px_rgba(255,184,0,0.48)] ring-2 ring-black/35 active:scale-95"
+        className="absolute left-1/2 top-0 h-9 w-9 -translate-x-1/2 active:scale-95"
         onClick={() => setExpanded((current) => !current)}
         aria-label={expanded ? 'Collapse' : 'Expand'}
       >
-        {expanded ? <ChevronDown size={18} strokeWidth={3} /> : <ChevronUp size={18} strokeWidth={3} />}
+        <img src={expanded ? yellowCollapseDownImg : yellowExpandUpImg} alt="" className="h-full w-full object-contain drop-shadow-[0_4px_12px_rgba(255,184,0,0.55)]" />
       </button>
       {expanded ? (
         visiblePromos.map((promo) => (
           <button
             key={promo.key}
             type="button"
-            className="flex w-[82px] flex-col items-center gap-0.5 active:scale-95"
+            className="flex w-[106px] flex-col items-center gap-0.5 active:scale-95"
             onClick={() => runAction(promo.action)}
             aria-label={promo.ariaLabel}
           >
-            <img src={promo.image} alt="" className={`${promo.imageClass} h-[72px] w-[72px] object-contain drop-shadow-[0_8px_18px_rgba(0,0,0,0.38)]`} />
+            <img src={promo.image} alt="" className={`${promo.imageClass} h-[94px] w-[94px] object-contain drop-shadow-[0_8px_18px_rgba(0,0,0,0.38)]`} />
             <span className="text-[11px] font-black leading-none text-white drop-shadow-[0_1px_4px_rgba(0,0,0,0.8)]">{promo.label}</span>
           </button>
         ))
       ) : (
-        <div className="w-[82px] overflow-hidden">
-          <div className="flex transition-transform duration-700 ease-[cubic-bezier(0.22,1,0.36,1)]" style={{ transform: `translateX(-${activePromo * 82}px)` }}>
+        <div className="w-[106px] overflow-hidden">
+          <div className="flex transition-transform duration-[1400ms] ease-[cubic-bezier(0.22,1,0.36,1)]" style={{ transform: `translateX(-${activePromo * 106}px)` }}>
             {promos.map((promo) => (
               <button
                 key={promo.key}
                 type="button"
-                className="flex h-[78px] w-[82px] flex-shrink-0 items-center justify-center active:scale-95"
+                className="flex h-[100px] w-[106px] flex-shrink-0 items-center justify-center active:scale-95"
                 onClick={() => runAction(promo.action)}
                 aria-label={promo.ariaLabel}
               >
-                <img src={promo.image} alt="" className={`${promo.imageClass} h-[76px] w-[76px] object-contain drop-shadow-[0_8px_18px_rgba(0,0,0,0.38)]`} />
+                <img src={promo.image} alt="" className={`${promo.imageClass} h-[99px] w-[99px] object-contain drop-shadow-[0_8px_18px_rgba(0,0,0,0.38)]`} />
               </button>
             ))}
           </div>
