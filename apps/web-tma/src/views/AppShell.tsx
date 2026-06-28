@@ -1,6 +1,6 @@
 import { lazy, Suspense, useState, useEffect, useRef, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ChevronDown, ChevronLeft, Wallet, Gift, Home, Menu, Dices, Check, Search, Headset, Network } from 'lucide-react'
+import { ChevronDown, ChevronLeft, Wallet, Gift, Home, Menu, Dices, Check, Search, Headset } from 'lucide-react'
 import BetogoLogo from '@/components/BetogoLogo'
 import { NAV_ITEMS } from '@/data/home'
 import { useAuthStore } from '@/stores/auth'
@@ -14,6 +14,7 @@ import {
 } from '@/stores/wallet'
 import { isImmersiveFullPage } from '@/hooks/useFullPageOverlay'
 import { useAppNavigation } from '@/hooks/useAppNavigation'
+import threeCirclesMenu from '@/assets/team/3-circles/menu-entry.webp'
 
 const WalletModal = lazy(() => import('@/components/wallet/WalletModal'))
 const SearchOverlay = lazy(() => import('@/components/search/SearchOverlay'))
@@ -35,7 +36,7 @@ const GamePlayer = lazy(() => import('@/components/GamePlayer'))
 type NavId = (typeof NAV_ITEMS)[number]['id']
 
 function navIcon(id: string) {
-  switch (id) { case 'team': return Network; case 'bingo': return Dices; case 'bonuses': return Gift; case 'casino': return Home; default: return Menu }
+  switch (id) { case 'bingo': return Dices; case 'bonuses': return Gift; case 'casino': return Home; default: return Menu }
 }
 
 export default function AppShell() {
@@ -272,6 +273,7 @@ export default function AppShell() {
 
   return (
     <div className="flex w-full justify-center bg-background">
+      <style>{`@keyframes team-menu-pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.1)}}`}</style>
       <div className="app-frame w-full max-w-[430px] bg-background">
         {!isImmersive && (
         <header ref={headerRef} className="app-fixed-top bg-background" style={walletOpen ? { zIndex: 50 } : undefined}>
@@ -438,13 +440,24 @@ export default function AppShell() {
             const Icon = navIcon(item.id)
             const itemActive = item.id === 'team' ? view.type === 'teamCenter' : activeNav === item.id
             return (
-              <button key={item.id} type="button" className={`relative flex flex-col items-center gap-0.5 rounded-xl px-3 py-0.5 transition-colors ${itemActive ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`} onClick={() => setNav(item.id)}>
-                {itemActive && <span className="absolute -top-1 left-1/2 h-0.5 w-7 -translate-x-1/2 rounded-full bg-primary" />}
-                <div className={itemActive ? 'rounded-xl bg-primary/10 p-1' : 'p-1'}><Icon size={20} /></div>
-                {'badge' in item && item.badge && (
-                  <span className="absolute right-1 top-0 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-accent px-1 text-[9px] font-black text-white">{item.badge}</span>
+              <button key={item.id} type="button" className={`relative flex flex-col items-center gap-0.5 rounded-xl px-3 py-0.5 transition-colors ${itemActive ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`} onClick={() => setNav(item.id)} aria-label={item.label}>
+                {item.id === 'team' ? (
+                  <img
+                    src={threeCirclesMenu}
+                    alt=""
+                    className="h-14 w-14 object-contain"
+                    style={{ animation: 'team-menu-pulse 1.35s ease-in-out infinite' }}
+                  />
+                ) : (
+                  <>
+                    {itemActive && <span className="absolute -top-1 left-1/2 h-0.5 w-7 -translate-x-1/2 rounded-full bg-primary" />}
+                    <div className={itemActive ? 'rounded-xl bg-primary/10 p-1' : 'p-1'}><Icon size={20} /></div>
+                    {'badge' in item && item.badge && (
+                      <span className="absolute right-1 top-0 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-accent px-1 text-[9px] font-black text-white">{item.badge}</span>
+                    )}
+                    <span className="text-[10px] font-bold leading-none">{item.label}</span>
+                  </>
                 )}
-                <span className="text-[10px] font-bold leading-none">{item.label}</span>
               </button>
             )
           })}
