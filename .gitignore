@@ -29,6 +29,7 @@ Thumbs.db
 logs/
 *.log
 tmp/
+artifacts/
 
 # Docker volumes (local)
 infra/docker/data/
