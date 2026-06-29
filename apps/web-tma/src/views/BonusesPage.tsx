@@ -1,9 +1,10 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Trophy, ChevronDown, Users, Wallet } from 'lucide-react'
-import { BONUS_WINNERS, PROMOS, PROMO_STATS } from '@/data/promos'
+import { BONUS_WINNERS, PROMOS } from '@/data/promos'
 import { usePromotionStore, getHighlightMap } from '@/stores/promotion'
 import { useAuthStore } from '@/stores/auth'
+import bonusesHero from '@/assets/home/promos/bonuses-hero.webp'
 
 interface Props {
   promoFilter?: string | null
@@ -117,15 +118,6 @@ export default function BonusesPage({ promoFilter, onOpenWallet, onOpenTeam }: P
     [t, promoConfig],
   )
 
-  const localizedStats = useMemo(
-    () =>
-      PROMO_STATS.map((s, i) => {
-        const keys = ['distributed', 'active', 'winnersToday'] as const
-        return { ...s, label: t(`bonuses.stats.${keys[i]}`) }
-      }),
-    [t],
-  )
-
   const agentSteps = useMemo(
     () => [t('bonuses.promos.agent.step1'), t('bonuses.promos.agent.step2'), t('bonuses.promos.agent.step3')],
     [t],
@@ -133,28 +125,8 @@ export default function BonusesPage({ promoFilter, onOpenWallet, onOpenTeam }: P
 
   return (
     <div className="page-main">
-      <div
-        className="relative px-4 pt-3 pb-5 overflow-hidden"
-        style={{ background: 'linear-gradient(160deg, #1a0060 0%, #080b14 60%)' }}
-      >
-        <p className="text-muted-foreground text-[11px] uppercase tracking-widest font-bold mb-1">
-          {t('bonuses.exclusive')}
-        </p>
-        <h1 className="text-white font-black leading-tight mb-1 font-display text-[1.8rem]">
-          {t('bonuses.titleLine1')}
-          <br />
-          <span className="text-primary">{t('bonuses.titleLine2')}</span>
-        </h1>
-        <p className="text-white/50 text-xs max-w-[220px] leading-relaxed">{t('bonuses.heroSub')}</p>
-        <div className="flex gap-3 mt-4">
-          {localizedStats.map((s) => (
-            <div key={s.label} className="flex-1 bg-white/5 rounded-xl px-2.5 py-2 text-center border border-white/8">
-              <p className="text-base leading-none mb-0.5">{s.icon}</p>
-              <p className="text-primary font-black text-sm leading-none">{s.value}</p>
-              <p className="text-white/40 text-[9px] mt-0.5 leading-tight">{s.label}</p>
-            </div>
-          ))}
-        </div>
+      <div className="relative overflow-hidden bg-[#080b14]">
+        <img src={bonusesHero} alt="" className="block w-full h-auto" />
       </div>
 
       <div className="mx-4 mt-3 bg-secondary rounded-xl px-3 py-2 flex items-center gap-2 overflow-hidden">
