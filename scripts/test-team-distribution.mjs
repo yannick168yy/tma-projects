@@ -11,21 +11,20 @@
  *   ├── L1_1  PHP+USDT+USDC  bet=(500,10,5)  win=(100,2,1)
  *   │   ├── L2_1  PHP+USDT+USDC  bet=(200,1,3)   win=(0,10,0)   → PHP正+USDT负(流水仍正)
  *   │   │   ├── L3_1  PHP+USDT+USDC  bet=(150,4,5)  win=(0,1,1)
- *   │   │   └── L3_2  PHP+USDT+USDC  bet=(100,3,2)  win=(400,0,0) → PHP负GGR，流水正
+ *   │   │   └── L3_2  PHP+USDT+USDC  bet=(100,3,2)  win=(400,0,0) → PHP派彩高于投注，流水正
  *   │   └── L2_2  PHP+USDT+USDC  bet=(50,20,8)  win=(0,8,0)
  *   │       ├── L3_3  PHP+USDT+USDC  bet=(100,6,4)  win=(0,1,1)
- *   │       └── L3_4  PHP+USDT+USDC  bet=(100,5,3)  win=(300,0,0) → PHP负GGR，流水正
- *   └── L1_2  PHP+USDT+USDC  bet=(200,5,3)  win=(400,0,0) → PHP负GGR，流水正
+ *   │       └── L3_4  PHP+USDT+USDC  bet=(100,5,3)  win=(300,0,0) → PHP派彩高于投注，流水正
+ *   └── L1_2  PHP+USDT+USDC  bet=(200,5,3)  win=(400,0,0) → PHP派彩高于投注，流水正
  *       ├── L2_3  PHP+USDT+USDC  bet=(350,8,4)  win=(0,0,0)
  *       │   ├── L3_5  PHP+USDT+USDC  bet=(280,6,4)  win=(0,0,0)
  *       │   └── L3_6  PHP+USDT+USDC  bet=(50,5,7)   win=(0,1,1)
  *       └── L2_4  PHP+USDT+USDC  bet=(500,10,5) win=(0,0,0)  (未激活，不产生佣金)
  *
- * 负 GGR 验证点（回撤模型）：
- *   - 负 GGR → 产生负佣金（真实回撤，会减少上线余额）
- *   - bg_team_ggr_monthly.effective_ggr_cents = 0 仅用于月报归零展示，不影响结算
- *   - 多币种中某一币种为负 → 该币种产生负佣金，其他币种正常为正
- *   - 未激活用户无论 GGR 正负均不产生上线佣金
+ * 验证点：
+ *   - 结算只按投注流水计算佣金，不按派彩回撤
+ *   - 多币种通过汇率折算 PHP，出单条 PHP 佣金
+ *   - 未激活用户不产生上线佣金
  *
  * 运行方式（在 tma-bff-node 容器内）：
  *   node scripts/test-team-distribution.mjs
@@ -258,13 +257,13 @@ async function main() {
     await insertBetOrders(db, l1_1.id, 500, 100, 'PHP')
     await insertBetOrders(db, l1_1.id, 10,  2,   'USDT')
     await insertBetOrders(db, l1_1.id, 5,   1,   'USDC')
-    await insertBetOrders(db, l1_2.id, 200, 400, 'PHP')    // PHP负GGR，流水仍产生正佣金
+    await insertBetOrders(db, l1_2.id, 200, 400, 'PHP')    // PHP派彩高于投注，流水仍产生正佣金
     await insertBetOrders(db, l1_2.id, 5,   0,   'USDT')
     await insertBetOrders(db, l1_2.id, 3,   0,   'USDC')
 
     // L2 — 全员三币种
     await insertBetOrders(db, l2_1.id, 200, 0,   'PHP')
-    await insertBetOrders(db, l2_1.id, 1,   10,  'USDT')   // USDT GGR 负，流水仍为正
+    await insertBetOrders(db, l2_1.id, 1,   10,  'USDT')   // USDT派彩高于投注，流水仍为正
     await insertBetOrders(db, l2_1.id, 3,   0,   'USDC')
     await insertBetOrders(db, l2_2.id, 50,  0,   'PHP')
     await insertBetOrders(db, l2_2.id, 20,  8,   'USDT')
@@ -280,13 +279,13 @@ async function main() {
     await insertBetOrders(db, l3_1.id, 150, 0,   'PHP')
     await insertBetOrders(db, l3_1.id, 4,   1,   'USDT')
     await insertBetOrders(db, l3_1.id, 5,   1,   'USDC')
-    await insertBetOrders(db, l3_2.id, 100, 400, 'PHP')    // PHP负GGR，流水正
+    await insertBetOrders(db, l3_2.id, 100, 400, 'PHP')    // PHP派彩高于投注，流水正
     await insertBetOrders(db, l3_2.id, 3,   0,   'USDT')
     await insertBetOrders(db, l3_2.id, 2,   0,   'USDC')
     await insertBetOrders(db, l3_3.id, 100, 0,   'PHP')
     await insertBetOrders(db, l3_3.id, 6,   1,   'USDT')
     await insertBetOrders(db, l3_3.id, 4,   1,   'USDC')
-    await insertBetOrders(db, l3_4.id, 100, 300, 'PHP')    // PHP负GGR，流水正
+    await insertBetOrders(db, l3_4.id, 100, 300, 'PHP')    // PHP派彩高于投注，流水正
     await insertBetOrders(db, l3_4.id, 5,   0,   'USDT')
     await insertBetOrders(db, l3_4.id, 3,   0,   'USDC')
     await insertBetOrders(db, l3_5.id, 280, 0,   'PHP')
@@ -351,7 +350,7 @@ async function main() {
     })
 
     // ── 系统为流水制（turnover-based）说明 ─────────────────────────
-    // 1. 只统计 bet_type='bet' 的投注额，不减 win，不存在负佣金
+    // 1. 只统计 bet_type='bet' 的投注额，不减 win
     // 2. 多币种通过汇率折算为 PHP，全部以 PHP 出佣金
     // 3. 每个 from_user 对其上线最多产生 3 条佣金（L1/L2/L3 各一条），不按币种拆分
     // 4. bg_team_ggr_monthly 不由 daily settle 写入
@@ -360,18 +359,18 @@ async function main() {
     const fromL2_4 = commissions.filter(c => c.from_user_id === l2_4.id)
     ok(`l2_4(未激活) 不产生佣金`, fromL2_4.length === 0, fromL2_4.length)
 
-    // ── 负 GGR 用户（PHP win>bet）依然产生正佣金（流水制只看投注额）──
+    // ── 派彩高于投注的用户依然产生正佣金（流水制只看投注额）──
     const fromL1_2 = commissions.filter(c => c.from_user_id === l1_2.id)
-    ok(`l1_2(PHP负GGR+三币种) 产生 1 条佣金(L1→root)`, fromL1_2.length === 1, fromL1_2.length)
+    ok(`l1_2(PHP派彩高于投注+三币种) 产生 1 条佣金(L1→root)`, fromL1_2.length === 1, fromL1_2.length)
     ok(`l1_2 commission_cents 为正（流水制）`, Number(fromL1_2[0]?.commission_cents) > 0, fromL1_2[0]?.commission_cents)
     ok(`l1_2 currency=PHP`, fromL1_2[0]?.currency === 'PHP')
 
     const fromL3_2 = commissions.filter(c => c.from_user_id === l3_2.id)
-    ok(`l3_2(PHP负GGR+三币种) 产生 3 条佣金`, fromL3_2.length === 3, fromL3_2.length)
+    ok(`l3_2(PHP派彩高于投注+三币种) 产生 3 条佣金`, fromL3_2.length === 3, fromL3_2.length)
     ok(`l3_2 全部 commission_cents 为正`, fromL3_2.every(c => Number(c.commission_cents) > 0))
 
     const fromL3_4 = commissions.filter(c => c.from_user_id === l3_4.id)
-    ok(`l3_4(PHP负GGR+三币种) 产生 3 条佣金`, fromL3_4.length === 3, fromL3_4.length)
+    ok(`l3_4(PHP派彩高于投注+三币种) 产生 3 条佣金`, fromL3_4.length === 3, fromL3_4.length)
     ok(`l3_4 全部 commission_cents 为正`, fromL3_4.every(c => Number(c.commission_cents) > 0))
 
     // ── 正常投注验证 ──────────────────────────────────────────────
