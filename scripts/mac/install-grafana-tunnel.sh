@@ -8,7 +8,7 @@ PLIST_SRC="${ROOT}/scripts/mac/com.betogo.grafana-tunnel.plist"
 AGENTS_DIR="${HOME}/Library/LaunchAgents"
 PLIST_DST="${AGENTS_DIR}/${LABEL}.plist"
 LOG_DIR="${HOME}/Library/Logs/betogo"
-SSH_KEY="${SSH_IDENTITY_FILE:-${HOME}/Downloads/yannick.pem}"
+SSH_KEY="${SSH_IDENTITY_FILE:-/Users/yannicky/TMA_FILES/aliyun.pem}"
 SSH_HOST="${DEPLOY_HOST:-root@47.84.34.139}"
 
 if [[ ! -f "$SSH_KEY" ]]; then

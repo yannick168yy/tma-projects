@@ -6,14 +6,14 @@
 ## 部署
 - 每次代码改完必须**自动 commit + 部署**到阿里云测试环境（无需用户再提醒）；**`git push` 等用户通知后再执行**
 - 服务器 IP：`47.84.34.139`
-- SSH 密钥：`~/Downloads/yannick.pem`
+- SSH 密钥：`/Users/yannicky/TMA_FILES/aliyun.pem`
 - 项目路径：`/root/workspace/tma-projects`
 
 ### 默认使用：Fast 部署，约 20-40 秒（纯代码改动，无新 npm 依赖）
 ```bash
 DEPLOY_HOST=root@47.84.34.139 \
 DEPLOY_DIR=/root/workspace/tma-projects \
-SSH_IDENTITY_FILE=~/Downloads/yannick.pem \
+SSH_IDENTITY_FILE=/Users/yannicky/TMA_FILES/aliyun.pem \
 SSH_OPTS="-o StrictHostKeyChecking=no" \
 bash deploy/single-node/deploy-fast.sh <目标>
 # 目标：web-tma | bff-node | core-node | all
@@ -23,7 +23,7 @@ bash deploy/single-node/deploy-fast.sh <目标>
 ```bash
 DEPLOY_HOST=root@47.84.34.139 \
 DEPLOY_DIR=/root/workspace/tma-projects \
-SSH_IDENTITY_FILE=~/Downloads/yannick.pem \
+SSH_IDENTITY_FILE=/Users/yannicky/TMA_FILES/aliyun.pem \
 SSH_OPTS="-o StrictHostKeyChecking=no" \
 bash deploy/single-node/deploy-web-tma.sh
 ```

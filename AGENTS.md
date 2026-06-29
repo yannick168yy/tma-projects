@@ -27,7 +27,7 @@
 ## 阿里云部署
 
 - 服务器 IP：`47.84.34.139`
-- SSH 密钥：`~/Downloads/yannick.pem`
+- SSH 密钥：`/Users/yannicky/TMA_FILES/aliyun.pem`
 - 项目路径：`/root/workspace/tma-projects`
 
 ### 默认：Fast 部署
@@ -37,7 +37,7 @@
 ```bash
 DEPLOY_HOST=root@47.84.34.139 \
 DEPLOY_DIR=/root/workspace/tma-projects \
-SSH_IDENTITY_FILE=~/Downloads/yannick.pem \
+SSH_IDENTITY_FILE=/Users/yannicky/TMA_FILES/aliyun.pem \
 SSH_OPTS="-o StrictHostKeyChecking=no" \
 bash deploy/single-node/deploy-fast.sh <target>
 ```
@@ -57,7 +57,7 @@ bash deploy/single-node/deploy-fast.sh <target>
 ```bash
 DEPLOY_HOST=root@47.84.34.139 \
 DEPLOY_DIR=/root/workspace/tma-projects \
-SSH_IDENTITY_FILE=~/Downloads/yannick.pem \
+SSH_IDENTITY_FILE=/Users/yannicky/TMA_FILES/aliyun.pem \
 SSH_OPTS="-o StrictHostKeyChecking=no" \
 bash deploy/single-node/deploy-web-tma.sh
 ```

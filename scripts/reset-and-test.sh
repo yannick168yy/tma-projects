@@ -9,7 +9,7 @@
 set -euo pipefail
 
 HOST=root@47.84.34.139
-KEY=~/Downloads/yannick.pem
+KEY=/Users/yannicky/TMA_FILES/aliyun.pem
 SSH="ssh -i $KEY -o StrictHostKeyChecking=no -o ServerAliveInterval=10 -o ServerAliveCountMax=12"
 WORK_DIR=/root/workspace/tma-projects
 
