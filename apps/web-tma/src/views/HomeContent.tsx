@@ -91,8 +91,8 @@ function HomePromoFloat({ rewardsLabel, cashbackLabel, onOpenRewardsSpin, onOpen
   const [closed, setClosed] = useState(homePromoFloatClosedUntilReload)
   const [position, setPosition] = useState<{ left: number; top: number } | null>(null)
   const promos = [
-    { key: 'rewards', label: 'rewards', ariaLabel: rewardsLabel, image: rewardsSpinFloatImg, imageClass: 'home-rewards-spin-float', action: onOpenRewardsSpin },
     { key: 'cashback', label: 'cashback', ariaLabel: cashbackLabel, image: cashbackFloatImg, imageClass: 'home-cashback-swing-float', action: onOpenCashback },
+    { key: 'rewards', label: 'rewards', ariaLabel: rewardsLabel, image: rewardsSpinFloatImg, imageClass: 'home-rewards-spin-float', action: onOpenRewardsSpin },
   ]
 
   const clampPosition = useCallback((left: number, top: number) => {
