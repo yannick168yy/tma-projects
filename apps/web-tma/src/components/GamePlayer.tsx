@@ -41,7 +41,7 @@ export default function GamePlayer({ url, onClose }: Props) {
     <div className="fixed inset-0 z-[100] flex flex-col bg-black">
       {!isTMA && (
         <div
-          className="absolute z-10 transition-all duration-300"
+          className="absolute z-20 transition-all duration-300"
           style={{ top: 'max(env(safe-area-inset-top, 0px) + 10px, 18px)', left: '12px' }}
         >
           {!expanded ? (
