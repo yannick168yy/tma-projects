@@ -85,7 +85,7 @@ export default function BingoPage({ onOpenWallet, onGameTap, onOpenGame, onOpenC
         </div>
       </PeryaCarnivalHero>
 
-      <div className="mx-4 mt-4 rounded-2xl px-4 py-3 flex items-center gap-3" style={{ background: 'linear-gradient(90deg, #2d1800, #1a0d40)', border: '1px solid rgba(255, 184, 0, 0.25)', boxShadow: '0 4px 20px rgba(255, 184, 0, 0.12)' }}>
+      <div className="mx-4 rounded-2xl px-4 py-3 flex items-center gap-3" style={{ background: 'linear-gradient(90deg, #2d1800, #1a0d40)', border: '1px solid rgba(255, 184, 0, 0.25)', boxShadow: '0 4px 20px rgba(255, 184, 0, 0.12)' }}>
         <span className="text-2xl">🏆</span>
         <div className="flex-1"><p className="text-primary text-[10px] font-black uppercase tracking-widest leading-none">Today's Jackpot</p><p className="text-white font-black text-xl leading-tight font-display">₱ 1,200,000</p></div>
         <button type="button" className="bg-primary text-primary-foreground font-black text-xs px-4 py-2 rounded-xl shadow shadow-amber-500/25 flex-shrink-0" onClick={onOpenWallet}>JOIN NOW</button>
