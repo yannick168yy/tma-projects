@@ -129,28 +129,27 @@ export default function BonusesPage({ promoFilter, onOpenWallet, onOpenTeam }: P
     <div className="page-main">
       <div className="relative overflow-hidden bg-[#080b14]">
         <img src={bonusesHero} alt="" className="block w-full h-auto" />
-      </div>
-
-      <div className="mx-4 mt-3 bg-secondary rounded-xl px-3 py-2 flex items-center gap-2 overflow-hidden">
-        <div className="flex-shrink-0 flex items-center gap-1 text-primary">
-          <Trophy size={12} />
-          <span className="text-[10px] font-black uppercase whitespace-nowrap">{t('bonuses.recentClaims')}</span>
-        </div>
-        <div className="w-px h-3 bg-border flex-shrink-0" />
-        <div className="overflow-hidden flex-1">
-          <div className="flex w-max animate-marquee whitespace-nowrap" style={{ animationDuration: '92s' }}>
-            {[0, 1].map((group) => (
-              <div key={group} className="flex flex-shrink-0 gap-5 pr-5">
-                {bonusWinners.map((w, i) => (
-                  <span key={`${group}-${i}`} className="text-[11px] flex-shrink-0">
-                    <span className="text-primary font-bold">{w.name}</span>
-                    <span className="text-white/50"> {t('common.claimed')} </span>
-                    <span className="text-emerald-400 font-bold">{w.amount}</span>
-                    <span className="text-white/30"> · {w.promo}</span>
-                  </span>
-                ))}
-              </div>
-            ))}
+        <div className="absolute inset-x-4 bottom-[8%] z-10 bg-secondary/95 rounded-xl px-3 py-2 flex items-center gap-2 overflow-hidden shadow-[0_8px_24px_rgba(0,0,0,0.35)]">
+          <div className="flex-shrink-0 flex items-center gap-1 text-primary">
+            <Trophy size={12} />
+            <span className="text-[10px] font-black uppercase whitespace-nowrap">{t('bonuses.recentClaims')}</span>
+          </div>
+          <div className="w-px h-3 bg-border flex-shrink-0" />
+          <div className="overflow-hidden flex-1">
+            <div className="flex w-max animate-marquee whitespace-nowrap" style={{ animationDuration: '92s' }}>
+              {[0, 1].map((group) => (
+                <div key={group} className="flex flex-shrink-0 gap-5 pr-5">
+                  {bonusWinners.map((w, i) => (
+                    <span key={`${group}-${i}`} className="text-[11px] flex-shrink-0">
+                      <span className="text-primary font-bold">{w.name}</span>
+                      <span className="text-white/50"> {t('common.claimed')} </span>
+                      <span className="text-emerald-400 font-bold">{w.amount}</span>
+                      <span className="text-white/30"> · {w.promo}</span>
+                    </span>
+                  ))}
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </div>
