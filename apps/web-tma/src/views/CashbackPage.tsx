@@ -8,7 +8,7 @@ import { useLocaleStore } from '@/stores/locale'
 import { localizedGameName } from '@/utils/game'
 import { ApiError } from '@/api/client'
 import { analytics } from '@/utils/analytics'
-import cashbackHero from '@/assets/home/promos/cashback-hero-3.webp'
+import cashbackHero from '@/assets/home/promos/cashback-hero-2.webp'
 
 type DateTab = 'today' | 'yesterday'
 
@@ -158,9 +158,8 @@ export default function CashbackPage({ onOpenGame, onOpenCategory }: Props) {
         draggable={false}
       />
 
-      <div className="mx-4 mt-4 rounded-[1.4rem] border border-amber-300/35 bg-gradient-to-b from-[#100c05]/82 via-[#070503]/94 to-[#030302]/96 p-3 shadow-[0_0_28px_rgba(180,118,28,0.16)]">
       {/* 今日 / 昨日 分段控件 —— 紧凑 + 金色质感选中 */}
-      <div>
+      <div className="mx-4 mt-4">
         <div className="flex rounded-2xl p-1 gap-1 bg-gradient-to-b from-[#181006]/90 to-[#070503]/90 border border-amber-300/20 backdrop-blur-sm shadow-inner shadow-black/60">
           {(['today', 'yesterday'] as DateTab[]).map((tab) => (
             <button
@@ -180,7 +179,7 @@ export default function CashbackPage({ onOpenGame, onOpenCategory }: Props) {
       </div>
 
       {/* Total Bonus —— 紧凑横排，Claim 在右 */}
-      <div className="mt-3 relative overflow-hidden rounded-2xl border border-amber-300/35 bg-gradient-to-r from-[#0b0804]/90 via-[#171006]/80 to-[#2c1b05]/55 shadow-[0_0_24px_rgba(180,118,28,0.12)]">
+      <div className="mx-4 mt-3 relative overflow-hidden rounded-2xl border border-amber-300/35 bg-gradient-to-r from-[#0b0804]/90 via-[#171006]/80 to-[#2c1b05]/55 shadow-[0_0_24px_rgba(180,118,28,0.12)]">
         <div className="pointer-events-none absolute right-20 top-1/2 -translate-y-1/2 h-28 w-28 rounded-full bg-amber-300/20 blur-2xl" />
         <div className="relative flex items-center justify-between gap-3 px-4 py-3.5">
           <div className="min-w-0">
@@ -202,7 +201,7 @@ export default function CashbackPage({ onOpenGame, onOpenCategory }: Props) {
 
       {/* 投注明细（有数据时展示） */}
       {token && summary && summary.breakdown.length > 0 && (
-        <div className="mt-2 bg-[#0c0905]/70 rounded-2xl px-4 py-3 space-y-1.5 border border-amber-300/15">
+        <div className="mx-4 mt-2 bg-[#0c0905]/70 rounded-2xl px-4 py-3 space-y-1.5 border border-amber-300/15">
           {summary.breakdown.map((item) => (
             <div key={item.gameCategory} className="flex items-center justify-between text-xs">
               <span className="flex items-center gap-1.5 text-amber-50/70">
@@ -218,7 +217,7 @@ export default function CashbackPage({ onOpenGame, onOpenCategory }: Props) {
 
       {/* CASHBACK GAMES */}
       {tiers.length > 0 && (
-        <div className="mt-5">
+        <div className="mx-4 mt-5">
           <h3 className="font-black text-amber-100 text-base tracking-wide mb-3">{t('cashback.cashbackGames').toUpperCase()}</h3>
           <div className="space-y-3">
             {tiers.map(([tier, games]) => {
@@ -297,7 +296,7 @@ export default function CashbackPage({ onOpenGame, onOpenCategory }: Props) {
       {/* REBATE RATES：顶部引导 + 升级进度 + 分级费率卡片（可左右翻动，默认当前等级） */}
       {levelCards.length > 0 && (
         <div className="mt-5">
-          <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center justify-between mb-3 mx-4">
             <h3 className="font-black text-amber-100 text-base tracking-wide">{t('cashback.rateTable').toUpperCase()}</h3>
             {token && progress && (
               <span className="bg-gradient-to-r from-amber-300 to-yellow-500 text-[#1b1204] font-black text-xs rounded-full px-3 py-1">
@@ -308,7 +307,7 @@ export default function CashbackPage({ onOpenGame, onOpenCategory }: Props) {
 
           {/* 冲刺最高级 banner */}
           {topBest && (
-            <div className="mb-3 flex items-center gap-2.5 rounded-xl border border-amber-300/35 bg-gradient-to-r from-[#2b1a05]/75 via-[#151006]/80 to-[#070504]/85 px-3.5 py-2.5">
+            <div className="mx-4 mb-3 flex items-center gap-2.5 rounded-xl border border-amber-300/35 bg-gradient-to-r from-[#2b1a05]/75 via-[#151006]/80 to-[#070504]/85 px-3.5 py-2.5">
               <span className="text-xl leading-none">👑</span>
               <p className="text-[12px] font-bold text-amber-100 leading-snug">
                 {t('cashback.topTierBanner', {
@@ -322,7 +321,7 @@ export default function CashbackPage({ onOpenGame, onOpenCategory }: Props) {
 
           {/* total turnover：标签 + 数值 + 升级进度条 */}
           {token && progress && (
-            <div className="mb-3 bg-[#0c0905]/75 rounded-2xl border border-amber-300/20 px-4 py-3">
+            <div className="mx-4 mb-3 bg-[#0c0905]/75 rounded-2xl border border-amber-300/20 px-4 py-3">
               <p className="text-amber-100/60 text-[11px]">{t('cashback.totalTurnover')}</p>
               <p className="text-amber-50 font-black text-2xl font-display mt-0.5">{amtStr(currency, progress.totalTurnover)}</p>
               <div className="h-2 rounded-full bg-black/30 overflow-hidden mt-2">
@@ -342,7 +341,7 @@ export default function CashbackPage({ onOpenGame, onOpenCategory }: Props) {
           {/* 分级费率卡片横向轮播 */}
           <div
             ref={scrollRef}
-            className="flex gap-3 overflow-x-auto snap-x snap-mandatory pb-2 hide-scrollbar"
+            className="flex gap-3 overflow-x-auto snap-x snap-mandatory px-4 pb-2 hide-scrollbar"
           >
             {levelCards.map((lc) => {
               const isCurrent = token && lc.level === userLevel
@@ -428,12 +427,11 @@ export default function CashbackPage({ onOpenGame, onOpenCategory }: Props) {
               )
             })}
           </div>
-          <p className="text-[10px] text-amber-100/35 mt-1 px-1 text-center">
+          <p className="text-[10px] text-amber-100/35 mt-1 px-4 text-center">
             {t('cashback.creditedTomorrow')} · {t('cashback.unsettledNotCounted')}
           </p>
         </div>
       )}
-      </div>
     </div>
   )
 }
