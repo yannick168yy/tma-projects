@@ -160,13 +160,13 @@ export default function CashbackPage({ onOpenGame, onOpenCategory }: Props) {
 
       {/* 今日 / 昨日 分段控件 —— 紧凑 + 金色质感选中 */}
       <div className="mx-4 mt-4">
-        <div className="inline-flex rounded-2xl p-1 gap-1 bg-gradient-to-b from-[#181006]/90 to-[#070503]/90 border border-amber-300/20 backdrop-blur-sm shadow-inner shadow-black/60">
+        <div className="flex rounded-2xl p-1 gap-1 bg-gradient-to-b from-[#181006]/90 to-[#070503]/90 border border-amber-300/20 backdrop-blur-sm shadow-inner shadow-black/60">
           {(['today', 'yesterday'] as DateTab[]).map((tab) => (
             <button
               key={tab}
               type="button"
               onClick={() => setActiveTab(tab)}
-              className={`w-[104px] py-2 rounded-xl text-sm font-bold transition-all ${
+              className={`flex-1 py-1.5 rounded-xl text-sm font-bold transition-all ${
                 activeTab === tab
                   ? 'bg-gradient-to-b from-amber-200 via-amber-400 to-yellow-600 text-[#2a1a05] shadow-[0_2px_10px_rgba(245,158,11,0.4)]'
                   : 'bg-gradient-to-b from-white/[0.06] to-amber-950/[0.10] text-amber-100/45'
