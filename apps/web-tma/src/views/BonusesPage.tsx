@@ -5,7 +5,7 @@ import { BONUS_WINNERS, PROMOS } from '@/data/promos'
 import { usePromotionStore, getHighlightMap } from '@/stores/promotion'
 import { useAuthStore } from '@/stores/auth'
 import { analytics } from '@/utils/analytics'
-import bonusesHero from '@/assets/home/promos/bonuses-hero.webp'
+import bonusesHero from '@/assets/home/promos/hero-3.webp'
 
 interface Props {
   promoFilter?: string | null
@@ -129,7 +129,7 @@ export default function BonusesPage({ promoFilter, onOpenWallet, onOpenTeam }: P
     <div className="page-main">
       <div className="relative overflow-hidden bg-[#080b14]">
         <img src={bonusesHero} alt="" className="block w-full h-auto" />
-        <div className="absolute inset-x-4 bottom-[8%] z-10 bg-secondary/95 rounded-xl px-3 py-2 flex items-center gap-2 overflow-hidden shadow-[0_8px_24px_rgba(0,0,0,0.35)]">
+        <div className="absolute inset-x-4 bottom-[5.5%] z-10 bg-secondary/95 rounded-xl px-3 py-2 flex items-center gap-2 overflow-hidden shadow-[0_8px_24px_rgba(0,0,0,0.35)]">
           <div className="flex-shrink-0 flex items-center gap-1 text-primary">
             <Trophy size={12} />
             <span className="text-[10px] font-black uppercase whitespace-nowrap">{t('bonuses.recentClaims')}</span>
