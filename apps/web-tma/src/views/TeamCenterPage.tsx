@@ -8,6 +8,7 @@ import { translateApiError } from '@/utils/translateApiError'
 import { buildInviteDeepLink, buildInviteWebLink } from '@/constants/telegram'
 import { useAuthStore } from '@/stores/auth'
 import { usePromotionStore } from '@/stores/promotion'
+import { analytics } from '@/utils/analytics'
 import threeCircleHero from '@/assets/team/3-circles/hero.webp'
 import circleStructureImage from '@/assets/team/3-circles/3-circle-structure.webp'
 import iconFacebook from '@/assets/team/3-circles/facebook.webp'
@@ -271,33 +272,40 @@ export default function TeamCenterPage() {
     }
     if (platform === 'copy') {
       void copyWebLink()
+      analytics.shareInvite(platform)
       return
     }
     const text = `Join my 3-Circle Rewards on BetoGo — use my code ${inviteCode}!`
     const message = `${text}\n${webShareLink}`
     if (platform === 'telegram') {
+      analytics.shareInvite(platform)
       openAppLink(`tg://msg_url?url=${encodeURIComponent(telegramLink)}&text=${encodeURIComponent(text)}`)
       return
     }
     if (platform === 'facebook') {
       const fallback = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(webShareLink)}`
+      analytics.shareInvite(platform)
       openAppLink(`fb-messenger://share?link=${encodeURIComponent(webShareLink)}`, fallback)
       return
     }
     if (platform === 'viber') {
+      analytics.shareInvite(platform)
       openAppLink(`viber://forward?text=${encodeURIComponent(message)}`)
       return
     }
     if (platform === 'whatsapp') {
+      analytics.shareInvite(platform)
       openAppLink(`whatsapp://send?text=${encodeURIComponent(message)}`, `https://wa.me/?text=${encodeURIComponent(message)}`)
       return
     }
     if (platform === 'x') {
       const fallback = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(webShareLink)}`
+      analytics.shareInvite(platform)
       openAppLink(`twitter://post?message=${encodeURIComponent(message)}`, fallback)
       return
     }
     if (platform === 'line') {
+      analytics.shareInvite(platform)
       openAppLink(`line://msg/text/${encodeURIComponent(message)}`, `https://social-plugins.line.me/lineit/share?url=${encodeURIComponent(webShareLink)}`)
     }
   }
@@ -310,7 +318,10 @@ export default function TeamCenterPage() {
     setEnabling(true)
     const res = await store.enableAgent()
     setEnabling(false)
-    if (res.ok) setActiveTab('circle')
+    if (res.ok) {
+      analytics.agentActivated()
+      setActiveTab('circle')
+    }
   }
 
   // ── 提现 ─────────────────────────────────────────────────────────────────────

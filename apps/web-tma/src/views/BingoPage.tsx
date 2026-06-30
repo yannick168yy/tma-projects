@@ -10,6 +10,7 @@ import { useWalletStore } from '@/stores/wallet'
 import { ApiError } from '@/api/client'
 import { useLocaleStore } from '@/stores/locale'
 import { localizedGameName } from '@/utils/game'
+import { analytics } from '@/utils/analytics'
 
 interface Props {
   onOpenWallet: () => void
@@ -51,7 +52,7 @@ export default function BingoPage({ onOpenWallet, onGameTap, onOpenGame, onOpenC
   async function onPlayGame(uuid: string) {
     if (!isLoggedIn) { onGameTap(); return }
     setLaunchingUuid(uuid)
-    try { const { url } = await launchGame(uuid, 'mobile', activeCurrency); onOpenGame(url) }
+    try { const { url } = await launchGame(uuid, 'mobile', activeCurrency); analytics.gameLaunch('real', uuid, activeCurrency, 'bingo'); onOpenGame(url) }
     catch (e) { alert(e instanceof ApiError ? e.message : 'Failed to launch game') }
     finally { setLaunchingUuid(null) }
   }

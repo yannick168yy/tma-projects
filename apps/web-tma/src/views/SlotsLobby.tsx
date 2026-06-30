@@ -7,6 +7,7 @@ import { shortProviderName } from '@/utils/providers'
 import { ApiError } from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
 import { useWalletStore } from '@/stores/wallet'
+import { analytics } from '@/utils/analytics'
 
 interface Props {
   sortCategory?: string
@@ -119,6 +120,7 @@ export default function SlotsLobby({
     setLaunchingUuid(uuid)
     try {
       const { url } = await launchGame(uuid, 'mobile', activeCurrency)
+      analytics.gameLaunch('real', uuid, activeCurrency, 'slots_lobby')
       onOpenGame(url)
     } catch (e) {
       alert(e instanceof ApiError ? e.message : 'Failed to launch game')
@@ -131,6 +133,7 @@ export default function SlotsLobby({
     setLaunchingUuid(uuid)
     try {
       const { url } = await launchDemo(uuid, 'mobile', activeCurrency)
+      analytics.gameLaunch('demo', uuid, activeCurrency, 'slots_lobby')
       onOpenGame(url)
     } catch (e) {
       alert(e instanceof ApiError ? e.message : 'Failed to launch demo')

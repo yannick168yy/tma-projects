@@ -9,11 +9,13 @@ import { preventDoubleTapZoom } from '@/utils/preventDoubleTapZoom'
 import { initTelegramWebApp } from '@/utils/initTelegramWebApp'
 import { captureReferralFromUrl } from '@/utils/referral'
 import { initTheme } from '@/stores/theme'
+import { initAnalytics } from '@/utils/analytics'
 
 preventDoubleTapZoom()
 captureReferralFromUrl()
 initTelegramWebApp()
 initTheme()
+initAnalytics()
 
 createRoot(document.getElementById('app')!).render(
   <StrictMode>

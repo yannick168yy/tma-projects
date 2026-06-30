@@ -5,6 +5,7 @@ import { ApiError } from '@/api/client'
 import { drawSpin, fetchSpinRecords, fetchSpinStatus, type SpinRecord, type SpinStatus, type SpinDrawResult } from '@/api/spin'
 import { useWalletStore } from '@/stores/wallet'
 import { useAuthStore } from '@/stores/auth'
+import { analytics } from '@/utils/analytics'
 import SpinWheel from '@/components/spin/SpinWheel'
 import SpinWinnerTicker from '@/components/spin/SpinWinnerTicker'
 import { computeSpinRotation, SPIN_ROTATION_MS } from '@/components/spin/spinWheelMath'
@@ -137,6 +138,7 @@ export default function RewardsSpinPage({ onClose }: Props) {
       setRotation((prev) => computeSpinRotation(prev, idx, wheelPrizes.length))
       window.setTimeout(async () => {
         setResult(res)
+        analytics.spinPrizeSuccess(res.amountPhp, res.prizeId, res.recordId)
         setStatus((prev) => prev ? { ...prev, remainingChances: res.remainingChances } : prev)
         try {
           await wallet.refresh()

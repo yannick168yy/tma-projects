@@ -17,6 +17,7 @@ import { usePromotionStore } from '@/stores/promotion'
 import { useAuthStore } from '@/stores/auth'
 import { useWalletStore } from '@/stores/wallet'
 import { localizedGameName } from '@/utils/game'
+import { analytics } from '@/utils/analytics'
 import chipHotImg from '@/assets/chips/hot.webp'
 import chipSlotsImg from '@/assets/chips/slots.png'
 import chipLiveImg from '@/assets/chips/live.png'
@@ -353,6 +354,7 @@ const [gamesLoading, setGamesLoading] = useState(true)
     setLaunchingUuid(uuid)
     try {
       const { url } = await launchGame(uuid, 'mobile', activeCurrency)
+      analytics.gameLaunch('real', uuid, activeCurrency, 'home')
       onOpenGame(url)
     } catch (e) { alert(e instanceof ApiError ? e.message : 'Launch failed') }
     finally { setLaunchingUuid(null) }

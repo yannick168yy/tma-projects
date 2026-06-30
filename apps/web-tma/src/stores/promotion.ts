@@ -24,6 +24,7 @@ import { ApiError } from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
 import { useWalletStore } from '@/stores/wallet'
 import { i18n } from '@/i18n'
+import { analytics } from '@/utils/analytics'
 import type { PromoHighlight, PromoId, RedPacketRecord, ReferralRecord, TeamAgentStatus } from '@/types/api'
 
 interface PromotionState {
@@ -213,6 +214,7 @@ export const usePromotionStore = create<PromotionState & PromotionActions>((set,
       if (id === 'trial') ({ amountPhp } = await claimTrialBonus())
       else if (id === 'referral') ({ amountPhp } = await claimReferralBonus())
       else if (id === 'firstdep') ({ amountPhp } = await claimFirstDepBonus())
+      analytics.promoClaimSuccess(id, amountPhp)
       await useWalletStore.getState().refresh()
       await get().refreshHighlights()
       await get().loadLists()

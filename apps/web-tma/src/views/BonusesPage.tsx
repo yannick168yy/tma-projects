@@ -4,6 +4,7 @@ import { Trophy, ChevronDown, Users, Wallet } from 'lucide-react'
 import { BONUS_WINNERS, PROMOS } from '@/data/promos'
 import { usePromotionStore, getHighlightMap } from '@/stores/promotion'
 import { useAuthStore } from '@/stores/auth'
+import { analytics } from '@/utils/analytics'
 import bonusesHero from '@/assets/home/promos/bonuses-hero.webp'
 
 interface Props {
@@ -56,7 +57,8 @@ export default function BonusesPage({ promoFilter, onOpenWallet, onOpenTeam }: P
   async function onActivateAgent() {
     if (!(await ensureLoggedIn(t('auth.signInProfile')))) return
     setAgentActivating(true)
-    await promotionStore.enableAgent()
+    const res = await promotionStore.enableAgent()
+    if (res.ok) analytics.agentActivated()
     setAgentActivating(false)
   }
 

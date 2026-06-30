@@ -7,6 +7,7 @@ import { useWalletStore, formatCurrencyAmount } from '@/stores/wallet'
 import { useLocaleStore } from '@/stores/locale'
 import { localizedGameName } from '@/utils/game'
 import { ApiError } from '@/api/client'
+import { analytics } from '@/utils/analytics'
 import cashbackHero from '@/assets/home/promos/cashback-hero-2.webp'
 
 type DateTab = 'today' | 'yesterday'
@@ -78,6 +79,7 @@ export default function CashbackPage({ onOpenGame, onOpenCategory }: Props) {
     setClaiming(true)
     try {
       const res = await claimRebate(currency)
+      analytics.rebateClaimSuccess(res.totalRebate, currency)
       alert(t('cashback.claimSuccess', { amount: amtStr(currency, res.totalRebate) }))
       await Promise.all([loadProgress(), loadSummary(activeTab), useWalletStore.getState().refresh()])
     } catch (e) {
@@ -95,6 +97,7 @@ export default function CashbackPage({ onOpenGame, onOpenCategory }: Props) {
     setLaunchingUuid(uuid)
     try {
       const { url } = await launchGame(uuid, 'mobile', activeCurrency)
+      analytics.gameLaunch('real', uuid, activeCurrency, 'cashback')
       onOpenGame(url)
     } catch (e) { alert(e instanceof ApiError ? e.message : 'Launch failed') }
     finally { setLaunchingUuid(null) }

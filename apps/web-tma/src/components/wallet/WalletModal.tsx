@@ -18,6 +18,7 @@ import { fetchMatrixDepositAddress, createMatrixWithdrawal } from '@/api/matrix'
 import { fetchHomeContent } from '@/api/home'
 import { usePromotionStore } from '@/stores/promotion'
 import { useAuthStore } from '@/stores/auth'
+import { analytics } from '@/utils/analytics'
 import type { FirstDepTier } from '@/api/promotion'
 import KycModal from '@/components/wallet/KycModal'
 import { useKycGate } from '@/hooks/useKycGate'
@@ -335,7 +336,7 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
   const pollFiatDepositCountRef = useRef(0)
   async function pollFiatDeposit() {
     if(!pollSerial)return; pollFiatDepositCountRef.current++; if(pollFiatDepositCountRef.current>60){stopPolling();setDepositLoading(false);setDepositMessage(t('wallet.yfpayDepositTimeout'));return}
-    try { const res=await queryPaymentDeposit(pollSerial); if(res.state===2){stopPolling();setDepositLoading(false);setDepositSuccess(true);setDepositMessage(t('wallet.yfpayDepositSuccess'));await walletStore.refresh()}else if(res.state===3){stopPolling();setDepositLoading(false);setDepositMessage(t('wallet.yfpayDepositRejected'))} } catch { /* keep polling */ }
+    try { const res=await queryPaymentDeposit(pollSerial); if(res.state===2){stopPolling();setDepositLoading(false);setDepositSuccess(true);setDepositMessage(t('wallet.yfpayDepositSuccess'));analytics.depositSuccess(selectedPayMethod?.paymentChannelName,Number(amount),'PHP',pollSerial);await walletStore.refresh()}else if(res.state===3){stopPolling();setDepositLoading(false);setDepositMessage(t('wallet.yfpayDepositRejected'))} } catch { /* keep polling */ }
   }
 
   async function onProceedUnifiedFiatDeposit() {
@@ -344,8 +345,10 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
     if(method.minAmount&&num<method.minAmount){setDepositMessage(t('wallet.yfpayAmountOutOfRange',{min:method.minAmount,max:method.maxAmount}));return}
     if(method.maxAmount&&num>method.maxAmount){setDepositMessage(t('wallet.yfpayAmountOutOfRange',{min:method.minAmount,max:method.maxAmount}));return}
     setDepositLoading(true); setDepositMessage(t('wallet.yfpayOpenBrowser')); setDepositSuccess(false); stopPolling(); pollFiatDepositCountRef.current=0
+    analytics.depositStart(method.paymentChannelName,num,'PHP')
     try {
       const result=await createPaymentDeposit({channelName:method.paymentChannelName,amount:num}); setPollSerial(result.merchantSerial)
+      analytics.depositOrderCreated(method.paymentChannelName,num,'PHP',result.merchantSerial)
       if(window.Telegram?.WebApp?.openLink)window.Telegram.WebApp.openLink(result.payUrl); else window.open(result.payUrl,'_blank')
       setDepositMessage(t('wallet.yfpayWaitingPayment')); pollTimerRef.current=setInterval(()=>void pollFiatDeposit(),3000)
     } catch(e){setDepositLoading(false);setDepositMessage(e instanceof ApiError?translateApiError(e.message,t):t('wallet.yfpayDepositFailed'))}
@@ -355,13 +358,15 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
     const method=selectedPayMethod; if(!method?.channelId||method.currency==null)return; const num=Number(amount)
     if(!Number.isFinite(num)||num<=0){setDepositMessage(t('wallet.invalidAmount'));return}
     setDepositLoading(true); setDepositMessage(''); setDepositSuccess(false)
+    analytics.depositStart(method.channelId,num,method.currency)
     try {
       const result=await createDeposit(num,method.currency)
-      if(result.status==='paid'){await walletStore.refresh();setDepositSuccess(true);setDepositMessage(t('wallet.credited'));return}
+      analytics.depositOrderCreated(method.channelId,num,method.currency,result.orderId)
+      if(result.status==='paid'){analytics.depositSuccess(method.channelId,num,method.currency,result.orderId);await walletStore.refresh();setDepositSuccess(true);setDepositMessage(t('wallet.credited'));return}
       if(result.invoiceLink){
         if(!isTelegramWebApp()){setDepositMessage(t('wallet.openInTelegram'));return}
         const closeStatus=await openTelegramInvoice(result.invoiceLink)
-        if(closeStatus==='paid'){const credited=await waitForDepositPaid(result.orderId);if(credited){await walletStore.refresh();setDepositSuccess(true);setDepositMessage(t('wallet.paymentSuccess'))}else setDepositMessage(t('wallet.paymentPending'))}
+        if(closeStatus==='paid'){const credited=await waitForDepositPaid(result.orderId);if(credited){analytics.depositSuccess(method.channelId,num,method.currency,result.orderId);await walletStore.refresh();setDepositSuccess(true);setDepositMessage(t('wallet.paymentSuccess'))}else setDepositMessage(t('wallet.paymentPending'))}
         else if(closeStatus==='cancelled')setDepositMessage(t('wallet.paymentCancelled'))
         else if(closeStatus==='failed')setDepositMessage(t('wallet.paymentFailed'))
         else setDepositMessage(t('wallet.completeInTelegram')); return
@@ -373,17 +378,19 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
   async function onProceedTonDeposit() {
     const amountTon=Number(amount); if(!amountTon||amountTon<0.01){setTonMessage(t('wallet.invalidAmount'));return}
     setTonLoading(true); tonLoadingRef.current=true; setTonMessage(''); setTonSuccess(false); stopTonPolling()
+    analytics.depositStart('ton_connect',amountTon,'TON')
     try {
       let address=tonWalletAddress
       if(!tonIsConnected){setTonMessage(t('wallet.tonConnecting'));address=await connectTonWallet()}
       if(!address){setTonMessage(t('wallet.paymentCancelled'));return}
       setTonMessage(t('wallet.tonCreatingOrder')); const order=await createTonDeposit(amountTon,address)
-      if(order.devSettled){setTonSuccess(true);setTonMessage(t('wallet.tonSuccess'));await walletStore.refresh();return}
+      analytics.depositOrderCreated('ton_connect',amountTon,'TON',order.orderId)
+      if(order.devSettled){analytics.depositSuccess('ton_connect',amountTon,'TON',order.orderId);setTonSuccess(true);setTonMessage(t('wallet.tonSuccess'));await walletStore.refresh();return}
       setTonMessage(t('wallet.tonSending')); await sendTonTransaction(order.merchantAddress,order.amountNano)
       setTonMessage(t('wallet.tonPolling')); let tonPollCount=0
       tonPollTimerRef.current=setInterval(async()=>{
         tonPollCount++; if(tonPollCount>60){stopTonPolling();setTonLoading(false);setTonMessage(t('wallet.tonTimeout'));return}
-        try{const status=await pollTonDepositStatus(order.orderId);if(status.status==='paid'){stopTonPolling();setTonLoading(false);setTonSuccess(true);setTonMessage(t('wallet.tonSuccess'));await walletStore.refresh()}else if(status.status==='failed'||status.status==='cancelled'){stopTonPolling();setTonLoading(false);setTonMessage(t('wallet.depositFailed'))}}catch{/***/}
+        try{const status=await pollTonDepositStatus(order.orderId);if(status.status==='paid'){stopTonPolling();setTonLoading(false);setTonSuccess(true);setTonMessage(t('wallet.tonSuccess'));analytics.depositSuccess('ton_connect',amountTon,'TON',order.orderId);await walletStore.refresh()}else if(status.status==='failed'||status.status==='cancelled'){stopTonPolling();setTonLoading(false);setTonMessage(t('wallet.depositFailed'))}}catch{/***/}
       },5000)
     } catch(e){stopTonPolling();const msg=(e as Error)?.message??'';if(msg.includes('cancel')||msg.includes('reject')||msg==='wallet_connect_timeout')setTonMessage(t('wallet.paymentCancelled'));else setTonMessage(e instanceof ApiError?translateApiError(e.message,t):t('wallet.depositFailed'));setTonLoading(false)}
     finally{if(!tonPollTimerRef.current){tonLoadingRef.current=false}}
@@ -393,12 +400,14 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
     if(!canSubmitWithdraw)return; const n=Number(amount)
     setWithdrawLoading(true); setWithdrawMessage(''); setWithdrawSuccess(false)
     const channelName=selectedPayMethod?.paymentChannelName; if(!channelName)return
-    try{await createPaymentWithdrawal({channelName,amount:n,targetOwner:withdrawOwner.trim(),targetAccount:withdrawAccount.trim()});setWithdrawSuccess(true);setWithdrawMessage(t('wallet.yfpayWithdrawPending'));await walletStore.refresh();setTimeout(()=>{setTab('history');setHistoryFilter('withdraw');void loadHistory()},1500)}catch(e){setWithdrawMessage(e instanceof ApiError?translateApiError(e.message,t):t('wallet.yfpayWithdrawFailed'))}finally{setWithdrawLoading(false)}
+    analytics.withdrawStart(channelName,n,activeCurrency)
+    try{await createPaymentWithdrawal({channelName,amount:n,targetOwner:withdrawOwner.trim(),targetAccount:withdrawAccount.trim()});analytics.withdrawCreated(channelName,n,activeCurrency);setWithdrawSuccess(true);setWithdrawMessage(t('wallet.yfpayWithdrawPending'));await walletStore.refresh();setTimeout(()=>{setTab('history');setHistoryFilter('withdraw');void loadHistory()},1500)}catch(e){setWithdrawMessage(e instanceof ApiError?translateApiError(e.message,t):t('wallet.yfpayWithdrawFailed'))}finally{setWithdrawLoading(false)}
   }
 
   async function onProceedMatrixWithdraw() {
     if (!canSubmitMatrixWithdraw || !selectedPayMethod) return
     setWithdrawLoading(true); setWithdrawMessage(''); setWithdrawSuccess(false)
+    analytics.withdrawStart(selectedPayMethod.channelId, Number(matrixCryptoAmount), selectedPayMethod.matrixSymbol!)
     try {
       await createMatrixWithdrawal({
         toAddress: withdrawAccount.trim(),
@@ -406,6 +415,7 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
         chain: selectedPayMethod.matrixChain!,
         cryptoAmount: matrixCryptoAmount.trim(),
       })
+      analytics.withdrawCreated(selectedPayMethod.channelId, Number(matrixCryptoAmount), selectedPayMethod.matrixSymbol!)
       setWithdrawSuccess(true); setWithdrawMessage(t('wallet.matrixWithdrawPending'))
       await walletStore.refresh()
       setTimeout(() => { setTab('history'); setHistoryFilter('withdraw'); void loadHistory() }, 1500)

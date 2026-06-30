@@ -8,6 +8,7 @@ import { useWalletStore } from '@/stores/wallet'
 import type { AuthUser } from '@/types/api'
 import { isInsideTelegram } from '@/utils/initTelegramWebApp'
 import { clearStoredReferral, getStoredReferral } from '@/utils/referral'
+import { analytics, setAnalyticsUser } from '@/utils/analytics'
 import type { PasswordMethod, TelegramWidgetUser } from '@/types/api'
 
 const LOGOUT_FLAG = 'betogo_logged_out'
@@ -101,6 +102,7 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
   },
 
   applySession(session) {
+    setAnalyticsUser(session.user)
     set({
       token: session.token,
       user: session.user,
@@ -144,32 +146,40 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
   },
 
   async loginWithTelegram() {
+    analytics.loginStart('telegram')
     const session = await loginTelegram()
     get().applySession(session)
+    analytics.loginSuccess(session.user.loginProvider ?? 'telegram', session.isNewUser)
     get().closeLoginSheet()
     useWalletStore.getState().setBalance(await fetchBalance())
     await usePromotionStore.getState().refreshHighlights()
   },
 
   async loginWithTelegramWidget(data) {
+    analytics.loginStart('telegram')
     const session = await loginTelegramWidget(data)
     get().applySession(session)
+    analytics.loginSuccess(session.user.loginProvider ?? 'telegram', session.isNewUser)
     get().closeLoginSheet()
     useWalletStore.getState().setBalance(await fetchBalance())
     await usePromotionStore.getState().refreshHighlights()
   },
 
   loginWithGoogle() {
+    analytics.loginStart('google')
     loginWithGoogleRedirect()
   },
 
   loginWithTelegramOidc() {
+    analytics.loginStart('telegram_oidc')
     loginWithTelegramRedirect()
   },
 
   async loginWithPassword(method, identifier, password) {
+    analytics.loginStart(method)
     const session = await loginPassword(method, identifier, password)
     get().applySession(session)
+    analytics.loginSuccess(session.user.loginProvider ?? method, session.isNewUser)
     get().closeLoginSheet()
     useWalletStore.getState().setBalance(await fetchBalance())
     await usePromotionStore.getState().refreshHighlights()
@@ -185,8 +195,10 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
   },
 
   async registerWithPassword(method, identifier, password, refCodeOverride?: string) {
+    analytics.loginStart(method)
     const session = await registerPassword(method, identifier, password, refCodeOverride ?? getStoredReferral() ?? undefined)
     get().applySession(session)
+    analytics.loginSuccess(session.user.loginProvider ?? method, true)
     get().closeLoginSheet()
     useWalletStore.getState().setBalance(await fetchBalance())
     await usePromotionStore.getState().refreshHighlights()
@@ -201,6 +213,7 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
       isNewUser: false,
       trialEligible: false,
     })
+    setAnalyticsUser(null)
     get().closeLoginSheet()
     localStorage.removeItem('betogo_token')
     useWalletStore.getState().reset()

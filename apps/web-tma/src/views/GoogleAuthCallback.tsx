@@ -6,6 +6,7 @@ import { bindGoogle, completeGoogleLogin } from '@/api/auth'
 import { ApiError } from '@/api/client'
 import { clearStoredOAuthState, extractRefFromOAuthState, getGoogleRedirectUri, readStoredOAuthState } from '@/utils/googleOAuth'
 import { useAuthStore } from '@/stores/auth'
+import { analytics } from '@/utils/analytics'
 
 export default function GoogleAuthCallback() {
   const { t } = useTranslation()
@@ -39,6 +40,7 @@ export default function GoogleAuthCallback() {
     completeGoogleLogin(code, getGoogleRedirectUri(), referralCode || undefined)
       .then((session) => {
         applySession(session)
+        analytics.loginSuccess(session.user.loginProvider ?? 'google', session.isNewUser)
         clearStoredOAuthState()
         window.location.replace('/')
       })

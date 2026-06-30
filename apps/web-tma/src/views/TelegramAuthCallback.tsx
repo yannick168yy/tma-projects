@@ -5,6 +5,7 @@ import BetogoLogo from '@/components/BetogoLogo'
 import { bindTelegramOidc, completeTelegramLogin } from '@/api/auth'
 import { clearStoredOAuthState, getTelegramRedirectUri, readStoredNonce, readStoredRef } from '@/utils/telegramOAuth'
 import { useAuthStore } from '@/stores/auth'
+import { analytics } from '@/utils/analytics'
 
 export default function TelegramAuthCallback() {
   const { t } = useTranslation()
@@ -42,6 +43,7 @@ export default function TelegramAuthCallback() {
     completeTelegramLogin(code, getTelegramRedirectUri(), referralCode || undefined)
       .then((session) => {
         applySession(session)
+        analytics.loginSuccess(session.user.loginProvider ?? 'telegram_oidc', session.isNewUser)
         clearStoredOAuthState()
         window.location.replace('/')
       })

@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import SplashPage from '@/views/SplashPage'
 import GoogleAuthCallback from '@/views/GoogleAuthCallback'
 import TelegramAuthCallback from '@/views/TelegramAuthCallback'
+import AnalyticsPageTracker from '@/components/AnalyticsPageTracker'
 import LoginSheet from '@/components/auth/LoginSheet'
 import RedPacketSheet from '@/components/promotion/RedPacketSheet'
 import TrialWelcomeSheet, { TRIAL_SHEET_SEEN_KEY } from '@/components/promotion/TrialWelcomeSheet'
@@ -76,6 +77,7 @@ function MainApp() {
 export default function App() {
   return (
     <BrowserRouter>
+      <AnalyticsPageTracker />
       <Routes>
         <Route path="/auth/google/callback" element={<GoogleAuthCallback />} />
         <Route path="/auth/telegram/callback" element={<TelegramAuthCallback />} />
