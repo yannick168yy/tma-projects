@@ -9,6 +9,7 @@ declare global {
 
 const GA_ID = import.meta.env.VITE_GA_MEASUREMENT_ID?.trim()
 const GA_DEBUG = import.meta.env.VITE_GA_DEBUG_MODE === 'true'
+let currentUserId: string | null = null
 
 export type ClientPlatform = 'web' | 'android_app' | 'telegram_tma'
 
@@ -22,6 +23,7 @@ function baseParams() {
   return {
     platform: getClientPlatform(),
     app_surface: 'web_primary_android_tma',
+    ...(currentUserId ? { betogo_user_id: currentUserId } : {}),
     ...(GA_DEBUG ? { debug_mode: true } : {}),
   }
 }
@@ -61,10 +63,12 @@ export function trackPageView(path: string, title = document.title) {
 
 export function setAnalyticsUser(user: AuthUser | null) {
   if (!GA_ID || !window.gtag) return
+  currentUserId = user?.id ?? null
   window.gtag('set', {
-    user_id: user?.id ?? null,
+    user_id: currentUserId,
     user_properties: user
       ? {
+          betogo_user_id: currentUserId,
           login_provider: user.loginProvider ?? 'unknown',
           is_agent: Boolean(user.isAgent),
           platform: getClientPlatform(),
