@@ -8,6 +8,7 @@ declare global {
 }
 
 const GA_ID = import.meta.env.VITE_GA_MEASUREMENT_ID?.trim()
+const GA_DEBUG = import.meta.env.VITE_GA_DEBUG_MODE === 'true'
 
 export type ClientPlatform = 'web' | 'android_app' | 'telegram_tma'
 
@@ -21,22 +22,28 @@ function baseParams() {
   return {
     platform: getClientPlatform(),
     app_surface: 'web_primary_android_tma',
+    ...(GA_DEBUG ? { debug_mode: true } : {}),
   }
 }
 
 export function initAnalytics() {
   if (!GA_ID || window.gtag) return
   window.dataLayer = window.dataLayer || []
-  window.gtag = (...args: unknown[]) => window.dataLayer?.push(args)
+  const gtag: NonNullable<Window['gtag']> = function gtag(..._args: unknown[]) {
+    void _args
+    window.dataLayer?.push(arguments)
+  }
+  window.gtag = gtag
 
   const script = document.createElement('script')
   script.async = true
   script.src = `https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(GA_ID)}`
   document.head.appendChild(script)
 
-  window.gtag('js', new Date())
-  window.gtag('config', GA_ID, {
+  gtag('js', new Date())
+  gtag('config', GA_ID, {
     send_page_view: false,
+    transport_type: 'beacon',
     ...baseParams(),
   })
 }
@@ -47,6 +54,7 @@ export function trackPageView(path: string, title = document.title) {
     page_path: path,
     page_location: window.location.href,
     page_title: title,
+    transport_type: 'beacon',
     ...baseParams(),
   })
 }
@@ -69,6 +77,7 @@ function track(eventName: string, params: Record<string, unknown> = {}) {
   if (!GA_ID || !window.gtag) return
   window.gtag('event', eventName, {
     ...params,
+    transport_type: 'beacon',
     ...baseParams(),
   })
 }
