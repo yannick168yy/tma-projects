@@ -5,7 +5,7 @@ import { BONUS_WINNERS, PROMOS } from '@/data/promos'
 import { usePromotionStore, getHighlightMap } from '@/stores/promotion'
 import { useAuthStore } from '@/stores/auth'
 import { analytics } from '@/utils/analytics'
-import bonusesHero from '@/assets/home/promos/hero-3.webp'
+import bonusesHero from '@/assets/home/promos/hero-4.webp'
 
 interface Props {
   promoFilter?: string | null
