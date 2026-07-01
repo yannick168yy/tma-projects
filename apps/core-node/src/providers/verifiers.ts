@@ -7,6 +7,28 @@ export type VerifyFn = (req: FastifyRequest, env: Record<string, string>) => boo
 // ── YFPay ─────────────────────────────────────────────────────────────────────
 // 签名算法：将非空参数按 key 字母序排列后 MD5，格式: k=v&k=v&key=<apiKey>
 
+const YFPAY_CALLBACK_IPS = new Set([
+  '103.145.58.175',
+  '64.118.137.98',
+  '47.236.21.68',
+])
+
+function normalizeIp(ip: string): string {
+  return ip.trim().replace(/^::ffff:/, '')
+}
+
+function getClientIp(req: FastifyRequest): string {
+  const forwarded = req.headers['x-forwarded-for']
+  if (typeof forwarded === 'string' && forwarded.trim()) {
+    return normalizeIp(forwarded.split(',')[0])
+  }
+  const realIp = req.headers['x-real-ip']
+  if (typeof realIp === 'string' && realIp.trim()) {
+    return normalizeIp(realIp)
+  }
+  return normalizeIp(req.ip)
+}
+
 function yfpaySign(params: Record<string, unknown>, apiKey: string): string {
   const sorted = Object.entries(params)
     .filter(([k, v]) => k !== 'sign' && v !== null && v !== undefined && v !== '')
@@ -19,6 +41,7 @@ function yfpaySign(params: Record<string, unknown>, apiKey: string): string {
 function verifyYfpay(req: FastifyRequest, env: Record<string, string>): boolean {
   const apiKey = env['YFPAY_API_KEY']
   if (!apiKey) return false
+  if (!YFPAY_CALLBACK_IPS.has(getClientIp(req))) return false
   const body = req.body as Record<string, unknown>
   const received = String(body['sign'] ?? '')
   const expected = yfpaySign(body, apiKey)

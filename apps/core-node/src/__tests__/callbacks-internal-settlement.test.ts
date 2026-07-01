@@ -432,13 +432,41 @@ describe('Matrix 提现反查与通用回调', () => {
     const payload = { orderNo: 'YF-1', amount: 100 }
     const signed = { ...payload, sign: yfpaySign(payload, 'yfpay-secret') }
 
-    const res = await app.inject({ method: 'POST', url: '/api/v1/callback/yfpay', payload: signed })
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/v1/callback/yfpay',
+      headers: { 'x-forwarded-for': '103.145.58.175' },
+      payload: signed,
+    })
 
     assert.equal(res.statusCode, 200)
     assert.equal(res.body, 'success')
     assert.equal(published.length, 1)
     assert.equal(published[0].subject, 'betogo.callback.test')
     assert.equal(JSON.parse(published[0].payload).provider, 'yfpay')
+  })
+
+  it('YFPay 通用回调拒绝非白名单 IP', async () => {
+    const published: Array<{ subject: string; payload: string }> = []
+    const app = await createApp({
+      js: {
+        async publish(subject, payload) {
+          published.push({ subject, payload })
+        },
+      },
+    })
+    const payload = { orderNo: 'YF-1', amount: 100 }
+    const signed = { ...payload, sign: yfpaySign(payload, 'yfpay-secret') }
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/v1/callback/yfpay',
+      headers: { 'x-forwarded-for': '8.8.8.8' },
+      payload: signed,
+    })
+
+    assert.equal(res.statusCode, 401)
+    assert.equal(published.length, 0)
   })
 })
 
