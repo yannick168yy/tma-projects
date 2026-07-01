@@ -155,7 +155,24 @@ router.get('/records', async (ctx) => {
      LIMIT ? OFFSET ?`,
     [...params, pageSize, (page - 1) * pageSize],
   )
-  ok(ctx, { items, total: Number(total), page, pageSize })
+  ok(ctx, {
+    items: items.map((r) => ({
+      id: Number(r.id),
+      userId: String(r.user_id),
+      displayName: r.display_name ? String(r.display_name) : null,
+      date: String(r.date),
+      gameCategory: String(r.game_category),
+      currencyCode: String(r.currency_code),
+      betAmount: Number(r.bet_amount),
+      rebateAmount: Number(r.rebate_amount),
+      ratePct: Number(r.rate_pct),
+      status: String(r.status),
+      paidAt: r.paid_at ? String(r.paid_at) : null,
+    })),
+    total: Number(total),
+    page,
+    pageSize,
+  })
 })
 
 export default router
