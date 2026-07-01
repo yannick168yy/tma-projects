@@ -573,7 +573,7 @@ export async function claimRebate(env: Env, userId: string, currency?: string): 
       await conn.execute(
         `INSERT INTO bg_wallet_ledger (id, user_id, currency, type, amount, balance_after, ref_type, ref_id, description)
          VALUES (?, ?, ?, 'rebate', ?, ?, 'rebate', ?, ?)`,
-        [lgId(), userId, cur, amt, balAfter, String(row.id), `${String(row.game_category)} rebate ${String(row.date)}`],
+        [lgId(), userId, cur, amt, balAfter, String(row.id), 'Cash Rebate'],
       )
 
       await conn.execute(

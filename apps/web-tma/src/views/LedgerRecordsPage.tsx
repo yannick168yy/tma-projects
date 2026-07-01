@@ -29,6 +29,11 @@ function formatTime(iso: string): string {
     d.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', hour12: false })
 }
 
+function displayDescription(item: LedgerItem): string {
+  if (item.type === 'rebate') return 'Cash Rebate'
+  return item.description || item.id
+}
+
 export default function LedgerRecordsPage({ onClose }: Props) {
   const { t } = useTranslation()
   const [range, setRange] = useState<Range>('today')
@@ -136,7 +141,7 @@ export default function LedgerRecordsPage({ onClose }: Props) {
                     <p className="truncate text-sm font-bold leading-tight text-foreground">
                       {t(`ledger.types.${item.type}`, { defaultValue: item.type })}
                     </p>
-                    <p className="mt-0.5 truncate text-xs text-muted-foreground">{item.description || item.id}</p>
+                    <p className="mt-0.5 truncate text-xs text-muted-foreground">{displayDescription(item)}</p>
                     <p className="mt-1 text-[10px] text-muted-foreground">{formatTime(item.createdAt)}</p>
                   </div>
 
