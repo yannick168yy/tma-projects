@@ -29,8 +29,21 @@ function formatTime(iso: string): string {
     d.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', hour12: false })
 }
 
+function formatShortDate(raw: string): string {
+  const d = new Date(raw)
+  if (Number.isNaN(d.getTime())) return ''
+  return d.toLocaleDateString('en-PH', { month: 'short', day: '2-digit' })
+}
+
 function displayDescription(item: LedgerItem): string {
-  if (item.type === 'rebate') return 'Cash Rebate'
+  if (item.type === 'rebate') {
+    const match = item.description.match(/^(\w+)\s+rebate\s+(.+)$/i)
+    if (match) {
+      const shortDate = formatShortDate(match[2])
+      if (shortDate) return `${match[1]} rebate ${shortDate}`
+    }
+    return 'Cash Rebate'
+  }
   return item.description || item.id
 }
 

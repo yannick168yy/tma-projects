@@ -81,6 +81,11 @@ function lgId(): string {
   return `LG_${Date.now()}_${randomBytes(3).toString('hex')}`
 }
 
+function formatLedgerRebateDate(value: unknown): string {
+  if (value instanceof Date) return value.toISOString().slice(0, 10)
+  return String(value).slice(0, 10)
+}
+
 /** Cashback Games 档位承诺费率（优先于分级大类费率） */
 function featuredTierRatePct(tier: string): number {
   if (tier === 'elite') return 2
@@ -573,7 +578,7 @@ export async function claimRebate(env: Env, userId: string, currency?: string): 
       await conn.execute(
         `INSERT INTO bg_wallet_ledger (id, user_id, currency, type, amount, balance_after, ref_type, ref_id, description)
          VALUES (?, ?, ?, 'rebate', ?, ?, 'rebate', ?, ?)`,
-        [lgId(), userId, cur, amt, balAfter, String(row.id), 'Cash Rebate'],
+        [lgId(), userId, cur, amt, balAfter, String(row.id), `${String(row.game_category)} rebate ${formatLedgerRebateDate(row.date)}`],
       )
 
       await conn.execute(
