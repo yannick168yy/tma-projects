@@ -22,11 +22,18 @@ const CATEGORY_LABELS: Record<string, string> = {
   live: '🎲 Live Casino',
   sports: '⚽ Sports',
   fishing: '🐟 Fishing',
-  table: '🃏 Table / Poker',
+  poker: '♠️ Poker',
   bingo: '🎱 Bingo',
-  crash: '🚀 Crash',
   pinoy: '🐓 Pinoy',
+  table: '🃏 Table',
+  crash: '🚀 Crash',
   other: '🎮 Other',
+}
+
+const CATEGORY_ORDER = ['slots', 'live', 'sports', 'fishing', 'poker', 'bingo', 'pinoy', 'table', 'crash', 'other']
+const categoryRank = (cat: string) => {
+  const index = CATEGORY_ORDER.indexOf(cat)
+  return index === -1 ? CATEGORY_ORDER.length : index
 }
 
 const TIER_LABELS: Record<string, { label: string; color: string }> = {
@@ -213,6 +220,7 @@ export default function Rebate() {
 
   const levels = Array.from(new Set(configItems.map((i) => i.level))).sort((a, b) => a - b)
   const categories = Array.from(new Set(configItems.map((i) => i.gameCategory)))
+    .sort((a, b) => categoryRank(a) - categoryRank(b) || a.localeCompare(b))
   const rateOf = (level: number, cat: string) => configItems.find((i) => i.level === level && i.gameCategory === cat)
   const isCatEnabled = (cat: string) => configItems.find((i) => i.gameCategory === cat)?.enabled ?? true
 

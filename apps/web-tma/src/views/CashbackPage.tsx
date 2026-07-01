@@ -14,11 +14,10 @@ type DateTab = 'today' | 'yesterday'
 
 const CATEGORY_ICONS: Record<string, string> = {
   slots: '🎰', live: '🎲', sports: '⚽', fishing: '🐟',
-  table: '🃏', bingo: '🎱', crash: '🚀', pinoy: '🐓', other: '🎮',
+  poker: '♠️', bingo: '🎱', pinoy: '🐓', table: '🃏', crash: '🚀', other: '🎮',
 }
 
-// 洗码等级卡片固定展示的 6 个大类（Slot/Casino/Sports/Fish/Poker/Bingo）
-const CARD_CATEGORIES = ['slots', 'live', 'sports', 'fishing', 'table', 'bingo']
+const CATEGORY_ORDER = ['slots', 'live', 'sports', 'fishing', 'poker', 'bingo', 'pinoy', 'table', 'crash', 'other']
 
 interface Props {
   onOpenGame: (url: string) => void
@@ -116,7 +115,7 @@ export default function CashbackPage({ onOpenGame, onOpenCategory }: Props) {
   // 顶部 banner：取最高等级费率最高的大类
   const topTier = levelCards.length ? levelCards[levelCards.length - 1] : null
   const topBest = topTier
-    ? topTier.rates.filter((r) => r.enabled && CARD_CATEGORIES.includes(r.gameCategory))
+    ? topTier.rates.filter((r) => r.enabled && CATEGORY_ORDER.includes(r.gameCategory))
         .reduce<typeof topTier.rates[number] | null>((best, r) => (!best || r.ratePct > best.ratePct ? r : best), null)
     : null
 
@@ -351,8 +350,7 @@ export default function CashbackPage({ onOpenGame, onOpenCategory }: Props) {
                 : isCurrent
                   ? 'border-amber-300/45 bg-[#100c06]/85'
                   : 'border-amber-300/18 bg-[#0c0905]/70'
-              // 固定 6 类，按设计顺序，仅取启用项
-              const catRates = CARD_CATEGORIES
+              const catRates = CATEGORY_ORDER
                 .map((cat) => lc.rates.find((r) => r.gameCategory === cat && r.enabled))
                 .filter((r): r is NonNullable<typeof r> => Boolean(r))
               const toUnlock = progress ? Math.max(0, lc.minTurnover - progress.totalTurnover) : lc.minTurnover

@@ -6,7 +6,6 @@ import UserInfo from './user/UserInfo'
 import UserActions from './user/UserActions'
 import UserLogs from './user/UserLogs'
 import UserKyc from './user/UserKyc'
-import UserAgent from './user/UserAgent'
 
 type Detail = Awaited<ReturnType<typeof getUserDetail>>
 
@@ -53,7 +52,6 @@ export default function UserDetail() {
                 onSuccess={loadDetail}
               />
             </Col>
-            <Col span={24}><UserAgent userId={id!} /></Col>
             <Col span={24}><UserLogs userId={id!} detail={detail} /></Col>
           </Row>
         )}
