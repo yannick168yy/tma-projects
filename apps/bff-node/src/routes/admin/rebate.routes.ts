@@ -10,12 +10,23 @@ import {
   addFeaturedGame,
   removeFeaturedGame,
   runDailyRebateSettlement,
-  yesterdayPHT,
+  todayPHT,
 } from '../../services/rebate.service.js'
 import { getMysqlPool, isMysqlEnabled } from '../../clients/mysql.client.js'
 import type { RowDataPacket } from 'mysql2/promise'
 
 const router = new Router({ prefix: '/rebate' })
+
+function formatDateOnly(value: unknown): string {
+  if (value instanceof Date) return value.toISOString().slice(0, 10)
+  return String(value).slice(0, 10)
+}
+
+function formatDateTime(value: unknown): string | null {
+  if (!value) return null
+  if (value instanceof Date) return value.toISOString().replace('T', ' ').slice(0, 19)
+  return String(value).replace('T', ' ').slice(0, 19)
+}
 
 // GET /admin/rebate/config — 分级费率矩阵 + 等级流水阈值
 router.get('/config', async (ctx) => {
@@ -113,14 +124,9 @@ router.delete('/featured-games/:id', async (ctx) => {
   ok(ctx, { deleted: id })
 })
 
-// POST /admin/rebate/payout/manual — 手动触发指定日期的洗码结算（写待领取记录，补跑或测试用）
+// POST /admin/rebate/payout/manual — 手动结算截至当前时间的洗码记录
 router.post('/payout/manual', async (ctx) => {
-  const body = ctx.request.body as { date?: string }
-  const date = body.date ?? yesterdayPHT()
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-    fail(ctx, 400, 'invalid date, expected YYYY-MM-DD')
-    return
-  }
+  const date = todayPHT()
   const result = await runDailyRebateSettlement(ctx.state.env, date)
   ok(ctx, { date, ...result })
 })
@@ -160,14 +166,14 @@ router.get('/records', async (ctx) => {
       id: Number(r.id),
       userId: String(r.user_id),
       displayName: r.display_name ? String(r.display_name) : null,
-      date: String(r.date),
+      date: formatDateOnly(r.date),
       gameCategory: String(r.game_category),
       currencyCode: String(r.currency_code),
       betAmount: Number(r.bet_amount),
       rebateAmount: Number(r.rebate_amount),
       ratePct: Number(r.rate_pct),
       status: String(r.status),
-      paidAt: r.paid_at ? String(r.paid_at) : null,
+      paidAt: formatDateTime(r.paid_at),
     })),
     total: Number(total),
     page,

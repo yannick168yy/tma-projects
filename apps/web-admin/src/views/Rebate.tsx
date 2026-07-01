@@ -207,11 +207,10 @@ export default function Rebate() {
   }
 
   async function handleManualPayout() {
-    const date = recordsDate ?? dayjs().subtract(1, 'day').format('YYYY-MM-DD')
     setPayoutLoading(true)
     try {
-      const res = await triggerRebatePayout(date)
-      message.success(`已结算 ${date}：${res.users} 用户，共 ₱${Number(res.totalRebate).toFixed(4)} 待领取`)
+      const res = await triggerRebatePayout()
+      message.success(`已结算至当前时间：${res.users} 用户，共 ₱${Number(res.totalRebate).toFixed(4)} 待领取`)
       void loadRecords()
     } catch (e) {
       message.error(e instanceof Error ? e.message : '派发失败')
@@ -427,7 +426,7 @@ export default function Rebate() {
       extra={
         <Space>
           <Popconfirm
-            title={`手动结算 ${recordsDate ?? '昨日'} 洗码？`}
+            title="手动结算至当前时间？"
             description="幂等操作，已结算记录不会重复生成；结算后用户在客户端手动领取"
             onConfirm={handleManualPayout}
           >
@@ -464,7 +463,8 @@ export default function Rebate() {
           showTotal: (t) => `共 ${t} 条`,
         }}
         columns={[
-          { title: '日期', dataIndex: 'date', key: 'date', width: 110 },
+          { title: '日期', dataIndex: 'date', key: 'date', width: 110,
+            render: (v: string) => v ? dayjs(v).format('YYYY-MM-DD') : '—' },
           { title: '用户', dataIndex: 'displayName', key: 'displayName', render: (v, r) => v ?? r.userId },
           { title: '游戏大类', dataIndex: 'gameCategory', key: 'gameCategory',
             render: (v: string) => CATEGORY_LABELS[v] ?? v },
@@ -480,7 +480,7 @@ export default function Rebate() {
             render: (v: string) => <Tag color={v === 'paid' ? 'success' : 'warning'}>{v === 'paid' ? '已领取' : '待领取'}</Tag>,
             width: 80 },
           { title: '领取时间', dataIndex: 'paidAt', key: 'paidAt',
-            render: (v: string | null) => v ? dayjs(v).format('MM-DD HH:mm') : '—', width: 110 },
+            render: (v: string | null) => v ? dayjs(v).format('YYYY-MM-DD HH:mm:ss') : '—', width: 170 },
         ]}
       />
     </Card>

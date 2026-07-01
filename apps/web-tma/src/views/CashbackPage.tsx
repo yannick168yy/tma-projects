@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
-import { fetchRebateConfig, fetchRebateSummary, fetchRebateProgress, claimRebate, type RebateConfig, type RebateSummary, type RebateProgress } from '@/api/rebate'
+import { fetchRebateConfig, fetchRebateProgress, claimRebate, type RebateConfig, type RebateProgress } from '@/api/rebate'
 import { launchGame } from '@/api/slots'
 import { useAuthStore } from '@/stores/auth'
 import { useWalletStore, formatCurrencyAmount } from '@/stores/wallet'
@@ -10,14 +10,16 @@ import { ApiError } from '@/api/client'
 import { analytics } from '@/utils/analytics'
 import cashbackHero from '@/assets/home/promos/cashback-hero-2.webp'
 
-type DateTab = 'today' | 'yesterday'
-
 const CATEGORY_ICONS: Record<string, string> = {
   slots: '🎰', live: '🎲', sports: '⚽', fishing: '🐟',
   poker: '♠️', bingo: '🎱', pinoy: '🐓', table: '🃏', crash: '🚀', other: '🎮',
 }
 
 const CATEGORY_ORDER = ['slots', 'live', 'sports', 'fishing', 'poker', 'bingo', 'pinoy', 'table', 'crash', 'other']
+const categoryRank = (cat: string) => {
+  const index = CATEGORY_ORDER.indexOf(cat)
+  return index === -1 ? CATEGORY_ORDER.length : index
+}
 
 interface Props {
   onOpenGame: (url: string) => void
@@ -40,9 +42,7 @@ export default function CashbackPage({ onOpenGame, onOpenCategory }: Props) {
   const locale = useLocaleStore((s) => s.locale)
   const currency = activeCurrency
 
-  const [activeTab, setActiveTab] = useState<DateTab>('today')
   const [config, setConfig] = useState<RebateConfig | null>(null)
-  const [summary, setSummary] = useState<RebateSummary | null>(null)
   const [progress, setProgress] = useState<RebateProgress | null>(null)
   const [claiming, setClaiming] = useState(false)
   const [expandedTier, setExpandedTier] = useState<string | null>(null)
@@ -52,18 +52,6 @@ export default function CashbackPage({ onOpenGame, onOpenCategory }: Props) {
   useEffect(() => {
     fetchRebateConfig().then(setConfig).catch(() => null)
   }, [])
-
-  const loadSummary = useCallback(async (tab: DateTab) => {
-    if (!token) return
-    try {
-      const s = await fetchRebateSummary(tab, currency)
-      setSummary(s)
-    } catch {
-      setSummary(null)
-    }
-  }, [token, currency])
-
-  useEffect(() => { void loadSummary(activeTab) }, [activeTab, loadSummary])
 
   const loadProgress = useCallback(async () => {
     if (!token) { setProgress(null); return }
@@ -80,7 +68,7 @@ export default function CashbackPage({ onOpenGame, onOpenCategory }: Props) {
       const res = await claimRebate(currency)
       analytics.rebateClaimSuccess(res.totalRebate, currency)
       alert(t('cashback.claimSuccess', { amount: amtStr(currency, res.totalRebate) }))
-      await Promise.all([loadProgress(), loadSummary(activeTab), useWalletStore.getState().refresh()])
+      await Promise.all([loadProgress(), useWalletStore.getState().refresh()])
     } catch (e) {
       alert(e instanceof ApiError ? e.message : 'Claim failed')
     } finally { setClaiming(false) }
@@ -105,12 +93,16 @@ export default function CashbackPage({ onOpenGame, onOpenCategory }: Props) {
   const levelCards = config?.levels ?? []
   const userLevel = progress?.level ?? 1
 
-  // 今日各大类已得洗码（用于当前等级卡内 Bonus 显示）
+  const claimableBreakdown = useMemo(
+    () => [...(progress?.claimableBreakdown ?? [])].sort((a, b) => categoryRank(a.gameCategory) - categoryRank(b.gameCategory) || a.gameCategory.localeCompare(b.gameCategory)),
+    [progress?.claimableBreakdown],
+  )
+
   const categoryBonusMap = useMemo(() => {
     const m = new Map<string, number>()
-    for (const b of summary?.breakdown ?? []) m.set(b.gameCategory, b.rebateAmount)
+    for (const b of claimableBreakdown) m.set(b.gameCategory, b.rebateAmount)
     return m
-  }, [summary?.breakdown])
+  }, [claimableBreakdown])
 
   // 顶部 banner：取最高等级费率最高的大类
   const topTier = levelCards.length ? levelCards[levelCards.length - 1] : null
@@ -136,14 +128,6 @@ export default function CashbackPage({ onOpenGame, onOpenCategory }: Props) {
 
   const tierRate = (tier: string) => tier === 'elite' ? t('cashback.tierEliteRate') : t('cashback.tierProRate')
 
-  const tierBonusMap = useMemo(() => {
-    const map = new Map<string, number>()
-    for (const item of summary?.tierBreakdown ?? []) {
-      map.set(item.tier, item.rebateAmount)
-    }
-    return map
-  }, [summary?.tierBreakdown])
-
   return (
     <div
       className="page-main pb-8 min-h-screen"
@@ -157,28 +141,8 @@ export default function CashbackPage({ onOpenGame, onOpenCategory }: Props) {
         draggable={false}
       />
 
-      {/* 今日 / 昨日 分段控件 —— 紧凑 + 金色质感选中 */}
-      <div className="mx-4 mt-4">
-        <div className="flex rounded-2xl p-1 gap-1 bg-gradient-to-b from-[#181006]/90 to-[#070503]/90 border border-amber-300/20 backdrop-blur-sm shadow-inner shadow-black/60">
-          {(['today', 'yesterday'] as DateTab[]).map((tab) => (
-            <button
-              key={tab}
-              type="button"
-              onClick={() => setActiveTab(tab)}
-              className={`flex-1 py-1.5 rounded-xl text-sm font-bold transition-all ${
-                activeTab === tab
-                  ? 'bg-gradient-to-b from-amber-200 via-amber-400 to-yellow-600 text-[#2a1a05] shadow-[0_2px_10px_rgba(245,158,11,0.4)]'
-                  : 'bg-gradient-to-b from-white/[0.06] to-amber-950/[0.10] text-amber-100/45'
-              }`}
-            >
-              {t(tab === 'today' ? 'cashback.tabToday' : 'cashback.tabYesterday')}
-            </button>
-          ))}
-        </div>
-      </div>
-
       {/* Total Bonus —— 紧凑横排，Claim 在右 */}
-      <div className="mx-4 mt-3 relative overflow-hidden rounded-2xl border border-amber-300/35 bg-gradient-to-r from-[#0b0804]/90 via-[#171006]/80 to-[#2c1b05]/55 shadow-[0_0_24px_rgba(180,118,28,0.12)]">
+      <div className="mx-4 mt-4 relative overflow-hidden rounded-2xl border border-amber-300/35 bg-gradient-to-r from-[#0b0804]/90 via-[#171006]/80 to-[#2c1b05]/55 shadow-[0_0_24px_rgba(180,118,28,0.12)]">
         <div className="pointer-events-none absolute right-20 top-1/2 -translate-y-1/2 h-28 w-28 rounded-full bg-amber-300/20 blur-2xl" />
         <div className="relative flex items-center justify-between gap-3 px-4 py-3.5">
           <div className="min-w-0">
@@ -198,10 +162,9 @@ export default function CashbackPage({ onOpenGame, onOpenCategory }: Props) {
         </div>
       </div>
 
-      {/* 投注明细（有数据时展示） */}
-      {token && summary && summary.breakdown.length > 0 && (
+      {token && claimableBreakdown.length > 0 && (
         <div className="mx-4 mt-2 bg-[#0c0905]/70 rounded-2xl px-4 py-3 space-y-1.5 border border-amber-300/15">
-          {summary.breakdown.map((item) => (
+          {claimableBreakdown.map((item) => (
             <div key={item.gameCategory} className="flex items-center justify-between text-xs">
               <span className="flex items-center gap-1.5 text-amber-50/70">
                 <span>{CATEGORY_ICONS[item.gameCategory] ?? '🎮'}</span>
@@ -239,10 +202,6 @@ export default function CashbackPage({ onOpenGame, onOpenCategory }: Props) {
                         <div>
                           <p className="text-amber-100/55 text-[10px]">{t('cashback.cashbackRate')}</p>
                           <p className="text-amber-50 font-bold text-sm">{tierRate(tier)}</p>
-                        </div>
-                        <div>
-                          <p className="text-amber-100/55 text-[10px]">{t('cashback.bonusLabel')}</p>
-                          <p className="text-amber-300 font-bold text-sm">{amtStr(currency, token ? (tierBonusMap.get(tier) ?? 0) : 0)}</p>
                         </div>
                       </div>
                     </div>

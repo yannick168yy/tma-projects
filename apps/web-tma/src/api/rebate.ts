@@ -61,6 +61,7 @@ export interface RebateProgress {
   nextThreshold: number | null
   rates: RebateConfigItem[]
   claimable: number
+  claimableBreakdown: RebateSummaryItem[]
 }
 
 export async function fetchRebateConfig(): Promise<RebateConfig> {

@@ -38,6 +38,7 @@ export interface RebateLevelProgress {
   nextThreshold: number | null
   rates: RebateConfig[]
   claimable: number
+  claimableBreakdown: RebateSummaryItem[]
 }
 
 export interface RebateSummaryItem {
@@ -246,7 +247,7 @@ export function resolveLevel(thresholds: RebateLevelThreshold[], total: number):
 export async function getUserLevelProgress(env: Env, userId: string, currency = 'PHP'): Promise<RebateLevelProgress> {
   const emptyRates: RebateConfig[] = []
   if (!isMysqlEnabled(env)) {
-    return { currency, totalTurnover: 0, level: 1, currentThreshold: 0, nextLevel: null, nextThreshold: null, rates: emptyRates, claimable: 0 }
+    return { currency, totalTurnover: 0, level: 1, currentThreshold: 0, nextLevel: null, nextThreshold: null, rates: emptyRates, claimable: 0, claimableBreakdown: [] }
   }
   const [total, thresholds] = await Promise.all([
     getUserTotalTurnover(env, userId),
@@ -265,6 +266,17 @@ export async function getUserLevelProgress(env: Env, userId: string, currency = 
      WHERE user_id = ? AND currency_code = ? AND status = 'pending'`,
     [userId, currency],
   )
+  const [claimBreakdown] = await pool.query<RowDataPacket[]>(
+    `SELECT game_category, SUM(bet_amount) AS bet_amount, SUM(rebate_amount) AS rebate_amount,
+            CASE
+              WHEN SUM(bet_amount) > 0 THEN ROUND(SUM(rebate_amount) / SUM(bet_amount) * 100, 3)
+              ELSE 0
+            END AS rate_pct
+     FROM bg_rebate_record
+     WHERE user_id = ? AND currency_code = ? AND status = 'pending'
+     GROUP BY game_category`,
+    [userId, currency],
+  )
 
   return {
     currency,
@@ -275,6 +287,12 @@ export async function getUserLevelProgress(env: Env, userId: string, currency = 
     nextThreshold: next ? next.minTurnover : null,
     rates,
     claimable: Number(claim?.claimable ?? 0),
+    claimableBreakdown: claimBreakdown.map((r) => ({
+      gameCategory: String(r.game_category),
+      betAmount: Number(r.bet_amount),
+      rebateAmount: Number(r.rebate_amount),
+      ratePct: Number(r.rate_pct),
+    })),
   }
 }
 
@@ -447,7 +465,7 @@ export async function removeFeaturedGame(env: Env, id: number): Promise<void> {
 /**
  * 每日洗码结算：计算指定 PHT 日期所有用户的洗码，写入 bg_rebate_record（status=pending=待领取）。
  * 不再自动入账，由用户在客户端手动领取（见 claimRebate）。按用户当前等级取分级费率。
- * 设计为幂等：INSERT IGNORE 跳过已存在记录。
+ * 设计为幂等：已有 pending 记录会刷新到当前聚合值，paid 记录不再改写。
  */
 export async function runDailyRebateSettlement(env: Env, date: string): Promise<{ users: number; totalRebate: number }> {
   if (!isMysqlEnabled(env)) return { users: 0, totalRebate: 0 }
@@ -487,7 +505,11 @@ export async function runDailyRebateSettlement(env: Env, date: string): Promise<
      WHERE tl.is_reversed = 0
        AND DATE(CONVERT_TZ(tl.created_at, '+00:00', '+08:00')) = ?
      GROUP BY tl.user_id, COALESCE(tl.sort_category, 'other'), tl.currency
-     HAVING rebate_amount > 0`,
+     HAVING rebate_amount > 0
+     ON DUPLICATE KEY UPDATE
+       bet_amount = IF(status = 'pending', VALUES(bet_amount), bet_amount),
+       rebate_amount = IF(status = 'pending', VALUES(rebate_amount), rebate_amount),
+       rate_pct = IF(status = 'pending', VALUES(rate_pct), rate_pct)`,
     [date, date],
   )
 
