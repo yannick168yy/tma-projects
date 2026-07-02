@@ -68,8 +68,6 @@ function err(ErrorCode: number, ErrorMessage: string, AccountName = '', Balance 
 }
 
 function getClientIp(req: FastifyRequest): string {
-  const forwarded = req.headers['x-forwarded-for']
-  if (typeof forwarded === 'string' && forwarded.trim()) return forwarded.split(',')[0].trim().replace(/^::ffff:/, '')
   const realIp = req.headers['x-real-ip']
   if (typeof realIp === 'string' && realIp.trim()) return realIp.trim().replace(/^::ffff:/, '')
   return req.ip.replace(/^::ffff:/, '')
