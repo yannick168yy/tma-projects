@@ -24,6 +24,14 @@ const schema = z.object({
   // 多货币模式：true = 按回调 currency 字段区分账户；false = 全部视为 SG_CURRENCY
   SG_MULTI_CURRENCY: z.enum(['true', 'false']).default('false').transform((v) => v === 'true'),
 
+  // 568Win 聚合商
+  WIN568_BASE_URL: z.string().default('https://test-api.568win.com'),
+  WIN568_COMPANY_KEY: z.string().default(''),
+  WIN568_SERVER_ID: z.string().default(''),
+  WIN568_SW_COMPANY_KEY: z.string().default(''),
+  WIN568_SW_ALLOWED_IPS: z.string().default(''),
+  WIN568_DEFAULT_CURRENCY: z.enum(['PHP', 'USDT']).default('PHP'),
+
   // YFPay 回调验签
   YFPAY_API_KEY: z.string().default(''),
 
@@ -53,6 +61,9 @@ if (parsed.NODE_ENV === 'production') {
   if (!parsed.INTERNAL_TOKEN.trim()) missing.push('INTERNAL_TOKEN')
   if ((parsed.SG_MERCHANT_ID.trim() || parsed.SG_MERCHANT_KEY.trim()) && !parsed.SG_MERCHANT_KEY.trim()) {
     missing.push('SG_MERCHANT_KEY')
+  }
+  if ((parsed.WIN568_COMPANY_KEY.trim() || parsed.WIN568_SERVER_ID.trim()) && !parsed.WIN568_SERVER_ID.trim()) {
+    missing.push('WIN568_SERVER_ID')
   }
   if (parsed.MATRIX_MERCHANT_NOTIFY_PRIVATE_KEY.trim() !== '' || parsed.MATRIX_PLATFORM_NOTIFY_PUBLIC_KEY.trim() !== '') {
     if (!parsed.MATRIX_MERCHANT_NOTIFY_PRIVATE_KEY.trim()) missing.push('MATRIX_MERCHANT_NOTIFY_PRIVATE_KEY')
