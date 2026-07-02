@@ -6,6 +6,7 @@ import { registerRoutes } from './routes/index.js'
 import { startLedgerConsumer } from './consumers/ledger.consumer.js'
 import { startCallbackConsumer } from './consumers/callback.consumer.js'
 import { startSettlementCron } from './cron/settlement.cron.js'
+import { startWin568KeyRotationCron } from './cron/win568-key-rotation.cron.js'
 import { env } from './config/env.js'
 
 export async function buildApp() {
@@ -33,6 +34,7 @@ export async function buildApp() {
     await startLedgerConsumer(app)
     await startCallbackConsumer(app)
     startSettlementCron(app)
+    startWin568KeyRotationCron(app)
   })
 
   return app

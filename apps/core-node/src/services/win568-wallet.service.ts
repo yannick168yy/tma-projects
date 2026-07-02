@@ -3,6 +3,7 @@ import type { PoolConnection, ResultSetHeader, RowDataPacket } from 'mysql2/prom
 import { env } from '../config/env.js'
 import { lgId } from '../utils/id.js'
 import { allocateBetTurnoverInTransaction, reverseBetTurnover } from './turnover.service.js'
+import { getWin568SwCompanyKey } from './win568-key-settings.service.js'
 
 type CallbackBody = Record<string, unknown>
 
@@ -102,12 +103,12 @@ export class Win568WalletService {
 
   private get db() { return this.app.mysql }
 
-  private validate(req: FastifyRequest, body: CallbackBody): { code: number; message: string } | null {
+  private async validate(req: FastifyRequest, body: CallbackBody): Promise<{ code: number; message: string } | null> {
     const allowed = env.WIN568_SW_ALLOWED_IPS.split(',').map((ip) => ip.trim()).filter(Boolean)
     if (allowed.length > 0 && !allowed.includes(getClientIp(req))) {
       return { code: 2, message: 'IP address not allowed' }
     }
-    const configuredKey = env.WIN568_SW_COMPANY_KEY.trim()
+    const configuredKey = await getWin568SwCompanyKey(this.app)
     if (configuredKey && keyText(text(body, 'CompanyKey')) !== keyText(configuredKey)) {
       return { code: 4, message: 'Company key is invalid' }
     }
@@ -230,7 +231,7 @@ export class Win568WalletService {
   }
 
   async getBalance(req: FastifyRequest, body: CallbackBody) {
-    const invalid = this.validate(req, body)
+    const invalid = await this.validate(req, body)
     if (invalid) return err(invalid.code, invalid.message)
     const player = await this.resolvePlayer(text(body, 'Username'))
     if (!player) return err(1, 'Member does not exist')
@@ -242,7 +243,7 @@ export class Win568WalletService {
   }
 
   async deduct(req: FastifyRequest, body: CallbackBody) {
-    const invalid = this.validate(req, body)
+    const invalid = await this.validate(req, body)
     if (invalid) return err(invalid.code, invalid.message)
     const player = await this.resolvePlayer(text(body, 'Username'))
     if (!player) return err(1, 'Member does not exist')
@@ -339,7 +340,7 @@ export class Win568WalletService {
   }
 
   async returnStake(req: FastifyRequest, body: CallbackBody) {
-    const invalid = this.validate(req, body)
+    const invalid = await this.validate(req, body)
     if (invalid) return err(invalid.code, invalid.message)
     const player = await this.resolvePlayer(text(body, 'Username'))
     if (!player) return err(1, 'Member does not exist')
@@ -399,7 +400,7 @@ export class Win568WalletService {
   }
 
   async settle(req: FastifyRequest, body: CallbackBody) {
-    const invalid = this.validate(req, body)
+    const invalid = await this.validate(req, body)
     if (invalid) return err(invalid.code, invalid.message)
     const player = await this.resolvePlayer(text(body, 'Username'))
     if (!player) return err(1, 'Member does not exist')
@@ -473,7 +474,7 @@ export class Win568WalletService {
   }
 
   private async reverse(req: FastifyRequest, body: CallbackBody, mode: 'rollback' | 'cancel') {
-    const invalid = this.validate(req, body)
+    const invalid = await this.validate(req, body)
     if (invalid) return err(invalid.code, invalid.message)
     const player = await this.resolvePlayer(text(body, 'Username'))
     if (!player) return err(1, 'Member does not exist')
@@ -575,7 +576,7 @@ export class Win568WalletService {
   }
 
   async bonus(req: FastifyRequest, body: CallbackBody) {
-    const invalid = this.validate(req, body)
+    const invalid = await this.validate(req, body)
     if (invalid) return err(invalid.code, invalid.message)
     const player = await this.resolvePlayer(text(body, 'Username'))
     if (!player) return err(1, 'Member does not exist')
@@ -615,7 +616,7 @@ export class Win568WalletService {
   }
 
   async getBetStatus(req: FastifyRequest, body: CallbackBody) {
-    const invalid = this.validate(req, body)
+    const invalid = await this.validate(req, body)
     if (invalid) return { TransferCode: '', TransactionId: '', Status: '', WinLoss: 0, Stake: 0, ErrorCode: invalid.code, ErrorMessage: invalid.message }
     if (!text(body, 'Username')) return { TransferCode: '', TransactionId: '', Status: '', WinLoss: 0, Stake: 0, ErrorCode: 3, ErrorMessage: 'Username empty' }
     const player = await this.resolvePlayer(text(body, 'Username'))

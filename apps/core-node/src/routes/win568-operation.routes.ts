@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify'
 import type { RowDataPacket } from 'mysql2/promise'
 import { env } from '../config/env.js'
 import { Win568Client } from '../clients/win568.client.js'
+import { getWin568OperationCompanyKey } from '../services/win568-key-settings.service.js'
 
 function validUsername(username: string) {
   return /^[A-Za-z0-9_]{6,40}$/.test(username)
@@ -87,7 +88,7 @@ async function saveReportBets(app: FastifyInstance, portfolio: string, result: u
 }
 
 export async function win568OperationRoutes(app: FastifyInstance) {
-  const client = new Win568Client()
+  const client = async () => new Win568Client(await getWin568OperationCompanyKey(app))
 
   app.addHook('onRequest', async (req, reply) => {
     const token = req.headers['x-internal-token']
@@ -102,7 +103,7 @@ export async function win568OperationRoutes(app: FastifyInstance) {
     if (req.body.apiType !== 'Operation' && req.body.apiType !== 'SeamlessWallet') {
       return reply.status(400).send({ error: 'apiType must be Operation or SeamlessWallet' })
     }
-    const result = await client.regenerateCompanyKey(req.body.apiType)
+    const result = await (await client()).regenerateCompanyKey(req.body.apiType)
     return reply.send({
       ...result,
       configSection: req.body.apiType === 'Operation' ? 'WIN568_COMPANY_KEY' : 'WIN568_SW_COMPANY_KEY',
@@ -110,7 +111,7 @@ export async function win568OperationRoutes(app: FastifyInstance) {
   })
 
   app.post('/key/current', async (_req, reply) => {
-    const result = await client.getCurrentCompanyKeyInfo()
+    const result = await (await client()).getCurrentCompanyKeyInfo()
     return reply.send(result)
   })
 
@@ -132,7 +133,7 @@ export async function win568OperationRoutes(app: FastifyInstance) {
     if (body.min >= body.max || body.max > body.maxPerMatch || body.maxPerMatch > 2_000_000_000) {
       return reply.status(400).send({ error: 'invalid bet limits' })
     }
-    const result = await client.registerAgent({
+    const result = await (await client()).registerAgent({
       Username: body.username,
       Password: body.password,
       Currency: body.currency,
@@ -175,7 +176,7 @@ export async function win568OperationRoutes(app: FastifyInstance) {
       [req.body.agent],
     )
     if (!agent) return reply.status(400).send({ error: 'agent not found' })
-    const result = await client.registerPlayer({ Username: username, Agent: req.body.agent, UserGroup: req.body.userGroup ?? 'a' })
+    const result = await (await client()).registerPlayer({ Username: username, Agent: req.body.agent, UserGroup: req.body.userGroup ?? 'a' })
     if (result.error.id === 0 || result.error.id === 302) {
       await app.mysql.execute(
         `INSERT INTO bg_aggregator_player
@@ -191,14 +192,14 @@ export async function win568OperationRoutes(app: FastifyInstance) {
   })
 
   app.post<{ Body: Record<string, unknown> }>('/login', async (req, reply) => {
-    const result = await client.login(req.body)
+    const result = await (await client()).login(req.body)
     return reply.send(result)
   })
 
   app.post<{
     Body: { portfolio: string; startDate: string; endDate: string; language?: string; isGetDownline?: boolean }
   }>('/report/modify-date', async (req, reply) => {
-    const result = await client.getBetListByModifyDate({
+    const result = await (await client()).getBetListByModifyDate({
       portfolio: req.body.portfolio,
       startDate: req.body.startDate,
       endDate: req.body.endDate,
@@ -213,7 +214,7 @@ export async function win568OperationRoutes(app: FastifyInstance) {
     Body: { portfolio: string; refNos: string | string[]; language?: string }
   }>('/report/refnos', async (req, reply) => {
     const refNos = Array.isArray(req.body.refNos) ? req.body.refNos.join(',') : req.body.refNos
-    const result = await client.getBetListByRefNos({
+    const result = await (await client()).getBetListByRefNos({
       portfolio: req.body.portfolio,
       refNos,
       language: req.body.language ?? 'en',
@@ -225,7 +226,7 @@ export async function win568OperationRoutes(app: FastifyInstance) {
   app.post<{
     Body: { portfolio: string; refno: string; language?: string }
   }>('/report/payload', async (req, reply) => {
-    const result = await client.getBetPayload({
+    const result = await (await client()).getBetPayload({
       Portfolio: req.body.portfolio,
       Refno: req.body.refno,
       Language: req.body.language ?? 'EN',
@@ -238,7 +239,7 @@ export async function win568OperationRoutes(app: FastifyInstance) {
   }>('/order/resend', async (req, reply) => {
     const txnId = Array.isArray(req.body.txnId) ? req.body.txnId.join(',') : req.body.txnId
     if (!txnId.trim()) return reply.status(400).send({ error: 'txnId is required' })
-    const result = await client.resendOrder({ txnId, portfolio: req.body.portfolio })
+    const result = await (await client()).resendOrder({ txnId, portfolio: req.body.portfolio })
     return reply.send(result)
   })
 }

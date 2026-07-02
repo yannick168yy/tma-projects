@@ -272,6 +272,8 @@ export interface SmsSendLogEntry {
 export const getSmsSettings = () => get<{ testMode: boolean }>('/admin/settings/sms')
 export const updateSmsSettings = (testMode: boolean) => put<{ testMode: boolean }>('/admin/settings/sms', { testMode })
 export const getSmsSendLogs = () => get<SmsSendLogEntry[]>('/admin/settings/sms/logs')
+export const getWin568KeyRotationSettings = () => get<{ enabled: boolean }>('/admin/settings/win568-key-rotation')
+export const updateWin568KeyRotationSettings = (enabled: boolean) => put<{ enabled: boolean }>('/admin/settings/win568-key-rotation', { enabled })
 export interface SystemParams {
   smsDailyLimitPerUser: number
   smsDailyLimitPerIp: number

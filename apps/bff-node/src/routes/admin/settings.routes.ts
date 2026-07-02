@@ -32,6 +32,7 @@ import {
 } from '../../services/exchange-rate.service.js'
 
 const router = new Router({ prefix: '/settings' })
+const WIN568_KEY_AUTO_ROTATION_ENABLED_KEY = 'win568_key_auto_rotation_enabled'
 // 查询操作密码是否已设置（所有管理员均可查）
 router.get('/op-password', async (ctx) => {
   const hash = await getOpPasswordHash(ctx.state.env)
@@ -100,6 +101,34 @@ router.get('/sms/logs', async (ctx) => {
   const redis = ctx.state.redis as Redis
   const logs = await listSmsSendLogs(redis)
   ok(ctx, logs)
+})
+
+// ── 568Win 金钥自动轮换 ─────────────────────────────────────────────────────
+
+router.get('/win568-key-rotation', async (ctx) => {
+  const raw = await getAdminSetting(ctx.state.env, WIN568_KEY_AUTO_ROTATION_ENABLED_KEY)
+  ok(ctx, { enabled: raw !== '0' })
+})
+
+router.put('/win568-key-rotation', async (ctx) => {
+  if (ctx.state.adminRole !== 'super_admin') {
+    fail(ctx, 403, 'Only super_admin can manage 568Win key rotation'); return
+  }
+  const body = ctx.request.body as { enabled?: unknown }
+  if (typeof body.enabled !== 'boolean') {
+    fail(ctx, 400, 'enabled must be a boolean'); return
+  }
+  await setAdminSetting(ctx.state.env, WIN568_KEY_AUTO_ROTATION_ENABLED_KEY, body.enabled ? '1' : '0')
+  await writeAuditLog(ctx.state.env, {
+    adminId: ctx.state.adminId!,
+    adminUsername: ctx.state.adminUsername!,
+    action: 'win568_key_rotation_update',
+    targetType: 'settings',
+    targetId: 'win568_key_rotation',
+    detail: { enabled: body.enabled },
+    ip: ctx.ip,
+  })
+  ok(ctx, { enabled: body.enabled })
 })
 
 // ── 系统参数 ──────────────────────────────────────────────────────────────────

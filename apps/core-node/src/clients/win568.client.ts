@@ -22,27 +22,29 @@ async function post(path: string, payload: Record<string, unknown>): Promise<Win
   return await res.json() as Win568Response
 }
 
-function withAuth(payload: Record<string, unknown>): Record<string, unknown> {
+function withAuth(payload: Record<string, unknown>, companyKey = env.WIN568_COMPANY_KEY): Record<string, unknown> {
   return {
     ...payload,
-    CompanyKey: env.WIN568_COMPANY_KEY,
+    CompanyKey: companyKey,
     ServerId: env.WIN568_SERVER_ID,
   }
 }
 
 export class Win568Client {
+  constructor(private operationCompanyKey = env.WIN568_COMPANY_KEY) {}
+
   regenerateCompanyKey(apiType: 'Operation' | 'SeamlessWallet') {
     return post('/web-root/restricted/system/regenerate-key', {
       apiType,
       scope: 'All',
-      companyKey: env.WIN568_COMPANY_KEY,
+      companyKey: this.operationCompanyKey,
       serverId: env.WIN568_SERVER_ID,
     })
   }
 
   getCurrentCompanyKeyInfo() {
     return post('/web-root/restricted/system/get-current-key-info', {
-      companyKey: env.WIN568_COMPANY_KEY,
+      companyKey: this.operationCompanyKey,
       serverId: env.WIN568_SERVER_ID,
     })
   }
@@ -50,7 +52,7 @@ export class Win568Client {
   resendOrder(payload: { txnId: string; portfolio: string }) {
     return post('/web-root/restricted/seamless-wallet/resend-order', {
       ...payload,
-      companyKey: env.WIN568_COMPANY_KEY,
+      companyKey: this.operationCompanyKey,
       serverId: env.WIN568_SERVER_ID,
     })
   }
@@ -65,15 +67,15 @@ export class Win568Client {
     CasinoTableLimit: number
     IsTwoFAEnabled?: boolean
   }) {
-    return post('/web-root/restricted/agent/register-agent.aspx', withAuth(payload))
+    return post('/web-root/restricted/agent/register-agent.aspx', withAuth(payload, this.operationCompanyKey))
   }
 
   registerPlayer(payload: { Username: string; Agent: string; UserGroup?: string }) {
-    return post('/web-root/restricted/player/register-player.aspx', withAuth(payload))
+    return post('/web-root/restricted/player/register-player.aspx', withAuth(payload, this.operationCompanyKey))
   }
 
   async login(payload: Record<string, unknown>) {
-    const result = await post('/web-root/restricted/player/v2/login.aspx', withAuth(payload))
+    const result = await post('/web-root/restricted/player/v2/login.aspx', withAuth(payload, this.operationCompanyKey))
     if (result.error.id === 0 && result.url?.startsWith('//')) {
       result.url = `https:${result.url}`
     }
@@ -89,7 +91,7 @@ export class Win568Client {
   }) {
     return post('/web-root/restricted/report/v2/get-bet-list-by-modify-date.aspx', {
       ...payload,
-      companyKey: env.WIN568_COMPANY_KEY,
+      companyKey: this.operationCompanyKey,
       serverId: env.WIN568_SERVER_ID,
     })
   }
@@ -97,12 +99,12 @@ export class Win568Client {
   getBetListByRefNos(payload: { portfolio: string; refNos: string; language?: string }) {
     return post('/web-root/restricted/report/get-bet-list-by-refnos.aspx', {
       ...payload,
-      companyKey: env.WIN568_COMPANY_KEY,
+      companyKey: this.operationCompanyKey,
       serverId: env.WIN568_SERVER_ID,
     })
   }
 
   getBetPayload(payload: { Portfolio: string; Refno: string; Language?: string }) {
-    return post('/web-root/restricted/report/get-bet-payload.aspx', withAuth(payload))
+    return post('/web-root/restricted/report/get-bet-payload.aspx', withAuth(payload, this.operationCompanyKey))
   }
 }

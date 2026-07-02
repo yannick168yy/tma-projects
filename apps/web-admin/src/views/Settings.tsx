@@ -1,13 +1,15 @@
 import { useEffect, useState } from 'react'
-import { Row, Col, Card, Descriptions, Badge, Form, Input, Button, Alert, Typography, message, QRCode, Space, Modal } from 'antd'
+import { Row, Col, Card, Descriptions, Badge, Form, Input, Button, Alert, Typography, message, QRCode, Space, Modal, Switch } from 'antd'
 import {
   cancelAdminTotpSetup,
   disableAdminTotp,
   enableAdminTotp,
   getAdminTotpStatus,
   getOpPasswordStatus,
+  getWin568KeyRotationSettings,
   setOpPassword,
   setupAdminTotp,
+  updateWin568KeyRotationSettings,
   type AdminTotpSetup,
   type AdminTotpStatus,
 } from '../api'
@@ -19,8 +21,10 @@ export default function Settings() {
   const [opPwdConfigured, setOpPwdConfigured] = useState(false)
   const [totpStatus, setTotpStatus] = useState<AdminTotpStatus>({ enabled: false, confirmedAt: null })
   const [totpSetup, setTotpSetup] = useState<AdminTotpSetup | null>(null)
+  const [win568KeyRotationEnabled, setWin568KeyRotationEnabled] = useState(true)
   const [saving, setSaving] = useState(false)
   const [totpLoading, setTotpLoading] = useState(false)
+  const [win568KeyRotationSaving, setWin568KeyRotationSaving] = useState(false)
   const [disableOpen, setDisableOpen] = useState(false)
   const [form] = Form.useForm<{ current: string; newPwd: string; confirm: string }>()
   const [totpForm] = Form.useForm<{ code: string }>()
@@ -28,9 +32,10 @@ export default function Settings() {
 
   async function loadStatus() {
     try {
-      const [op, totp] = await Promise.all([getOpPasswordStatus(), getAdminTotpStatus()])
+      const [op, totp, win568KeyRotation] = await Promise.all([getOpPasswordStatus(), getAdminTotpStatus(), getWin568KeyRotationSettings()])
       setOpPwdConfigured(op.configured)
       setTotpStatus(totp)
+      setWin568KeyRotationEnabled(win568KeyRotation.enabled)
     } catch { /* ignore */ }
   }
 
@@ -98,6 +103,17 @@ export default function Settings() {
     } catch (e) {
       message.error(e instanceof Error ? e.message : '取消失败')
     } finally { setTotpLoading(false) }
+  }
+
+  async function toggleWin568KeyRotation(enabled: boolean) {
+    setWin568KeyRotationSaving(true)
+    try {
+      const saved = await updateWin568KeyRotationSettings(enabled)
+      setWin568KeyRotationEnabled(saved.enabled)
+      message.success(saved.enabled ? '568Win 金钥自动轮换已开启' : '568Win 金钥自动轮换已关闭')
+    } catch (e) {
+      message.error(e instanceof Error ? e.message : '操作失败')
+    } finally { setWin568KeyRotationSaving(false) }
   }
 
   return (
@@ -201,6 +217,34 @@ export default function Settings() {
             <Typography.Paragraph type="secondary" style={{ marginTop: 16 }}>
               开启后，该管理员账号每次登录后台都需要输入 Google Authenticator 动态验证码。
             </Typography.Paragraph>
+          </Card>
+        </Col>
+        <Col span={24} style={{ marginTop: 16 }}>
+          <Card title="568Win 金钥自动轮换" bordered={false}>
+            {!isSuperAdmin && (
+              <Alert message="仅 super_admin 可修改 568Win 金钥自动轮换开关" type="warning" showIcon style={{ marginBottom: 16 }} />
+            )}
+            <Descriptions column={1} bordered size="small" style={{ marginBottom: 16 }}>
+              <Descriptions.Item label="状态">
+                {win568KeyRotationEnabled
+                  ? <Badge status="success" text="已开启" />
+                  : <Badge status="default" text="已关闭" />
+                }
+              </Descriptions.Item>
+            </Descriptions>
+            <Space>
+              <Switch
+                checked={win568KeyRotationEnabled}
+                loading={win568KeyRotationSaving}
+                disabled={!isSuperAdmin}
+                checkedChildren="开启"
+                unCheckedChildren="关闭"
+                onChange={toggleWin568KeyRotation}
+              />
+              <Typography.Text type="secondary">
+                开启后，系统会每天检查 568Win Company Key，到期前自动生成并切换新 key。
+              </Typography.Text>
+            </Space>
           </Card>
         </Col>
       </Row>
