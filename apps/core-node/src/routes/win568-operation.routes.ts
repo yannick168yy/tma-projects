@@ -7,6 +7,10 @@ function validUsername(username: string) {
   return /^[A-Za-z0-9_]{6,40}$/.test(username)
 }
 
+export function toWin568Username(userId: string) {
+  return userId.trim().replace(/[^A-Za-z0-9_]/g, '_')
+}
+
 function validPassword(password: string) {
   return /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d_!@#$%^&*.-]{6,20}$/.test(password)
 }
@@ -38,7 +42,7 @@ export async function win568OperationRoutes(app: FastifyInstance) {
     Body: {
       username: string
       password: string
-      currency: 'PHP' | 'USDT'
+      currency: 'PHP' | 'USDT' | 'TMP'
       min: number
       max: number
       maxPerMatch: number
@@ -77,11 +81,19 @@ export async function win568OperationRoutes(app: FastifyInstance) {
   })
 
   app.post<{
-    Body: { userId: string; username?: string; agent: string; userGroup?: string; currency?: 'PHP' | 'USDT' }
+    Body: { userId: string; username?: string; agent: string; userGroup?: string; currency?: 'PHP' | 'USDT' | 'TMP' }
   }>('/player/register', async (req, reply) => {
-    const username = req.body.username ?? req.body.userId
+    const username = req.body.username ?? toWin568Username(req.body.userId)
     if (!validUsername(username)) return reply.status(400).send({ error: 'invalid username' })
     if (!/^[a-z]$/.test(req.body.userGroup ?? 'a')) return reply.status(400).send({ error: 'invalid userGroup' })
+    const [[mapped]] = await app.mysql.query<RowDataPacket[]>(
+      `SELECT user_id FROM bg_aggregator_player
+       WHERE aggregator_id = '568win' AND external_username = ? LIMIT 1`,
+      [username],
+    )
+    if (mapped && String(mapped.user_id) !== req.body.userId) {
+      return reply.status(409).send({ error: 'external username already mapped' })
+    }
     const [[agent]] = await app.mysql.query<RowDataPacket[]>(
       `SELECT agent_username, currency FROM bg_568win_agent WHERE agent_username = ? LIMIT 1`,
       [req.body.agent],
