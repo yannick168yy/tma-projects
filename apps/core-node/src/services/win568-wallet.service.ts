@@ -316,6 +316,60 @@ export class Win568WalletService {
     }
   }
 
+  async returnStake(req: FastifyRequest, body: CallbackBody) {
+    const invalid = this.validate(req, body)
+    if (invalid) return err(invalid.code, invalid.message)
+    const player = await this.resolvePlayer(text(body, 'Username'))
+    if (!player) return err(1, 'Member does not exist')
+
+    const conn = await this.db.getConnection()
+    try {
+      await conn.query('SET TRANSACTION ISOLATION LEVEL SERIALIZABLE')
+      await conn.beginTransaction()
+      await this.lockedBalance(conn, player)
+      const bets = await this.findTxns(conn, body, true)
+      if (bets.length === 0) {
+        await conn.commit()
+        return err(6, 'Bet not exists')
+      }
+      const bet = bets[0]
+      const balance = await this.currentBalance(conn, player)
+      if (bet.status !== 'running') {
+        await conn.commit()
+        return err(7, 'Invalid bet state for return stake', player.username, balance)
+      }
+
+      const currentStake = round2(num(body, 'CurrentStake'))
+      const oldStake = round2(Number(bet.amount))
+      if (currentStake > oldStake) {
+        await conn.commit()
+        return err(7, 'Invalid current stake', player.username, balance)
+      }
+
+      const refund = round2(oldStake - currentStake)
+      const newBalance = refund > 0 ? await this.changeBalance(conn, player, refund) : balance
+      if (refund > 0) {
+        await conn.execute(
+          `UPDATE bg_568win_wallet_txn SET amount = ?, raw_request = ?, updated_at = NOW(3) WHERE id = ?`,
+          [currentStake, JSON.stringify(body), bet.id],
+        )
+        await conn.execute(
+          `UPDATE bg_bet_order SET amount = ?, original_amount = ? WHERE aggregator_id = '568win' AND provider_txn_id = ? AND bet_type = 'bet'`,
+          [currentStake, currentStake, transferKey(body)],
+        )
+        await this.addLedger(conn, player, 'adjust', refund, newBalance, text(body, 'TransferCode'), '568Win return stake')
+      }
+      await conn.commit()
+      return ok(player.username, newBalance)
+    } catch (e) {
+      await conn.rollback()
+      this.app.log.error({ err: e }, '[568win] return stake failed')
+      return err(7, 'Internal error')
+    } finally {
+      conn.release()
+    }
+  }
+
   async settle(req: FastifyRequest, body: CallbackBody) {
     const invalid = this.validate(req, body)
     if (invalid) return err(invalid.code, invalid.message)

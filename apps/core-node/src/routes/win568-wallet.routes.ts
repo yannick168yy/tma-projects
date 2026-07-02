@@ -30,6 +30,7 @@ export async function win568WalletRoutes(app: FastifyInstance) {
 
   app.post('/GetBalance', async (req, reply) => sendWin568(reply, await svc.getBalance(req, req.body as Record<string, unknown>)))
   app.post('/Deduct', async (req, reply) => sendWin568(reply, await svc.deduct(req, req.body as Record<string, unknown>)))
+  app.post('/ReturnStake', async (req, reply) => sendWin568(reply, await svc.returnStake(req, req.body as Record<string, unknown>)))
   app.post('/Settle', async (req, reply) => sendWin568(reply, await svc.settle(req, req.body as Record<string, unknown>)))
   app.post('/Rollback', async (req, reply) => sendWin568(reply, await svc.rollback(req, req.body as Record<string, unknown>)))
   app.post('/Cancel', async (req, reply) => sendWin568(reply, await svc.cancel(req, req.body as Record<string, unknown>)))
