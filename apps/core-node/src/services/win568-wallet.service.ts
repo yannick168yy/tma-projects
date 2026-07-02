@@ -207,6 +207,12 @@ export class Win568WalletService {
     return rows
   }
 
+  private async rollbackAlreadyApplied(conn: PoolConnection, player: PlayerRef, body: CallbackBody): Promise<number | null> {
+    const bets = await this.findTxns(conn, body, false)
+    if (!bets.some((b) => b.status === 'running' && b.win_loss !== null)) return null
+    return this.currentBalance(conn, player)
+  }
+
   async getBalance(req: FastifyRequest, body: CallbackBody) {
     const invalid = this.validate(req, body)
     if (invalid) return err(invalid.code, invalid.message)
@@ -532,6 +538,10 @@ export class Win568WalletService {
       return ok(player.username, newBalance)
     } catch (e) {
       await conn.rollback()
+      if (mode === 'rollback') {
+        const balance = await this.rollbackAlreadyApplied(conn, player, body).catch(() => null)
+        if (balance !== null) return err(2003, 'Bet Already Rollback', player.username, balance)
+      }
       this.app.log.error({ err: e }, `[568win] ${mode} failed`)
       return err(7, 'Internal error')
     } finally {

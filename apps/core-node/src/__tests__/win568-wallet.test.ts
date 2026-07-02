@@ -367,6 +367,84 @@ describe('568Win 钱包回调', () => {
     assert.equal(result.ErrorCode, 2002)
   })
 
+  it('Rollback 并发冲突但发现已 rollback 时返回 2003', async () => {
+    const { Win568WalletService } = await import('../services/win568-wallet.service.js')
+    let afterConflict = false
+    const conn = {
+      async query(sql: string) {
+        if (sql.includes('SELECT available FROM bg_wallet')) return [[{ available: 1104 }], undefined]
+        if (sql.includes('bg_568win_wallet_txn')) {
+          return [[{
+            id: 1,
+            user_id: 'BG-10024',
+            external_username: 'BG-10024',
+            currency: 'PHP',
+            transfer_code: 'BTiSports102236570523',
+            transaction_id: null,
+            product_type: 9,
+            game_type: 100,
+            gpid: 1022,
+            provider_id: '',
+            round_id: 'BTiSports102236570523',
+            txn_type: 'bet',
+            amount: '10.0000',
+            win_loss: '30.0000',
+            status: afterConflict ? 'running' : 'settled',
+          }], undefined]
+        }
+        return [[], undefined]
+      },
+      async execute(sql: string) {
+        if (sql.includes('UPDATE bg_568win_wallet_txn SET status =')) {
+          afterConflict = true
+          throw new Error('deadlock')
+        }
+        return [{ insertId: 1 }, undefined]
+      },
+      async beginTransaction() {},
+      async commit() {},
+      async rollback() {},
+      release() {},
+    }
+    const mysql = {
+      async query(sql: string) {
+        if (sql.includes('bg_aggregator_player')) {
+          return [[{
+            user_id: 'BG-10024',
+            external_username: 'BG-10024',
+            currency: 'PHP',
+            status: 'active',
+          }], undefined]
+        }
+        return [[], undefined]
+      },
+      async getConnection() {
+        return conn
+      },
+    }
+    const app = {
+      mysql,
+      log: { error() {} },
+    } as unknown as FastifyInstance
+    const req = {
+      headers: { 'x-real-ip': '122.146.58.49' },
+      ip: '127.0.0.1',
+    } as unknown as FastifyRequest
+
+    const result = await new Win568WalletService(app).rollback(req, {
+      CompanyKey: 'test-key',
+      Username: 'BG-10024',
+      TransferCode: 'BTiSports102236570523',
+      ProductType: 9,
+      GameType: 100,
+      Gpid: 1022,
+    })
+
+    assert.equal(result.ErrorCode, 2003)
+    assert.equal(result.AccountName, 'BG-10024')
+    assert.equal(result.Balance, 1104)
+  })
+
   it('GetBetStatus 对 rollback 后的 running 注单仍返回 running', async () => {
     const { Win568WalletService } = await import('../services/win568-wallet.service.js')
     const conn = {
