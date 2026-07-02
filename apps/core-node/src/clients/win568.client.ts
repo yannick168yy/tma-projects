@@ -40,6 +40,21 @@ export class Win568Client {
     })
   }
 
+  getCurrentCompanyKeyInfo() {
+    return post('/web-root/restricted/system/get-current-key-info', {
+      companyKey: env.WIN568_COMPANY_KEY,
+      serverId: env.WIN568_SERVER_ID,
+    })
+  }
+
+  resendOrder(payload: { txnId: string; portfolio: string }) {
+    return post('/web-root/restricted/seamless-wallet/resend-order', {
+      ...payload,
+      companyKey: env.WIN568_COMPANY_KEY,
+      serverId: env.WIN568_SERVER_ID,
+    })
+  }
+
   registerAgent(payload: {
     Username: string
     Password: string

@@ -109,6 +109,11 @@ export async function win568OperationRoutes(app: FastifyInstance) {
     })
   })
 
+  app.post('/key/current', async (_req, reply) => {
+    const result = await client.getCurrentCompanyKeyInfo()
+    return reply.send(result)
+  })
+
   app.post<{
     Body: {
       username: string
@@ -225,6 +230,15 @@ export async function win568OperationRoutes(app: FastifyInstance) {
       Refno: req.body.refno,
       Language: req.body.language ?? 'EN',
     })
+    return reply.send(result)
+  })
+
+  app.post<{
+    Body: { txnId: string | string[]; portfolio: string }
+  }>('/order/resend', async (req, reply) => {
+    const txnId = Array.isArray(req.body.txnId) ? req.body.txnId.join(',') : req.body.txnId
+    if (!txnId.trim()) return reply.status(400).send({ error: 'txnId is required' })
+    const result = await client.resendOrder({ txnId, portfolio: req.body.portfolio })
     return reply.send(result)
   })
 }
