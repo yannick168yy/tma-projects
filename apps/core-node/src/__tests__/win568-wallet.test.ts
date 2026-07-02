@@ -447,6 +447,88 @@ describe('568Win 钱包回调', () => {
     assert.equal(result.Balance, 1104)
   })
 
+  it('Cancel 并发冲突但发现已取消时返回 2002', async () => {
+    const { Win568WalletService } = await import('../services/win568-wallet.service.js')
+    let afterConflict = false
+    let fallbackReads = 0
+    const conn = {
+      async query(sql: string) {
+        if (sql.includes('SELECT available FROM bg_wallet')) return [[{ available: 1462 }], undefined]
+        if (sql.includes('bg_568win_wallet_txn')) {
+          const cancelVisible = afterConflict && !sql.includes('FOR UPDATE') && fallbackReads++ > 0
+          return [[{
+            id: 1,
+            user_id: 'BG-10024',
+            external_username: 'BG-10024',
+            currency: 'PHP',
+            transfer_code: 'T84610721',
+            transaction_id: 'T84610721',
+            product_type: 3,
+            game_type: 201,
+            gpid: -1,
+            provider_id: '',
+            round_id: 'T84610721',
+            txn_type: 'bet',
+            amount: '10.0000',
+            win_loss: null,
+            status: cancelVisible ? 'Void' : 'running',
+          }], undefined]
+        }
+        return [[], undefined]
+      },
+      async execute(sql: string) {
+        if (sql.includes('UPDATE bg_568win_wallet_txn SET status =')) {
+          afterConflict = true
+          throw new Error('deadlock')
+        }
+        return [{ insertId: 1 }, undefined]
+      },
+      async beginTransaction() {},
+      async commit() {},
+      async rollback() {},
+      release() {},
+    }
+    const mysql = {
+      async query(sql: string) {
+        if (sql.includes('bg_aggregator_player')) {
+          return [[{
+            user_id: 'BG-10024',
+            external_username: 'BG-10024',
+            currency: 'PHP',
+            status: 'active',
+          }], undefined]
+        }
+        return [[], undefined]
+      },
+      async getConnection() {
+        return conn
+      },
+    }
+    const app = {
+      mysql,
+      log: { error() {} },
+    } as unknown as FastifyInstance
+    const req = {
+      headers: { 'x-real-ip': '122.146.58.49' },
+      ip: '127.0.0.1',
+    } as unknown as FastifyRequest
+
+    const result = await new Win568WalletService(app).cancel(req, {
+      CompanyKey: 'test-key',
+      Username: 'BG-10024',
+      TransferCode: 'T84610721',
+      TransactionId: 'T84610721',
+      ProductType: 3,
+      GameType: 201,
+      Gpid: -1,
+      IsCancelAll: true,
+    })
+
+    assert.equal(result.ErrorCode, 2002)
+    assert.equal(result.AccountName, 'BG-10024')
+    assert.equal(result.Balance, 1462)
+  })
+
   it('CompanyKey 比对忽略测试页传入的空白字符', async () => {
     const { Win568WalletService } = await import('../services/win568-wallet.service.js')
     const conn = {

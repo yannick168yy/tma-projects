@@ -221,6 +221,14 @@ export class Win568WalletService {
     return this.currentBalance(conn, player)
   }
 
+  private async cancelAlreadyApplied(conn: PoolConnection, player: PlayerRef, body: CallbackBody): Promise<number | null> {
+    const bets = bool(body, 'IsCancelAll')
+      ? await this.findAllByTransfer(conn, text(body, 'TransferCode'), false)
+      : await this.findTxns(conn, body, false)
+    if (bets.length === 0 || !bets.every((b) => b.status === 'Void')) return null
+    return this.currentBalance(conn, player)
+  }
+
   async getBalance(req: FastifyRequest, body: CallbackBody) {
     const invalid = this.validate(req, body)
     if (invalid) return err(invalid.code, invalid.message)
@@ -550,6 +558,12 @@ export class Win568WalletService {
         for (let i = 0; i < 5; i += 1) {
           const balance = await this.rollbackAlreadyApplied(conn, player, body).catch(() => null)
           if (balance !== null) return err(2003, 'Bet Already Rollback', player.username, balance)
+          if (i < 4) await sleep(50)
+        }
+      } else {
+        for (let i = 0; i < 5; i += 1) {
+          const balance = await this.cancelAlreadyApplied(conn, player, body).catch(() => null)
+          if (balance !== null) return err(2002, 'Bet Already Canceled', player.username, balance)
           if (i < 4) await sleep(50)
         }
       }
