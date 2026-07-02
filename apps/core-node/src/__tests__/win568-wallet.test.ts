@@ -7,6 +7,77 @@ process.env.WIN568_SW_COMPANY_KEY = 'test-key'
 process.env.WIN568_SW_ALLOWED_IPS = '122.146.58.49'
 
 describe('568Win 钱包回调', () => {
+  async function returnStakeWithBet(status: string, stake = '6.0000') {
+    const { Win568WalletService } = await import('../services/win568-wallet.service.js')
+    const conn = {
+      async query(sql: string) {
+        if (sql.includes('SELECT available FROM bg_wallet')) return [[{ available: 1044 }], undefined]
+        if (sql.includes('bg_568win_wallet_txn')) {
+          return [[{
+            id: 1,
+            user_id: 'BG-10024',
+            external_username: 'BG-10024',
+            currency: 'PHP',
+            transfer_code: 'BTiSports_20_1001_1782963449193',
+            transaction_id: '1782963449193',
+            product_type: 9,
+            game_type: 0,
+            gpid: 1022,
+            provider_id: '',
+            round_id: 'H4TBC9CO7M',
+            txn_type: 'bet',
+            amount: stake,
+            win_loss: status === 'settled' ? '30.0000' : null,
+            status,
+          }], undefined]
+        }
+        return [[], undefined]
+      },
+      async execute() {
+        return [{ insertId: 1 }, undefined]
+      },
+      async beginTransaction() {},
+      async commit() {},
+      async rollback() {},
+      release() {},
+    }
+    const mysql = {
+      async query(sql: string) {
+        if (sql.includes('bg_aggregator_player')) {
+          return [[{
+            user_id: 'BG-10024',
+            external_username: 'BG-10024',
+            currency: 'PHP',
+            status: 'active',
+          }], undefined]
+        }
+        return [[], undefined]
+      },
+      async getConnection() {
+        return conn
+      },
+    }
+    const app = {
+      mysql,
+      log: { error() {} },
+    } as unknown as FastifyInstance
+    const req = {
+      headers: { 'x-real-ip': '122.146.58.49' },
+      ip: '127.0.0.1',
+    } as unknown as FastifyRequest
+
+    return new Win568WalletService(app).returnStake(req, {
+      CompanyKey: 'test-key',
+      Username: 'BG-10024',
+      ProductType: 9,
+      GameType: 0,
+      Gpid: 1022,
+      CurrentStake: 6,
+      TransferCode: 'BTiSports_20_1001_1782963449193',
+      TransactionId: '1782963449193',
+    })
+  }
+
   it('Deduct 拒绝没有 promotionReward 的 Sports 0 金额 FreeBet', async () => {
     const { Win568WalletService } = await import('../services/win568-wallet.service.js')
     const executes: string[] = []
@@ -276,6 +347,24 @@ describe('568Win 钱包回调', () => {
     assert.equal(result.Balance, 994)
     assert.equal(executes.some((e) => e.sql.includes('UPDATE bg_568win_wallet_txn SET amount = ?') && e.params?.[0] === 6), true)
     assert.equal(executes.some((e) => e.sql.includes('INSERT INTO bg_wallet_ledger') && e.params?.[4] === 4), true)
+  })
+
+  it('ReturnStake 重复请求返回 5003', async () => {
+    const result = await returnStakeWithBet('running')
+
+    assert.equal(result.ErrorCode, 5003)
+  })
+
+  it('ReturnStake 遇到 settled 注单返回 2001', async () => {
+    const result = await returnStakeWithBet('settled', '10.0000')
+
+    assert.equal(result.ErrorCode, 2001)
+  })
+
+  it('ReturnStake 遇到 Void 注单返回 2002', async () => {
+    const result = await returnStakeWithBet('Void', '10.0000')
+
+    assert.equal(result.ErrorCode, 2002)
   })
 
   it('GetBetStatus 对 rollback 后的 running 注单仍返回 running', async () => {

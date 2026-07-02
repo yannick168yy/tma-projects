@@ -336,11 +336,17 @@ export class Win568WalletService {
       const balance = await this.currentBalance(conn, player)
       if (bet.status !== 'running') {
         await conn.commit()
+        if (bet.status === 'settled') return err(2001, 'Bet Already Settled', player.username, balance)
+        if (bet.status === 'Void') return err(2002, 'Bet Already Canceled', player.username, balance)
         return err(7, 'Invalid bet state for return stake', player.username, balance)
       }
 
       const currentStake = round2(num(body, 'CurrentStake'))
       const oldStake = round2(Number(bet.amount))
+      if (currentStake === oldStake) {
+        await conn.commit()
+        return err(5003, 'Bet With Same RefNo Exists', player.username, balance)
+      }
       if (currentStake > oldStake) {
         await conn.commit()
         return err(7, 'Invalid current stake', player.username, balance)
