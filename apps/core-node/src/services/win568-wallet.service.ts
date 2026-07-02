@@ -58,7 +58,7 @@ function bool(body: CallbackBody, key: string): boolean {
 function hasPromotionReward(extraInfo: unknown): boolean {
   if (!extraInfo || typeof extraInfo !== 'object' || Array.isArray(extraInfo)) return false
   return Object.entries(extraInfo as Record<string, unknown>).some(([key, value]) => (
-    key.replace(/[_\s-]/g, '').toLowerCase() === 'promotionreward'
+    key.replace(/[_\s-]/g, '').toLowerCase().startsWith('promotionreward')
     && value !== null
     && value !== undefined
     && value !== ''
