@@ -55,6 +55,16 @@ function bool(body: CallbackBody, key: string): boolean {
   return Boolean(value)
 }
 
+function hasPromotionReward(extraInfo: unknown): boolean {
+  if (!extraInfo || typeof extraInfo !== 'object' || Array.isArray(extraInfo)) return false
+  return Object.entries(extraInfo as Record<string, unknown>).some(([key, value]) => (
+    key.replace(/[_\s-]/g, '').toLowerCase() === 'promotionreward'
+    && value !== null
+    && value !== undefined
+    && value !== ''
+  ))
+}
+
 function round2(value: number): number {
   return Math.round((value + Number.EPSILON) * 100) / 100
 }
@@ -224,6 +234,10 @@ export class Win568WalletService {
       const transferCode = text(body, 'TransferCode')
       const transactionId = text(body, 'TransactionId') || null
       const productType = int(body, 'ProductType')
+      if (productType === 1 && amount === 0 && !hasPromotionReward(body.ExtraInfo)) {
+        await conn.commit()
+        return err(7, 'Invalid free bet amount', player.username, balance, { BetAmount: 0 })
+      }
       const existing = productType === 9
         ? await this.findTxns(conn, body, true)
         : await this.findTxns(conn, body, true)
