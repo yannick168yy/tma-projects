@@ -513,7 +513,7 @@ export class Win568WalletService {
       const bets = await this.findTxns(conn, body, false)
       if (bets.length === 0) return { TransferCode: text(body, 'TransferCode'), TransactionId: text(body, 'TransactionId'), Status: '', WinLoss: 0, Stake: 0, ErrorCode: 6, ErrorMessage: 'Bet not exists' }
       const bet = bets[0]
-      const status = bet.status === 'Void' || (bet.status === 'running' && bet.win_loss !== null) ? 'void' : bet.status.toLowerCase()
+      const status = bet.status.toLowerCase()
       return {
         TransferCode: bet.transfer_code,
         TransactionId: bet.transaction_id ?? '',
