@@ -122,16 +122,50 @@ router.post('/init', async (ctx) => {
     fail(ctx, 400, 'gameUuid is required')
     return
   }
-  if (!env.SG_BASE_URL || !env.SG_MERCHANT_ID) {
-    fail(ctx, 503, 'Game service temporarily unavailable')
-    return
-  }
 
   const userId = ctx.state.userId!
   const redis = ctx.state.redis
   const user = await getUser(redis, userId)
   if (!user) {
     fail(ctx, 401, 'User not found')
+    return
+  }
+
+  if (body.gameUuid.startsWith('568win:')) {
+    const gameId = Number(body.gameUuid.slice('568win:'.length))
+    if (!Number.isInteger(gameId)) {
+      fail(ctx, 400, 'invalid 568Win game id')
+      return
+    }
+    try {
+      const res = await fetch(`${env.CORE_NODE_URL}/internal/win568/game/launch`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Internal-Token': env.INTERNAL_TOKEN },
+        body: JSON.stringify({
+          userId,
+          gameId,
+          device: body.device === 'desktop' ? 'desktop' : 'mobile',
+          language: body.language ?? user.locale ?? 'en',
+        }),
+      })
+      const payload = await res.json() as { url?: string; error?: { id?: number; msg?: string }; message?: string }
+      if (!res.ok || payload.error?.id) {
+        fail(ctx, 502, payload.error?.msg || payload.message || 'Failed to launch 568Win game')
+        return
+      }
+      if (!payload.url) {
+        fail(ctx, 502, '568Win login URL missing')
+        return
+      }
+      ok(ctx, { url: payload.url })
+    } catch (e) {
+      fail(ctx, 502, e instanceof Error ? e.message : 'Failed to launch 568Win game')
+    }
+    return
+  }
+
+  if (!env.SG_BASE_URL || !env.SG_MERCHANT_ID) {
+    fail(ctx, 503, 'Game service temporarily unavailable')
     return
   }
 

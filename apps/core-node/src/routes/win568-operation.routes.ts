@@ -25,11 +25,34 @@ function numberOrNull(value: unknown) {
   return Number.isFinite(n) ? n : null
 }
 
+function intOrNull(value: unknown) {
+  const n = Number(value)
+  return Number.isInteger(n) ? n : null
+}
+
 function dateOrNull(value: unknown) {
   const raw = text(value)
   if (!raw) return null
   const date = new Date(raw)
   return Number.isNaN(date.getTime()) ? null : date
+}
+
+function boolValue(value: unknown) {
+  return value === true || value === 1 || value === '1' || value === 'true'
+}
+
+function jsonOrNull(value: unknown) {
+  return value === undefined || value === null ? null : JSON.stringify(value)
+}
+
+function win568Lang(language: string | undefined) {
+  const lang = text(language || 'en').split('-')[0].toLowerCase()
+  if (lang === 'zh') return 'zh_cn'
+  return lang || 'en'
+}
+
+function win568Device(device: string | undefined) {
+  return device === 'desktop' || device === 'd' ? 'd' : 'm'
 }
 
 export function collectWin568ReportBets(value: unknown): Record<string, unknown>[] {
@@ -87,6 +110,133 @@ async function saveReportBets(app: FastifyInstance, portfolio: string, result: u
   return bets.length
 }
 
+function collectWin568Games(result: unknown): Record<string, unknown>[] {
+  const games = result && typeof result === 'object'
+    ? (result as Record<string, unknown>).seamlessGameProviderGames
+    : null
+  return Array.isArray(games) ? games.filter((item): item is Record<string, unknown> => !!item && typeof item === 'object' && !Array.isArray(item)) : []
+}
+
+function gameInfo(g: Record<string, unknown>, language: string) {
+  const infos = Array.isArray(g.gameInfos) ? g.gameInfos : []
+  const target = language.toLowerCase()
+  const fallback = target === 'zh_cn' ? 'zh' : 'en'
+  const found = infos.find((item) => {
+    if (!item || typeof item !== 'object') return false
+    return text((item as Record<string, unknown>).language).toLowerCase() === target
+  }) ?? infos.find((item) => {
+    if (!item || typeof item !== 'object') return false
+    return text((item as Record<string, unknown>).language).toLowerCase().startsWith(fallback)
+  })
+  return found && typeof found === 'object' ? found as Record<string, unknown> : null
+}
+
+export async function saveWin568Games(app: FastifyInstance, result: unknown) {
+  const games = collectWin568Games(result)
+  for (const g of games) {
+    const gameId = intOrNull(g.gameID)
+    const gpId = intOrNull(g.gameProviderId)
+    if (gameId === null || gpId === null) continue
+    const infoEn = gameInfo(g, 'en')
+    const infoZh = gameInfo(g, 'zh_cn')
+    const enabled = boolValue(g.isEnabled) && !boolValue(g.isMaintain) && text(g.providerStatus) === 'Online' && boolValue(g.isProviderOnline)
+    await app.mysql.execute(
+      `INSERT INTO bg_568win_game
+       (game_id, game_provider_id, provider, new_game_type, game_type, rank_no, device, platform,
+        rtp, rows_count, reels_count, lines_count, name_en, name_zh, icon_url,
+        supported_currencies, block_countries, is_enabled, is_maintain, provider_status,
+        is_provider_online, is_provide_commission, has_hedge_bet, raw_game, raw_response)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE game_provider_id = VALUES(game_provider_id),
+         provider = VALUES(provider), new_game_type = VALUES(new_game_type),
+         game_type = VALUES(game_type), rank_no = VALUES(rank_no), device = VALUES(device),
+         platform = VALUES(platform), rtp = VALUES(rtp), rows_count = VALUES(rows_count),
+         reels_count = VALUES(reels_count), lines_count = VALUES(lines_count),
+         name_en = VALUES(name_en), name_zh = VALUES(name_zh), icon_url = VALUES(icon_url),
+         supported_currencies = VALUES(supported_currencies), block_countries = VALUES(block_countries),
+         is_enabled = VALUES(is_enabled), is_maintain = VALUES(is_maintain),
+         provider_status = VALUES(provider_status), is_provider_online = VALUES(is_provider_online),
+         is_provide_commission = VALUES(is_provide_commission), has_hedge_bet = VALUES(has_hedge_bet),
+         raw_game = VALUES(raw_game), raw_response = VALUES(raw_response), synced_at = NOW(3)`,
+      [
+        gameId,
+        gpId,
+        text(g.provider) || null,
+        intOrNull(g.newGameType),
+        intOrNull(g.gameType),
+        intOrNull(g.rank),
+        text(g.device) || null,
+        text(g.platform) || null,
+        numberOrNull(g.rtp),
+        intOrNull(g.rows),
+        intOrNull(g.reels),
+        intOrNull(g.lines),
+        text(infoEn?.gameName) || text(infoZh?.gameName) || null,
+        text(infoZh?.gameName) || null,
+        text(infoEn?.gameIconUrl) || text(infoZh?.gameIconUrl) || null,
+        jsonOrNull(g.supportedCurrencies),
+        jsonOrNull(g.blockCountries),
+        enabled ? 1 : 0,
+        boolValue(g.isMaintain) ? 1 : 0,
+        text(g.providerStatus) || null,
+        boolValue(g.isProviderOnline) ? 1 : 0,
+        boolValue(g.isProvideCommission) ? 1 : 0,
+        boolValue(g.hasHedgeBet) ? 1 : 0,
+        JSON.stringify(g),
+        null,
+      ],
+    )
+  }
+  return games.length
+}
+
+async function resolveWin568Player(app: FastifyInstance, userId: string) {
+  const [[mapped]] = await app.mysql.query<RowDataPacket[]>(
+    `SELECT external_username FROM bg_aggregator_player
+     WHERE aggregator_id = '568win' AND user_id = ? LIMIT 1`,
+    [userId],
+  )
+  if (mapped) return String(mapped.external_username)
+
+  const username = toWin568Username(userId)
+  if (!validUsername(username)) throw new Error('invalid 568Win username')
+
+  const [[used]] = await app.mysql.query<RowDataPacket[]>(
+    `SELECT user_id FROM bg_aggregator_player
+     WHERE aggregator_id = '568win' AND external_username = ? LIMIT 1`,
+    [username],
+  )
+  if (used && String(used.user_id) !== userId) throw new Error('568Win username already mapped')
+
+  const [[agent]] = await app.mysql.query<RowDataPacket[]>(
+    `SELECT agent_username, currency FROM bg_568win_agent
+     WHERE status = 'active' AND currency = ?
+     ORDER BY created_at DESC LIMIT 1`,
+    [env.WIN568_DEFAULT_CURRENCY],
+  )
+  if (!agent) throw new Error('568Win PHP agent not found')
+
+  const result = await (new Win568Client(await getWin568OperationCompanyKey(app))).registerPlayer({
+    Username: username,
+    Agent: String(agent.agent_username),
+    UserGroup: 'a',
+  })
+  if (result.error.id !== 0 && result.error.id !== 302) {
+    throw new Error(result.error.msg || '568Win register player failed')
+  }
+
+  await app.mysql.execute(
+    `INSERT INTO bg_aggregator_player
+     (aggregator_id, user_id, external_username, agent_username, currency, raw_response)
+     VALUES ('568win', ?, ?, ?, ?, ?)
+     ON DUPLICATE KEY UPDATE external_username = VALUES(external_username),
+       agent_username = VALUES(agent_username), currency = VALUES(currency),
+       raw_response = VALUES(raw_response), updated_at = NOW(3)`,
+    [userId, username, String(agent.agent_username), String(agent.currency), JSON.stringify(result)],
+  )
+  return username
+}
+
 export async function win568OperationRoutes(app: FastifyInstance) {
   const client = async () => new Win568Client(await getWin568OperationCompanyKey(app))
 
@@ -113,6 +263,38 @@ export async function win568OperationRoutes(app: FastifyInstance) {
   app.post('/key/current', async (_req, reply) => {
     const result = await (await client()).getCurrentCompanyKeyInfo()
     return reply.send(result)
+  })
+
+  app.post('/games/sync', async (_req, reply) => {
+    const result = await (await client()).getGameList({ GpId: 1, IsGetAll: true })
+    const syncedCount = result.error.id === 0 ? await saveWin568Games(app, result) : 0
+    return reply.send({ error: result.error, serverId: result.serverId, syncedCount })
+  })
+
+  app.post<{
+    Body: { userId: string; gameId: number; device?: string; language?: string }
+  }>('/game/launch', async (req, reply) => {
+    const gameId = Number(req.body.gameId)
+    if (!req.body.userId || !Number.isInteger(gameId)) {
+      return reply.status(400).send({ error: 'userId and gameId are required' })
+    }
+    const [[game]] = await app.mysql.query<RowDataPacket[]>(
+      `SELECT game_id, game_provider_id FROM bg_568win_game
+       WHERE game_id = ? AND is_enabled = 1 LIMIT 1`,
+      [gameId],
+    )
+    if (!game) return reply.status(404).send({ error: 'game not found' })
+
+    const username = await resolveWin568Player(app, req.body.userId)
+    const result = await (await client()).login({
+      Username: username,
+      Portfolio: 'SeamlessGame',
+      Lang: win568Lang(req.body.language),
+      Device: win568Device(req.body.device),
+      GpId: Number(game.game_provider_id),
+      GameId: gameId,
+    })
+    return reply.send({ ...result, externalUsername: username, gameId })
   })
 
   app.post<{

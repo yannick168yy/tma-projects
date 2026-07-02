@@ -10,6 +10,7 @@ export interface Win568Response {
   expirationDate?: string
   url?: string
   result?: unknown
+  seamlessGameProviderGames?: unknown
   error: Win568Error
 }
 
@@ -106,5 +107,9 @@ export class Win568Client {
 
   getBetPayload(payload: { Portfolio: string; Refno: string; Language?: string }) {
     return post('/web-root/restricted/report/get-bet-payload.aspx', withAuth(payload, this.operationCompanyKey))
+  }
+
+  getGameList(payload: { GpId: number; IsGetAll: boolean }) {
+    return post('/web-root/restricted/information/get-game-list.aspx', withAuth(payload, this.operationCompanyKey))
   }
 }

@@ -110,6 +110,7 @@ export async function syncAllGames(
 
 export interface DbGame {
   uuid: string
+  aggregator?: 'slotegrator' | '568win'
   name: string
   nameId: string | null
   nameVi: string | null
@@ -134,6 +135,7 @@ export interface DbGame {
 function rowToDbGame(r: RowDataPacket): DbGame {
   return {
     uuid: r.uuid as string,
+    aggregator: 'slotegrator',
     name: r.name as string,
     nameId: (r.name_id as string) ?? null,
     nameVi: (r.name_vi as string) ?? null,
@@ -153,6 +155,43 @@ function rowToDbGame(r: RowDataPacket): DbGame {
     theme: (r.theme as string) ?? null,
     gameStyle: (r.game_style as string) ?? null,
     playerType: (r.player_type as string) ?? null,
+  }
+}
+
+function sortCategoryFromWin568(newGameType: number | null): string {
+  if (newGameType === 203) return 'fishing'
+  if (newGameType === 204) return 'table'
+  if (newGameType === 300) return 'sports'
+  if (newGameType !== null && newGameType >= 100 && newGameType < 200) return 'live'
+  if (newGameType !== null && newGameType >= 200 && newGameType < 300) return 'slots'
+  return 'other'
+}
+
+function rowToWin568Game(r: RowDataPacket): DbGame {
+  const newGameType = r.new_game_type == null ? null : Number(r.new_game_type)
+  const rank = r.rank_no == null ? 9999 : Number(r.rank_no)
+  return {
+    uuid: `568win:${String(r.game_id)}`,
+    aggregator: '568win',
+    name: String(r.name_en || r.name_zh || `568Win ${r.game_id}`),
+    nameId: null,
+    nameVi: null,
+    nameZh: r.name_zh ? String(r.name_zh) : null,
+    provider: String(r.provider || '568Win'),
+    category: newGameType === null ? null : String(newGameType),
+    subCategory: null,
+    sortCategory: sortCategoryFromWin568(newGameType),
+    imageUrl: r.icon_url ? String(r.icon_url) : null,
+    imageHqUrl: r.icon_url ? String(r.icon_url) : null,
+    hasDemo: false,
+    hasLobby: newGameType === 100 || newGameType === 200,
+    isMobile: String(r.device || '').split(',').map((s) => s.trim()).includes('m'),
+    weight: Math.max(1, 10000 - rank),
+    phBonus: 0,
+    isFeatured: false,
+    theme: null,
+    gameStyle: null,
+    playerType: null,
   }
 }
 
@@ -182,7 +221,17 @@ export async function loadGamesCache(env: Env): Promise<number> {
          )
        )`,
   )
-  const games = (rows as RowDataPacket[]).map(rowToDbGame)
+  const [win568Rows] = await db.query<RowDataPacket[]>(
+    `SELECT game_id, provider, new_game_type, rank_no, device, name_en, name_zh, icon_url
+     FROM bg_568win_game
+     WHERE is_enabled = 1
+       AND (supported_currencies IS NULL OR JSON_CONTAINS(supported_currencies, JSON_QUOTE('PHP')))
+       AND (device IS NULL OR FIND_IN_SET('m', REPLACE(device, ' ', '')) > 0)`,
+  )
+  const games = [
+    ...(rows as RowDataPacket[]).map(rowToDbGame),
+    ...(win568Rows as RowDataPacket[]).map(rowToWin568Game),
+  ]
   await redis.set(GAMES_CACHE_KEY, JSON.stringify(games), 'EX', GAMES_CACHE_TTL)
   console.log(`[games-cache] cached ${games.length} games`)
   return games.length
