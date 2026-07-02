@@ -238,6 +238,10 @@ export class Win568WalletService {
         await conn.commit()
         return err(7, 'Invalid free bet amount', player.username, balance, { BetAmount: 0 })
       }
+      if (productType === 9 && int(body, 'NewGameType') === 300 && amount === 0 && !hasPromotionReward(body.SeamlessGameExtraInfo)) {
+        await conn.commit()
+        return err(7, 'Invalid free bet amount', player.username, balance, { BetAmount: 0 })
+      }
       const existing = productType === 9
         ? await this.findTxns(conn, body, true)
         : await this.findTxns(conn, body, true)

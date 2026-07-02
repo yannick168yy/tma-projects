@@ -135,6 +135,69 @@ describe('568Win 钱包回调', () => {
     assert.equal(executes.some((sql) => sql.includes('INSERT INTO bg_568win_wallet_txn')), true)
   })
 
+  it('Deduct 拒绝没有 promotionReward 的第三方体育 0 金额 FreeBet', async () => {
+    const { Win568WalletService } = await import('../services/win568-wallet.service.js')
+    const executes: string[] = []
+    const conn = {
+      async query(sql: string) {
+        if (sql.includes('SELECT available FROM bg_wallet')) return [[{ available: 890 }], undefined]
+        return [[], undefined]
+      },
+      async execute(sql: string) {
+        executes.push(sql)
+        return [{ insertId: 1 }, undefined]
+      },
+      async beginTransaction() {},
+      async commit() {},
+      async rollback() {},
+      release() {},
+    }
+    const mysql = {
+      async query(sql: string) {
+        if (sql.includes('bg_aggregator_player')) {
+          return [[{
+            user_id: 'BG-10024',
+            external_username: 'BG-10024',
+            currency: 'PHP',
+            status: 'active',
+          }], undefined]
+        }
+        return [[], undefined]
+      },
+      async getConnection() {
+        return conn
+      },
+    }
+    const app = {
+      mysql,
+      log: { error() {} },
+    } as unknown as FastifyInstance
+    const req = {
+      headers: { 'x-real-ip': '122.146.58.49' },
+      ip: '127.0.0.1',
+    } as unknown as FastifyRequest
+
+    const result = await new Win568WalletService(app).deduct(req, {
+      CompanyKey: 'test-key',
+      Username: 'BG-10024',
+      Amount: 0,
+      TransferCode: 'Saba Sports4414913324SFBN',
+      TransactionId: 'Saba Sports4414913324SFBN',
+      ProductType: 9,
+      GameType: 0,
+      Gpid: 44,
+      NewGameType: 300,
+      SeamlessGameExtraInfo: {
+        FeatureBuyStatus: 0,
+        EndRoundStatus: 0,
+      },
+    }) as Record<string, unknown>
+
+    assert.equal(result.ErrorCode, 7)
+    assert.equal(result.BetAmount, 0)
+    assert.equal(executes.some((sql) => sql.includes('INSERT INTO bg_568win_wallet_txn')), false)
+  })
+
   it('GetBetStatus 对 rollback 后的 running 注单仍返回 running', async () => {
     const { Win568WalletService } = await import('../services/win568-wallet.service.js')
     const conn = {
