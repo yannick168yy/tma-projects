@@ -370,10 +370,12 @@ describe('568Win 钱包回调', () => {
   it('Rollback 并发冲突但发现已 rollback 时返回 2003', async () => {
     const { Win568WalletService } = await import('../services/win568-wallet.service.js')
     let afterConflict = false
+    let fallbackReads = 0
     const conn = {
       async query(sql: string) {
         if (sql.includes('SELECT available FROM bg_wallet')) return [[{ available: 1104 }], undefined]
         if (sql.includes('bg_568win_wallet_txn')) {
+          const rollbackVisible = afterConflict && !sql.includes('FOR UPDATE') && fallbackReads++ > 0
           return [[{
             id: 1,
             user_id: 'BG-10024',
@@ -389,7 +391,7 @@ describe('568Win 钱包回调', () => {
             txn_type: 'bet',
             amount: '10.0000',
             win_loss: '30.0000',
-            status: afterConflict ? 'running' : 'settled',
+            status: rollbackVisible ? 'running' : 'settled',
           }], undefined]
         }
         return [[], undefined]

@@ -73,6 +73,10 @@ function round2(value: number): number {
   return Math.round((value + Number.EPSILON) * 100) / 100
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
 function ok(AccountName: string, Balance: number, extra: Record<string, unknown> = {}) {
   return { AccountName, Balance: round2(Balance), ErrorCode: 0, ErrorMessage: 'No Error', ...extra }
 }
@@ -543,8 +547,11 @@ export class Win568WalletService {
     } catch (e) {
       await conn.rollback()
       if (mode === 'rollback') {
-        const balance = await this.rollbackAlreadyApplied(conn, player, body).catch(() => null)
-        if (balance !== null) return err(2003, 'Bet Already Rollback', player.username, balance)
+        for (let i = 0; i < 5; i += 1) {
+          const balance = await this.rollbackAlreadyApplied(conn, player, body).catch(() => null)
+          if (balance !== null) return err(2003, 'Bet Already Rollback', player.username, balance)
+          if (i < 4) await sleep(50)
+        }
       }
       this.app.log.error({ err: e }, `[568win] ${mode} failed`)
       return err(7, 'Internal error')
