@@ -445,6 +445,52 @@ describe('568Win 钱包回调', () => {
     assert.equal(result.Balance, 1104)
   })
 
+  it('CompanyKey 比对忽略测试页传入的空白字符', async () => {
+    const { Win568WalletService } = await import('../services/win568-wallet.service.js')
+    const conn = {
+      async query() {
+        return [[], undefined]
+      },
+      release() {},
+    }
+    const mysql = {
+      async query(sql: string) {
+        if (sql.includes('bg_aggregator_player')) {
+          return [[{
+            user_id: 'BG-10024',
+            external_username: 'BG-10024',
+            currency: 'PHP',
+            status: 'active',
+          }], undefined]
+        }
+        return [[], undefined]
+      },
+      async getConnection() {
+        return conn
+      },
+    }
+    const app = {
+      mysql,
+      log: { error() {} },
+    } as unknown as FastifyInstance
+    const req = {
+      headers: { 'x-real-ip': '122.146.58.49' },
+      ip: '127.0.0.1',
+    } as unknown as FastifyRequest
+
+    const result = await new Win568WalletService(app).getBetStatus(req, {
+      CompanyKey: 'te st-key',
+      Username: 'BG-10024',
+      TransferCode: '306732',
+      TransactionId: '306732',
+      ProductType: 1,
+      GameType: 1,
+      Gpid: -1,
+    })
+
+    assert.equal(result.ErrorCode, 6)
+  })
+
   it('GetBetStatus 对 rollback 后的 running 注单仍返回 running', async () => {
     const { Win568WalletService } = await import('../services/win568-wallet.service.js')
     const conn = {

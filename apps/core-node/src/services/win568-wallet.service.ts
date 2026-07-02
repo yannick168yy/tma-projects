@@ -39,6 +39,10 @@ function text(body: CallbackBody, key: string): string {
   return value === null || value === undefined ? '' : String(value)
 }
 
+function keyText(value: string): string {
+  return value.replace(/\s+/g, '')
+}
+
 function num(body: CallbackBody, key: string): number {
   const value = Number(body[key] ?? 0)
   return Number.isFinite(value) ? value : 0
@@ -100,7 +104,7 @@ export class Win568WalletService {
       return { code: 2, message: 'IP address not allowed' }
     }
     const configuredKey = env.WIN568_SW_COMPANY_KEY.trim()
-    if (configuredKey && text(body, 'CompanyKey') !== configuredKey) {
+    if (configuredKey && keyText(text(body, 'CompanyKey')) !== keyText(configuredKey)) {
       return { code: 4, message: 'Company key is invalid' }
     }
     return null
