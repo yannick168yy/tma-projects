@@ -15,6 +15,77 @@ function validPassword(password: string) {
   return /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d_!@#$%^&*.-]{6,20}$/.test(password)
 }
 
+function text(value: unknown) {
+  return value == null ? '' : String(value)
+}
+
+function numberOrNull(value: unknown) {
+  const n = Number(value)
+  return Number.isFinite(n) ? n : null
+}
+
+function dateOrNull(value: unknown) {
+  const raw = text(value)
+  if (!raw) return null
+  const date = new Date(raw)
+  return Number.isNaN(date.getTime()) ? null : date
+}
+
+export function collectWin568ReportBets(value: unknown): Record<string, unknown>[] {
+  const bets: Record<string, unknown>[] = []
+  const visit = (node: unknown) => {
+    if (Array.isArray(node)) {
+      for (const item of node) visit(item)
+      return
+    }
+    if (!node || typeof node !== 'object') return
+    const obj = node as Record<string, unknown>
+    if (typeof obj.refNo === 'string' || typeof obj.refno === 'string' || typeof obj.refNo === 'number' || typeof obj.refno === 'number') {
+      bets.push(obj)
+      return
+    }
+    for (const child of Object.values(obj)) visit(child)
+  }
+  visit(value)
+  return bets
+}
+
+async function saveReportBets(app: FastifyInstance, portfolio: string, result: unknown, rawResponse: unknown) {
+  const bets = collectWin568ReportBets(result)
+  for (const bet of bets) {
+    const refNo = text(bet.refNo ?? bet.refno)
+    if (!refNo) continue
+    await app.mysql.execute(
+      `INSERT INTO bg_568win_report_bet
+       (portfolio, ref_no, external_username, currency, status, stake, win_lost,
+        order_time, settle_time, win_lost_date, modify_date, raw_bet, raw_response)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE external_username = VALUES(external_username),
+         currency = VALUES(currency), status = VALUES(status), stake = VALUES(stake),
+         win_lost = VALUES(win_lost), order_time = VALUES(order_time),
+         settle_time = VALUES(settle_time), win_lost_date = VALUES(win_lost_date),
+         modify_date = VALUES(modify_date), raw_bet = VALUES(raw_bet),
+         raw_response = VALUES(raw_response), fetched_at = NOW(3)`,
+      [
+        portfolio,
+        refNo,
+        text(bet.username) || null,
+        text(bet.currency) || null,
+        text(bet.status) || null,
+        numberOrNull(bet.stake),
+        numberOrNull(bet.winLost ?? bet.winlost),
+        dateOrNull(bet.orderTime),
+        dateOrNull(bet.settleTime),
+        dateOrNull(bet.winLostDate ?? bet.winlostDate),
+        dateOrNull(bet.modifyDate ?? bet.modifiedDate),
+        JSON.stringify(bet),
+        JSON.stringify(rawResponse),
+      ],
+    )
+  }
+  return bets.length
+}
+
 export async function win568OperationRoutes(app: FastifyInstance) {
   const client = new Win568Client()
 
@@ -116,6 +187,44 @@ export async function win568OperationRoutes(app: FastifyInstance) {
 
   app.post<{ Body: Record<string, unknown> }>('/login', async (req, reply) => {
     const result = await client.login(req.body)
+    return reply.send(result)
+  })
+
+  app.post<{
+    Body: { portfolio: string; startDate: string; endDate: string; language?: string; isGetDownline?: boolean }
+  }>('/report/modify-date', async (req, reply) => {
+    const result = await client.getBetListByModifyDate({
+      portfolio: req.body.portfolio,
+      startDate: req.body.startDate,
+      endDate: req.body.endDate,
+      language: req.body.language ?? 'en',
+      isGetDownline: req.body.isGetDownline ?? false,
+    })
+    const savedCount = result.error.id === 0 ? await saveReportBets(app, req.body.portfolio, result.result, result) : 0
+    return reply.send({ ...result, savedCount })
+  })
+
+  app.post<{
+    Body: { portfolio: string; refNos: string | string[]; language?: string }
+  }>('/report/refnos', async (req, reply) => {
+    const refNos = Array.isArray(req.body.refNos) ? req.body.refNos.join(',') : req.body.refNos
+    const result = await client.getBetListByRefNos({
+      portfolio: req.body.portfolio,
+      refNos,
+      language: req.body.language ?? 'en',
+    })
+    const savedCount = result.error.id === 0 ? await saveReportBets(app, req.body.portfolio, result.result, result) : 0
+    return reply.send({ ...result, savedCount })
+  })
+
+  app.post<{
+    Body: { portfolio: string; refno: string; language?: string }
+  }>('/report/payload', async (req, reply) => {
+    const result = await client.getBetPayload({
+      Portfolio: req.body.portfolio,
+      Refno: req.body.refno,
+      Language: req.body.language ?? 'EN',
+    })
     return reply.send(result)
   })
 }

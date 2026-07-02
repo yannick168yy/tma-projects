@@ -9,6 +9,7 @@ export interface Win568Response {
   scope?: string
   expirationDate?: string
   url?: string
+  result?: unknown
   error: Win568Error
 }
 
@@ -62,5 +63,31 @@ export class Win568Client {
       result.url = `https:${result.url}`
     }
     return result
+  }
+
+  getBetListByModifyDate(payload: {
+    portfolio: string
+    startDate: string
+    endDate: string
+    language?: string
+    isGetDownline?: boolean
+  }) {
+    return post('/web-root/restricted/report/v2/get-bet-list-by-modify-date.aspx', {
+      ...payload,
+      companyKey: env.WIN568_COMPANY_KEY,
+      serverId: env.WIN568_SERVER_ID,
+    })
+  }
+
+  getBetListByRefNos(payload: { portfolio: string; refNos: string; language?: string }) {
+    return post('/web-root/restricted/report/get-bet-list-by-refnos.aspx', {
+      ...payload,
+      companyKey: env.WIN568_COMPANY_KEY,
+      serverId: env.WIN568_SERVER_ID,
+    })
+  }
+
+  getBetPayload(payload: { Portfolio: string; Refno: string; Language?: string }) {
+    return post('/web-root/restricted/report/get-bet-payload.aspx', withAuth(payload))
   }
 }
