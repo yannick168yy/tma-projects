@@ -28,9 +28,15 @@ if [[ "${SKIP_DB_RESET:-}" == "1" ]]; then
 else
   echo "==> [2/3] 重置测试数据（不触碰佣金费率/套餐）..."
   $SSH "$HOST" "bash -s" <<'REMOTE'
-DB_USER=$(grep -m1 '^MYSQL_USER=' /root/workspace/tma-projects/.env | cut -d= -f2- | tr -d "\"'")
-DB_PASS=$(grep -m1 '^MYSQL_PASSWORD=' /root/workspace/tma-projects/.env | cut -d= -f2- | tr -d "\"'")
-DB_NAME=$(grep '^MYSQL_DATABASE=' /root/workspace/tma-projects/.env | tail -1 | cut -d= -f2- | tr -d "\"'"); DB_NAME=${DB_NAME:-betogo}
+DB_USER=$(grep -m1 '^MYSQL_BETOGO_USER=' /root/workspace/tma-projects/.env | cut -d= -f2- | tr -d "\"'")
+DB_USER=${DB_USER:-$(grep -m1 '^MYSQL_USER=' /root/workspace/tma-projects/.env | cut -d= -f2- | tr -d "\"'")}
+DB_PASS=$(grep -m1 '^MYSQL_BETOGO_PASSWORD=' /root/workspace/tma-projects/.env | cut -d= -f2- | tr -d "\"'")
+DB_PASS=${DB_PASS:-$(grep -m1 '^MYSQL_PASSWORD=' /root/workspace/tma-projects/.env | cut -d= -f2- | tr -d "\"'")}
+DB_NAME=$(grep -m1 '^MYSQL_DATABASE=' /root/workspace/tma-projects/.env | cut -d= -f2- | tr -d "\"'"); DB_NAME=${DB_NAME:-betogo}
+if [ "$DB_NAME" != "betogo" ]; then
+  echo "MYSQL_DATABASE must be betogo, got: $DB_NAME" >&2
+  exit 1
+fi
 podman exec -i tma-mysql mysql --default-character-set=utf8mb4 -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" \
   < /root/workspace/tma-projects/scripts/reset-test-data.sql 2>&1 | grep -v Warning
 

@@ -37,8 +37,8 @@ import { randomBytes } from 'node:crypto'
 const DB = {
   host:     process.env.MYSQL_HOST     ?? 'tma-mysql',
   port:     Number(process.env.MYSQL_PORT ?? 3306),
-  user:     process.env.MYSQL_USER     ?? 'tma',
-  password: process.env.MYSQL_PASSWORD ?? 'tma_dev',
+  user:     process.env.MYSQL_USER     ?? 'betogo',
+  password: process.env.MYSQL_PASSWORD ?? '',
   database: process.env.MYSQL_DATABASE ?? 'betogo',
 }
 const CORE_URL  = process.env.CORE_NODE_URL  ?? 'http://tma-core-node:4000'

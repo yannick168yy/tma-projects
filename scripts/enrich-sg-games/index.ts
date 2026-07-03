@@ -4,7 +4,7 @@
  * 用法:
  *   GEMINI_API_KEY=xxx \
  *   MYSQL_HOST=127.0.0.1 MYSQL_PORT=13307 \
- *   MYSQL_USER=tma MYSQL_PASSWORD=tma_dev \
+ *   MYSQL_USER=betogo MYSQL_PASSWORD=betogo_dev \
  *   npm start
  *
  * 可选参数（环境变量）:
@@ -173,8 +173,8 @@ async function main() {
   const db = await mysql.createConnection({
     host:     process.env.MYSQL_HOST     ?? '47.84.34.139',
     port:     Number(process.env.MYSQL_PORT ?? 13306),
-    user:     process.env.MYSQL_USER     ?? 'tma',
-    password: process.env.MYSQL_PASSWORD ?? 'tma_dev',
+    user:     process.env.MYSQL_USER     ?? 'betogo',
+    password: process.env.MYSQL_PASSWORD ?? '',
     database: process.env.MYSQL_DATABASE ?? 'betogo',
     charset:  'utf8mb4',
   })
@@ -314,8 +314,8 @@ async function main() {
       const conn = await mysql.createConnection({
         host: process.env.MYSQL_HOST ?? '47.84.34.139',
         port: Number(process.env.MYSQL_PORT ?? 13306),
-        user: process.env.MYSQL_USER ?? 'tma',
-        password: process.env.MYSQL_PASSWORD ?? 'tma_dev',
+        user: process.env.MYSQL_USER ?? 'betogo',
+        password: process.env.MYSQL_PASSWORD ?? '',
         database: process.env.MYSQL_DATABASE ?? 'betogo',
       })
       const [r] = await conn.query<mysql.RowDataPacket[]>(

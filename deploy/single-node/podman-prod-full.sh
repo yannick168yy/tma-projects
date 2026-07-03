@@ -66,9 +66,9 @@ run run -d --name tma-mysql --network "$NET" --restart=always \
   -v tma-mysql-data:/var/lib/mysql:Z \
   -v "$(pwd)/infra/docker/mysql/init:/docker-entrypoint-initdb.d:ro,Z" \
   -e MYSQL_ROOT_PASSWORD="${MYSQL_ROOT_PASSWORD:-root_dev_only}" \
-  -e MYSQL_DATABASE="${MYSQL_DATABASE:-tma}" \
-  -e MYSQL_USER="${MYSQL_USER:-tma}" \
-  -e MYSQL_PASSWORD="${MYSQL_PASSWORD:-tma_dev}" \
+  -e MYSQL_DATABASE="${MYSQL_DATABASE:-betogo}" \
+  -e MYSQL_USER="${MYSQL_BETOGO_USER:-betogo}" \
+  -e MYSQL_PASSWORD="${MYSQL_BETOGO_PASSWORD:-${MYSQL_PASSWORD:-}}" \
   -e TZ=UTC \
   mysql:8.0 \
   --character-set-server=utf8mb4 \

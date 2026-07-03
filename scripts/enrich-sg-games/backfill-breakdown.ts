@@ -67,8 +67,8 @@ async function main() {
   const db = await mysql.createConnection({
     host:     process.env.MYSQL_HOST     ?? '127.0.0.1',
     port:     Number(process.env.MYSQL_PORT ?? 13306),
-    user:     process.env.MYSQL_USER     ?? 'tma',
-    password: process.env.MYSQL_PASSWORD ?? 'tma_dev',
+    user:     process.env.MYSQL_USER     ?? 'betogo',
+    password: process.env.MYSQL_PASSWORD ?? '',
     database: process.env.MYSQL_DATABASE ?? 'betogo',
     charset:  'utf8mb4',
   })

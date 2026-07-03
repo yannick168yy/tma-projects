@@ -36,9 +36,15 @@ run_db_migrations() {
     "$ROOT/infra/database/betogo/" "$HOST:$DIR/infra/database/betogo/"
   ssh "${SSH_ARGS[@]}" "$HOST" "bash -s" <<'REMOTE'
 cd /root/workspace/tma-projects
-DB_USER=$(grep -m1 '^MYSQL_USER=' .env 2>/dev/null | cut -d= -f2- | tr -d "\"'")
-DB_PASS=$(grep -m1 '^MYSQL_PASSWORD=' .env 2>/dev/null | cut -d= -f2- | tr -d "\"'")
-DB_NAME=$(grep '^MYSQL_DATABASE=' .env 2>/dev/null | tail -1 | cut -d= -f2- | tr -d "\"'"); DB_NAME=${DB_NAME:-betogo}
+DB_USER=$(grep -m1 '^MYSQL_BETOGO_USER=' .env 2>/dev/null | cut -d= -f2- | tr -d "\"'")
+DB_USER=${DB_USER:-$(grep -m1 '^MYSQL_USER=' .env 2>/dev/null | cut -d= -f2- | tr -d "\"'")}
+DB_PASS=$(grep -m1 '^MYSQL_BETOGO_PASSWORD=' .env 2>/dev/null | cut -d= -f2- | tr -d "\"'")
+DB_PASS=${DB_PASS:-$(grep -m1 '^MYSQL_PASSWORD=' .env 2>/dev/null | cut -d= -f2- | tr -d "\"'")}
+DB_NAME=$(grep -m1 '^MYSQL_DATABASE=' .env 2>/dev/null | cut -d= -f2- | tr -d "\"'"); DB_NAME=${DB_NAME:-betogo}
+if [ "$DB_NAME" != "betogo" ]; then
+  echo "MYSQL_DATABASE must be betogo, got: $DB_NAME" >&2
+  exit 1
+fi
 CTR=$(command -v podman >/dev/null 2>&1 && echo podman || echo docker)
 
 # 辅助：静默查询（返回裸值，屏蔽密码警告）

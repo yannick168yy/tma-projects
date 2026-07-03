@@ -48,7 +48,9 @@ async function sgPost(path, params) {
 async function ensureTestPlayer() {
   const db = await mysql.createConnection({
     host: '47.84.34.139', port: 13306,
-    user: 'tma', password: 'tma_dev', database: 'betogo',
+    user: process.env.MYSQL_USER ?? 'betogo',
+    password: process.env.MYSQL_PASSWORD ?? '',
+    database: 'betogo',
   })
   // bg_user
   await db.execute(

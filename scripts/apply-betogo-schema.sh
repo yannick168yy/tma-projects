@@ -82,6 +82,10 @@ if [[ -z "$BETOGO_PW" ]]; then
   echo "Set MYSQL_BETOGO_PASSWORD or MYSQL_PASSWORD in .env" >&2
   exit 1
 fi
+if [[ "$BETOGO_DB" != "betogo" ]]; then
+  echo "MYSQL_DATABASE must be betogo, got: $BETOGO_DB" >&2
+  exit 1
+fi
 
 log "Ensure database and app user ($BETOGO_USER)"
 mysql_cli "$RT" <<EOF
