@@ -33,3 +33,4 @@ artifacts/
 
 # Docker volumes (local)
 infra/docker/data/
+.claude/skills/
