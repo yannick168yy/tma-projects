@@ -41,6 +41,14 @@ export default function Win568Providers() {
     { title: '568Win 厂商', dataIndex: 'provider', key: 'provider', render: (v: string) => <span style={{ fontWeight: 600 }}>{v}</span> },
     { title: '游戏总数', dataIndex: 'total', key: 'total', width: 120, render: (v: number) => <Tag>{v} 款</Tag> },
     {
+      title: 'RTP 列表', key: 'rtps',
+      render: (_: unknown, r: ProviderStat) => r.rtps?.length ? (
+        <Space size={[0, 4]} wrap>
+          {r.rtps.map((rtp) => <Tag key={rtp}>{rtp}%</Tag>)}
+        </Space>
+      ) : '—',
+    },
+    {
       title: '前台可用', key: 'active', width: 120,
       render: (_: unknown, r: ProviderStat) => <Tag color={r.active === r.total ? 'green' : r.active === 0 ? 'red' : 'orange'}>{r.active} 款</Tag>,
     },

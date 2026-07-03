@@ -445,7 +445,7 @@ export const startTranslateGames = () =>
 export const getGameJob = (jobId: string) =>
   get<AdminGameJob>(`/admin/games/jobs/${jobId}`)
 
-export interface ProviderStat { provider: string; total: number; active: number }
+export interface ProviderStat { provider: string; total: number; active: number; rtps?: number[] }
 export const getProviderStats = () =>
   get<ProviderStat[]>('/admin/games/provider-stats')
 export const toggleProviderGames = (provider: string, isActive: boolean) =>
@@ -487,6 +487,15 @@ export interface AdminWin568Game {
   hasHedgeBet: boolean
   weight: number
   overrideWeight: number | null
+  phBonus: number | null
+  weightBreakdown: unknown
+  theme: string | null
+  gameStyle: string | null
+  playerType: string | null
+  descriptionEn: string | null
+  descriptionZh: string | null
+  searchKeywords: string | null
+  weightUpdatedAt: string | null
   isFeatured: boolean
   overrideFeatured: boolean | null
   overrideActive: boolean | null

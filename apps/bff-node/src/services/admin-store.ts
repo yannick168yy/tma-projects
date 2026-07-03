@@ -486,6 +486,7 @@ export interface ProviderStat {
   provider: string
   total: number
   active: number
+  rtps?: number[]
 }
 
 export async function getProviderStats(env: Env): Promise<ProviderStat[]> {
@@ -552,8 +553,8 @@ export async function listAdminWin568Games(
 
   if (opts.provider) { conditions.push('g.provider = ?'); params.push(opts.provider) }
   if (opts.search) {
-    conditions.push('(g.name_en LIKE ? OR g.name_zh LIKE ? OR o.name_override LIKE ? OR CAST(g.game_id AS CHAR) LIKE ? OR CAST(g.game_provider_id AS CHAR) LIKE ?)')
-    params.push(`%${opts.search}%`, `%${opts.search}%`, `%${opts.search}%`, `%${opts.search}%`, `%${opts.search}%`)
+    conditions.push('(g.name_en LIKE ? OR g.name_zh LIKE ? OR o.name_override LIKE ? OR o.search_keywords LIKE ? OR CAST(g.game_id AS CHAR) LIKE ? OR CAST(g.game_provider_id AS CHAR) LIKE ?)')
+    params.push(`%${opts.search}%`, `%${opts.search}%`, `%${opts.search}%`, `%${opts.search}%`, `%${opts.search}%`, `%${opts.search}%`)
   }
   if (opts.isActive !== undefined) conditions.push(`${localActive} = ${opts.isActive ? 1 : 0}`)
   if (opts.upstreamAvailable !== undefined) conditions.push(`${upstreamAvailable} = ${opts.upstreamAvailable ? 1 : 0}`)
@@ -601,7 +602,9 @@ export async function listAdminWin568Games(
             g.is_provide_commission, g.has_hedge_bet, g.synced_at, g.updated_at,
             o.is_active AS override_active, o.weight AS override_weight,
             o.is_featured AS override_featured, o.sort_category AS override_sort_category,
-            o.name_override, o.image_override,
+            o.name_override, o.image_override, o.ph_bonus, o.weight_breakdown,
+            o.theme, o.game_style, o.player_type, o.description_en, o.description_zh,
+            o.search_keywords, o.weight_updated_at,
             ${sortCategory} AS effective_sort_category,
             ${upstreamAvailable} AS upstream_available,
             ${localActive} AS local_active,
@@ -656,6 +659,15 @@ export async function listAdminWin568Games(
     hasHedgeBet: Boolean(r.has_hedge_bet),
     weight: Number(r.effective_weight ?? 0),
     overrideWeight: r.override_weight == null ? null : Number(r.override_weight),
+    phBonus: r.ph_bonus == null ? null : Number(r.ph_bonus),
+    weightBreakdown: parseJsonValue(r.weight_breakdown),
+    theme: r.theme ? String(r.theme) : null,
+    gameStyle: r.game_style ? String(r.game_style) : null,
+    playerType: r.player_type ? String(r.player_type) : null,
+    descriptionEn: r.description_en ? String(r.description_en) : null,
+    descriptionZh: r.description_zh ? String(r.description_zh) : null,
+    searchKeywords: r.search_keywords ? String(r.search_keywords) : null,
+    weightUpdatedAt: (() => { const d = new Date(r.weight_updated_at as Date); return isNaN(d.getTime()) ? null : d.toISOString() })(),
     isFeatured: Boolean(r.effective_featured),
     overrideFeatured: r.override_featured == null ? null : Boolean(r.override_featured),
     overrideActive: r.override_active == null ? null : Boolean(r.override_active),
@@ -720,7 +732,8 @@ export async function getWin568ProviderStats(env: Env): Promise<ProviderStat[]> 
   const [rows] = await pool(env).query<RowDataPacket[]>(
     `SELECT g.provider,
             COUNT(*) AS total,
-            SUM(CASE WHEN ${win568UpstreamAvailableExpr()} AND ${win568LocalActiveExpr()} THEN 1 ELSE 0 END) AS active
+            SUM(CASE WHEN ${win568UpstreamAvailableExpr()} AND ${win568LocalActiveExpr()} THEN 1 ELSE 0 END) AS active,
+            JSON_ARRAYAGG(CASE WHEN g.rtp IS NOT NULL AND g.rtp >= 0 THEN g.rtp ELSE NULL END) AS rtps
      FROM bg_568win_game g
      LEFT JOIN bg_568win_game_override o ON o.game_provider_id = g.game_provider_id AND o.game_id = g.game_id
      GROUP BY g.provider
@@ -730,6 +743,11 @@ export async function getWin568ProviderStats(env: Env): Promise<ProviderStat[]> 
     provider: String(r.provider),
     total: Number(r.total),
     active: Number(r.active),
+    rtps: [...new Set((parseJsonValue(r.rtps) as unknown[] | null ?? [])
+      .filter((v) => v !== null)
+      .map((v) => Number(v))
+      .filter((v) => Number.isFinite(v)))]
+      .sort((a, b) => a - b),
   }))
 }
 

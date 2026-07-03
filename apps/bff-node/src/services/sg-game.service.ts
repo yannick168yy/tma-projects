@@ -228,11 +228,11 @@ function rowToWin568Game(r: RowDataPacket): DbGame {
     hasLobby: newGameType === 100 || newGameType === 200,
     isMobile: String(r.device || '').split(',').map((s) => s.trim()).includes('m'),
     weight: r.effective_weight == null ? Math.max(1, 10000 - rank) : Number(r.effective_weight),
-    phBonus: 0,
+    phBonus: r.effective_ph_bonus == null ? 0 : Number(r.effective_ph_bonus),
     isFeatured: Boolean(r.effective_featured),
-    theme: null,
-    gameStyle: null,
-    playerType: null,
+    theme: r.theme ? String(r.theme) : null,
+    gameStyle: r.game_style ? String(r.game_style) : null,
+    playerType: r.player_type ? String(r.player_type) : null,
     supportedCurrencies: parseJsonArray(r.supported_currencies),
   }
 }
@@ -275,7 +275,9 @@ export async function loadGamesCache(env: Env): Promise<number> {
             COALESCE(o.name_override, g.name_en, g.name_zh, CONCAT('568Win ', g.game_id)) AS effective_name,
             COALESCE(o.image_override, g.icon_url) AS effective_image,
             COALESCE(o.weight, GREATEST(1, 10000 - COALESCE(g.rank_no, 9999))) AS effective_weight,
+            COALESCE(o.ph_bonus, 0) AS effective_ph_bonus,
             COALESCE(o.is_featured, 0) AS effective_featured,
+            o.theme, o.game_style, o.player_type,
             COALESCE(o.sort_category,
               CASE
                 WHEN g.new_game_type = 203 THEN 'fishing'
