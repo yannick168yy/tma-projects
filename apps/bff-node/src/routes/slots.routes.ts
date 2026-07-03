@@ -8,6 +8,7 @@ import {
   listThemes,
   getUserGameHistory,
   getHomepageSelection,
+  applyHomepageCurrency,
 } from '../services/sg-game.service.js'
 import { sgInitGame, sgInitDemo } from '../services/slotegrator.service.js'
 import { getUser } from '../services/store/index.js'
@@ -64,8 +65,9 @@ router.get('/homepage', async (ctx) => {
     return
   }
   try {
+    const currency = typeof ctx.query.currency === 'string' ? ctx.query.currency : undefined
     const selection = await getHomepageSelection(env)
-    ok(ctx, selection ?? { popular: [], slots: [], live: [], fishing: [], crash: [], table: [], generatedAt: '' })
+    ok(ctx, selection ? applyHomepageCurrency(selection, currency) : { popular: [], slots: [], live: [], fishing: [], crash: [], table: [], generatedAt: '' })
   } catch (e) {
     fail(ctx, 500, e instanceof Error ? e.message : 'Failed to load homepage')
   }
@@ -92,6 +94,7 @@ router.get('/games', async (ctx) => {
       themes: q.themes ? String(q.themes).split(',').filter(Boolean) : undefined,
       gameStyles: q.gameStyles ? String(q.gameStyles).split(',').filter(Boolean) : undefined,
       playerTypes: q.playerTypes ? String(q.playerTypes).split(',').filter(Boolean) : undefined,
+      currency: q.currency || undefined,
     })
     ok(ctx, result)
   } catch (e) {

@@ -46,8 +46,8 @@ export default function BingoPage({ onOpenWallet, onGameTap, onOpenGame, onOpenC
   const marqueeWinners = useMemo(() => Array.from({ length: 24 }, (_, i) => PERYA_WINNERS[i % PERYA_WINNERS.length]), [])
 
   useEffect(() => {
-    fetchGames({ sortCategory: 'bingo', sortBy: 'ph_bonus', limit: 8 }).then((res) => setBingoGames(res.items)).catch(() => {})
-  }, [])
+    fetchGames({ sortCategory: 'bingo', sortBy: 'ph_bonus', limit: 8, currency: activeCurrency }).then((res) => setBingoGames(res.items)).catch(() => {})
+  }, [activeCurrency])
 
   async function onPlayGame(uuid: string) {
     if (!isLoggedIn) { onGameTap(); return }

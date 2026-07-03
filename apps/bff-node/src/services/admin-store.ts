@@ -560,8 +560,13 @@ export async function listAdminWin568Games(
   if (opts.sortCategory) { conditions.push(`${sortCategory} = ?`); params.push(opts.sortCategory) }
   if (opts.newGameType !== undefined) { conditions.push('g.new_game_type = ?'); params.push(opts.newGameType) }
   if (opts.currency) {
-    conditions.push(`(g.supported_currencies IS NULL OR JSON_CONTAINS(g.supported_currencies, JSON_QUOTE(?)))`)
-    params.push(opts.currency)
+    const currency = opts.currency.toUpperCase()
+    if (currency === 'USDT' || currency === 'UCC') {
+      conditions.push(`(g.supported_currencies IS NULL OR JSON_CONTAINS(g.supported_currencies, JSON_QUOTE('USDT')) OR JSON_CONTAINS(g.supported_currencies, JSON_QUOTE('UCC')))`)
+    } else {
+      conditions.push(`(g.supported_currencies IS NULL OR JSON_CONTAINS(g.supported_currencies, JSON_QUOTE(?)))`)
+      params.push(currency)
+    }
   }
   if (opts.device) {
     conditions.push(`(g.device IS NULL OR FIND_IN_SET(?, REPLACE(g.device, ' ', '')) > 0)`)

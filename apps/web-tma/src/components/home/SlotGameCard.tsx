@@ -17,8 +17,9 @@ export default function SlotGameCard({ game, launching, onPlay, onDemo }: Props)
   const { t } = useTranslation()
   const locale = useLocaleStore((s) => s.locale)
   const tag = localizedThemeTag(game.theme, t)
+  const unavailable = game.supportsActiveCurrency === false
   return (
-    <div className="group relative h-44 overflow-hidden rounded-xl">
+    <div className={`group relative h-44 overflow-hidden rounded-xl ${unavailable ? 'opacity-55 grayscale' : ''}`}>
       <GameImageCard
         imageUrl={game.imageHqUrl ?? game.imageUrl}
         fallbackBg={['#1e1b4b', '#312e81']}
@@ -28,11 +29,16 @@ export default function SlotGameCard({ game, launching, onPlay, onDemo }: Props)
         tagBg={tag?.bg}
         tagFg={tag?.fg}
       >
-        <div className={`absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/70 transition-opacity duration-200 ${launching ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
+        {unavailable && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/55">
+            <span className="rounded-full bg-white/15 px-3 py-1 text-[11px] font-bold text-white">Unavailable</span>
+          </div>
+        )}
+        <div className={`absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/70 transition-opacity duration-200 ${launching ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} ${unavailable ? 'pointer-events-none' : ''}`}>
           <button
             type="button"
             className="flex w-4/5 items-center justify-center gap-1.5 rounded-full bg-primary py-2 text-xs font-bold text-primary-foreground shadow-lg"
-            disabled={launching}
+            disabled={launching || unavailable}
             onClick={(e) => { e.stopPropagation(); onPlay(game.uuid) }}
           >
             <Play size={12} /> Play
@@ -41,7 +47,7 @@ export default function SlotGameCard({ game, launching, onPlay, onDemo }: Props)
             <button
               type="button"
               className="flex w-4/5 items-center justify-center gap-1.5 rounded-full bg-white/20 py-1.5 text-xs font-semibold text-white hover:bg-white/30"
-              disabled={launching}
+              disabled={launching || unavailable}
               onClick={(e) => { e.stopPropagation(); onDemo(game.uuid) }}
             >
               <Tv2 size={11} /> Demo

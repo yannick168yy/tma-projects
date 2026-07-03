@@ -20,7 +20,12 @@ function categoryColor(cat: string) {
 }
 
 function jsonText(value: unknown) {
-  if (Array.isArray(value)) return value.join(', ')
+  if (Array.isArray(value)) {
+    const values = value.map(String)
+    const merged = values.filter((v) => v !== 'USDT' && v !== 'UCC')
+    if (values.includes('USDT') || values.includes('UCC')) merged.push('USDT(UCC)')
+    return merged.join(', ')
+  }
   if (!value) return '—'
   return JSON.stringify(value)
 }
@@ -224,7 +229,7 @@ export default function Win568GameList({ refreshKey }: Props) {
           <Col span={3}><Select value={isActive} placeholder="本地状态" allowClear style={{ width: '100%' }} options={[{ value: 'true', label: '本地启用' }, { value: 'false', label: '本地关闭' }]} onChange={setIsActive} /></Col>
           <Col span={3}><Select value={upstreamAvailable} placeholder="上游状态" allowClear style={{ width: '100%' }} options={[{ value: 'true', label: '上游可用' }, { value: 'false', label: '上游不可用' }]} onChange={setUpstreamAvailable} /></Col>
           <Col span={3}><Select value={isFeatured} placeholder="推荐" allowClear style={{ width: '100%' }} options={[{ value: 'true', label: '已推荐' }, { value: 'false', label: '未推荐' }]} onChange={setIsFeatured} /></Col>
-          <Col span={2}><Select value={currency} placeholder="币种" allowClear style={{ width: '100%' }} options={['PHP', 'USDT', 'UCC'].map((v) => ({ value: v, label: v }))} onChange={setCurrency} /></Col>
+          <Col span={2}><Select value={currency} placeholder="币种" allowClear style={{ width: '100%' }} options={[{ value: 'PHP', label: 'PHP' }, { value: 'USDT', label: 'USDT(UCC)' }]} onChange={setCurrency} /></Col>
           <Col span={2}><Select value={device} placeholder="设备" allowClear style={{ width: '100%' }} options={[{ value: 'm', label: 'Mobile' }, { value: 'd', label: 'Desktop' }]} onChange={setDevice} /></Col>
           <Col span={3}>
             <Space>

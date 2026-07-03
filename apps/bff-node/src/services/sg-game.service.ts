@@ -131,6 +131,42 @@ export interface DbGame {
   theme: string | null
   gameStyle: string | null
   playerType: string | null
+  supportedCurrencies?: string[] | null
+  supportsActiveCurrency?: boolean
+}
+
+function parseJsonArray(value: unknown): string[] | null {
+  if (value == null) return null
+  const parsed = typeof value === 'string' ? (() => {
+    try { return JSON.parse(value) } catch { return null }
+  })() : value
+  return Array.isArray(parsed) ? parsed.map(String).filter(Boolean) : null
+}
+
+function normalizeGameCurrency(currency?: string): string | undefined {
+  if (!currency) return undefined
+  const code = currency.toUpperCase()
+  return code === 'UCC' ? 'USDT' : code
+}
+
+function supportsCurrency(game: DbGame, currency?: string): boolean {
+  const normalized = normalizeGameCurrency(currency)
+  if (!normalized) return true
+  const supported = game.supportedCurrencies
+  if (!supported || supported.length === 0) return true
+  const set = new Set(supported.map((c) => normalizeGameCurrency(c) ?? c.toUpperCase()))
+  return set.has(normalized)
+}
+
+function withCurrencySupport(game: DbGame, currency?: string): DbGame {
+  const normalized = normalizeGameCurrency(currency)
+  return normalized ? { ...game, supportsActiveCurrency: supportsCurrency(game, normalized) } : game
+}
+
+function sortAvailableFirst(games: DbGame[], currency?: string): DbGame[] {
+  const normalized = normalizeGameCurrency(currency)
+  if (!normalized) return games
+  return [...games].sort((a, b) => Number(supportsCurrency(b, normalized)) - Number(supportsCurrency(a, normalized)))
 }
 
 function rowToDbGame(r: RowDataPacket): DbGame {
@@ -156,6 +192,7 @@ function rowToDbGame(r: RowDataPacket): DbGame {
     theme: (r.theme as string) ?? null,
     gameStyle: (r.game_style as string) ?? null,
     playerType: (r.player_type as string) ?? null,
+    supportedCurrencies: null,
   }
 }
 
@@ -196,6 +233,7 @@ function rowToWin568Game(r: RowDataPacket): DbGame {
     theme: null,
     gameStyle: null,
     playerType: null,
+    supportedCurrencies: parseJsonArray(r.supported_currencies),
   }
 }
 
@@ -222,6 +260,7 @@ function win568SportsbookGame(): DbGame {
     theme: null,
     gameStyle: null,
     playerType: null,
+    supportedCurrencies: ['PHP', 'USDT'],
   }
 }
 
@@ -232,7 +271,7 @@ export async function loadGamesCache(env: Env): Promise<number> {
   const redis = getRedis(env)
   const [win568Rows] = await db.query<RowDataPacket[]>(
     `SELECT g.game_id, g.game_provider_id, g.provider, g.new_game_type, g.rank_no, g.device,
-            g.name_en, g.name_zh, g.icon_url,
+            g.name_en, g.name_zh, g.icon_url, g.supported_currencies,
             COALESCE(o.name_override, g.name_en, g.name_zh, CONCAT('568Win ', g.game_id)) AS effective_name,
             COALESCE(o.image_override, g.icon_url) AS effective_image,
             COALESCE(o.weight, GREATEST(1, 10000 - COALESCE(g.rank_no, 9999))) AS effective_weight,
@@ -367,6 +406,18 @@ export async function getHomepageSelection(env: Env): Promise<HomepageSelection 
   return raw2 ? (JSON.parse(raw2) as HomepageSelection) : null
 }
 
+export function applyHomepageCurrency(selection: HomepageSelection, currency?: string): HomepageSelection {
+  return {
+    popular: sortAvailableFirst(selection.popular, currency).map((g) => withCurrencySupport(g, currency)),
+    slots: sortAvailableFirst(selection.slots, currency).map((g) => withCurrencySupport(g, currency)),
+    live: sortAvailableFirst(selection.live, currency).map((g) => withCurrencySupport(g, currency)),
+    fishing: sortAvailableFirst(selection.fishing, currency).map((g) => withCurrencySupport(g, currency)),
+    crash: sortAvailableFirst(selection.crash, currency).map((g) => withCurrencySupport(g, currency)),
+    table: sortAvailableFirst(selection.table, currency).map((g) => withCurrencySupport(g, currency)),
+    generatedAt: selection.generatedAt,
+  }
+}
+
 export interface GameListResult {
   items: DbGame[]
   total: number
@@ -387,10 +438,11 @@ export async function listGames(
     themes?: string[]
     gameStyles?: string[]
     playerTypes?: string[]
+    currency?: string
   } = {},
 ): Promise<GameListResult> {
   const { page = 1, limit = 30, search, provider, category, sortCategory, sortBy = 'weight',
-    themes, gameStyles, playerTypes } = opts
+    themes, gameStyles, playerTypes, currency } = opts
 
   let games = await getGamesFromCache(env)
 
@@ -427,14 +479,16 @@ export async function listGames(
     return (b.weight - a.weight) || (b.phBonus - a.phBonus)
   })
 
-  const total = games.length
+  const availableTotal = games.filter((g) => supportsCurrency(g, currency)).length
+  games = sortAvailableFirst(games, currency).map((g) => withCurrencySupport(g, currency))
+  const total = currency ? availableTotal : games.length
   const offset = (page - 1) * limit
 
   return {
     items: games.slice(offset, offset + limit),
     total,
     page,
-    pages: Math.ceil(total / limit),
+    pages: Math.ceil(games.length / limit),
   }
 }
 

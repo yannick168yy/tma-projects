@@ -59,6 +59,7 @@ export function isFiatCurrency(code: string): boolean {
 }
 
 export function displayCurrencyCode(code: string): string {
+  if (code === 'UCC') return 'USDT'
   return code === 'TRX_TESTNET' ? 'TRX' : code
 }
 

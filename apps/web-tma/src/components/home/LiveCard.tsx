@@ -7,10 +7,12 @@ interface Props { game: SlotGame; onTap: () => void }
 
 export default function LiveCard({ game, onTap }: Props) {
   const locale = useLocaleStore((s) => s.locale)
+  const unavailable = game.supportsActiveCurrency === false
   return (
     <button
       type="button"
-      className="flex-shrink-0 w-32 h-44 rounded-xl overflow-hidden active:scale-95 transition-transform"
+      className={`flex-shrink-0 w-32 h-44 rounded-xl overflow-hidden active:scale-95 transition-transform ${unavailable ? 'opacity-55 grayscale' : ''}`}
+      disabled={unavailable}
       onClick={onTap}
     >
       <GameImageCard
@@ -24,6 +26,11 @@ export default function LiveCard({ game, onTap }: Props) {
           <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
           <span className="text-white text-[8px] font-bold">LIVE</span>
         </div>
+        {unavailable && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/55">
+            <span className="rounded-full bg-white/15 px-3 py-1 text-[11px] font-bold text-white">Unavailable</span>
+          </div>
+        )}
       </GameImageCard>
     </button>
   )

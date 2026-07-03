@@ -8,10 +8,12 @@ interface Props { game: SlotGame; onTap: () => void }
 
 export default function GameCard({ game, onTap }: Props) {
   const locale = useLocaleStore((s) => s.locale)
+  const unavailable = game.supportsActiveCurrency === false
   return (
     <button
       type="button"
-      className="relative w-full h-44 overflow-hidden rounded-xl flex flex-col active:scale-[0.98] transition-transform"
+      className={`relative w-full h-44 overflow-hidden rounded-xl flex flex-col active:scale-[0.98] transition-transform ${unavailable ? 'opacity-55 grayscale' : ''}`}
+      disabled={unavailable}
       onClick={onTap}
     >
       <GameImageCard
@@ -26,6 +28,11 @@ export default function GameCard({ game, onTap }: Props) {
           <div className="absolute top-1.5 left-1.5 flex items-center gap-0.5 bg-red-500 rounded-full px-1.5 py-0.5">
             <Flame size={9} className="text-white" />
             <span className="text-white text-[9px] font-bold">HOT</span>
+          </div>
+        )}
+        {unavailable && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/55">
+            <span className="rounded-full bg-white/15 px-3 py-1 text-[11px] font-bold text-white">Unavailable</span>
           </div>
         )}
       </GameImageCard>

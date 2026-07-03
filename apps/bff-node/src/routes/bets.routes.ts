@@ -5,6 +5,10 @@ import { ok } from '../utils/response.js'
 
 const router = new Router({ prefix: '/bets' })
 
+function displayCurrencyCode(code: string): string {
+  return code.toUpperCase() === 'UCC' ? 'USDT' : code
+}
+
 router.get('/', async (ctx) => {
   const userId   = ctx.state.userId!
   const page     = Math.max(1, Number(ctx.query.page ?? 1))
@@ -34,17 +38,19 @@ router.get('/', async (ctx) => {
        sub.currency_code,
        sub.created_at,
        sub.max_id,
-       g.name         AS game_name,
-       g.name_zh      AS game_name_zh,
-       g.name_vi      AS game_name_vi,
-       g.name_id      AS game_name_id,
-       g.provider     AS game_provider,
-       g.image_url    AS game_image,
-       g.image_hq_url AS game_image_hq
+       COALESCE(g.name, wo.name_override, wg.name_en, wg.name_zh, IF(wg.game_id IS NULL, NULL, CONCAT('568Win ', wg.game_id))) AS game_name,
+       COALESCE(g.name_zh, wg.name_zh) AS game_name_zh,
+       g.name_vi AS game_name_vi,
+       g.name_id AS game_name_id,
+       COALESCE(g.provider, wg.provider, IF(wg.game_id IS NULL, NULL, '568Win')) AS game_provider,
+       COALESCE(g.image_url, wo.image_override, wg.icon_url) AS game_image,
+       COALESCE(g.image_hq_url, wo.image_override, wg.icon_url) AS game_image_hq
      FROM (
        SELECT
          MAX(round_id)                                                         AS round_id,
          MAX(provider_id)                                                      AS game_uuid,
+         MAX(provider_txn_id)                                                  AS provider_txn_id,
+         MAX(aggregator_id)                                                    AS aggregator_id,
          SUM(CASE WHEN bet_type = 'bet'             THEN amount ELSE 0 END)   AS bet_amount,
          SUM(CASE WHEN bet_type IN ('win','refund') THEN amount ELSE 0 END)   AS win_amount,
          MAX(currency_code) AS currency_code,
@@ -57,6 +63,22 @@ router.get('/', async (ctx) => {
        LIMIT ? OFFSET ?
      ) sub
      LEFT JOIN sg_games g ON g.uuid = sub.game_uuid
+     LEFT JOIN bg_568win_wallet_txn wt
+       ON sub.aggregator_id = '568win'
+      AND wt.transfer_code = CASE
+        WHEN LOCATE(':', sub.provider_txn_id) > 0 THEN SUBSTRING_INDEX(sub.provider_txn_id, ':', 1)
+        ELSE sub.provider_txn_id
+      END
+      AND (
+        LOCATE(':', sub.provider_txn_id) = 0
+        OR wt.transaction_id = SUBSTRING_INDEX(sub.provider_txn_id, ':', -1)
+      )
+     LEFT JOIN bg_568win_game wg
+       ON wg.game_provider_id = wt.gpid
+      AND wg.game_id = CAST(wt.provider_id AS UNSIGNED)
+     LEFT JOIN bg_568win_game_override wo
+       ON wo.game_provider_id = wg.game_provider_id
+      AND wo.game_id = wg.game_id
      ORDER BY sub.max_id DESC`,
     [...baseParams, pageSize, offset],
   )
@@ -74,7 +96,7 @@ router.get('/', async (ctx) => {
       roundId:      r.round_id      ? String(r.round_id)      : null,
       betAmount:    Number(r.bet_amount),
       winAmount:    Number(r.win_amount),
-      currencyCode: String(r.currency_code),
+      currencyCode: displayCurrencyCode(String(r.currency_code)),
       createdAt:    toIso(r.created_at),
       gameName:     r.game_name     ? String(r.game_name)     : null,
       gameNameZh:   r.game_name_zh  ? String(r.game_name_zh)  : null,

@@ -98,6 +98,10 @@ function transferKey(body: CallbackBody): string {
   return transactionId ? `${transferCode}:${transactionId}` : transferCode
 }
 
+function walletCurrency(currency: string): string {
+  return currency.toUpperCase() === 'UCC' ? 'USDT' : currency
+}
+
 export class Win568WalletService {
   constructor(private app: FastifyInstance) {}
 
@@ -127,7 +131,7 @@ export class Win568WalletService {
     )
     if (mapped) {
       if (mapped.status !== 'active') return null
-      return { userId: String(mapped.user_id), username: String(mapped.external_username), currency: String(mapped.currency || env.WIN568_DEFAULT_CURRENCY) }
+      return { userId: String(mapped.user_id), username: String(mapped.external_username), currency: walletCurrency(String(mapped.currency || env.WIN568_DEFAULT_CURRENCY)) }
     }
 
     const [[user]] = await this.db.query<RowDataPacket[]>(
@@ -135,7 +139,7 @@ export class Win568WalletService {
       [username],
     )
     if (!user || user.status !== 'active') return null
-    return { userId: String(user.id), username, currency: env.WIN568_DEFAULT_CURRENCY }
+    return { userId: String(user.id), username, currency: walletCurrency(env.WIN568_DEFAULT_CURRENCY) }
   }
 
   private async ensureWallet(conn: PoolConnection, player: PlayerRef) {

@@ -19,6 +19,8 @@ export interface SlotGame {
   phBonus: number
   isFeatured: boolean
   theme: string | null
+  supportedCurrencies?: string[] | null
+  supportsActiveCurrency?: boolean
 }
 
 export interface GameListResult {
@@ -39,6 +41,7 @@ export interface GameListParams {
   themes?: string[]
   gameStyles?: string[]
   playerTypes?: string[]
+  currency?: string
 }
 
 export interface HomepageGames {
@@ -51,8 +54,9 @@ export interface HomepageGames {
   generatedAt: string
 }
 
-export function fetchHomepageGames(): Promise<HomepageGames> {
-  return apiRequest<HomepageGames>('/slots/homepage')
+export function fetchHomepageGames(currency?: string): Promise<HomepageGames> {
+  const qs = currency ? `?currency=${encodeURIComponent(currency)}` : ''
+  return apiRequest<HomepageGames>(`/slots/homepage${qs}`)
 }
 
 export function fetchGames(params: GameListParams = {}): Promise<GameListResult> {
@@ -67,6 +71,7 @@ export function fetchGames(params: GameListParams = {}): Promise<GameListResult>
   if (params.themes?.length) qs.set('themes', params.themes.join(','))
   if (params.gameStyles?.length) qs.set('gameStyles', params.gameStyles.join(','))
   if (params.playerTypes?.length) qs.set('playerTypes', params.playerTypes.join(','))
+  if (params.currency) qs.set('currency', params.currency)
   const q = qs.toString()
   return apiRequest<GameListResult>(`/slots/games${q ? `?${q}` : ''}`)
 }

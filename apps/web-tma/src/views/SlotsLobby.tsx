@@ -78,6 +78,7 @@ export default function SlotsLobby({
         themes,
         gameStyles,
         playerTypes,
+        currency: activeCurrency,
       })
       if (reset) setGames(res.items)
       else setGames((prev) => [...prev, ...res.items])
@@ -110,7 +111,7 @@ export default function SlotsLobby({
   useEffect(() => {
     void loadProviders()
     void loadGames(true)
-  }, [])
+  }, [activeCurrency])
 
   async function onPlay(uuid: string) {
     if (!isLoggedIn) {

@@ -55,6 +55,7 @@ export default function SearchOverlay({ onClose, onGameTap, onOpenGame }: Props)
         themes: theme !== 'all' ? [theme] : undefined,
         limit: 30,
         page: pageToFetch,
+        currency: activeCurrency,
       })
       if (reset) setGames(res.items)
       else setGames((prev) => [...prev, ...res.items])
@@ -77,7 +78,7 @@ export default function SearchOverlay({ onClose, onGameTap, onOpenGame }: Props)
     void fetchThemes().then(setThemes)
     const id = setTimeout(() => inputRef.current?.focus(), 80)
     return () => clearTimeout(id)
-  }, [])
+  }, [activeCurrency])
 
   useEffect(() => {
     if (skipQueryWatch.current) {

@@ -381,7 +381,7 @@ const [gamesLoading, setGamesLoading] = useState(true)
     const token = ++gridFetchRef.current
     if (reset) setGridLoading(true)
     try {
-      const result = await fetchGames({ sortCategory: chipDef.sortCategory, provider: provider === 'all' ? undefined : provider, page, limit: 30, sortBy: 'weight' })
+      const result = await fetchGames({ sortCategory: chipDef.sortCategory, provider: provider === 'all' ? undefined : provider, page, limit: 30, sortBy: 'weight', currency: activeCurrency })
       if (token !== gridFetchRef.current) return
       setGridGames((prev) => reset ? result.items : [...prev, ...result.items])
       setGridPage(result.page)
@@ -470,7 +470,10 @@ const [gamesLoading, setGamesLoading] = useState(true)
 
   useEffect(() => {
     setGamesLoading(true)
-    fetchHomepageGames().then(setHomepageGames).catch(() => {}).finally(() => setGamesLoading(false))
+    fetchHomepageGames(activeCurrency).then(setHomepageGames).catch(() => {}).finally(() => setGamesLoading(false))
+  }, [activeCurrency])
+
+  useEffect(() => {
     fetchHomeContent().then((content) => {
       setHomeBanners(content.banners.map((item) => ({
         id: item.slot,
@@ -485,6 +488,12 @@ const [gamesLoading, setGamesLoading] = useState(true)
     }).catch(() => {})
     if (auth.token && auth.user) void promotion.loadTeamStatus()
   }, [])
+
+  useEffect(() => {
+    if (activeChip === 'hot') return
+    setGridGames([])
+    void loadGridPage(activeChip, activeProvider, 1, true)
+  }, [activeCurrency])
 
   // 投注流非首屏关键，进入视口前不拉，避免与首页游戏/内容抢首屏带宽
   useEffect(() => {

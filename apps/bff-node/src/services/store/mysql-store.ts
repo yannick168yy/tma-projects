@@ -561,11 +561,15 @@ export async function getWalletBalances(env: Env, userId: string): Promise<Walle
     `SELECT currency, available, frozen FROM bg_wallet WHERE user_id = ? ORDER BY currency`,
     [userId],
   )
-  return rows.map((r) => ({
-    currency: r.currency as string,
-    available: Number(r.available),
-    frozen: Number(r.frozen),
-  }))
+  const balances = new Map<string, WalletBalance>()
+  for (const r of rows) {
+    const currency = String(r.currency).toUpperCase() === 'UCC' ? 'USDT' : String(r.currency)
+    const current = balances.get(currency) ?? { currency, available: 0, frozen: 0 }
+    current.available += Number(r.available)
+    current.frozen += Number(r.frozen)
+    balances.set(currency, current)
+  }
+  return [...balances.values()].sort((a, b) => a.currency.localeCompare(b.currency))
 }
 
 export async function creditWallet(
