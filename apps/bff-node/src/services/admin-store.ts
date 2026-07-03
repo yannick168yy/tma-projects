@@ -540,7 +540,7 @@ export async function listAdminWin568Games(
   opts: {
     page: number; pageSize: number
     provider?: string; search?: string; isActive?: boolean; upstreamAvailable?: boolean
-    sortCategory?: string; newGameType?: number; currency?: string; device?: string
+    sortCategory?: string; siteCategory?: string; newGameType?: number; currency?: string; device?: string
     isFeatured?: boolean; sortField?: string; sortOrder?: 'asc' | 'desc'
   },
 ) {
@@ -559,6 +559,7 @@ export async function listAdminWin568Games(
   if (opts.isActive !== undefined) conditions.push(`${localActive} = ${opts.isActive ? 1 : 0}`)
   if (opts.upstreamAvailable !== undefined) conditions.push(`${upstreamAvailable} = ${opts.upstreamAvailable ? 1 : 0}`)
   if (opts.sortCategory) { conditions.push(`${sortCategory} = ?`); params.push(opts.sortCategory) }
+  if (opts.siteCategory) { conditions.push(`COALESCE(o.site_category, g.site_category_auto, 'other') = ?`); params.push(opts.siteCategory) }
   if (opts.newGameType !== undefined) { conditions.push('g.new_game_type = ?'); params.push(opts.newGameType) }
   if (opts.currency) {
     const currency = opts.currency.toUpperCase()
@@ -602,6 +603,8 @@ export async function listAdminWin568Games(
             g.is_provide_commission, g.has_hedge_bet, g.synced_at, g.updated_at,
             o.is_active AS override_active, o.weight AS override_weight,
             o.is_featured AS override_featured, o.sort_category AS override_sort_category,
+            o.site_category AS override_site_category, g.site_category_auto,
+            COALESCE(o.site_category, g.site_category_auto, 'other') AS effective_site_category,
             o.name_override, o.image_override, o.ph_bonus, o.weight_breakdown,
             o.theme, o.game_style, o.player_type, o.description_en, o.description_zh,
             o.search_keywords, o.weight_updated_at,
@@ -639,6 +642,9 @@ export async function listAdminWin568Games(
     gameType: r.game_type == null ? null : Number(r.game_type),
     sortCategory: String(r.effective_sort_category),
     overrideSortCategory: r.override_sort_category ? String(r.override_sort_category) : null,
+    siteCategory: String(r.effective_site_category),
+    siteCategoryAuto: r.site_category_auto ? String(r.site_category_auto) : null,
+    overrideSiteCategory: r.override_site_category ? String(r.override_site_category) : null,
     rankNo: r.rank_no == null ? null : Number(r.rank_no),
     device: r.device ? String(r.device) : null,
     platform: r.platform ? String(r.platform) : null,
@@ -687,12 +693,13 @@ export async function updateAdminWin568Game(
     weight?: number | null
     isFeatured?: boolean | null
     sortCategory?: string | null
+    siteCategory?: string | null
     nameOverride?: string | null
     imageOverride?: string | null
   },
 ): Promise<void> {
   const [[game]] = await pool(env).query<RowDataPacket[]>(
-    `SELECT g.game_id, o.is_active, o.weight, o.is_featured, o.sort_category, o.name_override, o.image_override
+    `SELECT g.game_id, o.is_active, o.weight, o.is_featured, o.sort_category, o.site_category, o.name_override, o.image_override
      FROM bg_568win_game g
      LEFT JOIN bg_568win_game_override o ON o.game_provider_id = g.game_provider_id AND o.game_id = g.game_id
      WHERE g.game_provider_id = ? AND g.game_id = ? LIMIT 1`,
@@ -702,13 +709,14 @@ export async function updateAdminWin568Game(
 
   await pool(env).execute(
     `INSERT INTO bg_568win_game_override
-     (game_provider_id, game_id, is_active, weight, is_featured, sort_category, name_override, image_override)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+     (game_provider_id, game_id, is_active, weight, is_featured, sort_category, site_category, name_override, image_override)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON DUPLICATE KEY UPDATE
        is_active = VALUES(is_active),
        weight = VALUES(weight),
        is_featured = VALUES(is_featured),
        sort_category = VALUES(sort_category),
+       site_category = VALUES(site_category),
        name_override = VALUES(name_override),
        image_override = VALUES(image_override)`,
     [
@@ -718,6 +726,7 @@ export async function updateAdminWin568Game(
       patch.weight === undefined ? game.weight : patch.weight,
       patch.isFeatured === undefined ? game.is_featured : patch.isFeatured,
       patch.sortCategory === undefined ? game.sort_category : patch.sortCategory,
+      patch.siteCategory === undefined ? game.site_category : patch.siteCategory,
       patch.nameOverride === undefined ? game.name_override : patch.nameOverride,
       patch.imageOverride === undefined ? game.image_override : patch.imageOverride,
     ],

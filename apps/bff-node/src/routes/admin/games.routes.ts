@@ -77,6 +77,7 @@ router.get('/win568', async (ctx) => {
     isActive: ctx.query.isActive !== undefined ? ctx.query.isActive === 'true' : undefined,
     upstreamAvailable: ctx.query.upstreamAvailable !== undefined ? ctx.query.upstreamAvailable === 'true' : undefined,
     sortCategory: ctx.query.sortCategory ? String(ctx.query.sortCategory) : undefined,
+    siteCategory: ctx.query.siteCategory ? String(ctx.query.siteCategory) : undefined,
     newGameType: ctx.query.newGameType !== undefined ? Number(ctx.query.newGameType) : undefined,
     currency: ctx.query.currency ? String(ctx.query.currency) : undefined,
     device: ctx.query.device ? String(ctx.query.device) : undefined,
@@ -114,6 +115,7 @@ router.patch('/win568/:gameProviderId/:gameId', async (ctx) => {
     weight?: number | null
     isFeatured?: boolean | null
     sortCategory?: string | null
+    siteCategory?: string | null
     nameOverride?: string | null
     imageOverride?: string | null
   }
@@ -130,6 +132,7 @@ router.patch('/win568/:gameProviderId/:gameId', async (ctx) => {
     weight: body.weight === undefined || body.weight === null ? body.weight : Number(body.weight),
     isFeatured: body.isFeatured,
     sortCategory: body.sortCategory || null,
+    siteCategory: body.siteCategory || null,
     nameOverride: body.nameOverride || null,
     imageOverride: body.imageOverride || null,
   })

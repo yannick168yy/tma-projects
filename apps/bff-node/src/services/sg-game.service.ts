@@ -120,6 +120,7 @@ export interface DbGame {
   category: string | null
   subCategory: string | null
   sortCategory: string | null
+  siteCategory?: string | null
   imageUrl: string | null
   imageHqUrl: string | null
   hasDemo: boolean
@@ -222,6 +223,7 @@ function rowToWin568Game(r: RowDataPacket): DbGame {
     category: newGameType === null ? null : String(newGameType),
     subCategory: null,
     sortCategory: String(sortCategory),
+    siteCategory: r.effective_site_category ? String(r.effective_site_category) : null,
     imageUrl: imageUrl ? String(imageUrl) : null,
     imageHqUrl: imageUrl ? String(imageUrl) : null,
     hasDemo: false,
@@ -249,6 +251,7 @@ function win568SportsbookGame(): DbGame {
     category: 'sportsbook',
     subCategory: null,
     sortCategory: 'sports',
+    siteCategory: 'sports',
     imageUrl: null,
     imageHqUrl: null,
     hasDemo: false,
@@ -278,6 +281,7 @@ export async function loadGamesCache(env: Env): Promise<number> {
             COALESCE(o.ph_bonus, 0) AS effective_ph_bonus,
             COALESCE(o.is_featured, 0) AS effective_featured,
             o.theme, o.game_style, o.player_type,
+            COALESCE(o.site_category, g.site_category_auto, 'other') AS effective_site_category,
             COALESCE(o.sort_category,
               CASE
                 WHEN g.new_game_type = 203 THEN 'fishing'

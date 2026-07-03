@@ -467,6 +467,9 @@ export interface AdminWin568Game {
   gameType: number | null
   sortCategory: string
   overrideSortCategory: string | null
+  siteCategory: string
+  siteCategoryAuto: string | null
+  overrideSiteCategory: string | null
   rankNo: number | null
   device: string | null
   platform: string | null
@@ -511,6 +514,7 @@ export const getAdminWin568Games = (params: {
   isActive?: boolean
   upstreamAvailable?: boolean
   sortCategory?: string
+  siteCategory?: string
   newGameType?: number
   currency?: string
   device?: string
@@ -526,6 +530,7 @@ export const updateWin568Game = (gameProviderId: number, gameId: number, data: {
   weight?: number | null
   isFeatured?: boolean | null
   sortCategory?: string | null
+  siteCategory?: string | null
   nameOverride?: string | null
   imageOverride?: string | null
 }) =>

@@ -19,6 +19,26 @@ function categoryColor(cat: string) {
   return colors[cat] ?? 'default'
 }
 
+const SITE_CATEGORY_OPTIONS = [
+  { value: 'slot', label: 'Slot' },
+  { value: 'casino', label: 'Casino' },
+  { value: 'perya', label: 'Perya' },
+  { value: 'poker', label: 'Poker' },
+  { value: 'fishing', label: 'Fishing' },
+  { value: 'sports', label: 'Sports' },
+  { value: 'lottery', label: '彩票' },
+  { value: 'lobby', label: '大厅' },
+  { value: 'other', label: '其他' },
+]
+
+function siteCategoryColor(cat: string) {
+  const colors: Record<string, string> = {
+    slot: 'purple', casino: 'red', perya: 'magenta', poker: 'geekblue',
+    fishing: 'cyan', sports: 'green', lottery: 'orange', lobby: 'default', other: 'default',
+  }
+  return colors[cat] ?? 'default'
+}
+
 function jsonText(value: unknown) {
   if (Array.isArray(value)) {
     const values = value.map(String)
@@ -43,6 +63,7 @@ export default function Win568GameList({ refreshKey }: Props) {
   const [search, setSearch] = useState('')
   const [provider, setProvider] = useState<string | undefined>()
   const [sortCategory, setSortCategory] = useState<string | undefined>()
+  const [siteCategory, setSiteCategory] = useState<string | undefined>()
   const [isActive, setIsActive] = useState<string | undefined>()
   const [upstreamAvailable, setUpstreamAvailable] = useState<string | undefined>('true')
   const [isFeatured, setIsFeatured] = useState<string | undefined>()
@@ -70,6 +91,7 @@ export default function Win568GameList({ refreshKey }: Props) {
         provider: eff ? provider : undefined,
         search: eff ? search || undefined : undefined,
         sortCategory: eff ? sortCategory : undefined,
+        siteCategory: eff ? siteCategory : undefined,
         isActive: eff && isActive !== undefined ? isActive === 'true' : undefined,
         upstreamAvailable: eff && upstreamAvailable !== undefined ? upstreamAvailable === 'true' : undefined,
         isFeatured: eff && isFeatured !== undefined ? isFeatured === 'true' : undefined,
@@ -94,6 +116,7 @@ export default function Win568GameList({ refreshKey }: Props) {
     setSearch('')
     setProvider(undefined)
     setSortCategory(undefined)
+    setSiteCategory(undefined)
     setIsActive(undefined)
     setUpstreamAvailable('true')
     setIsFeatured(undefined)
@@ -122,6 +145,7 @@ export default function Win568GameList({ refreshKey }: Props) {
       weight: record.overrideWeight ?? record.weight,
       isFeatured: record.isFeatured,
       sortCategory: record.overrideSortCategory ?? record.sortCategory,
+      siteCategory: record.overrideSiteCategory ?? record.siteCategory,
       nameOverride: record.nameOverride ?? '',
       imageOverride: record.imageOverride ?? '',
     })
@@ -135,6 +159,7 @@ export default function Win568GameList({ refreshKey }: Props) {
       weight: values.weight,
       isFeatured: values.isFeatured,
       sortCategory: values.sortCategory || null,
+      siteCategory: values.siteCategory || null,
       nameOverride: values.nameOverride || null,
       imageOverride: values.imageOverride || null,
     })
@@ -180,6 +205,15 @@ export default function Win568GameList({ refreshKey }: Props) {
         <div>
           <Tag color={categoryColor(r.sortCategory)}>{r.sortCategory}</Tag>
           <div style={{ color: '#999', fontSize: 12 }}>newGameType {r.newGameType ?? '—'}</div>
+        </div>
+      ),
+    },
+    {
+      title: '网站分类', key: 'siteCategory', width: 110,
+      render: (_: unknown, r: AdminWin568Game) => (
+        <div>
+          <Tag color={siteCategoryColor(r.siteCategory)}>{SITE_CATEGORY_OPTIONS.find((o) => o.value === r.siteCategory)?.label ?? r.siteCategory}</Tag>
+          {r.overrideSiteCategory && <div style={{ color: '#999', fontSize: 12 }}>人工覆盖</div>}
         </div>
       ),
     },
@@ -235,6 +269,7 @@ export default function Win568GameList({ refreshKey }: Props) {
           <Col span={5}><Input.Search value={search} placeholder="搜索游戏名 / GpId / GameId" onSearch={() => load(1)} allowClear onChange={(e) => setSearch(e.target.value)} /></Col>
           <Col span={4}><Select value={provider} placeholder="厂商" allowClear style={{ width: '100%' }} options={providers.map((p) => ({ value: p, label: p }))} onChange={setProvider} /></Col>
           <Col span={3}><Select value={sortCategory} placeholder="分类" allowClear style={{ width: '100%' }} options={CATEGORY_OPTIONS} onChange={setSortCategory} /></Col>
+          <Col span={3}><Select value={siteCategory} placeholder="网站分类" allowClear style={{ width: '100%' }} options={SITE_CATEGORY_OPTIONS} onChange={setSiteCategory} /></Col>
           <Col span={3}><Select value={isActive} placeholder="本地状态" allowClear style={{ width: '100%' }} options={[{ value: 'true', label: '本地启用' }, { value: 'false', label: '本地关闭' }]} onChange={setIsActive} /></Col>
           <Col span={3}><Select value={upstreamAvailable} placeholder="上游状态" allowClear style={{ width: '100%' }} options={[{ value: 'true', label: '上游可用' }, { value: 'false', label: '上游不可用' }]} onChange={setUpstreamAvailable} /></Col>
           <Col span={3}><Select value={isFeatured} placeholder="推荐" allowClear style={{ width: '100%' }} options={[{ value: 'true', label: '已推荐' }, { value: 'false', label: '未推荐' }]} onChange={setIsFeatured} /></Col>
@@ -249,7 +284,7 @@ export default function Win568GameList({ refreshKey }: Props) {
           <Col span={2} style={{ display: 'flex', alignItems: 'center' }}><Tag color="blue">共 {total} 款</Tag></Col>
         </Row>
       </div>
-      <Table columns={columns} dataSource={games} loading={loading} pagination={pagination} rowKey="uuid" size="small" scroll={{ x: 1320 }} onChange={handleTableChange} />
+      <Table columns={columns} dataSource={games} loading={loading} pagination={pagination} rowKey="uuid" size="small" scroll={{ x: 1430 }} onChange={handleTableChange} />
       <Modal
         title={editing ? `568Win 游戏运营设置：${editing.name}` : '568Win 游戏运营设置'}
         open={!!editing}
@@ -300,6 +335,8 @@ export default function Win568GameList({ refreshKey }: Props) {
               <Descriptions.Item label="展示名覆盖">{editing.nameOverride || '—'}</Descriptions.Item>
               <Descriptions.Item label="最终分类"><Tag color={categoryColor(editing.sortCategory)}>{editing.sortCategory}</Tag></Descriptions.Item>
               <Descriptions.Item label="分类覆盖">{editing.overrideSortCategory || '—'}</Descriptions.Item>
+              <Descriptions.Item label="网站分类"><Tag color={siteCategoryColor(editing.siteCategory)}>{SITE_CATEGORY_OPTIONS.find((o) => o.value === editing.siteCategory)?.label ?? editing.siteCategory}</Tag></Descriptions.Item>
+              <Descriptions.Item label="网站分类覆盖">{editing.overrideSiteCategory || `— (自动: ${editing.siteCategoryAuto ?? '—'})`}</Descriptions.Item>
               <Descriptions.Item label="权重">{editing.weight}</Descriptions.Item>
               <Descriptions.Item label="权重覆盖">{editing.overrideWeight ?? '—'}</Descriptions.Item>
               <Descriptions.Item label="PH 热度">{editing.phBonus ?? '—'}</Descriptions.Item>
@@ -321,6 +358,7 @@ export default function Win568GameList({ refreshKey }: Props) {
               <Form.Item label="权重" name="weight" rules={[{ required: true, message: '请输入权重' }]}><InputNumber min={0} max={10000} style={{ width: '100%' }} /></Form.Item>
               <Form.Item label="推荐" name="isFeatured" valuePropName="checked"><Switch /></Form.Item>
               <Form.Item label="前端分类" name="sortCategory"><Select allowClear options={CATEGORY_OPTIONS} /></Form.Item>
+              <Form.Item label="网站分类" name="siteCategory" extra="清空则跟随自动分类"><Select allowClear options={SITE_CATEGORY_OPTIONS} /></Form.Item>
               <Form.Item label="展示名覆盖" name="nameOverride"><Input allowClear /></Form.Item>
               <Form.Item label="图片覆盖" name="imageOverride"><Input allowClear /></Form.Item>
             </Form>

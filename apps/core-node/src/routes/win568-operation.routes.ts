@@ -164,6 +164,23 @@ function gameInfo(g: Record<string, unknown>, language: string) {
   return found && typeof found === 'object' ? found as Record<string, unknown> : null
 }
 
+const PERYA_KEYWORDS = ['perya', 'peryahan', 'bingo', 'color game', 'drop ball', 'pinoy', 'sabong', 'pula puti', 'mines', 'crash', 'plinko', 'hilo', 'hi-lo', 'aviator']
+const POKER_KEYWORDS = ['poker', 'teen patti']
+
+export function classifyWin568SiteCategory(newGameType: number | null, ...names: (string | null | undefined)[]): string {
+  const name = names.filter(Boolean).join(' ').toLowerCase()
+  if (PERYA_KEYWORDS.some((k) => name.includes(k))) return 'perya'
+  if (newGameType === 107 || POKER_KEYWORDS.some((k) => name.includes(k))) return 'poker'
+  if (newGameType === 100 || newGameType === 200) return 'lobby'
+  if (newGameType === 201) return 'slot'
+  if (newGameType === 203 || name.includes('fish')) return 'fishing'
+  if (newGameType === 207) return 'lottery'
+  if (newGameType !== null && newGameType >= 300 && newGameType < 400) return 'sports'
+  // 101-199 真人 + 204 RNG 桌游都归 casino
+  if (newGameType !== null && (newGameType >= 101 && newGameType < 200 || newGameType === 204)) return 'casino'
+  return 'other'
+}
+
 export async function saveWin568Games(app: FastifyInstance, result: unknown) {
   const games = collectWin568Games(result)
   for (const g of games) {
@@ -175,14 +192,15 @@ export async function saveWin568Games(app: FastifyInstance, result: unknown) {
     const enabled = boolValue(g.isEnabled) && !boolValue(g.isMaintain) && text(g.providerStatus) === 'Online' && boolValue(g.isProviderOnline)
     await app.mysql.execute(
       `INSERT INTO bg_568win_game
-       (game_id, game_provider_id, provider, new_game_type, game_type, rank_no, device, platform,
+       (game_id, game_provider_id, provider, new_game_type, game_type, site_category_auto, rank_no, device, platform,
         rtp, rows_count, reels_count, lines_count, name_en, name_zh, icon_url,
         supported_currencies, block_countries, is_enabled, is_maintain, provider_status,
         is_provider_online, is_provide_commission, has_hedge_bet, raw_game, raw_response)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON DUPLICATE KEY UPDATE game_provider_id = VALUES(game_provider_id),
          provider = VALUES(provider), new_game_type = VALUES(new_game_type),
-         game_type = VALUES(game_type), rank_no = VALUES(rank_no), device = VALUES(device),
+         game_type = VALUES(game_type), site_category_auto = VALUES(site_category_auto),
+         rank_no = VALUES(rank_no), device = VALUES(device),
          platform = VALUES(platform), rtp = VALUES(rtp), rows_count = VALUES(rows_count),
          reels_count = VALUES(reels_count), lines_count = VALUES(lines_count),
          name_en = VALUES(name_en), name_zh = VALUES(name_zh), icon_url = VALUES(icon_url),
@@ -197,6 +215,7 @@ export async function saveWin568Games(app: FastifyInstance, result: unknown) {
         text(g.provider) || null,
         intOrNull(g.newGameType),
         intOrNull(g.gameType),
+        classifyWin568SiteCategory(intOrNull(g.newGameType), text(infoEn?.gameName), text(infoZh?.gameName)),
         intOrNull(g.rank),
         text(g.device) || null,
         text(g.platform) || null,
