@@ -23,7 +23,7 @@ interface TxnRow extends RowDataPacket {
   external_username: string
   currency: string
   transfer_code: string
-  transaction_id: string | null
+  transaction_id: string
   product_type: number
   game_type: number
   gpid: number | null
@@ -74,6 +74,10 @@ function round2(value: number): number {
   return Math.round((value + Number.EPSILON) * 100) / 100
 }
 
+function isDupEntry(e: unknown): boolean {
+  return !!e && typeof e === 'object' && (e as { code?: string }).code === 'ER_DUP_ENTRY'
+}
+
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
@@ -86,10 +90,18 @@ function err(ErrorCode: number, ErrorMessage: string, AccountName = '', Balance 
   return { AccountName, Balance: round2(Balance), ErrorCode, ErrorMessage, ...extra }
 }
 
+function isPrivatePeer(ip: string): boolean {
+  return /^(127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(ip) || ip === '::1'
+}
+
 function getClientIp(req: FastifyRequest): string {
+  const peer = req.ip.replace(/^::ffff:/, '')
+  // x-real-ip 只在请求来自内网反代（nginx）时可信，直连时防止伪造
   const realIp = req.headers['x-real-ip']
-  if (typeof realIp === 'string' && realIp.trim()) return realIp.trim().replace(/^::ffff:/, '')
-  return req.ip.replace(/^::ffff:/, '')
+  if (isPrivatePeer(peer) && typeof realIp === 'string' && realIp.trim()) {
+    return realIp.trim().replace(/^::ffff:/, '')
+  }
+  return peer
 }
 
 function transferKey(body: CallbackBody): string {
@@ -183,11 +195,11 @@ export class Win568WalletService {
     return this.currentBalance(conn, player)
   }
 
-  private async findTxns(conn: PoolConnection, body: CallbackBody, lock: boolean): Promise<TxnRow[]> {
+  private async findTxns(conn: PoolConnection, body: CallbackBody, opts: { lock?: boolean; singleNonVoid?: boolean } = {}): Promise<TxnRow[]> {
     const transferCode = text(body, 'TransferCode')
     const transactionId = text(body, 'TransactionId')
     const productType = int(body, 'ProductType')
-    const suffix = lock ? ' FOR UPDATE' : ''
+    const suffix = opts.lock ? ' FOR UPDATE' : ''
     if (productType === 9 && transactionId) {
       const [rows] = await conn.query<TxnRow[]>(
         `SELECT * FROM bg_568win_wallet_txn WHERE transfer_code = ? AND transaction_id = ?${suffix}`,
@@ -195,7 +207,7 @@ export class Win568WalletService {
       )
       return rows
     }
-    if (productType === 9 && !transactionId && (body.__singleNonVoid === true)) {
+    if (productType === 9 && !transactionId && opts.singleNonVoid) {
       const [rows] = await conn.query<TxnRow[]>(
         `SELECT * FROM bg_568win_wallet_txn
          WHERE transfer_code = ? AND status <> 'Void'
@@ -221,7 +233,7 @@ export class Win568WalletService {
   }
 
   private async rollbackAlreadyApplied(conn: PoolConnection, player: PlayerRef, body: CallbackBody): Promise<number | null> {
-    const bets = await this.findTxns(conn, body, false)
+    const bets = await this.findTxns(conn, body)
     if (!bets.some((b) => b.status === 'running' && b.win_loss !== null)) return null
     return this.currentBalance(conn, player)
   }
@@ -229,7 +241,7 @@ export class Win568WalletService {
   private async cancelAlreadyApplied(conn: PoolConnection, player: PlayerRef, body: CallbackBody): Promise<number | null> {
     const bets = bool(body, 'IsCancelAll')
       ? await this.findAllByTransfer(conn, text(body, 'TransferCode'), false)
-      : await this.findTxns(conn, body, false)
+      : await this.findTxns(conn, body)
     if (bets.length === 0 || !bets.every((b) => b.status === 'Void')) return null
     return this.currentBalance(conn, player)
   }
@@ -254,12 +266,11 @@ export class Win568WalletService {
 
     const conn = await this.db.getConnection()
     try {
-      await conn.query('SET TRANSACTION ISOLATION LEVEL SERIALIZABLE')
       await conn.beginTransaction()
       const balance = await this.lockedBalance(conn, player)
       const amount = round2(num(body, 'Amount'))
       const transferCode = text(body, 'TransferCode')
-      const transactionId = text(body, 'TransactionId') || null
+      const transactionId = text(body, 'TransactionId')
       const productType = int(body, 'ProductType')
       if (productType === 1 && amount === 0 && !hasPromotionReward(body.ExtraInfo)) {
         await conn.commit()
@@ -269,9 +280,7 @@ export class Win568WalletService {
         await conn.commit()
         return err(7, 'Invalid free bet amount', player.username, balance, { BetAmount: 0 })
       }
-      const existing = productType === 9
-        ? await this.findTxns(conn, body, true)
-        : await this.findTxns(conn, body, true)
+      const existing = await this.findTxns(conn, body, { lock: true })
 
       if (existing.length > 0) {
         const bet = existing[0]
@@ -297,6 +306,13 @@ export class Win568WalletService {
               `UPDATE bg_bet_order SET amount = ?, original_amount = ? WHERE aggregator_id = '568win' AND provider_txn_id = ? AND bet_type = 'bet'`,
               [amount, amount, transferKey(body)],
             )
+            const [[order]] = await conn.query<RowDataPacket[]>(
+              `SELECT id FROM bg_bet_order WHERE aggregator_id = '568win' AND provider_txn_id = ? AND bet_type = 'bet' LIMIT 1`,
+              [transferKey(body)],
+            )
+            if (order) {
+              await allocateBetTurnoverInTransaction(conn, player.userId, Number(order.id), diff, String(body.GameId ?? body.Gpid ?? ''), player.currency)
+            }
             await this.addLedger(conn, player, 'bet', -diff, newBalance, transferCode, '568Win raise bet')
             await conn.commit()
             return ok(player.username, newBalance, { BetAmount: amount })
@@ -336,6 +352,10 @@ export class Win568WalletService {
       return ok(player.username, newBalance, { BetAmount: amount })
     } catch (e) {
       await conn.rollback()
+      if (isDupEntry(e)) {
+        const balance = await this.currentBalance(conn, player).catch(() => 0)
+        return err(5003, 'Bet With Same RefNo Exists', player.username, balance, { BetAmount: 0 })
+      }
       this.app.log.error({ err: e }, '[568win] deduct failed')
       return err(7, 'Internal error')
     } finally {
@@ -351,10 +371,9 @@ export class Win568WalletService {
 
     const conn = await this.db.getConnection()
     try {
-      await conn.query('SET TRANSACTION ISOLATION LEVEL SERIALIZABLE')
       await conn.beginTransaction()
       await this.lockedBalance(conn, player)
-      const bets = await this.findTxns(conn, body, true)
+      const bets = await this.findTxns(conn, body, { lock: true })
       if (bets.length === 0) {
         await conn.commit()
         return err(6, 'Bet not exists')
@@ -411,13 +430,11 @@ export class Win568WalletService {
 
     const conn = await this.db.getConnection()
     try {
-      await conn.query('SET TRANSACTION ISOLATION LEVEL SERIALIZABLE')
       await conn.beginTransaction()
       await this.lockedBalance(conn, player)
-      const lookupBody = { ...body, __singleNonVoid: true }
-      let bets = await this.findTxns(conn, lookupBody, true)
+      let bets = await this.findTxns(conn, body, { lock: true, singleNonVoid: true })
       if (bets.length === 0 && int(body, 'ProductType') === 9 && !text(body, 'TransactionId')) {
-        const all = await this.findTxns(conn, body, true)
+        const all = await this.findTxns(conn, body, { lock: true })
         if (all.some((b) => b.status === 'Void')) {
           const bal = await this.currentBalance(conn, player)
           await conn.commit()
@@ -442,9 +459,9 @@ export class Win568WalletService {
       const newBalance = await this.changeBalance(conn, player, winLoss)
       await conn.execute(
         `UPDATE bg_568win_wallet_txn
-         SET status = 'settled', win_loss = ?, transaction_id = COALESCE(transaction_id, ?), raw_request = ?, settled_at = NOW(3)
+         SET status = 'settled', win_loss = ?, transaction_id = IF(transaction_id = '', ?, transaction_id), raw_request = ?, settled_at = NOW(3)
          WHERE id = ?`,
-        [winLoss, text(body, 'TransactionId') || null, JSON.stringify(body), bet.id],
+        [winLoss, text(body, 'TransactionId'), JSON.stringify(body), bet.id],
       )
       await conn.execute(
         `UPDATE bg_bet_order SET status = 'settled', settled_at = NOW(3)
@@ -485,7 +502,6 @@ export class Win568WalletService {
 
     const conn = await this.db.getConnection()
     try {
-      await conn.query('SET TRANSACTION ISOLATION LEVEL SERIALIZABLE')
       await conn.beginTransaction()
       await this.lockedBalance(conn, player)
       let bets: TxnRow[]
@@ -496,9 +512,9 @@ export class Win568WalletService {
           await conn.commit()
           return err(6, 'Bet not exists')
         }
-        bets = await this.findTxns(conn, body, true)
+        bets = await this.findTxns(conn, body, { lock: true })
       } else {
-        bets = await this.findTxns(conn, body, true)
+        bets = await this.findTxns(conn, body, { lock: true })
       }
       if (bets.length === 0) {
         await conn.commit()
@@ -587,7 +603,6 @@ export class Win568WalletService {
 
     const conn = await this.db.getConnection()
     try {
-      await conn.query('SET TRANSACTION ISOLATION LEVEL SERIALIZABLE')
       await conn.beginTransaction()
       const balance = await this.lockedBalance(conn, player)
       const existing = await this.findAllByTransfer(conn, text(body, 'TransferCode'), true)
@@ -602,7 +617,7 @@ export class Win568WalletService {
          (user_id, external_username, currency, transfer_code, transaction_id, product_type, game_type, gpid, provider_id, round_id, txn_type, amount, status, raw_request, settled_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'bonus', ?, 'settled', ?, NOW(3))`,
         [
-          player.userId, player.username, player.currency, text(body, 'TransferCode'), text(body, 'TransactionId') || null,
+          player.userId, player.username, player.currency, text(body, 'TransferCode'), text(body, 'TransactionId'),
           int(body, 'ProductType'), int(body, 'GameType'), body.Gpid === undefined ? null : int(body, 'Gpid'),
           String(body.GameId ?? body.Gpid ?? ''), text(body, 'TransferCode'), amount, JSON.stringify(body),
         ],
@@ -612,6 +627,10 @@ export class Win568WalletService {
       return ok(player.username, newBalance)
     } catch (e) {
       await conn.rollback()
+      if (isDupEntry(e)) {
+        const balance = await this.currentBalance(conn, player).catch(() => 0)
+        return err(5003, 'Bet With Same RefNo Exists', player.username, balance)
+      }
       this.app.log.error({ err: e }, '[568win] bonus failed')
       return err(7, 'Internal error')
     } finally {
@@ -628,13 +647,13 @@ export class Win568WalletService {
 
     const conn = await this.db.getConnection()
     try {
-      const bets = await this.findTxns(conn, body, false)
+      const bets = await this.findTxns(conn, body)
       if (bets.length === 0) return { TransferCode: text(body, 'TransferCode'), TransactionId: text(body, 'TransactionId'), Status: '', WinLoss: 0, Stake: 0, ErrorCode: 6, ErrorMessage: 'Bet not exists' }
       const bet = bets[0]
       const status = bet.status.toLowerCase()
       return {
         TransferCode: bet.transfer_code,
-        TransactionId: bet.transaction_id ?? '',
+        TransactionId: bet.transaction_id,
         Status: status,
         WinLoss: status === 'settled' ? round2(Number(bet.win_loss ?? 0)) : 0,
         Stake: round2(Number(bet.amount)),

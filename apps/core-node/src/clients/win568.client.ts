@@ -19,6 +19,7 @@ async function post(path: string, payload: Record<string, unknown>): Promise<Win
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(payload),
+    signal: AbortSignal.timeout(15_000),
   })
   return await res.json() as Win568Response
 }
