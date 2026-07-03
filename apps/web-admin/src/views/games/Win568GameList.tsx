@@ -64,6 +64,7 @@ export default function Win568GameList({ refreshKey }: Props) {
   const [provider, setProvider] = useState<string | undefined>()
   const [sortCategory, setSortCategory] = useState<string | undefined>()
   const [siteCategory, setSiteCategory] = useState<string | undefined>()
+  const [volatility, setVolatility] = useState<string | undefined>()
   const [isActive, setIsActive] = useState<string | undefined>()
   const [upstreamAvailable, setUpstreamAvailable] = useState<string | undefined>('true')
   const [isFeatured, setIsFeatured] = useState<string | undefined>()
@@ -92,6 +93,7 @@ export default function Win568GameList({ refreshKey }: Props) {
         search: eff ? search || undefined : undefined,
         sortCategory: eff ? sortCategory : undefined,
         siteCategory: eff ? siteCategory : undefined,
+        volatility: eff ? volatility : undefined,
         isActive: eff && isActive !== undefined ? isActive === 'true' : undefined,
         upstreamAvailable: eff && upstreamAvailable !== undefined ? upstreamAvailable === 'true' : undefined,
         isFeatured: eff && isFeatured !== undefined ? isFeatured === 'true' : undefined,
@@ -117,6 +119,7 @@ export default function Win568GameList({ refreshKey }: Props) {
     setProvider(undefined)
     setSortCategory(undefined)
     setSiteCategory(undefined)
+    setVolatility(undefined)
     setIsActive(undefined)
     setUpstreamAvailable('true')
     setIsFeatured(undefined)
@@ -270,6 +273,7 @@ export default function Win568GameList({ refreshKey }: Props) {
           <Col span={4}><Select value={provider} placeholder="厂商" allowClear style={{ width: '100%' }} options={providers.map((p) => ({ value: p, label: p }))} onChange={setProvider} /></Col>
           <Col span={3}><Select value={sortCategory} placeholder="分类" allowClear style={{ width: '100%' }} options={CATEGORY_OPTIONS} onChange={setSortCategory} /></Col>
           <Col span={3}><Select value={siteCategory} placeholder="网站分类" allowClear style={{ width: '100%' }} options={SITE_CATEGORY_OPTIONS} onChange={setSiteCategory} /></Col>
+          <Col span={2}><Select value={volatility} placeholder="波动率" allowClear style={{ width: '100%' }} options={[{ value: 'low', label: '低波动' }, { value: 'mid', label: '中波动' }, { value: 'high', label: '高波动' }]} onChange={setVolatility} /></Col>
           <Col span={3}><Select value={isActive} placeholder="本地状态" allowClear style={{ width: '100%' }} options={[{ value: 'true', label: '本地启用' }, { value: 'false', label: '本地关闭' }]} onChange={setIsActive} /></Col>
           <Col span={3}><Select value={upstreamAvailable} placeholder="上游状态" allowClear style={{ width: '100%' }} options={[{ value: 'true', label: '上游可用' }, { value: 'false', label: '上游不可用' }]} onChange={setUpstreamAvailable} /></Col>
           <Col span={3}><Select value={isFeatured} placeholder="推荐" allowClear style={{ width: '100%' }} options={[{ value: 'true', label: '已推荐' }, { value: 'false', label: '未推荐' }]} onChange={setIsFeatured} /></Col>
@@ -345,6 +349,19 @@ export default function Win568GameList({ refreshKey }: Props) {
               <Descriptions.Item label="风格">{editing.gameStyle || '—'}</Descriptions.Item>
               <Descriptions.Item label="适合玩家">{editing.playerType || '—'}</Descriptions.Item>
               <Descriptions.Item label="权重更新时间">{formatDate(editing.weightUpdatedAt)}</Descriptions.Item>
+              <Descriptions.Item label="波动率">{editing.volatility ? { low: '低', mid: '中', high: '高' }[editing.volatility] ?? editing.volatility : '—'}</Descriptions.Item>
+              <Descriptions.Item label="最大赔付">{editing.maxWinMultiplier ? `x${editing.maxWinMultiplier}` : '—'}</Descriptions.Item>
+              <Descriptions.Item label="官方 RTP">{editing.rtpOfficial != null ? `${editing.rtpOfficial}%${editing.rtp != null && Math.abs(editing.rtpOfficial - editing.rtp) > 1 ? ' ⚠️与上游差异' : ''}` : '—'}</Descriptions.Item>
+              <Descriptions.Item label="发布日期">{editing.releaseDate || '—'}</Descriptions.Item>
+              <Descriptions.Item label="投注范围">{editing.minBet != null || editing.maxBet != null ? `${editing.minBet ?? '?'} ~ ${editing.maxBet ?? '?'}` : '—'}</Descriptions.Item>
+              <Descriptions.Item label="系列">{editing.series || '—'}</Descriptions.Item>
+              <Descriptions.Item label="机制标签" span={2}>{jsonText(editing.features)}</Descriptions.Item>
+              <Descriptions.Item label="相似游戏" span={2}>{jsonText(editing.similarGames)}</Descriptions.Item>
+              <Descriptions.Item label="风险信号" span={2}>{Array.isArray(editing.riskFlags) && editing.riskFlags.length > 0 ? <Tag color="red">{jsonText(editing.riskFlags)}</Tag> : '无'}</Descriptions.Item>
+              <Descriptions.Item label="英文卖点" span={2}>{editing.taglineEn || '—'}</Descriptions.Item>
+              <Descriptions.Item label="Taglish 卖点" span={2}>{editing.taglineTl || '—'}</Descriptions.Item>
+              <Descriptions.Item label="Taglish 简介" span={2}><span style={{ whiteSpace: 'pre-wrap' }}>{editing.descriptionTl || '—'}</span></Descriptions.Item>
+              <Descriptions.Item label="联网富化时间" span={2}>{formatDate(editing.webEnrichedAt)}</Descriptions.Item>
               <Descriptions.Item label="权重明细" span={2}>{jsonText(editing.weightBreakdown)}</Descriptions.Item>
               <Descriptions.Item label="中文简介" span={2}><span style={{ whiteSpace: 'pre-wrap' }}>{editing.descriptionZh || '—'}</span></Descriptions.Item>
               <Descriptions.Item label="英文简介" span={2}><span style={{ whiteSpace: 'pre-wrap' }}>{editing.descriptionEn || '—'}</span></Descriptions.Item>

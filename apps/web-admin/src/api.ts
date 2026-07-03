@@ -498,6 +498,20 @@ export interface AdminWin568Game {
   descriptionEn: string | null
   descriptionZh: string | null
   searchKeywords: string | null
+  volatility: string | null
+  maxWinMultiplier: number | null
+  rtpOfficial: number | null
+  releaseDate: string | null
+  minBet: number | null
+  maxBet: number | null
+  series: string | null
+  features: unknown
+  similarGames: unknown
+  riskFlags: unknown
+  taglineEn: string | null
+  taglineTl: string | null
+  descriptionTl: string | null
+  webEnrichedAt: string | null
   weightUpdatedAt: string | null
   isFeatured: boolean
   overrideFeatured: boolean | null
@@ -515,6 +529,7 @@ export const getAdminWin568Games = (params: {
   upstreamAvailable?: boolean
   sortCategory?: string
   siteCategory?: string
+  volatility?: string
   newGameType?: number
   currency?: string
   device?: string

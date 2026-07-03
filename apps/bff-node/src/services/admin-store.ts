@@ -540,7 +540,7 @@ export async function listAdminWin568Games(
   opts: {
     page: number; pageSize: number
     provider?: string; search?: string; isActive?: boolean; upstreamAvailable?: boolean
-    sortCategory?: string; siteCategory?: string; newGameType?: number; currency?: string; device?: string
+    sortCategory?: string; siteCategory?: string; volatility?: string; newGameType?: number; currency?: string; device?: string
     isFeatured?: boolean; sortField?: string; sortOrder?: 'asc' | 'desc'
   },
 ) {
@@ -560,6 +560,7 @@ export async function listAdminWin568Games(
   if (opts.upstreamAvailable !== undefined) conditions.push(`${upstreamAvailable} = ${opts.upstreamAvailable ? 1 : 0}`)
   if (opts.sortCategory) { conditions.push(`${sortCategory} = ?`); params.push(opts.sortCategory) }
   if (opts.siteCategory) { conditions.push(`COALESCE(o.site_category, g.site_category_auto, 'other') = ?`); params.push(opts.siteCategory) }
+  if (opts.volatility) { conditions.push('o.volatility = ?'); params.push(opts.volatility) }
   if (opts.newGameType !== undefined) { conditions.push('g.new_game_type = ?'); params.push(opts.newGameType) }
   if (opts.currency) {
     const currency = opts.currency.toUpperCase()
@@ -608,6 +609,9 @@ export async function listAdminWin568Games(
             o.name_override, o.image_override, o.ph_bonus, o.weight_breakdown,
             o.theme, o.game_style, o.player_type, o.description_en, o.description_zh,
             o.search_keywords, o.weight_updated_at,
+            o.volatility, o.max_win_multiplier, o.rtp_official, o.release_date,
+            o.min_bet, o.max_bet, o.series, o.features, o.similar_games, o.risk_flags,
+            o.tagline_en, o.tagline_tl, o.description_tl, o.web_enriched_at,
             ${sortCategory} AS effective_sort_category,
             ${upstreamAvailable} AS upstream_available,
             ${localActive} AS local_active,
@@ -673,6 +677,20 @@ export async function listAdminWin568Games(
     descriptionEn: r.description_en ? String(r.description_en) : null,
     descriptionZh: r.description_zh ? String(r.description_zh) : null,
     searchKeywords: r.search_keywords ? String(r.search_keywords) : null,
+    volatility: r.volatility ? String(r.volatility) : null,
+    maxWinMultiplier: r.max_win_multiplier == null ? null : Number(r.max_win_multiplier),
+    rtpOfficial: r.rtp_official == null ? null : Number(r.rtp_official),
+    releaseDate: (() => { const d = new Date(r.release_date as Date); return isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10) })(),
+    minBet: r.min_bet == null ? null : Number(r.min_bet),
+    maxBet: r.max_bet == null ? null : Number(r.max_bet),
+    series: r.series ? String(r.series) : null,
+    features: parseJsonValue(r.features),
+    similarGames: parseJsonValue(r.similar_games),
+    riskFlags: parseJsonValue(r.risk_flags),
+    taglineEn: r.tagline_en ? String(r.tagline_en) : null,
+    taglineTl: r.tagline_tl ? String(r.tagline_tl) : null,
+    descriptionTl: r.description_tl ? String(r.description_tl) : null,
+    webEnrichedAt: (() => { const d = new Date(r.web_enriched_at as Date); return isNaN(d.getTime()) ? null : d.toISOString() })(),
     weightUpdatedAt: (() => { const d = new Date(r.weight_updated_at as Date); return isNaN(d.getTime()) ? null : d.toISOString() })(),
     isFeatured: Boolean(r.effective_featured),
     overrideFeatured: r.override_featured == null ? null : Boolean(r.override_featured),

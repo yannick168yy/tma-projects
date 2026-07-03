@@ -78,6 +78,7 @@ router.get('/win568', async (ctx) => {
     upstreamAvailable: ctx.query.upstreamAvailable !== undefined ? ctx.query.upstreamAvailable === 'true' : undefined,
     sortCategory: ctx.query.sortCategory ? String(ctx.query.sortCategory) : undefined,
     siteCategory: ctx.query.siteCategory ? String(ctx.query.siteCategory) : undefined,
+    volatility: ctx.query.volatility ? String(ctx.query.volatility) : undefined,
     newGameType: ctx.query.newGameType !== undefined ? Number(ctx.query.newGameType) : undefined,
     currency: ctx.query.currency ? String(ctx.query.currency) : undefined,
     device: ctx.query.device ? String(ctx.query.device) : undefined,
