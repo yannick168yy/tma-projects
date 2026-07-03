@@ -54,6 +54,12 @@ function formatDate(value: string | null) {
   return value ? new Date(value).toLocaleString('zh-CN') : '—'
 }
 
+// 568Win 上游 rtp 为 0-1 小数，统一按百分数展示
+function rtpPct(rtp: number | null): number | null {
+  if (rtp == null || rtp < 0) return null
+  return rtp <= 1 ? Math.round(rtp * 10000) / 100 : rtp
+}
+
 function mono(value: unknown) {
   if (value === null || value === undefined || value === '') return '—'
   return <span style={{ fontFamily: 'monospace', fontSize: 12, wordBreak: 'break-all' }}>{String(value)}</span>
@@ -245,7 +251,7 @@ export default function Win568GameList({ refreshKey }: Props) {
       title: '参数', key: 'params', width: 120,
       render: (_: unknown, r: AdminWin568Game) => (
         <div>
-          {r.rtp != null && r.rtp >= 0 && <div>RTP {r.rtp}%</div>}
+          {rtpPct(r.rtp) != null && <div>RTP {rtpPct(r.rtp)}%</div>}
           <div style={{ color: '#999', fontSize: 12 }}>{r.rowsCount ?? '—'}R / {r.reelsCount ?? '—'} reels / {r.linesCount ?? '—'} lines</div>
         </div>
       ),
@@ -320,7 +326,7 @@ export default function Win568GameList({ refreshKey }: Props) {
               <Descriptions.Item label="中文名称">{editing.nameZh || '—'}</Descriptions.Item>
               <Descriptions.Item label="支持币种" span={2}>{jsonText(editing.supportedCurrencies)}</Descriptions.Item>
               <Descriptions.Item label="屏蔽国家" span={2}>{jsonText(editing.blockCountries)}</Descriptions.Item>
-              <Descriptions.Item label="RTP">{editing.rtp != null && editing.rtp >= 0 ? `${editing.rtp}%` : '—'}</Descriptions.Item>
+              <Descriptions.Item label="RTP">{rtpPct(editing.rtp) != null ? `${rtpPct(editing.rtp)}%` : '—'}</Descriptions.Item>
               <Descriptions.Item label="行/轴/线">{editing.rowsCount ?? '—'} / {editing.reelsCount ?? '—'} / {editing.linesCount ?? '—'}</Descriptions.Item>
               <Descriptions.Item label="上游状态"><Tag color={editing.upstreamAvailable ? 'green' : 'red'}>{editing.upstreamAvailable ? '可用' : '不可用'}</Tag></Descriptions.Item>
               <Descriptions.Item label="本地状态"><Tag color={editing.localActive ? 'green' : 'red'}>{editing.localActive ? '启用' : '关闭'}</Tag></Descriptions.Item>
@@ -351,7 +357,7 @@ export default function Win568GameList({ refreshKey }: Props) {
               <Descriptions.Item label="权重更新时间">{formatDate(editing.weightUpdatedAt)}</Descriptions.Item>
               <Descriptions.Item label="波动率">{editing.volatility ? { low: '低', mid: '中', high: '高' }[editing.volatility] ?? editing.volatility : '—'}</Descriptions.Item>
               <Descriptions.Item label="最大赔付">{editing.maxWinMultiplier ? `x${editing.maxWinMultiplier}` : '—'}</Descriptions.Item>
-              <Descriptions.Item label="官方 RTP">{editing.rtpOfficial != null ? `${editing.rtpOfficial}%${editing.rtp != null && Math.abs(editing.rtpOfficial - editing.rtp) > 1 ? ' ⚠️与上游差异' : ''}` : '—'}</Descriptions.Item>
+              <Descriptions.Item label="官方 RTP">{editing.rtpOfficial != null ? `${editing.rtpOfficial}%${(() => { const up = rtpPct(editing.rtp); return up != null && Math.abs(editing.rtpOfficial - up) > 1 ? ' ⚠️与上游差异' : '' })()}` : '—'}</Descriptions.Item>
               <Descriptions.Item label="发布日期">{editing.releaseDate || '—'}</Descriptions.Item>
               <Descriptions.Item label="投注范围">{editing.minBet != null || editing.maxBet != null ? `${editing.minBet ?? '?'} ~ ${editing.maxBet ?? '?'}` : '—'}</Descriptions.Item>
               <Descriptions.Item label="系列">{editing.series || '—'}</Descriptions.Item>

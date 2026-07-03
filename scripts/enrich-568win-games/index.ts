@@ -79,7 +79,7 @@ function buildPrompt(g: GameRow): string {
 Game: "${g.name_en ?? g.name_zh}"
 Provider: "${g.provider}"
 Category: ${g.site_category_auto ?? 'unknown'}
-Operator-reported RTP: ${g.rtp ?? 'unknown'}
+Operator-reported RTP: ${g.rtp !== null && Number(g.rtp) > 0 ? `${(Number(g.rtp) <= 1 ? Number(g.rtp) * 100 : Number(g.rtp)).toFixed(2)}%` : 'unknown'}
 
 Search the provider's official site, SlotCatalog, BigWinBoard, and similar review sites. Return ONLY a JSON object (no markdown fences):
 
@@ -231,6 +231,12 @@ async function main() {
               .slice(0, 5)
           : []
 
+        // 上游 rtp 为 0-1 小数（-1=未知），统一换算成百分数再比对
+        const rtpUpstreamPct = g.rtp !== null && Number(g.rtp) > 0
+          ? (Number(g.rtp) <= 1 ? Number(g.rtp) * 100 : Number(g.rtp))
+          : null
+        const rtpMismatch = rtpOfficial !== null && rtpUpstreamPct !== null && Math.abs(Number(rtpOfficial) - rtpUpstreamPct) > 1
+
         if (DRY_RUN) {
           console.log(`✓ ${label}`, JSON.stringify({ volatility, maxWin, rtpOfficial, releaseDate, features, aliases: aliases.length, similar: similar.length }))
           done++
@@ -292,13 +298,13 @@ async function main() {
               max_bet: r.max_bet ?? null,
               ph_popularity: r.ph_popularity ?? null,
               raw_similar_games: r.similar_games ?? null,
-              rtp_upstream: g.rtp,
-              rtp_mismatch: rtpOfficial !== null && g.rtp !== null && Math.abs(rtpOfficial - g.rtp) > 1,
+              rtp_upstream_pct: rtpUpstreamPct,
+              rtp_mismatch: rtpMismatch,
             }),
           ],
         )
         done++
-        const mismatch = rtpOfficial !== null && g.rtp !== null && Math.abs(rtpOfficial - Number(g.rtp)) > 1 ? ' ⚠️RTP差异' : ''
+        const mismatch = rtpMismatch ? ' ⚠️RTP差异' : ''
         console.log(`✓ [${done + failed}/${games.length}] ${label}${mismatch}`)
       } catch (e) {
         failed++
