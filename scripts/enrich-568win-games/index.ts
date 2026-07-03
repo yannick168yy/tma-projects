@@ -34,6 +34,68 @@ const FORCE = process.env.FORCE === '1'
 const DRY_RUN = process.env.DRY_RUN === '1'
 
 const VOLATILITY_VALUES = new Set(['low', 'mid', 'high'])
+
+// ── 权重评分（对齐 enrich-sg-games 公式，×100 缩放到 568Win 的 0-10000 权重体系）──
+// 厂商底分（满分 40），按 568Win provider 命名模糊匹配
+const PROVIDER_BASE_PATTERNS: [RegExp, number][] = [
+  [/jili/i, 40],
+  [/pragmatic/i, 38],
+  [/pg\s*soft|pocket\s*games/i, 37],
+  [/jdb/i, 34],
+  [/fa\s*chai|fachai/i, 33],
+  [/cq9/i, 32],
+  [/spade/i, 31],
+  [/evolution/i, 30],
+  [/habanero/i, 29],
+  [/playtech/i, 28],
+  [/play'?n\s*go/i, 27],
+  [/bgaming/i, 26],
+  [/netent|relax/i, 25],
+  [/microgaming/i, 24],
+  [/rtg|red\s*tiger/i, 22],
+  [/bo+ngo|skywind/i, 21],
+  [/ka\s*gaming|kagaming/i, 20],
+]
+const PROVIDER_BASE_DEFAULT = 10
+
+function providerBase(provider: string | null): number {
+  if (!provider) return PROVIDER_BASE_DEFAULT
+  for (const [re, score] of PROVIDER_BASE_PATTERNS) {
+    if (re.test(provider)) return score
+  }
+  return PROVIDER_BASE_DEFAULT
+}
+
+// 已知菲律宾热门游戏（名作加成 10 分 + is_featured）
+const FEATURED_GAMES = new Set([
+  'Super Ace', 'Fortune Gems', 'Fortune Gems 2', 'Fortune Gems 3',
+  'Boxing King', 'Golden Empire', 'Crazy777', 'Crazy 7',
+  'Crazy Hunter', 'All-Star Fishing', 'Royal Fishing', 'Dragon Fortune',
+  'Money Coming', 'Charge Buffalo', 'Ali Baba', 'Lucky Ball',
+  'Mahjong Ways', 'Mahjong Ways 2', 'Fortune Tiger', 'Lucky Neko',
+  'Dragon Hatch', 'Wild Bounty Showdown', 'Medusa', 'Legend of Perseus',
+  'Pinata Wins', 'Ganesha Fortune',
+  'Gates of Olympus', 'Sweet Bonanza', 'Big Bass Bonanza',
+  'The Dog House', 'Wolf Gold', 'Starlight Princess',
+  'Golden Egg', 'Crazy Time', 'Dream Catcher', 'Mega Ball', 'Lightning Roulette',
+  'Fishing God', 'Dragon King', 'JackPot Fishing', 'Bombing Fishing', 'Dinosaur Tycoon',
+])
+
+// 特性分（满分 20）：机制标签 + RTP
+function featureScore(features: string[], rtpPct: number | null): number {
+  let s = 0
+  if (features.includes('free_spins')) s += 5
+  if (features.includes('jackpot')) s += 4
+  if (features.includes('buy_bonus')) s += 3
+  if (features.includes('megaways') || features.includes('cascading')) s += 2
+  if (features.includes('multiplier')) s += 2
+  if (rtpPct !== null && rtpPct >= 96.5) s += 4
+  else if (rtpPct !== null && rtpPct >= 94) s += 2
+  return Math.min(s, 20)
+}
+
+const GAME_STYLE_VALUES = new Set(['asian', 'western', 'classic', 'modern', 'arcade'])
+const PLAYER_TYPE_VALUES = new Set(['casual', 'regular', 'high-roller'])
 const FEATURE_VALUES = new Set([
   'buy_bonus', 'free_spins', 'megaways', 'jackpot', 'cascading',
   'hold_and_win', 'multiplier', 'respin', 'expanding_wilds', 'cluster_pays',
@@ -60,6 +122,11 @@ interface GeminiResult {
   description_tl?: string | null
   description_en?: string | null
   description_zh?: string | null
+  volatility_estimate?: string | null
+  ph_bonus_estimate?: number | null
+  theme?: string | null
+  game_style?: string | null
+  player_type?: string | null
 }
 
 interface GameRow extends mysql.RowDataPacket {
@@ -91,7 +158,7 @@ Search the provider's official site, SlotCatalog, BigWinBoard, and similar revie
   "min_bet": {"value": <number, PHP terms>|null, "source_url": "...", "confidence": ...},
   "max_bet": {"value": <number, PHP terms>|null, "source_url": "...", "confidence": ...},
   "ph_popularity": {"value": <0-30, Philippine market popularity based on SlotCatalog PH rank / social buzz>|null, "source_url": "...", "confidence": ...},
-  "series": <kebab-case series slug like "fortune-gems" if the game belongs to a series, else null>,
+  "series": <kebab-case series slug. Use for true sequels (e.g. "fortune-gems" for Fortune Gems 1/2/3) AND provider game families (e.g. "jili-fishing" for JILI fishing titles). null only for standalone games>,
   "features": <array from: buy_bonus, free_spins, megaways, jackpot, cascading, hold_and_win, multiplier, respin, expanding_wilds, cluster_pays>,
   "aliases": <array of nicknames/street names players actually use, incl. Filipino/Taglish terms, lowercase>,
   "similar_games": <array of up to 5 similar game names (exact official English names)>,
@@ -100,7 +167,12 @@ Search the provider's official site, SlotCatalog, BigWinBoard, and similar revie
   "tagline_tl": <catchy Taglish one-liner, max 100 chars>,
   "description_tl": <2-3 sentence Taglish description>,
   "description_en": <1-2 sentence English description, max 200 chars>,
-  "description_zh": <1-2 sentence Chinese description, max 120 chars>
+  "description_zh": <1-2 sentence Chinese description, max 120 chars>,
+  "volatility_estimate": <"low"|"mid"|"high" — ALWAYS give your best judgment even without a source>,
+  "ph_bonus_estimate": <0-30 Philippine market appeal estimate: 25-30 fishing/top Asian titles, 18-24 good Asian themes or live dealer, 10-17 decent generic, 0-9 niche Western>,
+  "theme": <short kebab-case theme tag, e.g. fishing, asian-mythology, mahjong, fortune, adventure, animal, fruit, egypt, dinosaur, ocean>,
+  "game_style": <"asian"|"western"|"classic"|"modern"|"arcade">,
+  "player_type": <"casual"|"regular"|"high-roller">
 }
 
 CRITICAL RULES:
@@ -212,7 +284,9 @@ async function main() {
       try {
         const r = await callWithRetry(() => callGemini(buildPrompt(g)))
 
-        const volatility = fact(r.volatility, (v) => VOLATILITY_VALUES.has(String(v)))
+        const volatilitySourced = fact(r.volatility, (v) => VOLATILITY_VALUES.has(String(v)))
+        const volatilityEstimate = typeof r.volatility_estimate === 'string' && VOLATILITY_VALUES.has(r.volatility_estimate) ? r.volatility_estimate : null
+        const volatility = volatilitySourced ?? volatilityEstimate
         const maxWin = fact(r.max_win_multiplier, (v) => Number.isFinite(Number(v)) && Number(v) >= 2 && Number(v) <= 1_000_000)
         const rtpOfficial = fact(r.rtp_official, (v) => Number(v) >= 50 && Number(v) <= 100)
         const releaseDate = fact(r.release_date, (v) => /^\d{4}-\d{2}-\d{2}$/.test(String(v)))
@@ -237,6 +311,20 @@ async function main() {
           : null
         const rtpMismatch = rtpOfficial !== null && rtpUpstreamPct !== null && Math.abs(Number(rtpOfficial) - rtpUpstreamPct) > 1
 
+        // 权重评分（同 enrich-sg-games 公式，×100 缩放到 0-10000）
+        const phBonus = phPopularity !== null ? Number(phPopularity)
+          : (typeof r.ph_bonus_estimate === 'number' && r.ph_bonus_estimate >= 0 && r.ph_bonus_estimate <= 30 ? Math.round(r.ph_bonus_estimate) : 10)
+        const base = providerBase(g.provider)
+        const featScore = featureScore(features, rtpOfficial !== null ? Number(rtpOfficial) : rtpUpstreamPct)
+        const isFamous = !!g.name_en && FEATURED_GAMES.has(g.name_en)
+        const featuredBonus = isFamous ? 10 : 0
+        const weight = Math.min(base + phBonus + featScore + featuredBonus, 100) * 100
+        const weightBreakdown = { provider_base: base, ph_bonus: phBonus, feature_score: featScore, featured_bonus: featuredBonus, scale: 100 }
+
+        const theme = typeof r.theme === 'string' && /^[a-z][a-z0-9-]{1,30}$/.test(r.theme) ? r.theme : null
+        const gameStyle = typeof r.game_style === 'string' && GAME_STYLE_VALUES.has(r.game_style) ? r.game_style : null
+        const playerType = typeof r.player_type === 'string' && PLAYER_TYPE_VALUES.has(r.player_type) ? r.player_type : null
+
         if (DRY_RUN) {
           console.log(`✓ ${label}`, JSON.stringify({ volatility, maxWin, rtpOfficial, releaseDate, features, aliases: aliases.length, similar: similar.length }))
           done++
@@ -257,38 +345,50 @@ async function main() {
              (game_provider_id, game_id, volatility, max_win_multiplier, rtp_official, release_date,
               min_bet, max_bet, series, features, similar_games, risk_flags,
               tagline_en, tagline_tl, description_tl, description_en, description_zh,
-              search_keywords, ph_bonus, web_sources, web_enriched_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(3))
+              search_keywords, ph_bonus, weight, weight_breakdown, is_featured,
+              theme, game_style, player_type, web_sources, web_enriched_at, weight_updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(3), NOW(3))
            ON DUPLICATE KEY UPDATE
-             volatility = VALUES(volatility),
-             max_win_multiplier = VALUES(max_win_multiplier),
-             rtp_official = VALUES(rtp_official),
-             release_date = VALUES(release_date),
-             min_bet = VALUES(min_bet),
-             max_bet = VALUES(max_bet),
-             series = VALUES(series),
+             volatility = COALESCE(VALUES(volatility), volatility),
+             max_win_multiplier = COALESCE(VALUES(max_win_multiplier), max_win_multiplier),
+             rtp_official = COALESCE(VALUES(rtp_official), rtp_official),
+             release_date = COALESCE(VALUES(release_date), release_date),
+             min_bet = COALESCE(VALUES(min_bet), min_bet),
+             max_bet = COALESCE(VALUES(max_bet), max_bet),
+             series = COALESCE(VALUES(series), series),
              features = VALUES(features),
              similar_games = VALUES(similar_games),
              risk_flags = VALUES(risk_flags),
-             tagline_en = VALUES(tagline_en),
-             tagline_tl = VALUES(tagline_tl),
-             description_tl = VALUES(description_tl),
+             tagline_en = COALESCE(VALUES(tagline_en), tagline_en),
+             tagline_tl = COALESCE(VALUES(tagline_tl), tagline_tl),
+             description_tl = COALESCE(VALUES(description_tl), description_tl),
              description_en = COALESCE(description_en, VALUES(description_en)),
              description_zh = COALESCE(description_zh, VALUES(description_zh)),
              search_keywords = VALUES(search_keywords),
-             ph_bonus = COALESCE(VALUES(ph_bonus), ph_bonus),
+             ph_bonus = VALUES(ph_bonus),
+             weight = VALUES(weight),
+             weight_breakdown = VALUES(weight_breakdown),
+             is_featured = COALESCE(is_featured, VALUES(is_featured)),
+             theme = COALESCE(VALUES(theme), theme),
+             game_style = COALESCE(VALUES(game_style), game_style),
+             player_type = COALESCE(VALUES(player_type), player_type),
              web_sources = VALUES(web_sources),
-             web_enriched_at = NOW(3)`,
+             web_enriched_at = NOW(3),
+             weight_updated_at = NOW(3)`,
           [
             g.game_provider_id, g.game_id,
             volatility, maxWin, rtpOfficial, releaseDate, minBet, maxBet,
-            trimOrNull(r.series, 64),
+            (() => { const s = trimOrNull(r.series, 200)?.split(',')[0].trim() ?? null; return s && /^[a-z0-9][a-z0-9-]{0,63}$/.test(s) ? s : null })(),
             JSON.stringify(features), JSON.stringify(similar), JSON.stringify(riskFlags),
             trimOrNull(r.tagline_en, 160), trimOrNull(r.tagline_tl, 160),
             trimOrNull(r.description_tl, 2000),
             trimOrNull(r.description_en, 500), trimOrNull(r.description_zh, 300),
             mergedKw,
-            phPopularity,
+            phBonus,
+            weight,
+            JSON.stringify(weightBreakdown),
+            isFamous ? 1 : null,
+            theme, gameStyle, playerType,
             JSON.stringify({
               volatility: r.volatility ?? null,
               max_win_multiplier: r.max_win_multiplier ?? null,
@@ -300,6 +400,7 @@ async function main() {
               raw_similar_games: r.similar_games ?? null,
               rtp_upstream_pct: rtpUpstreamPct,
               rtp_mismatch: rtpMismatch,
+              volatility_estimated: volatilitySourced === null && volatility !== null,
             }),
           ],
         )
