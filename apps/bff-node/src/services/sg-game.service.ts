@@ -222,7 +222,7 @@ export async function loadGamesCache(env: Env): Promise<number> {
        )`,
   )
   const [win568Rows] = await db.query<RowDataPacket[]>(
-    `SELECT game_id, provider, new_game_type, rank_no, device, name_en, name_zh, icon_url
+    `SELECT game_id, game_provider_id, provider, new_game_type, rank_no, device, name_en, name_zh, icon_url
      FROM bg_568win_game
      WHERE is_enabled = 1
        AND (supported_currencies IS NULL OR JSON_CONTAINS(supported_currencies, JSON_QUOTE('PHP')))
