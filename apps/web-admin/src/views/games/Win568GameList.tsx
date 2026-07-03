@@ -263,7 +263,7 @@ export default function Win568GameList({ refreshKey }: Props) {
       render: (_: unknown, r: AdminWin568Game) => (
         <Space>
           <Switch checked={r.localActive} loading={toggling === r.uuid} onChange={(val) => onToggle(r, val)} />
-          <Button size="small" onClick={() => openEdit(r)}>设置</Button>
+          <Button size="small" onClick={() => openEdit(r)}>详情设置</Button>
         </Space>
       ),
     },
@@ -296,7 +296,7 @@ export default function Win568GameList({ refreshKey }: Props) {
       </div>
       <Table columns={columns} dataSource={games} loading={loading} pagination={pagination} rowKey="uuid" size="small" scroll={{ x: 1430 }} onChange={handleTableChange} />
       <Modal
-        title={editing ? `568Win 游戏运营设置：${editing.name}` : '568Win 游戏运营设置'}
+        title={editing ? `568Win 游戏详情设置：${editing.name}` : '568Win 游戏详情设置'}
         open={!!editing}
         onCancel={() => setEditing(null)}
         onOk={() => void saveEdit()}
@@ -340,7 +340,7 @@ export default function Win568GameList({ refreshKey }: Props) {
               <Descriptions.Item label="更新时间">{formatDate(editing.updatedAt)}</Descriptions.Item>
             </Descriptions>
 
-            <Descriptions title="本地覆盖与 AI 富化数据" column={2} bordered size="small" style={{ marginBottom: 14 }}>
+            <Descriptions title="本地覆盖" column={3} bordered size="small" style={{ marginBottom: 10 }}>
               <Descriptions.Item label="最终展示名">{editing.name}</Descriptions.Item>
               <Descriptions.Item label="展示名覆盖">{editing.nameOverride || '—'}</Descriptions.Item>
               <Descriptions.Item label="最终分类"><Tag color={categoryColor(editing.sortCategory)}>{editing.sortCategory}</Tag></Descriptions.Item>
@@ -349,12 +349,16 @@ export default function Win568GameList({ refreshKey }: Props) {
               <Descriptions.Item label="网站分类覆盖">{editing.overrideSiteCategory || `— (自动: ${editing.siteCategoryAuto ?? '—'})`}</Descriptions.Item>
               <Descriptions.Item label="权重">{editing.weight}</Descriptions.Item>
               <Descriptions.Item label="权重覆盖">{editing.overrideWeight ?? '—'}</Descriptions.Item>
-              <Descriptions.Item label="PH 热度">{editing.phBonus ?? '—'}</Descriptions.Item>
               <Descriptions.Item label="推荐首页"><Tag color={editing.isFeatured ? 'gold' : 'default'}>{editing.isFeatured ? '已推荐' : '未推荐'}</Tag></Descriptions.Item>
+              <Descriptions.Item label="图片覆盖" span={3}>{editing.imageOverride ? <a href={editing.imageOverride} target="_blank" rel="noreferrer">{editing.imageOverride}</a> : '—'}</Descriptions.Item>
+            </Descriptions>
+
+            <Descriptions title="AI 富化数据" column={3} bordered size="small" style={{ marginBottom: 10 }}>
+              <Descriptions.Item label="PH 热度">{editing.phBonus ?? '—'}</Descriptions.Item>
               <Descriptions.Item label="主题">{editing.theme || '—'}</Descriptions.Item>
               <Descriptions.Item label="风格">{editing.gameStyle || '—'}</Descriptions.Item>
-              <Descriptions.Item label="适合玩家">{editing.playerType || '—'}</Descriptions.Item>
               <Descriptions.Item label="权重更新时间">{formatDate(editing.weightUpdatedAt)}</Descriptions.Item>
+              <Descriptions.Item label="适合玩家">{editing.playerType || '—'}</Descriptions.Item>
               <Descriptions.Item label="波动率">{editing.volatility ? { low: '低', mid: '中', high: '高' }[editing.volatility] ?? editing.volatility : '—'}</Descriptions.Item>
               <Descriptions.Item label="最大赔付">{editing.maxWinMultiplier ? `x${editing.maxWinMultiplier}` : '—'}</Descriptions.Item>
               <Descriptions.Item label="官方 RTP">{editing.rtpOfficial != null ? `${editing.rtpOfficial}%${(() => { const up = rtpPct(editing.rtp); return up != null && Math.abs(editing.rtpOfficial - up) > 1 ? ' ⚠️与上游差异' : '' })()}` : '—'}</Descriptions.Item>
@@ -373,17 +377,18 @@ export default function Win568GameList({ refreshKey }: Props) {
               <Descriptions.Item label="英文简介" span={2}><span style={{ whiteSpace: 'pre-wrap' }}>{editing.descriptionEn || '—'}</span></Descriptions.Item>
               <Descriptions.Item label="搜索关键词" span={2}>{mono(editing.searchKeywords)}</Descriptions.Item>
               <Descriptions.Item label="原始图标" span={2}>{editing.iconUrl ? <a href={editing.iconUrl} target="_blank" rel="noreferrer">{editing.iconUrl}</a> : '—'}</Descriptions.Item>
-              <Descriptions.Item label="图片覆盖" span={2}>{editing.imageOverride ? <a href={editing.imageOverride} target="_blank" rel="noreferrer">{editing.imageOverride}</a> : '—'}</Descriptions.Item>
             </Descriptions>
 
             <Form form={form} layout="vertical">
-              <Form.Item label="本地启用" name="isActive" valuePropName="checked"><Switch /></Form.Item>
-              <Form.Item label="权重" name="weight" rules={[{ required: true, message: '请输入权重' }]}><InputNumber min={0} max={10000} style={{ width: '100%' }} /></Form.Item>
-              <Form.Item label="推荐" name="isFeatured" valuePropName="checked"><Switch /></Form.Item>
-              <Form.Item label="前端分类" name="sortCategory"><Select allowClear options={CATEGORY_OPTIONS} /></Form.Item>
-              <Form.Item label="网站分类" name="siteCategory" extra="清空则跟随自动分类"><Select allowClear options={SITE_CATEGORY_OPTIONS} /></Form.Item>
-              <Form.Item label="展示名覆盖" name="nameOverride"><Input allowClear /></Form.Item>
-              <Form.Item label="图片覆盖" name="imageOverride"><Input allowClear /></Form.Item>
+              <Row gutter={12}>
+                <Col span={6}><Form.Item label="本地启用" name="isActive" valuePropName="checked"><Switch /></Form.Item></Col>
+                <Col span={6}><Form.Item label="推荐" name="isFeatured" valuePropName="checked"><Switch /></Form.Item></Col>
+                <Col span={12}><Form.Item label="权重" name="weight" rules={[{ required: true, message: '请输入权重' }]}><InputNumber min={0} max={10000} style={{ width: '100%' }} /></Form.Item></Col>
+                <Col span={12}><Form.Item label="前端分类" name="sortCategory"><Select allowClear options={CATEGORY_OPTIONS} /></Form.Item></Col>
+                <Col span={12}><Form.Item label="网站分类" name="siteCategory" extra="清空则跟随自动分类"><Select allowClear options={SITE_CATEGORY_OPTIONS} /></Form.Item></Col>
+                <Col span={12}><Form.Item label="展示名覆盖" name="nameOverride"><Input allowClear /></Form.Item></Col>
+                <Col span={12}><Form.Item label="图片覆盖" name="imageOverride"><Input allowClear /></Form.Item></Col>
+              </Row>
             </Form>
           </div>
         )}
