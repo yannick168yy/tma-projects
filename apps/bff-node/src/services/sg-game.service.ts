@@ -252,7 +252,10 @@ export async function loadGamesCache(env: Env): Promise<number> {
     `SELECT game_id, game_provider_id, provider, new_game_type, rank_no, device, name_en, name_zh, icon_url
      FROM bg_568win_game
      WHERE is_enabled = 1
-       AND (supported_currencies IS NULL OR JSON_CONTAINS(supported_currencies, JSON_QUOTE('PHP')))
+       AND (supported_currencies IS NULL
+         OR JSON_CONTAINS(supported_currencies, JSON_QUOTE('PHP'))
+         OR JSON_CONTAINS(supported_currencies, JSON_QUOTE('USDT'))
+         OR JSON_CONTAINS(supported_currencies, JSON_QUOTE('UCC')))
        AND (device IS NULL OR FIND_IN_SET('m', REPLACE(device, ' ', '')) > 0)`,
   )
   const games = [
