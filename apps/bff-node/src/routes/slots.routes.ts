@@ -13,8 +13,48 @@ import { sgInitGame, sgInitDemo } from '../services/slotegrator.service.js'
 import { getUser } from '../services/store/index.js'
 import { isMysqlEnabled } from '../clients/mysql.client.js'
 import { getBettingActivity, type BetTab } from '../services/betting-activity.service.js'
+import type { Env } from '../config/env.js'
 
 const router = new Router({ prefix: '/slots' })
+
+async function launchWin568GameUrl(input: {
+  env: Env
+  userId: string
+  userLocale?: string
+  gameUuid: string
+  device?: string
+}) {
+  const device = input.device === 'desktop' ? 'desktop' : 'mobile'
+  const language = input.userLocale ?? 'en'
+
+  if (input.gameUuid === WIN568_SPORTSBOOK_UUID) {
+    const res = await fetch(`${input.env.CORE_NODE_URL}/internal/win568/sports/launch`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Internal-Token': input.env.INTERNAL_TOKEN },
+      body: JSON.stringify({ userId: input.userId, device, language }),
+    })
+    const payload = await res.json() as { url?: string; error?: { id?: number; msg?: string }; message?: string }
+    if (!res.ok || payload.error?.id) throw new Error(payload.error?.msg || payload.message || 'Failed to launch 568Win Sports')
+    if (!payload.url) throw new Error('568Win Sports login URL missing')
+    return payload.url
+  }
+
+  const parts = input.gameUuid.slice('568win:'.length).split(':')
+  const gpId = parts.length > 1 ? Number(parts[0]) : undefined
+  const gameId = Number(parts.length > 1 ? parts[1] : parts[0])
+  if (!Number.isInteger(gameId) || (gpId !== undefined && !Number.isInteger(gpId))) {
+    throw new Error('invalid 568Win game id')
+  }
+  const res = await fetch(`${input.env.CORE_NODE_URL}/internal/win568/game/launch`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Internal-Token': input.env.INTERNAL_TOKEN },
+    body: JSON.stringify({ userId: input.userId, gpId, gameId, device, language }),
+  })
+  const payload = await res.json() as { url?: string; error?: { id?: number; msg?: string }; message?: string }
+  if (!res.ok || payload.error?.id) throw new Error(payload.error?.msg || payload.message || 'Failed to launch 568Win game')
+  if (!payload.url) throw new Error('568Win login URL missing')
+  return payload.url
+}
 
 // GET /slots/homepage — 首页推荐（服务器每 30 分钟刷新一次）
 router.get('/homepage', async (ctx) => {
@@ -119,6 +159,32 @@ router.post('/sync', async (ctx) => {
   fail(ctx, 403, 'Use admin game sync endpoint', 403)
 })
 
+router.get('/win568-test-launch', async (ctx) => {
+  const token = typeof ctx.query.token === 'string' ? ctx.query.token : ''
+  const gameUuid = typeof ctx.query.gameUuid === 'string' ? ctx.query.gameUuid : ''
+  if (!token || !gameUuid.startsWith('568win:')) {
+    fail(ctx, 400, 'token and 568Win gameUuid are required')
+    return
+  }
+  const userId = await ctx.state.redis.get(`slots:win568-test:${token}`)
+  if (!userId) {
+    fail(ctx, 401, 'Test link expired or invalid', 401)
+    return
+  }
+  try {
+    const url = await launchWin568GameUrl({
+      env: ctx.state.env,
+      userId,
+      userLocale: 'en',
+      gameUuid,
+      device: typeof ctx.query.device === 'string' ? ctx.query.device : 'mobile',
+    })
+    ctx.redirect(url)
+  } catch (e) {
+    fail(ctx, 502, e instanceof Error ? e.message : 'Failed to launch 568Win game')
+  }
+})
+
 // POST /slots/init — launch real-money game (requires auth)
 router.post('/init', async (ctx) => {
   const env = ctx.state.env
@@ -140,25 +206,8 @@ router.post('/init', async (ctx) => {
 
   if (body.gameUuid === WIN568_SPORTSBOOK_UUID) {
     try {
-      const res = await fetch(`${env.CORE_NODE_URL}/internal/win568/sports/launch`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Internal-Token': env.INTERNAL_TOKEN },
-        body: JSON.stringify({
-          userId,
-          device: body.device === 'desktop' ? 'desktop' : 'mobile',
-          language: body.language ?? user.locale ?? 'en',
-        }),
-      })
-      const payload = await res.json() as { url?: string; error?: { id?: number; msg?: string }; message?: string }
-      if (!res.ok || payload.error?.id) {
-        fail(ctx, 502, payload.error?.msg || payload.message || 'Failed to launch 568Win Sports')
-        return
-      }
-      if (!payload.url) {
-        fail(ctx, 502, '568Win Sports login URL missing')
-        return
-      }
-      ok(ctx, { url: payload.url })
+      const url = await launchWin568GameUrl({ env, userId, userLocale: user.locale, gameUuid: body.gameUuid, device: body.device })
+      ok(ctx, { url })
     } catch (e) {
       fail(ctx, 502, e instanceof Error ? e.message : 'Failed to launch 568Win Sports')
     }
@@ -166,35 +215,9 @@ router.post('/init', async (ctx) => {
   }
 
   if (body.gameUuid.startsWith('568win:')) {
-    const parts = body.gameUuid.slice('568win:'.length).split(':')
-    const gpId = parts.length > 1 ? Number(parts[0]) : undefined
-    const gameId = Number(parts.length > 1 ? parts[1] : parts[0])
-    if (!Number.isInteger(gameId) || (gpId !== undefined && !Number.isInteger(gpId))) {
-      fail(ctx, 400, 'invalid 568Win game id')
-      return
-    }
     try {
-      const res = await fetch(`${env.CORE_NODE_URL}/internal/win568/game/launch`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Internal-Token': env.INTERNAL_TOKEN },
-        body: JSON.stringify({
-          userId,
-          gpId,
-          gameId,
-          device: body.device === 'desktop' ? 'desktop' : 'mobile',
-          language: body.language ?? user.locale ?? 'en',
-        }),
-      })
-      const payload = await res.json() as { url?: string; error?: { id?: number; msg?: string }; message?: string }
-      if (!res.ok || payload.error?.id) {
-        fail(ctx, 502, payload.error?.msg || payload.message || 'Failed to launch 568Win game')
-        return
-      }
-      if (!payload.url) {
-        fail(ctx, 502, '568Win login URL missing')
-        return
-      }
-      ok(ctx, { url: payload.url })
+      const url = await launchWin568GameUrl({ env, userId, userLocale: user.locale, gameUuid: body.gameUuid, device: body.device })
+      ok(ctx, { url })
     } catch (e) {
       fail(ctx, 502, e instanceof Error ? e.message : 'Failed to launch 568Win game')
     }
