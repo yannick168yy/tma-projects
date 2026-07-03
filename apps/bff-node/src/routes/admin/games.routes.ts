@@ -1,5 +1,16 @@
 import Router from '@koa/router'
-import { listAdminGames, toggleAdminGame, getProviderStats, toggleProviderGames, writeAuditLog } from '../../services/admin-store.js'
+import {
+  listAdminGames,
+  toggleAdminGame,
+  getProviderStats,
+  toggleProviderGames,
+  writeAuditLog,
+  listAdminWin568Games,
+  toggleAdminWin568Game,
+  updateAdminWin568Game,
+  getWin568ProviderStats,
+  toggleWin568ProviderGames,
+} from '../../services/admin-store.js'
 import { syncAllGames, loadGamesCache, refreshHomepageSelection, stripMobileNamesInDb } from '../../services/sg-game.service.js'
 import { translateUntranslatedGames } from '../../services/game-translation.service.js'
 import {
@@ -55,6 +66,114 @@ router.get('/jobs/:jobId', async (ctx) => {
   ok(ctx, job)
 })
 
+router.get('/win568', async (ctx) => {
+  const page = Math.max(1, Number(ctx.query.page ?? 1))
+  const pageSize = Math.min(100, Math.max(10, Number(ctx.query.pageSize ?? 20)))
+  const result = await listAdminWin568Games(ctx.state.env, {
+    page,
+    pageSize,
+    provider: ctx.query.provider ? String(ctx.query.provider) : undefined,
+    search: ctx.query.search ? String(ctx.query.search) : undefined,
+    isActive: ctx.query.isActive !== undefined ? ctx.query.isActive === 'true' : undefined,
+    upstreamAvailable: ctx.query.upstreamAvailable !== undefined ? ctx.query.upstreamAvailable === 'true' : undefined,
+    sortCategory: ctx.query.sortCategory ? String(ctx.query.sortCategory) : undefined,
+    newGameType: ctx.query.newGameType !== undefined ? Number(ctx.query.newGameType) : undefined,
+    currency: ctx.query.currency ? String(ctx.query.currency) : undefined,
+    device: ctx.query.device ? String(ctx.query.device) : undefined,
+    isFeatured: ctx.query.isFeatured !== undefined ? ctx.query.isFeatured === 'true' : undefined,
+    sortField: ctx.query.sortField ? String(ctx.query.sortField) : undefined,
+    sortOrder: ctx.query.sortOrder === 'asc' || ctx.query.sortOrder === 'desc' ? ctx.query.sortOrder : undefined,
+  })
+  ok(ctx, result)
+})
+
+router.patch('/win568/:gameProviderId/:gameId/toggle', async (ctx) => {
+  const body = ctx.request.body as { isActive?: boolean }
+  const gameProviderId = Number(ctx.params.gameProviderId)
+  const gameId = Number(ctx.params.gameId)
+  if (!Number.isInteger(gameProviderId) || !Number.isInteger(gameId) || typeof body.isActive !== 'boolean') {
+    fail(ctx, 400, 'gameProviderId, gameId and isActive are required'); return
+  }
+  await toggleAdminWin568Game(ctx.state.env, gameProviderId, gameId, body.isActive)
+  await loadGamesCache(ctx.state.env)
+  await refreshHomepageSelection(ctx.state.env)
+  await writeAuditLog(ctx.state.env, {
+    adminId: ctx.state.adminId!,
+    adminUsername: ctx.state.adminUsername!,
+    action: body.isActive ? 'win568.game.enable' : 'win568.game.disable',
+    targetType: 'win568_game',
+    targetId: `${gameProviderId}:${gameId}`,
+    ip: ctx.ip,
+  })
+  ok(ctx, { gameProviderId, gameId, isActive: body.isActive })
+})
+
+router.patch('/win568/:gameProviderId/:gameId', async (ctx) => {
+  const body = ctx.request.body as {
+    isActive?: boolean | null
+    weight?: number | null
+    isFeatured?: boolean | null
+    sortCategory?: string | null
+    nameOverride?: string | null
+    imageOverride?: string | null
+  }
+  const gameProviderId = Number(ctx.params.gameProviderId)
+  const gameId = Number(ctx.params.gameId)
+  if (!Number.isInteger(gameProviderId) || !Number.isInteger(gameId)) {
+    fail(ctx, 400, 'gameProviderId and gameId are required'); return
+  }
+  if (body.weight !== undefined && body.weight !== null && (!Number.isInteger(Number(body.weight)) || Number(body.weight) < 0 || Number(body.weight) > 10000)) {
+    fail(ctx, 400, 'weight must be 0-10000'); return
+  }
+  await updateAdminWin568Game(ctx.state.env, gameProviderId, gameId, {
+    isActive: body.isActive,
+    weight: body.weight === undefined || body.weight === null ? body.weight : Number(body.weight),
+    isFeatured: body.isFeatured,
+    sortCategory: body.sortCategory || null,
+    nameOverride: body.nameOverride || null,
+    imageOverride: body.imageOverride || null,
+  })
+  await loadGamesCache(ctx.state.env)
+  await refreshHomepageSelection(ctx.state.env)
+  await writeAuditLog(ctx.state.env, {
+    adminId: ctx.state.adminId!,
+    adminUsername: ctx.state.adminUsername!,
+    action: 'win568.game.update',
+    targetType: 'win568_game',
+    targetId: `${gameProviderId}:${gameId}`,
+    detail: body,
+    ip: ctx.ip,
+  })
+  ok(ctx, { gameProviderId, gameId })
+})
+
+router.get('/win568-provider-stats', async (ctx) => {
+  try {
+    ok(ctx, await getWin568ProviderStats(ctx.state.env))
+  } catch (e) {
+    fail(ctx, 500, e instanceof Error ? e.message : 'Failed')
+  }
+})
+
+router.post('/win568-provider-toggle', async (ctx) => {
+  const body = ctx.request.body as { provider?: string; isActive?: boolean }
+  if (!body.provider || typeof body.isActive !== 'boolean') {
+    fail(ctx, 400, 'provider and isActive required'); return
+  }
+  const affected = await toggleWin568ProviderGames(ctx.state.env, body.provider, body.isActive)
+  await loadGamesCache(ctx.state.env)
+  await refreshHomepageSelection(ctx.state.env)
+  await writeAuditLog(ctx.state.env, {
+    adminId: ctx.state.adminId!,
+    adminUsername: ctx.state.adminUsername!,
+    action: body.isActive ? 'win568.provider.enable' : 'win568.provider.disable',
+    targetType: 'win568_provider',
+    targetId: body.provider,
+    ip: ctx.ip,
+  })
+  ok(ctx, { provider: body.provider, isActive: body.isActive, affected })
+})
+
 router.patch('/:uuid/toggle', async (ctx) => {
   const body = ctx.request.body as { isActive?: boolean }
   if (typeof body.isActive !== 'boolean') {
@@ -104,6 +223,42 @@ async function runSyncJob(
   }
 }
 
+async function runWin568SyncJob(
+  env: Env,
+  jobId: string,
+  adminId: number,
+  adminUsername: string,
+  ip?: string,
+) {
+  const redis = getRedis(env)
+  try {
+    await updateJobProgress(redis, jobId, { status: 'running', message: '正在从 568Win 拉取游戏…' })
+    const res = await fetch(`${env.CORE_NODE_URL}/internal/win568/games/sync`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Internal-Token': env.INTERNAL_TOKEN },
+      body: '{}',
+    })
+    const payload = await res.json() as { error?: { id?: number; msg?: string }; syncedCount?: number }
+    if (!res.ok || payload.error?.id) throw new Error(payload.error?.msg || '568Win sync failed')
+    await updateJobProgress(redis, jobId, { progress: payload.syncedCount ?? 0, total: payload.syncedCount ?? 0, message: '刷新缓存与首页…' })
+    await loadGamesCache(env)
+    await refreshHomepageSelection(env)
+    await writeAuditLog(env, {
+      adminId,
+      adminUsername,
+      action: 'win568.game.sync',
+      targetType: 'game',
+      targetId: '568win',
+      ip,
+    })
+    await completeJob(redis, jobId, { synced: payload.syncedCount ?? 0 })
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : '568Win sync failed'
+    console.error('[win568-games-sync-job]', msg, e)
+    await failJob(redis, jobId, msg)
+  }
+}
+
 router.post('/sync', async (ctx) => {
   const env = ctx.state.env
   if (!isMysqlEnabled(env) || !env.SG_BASE_URL) {
@@ -118,6 +273,22 @@ router.post('/sync', async (ctx) => {
   const job = await createJob(redis, 'games_sync')
   ok(ctx, { jobId: job.id })
   void runSyncJob(env, job.id, ctx.state.adminId!, ctx.state.adminUsername!, String(ctx.ip ?? ''))
+})
+
+router.post('/win568-sync', async (ctx) => {
+  const env = ctx.state.env
+  if (!isMysqlEnabled(env)) {
+    fail(ctx, 400, 'MySQL not configured'); return
+  }
+  const redis = getRedis(env)
+  const active = await getActiveJobForType(redis, 'win568_games_sync')
+  if (active) {
+    ok(ctx, { jobId: active.id, alreadyRunning: true })
+    return
+  }
+  const job = await createJob(redis, 'win568_games_sync')
+  ok(ctx, { jobId: job.id })
+  void runWin568SyncJob(env, job.id, ctx.state.adminId!, ctx.state.adminUsername!, String(ctx.ip ?? ''))
 })
 
 async function runTranslateJob(env: Env, jobId: string) {

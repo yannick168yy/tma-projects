@@ -1,7 +1,7 @@
 import type { Redis } from 'ioredis'
 import { randomBytes } from 'node:crypto'
 
-export type AdminJobType = 'games_sync' | 'games_translate'
+export type AdminJobType = 'games_sync' | 'games_translate' | 'win568_games_sync'
 export type AdminJobStatus = 'pending' | 'running' | 'done' | 'failed'
 
 export interface AdminJob {

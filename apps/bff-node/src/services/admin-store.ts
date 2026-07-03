@@ -508,6 +508,242 @@ export async function toggleProviderGames(env: Env, provider: string, isActive: 
   return (result as { affectedRows: number }).affectedRows
 }
 
+function win568SortCategoryExpr() {
+  return `COALESCE(o.sort_category,
+    CASE
+      WHEN g.new_game_type = 203 THEN 'fishing'
+      WHEN g.new_game_type = 204 THEN 'table'
+      WHEN g.new_game_type = 300 THEN 'sports'
+      WHEN g.new_game_type >= 100 AND g.new_game_type < 200 THEN 'live'
+      WHEN g.new_game_type >= 200 AND g.new_game_type < 300 THEN 'slots'
+      ELSE 'other'
+    END)`
+}
+
+function win568UpstreamAvailableExpr() {
+  return `(g.is_enabled = 1 AND g.is_maintain = 0 AND g.provider_status = 'Online' AND g.is_provider_online = 1)`
+}
+
+function win568LocalActiveExpr() {
+  return `(COALESCE(o.is_active, 1) = 1)`
+}
+
+function parseJsonValue(value: unknown): unknown {
+  if (value == null) return null
+  if (typeof value !== 'string') return value
+  try { return JSON.parse(value) } catch { return null }
+}
+
+export async function listAdminWin568Games(
+  env: Env,
+  opts: {
+    page: number; pageSize: number
+    provider?: string; search?: string; isActive?: boolean; upstreamAvailable?: boolean
+    sortCategory?: string; newGameType?: number; currency?: string; device?: string
+    isFeatured?: boolean; sortField?: string; sortOrder?: 'asc' | 'desc'
+  },
+) {
+  const offset = (opts.page - 1) * opts.pageSize
+  const conditions: string[] = []
+  const params: unknown[] = []
+  const sortCategory = win568SortCategoryExpr()
+  const upstreamAvailable = win568UpstreamAvailableExpr()
+  const localActive = win568LocalActiveExpr()
+
+  if (opts.provider) { conditions.push('g.provider = ?'); params.push(opts.provider) }
+  if (opts.search) {
+    conditions.push('(g.name_en LIKE ? OR g.name_zh LIKE ? OR o.name_override LIKE ? OR CAST(g.game_id AS CHAR) LIKE ? OR CAST(g.game_provider_id AS CHAR) LIKE ?)')
+    params.push(`%${opts.search}%`, `%${opts.search}%`, `%${opts.search}%`, `%${opts.search}%`, `%${opts.search}%`)
+  }
+  if (opts.isActive !== undefined) conditions.push(`${localActive} = ${opts.isActive ? 1 : 0}`)
+  if (opts.upstreamAvailable !== undefined) conditions.push(`${upstreamAvailable} = ${opts.upstreamAvailable ? 1 : 0}`)
+  if (opts.sortCategory) { conditions.push(`${sortCategory} = ?`); params.push(opts.sortCategory) }
+  if (opts.newGameType !== undefined) { conditions.push('g.new_game_type = ?'); params.push(opts.newGameType) }
+  if (opts.currency) {
+    conditions.push(`(g.supported_currencies IS NULL OR JSON_CONTAINS(g.supported_currencies, JSON_QUOTE(?)))`)
+    params.push(opts.currency)
+  }
+  if (opts.device) {
+    conditions.push(`(g.device IS NULL OR FIND_IN_SET(?, REPLACE(g.device, ' ', '')) > 0)`)
+    params.push(opts.device)
+  }
+  if (opts.isFeatured !== undefined) { conditions.push('COALESCE(o.is_featured, 0) = ?'); params.push(opts.isFeatured ? 1 : 0) }
+
+  const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : ''
+  const [countRows] = await pool(env).query<RowDataPacket[]>(
+    `SELECT COUNT(*) AS cnt
+     FROM bg_568win_game g
+     LEFT JOIN bg_568win_game_override o ON o.game_provider_id = g.game_provider_id AND o.game_id = g.game_id
+     ${where}`,
+    params,
+  )
+  const total = Number(countRows[0]?.cnt ?? 0)
+
+  const allowedSortFields: Record<string, string> = {
+    weight: 'effective_weight',
+    rank: 'g.rank_no',
+    gameId: 'g.game_id',
+    providerId: 'g.game_provider_id',
+  }
+  const sortCol = (opts.sortField && allowedSortFields[opts.sortField]) || 'effective_weight'
+  const sortDir = opts.sortOrder === 'asc' ? 'ASC' : 'DESC'
+
+  const [rows] = await pool(env).query<RowDataPacket[]>(
+    `SELECT g.game_id, g.game_provider_id, g.provider, g.new_game_type, g.game_type, g.rank_no,
+            g.device, g.platform, g.rtp, g.rows_count, g.reels_count, g.lines_count,
+            g.name_en, g.name_zh, g.icon_url, g.supported_currencies, g.block_countries,
+            g.is_enabled, g.is_maintain, g.provider_status, g.is_provider_online,
+            g.is_provide_commission, g.has_hedge_bet, g.synced_at, g.updated_at,
+            o.is_active AS override_active, o.weight AS override_weight,
+            o.is_featured AS override_featured, o.sort_category AS override_sort_category,
+            o.name_override, o.image_override,
+            ${sortCategory} AS effective_sort_category,
+            ${upstreamAvailable} AS upstream_available,
+            ${localActive} AS local_active,
+            COALESCE(o.weight, GREATEST(1, 10000 - COALESCE(g.rank_no, 9999))) AS effective_weight,
+            COALESCE(o.is_featured, 0) AS effective_featured,
+            COALESCE(o.name_override, g.name_en, g.name_zh, CONCAT('568Win ', g.game_id)) AS effective_name,
+            COALESCE(o.image_override, g.icon_url) AS effective_image
+     FROM bg_568win_game g
+     LEFT JOIN bg_568win_game_override o ON o.game_provider_id = g.game_provider_id AND o.game_id = g.game_id
+     ${where}
+     ORDER BY ${sortCol} ${sortDir}, g.provider, effective_name
+     LIMIT ? OFFSET ?`,
+    [...params, opts.pageSize, offset],
+  )
+  const [provRows] = await pool(env).query<RowDataPacket[]>(
+    `SELECT DISTINCT provider FROM bg_568win_game ORDER BY provider`,
+  )
+
+  const items = rows.map((r) => ({
+    uuid: `568win:${String(r.game_provider_id)}:${String(r.game_id)}`,
+    gameId: Number(r.game_id),
+    gameProviderId: Number(r.game_provider_id),
+    provider: r.provider ? String(r.provider) : '568Win',
+    name: String(r.effective_name),
+    nameEn: r.name_en ? String(r.name_en) : null,
+    nameZh: r.name_zh ? String(r.name_zh) : null,
+    nameOverride: r.name_override ? String(r.name_override) : null,
+    imageUrl: r.effective_image ? String(r.effective_image) : null,
+    iconUrl: r.icon_url ? String(r.icon_url) : null,
+    imageOverride: r.image_override ? String(r.image_override) : null,
+    newGameType: r.new_game_type == null ? null : Number(r.new_game_type),
+    gameType: r.game_type == null ? null : Number(r.game_type),
+    sortCategory: String(r.effective_sort_category),
+    overrideSortCategory: r.override_sort_category ? String(r.override_sort_category) : null,
+    rankNo: r.rank_no == null ? null : Number(r.rank_no),
+    device: r.device ? String(r.device) : null,
+    platform: r.platform ? String(r.platform) : null,
+    rtp: r.rtp == null ? null : Number(r.rtp),
+    rowsCount: r.rows_count == null ? null : Number(r.rows_count),
+    reelsCount: r.reels_count == null ? null : Number(r.reels_count),
+    linesCount: r.lines_count == null ? null : Number(r.lines_count),
+    supportedCurrencies: parseJsonValue(r.supported_currencies),
+    blockCountries: parseJsonValue(r.block_countries),
+    upstreamAvailable: Boolean(r.upstream_available),
+    localActive: Boolean(r.local_active),
+    isActive: Boolean(r.local_active) && Boolean(r.upstream_available),
+    isEnabled: Boolean(r.is_enabled),
+    isMaintain: Boolean(r.is_maintain),
+    providerStatus: r.provider_status ? String(r.provider_status) : null,
+    isProviderOnline: Boolean(r.is_provider_online),
+    isProvideCommission: Boolean(r.is_provide_commission),
+    hasHedgeBet: Boolean(r.has_hedge_bet),
+    weight: Number(r.effective_weight ?? 0),
+    overrideWeight: r.override_weight == null ? null : Number(r.override_weight),
+    isFeatured: Boolean(r.effective_featured),
+    overrideFeatured: r.override_featured == null ? null : Boolean(r.override_featured),
+    overrideActive: r.override_active == null ? null : Boolean(r.override_active),
+    syncedAt: (() => { const d = new Date(r.synced_at as Date); return isNaN(d.getTime()) ? null : d.toISOString() })(),
+    updatedAt: (() => { const d = new Date(r.updated_at as Date); return isNaN(d.getTime()) ? null : d.toISOString() })(),
+  }))
+
+  return { total, items, providers: provRows.map((r) => String(r.provider)) }
+}
+
+export async function updateAdminWin568Game(
+  env: Env,
+  gameProviderId: number,
+  gameId: number,
+  patch: {
+    isActive?: boolean | null
+    weight?: number | null
+    isFeatured?: boolean | null
+    sortCategory?: string | null
+    nameOverride?: string | null
+    imageOverride?: string | null
+  },
+): Promise<void> {
+  const [[game]] = await pool(env).query<RowDataPacket[]>(
+    `SELECT g.game_id, o.is_active, o.weight, o.is_featured, o.sort_category, o.name_override, o.image_override
+     FROM bg_568win_game g
+     LEFT JOIN bg_568win_game_override o ON o.game_provider_id = g.game_provider_id AND o.game_id = g.game_id
+     WHERE g.game_provider_id = ? AND g.game_id = ? LIMIT 1`,
+    [gameProviderId, gameId],
+  )
+  if (!game) throw new Error('568Win game not found')
+
+  await pool(env).execute(
+    `INSERT INTO bg_568win_game_override
+     (game_provider_id, game_id, is_active, weight, is_featured, sort_category, name_override, image_override)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+     ON DUPLICATE KEY UPDATE
+       is_active = VALUES(is_active),
+       weight = VALUES(weight),
+       is_featured = VALUES(is_featured),
+       sort_category = VALUES(sort_category),
+       name_override = VALUES(name_override),
+       image_override = VALUES(image_override)`,
+    [
+      gameProviderId,
+      gameId,
+      patch.isActive === undefined ? game.is_active : patch.isActive,
+      patch.weight === undefined ? game.weight : patch.weight,
+      patch.isFeatured === undefined ? game.is_featured : patch.isFeatured,
+      patch.sortCategory === undefined ? game.sort_category : patch.sortCategory,
+      patch.nameOverride === undefined ? game.name_override : patch.nameOverride,
+      patch.imageOverride === undefined ? game.image_override : patch.imageOverride,
+    ],
+  )
+}
+
+export async function toggleAdminWin568Game(env: Env, gameProviderId: number, gameId: number, isActive: boolean): Promise<void> {
+  await updateAdminWin568Game(env, gameProviderId, gameId, { isActive })
+}
+
+export async function getWin568ProviderStats(env: Env): Promise<ProviderStat[]> {
+  const [rows] = await pool(env).query<RowDataPacket[]>(
+    `SELECT g.provider,
+            COUNT(*) AS total,
+            SUM(CASE WHEN ${win568UpstreamAvailableExpr()} AND ${win568LocalActiveExpr()} THEN 1 ELSE 0 END) AS active
+     FROM bg_568win_game g
+     LEFT JOIN bg_568win_game_override o ON o.game_provider_id = g.game_provider_id AND o.game_id = g.game_id
+     GROUP BY g.provider
+     ORDER BY g.provider ASC`,
+  )
+  return rows.map((r) => ({
+    provider: String(r.provider),
+    total: Number(r.total),
+    active: Number(r.active),
+  }))
+}
+
+export async function toggleWin568ProviderGames(env: Env, provider: string, isActive: boolean): Promise<number> {
+  const [rows] = await pool(env).query<RowDataPacket[]>(
+    `SELECT game_provider_id, game_id FROM bg_568win_game WHERE provider = ?`,
+    [provider],
+  )
+  for (const r of rows) {
+    await pool(env).execute(
+      `INSERT INTO bg_568win_game_override (game_provider_id, game_id, is_active)
+       VALUES (?, ?, ?)
+       ON DUPLICATE KEY UPDATE is_active = VALUES(is_active)`,
+      [Number(r.game_provider_id), Number(r.game_id), isActive ? 1 : 0],
+    )
+  }
+  return rows.length
+}
+
 export async function getOpPasswordHash(env: Env): Promise<string | null> {
   const [rows] = await pool(env).query<RowDataPacket[]>(
     `SELECT \`value\` FROM bg_admin_settings WHERE \`key\` = 'op_password'`,

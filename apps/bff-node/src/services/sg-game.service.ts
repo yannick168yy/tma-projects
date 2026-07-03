@@ -171,25 +171,28 @@ function sortCategoryFromWin568(newGameType: number | null): string {
 function rowToWin568Game(r: RowDataPacket): DbGame {
   const newGameType = r.new_game_type == null ? null : Number(r.new_game_type)
   const rank = r.rank_no == null ? 9999 : Number(r.rank_no)
+  const name = r.effective_name ?? r.name_en ?? r.name_zh ?? `568Win ${r.game_id}`
+  const imageUrl = r.effective_image ?? r.icon_url
+  const sortCategory = r.effective_sort_category ?? sortCategoryFromWin568(newGameType)
   return {
     uuid: `568win:${String(r.game_provider_id)}:${String(r.game_id)}`,
     aggregator: '568win',
-    name: String(r.name_en || r.name_zh || `568Win ${r.game_id}`),
+    name: String(name),
     nameId: null,
     nameVi: null,
     nameZh: r.name_zh ? String(r.name_zh) : null,
     provider: String(r.provider || '568Win'),
     category: newGameType === null ? null : String(newGameType),
     subCategory: null,
-    sortCategory: sortCategoryFromWin568(newGameType),
-    imageUrl: r.icon_url ? String(r.icon_url) : null,
-    imageHqUrl: r.icon_url ? String(r.icon_url) : null,
+    sortCategory: String(sortCategory),
+    imageUrl: imageUrl ? String(imageUrl) : null,
+    imageHqUrl: imageUrl ? String(imageUrl) : null,
     hasDemo: false,
     hasLobby: newGameType === 100 || newGameType === 200,
     isMobile: String(r.device || '').split(',').map((s) => s.trim()).includes('m'),
-    weight: Math.max(1, 10000 - rank),
+    weight: r.effective_weight == null ? Math.max(1, 10000 - rank) : Number(r.effective_weight),
     phBonus: 0,
-    isFeatured: false,
+    isFeatured: Boolean(r.effective_featured),
     theme: null,
     gameStyle: null,
     playerType: null,
@@ -227,39 +230,36 @@ function win568SportsbookGame(): DbGame {
 export async function loadGamesCache(env: Env): Promise<number> {
   const db = getMysqlPool(env)
   const redis = getRedis(env)
-  const [rows] = await db.query<RowDataPacket[]>(
-    `SELECT uuid, name, name_id, name_vi, name_zh, provider, category, sub_category, sort_category,
-            image_url, image_hq_url, has_demo, has_lobby, is_mobile,
-            weight, ph_bonus, is_featured, theme, game_style, player_type
-     FROM sg_games g
-     WHERE is_active = 1
-       AND NOT (
-         g.is_mobile = 0
-         AND EXISTS (
-           SELECT 1 FROM sg_games g2
-           WHERE g2.provider = g.provider
-             AND g2.uuid != g.uuid
-             AND (
-               g2.name = g.name
-               OR g2.name = CONCAT(g.name, ' Mobile')
-             )
-             AND g2.is_mobile = 1
-             AND g2.is_active = 1
-         )
-       )`,
-  )
   const [win568Rows] = await db.query<RowDataPacket[]>(
-    `SELECT game_id, game_provider_id, provider, new_game_type, rank_no, device, name_en, name_zh, icon_url
-     FROM bg_568win_game
-     WHERE is_enabled = 1
-       AND (supported_currencies IS NULL
+    `SELECT g.game_id, g.game_provider_id, g.provider, g.new_game_type, g.rank_no, g.device,
+            g.name_en, g.name_zh, g.icon_url,
+            COALESCE(o.name_override, g.name_en, g.name_zh, CONCAT('568Win ', g.game_id)) AS effective_name,
+            COALESCE(o.image_override, g.icon_url) AS effective_image,
+            COALESCE(o.weight, GREATEST(1, 10000 - COALESCE(g.rank_no, 9999))) AS effective_weight,
+            COALESCE(o.is_featured, 0) AS effective_featured,
+            COALESCE(o.sort_category,
+              CASE
+                WHEN g.new_game_type = 203 THEN 'fishing'
+                WHEN g.new_game_type = 204 THEN 'table'
+                WHEN g.new_game_type = 300 THEN 'sports'
+                WHEN g.new_game_type >= 100 AND g.new_game_type < 200 THEN 'live'
+                WHEN g.new_game_type >= 200 AND g.new_game_type < 300 THEN 'slots'
+                ELSE 'other'
+              END) AS effective_sort_category
+     FROM bg_568win_game g
+     LEFT JOIN bg_568win_game_override o ON o.game_provider_id = g.game_provider_id AND o.game_id = g.game_id
+     WHERE g.is_enabled = 1
+       AND g.is_maintain = 0
+       AND g.provider_status = 'Online'
+       AND g.is_provider_online = 1
+       AND COALESCE(o.is_active, 1) = 1
+       AND (g.supported_currencies IS NULL
          OR JSON_CONTAINS(supported_currencies, JSON_QUOTE('PHP'))
          OR JSON_CONTAINS(supported_currencies, JSON_QUOTE('USDT'))
          OR JSON_CONTAINS(supported_currencies, JSON_QUOTE('UCC')))
-       AND (device IS NULL OR FIND_IN_SET('m', REPLACE(device, ' ', '')) > 0)`,
+       AND (g.device IS NULL OR FIND_IN_SET('m', REPLACE(g.device, ' ', '')) > 0)`,
   )
   const games = [
-    ...(rows as RowDataPacket[]).map(rowToDbGame),
     win568SportsbookGame(),
     ...(win568Rows as RowDataPacket[]).map(rowToWin568Game),
   ]

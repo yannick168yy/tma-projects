@@ -427,7 +427,7 @@ export const toggleGame = (uuid: string, isActive: boolean) =>
   patch<{ uuid: string; isActive: boolean }>(`/admin/games/${uuid}/toggle`, { isActive })
 export interface AdminGameJob {
   id: string
-  type: 'games_sync' | 'games_translate'
+  type: 'games_sync' | 'games_translate' | 'win568_games_sync'
   status: 'pending' | 'running' | 'done' | 'failed'
   progress: number
   total: number
@@ -438,6 +438,8 @@ export interface AdminGameJob {
 
 export const startSyncGames = () =>
   post<{ jobId: string; alreadyRunning?: boolean }>('/admin/games/sync', {})
+export const startWin568SyncGames = () =>
+  post<{ jobId: string; alreadyRunning?: boolean }>('/admin/games/win568-sync', {})
 export const startTranslateGames = () =>
   post<{ jobId: string; alreadyRunning?: boolean }>('/admin/games/translate', {})
 export const getGameJob = (jobId: string) =>
@@ -448,6 +450,81 @@ export const getProviderStats = () =>
   get<ProviderStat[]>('/admin/games/provider-stats')
 export const toggleProviderGames = (provider: string, isActive: boolean) =>
   post<{ provider: string; isActive: boolean; affected: number }>('/admin/games/provider-toggle', { provider, isActive })
+
+export interface AdminWin568Game {
+  uuid: string
+  gameId: number
+  gameProviderId: number
+  provider: string
+  name: string
+  nameEn: string | null
+  nameZh: string | null
+  nameOverride: string | null
+  imageUrl: string | null
+  iconUrl: string | null
+  imageOverride: string | null
+  newGameType: number | null
+  gameType: number | null
+  sortCategory: string
+  overrideSortCategory: string | null
+  rankNo: number | null
+  device: string | null
+  platform: string | null
+  rtp: number | null
+  rowsCount: number | null
+  reelsCount: number | null
+  linesCount: number | null
+  supportedCurrencies: unknown
+  blockCountries: unknown
+  upstreamAvailable: boolean
+  localActive: boolean
+  isActive: boolean
+  isEnabled: boolean
+  isMaintain: boolean
+  providerStatus: string | null
+  isProviderOnline: boolean
+  isProvideCommission: boolean
+  hasHedgeBet: boolean
+  weight: number
+  overrideWeight: number | null
+  isFeatured: boolean
+  overrideFeatured: boolean | null
+  overrideActive: boolean | null
+  syncedAt: string | null
+  updatedAt: string | null
+}
+
+export const getAdminWin568Games = (params: {
+  page?: number
+  pageSize?: number
+  provider?: string
+  search?: string
+  isActive?: boolean
+  upstreamAvailable?: boolean
+  sortCategory?: string
+  newGameType?: number
+  currency?: string
+  device?: string
+  isFeatured?: boolean
+  sortField?: string
+  sortOrder?: 'asc' | 'desc'
+}) =>
+  get<{ total: number; items: AdminWin568Game[]; providers: string[] }>('/admin/games/win568', params)
+export const toggleWin568Game = (gameProviderId: number, gameId: number, isActive: boolean) =>
+  patch<{ gameProviderId: number; gameId: number; isActive: boolean }>(`/admin/games/win568/${gameProviderId}/${gameId}/toggle`, { isActive })
+export const updateWin568Game = (gameProviderId: number, gameId: number, data: {
+  isActive?: boolean | null
+  weight?: number | null
+  isFeatured?: boolean | null
+  sortCategory?: string | null
+  nameOverride?: string | null
+  imageOverride?: string | null
+}) =>
+  patch<{ gameProviderId: number; gameId: number }>(`/admin/games/win568/${gameProviderId}/${gameId}`, data)
+export const getWin568ProviderStats = () =>
+  get<ProviderStat[]>('/admin/games/win568-provider-stats')
+export const toggleWin568ProviderGames = (provider: string, isActive: boolean) =>
+  post<{ provider: string; isActive: boolean; affected: number }>('/admin/games/win568-provider-toggle', { provider, isActive })
 
 // Audit log
 export interface AuditEntry {
