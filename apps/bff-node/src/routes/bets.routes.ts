@@ -48,8 +48,8 @@ router.get('/', async (ctx) => {
      FROM (
        SELECT
          MAX(round_id)                                                         AS round_id,
-         MAX(provider_id)                                                      AS game_uuid,
-         MAX(provider_txn_id)                                                  AS provider_txn_id,
+         COALESCE(MAX(CASE WHEN bet_type = 'bet' THEN provider_id END), MAX(provider_id)) AS game_uuid,
+         COALESCE(MAX(CASE WHEN bet_type = 'bet' THEN provider_txn_id END), MAX(provider_txn_id)) AS provider_txn_id,
          MAX(aggregator_id)                                                    AS aggregator_id,
          SUM(CASE WHEN bet_type = 'bet'             THEN amount ELSE 0 END)   AS bet_amount,
          SUM(CASE WHEN bet_type IN ('win','refund') THEN amount ELSE 0 END)   AS win_amount,
