@@ -132,8 +132,10 @@ router.post('/init', async (ctx) => {
   }
 
   if (body.gameUuid.startsWith('568win:')) {
-    const gameId = Number(body.gameUuid.slice('568win:'.length))
-    if (!Number.isInteger(gameId)) {
+    const parts = body.gameUuid.slice('568win:'.length).split(':')
+    const gpId = parts.length > 1 ? Number(parts[0]) : undefined
+    const gameId = Number(parts.length > 1 ? parts[1] : parts[0])
+    if (!Number.isInteger(gameId) || (gpId !== undefined && !Number.isInteger(gpId))) {
       fail(ctx, 400, 'invalid 568Win game id')
       return
     }
@@ -143,6 +145,7 @@ router.post('/init', async (ctx) => {
         headers: { 'Content-Type': 'application/json', 'X-Internal-Token': env.INTERNAL_TOKEN },
         body: JSON.stringify({
           userId,
+          gpId,
           gameId,
           device: body.device === 'desktop' ? 'desktop' : 'mobile',
           language: body.language ?? user.locale ?? 'en',

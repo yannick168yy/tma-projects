@@ -272,16 +272,19 @@ export async function win568OperationRoutes(app: FastifyInstance) {
   })
 
   app.post<{
-    Body: { userId: string; gameId: number; device?: string; language?: string }
+    Body: { userId: string; gpId?: number; gameId: number; device?: string; language?: string }
   }>('/game/launch', async (req, reply) => {
+    const gpId = req.body.gpId === undefined ? null : Number(req.body.gpId)
     const gameId = Number(req.body.gameId)
-    if (!req.body.userId || !Number.isInteger(gameId)) {
+    if (!req.body.userId || !Number.isInteger(gameId) || (gpId !== null && !Number.isInteger(gpId))) {
       return reply.status(400).send({ error: 'userId and gameId are required' })
     }
     const [[game]] = await app.mysql.query<RowDataPacket[]>(
       `SELECT game_id, game_provider_id FROM bg_568win_game
-       WHERE game_id = ? AND is_enabled = 1 LIMIT 1`,
-      [gameId],
+       WHERE game_id = ? AND (? IS NULL OR game_provider_id = ?) AND is_enabled = 1
+       ORDER BY rank_no IS NULL, rank_no ASC
+       LIMIT 1`,
+      [gameId, gpId, gpId],
     )
     if (!game) return reply.status(404).send({ error: 'game not found' })
 

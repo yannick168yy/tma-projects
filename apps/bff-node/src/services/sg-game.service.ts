@@ -171,7 +171,7 @@ function rowToWin568Game(r: RowDataPacket): DbGame {
   const newGameType = r.new_game_type == null ? null : Number(r.new_game_type)
   const rank = r.rank_no == null ? 9999 : Number(r.rank_no)
   return {
-    uuid: `568win:${String(r.game_id)}`,
+    uuid: `568win:${String(r.game_provider_id)}:${String(r.game_id)}`,
     aggregator: '568win',
     name: String(r.name_en || r.name_zh || `568Win ${r.game_id}`),
     nameId: null,
