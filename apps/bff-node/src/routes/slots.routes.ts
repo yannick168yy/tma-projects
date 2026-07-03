@@ -1,7 +1,14 @@
 import Router from '@koa/router'
 import { randomUUID } from 'node:crypto'
 import { ok, fail } from '../utils/response.js'
-import { listGames, listProviders, listThemes, getUserGameHistory, getHomepageSelection } from '../services/sg-game.service.js'
+import {
+  WIN568_SPORTSBOOK_UUID,
+  listGames,
+  listProviders,
+  listThemes,
+  getUserGameHistory,
+  getHomepageSelection,
+} from '../services/sg-game.service.js'
 import { sgInitGame, sgInitDemo } from '../services/slotegrator.service.js'
 import { getUser } from '../services/store/index.js'
 import { isMysqlEnabled } from '../clients/mysql.client.js'
@@ -128,6 +135,33 @@ router.post('/init', async (ctx) => {
   const user = await getUser(redis, userId)
   if (!user) {
     fail(ctx, 401, 'User not found')
+    return
+  }
+
+  if (body.gameUuid === WIN568_SPORTSBOOK_UUID) {
+    try {
+      const res = await fetch(`${env.CORE_NODE_URL}/internal/win568/sports/launch`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Internal-Token': env.INTERNAL_TOKEN },
+        body: JSON.stringify({
+          userId,
+          device: body.device === 'desktop' ? 'desktop' : 'mobile',
+          language: body.language ?? user.locale ?? 'en',
+        }),
+      })
+      const payload = await res.json() as { url?: string; error?: { id?: number; msg?: string }; message?: string }
+      if (!res.ok || payload.error?.id) {
+        fail(ctx, 502, payload.error?.msg || payload.message || 'Failed to launch 568Win Sports')
+        return
+      }
+      if (!payload.url) {
+        fail(ctx, 502, '568Win Sports login URL missing')
+        return
+      }
+      ok(ctx, { url: payload.url })
+    } catch (e) {
+      fail(ctx, 502, e instanceof Error ? e.message : 'Failed to launch 568Win Sports')
+    }
     return
   }
 

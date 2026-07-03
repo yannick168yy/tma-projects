@@ -55,6 +55,39 @@ function win568Device(device: string | undefined) {
   return device === 'desktop' || device === 'd' ? 'd' : 'm'
 }
 
+export function buildWin568SportsbookPayload(input: {
+  username: string
+  device?: string
+  language?: string
+}) {
+  return {
+    Username: input.username,
+    Portfolio: '568WinSportsbook',
+    Lang: win568Lang(input.language).toUpperCase(),
+    Device: win568Device(input.device),
+    OddStyle: 'MY',
+    OddsMode: 'double',
+  }
+}
+
+export function buildWin568LaunchPayload(input: {
+  username: string
+  gameId: number
+  gpId: number
+  newGameType: number | null
+  device?: string
+  language?: string
+}) {
+  return {
+    Username: input.username,
+    Portfolio: input.newGameType === 300 ? 'ThirdPartySportsBook' : 'SeamlessGame',
+    Lang: win568Lang(input.language),
+    Device: win568Device(input.device),
+    GpId: input.gpId,
+    GameId: input.gameId,
+  }
+}
+
 export function collectWin568ReportBets(value: unknown): Record<string, unknown>[] {
   const bets: Record<string, unknown>[] = []
   const visit = (node: unknown) => {
@@ -272,6 +305,21 @@ export async function win568OperationRoutes(app: FastifyInstance) {
   })
 
   app.post<{
+    Body: { userId: string; device?: string; language?: string }
+  }>('/sports/launch', async (req, reply) => {
+    if (!req.body.userId) {
+      return reply.status(400).send({ error: 'userId is required' })
+    }
+    const username = await resolveWin568Player(app, req.body.userId)
+    const result = await (await client()).login(buildWin568SportsbookPayload({
+      username,
+      language: req.body.language,
+      device: req.body.device,
+    }))
+    return reply.send({ ...result, externalUsername: username })
+  })
+
+  app.post<{
     Body: { userId: string; gpId?: number; gameId: number; device?: string; language?: string }
   }>('/game/launch', async (req, reply) => {
     const gpId = req.body.gpId === undefined ? null : Number(req.body.gpId)
@@ -280,7 +328,7 @@ export async function win568OperationRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: 'userId and gameId are required' })
     }
     const [[game]] = await app.mysql.query<RowDataPacket[]>(
-      `SELECT game_id, game_provider_id FROM bg_568win_game
+      `SELECT game_id, game_provider_id, new_game_type FROM bg_568win_game
        WHERE game_id = ? AND (? IS NULL OR game_provider_id = ?) AND is_enabled = 1
        ORDER BY rank_no IS NULL, rank_no ASC
        LIMIT 1`,
@@ -289,14 +337,14 @@ export async function win568OperationRoutes(app: FastifyInstance) {
     if (!game) return reply.status(404).send({ error: 'game not found' })
 
     const username = await resolveWin568Player(app, req.body.userId)
-    const result = await (await client()).login({
-      Username: username,
-      Portfolio: 'SeamlessGame',
-      Lang: win568Lang(req.body.language),
-      Device: win568Device(req.body.device),
-      GpId: Number(game.game_provider_id),
-      GameId: gameId,
-    })
+    const result = await (await client()).login(buildWin568LaunchPayload({
+      username,
+      gameId,
+      gpId: Number(game.game_provider_id),
+      newGameType: game.new_game_type == null ? null : Number(game.new_game_type),
+      language: req.body.language,
+      device: req.body.device,
+    }))
     return reply.send({ ...result, externalUsername: username, gameId })
   })
 

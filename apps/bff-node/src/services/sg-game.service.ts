@@ -6,6 +6,7 @@ import { fetchSgGames } from './slotegrator.service.js'
 
 const GAMES_CACHE_KEY = 'games:all'
 const GAMES_CACHE_TTL = 30 * 60 // 30 分钟
+export const WIN568_SPORTSBOOK_UUID = '568win:sportsbook'
 
 // ── Sync ──────────────────────────────────────────────────────────────────────
 
@@ -195,6 +196,32 @@ function rowToWin568Game(r: RowDataPacket): DbGame {
   }
 }
 
+function win568SportsbookGame(): DbGame {
+  return {
+    uuid: WIN568_SPORTSBOOK_UUID,
+    aggregator: '568win',
+    name: '568Win Sports',
+    nameId: null,
+    nameVi: null,
+    nameZh: '568Win 体育',
+    provider: '568Win Sports',
+    category: 'sportsbook',
+    subCategory: null,
+    sortCategory: 'sports',
+    imageUrl: null,
+    imageHqUrl: null,
+    hasDemo: false,
+    hasLobby: true,
+    isMobile: true,
+    weight: 10000,
+    phBonus: 0,
+    isFeatured: true,
+    theme: null,
+    gameStyle: null,
+    playerType: null,
+  }
+}
+
 // ── 全量缓存 ──────────────────────────────────────────────────────────────────
 
 export async function loadGamesCache(env: Env): Promise<number> {
@@ -230,6 +257,7 @@ export async function loadGamesCache(env: Env): Promise<number> {
   )
   const games = [
     ...(rows as RowDataPacket[]).map(rowToDbGame),
+    win568SportsbookGame(),
     ...(win568Rows as RowDataPacket[]).map(rowToWin568Game),
   ]
   await redis.set(GAMES_CACHE_KEY, JSON.stringify(games), 'EX', GAMES_CACHE_TTL)
