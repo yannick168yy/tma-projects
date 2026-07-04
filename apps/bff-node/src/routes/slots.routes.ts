@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto'
 import { ok, fail } from '../utils/response.js'
 import {
   WIN568_SPORTSBOOK_UUID,
+  EMPTY_HOMEPAGE_SELECTION,
   listGames,
   listProviders,
   listThemes,
@@ -61,13 +62,13 @@ async function launchWin568GameUrl(input: {
 router.get('/homepage', async (ctx) => {
   const env = ctx.state.env
   if (!isMysqlEnabled(env)) {
-    ok(ctx, { popular: [], slots: [], live: [], fishing: [], crash: [], table: [], generatedAt: '' })
+    ok(ctx, EMPTY_HOMEPAGE_SELECTION)
     return
   }
   try {
     const currency = typeof ctx.query.currency === 'string' ? ctx.query.currency : undefined
     const selection = await getHomepageSelection(env)
-    ok(ctx, selection ? applyHomepageCurrency(selection, currency) : { popular: [], slots: [], live: [], fishing: [], crash: [], table: [], generatedAt: '' })
+    ok(ctx, selection ? applyHomepageCurrency(selection, currency) : EMPTY_HOMEPAGE_SELECTION)
   } catch (e) {
     fail(ctx, 500, e instanceof Error ? e.message : 'Failed to load homepage')
   }
@@ -90,6 +91,7 @@ router.get('/games', async (ctx) => {
       provider: q.provider || undefined,
       category: q.category || undefined,
       sortCategory: q.sortCategory || undefined,
+      siteCategory: q.siteCategory || undefined,
       sortBy: (q.sortBy as 'weight' | 'ph_bonus' | 'name') || undefined,
       themes: q.themes ? String(q.themes).split(',').filter(Boolean) : undefined,
       gameStyles: q.gameStyles ? String(q.gameStyles).split(',').filter(Boolean) : undefined,
@@ -136,7 +138,8 @@ router.get('/providers', async (ctx) => {
   }
   try {
     const sortCategory = (ctx.query.sortCategory as string) || undefined
-    const providers = await listProviders(env, sortCategory)
+    const siteCategory = (ctx.query.siteCategory as string) || undefined
+    const providers = await listProviders(env, sortCategory, siteCategory)
     ok(ctx, providers)
   } catch (e) {
     fail(ctx, 500, 'Failed to list providers')

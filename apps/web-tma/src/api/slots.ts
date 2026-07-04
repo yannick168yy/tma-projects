@@ -37,6 +37,7 @@ export interface GameListParams {
   provider?: string
   category?: string
   sortCategory?: string
+  siteCategory?: string
   sortBy?: 'weight' | 'ph_bonus' | 'name'
   themes?: string[]
   gameStyles?: string[]
@@ -46,12 +47,30 @@ export interface GameListParams {
 
 export interface HomepageGames {
   popular: SlotGame[]
+  newGames: SlotGame[]
   slots: SlotGame[]
-  live: SlotGame[]
+  casino: SlotGame[]
+  perya: SlotGame[]
   fishing: SlotGame[]
-  crash: SlotGame[]
-  table: SlotGame[]
+  lottery: SlotGame[]
+  megaWin: SlotGame[]
   generatedAt: string
+}
+
+export interface GameHistoryItem {
+  uuid: string
+  name: string
+  nameId: string | null
+  nameVi: string | null
+  nameZh: string | null
+  provider: string
+  imageUrl: string | null
+  imageHqUrl: string | null
+  lastPlayedAt: string
+}
+
+export function fetchGameHistory(limit = 10): Promise<GameHistoryItem[]> {
+  return apiRequest<GameHistoryItem[]>(`/slots/history?limit=${limit}`)
 }
 
 export function fetchHomepageGames(currency?: string): Promise<HomepageGames> {
@@ -67,6 +86,7 @@ export function fetchGames(params: GameListParams = {}): Promise<GameListResult>
   if (params.provider && params.provider !== 'all') qs.set('provider', params.provider)
   if (params.category && params.category !== 'all') qs.set('category', params.category)
   if (params.sortCategory) qs.set('sortCategory', params.sortCategory)
+  if (params.siteCategory) qs.set('siteCategory', params.siteCategory)
   if (params.sortBy) qs.set('sortBy', params.sortBy)
   if (params.themes?.length) qs.set('themes', params.themes.join(','))
   if (params.gameStyles?.length) qs.set('gameStyles', params.gameStyles.join(','))
@@ -76,9 +96,12 @@ export function fetchGames(params: GameListParams = {}): Promise<GameListResult>
   return apiRequest<GameListResult>(`/slots/games${q ? `?${q}` : ''}`)
 }
 
-export function fetchProviders(sortCategory?: string): Promise<string[]> {
-  const qs = sortCategory ? `?sortCategory=${encodeURIComponent(sortCategory)}` : ''
-  return apiRequest<string[]>(`/slots/providers${qs}`)
+export function fetchProviders(sortCategory?: string, siteCategory?: string): Promise<string[]> {
+  const qs = new URLSearchParams()
+  if (sortCategory) qs.set('sortCategory', sortCategory)
+  if (siteCategory) qs.set('siteCategory', siteCategory)
+  const q = qs.toString()
+  return apiRequest<string[]>(`/slots/providers${q ? `?${q}` : ''}`)
 }
 
 export function fetchThemes(): Promise<string[]> {

@@ -11,6 +11,8 @@ import { analytics } from '@/utils/analytics'
 
 interface Props {
   sortCategory?: string
+  siteCategory?: string
+  provider?: string
   sortBy?: 'weight' | 'ph_bonus' | 'name'
   title?: string
   themes?: string[]
@@ -23,6 +25,8 @@ interface Props {
 
 export default function SlotsLobby({
   sortCategory,
+  siteCategory,
+  provider: initialProvider,
   sortBy,
   title,
   themes,
@@ -45,12 +49,12 @@ export default function SlotsLobby({
   const [launchingUuid, setLaunchingUuid] = useState<string | null>(null)
   const [error, setError] = useState('')
   const [search, setSearch] = useState('')
-  const [selectedProvider, setSelectedProvider] = useState('all')
+  const [selectedProvider, setSelectedProvider] = useState(initialProvider ?? 'all')
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   async function loadProviders() {
     try {
-      setProviders(await fetchProviders())
+      setProviders(await fetchProviders(sortCategory, siteCategory))
     } catch {
       // ignore
     }
@@ -74,6 +78,7 @@ export default function SlotsLobby({
         search: search || undefined,
         provider: provider !== 'all' ? provider : undefined,
         sortCategory,
+        siteCategory,
         sortBy,
         themes,
         gameStyles,

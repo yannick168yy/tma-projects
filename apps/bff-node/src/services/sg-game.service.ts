@@ -132,6 +132,9 @@ export interface DbGame {
   theme: string | null
   gameStyle: string | null
   playerType: string | null
+  releaseDate?: string | null
+  maxWinMultiplier?: number | null
+  createdAt?: string | null
   supportedCurrencies?: string[] | null
   supportsActiveCurrency?: boolean
 }
@@ -235,6 +238,9 @@ function rowToWin568Game(r: RowDataPacket): DbGame {
     theme: r.theme ? String(r.theme) : null,
     gameStyle: r.game_style ? String(r.game_style) : null,
     playerType: r.player_type ? String(r.player_type) : null,
+    releaseDate: r.release_date ? new Date(r.release_date as Date).toISOString().slice(0, 10) : null,
+    maxWinMultiplier: r.max_win_multiplier == null ? null : Number(r.max_win_multiplier),
+    createdAt: r.created_at ? new Date(r.created_at as Date).toISOString() : null,
     supportedCurrencies: parseJsonArray(r.supported_currencies),
   }
 }
@@ -274,7 +280,8 @@ export async function loadGamesCache(env: Env): Promise<number> {
   const redis = getRedis(env)
   const [win568Rows] = await db.query<RowDataPacket[]>(
     `SELECT g.game_id, g.game_provider_id, g.provider, g.new_game_type, g.rank_no, g.device,
-            g.name_en, g.name_zh, g.icon_url, g.supported_currencies,
+            g.name_en, g.name_zh, g.icon_url, g.supported_currencies, g.created_at,
+            o.release_date, o.max_win_multiplier,
             COALESCE(o.name_override, g.name_en, g.name_zh, CONCAT('568Win ', g.game_id)) AS effective_name,
             COALESCE(o.image_override, g.icon_url) AS effective_image,
             COALESCE(o.weight, GREATEST(1, 10000 - COALESCE(g.rank_no, 9999))) AS effective_weight,
@@ -298,6 +305,7 @@ export async function loadGamesCache(env: Env): Promise<number> {
        AND g.provider_status = 'Online'
        AND g.is_provider_online = 1
        AND COALESCE(o.is_active, 1) = 1
+       AND COALESCE(o.site_category, g.site_category_auto, 'other') <> 'lobby'
        AND (g.supported_currencies IS NULL
          OR JSON_CONTAINS(supported_currencies, JSON_QUOTE('PHP'))
          OR JSON_CONTAINS(supported_currencies, JSON_QUOTE('USDT'))
@@ -330,12 +338,19 @@ const HOMEPAGE_TTL = 3 * 60 * 60 + 5 * 60 // 3h5m（比刷新间隔略长，防�
 
 export interface HomepageSelection {
   popular: DbGame[]
+  newGames: DbGame[]
   slots: DbGame[]
-  live: DbGame[]
+  casino: DbGame[]
+  perya: DbGame[]
   fishing: DbGame[]
-  crash: DbGame[]
-  table: DbGame[]
+  lottery: DbGame[]
+  megaWin: DbGame[]
   generatedAt: string
+}
+
+export const EMPTY_HOMEPAGE_SELECTION: HomepageSelection = {
+  popular: [], newGames: [], slots: [], casino: [], perya: [], fishing: [], lottery: [], megaWin: [],
+  generatedAt: '',
 }
 
 function serverWeightedSample(
@@ -380,21 +395,31 @@ export async function refreshHomepageSelection(env: Env): Promise<void> {
   if (!all.length) return
 
   const seen = new Set<string>()
-  const pick = (pool: DbGame[], score: (g: DbGame) => number) => {
-    const r = serverWeightedSample(pool.filter((g) => !seen.has(g.uuid)), score, 6)
+  const pick = (pool: DbGame[], score: (g: DbGame) => number, n: number) => {
+    const r = serverWeightedSample(pool.filter((g) => !seen.has(g.uuid)), score, n)
     r.forEach((g) => seen.add(g.uuid))
     return r
   }
-  const byCategory = (cat: string) => all.filter((g) => g.sortCategory === cat)
+  const bySite = (cat: string) => all.filter((g) => g.siteCategory === cat)
   const score = (g: DbGame) => g.weight * (g.isFeatured ? 1.5 : 1)
+  // ph_bonus 只覆盖头部富化池，其余游戏按上游 rank 派生的 weight 降级打分
+  const popularScore = (g: DbGame) => (g.phBonus > 0 ? g.phBonus * 100 : g.weight / 100) * (g.isFeatured ? 1.5 : 1)
+
+  // New Games：有 release_date 的按发布日期降序取最新的一批做抽样池
+  const newPool = all
+    .filter((g) => g.releaseDate)
+    .sort((a, b) => String(b.releaseDate).localeCompare(String(a.releaseDate)))
+    .slice(0, 40)
 
   const selection: HomepageSelection = {
-    popular: pick(all, (g) => g.phBonus * (g.isFeatured ? 1.5 : 1)),
-    slots:   pick(byCategory('slots'), score),
-    live:    pick(byCategory('live'), score),
-    fishing: pick(byCategory('fishing'), score),
-    crash:   pick(byCategory('crash'), score),
-    table:   pick(byCategory('table'), score),
+    popular:  pick(all, popularScore, 9),
+    newGames: pick(newPool, score, 12),
+    slots:    pick(bySite('slot'), score, 6),
+    casino:   pick(bySite('casino'), score, 6),
+    perya:    pick(bySite('perya'), score, 12),
+    fishing:  pick(bySite('fishing'), score, 6),
+    lottery:  pick(bySite('lottery'), score, 12),
+    megaWin:  pick(all.filter((g) => (g.maxWinMultiplier ?? 0) >= 1000), score, 6),
     generatedAt: new Date().toISOString(),
   }
 
@@ -413,13 +438,16 @@ export async function getHomepageSelection(env: Env): Promise<HomepageSelection 
 }
 
 export function applyHomepageCurrency(selection: HomepageSelection, currency?: string): HomepageSelection {
+  const apply = (games: DbGame[]) => sortAvailableFirst(games, currency).map((g) => withCurrencySupport(g, currency))
   return {
-    popular: sortAvailableFirst(selection.popular, currency).map((g) => withCurrencySupport(g, currency)),
-    slots: sortAvailableFirst(selection.slots, currency).map((g) => withCurrencySupport(g, currency)),
-    live: sortAvailableFirst(selection.live, currency).map((g) => withCurrencySupport(g, currency)),
-    fishing: sortAvailableFirst(selection.fishing, currency).map((g) => withCurrencySupport(g, currency)),
-    crash: sortAvailableFirst(selection.crash, currency).map((g) => withCurrencySupport(g, currency)),
-    table: sortAvailableFirst(selection.table, currency).map((g) => withCurrencySupport(g, currency)),
+    popular: apply(selection.popular),
+    newGames: apply(selection.newGames ?? []),
+    slots: apply(selection.slots),
+    casino: apply(selection.casino ?? []),
+    perya: apply(selection.perya ?? []),
+    fishing: apply(selection.fishing),
+    lottery: apply(selection.lottery ?? []),
+    megaWin: apply(selection.megaWin ?? []),
     generatedAt: selection.generatedAt,
   }
 }
@@ -440,6 +468,7 @@ export async function listGames(
     provider?: string
     category?: string
     sortCategory?: string
+    siteCategory?: string
     sortBy?: 'weight' | 'ph_bonus' | 'name'
     themes?: string[]
     gameStyles?: string[]
@@ -447,7 +476,7 @@ export async function listGames(
     currency?: string
   } = {},
 ): Promise<GameListResult> {
-  const { page = 1, limit = 30, search, provider, category, sortCategory, sortBy = 'weight',
+  const { page = 1, limit = 30, search, provider, category, sortCategory, siteCategory, sortBy = 'weight',
     themes, gameStyles, playerTypes, currency } = opts
 
   let games = await getGamesFromCache(env)
@@ -465,6 +494,10 @@ export async function listGames(
   if (sortCategory && sortCategory !== 'all') {
     const cats = new Set(sortCategory.split(',').map((s) => s.trim()).filter(Boolean))
     games = games.filter((g) => g.sortCategory !== null && cats.has(g.sortCategory))
+  }
+  if (siteCategory && siteCategory !== 'all') {
+    const cats = new Set(siteCategory.split(',').map((s) => s.trim()).filter(Boolean))
+    games = games.filter((g) => g.siteCategory != null && cats.has(g.siteCategory))
   }
   if (themes && themes.length > 0) {
     const set = new Set(themes)
@@ -517,17 +550,33 @@ export async function getUserGameHistory(
 ): Promise<GameHistoryItem[]> {
   const db = getMysqlPool(env)
   const [rows] = await db.query<RowDataPacket[]>(
-    `SELECT b.provider_id AS game_uuid,
-            g.name, g.name_id, g.name_vi, g.name_zh,
-            g.provider, g.image_url, g.image_hq_url,
-            MAX(b.created_at) AS last_played_at
-     FROM bg_bet_order b
-     JOIN sg_games g ON g.uuid = b.provider_id
-     WHERE b.user_id = ? AND b.aggregator_id = 'slotegrator'
-     GROUP BY b.provider_id, g.name, g.name_id, g.name_vi, g.name_zh, g.provider, g.image_url, g.image_hq_url
+    `SELECT * FROM (
+       SELECT b.provider_id AS game_uuid,
+              g.name, g.name_id, g.name_vi, g.name_zh,
+              g.provider, g.image_url, g.image_hq_url,
+              MAX(b.created_at) AS last_played_at
+       FROM bg_bet_order b
+       JOIN sg_games g ON g.uuid = b.provider_id
+       WHERE b.user_id = ? AND b.aggregator_id = 'slotegrator'
+       GROUP BY b.provider_id, g.name, g.name_id, g.name_vi, g.name_zh, g.provider, g.image_url, g.image_hq_url
+       UNION ALL
+       SELECT CONCAT('568win:', w.game_provider_id, ':', w.game_id) AS game_uuid,
+              COALESCE(o.name_override, w.name_en, w.name_zh, CONCAT('568Win ', w.game_id)) AS name,
+              NULL AS name_id, NULL AS name_vi, w.name_zh,
+              COALESCE(w.provider, '568Win') AS provider,
+              COALESCE(o.image_override, w.icon_url) AS image_url,
+              COALESCE(o.image_override, w.icon_url) AS image_hq_url,
+              MAX(b.created_at) AS last_played_at
+       FROM bg_bet_order b
+       JOIN bg_568win_game w ON w.game_id = CAST(b.provider_id AS UNSIGNED)
+       LEFT JOIN bg_568win_game_override o ON o.game_provider_id = w.game_provider_id AND o.game_id = w.game_id
+       WHERE b.user_id = ? AND b.aggregator_id = '568win'
+         AND b.provider_id REGEXP '^[0-9]+$'
+       GROUP BY w.game_provider_id, w.game_id, o.name_override, w.name_en, w.name_zh, w.provider, o.image_override, w.icon_url
+     ) t
      ORDER BY last_played_at DESC
      LIMIT ?`,
-    [userId, limit],
+    [userId, userId, limit],
   )
   return rows.map((r) => ({
     uuid: r.game_uuid as string,
@@ -542,12 +591,16 @@ export async function getUserGameHistory(
   }))
 }
 
-/** Returns distinct provider codes from cached games, optionally filtered by sortCategory (comma-separated) */
-export async function listProviders(env: Env, sortCategory?: string): Promise<string[]> {
+/** Returns distinct provider codes from cached games, optionally filtered by sortCategory / siteCategory (comma-separated) */
+export async function listProviders(env: Env, sortCategory?: string, siteCategory?: string): Promise<string[]> {
   let games = await getGamesFromCache(env)
   if (sortCategory && sortCategory !== 'all') {
     const cats = new Set(sortCategory.split(',').map((s) => s.trim()).filter(Boolean))
     games = games.filter((g) => g.sortCategory !== null && cats.has(g.sortCategory))
+  }
+  if (siteCategory && siteCategory !== 'all') {
+    const cats = new Set(siteCategory.split(',').map((s) => s.trim()).filter(Boolean))
+    games = games.filter((g) => g.siteCategory != null && cats.has(g.siteCategory))
   }
   const providers = [...new Set(games.map((g) => g.provider))].sort()
   return providers

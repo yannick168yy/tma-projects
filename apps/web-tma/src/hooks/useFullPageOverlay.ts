@@ -3,6 +3,8 @@ import { useState } from 'react'
 export type CategoryLobbyParams = {
   title: string
   sortCategory?: string
+  siteCategory?: string
+  provider?: string
   sortBy?: 'weight' | 'ph_bonus'
   themes?: string[]
   gameStyles?: string[]

@@ -1,15 +1,13 @@
 import { useState, useEffect, useRef, useMemo, useCallback, type PointerEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
-  ChevronLeft, ChevronRight, Trophy, TrendingUp, Gamepad2,
-  Fish, LayoutGrid, X, Gem,
+  ChevronRight, Trophy, TrendingUp, Gamepad2, Sparkles, History, Factory,
+  Fish, Dice5, Ticket, Drama, Rocket, X, Gem,
 } from 'lucide-react'
 import HomeCategoryShortcut from '@/components/home/HomeCategoryShortcut'
-import GameCard from '@/components/home/GameCard'
-import EGameCard from '@/components/home/EGameCard'
-import LiveCard from '@/components/home/LiveCard'
+import GameCardV2 from '@/components/home/GameCardV2'
 import { WINNERS, INFO_LINKS } from '@/data/home'
-import { fetchHomepageGames, fetchGames, fetchProviders, launchGame, fetchBettingActivity, type SlotGame, type BetRecord, type BetTab } from '@/api/slots'
+import { fetchHomepageGames, fetchGames, fetchProviders, fetchGameHistory, launchGame, fetchBettingActivity, type SlotGame, type BetRecord, type BetTab, type GameHistoryItem } from '@/api/slots'
 import { fetchHomeContent } from '@/api/home'
 import { resolveHomeActionPath } from '@/navigation/appRoutes'
 import { ApiError } from '@/api/client'
@@ -38,26 +36,42 @@ import { shortProviderName } from '@/utils/providers'
 
 type GameChip = string
 
-interface GameChipDef { id: string; labelKey: string; sortCategory?: string; icon?: string; image?: string }
+interface GameChipDef { id: string; labelKey: string; siteCategory?: string; icon?: string; image?: string }
 
-const OTHER_CATEGORIES = 'other,fantasy,horror,asian,asian-strategy,adventure'
-
+// 分类切到 site_category（同步时按 new_game_type + 名称关键词推导，后台可人工覆盖）
 const GAME_CHIPS: GameChipDef[] = [
   { id: 'hot',     image: chipHotImg,     labelKey: 'home.chipHot'    },
-  { id: 'slots',   image: chipSlotsImg,   labelKey: 'home.chipSlots',   sortCategory: 'slots'   },
-  { id: 'live',    image: chipLiveImg,    labelKey: 'home.chipLive',    sortCategory: 'live'    },
-  { id: 'table',   image: chipPokerImg,   labelKey: 'home.chipPoker',   sortCategory: 'table'   },
-  { id: 'bingo',   image: chipBingoImg,   labelKey: 'home.chipBingo',   sortCategory: 'bingo'   },
-  { id: 'sports',  image: chipSportsImg,  labelKey: 'home.chipSports',  sortCategory: 'sports'  },
-  { id: 'fishing', image: chipFishingImg, labelKey: 'home.chipFishing', sortCategory: 'fishing' },
-  { id: 'crash',   icon: '🚀', labelKey: 'home.chipCrash',  sortCategory: 'crash'  },
-  { id: 'pinoy',   icon: '🐓', labelKey: 'home.chipPinoy',  sortCategory: 'pinoy'  },
-  { id: 'other',   icon: '🎮', labelKey: 'home.chipOther',  sortCategory: OTHER_CATEGORIES },
+  { id: 'slot',    image: chipSlotsImg,   labelKey: 'home.chipSlots',   siteCategory: 'slot'    },
+  { id: 'casino',  image: chipLiveImg,    labelKey: 'home.chipCasino',  siteCategory: 'casino'  },
+  { id: 'fishing', image: chipFishingImg, labelKey: 'home.chipFishing', siteCategory: 'fishing' },
+  { id: 'perya',   icon: '🐓', labelKey: 'home.chipPerya',   siteCategory: 'perya'   },
+  { id: 'lottery', image: chipBingoImg,   labelKey: 'home.chipLottery', siteCategory: 'lottery' },
+  { id: 'poker',   image: chipPokerImg,   labelKey: 'home.chipPoker',   siteCategory: 'poker'   },
+  { id: 'sports',  image: chipSportsImg,  labelKey: 'home.chipSports',  siteCategory: 'sports'  },
+  { id: 'other',   icon: '🎮', labelKey: 'home.chipOther',   siteCategory: 'other'   },
 ]
+
+// 厂商专区：菲市场认知度最高的三家
+const PROVIDER_ZONE = [
+  { code: 'JiLiGaming', label: 'JILI' },
+  { code: 'PGSoft', label: 'PG' },
+  { code: 'PragmaticPlay', label: 'Pragmatic' },
+]
+
+const WIN568_SPORTSBOOK_UUID = '568win:sportsbook'
+
+function historyToGame(item: GameHistoryItem): SlotGame {
+  return {
+    uuid: item.uuid, name: item.name, nameId: item.nameId, nameVi: item.nameVi, nameZh: item.nameZh,
+    provider: item.provider, category: null, subCategory: null, sortCategory: null,
+    imageUrl: item.imageUrl, imageHqUrl: item.imageHqUrl,
+    hasDemo: false, hasLobby: false, isMobile: true, weight: 0, phBonus: 0, isFeatured: false, theme: null,
+  }
+}
 
 const INFO_ICONS: Record<string, string> = { terms: infoTermsImg, privacy: infoPrivacyImg, responsible: infoResponsibleImg, about: infoAboutImg }
 
-interface CategoryLobbyParams { sortCategory?: string; sortBy?: 'weight' | 'ph_bonus'; title: string }
+interface CategoryLobbyParams { sortCategory?: string; siteCategory?: string; provider?: string; sortBy?: 'weight' | 'ph_bonus'; title: string }
 
 // 首页 banner / 小卡片均来自后台装修配置，只需图片 + 跳转目标
 interface HomeBanner { id: number; image: string; target: string }
@@ -340,13 +354,14 @@ export default function HomeContent({ onNavigatePath, onOpenCategoryLobby, onOpe
   }, [homeBanners.length])
 
   // Game data
+  const emptyHomepage = { popular: [], newGames: [], slots: [], casino: [], perya: [], fishing: [], lottery: [], megaWin: [] }
   const [launchingUuid, setLaunchingUuid] = useState<string | null>(null)
-  const [homepageGames, setHomepageGames] = useState<{ popular: SlotGame[]; slots: SlotGame[]; live: SlotGame[]; fishing: SlotGame[]; crash: SlotGame[]; table: SlotGame[] }>({ popular: [], slots: [], live: [], fishing: [], crash: [], table: [] })
-const [gamesLoading, setGamesLoading] = useState(true)
-  const popularScroll = useRef<HTMLDivElement>(null); const slotsScroll = useRef<HTMLDivElement>(null)
-  const liveScroll = useRef<HTMLDivElement>(null); const fishingScroll = useRef<HTMLDivElement>(null)
-  const tableCrashScroll = useRef<HTMLDivElement>(null)
-  function scrollRow(ref: React.RefObject<HTMLDivElement | null>, dir: -1 | 1) { ref.current?.scrollBy({ left: dir * 148, behavior: 'smooth' }) }
+  const [homepageGames, setHomepageGames] = useState<Record<keyof typeof emptyHomepage, SlotGame[]>>(emptyHomepage)
+  const [gamesLoading, setGamesLoading] = useState(true)
+  const [recentGames, setRecentGames] = useState<SlotGame[]>([])
+  const [providerZoneTab, setProviderZoneTab] = useState(PROVIDER_ZONE[0].code)
+  const [providerZoneGames, setProviderZoneGames] = useState<SlotGame[]>([])
+  const providerZoneFetchRef = useRef(0)
 
   const onGameTapAction = useCallback(async (uuid: string) => {
     if (!(await auth.ensureLoggedIn(t('auth.signInPlay')))) return
@@ -360,8 +375,6 @@ const [gamesLoading, setGamesLoading] = useState(true)
     finally { setLaunchingUuid(null) }
   }, [auth, launchingUuid, onOpenGame, t, activeCurrency])
 
-  const popularGames = homepageGames.popular; const slotsGames = homepageGames.slots; const liveGames = homepageGames.live
-  const fishingGames = homepageGames.fishing; const tableCrashGames = useMemo(() => [...homepageGames.table, ...homepageGames.crash], [homepageGames])
 
   // Game chip 筛选
   const [activeChip, setActiveChip] = useState<GameChip>('hot')
@@ -377,11 +390,11 @@ const [gamesLoading, setGamesLoading] = useState(true)
 
   async function loadGridPage(chip: GameChip, provider: string, page: number, reset: boolean) {
     const chipDef = GAME_CHIPS.find((c) => c.id === chip)
-    if (!chipDef?.sortCategory) return
+    if (!chipDef?.siteCategory) return
     const token = ++gridFetchRef.current
     if (reset) setGridLoading(true)
     try {
-      const result = await fetchGames({ sortCategory: chipDef.sortCategory, provider: provider === 'all' ? undefined : provider, page, limit: 30, sortBy: 'weight', currency: activeCurrency })
+      const result = await fetchGames({ siteCategory: chipDef.siteCategory, provider: provider === 'all' ? undefined : provider, page, limit: 30, sortBy: 'weight', currency: activeCurrency })
       if (token !== gridFetchRef.current) return
       setGridGames((prev) => reset ? result.items : [...prev, ...result.items])
       setGridPage(result.page)
@@ -399,7 +412,7 @@ const [gamesLoading, setGamesLoading] = useState(true)
     const chipDef = GAME_CHIPS.find((c) => c.id === chip)!
     setChipProvidersLoading(true)
     try {
-      const providers = await fetchProviders(chipDef.sortCategory)
+      const providers = await fetchProviders(undefined, chipDef.siteCategory)
       setChipProviders(providers)
     } catch { setChipProviders([]) }
     finally { setChipProvidersLoading(false) }
@@ -446,6 +459,46 @@ const [gamesLoading, setGamesLoading] = useState(true)
   const firstDepositHighlight = promotion.highlights.find((item) => item.promoId === 'firstdep')
   const showFirstDepositFiesta = !auth.token || firstDepositHighlight?.highlight !== false
 
+  // ── 板块渲染辅助：大卡=3列固定网格，小卡=单行横滑 ──
+  function sectionHeader(icon: React.ReactNode, title: string, onAll?: () => void) {
+    return (
+      <div className="flex items-center justify-between px-4 mb-3">
+        <div className="flex items-center gap-2">{icon}<h3 className="text-foreground font-black text-sm font-display">{title}</h3></div>
+        {onAll && <button type="button" className="h-6 px-2 flex items-center rounded-full bg-secondary text-primary text-[10px] font-bold active:scale-90 transition-transform" onClick={onAll}>ALL</button>}
+      </div>
+    )
+  }
+
+  function bigGrid(games: SlotGame[], skeletonCount: number, showHot = false) {
+    if (gamesLoading) {
+      return (
+        <div className="px-4 grid grid-cols-3 gap-x-2 gap-y-3">
+          {Array.from({ length: skeletonCount }).map((_, i) => <div key={i} className="aspect-[4/5] animate-pulse rounded-xl bg-secondary" />)}
+        </div>
+      )
+    }
+    return (
+      <div className="px-4 grid grid-cols-3 gap-x-2 gap-y-3">
+        {games.map((g) => <GameCardV2 key={g.uuid} game={g} onTap={() => void onGameTapAction(g.uuid)} size="lg" showHot={showHot} />)}
+      </div>
+    )
+  }
+
+  function smallRow(games: SlotGame[], loading = gamesLoading) {
+    if (loading) {
+      return (
+        <div className="flex gap-2 px-4 overflow-hidden">
+          {Array.from({ length: 6 }).map((_, i) => <div key={i} className="flex-shrink-0 w-[76px] h-[95px] animate-pulse rounded-xl bg-secondary" />)}
+        </div>
+      )
+    }
+    return (
+      <div className="flex gap-2 px-4 overflow-x-auto hide-scrollbar">
+        {games.map((g) => <GameCardV2 key={g.uuid} game={g} onTap={() => void onGameTapAction(g.uuid)} size="sm" />)}
+      </div>
+    )
+  }
+
   function betTabLabel(tab: BetTab) {
     if (tab === 'latest') return t('home.latestBets')
     if (tab === 'week') return t('home.topWeek')
@@ -470,8 +523,26 @@ const [gamesLoading, setGamesLoading] = useState(true)
 
   useEffect(() => {
     setGamesLoading(true)
-    fetchHomepageGames(activeCurrency).then(setHomepageGames).catch(() => {}).finally(() => setGamesLoading(false))
+    fetchHomepageGames(activeCurrency)
+      .then((data) => setHomepageGames({
+        popular: data.popular ?? [], newGames: data.newGames ?? [], slots: data.slots ?? [], casino: data.casino ?? [],
+        perya: data.perya ?? [], fishing: data.fishing ?? [], lottery: data.lottery ?? [], megaWin: data.megaWin ?? [],
+      }))
+      .catch(() => {})
+      .finally(() => setGamesLoading(false))
   }, [activeCurrency])
+
+  useEffect(() => {
+    if (!auth.token) { setRecentGames([]); return }
+    fetchGameHistory(10).then((items) => setRecentGames(items.map(historyToGame))).catch(() => {})
+  }, [auth.token])
+
+  useEffect(() => {
+    const token = ++providerZoneFetchRef.current
+    fetchGames({ provider: providerZoneTab, limit: 12, sortBy: 'weight', currency: activeCurrency })
+      .then((res) => { if (token === providerZoneFetchRef.current) setProviderZoneGames(res.items) })
+      .catch(() => {})
+  }, [providerZoneTab, activeCurrency])
 
   useEffect(() => {
     fetchHomeContent().then((content) => {
@@ -623,10 +694,10 @@ const [gamesLoading, setGamesLoading] = useState(true)
           <div className="px-3 mt-4 grid grid-cols-3 gap-2">
             {gridLoading && gridGames.length === 0
               ? Array.from({ length: 12 }).map((_, i) => (
-                  <div key={i} className="aspect-[8/11] rounded-xl animate-pulse bg-secondary" />
+                  <div key={i} className="aspect-[4/5] rounded-xl animate-pulse bg-secondary" />
                 ))
               : gridGames.map((g) => (
-                  <EGameCard key={g.uuid} game={g} onTap={() => void onGameTapAction(g.uuid)} className="w-full aspect-[8/11] rounded-xl overflow-hidden active:scale-95 transition-transform" />
+                  <GameCardV2 key={g.uuid} game={g} onTap={() => void onGameTapAction(g.uuid)} size="lg" />
                 ))
             }
           </div>
@@ -635,7 +706,7 @@ const [gamesLoading, setGamesLoading] = useState(true)
           {gridLoading && gridGames.length > 0 && (
             <div className="px-3 mt-2 grid grid-cols-3 gap-2">
               {Array.from({ length: 3 }).map((_, i) => (
-                <div key={i} className="aspect-[8/11] rounded-xl animate-pulse bg-secondary" />
+                <div key={i} className="aspect-[4/5] rounded-xl animate-pulse bg-secondary" />
               ))}
             </div>
           )}
@@ -668,93 +739,113 @@ const [gamesLoading, setGamesLoading] = useState(true)
         </div>
       </div>
 
-      {/* Popular Games */}
+      {/* 最近在玩（登录用户） */}
+      {recentGames.length > 0 && (
+        <section className="mt-5">
+          {sectionHeader(<History size={15} className="text-amber-400" />, t('home.recentPlayed'))}
+          {smallRow(recentGames, false)}
+        </section>
+      )}
+
+      {/* Popular：大卡 3x3 */}
       <section className="mt-5">
-        <div className="flex items-center justify-between px-4 mb-3">
-          <div className="flex items-center gap-2"><TrendingUp size={15} className="text-primary" /><h3 className="text-foreground font-black text-sm font-display">{t('home.popularGames')}</h3></div>
-          <div className="flex items-center gap-2">
-            <button type="button" className="h-6 px-2 flex items-center rounded-full bg-secondary text-primary text-[10px] font-bold active:scale-90 transition-transform" onClick={() => onOpenCategoryLobby({ sortBy: 'ph_bonus', title: t('home.popularGames') })}>ALL</button>
-            <div className="flex items-center gap-0.5">
-              <button type="button" className="w-6 h-6 flex items-center justify-center rounded-full bg-secondary text-muted-foreground active:scale-90 transition-transform" onClick={() => scrollRow(popularScroll, -1)}><ChevronLeft size={13} /></button>
-              <button type="button" className="w-6 h-6 flex items-center justify-center rounded-full bg-secondary text-muted-foreground active:scale-90 transition-transform" onClick={() => scrollRow(popularScroll, 1)}><ChevronRight size={13} /></button>
-            </div>
-          </div>
-        </div>
-        {gamesLoading ? <div className="flex gap-3 px-4">{Array.from({length:6}).map((_,i)=><div key={i} className="flex-shrink-0 w-32 h-40 animate-pulse rounded-xl bg-secondary"/>)}</div>
-          : popularGames.length > 0 && <div ref={popularScroll} className="flex gap-3 px-4 overflow-x-auto hide-scrollbar">{popularGames.map((g)=><div key={g.uuid} className="flex-shrink-0 w-32"><GameCard game={g} onTap={()=>void onGameTapAction(g.uuid)} /></div>)}</div>}
+        {sectionHeader(<TrendingUp size={15} className="text-primary" />, t('home.popularGames'), () => onOpenCategoryLobby({ sortBy: 'ph_bonus', title: t('home.popularGames') }))}
+        {bigGrid(homepageGames.popular, 9, true)}
       </section>
 
-      {/* E-Games Zone (slots) */}
-      {(gamesLoading || slotsGames.length > 0) && (
+      {/* New Games：小卡横滑 */}
+      {(gamesLoading || homepageGames.newGames.length > 0) && (
         <section className="mt-6">
-          <div className="flex items-center justify-between px-4 mb-3">
-            <div className="flex items-center gap-2"><Gamepad2 size={15} className="text-violet-400" /><h3 className="text-foreground font-black text-sm font-display">{t('home.egamesZone')}</h3><span className="bg-violet-500/20 text-violet-300 text-[10px] font-bold px-2 py-0.5 rounded-full">{t('common.featured')}</span></div>
-            <div className="flex items-center gap-2">
-              <button type="button" className="h-6 px-2 flex items-center rounded-full bg-secondary text-primary text-[10px] font-bold active:scale-90 transition-transform" onClick={() => onOpenCategoryLobby({ sortCategory: 'slots', sortBy: 'weight', title: t('home.egamesZone') })}>ALL</button>
-              <div className="flex items-center gap-0.5">
-                <button type="button" className="w-6 h-6 flex items-center justify-center rounded-full bg-secondary text-muted-foreground active:scale-90 transition-transform" onClick={() => scrollRow(slotsScroll, -1)}><ChevronLeft size={13} /></button>
-                <button type="button" className="w-6 h-6 flex items-center justify-center rounded-full bg-secondary text-muted-foreground active:scale-90 transition-transform" onClick={() => scrollRow(slotsScroll, 1)}><ChevronRight size={13} /></button>
-              </div>
-            </div>
-          </div>
-          {gamesLoading ? <div className="flex gap-3 px-4">{Array.from({length:6}).map((_,i)=><div key={i} className="flex-shrink-0 w-32 h-28 animate-pulse rounded-xl bg-secondary"/>)}</div>
-            : <div ref={slotsScroll} className="flex gap-3 px-4 overflow-x-auto hide-scrollbar">{slotsGames.map((g)=><EGameCard key={g.uuid} game={g} onTap={()=>void onGameTapAction(g.uuid)} />)}</div>}
+          {sectionHeader(<Sparkles size={15} className="text-emerald-400" />, t('home.newGames'))}
+          {smallRow(homepageGames.newGames)}
         </section>
       )}
 
-      {/* Live Games */}
-      {(gamesLoading || liveGames.length > 0) && (
+      {/* Slots：大卡 3x2 */}
+      {(gamesLoading || homepageGames.slots.length > 0) && (
         <section className="mt-6">
-          <div className="flex items-center justify-between px-4 mb-3">
-            <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" /><h3 className="text-foreground font-black text-sm font-display">{t('home.liveGames')}</h3></div>
-            <div className="flex items-center gap-2">
-              <button type="button" className="h-6 px-2 flex items-center rounded-full bg-secondary text-primary text-[10px] font-bold active:scale-90 transition-transform" onClick={() => onOpenCategoryLobby({ sortCategory: 'live', sortBy: 'weight', title: t('home.liveGames') })}>ALL</button>
-              <div className="flex items-center gap-0.5">
-                <button type="button" className="w-6 h-6 flex items-center justify-center rounded-full bg-secondary text-muted-foreground active:scale-90 transition-transform" onClick={() => scrollRow(liveScroll, -1)}><ChevronLeft size={13} /></button>
-                <button type="button" className="w-6 h-6 flex items-center justify-center rounded-full bg-secondary text-muted-foreground active:scale-90 transition-transform" onClick={() => scrollRow(liveScroll, 1)}><ChevronRight size={13} /></button>
-              </div>
-            </div>
-          </div>
-          {gamesLoading ? <div className="flex gap-3 px-4">{Array.from({length:6}).map((_,i)=><div key={i} className="flex-shrink-0 w-32 h-28 animate-pulse rounded-xl bg-secondary"/>)}</div>
-            : <div ref={liveScroll} className="flex gap-3 px-4 overflow-x-auto hide-scrollbar">{liveGames.map((g)=><LiveCard key={g.uuid} game={g} onTap={()=>void onGameTapAction(g.uuid)} />)}</div>}
+          {sectionHeader(<Gamepad2 size={15} className="text-violet-400" />, t('home.egamesZone'), () => onOpenCategoryLobby({ siteCategory: 'slot', sortBy: 'weight', title: t('home.egamesZone') }))}
+          {bigGrid(homepageGames.slots, 6)}
         </section>
       )}
 
-      {/* Fishing Games */}
-      {(gamesLoading || fishingGames.length > 0) && (
+      {/* 厂商专区：tab + 小卡横滑 */}
+      <section className="mt-6">
+        {sectionHeader(<Factory size={15} className="text-sky-400" />, t('home.providerZone'), () => onOpenCategoryLobby({ provider: providerZoneTab, sortBy: 'weight', title: t('home.providerZone') }))}
+        <div className="flex gap-2 px-4 mb-3">
+          {PROVIDER_ZONE.map((p) => (
+            <button
+              key={p.code}
+              type="button"
+              onClick={() => setProviderZoneTab(p.code)}
+              className={`px-3 py-1 rounded-full text-xs font-bold transition-colors active:scale-95 ${providerZoneTab === p.code ? 'bg-primary text-primary-foreground' : 'bg-secondary text-foreground/70'}`}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+        {smallRow(providerZoneGames, providerZoneGames.length === 0)}
+      </section>
+
+      {/* Casino：大卡 3x2 */}
+      {(gamesLoading || homepageGames.casino.length > 0) && (
         <section className="mt-6">
-          <div className="flex items-center justify-between px-4 mb-3">
-            <div className="flex items-center gap-2"><Fish size={15} className="text-cyan-400" /><h3 className="text-foreground font-black text-sm font-display">{t('home.fishingZone')}</h3></div>
-            <div className="flex items-center gap-2">
-              <button type="button" className="h-6 px-2 flex items-center rounded-full bg-secondary text-primary text-[10px] font-bold active:scale-90 transition-transform" onClick={() => onOpenCategoryLobby({ sortCategory: 'fishing', sortBy: 'weight', title: t('home.fishingZone') })}>ALL</button>
-              <div className="flex items-center gap-0.5">
-                <button type="button" className="w-6 h-6 flex items-center justify-center rounded-full bg-secondary text-muted-foreground active:scale-90 transition-transform" onClick={() => scrollRow(fishingScroll, -1)}><ChevronLeft size={13} /></button>
-                <button type="button" className="w-6 h-6 flex items-center justify-center rounded-full bg-secondary text-muted-foreground active:scale-90 transition-transform" onClick={() => scrollRow(fishingScroll, 1)}><ChevronRight size={13} /></button>
-              </div>
-            </div>
-          </div>
-          {gamesLoading ? <div className="flex gap-3 px-4">{Array.from({length:6}).map((_,i)=><div key={i} className="flex-shrink-0 w-32 h-28 animate-pulse rounded-xl bg-secondary"/>)}</div>
-            : <div ref={fishingScroll} className="flex gap-3 px-4 overflow-x-auto hide-scrollbar">{fishingGames.map((g)=><EGameCard key={g.uuid} game={g} onTap={()=>void onGameTapAction(g.uuid)} />)}</div>}
+          {sectionHeader(<span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />, t('home.casinoZone'), () => onOpenCategoryLobby({ siteCategory: 'casino', sortBy: 'weight', title: t('home.casinoZone') }))}
+          {bigGrid(homepageGames.casino, 6)}
         </section>
       )}
 
-      {/* Table & Crash */}
-      {(gamesLoading || tableCrashGames.length > 0) && (
+      {/* Perya：小卡横滑 */}
+      {(gamesLoading || homepageGames.perya.length > 0) && (
         <section className="mt-6">
-          <div className="flex items-center justify-between px-4 mb-3">
-            <div className="flex items-center gap-2"><LayoutGrid size={15} className="text-blue-400" /><h3 className="text-foreground font-black text-sm font-display">{t('home.tableZone')}</h3></div>
-            <div className="flex items-center gap-2">
-              <button type="button" className="h-6 px-2 flex items-center rounded-full bg-secondary text-primary text-[10px] font-bold active:scale-90 transition-transform" onClick={() => onOpenCategoryLobby({ sortCategory: 'table', sortBy: 'weight', title: t('home.tableZone') })}>ALL</button>
-              <div className="flex items-center gap-0.5">
-                <button type="button" className="w-6 h-6 flex items-center justify-center rounded-full bg-secondary text-muted-foreground active:scale-90 transition-transform" onClick={() => scrollRow(tableCrashScroll, -1)}><ChevronLeft size={13} /></button>
-                <button type="button" className="w-6 h-6 flex items-center justify-center rounded-full bg-secondary text-muted-foreground active:scale-90 transition-transform" onClick={() => scrollRow(tableCrashScroll, 1)}><ChevronRight size={13} /></button>
-              </div>
-            </div>
-          </div>
-          {gamesLoading ? <div className="flex gap-3 px-4">{Array.from({length:6}).map((_,i)=><div key={i} className="flex-shrink-0 w-32 h-28 animate-pulse rounded-xl bg-secondary"/>)}</div>
-            : <div ref={tableCrashScroll} className="flex gap-3 px-4 overflow-x-auto hide-scrollbar">{tableCrashGames.map((g)=><EGameCard key={g.uuid} game={g} onTap={()=>void onGameTapAction(g.uuid)} />)}</div>}
+          {sectionHeader(<Drama size={15} className="text-orange-400" />, t('home.peryaZone'), () => onOpenCategoryLobby({ siteCategory: 'perya', sortBy: 'weight', title: t('home.peryaZone') }))}
+          {smallRow(homepageGames.perya)}
         </section>
       )}
+
+      {/* Fishing：大卡 3x2 */}
+      {(gamesLoading || homepageGames.fishing.length > 0) && (
+        <section className="mt-6">
+          {sectionHeader(<Fish size={15} className="text-cyan-400" />, t('home.fishingZone'), () => onOpenCategoryLobby({ siteCategory: 'fishing', sortBy: 'weight', title: t('home.fishingZone') }))}
+          {bigGrid(homepageGames.fishing, 6)}
+        </section>
+      )}
+
+      {/* Lottery：小卡横滑 */}
+      {(gamesLoading || homepageGames.lottery.length > 0) && (
+        <section className="mt-6">
+          {sectionHeader(<Ticket size={15} className="text-pink-400" />, t('home.lotteryZone'), () => onOpenCategoryLobby({ siteCategory: 'lottery', sortBy: 'weight', title: t('home.lotteryZone') }))}
+          {smallRow(homepageGames.lottery)}
+        </section>
+      )}
+
+      {/* Mega Win x1000+：大卡 3x2 */}
+      {(gamesLoading || homepageGames.megaWin.length > 0) && (
+        <section className="mt-6">
+          {sectionHeader(<Rocket size={15} className="text-yellow-400" />, t('home.megaWin'))}
+          {bigGrid(homepageGames.megaWin, 6)}
+        </section>
+      )}
+
+      {/* Sports 入口通栏 */}
+      <section className="mt-6 px-4">
+        <button
+          type="button"
+          className="w-full flex items-center justify-between rounded-2xl px-5 py-4 active:scale-[0.98] transition-transform"
+          style={{ background: 'linear-gradient(120deg, #14532d 0%, #166534 55%, #15803d 100%)' }}
+          onClick={() => void onGameTapAction(WIN568_SPORTSBOOK_UUID)}
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center"><Dice5 size={20} className="text-white" /></div>
+            <div className="text-left">
+              <p className="text-sm font-black text-white font-display">{t('home.sportsEntry')}</p>
+              <p className="text-[11px] text-white/70">{t('home.sportsEntrySub')}</p>
+            </div>
+          </div>
+          <ChevronRight size={18} className="text-white/80" />
+        </button>
+      </section>
+
 
       {/* Betting Table */}
       <section ref={betSectionRef} className="mt-8 px-4">
