@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Flame } from 'lucide-react'
 import type { SlotGame } from '@/api/slots'
 import { useLocaleStore } from '@/stores/locale'
@@ -16,11 +17,24 @@ export default function GameCardV2({ game, onTap, size, showHot, showLive }: Pro
   const locale = useLocaleStore((s) => s.locale)
   const unavailable = game.supportsActiveCurrency === false
   const imageUrl = game.imageHqUrl ?? game.imageUrl
+  // 上游厂商封面比例混杂（JILI 310×190 横图、PG 1024² 方图…），竖卡 cover 会把横图裁掉大半：
+  // 横图改用「模糊底 + contain 完整显示」，方/竖图仍走 cover
+  const [isLandscape, setIsLandscape] = useState(false)
+
+  function onImageLoad(e: React.SyntheticEvent<HTMLImageElement>) {
+    const img = e.currentTarget
+    if (img.naturalWidth > img.naturalHeight * 1.15) setIsLandscape(true)
+  }
 
   const image = (
     <div className={`relative overflow-hidden rounded-xl bg-secondary ${size === 'lg' ? 'w-full aspect-[126.9/161.5]' : 'w-[76px] h-[95px]'}`}>
       {imageUrl ? (
-        <img src={imageUrl} alt="" loading="lazy" draggable={false} className="absolute inset-0 w-full h-full object-cover" />
+        <>
+          {isLandscape && (
+            <img src={imageUrl} alt="" aria-hidden draggable={false} className="absolute inset-0 w-full h-full object-cover scale-125 blur-md brightness-[0.55]" />
+          )}
+          <img src={imageUrl} alt="" loading="lazy" draggable={false} onLoad={onImageLoad} className={`absolute inset-0 w-full h-full ${isLandscape ? 'object-contain' : 'object-cover'}`} />
+        </>
       ) : (
         <div className="absolute inset-0 flex items-center justify-center px-1.5">
           <span className="text-[10px] font-bold text-foreground/60 text-center leading-tight line-clamp-3">{localizedGameName(game, locale)}</span>
