@@ -140,7 +140,7 @@ export default function BingoPage({ onOpenWallet, onGameTap, onOpenGame, onOpenC
         <div className="flex items-center justify-between mb-3 px-4">
           <div className="flex items-center gap-2"><span className="text-base">🐓</span><h2 className="text-foreground font-black text-base font-display">MORE PINOY GAMES</h2></div>
           <div className="flex items-center gap-2">
-            <button type="button" className="h-6 px-2 flex items-center rounded-full bg-secondary text-primary text-[10px] font-bold active:scale-90 transition-transform" onClick={() => onOpenCategoryLobby({ title: '🇵🇭 All Pinoy Games', siteCategory: 'perya' })}>ALL</button>
+            <button type="button" className="h-6 px-2 flex items-center rounded-full bg-secondary text-primary text-[10px] font-bold active:scale-90 transition-transform" onClick={() => onOpenCategoryLobby({ title: '🇵🇭 All Pinoy Games', siteCategory: 'perya' })}>{t('common.viewAll')}</button>
             <div className="flex items-center gap-0.5">
               <button type="button" className="w-6 h-6 flex items-center justify-center rounded-full bg-secondary text-muted-foreground active:scale-90 transition-transform" onClick={() => scrollRow(moreScroll, -1)}><ChevronLeft size={13} /></button>
               <button type="button" className="w-6 h-6 flex items-center justify-center rounded-full bg-secondary text-muted-foreground active:scale-90 transition-transform" onClick={() => scrollRow(moreScroll, 1)}><ChevronRight size={13} /></button>

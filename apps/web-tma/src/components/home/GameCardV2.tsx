@@ -18,7 +18,7 @@ export default function GameCardV2({ game, onTap, size, showHot, showLive }: Pro
   const imageUrl = game.imageHqUrl ?? game.imageUrl
 
   const image = (
-    <div className={`relative overflow-hidden rounded-xl bg-secondary ${size === 'lg' ? 'w-full aspect-square' : 'w-[76px] h-[95px]'}`}>
+    <div className={`relative overflow-hidden rounded-xl bg-secondary ${size === 'lg' ? 'w-full aspect-[126.9/161.5]' : 'w-[76px] h-[95px]'}`}>
       {imageUrl ? (
         <img src={imageUrl} alt="" loading="lazy" draggable={false} className="absolute inset-0 w-full h-full object-cover" />
       ) : (

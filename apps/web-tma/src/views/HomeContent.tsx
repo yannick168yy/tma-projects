@@ -464,7 +464,7 @@ export default function HomeContent({ onNavigatePath, onOpenCategoryLobby, onOpe
     return (
       <div className="flex items-center justify-between px-4 mb-3">
         <div className="flex items-center gap-2">{icon}<h3 className="text-foreground font-black text-sm font-display">{title}</h3></div>
-        {onAll && <button type="button" className="h-6 px-2 flex items-center rounded-full bg-secondary text-primary text-[10px] font-bold active:scale-90 transition-transform" onClick={onAll}>ALL</button>}
+        {onAll && <button type="button" className="h-6 px-2 flex items-center rounded-full bg-secondary text-primary text-[10px] font-bold active:scale-90 transition-transform" onClick={onAll}>{t('common.viewAll')}</button>}
       </div>
     )
   }
@@ -473,7 +473,7 @@ export default function HomeContent({ onNavigatePath, onOpenCategoryLobby, onOpe
     if (gamesLoading) {
       return (
         <div className="px-4 grid grid-cols-3 gap-x-2 gap-y-3">
-          {Array.from({ length: skeletonCount }).map((_, i) => <div key={i} className="aspect-[4/5] animate-pulse rounded-xl bg-secondary" />)}
+          {Array.from({ length: skeletonCount }).map((_, i) => <div key={i} className="aspect-[126.9/161.5] animate-pulse rounded-xl bg-secondary" />)}
         </div>
       )
     }
@@ -694,7 +694,7 @@ export default function HomeContent({ onNavigatePath, onOpenCategoryLobby, onOpe
           <div className="px-3 mt-4 grid grid-cols-3 gap-2">
             {gridLoading && gridGames.length === 0
               ? Array.from({ length: 12 }).map((_, i) => (
-                  <div key={i} className="aspect-[4/5] rounded-xl animate-pulse bg-secondary" />
+                  <div key={i} className="aspect-[126.9/161.5] rounded-xl animate-pulse bg-secondary" />
                 ))
               : gridGames.map((g) => (
                   <GameCardV2 key={g.uuid} game={g} onTap={() => void onGameTapAction(g.uuid)} size="lg" />
@@ -706,7 +706,7 @@ export default function HomeContent({ onNavigatePath, onOpenCategoryLobby, onOpe
           {gridLoading && gridGames.length > 0 && (
             <div className="px-3 mt-2 grid grid-cols-3 gap-2">
               {Array.from({ length: 3 }).map((_, i) => (
-                <div key={i} className="aspect-[4/5] rounded-xl animate-pulse bg-secondary" />
+                <div key={i} className="aspect-[126.9/161.5] rounded-xl animate-pulse bg-secondary" />
               ))}
             </div>
           )}
@@ -799,7 +799,7 @@ export default function HomeContent({ onNavigatePath, onOpenCategoryLobby, onOpe
       {(gamesLoading || homepageGames.perya.length > 0) && (
         <section className="mt-6">
           {sectionHeader(<Drama size={15} className="text-orange-400" />, t('home.peryaZone'), () => onOpenCategoryLobby({ siteCategory: 'perya', sortBy: 'weight', title: t('home.peryaZone') }))}
-          {smallRow(homepageGames.perya)}
+          {bigGrid(homepageGames.perya, 6)}
         </section>
       )}
 
@@ -815,7 +815,7 @@ export default function HomeContent({ onNavigatePath, onOpenCategoryLobby, onOpe
       {(gamesLoading || homepageGames.lottery.length > 0) && (
         <section className="mt-6">
           {sectionHeader(<Ticket size={15} className="text-pink-400" />, t('home.lotteryZone'), () => onOpenCategoryLobby({ siteCategory: 'lottery', sortBy: 'weight', title: t('home.lotteryZone') }))}
-          {smallRow(homepageGames.lottery)}
+          {bigGrid(homepageGames.lottery, 6)}
         </section>
       )}
 
@@ -823,7 +823,7 @@ export default function HomeContent({ onNavigatePath, onOpenCategoryLobby, onOpe
       {(gamesLoading || homepageGames.megaWin.length > 0) && (
         <section className="mt-6">
           {sectionHeader(<Rocket size={15} className="text-yellow-400" />, t('home.megaWin'))}
-          {bigGrid(homepageGames.megaWin, 6)}
+          {smallRow(homepageGames.megaWin)}
         </section>
       )}
 

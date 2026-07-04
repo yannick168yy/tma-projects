@@ -25,6 +25,7 @@ export default {
     claim: 'Nhận',
     all: 'Tất cả',
     seeAll: 'Xem tất cả',
+    viewAll: 'Xem Tất Cả',
     games: '{{count}} trò chơi',
     copied: 'Đã sao chép!',
     verified: 'Đã xác minh',

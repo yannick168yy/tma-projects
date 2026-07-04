@@ -25,6 +25,7 @@ export default {
     claim: 'Claim',
     all: 'All',
     seeAll: 'See all',
+    viewAll: 'View All',
     games: '{{count}} games',
     copied: 'Copied!',
     verified: 'Verified',

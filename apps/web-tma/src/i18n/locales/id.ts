@@ -25,6 +25,7 @@ export default {
     claim: 'Klaim',
     all: 'Semua',
     seeAll: 'Lihat semua',
+    viewAll: 'Lihat Semua',
     games: '{{count}} permainan',
     copied: 'Disalin!',
     verified: 'Terverifikasi',

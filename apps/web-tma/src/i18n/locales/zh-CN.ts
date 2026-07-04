@@ -25,6 +25,7 @@ export default {
     claim: '领取',
     all: '全部',
     seeAll: '查看全部',
+    viewAll: '查看全部',
     games: '{{count}} 款游戏',
     copied: '已复制！',
     verified: '已验证',
