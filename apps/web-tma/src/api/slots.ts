@@ -12,6 +12,8 @@ export interface SlotGame {
   sortCategory: string | null
   imageUrl: string | null
   imageHqUrl: string | null
+  imageAnim?: string | null
+  imageSource?: string | null
   imageWidth?: number | null
   imageHeight?: number | null
   hasDemo: boolean

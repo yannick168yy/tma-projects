@@ -123,6 +123,7 @@ export interface DbGame {
   siteCategory?: string | null
   imageUrl: string | null
   imageHqUrl: string | null
+  imageAnim?: string | null
   imageSource?: string | null
   imageWidth?: number | null
   imageHeight?: number | null
@@ -235,6 +236,7 @@ function rowToWin568Game(r: RowDataPacket): DbGame {
     siteCategory: r.effective_site_category ? String(r.effective_site_category) : null,
     imageUrl: imageUrl ? String(imageUrl) : null,
     imageHqUrl: imageUrl ? String(imageUrl) : null,
+    imageAnim: r.image_anim ? String(r.image_anim) : null,
     imageSource: r.effective_image_source ? String(r.effective_image_source) : null,
     imageWidth: probedDims ? Number(r.icon_width) : null,
     imageHeight: probedDims ? Number(r.icon_height) : null,
@@ -294,6 +296,7 @@ export async function loadGamesCache(env: Env): Promise<number> {
             COALESCE(o.name_override, g.name_en, g.name_zh, CONCAT('568Win ', g.game_id)) AS effective_name,
             COALESCE(o.image_override, g.icon_url) AS effective_image,
             o.image_override_source AS effective_image_source,
+            o.image_anim,
             COALESCE(o.weight, GREATEST(1, 10000 - COALESCE(g.rank_no, 9999))) AS effective_weight,
             COALESCE(o.ph_bonus, 0) AS effective_ph_bonus,
             COALESCE(o.is_featured, 0) AS effective_featured,

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { SlotGame } from '@/api/slots'
 import { useLocaleStore } from '@/stores/locale'
 import { localizedGameName } from '@/utils/game'
@@ -34,20 +34,44 @@ export default function GameCardV2({ game, onTap, size, showLive }: Props) {
     game.imageWidth != null && game.imageHeight != null && game.imageWidth > game.imageHeight * 1.15,
   )
 
+  // 动图懒加载：首屏只加载静态首帧(imageUrl)；卡片进视口后后台预载动图(imageAnim)，
+  // 加载完成才切换 src 播放，避免动图拖慢首屏（对齐 ptgaming 原始"首图先行、就绪后连播"逻辑）
+  const wrapRef = useRef<HTMLDivElement>(null)
+  const [animSrc, setAnimSrc] = useState<string | null>(null)
+  useEffect(() => {
+    const anim = game.imageAnim
+    if (!anim || !imageUrl) return
+    const el = wrapRef.current
+    if (!el) return
+    const io = new IntersectionObserver((entries) => {
+      if (!entries.some((e) => e.isIntersecting)) return
+      io.disconnect()
+      const pre = new Image()
+      pre.onload = () => setAnimSrc(anim)
+      pre.src = anim
+    }, { rootMargin: '200px' })
+    io.observe(el)
+    return () => io.disconnect()
+  }, [game.imageAnim, imageUrl])
+
   function onImageLoad(e: React.SyntheticEvent<HTMLImageElement>) {
     if (game.imageWidth != null && game.imageHeight != null) return
     const img = e.currentTarget
     if (img.naturalWidth > img.naturalHeight * 1.15) setIsLandscape(true)
   }
 
+  const displaySrc = animSrc ?? imageUrl
+  // 全站封面风格统一：playtime 方图自带金色边框，其余来源(568win上游/gzone/fbmplay…)补同色描边使观感一致
+  const isPlaytime = game.imageSource === 'playtime' || game.imageSource === 'playtime-anim'
+  const goldBorder = imageUrl && !isPlaytime ? 'ring-1 ring-inset ring-[#e8b24a]/75' : ''
   const image = (
-    <div className={`relative overflow-hidden rounded-xl bg-secondary ${size === 'lg' ? 'w-full aspect-square' : 'w-[76px] h-[76px]'}`}>
+    <div ref={wrapRef} className={`relative overflow-hidden rounded-xl bg-secondary ${goldBorder} ${size === 'lg' ? 'w-full aspect-square' : 'w-[76px] h-[76px]'}`}>
       {imageUrl ? (
         <>
           {isLandscape && (
-            <img src={imageUrl} alt="" aria-hidden draggable={false} className="absolute inset-0 w-full h-full object-cover scale-125 blur-md brightness-[0.55]" />
+            <img src={displaySrc ?? undefined} alt="" aria-hidden draggable={false} className="absolute inset-0 w-full h-full object-cover scale-125 blur-md brightness-[0.55]" />
           )}
-          <img src={imageUrl} alt="" loading="lazy" draggable={false} onLoad={onImageLoad} className={`absolute inset-0 w-full h-full ${isLandscape ? 'object-contain' : 'object-cover'}`} />
+          <img src={displaySrc ?? undefined} alt="" loading="lazy" draggable={false} onLoad={onImageLoad} className={`absolute inset-0 w-full h-full ${isLandscape ? 'object-contain' : 'object-cover'}`} />
         </>
       ) : (
         <div className="absolute inset-0 flex items-center justify-center px-1.5">
