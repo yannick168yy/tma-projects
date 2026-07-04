@@ -13,6 +13,7 @@
  *   GEMINI_MODEL=gemini-2.5-flash   模型（需支持 google_search 工具）
  *   CONCURRENCY=4                   并发请求数
  *   LIMIT=0                         最多处理条数（0=不限，试跑用 LIMIT=10）
+ *   TOP=0                           按运营价值优先取前 N 款（厂商梯队分 desc → 上游 rank asc）
  *   FORCE=1                         重跑已富化过的游戏（默认只跑 web_enriched_at IS NULL）
  *   DRY_RUN=1                       只打印不写库
  *   PROVIDER=JiLiGaming             只跑指定厂商
@@ -31,6 +32,8 @@ import mysql from 'mysql2/promise'
 const GEMINI_MODEL = process.env.GEMINI_MODEL ?? 'gemini-2.5-flash'
 const CONCURRENCY = Number(process.env.CONCURRENCY ?? 4)
 const LIMIT = Number(process.env.LIMIT ?? 0)
+// TOP=N：按运营价值（厂商梯队分 desc → 上游 rank asc）优先取前 N 款，控制批量成本
+const TOP = Number(process.env.TOP ?? 0)
 const FORCE = process.env.FORCE === '1'
 const DRY_RUN = process.env.DRY_RUN === '1'
 const GAME_PROVIDER_ID = process.env.GAME_PROVIDER_ID ? Number(process.env.GAME_PROVIDER_ID) : null
@@ -141,6 +144,7 @@ interface GameRow extends mysql.RowDataPacket {
   new_game_type: number | null
   site_category_auto: string | null
   rtp: number | null
+  rank_no: number | null
 }
 
 function buildPrompt(g: GameRow): string {
@@ -252,7 +256,7 @@ async function main() {
   if (GAME_PROVIDER_ID !== null && GAME_ID !== null) params.push(GAME_PROVIDER_ID, GAME_ID)
   const [games] = await db.query<GameRow[]>(
     `SELECT g.game_id, g.game_provider_id, g.provider, g.name_en, g.name_zh,
-            g.new_game_type, g.site_category_auto, g.rtp
+            g.new_game_type, g.site_category_auto, g.rtp, g.rank_no
      FROM bg_568win_game g
      LEFT JOIN bg_568win_game_override o
        ON o.game_provider_id = g.game_provider_id AND o.game_id = g.game_id
@@ -269,7 +273,38 @@ async function main() {
      ${LIMIT > 0 ? `LIMIT ${LIMIT}` : ''}`,
     params,
   )
-  console.log(`\n🎮 待富化 ${games.length} 款（model=${GEMINI_MODEL} concurrency=${CONCURRENCY}${DRY_RUN ? ' DRY_RUN' : ''}）\n`)
+  // TOP 模式：厂商梯队分高者优先，同厂商按 568Win 上游 rank 升序；
+  // 单厂商设上限避免大厂全量挤占（第一遍按上限公平分配，没满再第二遍放开补齐）
+  const PROVIDER_CAP = Number(process.env.PROVIDER_CAP ?? 150)
+  let queue = games
+  if (TOP > 0) {
+    const sorted = [...games].sort((a, b) => {
+      const tier = providerBase(b.provider) - providerBase(a.provider)
+      if (tier !== 0) return tier
+      return (a.rank_no ?? 999_999) - (b.rank_no ?? 999_999)
+    })
+    const picked = new Set<GameRow>()
+    const perProvider = new Map<string, number>()
+    for (const g of sorted) {
+      if (picked.size >= TOP) break
+      const p = g.provider ?? '?'
+      if ((perProvider.get(p) ?? 0) >= PROVIDER_CAP) continue
+      picked.add(g)
+      perProvider.set(p, (perProvider.get(p) ?? 0) + 1)
+    }
+    for (const g of sorted) {
+      if (picked.size >= TOP) break
+      picked.add(g)
+    }
+    queue = [...picked]
+  }
+
+  console.log(`\n🎮 符合条件 ${games.length} 款，本次跑 ${queue.length} 款（model=${GEMINI_MODEL} concurrency=${CONCURRENCY}${TOP > 0 ? ` TOP=${TOP}` : ''}${DRY_RUN ? ' DRY_RUN' : ''}）\n`)
+  if (TOP > 0) {
+    const byProvider = new Map<string, number>()
+    for (const g of queue) byProvider.set(g.provider ?? '?', (byProvider.get(g.provider ?? '?') ?? 0) + 1)
+    console.log('本批厂商分布:', [...byProvider.entries()].map(([p, n]) => `${p}:${n}`).join(' '), '\n')
+  }
 
   // 相似游戏名 → uuid 映射
   const [allNames] = await db.query<mysql.RowDataPacket[]>(
@@ -285,8 +320,8 @@ async function main() {
   let cursor = 0
 
   async function worker() {
-    while (cursor < games.length) {
-      const g = games[cursor++]
+    while (cursor < queue.length) {
+      const g = queue[cursor++]
       const label = `[${g.provider}] ${g.name_en} (${g.game_provider_id}:${g.game_id})`
       try {
         const r = await callWithRetry(() => callGemini(buildPrompt(g)))
@@ -413,10 +448,10 @@ async function main() {
         )
         done++
         const mismatch = rtpMismatch ? ' ⚠️RTP差异' : ''
-        console.log(`✓ [${done + failed}/${games.length}] ${label}${mismatch}`)
+        console.log(`✓ [${done + failed}/${queue.length}] ${label}${mismatch}`)
       } catch (e) {
         failed++
-        console.error(`✗ [${done + failed}/${games.length}] ${label}:`, e instanceof Error ? e.message : e)
+        console.error(`✗ [${done + failed}/${queue.length}] ${label}:`, e instanceof Error ? e.message : e)
       }
     }
   }
