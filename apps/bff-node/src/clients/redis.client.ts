@@ -9,6 +9,9 @@ export function getRedis(env: Env): Redis {
       maxRetriesPerRequest: 3,
       lazyConnect: false,
     })
+    client.on('error', (err) => {
+      console.warn('[redis] client error:', err.message)
+    })
   }
   return client
 }

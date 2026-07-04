@@ -6,7 +6,13 @@ import { closeMysql, getStorageMode, warmupMysql, isMysqlEnabled } from './clien
 
 const env = await bootstrapEnv()
 
-if (isMysqlEnabled(env)) await warmupMysql(env)
+if (isMysqlEnabled(env)) {
+  try {
+    await warmupMysql(env)
+  } catch (err) {
+    logger.error({ err }, 'mysql warmup failed, starting server anyway')
+  }
+}
 
 const app = createApp(env)
 
