@@ -1,6 +1,11 @@
 import type { RowDataPacket } from 'mysql2'
 import type { Env } from '../config/env.js'
 import { getMysqlPool } from '../clients/mysql.client.js'
+import { tryConsumeGeminiSearchQuota } from './gemini-quota.service.js'
+
+export class GeminiQuotaExhaustedError extends Error {
+  constructor() { super('今日 Gemini 免费额度已用完，太平洋时间零点后自动恢复') }
+}
 
 const GEMINI_MODEL = process.env.GEMINI_MODEL ?? 'gemini-2.5-flash'
 const VOLATILITY_VALUES = new Set(['low', 'mid', 'high'])
@@ -84,7 +89,7 @@ interface GameRow extends RowDataPacket {
   rtp: number | null
 }
 
-function providerBase(provider: string | null): number {
+export function providerBase(provider: string | null): number {
   if (!provider) return 10
   for (const [re, score] of PROVIDER_BASE_PATTERNS) {
     if (re.test(provider)) return score
@@ -200,6 +205,7 @@ export async function enrichWin568Game(env: Env, gameProviderId: number, gameId:
     nameToUuid.set(String(row.name_en).toLowerCase().trim(), `568win:${row.game_provider_id}:${row.game_id}`)
   }
 
+  if (!await tryConsumeGeminiSearchQuota(env)) throw new GeminiQuotaExhaustedError()
   const r = await callGemini(env.GEMINI_API_KEY, buildPrompt(game))
   const volatilitySourced = fact(r.volatility, (v) => VOLATILITY_VALUES.has(String(v)))
   const volatilityEstimate = typeof r.volatility_estimate === 'string' && VOLATILITY_VALUES.has(r.volatility_estimate) ? r.volatility_estimate : null

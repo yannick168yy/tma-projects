@@ -210,10 +210,32 @@ async function callGemini(prompt: string): Promise<GeminiResult> {
   return JSON.parse(jsonMatch[0]) as GeminiResult
 }
 
-async function callWithRetry<T>(fn: () => Promise<T>, retries = 3): Promise<T> {
+class QuotaExhaustedError extends Error {
+  constructor() { super('今日 Gemini 免费额度已用完（与定时任务/后台按钮共享，太平洋时间零点刷新）') }
+}
+
+// 与 bff 定时任务、后台单游戏按钮共享 bg_gemini_search_quota 计数，保证全天总量不超免费额度
+const DAILY_CAP = Number(process.env.DAILY_CAP ?? 1200)
+
+function ptToday(): string {
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' })
+}
+
+async function tryConsumeQuota(db: mysql.Pool): Promise<boolean> {
+  const day = ptToday()
+  await db.execute(`INSERT IGNORE INTO bg_gemini_search_quota (quota_date, used) VALUES (?, 0)`, [day])
+  const [res] = await db.execute<mysql.ResultSetHeader>(
+    `UPDATE bg_gemini_search_quota SET used = used + 1 WHERE quota_date = ? AND used < ?`,
+    [day, DAILY_CAP],
+  )
+  return res.affectedRows > 0
+}
+
+// 重试 1 次（解析失败的重试同样消耗 grounding 计费额度）；额度耗尽不重试
+async function callWithRetry<T>(fn: () => Promise<T>, retries = 1): Promise<T> {
   for (let i = 0; ; i++) {
     try { return await fn() } catch (e) {
-      if (i >= retries) throw e
+      if (e instanceof QuotaExhaustedError || i >= retries) throw e
       await new Promise((r) => setTimeout(r, 2000 * (i + 1)))
     }
   }
@@ -318,13 +340,17 @@ async function main() {
   let done = 0
   let failed = 0
   let cursor = 0
+  let quotaExhausted = false
 
   async function worker() {
-    while (cursor < queue.length) {
+    while (cursor < queue.length && !quotaExhausted) {
       const g = queue[cursor++]
       const label = `[${g.provider}] ${g.name_en} (${g.game_provider_id}:${g.game_id})`
       try {
-        const r = await callWithRetry(() => callGemini(buildPrompt(g)))
+        const r = await callWithRetry(async () => {
+          if (!await tryConsumeQuota(db)) throw new QuotaExhaustedError()
+          return callGemini(buildPrompt(g))
+        })
 
         const volatilitySourced = fact(r.volatility, (v) => VOLATILITY_VALUES.has(String(v)))
         const volatilityEstimate = typeof r.volatility_estimate === 'string' && VOLATILITY_VALUES.has(r.volatility_estimate) ? r.volatility_estimate : null
@@ -450,6 +476,11 @@ async function main() {
         const mismatch = rtpMismatch ? ' ⚠️RTP差异' : ''
         console.log(`✓ [${done + failed}/${queue.length}] ${label}${mismatch}`)
       } catch (e) {
+        if (e instanceof QuotaExhaustedError) {
+          quotaExhausted = true
+          console.log(`\n⏸ ${e.message}，本次停止（已完成的不受影响，明天重跑自动续）`)
+          break
+        }
         failed++
         console.error(`✗ [${done + failed}/${queue.length}] ${label}:`, e instanceof Error ? e.message : e)
       }
