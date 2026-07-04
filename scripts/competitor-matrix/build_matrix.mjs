@@ -56,6 +56,14 @@ for (const line of fs.readFileSync(`${ROOT}/scripts/competitor-matrix/win568_gam
   win568.get(key).push(rec);
 }
 
+// 仅游戏名索引：norm(name) → [rec]，给 provider 缺失的竞品条目做兜底匹配
+const byName = new Map();
+for (const g of allGames) {
+  const k = norm(g.name);
+  if (!byName.has(k)) byName.set(k, []);
+  byName.get(k).push(g);
+}
+
 // 每款游戏的分层信号：key `gpid:gid`
 const signal = new Map(); // -> {gpid,gid,provider,name, sites:{}, comp:0}
 const rec = (g) => {
@@ -81,6 +89,18 @@ function apply(site, weight, provRaw, cname, E) {
   return hit;
 }
 
+// 仅按游戏名兜底匹配（用于 provider 缺失的条目，如 casinoplus 的 ALL_GAME 段 43%）
+// 名太泛(命中>6款，如 Baccarat/Roulette)则跳过，避免误伤
+function applyByName(site, cname, E) {
+  const found = byName.get(norm(cname));
+  if (!found || found.length > 6) return false;
+  for (const g of found) {
+    const s = rec(g);
+    if ((s.sites[site] || 0) < E) s.sites[site] = E;
+  }
+  return true;
+}
+
 const MKT = { casinoplus: 1.0, ptgaming: 0.9, bingoplus: 0.7, gzone: 0.5 };
 const stat = {};
 const track = (site, matched) => { stat[site] = stat[site] || { games: 0, matchedGames: 0 }; stat[site].games++; if (matched) stat[site].matchedGames++; };
@@ -99,7 +119,9 @@ const track = (site, matched) => { stat[site] = stat[site] || { games: 0, matche
       const best = Math.min(...Object.values(g.catRanks));
       E = best <= 10 ? 0.6 : best <= 30 ? 0.5 : best <= 60 ? 0.4 : best <= 120 ? 0.3 : 0.2;
     }
-    track('casinoplus', apply('casinoplus', MKT.casinoplus, g.provider, g.name, E));
+    let matched = apply('casinoplus', MKT.casinoplus, g.provider, g.name, E);
+    if (!matched && !g.provider) matched = applyByName('casinoplus', g.name, E);  // provider 缺失兜底
+    track('casinoplus', matched);
   }
 }
 
