@@ -553,8 +553,13 @@ export const updateWin568Game = (gameProviderId: number, gameId: number, data: {
   siteCategory?: string | null
   nameOverride?: string | null
   imageOverride?: string | null
+  imageOverrideSource?: string | null
+  imageAnim?: string | null
 }) =>
   patch<{ gameProviderId: number; gameId: number }>(`/admin/games/win568/${gameProviderId}/${gameId}`, data)
+export interface CoverCandidate { source: string; url: string; animUrl: string | null }
+export const getWin568CoverCandidates = (gameProviderId: number, gameId: number) =>
+  get<{ candidates: CoverCandidate[] }>(`/admin/games/win568/${gameProviderId}/${gameId}/cover-candidates`)
 export const enrichWin568Game = (gameProviderId: number, gameId: number) =>
   post<{ gameProviderId: number; gameId: number; game: AdminWin568Game | null }>(`/admin/games/win568/${gameProviderId}/${gameId}/enrich`, {})
 export const getWin568ProviderStats = () =>

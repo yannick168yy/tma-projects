@@ -64,3 +64,6 @@ data/fbmplay/images/
 data/fbmplay/covers_upload/
 data/fbmplay/pageContext_data.json
 data/fbmplay/download_failed.json
+
+# 多源封面候选上传暂存(由 cover-candidates/build.mjs 生成,不入库)
+data/cover-candidates/

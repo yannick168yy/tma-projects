@@ -745,10 +745,13 @@ export async function updateAdminWin568Game(
     siteCategory?: string | null
     nameOverride?: string | null
     imageOverride?: string | null
+    imageOverrideSource?: string | null
+    imageAnim?: string | null
   },
 ): Promise<void> {
   const [[game]] = await pool(env).query<RowDataPacket[]>(
-    `SELECT g.game_id, o.is_active, o.weight, o.is_featured, o.sort_category, o.site_category, o.name_override, o.image_override
+    `SELECT g.game_id, o.is_active, o.weight, o.is_featured, o.sort_category, o.site_category, o.name_override,
+            o.image_override, o.image_override_source, o.image_anim
      FROM bg_568win_game g
      LEFT JOIN bg_568win_game_override o ON o.game_provider_id = g.game_provider_id AND o.game_id = g.game_id
      WHERE g.game_provider_id = ? AND g.game_id = ? LIMIT 1`,
@@ -758,8 +761,9 @@ export async function updateAdminWin568Game(
 
   await pool(env).execute(
     `INSERT INTO bg_568win_game_override
-     (game_provider_id, game_id, is_active, weight, is_featured, sort_category, site_category, name_override, image_override)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+     (game_provider_id, game_id, is_active, weight, is_featured, sort_category, site_category, name_override,
+      image_override, image_override_source, image_anim)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON DUPLICATE KEY UPDATE
        is_active = VALUES(is_active),
        weight = VALUES(weight),
@@ -767,7 +771,9 @@ export async function updateAdminWin568Game(
        sort_category = VALUES(sort_category),
        site_category = VALUES(site_category),
        name_override = VALUES(name_override),
-       image_override = VALUES(image_override)`,
+       image_override = VALUES(image_override),
+       image_override_source = VALUES(image_override_source),
+       image_anim = VALUES(image_anim)`,
     [
       gameProviderId,
       gameId,
@@ -778,8 +784,34 @@ export async function updateAdminWin568Game(
       patch.siteCategory === undefined ? game.site_category : patch.siteCategory,
       patch.nameOverride === undefined ? game.name_override : patch.nameOverride,
       patch.imageOverride === undefined ? game.image_override : patch.imageOverride,
+      patch.imageOverrideSource === undefined ? game.image_override_source : patch.imageOverrideSource,
+      patch.imageAnim === undefined ? game.image_anim : patch.imageAnim,
     ],
   )
+}
+
+// 某游戏各源候选封面 + 568win 上游原图，供后台换图弹窗
+export async function listWin568CoverCandidates(
+  env: Env,
+  gameProviderId: number,
+  gameId: number,
+): Promise<{ source: string; url: string; animUrl: string | null }[]> {
+  const [[g]] = await pool(env).query<RowDataPacket[]>(
+    `SELECT g.icon_url, o.image_override, o.image_override_source
+     FROM bg_568win_game g
+     LEFT JOIN bg_568win_game_override o ON o.game_provider_id = g.game_provider_id AND o.game_id = g.game_id
+     WHERE g.game_provider_id = ? AND g.game_id = ? LIMIT 1`,
+    [gameProviderId, gameId],
+  )
+  const [rows] = await pool(env).query<RowDataPacket[]>(
+    `SELECT source, url, anim_url FROM bg_568win_game_cover_candidate
+     WHERE game_provider_id = ? AND game_id = ? ORDER BY FIELD(source,'playtime','fbmplay','casinoplus','gzone'), source`,
+    [gameProviderId, gameId],
+  )
+  const out = rows.map((r) => ({ source: String(r.source), url: String(r.url), animUrl: r.anim_url ? String(r.anim_url) : null }))
+  // 568win 上游原图作为兜底候选（放最后）
+  if (g?.icon_url) out.push({ source: '568win', url: String(g.icon_url), animUrl: null })
+  return out
 }
 
 export async function toggleAdminWin568Game(env: Env, gameProviderId: number, gameId: number, isActive: boolean): Promise<void> {

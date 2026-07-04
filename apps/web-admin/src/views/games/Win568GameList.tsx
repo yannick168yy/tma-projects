@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import { Button, Col, Descriptions, Form, Input, InputNumber, Modal, Row, Select, Space, Switch, Table, Tag, message } from 'antd'
+import { Button, Col, Descriptions, Empty, Form, Input, InputNumber, Modal, Row, Select, Space, Spin, Switch, Table, Tag, message } from 'antd'
 import type { TablePaginationConfig, TableProps } from 'antd'
-import { enrichWin568Game, getAdminWin568Games, toggleWin568Game, updateWin568Game, type AdminWin568Game } from '../../api'
+import { enrichWin568Game, getAdminWin568Games, getWin568CoverCandidates, toggleWin568Game, updateWin568Game, type AdminWin568Game, type CoverCandidate } from '../../api'
 
 interface Props { refreshKey: number }
 
@@ -30,6 +30,18 @@ const SITE_CATEGORY_OPTIONS = [
   { value: 'lobby', label: '大厅' },
   { value: 'other', label: '其他' },
 ]
+
+const COVER_SOURCE_META: Record<string, { label: string; color: string }> = {
+  playtime: { label: 'Playtime 方图', color: 'gold' },
+  fbmplay: { label: 'FBM', color: 'geekblue' },
+  casinoplus: { label: 'CasinoPlus', color: 'magenta' },
+  gzone: { label: 'GZone', color: 'cyan' },
+  '568win': { label: '568Win 原图', color: 'default' },
+}
+
+function coverSourceMeta(source: string) {
+  return COVER_SOURCE_META[source] ?? { label: source, color: 'default' }
+}
 
 function siteCategoryColor(cat: string) {
   const colors: Record<string, string> = {
@@ -104,6 +116,46 @@ export default function Win568GameList({ refreshKey }: Props) {
   const [editing, setEditing] = useState<AdminWin568Game | null>(null)
   const [enriching, setEnriching] = useState(false)
   const [form] = Form.useForm()
+  // 换封面弹窗
+  const [coverPicker, setCoverPicker] = useState<AdminWin568Game | null>(null)
+  const [candidates, setCandidates] = useState<CoverCandidate[]>([])
+  const [candLoading, setCandLoading] = useState(false)
+  const [savingCover, setSavingCover] = useState<string | null>(null)
+
+  async function openCoverPicker(record: AdminWin568Game) {
+    setCoverPicker(record)
+    setCandidates([])
+    setCandLoading(true)
+    try {
+      const res = await getWin568CoverCandidates(record.gameProviderId, record.gameId)
+      setCandidates(res.candidates)
+    } catch (e) {
+      message.error(e instanceof Error ? e.message : '加载候选封面失败')
+    } finally {
+      setCandLoading(false)
+    }
+  }
+
+  async function pickCover(c: CoverCandidate) {
+    if (!coverPicker) return
+    setSavingCover(c.url)
+    try {
+      // 568win 原图＝清空覆盖回退上游；其余源写 image_override + source + 动图(仅 playtime 带)
+      const isUpstream = c.source === '568win'
+      await updateWin568Game(coverPicker.gameProviderId, coverPicker.gameId, {
+        imageOverride: isUpstream ? null : c.url,
+        imageOverrideSource: isUpstream ? null : c.source,
+        imageAnim: isUpstream ? null : (c.animUrl ?? null),
+      })
+      message.success(isUpstream ? '已回退 568Win 原图' : `已换为 ${coverSourceMeta(c.source).label}`)
+      setGames((prev) => prev.map((g) => g.uuid === coverPicker.uuid ? { ...g, imageUrl: c.url, imageOverride: isUpstream ? null : c.url } : g))
+      setCoverPicker(null)
+    } catch (e) {
+      message.error(e instanceof Error ? e.message : '保存失败')
+    } finally {
+      setSavingCover(null)
+    }
+  }
 
   async function load(p = 1, clearFilters = false) {
     setPage(p)
@@ -231,7 +283,16 @@ export default function Win568GameList({ refreshKey }: Props) {
       title: '游戏', key: 'game', width: 280,
       render: (_: unknown, r: AdminWin568Game) => (
         <div style={{ display: 'flex', gap: 8 }}>
-          {r.imageUrl && <img src={r.imageUrl} style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 4, flexShrink: 0 }} />}
+          <div
+            onClick={() => void openCoverPicker(r)}
+            title="点击更换封面"
+            style={{ position: 'relative', width: 40, height: 40, flexShrink: 0, cursor: 'pointer', borderRadius: 4, overflow: 'hidden', background: '#f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          >
+            {r.imageUrl
+              ? <img src={r.imageUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              : <span style={{ fontSize: 10, color: '#bbb' }}>无图</span>}
+            <span style={{ position: 'absolute', bottom: 0, right: 0, background: 'rgba(0,0,0,.55)', color: '#fff', fontSize: 9, padding: '0 2px', borderTopLeftRadius: 3 }}>换</span>
+          </div>
           <div style={{ minWidth: 0 }}>
             <div style={{ fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.name}</div>
             <div style={{ color: '#999', fontSize: 12 }}>GpId {r.gameProviderId} · Game {r.gameId}</div>
@@ -457,6 +518,56 @@ export default function Win568GameList({ refreshKey }: Props) {
                 <Col span={12}><Form.Item label="图片覆盖" name="imageOverride"><Input allowClear /></Form.Item></Col>
               </Row>
             </Form>
+          </div>
+        )}
+      </Modal>
+
+      <Modal
+        title={coverPicker ? `更换封面：${coverPicker.name}` : '更换封面'}
+        open={!!coverPicker}
+        onCancel={() => setCoverPicker(null)}
+        footer={null}
+        width={720}
+      >
+        {candLoading ? (
+          <div style={{ textAlign: 'center', padding: 40 }}><Spin /></div>
+        ) : candidates.length === 0 ? (
+          <Empty description="该游戏暂无候选封面（各竞品源均未匹配到）" />
+        ) : (
+          <div>
+            <div style={{ color: '#999', fontSize: 12, marginBottom: 12 }}>
+              点击任一封面即应用为该游戏封面。当前来源：<Tag color={coverSourceMeta(coverPicker?.imageOverride ? (candidates.find((c) => c.url === coverPicker?.imageOverride)?.source ?? 'manual') : '568win').color}>{coverPicker?.imageOverride ? '已覆盖' : '568Win 原图'}</Tag>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+              {candidates.map((c) => {
+                const meta = coverSourceMeta(c.source)
+                const active = coverPicker?.imageOverride
+                  ? c.url === coverPicker.imageOverride
+                  : c.source === '568win'
+                return (
+                  <div
+                    key={c.source + c.url}
+                    onClick={() => !savingCover && void pickCover(c)}
+                    style={{
+                      border: active ? '2px solid #1677ff' : '1px solid #eee',
+                      borderRadius: 8, padding: 6, cursor: savingCover ? 'wait' : 'pointer',
+                      position: 'relative', textAlign: 'center', background: '#fff',
+                      opacity: savingCover && savingCover !== c.url ? 0.5 : 1,
+                    }}
+                  >
+                    <div style={{ position: 'relative', width: '100%', aspectRatio: '1 / 1', borderRadius: 6, overflow: 'hidden', background: '#f5f5f5' }}>
+                      <img src={c.url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      {c.animUrl && <span style={{ position: 'absolute', top: 4, left: 4, background: 'rgba(0,0,0,.6)', color: '#ffd75e', fontSize: 10, padding: '0 4px', borderRadius: 3 }}>动图</span>}
+                      {savingCover === c.url && <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,.6)' }}><Spin size="small" /></div>}
+                    </div>
+                    <div style={{ marginTop: 6 }}>
+                      <Tag color={meta.color} style={{ margin: 0 }}>{meta.label}</Tag>
+                      {active && <Tag color="blue" style={{ margin: '0 0 0 4px' }}>当前</Tag>}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
           </div>
         )}
       </Modal>

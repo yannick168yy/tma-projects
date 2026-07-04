@@ -8,6 +8,7 @@ import {
   listAdminWin568Games,
   toggleAdminWin568Game,
   updateAdminWin568Game,
+  listWin568CoverCandidates,
   getWin568ProviderStats,
   toggleWin568ProviderGames,
 } from '../../services/admin-store.js'
@@ -122,6 +123,8 @@ router.patch('/win568/:gameProviderId/:gameId', async (ctx) => {
     siteCategory?: string | null
     nameOverride?: string | null
     imageOverride?: string | null
+    imageOverrideSource?: string | null
+    imageAnim?: string | null
   }
   const gameProviderId = Number(ctx.params.gameProviderId)
   const gameId = Number(ctx.params.gameId)
@@ -138,7 +141,9 @@ router.patch('/win568/:gameProviderId/:gameId', async (ctx) => {
     sortCategory: body.sortCategory || null,
     siteCategory: body.siteCategory || null,
     nameOverride: body.nameOverride || null,
-    imageOverride: body.imageOverride || null,
+    imageOverride: body.imageOverride === undefined ? undefined : (body.imageOverride || null),
+    imageOverrideSource: body.imageOverrideSource === undefined ? undefined : (body.imageOverrideSource || null),
+    imageAnim: body.imageAnim === undefined ? undefined : (body.imageAnim || null),
   })
   await loadGamesCache(ctx.state.env)
   await refreshHomepageSelection(ctx.state.env)
@@ -152,6 +157,15 @@ router.patch('/win568/:gameProviderId/:gameId', async (ctx) => {
     ip: ctx.ip,
   })
   ok(ctx, { gameProviderId, gameId })
+})
+
+router.get('/win568/:gameProviderId/:gameId/cover-candidates', async (ctx) => {
+  const gameProviderId = Number(ctx.params.gameProviderId)
+  const gameId = Number(ctx.params.gameId)
+  if (!Number.isInteger(gameProviderId) || !Number.isInteger(gameId)) {
+    fail(ctx, 400, 'gameProviderId and gameId are required'); return
+  }
+  ok(ctx, { candidates: await listWin568CoverCandidates(ctx.state.env, gameProviderId, gameId) })
 })
 
 router.post('/win568/:gameProviderId/:gameId/enrich', async (ctx) => {
