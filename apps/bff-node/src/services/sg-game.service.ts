@@ -409,8 +409,6 @@ export async function refreshHomepageSelection(env: Env): Promise<void> {
   }
   const bySite = (cat: string) => all.filter((g) => g.siteCategory === cat)
   const score = (g: DbGame) => g.weight * (g.isFeatured ? 1.5 : 1)
-  // popular 以竞品市场热度(weight，含竞品加权分)为主信号，AI 富化 ph_bonus 降为辅助微调
-  const popularScore = (g: DbGame) => (g.weight + g.phBonus * 200) * (g.isFeatured ? 1.5 : 1)
 
   // New Games：有 release_date 的按发布日期降序取最新的一批做抽样池
   const newPool = all
@@ -418,8 +416,12 @@ export async function refreshHomepageSelection(env: Env): Promise<void> {
     .sort((a, b) => String(b.releaseDate).localeCompare(String(a.releaseDate)))
     .slice(0, 40)
 
+  // popular 从核心池(is_featured=竞品验证的爆款)加权抽，模仿竞品精选运营位；
+  // 不从全库抽——数量占优的中腰部竞品游戏会在加权随机里淹没头部爆款
+  const featuredPool = all.filter((g) => g.isFeatured)
+
   const selection: HomepageSelection = {
-    popular:  pick(all, popularScore, 9),
+    popular:  pick(featuredPool.length >= 9 ? featuredPool : all, score, 9),
     newGames: pick(newPool, score, 12),
     slots:    pick(bySite('slot'), score, 6),
     casino:   pick(bySite('casino'), score, 6),
