@@ -409,8 +409,8 @@ export async function refreshHomepageSelection(env: Env): Promise<void> {
   }
   const bySite = (cat: string) => all.filter((g) => g.siteCategory === cat)
   const score = (g: DbGame) => g.weight * (g.isFeatured ? 1.5 : 1)
-  // ph_bonus 只覆盖头部富化池，其余游戏按上游 rank 派生的 weight 降级打分
-  const popularScore = (g: DbGame) => (g.phBonus > 0 ? g.phBonus * 100 : g.weight / 100) * (g.isFeatured ? 1.5 : 1)
+  // popular 以竞品市场热度(weight，含竞品加权分)为主信号，AI 富化 ph_bonus 降为辅助微调
+  const popularScore = (g: DbGame) => (g.weight + g.phBonus * 200) * (g.isFeatured ? 1.5 : 1)
 
   // New Games：有 release_date 的按发布日期降序取最新的一批做抽样池
   const newPool = all
