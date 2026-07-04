@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify'
 import { Win568Client } from '../clients/win568.client.js'
 import { saveWin568Games } from '../routes/win568-operation.routes.js'
 import { getWin568OperationCompanyKey } from '../services/win568-key-settings.service.js'
+import { probePendingGameIcons } from '../services/game-icon-probe.service.js'
 
 const SYNC_INTERVAL_MS = 4 * 60 * 60 * 1000
 
@@ -24,6 +25,7 @@ async function syncWin568Games(app: FastifyInstance): Promise<void> {
     }
     const synced = await saveWin568Games(app, result)
     app.log.info({ synced }, '[568win-game-sync] done')
+    await probePendingGameIcons(app)
   } catch (err) {
     app.log.error({ err }, '[568win-game-sync] failed')
   }

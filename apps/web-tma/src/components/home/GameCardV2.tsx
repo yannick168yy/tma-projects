@@ -19,9 +19,13 @@ export default function GameCardV2({ game, onTap, size, showHot, showLive }: Pro
   const imageUrl = game.imageHqUrl ?? game.imageUrl
   // 上游厂商封面比例混杂（JILI 310×190 横图、PG 1024² 方图…），竖卡 cover 会把横图裁掉大半：
   // 横图改用「模糊底 + contain 完整显示」，方/竖图仍走 cover
-  const [isLandscape, setIsLandscape] = useState(false)
+  // 宽高优先取后端探测好的数据（首帧即正确渲染无闪动），缺失时回退 onLoad 运行时检测
+  const [isLandscape, setIsLandscape] = useState(
+    game.imageWidth != null && game.imageHeight != null && game.imageWidth > game.imageHeight * 1.15,
+  )
 
   function onImageLoad(e: React.SyntheticEvent<HTMLImageElement>) {
+    if (game.imageWidth != null && game.imageHeight != null) return
     const img = e.currentTarget
     if (img.naturalWidth > img.naturalHeight * 1.15) setIsLandscape(true)
   }

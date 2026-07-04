@@ -123,6 +123,8 @@ export interface DbGame {
   siteCategory?: string | null
   imageUrl: string | null
   imageHqUrl: string | null
+  imageWidth?: number | null
+  imageHeight?: number | null
   hasDemo: boolean
   hasLobby: boolean
   isMobile: boolean
@@ -214,6 +216,8 @@ function rowToWin568Game(r: RowDataPacket): DbGame {
   const rank = r.rank_no == null ? 9999 : Number(r.rank_no)
   const name = r.effective_name ?? r.name_en ?? r.name_zh ?? `568Win ${r.game_id}`
   const imageUrl = r.effective_image ?? r.icon_url
+  // 宽高是对上游 icon_url 探测的结果，运营覆盖图（image_override）与之不同时不下发
+  const probedDims = imageUrl != null && imageUrl === r.icon_url && r.icon_width != null && r.icon_height != null
   const sortCategory = r.effective_sort_category ?? sortCategoryFromWin568(newGameType)
   const devices = String(r.device || '').split(/[,/]/).map((s) => s.trim())
   return {
@@ -230,6 +234,8 @@ function rowToWin568Game(r: RowDataPacket): DbGame {
     siteCategory: r.effective_site_category ? String(r.effective_site_category) : null,
     imageUrl: imageUrl ? String(imageUrl) : null,
     imageHqUrl: imageUrl ? String(imageUrl) : null,
+    imageWidth: probedDims ? Number(r.icon_width) : null,
+    imageHeight: probedDims ? Number(r.icon_height) : null,
     hasDemo: false,
     hasLobby: newGameType === 100 || newGameType === 200,
     isMobile: devices.includes('m'),
@@ -281,7 +287,7 @@ export async function loadGamesCache(env: Env): Promise<number> {
   const redis = getRedis(env)
   const [win568Rows] = await db.query<RowDataPacket[]>(
     `SELECT g.game_id, g.game_provider_id, g.provider, g.new_game_type, g.rank_no, g.device,
-            g.name_en, g.name_zh, g.icon_url, g.supported_currencies, g.created_at,
+            g.name_en, g.name_zh, g.icon_url, g.icon_width, g.icon_height, g.supported_currencies, g.created_at,
             o.release_date, o.max_win_multiplier,
             COALESCE(o.name_override, g.name_en, g.name_zh, CONCAT('568Win ', g.game_id)) AS effective_name,
             COALESCE(o.image_override, g.icon_url) AS effective_image,

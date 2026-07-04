@@ -3,6 +3,7 @@ import type { RowDataPacket } from 'mysql2/promise'
 import { env } from '../config/env.js'
 import { Win568Client } from '../clients/win568.client.js'
 import { getWin568OperationCompanyKey } from '../services/win568-key-settings.service.js'
+import { probePendingGameIcons } from '../services/game-icon-probe.service.js'
 
 function validUsername(username: string) {
   return /^[A-Za-z0-9_]{6,40}$/.test(username)
@@ -203,7 +204,11 @@ export async function saveWin568Games(app: FastifyInstance, result: unknown) {
          rank_no = VALUES(rank_no), device = VALUES(device),
          platform = VALUES(platform), rtp = VALUES(rtp), rows_count = VALUES(rows_count),
          reels_count = VALUES(reels_count), lines_count = VALUES(lines_count),
-         name_en = VALUES(name_en), name_zh = VALUES(name_zh), icon_url = VALUES(icon_url),
+         name_en = VALUES(name_en), name_zh = VALUES(name_zh),
+         icon_width = IF(icon_url <=> VALUES(icon_url), icon_width, NULL),
+         icon_height = IF(icon_url <=> VALUES(icon_url), icon_height, NULL),
+         icon_probed_at = IF(icon_url <=> VALUES(icon_url), icon_probed_at, NULL),
+         icon_url = VALUES(icon_url),
          supported_currencies = VALUES(supported_currencies), block_countries = VALUES(block_countries),
          is_enabled = VALUES(is_enabled), is_maintain = VALUES(is_maintain),
          provider_status = VALUES(provider_status), is_provider_online = VALUES(is_provider_online),
@@ -320,6 +325,7 @@ export async function win568OperationRoutes(app: FastifyInstance) {
   app.post('/games/sync', async (_req, reply) => {
     const result = await (await client()).getGameList({ GpId: 1, IsGetAll: true })
     const syncedCount = result.error.id === 0 ? await saveWin568Games(app, result) : 0
+    if (syncedCount > 0) void probePendingGameIcons(app)
     return reply.send({ error: result.error, serverId: result.serverId, syncedCount })
   })
 
