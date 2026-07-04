@@ -345,18 +345,20 @@ const HOMEPAGE_TTL = 3 * 60 * 60 + 5 * 60 // 3h5m（比刷新间隔略长，防�
 
 export interface HomepageSelection {
   popular: DbGame[]
+  highRebate: DbGame[]
   newGames: DbGame[]
   slots: DbGame[]
   casino: DbGame[]
   perya: DbGame[]
   fishing: DbGame[]
   lottery: DbGame[]
+  mythology: DbGame[]
   megaWin: DbGame[]
   generatedAt: string
 }
 
 export const EMPTY_HOMEPAGE_SELECTION: HomepageSelection = {
-  popular: [], newGames: [], slots: [], casino: [], perya: [], fishing: [], lottery: [], megaWin: [],
+  popular: [], highRebate: [], newGames: [], slots: [], casino: [], perya: [], fishing: [], lottery: [], mythology: [], megaWin: [],
   generatedAt: '',
 }
 
@@ -433,14 +435,18 @@ export async function refreshHomepageSelection(env: Env): Promise<void> {
   const featuredPool = all.filter((g) => g.isFeatured)
 
   const selection: HomepageSelection = {
-    popular:  pickTop(featuredPool.length >= 9 ? featuredPool : all, score, 9),
-    newGames: pick(newPool, score, 12),
-    slots:    pick(bySite('slot'), score, 6),
-    casino:   pick(bySite('casino'), score, 6),
-    perya:    pick(bySite('perya'), score, 12),
-    fishing:  pick(bySite('fishing'), score, 6),
-    lottery:  pick(bySite('lottery'), score, 12),
-    megaWin:  pick(all.filter((g) => (g.maxWinMultiplier ?? 0) >= 1000), score, 6),
+    popular:    pickTop(featuredPool.length >= 9 ? featuredPool : all, score, 9),
+    // 高返利专区：ph_bonus(洗码吸引力) 最高的头部，运营钩子位，紧随 popular
+    highRebate: pickTop(all.filter((g) => g.phBonus >= 15), (g) => g.phBonus, 6, 3),
+    newGames:   pick(newPool, score, 12),
+    slots:      pick(bySite('slot'), score, 6),
+    casino:     pick(bySite('casino'), score, 6),
+    perya:      pick(bySite('perya'), score, 12),
+    fishing:    pick(bySite('fishing'), score, 6),
+    lottery:    pick(bySite('lottery'), score, 12),
+    // 东方神话主题聚合：富化 theme 数据独有栏（asian-mythology 为最大主题）
+    mythology:  pick(all.filter((g) => g.theme === 'asian-mythology'), score, 12),
+    megaWin:    pick(all.filter((g) => (g.maxWinMultiplier ?? 0) >= 1000), score, 6),
     generatedAt: new Date().toISOString(),
   }
 
@@ -462,12 +468,14 @@ export function applyHomepageCurrency(selection: HomepageSelection, currency?: s
   const apply = (games: DbGame[]) => sortAvailableFirst(games, currency).map((g) => withCurrencySupport(g, currency))
   return {
     popular: apply(selection.popular),
+    highRebate: apply(selection.highRebate ?? []),
     newGames: apply(selection.newGames ?? []),
     slots: apply(selection.slots),
     casino: apply(selection.casino ?? []),
     perya: apply(selection.perya ?? []),
     fishing: apply(selection.fishing),
     lottery: apply(selection.lottery ?? []),
+    mythology: apply(selection.mythology ?? []),
     megaWin: apply(selection.megaWin ?? []),
     generatedAt: selection.generatedAt,
   }

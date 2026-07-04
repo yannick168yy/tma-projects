@@ -244,6 +244,8 @@ export default {
     casinoZone: 'LIVE CASINO',
     peryaZone: 'PERYA GAMES',
     lotteryZone: 'LOTTERY & BINGO',
+    highRebate: 'HIGH REBATE',
+    mythologyZone: 'MYTH LEGENDS',
     megaWin: 'MEGA WIN x1000+',
     providerZone: 'TOP PROVIDERS',
     sportsEntry: 'SPORTSBOOK',

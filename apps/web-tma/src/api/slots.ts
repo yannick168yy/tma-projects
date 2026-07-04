@@ -21,6 +21,8 @@ export interface SlotGame {
   phBonus: number
   isFeatured: boolean
   theme: string | null
+  releaseDate?: string | null
+  maxWinMultiplier?: number | null
   supportedCurrencies?: string[] | null
   supportsActiveCurrency?: boolean
 }
@@ -49,12 +51,14 @@ export interface GameListParams {
 
 export interface HomepageGames {
   popular: SlotGame[]
+  highRebate: SlotGame[]
   newGames: SlotGame[]
   slots: SlotGame[]
   casino: SlotGame[]
   perya: SlotGame[]
   fishing: SlotGame[]
   lottery: SlotGame[]
+  mythology: SlotGame[]
   megaWin: SlotGame[]
   generatedAt: string
 }

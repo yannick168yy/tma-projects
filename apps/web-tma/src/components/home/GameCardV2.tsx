@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { Flame } from 'lucide-react'
 import type { SlotGame } from '@/api/slots'
 import { useLocaleStore } from '@/stores/locale'
 import { localizedGameName } from '@/utils/game'
@@ -12,10 +11,21 @@ interface Props {
   showLive?: boolean
 }
 
+// 数据驱动角标：优先级 万倍 > NEW > 高返，单张卡只显示一个，避免拥挤
+function dataBadge(game: SlotGame): { text: string; cls: string } | null {
+  const maxWin = game.maxWinMultiplier ?? 0
+  if (maxWin >= 1000) return { text: `${maxWin >= 100000 ? '10万' : maxWin.toLocaleString()}x`, cls: 'bg-amber-500' }
+  const rd = game.releaseDate ? new Date(game.releaseDate).getTime() : 0
+  if (rd && Date.now() - rd < 90 * 864e5) return { text: 'NEW', cls: 'bg-blue-500' }
+  if (game.phBonus >= 15) return { text: `+${Math.round(game.phBonus)}%`, cls: 'bg-red-500' }
+  return null
+}
+
 // casinoplus 风格纯图卡：大卡=3列网格自适应宽 + 图下白色游戏名；小卡=固定 76×95 纯图横滑
-export default function GameCardV2({ game, onTap, size, showHot, showLive }: Props) {
+export default function GameCardV2({ game, onTap, size, showLive }: Props) {
   const locale = useLocaleStore((s) => s.locale)
   const unavailable = game.supportsActiveCurrency === false
+  const badge = dataBadge(game)
   const imageUrl = game.imageHqUrl ?? game.imageUrl
   // 上游厂商封面比例混杂（JILI 310×190 横图、PG 1024² 方图…），竖卡 cover 会把横图裁掉大半：
   // 横图改用「模糊底 + contain 完整显示」，方/竖图仍走 cover
@@ -44,10 +54,9 @@ export default function GameCardV2({ game, onTap, size, showHot, showLive }: Pro
           <span className="text-[10px] font-bold text-foreground/60 text-center leading-tight line-clamp-3">{localizedGameName(game, locale)}</span>
         </div>
       )}
-      {showHot && game.phBonus >= 20 && (
-        <div className="absolute top-1 left-1 flex items-center gap-0.5 bg-red-500 rounded-full px-1.5 py-0.5">
-          <Flame size={9} className="text-white" />
-          <span className="text-white text-[9px] font-bold">HOT</span>
+      {badge && (
+        <div className={`absolute top-1 right-1 rounded-full px-1.5 py-0.5 ${badge.cls}`}>
+          <span className="text-white text-[9px] font-bold leading-none">{badge.text}</span>
         </div>
       )}
       {showLive && (

@@ -243,6 +243,8 @@ export default {
     casinoZone: '真人娱乐场',
     peryaZone: 'PERYA 游戏',
     lotteryZone: '彩票 & 宾果',
+    highRebate: '高返利专区',
+    mythologyZone: '东方神话',
     megaWin: '超级大奖 x1000+',
     providerZone: '热门厂商',
     sportsEntry: '体育投注',

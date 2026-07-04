@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo, useCallback, type PointerEvent } 
 import { useTranslation } from 'react-i18next'
 import {
   ChevronRight, Trophy, TrendingUp, Gamepad2, Sparkles, History, Factory,
-  Fish, Dice5, Ticket, Drama, Rocket, X, Gem,
+  Fish, Dice5, Ticket, Drama, Rocket, X, Gem, Percent,
 } from 'lucide-react'
 import HomeCategoryShortcut from '@/components/home/HomeCategoryShortcut'
 import GameCardV2 from '@/components/home/GameCardV2'
@@ -354,7 +354,7 @@ export default function HomeContent({ onNavigatePath, onOpenCategoryLobby, onOpe
   }, [homeBanners.length])
 
   // Game data
-  const emptyHomepage = { popular: [], newGames: [], slots: [], casino: [], perya: [], fishing: [], lottery: [], megaWin: [] }
+  const emptyHomepage = { popular: [], highRebate: [], newGames: [], slots: [], casino: [], perya: [], fishing: [], lottery: [], mythology: [], megaWin: [] }
   const [launchingUuid, setLaunchingUuid] = useState<string | null>(null)
   const [homepageGames, setHomepageGames] = useState<Record<keyof typeof emptyHomepage, SlotGame[]>>(emptyHomepage)
   const [gamesLoading, setGamesLoading] = useState(true)
@@ -525,8 +525,8 @@ export default function HomeContent({ onNavigatePath, onOpenCategoryLobby, onOpe
     setGamesLoading(true)
     fetchHomepageGames(activeCurrency)
       .then((data) => setHomepageGames({
-        popular: data.popular ?? [], newGames: data.newGames ?? [], slots: data.slots ?? [], casino: data.casino ?? [],
-        perya: data.perya ?? [], fishing: data.fishing ?? [], lottery: data.lottery ?? [], megaWin: data.megaWin ?? [],
+        popular: data.popular ?? [], highRebate: data.highRebate ?? [], newGames: data.newGames ?? [], slots: data.slots ?? [], casino: data.casino ?? [],
+        perya: data.perya ?? [], fishing: data.fishing ?? [], lottery: data.lottery ?? [], mythology: data.mythology ?? [], megaWin: data.megaWin ?? [],
       }))
       .catch(() => {})
       .finally(() => setGamesLoading(false))
@@ -753,6 +753,14 @@ export default function HomeContent({ onNavigatePath, onOpenCategoryLobby, onOpe
         {bigGrid(homepageGames.popular, 9, true)}
       </section>
 
+      {/* 高返利专区：运营钩子位，ph_bonus 驱动，大卡展示 +X% 角标 */}
+      {(gamesLoading || homepageGames.highRebate.length > 0) && (
+        <section className="mt-6">
+          {sectionHeader(<Percent size={15} className="text-red-400" />, t('home.highRebate'), () => onOpenCategoryLobby({ sortBy: 'ph_bonus', title: t('home.highRebate') }))}
+          {bigGrid(homepageGames.highRebate, 6)}
+        </section>
+      )}
+
       {/* New Games：小卡横滑 */}
       {(gamesLoading || homepageGames.newGames.length > 0) && (
         <section className="mt-6">
@@ -816,6 +824,14 @@ export default function HomeContent({ onNavigatePath, onOpenCategoryLobby, onOpe
         <section className="mt-6">
           {sectionHeader(<Ticket size={15} className="text-pink-400" />, t('home.lotteryZone'), () => onOpenCategoryLobby({ siteCategory: 'lottery', sortBy: 'weight', title: t('home.lotteryZone') }))}
           {bigGrid(homepageGames.lottery, 6)}
+        </section>
+      )}
+
+      {/* 东方神话主题：富化 theme 独有栏，小卡横滑 */}
+      {(gamesLoading || homepageGames.mythology.length > 0) && (
+        <section className="mt-6">
+          {sectionHeader(<Gem size={15} className="text-purple-400" />, t('home.mythologyZone'))}
+          {smallRow(homepageGames.mythology)}
         </section>
       )}
 
