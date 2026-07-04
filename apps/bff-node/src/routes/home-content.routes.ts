@@ -13,7 +13,7 @@ router.get('/content', async (ctx) => {
 // 单段 :key 会匹配失败，故用 (.*) 吃下整段路径
 router.get('/images/(.*)', async (ctx) => {
   const key = decodeURIComponent(ctx.params[0] ?? '')
-  if (!key.startsWith('home/') || key.includes('..') || key.startsWith('/')) {
+  if ((!key.startsWith('home/') && !key.startsWith('covers/')) || key.includes('..') || key.startsWith('/')) {
     fail(ctx, 400, 'Invalid image key')
     return
   }
