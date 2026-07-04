@@ -407,6 +407,18 @@ export async function refreshHomepageSelection(env: Env): Promise<void> {
     r.forEach((g) => seen.add(g.uuid))
     return r
   }
+  // 确定性 top-N：按 score 降序钉死前 N，仅按厂商去重（龙头厂商放宽到 maxPerProvider）
+  const pickTop = (pool: DbGame[], score: (g: DbGame) => number, n: number, maxPerProvider = 3) => {
+    const sorted = pool.filter((g) => !seen.has(g.uuid)).sort((a, b) => score(b) - score(a))
+    const result: DbGame[] = []
+    const counts = new Map<string, number>()
+    for (const g of sorted) {
+      if (result.length >= n) break
+      const c = counts.get(g.provider) ?? 0
+      if (c < maxPerProvider) { result.push(g); counts.set(g.provider, c + 1); seen.add(g.uuid) }
+    }
+    return result
+  }
   const bySite = (cat: string) => all.filter((g) => g.siteCategory === cat)
   const score = (g: DbGame) => g.weight * (g.isFeatured ? 1.5 : 1)
 
@@ -421,7 +433,7 @@ export async function refreshHomepageSelection(env: Env): Promise<void> {
   const featuredPool = all.filter((g) => g.isFeatured)
 
   const selection: HomepageSelection = {
-    popular:  pick(featuredPool.length >= 9 ? featuredPool : all, score, 9),
+    popular:  pickTop(featuredPool.length >= 9 ? featuredPool : all, score, 9),
     newGames: pick(newPool, score, 12),
     slots:    pick(bySite('slot'), score, 6),
     casino:   pick(bySite('casino'), score, 6),
