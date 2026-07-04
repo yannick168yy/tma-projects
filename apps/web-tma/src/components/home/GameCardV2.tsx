@@ -31,7 +31,7 @@ export default function GameCardV2({ game, onTap, size, showHot, showLive }: Pro
   }
 
   const image = (
-    <div className={`relative overflow-hidden rounded-xl bg-secondary ${size === 'lg' ? 'w-full aspect-[126.9/161.5]' : 'w-[76px] h-[95px]'}`}>
+    <div className={`relative overflow-hidden rounded-xl bg-secondary ${size === 'lg' ? 'w-full aspect-square' : 'w-[76px] h-[76px]'}`}>
       {imageUrl ? (
         <>
           {isLandscape && (

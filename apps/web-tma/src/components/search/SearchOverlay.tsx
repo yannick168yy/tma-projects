@@ -1,12 +1,12 @@
 import { useState, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ChevronLeft, ChevronDown, ChevronUp, Search, X, RefreshCw } from 'lucide-react'
-import { fetchGames, fetchThemes, launchGame, launchDemo, type SlotGame } from '@/api/slots'
+import { fetchGames, fetchThemes, launchGame, type SlotGame } from '@/api/slots'
 import { ApiError } from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
 import { useWalletStore } from '@/stores/wallet'
 import { localizedThemeLabel, themeColors } from '@/utils/theme-tag'
-import SlotGameCard from '@/components/home/SlotGameCard'
+import GameCardV2 from '@/components/home/GameCardV2'
 import { analytics } from '@/utils/analytics'
 
 interface Props {
@@ -32,7 +32,6 @@ export default function SearchOverlay({ onClose, onGameTap, onOpenGame }: Props)
   const [loadingMore, setLoadingMore] = useState(false)
   const [error, setError] = useState('')
   const [themesExpanded, setThemesExpanded] = useState(false)
-  const [launchingUuid, setLaunchingUuid] = useState<string | null>(null)
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const hasMore = page < pages
 
@@ -111,15 +110,12 @@ export default function SearchOverlay({ onClose, onGameTap, onOpenGame }: Props)
       onGameTap()
       return
     }
-    setLaunchingUuid(uuid)
     try {
       const { url } = await launchGame(uuid, 'mobile', activeCurrency)
       analytics.gameLaunch('real', uuid, activeCurrency, 'search')
       onOpenGame(url)
     } catch (e) {
       alert(e instanceof ApiError ? e.message : 'Failed to launch game')
-    } finally {
-      setLaunchingUuid(null)
     }
   }
 
@@ -143,19 +139,6 @@ export default function SearchOverlay({ onClose, onGameTap, onOpenGame }: Props)
         {localizedThemeLabel(th, t)}
       </button>
     )
-  }
-
-  async function onDemo(uuid: string) {
-    setLaunchingUuid(uuid)
-    try {
-      const { url } = await launchDemo(uuid, 'mobile', activeCurrency)
-      analytics.gameLaunch('demo', uuid, activeCurrency, 'search')
-      onOpenGame(url)
-    } catch (e) {
-      alert(e instanceof ApiError ? e.message : 'Failed to launch demo')
-    } finally {
-      setLaunchingUuid(null)
-    }
   }
 
   return (
@@ -226,14 +209,13 @@ export default function SearchOverlay({ onClose, onGameTap, onOpenGame }: Props)
       <div className="px-4 pb-6">
         {games.length > 0 ? (
           <>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-3 gap-x-2 gap-y-3">
               {games.map((game) => (
-                <SlotGameCard
+                <GameCardV2
                   key={game.uuid}
                   game={game}
-                  launching={launchingUuid === game.uuid}
-                  onPlay={onPlay}
-                  onDemo={onDemo}
+                  size="lg"
+                  onTap={() => onPlay(game.uuid)}
                 />
               ))}
             </div>

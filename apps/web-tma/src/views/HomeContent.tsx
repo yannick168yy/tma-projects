@@ -473,7 +473,7 @@ export default function HomeContent({ onNavigatePath, onOpenCategoryLobby, onOpe
     if (gamesLoading) {
       return (
         <div className="px-4 grid grid-cols-3 gap-x-2 gap-y-3">
-          {Array.from({ length: skeletonCount }).map((_, i) => <div key={i} className="aspect-[126.9/161.5] animate-pulse rounded-xl bg-secondary" />)}
+          {Array.from({ length: skeletonCount }).map((_, i) => <div key={i} className="aspect-square animate-pulse rounded-xl bg-secondary" />)}
         </div>
       )
     }
@@ -488,7 +488,7 @@ export default function HomeContent({ onNavigatePath, onOpenCategoryLobby, onOpe
     if (loading) {
       return (
         <div className="flex gap-2 px-4 overflow-hidden">
-          {Array.from({ length: 6 }).map((_, i) => <div key={i} className="flex-shrink-0 w-[76px] h-[95px] animate-pulse rounded-xl bg-secondary" />)}
+          {Array.from({ length: 6 }).map((_, i) => <div key={i} className="flex-shrink-0 w-[76px] h-[76px] animate-pulse rounded-xl bg-secondary" />)}
         </div>
       )
     }
@@ -694,7 +694,7 @@ export default function HomeContent({ onNavigatePath, onOpenCategoryLobby, onOpe
           <div className="px-3 mt-4 grid grid-cols-3 gap-2">
             {gridLoading && gridGames.length === 0
               ? Array.from({ length: 12 }).map((_, i) => (
-                  <div key={i} className="aspect-[126.9/161.5] rounded-xl animate-pulse bg-secondary" />
+                  <div key={i} className="aspect-square rounded-xl animate-pulse bg-secondary" />
                 ))
               : gridGames.map((g) => (
                   <GameCardV2 key={g.uuid} game={g} onTap={() => void onGameTapAction(g.uuid)} size="lg" />
@@ -706,7 +706,7 @@ export default function HomeContent({ onNavigatePath, onOpenCategoryLobby, onOpe
           {gridLoading && gridGames.length > 0 && (
             <div className="px-3 mt-2 grid grid-cols-3 gap-2">
               {Array.from({ length: 3 }).map((_, i) => (
-                <div key={i} className="aspect-[126.9/161.5] rounded-xl animate-pulse bg-secondary" />
+                <div key={i} className="aspect-square rounded-xl animate-pulse bg-secondary" />
               ))}
             </div>
           )}

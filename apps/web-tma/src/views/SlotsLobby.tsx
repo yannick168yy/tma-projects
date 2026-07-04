@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ChevronLeft, Search, RefreshCw } from 'lucide-react'
-import SlotGameCard from '@/components/home/SlotGameCard'
-import { fetchGames, fetchProviders, launchGame, launchDemo, type SlotGame } from '@/api/slots'
+import GameCardV2 from '@/components/home/GameCardV2'
+import { fetchGames, fetchProviders, launchGame, type SlotGame } from '@/api/slots'
 import { shortProviderName } from '@/utils/providers'
 import { ApiError } from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
@@ -46,7 +46,6 @@ export default function SlotsLobby({
   const [pages, setPages] = useState(1)
   const [loading, setLoading] = useState(false)
   const [loadingMore, setLoadingMore] = useState(false)
-  const [launchingUuid, setLaunchingUuid] = useState<string | null>(null)
   const [error, setError] = useState('')
   const [search, setSearch] = useState('')
   const [selectedProvider, setSelectedProvider] = useState(initialProvider ?? 'all')
@@ -123,28 +122,12 @@ export default function SlotsLobby({
       onGameTap()
       return
     }
-    setLaunchingUuid(uuid)
     try {
       const { url } = await launchGame(uuid, 'mobile', activeCurrency)
       analytics.gameLaunch('real', uuid, activeCurrency, 'slots_lobby')
       onOpenGame(url)
     } catch (e) {
       alert(e instanceof ApiError ? e.message : 'Failed to launch game')
-    } finally {
-      setLaunchingUuid(null)
-    }
-  }
-
-  async function onDemo(uuid: string) {
-    setLaunchingUuid(uuid)
-    try {
-      const { url } = await launchDemo(uuid, 'mobile', activeCurrency)
-      analytics.gameLaunch('demo', uuid, activeCurrency, 'slots_lobby')
-      onOpenGame(url)
-    } catch (e) {
-      alert(e instanceof ApiError ? e.message : 'Failed to launch demo')
-    } finally {
-      setLaunchingUuid(null)
     }
   }
 
@@ -206,9 +189,9 @@ export default function SlotsLobby({
 
       <div className="px-3 py-3">
         {loading && (
-          <div className="grid grid-cols-2 gap-2">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="h-40 animate-pulse rounded-xl bg-secondary" />
+          <div className="grid grid-cols-3 gap-x-2 gap-y-3">
+            {Array.from({ length: 9 }).map((_, i) => (
+              <div key={i} className="aspect-square animate-pulse rounded-xl bg-secondary" />
             ))}
           </div>
         )}
@@ -229,14 +212,13 @@ export default function SlotsLobby({
 
         {!loading && !error && games.length > 0 && (
           <>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-3 gap-x-2 gap-y-3">
               {games.map((g) => (
-                <SlotGameCard
+                <GameCardV2
                   key={g.uuid}
                   game={g}
-                  launching={launchingUuid === g.uuid}
-                  onPlay={onPlay}
-                  onDemo={onDemo}
+                  size="lg"
+                  onTap={() => onPlay(g.uuid)}
                 />
               ))}
             </div>
