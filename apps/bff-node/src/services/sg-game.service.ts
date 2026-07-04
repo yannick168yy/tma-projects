@@ -215,6 +215,7 @@ function rowToWin568Game(r: RowDataPacket): DbGame {
   const name = r.effective_name ?? r.name_en ?? r.name_zh ?? `568Win ${r.game_id}`
   const imageUrl = r.effective_image ?? r.icon_url
   const sortCategory = r.effective_sort_category ?? sortCategoryFromWin568(newGameType)
+  const devices = String(r.device || '').split(/[,/]/).map((s) => s.trim())
   return {
     uuid: `568win:${String(r.game_provider_id)}:${String(r.game_id)}`,
     aggregator: '568win',
@@ -231,7 +232,7 @@ function rowToWin568Game(r: RowDataPacket): DbGame {
     imageHqUrl: imageUrl ? String(imageUrl) : null,
     hasDemo: false,
     hasLobby: newGameType === 100 || newGameType === 200,
-    isMobile: String(r.device || '').split(',').map((s) => s.trim()).includes('m'),
+    isMobile: devices.includes('m'),
     weight: r.effective_weight == null ? Math.max(1, 10000 - rank) : Number(r.effective_weight),
     phBonus: r.effective_ph_bonus == null ? 0 : Number(r.effective_ph_bonus),
     isFeatured: Boolean(r.effective_featured),
@@ -310,7 +311,7 @@ export async function loadGamesCache(env: Env): Promise<number> {
          OR JSON_CONTAINS(supported_currencies, JSON_QUOTE('PHP'))
          OR JSON_CONTAINS(supported_currencies, JSON_QUOTE('USDT'))
          OR JSON_CONTAINS(supported_currencies, JSON_QUOTE('UCC')))
-       AND (g.device IS NULL OR FIND_IN_SET('m', REPLACE(g.device, ' ', '')) > 0)`,
+       AND (g.device IS NULL OR FIND_IN_SET('m', REPLACE(REPLACE(g.device, ' ', ''), '/', ',')) > 0)`,
   )
   const games = [
     win568SportsbookGame(),

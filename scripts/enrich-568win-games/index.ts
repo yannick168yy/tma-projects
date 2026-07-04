@@ -262,7 +262,7 @@ async function main() {
          OR JSON_CONTAINS(g.supported_currencies, JSON_QUOTE('PHP'))
          OR JSON_CONTAINS(g.supported_currencies, JSON_QUOTE('USDT'))
          OR JSON_CONTAINS(g.supported_currencies, JSON_QUOTE('UCC')))
-       AND (g.device IS NULL OR FIND_IN_SET('m', REPLACE(g.device, ' ', '')) > 0)
+       AND (g.device IS NULL OR FIND_IN_SET('m', REPLACE(REPLACE(g.device, ' ', ''), '/', ',')) > 0)
        AND g.name_en IS NOT NULL AND g.new_game_type NOT IN (100, 200)
        ${providerCond} ${singleGameCond} ${enrichedCond}
      ORDER BY g.provider, g.game_id

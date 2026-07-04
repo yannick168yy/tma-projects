@@ -581,7 +581,7 @@ export async function listAdminWin568Games(
     }
   }
   if (opts.device) {
-    conditions.push(`(g.device IS NULL OR FIND_IN_SET(?, REPLACE(g.device, ' ', '')) > 0)`)
+    conditions.push(`(g.device IS NULL OR FIND_IN_SET(?, REPLACE(REPLACE(g.device, ' ', ''), '/', ',')) > 0)`)
     params.push(opts.device)
   }
   if (opts.isFeatured !== undefined) { conditions.push('COALESCE(o.is_featured, 0) = ?'); params.push(opts.isFeatured ? 1 : 0) }
