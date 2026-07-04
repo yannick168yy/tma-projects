@@ -85,6 +85,7 @@ router.get('/win568', async (ctx) => {
     currency: ctx.query.currency ? String(ctx.query.currency) : undefined,
     device: ctx.query.device ? String(ctx.query.device) : undefined,
     isFeatured: ctx.query.isFeatured !== undefined ? ctx.query.isFeatured === 'true' : undefined,
+    coverStatus: ctx.query.coverStatus ? String(ctx.query.coverStatus) : undefined,
     sortField: ctx.query.sortField ? String(ctx.query.sortField) : undefined,
     sortOrder: ctx.query.sortOrder === 'asc' || ctx.query.sortOrder === 'desc' ? ctx.query.sortOrder : undefined,
   })

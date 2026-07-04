@@ -44,6 +44,17 @@ function volatilityColor(volatility: string) {
   return colors[volatility] ?? 'default'
 }
 
+const COVER_STATUS_OPTIONS = [
+  { value: 'landscape', label: '横版', color: 'blue' },
+  { value: 'portrait', label: '竖版', color: 'purple' },
+  { value: 'square', label: '正方形', color: 'geekblue' },
+  { value: 'none', label: '无封面', color: 'red' },
+]
+
+function coverStatusMeta(status: string) {
+  return COVER_STATUS_OPTIONS.find((o) => o.value === status) ?? { value: status, label: status, color: 'default' }
+}
+
 function jsonText(value: unknown) {
   if (Array.isArray(value)) {
     const values = value.map(String)
@@ -79,6 +90,7 @@ export default function Win568GameList({ refreshKey }: Props) {
   const [isActive, setIsActive] = useState<string | undefined>()
   const [upstreamAvailable, setUpstreamAvailable] = useState<string | undefined>('true')
   const [isFeatured, setIsFeatured] = useState<string | undefined>()
+  const [coverStatus, setCoverStatus] = useState<string | undefined>()
   const [currency, setCurrency] = useState<string | undefined>('PHP')
   const [device, setDevice] = useState<string | undefined>('m')
   const [loading, setLoading] = useState(false)
@@ -109,6 +121,7 @@ export default function Win568GameList({ refreshKey }: Props) {
         isActive: eff && isActive !== undefined ? isActive === 'true' : undefined,
         upstreamAvailable: eff && upstreamAvailable !== undefined ? upstreamAvailable === 'true' : undefined,
         isFeatured: eff && isFeatured !== undefined ? isFeatured === 'true' : undefined,
+        coverStatus: eff ? (coverStatus as 'landscape' | 'portrait' | 'square' | 'none' | undefined) : undefined,
         currency: eff ? currency : undefined,
         device: eff ? device : undefined,
         sortField,
@@ -135,6 +148,7 @@ export default function Win568GameList({ refreshKey }: Props) {
     setIsActive(undefined)
     setUpstreamAvailable('true')
     setIsFeatured(undefined)
+    setCoverStatus(undefined)
     setCurrency('PHP')
     setDevice('m')
     void load(1, true)
@@ -250,6 +264,18 @@ export default function Win568GameList({ refreshKey }: Props) {
       ),
     },
     {
+      title: '封面', key: 'cover', width: 100,
+      render: (_: unknown, r: AdminWin568Game) => {
+        const m = coverStatusMeta(r.coverStatus)
+        return (
+          <div>
+            <Tag color={m.color}>{m.label}</Tag>
+            {r.iconWidth && r.iconHeight && <div style={{ color: '#999', fontSize: 12 }}>{r.iconWidth}×{r.iconHeight}</div>}
+          </div>
+        )
+      },
+    },
+    {
       title: '状态', key: 'status', width: 150,
       render: (_: unknown, r: AdminWin568Game) => (
         <Space direction="vertical" size={2}>
@@ -310,6 +336,7 @@ export default function Win568GameList({ refreshKey }: Props) {
           <Col span={3}><Select value={isActive} placeholder="本地状态" allowClear style={{ width: '100%' }} options={[{ value: 'true', label: '本地启用' }, { value: 'false', label: '本地关闭' }]} onChange={setIsActive} /></Col>
           <Col span={3}><Select value={upstreamAvailable} placeholder="上游状态" allowClear style={{ width: '100%' }} options={[{ value: 'true', label: '上游可用' }, { value: 'false', label: '上游不可用' }]} onChange={setUpstreamAvailable} /></Col>
           <Col span={3}><Select value={isFeatured} placeholder="推荐" allowClear style={{ width: '100%' }} options={[{ value: 'true', label: '已推荐' }, { value: 'false', label: '未推荐' }]} onChange={setIsFeatured} /></Col>
+          <Col span={3}><Select value={coverStatus} placeholder="封面状态" allowClear style={{ width: '100%' }} options={COVER_STATUS_OPTIONS.map((o) => ({ value: o.value, label: o.label }))} onChange={setCoverStatus} /></Col>
           <Col span={2}><Select value={currency} placeholder="币种" allowClear style={{ width: '100%' }} options={[{ value: 'PHP', label: 'PHP' }, { value: 'USDT', label: 'USDT(UCC)' }]} onChange={setCurrency} /></Col>
           <Col span={2}><Select value={device} placeholder="设备" allowClear style={{ width: '100%' }} options={[{ value: 'm', label: 'Mobile' }, { value: 'd', label: 'Desktop' }]} onChange={setDevice} /></Col>
           <Col span={3}>
@@ -321,7 +348,7 @@ export default function Win568GameList({ refreshKey }: Props) {
           <Col span={2} style={{ display: 'flex', alignItems: 'center' }}><Tag color="blue">共 {total} 款</Tag></Col>
         </Row>
       </div>
-      <Table columns={columns} dataSource={games} loading={loading} pagination={pagination} rowKey="uuid" size="small" scroll={{ x: 1460 }} onChange={handleTableChange} />
+      <Table columns={columns} dataSource={games} loading={loading} pagination={pagination} rowKey="uuid" size="small" scroll={{ x: 1560 }} onChange={handleTableChange} />
       <Modal
         title={editing ? `568Win 游戏详情设置：${editing.name}` : '568Win 游戏详情设置'}
         open={!!editing}
@@ -364,6 +391,11 @@ export default function Win568GameList({ refreshKey }: Props) {
               <Descriptions.Item label="isProviderOnline">{editing.isProviderOnline ? 'true' : 'false'}</Descriptions.Item>
               <Descriptions.Item label="提供佣金">{editing.isProvideCommission ? '是' : '否'}</Descriptions.Item>
               <Descriptions.Item label="Hedge Bet">{editing.hasHedgeBet ? '是' : '否'}</Descriptions.Item>
+              <Descriptions.Item label="封面状态">
+                <Tag color={coverStatusMeta(editing.coverStatus).color}>{coverStatusMeta(editing.coverStatus).label}</Tag>
+                {editing.iconWidth && editing.iconHeight ? `${editing.iconWidth}×${editing.iconHeight}` : ''}
+              </Descriptions.Item>
+              <Descriptions.Item label="封面探测时间">{formatDate(editing.iconProbedAt)}</Descriptions.Item>
               <Descriptions.Item label="同步时间">{formatDate(editing.syncedAt)}</Descriptions.Item>
               <Descriptions.Item label="更新时间">{formatDate(editing.updatedAt)}</Descriptions.Item>
             </Descriptions>

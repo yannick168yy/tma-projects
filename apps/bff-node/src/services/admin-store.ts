@@ -542,7 +542,7 @@ export async function listAdminWin568Games(
     provider?: string | string[]; search?: string; isActive?: boolean; upstreamAvailable?: boolean
     sortCategory?: string; siteCategory?: string; volatility?: string; newGameType?: number; currency?: string; device?: string
     gameProviderId?: number; gameId?: number
-    isFeatured?: boolean; sortField?: string; sortOrder?: 'asc' | 'desc'
+    isFeatured?: boolean; coverStatus?: string; sortField?: string; sortOrder?: 'asc' | 'desc'
   },
 ) {
   const offset = (opts.page - 1) * opts.pageSize
@@ -588,6 +588,16 @@ export async function listAdminWin568Games(
     params.push(opts.device)
   }
   if (opts.isFeatured !== undefined) { conditions.push('COALESCE(o.is_featured, 0) = ?'); params.push(opts.isFeatured ? 1 : 0) }
+  if (opts.coverStatus) {
+    // 封面状态基于探测落库的 icon_width/icon_height：宽>高横版、宽<高竖版、宽=高正方形、宽为空无封面
+    const coverExpr: Record<string, string> = {
+      landscape: 'g.icon_width > g.icon_height',
+      portrait: 'g.icon_width < g.icon_height',
+      square: 'g.icon_width IS NOT NULL AND g.icon_width = g.icon_height',
+      none: 'g.icon_width IS NULL',
+    }
+    if (coverExpr[opts.coverStatus]) conditions.push(coverExpr[opts.coverStatus])
+  }
 
   const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : ''
   const [countRows] = await pool(env).query<RowDataPacket[]>(
@@ -611,7 +621,8 @@ export async function listAdminWin568Games(
   const [rows] = await pool(env).query<RowDataPacket[]>(
     `SELECT g.game_id, g.game_provider_id, g.provider, g.new_game_type, g.game_type, g.rank_no,
             g.device, g.platform, g.rtp, g.rows_count, g.reels_count, g.lines_count,
-            g.name_en, g.name_zh, g.icon_url, g.supported_currencies, g.block_countries,
+            g.name_en, g.name_zh, g.icon_url, g.icon_width, g.icon_height, g.icon_probed_at,
+            g.supported_currencies, g.block_countries,
             g.is_enabled, g.is_maintain, g.provider_status, g.is_provider_online,
             g.is_provide_commission, g.has_hedge_bet, g.synced_at, g.updated_at,
             o.is_active AS override_active, o.weight AS override_weight,
@@ -653,6 +664,14 @@ export async function listAdminWin568Games(
     nameOverride: r.name_override ? String(r.name_override) : null,
     imageUrl: r.effective_image ? String(r.effective_image) : null,
     iconUrl: r.icon_url ? String(r.icon_url) : null,
+    iconWidth: r.icon_width == null ? null : Number(r.icon_width),
+    iconHeight: r.icon_height == null ? null : Number(r.icon_height),
+    iconProbedAt: (() => { const d = new Date(r.icon_probed_at as Date); return isNaN(d.getTime()) ? null : d.toISOString() })(),
+    coverStatus: r.icon_width == null
+      ? 'none'
+      : Number(r.icon_width) > Number(r.icon_height) ? 'landscape'
+      : Number(r.icon_width) < Number(r.icon_height) ? 'portrait'
+      : 'square',
     imageOverride: r.image_override ? String(r.image_override) : null,
     newGameType: r.new_game_type == null ? null : Number(r.new_game_type),
     gameType: r.game_type == null ? null : Number(r.game_type),

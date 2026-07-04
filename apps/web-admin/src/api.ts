@@ -462,6 +462,10 @@ export interface AdminWin568Game {
   nameOverride: string | null
   imageUrl: string | null
   iconUrl: string | null
+  iconWidth: number | null
+  iconHeight: number | null
+  iconProbedAt: string | null
+  coverStatus: 'landscape' | 'portrait' | 'square' | 'none'
   imageOverride: string | null
   newGameType: number | null
   gameType: number | null
@@ -534,6 +538,7 @@ export const getAdminWin568Games = (params: {
   currency?: string
   device?: string
   isFeatured?: boolean
+  coverStatus?: 'landscape' | 'portrait' | 'square' | 'none'
   sortField?: string
   sortOrder?: 'asc' | 'desc'
 }) =>
