@@ -523,7 +523,7 @@ export interface AdminWin568Game {
 export const getAdminWin568Games = (params: {
   page?: number
   pageSize?: number
-  provider?: string
+  provider?: string | string[]
   search?: string
   isActive?: boolean
   upstreamAvailable?: boolean

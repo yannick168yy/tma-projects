@@ -539,7 +539,7 @@ export async function listAdminWin568Games(
   env: Env,
   opts: {
     page: number; pageSize: number
-    provider?: string; search?: string; isActive?: boolean; upstreamAvailable?: boolean
+    provider?: string | string[]; search?: string; isActive?: boolean; upstreamAvailable?: boolean
     sortCategory?: string; siteCategory?: string; volatility?: string; newGameType?: number; currency?: string; device?: string
     isFeatured?: boolean; sortField?: string; sortOrder?: 'asc' | 'desc'
   },
@@ -551,7 +551,16 @@ export async function listAdminWin568Games(
   const upstreamAvailable = win568UpstreamAvailableExpr()
   const localActive = win568LocalActiveExpr()
 
-  if (opts.provider) { conditions.push('g.provider = ?'); params.push(opts.provider) }
+  if (opts.provider) {
+    const providers = Array.isArray(opts.provider) ? opts.provider : [opts.provider]
+    if (providers.length === 1) {
+      conditions.push('g.provider = ?')
+      params.push(providers[0])
+    } else {
+      conditions.push(`g.provider IN (${providers.map(() => '?').join(',')})`)
+      params.push(...providers)
+    }
+  }
   if (opts.search) {
     conditions.push('(g.name_en LIKE ? OR g.name_zh LIKE ? OR o.name_override LIKE ? OR o.search_keywords LIKE ? OR CAST(g.game_id AS CHAR) LIKE ? OR CAST(g.game_provider_id AS CHAR) LIKE ?)')
     params.push(`%${opts.search}%`, `%${opts.search}%`, `%${opts.search}%`, `%${opts.search}%`, `%${opts.search}%`, `%${opts.search}%`)
