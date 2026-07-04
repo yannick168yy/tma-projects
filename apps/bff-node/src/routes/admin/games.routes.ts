@@ -13,6 +13,7 @@ import {
 } from '../../services/admin-store.js'
 import { syncAllGames, loadGamesCache, refreshHomepageSelection, stripMobileNamesInDb } from '../../services/sg-game.service.js'
 import { translateUntranslatedGames } from '../../services/game-translation.service.js'
+import { enrichWin568Game } from '../../services/win568-enrichment.service.js'
 import {
   createJob,
   getJob,
@@ -150,6 +151,39 @@ router.patch('/win568/:gameProviderId/:gameId', async (ctx) => {
     ip: ctx.ip,
   })
   ok(ctx, { gameProviderId, gameId })
+})
+
+router.post('/win568/:gameProviderId/:gameId/enrich', async (ctx) => {
+  const gameProviderId = Number(ctx.params.gameProviderId)
+  const gameId = Number(ctx.params.gameId)
+  if (!Number.isInteger(gameProviderId) || !Number.isInteger(gameId)) {
+    fail(ctx, 400, 'gameProviderId and gameId are required'); return
+  }
+  try {
+    await enrichWin568Game(ctx.state.env, gameProviderId, gameId)
+    await loadGamesCache(ctx.state.env)
+    await refreshHomepageSelection(ctx.state.env)
+    await writeAuditLog(ctx.state.env, {
+      adminId: ctx.state.adminId!,
+      adminUsername: ctx.state.adminUsername!,
+      action: 'win568.game.enrich',
+      targetType: 'win568_game',
+      targetId: `${gameProviderId}:${gameId}`,
+      ip: ctx.ip,
+    })
+    const refreshed = await listAdminWin568Games(ctx.state.env, {
+      page: 1,
+      pageSize: 10,
+      search: String(gameId),
+    })
+    ok(ctx, {
+      gameProviderId,
+      gameId,
+      game: refreshed.items.find((g) => g.gameProviderId === gameProviderId && g.gameId === gameId) ?? null,
+    })
+  } catch (e) {
+    fail(ctx, 500, e instanceof Error ? e.message : 'AI 富化失败')
+  }
 })
 
 router.get('/win568-provider-stats', async (ctx) => {

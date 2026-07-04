@@ -550,6 +550,8 @@ export const updateWin568Game = (gameProviderId: number, gameId: number, data: {
   imageOverride?: string | null
 }) =>
   patch<{ gameProviderId: number; gameId: number }>(`/admin/games/win568/${gameProviderId}/${gameId}`, data)
+export const enrichWin568Game = (gameProviderId: number, gameId: number) =>
+  post<{ gameProviderId: number; gameId: number; game: AdminWin568Game | null }>(`/admin/games/win568/${gameProviderId}/${gameId}/enrich`, {})
 export const getWin568ProviderStats = () =>
   get<ProviderStat[]>('/admin/games/win568-provider-stats')
 export const toggleWin568ProviderGames = (provider: string, isActive: boolean) =>

@@ -16,6 +16,7 @@
  *   FORCE=1                         重跑已富化过的游戏（默认只跑 web_enriched_at IS NULL）
  *   DRY_RUN=1                       只打印不写库
  *   PROVIDER=JiLiGaming             只跑指定厂商
+ *   GAME_PROVIDER_ID=1 GAME_ID=123   只跑指定游戏
  *
  * 存储规则:
  *   - 事实字段（volatility/max_win_multiplier/rtp_official/release_date/min_bet/max_bet）
@@ -32,6 +33,8 @@ const CONCURRENCY = Number(process.env.CONCURRENCY ?? 4)
 const LIMIT = Number(process.env.LIMIT ?? 0)
 const FORCE = process.env.FORCE === '1'
 const DRY_RUN = process.env.DRY_RUN === '1'
+const GAME_PROVIDER_ID = process.env.GAME_PROVIDER_ID ? Number(process.env.GAME_PROVIDER_ID) : null
+const GAME_ID = process.env.GAME_ID ? Number(process.env.GAME_ID) : null
 
 const VOLATILITY_VALUES = new Set(['low', 'mid', 'high'])
 
@@ -242,7 +245,11 @@ async function main() {
 
   // 第一批范围：上游可用 + PHP/USDT(UCC) + 移动端
   const providerCond = process.env.PROVIDER ? 'AND g.provider = ?' : ''
+  const singleGameCond = GAME_PROVIDER_ID !== null && GAME_ID !== null ? 'AND g.game_provider_id = ? AND g.game_id = ?' : ''
   const enrichedCond = FORCE ? '' : 'AND (o.web_enriched_at IS NULL)'
+  const params: unknown[] = []
+  if (process.env.PROVIDER) params.push(process.env.PROVIDER)
+  if (GAME_PROVIDER_ID !== null && GAME_ID !== null) params.push(GAME_PROVIDER_ID, GAME_ID)
   const [games] = await db.query<GameRow[]>(
     `SELECT g.game_id, g.game_provider_id, g.provider, g.name_en, g.name_zh,
             g.new_game_type, g.site_category_auto, g.rtp
@@ -257,10 +264,10 @@ async function main() {
          OR JSON_CONTAINS(g.supported_currencies, JSON_QUOTE('UCC')))
        AND (g.device IS NULL OR FIND_IN_SET('m', REPLACE(g.device, ' ', '')) > 0)
        AND g.name_en IS NOT NULL AND g.new_game_type NOT IN (100, 200)
-       ${providerCond} ${enrichedCond}
+       ${providerCond} ${singleGameCond} ${enrichedCond}
      ORDER BY g.provider, g.game_id
      ${LIMIT > 0 ? `LIMIT ${LIMIT}` : ''}`,
-    process.env.PROVIDER ? [process.env.PROVIDER] : [],
+    params,
   )
   console.log(`\n🎮 待富化 ${games.length} 款（model=${GEMINI_MODEL} concurrency=${CONCURRENCY}${DRY_RUN ? ' DRY_RUN' : ''}）\n`)
 

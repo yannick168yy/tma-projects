@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Button, Col, Descriptions, Form, Input, InputNumber, Modal, Row, Select, Space, Switch, Table, Tag, message } from 'antd'
 import type { TablePaginationConfig, TableProps } from 'antd'
-import { getAdminWin568Games, toggleWin568Game, updateWin568Game, type AdminWin568Game } from '../../api'
+import { enrichWin568Game, getAdminWin568Games, toggleWin568Game, updateWin568Game, type AdminWin568Game } from '../../api'
 
 interface Props { refreshKey: number }
 
@@ -90,6 +90,7 @@ export default function Win568GameList({ refreshKey }: Props) {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc' | undefined>()
   const [toggling, setToggling] = useState<string | null>(null)
   const [editing, setEditing] = useState<AdminWin568Game | null>(null)
+  const [enriching, setEnriching] = useState(false)
   const [form] = Form.useForm()
 
   async function load(p = 1, clearFilters = false) {
@@ -180,6 +181,23 @@ export default function Win568GameList({ refreshKey }: Props) {
     message.success('已保存')
     setEditing(null)
     void load(page)
+  }
+
+  async function runEnrich() {
+    if (!editing) return
+    setEnriching(true)
+    try {
+      const res = await enrichWin568Game(editing.gameProviderId, editing.gameId)
+      if (res.game) {
+        setEditing(res.game)
+        setGames((prev) => prev.map((g) => g.uuid === res.game!.uuid ? res.game! : g))
+      }
+      message.success('AI 富化数据已更新')
+    } catch (e) {
+      message.error(e instanceof Error ? e.message : 'AI 富化失败')
+    } finally {
+      setEnriching(false)
+    }
   }
 
   const handleTableChange: TableProps<AdminWin568Game>['onChange'] = (pag, _filters, sorter) => {
@@ -350,7 +368,13 @@ export default function Win568GameList({ refreshKey }: Props) {
               <Descriptions.Item label="更新时间">{formatDate(editing.updatedAt)}</Descriptions.Item>
             </Descriptions>
 
-            <Descriptions title="AI 富化数据" column={3} bordered size="small" style={{ marginBottom: 10 }}>
+            <Descriptions
+              title={<Space>AI 富化数据<Button size="small" loading={enriching} onClick={() => void runEnrich()}>更新该游戏 AI 富化数据</Button></Space>}
+              column={3}
+              bordered
+              size="small"
+              style={{ marginBottom: 10 }}
+            >
               <Descriptions.Item label="PH 热度">{editing.phBonus ?? '—'}</Descriptions.Item>
               <Descriptions.Item label="主题">{editing.theme || '—'}</Descriptions.Item>
               <Descriptions.Item label="风格">{editing.gameStyle || '—'}</Descriptions.Item>
