@@ -70,10 +70,10 @@ export async function probePendingGameIcons(app: FastifyInstance): Promise<void>
     if (rows.length === 0) return
     app.log.info({ total: rows.length }, '[icon-probe] start')
 
+    // 并发只用于抓图；DB 写入串行复用池内连接，避免并发新建连接触发 podman DNS 解析失败
     const queue = [...rows]
-    let ok = 0
+    const results: { gameProviderId: number; gameId: number; width: number; height: number }[] = []
     let failed = 0
-    let landscape = 0
     await Promise.all(
       Array.from({ length: CONCURRENCY }, async () => {
         for (;;) {
@@ -84,16 +84,27 @@ export async function probePendingGameIcons(app: FastifyInstance): Promise<void>
             failed++
             continue
           }
-          await app.mysql.execute(
-            `UPDATE bg_568win_game SET icon_width = ?, icon_height = ?, icon_probed_at = NOW(3)
-             WHERE game_provider_id = ? AND game_id = ?`,
-            [size.width, size.height, row.game_provider_id, row.game_id],
-          )
-          ok++
-          if (size.width > size.height * 1.15) landscape++
+          results.push({
+            gameProviderId: Number(row.game_provider_id),
+            gameId: Number(row.game_id),
+            width: size.width,
+            height: size.height,
+          })
         }
       }),
     )
+
+    let ok = 0
+    let landscape = 0
+    for (const r of results) {
+      await app.mysql.execute(
+        `UPDATE bg_568win_game SET icon_width = ?, icon_height = ?, icon_probed_at = NOW(3)
+         WHERE game_provider_id = ? AND game_id = ?`,
+        [r.width, r.height, r.gameProviderId, r.gameId],
+      )
+      ok++
+      if (r.width > r.height * 1.15) landscape++
+    }
     app.log.info({ total: rows.length, ok, failed, landscape }, '[icon-probe] done')
   } catch (err) {
     app.log.error({ err }, '[icon-probe] failed')
