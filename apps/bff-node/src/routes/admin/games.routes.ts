@@ -174,7 +174,8 @@ router.post('/win568/:gameProviderId/:gameId/enrich', async (ctx) => {
     const refreshed = await listAdminWin568Games(ctx.state.env, {
       page: 1,
       pageSize: 10,
-      search: String(gameId),
+      gameProviderId,
+      gameId,
     })
     ok(ctx, {
       gameProviderId,

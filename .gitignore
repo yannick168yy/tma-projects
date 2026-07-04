@@ -34,3 +34,4 @@ artifacts/
 # Docker volumes (local)
 infra/docker/data/
 .claude/skills/
+apps/web-tma/.env.development.local

@@ -541,6 +541,7 @@ export async function listAdminWin568Games(
     page: number; pageSize: number
     provider?: string | string[]; search?: string; isActive?: boolean; upstreamAvailable?: boolean
     sortCategory?: string; siteCategory?: string; volatility?: string; newGameType?: number; currency?: string; device?: string
+    gameProviderId?: number; gameId?: number
     isFeatured?: boolean; sortField?: string; sortOrder?: 'asc' | 'desc'
   },
 ) {
@@ -561,6 +562,8 @@ export async function listAdminWin568Games(
       params.push(...providers)
     }
   }
+  if (opts.gameProviderId !== undefined) { conditions.push('g.game_provider_id = ?'); params.push(opts.gameProviderId) }
+  if (opts.gameId !== undefined) { conditions.push('g.game_id = ?'); params.push(opts.gameId) }
   if (opts.search) {
     conditions.push('(g.name_en LIKE ? OR g.name_zh LIKE ? OR o.name_override LIKE ? OR o.search_keywords LIKE ? OR CAST(g.game_id AS CHAR) LIKE ? OR CAST(g.game_provider_id AS CHAR) LIKE ?)')
     params.push(`%${opts.search}%`, `%${opts.search}%`, `%${opts.search}%`, `%${opts.search}%`, `%${opts.search}%`, `%${opts.search}%`)
