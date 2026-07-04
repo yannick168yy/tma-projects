@@ -58,3 +58,9 @@ data/ptgaming/anim_frames/
 data/ptgaming/anim_frames_rs/
 data/ptgaming/anim_covers/
 data/ptgaming/anim_covers_upload/
+
+# fbmplay 爬取的封面图与暂存(不入库,可由 build_fbmplay 重跑)
+data/fbmplay/images/
+data/fbmplay/covers_upload/
+data/fbmplay/pageContext_data.json
+data/fbmplay/download_failed.json

@@ -1,0 +1,702 @@
+[
+  {
+    "gpid": 1071,
+    "gid": 61,
+    "basename": "5G__pi_ata_1000__S5G-H5-99928.png",
+    "fbmName": "piñata 1000",
+    "ourProvider": "5GGames"
+  },
+  {
+    "gpid": 1020,
+    "gid": 192,
+    "basename": "JILI__Super_Ace_2__542.webp",
+    "fbmName": "Super Ace 2",
+    "ourProvider": "JiLiGaming"
+  },
+  {
+    "gpid": 1058,
+    "gid": 141,
+    "basename": "JDB__magic_ace_wild_lock__14093.webp",
+    "fbmName": "magic ace wild lock",
+    "ourProvider": "JDB"
+  },
+  {
+    "gpid": 35,
+    "gid": 188,
+    "basename": "PG__galaxy_miner__1918451.webp",
+    "fbmName": "galaxy miner",
+    "ourProvider": "PGSoft"
+  },
+  {
+    "gpid": 1020,
+    "gid": 282,
+    "basename": "JILI__football_golden_cup__786.png",
+    "fbmName": "football golden cup",
+    "ourProvider": "Jili"
+  },
+  {
+    "gpid": 1020,
+    "gid": 151,
+    "basename": "JILI__Speed_Baccarat__262.webp",
+    "fbmName": "Speed Baccarat",
+    "ourProvider": "JiLiGaming"
+  },
+  {
+    "gpid": 1020,
+    "gid": 70,
+    "basename": "JILI__Baccarat__152.webp",
+    "fbmName": "Baccarat",
+    "ourProvider": "JiLiGaming"
+  },
+  {
+    "gpid": 1058,
+    "gid": 121,
+    "basename": "JDB__dragon_tiger_joker_bonus__18026.webp",
+    "fbmName": "dragon tiger joker bonus",
+    "ourProvider": "JDB"
+  },
+  {
+    "gpid": 1058,
+    "gid": 101,
+    "basename": "JDB__firework_burst__9015.webp",
+    "fbmName": "firework burst",
+    "ourProvider": "JDB"
+  },
+  {
+    "gpid": 1020,
+    "gid": 221,
+    "basename": "JILI__Lucky_Ball__13.webp",
+    "fbmName": "Lucky Ball",
+    "ourProvider": "JiLiGaming"
+  },
+  {
+    "gpid": 35,
+    "gid": 199,
+    "basename": "PG__forbidden_alchemy__1981965.webp",
+    "fbmName": "forbidden alchemy",
+    "ourProvider": "PGSoft"
+  },
+  {
+    "gpid": 35,
+    "gid": 196,
+    "basename": "PG__alibaba_s_cave_of_fortune__1940257.webp",
+    "fbmName": "alibaba's cave of fortune",
+    "ourProvider": "PGSoft"
+  },
+  {
+    "gpid": 35,
+    "gid": 195,
+    "basename": "PG__skylight_wonders__2012025.webp",
+    "fbmName": "skylight wonders",
+    "ourProvider": "PGSoft"
+  },
+  {
+    "gpid": 35,
+    "gid": 194,
+    "basename": "PG__pharaoh_royals__1964781.webp",
+    "fbmName": "pharaoh royals",
+    "ourProvider": "PGSoft"
+  },
+  {
+    "gpid": 35,
+    "gid": 190,
+    "basename": "PG__majestic_empire__1971587.webp",
+    "fbmName": "majestic empire",
+    "ourProvider": "PGSoft"
+  },
+  {
+    "gpid": 35,
+    "gid": 176,
+    "basename": "PG__museum_wonders__1755623.webp",
+    "fbmName": "museum wonders",
+    "ourProvider": "PGSoft"
+  },
+  {
+    "gpid": 3,
+    "gid": 448,
+    "basename": "PP__Mahjong_Wins_Bonus__vs1024mjwinbns.jpg",
+    "fbmName": "Mahjong Wins Bonus",
+    "ourProvider": "PragmaticPlay"
+  },
+  {
+    "gpid": 3,
+    "gid": 397,
+    "basename": "PP__Mahjong_Wins__vs1024mahjwins.jpg",
+    "fbmName": "Mahjong Wins",
+    "ourProvider": "PragmaticPlay"
+  },
+  {
+    "gpid": 3,
+    "gid": 414,
+    "basename": "PP__Sweet_Bonanza_Dice__vs20bnnzdice.webp",
+    "fbmName": "Sweet Bonanza Dice",
+    "ourProvider": "PragmaticPlay"
+  },
+  {
+    "gpid": 3,
+    "gid": 19,
+    "basename": "PP__Busy_Bees__vs20bl.png",
+    "fbmName": "Busy Bees",
+    "ourProvider": "PragmaticPlay"
+  },
+  {
+    "gpid": 3,
+    "gid": 459,
+    "basename": "PP__Great_Lagoon__vs25lagoon.png",
+    "fbmName": "Great Lagoon",
+    "ourProvider": "PragmaticPlay"
+  },
+  {
+    "gpid": 3,
+    "gid": 281,
+    "basename": "PP__Coffee_Wild__vs10coffee.png",
+    "fbmName": "Coffee Wild",
+    "ourProvider": "PragmaticPlay"
+  },
+  {
+    "gpid": 3,
+    "gid": 45,
+    "basename": "PP__Great_Reef__vs25sea.png",
+    "fbmName": "Great Reef",
+    "ourProvider": "PragmaticPlay"
+  },
+  {
+    "gpid": 38,
+    "gid": 810,
+    "basename": "PP__Chinese_Speed_Baccarat_3__483.jpg",
+    "fbmName": "Chinese Speed Baccarat 3",
+    "ourProvider": "PragmaticPlayCasino"
+  },
+  {
+    "gpid": 38,
+    "gid": 783,
+    "basename": "PP__Chinese_Speed_Baccarat_2__482.jpg",
+    "fbmName": "Chinese Speed Baccarat 2",
+    "ourProvider": "PragmaticPlayCasino"
+  },
+  {
+    "gpid": 38,
+    "gid": 782,
+    "basename": "PP__Chinese_Speed_Baccarat_1__481.jpg",
+    "fbmName": "Chinese Speed Baccarat 1",
+    "ourProvider": "PragmaticPlayCasino"
+  },
+  {
+    "gpid": 3,
+    "gid": 288,
+    "basename": "PP__Cheeky_Emperor__vs243ckemp.png",
+    "fbmName": "Cheeky Emperor",
+    "ourProvider": "PragmaticPlay"
+  },
+  {
+    "gpid": 3,
+    "gid": 223,
+    "basename": "PP__Candy_Village__vs20candvil.jpg",
+    "fbmName": "Candy Village",
+    "ourProvider": "PragmaticPlay"
+  },
+  {
+    "gpid": 3,
+    "gid": 26,
+    "basename": "PP__Devil_s_13__vs13g.png",
+    "fbmName": "Devil's 13",
+    "ourProvider": "PragmaticPlay"
+  },
+  {
+    "gpid": 3,
+    "gid": 253,
+    "basename": "PP__Bull_Fiesta__vs25bullfiesta.jpg",
+    "fbmName": "Bull Fiesta",
+    "ourProvider": "PragmaticPlay"
+  },
+  {
+    "gpid": 3,
+    "gid": 230,
+    "basename": "PP__Bubble_Pop__vs10bblpop.png",
+    "fbmName": "Bubble Pop",
+    "ourProvider": "PragmaticPlay"
+  },
+  {
+    "gpid": 38,
+    "gid": 792,
+    "basename": "PP__Brazilian_Roulette__237.png",
+    "fbmName": "Brazilian Roulette",
+    "ourProvider": "PragmaticPlayCasino"
+  },
+  {
+    "gpid": 3,
+    "gid": 251,
+    "basename": "PP__Book_of_Aztec_King__vs10bookazteck.png",
+    "fbmName": "Book of Aztec King",
+    "ourProvider": "PragmaticPlay"
+  },
+  {
+    "gpid": 3,
+    "gid": 152,
+    "basename": "PP__Bonanza_Gold__vs20bonzgold.png",
+    "fbmName": "Bonanza Gold",
+    "ourProvider": "PragmaticPlay"
+  },
+  {
+    "gpid": 3,
+    "gid": 453,
+    "basename": "PP__Fortune_Ace__vs1024fortune.jpg",
+    "fbmName": "Fortune Ace",
+    "ourProvider": "PragmaticPlay"
+  },
+  {
+    "gpid": 3,
+    "gid": 342,
+    "basename": "PP__Gatot_Kaca_s_Fury__vs20gatotfury.png",
+    "fbmName": "Gatot Kaca's Fury",
+    "ourProvider": "PragmaticPlay"
+  },
+  {
+    "gpid": 3,
+    "gid": 463,
+    "basename": "PP__Gates_of_Olympus_Dice__vs20olympdice.jpg",
+    "fbmName": "Gates of Olympus Dice",
+    "ourProvider": "PragmaticPlay"
+  },
+  {
+    "gpid": 3,
+    "gid": 156,
+    "basename": "PP__Golden_Ox__vs25gldox.png",
+    "fbmName": "Golden Ox",
+    "ourProvider": "PragmaticPlay"
+  },
+  {
+    "gpid": 3,
+    "gid": 334,
+    "basename": "PP__Gates_of_Aztec__vs20aztecgates.png",
+    "fbmName": "Gates of Aztec",
+    "ourProvider": "PragmaticPlay"
+  },
+  {
+    "gpid": 3,
+    "gid": 127,
+    "basename": "PP__Fu_Fu_Fu__vs1fufufu.png",
+    "fbmName": "Fu Fu Fu",
+    "ourProvider": "PragmaticPlay"
+  },
+  {
+    "gpid": 3,
+    "gid": 352,
+    "basename": "PP__Fruits_of_the_Amazon__vs20framazon.png",
+    "fbmName": "Fruits of the Amazon",
+    "ourProvider": "PragmaticPlay"
+  },
+  {
+    "gpid": 3,
+    "gid": 374,
+    "basename": "PP__Frogs_Bugs__vswaysfrbugs.png",
+    "fbmName": "Frogs & Bugs",
+    "ourProvider": "PragmaticPlay"
+  },
+  {
+    "gpid": 3,
+    "gid": 446,
+    "basename": "PP__Fortune_Dragon__vs243fdragon.jpg",
+    "fbmName": "Fortune Dragon",
+    "ourProvider": "PragmaticPlay"
+  },
+  {
+    "gpid": 38,
+    "gid": 805,
+    "basename": "PP__Super_Trunfo_Football_Blitz_Top_Card__4001.jpg",
+    "fbmName": "Super Trunfo\n(Football Blitz Top Card)",
+    "ourProvider": "PragmaticPlayCasino"
+  },
+  {
+    "gpid": 3,
+    "gid": 237,
+    "basename": "PP__Emperor_Caishen__vs243empcaishen.jpg",
+    "fbmName": "Emperor Caishen",
+    "ourProvider": "PragmaticPlay"
+  },
+  {
+    "gpid": 3,
+    "gid": 44,
+    "basename": "PP__Golden_Pig__vs25goldpig.png",
+    "fbmName": "Golden Pig",
+    "ourProvider": "PragmaticPlay"
+  },
+  {
+    "gpid": 3,
+    "gid": 257,
+    "basename": "PP__Disco_Lady__vs243discolady.png",
+    "fbmName": "Disco Lady",
+    "ourProvider": "PragmaticPlay"
+  },
+  {
+    "gpid": 3,
+    "gid": 28,
+    "basename": "PP__Diamonds_are_Forever_3_Lines__cs3w.png",
+    "fbmName": "Diamonds are Forever 3 Lines",
+    "ourProvider": "PragmaticPlay"
+  },
+  {
+    "gpid": 3,
+    "gid": 194,
+    "basename": "PP__Aztec_King__vs25aztecking.png",
+    "fbmName": "Aztec King",
+    "ourProvider": "PragmaticPlay"
+  },
+  {
+    "gpid": 38,
+    "gid": 808,
+    "basename": "PP__Andar_Bahar__1024.jpg",
+    "fbmName": "Andar Bahar",
+    "ourProvider": "PragmaticPlayCasino"
+  },
+  {
+    "gpid": 3,
+    "gid": 417,
+    "basename": "PP__888_Bonanza__vs243goldfor.png",
+    "fbmName": "888 Bonanza",
+    "ourProvider": "PragmaticPlay"
+  },
+  {
+    "gpid": 3,
+    "gid": 328,
+    "basename": "PP__5_Rabbits_Megaways__vswaysrabbits.png",
+    "fbmName": "5 Rabbits Megaways",
+    "ourProvider": "PragmaticPlay"
+  },
+  {
+    "gpid": 3,
+    "gid": 209,
+    "basename": "PP__Lucky_Grace_Charm__vs10luckcharm.png",
+    "fbmName": "Lucky, Grace & Charm",
+    "ourProvider": "PragmaticPlay"
+  },
+  {
+    "gpid": 3,
+    "gid": 208,
+    "basename": "PP__Aztec_King_Megaways__vswaysaztecking.png",
+    "fbmName": "Aztec King Megaways",
+    "ourProvider": "PragmaticPlay"
+  },
+  {
+    "gpid": 3,
+    "gid": 250,
+    "basename": "PP__Spaceman__1301.jpg",
+    "fbmName": "Spaceman",
+    "ourProvider": "PragmaticPlay"
+  },
+  {
+    "gpid": 38,
+    "gid": 806,
+    "basename": "PP__Sic_Bo__711.jpg",
+    "fbmName": "Sic Bo",
+    "ourProvider": "PragmaticPlayCasino"
+  },
+  {
+    "gpid": 3,
+    "gid": 435,
+    "basename": "PP__Sea_Fantasy__vswaysseastory.jpg",
+    "fbmName": "Sea Fantasy",
+    "ourProvider": "PragmaticPlay"
+  },
+  {
+    "gpid": 38,
+    "gid": 787,
+    "basename": "PP__Roulette_Indian__229.png",
+    "fbmName": "Roulette Indian",
+    "ourProvider": "PragmaticPlayCasino"
+  },
+  {
+    "gpid": 3,
+    "gid": 300,
+    "basename": "PP__Wildman_Super_Bonanza__vs20wildman.webp",
+    "fbmName": "Wildman Super Bonanza",
+    "ourProvider": "PragmaticPlay"
+  },
+  {
+    "gpid": 38,
+    "gid": 784,
+    "basename": "PP__Vietnamese_Speed_Baccarat_1__479.jpg",
+    "fbmName": "Vietnamese Speed Baccarat 1",
+    "ourProvider": "PragmaticPlayCasino"
+  },
+  {
+    "gpid": 38,
+    "gid": 794,
+    "basename": "PP__Turkish_Mega_Roulette__208.png",
+    "fbmName": "Turkish Mega Roulette",
+    "ourProvider": "PragmaticPlayCasino"
+  },
+  {
+    "gpid": 3,
+    "gid": 134,
+    "basename": "PP__The_Tiger_Warrior__vs25tigerwar.webp",
+    "fbmName": "The Tiger Warrior",
+    "ourProvider": "PragmaticPlay"
+  },
+  {
+    "gpid": 38,
+    "gid": 774,
+    "basename": "PP__Thai_Speed_Baccarat_1__451.png",
+    "fbmName": "Thai Speed Baccarat 1",
+    "ourProvider": "PragmaticPlayCasino"
+  },
+  {
+    "gpid": 3,
+    "gid": 275,
+    "basename": "PP__Little_Gem__vs5littlegem.jpg",
+    "fbmName": "Little Gem",
+    "ourProvider": "PragmaticPlay"
+  },
+  {
+    "gpid": 38,
+    "gid": 769,
+    "basename": "PP__Korean_Speed_Baccarat_6__499.jpg",
+    "fbmName": "Korean Speed Baccarat 6",
+    "ourProvider": "PragmaticPlayCasino"
+  },
+  {
+    "gpid": 38,
+    "gid": 768,
+    "basename": "PP__Korean_Speed_Baccarat_5__476.jpg",
+    "fbmName": "Korean Speed Baccarat 5",
+    "ourProvider": "PragmaticPlayCasino"
+  },
+  {
+    "gpid": 38,
+    "gid": 766,
+    "basename": "PP__Korean_Speed_Baccarat_3__459.jpg",
+    "fbmName": "Korean Speed Baccarat 3",
+    "ourProvider": "PragmaticPlayCasino"
+  },
+  {
+    "gpid": 38,
+    "gid": 765,
+    "basename": "PP__Korean_Speed_Baccarat_2__449.jpg",
+    "fbmName": "Korean Speed Baccarat 2",
+    "ourProvider": "PragmaticPlayCasino"
+  },
+  {
+    "gpid": 38,
+    "gid": 764,
+    "basename": "PP__Korean_Speed_Baccarat_1__441.jpg",
+    "fbmName": "Korean Speed Baccarat 1",
+    "ourProvider": "PragmaticPlayCasino"
+  },
+  {
+    "gpid": 38,
+    "gid": 791,
+    "basename": "PP__Korean_Roulette__213.jpg",
+    "fbmName": "Korean Roulette",
+    "ourProvider": "PragmaticPlayCasino"
+  },
+  {
+    "gpid": 3,
+    "gid": 272,
+    "basename": "PP__Koi_Pond__vs243koipond.png",
+    "fbmName": "Koi Pond",
+    "ourProvider": "PragmaticPlay"
+  },
+  {
+    "gpid": 3,
+    "gid": 315,
+    "basename": "PP__Kingdom_of_Asgard__vs20asgard.webp",
+    "fbmName": "Kingdom of Asgard",
+    "ourProvider": "PragmaticPlay"
+  },
+  {
+    "gpid": 3,
+    "gid": 126,
+    "basename": "PP__Lucky_Dragon_Ball__vs1ball.jpg",
+    "fbmName": "Lucky Dragon Ball",
+    "ourProvider": "PragmaticPlay"
+  },
+  {
+    "gpid": 3,
+    "gid": 383,
+    "basename": "PP__Joker_Race__vs25jokrace.png",
+    "fbmName": "Joker Race",
+    "ourProvider": "PragmaticPlay"
+  },
+  {
+    "gpid": 3,
+    "gid": 426,
+    "basename": "PP__Joker_Jewels_Dice__vs5jokerdice.jpg",
+    "fbmName": "Joker Jewels Dice",
+    "ourProvider": "PragmaticPlay"
+  },
+  {
+    "gpid": 38,
+    "gid": 772,
+    "basename": "PP__Japanese_Speed_Baccarat_3__490.jpg",
+    "fbmName": "Japanese Speed Baccarat 3",
+    "ourProvider": "PragmaticPlayCasino"
+  },
+  {
+    "gpid": 38,
+    "gid": 771,
+    "basename": "PP__Japanese_Speed_Baccarat_2__489.jpg",
+    "fbmName": "Japanese Speed Baccarat 2",
+    "ourProvider": "PragmaticPlayCasino"
+  },
+  {
+    "gpid": 38,
+    "gid": 770,
+    "basename": "PP__Japanese_Speed_Baccarat_1__488.jpg",
+    "fbmName": "Japanese Speed Baccarat 1",
+    "ourProvider": "PragmaticPlayCasino"
+  },
+  {
+    "gpid": 3,
+    "gid": 55,
+    "basename": "PP__Irish_Charms__cs3irishcharms.png",
+    "fbmName": "Irish Charms",
+    "ourProvider": "PragmaticPlay"
+  },
+  {
+    "gpid": 3,
+    "gid": 365,
+    "basename": "PP__Holiday_Ride__vs25holiday.webp",
+    "fbmName": "Holiday Ride",
+    "ourProvider": "PragmaticPlay"
+  },
+  {
+    "gpid": 3,
+    "gid": 232,
+    "basename": "PP__Hockey_Attack__vs88hockattack.webp",
+    "fbmName": "Hockey Attack",
+    "ourProvider": "PragmaticPlay"
+  },
+  {
+    "gpid": 3,
+    "gid": 76,
+    "basename": "PP__Money_Roll__cs5moneyroll.png",
+    "fbmName": "Money Roll",
+    "ourProvider": "PragmaticPlay"
+  },
+  {
+    "gpid": 3,
+    "gid": 373,
+    "basename": "PP__Robber_Strike__vs4096robber.png",
+    "fbmName": "Robber Strike",
+    "ourProvider": "PragmaticPlay"
+  },
+  {
+    "gpid": 3,
+    "gid": 133,
+    "basename": "PP__Rise_of_Samurai__vs25samurai.png",
+    "fbmName": "Rise of Samurai",
+    "ourProvider": "PragmaticPlay"
+  },
+  {
+    "gpid": 3,
+    "gid": 214,
+    "basename": "PP__Raging_Bull__vs243chargebull.png",
+    "fbmName": "Raging Bull",
+    "ourProvider": "PragmaticPlay"
+  },
+  {
+    "gpid": 38,
+    "gid": 785,
+    "basename": "PP__Punto_Banco_Italia_Tricolore__491.jpg",
+    "fbmName": "Punto Banco Italia Tricolore",
+    "ourProvider": "PragmaticPlayCasino"
+  },
+  {
+    "gpid": 3,
+    "gid": 356,
+    "basename": "PP__Moonshot__vs1024moonsh.png",
+    "fbmName": "Moonshot",
+    "ourProvider": "PragmaticPlay"
+  },
+  {
+    "gpid": 3,
+    "gid": 128,
+    "basename": "PP__Money_Money_Money__vs1money.png",
+    "fbmName": "Money Money Money",
+    "ourProvider": "PragmaticPlay"
+  },
+  {
+    "gpid": 38,
+    "gid": 809,
+    "basename": "PP__Mega_Sic_Bac__2101.jpg",
+    "fbmName": "Mega Sic Bac",
+    "ourProvider": "PragmaticPlayCasino"
+  },
+  {
+    "gpid": 3,
+    "gid": 278,
+    "basename": "PP__Mahjong_Panda__vs1024mahjpanda.png",
+    "fbmName": "Mahjong Panda",
+    "ourProvider": "PragmaticPlay"
+  },
+  {
+    "gpid": 3,
+    "gid": 236,
+    "basename": "PP__Lucky_New_Year_-_Tiger_Treasures__vs25tigeryear.png",
+    "fbmName": "Lucky New Year - Tiger Treasures",
+    "ourProvider": "PragmaticPlay"
+  },
+  {
+    "gpid": 3,
+    "gid": 325,
+    "basename": "PP__Lucky_Fishing_Megaways__vswaysluckyfish.webp",
+    "fbmName": "Lucky Fishing Megaways",
+    "ourProvider": "PragmaticPlay"
+  },
+  {
+    "gpid": 3,
+    "gid": 405,
+    "basename": "PP__John_Hunter_and_the_Book_of_Tut_Megaways__vswaystut.webp",
+    "fbmName": "John Hunter and the Book of Tut Megaways",
+    "ourProvider": "PragmaticPlay"
+  },
+  {
+    "gpid": 3,
+    "gid": 353,
+    "basename": "PP__The_Knight_King__vs20sknights.webp",
+    "fbmName": "The Knight King",
+    "ourProvider": "PragmaticPlay"
+  },
+  {
+    "gpid": 3,
+    "gid": 74,
+    "basename": "PP__Mighty_Kong__vs50kingkong.png",
+    "fbmName": "Mighty Kong",
+    "ourProvider": "PragmaticPlay"
+  },
+  {
+    "gpid": 3,
+    "gid": 68,
+    "basename": "PP__Lucky_New_Year__vs25newyear.png",
+    "fbmName": "Lucky New Year",
+    "ourProvider": "PragmaticPlay"
+  },
+  {
+    "gpid": 3,
+    "gid": 488,
+    "basename": "PP__Odds_On_Winner__vs10frontrun.jpg",
+    "fbmName": "Odds On Winner",
+    "ourProvider": "PragmaticPlay"
+  },
+  {
+    "gpid": 3,
+    "gid": 462,
+    "basename": "PP__Power_of_Ninja__vs20ninjapower.png",
+    "fbmName": "Power of Ninja",
+    "ourProvider": "PragmaticPlay"
+  },
+  {
+    "gpid": 3,
+    "gid": 536,
+    "basename": "PP__Fangtastic_Freespins__vs10fangfree.jpg",
+    "fbmName": "Fangtastic Freespins",
+    "ourProvider": "PragmaticPlay"
+  },
+  {
+    "gpid": 1046,
+    "gid": 53,
+    "basename": "FC__Boxing_Riches__22065.webp",
+    "fbmName": "Boxing Riches",
+    "ourProvider": "FaChai"
+  }
+]
