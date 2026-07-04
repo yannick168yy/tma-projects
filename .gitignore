@@ -41,3 +41,7 @@ apps/web-tma/.env.development.local
 # gzone 爬取的第三方游戏图片（67MB，不入库）
 data/gzone/images/
 data/gzone/download_failed.json
+
+# casinoplus 爬取的第三方游戏图片（44MB，不入库）
+data/casinoplus/images/
+data/casinoplus/download_failed.json
