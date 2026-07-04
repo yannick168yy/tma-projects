@@ -108,7 +108,7 @@ run run -d --name tma-core-java --network "$NET" --restart=always \
   -p 127.0.0.1:8081:8080 \
   betogo-core-java:placeholder
 
-echo "==> [${CTR}] bff-node (limit 192m)"
+echo "==> [${CTR}] bff-node (limit 256m)"
 NACOS_IP="$(run inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' tma-nacos 2>/dev/null || echo "")"
 REDIS_IP="$(run inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' tma-redis 2>/dev/null || echo "")"
 if [[ -z "$NACOS_IP" ]]; then
@@ -123,7 +123,7 @@ run build -t betogo-bff-node:latest -f apps/bff-node/Dockerfile apps/bff-node
 MYSQL_HOST_WIRED="${MYSQL_HOST:-host.containers.internal}"
 MYSQL_PORT_WIRED="${MYSQL_PORT:-3306}"
 run run -d --name tma-bff-node --network "$NET" --restart=always \
-  --memory=192m --memory-swap=192m \
+  --memory=256m --memory-swap=256m \
   --add-host=host.containers.internal:host-gateway \
   -p 127.0.0.1:3000:3000 \
   -e NODE_ENV=production \

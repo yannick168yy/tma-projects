@@ -29,7 +29,7 @@ run build -t betogo-bff-node:latest -f apps/bff-node/Dockerfile apps/bff-node
 run rm -f tma-bff-node 2>/dev/null || true
 run run -d --name tma-bff-node --network "$NET" --restart=always \
   "${LOG_OPTS[@]}" \
-  --memory=192m --memory-swap=192m \
+  --memory=256m --memory-swap=256m \
   -p 127.0.0.1:3000:3000 \
   -v "${DIR}/apps/bff-node/dist:/app/dist:ro" \
   -v "${DIR}/data/kyc:/app/data/kyc" \
