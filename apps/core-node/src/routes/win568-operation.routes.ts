@@ -329,6 +329,11 @@ export async function win568OperationRoutes(app: FastifyInstance) {
     return reply.send({ error: result.error, serverId: result.serverId, syncedCount })
   })
 
+  app.post('/games/probe-icons', async (_req, reply) => {
+    const result = await probePendingGameIcons(app)
+    return reply.send(result)
+  })
+
   app.post<{
     Body: { userId: string; device?: string; language?: string }
   }>('/sports/launch', async (req, reply) => {

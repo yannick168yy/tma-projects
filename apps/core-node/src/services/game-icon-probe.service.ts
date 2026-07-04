@@ -57,46 +57,63 @@ export async function probeImageSize(url: string): Promise<{ width: number; heig
   }
 }
 
+const MAX_ATTEMPTS = 3
+
+function isValidSize(s: { width: number; height: number } | null): s is { width: number; height: number } {
+  return !!s && s.width > 0 && s.height > 0 && s.width <= 65535 && s.height <= 65535
+}
+
+// PNG/JPG 偶发抓取失败（CDN 抽风、超时）重试可救回；SVG/占位图重试后仍失败即确定无图
+async function probeWithRetry(url: string): Promise<{ width: number; height: number } | null> {
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    const size = await probeImageSize(url)
+    if (isValidSize(size)) return size
+    if (attempt < MAX_ATTEMPTS) await new Promise((r) => setTimeout(r, 300 * attempt))
+  }
+  return null
+}
+
+export interface IconProbeResult {
+  total: number
+  ok: number
+  noImage: number
+  landscape: number
+}
+
 /**
  * 补测所有缺宽高的游戏封面（icon_probed_at IS NULL）。
- * 探测失败不落 probed_at，下次同步自动重试；单次失败成本仅一个 HTTP 请求。
+ * 抓图成功落宽高；重试后仍失败视为确定无图，只落 icon_probed_at 标记，避免每次同步无限重探。
  */
-export async function probePendingGameIcons(app: FastifyInstance): Promise<void> {
+export async function probePendingGameIcons(app: FastifyInstance): Promise<IconProbeResult> {
+  const empty: IconProbeResult = { total: 0, ok: 0, noImage: 0, landscape: 0 }
   try {
     const [rows] = await app.mysql.query<RowDataPacket[]>(
       `SELECT game_id, game_provider_id, icon_url FROM bg_568win_game
        WHERE icon_url IS NOT NULL AND icon_probed_at IS NULL`,
     )
-    if (rows.length === 0) return
+    if (rows.length === 0) return empty
     app.log.info({ total: rows.length }, '[icon-probe] start')
 
     // 并发只用于抓图；DB 写入串行复用池内连接，避免并发新建连接触发 podman DNS 解析失败
     const queue = [...rows]
-    const results: { gameProviderId: number; gameId: number; width: number; height: number }[] = []
-    let failed = 0
+    const sized: { gameProviderId: number; gameId: number; width: number; height: number }[] = []
+    const noImage: { gameProviderId: number; gameId: number }[] = []
     await Promise.all(
       Array.from({ length: CONCURRENCY }, async () => {
         for (;;) {
           const row = queue.shift()
           if (!row) return
-          const size = await probeImageSize(String(row.icon_url))
-          if (!size || size.width <= 0 || size.height <= 0 || size.width > 65535 || size.height > 65535) {
-            failed++
-            continue
-          }
-          results.push({
-            gameProviderId: Number(row.game_provider_id),
-            gameId: Number(row.game_id),
-            width: size.width,
-            height: size.height,
-          })
+          const ids = { gameProviderId: Number(row.game_provider_id), gameId: Number(row.game_id) }
+          const size = await probeWithRetry(String(row.icon_url))
+          if (size) sized.push({ ...ids, width: size.width, height: size.height })
+          else noImage.push(ids)
         }
       }),
     )
 
     let ok = 0
     let landscape = 0
-    for (const r of results) {
+    for (const r of sized) {
       await app.mysql.execute(
         `UPDATE bg_568win_game SET icon_width = ?, icon_height = ?, icon_probed_at = NOW(3)
          WHERE game_provider_id = ? AND game_id = ?`,
@@ -105,8 +122,19 @@ export async function probePendingGameIcons(app: FastifyInstance): Promise<void>
       ok++
       if (r.width > r.height * 1.15) landscape++
     }
-    app.log.info({ total: rows.length, ok, failed, landscape }, '[icon-probe] done')
+    // 确定无图：只落 icon_probed_at 标记已探测，宽高保持 NULL，前端据此走默认比例不下发
+    for (const r of noImage) {
+      await app.mysql.execute(
+        `UPDATE bg_568win_game SET icon_probed_at = NOW(3)
+         WHERE game_provider_id = ? AND game_id = ?`,
+        [r.gameProviderId, r.gameId],
+      )
+    }
+    const result: IconProbeResult = { total: rows.length, ok, noImage: noImage.length, landscape }
+    app.log.info(result, '[icon-probe] done')
+    return result
   } catch (err) {
     app.log.error({ err }, '[icon-probe] failed')
+    return empty
   }
 }
