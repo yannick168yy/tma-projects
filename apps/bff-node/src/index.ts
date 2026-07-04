@@ -6,6 +6,23 @@ import { closeMysql, getStorageMode, warmupMysql, isMysqlEnabled } from './clien
 
 const env = await bootstrapEnv()
 
+process.on('beforeExit', (code) => {
+  logger.warn({ code }, 'process beforeExit')
+})
+
+process.on('exit', (code) => {
+  logger.warn({ code }, 'process exit')
+})
+
+process.on('unhandledRejection', (reason) => {
+  logger.error({ reason }, 'unhandled rejection')
+})
+
+process.on('uncaughtException', (err) => {
+  logger.fatal({ err }, 'uncaught exception')
+  process.exit(1)
+})
+
 if (isMysqlEnabled(env)) {
   try {
     await warmupMysql(env)
