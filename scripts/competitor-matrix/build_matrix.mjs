@@ -94,9 +94,12 @@ function apply(site, weight, provRaw, cname, E) {
 function applyByName(site, cname, E) {
   const found = byName.get(norm(cname));
   if (!found || found.length > 6) return false;
+  // 纯名称匹配(无 provider 佐证)置信低，通用名易跨厂商撞车，曝光分打对折，
+  // 避免单条名称匹配就把游戏顶进核心池（Star Hunter/Lucky Fortunes 类误伤根源）
+  const e = E * 0.5;
   for (const g of found) {
     const s = rec(g);
-    if ((s.sites[site] || 0) < E) s.sites[site] = E;
+    if ((s.sites[site] || 0) < e) s.sites[site] = e;
   }
   return true;
 }
@@ -114,7 +117,9 @@ const track = (site, matched) => { stat[site] = stat[site] || { games: 0, matche
     const homeHit = (g.homePlacements || []).filter((p) => HOME.has(p.section));
     if (homeHit.length) {
       const bestPos = Math.min(...homeHit.map((p) => p.pos));
-      E = Math.max(0.8, 1.2 - (bestPos - 1) * 0.02);
+      // 位置陡峭衰减：Recommended Games 是长列表(pos 到 20+)，深位≠主推。
+      // pos1→1.2 / pos6→0.95 / pos9→0.8 / pos14→0.55 / pos21→floor0.3
+      E = Math.max(0.3, 1.2 - (bestPos - 1) * 0.05);
     } else if (g.catRanks && Object.keys(g.catRanks).length) {
       const best = Math.min(...Object.values(g.catRanks));
       E = best <= 10 ? 0.6 : best <= 30 ? 0.5 : best <= 60 ? 0.4 : best <= 120 ? 0.3 : 0.2;
@@ -171,8 +176,11 @@ for (const s of signal.values()) {
 }
 const list = [...signal.values()].sort((a, b) => b.comp - a.comp);
 
-// 核心池：comp≥1.5 或 命中 casinoplus/ptgaming 首页级(E≥0.8)
-const core = list.filter((s) => s.comp >= 1.5 || (s.sites.casinoplus >= 0.8) || (s.sites.ptgaming >= 0.8));
+// 核心池(featured)：多源共识，杜绝单一来源(尤其 casinoplus 名称匹配)把游戏误顶进热门。
+// comp≥2（多家强命中的真爆款）或 ≥3 家独立命中且每家非 floor(E≥0.3)。
+// 旧规则"单站首页级即入池"会让只在1家露出的游戏混进热门，已废弃。
+const sourceCount = (s) => Object.values(s.sites).filter((E) => E >= 0.3).length;
+const core = list.filter((s) => s.comp >= 1.5 || sourceCount(s) >= 3);
 
 fs.writeFileSync(`${ROOT}/scripts/competitor-matrix/signal.json`, JSON.stringify(list, null, 2));
 
@@ -205,10 +213,12 @@ for (const grp of chunk(coreRows, 200)) {
   sql += grp.map((s) => `(${esc(s.gpid)},${esc(s.gid)},${W(s)},1)`).join(',\n');
   sql += `\nON DUPLICATE KEY UPDATE weight=VALUES(weight), is_featured=VALUES(is_featured);\n\n`;
 }
+// 非核心的竞品覆盖游戏：weight 更新 + 显式 is_featured=0，把上一版核心池里被降级的
+// 游戏(如 Star Hunter)清出 featured，否则旧 is_featured=1 残留会让 ② 失效。
 for (const grp of chunk(restRows, 200)) {
-  sql += `INSERT INTO bg_568win_game_override (game_provider_id, game_id, weight) VALUES\n`;
-  sql += grp.map((s) => `(${esc(s.gpid)},${esc(s.gid)},${W(s)})`).join(',\n');
-  sql += `\nON DUPLICATE KEY UPDATE weight=VALUES(weight);\n\n`;
+  sql += `INSERT INTO bg_568win_game_override (game_provider_id, game_id, weight, is_featured) VALUES\n`;
+  sql += grp.map((s) => `(${esc(s.gpid)},${esc(s.gid)},${W(s)},0)`).join(',\n');
+  sql += `\nON DUPLICATE KEY UPDATE weight=VALUES(weight), is_featured=VALUES(is_featured);\n\n`;
 }
 fs.writeFileSync(`${ROOT}/scripts/competitor-matrix/apply_weights.sql`, sql);
 console.log(`\nSQL 已生成: apply_weights.sql (${coreRows.length} 核心池 + ${restRows.length} 竞品游戏)`);
