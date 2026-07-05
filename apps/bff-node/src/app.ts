@@ -175,8 +175,8 @@ export function createApp(env: Env): Koa {
   app.use(errorHandler())
   app.use(
     cors({
+      // 鉴权全走 Bearer header 无 cookie，去掉 credentials 以免"反射任意 Origin+带凭证"组合
       origin: (ctx) => ctx.get('Origin') || '*',
-      credentials: true,
       allowHeaders: ['Content-Type', 'Authorization', 'X-Telegram-Init-Data', 'X-Request-Id'],
       exposeHeaders: ['X-Request-Id'],
     }),

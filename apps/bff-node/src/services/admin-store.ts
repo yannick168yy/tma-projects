@@ -859,19 +859,18 @@ export async function getWin568ProviderStats(env: Env): Promise<ProviderStat[]> 
 }
 
 export async function toggleWin568ProviderGames(env: Env, provider: string, isActive: boolean): Promise<number> {
+  await pool(env).execute(
+    `INSERT INTO bg_568win_game_override (game_provider_id, game_id, is_active)
+     SELECT game_provider_id, game_id, ? FROM bg_568win_game WHERE provider = ?
+     ON DUPLICATE KEY UPDATE is_active = VALUES(is_active)`,
+    [isActive ? 1 : 0, provider],
+  )
+  // affectedRows 在 ON DUPLICATE 下不等于游戏数(插1/改2/不变0)，单独数一次
   const [rows] = await pool(env).query<RowDataPacket[]>(
-    `SELECT game_provider_id, game_id FROM bg_568win_game WHERE provider = ?`,
+    `SELECT COUNT(*) AS cnt FROM bg_568win_game WHERE provider = ?`,
     [provider],
   )
-  for (const r of rows) {
-    await pool(env).execute(
-      `INSERT INTO bg_568win_game_override (game_provider_id, game_id, is_active)
-       VALUES (?, ?, ?)
-       ON DUPLICATE KEY UPDATE is_active = VALUES(is_active)`,
-      [Number(r.game_provider_id), Number(r.game_id), isActive ? 1 : 0],
-    )
-  }
-  return rows.length
+  return Number(rows[0]?.cnt ?? 0)
 }
 
 export async function getOpPasswordHash(env: Env): Promise<string | null> {

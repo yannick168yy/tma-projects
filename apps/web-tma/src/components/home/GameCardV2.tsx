@@ -14,7 +14,7 @@ interface Props {
 // 数据驱动角标：优先级 万倍 > NEW > 高返，单张卡只显示一个，避免拥挤
 function dataBadge(game: SlotGame): { text: string; cls: string } | null {
   const maxWin = game.maxWinMultiplier ?? 0
-  if (maxWin >= 1000) return { text: `${maxWin >= 100000 ? '10万' : maxWin.toLocaleString()}x`, cls: 'bg-amber-500' }
+  if (maxWin >= 1000) return { text: `${maxWin >= 100000 ? '100K' : maxWin.toLocaleString()}x`, cls: 'bg-amber-500' }
   const rd = game.releaseDate ? new Date(game.releaseDate).getTime() : 0
   if (rd && Date.now() - rd < 90 * 864e5) return { text: 'NEW', cls: 'bg-blue-500' }
   if (game.phBonus >= 15) return { text: `+${Math.round(game.phBonus)}%`, cls: 'bg-red-500' }

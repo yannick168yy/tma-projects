@@ -238,6 +238,8 @@ export default function Win568GameList({ refreshKey }: Props) {
   async function saveEdit() {
     if (!editing) return
     const values = await form.validateFields()
+    // 手动改/清封面 URL 时同步来源(manual/清空)并清掉旧来源残留的动图；没动封面则不发这两个字段
+    const imageChanged = (values.imageOverride || null) !== (editing.imageOverride ?? null)
     await updateWin568Game(editing.gameProviderId, editing.gameId, {
       isActive: values.isActive,
       weight: values.weight,
@@ -246,6 +248,7 @@ export default function Win568GameList({ refreshKey }: Props) {
       siteCategory: values.siteCategory || null,
       nameOverride: values.nameOverride || null,
       imageOverride: values.imageOverride || null,
+      ...(imageChanged ? { imageOverrideSource: values.imageOverride ? 'manual' : null, imageAnim: null } : {}),
     })
     message.success('已保存')
     setEditing(null)

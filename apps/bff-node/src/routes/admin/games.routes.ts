@@ -15,7 +15,7 @@ import {
   replaceHomepageSectionGames,
   HOMEPAGE_SECTION_KEYS,
 } from '../../services/admin-store.js'
-import { syncAllGames, loadGamesCache, refreshHomepageSelection, stripMobileNamesInDb, getGamesFromCache } from '../../services/sg-game.service.js'
+import { syncAllGames, loadGamesCache, refreshHomepageSelection, scheduleCacheRefresh, stripMobileNamesInDb, getGamesFromCache } from '../../services/sg-game.service.js'
 import { translateUntranslatedGames } from '../../services/game-translation.service.js'
 import { enrichWin568Game } from '../../services/win568-enrichment.service.js'
 import {
@@ -104,8 +104,7 @@ router.patch('/win568/:gameProviderId/:gameId/toggle', async (ctx) => {
     fail(ctx, 400, 'gameProviderId, gameId and isActive are required'); return
   }
   await toggleAdminWin568Game(ctx.state.env, gameProviderId, gameId, body.isActive)
-  await loadGamesCache(ctx.state.env)
-  await refreshHomepageSelection(ctx.state.env)
+  scheduleCacheRefresh(ctx.state.env)
   await writeAuditLog(ctx.state.env, {
     adminId: ctx.state.adminId!,
     adminUsername: ctx.state.adminUsername!,
@@ -141,15 +140,15 @@ router.patch('/win568/:gameProviderId/:gameId', async (ctx) => {
     isActive: body.isActive,
     weight: body.weight === undefined || body.weight === null ? body.weight : Number(body.weight),
     isFeatured: body.isFeatured,
-    sortCategory: body.sortCategory || null,
-    siteCategory: body.siteCategory || null,
-    nameOverride: body.nameOverride || null,
+    // undefined=未传保留原值，''/null=显式清空。不能写 `x || null`：会把未传字段清掉
+    sortCategory: body.sortCategory === undefined ? undefined : (body.sortCategory || null),
+    siteCategory: body.siteCategory === undefined ? undefined : (body.siteCategory || null),
+    nameOverride: body.nameOverride === undefined ? undefined : (body.nameOverride || null),
     imageOverride: body.imageOverride === undefined ? undefined : (body.imageOverride || null),
     imageOverrideSource: body.imageOverrideSource === undefined ? undefined : (body.imageOverrideSource || null),
     imageAnim: body.imageAnim === undefined ? undefined : (body.imageAnim || null),
   })
-  await loadGamesCache(ctx.state.env)
-  await refreshHomepageSelection(ctx.state.env)
+  scheduleCacheRefresh(ctx.state.env)
   await writeAuditLog(ctx.state.env, {
     adminId: ctx.state.adminId!,
     adminUsername: ctx.state.adminUsername!,
@@ -179,8 +178,7 @@ router.post('/win568/:gameProviderId/:gameId/enrich', async (ctx) => {
   }
   try {
     await enrichWin568Game(ctx.state.env, gameProviderId, gameId)
-    await loadGamesCache(ctx.state.env)
-    await refreshHomepageSelection(ctx.state.env)
+    scheduleCacheRefresh(ctx.state.env)
     await writeAuditLog(ctx.state.env, {
       adminId: ctx.state.adminId!,
       adminUsername: ctx.state.adminUsername!,
@@ -219,8 +217,7 @@ router.post('/win568-provider-toggle', async (ctx) => {
     fail(ctx, 400, 'provider and isActive required'); return
   }
   const affected = await toggleWin568ProviderGames(ctx.state.env, body.provider, body.isActive)
-  await loadGamesCache(ctx.state.env)
-  await refreshHomepageSelection(ctx.state.env)
+  scheduleCacheRefresh(ctx.state.env)
   await writeAuditLog(ctx.state.env, {
     adminId: ctx.state.adminId!,
     adminUsername: ctx.state.adminUsername!,
@@ -238,7 +235,7 @@ router.patch('/:uuid/toggle', async (ctx) => {
     fail(ctx, 400, 'isActive must be boolean'); return
   }
   await toggleAdminGame(ctx.state.env, ctx.params.uuid, body.isActive)
-  await loadGamesCache(ctx.state.env)
+  scheduleCacheRefresh(ctx.state.env)
   await writeAuditLog(ctx.state.env, {
     adminId: ctx.state.adminId!,
     adminUsername: ctx.state.adminUsername!,
@@ -424,7 +421,7 @@ router.post('/provider-toggle', async (ctx) => {
     fail(ctx, 400, 'provider and isActive required'); return
   }
   const affected = await toggleProviderGames(ctx.state.env, body.provider, body.isActive)
-  await loadGamesCache(ctx.state.env)
+  scheduleCacheRefresh(ctx.state.env)
   await writeAuditLog(ctx.state.env, {
     adminId: ctx.state.adminId!,
     adminUsername: ctx.state.adminUsername!,
