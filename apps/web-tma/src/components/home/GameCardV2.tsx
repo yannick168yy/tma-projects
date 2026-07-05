@@ -26,7 +26,10 @@ export default function GameCardV2({ game, onTap, size, showLive }: Props) {
   const locale = useLocaleStore((s) => s.locale)
   const unavailable = game.supportsActiveCurrency === false
   const badge = dataBadge(game)
-  const imageUrl = game.imageHqUrl ?? game.imageUrl
+  // 封面裁剪版本：封面图走 immutable 长缓存，重裁同名图后需 bump 才能让客户端拿到新图
+  const bust = (u: string | null | undefined) =>
+    u && u.includes('/covers/') ? `${u}${u.includes('?') ? '&' : '?'}cv=3` : (u ?? null)
+  const imageUrl = bust(game.imageHqUrl ?? game.imageUrl)
   // 上游厂商封面比例混杂（JILI 310×190 横图、PG 1024² 方图…），竖卡 cover 会把横图裁掉大半：
   // 横图改用「模糊底 + contain 完整显示」，方/竖图仍走 cover
   // 宽高优先取后端探测好的数据（首帧即正确渲染无闪动），缺失时回退 onLoad 运行时检测
@@ -39,7 +42,7 @@ export default function GameCardV2({ game, onTap, size, showLive }: Props) {
   const wrapRef = useRef<HTMLDivElement>(null)
   const [animSrc, setAnimSrc] = useState<string | null>(null)
   useEffect(() => {
-    const anim = game.imageAnim
+    const anim = bust(game.imageAnim)
     if (!anim || !imageUrl) return
     const el = wrapRef.current
     if (!el) return
@@ -61,10 +64,9 @@ export default function GameCardV2({ game, onTap, size, showLive }: Props) {
   }
 
   const displaySrc = animSrc ?? imageUrl
-  // 全站封面统一：playtime 图已裁掉透明边距变满幅(金框/画面贴边)，与 568win 满幅原图一致。
-  // 所有卡满幅同尺寸 + 统一 2px #ffef8e 金框 + 圆角12px（裁剪后金框贴边、无暗边间隙）。
+  // 全站封面统一：满幅同尺寸 + 圆角12px，无金边框。
   const image = (
-    <div ref={wrapRef} className={`relative overflow-hidden rounded-xl bg-secondary border-2 border-[#ffef8e] ${size === 'lg' ? 'w-full aspect-square' : 'w-[76px] h-[76px]'}`}>
+    <div ref={wrapRef} className={`relative overflow-hidden rounded-xl bg-secondary ${size === 'lg' ? 'w-full aspect-square' : 'w-[76px] h-[76px]'}`}>
       {imageUrl ? (
         <>
           {isLandscape && (
