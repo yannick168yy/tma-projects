@@ -530,10 +530,12 @@ function buildHomepageSelection(all: DbGame[], cur: string, overrides: SectionOv
 
   // popular 混排：纯按热度排会被 slots 屠版、单厂商还能占 3 席。改为保底 1 个真人娱乐
   // 席位(插到第3位保证露出) + 其余按热度补足、每厂商≤2，让首屏像竞品那样有品类层次。
-  const popularPool = exFilter('popular', featuredPool.length >= 9 ? featuredPool : all)
+  // 体育合成条目(isFeatured=true, weight=10000)会漏进 popular，它有专属体育通栏，从热门剔除
+  const notSports = (g: DbGame) => g.uuid !== WIN568_SPORTSBOOK_UUID
+  const popularPool = exFilter('popular', featuredPool.length >= 9 ? featuredPool : all).filter(notSports)
   // 真人席位从全部真人游戏按热度取（不限 featured）——真人竞品交叉曝光弱、几乎进不了
   // 核心池，只从 featured 取会永远空缺，导致首屏无真人。
-  const casinoSeat = pickTop(exFilter('popular', bySite('casino')), score, 1, 1)
+  const casinoSeat = pickTop(exFilter('popular', bySite('casino')).filter(notSports), score, 1, 1)
   const popularRest = pickTop(popularPool, score, 9 - casinoSeat.length, 2)
   const popularMerged = [...popularRest]
   if (casinoSeat.length) popularMerged.splice(Math.min(2, popularMerged.length), 0, ...casinoSeat)
@@ -569,6 +571,19 @@ export async function refreshHomepageSelection(env: Env): Promise<void> {
     await redis.set(`${HOMEPAGE_KEY}:${cur}`, JSON.stringify(selection), 'EX', HOMEPAGE_TTL)
   }
   console.log('[homepage] selection refreshed (per-currency)')
+}
+
+// 后台单游戏改动后的缓存重建去抖：全量重建(大 JOIN + 双币种选品)代价高，
+// 批量操作时合并触发、不阻塞管理端响应；配置类操作(板块保存/手动刷新)仍走同步路径
+let cacheRefreshTimer: ReturnType<typeof setTimeout> | null = null
+export function scheduleCacheRefresh(env: Env, delayMs = 2000): void {
+  if (cacheRefreshTimer) return
+  cacheRefreshTimer = setTimeout(() => {
+    cacheRefreshTimer = null
+    loadGamesCache(env)
+      .then(() => refreshHomepageSelection(env))
+      .catch((err) => console.error('[games-cache] scheduled refresh failed:', err))
+  }, delayMs)
 }
 
 export async function getHomepageSelection(env: Env, currency?: string): Promise<HomepageSelection | null> {
@@ -715,7 +730,13 @@ export async function getUserGameHistory(
               COALESCE(o.image_override, w.icon_url) AS image_hq_url,
               MAX(b.created_at) AS last_played_at
        FROM bg_bet_order b
-       JOIN bg_568win_game w ON w.game_id = CAST(b.provider_id AS UNSIGNED)
+       -- 注单 provider_id 只存 game_id 无厂商维度，而 game_id 跨厂商有重复(800+款)，
+       -- 每个 game_id 只取一行(优先 enabled)避免玩过的游戏在历史里出现多条
+       JOIN (
+         SELECT game_id, game_provider_id, name_en, name_zh, provider, icon_url,
+                ROW_NUMBER() OVER (PARTITION BY game_id ORDER BY is_enabled DESC, game_provider_id ASC) AS rn
+         FROM bg_568win_game
+       ) w ON w.game_id = CAST(b.provider_id AS UNSIGNED) AND w.rn = 1
        LEFT JOIN bg_568win_game_override o ON o.game_provider_id = w.game_provider_id AND o.game_id = w.game_id
        WHERE b.user_id = ? AND b.aggregator_id = '568win'
          AND b.provider_id REGEXP '^[0-9]+$'
