@@ -531,7 +531,7 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
 
         <MenuSection title={t('profile.customerSupportSection')}>
           {!isInsideTelegram() && (
-            <MenuRow icon="/icons/icon-192.png" title={t('pwa.downloadEntry')} subtitle={t('pwa.dl.tagline')} bordered onClick={onOpenDownload} />
+            <MenuRow icon="/icons/icon-192.png" title={t('pwa.downloadEntry')} subtitle={t('pwa.tagline')} bordered onClick={onOpenDownload} />
           )}
           {SUPPORT_ITEMS.map((item, i) => (
             <MenuRow

@@ -1,165 +1,261 @@
-import { useEffect, useState } from 'react'
-import { useTranslation } from 'react-i18next'
-import { ChevronLeft, Star, Download, Zap, Maximize, Rocket, Share, SquarePlus, CheckCircle2 } from 'lucide-react'
-import {
-  canNativeInstall,
-  isIos,
-  isStandalone,
-  onPwaStateChange,
-  promptNativeInstall,
-} from '@/utils/pwa'
+import { useEffect, useRef, useState } from 'react'
+import { ChevronLeft, Star, Loader2, CheckCircle2 } from 'lucide-react'
+import InstallGuideSheet from '@/components/pwa/InstallGuideSheet'
+import { canNativeInstall, isIos, isStandalone, promptNativeInstall } from '@/utils/pwa'
 
-// APK 上线后填入下载地址（如 /app/betogo.apk），空串 = 显示"即将上线"
+// APK 上线后填入下载地址（如 /app/betogo.apk）；为空时 Android 走 PWA 安装过渡方案
 const APK_DOWNLOAD_URL = ''
 
-const STATS = { rating: '4.9', downloads: '1M+', age: '21+' }
+// 仿应用商店页，文案固定英文（面向 PH 用户，模拟 Play Store 不随站点语言切换）
+const SCREENSHOTS = [
+  { title: 'SIGN UP = ₱777', sub: 'FREE BONUS', foot: 'CLAIM YOUR REWARD INSTANTLY! YOUR PRIZE CAN MULTIPLY UP TO 12X!', from: '#1b2a6b', to: '#0c1024' },
+  { title: 'INVITE ONE PERSON', sub: 'AND GET ₱300', foot: 'BETTING CASHBACK UP TO 4%', from: '#4a1265', to: '#140b2e' },
+  { title: 'RECEIVE ₱500', sub: 'FOR FREE', foot: 'FAST WITHDRAWALS IN SECONDS', from: '#0d4b3a', to: '#071f18' },
+]
+
+const RATING_BARS = [100, 26, 10, 7, 3]
+
+const REVIEWS = [
+  {
+    name: 'maricel dizon',
+    color: '#c2568c',
+    date: 'june 21, 2026',
+    rating: 5,
+    text: 'legit sya, nag cash out ako kahapon 30 mins lang nasa gcash na agad. sulit ung vip rewards araw araw may bonus.',
+    helpful: 231,
+  },
+  {
+    name: 'john rey santos',
+    color: '#3f7fc1',
+    date: 'june 14, 2026',
+    rating: 5,
+    text: 'grabe ung 500 ko naging 3,800 sa super ace hahaha solid! mabilis din mag load walang lag.',
+    helpful: 187,
+  },
+  {
+    name: 'kristine mae',
+    color: '#4ca06a',
+    date: 'may 30, 2026',
+    rating: 4,
+    text: 'ok naman, mabilis ang withdrawal at maraming games. sana dagdagan pa ung mga bingo events.',
+    helpful: 96,
+  },
+]
+
+function Stars({ n, size = 12 }: { n: number; size?: number }) {
+  return (
+    <span className="flex items-center gap-0.5">
+      {[1, 2, 3, 4, 5].map((i) => (
+        <Star key={i} size={size} className={i <= n ? 'fill-[#1a73e8] text-[#1a73e8]' : 'fill-[#dadce0] text-[#dadce0]'} />
+      ))}
+    </span>
+  )
+}
 
 export default function DownloadPage({ onClose }: { onClose: () => void }) {
-  const { t } = useTranslation()
-  const [, forceRender] = useState(0)
+  const [phase, setPhase] = useState<'idle' | 'installing' | 'done'>('idle')
+  const [progress, setProgress] = useState(0)
+  const [guideOpen, setGuideOpen] = useState(false)
+  const timerRef = useRef<number | null>(null)
 
-  useEffect(() => onPwaStateChange(() => forceRender((n) => n + 1)), [])
+  useEffect(() => () => { if (timerRef.current) window.clearInterval(timerRef.current) }, [])
 
-  const standalone = isStandalone()
-  const nativeReady = canNativeInstall()
-  const ios = isIos()
+  function finishInstall() {
+    setPhase('done')
+    window.setTimeout(() => {
+      if (isIos()) {
+        setGuideOpen(true)
+        return
+      }
+      if (APK_DOWNLOAD_URL) {
+        window.location.href = APK_DOWNLOAD_URL
+        return
+      }
+      if (canNativeInstall()) {
+        void promptNativeInstall()
+        return
+      }
+      setGuideOpen(true)
+    }, 350)
+  }
 
-  const whyItems = [
-    { icon: Zap, title: t('pwa.dl.why1Title'), desc: t('pwa.dl.why1Desc') },
-    { icon: Maximize, title: t('pwa.dl.why2Title'), desc: t('pwa.dl.why2Desc') },
-    { icon: Rocket, title: t('pwa.dl.why3Title'), desc: t('pwa.dl.why3Desc') },
-  ]
+  function startInstall() {
+    if (phase === 'installing') return
+    if (isStandalone()) return
+    setPhase('installing')
+    setProgress(0)
+    timerRef.current = window.setInterval(() => {
+      setProgress((p) => {
+        const next = Math.min(100, p + 2 + Math.floor(Math.random() * 6))
+        if (next >= 100 && timerRef.current) {
+          window.clearInterval(timerRef.current)
+          timerRef.current = null
+          finishInstall()
+        }
+        return next
+      })
+    }, 90)
+  }
 
-  const iosSteps = [
-    { icon: Share, text: t('pwa.iosStep1') },
-    { icon: SquarePlus, text: t('pwa.iosStep2') },
-    { icon: CheckCircle2, text: t('pwa.iosStep3') },
-  ]
-
-  const androidSteps = [t('pwa.dl.androidStep1'), t('pwa.dl.androidStep2'), t('pwa.dl.androidStep3')]
+  const installed = isStandalone()
 
   return (
-    <div className="min-h-dvh bg-background pb-10">
-      <div className="flex items-center gap-2 px-4 py-3">
-        <button
-          type="button"
-          className="flex h-9 w-9 items-center justify-center rounded-full bg-secondary text-muted-foreground active:scale-95 transition-transform"
-          onClick={onClose}
-        >
-          <ChevronLeft size={20} />
+    <div className="min-h-dvh bg-white pb-10 text-[#202124]" style={{ paddingTop: 'var(--app-safe-top)' }}>
+      <div className="flex items-center px-3 py-2.5">
+        <button type="button" aria-label="back" className="flex h-9 w-9 items-center justify-center rounded-full text-[#5f6368] active:bg-black/5" onClick={onClose}>
+          <ChevronLeft size={22} />
         </button>
-        <h1 className="text-base font-black text-foreground">{t('pwa.dl.title')}</h1>
       </div>
 
-      {/* Hero */}
-      <div className="mx-4 rounded-2xl border border-border bg-card p-5">
-        <div className="flex items-center gap-4">
-          <img src="/icons/icon-192.png" alt="BETOGO" className="h-20 w-20 rounded-2xl shadow-lg shadow-black/40" />
-          <div className="min-w-0">
-            <p className="text-2xl font-black tracking-tight text-foreground">BETOGO</p>
-            <p className="mt-0.5 text-xs font-semibold text-muted-foreground">{t('pwa.dl.tagline')}</p>
-            <div className="mt-1.5 flex items-center gap-0.5">
-              {[0, 1, 2, 3, 4].map((i) => (
-                <Star key={i} size={13} className="fill-primary text-primary" />
-              ))}
-            </div>
-          </div>
-        </div>
-
-        <div className="mt-4 grid grid-cols-3 divide-x divide-border rounded-xl bg-secondary/60 py-3 text-center">
-          <div>
-            <p className="text-base font-black text-foreground">{STATS.rating}</p>
-            <p className="text-[10px] font-semibold text-muted-foreground">{t('pwa.dl.rating')}</p>
-          </div>
-          <div>
-            <p className="text-base font-black text-foreground">{STATS.downloads}</p>
-            <p className="text-[10px] font-semibold text-muted-foreground">{t('pwa.dl.downloads')}</p>
-          </div>
-          <div>
-            <p className="text-base font-black text-foreground">{STATS.age}</p>
-            <p className="text-[10px] font-semibold text-muted-foreground">{t('pwa.dl.age')}</p>
-          </div>
-        </div>
-
-        <div className="mt-4 space-y-2.5">
-          {APK_DOWNLOAD_URL ? (
-            <a
-              href={APK_DOWNLOAD_URL}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-3 text-sm font-black text-primary-foreground shadow-lg shadow-amber-500/30 transition-colors hover:bg-yellow-400"
-              download
-            >
-              <Download size={17} />
-              {t('pwa.dl.androidCta')}
-            </a>
-          ) : (
-            <p className="rounded-xl border border-dashed border-border py-2.5 text-center text-[11px] font-semibold text-muted-foreground">
-              {t('pwa.dl.androidComingSoon')}
-            </p>
-          )}
-
-          {standalone ? (
-            <p className="flex items-center justify-center gap-1.5 rounded-xl bg-secondary py-3 text-xs font-bold text-muted-foreground">
-              <CheckCircle2 size={15} className="text-primary" />
-              {t('pwa.dl.pwaInstalled')}
-            </p>
-          ) : nativeReady ? (
-            <button
-              type="button"
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-3 text-sm font-black text-primary-foreground shadow-lg shadow-amber-500/30 transition-colors hover:bg-yellow-400"
-              onClick={() => void promptNativeInstall()}
-            >
-              <SquarePlus size={17} />
-              {t('pwa.dl.pwaCta')}
-            </button>
-          ) : null}
+      {/* 应用头 */}
+      <div className="flex items-start gap-4 px-5">
+        <img src="/icons/icon-192.png" alt="BETOGO" className="h-[76px] w-[76px] flex-shrink-0 rounded-2xl shadow-md shadow-black/20" />
+        <div className="min-w-0 pt-0.5">
+          <h1 className="text-[22px] font-bold leading-tight">BETOGO Cash Craze</h1>
+          <p className="mt-1 text-[14px] font-semibold text-[#1a73e8]">Brand website, 100% credibility</p>
+          <p className="mt-0.5 text-[12px] text-[#5f6368]">App Verified</p>
         </div>
       </div>
 
-      {/* Why install */}
-      <div className="mx-4 mt-5">
-        <p className="mb-2 text-xs font-black uppercase tracking-wider text-muted-foreground">{t('pwa.dl.whyTitle')}</p>
-        <div className="grid grid-cols-3 gap-2">
-          {whyItems.map(({ icon: Icon, title, desc }) => (
-            <div key={title} className="rounded-xl border border-border bg-card p-3">
-              <Icon size={18} className="text-primary" />
-              <p className="mt-1.5 text-[11px] font-black leading-tight text-foreground">{title}</p>
-              <p className="mt-0.5 text-[10px] leading-snug text-muted-foreground">{desc}</p>
-            </div>
-          ))}
+      {/* 统计条 */}
+      <div className="mt-5 flex items-center px-5 text-center">
+        <div className="flex-1">
+          <p className="flex items-center justify-center gap-1 text-[15px] font-bold">4.7<Star size={12} className="fill-[#202124] text-[#202124]" /></p>
+          <p className="mt-0.5 text-[11px] text-[#5f6368]">86M+ reviews</p>
+        </div>
+        <div className="h-7 w-px bg-[#e8eaed]" />
+        <div className="flex-1">
+          <p className="text-[15px] font-bold">100M+</p>
+          <p className="mt-0.5 text-[11px] text-[#5f6368]">Downloading</p>
+        </div>
+        <div className="h-7 w-px bg-[#e8eaed]" />
+        <div className="flex-1">
+          <p className="text-[15px] font-bold">21+</p>
+          <p className="mt-0.5 text-[11px] text-[#5f6368]">Rated 21+</p>
         </div>
       </div>
 
-      {/* iOS steps */}
-      <div className="mx-4 mt-5 rounded-2xl border border-border bg-card p-4">
-        <p className="mb-3 text-xs font-black uppercase tracking-wider text-muted-foreground">{t('pwa.dl.iosStepsTitle')}</p>
-        <div className="space-y-3">
-          {iosSteps.map(({ icon: Icon, text }, i) => (
-            <div key={text} className="flex items-center gap-3">
-              <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-primary/15 text-[11px] font-black text-primary">{i + 1}</span>
-              <Icon size={16} className="flex-shrink-0 text-primary" />
-              <p className="text-xs font-semibold text-foreground">{text}</p>
-            </div>
-          ))}
-        </div>
-        {ios && !standalone && (
-          <p className="mt-3 rounded-lg bg-secondary/60 px-3 py-2 text-[11px] font-semibold text-muted-foreground">
-            {t('pwa.dl.openInSafariHint')}
+      {/* 安装按钮：假 quick install（转圈+百分比），完成后 iOS 弹 PWA 引导 / Android 下 APK 或原生安装 */}
+      <div className="mt-5 px-5">
+        {installed ? (
+          <p className="flex items-center justify-center gap-1.5 rounded-lg bg-[#e6f4ea] py-3 text-sm font-bold text-[#137333]">
+            <CheckCircle2 size={16} />
+            App installed — open it from your home screen
           </p>
+        ) : (
+          <button
+            type="button"
+            className="relative w-full overflow-hidden rounded-lg bg-[#1a73e8] py-3 text-[15px] font-bold text-white active:opacity-90"
+            onClick={startInstall}
+          >
+            {phase === 'installing' && (
+              <span className="absolute inset-y-0 left-0 bg-[#0d47a1] transition-[width] duration-150" style={{ width: `${progress}%` }} />
+            )}
+            <span className="relative flex items-center justify-center gap-2">
+              {phase === 'installing' ? (
+                <>
+                  <Loader2 size={17} className="animate-spin" />
+                  Installing… {progress}%
+                </>
+              ) : phase === 'done' ? (
+                <>
+                  <CheckCircle2 size={17} />
+                  Install the app
+                </>
+              ) : (
+                <>Get the app {isIos() ? 'on the App Store' : 'on Google Play'} ↓</>
+              )}
+            </span>
+          </button>
         )}
       </div>
 
-      {/* Android steps */}
-      <div className="mx-4 mt-4 rounded-2xl border border-border bg-card p-4">
-        <p className="mb-3 text-xs font-black uppercase tracking-wider text-muted-foreground">{t('pwa.dl.androidStepsTitle')}</p>
-        <div className="space-y-3">
-          {androidSteps.map((text, i) => (
-            <div key={text} className="flex items-center gap-3">
-              <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-primary/15 text-[11px] font-black text-primary">{i + 1}</span>
-              <p className="text-xs font-semibold text-foreground">{text}</p>
+      {/* 宣传图横滑 */}
+      <div className="hide-scrollbar mt-5 flex gap-3 overflow-x-auto px-5">
+        {SCREENSHOTS.map((s) => (
+          <div
+            key={s.title}
+            className="flex h-[300px] w-[168px] flex-shrink-0 flex-col items-center justify-between rounded-xl border border-black/10 p-4 text-center"
+            style={{ background: `linear-gradient(180deg, ${s.from}, ${s.to})` }}
+          >
+            <img src="/icons/icon-192.png" alt="" className="h-14 w-14 rounded-xl shadow-lg shadow-black/40" />
+            <div>
+              <p className="text-[17px] font-black leading-tight text-[#ffd75e]">{s.title}</p>
+              <p className="mt-1 text-[15px] font-black leading-tight text-white">{s.sub}</p>
+            </div>
+            <p className="rounded-lg border border-white/25 bg-white/10 px-2 py-1.5 text-[9px] font-semibold leading-snug text-white/90">{s.foot}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* About */}
+      <div className="mt-6 px-5">
+        <h2 className="text-[18px] font-bold">About this App</h2>
+        <p className="mt-2 whitespace-pre-line text-[13px] leading-relaxed text-[#3c4043]">
+          {'🔥 🌟🌟🌟🌟🌟 4.9, no ads, smooth game, credit guaranteed, millions of funds withdrawn in seconds 🔥\n🎁 Get ₱777 free bonus 🎁 Free and fast withdrawals 🎁\nUltimate VIP Rewards Club\nUpgrade bonus: ₱277,777\nDaily bonus: ₱77,777\nWeekly bonus: ₱127,777\nMonthly bonus: ₱177,777'}
+        </p>
+      </div>
+
+      {/* Ratings and Reviews */}
+      <div className="mt-7 px-5">
+        <h2 className="text-[18px] font-bold">Ratings and Reviews</h2>
+        <p className="mt-1.5 text-[12px] text-[#5f6368]">Ratings and reviews are verified and from users with the same device type as yours</p>
+
+        <div className="mt-3 flex gap-2">
+          <span className="rounded-full border border-[#137333]/30 bg-[#e6f4ea] px-3.5 py-1.5 text-[12px] font-semibold text-[#137333]">📱 Phone</span>
+          <span className="rounded-full border border-[#dadce0] px-3.5 py-1.5 text-[12px] font-semibold text-[#5f6368]">Tablet</span>
+        </div>
+
+        <div className="mt-4 flex items-center gap-5">
+          <div>
+            <p className="text-[44px] font-normal leading-none">4.7</p>
+            <div className="mt-1.5"><Stars n={5} size={13} /></div>
+            <p className="mt-1.5 text-[11px] text-[#5f6368]">86,127,937 reviews</p>
+          </div>
+          <div className="flex-1 space-y-1.5">
+            {RATING_BARS.map((w, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <span className="w-2 text-[11px] text-[#5f6368]">{5 - i}</span>
+                <div className="h-2.5 flex-1 rounded-full bg-[#e8eaed]">
+                  <div className="h-2.5 rounded-full bg-[#1a73e8]" style={{ width: `${w}%` }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="mt-5 space-y-5">
+          {REVIEWS.map((r) => (
+            <div key={r.name}>
+              <div className="flex items-center gap-2.5">
+                <span className="flex h-8 w-8 items-center justify-center rounded-full text-[13px] font-bold text-white" style={{ background: r.color }}>
+                  {r.name[0].toUpperCase()}
+                </span>
+                <span className="text-[13px] font-medium">{r.name}</span>
+              </div>
+              <div className="mt-1.5 flex items-center gap-2">
+                <Stars n={r.rating} />
+                <span className="text-[11px] text-[#5f6368]">{r.date}</span>
+              </div>
+              <p className="mt-1.5 text-[13px] leading-relaxed text-[#3c4043]">{r.text}</p>
+              <p className="mt-1 text-[11px] text-[#5f6368]">This review has been marked as helpful by {r.helpful} people</p>
+              <div className="mt-1.5 flex items-center gap-2 text-[11px] text-[#5f6368]">
+                Did you find this helpful?
+                <span className="rounded-full border border-[#dadce0] px-3 py-0.5">Yes</span>
+                <span className="rounded-full border border-[#dadce0] px-3 py-0.5">No</span>
+              </div>
             </div>
           ))}
         </div>
       </div>
+
+      {guideOpen && (
+        <InstallGuideSheet
+          platform={isIos() ? 'ios' : 'android'}
+          title="Install the app"
+          onClose={() => setGuideOpen(false)}
+        />
+      )}
     </div>
   )
 }

@@ -64,23 +64,15 @@ export async function promptNativeInstall(): Promise<'accepted' | 'dismissed' | 
   return choice.outcome
 }
 
-/** 当前环境是否值得展示安装引导（浏览器访问、未安装、非 TG 内） */
-export function shouldOfferInstall(): boolean {
+const DISMISS_KEY = 'betogo_download_bar_dismissed'
+
+/** 顶部下载条：浏览器访问、未安装、本次会话未关闭过才显示 */
+export function shouldShowDownloadBar(): boolean {
   if (isInsideTelegram()) return false
   if (isStandalone()) return false
-  return canNativeInstall() || isIos()
+  return sessionStorage.getItem(DISMISS_KEY) !== '1'
 }
 
-const SNOOZE_KEY = 'betogo_pwa_prompt_snooze'
-const SNOOZE_MS = 3 * 24 * 60 * 60 * 1000
-
-export function isInstallPromptSnoozed(): boolean {
-  const raw = localStorage.getItem(SNOOZE_KEY)
-  if (!raw) return false
-  const until = Number(raw)
-  return Number.isFinite(until) && Date.now() < until
-}
-
-export function snoozeInstallPrompt() {
-  localStorage.setItem(SNOOZE_KEY, String(Date.now() + SNOOZE_MS))
+export function dismissDownloadBar() {
+  sessionStorage.setItem(DISMISS_KEY, '1')
 }

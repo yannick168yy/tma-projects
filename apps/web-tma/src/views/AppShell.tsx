@@ -14,6 +14,8 @@ import {
 } from '@/stores/wallet'
 import { isImmersiveFullPage } from '@/hooks/useFullPageOverlay'
 import { useAppNavigation } from '@/hooks/useAppNavigation'
+import { shouldShowDownloadBar, dismissDownloadBar, isIos } from '@/utils/pwa'
+import TopDownloadBar from '@/components/pwa/TopDownloadBar'
 import threeCirclesMenu from '@/assets/team/3-circles/menu-entry.webp'
 
 const WalletModal = lazy(() => import('@/components/wallet/WalletModal'))
@@ -33,7 +35,7 @@ const CashbackPage = lazy(() => import('@/views/CashbackPage'))
 const RewardsSpinPage = lazy(() => import('@/views/RewardsSpinPage'))
 const GamePlayer = lazy(() => import('@/components/GamePlayer'))
 const DownloadPage = lazy(() => import('@/views/DownloadPage'))
-const InstallPrompt = lazy(() => import('@/components/pwa/InstallPrompt'))
+const InstallGuideSheet = lazy(() => import('@/components/pwa/InstallGuideSheet'))
 
 type NavId = (typeof NAV_ITEMS)[number]['id']
 
@@ -100,6 +102,8 @@ export default function AppShell() {
   const [walletFullscreen, setWalletFullscreen] = useState(false)
   const [csOpen, setCsOpen] = useState(false)
   const [gamePlayerUrl, setGamePlayerUrl] = useState<string | null>(null)
+  const [downloadBarVisible, setDownloadBarVisible] = useState(() => shouldShowDownloadBar())
+  const [iosGuideOpen, setIosGuideOpen] = useState(false)
 
   const headerRef = useRef<HTMLElement>(null)
   const navRef = useRef<HTMLElement>(null)
@@ -286,6 +290,12 @@ export default function AppShell() {
       <div className="app-frame w-full max-w-[430px] bg-background">
         {!isImmersive && (
         <header ref={headerRef} className="app-fixed-top bg-background" style={walletOpen ? { zIndex: 50 } : undefined}>
+          {downloadBarVisible && (
+            <TopDownloadBar
+              onInstall={() => { if (isIos()) setIosGuideOpen(true); else openDownload() }}
+              onDismiss={() => { dismissDownloadBar(); setDownloadBarVisible(false) }}
+            />
+          )}
           <div className="app-safe-header flex items-center gap-3 px-4 pb-2">
             <button type="button" className="flex-shrink-0 cursor-pointer" onClick={goHome}><BetogoLogo /></button>
 
@@ -408,9 +418,7 @@ export default function AppShell() {
             </div>
           )}
           {view.type === 'download' && (
-            <div className="app-safe-header">
-              <DownloadPage onClose={closeImmersive} />
-            </div>
+            <DownloadPage onClose={closeImmersive} />
           )}
           {view.type === 'betHistory' && (
             <div className="app-safe-header">
@@ -495,8 +503,8 @@ export default function AppShell() {
 
         {gamePlayerUrl && <GamePlayer url={gamePlayerUrl} onClose={() => setGamePlayerUrl(null)} />}
 
-        {view.type === 'none' && !gamePlayerUrl && !walletModalOpen && !csOpen && (
-          <InstallPrompt onOpenDownload={openDownload} />
+        {iosGuideOpen && (
+          <InstallGuideSheet platform="ios" onClose={() => setIosGuideOpen(false)} />
         )}
       </Suspense>
     </div>
