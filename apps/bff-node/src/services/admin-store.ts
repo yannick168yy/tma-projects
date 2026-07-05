@@ -964,7 +964,7 @@ export async function listAdminWithdrawals(
 // ── 首页板块手动干预（pin/exclude）配置 ──────────────────────────────────────
 
 export const HOMEPAGE_SECTION_KEYS = [
-  'popular', 'highRebate', 'newGames', 'slots', 'casino', 'perya', 'fishing', 'lottery', 'mythology', 'megaWin', 'sports',
+  'popular', 'recommended', 'newGames', 'slots', 'casino', 'perya', 'fishing', 'lottery', 'baccarat', 'highRtp', 'sports',
 ] as const
 
 export interface HomepageSectionGameRow {

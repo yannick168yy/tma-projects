@@ -53,15 +53,15 @@ export interface GameListParams {
 
 export interface HomepageGames {
   popular: SlotGame[]
-  highRebate: SlotGame[]
+  recommended: SlotGame[]
   newGames: SlotGame[]
   slots: SlotGame[]
   casino: SlotGame[]
   perya: SlotGame[]
   fishing: SlotGame[]
   lottery: SlotGame[]
-  mythology: SlotGame[]
-  megaWin: SlotGame[]
+  baccarat: SlotGame[]
+  highRtp: SlotGame[]
   sports: SlotGame[]
   generatedAt: string
 }

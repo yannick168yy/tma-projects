@@ -354,7 +354,7 @@ export default function HomeContent({ onNavigatePath, onOpenCategoryLobby, onOpe
   }, [homeBanners.length])
 
   // Game data
-  const emptyHomepage = { popular: [], highRebate: [], newGames: [], slots: [], casino: [], perya: [], fishing: [], lottery: [], mythology: [], megaWin: [], sports: [] }
+  const emptyHomepage = { popular: [], recommended: [], newGames: [], slots: [], casino: [], perya: [], fishing: [], lottery: [], baccarat: [], highRtp: [], sports: [] }
   const [launchingUuid, setLaunchingUuid] = useState<string | null>(null)
   const [homepageGames, setHomepageGames] = useState<Record<keyof typeof emptyHomepage, SlotGame[]>>(emptyHomepage)
   const [gamesLoading, setGamesLoading] = useState(true)
@@ -525,8 +525,8 @@ export default function HomeContent({ onNavigatePath, onOpenCategoryLobby, onOpe
     setGamesLoading(true)
     fetchHomepageGames(activeCurrency)
       .then((data) => setHomepageGames({
-        popular: data.popular ?? [], highRebate: data.highRebate ?? [], newGames: data.newGames ?? [], slots: data.slots ?? [], casino: data.casino ?? [],
-        perya: data.perya ?? [], fishing: data.fishing ?? [], lottery: data.lottery ?? [], mythology: data.mythology ?? [], megaWin: data.megaWin ?? [], sports: data.sports ?? [],
+        popular: data.popular ?? [], recommended: data.recommended ?? [], newGames: data.newGames ?? [], slots: data.slots ?? [], casino: data.casino ?? [],
+        perya: data.perya ?? [], fishing: data.fishing ?? [], lottery: data.lottery ?? [], baccarat: data.baccarat ?? [], highRtp: data.highRtp ?? [], sports: data.sports ?? [],
       }))
       .catch(() => {})
       .finally(() => setGamesLoading(false))
@@ -753,11 +753,11 @@ export default function HomeContent({ onNavigatePath, onOpenCategoryLobby, onOpe
         {bigGrid(homepageGames.popular, 12, true)}
       </section>
 
-      {/* 高返利专区：运营钩子位，ph_bonus 驱动，大卡展示 +X% 角标 */}
-      {(gamesLoading || homepageGames.highRebate.length > 0) && (
+      {/* 推荐精选：竞品验证权重的次高梯队，大卡 */}
+      {(gamesLoading || homepageGames.recommended.length > 0) && (
         <section className="mt-6">
-          {sectionHeader(<Percent size={15} className="text-red-400" />, t('home.highRebate'), () => onOpenCategoryLobby({ sortBy: 'ph_bonus', title: t('home.highRebate') }))}
-          {bigGrid(homepageGames.highRebate, 6)}
+          {sectionHeader(<Percent size={15} className="text-red-400" />, t('home.recommended'), () => onOpenCategoryLobby({ sortBy: 'weight', title: t('home.recommended') }))}
+          {bigGrid(homepageGames.recommended, 6)}
         </section>
       )}
 
@@ -827,19 +827,19 @@ export default function HomeContent({ onNavigatePath, onOpenCategoryLobby, onOpe
         </section>
       )}
 
-      {/* 东方神话主题：富化 theme 独有栏，小卡横滑 */}
-      {(gamesLoading || homepageGames.mythology.length > 0) && (
+      {/* 百家乐专栏：小卡横滑 */}
+      {(gamesLoading || homepageGames.baccarat.length > 0) && (
         <section className="mt-6">
-          {sectionHeader(<Gem size={15} className="text-purple-400" />, t('home.mythologyZone'))}
-          {smallRow(homepageGames.mythology)}
+          {sectionHeader(<Gem size={15} className="text-purple-400" />, t('home.baccaratZone'))}
+          {smallRow(homepageGames.baccarat)}
         </section>
       )}
 
-      {/* Mega Win x1000+：大卡 3x2 */}
-      {(gamesLoading || homepageGames.megaWin.length > 0) && (
+      {/* 高 RTP 专栏：小卡横滑 */}
+      {(gamesLoading || homepageGames.highRtp.length > 0) && (
         <section className="mt-6">
-          {sectionHeader(<Rocket size={15} className="text-yellow-400" />, t('home.megaWin'))}
-          {smallRow(homepageGames.megaWin)}
+          {sectionHeader(<Rocket size={15} className="text-yellow-400" />, t('home.highRtp'))}
+          {smallRow(homepageGames.highRtp)}
         </section>
       )}
 

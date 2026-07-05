@@ -121,6 +121,7 @@ export interface DbGame {
   subCategory: string | null
   sortCategory: string | null
   siteCategory?: string | null
+  rtp?: number | null
   imageUrl: string | null
   imageHqUrl: string | null
   imageAnim?: string | null
@@ -234,6 +235,7 @@ function rowToWin568Game(r: RowDataPacket): DbGame {
     subCategory: null,
     sortCategory: String(sortCategory),
     siteCategory: r.effective_site_category ? String(r.effective_site_category) : null,
+    rtp: r.rtp == null || Number(r.rtp) < 0 ? null : Number(r.rtp),
     imageUrl: imageUrl ? String(imageUrl) : null,
     imageHqUrl: imageUrl ? String(imageUrl) : null,
     imageAnim: r.image_anim ? String(r.image_anim) : null,
@@ -291,7 +293,7 @@ export async function loadGamesCache(env: Env): Promise<number> {
   const redis = getRedis(env)
   const [win568Rows] = await db.query<RowDataPacket[]>(
     `SELECT g.game_id, g.game_provider_id, g.provider, g.new_game_type, g.rank_no, g.device,
-            g.name_en, g.name_zh, g.icon_url, g.icon_width, g.icon_height, g.supported_currencies, g.created_at,
+            g.name_en, g.name_zh, g.icon_url, g.icon_width, g.icon_height, g.supported_currencies, g.created_at, g.rtp,
             o.release_date, o.max_win_multiplier,
             COALESCE(o.name_override, g.name_en, g.name_zh, CONCAT('568Win ', g.game_id)) AS effective_name,
             -- 封面优先级：后台手动覆盖 > playtime > fbmplay > bingoplus > 568win 上游原图
@@ -380,21 +382,21 @@ const HOMEPAGE_TTL = 3 * 60 * 60 + 5 * 60 // 3h5m（比刷新间隔略长，防�
 
 export interface HomepageSelection {
   popular: DbGame[]
-  highRebate: DbGame[]
+  recommended: DbGame[]
   newGames: DbGame[]
   slots: DbGame[]
   casino: DbGame[]
   perya: DbGame[]
   fishing: DbGame[]
   lottery: DbGame[]
-  mythology: DbGame[]
-  megaWin: DbGame[]
+  baccarat: DbGame[]
+  highRtp: DbGame[]
   sports: DbGame[]
   generatedAt: string
 }
 
 export const EMPTY_HOMEPAGE_SELECTION: HomepageSelection = {
-  popular: [], highRebate: [], newGames: [], slots: [], casino: [], perya: [], fishing: [], lottery: [], mythology: [], megaWin: [], sports: [],
+  popular: [], recommended: [], newGames: [], slots: [], casino: [], perya: [], fishing: [], lottery: [], baccarat: [], highRtp: [], sports: [],
   generatedAt: '',
 }
 
@@ -524,10 +526,9 @@ function buildHomepageSelection(all: DbGame[], cur: string, overrides: SectionOv
   const bySite = (cat: string) => all.filter((g) => g.siteCategory === cat)
   const score = (g: DbGame) => g.weight * (g.isFeatured ? 1.5 : 1)
 
-  // New Games：有 release_date 的按发布日期降序取最新的一批做抽样池
-  const newPool = all
-    .filter((g) => g.releaseDate)
-    .sort((a, b) => String(b.releaseDate).localeCompare(String(a.releaseDate)))
+  // New Games：按上游首次同步时间（created_at）降序取最新入库的一批做抽样池
+  const newPool = [...all]
+    .sort((a, b) => String(b.createdAt ?? '').localeCompare(String(a.createdAt ?? '')))
     .slice(0, 40)
 
   // popular 从核心池(is_featured=竞品验证的爆款)加权抽，模仿竞品精选运营位；
@@ -570,8 +571,8 @@ function buildHomepageSelection(all: DbGame[], cur: string, overrides: SectionOv
 
   const selection: HomepageSelection = {
     popular:    applyManual('popular', popularMerged.slice(0, POPULAR_N), POPULAR_N),
-    // 高返利专区：ph_bonus(洗码吸引力) 最高的头部，运营钩子位，紧随 popular
-    highRebate: topSection('highRebate', all.filter((g) => g.phBonus >= 15), (g) => g.phBonus, 6, 3),
+    // 推荐精选：竞品验证权重的次高梯队（popular 已取走的会被 seen 去重）
+    recommended: topSection('recommended', all, score, 6, 3),
     newGames:   sampleSection('newGames', newPool, score, 12),
     slots:      sampleSection('slots', bySite('slot'), score, 6),
     casino:     sampleSection('casino', bySite('casino'), score, 6),
@@ -580,9 +581,10 @@ function buildHomepageSelection(all: DbGame[], cur: string, overrides: SectionOv
     fishing:    sampleSection('fishing', bySite('fishing'), score, 6),
     // 彩票 & 其他：彩票(ntype207)低权重会被 other 淹没，先保底 4 彩票再用 other 补 8
     lottery:    applyManual('lottery', [...pick(bySite('lottery'), score, 4), ...pick(bySite('other'), score, 8)], 12),
-    // 东方神话主题聚合：富化 theme 数据独有栏（asian-mythology 为最大主题）
-    mythology:  sampleSection('mythology', all.filter((g) => g.theme === 'asian-mythology'), score, 12),
-    megaWin:    sampleSection('megaWin', all.filter((g) => (g.maxWinMultiplier ?? 0) >= 1000), score, 6),
+    // 百家乐专栏：casinoplus 有独立返水专栏验证的品类需求（new_game_type=101）
+    baccarat:   sampleSection('baccarat', all.filter((g) => g.category === '101'), score, 12),
+    // 高 RTP 专栏：上游标称 rtp≥0.96，对标竞品「98%」栏
+    highRtp:    sampleSection('highRtp', all.filter((g) => (g.rtp ?? 0) >= 0.96), score, 6),
     // 体育：真实体育游戏(排除体育投注合成条目)。LuckySports 独占 29/32，厂商配额放宽到 6 才填得满
     sports:     sampleSection('sports', bySite('sports').filter((g) => g.uuid !== WIN568_SPORTSBOOK_UUID), score, 6, 6),
     generatedAt: new Date().toISOString(),
@@ -633,15 +635,15 @@ export function applyHomepageCurrency(selection: HomepageSelection, currency?: s
   const apply = (games: DbGame[]) => sortAvailableFirst(games, currency).map((g) => withCurrencySupport(g, currency))
   return {
     popular: apply(selection.popular),
-    highRebate: apply(selection.highRebate ?? []),
+    recommended: apply(selection.recommended ?? []),
     newGames: apply(selection.newGames ?? []),
     slots: apply(selection.slots),
     casino: apply(selection.casino ?? []),
     perya: apply(selection.perya ?? []),
     fishing: apply(selection.fishing),
     lottery: apply(selection.lottery ?? []),
-    mythology: apply(selection.mythology ?? []),
-    megaWin: apply(selection.megaWin ?? []),
+    baccarat: apply(selection.baccarat ?? []),
+    highRtp: apply(selection.highRtp ?? []),
     sports: apply(selection.sports ?? []),
     generatedAt: selection.generatedAt,
   }
