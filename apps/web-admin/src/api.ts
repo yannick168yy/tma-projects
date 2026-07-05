@@ -567,6 +567,27 @@ export const getWin568ProviderStats = () =>
 export const toggleWin568ProviderGames = (provider: string, isActive: boolean) =>
   post<{ provider: string; isActive: boolean; affected: number }>('/admin/games/win568-provider-toggle', { provider, isActive })
 
+// 首页板块手动干预（pin/exclude）
+export interface HomepageSectionEntry {
+  sectionKey: string
+  gameUuid: string
+  action: 'pin' | 'exclude'
+  pinPosition: number | null
+  currency: string
+  sortOrder: number
+  name: string | null
+  provider: string | null
+  imageUrl: string | null
+  siteCategory: string | null
+}
+export const getHomepageSections = () =>
+  get<{ sectionKeys: string[]; sections: Record<string, HomepageSectionEntry[]> }>('/admin/games/homepage-sections')
+export const putHomepageSection = (
+  sectionKey: string,
+  currency: string,
+  items: { gameUuid: string; action: 'pin' | 'exclude'; pinPosition: number | null }[],
+) => put<{ ok: boolean }>(`/admin/games/homepage-sections/${sectionKey}`, { currency, items })
+
 // Audit log
 export interface AuditEntry {
   id: number; adminUsername: string; action: string; targetType: string | null

@@ -6,6 +6,7 @@ import GameProviders from './games/GameProviders'
 import GameJobModal, { type JobModalState } from './games/GameJobModal'
 import Win568GameList from './games/Win568GameList'
 import Win568Providers from './games/Win568Providers'
+import HomepageSections from './games/HomepageSections'
 
 function sleep(ms: number) { return new Promise((r) => setTimeout(r, ms)) }
 
@@ -74,11 +75,13 @@ export default function Games() {
       <Tabs activeKey={activeTab} onChange={setActiveTab} style={{ marginBottom: 0 }} items={[
         { key: 'win568', label: '568Win 游戏' },
         { key: 'win568-providers', label: '568Win 厂商' },
+        { key: 'homepage-sections', label: '首页板块配置' },
         { key: 'games', label: 'SG 历史游戏' },
         { key: 'providers', label: 'SG 厂商' },
       ]} />
       {activeTab === 'win568' && <Win568GameList refreshKey={refreshKey} />}
       {activeTab === 'win568-providers' && <Win568Providers />}
+      {activeTab === 'homepage-sections' && <HomepageSections />}
       {activeTab === 'games' && <GameList refreshKey={refreshKey} />}
       {activeTab === 'providers' && <GameProviders />}
       <GameJobModal state={jobModal} onClose={() => setJobModal((m) => ({ ...m, visible: false }))} />
