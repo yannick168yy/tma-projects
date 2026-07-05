@@ -42,6 +42,10 @@ apps/web-tma/.env.development.local
 data/gzone/images/
 data/gzone/download_failed.json
 
+# bingoplus 爬取的游戏卡片图（88MB 540方图，不入库，可由 build+download_images 重跑）
+data/bingoplus/images/
+data/bingoplus/download_failed.json
+
 # casinoplus 爬取的第三方游戏图片（44MB，不入库）
 data/casinoplus/images/
 data/casinoplus/download_failed.json

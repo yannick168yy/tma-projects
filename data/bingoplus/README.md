@@ -11,8 +11,11 @@ bingoplus 原定角色 = 方图封面第二来源 + 市占第三信号。这两�
 - `topRankingGame.json` — Big Win 榜单 13 款（完整字段：gameName/gameImage(540×540 webp)/gameKind/platformName/rank/amount）
 - `gameIndex.json` — `userNeedCheckGames` 全量索引 1369 条（仅 gameId+platformId，无名称/图片）
 
-## 后续如需 bingoplus 全量
-按 `getChannelPage` 的 subChannel 逐个调 `/_glaxy_c66_/activity/multipleContent/queryContentList` 展开各频道游戏卡（含 gameName/image/顺序 = 曝光位），或逆向 resourceBit hash 资源包 URL。接口清单见 scripts/（本目录暂无独立爬虫，数据由 playwright 探测捕获）。
+## ✅ 全量已抓完（2026-07-05）
+`queryContentList` 匿名版每组只回 1 款引流游戏；真正全量在一份**免签静态 JS 目录**
+`/staticJs/game/game_bp_h5_1_1000_<gameKey>.js`（gameKey 由签名接口 getGameKey 下发）。
+爬虫见 `scripts/bingoplus-crawler/`（build.mjs 取 key+拉目录，download_images.mjs 下图）。
+产出 `games.json`/`games.csv`（2728 款）+ `images/`（2728 张 540 方图，88MB，gitignore）。
 
 ## 图片规格
 `/externals/C66FM/img/_wms/_l/electronicgames/<platform>/<code>540x540.webp`，防盗链需带 Referer。
