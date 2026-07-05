@@ -61,45 +61,38 @@ export default function GameCardV2({ game, onTap, size, showLive }: Props) {
   }
 
   const displaySrc = animSrc ?? imageUrl
-  // 全站封面风格统一：playtime 方图自带金框+透明边距+阴影(实心内容仅约95%，四角圆角)。
-  // 其余来源(568win上游/gzone/fbmplay)是满幅方图 → 等比缩到同占比(125/130≈96%，inset 1.92%)
-  // 并补 2px #ffef8e 金框 + 圆角12px，使金框位置与 playtime 对齐（用户实测 iPhone14ProMax 参数）
-  const isPlaytime = game.imageSource === 'playtime' || game.imageSource === 'playtime-anim'
-  const boxClass = isPlaytime
-    ? 'absolute inset-0 rounded-xl overflow-hidden bg-secondary'
-    : 'absolute inset-[1.92%] rounded-[12px] overflow-hidden bg-secondary border-2 border-[#ffef8e]'
+  // 全站封面统一：playtime 图已裁掉透明边距变满幅(金框/画面贴边)，与 568win 满幅原图一致。
+  // 所有卡满幅同尺寸 + 统一 2px #ffef8e 金框 + 圆角12px（裁剪后金框贴边、无暗边间隙）。
   const image = (
-    <div ref={wrapRef} className={`relative ${size === 'lg' ? 'w-full aspect-square' : 'w-[76px] h-[76px]'}`}>
-      <div className={boxClass}>
-        {imageUrl ? (
-          <>
-            {isLandscape && (
-              <img src={displaySrc ?? undefined} alt="" aria-hidden draggable={false} className="absolute inset-0 w-full h-full object-cover scale-125 blur-md brightness-[0.55]" />
-            )}
-            <img src={displaySrc ?? undefined} alt="" loading="lazy" draggable={false} onLoad={onImageLoad} className={`absolute inset-0 w-full h-full ${isLandscape ? 'object-contain' : 'object-cover'}`} />
-          </>
-        ) : (
-          <div className="absolute inset-0 flex items-center justify-center px-1.5">
-            <span className="text-[10px] font-bold text-foreground/60 text-center leading-tight line-clamp-3">{localizedGameName(game, locale)}</span>
-          </div>
-        )}
-        {badge && (
-          <div className={`absolute top-1 right-1 rounded-full px-1.5 py-0.5 ${badge.cls}`}>
-            <span className="text-white text-[9px] font-bold leading-none">{badge.text}</span>
-          </div>
-        )}
-        {showLive && (
-          <div className="absolute top-1 left-1 flex items-center gap-1 bg-red-500/85 rounded-full px-1.5 py-0.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
-            <span className="text-white text-[8px] font-bold">LIVE</span>
-          </div>
-        )}
-        {unavailable && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/55">
-            <span className="rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-bold text-white">Unavailable</span>
-          </div>
-        )}
-      </div>
+    <div ref={wrapRef} className={`relative overflow-hidden rounded-xl bg-secondary border-2 border-[#ffef8e] ${size === 'lg' ? 'w-full aspect-square' : 'w-[76px] h-[76px]'}`}>
+      {imageUrl ? (
+        <>
+          {isLandscape && (
+            <img src={displaySrc ?? undefined} alt="" aria-hidden draggable={false} className="absolute inset-0 w-full h-full object-cover scale-125 blur-md brightness-[0.55]" />
+          )}
+          <img src={displaySrc ?? undefined} alt="" loading="lazy" draggable={false} onLoad={onImageLoad} className={`absolute inset-0 w-full h-full ${isLandscape ? 'object-contain' : 'object-cover'}`} />
+        </>
+      ) : (
+        <div className="absolute inset-0 flex items-center justify-center px-1.5">
+          <span className="text-[10px] font-bold text-foreground/60 text-center leading-tight line-clamp-3">{localizedGameName(game, locale)}</span>
+        </div>
+      )}
+      {badge && (
+        <div className={`absolute top-1 right-1 rounded-full px-1.5 py-0.5 ${badge.cls}`}>
+          <span className="text-white text-[9px] font-bold leading-none">{badge.text}</span>
+        </div>
+      )}
+      {showLive && (
+        <div className="absolute top-1 left-1 flex items-center gap-1 bg-red-500/85 rounded-full px-1.5 py-0.5">
+          <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+          <span className="text-white text-[8px] font-bold">LIVE</span>
+        </div>
+      )}
+      {unavailable && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/55">
+          <span className="rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-bold text-white">Unavailable</span>
+        </div>
+      )}
     </div>
   )
 
