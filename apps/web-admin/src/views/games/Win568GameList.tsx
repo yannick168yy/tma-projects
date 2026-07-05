@@ -119,16 +119,19 @@ export default function Win568GameList({ refreshKey }: Props) {
   // 换封面弹窗
   const [coverPicker, setCoverPicker] = useState<AdminWin568Game | null>(null)
   const [candidates, setCandidates] = useState<CoverCandidate[]>([])
+  const [currentSource, setCurrentSource] = useState<string>('568win')
   const [candLoading, setCandLoading] = useState(false)
   const [savingCover, setSavingCover] = useState<string | null>(null)
 
   async function openCoverPicker(record: AdminWin568Game) {
     setCoverPicker(record)
     setCandidates([])
+    setCurrentSource('568win')
     setCandLoading(true)
     try {
       const res = await getWin568CoverCandidates(record.gameProviderId, record.gameId)
       setCandidates(res.candidates)
+      setCurrentSource(res.currentSource)  // 与前台一致的实际生效来源（override>playtime>fbmplay>bingoplus>568win）
     } catch (e) {
       message.error(e instanceof Error ? e.message : '加载候选封面失败')
     } finally {
@@ -140,15 +143,15 @@ export default function Win568GameList({ refreshKey }: Props) {
     if (!coverPicker) return
     setSavingCover(c.url)
     try {
-      // 568win 原图＝清空覆盖回退上游；其余源写 image_override + source + 动图(仅 playtime 带)
-      const isUpstream = c.source === '568win'
+      // 固定(pin)所选来源：写 image_override + source + 动图(仅 playtime 带)。
+      // 含 568win 原图也显式 pin（不能清空覆盖——清空会回退到"自动优先级"=playtime，反而拿不到原图）
       await updateWin568Game(coverPicker.gameProviderId, coverPicker.gameId, {
-        imageOverride: isUpstream ? null : c.url,
-        imageOverrideSource: isUpstream ? null : c.source,
-        imageAnim: isUpstream ? null : (c.animUrl ?? null),
+        imageOverride: c.url,
+        imageOverrideSource: c.source,
+        imageAnim: c.animUrl ?? null,
       })
-      message.success(isUpstream ? '已回退 568Win 原图' : `已换为 ${coverSourceMeta(c.source).label}`)
-      setGames((prev) => prev.map((g) => g.uuid === coverPicker.uuid ? { ...g, imageUrl: c.url, imageOverride: isUpstream ? null : c.url } : g))
+      message.success(`已固定为 ${coverSourceMeta(c.source).label}`)
+      setGames((prev) => prev.map((g) => g.uuid === coverPicker.uuid ? { ...g, imageUrl: c.url, imageOverride: c.url } : g))
       setCoverPicker(null)
     } catch (e) {
       message.error(e instanceof Error ? e.message : '保存失败')
@@ -536,14 +539,13 @@ export default function Win568GameList({ refreshKey }: Props) {
         ) : (
           <div>
             <div style={{ color: '#999', fontSize: 12, marginBottom: 12 }}>
-              点击任一封面即应用为该游戏封面。当前来源：<Tag color={coverSourceMeta(coverPicker?.imageOverride ? (candidates.find((c) => c.url === coverPicker?.imageOverride)?.source ?? 'manual') : '568win').color}>{coverPicker?.imageOverride ? '已覆盖' : '568Win 原图'}</Tag>
+              点击任一封面即固定为该游戏封面（前台实际使用）。当前来源：<Tag color={coverSourceMeta(currentSource).color}>{coverSourceMeta(currentSource).label}</Tag>
+              {!coverPicker?.imageOverride && <span style={{ marginLeft: 6 }}>（未手动指定，按优先级自动选中）</span>}
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
               {candidates.map((c) => {
                 const meta = coverSourceMeta(c.source)
-                const active = coverPicker?.imageOverride
-                  ? c.url === coverPicker.imageOverride
-                  : c.source === '568win'
+                const active = c.source === currentSource
                 return (
                   <div
                     key={c.source + c.url}

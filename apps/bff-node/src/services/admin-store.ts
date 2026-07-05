@@ -795,7 +795,11 @@ export async function listWin568CoverCandidates(
   env: Env,
   gameProviderId: number,
   gameId: number,
-): Promise<{ source: string; url: string; animUrl: string | null }[]> {
+): Promise<{
+  candidates: { source: string; url: string; animUrl: string | null }[]
+  currentSource: string
+  currentUrl: string
+}> {
   const [[g]] = await pool(env).query<RowDataPacket[]>(
     `SELECT g.icon_url, o.image_override, o.image_override_source
      FROM bg_568win_game g
@@ -805,13 +809,26 @@ export async function listWin568CoverCandidates(
   )
   const [rows] = await pool(env).query<RowDataPacket[]>(
     `SELECT source, url, anim_url FROM bg_568win_game_cover_candidate
-     WHERE game_provider_id = ? AND game_id = ? ORDER BY FIELD(source,'playtime','fbmplay','casinoplus','gzone'), source`,
+     WHERE game_provider_id = ? AND game_id = ? ORDER BY FIELD(source,'playtime','fbmplay','bingoplus','casinoplus','gzone'), source`,
     [gameProviderId, gameId],
   )
-  const out = rows.map((r) => ({ source: String(r.source), url: String(r.url), animUrl: r.anim_url ? String(r.anim_url) : null }))
+  const candidates = rows.map((r) => ({ source: String(r.source), url: String(r.url), animUrl: r.anim_url ? String(r.anim_url) : null }))
+  const iconUrl = g?.icon_url ? String(g.icon_url) : ''
   // 568win 上游原图作为兜底候选（放最后）
-  if (g?.icon_url) out.push({ source: '568win', url: String(g.icon_url), animUrl: null })
-  return out
+  if (iconUrl) candidates.push({ source: '568win', url: iconUrl, animUrl: null })
+
+  // 当前实际生效的封面：与 loadGamesCache 的 COALESCE 优先级一致
+  // 手动override > playtime > fbmplay > bingoplus > 568win 上游原图
+  let currentSource = '568win', currentUrl = iconUrl
+  if (g?.image_override) {
+    currentSource = String(g.image_override_source || 'manual'); currentUrl = String(g.image_override)
+  } else {
+    for (const s of ['playtime', 'fbmplay', 'bingoplus']) {
+      const hit = candidates.find((c) => c.source === s)
+      if (hit) { currentSource = hit.source; currentUrl = hit.url; break }
+    }
+  }
+  return { candidates, currentSource, currentUrl }
 }
 
 export async function toggleAdminWin568Game(env: Env, gameProviderId: number, gameId: number, isActive: boolean): Promise<void> {

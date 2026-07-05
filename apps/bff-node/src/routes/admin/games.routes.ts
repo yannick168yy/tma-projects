@@ -168,7 +168,7 @@ router.get('/win568/:gameProviderId/:gameId/cover-candidates', async (ctx) => {
   if (!Number.isInteger(gameProviderId) || !Number.isInteger(gameId)) {
     fail(ctx, 400, 'gameProviderId and gameId are required'); return
   }
-  ok(ctx, { candidates: await listWin568CoverCandidates(ctx.state.env, gameProviderId, gameId) })
+  ok(ctx, await listWin568CoverCandidates(ctx.state.env, gameProviderId, gameId))
 })
 
 router.post('/win568/:gameProviderId/:gameId/enrich', async (ctx) => {
