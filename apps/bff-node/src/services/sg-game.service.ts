@@ -528,16 +528,18 @@ function buildHomepageSelection(all: DbGame[], cur: string, overrides: SectionOv
   const topSection = (key: string, pool: DbGame[], sc: (g: DbGame) => number, n: number, mpp = 3) =>
     applyManual(key, pickTop(exFilter(key, pool), sc, n, mpp), n)
 
-  // popular 混排：纯按热度排会被 slots 屠版、单厂商还能占 3 席。改为保底 1 个真人娱乐
-  // 席位(插到第3位保证露出) + 其余按热度补足、每厂商≤2，让首屏像竞品那样有品类层次。
-  // 体育合成条目(isFeatured=true, weight=10000)会漏进 popular，它有专属体育通栏，从热门剔除
+  // popular 混排：纯按热度排会被 slots 屠版。改为①保底 1 个真人娱乐席位(插到第3位保证
+  // 露出)②主体从 featured 核心池按热度取、每厂商≤3(JILI 等龙头在 PH 本就多爆款)③featured
+  // 池填不满时从全库高热度补足到 9。体育合成条目(isFeatured=true)有专属通栏，从热门剔除。
   const notSports = (g: DbGame) => g.uuid !== WIN568_SPORTSBOOK_UUID
-  const popularPool = exFilter('popular', featuredPool.length >= 9 ? featuredPool : all).filter(notSports)
-  // 真人席位从全部真人游戏按热度取（不限 featured）——真人竞品交叉曝光弱、几乎进不了
-  // 核心池，只从 featured 取会永远空缺，导致首屏无真人。
+  // 真人席位从全部真人游戏按热度取（不限 featured）——真人竞品交叉曝光弱、几乎进不了核心池
   const casinoSeat = pickTop(exFilter('popular', bySite('casino')).filter(notSports), score, 1, 1)
-  const popularRest = pickTop(popularPool, score, 9 - casinoSeat.length, 2)
-  const popularMerged = [...popularRest]
+  const need = 9 - casinoSeat.length
+  const fromFeatured = pickTop(exFilter('popular', featuredPool).filter(notSports), score, need, 3)
+  const backfill = fromFeatured.length < need
+    ? pickTop(exFilter('popular', all).filter(notSports), score, need - fromFeatured.length, 3)
+    : []
+  const popularMerged = [...fromFeatured, ...backfill]
   if (casinoSeat.length) popularMerged.splice(Math.min(2, popularMerged.length), 0, ...casinoSeat)
 
   const selection: HomepageSelection = {
