@@ -202,7 +202,11 @@ async function callGemini(prompt: string): Promise<GeminiResult> {
       signal: AbortSignal.timeout(120_000),
     },
   )
-  if (!res.ok) throw new Error(`Gemini HTTP ${res.status}: ${(await res.text()).slice(0, 300)}`)
+  if (!res.ok) {
+    const text = (await res.text()).slice(0, 300)
+    if (res.status === 429 && text.includes('spending cap')) throw new SpendCapError()
+    throw new GeminiHttpError(res.status, text)
+  }
   const data = await res.json() as { candidates?: { content?: { parts?: { text?: string }[] } }[] }
   const text = (data.candidates?.[0]?.content?.parts ?? []).map((p) => p.text ?? '').join('')
   const jsonMatch = text.match(/\{[\s\S]*\}/)
@@ -212,6 +216,14 @@ async function callGemini(prompt: string): Promise<GeminiResult> {
 
 class QuotaExhaustedError extends Error {
   constructor() { super('今日 Gemini 免费额度已用完（与定时任务/后台按钮共享，太平洋时间零点刷新）') }
+}
+
+class SpendCapError extends Error {
+  constructor() { super('Google 项目月度支出上限已到，请到 https://ai.studio/spend 调整') }
+}
+
+class GeminiHttpError extends Error {
+  constructor(public status: number, body: string) { super(`Gemini HTTP ${status}: ${body}`) }
 }
 
 // 与 bff 定时任务、后台单游戏按钮共享 bg_gemini_search_quota 计数，保证全天总量不超免费额度
@@ -231,11 +243,18 @@ async function tryConsumeQuota(db: mysql.Pool): Promise<boolean> {
   return res.affectedRows > 0
 }
 
-// 重试 1 次（解析失败的重试同样消耗 grounding 计费额度）；额度耗尽不重试
+async function refundQuota(db: mysql.Pool): Promise<void> {
+  await db.execute(
+    `UPDATE bg_gemini_search_quota SET used = GREATEST(used - 1, 0) WHERE quota_date = ?`,
+    [ptToday()],
+  ).catch(() => { /* 退额度失败不影响主流程 */ })
+}
+
+// 重试 1 次（解析失败的重试同样消耗 grounding 计费额度）；额度耗尽/支出上限不重试
 async function callWithRetry<T>(fn: () => Promise<T>, retries = 1): Promise<T> {
   for (let i = 0; ; i++) {
     try { return await fn() } catch (e) {
-      if (e instanceof QuotaExhaustedError || i >= retries) throw e
+      if (e instanceof QuotaExhaustedError || e instanceof SpendCapError || i >= retries) throw e
       await new Promise((r) => setTimeout(r, 2000 * (i + 1)))
     }
   }
@@ -349,7 +368,15 @@ async function main() {
       try {
         const r = await callWithRetry(async () => {
           if (!await tryConsumeQuota(db)) throw new QuotaExhaustedError()
-          return callGemini(buildPrompt(g))
+          try {
+            return await callGemini(buildPrompt(g))
+          } catch (e) {
+            // Google 拒绝的请求（429/5xx/支出上限）未实际执行，退回本地额度
+            if (e instanceof SpendCapError || (e instanceof GeminiHttpError && (e.status === 429 || e.status >= 500))) {
+              await refundQuota(db)
+            }
+            throw e
+          }
         })
 
         const volatilitySourced = fact(r.volatility, (v) => VOLATILITY_VALUES.has(String(v)))
@@ -479,6 +506,11 @@ async function main() {
         if (e instanceof QuotaExhaustedError) {
           quotaExhausted = true
           console.log(`\n⏸ ${e.message}，本次停止（已完成的不受影响，明天重跑自动续）`)
+          break
+        }
+        if (e instanceof SpendCapError) {
+          quotaExhausted = true
+          console.log(`\n🛑 支出上限已到：${e.message}，本次停止`)
           break
         }
         failed++

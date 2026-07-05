@@ -42,7 +42,9 @@ export MYSQL_HOST=127.0.0.1 MYSQL_PORT=$PORT MYSQL_USER=betogo
 npm start 2>&1 | tee "$LAST_OUT"
 
 SUMMARY=$(grep -E '^完成：' "$LAST_OUT" | tail -1)
-if grep -q '额度已用完' "$LAST_OUT"; then
+if grep -q '支出上限已到' "$LAST_OUT"; then
+  notify "🛑 Google 月度支出上限已到，请到 ai.studio/spend 调整（${SUMMARY:-本次已停止}）"
+elif grep -q '额度已用完' "$LAST_OUT"; then
   notify "⏸ ${SUMMARY:-已停止}（今日额度用尽，明天续跑）"
 elif [ -n "$SUMMARY" ]; then
   notify "✅ $SUMMARY"

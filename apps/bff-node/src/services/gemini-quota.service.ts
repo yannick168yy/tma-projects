@@ -21,6 +21,15 @@ export async function tryConsumeGeminiSearchQuota(env: Env): Promise<boolean> {
   return res.affectedRows > 0
 }
 
+// Google 拒绝（429/5xx）的请求未实际执行，退回额度
+export async function refundGeminiSearchQuota(env: Env): Promise<void> {
+  const db = getMysqlPool(env)
+  await db.execute(
+    `UPDATE bg_gemini_search_quota SET used = GREATEST(used - 1, 0) WHERE quota_date = ?`,
+    [ptToday()],
+  ).catch(() => { /* 退额度失败不影响主流程 */ })
+}
+
 export async function geminiSearchQuotaUsed(env: Env): Promise<{ used: number; cap: number }> {
   const db = getMysqlPool(env)
   const [[row]] = await db.query<RowDataPacket[]>(

@@ -1,7 +1,7 @@
 import type { RowDataPacket } from 'mysql2'
 import type { Env } from '../config/env.js'
 import { getMysqlPool } from '../clients/mysql.client.js'
-import { tryConsumeGeminiSearchQuota } from './gemini-quota.service.js'
+import { refundGeminiSearchQuota, tryConsumeGeminiSearchQuota } from './gemini-quota.service.js'
 
 export class GeminiQuotaExhaustedError extends Error {
   constructor() { super('今日 Gemini 免费额度已用完，太平洋时间零点后自动恢复') }
@@ -164,7 +164,13 @@ async function callGemini(apiKey: string, prompt: string): Promise<GeminiResult>
       signal: AbortSignal.timeout(120_000),
     },
   )
-  if (!res.ok) throw new Error(`Gemini HTTP ${res.status}: ${(await res.text()).slice(0, 300)}`)
+  if (!res.ok) {
+    const body = (await res.text()).slice(0, 300)
+    if (res.status === 429 && body.includes('spending cap')) {
+      throw Object.assign(new Error('Google 项目月度支出上限已到，请到 ai.studio/spend 调整'), { geminiRejected: true })
+    }
+    throw Object.assign(new Error(`Gemini HTTP ${res.status}: ${body}`), { geminiRejected: res.status === 429 || res.status >= 500 })
+  }
   const data = await res.json() as { candidates?: { content?: { parts?: { text?: string }[] } }[] }
   const text = (data.candidates?.[0]?.content?.parts ?? []).map((p) => p.text ?? '').join('')
   const jsonMatch = text.match(/\{[\s\S]*\}/)
@@ -206,7 +212,13 @@ export async function enrichWin568Game(env: Env, gameProviderId: number, gameId:
   }
 
   if (!await tryConsumeGeminiSearchQuota(env)) throw new GeminiQuotaExhaustedError()
-  const r = await callGemini(env.GEMINI_API_KEY, buildPrompt(game))
+  let r: GeminiResult
+  try {
+    r = await callGemini(env.GEMINI_API_KEY, buildPrompt(game))
+  } catch (e) {
+    if (e instanceof Error && (e as { geminiRejected?: boolean }).geminiRejected) await refundGeminiSearchQuota(env)
+    throw e
+  }
   const volatilitySourced = fact(r.volatility, (v) => VOLATILITY_VALUES.has(String(v)))
   const volatilityEstimate = typeof r.volatility_estimate === 'string' && VOLATILITY_VALUES.has(r.volatility_estimate) ? r.volatility_estimate : null
   const volatility = volatilitySourced ?? volatilityEstimate
