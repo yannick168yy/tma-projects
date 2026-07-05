@@ -84,6 +84,8 @@ export const RULE_META: Record<string, { name: string; desc: string }> = {
 export interface Win568ReviewStats {
   /** 报表同步水位（UTC ms），null=从未同步 */
   watermarkMs: number | null
+  /** 报表覆盖起点（UTC ms），早于它结算的注单不在报表里，不参与对账 */
+  coverageStartMs: number | null
   reconcileChecked: number
   reconcileMissing: number
   reconcileStakeMismatch: number
@@ -112,11 +114,17 @@ export async function buildWin568ReviewStats(
   since: Date,
   graceMinutes: number,
 ): Promise<Win568ReviewStats> {
-  const [[wm]] = await pool.query<RowDataPacket[]>(
-    `SELECT \`value\` FROM bg_admin_settings WHERE \`key\` = 'win568_report_sync_watermark' LIMIT 1`,
+  const [wmRows] = await pool.query<RowDataPacket[]>(
+    `SELECT \`key\`, \`value\` FROM bg_admin_settings
+     WHERE \`key\` IN ('win568_report_sync_watermark', 'win568_report_sync_coverage_start')`,
   )
-  const wmTs = wm?.value ? Date.parse(String(wm.value)) : NaN
-  const watermarkMs = Number.isFinite(wmTs) ? wmTs : null
+  const parseSetting = (key: string): number | null => {
+    const row = wmRows.find((r) => String(r.key) === key)
+    const ts = row?.value ? Date.parse(String(row.value)) : NaN
+    return Number.isFinite(ts) ? ts : null
+  }
+  const watermarkMs = parseSetting('win568_report_sync_watermark')
+  const coverageStartMs = parseSetting('win568_report_sync_coverage_start')
 
   const [[txn]] = await pool.query<RowDataPacket[]>(
     `SELECT
@@ -129,7 +137,9 @@ export async function buildWin568ReviewStats(
   )
 
   let checked = 0, missing = 0, stakeMismatch = 0, voidPaid = 0
-  if (watermarkMs !== null) {
+  if (watermarkMs !== null && coverageStartMs !== null) {
+    // 对账范围：[max(窗口起点, 报表覆盖起点), 水位-grace]，两头都收敛避免报表天然缺数据的误报
+    const lower = new Date(Math.max(since.getTime(), coverageStartMs))
     const bound = new Date(watermarkMs - graceMinutes * 60_000)
     // PT9 同一 transfer_code 可有多笔 transaction，按 transfer_code 聚合后与报表 refNo 对齐
     const [[rec]] = await pool.query<RowDataPacket[]>(
@@ -148,10 +158,10 @@ export async function buildWin568ReviewStats(
                        WHERE r.ref_no = t.transfer_code AND LOWER(COALESCE(r.status, '')) LIKE '%void%') AS report_void
          FROM bg_568win_wallet_txn t
          WHERE t.user_id = ? AND t.txn_type = 'bet' AND t.status = 'settled'
-           AND t.created_at > ? AND t.settled_at < ?
+           AND t.settled_at > ? AND t.settled_at < ?
          GROUP BY t.transfer_code
        ) x`,
-      [userId, since, bound],
+      [userId, lower, bound],
     )
     checked = Number(rec?.checked ?? 0)
     missing = Number(rec?.missing ?? 0)
@@ -161,6 +171,7 @@ export async function buildWin568ReviewStats(
 
   return {
     watermarkMs,
+    coverageStartMs,
     reconcileChecked: checked,
     reconcileMissing: missing,
     reconcileStakeMismatch: stakeMismatch,
@@ -173,7 +184,7 @@ export async function buildWin568ReviewStats(
 }
 
 export function evalUpstreamReconcile(stats: Win568ReviewStats): RuleResult {
-  if (stats.watermarkMs === null) {
+  if (stats.watermarkMs === null || stats.coverageStartMs === null) {
     return { code: 'upstream_reconcile', verdict: 'skipped', detail: { reason: 'report sync not ready' } }
   }
   if (Date.now() - stats.watermarkMs > RECONCILE_WATERMARK_MAX_AGE_MS) {
@@ -485,6 +496,7 @@ function snapshotOf(ctx: ReviewContext): Record<string, number | string | boolea
     commissionDownlineGgrCents: ctx.commissionDownlineGgrCents,
     commissionDupGroups: ctx.commissionDupGroups,
     win568SyncWatermark: ctx.win568.watermarkMs === null ? '' : new Date(ctx.win568.watermarkMs).toISOString(),
+    win568CoverageStart: ctx.win568.coverageStartMs === null ? '' : new Date(ctx.win568.coverageStartMs).toISOString(),
     win568ReconcileChecked: ctx.win568.reconcileChecked,
     win568ReconcileMissing: ctx.win568.reconcileMissing,
     win568ReconcileStakeMismatch: ctx.win568.reconcileStakeMismatch,

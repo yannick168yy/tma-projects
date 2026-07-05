@@ -193,6 +193,7 @@ function snapshotOf(ctx: ReviewContext): Record<string, number | string | boolea
     commissionDownlineGgrCents: ctx.commissionDownlineGgrCents,
     commissionDupGroups: ctx.commissionDupGroups,
     win568SyncWatermark: ctx.win568.watermarkMs === null ? '' : new Date(ctx.win568.watermarkMs).toISOString(),
+    win568CoverageStart: ctx.win568.coverageStartMs === null ? '' : new Date(ctx.win568.coverageStartMs).toISOString(),
     win568ReconcileChecked: ctx.win568.reconcileChecked,
     win568ReconcileMissing: ctx.win568.reconcileMissing,
     win568ReconcileStakeMismatch: ctx.win568.reconcileStakeMismatch,

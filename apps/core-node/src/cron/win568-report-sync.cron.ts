@@ -15,8 +15,11 @@ const INITIAL_LOOKBACK_MS = 24 * 60 * 60 * 1000
 const PORTFOLIOS = ['SeamlessGame', 'ThirdPartySportsBook', '568WinSportsbook']
 
 const cursorKey = (portfolio: string) => `win568_report_sync_cursor:${portfolio}`
+const coverageKey = (portfolio: string) => `win568_report_sync_coverage:${portfolio}`
 /** 聚合水位 = 全 portfolio 游标最小值，bff 审核对账规则读它判断上游数据新鲜度 */
 export const WATERMARK_KEY = 'win568_report_sync_watermark'
+/** 聚合覆盖起点 = 全 portfolio 覆盖起点最大值。早于它结算的注单不在报表里，对账不核对 */
+export const COVERAGE_KEY = 'win568_report_sync_coverage_start'
 
 /** 568Win 报表日期格式：GMT-4、无毫秒、无 Z 后缀 */
 export function toWin568ReportDate(date: Date): string {
@@ -25,14 +28,27 @@ export function toWin568ReportDate(date: Date): string {
 
 /** 全 portfolio 中最旧的同步水位（UTC ms），审核对账用它判断上游数据新鲜度 */
 export async function getReportSyncWatermark(app: FastifyInstance): Promise<number | null> {
-  let min: number | null = null
+  return aggregateSetting(app, cursorKey, (a, b) => Math.min(a, b))
+}
+
+/** 全 portfolio 中最晚的覆盖起点（UTC ms），取最大值保证对账范围内各 portfolio 报表都齐 */
+async function getReportSyncCoverageStart(app: FastifyInstance): Promise<number | null> {
+  return aggregateSetting(app, coverageKey, (a, b) => Math.max(a, b))
+}
+
+async function aggregateSetting(
+  app: FastifyInstance,
+  key: (portfolio: string) => string,
+  pick: (a: number, b: number) => number,
+): Promise<number | null> {
+  let acc: number | null = null
   for (const p of PORTFOLIOS) {
-    const raw = await getAdminSetting(app, cursorKey(p))
+    const raw = await getAdminSetting(app, key(p))
     const ts = raw ? Date.parse(raw) : NaN
     if (!Number.isFinite(ts)) return null
-    if (min === null || ts < min) min = ts
+    acc = acc === null ? ts : pick(acc, ts)
   }
-  return min
+  return acc
 }
 
 export function startWin568ReportSyncCron(app: FastifyInstance): void {
@@ -69,6 +85,10 @@ async function syncWin568ReportBets(app: FastifyInstance): Promise<void> {
         }
         const saved = await saveReportBets(app, portfolio, result.result, result)
         await setAdminSetting(app, cursorKey(portfolio), new Date(to).toISOString())
+        // 覆盖起点只写一次：该 portfolio 报表数据从 from 起才齐全（含已有游标但缺覆盖键的自愈场景）
+        if (!(await getAdminSetting(app, coverageKey(portfolio)))) {
+          await setAdminSetting(app, coverageKey(portfolio), new Date(from).toISOString())
+        }
         if (saved > 0) app.log.info({ portfolio, saved }, '[568win-report-sync] saved bets')
       } catch (err) {
         app.log.error({ err, portfolio }, '[568win-report-sync] portfolio sync failed')
@@ -78,6 +98,10 @@ async function syncWin568ReportBets(app: FastifyInstance): Promise<void> {
     const watermark = await getReportSyncWatermark(app)
     if (watermark !== null) {
       await setAdminSetting(app, WATERMARK_KEY, new Date(watermark).toISOString())
+    }
+    const coverage = await getReportSyncCoverageStart(app)
+    if (coverage !== null) {
+      await setAdminSetting(app, COVERAGE_KEY, new Date(coverage).toISOString())
     }
   } catch (err) {
     app.log.error({ err }, '[568win-report-sync] failed')
