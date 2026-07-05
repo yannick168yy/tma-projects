@@ -530,7 +530,8 @@ function buildHomepageSelection(all: DbGame[], cur: string, overrides: SectionOv
 
   // popular 混排：纯按热度排会被 slots 屠版。改为①保底 1 个真人娱乐席位(插到第3位保证
   // 露出)②主体从 featured 核心池按热度取、每厂商≤3(JILI 等龙头在 PH 本就多爆款)③featured
-  // 池填不满时从全库高热度补足到 9。体育合成条目(isFeatured=true)有专属通栏，从热门剔除。
+  // 池填不满时从全库高热度补足到 POPULAR_N。体育合成条目(isFeatured=true)有专属通栏，从热门剔除。
+  const POPULAR_N = 12 // 首页 4 行 × 3 列
   const notSports = (g: DbGame) => g.uuid !== WIN568_SPORTSBOOK_UUID
   // 全局厂商配额(≤3)贯穿"真人席位+featured 主体+全库补足"三段，避免跨来源各自限厂商、
   // 累加后单厂商屠版(USDT featured 池小、JDB 密集时尤甚)。共享 seen 保留跨板块去重。
@@ -546,13 +547,13 @@ function buildHomepageSelection(all: DbGame[], cur: string, overrides: SectionOv
   }
   // 真人席位从全部真人游戏取（不限 featured，真人竞品覆盖弱进不了核心池），其余 featured 优先、不足从全库补
   const casinoSeat = takePopular(exFilter('popular', bySite('casino')), 1)
-  const featuredPart = takePopular(exFilter('popular', featuredPool), 9 - casinoSeat.length)
-  const backfillPart = takePopular(exFilter('popular', all), 9 - casinoSeat.length - featuredPart.length)
+  const featuredPart = takePopular(exFilter('popular', featuredPool), POPULAR_N - casinoSeat.length)
+  const backfillPart = takePopular(exFilter('popular', all), POPULAR_N - casinoSeat.length - featuredPart.length)
   const popularMerged = [...featuredPart, ...backfillPart]
   if (casinoSeat.length) popularMerged.splice(Math.min(2, popularMerged.length), 0, ...casinoSeat)
 
   const selection: HomepageSelection = {
-    popular:    applyManual('popular', popularMerged.slice(0, 9), 9),
+    popular:    applyManual('popular', popularMerged.slice(0, POPULAR_N), POPULAR_N),
     // 高返利专区：ph_bonus(洗码吸引力) 最高的头部，运营钩子位，紧随 popular
     highRebate: topSection('highRebate', all.filter((g) => g.phBonus >= 15), (g) => g.phBonus, 6, 3),
     newGames:   sampleSection('newGames', newPool, score, 12),

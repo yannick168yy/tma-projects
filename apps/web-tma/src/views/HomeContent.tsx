@@ -750,7 +750,7 @@ export default function HomeContent({ onNavigatePath, onOpenCategoryLobby, onOpe
       {/* Popular：大卡 3x3 */}
       <section className="mt-5">
         {sectionHeader(<TrendingUp size={15} className="text-primary" />, t('home.popularGames'), () => onOpenCategoryLobby({ sortBy: 'ph_bonus', title: t('home.popularGames') }))}
-        {bigGrid(homepageGames.popular, 9, true)}
+        {bigGrid(homepageGames.popular, 12, true)}
       </section>
 
       {/* 高返利专区：运营钩子位，ph_bonus 驱动，大卡展示 +X% 角标 */}
