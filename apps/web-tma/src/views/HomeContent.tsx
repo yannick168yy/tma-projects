@@ -354,7 +354,7 @@ export default function HomeContent({ onNavigatePath, onOpenCategoryLobby, onOpe
   }, [homeBanners.length])
 
   // Game data
-  const emptyHomepage = { popular: [], highRebate: [], newGames: [], slots: [], casino: [], perya: [], fishing: [], lottery: [], mythology: [], megaWin: [] }
+  const emptyHomepage = { popular: [], highRebate: [], newGames: [], slots: [], casino: [], perya: [], fishing: [], lottery: [], mythology: [], megaWin: [], sports: [] }
   const [launchingUuid, setLaunchingUuid] = useState<string | null>(null)
   const [homepageGames, setHomepageGames] = useState<Record<keyof typeof emptyHomepage, SlotGame[]>>(emptyHomepage)
   const [gamesLoading, setGamesLoading] = useState(true)
@@ -526,7 +526,7 @@ export default function HomeContent({ onNavigatePath, onOpenCategoryLobby, onOpe
     fetchHomepageGames(activeCurrency)
       .then((data) => setHomepageGames({
         popular: data.popular ?? [], highRebate: data.highRebate ?? [], newGames: data.newGames ?? [], slots: data.slots ?? [], casino: data.casino ?? [],
-        perya: data.perya ?? [], fishing: data.fishing ?? [], lottery: data.lottery ?? [], mythology: data.mythology ?? [], megaWin: data.megaWin ?? [],
+        perya: data.perya ?? [], fishing: data.fishing ?? [], lottery: data.lottery ?? [], mythology: data.mythology ?? [], megaWin: data.megaWin ?? [], sports: data.sports ?? [],
       }))
       .catch(() => {})
       .finally(() => setGamesLoading(false))
@@ -840,6 +840,14 @@ export default function HomeContent({ onNavigatePath, onOpenCategoryLobby, onOpe
         <section className="mt-6">
           {sectionHeader(<Rocket size={15} className="text-yellow-400" />, t('home.megaWin'))}
           {smallRow(homepageGames.megaWin)}
+        </section>
+      )}
+
+      {/* 体育游戏板块：大卡 3 列（USDT 仅 1 款，空则不渲染）*/}
+      {(gamesLoading || homepageGames.sports.length > 0) && (
+        <section className="mt-6">
+          {sectionHeader(<Trophy size={15} className="text-green-400" />, t('home.sportsZone'), () => onOpenCategoryLobby({ siteCategory: 'sports', sortBy: 'weight', title: t('home.sportsZone') }))}
+          {bigGrid(homepageGames.sports, 6)}
         </section>
       )}
 

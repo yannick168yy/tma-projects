@@ -62,6 +62,7 @@ export interface HomepageGames {
   lottery: SlotGame[]
   mythology: SlotGame[]
   megaWin: SlotGame[]
+  sports: SlotGame[]
   generatedAt: string
 }
 

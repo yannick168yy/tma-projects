@@ -13,18 +13,19 @@ import {
 const { Title } = Typography
 
 // 板块顺序与前端首页一致
-const SECTION_ORDER = ['popular', 'highRebate', 'newGames', 'slots', 'casino', 'perya', 'fishing', 'lottery', 'mythology', 'megaWin']
+const SECTION_ORDER = ['popular', 'highRebate', 'newGames', 'slots', 'casino', 'perya', 'fishing', 'lottery', 'mythology', 'megaWin', 'sports']
 const SECTION_LABELS: Record<string, string> = {
   popular: '热门推荐',
   highRebate: '高返利专区',
   newGames: '最新上线',
   slots: '电子/老虎机',
   casino: '真人娱乐',
-  perya: '斗鸡 Perya',
+  perya: 'Perya（含宾果）',
   fishing: '捕鱼',
-  lottery: '彩票/宾果',
+  lottery: '彩票 & 其他',
   mythology: '东方神话',
   megaWin: '巨额倍数',
+  sports: '体育游戏',
 }
 const CURRENCIES = [{ value: 'PHP', label: 'PHP 首页' }, { value: 'USDT', label: 'USDT 首页' }]
 

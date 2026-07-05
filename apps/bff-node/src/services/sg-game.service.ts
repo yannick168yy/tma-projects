@@ -374,11 +374,12 @@ export interface HomepageSelection {
   lottery: DbGame[]
   mythology: DbGame[]
   megaWin: DbGame[]
+  sports: DbGame[]
   generatedAt: string
 }
 
 export const EMPTY_HOMEPAGE_SELECTION: HomepageSelection = {
-  popular: [], highRebate: [], newGames: [], slots: [], casino: [], perya: [], fishing: [], lottery: [], mythology: [], megaWin: [],
+  popular: [], highRebate: [], newGames: [], slots: [], casino: [], perya: [], fishing: [], lottery: [], mythology: [], megaWin: [], sports: [],
   generatedAt: '',
 }
 
@@ -559,12 +560,16 @@ function buildHomepageSelection(all: DbGame[], cur: string, overrides: SectionOv
     newGames:   sampleSection('newGames', newPool, score, 12),
     slots:      sampleSection('slots', bySite('slot'), score, 6),
     casino:     sampleSection('casino', bySite('casino'), score, 6),
-    perya:      sampleSection('perya', bySite('perya'), score, 12),
+    // perya 含 bingo(bingo 游戏 site_category 本就归 perya)，2 行 6 款
+    perya:      sampleSection('perya', bySite('perya'), score, 6),
     fishing:    sampleSection('fishing', bySite('fishing'), score, 6),
-    lottery:    sampleSection('lottery', bySite('lottery'), score, 12),
+    // 彩票 & 其他：纯 lottery(ntype207) 池偏薄，并入 other 杂类扩充
+    lottery:    sampleSection('lottery', all.filter((g) => g.siteCategory === 'lottery' || g.siteCategory === 'other'), score, 12),
     // 东方神话主题聚合：富化 theme 数据独有栏（asian-mythology 为最大主题）
     mythology:  sampleSection('mythology', all.filter((g) => g.theme === 'asian-mythology'), score, 12),
     megaWin:    sampleSection('megaWin', all.filter((g) => (g.maxWinMultiplier ?? 0) >= 1000), score, 6),
+    // 体育：真实体育游戏(排除体育投注合成条目，它有专属通栏)。USDT 仅 1 款、空则前端自动隐藏
+    sports:     sampleSection('sports', bySite('sports').filter((g) => g.uuid !== WIN568_SPORTSBOOK_UUID), score, 6),
     generatedAt: new Date().toISOString(),
   }
 
@@ -622,6 +627,7 @@ export function applyHomepageCurrency(selection: HomepageSelection, currency?: s
     lottery: apply(selection.lottery ?? []),
     mythology: apply(selection.mythology ?? []),
     megaWin: apply(selection.megaWin ?? []),
+    sports: apply(selection.sports ?? []),
     generatedAt: selection.generatedAt,
   }
 }
