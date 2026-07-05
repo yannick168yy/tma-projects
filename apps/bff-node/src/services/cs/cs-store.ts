@@ -3,7 +3,7 @@ import type { Env } from '../../config/env.js'
 import { getMysqlPool } from '../../clients/mysql.client.js'
 import { broadcastBadges } from '../sse-badges.js'
 
-export type ConversationStatus = 'active' | 'human_taken' | 'resolved' | 'closed'
+export type ConversationStatus = 'active' | 'escalated' | 'human_taken' | 'resolved' | 'closed'
 export type MessageRole = 'user' | 'assistant' | 'admin'
 
 export interface Conversation {
@@ -11,6 +11,7 @@ export interface Conversation {
   userId: string
   status: ConversationStatus
   assignedAdminId: number | null
+  escalateReason: string | null
   createdAt: Date
   updatedAt: Date
   resolvedAt: Date | null
@@ -31,7 +32,7 @@ function db(env: Env) {
 export async function getOrCreateConversation(env: Env, userId: string): Promise<Conversation> {
   const pool = db(env)
   const [rows] = await pool.query<RowDataPacket[]>(
-    `SELECT * FROM cs_conversation WHERE user_id = ? AND status IN ('active','human_taken') ORDER BY updated_at DESC LIMIT 1`,
+    `SELECT * FROM cs_conversation WHERE user_id = ? AND status IN ('active','escalated','human_taken') ORDER BY updated_at DESC LIMIT 1`,
     [userId],
   )
   if (rows.length > 0) return rowToConversation(rows[0])
@@ -108,9 +109,23 @@ export async function updateConversationStatus(
       [status, adminId ?? null, id],
     )
   }
-  if (status === 'human_taken') {
+  if (status === 'human_taken' || status === 'escalated') {
     broadcastBadges(env).catch(() => {})
   }
+}
+
+// 转人工:记录原因与时间。人工在线→human_taken(AI 停答);离线→escalated(离线工单,AI 继续应答)
+export async function escalateConversation(
+  env: Env,
+  id: number,
+  reason: string,
+  toStatus: 'escalated' | 'human_taken',
+): Promise<void> {
+  await db(env).query(
+    `UPDATE cs_conversation SET status = ?, escalate_reason = ?, escalated_at = NOW() WHERE id = ?`,
+    [toStatus, reason.slice(0, 64), id],
+  )
+  broadcastBadges(env).catch(() => {})
 }
 
 export async function getMessages(
@@ -162,6 +177,7 @@ function rowToConversation(r: RowDataPacket): Conversation {
     userId: String(r.user_id),
     status: r.status,
     assignedAdminId: r.assigned_admin_id ?? null,
+    escalateReason: r.escalate_reason ?? null,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
     resolvedAt: r.resolved_at ?? null,

@@ -92,7 +92,9 @@ export default function CustomerServicePage({ onClose }: Props) {
         </div>
         <div className="flex-1">
           <p className="text-sm font-bold text-foreground">{t('cs.title')}</p>
-          <p className="text-xs text-muted-foreground">{conversationStatus === 'human_taken' ? t('cs.humanService') : t('cs.aiService')}</p>
+          <p className="text-xs text-muted-foreground">
+            {conversationStatus === 'human_taken' ? t('cs.humanService') : conversationStatus === 'escalated' ? t('cs.escalatedService') : t('cs.aiService')}
+          </p>
         </div>
         <button type="button" className="text-muted-foreground hover:text-foreground p-1" onClick={onClose}>
           <span className="text-lg leading-none">×</span>

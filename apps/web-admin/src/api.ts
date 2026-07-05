@@ -544,6 +544,7 @@ export const getAuditLog = (params: { page?: number; pageSize?: number }) =>
 // Customer Service
 export interface CsConversation {
   id: number; userId: number; status: string; assignedAdminId: number | null
+  escalateReason: string | null
   displayName: string; lastMessage: string; createdAt: string; updatedAt: string
 }
 export interface CsMessage {
@@ -594,6 +595,8 @@ export const deleteFaq = (id: number) =>
   req<{ success: boolean }>('DELETE', `/admin/cs/faq/${id}`)
 export const getCsWelcome = () => get<{ welcome: string; defaultWelcome: string }>('/admin/cs/welcome')
 export const saveCsWelcome = (welcome: string) => req<{ success: boolean }>('PUT', '/admin/cs/welcome', { welcome })
+export const getCsDuty = () => get<{ enabled: boolean; onlineAdmins: number; onDuty: boolean }>('/admin/cs/duty')
+export const saveCsDuty = (enabled: boolean) => req<{ success: boolean }>('PUT', '/admin/cs/duty', { enabled })
 
 // ── 三级分销管理 ──────────────────────────────────────────────────────────────
 

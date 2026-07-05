@@ -10,9 +10,32 @@ import {
   updateConversationStatus,
 } from '../../services/cs/cs-store.js'
 import { CS_WELCOME_SETTING_KEY, DEFAULT_WELCOME } from '../../services/cs/cs-intents.js'
+import { CS_DUTY_SETTING_KEY, isHumanOnDuty, notifyTicketReplyViaTelegram } from '../../services/cs/cs-duty.js'
+import { getSseBadgeClientCount } from '../../services/sse-badges.js'
 import { getAdminSetting, setAdminSetting } from '../../services/admin-store.js'
 
 const router = new Router()
+
+// GET /admin/cs/duty — 值班状态(开关 + 在线管理员数 + 综合判定)
+router.get('/cs/duty', async (ctx) => {
+  const setting = await getAdminSetting(ctx.state.env, CS_DUTY_SETTING_KEY)
+  ok(ctx, {
+    enabled: setting !== '0',
+    onlineAdmins: getSseBadgeClientCount(),
+    onDuty: await isHumanOnDuty(ctx.state.env),
+  })
+})
+
+// PUT /admin/cs/duty — 值班开关
+router.put('/cs/duty', async (ctx) => {
+  const { enabled } = ctx.request.body as { enabled?: boolean }
+  if (typeof enabled !== 'boolean') {
+    fail(ctx, 400, 'enabled 必须为布尔值')
+    return
+  }
+  await setAdminSetting(ctx.state.env, CS_DUTY_SETTING_KEY, enabled ? '1' : '0')
+  ok(ctx, { success: true })
+})
 
 // GET /admin/cs/welcome — 查看 AI 欢迎语配置
 router.get('/cs/welcome', async (ctx) => {
@@ -65,11 +88,13 @@ router.post('/cs/conversations/:id/reply', async (ctx) => {
     fail(ctx, 404, '会话不存在', 404)
     return
   }
-  // 自动标记为人工接管
-  if (conversation.status === 'active') {
+  // 自动标记为人工接管(active/escalated 均可)
+  if (conversation.status === 'active' || conversation.status === 'escalated') {
     await updateConversationStatus(ctx.state.env, id, 'human_taken', ctx.state.adminId)
   }
   const msg = await saveMessage(ctx.state.env, id, 'admin', message.trim())
+  // 用户多半已离开页面,通过 TG bot 触达(无 tgid 静默跳过)
+  notifyTicketReplyViaTelegram(ctx.state.env, conversation.userId).catch(() => {})
   ok(ctx, msg)
 })
 

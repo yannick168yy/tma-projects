@@ -1,13 +1,20 @@
 import { useEffect, useRef, useState } from 'react'
-import { Card, Select, Tag, Button, Input, Space, Empty, Badge, message } from 'antd'
+import { Card, Select, Tag, Button, Input, Space, Empty, Badge, Switch, Tooltip, message } from 'antd'
 import type { CsConversation, CsMessage } from '../api'
-import { getCsConversations, getCsConversation, csReply, csTakeover, csResolve } from '../api'
+import { getCsConversations, getCsConversation, csReply, csTakeover, csResolve, getCsDuty, saveCsDuty } from '../api'
 
 function statusColor(status?: string) {
-  return ({ active: 'blue', human_taken: 'orange', resolved: 'green', closed: 'default' } as Record<string, string>)[status ?? ''] ?? 'default'
+  return ({ active: 'blue', escalated: 'red', human_taken: 'orange', resolved: 'green', closed: 'default' } as Record<string, string>)[status ?? ''] ?? 'default'
 }
 function statusText(status?: string) {
-  return ({ active: 'AI处理', human_taken: '待人工', resolved: '已解决', closed: '已关闭' } as Record<string, string>)[status ?? ''] ?? status
+  return ({ active: 'AI处理', escalated: '离线工单', human_taken: '待人工', resolved: '已解决', closed: '已关闭' } as Record<string, string>)[status ?? ''] ?? status
+}
+function reasonText(reason?: string | null) {
+  if (!reason) return ''
+  return ({
+    user_request: '用户要求人工', money_dispute: '资金争议', account_security: '账号安全',
+    complaint: '投诉/退款', unresolved: 'AI 未解决', other: '其他',
+  } as Record<string, string>)[reason] ?? reason
 }
 function formatTime(t?: string) {
   if (!t) return ''
@@ -27,8 +34,25 @@ export default function CustomerService() {
   const [replying, setReplying] = useState(false)
   const msgListRef = useRef<HTMLDivElement>(null)
 
+  const [duty, setDuty] = useState<{ enabled: boolean; onlineAdmins: number } | null>(null)
+  const [dutySaving, setDutySaving] = useState(false)
+
   const selectedConv = conversations.find((c) => c.id === selectedId) ?? null
-  const unreadCount = conversations.filter((c) => c.status === 'human_taken').length
+  const unreadCount = conversations.filter((c) => c.status === 'human_taken' || c.status === 'escalated').length
+
+  useEffect(() => {
+    getCsDuty().then(setDuty).catch(() => {})
+  }, [])
+
+  async function toggleDuty(enabled: boolean) {
+    setDutySaving(true)
+    try {
+      await saveCsDuty(enabled)
+      setDuty((prev) => prev ? { ...prev, enabled } : prev)
+      message.success(enabled ? '已开启客服值班' : '已关闭值班,新转人工将进入离线工单')
+    } catch { message.error('操作失败') }
+    finally { setDutySaving(false) }
+  }
 
   async function loadList(p = 1) {
     setLoading(true)
@@ -98,16 +122,29 @@ export default function CustomerService() {
         styles={{ body: { padding: '8px 0' } }}
         title={<span>客服会话 <Badge count={unreadCount} style={{ marginLeft: 8 }} /></span>}
         extra={
-          <Select
-            value={statusFilter}
-            size="small"
-            style={{ width: 110 }}
-            onChange={(v) => { setStatusFilter(v); void loadList(1) }}
-            options={[
-              { value: '', label: '全部' }, { value: 'active', label: 'AI 处理中' },
-              { value: 'human_taken', label: '待人工' }, { value: 'resolved', label: '已解决' },
-            ]}
-          />
+          <Space size={8}>
+            <Tooltip title="关闭后用户转人工将进入离线工单模式(AI 如实告知无人在线并留单)">
+              <Switch
+                size="small"
+                checked={duty?.enabled ?? true}
+                loading={dutySaving}
+                checkedChildren="值班"
+                unCheckedChildren="离线"
+                onChange={(v) => void toggleDuty(v)}
+              />
+            </Tooltip>
+            <Select
+              value={statusFilter}
+              size="small"
+              style={{ width: 110 }}
+              onChange={(v) => { setStatusFilter(v); void loadList(1) }}
+              options={[
+                { value: '', label: '全部' }, { value: 'active', label: 'AI 处理中' },
+                { value: 'escalated', label: '离线工单' },
+                { value: 'human_taken', label: '待人工' }, { value: 'resolved', label: '已解决' },
+              ]}
+            />
+          </Space>
         }
       >
         {conversations.map((conv) => (
@@ -144,10 +181,16 @@ export default function CustomerService() {
         <Card
           style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
           styles={{ body: { flex: 1, display: 'flex', flexDirection: 'column', padding: 12, overflow: 'hidden' } }}
-          title={<span>{selectedConv?.displayName || `用户#${selectedConv?.userId}`} <Tag color={statusColor(selectedConv?.status)} style={{ marginLeft: 8 }}>{statusText(selectedConv?.status)}</Tag></span>}
+          title={
+            <span>
+              {selectedConv?.displayName || `用户#${selectedConv?.userId}`}
+              <Tag color={statusColor(selectedConv?.status)} style={{ marginLeft: 8 }}>{statusText(selectedConv?.status)}</Tag>
+              {selectedConv?.escalateReason && <Tag color="volcano">{reasonText(selectedConv.escalateReason)}</Tag>}
+            </span>
+          }
           extra={
             <Space>
-              {selectedConv?.status === 'active' && <Button size="small" onClick={takeover}>接管会话</Button>}
+              {(selectedConv?.status === 'active' || selectedConv?.status === 'escalated') && <Button size="small" onClick={takeover}>接管会话</Button>}
               {selectedConv?.status !== 'resolved' && selectedConv?.status !== 'closed' && (
                 <Button size="small" type="primary" ghost onClick={resolve}>结单</Button>
               )}

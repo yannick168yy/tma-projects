@@ -133,6 +133,7 @@ export default {
     title: 'Support Center',
     aiService: 'AI Assistant',
     humanService: 'A support agent is assisting you',
+    escalatedService: 'Ticket recorded — an agent will follow up here',
     aiLabel: '🤖 AI',
     agentLabel: '👤 Agent',
     welcome: 'Hi! I’m Kaya, BetoGo’s AI assistant. How can I help you today?',

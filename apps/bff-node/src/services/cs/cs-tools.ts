@@ -2,8 +2,9 @@ import { SchemaType, type Tool } from '@google/generative-ai'
 import type { RowDataPacket } from 'mysql2/promise'
 import type { Env } from '../../config/env.js'
 import { getMysqlPool } from '../../clients/mysql.client.js'
-import { searchFaq, updateConversationStatus } from './cs-store.js'
+import { searchFaq, escalateConversation } from './cs-store.js'
 import { getTurnoverProgress } from '../turnover.service.js'
+import { isHumanOnDuty } from './cs-duty.js'
 
 export const GEMINI_TOOLS: Tool[] = [
   {
@@ -65,11 +66,15 @@ export const GEMINI_TOOLS: Tool[] = [
       {
         name: 'escalate_to_human',
         description:
-          'Escalate the conversation to a human agent. Use when the user requests a human, the dispute is large (>₱5000), or you cannot resolve after 2 attempts.',
+          'Escalate the conversation to a human agent. The result tells you whether an agent is online now or the issue was recorded as an offline ticket — relay that honestly to the user.',
         parameters: {
           type: SchemaType.OBJECT,
           properties: {
-            reason: { type: SchemaType.STRING, description: 'Brief reason for escalation' },
+            reason: {
+              type: SchemaType.STRING,
+              description:
+                'Escalation category. One of: user_request (user asked for a human), money_dispute (payment made but not credited / withdrawal dispute), account_security (ban, freeze, suspected theft), complaint (complaint, refund demand, legal threat), unresolved (could not resolve after 2 attempts), other',
+            },
           },
           required: ['reason'],
         },
@@ -248,8 +253,24 @@ export async function executeTool(
     }
 
     case 'escalate_to_human': {
-      await updateConversationStatus(env, context.conversationId, 'human_taken')
-      return { success: true, message: 'Escalated to human agent.' }
+      const reason = String(input.reason ?? 'other')
+      const onDuty = await isHumanOnDuty(env)
+      if (onDuty) {
+        await escalateConversation(env, context.conversationId, reason, 'human_taken')
+        return {
+          escalated: true,
+          humanOnline: true,
+          message:
+            'A human agent is online and has been notified. Tell the user an agent will reply right here shortly.',
+        }
+      }
+      await escalateConversation(env, context.conversationId, reason, 'escalated')
+      return {
+        escalated: true,
+        humanOnline: false,
+        ticketId: context.conversationId,
+        message: `No human agent is online right now. The issue is recorded as ticket #${context.conversationId} and an agent will follow up in this chat as soon as one is available. Be honest with the user that no agent is online at this moment — never pretend one is coming right away. Reassure them their funds and records are safe in the system. Ask for any missing key details (order id, time, what happened) so the agent can resolve it faster when they come online. Let them know you can still help with other questions meanwhile.`,
+      }
     }
 
     default:

@@ -16,6 +16,11 @@ export function removeSseBadgeClient(client: SseClient): void {
   clients.delete(client)
 }
 
+// 在线管理员数 = 当前 SSE 连接数,客服值班判断用
+export function getSseBadgeClientCount(): number {
+  return clients.size
+}
+
 async function fetchCounts(env: Env): Promise<{ manualWithdrawals: number; pendingCs: number; rejectedKyc: number }> {
   if (!isMysqlEnabled(env)) return { manualWithdrawals: 0, pendingCs: 0, rejectedKyc: 0 }
   const db = getMysqlPool(env)
@@ -28,7 +33,7 @@ async function fetchCounts(env: Env): Promise<{ manualWithdrawals: number; pendi
        ) AS cnt`,
     ),
     db.query<RowDataPacket[]>(
-      `SELECT COUNT(*) AS cnt FROM cs_conversation WHERE status = 'human_taken'`,
+      `SELECT COUNT(*) AS cnt FROM cs_conversation WHERE status IN ('human_taken','escalated')`,
     ),
     db.query<RowDataPacket[]>(
       `SELECT COUNT(*) AS cnt FROM bg_kyc WHERE status = 'rejected' AND badge_ignored = 0`,

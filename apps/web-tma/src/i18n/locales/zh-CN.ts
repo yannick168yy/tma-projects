@@ -132,6 +132,7 @@ export default {
     title: '客服中心',
     aiService: 'AI 智能客服',
     humanService: '人工客服为您服务',
+    escalatedService: '已记录工单,人工客服稍后跟进',
     aiLabel: '🤖 AI',
     agentLabel: '👤 客服',
     welcome: '您好！我是 BetoGo 的智能客服 Kaya，很高兴为您服务。有什么可以帮到您？',
