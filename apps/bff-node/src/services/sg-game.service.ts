@@ -344,18 +344,33 @@ export async function loadGamesCache(env: Env): Promise<number> {
     ...(win568Rows as RowDataPacket[]).map(rowToWin568Game),
   ]
   await redis.set(GAMES_CACHE_KEY, JSON.stringify(games), 'EX', GAMES_CACHE_TTL)
+  setMemGames(games) // 同步进程内副本，后台改动即时生效
   console.log(`[games-cache] cached ${games.length} games`)
   return games.length
 }
 
+// 进程内缓存：games:all 是 6MB+ JSON，每请求 redis.get+JSON.parse 会阻塞事件循环，
+// 并发下退化到多秒。缓存解析后的数组在内存，请求直接过滤，避免重复 parse。
+let memGames: DbGame[] | null = null
+let memGamesAt = 0
+const MEM_GAMES_TTL = 60 * 1000
+
+function setMemGames(games: DbGame[]) {
+  memGames = games
+  memGamesAt = Date.now()
+}
+
 export async function getGamesFromCache(env: Env): Promise<DbGame[]> {
+  if (memGames && Date.now() - memGamesAt < MEM_GAMES_TTL) return memGames
   const redis = getRedis(env)
   const raw = await redis.get(GAMES_CACHE_KEY)
-  if (raw) return JSON.parse(raw) as DbGame[]
-  // 缓存不存在时回填
+  if (raw) {
+    setMemGames(JSON.parse(raw) as DbGame[])
+    return memGames!
+  }
+  // 缓存不存在时回填（loadGamesCache 内部会 setMemGames）
   await loadGamesCache(env)
-  const raw2 = await redis.get(GAMES_CACHE_KEY)
-  return raw2 ? (JSON.parse(raw2) as DbGame[]) : []
+  return memGames ?? []
 }
 
 // ── 首页推荐：加权随机 + 30 分钟定时刷新 ────────────────────────────────────
