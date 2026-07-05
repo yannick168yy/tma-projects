@@ -75,18 +75,19 @@ async function main() {
     console.log(`[DRY] 将清除 AI 权重行: ${cnt.c}`)
   }
 
-  // 2. 写入竞品权重
+  // 2. 写入竞品权重：按综合分排名递减（10000 起每名 -5），保留头部次序不被封顶抹平
   let applied = 0
   let featured = 0
-  for (const line of csv.slice(1)) {
-    const f = parseCsvLine(line)
+  const rows = csv.slice(1).map(parseCsvLine).filter((f) => Number(f[col.score]) >= MIN_WEIGHT_SCORE)
+  rows.sort((a, b) => Number(b[col.score]) - Number(a[col.score]))
+  for (let rank = 0; rank < rows.length; rank++) {
+    const f = rows[rank]
     const score = Number(f[col.score])
-    if (!(score >= MIN_WEIGHT_SCORE)) continue
     const uuid = f[col.uuid]
     const m = uuid.match(/^568win:(\d+):(\d+)$/)
     if (!m) continue
     const isFeatured = f[col.featured] === '1' && f[col.providerMatch] === '1'
-    const weight = Number(f[col.weight])
+    const weight = Math.max(10000 - rank * 5, 3000)
     const breakdown = JSON.stringify({ source: 'competitor', score, sites: f[col.sites], provider_match: f[col.providerMatch] === '1' })
     applied++
     if (isFeatured) featured++
