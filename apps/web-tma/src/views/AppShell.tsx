@@ -14,8 +14,7 @@ import {
 } from '@/stores/wallet'
 import { isImmersiveFullPage } from '@/hooks/useFullPageOverlay'
 import { useAppNavigation } from '@/hooks/useAppNavigation'
-import { shouldShowDownloadBar, dismissDownloadBar, isIos, isStandalone } from '@/utils/pwa'
-import { isInsideTelegram } from '@/utils/initTelegramWebApp'
+import { shouldShowDownloadBar, dismissDownloadBar, isIos } from '@/utils/pwa'
 import TopDownloadBar from '@/components/pwa/TopDownloadBar'
 import threeCirclesMenu from '@/assets/team/3-circles/menu-entry.webp'
 
@@ -241,8 +240,6 @@ export default function AppShell() {
     if (isIos()) setIosGuideOpen(true)
     else openDownload()
   }
-  // 浏览器访问（非 TG、未装 PWA）才提供下载入口
-  const showAppInstallEntry = !isInsideTelegram() && !isStandalone()
 
   function openCs() { closeOverlay(); setWalletOpen(false); setCsOpen(true) }
   function onLogout() { resetToTab('menu'); setWalletOpen(false); setWalletModalOpen(false) }
@@ -458,7 +455,7 @@ export default function AppShell() {
           {view.type === 'none' && activeNav === 'bingo' && <BingoPage onOpenWallet={() => void openWallet()} onGameTap={() => void onGameTap()} onOpenGame={(url) => setGamePlayerUrl(url)} onOpenCategoryLobby={onOpenCategoryLobby} />}
           {view.type === 'none' && activeNav === 'menu' && <MenuPage onOpenCs={openCs} onLogin={() => void auth.ensureLoggedIn(t('auth.signInProfile'))} onLogout={onLogout} onOpenBetHistory={onOpenBetHistory} onOpenLedgerRecords={onOpenLedgerRecords} onOpenReferralPromo={onOpenReferralPromo} onOpenAgentCenter={onOpenAgentCenter} onOpenCashback={onOpenCashback} onOpenRewardsSpin={onOpenRewardsSpin} onOpenKycSetting={onOpenKycSetting} onOpenDownload={openDownload} onOpenTopUp={() => void openWalletFull('deposit')} onOpenCashOut={() => void openWalletFull('withdraw')} onOpenWalletHistory={() => void openWalletFull('history')} />}
           {view.type === 'none' && activeNav === 'casino' && (
-            <HomeContent onNavigatePath={navigatePath} onOpenCategoryLobby={onOpenCategoryLobby} onOpenCs={openCs} onOpenGame={(url) => setGamePlayerUrl(url)} onOpenFirstDepositFiesta={onOpenFirstDepositFiesta} onOpenRewardsSpin={onOpenRewardsSpin} onOpenCashback={onOpenCashback} onOpenAppInstall={showAppInstallEntry ? openAppInstall : undefined} />
+            <HomeContent onNavigatePath={navigatePath} onOpenCategoryLobby={onOpenCategoryLobby} onOpenCs={openCs} onOpenGame={(url) => setGamePlayerUrl(url)} onOpenFirstDepositFiesta={onOpenFirstDepositFiesta} onOpenRewardsSpin={onOpenRewardsSpin} onOpenCashback={onOpenCashback} />
           )}
           </Suspense>
         </main>

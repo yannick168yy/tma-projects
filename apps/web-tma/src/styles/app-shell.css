@@ -129,21 +129,6 @@ body {
   transform-origin: center bottom;
 }
 
-/* App 下载浮窗：快速转 3 圈后刹停，停 ~2s 等点击，循环 */
-.home-appdl-spin-float {
-  animation: home-appdl-spin-float 3.6s cubic-bezier(0.22, 1, 0.36, 1) infinite;
-}
-
-@keyframes home-appdl-spin-float {
-  0% {
-    transform: rotate(0deg);
-  }
-  45%,
-  100% {
-    transform: rotate(1080deg);
-  }
-}
-
 @keyframes home-rewards-spin-float {
   from {
     transform: rotate(0deg);
