@@ -41,6 +41,10 @@ function parseCategoryLobby(pathname: string, search: URLSearchParams): FullPage
     title: search.get('title') ? decodeURIComponent(search.get('title')!) : slug,
   }
   if (slug !== 'popular') params.sortCategory = slug
+  const siteCategory = search.get('siteCategory')
+  if (siteCategory) params.siteCategory = siteCategory
+  const provider = search.get('provider')
+  if (provider) params.provider = provider
   const sortBy = search.get('sortBy')
   if (sortBy === 'weight' || sortBy === 'ph_bonus') params.sortBy = sortBy
   const themes = search.get('themes')
@@ -84,6 +88,8 @@ export function parseAppRoute(pathname: string, search: string): ParsedAppRoute 
 export function buildCategoryLobbyPath(params: CategoryLobbyParams): string {
   const slug = encodeURIComponent(params.sortCategory ?? 'popular')
   const q = new URLSearchParams()
+  if (params.siteCategory) q.set('siteCategory', params.siteCategory)
+  if (params.provider) q.set('provider', params.provider)
   if (params.sortBy) q.set('sortBy', params.sortBy)
   if (params.title) q.set('title', params.title)
   if (params.themes?.length) q.set('themes', params.themes.join(','))

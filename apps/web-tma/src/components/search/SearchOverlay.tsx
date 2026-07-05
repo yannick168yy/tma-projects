@@ -36,9 +36,12 @@ export default function SearchOverlay({ onClose, onGameTap, onOpenGame }: Props)
   const hasMore = page < pages
 
   const pageRef = useRef(1)
+  // 请求序号：弱网下旧响应晚到会覆盖新结果，只认最后一次请求
+  const reqSeq = useRef(0)
 
   async function doSearch(q: string, theme: string, reset = true) {
     const pageToFetch = reset ? 1 : pageRef.current + 1
+    const seq = ++reqSeq.current
     if (reset) {
       setLoading(true)
       pageRef.current = 1
@@ -56,6 +59,7 @@ export default function SearchOverlay({ onClose, onGameTap, onOpenGame }: Props)
         page: pageToFetch,
         currency: activeCurrency,
       })
+      if (seq !== reqSeq.current) return
       if (reset) setGames(res.items)
       else setGames((prev) => [...prev, ...res.items])
       setTotal(res.total)
@@ -63,10 +67,13 @@ export default function SearchOverlay({ onClose, onGameTap, onOpenGame }: Props)
       pageRef.current = pageToFetch
       setPage(pageToFetch)
     } catch (e) {
+      if (seq !== reqSeq.current) return
       setError(e instanceof ApiError ? e.message : 'Search failed')
     } finally {
-      setLoading(false)
-      setLoadingMore(false)
+      if (seq === reqSeq.current) {
+        setLoading(false)
+        setLoadingMore(false)
+      }
     }
   }
 

@@ -50,6 +50,8 @@ export default function SlotsLobby({
   const [search, setSearch] = useState('')
   const [selectedProvider, setSelectedProvider] = useState(initialProvider ?? 'all')
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // 请求序号：弱网下旧响应晚到会覆盖新结果，只认最后一次请求
+  const reqSeq = useRef(0)
 
   async function loadProviders() {
     try {
@@ -59,9 +61,11 @@ export default function SlotsLobby({
     }
   }
 
-  async function loadGames(reset = true, providerOverride?: string) {
+  async function loadGames(reset = true, providerOverride?: string, searchOverride?: string) {
     const provider = providerOverride ?? selectedProvider
+    const keyword = searchOverride ?? search
     const page = reset ? 1 : currentPage + 1
+    const seq = ++reqSeq.current
     if (reset) {
       setLoading(true)
       setCurrentPage(1)
@@ -74,7 +78,7 @@ export default function SlotsLobby({
       const res = await fetchGames({
         page,
         limit: 30,
-        search: search || undefined,
+        search: keyword || undefined,
         provider: provider !== 'all' ? provider : undefined,
         sortCategory,
         siteCategory,
@@ -84,22 +88,27 @@ export default function SlotsLobby({
         playerTypes,
         currency: activeCurrency,
       })
+      if (seq !== reqSeq.current) return
       if (reset) setGames(res.items)
       else setGames((prev) => [...prev, ...res.items])
       setTotal(res.total)
       setPages(res.pages)
       setCurrentPage(page)
     } catch (e) {
+      if (seq !== reqSeq.current) return
       setError(e instanceof ApiError ? e.message : 'Failed to load games')
     } finally {
-      setLoading(false)
-      setLoadingMore(false)
+      if (seq === reqSeq.current) {
+        setLoading(false)
+        setLoadingMore(false)
+      }
     }
   }
 
-  function onSearchInput() {
+  // setTimeout 回调里读 state 是旧值(闭包)，值必须显式传入
+  function onSearchInput(value: string) {
     if (searchTimer.current) clearTimeout(searchTimer.current)
-    searchTimer.current = setTimeout(() => void loadGames(true), 350)
+    searchTimer.current = setTimeout(() => void loadGames(true, undefined, value), 350)
   }
 
   function selectProvider(p: string) {
@@ -115,6 +124,9 @@ export default function SlotsLobby({
   useEffect(() => {
     void loadProviders()
     void loadGames(true)
+    return () => {
+      if (searchTimer.current) clearTimeout(searchTimer.current)
+    }
   }, [activeCurrency])
 
   async function onPlay(uuid: string) {
@@ -159,7 +171,7 @@ export default function SlotsLobby({
             className="w-full rounded-xl bg-secondary py-2.5 pl-8 pr-3 text-sm text-foreground placeholder-muted-foreground outline-none focus:ring-1 focus:ring-primary"
             onChange={(e) => {
               setSearch(e.target.value)
-              onSearchInput()
+              onSearchInput(e.target.value)
             }}
           />
         </div>
