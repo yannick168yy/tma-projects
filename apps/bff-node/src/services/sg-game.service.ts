@@ -294,9 +294,20 @@ export async function loadGamesCache(env: Env): Promise<number> {
             g.name_en, g.name_zh, g.icon_url, g.icon_width, g.icon_height, g.supported_currencies, g.created_at,
             o.release_date, o.max_win_multiplier,
             COALESCE(o.name_override, g.name_en, g.name_zh, CONCAT('568Win ', g.game_id)) AS effective_name,
-            COALESCE(o.image_override, g.icon_url) AS effective_image,
-            o.image_override_source AS effective_image_source,
-            o.image_anim,
+            -- 封面优先级：后台手动覆盖 > fbmplay > bingoplus > playtime > 568win 上游原图
+            COALESCE(o.image_override, cf.url, cb.url, cp.url, g.icon_url) AS effective_image,
+            CASE
+              WHEN o.image_override IS NOT NULL THEN o.image_override_source
+              WHEN cf.url IS NOT NULL THEN 'fbmplay'
+              WHEN cb.url IS NOT NULL THEN 'bingoplus'
+              WHEN cp.url IS NOT NULL THEN 'playtime'
+              ELSE NULL
+            END AS effective_image_source,
+            CASE
+              WHEN o.image_override IS NOT NULL THEN o.image_anim
+              WHEN cf.url IS NULL AND cb.url IS NULL AND cp.url IS NOT NULL THEN cp.anim_url
+              ELSE NULL
+            END AS image_anim,
             COALESCE(o.weight, GREATEST(1, 10000 - COALESCE(g.rank_no, 9999))) AS effective_weight,
             COALESCE(o.ph_bonus, 0) AS effective_ph_bonus,
             COALESCE(o.is_featured, 0) AS effective_featured,
@@ -313,6 +324,9 @@ export async function loadGamesCache(env: Env): Promise<number> {
               END) AS effective_sort_category
      FROM bg_568win_game g
      LEFT JOIN bg_568win_game_override o ON o.game_provider_id = g.game_provider_id AND o.game_id = g.game_id
+     LEFT JOIN bg_568win_game_cover_candidate cf ON cf.game_provider_id = g.game_provider_id AND cf.game_id = g.game_id AND cf.source = 'fbmplay'
+     LEFT JOIN bg_568win_game_cover_candidate cb ON cb.game_provider_id = g.game_provider_id AND cb.game_id = g.game_id AND cb.source = 'bingoplus'
+     LEFT JOIN bg_568win_game_cover_candidate cp ON cp.game_provider_id = g.game_provider_id AND cp.game_id = g.game_id AND cp.source = 'playtime'
      WHERE g.is_enabled = 1
        AND g.is_maintain = 0
        AND g.provider_status = 'Online'

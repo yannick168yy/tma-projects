@@ -71,3 +71,8 @@ data/fbmplay/download_failed.json
 
 # 多源封面候选上传暂存(由 cover-candidates/build.mjs 生成,不入库)
 data/cover-candidates/
+
+# playtime 裁剪产出(crop_playtime.py 生成,覆盖上传服务器,不入库)
+data/ptgaming/covers_crop/
+data/ptgaming/anim_covers_crop/
+data/ptgaming/_anim_crop_tmp/

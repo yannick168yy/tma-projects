@@ -54,10 +54,20 @@ const CP_MAP = {
   pp: ['PragmaticPlay', 'PragmaticPlayCasino'], jili: ['JiLiGaming', 'Jili'], pg: ['PGSoft'], cq9: ['CQ9'],
   jdb: ['JDB'], fc: ['FaChai'], rtg: ['RTGSlots'], playtech: ['PlayTech'], km: ['KingMidas'], '5g': ['5GGames'],
 };
+// bingoplus platformName(归一化) → 我方 provider
+const BINGO_MAP = {
+  jili: ['JiLiGaming', 'Jili'], pp: ['PragmaticPlay', 'PragmaticPlayCasino'], pg: ['PGSoft'], hbn: ['Habanero'],
+  cq9: ['CQ9'], evolution: ['EvolutionGaming'], hacksaw: ['HacksawGaming'], pt: ['PlayTech'], redtiger: ['Red Tiger'],
+  bgaming: ['BGaming'], nlc: ['NoLimitCity'], ygr: ['YGR'], playstar: ['PlayStar'], fachai: ['FaChai'], jdb: ['JDB'],
+  rtg: ['RTGSlots'], btg: ['BigTimeGaming'], tpg: ['Triple PG'], netent: ['Netent', 'NetentExtended'], '5g': ['5GGames'],
+  km: ['KingMidas'], bng: ['Booongo'], ygg: ['Yggdrasil'], kagaming: ['KAGaming'], spribe: ['Spribe'],
+  peterandsons: ['Peter & Sons'], evoplay: ['Evoplay'],
+};
 
 const SOURCES = [
   { source: 'playtime', serverDir: 'ptgaming', games: 'data/ptgaming/games.json', imgDir: 'data/ptgaming/images', provField: 'provider', map: PT_MAP },
   { source: 'fbmplay', serverDir: 'fbmplay', games: 'data/fbmplay/games.json', imgDir: 'data/fbmplay/images', provField: 'provider', map: FBM_MAP },
+  { source: 'bingoplus', serverDir: 'bingoplus', games: 'data/bingoplus/games.json', imgDir: 'data/bingoplus/images', provField: 'provider', map: BINGO_MAP },
   { source: 'gzone', serverDir: 'gzone', games: 'data/gzone/games.json', imgDir: 'data/gzone/images', provField: 'platformName', map: GZ_MAP },
   { source: 'casinoplus', serverDir: 'casinoplus', games: 'data/casinoplus/games.json', imgDir: 'data/casinoplus/images', provField: 'provider', map: CP_MAP, nameFallback: true },
 ];

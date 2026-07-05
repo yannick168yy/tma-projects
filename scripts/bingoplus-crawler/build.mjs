@@ -52,6 +52,8 @@ function clean(g) {
     gameId: String(g.gameId || ''),
     gdGameId: String(g.gdGameId || ''),
     gameName: String(g.gameName || '').slice(0, 120),
+    name: String(g.gameName || '').slice(0, 120), // 对齐其他源 schema（供 cover-candidates 消费）
+    provider: String(g.platformName || '').slice(0, 60),
     platformId: String(g.platformId || ''),
     platformCode: String(g.platformCode || ''),
     platformName: String(g.platformName || '').slice(0, 60),
