@@ -526,10 +526,11 @@ function buildHomepageSelection(all: DbGame[], cur: string, overrides: SectionOv
   const bySite = (cat: string) => all.filter((g) => g.siteCategory === cat)
   const score = (g: DbGame) => g.weight * (g.isFeatured ? 1.5 : 1)
 
-  // New Games：按上游首次同步时间（created_at）降序取最新入库的一批做抽样池
+  // New Games：按上游首次同步时间（created_at）降序取最新入库的一批做抽样池；
+  // 上游常整批同厂商上新，池子放大到 120 并放宽厂商配额，避免板块只剩 2-3 款
   const newPool = [...all]
     .sort((a, b) => String(b.createdAt ?? '').localeCompare(String(a.createdAt ?? '')))
-    .slice(0, 40)
+    .slice(0, 120)
 
   // popular 从核心池(is_featured=竞品验证的爆款)加权抽，模仿竞品精选运营位；
   // 不从全库抽——数量占优的中腰部竞品游戏会在加权随机里淹没头部爆款
@@ -573,7 +574,7 @@ function buildHomepageSelection(all: DbGame[], cur: string, overrides: SectionOv
     popular:    applyManual('popular', popularMerged.slice(0, POPULAR_N), POPULAR_N),
     // 推荐精选：竞品验证权重的次高梯队（popular 已取走的会被 seen 去重）
     recommended: topSection('recommended', all, score, 6, 3),
-    newGames:   sampleSection('newGames', newPool, score, 12),
+    newGames:   sampleSection('newGames', newPool, score, 12, 4),
     slots:      sampleSection('slots', bySite('slot'), score, 6),
     casino:     sampleSection('casino', bySite('casino'), score, 6),
     // perya 含 bingo(bingo 游戏 site_category 本就归 perya)，2 行 6 款
