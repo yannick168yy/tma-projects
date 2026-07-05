@@ -67,7 +67,7 @@ router.get('/homepage', async (ctx) => {
   }
   try {
     const currency = typeof ctx.query.currency === 'string' ? ctx.query.currency : undefined
-    const selection = await getHomepageSelection(env)
+    const selection = await getHomepageSelection(env, currency)
     ok(ctx, selection ? applyHomepageCurrency(selection, currency) : EMPTY_HOMEPAGE_SELECTION)
   } catch (e) {
     fail(ctx, 500, e instanceof Error ? e.message : 'Failed to load homepage')

@@ -418,11 +418,16 @@ function serverWeightedSample(
   return result
 }
 
-export async function refreshHomepageSelection(env: Env): Promise<void> {
-  const redis = getRedis(env)
-  const all = await getGamesFromCache(env)
-  if (!all.length) return
+// 首页选品按币种预生成：切币种后整页几乎全灰的根因是选品与币种无关，
+// 抽样池天然被 PHP 主导。这里对每个币种各建一份池（先按币种过滤再抽），
+// 保证 USDT 首页也填满可用游戏，而不是靠前端给固定选品打 unavailable 标记。
+const HOMEPAGE_CURRENCIES = ['PHP', 'USDT'] as const
 
+function homepageBucket(currency?: string): string {
+  return normalizeGameCurrency(currency) === 'USDT' ? 'USDT' : 'PHP'
+}
+
+function buildHomepageSelection(all: DbGame[]): HomepageSelection {
   const seen = new Set<string>()
   const pick = (pool: DbGame[], score: (g: DbGame) => number, n: number) => {
     const r = serverWeightedSample(pool.filter((g) => !seen.has(g.uuid)), score, n)
@@ -470,17 +475,30 @@ export async function refreshHomepageSelection(env: Env): Promise<void> {
     generatedAt: new Date().toISOString(),
   }
 
-  await redis.set(HOMEPAGE_KEY, JSON.stringify(selection), 'EX', HOMEPAGE_TTL)
-  console.log('[homepage] selection refreshed')
+  return selection
 }
 
-export async function getHomepageSelection(env: Env): Promise<HomepageSelection | null> {
+export async function refreshHomepageSelection(env: Env): Promise<void> {
   const redis = getRedis(env)
-  const raw = await redis.get(HOMEPAGE_KEY)
+  const allGames = await getGamesFromCache(env)
+  if (!allGames.length) return
+
+  for (const cur of HOMEPAGE_CURRENCIES) {
+    const pool = allGames.filter((g) => supportsCurrency(g, cur))
+    const selection = buildHomepageSelection(pool)
+    await redis.set(`${HOMEPAGE_KEY}:${cur}`, JSON.stringify(selection), 'EX', HOMEPAGE_TTL)
+  }
+  console.log('[homepage] selection refreshed (per-currency)')
+}
+
+export async function getHomepageSelection(env: Env, currency?: string): Promise<HomepageSelection | null> {
+  const redis = getRedis(env)
+  const key = `${HOMEPAGE_KEY}:${homepageBucket(currency)}`
+  const raw = await redis.get(key)
   if (raw) return JSON.parse(raw) as HomepageSelection
   // 缓存不存在则立即生成
   await refreshHomepageSelection(env)
-  const raw2 = await redis.get(HOMEPAGE_KEY)
+  const raw2 = await redis.get(key)
   return raw2 ? (JSON.parse(raw2) as HomepageSelection) : null
 }
 
