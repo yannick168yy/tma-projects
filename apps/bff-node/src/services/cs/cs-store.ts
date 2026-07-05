@@ -141,14 +141,19 @@ export async function saveMessage(
 }
 
 export async function searchFaq(env: Env, keyword: string): Promise<{ question: string; answer: string; category: string }[]> {
-  const like = `%${keyword}%`
+  // 按空格拆词,任一词命中即返回;命中词数多的排前
+  const words = keyword.trim().split(/\s+/).filter(Boolean).slice(0, 5)
+  if (!words.length) return []
+  const perWord = words.map(() => `(question LIKE ? OR answer LIKE ? OR category LIKE ?)`)
+  const params = words.flatMap((w) => [`%${w}%`, `%${w}%`, `%${w}%`])
+  const scoreExpr = perWord.map(() => `(question LIKE ? OR answer LIKE ? OR category LIKE ?)`).join(' + ')
   const [rows] = await db(env).query<RowDataPacket[]>(
-    `SELECT category, question, answer FROM cs_faq
-     WHERE is_active = 1 AND (question LIKE ? OR answer LIKE ? OR category LIKE ?)
-     ORDER BY sort_order LIMIT 5`,
-    [like, like, like],
+    `SELECT category, question, answer, (${scoreExpr}) AS hits FROM cs_faq
+     WHERE is_active = 1 AND (${perWord.join(' OR ')})
+     ORDER BY hits DESC, sort_order LIMIT 5`,
+    [...params, ...params],
   )
-  return rows as { question: string; answer: string; category: string }[]
+  return rows.map((r) => ({ category: r.category, question: r.question, answer: r.answer }))
 }
 
 function rowToConversation(r: RowDataPacket): Conversation {

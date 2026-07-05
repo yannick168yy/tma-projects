@@ -2,7 +2,7 @@ import { GoogleGenerativeAI, type Content } from '@google/generative-ai'
 import type { Env } from '../../config/env.js'
 import { getOrCreateConversation, getMessages, saveMessage } from './cs-store.js'
 import { GEMINI_TOOLS, executeTool } from './cs-tools.js'
-import { SYSTEM_PROMPT } from './cs-prompt.js'
+import { getSystemPrompt } from './cs-prompt.js'
 
 const MODEL = 'gemini-2.5-flash'
 const MAX_HISTORY = 20
@@ -54,7 +54,7 @@ export async function handleUserMessage(
 
   const model = getClient(env).getGenerativeModel({
     model: MODEL,
-    systemInstruction: SYSTEM_PROMPT,
+    systemInstruction: await getSystemPrompt(env),
     tools: GEMINI_TOOLS,
   })
 

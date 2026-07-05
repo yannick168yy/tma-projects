@@ -15,7 +15,7 @@ export const CS_INTENTS: Record<string, CsIntent> = {
   },
   cannot_withdraw: {
     userText: 'Why can I not withdraw?',
-    hint: 'User tapped the quick option "Why can\'t I withdraw". Check in this order: 1) get_user_info for KYC status, 2) get_recent_orders for pending/rejected withdrawals, 3) search_faq with keyword "withdraw". Give the specific blocking reason, not a generic list.',
+    hint: 'User tapped the quick option "Why can\'t I withdraw". Check in this order: 1) get_user_info for KYC status, 2) get_turnover_status for remaining wagering requirement, 3) get_recent_orders for pending/rejected withdrawals. Give the specific blocking reason with exact numbers, not a generic list.',
   },
   kyc_help: {
     userText: 'I need help with KYC verification.',
@@ -23,11 +23,11 @@ export const CS_INTENTS: Record<string, CsIntent> = {
   },
   promotions: {
     userText: 'What promotions are available?',
-    hint: 'User tapped the quick option "Bonuses & promotions". Call search_faq with keyword "bonus" and describe current promotions. Direct them to the promotions and cashback pages for details.',
+    hint: 'User tapped the quick option "Bonuses & promotions". Call get_active_promotions and describe the current promotions with their real numbers. Direct them to the Promotions and Cashback pages for details.',
   },
   game_issue: {
     userText: 'I have a problem with a game.',
-    hint: 'User tapped the quick option "Games". Ask which game and what happened (won\'t load / crashed / settlement question). Use search_faq keyword "game" for troubleshooting steps.',
+    hint: 'User tapped the quick option "Games". Ask which game and what happened (won\'t load / crashed / settlement question / can\'t find it). Use search_games to check the game\'s availability and maintenance status, and search_faq keyword "game" for troubleshooting steps.',
   },
   account_issue: {
     userText: 'I have an account or login problem.',

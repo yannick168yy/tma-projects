@@ -3,6 +3,7 @@ import type { RowDataPacket } from 'mysql2/promise'
 import type { Env } from '../../config/env.js'
 import { getMysqlPool } from '../../clients/mysql.client.js'
 import { searchFaq, updateConversationStatus } from './cs-store.js'
+import { getTurnoverProgress } from '../turnover.service.js'
 
 export const GEMINI_TOOLS: Tool[] = [
   {
@@ -21,6 +22,31 @@ export const GEMINI_TOOLS: Tool[] = [
         name: 'get_recent_orders',
         description: "Get the user's recent deposit and withdrawal orders (last 5 of each).",
         parameters: { type: SchemaType.OBJECT, properties: {} },
+      },
+      {
+        name: 'get_turnover_status',
+        description:
+          "Get the user's wagering (turnover) requirement progress: whether they can withdraw, remaining amount to wager, and each pending requirement. Use whenever a user asks why they cannot withdraw.",
+        parameters: { type: SchemaType.OBJECT, properties: {} },
+      },
+      {
+        name: 'get_active_promotions',
+        description: 'Get the currently active promotions with their live configuration (first deposit bonus, referral, lucky spin, cashback levels).',
+        parameters: { type: SchemaType.OBJECT, properties: {} },
+      },
+      {
+        name: 'search_games',
+        description: 'Search the game library by game name or provider name. Returns matching games with provider, category, and availability/maintenance status.',
+        parameters: {
+          type: SchemaType.OBJECT,
+          properties: {
+            keyword: {
+              type: SchemaType.STRING,
+              description: 'Game name or provider name to search, e.g. "Super Ace", "JILI"',
+            },
+          },
+          required: ['keyword'],
+        },
       },
       {
         name: 'search_faq',
@@ -54,7 +80,7 @@ export const GEMINI_TOOLS: Tool[] = [
 
 export type ToolInput = Record<string, unknown>
 
-const GUEST_RESTRICTED_TOOLS = new Set(['get_user_info', 'get_wallet_balance', 'get_recent_orders'])
+const GUEST_RESTRICTED_TOOLS = new Set(['get_user_info', 'get_wallet_balance', 'get_recent_orders', 'get_turnover_status'])
 
 export async function executeTool(
   env: Env,
@@ -72,11 +98,10 @@ export async function executeTool(
     case 'get_user_info': {
       const [rows] = await pool.query<RowDataPacket[]>(
         `SELECT u.display_name, u.status, u.locale, u.registered_at,
-                k.status AS kyc_status
+                k.status AS kyc_status, k.phone_verified, k.reject_reason, k.reject_step
          FROM bg_user u
-         LEFT JOIN bg_kyc_submission k ON k.user_id = u.id
-         WHERE u.id = ?
-         ORDER BY k.submitted_at DESC LIMIT 1`,
+         LEFT JOIN bg_kyc k ON k.user_id = u.id
+         WHERE u.id = ?`,
         [context.userId],
       )
       if (!rows.length) return { error: 'User not found' }
@@ -85,7 +110,10 @@ export async function executeTool(
         displayName: r.display_name,
         status: r.status,
         locale: r.locale,
-        kycStatus: r.kyc_status ?? 'not_submitted',
+        kycStatus: r.kyc_status ?? 'none',
+        kycPhoneVerified: r.phone_verified === 1,
+        kycRejectReason: r.reject_reason ?? null,
+        kycRejectStep: r.reject_step ?? null,
         registeredAt: r.registered_at,
       }
     }
@@ -132,6 +160,83 @@ export async function executeTool(
           createdAt: w.created_at,
           completedAt: w.completed_at,
           rejectReason: w.reject_reason,
+        })),
+      }
+    }
+
+    case 'get_turnover_status': {
+      const progress = await getTurnoverProgress(pool, context.userId)
+      return {
+        canWithdraw: progress.canWithdraw,
+        totalRemainingToWager: progress.totalRemaining.toFixed(2),
+        pendingRequirements: progress.requirements
+          .filter((r) => r.status === 'pending')
+          .map((r) => ({
+            source: r.sourceType,
+            currency: r.currency,
+            required: r.requiredAmount.toFixed(2),
+            completed: r.completedAmount.toFixed(2),
+            expiresAt: r.expiresAt,
+          })),
+      }
+    }
+
+    case 'get_active_promotions': {
+      const [promoRows] = await pool.query<RowDataPacket[]>(
+        `SELECT promo_id, config_key, config_value FROM bg_promo_config`,
+      )
+      const promo: Record<string, Record<string, string>> = {}
+      for (const r of promoRows) {
+        const id = String(r.promo_id)
+        promo[id] = promo[id] ?? {}
+        promo[id][String(r.config_key)] = String(r.config_value)
+      }
+      const [spinRows] = await pool.query<RowDataPacket[]>(`SELECT enabled FROM bg_spin_config LIMIT 1`)
+      const [levelRows] = await pool.query<RowDataPacket[]>(
+        `SELECT level, min_turnover FROM bg_rebate_level_threshold ORDER BY level`,
+      )
+      return {
+        firstDepositBonus:
+          promo.firstdep?.enabled === '1'
+            ? {
+                matchPercent: promo.firstdep.match_pct,
+                maxBonusPHP: promo.firstdep.max_bonus,
+                minDepositPHP: promo.firstdep.min_deposit,
+                wageringMultiplier: promo.firstdep.turnover_x,
+              }
+            : null,
+        referral:
+          promo.referral?.enabled === '1'
+            ? { inviterRewardPHP: promo.referral.inviter_amount, inviteeRewardPHP: promo.referral.invitee_amount }
+            : null,
+        luckySpin: spinRows[0]?.enabled === 1,
+        cashbackLevels: levelRows.map((l) => ({ level: Number(l.level), minTotalWageringPHP: Number(l.min_turnover) })),
+      }
+    }
+
+    case 'search_games': {
+      const keyword = String(input.keyword ?? '').trim()
+      if (!keyword) return { error: 'keyword is required' }
+      const like = `%${keyword}%`
+      const [rows] = await pool.query<RowDataPacket[]>(
+        `SELECT COALESCE(o.name_override, g.name_en) AS name, g.provider,
+                COALESCE(o.site_category, g.site_category_auto) AS category,
+                g.is_enabled, g.is_maintain
+         FROM bg_568win_game g
+         LEFT JOIN bg_568win_game_override o USING (game_provider_id, game_id)
+         WHERE COALESCE(o.name_override, g.name_en) LIKE ? OR g.provider LIKE ?
+         ORDER BY g.is_enabled DESC, g.rank_no ASC
+         LIMIT 8`,
+        [like, like],
+      )
+      return {
+        found: rows.length > 0,
+        games: rows.map((g) => ({
+          name: g.name,
+          provider: g.provider,
+          category: g.category,
+          available: g.is_enabled === 1 && g.is_maintain !== 1,
+          underMaintenance: g.is_maintain === 1,
         })),
       }
     }
