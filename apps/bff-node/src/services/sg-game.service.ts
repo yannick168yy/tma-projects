@@ -528,8 +528,16 @@ function buildHomepageSelection(all: DbGame[], cur: string, overrides: SectionOv
   const topSection = (key: string, pool: DbGame[], sc: (g: DbGame) => number, n: number, mpp = 3) =>
     applyManual(key, pickTop(exFilter(key, pool), sc, n, mpp), n)
 
+  // popular 混排：纯按热度排会被 slots 屠版、单厂商还能占 3 席。改为保底 1 个真人娱乐
+  // 席位(插到第3位保证露出) + 其余按热度补足、每厂商≤2，让首屏像竞品那样有品类层次。
+  const popularPool = exFilter('popular', featuredPool.length >= 9 ? featuredPool : all)
+  const casinoSeat = pickTop(popularPool.filter((g) => g.siteCategory === 'casino'), score, 1, 1)
+  const popularRest = pickTop(popularPool, score, 9 - casinoSeat.length, 2)
+  const popularMerged = [...popularRest]
+  if (casinoSeat.length) popularMerged.splice(Math.min(2, popularMerged.length), 0, ...casinoSeat)
+
   const selection: HomepageSelection = {
-    popular:    topSection('popular', featuredPool.length >= 9 ? featuredPool : all, score, 9),
+    popular:    applyManual('popular', popularMerged.slice(0, 9), 9),
     // 高返利专区：ph_bonus(洗码吸引力) 最高的头部，运营钩子位，紧随 popular
     highRebate: topSection('highRebate', all.filter((g) => g.phBonus >= 15), (g) => g.phBonus, 6, 3),
     newGames:   sampleSection('newGames', newPool, score, 12),
