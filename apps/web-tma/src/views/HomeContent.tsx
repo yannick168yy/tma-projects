@@ -823,7 +823,7 @@ export default function HomeContent({ onNavigatePath, onOpenCategoryLobby, onOpe
       {(gamesLoading || homepageGames.lottery.length > 0) && (
         <section className="mt-6">
           {sectionHeader(<Ticket size={15} className="text-pink-400" />, t('home.lotteryZone'), () => onOpenCategoryLobby({ siteCategory: 'lottery', sortBy: 'weight', title: t('home.lotteryZone') }))}
-          {bigGrid(homepageGames.lottery, 6)}
+          {bigGrid(homepageGames.lottery, 12)}
         </section>
       )}
 
@@ -847,28 +847,27 @@ export default function HomeContent({ onNavigatePath, onOpenCategoryLobby, onOpe
       {(gamesLoading || homepageGames.sports.length > 0) && (
         <section className="mt-6">
           {sectionHeader(<Trophy size={15} className="text-green-400" />, t('home.sportsZone'), () => onOpenCategoryLobby({ siteCategory: 'sports', sortBy: 'weight', title: t('home.sportsZone') }))}
+          {/* Sportsbook 体育投注入口，归属体育板块 */}
+          <div className="px-4 mb-3">
+            <button
+              type="button"
+              className="w-full flex items-center justify-between rounded-2xl px-5 py-4 active:scale-[0.98] transition-transform"
+              style={{ background: 'linear-gradient(120deg, #14532d 0%, #166534 55%, #15803d 100%)' }}
+              onClick={() => void onGameTapAction(WIN568_SPORTSBOOK_UUID)}
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center"><Dice5 size={20} className="text-white" /></div>
+                <div className="text-left">
+                  <p className="text-sm font-black text-white font-display">{t('home.sportsEntry')}</p>
+                  <p className="text-[11px] text-white/70">{t('home.sportsEntrySub')}</p>
+                </div>
+              </div>
+              <ChevronRight size={18} className="text-white/80" />
+            </button>
+          </div>
           {bigGrid(homepageGames.sports, 6)}
         </section>
       )}
-
-      {/* Sports 入口通栏 */}
-      <section className="mt-6 px-4">
-        <button
-          type="button"
-          className="w-full flex items-center justify-between rounded-2xl px-5 py-4 active:scale-[0.98] transition-transform"
-          style={{ background: 'linear-gradient(120deg, #14532d 0%, #166534 55%, #15803d 100%)' }}
-          onClick={() => void onGameTapAction(WIN568_SPORTSBOOK_UUID)}
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center"><Dice5 size={20} className="text-white" /></div>
-            <div className="text-left">
-              <p className="text-sm font-black text-white font-display">{t('home.sportsEntry')}</p>
-              <p className="text-[11px] text-white/70">{t('home.sportsEntrySub')}</p>
-            </div>
-          </div>
-          <ChevronRight size={18} className="text-white/80" />
-        </button>
-      </section>
 
 
       {/* Betting Table */}

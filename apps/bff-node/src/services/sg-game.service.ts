@@ -1,6 +1,6 @@
 import type { RowDataPacket } from 'mysql2/promise'
 import type { Env } from '../config/env.js'
-import { getMysqlPool } from '../clients/mysql.client.js'
+import { getMysqlPool, isMysqlEnabled } from '../clients/mysql.client.js'
 import { getRedis } from '../clients/redis.client.js'
 import { fetchSgGames } from './slotegrator.service.js'
 
@@ -576,7 +576,8 @@ function buildHomepageSelection(all: DbGame[], cur: string, overrides: SectionOv
     recommended: topSection('recommended', all, score, 6, 3),
     newGames:   sampleSection('newGames', newPool, score, 12, 4),
     slots:      sampleSection('slots', bySite('slot'), score, 6),
-    casino:     sampleSection('casino', bySite('casino'), score, 6),
+    // 真人：排除百家乐(ntype101)，避免与百家乐专栏重复且被同款变体屠版
+    casino:     sampleSection('casino', bySite('casino').filter((g) => g.category !== '101'), score, 6),
     // perya 含 bingo(bingo 游戏 site_category 本就归 perya)，2 行 6 款
     perya:      sampleSection('perya', bySite('perya'), score, 6),
     fishing:    sampleSection('fishing', bySite('fishing'), score, 6),
@@ -586,8 +587,11 @@ function buildHomepageSelection(all: DbGame[], cur: string, overrides: SectionOv
     baccarat:   sampleSection('baccarat', all.filter((g) => g.category === '101'), score, 12),
     // 高 RTP 专栏：上游标称 rtp≥0.96，对标竞品「98%」栏
     highRtp:    sampleSection('highRtp', all.filter((g) => (g.rtp ?? 0) >= 0.96), score, 6),
-    // 体育：真实体育游戏(排除体育投注合成条目)。LuckySports 独占 29/32，厂商配额放宽到 6 才填得满
-    sports:     sampleSection('sports', bySite('sports').filter((g) => g.uuid !== WIN568_SPORTSBOOK_UUID), score, 6, 6),
+    // 体育：LuckySports 的 28 个分项(足球/拳击/…)是同一产品的不同入口，只保留 Basketball，
+    // 其余席位给独立体育产品(AFB/BTi/Panda/Saba 等)；体育投注合成条目由前端在本板块内做入口通栏
+    sports:     sampleSection('sports', bySite('sports').filter((g) =>
+      g.uuid !== WIN568_SPORTSBOOK_UUID
+      && !(g.provider === 'LuckySports' && g.name !== 'Basketball')), score, 6, 6),
     generatedAt: new Date().toISOString(),
   }
 
@@ -742,6 +746,16 @@ export interface GameHistoryItem {
   lastPlayedAt: string
 }
 
+// 启动成功即记录（recently played 的数据源），fire-and-forget
+export async function recordGameLaunch(env: Env, userId: string, gameUuid: string): Promise<void> {
+  if (!isMysqlEnabled(env)) return
+  await getMysqlPool(env).execute(
+    `INSERT INTO bg_game_launch (user_id, game_uuid) VALUES (?, ?)
+     ON DUPLICATE KEY UPDATE launch_count = launch_count + 1, last_launched_at = NOW(3)`,
+    [userId, gameUuid],
+  ).catch(() => { /* 记录失败不影响启动 */ })
+}
+
 export async function getUserGameHistory(
   env: Env,
   userId: string,
@@ -749,39 +763,23 @@ export async function getUserGameHistory(
 ): Promise<GameHistoryItem[]> {
   const db = getMysqlPool(env)
   const [rows] = await db.query<RowDataPacket[]>(
-    `SELECT * FROM (
-       SELECT b.provider_id AS game_uuid,
-              g.name, g.name_id, g.name_vi, g.name_zh,
-              g.provider, g.image_url, g.image_hq_url,
-              MAX(b.created_at) AS last_played_at
-       FROM bg_bet_order b
-       JOIN sg_games g ON g.uuid = b.provider_id
-       WHERE b.user_id = ? AND b.aggregator_id = 'slotegrator'
-       GROUP BY b.provider_id, g.name, g.name_id, g.name_vi, g.name_zh, g.provider, g.image_url, g.image_hq_url
-       UNION ALL
-       SELECT CONCAT('568win:', w.game_provider_id, ':', w.game_id) AS game_uuid,
-              COALESCE(o.name_override, w.name_en, w.name_zh, CONCAT('568Win ', w.game_id)) AS name,
-              NULL AS name_id, NULL AS name_vi, w.name_zh,
-              COALESCE(w.provider, '568Win') AS provider,
-              COALESCE(o.image_override, w.icon_url) AS image_url,
-              COALESCE(o.image_override, w.icon_url) AS image_hq_url,
-              MAX(b.created_at) AS last_played_at
-       FROM bg_bet_order b
-       -- 注单 provider_id 只存 game_id 无厂商维度，而 game_id 跨厂商有重复(800+款)，
-       -- 每个 game_id 只取一行(优先 enabled)避免玩过的游戏在历史里出现多条
-       JOIN (
-         SELECT game_id, game_provider_id, name_en, name_zh, provider, icon_url,
-                ROW_NUMBER() OVER (PARTITION BY game_id ORDER BY is_enabled DESC, game_provider_id ASC) AS rn
-         FROM bg_568win_game
-       ) w ON w.game_id = CAST(b.provider_id AS UNSIGNED) AND w.rn = 1
-       LEFT JOIN bg_568win_game_override o ON o.game_provider_id = w.game_provider_id AND o.game_id = w.game_id
-       WHERE b.user_id = ? AND b.aggregator_id = '568win'
-         AND b.provider_id REGEXP '^[0-9]+$'
-       GROUP BY w.game_provider_id, w.game_id, o.name_override, w.name_en, w.name_zh, w.provider, o.image_override, w.icon_url
-     ) t
-     ORDER BY last_played_at DESC
+    `SELECT l.game_uuid,
+            COALESCE(o.name_override, w.name_en, w.name_zh, sg.name) AS name,
+            sg.name_id, sg.name_vi, COALESCE(w.name_zh, sg.name_zh) AS name_zh,
+            COALESCE(w.provider, sg.provider) AS provider,
+            COALESCE(o.image_override, w.icon_url, sg.image_url) AS image_url,
+            COALESCE(o.image_override, w.icon_url, sg.image_hq_url, sg.image_url) AS image_hq_url,
+            l.last_launched_at AS last_played_at
+     FROM bg_game_launch l
+     LEFT JOIN sg_games sg ON sg.uuid = l.game_uuid
+     LEFT JOIN bg_568win_game w ON l.game_uuid LIKE '568win:%:%'
+       AND w.game_provider_id = CAST(SUBSTRING_INDEX(SUBSTRING_INDEX(l.game_uuid, ':', 2), ':', -1) AS UNSIGNED)
+       AND w.game_id = CAST(SUBSTRING_INDEX(l.game_uuid, ':', -1) AS UNSIGNED)
+     LEFT JOIN bg_568win_game_override o ON o.game_provider_id = w.game_provider_id AND o.game_id = w.game_id
+     WHERE l.user_id = ? AND (sg.uuid IS NOT NULL OR w.game_id IS NOT NULL)
+     ORDER BY l.last_launched_at DESC
      LIMIT ?`,
-    [userId, userId, limit],
+    [userId, limit],
   )
   return rows.map((r) => ({
     uuid: r.game_uuid as string,

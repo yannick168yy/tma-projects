@@ -8,6 +8,7 @@ import {
   listProviders,
   listThemes,
   getUserGameHistory,
+  recordGameLaunch,
   getHomepageSelection,
   applyHomepageCurrency,
 } from '../services/sg-game.service.js'
@@ -213,6 +214,7 @@ router.post('/init', async (ctx) => {
   if (body.gameUuid === WIN568_SPORTSBOOK_UUID) {
     try {
       const url = await launchWin568GameUrl({ env, userId, userLocale: user.locale, gameUuid: body.gameUuid, device: body.device })
+      void recordGameLaunch(env, userId, body.gameUuid)
       ok(ctx, { url })
     } catch (e) {
       fail(ctx, 502, e instanceof Error ? e.message : 'Failed to launch 568Win Sports')
@@ -223,6 +225,7 @@ router.post('/init', async (ctx) => {
   if (body.gameUuid.startsWith('568win:')) {
     try {
       const url = await launchWin568GameUrl({ env, userId, userLocale: user.locale, gameUuid: body.gameUuid, device: body.device })
+      void recordGameLaunch(env, userId, body.gameUuid)
       ok(ctx, { url })
     } catch (e) {
       fail(ctx, 502, e instanceof Error ? e.message : 'Failed to launch 568Win game')
@@ -262,6 +265,7 @@ router.post('/init', async (ctx) => {
       },
       env,
     )
+    void recordGameLaunch(env, userId, body.gameUuid)
     ok(ctx, { url: result.url })
   } catch (e) {
     fail(ctx, 502, e instanceof Error ? e.message : 'Failed to launch game')
