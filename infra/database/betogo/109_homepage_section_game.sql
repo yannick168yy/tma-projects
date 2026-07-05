@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS `bg_homepage_section_game` (
   `game_uuid`     VARCHAR(64)  NOT NULL COMMENT '游戏 uuid，如 568win:pid:gid',
   `action`        ENUM('pin','exclude') NOT NULL COMMENT 'pin=强制置顶/纳入, exclude=从该板块剔除',
   `pin_position`  INT          NULL COMMENT '钉到第几位(1-based)，NULL=前插按 sort_order',
-  `currency`      VARCHAR(8)   NOT NULL DEFAULT '' COMMENT ''='全币种, PHP/USDT=仅该币种',
+  `currency`      VARCHAR(8)   NOT NULL DEFAULT '' COMMENT '空=全币种, PHP/USDT=仅该币种',
   `sort_order`    INT          NOT NULL DEFAULT 0 COMMENT '无 pin_position 时的相对顺序',
   `created_at`    DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   `updated_at`    DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
