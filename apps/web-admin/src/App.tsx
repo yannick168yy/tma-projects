@@ -38,6 +38,7 @@ import AgentDetail from './views/AgentDetail'
 import AgentCommissions from './views/AgentCommissions'
 import AgentChannels from './views/AgentChannels'
 import HomeContentConfig from './views/HomeContentConfig'
+import HomepageSections from './views/games/HomepageSections'
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const token = localStorage.getItem('admin_token')
@@ -90,6 +91,7 @@ export default function App() {
           <Route path="promotions" element={<Promotions />} />
           <Route path="promotions/claims" element={<PromotionClaims />} />
           <Route path="home-content" element={<HomeContentConfig />} />
+          <Route path="homepage-sections" element={<HomepageSections />} />
           <Route path="rewards-spin" element={<RewardsSpin />} />
           <Route path="rebate" element={<Rebate />} />
           <Route path="payment/channels" element={<PaymentChannels />} />

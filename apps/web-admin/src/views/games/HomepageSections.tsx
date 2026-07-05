@@ -1,197 +1,184 @@
-import { useEffect, useMemo, useState } from 'react'
-import { Table, Select, Button, Modal, Input, message, Tag, Space, Popconfirm, InputNumber, Image, Alert } from 'antd'
+import { useCallback, useEffect, useState } from 'react'
+import { Table, Select, Button, Modal, Input, message, Tag, Space, Popconfirm, Image, Alert, Tabs, Typography, Empty } from 'antd'
 import {
   getHomepageSections,
+  getPublicHomepage,
   putHomepageSection,
   getAdminWin568Games,
   type HomepageSectionEntry,
+  type PublicHomepageGame,
   type AdminWin568Game,
 } from '../../api'
 
+const { Title } = Typography
+
+// 板块顺序与前端首页一致
+const SECTION_ORDER = ['popular', 'highRebate', 'newGames', 'slots', 'casino', 'perya', 'fishing', 'lottery', 'mythology', 'megaWin']
 const SECTION_LABELS: Record<string, string> = {
   popular: '热门推荐',
   highRebate: '高返利专区',
   newGames: '最新上线',
-  slots: '电子 / 老虎机',
+  slots: '电子/老虎机',
   casino: '真人娱乐',
   perya: '斗鸡 Perya',
   fishing: '捕鱼',
-  lottery: '彩票 / 宾果',
+  lottery: '彩票/宾果',
   mythology: '东方神话',
-  megaWin: '巨额倍数 x1000+',
+  megaWin: '巨额倍数',
+}
+const CURRENCIES = [{ value: 'PHP', label: 'PHP 首页' }, { value: 'USDT', label: 'USDT 首页' }]
+
+// 编辑态：一行游戏。pinned=已固定(手动锁位)，否则为策略实时推荐
+interface Item { gameUuid: string; name: string; provider: string; imageUrl: string | null; pinned: boolean }
+
+interface EditorProps {
+  sectionKey: string
+  currency: string
+  baseline: PublicHomepageGame[]
+  overrides: HomepageSectionEntry[]
+  onSaved: () => void
 }
 
-const CURRENCY_OPTIONS = [
-  { value: '', label: '全币种' },
-  { value: 'PHP', label: '仅 PHP' },
-  { value: 'USDT', label: '仅 USDT' },
-]
-
-// 表格内可编辑的一行（本地态，保存前不落库）
-interface Row {
-  gameUuid: string
-  action: 'pin' | 'exclude'
-  pinPosition: number | null
-  name: string | null
-  provider: string | null
-  imageUrl: string | null
-}
-
-export default function HomepageSections() {
-  const [allSections, setAllSections] = useState<Record<string, HomepageSectionEntry[]>>({})
-  const [sectionKeys, setSectionKeys] = useState<string[]>([])
-  const [sectionKey, setSectionKey] = useState<string>('popular')
-  const [currency, setCurrency] = useState<string>('')
-  const [rows, setRows] = useState<Row[]>([])
-  const [loading, setLoading] = useState(false)
-  const [saving, setSaving] = useState(false)
+function SectionEditor({ sectionKey, currency, baseline, overrides, onSaved }: EditorProps) {
+  const [items, setItems] = useState<Item[]>([])
+  const [excluded, setExcluded] = useState<Item[]>([])
   const [dirty, setDirty] = useState(false)
+  const [saving, setSaving] = useState(false)
 
-  // 游戏搜索弹窗
   const [pickerOpen, setPickerOpen] = useState(false)
   const [search, setSearch] = useState('')
   const [searchLoading, setSearchLoading] = useState(false)
   const [results, setResults] = useState<AdminWin568Game[]>([])
 
-  async function load() {
-    setLoading(true)
-    try {
-      const data = await getHomepageSections()
-      setAllSections(data.sections)
-      setSectionKeys(data.sectionKeys)
-    } catch (e) {
-      message.error(e instanceof Error ? e.message : '加载失败')
-    } finally {
-      setLoading(false)
-    }
-  }
-  useEffect(() => { void load() }, [])
-
-  // 切板块/币种 或 数据刷新时，重置本地可编辑行
+  // 从基线 + 覆盖项重建本地编辑态（切板块/币种/保存后触发）
   useEffect(() => {
-    const list = (allSections[sectionKey] ?? [])
-      .filter((e) => e.currency === currency)
-      .sort((a, b) => a.sortOrder - b.sortOrder)
-    setRows(list.map((e) => ({
-      gameUuid: e.gameUuid, action: e.action, pinPosition: e.pinPosition,
-      name: e.name, provider: e.provider, imageUrl: e.imageUrl,
+    const applic = overrides.filter((o) => o.currency === currency || o.currency === '')
+    const pinnedUuids = new Set(applic.filter((o) => o.action === 'pin').map((o) => o.gameUuid))
+    setItems(baseline.map((g) => ({
+      gameUuid: g.uuid, name: g.name, provider: g.provider, imageUrl: g.imageUrl, pinned: pinnedUuids.has(g.uuid),
+    })))
+    setExcluded(applic.filter((o) => o.action === 'exclude').map((o) => ({
+      gameUuid: o.gameUuid, name: o.name ?? o.gameUuid, provider: o.provider ?? '', imageUrl: o.imageUrl, pinned: false,
     })))
     setDirty(false)
-  }, [allSections, sectionKey, currency])
+  }, [baseline, overrides, currency, sectionKey])
 
-  const uuidSet = useMemo(() => new Set(rows.map((r) => r.gameUuid)), [rows])
-
-  function mutate(next: Row[]) { setRows(next); setDirty(true) }
-  function move(idx: number, dir: -1 | 1) {
-    const j = idx + dir
-    if (j < 0 || j >= rows.length) return
-    const next = [...rows]
-    ;[next[idx], next[j]] = [next[j], next[idx]]
+  const mutate = (next: Item[]) => { setItems(next); setDirty(true) }
+  const setPinned = (i: number, pinned: boolean) => mutate(items.map((it, k) => k === i ? { ...it, pinned } : it))
+  const move = (i: number, dir: -1 | 1) => {
+    const j = i + dir
+    if (j < 0 || j >= items.length) return
+    const next = [...items]
+    ;[next[i], next[j]] = [next[j], next[i]]
     mutate(next)
   }
-  function removeRow(idx: number) { mutate(rows.filter((_, i) => i !== idx)) }
-  function setAction(idx: number, action: 'pin' | 'exclude') {
-    mutate(rows.map((r, i) => i === idx ? { ...r, action, pinPosition: action === 'exclude' ? null : r.pinPosition } : r))
+  const exclude = (i: number) => {
+    const it = items[i]
+    setExcluded((e) => e.some((x) => x.gameUuid === it.gameUuid) ? e : [...e, { ...it, pinned: false }])
+    mutate(items.filter((_, k) => k !== i))
   }
-  function setPos(idx: number, pos: number | null) {
-    mutate(rows.map((r, i) => i === idx ? { ...r, pinPosition: pos } : r))
+  const undoExclude = (uuid: string) => {
+    const it = excluded.find((x) => x.gameUuid === uuid)
+    setExcluded((e) => e.filter((x) => x.gameUuid !== uuid))
+    if (it) mutate([...items, { ...it, pinned: false }])
   }
 
-  async function runSearch() {
+  const runSearch = async () => {
     setSearchLoading(true)
     try {
-      const res = await getAdminWin568Games({ search, pageSize: 20, currency: currency || undefined })
+      const res = await getAdminWin568Games({ search, pageSize: 20, currency })
       setResults(res.items)
     } catch (e) {
       message.error(e instanceof Error ? e.message : '搜索失败')
-    } finally {
-      setSearchLoading(false)
-    }
+    } finally { setSearchLoading(false) }
   }
-  function addGame(g: AdminWin568Game) {
-    if (uuidSet.has(g.uuid)) { message.info('该游戏已在列表中'); return }
-    mutate([...rows, { gameUuid: g.uuid, action: 'pin', pinPosition: null, name: g.name, provider: g.provider, imageUrl: g.imageUrl }])
-    message.success(`已添加 ${g.name}`)
+  const addGame = (g: AdminWin568Game) => {
+    if (items.some((x) => x.gameUuid === g.uuid)) { message.info('该游戏已在列表中'); return }
+    setExcluded((e) => e.filter((x) => x.gameUuid !== g.uuid))
+    mutate([...items, { gameUuid: g.uuid, name: g.name, provider: g.provider, imageUrl: g.imageUrl, pinned: true }])
+    message.success(`已添加并固定 ${g.name}`)
   }
 
-  async function save() {
+  const save = async () => {
     setSaving(true)
     try {
-      await putHomepageSection(sectionKey, currency, rows.map((r) => ({
-        gameUuid: r.gameUuid, action: r.action, pinPosition: r.action === 'pin' ? r.pinPosition : null,
-      })))
+      const pins = items
+        .map((it, idx) => ({ it, idx }))
+        .filter((x) => x.it.pinned)
+        .map((x) => ({ gameUuid: x.it.gameUuid, action: 'pin' as const, pinPosition: x.idx + 1 }))
+      const exs = excluded.map((x) => ({ gameUuid: x.gameUuid, action: 'exclude' as const, pinPosition: null }))
+      await putHomepageSection(sectionKey, currency, [...pins, ...exs])
       message.success('已保存并重建首页选品')
-      await load()
+      onSaved()
     } catch (e) {
       message.error(e instanceof Error ? e.message : '保存失败')
-    } finally {
-      setSaving(false)
-    }
+    } finally { setSaving(false) }
   }
 
   const columns = [
     {
-      title: '排序', width: 90, render: (_: unknown, __: Row, i: number) => (
-        <Space size={4}>
-          <Button size="small" disabled={i === 0} onClick={() => move(i, -1)}>↑</Button>
-          <Button size="small" disabled={i === rows.length - 1} onClick={() => move(i, 1)}>↓</Button>
-        </Space>
-      ),
+      title: '位置', width: 70, render: (_: unknown, __: Item, i: number) => <span style={{ color: '#999' }}>{i + 1}</span>,
     },
     {
-      title: '游戏', render: (_: unknown, r: Row) => (
+      title: '游戏', render: (_: unknown, r: Item) => (
         <Space>
           {r.imageUrl ? <Image src={r.imageUrl} width={40} height={40} style={{ objectFit: 'cover', borderRadius: 6 }} preview={false} /> : <div style={{ width: 40, height: 40, background: '#f0f0f0', borderRadius: 6 }} />}
           <div>
-            <div style={{ fontWeight: 600 }}>{r.name ?? r.gameUuid}</div>
-            <div style={{ fontSize: 12, color: '#999' }}>{r.provider ?? ''} · {r.gameUuid}</div>
+            <div style={{ fontWeight: 600 }}>{r.name}</div>
+            <div style={{ fontSize: 12, color: '#999' }}>{r.provider} · {r.gameUuid}</div>
           </div>
         </Space>
       ),
     },
     {
-      title: '类型', width: 140, render: (_: unknown, r: Row, i: number) => (
-        <Select size="small" value={r.action} style={{ width: 120 }} onChange={(v) => setAction(i, v)}
-          options={[{ value: 'pin', label: '📌 钉位' }, { value: 'exclude', label: '🚫 排除' }]} />
+      title: '来源', width: 110, render: (_: unknown, r: Item) => (
+        r.pinned ? <Tag color="gold">📌 已固定</Tag> : <Tag>策略推荐</Tag>
       ),
     },
     {
-      title: '指定位置', width: 130, render: (_: unknown, r: Row, i: number) => (
-        r.action === 'pin'
-          ? <InputNumber size="small" min={1} max={30} placeholder="按上下顺序" value={r.pinPosition ?? undefined} onChange={(v) => setPos(i, v ?? null)} style={{ width: 110 }} />
-          : <span style={{ color: '#ccc' }}>—</span>
-      ),
-    },
-    {
-      title: '操作', width: 80, render: (_: unknown, __: Row, i: number) => (
-        <Popconfirm title="移除该项？" onConfirm={() => removeRow(i)}><Button size="small" danger>删除</Button></Popconfirm>
+      title: '操作', width: 260, render: (_: unknown, r: Item, i: number) => (
+        <Space size={4}>
+          {r.pinned ? (
+            <>
+              <Button size="small" disabled={i === 0} onClick={() => move(i, -1)}>↑</Button>
+              <Button size="small" disabled={i === items.length - 1} onClick={() => move(i, 1)}>↓</Button>
+              <Button size="small" onClick={() => setPinned(i, false)}>取消固定</Button>
+            </>
+          ) : (
+            <Button size="small" type="primary" ghost onClick={() => setPinned(i, true)}>📌 固定</Button>
+          )}
+          <Popconfirm title="从该板块移除？" onConfirm={() => exclude(i)}><Button size="small" danger>移除</Button></Popconfirm>
+        </Space>
       ),
     },
   ]
 
   return (
     <div>
-      <Alert style={{ marginBottom: 12 }} type="info" showIcon
-        message="板块推荐 = 策略自动打底 + 手动微调"
-        description="📌 钉位：把游戏强制排到板块前面（不占厂商配额）；不填“指定位置”则按本表上下顺序前插。🚫 排除：把游戏从该板块剔除。留空的位置由推荐策略自动填满。钉位游戏若不支持所选币种会被自动跳过。" />
-
       <Space style={{ marginBottom: 12 }} wrap>
-        <span>板块：</span>
-        <Select value={sectionKey} style={{ width: 180 }} onChange={setSectionKey}
-          options={(sectionKeys.length ? sectionKeys : Object.keys(SECTION_LABELS)).map((k) => ({
-            value: k, label: `${SECTION_LABELS[k] ?? k}（${(allSections[k] ?? []).length}）`,
-          }))} />
-        <span style={{ marginLeft: 12 }}>币种：</span>
-        <Select value={currency} style={{ width: 140 }} onChange={setCurrency} options={CURRENCY_OPTIONS} />
         <Button type="dashed" onClick={() => { setResults([]); setSearch(''); setPickerOpen(true) }}>+ 添加游戏</Button>
         <Button type="primary" loading={saving} disabled={!dirty} onClick={save}>保存并生效</Button>
         {dirty && <Tag color="orange">未保存</Tag>}
+        <span style={{ color: '#999' }}>共 {items.length} 款{excluded.length ? ` · 已移除 ${excluded.length}` : ''}</span>
       </Space>
 
-      <Table<Row> rowKey="gameUuid" size="small" loading={loading} columns={columns} dataSource={rows} pagination={false}
-        locale={{ emptyText: '该板块暂无手动干预，完全由推荐策略生成' }} />
+      <Table<Item> rowKey="gameUuid" size="small" columns={columns} dataSource={items} pagination={false}
+        locale={{ emptyText: '该板块暂无推荐（可能所选币种下无可用游戏）' }} />
 
-      <Modal title="添加游戏（钉位/排除）" open={pickerOpen} onCancel={() => setPickerOpen(false)} footer={null} width={640}>
+      {excluded.length > 0 && (
+        <div style={{ marginTop: 16 }}>
+          <div style={{ marginBottom: 8, color: '#999' }}>已移除（不会出现在该板块）：</div>
+          <Space wrap>
+            {excluded.map((x) => (
+              <Tag key={x.gameUuid} closable onClose={(e) => { e.preventDefault(); undoExclude(x.gameUuid) }}>
+                {x.name}
+              </Tag>
+            ))}
+          </Space>
+        </div>
+      )}
+
+      <Modal title="添加游戏" open={pickerOpen} onCancel={() => setPickerOpen(false)} footer={null} width={640}>
         <Input.Search placeholder="按游戏名/关键词搜索" enterButton loading={searchLoading} value={search}
           onChange={(e) => setSearch(e.target.value)} onSearch={runSearch} style={{ marginBottom: 12 }} />
         <Table<AdminWin568Game> rowKey="uuid" size="small" dataSource={results} pagination={false} scroll={{ y: 360 }}
@@ -209,13 +196,67 @@ export default function HomepageSections() {
             },
             {
               title: '', width: 80, render: (_: unknown, g: AdminWin568Game) => (
-                <Button size="small" type="primary" disabled={uuidSet.has(g.uuid)} onClick={() => addGame(g)}>
-                  {uuidSet.has(g.uuid) ? '已加' : '添加'}
+                <Button size="small" type="primary" disabled={items.some((x) => x.gameUuid === g.uuid)} onClick={() => addGame(g)}>
+                  {items.some((x) => x.gameUuid === g.uuid) ? '已加' : '添加'}
                 </Button>
               ),
             },
           ]} />
       </Modal>
+    </div>
+  )
+}
+
+export default function HomepageSections() {
+  const [currency, setCurrency] = useState('PHP')
+  const [activeSection, setActiveSection] = useState('popular')
+  const [baseline, setBaseline] = useState<Record<string, PublicHomepageGame[]>>({})
+  const [overrides, setOverrides] = useState<Record<string, HomepageSectionEntry[]>>({})
+  const [loading, setLoading] = useState(false)
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    try {
+      const [home, ov] = await Promise.all([getPublicHomepage(currency), getHomepageSections()])
+      setBaseline(home)
+      setOverrides(ov.sections)
+    } catch (e) {
+      message.error(e instanceof Error ? e.message : '加载失败')
+    } finally { setLoading(false) }
+  }, [currency])
+  useEffect(() => { void load() }, [load])
+
+  return (
+    <div>
+      <Space style={{ marginBottom: 12, width: '100%', justifyContent: 'space-between' }} align="center">
+        <Title level={4} style={{ margin: 0 }}>首页板块配置</Title>
+        <Select value={currency} style={{ width: 160 }} onChange={setCurrency} options={CURRENCIES} />
+      </Space>
+
+      <Alert style={{ marginBottom: 12 }} type="info" showIcon
+        message="下方为该币种首页各板块「当前实际推荐」的游戏，可在此基础上直接调整"
+        description="📌 固定：把某款锁定在当前位置（其余空位仍由策略实时轮换填充）；↑↓ 调整已固定游戏的顺序；移除：把某款从该板块剔除。不动的游戏保持策略自动推荐。保存后立即生效。" />
+
+      <Tabs
+        activeKey={activeSection}
+        onChange={setActiveSection}
+        items={SECTION_ORDER.map((key) => ({
+          key,
+          label: `${SECTION_LABELS[key] ?? key}（${(baseline[key] ?? []).length}）`,
+          children: activeSection === key ? (
+            loading ? <Empty description="加载中…" /> : (
+              <SectionEditor
+                key={`${key}:${currency}`}
+                sectionKey={key}
+                currency={currency}
+                baseline={baseline[key] ?? []}
+                overrides={overrides[key] ?? []}
+                onSaved={load}
+              />
+            )
+          ) : null,
+        }))}
+      />
     </div>
   )
 }

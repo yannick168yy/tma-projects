@@ -582,6 +582,10 @@ export interface HomepageSectionEntry {
 }
 export const getHomepageSections = () =>
   get<{ sectionKeys: string[]; sections: Record<string, HomepageSectionEntry[]> }>('/admin/games/homepage-sections')
+// 当前实际推荐结果（各板块生效列表，pin 已合并/exclude 已剔除），做后台编辑基线
+export interface PublicHomepageGame { uuid: string; name: string; provider: string; imageUrl: string | null; supportsActiveCurrency?: boolean }
+export const getPublicHomepage = (currency: string) =>
+  get<Record<string, PublicHomepageGame[]>>('/slots/homepage', { currency })
 export const putHomepageSection = (
   sectionKey: string,
   currency: string,
