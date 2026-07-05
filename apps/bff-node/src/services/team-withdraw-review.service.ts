@@ -2,7 +2,17 @@ import type { Redis } from 'ioredis'
 import type { Pool, RowDataPacket } from 'mysql2/promise'
 import type { Env } from '../config/env.js'
 import { getMysqlPool, isMysqlEnabled } from '../clients/mysql.client.js'
-import { RULE_META, loadReviewConfig, type RuleResult, type ReviewVerdict } from './withdraw-review.service.js'
+import {
+  RULE_META,
+  loadReviewConfig,
+  buildWin568ReviewStats,
+  evalUpstreamReconcile,
+  reconcileGraceMinutes,
+  type RuleConfig,
+  type RuleResult,
+  type ReviewVerdict,
+  type Win568ReviewStats,
+} from './withdraw-review.service.js'
 import { broadcastBadges } from './sse-badges.js'
 
 interface TeamWithdrawal {
@@ -25,12 +35,7 @@ interface ReviewContext {
   commissionEarnedCents: number
   commissionDownlineGgrCents: number
   commissionDupGroups: number
-}
-
-interface RuleConfig {
-  enabled: boolean
-  threshold: number | null
-  params: Record<string, unknown> | null
+  win568: Win568ReviewStats
 }
 
 type Rule = (ctx: ReviewContext, cfg: RuleConfig) => Promise<RuleResult> | RuleResult
@@ -74,6 +79,10 @@ const TEAM_RULES: Record<string, Rule> = {
     return { code: 'tampered_bet', verdict: hit ? 'manual' : 'pass', detail: { orphanRounds: ctx.tamperOrphanRounds } }
   },
 
+  upstream_reconcile(ctx) {
+    return evalUpstreamReconcile(ctx.win568)
+  },
+
   commission_anomaly(ctx) {
     const dup = ctx.commissionDupGroups > 0
     const noGgr = ctx.commissionEarnedCents > 0 && ctx.commissionDownlineGgrCents <= 0
@@ -89,7 +98,7 @@ const TEAM_RULES: Record<string, Rule> = {
   },
 }
 
-async function buildContext(pool: Pool, withdrawal: TeamWithdrawal): Promise<ReviewContext> {
+async function buildContext(pool: Pool, withdrawal: TeamWithdrawal, config: Record<string, RuleConfig>): Promise<ReviewContext> {
   const userId = withdrawal.userId
   const [[user]] = await pool.query<RowDataPacket[]>(
     `SELECT u.registered_at, inv.status AS inviter_status
@@ -151,6 +160,8 @@ async function buildContext(pool: Pool, withdrawal: TeamWithdrawal): Promise<Rev
     [userId],
   )
 
+  const win568 = await buildWin568ReviewStats(pool, userId, sinceDate, reconcileGraceMinutes(config))
+
   return {
     pool,
     withdrawal,
@@ -164,6 +175,7 @@ async function buildContext(pool: Pool, withdrawal: TeamWithdrawal): Promise<Rev
     commissionEarnedCents: Number(comm?.earned ?? 0),
     commissionDownlineGgrCents: Number(comm?.downline_ggr ?? 0),
     commissionDupGroups: Number(dup?.cnt ?? 0),
+    win568,
   }
 }
 
@@ -180,6 +192,11 @@ function snapshotOf(ctx: ReviewContext): Record<string, number | string | boolea
     commissionEarnedCents: ctx.commissionEarnedCents,
     commissionDownlineGgrCents: ctx.commissionDownlineGgrCents,
     commissionDupGroups: ctx.commissionDupGroups,
+    win568SyncWatermark: ctx.win568.watermarkMs === null ? '' : new Date(ctx.win568.watermarkMs).toISOString(),
+    win568ReconcileChecked: ctx.win568.reconcileChecked,
+    win568ReconcileMissing: ctx.win568.reconcileMissing,
+    win568ReconcileStakeMismatch: ctx.win568.reconcileStakeMismatch,
+    win568ReconcileVoidPaid: ctx.win568.reconcileVoidPaid,
   }
 }
 
@@ -213,7 +230,7 @@ export async function reviewTeamWithdrawal(env: Env, _redis: Redis, withdrawalId
 
   try {
     const config = await loadReviewConfig(pool, 'team')
-    const ctx = await buildContext(pool, withdrawal)
+    const ctx = await buildContext(pool, withdrawal, config)
     snapshot = snapshotOf(ctx)
     const results: RuleResult[] = []
     for (const [code, rule] of Object.entries(TEAM_RULES)) {

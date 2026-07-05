@@ -108,7 +108,7 @@ export function collectWin568ReportBets(value: unknown): Record<string, unknown>
   return bets
 }
 
-async function saveReportBets(app: FastifyInstance, portfolio: string, result: unknown, rawResponse: unknown) {
+export async function saveReportBets(app: FastifyInstance, portfolio: string, result: unknown, rawResponse: unknown) {
   const bets = collectWin568ReportBets(result)
   for (const bet of bets) {
     const refNo = text(bet.refNo ?? bet.refno)

@@ -21,7 +21,7 @@ export interface RuleResult {
   detail?: Record<string, unknown>
 }
 
-interface RuleConfig {
+export interface RuleConfig {
   enabled: boolean
   threshold: number | null
   params: Record<string, unknown> | null
@@ -56,6 +56,8 @@ interface ReviewContext {
   commissionDownlineGgrCents: number
   /** 佣金重复入账组数 */
   commissionDupGroups: number
+  /** 568Win 数据面统计（上游对账/彩金/取消） */
+  win568: Win568ReviewStats
 }
 
 export const RULE_META: Record<string, { name: string; desc: string }> = {
@@ -72,6 +74,127 @@ export const RULE_META: Record<string, { name: string; desc: string }> = {
   promo_turnover:           { name: '优惠流水', desc: '存在已领取但尚未打完所需流水的优惠（剩余打码 > 0）则转人工。' },
   tampered_bet:             { name: '篡改注单', desc: '存在无对应投注却凭空派彩的 round，疑似数据被篡改，转人工。' },
   commission_anomaly:       { name: '三级分销佣金', desc: '三级分销佣金出现重复入账，或自身有佣金收益但下线累计 GGR ≤ 0（疑似刷佣），转人工。' },
+  upstream_reconcile:       { name: '上游对账', desc: '窗口内本地已结算注单与 568Win 报表按 RefNo 双边核对：本地有上游无（伪造注单）、投注额不符（篡改）、上游已作废但本地已派彩（回滚遗漏）任一命中转人工。报表同步停摆时跳过不拦截。' },
+  bonus_bet_abuse:          { name: '上游彩金异常', desc: '窗口内 568Win Bonus 入账总额超过阈值（PHP 分）或笔数超过 params.count，疑似薅上游活动，转人工。' },
+  cancel_pattern:           { name: '取消注单异常', desc: '窗口内被作废（Void）的注单笔数 ≥ 阈值且占比 ≥ params.ratio，疑似利用取消机制套利，转人工。' },
+}
+
+// ── 568Win 数据面统计：user 与 team 审核共用 ─────────────────────────────────
+
+export interface Win568ReviewStats {
+  /** 报表同步水位（UTC ms），null=从未同步 */
+  watermarkMs: number | null
+  reconcileChecked: number
+  reconcileMissing: number
+  reconcileStakeMismatch: number
+  reconcileVoidPaid: number
+  bonusCount: number
+  bonusAmountCents: number
+  betTxnCount: number
+  voidTxnCount: number
+}
+
+/** 水位超过此时限视为报表同步停摆，对账规则跳过不拦截 */
+const RECONCILE_WATERMARK_MAX_AGE_MS = 2 * 60 * 60 * 1000
+
+export function reconcileGraceMinutes(config: Record<string, RuleConfig>): number {
+  const n = Number(config.upstream_reconcile?.params?.graceMinutes ?? 30)
+  return Number.isFinite(n) && n >= 0 ? n : 30
+}
+
+/**
+ * 统计窗口内 568Win 无缝钱包交易面指标。
+ * 对账只核对「结算时间早于 水位-graceMinutes」的注单，给上游报表管道留时间，避免同步滞后误报。
+ */
+export async function buildWin568ReviewStats(
+  pool: Pool,
+  userId: string,
+  since: Date,
+  graceMinutes: number,
+): Promise<Win568ReviewStats> {
+  const [[wm]] = await pool.query<RowDataPacket[]>(
+    `SELECT \`value\` FROM bg_admin_settings WHERE \`key\` = 'win568_report_sync_watermark' LIMIT 1`,
+  )
+  const wmTs = wm?.value ? Date.parse(String(wm.value)) : NaN
+  const watermarkMs = Number.isFinite(wmTs) ? wmTs : null
+
+  const [[txn]] = await pool.query<RowDataPacket[]>(
+    `SELECT
+       COALESCE(SUM(txn_type = 'bet'), 0) AS bet_cnt,
+       COALESCE(SUM(txn_type = 'bet' AND status = 'Void'), 0) AS void_cnt,
+       COALESCE(SUM(txn_type = 'bonus' AND status <> 'Void'), 0) AS bonus_cnt,
+       COALESCE(SUM(CASE WHEN txn_type = 'bonus' AND status <> 'Void' THEN ROUND(amount * 100) ELSE 0 END), 0) AS bonus_cents
+     FROM bg_568win_wallet_txn WHERE user_id = ? AND created_at > ?`,
+    [userId, since],
+  )
+
+  let checked = 0, missing = 0, stakeMismatch = 0, voidPaid = 0
+  if (watermarkMs !== null) {
+    const bound = new Date(watermarkMs - graceMinutes * 60_000)
+    // PT9 同一 transfer_code 可有多笔 transaction，按 transfer_code 聚合后与报表 refNo 对齐
+    const [[rec]] = await pool.query<RowDataPacket[]>(
+      `SELECT
+         COUNT(*) AS checked,
+         COALESCE(SUM(has_report = 0), 0) AS missing,
+         COALESCE(SUM(has_report = 1 AND report_stake IS NOT NULL AND ABS(report_stake - amount) > 0.01), 0) AS stake_mismatch,
+         COALESCE(SUM(win_loss > 0 AND report_void = 1), 0) AS void_paid
+       FROM (
+         SELECT t.transfer_code,
+                SUM(t.amount) AS amount,
+                COALESCE(SUM(t.win_loss), 0) AS win_loss,
+                EXISTS(SELECT 1 FROM bg_568win_report_bet r WHERE r.ref_no = t.transfer_code) AS has_report,
+                (SELECT MAX(r.stake) FROM bg_568win_report_bet r WHERE r.ref_no = t.transfer_code) AS report_stake,
+                EXISTS(SELECT 1 FROM bg_568win_report_bet r
+                       WHERE r.ref_no = t.transfer_code AND LOWER(COALESCE(r.status, '')) LIKE '%void%') AS report_void
+         FROM bg_568win_wallet_txn t
+         WHERE t.user_id = ? AND t.txn_type = 'bet' AND t.status = 'settled'
+           AND t.created_at > ? AND t.settled_at < ?
+         GROUP BY t.transfer_code
+       ) x`,
+      [userId, since, bound],
+    )
+    checked = Number(rec?.checked ?? 0)
+    missing = Number(rec?.missing ?? 0)
+    stakeMismatch = Number(rec?.stake_mismatch ?? 0)
+    voidPaid = Number(rec?.void_paid ?? 0)
+  }
+
+  return {
+    watermarkMs,
+    reconcileChecked: checked,
+    reconcileMissing: missing,
+    reconcileStakeMismatch: stakeMismatch,
+    reconcileVoidPaid: voidPaid,
+    bonusCount: Number(txn?.bonus_cnt ?? 0),
+    bonusAmountCents: Number(txn?.bonus_cents ?? 0),
+    betTxnCount: Number(txn?.bet_cnt ?? 0),
+    voidTxnCount: Number(txn?.void_cnt ?? 0),
+  }
+}
+
+export function evalUpstreamReconcile(stats: Win568ReviewStats): RuleResult {
+  if (stats.watermarkMs === null) {
+    return { code: 'upstream_reconcile', verdict: 'skipped', detail: { reason: 'report sync not ready' } }
+  }
+  if (Date.now() - stats.watermarkMs > RECONCILE_WATERMARK_MAX_AGE_MS) {
+    return {
+      code: 'upstream_reconcile',
+      verdict: 'skipped',
+      detail: { reason: 'report sync stale', watermark: new Date(stats.watermarkMs).toISOString() },
+    }
+  }
+  const diff = stats.reconcileMissing + stats.reconcileStakeMismatch + stats.reconcileVoidPaid
+  return {
+    code: 'upstream_reconcile',
+    verdict: diff > 0 ? 'manual' : 'pass',
+    actualValue: diff,
+    detail: {
+      checked: stats.reconcileChecked,
+      missing: stats.reconcileMissing,
+      stakeMismatch: stats.reconcileStakeMismatch,
+      voidPaid: stats.reconcileVoidPaid,
+    },
+  }
 }
 
 // ── 规则集：默认 pass，仅命中异常才 manual ─────────────────────────────────────
@@ -175,6 +298,40 @@ const RULES: Record<string, Rule> = {
       },
     }
   },
+
+  upstream_reconcile(ctx) {
+    return evalUpstreamReconcile(ctx.win568)
+  },
+
+  bonus_bet_abuse(ctx, cfg) {
+    const threshold = Number(cfg.threshold ?? 0)
+    const countTh = Number(cfg.params?.count ?? 0)
+    const amtHit = threshold > 0 && ctx.win568.bonusAmountCents > threshold
+    const cntHit = countTh > 0 && ctx.win568.bonusCount >= countTh
+    return {
+      code: 'bonus_bet_abuse',
+      verdict: amtHit || cntHit ? 'manual' : 'pass',
+      actualValue: ctx.win568.bonusAmountCents,
+      threshold: threshold > 0 ? threshold : undefined,
+      detail: { bonusCount: ctx.win568.bonusCount, countThreshold: countTh },
+    }
+  },
+
+  cancel_pattern(ctx, cfg) {
+    const minCount = Number(cfg.threshold ?? 0)
+    const ratioTh = Number(cfg.params?.ratio ?? 0.3)
+    const total = ctx.win568.betTxnCount
+    const voided = ctx.win568.voidTxnCount
+    const ratio = total > 0 ? voided / total : 0
+    const hit = minCount > 0 && voided >= minCount && ratio >= ratioTh
+    return {
+      code: 'cancel_pattern',
+      verdict: hit ? 'manual' : 'pass',
+      actualValue: voided,
+      threshold: minCount > 0 ? minCount : undefined,
+      detail: { totalBets: total, voidRatio: round2(ratio), ratioThreshold: ratioTh },
+    }
+  },
 }
 
 function round2(n: number): number { return Math.round(n * 100) / 100 }
@@ -201,7 +358,7 @@ export async function loadReviewConfig(pool: Pool, scope: ReviewScope = 'user'):
 
 // ── 上下文构建 ────────────────────────────────────────────────────────────────
 
-async function buildContext(pool: Pool, order: OrderWithdraw): Promise<ReviewContext> {
+async function buildContext(pool: Pool, order: OrderWithdraw, config: Record<string, RuleConfig>): Promise<ReviewContext> {
   const userId = order.userId
 
   const [[user]] = await pool.query<RowDataPacket[]>(
@@ -286,6 +443,8 @@ async function buildContext(pool: Pool, order: OrderWithdraw): Promise<ReviewCon
     [userId],
   )
 
+  const win568 = await buildWin568ReviewStats(pool, userId, sinceDate, reconcileGraceMinutes(config))
+
   return {
     pool, order, since,
     depositCents: Number(dep?.window_cents ?? 0),
@@ -303,6 +462,7 @@ async function buildContext(pool: Pool, order: OrderWithdraw): Promise<ReviewCon
     commissionEarnedCents: Number(comm?.earned ?? 0),
     commissionDownlineGgrCents: Number(comm?.downline_ggr ?? 0),
     commissionDupGroups: Number(dup?.cnt ?? 0),
+    win568,
   }
 }
 
@@ -324,6 +484,15 @@ function snapshotOf(ctx: ReviewContext): Record<string, number | string | boolea
     commissionEarnedCents: ctx.commissionEarnedCents,
     commissionDownlineGgrCents: ctx.commissionDownlineGgrCents,
     commissionDupGroups: ctx.commissionDupGroups,
+    win568SyncWatermark: ctx.win568.watermarkMs === null ? '' : new Date(ctx.win568.watermarkMs).toISOString(),
+    win568ReconcileChecked: ctx.win568.reconcileChecked,
+    win568ReconcileMissing: ctx.win568.reconcileMissing,
+    win568ReconcileStakeMismatch: ctx.win568.reconcileStakeMismatch,
+    win568ReconcileVoidPaid: ctx.win568.reconcileVoidPaid,
+    win568BonusCount: ctx.win568.bonusCount,
+    win568BonusAmountCents: ctx.win568.bonusAmountCents,
+    win568BetTxnCount: ctx.win568.betTxnCount,
+    win568VoidTxnCount: ctx.win568.voidTxnCount,
   }
 }
 
@@ -347,7 +516,7 @@ export async function reviewWithdraw(env: Env, redis: Redis, orderId: string, ro
 
   try {
     const config = await loadReviewConfig(pool)
-    const ctx = await buildContext(pool, order)
+    const ctx = await buildContext(pool, order, config)
     snapshot = snapshotOf(ctx)
 
     const results: RuleResult[] = []
