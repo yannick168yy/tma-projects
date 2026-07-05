@@ -11,21 +11,10 @@ interface Props {
   showLive?: boolean
 }
 
-// 数据驱动角标：优先级 万倍 > NEW > 高返，单张卡只显示一个，避免拥挤
-function dataBadge(game: SlotGame): { text: string; cls: string } | null {
-  const maxWin = game.maxWinMultiplier ?? 0
-  if (maxWin >= 1000) return { text: `${maxWin >= 100000 ? '100K' : maxWin.toLocaleString()}x`, cls: 'bg-amber-500' }
-  const rd = game.releaseDate ? new Date(game.releaseDate).getTime() : 0
-  if (rd && Date.now() - rd < 90 * 864e5) return { text: 'NEW', cls: 'bg-blue-500' }
-  if (game.phBonus >= 15) return { text: `+${Math.round(game.phBonus)}%`, cls: 'bg-red-500' }
-  return null
-}
-
 // casinoplus 风格纯图卡：大卡=3列网格自适应宽 + 图下白色游戏名；小卡=固定 76×95 纯图横滑
 export default function GameCardV2({ game, onTap, size, showLive }: Props) {
   const locale = useLocaleStore((s) => s.locale)
   const unavailable = game.supportsActiveCurrency === false
-  const badge = dataBadge(game)
   // 封面裁剪版本：封面图走 immutable 长缓存，重裁同名图后需 bump 才能让客户端拿到新图
   const bust = (u: string | null | undefined) =>
     u && u.includes('/covers/') ? `${u}${u.includes('?') ? '&' : '?'}cv=3` : (u ?? null)
@@ -62,11 +51,6 @@ export default function GameCardV2({ game, onTap, size, showLive }: Props) {
       ) : (
         <div className="absolute inset-0 flex items-center justify-center px-1.5">
           <span className="text-[10px] font-bold text-foreground/60 text-center leading-tight line-clamp-3">{localizedGameName(game, locale)}</span>
-        </div>
-      )}
-      {badge && (
-        <div className={`absolute top-1 right-1 rounded-full px-1.5 py-0.5 ${badge.cls}`}>
-          <span className="text-white text-[9px] font-bold leading-none">{badge.text}</span>
         </div>
       )}
       {showLive && (

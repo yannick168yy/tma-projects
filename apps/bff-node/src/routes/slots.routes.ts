@@ -6,7 +6,6 @@ import {
   EMPTY_HOMEPAGE_SELECTION,
   listGames,
   listProviders,
-  listThemes,
   getUserGameHistory,
   recordGameLaunch,
   getHomepageSelection,
@@ -93,10 +92,7 @@ router.get('/games', async (ctx) => {
       category: q.category || undefined,
       sortCategory: q.sortCategory || undefined,
       siteCategory: q.siteCategory || undefined,
-      sortBy: (q.sortBy as 'weight' | 'ph_bonus' | 'name') || undefined,
-      themes: q.themes ? String(q.themes).split(',').filter(Boolean) : undefined,
-      gameStyles: q.gameStyles ? String(q.gameStyles).split(',').filter(Boolean) : undefined,
-      playerTypes: q.playerTypes ? String(q.playerTypes).split(',').filter(Boolean) : undefined,
+      sortBy: (q.sortBy as 'weight' | 'name') || undefined,
       currency: q.currency || undefined,
     })
     ok(ctx, result)
@@ -113,21 +109,6 @@ router.get('/betting-activity', (ctx) => {
     return
   }
   ok(ctx, getBettingActivity(tab as BetTab))
-})
-
-// GET /slots/themes — distinct themes from cache
-router.get('/themes', async (ctx) => {
-  const env = ctx.state.env
-  if (!isMysqlEnabled(env)) {
-    ok(ctx, [])
-    return
-  }
-  try {
-    const themes = await listThemes(env)
-    ok(ctx, themes)
-  } catch (e) {
-    fail(ctx, 500, 'Failed to list themes')
-  }
 })
 
 // GET /slots/providers?sortCategory=slots — distinct providers from cache

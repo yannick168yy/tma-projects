@@ -20,11 +20,7 @@ export interface SlotGame {
   hasLobby: boolean
   isMobile: boolean
   weight: number
-  phBonus: number
   isFeatured: boolean
-  theme: string | null
-  releaseDate?: string | null
-  maxWinMultiplier?: number | null
   supportedCurrencies?: string[] | null
   supportsActiveCurrency?: boolean
 }
@@ -44,10 +40,7 @@ export interface GameListParams {
   category?: string
   sortCategory?: string
   siteCategory?: string
-  sortBy?: 'weight' | 'ph_bonus' | 'name'
-  themes?: string[]
-  gameStyles?: string[]
-  playerTypes?: string[]
+  sortBy?: 'weight' | 'name'
   currency?: string
 }
 
@@ -97,9 +90,6 @@ export function fetchGames(params: GameListParams = {}): Promise<GameListResult>
   if (params.sortCategory) qs.set('sortCategory', params.sortCategory)
   if (params.siteCategory) qs.set('siteCategory', params.siteCategory)
   if (params.sortBy) qs.set('sortBy', params.sortBy)
-  if (params.themes?.length) qs.set('themes', params.themes.join(','))
-  if (params.gameStyles?.length) qs.set('gameStyles', params.gameStyles.join(','))
-  if (params.playerTypes?.length) qs.set('playerTypes', params.playerTypes.join(','))
   if (params.currency) qs.set('currency', params.currency)
   const q = qs.toString()
   return apiRequest<GameListResult>(`/slots/games${q ? `?${q}` : ''}`)
@@ -111,10 +101,6 @@ export function fetchProviders(sortCategory?: string, siteCategory?: string): Pr
   if (siteCategory) qs.set('siteCategory', siteCategory)
   const q = qs.toString()
   return apiRequest<string[]>(`/slots/providers${q ? `?${q}` : ''}`)
-}
-
-export function fetchThemes(): Promise<string[]> {
-  return apiRequest<string[]>('/slots/themes')
 }
 
 export function launchGame(gameUuid: string, device: 'mobile' | 'desktop' = 'mobile', currency?: string): Promise<{ url: string }> {

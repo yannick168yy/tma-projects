@@ -13,11 +13,8 @@ interface Props {
   sortCategory?: string
   siteCategory?: string
   provider?: string
-  sortBy?: 'weight' | 'ph_bonus' | 'name'
+  sortBy?: 'weight' | 'name'
   title?: string
-  themes?: string[]
-  gameStyles?: string[]
-  playerTypes?: string[]
   onClose: () => void
   onGameTap: () => void
   onOpenGame: (url: string) => void
@@ -29,9 +26,6 @@ export default function SlotsLobby({
   provider: initialProvider,
   sortBy,
   title,
-  themes,
-  gameStyles,
-  playerTypes,
   onClose,
   onGameTap,
   onOpenGame,
@@ -83,9 +77,6 @@ export default function SlotsLobby({
         sortCategory,
         siteCategory,
         sortBy,
-        themes,
-        gameStyles,
-        playerTypes,
         currency: activeCurrency,
       })
       if (seq !== reqSeq.current) return

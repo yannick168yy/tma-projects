@@ -132,13 +132,7 @@ export interface DbGame {
   hasLobby: boolean
   isMobile: boolean
   weight: number
-  phBonus: number
   isFeatured: boolean
-  theme: string | null
-  gameStyle: string | null
-  playerType: string | null
-  releaseDate?: string | null
-  maxWinMultiplier?: number | null
   createdAt?: string | null
   supportedCurrencies?: string[] | null
   supportsActiveCurrency?: boolean
@@ -196,11 +190,7 @@ function rowToDbGame(r: RowDataPacket): DbGame {
     hasLobby: Boolean(r.has_lobby),
     isMobile: Boolean(r.is_mobile),
     weight: r.weight != null ? Number(r.weight) : 0,
-    phBonus: r.ph_bonus != null ? Number(r.ph_bonus) : 0,
     isFeatured: Boolean(r.is_featured),
-    theme: (r.theme as string) ?? null,
-    gameStyle: (r.game_style as string) ?? null,
-    playerType: (r.player_type as string) ?? null,
     supportedCurrencies: null,
   }
 }
@@ -246,13 +236,7 @@ function rowToWin568Game(r: RowDataPacket): DbGame {
     hasLobby: newGameType === 100 || newGameType === 200,
     isMobile: devices.includes('m'),
     weight: r.effective_weight == null ? Math.max(1, 10000 - rank) : Number(r.effective_weight),
-    phBonus: r.effective_ph_bonus == null ? 0 : Number(r.effective_ph_bonus),
     isFeatured: Boolean(r.effective_featured),
-    theme: r.theme ? String(r.theme) : null,
-    gameStyle: r.game_style ? String(r.game_style) : null,
-    playerType: r.player_type ? String(r.player_type) : null,
-    releaseDate: r.release_date ? new Date(r.release_date as Date).toISOString().slice(0, 10) : null,
-    maxWinMultiplier: r.max_win_multiplier == null ? null : Number(r.max_win_multiplier),
     createdAt: r.created_at ? new Date(r.created_at as Date).toISOString() : null,
     supportedCurrencies: parseJsonArray(r.supported_currencies),
   }
@@ -277,11 +261,7 @@ function win568SportsbookGame(): DbGame {
     hasLobby: true,
     isMobile: true,
     weight: 10000,
-    phBonus: 0,
     isFeatured: true,
-    theme: null,
-    gameStyle: null,
-    playerType: null,
     supportedCurrencies: ['PHP', 'USDT'],
   }
 }
@@ -294,7 +274,6 @@ export async function loadGamesCache(env: Env): Promise<number> {
   const [win568Rows] = await db.query<RowDataPacket[]>(
     `SELECT g.game_id, g.game_provider_id, g.provider, g.new_game_type, g.rank_no, g.device,
             g.name_en, g.name_zh, g.icon_url, g.icon_width, g.icon_height, g.supported_currencies, g.created_at, g.rtp,
-            o.release_date, o.max_win_multiplier,
             COALESCE(o.name_override, g.name_en, g.name_zh, CONCAT('568Win ', g.game_id)) AS effective_name,
             -- 封面优先级：后台手动覆盖 > playtime > fbmplay > bingoplus > 568win 上游原图
             COALESCE(o.image_override, cp.url, cf.url, cb.url, g.icon_url) AS effective_image,
@@ -311,9 +290,7 @@ export async function loadGamesCache(env: Env): Promise<number> {
               ELSE NULL
             END AS image_anim,
             COALESCE(o.weight, GREATEST(1, 10000 - COALESCE(g.rank_no, 9999))) AS effective_weight,
-            COALESCE(o.ph_bonus, 0) AS effective_ph_bonus,
             COALESCE(o.is_featured, 0) AS effective_featured,
-            o.theme, o.game_style, o.player_type,
             COALESCE(o.site_category, g.site_category_auto, 'other') AS effective_site_category,
             COALESCE(o.sort_category,
               CASE
@@ -671,15 +648,11 @@ export async function listGames(
     category?: string
     sortCategory?: string
     siteCategory?: string
-    sortBy?: 'weight' | 'ph_bonus' | 'name'
-    themes?: string[]
-    gameStyles?: string[]
-    playerTypes?: string[]
+    sortBy?: 'weight' | 'name'
     currency?: string
   } = {},
 ): Promise<GameListResult> {
-  const { page = 1, limit = 30, search, provider, category, sortCategory, siteCategory, sortBy = 'weight',
-    themes, gameStyles, playerTypes, currency } = opts
+  const { page = 1, limit = 30, search, provider, category, sortCategory, siteCategory, sortBy = 'weight', currency } = opts
 
   let games = await getGamesFromCache(env)
 
@@ -701,23 +674,9 @@ export async function listGames(
     const cats = new Set(siteCategory.split(',').map((s) => s.trim()).filter(Boolean))
     games = games.filter((g) => g.siteCategory != null && cats.has(g.siteCategory))
   }
-  if (themes && themes.length > 0) {
-    const set = new Set(themes)
-    games = games.filter((g) => g.theme !== null && set.has(g.theme))
-  }
-  if (gameStyles && gameStyles.length > 0) {
-    const set = new Set(gameStyles)
-    games = games.filter((g) => g.gameStyle !== null && set.has(g.gameStyle))
-  }
-  if (playerTypes && playerTypes.length > 0) {
-    const set = new Set(playerTypes)
-    games = games.filter((g) => g.playerType !== null && set.has(g.playerType))
-  }
-
   games = [...games].sort((a, b) => {
-    if (sortBy === 'ph_bonus') return (b.phBonus - a.phBonus) || (b.weight - a.weight)
     if (sortBy === 'name') return a.name.localeCompare(b.name)
-    return (b.weight - a.weight) || (b.phBonus - a.phBonus)
+    return b.weight - a.weight
   })
 
   const availableTotal = games.filter((g) => supportsCurrency(g, currency)).length
@@ -810,14 +769,3 @@ export async function listProviders(env: Env, sortCategory?: string, siteCategor
 }
 
 /** Returns distinct theme values from cache, sorted by game count desc */
-export async function listThemes(env: Env): Promise<string[]> {
-  const games = await getGamesFromCache(env)
-  const counts = new Map<string, number>()
-  for (const g of games) {
-    if (!g.theme) continue
-    counts.set(g.theme, (counts.get(g.theme) ?? 0) + 1)
-  }
-  return [...counts.entries()]
-    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-    .map(([theme]) => theme)
-}

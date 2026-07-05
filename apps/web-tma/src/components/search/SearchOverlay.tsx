@@ -1,11 +1,10 @@
 import { useState, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ChevronLeft, ChevronDown, ChevronUp, Search, X, RefreshCw } from 'lucide-react'
-import { fetchGames, fetchThemes, launchGame, type SlotGame } from '@/api/slots'
+import { ChevronLeft, Search, X, RefreshCw } from 'lucide-react'
+import { fetchGames, launchGame, type SlotGame } from '@/api/slots'
 import { ApiError } from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
 import { useWalletStore } from '@/stores/wallet'
-import { localizedThemeLabel, themeColors } from '@/utils/theme-tag'
 import GameCardV2 from '@/components/home/GameCardV2'
 import { analytics } from '@/utils/analytics'
 
@@ -21,9 +20,6 @@ export default function SearchOverlay({ onClose, onGameTap, onOpenGame }: Props)
   const activeCurrency = useWalletStore((s) => s.activeCurrency)
   const [query, setQuery] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
-  const [themes, setThemes] = useState<string[]>([])
-  const [selectedTheme, setSelectedTheme] = useState('all')
-  const selectedThemeRef = useRef('all')
   const [games, setGames] = useState<SlotGame[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
@@ -31,7 +27,6 @@ export default function SearchOverlay({ onClose, onGameTap, onOpenGame }: Props)
   const [loading, setLoading] = useState(false)
   const [loadingMore, setLoadingMore] = useState(false)
   const [error, setError] = useState('')
-  const [themesExpanded, setThemesExpanded] = useState(false)
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const hasMore = page < pages
 
@@ -39,7 +34,7 @@ export default function SearchOverlay({ onClose, onGameTap, onOpenGame }: Props)
   // 请求序号：弱网下旧响应晚到会覆盖新结果，只认最后一次请求
   const reqSeq = useRef(0)
 
-  async function doSearch(q: string, theme: string, reset = true) {
+  async function doSearch(q: string, reset = true) {
     const pageToFetch = reset ? 1 : pageRef.current + 1
     const seq = ++reqSeq.current
     if (reset) {
@@ -54,7 +49,6 @@ export default function SearchOverlay({ onClose, onGameTap, onOpenGame }: Props)
     try {
       const res = await fetchGames({
         search: q || undefined,
-        themes: theme !== 'all' ? [theme] : undefined,
         limit: 30,
         page: pageToFetch,
         currency: activeCurrency,
@@ -80,8 +74,7 @@ export default function SearchOverlay({ onClose, onGameTap, onOpenGame }: Props)
   const skipQueryWatch = useRef(true)
 
   useEffect(() => {
-    void doSearch('', 'all')
-    void fetchThemes().then(setThemes)
+    void doSearch('')
     const id = setTimeout(() => inputRef.current?.focus(), 80)
     return () => clearTimeout(id)
   }, [activeCurrency])
@@ -93,7 +86,7 @@ export default function SearchOverlay({ onClose, onGameTap, onOpenGame }: Props)
     }
     if (searchTimer.current) clearTimeout(searchTimer.current)
     searchTimer.current = setTimeout(
-      () => void doSearch(query.trim(), selectedThemeRef.current, true),
+      () => void doSearch(query.trim(), true),
       300,
     )
     return () => {
@@ -101,15 +94,9 @@ export default function SearchOverlay({ onClose, onGameTap, onOpenGame }: Props)
     }
   }, [query])
 
-  function selectTheme(theme: string) {
-    selectedThemeRef.current = theme
-    setSelectedTheme(theme)
-    void doSearch(query.trim(), theme, true)
-  }
-
   function loadMore() {
     if (loadingMore || pageRef.current >= pages) return
-    void doSearch(query.trim(), selectedThemeRef.current, false)
+    void doSearch(query.trim(), false)
   }
 
   async function onPlay(uuid: string) {
@@ -124,28 +111,6 @@ export default function SearchOverlay({ onClose, onGameTap, onOpenGame }: Props)
     } catch (e) {
       alert(e instanceof ApiError ? e.message : 'Failed to launch game')
     }
-  }
-
-  function renderThemeChip(th: string) {
-    const colors = themeColors(th)
-    const active = selectedTheme === th
-    return (
-      <button
-        key={th}
-        type="button"
-        onClick={() => selectTheme(th)}
-        className={`flex-shrink-0 px-3 py-1 rounded-full text-[11px] font-bold transition-colors ${
-          active ? 'text-primary-foreground' : 'text-foreground/70'
-        }`}
-        style={
-          active
-            ? { background: colors?.bg ?? 'var(--primary)', color: colors?.fg ?? 'var(--primary-foreground)' }
-            : { background: colors ? `${colors.bg}33` : 'var(--secondary)' }
-        }
-      >
-        {localizedThemeLabel(th, t)}
-      </button>
-    )
   }
 
   return (
@@ -175,36 +140,6 @@ export default function SearchOverlay({ onClose, onGameTap, onOpenGame }: Props)
           )}
         </div>
       </div>
-
-      {themes.length > 0 && (
-        <div className="flex items-start gap-1.5 px-4 pt-3 pb-1">
-          <div
-            className={`min-w-0 flex-1 ${
-              themesExpanded ? 'max-h-36 overflow-y-auto overscroll-contain' : 'overflow-x-auto hide-scrollbar'
-            }`}
-          >
-            <div className={`flex gap-2 ${themesExpanded ? 'flex-wrap' : 'flex-nowrap w-max min-w-full'}`}>
-              <button
-                type="button"
-                onClick={() => selectTheme('all')}
-                className={`flex-shrink-0 px-3 py-1 rounded-full text-[11px] font-bold transition-colors ${selectedTheme === 'all' ? 'bg-primary text-primary-foreground' : 'bg-secondary text-foreground/70'}`}
-              >
-                {t('search.allThemes')}
-              </button>
-              {themes.map(renderThemeChip)}
-            </div>
-          </div>
-          <button
-            type="button"
-            aria-expanded={themesExpanded}
-            aria-label={themesExpanded ? t('search.collapseThemes') : t('search.expandThemes')}
-            onClick={() => setThemesExpanded((v) => !v)}
-            className="flex-shrink-0 flex h-7 w-7 items-center justify-center rounded-lg bg-secondary border border-border text-muted-foreground active:scale-95 transition-transform"
-          >
-            {themesExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-          </button>
-        </div>
-      )}
 
       <div className="px-4 py-2 flex items-center gap-2">
         <p className="text-muted-foreground text-[11px] font-bold flex-1">

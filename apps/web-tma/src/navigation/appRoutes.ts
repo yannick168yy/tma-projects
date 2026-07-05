@@ -47,13 +47,7 @@ function parseCategoryLobby(pathname: string, search: URLSearchParams): FullPage
   const provider = search.get('provider')
   if (provider) params.provider = provider
   const sortBy = search.get('sortBy')
-  if (sortBy === 'weight' || sortBy === 'ph_bonus') params.sortBy = sortBy
-  const themes = search.get('themes')
-  if (themes) params.themes = themes.split(',').filter(Boolean)
-  const gameStyles = search.get('gameStyles')
-  if (gameStyles) params.gameStyles = gameStyles.split(',').filter(Boolean)
-  const playerTypes = search.get('playerTypes')
-  if (playerTypes) params.playerTypes = playerTypes.split(',').filter(Boolean)
+  if (sortBy === 'weight') params.sortBy = sortBy
   const gameUuids = search.get('gameUuids')
   if (gameUuids) params.gameUuids = gameUuids.split(',').filter(Boolean)
   return { type: 'categoryLobby', params }
@@ -94,9 +88,6 @@ export function buildCategoryLobbyPath(params: CategoryLobbyParams): string {
   if (params.provider) q.set('provider', params.provider)
   if (params.sortBy) q.set('sortBy', params.sortBy)
   if (params.title) q.set('title', params.title)
-  if (params.themes?.length) q.set('themes', params.themes.join(','))
-  if (params.gameStyles?.length) q.set('gameStyles', params.gameStyles.join(','))
-  if (params.playerTypes?.length) q.set('playerTypes', params.playerTypes.join(','))
   if (params.gameUuids?.length) q.set('gameUuids', params.gameUuids.join(','))
   const qs = q.toString()
   return `/slots/${slug}${qs ? `?${qs}` : ''}`
@@ -123,7 +114,7 @@ export function resolveHomeActionPath(actionType: string, actionValue: string | 
     case 'spin':
       return '/rewards-spin'
     case 'lobby':
-      return '/slots/popular?sortBy=ph_bonus'
+      return '/slots/popular?sortBy=weight'
     default:
       return ''
   }

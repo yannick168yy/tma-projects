@@ -65,13 +65,13 @@ function historyToGame(item: GameHistoryItem): SlotGame {
     uuid: item.uuid, name: item.name, nameId: item.nameId, nameVi: item.nameVi, nameZh: item.nameZh,
     provider: item.provider, category: null, subCategory: null, sortCategory: null,
     imageUrl: item.imageUrl, imageHqUrl: item.imageHqUrl,
-    hasDemo: false, hasLobby: false, isMobile: true, weight: 0, phBonus: 0, isFeatured: false, theme: null,
+    hasDemo: false, hasLobby: false, isMobile: true, weight: 0, isFeatured: false,
   }
 }
 
 const INFO_ICONS: Record<string, string> = { terms: infoTermsImg, privacy: infoPrivacyImg, responsible: infoResponsibleImg, about: infoAboutImg }
 
-interface CategoryLobbyParams { sortCategory?: string; siteCategory?: string; provider?: string; sortBy?: 'weight' | 'ph_bonus'; title: string }
+interface CategoryLobbyParams { sortCategory?: string; siteCategory?: string; provider?: string; sortBy?: 'weight'; title: string }
 
 // 首页 banner / 小卡片均来自后台装修配置，只需图片 + 跳转目标
 interface HomeBanner { id: number; image: string; target: string }
@@ -749,7 +749,7 @@ export default function HomeContent({ onNavigatePath, onOpenCategoryLobby, onOpe
 
       {/* Popular：大卡 3x3 */}
       <section className="mt-5">
-        {sectionHeader(<TrendingUp size={15} className="text-primary" />, t('home.popularGames'), () => onOpenCategoryLobby({ sortBy: 'ph_bonus', title: t('home.popularGames') }))}
+        {sectionHeader(<TrendingUp size={15} className="text-primary" />, t('home.popularGames'), () => onOpenCategoryLobby({ sortBy: 'weight', title: t('home.popularGames') }))}
         {bigGrid(homepageGames.popular, 12, true)}
       </section>
 

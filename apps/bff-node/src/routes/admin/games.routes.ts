@@ -17,7 +17,6 @@ import {
 } from '../../services/admin-store.js'
 import { syncAllGames, loadGamesCache, refreshHomepageSelection, scheduleCacheRefresh, stripMobileNamesInDb, getGamesFromCache } from '../../services/sg-game.service.js'
 import { translateUntranslatedGames } from '../../services/game-translation.service.js'
-import { enrichWin568Game } from '../../services/win568-enrichment.service.js'
 import {
   createJob,
   getJob,
@@ -84,7 +83,6 @@ router.get('/win568', async (ctx) => {
     upstreamAvailable: ctx.query.upstreamAvailable !== undefined ? ctx.query.upstreamAvailable === 'true' : undefined,
     sortCategory: ctx.query.sortCategory ? String(ctx.query.sortCategory) : undefined,
     siteCategory: ctx.query.siteCategory ? String(ctx.query.siteCategory) : undefined,
-    volatility: ctx.query.volatility ? String(ctx.query.volatility) : undefined,
     newGameType: ctx.query.newGameType !== undefined ? Number(ctx.query.newGameType) : undefined,
     currency: ctx.query.currency ? String(ctx.query.currency) : undefined,
     device: ctx.query.device ? String(ctx.query.device) : undefined,
@@ -168,39 +166,6 @@ router.get('/win568/:gameProviderId/:gameId/cover-candidates', async (ctx) => {
     fail(ctx, 400, 'gameProviderId and gameId are required'); return
   }
   ok(ctx, await listWin568CoverCandidates(ctx.state.env, gameProviderId, gameId))
-})
-
-router.post('/win568/:gameProviderId/:gameId/enrich', async (ctx) => {
-  const gameProviderId = Number(ctx.params.gameProviderId)
-  const gameId = Number(ctx.params.gameId)
-  if (!Number.isInteger(gameProviderId) || !Number.isInteger(gameId)) {
-    fail(ctx, 400, 'gameProviderId and gameId are required'); return
-  }
-  try {
-    await enrichWin568Game(ctx.state.env, gameProviderId, gameId)
-    scheduleCacheRefresh(ctx.state.env)
-    await writeAuditLog(ctx.state.env, {
-      adminId: ctx.state.adminId!,
-      adminUsername: ctx.state.adminUsername!,
-      action: 'win568.game.enrich',
-      targetType: 'win568_game',
-      targetId: `${gameProviderId}:${gameId}`,
-      ip: ctx.ip,
-    })
-    const refreshed = await listAdminWin568Games(ctx.state.env, {
-      page: 1,
-      pageSize: 10,
-      gameProviderId,
-      gameId,
-    })
-    ok(ctx, {
-      gameProviderId,
-      gameId,
-      game: refreshed.items.find((g) => g.gameProviderId === gameProviderId && g.gameId === gameId) ?? null,
-    })
-  } catch (e) {
-    fail(ctx, 500, e instanceof Error ? e.message : 'AI 富化失败')
-  }
 })
 
 router.get('/win568-provider-stats', async (ctx) => {

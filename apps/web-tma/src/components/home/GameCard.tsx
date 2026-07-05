@@ -1,4 +1,3 @@
-import { Flame } from 'lucide-react'
 import type { SlotGame } from '@/api/slots'
 import GameImageCard from '@/components/game/GameImageCard'
 import { useLocaleStore } from '@/stores/locale'
@@ -22,14 +21,7 @@ export default function GameCard({ game, onTap }: Props) {
         fallbackBg={['#1e1b4b', '#312e81']}
         name={localizedGameName(game, locale)}
         provider={game.provider}
-        tagBg={game.phBonus >= 20 ? '#ef4444' : undefined}
       >
-        {game.phBonus >= 20 && (
-          <div className="absolute top-1.5 left-1.5 flex items-center gap-0.5 bg-red-500 rounded-full px-1.5 py-0.5">
-            <Flame size={9} className="text-white" />
-            <span className="text-white text-[9px] font-bold">HOT</span>
-          </div>
-        )}
         {unavailable && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/55">
             <span className="rounded-full bg-white/15 px-3 py-1 text-[11px] font-bold text-white">Unavailable</span>

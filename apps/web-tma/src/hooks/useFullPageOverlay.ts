@@ -5,10 +5,7 @@ export type CategoryLobbyParams = {
   sortCategory?: string
   siteCategory?: string
   provider?: string
-  sortBy?: 'weight' | 'ph_bonus'
-  themes?: string[]
-  gameStyles?: string[]
-  playerTypes?: string[]
+  sortBy?: 'weight'
   gameUuids?: string[]
 }
 

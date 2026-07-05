@@ -494,28 +494,7 @@ export interface AdminWin568Game {
   hasHedgeBet: boolean
   weight: number
   overrideWeight: number | null
-  phBonus: number | null
   weightBreakdown: unknown
-  theme: string | null
-  gameStyle: string | null
-  playerType: string | null
-  descriptionEn: string | null
-  descriptionZh: string | null
-  searchKeywords: string | null
-  volatility: string | null
-  maxWinMultiplier: number | null
-  rtpOfficial: number | null
-  releaseDate: string | null
-  minBet: number | null
-  maxBet: number | null
-  series: string | null
-  features: unknown
-  similarGames: unknown
-  riskFlags: unknown
-  taglineEn: string | null
-  taglineTl: string | null
-  descriptionTl: string | null
-  webEnrichedAt: string | null
   weightUpdatedAt: string | null
   isFeatured: boolean
   overrideFeatured: boolean | null
@@ -533,7 +512,6 @@ export const getAdminWin568Games = (params: {
   upstreamAvailable?: boolean
   sortCategory?: string
   siteCategory?: string
-  volatility?: string
   newGameType?: number
   currency?: string
   device?: string
@@ -560,8 +538,6 @@ export const updateWin568Game = (gameProviderId: number, gameId: number, data: {
 export interface CoverCandidate { source: string; url: string; animUrl: string | null }
 export const getWin568CoverCandidates = (gameProviderId: number, gameId: number) =>
   get<{ candidates: CoverCandidate[]; currentSource: string; currentUrl: string }>(`/admin/games/win568/${gameProviderId}/${gameId}/cover-candidates`)
-export const enrichWin568Game = (gameProviderId: number, gameId: number) =>
-  post<{ gameProviderId: number; gameId: number; game: AdminWin568Game | null }>(`/admin/games/win568/${gameProviderId}/${gameId}/enrich`, {})
 export const getWin568ProviderStats = () =>
   get<ProviderStat[]>('/admin/games/win568-provider-stats')
 export const toggleWin568ProviderGames = (provider: string, isActive: boolean) =>

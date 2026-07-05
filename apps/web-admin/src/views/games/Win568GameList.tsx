@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Button, Col, Descriptions, Empty, Form, Input, InputNumber, Modal, Row, Select, Space, Spin, Switch, Table, Tag, message } from 'antd'
 import type { TablePaginationConfig, TableProps } from 'antd'
-import { enrichWin568Game, getAdminWin568Games, getWin568CoverCandidates, toggleWin568Game, updateWin568Game, type AdminWin568Game, type CoverCandidate } from '../../api'
+import { getAdminWin568Games, getWin568CoverCandidates, toggleWin568Game, updateWin568Game, type AdminWin568Game, type CoverCandidate } from '../../api'
 
 interface Props { refreshKey: number }
 
@@ -51,11 +51,6 @@ function siteCategoryColor(cat: string) {
   return colors[cat] ?? 'default'
 }
 
-function volatilityColor(volatility: string) {
-  const colors: Record<string, string> = { low: 'green', mid: 'orange', high: 'red' }
-  return colors[volatility] ?? 'default'
-}
-
 const COVER_STATUS_OPTIONS = [
   { value: 'landscape', label: '横版', color: 'blue' },
   { value: 'portrait', label: '竖版', color: 'purple' },
@@ -98,7 +93,6 @@ export default function Win568GameList({ refreshKey }: Props) {
   const [provider, setProvider] = useState<string[]>([])
   const [sortCategory, setSortCategory] = useState<string | undefined>()
   const [siteCategory, setSiteCategory] = useState<string | undefined>()
-  const [volatility, setVolatility] = useState<string | undefined>()
   const [isActive, setIsActive] = useState<string | undefined>()
   const [upstreamAvailable, setUpstreamAvailable] = useState<string | undefined>('true')
   const [isFeatured, setIsFeatured] = useState<string | undefined>()
@@ -114,7 +108,6 @@ export default function Win568GameList({ refreshKey }: Props) {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc' | undefined>()
   const [toggling, setToggling] = useState<string | null>(null)
   const [editing, setEditing] = useState<AdminWin568Game | null>(null)
-  const [enriching, setEnriching] = useState(false)
   const [form] = Form.useForm()
   // 换封面弹窗
   const [coverPicker, setCoverPicker] = useState<AdminWin568Game | null>(null)
@@ -172,7 +165,6 @@ export default function Win568GameList({ refreshKey }: Props) {
         search: eff ? search || undefined : undefined,
         sortCategory: eff ? sortCategory : undefined,
         siteCategory: eff ? siteCategory : undefined,
-        volatility: eff ? volatility : undefined,
         isActive: eff && isActive !== undefined ? isActive === 'true' : undefined,
         upstreamAvailable: eff && upstreamAvailable !== undefined ? upstreamAvailable === 'true' : undefined,
         isFeatured: eff && isFeatured !== undefined ? isFeatured === 'true' : undefined,
@@ -199,7 +191,6 @@ export default function Win568GameList({ refreshKey }: Props) {
     setProvider([])
     setSortCategory(undefined)
     setSiteCategory(undefined)
-    setVolatility(undefined)
     setIsActive(undefined)
     setUpstreamAvailable('true')
     setIsFeatured(undefined)
@@ -253,23 +244,6 @@ export default function Win568GameList({ refreshKey }: Props) {
     message.success('已保存')
     setEditing(null)
     void load(page)
-  }
-
-  async function runEnrich() {
-    if (!editing) return
-    setEnriching(true)
-    try {
-      const res = await enrichWin568Game(editing.gameProviderId, editing.gameId)
-      if (res.game) {
-        setEditing(res.game)
-        setGames((prev) => prev.map((g) => g.uuid === res.game!.uuid ? res.game! : g))
-      }
-      message.success('AI 富化数据已更新')
-    } catch (e) {
-      message.error(e instanceof Error ? e.message : 'AI 富化失败')
-    } finally {
-      setEnriching(false)
-    }
   }
 
   const handleTableChange: TableProps<AdminWin568Game>['onChange'] = (pag, _filters, sorter) => {
@@ -368,10 +342,6 @@ export default function Win568GameList({ refreshKey }: Props) {
       render: (_: unknown, r: AdminWin568Game) => (
         <div>
           {rtpPct(r.rtp) != null && <div>RTP {rtpPct(r.rtp)}%</div>}
-          <Space size={4} wrap style={{ marginTop: 2 }}>
-            {r.volatility && <Tag color={volatilityColor(r.volatility)} style={{ margin: 0 }}>波动 {r.volatility}</Tag>}
-            {r.phBonus != null && <Tag color="blue" style={{ margin: 0 }}>PH热值 {r.phBonus}</Tag>}
-          </Space>
           <div style={{ color: '#999', fontSize: 12 }}>{r.rowsCount ?? '—'}R / {r.reelsCount ?? '—'} reels / {r.linesCount ?? '—'} lines</div>
         </div>
       ),
@@ -399,7 +369,6 @@ export default function Win568GameList({ refreshKey }: Props) {
           <Col span={4}><Select mode="multiple" value={provider} placeholder="厂商" allowClear showSearch maxTagCount="responsive" optionFilterProp="label" style={{ width: '100%' }} options={providers.map((p) => ({ value: p, label: p }))} onChange={setProvider} /></Col>
           <Col span={3}><Select value={sortCategory} placeholder="分类" allowClear style={{ width: '100%' }} options={CATEGORY_OPTIONS} onChange={setSortCategory} /></Col>
           <Col span={3}><Select value={siteCategory} placeholder="网站分类" allowClear style={{ width: '100%' }} options={SITE_CATEGORY_OPTIONS} onChange={setSiteCategory} /></Col>
-          <Col span={2}><Select value={volatility} placeholder="波动率" allowClear style={{ width: '100%' }} options={[{ value: 'low', label: '低波动' }, { value: 'mid', label: '中波动' }, { value: 'high', label: '高波动' }]} onChange={setVolatility} /></Col>
           <Col span={3}><Select value={isActive} placeholder="本地状态" allowClear style={{ width: '100%' }} options={[{ value: 'true', label: '本地启用' }, { value: 'false', label: '本地关闭' }]} onChange={setIsActive} /></Col>
           <Col span={3}><Select value={upstreamAvailable} placeholder="上游状态" allowClear style={{ width: '100%' }} options={[{ value: 'true', label: '上游可用' }, { value: 'false', label: '上游不可用' }]} onChange={setUpstreamAvailable} /></Col>
           <Col span={3}><Select value={isFeatured} placeholder="推荐" allowClear style={{ width: '100%' }} options={[{ value: 'true', label: '已推荐' }, { value: 'false', label: '未推荐' }]} onChange={setIsFeatured} /></Col>
@@ -467,39 +436,10 @@ export default function Win568GameList({ refreshKey }: Props) {
               <Descriptions.Item label="更新时间">{formatDate(editing.updatedAt)}</Descriptions.Item>
             </Descriptions>
 
-            <Descriptions
-              title={<Space>AI 富化数据<Button size="small" loading={enriching} onClick={() => void runEnrich()}>更新该游戏 AI 富化数据</Button></Space>}
-              column={3}
-              bordered
-              size="small"
-              style={{ marginBottom: 10 }}
-            >
-              <Descriptions.Item label="PH 热度">{editing.phBonus ?? '—'}</Descriptions.Item>
-              <Descriptions.Item label="主题">{editing.theme || '—'}</Descriptions.Item>
-              <Descriptions.Item label="风格">{editing.gameStyle || '—'}</Descriptions.Item>
-              <Descriptions.Item label="权重更新时间">{formatDate(editing.weightUpdatedAt)}</Descriptions.Item>
-              <Descriptions.Item label="适合玩家">{editing.playerType || '—'}</Descriptions.Item>
-              <Descriptions.Item label="波动率">{editing.volatility ? { low: '低', mid: '中', high: '高' }[editing.volatility] ?? editing.volatility : '—'}</Descriptions.Item>
-              <Descriptions.Item label="最大赔付">{editing.maxWinMultiplier ? `x${editing.maxWinMultiplier}` : '—'}</Descriptions.Item>
-              <Descriptions.Item label="官方 RTP">{editing.rtpOfficial != null ? `${editing.rtpOfficial}%${(() => { const up = rtpPct(editing.rtp); return up != null && Math.abs(editing.rtpOfficial - up) > 1 ? ' ⚠️与上游差异' : '' })()}` : '—'}</Descriptions.Item>
-              <Descriptions.Item label="发布日期">{editing.releaseDate || '—'}</Descriptions.Item>
-              <Descriptions.Item label="投注范围">{editing.minBet != null || editing.maxBet != null ? `${editing.minBet ?? '?'} ~ ${editing.maxBet ?? '?'}` : '—'}</Descriptions.Item>
-              <Descriptions.Item label="系列">{editing.series || '—'}</Descriptions.Item>
-              <Descriptions.Item label="机制标签" span={2}>{jsonText(editing.features)}</Descriptions.Item>
-              <Descriptions.Item label="相似游戏" span={2}>{jsonText(editing.similarGames)}</Descriptions.Item>
-              <Descriptions.Item label="风险信号" span={2}>{Array.isArray(editing.riskFlags) && editing.riskFlags.length > 0 ? <Tag color="red">{jsonText(editing.riskFlags)}</Tag> : '无'}</Descriptions.Item>
-              <Descriptions.Item label="联网富化时间" span={3}>{formatDate(editing.webEnrichedAt)}</Descriptions.Item>
-              <Descriptions.Item label="中文简介" span={3}><span style={{ whiteSpace: 'pre-wrap' }}>{editing.descriptionZh || '—'}</span></Descriptions.Item>
-              <Descriptions.Item label="英文简介" span={3}><span style={{ whiteSpace: 'pre-wrap' }}>{editing.descriptionEn || '—'}</span></Descriptions.Item>
-              <Descriptions.Item label="英文卖点" span={3}>{editing.taglineEn || '—'}</Descriptions.Item>
-              <Descriptions.Item label="Taglish 卖点" span={3}>{editing.taglineTl || '—'}</Descriptions.Item>
-              <Descriptions.Item label="Taglish 简介" span={3}><span style={{ whiteSpace: 'pre-wrap' }}>{editing.descriptionTl || '—'}</span></Descriptions.Item>
-              <Descriptions.Item label="权重明细" span={3}>{jsonText(editing.weightBreakdown)}</Descriptions.Item>
-              <Descriptions.Item label="搜索关键词" span={2}>{mono(editing.searchKeywords)}</Descriptions.Item>
-              <Descriptions.Item label="原始图标" span={2}>{editing.iconUrl ? <a href={editing.iconUrl} target="_blank" rel="noreferrer">{editing.iconUrl}</a> : '—'}</Descriptions.Item>
-            </Descriptions>
-
             <Descriptions title="本地覆盖" column={3} bordered size="small" style={{ marginBottom: 10 }}>
+              <Descriptions.Item label="权重明细" span={2}>{jsonText(editing.weightBreakdown)}</Descriptions.Item>
+              <Descriptions.Item label="权重更新时间">{formatDate(editing.weightUpdatedAt)}</Descriptions.Item>
+              <Descriptions.Item label="原始图标" span={3}>{editing.iconUrl ? <a href={editing.iconUrl} target="_blank" rel="noreferrer">{editing.iconUrl}</a> : '—'}</Descriptions.Item>
               <Descriptions.Item label="最终展示名">{editing.name}</Descriptions.Item>
               <Descriptions.Item label="展示名覆盖">{editing.nameOverride || '—'}</Descriptions.Item>
               <Descriptions.Item label="最终分类"><Tag color={categoryColor(editing.sortCategory)}>{editing.sortCategory}</Tag></Descriptions.Item>
