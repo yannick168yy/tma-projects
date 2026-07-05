@@ -5,6 +5,10 @@
 set -uo pipefail
 cd "$(dirname "$0")"
 
+# ⛔ 2026-07-05 富化工作已停止（竞品策略已到手，AI 富化意义不大）。
+# 恢复：删除下面这行 exit，并确认 crontab 里的定时条目还在。
+exit 0
+
 export PATH="/usr/local/bin:/opt/homebrew/bin:/usr/local/Cellar/node/25.8.0/bin:$PATH"
 
 PEM=/Users/yannicky/TMA_FILES/aliyun.pem
