@@ -76,6 +76,25 @@ export const PROMOS: Promo[] = [
     expiry: 'Limited Time',
     highlight: false,
   },
+  {
+    id: 'appdl',
+    tag: 'APP EXCLUSIVE',
+    title: 'App Install Bonus',
+    tagline: 'Install & Claim Free Bonus',
+    reward: '₱ 66',
+    rewardLabel: 'Free Bonus',
+    desc: 'Install the BETOGO app or add it to your home screen, open it and claim your free bonus — app users only!',
+    gradient: 'from-[#4c2500] via-[#8a5a00] to-[#c9932e]',
+    accentColor: '#ffd75e',
+    icon: '📲',
+    steps: ['Install the app / Add to Home Screen', 'Open the app and claim your bonus'],
+    badge: 'App Only',
+    badgeColor: 'bg-yellow-400/20 text-yellow-300',
+    cta: 'Install Now',
+    ctaColor: 'bg-yellow-500 hover:bg-yellow-400',
+    expiry: 'Ongoing',
+    highlight: false,
+  },
 ]
 
 export const BONUS_WINNERS = [

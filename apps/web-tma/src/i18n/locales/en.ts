@@ -498,6 +498,23 @@ export default {
       winnersToday: 'Winners Today',
     },
     promos: {
+      appdl: {
+        tag: 'APP EXCLUSIVE',
+        title: 'App Install Bonus',
+        tagline: 'Install & Claim ₱{{amount}} Free',
+        rewardLabel: 'Free Bonus',
+        desc: 'Install the BETOGO app or add it to your home screen, then open it and claim ₱{{amount}} for free — exclusive to app users!',
+        badge: 'App Only',
+        cta: 'Install Now',
+        ctaClaim: 'Claim ₱{{amount}}',
+        ctaClaimed: 'Claimed',
+        claiming: 'Claiming...',
+        claimSuccess: '₱{{amount}} credited to your wallet!',
+        openInApp: 'Open the installed app to claim this bonus',
+        step1: 'Install the app / Add to Home Screen',
+        step2: 'Open the app and claim ₱{{amount}}',
+      },
+
       trial: {
         tag: 'NEW PLAYER',
         title: 'Chief Trial Officer',
@@ -995,6 +1012,7 @@ export default {
   pwa: {
     barTitle: 'Download Our APP',
     barDesc: 'Win Super Prizes!',
+    barPromo: 'Get ₱{{amount}} Free Bonus!',
     barInstall: 'Install',
     downloadEntry: 'Download App',
     tagline: 'Casino · Slots · Bingo · Sports',

@@ -15,6 +15,7 @@ export interface PromoConfig {
   trial:    { amount: number; enabled: boolean; turnoverX: number; turnoverDays: number }
   referral: { inviterAmount: number; inviteeAmount: number; enabled: boolean; turnoverX: number; turnoverDays: number }
   firstdep: { enabled: boolean; turnoverX: number; turnoverDays: number; tiers: Record<string, FirstDepTier[]> }
+  appdl:    { amount: number; enabled: boolean; turnoverX: number; turnoverDays: number }
 }
 
 const DEFAULT_FIRSTDEP_TIERS: Record<string, FirstDepTier[]> = {
@@ -53,6 +54,8 @@ export const PROMO_DEFAULTS: PromoConfig = {
   trial:    { amount: 88, enabled: true, turnoverX: 0, turnoverDays: 0 },
   referral: { inviterAmount: 50, inviteeAmount: 30, enabled: true, turnoverX: 0, turnoverDays: 0 },
   firstdep: { enabled: true, turnoverX: 15, turnoverDays: 30, tiers: DEFAULT_FIRSTDEP_TIERS },
+  // App/PWA 下载礼金：默认关闭，后台开启后客户端宣传位才展示
+  appdl:    { amount: 66, enabled: false, turnoverX: 5, turnoverDays: 30 },
 }
 
 function num(v: string | undefined, fallback: number): number {
@@ -94,12 +97,14 @@ export async function getPromoConfig(env: Env): Promise<PromoConfig> {
     const t = map.trial ?? {}
     const r = map.referral ?? {}
     const f = map.firstdep ?? {}
+    const a = map.appdl ?? {}
     const D = PROMO_DEFAULTS
     const tiers = await loadFirstDepTiers(env)
     return {
       trial:    { amount: num(t.amount, D.trial.amount), enabled: bool(t.enabled, D.trial.enabled), turnoverX: num(t.turnover_x, D.trial.turnoverX), turnoverDays: num(t.turnover_days, D.trial.turnoverDays) },
       referral: { inviterAmount: num(r.inviter_amount, D.referral.inviterAmount), inviteeAmount: num(r.invitee_amount, D.referral.inviteeAmount), enabled: bool(r.enabled, D.referral.enabled), turnoverX: num(r.turnover_x, D.referral.turnoverX), turnoverDays: num(r.turnover_days, D.referral.turnoverDays) },
       firstdep: { enabled: bool(f.enabled, D.firstdep.enabled), turnoverX: num(f.turnover_x, D.firstdep.turnoverX), turnoverDays: num(f.turnover_days, D.firstdep.turnoverDays), tiers },
+      appdl:    { amount: num(a.amount, D.appdl.amount), enabled: bool(a.enabled, D.appdl.enabled), turnoverX: num(a.turnover_x, D.appdl.turnoverX), turnoverDays: num(a.turnover_days, D.appdl.turnoverDays) },
     }
   } catch {
     return PROMO_DEFAULTS
@@ -122,6 +127,10 @@ export async function savePromoConfig(env: Env, config: PromoConfig): Promise<vo
     ['firstdep', 'turnover_x',     String(config.firstdep.turnoverX      ?? D.firstdep.turnoverX)],
     ['firstdep', 'turnover_days',  String(config.firstdep.turnoverDays   ?? D.firstdep.turnoverDays)],
     ['firstdep', 'enabled',        config.firstdep.enabled               ? '1' : '0'],
+    ['appdl',    'amount',         String(config.appdl.amount            ?? D.appdl.amount)],
+    ['appdl',    'enabled',        config.appdl.enabled                  ? '1' : '0'],
+    ['appdl',    'turnover_x',     String(config.appdl.turnoverX         ?? D.appdl.turnoverX)],
+    ['appdl',    'turnover_days',  String(config.appdl.turnoverDays      ?? D.appdl.turnoverDays)],
   ]
   await pool.query(
     `INSERT INTO bg_promo_config (promo_id, config_key, config_value) VALUES ?

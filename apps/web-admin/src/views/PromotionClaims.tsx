@@ -11,12 +11,14 @@ const PROMO_OPTIONS = [
   { value: 'trial', label: '首席体验官' },
   { value: 'referral', label: '邀请共赢' },
   { value: 'firstdep', label: '首充嘉年华' },
+  { value: 'appdl', label: 'App下载礼金' },
 ]
 
 const PROMO_COLOR: Record<string, string> = {
   '首席体验官': 'gold',
   '邀请共赢': 'green',
   '首充嘉年华': 'blue',
+  'App下载礼金': 'purple',
 }
 
 const columns: ColumnsType<PromoClaimRecord> = [

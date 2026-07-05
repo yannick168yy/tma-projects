@@ -38,6 +38,8 @@ export default function Promotions() {
     if (c.trial.amount <= 0 || c.trial.amount > 50000) return 'trial 注册奖励必须在 1-50000'
     if (c.referral.inviterAmount < 0 || c.referral.inviteeAmount < 0) return 'referral 金额不能为负'
     if (c.firstdep.turnoverX < 0 || c.firstdep.turnoverDays < 0) return 'firstdep 流水倍率/有效期不能为负'
+    if (c.appdl.amount <= 0 || c.appdl.amount > 50000) return 'App 下载礼金必须在 1-50000'
+    if (c.appdl.turnoverX < 0 || c.appdl.turnoverDays < 0) return 'App 下载礼金流水倍率/有效期不能为负'
     for (const [currency, list] of Object.entries(c.firstdep.tiers)) {
       for (const t of list) {
         if (!(t.depositAmount > 0) || t.bonusAmount < 0) return `${currency} 档位金额必须大于 0、奖励不能为负`
@@ -183,6 +185,30 @@ export default function Promotions() {
           <Col span={8}>
             <Text>流水有效期（0=永久）</Text>
             <InputNumber suffix="天" style={{ width: '100%', marginTop: 4 }} min={0} max={365} precision={0} value={cfg.trial.turnoverDays} onChange={(v) => patch((d) => { d.trial.turnoverDays = Number(v ?? 0) })} />
+          </Col>
+        </Row>
+      </Card>
+
+      <Card
+        title={<span>📲 App 下载礼金</span>}
+        style={{ marginBottom: 16 }}
+        extra={<Switch checkedChildren="开启" unCheckedChildren="关闭" checked={cfg.appdl.enabled} onChange={(v) => patch((d) => { d.appdl.enabled = v })} />}
+      >
+        <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 12 }}>
+          用户在 App / PWA（添加到主屏幕）内一次性领取；开启后客户端顶部下载条、Bonuses 页展示区自动亮出金额宣传
+        </Text>
+        <Row gutter={24}>
+          <Col span={8}>
+            <Text>礼金金额（PHP）</Text>
+            <InputNumber prefix="₱" style={{ width: '100%', marginTop: 4 }} min={1} max={50000} precision={0} value={cfg.appdl.amount} onChange={(v) => patch((d) => { d.appdl.amount = Number(v ?? 0) })} />
+          </Col>
+          <Col span={8}>
+            <Text>流水倍率（0=不要求）</Text>
+            <InputNumber suffix="x" style={{ width: '100%', marginTop: 4 }} min={0} max={100} precision={0} value={cfg.appdl.turnoverX} onChange={(v) => patch((d) => { d.appdl.turnoverX = Number(v ?? 0) })} />
+          </Col>
+          <Col span={8}>
+            <Text>流水有效期（0=永久）</Text>
+            <InputNumber suffix="天" style={{ width: '100%', marginTop: 4 }} min={0} max={365} precision={0} value={cfg.appdl.turnoverDays} onChange={(v) => patch((d) => { d.appdl.turnoverDays = Number(v ?? 0) })} />
           </Col>
         </Row>
       </Card>

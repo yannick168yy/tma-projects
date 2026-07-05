@@ -26,6 +26,25 @@ export async function claimReferralBonus(): Promise<{ amountPhp: number }> {
   return apiRequest<{ amountPhp: number }>('/promotions/referral/claim', { method: 'POST' })
 }
 
+export interface AppdlStatus {
+  enabled: boolean
+  amountPhp: number
+  turnoverX: number
+  turnoverDays: number
+  claimed: boolean
+}
+
+export async function fetchAppdlStatus(): Promise<AppdlStatus> {
+  return apiRequest<AppdlStatus>('/promotions/app-download')
+}
+
+export async function claimAppdlBonus(source: 'pwa' | 'apk'): Promise<{ amountPhp: number }> {
+  return apiRequest<{ amountPhp: number }>('/promotions/app-download/claim', {
+    method: 'POST',
+    body: JSON.stringify({ source }),
+  })
+}
+
 export async function claimFirstDepBonus(): Promise<{ amountPhp: number }> {
   if (useMock) return mock.mockClaimFirstDep()
   return apiRequest<{ amountPhp: number }>('/promotions/firstdep/claim', { method: 'POST' })
@@ -136,11 +155,13 @@ export interface PromoConfig {
   trial:    { amount: number; enabled: boolean }
   referral: { inviterAmount: number; inviteeAmount: number; enabled: boolean }
   firstdep: { enabled: boolean; turnoverX: number; turnoverDays?: number; tiers: Record<string, FirstDepTier[]> }
+  appdl:    { amount: number; enabled: boolean; turnoverX: number; turnoverDays?: number }
 }
 
 const DEFAULT_PROMO_CONFIG: PromoConfig = {
   trial:    { amount: 88, enabled: true },
   referral: { inviterAmount: 50, inviteeAmount: 30, enabled: true },
+  appdl:    { amount: 66, enabled: false, turnoverX: 5 },
   firstdep: {
     enabled: true,
     turnoverX: 15,

@@ -19,6 +19,7 @@ router.put('/config', async (ctx) => {
     trial:    { ...current.trial,    ...(body.trial    ?? {}) },
     referral: { ...current.referral, ...(body.referral ?? {}) },
     firstdep: { ...current.firstdep, ...(body.firstdep ?? {}) },
+    appdl:    { ...current.appdl,    ...(body.appdl    ?? {}) },
   }
 
   // 简单校验
@@ -30,6 +31,9 @@ router.put('/config', async (ctx) => {
   }
   if (updated.firstdep.turnoverX < 0 || updated.firstdep.turnoverDays < 0) {
     fail(ctx, 400, 'firstdep 流水倍率/有效期不能为负'); return
+  }
+  if (updated.appdl.amount <= 0 || updated.appdl.amount > 50000 || updated.appdl.turnoverX < 0 || updated.appdl.turnoverDays < 0) {
+    fail(ctx, 400, 'appdl 金额必须在 1-50000、流水倍率/有效期不能为负'); return
   }
   for (const [currency, list] of Object.entries(updated.firstdep.tiers)) {
     for (const tier of list) {
@@ -44,7 +48,10 @@ router.put('/config', async (ctx) => {
 })
 
 function promoLabel(type: string, description: string): string {
-  if (type === 'red_packet') return '首席体验官'
+  if (type === 'red_packet') {
+    if (/app download/i.test(description)) return 'App下载礼金'
+    return '首席体验官'
+  }
   if (type === 'bonus') {
     if (/referral/i.test(description)) return '邀请共赢'
     if (/first deposit/i.test(description)) return '首充嘉年华'
@@ -61,9 +68,10 @@ router.get('/claims', async (ctx) => {
   const promoId  = ctx.query.promoId ? String(ctx.query.promoId) : undefined
   const offset   = (page - 1) * pageSize
 
-  const promoFilter = promoId === 'trial'    ? `AND l.type = 'red_packet'`
+  const promoFilter = promoId === 'trial'    ? `AND l.type = 'red_packet' AND l.description NOT LIKE '%App download%'`
                     : promoId === 'referral'  ? `AND l.type = 'bonus' AND l.description LIKE '%Referral%'`
                     : promoId === 'firstdep'  ? `AND l.type = 'bonus' AND l.description LIKE '%First deposit%'`
+                    : promoId === 'appdl'     ? `AND l.type = 'red_packet' AND l.description LIKE '%App download%'`
                     : ''
 
   const [rows] = await pool.query<RowDataPacket[]>(

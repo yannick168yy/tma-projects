@@ -153,6 +153,68 @@ router.post('/trial-play/claim', async (ctx) => {
   }
 })
 
+// App/PWA 下载礼金：状态查询
+router.get('/app-download', async (ctx) => {
+  const cfg = await getPromoConfig(ctx.state.env)
+  let claimed = false
+  if (isMysqlEnabled(ctx.state.env)) {
+    const [rows] = await getMysqlPool(ctx.state.env).query<RowDataPacket[]>(
+      'SELECT 1 FROM bg_app_download_claim WHERE user_id = ? LIMIT 1',
+      [ctx.state.userId!],
+    )
+    claimed = rows.length > 0
+  }
+  ok(ctx, {
+    enabled: cfg.appdl.enabled,
+    amountPhp: cfg.appdl.amount,
+    turnoverX: cfg.appdl.turnoverX,
+    turnoverDays: cfg.appdl.turnoverDays,
+    claimed,
+  })
+})
+
+// App/PWA 下载礼金：领取（客户端仅在 standalone/APK 内展示入口；服务端一人一次+记录来源）
+router.post('/app-download/claim', async (ctx) => {
+  try {
+    const body = (ctx.request.body ?? {}) as { source?: string }
+    const source = body.source === 'apk' ? 'apk' : 'pwa'
+    const result = await withUserPromoLock(ctx, ctx.state.userId!, 'appdl', async () => {
+      if (!isMysqlEnabled(ctx.state.env)) throw new Error('App download bonus unavailable')
+      const cfg = await getPromoConfig(ctx.state.env)
+      if (!cfg.appdl.enabled) throw new Error('App download bonus is currently disabled')
+      const amount = cfg.appdl.amount
+      const pool = getMysqlPool(ctx.state.env)
+      const ua = String(ctx.get('user-agent') ?? '').slice(0, 500)
+      const [res] = await pool.execute(
+        'INSERT IGNORE INTO bg_app_download_claim (user_id, source, user_agent, ip, amount) VALUES (?, ?, ?, ?, ?)',
+        [ctx.state.userId!, source, ua, ctx.ip ?? '', amount],
+      )
+      if ((res as { affectedRows: number }).affectedRows === 0) throw new Error('App download bonus already claimed')
+      await creditWallet(ctx.state.redis, ctx.state.userId!, amount, {
+        type: 'red_packet',
+        description: 'App download bonus',
+        createdAt: nowIso(),
+        traceId: ctx.state.traceId,
+      })
+      if (cfg.appdl.turnoverX > 0) {
+        const expiresAt = cfg.appdl.turnoverDays > 0
+          ? new Date(Date.now() + cfg.appdl.turnoverDays * 86400000).toISOString().slice(0, 19).replace('T', ' ')
+          : null
+        await createPromoRequirement(pool, ctx.state.userId!, 'appdl', amount, cfg.appdl.turnoverX, expiresAt)
+      }
+      return { amountPhp: amount }
+    })
+    ok(ctx, result)
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : 'App download bonus claim failed'
+    if (msg === 'errors.duplicateRequest') {
+      fail(ctx, 429, msg, 429)
+      return
+    }
+    fail(ctx, 409, msg)
+  }
+})
+
 router.get('/referral', async (ctx) => {
   const user = await getUser(ctx.state.redis, ctx.state.userId!)
   if (!user) {

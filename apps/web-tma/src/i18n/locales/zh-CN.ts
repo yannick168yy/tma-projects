@@ -497,6 +497,23 @@ export default {
       winnersToday: '今日中奖',
     },
     promos: {
+      appdl: {
+        tag: 'APP 专属',
+        title: 'App 下载礼金',
+        tagline: '安装即领 ₱{{amount}} 礼金',
+        rewardLabel: '免费礼金',
+        desc: '安装 BETOGO App 或添加到主屏幕，打开后即可免费领取 ₱{{amount}}——App 用户专享！',
+        badge: 'App 专享',
+        cta: '立即安装',
+        ctaClaim: '领取 ₱{{amount}}',
+        ctaClaimed: '已领取',
+        claiming: '领取中...',
+        claimSuccess: '₱{{amount}} 已入账！',
+        openInApp: '请在已安装的 App 内打开领取',
+        step1: '安装 App / 添加到主屏幕',
+        step2: '打开 App 领取 ₱{{amount}}',
+      },
+
       trial: {
         tag: '新玩家',
         title: '首席体验官',
@@ -991,6 +1008,7 @@ export default {
   pwa: {
     barTitle: '下载 BETOGO 应用',
     barDesc: '赢取超级大奖！',
+    barPromo: '下载领 ₱{{amount}} 礼金！',
     barInstall: '安装',
     downloadEntry: '下载 App',
     tagline: '娱乐城 · 老虎机 · 宾果 · 体育',

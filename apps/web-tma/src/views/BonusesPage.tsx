@@ -4,6 +4,10 @@ import { Trophy, ChevronDown, Users, Wallet } from 'lucide-react'
 import { BONUS_WINNERS, PROMOS } from '@/data/promos'
 import { usePromotionStore, getHighlightMap } from '@/stores/promotion'
 import { useAuthStore } from '@/stores/auth'
+import { useWalletStore } from '@/stores/wallet'
+import { fetchAppdlStatus, claimAppdlBonus } from '@/api/promotion'
+import { isStandalone } from '@/utils/pwa'
+import { isInsideTelegram } from '@/utils/initTelegramWebApp'
 import { analytics } from '@/utils/analytics'
 import bonusesHero from '@/assets/home/promos/hero-4.webp'
 
@@ -11,13 +15,14 @@ interface Props {
   promoFilter?: string | null
   onOpenWallet: () => void
   onOpenTeam: () => void
+  onOpenAppInstall: () => void
 }
 
 function phpDisplay(cents: number) {
   return '₱' + (cents / 100).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
-export default function BonusesPage({ promoFilter, onOpenWallet, onOpenTeam }: Props) {
+export default function BonusesPage({ promoFilter, onOpenWallet, onOpenTeam, onOpenAppInstall }: Props) {
   const { t } = useTranslation()
   const promotionStore = usePromotionStore()
   const highlights = usePromotionStore((s) => s.highlights)
@@ -33,6 +38,10 @@ export default function BonusesPage({ promoFilter, onOpenWallet, onOpenTeam }: P
 
   const [expanded, setExpanded] = useState<string | null>(promoFilter ?? null)
   const [promoError, setPromoError] = useState<string | null>(null)
+  const [appdlClaimed, setAppdlClaimed] = useState(false)
+  const [appdlClaiming, setAppdlClaiming] = useState(false)
+  const [appdlMsg, setAppdlMsg] = useState<{ ok: boolean; text: string } | null>(null)
+  const inApp = isStandalone()
   const [agentActivating, setAgentActivating] = useState(false)
   const [agentExpanded, setAgentExpanded] = useState(false)
 
@@ -44,6 +53,12 @@ export default function BonusesPage({ promoFilter, onOpenWallet, onOpenTeam }: P
   }, [token, user])
 
   useEffect(() => { void promotionStore.loadPromoConfig() }, [])
+
+  // App 内已登录时查询下载礼金领取状态
+  useEffect(() => {
+    if (!inApp || !token || !user) return
+    fetchAppdlStatus().then((st) => setAppdlClaimed(st.claimed)).catch(() => {})
+  }, [inApp, token, user])
 
   useEffect(() => {
     if (promoFilter) {
@@ -72,6 +87,27 @@ export default function BonusesPage({ promoFilter, onOpenWallet, onOpenTeam }: P
       onOpenWallet()
       return
     }
+    if (promoId === 'appdl') {
+      if (!inApp) {
+        onOpenAppInstall()
+        return
+      }
+      if (appdlClaimed || appdlClaiming) return
+      if (!(await ensureLoggedIn(t('auth.signInBonus')))) return
+      setAppdlMsg(null)
+      setAppdlClaiming(true)
+      try {
+        const res = await claimAppdlBonus('pwa')
+        setAppdlClaimed(true)
+        setAppdlMsg({ ok: true, text: t('bonuses.promos.appdl.claimSuccess', { amount: res.amountPhp }) })
+        void useWalletStore.getState().refresh()
+      } catch (e) {
+        setAppdlMsg({ ok: false, text: e instanceof Error ? e.message : 'Claim failed' })
+      } finally {
+        setAppdlClaiming(false)
+      }
+      return
+    }
     if (promoId !== 'trial') return
     if (!(await ensureLoggedIn(t('auth.signInProfile')))) return
     const result = await claimTrialIfEligible()
@@ -80,7 +116,7 @@ export default function BonusesPage({ promoFilter, onOpenWallet, onOpenTeam }: P
 
   const localizedPromos = useMemo(
     () =>
-      PROMOS.map((p) => {
+      PROMOS.filter((p) => p.id !== 'appdl' || (!isInsideTelegram() && Boolean(promoConfig?.appdl?.enabled))).map((p) => {
         const base = `bonuses.promos.${p.id}`
         const cfg = promoConfig
 
@@ -92,6 +128,9 @@ export default function BonusesPage({ promoFilter, onOpenWallet, onOpenTeam }: P
         } else if (p.id === 'referral' && cfg) {
           vars = { inviterAmount: cfg.referral.inviterAmount, inviteeAmount: cfg.referral.inviteeAmount }
           reward = `₱${cfg.referral.inviterAmount} / ₱${cfg.referral.inviteeAmount}`
+        } else if (p.id === 'appdl' && cfg?.appdl) {
+          vars = { amount: cfg.appdl.amount }
+          reward = `₱ ${cfg.appdl.amount}`
         } else if (p.id === 'firstdep' && cfg) {
           const phpTiers = cfg.firstdep.tiers?.PHP ?? []
           const maxBonus = phpTiers.length ? Math.max(...phpTiers.map((tier) => tier.bonusAmount)) : 0
@@ -328,18 +367,30 @@ export default function BonusesPage({ promoFilter, onOpenWallet, onOpenTeam }: P
               )}
               <button
                 type="button"
-                disabled={p.id === 'trial' && (!isTrialClaimable() || trialClaiming)}
-                className={`w-full mt-3 py-3 rounded-xl text-white font-black text-sm transition-colors ${p.ctaColor} ${p.id === 'trial' && (!isTrialClaimable() || trialClaiming) ? 'opacity-50 pointer-events-none' : ''}`}
+                disabled={(p.id === 'trial' && (!isTrialClaimable() || trialClaiming)) || (p.id === 'appdl' && inApp && (appdlClaimed || appdlClaiming))}
+                className={`w-full mt-3 py-3 rounded-xl text-white font-black text-sm transition-colors ${p.ctaColor} ${((p.id === 'trial' && (!isTrialClaimable() || trialClaiming)) || (p.id === 'appdl' && inApp && (appdlClaimed || appdlClaiming))) ? 'opacity-50 pointer-events-none' : ''}`}
                 onClick={() => void onPromoCta(p.id)}
               >
                 {p.id === 'trial' && trialClaiming
                   ? t('bonuses.promos.trial.claiming')
                   : p.id === 'trial' && !isTrialClaimable()
                     ? t('bonuses.promos.trial.ctaClaimed')
-                    : p.cta}
+                    : p.id === 'appdl' && inApp
+                      ? (appdlClaiming
+                        ? t('bonuses.promos.appdl.claiming')
+                        : appdlClaimed
+                          ? t('bonuses.promos.appdl.ctaClaimed')
+                          : t('bonuses.promos.appdl.ctaClaim', { amount: promoConfig?.appdl?.amount ?? '' }))
+                      : p.cta}
               </button>
               {p.id === 'trial' && promoError && (
                 <p className="mt-2 text-[11px] text-red-400 text-center">{promoError}</p>
+              )}
+              {p.id === 'appdl' && !inApp && (
+                <p className="mt-2 text-[11px] text-muted-foreground text-center">{t('bonuses.promos.appdl.openInApp')}</p>
+              )}
+              {p.id === 'appdl' && appdlMsg && (
+                <p className={`mt-2 text-[11px] text-center ${appdlMsg.ok ? 'text-emerald-400' : 'text-red-400'}`}>{appdlMsg.text}</p>
               )}
             </div>
           </div>

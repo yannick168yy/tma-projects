@@ -30,6 +30,7 @@ import infoAboutImg from '@/assets/home/info-support/infor04.webp'
 import supportOnlineImg from '@/assets/home/info-support/online01.webp'
 import rewardsSpinFloatImg from '@/assets/home/promos/rewards-spin-float.webp'
 import cashbackFloatImg from '@/assets/home/promos/cashback-float.webp'
+import appDownloadFloatImg from '@/assets/home/promos/app-download-float.webp'
 import yellowExpandUpImg from '@/assets/home/promos/yellow-expand-up.webp'
 import yellowCollapseDownImg from '@/assets/home/promos/yellow-collapse-down.webp'
 import { shortProviderName } from '@/utils/providers'
@@ -85,6 +86,7 @@ interface Props {
   onOpenFirstDepositFiesta: () => void
   onOpenRewardsSpin: () => void
   onOpenCashback: () => void
+  onOpenAppInstall?: () => void
 }
 
 interface HomePromoFloatProps {
@@ -92,11 +94,13 @@ interface HomePromoFloatProps {
   cashbackLabel: string
   onOpenRewardsSpin: () => void
   onOpenCashback: () => void
+  /** 网页端才传：App/PWA 下载浮窗入口 */
+  onOpenAppInstall?: () => void
 }
 
 let homePromoFloatClosedUntilReload = false
 
-function HomePromoFloat({ rewardsLabel, cashbackLabel, onOpenRewardsSpin, onOpenCashback }: HomePromoFloatProps) {
+function HomePromoFloat({ rewardsLabel, cashbackLabel, onOpenRewardsSpin, onOpenCashback, onOpenAppInstall }: HomePromoFloatProps) {
   const widgetRef = useRef<HTMLDivElement>(null)
   const collapsedPositionRef = useRef<{ left: number; top: number } | null>(null)
   const dragRef = useRef({ pointerId: -1, startX: 0, startY: 0, startLeft: 0, startTop: 0, moved: false, suppressClick: false })
@@ -107,6 +111,9 @@ function HomePromoFloat({ rewardsLabel, cashbackLabel, onOpenRewardsSpin, onOpen
   const promos = [
     { key: 'cashback', label: 'cashback', ariaLabel: cashbackLabel, image: cashbackFloatImg, imageClass: 'home-cashback-swing-float', action: onOpenCashback },
     { key: 'rewards', label: 'rewards', ariaLabel: rewardsLabel, image: rewardsSpinFloatImg, imageClass: 'home-rewards-spin-float', action: onOpenRewardsSpin },
+    ...(onOpenAppInstall
+      ? [{ key: 'appdl', label: 'app', ariaLabel: 'Download App', image: appDownloadFloatImg, imageClass: 'home-appdl-spin-float rounded-2xl', action: onOpenAppInstall }]
+      : []),
   ]
 
   const clampPosition = useCallback((left: number, top: number) => {
@@ -280,7 +287,7 @@ function HomePromoFloat({ rewardsLabel, cashbackLabel, onOpenRewardsSpin, onOpen
   )
 }
 
-export default function HomeContent({ onNavigatePath, onOpenCategoryLobby, onOpenCs, onOpenGame, onOpenFirstDepositFiesta, onOpenRewardsSpin, onOpenCashback }: Props) {
+export default function HomeContent({ onNavigatePath, onOpenCategoryLobby, onOpenCs, onOpenGame, onOpenFirstDepositFiesta, onOpenRewardsSpin, onOpenCashback, onOpenAppInstall }: Props) {
   const { t, i18n } = useTranslation()
   const locale = i18n.language
   const promotion = usePromotionStore()
@@ -1062,6 +1069,7 @@ export default function HomeContent({ onNavigatePath, onOpenCategoryLobby, onOpe
         cashbackLabel={t('cashback.title')}
         onOpenRewardsSpin={onOpenRewardsSpin}
         onOpenCashback={onOpenCashback}
+        onOpenAppInstall={onOpenAppInstall}
       />
     </div>
   )
