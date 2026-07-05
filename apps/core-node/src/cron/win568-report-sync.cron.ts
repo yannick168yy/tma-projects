@@ -73,17 +73,31 @@ async function syncWin568ReportBets(app: FastifyInstance): Promise<void> {
         const from = Number.isFinite(cursor) ? cursor - OVERLAP_MS : now - INITIAL_LOOKBACK_MS
         const to = Math.min(now, from + MAX_WINDOW_MS)
 
-        const result = await client.getBetListByModifyDate({
-          portfolio,
-          startDate: toWin568ReportDate(new Date(from)),
-          endDate: toWin568ReportDate(new Date(to)),
-          isGetDownline: true,
-        })
-        if (result.error.id !== 0) {
-          app.log.error({ portfolio, error: result.error }, '[568win-report-sync] fetch failed')
-          continue
+        let saved = 0
+        let page = 1
+        let failed = false
+        // 分页拉全窗口：v2 无分页版有条数硬截断会静默丢单
+        for (;;) {
+          const result = await client.getBetListByModifyDateWithPagination({
+            portfolio,
+            startDate: toWin568ReportDate(new Date(from)),
+            endDate: toWin568ReportDate(new Date(to)),
+            isGetDownline: true,
+            page,
+            rowCountPerPage: 1000,
+          })
+          if (result.error.id === 1007) break // 页码超界=已拉完
+          if (result.error.id !== 0) {
+            app.log.error({ portfolio, page, error: result.error }, '[568win-report-sync] fetch failed')
+            failed = true
+            break
+          }
+          saved += await saveReportBets(app, portfolio, result.result, result)
+          const lastPage = Number(result.lastPage ?? 1)
+          if (page >= lastPage) break
+          page += 1
         }
-        const saved = await saveReportBets(app, portfolio, result.result, result)
+        if (failed) continue
         await setAdminSetting(app, cursorKey(portfolio), new Date(to).toISOString())
         // 覆盖起点只写一次：该 portfolio 报表数据从 from 起才齐全（含已有游标但缺覆盖键的自愈场景）
         if (!(await getAdminSetting(app, coverageKey(portfolio)))) {

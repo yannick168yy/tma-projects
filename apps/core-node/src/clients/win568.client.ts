@@ -11,6 +11,9 @@ export interface Win568Response {
   url?: string
   result?: unknown
   seamlessGameProviderGames?: unknown
+  lastPage?: number
+  totalRowCount?: number
+  currentPage?: number
   error: Win568Error
 }
 
@@ -92,6 +95,23 @@ export class Win568Client {
     isGetDownline?: boolean
   }) {
     return post('/web-root/restricted/report/v2/get-bet-list-by-modify-date.aspx', {
+      ...payload,
+      companyKey: this.operationCompanyKey,
+      serverId: env.WIN568_SERVER_ID,
+    })
+  }
+
+  /** 分页版报表接口：v2 无分页版单次返回条数有硬截断（实测约18条），大窗口同步必须用这个 */
+  getBetListByModifyDateWithPagination(payload: {
+    portfolio: string
+    startDate: string
+    endDate: string
+    language?: string
+    isGetDownline?: boolean
+    page?: number
+    rowCountPerPage?: number
+  }) {
+    return post('/web-root/restricted/report/get-bet-list-by-modify-date-with-pagination.aspx', {
       ...payload,
       companyKey: this.operationCompanyKey,
       serverId: env.WIN568_SERVER_ID,
