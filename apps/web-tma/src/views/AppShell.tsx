@@ -32,6 +32,8 @@ const LedgerRecordsPage = lazy(() => import('@/views/LedgerRecordsPage'))
 const CashbackPage = lazy(() => import('@/views/CashbackPage'))
 const RewardsSpinPage = lazy(() => import('@/views/RewardsSpinPage'))
 const GamePlayer = lazy(() => import('@/components/GamePlayer'))
+const DownloadPage = lazy(() => import('@/views/DownloadPage'))
+const InstallPrompt = lazy(() => import('@/components/pwa/InstallPrompt'))
 
 type NavId = (typeof NAV_ITEMS)[number]['id']
 
@@ -85,6 +87,7 @@ export default function AppShell() {
     openCashback,
     openSpin,
     openKycSetting,
+    openDownload,
     closeImmersive,
     closeOverlay,
     resetToTab,
@@ -404,6 +407,11 @@ export default function AppShell() {
               <KycSettingPage onClose={closeImmersive} />
             </div>
           )}
+          {view.type === 'download' && (
+            <div className="app-safe-header">
+              <DownloadPage onClose={closeImmersive} />
+            </div>
+          )}
           {view.type === 'betHistory' && (
             <div className="app-safe-header">
               <BetHistoryPage onClose={closeImmersive} />
@@ -431,7 +439,7 @@ export default function AppShell() {
           )}
           {view.type === 'none' && activeNav === 'bonuses' && <BonusesPage promoFilter={promoFilter} onOpenWallet={() => void openWallet()} onOpenTeam={onOpenTeamCenter} />}
           {view.type === 'none' && activeNav === 'bingo' && <BingoPage onOpenWallet={() => void openWallet()} onGameTap={() => void onGameTap()} onOpenGame={(url) => setGamePlayerUrl(url)} onOpenCategoryLobby={onOpenCategoryLobby} />}
-          {view.type === 'none' && activeNav === 'menu' && <MenuPage onOpenCs={openCs} onLogin={() => void auth.ensureLoggedIn(t('auth.signInProfile'))} onLogout={onLogout} onOpenBetHistory={onOpenBetHistory} onOpenLedgerRecords={onOpenLedgerRecords} onOpenReferralPromo={onOpenReferralPromo} onOpenAgentCenter={onOpenAgentCenter} onOpenCashback={onOpenCashback} onOpenRewardsSpin={onOpenRewardsSpin} onOpenKycSetting={onOpenKycSetting} onOpenTopUp={() => void openWalletFull('deposit')} onOpenCashOut={() => void openWalletFull('withdraw')} onOpenWalletHistory={() => void openWalletFull('history')} />}
+          {view.type === 'none' && activeNav === 'menu' && <MenuPage onOpenCs={openCs} onLogin={() => void auth.ensureLoggedIn(t('auth.signInProfile'))} onLogout={onLogout} onOpenBetHistory={onOpenBetHistory} onOpenLedgerRecords={onOpenLedgerRecords} onOpenReferralPromo={onOpenReferralPromo} onOpenAgentCenter={onOpenAgentCenter} onOpenCashback={onOpenCashback} onOpenRewardsSpin={onOpenRewardsSpin} onOpenKycSetting={onOpenKycSetting} onOpenDownload={openDownload} onOpenTopUp={() => void openWalletFull('deposit')} onOpenCashOut={() => void openWalletFull('withdraw')} onOpenWalletHistory={() => void openWalletFull('history')} />}
           {view.type === 'none' && activeNav === 'casino' && (
             <HomeContent onNavigatePath={navigatePath} onOpenCategoryLobby={onOpenCategoryLobby} onOpenCs={openCs} onOpenGame={(url) => setGamePlayerUrl(url)} onOpenFirstDepositFiesta={onOpenFirstDepositFiesta} onOpenRewardsSpin={onOpenRewardsSpin} onOpenCashback={onOpenCashback} />
           )}
@@ -486,6 +494,10 @@ export default function AppShell() {
         )}
 
         {gamePlayerUrl && <GamePlayer url={gamePlayerUrl} onClose={() => setGamePlayerUrl(null)} />}
+
+        {view.type === 'none' && !gamePlayerUrl && !walletModalOpen && !csOpen && (
+          <InstallPrompt onOpenDownload={openDownload} />
+        )}
       </Suspense>
     </div>
   )

@@ -132,6 +132,11 @@ export function useAppNavigation() {
     window.scrollTo({ top: 0, behavior: 'instant' })
   }, [pushOverlay])
 
+  const openDownload = useCallback(() => {
+    pushOverlay('/download')
+    window.scrollTo({ top: 0, behavior: 'instant' })
+  }, [pushOverlay])
+
   const closeImmersive = useCallback(() => {
     closeOverlayPage()
     window.scrollTo({ top: 0, behavior: 'instant' })
@@ -164,6 +169,7 @@ export function useAppNavigation() {
     openCashback,
     openSpin,
     openKycSetting,
+    openDownload,
     closeImmersive,
     closeOverlay,
     resetToTab,

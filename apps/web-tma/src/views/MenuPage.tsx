@@ -24,6 +24,7 @@ import { useThemeStore, type ThemeMode } from '@/stores/theme'
 import { LANGUAGES } from '@/data/languages'
 import { fetchRebateProgress } from '@/api/rebate'
 import { fetchKycStatus, type KycStatus } from '@/api/kyc'
+import { isInsideTelegram } from '@/utils/initTelegramWebApp'
 import menuCasino from '@/assets/home/promos/menu-card-casino.webp'
 
 const ICONS = import.meta.glob('../assets/menu/icons/*.webp', { eager: true, import: 'default' }) as Record<string, string>
@@ -40,6 +41,7 @@ interface Props {
   onOpenCashback: () => void
   onOpenRewardsSpin: () => void
   onOpenKycSetting: () => void
+  onOpenDownload: () => void
   onOpenTopUp: () => void
   onOpenCashOut: () => void
   onOpenWalletHistory: () => void
@@ -209,7 +211,7 @@ function BottomSheet({ title, children, onClose }: { title: string; children: Re
   )
 }
 
-export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory, onOpenLedgerRecords, onOpenReferralPromo, onOpenAgentCenter, onOpenCashback, onOpenRewardsSpin, onOpenKycSetting, onOpenTopUp, onOpenCashOut, onOpenWalletHistory }: Props) {
+export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory, onOpenLedgerRecords, onOpenReferralPromo, onOpenAgentCenter, onOpenCashback, onOpenRewardsSpin, onOpenKycSetting, onOpenDownload, onOpenTopUp, onOpenCashOut, onOpenWalletHistory }: Props) {
   const { t } = useTranslation()
   const auth = useAuthStore()
   const { locale, setLocale } = useLocaleStore()
@@ -528,6 +530,9 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
         </MenuSection>
 
         <MenuSection title={t('profile.customerSupportSection')}>
+          {!isInsideTelegram() && (
+            <MenuRow icon="/icons/icon-192.png" title={t('pwa.downloadEntry')} subtitle={t('pwa.dl.tagline')} bordered onClick={onOpenDownload} />
+          )}
           {SUPPORT_ITEMS.map((item, i) => (
             <MenuRow
               key={item.label}

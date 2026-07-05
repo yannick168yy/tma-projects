@@ -10,12 +10,14 @@ import { initTelegramWebApp } from '@/utils/initTelegramWebApp'
 import { captureReferralFromUrl } from '@/utils/referral'
 import { initTheme } from '@/stores/theme'
 import { initAnalytics } from '@/utils/analytics'
+import { initPwa } from '@/utils/pwa'
 
 preventDoubleTapZoom()
 captureReferralFromUrl()
 initTelegramWebApp()
 initTheme()
 initAnalytics()
+initPwa()
 
 createRoot(document.getElementById('app')!).render(
   <StrictMode>
