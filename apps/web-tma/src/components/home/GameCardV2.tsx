@@ -30,12 +30,8 @@ export default function GameCardV2({ game, onTap, size, showLive }: Props) {
   const bust = (u: string | null | undefined) =>
     u && u.includes('/covers/') ? `${u}${u.includes('?') ? '&' : '?'}cv=3` : (u ?? null)
   const imageUrl = bust(game.imageHqUrl ?? game.imageUrl)
-  // 上游厂商封面比例混杂（JILI 310×190 横图、PG 1024² 方图…），竖卡 cover 会把横图裁掉大半：
-  // 横图改用「模糊底 + contain 完整显示」，方/竖图仍走 cover
-  // 宽高优先取后端探测好的数据（首帧即正确渲染无闪动），缺失时回退 onLoad 运行时检测
-  const [isLandscape, setIsLandscape] = useState(
-    game.imageWidth != null && game.imageHeight != null && game.imageWidth > game.imageHeight * 1.15,
-  )
+  // 封面一律 object-cover 居中裁切填满方卡：横图(真人厂商banner等)按中心裁成方形，与全站方图统一、
+  // 无上下留白。焦点基本居中故裁切损失小；个别边缘内容被切的用后台换图弹窗指定方图。
 
   // 动图懒加载：首屏只加载静态首帧(imageUrl)；卡片进视口后后台预载动图(imageAnim)，
   // 加载完成才切换 src 播放，避免动图拖慢首屏（对齐 ptgaming 原始"首图先行、就绪后连播"逻辑）
@@ -57,23 +53,12 @@ export default function GameCardV2({ game, onTap, size, showLive }: Props) {
     return () => io.disconnect()
   }, [game.imageAnim, imageUrl])
 
-  function onImageLoad(e: React.SyntheticEvent<HTMLImageElement>) {
-    if (game.imageWidth != null && game.imageHeight != null) return
-    const img = e.currentTarget
-    if (img.naturalWidth > img.naturalHeight * 1.15) setIsLandscape(true)
-  }
-
   const displaySrc = animSrc ?? imageUrl
   // 全站封面统一：满幅同尺寸 + 圆角12px，无金边框。
   const image = (
     <div ref={wrapRef} className={`relative overflow-hidden rounded-xl bg-secondary ${size === 'lg' ? 'w-full aspect-square' : 'w-[76px] h-[76px]'}`}>
       {imageUrl ? (
-        <>
-          {isLandscape && (
-            <img src={displaySrc ?? undefined} alt="" aria-hidden draggable={false} className="absolute inset-0 w-full h-full object-cover scale-125 blur-md brightness-[0.55]" />
-          )}
-          <img src={displaySrc ?? undefined} alt="" loading="lazy" draggable={false} onLoad={onImageLoad} className={`absolute inset-0 w-full h-full ${isLandscape ? 'object-contain' : 'object-cover'}`} />
-        </>
+        <img src={displaySrc ?? undefined} alt="" loading="lazy" draggable={false} className="absolute inset-0 w-full h-full object-cover" />
       ) : (
         <div className="absolute inset-0 flex items-center justify-center px-1.5">
           <span className="text-[10px] font-bold text-foreground/60 text-center leading-tight line-clamp-3">{localizedGameName(game, locale)}</span>
