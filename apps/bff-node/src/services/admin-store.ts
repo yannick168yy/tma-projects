@@ -944,3 +944,71 @@ export async function listAdminWithdrawals(
 
   return { total, items }
 }
+
+// ── 首页板块手动干预（pin/exclude）配置 ──────────────────────────────────────
+
+export const HOMEPAGE_SECTION_KEYS = [
+  'popular', 'highRebate', 'newGames', 'slots', 'casino', 'perya', 'fishing', 'lottery', 'mythology', 'megaWin',
+] as const
+
+export interface HomepageSectionGameRow {
+  sectionKey: string
+  gameUuid: string
+  action: 'pin' | 'exclude'
+  pinPosition: number | null
+  currency: string
+  sortOrder: number
+}
+
+export async function listHomepageSectionGames(env: Env): Promise<HomepageSectionGameRow[]> {
+  const [rows] = await pool(env).query<RowDataPacket[]>(
+    `SELECT section_key, game_uuid, action, pin_position, currency, sort_order
+     FROM bg_homepage_section_game
+     ORDER BY section_key ASC, currency ASC, sort_order ASC, id ASC`,
+  )
+  return rows.map((r) => ({
+    sectionKey: String(r.section_key),
+    gameUuid: String(r.game_uuid),
+    action: r.action as 'pin' | 'exclude',
+    pinPosition: r.pin_position == null ? null : Number(r.pin_position),
+    currency: String(r.currency ?? ''),
+    sortOrder: Number(r.sort_order ?? 0),
+  }))
+}
+
+// 按 (板块, 币种) 整体替换：先删后插，sort_order 用数组下标。currency='' 表示全币种。
+export async function replaceHomepageSectionGames(
+  env: Env,
+  sectionKey: string,
+  currency: string,
+  items: { gameUuid: string; action: 'pin' | 'exclude'; pinPosition: number | null }[],
+): Promise<void> {
+  if (!HOMEPAGE_SECTION_KEYS.includes(sectionKey as (typeof HOMEPAGE_SECTION_KEYS)[number])) {
+    throw new Error(`unknown section_key: ${sectionKey}`)
+  }
+  const cur = currency === 'PHP' || currency === 'USDT' ? currency : ''
+  const seen = new Set<string>()
+  const conn = await pool(env).getConnection()
+  try {
+    await conn.beginTransaction()
+    await conn.execute(`DELETE FROM bg_homepage_section_game WHERE section_key = ? AND currency = ?`, [sectionKey, cur])
+    let i = 0
+    for (const it of items) {
+      if (!it.gameUuid || seen.has(it.gameUuid)) continue
+      seen.add(it.gameUuid)
+      const action = it.action === 'exclude' ? 'exclude' : 'pin'
+      const pos = action === 'pin' && it.pinPosition != null ? Number(it.pinPosition) : null
+      await conn.execute(
+        `INSERT INTO bg_homepage_section_game (section_key, game_uuid, action, pin_position, currency, sort_order)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [sectionKey, it.gameUuid, action, pos, cur, i++],
+      )
+    }
+    await conn.commit()
+  } catch (e) {
+    await conn.rollback()
+    throw e
+  } finally {
+    conn.release()
+  }
+}

@@ -294,18 +294,18 @@ export async function loadGamesCache(env: Env): Promise<number> {
             g.name_en, g.name_zh, g.icon_url, g.icon_width, g.icon_height, g.supported_currencies, g.created_at,
             o.release_date, o.max_win_multiplier,
             COALESCE(o.name_override, g.name_en, g.name_zh, CONCAT('568Win ', g.game_id)) AS effective_name,
-            -- 封面优先级：后台手动覆盖 > fbmplay > bingoplus > playtime > 568win 上游原图
-            COALESCE(o.image_override, cf.url, cb.url, cp.url, g.icon_url) AS effective_image,
+            -- 封面优先级：后台手动覆盖 > playtime > fbmplay > bingoplus > 568win 上游原图
+            COALESCE(o.image_override, cp.url, cf.url, cb.url, g.icon_url) AS effective_image,
             CASE
               WHEN o.image_override IS NOT NULL THEN o.image_override_source
+              WHEN cp.url IS NOT NULL THEN 'playtime'
               WHEN cf.url IS NOT NULL THEN 'fbmplay'
               WHEN cb.url IS NOT NULL THEN 'bingoplus'
-              WHEN cp.url IS NOT NULL THEN 'playtime'
               ELSE NULL
             END AS effective_image_source,
             CASE
               WHEN o.image_override IS NOT NULL THEN o.image_anim
-              WHEN cf.url IS NULL AND cb.url IS NULL AND cp.url IS NOT NULL THEN cp.anim_url
+              WHEN cp.url IS NOT NULL THEN cp.anim_url
               ELSE NULL
             END AS image_anim,
             COALESCE(o.weight, GREATEST(1, 10000 - COALESCE(g.rank_no, 9999))) AS effective_weight,
@@ -427,7 +427,66 @@ function homepageBucket(currency?: string): string {
   return normalizeGameCurrency(currency) === 'USDT' ? 'USDT' : 'PHP'
 }
 
-function buildHomepageSelection(all: DbGame[]): HomepageSelection {
+// 板块手动干预（Phase A）：策略打底，pin/exclude 微调
+export interface SectionGameEntry {
+  gameUuid: string
+  action: 'pin' | 'exclude'
+  pinPosition: number | null
+  currency: string // '' | 'PHP' | 'USDT'
+  sortOrder: number
+}
+export type SectionOverrides = Map<string, SectionGameEntry[]>
+
+export async function loadSectionOverrides(env: Env): Promise<SectionOverrides> {
+  const db = getMysqlPool(env)
+  const [rows] = await db.query<RowDataPacket[]>(
+    `SELECT section_key, game_uuid, action, pin_position, currency, sort_order
+     FROM bg_homepage_section_game
+     ORDER BY sort_order ASC, id ASC`,
+  )
+  const map: SectionOverrides = new Map()
+  for (const r of rows) {
+    const key = r.section_key as string
+    const list = map.get(key) ?? []
+    list.push({
+      gameUuid: r.game_uuid as string,
+      action: r.action as 'pin' | 'exclude',
+      pinPosition: r.pin_position == null ? null : Number(r.pin_position),
+      currency: (r.currency as string) ?? '',
+      sortOrder: Number(r.sort_order ?? 0),
+    })
+    map.set(key, list)
+  }
+  return map
+}
+
+function buildHomepageSelection(all: DbGame[], cur: string, overrides: SectionOverrides): HomepageSelection {
+  const gameByUuid = new Map(all.map((g) => [g.uuid, g]))
+  const entriesFor = (key: string) =>
+    (overrides.get(key) ?? []).filter((e) => e.currency === '' || e.currency === cur)
+
+  // pin/exclude 合并：先按当前币种筛出该板块的干预项；exclude 已在池层剔除，
+  // 这里负责把 pin 的游戏插到指定位置（pin 不占厂商配额、可越过策略打底）。
+  const applyManual = (key: string, list: DbGame[], target: number): DbGame[] => {
+    const entries = entriesFor(key)
+    if (!entries.length) return list
+    const ex = new Set(entries.filter((e) => e.action === 'exclude').map((e) => e.gameUuid))
+    const pins = entries
+      .filter((e) => e.action === 'pin')
+      .map((e) => ({ e, g: gameByUuid.get(e.gameUuid) }))
+      .filter((x): x is { e: SectionGameEntry; g: DbGame } => !!x.g && !ex.has(x.e.gameUuid))
+    const pinnedUuids = new Set(pins.map((x) => x.e.gameUuid))
+    // 无 pin_position 的 pin 前插（按 sort_order），有位置的按位置插入
+    const floating = pins.filter((x) => x.e.pinPosition == null).sort((a, b) => a.e.sortOrder - b.e.sortOrder)
+    let result = [...floating.map((x) => x.g), ...list.filter((g) => !ex.has(g.uuid) && !pinnedUuids.has(g.uuid))]
+    const positioned = pins.filter((x) => x.e.pinPosition != null).sort((a, b) => a.e.pinPosition! - b.e.pinPosition!)
+    for (const x of positioned) {
+      const idx = Math.min(Math.max(x.e.pinPosition! - 1, 0), result.length)
+      result.splice(idx, 0, x.g)
+    }
+    return result.slice(0, target)
+  }
+
   const seen = new Set<string>()
   const pick = (pool: DbGame[], score: (g: DbGame) => number, n: number) => {
     const r = serverWeightedSample(pool.filter((g) => !seen.has(g.uuid)), score, n)
@@ -459,19 +518,29 @@ function buildHomepageSelection(all: DbGame[]): HomepageSelection {
   // 不从全库抽——数量占优的中腰部竞品游戏会在加权随机里淹没头部爆款
   const featuredPool = all.filter((g) => g.isFeatured)
 
+  // exclude 在策略抽样前从池里剔除（保证板块仍取满 N）；pin 在抽样后合并进结果
+  const exFilter = (key: string, pool: DbGame[]) => {
+    const ex = new Set(entriesFor(key).filter((e) => e.action === 'exclude').map((e) => e.gameUuid))
+    return ex.size ? pool.filter((g) => !ex.has(g.uuid)) : pool
+  }
+  const sampleSection = (key: string, pool: DbGame[], sc: (g: DbGame) => number, n: number) =>
+    applyManual(key, pick(exFilter(key, pool), sc, n), n)
+  const topSection = (key: string, pool: DbGame[], sc: (g: DbGame) => number, n: number, mpp = 3) =>
+    applyManual(key, pickTop(exFilter(key, pool), sc, n, mpp), n)
+
   const selection: HomepageSelection = {
-    popular:    pickTop(featuredPool.length >= 9 ? featuredPool : all, score, 9),
+    popular:    topSection('popular', featuredPool.length >= 9 ? featuredPool : all, score, 9),
     // 高返利专区：ph_bonus(洗码吸引力) 最高的头部，运营钩子位，紧随 popular
-    highRebate: pickTop(all.filter((g) => g.phBonus >= 15), (g) => g.phBonus, 6, 3),
-    newGames:   pick(newPool, score, 12),
-    slots:      pick(bySite('slot'), score, 6),
-    casino:     pick(bySite('casino'), score, 6),
-    perya:      pick(bySite('perya'), score, 12),
-    fishing:    pick(bySite('fishing'), score, 6),
-    lottery:    pick(bySite('lottery'), score, 12),
+    highRebate: topSection('highRebate', all.filter((g) => g.phBonus >= 15), (g) => g.phBonus, 6, 3),
+    newGames:   sampleSection('newGames', newPool, score, 12),
+    slots:      sampleSection('slots', bySite('slot'), score, 6),
+    casino:     sampleSection('casino', bySite('casino'), score, 6),
+    perya:      sampleSection('perya', bySite('perya'), score, 12),
+    fishing:    sampleSection('fishing', bySite('fishing'), score, 6),
+    lottery:    sampleSection('lottery', bySite('lottery'), score, 12),
     // 东方神话主题聚合：富化 theme 数据独有栏（asian-mythology 为最大主题）
-    mythology:  pick(all.filter((g) => g.theme === 'asian-mythology'), score, 12),
-    megaWin:    pick(all.filter((g) => (g.maxWinMultiplier ?? 0) >= 1000), score, 6),
+    mythology:  sampleSection('mythology', all.filter((g) => g.theme === 'asian-mythology'), score, 12),
+    megaWin:    sampleSection('megaWin', all.filter((g) => (g.maxWinMultiplier ?? 0) >= 1000), score, 6),
     generatedAt: new Date().toISOString(),
   }
 
@@ -482,10 +551,11 @@ export async function refreshHomepageSelection(env: Env): Promise<void> {
   const redis = getRedis(env)
   const allGames = await getGamesFromCache(env)
   if (!allGames.length) return
+  const overrides = await loadSectionOverrides(env)
 
   for (const cur of HOMEPAGE_CURRENCIES) {
     const pool = allGames.filter((g) => supportsCurrency(g, cur))
-    const selection = buildHomepageSelection(pool)
+    const selection = buildHomepageSelection(pool, cur, overrides)
     await redis.set(`${HOMEPAGE_KEY}:${cur}`, JSON.stringify(selection), 'EX', HOMEPAGE_TTL)
   }
   console.log('[homepage] selection refreshed (per-currency)')

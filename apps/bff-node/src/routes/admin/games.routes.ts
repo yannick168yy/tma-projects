@@ -11,8 +11,11 @@ import {
   listWin568CoverCandidates,
   getWin568ProviderStats,
   toggleWin568ProviderGames,
+  listHomepageSectionGames,
+  replaceHomepageSectionGames,
+  HOMEPAGE_SECTION_KEYS,
 } from '../../services/admin-store.js'
-import { syncAllGames, loadGamesCache, refreshHomepageSelection, stripMobileNamesInDb } from '../../services/sg-game.service.js'
+import { syncAllGames, loadGamesCache, refreshHomepageSelection, stripMobileNamesInDb, getGamesFromCache } from '../../services/sg-game.service.js'
 import { translateUntranslatedGames } from '../../services/game-translation.service.js'
 import { enrichWin568Game } from '../../services/win568-enrichment.service.js'
 import {
@@ -439,6 +442,57 @@ router.post('/refresh-homepage', async (ctx) => {
     ok(ctx, { ok: true })
   } catch (e) {
     fail(ctx, 500, e instanceof Error ? e.message : 'Refresh failed')
+  }
+})
+
+// 首页板块手动干预：当前各板块 pin/exclude 配置（附游戏名/图，取自 games 缓存）
+router.get('/homepage-sections', async (ctx) => {
+  try {
+    const [rows, games] = await Promise.all([
+      listHomepageSectionGames(ctx.state.env),
+      getGamesFromCache(ctx.state.env),
+    ])
+    const byUuid = new Map(games.map((g) => [g.uuid, g]))
+    const sections: Record<string, unknown[]> = {}
+    for (const key of HOMEPAGE_SECTION_KEYS) sections[key] = []
+    for (const r of rows) {
+      const g = byUuid.get(r.gameUuid)
+      ;(sections[r.sectionKey] ??= []).push({
+        ...r,
+        name: g?.name ?? null,
+        provider: g?.provider ?? null,
+        imageUrl: g?.imageUrl ?? null,
+        siteCategory: g?.siteCategory ?? null,
+      })
+    }
+    ok(ctx, { sectionKeys: HOMEPAGE_SECTION_KEYS, sections })
+  } catch (e) {
+    fail(ctx, 500, e instanceof Error ? e.message : 'Failed')
+  }
+})
+
+// 整体替换某板块(某币种)的 pin/exclude 列表，立即重建首页选品
+router.put('/homepage-sections/:sectionKey', async (ctx) => {
+  try {
+    const sectionKey = ctx.params.sectionKey
+    const body = ctx.request.body as {
+      currency?: string
+      items?: { gameUuid: string; action: 'pin' | 'exclude'; pinPosition: number | null }[]
+    }
+    const items = Array.isArray(body.items) ? body.items : []
+    await replaceHomepageSectionGames(ctx.state.env, sectionKey, body.currency ?? '', items)
+    await refreshHomepageSelection(ctx.state.env)
+    await writeAuditLog(ctx.state.env, {
+      adminId: ctx.state.adminId!,
+      adminUsername: ctx.state.adminUsername!,
+      action: 'game.homepage.section.update',
+      targetType: 'homepage_section',
+      targetId: `${sectionKey}:${body.currency ?? ''}`,
+      ip: ctx.ip,
+    })
+    ok(ctx, { ok: true })
+  } catch (e) {
+    fail(ctx, 400, e instanceof Error ? e.message : 'Failed')
   }
 })
 
