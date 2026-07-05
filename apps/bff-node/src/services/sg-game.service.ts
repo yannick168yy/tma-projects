@@ -714,12 +714,13 @@ export async function listGames(
   })
 
   const availableTotal = games.filter((g) => supportsCurrency(g, currency)).length
-  games = sortAvailableFirst(games, currency).map((g) => withCurrencySupport(g, currency))
+  games = sortAvailableFirst(games, currency)
   const total = currency ? availableTotal : games.length
   const offset = (page - 1) * limit
 
   return {
-    items: games.slice(offset, offset + limit),
+    // 只对返回的一页做币种标记，避免为整个大分类(slot 6700+)逐个建对象
+    items: games.slice(offset, offset + limit).map((g) => withCurrencySupport(g, currency)),
     total,
     page,
     pages: Math.ceil(games.length / limit),
