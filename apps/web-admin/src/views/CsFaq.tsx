@@ -56,7 +56,7 @@ export default function CsFaq() {
 
   function openCreate() {
     setEditingId(null)
-    form.setFieldsValue({ category: 'deposit', question: '', answer: '', lang: 'zh', sort_order: 0 })
+    form.setFieldsValue({ category: 'deposit', question: '', answer: '', lang: 'en', sort_order: 0 })
     setModalOpen(true)
   }
 
