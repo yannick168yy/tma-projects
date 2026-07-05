@@ -489,8 +489,8 @@ function buildHomepageSelection(all: DbGame[], cur: string, overrides: SectionOv
   }
 
   const seen = new Set<string>()
-  const pick = (pool: DbGame[], score: (g: DbGame) => number, n: number) => {
-    const r = serverWeightedSample(pool.filter((g) => !seen.has(g.uuid)), score, n)
+  const pick = (pool: DbGame[], score: (g: DbGame) => number, n: number, maxPerProvider = 2) => {
+    const r = serverWeightedSample(pool.filter((g) => !seen.has(g.uuid)), score, n, maxPerProvider)
     r.forEach((g) => seen.add(g.uuid))
     return r
   }
@@ -524,8 +524,8 @@ function buildHomepageSelection(all: DbGame[], cur: string, overrides: SectionOv
     const ex = new Set(entriesFor(key).filter((e) => e.action === 'exclude').map((e) => e.gameUuid))
     return ex.size ? pool.filter((g) => !ex.has(g.uuid)) : pool
   }
-  const sampleSection = (key: string, pool: DbGame[], sc: (g: DbGame) => number, n: number) =>
-    applyManual(key, pick(exFilter(key, pool), sc, n), n)
+  const sampleSection = (key: string, pool: DbGame[], sc: (g: DbGame) => number, n: number, mpp = 2) =>
+    applyManual(key, pick(exFilter(key, pool), sc, n, mpp), n)
   const topSection = (key: string, pool: DbGame[], sc: (g: DbGame) => number, n: number, mpp = 3) =>
     applyManual(key, pickTop(exFilter(key, pool), sc, n, mpp), n)
 
@@ -563,13 +563,13 @@ function buildHomepageSelection(all: DbGame[], cur: string, overrides: SectionOv
     // perya 含 bingo(bingo 游戏 site_category 本就归 perya)，2 行 6 款
     perya:      sampleSection('perya', bySite('perya'), score, 6),
     fishing:    sampleSection('fishing', bySite('fishing'), score, 6),
-    // 彩票 & 其他：纯 lottery(ntype207) 池偏薄，并入 other 杂类扩充
-    lottery:    sampleSection('lottery', all.filter((g) => g.siteCategory === 'lottery' || g.siteCategory === 'other'), score, 12),
+    // 彩票 & 其他：彩票(ntype207)低权重会被 other 淹没，先保底 4 彩票再用 other 补 8
+    lottery:    applyManual('lottery', [...pick(bySite('lottery'), score, 4), ...pick(bySite('other'), score, 8)], 12),
     // 东方神话主题聚合：富化 theme 数据独有栏（asian-mythology 为最大主题）
     mythology:  sampleSection('mythology', all.filter((g) => g.theme === 'asian-mythology'), score, 12),
     megaWin:    sampleSection('megaWin', all.filter((g) => (g.maxWinMultiplier ?? 0) >= 1000), score, 6),
-    // 体育：真实体育游戏(排除体育投注合成条目，它有专属通栏)。USDT 仅 1 款、空则前端自动隐藏
-    sports:     sampleSection('sports', bySite('sports').filter((g) => g.uuid !== WIN568_SPORTSBOOK_UUID), score, 6),
+    // 体育：真实体育游戏(排除体育投注合成条目)。LuckySports 独占 29/32，厂商配额放宽到 6 才填得满
+    sports:     sampleSection('sports', bySite('sports').filter((g) => g.uuid !== WIN568_SPORTSBOOK_UUID), score, 6, 6),
     generatedAt: new Date().toISOString(),
   }
 
