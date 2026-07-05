@@ -532,14 +532,23 @@ function buildHomepageSelection(all: DbGame[], cur: string, overrides: SectionOv
   // 露出)②主体从 featured 核心池按热度取、每厂商≤3(JILI 等龙头在 PH 本就多爆款)③featured
   // 池填不满时从全库高热度补足到 9。体育合成条目(isFeatured=true)有专属通栏，从热门剔除。
   const notSports = (g: DbGame) => g.uuid !== WIN568_SPORTSBOOK_UUID
-  // 真人席位从全部真人游戏按热度取（不限 featured）——真人竞品交叉曝光弱、几乎进不了核心池
-  const casinoSeat = pickTop(exFilter('popular', bySite('casino')).filter(notSports), score, 1, 1)
-  const need = 9 - casinoSeat.length
-  const fromFeatured = pickTop(exFilter('popular', featuredPool).filter(notSports), score, need, 3)
-  const backfill = fromFeatured.length < need
-    ? pickTop(exFilter('popular', all).filter(notSports), score, need - fromFeatured.length, 3)
-    : []
-  const popularMerged = [...fromFeatured, ...backfill]
+  // 全局厂商配额(≤3)贯穿"真人席位+featured 主体+全库补足"三段，避免跨来源各自限厂商、
+  // 累加后单厂商屠版(USDT featured 池小、JDB 密集时尤甚)。共享 seen 保留跨板块去重。
+  const popCounts = new Map<string, number>()
+  const takePopular = (pool: DbGame[], n: number) => {
+    const out: DbGame[] = []
+    for (const g of pool.filter((x) => !seen.has(x.uuid) && notSports(x)).sort((a, b) => score(b) - score(a))) {
+      if (out.length >= n) break
+      if ((popCounts.get(g.provider) ?? 0) >= 3) continue
+      out.push(g); seen.add(g.uuid); popCounts.set(g.provider, (popCounts.get(g.provider) ?? 0) + 1)
+    }
+    return out
+  }
+  // 真人席位从全部真人游戏取（不限 featured，真人竞品覆盖弱进不了核心池），其余 featured 优先、不足从全库补
+  const casinoSeat = takePopular(exFilter('popular', bySite('casino')), 1)
+  const featuredPart = takePopular(exFilter('popular', featuredPool), 9 - casinoSeat.length)
+  const backfillPart = takePopular(exFilter('popular', all), 9 - casinoSeat.length - featuredPart.length)
+  const popularMerged = [...featuredPart, ...backfillPart]
   if (casinoSeat.length) popularMerged.splice(Math.min(2, popularMerged.length), 0, ...casinoSeat)
 
   const selection: HomepageSelection = {
