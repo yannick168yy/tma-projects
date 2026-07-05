@@ -4,6 +4,8 @@ import type { Redis } from 'ioredis'
 import { ok, fail } from '../utils/response.js'
 import { handleUserMessage } from '../services/cs/cs.service.js'
 import { getOrCreateConversation, getMessages } from '../services/cs/cs-store.js'
+import { CS_INTENTS, CS_WELCOME_SETTING_KEY, DEFAULT_WELCOME } from '../services/cs/cs-intents.js'
+import { getAdminSetting } from '../services/admin-store.js'
 
 const GUEST_HOURLY_LIMIT = 20
 const USER_MINUTE_LIMIT = 20
@@ -31,14 +33,26 @@ async function checkRateLimit(
 
 const router = new Router()
 
+// GET /cs/welcome — 欢迎语 + 后台可配（登录/游客均可）
+router.get('/cs/welcome', async (ctx) => {
+  const configured = await getAdminSetting(ctx.state.env, CS_WELCOME_SETTING_KEY)
+  ok(ctx, { welcome: configured?.trim() || DEFAULT_WELCOME })
+})
+
 // POST /cs/message — 发送消息，获取 AI 回复（登录/游客均可）
+// 传 intent（快捷选项）时忽略 message，使用意图预设文案 + 模型定向指令
 router.post('/cs/message', async (ctx) => {
-  const { message } = ctx.request.body as { message?: string }
-  if (!message?.trim()) {
+  const { message, intent } = ctx.request.body as { message?: string; intent?: string }
+  const intentDef = intent ? CS_INTENTS[intent] : undefined
+  if (intent && !intentDef) {
     fail(ctx, 400, 'errors.csEmpty')
     return
   }
-  if (message.length > 2000) {
+  if (!intentDef && !message?.trim()) {
+    fail(ctx, 400, 'errors.csEmpty')
+    return
+  }
+  if (message && message.length > 2000) {
     fail(ctx, 400, 'errors.csTooLong')
     return
   }
@@ -73,7 +87,9 @@ router.post('/cs/message', async (ctx) => {
     }
   }
 
-  const result = await handleUserMessage(ctx.state.env, effectiveUserId, message.trim())
+  const result = intentDef
+    ? await handleUserMessage(ctx.state.env, effectiveUserId, intentDef.userText, intentDef.hint)
+    : await handleUserMessage(ctx.state.env, effectiveUserId, message!.trim())
   ok(ctx, result)
 })
 

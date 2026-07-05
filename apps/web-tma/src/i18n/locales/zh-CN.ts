@@ -137,6 +137,16 @@ export default {
     welcome: '您好！我是 BetoGo 的智能客服 Kaya，很高兴为您服务。有什么可以帮到您？',
     sendFailed: '抱歉，消息发送失败，请稍后再试。',
     inputPlaceholder: '输入您的问题…',
+    quick: {
+      deposit: '充值未到账',
+      withdrawal: '提现进度',
+      cannotWithdraw: '为什么不能提现？',
+      kyc: 'KYC 实名认证',
+      promotions: '优惠活动',
+      games: '游戏问题',
+      account: '账号与登录',
+      human: '转人工客服',
+    },
   },
   kyc: {
     faceFailed: '人脸识别失败，请重试',

@@ -138,6 +138,16 @@ export default {
     welcome: 'Hi! I’m Kaya, BetoGo’s AI assistant. How can I help you today?',
     sendFailed: 'Sorry, the message failed to send. Please try again later.',
     inputPlaceholder: 'Type your question…',
+    quick: {
+      deposit: 'Deposit not credited',
+      withdrawal: 'Withdrawal status',
+      cannotWithdraw: "Why can't I withdraw?",
+      kyc: 'KYC verification',
+      promotions: 'Bonuses & promotions',
+      games: 'Game issues',
+      account: 'Account & login',
+      human: 'Talk to a human agent',
+    },
   },
   kyc: {
     faceFailed: 'Face verification failed, please try again',

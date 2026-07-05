@@ -592,6 +592,8 @@ export const updateFaq = (id: number, data: Partial<{ category: string; question
   req<FaqItem>('PATCH', `/admin/cs/faq/${id}`, data)
 export const deleteFaq = (id: number) =>
   req<{ success: boolean }>('DELETE', `/admin/cs/faq/${id}`)
+export const getCsWelcome = () => get<{ welcome: string; defaultWelcome: string }>('/admin/cs/welcome')
+export const saveCsWelcome = (welcome: string) => req<{ success: boolean }>('PUT', '/admin/cs/welcome', { welcome })
 
 // ── 三级分销管理 ──────────────────────────────────────────────────────────────
 

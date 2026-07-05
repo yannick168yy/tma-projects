@@ -32,6 +32,7 @@ export async function handleUserMessage(
   env: Env,
   userId: string,
   userText: string,
+  hint?: string,
 ): Promise<{ reply: string; conversationId: number; status: string }> {
   const conversation = await getOrCreateConversation(env, userId)
   const conversationId = conversation.id
@@ -58,7 +59,9 @@ export async function handleUserMessage(
   })
 
   const chat = model.startChat({ history: historyContents })
-  let response = await chat.sendMessage(userText)
+  // hint 只发给模型,不入库不展示
+  const modelText = hint ? `${userText}\n\n[System note: ${hint}]` : userText
+  let response = await chat.sendMessage(modelText)
 
   for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
     const candidate = response.response.candidates?.[0]

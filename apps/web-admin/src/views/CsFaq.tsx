@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import { Table, Space, Input, Select, Button, Tag, Switch, Modal, Form, Row, Col, InputNumber, Popconfirm, Typography, message } from 'antd'
+import { Table, Space, Input, Select, Button, Tag, Switch, Modal, Form, Row, Col, InputNumber, Popconfirm, Typography, Card, message } from 'antd'
 import type { TablePaginationConfig } from 'antd'
-import { getFaqList, createFaq, updateFaq, deleteFaq, type FaqItem } from '../api'
+import { getFaqList, createFaq, updateFaq, deleteFaq, getCsWelcome, saveCsWelcome, type FaqItem } from '../api'
 
 const CATEGORIES = [
   { value: 'deposit', label: '充值', color: 'blue' },
@@ -15,6 +15,40 @@ const CATEGORIES = [
 
 function categoryLabel(val: string) { return CATEGORIES.find((c) => c.value === val)?.label ?? val }
 function categoryColor(val: string) { return CATEGORIES.find((c) => c.value === val)?.color ?? 'default' }
+
+function WelcomeConfig() {
+  const [welcome, setWelcome] = useState('')
+  const [placeholder, setPlaceholder] = useState('')
+  const [savingWelcome, setSavingWelcome] = useState(false)
+
+  useEffect(() => {
+    getCsWelcome()
+      .then((res) => { setWelcome(res.welcome); setPlaceholder(res.defaultWelcome) })
+      .catch(() => {})
+  }, [])
+
+  async function save() {
+    setSavingWelcome(true)
+    try { await saveCsWelcome(welcome); message.success('欢迎语已保存') }
+    catch { message.error('保存失败') }
+    finally { setSavingWelcome(false) }
+  }
+
+  return (
+    <Card size="small" title="AI 客服欢迎语（留空使用默认英文欢迎语）" style={{ marginBottom: 16 }}>
+      <Input.TextArea
+        value={welcome}
+        autoSize={{ minRows: 2, maxRows: 4 }}
+        maxLength={1000}
+        placeholder={placeholder}
+        onChange={(e) => setWelcome(e.target.value)}
+      />
+      <div style={{ marginTop: 8, textAlign: 'right' }}>
+        <Button type="primary" loading={savingWelcome} onClick={() => void save()}>保存</Button>
+      </div>
+    </Card>
+  )
+}
 
 export default function CsFaq() {
   const [keyword, setKeyword] = useState('')
@@ -115,6 +149,7 @@ export default function CsFaq() {
   return (
     <div>
       <h2>知识库管理</h2>
+      <WelcomeConfig />
       <Space style={{ marginBottom: 16 }} wrap>
         <Input.Search
           value={keyword}

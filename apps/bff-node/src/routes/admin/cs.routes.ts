@@ -9,8 +9,27 @@ import {
   saveMessage,
   updateConversationStatus,
 } from '../../services/cs/cs-store.js'
+import { CS_WELCOME_SETTING_KEY, DEFAULT_WELCOME } from '../../services/cs/cs-intents.js'
+import { getAdminSetting, setAdminSetting } from '../../services/admin-store.js'
 
 const router = new Router()
+
+// GET /admin/cs/welcome — 查看 AI 欢迎语配置
+router.get('/cs/welcome', async (ctx) => {
+  const configured = await getAdminSetting(ctx.state.env, CS_WELCOME_SETTING_KEY)
+  ok(ctx, { welcome: configured ?? '', defaultWelcome: DEFAULT_WELCOME })
+})
+
+// PUT /admin/cs/welcome — 修改 AI 欢迎语（留空恢复默认）
+router.put('/cs/welcome', async (ctx) => {
+  const { welcome } = ctx.request.body as { welcome?: string }
+  if (typeof welcome !== 'string' || welcome.length > 1000) {
+    fail(ctx, 400, '欢迎语不合法（最长 1000 字符）')
+    return
+  }
+  await setAdminSetting(ctx.state.env, CS_WELCOME_SETTING_KEY, welcome.trim())
+  ok(ctx, { success: true })
+})
 
 // GET /admin/cs/conversations — 会话列表
 router.get('/cs/conversations', async (ctx) => {

@@ -1,13 +1,24 @@
 import { useState, useRef, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Send, Headphones, Loader2 } from 'lucide-react'
-import { sendCsMessage, fetchCsHistory } from '@/api/cs'
+import { sendCsMessage, sendCsIntent, fetchCsHistory, fetchCsWelcome } from '@/api/cs'
 import type { CsMessage } from '@/api/cs'
 import { ApiError } from '@/api/client'
 import { translateApiError } from '@/utils/translateApiError'
 import { useAuthStore } from '@/stores/auth'
 
 interface Props { onClose: () => void }
+
+const QUICK_OPTIONS: { intent: string; emoji: string; labelKey: string }[] = [
+  { intent: 'deposit_not_credited', emoji: '💰', labelKey: 'cs.quick.deposit' },
+  { intent: 'withdrawal_status', emoji: '💸', labelKey: 'cs.quick.withdrawal' },
+  { intent: 'cannot_withdraw', emoji: '🔒', labelKey: 'cs.quick.cannotWithdraw' },
+  { intent: 'kyc_help', emoji: '🪪', labelKey: 'cs.quick.kyc' },
+  { intent: 'promotions', emoji: '🎁', labelKey: 'cs.quick.promotions' },
+  { intent: 'game_issue', emoji: '🎮', labelKey: 'cs.quick.games' },
+  { intent: 'account_issue', emoji: '👤', labelKey: 'cs.quick.account' },
+  { intent: 'human_agent', emoji: '🧑‍💻', labelKey: 'cs.quick.human' },
+]
 
 export default function CustomerServicePage({ onClose }: Props) {
   const { t } = useTranslation()
@@ -17,6 +28,7 @@ export default function CustomerServicePage({ onClose }: Props) {
   const [sending, setSending] = useState(false)
   const [loading, setLoading] = useState(true)
   const [conversationStatus, setConversationStatus] = useState('active')
+  const [welcome, setWelcome] = useState('')
   const msgRef = useRef<HTMLDivElement>(null)
 
   function scrollToBottom() {
@@ -24,6 +36,7 @@ export default function CustomerServicePage({ onClose }: Props) {
   }
 
   useEffect(() => {
+    fetchCsWelcome().then((res) => setWelcome(res.welcome)).catch(() => {})
     if (!isLoggedIn) { setLoading(false); return }
     fetchCsHistory()
       .then((res) => { setMessages(res.messages); setConversationStatus(res.conversation.status) })
@@ -31,16 +44,13 @@ export default function CustomerServicePage({ onClose }: Props) {
       .finally(() => { setLoading(false); scrollToBottom() })
   }, [isLoggedIn])
 
-  async function send() {
-    const text = inputText.trim()
-    if (!text || sending) return
-    setInputText('')
-    const userMsg: CsMessage = { id: Date.now(), conversationId: 0, role: 'user', content: text, createdAt: new Date().toISOString() }
+  async function dispatch(displayText: string, request: () => Promise<{ reply: string; conversationId: number; status: string }>) {
+    const userMsg: CsMessage = { id: Date.now(), conversationId: 0, role: 'user', content: displayText, createdAt: new Date().toISOString() }
     setMessages((prev) => [...prev, userMsg])
     scrollToBottom()
     setSending(true)
     try {
-      const res = await sendCsMessage(text)
+      const res = await request()
       setConversationStatus(res.status)
       const reply: CsMessage = { id: Date.now() + 1, conversationId: res.conversationId, role: res.status === 'human_taken' ? 'admin' : 'assistant', content: res.reply, createdAt: new Date().toISOString() }
       setMessages((prev) => [...prev, reply])
@@ -52,6 +62,18 @@ export default function CustomerServicePage({ onClose }: Props) {
     } finally {
       setSending(false)
     }
+  }
+
+  async function send() {
+    const text = inputText.trim()
+    if (!text || sending) return
+    setInputText('')
+    await dispatch(text, () => sendCsMessage(text))
+  }
+
+  async function sendQuickOption(intent: string, label: string) {
+    if (sending) return
+    await dispatch(label, () => sendCsIntent(intent))
   }
 
   function onKeydown(e: React.KeyboardEvent) {
@@ -83,12 +105,28 @@ export default function CustomerServicePage({ onClose }: Props) {
         ) : (
           <>
             {messages.length === 0 && (
-              <div className="flex justify-start">
-                <div className="max-w-[85%] rounded-2xl rounded-tl-sm bg-secondary px-3.5 py-2.5">
-                  <p className="text-xs text-muted-foreground mb-1">{t('cs.aiLabel')}</p>
-                  <p className="text-sm text-foreground">{t('cs.welcome')}</p>
+              <>
+                <div className="flex justify-start">
+                  <div className="max-w-[85%] rounded-2xl rounded-tl-sm bg-secondary px-3.5 py-2.5">
+                    <p className="text-xs text-muted-foreground mb-1">{t('cs.aiLabel')}</p>
+                    <p className="text-sm text-foreground">{welcome || t('cs.welcome')}</p>
+                  </div>
                 </div>
-              </div>
+                <div className="grid grid-cols-2 gap-2">
+                  {QUICK_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.intent}
+                      type="button"
+                      disabled={sending}
+                      className="flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2.5 text-left text-sm text-foreground active:bg-secondary disabled:opacity-40"
+                      onClick={() => void sendQuickOption(opt.intent, t(opt.labelKey))}
+                    >
+                      <span>{opt.emoji}</span>
+                      <span className="flex-1 leading-tight">{t(opt.labelKey)}</span>
+                    </button>
+                  ))}
+                </div>
+              </>
             )}
             {messages.map((msg) => (
               <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>

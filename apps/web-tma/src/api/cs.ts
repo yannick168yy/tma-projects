@@ -19,6 +19,14 @@ export async function sendCsMessage(text: string): Promise<{ reply: string; conv
   return apiRequest('/cs/message', { method: 'POST', body: JSON.stringify({ message: text }) })
 }
 
+export async function sendCsIntent(intent: string): Promise<{ reply: string; conversationId: number; status: string }> {
+  return apiRequest('/cs/message', { method: 'POST', body: JSON.stringify({ intent }) })
+}
+
+export async function fetchCsWelcome(): Promise<{ welcome: string }> {
+  return apiRequest('/cs/welcome')
+}
+
 export async function fetchCsHistory(): Promise<{ conversation: CsConversation; messages: CsMessage[] }> {
   return apiRequest('/cs/history')
 }
