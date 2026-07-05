@@ -1,6 +1,7 @@
 import { lazy, Suspense, useState, useEffect, useRef, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ChevronDown, ChevronLeft, Wallet, Gift, Home, Menu, Dices, Check, Search, Headset } from 'lucide-react'
+import BetogoLogo from '@/components/BetogoLogo'
 import { NAV_ITEMS } from '@/data/home'
 import { useAuthStore } from '@/stores/auth'
 import {
@@ -286,9 +287,7 @@ export default function AppShell() {
         {!isImmersive && (
         <header ref={headerRef} className="app-fixed-top bg-background" style={walletOpen ? { zIndex: 50 } : undefined}>
           <div className="app-safe-header flex items-center gap-3 px-4 pb-2">
-            <button type="button" className="flex-shrink-0 cursor-pointer" onClick={goHome}>
-              <img src="/logos/logo-header.webp" alt="Bet.Go.Win" className="h-8 w-auto" />
-            </button>
+            <button type="button" className="flex-shrink-0 cursor-pointer" onClick={goHome}><BetogoLogo /></button>
 
             <div className="flex flex-1 items-center justify-center gap-3">
               <button ref={balanceTriggerRef} type="button" className="flex flex-col items-center gap-0.5" onClick={() => void onBalanceTap()}>
