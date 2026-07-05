@@ -68,7 +68,6 @@ node scripts/e2e-smoke.mjs
 |------|---------------|----------|
 | Telegram Bot | 测试 Bot、Mini App 入口、Bot Token | 真机打开、Telegram initData、支付回调 |
 | Ammer Pay | Test Provider Token、Merchant Hub 沙箱账号、测试支付方式 | 充值支付和 successful_payment |
-| SG / Slotegrator | 测试商户、测试游戏、回调白名单 | 游戏启动、下注、派奖、回滚 |
 | Matrix / 出款通道 | 沙箱商户、测试收款账号、回调地址 | 提款 check / callback / 失败退款 |
 | KYC 识别服务 | 测试图片、相机权限、必要时 Gemini/OCR 沙箱配置 | 证件识别、活体或自拍链路 |
 

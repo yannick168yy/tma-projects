@@ -105,7 +105,6 @@ function createRedis(setResult: string | null = 'OK') {
     },
     async get(key: string) {
       this.getCalls.push(key)
-      if (key.startsWith('sg:session:')) return JSON.stringify({ wallet: 'PHP' })
       return null
     },
   }
@@ -114,13 +113,11 @@ function createRedis(setResult: string | null = 'OK') {
 async function createApp(opts: { mysql?: FakePool; redis?: ReturnType<typeof createRedis>; js?: { publish: (subject: string, payload: string) => Promise<void> } } = {}) {
   const { internalRoutes } = await import('../routes/internal.routes.js')
   const { callbackRoutes } = await import('../routes/callback.routes.js')
-  const { sgCallbackRoutes } = await import('../routes/sg-callback.routes.js')
   const app = Fastify({ logger: false })
   app.decorate('mysql', (opts.mysql ?? createPool()) as never)
   app.decorate('redis', (opts.redis ?? createRedis()) as never)
   app.decorate('js', (opts.js ?? { async publish() {} }) as never)
   await app.register(callbackRoutes, { prefix: '/api/v1' })
-  await app.register(sgCallbackRoutes, { prefix: '/api/v1' })
   await app.register(internalRoutes)
   return app
 }
@@ -265,118 +262,6 @@ describe('内部支付入账接口', () => {
     assert.equal(conn.committed, false)
     assert.equal(conn.rolledBack, true)
     assert.equal(conn.released, true)
-  })
-})
-
-describe('SG 回调', () => {
-  it('balance 读取 session 钱包币种并返回余额', async () => {
-    const pool = createPool({
-      query(sql, params) {
-        assert.equal(sql.includes('SELECT available FROM bg_wallet'), true)
-        assert.deepEqual(params, ['U1', 'PHP'])
-        return [[{ available: 123.45 }]]
-      },
-    })
-    const app = await createApp({ mysql: pool })
-
-    const res = await app.inject({
-      method: 'POST',
-      url: '/api/v1/sg/callback',
-      payload: { action: 'balance', player_id: 'U1', session_id: 'S1' },
-    })
-
-    assert.equal(res.statusCode, 200)
-    assert.deepEqual(res.json(), { balance: 123.45 })
-  })
-
-  it('transaction_id 命中幂等快照时直接返回缓存响应', async () => {
-    const pool = createPool({
-      execute(sql, params) {
-        assert.equal(sql.includes('SELECT response_snapshot'), true)
-        assert.deepEqual(params, ['TX-CACHED'])
-        return [[{ response_snapshot: JSON.stringify({ balance: 777, transaction_id: 'cached' }) }]]
-      },
-    })
-    const app = await createApp({ mysql: pool })
-
-    const res = await app.inject({
-      method: 'POST',
-      url: '/api/v1/sg/callback',
-      payload: { action: 'bet', player_id: 'U1', transaction_id: 'TX-CACHED', amount: 30 },
-    })
-
-    assert.equal(res.statusCode, 200)
-    assert.deepEqual(res.json(), { balance: 777, transaction_id: 'cached' })
-    assert.equal(pool.conn.queries.length, 0)
-  })
-
-  it('bet 成功时扣余额、写 ledger、写投注单、分配流水并提交事务', async () => {
-    const conn = createConn({
-      query(sql) {
-        if (sql.includes('FOR UPDATE')) return [[{ available: 100 }]]
-        if (sql.includes('SELECT available FROM bg_wallet')) return [[{ available: 70 }]]
-        if (sql.includes('FROM sg_games')) return [[{ sort_category: 'slots', rate: 1 }]]
-        if (sql.includes('FROM bg_turnover_requirements')) return [[]]
-        return [[]]
-      },
-      execute(sql) {
-        if (sql.includes('INSERT INTO bg_bet_order')) return [{ insertId: 99 }]
-        if (sql.includes('INSERT INTO bg_turnover_logs')) return [{ insertId: 199 }]
-        return [{}]
-      },
-    })
-    const pool = createPool({
-      conn,
-      execute(sql) {
-        if (sql.includes('SELECT response_snapshot')) return [[]]
-        return [{}]
-      },
-    })
-    const app = await createApp({ mysql: pool })
-
-    const res = await app.inject({
-      method: 'POST',
-      url: '/api/v1/sg/callback',
-      payload: { action: 'bet', player_id: 'U1', transaction_id: 'TX-BET', amount: 30, round_id: 'R1', game_uuid: 'G1' },
-    })
-
-    assert.equal(res.statusCode, 200)
-    assert.equal(res.json().balance, 70)
-    assert.equal(conn.committed, true)
-    assert.equal(conn.rolledBack, false)
-    assert.equal(conn.executes.some((e) => e.sql.includes('UPDATE bg_wallet SET available = available - ?') && e.params?.[0] === 30), true)
-    assert.equal(conn.executes.some((e) => e.sql.includes('INSERT INTO bg_wallet_ledger') && e.params?.[3] === -30), true)
-    assert.equal(conn.executes.some((e) => e.sql.includes('INSERT INTO bg_bet_order')), true)
-    assert.equal(conn.executes.some((e) => e.sql.includes('INSERT INTO bg_turnover_logs')), true)
-    assert.equal(conn.executes.some((e) => e.sql.includes('INSERT IGNORE INTO bg_idempotency')), true)
-  })
-
-  it('bet 余额不足时回滚且不写 ledger', async () => {
-    const conn = createConn({
-      query(sql) {
-        if (sql.includes('FOR UPDATE')) return [[{ available: 10 }]]
-        return [[]]
-      },
-    })
-    const pool = createPool({
-      conn,
-      execute(sql) {
-        if (sql.includes('SELECT response_snapshot')) return [[]]
-        return [{}]
-      },
-    })
-    const app = await createApp({ mysql: pool })
-
-    const res = await app.inject({
-      method: 'POST',
-      url: '/api/v1/sg/callback',
-      payload: { action: 'bet', player_id: 'U1', transaction_id: 'TX-LOW', amount: 30 },
-    })
-
-    assert.equal(res.statusCode, 200)
-    assert.equal(res.json().error_code, 'INSUFFICIENT_FUNDS')
-    assert.equal(conn.rolledBack, true)
-    assert.equal(conn.executes.some((e) => e.sql.includes('INSERT INTO bg_wallet_ledger')), false)
   })
 })
 

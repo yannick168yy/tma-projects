@@ -18,7 +18,6 @@ import yfpayRoutes from './yfpay.routes.js'
 import paymentUnifiedRoutes from './payment-unified.routes.js'
 import slotsRoutes from './slots.routes.js'
 import betsRoutes from './bets.routes.js'
-import sgRoutes from './sg.routes.js'
 import turnoverRoutes from './turnover.routes.js'
 import rebateRoutes from './rebate.routes.js'
 import spinRoutes from './spin.routes.js'
@@ -38,10 +37,9 @@ export function createApiRouter(): Router {
   // SSE 推送端点：自行在 handler 内验 token，不经过 adminAuthMiddleware
   api.use(adminSseRoutes.routes(), adminSseRoutes.allowedMethods())
 
-  // 无需鉴权：webhook + 登录 + SG回调透传
+  // 无需鉴权：webhook + 登录
   api.use(webhookRoutes.routes(), webhookRoutes.allowedMethods())
   api.use(authRoutes.routes(), authRoutes.allowedMethods())
-  api.use(sgRoutes.routes(), sgRoutes.allowedMethods())
   api.use(homeContentRoutes.routes(), homeContentRoutes.allowedMethods())
 
   // 公开：活动参数配置（App 启动即拉，先于登录完成，不含用户数据）
@@ -60,7 +58,7 @@ export function createApiRouter(): Router {
     }
   })
 
-  // 游戏大厅：游戏列表/demo 公开，/init /sync 需要鉴权（handler 内检查 userId）
+  // 游戏大厅：游戏列表公开，/init 需要鉴权（handler 内检查 userId）
   const optMw = optionalAuthMiddleware()
   api.use(optMw, slotsRoutes.routes(), slotsRoutes.allowedMethods())
 

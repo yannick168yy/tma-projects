@@ -17,13 +17,6 @@ const schema = z.object({
   NATS_LEDGER_SUBJECT: z.string().default('betogo.ledger'),
   NATS_CALLBACK_SUBJECT: z.string().default('betogo.callback'),
 
-  // SG 回调处理
-  SG_MERCHANT_ID: z.string().default(''),
-  SG_MERCHANT_KEY: z.string().default(''),
-  SG_CURRENCY: z.string().default('EUR'),
-  // 多货币模式：true = 按回调 currency 字段区分账户；false = 全部视为 SG_CURRENCY
-  SG_MULTI_CURRENCY: z.enum(['true', 'false']).default('false').transform((v) => v === 'true'),
-
   // 568Win 聚合商
   WIN568_BASE_URL: z.string().default('https://test-api.568win.com'),
   WIN568_COMPANY_KEY: z.string().default(''),
@@ -59,9 +52,6 @@ const parsed = schema.parse(process.env)
 if (parsed.NODE_ENV === 'production') {
   const missing: string[] = []
   if (!parsed.INTERNAL_TOKEN.trim()) missing.push('INTERNAL_TOKEN')
-  if ((parsed.SG_MERCHANT_ID.trim() || parsed.SG_MERCHANT_KEY.trim()) && !parsed.SG_MERCHANT_KEY.trim()) {
-    missing.push('SG_MERCHANT_KEY')
-  }
   if ((parsed.WIN568_COMPANY_KEY.trim() || parsed.WIN568_SERVER_ID.trim()) && !parsed.WIN568_SERVER_ID.trim()) {
     missing.push('WIN568_SERVER_ID')
   }

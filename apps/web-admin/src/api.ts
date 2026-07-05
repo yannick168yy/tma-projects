@@ -72,7 +72,6 @@ export const getDashboard = () => get<{
   todayDepositCount: number; todayDepositAmount: number
   todayWithdrawCount: number; todayWithdrawAmount: number
   pendingWithdrawCount: number; totalBalance: number
-  sgMultiCurrency: boolean
 }>('/admin/dashboard')
 
 // Users
@@ -399,57 +398,23 @@ export const removeBlacklist = (id: number) =>
   req<{ deleted: number }>('DELETE', `/admin/review/blacklist/${id}`)
 
 // Games
-export interface AdminGame {
-  uuid: string; name: string; nameId: string | null; nameVi: string | null; nameZh: string | null
-  type: string | null; provider: string; providerId: number | null
-  technology: string | null; category: string | null; subCategory: string | null
-  imageUrl: string | null; imageHqUrl: string | null
-  hasDemo: boolean; hasLobby: boolean; isMobile: boolean
-  hasFreespins: boolean; hasTables: boolean
-  label: string | null; rtp: number | null; volatility: string | null
-  reelsCount: string | null; linesCount: number | null
-  tags: string[]; isActive: boolean; updatedAt: string | null
-  weight: number; phBonus: number; isFeatured: boolean; sortCategory: string | null
-  theme: string | null; gameStyle: string | null; playerType: string | null
-  descriptionEn: string | null; descriptionZh: string | null
-  searchKeywords: string | null; weightUpdatedAt: string | null
-}
-export const getAdminGames = (params: {
-  page?: number; pageSize?: number; provider?: string; search?: string; isActive?: boolean
-  type?: string; sortCategory?: string; volatility?: string; isFeatured?: boolean
-  hasDemo?: boolean; theme?: string; gameStyle?: string; playerType?: string
-  technology?: string
-  weightMin?: number; weightMax?: number
-  sortField?: string; sortOrder?: 'asc' | 'desc'
-}) =>
-  get<{ total: number; items: AdminGame[]; providers: string[] }>('/admin/games', params)
-export const toggleGame = (uuid: string, isActive: boolean) =>
-  patch<{ uuid: string; isActive: boolean }>(`/admin/games/${uuid}/toggle`, { isActive })
 export interface AdminGameJob {
   id: string
-  type: 'games_sync' | 'games_translate' | 'win568_games_sync'
+  type: 'win568_games_sync'
   status: 'pending' | 'running' | 'done' | 'failed'
   progress: number
   total: number
   message: string
-  result?: { synced?: number; translated?: number; errors?: number; total?: number }
+  result?: { synced?: number }
   error?: string
 }
 
-export const startSyncGames = () =>
-  post<{ jobId: string; alreadyRunning?: boolean }>('/admin/games/sync', {})
 export const startWin568SyncGames = () =>
   post<{ jobId: string; alreadyRunning?: boolean }>('/admin/games/win568-sync', {})
-export const startTranslateGames = () =>
-  post<{ jobId: string; alreadyRunning?: boolean }>('/admin/games/translate', {})
 export const getGameJob = (jobId: string) =>
   get<AdminGameJob>(`/admin/games/jobs/${jobId}`)
 
 export interface ProviderStat { provider: string; total: number; active: number; rtps?: number[] }
-export const getProviderStats = () =>
-  get<ProviderStat[]>('/admin/games/provider-stats')
-export const toggleProviderGames = (provider: string, isActive: boolean) =>
-  post<{ provider: string; isActive: boolean; affected: number }>('/admin/games/provider-toggle', { provider, isActive })
 
 export interface AdminWin568Game {
   uuid: string

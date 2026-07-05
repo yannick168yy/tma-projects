@@ -38,13 +38,13 @@ router.get('/', async (ctx) => {
        sub.currency_code,
        sub.created_at,
        sub.max_id,
-       COALESCE(g.name, wo.name_override, wg.name_en, wg.name_zh, IF(wg.game_id IS NULL, NULL, CONCAT('568Win ', wg.game_id))) AS game_name,
-       COALESCE(g.name_zh, wg.name_zh) AS game_name_zh,
-       g.name_vi AS game_name_vi,
-       g.name_id AS game_name_id,
-       COALESCE(g.provider, wg.provider, IF(wg.game_id IS NULL, NULL, '568Win')) AS game_provider,
-       COALESCE(g.image_url, wo.image_override, wg.icon_url) AS game_image,
-       COALESCE(g.image_hq_url, wo.image_override, wg.icon_url) AS game_image_hq
+       COALESCE(wo.name_override, wg.name_en, wg.name_zh, IF(wg.game_id IS NULL, NULL, CONCAT('568Win ', wg.game_id))) AS game_name,
+       wg.name_zh AS game_name_zh,
+       NULL AS game_name_vi,
+       NULL AS game_name_id,
+       COALESCE(wg.provider, IF(wg.game_id IS NULL, NULL, '568Win')) AS game_provider,
+       COALESCE(wo.image_override, wg.icon_url) AS game_image,
+       COALESCE(wo.image_override, wg.icon_url) AS game_image_hq
      FROM (
        SELECT
          MAX(round_id)                                                         AS round_id,
@@ -62,7 +62,6 @@ router.get('/', async (ctx) => {
        ORDER BY MAX(id) DESC
        LIMIT ? OFFSET ?
      ) sub
-     LEFT JOIN sg_games g ON g.uuid = sub.game_uuid
      LEFT JOIN bg_568win_wallet_txn wt
        ON sub.aggregator_id = '568win'
       AND wt.transfer_code = CASE

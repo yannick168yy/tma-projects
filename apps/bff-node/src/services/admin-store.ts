@@ -168,7 +168,6 @@ export interface DashboardStats {
   todayWithdrawAmount: number
   pendingWithdrawCount: number
   totalBalance: number
-  sgMultiCurrency: boolean
 }
 
 export async function getDashboardStats(env: Env): Promise<DashboardStats> {
@@ -211,7 +210,6 @@ export async function getDashboardStats(env: Env): Promise<DashboardStats> {
     todayDepositCount, todayDepositAmount,
     todayWithdrawCount, todayWithdrawAmount,
     pendingWithdrawCount, totalBalance,
-    sgMultiCurrency: env.SG_MULTI_CURRENCY,
   }
 }
 
@@ -378,135 +376,11 @@ export async function getBetOrders(
   }))
 }
 
-export async function listAdminGames(
-  env: Env,
-  opts: {
-    page: number; pageSize: number
-    provider?: string; search?: string; isActive?: boolean
-    type?: string; sortCategory?: string; volatility?: string; isFeatured?: boolean
-    hasDemo?: boolean; theme?: string; gameStyle?: string; playerType?: string
-    technology?: string
-    weightMin?: number; weightMax?: number
-    sortField?: string; sortOrder?: 'asc' | 'desc'
-  },
-) {
-  const offset = (opts.page - 1) * opts.pageSize
-  const conditions: string[] = []
-  const params: unknown[] = []
-
-  if (opts.provider) { conditions.push('provider = ?'); params.push(opts.provider) }
-  if (opts.search) { conditions.push('(name LIKE ? OR search_keywords LIKE ?)'); params.push(`%${opts.search}%`, `%${opts.search}%`) }
-  if (opts.isActive !== undefined) { conditions.push('is_active = ?'); params.push(opts.isActive ? 1 : 0) }
-  if (opts.type) { conditions.push('(type = ? OR category = ?)'); params.push(opts.type, opts.type) }
-  if (opts.sortCategory) { conditions.push('sort_category = ?'); params.push(opts.sortCategory) }
-  if (opts.volatility) { conditions.push('volatility = ?'); params.push(opts.volatility) }
-  if (opts.isFeatured !== undefined) { conditions.push('is_featured = ?'); params.push(opts.isFeatured ? 1 : 0) }
-  if (opts.hasDemo !== undefined) { conditions.push('has_demo = ?'); params.push(opts.hasDemo ? 1 : 0) }
-  if (opts.theme) { conditions.push('theme LIKE ?'); params.push(`%${opts.theme}%`) }
-  if (opts.gameStyle) { conditions.push('game_style = ?'); params.push(opts.gameStyle) }
-  if (opts.playerType) { conditions.push('player_type = ?'); params.push(opts.playerType) }
-  if (opts.technology) { conditions.push('technology = ?'); params.push(opts.technology) }
-  if (opts.weightMin !== undefined) { conditions.push('weight >= ?'); params.push(opts.weightMin) }
-  if (opts.weightMax !== undefined) { conditions.push('weight <= ?'); params.push(opts.weightMax) }
-
-  const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : ''
-
-  const [countRows] = await pool(env).query<RowDataPacket[]>(
-    `SELECT COUNT(*) as cnt FROM sg_games ${where}`, params,
-  )
-  const total = Number(countRows[0]?.cnt ?? 0)
-
-  const allowedSortFields: Record<string, string> = { weight: 'weight', phBonus: 'ph_bonus' }
-  const sortCol = (opts.sortField && allowedSortFields[opts.sortField]) || 'weight'
-  const sortDir = opts.sortOrder === 'asc' ? 'ASC' : 'DESC'
-
-  const [rows] = await pool(env).query<RowDataPacket[]>(
-    `SELECT uuid, name, name_id, name_vi, name_zh, type, provider, provider_id, technology,
-            category, sub_category, image_url, image_hq_url,
-            has_demo, has_lobby, is_mobile, has_freespins, has_tables,
-            label, rtp, volatility, reels_count, lines_count, tags,
-            is_active, updated_at,
-            weight, ph_bonus, is_featured, sort_category, theme, game_style, player_type,
-            description_en, description_zh, search_keywords, weight_updated_at
-     FROM sg_games ${where} ORDER BY ${sortCol} ${sortDir}, provider, name LIMIT ? OFFSET ?`,
-    [...params, opts.pageSize, offset],
-  )
-
-  const [provRows] = await pool(env).query<RowDataPacket[]>(`SELECT DISTINCT provider FROM sg_games ORDER BY provider`)
-  const providers = provRows.map((r) => String(r.provider))
-
-  const items = rows.map((r) => ({
-    uuid: String(r.uuid),
-    name: String(r.name),
-    nameId: r.name_id ? String(r.name_id) : null,
-    nameVi: r.name_vi ? String(r.name_vi) : null,
-    nameZh: r.name_zh ? String(r.name_zh) : null,
-    type: r.type ? String(r.type) : null,
-    provider: String(r.provider),
-    providerId: r.provider_id ? Number(r.provider_id) : null,
-    technology: r.technology ? String(r.technology) : null,
-    category: r.category ? String(r.category) : null,
-    subCategory: r.sub_category ? String(r.sub_category) : null,
-    imageUrl: r.image_url ? String(r.image_url) : null,
-    imageHqUrl: r.image_hq_url ? String(r.image_hq_url) : null,
-    hasDemo: Boolean(r.has_demo),
-    hasLobby: Boolean(r.has_lobby),
-    isMobile: Boolean(r.is_mobile),
-    hasFreespins: Boolean(r.has_freespins),
-    hasTables: Boolean(r.has_tables),
-    label: r.label ? String(r.label) : null,
-    rtp: r.rtp != null ? Number(r.rtp) : null,
-    volatility: r.volatility ? String(r.volatility) : null,
-    reelsCount: r.reels_count ? String(r.reels_count) : null,
-    linesCount: r.lines_count ? Number(r.lines_count) : null,
-    tags: r.tags ? (typeof r.tags === 'string' ? JSON.parse(r.tags) : r.tags) : [],
-    isActive: Boolean(r.is_active),
-    updatedAt: (() => { const d = new Date(r.updated_at as Date); return isNaN(d.getTime()) ? null : d.toISOString() })(),
-    weight: r.weight != null ? Number(r.weight) : 0,
-    phBonus: r.ph_bonus != null ? Number(r.ph_bonus) : 0,
-    isFeatured: Boolean(r.is_featured),
-    sortCategory: r.sort_category ? String(r.sort_category) : null,
-    theme: r.theme ? String(r.theme) : null,
-    gameStyle: r.game_style ? String(r.game_style) : null,
-    playerType: r.player_type ? String(r.player_type) : null,
-    descriptionEn: r.description_en ? String(r.description_en) : null,
-    descriptionZh: r.description_zh ? String(r.description_zh) : null,
-    searchKeywords: r.search_keywords ? String(r.search_keywords) : null,
-    weightUpdatedAt: (() => { const d = new Date(r.weight_updated_at as Date); return isNaN(d.getTime()) ? null : d.toISOString() })(),
-  }))
-
-  return { total, items, providers }
-}
-
-export async function toggleAdminGame(env: Env, uuid: string, isActive: boolean): Promise<void> {
-  await pool(env).execute(`UPDATE sg_games SET is_active = ? WHERE uuid = ?`, [isActive ? 1 : 0, uuid])
-}
-
 export interface ProviderStat {
   provider: string
   total: number
   active: number
   rtps?: number[]
-}
-
-export async function getProviderStats(env: Env): Promise<ProviderStat[]> {
-  const [rows] = await pool(env).query<RowDataPacket[]>(
-    `SELECT provider, COUNT(*) AS total, SUM(is_active) AS active
-     FROM sg_games GROUP BY provider ORDER BY provider ASC`,
-  )
-  return rows.map((r) => ({
-    provider: String(r.provider),
-    total: Number(r.total),
-    active: Number(r.active),
-  }))
-}
-
-export async function toggleProviderGames(env: Env, provider: string, isActive: boolean): Promise<number> {
-  const [result] = await pool(env).execute(
-    `UPDATE sg_games SET is_active = ? WHERE provider = ?`,
-    [isActive ? 1 : 0, provider],
-  )
-  return (result as { affectedRows: number }).affectedRows
 }
 
 function win568SortCategoryExpr() {

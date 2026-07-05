@@ -16,48 +16,45 @@ export async function createDepositRequirement(
   )
 }
 
-export async function allocateBetTurnover(
-  db: Pool,
-  userId: string,
-  betOrderId: number,
-  betAmount: number,
-  gameUuid: string,
-  currency = 'PHP',
-): Promise<void> {
-  if (betAmount <= 0) return
-
-  const conn = await db.getConnection()
-  try {
-    await conn.beginTransaction()
-    await allocateBetTurnoverInTransaction(conn, userId, betOrderId, betAmount, gameUuid, currency)
-    await conn.commit()
-  } catch (err) {
-    await conn.rollback()
-    throw err
-  } finally {
-    conn.release()
-  }
-}
-
 export async function allocateBetTurnoverInTransaction(
   conn: PoolConnection,
   userId: string,
   betOrderId: number,
   betAmount: number,
-  gameUuid: string,
+  game: { gpid: number | null; gameId: number | null },
   currency = 'PHP',
 ): Promise<void> {
   if (betAmount <= 0) return
 
-  const [[gameRow]] = await conn.query<RowDataPacket[]>(
-    `SELECT g.sort_category, COALESCE(r.rate, 1.0) AS rate
-     FROM sg_games g
-     LEFT JOIN bg_game_turnover_rates r ON r.sort_category = g.sort_category
-     WHERE g.uuid = ?`,
-    [gameUuid],
-  )
-  const sortCategory = (gameRow?.sort_category as string | null) ?? null
-  const rate = gameRow ? Number(gameRow.rate) : 1.0
+  let sortCategory: string | null = null
+  let rate = 1.0
+  if (game.gameId != null) {
+    const [[gameRow]] = await conn.query<RowDataPacket[]>(
+      `SELECT sc.sort_category, COALESCE(r.rate, 1.0) AS rate
+       FROM (
+         SELECT COALESCE(o.sort_category,
+           CASE
+             WHEN g.new_game_type = 203 THEN 'fishing'
+             WHEN g.new_game_type = 204 THEN 'table'
+             WHEN g.new_game_type = 300 THEN 'sports'
+             WHEN g.new_game_type >= 100 AND g.new_game_type < 200 THEN 'live'
+             WHEN g.new_game_type >= 200 AND g.new_game_type < 300 THEN 'slots'
+             ELSE 'other'
+           END) AS sort_category
+         FROM bg_568win_game g
+         LEFT JOIN bg_568win_game_override o
+           ON o.game_provider_id = g.game_provider_id AND o.game_id = g.game_id
+         WHERE g.game_id = ? AND (? IS NULL OR g.game_provider_id = ?)
+         LIMIT 1
+       ) sc
+       LEFT JOIN bg_game_turnover_rates r ON r.sort_category = sc.sort_category`,
+      [game.gameId, game.gpid, game.gpid],
+    )
+    if (gameRow) {
+      sortCategory = (gameRow.sort_category as string | null) ?? null
+      rate = Number(gameRow.rate)
+    }
+  }
   const effectiveAmount = Math.round(betAmount * rate * 10000) / 10000
 
   if (effectiveAmount <= 0) return

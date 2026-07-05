@@ -60,9 +60,6 @@ function assertProductionSecurity(env: Env): void {
   if (env.AMMER_PAY_PROVIDER_TOKEN.trim() && !env.TELEGRAM_WEBHOOK_SECRET.trim()) {
     warnings.push('TELEGRAM_WEBHOOK_SECRET')
   }
-  if ((env.SG_BASE_URL.trim() || env.SG_MERCHANT_ID.trim()) && !env.SG_MERCHANT_KEY.trim()) {
-    missing.push('SG_MERCHANT_KEY')
-  }
   if (env.MATRIX_GATEWAY_URL.trim()) {
     for (const key of [
       'MATRIX_API_KEY',

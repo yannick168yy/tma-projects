@@ -12,6 +12,7 @@ import {
   runDailyRebateSettlement,
   todayPHT,
 } from '../../services/rebate.service.js'
+import { getGamesFromCache } from '../../services/sg-game.service.js'
 import { getMysqlPool, isMysqlEnabled } from '../../clients/mysql.client.js'
 import type { RowDataPacket } from 'mysql2/promise'
 
@@ -104,12 +105,9 @@ router.post('/featured-games', async (ctx) => {
 
   if (!isMysqlEnabled(ctx.state.env)) { fail(ctx, 503, 'DB not available'); return }
 
-  // 验证 game_uuid 是否存在
-  const pool = getMysqlPool(ctx.state.env)
-  const [[game]] = await pool.query<RowDataPacket[]>(
-    'SELECT uuid, name, provider FROM sg_games WHERE uuid = ?',
-    [body.gameUuid],
-  )
+  // 验证 game_uuid 是否存在（游戏目录缓存 = 568win 全量）
+  const games = await getGamesFromCache(ctx.state.env)
+  const game = games.find((g) => g.uuid === body.gameUuid)
   if (!game) { fail(ctx, 404, 'Game not found'); return }
 
   await addFeaturedGame(ctx.state.env, body.gameUuid, tier, body.sortOrder ?? 0)

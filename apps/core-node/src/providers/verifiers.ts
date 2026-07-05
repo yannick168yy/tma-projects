@@ -1,4 +1,4 @@
-import { createHash, createHmac, timingSafeEqual } from 'node:crypto'
+import { createHash, timingSafeEqual } from 'node:crypto'
 import type { FastifyRequest } from 'fastify'
 import { verifyNotifySignature, normalizePem, type MatrixEnvelope } from '../utils/matrix-crypto.js'
 
@@ -71,33 +71,6 @@ function verifyBeepay(req: FastifyRequest, env: Record<string, string>): boolean
   return timingSafeEqual(Buffer.from(received), Buffer.from(expected))
 }
 
-// ── Slotegrator (SG) ─────────────────────────────────────────────────────────
-// 签名算法：body 参数 + 三个 X-Header 按 key 字母序合并后 HMAC-SHA1
-
-function sgSign(params: Record<string, string | number>, merchantKey: string): string {
-  const sorted = Object.keys(params).sort()
-  const usp = new URLSearchParams()
-  for (const k of sorted) usp.append(k, String(params[k]))
-  return createHmac('sha1', merchantKey).update(usp.toString()).digest('hex')
-}
-
-function verifySg(req: FastifyRequest, env: Record<string, string>): boolean {
-  const merchantKey = env['SG_MERCHANT_KEY']
-  if (!merchantKey) return false
-  const get = (k: string): string => {
-    const v = req.headers[k.toLowerCase()]
-    return Array.isArray(v) ? v[0] : (v ?? '')
-  }
-  const body = req.body as Record<string, string>
-  const merged: Record<string, string | number> = {
-    ...body,
-    'X-Merchant-Id': get('X-Merchant-Id'),
-    'X-Timestamp': get('X-Timestamp'),
-    'X-Nonce': get('X-Nonce'),
-  }
-  return sgSign(merged, merchantKey) === get('X-Sign')
-}
-
 // ── Matrix ────────────────────────────────────────────────────────────────────
 
 function verifyMatrix(req: FastifyRequest, env: Record<string, string>): boolean {
@@ -129,5 +102,4 @@ export const providerVerifiers: Record<string, VerifyFn> = {
   yfpay: verifyYfpay,
   beepay: verifyBeepay,
   matrix: verifyMatrix,
-  sg: verifySg,
 }

@@ -1,9 +1,5 @@
 import Router from '@koa/router'
 import {
-  listAdminGames,
-  toggleAdminGame,
-  getProviderStats,
-  toggleProviderGames,
   writeAuditLog,
   listAdminWin568Games,
   toggleAdminWin568Game,
@@ -15,8 +11,7 @@ import {
   replaceHomepageSectionGames,
   HOMEPAGE_SECTION_KEYS,
 } from '../../services/admin-store.js'
-import { syncAllGames, loadGamesCache, refreshHomepageSelection, scheduleCacheRefresh, stripMobileNamesInDb, getGamesFromCache } from '../../services/sg-game.service.js'
-import { translateUntranslatedGames } from '../../services/game-translation.service.js'
+import { loadGamesCache, refreshHomepageSelection, scheduleCacheRefresh, getGamesFromCache } from '../../services/sg-game.service.js'
 import {
   createJob,
   getJob,
@@ -31,35 +26,6 @@ import type { Env } from '../../config/env.js'
 import { ok, fail } from '../../utils/response.js'
 
 const router = new Router({ prefix: '/games' })
-
-router.get('/', async (ctx) => {
-  const page = Math.max(1, Number(ctx.query.page ?? 1))
-  const pageSize = Math.min(100, Math.max(10, Number(ctx.query.pageSize ?? 20)))
-  const provider = ctx.query.provider ? String(ctx.query.provider) : undefined
-  const search = ctx.query.search ? String(ctx.query.search) : undefined
-  const isActive = ctx.query.isActive !== undefined ? ctx.query.isActive === 'true' : undefined
-  const type = ctx.query.type ? String(ctx.query.type) : undefined
-  const sortCategory = ctx.query.sortCategory ? String(ctx.query.sortCategory) : undefined
-  const volatility = ctx.query.volatility ? String(ctx.query.volatility) : undefined
-  const isFeatured = ctx.query.isFeatured !== undefined ? ctx.query.isFeatured === 'true' : undefined
-  const hasDemo = ctx.query.hasDemo !== undefined ? ctx.query.hasDemo === 'true' : undefined
-  const theme = ctx.query.theme ? String(ctx.query.theme) : undefined
-  const gameStyle = ctx.query.gameStyle ? String(ctx.query.gameStyle) : undefined
-  const playerType = ctx.query.playerType ? String(ctx.query.playerType) : undefined
-  const technology = ctx.query.technology ? String(ctx.query.technology) : undefined
-  const weightMin = ctx.query.weightMin !== undefined ? Number(ctx.query.weightMin) : undefined
-  const weightMax = ctx.query.weightMax !== undefined ? Number(ctx.query.weightMax) : undefined
-  const sortField = ctx.query.sortField ? String(ctx.query.sortField) : undefined
-  const sortOrder = ctx.query.sortOrder === 'asc' || ctx.query.sortOrder === 'desc'
-    ? (ctx.query.sortOrder as 'asc' | 'desc')
-    : undefined
-  const result = await listAdminGames(ctx.state.env, {
-    page, pageSize, provider, search, isActive, type, sortCategory, volatility,
-    isFeatured, hasDemo, theme, gameStyle, playerType, technology, weightMin, weightMax,
-    sortField, sortOrder,
-  })
-  ok(ctx, result)
-})
 
 router.get('/jobs/:jobId', async (ctx) => {
   const job = await getJob(getRedis(ctx.state.env), ctx.params.jobId)
@@ -194,55 +160,6 @@ router.post('/win568-provider-toggle', async (ctx) => {
   ok(ctx, { provider: body.provider, isActive: body.isActive, affected })
 })
 
-router.patch('/:uuid/toggle', async (ctx) => {
-  const body = ctx.request.body as { isActive?: boolean }
-  if (typeof body.isActive !== 'boolean') {
-    fail(ctx, 400, 'isActive must be boolean'); return
-  }
-  await toggleAdminGame(ctx.state.env, ctx.params.uuid, body.isActive)
-  scheduleCacheRefresh(ctx.state.env)
-  await writeAuditLog(ctx.state.env, {
-    adminId: ctx.state.adminId!,
-    adminUsername: ctx.state.adminUsername!,
-    action: body.isActive ? 'game.enable' : 'game.disable',
-    targetType: 'game',
-    targetId: ctx.params.uuid,
-    ip: ctx.ip,
-  })
-  ok(ctx, { uuid: ctx.params.uuid, isActive: body.isActive })
-})
-
-async function runSyncJob(
-  env: Env,
-  jobId: string,
-  adminId: number,
-  adminUsername: string,
-  ip?: string,
-) {
-  const redis = getRedis(env)
-  try {
-    await updateJobProgress(redis, jobId, { status: 'running', message: '正在从 Slotegrator 拉取游戏…' })
-    const result = await syncAllGames(env, (p) =>
-      updateJobProgress(redis, jobId, { progress: p.progress, total: p.total, message: p.message }),
-    )
-    await updateJobProgress(redis, jobId, { message: '刷新缓存与首页…' })
-    await loadGamesCache(env)
-    await writeAuditLog(env, {
-      adminId,
-      adminUsername,
-      action: 'game.sync',
-      targetType: 'game',
-      targetId: 'all',
-      ip,
-    })
-    await completeJob(redis, jobId, result)
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : 'Sync failed'
-    console.error('[games-sync-job]', msg, e)
-    await failJob(redis, jobId, msg)
-  }
-}
-
 async function runWin568SyncJob(
   env: Env,
   jobId: string,
@@ -279,22 +196,6 @@ async function runWin568SyncJob(
   }
 }
 
-router.post('/sync', async (ctx) => {
-  const env = ctx.state.env
-  if (!isMysqlEnabled(env) || !env.SG_BASE_URL) {
-    fail(ctx, 400, 'Slotegrator not configured'); return
-  }
-  const redis = getRedis(env)
-  const active = await getActiveJobForType(redis, 'games_sync')
-  if (active) {
-    ok(ctx, { jobId: active.id, alreadyRunning: true })
-    return
-  }
-  const job = await createJob(redis, 'games_sync')
-  ok(ctx, { jobId: job.id })
-  void runSyncJob(env, job.id, ctx.state.adminId!, ctx.state.adminUsername!, String(ctx.ip ?? ''))
-})
-
 router.post('/win568-sync', async (ctx) => {
   const env = ctx.state.env
   if (!isMysqlEnabled(env)) {
@@ -311,45 +212,6 @@ router.post('/win568-sync', async (ctx) => {
   void runWin568SyncJob(env, job.id, ctx.state.adminId!, ctx.state.adminUsername!, String(ctx.ip ?? ''))
 })
 
-async function runTranslateJob(env: Env, jobId: string) {
-  const redis = getRedis(env)
-  try {
-    await updateJobProgress(redis, jobId, { status: 'running', message: '正在调用 Gemini 翻译…' })
-    const result = await translateUntranslatedGames(env, (p) =>
-      updateJobProgress(redis, jobId, { progress: p.progress, total: p.total, message: p.message }),
-    )
-    if (result.total > 0) {
-      await updateJobProgress(redis, jobId, { message: '刷新缓存与首页…' })
-      await loadGamesCache(env)
-      await refreshHomepageSelection(env)
-    }
-    await completeJob(redis, jobId, result)
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : 'Translation failed'
-    console.error('[games-translate-job]', msg, e)
-    await failJob(redis, jobId, msg)
-  }
-}
-
-router.post('/translate', async (ctx) => {
-  const env = ctx.state.env
-  if (!isMysqlEnabled(env)) {
-    fail(ctx, 400, 'MySQL not configured'); return
-  }
-  if (!env.GEMINI_API_KEY) {
-    fail(ctx, 400, 'GEMINI_API_KEY not configured'); return
-  }
-  const redis = getRedis(env)
-  const active = await getActiveJobForType(redis, 'games_translate')
-  if (active) {
-    ok(ctx, { jobId: active.id, alreadyRunning: true })
-    return
-  }
-  const job = await createJob(redis, 'games_translate')
-  ok(ctx, { jobId: job.id })
-  void runTranslateJob(env, job.id)
-})
-
 router.post('/refresh-cache', async (ctx) => {
   try {
     const count = await loadGamesCache(ctx.state.env)
@@ -358,44 +220,6 @@ router.post('/refresh-cache', async (ctx) => {
   } catch (e) {
     fail(ctx, 500, e instanceof Error ? e.message : 'Refresh failed')
   }
-})
-
-router.post('/strip-mobile-names', async (ctx) => {
-  try {
-    await stripMobileNamesInDb(ctx.state.env)
-    const count = await loadGamesCache(ctx.state.env)
-    await refreshHomepageSelection(ctx.state.env)
-    ok(ctx, { cached: count })
-  } catch (e) {
-    fail(ctx, 500, e instanceof Error ? e.message : 'Strip failed')
-  }
-})
-
-router.get('/provider-stats', async (ctx) => {
-  try {
-    const stats = await getProviderStats(ctx.state.env)
-    ok(ctx, stats)
-  } catch (e) {
-    fail(ctx, 500, e instanceof Error ? e.message : 'Failed')
-  }
-})
-
-router.post('/provider-toggle', async (ctx) => {
-  const body = ctx.request.body as { provider?: string; isActive?: boolean }
-  if (!body.provider || typeof body.isActive !== 'boolean') {
-    fail(ctx, 400, 'provider and isActive required'); return
-  }
-  const affected = await toggleProviderGames(ctx.state.env, body.provider, body.isActive)
-  scheduleCacheRefresh(ctx.state.env)
-  await writeAuditLog(ctx.state.env, {
-    adminId: ctx.state.adminId!,
-    adminUsername: ctx.state.adminUsername!,
-    action: body.isActive ? 'game.provider.enable' : 'game.provider.disable',
-    targetType: 'game',
-    targetId: body.provider,
-    ip: ctx.ip,
-  })
-  ok(ctx, { provider: body.provider, isActive: body.isActive, affected })
 })
 
 router.post('/refresh-homepage', async (ctx) => {

@@ -430,9 +430,14 @@ export async function getFeaturedGames(env: Env): Promise<FeaturedGame[]> {
   const pool = getMysqlPool(env)
   const [rows] = await pool.query<RowDataPacket[]>(
     `SELECT rfg.id, rfg.game_uuid, rfg.tier, rfg.sort_order,
-            sg.name, sg.name_zh, sg.provider, sg.image_url
+            COALESCE(o.name_override, w.name_en, w.name_zh) AS name,
+            w.name_zh, w.provider,
+            COALESCE(o.image_override, w.icon_url) AS image_url
      FROM bg_rebate_featured_game rfg
-     LEFT JOIN sg_games sg ON sg.uuid = rfg.game_uuid
+     LEFT JOIN bg_568win_game w ON rfg.game_uuid LIKE '568win:%:%'
+       AND w.game_provider_id = CAST(SUBSTRING_INDEX(SUBSTRING_INDEX(rfg.game_uuid, ':', 2), ':', -1) AS UNSIGNED)
+       AND w.game_id = CAST(SUBSTRING_INDEX(rfg.game_uuid, ':', -1) AS UNSIGNED)
+     LEFT JOIN bg_568win_game_override o ON o.game_provider_id = w.game_provider_id AND o.game_id = w.game_id
      WHERE rfg.enabled = 1
      ORDER BY rfg.tier, rfg.sort_order`,
   )

@@ -113,13 +113,11 @@
 
 路径：`/games`
 
-管理从 Slotegrator 同步的游戏列表（bff-node 启动后 10 秒开始同步，之后每 6 小时同步一次）。
+管理从 568Win 同步的游戏列表（后台「同步 568Win 游戏库」按钮触发，core-node 拉取）。
 
 - 搜索：按游戏名称搜索
 - 筛选：按游戏商、启用状态筛选
-- 开关：可对单款游戏执行启用 / 禁用（写入 `sg_games.is_active`，前台 `/slots` 接口按此字段过滤）
-
-> SG 未配置凭证时游戏列表为空，需设置 `SG_BASE_URL`、`SG_MERCHANT_ID`、`SG_MERCHANT_KEY` 环境变量。
+- 开关：可对单款游戏执行启用 / 禁用（写入 `bg_568win_game_override.is_active`，前台 `/slots` 接口按此过滤）
 
 ---
 
@@ -195,5 +193,4 @@ GET    /admin/audit-log                操作日志（page, pageSize）
 | `bg_wallet_ledger` | 资金流水 |
 | `bg_deposit_order` | 存款订单 |
 | `bg_withdraw_order` | 提款订单 |
-| `bg_bet_order` | 游戏投注记录（来自 Slotegrator 回调） |
-| `sg_games` | Slotegrator 游戏列表缓存（含 is_active 开关） |
+| `bg_bet_order` | 游戏投注记录（来自 568Win 钱包回调） |

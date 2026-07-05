@@ -311,7 +311,9 @@ export class Win568WalletService {
               [transferKey(body)],
             )
             if (order) {
-              await allocateBetTurnoverInTransaction(conn, player.userId, Number(order.id), diff, String(body.GameId ?? body.Gpid ?? ''), player.currency)
+              await allocateBetTurnoverInTransaction(conn, player.userId, Number(order.id), diff,
+                { gpid: body.Gpid === undefined ? null : int(body, 'Gpid'), gameId: body.GameId === undefined ? null : int(body, 'GameId') },
+                player.currency)
             }
             await this.addLedger(conn, player, 'bet', -diff, newBalance, transferCode, '568Win raise bet')
             await conn.commit()
@@ -346,7 +348,9 @@ export class Win568WalletService {
          VALUES (?, '568win', ?, ?, ?, 'bet', ?, ?, ?, 1, 'pending')`,
         [player.userId, String(body.GameId ?? body.Gpid ?? ''), transferKey(body), text(body, 'GameRoundId') || transferCode, amount, player.currency, amount],
       )
-      await allocateBetTurnoverInTransaction(conn, player.userId, Number(result.insertId), amount, String(body.GameId ?? body.Gpid ?? ''), player.currency)
+      await allocateBetTurnoverInTransaction(conn, player.userId, Number(result.insertId), amount,
+        { gpid: body.Gpid === undefined ? null : int(body, 'Gpid'), gameId: body.GameId === undefined ? null : int(body, 'GameId') },
+        player.currency)
       await this.addLedger(conn, player, 'bet', -amount, newBalance, transferCode, '568Win deduct')
       await conn.commit()
       return ok(player.username, newBalance, { BetAmount: amount })

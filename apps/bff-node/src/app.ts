@@ -11,9 +11,8 @@ import { childLogger } from './lib/logger.js'
 import { createApiRouter } from './routes/index.js'
 import { initStore } from './services/store/index.js'
 import { pollAndSettleTonDeposits } from './services/ton.service.js'
-import { syncAllGames, loadGamesCache, refreshHomepageSelection } from './services/sg-game.service.js'
+import { loadGamesCache, refreshHomepageSelection } from './services/sg-game.service.js'
 import { refreshLatestPool, refreshWeekTop, refreshMonthTop } from './services/betting-activity.service.js'
-import { stripMobileNamesInDb } from './services/sg-game.service.js'
 import { refreshRates } from './services/exchange-rate.service.js'
 import { refreshBalances } from './services/payment-accounting.service.js'
 import { runDailyRebateSettlement, yesterdayPHT } from './services/rebate.service.js'
@@ -33,7 +32,6 @@ export function createApp(env: Env): Koa {
     betting: childLogger('betting-activity'),
     games: childLogger('games-cache'),
     homepage: childLogger('homepage'),
-    sgSync: childLogger('sg-sync'),
     rebate: childLogger('rebate-payout'),
     payment: childLogger('payment-balance'),
   }
@@ -110,8 +108,7 @@ export function createApp(env: Env): Koa {
   // 游戏缓存 + 首页推荐：启动 8s 后首次加载，失败则每 10s 重试，之后每 3 小时刷新首页推荐
   if (isMysqlEnabled(env)) {
     const loadWithRetry = (attempt = 0): void => {
-      stripMobileNamesInDb(env)
-        .then(() => loadGamesCache(env))
+      loadGamesCache(env)
         .then(() => refreshHomepageSelection(env))
         .then(() => initBettingActivity())
         .catch((err) => {
@@ -152,24 +149,6 @@ export function createApp(env: Env): Koa {
         refreshMonthTop(env).catch((err) => log.betting.error({ err }, 'month refresh error'))
       }
     }, 24 * 60 * 60 * 1000)
-  }
-
-  // Slotegrator game sync: on startup then every 24h，同步完自动刷新缓存和首页
-  if (isMysqlEnabled(env) && env.SG_BASE_URL && env.SG_MERCHANT_ID) {
-    const runSync = () =>
-      syncAllGames(env)
-        .then(({ synced }) => {
-          log.sgSync.info({ synced }, 'synced games')
-          return loadGamesCache(env)
-        })
-        .then(() => refreshHomepageSelection(env))
-        .then(() => initBettingActivity())
-        .catch((err) => {
-          log.sgSync.error({ err }, 'sync error')
-          // sg-sync 失败时仍尝试从缓存初始化 betting-activity
-          initBettingActivity()
-        })
-    setInterval(runSync, 24 * 60 * 60 * 1000)
   }
 
   app.use(errorHandler())

@@ -65,7 +65,7 @@ function historyToGame(item: GameHistoryItem): SlotGame {
     uuid: item.uuid, name: item.name, nameId: item.nameId, nameVi: item.nameVi, nameZh: item.nameZh,
     provider: item.provider, category: null, subCategory: null, sortCategory: null,
     imageUrl: item.imageUrl, imageHqUrl: item.imageHqUrl,
-    hasDemo: false, hasLobby: false, isMobile: true, weight: 0, isFeatured: false,
+    hasLobby: false, isMobile: true, weight: 0, isFeatured: false,
   }
 }
 

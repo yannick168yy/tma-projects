@@ -16,7 +16,6 @@ export interface SlotGame {
   imageSource?: string | null
   imageWidth?: number | null
   imageHeight?: number | null
-  hasDemo: boolean
   hasLobby: boolean
   isMobile: boolean
   weight: number
@@ -105,13 +104,6 @@ export function fetchProviders(sortCategory?: string, siteCategory?: string): Pr
 
 export function launchGame(gameUuid: string, device: 'mobile' | 'desktop' = 'mobile', currency?: string): Promise<{ url: string }> {
   return apiRequest<{ url: string }>('/slots/init', {
-    method: 'POST',
-    body: JSON.stringify({ gameUuid, device, currency }),
-  })
-}
-
-export function launchDemo(gameUuid: string, device: 'mobile' | 'desktop' = 'mobile', currency?: string): Promise<{ url: string }> {
-  return apiRequest<{ url: string }>('/slots/demo', {
     method: 'POST',
     body: JSON.stringify({ gameUuid, device, currency }),
   })

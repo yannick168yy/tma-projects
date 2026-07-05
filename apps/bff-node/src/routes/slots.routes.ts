@@ -1,5 +1,4 @@
 import Router from '@koa/router'
-import { randomUUID } from 'node:crypto'
 import { ok, fail } from '../utils/response.js'
 import {
   WIN568_SPORTSBOOK_UUID,
@@ -11,7 +10,6 @@ import {
   getHomepageSelection,
   applyHomepageCurrency,
 } from '../services/sg-game.service.js'
-import { sgInitGame, sgInitDemo } from '../services/slotegrator.service.js'
 import { getUser } from '../services/store/index.js'
 import { isMysqlEnabled } from '../clients/mysql.client.js'
 import { getBettingActivity, type BetTab } from '../services/betting-activity.service.js'
@@ -214,74 +212,7 @@ router.post('/init', async (ctx) => {
     return
   }
 
-  if (!env.SG_BASE_URL || !env.SG_MERCHANT_ID) {
-    fail(ctx, 503, 'Game service temporarily unavailable')
-    return
-  }
-
-  const sessionId = randomUUID()
-  const VALID_WALLET_CURRENCIES = ['PHP', 'USDT', 'USDC', 'TON', 'TRX', 'TRX_TESTNET', 'BNB', 'ETH', 'BTC', 'TLK_TESTNET']
-  const rawCurrency = (body.currency ?? 'PHP').toUpperCase()
-  const walletCurrency = VALID_WALLET_CURRENCIES.includes(rawCurrency) ? rawCurrency : 'PHP'
-  // 单币种模式：SG 侧固定 EUR，回调按 session 映射到用户所选钱包币种（金额 1:1）
-  const sessionPayload = env.SG_MULTI_CURRENCY
-    ? userId
-    : JSON.stringify({ uid: userId, wallet: walletCurrency })
-  await redis.setex(`sg:session:${sessionId}`, 86400, sessionPayload)
-  if (!env.SG_MULTI_CURRENCY) {
-    await redis.setex(`sg:player:${userId}:wallet`, 86400, walletCurrency)
-  }
-
-  try {
-    const result = await sgInitGame(
-      {
-        game_uuid: body.gameUuid,
-        player_id: userId,
-        player_name: user.displayName || userId,
-        currency: env.SG_MULTI_CURRENCY ? walletCurrency : env.SG_CURRENCY,
-        session_id: sessionId,
-        return_url: env.SG_RETURN_URL,
-        language: (body.language ?? user.locale ?? 'en').split('-')[0],
-        device: (body.device === 'desktop' ? 'desktop' : 'mobile') as 'mobile' | 'desktop',
-      },
-      env,
-    )
-    void recordGameLaunch(env, userId, body.gameUuid)
-    ok(ctx, { url: result.url })
-  } catch (e) {
-    fail(ctx, 502, e instanceof Error ? e.message : 'Failed to launch game')
-  }
-})
-
-// POST /slots/demo — demo mode, no auth required
-router.post('/demo', async (ctx) => {
-  const env = ctx.state.env
-  const body = ctx.request.body as { gameUuid?: string; device?: string; language?: string }
-
-  if (!body.gameUuid) {
-    fail(ctx, 400, 'gameUuid is required')
-    return
-  }
-  if (!env.SG_BASE_URL || !env.SG_MERCHANT_ID) {
-    fail(ctx, 503, 'Game service temporarily unavailable')
-    return
-  }
-
-  try {
-    const result = await sgInitDemo(
-      {
-        game_uuid: body.gameUuid,
-        currency: env.SG_CURRENCY,
-        language: ((body.language ?? 'en') as string).split('-')[0],
-        device: (body.device === 'desktop' ? 'desktop' : 'mobile') as 'mobile' | 'desktop',
-        return_url: env.SG_RETURN_URL,
-      },
-      env,
-    )
-    ok(ctx, { url: result.url })
-  } catch (e) {
-    fail(ctx, 502, e instanceof Error ? e.message : 'Failed to launch demo')
-  }
+  fail(ctx, 400, 'Unknown game')
 })
 
 export default router

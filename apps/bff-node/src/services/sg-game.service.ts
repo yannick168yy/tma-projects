@@ -2,116 +2,16 @@ import type { RowDataPacket } from 'mysql2/promise'
 import type { Env } from '../config/env.js'
 import { getMysqlPool, isMysqlEnabled } from '../clients/mysql.client.js'
 import { getRedis } from '../clients/redis.client.js'
-import { fetchSgGames } from './slotegrator.service.js'
 
 const GAMES_CACHE_KEY = 'games:all'
 const GAMES_CACHE_TTL = 30 * 60 // 30 分钟
 export const WIN568_SPORTSBOOK_UUID = '568win:sportsbook'
 
-// ── Sync ──────────────────────────────────────────────────────────────────────
-
-function cleanGameName(name: string): string {
-  return name.replace(/ mobile/gi, '').trim()
-}
-
-export async function stripMobileNamesInDb(env: Env): Promise<void> {
-  const db = getMysqlPool(env)
-  const [result] = await db.execute(
-    `UPDATE sg_games SET name = TRIM(REGEXP_REPLACE(name, '(?i) mobile', '')) WHERE name REGEXP '(?i) mobile'`,
-  )
-  const changed = (result as { affectedRows: number }).affectedRows
-  if (changed > 0) console.log(`[games] stripped "mobile" from ${changed} game names`)
-}
-
-export type GamesJobProgressFn = (p: {
-  progress: number
-  total: number
-  message: string
-}) => void | Promise<void>
-
-export async function syncAllGames(
-  env: Env,
-  onProgress?: GamesJobProgressFn,
-): Promise<{ synced: number }> {
-  const db = getMysqlPool(env)
-  let page = 1
-  let synced = 0
-  let pageCount = 1
-  let totalCount = 0
-
-  do {
-    const res = await fetchSgGames(env, page)
-    pageCount = res._meta.pageCount
-    totalCount = res._meta.totalCount
-
-    for (const g of res.items) {
-      const isMobile = g.is_mobile ?? g.mobile ?? 0
-      const tags = g.tags?.length
-        ? JSON.stringify(g.tags.map((t) => (typeof t === 'string' ? t : t.code)))
-        : null
-      const hqImage = g.images?.find((i) => i.type === 'high-quality')?.url ?? null
-
-      await db.execute(
-        `INSERT INTO sg_games
-           (uuid, name, type, provider, provider_id, technology,
-            category, sub_category, image_url, image_hq_url,
-            has_demo, has_lobby, is_mobile, has_freespins, has_tables,
-            label, rtp, volatility, reels_count, lines_count, tags)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-         ON DUPLICATE KEY UPDATE
-           name=VALUES(name), type=VALUES(type),
-           provider=VALUES(provider), provider_id=VALUES(provider_id), technology=VALUES(technology),
-           category=VALUES(category), sub_category=VALUES(sub_category),
-           image_url=VALUES(image_url), image_hq_url=VALUES(image_hq_url),
-           has_demo=VALUES(has_demo), has_lobby=VALUES(has_lobby), is_mobile=VALUES(is_mobile),
-           has_freespins=VALUES(has_freespins), has_tables=VALUES(has_tables),
-           label=VALUES(label), rtp=VALUES(rtp), volatility=VALUES(volatility),
-           reels_count=VALUES(reels_count), lines_count=VALUES(lines_count),
-           tags=VALUES(tags), updated_at=NOW(3)`,
-        [
-          g.uuid,
-          cleanGameName(g.name),
-          g.type || null,
-          g.provider,
-          g.provider_id != null && g.provider_id !== '' ? Number(g.provider_id) : null,
-          g.technology || null,
-          g.category || null,
-          g.sub_category || null,
-          g.image || null,
-          hqImage,
-          g.has_demo ? 1 : 0,
-          g.has_lobby ? 1 : 0,
-          isMobile ? 1 : 0,
-          g.has_freespins ? 1 : 0,
-          g.has_tables ? 1 : 0,
-          g.label || null,
-          g.parameters?.rtp != null && g.parameters.rtp !== '' ? Number(g.parameters.rtp) : null,
-          g.parameters?.volatility || null,
-          g.parameters?.reels_count || null,
-          g.parameters?.lines_count != null && g.parameters.lines_count !== '' ? Number(g.parameters.lines_count) : null,
-          tags,
-        ],
-      )
-      synced++
-    }
-
-    await onProgress?.({
-      progress: synced,
-      total: totalCount,
-      message: `同步第 ${page}/${pageCount} 页`,
-    })
-
-    page++
-  } while (page <= pageCount)
-
-  return { synced }
-}
-
 // ── Query ─────────────────────────────────────────────────────────────────────
 
 export interface DbGame {
   uuid: string
-  aggregator?: 'slotegrator' | '568win'
+  aggregator?: '568win'
   name: string
   nameId: string | null
   nameVi: string | null
@@ -128,7 +28,6 @@ export interface DbGame {
   imageSource?: string | null
   imageWidth?: number | null
   imageHeight?: number | null
-  hasDemo: boolean
   hasLobby: boolean
   isMobile: boolean
   weight: number
@@ -172,29 +71,6 @@ function sortAvailableFirst(games: DbGame[], currency?: string): DbGame[] {
   return [...games].sort((a, b) => Number(supportsCurrency(b, normalized)) - Number(supportsCurrency(a, normalized)))
 }
 
-function rowToDbGame(r: RowDataPacket): DbGame {
-  return {
-    uuid: r.uuid as string,
-    aggregator: 'slotegrator',
-    name: r.name as string,
-    nameId: (r.name_id as string) ?? null,
-    nameVi: (r.name_vi as string) ?? null,
-    nameZh: (r.name_zh as string) ?? null,
-    provider: r.provider as string,
-    category: (r.category as string) ?? null,
-    subCategory: (r.sub_category as string) ?? null,
-    sortCategory: (r.sort_category as string) ?? null,
-    imageUrl: (r.image_url as string) ?? null,
-    imageHqUrl: (r.image_hq_url as string) ?? null,
-    hasDemo: Boolean(r.has_demo),
-    hasLobby: Boolean(r.has_lobby),
-    isMobile: Boolean(r.is_mobile),
-    weight: r.weight != null ? Number(r.weight) : 0,
-    isFeatured: Boolean(r.is_featured),
-    supportedCurrencies: null,
-  }
-}
-
 function sortCategoryFromWin568(newGameType: number | null): string {
   if (newGameType === 203) return 'fishing'
   if (newGameType === 204) return 'table'
@@ -232,7 +108,6 @@ function rowToWin568Game(r: RowDataPacket): DbGame {
     imageSource: r.effective_image_source ? String(r.effective_image_source) : null,
     imageWidth: probedDims ? Number(r.icon_width) : null,
     imageHeight: probedDims ? Number(r.icon_height) : null,
-    hasDemo: false,
     hasLobby: newGameType === 100 || newGameType === 200,
     isMobile: devices.includes('m'),
     weight: r.effective_weight == null ? Math.max(1, 10000 - rank) : Number(r.effective_weight),
@@ -257,7 +132,6 @@ function win568SportsbookGame(): DbGame {
     siteCategory: 'sports',
     imageUrl: null,
     imageHqUrl: null,
-    hasDemo: false,
     hasLobby: true,
     isMobile: true,
     weight: 10000,
@@ -723,19 +597,18 @@ export async function getUserGameHistory(
   const db = getMysqlPool(env)
   const [rows] = await db.query<RowDataPacket[]>(
     `SELECT l.game_uuid,
-            COALESCE(o.name_override, w.name_en, w.name_zh, sg.name) AS name,
-            sg.name_id, sg.name_vi, COALESCE(w.name_zh, sg.name_zh) AS name_zh,
-            COALESCE(w.provider, sg.provider) AS provider,
-            COALESCE(o.image_override, w.icon_url, sg.image_url) AS image_url,
-            COALESCE(o.image_override, w.icon_url, sg.image_hq_url, sg.image_url) AS image_hq_url,
+            COALESCE(o.name_override, w.name_en, w.name_zh) AS name,
+            w.name_zh,
+            w.provider,
+            COALESCE(o.image_override, w.icon_url) AS image_url,
+            COALESCE(o.image_override, w.icon_url) AS image_hq_url,
             l.last_launched_at AS last_played_at
      FROM bg_game_launch l
-     LEFT JOIN sg_games sg ON sg.uuid = l.game_uuid
      LEFT JOIN bg_568win_game w ON l.game_uuid LIKE '568win:%:%'
        AND w.game_provider_id = CAST(SUBSTRING_INDEX(SUBSTRING_INDEX(l.game_uuid, ':', 2), ':', -1) AS UNSIGNED)
        AND w.game_id = CAST(SUBSTRING_INDEX(l.game_uuid, ':', -1) AS UNSIGNED)
      LEFT JOIN bg_568win_game_override o ON o.game_provider_id = w.game_provider_id AND o.game_id = w.game_id
-     WHERE l.user_id = ? AND (sg.uuid IS NOT NULL OR w.game_id IS NOT NULL)
+     WHERE l.user_id = ? AND w.game_id IS NOT NULL
      ORDER BY l.last_launched_at DESC
      LIMIT ?`,
     [userId, limit],
@@ -743,8 +616,8 @@ export async function getUserGameHistory(
   return rows.map((r) => ({
     uuid: r.game_uuid as string,
     name: r.name as string,
-    nameId: (r.name_id as string) ?? null,
-    nameVi: (r.name_vi as string) ?? null,
+    nameId: null,
+    nameVi: null,
     nameZh: (r.name_zh as string) ?? null,
     provider: r.provider as string,
     imageUrl: r.image_url ? String(r.image_url) : null,

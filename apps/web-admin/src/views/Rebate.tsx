@@ -11,8 +11,8 @@ import {
   getRebateConfig, saveRebateConfig, saveRebateThresholds,
   getFeaturedGames, addFeaturedGame, removeFeaturedGame,
   triggerRebatePayout, getRebateRecords,
-  getProviderStats, getAdminGames,
-  type RebateConfigItem, type RebateThresholdItem, type RebateFeaturedGame, type RebateRecord, type AdminGame,
+  getWin568ProviderStats, getAdminWin568Games,
+  type RebateConfigItem, type RebateThresholdItem, type RebateFeaturedGame, type RebateRecord, type AdminWin568Game,
 } from '../api'
 
 const { Title, Text } = Typography
@@ -57,7 +57,7 @@ export default function Rebate() {
 
   const [providers, setProviders] = useState<string[]>([])
   const [selectedProvider, setSelectedProvider] = useState<string | undefined>()
-  const [providerGames, setProviderGames] = useState<AdminGame[]>([])
+  const [providerGames, setProviderGames] = useState<AdminWin568Game[]>([])
   const [providerGamesLoading, setProviderGamesLoading] = useState(false)
 
   const [records, setRecords] = useState<RebateRecord[]>([])
@@ -109,7 +109,7 @@ export default function Rebate() {
 
   async function loadProviders() {
     try {
-      const stats = await getProviderStats()
+      const stats = await getWin568ProviderStats()
       setProviders(stats.map((s) => s.provider).sort())
     } catch { /* ignore */ }
   }
@@ -118,7 +118,7 @@ export default function Rebate() {
     setProviderGamesLoading(true)
     setProviderGames([])
     try {
-      const res = await getAdminGames({ provider, isActive: true, pageSize: 200 })
+      const res = await getAdminWin568Games({ provider, isActive: true, pageSize: 100 })
       setProviderGames(res.items)
     } catch { /* ignore */ }
     finally { setProviderGamesLoading(false) }
