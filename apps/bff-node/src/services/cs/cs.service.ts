@@ -4,6 +4,7 @@ import { getOrCreateConversation, getConversationById, getMessages, saveMessage,
 import { GEMINI_TOOLS, executeTool } from './cs-tools.js'
 import { getSystemPrompt } from './cs-prompt.js'
 import { isHumanOnDuty } from './cs-duty.js'
+import { detectQuickIntent, detectLang, buildQuickReply } from './cs-quick-reply.js'
 
 const MODEL = 'gemini-2.5-flash'
 const MAX_HISTORY = 20
@@ -54,6 +55,18 @@ export async function handleUserMessage(
   await saveMessage(env, conversationId, 'user', userText)
 
   const hardEscalation = conversation.status === 'active' && HARD_ESCALATION_RE.test(userText)
+
+  // 前置直查:登录用户高频"查我的X状态"命中即查库秒回,不进 Gemini(hint 意图不走这里)
+  if (!hint && !hardEscalation && conversation.status === 'active' && !userId.startsWith('guest:')) {
+    const intent = detectQuickIntent(userText)
+    if (intent) {
+      const quick = await buildQuickReply(env, userId, intent, detectLang(userText))
+      if (quick) {
+        await saveMessage(env, conversationId, 'assistant', quick)
+        return { reply: quick, conversationId, status: conversation.status }
+      }
+    }
+  }
 
   const history = await getMessages(env, conversationId, MAX_HISTORY)
   // 去掉最后一条（刚刚存入的 user 消息，sendMessage 会单独发）
