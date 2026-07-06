@@ -7,11 +7,11 @@ export interface CsIntent {
 export const CS_INTENTS: Record<string, CsIntent> = {
   deposit_not_credited: {
     userText: 'My deposit has not been credited yet.',
-    hint: 'User tapped the quick option "Deposit not credited". Call get_recent_orders first, then answer based on the latest deposit order: report its status and time. If an order is paid/pending for over 30 minutes, apologize and escalate to a human agent with the order id.',
+    hint: 'User tapped the quick option "Deposit not credited". Call get_recent_orders first, then answer based on the latest deposit order\'s "state": if success, tell them it is already credited (with amount and time); if pending, tell them it is still processing. Escalate ONLY when "needsHumanReview" is true. Never tell the user a success order has not arrived.',
   },
   withdrawal_status: {
     userText: 'I want to check my withdrawal status.',
-    hint: 'User tapped the quick option "Withdrawal status". Call get_recent_orders first and report the latest withdrawal order: status, time, and reject_reason if rejected. If there is no withdrawal order, say so and offer help on how to withdraw.',
+    hint: 'User tapped the quick option "Withdrawal status". Call get_recent_orders first and report the latest withdrawal order based on its "state": success = completed, pending = still processing, failed = show reject_reason. Escalate ONLY when "needsHumanReview" is true. If there is no withdrawal order, say so and offer help on how to withdraw.',
   },
   cannot_withdraw: {
     userText: 'Why can I not withdraw?',

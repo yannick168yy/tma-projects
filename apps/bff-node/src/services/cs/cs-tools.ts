@@ -3,6 +3,7 @@ import type { RowDataPacket } from 'mysql2/promise'
 import type { Env } from '../../config/env.js'
 import { getMysqlPool } from '../../clients/mysql.client.js'
 import { searchFaq, escalateConversation } from './cs-store.js'
+import { queryRecentOrders, type CsOrder } from './cs-orders.js'
 import { getTurnoverProgress } from '../turnover.service.js'
 import { isHumanOnDuty } from './cs-duty.js'
 
@@ -21,7 +22,8 @@ export const GEMINI_TOOLS: Tool[] = [
       },
       {
         name: 'get_recent_orders',
-        description: "Get the user's recent deposit and withdrawal orders (last 5 of each).",
+        description:
+          "Get the user's recent deposit and withdrawal orders (last 5 of each). Each order has a 'state' field decided by the system — 'success' means the deposit is credited or the withdrawal is completed, 'pending' means still processing, 'failed' means failed/rejected. ALWAYS base your answer on 'state'; never re-judge from raw status or timestamps. 'needsHumanReview' is true only when a pending order has been stuck over 30 minutes.",
         parameters: { type: SchemaType.OBJECT, properties: {} },
       },
       {
@@ -136,37 +138,29 @@ export async function executeTool(
     }
 
     case 'get_recent_orders': {
-      const [deposits] = await pool.query<RowDataPacket[]>(
-        `SELECT order_id, amount, currency, credited, channel, status, created_at
-         FROM bg_deposit_order WHERE user_id = ? ORDER BY created_at DESC LIMIT 5`,
-        [context.userId],
-      )
-      const [withdrawals] = await pool.query<RowDataPacket[]>(
-        `SELECT order_id, amount, currency, channel, status, created_at, handled_at, reject_reason
-         FROM bg_withdraw_order WHERE user_id = ? ORDER BY created_at DESC LIMIT 5`,
-        [context.userId],
-      )
-      return {
-        deposits: deposits.map((d) => ({
-          orderId: d.order_id,
-          amount: d.amount,
-          currency: d.currency,
-          credited: d.credited ? 1 : 0,
-          channel: d.channel,
-          status: d.status,
-          createdAt: d.created_at,
-        })),
-        withdrawals: withdrawals.map((w) => ({
-          orderId: w.order_id,
-          amountPHP: Number(w.amount).toFixed(2),
-          currency: w.currency,
-          channel: w.channel,
-          status: w.status,
-          createdAt: w.created_at,
-          completedAt: w.handled_at,
-          rejectReason: w.reject_reason,
-        })),
+      // 复用直查归一逻辑:state 是代码判定的权威结论,模型只据此措辞、不再自行推断
+      const [deposits, withdrawals] = await Promise.all([
+        queryRecentOrders(env, context.userId, 'deposit'),
+        queryRecentOrders(env, context.userId, 'withdraw'),
+      ])
+      const now = Date.now()
+      const decorate = (o: CsOrder) => {
+        const pendingMinutes =
+          o.state === 'pending' ? Math.floor((now - new Date(o.createdAt).getTime()) / 60000) : null
+        return {
+          orderId: o.orderId,
+          amount: o.amount,
+          currency: o.currency,
+          channel: o.channel,
+          state: o.state,
+          createdAt: o.createdAt,
+          settledAt: o.settledAt,
+          rejectReason: o.rejectReason,
+          pendingMinutes,
+          needsHumanReview: pendingMinutes !== null && pendingMinutes > 30,
+        }
       }
+      return { deposits: deposits.map(decorate), withdrawals: withdrawals.map(decorate) }
     }
 
     case 'get_turnover_status': {
