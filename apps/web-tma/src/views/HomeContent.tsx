@@ -79,18 +79,45 @@ interface Props {
   onOpenFirstDepositFiesta: () => void
   onOpenRewardsSpin: () => void
   onOpenCashback: () => void
+  onOpenNewPlayerGift?: () => void
 }
 
 interface HomePromoFloatProps {
   rewardsLabel: string
   cashbackLabel: string
+  giftLabel: string
   onOpenRewardsSpin: () => void
   onOpenCashback: () => void
+  onOpenNewPlayerGift?: () => void
+}
+
+interface FloatPromo {
+  key: string
+  label: string
+  ariaLabel: string
+  image?: string
+  imageClass?: string
+  emoji?: string
+  action: () => void
 }
 
 let homePromoFloatClosedUntilReload = false
 
-function HomePromoFloat({ rewardsLabel, cashbackLabel, onOpenRewardsSpin, onOpenCashback }: HomePromoFloatProps) {
+function FloatPromoIcon({ promo, size }: { promo: FloatPromo; size: number }) {
+  if (promo.image) {
+    return <img src={promo.image} alt="" className={`${promo.imageClass ?? ''} object-contain drop-shadow-[0_8px_18px_rgba(0,0,0,0.38)]`} style={{ height: size, width: size }} />
+  }
+  return (
+    <span
+      className="flex items-center justify-center rounded-full bg-gradient-to-b from-[#ff4d4d] to-[#c81414] ring-2 ring-[#ffe066] drop-shadow-[0_8px_18px_rgba(0,0,0,0.38)]"
+      style={{ height: size * 0.82, width: size * 0.82, fontSize: size * 0.42 }}
+    >
+      {promo.emoji}
+    </span>
+  )
+}
+
+function HomePromoFloat({ rewardsLabel, cashbackLabel, giftLabel, onOpenRewardsSpin, onOpenCashback, onOpenNewPlayerGift }: HomePromoFloatProps) {
   const widgetRef = useRef<HTMLDivElement>(null)
   const collapsedPositionRef = useRef<{ left: number; top: number } | null>(null)
   const dragRef = useRef({ pointerId: -1, startX: 0, startY: 0, startLeft: 0, startTop: 0, moved: false, suppressClick: false })
@@ -98,7 +125,8 @@ function HomePromoFloat({ rewardsLabel, cashbackLabel, onOpenRewardsSpin, onOpen
   const [activePromo, setActivePromo] = useState(0)
   const [closed, setClosed] = useState(homePromoFloatClosedUntilReload)
   const [position, setPosition] = useState<{ left: number; top: number } | null>(null)
-  const promos = [
+  const promos: FloatPromo[] = [
+    ...(onOpenNewPlayerGift ? [{ key: 'gifts', label: giftLabel, ariaLabel: giftLabel, emoji: '🎁', action: onOpenNewPlayerGift }] : []),
     { key: 'cashback', label: 'cashback', ariaLabel: cashbackLabel, image: cashbackFloatImg, imageClass: 'home-cashback-swing-float', action: onOpenCashback },
     { key: 'rewards', label: 'rewards', ariaLabel: rewardsLabel, image: rewardsSpinFloatImg, imageClass: 'home-rewards-spin-float', action: onOpenRewardsSpin },
   ]
@@ -249,7 +277,7 @@ function HomePromoFloat({ rewardsLabel, cashbackLabel, onOpenRewardsSpin, onOpen
             onClick={() => runAction(promo.action)}
             aria-label={promo.ariaLabel}
           >
-            <img src={promo.image} alt="" className={`${promo.imageClass} h-[94px] w-[94px] object-contain drop-shadow-[0_8px_18px_rgba(0,0,0,0.38)]`} />
+            <FloatPromoIcon promo={promo} size={94} />
             <span className="text-xs font-black leading-none text-white drop-shadow-[0_1px_4px_rgba(0,0,0,0.8)]">{promo.label}</span>
           </button>
         ))
@@ -264,7 +292,7 @@ function HomePromoFloat({ rewardsLabel, cashbackLabel, onOpenRewardsSpin, onOpen
                 onClick={() => runAction(promo.action)}
                 aria-label={promo.ariaLabel}
               >
-                <img src={promo.image} alt="" className={`${promo.imageClass} h-[99px] w-[99px] object-contain drop-shadow-[0_8px_18px_rgba(0,0,0,0.38)]`} />
+                <FloatPromoIcon promo={promo} size={99} />
               </button>
             ))}
           </div>
@@ -274,7 +302,7 @@ function HomePromoFloat({ rewardsLabel, cashbackLabel, onOpenRewardsSpin, onOpen
   )
 }
 
-export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOpenFirstDepositFiesta, onOpenRewardsSpin, onOpenCashback }: Props) {
+export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOpenFirstDepositFiesta, onOpenRewardsSpin, onOpenCashback, onOpenNewPlayerGift }: Props) {
   const { t, i18n } = useTranslation()
   const locale = i18n.language
   const promotion = usePromotionStore()
@@ -903,8 +931,10 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
       <HomePromoFloat
         rewardsLabel={t('category.rewardsSpin')}
         cashbackLabel={t('cashback.title')}
+        giftLabel={t('bonuses.newPlayer.floatLabel')}
         onOpenRewardsSpin={onOpenRewardsSpin}
         onOpenCashback={onOpenCashback}
+        onOpenNewPlayerGift={onOpenNewPlayerGift}
       />
     </div>
   )

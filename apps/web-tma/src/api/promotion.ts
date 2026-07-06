@@ -151,11 +151,35 @@ export async function fetchTeamTree(month: string): Promise<{ l1Members: TeamTre
 
 export interface FirstDepTier { depositAmount: number; bonusAmount: number }
 
+export interface PopupConfig {
+  id: string
+  enabled: boolean
+  order: number
+  audience: 'all' | 'guest' | 'new' | 'deposited'
+  frequency: 'daily' | 'once' | 'always'
+}
+
 export interface PromoConfig {
   trial:    { amount: number; enabled: boolean }
   referral: { inviterAmount: number; inviteeAmount: number; enabled: boolean }
   firstdep: { enabled: boolean; turnoverX: number; turnoverDays?: number; tiers: Record<string, FirstDepTier[]> }
   appdl:    { amount: number; enabled: boolean; turnoverX: number; turnoverDays?: number }
+  popups?:  PopupConfig[]
+}
+
+export interface NewPlayerSummary {
+  registered: boolean
+  totalShowcase: number
+  tasks: {
+    trial:    { enabled: boolean; amount: number; claimed: boolean }
+    appdl:    { enabled: boolean; amount: number; claimed: boolean }
+    firstdep: { enabled: boolean; maxBonus: number; done: boolean }
+  }
+  cashback: { dailyCap: number; monthlyCap: number; topRatePct: number }
+}
+
+export async function fetchNewPlayerSummary(): Promise<NewPlayerSummary> {
+  return apiRequest<NewPlayerSummary>('/promotions/new-player-summary')
 }
 
 const DEFAULT_PROMO_CONFIG: PromoConfig = {

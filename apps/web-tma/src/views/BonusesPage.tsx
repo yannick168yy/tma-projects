@@ -5,7 +5,7 @@ import { BONUS_WINNERS, PROMOS } from '@/data/promos'
 import { usePromotionStore, getHighlightMap } from '@/stores/promotion'
 import { useAuthStore } from '@/stores/auth'
 import { useWalletStore } from '@/stores/wallet'
-import { fetchAppdlStatus, claimAppdlBonus } from '@/api/promotion'
+import { fetchAppdlStatus, claimAppdlBonus, type NewPlayerSummary } from '@/api/promotion'
 import { isStandalone } from '@/utils/pwa'
 import { isInsideTelegram } from '@/utils/initTelegramWebApp'
 import { analytics } from '@/utils/analytics'
@@ -16,13 +16,15 @@ interface Props {
   onOpenWallet: () => void
   onOpenTeam: () => void
   onOpenAppInstall: () => void
+  newPlayerSummary?: NewPlayerSummary | null
+  onOpenNewPlayerGift?: () => void
 }
 
 function phpDisplay(cents: number) {
   return '₱' + (cents / 100).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
-export default function BonusesPage({ promoFilter, onOpenWallet, onOpenTeam, onOpenAppInstall }: Props) {
+export default function BonusesPage({ promoFilter, onOpenWallet, onOpenTeam, onOpenAppInstall, newPlayerSummary, onOpenNewPlayerGift }: Props) {
   const { t } = useTranslation()
   const promotionStore = usePromotionStore()
   const highlights = usePromotionStore((s) => s.highlights)
@@ -194,6 +196,28 @@ export default function BonusesPage({ promoFilter, onOpenWallet, onOpenTeam, onO
       </div>
 
       <div className="px-4 mt-4 space-y-3">
+        {newPlayerSummary && onOpenNewPlayerGift && newPlayerSummary.totalShowcase > 0 && (
+          <button
+            type="button"
+            className="w-full rounded-2xl overflow-hidden border border-[#ffd54a]/50 bg-gradient-to-br from-[#c81414] via-[#a50f0f] to-[#7a0e0e] px-4 py-4 text-left active:scale-[0.99] transition-transform"
+            onClick={onOpenNewPlayerGift}
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="text-[10px] font-black uppercase tracking-widest text-[#ffe066]">
+                  {t('bonuses.newPlayer.title')}
+                </span>
+                <h2 className="text-white font-black leading-tight mt-0.5 font-display text-[1.3rem]">
+                  {t('bonuses.newPlayer.entryTitle')}
+                </h2>
+                <p className="text-white/70 text-xs mt-0.5">
+                  {t('bonuses.newPlayer.entrySub', { amount: '₱' + newPlayerSummary.totalShowcase.toLocaleString('en-PH') })}
+                </p>
+              </div>
+              <span className="text-4xl">🎁</span>
+            </div>
+          </button>
+        )}
         <div className="rounded-2xl overflow-hidden border border-amber-500/30">
           <div className="relative bg-gradient-to-br from-[#78350f] via-[#92400e] to-[#b45309] px-4 py-4">
             <span className="text-3xl absolute top-3 right-4">🏆</span>

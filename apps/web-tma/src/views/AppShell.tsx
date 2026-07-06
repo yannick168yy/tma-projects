@@ -14,7 +14,10 @@ import {
 } from '@/stores/wallet'
 import { isImmersiveFullPage } from '@/hooks/useFullPageOverlay'
 import { useAppNavigation } from '@/hooks/useAppNavigation'
-import { shouldShowDownloadBar, dismissDownloadBar, isIos } from '@/utils/pwa'
+import { shouldShowDownloadBar, dismissDownloadBar, isIos, isStandalone } from '@/utils/pwa'
+import { isInsideTelegram } from '@/utils/initTelegramWebApp'
+import { usePromotionStore } from '@/stores/promotion'
+import { fetchNewPlayerSummary, claimAppdlBonus, type NewPlayerSummary } from '@/api/promotion'
 import TopDownloadBar from '@/components/pwa/TopDownloadBar'
 import OrientationGuard from '@/components/OrientationGuard'
 import threeCirclesMenu from '@/assets/team/3-circles/menu-entry.webp'
@@ -38,6 +41,9 @@ const RewardsSpinPage = lazy(() => import('@/views/RewardsSpinPage'))
 const GamePlayer = lazy(() => import('@/components/GamePlayer'))
 const DownloadPage = lazy(() => import('@/views/DownloadPage'))
 const InstallGuideSheet = lazy(() => import('@/components/pwa/InstallGuideSheet'))
+const NewPlayerGiftSheet = lazy(() => import('@/components/promotion/NewPlayerGiftSheet'))
+
+const NEW_PLAYER_POPUP_KEY = 'betogo_popup_new_player'
 
 type NavId = (typeof NAV_ITEMS)[number]['id']
 
@@ -108,6 +114,98 @@ export default function AppShell() {
   const [gamePlayerUrl, setGamePlayerUrl] = useState<string | null>(null)
   const [downloadBarVisible, setDownloadBarVisible] = useState(() => shouldShowDownloadBar())
   const [iosGuideOpen, setIosGuideOpen] = useState(false)
+
+  // ── 新人礼包弹窗：聚合状态 + 按后台 popups 配置调度 ──────────────────────────
+  const promoConfig = usePromotionStore((s) => s.promoConfig)
+  const loadPromoConfig = usePromotionStore((s) => s.loadPromoConfig)
+  const trialClaiming = usePromotionStore((s) => s.trialClaiming)
+  const claimTrialIfEligible = usePromotionStore((s) => s.claimTrialIfEligible)
+  const [npSummary, setNpSummary] = useState<NewPlayerSummary | null>(null)
+  const [giftSheetOpen, setGiftSheetOpen] = useState(false)
+  const [giftAppdlClaiming, setGiftAppdlClaiming] = useState(false)
+  const giftAutoFired = useRef(false)
+  const inTelegram = isInsideTelegram()
+  const inApp = isStandalone()
+
+  const giftAllDone = useMemo(() => {
+    if (!npSummary) return true
+    const { trial, appdl, firstdep } = npSummary.tasks
+    return (!trial.enabled || trial.claimed)
+      && (!appdl.enabled || inTelegram || appdl.claimed)
+      && (!firstdep.enabled || firstdep.done)
+  }, [npSummary, inTelegram])
+
+  async function refreshNpSummary() {
+    try { setNpSummary(await fetchNewPlayerSummary()) } catch { /* 弱网失败静默，稍后手动入口仍可重试 */ }
+  }
+
+  useEffect(() => {
+    if (!promoConfig) void loadPromoConfig()
+    void refreshNpSummary()
+  }, [auth.token]) // 登录态变化后重拉真实领取状态
+
+  useEffect(() => {
+    if (giftAutoFired.current || !promoConfig || !npSummary) return
+    if (view.type !== 'none' || activeNav !== 'casino' || gamePlayerUrl) return
+    const popup = promoConfig.popups?.find((p) => p.id === 'new_player')
+    if (!popup?.enabled || giftAllDone) return
+    const loggedIn = Boolean(auth.token)
+    if (popup.audience === 'guest' && loggedIn) return
+    if (popup.audience === 'new' && (!loggedIn || npSummary.tasks.firstdep.done)) return
+    if (popup.audience === 'deposited' && (!loggedIn || !npSummary.tasks.firstdep.done)) return
+    const today = new Date().toISOString().slice(0, 10)
+    const last = localStorage.getItem(NEW_PLAYER_POPUP_KEY)
+    if (popup.frequency === 'once' && last) return
+    if (popup.frequency === 'daily' && last === today) return
+    giftAutoFired.current = true
+    localStorage.setItem(NEW_PLAYER_POPUP_KEY, popup.frequency === 'once' ? '1' : today)
+    setGiftSheetOpen(true)
+  }, [promoConfig, npSummary, view.type, activeNav, auth.token, giftAllDone, gamePlayerUrl])
+
+  function openNewPlayerGift() {
+    setWalletOpen(false)
+    void refreshNpSummary()
+    setGiftSheetOpen(true)
+  }
+
+  async function giftSignUp() {
+    if (await auth.ensureLoggedIn(t('auth.signInBonus'))) void refreshNpSummary()
+  }
+
+  async function giftClaimTrial() {
+    const result = await claimTrialIfEligible()
+    if (result.ok || result.alreadyClaimed) void refreshNpSummary()
+  }
+
+  async function giftAppdlAction() {
+    if (!inApp) {
+      setGiftSheetOpen(false)
+      openAppInstall()
+      return
+    }
+    if (giftAppdlClaiming) return
+    if (!(await auth.ensureLoggedIn(t('auth.signInBonus')))) return
+    setGiftAppdlClaiming(true)
+    try {
+      await claimAppdlBonus('pwa')
+      void wallet.refresh()
+      void refreshNpSummary()
+    } catch {
+      void refreshNpSummary() // 409 已领取等场景直接同步状态
+    } finally {
+      setGiftAppdlClaiming(false)
+    }
+  }
+
+  function giftOpenDeposit() {
+    setGiftSheetOpen(false)
+    void openWallet()
+  }
+
+  function giftOpenCashback() {
+    setGiftSheetOpen(false)
+    onOpenCashback()
+  }
 
   const headerRef = useRef<HTMLElement>(null)
   const navRef = useRef<HTMLElement>(null)
@@ -458,11 +556,11 @@ export default function AppShell() {
           {view.type === 'spin' && (
             <RewardsSpinPage onClose={closeImmersive} />
           )}
-          {view.type === 'none' && activeNav === 'bonuses' && <BonusesPage promoFilter={promoFilter} onOpenWallet={() => void openWallet()} onOpenTeam={onOpenTeamCenter} onOpenAppInstall={openAppInstall} />}
+          {view.type === 'none' && activeNav === 'bonuses' && <BonusesPage promoFilter={promoFilter} onOpenWallet={() => void openWallet()} onOpenTeam={onOpenTeamCenter} onOpenAppInstall={openAppInstall} newPlayerSummary={npSummary} onOpenNewPlayerGift={openNewPlayerGift} />}
           {view.type === 'none' && activeNav === 'games' && <GamesPage cat={gamesFilter.cat} provider={gamesFilter.provider} onChangeFilter={setGamesFilter} onOpenPerya={openPerya} onGameTap={() => void onGameTap()} onOpenGame={(url) => setGamePlayerUrl(url)} />}
           {view.type === 'none' && activeNav === 'menu' && <MenuPage onOpenCs={openCs} onLogin={() => void auth.ensureLoggedIn(t('auth.signInProfile'))} onLogout={onLogout} onOpenBetHistory={onOpenBetHistory} onOpenLedgerRecords={onOpenLedgerRecords} onOpenReferralPromo={onOpenReferralPromo} onOpenAgentCenter={onOpenAgentCenter} onOpenCashback={onOpenCashback} onOpenRewardsSpin={onOpenRewardsSpin} onOpenKycSetting={onOpenKycSetting} onOpenDownload={openDownload} onOpenTopUp={() => void openWalletFull('deposit')} onOpenCashOut={() => void openWalletFull('withdraw')} onOpenWalletHistory={() => void openWalletFull('history')} />}
           {view.type === 'none' && activeNav === 'casino' && (
-            <HomeContent onNavigatePath={navigatePath} onOpenCs={openCs} onOpenGame={(url) => setGamePlayerUrl(url)} onOpenFirstDepositFiesta={onOpenFirstDepositFiesta} onOpenRewardsSpin={onOpenRewardsSpin} onOpenCashback={onOpenCashback} />
+            <HomeContent onNavigatePath={navigatePath} onOpenCs={openCs} onOpenGame={(url) => setGamePlayerUrl(url)} onOpenFirstDepositFiesta={onOpenFirstDepositFiesta} onOpenRewardsSpin={onOpenRewardsSpin} onOpenCashback={onOpenCashback} onOpenNewPlayerGift={giftAllDone ? undefined : openNewPlayerGift} />
           )}
           </Suspense>
         </main>
@@ -518,6 +616,23 @@ export default function AppShell() {
 
         {iosGuideOpen && (
           <InstallGuideSheet platform="ios" onClose={() => setIosGuideOpen(false)} />
+        )}
+
+        {giftSheetOpen && npSummary && (
+          <NewPlayerGiftSheet
+            summary={npSummary}
+            loggedIn={isLoggedIn}
+            inApp={inApp}
+            inTelegram={inTelegram}
+            trialClaiming={trialClaiming}
+            appdlClaiming={giftAppdlClaiming}
+            onClose={() => setGiftSheetOpen(false)}
+            onSignUp={() => void giftSignUp()}
+            onClaimTrial={() => void giftClaimTrial()}
+            onAppdlAction={() => void giftAppdlAction()}
+            onOpenDeposit={giftOpenDeposit}
+            onOpenCashback={giftOpenCashback}
+          />
         )}
       </Suspense>
 
