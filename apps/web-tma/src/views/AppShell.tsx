@@ -16,6 +16,7 @@ import { isImmersiveFullPage } from '@/hooks/useFullPageOverlay'
 import { useAppNavigation } from '@/hooks/useAppNavigation'
 import { shouldShowDownloadBar, dismissDownloadBar, isIos } from '@/utils/pwa'
 import TopDownloadBar from '@/components/pwa/TopDownloadBar'
+import OrientationGuard from '@/components/OrientationGuard'
 import threeCirclesMenu from '@/assets/team/3-circles/menu-entry.webp'
 
 const WalletModal = lazy(() => import('@/components/wallet/WalletModal'))
@@ -513,6 +514,8 @@ export default function AppShell() {
           <InstallGuideSheet platform="ios" onClose={() => setIosGuideOpen(false)} />
         )}
       </Suspense>
+
+      <OrientationGuard allowLandscape={!!gamePlayerUrl} />
     </div>
   )
 }

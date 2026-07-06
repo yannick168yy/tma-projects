@@ -19,6 +19,8 @@ export default {
     csMinuteLimit: 'You can send at most {{value}} messages per minute, please try again later',
   },
   common: {
+    rotateToPortrait: 'Please rotate your device to portrait mode',
+    rotateToPortraitHint: 'For the best experience, keep it upright',
     hot: 'HOT',
     new: 'NEW',
     soon: 'Soon',

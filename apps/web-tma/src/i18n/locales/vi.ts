@@ -19,6 +19,8 @@ export default {
     csMinuteLimit: 'Tối đa {{value}} tin nhắn mỗi phút, vui lòng thử lại sau',
   },
   common: {
+    rotateToPortrait: 'Vui lòng xoay thiết bị về chế độ dọc',
+    rotateToPortraitHint: 'Để có trải nghiệm tốt nhất, hãy giữ màn hình dọc',
     hot: 'HOT',
     new: 'MỚI',
     soon: 'Sắp có',

@@ -19,6 +19,8 @@ export default {
     csMinuteLimit: '每分钟最多发送 {{value}} 条消息，请稍后再试',
   },
   common: {
+    rotateToPortrait: '请将设备旋转至竖屏使用',
+    rotateToPortraitHint: '为获得最佳体验，请保持竖屏',
     hot: '热门',
     new: '新品',
     soon: '即将',

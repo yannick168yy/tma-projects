@@ -19,6 +19,8 @@ export default {
     csMinuteLimit: 'Maksimal {{value}} pesan per menit, coba lagi nanti',
   },
   common: {
+    rotateToPortrait: 'Silakan putar perangkat Anda ke mode potret',
+    rotateToPortraitHint: 'Untuk pengalaman terbaik, tetap dalam mode potret',
     hot: 'HOT',
     new: 'BARU',
     soon: 'Segera',
