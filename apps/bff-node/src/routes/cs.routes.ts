@@ -2,6 +2,7 @@ import Router from '@koa/router'
 import type { Context } from 'koa'
 import type { Redis } from 'ioredis'
 import { PassThrough } from 'node:stream'
+import { createHash } from 'node:crypto'
 import { ok, fail } from '../utils/response.js'
 import { handleUserMessage } from '../services/cs/cs.service.js'
 import { getOrCreateConversation, getMessages } from '../services/cs/cs-store.js'
@@ -11,6 +12,11 @@ import { getAdminSetting } from '../services/admin-store.js'
 
 const GUEST_HOURLY_LIMIT = 20
 const USER_MINUTE_LIMIT = 20
+
+// cs_conversation.user_id 是 varchar(20)，guest:<ip> 会超长写库失败，用定长短 hash 压进 20 字符
+function guestId(ip: string): string {
+  return 'guest:' + createHash('md5').update(ip).digest('hex').slice(0, 13)
+}
 
 function getClientIp(ctx: Context): string {
   const forwarded = ctx.get('X-Forwarded-For')
@@ -64,7 +70,7 @@ router.post('/cs/message', async (ctx) => {
 
   if (isGuest) {
     const ip = getClientIp(ctx)
-    effectiveUserId = `guest:${ip}`
+    effectiveUserId = guestId(ip)
     const { limited, retryAfter } = await checkRateLimit(
       ctx.state.redis,
       `cs:rl:${effectiveUserId}`,
@@ -111,7 +117,7 @@ router.post('/cs/message/stream', async (ctx) => {
   let effectiveUserId: string
   if (isGuest) {
     const ip = getClientIp(ctx)
-    effectiveUserId = `guest:${ip}`
+    effectiveUserId = guestId(ip)
     const { limited, retryAfter } = await checkRateLimit(ctx.state.redis, `cs:rl:${effectiveUserId}`, GUEST_HOURLY_LIMIT, 3600)
     if (limited) {
       fail(ctx, 429, `errors.csTooFrequent:${Math.ceil(retryAfter / 60)}`)
