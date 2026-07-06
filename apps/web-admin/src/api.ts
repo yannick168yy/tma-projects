@@ -750,11 +750,31 @@ export const getBetRounds = (params: {
 export interface FirstDepTier { depositAmount: number; bonusAmount: number }
 export const FIRSTDEP_CURRENCIES = ['PHP', 'USDT', 'USDC'] as const
 export type FirstDepCurrency = (typeof FIRSTDEP_CURRENCIES)[number]
+export type PopupAudience = 'all' | 'guest' | 'new' | 'deposited'
+export type PopupFrequency = 'daily' | 'once' | 'always'
+export interface PopupConfig {
+  id: string
+  enabled: boolean
+  order: number
+  audience: PopupAudience
+  frequency: PopupFrequency
+}
+export interface ChannelDepositBonusConfig {
+  enabled: boolean
+  channel: string
+  minDeposit: number
+  amount: number
+  turnoverX: number
+  turnoverDays: number
+  inactiveDays: number
+}
 export interface PromoConfig {
   trial:    { amount: number; enabled: boolean; turnoverX: number; turnoverDays: number }
   referral: { inviterAmount: number; inviteeAmount: number; enabled: boolean; turnoverX: number; turnoverDays: number }
   firstdep: { enabled: boolean; turnoverX: number; turnoverDays: number; tiers: Record<string, FirstDepTier[]> }
   appdl:    { amount: number; enabled: boolean; turnoverX: number; turnoverDays: number }
+  chdep:    ChannelDepositBonusConfig
+  popups:   PopupConfig[]
 }
 export const getPromoConfig = () => get<PromoConfig>('/admin/promotions/config')
 export const savePromoConfig = (data: PromoConfig) => req<PromoConfig>('PUT', '/admin/promotions/config', data)
