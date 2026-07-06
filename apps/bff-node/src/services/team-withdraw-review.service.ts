@@ -35,6 +35,16 @@ interface ReviewContext {
   commissionEarnedCents: number
   commissionDownlineGgrCents: number
   commissionDupGroups: number
+  /** 窗口内佣金入账（分） */
+  windowCommissionCents: number
+  /** 窗口起点前 30 天的佣金总和（分） */
+  prior30dCommissionCents: number
+  /** 窗口内来自新注册下线的佣金（分），口径随 fresh_downline_commission 的 params.days */
+  freshCommissionCents: number
+  /** 名下产生过佣金的下线累计真实存款（分） */
+  downlineDepositCents: number
+  /** 近 30 天与团队长共用 IP 的下线账号数 */
+  downlineIpOverlap: number
   win568: Win568ReviewStats
 }
 
@@ -94,6 +104,60 @@ const TEAM_RULES: Record<string, Rule> = {
         earnedCents: ctx.commissionEarnedCents,
         downlineGgrCents: ctx.commissionDownlineGgrCents,
       },
+    }
+  },
+
+  commission_surge(ctx, cfg) {
+    const p = cfg.params ?? {}
+    const mult = Number(p.mult ?? 1.0)
+    const minCents = Number(p.minCents ?? 50000)
+    const hit = ctx.windowCommissionCents >= minCents
+      && ctx.windowCommissionCents > ctx.prior30dCommissionCents * mult
+    return {
+      code: 'commission_surge',
+      verdict: hit ? 'manual' : 'pass',
+      actualValue: ctx.windowCommissionCents,
+      detail: { prior30dCents: ctx.prior30dCommissionCents, mult, minCents },
+    }
+  },
+
+  fresh_downline_commission(ctx, cfg) {
+    const p = cfg.params ?? {}
+    const ratioTh = Number(p.ratio ?? 0.6)
+    const minCents = Number(p.minCents ?? 50000)
+    const total = ctx.windowCommissionCents
+    const ratio = total > 0 ? ctx.freshCommissionCents / total : 0
+    const hit = total >= minCents && ratio >= ratioTh
+    return {
+      code: 'fresh_downline_commission',
+      verdict: hit ? 'manual' : 'pass',
+      actualValue: Math.round(ratio * 100) / 100,
+      detail: { freshCents: ctx.freshCommissionCents, totalCents: total, ratioTh, minCents },
+    }
+  },
+
+  commission_deposit_ratio(ctx, cfg) {
+    const p = cfg.params ?? {}
+    const ratioTh = Number(p.ratio ?? 0.5)
+    const minCents = Number(p.minCents ?? 50000)
+    const hit = ctx.commissionEarnedCents >= minCents
+      && ctx.commissionEarnedCents > ctx.downlineDepositCents * ratioTh
+    return {
+      code: 'commission_deposit_ratio',
+      verdict: hit ? 'manual' : 'pass',
+      actualValue: ctx.commissionEarnedCents,
+      detail: { downlineDepositCents: ctx.downlineDepositCents, ratioTh, minCents },
+    }
+  },
+
+  downline_ip_overlap(ctx, cfg) {
+    const th = Number(cfg.threshold ?? 2)
+    const hit = th > 0 && ctx.downlineIpOverlap >= th
+    return {
+      code: 'downline_ip_overlap',
+      verdict: hit ? 'manual' : 'pass',
+      actualValue: ctx.downlineIpOverlap,
+      threshold: th,
     }
   },
 }
@@ -160,6 +224,47 @@ async function buildContext(pool: Pool, withdrawal: TeamWithdrawal, config: Reco
     [userId],
   )
 
+  // 佣金激增：窗口内 vs 窗口起点前 30 天
+  const [[surge]] = await pool.query<RowDataPacket[]>(
+    `SELECT
+       COALESCE(SUM(CASE WHEN created_at > ? THEN commission_cents END), 0) AS window_cents,
+       COALESCE(SUM(CASE WHEN created_at <= ? AND created_at > DATE_SUB(?, INTERVAL 30 DAY) THEN commission_cents END), 0) AS prior_cents
+     FROM bg_team_commission
+     WHERE beneficiary_id = ? AND status <> 'voided'`,
+    [sinceDate, sinceDate, sinceDate, userId],
+  )
+
+  // 新号佣金：窗口内来自「入账时注册龄 ≤ days 天」下线的佣金
+  const freshDays = Math.max(1, Number(config.fresh_downline_commission?.params?.days ?? 7))
+  const [[fresh]] = await pool.query<RowDataPacket[]>(
+    `SELECT COALESCE(SUM(c.commission_cents), 0) AS fresh_cents
+     FROM bg_team_commission c
+     JOIN bg_user u ON u.id = c.from_user_id
+     WHERE c.beneficiary_id = ? AND c.status <> 'voided' AND c.created_at > ?
+       AND u.registered_at > DATE_SUB(c.created_at, INTERVAL ? DAY)`,
+    [userId, sinceDate, freshDays],
+  )
+
+  // 名下产生过佣金的下线累计真实存款
+  const [[ddep]] = await pool.query<RowDataPacket[]>(
+    `SELECT COALESCE(SUM(ROUND(d.amount * 100)), 0) AS cents
+     FROM bg_deposit_order d
+     WHERE d.status = 'paid' AND d.user_id IN (
+       SELECT DISTINCT from_user_id FROM bg_team_commission WHERE beneficiary_id = ?
+     )`,
+    [userId],
+  )
+
+  // 近 30 天与团队长共用 IP 的下线账号数
+  const [[dip]] = await pool.query<RowDataPacket[]>(
+    `SELECT COUNT(DISTINCT l2.user_id) AS cnt
+     FROM bg_login_log l1
+     JOIN bg_login_log l2 ON l2.ip = l1.ip AND l2.user_id <> l1.user_id
+     WHERE l1.user_id = ? AND l1.ip IS NOT NULL AND l1.created_at > NOW() - INTERVAL 30 DAY
+       AND l2.user_id IN (SELECT DISTINCT from_user_id FROM bg_team_commission WHERE beneficiary_id = ?)`,
+    [userId, userId],
+  )
+
   const win568 = await buildWin568ReviewStats(pool, userId, sinceDate, reconcileGraceMinutes(config))
 
   return {
@@ -175,6 +280,11 @@ async function buildContext(pool: Pool, withdrawal: TeamWithdrawal, config: Reco
     commissionEarnedCents: Number(comm?.earned ?? 0),
     commissionDownlineGgrCents: Number(comm?.downline_ggr ?? 0),
     commissionDupGroups: Number(dup?.cnt ?? 0),
+    windowCommissionCents: Number(surge?.window_cents ?? 0),
+    prior30dCommissionCents: Number(surge?.prior_cents ?? 0),
+    freshCommissionCents: Number(fresh?.fresh_cents ?? 0),
+    downlineDepositCents: Number(ddep?.cents ?? 0),
+    downlineIpOverlap: Number(dip?.cnt ?? 0),
     win568,
   }
 }
@@ -192,6 +302,11 @@ function snapshotOf(ctx: ReviewContext): Record<string, number | string | boolea
     commissionEarnedCents: ctx.commissionEarnedCents,
     commissionDownlineGgrCents: ctx.commissionDownlineGgrCents,
     commissionDupGroups: ctx.commissionDupGroups,
+    windowCommissionCents: ctx.windowCommissionCents,
+    prior30dCommissionCents: ctx.prior30dCommissionCents,
+    freshCommissionCents: ctx.freshCommissionCents,
+    downlineDepositCents: ctx.downlineDepositCents,
+    downlineIpOverlap: ctx.downlineIpOverlap,
     win568SyncWatermark: ctx.win568.watermarkMs === null ? '' : new Date(ctx.win568.watermarkMs).toISOString(),
     win568CoverageStart: ctx.win568.coverageStartMs === null ? '' : new Date(ctx.win568.coverageStartMs).toISOString(),
     win568ReconcileChecked: ctx.win568.reconcileChecked,

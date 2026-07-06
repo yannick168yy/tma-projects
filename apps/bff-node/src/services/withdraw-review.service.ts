@@ -77,6 +77,10 @@ export const RULE_META: Record<string, { name: string; desc: string }> = {
   upstream_reconcile:       { name: '上游对账', desc: '窗口内本地已结算注单与 568Win 报表按 RefNo 双边核对：本地有上游无（伪造注单）、投注额不符（篡改）、上游已作废但本地已派彩（回滚遗漏）任一命中转人工。报表同步停摆时跳过不拦截。' },
   bonus_bet_abuse:          { name: '上游彩金异常', desc: '窗口内 568Win Bonus 入账总额超过阈值（PHP 分）或笔数超过 params.count，疑似薅上游活动，转人工。' },
   cancel_pattern:           { name: '取消注单异常', desc: '窗口内被作废（Void）的注单笔数 ≥ 阈值且占比 ≥ params.ratio，疑似利用取消机制套利，转人工。' },
+  commission_surge:         { name: '佣金激增', desc: '（佣金提现专用）窗口内佣金入账超过之前 30 天佣金总和 × params.mult，且不低于 params.minCents 起查额，疑似速成刷佣，转人工。新代理首笔大额佣金也会命中，由人工过目。' },
+  fresh_downline_commission:{ name: '新号佣金占比', desc: '（佣金提现专用）窗口内佣金中来自「注册 ≤ params.days 天下线」的占比 ≥ params.ratio 且总额 ≥ params.minCents，疑似批量注册小号刷佣，转人工。' },
+  commission_deposit_ratio: { name: '佣金存款比', desc: '（佣金提现专用）累计佣金 > 下线累计真实存款 × params.ratio 且 ≥ params.minCents。佣金规模不可能长期超过下线净存入，命中即彩金刷佣或结算故障，转人工。' },
+  downline_ip_overlap:      { name: '下线同IP', desc: '（佣金提现专用）近 30 天与团队长共用 IP 的下线账号数 ≥ 阈值，疑似自己给自己当下线，转人工。' },
 }
 
 // ── 568Win 数据面统计：user 与 team 审核共用 ─────────────────────────────────
