@@ -450,7 +450,8 @@ export async function listAdminWin568Games(
   if (opts.currency) {
     const currency = opts.currency.toUpperCase()
     if (currency === 'USDT' || currency === 'UCC') {
-      conditions.push(`(g.supported_currencies IS NULL OR JSON_CONTAINS(g.supported_currencies, JSON_QUOTE('USDT')) OR JSON_CONTAINS(g.supported_currencies, JSON_QUOTE('UCC')))`)
+      // USD/USDC 视同 USDT(UCC)：与前台开放口径一致
+      conditions.push(`(g.supported_currencies IS NULL OR JSON_CONTAINS(g.supported_currencies, JSON_QUOTE('USDT')) OR JSON_CONTAINS(g.supported_currencies, JSON_QUOTE('UCC')) OR JSON_CONTAINS(g.supported_currencies, JSON_QUOTE('USD')) OR JSON_CONTAINS(g.supported_currencies, JSON_QUOTE('USDC')))`)
     } else {
       conditions.push(`(g.supported_currencies IS NULL OR JSON_CONTAINS(g.supported_currencies, JSON_QUOTE(?)))`)
       params.push(currency)

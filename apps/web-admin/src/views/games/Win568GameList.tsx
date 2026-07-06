@@ -65,8 +65,10 @@ function coverStatusMeta(status: string) {
 function jsonText(value: unknown) {
   if (Array.isArray(value)) {
     const values = value.map(String)
-    const merged = values.filter((v) => v !== 'USDT' && v !== 'UCC')
-    if (values.includes('USDT') || values.includes('UCC')) merged.push('USDT(UCC)')
+    // USD/USDC 视同 USDT(UCC)：后端把美元游戏开放给 USDT 账户，展示上归并一致
+    const usdtAliases = ['USDT', 'UCC', 'USD', 'USDC']
+    const merged = values.filter((v) => !usdtAliases.includes(v))
+    if (values.some((v) => usdtAliases.includes(v))) merged.push('USDT(UCC)')
     return merged.join(', ')
   }
   if (!value) return '—'

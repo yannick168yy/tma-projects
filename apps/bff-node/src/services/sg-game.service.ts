@@ -45,10 +45,16 @@ function parseJsonArray(value: unknown): string[] | null {
   return Array.isArray(parsed) ? parsed.map(String).filter(Boolean) : null
 }
 
+// USD/USDC 视同 USDT 放行：USDT 与美元 1:1，上游多数游戏只标 USD 不标 USDT，
+// 折叠后 USDT 账户可玩数从 ~1.3k 涨到 ~8.1k。上游若拒绝 USDT 起动 USD 游戏，可用此开关即时关闭。
+const USD_AS_USDT = process.env.WIN568_USD_AS_USDT !== 'false'
+
 function normalizeGameCurrency(currency?: string): string | undefined {
   if (!currency) return undefined
   const code = currency.toUpperCase()
-  return code === 'UCC' ? 'USDT' : code
+  if (code === 'UCC') return 'USDT'
+  if (USD_AS_USDT && (code === 'USD' || code === 'USDC')) return 'USDT'
+  return code
 }
 
 function supportsCurrency(game: DbGame, currency?: string): boolean {
@@ -189,7 +195,9 @@ export async function loadGamesCache(env: Env): Promise<number> {
        AND (g.supported_currencies IS NULL
          OR JSON_CONTAINS(supported_currencies, JSON_QUOTE('PHP'))
          OR JSON_CONTAINS(supported_currencies, JSON_QUOTE('USDT'))
-         OR JSON_CONTAINS(supported_currencies, JSON_QUOTE('UCC')))
+         OR JSON_CONTAINS(supported_currencies, JSON_QUOTE('UCC'))
+         OR JSON_CONTAINS(supported_currencies, JSON_QUOTE('USD'))
+         OR JSON_CONTAINS(supported_currencies, JSON_QUOTE('USDC')))
        AND (g.device IS NULL OR FIND_IN_SET('m', REPLACE(REPLACE(g.device, ' ', ''), '/', ',')) > 0)`,
   )
   const games = [
@@ -548,20 +556,20 @@ export async function listGames(
     const cats = new Set(siteCategory.split(',').map((s) => s.trim()).filter(Boolean))
     games = games.filter((g) => g.siteCategory != null && cats.has(g.siteCategory))
   }
+  // 不支持当前币种的游戏直接不显示(与首页选品口径一致)，避免 PHP 目录混入大量 USD 专用灰卡
+  if (currency) {
+    games = games.filter((g) => supportsCurrency(g, currency))
+  }
   games = [...games].sort((a, b) => {
     if (sortBy === 'name') return a.name.localeCompare(b.name)
     return b.weight - a.weight
   })
 
-  const availableTotal = games.filter((g) => supportsCurrency(g, currency)).length
-  games = sortAvailableFirst(games, currency)
-  const total = currency ? availableTotal : games.length
   const offset = (page - 1) * limit
 
   return {
-    // 只对返回的一页做币种标记，避免为整个大分类(slot 6700+)逐个建对象
     items: games.slice(offset, offset + limit).map((g) => withCurrencySupport(g, currency)),
-    total,
+    total: games.length,
     page,
     pages: Math.ceil(games.length / limit),
   }
