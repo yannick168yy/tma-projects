@@ -7,7 +7,7 @@ import {
 import HomeCategoryShortcut from '@/components/home/HomeCategoryShortcut'
 import GameCardV2 from '@/components/home/GameCardV2'
 import { WINNERS, INFO_LINKS } from '@/data/home'
-import { fetchHomepageGames, fetchGames, fetchProviders, fetchGameHistory, launchGame, fetchBettingActivity, type SlotGame, type BetRecord, type BetTab, type GameHistoryItem } from '@/api/slots'
+import { fetchHomepageGames, fetchGames, fetchGameHistory, launchGame, fetchBettingActivity, type SlotGame, type BetRecord, type BetTab, type GameHistoryItem } from '@/api/slots'
 import { fetchHomeContent } from '@/api/home'
 import { resolveHomeActionPath } from '@/navigation/appRoutes'
 import { ApiError } from '@/api/client'
@@ -32,23 +32,20 @@ import rewardsSpinFloatImg from '@/assets/home/promos/rewards-spin-float.webp'
 import cashbackFloatImg from '@/assets/home/promos/cashback-float.webp'
 import yellowExpandUpImg from '@/assets/home/promos/yellow-expand-up.webp'
 import yellowCollapseDownImg from '@/assets/home/promos/yellow-collapse-down.webp'
-import { shortProviderName } from '@/utils/providers'
 
-type GameChip = string
+interface GameChipDef { id: string; labelKey: string; gamesPath: string; icon?: string; image?: string }
 
-interface GameChipDef { id: string; labelKey: string; siteCategory?: string; icon?: string; image?: string }
-
-// 分类切到 site_category（同步时按 new_game_type + 名称关键词推导，后台可人工覆盖）
+// 分类 chip = games 页导航入口（筛选逻辑统一在 GamesPage，首页不再内嵌筛选网格）
 const GAME_CHIPS: GameChipDef[] = [
-  { id: 'hot',     image: chipHotImg,     labelKey: 'home.chipHot'    },
-  { id: 'slot',    image: chipSlotsImg,   labelKey: 'home.chipSlots',   siteCategory: 'slot'    },
-  { id: 'casino',  image: chipLiveImg,    labelKey: 'home.chipCasino',  siteCategory: 'casino'  },
-  { id: 'fishing', image: chipFishingImg, labelKey: 'home.chipFishing', siteCategory: 'fishing' },
-  { id: 'perya',   icon: '🐓', labelKey: 'home.chipPerya',   siteCategory: 'perya'   },
-  { id: 'lottery', image: chipBingoImg,   labelKey: 'home.chipLottery', siteCategory: 'lottery' },
-  { id: 'poker',   image: chipPokerImg,   labelKey: 'home.chipPoker',   siteCategory: 'poker'   },
-  { id: 'sports',  image: chipSportsImg,  labelKey: 'home.chipSports',  siteCategory: 'sports'  },
-  { id: 'other',   icon: '🎮', labelKey: 'home.chipOther',   siteCategory: 'other'   },
+  { id: 'hot',     image: chipHotImg,     labelKey: 'home.chipHot',     gamesPath: '/games' },
+  { id: 'slot',    image: chipSlotsImg,   labelKey: 'home.chipSlots',   gamesPath: '/games?cat=slot'    },
+  { id: 'casino',  image: chipLiveImg,    labelKey: 'home.chipCasino',  gamesPath: '/games?cat=casino'  },
+  { id: 'fishing', image: chipFishingImg, labelKey: 'home.chipFishing', gamesPath: '/games?cat=fishing' },
+  { id: 'perya',   icon: '🐓', labelKey: 'home.chipPerya',   gamesPath: '/games?cat=perya'   },
+  { id: 'lottery', image: chipBingoImg,   labelKey: 'home.chipLottery', gamesPath: '/games?cat=lottery' },
+  { id: 'poker',   image: chipPokerImg,   labelKey: 'home.chipPoker',   gamesPath: '/games?cat=poker'   },
+  { id: 'sports',  image: chipSportsImg,  labelKey: 'home.chipSports',  gamesPath: '/games?cat=sports'  },
+  { id: 'other',   icon: '🎮', labelKey: 'home.chipOther',   gamesPath: '/games?cat=other'   },
 ]
 
 // 厂商专区：菲市场认知度最高的三家
@@ -71,15 +68,12 @@ function historyToGame(item: GameHistoryItem): SlotGame {
 
 const INFO_ICONS: Record<string, string> = { terms: infoTermsImg, privacy: infoPrivacyImg, responsible: infoResponsibleImg, about: infoAboutImg }
 
-interface CategoryLobbyParams { sortCategory?: string; siteCategory?: string; provider?: string; sortBy?: 'weight'; title: string }
-
 // 首页 banner / 小卡片均来自后台装修配置，只需图片 + 跳转目标
 interface HomeBanner { id: number; image: string; target: string }
 interface HomeCard { slot: number; image: string; target: string }
 
 interface Props {
   onNavigatePath: (path: string) => void
-  onOpenCategoryLobby: (params: CategoryLobbyParams) => void
   onOpenCs: () => void
   onOpenGame: (url: string) => void
   onOpenFirstDepositFiesta: () => void
@@ -280,7 +274,7 @@ function HomePromoFloat({ rewardsLabel, cashbackLabel, onOpenRewardsSpin, onOpen
   )
 }
 
-export default function HomeContent({ onNavigatePath, onOpenCategoryLobby, onOpenCs, onOpenGame, onOpenFirstDepositFiesta, onOpenRewardsSpin, onOpenCashback }: Props) {
+export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOpenFirstDepositFiesta, onOpenRewardsSpin, onOpenCashback }: Props) {
   const { t, i18n } = useTranslation()
   const locale = i18n.language
   const promotion = usePromotionStore()
@@ -375,67 +369,6 @@ export default function HomeContent({ onNavigatePath, onOpenCategoryLobby, onOpe
     finally { setLaunchingUuid(null) }
   }, [auth, launchingUuid, onOpenGame, t, activeCurrency])
 
-
-  // Game chip 筛选
-  const [activeChip, setActiveChip] = useState<GameChip>('hot')
-  const [activeProvider, setActiveProvider] = useState<string>('all')
-  const [chipProviders, setChipProviders] = useState<string[]>([])
-  const [chipProvidersLoading, setChipProvidersLoading] = useState(false)
-  const [gridGames, setGridGames] = useState<SlotGame[]>([])
-  const [gridPage, setGridPage] = useState(1)
-  const [gridTotalPages, setGridTotalPages] = useState(1)
-  const [gridLoading, setGridLoading] = useState(false)
-  const gridSentinelRef = useRef<HTMLDivElement>(null)
-  const gridFetchRef = useRef(0)
-
-  async function loadGridPage(chip: GameChip, provider: string, page: number, reset: boolean) {
-    const chipDef = GAME_CHIPS.find((c) => c.id === chip)
-    if (!chipDef?.siteCategory) return
-    const token = ++gridFetchRef.current
-    if (reset) setGridLoading(true)
-    try {
-      const result = await fetchGames({ siteCategory: chipDef.siteCategory, provider: provider === 'all' ? undefined : provider, page, limit: 30, sortBy: 'weight', currency: activeCurrency })
-      if (token !== gridFetchRef.current) return
-      setGridGames((prev) => reset ? result.items : [...prev, ...result.items])
-      setGridPage(result.page)
-      setGridTotalPages(result.pages)
-    } catch { /* ignore */ }
-    finally { if (token === gridFetchRef.current) setGridLoading(false) }
-  }
-
-  async function selectChip(chip: GameChip) {
-    if (chip === activeChip) return
-    setActiveChip(chip)
-    setActiveProvider('all')
-    setGridGames([])
-    if (chip === 'hot') return
-    const chipDef = GAME_CHIPS.find((c) => c.id === chip)!
-    setChipProvidersLoading(true)
-    try {
-      const providers = await fetchProviders(undefined, chipDef.siteCategory)
-      setChipProviders(providers)
-    } catch { setChipProviders([]) }
-    finally { setChipProvidersLoading(false) }
-    void loadGridPage(chip, 'all', 1, true)
-  }
-
-  async function selectProvider(provider: string) {
-    if (provider === activeProvider) return
-    setActiveProvider(provider)
-    setGridGames([])
-    void loadGridPage(activeChip, provider, 1, true)
-  }
-
-  useEffect(() => {
-    if (!gridSentinelRef.current || activeChip === 'hot') return
-    const observer = new IntersectionObserver((entries) => {
-      if (entries[0]?.isIntersecting && !gridLoading && gridPage < gridTotalPages) {
-        void loadGridPage(activeChip, activeProvider, gridPage + 1, false)
-      }
-    }, { threshold: 0.1 })
-    observer.observe(gridSentinelRef.current)
-    return () => observer.disconnect()
-  }, [activeChip, activeProvider, gridLoading, gridPage, gridTotalPages])
 
   // Betting table
   const betSectionRef = useRef<HTMLElement>(null)
@@ -560,12 +493,6 @@ export default function HomeContent({ onNavigatePath, onOpenCategoryLobby, onOpe
     if (auth.token && auth.user) void promotion.loadTeamStatus()
   }, [])
 
-  useEffect(() => {
-    if (activeChip === 'hot') return
-    setGridGames([])
-    void loadGridPage(activeChip, activeProvider, 1, true)
-  }, [activeCurrency])
-
   // 投注流非首屏关键，进入视口前不拉，避免与首页游戏/内容抢首屏带宽
   useEffect(() => {
     const el = betSectionRef.current
@@ -607,122 +534,39 @@ export default function HomeContent({ onNavigatePath, onOpenCategoryLobby, onOpe
         </div>
       )}
 
-      {/* Game type chip 条 — 实物 emoji 无底色 */}
+      {/* Game type chip 条 — games 页导航入口 */}
       <div className="mt-4 border-b border-white/5">
         <div className="flex gap-0.5 px-2 overflow-x-auto hide-scrollbar snap-x snap-mandatory">
-          {GAME_CHIPS.map((chip) => {
-            const active = activeChip === chip.id
-            return (
-              <button
-                key={chip.id}
-                type="button"
-                onClick={() => void selectChip(chip.id)}
-                className="relative flex-shrink-0 snap-start flex flex-col items-center gap-0.5 px-2.5 pt-2 pb-0 min-w-[58px] active:scale-95 transition-transform"
-              >
-                {active && (
-                  <div
-                    className="pointer-events-none absolute inset-x-0 top-0 bottom-0 rounded-t-lg"
-                    style={{ background: 'linear-gradient(180deg, rgba(220,38,38,0.28) 0%, rgba(220,38,38,0.06) 55%, transparent 100%)' }}
-                  />
-                )}
-                {chip.image ? (
-                  <img
-                    src={chip.image}
-                    alt=""
-                    draggable={false}
-                    className={`relative h-9 w-9 object-contain select-none transition-transform ${active ? 'scale-105' : ''}`}
-                    style={{ filter: 'drop-shadow(0 3px 5px rgba(0,0,0,0.45))' }}
-                  />
-                ) : (
-                  <span
-                    className={`relative text-[34px] leading-none select-none transition-transform ${active ? 'scale-105' : ''}`}
-                    style={{ filter: 'drop-shadow(0 3px 5px rgba(0,0,0,0.45))' }}
-                  >
-                    {chip.icon}
-                  </span>
-                )}
-                <span className={`relative text-[11px] font-semibold leading-tight pb-2.5 ${active ? 'text-red-400' : 'text-foreground/75'}`}>
-                  {t(chip.labelKey)}
-                </span>
-                <span
-                  className={`absolute bottom-0 left-1 right-1 h-[3px] rounded-full transition-opacity ${active ? 'bg-red-500 opacity-100' : 'opacity-0'}`}
+          {GAME_CHIPS.map((chip) => (
+            <button
+              key={chip.id}
+              type="button"
+              onClick={() => onNavigatePath(chip.gamesPath)}
+              className="relative flex-shrink-0 snap-start flex flex-col items-center gap-0.5 px-2.5 pt-2 pb-0 min-w-[58px] active:scale-95 transition-transform"
+            >
+              {chip.image ? (
+                <img
+                  src={chip.image}
+                  alt=""
+                  draggable={false}
+                  className="relative h-9 w-9 object-contain select-none"
+                  style={{ filter: 'drop-shadow(0 3px 5px rgba(0,0,0,0.45))' }}
                 />
-              </button>
-            )
-          })}
+              ) : (
+                <span
+                  className="relative text-[34px] leading-none select-none"
+                  style={{ filter: 'drop-shadow(0 3px 5px rgba(0,0,0,0.45))' }}
+                >
+                  {chip.icon}
+                </span>
+              )}
+              <span className="relative text-[11px] font-semibold leading-tight pb-2.5 text-foreground/75">
+                {t(chip.labelKey)}
+              </span>
+            </button>
+          ))}
         </div>
       </div>
-
-      {/* 非 Hot 模式：二级 provider 筛选 + 游戏 grid */}
-      {activeChip !== 'hot' && (
-        <>
-          {/* Provider chip 条 */}
-          <div className="flex gap-2 px-4 mt-3 overflow-x-auto hide-scrollbar">
-            {chipProvidersLoading
-              ? Array.from({ length: 5 }).map((_, i) => (
-                  <div key={i} className="flex-shrink-0 h-7 w-16 rounded-full animate-pulse bg-secondary" />
-                ))
-              : (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => void selectProvider('all')}
-                    className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-bold transition-colors active:scale-95 ${
-                      activeProvider === 'all' ? 'bg-primary text-primary-foreground' : 'bg-secondary text-foreground/70'
-                    }`}
-                  >
-                    All
-                  </button>
-                  {chipProviders.map((p) => (
-                    <button
-                      key={p}
-                      type="button"
-                      onClick={() => void selectProvider(p)}
-                      className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-bold transition-colors active:scale-95 ${
-                        activeProvider === p ? 'bg-primary text-primary-foreground' : 'bg-secondary text-foreground/70'
-                      }`}
-                    >
-                      {shortProviderName(p)}
-                    </button>
-                  ))}
-                </>
-              )
-            }
-          </div>
-
-          {/* 游戏 3列 grid */}
-          <div className="px-3 mt-4 grid grid-cols-3 gap-2">
-            {gridLoading && gridGames.length === 0
-              ? Array.from({ length: 12 }).map((_, i) => (
-                  <div key={i} className="aspect-square rounded-xl animate-pulse bg-secondary" />
-                ))
-              : gridGames.map((g) => (
-                  <GameCardV2 key={g.uuid} game={g} onTap={() => void onGameTapAction(g.uuid)} size="lg" />
-                ))
-            }
-          </div>
-
-          {/* 加载更多 skeleton */}
-          {gridLoading && gridGames.length > 0 && (
-            <div className="px-3 mt-2 grid grid-cols-3 gap-2">
-              {Array.from({ length: 3 }).map((_, i) => (
-                <div key={i} className="aspect-square rounded-xl animate-pulse bg-secondary" />
-              ))}
-            </div>
-          )}
-
-          {/* IntersectionObserver 哨兵 */}
-          <div ref={gridSentinelRef} className="h-4" />
-
-          {/* 已到底 */}
-          {!gridLoading && gridPage >= gridTotalPages && gridGames.length > 0 && (
-            <p className="text-center text-[11px] text-muted-foreground py-4">{t('common.noMore')}</p>
-          )}
-        </>
-      )}
-
-      {/* Hot 模式：原有首页内容 */}
-      {activeChip === 'hot' && <>
 
       {/* Recent Wins marquee */}
       <div className="mx-4 mt-4 bg-secondary rounded-xl p-3 flex items-center gap-2 overflow-hidden">
@@ -749,14 +593,14 @@ export default function HomeContent({ onNavigatePath, onOpenCategoryLobby, onOpe
 
       {/* Popular：大卡 3x3 */}
       <section className="mt-5">
-        {sectionHeader(<TrendingUp size={15} className="text-primary" />, t('home.popularGames'), () => onOpenCategoryLobby({ sortBy: 'weight', title: t('home.popularGames') }))}
+        {sectionHeader(<TrendingUp size={15} className="text-primary" />, t('home.popularGames'), () => onNavigatePath('/games'))}
         {bigGrid(homepageGames.popular, 12, true)}
       </section>
 
       {/* 推荐精选：竞品验证权重的次高梯队，大卡 */}
       {(gamesLoading || homepageGames.recommended.length > 0) && (
         <section className="mt-6">
-          {sectionHeader(<Percent size={15} className="text-red-400" />, t('home.recommended'), () => onOpenCategoryLobby({ sortBy: 'weight', title: t('home.recommended') }))}
+          {sectionHeader(<Percent size={15} className="text-red-400" />, t('home.recommended'), () => onNavigatePath('/games'))}
           {bigGrid(homepageGames.recommended, 6)}
         </section>
       )}
@@ -772,14 +616,14 @@ export default function HomeContent({ onNavigatePath, onOpenCategoryLobby, onOpe
       {/* Slots：大卡 3x2 */}
       {(gamesLoading || homepageGames.slots.length > 0) && (
         <section className="mt-6">
-          {sectionHeader(<Gamepad2 size={15} className="text-violet-400" />, t('home.egamesZone'), () => onOpenCategoryLobby({ siteCategory: 'slot', sortBy: 'weight', title: t('home.egamesZone') }))}
+          {sectionHeader(<Gamepad2 size={15} className="text-violet-400" />, t('home.egamesZone'), () => onNavigatePath('/games?cat=slot'))}
           {bigGrid(homepageGames.slots, 6)}
         </section>
       )}
 
       {/* 厂商专区：tab + 小卡横滑 */}
       <section className="mt-6">
-        {sectionHeader(<Factory size={15} className="text-sky-400" />, t('home.providerZone'), () => onOpenCategoryLobby({ provider: providerZoneTab, sortBy: 'weight', title: t('home.providerZone') }))}
+        {sectionHeader(<Factory size={15} className="text-sky-400" />, t('home.providerZone'), () => onNavigatePath(`/games?provider=${providerZoneTab}`))}
         <div className="flex gap-2 px-4 mb-3">
           {PROVIDER_ZONE.map((p) => (
             <button
@@ -798,7 +642,7 @@ export default function HomeContent({ onNavigatePath, onOpenCategoryLobby, onOpe
       {/* Casino：大卡 3x2 */}
       {(gamesLoading || homepageGames.casino.length > 0) && (
         <section className="mt-6">
-          {sectionHeader(<span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />, t('home.casinoZone'), () => onOpenCategoryLobby({ siteCategory: 'casino', sortBy: 'weight', title: t('home.casinoZone') }))}
+          {sectionHeader(<span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />, t('home.casinoZone'), () => onNavigatePath('/games?cat=casino'))}
           {bigGrid(homepageGames.casino, 6)}
         </section>
       )}
@@ -806,7 +650,7 @@ export default function HomeContent({ onNavigatePath, onOpenCategoryLobby, onOpe
       {/* Perya：小卡横滑 */}
       {(gamesLoading || homepageGames.perya.length > 0) && (
         <section className="mt-6">
-          {sectionHeader(<Drama size={15} className="text-orange-400" />, t('home.peryaZone'), () => onOpenCategoryLobby({ siteCategory: 'perya', sortBy: 'weight', title: t('home.peryaZone') }))}
+          {sectionHeader(<Drama size={15} className="text-orange-400" />, t('home.peryaZone'), () => onNavigatePath('/games?cat=perya'))}
           {bigGrid(homepageGames.perya, 6)}
         </section>
       )}
@@ -814,7 +658,7 @@ export default function HomeContent({ onNavigatePath, onOpenCategoryLobby, onOpe
       {/* Fishing：大卡 3x2 */}
       {(gamesLoading || homepageGames.fishing.length > 0) && (
         <section className="mt-6">
-          {sectionHeader(<Fish size={15} className="text-cyan-400" />, t('home.fishingZone'), () => onOpenCategoryLobby({ siteCategory: 'fishing', sortBy: 'weight', title: t('home.fishingZone') }))}
+          {sectionHeader(<Fish size={15} className="text-cyan-400" />, t('home.fishingZone'), () => onNavigatePath('/games?cat=fishing'))}
           {bigGrid(homepageGames.fishing, 6)}
         </section>
       )}
@@ -822,7 +666,7 @@ export default function HomeContent({ onNavigatePath, onOpenCategoryLobby, onOpe
       {/* Lottery：小卡横滑 */}
       {(gamesLoading || homepageGames.lottery.length > 0) && (
         <section className="mt-6">
-          {sectionHeader(<Ticket size={15} className="text-pink-400" />, t('home.lotteryZone'), () => onOpenCategoryLobby({ siteCategory: 'lottery', sortBy: 'weight', title: t('home.lotteryZone') }))}
+          {sectionHeader(<Ticket size={15} className="text-pink-400" />, t('home.lotteryZone'), () => onNavigatePath('/games?cat=lottery'))}
           {bigGrid(homepageGames.lottery, 12)}
         </section>
       )}
@@ -846,7 +690,7 @@ export default function HomeContent({ onNavigatePath, onOpenCategoryLobby, onOpe
       {/* 体育游戏板块：大卡 3 列（USDT 仅 1 款，空则不渲染）*/}
       {(gamesLoading || homepageGames.sports.length > 0) && (
         <section className="mt-6">
-          {sectionHeader(<Trophy size={15} className="text-green-400" />, t('home.sportsZone'), () => onOpenCategoryLobby({ siteCategory: 'sports', sortBy: 'weight', title: t('home.sportsZone') }))}
+          {sectionHeader(<Trophy size={15} className="text-green-400" />, t('home.sportsZone'), () => onNavigatePath('/games?cat=sports'))}
           {/* Sportsbook 体育投注入口，归属体育板块 */}
           <div className="px-4 mb-3">
             <button
@@ -1039,7 +883,6 @@ export default function HomeContent({ onNavigatePath, onOpenCategoryLobby, onOpe
       </section>
       <div className="mt-6 mb-4 px-4 text-center"><p className="text-[10px] text-muted-foreground/50">© 2025 BetoGo · 18+</p></div>
 
-      </>}{/* end hot mode */}
 
       {/* First Deposit Fiesta floating entry */}
       {showFirstDepositFiesta && (

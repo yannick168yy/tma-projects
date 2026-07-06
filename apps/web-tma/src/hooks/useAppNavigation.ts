@@ -2,9 +2,11 @@ import { useCallback, useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import {
   buildCategoryLobbyPath,
+  buildGamesPath,
   buildTabPath,
   currentReturnTo,
   parseAppRoute,
+  type GamesFilter,
   type OverlayNavigateState,
   type TabId,
 } from '@/navigation/appRoutes'
@@ -24,6 +26,7 @@ export function useAppNavigation() {
   const location = useLocation()
   const [backgroundTab, setBackgroundTab] = useState<TabId>('casino')
   const [promoFilter, setPromoFilter] = useState<string | null>(null)
+  const [gamesFilter, setGamesFilterState] = useState<GamesFilter>({ cat: 'all', provider: 'all' })
   const [view, setView] = useState<FullPageView>({ type: 'none' })
 
   useEffect(() => {
@@ -39,6 +42,7 @@ export function useAppNavigation() {
     if (parsed.kind === 'tab') {
       setBackgroundTab(parsed.tab)
       setPromoFilter(parsed.promoFilter)
+      if (parsed.gamesFilter) setGamesFilterState(parsed.gamesFilter)
       setView({ type: 'none' })
       return
     }
@@ -83,6 +87,16 @@ export function useAppNavigation() {
   const goBonuses = useCallback((promo: string | null = null) => {
     navigate(buildTabPath('bonuses', promo))
   }, [navigate])
+
+  // 页内切分类/厂商用 replace，避免每次点 chip 都压一条历史记录
+  const setGamesFilter = useCallback((filter: Partial<GamesFilter>) => {
+    navigate(buildGamesPath(filter), { replace: true })
+  }, [navigate])
+
+  const openPerya = useCallback(() => {
+    pushOverlay('/perya')
+    window.scrollTo({ top: 0, behavior: 'instant' })
+  }, [pushOverlay])
 
   const openSearch = useCallback(() => {
     pushOverlay('/search')
@@ -154,11 +168,14 @@ export function useAppNavigation() {
   return {
     activeNav: backgroundTab,
     promoFilter,
+    gamesFilter,
     view,
     setNav,
+    setGamesFilter,
     goHome,
     navigatePath,
     goBonuses,
+    openPerya,
     openSearch,
     openCategoryLobby,
     openTeamCenter,

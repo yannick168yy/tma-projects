@@ -23,6 +23,6 @@ export const NAV_ITEMS = [
   { id: 'casino', label: 'Home' },
   { id: 'bonuses', label: 'Bonuses', badge: 3 },
   { id: 'team', label: '3-Circle' },
-  { id: 'bingo', label: 'Perya' },
+  { id: 'games', label: 'Games' },
   { id: 'menu', label: 'Menu' },
 ] as const

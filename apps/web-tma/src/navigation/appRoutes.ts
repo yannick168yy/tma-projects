@@ -1,23 +1,24 @@
 import type { CategoryLobbyParams } from '@/hooks/useFullPageOverlay'
 import type { FullPageView } from '@/hooks/useFullPageOverlay'
 
-export type TabId = 'casino' | 'bingo' | 'bonuses' | 'menu'
+export type TabId = 'casino' | 'games' | 'bonuses' | 'menu'
 
 export const TAB_PATHS: Record<TabId, string> = {
   casino: '/home',
-  bingo: '/perya',
+  games: '/games',
   bonuses: '/bonuses',
   menu: '/menu',
 }
 
 const PATH_TO_TAB: Record<string, TabId> = {
   '/home': 'casino',
-  '/perya': 'bingo',
+  '/games': 'games',
   '/bonuses': 'bonuses',
   '/menu': 'menu',
 }
 
 const OVERLAY_PATHS: Record<string, FullPageView['type']> = {
+  '/perya': 'perya',
   '/search': 'search',
   '/slots': 'slotsLobby',
   '/team': 'teamCenter',
@@ -31,8 +32,11 @@ const OVERLAY_PATHS: Record<string, FullPageView['type']> = {
   '/download': 'download',
 }
 
+// games 页筛选状态放 URL：/games?cat=slot&provider=PGSoft，首页/外链可深链到指定分类+厂商
+export interface GamesFilter { cat: string; provider: string }
+
 export type ParsedAppRoute =
-  | { kind: 'tab'; tab: TabId; promoFilter: string | null }
+  | { kind: 'tab'; tab: TabId; promoFilter: string | null; gamesFilter: GamesFilter | null }
   | { kind: 'overlay'; overlay: FullPageView }
 
 function parseCategoryLobby(pathname: string, search: URLSearchParams): FullPageView {
@@ -54,15 +58,20 @@ function parseCategoryLobby(pathname: string, search: URLSearchParams): FullPage
 }
 
 export function parseAppRoute(pathname: string, search: string): ParsedAppRoute | null {
-  if (pathname === '/') return { kind: 'tab', tab: 'casino', promoFilter: null }
+  if (pathname === '/') return { kind: 'tab', tab: 'casino', promoFilter: null, gamesFilter: null }
 
   const tab = PATH_TO_TAB[pathname]
   if (tab) {
-    const promoFilter = tab === 'bonuses' ? new URLSearchParams(search).get('promo') : null
-    return { kind: 'tab', tab, promoFilter }
+    const params = new URLSearchParams(search)
+    const promoFilter = tab === 'bonuses' ? params.get('promo') : null
+    const gamesFilter = tab === 'games'
+      ? { cat: params.get('cat') ?? 'all', provider: params.get('provider') ?? 'all' }
+      : null
+    return { kind: 'tab', tab, promoFilter, gamesFilter }
   }
 
   const overlayType = OVERLAY_PATHS[pathname]
+  if (overlayType === 'perya') return { kind: 'overlay', overlay: { type: 'perya' } }
   if (overlayType === 'slotsLobby') return { kind: 'overlay', overlay: { type: 'slotsLobby' } }
   if (overlayType === 'search') return { kind: 'overlay', overlay: { type: 'search' } }
   if (overlayType === 'teamCenter') return { kind: 'overlay', overlay: { type: 'teamCenter' } }
@@ -91,6 +100,14 @@ export function buildCategoryLobbyPath(params: CategoryLobbyParams): string {
   if (params.gameUuids?.length) q.set('gameUuids', params.gameUuids.join(','))
   const qs = q.toString()
   return `/slots/${slug}${qs ? `?${qs}` : ''}`
+}
+
+export function buildGamesPath(filter?: Partial<GamesFilter>): string {
+  const q = new URLSearchParams()
+  if (filter?.cat && filter.cat !== 'all') q.set('cat', filter.cat)
+  if (filter?.provider && filter.provider !== 'all') q.set('provider', filter.provider)
+  const qs = q.toString()
+  return `/games${qs ? `?${qs}` : ''}`
 }
 
 export function buildTabPath(tab: TabId, promoFilter: string | null = null): string {

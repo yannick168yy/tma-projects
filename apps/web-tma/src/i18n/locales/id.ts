@@ -53,6 +53,7 @@ export default {
   nav: {
     cashier: 'Kasir',
     bingo: 'Perya',
+    games: 'Permainan',
     bonuses: 'Bonus',
     casino: 'Home',
     team: '3-Circle',

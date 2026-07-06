@@ -53,6 +53,7 @@ export default {
   nav: {
     cashier: 'Cashier',
     bingo: 'Perya',
+    games: 'Games',
     bonuses: 'Bonuses',
     casino: 'Home',
     team: '3-Circle',
@@ -895,6 +896,12 @@ export default {
     promoReferral: 'Referral Bonus',
     promoFirstdep: 'First Deposit Bonus',
     noWithdrawMethodsForCurrency: 'No withdrawal methods available for {{currency}}.',
+  },
+  games: {
+    catAll: 'All',
+    peryaCarnival: 'Perya Carnival',
+    peryaCarnivalSub: 'Pinoy classics, jackpots & fiesta fun',
+    enter: 'Enter',
   },
   slots: {
     sectionTitle: 'CASINO SLOTS',

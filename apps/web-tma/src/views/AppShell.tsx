@@ -1,6 +1,6 @@
 import { lazy, Suspense, useState, useEffect, useRef, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ChevronDown, ChevronLeft, Wallet, Gift, Home, Menu, Dices, Check, Search, Headset } from 'lucide-react'
+import { ChevronDown, ChevronLeft, Wallet, Gift, Home, Menu, Gamepad2, Check, Search, Headset } from 'lucide-react'
 import BetogoLogo from '@/components/BetogoLogo'
 import { NAV_ITEMS } from '@/data/home'
 import { useAuthStore } from '@/stores/auth'
@@ -24,6 +24,7 @@ const SearchOverlay = lazy(() => import('@/components/search/SearchOverlay'))
 const HomeContent = lazy(() => import('@/views/HomeContent'))
 const BonusesPage = lazy(() => import('@/views/BonusesPage'))
 const BingoPage = lazy(() => import('@/views/BingoPage'))
+const GamesPage = lazy(() => import('@/views/GamesPage'))
 const MenuPage = lazy(() => import('@/views/MenuPage'))
 const SlotsLobby = lazy(() => import('@/views/SlotsLobby'))
 const CustomerServicePage = lazy(() => import('@/views/CustomerServicePage'))
@@ -41,7 +42,7 @@ const InstallGuideSheet = lazy(() => import('@/components/pwa/InstallGuideSheet'
 type NavId = (typeof NAV_ITEMS)[number]['id']
 
 function navIcon(id: string) {
-  switch (id) { case 'bingo': return Dices; case 'bonuses': return Gift; case 'casino': return Home; default: return Menu }
+  switch (id) { case 'games': return Gamepad2; case 'bonuses': return Gift; case 'casino': return Home; default: return Menu }
 }
 
 export default function AppShell() {
@@ -74,11 +75,14 @@ export default function AppShell() {
   const {
     activeNav,
     promoFilter,
+    gamesFilter,
     view,
     setNav: navigateTab,
+    setGamesFilter,
     goHome,
     navigatePath,
     goBonuses,
+    openPerya,
     openSearch,
     openCategoryLobby,
     openTeamCenter,
@@ -401,6 +405,9 @@ export default function AppShell() {
           style={mainStyle}
         >
           <Suspense fallback={null}>
+          {view.type === 'perya' && (
+            <BingoPage onOpenWallet={() => void openWallet()} onGameTap={() => void onGameTap()} onOpenGame={(url) => setGamePlayerUrl(url)} onOpenCategoryLobby={onOpenCategoryLobby} />
+          )}
           {view.type === 'search' && (
             <SearchOverlay onClose={closeOverlay} onGameTap={() => void onGameTap()} onOpenGame={(url) => setGamePlayerUrl(url)} />
           )}
@@ -452,10 +459,10 @@ export default function AppShell() {
             <RewardsSpinPage onClose={closeImmersive} />
           )}
           {view.type === 'none' && activeNav === 'bonuses' && <BonusesPage promoFilter={promoFilter} onOpenWallet={() => void openWallet()} onOpenTeam={onOpenTeamCenter} onOpenAppInstall={openAppInstall} />}
-          {view.type === 'none' && activeNav === 'bingo' && <BingoPage onOpenWallet={() => void openWallet()} onGameTap={() => void onGameTap()} onOpenGame={(url) => setGamePlayerUrl(url)} onOpenCategoryLobby={onOpenCategoryLobby} />}
+          {view.type === 'none' && activeNav === 'games' && <GamesPage cat={gamesFilter.cat} provider={gamesFilter.provider} onChangeFilter={setGamesFilter} onOpenPerya={openPerya} onGameTap={() => void onGameTap()} onOpenGame={(url) => setGamePlayerUrl(url)} />}
           {view.type === 'none' && activeNav === 'menu' && <MenuPage onOpenCs={openCs} onLogin={() => void auth.ensureLoggedIn(t('auth.signInProfile'))} onLogout={onLogout} onOpenBetHistory={onOpenBetHistory} onOpenLedgerRecords={onOpenLedgerRecords} onOpenReferralPromo={onOpenReferralPromo} onOpenAgentCenter={onOpenAgentCenter} onOpenCashback={onOpenCashback} onOpenRewardsSpin={onOpenRewardsSpin} onOpenKycSetting={onOpenKycSetting} onOpenDownload={openDownload} onOpenTopUp={() => void openWalletFull('deposit')} onOpenCashOut={() => void openWalletFull('withdraw')} onOpenWalletHistory={() => void openWalletFull('history')} />}
           {view.type === 'none' && activeNav === 'casino' && (
-            <HomeContent onNavigatePath={navigatePath} onOpenCategoryLobby={onOpenCategoryLobby} onOpenCs={openCs} onOpenGame={(url) => setGamePlayerUrl(url)} onOpenFirstDepositFiesta={onOpenFirstDepositFiesta} onOpenRewardsSpin={onOpenRewardsSpin} onOpenCashback={onOpenCashback} />
+            <HomeContent onNavigatePath={navigatePath} onOpenCs={openCs} onOpenGame={(url) => setGamePlayerUrl(url)} onOpenFirstDepositFiesta={onOpenFirstDepositFiesta} onOpenRewardsSpin={onOpenRewardsSpin} onOpenCashback={onOpenCashback} />
           )}
           </Suspense>
         </main>

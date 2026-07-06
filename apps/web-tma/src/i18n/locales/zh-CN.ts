@@ -53,6 +53,7 @@ export default {
   nav: {
     cashier: '收银台',
     bingo: 'Perya',
+    games: '游戏',
     bonuses: '优惠',
     casino: 'Home',
     team: '3-Circle',
@@ -891,6 +892,12 @@ export default {
     promoReferral: '邀请共赢',
     promoFirstdep: '首充嘉年华',
     noWithdrawMethodsForCurrency: '当前货币 {{currency}} 暂无可用提现方式。',
+  },
+  games: {
+    catAll: '全部',
+    peryaCarnival: 'Perya Carnival',
+    peryaCarnivalSub: '菲式嘉年华专区 · 经典本土游戏',
+    enter: '进入',
   },
   slots: {
     sectionTitle: '老虎机游戏',
