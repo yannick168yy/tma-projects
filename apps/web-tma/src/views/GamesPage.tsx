@@ -152,7 +152,7 @@ export default function GamesPage({ cat, provider, onChangeFilter, onOpenPerya, 
       {/* 筛选区（一级分类 + 二级厂商）整体 sticky 吸顶；上滑滚动后变半透明毛玻璃，二级不收起 */}
       {/* translateZ(0)+will-change 把该层提升到独立合成层，消除 sticky+backdrop-filter 在移动端滚动时的上下抖动 */}
       <div
-        className={`sticky z-20 border-b border-white/5 transition-colors duration-200 ${scrolled ? 'bg-background/30 backdrop-blur-md' : 'bg-background'}`}
+        className={`sticky z-20 border-b border-white/5 transition-colors duration-200 ${scrolled ? 'bg-background/10 backdrop-blur-sm' : 'bg-background'}`}
         style={{ top: 'var(--app-header-height, 0px)', transform: 'translateZ(0)', willChange: 'transform' }}
       >
         {/* 一级分类：自然文字，选中=品牌色加粗+下划线 */}
@@ -166,8 +166,8 @@ export default function GamesPage({ cat, provider, onChangeFilter, onOpenPerya, 
                 type="button"
                 onClick={() => selectCat(c.id)}
                 className={`relative flex-shrink-0 snap-start whitespace-nowrap pb-2.5 text-[18px] transition-colors active:scale-95 ${
-                  active ? 'font-black text-primary' : 'font-semibold text-foreground/50'
-                }`}
+                  active ? 'font-black text-primary' : `font-semibold ${scrolled ? 'text-white/95' : 'text-foreground/50'}`
+                } ${scrolled ? 'drop-shadow-[0_1px_3px_rgba(0,0,0,0.95)]' : ''}`}
               >
                 {t(c.labelKey)}
                 <span className={`absolute bottom-0 left-1/2 h-[3px] w-5 -translate-x-1/2 rounded-full bg-primary transition-opacity ${active ? 'opacity-100' : 'opacity-0'}`} />
