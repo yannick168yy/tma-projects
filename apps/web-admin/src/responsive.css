@@ -1,0 +1,43 @@
+/* 移动端响应式兜底：桌面端不受影响，仅在窄屏收敛边距/表格/弹窗 */
+
+/* 弹窗在小屏不溢出：限制最大宽度并留边 */
+.ant-modal {
+  max-width: calc(100vw - 16px);
+}
+
+@media (max-width: 768px) {
+  /* 内容区边距收窄 */
+  .ant-layout-content {
+    margin: 8px !important;
+  }
+
+  /* 表格容器兜底横向滚动，避免撑破整页 */
+  .ant-table-wrapper {
+    overflow-x: auto;
+  }
+
+  /* 弹窗贴边、可用高度更大 */
+  .ant-modal {
+    margin: 8px auto;
+    top: 8px !important;
+    padding-bottom: 8px;
+  }
+
+  /* 卡片/表格内边距收窄，信息密度更高 */
+  .ant-card-body {
+    padding: 12px !important;
+  }
+
+  /* 筛选栏按钮组换行不挤 */
+  .ant-space {
+    row-gap: 8px;
+  }
+}
+
+/* 安全区(刘海屏)：抽屉与头部避让 */
+@supports (padding: env(safe-area-inset-top)) {
+  .admin-mobile-header {
+    padding-left: max(12px, env(safe-area-inset-left));
+    padding-right: max(12px, env(safe-area-inset-right));
+  }
+}

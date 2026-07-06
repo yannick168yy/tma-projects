@@ -1,13 +1,13 @@
 import { useMemo, useState, useEffect, useCallback } from 'react'
 import { Outlet, useNavigate, useLocation } from 'react-router-dom'
 import {
-  Layout, Menu, Dropdown, Button, Modal, Form, Input, message, Badge,
+  Layout, Menu, Dropdown, Button, Modal, Form, Input, message, Badge, Drawer, Grid,
 } from 'antd'
 import {
   DashboardOutlined, TeamOutlined, UserOutlined, DownOutlined,
   AppstoreOutlined, SettingOutlined, CustomerServiceOutlined,
   TransactionOutlined, ApartmentOutlined, GiftOutlined,
-  SafetyCertificateOutlined,
+  SafetyCertificateOutlined, MenuOutlined,
 } from '@ant-design/icons'
 import { useAuthStore } from '../stores/auth'
 import { adminChangePassword, getAdminBadges, type AdminBadges } from '../api'
@@ -187,7 +187,10 @@ export default function AppLayout() {
   const navigate = useNavigate()
   const location = useLocation()
   const { role, logout } = useAuthStore()
+  const screens = Grid.useBreakpoint()
+  const isMobile = !screens.md
   const [collapsed, setCollapsed] = useState(false)
+  const [drawerOpen, setDrawerOpen] = useState(false)
   const [showPwdModal, setShowPwdModal] = useState(false)
   const [pwdLoading, setPwdLoading] = useState(false)
   const [form] = Form.useForm<{ current: string; newPwd: string; confirm: string }>()
@@ -234,29 +237,56 @@ export default function AppLayout() {
     { key: 'logout', label: '退出登录', danger: true, onClick: handleLogout },
   ]
 
+  const logo = (mini: boolean) => (
+    <div style={{
+      height: 64, display: 'flex', alignItems: 'center', justifyContent: 'center',
+      color: '#fff', fontSize: 18, fontWeight: 'bold', background: 'rgba(255,255,255,.1)',
+      marginBottom: 4,
+    }}>
+      {mini ? 'BG' : '🎰 BetoGo'}
+    </div>
+  )
+
+  const sideMenu = (
+    <Menu
+      theme="dark"
+      mode="inline"
+      selectedKeys={[location.pathname]}
+      defaultOpenKeys={defaultOpenKeys}
+      items={menuItems}
+      onClick={({ key }) => { navigate(key); if (isMobile) setDrawerOpen(false) }}
+    />
+  )
+
   return (
     <Layout style={{ minHeight: '100vh' }}>
-      <Sider collapsible collapsed={collapsed} onCollapse={setCollapsed} theme="dark">
-        <div style={{
-          height: 64, display: 'flex', alignItems: 'center', justifyContent: 'center',
-          color: '#fff', fontSize: 18, fontWeight: 'bold', background: 'rgba(255,255,255,.1)',
-          marginBottom: 4,
-        }}>
-          {collapsed ? 'BG' : '🎰 BetoGo'}
-        </div>
-        <Menu
-          theme="dark"
-          mode="inline"
-          selectedKeys={[location.pathname]}
-          defaultOpenKeys={defaultOpenKeys}
-          items={menuItems}
-          onClick={({ key }) => navigate(key)}
-        />
-      </Sider>
+      {isMobile ? (
+        <Drawer
+          placement="left"
+          open={drawerOpen}
+          onClose={() => setDrawerOpen(false)}
+          width={220}
+          closable={false}
+          styles={{ body: { padding: 0, background: '#001529' }, header: { display: 'none' } }}
+        >
+          {logo(false)}
+          {sideMenu}
+        </Drawer>
+      ) : (
+        <Sider collapsible collapsed={collapsed} onCollapse={setCollapsed} theme="dark">
+          {logo(collapsed)}
+          {sideMenu}
+        </Sider>
+      )}
 
       <Layout>
-        <Header style={{ background: '#fff', padding: '0 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxShadow: '0 1px 4px rgba(0,0,0,.1)' }}>
-          <span style={{ fontWeight: 600, fontSize: 16 }}>BetoGo 管理后台</span>
+        <Header className="admin-mobile-header" style={{ background: '#fff', padding: '0 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxShadow: '0 1px 4px rgba(0,0,0,.1)' }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 600, fontSize: 16 }}>
+            {isMobile && (
+              <Button type="text" icon={<MenuOutlined />} onClick={() => setDrawerOpen(true)} />
+            )}
+            {isMobile ? 'BetoGo' : 'BetoGo 管理后台'}
+          </span>
           <Dropdown menu={{ items: userMenuItems }}>
             <Button type="text">
               <UserOutlined /> {role || 'Admin'} <DownOutlined />
@@ -264,7 +294,7 @@ export default function AppLayout() {
           </Dropdown>
         </Header>
 
-        <Content style={{ margin: 16 }}>
+        <Content style={{ margin: isMobile ? 8 : 16 }}>
           <Outlet />
         </Content>
       </Layout>
