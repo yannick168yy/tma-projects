@@ -21,24 +21,11 @@ export interface PopupConfig {
   frequency: 'daily' | 'once' | 'always'
 }
 
-/** 渠道充值奖励（如 Maya 单笔满额送）：channel 匹配存款单渠道名子串 */
-export interface ChannelDepositBonusConfig {
-  enabled: boolean
-  channel: string
-  minDeposit: number
-  amount: number
-  turnoverX: number
-  turnoverDays: number
-  /** 资格窗口：N 天内无该渠道成功充值视为新/回流用户（0=仅从未用过该渠道） */
-  inactiveDays: number
-}
-
 export interface PromoConfig {
   trial:    { amount: number; enabled: boolean; turnoverX: number; turnoverDays: number }
   referral: { inviterAmount: number; inviteeAmount: number; enabled: boolean; turnoverX: number; turnoverDays: number }
   firstdep: { enabled: boolean; turnoverX: number; turnoverDays: number; tiers: Record<string, FirstDepTier[]> }
   appdl:    { amount: number; enabled: boolean; turnoverX: number; turnoverDays: number }
-  chdep:    ChannelDepositBonusConfig
   popups:   PopupConfig[]
 }
 
@@ -70,8 +57,6 @@ export const PROMO_DEFAULTS: PromoConfig = {
   firstdep: { enabled: true, turnoverX: 15, turnoverDays: 30, tiers: DEFAULT_FIRSTDEP_TIERS },
   // App/PWA 下载礼金：默认关闭，后台开启后客户端宣传位才展示
   appdl:    { amount: 66, enabled: false, turnoverX: 5, turnoverDays: 30 },
-  // 渠道充值奖励：默认关闭；Maya 费率(0.65%)低于 GCash(1.1%)，用一次性奖励迁移用户渠道习惯
-  chdep:    { enabled: false, channel: 'maya', minDeposit: 1000, amount: 50, turnoverX: 5, turnoverDays: 30, inactiveDays: 30 },
   popups:   [{ id: 'new_player', enabled: true, order: 1, audience: 'all', frequency: 'daily' }],
 }
 
@@ -137,7 +122,6 @@ export async function getPromoConfig(env: Env): Promise<PromoConfig> {
     const r = map.referral ?? {}
     const f = map.firstdep ?? {}
     const a = map.appdl ?? {}
-    const c = map.chdep ?? {}
     const D = PROMO_DEFAULTS
     const tiers = await loadFirstDepTiers(env)
     let popups = D.popups
@@ -149,15 +133,6 @@ export async function getPromoConfig(env: Env): Promise<PromoConfig> {
       referral: { inviterAmount: num(r.inviter_amount, D.referral.inviterAmount), inviteeAmount: num(r.invitee_amount, D.referral.inviteeAmount), enabled: bool(r.enabled, D.referral.enabled), turnoverX: num(r.turnover_x, D.referral.turnoverX), turnoverDays: num(r.turnover_days, D.referral.turnoverDays) },
       firstdep: { enabled: bool(f.enabled, D.firstdep.enabled), turnoverX: num(f.turnover_x, D.firstdep.turnoverX), turnoverDays: num(f.turnover_days, D.firstdep.turnoverDays), tiers },
       appdl:    { amount: num(a.amount, D.appdl.amount), enabled: bool(a.enabled, D.appdl.enabled), turnoverX: num(a.turnover_x, D.appdl.turnoverX), turnoverDays: num(a.turnover_days, D.appdl.turnoverDays) },
-      chdep:    {
-        enabled: bool(c.enabled, D.chdep.enabled),
-        channel: c.channel || D.chdep.channel,
-        minDeposit: num(c.min_deposit, D.chdep.minDeposit),
-        amount: num(c.amount, D.chdep.amount),
-        turnoverX: num(c.turnover_x, D.chdep.turnoverX),
-        turnoverDays: num(c.turnover_days, D.chdep.turnoverDays),
-        inactiveDays: num(c.inactive_days, D.chdep.inactiveDays),
-      },
       popups,
     }
   } catch {
@@ -185,13 +160,6 @@ export async function savePromoConfig(env: Env, config: PromoConfig): Promise<vo
     ['appdl',    'enabled',        config.appdl.enabled                  ? '1' : '0'],
     ['appdl',    'turnover_x',     String(config.appdl.turnoverX         ?? D.appdl.turnoverX)],
     ['appdl',    'turnover_days',  String(config.appdl.turnoverDays      ?? D.appdl.turnoverDays)],
-    ['chdep',    'enabled',        config.chdep.enabled                  ? '1' : '0'],
-    ['chdep',    'channel',        String(config.chdep.channel           || D.chdep.channel).toLowerCase()],
-    ['chdep',    'min_deposit',    String(config.chdep.minDeposit        ?? D.chdep.minDeposit)],
-    ['chdep',    'amount',         String(config.chdep.amount            ?? D.chdep.amount)],
-    ['chdep',    'turnover_x',     String(config.chdep.turnoverX         ?? D.chdep.turnoverX)],
-    ['chdep',    'turnover_days',  String(config.chdep.turnoverDays      ?? D.chdep.turnoverDays)],
-    ['chdep',    'inactive_days',  String(config.chdep.inactiveDays      ?? D.chdep.inactiveDays)],
     ['popups',   'items',          JSON.stringify(sanitizePopups(config.popups))],
   ]
   await pool.query(

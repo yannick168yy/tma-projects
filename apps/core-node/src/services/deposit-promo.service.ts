@@ -2,9 +2,9 @@ import type { Pool, RowDataPacket, ResultSetHeader } from 'mysql2/promise'
 import { lgId } from '../utils/id.js'
 
 /**
- * 充值成功后的活动发放：首充嘉年华 + 渠道充值奖励。
+ * 充值成功后的活动发放：首充嘉年华。
  * 挂在所有入账路径（internal.routes 两条 + NATS yfpay/beepay 回调）之后调用，
- * 幂等由 bg_user.first_dep_claimed 条件更新 / 领取表主键保证，发放失败不影响充值主流程。
+ * 幂等由 bg_user.first_dep_claimed 条件更新保证，发放失败不影响充值主流程。
  */
 export interface PaidDepositInfo {
   orderId: string
@@ -12,8 +12,6 @@ export interface PaidDepositInfo {
   /** 该笔充值金额（订单币种单位） */
   amount: number
   currency: string
-  /** 存款单渠道，如 yfpay_maya / beepay_gcash / tg_wallet */
-  channel: string
 }
 
 interface FirstDepTier { depositAmount: number; bonusAmount: number }
@@ -132,42 +130,6 @@ async function applyFirstDepBonus(db: Pool, dep: PaidDepositInfo): Promise<void>
   )
 }
 
-/** 渠道充值奖励：单笔满门槛 + 资格窗口内未用过该渠道，每人每渠道一次 */
-async function applyChannelDepositBonus(db: Pool, dep: PaidDepositInfo): Promise<void> {
-  if (dep.currency !== 'PHP') return
-  const cfg = await loadPromoKv(db, 'chdep')
-  if (cfg.enabled !== '1') return
-  const channel = String(cfg.channel ?? 'maya').toLowerCase()
-  if (!channel || !dep.channel.toLowerCase().includes(channel)) return
-  const minDeposit = Number(cfg.min_deposit ?? 1000)
-  if (dep.amount < minDeposit) return
-
-  const inactiveDays = Number(cfg.inactive_days ?? 30)
-  const [recent] = await db.query<RowDataPacket[]>(
-    `SELECT 1 FROM bg_deposit_order
-     WHERE user_id = ? AND status = 'paid' AND order_id != ? AND LOWER(channel) LIKE ?
-       ${inactiveDays > 0 ? 'AND created_at >= NOW() - INTERVAL ? DAY' : ''}
-     LIMIT 1`,
-    inactiveDays > 0
-      ? [dep.userId, dep.orderId, `%${channel}%`, inactiveDays]
-      : [dep.userId, dep.orderId, `%${channel}%`],
-  )
-  if (recent.length > 0) return
-
-  const amount = Number(cfg.amount ?? 50)
-  if (amount <= 0) return
-  const [res] = await db.execute<ResultSetHeader>(
-    'INSERT IGNORE INTO bg_channel_deposit_bonus_claim (user_id, channel, amount, deposit_order_id) VALUES (?, ?, ?, ?)',
-    [dep.userId, channel, amount, dep.orderId],
-  )
-  if (res.affectedRows === 0) return
-
-  await creditBonus(
-    db, dep.userId, amount, 'PHP', `Channel deposit bonus (${channel})`, dep.orderId,
-    Number(cfg.turnover_x ?? 5), Number(cfg.turnover_days ?? 30), 'chdep',
-  )
-}
-
 export async function applyDepositPromos(
   db: Pool,
   dep: PaidDepositInfo,
@@ -177,10 +139,5 @@ export async function applyDepositPromos(
     await applyFirstDepBonus(db, dep)
   } catch (err) {
     log.error({ err, orderId: dep.orderId }, 'first deposit bonus failed')
-  }
-  try {
-    await applyChannelDepositBonus(db, dep)
-  } catch (err) {
-    log.error({ err, orderId: dep.orderId }, 'channel deposit bonus failed')
   }
 }

@@ -41,7 +41,7 @@ async function handleDeposit(
   db: Pool,
 ): Promise<void> {
   const [rows] = await db.query<RowDataPacket[]>(
-    `SELECT order_id, user_id, currency, amount, channel, credited, status FROM bg_deposit_order WHERE order_id = ? LIMIT 1`,
+    `SELECT order_id, user_id, currency, amount, credited, status FROM bg_deposit_order WHERE order_id = ? LIMIT 1`,
     [merchantSerial],
   )
   const order = rows[0]
@@ -88,7 +88,6 @@ async function handleDeposit(
       userId: String(order.user_id),
       amount: creditAmount,
       currency,
-      channel: String(order.channel ?? ''),
     }, { error: (obj, msg) => console.error(`[beepay-callback] ${msg}`, obj) })
   } else if (status === 2) {
     await db.execute(

@@ -759,21 +759,11 @@ export interface PopupConfig {
   audience: PopupAudience
   frequency: PopupFrequency
 }
-export interface ChannelDepositBonusConfig {
-  enabled: boolean
-  channel: string
-  minDeposit: number
-  amount: number
-  turnoverX: number
-  turnoverDays: number
-  inactiveDays: number
-}
 export interface PromoConfig {
   trial:    { amount: number; enabled: boolean; turnoverX: number; turnoverDays: number }
   referral: { inviterAmount: number; inviteeAmount: number; enabled: boolean; turnoverX: number; turnoverDays: number }
   firstdep: { enabled: boolean; turnoverX: number; turnoverDays: number; tiers: Record<string, FirstDepTier[]> }
   appdl:    { amount: number; enabled: boolean; turnoverX: number; turnoverDays: number }
-  chdep:    ChannelDepositBonusConfig
   popups:   PopupConfig[]
 }
 export const getPromoConfig = () => get<PromoConfig>('/admin/promotions/config')

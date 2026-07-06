@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Card, InputNumber, Input, Select, Switch, Button, message, Typography, Row, Col, Spin, Tabs, Table, Space } from 'antd'
+import { Card, InputNumber, Select, Switch, Button, message, Typography, Row, Col, Spin, Tabs, Table, Space } from 'antd'
 import { GiftOutlined, PlusOutlined, DeleteOutlined, ArrowUpOutlined, ArrowDownOutlined } from '@ant-design/icons'
 import { getPromoConfig, savePromoConfig, FIRSTDEP_CURRENCIES, type PromoConfig, type FirstDepTier, type PopupConfig } from '../api'
 
@@ -52,9 +52,6 @@ export default function Promotions() {
 
   function validate(c: PromoConfig): string | null {
     if (c.trial.amount <= 0 || c.trial.amount > 50000) return 'trial 注册奖励必须在 1-50000'
-    if (c.chdep.amount <= 0 || c.chdep.amount > 50000) return '渠道充值奖励金额必须在 1-50000'
-    if (c.chdep.minDeposit <= 0) return '渠道充值门槛必须大于 0'
-    if (!/^[a-z0-9_-]{2,20}$/.test(c.chdep.channel.toLowerCase())) return '渠道名须为 2-20 位小写字母/数字'
     if (c.referral.inviterAmount < 0 || c.referral.inviteeAmount < 0) return 'referral 金额不能为负'
     if (c.firstdep.turnoverX < 0 || c.firstdep.turnoverDays < 0) return 'firstdep 流水倍率/有效期不能为负'
     if (c.appdl.amount <= 0 || c.appdl.amount > 50000) return 'App 下载礼金必须在 1-50000'
@@ -228,42 +225,6 @@ export default function Promotions() {
           <Col span={8}>
             <Text>流水有效期（0=永久）</Text>
             <InputNumber suffix="天" style={{ width: '100%', marginTop: 4 }} min={0} max={365} precision={0} value={cfg.appdl.turnoverDays} onChange={(v) => patch((d) => { d.appdl.turnoverDays = Number(v ?? 0) })} />
-          </Col>
-        </Row>
-      </Card>
-
-      <Card
-        title={<span>📱 渠道充值奖励（Maya 回流/新客）</span>}
-        style={{ marginBottom: 16 }}
-        extra={<Switch checkedChildren="开启" unCheckedChildren="关闭" checked={cfg.chdep.enabled} onChange={(v) => patch((d) => { d.chdep.enabled = v })} />}
-      >
-        <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 12 }}>
-          用户单笔充值 ≥ 门槛且资格窗口内未用过该渠道充值时，自动发放一次性奖励（每人每渠道限一次）。奖励为<b>平台礼金即时入账到用户钱包</b>（非渠道方返现），可配流水倍率。Maya 代收费率低于 GCash，可用此活动迁移用户渠道习惯
-        </Text>
-        <Row gutter={24}>
-          <Col span={6}>
-            <Text>渠道名（匹配存款渠道）</Text>
-            <Input style={{ width: '100%', marginTop: 4 }} value={cfg.chdep.channel} onChange={(e) => patch((d) => { d.chdep.channel = e.target.value.toLowerCase().trim() })} placeholder="maya" />
-          </Col>
-          <Col span={6}>
-            <Text>单笔充值门槛（PHP）</Text>
-            <InputNumber prefix="₱" style={{ width: '100%', marginTop: 4 }} min={1} precision={0} value={cfg.chdep.minDeposit} onChange={(v) => patch((d) => { d.chdep.minDeposit = Number(v ?? 0) })} />
-          </Col>
-          <Col span={6}>
-            <Text>奖励金额（PHP）</Text>
-            <InputNumber prefix="₱" style={{ width: '100%', marginTop: 4 }} min={1} max={50000} precision={0} value={cfg.chdep.amount} onChange={(v) => patch((d) => { d.chdep.amount = Number(v ?? 0) })} />
-          </Col>
-          <Col span={6}>
-            <Text>资格窗口（天，0=仅从未用过）</Text>
-            <InputNumber suffix="天" style={{ width: '100%', marginTop: 4 }} min={0} max={365} precision={0} value={cfg.chdep.inactiveDays} onChange={(v) => patch((d) => { d.chdep.inactiveDays = Number(v ?? 0) })} />
-          </Col>
-          <Col span={6} style={{ marginTop: 16 }}>
-            <Text>流水倍率（0=不要求）</Text>
-            <InputNumber suffix="x" style={{ width: '100%', marginTop: 4 }} min={0} max={100} precision={0} value={cfg.chdep.turnoverX} onChange={(v) => patch((d) => { d.chdep.turnoverX = Number(v ?? 0) })} />
-          </Col>
-          <Col span={6} style={{ marginTop: 16 }}>
-            <Text>流水有效期（0=永久）</Text>
-            <InputNumber suffix="天" style={{ width: '100%', marginTop: 4 }} min={0} max={365} precision={0} value={cfg.chdep.turnoverDays} onChange={(v) => patch((d) => { d.chdep.turnoverDays = Number(v ?? 0) })} />
           </Col>
         </Row>
       </Card>
