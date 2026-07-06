@@ -140,9 +140,9 @@ export default function GamesPage({ cat, provider, onChangeFilter, onOpenPerya, 
 
   return (
     <div className="page-main">
-      {/* 一级分类 tab（sticky 吸顶，纯文字 pill） */}
+      {/* 一级分类 tab（sticky 吸顶，自然文字：选中=品牌色加粗+下划线，未选中=灰字） */}
       <div className="sticky z-20 bg-background border-b border-white/5" style={{ top: 'var(--app-header-height, 0px)' }}>
-        <div className="flex gap-1.5 px-3 py-2.5 overflow-x-auto hide-scrollbar snap-x">
+        <div className="flex gap-5 px-4 overflow-x-auto hide-scrollbar snap-x">
           {CATEGORIES.map((c) => {
             const active = c.id === cat
             return (
@@ -151,11 +151,12 @@ export default function GamesPage({ cat, provider, onChangeFilter, onOpenPerya, 
                 ref={active ? activeCatRef : undefined}
                 type="button"
                 onClick={() => selectCat(c.id)}
-                className={`flex-shrink-0 snap-start px-4 py-1.5 rounded-full text-[13px] font-bold whitespace-nowrap transition-colors active:scale-95 ${
-                  active ? 'bg-primary text-primary-foreground' : 'bg-secondary text-foreground/70'
+                className={`relative flex-shrink-0 snap-start whitespace-nowrap pt-3 pb-2.5 text-[15px] transition-colors active:scale-95 ${
+                  active ? 'font-black text-primary' : 'font-semibold text-foreground/50'
                 }`}
               >
                 {t(c.labelKey)}
+                <span className={`absolute bottom-0 left-1/2 h-[3px] w-5 -translate-x-1/2 rounded-full bg-primary transition-opacity ${active ? 'opacity-100' : 'opacity-0'}`} />
               </button>
             )
           })}
