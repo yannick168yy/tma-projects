@@ -41,6 +41,7 @@ export default function GamesPage({ cat, provider, onChangeFilter, onOpenPerya, 
 
   const [providers, setProviders] = useState<string[]>([])
   const [providersExpanded, setProvidersExpanded] = useState(false)
+  const [scrolled, setScrolled] = useState(false)
   const [games, setGames] = useState<SlotGame[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
@@ -94,6 +95,14 @@ export default function GamesPage({ cat, provider, onChangeFilter, onOpenPerya, 
     void loadGames(true)
   }, [cat, provider, activeCurrency])
 
+  // 页面滚动后筛选区变半透明毛玻璃（到顶时恢复实心底）
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 6)
+    window.addEventListener('scroll', onScroll, { passive: true })
+    onScroll()
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
+
   // 深链（如首页 chip / View All）时把选中的分类 tab、厂商 chip 滚进视野
   useEffect(() => {
     activeCatRef.current?.scrollIntoView({ inline: 'center', block: 'nearest' })
@@ -140,9 +149,13 @@ export default function GamesPage({ cat, provider, onChangeFilter, onOpenPerya, 
 
   return (
     <div className="page-main">
-      {/* 一级分类 tab（sticky 吸顶，自然文字：选中=品牌色加粗+下划线，未选中=灰字） */}
-      <div className="sticky z-20 bg-background border-b border-white/5" style={{ top: 'var(--app-header-height, 0px)' }}>
-        <div className="flex gap-5 px-4 overflow-x-auto hide-scrollbar snap-x">
+      {/* 筛选区（一级分类 + 二级厂商）整体 sticky 吸顶；上滑滚动后变半透明毛玻璃，二级不收起 */}
+      <div
+        className={`sticky z-20 border-b border-white/5 transition-colors duration-200 ${scrolled ? 'bg-background/60 backdrop-blur-md' : 'bg-background'}`}
+        style={{ top: 'var(--app-header-height, 0px)' }}
+      >
+        {/* 一级分类：自然文字，选中=品牌色加粗+下划线 */}
+        <div className="flex gap-6 px-4 pt-5 overflow-x-auto hide-scrollbar snap-x">
           {CATEGORIES.map((c) => {
             const active = c.id === cat
             return (
@@ -151,7 +164,7 @@ export default function GamesPage({ cat, provider, onChangeFilter, onOpenPerya, 
                 ref={active ? activeCatRef : undefined}
                 type="button"
                 onClick={() => selectCat(c.id)}
-                className={`relative flex-shrink-0 snap-start whitespace-nowrap pt-3 pb-2.5 text-[15px] transition-colors active:scale-95 ${
+                className={`relative flex-shrink-0 snap-start whitespace-nowrap pb-2.5 text-[18px] transition-colors active:scale-95 ${
                   active ? 'font-black text-primary' : 'font-semibold text-foreground/50'
                 }`}
               >
@@ -161,45 +174,45 @@ export default function GamesPage({ cat, provider, onChangeFilter, onOpenPerya, 
             )
           })}
         </div>
-      </div>
 
-      {/* 二级厂商菜单：单行横滑，⌄ 展开成多行面板 */}
-      {showProviders && (
-        <div className="flex items-start gap-2 px-4 mt-3">
-          <div className={`flex gap-2 flex-1 min-w-0 ${providersExpanded ? 'flex-wrap' : 'overflow-x-auto hide-scrollbar'}`}>
-            <button
-              type="button"
-              onClick={() => selectProvider('all')}
-              className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-bold transition-colors active:scale-95 ${
-                provider === 'all' ? 'bg-primary text-primary-foreground' : 'bg-secondary text-foreground/70'
-              }`}
-            >
-              {t('slots.allProviders')}
-            </button>
-            {providers.map((p) => (
+        {/* 二级厂商菜单：单行横滑，⌄ 展开成多行面板 */}
+        {showProviders && (
+          <div className="flex items-start gap-2 px-4 py-2.5">
+            <div className={`flex gap-2 flex-1 min-w-0 ${providersExpanded ? 'flex-wrap' : 'overflow-x-auto hide-scrollbar'}`}>
               <button
-                key={p}
-                ref={provider === p ? activeProviderRef : undefined}
                 type="button"
-                onClick={() => selectProvider(p)}
+                onClick={() => selectProvider('all')}
                 className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-bold transition-colors active:scale-95 ${
-                  provider === p ? 'bg-primary text-primary-foreground' : 'bg-secondary text-foreground/70'
+                  provider === 'all' ? 'bg-primary text-primary-foreground' : 'bg-secondary text-foreground/70'
                 }`}
               >
-                {shortProviderName(p)}
+                {t('slots.allProviders')}
               </button>
-            ))}
+              {providers.map((p) => (
+                <button
+                  key={p}
+                  ref={provider === p ? activeProviderRef : undefined}
+                  type="button"
+                  onClick={() => selectProvider(p)}
+                  className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-bold transition-colors active:scale-95 ${
+                    provider === p ? 'bg-primary text-primary-foreground' : 'bg-secondary text-foreground/70'
+                  }`}
+                >
+                  {shortProviderName(p)}
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full bg-secondary text-muted-foreground active:scale-90 transition-transform"
+              onClick={() => setProvidersExpanded(!providersExpanded)}
+              aria-label={providersExpanded ? 'Collapse providers' : 'Expand providers'}
+            >
+              {providersExpanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+            </button>
           </div>
-          <button
-            type="button"
-            className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full bg-secondary text-muted-foreground active:scale-90 transition-transform"
-            onClick={() => setProvidersExpanded(!providersExpanded)}
-            aria-label={providersExpanded ? 'Collapse providers' : 'Expand providers'}
-          >
-            {providersExpanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
-          </button>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Perya 嘉年华入口横幅（仅 perya 分类） */}
       {cat === 'perya' && (
