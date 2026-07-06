@@ -150,9 +150,10 @@ export default function GamesPage({ cat, provider, onChangeFilter, onOpenPerya, 
   return (
     <div className="page-main">
       {/* 筛选区（一级分类 + 二级厂商）整体 sticky 吸顶；上滑滚动后变半透明毛玻璃，二级不收起 */}
+      {/* translateZ(0)+will-change 把该层提升到独立合成层，消除 sticky+backdrop-filter 在移动端滚动时的上下抖动 */}
       <div
-        className={`sticky z-20 border-b border-white/5 transition-colors duration-200 ${scrolled ? 'bg-background/60 backdrop-blur-md' : 'bg-background'}`}
-        style={{ top: 'var(--app-header-height, 0px)' }}
+        className={`sticky z-20 border-b border-white/5 transition-colors duration-200 ${scrolled ? 'bg-background/30 backdrop-blur-md' : 'bg-background'}`}
+        style={{ top: 'var(--app-header-height, 0px)', transform: 'translateZ(0)', willChange: 'transform' }}
       >
         {/* 一级分类：自然文字，选中=品牌色加粗+下划线 */}
         <div className="flex gap-6 px-4 pt-5 overflow-x-auto hide-scrollbar snap-x">
