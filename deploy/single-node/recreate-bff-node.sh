@@ -52,6 +52,7 @@ run run -d --name tma-bff-node --network "$NET" --restart=always \
   -e TELEGRAM_OIDC_CLIENT_SECRET="${TELEGRAM_OIDC_CLIENT_SECRET:-}" \
   -e TELEGRAM_OIDC_REDIRECT_URI="${TELEGRAM_OIDC_REDIRECT_URI:-https://www.188facai.com/auth/telegram/callback}" \
   -e AMMER_PAY_PROVIDER_TOKEN="${AMMER_PAY_PROVIDER_TOKEN:-}" \
+  -e TELEGRAM_WEBHOOK_SECRET="${TELEGRAM_WEBHOOK_SECRET:-}" \
   -e USDT_TO_PHP_RATE="${USDT_TO_PHP_RATE:-58}" \
   -e YFPAY_USERNAME="${YFPAY_USERNAME:-}" \
   -e YFPAY_API_KEY="${YFPAY_API_KEY:-}" \
