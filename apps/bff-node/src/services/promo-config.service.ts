@@ -16,7 +16,8 @@ export interface PopupConfig {
   id: string
   enabled: boolean
   order: number
-  audience: 'all' | 'guest' | 'new' | 'deposited'
+  /** no_deposit=未充值用户（含访客与已登录未充值）；new=仅已登录未充值 */
+  audience: 'all' | 'guest' | 'no_deposit' | 'new' | 'deposited'
   frequency: 'daily' | 'once' | 'always'
 }
 
@@ -74,7 +75,7 @@ export const PROMO_DEFAULTS: PromoConfig = {
   popups:   [{ id: 'new_player', enabled: true, order: 1, audience: 'all', frequency: 'daily' }],
 }
 
-const POPUP_AUDIENCES = ['all', 'guest', 'new', 'deposited'] as const
+const POPUP_AUDIENCES = ['all', 'guest', 'no_deposit', 'new', 'deposited'] as const
 const POPUP_FREQUENCIES = ['daily', 'once', 'always'] as const
 
 function sanitizePopups(raw: unknown): PopupConfig[] {

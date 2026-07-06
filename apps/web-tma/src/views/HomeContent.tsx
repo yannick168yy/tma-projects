@@ -3,12 +3,15 @@ import { useTranslation } from 'react-i18next'
 import {
   ChevronRight, Trophy, TrendingUp, Gamepad2, Sparkles, History, Factory,
   Fish, Dice5, Ticket, Drama, Rocket, X, Gem, Percent,
+  Zap, Headphones, ShieldCheck, Phone, Globe, Mail,
+  Send, Facebook, Instagram, Youtube, Twitter, Music2, MessageCircle,
+  type LucideIcon,
 } from 'lucide-react'
 import HomeCategoryShortcut from '@/components/home/HomeCategoryShortcut'
 import GameCardV2 from '@/components/home/GameCardV2'
 import { WINNERS, INFO_LINKS } from '@/data/home'
 import { fetchHomepageGames, fetchGames, fetchGameHistory, launchGame, fetchBettingActivity, type SlotGame, type BetRecord, type BetTab, type GameHistoryItem } from '@/api/slots'
-import { fetchHomeContent } from '@/api/home'
+import { fetchHomeContent, type HomeSocialLink } from '@/api/home'
 import { resolveHomeActionPath } from '@/navigation/appRoutes'
 import { ApiError } from '@/api/client'
 import { usePromotionStore } from '@/stores/promotion'
@@ -23,11 +26,8 @@ import chipPokerImg from '@/assets/chips/poker.png'
 import chipBingoImg from '@/assets/chips/bingo.png'
 import chipSportsImg from '@/assets/chips/sports.png'
 import chipFishingImg from '@/assets/chips/fishing.png'
-import infoTermsImg from '@/assets/home/info-support/infor01.webp'
-import infoPrivacyImg from '@/assets/home/info-support/infor02.webp'
-import infoResponsibleImg from '@/assets/home/info-support/infor03.webp'
-import infoAboutImg from '@/assets/home/info-support/infor04.webp'
-import supportOnlineImg from '@/assets/home/info-support/online01.webp'
+import pagcorImg from '@/assets/home/compliance/pagcor.png'
+import age21Img from '@/assets/home/compliance/age21.png'
 import rewardsSpinFloatImg from '@/assets/home/promos/rewards-spin-float.webp'
 import cashbackFloatImg from '@/assets/home/promos/cashback-float.webp'
 import yellowExpandUpImg from '@/assets/home/promos/yellow-expand-up.webp'
@@ -66,7 +66,23 @@ function historyToGame(item: GameHistoryItem): SlotGame {
   }
 }
 
-const INFO_ICONS: Record<string, string> = { terms: infoTermsImg, privacy: infoPrivacyImg, responsible: infoResponsibleImg, about: infoAboutImg }
+// 社交平台品牌样式：平台在后台「首页装修」配置，配了才显示
+const SOCIAL_BRANDS: Record<string, { icon: LucideIcon; bg: string }> = {
+  telegram: { icon: Send, bg: '#229ED9' },
+  facebook: { icon: Facebook, bg: '#1877F2' },
+  x: { icon: Twitter, bg: '#0f1419' },
+  instagram: { icon: Instagram, bg: '#E1306C' },
+  youtube: { icon: Youtube, bg: '#FF0000' },
+  tiktok: { icon: Music2, bg: '#010101' },
+  viber: { icon: Phone, bg: '#7360F2' },
+  whatsapp: { icon: MessageCircle, bg: '#25D366' },
+}
+
+const PAYMENT_LOGOS = [
+  { name: 'GCash', src: '/logos/gcash.svg' },
+  { name: 'Maya', src: '/logos/maya.svg' },
+  { name: 'USDT', src: '/logos/usdt.svg' },
+]
 
 // 首页 banner / 小卡片均来自后台装修配置，只需图片 + 跳转目标
 interface HomeBanner { id: number; image: string; target: string }
@@ -79,45 +95,18 @@ interface Props {
   onOpenFirstDepositFiesta: () => void
   onOpenRewardsSpin: () => void
   onOpenCashback: () => void
-  onOpenNewPlayerGift?: () => void
 }
 
 interface HomePromoFloatProps {
   rewardsLabel: string
   cashbackLabel: string
-  giftLabel: string
   onOpenRewardsSpin: () => void
   onOpenCashback: () => void
-  onOpenNewPlayerGift?: () => void
-}
-
-interface FloatPromo {
-  key: string
-  label: string
-  ariaLabel: string
-  image?: string
-  imageClass?: string
-  emoji?: string
-  action: () => void
 }
 
 let homePromoFloatClosedUntilReload = false
 
-function FloatPromoIcon({ promo, size }: { promo: FloatPromo; size: number }) {
-  if (promo.image) {
-    return <img src={promo.image} alt="" className={`${promo.imageClass ?? ''} object-contain drop-shadow-[0_8px_18px_rgba(0,0,0,0.38)]`} style={{ height: size, width: size }} />
-  }
-  return (
-    <span
-      className="flex items-center justify-center rounded-full bg-gradient-to-b from-[#ff4d4d] to-[#c81414] ring-2 ring-[#ffe066] drop-shadow-[0_8px_18px_rgba(0,0,0,0.38)]"
-      style={{ height: size * 0.82, width: size * 0.82, fontSize: size * 0.42 }}
-    >
-      {promo.emoji}
-    </span>
-  )
-}
-
-function HomePromoFloat({ rewardsLabel, cashbackLabel, giftLabel, onOpenRewardsSpin, onOpenCashback, onOpenNewPlayerGift }: HomePromoFloatProps) {
+function HomePromoFloat({ rewardsLabel, cashbackLabel, onOpenRewardsSpin, onOpenCashback }: HomePromoFloatProps) {
   const widgetRef = useRef<HTMLDivElement>(null)
   const collapsedPositionRef = useRef<{ left: number; top: number } | null>(null)
   const dragRef = useRef({ pointerId: -1, startX: 0, startY: 0, startLeft: 0, startTop: 0, moved: false, suppressClick: false })
@@ -125,8 +114,7 @@ function HomePromoFloat({ rewardsLabel, cashbackLabel, giftLabel, onOpenRewardsS
   const [activePromo, setActivePromo] = useState(0)
   const [closed, setClosed] = useState(homePromoFloatClosedUntilReload)
   const [position, setPosition] = useState<{ left: number; top: number } | null>(null)
-  const promos: FloatPromo[] = [
-    ...(onOpenNewPlayerGift ? [{ key: 'gifts', label: giftLabel, ariaLabel: giftLabel, emoji: '🎁', action: onOpenNewPlayerGift }] : []),
+  const promos = [
     { key: 'cashback', label: 'cashback', ariaLabel: cashbackLabel, image: cashbackFloatImg, imageClass: 'home-cashback-swing-float', action: onOpenCashback },
     { key: 'rewards', label: 'rewards', ariaLabel: rewardsLabel, image: rewardsSpinFloatImg, imageClass: 'home-rewards-spin-float', action: onOpenRewardsSpin },
   ]
@@ -277,7 +265,7 @@ function HomePromoFloat({ rewardsLabel, cashbackLabel, giftLabel, onOpenRewardsS
             onClick={() => runAction(promo.action)}
             aria-label={promo.ariaLabel}
           >
-            <FloatPromoIcon promo={promo} size={94} />
+            <img src={promo.image} alt="" className={`${promo.imageClass} h-[94px] w-[94px] object-contain drop-shadow-[0_8px_18px_rgba(0,0,0,0.38)]`} />
             <span className="text-xs font-black leading-none text-white drop-shadow-[0_1px_4px_rgba(0,0,0,0.8)]">{promo.label}</span>
           </button>
         ))
@@ -292,7 +280,7 @@ function HomePromoFloat({ rewardsLabel, cashbackLabel, giftLabel, onOpenRewardsS
                 onClick={() => runAction(promo.action)}
                 aria-label={promo.ariaLabel}
               >
-                <FloatPromoIcon promo={promo} size={99} />
+                <img src={promo.image} alt="" className={`${promo.imageClass} h-[99px] w-[99px] object-contain drop-shadow-[0_8px_18px_rgba(0,0,0,0.38)]`} />
               </button>
             ))}
           </div>
@@ -302,7 +290,7 @@ function HomePromoFloat({ rewardsLabel, cashbackLabel, giftLabel, onOpenRewardsS
   )
 }
 
-export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOpenFirstDepositFiesta, onOpenRewardsSpin, onOpenCashback, onOpenNewPlayerGift }: Props) {
+export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOpenFirstDepositFiesta, onOpenRewardsSpin, onOpenCashback }: Props) {
   const { t, i18n } = useTranslation()
   const locale = i18n.language
   const promotion = usePromotionStore()
@@ -310,6 +298,7 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
   const activeCurrency = useWalletStore((s) => s.activeCurrency)
   const [homeBanners, setHomeBanners] = useState<HomeBanner[]>([])
   const [homeCards, setHomeCards] = useState<HomeCard[]>([])
+  const [socialLinks, setSocialLinks] = useState<HomeSocialLink[]>([])
 
   // 首页装修配置的统一跳转：内部路由走 navigate，外链走 window.open，空串不跳转
   function navHomeTarget(target: string) {
@@ -517,6 +506,7 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
         image: item.imageUrl,
         target: resolveHomeActionPath(item.actionType, item.actionValue),
       })))
+      setSocialLinks(content.socialLinks ?? [])
     }).catch(() => {})
     if (auth.token && auth.user) void promotion.loadTeamStatus()
   }, [])
@@ -859,24 +849,88 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
         </section>
       )}
 
-      {/* Info Links */}
-      <section className="mt-6 px-4">
-        <h3 className="text-muted-foreground font-black text-xs font-display tracking-widest mb-3">{t('home.infoSection')}</h3>
-        <div className="grid grid-cols-2 gap-3">
-          {INFO_LINKS.map((link) => {
-            const iconImage = INFO_ICONS[link.key]
-            const iconColors: Record<string, string> = { terms: 'bg-amber-500/15', privacy: 'bg-blue-500/15', responsible: 'bg-rose-500/15', about: 'bg-emerald-500/15' }
-            const iconBg = iconColors[link.key] ?? 'bg-secondary'
-            return (
-              <button key={link.key} type="button" className="bg-secondary border border-border rounded-2xl p-4 text-left flex flex-col gap-3 active:scale-95 transition-transform" onClick={() => setInfoModal(link.key)}>
-                <div className={`w-9 h-9 rounded-xl flex items-center justify-center overflow-hidden ${iconBg}`}>{iconImage && <img src={iconImage} alt="" className="h-7 w-7 rounded-md object-contain" />}</div>
-                <div className="flex items-end justify-between gap-1 flex-1">
-                  <p className="text-xs font-bold text-foreground leading-snug">{t(`home.info${link.key.charAt(0).toUpperCase() + link.key.slice(1)}`)}</p>
-                  <ChevronRight size={14} className="text-muted-foreground flex-shrink-0" />
-                </div>
-              </button>
-            )
-          })}
+      {/* ── 底部信息区：优势 → 支付 → 社区 → 合规 → 页脚 ── */}
+
+      {/* 产品优势条 */}
+      <section className="mt-8 px-4">
+        <div className="grid grid-cols-3 gap-2">
+          <div className="bg-secondary border border-border rounded-2xl px-2 py-3.5 flex flex-col items-center gap-2 text-center">
+            <div className="w-9 h-9 rounded-full bg-amber-500/15 flex items-center justify-center"><Zap size={17} className="text-amber-400" /></div>
+            <p className="text-[11px] font-bold text-foreground leading-tight">{t('home.advFast')}</p>
+          </div>
+          <button type="button" className="bg-secondary border border-border rounded-2xl px-2 py-3.5 flex flex-col items-center gap-2 text-center active:scale-95 transition-transform" onClick={onOpenCs}>
+            <div className="w-9 h-9 rounded-full bg-primary/15 flex items-center justify-center"><Headphones size={17} className="text-primary" /></div>
+            <p className="text-[11px] font-bold text-foreground leading-tight">{t('home.advSupport')}</p>
+          </button>
+          <div className="bg-secondary border border-border rounded-2xl px-2 py-3.5 flex flex-col items-center gap-2 text-center">
+            <div className="w-9 h-9 rounded-full bg-emerald-500/15 flex items-center justify-center"><ShieldCheck size={17} className="text-emerald-400" /></div>
+            <p className="text-[11px] font-bold text-foreground leading-tight">{t('home.advLicensed')}</p>
+          </div>
+        </div>
+      </section>
+
+      {/* 支付方式信任条 */}
+      <section className="mt-4 px-4">
+        <div className="flex justify-center gap-2.5">
+          {PAYMENT_LOGOS.map((p) => (
+            <div key={p.name} className="bg-white rounded-xl h-10 px-4 flex items-center">
+              <img src={p.src} alt={p.name} className="h-5 object-contain" />
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* 社区（后台装修配置，未配置整块隐藏） */}
+      {socialLinks.length > 0 && (
+        <section className="mt-8 px-4">
+          <h3 className="text-muted-foreground font-black text-xs font-display tracking-widest mb-3 text-center">{t('home.communitySection')}</h3>
+          <div className="flex justify-center flex-wrap gap-3.5">
+            {socialLinks.map((link) => {
+              const brand = SOCIAL_BRANDS[link.platform]
+              if (!brand) return null
+              const Icon = brand.icon
+              return (
+                <a key={link.platform} href={link.url} target="_blank" rel="noopener noreferrer" aria-label={link.platform}
+                  className="w-11 h-11 rounded-full flex items-center justify-center active:scale-95 transition-transform"
+                  style={{ background: brand.bg }}>
+                  <Icon size={20} className="text-white" fill={link.platform === 'facebook' || link.platform === 'x' ? 'currentColor' : 'none'} />
+                </a>
+              )
+            })}
+          </div>
+        </section>
+      )}
+
+      {/* 合规区 */}
+      <section className="mt-8 px-4">
+        <p className="text-center text-xs font-bold text-foreground/80 mb-3">{t('home.licenseTitle')}</p>
+        <div className="mx-auto w-fit max-w-full bg-white rounded-full px-5 py-2 flex items-center gap-4">
+          <img src={pagcorImg} alt="PAGCOR" className="h-8 object-contain" />
+          <img src={age21Img} alt="21+ Gambling can be addictive, know when to stop" className="h-8 object-contain" />
+        </div>
+        <p className="mt-4 text-center text-[11px] text-muted-foreground leading-relaxed px-2">{t('home.responsibleNote')}</p>
+        <div className="mt-4 space-y-2.5">
+          <a href="tel:0282489568" className="w-full bg-secondary border border-border rounded-xl p-3.5 flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-primary/15 flex items-center justify-center flex-shrink-0"><Phone size={16} className="text-primary" /></div>
+            <div className="min-w-0">
+              <p className="text-[11px] text-muted-foreground leading-snug">{t('home.helplineLabel')}</p>
+              <p className="text-sm font-bold text-foreground">(02) 8248-9568</p>
+            </div>
+          </a>
+          <a href="https://www.pagcor.ph/regulatory/responsible-gaming.php" target="_blank" rel="noopener noreferrer" className="w-full bg-secondary border border-border rounded-xl p-3.5 flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-primary/15 flex items-center justify-center flex-shrink-0"><Globe size={16} className="text-primary" /></div>
+            <div className="min-w-0">
+              <p className="text-[11px] text-muted-foreground leading-snug">{t('home.pagcorHelpLabel')}</p>
+              <p className="text-sm font-bold text-foreground break-all">www.pagcor.ph/regulatory/responsible-gaming.php</p>
+            </div>
+          </a>
+          <a href="mailto:ResponsibleGaming@pagcor.ph" className="w-full bg-secondary border border-border rounded-xl p-3.5 flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-primary/15 flex items-center justify-center flex-shrink-0"><Mail size={16} className="text-primary" /></div>
+            <div className="min-w-0">
+              <p className="text-[11px] text-muted-foreground leading-snug">{t('home.emailLabel')}</p>
+              <p className="text-sm font-bold text-foreground break-all">ResponsibleGaming@pagcor.ph</p>
+            </div>
+          </a>
         </div>
       </section>
 
@@ -901,15 +955,20 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
         </div>
       )}
 
-      {/* Support */}
-      <section className="mt-8 px-4">
-        <h3 className="text-muted-foreground font-black text-xs font-display tracking-widest mb-3">{t('home.supportSection')}</h3>
-        <button type="button" className="w-full bg-secondary rounded-xl p-4 flex items-center justify-between border border-border" onClick={onOpenCs}>
-          <div className="flex items-center gap-3"><div className="w-9 h-9 rounded-lg bg-primary/15 flex items-center justify-center flex-shrink-0 overflow-hidden"><img src={supportOnlineImg} alt="" className="h-7 w-7 rounded-md object-contain" /></div><span className="text-sm font-bold text-foreground">{t('home.supportOnline')}</span></div>
-          <ChevronRight size={16} className="text-muted-foreground" />
-        </button>
+      {/* 页脚：条款文字链 + 版权 */}
+      <section className="mt-7 px-4 pb-2">
+        <div className="flex items-center justify-center flex-wrap gap-x-2 gap-y-1.5">
+          {INFO_LINKS.map((link, i) => (
+            <span key={link.key} className="flex items-center gap-2">
+              {i > 0 && <span className="text-muted-foreground/30 text-[11px]">|</span>}
+              <button type="button" className="text-[11px] text-muted-foreground underline-offset-2 active:underline" onClick={() => setInfoModal(link.key)}>
+                {t(`home.info${link.key.charAt(0).toUpperCase() + link.key.slice(1)}`)}
+              </button>
+            </span>
+          ))}
+        </div>
+        <p className="mt-3 mb-4 text-center text-[10px] text-muted-foreground/50">@2025-2026 BETOGO ALL RIGHTS RESERVED · 21+</p>
       </section>
-      <div className="mt-6 mb-4 px-4 text-center"><p className="text-[10px] text-muted-foreground/50">© 2025 BetoGo · 18+</p></div>
 
 
       {/* First Deposit Fiesta floating entry */}
@@ -931,10 +990,8 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
       <HomePromoFloat
         rewardsLabel={t('category.rewardsSpin')}
         cashbackLabel={t('cashback.title')}
-        giftLabel={t('bonuses.newPlayer.floatLabel')}
         onOpenRewardsSpin={onOpenRewardsSpin}
         onOpenCashback={onOpenCashback}
-        onOpenNewPlayerGift={onOpenNewPlayerGift}
       />
     </div>
   )

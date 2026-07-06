@@ -155,7 +155,7 @@ export interface PopupConfig {
   id: string
   enabled: boolean
   order: number
-  audience: 'all' | 'guest' | 'new' | 'deposited'
+  audience: 'all' | 'guest' | 'no_deposit' | 'new' | 'deposited'
   frequency: 'daily' | 'once' | 'always'
 }
 

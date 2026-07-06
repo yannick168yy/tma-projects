@@ -10,6 +10,7 @@ const POPUP_NAMES: Record<string, string> = { new_player: '新人礼包弹窗' }
 const AUDIENCE_OPTIONS = [
   { value: 'all', label: '所有访客' },
   { value: 'guest', label: '仅未登录游客' },
+  { value: 'no_deposit', label: '未充值用户（含访客和已登录）' },
   { value: 'new', label: '已登录未充值' },
   { value: 'deposited', label: '已充值用户' },
 ]
@@ -237,7 +238,7 @@ export default function Promotions() {
         extra={<Switch checkedChildren="开启" unCheckedChildren="关闭" checked={cfg.chdep.enabled} onChange={(v) => patch((d) => { d.chdep.enabled = v })} />}
       >
         <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 12 }}>
-          用户单笔充值 ≥ 门槛且资格窗口内未用过该渠道充值时，自动发放一次性奖励（每人每渠道限一次）。Maya 代收费率低于 GCash，可用此活动迁移用户渠道习惯
+          用户单笔充值 ≥ 门槛且资格窗口内未用过该渠道充值时，自动发放一次性奖励（每人每渠道限一次）。奖励为<b>平台礼金即时入账到用户钱包</b>（非渠道方返现），可配流水倍率。Maya 代收费率低于 GCash，可用此活动迁移用户渠道习惯
         </Text>
         <Row gutter={24}>
           <Col span={6}>

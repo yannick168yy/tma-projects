@@ -151,6 +151,7 @@ export default function AppShell() {
     if (!popup?.enabled || giftAllDone) return
     const loggedIn = Boolean(auth.token)
     if (popup.audience === 'guest' && loggedIn) return
+    if (popup.audience === 'no_deposit' && npSummary.tasks.firstdep.done) return
     if (popup.audience === 'new' && (!loggedIn || npSummary.tasks.firstdep.done)) return
     if (popup.audience === 'deposited' && (!loggedIn || !npSummary.tasks.firstdep.done)) return
     const today = new Date().toISOString().slice(0, 10)
@@ -560,7 +561,7 @@ export default function AppShell() {
           {view.type === 'none' && activeNav === 'games' && <GamesPage cat={gamesFilter.cat} provider={gamesFilter.provider} onChangeFilter={setGamesFilter} onOpenPerya={openPerya} onGameTap={() => void onGameTap()} onOpenGame={(url) => setGamePlayerUrl(url)} />}
           {view.type === 'none' && activeNav === 'menu' && <MenuPage onOpenCs={openCs} onLogin={() => void auth.ensureLoggedIn(t('auth.signInProfile'))} onLogout={onLogout} onOpenBetHistory={onOpenBetHistory} onOpenLedgerRecords={onOpenLedgerRecords} onOpenReferralPromo={onOpenReferralPromo} onOpenAgentCenter={onOpenAgentCenter} onOpenCashback={onOpenCashback} onOpenRewardsSpin={onOpenRewardsSpin} onOpenKycSetting={onOpenKycSetting} onOpenDownload={openDownload} onOpenTopUp={() => void openWalletFull('deposit')} onOpenCashOut={() => void openWalletFull('withdraw')} onOpenWalletHistory={() => void openWalletFull('history')} />}
           {view.type === 'none' && activeNav === 'casino' && (
-            <HomeContent onNavigatePath={navigatePath} onOpenCs={openCs} onOpenGame={(url) => setGamePlayerUrl(url)} onOpenFirstDepositFiesta={onOpenFirstDepositFiesta} onOpenRewardsSpin={onOpenRewardsSpin} onOpenCashback={onOpenCashback} onOpenNewPlayerGift={giftAllDone ? undefined : openNewPlayerGift} />
+            <HomeContent onNavigatePath={navigatePath} onOpenCs={openCs} onOpenGame={(url) => setGamePlayerUrl(url)} onOpenFirstDepositFiesta={onOpenFirstDepositFiesta} onOpenRewardsSpin={onOpenRewardsSpin} onOpenCashback={onOpenCashback} />
           )}
           </Suspense>
         </main>

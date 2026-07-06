@@ -750,7 +750,7 @@ export const getBetRounds = (params: {
 export interface FirstDepTier { depositAmount: number; bonusAmount: number }
 export const FIRSTDEP_CURRENCIES = ['PHP', 'USDT', 'USDC'] as const
 export type FirstDepCurrency = (typeof FIRSTDEP_CURRENCIES)[number]
-export type PopupAudience = 'all' | 'guest' | 'new' | 'deposited'
+export type PopupAudience = 'all' | 'guest' | 'no_deposit' | 'new' | 'deposited'
 export type PopupFrequency = 'daily' | 'once' | 'always'
 export interface PopupConfig {
   id: string
@@ -802,12 +802,20 @@ export interface HomeContentItem {
   enabled: boolean
   updatedAt: string | null
 }
+export type HomeSocialPlatform = 'telegram' | 'facebook' | 'x' | 'instagram' | 'youtube' | 'tiktok' | 'viber' | 'whatsapp'
+export interface HomeSocialLink {
+  platform: HomeSocialPlatform
+  url: string
+}
 export interface HomeContent {
   banners: HomeContentItem[]
   cards: HomeContentItem[]
   walletBanners: HomeContentItem[]
+  socialLinks: HomeSocialLink[]
 }
 export const getHomeContent = () => get<HomeContent>('/admin/home-content')
+export const saveHomeSocialLinks = (links: HomeSocialLink[]) =>
+  req<{ links: HomeSocialLink[] }>('PUT', '/admin/home-content/social', { links })
 export const uploadHomeImage = (kind: HomeContentItem['kind'], imageData: string) =>
   post<{ imageKey: string; imageUrl: string }>('/admin/home-content/upload', { kind, imageData })
 export const saveHomeContentItem = (item: Pick<HomeContentItem, 'kind' | 'slot' | 'imageKey' | 'actionType' | 'actionValue' | 'enabled'>) =>

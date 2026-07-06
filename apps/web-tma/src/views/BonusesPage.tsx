@@ -199,12 +199,12 @@ export default function BonusesPage({ promoFilter, onOpenWallet, onOpenTeam, onO
         {newPlayerSummary && onOpenNewPlayerGift && newPlayerSummary.totalShowcase > 0 && (
           <button
             type="button"
-            className="w-full rounded-2xl overflow-hidden border border-[#ffd54a]/50 bg-gradient-to-br from-[#c81414] via-[#a50f0f] to-[#7a0e0e] px-4 py-4 text-left active:scale-[0.99] transition-transform"
+            className="w-full rounded-2xl overflow-hidden border border-purple-500/40 bg-gradient-to-br from-[#4a0e82] via-[#38136a] to-[#22104a] px-4 py-4 text-left active:scale-[0.99] transition-transform"
             onClick={onOpenNewPlayerGift}
           >
             <div className="flex items-center justify-between">
               <div>
-                <span className="text-[10px] font-black uppercase tracking-widest text-[#ffe066]">
+                <span className="text-[10px] font-black uppercase tracking-widest text-primary">
                   {t('bonuses.newPlayer.title')}
                 </span>
                 <h2 className="text-white font-black leading-tight mt-0.5 font-display text-[1.3rem]">
