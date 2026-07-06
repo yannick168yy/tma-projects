@@ -24,7 +24,11 @@ import homeContentRoutes from './home-content.routes.js'
 import { authMiddleware, optionalAuthMiddleware } from '../middleware/auth.js'
 import { getDepositChannels, YfPayError } from '../services/yfpay.service.js'
 import { getPromoConfig } from '../services/promo-config.service.js'
+import { getLevelConfig } from '../services/rebate.service.js'
+import { getUser } from '../services/store/index.js'
+import { getMysqlPool, isMysqlEnabled } from '../clients/mysql.client.js'
 import { ok, fail } from '../utils/response.js'
+import type { RowDataPacket } from 'mysql2/promise'
 
 export function createApiRouter(): Router {
   const api = new Router({ prefix: '/api/v1' })
@@ -59,6 +63,64 @@ export function createApiRouter(): Router {
 
   // 游戏大厅：游戏列表公开，/init 需要鉴权（handler 内检查 userId）
   const optMw = optionalAuthMiddleware()
+
+  // 新人礼包聚合：三步任务状态 + 大数字总额（游客可拉，登录后带真实领取状态）
+  api.get('/promotions/new-player-summary', optMw, async (ctx) => {
+    const env = ctx.state.env
+    const cfg = await getPromoConfig(env)
+    const userId = ctx.state.userId as string | undefined
+
+    let trialClaimed = false
+    let appdlClaimed = false
+    let deposited = false
+    if (userId) {
+      const user = await getUser(ctx.state.redis, userId)
+      trialClaimed = Boolean(user?.trialClaimed)
+      if (isMysqlEnabled(env)) {
+        const pool = getMysqlPool(env)
+        const [[appdlRow], [depRow]] = await Promise.all([
+          pool.query<RowDataPacket[]>('SELECT 1 FROM bg_app_download_claim WHERE user_id = ? LIMIT 1', [userId]),
+          pool.query<RowDataPacket[]>("SELECT 1 FROM bg_deposit_order WHERE user_id = ? AND status = 'paid' LIMIT 1", [userId]),
+        ]).then((rs) => rs.map((r) => r[0]))
+        appdlClaimed = appdlRow.length > 0
+        deposited = depRow.length > 0
+      }
+    }
+
+    const phpTiers = cfg.firstdep.tiers.PHP ?? []
+    const firstdepMax = phpTiers.length ? Math.max(...phpTiers.map((tier) => tier.bonusAmount)) : 0
+
+    // 返水橱窗数：最高等级各大类日封顶加总 ×30 天；封顶全为 0（不封顶）时 monthlyCap=0，客户端展示 Unlimited 卖点
+    let cashbackDailyCap = 0
+    let cashbackTopRatePct = 0
+    try {
+      const levelCfg = await getLevelConfig(env)
+      const topLevel = levelCfg.reduce((m, it) => Math.max(m, it.level), 0)
+      for (const it of levelCfg) {
+        if (it.level !== topLevel || !it.enabled) continue
+        cashbackDailyCap += it.maxBonus > 0 ? it.maxBonus : 0
+        cashbackTopRatePct = Math.max(cashbackTopRatePct, it.ratePct)
+      }
+    } catch { /* 返水配置不可用时橱窗数为 0 */ }
+    const cashbackMonthlyCap = Math.round(cashbackDailyCap * 30)
+
+    const totalShowcase =
+      (cfg.trial.enabled ? cfg.trial.amount : 0) +
+      (cfg.appdl.enabled ? cfg.appdl.amount : 0) +
+      (cfg.firstdep.enabled ? firstdepMax : 0) +
+      cashbackMonthlyCap
+
+    ok(ctx, {
+      registered: Boolean(userId),
+      totalShowcase,
+      tasks: {
+        trial:    { enabled: cfg.trial.enabled, amount: cfg.trial.amount, claimed: trialClaimed },
+        appdl:    { enabled: cfg.appdl.enabled, amount: cfg.appdl.amount, claimed: appdlClaimed },
+        firstdep: { enabled: cfg.firstdep.enabled, maxBonus: firstdepMax, done: deposited },
+      },
+      cashback: { dailyCap: cashbackDailyCap, monthlyCap: cashbackMonthlyCap, topRatePct: cashbackTopRatePct },
+    })
+  })
   api.use(optMw, slotsRoutes.routes(), slotsRoutes.allowedMethods())
 
   // 客服：游客也可访问，内部自行处理防刷和权限

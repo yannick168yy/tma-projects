@@ -11,11 +11,34 @@ export interface FirstDepTier {
 export const FIRSTDEP_CURRENCIES = ['PHP', 'USDT', 'USDC'] as const
 export type FirstDepCurrency = (typeof FIRSTDEP_CURRENCIES)[number]
 
+/** 首页弹窗调度：开关/顺序/覆盖人群/弹出频率，客户端按此调度进站弹窗 */
+export interface PopupConfig {
+  id: string
+  enabled: boolean
+  order: number
+  audience: 'all' | 'guest' | 'new' | 'deposited'
+  frequency: 'daily' | 'once' | 'always'
+}
+
+/** 渠道充值奖励（如 Maya 单笔满额送）：channel 匹配存款单渠道名子串 */
+export interface ChannelDepositBonusConfig {
+  enabled: boolean
+  channel: string
+  minDeposit: number
+  amount: number
+  turnoverX: number
+  turnoverDays: number
+  /** 资格窗口：N 天内无该渠道成功充值视为新/回流用户（0=仅从未用过该渠道） */
+  inactiveDays: number
+}
+
 export interface PromoConfig {
   trial:    { amount: number; enabled: boolean; turnoverX: number; turnoverDays: number }
   referral: { inviterAmount: number; inviteeAmount: number; enabled: boolean; turnoverX: number; turnoverDays: number }
   firstdep: { enabled: boolean; turnoverX: number; turnoverDays: number; tiers: Record<string, FirstDepTier[]> }
   appdl:    { amount: number; enabled: boolean; turnoverX: number; turnoverDays: number }
+  chdep:    ChannelDepositBonusConfig
+  popups:   PopupConfig[]
 }
 
 const DEFAULT_FIRSTDEP_TIERS: Record<string, FirstDepTier[]> = {
@@ -46,6 +69,31 @@ export const PROMO_DEFAULTS: PromoConfig = {
   firstdep: { enabled: true, turnoverX: 15, turnoverDays: 30, tiers: DEFAULT_FIRSTDEP_TIERS },
   // App/PWA 下载礼金：默认关闭，后台开启后客户端宣传位才展示
   appdl:    { amount: 66, enabled: false, turnoverX: 5, turnoverDays: 30 },
+  // 渠道充值奖励：默认关闭；Maya 费率(0.65%)低于 GCash(1.1%)，用一次性奖励迁移用户渠道习惯
+  chdep:    { enabled: false, channel: 'maya', minDeposit: 1000, amount: 50, turnoverX: 5, turnoverDays: 30, inactiveDays: 30 },
+  popups:   [{ id: 'new_player', enabled: true, order: 1, audience: 'all', frequency: 'daily' }],
+}
+
+const POPUP_AUDIENCES = ['all', 'guest', 'new', 'deposited'] as const
+const POPUP_FREQUENCIES = ['daily', 'once', 'always'] as const
+
+function sanitizePopups(raw: unknown): PopupConfig[] {
+  if (!Array.isArray(raw)) return PROMO_DEFAULTS.popups
+  const items: PopupConfig[] = []
+  for (const p of raw) {
+    if (!p || typeof p !== 'object' || typeof (p as PopupConfig).id !== 'string') continue
+    const it = p as Partial<PopupConfig>
+    items.push({
+      id: String(it.id).slice(0, 32),
+      enabled: Boolean(it.enabled),
+      order: Number.isFinite(Number(it.order)) ? Number(it.order) : 99,
+      audience: POPUP_AUDIENCES.includes(it.audience as never) ? it.audience as PopupConfig['audience'] : 'all',
+      frequency: POPUP_FREQUENCIES.includes(it.frequency as never) ? it.frequency as PopupConfig['frequency'] : 'daily',
+    })
+  }
+  // 后台未配置过时保证 new_player 存在，避免客户端拿到空调度表
+  if (!items.some((p) => p.id === 'new_player')) items.push(...PROMO_DEFAULTS.popups)
+  return items.sort((a, b) => a.order - b.order)
 }
 
 function num(v: string | undefined, fallback: number): number {
@@ -88,13 +136,28 @@ export async function getPromoConfig(env: Env): Promise<PromoConfig> {
     const r = map.referral ?? {}
     const f = map.firstdep ?? {}
     const a = map.appdl ?? {}
+    const c = map.chdep ?? {}
     const D = PROMO_DEFAULTS
     const tiers = await loadFirstDepTiers(env)
+    let popups = D.popups
+    if (map.popups?.items) {
+      try { popups = sanitizePopups(JSON.parse(map.popups.items)) } catch { /* 配置损坏时回退默认 */ }
+    }
     return {
       trial:    { amount: num(t.amount, D.trial.amount), enabled: bool(t.enabled, D.trial.enabled), turnoverX: num(t.turnover_x, D.trial.turnoverX), turnoverDays: num(t.turnover_days, D.trial.turnoverDays) },
       referral: { inviterAmount: num(r.inviter_amount, D.referral.inviterAmount), inviteeAmount: num(r.invitee_amount, D.referral.inviteeAmount), enabled: bool(r.enabled, D.referral.enabled), turnoverX: num(r.turnover_x, D.referral.turnoverX), turnoverDays: num(r.turnover_days, D.referral.turnoverDays) },
       firstdep: { enabled: bool(f.enabled, D.firstdep.enabled), turnoverX: num(f.turnover_x, D.firstdep.turnoverX), turnoverDays: num(f.turnover_days, D.firstdep.turnoverDays), tiers },
       appdl:    { amount: num(a.amount, D.appdl.amount), enabled: bool(a.enabled, D.appdl.enabled), turnoverX: num(a.turnover_x, D.appdl.turnoverX), turnoverDays: num(a.turnover_days, D.appdl.turnoverDays) },
+      chdep:    {
+        enabled: bool(c.enabled, D.chdep.enabled),
+        channel: c.channel || D.chdep.channel,
+        minDeposit: num(c.min_deposit, D.chdep.minDeposit),
+        amount: num(c.amount, D.chdep.amount),
+        turnoverX: num(c.turnover_x, D.chdep.turnoverX),
+        turnoverDays: num(c.turnover_days, D.chdep.turnoverDays),
+        inactiveDays: num(c.inactive_days, D.chdep.inactiveDays),
+      },
+      popups,
     }
   } catch {
     return PROMO_DEFAULTS
@@ -121,6 +184,14 @@ export async function savePromoConfig(env: Env, config: PromoConfig): Promise<vo
     ['appdl',    'enabled',        config.appdl.enabled                  ? '1' : '0'],
     ['appdl',    'turnover_x',     String(config.appdl.turnoverX         ?? D.appdl.turnoverX)],
     ['appdl',    'turnover_days',  String(config.appdl.turnoverDays      ?? D.appdl.turnoverDays)],
+    ['chdep',    'enabled',        config.chdep.enabled                  ? '1' : '0'],
+    ['chdep',    'channel',        String(config.chdep.channel           || D.chdep.channel).toLowerCase()],
+    ['chdep',    'min_deposit',    String(config.chdep.minDeposit        ?? D.chdep.minDeposit)],
+    ['chdep',    'amount',         String(config.chdep.amount            ?? D.chdep.amount)],
+    ['chdep',    'turnover_x',     String(config.chdep.turnoverX         ?? D.chdep.turnoverX)],
+    ['chdep',    'turnover_days',  String(config.chdep.turnoverDays      ?? D.chdep.turnoverDays)],
+    ['chdep',    'inactive_days',  String(config.chdep.inactiveDays      ?? D.chdep.inactiveDays)],
+    ['popups',   'items',          JSON.stringify(sanitizePopups(config.popups))],
   ]
   await pool.query(
     `INSERT INTO bg_promo_config (promo_id, config_key, config_value) VALUES ?

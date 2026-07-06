@@ -29,6 +29,8 @@ const DEFAULT_CONFIG = {
   referral: { inviterAmount: 50, inviteeAmount: 30, enabled: true, turnoverX: 0, turnoverDays: 0 },
   firstdep: { enabled: true, turnoverX: 15, turnoverDays: 30, tiers: { PHP: [{ depositAmount: 100, bonusAmount: 15 }] } },
   appdl: { amount: 66, enabled: true, turnoverX: 5, turnoverDays: 30 },
+  chdep: { enabled: false, channel: 'maya', minDeposit: 1000, amount: 50, turnoverX: 5, turnoverDays: 30, inactiveDays: 30 },
+  popups: [{ id: 'new_player', enabled: true, order: 1, audience: 'all' as const, frequency: 'daily' as const }],
 }
 
 function createAdminApp() {

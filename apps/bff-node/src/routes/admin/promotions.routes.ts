@@ -20,6 +20,8 @@ router.put('/config', async (ctx) => {
     referral: { ...current.referral, ...(body.referral ?? {}) },
     firstdep: { ...current.firstdep, ...(body.firstdep ?? {}) },
     appdl:    { ...current.appdl,    ...(body.appdl    ?? {}) },
+    chdep:    { ...current.chdep,    ...(body.chdep    ?? {}) },
+    popups:   body.popups ?? current.popups,
   }
 
   // 简单校验
@@ -41,6 +43,11 @@ router.put('/config', async (ctx) => {
         fail(ctx, 400, `firstdep ${currency} 档位金额必须大于 0、奖励不能为负`); return
       }
     }
+  }
+  if (updated.chdep.amount <= 0 || updated.chdep.amount > 50000 || updated.chdep.minDeposit <= 0
+    || updated.chdep.turnoverX < 0 || updated.chdep.turnoverDays < 0 || updated.chdep.inactiveDays < 0
+    || !/^[a-z0-9_-]{2,20}$/.test(String(updated.chdep.channel).toLowerCase())) {
+    fail(ctx, 400, 'chdep 渠道奖励配置不合法（金额 1-50000、门槛>0、渠道名 2-20 位小写字母数字）'); return
   }
 
   await savePromoConfig(ctx.state.env, updated)
