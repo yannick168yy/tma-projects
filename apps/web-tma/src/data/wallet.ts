@@ -23,7 +23,7 @@ export interface PayMethod {
   matrixChain?: string
 }
 
-/** Telegram Wallet via TON Connect — coming soon */
+/** Telegram Wallet 充值（Telegram Stars / Ammer Pay），仅在 Telegram Mini App 内可用 */
 export const TG_WALLET_DEPOSIT: PayMethod[] = [
   {
     id: 'tg_wallet_php',
@@ -31,8 +31,8 @@ export const TG_WALLET_DEPOSIT: PayMethod[] = [
     icon: '',
     iconUrl: '/logos/telegram.svg',
     color: 'from-[#2AABEE] to-[#229ED9]',
-    tag: 'Coming Soon',
-    enabled: false,
+    tag: 'Stars',
+    enabled: true,
     channelId: 'tg_wallet',
     currency: 'PHP',
   },
@@ -42,8 +42,8 @@ export const TG_WALLET_DEPOSIT: PayMethod[] = [
     icon: '',
     iconUrl: '/logos/telegram.svg',
     color: 'from-cyan-500 to-teal-600',
-    tag: 'Coming Soon',
-    enabled: false,
+    tag: 'Stars',
+    enabled: true,
     channelId: 'tg_wallet',
     currency: 'USDT',
   },

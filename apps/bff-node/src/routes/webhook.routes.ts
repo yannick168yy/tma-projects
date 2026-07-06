@@ -1,6 +1,7 @@
 import Router from '@koa/router'
 import { getDeposit } from '../services/store/index.js'
 import { depositAmountToYuan } from '../services/deposit.service.js'
+import { answerPreCheckoutQuery } from '../services/telegramPayments.js'
 import { verifySign } from '../services/yfpay.service.js'
 import { ok, fail } from '../utils/response.js'
 
@@ -30,6 +31,21 @@ router.post('/telegram', async (ctx) => {
         invoice_payload: string
       }
     }
+    pre_checkout_query?: {
+      id: string
+      invoice_payload: string
+    }
+  }
+
+  // Telegram 支付两段式：先 pre_checkout_query，必须 10s 内应答 ok=true 才会真正扣款。
+  // 仅当 invoice_payload 对应一笔 pending 存款单时放行，否则拒绝。
+  const preCheckout = update.pre_checkout_query
+  if (preCheckout) {
+    const order = await getDeposit(ctx.state.redis, preCheckout.invoice_payload)
+    const approve = !!order && order.status === 'pending'
+    await answerPreCheckoutQuery(ctx.state.env.TELEGRAM_BOT_TOKEN, preCheckout.id, approve)
+    ok(ctx, { handled: approve, preCheckout: true })
+    return
   }
 
   const payment = update.message?.successful_payment

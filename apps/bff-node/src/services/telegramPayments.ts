@@ -73,3 +73,23 @@ export async function createTelegramInvoiceLink(
   }
   return data.result
 }
+
+/**
+ * 应答 pre_checkout_query。Telegram 支付两段式：用户确认支付后 Telegram 先发
+ * pre_checkout_query，必须在 10 秒内 answerPreCheckoutQuery(ok=true) 才会真正扣款，
+ * 否则支付失败。ok=false 时需带 error_message。
+ */
+export async function answerPreCheckoutQuery(
+  botToken: string,
+  queryId: string,
+  approve: boolean,
+  errorMessage = 'Order not found or already processed',
+): Promise<void> {
+  const body = new URLSearchParams({ pre_checkout_query_id: queryId, ok: String(approve) })
+  if (!approve) body.set('error_message', errorMessage)
+  await fetch(`https://api.telegram.org/bot${botToken}/answerPreCheckoutQuery`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body,
+  })
+}
