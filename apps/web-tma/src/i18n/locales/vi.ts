@@ -194,7 +194,7 @@ export default {
       },
       about: {
         title: 'Về BetoGo',
-        content: 'BetoGo là nền tảng gaming trực tuyến hàng đầu được xây dựng dưới dạng Telegram Mini App, mang toàn bộ trải nghiệm casino vào Telegram của bạn — không cần tải app. Chúng tôi cam kết mang đến trải nghiệm giải trí liền mạch, bảo mật và thú vị cho người chơi.\n\nThư viện game\n\nBetoGo hợp tác với JILI, PGSOFT, Pragmatic Play, BGaming, Evolution, Habanero, NetEnt và 20+ nhà cung cấp hàng đầu, mang đến hàng nghìn slot, live casino, bắn cá, crash game và nhiều hơn nữa.\n\nThanh toán nhanh & an toàn\n\nNạp/rút qua GCash, Maya, TON, USDT và các kênh thanh toán được hỗ trợ. Hầu hết giao dịch xử lý ngay lập tức, tiền của bạn được bảo vệ bởi hạ tầng thanh toán bảo mật.\n\nSứ mệnh\n\nMang đến trải nghiệm gaming trực tuyến an toàn nhất, thú vị nhất và có lợi nhất — mọi lúc mọi nơi, ngay trên Telegram.\n\nHỗ trợ 24/7\n\nĐội ngũ hỗ trợ chuyên nghiệp luôn sẵn sàng 24 giờ mỗi ngày. Sự hài lòng của bạn là ưu tiên hàng đầu.',
+        content: 'BetoGo là nền tảng gaming trực tuyến hàng đầu được xây dựng dưới dạng Telegram Mini App, mang toàn bộ trải nghiệm casino vào Telegram của bạn — không cần tải app. Chúng tôi cam kết mang đến trải nghiệm giải trí liền mạch, bảo mật và thú vị cho người chơi.\n\nThư viện game\n\nBetoGo hợp tác với JILI, PGSOFT, Pragmatic Play, BGaming, Evolution, Habanero, NetEnt và 20+ nhà cung cấp hàng đầu, mang đến hàng nghìn slot, live casino, bắn cá, crash game và nhiều hơn nữa.\n\nThanh toán nhanh & an toàn\n\nNạp/rút qua GCash, Maya, USDT, USDC và các kênh thanh toán được hỗ trợ. Hầu hết giao dịch xử lý ngay lập tức, tiền của bạn được bảo vệ bởi hạ tầng thanh toán bảo mật.\n\nSứ mệnh\n\nMang đến trải nghiệm gaming trực tuyến an toàn nhất, thú vị nhất và có lợi nhất — mọi lúc mọi nơi, ngay trên Telegram.\n\nHỗ trợ 24/7\n\nĐội ngũ hỗ trợ chuyên nghiệp luôn sẵn sàng 24 giờ mỗi ngày. Sự hài lòng của bạn là ưu tiên hàng đầu.',
       },
     },
   },
@@ -514,7 +514,7 @@ export default {
         'Thành viên trong vòng phải nạp lần đầu tối thiểu ₱100 và được kích hoạt thì cược mới tạo thưởng cho bạn. Cược từ thành viên chưa kích hoạt không có thưởng (cược đủ điều kiện trong ngày vẫn có thể hiển thị trên cây vòng để tham khảo).\n\n' +
         'Cược đủ điều kiện & quyết toán\n\n' +
         'Cược hợp lệ: chỉ tính lệnh bet đã settled; tiền thắng không bị trừ.\n' +
-        'Đa tiền tệ: PHP, USDT, USDC, TON... ghi riêng rồi quy PHP để tính thưởng.\n' +
+        'Đa tiền tệ: PHP, USDT, USDC... ghi riêng rồi quy PHP để tính thưởng.\n' +
         'Cược trên cây vòng: ngày trước từ snapshot; cược hôm nay cập nhật thời gian thực.\n' +
         'Quyết toán thưởng: chạy hàng ngày (giờ Philippines) cho cược ngày hôm trước. Sau quyết toán, thưởng vào Circle Rewards và số dư có thể rút.\n\n' +
         'Xem & rút tiền\n\n' +
@@ -694,16 +694,6 @@ export default {
     trustInstant: 'Ghi Có Tức Thì',
     trustSupport: 'Hỗ Trợ 24/7',
     selectMethod: 'Chọn Phương Thức Thanh Toán',
-    tonConnect: 'Kết nối TON Wallet',
-    tonPay: 'Gửi TON',
-    tonLoading: 'Đang xử lý…',
-    tonConnecting: 'Đang kết nối ví…',
-    tonCreatingOrder: 'Đang tạo đơn hàng…',
-    tonSending: 'Đang chờ giao dịch…',
-    tonPolling: 'Đang chờ xác nhận…',
-    tonSuccess: 'Đã nhận nạp tiền! Số dư đã cập nhật.',
-    tonTimeout: 'Hết giờ. Không phát hiện giao dịch. Thử lại.',
-    tonDisconnect: 'Ngắt kết nối',
     comingSoon: 'Sắp ra mắt',
     cryptoWithdrawSoon: 'Rút tiền bằng crypto sẽ sớm khả dụng.',
     turnoverAllClear: 'Đã hoàn thành yêu cầu cược — Bạn có thể rút tiền!',

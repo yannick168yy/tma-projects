@@ -333,7 +333,7 @@ export default {
       },
       about: {
         title: 'About BetoGo',
-        content: 'BetoGo is a premier online gaming platform built as a Telegram Mini App. BetoGo brings the full casino experience directly into your Telegram account — no app download required. Our platform is designed to deliver seamless, secure, and exciting entertainment for players everywhere.\n\nOur Game Library\n\nBetoGo partners with world-class game providers including JILI, PGSOFT, Pragmatic Play, BGaming, Evolution, Habanero, NetEnt, and 20+ more studios to deliver thousands of premium slots, live casino tables, fishing games, crash games, and more.\n\nFast & Secure Payments\n\nDeposit and withdraw via GCash, Maya, TON, USDT, and other supported payment channels. Most transactions are processed instantly. Your funds are protected by our secure payment infrastructure.\n\nOur Mission\n\nTo provide players with the safest, most entertaining, and most rewarding online gaming experience — accessible anywhere, anytime, right from Telegram.\n\n24/7 Support\n\nOur dedicated support team is available around the clock to assist with any questions, issues, or concerns. Your satisfaction is our priority.',
+        content: 'BetoGo is a premier online gaming platform built as a Telegram Mini App. BetoGo brings the full casino experience directly into your Telegram account — no app download required. Our platform is designed to deliver seamless, secure, and exciting entertainment for players everywhere.\n\nOur Game Library\n\nBetoGo partners with world-class game providers including JILI, PGSOFT, Pragmatic Play, BGaming, Evolution, Habanero, NetEnt, and 20+ more studios to deliver thousands of premium slots, live casino tables, fishing games, crash games, and more.\n\nFast & Secure Payments\n\nDeposit and withdraw via GCash, Maya, USDT, USDC, and other supported payment channels. Most transactions are processed instantly. Your funds are protected by our secure payment infrastructure.\n\nOur Mission\n\nTo provide players with the safest, most entertaining, and most rewarding online gaming experience — accessible anywhere, anytime, right from Telegram.\n\n24/7 Support\n\nOur dedicated support team is available around the clock to assist with any questions, issues, or concerns. Your satisfaction is our priority.',
       },
     },
   },
@@ -692,7 +692,7 @@ export default {
         'A circle member must make a first deposit of at least ₱100 and become activated before their bets generate rewards. Bets from inactive members do not generate rewards (same-day qualifying bets may still appear in the circle tree for reference).\n\n' +
         'Qualified bets & settlement\n\n' +
         'Valid bets: only settled bet orders count; win payouts are not subtracted.\n' +
-        'Multi-currency: PHP, USDT, USDC, TON, etc. are tracked separately and converted to PHP for rewards.\n' +
+        'Multi-currency: PHP, USDT, USDC, etc. are tracked separately and converted to PHP for rewards.\n' +
         'Circle tree bets: past days use daily snapshots; today\'s bets update in real time.\n' +
         'Reward settlement: runs daily (Philippines time) for the previous day\'s bets. After settlement, rewards appear under Circle Rewards and your withdrawable balance.\n\n' +
         'Viewing & withdrawal\n\n' +
@@ -874,16 +874,6 @@ export default {
     trustInstant: 'Instant Credit',
     trustSupport: '24/7 Support',
     selectMethod: 'Select Payment Method',
-    tonConnect: 'Connect TON Wallet',
-    tonPay: 'Send TON',
-    tonLoading: 'Processing…',
-    tonConnecting: 'Connecting wallet…',
-    tonCreatingOrder: 'Creating order…',
-    tonSending: 'Waiting for transaction…',
-    tonPolling: 'Awaiting confirmation…',
-    tonSuccess: 'Deposit received! Balance updated.',
-    tonTimeout: 'Timed out. No transaction detected. Please retry.',
-    tonDisconnect: 'Disconnect',
     comingSoon: 'Coming Soon',
     cryptoWithdrawSoon: 'Crypto withdrawals will be available soon.',
     matrixDepositTitle: 'Deposit Address',

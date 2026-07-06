@@ -5,11 +5,9 @@ import { Wallet, X, ArrowDownToLine, ArrowUpFromLine, History, CheckCircle2, Ale
 import { createPortal } from 'react-dom'
 import PayMethodGrid from '@/components/wallet/PayMethodGrid'
 import { createDeposit } from '@/api/deposit'
-import { createTonDeposit, pollTonDepositStatus } from '@/api/tonDeposit'
 import { ApiError, isTelegramWebApp } from '@/api/client'
 import { translateApiError } from '@/utils/translateApiError'
 import { useWalletStore, formatBalanceWithCode } from '@/stores/wallet'
-import { useTonConnect } from '@/hooks/useTonConnect'
 import { openTelegramInvoice, waitForDepositPaid } from '@/utils/tgInvoice'
 import { fetchYfDepositOrders, fetchYfWithdrawOrders, fetchDepositHistory, fetchWithdrawHistory } from '@/api/yfpay'
 import { fetchPaymentChannels, fetchCryptoChannels, createPaymentDeposit, queryPaymentDeposit, createPaymentWithdrawal, type PaymentChannel } from '@/api/payment'
@@ -35,18 +33,17 @@ function formatOrderDate(iso: string) { try { return new Date(iso).toLocaleStrin
 function mapDepositState(state: number): HistoryItem['status'] { if(state===2)return 'success'; if(state===3)return 'rejected'; return 'pending' }
 function mapWithdrawState(state: number): HistoryItem['status'] { if(state===1)return 'success'; if(state===2||state===3)return 'rejected'; return 'pending' }
 function mapDepositStatus(status: string): HistoryItem['status'] { if(status==='paid'||status==='completed')return 'success'; if(status==='rejected')return 'rejected'; if(status==='admin_rejected')return 'admin_rejected'; if(status==='cancelled'||status==='failed')return 'failed'; return 'pending' }
-function mapDepositChannelName(channelId: string) { const m: Record<string,string>={admin:'Admin',tg_wallet:'Telegram',ammer_pay:'Telegram',ton_connect:'TON',yfpay_gcash:'GCash',yfpay_maya:'Maya',yfpay_bdo:'BDO Bank',yfpay_bpi:'BPI Bank',yfpay_unknown:'YF Pay',matrix:'Matrix TRX'}; return m[channelId]??channelId??'—' }
+function mapDepositChannelName(channelId: string) { const m: Record<string,string>={admin:'Admin',tg_wallet:'Telegram',ammer_pay:'Telegram',yfpay_gcash:'GCash',yfpay_maya:'Maya',yfpay_bdo:'BDO Bank',yfpay_bpi:'BPI Bank',yfpay_unknown:'YF Pay',matrix:'Matrix TRX'}; return m[channelId]??channelId??'—' }
 
 // 各币种充值预设档位（与后台首充档位口径一致），用于充值金额网格
 const DEPOSIT_PRESETS: Record<string, number[]> = {
   PHP: [20, 50, 100, 200, 500, 1000, 5000, 10000, 50000],
   USDT: [1, 5, 10, 50, 100, 500, 1000],
   USDC: [1, 5, 10, 50, 100, 500, 1000],
-  TON: [1, 5, 10, 50, 100],
   TRX: [100, 500, 1000, 5000, 10000],
 }
-function currencySymbol(cur: string) { return cur === 'PHP' ? '₱' : cur === 'TON' ? 'TON' : cur === 'TRX' ? '' : '$' }
-function fmtPreset(amount: number, cur: string) { const s = currencySymbol(cur); return cur === 'TON' || cur === 'TRX' ? `${amount.toLocaleString()} ${cur}` : `${s}${amount.toLocaleString()}` }
+function currencySymbol(cur: string) { return cur === 'PHP' ? '₱' : cur === 'TRX' ? '' : '$' }
+function fmtPreset(amount: number, cur: string) { const s = currencySymbol(cur); return cur === 'TRX' ? `${amount.toLocaleString()} ${cur}` : `${s}${amount.toLocaleString()}` }
 /** 向下匹配档位奖励：amount 命中的最大档位的奖励，无命中返回 0 */
 function matchTierBonus(tiers: FirstDepTier[] | undefined, amount: number): number {
   if (!tiers || tiers.length === 0 || amount <= 0) return 0
@@ -81,7 +78,6 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
     return b?.available ?? 0
   })
   const displayActive = walletStore.balance ? formatBalanceWithCode(activeCurrency, activeAvailable) : '—'
-  const { walletAddress: tonWalletAddress, isConnected: tonIsConnected, connectWallet: connectTonWallet, disconnect: disconnectTon, sendTransaction: sendTonTransaction } = useTonConnect()
 
   const sheetRef = useRef<HTMLDivElement>(null)
   const backdropRef = useRef<HTMLDivElement>(null)
@@ -108,11 +104,6 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
   const [cryptoEnabled, setCryptoEnabled] = useState<Record<string, boolean>>({})
   const pollTimerRef = useRef<ReturnType<typeof setInterval>|null>(null)
   const [pollSerial, setPollSerial] = useState('')
-  const tonLoadingRef = useRef(false)
-  const [tonLoading, setTonLoading] = useState(false)
-  const [tonMessage, setTonMessage] = useState('')
-  const [tonSuccess, setTonSuccess] = useState(false)
-  const tonPollTimerRef = useRef<ReturnType<typeof setInterval>|null>(null)
   const [withdrawAccount, setWithdrawAccount] = useState('')
   const [withdrawOwner, setWithdrawOwner] = useState('')
   const [withdrawLoading, setWithdrawLoading] = useState(false)
@@ -139,7 +130,6 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
   }
 
   function stopPolling() { if(pollTimerRef.current){clearInterval(pollTimerRef.current);pollTimerRef.current=null} }
-  function stopTonPolling() { if(tonPollTimerRef.current){clearInterval(tonPollTimerRef.current);tonPollTimerRef.current=null} }
 
   function applyWithdrawPrefill(methodId: string, fullName?: string | null) {
     if (isPhoneWalletWithdraw(methodId)) {
@@ -200,7 +190,6 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
       setWithdrawAccount(''); setWithdrawOwner(''); setWithdrawMessage(''); setWithdrawSuccess(false)
       pendingWithdrawMethodRef.current = null
       setTurnoverProgress(null); setTurnoverLoading(false)
-      setTonLoading(false); setTonMessage(''); setTonSuccess(false)
       void walletStore.refresh()
       void fetchHomeContent().then((content) => setWalletBannerUrl(content.walletBanners[0]?.imageUrl ?? defaultTopupBanner)).catch(()=>setWalletBannerUrl(defaultTopupBanner))
       setChannelsLoading(true)
@@ -208,7 +197,7 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
       const cryP = fetchCryptoChannels().then((list)=>setCryptoEnabled(Object.fromEntries(list.map((c)=>[c.name,c.enabled])))).catch(()=>{})
       void Promise.all([depP, cryP]).finally(()=>setChannelsLoading(false))
       void fetchPaymentChannels('withdraw').then(setPaymentWithdrawChannels).catch(()=>{})
-    } else { stopPolling(); stopTonPolling() }
+    } else { stopPolling() }
     return () => { document.body.style.overflow = '' }
   }, [open])
 
@@ -262,7 +251,7 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
     }
   }, [selectedMethod])
 
-  useEffect(() => { return () => { stopPolling(); stopTonPolling() } }, [])
+  useEffect(() => { return () => { stopPolling() } }, [])
 
   const liveFiatDeposit = useMemo((): PayMethod[] => FIAT_DEPOSIT.map((m) => {
     const ch = paymentDepositChannels.find((c) => c.name === m.id)
@@ -287,7 +276,6 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
   const selectedPayMethod = useMemo(() => allPayMethods.find((m)=>m.id===selectedMethod), [allPayMethods, selectedMethod])
   const isTgWallet = selectedMethod?.startsWith('tg_wallet') ?? false
   const isUnifiedFiat = (selectedMethod ?? '').startsWith('fiat_')
-  const isTonConnect = selectedPayMethod?.channelId === 'ton_connect'
   const isMatrixDeposit = selectedPayMethod?.channelId === 'matrix' && tab === 'deposit'
   const filteredFiatWithdraw = useMemo(
     () => liveFiatWithdraw.filter((m) => !m.currency || m.currency === activeCurrency),
@@ -300,7 +288,7 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
   const isFiatWithdraw = liveFiatWithdraw.some((m) => m.id === selectedMethod)
   const withdrawAccountLocked = isPhoneWalletWithdraw(selectedMethod) && Boolean(boundPhoneNumber)
   const isMatrixWithdraw = selectedPayMethod?.channelId === 'matrix' && tab === 'withdraw'
-  const isCryptoMethod = /usdt|ton|btc|eth|bnb/.test(selectedMethod ?? '') && !isTgWallet
+  const isCryptoMethod = /usdt|usdc/.test(selectedMethod ?? '') && !isTgWallet
   const depositCurrency = selectedPayMethod?.currency ?? 'PHP'
   const depositCategoryMethods = useMemo((): Record<DepositCategory, PayMethod[]> => ({
     ewallet: liveFiatDeposit, crypto: liveCryptoDeposit, telegram: liveTgWalletDeposit,
@@ -320,7 +308,6 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
     setAmount(''); setDepositMessage('')
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [depositCategory, open, tab, currentCategoryMethods])
-  const tonAddressShort = useMemo(() => { const addr=tonWalletAddress; if(!addr)return ''; return addr.length>20?`${addr.slice(0,10)}…${addr.slice(-6)}`:addr }, [tonWalletAddress])
   const canSubmitDeposit = Boolean(!depositLoading && selectedPayMethod?.channelId && Number(amount) > 0)
   const canSubmitWithdraw = Boolean(!withdrawLoading && isFiatWithdraw && Number(amount) > 0 && withdrawAccount.trim() && withdrawOwner.trim())
   const canSubmitMatrixWithdraw = Boolean(!withdrawLoading && isMatrixWithdraw && Number(matrixCryptoAmount) > 0 && withdrawAccount.trim())
@@ -375,27 +362,6 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
     } catch(e){setDepositMessage(e instanceof ApiError?translateApiError(e.message,t):t('wallet.depositFailed'))} finally{setDepositLoading(false)}
   }
 
-  async function onProceedTonDeposit() {
-    const amountTon=Number(amount); if(!amountTon||amountTon<0.01){setTonMessage(t('wallet.invalidAmount'));return}
-    setTonLoading(true); tonLoadingRef.current=true; setTonMessage(''); setTonSuccess(false); stopTonPolling()
-    analytics.depositStart('ton_connect',amountTon,'TON')
-    try {
-      let address=tonWalletAddress
-      if(!tonIsConnected){setTonMessage(t('wallet.tonConnecting'));address=await connectTonWallet()}
-      if(!address){setTonMessage(t('wallet.paymentCancelled'));return}
-      setTonMessage(t('wallet.tonCreatingOrder')); const order=await createTonDeposit(amountTon,address)
-      analytics.depositOrderCreated('ton_connect',amountTon,'TON',order.orderId)
-      if(order.devSettled){analytics.depositSuccess('ton_connect',amountTon,'TON',order.orderId);setTonSuccess(true);setTonMessage(t('wallet.tonSuccess'));await walletStore.refresh();return}
-      setTonMessage(t('wallet.tonSending')); await sendTonTransaction(order.merchantAddress,order.amountNano)
-      setTonMessage(t('wallet.tonPolling')); let tonPollCount=0
-      tonPollTimerRef.current=setInterval(async()=>{
-        tonPollCount++; if(tonPollCount>60){stopTonPolling();setTonLoading(false);setTonMessage(t('wallet.tonTimeout'));return}
-        try{const status=await pollTonDepositStatus(order.orderId);if(status.status==='paid'){stopTonPolling();setTonLoading(false);setTonSuccess(true);setTonMessage(t('wallet.tonSuccess'));analytics.depositSuccess('ton_connect',amountTon,'TON',order.orderId);await walletStore.refresh()}else if(status.status==='failed'||status.status==='cancelled'){stopTonPolling();setTonLoading(false);setTonMessage(t('wallet.depositFailed'))}}catch{/***/}
-      },5000)
-    } catch(e){stopTonPolling();const msg=(e as Error)?.message??'';if(msg.includes('cancel')||msg.includes('reject')||msg==='wallet_connect_timeout')setTonMessage(t('wallet.paymentCancelled'));else setTonMessage(e instanceof ApiError?translateApiError(e.message,t):t('wallet.depositFailed'));setTonLoading(false)}
-    finally{if(!tonPollTimerRef.current){tonLoadingRef.current=false}}
-  }
-
   async function onProceedWithdraw() {
     if(!canSubmitWithdraw)return; const n=Number(amount)
     setWithdrawLoading(true); setWithdrawMessage(''); setWithdrawSuccess(false)
@@ -443,7 +409,7 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
 
   async function copyOrderId(id: string) { try{await navigator.clipboard.writeText(id);setCopiedId(id);setTimeout(()=>setCopiedId(null),2000)}catch{/***/} }
 
-  function resetToSelect() { pendingWithdrawMethodRef.current = null; setDepositView('select'); setSelectedMethod(null); setAmount(''); setDepositMessage(''); setWithdrawMessage(''); setWithdrawAccount(''); setWithdrawOwner(''); stopPolling(); setDepositLoading(false); setPollSerial(''); setDepositSuccess(false); stopTonPolling(); setTonMessage(''); setTonLoading(false); setTonSuccess(false); setMatrixAddress(''); setMatrixCryptoAmount(''); setCopiedAddress(false) }
+  function resetToSelect() { pendingWithdrawMethodRef.current = null; setDepositView('select'); setSelectedMethod(null); setAmount(''); setDepositMessage(''); setWithdrawMessage(''); setWithdrawAccount(''); setWithdrawOwner(''); stopPolling(); setDepositLoading(false); setPollSerial(''); setDepositSuccess(false); setMatrixAddress(''); setMatrixCryptoAmount(''); setCopiedAddress(false) }
 
   if (!open) return null
 
@@ -584,12 +550,11 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
                         })}
                       </div>
                       <div className="relative rounded-2xl border border-white/10 bg-[#07111f]">
-                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-white/45 font-bold text-sm">{isTonConnect?'TON':depositCurrency==='USDT'||depositCurrency==='USDC'?'$':isCryptoMethod?'≈ $':'₱'}</span>
-                        <input value={amount} type="number" placeholder="0.00" className={`w-full bg-transparent pr-32 py-3 text-white font-black text-xl focus:outline-none ${isTonConnect?'pl-14':'pl-10'}`} onChange={(e)=>setAmount(e.target.value)} />
+                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-white/45 font-bold text-sm">{depositCurrency==='USDT'||depositCurrency==='USDC'?'$':isCryptoMethod?'≈ $':'₱'}</span>
+                        <input value={amount} type="number" placeholder="0.00" className="w-full bg-transparent pr-32 py-3 text-white font-black text-xl focus:outline-none pl-10" onChange={(e)=>setAmount(e.target.value)} />
                         <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-white/65">{t('wallet.editAmount')}</span>
                       </div>
                       {firstDepEligible&&Number(amount)>0&&selectedBonus>0&&<p className="text-[11px] font-bold text-primary text-center -mt-1">{t('wallet.firstDepBonusHint',{amount:fmtPreset(selectedBonus,depositCurrency)})}</p>}
-                      {isTonConnect&&amount&&Number(amount)>0&&<p className="text-xs text-muted-foreground text-center -mt-1">≈ ₱{(Number(amount)*350).toLocaleString('en-PH',{minimumFractionDigits:2,maximumFractionDigits:2})}</p>}
                       {depositMessage&&<p className={`text-xs font-bold text-center ${depositSuccess?'text-emerald-400':'text-amber-400'}`}>{depositMessage}</p>}
                       {Number(amount)>0&&<div className="flex items-center justify-between rounded-2xl border border-primary/25 bg-primary/10 px-4 py-3">
                         <div className="flex items-center gap-3">
@@ -604,13 +569,8 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
                           {selectedBonus>0&&<p className="mt-1 text-primary">Bonus +{fmtPreset(selectedBonus,depositCurrency)}</p>}
                         </div>
                       </div>}
-                      {isTonConnect&&<>
-                        {tonIsConnected&&<div className="flex items-center gap-2 bg-secondary rounded-xl px-3 py-2"><div className="w-2 h-2 rounded-full bg-emerald-400 flex-shrink-0" /><span className="text-xs font-bold text-muted-foreground flex-1 truncate font-mono">{tonAddressShort}</span><button type="button" className="text-xs text-muted-foreground hover:text-foreground transition-colors" onClick={()=>void disconnectTon()}>{t('wallet.tonDisconnect')}</button></div>}
-                        {tonMessage&&<p className={`text-xs font-bold text-center ${tonSuccess?'text-emerald-400':'text-amber-400'}`}>{tonMessage}</p>}
-                        <button type="button" className="w-full py-3 rounded-2xl font-black text-base flex items-center justify-center gap-2 shadow-lg disabled:opacity-50 bg-primary text-black hover:bg-yellow-400 shadow-amber-500/25" disabled={tonLoading||!amount||Number(amount)<0.01} onClick={()=>void onProceedTonDeposit()}>{tonLoading?<Loader2 size={18} className="animate-spin"/>:<span className="font-black text-xs leading-none">TON</span>}{tonLoading?t('wallet.tonLoading'):tonIsConnected?t('wallet.tonPay'):t('wallet.tonConnect')}</button>
-                      </>}
                       {isTgWallet&&<button type="button" className="w-full py-3 rounded-2xl font-black text-base flex items-center justify-center gap-2 shadow-lg disabled:opacity-50 bg-primary text-black hover:bg-yellow-400 shadow-amber-500/25" disabled={!canSubmitDeposit} onClick={()=>void onProceedDeposit()}>{depositLoading?<Loader2 size={18} className="animate-spin"/>:<ArrowDownToLine size={22} />}{depositLoading?t('wallet.openingPay'):t('wallet.payTelegram')}</button>}
-                      {isUnifiedFiat&&!isTonConnect&&<button type="button" className="w-full py-3 rounded-2xl font-black text-base flex items-center justify-center gap-2 shadow-lg disabled:opacity-50 bg-primary text-black hover:bg-yellow-400 shadow-amber-500/25" disabled={!canSubmitDeposit||depositLoading} onClick={()=>void onProceedUnifiedFiatDeposit()}>{depositLoading?<Loader2 size={18} className="animate-spin"/>:<ArrowDownToLine size={22} />}{depositLoading?t('wallet.yfpayWaitingPayment'):t('wallet.yfpayProceedDeposit')}</button>}
+                      {isUnifiedFiat&&<button type="button" className="w-full py-3 rounded-2xl font-black text-base flex items-center justify-center gap-2 shadow-lg disabled:opacity-50 bg-primary text-black hover:bg-yellow-400 shadow-amber-500/25" disabled={!canSubmitDeposit||depositLoading} onClick={()=>void onProceedUnifiedFiatDeposit()}>{depositLoading?<Loader2 size={18} className="animate-spin"/>:<ArrowDownToLine size={22} />}{depositLoading?t('wallet.yfpayWaitingPayment'):t('wallet.yfpayProceedDeposit')}</button>}
                     </>
                     )
                   ) : channelsLoading ? (
@@ -685,8 +645,8 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
                   </div>
                   {!isMatrixWithdraw&&<p className="text-muted-foreground text-[11px] font-bold uppercase tracking-wider">{t('wallet.withdrawAmount')}</p>}
                   {!isMatrixWithdraw&&<div className="relative">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground font-bold text-sm">{isTonConnect?'TON':isTgWallet&&depositCurrency==='USDT'?'$':isCryptoMethod?'≈ $':'₱'}</span>
-                    <input value={amount} type="number" placeholder="0.00" className={`w-full bg-secondary border border-border rounded-xl pr-4 py-3 text-foreground font-black text-lg focus:outline-none focus:border-primary ${isTonConnect?'pl-14':'pl-10'}`} onChange={(e)=>setAmount(e.target.value)} />
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground font-bold text-sm">{isTgWallet&&depositCurrency==='USDT'?'$':isCryptoMethod?'≈ $':'₱'}</span>
+                    <input value={amount} type="number" placeholder="0.00" className="w-full bg-secondary border border-border rounded-xl pr-4 py-3 text-foreground font-black text-lg focus:outline-none focus:border-primary pl-10" onChange={(e)=>setAmount(e.target.value)} />
                   </div>}
                   {tab==='withdraw'&&isFiatWithdraw&&<>
                     <input value={withdrawAccount} type="tel" readOnly={withdrawAccountLocked} placeholder={t('wallet.yfpayAccountNumber')} className={`w-full bg-secondary border border-border rounded-xl px-4 py-3 text-foreground font-bold text-sm focus:outline-none focus:border-primary${withdrawAccountLocked ? ' opacity-60' : ''}`} onChange={withdrawAccountLocked ? undefined : (e)=>setWithdrawAccount(e.target.value)} />

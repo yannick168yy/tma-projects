@@ -332,7 +332,7 @@ export default {
       },
       about: {
         title: '关于 BetoGo',
-        content: 'BetoGo 是一款以 Telegram Mini App 形式构建的顶级在线游戏平台，将完整的娱乐场体验直接带入您的 Telegram——无需下载任何应用。我们致力于为玩家提供流畅、安全、精彩的娱乐体验。\n\n游戏库\n\nBetoGo 与全球一流游戏供应商合作，包括 JILI、PGSOFT、Pragmatic Play、BGaming、Evolution、Habanero、NetEnt 等20余家知名工作室，提供数千款优质老虎机、真人娱乐场、捕鱼游戏、飞机游戏等。\n\n快速安全收付款\n\n支持 GCash、Maya、TON、USDT 等多种支付渠道进行存提款，大多数交易即时到账，资金受安全支付基础设施保护。\n\n我们的使命\n\n为玩家提供最安全、最有趣、最有回报的在线游戏体验——随时随地，直接通过 Telegram 畅享。\n\n全天候客服\n\n我们专业的客服团队24小时全天候为您服务，解答任何问题，您的满意是我们的首要目标。',
+        content: 'BetoGo 是一款以 Telegram Mini App 形式构建的顶级在线游戏平台，将完整的娱乐场体验直接带入您的 Telegram——无需下载任何应用。我们致力于为玩家提供流畅、安全、精彩的娱乐体验。\n\n游戏库\n\nBetoGo 与全球一流游戏供应商合作，包括 JILI、PGSOFT、Pragmatic Play、BGaming、Evolution、Habanero、NetEnt 等20余家知名工作室，提供数千款优质老虎机、真人娱乐场、捕鱼游戏、飞机游戏等。\n\n快速安全收付款\n\n支持 GCash、Maya、USDT、USDC 等多种支付渠道进行存提款，大多数交易即时到账，资金受安全支付基础设施保护。\n\n我们的使命\n\n为玩家提供最安全、最有趣、最有回报的在线游戏体验——随时随地，直接通过 Telegram 畅享。\n\n全天候客服\n\n我们专业的客服团队24小时全天候为您服务，解答任何问题，您的满意是我们的首要目标。',
       },
     },
   },
@@ -690,7 +690,7 @@ export default {
         '圈层成员须首充满 ₱100 并完成激活后，其投注才会为您产生奖励。未激活成员的投注不计奖励（圈层树中仍可能显示当日投注供参考）。\n\n' +
         '投注与结算\n\n' +
         '有效投注：仅统计已结算的 bet 注单，不扣减 win 派彩。\n' +
-        '多币种：PHP、USDT、USDC、TON 等分别记录，折算 PHP 后计入奖励。\n' +
+        '多币种：PHP、USDT、USDC 等分别记录，折算 PHP 后计入奖励。\n' +
         '圈层树流水：历史日来自日结快照；当天投注实时更新，无需等到次日。\n' +
         '奖励结算：每日凌晨（菲律宾时间）结算前一日投注，结算后计入「圈层奖励」并进入可提余额。\n\n' +
         '查看与提现\n\n' +
@@ -870,16 +870,6 @@ export default {
     trustInstant: '即时到账',
     trustSupport: '7×24 客服',
     selectMethod: '选择支付方式',
-    tonConnect: '连接 TON 钱包',
-    tonPay: '发送 TON',
-    tonLoading: '处理中…',
-    tonConnecting: '正在连接钱包…',
-    tonCreatingOrder: '正在创建订单…',
-    tonSending: '等待交易发送…',
-    tonPolling: '等待链上确认…',
-    tonSuccess: '充值已到账！余额已更新。',
-    tonTimeout: '等待超时，未检测到交易，请重试。',
-    tonDisconnect: '断开连接',
     comingSoon: '即将上线',
     cryptoWithdrawSoon: '加密货币提款功能即将开放，敬请期待。',
     matrixDepositTitle: '充值地址',

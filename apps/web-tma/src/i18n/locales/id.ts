@@ -194,7 +194,7 @@ export default {
       },
       about: {
         title: 'Tentang BetoGo',
-        content: 'BetoGo adalah platform gaming online unggulan yang dibangun sebagai Telegram Mini App, menghadirkan pengalaman kasino lengkap ke akun Telegram Anda — tanpa unduhan aplikasi. Platform kami dirancang untuk memberikan hiburan yang mulus, aman, dan seru bagi semua pemain.\n\nPerpustakaan Game\n\nBetoGo bermitra dengan JILI, PGSOFT, Pragmatic Play, BGaming, Evolution, Habanero, NetEnt, dan 20+ studio kelas dunia untuk menghadirkan ribuan slot premium, live casino, fishing, crash game, dan lebih banyak lagi.\n\nPembayaran Cepat & Aman\n\nDeposit dan penarikan via GCash, Maya, TON, USDT, dan saluran pembayaran yang didukung. Sebagian besar transaksi diproses instan, dana Anda dilindungi oleh infrastruktur pembayaran yang aman.\n\nMisi Kami\n\nMemberikan pengalaman gaming online paling aman, paling menghibur, dan paling menguntungkan — kapan saja, di mana saja, langsung dari Telegram.\n\nDukungan 24/7\n\nTim dukungan kami siap 24 jam sehari untuk membantu pertanyaan atau masalah apa pun. Kepuasan Anda adalah prioritas utama kami.',
+        content: 'BetoGo adalah platform gaming online unggulan yang dibangun sebagai Telegram Mini App, menghadirkan pengalaman kasino lengkap ke akun Telegram Anda — tanpa unduhan aplikasi. Platform kami dirancang untuk memberikan hiburan yang mulus, aman, dan seru bagi semua pemain.\n\nPerpustakaan Game\n\nBetoGo bermitra dengan JILI, PGSOFT, Pragmatic Play, BGaming, Evolution, Habanero, NetEnt, dan 20+ studio kelas dunia untuk menghadirkan ribuan slot premium, live casino, fishing, crash game, dan lebih banyak lagi.\n\nPembayaran Cepat & Aman\n\nDeposit dan penarikan via GCash, Maya, USDT, USDC, dan saluran pembayaran yang didukung. Sebagian besar transaksi diproses instan, dana Anda dilindungi oleh infrastruktur pembayaran yang aman.\n\nMisi Kami\n\nMemberikan pengalaman gaming online paling aman, paling menghibur, dan paling menguntungkan — kapan saja, di mana saja, langsung dari Telegram.\n\nDukungan 24/7\n\nTim dukungan kami siap 24 jam sehari untuk membantu pertanyaan atau masalah apa pun. Kepuasan Anda adalah prioritas utama kami.',
       },
     },
   },
@@ -536,7 +536,7 @@ export default {
         'Anggota circle harus deposit pertama minimal ₱100 dan aktif sebelum permainannya menghasilkan reward untuk Anda. Permainan dari anggota yang belum aktif tidak menghasilkan reward (permainan valid hari yang sama mungkin tetap tampil di pohon circle sebagai referensi).\n\n' +
         'Permainan valid & penyelesaian\n\n' +
         'Taruhan valid: hanya order bet yang sudah settled; payout win tidak dikurangi.\n' +
-        'Multi-mata uang: PHP, USDT, USDC, TON, dll. dicatat terpisah lalu dikonversi ke PHP untuk reward.\n' +
+        'Multi-mata uang: PHP, USDT, USDC, dll. dicatat terpisah lalu dikonversi ke PHP untuk reward.\n' +
         'Permainan valid pohon circle: hari lalu dari snapshot harian; taruhan hari ini diperbarui secara real time.\n' +
         'Penyelesaian reward: berjalan setiap hari (waktu Filipina) untuk taruhan hari sebelumnya. Setelah selesai, reward masuk ke Circle Rewards dan saldo yang bisa ditarik.\n\n' +
         'Lihat & tarik dana\n\n' +
@@ -716,16 +716,6 @@ export default {
     trustInstant: 'Kredit Instan',
     trustSupport: 'Dukungan 24/7',
     selectMethod: 'Pilih Metode Pembayaran',
-    tonConnect: 'Hubungkan TON Wallet',
-    tonPay: 'Kirim TON',
-    tonLoading: 'Memproses…',
-    tonConnecting: 'Menghubungkan dompet…',
-    tonCreatingOrder: 'Membuat pesanan…',
-    tonSending: 'Menunggu transaksi…',
-    tonPolling: 'Menunggu konfirmasi…',
-    tonSuccess: 'Deposit diterima! Saldo diperbarui.',
-    tonTimeout: 'Waktu habis. Tidak ada transaksi terdeteksi. Coba lagi.',
-    tonDisconnect: 'Putuskan',
     comingSoon: 'Segera Hadir',
     cryptoWithdrawSoon: 'Penarikan kripto akan segera tersedia.',
     turnoverAllClear: 'Syarat taruhan terpenuhi — Anda bisa menarik dana!',
