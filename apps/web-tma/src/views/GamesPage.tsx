@@ -8,27 +8,20 @@ import { ApiError } from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
 import { useWalletStore } from '@/stores/wallet'
 import { analytics } from '@/utils/analytics'
-import chipHotImg from '@/assets/chips/hot.webp'
-import chipSlotsImg from '@/assets/chips/slots.png'
-import chipLiveImg from '@/assets/chips/live.png'
-import chipPokerImg from '@/assets/chips/poker.png'
-import chipBingoImg from '@/assets/chips/bingo.png'
-import chipSportsImg from '@/assets/chips/sports.png'
-import chipFishingImg from '@/assets/chips/fishing.png'
 
-interface CategoryDef { id: string; labelKey: string; siteCategory?: string; icon?: string; image?: string }
+interface CategoryDef { id: string; labelKey: string; siteCategory?: string }
 
-// 一级分类：All + site_category；perya 排第二（菲市场黄金铺位）
+// 一级分类：All + site_category（纯文字 tab，对齐 casinoplus）；顺序与首页 chip 一致
 const CATEGORIES: CategoryDef[] = [
-  { id: 'all',     image: chipHotImg,     labelKey: 'games.catAll'      },
-  { id: 'perya',   icon: '🐓',            labelKey: 'home.chipPerya',   siteCategory: 'perya'   },
-  { id: 'slot',    image: chipSlotsImg,   labelKey: 'home.chipSlots',   siteCategory: 'slot'    },
-  { id: 'casino',  image: chipLiveImg,    labelKey: 'home.chipCasino',  siteCategory: 'casino'  },
-  { id: 'fishing', image: chipFishingImg, labelKey: 'home.chipFishing', siteCategory: 'fishing' },
-  { id: 'lottery', image: chipBingoImg,   labelKey: 'home.chipLottery', siteCategory: 'lottery' },
-  { id: 'poker',   image: chipPokerImg,   labelKey: 'home.chipPoker',   siteCategory: 'poker'   },
-  { id: 'sports',  image: chipSportsImg,  labelKey: 'home.chipSports',  siteCategory: 'sports'  },
-  { id: 'other',   icon: '🎮',            labelKey: 'home.chipOther',   siteCategory: 'other'   },
+  { id: 'all',     labelKey: 'games.catAll'      },
+  { id: 'slot',    labelKey: 'home.chipSlots',   siteCategory: 'slot'    },
+  { id: 'casino',  labelKey: 'home.chipCasino',  siteCategory: 'casino'  },
+  { id: 'perya',   labelKey: 'home.chipPerya',   siteCategory: 'perya'   },
+  { id: 'poker',   labelKey: 'home.chipPoker',   siteCategory: 'poker'   },
+  { id: 'fishing', labelKey: 'home.chipFishing', siteCategory: 'fishing' },
+  { id: 'sports',  labelKey: 'home.chipSports',  siteCategory: 'sports'  },
+  { id: 'lottery', labelKey: 'home.chipLottery', siteCategory: 'lottery' },
+  { id: 'other',   labelKey: 'home.chipOther',   siteCategory: 'other'   },
 ]
 
 interface Props {
@@ -56,6 +49,7 @@ export default function GamesPage({ cat, provider, onChangeFilter, onOpenPerya, 
   const [loadingMore, setLoadingMore] = useState(false)
   const [error, setError] = useState('')
   const sentinelRef = useRef<HTMLDivElement>(null)
+  const activeCatRef = useRef<HTMLButtonElement>(null)
   const activeProviderRef = useRef<HTMLButtonElement>(null)
   // 请求序号：弱网下旧响应晚到会覆盖新结果，只认最后一次请求
   const reqSeq = useRef(0)
@@ -100,7 +94,11 @@ export default function GamesPage({ cat, provider, onChangeFilter, onOpenPerya, 
     void loadGames(true)
   }, [cat, provider, activeCurrency])
 
-  // 深链带厂商时（如首页厂商专区 View All），把选中 chip 滚进视野
+  // 深链（如首页 chip / View All）时把选中的分类 tab、厂商 chip 滚进视野
+  useEffect(() => {
+    activeCatRef.current?.scrollIntoView({ inline: 'center', block: 'nearest' })
+  }, [cat])
+
   useEffect(() => {
     activeProviderRef.current?.scrollIntoView({ inline: 'center', block: 'nearest' })
   }, [provider, providers])
@@ -142,44 +140,22 @@ export default function GamesPage({ cat, provider, onChangeFilter, onOpenPerya, 
 
   return (
     <div className="page-main">
-      {/* 一级分类 tab（sticky 吸顶） */}
+      {/* 一级分类 tab（sticky 吸顶，纯文字 pill） */}
       <div className="sticky z-20 bg-background border-b border-white/5" style={{ top: 'var(--app-header-height, 0px)' }}>
-        <div className="flex gap-0.5 px-2 overflow-x-auto hide-scrollbar snap-x snap-mandatory">
+        <div className="flex gap-1.5 px-3 py-2.5 overflow-x-auto hide-scrollbar snap-x">
           {CATEGORIES.map((c) => {
             const active = c.id === cat
             return (
               <button
                 key={c.id}
+                ref={active ? activeCatRef : undefined}
                 type="button"
                 onClick={() => selectCat(c.id)}
-                className="relative flex-shrink-0 snap-start flex flex-col items-center gap-0.5 px-2.5 pt-2 pb-0 min-w-[58px] active:scale-95 transition-transform"
+                className={`flex-shrink-0 snap-start px-4 py-1.5 rounded-full text-[13px] font-bold whitespace-nowrap transition-colors active:scale-95 ${
+                  active ? 'bg-primary text-primary-foreground' : 'bg-secondary text-foreground/70'
+                }`}
               >
-                {active && (
-                  <div
-                    className="pointer-events-none absolute inset-x-0 top-0 bottom-0 rounded-t-lg"
-                    style={{ background: 'linear-gradient(180deg, rgba(220,38,38,0.28) 0%, rgba(220,38,38,0.06) 55%, transparent 100%)' }}
-                  />
-                )}
-                {c.image ? (
-                  <img
-                    src={c.image}
-                    alt=""
-                    draggable={false}
-                    className={`relative h-9 w-9 object-contain select-none transition-transform ${active ? 'scale-105' : ''}`}
-                    style={{ filter: 'drop-shadow(0 3px 5px rgba(0,0,0,0.45))' }}
-                  />
-                ) : (
-                  <span
-                    className={`relative text-[34px] leading-none select-none transition-transform ${active ? 'scale-105' : ''}`}
-                    style={{ filter: 'drop-shadow(0 3px 5px rgba(0,0,0,0.45))' }}
-                  >
-                    {c.icon}
-                  </span>
-                )}
-                <span className={`relative text-[11px] font-semibold leading-tight pb-2.5 ${active ? 'text-red-400' : 'text-foreground/75'}`}>
-                  {t(c.labelKey)}
-                </span>
-                <span className={`absolute bottom-0 left-1 right-1 h-[3px] rounded-full transition-opacity ${active ? 'bg-red-500 opacity-100' : 'opacity-0'}`} />
+                {t(c.labelKey)}
               </button>
             )
           })}

@@ -40,11 +40,11 @@ const GAME_CHIPS: GameChipDef[] = [
   { id: 'hot',     image: chipHotImg,     labelKey: 'home.chipHot',     gamesPath: '/games' },
   { id: 'slot',    image: chipSlotsImg,   labelKey: 'home.chipSlots',   gamesPath: '/games?cat=slot'    },
   { id: 'casino',  image: chipLiveImg,    labelKey: 'home.chipCasino',  gamesPath: '/games?cat=casino'  },
-  { id: 'fishing', image: chipFishingImg, labelKey: 'home.chipFishing', gamesPath: '/games?cat=fishing' },
   { id: 'perya',   icon: '🐓', labelKey: 'home.chipPerya',   gamesPath: '/games?cat=perya'   },
-  { id: 'lottery', image: chipBingoImg,   labelKey: 'home.chipLottery', gamesPath: '/games?cat=lottery' },
   { id: 'poker',   image: chipPokerImg,   labelKey: 'home.chipPoker',   gamesPath: '/games?cat=poker'   },
+  { id: 'fishing', image: chipFishingImg, labelKey: 'home.chipFishing', gamesPath: '/games?cat=fishing' },
   { id: 'sports',  image: chipSportsImg,  labelKey: 'home.chipSports',  gamesPath: '/games?cat=sports'  },
+  { id: 'lottery', image: chipBingoImg,   labelKey: 'home.chipLottery', gamesPath: '/games?cat=lottery' },
   { id: 'other',   icon: '🎮', labelKey: 'home.chipOther',   gamesPath: '/games?cat=other'   },
 ]
 
