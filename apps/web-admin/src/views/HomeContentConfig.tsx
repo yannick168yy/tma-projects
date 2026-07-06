@@ -6,8 +6,11 @@ import {
   deleteHomeContentItem,
   getHomeContent,
   saveHomeContentItem,
+  saveHomeSocialLinks,
   uploadHomeImage,
   type HomeContentItem,
+  type HomeSocialLink,
+  type HomeSocialPlatform,
 } from '../api'
 
 const { Title, Text } = Typography
@@ -23,6 +26,17 @@ interface FormItemState {
   actionValue: string | null
   enabled: boolean
 }
+
+const socialPlatformOptions: { label: string; value: HomeSocialPlatform }[] = [
+  { label: 'Telegram', value: 'telegram' },
+  { label: 'Facebook', value: 'facebook' },
+  { label: 'X (Twitter)', value: 'x' },
+  { label: 'Instagram', value: 'instagram' },
+  { label: 'YouTube', value: 'youtube' },
+  { label: 'TikTok', value: 'tiktok' },
+  { label: 'Viber', value: 'viber' },
+  { label: 'WhatsApp', value: 'whatsapp' },
+]
 
 const promoOptions = [
   { label: '首充嘉年华', value: 'firstdep' },
@@ -109,6 +123,8 @@ export default function HomeContentConfig() {
   const [banners, setBanners] = useState<FormItemState[]>([])
   const [cards, setCards] = useState<FormItemState[]>([])
   const [walletBanners, setWalletBanners] = useState<FormItemState[]>([])
+  const [socialLinks, setSocialLinks] = useState<HomeSocialLink[]>([])
+  const [savingSocial, setSavingSocial] = useState(false)
 
   async function load() {
     setLoading(true)
@@ -120,6 +136,7 @@ export default function HomeContentConfig() {
       setBanners(nextBanners)
       setCards(nextCards)
       setWalletBanners(nextWalletBanners)
+      setSocialLinks(data.socialLinks ?? [])
       setActiveBannerSlot(String(nextBanners[0]?.slot ?? 1))
       setActiveCardSlot(String(nextCards[0]?.slot ?? 1))
       setActiveWalletBannerSlot(String(nextWalletBanners[0]?.slot ?? 1))
@@ -346,6 +363,74 @@ export default function HomeContentConfig() {
     )
   }
 
+  async function handleSaveSocial() {
+    for (const link of socialLinks) {
+      if (!/^https?:\/\/\S+$/.test(link.url)) {
+        message.warning(`请填写 ${link.platform} 的完整链接（http/https 开头）`)
+        return
+      }
+    }
+    setSavingSocial(true)
+    try {
+      await saveHomeSocialLinks(socialLinks)
+      message.success('社交链接已保存')
+    } catch (e) {
+      message.error(e instanceof Error ? e.message : '保存失败')
+    } finally {
+      setSavingSocial(false)
+    }
+  }
+
+  function renderSocial() {
+    const usedPlatforms = new Set(socialLinks.map((l) => l.platform))
+    return (
+      <Space direction="vertical" size={16} style={{ width: '100%' }}>
+        <Card size="small">
+          <Space direction="vertical" size={12} style={{ width: '100%' }}>
+            <Text type="secondary">
+              配置官方社交平台链接，客户端首页底部「JOIN OUR COMMUNITY」区域按此展示；一个都不配置时该区域整体隐藏。请只添加已实际运营的平台。
+            </Text>
+            {socialLinks.map((link, index) => (
+              <Row gutter={12} key={link.platform} align="middle">
+                <Col span={6}>
+                  <Select
+                    style={{ width: '100%' }}
+                    value={link.platform}
+                    options={socialPlatformOptions.map((opt) => ({ ...opt, disabled: opt.value !== link.platform && usedPlatforms.has(opt.value) }))}
+                    onChange={(platform) => setSocialLinks((prev) => prev.map((l, i) => i === index ? { ...l, platform } : l))}
+                  />
+                </Col>
+                <Col flex="auto">
+                  <Input
+                    value={link.url}
+                    placeholder="https://t.me/xxx"
+                    onChange={(e) => setSocialLinks((prev) => prev.map((l, i) => i === index ? { ...l, url: e.target.value } : l))}
+                  />
+                </Col>
+                <Col>
+                  <Button danger icon={<DeleteOutlined />} onClick={() => setSocialLinks((prev) => prev.filter((_, i) => i !== index))} />
+                </Col>
+              </Row>
+            ))}
+            <Space>
+              <Button
+                icon={<PlusOutlined />}
+                disabled={socialLinks.length >= socialPlatformOptions.length}
+                onClick={() => {
+                  const platform = socialPlatformOptions.find((opt) => !usedPlatforms.has(opt.value))?.value
+                  if (platform) setSocialLinks((prev) => [...prev, { platform, url: '' }])
+                }}
+              >
+                添加平台
+              </Button>
+              <Button type="primary" loading={savingSocial} onClick={() => void handleSaveSocial()}>保存社交链接</Button>
+            </Space>
+          </Space>
+        </Card>
+      </Space>
+    )
+  }
+
   if (loading) return <div style={{ textAlign: 'center', padding: 48 }}><Spin size="large" /></div>
 
   return (
@@ -363,6 +448,7 @@ export default function HomeContentConfig() {
           { key: 'banner', label: 'Banner', children: renderKind('banner') },
           { key: 'card', label: '首页彩色小卡片', children: renderKind('card') },
           { key: 'wallet_banner', label: '充值/提现 Banner', children: renderKind('wallet_banner') },
+          { key: 'social', label: '社交链接', children: renderSocial() },
         ]}
       />
     </div>

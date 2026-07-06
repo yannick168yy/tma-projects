@@ -186,7 +186,7 @@ export default {
     infoDetails: {
       terms: {
         title: 'Điều khoản dịch vụ',
-        content: 'Khi truy cập hoặc sử dụng BetoGo, bạn đồng ý bị ràng buộc bởi các Điều khoản Dịch vụ này. Vui lòng đọc kỹ trước khi sử dụng nền tảng.\n\nĐiều kiện tham gia\n\nBạn phải đủ 18 tuổi để sử dụng BetoGo. Khi sử dụng nền tảng, bạn xác nhận đáp ứng yêu cầu độ tuổi tối thiểu và gaming trực tuyến được phép tại khu vực của bạn.\n\nTính công bằng\n\nTất cả trò chơi dùng công nghệ RNG được kiểm toán độc lập. BetoGo không can thiệp kết quả game. Tiền thắng tuân theo yêu cầu vòng cược.\n\nGiao dịch\n\nNạp/rút qua các kênh thanh toán bảo mật. Thời gian xử lý có thể khác nhau. BetoGo không chịu trách nhiệm về sự chậm trễ từ bên xử lý thanh toán. Tất cả giao dịch được giám sát vì mục đích bảo mật.\n\nTài khoản\n\nBạn có trách nhiệm bảo mật thông tin đăng nhập. BetoGo có quyền xác minh danh tính và khóa tài khoản đáng ngờ. Nghiêm cấm đa tài khoản.\n\nYêu cầu vòng cược & rút tiền\n\nTất cả các khoản nạp tiền phải đáp ứng yêu cầu vòng cược 1x trước khi rút tiền. Bạn phải đặt cược tổng số tiền bằng với số tiền đã nạp. Ví dụ: nạp ₱1.000 cần đặt cược ₱1.000 trước khi rút. Yêu cầu áp dụng độc lập cho mỗi lần nạp và tiến trình hiển thị tự động trong ví.\n\nĐiều khoản có thể cập nhật bất cứ lúc nào. Tiếp tục sử dụng đồng nghĩa chấp nhận điều khoản mới nhất.',
+        content: 'Khi truy cập hoặc sử dụng BetoGo, bạn đồng ý bị ràng buộc bởi các Điều khoản Dịch vụ này. Vui lòng đọc kỹ trước khi sử dụng nền tảng.\n\nĐiều kiện tham gia\n\nBạn phải đủ 21 tuổi để sử dụng BetoGo. Khi sử dụng nền tảng, bạn xác nhận đáp ứng yêu cầu độ tuổi tối thiểu và gaming trực tuyến được phép tại khu vực của bạn.\n\nTính công bằng\n\nTất cả trò chơi dùng công nghệ RNG được kiểm toán độc lập. BetoGo không can thiệp kết quả game. Tiền thắng tuân theo yêu cầu vòng cược.\n\nGiao dịch\n\nNạp/rút qua các kênh thanh toán bảo mật. Thời gian xử lý có thể khác nhau. BetoGo không chịu trách nhiệm về sự chậm trễ từ bên xử lý thanh toán. Tất cả giao dịch được giám sát vì mục đích bảo mật.\n\nTài khoản\n\nBạn có trách nhiệm bảo mật thông tin đăng nhập. BetoGo có quyền xác minh danh tính và khóa tài khoản đáng ngờ. Nghiêm cấm đa tài khoản.\n\nYêu cầu vòng cược & rút tiền\n\nTất cả các khoản nạp tiền phải đáp ứng yêu cầu vòng cược 1x trước khi rút tiền. Bạn phải đặt cược tổng số tiền bằng với số tiền đã nạp. Ví dụ: nạp ₱1.000 cần đặt cược ₱1.000 trước khi rút. Yêu cầu áp dụng độc lập cho mỗi lần nạp và tiến trình hiển thị tự động trong ví.\n\nĐiều khoản có thể cập nhật bất cứ lúc nào. Tiếp tục sử dụng đồng nghĩa chấp nhận điều khoản mới nhất.',
       },
       privacy: {
         title: 'Chính sách bảo mật',
@@ -194,7 +194,7 @@ export default {
       },
       responsible: {
         title: 'Cờ bạc có trách nhiệm',
-        content: 'BetoGo cam kết cờ bạc có trách nhiệm theo yêu cầu giấy phép PAGCOR. Cờ bạc là giải trí, không phải nguồn thu nhập hay trốn tránh vấn đề.\n\nNghiêm cấm dưới 18 tuổi\n\nTheo quy định PAGCOR, BetoGo nghiêm cấm người dưới 18 tuổi. Kiểm tra độ tuổi được thực hiện thường xuyên. Tài khoản chưa đủ tuổi sẽ bị khóa vĩnh viễn.\n\nCông cụ bảo vệ người chơi\n\n• Giới hạn nạp tiền — Đặt hạn mức ngày/tuần/tháng\n• Nhắc nhở thời gian — Thông báo khi chơi quá lâu\n• Tự loại trừ — Tạm thời hoặc vĩnh viễn rời nền tảng\n• Kiểm tra thực tế — Hiển thị thời gian và chi tiêu định kỳ\n\nHỗ trợ cờ bạc có vấn đề\n\n• Hỗ trợ BetoGo 24/7 — Live chat\n• Đường dây PAGCOR — 1-800-1888-0098\n• Gamblers Anonymous Philippines — www.gamblersanonymous.org\n\nBạn không cô đơn. Hãy chơi có trách nhiệm.',
+        content: 'BetoGo cam kết cờ bạc có trách nhiệm theo yêu cầu giấy phép PAGCOR. Cờ bạc là giải trí, không phải nguồn thu nhập hay trốn tránh vấn đề.\n\nNghiêm cấm dưới 21 tuổi\n\nTheo quy định PAGCOR, BetoGo nghiêm cấm người dưới 21 tuổi. Kiểm tra độ tuổi được thực hiện thường xuyên. Tài khoản chưa đủ tuổi sẽ bị khóa vĩnh viễn.\n\nCông cụ bảo vệ người chơi\n\n• Giới hạn nạp tiền — Đặt hạn mức ngày/tuần/tháng\n• Nhắc nhở thời gian — Thông báo khi chơi quá lâu\n• Tự loại trừ — Tạm thời hoặc vĩnh viễn rời nền tảng\n• Kiểm tra thực tế — Hiển thị thời gian và chi tiêu định kỳ\n\nHỗ trợ cờ bạc có vấn đề\n\n• Hỗ trợ BetoGo 24/7 — Live chat\n• Đường dây PAGCOR — 1-800-1888-0098\n• Gamblers Anonymous Philippines — www.gamblersanonymous.org\n\nBạn không cô đơn. Hãy chơi có trách nhiệm.',
       },
       about: {
         title: 'Về BetoGo',
@@ -428,7 +428,7 @@ export default {
     },
     featuredBadge: '⭐ NỔI BẬT',
     disclaimer:
-      'Mọi khuyến mãi tuân theo Điều khoản & Điều kiện BetoGo. Yêu cầu cược áp dụng. 18+',
+      'Mọi khuyến mãi tuân theo Điều khoản & Điều kiện BetoGo. Yêu cầu cược áp dụng. 21+',
   },
   redpacket: {
     credited: 'Đã ghi có vào số dư PHP',
@@ -591,7 +591,7 @@ export default {
     customerSupportSection: 'HỖ TRỢ KHÁCH HÀNG',
     footerVersion: 'BetoGo · v1.0.0',
     footerCopyright: '© 2025 BetoGo. Bảo lưu mọi quyền.',
-    footerLegal: 'BetoGo hoạt động theo giấy phép hợp lệ. Chơi có trách nhiệm. 18+',
+    footerLegal: 'BetoGo hoạt động theo giấy phép hợp lệ. Chơi có trách nhiệm. 21+',
     links: {
       channel: 'Kênh chính thức',
       channelSub: 'Tin tức & thông báo',

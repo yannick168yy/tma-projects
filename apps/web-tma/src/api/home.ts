@@ -10,10 +10,18 @@ export interface HomeContentItem {
   enabled: boolean
 }
 
+export type HomeSocialPlatform = 'telegram' | 'facebook' | 'x' | 'instagram' | 'youtube' | 'tiktok' | 'viber' | 'whatsapp'
+
+export interface HomeSocialLink {
+  platform: HomeSocialPlatform
+  url: string
+}
+
 export interface HomeContent {
   banners: HomeContentItem[]
   cards: HomeContentItem[]
   walletBanners: HomeContentItem[]
+  socialLinks: HomeSocialLink[]
 }
 
 export const fetchHomeContent = () => apiRequest<HomeContent>('/home/content')

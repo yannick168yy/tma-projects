@@ -3,9 +3,12 @@ import {
   getHomeContent,
   deleteHomeContentItem,
   saveHomeContentItem,
+  setHomeSocialLinks,
   storeHomeImage,
+  SOCIAL_PLATFORMS,
   type HomeContentActionType,
   type HomeContentKind,
+  type HomeSocialLink,
 } from '../../services/home-content.service.js'
 import { fail, ok } from '../../utils/response.js'
 
@@ -77,6 +80,34 @@ router.put('/item', async (ctx) => {
     actionValue: typeof body.actionValue === 'string' && body.actionValue ? body.actionValue : null,
     enabled: body.enabled !== false,
   }))
+})
+
+router.put('/social', async (ctx) => {
+  const body = (ctx.request.body ?? {}) as { links?: unknown }
+  if (!Array.isArray(body.links) || body.links.length > 10) {
+    fail(ctx, 400, 'links 必须是不超过 10 项的数组')
+    return
+  }
+  const links: HomeSocialLink[] = []
+  for (const item of body.links) {
+    const platform = (item as HomeSocialLink)?.platform
+    const url = (item as HomeSocialLink)?.url
+    if (!SOCIAL_PLATFORMS.includes(platform)) {
+      fail(ctx, 400, `platform 必须是 ${SOCIAL_PLATFORMS.join('/')}`)
+      return
+    }
+    if (typeof url !== 'string' || !/^https?:\/\/\S+$/.test(url) || url.length > 300) {
+      fail(ctx, 400, `${platform} 的链接必须是 http(s) URL`)
+      return
+    }
+    if (links.some((l) => l.platform === platform)) {
+      fail(ctx, 400, `${platform} 重复`)
+      return
+    }
+    links.push({ platform, url })
+  }
+  await setHomeSocialLinks(ctx.state.env, links)
+  ok(ctx, { links })
 })
 
 router.delete('/item/:kind/:slot', async (ctx) => {

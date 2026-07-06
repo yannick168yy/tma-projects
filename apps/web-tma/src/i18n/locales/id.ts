@@ -186,7 +186,7 @@ export default {
     infoDetails: {
       terms: {
         title: 'Syarat Layanan',
-        content: 'Dengan mengakses atau menggunakan BetoGo, Anda setuju untuk terikat oleh Syarat Layanan ini. Harap baca dengan seksama sebelum menggunakan platform.\n\nKelayakan Pengguna\n\nAnda harus berusia minimal 18 tahun untuk menggunakan BetoGo. Dengan menggunakan platform ini, Anda menyatakan memenuhi persyaratan usia minimum dan gaming online diizinkan di yurisdiksi Anda.\n\nKeadilan Game\n\nSemua game menggunakan teknologi RNG yang diaudit secara independen. BetoGo tidak memanipulasi hasil game. Kemenangan tunduk pada persyaratan taruhan yang berlaku.\n\nTransaksi\n\nDeposit dan penarikan diproses melalui saluran pembayaran yang aman. Waktu pemrosesan dapat bervariasi. BetoGo tidak bertanggung jawab atas keterlambatan dari pemroses pembayaran pihak ketiga. Semua transaksi dipantau untuk tujuan keamanan.\n\nAkun\n\nAnda bertanggung jawab menjaga kerahasiaan kredensial akun. BetoGo berhak memverifikasi identitas pemain dan membekukan akun mencurigakan. Satu akun per pemain.\n\nPersyaratan Taruhan & Penarikan\n\nSemua deposit dikenakan persyaratan taruhan 1x sebelum penarikan dapat diproses. Anda harus bertaruh sebesar jumlah deposit sebelum menarik dana. Contoh: deposit ₱1.000 memerlukan taruhan total ₱1.000. Persyaratan ini berlaku untuk setiap deposit secara mandiri dan progresnya ditampilkan di tab penarikan dompet.\n\nSyarat dapat diperbarui kapan saja. Penggunaan berkelanjutan berarti penerimaan syarat terbaru.',
+        content: 'Dengan mengakses atau menggunakan BetoGo, Anda setuju untuk terikat oleh Syarat Layanan ini. Harap baca dengan seksama sebelum menggunakan platform.\n\nKelayakan Pengguna\n\nAnda harus berusia minimal 21 tahun untuk menggunakan BetoGo. Dengan menggunakan platform ini, Anda menyatakan memenuhi persyaratan usia minimum dan gaming online diizinkan di yurisdiksi Anda.\n\nKeadilan Game\n\nSemua game menggunakan teknologi RNG yang diaudit secara independen. BetoGo tidak memanipulasi hasil game. Kemenangan tunduk pada persyaratan taruhan yang berlaku.\n\nTransaksi\n\nDeposit dan penarikan diproses melalui saluran pembayaran yang aman. Waktu pemrosesan dapat bervariasi. BetoGo tidak bertanggung jawab atas keterlambatan dari pemroses pembayaran pihak ketiga. Semua transaksi dipantau untuk tujuan keamanan.\n\nAkun\n\nAnda bertanggung jawab menjaga kerahasiaan kredensial akun. BetoGo berhak memverifikasi identitas pemain dan membekukan akun mencurigakan. Satu akun per pemain.\n\nPersyaratan Taruhan & Penarikan\n\nSemua deposit dikenakan persyaratan taruhan 1x sebelum penarikan dapat diproses. Anda harus bertaruh sebesar jumlah deposit sebelum menarik dana. Contoh: deposit ₱1.000 memerlukan taruhan total ₱1.000. Persyaratan ini berlaku untuk setiap deposit secara mandiri dan progresnya ditampilkan di tab penarikan dompet.\n\nSyarat dapat diperbarui kapan saja. Penggunaan berkelanjutan berarti penerimaan syarat terbaru.',
       },
       privacy: {
         title: 'Kebijakan Privasi',
@@ -194,7 +194,7 @@ export default {
       },
       responsible: {
         title: 'Perjudian Bertanggung Jawab',
-        content: 'BetoGo berkomitmen untuk perjudian bertanggung jawab sesuai lisensi PAGCOR. Perjudian adalah hiburan, bukan sumber pendapatan atau pelarian dari masalah.\n\n18+ Diberlakukan Ketat\n\nSesuai peraturan PAGCOR, BetoGo melarang keras pemain di bawah 18 tahun. Verifikasi usia dilakukan secara berkala. Akun yang terbukti milik anak di bawah umur akan ditangguhkan permanen.\n\nAlat Perlindungan Pemain\n\n• Batas Deposit — Tetapkan batas harian/mingguan/bulanan\n• Pengingat Waktu — Notifikasi saat bermain terlalu lama\n• Pengecualian Diri — Keluar sementara atau permanen dari platform\n• Pemeriksaan Realita — Pop-up berkala menampilkan waktu bermain dan pengeluaran\n\nBantuan Perjudian Bermasalah\n\n• Dukungan BetoGo 24/7 — Live chat\n• Hotline PAGCOR — 1-800-1888-0098\n• Gamblers Anonymous Philippines — www.gamblersanonymous.org\n\nAnda tidak sendirian. Bermainlah dengan bertanggung jawab.',
+        content: 'BetoGo berkomitmen untuk perjudian bertanggung jawab sesuai lisensi PAGCOR. Perjudian adalah hiburan, bukan sumber pendapatan atau pelarian dari masalah.\n\n21+ Diberlakukan Ketat\n\nSesuai peraturan PAGCOR, BetoGo melarang keras pemain di bawah 21 tahun. Verifikasi usia dilakukan secara berkala. Akun yang terbukti milik anak di bawah umur akan ditangguhkan permanen.\n\nAlat Perlindungan Pemain\n\n• Batas Deposit — Tetapkan batas harian/mingguan/bulanan\n• Pengingat Waktu — Notifikasi saat bermain terlalu lama\n• Pengecualian Diri — Keluar sementara atau permanen dari platform\n• Pemeriksaan Realita — Pop-up berkala menampilkan waktu bermain dan pengeluaran\n\nBantuan Perjudian Bermasalah\n\n• Dukungan BetoGo 24/7 — Live chat\n• Hotline PAGCOR — 1-800-1888-0098\n• Gamblers Anonymous Philippines — www.gamblersanonymous.org\n\nAnda tidak sendirian. Bermainlah dengan bertanggung jawab.',
       },
       about: {
         title: 'Tentang BetoGo',
@@ -450,7 +450,7 @@ export default {
     },
     featuredBadge: '⭐ UNGGULAN',
     disclaimer:
-      'Semua bonus tunduk pada Syarat & Ketentuan BetoGo. Persyaratan taruhan berlaku. 18+',
+      'Semua bonus tunduk pada Syarat & Ketentuan BetoGo. Persyaratan taruhan berlaku. 21+',
   },
   redpacket: {
     credited: 'Dikreditkan ke saldo PHP Anda',
@@ -613,7 +613,7 @@ export default {
     customerSupportSection: 'DUKUNGAN PELANGGAN',
     footerVersion: 'BetoGo · v1.0.0',
     footerCopyright: '© 2025 BetoGo. Hak cipta dilindungi.',
-    footerLegal: 'BetoGo beroperasi dengan lisensi valid. Bermainlah dengan bijak. 18+',
+    footerLegal: 'BetoGo beroperasi dengan lisensi valid. Bermainlah dengan bijak. 21+',
     links: {
       channel: 'Saluran Resmi',
       channelSub: 'Berita & pengumuman',
