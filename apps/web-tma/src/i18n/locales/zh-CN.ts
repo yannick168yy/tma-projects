@@ -140,6 +140,7 @@ export default {
     welcome: '您好！我是 BetoGo 的智能客服 Kaya，很高兴为您服务。有什么可以帮到您？',
     sendFailed: '抱歉，消息发送失败，请稍后再试。',
     inputPlaceholder: '输入您的问题…',
+    quickMenuTitle: '常见问题',
     quick: {
       deposit: '充值未到账',
       withdrawal: '提现进度',

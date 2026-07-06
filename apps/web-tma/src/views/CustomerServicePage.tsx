@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Send, Headphones, Loader2 } from 'lucide-react'
+import { Send, Headphones, Loader2, LayoutGrid } from 'lucide-react'
 import { sendCsMessage, sendCsIntent, fetchCsHistory, fetchCsWelcome } from '@/api/cs'
 import type { CsMessage } from '@/api/cs'
 import { ApiError } from '@/api/client'
@@ -29,6 +29,7 @@ export default function CustomerServicePage({ onClose }: Props) {
   const [loading, setLoading] = useState(true)
   const [conversationStatus, setConversationStatus] = useState('active')
   const [welcome, setWelcome] = useState('')
+  const [menuOpen, setMenuOpen] = useState(false)
   const msgRef = useRef<HTMLDivElement>(null)
 
   function scrollToBottom() {
@@ -153,25 +154,60 @@ export default function CustomerServicePage({ onClose }: Props) {
         )}
       </div>
 
-      <div className="flex-shrink-0 border-t border-border bg-card px-3 py-2.5 flex gap-2 items-end">
-        <textarea
-          value={inputText}
-          rows={1}
-          placeholder={t('cs.inputPlaceholder')}
-          className="flex-1 resize-none rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-          style={{ maxHeight: '80px', overflowY: 'auto' }}
-          disabled={sending}
-          onChange={(e) => setInputText(e.target.value)}
-          onKeyDown={onKeydown}
-        />
-        <button
-          type="button"
-          className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground disabled:opacity-40"
-          disabled={!inputText.trim() || sending}
-          onClick={() => void send()}
-        >
-          <Send size={16} />
-        </button>
+      <div className="relative flex-shrink-0 border-t border-border bg-card px-3 py-2.5">
+        {menuOpen && (
+          <>
+            <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
+            <div className="absolute bottom-full left-0 right-0 z-20 mb-2 px-3">
+              <div className="rounded-2xl border border-border bg-card p-3 shadow-lg">
+                <p className="mb-2 text-xs text-muted-foreground">{t('cs.quickMenuTitle')}</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {QUICK_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.intent}
+                      type="button"
+                      disabled={sending}
+                      className="flex items-center gap-2 rounded-xl border border-border bg-background px-3 py-2.5 text-left text-sm text-foreground active:bg-secondary disabled:opacity-40"
+                      onClick={() => { setMenuOpen(false); void sendQuickOption(opt.intent, t(opt.labelKey)) }}
+                    >
+                      <span>{opt.emoji}</span>
+                      <span className="flex-1 leading-tight">{t(opt.labelKey)}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+        <div className="flex gap-2 items-end">
+          <button
+            type="button"
+            className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl border border-border disabled:opacity-40 ${menuOpen ? 'bg-primary text-primary-foreground' : 'bg-background text-muted-foreground'}`}
+            disabled={sending}
+            onClick={() => setMenuOpen((v) => !v)}
+          >
+            <LayoutGrid size={16} />
+          </button>
+          <textarea
+            value={inputText}
+            rows={1}
+            placeholder={t('cs.inputPlaceholder')}
+            className="flex-1 resize-none rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+            style={{ maxHeight: '80px', overflowY: 'auto' }}
+            disabled={sending}
+            onChange={(e) => setInputText(e.target.value)}
+            onKeyDown={onKeydown}
+            onFocus={() => setMenuOpen(false)}
+          />
+          <button
+            type="button"
+            className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground disabled:opacity-40"
+            disabled={!inputText.trim() || sending}
+            onClick={() => void send()}
+          >
+            <Send size={16} />
+          </button>
+        </div>
       </div>
     </div>
   )
