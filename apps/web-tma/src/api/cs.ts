@@ -30,3 +30,21 @@ export async function fetchCsWelcome(): Promise<{ welcome: string }> {
 export async function fetchCsHistory(): Promise<{ conversation: CsConversation; messages: CsMessage[] }> {
   return apiRequest('/cs/history')
 }
+
+export type CsOrderState = 'success' | 'pending' | 'failed'
+
+export interface CsOrder {
+  orderId: string
+  amount: string
+  currency: string
+  channel: string
+  status: string
+  state: CsOrderState
+  createdAt: string
+  settledAt: string | null
+  rejectReason: string | null
+}
+
+export async function fetchCsOrders(type: 'deposit' | 'withdraw'): Promise<{ type: string; orders: CsOrder[] }> {
+  return apiRequest('/cs/orders', { method: 'POST', body: JSON.stringify({ type }) })
+}

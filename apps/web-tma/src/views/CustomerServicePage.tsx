@@ -1,17 +1,17 @@
 import { useState, useRef, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Send, Headphones, Loader2, LayoutGrid } from 'lucide-react'
-import { sendCsMessage, sendCsIntent, fetchCsHistory, fetchCsWelcome } from '@/api/cs'
-import type { CsMessage } from '@/api/cs'
+import { sendCsMessage, sendCsIntent, fetchCsHistory, fetchCsWelcome, fetchCsOrders } from '@/api/cs'
+import type { CsMessage, CsOrder } from '@/api/cs'
 import { ApiError } from '@/api/client'
 import { translateApiError } from '@/utils/translateApiError'
 import { useAuthStore } from '@/stores/auth'
 
 interface Props { onClose: () => void }
 
-const QUICK_OPTIONS: { intent: string; emoji: string; labelKey: string }[] = [
-  { intent: 'deposit_not_credited', emoji: '💰', labelKey: 'cs.quick.deposit' },
-  { intent: 'withdrawal_status', emoji: '💸', labelKey: 'cs.quick.withdrawal' },
+const QUICK_OPTIONS: { intent: string; emoji: string; labelKey: string; orderKind?: 'deposit' | 'withdraw' }[] = [
+  { intent: 'deposit_not_credited', emoji: '💰', labelKey: 'cs.quick.deposit', orderKind: 'deposit' },
+  { intent: 'withdrawal_status', emoji: '💸', labelKey: 'cs.quick.withdrawal', orderKind: 'withdraw' },
   { intent: 'cannot_withdraw', emoji: '🔒', labelKey: 'cs.quick.cannotWithdraw' },
   { intent: 'kyc_help', emoji: '🪪', labelKey: 'cs.quick.kyc' },
   { intent: 'promotions', emoji: '🎁', labelKey: 'cs.quick.promotions' },
@@ -20,10 +20,18 @@ const QUICK_OPTIONS: { intent: string; emoji: string; labelKey: string }[] = [
   { intent: 'human_agent', emoji: '🧑‍💻', labelKey: 'cs.quick.human' },
 ]
 
+type LocalMsg = CsMessage & { orders?: CsOrder[]; orderKind?: 'deposit' | 'withdraw' }
+
+const ORDER_STATE_CLASS: Record<string, string> = {
+  success: 'bg-green-500/15 text-green-400',
+  pending: 'bg-yellow-500/15 text-yellow-500',
+  failed: 'bg-red-500/15 text-red-400',
+}
+
 export default function CustomerServicePage({ onClose }: Props) {
   const { t } = useTranslation()
   const isLoggedIn = useAuthStore((s) => Boolean(s.token && s.user))
-  const [messages, setMessages] = useState<CsMessage[]>([])
+  const [messages, setMessages] = useState<LocalMsg[]>([])
   const [inputText, setInputText] = useState('')
   const [sending, setSending] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -72,8 +80,28 @@ export default function CustomerServicePage({ onClose }: Props) {
     await dispatch(text, () => sendCsMessage(text))
   }
 
-  async function sendQuickOption(intent: string, label: string) {
+  async function queryOrders(kind: 'deposit' | 'withdraw', label: string) {
+    const userMsg: LocalMsg = { id: Date.now(), conversationId: 0, role: 'user', content: label, createdAt: new Date().toISOString() }
+    setMessages((prev) => [...prev, userMsg])
+    scrollToBottom()
+    setSending(true)
+    try {
+      const { orders } = await fetchCsOrders(kind)
+      const card: LocalMsg = { id: Date.now() + 1, conversationId: 0, role: 'assistant', content: '', orders, orderKind: kind, createdAt: new Date().toISOString() }
+      setMessages((prev) => [...prev, card])
+      scrollToBottom()
+    } catch (e) {
+      const content = e instanceof ApiError ? translateApiError(e.message, t) : t('cs.sendFailed')
+      setMessages((prev) => [...prev, { id: Date.now() + 1, conversationId: 0, role: 'assistant', content, createdAt: new Date().toISOString() }])
+    } finally {
+      setSending(false)
+    }
+  }
+
+  async function sendQuickOption(intent: string, label: string, orderKind?: 'deposit' | 'withdraw') {
     if (sending) return
+    // 存款/提现是确定性查询:登录用户直接查库秒回,不经 AI
+    if (orderKind && isLoggedIn) { await queryOrders(orderKind, label); return }
     await dispatch(label, () => sendCsIntent(intent))
   }
 
@@ -83,6 +111,10 @@ export default function CustomerServicePage({ onClose }: Props) {
 
   function formatTime(iso: string) {
     return new Date(iso).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+  }
+
+  function formatDateTime(iso: string) {
+    return new Date(iso).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
   }
 
   return (
@@ -122,7 +154,7 @@ export default function CustomerServicePage({ onClose }: Props) {
                       type="button"
                       disabled={sending}
                       className="flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2.5 text-left text-sm text-foreground active:bg-secondary disabled:opacity-40"
-                      onClick={() => void sendQuickOption(opt.intent, t(opt.labelKey))}
+                      onClick={() => void sendQuickOption(opt.intent, t(opt.labelKey), opt.orderKind)}
                     >
                       <span>{opt.emoji}</span>
                       <span className="flex-1 leading-tight">{t(opt.labelKey)}</span>
@@ -133,9 +165,46 @@ export default function CustomerServicePage({ onClose }: Props) {
             )}
             {messages.map((msg) => (
               <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 ${msg.role === 'user' ? 'rounded-tr-sm bg-primary text-primary-foreground' : 'rounded-tl-sm bg-secondary text-foreground'}`}>
+                <div className={`${msg.orders ? 'max-w-[92%]' : 'max-w-[85%]'} rounded-2xl px-3.5 py-2.5 ${msg.role === 'user' ? 'rounded-tr-sm bg-primary text-primary-foreground' : 'rounded-tl-sm bg-secondary text-foreground'}`}>
                   {msg.role !== 'user' && <p className="text-xs text-muted-foreground mb-1">{msg.role === 'assistant' ? t('cs.aiLabel') : t('cs.agentLabel')}</p>}
-                  <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                  {msg.orders ? (
+                    <div>
+                      <p className="mb-2 text-sm text-foreground">{t(msg.orderKind === 'deposit' ? 'cs.orders.depositIntro' : 'cs.orders.withdrawIntro')}</p>
+                      {msg.orders.length === 0 ? (
+                        <p className="text-sm text-muted-foreground">{t('cs.orders.empty')}</p>
+                      ) : (
+                        <div className="space-y-2">
+                          {msg.orders.map((o) => (
+                            <div key={o.orderId} className="rounded-xl border border-border bg-card px-3 py-2.5">
+                              <div className="mb-1.5 flex items-center justify-between gap-2">
+                                <span className="text-sm font-bold text-foreground">{o.amount} {o.currency}</span>
+                                <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${ORDER_STATE_CLASS[o.state]}`}>
+                                  {t(`cs.orders.${msg.orderKind}_${o.state}`)}
+                                </span>
+                              </div>
+                              <div className="space-y-0.5 text-xs text-muted-foreground">
+                                <div className="flex justify-between gap-3"><span>{t('cs.orders.orderId')}</span><span className="font-mono text-foreground/70">{o.orderId}</span></div>
+                                <div className="flex justify-between gap-3"><span>{t('cs.orders.channel')}</span><span>{o.channel}</span></div>
+                                <div className="flex justify-between gap-3"><span>{t('cs.orders.createdAt')}</span><span>{formatDateTime(o.createdAt)}</span></div>
+                                {o.settledAt && (
+                                  <div className="flex justify-between gap-3">
+                                    <span>{t(msg.orderKind === 'deposit' ? 'cs.orders.creditedAt' : 'cs.orders.completedAt')}</span>
+                                    <span>{formatDateTime(o.settledAt)}</span>
+                                  </div>
+                                )}
+                                {o.rejectReason && (
+                                  <div className="flex justify-between gap-3"><span>{t('cs.orders.rejectReason')}</span><span className="text-red-400">{o.rejectReason}</span></div>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      <p className="mt-2 text-xs text-muted-foreground">{t('cs.orders.footerHelp')}</p>
+                    </div>
+                  ) : (
+                    <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                  )}
                   <p className="text-[10px] mt-1 opacity-60 text-right">{formatTime(msg.createdAt)}</p>
                 </div>
               </div>
@@ -168,7 +237,7 @@ export default function CustomerServicePage({ onClose }: Props) {
                       type="button"
                       disabled={sending}
                       className="flex items-center gap-2 rounded-xl border border-border bg-background px-3 py-2.5 text-left text-sm text-foreground active:bg-secondary disabled:opacity-40"
-                      onClick={() => { setMenuOpen(false); void sendQuickOption(opt.intent, t(opt.labelKey)) }}
+                      onClick={() => { setMenuOpen(false); void sendQuickOption(opt.intent, t(opt.labelKey), opt.orderKind) }}
                     >
                       <span>{opt.emoji}</span>
                       <span className="flex-1 leading-tight">{t(opt.labelKey)}</span>

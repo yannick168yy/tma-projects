@@ -5,6 +5,7 @@ import { ok, fail } from '../utils/response.js'
 import { handleUserMessage } from '../services/cs/cs.service.js'
 import { getOrCreateConversation, getMessages } from '../services/cs/cs-store.js'
 import { CS_INTENTS, CS_WELCOME_SETTING_KEY, DEFAULT_WELCOME } from '../services/cs/cs-intents.js'
+import { queryRecentOrders, type OrderKind } from '../services/cs/cs-orders.js'
 import { getAdminSetting } from '../services/admin-store.js'
 
 const GUEST_HOURLY_LIMIT = 20
@@ -91,6 +92,21 @@ router.post('/cs/message', async (ctx) => {
     ? await handleUserMessage(ctx.state.env, effectiveUserId, intentDef.userText, intentDef.hint)
     : await handleUserMessage(ctx.state.env, effectiveUserId, message!.trim())
   ok(ctx, result)
+})
+
+// POST /cs/orders — 直接查库返回最近存款/提现订单（登录用户，不经 LLM，秒回结构化数据）
+router.post('/cs/orders', async (ctx) => {
+  if (!ctx.state.userId) {
+    fail(ctx, 401, 'errors.unauthorized')
+    return
+  }
+  const { type } = ctx.request.body as { type?: string }
+  if (type !== 'deposit' && type !== 'withdraw') {
+    fail(ctx, 400, 'errors.csEmpty')
+    return
+  }
+  const orders = await queryRecentOrders(ctx.state.env, ctx.state.userId, type as OrderKind)
+  ok(ctx, { type, orders })
 })
 
 // GET /cs/history — 获取历史消息（游客返回空）
