@@ -26,7 +26,7 @@ export default function Overview() {
         />
       )}
 
-      <Row gutter={16} style={{ marginBottom: 16 }}>
+      <Row gutter={16} style={{ marginBottom: 16 }} className="responsive-cols">
         <Col span={6}><Card><Statistic title="近7天自动通过率" value={data?.autoApproveRate ?? 0} suffix="%" valueStyle={{ color: '#52c41a' }} /></Card></Col>
         <Col span={6}>
           <Card hoverable onClick={() => navigate('/review/manual')}>

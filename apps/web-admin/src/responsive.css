@@ -32,6 +32,25 @@
   .ant-space {
     row-gap: 8px;
   }
+
+  /* 横向 Space(多数列表页筛选栏)在窄屏自动换行,避免溢出 */
+  .ant-space-horizontal {
+    flex-wrap: wrap;
+  }
+
+  /* 标记的 Row(筛选栏/统计卡片行)在窄屏堆叠:平板两列 */
+  .responsive-cols > .ant-col {
+    flex: 0 0 50% !important;
+    max-width: 50% !important;
+  }
+}
+
+/* 标记的 Row 在手机单列 */
+@media (max-width: 480px) {
+  .responsive-cols > .ant-col {
+    flex: 0 0 100% !important;
+    max-width: 100% !important;
+  }
 }
 
 /* 安全区(刘海屏)：抽屉与头部避让 */

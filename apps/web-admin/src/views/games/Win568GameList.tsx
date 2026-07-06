@@ -366,7 +366,7 @@ export default function Win568GameList({ refreshKey }: Props) {
   return (
     <>
       <div style={{ background: '#fafafa', border: '1px solid #f0f0f0', borderRadius: 6, padding: '12px 16px', marginBottom: 14 }}>
-        <Row gutter={[8, 8]}>
+        <Row gutter={[8, 8]} className="responsive-cols">
           <Col span={5}><Input.Search value={search} placeholder="搜索游戏名 / GpId / GameId" onSearch={() => load(1)} allowClear onChange={(e) => setSearch(e.target.value)} /></Col>
           <Col span={4}><Select mode="multiple" value={provider} placeholder="厂商" allowClear showSearch maxTagCount="responsive" optionFilterProp="label" style={{ width: '100%' }} options={providers.map((p) => ({ value: p, label: p }))} onChange={setProvider} /></Col>
           <Col span={3}><Select value={sortCategory} placeholder="分类" allowClear style={{ width: '100%' }} options={CATEGORY_OPTIONS} onChange={setSortCategory} /></Col>

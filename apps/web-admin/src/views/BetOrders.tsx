@@ -143,7 +143,7 @@ export default function BetOrders() {
         </Radio.Group>
       </div>
 
-      <Row gutter={16} style={{ marginBottom: 16 }}>
+      <Row gutter={16} style={{ marginBottom: 16 }} className="responsive-cols">
         <Col span={6}><Statistic title="总投注" value={stats.totalBet.toFixed(2)} /></Col>
         <Col span={6}><Statistic title="总派彩" value={stats.totalWin.toFixed(2)} /></Col>
         <Col span={6}><Statistic title="GGR" value={(stats.totalBet - stats.totalWin).toFixed(2)}

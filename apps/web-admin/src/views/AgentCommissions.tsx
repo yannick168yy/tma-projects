@@ -53,7 +53,7 @@ export default function AgentCommissions() {
         </Space>
       }
     >
-      <Row gutter={16} style={{ marginBottom: 16 }}>
+      <Row gutter={16} style={{ marginBottom: 16 }} className="responsive-cols">
         <Col span={8}><Statistic title="应分合计" value={summary.total_commission_cents / 100} precision={2} prefix="₱" /></Col>
         <Col span={8}><Statistic title="待打款" value={summary.pending_cents / 100} precision={2} prefix="₱" /></Col>
       </Row>

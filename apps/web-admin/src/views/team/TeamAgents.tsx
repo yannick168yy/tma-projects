@@ -181,7 +181,7 @@ export default function TeamAgents() {
 
   return (
     <div>
-      <Row gutter={16} style={{ marginBottom: 20 }}>
+      <Row gutter={16} style={{ marginBottom: 20 }} className="responsive-cols">
         <Col span={6}><Statistic title="活跃代理" value={overview.activeAgents} /></Col>
         <Col span={6}><Statistic title="本月佣金总额" value={phpDisplay(overview.thisMonthCommissionCents)} /></Col>
         <Col span={6}><Statistic title="待审提现笔数" value={overview.pendingWithdrawalCount} /></Col>
