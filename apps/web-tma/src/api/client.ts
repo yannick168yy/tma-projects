@@ -12,9 +12,9 @@ function resolveBaseUrl(): string {
   return (fromEnv || 'http://localhost:3000/api/v1').replace(/\/$/, '')
 }
 
-const BASE_URL = resolveBaseUrl()
+export const BASE_URL = resolveBaseUrl()
 
-function authHeaders(): HeadersInit {
+export function authHeaders(): HeadersInit {
   const token = localStorage.getItem('betogo_token')
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',

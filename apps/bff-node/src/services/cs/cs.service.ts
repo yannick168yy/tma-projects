@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI, type Content } from '@google/generative-ai'
+import { GoogleGenerativeAI, type Content, type FunctionCall } from '@google/generative-ai'
 import type { Env } from '../../config/env.js'
 import { getOrCreateConversation, getConversationById, getMessages, saveMessage, escalateConversation } from './cs-store.js'
 import { GEMINI_TOOLS, executeTool } from './cs-tools.js'
@@ -39,17 +39,16 @@ export async function handleUserMessage(
   userId: string,
   userText: string,
   hint?: string,
+  onDelta?: (text: string) => void,
 ): Promise<{ reply: string; conversationId: number; status: string }> {
   const conversation = await getOrCreateConversation(env, userId)
   const conversationId = conversation.id
 
   if (conversation.status === 'human_taken') {
     await saveMessage(env, conversationId, 'user', userText)
-    return {
-      reply: 'A human agent is handling this conversation and will reply here shortly. Please wait a moment.',
-      conversationId,
-      status: 'human_taken',
-    }
+    const reply = 'A human agent is handling this conversation and will reply here shortly. Please wait a moment.'
+    onDelta?.(reply)
+    return { reply, conversationId, status: 'human_taken' }
   }
 
   await saveMessage(env, conversationId, 'user', userText)
@@ -62,6 +61,7 @@ export async function handleUserMessage(
     if (intent) {
       const quick = await buildQuickReply(env, userId, intent, detectLang(userText))
       if (quick) {
+        onDelta?.(quick)
         await saveMessage(env, conversationId, 'assistant', quick)
         return { reply: quick, conversationId, status: conversation.status }
       }
@@ -89,16 +89,24 @@ export async function handleUserMessage(
     notes.push(`This conversation is already escalated as ticket #${conversationId} and waiting for a human agent. Do NOT escalate again. Keep helping with what you can, and remind the user an agent will follow up on the recorded issue.`)
   }
   const modelText = notes.length ? `${userText}\n\n[System note: ${notes.join(' ')}]` : userText
-  let response = await chat.sendMessage(modelText)
+  let next: Parameters<typeof chat.sendMessageStream>[0] = modelText
 
   for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
-    const candidate = response.response.candidates?.[0]
-    const parts = candidate?.content?.parts ?? []
-
-    const fnCalls = parts.filter((p) => p.functionCall)
+    const streamResult = await chat.sendMessageStream(next)
+    let roundText = ''
+    const fnCalls: FunctionCall[] = []
+    for await (const chunk of streamResult.stream) {
+      for (const p of chunk.candidates?.[0]?.content?.parts ?? []) {
+        if (p.text) {
+          roundText += p.text
+          onDelta?.(p.text)
+        }
+        if (p.functionCall) fnCalls.push(p.functionCall)
+      }
+    }
 
     if (fnCalls.length === 0) {
-      const reply = response.response.text()
+      const reply = roundText
       await saveMessage(env, conversationId, 'assistant', reply)
       // 硬规则兜底:模型没执行转人工时代码层强转,不再信任模型自觉
       if (hardEscalation) {
@@ -116,8 +124,7 @@ export async function handleUserMessage(
 
     // 执行所有工具，批量回传结果
     const toolResults = await Promise.all(
-      fnCalls.map(async (p) => {
-        const fn = p.functionCall!
+      fnCalls.map(async (fn) => {
         const result = await executeTool(env, fn.name, fn.args as Record<string, unknown>, {
           userId,
           conversationId,
@@ -126,7 +133,7 @@ export async function handleUserMessage(
       }),
     )
 
-    response = await chat.sendMessage(toolResults)
+    next = toolResults
   }
 
   // 工具轮次耗尽:真正转人工(按值班状态分流),不再只说不做
@@ -136,6 +143,7 @@ export async function handleUserMessage(
   const fallback = onDuty
     ? 'Sorry, I could not resolve this myself. I have escalated it to a human agent who will reply here shortly.'
     : `Sorry, I could not resolve this myself. I have recorded it as ticket #${conversationId} — no agent is online right now, but one will follow up in this chat as soon as available.`
+  onDelta?.(fallback)
   await saveMessage(env, conversationId, 'assistant', fallback)
   return { reply: fallback, conversationId, status: toStatus }
 }

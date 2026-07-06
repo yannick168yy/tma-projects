@@ -1,4 +1,4 @@
-import { apiRequest } from '@/api/client'
+import { apiRequest, BASE_URL, authHeaders } from '@/api/client'
 
 export interface CsMessage {
   id: number
@@ -47,4 +47,59 @@ export interface CsOrder {
 
 export async function fetchCsOrders(type: 'deposit' | 'withdraw'): Promise<{ type: string; orders: CsOrder[] }> {
   return apiRequest('/cs/orders', { method: 'POST', body: JSON.stringify({ type }) })
+}
+
+interface CsStreamHandlers {
+  onDelta: (text: string) => void
+  onDone: (result: { conversationId: number; status: string }) => void
+  onError: (message: string) => void
+}
+
+// 自由文本消息走 SSE 流式,逐字回调 onDelta
+export async function sendCsMessageStream(text: string, handlers: CsStreamHandlers): Promise<void> {
+  const res = await fetch(`${BASE_URL}/cs/message/stream`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ message: text }),
+  })
+  if (!res.ok || !res.body) {
+    let msg = 'cs.sendFailed'
+    try {
+      const j = await res.json()
+      msg = j.message || msg
+    } catch {
+      /* 非 JSON 错误体 */
+    }
+    handlers.onError(msg)
+    return
+  }
+
+  const reader = res.body.getReader()
+  const decoder = new TextDecoder()
+  let buf = ''
+  for (;;) {
+    const { done, value } = await reader.read()
+    if (done) break
+    buf += decoder.decode(value, { stream: true })
+    const events = buf.split('\n\n')
+    buf = events.pop() ?? ''
+    for (const ev of events) {
+      let event = 'message'
+      let data = ''
+      for (const line of ev.split('\n')) {
+        if (line.startsWith('event:')) event = line.slice(6).trim()
+        else if (line.startsWith('data:')) data += line.slice(5).trim()
+      }
+      if (!data) continue
+      let parsed: { delta?: string; message?: string; conversationId?: number; status?: string }
+      try {
+        parsed = JSON.parse(data)
+      } catch {
+        continue
+      }
+      if (event === 'delta') handlers.onDelta(parsed.delta ?? '')
+      else if (event === 'done') handlers.onDone({ conversationId: parsed.conversationId ?? 0, status: parsed.status ?? 'active' })
+      else if (event === 'error') handlers.onError(parsed.message ?? 'cs.sendFailed')
+    }
+  }
 }

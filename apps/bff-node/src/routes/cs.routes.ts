@@ -1,6 +1,7 @@
 import Router from '@koa/router'
 import type { Context } from 'koa'
 import type { Redis } from 'ioredis'
+import { PassThrough } from 'node:stream'
 import { ok, fail } from '../utils/response.js'
 import { handleUserMessage } from '../services/cs/cs.service.js'
 import { getOrCreateConversation, getMessages } from '../services/cs/cs-store.js'
@@ -92,6 +93,58 @@ router.post('/cs/message', async (ctx) => {
     ? await handleUserMessage(ctx.state.env, effectiveUserId, intentDef.userText, intentDef.hint)
     : await handleUserMessage(ctx.state.env, effectiveUserId, message!.trim())
   ok(ctx, result)
+})
+
+// POST /cs/message/stream — 自由文本消息，SSE 流式返回 AI 逐字回复（intent 仍走 /cs/message）
+router.post('/cs/message/stream', async (ctx) => {
+  const { message } = ctx.request.body as { message?: string }
+  if (!message?.trim()) {
+    fail(ctx, 400, 'errors.csEmpty')
+    return
+  }
+  if (message.length > 2000) {
+    fail(ctx, 400, 'errors.csTooLong')
+    return
+  }
+
+  const isGuest = !ctx.state.userId
+  let effectiveUserId: string
+  if (isGuest) {
+    const ip = getClientIp(ctx)
+    effectiveUserId = `guest:${ip}`
+    const { limited, retryAfter } = await checkRateLimit(ctx.state.redis, `cs:rl:${effectiveUserId}`, GUEST_HOURLY_LIMIT, 3600)
+    if (limited) {
+      fail(ctx, 429, `errors.csTooFrequent:${Math.ceil(retryAfter / 60)}`)
+      return
+    }
+  } else {
+    effectiveUserId = ctx.state.userId!
+    const { limited } = await checkRateLimit(ctx.state.redis, `cs:rl:${effectiveUserId}`, USER_MINUTE_LIMIT, 60)
+    if (limited) {
+      fail(ctx, 429, `errors.csMinuteLimit:${USER_MINUTE_LIMIT}`)
+      return
+    }
+  }
+
+  ctx.set('Content-Type', 'text/event-stream; charset=utf-8')
+  ctx.set('Cache-Control', 'no-cache, no-transform')
+  ctx.set('Connection', 'keep-alive')
+  ctx.set('X-Accel-Buffering', 'no') // 让 Nginx 不缓冲该响应，逐块下发
+  ctx.status = 200
+  const stream = new PassThrough()
+  ctx.body = stream
+  const send = (event: string, data: unknown) => stream.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)
+
+  try {
+    const result = await handleUserMessage(ctx.state.env, effectiveUserId, message.trim(), undefined, (delta) =>
+      send('delta', { delta }),
+    )
+    send('done', result)
+  } catch (e) {
+    send('error', { message: e instanceof Error ? e.message : 'cs.sendFailed' })
+  } finally {
+    stream.end()
+  }
 })
 
 // POST /cs/orders — 直接查库返回最近存款/提现订单（登录用户，不经 LLM，秒回结构化数据）

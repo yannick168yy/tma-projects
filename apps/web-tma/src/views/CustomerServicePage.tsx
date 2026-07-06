@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Send, Headphones, Loader2, LayoutGrid } from 'lucide-react'
-import { sendCsMessage, sendCsIntent, fetchCsHistory, fetchCsWelcome, fetchCsOrders } from '@/api/cs'
+import { sendCsIntent, fetchCsHistory, fetchCsWelcome, fetchCsOrders, sendCsMessageStream } from '@/api/cs'
 import type { CsMessage, CsOrder } from '@/api/cs'
 import { ApiError } from '@/api/client'
 import { translateApiError } from '@/utils/translateApiError'
@@ -38,6 +38,7 @@ export default function CustomerServicePage({ onClose }: Props) {
   const [conversationStatus, setConversationStatus] = useState('active')
   const [welcome, setWelcome] = useState('')
   const [menuOpen, setMenuOpen] = useState(false)
+  const [streamingId, setStreamingId] = useState<number | null>(null)
   const msgRef = useRef<HTMLDivElement>(null)
 
   function scrollToBottom() {
@@ -77,7 +78,45 @@ export default function CustomerServicePage({ onClose }: Props) {
     const text = inputText.trim()
     if (!text || sending) return
     setInputText('')
-    await dispatch(text, () => sendCsMessage(text))
+    const userMsg: LocalMsg = { id: Date.now(), conversationId: 0, role: 'user', content: text, createdAt: new Date().toISOString() }
+    setMessages((prev) => [...prev, userMsg])
+    scrollToBottom()
+    setSending(true)
+    let assistantId: number | null = null
+    const ensure = (init: string): number => {
+      if (assistantId === null) {
+        assistantId = Date.now() + 1
+        const id = assistantId
+        setMessages((prev) => [...prev, { id, conversationId: 0, role: 'assistant', content: init, createdAt: new Date().toISOString() }])
+        setStreamingId(id)
+      }
+      return assistantId
+    }
+    try {
+      await sendCsMessageStream(text, {
+        onDelta: (d) => {
+          if (assistantId === null) ensure(d)
+          else {
+            const id = assistantId
+            setMessages((prev) => prev.map((m) => (m.id === id ? { ...m, content: m.content + d } : m)))
+          }
+          scrollToBottom()
+        },
+        onDone: (r) => setConversationStatus(r.status),
+        onError: (msg) => {
+          const content = translateApiError(msg, t)
+          const id = ensure(content)
+          setMessages((prev) => prev.map((m) => (m.id === id ? { ...m, content: m.content || content } : m)))
+        },
+      })
+    } catch {
+      const content = t('cs.sendFailed')
+      const id = ensure(content)
+      setMessages((prev) => prev.map((m) => (m.id === id ? { ...m, content: m.content || content } : m)))
+    } finally {
+      setSending(false)
+      setStreamingId(null)
+    }
   }
 
   async function queryOrders(kind: 'deposit' | 'withdraw', label: string) {
@@ -209,7 +248,7 @@ export default function CustomerServicePage({ onClose }: Props) {
                 </div>
               </div>
             ))}
-            {sending && (
+            {sending && streamingId === null && (
               <div className="flex justify-start">
                 <div className="rounded-2xl rounded-tl-sm bg-secondary px-3.5 py-2.5">
                   <p className="text-xs text-muted-foreground mb-1">{t('cs.aiLabel')}</p>
