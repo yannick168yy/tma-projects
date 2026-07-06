@@ -130,7 +130,7 @@ export const updateUserStatus = (id: string, status: string, reason?: string) =>
   patch<{ status: string }>(`/admin/users/${id}/status`, { status, reason })
 export const updateUserLabel = (id: string, label: string) =>
   patch<{ label: string }>(`/admin/users/${id}/label`, { label })
-export const SUPPORTED_CURRENCIES = ['PHP', 'USDT', 'USDC', 'TON', 'TRX', 'TRX_TESTNET', 'BNB', 'ETH', 'BTC'] as const
+export const SUPPORTED_CURRENCIES = ['PHP', 'USDT', 'USDC', 'TRX_TESTNET'] as const
 export type SupportedCurrency = typeof SUPPORTED_CURRENCIES[number]
 
 export const adjustBalance = (id: string, amount: number, opPassword: string, currency: string, note?: string) =>

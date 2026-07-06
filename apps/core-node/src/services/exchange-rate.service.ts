@@ -7,7 +7,6 @@ let cacheExpiry = 0
 // Testnet 币种映射到对应主网，使汇率保持一致
 const TESTNET_TO_MAINNET: Record<string, string> = {
   TRX_TESTNET: 'TRX',
-  TLK_TESTNET: 'TRX',
 }
 
 // CoinGecko coin id → 平台币种符号

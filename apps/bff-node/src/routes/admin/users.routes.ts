@@ -128,7 +128,7 @@ router.patch('/:id/status', async (ctx) => {
   ok(ctx, { status: user.status })
 })
 
-const SUPPORTED_CURRENCIES = ['PHP', 'USDT', 'USDC', 'TON', 'TRX', 'TRX_TESTNET', 'BNB', 'ETH', 'BTC']
+const SUPPORTED_CURRENCIES = ['PHP', 'USDT', 'USDC', 'TRX_TESTNET']
 
 router.post('/:id/adjust-balance', async (ctx) => {
   const body = ctx.request.body as { amount?: number; note?: string; opPassword?: string; currency?: string }

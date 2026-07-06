@@ -50,7 +50,8 @@ export function getDisplayPhp(): string {
 }
 
 // 预设支持的币种顺序
-export const SUPPORTED_CURRENCY_CODES = ['PHP', 'USDT', 'USDC', 'TON', 'TRX', 'BNB', 'ETH', 'BTC'] as const
+// 仅保留 PHP + 稳定币(USDT/USDC)；TRX_TESTNET 为测试链，仅充值用，由 AppShell 按余额单独插入
+export const SUPPORTED_CURRENCY_CODES = ['PHP', 'USDT', 'USDC'] as const
 
 export const FIAT_CURRENCY_CODES = ['PHP'] as const
 
@@ -74,12 +75,7 @@ export const CURRENCY_META: Record<string, CurrencyMeta> = {
   PHP:         { code: 'PHP',         name: 'Philippine Peso', symbol: '₱' },
   USDT:        { code: 'USDT',        name: 'Tether USD',      symbol: '₮' },
   USDC:        { code: 'USDC',        name: 'USD Coin',        symbol: '$' },
-  TON:         { code: 'TON',         name: 'Toncoin',         symbol: '◈' },
-  TRX:         { code: 'TRX',         name: 'Tron',            symbol: 'T' },
   TRX_TESTNET: { code: 'TRX_TESTNET', name: 'Tron',            symbol: 'T', isTestnet: true },
-  BNB:         { code: 'BNB',         name: 'BNB',             symbol: 'B' },
-  ETH:         { code: 'ETH',         name: 'Ethereum',        symbol: 'Ξ' },
-  BTC:         { code: 'BTC',         name: 'Bitcoin',         symbol: '₿' },
 }
 
 // 头部 chip 余额：PHP 带 ₱ 符号，其他只显示数字（chip 标签已含币种代码）

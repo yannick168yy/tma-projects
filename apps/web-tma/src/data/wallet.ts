@@ -55,30 +55,8 @@ export const FIAT_DEPOSIT: PayMethod[] = [
 ]
 
 export const CRYPTO_DEPOSIT: PayMethod[] = [
-  { id: 'usdt-trc', name: 'USDT', icon: '', iconUrl: '/logos/usdt.svg', color: 'from-teal-500 to-emerald-600', tag: 'TRC20', enabled: false },
-  {
-    id: 'ton',
-    name: 'TON',
-    icon: '',
-    iconUrl: '/logos/ton.svg',
-    color: 'from-sky-400 to-blue-600',
-    tag: 'TON Connect',
-    enabled: true,
-    channelId: 'ton_connect',
-    currency: 'TON',
-  },
-  {
-    id: 'matrix_tlk_testnet',
-    name: 'TLK_TESTNET',
-    icon: '',
-    iconUrl: '/logos/usdt.svg',
-    color: 'from-teal-500 to-emerald-600',
-    tag: 'Test',
-    enabled: true,
-    channelId: 'matrix',
-    matrixSymbol: 'TLK_TESTNET',
-    matrixChain: 'TRON_SHASTA',
-  },
+  { id: 'usdt-trc', name: 'USDT', icon: '', iconUrl: '/logos/usdt.svg', color: 'from-teal-500 to-emerald-600', tag: 'TRC20', currency: 'USDT', enabled: false },
+  { id: 'usdc-trc', name: 'USDC', icon: '', iconUrl: '/logos/usdt.svg', color: 'from-blue-500 to-sky-600', tag: 'TRC20', currency: 'USDC', enabled: false },
   {
     id: 'matrix_trx_testnet',
     name: 'TRX_TESTNET',
@@ -101,21 +79,8 @@ export const FIAT_WITHDRAW: PayMethod[] = [
 export const CRYPTO_WITHDRAW: PayMethod[] = [
   { id: 'usdt-trc-w', name: 'USDT', icon: '', iconUrl: '/logos/usdt.svg', color: 'from-teal-500 to-emerald-600', tag: 'TRC20', currency: 'USDT' },
   { id: 'usdt-erc-w', name: 'USDT', icon: '', iconUrl: '/logos/usdt.svg', color: 'from-indigo-500 to-blue-700', tag: 'ERC20', currency: 'USDT' },
-  { id: 'ton-w', name: 'TON', icon: '', iconUrl: '/logos/ton.svg', color: 'from-sky-400 to-blue-600', tag: 'TON', currency: 'TON' },
-  { id: 'btc-w', name: 'Bitcoin', icon: '', iconUrl: '/logos/btc.svg', color: 'from-orange-400 to-amber-600', tag: 'BTC', currency: 'BTC' },
-  {
-    id: 'matrix_tlk_testnet_w',
-    name: 'TLK_TESTNET',
-    icon: '',
-    iconUrl: '/logos/usdt.svg',
-    color: 'from-teal-500 to-emerald-600',
-    tag: 'Test',
-    enabled: true,
-    channelId: 'matrix',
-    currency: 'TLK_TESTNET',
-    matrixSymbol: 'TLK_TESTNET',
-    matrixChain: 'TRON_SHASTA',
-  },
+  { id: 'usdc-trc-w', name: 'USDC', icon: '', iconUrl: '/logos/usdt.svg', color: 'from-blue-500 to-sky-600', tag: 'TRC20', currency: 'USDC' },
+  { id: 'usdc-erc-w', name: 'USDC', icon: '', iconUrl: '/logos/usdt.svg', color: 'from-indigo-500 to-blue-700', tag: 'ERC20', currency: 'USDC' },
   {
     id: 'matrix_trx_testnet_w',
     name: 'TRX_TESTNET',

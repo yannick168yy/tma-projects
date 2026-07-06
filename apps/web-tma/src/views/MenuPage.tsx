@@ -50,10 +50,6 @@ interface Props {
 const CURRENCIES = [
   { icon: '28_php', name: 'PHP' },
   { icon: '29_usdt', name: 'USDT' },
-  { icon: '30_ton', name: 'TON' },
-  { icon: '21_btc', name: 'BTC' },
-  { icon: '22_eth', name: 'ETH' },
-  { icon: '23_bnb', name: 'BNB' },
 ]
 
 const HOME_DOC_KEYS = new Set(['terms', 'privacy', 'responsible', 'about'])

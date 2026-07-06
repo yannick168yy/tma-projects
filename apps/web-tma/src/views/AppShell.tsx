@@ -51,17 +51,16 @@ export default function AppShell() {
   const isLoggedIn = Boolean(auth.token && auth.user)
   const activeCurrency = wallet.activeCurrency
 
-  // 合并预设 8 个币种 + 实际余额（余额为 0 的也显示）
+  // 预设币种(PHP/USDT/USDC，余额为 0 也显示) + 实际余额
   const allBalances = useMemo(() => {
     const actualMap = new Map((wallet.balance?.balances ?? []).map((b) => [b.currency, b.available]))
     const list = (SUPPORTED_CURRENCY_CODES as readonly string[]).map((code) => ({
       code,
       available: actualMap.get(code) ?? 0,
     }))
-    // TRX_TESTNET：若用户有余额则插在 TRX 后
+    // TRX_TESTNET：测试链，仅当用户有余额时才追加到末尾显示
     if (actualMap.has('TRX_TESTNET')) {
-      const idx = list.findIndex((r) => r.code === 'TRX')
-      list.splice(idx + 1, 0, { code: 'TRX_TESTNET', available: actualMap.get('TRX_TESTNET') ?? 0 })
+      list.push({ code: 'TRX_TESTNET', available: actualMap.get('TRX_TESTNET') ?? 0 })
     }
     return list
   }, [wallet.balance?.balances])
