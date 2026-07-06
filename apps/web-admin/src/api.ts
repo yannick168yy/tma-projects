@@ -533,6 +533,20 @@ export const putHomepageSection = (
   items: { gameUuid: string; action: 'pin' | 'exclude'; pinPosition: number | null }[],
 ) => put<{ ok: boolean }>(`/admin/games/homepage-sections/${sectionKey}`, { currency, items })
 
+// Games 页各分类 All 列表手动置顶排序（手动排序 + 缺省权重垫后）
+export interface CategorySortEntry {
+  gameUuid: string
+  position: number
+  name: string | null
+  provider: string | null
+  imageUrl: string | null
+  siteCategory: string | null
+}
+export const getCategorySort = () =>
+  get<{ categoryKeys: string[]; categories: Record<string, CategorySortEntry[]> }>('/admin/games/category-sort')
+export const putCategorySort = (categoryKey: string, gameUuids: string[]) =>
+  put<{ ok: boolean }>(`/admin/games/category-sort/${categoryKey}`, { gameUuids })
+
 // Audit log
 export interface AuditEntry {
   id: number; adminUsername: string; action: string; targetType: string | null

@@ -809,6 +809,63 @@ export async function listAdminWithdrawals(
   return { total, items }
 }
 
+// ── Games 页分类 All 列表手动置顶排序 ────────────────────────────────────────
+
+export const CATEGORY_SORT_KEYS = [
+  'all', 'slot', 'casino', 'perya', 'poker', 'fishing', 'sports', 'lottery', 'other',
+] as const
+
+export interface CategorySortGameRow {
+  categoryKey: string
+  gameUuid: string
+  position: number
+}
+
+export async function listCategorySortGames(env: Env): Promise<CategorySortGameRow[]> {
+  const [rows] = await pool(env).query<RowDataPacket[]>(
+    `SELECT category_key, game_uuid, position
+     FROM bg_category_sort_game
+     ORDER BY category_key ASC, position ASC, id ASC`,
+  )
+  return rows.map((r) => ({
+    categoryKey: String(r.category_key),
+    gameUuid: String(r.game_uuid),
+    position: Number(r.position ?? 0),
+  }))
+}
+
+// 按分类整体替换置顶列表：先删后插，position 用数组下标
+export async function replaceCategorySortGames(
+  env: Env,
+  categoryKey: string,
+  gameUuids: string[],
+): Promise<void> {
+  if (!CATEGORY_SORT_KEYS.includes(categoryKey as (typeof CATEGORY_SORT_KEYS)[number])) {
+    throw new Error(`unknown category_key: ${categoryKey}`)
+  }
+  const seen = new Set<string>()
+  const conn = await pool(env).getConnection()
+  try {
+    await conn.beginTransaction()
+    await conn.execute(`DELETE FROM bg_category_sort_game WHERE category_key = ?`, [categoryKey])
+    let i = 0
+    for (const uuid of gameUuids) {
+      if (!uuid || seen.has(uuid)) continue
+      seen.add(uuid)
+      await conn.execute(
+        `INSERT INTO bg_category_sort_game (category_key, game_uuid, position) VALUES (?, ?, ?)`,
+        [categoryKey, uuid, i++],
+      )
+    }
+    await conn.commit()
+  } catch (e) {
+    await conn.rollback()
+    throw e
+  } finally {
+    conn.release()
+  }
+}
+
 // ── 首页板块手动干预（pin/exclude）配置 ──────────────────────────────────────
 
 export const HOMEPAGE_SECTION_KEYS = [

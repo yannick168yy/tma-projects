@@ -10,8 +10,11 @@ import {
   listHomepageSectionGames,
   replaceHomepageSectionGames,
   HOMEPAGE_SECTION_KEYS,
+  listCategorySortGames,
+  replaceCategorySortGames,
+  CATEGORY_SORT_KEYS,
 } from '../../services/admin-store.js'
-import { loadGamesCache, refreshHomepageSelection, scheduleCacheRefresh, getGamesFromCache } from '../../services/sg-game.service.js'
+import { loadGamesCache, refreshHomepageSelection, scheduleCacheRefresh, getGamesFromCache, bustCategorySortCache } from '../../services/sg-game.service.js'
 import {
   createJob,
   getJob,
@@ -274,6 +277,55 @@ router.put('/homepage-sections/:sectionKey', async (ctx) => {
       action: 'game.homepage.section.update',
       targetType: 'homepage_section',
       targetId: `${sectionKey}:${body.currency ?? ''}`,
+      ip: ctx.ip,
+    })
+    ok(ctx, { ok: true })
+  } catch (e) {
+    fail(ctx, 400, e instanceof Error ? e.message : 'Failed')
+  }
+})
+
+// Games 页各分类 All 列表的手动置顶排序：当前配置（附游戏名/图，取自 games 缓存）
+router.get('/category-sort', async (ctx) => {
+  try {
+    const [rows, games] = await Promise.all([
+      listCategorySortGames(ctx.state.env),
+      getGamesFromCache(ctx.state.env),
+    ])
+    const byUuid = new Map(games.map((g) => [g.uuid, g]))
+    const categories: Record<string, unknown[]> = {}
+    for (const key of CATEGORY_SORT_KEYS) categories[key] = []
+    for (const r of rows) {
+      const g = byUuid.get(r.gameUuid)
+      ;(categories[r.categoryKey] ??= []).push({
+        gameUuid: r.gameUuid,
+        position: r.position,
+        name: g?.name ?? null,
+        provider: g?.provider ?? null,
+        imageUrl: g?.imageUrl ?? null,
+        siteCategory: g?.siteCategory ?? null,
+      })
+    }
+    ok(ctx, { categoryKeys: CATEGORY_SORT_KEYS, categories })
+  } catch (e) {
+    fail(ctx, 500, e instanceof Error ? e.message : 'Failed')
+  }
+})
+
+// 整体替换某分类的置顶排序列表，立即清缓存生效
+router.put('/category-sort/:categoryKey', async (ctx) => {
+  try {
+    const categoryKey = ctx.params.categoryKey
+    const body = ctx.request.body as { gameUuids?: string[] }
+    const gameUuids = Array.isArray(body.gameUuids) ? body.gameUuids : []
+    await replaceCategorySortGames(ctx.state.env, categoryKey, gameUuids)
+    bustCategorySortCache()
+    await writeAuditLog(ctx.state.env, {
+      adminId: ctx.state.adminId!,
+      adminUsername: ctx.state.adminUsername!,
+      action: 'game.category.sort.update',
+      targetType: 'category_sort',
+      targetId: categoryKey,
       ip: ctx.ip,
     })
     ok(ctx, { ok: true })

@@ -234,6 +234,36 @@ export async function getGamesFromCache(env: Env): Promise<DbGame[]> {
   return memGames ?? []
 }
 
+// ── Games 页分类 All 列表手动置顶排序：分类 → 有序 game_uuid 列表 ──────────────
+// 表很小(每分类几款)，进程内缓存 60s，后台保存时主动清空即时生效
+let memCategorySort: Map<string, string[]> | null = null
+let memCategorySortAt = 0
+const MEM_CATEGORY_SORT_TTL = 60 * 1000
+
+export function bustCategorySortCache(): void {
+  memCategorySort = null
+  memCategorySortAt = 0
+}
+
+async function getCategorySortMap(env: Env): Promise<Map<string, string[]>> {
+  if (memCategorySort && Date.now() - memCategorySortAt < MEM_CATEGORY_SORT_TTL) return memCategorySort
+  const map = new Map<string, string[]>()
+  try {
+    const [rows] = await getMysqlPool(env).query<RowDataPacket[]>(
+      `SELECT category_key, game_uuid FROM bg_category_sort_game ORDER BY category_key ASC, position ASC, id ASC`,
+    )
+    for (const r of rows) {
+      const key = String(r.category_key)
+      const list = map.get(key) ?? []
+      list.push(String(r.game_uuid))
+      map.set(key, list)
+    }
+  } catch { /* 表不存在或查询失败时视为无置顶配置 */ }
+  memCategorySort = map
+  memCategorySortAt = Date.now()
+  return map
+}
+
 // ── 首页推荐：加权随机 + 30 分钟定时刷新 ────────────────────────────────────
 
 const HOMEPAGE_KEY = 'homepage:selection'
@@ -560,10 +590,30 @@ export async function listGames(
   if (currency) {
     games = games.filter((g) => supportsCurrency(g, currency))
   }
-  games = [...games].sort((a, b) => {
-    if (sortBy === 'name') return a.name.localeCompare(b.name)
-    return b.weight - a.weight
-  })
+
+  // Games 页分类 All 列表：后台配置的置顶游戏按顺序钉到最前，其余按权重垫后。
+  // 仅在「无搜索 + 全部厂商 + 按权重排序 + 单一分类(或全部)」时生效，与前台 All 视图口径一致。
+  const singleSiteCategory = siteCategory && !siteCategory.includes(',') && siteCategory !== 'all' ? siteCategory : null
+  const categoryKey = singleSiteCategory ?? (!siteCategory ? 'all' : null)
+  const canManualSort = !search && (!provider || provider === 'all') && sortBy === 'weight' && categoryKey != null
+  const pinnedOrder = canManualSort ? (await getCategorySortMap(env)).get(categoryKey!) : undefined
+
+  if (pinnedOrder && pinnedOrder.length) {
+    const posByUuid = new Map(pinnedOrder.map((u, i) => [u, i]))
+    games = [...games].sort((a, b) => {
+      const pa = posByUuid.get(a.uuid)
+      const pb = posByUuid.get(b.uuid)
+      if (pa != null && pb != null) return pa - pb
+      if (pa != null) return -1
+      if (pb != null) return 1
+      return b.weight - a.weight
+    })
+  } else {
+    games = [...games].sort((a, b) => {
+      if (sortBy === 'name') return a.name.localeCompare(b.name)
+      return b.weight - a.weight
+    })
+  }
 
   const offset = (page - 1) * limit
 

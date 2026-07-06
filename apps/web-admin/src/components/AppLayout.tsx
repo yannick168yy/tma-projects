@@ -85,6 +85,7 @@ function buildMenuItems(badges: AdminBadges) {
         { key: '/rebate', label: '洗码返水' },
         { key: '/home-content', label: '首页装修' },
         { key: '/homepage-sections', label: '首页板块配置' },
+        { key: '/category-sort', label: '分类列表排序' },
       ],
     },
     {
@@ -139,7 +140,7 @@ function getDefaultOpenKeys(pathname: string): string[] {
   if (['/users', '/kyc'].some((p) => pathname.startsWith(p))) return ['user-center']
   if (['/deposits', '/payment', '/wallet-ledger', '/exchange-rates'].some((p) => pathname.startsWith(p))) return ['finance']
   if (['/games', '/bet-orders'].some((p) => pathname.startsWith(p))) return ['game']
-  if (['/promotions', '/rewards-spin', '/rebate', '/home-content', '/homepage-sections'].some((p) => pathname.startsWith(p))) return ['marketing']
+  if (['/promotions', '/rewards-spin', '/rebate', '/home-content', '/homepage-sections', '/category-sort'].some((p) => pathname.startsWith(p))) return ['marketing']
   if (pathname.startsWith('/team-referral')) return ['team']
   if (pathname.startsWith('/agents') || pathname.startsWith('/agent-')) return ['agent']
   if (['/customer-service', '/cs-faq'].some((p) => pathname.startsWith(p))) return ['cs']
