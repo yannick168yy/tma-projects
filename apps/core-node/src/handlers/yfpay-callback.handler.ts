@@ -2,6 +2,8 @@ import type { Pool, RowDataPacket } from 'mysql2/promise'
 import type { Redis } from 'ioredis'
 import { lgId } from '../utils/id.js'
 import { createDepositRequirement } from '../services/turnover.service.js'
+import { applyDepositPromos } from '../services/deposit-promo.service.js'
+import { tryActivateTeamNode } from '../routes/internal.routes.js'
 
 export interface YfPayCallbackPayload {
   merchantSerial: string
@@ -38,7 +40,7 @@ async function handleDeposit(
   db: Pool,
 ): Promise<void> {
   const [rows] = await db.query<RowDataPacket[]>(
-    `SELECT order_id, user_id, currency, amount, credited, status FROM bg_deposit_order WHERE order_id = ? LIMIT 1`,
+    `SELECT order_id, user_id, currency, amount, channel, credited, status FROM bg_deposit_order WHERE order_id = ? LIMIT 1`,
     [merchantSerial],
   )
   const order = rows[0]
@@ -72,6 +74,7 @@ async function handleDeposit(
         [platformId, merchantSerial],
       )
       await createDepositRequirement(conn, order.user_id, merchantSerial, creditAmount, currency)
+      await tryActivateTeamNode(conn, String(order.user_id), creditAmount)
       await conn.commit()
     } catch (err) {
       await conn.rollback()
@@ -79,6 +82,13 @@ async function handleDeposit(
     } finally {
       conn.release()
     }
+    await applyDepositPromos(db, {
+      orderId: merchantSerial,
+      userId: String(order.user_id),
+      amount: creditAmount,
+      currency,
+      channel: String(order.channel ?? ''),
+    }, { error: (obj, msg) => console.error(`[yfpay-callback] ${msg}`, obj) })
   } else if (state === 3) {
     await db.execute(
       `UPDATE bg_deposit_order SET status='rejected', extra=JSON_SET(COALESCE(extra,'{}'),'$.providerRef',?) WHERE order_id=?`,

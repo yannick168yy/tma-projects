@@ -7,6 +7,7 @@ import type { Redis } from 'ioredis'
 import { env } from '../config/env.js'
 import { lgId } from '../utils/id.js'
 import { getPhpRate } from '../services/exchange-rate.service.js'
+import { applyDepositPromos } from '../services/deposit-promo.service.js'
 
 const PHT_OFFSET_MS = 8 * 60 * 60 * 1000
 
@@ -79,7 +80,7 @@ export async function internalRoutes(app: FastifyInstance) {
     const locked = await redis.set(idempotencyKey, '1', 'EX', 604800, 'NX')
     if (!locked) return reply.send({ code: 0, message: 'duplicate, skipped' })
     const [rows] = await db.query<RowDataPacket[]>(
-      `SELECT status FROM bg_deposit_order WHERE order_id = ? LIMIT 1`, [orderId],
+      `SELECT status, channel, currency, amount FROM bg_deposit_order WHERE order_id = ? LIMIT 1`, [orderId],
     )
     if (rows[0]?.status === 'paid') return reply.send({ code: 0, message: 'already paid' })
     const conn = await db.getConnection()
@@ -89,6 +90,12 @@ export async function internalRoutes(app: FastifyInstance) {
       await conn.execute(`UPDATE bg_deposit_order SET status='paid', credited=1 WHERE order_id=?`, [orderId])
       await tryActivateTeamNode(conn, userId, creditedCents)
       await conn.commit()
+      await applyDepositPromos(db, {
+        orderId, userId,
+        amount: Number(rows[0]?.amount ?? req.body.amount),
+        currency: String(rows[0]?.currency ?? req.body.currency ?? 'PHP'),
+        channel: String(rows[0]?.channel ?? 'tg_wallet'),
+      }, app.log)
       return reply.send({ code: 0, message: 'ok', balanceAfter })
     } catch (err) {
       await conn.rollback()
@@ -113,7 +120,7 @@ export async function internalRoutes(app: FastifyInstance) {
     const locked = await redis.set(idempotencyKey, '1', 'EX', 604800, 'NX')
     if (!locked) return reply.send({ code: 0, message: 'duplicate, skipped' })
     const [rows] = await db.query<RowDataPacket[]>(
-      `SELECT status FROM bg_deposit_order WHERE order_id = ? LIMIT 1`, [orderId],
+      `SELECT status, channel, currency, amount FROM bg_deposit_order WHERE order_id = ? LIMIT 1`, [orderId],
     )
     if (rows[0]?.status === 'paid') return reply.send({ code: 0, message: 'already paid' })
     const conn = await db.getConnection()
@@ -123,6 +130,12 @@ export async function internalRoutes(app: FastifyInstance) {
       await conn.execute(`UPDATE bg_deposit_order SET status='paid', credited=1 WHERE order_id=?`, [orderId])
       await tryActivateTeamNode(conn, userId, creditedCents)
       await conn.commit()
+      await applyDepositPromos(db, {
+        orderId, userId,
+        amount: Number(rows[0]?.amount ?? creditedCents),
+        currency: String(rows[0]?.currency ?? 'PHP'),
+        channel: String(rows[0]?.channel ?? ''),
+      }, app.log)
       return reply.send({ code: 0, message: 'ok', balanceAfter })
     } catch (err) {
       await conn.rollback()
