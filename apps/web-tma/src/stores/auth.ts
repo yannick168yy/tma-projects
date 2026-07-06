@@ -8,6 +8,7 @@ import { useWalletStore } from '@/stores/wallet'
 import type { AuthUser } from '@/types/api'
 import { isInsideTelegram } from '@/utils/initTelegramWebApp'
 import { clearStoredReferral, getStoredReferral } from '@/utils/referral'
+import { isRememberMeEnabled, saveLastLogin } from '@/utils/lastLogin'
 import { analytics, setAnalyticsUser } from '@/utils/analytics'
 import type { PasswordMethod, TelegramWidgetUser } from '@/types/api'
 
@@ -111,6 +112,17 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
     })
     localStorage.setItem('betogo_token', session.token)
     localStorage.removeItem(LOGOUT_FLAG) // 成功登录后解除登出抑制
+    // 记住上次登录方式，供下次打开登录框快捷续登；只记身份标识，不记密码
+    const provider = session.user.loginProvider
+    if (provider) {
+      const identifier = provider === 'phone' ? session.user.phone : provider === 'account' ? session.user.username : undefined
+      saveLastLogin({
+        provider,
+        identifier: isRememberMeEnabled() ? identifier : undefined,
+        displayName: session.user.displayName,
+        avatarUrl: session.user.avatarUrl,
+      })
+    }
     // 用权威资格同步本地试玩标记，供下次恢复会话时决定是否跳过 trial-play 请求
     if (session.trialRedPacketEligible) localStorage.removeItem(TRIAL_CLAIMED_KEY)
     else localStorage.setItem(TRIAL_CLAIMED_KEY, '1')

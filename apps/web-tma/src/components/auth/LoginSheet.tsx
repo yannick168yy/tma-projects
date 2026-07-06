@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { X, User, Phone, Lock, Eye, EyeOff, Check, ArrowLeft } from 'lucide-react'
 import { createPortal } from 'react-dom'
 import BetogoLogo from '@/components/BetogoLogo'
 import { resetForgotPassword, sendForgotPasswordOtp } from '@/api/auth'
 import { useAuthStore } from '@/stores/auth'
+import { clearLastLogin, getLastLogin, isRememberMeEnabled, setRememberMeEnabled } from '@/utils/lastLogin'
 import { getStoredReferral } from '@/utils/referral'
 import { translateApiError } from '@/utils/translateApiError'
 import type { PasswordMethod } from '@/types/api'
@@ -50,7 +51,20 @@ export default function LoginSheet({ open, onClose }: Props) {
   const [identifier, setIdentifier] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
-  const [rememberMe, setRememberMe] = useState(true)
+  const [rememberMe, setRememberMe] = useState(() => isRememberMeEnabled())
+  // 上次登录记忆：OAuth 显示快捷续登卡片，phone/account 预填标识
+  const initialLastLogin = useMemo(() => (open ? getLastLogin() : null), [open])
+  const [lastLogin, setLastLogin] = useState(initialLastLogin)
+  useEffect(() => {
+    if (!open) return
+    const last = getLastLogin()
+    setLastLogin(last)
+    if (last && (last.provider === 'phone' || last.provider === 'account')) {
+      setMethod(last.provider)
+      if (last.identifier) setIdentifier(last.identifier)
+    }
+  }, [open])
+  const quickLogin = lastLogin && (lastLogin.provider === 'google' || lastLogin.provider === 'telegram') ? lastLogin : null
   const [resetPhone, setResetPhone] = useState('')
   const [resetCode, setResetCode] = useState('')
   const [resetPassword, setResetPassword] = useState('')
@@ -65,6 +79,18 @@ export default function LoginSheet({ open, onClose }: Props) {
 
   function onIdentifierChange(value: string) {
     setIdentifier(method === 'phone' ? normalizePhoneInput(value) : value)
+  }
+
+  function onQuickLogin() {
+    if (!quickLogin) return
+    if (quickLogin.provider === 'google') onGoogleLogin()
+    else if (isTelegram) void onTelegramLogin()
+    else onTelegramOidcLogin()
+  }
+
+  function onUseAnotherAccount() {
+    clearLastLogin()
+    setLastLogin(null)
   }
 
   async function onTelegramLogin() {
@@ -207,6 +233,43 @@ export default function LoginSheet({ open, onClose }: Props) {
             </div>
           )}
 
+          {quickLogin && view === 'auth' && (
+            <div className="mt-5 rounded-[18px] border border-primary/25 bg-primary/5 p-4">
+              <div className="flex items-center gap-3">
+                {quickLogin.avatarUrl ? (
+                  <img src={quickLogin.avatarUrl} alt="" referrerPolicy="no-referrer" className="h-10 w-10 shrink-0 rounded-full object-cover" />
+                ) : (
+                  <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${quickLogin.provider === 'google' ? 'bg-white' : 'bg-[#2AABEE] text-white'}`}>
+                    {quickLogin.provider === 'google' ? <GoogleIcon /> : <TelegramIcon />}
+                  </span>
+                )}
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-black text-white">
+                    {t('auth.welcomeBackName', { name: quickLogin.displayName ?? '' })}
+                  </p>
+                  <p className="text-[11px] font-bold text-[#9aa1b8]">
+                    {quickLogin.provider === 'google' ? 'Google' : 'Telegram'}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="mt-3 w-full rounded-[14px] bg-gradient-to-b from-[#ffcc19] to-[#ffae00] py-3 text-sm font-black text-black shadow-[0_8px_24px_rgba(255,184,0,0.28)] transition-all active:scale-[0.98] disabled:opacity-60"
+                disabled={loading}
+                onClick={onQuickLogin}
+              >
+                {t('auth.continueWithProvider', { provider: quickLogin.provider === 'google' ? 'Google' : 'Telegram' })}
+              </button>
+              <button
+                type="button"
+                className="mt-2 w-full text-center text-xs font-bold text-[#9aa1b8] transition-colors hover:text-foreground"
+                onClick={onUseAnotherAccount}
+              >
+                {t('auth.useAnotherAccount')}
+              </button>
+            </div>
+          )}
+
           {view === 'auth' ? (
             <>
               <div className="mt-5 grid grid-cols-2 rounded-[18px] border border-white/8 bg-[#121827] p-1">
@@ -249,6 +312,7 @@ export default function LoginSheet({ open, onClose }: Props) {
                     value={password}
                     type={showPassword ? 'text' : 'password'}
                     autoComplete="current-password"
+                    autoFocus={Boolean(initialLastLogin?.identifier)}
                     placeholder={t('auth.passwordPlaceholder')}
                     className="w-full rounded-[14px] border border-white/12 bg-[#121824] py-3.5 pl-11 pr-11 text-sm font-bold text-foreground transition-colors placeholder:text-[#798098] focus:border-primary focus:outline-none"
                     onChange={(e) => setPassword(e.target.value)}
@@ -267,7 +331,7 @@ export default function LoginSheet({ open, onClose }: Props) {
                   <button
                     type="button"
                     className="flex items-center gap-2 text-xs font-bold text-[#bcc3d7]"
-                    onClick={() => setRememberMe((v) => !v)}
+                    onClick={() => { const next = !rememberMe; setRememberMe(next); setRememberMeEnabled(next) }}
                   >
                     <span className={`flex h-[18px] w-[18px] items-center justify-center rounded-full border ${rememberMe ? 'border-primary bg-primary text-black' : 'border-white/20 bg-transparent text-transparent'}`}>
                       <Check size={12} strokeWidth={3} />
