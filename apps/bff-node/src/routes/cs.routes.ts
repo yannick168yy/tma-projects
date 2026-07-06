@@ -1,7 +1,6 @@
 import Router from '@koa/router'
 import type { Context } from 'koa'
 import type { Redis } from 'ioredis'
-import { PassThrough } from 'node:stream'
 import { createHash } from 'node:crypto'
 import { ok, fail } from '../utils/response.js'
 import { handleUserMessage } from '../services/cs/cs.service.js'
@@ -132,14 +131,17 @@ router.post('/cs/message/stream', async (ctx) => {
     }
   }
 
-  ctx.set('Content-Type', 'text/event-stream; charset=utf-8')
-  ctx.set('Cache-Control', 'no-cache, no-transform')
-  ctx.set('Connection', 'keep-alive')
-  ctx.set('X-Accel-Buffering', 'no') // 让 Nginx 不缓冲该响应，逐块下发
-  ctx.status = 200
-  const stream = new PassThrough()
-  ctx.body = stream
-  const send = (event: string, data: unknown) => stream.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)
+  // 直接操作原生 res，绕过 Koa 对 stream body 的缓冲，保证每块 delta 立即 flush
+  ctx.respond = false
+  const res = ctx.res
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream; charset=utf-8',
+    'Cache-Control': 'no-cache, no-transform',
+    Connection: 'keep-alive',
+    'X-Accel-Buffering': 'no', // 让 Nginx 不缓冲该响应
+  })
+  res.flushHeaders?.()
+  const send = (event: string, data: unknown) => res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)
 
   try {
     const result = await handleUserMessage(ctx.state.env, effectiveUserId, message.trim(), undefined, (delta) =>
@@ -149,7 +151,7 @@ router.post('/cs/message/stream', async (ctx) => {
   } catch (e) {
     send('error', { message: e instanceof Error ? e.message : 'cs.sendFailed' })
   } finally {
-    stream.end()
+    res.end()
   }
 })
 
