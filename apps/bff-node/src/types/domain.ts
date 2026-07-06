@@ -10,7 +10,7 @@ export interface LivenessFrameMeta {
   key: string
   capturedAt: string
 }
-export type DepositCurrency = 'PHP' | 'USDT' | 'TON'
+export type DepositCurrency = 'PHP' | 'USDT'
 export type IdentityProvider = 'phone' | 'account' | 'google' | 'telegram' | 'telegram_oidc'
 
 export interface UserIdentity {
@@ -79,14 +79,6 @@ export interface TurnoverRecord {
   canWithdraw: boolean
 }
 
-export interface TonConnectParams {
-  userWalletAddress: string
-  amountNano: string
-  merchantAddress: string
-  expiresAt: string
-  txHash?: string
-}
-
 export interface OrderDeposit {
   orderId: string
   userId: string
@@ -101,7 +93,6 @@ export interface OrderDeposit {
   providerRef?: string
   extraData?: Record<string, unknown>
   tgWalletParams?: Record<string, string>
-  tonConnectParams?: TonConnectParams
 }
 
 export interface OrderWithdraw {

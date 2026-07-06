@@ -8,7 +8,7 @@ import {
 } from '../api'
 
 /** 与 BFF RATE_PAIRS 一致：加密货币 → PHP（CoinGecko simple/price） */
-const TRACKED_TO_PHP = ['USDT', 'USDC', 'TON', 'TRX', 'BNB', 'ETH', 'BTC'] as const
+const TRACKED_TO_PHP = ['USDT', 'USDC', 'TRX'] as const
 
 function fmtRate(r: number | string | null | undefined): string {
   if (r === null || r === undefined) return '—'

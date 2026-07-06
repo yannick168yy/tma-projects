@@ -12,9 +12,6 @@ const TESTNET_TO_MAINNET: Record<string, string> = {
 // CoinGecko coin id → 平台币种符号
 const COINGECKO_ID_MAP: Record<string, string> = {
   tron:         'TRX',
-  binancecoin:  'BNB',
-  ethereum:     'ETH',
-  bitcoin:      'BTC',
   tether:       'USDT',
   'usd-coin':   'USDC',
   'euro-token': 'EUR',
@@ -63,9 +60,6 @@ function buildFallback(): Record<string, number> {
     USDT: env.USDT_TO_PHP_RATE,
     USDC: env.USDT_TO_PHP_RATE,
     TRX:  env.TRX_TO_PHP_RATE,
-    BNB:  env.BNB_TO_PHP_RATE,
-    ETH:  env.ETH_TO_PHP_RATE,
-    BTC:  env.BTC_TO_PHP_RATE,
   }
 }
 
@@ -74,8 +68,5 @@ function fallbackRate(currency: string): number {
   if (upper === 'EUR') return env.EUR_TO_PHP_RATE
   if (upper === 'USD' || upper === 'USDT' || upper === 'USDC') return env.USDT_TO_PHP_RATE
   if (upper === 'TRX') return env.TRX_TO_PHP_RATE
-  if (upper === 'BNB') return env.BNB_TO_PHP_RATE
-  if (upper === 'ETH') return env.ETH_TO_PHP_RATE
-  if (upper === 'BTC') return env.BTC_TO_PHP_RATE
   return 1
 }

@@ -39,9 +39,6 @@ const schema = z.object({
   USDT_TO_PHP_RATE: z.coerce.number().positive().default(58),
   EUR_TO_PHP_RATE:  z.coerce.number().positive().default(62),
   TRX_TO_PHP_RATE:  z.coerce.number().positive().default(19),
-  BNB_TO_PHP_RATE:  z.coerce.number().positive().default(33000),
-  ETH_TO_PHP_RATE:  z.coerce.number().positive().default(145000),
-  BTC_TO_PHP_RATE:  z.coerce.number().positive().default(5800000),
 
   // 内部服务间通信 token
   INTERNAL_TOKEN: z.string().default(''),

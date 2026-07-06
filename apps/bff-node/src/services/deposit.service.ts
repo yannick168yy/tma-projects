@@ -14,22 +14,17 @@ import { nowIso } from '../utils/format.js'
 import { createDepositRequirement, createPromoRequirement } from './turnover.service.js'
 import { getFirstDepConfigByPool, matchFirstDepBonus, PROMO_DEFAULTS } from './promo-config.service.js'
 
-export type DepositCurrency = 'PHP' | 'USDT' | 'TON'
+export type DepositCurrency = 'PHP' | 'USDT'
 
 export function depositAmountToYuan(
   amount: number,
   currency: DepositCurrency,
   usdtToPhpRate: number,
-  tonToPhpRate = 0,
 ): number {
   if (currency === 'PHP') return Math.round(amount * 100) / 100
   if (currency === 'USDT') {
     if (amount <= 0 || usdtToPhpRate <= 0) return 0
     return Math.round(amount * usdtToPhpRate * 100) / 100
-  }
-  if (currency === 'TON') {
-    if (amount <= 0 || tonToPhpRate <= 0) return 0
-    return Math.round(amount * tonToPhpRate * 100) / 100
   }
   return 0
 }
@@ -116,7 +111,6 @@ export async function settlePaidDeposit(
   opts: {
     traceId?: string
     usdtToPhpRate: number
-    tonToPhpRate?: number
     amountPhpUnits: number
     currency: DepositCurrency
     mysqlPool?: Pool
@@ -130,7 +124,7 @@ export async function settlePaidDeposit(
     credited = Math.round(opts.amountPhpUnits * 10000) / 10000
     creditedCurrency = opts.currency
   } else {
-    credited = depositAmountToYuan(opts.amountPhpUnits, opts.currency, opts.usdtToPhpRate, opts.tonToPhpRate ?? 0)
+    credited = depositAmountToYuan(opts.amountPhpUnits, opts.currency, opts.usdtToPhpRate)
     creditedCurrency = 'PHP'
   }
 
@@ -146,8 +140,6 @@ export async function settlePaidDeposit(
     description = `${opts.currency} deposit`
   } else if (opts.currency === 'USDT') {
     description = `USDT deposit (≈ ₱${credited.toFixed(2)})`
-  } else if (opts.currency === 'TON') {
-    description = `TON deposit (≈ ₱${credited.toFixed(2)})`
   } else {
     description = 'Telegram Wallet deposit'
   }

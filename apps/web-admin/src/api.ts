@@ -734,7 +734,7 @@ export const getBetRounds = (params: {
 
 // Promo Config
 export interface FirstDepTier { depositAmount: number; bonusAmount: number }
-export const FIRSTDEP_CURRENCIES = ['PHP', 'USDT', 'USDC', 'TON', 'TRX'] as const
+export const FIRSTDEP_CURRENCIES = ['PHP', 'USDT', 'USDC'] as const
 export type FirstDepCurrency = (typeof FIRSTDEP_CURRENCIES)[number]
 export interface PromoConfig {
   trial:    { amount: number; enabled: boolean; turnoverX: number; turnoverDays: number }

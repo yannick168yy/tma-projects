@@ -14,22 +14,20 @@ const PROVIDER_LABELS: Record<string, string> = {
   beepay: 'BeePay',
   matrix: 'Matrix',
   tg_wallet: 'Telegram 钱包',
-  ton_connect: 'TON',
   manual: '手动 / 链上',
 }
 // 带下划线的 provider 要排在前面，避免 tg_wallet_php 被切成 tg
-const KNOWN_PROVIDERS = ['tg_wallet', 'ton_connect', 'yfpay', 'beepay', 'matrix', 'manual']
+const KNOWN_PROVIDERS = ['tg_wallet', 'yfpay', 'beepay', 'matrix', 'manual']
 
 // 支持余额查询的服务商
 const BALANCE_PROVIDERS = ['yfpay', 'beepay'] as const
 
-/** channel（格式 {provider}_{name}）→ provider；兼容 ton / usdt / btc 等手动渠道 */
+/** channel（格式 {provider}_{name}）→ provider；兼容 usdt / usdc 等手动链上渠道 */
 function deriveProvider(channel: string): string {
   for (const p of KNOWN_PROVIDERS) {
     if (channel === p || channel.startsWith(`${p}_`) || channel.startsWith(`${p}-`)) return p
   }
-  if (channel.startsWith('ton')) return 'ton_connect'
-  if (channel.startsWith('usdt') || channel.startsWith('btc')) return 'manual'
+  if (channel.startsWith('usdt') || channel.startsWith('usdc')) return 'manual'
   return channel.split(/[_-]/)[0] || channel
 }
 

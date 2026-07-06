@@ -670,14 +670,12 @@ function mapOrderDeposit(r: RowDataPacket): OrderDeposit {
     creditedCents: r.credited ? Number(r.amount) : undefined,
     extraData: extra,
     tgWalletParams: extra?.tgWalletParams as OrderDeposit['tgWalletParams'] ?? undefined,
-    tonConnectParams: extra?.tonConnectParams as OrderDeposit['tonConnectParams'] ?? undefined,
   }
 }
 
 export async function saveOrderDeposit(env: Env, order: OrderDeposit): Promise<void> {
   const extra: Record<string, unknown> = { ...(order.extraData ?? {}) }
   if (order.tgWalletParams) extra['tgWalletParams'] = order.tgWalletParams
-  if (order.tonConnectParams) extra['tonConnectParams'] = order.tonConnectParams
   const extraJson = Object.keys(extra).length ? JSON.stringify(extra) : null
 
   await pool(env).execute(

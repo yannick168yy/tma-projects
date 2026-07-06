@@ -8,7 +8,7 @@ export interface FirstDepTier {
 }
 
 /** 首充嘉年华支持的币种（USDC 暂未开通充值通道，先预留配置） */
-export const FIRSTDEP_CURRENCIES = ['PHP', 'USDT', 'USDC', 'TON', 'TRX'] as const
+export const FIRSTDEP_CURRENCIES = ['PHP', 'USDT', 'USDC'] as const
 export type FirstDepCurrency = (typeof FIRSTDEP_CURRENCIES)[number]
 
 export interface PromoConfig {
@@ -37,16 +37,6 @@ const DEFAULT_FIRSTDEP_TIERS: Record<string, FirstDepTier[]> = {
     { depositAmount: 10, bonusAmount: 2 }, { depositAmount: 50, bonusAmount: 8 },
     { depositAmount: 100, bonusAmount: 15 }, { depositAmount: 500, bonusAmount: 60 },
     { depositAmount: 1000, bonusAmount: 100 },
-  ],
-  TON: [
-    { depositAmount: 1, bonusAmount: 0.2 }, { depositAmount: 5, bonusAmount: 1 },
-    { depositAmount: 10, bonusAmount: 2 }, { depositAmount: 50, bonusAmount: 8 },
-    { depositAmount: 100, bonusAmount: 15 },
-  ],
-  TRX: [
-    { depositAmount: 100, bonusAmount: 2 }, { depositAmount: 500, bonusAmount: 10 },
-    { depositAmount: 1000, bonusAmount: 20 }, { depositAmount: 5000, bonusAmount: 80 },
-    { depositAmount: 10000, bonusAmount: 150 },
   ],
 }
 

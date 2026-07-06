@@ -7,13 +7,8 @@ ALTER TABLE payment_channels
 INSERT IGNORE INTO payment_channels (name, provider, label, enabled, sort_order, category) VALUES
   ('tg_wallet_php',        'tg_wallet',   'Telegram 钱包 (PHP)',     0, 10, 'crypto'),
   ('tg_wallet_usdt',       'tg_wallet',   'Telegram 钱包 (USDT)',    0, 11, 'crypto'),
-  ('ton',                  'ton_connect', 'TON',                     1, 20, 'crypto'),
-  ('matrix_tlk_testnet',   'matrix',      'Matrix TLK 充值 (测试)',  1, 30, 'crypto'),
   ('matrix_trx_testnet',   'matrix',      'Matrix TRX 充值 (测试)',  1, 31, 'crypto'),
   ('usdt-trc',             'manual',      'USDT TRC20 充值',         0, 40, 'crypto'),
   ('usdt-trc-w',           'manual',      'USDT TRC20 提现',         1, 50, 'crypto'),
   ('usdt-erc-w',           'manual',      'USDT ERC20 提现',         1, 51, 'crypto'),
-  ('ton-w',                'manual',      'TON 提现',                1, 52, 'crypto'),
-  ('btc-w',                'manual',      'Bitcoin 提现',            1, 53, 'crypto'),
-  ('matrix_tlk_testnet_w', 'matrix',      'Matrix TLK 提现 (测试)',  1, 60, 'crypto'),
   ('matrix_trx_testnet_w', 'matrix',      'Matrix TRX 提现 (测试)',  1, 61, 'crypto');

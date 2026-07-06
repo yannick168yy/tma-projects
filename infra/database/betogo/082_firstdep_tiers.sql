@@ -4,7 +4,7 @@
 -- 旧的 match_pct / max_bonus / min_deposit 不再使用，保留不删（避免清数据）。
 
 CREATE TABLE IF NOT EXISTS `bg_firstdep_tiers` (
-  `currency`       VARCHAR(16)   NOT NULL COMMENT '币种：PHP / USDT / USDC / TON / TRX',
+  `currency`       VARCHAR(16)   NOT NULL COMMENT '币种：PHP / USDT / USDC',
   `deposit_amount` DECIMAL(20,4) NOT NULL COMMENT '充值额（该币种口径）',
   `bonus_amount`   DECIMAL(20,4) NOT NULL COMMENT '首存奖励（同币种发放）',
   PRIMARY KEY (`currency`, `deposit_amount`)
@@ -34,15 +34,5 @@ INSERT INTO `bg_firstdep_tiers` (`currency`, `deposit_amount`, `bonus_amount`) V
   ('USDC',  50,     8),
   ('USDC',  100,    15),
   ('USDC',  500,    60),
-  ('USDC',  1000,   100),
-  ('TON',   1,      0.2),
-  ('TON',   5,      1),
-  ('TON',   10,     2),
-  ('TON',   50,     8),
-  ('TON',   100,    15),
-  ('TRX',   100,    2),
-  ('TRX',   500,    10),
-  ('TRX',   1000,   20),
-  ('TRX',   5000,   80),
-  ('TRX',   10000,  150)
+  ('USDC',  1000,   100)
 ON DUPLICATE KEY UPDATE `bonus_amount` = VALUES(`bonus_amount`);

@@ -17,7 +17,7 @@ const MANUAL_TTL = 7 * 24 * 3600 // 手动覆盖：7 天
 const redisKey = (from: string, to: string) => `exchange_rate:${from}:${to}`
 
 /** 与 web-tma 钱包支持的虚拟币种对齐（均为 xxx → PHP） */
-export const CRYPTO_RATE_CURRENCIES = ['USDT', 'USDC', 'TON', 'TRX', 'BNB', 'ETH', 'BTC'] as const
+export const CRYPTO_RATE_CURRENCIES = ['USDT', 'USDC', 'TRX'] as const
 
 export const RATE_PAIRS: [string, string][] = CRYPTO_RATE_CURRENCIES.map(
   (c) => [c, 'PHP'] as [string, string],
@@ -26,11 +26,7 @@ export const RATE_PAIRS: [string, string][] = CRYPTO_RATE_CURRENCIES.map(
 const COINGECKO_IDS: Record<string, string> = {
   USDT: 'tether',
   USDC: 'usd-coin',
-  TON: 'the-open-network',
   TRX: 'tron',
-  BNB: 'binancecoin',
-  ETH: 'ethereum',
-  BTC: 'bitcoin',
 }
 
 const COINGECKO_ID_TO_SYMBOL = Object.fromEntries(
@@ -40,7 +36,6 @@ const COINGECKO_ID_TO_SYMBOL = Object.fromEntries(
 function fallbackRate(from: string, to: string, env: Env): number | null {
   if (to !== 'PHP') return null
   if (from === 'USD' || from === 'USDT' || from === 'USDC') return env.USDT_TO_PHP_RATE
-  if (from === 'TON') return env.TON_TO_PHP_RATE
   if (from === 'PHP') return 1
   return null
 }

@@ -10,7 +10,6 @@ import { rateLimitMiddleware } from './middleware/rateLimit.js'
 import { childLogger } from './lib/logger.js'
 import { createApiRouter } from './routes/index.js'
 import { initStore } from './services/store/index.js'
-import { pollAndSettleTonDeposits } from './services/ton.service.js'
 import { loadGamesCache, refreshHomepageSelection } from './services/sg-game.service.js'
 import { refreshLatestPool, refreshWeekTop, refreshMonthTop } from './services/betting-activity.service.js'
 import { refreshRates } from './services/exchange-rate.service.js'
@@ -26,7 +25,6 @@ export function createApp(env: Env): Koa {
   initStore(env)
   const redis = getRedis(env)
   const log = {
-    ton: childLogger('ton-poller'),
     admin: childLogger('admin-seed'),
     rates: childLogger('exchange-rate'),
     betting: childLogger('betting-activity'),
@@ -35,13 +33,6 @@ export function createApp(env: Env): Koa {
     rebate: childLogger('rebate-payout'),
     payment: childLogger('payment-balance'),
   }
-
-  // TON deposit poller: every 30s
-  setInterval(() => {
-    pollAndSettleTonDeposits(redis, env).catch((err) =>
-      log.ton.error({ err }, 'unhandled error'),
-    )
-  }, 30_000)
 
   // Seed default admin account — retry with backoff until MySQL is reachable
   if (isMysqlEnabled(env)) {

@@ -6,7 +6,6 @@ import csRoutes from './cs.routes.js'
 import userRoutes from './user.routes.js'
 import walletRoutes from './wallet.routes.js'
 import depositRoutes from './deposit.routes.js'
-import tonDepositRoutes from './ton-deposit.routes.js'
 import withdrawRoutes from './withdraw.routes.js'
 import ledgerRoutes from './ledger.routes.js'
 import kycRoutes from './kyc.routes.js'
@@ -73,7 +72,7 @@ export function createApiRouter(): Router {
   api.use(optMw, spinRoutes.routes(), spinRoutes.allowedMethods())
 
   for (const r of [
-    userRoutes, walletRoutes, depositRoutes, tonDepositRoutes, withdrawRoutes,
+    userRoutes, walletRoutes, depositRoutes, withdrawRoutes,
     ledgerRoutes, kycRoutes, promotionRoutes, teamRoutes, agentRoutes, yfpayRoutes, paymentUnifiedRoutes, betsRoutes, turnoverRoutes,
   ]) {
     api.use(protectedMw, r.routes(), r.allowedMethods())
