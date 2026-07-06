@@ -142,7 +142,7 @@ export async function executeTool(
         [context.userId],
       )
       const [withdrawals] = await pool.query<RowDataPacket[]>(
-        `SELECT order_id, amount, currency, channel, status, created_at, completed_at, reject_reason
+        `SELECT order_id, amount, currency, channel, status, created_at, handled_at, reject_reason
          FROM bg_withdraw_order WHERE user_id = ? ORDER BY created_at DESC LIMIT 5`,
         [context.userId],
       )
@@ -163,7 +163,7 @@ export async function executeTool(
           channel: w.channel,
           status: w.status,
           createdAt: w.created_at,
-          completedAt: w.completed_at,
+          completedAt: w.handled_at,
           rejectReason: w.reject_reason,
         })),
       }

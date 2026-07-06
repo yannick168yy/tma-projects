@@ -801,7 +801,7 @@ export async function listAdminWithdrawals(
     reviewVerdict: r.review_verdict ? String(r.review_verdict) : null,
     reviewedAt: r.reviewed_at ? new Date(r.reviewed_at as Date).toISOString() : null,
     createdAt: new Date(r.created_at as Date).toISOString(),
-    completedAt: r.completed_at ? new Date(r.completed_at as Date).toISOString() : null,
+    completedAt: r.handled_at ? new Date(r.handled_at as Date).toISOString() : null,
     rejectReason: r.reject_reason ? String(r.reject_reason) : null,
   }))
 
