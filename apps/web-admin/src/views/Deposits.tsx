@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Table, Space, Input, Select, Button, Tag } from 'antd'
+import { Table, Space, Input, Select, Button, Tag, Grid, Card } from 'antd'
 import type { TablePaginationConfig } from 'antd'
 import { getDeposits, type AdminDeposit } from '../api'
+import { MobileCardList } from '../components/MobileCardList'
 
 function depositStatusColor(s: string) {
   return ({ paid: 'green', pending: 'orange', failed: 'red', cancelled: 'default', rejected: 'red' } as Record<string, string>)[s] ?? 'default'
@@ -13,6 +14,8 @@ function depositStatusLabel(s: string) {
 
 export default function Deposits() {
   const navigate = useNavigate()
+  const screens = Grid.useBreakpoint()
+  const isMobile = !screens.md
   const [userIdFilter, setUserIdFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState<string | undefined>()
   const [loading, setLoading] = useState(false)
@@ -58,7 +61,28 @@ export default function Deposits() {
         ]} />
         <Button type="primary" onClick={() => load(1)}>查询</Button>
       </Space>
-      <Table columns={columns} dataSource={items} loading={loading} pagination={pagination} rowKey="orderId" size="small" />
+      {isMobile ? (
+        <MobileCardList
+          items={items} loading={loading} page={page} total={total} onPage={load}
+          renderItem={(r) => (
+            <Card key={r.orderId} size="small" style={{ marginBottom: 10 }}
+              title={<span style={{ fontFamily: 'monospace', fontSize: 12 }}>{r.orderId}</span>}
+              extra={<Tag color={depositStatusColor(r.status)}>{depositStatusLabel(r.status)}</Tag>}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                <Button type="link" style={{ padding: 0 }} onClick={() => navigate(`/users/${r.userId}`)}>{r.userId}</Button>
+                <span style={{ fontSize: 18, fontWeight: 700 }}>{r.amount} {r.currency}</span>
+              </div>
+              <div style={{ marginTop: 6, color: '#999', fontSize: 12 }}>
+                渠道 {r.channelId} · {new Date(r.createdAt).toLocaleString('zh-CN')}
+                {r.paidAt ? ` · 支付 ${new Date(r.paidAt).toLocaleString('zh-CN')}` : ''}
+              </div>
+            </Card>
+          )}
+        />
+      ) : (
+        <Table columns={columns} dataSource={items} loading={loading} pagination={pagination} rowKey="orderId" size="small" />
+      )}
     </div>
   )
 }

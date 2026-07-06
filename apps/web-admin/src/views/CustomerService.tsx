@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Card, Select, Tag, Button, Input, Space, Empty, Badge, Switch, Tooltip, message } from 'antd'
+import { Card, Select, Tag, Button, Input, Space, Empty, Badge, Switch, Tooltip, message, Grid } from 'antd'
 import type { CsConversation, CsMessage } from '../api'
 import { getCsConversations, getCsConversation, csReply, csTakeover, csResolve, getCsDuty, saveCsDuty } from '../api'
 
@@ -22,6 +22,8 @@ function formatTime(t?: string) {
 }
 
 export default function CustomerService() {
+  const screens = Grid.useBreakpoint()
+  const isMobile = !screens.md
   const [conversations, setConversations] = useState<CsConversation[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(false)
@@ -115,10 +117,15 @@ export default function CustomerService() {
     await loadList(1)
   }
 
+  // 手机上主从切换:未选会话显示列表,选中显示聊天
+  const showList = !isMobile || !selectedId
+  const showChat = !isMobile || !!selectedId
+
   return (
     <div style={{ display: 'flex', gap: 16, height: 'calc(100vh - 112px)' }}>
+      {showList && (
       <Card
-        style={{ width: 340, flexShrink: 0, overflow: 'auto' }}
+        style={{ width: isMobile ? '100%' : 340, flexShrink: 0, overflow: 'auto' }}
         styles={{ body: { padding: '8px 0' } }}
         title={<span>客服会话 <Badge count={unreadCount} style={{ marginLeft: 8 }} /></span>}
         extra={
@@ -176,13 +183,15 @@ export default function CustomerService() {
           </div>
         )}
       </Card>
+      )}
 
-      {selectedId ? (
+      {showChat && (selectedId ? (
         <Card
           style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
           styles={{ body: { flex: 1, display: 'flex', flexDirection: 'column', padding: 12, overflow: 'hidden' } }}
           title={
             <span>
+              {isMobile && <Button size="small" style={{ marginRight: 8 }} onClick={() => setSelectedId(null)}>返回</Button>}
               {selectedConv?.displayName || `用户#${selectedConv?.userId}`}
               <Tag color={statusColor(selectedConv?.status)} style={{ marginLeft: 8 }}>{statusText(selectedConv?.status)}</Tag>
               {selectedConv?.escalateReason && <Tag color="volcano">{reasonText(selectedConv.escalateReason)}</Tag>}
@@ -230,8 +239,8 @@ export default function CustomerService() {
           )}
         </Card>
       ) : (
-        <Empty description="选择一个会话开始处理" style={{ margin: 'auto' }} />
-      )}
+        !isMobile && <Empty description="选择一个会话开始处理" style={{ margin: 'auto' }} />
+      ))}
     </div>
   )
 }

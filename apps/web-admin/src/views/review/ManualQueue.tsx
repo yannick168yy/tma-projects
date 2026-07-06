@@ -1,12 +1,15 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Table, Space, Button, Tag, Modal, Input, message } from 'antd'
+import { Table, Space, Button, Tag, Modal, Input, message, Grid, Card } from 'antd'
 import type { TablePaginationConfig } from 'antd'
 import { getManualQueue, approveTeamWithdrawal, rejectTeamWithdrawal, type ManualQueueItem } from '../../api'
+import { MobileCardList } from '../../components/MobileCardList'
 import { wdStatusLabel } from './shared'
 
 export default function ManualQueue() {
   const navigate = useNavigate()
+  const screens = Grid.useBreakpoint()
+  const isMobile = !screens.md
   const [loading, setLoading] = useState(false)
   const [items, setItems] = useState<ManualQueueItem[]>([])
   const [total, setTotal] = useState(0)
@@ -142,14 +145,60 @@ export default function ManualQueue() {
           onChange={(e) => setRejectReason(e.target.value)}
         />
       </Modal>
-      <Table
-        columns={columns}
-        dataSource={items}
-        loading={loading}
-        pagination={pagination}
-        rowKey={(r) => `${r.kind}-${r.id}`}
-        size="small"
-      />
+      {isMobile ? (
+        <MobileCardList
+          items={items} loading={loading} page={page} total={total} onPage={load} empty="暂无待处理"
+          renderItem={(r) => (
+            <Card
+              key={`${r.kind}-${r.id}`}
+              size="small"
+              style={{ marginBottom: 10 }}
+              title={
+                <Space size={6}>
+                  {r.kind === 'team' ? <Tag color="purple">佣金提现</Tag> : <Tag color="blue">用户提款</Tag>}
+                  <span style={{ fontFamily: 'monospace', fontSize: 11, color: '#999', fontWeight: 400 }}>{r.id}</span>
+                </Space>
+              }
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                <Button type="link" style={{ padding: 0 }} onClick={() => navigate(`/users/${r.userId}`)}>
+                  {r.displayName || r.userId}
+                </Button>
+                <span style={{ fontSize: 20, fontWeight: 700 }}>
+                  ₱{r.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              </div>
+              {r.hitRules.length > 0 && (
+                <div style={{ marginTop: 6 }}>
+                  <Space size={[0, 4]} wrap>{r.hitRules.map((h) => <Tag key={h.code} color="orange">{h.name}</Tag>)}</Space>
+                </div>
+              )}
+              <div style={{ marginTop: 6, color: '#999', fontSize: 12 }}>
+                {wdStatusLabel(r.status)} · {new Date(r.createdAt).toLocaleString('zh-CN')}
+              </div>
+              <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                {r.kind === 'user' ? (
+                  <Button block size="large" onClick={() => navigate(`/review/proposals/${r.id}`)}>详情</Button>
+                ) : (
+                  <>
+                    <Button type="primary" size="large" style={{ flex: 1 }} onClick={() => handleApprove(r)}>出款</Button>
+                    <Button danger size="large" style={{ flex: 1 }} onClick={() => handleReject(r)}>拒绝</Button>
+                  </>
+                )}
+              </div>
+            </Card>
+          )}
+        />
+      ) : (
+        <Table
+          columns={columns}
+          dataSource={items}
+          loading={loading}
+          pagination={pagination}
+          rowKey={(r) => `${r.kind}-${r.id}`}
+          size="small"
+        />
+      )}
     </div>
   )
 }

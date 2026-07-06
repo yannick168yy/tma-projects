@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Table, Space, Input, Select, Button, Tag, Modal, Popconfirm, message, Descriptions, Spin } from 'antd'
+import { Table, Space, Input, Select, Button, Tag, Modal, Popconfirm, message, Descriptions, Spin, Grid, Card, Collapse } from 'antd'
 import type { TablePaginationConfig } from 'antd'
 import { getWithdrawals, approveWithdrawal, rejectWithdrawal, getWithdrawalReview, type AdminWithdrawal, type ReviewRuleResult } from '../api'
+import { MobileCardList } from '../components/MobileCardList'
 
 function wdStatusColor(s: string) {
   return ({ completed: 'green', pending: 'orange', processing: 'blue', rejected: 'red', admin_rejected: 'red', failed: 'red' } as Record<string, string>)[s] ?? 'default'
@@ -49,6 +50,8 @@ function ReviewDetail({ orderId }: { orderId: string }) {
 
 export default function Withdrawals() {
   const navigate = useNavigate()
+  const screens = Grid.useBreakpoint()
+  const isMobile = !screens.md
   const [userIdFilter, setUserIdFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState<string | undefined>()
   const [verdictFilter, setVerdictFilter] = useState<string | undefined>()
@@ -133,18 +136,53 @@ export default function Withdrawals() {
         ]} />
         <Button type="primary" onClick={() => load(1)}>查询</Button>
       </Space>
-      <Table
-        columns={columns}
-        dataSource={items}
-        loading={loading}
-        pagination={pagination}
-        rowKey="orderId"
-        size="small"
-        expandable={{
-          expandedRowRender: (r) => <ReviewDetail orderId={r.orderId} />,
-          rowExpandable: (r) => r.reviewVerdict != null,
-        }}
-      />
+      {isMobile ? (
+        <MobileCardList
+          items={items} loading={loading} page={page} total={total} onPage={load}
+          renderItem={(r) => (
+            <Card key={r.orderId} size="small" style={{ marginBottom: 10 }}
+              title={<span style={{ fontFamily: 'monospace', fontSize: 12 }}>{r.orderId}</span>}
+              extra={<Tag color={wdStatusColor(r.status)}>{wdStatusLabel(r.status)}</Tag>}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                <Button type="link" style={{ padding: 0 }} onClick={() => navigate(`/users/${r.userId}`)}>{r.userId}</Button>
+                <span style={{ fontSize: 18, fontWeight: 700 }}>{r.amount} {r.currency}</span>
+              </div>
+              <div style={{ marginTop: 6, color: '#999', fontSize: 12 }}>
+                渠道 {r.channelId} · {new Date(r.createdAt).toLocaleString('zh-CN')}
+              </div>
+              <div style={{ marginTop: 4 }}>{verdictTag(r.reviewVerdict)}</div>
+              {r.reviewVerdict != null && (
+                <Collapse
+                  ghost size="small" style={{ marginTop: 4 }}
+                  items={[{ key: 'd', label: '审核明细', children: <ReviewDetail orderId={r.orderId} /> }]}
+                />
+              )}
+              {r.status === 'pending' && (
+                <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                  <Popconfirm title="确认批准此提款？" onConfirm={() => doApprove(r.orderId)}>
+                    <Button type="primary" size="large" style={{ flex: 1 }}>批准</Button>
+                  </Popconfirm>
+                  <Button danger size="large" style={{ flex: 1 }} onClick={() => setRejectModal({ visible: true, orderId: r.orderId, reason: '' })}>拒绝</Button>
+                </div>
+              )}
+            </Card>
+          )}
+        />
+      ) : (
+        <Table
+          columns={columns}
+          dataSource={items}
+          loading={loading}
+          pagination={pagination}
+          rowKey="orderId"
+          size="small"
+          expandable={{
+            expandedRowRender: (r) => <ReviewDetail orderId={r.orderId} />,
+            rowExpandable: (r) => r.reviewVerdict != null,
+          }}
+        />
+      )}
       <Modal
         open={rejectModal.visible}
         title="拒绝原因"

@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Table, Tag, Select, Button, Space, Switch, Card, InputNumber, message } from 'antd'
+import { Table, Tag, Select, Button, Space, Switch, Card, InputNumber, message, Grid } from 'antd'
 import { getKycList, getKycSettings, setKycSettings, type AdminKycListItem, type KycStepSettings } from '../api'
+import { MobileCardList } from '../components/MobileCardList'
 
 function kycStatusTag(status: string) {
   const map: Record<string, { color: string; label: string }> = {
@@ -16,6 +17,8 @@ function kycStatusTag(status: string) {
 
 export default function KycList() {
   const navigate = useNavigate()
+  const screens = Grid.useBreakpoint()
+  const isMobile = !screens.md
   const [loading, setLoading] = useState(false)
   const [items, setItems] = useState<AdminKycListItem[]>([])
   const [total, setTotal] = useState(0)
@@ -139,13 +142,42 @@ export default function KycList() {
           ]}
         />
       </div>
-      <Table
-        rowKey="userId"
-        loading={loading}
-        columns={columns}
-        dataSource={items}
-        pagination={{ current: page, total, pageSize: 20, onChange: setPage }}
-      />
+      {isMobile ? (
+        <MobileCardList
+          items={items} loading={loading} page={page} total={total} onPage={setPage}
+          renderItem={(r) => {
+            const ts = r.faceSubmittedAt ?? r.docSubmittedAt ?? r.submittedAt
+            return (
+              <Card key={r.userId} size="small" style={{ marginBottom: 10 }}
+                title={<Space>{r.displayName || r.userId} {kycStatusTag(r.status)}</Space>}
+              >
+                <div style={{ color: '#999', fontSize: 12 }}>
+                  ID {r.userId}{r.fullName ? ` · ${r.fullName}` : ''}{r.phone ? ` · ${r.phone}` : ''}
+                </div>
+                <div style={{ marginTop: 6 }}>
+                  <Space size={4}>
+                    <Tag color={r.phoneVerified ? 'green' : 'default'}>手机</Tag>
+                    <Tag color={r.docVerified ? 'green' : 'default'}>证件</Tag>
+                    <Tag color={r.faceVerified ? 'green' : 'default'}>人脸</Tag>
+                  </Space>
+                </div>
+                <div style={{ marginTop: 6, color: '#999', fontSize: 12 }}>
+                  {ts ? new Date(ts).toLocaleString('zh-CN') : '—'}
+                </div>
+                <Button block size="large" style={{ marginTop: 12 }} onClick={() => navigate(`/kyc/${r.userId}`)}>查看详情</Button>
+              </Card>
+            )
+          }}
+        />
+      ) : (
+        <Table
+          rowKey="userId"
+          loading={loading}
+          columns={columns}
+          dataSource={items}
+          pagination={{ current: page, total, pageSize: 20, onChange: setPage }}
+        />
+      )}
     </div>
   )
 }
