@@ -39,7 +39,7 @@ export default function GoogleAuthCallback() {
     const referralCode = storedState ? extractRefFromOAuthState(storedState) : ''
     completeGoogleLogin(code, getGoogleRedirectUri(), referralCode || undefined)
       .then((session) => {
-        applySession(session)
+        applySession(session, 'google')
         analytics.loginSuccess(session.user.loginProvider ?? 'google', session.isNewUser)
         clearStoredOAuthState()
         window.location.replace('/')

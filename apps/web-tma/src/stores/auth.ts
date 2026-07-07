@@ -10,7 +10,7 @@ import { isInsideTelegram } from '@/utils/initTelegramWebApp'
 import { clearStoredReferral, getStoredReferral } from '@/utils/referral'
 import { isRememberMeEnabled, saveLastLogin } from '@/utils/lastLogin'
 import { analytics, setAnalyticsUser } from '@/utils/analytics'
-import type { PasswordMethod, TelegramWidgetUser } from '@/types/api'
+import type { LoginProvider, PasswordMethod, TelegramWidgetUser } from '@/types/api'
 
 const LOGOUT_FLAG = 'betogo_logged_out'
 import { i18n } from '@/i18n'
@@ -33,7 +33,7 @@ interface AuthState {
 interface AuthActions {
   bootstrap: () => Promise<void>
   tryTelegramAutoLogin: () => Promise<void>
-  applySession: (session: { token: string; user: AuthUser; isNewUser: boolean; trialRedPacketEligible?: boolean }) => void
+  applySession: (session: { token: string; user: AuthUser; isNewUser: boolean; trialRedPacketEligible?: boolean }, loginMethod?: LoginProvider) => void
   ensureLoggedIn: (reason: string) => Promise<boolean>
   requireLogin: (reason: string) => boolean
   closeLoginSheet: () => void
@@ -98,11 +98,11 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
     set({ tgAutoLoginAttempted: true })
     try {
       const session = await loginTelegram()
-      get().applySession(session)
+      get().applySession(session, 'telegram')
     } catch { /* 保留当前会话或访客模式 */ }
   },
 
-  applySession(session) {
+  applySession(session, loginMethod) {
     setAnalyticsUser(session.user)
     set({
       token: session.token,
@@ -112,12 +112,14 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
     })
     localStorage.setItem('betogo_token', session.token)
     localStorage.removeItem(LOGOUT_FLAG) // 成功登录后解除登出抑制
-    // 记住上次登录方式，供下次打开登录框快捷续登；只记身份标识，不记密码
-    const provider = session.user.loginProvider
-    if (provider) {
-      const identifier = provider === 'phone' ? session.user.phone : provider === 'account' ? session.user.username : undefined
+    // 记住"本次实际使用"的登录方式，供下次打开登录框快捷续登；只记身份标识，不记密码。
+    // 必须用 loginMethod（发起登录时确定），不能用 user.loginProvider——后者是后端按
+    // 固定优先级(telegram>google>...)从已绑定身份推导的，多绑用户会恒为 telegram，导致
+    // 上次用 Google 登录却提示"继续用 Telegram"。boot/restore 无本次方式，不覆写记录。
+    if (loginMethod) {
+      const identifier = loginMethod === 'phone' ? session.user.phone : loginMethod === 'account' ? session.user.username : undefined
       saveLastLogin({
-        provider,
+        provider: loginMethod,
         identifier: isRememberMeEnabled() ? identifier : undefined,
         displayName: session.user.displayName,
         avatarUrl: session.user.avatarUrl,
@@ -160,7 +162,7 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
   async loginWithTelegram() {
     analytics.loginStart('telegram')
     const session = await loginTelegram()
-    get().applySession(session)
+    get().applySession(session, 'telegram')
     analytics.loginSuccess(session.user.loginProvider ?? 'telegram', session.isNewUser)
     get().closeLoginSheet()
     useWalletStore.getState().setBalance(await fetchBalance())
@@ -170,7 +172,7 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
   async loginWithTelegramWidget(data) {
     analytics.loginStart('telegram')
     const session = await loginTelegramWidget(data)
-    get().applySession(session)
+    get().applySession(session, 'telegram')
     analytics.loginSuccess(session.user.loginProvider ?? 'telegram', session.isNewUser)
     get().closeLoginSheet()
     useWalletStore.getState().setBalance(await fetchBalance())
@@ -190,7 +192,7 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
   async loginWithPassword(method, identifier, password) {
     analytics.loginStart(method)
     const session = await loginPassword(method, identifier, password)
-    get().applySession(session)
+    get().applySession(session, method)
     analytics.loginSuccess(session.user.loginProvider ?? method, session.isNewUser)
     get().closeLoginSheet()
     useWalletStore.getState().setBalance(await fetchBalance())
@@ -209,7 +211,7 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
   async registerWithPassword(method, identifier, password, refCodeOverride?: string) {
     analytics.loginStart(method)
     const session = await registerPassword(method, identifier, password, refCodeOverride ?? getStoredReferral() ?? undefined)
-    get().applySession(session)
+    get().applySession(session, method)
     analytics.loginSuccess(session.user.loginProvider ?? method, true)
     get().closeLoginSheet()
     useWalletStore.getState().setBalance(await fetchBalance())

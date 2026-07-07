@@ -12,7 +12,7 @@ import {
 } from './store/index.js'
 import { nowIso } from '../utils/format.js'
 import { createDepositRequirement, createPromoRequirement } from './turnover.service.js'
-import { getFirstDepConfigByPool, matchFirstDepBonus, PROMO_DEFAULTS } from './promo-config.service.js'
+import { getFirstDepConfigByPool, getReferralConfigByPool, matchFirstDepBonus, PROMO_DEFAULTS } from './promo-config.service.js'
 
 export type DepositCurrency = 'PHP' | 'USDT'
 

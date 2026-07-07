@@ -52,7 +52,8 @@ const DEFAULT_FIRSTDEP_TIERS: Record<string, FirstDepTier[]> = {
 }
 
 export const PROMO_DEFAULTS: PromoConfig = {
-  trial:    { amount: 88, enabled: true, turnoverX: 0, turnoverDays: 0 },
+  // trial 流水 3x：0x 时体验金可直接提现（资损口子），与活动展示口径一致
+  trial:    { amount: 88, enabled: true, turnoverX: 3, turnoverDays: 0 },
   referral: { inviterAmount: 50, inviteeAmount: 30, enabled: true, turnoverX: 0, turnoverDays: 0 },
   firstdep: { enabled: true, turnoverX: 15, turnoverDays: 30, tiers: DEFAULT_FIRSTDEP_TIERS },
   // App/PWA 下载礼金：默认关闭，后台开启后客户端宣传位才展示
@@ -204,6 +205,27 @@ export async function getFirstDepConfigByPool(pool: Pool): Promise<PromoConfig['
       tiers[cur].push({ depositAmount: Number(r.deposit_amount), bonusAmount: Number(r.bonus_amount) })
     }
     return { enabled: bool(f.enabled, D.enabled), turnoverX: num(f.turnover_x, D.turnoverX), turnoverDays: num(f.turnover_days, D.turnoverDays), tiers }
+  } catch {
+    return D
+  }
+}
+
+/** 充值结算时按 Pool 直接读邀请奖配置（避免在结算链路里再传 env）。 */
+export async function getReferralConfigByPool(pool: Pool): Promise<PromoConfig['referral']> {
+  const D = PROMO_DEFAULTS.referral
+  try {
+    const [cfgRows] = await pool.query<RowDataPacket[]>(
+      "SELECT config_key, config_value FROM bg_promo_config WHERE promo_id = 'referral'",
+    )
+    const f: Record<string, string> = {}
+    for (const r of cfgRows) f[String(r.config_key)] = String(r.config_value)
+    return {
+      inviterAmount: num(f.inviter_amount, D.inviterAmount),
+      inviteeAmount: num(f.invitee_amount, D.inviteeAmount),
+      enabled: bool(f.enabled, D.enabled),
+      turnoverX: num(f.turnover_x, D.turnoverX),
+      turnoverDays: num(f.turnover_days, D.turnoverDays),
+    }
   } catch {
     return D
   }

@@ -42,7 +42,7 @@ export default function TelegramAuthCallback() {
     const referralCode = readStoredRef()
     completeTelegramLogin(code, getTelegramRedirectUri(), referralCode || undefined)
       .then((session) => {
-        applySession(session)
+        applySession(session, 'telegram')
         analytics.loginSuccess(session.user.loginProvider ?? 'telegram_oidc', session.isNewUser)
         clearStoredOAuthState()
         window.location.replace('/')
