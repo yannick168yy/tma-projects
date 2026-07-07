@@ -2,6 +2,7 @@ export default {
   checkin: {
     title: '每日签到',
     subtitle: '连签 {{streak}} 天 · 本月 {{monthDays}} 天',
+    rewardIntro: '签到即领【幸运转盘】免费抽奖次数 🎡 连签越久档位越高、奖池越大',
     dayLabel: '第{{day}}天',
     peak: '峰值',
     daysUnit: '天',

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
-import { X, Check, Gift, Sparkles } from 'lucide-react'
+import { X, Check, Sparkles } from 'lucide-react'
 import { fetchCheckinStatus, claimCheckin, type CheckinStatus, type CheckinTier, type CheckinClaimResult } from '@/api/promotion'
 import { ApiError } from '@/api/client'
 import { useWalletStore } from '@/stores/wallet'
@@ -80,6 +80,7 @@ export default function CheckinSheet({ open, onClose, onOpenSpin }: Props) {
                 {t('checkin.subtitle', { streak: status.streak, monthDays: status.monthDays })}
               </p>
             )}
+            <p className="mx-auto mt-2 max-w-[280px] text-[11px] leading-snug text-amber-300/90">{t('checkin.rewardIntro')}</p>
           </div>
 
           {loading && <div className="py-12 text-center text-sm text-white/50">…</div>}
@@ -108,9 +109,9 @@ export default function CheckinSheet({ open, onClose, onOpenSpin }: Props) {
                       <span className="text-[9px] font-bold text-white/50">{t('checkin.dayLabel', { day: c.day })}</span>
                       {done
                         ? <Check size={16} className="text-primary" strokeWidth={3} />
-                        : <Gift size={16} className={peak ? 'text-amber-300' : 'text-white/70'} />}
-                      <span className={`text-[9px] font-black ${peak ? 'text-amber-300' : 'text-white/70'}`}>×{c.base.n}</span>
-                      {peak && <span className="text-[7px] font-black uppercase text-amber-300/90">{t('checkin.peak')}</span>}
+                        : <span className="text-base leading-none">🎡</span>}
+                      <span className={`text-[9px] font-black ${peak ? 'text-amber-300' : 'text-white/80'}`}>×{c.base.n}</span>
+                      <span className={`text-[7px] font-bold leading-none ${peak ? 'text-amber-300' : 'text-white/45'}`}>{tierLabel(c.base.tier)}</span>
                     </div>
                   )
                 })}
@@ -133,7 +134,7 @@ export default function CheckinSheet({ open, onClose, onOpenSpin }: Props) {
                       m.reached ? 'bg-amber-500/15 ring-amber-400/40' : 'bg-white/[0.04] ring-white/10'
                     }`}>
                       <span className={`text-sm font-black ${m.reached ? 'text-amber-300' : 'text-white/70'}`}>{m.atDays}{t('checkin.daysUnit')}</span>
-                      <span className={`text-[10px] font-bold ${TIER_TEXT[m.tier]}`}>{tierLabel(m.tier)} ×{m.n}</span>
+                      <span className={`text-[10px] font-bold ${TIER_TEXT[m.tier]}`}>🎡 {tierLabel(m.tier)}×{m.n}</span>
                     </div>
                   ))}
                 </div>

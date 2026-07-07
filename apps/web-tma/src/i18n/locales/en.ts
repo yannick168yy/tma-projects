@@ -2,10 +2,11 @@ export default {
   checkin: {
     title: 'Daily Check-in',
     subtitle: '{{streak}}-day streak · {{monthDays}} days this month',
+    rewardIntro: 'Check in for free Lucky Wheel spins 🎡 — higher tiers & bigger pots as your streak grows',
     dayLabel: 'D{{day}}',
     peak: 'Peak',
     daysUnit: 'd',
-    tier: { starter: 'Spin', premium: 'Premium', elite: 'Elite' },
+    tier: { starter: 'Basic', premium: 'Premium', elite: 'Elite' },
     enhancedHint: 'Deposit or place a bet today to unlock the enhanced reward',
     enhancedUnlocked: 'Enhanced reward unlocked for today',
     milestoneTitle: 'Monthly Milestones',
