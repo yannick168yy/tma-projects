@@ -70,7 +70,7 @@ export const RULE_META: Record<string, { name: string; desc: string }> = {
   total_bonus:              { name: '总优惠金额', desc: '历史优惠领取表已废弃；当前无可用统计源。阈值≤0 表示不启用。' },
   first_withdraw_no_deposit:{ name: '首次取款', desc: '该账号此前无任何成功取款，且历史无真实存款，首次取款即转人工。' },
   upline_blacklist:         { name: '上线黑名单', desc: '该用户的邀请人（上线）处于封禁/冻结或风控黑名单中，则本次取款转人工。' },
-  same_ip_device:           { name: '同IP同设备', desc: '与其它账号共用同一 IP 的数量 ≥ ip 阈值；设备会话表已废弃。' },
+  same_ip_device:           { name: '同IP同设备', desc: '近30天与其它账号共用同一 IP 的数量 ≥ ip 阈值，或共用同一设备(device_id/硬件指纹)的数量 ≥ device 阈值。' },
   promo_turnover:           { name: '优惠流水', desc: '存在已领取但尚未打完所需流水的优惠（剩余打码 > 0）则转人工。' },
   tampered_bet:             { name: '篡改注单', desc: '存在无对应投注却凭空派彩的 round，疑似数据被篡改，转人工。' },
   commission_anomaly:       { name: '三级分销佣金', desc: '三级分销佣金出现重复入账，或自身有佣金收益但下线累计 GGR ≤ 0（疑似刷佣），转人工。' },
@@ -276,13 +276,15 @@ const RULES: Record<string, Rule> = {
   same_ip_device(ctx, cfg) {
     const params = cfg.params ?? {}
     const ipTh = Number(params.ip ?? 3)
-    const hit = ctx.relatedIpAccounts >= ipTh
+    // 设备门槛比 IP 更严：同一台设备登录 ≥2 个账号即可疑（IP 会因共享网络误伤，设备几乎不会）
+    const deviceTh = Number(params.device ?? 2)
+    const hit = ctx.relatedIpAccounts >= ipTh || ctx.relatedDeviceAccounts >= deviceTh
     return {
       code: 'same_ip_device',
       verdict: hit ? 'manual' : 'pass',
       actualValue: Math.max(ctx.relatedIpAccounts, ctx.relatedDeviceAccounts),
-      threshold: ipTh,
-      detail: { relatedIpAccounts: ctx.relatedIpAccounts, relatedDeviceAccounts: ctx.relatedDeviceAccounts },
+      threshold: Math.min(ipTh, deviceTh),
+      detail: { relatedIpAccounts: ctx.relatedIpAccounts, relatedDeviceAccounts: ctx.relatedDeviceAccounts, ipTh, deviceTh },
     }
   },
 
@@ -421,12 +423,24 @@ async function buildContext(pool: Pool, order: OrderWithdraw, config: Record<str
     [userId, order.currency],
   )
 
-  // 同 IP（近30天）的其他账号数；设备会话表已废弃。
+  // 同 IP（近30天）的其他账号数
   const [[ip]] = await pool.query<RowDataPacket[]>(
     `SELECT COUNT(DISTINCT l2.user_id) AS cnt
      FROM bg_login_log l1
      JOIN bg_login_log l2 ON l2.ip = l1.ip AND l2.user_id <> l1.user_id
      WHERE l1.user_id = ? AND l1.ip IS NOT NULL AND l1.created_at > NOW() - INTERVAL 30 DAY`,
+    [userId],
+  )
+
+  // 同设备（近30天）的其他账号数：device_id 相同，或硬件指纹 fp_visitor 相同（清缓存后 device_id 变但指纹仍在）
+  const [[dev]] = await pool.query<RowDataPacket[]>(
+    `SELECT COUNT(DISTINCT l2.user_id) AS cnt
+     FROM bg_login_log l1
+     JOIN bg_login_log l2
+       ON l2.user_id <> l1.user_id
+      AND ( (l1.device_id IS NOT NULL AND l2.device_id = l1.device_id)
+         OR (l1.fp_visitor IS NOT NULL AND l2.fp_visitor = l1.fp_visitor) )
+     WHERE l1.user_id = ? AND l1.created_at > NOW() - INTERVAL 30 DAY`,
     [userId],
   )
 
@@ -472,7 +486,7 @@ async function buildContext(pool: Pool, order: OrderWithdraw, config: Record<str
     uplineBlacklisted,
     promoTurnoverRemaining: Number(pt?.remaining ?? 0),
     relatedIpAccounts: Number(ip?.cnt ?? 0),
-    relatedDeviceAccounts: 0,
+    relatedDeviceAccounts: Number(dev?.cnt ?? 0),
     tamperOrphanRounds: Number(orphan?.cnt ?? 0),
     commissionEarnedCents: Number(comm?.earned ?? 0),
     commissionDownlineGgrCents: Number(comm?.downline_ggr ?? 0),
@@ -622,7 +636,7 @@ export async function getReviewLog(env: Env, orderId: string) {
   }))
 }
 
-/** 与某用户共用同 IP 的关联账号（人工核查辅助，实时查询） */
+/** 与某用户共用同 IP / 同设备的关联账号（人工核查辅助，实时查询） */
 export async function getRelatedAccounts(env: Env, userId: string) {
   if (!isMysqlEnabled(env)) return { ip: [], device: [] }
   const pool = getMysqlPool(env)
@@ -634,8 +648,20 @@ export async function getRelatedAccounts(env: Env, userId: string) {
      LIMIT 50`,
     [userId],
   )
+  // 同设备：device_id 或硬件指纹 fp_visitor 命中；展示值优先 device_id，缺失回落 fp_visitor
+  const [deviceRows] = await pool.query<RowDataPacket[]>(
+    `SELECT DISTINCT l2.user_id, COALESCE(l1.device_id, l1.fp_visitor) AS device_id
+     FROM bg_login_log l1
+     JOIN bg_login_log l2
+       ON l2.user_id <> l1.user_id
+      AND ( (l1.device_id IS NOT NULL AND l2.device_id = l1.device_id)
+         OR (l1.fp_visitor IS NOT NULL AND l2.fp_visitor = l1.fp_visitor) )
+     WHERE l1.user_id = ? AND l1.created_at > NOW() - INTERVAL 30 DAY
+     LIMIT 50`,
+    [userId],
+  )
   return {
     ip: ipRows.map((r) => ({ userId: String(r.user_id), ip: String(r.ip) })),
-    device: [],
+    device: deviceRows.map((r) => ({ userId: String(r.user_id), deviceId: String(r.device_id ?? '') })),
   }
 }
