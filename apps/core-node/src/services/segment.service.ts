@@ -103,7 +103,10 @@ export async function recomputeSegments(pool: Pool, now: Date = new Date()): Pro
         COALESCE(t.activated, 0)     AS is_agent
       FROM bg_user u
       LEFT JOIN (
-        SELECT user_id, COUNT(*) cnt, SUM(credited_cents) total, MAX(paid_at) last_paid_at
+        SELECT user_id,
+               COUNT(*) cnt,
+               SUM(CASE WHEN currency = 'PHP' THEN amount ELSE 0 END) total,
+               MAX(created_at) last_paid_at
           FROM bg_deposit_order WHERE status = 'paid' GROUP BY user_id
       ) d ON d.user_id = u.id
       LEFT JOIN (
