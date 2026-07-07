@@ -616,6 +616,12 @@ export default {
         claimFailed: 'Claim failed. Please try again.',
         step1: 'Register a new account',
         step2: 'Receive ₱{{amount}} bonus instantly',
+        bind: {
+          title: 'Verify Phone to Claim',
+          subtitle: 'Verify your phone number via SMS to claim ₱{{amount}} in free credits',
+          bound: 'Phone verified. Tap below to claim your bonus',
+          claimCta: 'Claim ₱{{amount}} Bonus',
+        },
       },
       firstdep: {
         tag: 'FIRST DEPOSIT',

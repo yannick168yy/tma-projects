@@ -401,6 +401,12 @@ export default {
         claimFailed: 'Gagal klaim. Coba lagi.',
         step1: 'Daftar akun baru',
         step2: 'Terima bonus ₱{{amount}} instan',
+        bind: {
+          title: 'Verifikasi Ponsel untuk Klaim',
+          subtitle: 'Verifikasi nomor ponsel via SMS untuk klaim ₱{{amount}} kredit gratis',
+          bound: 'Ponsel terverifikasi. Ketuk di bawah untuk klaim bonus',
+          claimCta: 'Klaim Bonus ₱{{amount}}',
+        },
       },
       firstdep: {
         tag: 'DEPOSIT PERTAMA',

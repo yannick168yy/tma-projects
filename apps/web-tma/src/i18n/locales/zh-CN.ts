@@ -606,6 +606,12 @@ export default {
         claimFailed: '领取失败，请稍后重试',
         step1: '注册新账号',
         step2: '即时到账 ₱{{amount}} 礼金',
+        bind: {
+          title: '绑定手机号领取礼金',
+          subtitle: '完成手机号短信验证后即可领取 ₱{{amount}} 免费礼金',
+          bound: '手机号已绑定，点击下方领取礼金',
+          claimCta: '领取 ₱{{amount}} 礼金',
+        },
       },
       firstdep: {
         tag: '首充',

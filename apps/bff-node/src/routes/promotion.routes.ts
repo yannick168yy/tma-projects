@@ -1,7 +1,7 @@
 import Router from '@koa/router'
 import type { RowDataPacket } from 'mysql2/promise'
 import type { Env } from '../config/env.js'
-import { creditWallet, getUser, listLedger, saveUser } from '../services/store.js'
+import { creditWallet, getKyc, getUser, listLedger, saveUser } from '../services/store.js'
 import { formatDisplayTime, nowIso } from '../utils/format.js'
 import { fail, ok } from '../utils/response.js'
 import { getPromoConfig } from '../services/promo-config.service.js'
@@ -105,6 +105,9 @@ router.post('/trial-play/claim', async (ctx) => {
       const user = await getUser(ctx.state.redis, ctx.state.userId!)
       if (!user) throw new Error('User not found')
       if (user.trialClaimed) throw new Error('Trial bonus already claimed')
+      // 领取前必须完成手机号短信验证（前端弹窗引导绑定，此处为防绕过的后端硬闸门）
+      const kyc = await getKyc(ctx.state.redis, ctx.state.userId!)
+      if (!kyc?.phoneVerified) throw new Error('Phone verification required')
       const cfg = await getPromoConfig(ctx.state.env)
       if (!cfg.trial.enabled) throw new Error('Trial bonus is currently disabled')
       const amount = cfg.trial.amount
@@ -133,6 +136,10 @@ router.post('/trial-play/claim', async (ctx) => {
     }
     if (msg === 'errors.duplicateRequest') {
       fail(ctx, 429, msg, 429)
+      return
+    }
+    if (msg === 'Phone verification required') {
+      fail(ctx, 403, msg, 403)
       return
     }
     fail(ctx, 409, msg)

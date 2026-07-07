@@ -9,6 +9,7 @@ import { fetchAppdlStatus, claimAppdlBonus, type NewPlayerSummary } from '@/api/
 import { isStandalone } from '@/utils/pwa'
 import { isInsideTelegram } from '@/utils/initTelegramWebApp'
 import { analytics } from '@/utils/analytics'
+import TrialClaimModal from '@/components/promotion/TrialClaimModal'
 import bonusesHero from '@/assets/home/promos/hero-4.webp'
 
 interface Props {
@@ -30,7 +31,6 @@ export default function BonusesPage({ promoFilter, onOpenWallet, onOpenTeam, onO
   const promotionStore = usePromotionStore()
   const highlights = usePromotionStore((s) => s.highlights)
   const trialClaiming = usePromotionStore((s) => s.trialClaiming)
-  const claimTrialIfEligible = usePromotionStore((s) => s.claimTrialIfEligible)
   const token = useAuthStore((s) => s.token)
   const user = useAuthStore((s) => s.user)
   const trialEligible = useAuthStore((s) => s.trialEligible)
@@ -41,6 +41,7 @@ export default function BonusesPage({ promoFilter, onOpenWallet, onOpenTeam, onO
 
   const [expanded, setExpanded] = useState<string | null>(promoFilter ?? null)
   const [promoError, setPromoError] = useState<string | null>(null)
+  const [trialModalOpen, setTrialModalOpen] = useState(false)
   const [appdlClaimed, setAppdlClaimed] = useState(false)
   const [appdlClaiming, setAppdlClaiming] = useState(false)
   const [appdlMsg, setAppdlMsg] = useState<{ ok: boolean; text: string } | null>(null)
@@ -113,8 +114,8 @@ export default function BonusesPage({ promoFilter, onOpenWallet, onOpenTeam, onO
     }
     if (promoId !== 'trial') return
     if (!(await ensureLoggedIn(t('auth.signInProfile')))) return
-    const result = await claimTrialIfEligible()
-    if (!result.ok && !result.alreadyClaimed && result.message) setPromoError(result.message)
+    // 领礼金前先引导绑定手机号（短信验证），绑定成功后在弹窗内领取
+    setTrialModalOpen(true)
   }
 
   const localizedPromos = useMemo(
@@ -439,6 +440,12 @@ export default function BonusesPage({ promoFilter, onOpenWallet, onOpenTeam, onO
       <div className="mx-4 mt-4 mb-2 bg-secondary/50 rounded-xl px-4 py-3 border border-border">
         <p className="text-muted-foreground text-[11px] leading-relaxed text-center">{t('bonuses.disclaimer')}</p>
       </div>
+
+      <TrialClaimModal
+        open={trialModalOpen}
+        amountPhp={promoConfig?.trial.amount ?? 0}
+        onClose={() => setTrialModalOpen(false)}
+      />
     </div>
   )
 }

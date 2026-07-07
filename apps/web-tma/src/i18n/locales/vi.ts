@@ -379,6 +379,12 @@ export default {
         claimFailed: 'Nhận thưởng thất bại. Vui lòng thử lại.',
         step1: 'Đăng ký tài khoản mới',
         step2: 'Nhận thưởng ₱{{amount}} ngay',
+        bind: {
+          title: 'Xác minh SĐT để nhận',
+          subtitle: 'Xác minh số điện thoại qua SMS để nhận ₱{{amount}} tín dụng miễn phí',
+          bound: 'Đã xác minh SĐT. Nhấn bên dưới để nhận thưởng',
+          claimCta: 'Nhận thưởng ₱{{amount}}',
+        },
       },
       firstdep: {
         tag: 'NẠP LẦN ĐẦU',
