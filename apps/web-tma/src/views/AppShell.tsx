@@ -15,10 +15,10 @@ import {
 } from '@/stores/wallet'
 import { isImmersiveFullPage } from '@/hooks/useFullPageOverlay'
 import { useAppNavigation } from '@/hooks/useAppNavigation'
-import { shouldShowDownloadBar, dismissDownloadBar, isIos, isStandalone } from '@/utils/pwa'
+import { shouldShowDownloadBar, dismissDownloadBar, isIos } from '@/utils/pwa'
 import { isInsideTelegram } from '@/utils/initTelegramWebApp'
 import { usePromotionStore } from '@/stores/promotion'
-import { fetchNewPlayerSummary, claimAppdlBonus, type NewPlayerSummary } from '@/api/promotion'
+import { fetchNewPlayerSummary, type NewPlayerSummary } from '@/api/promotion'
 import TopDownloadBar from '@/components/pwa/TopDownloadBar'
 import OrientationGuard from '@/components/OrientationGuard'
 import threeCirclesMenu from '@/assets/team/3-circles/menu-entry.webp'
@@ -120,15 +120,11 @@ export default function AppShell() {
   // ── 新人礼包弹窗：聚合状态 + 按后台 popups 配置调度 ──────────────────────────
   const promoConfig = usePromotionStore((s) => s.promoConfig)
   const loadPromoConfig = usePromotionStore((s) => s.loadPromoConfig)
-  const trialClaiming = usePromotionStore((s) => s.trialClaiming)
-  const claimTrialIfEligible = usePromotionStore((s) => s.claimTrialIfEligible)
   const [npSummary, setNpSummary] = useState<NewPlayerSummary | null>(null)
   const [giftSheetOpen, setGiftSheetOpen] = useState(false)
   const [checkinOpen, setCheckinOpen] = useState(false)
-  const [giftAppdlClaiming, setGiftAppdlClaiming] = useState(false)
   const giftAutoFired = useRef(false)
   const inTelegram = isInsideTelegram()
-  const inApp = isStandalone()
 
   const giftAllDone = useMemo(() => {
     if (!npSummary) return true
@@ -170,45 +166,6 @@ export default function AppShell() {
     setWalletOpen(false)
     void refreshNpSummary()
     setGiftSheetOpen(true)
-  }
-
-  async function giftSignUp() {
-    if (await auth.ensureLoggedIn(t('auth.signInBonus'))) void refreshNpSummary()
-  }
-
-  async function giftClaimTrial() {
-    const result = await claimTrialIfEligible()
-    if (result.ok || result.alreadyClaimed) void refreshNpSummary()
-  }
-
-  async function giftAppdlAction() {
-    if (!inApp) {
-      setGiftSheetOpen(false)
-      openAppInstall()
-      return
-    }
-    if (giftAppdlClaiming) return
-    if (!(await auth.ensureLoggedIn(t('auth.signInBonus')))) return
-    setGiftAppdlClaiming(true)
-    try {
-      await claimAppdlBonus('pwa')
-      void wallet.refresh()
-      void refreshNpSummary()
-    } catch {
-      void refreshNpSummary() // 409 已领取等场景直接同步状态
-    } finally {
-      setGiftAppdlClaiming(false)
-    }
-  }
-
-  function giftOpenDeposit() {
-    setGiftSheetOpen(false)
-    void openWallet()
-  }
-
-  function giftOpenCashback() {
-    setGiftSheetOpen(false)
-    onOpenCashback()
   }
 
   const headerRef = useRef<HTMLElement>(null)
@@ -628,20 +585,10 @@ export default function AppShell() {
           <InstallGuideSheet platform="ios" onClose={() => setIosGuideOpen(false)} />
         )}
 
-        {giftSheetOpen && npSummary && (
+        {giftSheetOpen && (
           <NewPlayerGiftSheet
-            summary={npSummary}
-            loggedIn={isLoggedIn}
-            inApp={inApp}
-            inTelegram={inTelegram}
-            trialClaiming={trialClaiming}
-            appdlClaiming={giftAppdlClaiming}
             onClose={() => setGiftSheetOpen(false)}
-            onSignUp={() => void giftSignUp()}
-            onClaimTrial={() => void giftClaimTrial()}
-            onAppdlAction={() => void giftAppdlAction()}
-            onOpenDeposit={giftOpenDeposit}
-            onOpenCashback={giftOpenCashback}
+            onViewMore={() => { setGiftSheetOpen(false); goBonuses() }}
           />
         )}
 
