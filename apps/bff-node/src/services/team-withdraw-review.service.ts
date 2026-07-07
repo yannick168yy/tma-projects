@@ -31,6 +31,7 @@ interface ReviewContext {
   approvedTeamWithdrawCount: number
   uplineBlacklisted: boolean
   relatedIpAccounts: number
+  relatedDeviceAccounts: number
   tamperOrphanRounds: number
   commissionEarnedCents: number
   commissionDownlineGgrCents: number
@@ -73,14 +74,19 @@ const TEAM_RULES: Record<string, Rule> = {
   },
 
   same_ip_device(ctx, cfg) {
-    const ipTh = Number((cfg.params ?? {}).ip ?? 3)
-    const hit = ctx.relatedIpAccounts >= ipTh
+    const params = cfg.params ?? {}
+    const ipTh = Number(params.ip ?? 3)
+    // deviceTh=设备上账号总数阈值(含本人)，默认2=一台设备出现2个账号即可疑。
+    // relatedDeviceAccounts 是"除本人外"的关联账号数，故 +1 换算成设备账号总数。
+    const deviceTh = Number(params.device ?? 2)
+    const deviceAccountsTotal = ctx.relatedDeviceAccounts + 1
+    const hit = ctx.relatedIpAccounts >= ipTh || deviceAccountsTotal >= deviceTh
     return {
       code: 'same_ip_device',
       verdict: hit ? 'manual' : 'pass',
       actualValue: ctx.relatedIpAccounts,
-      threshold: ipTh,
-      detail: { relatedIpAccounts: ctx.relatedIpAccounts, relatedDeviceAccounts: 0 },
+      threshold: Math.min(ipTh, deviceTh),
+      detail: { relatedIpAccounts: ctx.relatedIpAccounts, deviceAccountsTotal, ipTh, deviceTh },
     }
   },
 
@@ -197,6 +203,18 @@ async function buildContext(pool: Pool, withdrawal: TeamWithdrawal, config: Reco
     [userId],
   )
 
+  // 同设备（近30天）的其他账号数：device_id 相同，或硬件指纹 fp_visitor 相同（清缓存后 device_id 变但指纹仍在）
+  const [[dev]] = await pool.query<RowDataPacket[]>(
+    `SELECT COUNT(DISTINCT l2.user_id) AS cnt
+     FROM bg_login_log l1
+     JOIN bg_login_log l2
+       ON l2.user_id <> l1.user_id
+      AND ( (l1.device_id IS NOT NULL AND l2.device_id = l1.device_id)
+         OR (l1.fp_visitor IS NOT NULL AND l2.fp_visitor = l1.fp_visitor) )
+     WHERE l1.user_id = ? AND l1.created_at > NOW() - INTERVAL 30 DAY`,
+    [userId],
+  )
+
   const [[orphan]] = await pool.query<RowDataPacket[]>(
     `SELECT COUNT(*) AS cnt FROM (
        SELECT round_id
@@ -276,6 +294,7 @@ async function buildContext(pool: Pool, withdrawal: TeamWithdrawal, config: Reco
     approvedTeamWithdrawCount,
     uplineBlacklisted,
     relatedIpAccounts: Number(ip?.cnt ?? 0),
+    relatedDeviceAccounts: Number(dev?.cnt ?? 0),
     tamperOrphanRounds: Number(orphan?.cnt ?? 0),
     commissionEarnedCents: Number(comm?.earned ?? 0),
     commissionDownlineGgrCents: Number(comm?.downline_ggr ?? 0),
@@ -298,6 +317,7 @@ function snapshotOf(ctx: ReviewContext): Record<string, number | string | boolea
     approvedTeamWithdrawCount: ctx.approvedTeamWithdrawCount,
     uplineBlacklisted: ctx.uplineBlacklisted,
     relatedIpAccounts: ctx.relatedIpAccounts,
+    relatedDeviceAccounts: ctx.relatedDeviceAccounts,
     tamperOrphanRounds: ctx.tamperOrphanRounds,
     commissionEarnedCents: ctx.commissionEarnedCents,
     commissionDownlineGgrCents: ctx.commissionDownlineGgrCents,
