@@ -177,40 +177,45 @@ export default function GamesPage({ cat, provider, onChangeFilter, onOpenPerya, 
         </div>
 
         {/* 二级厂商菜单：单行横滑，⌄ 展开成多行面板 */}
+        {/* 二级厂商菜单：顶部展开，上滑滚动后收起（grid 0fr↔1fr 平滑过渡），只留一级分类 */}
         {showProviders && (
-          <div className="flex items-start gap-2 px-4 py-2.5">
-            <div className={`flex gap-2 flex-1 min-w-0 ${providersExpanded ? 'flex-wrap' : 'overflow-x-auto hide-scrollbar'}`}>
-              <button
-                type="button"
-                onClick={() => selectProvider('all')}
-                className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-bold transition-colors active:scale-95 ${
-                  provider === 'all' ? 'bg-primary text-primary-foreground' : 'bg-secondary text-foreground/70'
-                }`}
-              >
-                {t('slots.allProviders')}
-              </button>
-              {providers.map((p) => (
+          <div className={`grid transition-[grid-template-rows] duration-200 ease-out ${scrolled ? 'grid-rows-[0fr]' : 'grid-rows-[1fr]'}`}>
+            <div className="overflow-hidden">
+              <div className="flex items-start gap-2 px-4 py-2.5">
+                <div className={`flex gap-2 flex-1 min-w-0 ${providersExpanded ? 'flex-wrap' : 'overflow-x-auto hide-scrollbar'}`}>
+                  <button
+                    type="button"
+                    onClick={() => selectProvider('all')}
+                    className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-bold transition-colors active:scale-95 ${
+                      provider === 'all' ? 'bg-primary text-primary-foreground' : 'bg-secondary text-foreground/70'
+                    }`}
+                  >
+                    {t('slots.allProviders')}
+                  </button>
+                  {providers.map((p) => (
+                    <button
+                      key={p}
+                      ref={provider === p ? activeProviderRef : undefined}
+                      type="button"
+                      onClick={() => selectProvider(p)}
+                      className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-bold transition-colors active:scale-95 ${
+                        provider === p ? 'bg-primary text-primary-foreground' : 'bg-secondary text-foreground/70'
+                      }`}
+                    >
+                      {shortProviderName(p)}
+                    </button>
+                  ))}
+                </div>
                 <button
-                  key={p}
-                  ref={provider === p ? activeProviderRef : undefined}
                   type="button"
-                  onClick={() => selectProvider(p)}
-                  className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-bold transition-colors active:scale-95 ${
-                    provider === p ? 'bg-primary text-primary-foreground' : 'bg-secondary text-foreground/70'
-                  }`}
+                  className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full bg-secondary text-muted-foreground active:scale-90 transition-transform"
+                  onClick={() => setProvidersExpanded(!providersExpanded)}
+                  aria-label={providersExpanded ? 'Collapse providers' : 'Expand providers'}
                 >
-                  {shortProviderName(p)}
+                  {providersExpanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
                 </button>
-              ))}
+              </div>
             </div>
-            <button
-              type="button"
-              className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full bg-secondary text-muted-foreground active:scale-90 transition-transform"
-              onClick={() => setProvidersExpanded(!providersExpanded)}
-              aria-label={providersExpanded ? 'Collapse providers' : 'Expand providers'}
-            >
-              {providersExpanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
-            </button>
           </div>
         )}
       </div>
