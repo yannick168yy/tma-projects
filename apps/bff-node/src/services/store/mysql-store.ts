@@ -38,6 +38,7 @@ type UserRow = RowDataPacket & {
   last_login_region: string | null
   register_ip: string | null
   register_region: string | null
+  register_device_id: string | null
   registered_at: Date
   trial_claimed: number
   referral_claimed: number
@@ -78,6 +79,7 @@ function mapUser(row: UserRow): UserRecord {
     lastLoginRegion: row.last_login_region ?? undefined,
     registerIp: row.register_ip ?? undefined,
     registerRegion: row.register_region ?? undefined,
+    registerDeviceId: row.register_device_id ?? undefined,
     registeredAt: new Date(row.registered_at).toISOString(),
     trialClaimed: Boolean(row.trial_claimed),
     referralClaimed: Boolean(row.referral_claimed),

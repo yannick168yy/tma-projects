@@ -47,6 +47,7 @@ export default function UserInfo({ detail }: Props) {
           <span>{String(u.registerRegion ?? '') || '-'}</span>
           {!!u.registerIp && <Typography.Text type="secondary" style={{ marginLeft: 6, fontSize: 12 }}>{String(u.registerIp)}</Typography.Text>}
         </Descriptions.Item>
+        <Descriptions.Item label="注册设备">{String(u.registerDeviceId ?? '') || '-'}</Descriptions.Item>
         <Descriptions.Item label="最后登录">{u.lastLoginAt ? fmtDate(String(u.lastLoginAt)) : '-'}</Descriptions.Item>
         <Descriptions.Item label="最后登录区域">
           <span>{String(u.lastLoginRegion ?? '') || '-'}</span>

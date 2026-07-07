@@ -83,7 +83,7 @@ export interface AdminUser {
   registeredAt: string; balance: number; level: number
 }
 export interface LoginLog {
-  id: number; ip: string | null; region: string | null; userAgent: string | null; authMethod: string; createdAt: string
+  id: number; ip: string | null; region: string | null; userAgent: string | null; authMethod: string; deviceId: string | null; fpVisitor: string | null; createdAt: string
 }
 export interface BetOrder {
   id: number; providerTxnId: string; roundId: string | null

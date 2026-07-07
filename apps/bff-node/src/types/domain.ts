@@ -47,6 +47,7 @@ export interface UserRecord {
   lastLoginRegion?: string
   registerIp?: string
   registerRegion?: string
+  registerDeviceId?: string
   registeredAt: string
   trialClaimed: boolean
   referralClaimed: boolean

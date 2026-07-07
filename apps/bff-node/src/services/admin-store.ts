@@ -339,9 +339,9 @@ export async function getLoginLogs(
   env: Env,
   userId: string,
   limit = 20,
-): Promise<{ id: number; ip: string | null; region: string | null; userAgent: string | null; authMethod: string; createdAt: string }[]> {
+): Promise<{ id: number; ip: string | null; region: string | null; userAgent: string | null; authMethod: string; deviceId: string | null; fpVisitor: string | null; createdAt: string }[]> {
   const [rows] = await pool(env).query<RowDataPacket[]>(
-    `SELECT id, ip, region, user_agent, auth_method, created_at FROM bg_login_log WHERE user_id = ? ORDER BY created_at DESC LIMIT ?`,
+    `SELECT id, ip, region, user_agent, auth_method, device_id, fp_visitor, created_at FROM bg_login_log WHERE user_id = ? ORDER BY created_at DESC LIMIT ?`,
     [userId, limit],
   )
   return rows.map((r) => ({
@@ -350,6 +350,8 @@ export async function getLoginLogs(
     region: r.region ? String(r.region) : null,
     userAgent: r.user_agent ? String(r.user_agent) : null,
     authMethod: String(r.auth_method),
+    deviceId: r.device_id ? String(r.device_id) : null,
+    fpVisitor: r.fp_visitor ? String(r.fp_visitor) : null,
     createdAt: new Date(r.created_at as Date).toISOString(),
   }))
 }

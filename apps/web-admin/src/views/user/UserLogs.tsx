@@ -66,6 +66,8 @@ export default function UserLogs({ userId, detail }: Props) {
     { title: '登录方式', dataIndex: 'authMethod', key: 'method', width: 90 },
     { title: 'IP', dataIndex: 'ip', key: 'ip', width: 120, render: (v: string | null) => v || '-' },
     { title: '区域', dataIndex: 'region', key: 'region', width: 130, render: (v: string | null) => v || '-' },
+    { title: '设备ID', dataIndex: 'deviceId', key: 'deviceId', width: 140, ellipsis: true, render: (v: string | null) => v || '-' },
+    { title: '指纹', dataIndex: 'fpVisitor', key: 'fpVisitor', width: 140, ellipsis: true, render: (v: string | null) => v || '-' },
     { title: 'User-Agent', dataIndex: 'userAgent', key: 'ua', ellipsis: true },
     { title: '时间', dataIndex: 'createdAt', key: 'at', width: 160, render: (v: string) => new Date(v).toLocaleString('zh-CN') },
   ]
