@@ -79,12 +79,12 @@ export function createApiRouter(): Router {
       trialClaimed = Boolean(user?.trialClaimed)
       if (isMysqlEnabled(env)) {
         const pool = getMysqlPool(env)
-        const [[appdlRow], [depRow]] = await Promise.all([
+        const [appdlRows, depRows] = await Promise.all([
           pool.query<RowDataPacket[]>('SELECT 1 FROM bg_app_download_claim WHERE user_id = ? LIMIT 1', [userId]),
           pool.query<RowDataPacket[]>("SELECT 1 FROM bg_deposit_order WHERE user_id = ? AND status = 'paid' LIMIT 1", [userId]),
         ]).then((rs) => rs.map((r) => r[0]))
-        appdlClaimed = appdlRow.length > 0
-        deposited = depRow.length > 0
+        appdlClaimed = appdlRows.length > 0
+        deposited = depRows.length > 0
       }
     }
 
