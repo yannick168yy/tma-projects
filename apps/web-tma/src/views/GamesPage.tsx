@@ -168,18 +168,19 @@ export default function GamesPage({ cat, provider, onChangeFilter, onOpenPerya, 
 
   return (
     <div className="page-main">
-      {/* 菜单栏 position:fixed（照抄首页浮动挂件：独立合成层、相对视口定位，滚动不抖，逃出 .page-main 的 overflow-x:clip）。
-          随滚动方向 translateY 显隐：向下滚整条往上滑走收起、向上滚往下滑出现，不再一直浮在前面。用 transform 过渡=GPU 合成不抖 */}
+      {/* 抽屉外壳：fixed 定位在 app 头正下方，overflow-hidden 把菜单裁在 app 头底边——收起时菜单缩进壳里，
+          上边缘之外(顶部菜单区)绝不溢出。壳 pointer-events-none、本体 auto，收起后不挡下面游戏点击。
+          fixed 逃出 .page-main 的 overflow-x:clip、独立合成层不抖；居中在 430px 壳内，高度随本体实时高度 */}
       <div
-        ref={barRef}
-        className="fixed left-1/2 z-20 w-full max-w-[430px] bg-background border-b border-white/5 transition-transform duration-300 ease-out"
-        style={{
-          top: 'var(--app-header-height, 0px)',
-          transform: hidden
-            ? 'translateX(-50%) translateY(calc(-100% - var(--app-header-height, 0px)))'
-            : 'translateX(-50%) translateY(0)',
-        }}
+        className={`fixed left-1/2 z-20 w-full max-w-[430px] -translate-x-1/2 overflow-hidden ${hidden ? 'pointer-events-none' : ''}`}
+        style={{ top: 'var(--app-header-height, 0px)', height: barH }}
       >
+        {/* 菜单本体：向下滚 translateY 上滑收进抽屉(被壳裁掉)、向上滚滑出；transform 过渡=GPU 合成不抖 */}
+        <div
+          ref={barRef}
+          className="bg-background border-b border-white/5 pointer-events-auto transition-transform duration-300 ease-out"
+          style={{ transform: hidden ? `translateY(-${barH}px)` : 'translateY(0)' }}
+        >
         {/* 一级分类：自然文字，选中=品牌色加粗+下划线 */}
         <div className="flex gap-6 px-4 pt-5 overflow-x-auto hide-scrollbar snap-x">
           {CATEGORIES.map((c) => {
@@ -238,8 +239,9 @@ export default function GamesPage({ cat, provider, onChangeFilter, onOpenPerya, 
             </button>
           </div>
         )}
+        </div>
       </div>
-      {/* 占位：撑出 fixed 筛选栏的实时高度，让下方内容顺着往下排 */}
+      {/* 占位：撑出抽屉菜单的实时高度，让下方内容顺着往下排 */}
       <div aria-hidden style={{ height: barH }} />
 
       {/* Perya 嘉年华入口横幅（仅 perya 分类） */}
