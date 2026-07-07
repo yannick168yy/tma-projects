@@ -149,10 +149,11 @@ export default function GamesPage({ cat, provider, onChangeFilter, onOpenPerya, 
 
   return (
     <div className="page-main">
-      {/* 筛选区（一级分类 + 二级厂商）整体 sticky 吸顶；上滑滚动后纯透明浮在游戏上 */}
-      {/* 防抖关键：①不用 drop-shadow 滤镜（sticky 上滚动每帧重栅格化）改 text-shadow ②will-change-transform 提升独立合成层，文字画一次固定不动 */}
+      {/* 筛选区（一级分类 + 二级厂商）整体 sticky 吸顶 */}
+      {/* 防抖：sticky 头保持不透明纯色底（bg-background）。透明头会让抗锯齿文字与滚动的游戏逐帧 alpha 混合，
+          叠加祖先 .page-main 的 overflow-x:clip 逐帧裁剪，必抖；不透明头是稳定合成瓦片，文字与底同层不再和游戏混合 */}
       <div
-        className={`sticky z-20 will-change-transform transition-colors duration-200 ${scrolled ? 'bg-transparent' : 'bg-background border-b border-white/5'}`}
+        className="sticky z-20 bg-background border-b border-white/5"
         style={{ top: 'var(--app-header-height, 0px)' }}
       >
         {/* 一级分类：自然文字，选中=品牌色加粗+下划线 */}
@@ -166,8 +167,8 @@ export default function GamesPage({ cat, provider, onChangeFilter, onOpenPerya, 
                 type="button"
                 onClick={() => selectCat(c.id)}
                 className={`relative flex-shrink-0 snap-start whitespace-nowrap pb-2.5 text-[18px] transition-colors active:scale-95 ${
-                  active ? 'font-black text-primary' : `font-semibold ${scrolled ? 'text-white/95' : 'text-foreground/50'}`
-                } ${scrolled ? '[text-shadow:0_1px_4px_rgba(0,0,0,0.95)]' : ''}`}
+                  active ? 'font-black text-primary' : 'font-semibold text-foreground/50'
+                }`}
               >
                 {t(c.labelKey)}
                 <span className={`absolute bottom-0 left-1/2 h-[3px] w-5 -translate-x-1/2 rounded-full bg-primary transition-opacity ${active ? 'opacity-100' : 'opacity-0'}`} />
