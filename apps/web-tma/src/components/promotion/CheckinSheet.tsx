@@ -85,11 +85,11 @@ export default function CheckinSheet({ open, onClose, onOpenSpin }: Props) {
 
           {loading && <div className="py-12 text-center text-sm text-white/50">…</div>}
 
-          {!loading && status && !status.enabled && (
+          {!loading && status && status.enabled === false && (
             <p className="py-12 text-center text-sm text-white/60">{t('checkin.disabled')}</p>
           )}
 
-          {!loading && status && status.enabled && (
+          {!loading && status && status.enabled !== false && (
             <>
               {/* 7 天连签格 */}
               <div className="mt-5 grid grid-cols-7 gap-1.5">

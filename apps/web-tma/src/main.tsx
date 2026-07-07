@@ -11,6 +11,7 @@ import { initTheme } from '@/stores/theme'
 import { initAnalytics } from '@/utils/analytics'
 import { initPwa } from '@/utils/pwa'
 import { initFingerprint } from '@/utils/fingerprint'
+import { initVersionAutoReload } from '@/utils/versionReload'
 
 // Vite modulepreload 失败（部署后旧客户端引用的 chunk 已被覆盖删除）→ 自动整页刷新一次自愈，避免黑屏
 window.addEventListener('vite:preloadError', () => {
@@ -27,6 +28,7 @@ initTheme()
 initAnalytics()
 initPwa()
 initFingerprint()
+initVersionAutoReload()
 
 createRoot(document.getElementById('app')!).render(
   <StrictMode>
