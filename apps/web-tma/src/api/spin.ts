@@ -1,8 +1,11 @@
 import { apiRequest } from '@/api/client'
 
+export type CheckinTier = 'starter' | 'premium' | 'elite'
+
 export interface SpinDepositRule {
   id?: number
   kind?: 'deposit' | 'checkin'
+  checkinTier?: CheckinTier | null
   name: string
   minDepositPhp: number
   depositAmountPhp?: number

@@ -129,13 +129,19 @@ export function milestonesBetween(prevMonthDays: number, curMonthDays: number, m
 
 // ───────────────────────── DB 辅助 ─────────────────────────
 
-// 签到发放的转盘次数统一进入「签到专用」档位(kind='checkin')；三档共用同一奖池。
+// 签到发放的转盘次数按 tier 进入对应的签到档位(kind='checkin' 的三档独立奖池)。
 async function tierRuleIds(conn: PoolConnection | Pool): Promise<Record<Tier, number | null>> {
-  const [[row]] = await conn.query<RowDataPacket[]>(
-    `SELECT id FROM bg_spin_deposit_rule WHERE kind = 'checkin' AND enabled = 1 ORDER BY id ASC LIMIT 1`,
+  const [rows] = await conn.query<RowDataPacket[]>(
+    `SELECT id, checkin_tier FROM bg_spin_deposit_rule WHERE kind = 'checkin' AND enabled = 1`,
   )
-  const id = row ? Number(row.id) : null
-  return { starter: id, premium: id, elite: id }
+  const byTier = new Map<string, number>()
+  let fallback: number | null = null
+  for (const r of rows) {
+    if (r.checkin_tier) byTier.set(String(r.checkin_tier), Number(r.id))
+    if (fallback === null || Number(r.id) < fallback) fallback = Number(r.id)
+  }
+  const pick = (t: Tier) => byTier.get(t) ?? fallback
+  return { starter: pick('starter'), premium: pick('premium'), elite: pick('elite') }
 }
 
 /** 幂等发放转盘次数：source_order_id 唯一，重复不再发 */

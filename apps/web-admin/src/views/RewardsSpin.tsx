@@ -18,7 +18,11 @@ import { SPIN_PRIZE_IMAGES } from '../assets/spin/prizeImages'
 const { Title, Text } = Typography
 
 const LEVEL_COUNT = 6
-const CHECKIN_INDEX = LEVEL_COUNT // 签到专用档位固定排在存款档位之后
+const CHECKIN_TIERS = ['starter', 'premium', 'elite'] as const
+type CheckinTier = (typeof CHECKIN_TIERS)[number]
+const CHECKIN_TIER_LABEL: Record<CheckinTier, string> = { starter: '初级', premium: '中级', elite: '高级' }
+// 签到三档固定排在 6 个存款档位之后：索引 6/7/8
+const checkinFlatIndex = (tierIndex: number) => LEVEL_COUNT + tierIndex
 const PRIZE_COUNT = 8
 const DEFAULT_AMOUNTS = [108, 580, 1080, 2000, 5000, 10000]
 const PRIZE_SLOTS = Array.from({ length: PRIZE_COUNT }, (_, i) => i)
@@ -81,16 +85,17 @@ function defaultRule(i: number): SpinDepositRule {
   }
 }
 
-function defaultCheckinRule(): SpinDepositRule {
+function defaultCheckinRule(tier: CheckinTier, tierIndex: number): SpinDepositRule {
   return {
     kind: 'checkin',
-    name: 'Check-in',
+    checkinTier: tier,
+    name: `Check-in ${tier[0].toUpperCase()}${tier.slice(1)}`,
     minDepositPhp: 0,
     depositAmountPhp: 0,
     maxDepositPhp: null,
     chances: 1,
     enabled: true,
-    sortOrder: 900,
+    sortOrder: 900 + tierIndex * 10,
   }
 }
 
@@ -144,20 +149,23 @@ function normalizeConfig(config: SpinConfig): SpinConfig {
     }
   })
 
-  const checkinExisting = config.depositRules.find((r) => r.kind === 'checkin')
-  const checkinRule: SpinDepositRule = {
-    ...defaultCheckinRule(),
-    ...checkinExisting,
-    kind: 'checkin',
-    name: 'Check-in',
-    minDepositPhp: 0,
-    depositAmountPhp: 0,
-    maxDepositPhp: null,
-    chances: 1,
-    sortOrder: 900,
-  }
+  const checkinRules = CHECKIN_TIERS.map((tier, tierIndex) => {
+    const existing = config.depositRules.find((r) => r.kind === 'checkin' && r.checkinTier === tier)
+    return {
+      ...defaultCheckinRule(tier, tierIndex),
+      ...existing,
+      kind: 'checkin' as const,
+      checkinTier: tier,
+      name: `Check-in ${tier[0].toUpperCase()}${tier.slice(1)}`,
+      minDepositPhp: 0,
+      depositAmountPhp: 0,
+      maxDepositPhp: null,
+      chances: 1,
+      sortOrder: 900 + tierIndex * 10,
+    }
+  })
 
-  const rules = [...depositRules, checkinRule]
+  const rules = [...depositRules, ...checkinRules]
   const prizes = rules.flatMap((rule, ruleIndex) => prizesForRule(config, rule, ruleIndex))
 
   return { enabled: config.enabled, depositRules: rules, prizes }
@@ -371,28 +379,43 @@ export default function RewardsSpin() {
                   </div>
                 </Card>
 
-                <Card
-                  title={(
-                    <Space>
-                      签到专用档位
-                      <Tag color="purple">CHECK-IN</Tag>
-                      <Tag color={watchedRules[CHECKIN_INDEX]?.enabled ? 'green' : 'default'}>
-                        {watchedRules[CHECKIN_INDEX]?.enabled ? '启用' : '关闭'}
-                      </Tag>
-                    </Space>
-                  )}
-                  style={{ marginBottom: 16 }}
-                >
-                  <Text type="secondary">每日签到发放的转盘次数进入此档位（客户端显示为「签到」，排在存款档位之后）。</Text>
+                <Card title="签到专用档位（三档独立奖池）" style={{ marginBottom: 16 }}>
+                  <Text type="secondary">每日签到按连签档位发放转盘次数，进入对应 tier 的奖池。客户端签到页显示为「初级/中级/高级」三个 tab，排在存款档位之后。</Text>
                   <div style={{ marginTop: 16 }}>
-                    <Form.Item name={['depositRules', CHECKIN_INDEX, 'id']} hidden><InputNumber /></Form.Item>
-                    <Form.Item name={['depositRules', CHECKIN_INDEX, 'kind']} hidden><Input /></Form.Item>
-                    <Form.Item name={['depositRules', CHECKIN_INDEX, 'name']} hidden><Input /></Form.Item>
-                    <Form.Item name={['depositRules', CHECKIN_INDEX, 'sortOrder']} hidden><InputNumber /></Form.Item>
-                    <Form.Item label="启用" name={['depositRules', CHECKIN_INDEX, 'enabled']} valuePropName="checked">
-                      <Switch />
-                    </Form.Item>
-                    <PrizeTable ruleIndex={CHECKIN_INDEX} />
+                    {CHECKIN_TIERS.map((tier, tierIndex) => {
+                      const ruleIndex = checkinFlatIndex(tierIndex)
+                      const rule = watchedRules[ruleIndex]
+                      return (
+                        <Collapse
+                          key={tier}
+                          style={{ marginBottom: 12 }}
+                          items={[{
+                            key: tier,
+                            forceRender: true,
+                            label: (
+                              <Space>
+                                <b>签到{CHECKIN_TIER_LABEL[tier]}档</b>
+                                <Tag color="purple">{tier.toUpperCase()}</Tag>
+                                <Tag color={rule?.enabled ? 'green' : 'default'}>{rule?.enabled ? '启用' : '关闭'}</Tag>
+                              </Space>
+                            ),
+                            children: (
+                              <>
+                                <Form.Item name={['depositRules', ruleIndex, 'id']} hidden><InputNumber /></Form.Item>
+                                <Form.Item name={['depositRules', ruleIndex, 'kind']} hidden><Input /></Form.Item>
+                                <Form.Item name={['depositRules', ruleIndex, 'checkinTier']} hidden><Input /></Form.Item>
+                                <Form.Item name={['depositRules', ruleIndex, 'name']} hidden><Input /></Form.Item>
+                                <Form.Item name={['depositRules', ruleIndex, 'sortOrder']} hidden><InputNumber /></Form.Item>
+                                <Form.Item label="启用" name={['depositRules', ruleIndex, 'enabled']} valuePropName="checked">
+                                  <Switch />
+                                </Form.Item>
+                                <PrizeTable ruleIndex={ruleIndex} />
+                              </>
+                            ),
+                          }]}
+                        />
+                      )
+                    })}
                   </div>
                 </Card>
 

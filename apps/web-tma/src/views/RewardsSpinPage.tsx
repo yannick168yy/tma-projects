@@ -48,7 +48,12 @@ export default function RewardsSpinPage({ onClose, initialKind }: Props) {
   const [historyLoading, setHistoryLoading] = useState(false)
   const [historyRecords, setHistoryRecords] = useState<SpinRecord[]>([])
 
-  const rules = useMemo(() => (status?.depositRules ?? []).filter((r) => r.enabled && r.id), [status])
+  // 来源模式：从签到进入只显示签到三档，其它入口只显示存款档
+  const mode: 'deposit' | 'checkin' = initialKind === 'checkin' ? 'checkin' : 'deposit'
+  const rules = useMemo(
+    () => (status?.depositRules ?? []).filter((r) => r.enabled && r.id && (r.kind ?? 'deposit') === mode),
+    [status, mode],
+  )
   const selectedRule = useMemo(
     () => rules.find((rule) => rule.id === selectedRuleId) ?? rules[0] ?? null,
     [rules, selectedRuleId],
@@ -86,15 +91,10 @@ export default function RewardsSpinPage({ onClose, initialKind }: Props) {
       const next = await fetchSpinStatus(ruleId ?? undefined)
       setStatus(next)
       setSelectedRuleId((current) => {
-        const nextId = current ?? null
-        if (nextId && next.depositRules.some((rule) => rule.id === nextId)) return nextId
-        // 从签到入口进入时，默认选中签到专用档位
-        if (initialKind) {
-          const preferred = next.depositRules.find((rule) => rule.enabled && rule.kind === initialKind)
-          if (preferred?.id) return preferred.id
-        }
-        const available = next.depositRules.find((rule) => rule.enabled && (rule.remainingChances ?? 0) > 0)
-        return available?.id ?? next.depositRules.find((rule) => rule.enabled)?.id ?? null
+        const inMode = next.depositRules.filter((rule) => rule.enabled && (rule.kind ?? 'deposit') === mode)
+        if (current && inMode.some((rule) => rule.id === current)) return current
+        const available = inMode.find((rule) => (rule.remainingChances ?? 0) > 0)
+        return available?.id ?? inMode[0]?.id ?? null
       })
     } catch (e) {
       setMessage(e instanceof ApiError ? e.message : t('spin.loadFailed'))
@@ -107,9 +107,10 @@ export default function RewardsSpinPage({ onClose, initialKind }: Props) {
     const next = await fetchSpinStatus(ruleId ?? selectedRuleId ?? undefined)
     setStatus(next)
     setSelectedRuleId((current) => {
-      if (current && next.depositRules.some((rule) => rule.id === current)) return current
-      const available = next.depositRules.find((rule) => rule.enabled && (rule.remainingChances ?? 0) > 0)
-      return available?.id ?? next.depositRules.find((rule) => rule.enabled)?.id ?? null
+      const inMode = next.depositRules.filter((rule) => rule.enabled && (rule.kind ?? 'deposit') === mode)
+      if (current && inMode.some((rule) => rule.id === current)) return current
+      const available = inMode.find((rule) => (rule.remainingChances ?? 0) > 0)
+      return available?.id ?? inMode[0]?.id ?? null
     })
   }
 
@@ -237,7 +238,7 @@ export default function RewardsSpinPage({ onClose, initialKind }: Props) {
                 >
                   <p className="truncate text-sm font-black uppercase leading-none">
                     {rule.kind === 'checkin'
-                      ? t('spin.checkinTab')
+                      ? (rule.checkinTier ? t(`checkin.tier.${rule.checkinTier}`) : t('spin.checkinTab'))
                       : `DEPOSIT ${fmtDepositAmount(Number(rule.depositAmountPhp ?? rule.minDepositPhp))}`}
                   </p>
                   <p className="mt-1 text-xs font-black">{rule.remainingChances ?? 0} {t('spin.chances')}</p>

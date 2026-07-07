@@ -9,10 +9,13 @@ const NAME_HEADS = 'ABCDEFGHJKLMNPRSTVW'
 const NAME_TAILS = 'abcefghjklmnprstvy'
 
 export type SpinRuleKind = 'deposit' | 'checkin'
+export type CheckinTier = 'starter' | 'premium' | 'elite'
+export const CHECKIN_TIERS: CheckinTier[] = ['starter', 'premium', 'elite']
 
 export interface SpinDepositRule {
   id?: number
   kind: SpinRuleKind
+  checkinTier?: CheckinTier | null
   name: string
   minDepositPhp: number
   depositAmountPhp?: number
@@ -90,6 +93,7 @@ function mapRule(r: RowDataPacket): SpinDepositRule {
   return {
     id: Number(r.id),
     kind: r.kind === 'checkin' ? 'checkin' : 'deposit',
+    checkinTier: (CHECKIN_TIERS as string[]).includes(String(r.checkin_tier)) ? (r.checkin_tier as CheckinTier) : null,
     name: String(r.name ?? ''),
     minDepositPhp: amount,
     depositAmountPhp: amount,
@@ -119,7 +123,7 @@ async function getEnabledConfig(conn: PoolConnection): Promise<SpinConfig> {
     `SELECT enabled FROM bg_spin_config WHERE id = 1 LIMIT 1`,
   )
   const [rules] = await conn.query<RowDataPacket[]>(
-    `SELECT id, kind, name, min_deposit_php, max_deposit_php, chances, enabled, sort_order
+    `SELECT id, kind, checkin_tier, name, min_deposit_php, max_deposit_php, chances, enabled, sort_order
      FROM bg_spin_deposit_rule
      WHERE enabled = 1
      ORDER BY sort_order ASC, min_deposit_php ASC`,
@@ -181,7 +185,7 @@ function validPrize(prize: SpinPrize): boolean {
 
 export async function saveSpinConfig(env: Env, config: SpinConfig): Promise<SpinConfig> {
   const pool = getMysqlPool(env)
-  const rules = config.depositRules.filter(validRule).slice(0, 7)
+  const rules = config.depositRules.filter(validRule).slice(0, 9)
   const prizes = config.prizes.filter(validPrize)
   if (!rules.length) throw new Error('至少需要一个有效存款档位')
   if (!prizes.length) throw new Error('至少需要一个有效奖品')
@@ -203,23 +207,26 @@ export async function saveSpinConfig(env: Env, config: SpinConfig): Promise<Spin
     let depositIdx = 0
     for (const rule of rules) {
       const isCheckin = rule.kind === 'checkin'
+      const tier = isCheckin && rule.checkinTier && CHECKIN_TIERS.includes(rule.checkinTier) ? rule.checkinTier : null
       const amount = isCheckin ? 0 : Number(rule.depositAmountPhp ?? rule.minDepositPhp)
-      const name = isCheckin ? 'Check-in' : `Deposit ${Math.round(amount)}`
-      // 存款档位 sort 10,20,...；签到档位固定 900 排最后
-      const sortOrder = isCheckin ? 900 : (depositIdx += 1) * 10
+      const name = isCheckin
+        ? `Check-in ${tier ? tier[0].toUpperCase() + tier.slice(1) : ''}`.trim()
+        : `Deposit ${Math.round(amount)}`
+      // 存款档位 sort 10,20,...；签到档位 900/910/920 按 tier 排最后
+      const sortOrder = isCheckin ? 900 + (tier ? CHECKIN_TIERS.indexOf(tier) * 10 : 0) : (depositIdx += 1) * 10
       if (rule.id) {
         keptRuleIds.push(rule.id)
         await conn.execute(
           `UPDATE bg_spin_deposit_rule
-           SET kind = ?, name = ?, min_deposit_php = ?, max_deposit_php = ?, chances = ?, enabled = ?, sort_order = ?
+           SET kind = ?, checkin_tier = ?, name = ?, min_deposit_php = ?, max_deposit_php = ?, chances = ?, enabled = ?, sort_order = ?
            WHERE id = ?`,
-          [rule.kind, name, amount, null, 1, rule.enabled ? 1 : 0, sortOrder, rule.id],
+          [rule.kind, tier, name, amount, null, 1, rule.enabled ? 1 : 0, sortOrder, rule.id],
         )
       } else {
         const [res] = await conn.execute(
-          `INSERT INTO bg_spin_deposit_rule (kind, name, min_deposit_php, max_deposit_php, chances, enabled, sort_order)
-           VALUES (?, ?, ?, ?, ?, ?, ?)`,
-          [rule.kind, name, amount, null, 1, rule.enabled ? 1 : 0, sortOrder],
+          `INSERT INTO bg_spin_deposit_rule (kind, checkin_tier, name, min_deposit_php, max_deposit_php, chances, enabled, sort_order)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          [rule.kind, tier, name, amount, null, 1, rule.enabled ? 1 : 0, sortOrder],
         )
         keptRuleIds.push(Number((res as { insertId: number }).insertId))
       }

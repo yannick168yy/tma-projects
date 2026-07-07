@@ -35,7 +35,13 @@ export default function CheckinSheet({ open, onClose, onOpenSpin }: Props) {
         fetchSpinStatus().catch(() => null),
       ])
       setStatus(st)
-      if (spin) setSpinRemaining(spin.remainingChances)
+      if (spin) {
+        setSpinRemaining(
+          (spin.depositRules ?? [])
+            .filter((r) => r.kind === 'checkin')
+            .reduce((sum, r) => sum + (r.remainingChances ?? 0), 0),
+        )
+      }
     }
     catch (e) { setError(e instanceof ApiError ? e.message : 'Failed to load') }
     finally { setLoading(false) }
