@@ -149,9 +149,10 @@ export default function GamesPage({ cat, provider, onChangeFilter, onOpenPerya, 
 
   return (
     <div className="page-main">
-      {/* 一级分类 sticky 吸顶；上滑滚动后去掉背景层（纯透明），文字加投影直接浮在游戏上，避免半透明层重绘抖动 */}
+      {/* 筛选区（一级分类 + 二级厂商）整体 sticky 吸顶；上滑滚动后纯透明浮在游戏上 */}
+      {/* 防抖关键：①不用 drop-shadow 滤镜（sticky 上滚动每帧重栅格化）改 text-shadow ②will-change-transform 提升独立合成层，文字画一次固定不动 */}
       <div
-        className={`sticky z-20 transition-colors duration-200 ${scrolled ? 'bg-transparent' : 'bg-background border-b border-white/5'}`}
+        className={`sticky z-20 will-change-transform transition-colors duration-200 ${scrolled ? 'bg-transparent' : 'bg-background border-b border-white/5'}`}
         style={{ top: 'var(--app-header-height, 0px)' }}
       >
         {/* 一级分类：自然文字，选中=品牌色加粗+下划线 */}
@@ -166,7 +167,7 @@ export default function GamesPage({ cat, provider, onChangeFilter, onOpenPerya, 
                 onClick={() => selectCat(c.id)}
                 className={`relative flex-shrink-0 snap-start whitespace-nowrap pb-2.5 text-[18px] transition-colors active:scale-95 ${
                   active ? 'font-black text-primary' : `font-semibold ${scrolled ? 'text-white/95' : 'text-foreground/50'}`
-                } ${scrolled ? 'drop-shadow-[0_1px_3px_rgba(0,0,0,0.95)]' : ''}`}
+                } ${scrolled ? '[text-shadow:0_1px_4px_rgba(0,0,0,0.95)]' : ''}`}
               >
                 {t(c.labelKey)}
                 <span className={`absolute bottom-0 left-1/2 h-[3px] w-5 -translate-x-1/2 rounded-full bg-primary transition-opacity ${active ? 'opacity-100' : 'opacity-0'}`} />
@@ -174,45 +175,49 @@ export default function GamesPage({ cat, provider, onChangeFilter, onOpenPerya, 
             )
           })}
         </div>
-      </div>
 
-      {/* 二级厂商菜单：不吸顶，随页面一起上滑移走（只留一级分类在顶部）；单行横滑，⌄ 展开成多行面板 */}
-      {showProviders && (
-        <div className="flex items-start gap-2 px-4 py-2.5 bg-background">
-          <div className={`flex gap-2 flex-1 min-w-0 ${providersExpanded ? 'flex-wrap' : 'overflow-x-auto hide-scrollbar'}`}>
-            <button
-              type="button"
-              onClick={() => selectProvider('all')}
-              className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-bold transition-colors active:scale-95 ${
-                provider === 'all' ? 'bg-primary text-primary-foreground' : 'bg-secondary text-foreground/70'
-              }`}
-            >
-              {t('slots.allProviders')}
-            </button>
-            {providers.map((p) => (
-              <button
-                key={p}
-                ref={provider === p ? activeProviderRef : undefined}
-                type="button"
-                onClick={() => selectProvider(p)}
-                className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-bold transition-colors active:scale-95 ${
-                  provider === p ? 'bg-primary text-primary-foreground' : 'bg-secondary text-foreground/70'
-                }`}
-              >
-                {shortProviderName(p)}
-              </button>
-            ))}
+        {/* 二级厂商菜单：顶部展开，上滑滚动后原地收起（grid 0fr↔1fr 平滑过渡），只留一级分类 */}
+        {showProviders && (
+          <div className={`grid transition-[grid-template-rows] duration-200 ease-out ${scrolled ? 'grid-rows-[0fr]' : 'grid-rows-[1fr]'}`}>
+            <div className="overflow-hidden">
+              <div className="flex items-start gap-2 px-4 py-2.5">
+                <div className={`flex gap-2 flex-1 min-w-0 ${providersExpanded ? 'flex-wrap' : 'overflow-x-auto hide-scrollbar'}`}>
+                  <button
+                    type="button"
+                    onClick={() => selectProvider('all')}
+                    className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-bold transition-colors active:scale-95 ${
+                      provider === 'all' ? 'bg-primary text-primary-foreground' : 'bg-secondary text-foreground/70'
+                    }`}
+                  >
+                    {t('slots.allProviders')}
+                  </button>
+                  {providers.map((p) => (
+                    <button
+                      key={p}
+                      ref={provider === p ? activeProviderRef : undefined}
+                      type="button"
+                      onClick={() => selectProvider(p)}
+                      className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-bold transition-colors active:scale-95 ${
+                        provider === p ? 'bg-primary text-primary-foreground' : 'bg-secondary text-foreground/70'
+                      }`}
+                    >
+                      {shortProviderName(p)}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full bg-secondary text-muted-foreground active:scale-90 transition-transform"
+                  onClick={() => setProvidersExpanded(!providersExpanded)}
+                  aria-label={providersExpanded ? 'Collapse providers' : 'Expand providers'}
+                >
+                  {providersExpanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+                </button>
+              </div>
+            </div>
           </div>
-          <button
-            type="button"
-            className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full bg-secondary text-muted-foreground active:scale-90 transition-transform"
-            onClick={() => setProvidersExpanded(!providersExpanded)}
-            aria-label={providersExpanded ? 'Collapse providers' : 'Expand providers'}
-          >
-            {providersExpanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
-          </button>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Perya 嘉年华入口横幅（仅 perya 分类） */}
       {cat === 'perya' && (
