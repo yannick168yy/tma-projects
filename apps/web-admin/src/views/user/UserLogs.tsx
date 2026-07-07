@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Card, Tabs, Table, Spin, Alert, Typography, Modal, Descriptions, InputNumber, Input, Space, Button, Progress, Tag, message } from 'antd'
 import { getUserDetail, getUserTurnover, adjustTurnoverRequirement, type TurnoverRequirement } from '../../api'
 
@@ -29,6 +30,9 @@ function reqStatusTag(s: string) {
 interface Props { userId: string; detail: Detail }
 
 export default function UserLogs({ userId, detail }: Props) {
+  const navigate = useNavigate()
+  const lookup = (field: 'ip' | 'deviceId' | 'fpVisitor', v: string | null) =>
+    v ? <Button type="link" size="small" style={{ padding: 0 }} onClick={() => navigate(`/device-lookup?field=${field}&value=${encodeURIComponent(v)}`)}>{v}</Button> : '-'
   const [turnover, setTurnover] = useState<Awaited<ReturnType<typeof getUserTurnover>> | null>(null)
   const [turnoverLoading, setTurnoverLoading] = useState(false)
   const [adjustModal, setAdjustModal] = useState<{ req: TurnoverRequirement } | null>(null)
@@ -64,10 +68,10 @@ export default function UserLogs({ userId, detail }: Props) {
   ]
   const loginCols = [
     { title: '登录方式', dataIndex: 'authMethod', key: 'method', width: 90 },
-    { title: 'IP', dataIndex: 'ip', key: 'ip', width: 120, render: (v: string | null) => v || '-' },
+    { title: 'IP', dataIndex: 'ip', key: 'ip', width: 120, render: (v: string | null) => lookup('ip', v) },
     { title: '区域', dataIndex: 'region', key: 'region', width: 130, render: (v: string | null) => v || '-' },
-    { title: '设备ID', dataIndex: 'deviceId', key: 'deviceId', width: 140, ellipsis: true, render: (v: string | null) => v || '-' },
-    { title: '指纹', dataIndex: 'fpVisitor', key: 'fpVisitor', width: 140, ellipsis: true, render: (v: string | null) => v || '-' },
+    { title: '设备ID', dataIndex: 'deviceId', key: 'deviceId', width: 140, ellipsis: true, render: (v: string | null) => lookup('deviceId', v) },
+    { title: '指纹', dataIndex: 'fpVisitor', key: 'fpVisitor', width: 140, ellipsis: true, render: (v: string | null) => lookup('fpVisitor', v) },
     { title: 'User-Agent', dataIndex: 'userAgent', key: 'ua', ellipsis: true },
     { title: '时间', dataIndex: 'createdAt', key: 'at', width: 160, render: (v: string) => new Date(v).toLocaleString('zh-CN') },
   ]

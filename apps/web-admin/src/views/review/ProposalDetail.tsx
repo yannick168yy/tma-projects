@@ -184,7 +184,7 @@ export default function ProposalDetail() {
               locale={{ emptyText: '无' }}
               columns={[
                 { title: '账号', dataIndex: 'userId', render: (v: string) => <Button type="link" size="small" onClick={() => navigate(`/users/${v}`)}>{v}</Button> },
-                { title: 'IP', dataIndex: 'ip' },
+                { title: 'IP', dataIndex: 'ip', render: (v: string) => v ? <Button type="link" size="small" style={{ padding: 0 }} onClick={() => navigate(`/device-lookup?field=ip&value=${encodeURIComponent(v)}`)}>{v}</Button> : '-' },
               ]}
             />
           </Card>
@@ -196,7 +196,7 @@ export default function ProposalDetail() {
               locale={{ emptyText: '无' }}
               columns={[
                 { title: '账号', dataIndex: 'userId', render: (v: string) => <Button type="link" size="small" onClick={() => navigate(`/users/${v}`)}>{v}</Button> },
-                { title: '设备', dataIndex: 'deviceId' },
+                { title: '设备', dataIndex: 'deviceId', render: (v: string) => v ? <Button type="link" size="small" style={{ padding: 0 }} onClick={() => navigate(`/device-lookup?field=deviceId&value=${encodeURIComponent(v)}`)}>{v}</Button> : '-' },
               ]}
             />
           </Card>

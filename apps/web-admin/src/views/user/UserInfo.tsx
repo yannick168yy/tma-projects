@@ -1,5 +1,6 @@
-import { Avatar, Card, Descriptions, Tag, Typography } from 'antd'
+import { Avatar, Card, Descriptions, Tag, Typography, Button } from 'antd'
 import { UserOutlined } from '@ant-design/icons'
+import { useNavigate } from 'react-router-dom'
 import { getUserDetail } from '../../api'
 
 type Detail = Awaited<ReturnType<typeof getUserDetail>>
@@ -15,6 +16,11 @@ function fmtDate(s: string) { return new Date(s).toLocaleString('zh-CN') }
 interface Props { detail: Detail }
 
 export default function UserInfo({ detail }: Props) {
+  const navigate = useNavigate()
+  const lookup = (field: 'ip' | 'deviceId' | 'fpVisitor', v: unknown) => {
+    const s = v ? String(v) : ''
+    return s ? <Button type="link" size="small" style={{ padding: 0 }} onClick={() => navigate(`/device-lookup?field=${field}&value=${encodeURIComponent(s)}`)}>{s}</Button> : '-'
+  }
   const u = detail.user as Record<string, unknown>
   const avatarUrl = typeof u.avatarUrl === 'string' ? u.avatarUrl : undefined
   return (
@@ -45,13 +51,13 @@ export default function UserInfo({ detail }: Props) {
         <Descriptions.Item label="注册时间">{fmtDate(String(u.registeredAt ?? ''))}</Descriptions.Item>
         <Descriptions.Item label="注册区域">
           <span>{String(u.registerRegion ?? '') || '-'}</span>
-          {!!u.registerIp && <Typography.Text type="secondary" style={{ marginLeft: 6, fontSize: 12 }}>{String(u.registerIp)}</Typography.Text>}
+          {!!u.registerIp && <span style={{ marginLeft: 6 }}>{lookup('ip', u.registerIp)}</span>}
         </Descriptions.Item>
-        <Descriptions.Item label="注册设备">{String(u.registerDeviceId ?? '') || '-'}</Descriptions.Item>
+        <Descriptions.Item label="注册设备">{lookup('deviceId', u.registerDeviceId)}</Descriptions.Item>
         <Descriptions.Item label="最后登录">{u.lastLoginAt ? fmtDate(String(u.lastLoginAt)) : '-'}</Descriptions.Item>
         <Descriptions.Item label="最后登录区域">
           <span>{String(u.lastLoginRegion ?? '') || '-'}</span>
-          {!!u.lastLoginIp && <Typography.Text type="secondary" style={{ marginLeft: 6, fontSize: 12 }}>{String(u.lastLoginIp)}</Typography.Text>}
+          {!!u.lastLoginIp && <span style={{ marginLeft: 6 }}>{lookup('ip', u.lastLoginIp)}</span>}
         </Descriptions.Item>
         <Descriptions.Item label="余额">₱{Number(detail.wallet.available).toFixed(2)}</Descriptions.Item>
       </Descriptions>

@@ -35,6 +35,7 @@ function buildMenuItems(badges: AdminBadges) {
       label: <MenuBadgeLabel text="用户中心" count={badges.rejectedKyc} />,
       children: [
         { key: '/users', label: '用户列表' },
+        { key: '/device-lookup', label: '指纹/IP 查询' },
         { key: '/kyc', label: <MenuBadgeLabel text="实名认证" count={badges.rejectedKyc} /> },
         { key: '/review/blacklist', label: '风控名单' },
       ],
@@ -137,7 +138,7 @@ function buildMenuItems(badges: AdminBadges) {
 function getDefaultOpenKeys(pathname: string): string[] {
   if (pathname.startsWith('/review/blacklist')) return ['user-center']
   if (pathname.startsWith('/review') || pathname.startsWith('/withdrawals')) return ['review']
-  if (['/users', '/kyc'].some((p) => pathname.startsWith(p))) return ['user-center']
+  if (['/users', '/device-lookup', '/kyc'].some((p) => pathname.startsWith(p))) return ['user-center']
   if (['/deposits', '/payment', '/wallet-ledger', '/exchange-rates'].some((p) => pathname.startsWith(p))) return ['finance']
   if (['/games', '/bet-orders'].some((p) => pathname.startsWith(p))) return ['game']
   if (['/promotions', '/rewards-spin', '/rebate', '/home-content', '/homepage-sections', '/category-sort'].some((p) => pathname.startsWith(p))) return ['marketing']

@@ -4,6 +4,7 @@ import Login from './views/Login'
 import Dashboard from './views/Dashboard'
 import Users from './views/Users'
 import UserDetail from './views/UserDetail'
+import DeviceLookup from './views/DeviceLookup'
 import Deposits from './views/Deposits'
 import Withdrawals from './views/Withdrawals'
 import ReviewOverview from './views/review/Overview'
@@ -63,6 +64,7 @@ export default function App() {
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="users" element={<Users />} />
           <Route path="users/:id" element={<UserDetail />} />
+          <Route path="device-lookup" element={<DeviceLookup />} />
           <Route path="kyc" element={<KycList />} />
           <Route path="kyc/:userId" element={<KycDetail />} />
           <Route path="deposits" element={<Deposits />} />
