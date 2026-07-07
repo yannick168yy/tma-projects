@@ -136,7 +136,7 @@ export function createApiRouter(): Router {
 
   for (const r of [
     userRoutes, walletRoutes, depositRoutes, withdrawRoutes,
-    ledgerRoutes, kycRoutes, promotionRoutes, checkinRoutes, teamRoutes, agentRoutes, yfpayRoutes, paymentUnifiedRoutes, betsRoutes, turnoverRoutes,
+    ledgerRoutes, kycRoutes, checkinRoutes, promotionRoutes, teamRoutes, agentRoutes, yfpayRoutes, paymentUnifiedRoutes, betsRoutes, turnoverRoutes,
   ]) {
     api.use(protectedMw, r.routes(), r.allowedMethods())
   }
