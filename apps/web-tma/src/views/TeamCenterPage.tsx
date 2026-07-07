@@ -380,9 +380,9 @@ export default function TeamCenterPage() {
   const guideSections = useMemo(() => {
     if (!guideOpen) return []
     const text = t('team.guide.content', {
-      l1Rate: teamStatus?.ratePlan?.l1RatePct ?? 25,
-      l2Rate: teamStatus?.ratePlan?.l2RatePct ?? 8,
-      l3Rate: teamStatus?.ratePlan?.l3RatePct ?? 3,
+      l1Rate: teamStatus?.ratePlan?.l1RatePct ?? 0.6,
+      l2Rate: teamStatus?.ratePlan?.l2RatePct ?? 0.3,
+      l3Rate: teamStatus?.ratePlan?.l3RatePct ?? 0.2,
     })
     return parseGuideSections(text)
   }, [guideOpen, t, teamStatus?.ratePlan])

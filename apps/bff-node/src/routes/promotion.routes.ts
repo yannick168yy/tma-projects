@@ -107,8 +107,8 @@ router.get('/trial-play', async (ctx) => {
   ok(ctx, {
     claimed: user.trialClaimed,
     amountPhp: amount,
-    turnoverRequired: amount * 3,
-    turnoverCompleted: user.trialClaimed ? amount : 0,
+    turnoverRequired: amount * cfg.trial.turnoverX,
+    turnoverCompleted: 0,
     canWithdraw: false,
   })
 })
@@ -243,12 +243,38 @@ router.get('/referral/link', async (ctx) => {
   })
 })
 
+function maskDisplayName(name: string): string {
+  const n = (name ?? '').trim()
+  if (!n) return '***'
+  if (n.length <= 2) return `${n[0]}***`
+  return `${n[0]}***${n[n.length - 1]}`
+}
+
 router.get('/referral/records', async (ctx) => {
-  const page = Number(ctx.query.page ?? 1)
+  const page = Math.max(1, Number(ctx.query.page ?? 1) || 1)
+  if (!isMysqlEnabled(ctx.state.env)) {
+    ok(ctx, { items: [], page })
+    return
+  }
+  const pageSize = 20
+  const cfg = await getPromoConfig(ctx.state.env)
+  const [rows] = await getMysqlPool(ctx.state.env).query<RowDataPacket[]>(
+    `SELECT u.id, u.display_name, COALESCE(ps.referral_milestone_met, 0) AS milestone_met
+       FROM bg_user u
+       LEFT JOIN bg_user_promo_state ps ON ps.user_id = u.id
+      WHERE u.inviter_id = ?
+      ORDER BY u.registered_at DESC
+      LIMIT ${pageSize} OFFSET ${(page - 1) * pageSize}`,
+    [ctx.state.userId!],
+  )
   ok(ctx, {
-    items: [
-      { id: '1', role: 'inviter', displayName: 'J***o', status: 'qualified', rewardPhp: 50 },
-    ],
+    items: rows.map((r) => ({
+      id: String(r.id),
+      role: 'inviter',
+      displayName: maskDisplayName(String(r.display_name ?? '')),
+      status: Number(r.milestone_met) ? 'qualified' : 'registered',
+      rewardPhp: Number(r.milestone_met) ? cfg.referral.inviterAmount : 0,
+    })),
     page,
   })
 })

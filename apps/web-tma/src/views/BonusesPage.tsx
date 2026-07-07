@@ -252,18 +252,16 @@ export default function BonusesPage({ promoFilter, onOpenWallet, onOpenTeam, onO
                 </h2>
                 <p className="text-white/60 text-xs mt-0.5">{t('bonuses.promos.agent.tagline')}</p>
                 <div className="flex gap-2 mt-3">
-                  <div className="flex-1 bg-black/30 rounded-xl p-2 text-center">
-                    <div className="text-amber-400 font-black text-lg leading-none">25%</div>
-                    <div className="text-white/50 text-[9px] mt-0.5">{t('bonuses.promos.agent.rateL1')}</div>
-                  </div>
-                  <div className="flex-1 bg-black/30 rounded-xl p-2 text-center">
-                    <div className="text-amber-400 font-black text-lg leading-none">8%</div>
-                    <div className="text-white/50 text-[9px] mt-0.5">{t('bonuses.promos.agent.rateL2')}</div>
-                  </div>
-                  <div className="flex-1 bg-black/30 rounded-xl p-2 text-center">
-                    <div className="text-amber-400 font-black text-lg leading-none">3%</div>
-                    <div className="text-white/50 text-[9px] mt-0.5">{t('bonuses.promos.agent.rateL3')}</div>
-                  </div>
+                  {([
+                    [teamStatus?.ratePlan?.l1RatePct ?? 0.6, t('bonuses.promos.agent.rateL1')],
+                    [teamStatus?.ratePlan?.l2RatePct ?? 0.3, t('bonuses.promos.agent.rateL2')],
+                    [teamStatus?.ratePlan?.l3RatePct ?? 0.2, t('bonuses.promos.agent.rateL3')],
+                  ] as const).map(([rate, label]) => (
+                    <div key={label} className="flex-1 bg-black/30 rounded-xl p-2 text-center">
+                      <div className="text-amber-400 font-black text-lg leading-none">{rate}%</div>
+                      <div className="text-white/50 text-[9px] mt-0.5">{label}</div>
+                    </div>
+                  ))}
                 </div>
               </>
             ) : (

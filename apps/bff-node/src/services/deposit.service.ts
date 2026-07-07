@@ -36,13 +36,14 @@ async function countPaidDeposits(redis: Redis, userId: string, excludeOrderId?: 
 
 /**
  * 被邀请人「首笔成功充值」处理邀请达标：仅第一笔 paid 订单参与判定；
- * 该笔折算 PHP ≥ ₱100 时邀请人 referralReady。
+ * 该笔折算 PHP ≥ ₱100 时邀请人 referralReady、被邀请人即时发 inviteeAmount。
  */
 async function applyReferralMilestone(
   redis: Redis,
   inviteeUserId: string,
   orderId: string,
   creditedCents: number,
+  opts: { pool?: Pool; traceId?: string } = {},
 ): Promise<void> {
   const invitee = await getUser(redis, inviteeUserId)
   if (!invitee?.referredBy || invitee.referralMilestoneMet) return
@@ -54,6 +55,23 @@ async function applyReferralMilestone(
   await saveUser(redis, invitee)
 
   if (creditedCents < REFERRAL_MIN_DEPOSIT_CENTS) return
+
+  const cfg = opts.pool ? await getReferralConfigByPool(opts.pool) : PROMO_DEFAULTS.referral
+  if (cfg.enabled && cfg.inviteeAmount > 0) {
+    await creditWallet(redis, inviteeUserId, cfg.inviteeAmount, {
+      type: 'bonus',
+      description: 'Referral invitee bonus',
+      refId: orderId,
+      createdAt: nowIso(),
+      traceId: opts.traceId,
+    })
+    if (cfg.turnoverX > 0 && opts.pool) {
+      const expiresAt = cfg.turnoverDays > 0
+        ? new Date(Date.now() + cfg.turnoverDays * 86400000).toISOString().slice(0, 19).replace('T', ' ')
+        : null
+      await createPromoRequirement(opts.pool, inviteeUserId, 'referral_invitee', cfg.inviteeAmount, cfg.turnoverX, expiresAt)
+    }
+  }
 
   const inviter = await getUser(redis, invitee.referredBy)
   if (!inviter || inviter.referralClaimed) return
@@ -154,7 +172,7 @@ export async function settlePaidDeposit(
   })
 
   await applyFirstDepPromo(redis, order.userId, order.orderId, opts.amountPhpUnits, opts.currency, { pool: opts.mysqlPool, traceId: opts.traceId })
-  await applyReferralMilestone(redis, order.userId, order.orderId, credited)
+  await applyReferralMilestone(redis, order.userId, order.orderId, credited, { pool: opts.mysqlPool, traceId: opts.traceId })
 
   if (opts.mysqlPool) {
     await createDepositRequirement(opts.mysqlPool, order.userId, order.orderId, credited, creditedCurrency)

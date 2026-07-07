@@ -96,16 +96,15 @@ export interface LedgerEntry {
 export const getUsers = (params: { page?: number; pageSize?: number; search?: string; status?: string }) =>
   get<{ total: number; items: AdminUser[] }>('/admin/users', params)
 
-export type LookupField = 'ip' | 'deviceId' | 'fpVisitor'
 export interface DeviceLookupAccount {
   userId: string; displayName: string; status: string; loginCount: number; firstSeen: string; lastSeen: string
 }
 export interface DeviceLookupResult {
-  field: LookupField; value: string
+  value: string
   accounts: DeviceLookupAccount[]
   logs: (LoginLog & { userId: string })[]
 }
-export const lookupDevice = (params: { field: LookupField; value: string }) =>
+export const lookupDevice = (params: { value: string }) =>
   get<DeviceLookupResult>('/admin/device-lookup', params)
 export type KycOverrideMode = 'inherit' | 'on' | 'off'
 

@@ -130,6 +130,66 @@ async function applyFirstDepBonus(db: Pool, dep: PaidDepositInfo): Promise<void>
   )
 }
 
+/**
+ * 邀请达标：仅被邀请人首笔成功充值参与判定，≥₱100 时邀请人 referral_ready、
+ * 被邀请人即时发 invitee_amount。与 bff 的 applyReferralMilestone 同口径，
+ * 覆盖真实渠道（yfpay/beepay）入账路径。
+ */
+const REFERRAL_MIN_DEPOSIT_PHP = 100
+
+async function applyReferralPromo(db: Pool, dep: PaidDepositInfo): Promise<void> {
+  // 真实渠道均为 PHP；其他币种不折算、不参与判定
+  if (dep.currency !== 'PHP') return
+
+  const [users] = await db.query<RowDataPacket[]>(
+    `SELECT u.inviter_id, COALESCE(ps.referral_milestone_met, 0) AS milestone_met
+       FROM bg_user u
+       LEFT JOIN bg_user_promo_state ps ON ps.user_id = u.id
+      WHERE u.id = ? LIMIT 1`,
+    [dep.userId],
+  )
+  const user = users[0]
+  if (!user?.inviter_id || Number(user.milestone_met)) return
+
+  const [prior] = await db.query<RowDataPacket[]>(
+    "SELECT 1 FROM bg_deposit_order WHERE user_id = ? AND status = 'paid' AND order_id != ? LIMIT 1",
+    [dep.userId, dep.orderId],
+  )
+  if (prior.length > 0) return
+
+  // 幂等闸：置位 milestone，并发回调只有一个能置位成功（updated_at=updated_at 使重复置位 affectedRows=0）
+  const [res] = await db.execute<ResultSetHeader>(
+    `INSERT INTO bg_user_promo_state (user_id, referral_milestone_met) VALUES (?, 1)
+     ON DUPLICATE KEY UPDATE
+       referral_milestone_met = 1,
+       updated_at = IF(referral_milestone_met = 0, NOW(3), updated_at)`,
+    [dep.userId],
+  )
+  if (res.affectedRows === 0) return
+
+  // 与 bff 口径一致：首笔即消耗判定资格，低于 ₱100 不发放
+  if (dep.amount < REFERRAL_MIN_DEPOSIT_PHP) return
+
+  const cfg = await loadPromoKv(db, 'referral')
+  const enabled = cfg.enabled === undefined || cfg.enabled === '1'
+
+  // 被邀请人奖励
+  const inviteeAmount = Number(cfg.invitee_amount ?? 30)
+  if (enabled && inviteeAmount > 0) {
+    await creditBonus(
+      db, dep.userId, inviteeAmount, 'PHP', 'Referral invitee bonus', dep.orderId,
+      Number(cfg.turnover_x ?? 0), Number(cfg.turnover_days ?? 0), 'referral_invitee',
+    )
+  }
+
+  // 邀请人可领标记（未领取过才置位；实际发放走 /promotions/referral/claim）
+  await db.execute(
+    `INSERT INTO bg_user_promo_state (user_id, referral_ready) VALUES (?, 1)
+     ON DUPLICATE KEY UPDATE referral_ready = IF(referral_claimed = 0, 1, referral_ready)`,
+    [String(user.inviter_id)],
+  )
+}
+
 export async function applyDepositPromos(
   db: Pool,
   dep: PaidDepositInfo,
@@ -139,5 +199,10 @@ export async function applyDepositPromos(
     await applyFirstDepBonus(db, dep)
   } catch (err) {
     log.error({ err, orderId: dep.orderId }, 'first deposit bonus failed')
+  }
+  try {
+    await applyReferralPromo(db, dep)
+  } catch (err) {
+    log.error({ err, orderId: dep.orderId }, 'referral promo failed')
   }
 }

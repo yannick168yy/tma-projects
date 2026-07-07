@@ -356,37 +356,33 @@ export async function getLoginLogs(
   }))
 }
 
-// 反查：按 IP / 设备ID / 指纹 找出所有关联账号及登录记录（列名白名单，防注入）
-const LOOKUP_COLUMN: Record<string, string> = { ip: 'ip', deviceId: 'device_id', fpVisitor: 'fp_visitor' }
-
-export async function lookupLoginByField(
+// 反查：一次输入同时匹配 IP / 设备ID / 指纹 / 账号(user_id)，找出所有关联账号及登录记录
+export async function lookupLoginByValue(
   env: Env,
-  field: string,
   value: string,
 ): Promise<{
-  field: string
   value: string
   accounts: { userId: string; displayName: string; status: string; loginCount: number; firstSeen: string; lastSeen: string }[]
   logs: { id: number; userId: string; ip: string | null; region: string | null; userAgent: string | null; authMethod: string; deviceId: string | null; fpVisitor: string | null; createdAt: string }[]
 }> {
-  const col = LOOKUP_COLUMN[field]
-  if (!col || !value) return { field, value, accounts: [], logs: [] }
+  if (!value) return { value, accounts: [], logs: [] }
   const p = pool(env)
+  const match = `(l.ip = ? OR l.device_id = ? OR l.fp_visitor = ? OR l.user_id = ?)`
+  const args = [value, value, value, value]
   const [accRows] = await p.query<RowDataPacket[]>(
     `SELECT l.user_id, u.display_name, u.status,
             COUNT(*) AS login_count, MIN(l.created_at) AS first_seen, MAX(l.created_at) AS last_seen
      FROM bg_login_log l LEFT JOIN bg_user u ON u.id = l.user_id
-     WHERE l.${col} = ?
+     WHERE ${match}
      GROUP BY l.user_id, u.display_name, u.status ORDER BY last_seen DESC LIMIT 200`,
-    [value],
+    args,
   )
   const [logRows] = await p.query<RowDataPacket[]>(
     `SELECT id, user_id, ip, region, user_agent, auth_method, device_id, fp_visitor, created_at
-     FROM bg_login_log WHERE ${col} = ? ORDER BY created_at DESC LIMIT 200`,
-    [value],
+     FROM bg_login_log l WHERE ${match} ORDER BY created_at DESC LIMIT 200`,
+    args,
   )
   return {
-    field,
     value,
     accounts: accRows.map((r) => ({
       userId: String(r.user_id),
