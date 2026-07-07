@@ -41,7 +41,7 @@ export default function GamesPage({ cat, provider, onChangeFilter, onOpenPerya, 
 
   const [providers, setProviders] = useState<string[]>([])
   const [providersExpanded, setProvidersExpanded] = useState(false)
-  const [scrolled, setScrolled] = useState(false)
+  const [hidden, setHidden] = useState(false)
   const [games, setGames] = useState<SlotGame[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
@@ -52,6 +52,7 @@ export default function GamesPage({ cat, provider, onChangeFilter, onOpenPerya, 
   const sentinelRef = useRef<HTMLDivElement>(null)
   const barRef = useRef<HTMLDivElement>(null)
   const [barH, setBarH] = useState(0)
+  const lastYRef = useRef(0)
   const activeCatRef = useRef<HTMLButtonElement>(null)
   const activeProviderRef = useRef<HTMLButtonElement>(null)
   // 请求序号：弱网下旧响应晚到会覆盖新结果，只认最后一次请求
@@ -97,9 +98,15 @@ export default function GamesPage({ cat, provider, onChangeFilter, onOpenPerya, 
     void loadGames(true)
   }, [cat, provider, activeCurrency])
 
-  // 页面滚动后筛选栏去背景色（到顶时恢复实心底）
+  // 菜单栏随滚动方向显隐：上滑(向下滚)收起、下滑(向上滚)出现；接近顶部时常驻显示
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 6)
+    const onScroll = () => {
+      const y = window.scrollY
+      if (y < 12) setHidden(false)
+      else if (y > lastYRef.current + 4) setHidden(true)
+      else if (y < lastYRef.current - 4) setHidden(false)
+      lastYRef.current = y
+    }
     window.addEventListener('scroll', onScroll, { passive: true })
     onScroll()
     return () => window.removeEventListener('scroll', onScroll)
@@ -161,12 +168,17 @@ export default function GamesPage({ cat, provider, onChangeFilter, onOpenPerya, 
 
   return (
     <div className="page-main">
-      {/* 筛选栏改 position:fixed（照抄首页透明浮动挂件：独立合成层、相对视口定位，滚动时不逐帧重定位/重绘=不抖，
-          且能逃出 .page-main 的 overflow-x:clip 不被裁剪）。在 430px 壳内居中，top 让开 app 头 */}
+      {/* 菜单栏 position:fixed（照抄首页浮动挂件：独立合成层、相对视口定位，滚动不抖，逃出 .page-main 的 overflow-x:clip）。
+          随滚动方向 translateY 显隐：向下滚整条往上滑走收起、向上滚往下滑出现，不再一直浮在前面。用 transform 过渡=GPU 合成不抖 */}
       <div
         ref={barRef}
-        className={`fixed left-1/2 z-20 w-full max-w-[430px] -translate-x-1/2 transition-colors duration-200 ${scrolled ? 'bg-transparent' : 'bg-background border-b border-white/5'}`}
-        style={{ top: 'var(--app-header-height, 0px)' }}
+        className="fixed left-1/2 z-20 w-full max-w-[430px] bg-background border-b border-white/5 transition-transform duration-300 ease-out"
+        style={{
+          top: 'var(--app-header-height, 0px)',
+          transform: hidden
+            ? 'translateX(-50%) translateY(calc(-100% - var(--app-header-height, 0px)))'
+            : 'translateX(-50%) translateY(0)',
+        }}
       >
         {/* 一级分类：自然文字，选中=品牌色加粗+下划线 */}
         <div className="flex gap-6 px-4 pt-5 overflow-x-auto hide-scrollbar snap-x">
@@ -179,7 +191,7 @@ export default function GamesPage({ cat, provider, onChangeFilter, onOpenPerya, 
                 type="button"
                 onClick={() => selectCat(c.id)}
                 className={`relative flex-shrink-0 snap-start whitespace-nowrap pb-2.5 text-[18px] transition-colors active:scale-95 ${
-                  active ? 'font-black text-primary' : `font-semibold ${scrolled ? 'text-white/90' : 'text-foreground/50'}`
+                  active ? 'font-black text-primary' : 'font-semibold text-foreground/50'
                 }`}
               >
                 {t(c.labelKey)}
@@ -189,45 +201,41 @@ export default function GamesPage({ cat, provider, onChangeFilter, onOpenPerya, 
           })}
         </div>
 
-        {/* 二级厂商菜单：顶部展开，上滑滚动后原地收起（grid 0fr↔1fr 平滑过渡），只留一级分类 */}
+        {/* 二级厂商菜单：单行横滑，⌄ 展开成多行面板（随整条菜单栏一起显隐，不再单独收起） */}
         {showProviders && (
-          <div className={`grid transition-[grid-template-rows] duration-200 ease-out ${scrolled ? 'grid-rows-[0fr]' : 'grid-rows-[1fr]'}`}>
-            <div className="overflow-hidden">
-              <div className="flex items-start gap-2 px-4 py-2.5">
-                <div className={`flex gap-2 flex-1 min-w-0 ${providersExpanded ? 'flex-wrap' : 'overflow-x-auto hide-scrollbar'}`}>
-                  <button
-                    type="button"
-                    onClick={() => selectProvider('all')}
-                    className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-bold transition-colors active:scale-95 ${
-                      provider === 'all' ? 'bg-primary text-primary-foreground' : 'bg-secondary text-foreground/70'
-                    }`}
-                  >
-                    {t('slots.allProviders')}
-                  </button>
-                  {providers.map((p) => (
-                    <button
-                      key={p}
-                      ref={provider === p ? activeProviderRef : undefined}
-                      type="button"
-                      onClick={() => selectProvider(p)}
-                      className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-bold transition-colors active:scale-95 ${
-                        provider === p ? 'bg-primary text-primary-foreground' : 'bg-secondary text-foreground/70'
-                      }`}
-                    >
-                      {shortProviderName(p)}
-                    </button>
-                  ))}
-                </div>
+          <div className="flex items-start gap-2 px-4 py-2.5">
+            <div className={`flex gap-2 flex-1 min-w-0 ${providersExpanded ? 'flex-wrap' : 'overflow-x-auto hide-scrollbar'}`}>
+              <button
+                type="button"
+                onClick={() => selectProvider('all')}
+                className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-bold transition-colors active:scale-95 ${
+                  provider === 'all' ? 'bg-primary text-primary-foreground' : 'bg-secondary text-foreground/70'
+                }`}
+              >
+                {t('slots.allProviders')}
+              </button>
+              {providers.map((p) => (
                 <button
+                  key={p}
+                  ref={provider === p ? activeProviderRef : undefined}
                   type="button"
-                  className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full bg-secondary text-muted-foreground active:scale-90 transition-transform"
-                  onClick={() => setProvidersExpanded(!providersExpanded)}
-                  aria-label={providersExpanded ? 'Collapse providers' : 'Expand providers'}
+                  onClick={() => selectProvider(p)}
+                  className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-bold transition-colors active:scale-95 ${
+                    provider === p ? 'bg-primary text-primary-foreground' : 'bg-secondary text-foreground/70'
+                  }`}
                 >
-                  {providersExpanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+                  {shortProviderName(p)}
                 </button>
-              </div>
+              ))}
             </div>
+            <button
+              type="button"
+              className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full bg-secondary text-muted-foreground active:scale-90 transition-transform"
+              onClick={() => setProvidersExpanded(!providersExpanded)}
+              aria-label={providersExpanded ? 'Collapse providers' : 'Expand providers'}
+            >
+              {providersExpanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+            </button>
           </div>
         )}
       </div>
