@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ChevronDown, ChevronUp, RefreshCw } from 'lucide-react'
 import GameCardV2 from '@/components/home/GameCardV2'
@@ -50,6 +50,8 @@ export default function GamesPage({ cat, provider, onChangeFilter, onOpenPerya, 
   const [loadingMore, setLoadingMore] = useState(false)
   const [error, setError] = useState('')
   const sentinelRef = useRef<HTMLDivElement>(null)
+  const barRef = useRef<HTMLDivElement>(null)
+  const [barH, setBarH] = useState(0)
   const activeCatRef = useRef<HTMLButtonElement>(null)
   const activeProviderRef = useRef<HTMLButtonElement>(null)
   // 请求序号：弱网下旧响应晚到会覆盖新结果，只认最后一次请求
@@ -95,12 +97,22 @@ export default function GamesPage({ cat, provider, onChangeFilter, onOpenPerya, 
     void loadGames(true)
   }, [cat, provider, activeCurrency])
 
-  // 页面滚动后筛选区变半透明毛玻璃（到顶时恢复实心底）
+  // 页面滚动后筛选栏去背景色（到顶时恢复实心底）
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 6)
     window.addEventListener('scroll', onScroll, { passive: true })
     onScroll()
     return () => window.removeEventListener('scroll', onScroll)
+  }, [])
+
+  // 筛选栏改 fixed 后脱离文档流，用占位 div 撑出其实时高度（二级展开/收起、厂商异步加载都会变高）
+  useLayoutEffect(() => {
+    const el = barRef.current
+    if (!el) return
+    setBarH(el.offsetHeight)
+    const ro = new ResizeObserver(() => setBarH(el.offsetHeight))
+    ro.observe(el)
+    return () => ro.disconnect()
   }, [])
 
   // 深链（如首页 chip / View All）时把选中的分类 tab、厂商 chip 滚进视野
@@ -149,10 +161,11 @@ export default function GamesPage({ cat, provider, onChangeFilter, onOpenPerya, 
 
   return (
     <div className="page-main">
-      {/* 筛选区 sticky 吸顶：上滑后一级分类文字钉在原位、去掉背景色，自然透出底部内容 */}
-      {/* 最朴素写法——不加 drop-shadow 滤镜 / will-change 图层提升（这两个才是逼 sticky 逐帧重绘=抖动的元凶） */}
+      {/* 筛选栏改 position:fixed（照抄首页透明浮动挂件：独立合成层、相对视口定位，滚动时不逐帧重定位/重绘=不抖，
+          且能逃出 .page-main 的 overflow-x:clip 不被裁剪）。在 430px 壳内居中，top 让开 app 头 */}
       <div
-        className={`sticky z-20 transition-colors duration-200 ${scrolled ? 'bg-transparent' : 'bg-background border-b border-white/5'}`}
+        ref={barRef}
+        className={`fixed left-1/2 z-20 w-full max-w-[430px] -translate-x-1/2 transition-colors duration-200 ${scrolled ? 'bg-transparent' : 'bg-background border-b border-white/5'}`}
         style={{ top: 'var(--app-header-height, 0px)' }}
       >
         {/* 一级分类：自然文字，选中=品牌色加粗+下划线 */}
@@ -218,6 +231,8 @@ export default function GamesPage({ cat, provider, onChangeFilter, onOpenPerya, 
           </div>
         )}
       </div>
+      {/* 占位：撑出 fixed 筛选栏的实时高度，让下方内容顺着往下排 */}
+      <div aria-hidden style={{ height: barH }} />
 
       {/* Perya 嘉年华入口横幅（仅 perya 分类） */}
       {cat === 'perya' && (
