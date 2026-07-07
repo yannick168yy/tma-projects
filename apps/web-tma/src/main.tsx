@@ -10,6 +10,7 @@ import { captureReferralFromUrl } from '@/utils/referral'
 import { initTheme } from '@/stores/theme'
 import { initAnalytics } from '@/utils/analytics'
 import { initPwa } from '@/utils/pwa'
+import { initFingerprint } from '@/utils/fingerprint'
 
 preventDoubleTapZoom()
 captureReferralFromUrl()
@@ -17,6 +18,7 @@ initTelegramWebApp()
 initTheme()
 initAnalytics()
 initPwa()
+initFingerprint()
 
 createRoot(document.getElementById('app')!).render(
   <StrictMode>

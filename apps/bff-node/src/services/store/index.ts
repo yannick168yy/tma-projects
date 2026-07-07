@@ -215,7 +215,7 @@ export const listWithdrawals = (redis: Redis, userId: string, page = 1, pageSize
 export const recordUserLogin = (
   redis: Redis,
   userId: string,
-  opts: { ip?: string; region?: string; userAgent?: string; authMethod?: string },
+  opts: { ip?: string; region?: string; userAgent?: string; authMethod?: string; deviceId?: string; fpVisitor?: string; fpSignals?: string },
 ) =>
   isMysqlEnabled(env())
     ? mysqlStore.recordUserLogin(env(), userId, opts)

@@ -1,4 +1,5 @@
 import type { ApiResponse } from '@/types/api'
+import { fingerprintHeaders } from '@/utils/fingerprint'
 
 /** 生产域名走同源 /api/v1（Nginx → BFF）；避免 www/裸域跨域与 .env 写死 www 导致异常 */
 function resolveBaseUrl(): string {
@@ -42,7 +43,7 @@ export async function apiRequest<T>(
   try {
     res = await fetch(`${BASE_URL}${path}`, {
       ...init,
-      headers: { ...authHeaders(), ...(init.headers as Record<string, string>) },
+      headers: { ...authHeaders(), ...fingerprintHeaders(), ...(init.headers as Record<string, string>) },
     })
   } catch (e) {
     const hint =

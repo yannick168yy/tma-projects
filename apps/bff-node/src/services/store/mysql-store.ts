@@ -796,18 +796,19 @@ export const listWithdrawals = listOrderWithdrawals
 export async function recordUserLogin(
   env: Env,
   userId: string,
-  opts: { ip?: string; region?: string; userAgent?: string; authMethod?: string },
+  opts: { ip?: string; region?: string; userAgent?: string; authMethod?: string; deviceId?: string; fpVisitor?: string; fpSignals?: string },
 ): Promise<void> {
   const conn = await pool(env).getConnection()
   try {
     await conn.beginTransaction()
+    // register_device_id 用 COALESCE：仅首次为空时写入，记录"注册/首见设备"锚点，后续登录不覆盖
     await conn.execute(
-      `UPDATE bg_user SET last_login_at = NOW(3), last_login_ip = ?, last_login_region = ? WHERE id = ?`,
-      [opts.ip ?? null, opts.region ?? null, userId],
+      `UPDATE bg_user SET last_login_at = NOW(3), last_login_ip = ?, last_login_region = ?, register_device_id = COALESCE(register_device_id, ?) WHERE id = ?`,
+      [opts.ip ?? null, opts.region ?? null, opts.deviceId ?? null, userId],
     )
     await conn.execute(
-      `INSERT INTO bg_login_log (user_id, ip, region, user_agent, auth_method) VALUES (?,?,?,?,?)`,
-      [userId, opts.ip ?? null, opts.region ?? null, opts.userAgent?.slice(0, 512) ?? null, opts.authMethod ?? 'telegram'],
+      `INSERT INTO bg_login_log (user_id, ip, region, user_agent, auth_method, device_id, fp_visitor, fp_signals) VALUES (?,?,?,?,?,?,?,?)`,
+      [userId, opts.ip ?? null, opts.region ?? null, opts.userAgent?.slice(0, 512) ?? null, opts.authMethod ?? 'telegram', opts.deviceId ?? null, opts.fpVisitor ?? null, opts.fpSignals ?? null],
     )
     await conn.commit()
   } catch (e) {

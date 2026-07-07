@@ -13,6 +13,24 @@ function cleanIp(raw: string): string {
   return raw.replace(/^::ffff:/i, '')
 }
 
+// 从请求头提取设备指纹（前端 client.ts 统一注入）。全部非致命，缺失即降级
+function fingerprint(ctx: import('koa').Context): { deviceId?: string; fpVisitor?: string; fpSignals?: string } {
+  const deviceId = ctx.get('x-device-id') || undefined
+  const fpVisitor = ctx.get('x-fp-visitor') || undefined
+  let fpSignals: string | undefined
+  const raw = ctx.get('x-fp-signals')
+  if (raw) {
+    try {
+      const json = Buffer.from(raw, 'base64').toString('utf8')
+      JSON.parse(json) // 校验合法 JSON，避免写坏 JSON 列导致整条日志插入失败
+      fpSignals = json
+    } catch {
+      /* 忽略非法指纹信号 */
+    }
+  }
+  return { deviceId, fpVisitor, fpSignals }
+}
+
 // 新注册用户按来源域名归因到代理（非致命，不阻塞登录）
 function attributeAgent(ctx: import('koa').Context, isNewUser: boolean, userId: string): void {
   if (!isNewUser) return
@@ -41,6 +59,7 @@ router.post('/telegram', async (ctx) => {
     recordUserLogin(ctx.state.redis, result.user.id, {
       ip,
       region: lookupRegion(ip),
+      ...fingerprint(ctx),
       userAgent: ctx.get('user-agent'),
       authMethod: 'telegram',
     }).catch(() => {})
@@ -80,6 +99,7 @@ router.post('/google', async (ctx) => {
     recordUserLogin(ctx.state.redis, result.user.id, {
       ip,
       region: lookupRegion(ip),
+      ...fingerprint(ctx),
       userAgent: ctx.get('user-agent'),
       authMethod: 'google',
     }).catch(() => {})
@@ -119,6 +139,7 @@ router.post('/telegram-oidc', async (ctx) => {
     recordUserLogin(ctx.state.redis, result.user.id, {
       ip,
       region: lookupRegion(ip),
+      ...fingerprint(ctx),
       userAgent: ctx.get('user-agent'),
       authMethod: 'telegram',
     }).catch(() => {})
@@ -156,6 +177,7 @@ router.post('/register', async (ctx) => {
     recordUserLogin(ctx.state.redis, result.user.id, {
       ip,
       region: lookupRegion(ip),
+      ...fingerprint(ctx),
       userAgent: ctx.get('user-agent'),
       authMethod: body.method,
     }).catch(() => {})
@@ -204,6 +226,7 @@ router.post('/login', async (ctx) => {
     recordUserLogin(ctx.state.redis, result.user.id, {
       ip,
       region: lookupRegion(ip),
+      ...fingerprint(ctx),
       userAgent: ctx.get('user-agent'),
       authMethod: body.method,
     }).catch(() => {})
@@ -283,6 +306,7 @@ router.post('/telegram-widget', async (ctx) => {
     recordUserLogin(ctx.state.redis, result.user.id, {
       ip,
       region: lookupRegion(ip),
+      ...fingerprint(ctx),
       userAgent: ctx.get('user-agent'),
       authMethod: 'telegram',
     }).catch(() => {})
