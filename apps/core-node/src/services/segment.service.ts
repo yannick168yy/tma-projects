@@ -81,7 +81,7 @@ export function classifySegment(input: SegmentInput, now: Date): SegmentResult {
 interface RawUserRow extends RowDataPacket {
   id: string
   registered_at: Date
-  telegram_user_id: string | number | null
+  reachable_tg: number
   deposit_count: number
   total_deposit: string | number
   last_paid_at: Date | null
@@ -95,7 +95,7 @@ export async function recomputeSegments(pool: Pool, now: Date = new Date()): Pro
     `SELECT
         u.id,
         u.registered_at,
-        u.telegram_user_id,
+        CASE WHEN ti.user_id IS NULL THEN 0 ELSE 1 END AS reachable_tg,
         COALESCE(d.cnt, 0)            AS deposit_count,
         COALESCE(d.total, 0)         AS total_deposit,
         d.last_paid_at,
@@ -113,6 +113,11 @@ export async function recomputeSegments(pool: Pool, now: Date = new Date()): Pro
         SELECT user_id, MAX(created_at) last_login_at FROM bg_login_log GROUP BY user_id
       ) l ON l.user_id = u.id
       LEFT JOIN bg_team_node t ON t.user_id = u.id AND t.activated = 1
+      -- provider='telegram'(Mini App 关联)的 identifier 才是 bot 可发消息的 chat_id；
+      -- telegram_oidc 存的是 OIDC sub，不可直接推送，故只认 telegram
+      LEFT JOIN (
+        SELECT DISTINCT user_id FROM bg_user_identity WHERE provider = 'telegram'
+      ) ti ON ti.user_id = u.id
      WHERE u.status = 'active'`,
   )
 
@@ -130,7 +135,7 @@ export async function recomputeSegments(pool: Pool, now: Date = new Date()): Pro
         totalDeposit: Number(r.total_deposit),
         depositCount: Number(r.deposit_count),
         isAgent: Number(r.is_agent) === 1,
-        reachableTg: r.telegram_user_id != null,
+        reachableTg: Number(r.reachable_tg) === 1,
       },
       now,
     )
