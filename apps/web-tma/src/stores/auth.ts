@@ -234,7 +234,6 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
     const promotion = usePromotionStore.getState()
     usePromotionStore.setState({
       highlights: [],
-      referralRecords: [],
       redPacketRecords: [],
       redPacketSheet: { open: false, amountPhp: 0, title: '' },
     })

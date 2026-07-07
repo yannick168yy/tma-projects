@@ -614,18 +614,6 @@ export default {
         step1: 'Register a new account',
         step2: 'Receive ₱{{amount}} bonus instantly',
       },
-      referral: {
-        tag: 'REFERRAL',
-        title: 'Invite & Earn Together',
-        tagline: 'Both You & Your Friend Win',
-        rewardLabel: 'Inviter / Invitee',
-        desc: 'Invite a friend to BetoGo. When they register and make their first deposit, you get ₱{{inviterAmount}} and your friend gets ₱{{inviteeAmount}} — unlimited referrals!',
-        badge: 'Unlimited',
-        cta: 'Share Link',
-        step1: 'Share your referral link',
-        step2: 'Friend registers & deposits',
-        step3: 'Both receive bonus',
-      },
       firstdep: {
         tag: 'FIRST DEPOSIT',
         title: 'First Deposit Fiesta',

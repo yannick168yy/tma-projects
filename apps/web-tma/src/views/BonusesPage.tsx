@@ -128,9 +128,6 @@ export default function BonusesPage({ promoFilter, onOpenWallet, onOpenTeam, onO
         if (p.id === 'trial' && cfg) {
           vars = { amount: cfg.trial.amount }
           reward = `₱ ${cfg.trial.amount}`
-        } else if (p.id === 'referral' && cfg) {
-          vars = { inviterAmount: cfg.referral.inviterAmount, inviteeAmount: cfg.referral.inviteeAmount }
-          reward = `₱${cfg.referral.inviterAmount} / ₱${cfg.referral.inviteeAmount}`
         } else if (p.id === 'appdl' && cfg?.appdl) {
           vars = { amount: cfg.appdl.amount }
           reward = `₱ ${cfg.appdl.amount}`
@@ -142,7 +139,7 @@ export default function BonusesPage({ promoFilter, onOpenWallet, onOpenTeam, onO
         }
 
         const stepList =
-          p.id === 'referral'
+          p.id === 'firstdep'
             ? [t(`${base}.step1`, vars), t(`${base}.step2`, vars), t(`${base}.step3`, vars)]
             : [t(`${base}.step1`, vars), t(`${base}.step2`, vars)]
         return {

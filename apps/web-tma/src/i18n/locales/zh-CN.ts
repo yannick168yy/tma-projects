@@ -604,18 +604,6 @@ export default {
         step1: '注册新账号',
         step2: '即时到账 ₱{{amount}} 礼金',
       },
-      referral: {
-        tag: '邀请好友',
-        title: '邀请共赢',
-        tagline: '您与好友双赢',
-        rewardLabel: '邀请人 / 被邀请人',
-        desc: '邀请好友加入 BetoGo，好友注册并首充后，您得 ₱{{inviterAmount}}，好友得 ₱{{inviteeAmount}} — 邀请次数不限！',
-        badge: '不限次数',
-        cta: '分享链接',
-        step1: '分享邀请链接',
-        step2: '好友注册并充值',
-        step3: '双方获得礼金',
-      },
       firstdep: {
         tag: '首充',
         title: '首充嘉年华',

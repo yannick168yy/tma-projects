@@ -1,11 +1,9 @@
 import { create } from 'zustand'
 import {
   claimFirstDepBonus,
-  claimReferralBonus,
   claimTrialBonus,
   fetchPromoHighlights,
   fetchRedPacketRecords,
-  fetchReferralRecords,
   fetchTeamStatus,
   enableAgent as apiEnableAgent,
   fetchTeamDownlines,
@@ -25,12 +23,11 @@ import { useAuthStore } from '@/stores/auth'
 import { useWalletStore } from '@/stores/wallet'
 import { i18n } from '@/i18n'
 import { analytics } from '@/utils/analytics'
-import type { PromoHighlight, PromoId, RedPacketRecord, ReferralRecord, TeamAgentStatus } from '@/types/api'
+import type { PromoHighlight, PromoId, RedPacketRecord, TeamAgentStatus } from '@/types/api'
 
 interface PromotionState {
   promoConfig: PromoConfig | null
   highlights: PromoHighlight[]
-  referralRecords: ReferralRecord[]
   redPacketRecords: RedPacketRecord[]
   redPacketSheet: { open: boolean; amountPhp: number; title: string }
   teamStatus: TeamAgentStatus | null
@@ -72,7 +69,6 @@ interface PromotionActions {
 export const usePromotionStore = create<PromotionState & PromotionActions>((set, get) => ({
   promoConfig: null,
   highlights: [],
-  referralRecords: [],
   redPacketRecords: [],
   redPacketSheet: { open: false, amountPhp: 0, title: '' },
   teamStatus: null,
@@ -103,11 +99,7 @@ export const usePromotionStore = create<PromotionState & PromotionActions>((set,
   },
 
   async loadLists() {
-    const [referralRecords, redPacketRecords] = await Promise.all([
-      fetchReferralRecords(),
-      fetchRedPacketRecords(),
-    ])
-    set({ referralRecords, redPacketRecords })
+    set({ redPacketRecords: await fetchRedPacketRecords() })
   },
 
   showRedPacket(title, amountPhp) {
@@ -206,13 +198,10 @@ export const usePromotionStore = create<PromotionState & PromotionActions>((set,
     const titleKey =
       id === 'trial'
         ? 'bonuses.promos.trial.title'
-        : id === 'referral'
-          ? 'bonuses.promos.referral.title'
-          : 'bonuses.promos.firstdep.title'
+        : 'bonuses.promos.firstdep.title'
     try {
       let amountPhp = 0
       if (id === 'trial') ({ amountPhp } = await claimTrialBonus())
-      else if (id === 'referral') ({ amountPhp } = await claimReferralBonus())
       else if (id === 'firstdep') ({ amountPhp } = await claimFirstDepBonus())
       analytics.promoClaimSuccess(id, amountPhp)
       await useWalletStore.getState().refresh()

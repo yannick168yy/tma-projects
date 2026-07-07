@@ -40,7 +40,6 @@ const socialPlatformOptions: { label: string; value: HomeSocialPlatform }[] = [
 
 const promoOptions = [
   { label: '首充嘉年华', value: 'firstdep' },
-  { label: '邀请共赢', value: 'referral' },
   { label: '首席体验官', value: 'trial' },
 ]
 

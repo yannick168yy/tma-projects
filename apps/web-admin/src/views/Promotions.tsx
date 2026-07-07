@@ -52,7 +52,6 @@ export default function Promotions() {
 
   function validate(c: PromoConfig): string | null {
     if (c.trial.amount <= 0 || c.trial.amount > 50000) return 'trial 注册奖励必须在 1-50000'
-    if (c.referral.inviterAmount < 0 || c.referral.inviteeAmount < 0) return 'referral 金额不能为负'
     if (c.firstdep.turnoverX < 0 || c.firstdep.turnoverDays < 0) return 'firstdep 流水倍率/有效期不能为负'
     if (c.appdl.amount <= 0 || c.appdl.amount > 50000) return 'App 下载礼金必须在 1-50000'
     if (c.appdl.turnoverX < 0 || c.appdl.turnoverDays < 0) return 'App 下载礼金流水倍率/有效期不能为负'
@@ -229,29 +228,6 @@ export default function Promotions() {
         </Row>
       </Card>
 
-      <Card
-        title={<span>🤝 邀请共赢</span>}
-        extra={<Switch checkedChildren="开启" unCheckedChildren="关闭" checked={cfg.referral.enabled} onChange={(v) => patch((d) => { d.referral.enabled = v })} />}
-      >
-        <Row gutter={24}>
-          <Col span={12}>
-            <Text>邀请人奖励（PHP）</Text>
-            <InputNumber prefix="₱" style={{ width: '100%', marginTop: 4 }} min={0} max={50000} precision={0} value={cfg.referral.inviterAmount} onChange={(v) => patch((d) => { d.referral.inviterAmount = Number(v ?? 0) })} />
-          </Col>
-          <Col span={12}>
-            <Text>被邀请人奖励（PHP）</Text>
-            <InputNumber prefix="₱" style={{ width: '100%', marginTop: 4 }} min={0} max={50000} precision={0} value={cfg.referral.inviteeAmount} onChange={(v) => patch((d) => { d.referral.inviteeAmount = Number(v ?? 0) })} />
-          </Col>
-          <Col span={12} style={{ marginTop: 16 }}>
-            <Text>流水倍率（0=不要求）</Text>
-            <InputNumber suffix="x" style={{ width: '100%', marginTop: 4 }} min={0} max={100} precision={0} value={cfg.referral.turnoverX} onChange={(v) => patch((d) => { d.referral.turnoverX = Number(v ?? 0) })} />
-          </Col>
-          <Col span={12} style={{ marginTop: 16 }}>
-            <Text>流水有效期（0=永久）</Text>
-            <InputNumber suffix="天" style={{ width: '100%', marginTop: 4 }} min={0} max={365} precision={0} value={cfg.referral.turnoverDays} onChange={(v) => patch((d) => { d.referral.turnoverDays = Number(v ?? 0) })} />
-          </Col>
-        </Row>
-      </Card>
     </>
   )
 

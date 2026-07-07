@@ -402,18 +402,6 @@ export default {
         step1: 'Daftar akun baru',
         step2: 'Terima bonus ₱{{amount}} instan',
       },
-      referral: {
-        tag: 'REFERRAL',
-        title: 'Ajak & Menang Bersama',
-        tagline: 'Anda & Teman Menang',
-        rewardLabel: 'Pengundang / Diundang',
-        desc: 'Ajak teman ke BetoGo. Saat mereka daftar dan deposit pertama, Anda dapat ₱{{inviterAmount}} dan teman ₱{{inviteeAmount}} — referral tanpa batas!',
-        badge: 'Tanpa Batas',
-        cta: 'Bagikan Tautan',
-        step1: 'Bagikan tautan referral',
-        step2: 'Teman daftar & deposit',
-        step3: 'Keduanya terima bonus',
-      },
       firstdep: {
         tag: 'DEPOSIT PERTAMA',
         title: 'First Deposit Fiesta',

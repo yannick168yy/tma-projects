@@ -17,13 +17,6 @@ const PROMOS = [
     ctaLabel: 'Claim',
   },
   {
-    promoId: 'referral',
-    title: 'Referral Bonus',
-    subtitle: 'Invite friends, earn rewards',
-    description: 'Share your invite link. Rewards unlock when friends qualify.',
-    ctaLabel: 'Copy Link',
-  },
-  {
     promoId: 'firstdep',
     title: 'First Deposit',
     subtitle: 'Bonus on your first top-up',
@@ -70,13 +63,6 @@ function promoHighlights(user: Awaited<ReturnType<typeof getUser>>, firstDeposit
   return PROMOS.map((p) => {
     if (p.promoId === 'trial') {
       return { promoId: p.promoId, highlight: !user.trialClaimed, flagLabel: !user.trialClaimed ? '₱88' : null }
-    }
-    if (p.promoId === 'referral') {
-      return {
-        promoId: p.promoId,
-        highlight: user.referralReady && !user.referralClaimed,
-        flagLabel: user.referralReady && !user.referralClaimed ? 'Claim' : null,
-      }
     }
     return { promoId: p.promoId, highlight: !firstDepositDone, flagLabel: !firstDepositDone ? 'Deposit' : null }
   })
@@ -215,70 +201,6 @@ router.post('/app-download/claim', async (ctx) => {
   }
 })
 
-router.get('/referral', async (ctx) => {
-  const user = await getUser(ctx.state.redis, ctx.state.userId!)
-  if (!user) {
-    fail(ctx, 404, 'User not found', 404)
-    return
-  }
-  const cfg = await getPromoConfig(ctx.state.env)
-  const inviterAmt = cfg.referral.inviterAmount
-  ok(ctx, {
-    inviteCode: user.inviteCode,
-    totalRewardPhp: user.referralClaimed ? inviterAmt : 0,
-    pendingRewardPhp: user.referralReady && !user.referralClaimed ? inviterAmt : 0,
-  })
-})
-
-router.get('/referral/link', async (ctx) => {
-  const user = await getUser(ctx.state.redis, ctx.state.userId!)
-  if (!user) {
-    fail(ctx, 404, 'User not found', 404)
-    return
-  }
-  const deepLink = `https://t.me/BetoGoBot/app?startapp=ref_${user.inviteCode}`
-  ok(ctx, {
-    deepLink,
-    shareText: `Join BetoGo with my invite code ${user.inviteCode}! ${deepLink}`,
-  })
-})
-
-function maskDisplayName(name: string): string {
-  const n = (name ?? '').trim()
-  if (!n) return '***'
-  if (n.length <= 2) return `${n[0]}***`
-  return `${n[0]}***${n[n.length - 1]}`
-}
-
-router.get('/referral/records', async (ctx) => {
-  const page = Math.max(1, Number(ctx.query.page ?? 1) || 1)
-  if (!isMysqlEnabled(ctx.state.env)) {
-    ok(ctx, { items: [], page })
-    return
-  }
-  const pageSize = 20
-  const cfg = await getPromoConfig(ctx.state.env)
-  const [rows] = await getMysqlPool(ctx.state.env).query<RowDataPacket[]>(
-    `SELECT u.id, u.display_name, COALESCE(ps.referral_milestone_met, 0) AS milestone_met
-       FROM bg_user u
-       LEFT JOIN bg_user_promo_state ps ON ps.user_id = u.id
-      WHERE u.inviter_id = ?
-      ORDER BY u.registered_at DESC
-      LIMIT ${pageSize} OFFSET ${(page - 1) * pageSize}`,
-    [ctx.state.userId!],
-  )
-  ok(ctx, {
-    items: rows.map((r) => ({
-      id: String(r.id),
-      role: 'inviter',
-      displayName: maskDisplayName(String(r.display_name ?? '')),
-      status: Number(r.milestone_met) ? 'qualified' : 'registered',
-      rewardPhp: Number(r.milestone_met) ? cfg.referral.inviterAmount : 0,
-    })),
-    page,
-  })
-})
-
 router.get('/red-packets', async (ctx) => {
   const user = await getUser(ctx.state.redis, ctx.state.userId!)
   const ledger = await listLedger(ctx.state.redis, ctx.state.userId!, 50)
@@ -322,44 +244,6 @@ router.post('/:promoId/claim', async (ctx) => {
   const promoId = ctx.params.promoId
   if (promoId === 'trial') {
     fail(ctx, 400, 'Use POST /promotions/trial-play/claim for trial bonus')
-    return
-  }
-  if (promoId === 'referral') {
-    try {
-      const result = await withUserPromoLock(ctx, user.id, 'referral', async () => {
-        const lockedUser = await getUser(ctx.state.redis, user.id)
-        if (!lockedUser || !lockedUser.referralReady || lockedUser.referralClaimed) {
-          throw new Error('Referral reward not available')
-        }
-        const cfg = await getPromoConfig(ctx.state.env)
-        if (!cfg.referral.enabled) throw new Error('Referral bonus is currently disabled')
-        const amount = cfg.referral.inviterAmount
-        lockedUser.referralClaimed = true
-        lockedUser.referralReady = false
-        await saveUser(ctx.state.redis, lockedUser)
-        await creditWallet(ctx.state.redis, lockedUser.id, amount, {
-          type: 'bonus',
-          description: 'Referral bonus',
-          createdAt: nowIso(),
-          traceId: ctx.state.traceId,
-        })
-        if (cfg.referral.turnoverX > 0 && isMysqlEnabled(ctx.state.env)) {
-          const expiresAt = cfg.referral.turnoverDays > 0
-            ? new Date(Date.now() + cfg.referral.turnoverDays * 86400000).toISOString().slice(0, 19).replace('T', ' ')
-            : null
-          await createPromoRequirement(getMysqlPool(ctx.state.env), lockedUser.id, 'referral', amount, cfg.referral.turnoverX, expiresAt)
-        }
-        return { amountPhp: amount, amountCents: amount }
-      })
-      ok(ctx, result)
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Referral claim failed'
-      if (msg === 'errors.duplicateRequest') {
-        fail(ctx, 429, msg, 429)
-        return
-      }
-      fail(ctx, 409, msg)
-    }
     return
   }
   if (promoId === 'firstdep') {

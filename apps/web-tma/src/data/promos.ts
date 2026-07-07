@@ -39,25 +39,6 @@ export const PROMOS: Promo[] = [
     highlight: true,
   },
   {
-    id: 'referral',
-    tag: 'REFERRAL',
-    title: 'Invite & Earn Together',
-    tagline: 'Both You & Your Friend Win',
-    reward: '₱50 / ₱30',
-    rewardLabel: 'Inviter / Invitee',
-    desc: 'Invite a friend to BetoGo. When they register and make their first deposit, you get ₱50 and your friend gets ₱30 — unlimited referrals!',
-    gradient: 'from-[#064e3b] via-[#065f46] to-[#047857]',
-    accentColor: '#34d399',
-    icon: '🤝',
-    steps: ['Share your referral link', 'Friend registers & deposits', 'Both receive bonus'],
-    badge: 'Unlimited',
-    badgeColor: 'bg-emerald-400/20 text-emerald-300',
-    cta: 'Share Link',
-    ctaColor: 'bg-emerald-500 hover:bg-emerald-400',
-    expiry: 'Ongoing',
-    highlight: false,
-  },
-  {
     id: 'firstdep',
     tag: 'FIRST DEPOSIT',
     title: 'First Deposit Fiesta',
@@ -100,9 +81,9 @@ export const PROMOS: Promo[] = [
 export const BONUS_WINNERS = [
   { name: 'J***n', promo: 'Chief Trial Officer', amount: '₱88' },
   { name: 'M***a', promo: 'First Deposit Fiesta', amount: '₱1,000' },
-  { name: 'R***o', promo: 'Invite & Earn', amount: '₱500' },
   { name: 'C***e', promo: 'First Deposit Fiesta', amount: '₱1,000' },
-  { name: 'A***y', promo: 'Invite & Earn', amount: '₱1,500' },
+  { name: 'R***l', promo: 'First Deposit Fiesta', amount: '₱800' },
+  { name: 'A***y', promo: 'Chief Trial Officer', amount: '₱88' },
 ]
 
 export const PROMO_STATS = [

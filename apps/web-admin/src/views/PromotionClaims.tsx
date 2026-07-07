@@ -9,7 +9,6 @@ const { Title, Text } = Typography
 const PROMO_OPTIONS = [
   { value: '', label: '全部活动' },
   { value: 'trial', label: '首席体验官' },
-  { value: 'referral', label: '邀请共赢' },
   { value: 'firstdep', label: '首充嘉年华' },
   { value: 'appdl', label: 'App下载礼金' },
 ]

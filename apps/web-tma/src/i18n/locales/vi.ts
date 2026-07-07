@@ -380,18 +380,6 @@ export default {
         step1: 'Đăng ký tài khoản mới',
         step2: 'Nhận thưởng ₱{{amount}} ngay',
       },
-      referral: {
-        tag: 'GIỚI THIỆU',
-        title: 'Mời & Cùng thắng',
-        tagline: 'Bạn và bạn bè đều thắng',
-        rewardLabel: 'Người mời / Người được mời',
-        desc: 'Mời bạn bè đến BetoGo. Khi họ đăng ký và nạp lần đầu, bạn nhận ₱{{inviterAmount}} và bạn bè ₱{{inviteeAmount}} — mời không giới hạn!',
-        badge: 'Không giới hạn',
-        cta: 'Chia sẻ liên kết',
-        step1: 'Chia sẻ liên kết giới thiệu',
-        step2: 'Bạn bè đăng ký & nạp',
-        step3: 'Cả hai nhận thưởng',
-      },
       firstdep: {
         tag: 'NẠP LẦN ĐẦU',
         title: 'First Deposit Fiesta',

@@ -1,6 +1,6 @@
 import { apiRequest } from '@/api/client'
 import * as mock from '@/api/mock/promotion.mock'
-import type { PromoHighlight, RedPacketRecord, ReferralRecord, TeamAgentStatus } from '@/types/api'
+import type { PromoHighlight, RedPacketRecord, TeamAgentStatus } from '@/types/api'
 
 const useMock = import.meta.env.VITE_USE_MOCK_API !== 'false'
 
@@ -19,11 +19,6 @@ export async function fetchPromoHighlights(): Promise<PromoHighlight[]> {
 export async function claimTrialBonus(): Promise<{ amountPhp: number }> {
   if (useMock) return mock.mockClaimTrial()
   return apiRequest<{ amountPhp: number }>('/promotions/trial-play/claim', { method: 'POST' })
-}
-
-export async function claimReferralBonus(): Promise<{ amountPhp: number }> {
-  if (useMock) return mock.mockClaimReferral()
-  return apiRequest<{ amountPhp: number }>('/promotions/referral/claim', { method: 'POST' })
 }
 
 export interface AppdlStatus {
@@ -48,12 +43,6 @@ export async function claimAppdlBonus(source: 'pwa' | 'apk'): Promise<{ amountPh
 export async function claimFirstDepBonus(): Promise<{ amountPhp: number }> {
   if (useMock) return mock.mockClaimFirstDep()
   return apiRequest<{ amountPhp: number }>('/promotions/firstdep/claim', { method: 'POST' })
-}
-
-export async function fetchReferralRecords(): Promise<ReferralRecord[]> {
-  if (useMock) return mock.mockReferralRecords()
-  const data = await apiRequest<{ items: ReferralRecord[] }>('/promotions/referral/records')
-  return data.items
 }
 
 export async function fetchRedPacketRecords(): Promise<RedPacketRecord[]> {
@@ -161,7 +150,6 @@ export interface PopupConfig {
 
 export interface PromoConfig {
   trial:    { amount: number; enabled: boolean }
-  referral: { inviterAmount: number; inviteeAmount: number; enabled: boolean }
   firstdep: { enabled: boolean; turnoverX: number; turnoverDays?: number; tiers: Record<string, FirstDepTier[]> }
   appdl:    { amount: number; enabled: boolean; turnoverX: number; turnoverDays?: number }
   popups?:  PopupConfig[]
@@ -217,7 +205,6 @@ export async function claimCheckin(): Promise<CheckinClaimResult> {
 
 const DEFAULT_PROMO_CONFIG: PromoConfig = {
   trial:    { amount: 88, enabled: true },
-  referral: { inviterAmount: 50, inviteeAmount: 30, enabled: true },
   appdl:    { amount: 66, enabled: false, turnoverX: 5 },
   firstdep: {
     enabled: true,

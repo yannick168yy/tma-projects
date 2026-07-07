@@ -17,7 +17,6 @@ router.put('/config', async (ctx) => {
   const current = await getPromoConfig(ctx.state.env)
   const updated: PromoConfig = {
     trial:    { ...current.trial,    ...(body.trial    ?? {}) },
-    referral: { ...current.referral, ...(body.referral ?? {}) },
     firstdep: { ...current.firstdep, ...(body.firstdep ?? {}) },
     appdl:    { ...current.appdl,    ...(body.appdl    ?? {}) },
     popups:   body.popups ?? current.popups,
@@ -26,9 +25,6 @@ router.put('/config', async (ctx) => {
   // 简单校验
   if (updated.trial.amount <= 0 || updated.trial.amount > 50000) {
     fail(ctx, 400, 'trial.amount 必须在 1-50000 之间'); return
-  }
-  if (updated.referral.inviterAmount < 0 || updated.referral.inviteeAmount < 0) {
-    fail(ctx, 400, 'referral 金额不能为负数'); return
   }
   if (updated.firstdep.turnoverX < 0 || updated.firstdep.turnoverDays < 0) {
     fail(ctx, 400, 'firstdep 流水倍率/有效期不能为负'); return

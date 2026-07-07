@@ -26,7 +26,6 @@ const mockGetAdminSession = vi.mocked(adminAuthSvc.getAdminSession)
 
 const DEFAULT_CONFIG = {
   trial:    { amount: 88, enabled: true, turnoverX: 0, turnoverDays: 0 },
-  referral: { inviterAmount: 50, inviteeAmount: 30, enabled: true, turnoverX: 0, turnoverDays: 0 },
   firstdep: { enabled: true, turnoverX: 15, turnoverDays: 30, tiers: { PHP: [{ depositAmount: 100, bonusAmount: 15 }] } },
   appdl: { amount: 66, enabled: true, turnoverX: 5, turnoverDays: 30 },
   popups: [{ id: 'new_player', enabled: true, order: 1, audience: 'all' as const, frequency: 'daily' as const }],
@@ -67,7 +66,6 @@ describe('后台活动配置 (Admin Promotions Config)', () => {
 
     expect(res.status).toBe(200)
     expect(res.body.data.trial.amount).toBe(88)
-    expect(res.body.data.referral.inviterAmount).toBe(50)
     expect(res.body.data.firstdep.turnoverX).toBe(15)
     expect(res.body.data.firstdep.tiers.PHP[0].bonusAmount).toBe(15)
   })
@@ -80,7 +78,7 @@ describe('后台活动配置 (Admin Promotions Config)', () => {
     expect(res.status).toBe(200)
     expect(res.body.data.trial.amount).toBe(120)
     // 其他字段保持不变
-    expect(res.body.data.referral.inviterAmount).toBe(50)
+    expect(res.body.data.firstdep.turnoverX).toBe(15)
     expect(mockSavePromoConfig).toHaveBeenCalledOnce()
   })
 
@@ -112,15 +110,6 @@ describe('后台活动配置 (Admin Promotions Config)', () => {
     expect(mockSavePromoConfig).not.toHaveBeenCalled()
   })
 
-  it('PUT /promotions/config — referral 金额为负数返回 400', async () => {
-    const res = await request(createAdminApp())
-      .put('/promotions/config')
-      .send({ referral: { inviterAmount: -10 } })
-
-    expect(res.status).toBe(400)
-    expect(mockSavePromoConfig).not.toHaveBeenCalled()
-  })
-
   it('PUT /promotions/config — firstdep 档位金额为 0 返回 400', async () => {
     const res = await request(createAdminApp())
       .put('/promotions/config')
@@ -135,14 +124,12 @@ describe('后台活动配置 (Admin Promotions Config)', () => {
       .put('/promotions/config')
       .send({
         trial: { amount: 100, enabled: false },
-        referral: { inviterAmount: 60, inviteeAmount: 40 },
         firstdep: { turnoverX: 20 },
       })
 
     expect(res.status).toBe(200)
     expect(res.body.data.trial.amount).toBe(100)
     expect(res.body.data.trial.enabled).toBe(false)
-    expect(res.body.data.referral.inviterAmount).toBe(60)
     expect(res.body.data.firstdep.turnoverX).toBe(20)
     expect(mockSavePromoConfig).toHaveBeenCalledOnce()
   })

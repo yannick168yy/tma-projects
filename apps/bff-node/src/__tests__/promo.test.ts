@@ -53,7 +53,6 @@ function makeUser(overrides: Partial<UserRecord> = {}): UserRecord {
 
 const DEFAULT_CONFIG = {
   trial: { amount: 88, enabled: true, turnoverX: 3, turnoverDays: 0 },
-  referral: { inviterAmount: 50, inviteeAmount: 30, enabled: true, turnoverX: 0, turnoverDays: 0 },
   firstdep: { enabled: true, turnoverX: 15, turnoverDays: 30, tiers: { PHP: [{ depositAmount: 100, bonusAmount: 15 }, { depositAmount: 1000, bonusAmount: 70 }] } },
   appdl: { amount: 66, enabled: true, turnoverX: 5, turnoverDays: 30 },
   popups: [{ id: 'new_player', enabled: true, order: 1, audience: 'all' as const, frequency: 'daily' as const }],
@@ -173,136 +172,7 @@ describe('首席体验官 (trial)', () => {
 })
 
 // ══════════════════════════════════════════
-// 2. 邀请共赢 (referral)
-// ══════════════════════════════════════════
-describe('邀请共赢 (referral)', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-    mockGetPromoConfig.mockResolvedValue(DEFAULT_CONFIG)
-    mockSaveUser.mockResolvedValue(undefined)
-    mockCreditWallet.mockResolvedValue({ available: 50, frozen: 0 })
-  })
-
-  it('GET /promotions/referral — 返回邀请码和奖励信息', async () => {
-    mockGetUser.mockResolvedValue(makeUser({
-      inviteCode: 'MYCODE',
-      referralClaimed: false,
-    }))
-    const res = await request(createApp()).get('/promotions/referral')
-
-    expect(res.status).toBe(200)
-    expect(res.body.data.inviteCode).toBe('MYCODE')
-    expect(res.body.data.totalRewardPhp).toBe(0)
-    expect(res.body.data.pendingRewardPhp).toBe(0)
-  })
-
-  it('GET /promotions/referral — referralReady 时 pendingRewardPhp 来自配置', async () => {
-    mockGetUser.mockResolvedValue(makeUser({
-      referralReady: true,
-      referralClaimed: false,
-    }))
-    const res = await request(createApp()).get('/promotions/referral')
-
-    expect(res.status).toBe(200)
-    expect(res.body.data.pendingRewardPhp).toBe(50) // DEFAULT_CONFIG.referral.inviterAmount
-    expect(res.body.data.totalRewardPhp).toBe(0)
-  })
-
-  it('GET /promotions/referral — inviterAmount 改为 80，pendingRewardPhp 同步为 80', async () => {
-    mockGetPromoConfig.mockResolvedValue({
-      ...DEFAULT_CONFIG,
-      referral: { inviterAmount: 80, inviteeAmount: 30, enabled: true, turnoverX: 0, turnoverDays: 0 },
-    })
-    mockGetUser.mockResolvedValue(makeUser({ referralReady: true, referralClaimed: false }))
-    const res = await request(createApp()).get('/promotions/referral')
-
-    expect(res.status).toBe(200)
-    expect(res.body.data.pendingRewardPhp).toBe(80)
-  })
-
-  it('GET /promotions/referral/link — 返回 deepLink 和分享文案', async () => {
-    mockGetUser.mockResolvedValue(makeUser({ inviteCode: 'TESTCD' }))
-    const res = await request(createApp()).get('/promotions/referral/link')
-
-    expect(res.status).toBe(200)
-    expect(res.body.data.deepLink).toContain('TESTCD')
-    expect(res.body.data.shareText).toContain('TESTCD')
-  })
-
-  it('POST /promotions/referral/claim — 就绪时成功领取 inviterAmount', async () => {
-    mockGetUser.mockResolvedValue(makeUser({
-      referralReady: true,
-      referralClaimed: false,
-    }))
-    const res = await request(createApp()).post('/promotions/referral/claim')
-
-    expect(res.status).toBe(200)
-    expect(res.body.data.amountPhp).toBe(50)
-    const savedUser = mockSaveUser.mock.calls[0][1] as UserRecord
-    expect(savedUser.referralClaimed).toBe(true)
-    expect(savedUser.referralReady).toBe(false)
-    expect(mockCreditWallet).toHaveBeenCalledWith(
-      expect.anything(), 'BG-10001', 50, expect.objectContaining({ type: 'bonus' }),
-    )
-  })
-
-  it('POST /promotions/referral/claim — inviterAmount 改为 80 时领取 80', async () => {
-    mockGetPromoConfig.mockResolvedValue({
-      ...DEFAULT_CONFIG,
-      referral: { inviterAmount: 80, inviteeAmount: 30, enabled: true, turnoverX: 0, turnoverDays: 0 },
-    })
-    mockGetUser.mockResolvedValue(makeUser({ referralReady: true, referralClaimed: false }))
-    mockCreditWallet.mockResolvedValue({ available: 80, frozen: 0 })
-
-    const res = await request(createApp()).post('/promotions/referral/claim')
-
-    expect(res.status).toBe(200)
-    expect(res.body.data.amountPhp).toBe(80)
-    expect(mockCreditWallet).toHaveBeenCalledWith(
-      expect.anything(), 'BG-10001', 80, expect.anything(),
-    )
-  })
-
-  it('POST /promotions/referral/claim — 未就绪时返回 409', async () => {
-    mockGetUser.mockResolvedValue(makeUser({
-      referralReady: false,
-      referralClaimed: false,
-    }))
-    const res = await request(createApp()).post('/promotions/referral/claim')
-
-    expect(res.status).toBe(400)
-    expect(res.body.code).toBe(409)
-    expect(mockCreditWallet).not.toHaveBeenCalled()
-  })
-
-  it('POST /promotions/referral/claim — 已领取时返回 409', async () => {
-    mockGetUser.mockResolvedValue(makeUser({
-      referralReady: true,
-      referralClaimed: true,
-    }))
-    const res = await request(createApp()).post('/promotions/referral/claim')
-
-    expect(res.status).toBe(400)
-    expect(res.body.code).toBe(409)
-    expect(mockCreditWallet).not.toHaveBeenCalled()
-  })
-
-  it('POST /promotions/referral/claim — 活动关闭时返回 409', async () => {
-    mockGetPromoConfig.mockResolvedValue({
-      ...DEFAULT_CONFIG,
-      referral: { inviterAmount: 50, inviteeAmount: 30, enabled: false, turnoverX: 0, turnoverDays: 0 },
-    })
-    mockGetUser.mockResolvedValue(makeUser({ referralReady: true, referralClaimed: false }))
-    const res = await request(createApp()).post('/promotions/referral/claim')
-
-    expect(res.status).toBe(400)
-    expect(res.body.code).toBe(409)
-    expect(mockCreditWallet).not.toHaveBeenCalled()
-  })
-})
-
-// ══════════════════════════════════════════
-// 3. 首充嘉年华 (firstdep)
+// 2. 首充嘉年华 (firstdep)
 // ══════════════════════════════════════════
 describe('首充嘉年华 (firstdep)', () => {
   beforeEach(() => {
@@ -343,28 +213,12 @@ describe('活动列表 GET /promotions', () => {
     expect(res.status).toBe(200)
     const items: Array<{ promoId: string; highlight: boolean; flagLabel: string | null }> = res.body.data
     const trial = items.find(i => i.promoId === 'trial')
-    const referral = items.find(i => i.promoId === 'referral')
     const firstdep = items.find(i => i.promoId === 'firstdep')
 
     expect(trial?.highlight).toBe(true)
     expect(trial?.flagLabel).toBe('₱88')
-    expect(referral?.highlight).toBe(false)
     expect(firstdep?.highlight).toBe(true)
     expect(firstdep?.flagLabel).toBe('Deposit')
-  })
-
-  it('referralReady=true 且未领取 — referral 高亮', async () => {
-    mockGetUser.mockResolvedValue(makeUser({
-      trialClaimed: true,
-      referralReady: true,
-      referralClaimed: false,
-    }))
-    const res = await request(createApp()).get('/promotions')
-
-    const items: Array<{ promoId: string; highlight: boolean; flagLabel: string | null }> = res.body.data
-    const referral = items.find(i => i.promoId === 'referral')
-    expect(referral?.highlight).toBe(true)
-    expect(referral?.flagLabel).toBe('Claim')
   })
 
   it('firstdep 未首存时高亮', async () => {

@@ -34,7 +34,7 @@ export const GEMINI_TOOLS: Tool[] = [
       },
       {
         name: 'get_active_promotions',
-        description: 'Get the currently active promotions with their live configuration (first deposit bonus, referral, lucky spin, cashback levels).',
+        description: 'Get the currently active promotions with their live configuration (first deposit bonus, lucky spin, cashback levels).',
         parameters: { type: SchemaType.OBJECT, properties: {} },
       },
       {
@@ -203,10 +203,6 @@ export async function executeTool(
                 minDepositPHP: promo.firstdep.min_deposit,
                 wageringMultiplier: promo.firstdep.turnover_x,
               }
-            : null,
-        referral:
-          promo.referral?.enabled === '1'
-            ? { inviterRewardPHP: promo.referral.inviter_amount, inviteeRewardPHP: promo.referral.invitee_amount }
             : null,
         luckySpin: spinRows[0]?.enabled === 1,
         cashbackLevels: levelRows.map((l) => ({ level: Number(l.level), minTotalWageringPHP: Number(l.min_turnover) })),

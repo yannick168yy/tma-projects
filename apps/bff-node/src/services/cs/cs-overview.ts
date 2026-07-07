@@ -49,11 +49,6 @@ export async function getBusinessOverview(env: Env): Promise<string> {
         `First deposit bonus: ${promo.firstdep.match_pct}% match up to ₱${promo.firstdep.max_bonus} (min deposit ₱${promo.firstdep.min_deposit}, bonus carries a ${promo.firstdep.turnover_x}x wagering requirement)`,
       )
     }
-    if (promo.referral?.enabled === '1') {
-      promos.push(
-        `Referral program: inviter gets ₱${promo.referral.inviter_amount}, invitee gets ₱${promo.referral.invitee_amount}`,
-      )
-    }
     if (spinRows[0]?.enabled === 1) {
       promos.push('Lucky Spin: spin chances earned via deposits, prizes credited to wallet')
     }

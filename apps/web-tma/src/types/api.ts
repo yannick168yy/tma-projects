@@ -60,20 +60,12 @@ export interface WalletBalance {
   balances: CurrencyBalance[]
 }
 
-export type PromoId = 'trial' | 'referral' | 'firstdep'
+export type PromoId = 'trial' | 'firstdep'
 
 export interface PromoHighlight {
   promoId: PromoId
   highlight: boolean
   flagLabel: string | null
-}
-
-export interface ReferralRecord {
-  id: string
-  role: 'inviter' | 'invitee'
-  displayName: string
-  status: 'pending' | 'qualified' | 'claimed'
-  rewardPhp: number
 }
 
 export interface RedPacketRecord {
