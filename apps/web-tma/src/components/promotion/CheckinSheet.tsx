@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { X, Check, Sparkles } from 'lucide-react'
 import { fetchCheckinStatus, claimCheckin, type CheckinStatus, type CheckinTier, type CheckinClaimResult } from '@/api/promotion'
+import { fetchSpinStatus } from '@/api/spin'
 import { ApiError } from '@/api/client'
 import { useWalletStore } from '@/stores/wallet'
 
@@ -20,6 +21,7 @@ const TIER_TEXT: Record<CheckinTier, string> = {
 export default function CheckinSheet({ open, onClose, onOpenSpin }: Props) {
   const { t } = useTranslation()
   const [status, setStatus] = useState<CheckinStatus | null>(null)
+  const [spinRemaining, setSpinRemaining] = useState(0)
   const [loading, setLoading] = useState(true)
   const [claiming, setClaiming] = useState(false)
   const [result, setResult] = useState<CheckinClaimResult | null>(null)
@@ -27,7 +29,14 @@ export default function CheckinSheet({ open, onClose, onOpenSpin }: Props) {
 
   const load = useCallback(async () => {
     setLoading(true)
-    try { setStatus(await fetchCheckinStatus()) }
+    try {
+      const [st, spin] = await Promise.all([
+        fetchCheckinStatus(),
+        fetchSpinStatus().catch(() => null),
+      ])
+      setStatus(st)
+      if (spin) setSpinRemaining(spin.remainingChances)
+    }
     catch (e) { setError(e instanceof ApiError ? e.message : 'Failed to load') }
     finally { setLoading(false) }
   }, [])
@@ -139,6 +148,21 @@ export default function CheckinSheet({ open, onClose, onOpenSpin }: Props) {
                   ))}
                 </div>
               </div>
+
+              {/* 常驻转盘入口（复访/已签到态也能触达转盘） */}
+              {!result && spinRemaining > 0 && (
+                <button
+                  type="button"
+                  className="mt-4 flex w-full items-center justify-between rounded-2xl bg-gradient-to-r from-primary/25 to-amber-500/20 px-4 py-3 ring-1 ring-primary/40 active:scale-95"
+                  onClick={() => { onOpenSpin(); onClose() }}
+                >
+                  <span className="flex items-center gap-2 text-sm font-black text-white">
+                    <span className="text-lg leading-none">🎡</span>
+                    {t('checkin.spinEntry', { n: spinRemaining })}
+                  </span>
+                  <span className="text-sm font-black text-amber-300">{t('checkin.goSpin')}</span>
+                </button>
+              )}
 
               {/* 领取结果 / 报错 */}
               {result && (

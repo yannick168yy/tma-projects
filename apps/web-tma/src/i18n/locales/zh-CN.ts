@@ -16,6 +16,7 @@ export default {
     claiming: '签到中…',
     gotSpins: '获得 {{n}} 次转盘抽奖！',
     goSpin: '去转盘 →',
+    spinEntry: '你有 {{n}} 次抽奖待使用',
     entryTitle: '每日签到',
     entryTag: '每日',
     entryDesc: '每天签到领转盘抽奖次数',

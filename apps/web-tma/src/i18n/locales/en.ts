@@ -16,6 +16,7 @@ export default {
     claiming: 'Checking in…',
     gotSpins: 'You got {{n}} wheel spins!',
     goSpin: 'Go to Lucky Wheel →',
+    spinEntry: 'You have {{n}} spins ready',
     entryTitle: 'Daily Check-in',
     entryTag: 'Daily',
     entryDesc: 'Check in daily for free Lucky Wheel spins',
