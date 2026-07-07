@@ -242,7 +242,8 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
   const COMMUNITY_LINKS = [
     { icon: '24_official_channel', label: t('profile.links.channel'), sub: t('profile.links.channelSub') },
     { icon: '25_community_group', label: t('profile.links.community'), sub: t('profile.links.communitySub') },
-    { icon: '26_vip_club', label: t('profile.links.vip'), sub: t('profile.links.vipSub') },
+    // VIP 暂无独立成长体系页，先落到现有洗码等级页（P3 再建真 VIP 页），避免死链
+    { icon: '26_vip_club', label: t('profile.links.vip'), sub: t('profile.links.vipSub'), onClick: onOpenCashback },
     { icon: '27_facebook', label: t('profile.links.facebook'), sub: t('profile.links.facebookSub') },
   ]
   const DOCS = [
@@ -544,7 +545,7 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
 
         <MenuSection title={t('profile.communityMedia')}>
           {COMMUNITY_LINKS.map((item, i) => (
-            <MenuRow key={item.label} icon={icon(item.icon)} title={item.label} subtitle={item.sub} bordered={i < COMMUNITY_LINKS.length - 1} onClick={showComingSoon} />
+            <MenuRow key={item.label} icon={icon(item.icon)} title={item.label} subtitle={item.sub} bordered={i < COMMUNITY_LINKS.length - 1} onClick={item.onClick ?? showComingSoon} />
           ))}
         </MenuSection>
 

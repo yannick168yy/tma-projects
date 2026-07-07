@@ -52,7 +52,7 @@ function makeUser(overrides: Partial<UserRecord> = {}): UserRecord {
 }
 
 const DEFAULT_CONFIG = {
-  trial: { amount: 88, enabled: true, turnoverX: 0, turnoverDays: 0 },
+  trial: { amount: 88, enabled: true, turnoverX: 3, turnoverDays: 0 },
   referral: { inviterAmount: 50, inviteeAmount: 30, enabled: true, turnoverX: 0, turnoverDays: 0 },
   firstdep: { enabled: true, turnoverX: 15, turnoverDays: 30, tiers: { PHP: [{ depositAmount: 100, bonusAmount: 15 }, { depositAmount: 1000, bonusAmount: 70 }] } },
   appdl: { amount: 66, enabled: true, turnoverX: 5, turnoverDays: 30 },
@@ -106,7 +106,7 @@ describe('首席体验官 (trial)', () => {
   it('GET /promotions/trial-play — 配置金额改为 120 时，amountPhp 同步为 120', async () => {
     mockGetPromoConfig.mockResolvedValue({
       ...DEFAULT_CONFIG,
-      trial: { amount: 120, enabled: true, turnoverX: 0, turnoverDays: 0 },
+      trial: { amount: 120, enabled: true, turnoverX: 3, turnoverDays: 0 },
     })
     mockGetUser.mockResolvedValue(makeUser({ trialClaimed: false }))
     const res = await request(createApp()).get('/promotions/trial-play')
