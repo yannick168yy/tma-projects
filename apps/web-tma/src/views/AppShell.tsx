@@ -121,7 +121,7 @@ export default function AppShell() {
   const promoConfig = usePromotionStore((s) => s.promoConfig)
   const loadPromoConfig = usePromotionStore((s) => s.loadPromoConfig)
   const [npSummary, setNpSummary] = useState<NewPlayerSummary | null>(null)
-  const [giftSheetOpen, setGiftSheetOpen] = useState(true)
+  const [giftSheetOpen, setGiftSheetOpen] = useState(false)
   const [checkinOpen, setCheckinOpen] = useState(false)
   const [spinInitialKind, setSpinInitialKind] = useState<'deposit' | 'checkin' | undefined>(undefined)
   const giftAutoFired = useRef(false)
