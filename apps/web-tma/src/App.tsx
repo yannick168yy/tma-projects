@@ -1,4 +1,5 @@
-import { lazy, Suspense, useEffect, useRef } from 'react'
+import { Suspense, useEffect, useRef } from 'react'
+import { lazyWithReload } from '@/utils/lazyWithReload'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import SplashPage from '@/views/SplashPage'
 import GoogleAuthCallback from '@/views/GoogleAuthCallback'
@@ -9,7 +10,7 @@ import RedPacketSheet from '@/components/promotion/RedPacketSheet'
 import { useAuthStore } from '@/stores/auth'
 import { usePromotionStore } from '@/stores/promotion'
 
-const AppShell = lazy(() => import('@/views/AppShell'))
+const AppShell = lazyWithReload(() => import('@/views/AppShell'))
 
 function MainApp() {
   const phase = useAuthStore((s) => s.phase)

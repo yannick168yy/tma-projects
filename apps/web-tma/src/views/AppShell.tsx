@@ -1,4 +1,5 @@
-import { lazy, Suspense, useState, useEffect, useRef, useMemo } from 'react'
+import { Suspense, useState, useEffect, useRef, useMemo } from 'react'
+import { lazyWithReload } from '@/utils/lazyWithReload'
 import { useTranslation } from 'react-i18next'
 import { ChevronDown, ChevronLeft, Wallet, Gift, Home, Menu, Gamepad2, Check, Search, Headset } from 'lucide-react'
 import BetogoLogo from '@/components/BetogoLogo'
@@ -22,26 +23,26 @@ import TopDownloadBar from '@/components/pwa/TopDownloadBar'
 import OrientationGuard from '@/components/OrientationGuard'
 import threeCirclesMenu from '@/assets/team/3-circles/menu-entry.webp'
 
-const WalletModal = lazy(() => import('@/components/wallet/WalletModal'))
-const SearchOverlay = lazy(() => import('@/components/search/SearchOverlay'))
-const HomeContent = lazy(() => import('@/views/HomeContent'))
-const BonusesPage = lazy(() => import('@/views/BonusesPage'))
-const BingoPage = lazy(() => import('@/views/BingoPage'))
-const GamesPage = lazy(() => import('@/views/GamesPage'))
-const MenuPage = lazy(() => import('@/views/MenuPage'))
-const SlotsLobby = lazy(() => import('@/views/SlotsLobby'))
-const CustomerServicePage = lazy(() => import('@/views/CustomerServicePage'))
-const TeamCenterPage = lazy(() => import('@/views/TeamCenterPage'))
-const AgentCenterPage = lazy(() => import('@/views/AgentCenterPage'))
-const KycSettingPage = lazy(() => import('@/views/KycSettingPage'))
-const BetHistoryPage = lazy(() => import('@/views/BetHistoryPage'))
-const LedgerRecordsPage = lazy(() => import('@/views/LedgerRecordsPage'))
-const CashbackPage = lazy(() => import('@/views/CashbackPage'))
-const RewardsSpinPage = lazy(() => import('@/views/RewardsSpinPage'))
-const GamePlayer = lazy(() => import('@/components/GamePlayer'))
-const DownloadPage = lazy(() => import('@/views/DownloadPage'))
-const InstallGuideSheet = lazy(() => import('@/components/pwa/InstallGuideSheet'))
-const NewPlayerGiftSheet = lazy(() => import('@/components/promotion/NewPlayerGiftSheet'))
+const WalletModal = lazyWithReload(() => import('@/components/wallet/WalletModal'))
+const SearchOverlay = lazyWithReload(() => import('@/components/search/SearchOverlay'))
+const HomeContent = lazyWithReload(() => import('@/views/HomeContent'))
+const BonusesPage = lazyWithReload(() => import('@/views/BonusesPage'))
+const BingoPage = lazyWithReload(() => import('@/views/BingoPage'))
+const GamesPage = lazyWithReload(() => import('@/views/GamesPage'))
+const MenuPage = lazyWithReload(() => import('@/views/MenuPage'))
+const SlotsLobby = lazyWithReload(() => import('@/views/SlotsLobby'))
+const CustomerServicePage = lazyWithReload(() => import('@/views/CustomerServicePage'))
+const TeamCenterPage = lazyWithReload(() => import('@/views/TeamCenterPage'))
+const AgentCenterPage = lazyWithReload(() => import('@/views/AgentCenterPage'))
+const KycSettingPage = lazyWithReload(() => import('@/views/KycSettingPage'))
+const BetHistoryPage = lazyWithReload(() => import('@/views/BetHistoryPage'))
+const LedgerRecordsPage = lazyWithReload(() => import('@/views/LedgerRecordsPage'))
+const CashbackPage = lazyWithReload(() => import('@/views/CashbackPage'))
+const RewardsSpinPage = lazyWithReload(() => import('@/views/RewardsSpinPage'))
+const GamePlayer = lazyWithReload(() => import('@/components/GamePlayer'))
+const DownloadPage = lazyWithReload(() => import('@/views/DownloadPage'))
+const InstallGuideSheet = lazyWithReload(() => import('@/components/pwa/InstallGuideSheet'))
+const NewPlayerGiftSheet = lazyWithReload(() => import('@/components/promotion/NewPlayerGiftSheet'))
 
 const NEW_PLAYER_POPUP_KEY = 'betogo_popup_new_player'
 
