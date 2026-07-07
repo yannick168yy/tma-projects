@@ -276,15 +276,18 @@ const RULES: Record<string, Rule> = {
   same_ip_device(ctx, cfg) {
     const params = cfg.params ?? {}
     const ipTh = Number(params.ip ?? 3)
-    // 设备门槛比 IP 更严：同一台设备登录 ≥2 个账号即可疑（IP 会因共享网络误伤，设备几乎不会）
+    // deviceTh=设备上账号总数阈值(含本人)，默认2=一台设备出现2个账号即可疑。
+    // relatedDeviceAccounts 是"除本人外"的关联账号数，故 +1 换算成设备账号总数。
+    // 设备门槛比 IP 更严：IP 会因共享网络误伤，设备几乎不会。
     const deviceTh = Number(params.device ?? 2)
-    const hit = ctx.relatedIpAccounts >= ipTh || ctx.relatedDeviceAccounts >= deviceTh
+    const deviceAccountsTotal = ctx.relatedDeviceAccounts + 1
+    const hit = ctx.relatedIpAccounts >= ipTh || deviceAccountsTotal >= deviceTh
     return {
       code: 'same_ip_device',
       verdict: hit ? 'manual' : 'pass',
-      actualValue: Math.max(ctx.relatedIpAccounts, ctx.relatedDeviceAccounts),
+      actualValue: Math.max(ctx.relatedIpAccounts, deviceAccountsTotal),
       threshold: Math.min(ipTh, deviceTh),
-      detail: { relatedIpAccounts: ctx.relatedIpAccounts, relatedDeviceAccounts: ctx.relatedDeviceAccounts, ipTh, deviceTh },
+      detail: { relatedIpAccounts: ctx.relatedIpAccounts, deviceAccountsTotal, ipTh, deviceTh },
     }
   },
 
