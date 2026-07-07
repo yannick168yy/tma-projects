@@ -400,6 +400,8 @@ export default {
     noHistory: 'No spin history yet',
     oopsTitle: 'Oops!',
     oopsBody: "You're almost there! Reach a total deposit of {{amount}} to unlock the Lucky Spin.",
+    oopsBodyCheckin: 'No spins left here. Check in daily to earn more Lucky Wheel spins.',
+    checkinTab: 'CHECK-IN',
     loadFailed: 'Failed to load Rewards Spin',
     spinFailed: 'Spin failed',
   },

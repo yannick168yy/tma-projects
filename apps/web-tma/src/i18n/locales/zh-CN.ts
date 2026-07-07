@@ -390,6 +390,8 @@ export default {
     noHistory: '暂无转盘记录',
     oopsTitle: 'Oops!',
     oopsBody: '再存款一点就可以啦！累计存款达到 {{amount}} 即可解锁幸运转盘。',
+    oopsBodyCheckin: '签到抽奖次数已用完，每日签到可获得更多幸运转盘次数。',
+    checkinTab: '签到',
     loadFailed: '奖励转盘加载失败',
     spinFailed: '抽奖失败',
   },

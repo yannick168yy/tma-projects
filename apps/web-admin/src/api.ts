@@ -840,6 +840,7 @@ export const deleteHomeContentItem = (kind: HomeContentItem['kind'], slot: numbe
 // Rewards Spin
 export interface SpinDepositRule {
   id?: number
+  kind?: 'deposit' | 'checkin'
   name: string
   minDepositPhp: number
   depositAmountPhp?: number

@@ -121,8 +121,9 @@ export default function AppShell() {
   const promoConfig = usePromotionStore((s) => s.promoConfig)
   const loadPromoConfig = usePromotionStore((s) => s.loadPromoConfig)
   const [npSummary, setNpSummary] = useState<NewPlayerSummary | null>(null)
-  const [giftSheetOpen, setGiftSheetOpen] = useState(false)
+  const [giftSheetOpen, setGiftSheetOpen] = useState(true)
   const [checkinOpen, setCheckinOpen] = useState(false)
+  const [spinInitialKind, setSpinInitialKind] = useState<'deposit' | 'checkin' | undefined>(undefined)
   const giftAutoFired = useRef(false)
   const inTelegram = isInsideTelegram()
 
@@ -287,7 +288,9 @@ export default function AppShell() {
     openCashback()
   }
 
-  function onOpenRewardsSpin() {
+  function onOpenRewardsSpin(kind?: 'deposit' | 'checkin') {
+    // 其它入口可能以 onClick={onOpenRewardsSpin} 形式透传事件对象，这里只认合法 kind
+    setSpinInitialKind(kind === 'checkin' ? 'checkin' : undefined)
     setWalletOpen(false)
     openSpin()
   }
@@ -521,7 +524,7 @@ export default function AppShell() {
             </div>
           )}
           {view.type === 'spin' && (
-            <RewardsSpinPage onClose={closeImmersive} />
+            <RewardsSpinPage onClose={closeImmersive} initialKind={spinInitialKind} />
           )}
           {view.type === 'none' && activeNav === 'bonuses' && <BonusesPage promoFilter={promoFilter} onOpenWallet={() => void openWallet()} onOpenTeam={onOpenTeamCenter} onOpenAppInstall={openAppInstall} newPlayerSummary={npSummary} onOpenNewPlayerGift={openNewPlayerGift} onOpenCheckin={() => void onOpenCheckin()} />}
           {view.type === 'none' && activeNav === 'games' && <GamesPage cat={gamesFilter.cat} provider={gamesFilter.provider} onChangeFilter={setGamesFilter} onOpenPerya={openPerya} onGameTap={() => void onGameTap()} onOpenGame={(url) => setGamePlayerUrl(url)} />}
@@ -588,11 +591,15 @@ export default function AppShell() {
         {giftSheetOpen && (
           <NewPlayerGiftSheet
             onClose={() => setGiftSheetOpen(false)}
-            onViewMore={() => { setGiftSheetOpen(false); goBonuses() }}
+            onContinue={() => {
+              setGiftSheetOpen(false)
+              if (isLoggedIn) goBonuses()
+              else void auth.ensureLoggedIn(t('auth.signInBonus'))
+            }}
           />
         )}
 
-        <CheckinSheet open={checkinOpen} onClose={() => setCheckinOpen(false)} onOpenSpin={onOpenRewardsSpin} />
+        <CheckinSheet open={checkinOpen} onClose={() => setCheckinOpen(false)} onOpenSpin={() => onOpenRewardsSpin('checkin')} />
       </Suspense>
 
       <OrientationGuard allowLandscape={!!gamePlayerUrl} />

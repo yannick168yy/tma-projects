@@ -5,8 +5,6 @@ import { getMysqlPool, isMysqlEnabled } from '../clients/mysql.client.js'
 // ───────────────────────── 配置（后台可配，缺省用下列常量） ─────────────────────────
 
 export type Tier = 'starter' | 'premium' | 'elite'
-/** 转盘档位 → bg_spin_deposit_rule.sort_order（068/069 既有三档） */
-const TIER_SORT: Record<Tier, number> = { starter: 10, premium: 20, elite: 30 }
 
 /** 增强轨达标阈值：当日有存款 或 当日有效投注流水 ≥ 该值（PHP），二者其一即可 */
 export const ENHANCED_TURNOVER_MIN_PHP = 100
@@ -131,18 +129,13 @@ export function milestonesBetween(prevMonthDays: number, curMonthDays: number, m
 
 // ───────────────────────── DB 辅助 ─────────────────────────
 
+// 签到发放的转盘次数统一进入「签到专用」档位(kind='checkin')；三档共用同一奖池。
 async function tierRuleIds(conn: PoolConnection | Pool): Promise<Record<Tier, number | null>> {
-  const [rows] = await conn.query<RowDataPacket[]>(
-    `SELECT id, sort_order FROM bg_spin_deposit_rule WHERE enabled = 1`,
+  const [[row]] = await conn.query<RowDataPacket[]>(
+    `SELECT id FROM bg_spin_deposit_rule WHERE kind = 'checkin' AND enabled = 1 ORDER BY id ASC LIMIT 1`,
   )
-  const bySort = new Map<number, number>()
-  let fallback: number | null = null
-  for (const r of rows) {
-    bySort.set(Number(r.sort_order), Number(r.id))
-    if (fallback === null || Number(r.id) < fallback) fallback = Number(r.id)
-  }
-  const pick = (t: Tier) => bySort.get(TIER_SORT[t]) ?? fallback
-  return { starter: pick('starter'), premium: pick('premium'), elite: pick('elite') }
+  const id = row ? Number(row.id) : null
+  return { starter: id, premium: id, elite: id }
 }
 
 /** 幂等发放转盘次数：source_order_id 唯一，重复不再发 */

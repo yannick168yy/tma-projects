@@ -18,6 +18,7 @@ import { SPIN_PRIZE_IMAGES } from '../assets/spin/prizeImages'
 const { Title, Text } = Typography
 
 const LEVEL_COUNT = 6
+const CHECKIN_INDEX = LEVEL_COUNT // 签到专用档位固定排在存款档位之后
 const PRIZE_COUNT = 8
 const DEFAULT_AMOUNTS = [108, 580, 1080, 2000, 5000, 10000]
 const PRIZE_SLOTS = Array.from({ length: PRIZE_COUNT }, (_, i) => i)
@@ -69,6 +70,7 @@ function prizeFlatIndex(ruleIndex: number, prizeIndex: number): number {
 function defaultRule(i: number): SpinDepositRule {
   const amount = DEFAULT_AMOUNTS[i] ?? (i + 1) * 1000
   return {
+    kind: 'deposit',
     name: `Deposit ${amount}`,
     minDepositPhp: amount,
     depositAmountPhp: amount,
@@ -76,6 +78,19 @@ function defaultRule(i: number): SpinDepositRule {
     chances: 1,
     enabled: true,
     sortOrder: (i + 1) * 10,
+  }
+}
+
+function defaultCheckinRule(): SpinDepositRule {
+  return {
+    kind: 'checkin',
+    name: 'Check-in',
+    minDepositPhp: 0,
+    depositAmountPhp: 0,
+    maxDepositPhp: null,
+    chances: 1,
+    enabled: true,
+    sortOrder: 900,
   }
 }
 
@@ -112,12 +127,14 @@ function prizesForRule(config: SpinConfig, rule: SpinDepositRule, ruleIndex: num
 }
 
 function normalizeConfig(config: SpinConfig): SpinConfig {
-  const rules = Array.from({ length: LEVEL_COUNT }, (_, i) => {
-    const existing = config.depositRules[i]
+  const depositExisting = config.depositRules.filter((r) => r.kind !== 'checkin')
+  const depositRules = Array.from({ length: LEVEL_COUNT }, (_, i) => {
+    const existing = depositExisting[i]
     const amount = Number(existing?.depositAmountPhp ?? existing?.minDepositPhp ?? DEFAULT_AMOUNTS[i])
     return {
       ...defaultRule(i),
       ...existing,
+      kind: 'deposit' as const,
       name: `Deposit ${Math.round(amount)}`,
       minDepositPhp: amount,
       depositAmountPhp: amount,
@@ -127,6 +144,20 @@ function normalizeConfig(config: SpinConfig): SpinConfig {
     }
   })
 
+  const checkinExisting = config.depositRules.find((r) => r.kind === 'checkin')
+  const checkinRule: SpinDepositRule = {
+    ...defaultCheckinRule(),
+    ...checkinExisting,
+    kind: 'checkin',
+    name: 'Check-in',
+    minDepositPhp: 0,
+    depositAmountPhp: 0,
+    maxDepositPhp: null,
+    chances: 1,
+    sortOrder: 900,
+  }
+
+  const rules = [...depositRules, checkinRule]
   const prizes = rules.flatMap((rule, ruleIndex) => prizesForRule(config, rule, ruleIndex))
 
   return { enabled: config.enabled, depositRules: rules, prizes }
@@ -139,6 +170,79 @@ function PrizeRowFields({ flatIndex }: { flatIndex: number }) {
       <Form.Item name={['prizes', flatIndex, 'ruleId']} hidden><InputNumber /></Form.Item>
       <Form.Item name={['prizes', flatIndex, 'sortOrder']} hidden><InputNumber /></Form.Item>
     </>
+  )
+}
+
+function PrizeTable({ ruleIndex }: { ruleIndex: number }) {
+  return (
+    <Table
+      rowKey={(slot) => String(slot)}
+      pagination={false}
+      size="small"
+      dataSource={PRIZE_SLOTS}
+      columns={[
+        { title: '位置', width: 60, render: (_, __, slot) => slot + 1 },
+        {
+          title: '奖品图',
+          width: 130,
+          render: (_, __, slot) => {
+            const flatIndex = prizeFlatIndex(ruleIndex, slot)
+            return (
+              <>
+                <PrizeRowFields flatIndex={flatIndex} />
+                <Form.Item name={['prizes', flatIndex, 'imageKey']} noStyle rules={[{ required: true }]}>
+                  <PrizeImageSelect />
+                </Form.Item>
+              </>
+            )
+          },
+        },
+        {
+          title: '展示名称',
+          render: (_, __, slot) => (
+            <Form.Item name={['prizes', prizeFlatIndex(ruleIndex, slot), 'name']} noStyle rules={[{ required: true }]}>
+              <Input />
+            </Form.Item>
+          ),
+        },
+        {
+          title: '奖金 PHP',
+          width: 130,
+          render: (_, __, slot) => (
+            <Form.Item name={['prizes', prizeFlatIndex(ruleIndex, slot), 'amountPhp']} noStyle rules={[{ required: true, type: 'number', min: 0.01 }]}>
+              <InputNumber prefix="₱" min={0.01} precision={2} style={{ width: '100%' }} />
+            </Form.Item>
+          ),
+        },
+        {
+          title: '权重',
+          width: 110,
+          render: (_, __, slot) => (
+            <Form.Item name={['prizes', prizeFlatIndex(ruleIndex, slot), 'weight']} noStyle rules={[{ required: true, type: 'number', min: 1 }]}>
+              <InputNumber min={1} precision={0} style={{ width: '100%' }} />
+            </Form.Item>
+          ),
+        },
+        {
+          title: '流水倍率',
+          width: 120,
+          render: (_, __, slot) => (
+            <Form.Item name={['prizes', prizeFlatIndex(ruleIndex, slot), 'turnoverX']} noStyle rules={[{ required: true, type: 'number', min: 0 }]}>
+              <InputNumber suffix="x" min={0} precision={2} style={{ width: '100%' }} />
+            </Form.Item>
+          ),
+        },
+        {
+          title: '启用',
+          width: 80,
+          render: (_, __, slot) => (
+            <Form.Item name={['prizes', prizeFlatIndex(ruleIndex, slot), 'enabled']} noStyle valuePropName="checked">
+              <Switch size="small" />
+            </Form.Item>
+          ),
+        },
+      ]}
+    />
   )
 }
 
@@ -257,84 +361,38 @@ export default function RewardsSpin() {
                                     </Form.Item>
                                   </Col>
                                 </Row>
-                                <Table
-                                  rowKey={(slot) => String(slot)}
-                                  pagination={false}
-                                  size="small"
-                                  dataSource={PRIZE_SLOTS}
-                                  columns={[
-                                    {
-                                      title: '位置',
-                                      width: 60,
-                                      render: (_, __, slot) => slot + 1,
-                                    },
-                                    {
-                                      title: '奖品图',
-                                      width: 130,
-                                      render: (_, __, slot) => {
-                                        const flatIndex = prizeFlatIndex(ruleIndex, slot)
-                                        return (
-                                          <>
-                                            <PrizeRowFields flatIndex={flatIndex} />
-                                            <Form.Item name={['prizes', flatIndex, 'imageKey']} noStyle rules={[{ required: true }]}>
-                                              <PrizeImageSelect />
-                                            </Form.Item>
-                                          </>
-                                        )
-                                      },
-                                    },
-                                    {
-                                      title: '展示名称',
-                                      render: (_, __, slot) => (
-                                        <Form.Item name={['prizes', prizeFlatIndex(ruleIndex, slot), 'name']} noStyle rules={[{ required: true }]}>
-                                          <Input />
-                                        </Form.Item>
-                                      ),
-                                    },
-                                    {
-                                      title: '奖金 PHP',
-                                      width: 130,
-                                      render: (_, __, slot) => (
-                                        <Form.Item name={['prizes', prizeFlatIndex(ruleIndex, slot), 'amountPhp']} noStyle rules={[{ required: true, type: 'number', min: 0.01 }]}>
-                                          <InputNumber prefix="₱" min={0.01} precision={2} style={{ width: '100%' }} />
-                                        </Form.Item>
-                                      ),
-                                    },
-                                    {
-                                      title: '权重',
-                                      width: 110,
-                                      render: (_, __, slot) => (
-                                        <Form.Item name={['prizes', prizeFlatIndex(ruleIndex, slot), 'weight']} noStyle rules={[{ required: true, type: 'number', min: 1 }]}>
-                                          <InputNumber min={1} precision={0} style={{ width: '100%' }} />
-                                        </Form.Item>
-                                      ),
-                                    },
-                                    {
-                                      title: '流水倍率',
-                                      width: 120,
-                                      render: (_, __, slot) => (
-                                        <Form.Item name={['prizes', prizeFlatIndex(ruleIndex, slot), 'turnoverX']} noStyle rules={[{ required: true, type: 'number', min: 0 }]}>
-                                          <InputNumber suffix="x" min={0} precision={2} style={{ width: '100%' }} />
-                                        </Form.Item>
-                                      ),
-                                    },
-                                    {
-                                      title: '启用',
-                                      width: 80,
-                                      render: (_, __, slot) => (
-                                        <Form.Item name={['prizes', prizeFlatIndex(ruleIndex, slot), 'enabled']} noStyle valuePropName="checked">
-                                          <Switch size="small" />
-                                        </Form.Item>
-                                      ),
-                                    },
-                                  ]}
-                                />
+                                <PrizeTable ruleIndex={ruleIndex} />
                               </>
                             ),
                           }]}
                         />
                       )
                     })}
+                  </div>
+                </Card>
+
+                <Card
+                  title={(
+                    <Space>
+                      签到专用档位
+                      <Tag color="purple">CHECK-IN</Tag>
+                      <Tag color={watchedRules[CHECKIN_INDEX]?.enabled ? 'green' : 'default'}>
+                        {watchedRules[CHECKIN_INDEX]?.enabled ? '启用' : '关闭'}
+                      </Tag>
+                    </Space>
+                  )}
+                  style={{ marginBottom: 16 }}
+                >
+                  <Text type="secondary">每日签到发放的转盘次数进入此档位（客户端显示为「签到」，排在存款档位之后）。</Text>
+                  <div style={{ marginTop: 16 }}>
+                    <Form.Item name={['depositRules', CHECKIN_INDEX, 'id']} hidden><InputNumber /></Form.Item>
+                    <Form.Item name={['depositRules', CHECKIN_INDEX, 'kind']} hidden><Input /></Form.Item>
+                    <Form.Item name={['depositRules', CHECKIN_INDEX, 'name']} hidden><Input /></Form.Item>
+                    <Form.Item name={['depositRules', CHECKIN_INDEX, 'sortOrder']} hidden><InputNumber /></Form.Item>
+                    <Form.Item label="启用" name={['depositRules', CHECKIN_INDEX, 'enabled']} valuePropName="checked">
+                      <Switch />
+                    </Form.Item>
+                    <PrizeTable ruleIndex={CHECKIN_INDEX} />
                   </div>
                 </Card>
 

@@ -16,7 +16,7 @@ import mascotRightImg from '@/assets/spin/fbm/item-right.webp'
 import winIconImg from '@/assets/spin/fbm/icon-win.webp'
 import oopsIconImg from '@/assets/spin/fbm/icon-oops.webp'
 
-interface Props { onClose: () => void }
+interface Props { onClose: () => void; initialKind?: 'deposit' | 'checkin' }
 
 function fmtPhp(amount: number): string {
   if (amount >= 1000) return `₱${Math.round(amount).toLocaleString('en-PH')}`
@@ -31,7 +31,7 @@ function fmtRecordDate(iso: string): string {
   try { return new Date(iso).toLocaleString('en-PH', { dateStyle: 'medium', timeStyle: 'short' }) } catch { return iso }
 }
 
-export default function RewardsSpinPage({ onClose }: Props) {
+export default function RewardsSpinPage({ onClose, initialKind }: Props) {
   const { t } = useTranslation()
   const wallet = useWalletStore()
   const user = useAuthStore((s) => s.user)
@@ -88,6 +88,11 @@ export default function RewardsSpinPage({ onClose }: Props) {
       setSelectedRuleId((current) => {
         const nextId = current ?? null
         if (nextId && next.depositRules.some((rule) => rule.id === nextId)) return nextId
+        // 从签到入口进入时，默认选中签到专用档位
+        if (initialKind) {
+          const preferred = next.depositRules.find((rule) => rule.enabled && rule.kind === initialKind)
+          if (preferred?.id) return preferred.id
+        }
         const available = next.depositRules.find((rule) => rule.enabled && (rule.remainingChances ?? 0) > 0)
         return available?.id ?? next.depositRules.find((rule) => rule.enabled)?.id ?? null
       })
@@ -231,7 +236,9 @@ export default function RewardsSpinPage({ onClose }: Props) {
                   onClick={() => { setSelectedRuleId(rule.id!); setResult(null); setMessage('') }}
                 >
                   <p className="truncate text-sm font-black uppercase leading-none">
-                    DEPOSIT {fmtDepositAmount(Number(rule.depositAmountPhp ?? rule.minDepositPhp))}
+                    {rule.kind === 'checkin'
+                      ? t('spin.checkinTab')
+                      : `DEPOSIT ${fmtDepositAmount(Number(rule.depositAmountPhp ?? rule.minDepositPhp))}`}
                   </p>
                   <p className="mt-1 text-xs font-black">{rule.remainingChances ?? 0} {t('spin.chances')}</p>
                 </button>
@@ -277,7 +284,9 @@ export default function RewardsSpinPage({ onClose }: Props) {
             <img src={oopsIconImg} alt="" draggable={false} className="absolute left-1/2 top-[-62px] w-[158px] -translate-x-1/2" />
             <h2 className="text-xl font-black">{t('spin.oopsTitle')}</h2>
             <p className="mt-4 text-base leading-relaxed text-[#777]">
-              {t('spin.oopsBody', { amount: fmtDepositAmount(selectedAmount) })}
+              {selectedRule?.kind === 'checkin'
+                ? t('spin.oopsBodyCheckin')
+                : t('spin.oopsBody', { amount: fmtDepositAmount(selectedAmount) })}
             </p>
             <button
               type="button"

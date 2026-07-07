@@ -8,8 +8,11 @@ const TICKER_TTL_SEC = 3600
 const NAME_HEADS = 'ABCDEFGHJKLMNPRSTVW'
 const NAME_TAILS = 'abcefghjklmnprstvy'
 
+export type SpinRuleKind = 'deposit' | 'checkin'
+
 export interface SpinDepositRule {
   id?: number
+  kind: SpinRuleKind
   name: string
   minDepositPhp: number
   depositAmountPhp?: number
@@ -86,6 +89,7 @@ function mapRule(r: RowDataPacket): SpinDepositRule {
   const amount = Number(r.min_deposit_php)
   return {
     id: Number(r.id),
+    kind: r.kind === 'checkin' ? 'checkin' : 'deposit',
     name: String(r.name ?? ''),
     minDepositPhp: amount,
     depositAmountPhp: amount,
@@ -115,7 +119,7 @@ async function getEnabledConfig(conn: PoolConnection): Promise<SpinConfig> {
     `SELECT enabled FROM bg_spin_config WHERE id = 1 LIMIT 1`,
   )
   const [rules] = await conn.query<RowDataPacket[]>(
-    `SELECT id, name, min_deposit_php, max_deposit_php, chances, enabled, sort_order
+    `SELECT id, kind, name, min_deposit_php, max_deposit_php, chances, enabled, sort_order
      FROM bg_spin_deposit_rule
      WHERE enabled = 1
      ORDER BY sort_order ASC, min_deposit_php ASC`,
@@ -161,6 +165,7 @@ export async function getSpinConfig(env: Env): Promise<SpinConfig> {
 }
 
 function validRule(rule: SpinDepositRule): boolean {
+  if (rule.kind === 'checkin') return true
   const amount = Number(rule.depositAmountPhp ?? rule.minDepositPhp)
   return amount > 0
 }
@@ -176,7 +181,7 @@ function validPrize(prize: SpinPrize): boolean {
 
 export async function saveSpinConfig(env: Env, config: SpinConfig): Promise<SpinConfig> {
   const pool = getMysqlPool(env)
-  const rules = config.depositRules.filter(validRule).slice(0, 6)
+  const rules = config.depositRules.filter(validRule).slice(0, 7)
   const prizes = config.prizes.filter(validPrize)
   if (!rules.length) throw new Error('至少需要一个有效存款档位')
   if (!prizes.length) throw new Error('至少需要一个有效奖品')
@@ -195,24 +200,26 @@ export async function saveSpinConfig(env: Env, config: SpinConfig): Promise<Spin
     )
 
     const keptRuleIds: number[] = []
-    for (let i = 0; i < rules.length; i += 1) {
-      const rule = rules[i]
-      const amount = Number(rule.depositAmountPhp ?? rule.minDepositPhp)
-      const name = `Deposit ${Math.round(amount)}`
-      const sortOrder = (i + 1) * 10
+    let depositIdx = 0
+    for (const rule of rules) {
+      const isCheckin = rule.kind === 'checkin'
+      const amount = isCheckin ? 0 : Number(rule.depositAmountPhp ?? rule.minDepositPhp)
+      const name = isCheckin ? 'Check-in' : `Deposit ${Math.round(amount)}`
+      // 存款档位 sort 10,20,...；签到档位固定 900 排最后
+      const sortOrder = isCheckin ? 900 : (depositIdx += 1) * 10
       if (rule.id) {
         keptRuleIds.push(rule.id)
         await conn.execute(
           `UPDATE bg_spin_deposit_rule
-           SET name = ?, min_deposit_php = ?, max_deposit_php = ?, chances = ?, enabled = ?, sort_order = ?
+           SET kind = ?, name = ?, min_deposit_php = ?, max_deposit_php = ?, chances = ?, enabled = ?, sort_order = ?
            WHERE id = ?`,
-          [name, amount, null, 1, rule.enabled ? 1 : 0, sortOrder, rule.id],
+          [rule.kind, name, amount, null, 1, rule.enabled ? 1 : 0, sortOrder, rule.id],
         )
       } else {
         const [res] = await conn.execute(
-          `INSERT INTO bg_spin_deposit_rule (name, min_deposit_php, max_deposit_php, chances, enabled, sort_order)
-           VALUES (?, ?, ?, ?, ?, ?)`,
-          [name, amount, null, 1, rule.enabled ? 1 : 0, sortOrder],
+          `INSERT INTO bg_spin_deposit_rule (kind, name, min_deposit_php, max_deposit_php, chances, enabled, sort_order)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          [rule.kind, name, amount, null, 1, rule.enabled ? 1 : 0, sortOrder],
         )
         keptRuleIds.push(Number((res as { insertId: number }).insertId))
       }
@@ -262,7 +269,7 @@ export async function saveSpinConfig(env: Env, config: SpinConfig): Promise<Spin
 
 function ruleForDeposit(amount: number, rules: SpinDepositRule[]): SpinDepositRule | null {
   const matched = rules
-    .filter((rule) => amount >= rule.minDepositPhp)
+    .filter((rule) => rule.kind !== 'checkin' && amount >= rule.minDepositPhp)
     .sort((a, b) => b.minDepositPhp - a.minDepositPhp || a.sortOrder - b.sortOrder)
   return matched[0] ?? null
 }

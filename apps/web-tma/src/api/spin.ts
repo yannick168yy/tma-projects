@@ -2,6 +2,7 @@ import { apiRequest } from '@/api/client'
 
 export interface SpinDepositRule {
   id?: number
+  kind?: 'deposit' | 'checkin'
   name: string
   minDepositPhp: number
   depositAmountPhp?: number
