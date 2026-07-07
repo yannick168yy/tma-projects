@@ -313,7 +313,6 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
   const canSubmitMatrixWithdraw = Boolean(!withdrawLoading && isMatrixWithdraw && Number(matrixCryptoAmount) > 0 && withdrawAccount.trim())
   const filteredHistory = useMemo(() => historyOrders.filter((tx) => (historyFilter==='all'||tx.type===historyFilter) && (historyStatus==='all'||tx.status===historyStatus)), [historyOrders, historyFilter, historyStatus])
 
-  const walletTabs = useMemo(() => [{ id:'deposit' as const, label:t('wallet.deposit'), Icon:ArrowDownToLine }, { id:'withdraw' as const, label:t('wallet.withdraw'), Icon:ArrowUpFromLine }, { id:'history' as const, label:t('wallet.history'), Icon:History }], [t])
   const depositCategoryTabs = useMemo(() => [
     { id:'ewallet' as const, label:t('wallet.catEwallet'), Icon:Wallet },
     { id:'crypto' as const, label:t('wallet.catCrypto'), Icon:Zap },
@@ -431,14 +430,6 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
           <div className="flex items-center gap-2.5"><Wallet size={20} className="text-primary" /><span className="font-display text-lg font-black uppercase tracking-wide text-white">{t('wallet.title')}</span></div>
           <span className="text-lg font-black tabular-nums text-primary">{displayActive}</span>
           <button type="button" className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/5 transition-colors hover:bg-white/10" onClick={onClose}><X size={18} className="text-white/55" /></button>
-        </div>
-
-        <div className="flex flex-shrink-0 gap-2 px-5 pt-3">
-          {walletTabs.map(({id, label, Icon}) => (
-            <button key={id} type="button" className={`flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl text-xs font-black transition-colors border ${tab===id?'border-primary bg-primary text-black shadow-[0_0_20px_rgba(245,158,11,0.34)]':'border-white/10 bg-[#101a2c] text-white/40 hover:text-white/80'}`}
-              onClick={() => { setTab(id); setDepositView('select'); setSelectedMethod(null); setAmount(''); setDepositMessage(''); setWithdrawMessage('') }}
-            ><Icon size={14} />{label}</button>
-          ))}
         </div>
 
         {tab === 'history' && (
