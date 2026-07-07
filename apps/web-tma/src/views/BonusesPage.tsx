@@ -18,13 +18,14 @@ interface Props {
   onOpenAppInstall: () => void
   newPlayerSummary?: NewPlayerSummary | null
   onOpenNewPlayerGift?: () => void
+  onOpenCheckin: () => void
 }
 
 function phpDisplay(cents: number) {
   return '₱' + (cents / 100).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
-export default function BonusesPage({ promoFilter, onOpenWallet, onOpenTeam, onOpenAppInstall, newPlayerSummary, onOpenNewPlayerGift }: Props) {
+export default function BonusesPage({ promoFilter, onOpenWallet, onOpenTeam, onOpenAppInstall, newPlayerSummary, onOpenNewPlayerGift, onOpenCheckin }: Props) {
   const { t } = useTranslation()
   const promotionStore = usePromotionStore()
   const highlights = usePromotionStore((s) => s.highlights)
@@ -218,6 +219,23 @@ export default function BonusesPage({ promoFilter, onOpenWallet, onOpenTeam, onO
             </div>
           </button>
         )}
+
+        {/* 每日签到入口 */}
+        <button
+          type="button"
+          onClick={onOpenCheckin}
+          className="w-full text-left rounded-2xl overflow-hidden border border-primary/30 bg-gradient-to-br from-[#2b1259] via-[#1a1440] to-[#141B2D] px-4 py-4 active:scale-[0.98] transition-transform"
+        >
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <span className="text-[10px] font-black uppercase tracking-widest text-primary">{t('checkin.entryTag')}</span>
+              <h2 className="text-white font-black leading-tight mt-0.5 font-display text-[1.3rem]">{t('checkin.entryTitle')}</h2>
+              <p className="text-white/70 text-xs mt-0.5">{t('checkin.entryDesc')}</p>
+            </div>
+            <span className="text-4xl flex-shrink-0">📅</span>
+          </div>
+          <span className="mt-3 inline-block rounded-full bg-primary px-4 py-1.5 text-xs font-black text-primary-foreground">{t('checkin.entryCta')}</span>
+        </button>
         <div className="rounded-2xl overflow-hidden border border-amber-500/30">
           <div className="relative bg-gradient-to-br from-[#78350f] via-[#92400e] to-[#b45309] px-4 py-4">
             <span className="text-3xl absolute top-3 right-4">🏆</span>

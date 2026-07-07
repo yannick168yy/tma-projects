@@ -43,6 +43,7 @@ const GamePlayer = lazyWithReload(() => import('@/components/GamePlayer'))
 const DownloadPage = lazyWithReload(() => import('@/views/DownloadPage'))
 const InstallGuideSheet = lazyWithReload(() => import('@/components/pwa/InstallGuideSheet'))
 const NewPlayerGiftSheet = lazyWithReload(() => import('@/components/promotion/NewPlayerGiftSheet'))
+const CheckinSheet = lazyWithReload(() => import('@/components/promotion/CheckinSheet'))
 
 const NEW_PLAYER_POPUP_KEY = 'betogo_popup_new_player'
 
@@ -123,6 +124,7 @@ export default function AppShell() {
   const claimTrialIfEligible = usePromotionStore((s) => s.claimTrialIfEligible)
   const [npSummary, setNpSummary] = useState<NewPlayerSummary | null>(null)
   const [giftSheetOpen, setGiftSheetOpen] = useState(false)
+  const [checkinOpen, setCheckinOpen] = useState(false)
   const [giftAppdlClaiming, setGiftAppdlClaiming] = useState(false)
   const giftAutoFired = useRef(false)
   const inTelegram = isInsideTelegram()
@@ -331,6 +333,12 @@ export default function AppShell() {
   function onOpenRewardsSpin() {
     setWalletOpen(false)
     openSpin()
+  }
+
+  async function onOpenCheckin() {
+    if (!(await auth.ensureLoggedIn(t('auth.signInBonus')))) return
+    setWalletOpen(false)
+    setCheckinOpen(true)
   }
 
   function onOpenKycSetting() {
@@ -558,11 +566,11 @@ export default function AppShell() {
           {view.type === 'spin' && (
             <RewardsSpinPage onClose={closeImmersive} />
           )}
-          {view.type === 'none' && activeNav === 'bonuses' && <BonusesPage promoFilter={promoFilter} onOpenWallet={() => void openWallet()} onOpenTeam={onOpenTeamCenter} onOpenAppInstall={openAppInstall} newPlayerSummary={npSummary} onOpenNewPlayerGift={openNewPlayerGift} />}
+          {view.type === 'none' && activeNav === 'bonuses' && <BonusesPage promoFilter={promoFilter} onOpenWallet={() => void openWallet()} onOpenTeam={onOpenTeamCenter} onOpenAppInstall={openAppInstall} newPlayerSummary={npSummary} onOpenNewPlayerGift={openNewPlayerGift} onOpenCheckin={() => void onOpenCheckin()} />}
           {view.type === 'none' && activeNav === 'games' && <GamesPage cat={gamesFilter.cat} provider={gamesFilter.provider} onChangeFilter={setGamesFilter} onOpenPerya={openPerya} onGameTap={() => void onGameTap()} onOpenGame={(url) => setGamePlayerUrl(url)} />}
           {view.type === 'none' && activeNav === 'menu' && <MenuPage onOpenCs={openCs} onLogin={() => void auth.ensureLoggedIn(t('auth.signInProfile'))} onLogout={onLogout} onOpenBetHistory={onOpenBetHistory} onOpenLedgerRecords={onOpenLedgerRecords} onOpenReferralPromo={onOpenReferralPromo} onOpenAgentCenter={onOpenAgentCenter} onOpenCashback={onOpenCashback} onOpenRewardsSpin={onOpenRewardsSpin} onOpenKycSetting={onOpenKycSetting} onOpenDownload={openDownload} onOpenTopUp={() => void openWalletFull('deposit')} onOpenCashOut={() => void openWalletFull('withdraw')} onOpenWalletHistory={() => void openWalletFull('history')} />}
           {view.type === 'none' && activeNav === 'casino' && (
-            <HomeContent onNavigatePath={navigatePath} onOpenCs={openCs} onOpenGame={(url) => setGamePlayerUrl(url)} onOpenFirstDepositFiesta={onOpenFirstDepositFiesta} onOpenRewardsSpin={onOpenRewardsSpin} onOpenCashback={onOpenCashback} />
+            <HomeContent onNavigatePath={navigatePath} onOpenCs={openCs} onOpenGame={(url) => setGamePlayerUrl(url)} onOpenFirstDepositFiesta={onOpenFirstDepositFiesta} onOpenRewardsSpin={onOpenRewardsSpin} onOpenCashback={onOpenCashback} onOpenCheckin={() => void onOpenCheckin()} />
           )}
           </Suspense>
         </main>
@@ -636,6 +644,8 @@ export default function AppShell() {
             onOpenCashback={giftOpenCashback}
           />
         )}
+
+        <CheckinSheet open={checkinOpen} onClose={() => setCheckinOpen(false)} onOpenSpin={onOpenRewardsSpin} />
       </Suspense>
 
       <OrientationGuard allowLandscape={!!gamePlayerUrl} />

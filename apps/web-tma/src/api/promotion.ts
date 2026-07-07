@@ -182,6 +182,37 @@ export async function fetchNewPlayerSummary(): Promise<NewPlayerSummary> {
   return apiRequest<NewPlayerSummary>('/promotions/new-player-summary')
 }
 
+// ── 每日签到 ──
+export type CheckinTier = 'starter' | 'premium' | 'elite'
+export interface CheckinReward { tier: CheckinTier; n: number }
+export interface CheckinStatus {
+  today: string
+  todayClaimed: boolean
+  todayTrack: 'base' | 'enhanced' | null
+  enhancedEligibleToday: boolean
+  canUpgradeToday: boolean
+  streak: number
+  cycleDay: number
+  monthDays: number
+  cycle: { day: number; base: CheckinReward; enh: CheckinReward }[]
+  milestones: { atDays: number; tier: CheckinTier; n: number; reached: boolean }[]
+}
+export interface CheckinClaimResult {
+  track: 'base' | 'enhanced'
+  streak: number
+  cycleDay: number
+  monthDays: number
+  upgraded: boolean
+  grantedChances: number
+  milestoneHit: number
+}
+export async function fetchCheckinStatus(): Promise<CheckinStatus> {
+  return apiRequest<CheckinStatus>('/promotions/checkin/status')
+}
+export async function claimCheckin(): Promise<CheckinClaimResult> {
+  return apiRequest<CheckinClaimResult>('/promotions/checkin/claim', { method: 'POST' })
+}
+
 const DEFAULT_PROMO_CONFIG: PromoConfig = {
   trial:    { amount: 88, enabled: true },
   referral: { inviterAmount: 50, inviteeAmount: 30, enabled: true },
