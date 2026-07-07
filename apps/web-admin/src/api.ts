@@ -781,6 +781,20 @@ export interface PromoConfig {
 export const getPromoConfig = () => get<PromoConfig>('/admin/promotions/config')
 export const savePromoConfig = (data: PromoConfig) => req<PromoConfig>('PUT', '/admin/promotions/config', data)
 
+// 每日签到配置
+export type CheckinTier = 'starter' | 'premium' | 'elite'
+export interface CheckinReward { tier: CheckinTier; n: number }
+export interface CheckinDay { base: CheckinReward; enh: CheckinReward }
+export interface CheckinMilestone { atDays: number; tier: CheckinTier; n: number }
+export interface CheckinConfig {
+  enabled: boolean
+  enhancedMinPhp: number
+  cycle: CheckinDay[]
+  milestones: CheckinMilestone[]
+}
+export const getCheckinConfig = () => get<CheckinConfig>('/admin/checkin/config')
+export const saveCheckinConfig = (data: CheckinConfig) => req<CheckinConfig>('PUT', '/admin/checkin/config', data)
+
 export interface PromoClaimRecord {
   id: string
   userId: string

@@ -165,6 +165,7 @@ export interface PromoConfig {
   firstdep: { enabled: boolean; turnoverX: number; turnoverDays?: number; tiers: Record<string, FirstDepTier[]> }
   appdl:    { amount: number; enabled: boolean; turnoverX: number; turnoverDays?: number }
   popups?:  PopupConfig[]
+  checkinEnabled?: boolean
 }
 
 export interface NewPlayerSummary {
@@ -186,6 +187,7 @@ export async function fetchNewPlayerSummary(): Promise<NewPlayerSummary> {
 export type CheckinTier = 'starter' | 'premium' | 'elite'
 export interface CheckinReward { tier: CheckinTier; n: number }
 export interface CheckinStatus {
+  enabled: boolean
   today: string
   todayClaimed: boolean
   todayTrack: 'base' | 'enhanced' | null

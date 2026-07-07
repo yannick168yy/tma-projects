@@ -25,6 +25,7 @@ import homeContentRoutes from './home-content.routes.js'
 import { authMiddleware, optionalAuthMiddleware } from '../middleware/auth.js'
 import { getDepositChannels, YfPayError } from '../services/yfpay.service.js'
 import { getPromoConfig } from '../services/promo-config.service.js'
+import { getCheckinConfig } from '../services/checkin.service.js'
 import { getLevelConfig } from '../services/rebate.service.js'
 import { getUser } from '../services/store/index.js'
 import { getMysqlPool, isMysqlEnabled } from '../clients/mysql.client.js'
@@ -48,7 +49,11 @@ export function createApiRouter(): Router {
 
   // 公开：活动参数配置（App 启动即拉，先于登录完成，不含用户数据）
   api.get('/promotions/config', async (ctx) => {
-    ok(ctx, await getPromoConfig(ctx.state.env))
+    const [promo, checkin] = await Promise.all([
+      getPromoConfig(ctx.state.env),
+      getCheckinConfig(ctx.state.env),
+    ])
+    ok(ctx, { ...promo, checkinEnabled: checkin.enabled })
   })
 
   // 公开：YF Pay 存款频道

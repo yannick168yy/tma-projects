@@ -20,6 +20,7 @@ export default {
     entryDesc: 'Check in daily for free Lucky Wheel spins',
     entryCta: 'Check in',
     floatLabel: 'Check-in',
+    disabled: 'The check-in event is currently unavailable',
   },
   errors: {
     channelClosed: 'This channel is currently closed',

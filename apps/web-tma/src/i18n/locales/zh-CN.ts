@@ -20,6 +20,7 @@ export default {
     entryDesc: '每天签到领转盘抽奖次数',
     entryCta: '去签到',
     floatLabel: '签到',
+    disabled: '签到活动暂未开放',
   },
   errors: {
     channelClosed: '该渠道已关闭',

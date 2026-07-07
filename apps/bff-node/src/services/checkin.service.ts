@@ -2,7 +2,7 @@ import type { Pool, PoolConnection, RowDataPacket } from 'mysql2/promise'
 import type { Env } from '../config/env.js'
 import { getMysqlPool, isMysqlEnabled } from '../clients/mysql.client.js'
 
-// ───────────────────────── 配置（P2 迁到后台，先用常量） ─────────────────────────
+// ───────────────────────── 配置（后台可配，缺省用下列常量） ─────────────────────────
 
 export type Tier = 'starter' | 'premium' | 'elite'
 /** 转盘档位 → bg_spin_deposit_rule.sort_order（068/069 既有三档） */
@@ -31,6 +31,79 @@ export const MILESTONES: Milestone[] = [
   { atDays: 30, tier: 'elite', n: 3 },
 ]
 
+/** 小周期固定 7 天（后台只可改每天奖励，不可改天数） */
+export const CYCLE_LEN = CYCLE_REWARDS.length
+
+export interface CheckinConfig {
+  enabled: boolean
+  enhancedMinPhp: number
+  cycle: DayReward[]        // 恰好 CYCLE_LEN 天
+  milestones: Milestone[]
+}
+
+export const DEFAULT_CHECKIN_CONFIG: CheckinConfig = {
+  enabled: true,
+  enhancedMinPhp: ENHANCED_TURNOVER_MIN_PHP,
+  cycle: CYCLE_REWARDS,
+  milestones: MILESTONES,
+}
+
+const CHECKIN_CONFIG_KEY = 'checkin_config'
+const ALL_TIERS: Tier[] = ['starter', 'premium', 'elite']
+const clampTier = (t: unknown): Tier => (ALL_TIERS.includes(t as Tier) ? (t as Tier) : 'starter')
+const clampN = (v: unknown, def = 1): number => {
+  const n = Math.floor(Number(v))
+  return Number.isFinite(n) && n >= 0 && n <= 999 ? n : def
+}
+
+/** 校验/归一后台传入或 DB 读出的配置，任何脏数据都回落缺省，保证运行安全 */
+export function sanitizeCheckinConfig(raw: unknown): CheckinConfig {
+  if (!raw || typeof raw !== 'object') return DEFAULT_CHECKIN_CONFIG
+  const r = raw as Partial<CheckinConfig>
+  const cycleRaw = Array.isArray(r.cycle) ? r.cycle : DEFAULT_CHECKIN_CONFIG.cycle
+  const cycle: DayReward[] = Array.from({ length: CYCLE_LEN }, (_, i) => {
+    const c = (cycleRaw[i] ?? DEFAULT_CHECKIN_CONFIG.cycle[i]) as DayReward
+    return {
+      base: { tier: clampTier(c?.base?.tier), n: clampN(c?.base?.n) },
+      enh: { tier: clampTier(c?.enh?.tier), n: clampN(c?.enh?.n) },
+    }
+  })
+  const milestones: Milestone[] = (Array.isArray(r.milestones) ? r.milestones : DEFAULT_CHECKIN_CONFIG.milestones)
+    .map((m) => ({ atDays: clampN((m as Milestone)?.atDays, 7), tier: clampTier((m as Milestone)?.tier), n: clampN((m as Milestone)?.n) }))
+    .filter((m) => m.atDays > 0)
+    .sort((a, b) => a.atDays - b.atDays)
+  return {
+    enabled: r.enabled !== false,
+    enhancedMinPhp: Math.max(0, Number(r.enhancedMinPhp ?? DEFAULT_CHECKIN_CONFIG.enhancedMinPhp) || 0),
+    cycle,
+    milestones: milestones.length ? milestones : DEFAULT_CHECKIN_CONFIG.milestones,
+  }
+}
+
+async function readSetting(env: Env, key: string): Promise<string | null> {
+  const [rows] = await getMysqlPool(env).query<RowDataPacket[]>(
+    'SELECT `value` FROM bg_admin_settings WHERE `key` = ?', [key],
+  )
+  return rows[0] ? String(rows[0].value) : null
+}
+
+export async function getCheckinConfig(env: Env): Promise<CheckinConfig> {
+  if (!isMysqlEnabled(env)) return DEFAULT_CHECKIN_CONFIG
+  try {
+    const raw = await readSetting(env, CHECKIN_CONFIG_KEY)
+    return raw ? sanitizeCheckinConfig(JSON.parse(raw)) : DEFAULT_CHECKIN_CONFIG
+  } catch { return DEFAULT_CHECKIN_CONFIG }
+}
+
+export async function saveCheckinConfig(env: Env, config: unknown): Promise<CheckinConfig> {
+  const clean = sanitizeCheckinConfig(config)
+  await getMysqlPool(env).execute(
+    'INSERT INTO bg_admin_settings (`key`, `value`) VALUES (?, ?) ON DUPLICATE KEY UPDATE `value` = VALUES(`value`)',
+    [CHECKIN_CONFIG_KEY, JSON.stringify(clean)],
+  )
+  return clean
+}
+
 // ───────────────────────── 纯计算（可单测，不碰 DB） ─────────────────────────
 
 /** 马尼拉(UTC+8)当天日期 YYYY-MM-DD */
@@ -52,8 +125,8 @@ export function nextStreak(lastDate: string | null, lastStreak: number, today: s
   return 1
 }
 /** 累计从 prev+1 到 cur 之间命中的里程碑（升序） */
-export function milestonesBetween(prevMonthDays: number, curMonthDays: number): Milestone[] {
-  return MILESTONES.filter((m) => m.atDays > prevMonthDays && m.atDays <= curMonthDays)
+export function milestonesBetween(prevMonthDays: number, curMonthDays: number, milestones: Milestone[] = MILESTONES): Milestone[] {
+  return milestones.filter((m) => m.atDays > prevMonthDays && m.atDays <= curMonthDays)
 }
 
 // ───────────────────────── DB 辅助 ─────────────────────────
@@ -83,7 +156,7 @@ async function grantSpin(conn: PoolConnection, userId: string, source: string, r
 }
 
 /** 当日增强轨是否达标：有存款 或 有效投注流水≥阈值（马尼拉日） */
-async function enhancedEligible(conn: PoolConnection | Pool, userId: string, date: string): Promise<boolean> {
+async function enhancedEligible(conn: PoolConnection | Pool, userId: string, date: string, minPhp: number): Promise<boolean> {
   const [[dep]] = await conn.query<RowDataPacket[]>(
     `SELECT 1 AS ok FROM bg_deposit_order
      WHERE user_id = ? AND status = 'paid' AND DATE(created_at + INTERVAL 8 HOUR) = ? LIMIT 1`,
@@ -95,7 +168,7 @@ async function enhancedEligible(conn: PoolConnection | Pool, userId: string, dat
      WHERE user_id = ? AND bet_type = 'bet' AND status = 'settled' AND DATE(created_at + INTERVAL 8 HOUR) = ?`,
     [userId, date],
   )
-  return Number(bet?.turnover ?? 0) >= ENHANCED_TURNOVER_MIN_PHP
+  return Number(bet?.turnover ?? 0) >= minPhp
 }
 
 async function monthCount(conn: PoolConnection | Pool, userId: string, today: string): Promise<number> {
@@ -122,6 +195,7 @@ async function lastLogRow(conn: PoolConnection | Pool, userId: string): Promise<
 // ───────────────────────── 对外接口 ─────────────────────────
 
 export interface CheckinStatus {
+  enabled: boolean
   today: string
   todayClaimed: boolean
   todayTrack: 'base' | 'enhanced' | null
@@ -136,12 +210,14 @@ export interface CheckinStatus {
 
 export async function getCheckinStatus(env: Env, userId: string): Promise<CheckinStatus> {
   const today = manilaToday()
-  const cycle = CYCLE_REWARDS.map((r, i) => ({ day: i + 1, base: r.base, enh: r.enh }))
+  const cfg = await getCheckinConfig(env)
+  const cycle = cfg.cycle.map((r, i) => ({ day: i + 1, base: r.base, enh: r.enh }))
   if (!isMysqlEnabled(env)) {
     return {
+      enabled: cfg.enabled,
       today, todayClaimed: false, todayTrack: null, enhancedEligibleToday: false, canUpgradeToday: false,
       streak: 0, cycleDay: 1, monthDays: 0, cycle,
-      milestones: MILESTONES.map((m) => ({ ...m, reached: false })),
+      milestones: cfg.milestones.map((m) => ({ ...m, reached: false })),
     }
   }
   const pool = getMysqlPool(env)
@@ -151,7 +227,7 @@ export async function getCheckinStatus(env: Env, userId: string): Promise<Checki
   )
   const last = await lastLogRow(pool, userId)
   const monthDays = await monthCount(pool, userId, today)
-  const eligible = await enhancedEligible(pool, userId, today)
+  const eligible = await enhancedEligible(pool, userId, today, cfg.enhancedMinPhp)
 
   const claimed = Boolean(todayRow)
   const todayTrack = (todayRow?.track as 'base' | 'enhanced' | undefined) ?? null
@@ -160,6 +236,7 @@ export async function getCheckinStatus(env: Env, userId: string): Promise<Checki
   const effectiveMonthDays = claimed ? monthDays : monthDays + 1
 
   return {
+    enabled: cfg.enabled,
     today,
     todayClaimed: claimed,
     todayTrack,
@@ -169,7 +246,7 @@ export async function getCheckinStatus(env: Env, userId: string): Promise<Checki
     cycleDay: cycleDayOf(streak),
     monthDays: effectiveMonthDays,
     cycle,
-    milestones: MILESTONES.map((m) => ({ ...m, reached: effectiveMonthDays >= m.atDays })),
+    milestones: cfg.milestones.map((m) => ({ ...m, reached: effectiveMonthDays >= m.atDays })),
   }
 }
 
@@ -195,10 +272,12 @@ export async function claimCheckin(env: Env, userId: string): Promise<CheckinCla
   const pool = getMysqlPool(env)
   const conn = await pool.getConnection()
   try {
+    const cfg = await getCheckinConfig(env)
+    if (!cfg.enabled) throw new Error('disabled')
     await conn.beginTransaction()
     const today = manilaToday()
     const tiers = await tierRuleIds(conn)
-    const eligible = await enhancedEligible(conn, userId, today)
+    const eligible = await enhancedEligible(conn, userId, today, cfg.enhancedMinPhp)
 
     // 先按可靠的字符串比较查今天是否已签（不依赖 DATE 列回读格式）
     const [[todayRow]] = await conn.query<RowDataPacket[]>(
@@ -210,11 +289,11 @@ export async function claimCheckin(env: Env, userId: string): Promise<CheckinCla
       const last = await lastLogRow(conn, userId)
       const streak = nextStreak(last?.date ?? null, last?.streak ?? 0, today)
       const cycleDay = cycleDayOf(streak)
-      const reward = CYCLE_REWARDS[cycleDay - 1]
+      const reward = cfg.cycle[cycleDay - 1]
       const prevMonth = await monthCount(conn, userId, today)
       const monthDays = prevMonth + 1
       const track: 'base' | 'enhanced' = eligible ? 'enhanced' : 'base'
-      const ms = milestonesBetween(prevMonth, monthDays)
+      const ms = milestonesBetween(prevMonth, monthDays, cfg.milestones)
       const msHit = ms.length ? ms[ms.length - 1].atDays : 0
       const msChances = ms.reduce((s, m) => s + m.n, 0)
 
@@ -254,7 +333,7 @@ export async function claimCheckin(env: Env, userId: string): Promise<CheckinCla
     )
     const cur = { track: String(row.track), streak: Number(row.streak), cycleDay: Number(row.cycle_day), monthDays: Number(row.month_days) }
     if (cur.track === 'base' && eligible) {
-      const reward = CYCLE_REWARDS[cur.cycleDay - 1]
+      const reward = cfg.cycle[cur.cycleDay - 1]
       await conn.execute(
         `UPDATE bg_checkin_log SET track = 'enhanced', enh_rule_id = ?, enh_chances = ?
          WHERE user_id = ? AND checkin_date = ?`,

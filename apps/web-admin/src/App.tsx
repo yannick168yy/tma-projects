@@ -27,6 +27,7 @@ import TeamReferral from './views/TeamReferral'
 import TeamReferralConfig from './views/TeamReferralConfig'
 import Promotions from './views/Promotions'
 import PromotionClaims from './views/PromotionClaims'
+import Checkin from './views/Checkin'
 import Rebate from './views/Rebate'
 import RewardsSpin from './views/RewardsSpin'
 import KycList from './views/KycList'
@@ -93,6 +94,7 @@ export default function App() {
           <Route path="team-referral/config" element={<TeamReferralConfig />} />
           <Route path="promotions" element={<Promotions />} />
           <Route path="promotions/claims" element={<PromotionClaims />} />
+          <Route path="checkin" element={<Checkin />} />
           <Route path="home-content" element={<HomeContentConfig />} />
           <Route path="homepage-sections" element={<HomepageSections />} />
           <Route path="category-sort" element={<CategorySort />} />

@@ -82,6 +82,7 @@ function buildMenuItems(badges: AdminBadges) {
       children: [
         { key: '/promotions', label: '活动配置' },
         { key: '/promotions/claims', label: '参与记录' },
+        { key: '/checkin', label: '每日签到' },
         { key: '/rewards-spin', label: '转盘抽奖' },
         { key: '/rebate', label: '洗码返水' },
         { key: '/home-content', label: '首页装修' },

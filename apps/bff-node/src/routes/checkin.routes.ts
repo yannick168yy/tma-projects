@@ -20,6 +20,7 @@ router.post('/claim', async (ctx) => {
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'checkin claim failed'
     if (msg === 'already claimed') { fail(ctx, 409, msg, 409); return }
+    if (msg === 'disabled') { fail(ctx, 403, msg, 403); return }
     fail(ctx, 500, msg)
   }
 })

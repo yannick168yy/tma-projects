@@ -220,7 +220,8 @@ export default function BonusesPage({ promoFilter, onOpenWallet, onOpenTeam, onO
           </button>
         )}
 
-        {/* 每日签到入口 */}
+        {/* 每日签到入口（后台开启时才显示） */}
+        {promoConfig?.checkinEnabled && (
         <button
           type="button"
           onClick={onOpenCheckin}
@@ -236,6 +237,7 @@ export default function BonusesPage({ promoFilter, onOpenWallet, onOpenTeam, onO
           </div>
           <span className="mt-3 inline-block rounded-full bg-primary px-4 py-1.5 text-xs font-black text-primary-foreground">{t('checkin.entryCta')}</span>
         </button>
+        )}
         <div className="rounded-2xl overflow-hidden border border-amber-500/30">
           <div className="relative bg-gradient-to-br from-[#78350f] via-[#92400e] to-[#b45309] px-4 py-4">
             <span className="text-3xl absolute top-3 right-4">🏆</span>

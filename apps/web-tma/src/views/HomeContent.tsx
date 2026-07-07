@@ -102,6 +102,7 @@ interface HomePromoFloatProps {
   rewardsLabel: string
   cashbackLabel: string
   checkinLabel: string
+  checkinEnabled: boolean
   onOpenRewardsSpin: () => void
   onOpenCashback: () => void
   onOpenCheckin: () => void
@@ -109,7 +110,7 @@ interface HomePromoFloatProps {
 
 let homePromoFloatClosedUntilReload = false
 
-function HomePromoFloat({ rewardsLabel, cashbackLabel, checkinLabel, onOpenRewardsSpin, onOpenCashback, onOpenCheckin }: HomePromoFloatProps) {
+function HomePromoFloat({ rewardsLabel, cashbackLabel, checkinLabel, checkinEnabled, onOpenRewardsSpin, onOpenCashback, onOpenCheckin }: HomePromoFloatProps) {
   const widgetRef = useRef<HTMLDivElement>(null)
   const collapsedPositionRef = useRef<{ left: number; top: number } | null>(null)
   const dragRef = useRef({ pointerId: -1, startX: 0, startY: 0, startLeft: 0, startTop: 0, moved: false, suppressClick: false })
@@ -118,7 +119,7 @@ function HomePromoFloat({ rewardsLabel, cashbackLabel, checkinLabel, onOpenRewar
   const [closed, setClosed] = useState(homePromoFloatClosedUntilReload)
   const [position, setPosition] = useState<{ left: number; top: number } | null>(null)
   const promos = [
-    { key: 'checkin', label: checkinLabel, ariaLabel: checkinLabel, image: '', imageClass: '', emoji: '📅', action: onOpenCheckin },
+    ...(checkinEnabled ? [{ key: 'checkin', label: checkinLabel, ariaLabel: checkinLabel, image: '', imageClass: '', emoji: '📅', action: onOpenCheckin }] : []),
     { key: 'cashback', label: 'cashback', ariaLabel: cashbackLabel, image: cashbackFloatImg, imageClass: 'home-cashback-swing-float', emoji: '', action: onOpenCashback },
     { key: 'rewards', label: 'rewards', ariaLabel: rewardsLabel, image: rewardsSpinFloatImg, imageClass: 'home-rewards-spin-float', emoji: '', action: onOpenRewardsSpin },
   ]
@@ -999,6 +1000,7 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
         rewardsLabel={t('category.rewardsSpin')}
         cashbackLabel={t('cashback.title')}
         checkinLabel={t('checkin.floatLabel')}
+        checkinEnabled={Boolean(promotion.promoConfig?.checkinEnabled)}
         onOpenRewardsSpin={onOpenRewardsSpin}
         onOpenCashback={onOpenCashback}
         onOpenCheckin={onOpenCheckin}
