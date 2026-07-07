@@ -109,8 +109,10 @@ async function monthCount(conn: PoolConnection | Pool, userId: string, today: st
 }
 
 async function lastLogRow(conn: PoolConnection | Pool, userId: string): Promise<{ date: string; streak: number } | null> {
+  // mysql2 会把 DATE 列返成 JS Date，String() 出来不是 YYYY-MM-DD；用 DATE_FORMAT 强制成字符串
   const [[row]] = await conn.query<RowDataPacket[]>(
-    `SELECT checkin_date, streak FROM bg_checkin_log WHERE user_id = ? ORDER BY checkin_date DESC LIMIT 1`,
+    `SELECT DATE_FORMAT(checkin_date, '%Y-%m-%d') AS checkin_date, streak
+     FROM bg_checkin_log WHERE user_id = ? ORDER BY checkin_date DESC LIMIT 1`,
     [userId],
   )
   if (!row) return null
@@ -198,9 +200,14 @@ export async function claimCheckin(env: Env, userId: string): Promise<CheckinCla
     const tiers = await tierRuleIds(conn)
     const eligible = await enhancedEligible(conn, userId, today)
 
-    const last = await lastLogRow(conn, userId)
-    const alreadyToday = last?.date === today
-    if (!alreadyToday) {
+    // 先按可靠的字符串比较查今天是否已签（不依赖 DATE 列回读格式）
+    const [[todayRow]] = await conn.query<RowDataPacket[]>(
+      `SELECT track, streak, cycle_day, month_days FROM bg_checkin_log WHERE user_id = ? AND checkin_date = ? LIMIT 1`,
+      [userId, today],
+    )
+
+    if (!todayRow) {
+      const last = await lastLogRow(conn, userId)
       const streak = nextStreak(last?.date ?? null, last?.streak ?? 0, today)
       const cycleDay = cycleDayOf(streak)
       const reward = CYCLE_REWARDS[cycleDay - 1]
@@ -222,25 +229,22 @@ export async function claimCheckin(env: Env, userId: string): Promise<CheckinCla
          eligible ? tiers[reward.enh.tier] : null, eligible ? reward.enh.n : 0,
          msHit, msChances],
       )
-      if (res.affectedRows === 0) {
-        // 并发下被另一请求抢先：回滚走升级/已领路径
-        await conn.rollback()
-        return claimCheckin(env, userId)
+      if (res.affectedRows > 0) {
+        let granted = 0
+        await grantSpin(conn, userId, `checkin:${userId}:${today}:base`, tiers[reward.base.tier], reward.base.n)
+        granted += reward.base.n
+        if (eligible) {
+          await grantSpin(conn, userId, `checkin:${userId}:${today}:enh`, tiers[reward.enh.tier], reward.enh.n)
+          granted += reward.enh.n
+        }
+        for (const m of ms) {
+          await grantSpin(conn, userId, `checkin:${userId}:${today}:ms${m.atDays}`, tiers[m.tier], m.n)
+          granted += m.n
+        }
+        await conn.commit()
+        return { track, streak, cycleDay, monthDays, upgraded: false, grantedChances: granted, milestoneHit: msHit }
       }
-
-      let granted = 0
-      await grantSpin(conn, userId, `checkin:${userId}:${today}:base`, tiers[reward.base.tier], reward.base.n)
-      granted += reward.base.n
-      if (eligible) {
-        await grantSpin(conn, userId, `checkin:${userId}:${today}:enh`, tiers[reward.enh.tier], reward.enh.n)
-        granted += reward.enh.n
-      }
-      for (const m of ms) {
-        await grantSpin(conn, userId, `checkin:${userId}:${today}:ms${m.atDays}`, tiers[m.tier], m.n)
-        granted += m.n
-      }
-      await conn.commit()
-      return { track, streak, cycleDay, monthDays, upgraded: false, grantedChances: granted, milestoneHit: msHit }
+      // affectedRows===0：并发下已被抢先插入，落到下面按已有记录处理（不递归）
     }
 
     // 当天已有记录：仅允许 base→enhanced 升级补发
