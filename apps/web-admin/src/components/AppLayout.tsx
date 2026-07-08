@@ -7,7 +7,7 @@ import {
   DashboardOutlined, TeamOutlined, UserOutlined, DownOutlined,
   AppstoreOutlined, SettingOutlined, CustomerServiceOutlined,
   TransactionOutlined, ApartmentOutlined, GiftOutlined,
-  SafetyCertificateOutlined, MenuOutlined, CrownOutlined,
+  SafetyCertificateOutlined, MenuOutlined, CrownOutlined, TrophyOutlined,
 } from '@ant-design/icons'
 import { useAuthStore } from '../stores/auth'
 import { adminChangePassword, getAdminBadges, type AdminBadges } from '../api'
@@ -80,13 +80,11 @@ function buildMenuItems(badges: AdminBadges) {
       icon: <GiftOutlined />,
       label: '营销运营',
       children: [
-        { key: '/promotions', label: '活动配置' },
-        { key: '/promotions/claims', label: '参与记录' },
-        { key: '/checkin', label: '每日签到' },
-        { key: '/rewards-spin', label: '转盘抽奖' },
         { key: '/home-content', label: '首页装修' },
         { key: '/homepage-sections', label: '首页板块配置' },
         { key: '/category-sort', label: '分类列表排序' },
+        { key: '/promotions', label: '活动配置' },
+        { key: '/promotions/claims', label: '参与记录' },
       ],
     },
     {
@@ -99,9 +97,18 @@ function buildMenuItems(badges: AdminBadges) {
         { key: '/growth/rebate-rates', label: '洗码费率' },
         { key: '/growth/rebate-featured', label: 'Cashback Games' },
         { key: '/growth/rebate-records', label: '洗码派发记录' },
-        { key: '/growth/task-config', label: '任务配置' },
-        { key: '/growth/task-social', label: '社群关注任务' },
-        { key: '/growth/task-reviews', label: '任务截图审核' },
+      ],
+    },
+    {
+      key: 'task-system',
+      icon: <TrophyOutlined />,
+      label: '任务体系',
+      children: [
+        { key: '/tasks/config', label: '任务配置' },
+        { key: '/tasks/checkin', label: '每日签到' },
+        { key: '/tasks/rewards-spin', label: '转盘抽奖' },
+        { key: '/tasks/social', label: '社群关注任务' },
+        { key: '/tasks/reviews', label: '任务截图审核' },
       ],
     },
     {
@@ -157,7 +164,8 @@ function getDefaultOpenKeys(pathname: string): string[] {
   if (['/deposits', '/payment', '/wallet-ledger', '/exchange-rates'].some((p) => pathname.startsWith(p))) return ['finance']
   if (['/games', '/bet-orders'].some((p) => pathname.startsWith(p))) return ['game']
   if (pathname.startsWith('/growth') || pathname.startsWith('/vip') || pathname.startsWith('/rebate')) return ['growth']
-  if (['/promotions', '/rewards-spin', '/home-content', '/homepage-sections', '/category-sort'].some((p) => pathname.startsWith(p))) return ['marketing']
+  if (['/tasks', '/checkin', '/rewards-spin'].some((p) => pathname.startsWith(p))) return ['task-system']
+  if (['/promotions', '/home-content', '/homepage-sections', '/category-sort'].some((p) => pathname.startsWith(p))) return ['marketing']
   if (pathname.startsWith('/team-referral')) return ['team']
   if (pathname.startsWith('/agents') || pathname.startsWith('/agent-')) return ['agent']
   if (['/customer-service', '/cs-faq'].some((p) => pathname.startsWith(p))) return ['cs']
