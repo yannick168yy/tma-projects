@@ -20,6 +20,7 @@ import slotsRoutes from './slots.routes.js'
 import betsRoutes from './bets.routes.js'
 import turnoverRoutes from './turnover.routes.js'
 import rebateRoutes from './rebate.routes.js'
+import vipRoutes from './vip.routes.js'
 import spinRoutes from './spin.routes.js'
 import homeContentRoutes from './home-content.routes.js'
 import { authMiddleware, optionalAuthMiddleware } from '../middleware/auth.js'
@@ -141,7 +142,7 @@ export function createApiRouter(): Router {
 
   for (const r of [
     userRoutes, walletRoutes, depositRoutes, withdrawRoutes,
-    ledgerRoutes, kycRoutes, checkinRoutes, promotionRoutes, teamRoutes, agentRoutes, yfpayRoutes, paymentUnifiedRoutes, betsRoutes, turnoverRoutes,
+    ledgerRoutes, kycRoutes, checkinRoutes, promotionRoutes, teamRoutes, agentRoutes, yfpayRoutes, paymentUnifiedRoutes, betsRoutes, turnoverRoutes, vipRoutes,
   ]) {
     api.use(protectedMw, r.routes(), r.allowedMethods())
   }

@@ -15,6 +15,7 @@ import { refreshLatestPool, refreshWeekTop, refreshMonthTop } from './services/b
 import { refreshRates } from './services/exchange-rate.service.js'
 import { refreshBalances } from './services/payment-accounting.service.js'
 import { runDailyRebateSettlement, yesterdayPHT } from './services/rebate.service.js'
+import { runWeeklyNegativeRebate } from './services/vip.service.js'
 import { isMysqlEnabled } from './clients/mysql.client.js'
 import { ok } from './utils/response.js'
 import { seedDefaultAdmin } from './services/admin-auth.service.js'
@@ -31,6 +32,7 @@ export function createApp(env: Env): Koa {
     games: childLogger('games-cache'),
     homepage: childLogger('homepage'),
     rebate: childLogger('rebate-payout'),
+    vip: childLogger('vip-negative-rebate'),
     payment: childLogger('payment-balance'),
   }
 
@@ -86,6 +88,31 @@ export function createApp(env: Env): Koa {
       runRebate()
       setInterval(runRebate, 24 * 60 * 60 * 1000)
     }, msUntilRebate())
+  }
+
+  // 负盈利返水每周结算：每天 UTC 16:30（PHT 00:30）检查，仅在 PHT 周一结算上一整周（用户手动领取）
+  if (isMysqlEnabled(env)) {
+    const runNegRebate = () => {
+      // PHT 周一 = UTC 周日（+8h 后为周一）；用 PHT 墙钟判断
+      const pht = new Date(Date.now() + 8 * 60 * 60 * 1000)
+      if (pht.getUTCDay() !== 1) return
+      runWeeklyNegativeRebate(env)
+        .then(({ periodKey, users, totalAmount }) =>
+          log.vip.info({ periodKey, users, totalAmount }, 'weekly negative rebate settled'),
+        )
+        .catch((err) => log.vip.error({ err }, 'negative rebate settlement error'))
+    }
+    const msUntilNegRebate = () => {
+      const now = new Date()
+      const next = new Date()
+      next.setUTCHours(16, 30, 0, 0)
+      if (next <= now) next.setUTCDate(next.getUTCDate() + 1)
+      return next.getTime() - now.getTime()
+    }
+    setTimeout(() => {
+      runNegRebate()
+      setInterval(runNegRebate, 24 * 60 * 60 * 1000)
+    }, msUntilNegRebate())
   }
 
   // Betting activity 初始化（需要 games cache 已加载）

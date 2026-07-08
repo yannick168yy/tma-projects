@@ -75,7 +75,7 @@ export interface FeaturedGame {
   coverUrl?: string
 }
 
-export const MAX_LEVEL = 6
+export const MAX_LEVEL = 9
 
 function lgId(): string {
   return `LG_${Date.now()}_${randomBytes(3).toString('hex')}`
