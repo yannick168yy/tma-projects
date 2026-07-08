@@ -120,7 +120,7 @@ export interface LedgerEntry {
   id: string
   userId: string
   currency?: string  // 默认 'PHP'
-  type: 'deposit' | 'withdraw' | 'bet' | 'win' | 'red_packet' | 'bonus' | 'adjust' | 'admin_adjust' | 'rebate'
+  type: 'deposit' | 'withdraw' | 'bet' | 'win' | 'red_packet' | 'bonus' | 'adjust' | 'admin_adjust' | 'rebate' | 'vip_bonus' | 'task_bonus'
   amount: number
   balanceAfter: number
   refId?: string

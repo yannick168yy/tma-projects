@@ -11,6 +11,7 @@ import ledgerRoutes from './ledger.routes.js'
 import kycRoutes from './kyc.routes.js'
 import promotionRoutes from './promotion.routes.js'
 import checkinRoutes from './checkin.routes.js'
+import taskRoutes from './task.routes.js'
 import teamRoutes from './team.routes.js'
 import agentRoutes from './agent.routes.js'
 import webhookRoutes from './webhook.routes.js'
@@ -142,7 +143,7 @@ export function createApiRouter(): Router {
 
   for (const r of [
     userRoutes, walletRoutes, depositRoutes, withdrawRoutes,
-    ledgerRoutes, kycRoutes, checkinRoutes, promotionRoutes, teamRoutes, agentRoutes, yfpayRoutes, paymentUnifiedRoutes, betsRoutes, turnoverRoutes, vipRoutes,
+    ledgerRoutes, kycRoutes, checkinRoutes, taskRoutes, promotionRoutes, teamRoutes, agentRoutes, yfpayRoutes, paymentUnifiedRoutes, betsRoutes, turnoverRoutes, vipRoutes,
   ]) {
     api.use(protectedMw, r.routes(), r.allowedMethods())
   }
