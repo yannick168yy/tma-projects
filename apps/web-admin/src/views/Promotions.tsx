@@ -13,7 +13,7 @@ const AUTO_POPUP_IDS = new Set(['new_player'])
 const AUDIENCE_OPTIONS = [
   { value: 'all', label: '所有访客' },
   { value: 'guest', label: '仅未登录游客' },
-  { value: 'no_deposit', label: '未充值用户（含访客和已登录）' },
+  { value: 'no_deposit', label: '未充值用户或游客' },
   { value: 'new', label: '已登录未充值' },
   { value: 'deposited', label: '已充值用户' },
 ]
