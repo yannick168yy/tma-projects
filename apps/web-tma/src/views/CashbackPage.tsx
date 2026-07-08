@@ -303,7 +303,7 @@ export default function CashbackPage({ onOpenGame, onOpenCategory }: Props) {
           >
             {levelCards.map((lc) => {
               const isCurrent = token && lc.level === userLevel
-              const isMax = lc.level === 6
+              const isMax = lc.level === (levelCards[levelCards.length - 1]?.level ?? lc.level)
               const cardCls = isMax
                 ? 'border-amber-300/60 bg-gradient-to-br from-[#161006]/90 via-[#0d0a06]/85 to-[#3a2407]/50 shadow-lg shadow-amber-500/10'
                 : isCurrent
