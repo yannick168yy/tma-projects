@@ -24,6 +24,16 @@ export default function TasksPage({ onNavigate }: { onNavigate?: (target: string
   }, [])
   useEffect(() => { void load() }, [load])
 
+  // 原生/聚合卡按稳定 id 查 i18n（缺失回落后端中文标题）；社群卡是后台自定义文案，直接用后端值
+  function cardTitle(card: TaskCard): string {
+    if (card.id.startsWith('agg_checkin_ms')) return t('tasks.item.checkin_ms.title', { n: card.progress?.target ?? 0 })
+    return t(`tasks.item.${card.id}.title`, { defaultValue: card.title })
+  }
+  function cardSubtitle(card: TaskCard): string {
+    if (card.id.startsWith('agg_checkin_ms')) return t('tasks.item.checkin_ms.subtitle', { defaultValue: card.subtitle })
+    return t(`tasks.item.${card.id}.subtitle`, { defaultValue: card.subtitle })
+  }
+
   function rewardText(card: TaskCard): string {
     const r = card.reward
     if (r.type === 'cash') return r.amount > 0 ? `+${formatCurrencyAmount(r.currency, r.amount)}` : ''
@@ -106,8 +116,8 @@ export default function TasksPage({ onNavigate }: { onNavigate?: (target: string
       <div key={card.id} className="mx-4 mt-3 rounded-2xl border border-amber-300/25 bg-[#0c0905]/75 px-4 py-3.5">
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-amber-50 font-black text-sm truncate">{card.title}</p>
-            {card.subtitle && <p className="text-amber-200/70 text-xs mt-0.5 truncate">{card.subtitle}</p>}
+            <p className="text-amber-50 font-black text-sm truncate">{cardTitle(card)}</p>
+            {cardSubtitle(card) && <p className="text-amber-200/70 text-xs mt-0.5 truncate">{cardSubtitle(card)}</p>}
             {reward && <p className="text-amber-300 text-xs font-bold mt-1">{reward}</p>}
           </div>
           <div className="flex flex-shrink-0 items-center gap-2">
