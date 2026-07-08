@@ -18,7 +18,7 @@ import { useAppNavigation } from '@/hooks/useAppNavigation'
 import { shouldShowDownloadBar, dismissDownloadBar, isIos } from '@/utils/pwa'
 import { isInsideTelegram } from '@/utils/initTelegramWebApp'
 import { usePromotionStore } from '@/stores/promotion'
-import { fetchNewPlayerSummary, type NewPlayerSummary } from '@/api/promotion'
+import { fetchNewPlayerSummary, matchPopupAudience, type NewPlayerSummary } from '@/api/promotion'
 import TopDownloadBar from '@/components/pwa/TopDownloadBar'
 import OrientationGuard from '@/components/OrientationGuard'
 import threeCirclesMenu from '@/assets/team/3-circles/menu-entry.webp'
@@ -44,8 +44,11 @@ const DownloadPage = lazyWithReload(() => import('@/views/DownloadPage'))
 const InstallGuideSheet = lazyWithReload(() => import('@/components/pwa/InstallGuideSheet'))
 const NewPlayerGiftSheet = lazyWithReload(() => import('@/components/promotion/NewPlayerGiftSheet'))
 const CheckinSheet = lazyWithReload(() => import('@/components/promotion/CheckinSheet'))
+const TrialWelcomeSheet = lazyWithReload(() => import('@/components/promotion/TrialWelcomeSheet'))
+const TrialClaimModal = lazyWithReload(() => import('@/components/promotion/TrialClaimModal'))
 
 const NEW_PLAYER_POPUP_KEY = 'betogo_popup_new_player'
+const TRIAL_POPUP_KEY = 'betogo_popup_trial'
 
 type NavId = (typeof NAV_ITEMS)[number]['id']
 
@@ -124,7 +127,10 @@ export default function AppShell() {
   const [giftSheetOpen, setGiftSheetOpen] = useState(false)
   const [checkinOpen, setCheckinOpen] = useState(false)
   const [spinInitialKind, setSpinInitialKind] = useState<'deposit' | 'checkin' | undefined>(undefined)
-  const giftAutoFired = useRef(false)
+  const [trialWelcomeOpen, setTrialWelcomeOpen] = useState(false)
+  const [trialClaimOpen, setTrialClaimOpen] = useState(false)
+  // 本会话最多自动弹一个进站弹窗，避免新人礼包与首席体验官同时弹出
+  const autoPopupFired = useRef(false)
   const inTelegram = isInsideTelegram()
 
   const giftAllDone = useMemo(() => {
@@ -145,7 +151,7 @@ export default function AppShell() {
   }, [auth.token]) // 登录态变化后重拉真实领取状态
 
   useEffect(() => {
-    if (giftAutoFired.current || !promoConfig || !npSummary) return
+    if (autoPopupFired.current || !promoConfig || !npSummary) return
     if (view.type !== 'none' || activeNav !== 'casino' || gamePlayerUrl) return
     const popup = promoConfig.popups?.find((p) => p.id === 'new_player')
     if (!popup?.enabled || giftAllDone) return
@@ -158,10 +164,33 @@ export default function AppShell() {
     const last = localStorage.getItem(NEW_PLAYER_POPUP_KEY)
     if (popup.frequency === 'once' && last) return
     if (popup.frequency === 'daily' && last === today) return
-    giftAutoFired.current = true
+    autoPopupFired.current = true
     localStorage.setItem(NEW_PLAYER_POPUP_KEY, popup.frequency === 'once' ? '1' : today)
     setGiftSheetOpen(true)
   }, [promoConfig, npSummary, view.type, activeNav, auth.token, giftAllDone, gamePlayerUrl])
+
+  // 首席体验官进站弹窗：登录且资格未领取时，按后台 popups.trial 配置自动弹出
+  useEffect(() => {
+    if (autoPopupFired.current || !promoConfig || !npSummary || !auth.token) return
+    if (view.type !== 'none' || activeNav !== 'casino' || gamePlayerUrl) return
+    const trialTask = npSummary.tasks.trial
+    if (!trialTask.enabled || trialTask.claimed) return
+    const popup = promoConfig.popups?.find((p) => p.id === 'trial')
+    if (!popup?.enabled) return
+    if (!matchPopupAudience(popup.audience, true, npSummary.tasks.firstdep.done)) return
+    const today = new Date().toISOString().slice(0, 10)
+    const last = localStorage.getItem(TRIAL_POPUP_KEY)
+    if (popup.frequency === 'once' && last) return
+    if (popup.frequency === 'daily' && last === today) return
+    autoPopupFired.current = true
+    localStorage.setItem(TRIAL_POPUP_KEY, popup.frequency === 'once' ? '1' : today)
+    setTrialWelcomeOpen(true)
+  }, [promoConfig, npSummary, view.type, activeNav, auth.token, gamePlayerUrl])
+
+  function onTrialWelcomeClaim() {
+    setTrialWelcomeOpen(false)
+    setTrialClaimOpen(true)
+  }
 
   function openNewPlayerGift() {
     setWalletOpen(false)
@@ -598,6 +627,20 @@ export default function AppShell() {
             }}
           />
         )}
+
+        {trialWelcomeOpen && (
+          <TrialWelcomeSheet
+            amount={promoConfig?.trial.amount ?? 0}
+            onClaim={onTrialWelcomeClaim}
+            onDismiss={() => setTrialWelcomeOpen(false)}
+          />
+        )}
+
+        <TrialClaimModal
+          open={trialClaimOpen}
+          amountPhp={promoConfig?.trial.amount ?? 0}
+          onClose={() => { setTrialClaimOpen(false); void refreshNpSummary() }}
+        />
 
         <CheckinSheet open={checkinOpen} onClose={() => setCheckinOpen(false)} onOpenSpin={() => onOpenRewardsSpin('checkin')} />
       </Suspense>

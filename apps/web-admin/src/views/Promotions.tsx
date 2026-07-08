@@ -7,8 +7,8 @@ const { Title, Text } = Typography
 
 const POPUP_NAMES: Record<string, string> = { new_player: '新人礼包弹窗', firstdep: '首充悬浮入口', trial: '首席体验官' }
 
-// 仅这些是进站自动弹窗，弹出频率才生效；其余为常驻入口（悬浮球/活动页卡片），只用开关+人群
-const AUTO_POPUP_IDS = new Set(['new_player'])
+// 进站自动弹窗，弹出频率才生效；其余为常驻入口（首充悬浮球），只用开关+人群
+const AUTO_POPUP_IDS = new Set(['new_player', 'trial'])
 
 const AUDIENCE_OPTIONS = [
   { value: 'all', label: '所有访客' },
@@ -247,7 +247,7 @@ export default function Promotions() {
   const popupsTab = (
     <Card title="首页进站弹窗调度">
       <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 12 }}>
-        控制首页各活动入口的开关与覆盖人群；新人礼包为进站自动弹窗（弹出频率决定多久弹一次，三步任务全部完成后自动不再弹）；首充悬浮入口、首席体验官为常驻入口（悬浮球/活动页卡片），仅开关与人群生效
+        控制首页各活动入口的开关与覆盖人群；新人礼包、首席体验官为进站自动弹窗（弹出频率决定多久弹一次，已领取/任务完成后自动不再弹）；首充悬浮入口为常驻悬浮球，仅开关与人群生效
       </Text>
       <Table<PopupConfig>
         size="small"
