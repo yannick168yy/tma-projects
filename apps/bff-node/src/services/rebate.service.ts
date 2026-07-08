@@ -228,13 +228,18 @@ export async function saveLevelThresholds(env: Env, items: RebateLevelThreshold[
 // 用户总流水与等级
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** 用户累计有效流水（lifetime，跨币种合计；用于等级判定） */
+/**
+ * 用户累计有效流水（lifetime，跨币种合计；用于等级判定）。
+ * 含任务喂入的成长值 bg_user_vip_state.task_growth（等效有效流水，加速升级）。
+ */
 export async function getUserTotalTurnover(env: Env, userId: string): Promise<number> {
   if (!isMysqlEnabled(env)) return 0
   const pool = getMysqlPool(env)
   const [[row]] = await pool.query<RowDataPacket[]>(
-    'SELECT COALESCE(SUM(effective_amount), 0) AS total FROM bg_turnover_logs WHERE user_id = ? AND is_reversed = 0',
-    [userId],
+    `SELECT COALESCE(SUM(effective_amount), 0)
+            + COALESCE((SELECT task_growth FROM bg_user_vip_state WHERE user_id = ?), 0) AS total
+     FROM bg_turnover_logs WHERE user_id = ? AND is_reversed = 0`,
+    [userId, userId],
   )
   return Number(row?.total ?? 0)
 }

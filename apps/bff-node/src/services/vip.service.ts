@@ -400,12 +400,15 @@ export async function runWeeklyNegativeRebate(
 //   无状态行的老用户在各处按等级计算时 COALESCE 回落到阈值计算，行为不变
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** 某用户累计有效流水 → 等级 的 SQL 子查询（产出列 user_id, lvl） */
+/** 某用户累计有效流水 → 等级 的 SQL 子查询（产出列 user_id, lvl）
+ *  含任务喂入的成长值 task_growth（等效有效流水加速升级）；保级/降级 delta 不含成长值，见 runQuarterlyRetention。 */
 const SQL_USER_LEVEL = `
   SELECT tt.user_id, (
-    SELECT MAX(th.level) FROM bg_rebate_level_threshold th WHERE th.min_turnover <= tt.cum
+    SELECT MAX(th.level) FROM bg_rebate_level_threshold th
+    WHERE th.min_turnover <= tt.cum + COALESCE(vs.task_growth, 0)
   ) AS lvl
   FROM (SELECT user_id, SUM(effective_amount) AS cum FROM bg_turnover_logs WHERE is_reversed = 0 GROUP BY user_id) tt
+  LEFT JOIN bg_user_vip_state vs ON vs.user_id = tt.user_id
 `
 
 /** 当前保级考核季度键（PHT），如 2026-Q3 */
