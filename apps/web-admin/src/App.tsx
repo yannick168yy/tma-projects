@@ -29,6 +29,7 @@ import Promotions from './views/Promotions'
 import PromotionClaims from './views/PromotionClaims'
 import Checkin from './views/Checkin'
 import Rebate from './views/Rebate'
+import Vip from './views/Vip'
 import RewardsSpin from './views/RewardsSpin'
 import KycList from './views/KycList'
 import KycDetail from './views/KycDetail'
@@ -100,6 +101,7 @@ export default function App() {
           <Route path="category-sort" element={<CategorySort />} />
           <Route path="rewards-spin" element={<RewardsSpin />} />
           <Route path="rebate" element={<Rebate />} />
+          <Route path="vip" element={<Vip />} />
           <Route path="payment/channels" element={<PaymentChannels />} />
           <Route path="payment/accounting" element={<PaymentAccounting />} />
           <Route path="wallet-ledger" element={<LedgerRecords />} />

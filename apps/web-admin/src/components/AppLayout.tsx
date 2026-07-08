@@ -85,6 +85,7 @@ function buildMenuItems(badges: AdminBadges) {
         { key: '/checkin', label: '每日签到' },
         { key: '/rewards-spin', label: '转盘抽奖' },
         { key: '/rebate', label: '洗码返水' },
+        { key: '/vip', label: 'VIP 成长体系' },
         { key: '/home-content', label: '首页装修' },
         { key: '/homepage-sections', label: '首页板块配置' },
         { key: '/category-sort', label: '分类列表排序' },

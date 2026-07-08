@@ -932,6 +932,37 @@ export const triggerRebatePayout = (date?: string) =>
 export const getRebateRecords = (params?: { page?: number; pageSize?: number; date?: string; userId?: string }) =>
   get<{ items: RebateRecord[]; total: number; page: number; pageSize: number }>('/admin/rebate/records', params)
 
+// VIP 成长体系
+export interface VipBenefitItem {
+  level: number
+  promotionBonus: number
+  weeklySalary: number
+  monthlySalary: number
+  negativeRebatePct: number
+  retentionLine: number
+}
+export interface VipRewardRecord {
+  id: number
+  userId: string
+  displayName: string | null
+  level: number
+  type: string
+  amount: number
+  currencyCode: string
+  periodKey: string
+  status: string
+  createdAt: string | null
+  paidAt: string | null
+}
+export const getVipBenefits = () =>
+  get<{ benefits: VipBenefitItem[] }>('/admin/vip/benefits')
+export const saveVipBenefits = (benefits: VipBenefitItem[]) =>
+  req<{ saved: number }>('PUT', '/admin/vip/benefits', { benefits })
+export const triggerVipNegativeRebate = (includeCurrentWeek?: boolean) =>
+  req<{ periodKey: string; users: number; totalAmount: number }>('POST', '/admin/vip/negative-rebate/manual', { includeCurrentWeek })
+export const getVipRecords = (params?: { page?: number; pageSize?: number; type?: string; userId?: string }) =>
+  get<{ items: VipRewardRecord[]; total: number; page: number; pageSize: number }>('/admin/vip/records', params)
+
 export interface AdminBadges {
   manualWithdrawals: number
   pendingCs: number
