@@ -938,8 +938,11 @@ export interface VipBenefitItem {
   promotionBonus: number
   weeklySalary: number
   monthlySalary: number
+  birthdayBonus: number
   negativeRebatePct: number
   retentionLine: number
+  withdrawDailyLimit: number
+  withdrawDailyCount: number
 }
 export interface VipRewardRecord {
   id: number
@@ -960,6 +963,14 @@ export const saveVipBenefits = (benefits: VipBenefitItem[]) =>
   req<{ saved: number }>('PUT', '/admin/vip/benefits', { benefits })
 export const triggerVipNegativeRebate = (includeCurrentWeek?: boolean) =>
   req<{ periodKey: string; users: number; totalAmount: number }>('POST', '/admin/vip/negative-rebate/manual', { includeCurrentWeek })
+export const triggerVipWeeklySalary = (includeCurrentWeek?: boolean) =>
+  req<{ periodKey: string; users: number; totalAmount: number }>('POST', '/admin/vip/weekly-salary/manual', { includeCurrentWeek })
+export const triggerVipMonthlySalary = (includeCurrentMonth?: boolean) =>
+  req<{ periodKey: string; users: number; totalAmount: number }>('POST', '/admin/vip/monthly-salary/manual', { includeCurrentMonth })
+export const triggerVipBirthday = () =>
+  req<{ users: number; totalAmount: number }>('POST', '/admin/vip/birthday/manual', {})
+export const triggerVipRetention = () =>
+  req<{ quarterKey: string; processed: number; demoted: number }>('POST', '/admin/vip/retention/manual', {})
 export const getVipRecords = (params?: { page?: number; pageSize?: number; type?: string; userId?: string }) =>
   get<{ items: VipRewardRecord[]; total: number; page: number; pageSize: number }>('/admin/vip/records', params)
 

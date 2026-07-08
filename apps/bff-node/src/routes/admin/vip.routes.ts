@@ -4,6 +4,10 @@ import {
   getVipBenefits,
   saveVipBenefits,
   runWeeklyNegativeRebate,
+  runWeeklySalary,
+  runMonthlySalary,
+  runBirthdayBonus,
+  runQuarterlyRetention,
   MAX_VIP_LEVEL,
 } from '../../services/vip.service.js'
 import { getMysqlPool, isMysqlEnabled } from '../../clients/mysql.client.js'
@@ -31,15 +35,18 @@ router.put('/benefits', async (ctx) => {
       promotionBonus: number
       weeklySalary: number
       monthlySalary: number
+      birthdayBonus: number
       negativeRebatePct: number
       retentionLine: number
+      withdrawDailyLimit: number
+      withdrawDailyCount: number
     }[]
   }
   if (!Array.isArray(body.benefits) || body.benefits.length === 0) {
     fail(ctx, 400, 'benefits array required')
     return
   }
-  const numFields = ['promotionBonus', 'weeklySalary', 'monthlySalary', 'negativeRebatePct', 'retentionLine'] as const
+  const numFields = ['promotionBonus', 'weeklySalary', 'monthlySalary', 'birthdayBonus', 'negativeRebatePct', 'retentionLine', 'withdrawDailyLimit', 'withdrawDailyCount'] as const
   for (const it of body.benefits) {
     if (!Number.isInteger(it.level) || it.level < 1 || it.level > MAX_VIP_LEVEL) {
       fail(ctx, 400, `invalid level ${it.level}`)
@@ -65,6 +72,32 @@ router.put('/benefits', async (ctx) => {
 router.post('/negative-rebate/manual', async (ctx) => {
   const body = (ctx.request.body ?? {}) as { includeCurrentWeek?: boolean }
   const result = await runWeeklyNegativeRebate(ctx.state.env, { includeCurrentWeek: Boolean(body.includeCurrentWeek) })
+  ok(ctx, result)
+})
+
+// POST /admin/vip/weekly-salary/manual — 手动发周俸
+router.post('/weekly-salary/manual', async (ctx) => {
+  const body = (ctx.request.body ?? {}) as { includeCurrentWeek?: boolean }
+  const result = await runWeeklySalary(ctx.state.env, { includeCurrentWeek: Boolean(body.includeCurrentWeek) })
+  ok(ctx, result)
+})
+
+// POST /admin/vip/monthly-salary/manual — 手动发月俸
+router.post('/monthly-salary/manual', async (ctx) => {
+  const body = (ctx.request.body ?? {}) as { includeCurrentMonth?: boolean }
+  const result = await runMonthlySalary(ctx.state.env, { includeCurrentMonth: Boolean(body.includeCurrentMonth) })
+  ok(ctx, result)
+})
+
+// POST /admin/vip/birthday/manual — 手动发当日生日礼金
+router.post('/birthday/manual', async (ctx) => {
+  const result = await runBirthdayBonus(ctx.state.env)
+  ok(ctx, result)
+})
+
+// POST /admin/vip/retention/manual — 手动执行季度保级考核（当季度只处理一次）
+router.post('/retention/manual', async (ctx) => {
+  const result = await runQuarterlyRetention(ctx.state.env)
   ok(ctx, result)
 })
 

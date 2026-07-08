@@ -248,17 +248,34 @@ export function resolveLevel(thresholds: RebateLevelThreshold[], total: number):
   return level
 }
 
+/**
+ * 用户权威等级：优先取 bg_user_vip_state.current_level（VIP 二期支持降级），
+ * 无状态行则回落到按累计有效流水的阈值计算。洗码率、进度、结算均以此为准。
+ */
+export async function getEffectiveLevel(env: Env, userId: string): Promise<number> {
+  if (!isMysqlEnabled(env)) return 1
+  const pool = getMysqlPool(env)
+  const [[st]] = await pool.query<RowDataPacket[]>(
+    'SELECT current_level FROM bg_user_vip_state WHERE user_id = ?',
+    [userId],
+  )
+  if (st) return Number(st.current_level)
+  const total = await getUserTotalTurnover(env, userId)
+  const thresholds = await getLevelThresholds(env)
+  return resolveLevel(thresholds, total)
+}
+
 /** 用户洗码等级进度：总流水、当前等级、下一级阈值、本级费率、可领取总额 */
 export async function getUserLevelProgress(env: Env, userId: string, currency = 'PHP'): Promise<RebateLevelProgress> {
   const emptyRates: RebateConfig[] = []
   if (!isMysqlEnabled(env)) {
     return { currency, totalTurnover: 0, level: 1, currentThreshold: 0, nextLevel: null, nextThreshold: null, rates: emptyRates, claimable: 0, claimableBreakdown: [] }
   }
-  const [total, thresholds] = await Promise.all([
+  const [total, thresholds, level] = await Promise.all([
     getUserTotalTurnover(env, userId),
     getLevelThresholds(env),
+    getEffectiveLevel(env, userId),
   ])
-  const level = resolveLevel(thresholds, total)
   const sorted = [...thresholds].sort((a, b) => a.level - b.level)
   const current = sorted.find((t) => t.level === level)
   const next = sorted.find((t) => t.level === level + 1)
@@ -351,10 +368,8 @@ export async function getUserRebateSummary(env: Env, userId: string, phtDate: st
   const isToday = phtDate === today
 
   if (isToday) {
-    // 今日：按用户当前等级实时从 bg_turnover_logs 计算估算值
-    const total = await getUserTotalTurnover(env, userId)
-    const thresholds = await getLevelThresholds(env)
-    const level = resolveLevel(thresholds, total)
+    // 今日：按用户权威等级（支持降级）实时从 bg_turnover_logs 计算估算值
+    const level = await getEffectiveLevel(env, userId)
     const [rows] = await pool.query<RowDataPacket[]>(
       `SELECT
          COALESCE(tl.sort_category, 'other') AS game_category,
@@ -510,8 +525,9 @@ export async function runDailyRebateSettlement(env: Env, date: string): Promise<
          FROM bg_turnover_logs WHERE is_reversed = 0 GROUP BY user_id
        ) tt
      ) ul ON ul.user_id = tl.user_id
+     LEFT JOIN bg_user_vip_state vs ON vs.user_id = tl.user_id
      LEFT JOIN bg_rebate_level_config lc
-       ON lc.level = COALESCE(ul.level, 1) AND lc.game_category = COALESCE(tl.sort_category, 'other') AND lc.enabled = 1
+       ON lc.level = COALESCE(vs.current_level, ul.level, 1) AND lc.game_category = COALESCE(tl.sort_category, 'other') AND lc.enabled = 1
      WHERE tl.is_reversed = 0
        AND DATE(CONVERT_TZ(tl.created_at, '+00:00', '+08:00')) = ?
      GROUP BY tl.user_id, COALESCE(tl.sort_category, 'other'), tl.currency

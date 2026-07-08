@@ -473,6 +473,13 @@ export default {
     vipCurrentRate: '你的负盈利返水：{{rate}}%',
     vipNextUnlock: '升到 VIP{{level}} 可得 {{amount}} 晋级礼金',
     vipEmpty: '继续游戏即可累积 VIP 权益',
+    vipPrioritySupport: '专属 VIP 客服',
+    vipRetention: '本季保级：{{have}} / {{need}}',
+    vipDemoted: '已降级 — 保持活跃可回升',
+    vipSetBirthday: '🎂 设置生日领礼金',
+    vipBirthdaySaved: '生日已保存',
+    vipBirthdayHint: '一次性，设置后不可改',
+    vipBirthdaySet: '🎂 生日已设置',
   },
   menu: {
     searchPlaceholder: '搜索任意游戏…',

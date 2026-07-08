@@ -483,6 +483,13 @@ export default {
     vipCurrentRate: 'Your loss cashback: {{rate}}%',
     vipNextUnlock: 'Reach VIP{{level}} for a {{amount}} bonus',
     vipEmpty: 'Keep playing to earn VIP rewards',
+    vipPrioritySupport: 'Priority VIP support',
+    vipRetention: 'Keep VIP: {{have}} / {{need}} this quarter',
+    vipDemoted: 'Level dropped — stay active to climb back',
+    vipSetBirthday: '🎂 Set birthday for a gift',
+    vipBirthdaySaved: 'Birthday saved',
+    vipBirthdayHint: 'One-time, cannot be changed',
+    vipBirthdaySet: '🎂 Birthday saved',
   },
   menu: {
     searchPlaceholder: 'Search any game…',

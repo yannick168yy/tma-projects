@@ -15,7 +15,10 @@ import { refreshLatestPool, refreshWeekTop, refreshMonthTop } from './services/b
 import { refreshRates } from './services/exchange-rate.service.js'
 import { refreshBalances } from './services/payment-accounting.service.js'
 import { runDailyRebateSettlement, yesterdayPHT } from './services/rebate.service.js'
-import { runWeeklyNegativeRebate } from './services/vip.service.js'
+import {
+  runWeeklyNegativeRebate, runWeeklySalary, runMonthlySalary,
+  runBirthdayBonus, runQuarterlyRetention, ensureAndClimbVipStates,
+} from './services/vip.service.js'
 import { isMysqlEnabled } from './clients/mysql.client.js'
 import { ok } from './utils/response.js'
 import { seedDefaultAdmin } from './services/admin-auth.service.js'
@@ -113,6 +116,41 @@ export function createApp(env: Env): Koa {
       runNegRebate()
       setInterval(runNegRebate, 24 * 60 * 60 * 1000)
     }, msUntilNegRebate())
+  }
+
+  // VIP 每日维护：每天 UTC 16:40（PHT 00:40）建行/爬升 + 周俸(周一)/月俸(1号)/生日/季度保级
+  if (isMysqlEnabled(env)) {
+    const runVipDaily = async () => {
+      try {
+        await ensureAndClimbVipStates(env)
+        const pht = new Date(Date.now() + 8 * 60 * 60 * 1000)
+        if (pht.getUTCDay() === 1) {
+          const w = await runWeeklySalary(env)
+          log.vip.info({ ...w }, 'weekly salary settled')
+        }
+        if (pht.getUTCDate() === 1) {
+          const m = await runMonthlySalary(env)
+          log.vip.info({ ...m }, 'monthly salary settled')
+        }
+        const bday = await runBirthdayBonus(env)
+        if (bday.users > 0) log.vip.info({ ...bday }, 'birthday bonus granted')
+        const ret = await runQuarterlyRetention(env)
+        if (ret.processed > 0) log.vip.info({ ...ret }, 'quarterly retention processed')
+      } catch (err) {
+        log.vip.error({ err }, 'vip daily maintenance error')
+      }
+    }
+    const msUntilVipDaily = () => {
+      const now = new Date()
+      const next = new Date()
+      next.setUTCHours(16, 40, 0, 0)
+      if (next <= now) next.setUTCDate(next.getUTCDate() + 1)
+      return next.getTime() - now.getTime()
+    }
+    setTimeout(() => {
+      void runVipDaily()
+      setInterval(() => void runVipDaily(), 24 * 60 * 60 * 1000)
+    }, msUntilVipDaily())
   }
 
   // Betting activity 初始化（需要 games cache 已加载）

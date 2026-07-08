@@ -5,8 +5,11 @@ export interface VipBenefit {
   promotionBonus: number
   weeklySalary: number
   monthlySalary: number
+  birthdayBonus: number
   negativeRebatePct: number
   retentionLine: number
+  withdrawDailyLimit: number
+  withdrawDailyCount: number
 }
 
 export interface VipClaimableByType {
@@ -25,6 +28,12 @@ export interface VipProgress {
   nextBenefit: VipBenefit | null
   claimable: number
   claimableByType: VipClaimableByType[]
+  awardedLevel: number
+  demoted: boolean
+  quarterTurnover: number
+  retentionLine: number
+  prioritySupport: boolean
+  birthdaySet: boolean
 }
 
 export interface VipReward {
@@ -55,5 +64,13 @@ export async function claimVipRewards(currency?: string): Promise<{ claimed: num
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ currency }),
+  })
+}
+
+export async function setVipBirthday(birthday: string): Promise<{ ok: boolean }> {
+  return apiRequest<{ ok: boolean }>('/vip/birthday', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ birthday }),
   })
 }

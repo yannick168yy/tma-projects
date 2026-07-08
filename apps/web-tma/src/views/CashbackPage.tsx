@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { fetchRebateConfig, fetchRebateProgress, claimRebate, type RebateConfig, type RebateProgress } from '@/api/rebate'
-import { fetchVipProgress, claimVipRewards, type VipProgress } from '@/api/vip'
+import { fetchVipProgress, claimVipRewards, setVipBirthday, type VipProgress } from '@/api/vip'
 import { launchGame } from '@/api/slots'
 import { useAuthStore } from '@/stores/auth'
 import { useWalletStore, formatCurrencyAmount } from '@/stores/wallet'
@@ -76,6 +76,17 @@ export default function CashbackPage({ onOpenGame, onOpenCategory }: Props) {
     } catch (e) {
       alert(e instanceof ApiError ? e.message : 'Claim failed')
     } finally { setClaiming(false) }
+  }
+
+  async function onSetBirthday(value: string) {
+    if (!value) return
+    try {
+      await setVipBirthday(value)
+      alert(t('cashback.vipBirthdaySaved'))
+      await loadProgress()
+    } catch (e) {
+      alert(e instanceof ApiError ? e.message : 'Failed')
+    }
   }
 
   async function onClaimVip() {
@@ -235,15 +246,40 @@ export default function CashbackPage({ onOpenGame, onOpenCategory }: Props) {
             <p className="mt-2 text-[11px] text-amber-100/40">{t('cashback.vipEmpty')}</p>
           )}
 
-          {(( vip?.benefit && vip.benefit.negativeRebatePct > 0) || (vip?.nextBenefit && vip.nextBenefit.promotionBonus > 0)) && (
-            <div className="mt-3 pt-3 border-t border-amber-300/12 space-y-1">
-              {vip?.benefit && vip.benefit.negativeRebatePct > 0 && (
-                <p className="text-[11px] text-amber-100/60">{t('cashback.vipCurrentRate', { rate: vip.benefit.negativeRebatePct })}</p>
-              )}
-              {vip?.nextBenefit && vip.nextBenefit.promotionBonus > 0 && vip.nextLevel != null && (
-                <p className="text-[11px] text-amber-300/80">{t('cashback.vipNextUnlock', { level: vip.nextLevel, amount: amtStr(currency, vip.nextBenefit.promotionBonus) })}</p>
-              )}
-            </div>
+          <div className="mt-3 pt-3 border-t border-amber-300/12 space-y-1">
+            {vip?.benefit && vip.benefit.negativeRebatePct > 0 && (
+              <p className="text-[11px] text-amber-100/60">{t('cashback.vipCurrentRate', { rate: vip.benefit.negativeRebatePct })}</p>
+            )}
+            {vip?.nextBenefit && vip.nextBenefit.promotionBonus > 0 && vip.nextLevel != null && (
+              <p className="text-[11px] text-amber-300/80">{t('cashback.vipNextUnlock', { level: vip.nextLevel, amount: amtStr(currency, vip.nextBenefit.promotionBonus) })}</p>
+            )}
+            {vip && vip.retentionLine > 0 && (
+              <p className="text-[11px] text-amber-100/55">
+                {t('cashback.vipRetention', { have: amtStr(currency, vip.quarterTurnover), need: amtStr(currency, vip.retentionLine) })}
+              </p>
+            )}
+            {vip?.demoted && (
+              <p className="text-[11px] text-rose-300/80">{t('cashback.vipDemoted')}</p>
+            )}
+            {vip?.prioritySupport && (
+              <p className="text-[11px] text-amber-300/80">👑 {t('cashback.vipPrioritySupport')}</p>
+            )}
+          </div>
+
+          {/* 生日礼金采集 */}
+          {vip && (
+            vip.birthdaySet ? (
+              <p className="mt-2 text-[11px] text-amber-100/45">{t('cashback.vipBirthdaySet')}</p>
+            ) : (
+              <div className="mt-2 flex items-center gap-2">
+                <label className="text-[11px] text-amber-200/80 font-bold">{t('cashback.vipSetBirthday')}</label>
+                <input
+                  type="date"
+                  onChange={(e) => { if (e.target.value) void onSetBirthday(e.target.value) }}
+                  className="bg-[#0c0905] border border-amber-300/25 rounded-lg text-amber-50 text-xs px-2 py-1"
+                />
+              </div>
+            )
           )}
         </div>
       )}

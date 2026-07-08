@@ -1,4 +1,4 @@
-import type { RowDataPacket } from 'mysql2/promise'
+import type { RowDataPacket, ResultSetHeader } from 'mysql2/promise'
 import type { Env } from '../config/env.js'
 import { getMysqlPool, isMysqlEnabled } from '../clients/mysql.client.js'
 import { randomBytes } from 'node:crypto'
@@ -11,9 +11,18 @@ export interface VipBenefit {
   promotionBonus: number
   weeklySalary: number
   monthlySalary: number
+  birthdayBonus: number
   negativeRebatePct: number
   retentionLine: number
+  withdrawDailyLimit: number
+  withdrawDailyCount: number
 }
+
+/** 专属客服起始等级（VIP6+ 享专属客服，纯展示/前端判定用） */
+export const PRIORITY_SUPPORT_LEVEL = 6
+
+/** 结算/发放类礼金统一以平台基准币种入账 */
+const BASE_CURRENCY = 'PHP'
 
 export interface VipRewardItem {
   id: number
@@ -38,6 +47,12 @@ export interface VipProgress {
   nextBenefit: VipBenefit | null
   claimable: number
   claimableByType: { type: string; amount: number }[]
+  awardedLevel: number
+  demoted: boolean
+  quarterTurnover: number
+  retentionLine: number
+  prioritySupport: boolean
+  birthdaySet: boolean
 }
 
 function vgId(): string {
@@ -56,8 +71,11 @@ function mapBenefit(r: RowDataPacket): VipBenefit {
     promotionBonus: Number(r.promotion_bonus),
     weeklySalary: Number(r.weekly_salary),
     monthlySalary: Number(r.monthly_salary),
+    birthdayBonus: Number(r.birthday_bonus),
     negativeRebatePct: Number(r.negative_rebate_pct),
     retentionLine: Number(r.retention_line),
+    withdrawDailyLimit: Number(r.withdraw_daily_limit),
+    withdrawDailyCount: Number(r.withdraw_daily_count),
   }
 }
 
@@ -69,7 +87,8 @@ export async function getVipBenefits(env: Env): Promise<VipBenefit[]> {
   if (!isMysqlEnabled(env)) return []
   const pool = getMysqlPool(env)
   const [rows] = await pool.query<RowDataPacket[]>(
-    `SELECT level, promotion_bonus, weekly_salary, monthly_salary, negative_rebate_pct, retention_line
+    `SELECT level, promotion_bonus, weekly_salary, monthly_salary, birthday_bonus,
+            negative_rebate_pct, retention_line, withdraw_daily_limit, withdraw_daily_count
      FROM bg_vip_level_benefit ORDER BY level`,
   )
   return rows.map(mapBenefit)
@@ -80,15 +99,20 @@ export async function saveVipBenefits(env: Env, items: VipBenefit[]): Promise<vo
   for (const it of items) {
     await pool.execute(
       `INSERT INTO bg_vip_level_benefit
-         (level, promotion_bonus, weekly_salary, monthly_salary, negative_rebate_pct, retention_line)
-       VALUES (?, ?, ?, ?, ?, ?)
+         (level, promotion_bonus, weekly_salary, monthly_salary, birthday_bonus,
+          negative_rebate_pct, retention_line, withdraw_daily_limit, withdraw_daily_count)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON DUPLICATE KEY UPDATE
          promotion_bonus = VALUES(promotion_bonus),
          weekly_salary = VALUES(weekly_salary),
          monthly_salary = VALUES(monthly_salary),
+         birthday_bonus = VALUES(birthday_bonus),
          negative_rebate_pct = VALUES(negative_rebate_pct),
-         retention_line = VALUES(retention_line)`,
-      [it.level, it.promotionBonus, it.weeklySalary, it.monthlySalary, it.negativeRebatePct, it.retentionLine],
+         retention_line = VALUES(retention_line),
+         withdraw_daily_limit = VALUES(withdraw_daily_limit),
+         withdraw_daily_count = VALUES(withdraw_daily_count)`,
+      [it.level, it.promotionBonus, it.weeklySalary, it.monthlySalary, it.birthdayBonus,
+       it.negativeRebatePct, it.retentionLine, it.withdrawDailyLimit, it.withdrawDailyCount],
     )
   }
 }
@@ -129,21 +153,23 @@ async function awardPromotionBonus(env: Env, userId: string, currentLevel: numbe
 
 export async function getUserVipProgress(env: Env, userId: string, currency = 'PHP'): Promise<VipProgress> {
   if (!isMysqlEnabled(env)) {
-    return { currency, totalTurnover: 0, level: 1, currentThreshold: 0, nextLevel: null, nextThreshold: null, benefit: null, nextBenefit: null, claimable: 0, claimableByType: [] }
+    return { currency, totalTurnover: 0, level: 1, currentThreshold: 0, nextLevel: null, nextThreshold: null, benefit: null, nextBenefit: null, claimable: 0, claimableByType: [], awardedLevel: 1, demoted: false, quarterTurnover: 0, retentionLine: 0, prioritySupport: false, birthdaySet: false }
   }
   const [total, thresholds, benefits] = await Promise.all([
     getUserTotalTurnover(env, userId),
     getLevelThresholds(env),
     getVipBenefits(env),
   ])
-  const level = resolveLevel(thresholds, total)
+  // 权威等级来自状态机（支持降级）；懒触发建行 + 爬升对账
+  const state = await reconcileVipState(env, userId, total)
+  const level = state.currentLevel
   const sorted = [...thresholds].sort((a, b) => a.level - b.level)
   const current = sorted.find((t) => t.level === level)
   const next = sorted.find((t) => t.level === level + 1)
   const byLevel = new Map(benefits.map((b) => [b.level, b]))
 
-  // 懒触发晋级礼金对账
-  await awardPromotionBonus(env, userId, level, currency)
+  // 懒触发晋级礼金对账（上限为历史最高等级）
+  await awardPromotionBonus(env, userId, state.awardedLevel, currency)
 
   const pool = getMysqlPool(env)
   const [[claim]] = await pool.query<RowDataPacket[]>(
@@ -159,6 +185,9 @@ export async function getUserVipProgress(env: Env, userId: string, currency = 'P
      GROUP BY type`,
     [userId, currency],
   )
+  const [[bday]] = await pool.query<RowDataPacket[]>(
+    'SELECT birthday FROM bg_user WHERE id = ?', [userId],
+  )
 
   return {
     currency,
@@ -171,6 +200,12 @@ export async function getUserVipProgress(env: Env, userId: string, currency = 'P
     nextBenefit: next ? byLevel.get(next.level) ?? null : null,
     claimable: Number(claim?.claimable ?? 0),
     claimableByType: byType.map((r) => ({ type: String(r.type), amount: Number(r.amount) })),
+    awardedLevel: state.awardedLevel,
+    demoted: state.currentLevel < state.awardedLevel,
+    quarterTurnover: Math.max(0, total - state.quarterStartTurnover),
+    retentionLine: byLevel.get(level)?.retentionLine ?? 0,
+    prioritySupport: level >= PRIORITY_SUPPORT_LEVEL,
+    birthdaySet: bday?.birthday != null,
   }
 }
 
@@ -318,7 +353,7 @@ export async function runWeeklyNegativeRebate(
        (user_id, level, type, amount, currency_code, period_key, status)
      SELECT
        x.user_id,
-       COALESCE(ul.level, 1) AS level,
+       COALESCE(vs.current_level, ul.level, 1) AS level,
        'negative_rebate',
        ROUND(x.net_loss * COALESCE(b.negative_rebate_pct, 0) / 100, 2) AS amount,
        x.currency_code,
@@ -342,7 +377,8 @@ export async function runWeeklyNegativeRebate(
          FROM bg_turnover_logs WHERE is_reversed = 0 GROUP BY user_id
        ) tt
      ) ul ON ul.user_id = x.user_id
-     LEFT JOIN bg_vip_level_benefit b ON b.level = COALESCE(ul.level, 1)
+     LEFT JOIN bg_user_vip_state vs ON vs.user_id = x.user_id
+     LEFT JOIN bg_vip_level_benefit b ON b.level = COALESCE(vs.current_level, ul.level, 1)
      WHERE ROUND(x.net_loss * COALESCE(b.negative_rebate_pct, 0) / 100, 2) > 0
      ON DUPLICATE KEY UPDATE
        amount = IF(status = 'pending', VALUES(amount), amount),
@@ -356,4 +392,245 @@ export async function runWeeklyNegativeRebate(
     [periodKey],
   )
   return { periodKey, users: Number(agg?.users ?? 0), totalAmount: Number(agg?.total ?? 0) }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 等级状态机（硬降级模型）
+//   current_level = 权威等级（可降级）；awarded_level = 历史最高（累计流水单调爬升）
+//   无状态行的老用户在各处按等级计算时 COALESCE 回落到阈值计算，行为不变
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** 某用户累计有效流水 → 等级 的 SQL 子查询（产出列 user_id, lvl） */
+const SQL_USER_LEVEL = `
+  SELECT tt.user_id, (
+    SELECT MAX(th.level) FROM bg_rebate_level_threshold th WHERE th.min_turnover <= tt.cum
+  ) AS lvl
+  FROM (SELECT user_id, SUM(effective_amount) AS cum FROM bg_turnover_logs WHERE is_reversed = 0 GROUP BY user_id) tt
+`
+
+/** 当前保级考核季度键（PHT），如 2026-Q3 */
+function currentQuarterKey(atMs?: number): string {
+  const d = new Date((atMs ?? Date.now()) + 8 * 3600 * 1000)
+  const q = Math.floor(d.getUTCMonth() / 3) + 1
+  return `${d.getUTCFullYear()}-Q${q}`
+}
+
+/** 单用户对账：建行 + 累计爬升（达到历史新高时当前等级跟进，覆盖过去的降级） */
+export async function reconcileVipState(
+  env: Env,
+  userId: string,
+  cumulative?: number,
+): Promise<{ currentLevel: number; awardedLevel: number; quarterStartTurnover: number }> {
+  const pool = getMysqlPool(env)
+  const total = cumulative ?? (await getUserTotalTurnover(env, userId))
+  const thresholds = await getLevelThresholds(env)
+  const earned = resolveLevel(thresholds, total)
+
+  const [[row]] = await pool.query<RowDataPacket[]>(
+    'SELECT current_level, awarded_level, quarter_start_turnover FROM bg_user_vip_state WHERE user_id = ?',
+    [userId],
+  )
+  if (!row) {
+    await pool.execute(
+      `INSERT IGNORE INTO bg_user_vip_state (user_id, current_level, awarded_level, quarter_key, quarter_start_turnover)
+       VALUES (?, ?, ?, ?, ?)`,
+      [userId, earned, earned, currentQuarterKey(), total],
+    )
+    return { currentLevel: earned, awardedLevel: earned, quarterStartTurnover: total }
+  }
+  let currentLevel = Number(row.current_level)
+  let awardedLevel = Number(row.awarded_level)
+  const quarterStart = Number(row.quarter_start_turnover)
+  if (earned > awardedLevel) {
+    awardedLevel = earned
+    currentLevel = earned
+    await pool.execute(
+      'UPDATE bg_user_vip_state SET current_level = ?, awarded_level = ? WHERE user_id = ?',
+      [currentLevel, awardedLevel, userId],
+    )
+  }
+  return { currentLevel, awardedLevel, quarterStartTurnover: quarterStart }
+}
+
+/** 批量建行 + 爬升（每日定时对账全量用户） */
+export async function ensureAndClimbVipStates(env: Env): Promise<void> {
+  if (!isMysqlEnabled(env)) return
+  const pool = getMysqlPool(env)
+  await pool.query(
+    `INSERT IGNORE INTO bg_user_vip_state (user_id, current_level, awarded_level, quarter_key, quarter_start_turnover)
+     SELECT s.user_id, COALESCE(s.lvl, 1), COALESCE(s.lvl, 1), ?, s.cum
+     FROM (
+       SELECT tt.user_id, tt.cum, (
+         SELECT MAX(th.level) FROM bg_rebate_level_threshold th WHERE th.min_turnover <= tt.cum
+       ) AS lvl
+       FROM (SELECT user_id, SUM(effective_amount) AS cum FROM bg_turnover_logs WHERE is_reversed = 0 GROUP BY user_id) tt
+     ) s`,
+    [currentQuarterKey()],
+  )
+  await pool.query(
+    `UPDATE bg_user_vip_state vs
+     JOIN (${SQL_USER_LEVEL}) e ON e.user_id = vs.user_id
+     SET vs.current_level = IF(e.lvl > vs.awarded_level, e.lvl, vs.current_level),
+         vs.awarded_level = GREATEST(vs.awarded_level, e.lvl)
+     WHERE e.lvl > vs.awarded_level`,
+  )
+}
+
+/** 季度保级考核：达标不足降 1 级；活跃且低于历史最高则回升 1 级；每季度每用户只处理一次（quarter_key 守卫） */
+export async function runQuarterlyRetention(env: Env): Promise<{ quarterKey: string; processed: number; demoted: number }> {
+  if (!isMysqlEnabled(env)) return { quarterKey: '', processed: 0, demoted: 0 }
+  const pool = getMysqlPool(env)
+  const qkey = currentQuarterKey()
+
+  const [[before]] = await pool.query<RowDataPacket[]>(
+    'SELECT COUNT(*) AS n FROM bg_user_vip_state WHERE quarter_key <> ?', [qkey],
+  )
+  const [demoteAgg] = await pool.query<RowDataPacket[]>(
+    `SELECT COUNT(*) AS n FROM bg_user_vip_state vs
+     LEFT JOIN (SELECT user_id, SUM(effective_amount) AS cum FROM bg_turnover_logs WHERE is_reversed = 0 GROUP BY user_id) tt ON tt.user_id = vs.user_id
+     LEFT JOIN bg_vip_level_benefit b ON b.level = vs.current_level
+     WHERE vs.quarter_key <> ? AND vs.current_level > 1
+       AND (COALESCE(tt.cum, 0) - vs.quarter_start_turnover) < COALESCE(b.retention_line, 0)`,
+    [qkey],
+  )
+  await pool.query(
+    `UPDATE bg_user_vip_state vs
+     LEFT JOIN (SELECT user_id, SUM(effective_amount) AS cum FROM bg_turnover_logs WHERE is_reversed = 0 GROUP BY user_id) tt ON tt.user_id = vs.user_id
+     LEFT JOIN bg_vip_level_benefit b ON b.level = vs.current_level
+     SET vs.current_level = CASE
+           WHEN vs.current_level > 1
+                AND (COALESCE(tt.cum, 0) - vs.quarter_start_turnover) < COALESCE(b.retention_line, 0)
+             THEN vs.current_level - 1
+           WHEN vs.current_level < vs.awarded_level
+                AND (COALESCE(tt.cum, 0) - vs.quarter_start_turnover) > 0
+                AND (COALESCE(tt.cum, 0) - vs.quarter_start_turnover) >= COALESCE(b.retention_line, 0)
+             THEN vs.current_level + 1
+           ELSE vs.current_level END,
+         vs.quarter_start_turnover = COALESCE(tt.cum, vs.quarter_start_turnover),
+         vs.quarter_key = ?
+     WHERE vs.quarter_key <> ?`,
+    [qkey, qkey],
+  )
+  return { quarterKey: qkey, processed: Number(before?.n ?? 0), demoted: Number(demoteAgg?.[0]?.n ?? 0) }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 周俸 / 月俸（按等级固定发放，需当期有效投注，限时手动领取）
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** 计算月窗口（PHT 月初为起点）；includeCurrentMonth=true 结算本月至今，否则结算上一整月 */
+function vipMonthWindow(includeCurrentMonth: boolean): { periodKey: string; startUtc: string; endUtc: string } {
+  const phtMs = Date.now() + 8 * 3600 * 1000
+  const d = new Date(phtMs)
+  const y = d.getUTCFullYear()
+  const m = d.getUTCMonth()
+  const firstThis = Date.UTC(y, m, 1, 0, 0, 0)
+  let startPht: number
+  let endPht: number
+  let keyMs: number
+  if (includeCurrentMonth) {
+    startPht = firstThis
+    endPht = phtMs
+    keyMs = firstThis
+  } else {
+    const prevY = m === 0 ? y - 1 : y
+    const prevM = m === 0 ? 11 : m - 1
+    startPht = Date.UTC(prevY, prevM, 1, 0, 0, 0)
+    endPht = firstThis
+    keyMs = startPht
+  }
+  const toUtcStr = (phtWallMs: number) => new Date(phtWallMs - 8 * 3600 * 1000).toISOString().slice(0, 19).replace('T', ' ')
+  const k = new Date(keyMs)
+  return {
+    periodKey: `${k.getUTCFullYear()}-${String(k.getUTCMonth() + 1).padStart(2, '0')}`,
+    startUtc: toUtcStr(startPht),
+    endUtc: toUtcStr(endPht),
+  }
+}
+
+async function runSalary(
+  env: Env,
+  kind: 'weekly' | 'monthly',
+  window: { periodKey: string; startUtc: string; endUtc: string },
+  expireDays: number,
+): Promise<{ periodKey: string; users: number; totalAmount: number }> {
+  const pool = getMysqlPool(env)
+  const amountCol = kind === 'weekly' ? 'b.weekly_salary' : 'b.monthly_salary'
+  await pool.query(
+    `INSERT INTO bg_vip_reward_log
+       (user_id, level, type, amount, currency_code, period_key, status, expire_at)
+     SELECT act.user_id, COALESCE(vs.current_level, thr.lvl, 1) AS lvl, ?, ${amountCol}, ?, ?, 'pending',
+            DATE_ADD(NOW(3), INTERVAL ? DAY)
+     FROM (SELECT DISTINCT user_id FROM bg_turnover_logs WHERE is_reversed = 0 AND created_at >= ? AND created_at < ?) act
+     LEFT JOIN bg_user_vip_state vs ON vs.user_id = act.user_id
+     LEFT JOIN (${SQL_USER_LEVEL}) thr ON thr.user_id = act.user_id
+     JOIN bg_vip_level_benefit b ON b.level = COALESCE(vs.current_level, thr.lvl, 1)
+     WHERE ${amountCol} > 0
+     ON DUPLICATE KEY UPDATE amount = IF(status = 'pending', VALUES(amount), amount)`,
+    [kind, BASE_CURRENCY, window.periodKey, expireDays, window.startUtc, window.endUtc],
+  )
+  const [[agg]] = await pool.query<RowDataPacket[]>(
+    `SELECT COUNT(DISTINCT user_id) AS users, COALESCE(SUM(amount), 0) AS total
+     FROM bg_vip_reward_log WHERE type = ? AND period_key = ?`,
+    [kind, window.periodKey],
+  )
+  return { periodKey: window.periodKey, users: Number(agg?.users ?? 0), totalAmount: Number(agg?.total ?? 0) }
+}
+
+export async function runWeeklySalary(env: Env, opts: { includeCurrentWeek?: boolean } = {}) {
+  if (!isMysqlEnabled(env)) return { periodKey: '', users: 0, totalAmount: 0 }
+  return runSalary(env, 'weekly', vipWeekWindow(Boolean(opts.includeCurrentWeek)), 7)
+}
+
+export async function runMonthlySalary(env: Env, opts: { includeCurrentMonth?: boolean } = {}) {
+  if (!isMysqlEnabled(env)) return { periodKey: '', users: 0, totalAmount: 0 }
+  return runSalary(env, 'monthly', vipMonthWindow(Boolean(opts.includeCurrentMonth)), 14)
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 生日礼金（当日生日 + 该级 birthday_bonus，每年一次）
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function runBirthdayBonus(env: Env): Promise<{ users: number; totalAmount: number }> {
+  if (!isMysqlEnabled(env)) return { users: 0, totalAmount: 0 }
+  const pool = getMysqlPool(env)
+  const pht = new Date(Date.now() + 8 * 3600 * 1000)
+  const mmdd = `${String(pht.getUTCMonth() + 1).padStart(2, '0')}-${String(pht.getUTCDate()).padStart(2, '0')}`
+  const yearKey = String(pht.getUTCFullYear())
+
+  await pool.query(
+    `INSERT INTO bg_vip_reward_log
+       (user_id, level, type, amount, currency_code, period_key, status)
+     SELECT u.id, COALESCE(vs.current_level, thr.lvl, 1), 'birthday', b.birthday_bonus, ?, ?, 'pending'
+     FROM bg_user u
+     LEFT JOIN bg_user_vip_state vs ON vs.user_id = u.id
+     LEFT JOIN (${SQL_USER_LEVEL}) thr ON thr.user_id = u.id
+     JOIN bg_vip_level_benefit b ON b.level = COALESCE(vs.current_level, thr.lvl, 1)
+     WHERE u.birthday IS NOT NULL
+       AND DATE_FORMAT(u.birthday, '%m-%d') = ?
+       AND b.birthday_bonus > 0
+     ON DUPLICATE KEY UPDATE amount = IF(status = 'pending', VALUES(amount), amount)`,
+    [BASE_CURRENCY, yearKey, mmdd],
+  )
+  const [[agg]] = await pool.query<RowDataPacket[]>(
+    `SELECT COUNT(DISTINCT user_id) AS users, COALESCE(SUM(amount), 0) AS total
+     FROM bg_vip_reward_log WHERE type = 'birthday' AND period_key = ?`,
+    [yearKey],
+  )
+  return { users: Number(agg?.users ?? 0), totalAmount: Number(agg?.total ?? 0) }
+}
+
+/** 设置生日（一次性，设置后不可改；靠 birthday IS NULL 守卫幂等） */
+export async function setUserBirthday(env: Env, userId: string, birthday: string): Promise<{ ok: boolean; reason?: string }> {
+  if (!isMysqlEnabled(env)) return { ok: false, reason: 'unavailable' }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(birthday)) return { ok: false, reason: 'invalid' }
+  const d = new Date(`${birthday}T00:00:00Z`)
+  if (isNaN(d.getTime())) return { ok: false, reason: 'invalid' }
+  const pool = getMysqlPool(env)
+  const [res] = await pool.execute<ResultSetHeader>(
+    'UPDATE bg_user SET birthday = ? WHERE id = ? AND birthday IS NULL',
+    [birthday, userId],
+  )
+  if (res.affectedRows === 0) return { ok: false, reason: 'already_set' }
+  return { ok: true }
 }
