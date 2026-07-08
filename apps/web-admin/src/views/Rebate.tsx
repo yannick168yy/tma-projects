@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import {
   Card, Form, InputNumber, Switch, Button, message, Typography,
-  Row, Col, Spin, Table, Tag, Space, Input, DatePicker, Tabs,
+  Row, Col, Spin, Table, Tag, Space, Input, DatePicker,
   Popconfirm, Select, Modal,
 } from 'antd'
 import { PercentageOutlined, StarOutlined, DeleteOutlined, PlusOutlined, ThunderboltOutlined } from '@ant-design/icons'
@@ -41,7 +41,9 @@ const TIER_LABELS: Record<string, { label: string; color: string }> = {
   pro: { label: '✨ Pro (1.5%)', color: 'blue' },
 }
 
-export default function Rebate() {
+type RebateTab = 'config' | 'featured' | 'records'
+
+export default function Rebate({ tab = 'config' }: { tab?: RebateTab }) {
   const [configLoading, setConfigLoading] = useState(true)
   const [configSaving, setConfigSaving] = useState(false)
   const [configItems, setConfigItems] = useState<RebateConfigItem[]>([])
@@ -133,10 +135,10 @@ export default function Rebate() {
   }
 
   useEffect(() => {
-    void loadConfig()
-    void loadFeatured()
-    void loadRecords()
-  }, [])
+    if (tab === 'config') void loadConfig()
+    else if (tab === 'featured') void loadFeatured()
+    else void loadRecords()
+  }, [tab])
 
   function updateRate(level: number, category: string, value: number) {
     setConfigItems((prev) => prev.map((item) =>
@@ -486,19 +488,20 @@ export default function Rebate() {
     </Card>
   )
 
+  const HEADERS: Record<RebateTab, { title: string; desc: string }> = {
+    config: { title: '💰 洗码费率', desc: '分级费率 + 等级流水阈值，每日凌晨 PHT 00:00 结算，用户客户端手动领取' },
+    featured: { title: '⭐ Cashback Games', desc: 'C 端精选游戏展示分组（Elite 2% / Pro 1.5% 噱头档）' },
+    records: { title: '📄 洗码派发记录', desc: '每日洗码结算快照，待领取 / 已领取' },
+  }
+  const head = HEADERS[tab]
+
   return (
     <div>
       <div style={{ background: '#fff', marginBottom: 16, padding: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
-        <Title level={4} style={{ margin: 0 }}>💰 洗码管理</Title>
-        <Text type="secondary">分级费率（LV1–6），每日凌晨 PHT 00:00 结算，用户客户端手动领取</Text>
+        <Title level={4} style={{ margin: 0 }}>{head.title}</Title>
+        <Text type="secondary">{head.desc}</Text>
       </div>
-      <Tabs
-        items={[
-          { key: 'config', label: '费率配置', children: configTab },
-          { key: 'featured', label: 'Cashback Games', children: featuredTab },
-          { key: 'records', label: '派发记录', children: recordsTab },
-        ]}
-      />
+      {tab === 'config' ? configTab : tab === 'featured' ? featuredTab : recordsTab}
     </div>
   )
 }

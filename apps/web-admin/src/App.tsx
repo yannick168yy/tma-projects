@@ -100,8 +100,16 @@ export default function App() {
           <Route path="homepage-sections" element={<HomepageSections />} />
           <Route path="category-sort" element={<CategorySort />} />
           <Route path="rewards-spin" element={<RewardsSpin />} />
-          <Route path="rebate" element={<Rebate />} />
-          <Route path="vip" element={<Vip />} />
+          {/* 成长体系（VIP + 洗码按功能拆分） */}
+          <Route path="growth" element={<Navigate to="/growth/vip-benefits" replace />} />
+          <Route path="growth/vip-benefits" element={<Vip section="benefits" />} />
+          <Route path="growth/vip-records" element={<Vip section="records" />} />
+          <Route path="growth/rebate-rates" element={<Rebate tab="config" />} />
+          <Route path="growth/rebate-featured" element={<Rebate tab="featured" />} />
+          <Route path="growth/rebate-records" element={<Rebate tab="records" />} />
+          {/* 旧路径重定向 */}
+          <Route path="rebate" element={<Navigate to="/growth/rebate-rates" replace />} />
+          <Route path="vip" element={<Navigate to="/growth/vip-benefits" replace />} />
           <Route path="payment/channels" element={<PaymentChannels />} />
           <Route path="payment/accounting" element={<PaymentAccounting />} />
           <Route path="wallet-ledger" element={<LedgerRecords />} />

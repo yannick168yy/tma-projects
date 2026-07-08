@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import {
   Card, Button, message, Typography, Spin, Table, Tag, Space, Input,
-  InputNumber, Tabs, Popconfirm, Select,
+  InputNumber, Popconfirm, Select,
 } from 'antd'
 import { ThunderboltOutlined, CrownOutlined } from '@ant-design/icons'
 import type { ColumnsType } from 'antd/es/table'
@@ -32,7 +32,7 @@ function EditableNumber({ value, onChange, step = 1, precision = 2, min = 0 }: {
   )
 }
 
-export default function Vip() {
+export default function Vip({ section = 'benefits' }: { section?: 'benefits' | 'records' }) {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [benefits, setBenefits] = useState<VipBenefitItem[]>([])
@@ -68,7 +68,11 @@ export default function Vip() {
     } finally { setRecordsLoading(false) }
   }
 
-  useEffect(() => { loadBenefits() }, [])
+  useEffect(() => {
+    if (section === 'records') loadRecords(1)
+    else loadBenefits()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [section])
 
   function patchLevel(level: number, field: keyof VipBenefitItem, value: number) {
     setBenefits((prev) => prev.map((b) => (b.level === level ? { ...b, [field]: value } : b)))
@@ -132,90 +136,86 @@ export default function Vip() {
     { title: '领取时间', dataIndex: 'paidAt', width: 160 },
   ]
 
+  const benefitsCard = (
+    <Card>
+      {loading ? <Spin /> : (
+        <>
+          <Space style={{ marginBottom: 12 }} wrap>
+            <Button type="primary" loading={saving} onClick={handleSave}>保存权益配置</Button>
+            <Popconfirm
+              title="结算上一整周的负盈利返水？"
+              description="按各用户上周净输 × 本级返水率写入待领取，幂等可重复执行。"
+              onConfirm={() => handleSettle(false)}
+            >
+              <Button icon={<ThunderboltOutlined />} loading={settleLoading}>返水·上一周</Button>
+            </Popconfirm>
+            <Popconfirm title="结算本周至今的负盈利返水？（测试用）" onConfirm={() => handleSettle(true)}>
+              <Button icon={<ThunderboltOutlined />} loading={settleLoading}>返水·本周至今</Button>
+            </Popconfirm>
+            <Popconfirm title="发放本周至今的周俸？（测试用，需当期有投注）" onConfirm={() => runTrigger('周俸', () => triggerVipWeeklySalary(true))}>
+              <Button loading={settleLoading}>周俸·本周至今</Button>
+            </Popconfirm>
+            <Popconfirm title="发放本月至今的月俸？（测试用）" onConfirm={() => runTrigger('月俸', () => triggerVipMonthlySalary(true))}>
+              <Button loading={settleLoading}>月俸·本月至今</Button>
+            </Popconfirm>
+            <Popconfirm title="发放今日生日礼金？" onConfirm={() => runTrigger('生日礼金', () => triggerVipBirthday())}>
+              <Button loading={settleLoading}>生日礼金·今日</Button>
+            </Popconfirm>
+            <Popconfirm title="执行季度保级考核？（本季度只处理一次）" description="未达保级线降1级（总降幅封顶一级），活跃且低于历史最高则回升1级。" onConfirm={() => runTrigger('保级考核', () => triggerVipRetention())}>
+              <Button danger loading={settleLoading}>季度保级考核</Button>
+            </Popconfirm>
+          </Space>
+          <Table
+            rowKey="level" size="small" pagination={false}
+            columns={benefitColumns} dataSource={benefits}
+          />
+          <Text type="secondary" style={{ display: 'block', marginTop: 12, fontSize: 12 }}>
+            金额单位与钱包一致（PHP）。周俸/月俸需当期有效投注才发放，限时手动领取。保级考核每季度执行（未达标降1级，总降幅封顶一级）。
+            每日提现额度/次数为专属权益展示配置，暂未接入提现闸门（当前提现无每日限额基线）。
+          </Text>
+        </>
+      )}
+    </Card>
+  )
+
+  const recordsCard = (
+    <Card>
+      <Space style={{ marginBottom: 12 }} wrap>
+        <Select
+          allowClear placeholder="类型" style={{ width: 140 }} value={recordsType}
+          onChange={(v) => setRecordsType(v)}
+          options={Object.entries(TYPE_LABELS).map(([k, v]) => ({ value: k, label: v.label }))}
+        />
+        <Input
+          placeholder="用户ID" style={{ width: 180 }} value={recordsUser}
+          onChange={(e) => setRecordsUser(e.target.value)} allowClear
+        />
+        <Button onClick={() => loadRecords(1)}>查询</Button>
+      </Space>
+      <Table
+        rowKey="id" size="small" loading={recordsLoading}
+        columns={recordColumns} dataSource={records}
+        pagination={{
+          current: recordsPage, total: recordsTotal, pageSize: 50, showSizeChanger: false,
+          onChange: (p) => loadRecords(p),
+        }}
+      />
+    </Card>
+  )
+
   return (
     <div>
-      <Title level={3}><CrownOutlined /> VIP 成长体系</Title>
-      <Text type="secondary">等级复用洗码 VIP1–9（累计有效流水判级）。此处配置各级权益数值，保存即生效。</Text>
-      <Tabs
-        defaultActiveKey="benefits"
-        onChange={(k) => { if (k === 'records') loadRecords(1) }}
-        style={{ marginTop: 16 }}
-        items={[
-          {
-            key: 'benefits',
-            label: '权益配置',
-            children: (
-              <Card>
-                {loading ? <Spin /> : (
-                  <>
-                    <Space style={{ marginBottom: 12 }} wrap>
-                      <Button type="primary" loading={saving} onClick={handleSave}>保存权益配置</Button>
-                      <Popconfirm
-                        title="结算上一整周的负盈利返水？"
-                        description="按各用户上周净输 × 本级返水率写入待领取，幂等可重复执行。"
-                        onConfirm={() => handleSettle(false)}
-                      >
-                        <Button icon={<ThunderboltOutlined />} loading={settleLoading}>返水·上一周</Button>
-                      </Popconfirm>
-                      <Popconfirm title="结算本周至今的负盈利返水？（测试用）" onConfirm={() => handleSettle(true)}>
-                        <Button icon={<ThunderboltOutlined />} loading={settleLoading}>返水·本周至今</Button>
-                      </Popconfirm>
-                      <Popconfirm title="发放本周至今的周俸？（测试用，需当期有投注）" onConfirm={() => runTrigger('周俸', () => triggerVipWeeklySalary(true))}>
-                        <Button loading={settleLoading}>周俸·本周至今</Button>
-                      </Popconfirm>
-                      <Popconfirm title="发放本月至今的月俸？（测试用）" onConfirm={() => runTrigger('月俸', () => triggerVipMonthlySalary(true))}>
-                        <Button loading={settleLoading}>月俸·本月至今</Button>
-                      </Popconfirm>
-                      <Popconfirm title="发放今日生日礼金？" onConfirm={() => runTrigger('生日礼金', () => triggerVipBirthday())}>
-                        <Button loading={settleLoading}>生日礼金·今日</Button>
-                      </Popconfirm>
-                      <Popconfirm title="执行季度保级考核？（本季度只处理一次）" description="未达保级线降1级，活跃且低于历史最高则回升1级。" onConfirm={() => runTrigger('保级考核', () => triggerVipRetention())}>
-                        <Button danger loading={settleLoading}>季度保级考核</Button>
-                      </Popconfirm>
-                    </Space>
-                    <Table
-                      rowKey="level" size="small" pagination={false}
-                      columns={benefitColumns} dataSource={benefits}
-                    />
-                    <Text type="secondary" style={{ display: 'block', marginTop: 12, fontSize: 12 }}>
-                      金额单位与钱包一致（PHP）。周俸/月俸需当期有效投注才发放，限时手动领取。保级考核每季度执行（未达标降1级）。
-                      每日提现额度/次数为专属权益展示配置，暂未接入提现闸门（当前提现无每日限额基线）。
-                    </Text>
-                  </>
-                )}
-              </Card>
-            ),
-          },
-          {
-            key: 'records',
-            label: '发放记录',
-            children: (
-              <Card>
-                <Space style={{ marginBottom: 12 }} wrap>
-                  <Select
-                    allowClear placeholder="类型" style={{ width: 140 }} value={recordsType}
-                    onChange={(v) => setRecordsType(v)}
-                    options={Object.entries(TYPE_LABELS).map(([k, v]) => ({ value: k, label: v.label }))}
-                  />
-                  <Input
-                    placeholder="用户ID" style={{ width: 180 }} value={recordsUser}
-                    onChange={(e) => setRecordsUser(e.target.value)} allowClear
-                  />
-                  <Button onClick={() => loadRecords(1)}>查询</Button>
-                </Space>
-                <Table
-                  rowKey="id" size="small" loading={recordsLoading}
-                  columns={recordColumns} dataSource={records}
-                  pagination={{
-                    current: recordsPage, total: recordsTotal, pageSize: 50, showSizeChanger: false,
-                    onChange: (p) => loadRecords(p),
-                  }}
-                />
-              </Card>
-            ),
-          },
-        ]}
-      />
+      <Title level={3}>
+        <CrownOutlined /> {section === 'records' ? 'VIP 礼金记录' : 'VIP 权益配置'}
+      </Title>
+      <Text type="secondary">
+        {section === 'records'
+          ? 'VIP 晋级礼金 / 周俸月俸 / 负盈利返水 / 生日礼金的发放记录'
+          : '等级复用洗码 VIP1–9（累计有效流水判级）。此处配置各级权益数值，保存即生效。'}
+      </Text>
+      <div style={{ marginTop: 16 }}>
+        {section === 'records' ? recordsCard : benefitsCard}
+      </div>
     </div>
   )
 }

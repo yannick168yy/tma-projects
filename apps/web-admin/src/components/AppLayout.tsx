@@ -7,7 +7,7 @@ import {
   DashboardOutlined, TeamOutlined, UserOutlined, DownOutlined,
   AppstoreOutlined, SettingOutlined, CustomerServiceOutlined,
   TransactionOutlined, ApartmentOutlined, GiftOutlined,
-  SafetyCertificateOutlined, MenuOutlined,
+  SafetyCertificateOutlined, MenuOutlined, CrownOutlined,
 } from '@ant-design/icons'
 import { useAuthStore } from '../stores/auth'
 import { adminChangePassword, getAdminBadges, type AdminBadges } from '../api'
@@ -84,11 +84,21 @@ function buildMenuItems(badges: AdminBadges) {
         { key: '/promotions/claims', label: '参与记录' },
         { key: '/checkin', label: '每日签到' },
         { key: '/rewards-spin', label: '转盘抽奖' },
-        { key: '/rebate', label: '洗码返水' },
-        { key: '/vip', label: 'VIP 成长体系' },
         { key: '/home-content', label: '首页装修' },
         { key: '/homepage-sections', label: '首页板块配置' },
         { key: '/category-sort', label: '分类列表排序' },
+      ],
+    },
+    {
+      key: 'growth',
+      icon: <CrownOutlined />,
+      label: '成长体系',
+      children: [
+        { key: '/growth/vip-benefits', label: 'VIP 权益配置' },
+        { key: '/growth/vip-records', label: 'VIP 礼金记录' },
+        { key: '/growth/rebate-rates', label: '洗码费率' },
+        { key: '/growth/rebate-featured', label: 'Cashback Games' },
+        { key: '/growth/rebate-records', label: '洗码派发记录' },
       ],
     },
     {
@@ -143,7 +153,8 @@ function getDefaultOpenKeys(pathname: string): string[] {
   if (['/users', '/device-lookup', '/kyc'].some((p) => pathname.startsWith(p))) return ['user-center']
   if (['/deposits', '/payment', '/wallet-ledger', '/exchange-rates'].some((p) => pathname.startsWith(p))) return ['finance']
   if (['/games', '/bet-orders'].some((p) => pathname.startsWith(p))) return ['game']
-  if (['/promotions', '/rewards-spin', '/rebate', '/home-content', '/homepage-sections', '/category-sort'].some((p) => pathname.startsWith(p))) return ['marketing']
+  if (pathname.startsWith('/growth') || pathname.startsWith('/vip') || pathname.startsWith('/rebate')) return ['growth']
+  if (['/promotions', '/rewards-spin', '/home-content', '/homepage-sections', '/category-sort'].some((p) => pathname.startsWith(p))) return ['marketing']
   if (pathname.startsWith('/team-referral')) return ['team']
   if (pathname.startsWith('/agents') || pathname.startsWith('/agent-')) return ['agent']
   if (['/customer-service', '/cs-faq'].some((p) => pathname.startsWith(p))) return ['cs']
