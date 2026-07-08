@@ -1,4 +1,4 @@
-import type { Pool, RowDataPacket } from 'mysql2/promise'
+import type { Pool, PoolConnection, RowDataPacket } from 'mysql2/promise'
 import type {
   OrderDeposit,
   OrderWithdraw,
@@ -574,41 +574,74 @@ export async function getWalletBalances(env: Env, userId: string): Promise<Walle
   return [...balances.values()].sort((a, b) => a.currency.localeCompare(b.currency))
 }
 
+/**
+ * 统一发奖入账的参数。tag 说明：
+ *   refType  台账 ref_type；不传时沿用旧默认（有 refId → 'deposit'，否则 null）
+ *   id       指定台账主键（发奖方需先拿到 ledger id 时用，如转盘先写 spin_record）
+ *   createdAt 兼容旧调用，写库用 DB 默认时间，此字段被忽略
+ */
+export type CreditEntry = {
+  type: LedgerEntry['type']
+  currency?: string
+  description: string
+  refType?: string | null
+  refId?: string | null
+  traceId?: string | null
+  id?: string
+  createdAt?: string
+}
+
+/**
+ * 钱包入账 + 台账写入的「事务内核」：在调用方给定的连接里执行，不自管事务。
+ * 供已处于事务中的发奖方（rebate/vip/spin 领取）复用，与其领取状态更新保持原子。
+ * 唯一的钱包写账口径：available 乐观锁自增 + 一条 bg_wallet_ledger。
+ */
+export async function creditWalletTx(
+  conn: PoolConnection,
+  userId: string,
+  amount: number,
+  entry: CreditEntry,
+): Promise<WalletRecord> {
+  const currency = entry.currency ?? 'PHP'
+  const ledgerId = entry.id ?? `LG_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+  await conn.execute(
+    `INSERT INTO bg_wallet (user_id, currency, available, version)
+     VALUES (?, ?, ?, 1)
+     ON DUPLICATE KEY UPDATE available = available + ?, version = version + 1`,
+    [userId, currency, amount, amount],
+  )
+  const [wrows] = await conn.query<RowDataPacket[]>(
+    `SELECT available, frozen FROM bg_wallet WHERE user_id = ? AND currency = ?`,
+    [userId, currency],
+  )
+  const balanceAfter = Number(wrows[0]?.available ?? 0)
+  await conn.execute(
+    `INSERT INTO bg_wallet_ledger (id, user_id, currency, type, amount, balance_after, ref_type, ref_id, description, trace_id)
+     VALUES (?,?,?,?,?,?,?,?,?,?)`,
+    [
+      ledgerId, userId, currency, entry.type, amount, balanceAfter,
+      entry.refType ?? (entry.refId ? 'deposit' : null),
+      entry.refId ?? null,
+      entry.description,
+      entry.traceId ?? null,
+    ],
+  )
+  return { available: balanceAfter, frozen: Number(wrows[0]?.frozen ?? 0) }
+}
+
+/** 独立事务版：自开连接/事务，供非事务上下文调用（deposit/task/promotion 等）。 */
 export async function creditWallet(
   env: Env,
   userId: string,
   amount: number,
-  entry: Omit<LedgerEntry, 'id' | 'userId' | 'balanceAfter' | 'amount'>,
+  entry: CreditEntry,
 ): Promise<WalletRecord> {
-  const currency = entry.currency ?? 'PHP'
   const conn = await pool(env).getConnection()
-  const ledgerId = `LG_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
   try {
     await conn.beginTransaction()
-    await conn.execute(
-      `INSERT INTO bg_wallet (user_id, currency, available, version)
-       VALUES (?, ?, ?, 1)
-       ON DUPLICATE KEY UPDATE available = available + ?, version = version + 1`,
-      [userId, currency, amount, amount],
-    )
-    const [wrows] = await conn.query<RowDataPacket[]>(
-      `SELECT available, frozen FROM bg_wallet WHERE user_id = ? AND currency = ?`,
-      [userId, currency],
-    )
-    const balanceAfter = Number(wrows[0]?.available ?? 0)
-    await conn.execute(
-      `INSERT INTO bg_wallet_ledger (id, user_id, currency, type, amount, balance_after, ref_type, ref_id, description, trace_id)
-       VALUES (?,?,?,?,?,?,?,?,?,?)`,
-      [
-        ledgerId, userId, currency, entry.type, amount, balanceAfter,
-        entry.refId ? 'deposit' : null,
-        entry.refId ?? null,
-        entry.description,
-        entry.traceId ?? null,
-      ],
-    )
+    const rec = await creditWalletTx(conn, userId, amount, entry)
     await conn.commit()
-    return { available: balanceAfter, frozen: Number(wrows[0]?.frozen ?? 0) }
+    return rec
   } catch (e) {
     await conn.rollback()
     throw e

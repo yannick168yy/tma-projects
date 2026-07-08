@@ -1,6 +1,7 @@
 import type { RowDataPacket, ResultSetHeader } from 'mysql2/promise'
 import type { Env } from '../config/env.js'
 import { getMysqlPool, isMysqlEnabled } from '../clients/mysql.client.js'
+import { creditWalletTx } from './store/mysql-store.js'
 import { randomBytes } from 'node:crypto'
 import { getUserTotalTurnover, getLevelThresholds, resolveLevel } from './rebate.service.js'
 
@@ -270,23 +271,11 @@ export async function claimVipRewards(env: Env, userId: string, currency?: strin
       const amt = Number(row.amount)
       const cur = String(row.currency_code)
 
-      await conn.execute(
-        `INSERT INTO bg_wallet (user_id, currency, available, version)
-         VALUES (?, ?, ?, 1)
-         ON DUPLICATE KEY UPDATE available = available + ?, version = version + 1`,
-        [userId, cur, amt, amt],
-      )
-      const [[after]] = await conn.query<RowDataPacket[]>(
-        'SELECT available FROM bg_wallet WHERE user_id = ? AND currency = ?',
-        [userId, cur],
-      )
-      const balAfter = Number(after?.available ?? 0)
-
-      await conn.execute(
-        `INSERT INTO bg_wallet_ledger (id, user_id, currency, type, amount, balance_after, ref_type, ref_id, description)
-         VALUES (?, ?, ?, 'vip_bonus', ?, ?, 'vip_bonus', ?, ?)`,
-        [vgId(), userId, cur, amt, balAfter, String(row.id), `VIP ${String(row.type)} ${String(row.period_key)}`],
-      )
+      await creditWalletTx(conn, userId, amt, {
+        type: 'vip_bonus', currency: cur, refType: 'vip_bonus', refId: String(row.id),
+        description: `VIP ${String(row.type)} ${String(row.period_key)}`,
+        id: vgId(),
+      })
 
       await conn.execute(
         "UPDATE bg_vip_reward_log SET status = 'paid', paid_at = NOW(3) WHERE id = ?",

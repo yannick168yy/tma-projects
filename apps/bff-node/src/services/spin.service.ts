@@ -2,6 +2,7 @@ import type { Redis } from 'ioredis'
 import type { PoolConnection, RowDataPacket } from 'mysql2/promise'
 import type { Env } from '../config/env.js'
 import { getMysqlPool, isMysqlEnabled } from '../clients/mysql.client.js'
+import { creditWalletTx } from './store/mysql-store.js'
 
 const TICKER_SIZE = 100
 const TICKER_TTL_SEC = 3600
@@ -533,22 +534,10 @@ export async function drawSpin(env: Env, userId: string, ruleId?: number, traceI
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       [recordId, userId, chance.id, prizeId, prize.name, prize.amountPhp, prize.turnoverX, lgId],
     )
-    await conn.execute(
-      `INSERT INTO bg_wallet (user_id, currency, available, version)
-       VALUES (?, 'PHP', ?, 1)
-       ON DUPLICATE KEY UPDATE available = available + ?, version = version + 1`,
-      [userId, prize.amountPhp, prize.amountPhp],
-    )
-    const [[wallet]] = await conn.query<RowDataPacket[]>(
-      `SELECT available FROM bg_wallet WHERE user_id = ? AND currency = 'PHP'`,
-      [userId],
-    )
-    await conn.execute(
-      `INSERT INTO bg_wallet_ledger
-         (id, user_id, currency, type, amount, balance_after, ref_type, ref_id, description, trace_id)
-       VALUES (?, ?, 'PHP', 'bonus', ?, ?, 'promo', ?, ?, ?)`,
-      [lgId, userId, prize.amountPhp, Number(wallet?.available ?? 0), recordId, `Rewards Spin ${prize.name}`, traceId ?? null],
-    )
+    await creditWalletTx(conn, userId, prize.amountPhp, {
+      type: 'bonus', currency: 'PHP', refType: 'promo', refId: recordId,
+      description: `Rewards Spin ${prize.name}`, traceId: traceId ?? null, id: lgId,
+    })
     if (prize.turnoverX > 0) {
       await conn.execute(
         `INSERT INTO bg_turnover_requirements

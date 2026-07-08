@@ -1,6 +1,7 @@
 import type { RowDataPacket } from 'mysql2/promise'
 import type { Env } from '../config/env.js'
 import { getMysqlPool, isMysqlEnabled } from '../clients/mysql.client.js'
+import { creditWalletTx } from './store/mysql-store.js'
 import { randomBytes } from 'node:crypto'
 
 export interface RebateConfig {
@@ -589,23 +590,11 @@ export async function claimRebate(env: Env, userId: string, currency?: string): 
       const amt = Number(row.rebate_amount)
       const cur = String(row.currency_code)
 
-      await conn.execute(
-        `INSERT INTO bg_wallet (user_id, currency, available, version)
-         VALUES (?, ?, ?, 1)
-         ON DUPLICATE KEY UPDATE available = available + ?, version = version + 1`,
-        [userId, cur, amt, amt],
-      )
-      const [[after]] = await conn.query<RowDataPacket[]>(
-        'SELECT available FROM bg_wallet WHERE user_id = ? AND currency = ?',
-        [userId, cur],
-      )
-      const balAfter = Number(after?.available ?? 0)
-
-      await conn.execute(
-        `INSERT INTO bg_wallet_ledger (id, user_id, currency, type, amount, balance_after, ref_type, ref_id, description)
-         VALUES (?, ?, ?, 'rebate', ?, ?, 'rebate', ?, ?)`,
-        [lgId(), userId, cur, amt, balAfter, String(row.id), `${String(row.game_category)} rebate ${formatLedgerRebateDate(row.date)}`],
-      )
+      await creditWalletTx(conn, userId, amt, {
+        type: 'rebate', currency: cur, refType: 'rebate', refId: String(row.id),
+        description: `${String(row.game_category)} rebate ${formatLedgerRebateDate(row.date)}`,
+        id: lgId(),
+      })
 
       await conn.execute(
         'UPDATE bg_rebate_record SET status = \'paid\', paid_at = NOW(3) WHERE id = ?',
