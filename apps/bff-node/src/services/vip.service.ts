@@ -485,11 +485,12 @@ export async function runQuarterlyRetention(env: Env): Promise<{ quarterKey: str
   const [[before]] = await pool.query<RowDataPacket[]>(
     'SELECT COUNT(*) AS n FROM bg_user_vip_state WHERE quarter_key <> ?', [qkey],
   )
+  // 最多降一级：仅当 current_level 仍在历史最高（awarded_level）时才可降，降到 awarded_level-1 即触底，不再继续下掉
   const [demoteAgg] = await pool.query<RowDataPacket[]>(
     `SELECT COUNT(*) AS n FROM bg_user_vip_state vs
      LEFT JOIN (SELECT user_id, SUM(effective_amount) AS cum FROM bg_turnover_logs WHERE is_reversed = 0 GROUP BY user_id) tt ON tt.user_id = vs.user_id
      LEFT JOIN bg_vip_level_benefit b ON b.level = vs.current_level
-     WHERE vs.quarter_key <> ? AND vs.current_level > 1
+     WHERE vs.quarter_key <> ? AND vs.current_level > 1 AND vs.current_level >= vs.awarded_level
        AND (COALESCE(tt.cum, 0) - vs.quarter_start_turnover) < COALESCE(b.retention_line, 0)`,
     [qkey],
   )
@@ -499,6 +500,7 @@ export async function runQuarterlyRetention(env: Env): Promise<{ quarterKey: str
      LEFT JOIN bg_vip_level_benefit b ON b.level = vs.current_level
      SET vs.current_level = CASE
            WHEN vs.current_level > 1
+                AND vs.current_level >= vs.awarded_level
                 AND (COALESCE(tt.cum, 0) - vs.quarter_start_turnover) < COALESCE(b.retention_line, 0)
              THEN vs.current_level - 1
            WHEN vs.current_level < vs.awarded_level
