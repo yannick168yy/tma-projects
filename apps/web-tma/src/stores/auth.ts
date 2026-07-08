@@ -203,7 +203,7 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
     try {
       await get().loginWithPassword(method, identifier, password)
     } catch (e) {
-      if (!(e instanceof Error) || e.message !== 'Invalid credentials') throw e
+      if (!(e instanceof Error) || e.message !== 'Account not found') throw e
       await get().registerWithPassword(method, identifier, password, refCodeOverride)
     }
   },

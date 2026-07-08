@@ -355,7 +355,10 @@ export async function loginWithPassword(
   const identity = await getUserIdentity(redis, input.method, identifier)
   const user = identity ? await getUser(redis, identity.userId) : null
 
-  if (!user || !identity?.credentialHash || !(await verifyPassword(input.password, identity.credentialHash))) {
+  if (!user || !identity?.credentialHash) {
+    throw new AuthError('Account not found')
+  }
+  if (!(await verifyPassword(input.password, identity.credentialHash))) {
     throw new AuthError('Invalid credentials')
   }
   if (user.status === 'banned' || user.status === 'frozen') {
