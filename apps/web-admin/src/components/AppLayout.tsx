@@ -99,6 +99,9 @@ function buildMenuItems(badges: AdminBadges) {
         { key: '/growth/rebate-rates', label: '洗码费率' },
         { key: '/growth/rebate-featured', label: 'Cashback Games' },
         { key: '/growth/rebate-records', label: '洗码派发记录' },
+        { key: '/growth/task-config', label: '任务配置' },
+        { key: '/growth/task-social', label: '社群关注任务' },
+        { key: '/growth/task-reviews', label: '任务截图审核' },
       ],
     },
     {

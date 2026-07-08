@@ -793,6 +793,56 @@ export interface CheckinConfig {
 export const getCheckinConfig = () => get<CheckinConfig>('/admin/checkin/config')
 export const saveCheckinConfig = (data: CheckinConfig) => req<CheckinConfig>('PUT', '/admin/checkin/config', data)
 
+// ── 任务体系 ──
+export type TaskRewardType = 'cash' | 'spin' | 'growth'
+export interface TaskRewardCfg {
+  enabled: boolean
+  rewardType: TaskRewardType
+  amount: number
+  spin: number
+  turnoverX: number
+  currency: string
+  threshold: number
+}
+export type TaskConfig = Record<string, TaskRewardCfg>
+export const getTaskConfig = () => get<TaskConfig>('/admin/tasks/config')
+export const saveTaskConfig = (data: TaskConfig) => req<TaskConfig>('PUT', '/admin/tasks/config', data)
+
+export type TaskVerifyStrategy = 'tg_member' | 'code_redeem' | 'manual_review' | 'bind_only'
+export interface TaskSocialConfig {
+  task_key: string
+  platform: 'telegram' | 'facebook' | 'viber'
+  verify_strategy: TaskVerifyStrategy
+  title: string
+  subtitle: string
+  action_url: string
+  channel_ref: string
+  redeem_code: string
+  reward_type: TaskRewardType
+  currency: string
+  reward_amount: number
+  reward_spin: number
+  turnover_x: number
+  enabled: number
+  sort: number
+}
+export const getTaskSocial = () => get<TaskSocialConfig[]>('/admin/tasks/social')
+export const saveTaskSocial = (key: string, patch: Partial<TaskSocialConfig>) =>
+  req<{ ok: boolean }>('PUT', `/admin/tasks/social/${encodeURIComponent(key)}`, patch)
+
+export interface TaskManualReview {
+  id: number
+  user_id: string
+  task_key: string
+  screenshot_url: string
+  status: 'pending' | 'approved' | 'rejected'
+  created_at: string
+}
+export const getTaskReviews = (status = 'pending') =>
+  get<TaskManualReview[]>(`/admin/tasks/manual-reviews?status=${status}`)
+export const reviewTaskManual = (id: number, approve: boolean, note = '') =>
+  req<{ ok: boolean }>('POST', `/admin/tasks/manual-reviews/${id}/review`, { approve, note })
+
 export interface PromoClaimRecord {
   id: string
   userId: string

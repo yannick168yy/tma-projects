@@ -30,6 +30,7 @@ import PromotionClaims from './views/PromotionClaims'
 import Checkin from './views/Checkin'
 import Rebate from './views/Rebate'
 import Vip from './views/Vip'
+import Tasks from './views/Tasks'
 import RewardsSpin from './views/RewardsSpin'
 import KycList from './views/KycList'
 import KycDetail from './views/KycDetail'
@@ -107,6 +108,9 @@ export default function App() {
           <Route path="growth/rebate-rates" element={<Rebate tab="config" />} />
           <Route path="growth/rebate-featured" element={<Rebate tab="featured" />} />
           <Route path="growth/rebate-records" element={<Rebate tab="records" />} />
+          <Route path="growth/task-config" element={<Tasks section="config" />} />
+          <Route path="growth/task-social" element={<Tasks section="social" />} />
+          <Route path="growth/task-reviews" element={<Tasks section="reviews" />} />
           {/* 旧路径重定向 */}
           <Route path="rebate" element={<Navigate to="/growth/rebate-rates" replace />} />
           <Route path="vip" element={<Navigate to="/growth/vip-benefits" replace />} />
