@@ -3,7 +3,8 @@ import type { Env } from '../config/env.js'
 import { getMysqlPool, isMysqlEnabled } from '../clients/mysql.client.js'
 import { creditWallet, listUserIdentities, getUser } from './store/mysql-store.js'
 import { createPromoRequirement } from './turnover.service.js'
-import { manilaToday } from './checkin.service.js'
+import { manilaToday, getCheckinStatus } from './checkin.service.js'
+import { getPromoConfig } from './promo-config.service.js'
 
 // ───────────────────────── 任务定义（硬编码，一期不做 def 表） ─────────────────────────
 //
@@ -30,6 +31,7 @@ const NATIVE_TASKS: NativeTaskDef[] = [
   { id: 'profile_complete', group: 'newbie', period: 'once',  title: '完善资料 / 绑定邮箱', subtitle: '绑定邮箱、完善账户资料' },
   { id: 'first_withdraw',   group: 'newbie', period: 'once',  title: '首次提现',        subtitle: '完成首笔提现' },
   { id: 'first_game',       group: 'newbie', period: 'once',  title: '首次游戏下注',     subtitle: '体验任意游戏并完成一笔下注' },
+  { id: 'invite_milestone', group: 'achievement', period: 'once', title: '邀请好友', subtitle: '成功邀请好友注册达标领奖', useThreshold: true },
 ]
 
 const NATIVE_BY_ID = new Map(NATIVE_TASKS.map((t) => [t.id, t]))
@@ -60,6 +62,7 @@ export const DEFAULT_TASK_CONFIG: TaskConfig = {
   profile_complete: { enabled: true, rewardType: 'cash', amount: 5,  spin: 0, turnoverX: 3, currency: 'PHP', threshold: 0 },
   first_withdraw:   { enabled: true, rewardType: 'cash', amount: 10, spin: 0, turnoverX: 3, currency: 'PHP', threshold: 0 },
   first_game:       { enabled: true, rewardType: 'cash', amount: 5,  spin: 0, turnoverX: 3, currency: 'PHP', threshold: 0 },
+  invite_milestone: { enabled: true, rewardType: 'cash', amount: 20, spin: 0, turnoverX: 3, currency: 'PHP', threshold: 1 },
 }
 
 const ALL_REWARD_TYPES: RewardType[] = ['cash', 'spin', 'growth']
@@ -144,6 +147,14 @@ async function hasBet(pool: Pool, userId: string): Promise<boolean> {
   return Boolean(row)
 }
 
+/** 成功邀请人数（下线注册数，inviter_id 指向邀请人 user id） */
+async function inviteeCount(pool: Pool, userId: string): Promise<number> {
+  const [[row]] = await pool.query<RowDataPacket[]>(
+    `SELECT COUNT(*) AS n FROM bg_user WHERE inviter_id = ?`, [userId],
+  )
+  return Number(row?.n ?? 0)
+}
+
 /** 判定某原生任务当前是否达标（未考虑是否已领取） */
 async function isEligible(env: Env, userId: string, def: NativeTaskDef, cfg: TaskRewardCfg): Promise<boolean> {
   const pool = getMysqlPool(env)
@@ -153,6 +164,7 @@ async function isEligible(env: Env, userId: string, def: NativeTaskDef, cfg: Tas
     case 'profile_complete': { const u = await getUser(env, userId); return Boolean(u?.email) }
     case 'first_withdraw':   return hasCompletedWithdraw(pool, userId)
     case 'first_game':       return hasBet(pool, userId)
+    case 'invite_milestone': return (await inviteeCount(pool, userId)) >= Math.max(1, cfg.threshold)
     default: return false
   }
 }
@@ -231,8 +243,13 @@ export interface TaskCard {
   subtitle: string
   status: 'locked' | 'claimable' | 'done'
   reward: { type: RewardType; amount: number; spin: number; currency: string; turnoverX: number }
-  /** 社群任务的动作与验证策略；原生任务为 claim */
-  action: { kind: 'claim' | 'goto' | 'bind_telegram' | 'code_redeem' | 'manual_review'; url?: string; verifyStrategy?: string }
+  /** 进度（成就/里程碑类展示进度条） */
+  progress?: { current: number; target: number }
+  /**
+   * 动作：claim=原生领取；goto=社群外链;bind_telegram/code_redeem/manual_review=社群验证;
+   * open_module=聚合的老模块卡，跳到各自入口（target=checkin/bonuses/vip_center），不由任务引擎领取
+   */
+  action: { kind: 'claim' | 'goto' | 'bind_telegram' | 'code_redeem' | 'manual_review' | 'open_module'; url?: string; target?: string; verifyStrategy?: string }
 }
 
 interface SocialRow {
@@ -282,8 +299,12 @@ export async function getTaskCenter(env: Env, userId: string): Promise<TaskCente
     let status: TaskCard['status']
     if (isClaimed) status = 'done'
     else status = (await isEligible(env, userId, def, c)) ? 'claimable' : 'locked'
+    let progress: TaskCard['progress']
+    if (def.id === 'invite_milestone') {
+      progress = { current: await inviteeCount(pool, userId), target: Math.max(1, c.threshold) }
+    }
     cards.push({
-      id: def.id, group: def.group, title: def.title, subtitle: def.subtitle, status,
+      id: def.id, group: def.group, title: def.title, subtitle: def.subtitle, status, progress,
       reward: { type: c.rewardType, amount: c.amount, spin: c.spin, currency: c.currency, turnoverX: c.turnoverX },
       action: { kind: 'claim' },
     })
@@ -309,7 +330,56 @@ export async function getTaskCenter(env: Env, userId: string): Promise<TaskCente
 
   const out: TaskCenter = { groups: { newbie: [], daily: [], achievement: [], social: socialCards } }
   for (const card of cards) out.groups[card.group].push(card)
+
+  // 聚合层：把散落的老模块（签到/trial/appdl/首充/生日）读现状串成任务卡（display-only，跳各自入口）
+  const agg = await buildAggregatedCards(env, userId)
+  out.groups.newbie.push(...agg.newbie)
+  out.groups.daily.unshift(...agg.daily)         // 签到置每日区首位
+  out.groups.achievement.push(...agg.achievement)
   return out
+}
+
+/** 聚合老模块 → 任务卡（每块独立 try/catch，单块失败不拖垮整个任务中心） */
+async function buildAggregatedCards(env: Env, userId: string): Promise<{ newbie: TaskCard[]; daily: TaskCard[]; achievement: TaskCard[] }> {
+  const pool = getMysqlPool(env)
+  const newbie: TaskCard[] = []
+  const daily: TaskCard[] = []
+  const achievement: TaskCard[] = []
+
+  const zeroReward = (type: RewardType, amount = 0, spin = 0): TaskCard['reward'] =>
+    ({ type, amount, spin, currency: 'PHP', turnoverX: 0 })
+  const aggCard = (id: string, title: string, subtitle: string, done: boolean, target: string, reward: TaskCard['reward'], group: TaskGroup, progress?: TaskCard['progress']): TaskCard =>
+    ({ id, group, title, subtitle, status: done ? 'done' : 'claimable', reward, progress, action: { kind: 'open_module', target } })
+
+  const user = await getUser(env, userId).catch(() => null)
+  const promo = await getPromoConfig(env).catch(() => null)
+
+  if (promo?.trial.enabled) {
+    newbie.push(aggCard('agg_trial', '领取新手体验金', '完成手机验证即可领取', Boolean(user?.trialClaimed), 'bonuses', zeroReward('cash', promo.trial.amount), 'newbie'))
+  }
+  if (promo?.appdl.enabled) {
+    const [[c]] = await pool.query<RowDataPacket[]>('SELECT 1 AS ok FROM bg_app_download_claim WHERE user_id = ? LIMIT 1', [userId])
+    newbie.push(aggCard('agg_appdl', '下载 App 领礼金', '安装 App / PWA 一次性奖励', Boolean(c), 'bonuses', zeroReward('cash', promo.appdl.amount), 'newbie'))
+  }
+  if (promo?.firstdep.enabled) {
+    newbie.push(aggCard('agg_firstdep', '完成首充', '首次充值即得彩金', Boolean(user?.firstDepClaimed), 'bonuses', zeroReward('cash', 0), 'newbie'))
+  }
+  const [[bday]] = await pool.query<RowDataPacket[]>('SELECT birthday FROM bg_user WHERE id = ?', [userId])
+  newbie.push(aggCard('agg_birthday', '完善生日资料', '设置生日解锁 VIP 生日礼金', bday?.birthday != null, 'vip_center', zeroReward('cash', 0), 'newbie'))
+
+  const ck = await getCheckinStatus(env, userId).catch(() => null)
+  if (ck?.enabled) {
+    daily.push(aggCard('agg_checkin', '每日签到', ck.todayClaimed ? '今日已签到' : '签到领取抽奖次数', ck.todayClaimed, 'checkin', zeroReward('spin', 0, 1), 'daily'))
+    for (const m of ck.milestones) {
+      achievement.push(aggCard(
+        `agg_checkin_ms_${m.atDays}`, `本月签到 ${m.atDays} 天`, '达成额外奖励',
+        m.reached, 'checkin', zeroReward('spin', 0, m.n), 'achievement',
+        { current: Math.min(ck.monthDays, m.atDays), target: m.atDays },
+      ))
+    }
+  }
+
+  return { newbie, daily, achievement }
 }
 
 async function socialClaimedKeys(pool: Pool, userId: string, keys: string[]): Promise<Set<string>> {

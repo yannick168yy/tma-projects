@@ -571,7 +571,11 @@ export default function AppShell() {
               >
                 <ChevronLeft size={20} />
               </button>
-              <TasksPage />
+              <TasksPage onNavigate={(target) => {
+                if (target === 'checkin') { void onOpenCheckin(); return }
+                if (target === 'vip_center') { onOpenCashback(); return }
+                goBonuses()
+              }} />
             </div>
           )}
           {view.type === 'none' && activeNav === 'bonuses' && <BonusesPage promoFilter={promoFilter} onOpenWallet={() => void openWallet()} onOpenTeam={onOpenTeamCenter} onOpenAppInstall={openAppInstall} newPlayerSummary={npSummary} onOpenNewPlayerGift={openNewPlayerGift} onOpenCheckin={() => void onOpenCheckin()} />}

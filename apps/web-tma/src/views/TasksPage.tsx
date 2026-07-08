@@ -11,7 +11,7 @@ import BindModal from '@/components/auth/BindModal'
 
 const GROUP_ORDER: TaskGroup[] = ['newbie', 'daily', 'achievement', 'social']
 
-export default function TasksPage() {
+export default function TasksPage({ onNavigate }: { onNavigate?: (target: string) => void }) {
   const { t } = useTranslation()
   const auth = useAuthStore()
   const [center, setCenter] = useState<TaskCenter | null>(null)
@@ -26,9 +26,9 @@ export default function TasksPage() {
 
   function rewardText(card: TaskCard): string {
     const r = card.reward
-    if (r.type === 'cash') return `+${formatCurrencyAmount(r.currency, r.amount)}`
-    if (r.type === 'spin') return t('tasks.rewardSpin', { n: r.spin })
-    return t('tasks.rewardGrowth', { n: r.amount })
+    if (r.type === 'cash') return r.amount > 0 ? `+${formatCurrencyAmount(r.currency, r.amount)}` : ''
+    if (r.type === 'spin') return r.spin > 0 ? t('tasks.rewardSpin', { n: r.spin }) : ''
+    return r.amount > 0 ? t('tasks.rewardGrowth', { n: r.amount }) : ''
   }
 
   async function afterSuccess(msg: string) {
@@ -79,11 +79,28 @@ export default function TasksPage() {
     } finally { setBusyId(null) }
   }
 
+  function onCardAction(card: TaskCard) {
+    if (card.action.kind === 'open_module') { onNavigate?.(card.action.target ?? ''); return }
+    if (card.group === 'social') { void onClaimSocial(card); return }
+    void onClaimNative(card)
+  }
+
   function renderCard(card: TaskCard) {
     const done = card.status === 'done'
     const busy = busyId === card.id
     const isSocial = card.group === 'social'
-    const showCode = isSocial && card.action.kind === 'code_redeem' && !done
+    const kind = card.action.kind
+    const showCode = kind === 'code_redeem' && !done
+    const reward = rewardText(card)
+    const disabled = done || busy || (kind === 'claim' && card.status !== 'claimable')
+    const label = done ? t('tasks.done')
+      : busy ? t('tasks.claiming')
+      : kind === 'open_module' ? t('tasks.go')
+      : kind === 'bind_telegram' ? t('tasks.bind')
+      : kind === 'goto' ? t('tasks.verify')
+      : kind === 'manual_review' ? t('tasks.submit')
+      : card.status === 'locked' ? t('tasks.todo')
+      : t('tasks.claim')
 
     return (
       <div key={card.id} className="mx-4 mt-3 rounded-2xl border border-amber-300/25 bg-[#0c0905]/75 px-4 py-3.5">
@@ -91,10 +108,10 @@ export default function TasksPage() {
           <div className="min-w-0">
             <p className="text-amber-50 font-black text-sm truncate">{card.title}</p>
             {card.subtitle && <p className="text-amber-200/70 text-xs mt-0.5 truncate">{card.subtitle}</p>}
-            <p className="text-amber-300 text-xs font-bold mt-1">{rewardText(card)}</p>
+            {reward && <p className="text-amber-300 text-xs font-bold mt-1">{reward}</p>}
           </div>
           <div className="flex flex-shrink-0 items-center gap-2">
-            {isSocial && card.action.kind === 'goto' && card.action.url && !done && (
+            {isSocial && kind === 'goto' && card.action.url && !done && (
               <a href={card.action.url} target="_blank" rel="noreferrer"
                 className="rounded-full border border-amber-300/40 px-4 py-2 text-xs font-black text-amber-200 active:scale-95">
                 {t('tasks.go')}
@@ -102,20 +119,23 @@ export default function TasksPage() {
             )}
             <button
               type="button"
-              onClick={() => void (isSocial ? onClaimSocial(card) : onClaimNative(card))}
-              disabled={done || busy || (!isSocial && card.status !== 'claimable')}
+              onClick={() => onCardAction(card)}
+              disabled={disabled}
               className="rounded-full bg-gradient-to-b from-amber-300 to-yellow-500 px-5 py-2 text-xs font-black text-[#2a1a05] disabled:opacity-40"
             >
-              {done ? t('tasks.done')
-                : busy ? t('tasks.claiming')
-                : card.action.kind === 'bind_telegram' ? t('tasks.bind')
-                : isSocial && card.action.kind === 'goto' ? t('tasks.verify')
-                : isSocial && card.action.kind === 'manual_review' ? t('tasks.submit')
-                : !isSocial && card.status === 'locked' ? t('tasks.todo')
-                : t('tasks.claim')}
+              {label}
             </button>
           </div>
         </div>
+        {card.progress && (
+          <div className="mt-2 flex items-center gap-2">
+            <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-black/40">
+              <div className="h-full rounded-full bg-gradient-to-r from-amber-300 to-yellow-500"
+                style={{ width: `${Math.min(100, Math.round((card.progress.current / Math.max(1, card.progress.target)) * 100))}%` }} />
+            </div>
+            <span className="text-[11px] font-bold text-amber-200/70">{card.progress.current}/{card.progress.target}</span>
+          </div>
+        )}
         {showCode && (
           <div className="mt-2.5 flex gap-2">
             <input

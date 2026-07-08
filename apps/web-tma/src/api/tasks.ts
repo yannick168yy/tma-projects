@@ -3,7 +3,7 @@ import { apiRequest } from '@/api/client'
 export type TaskGroup = 'newbie' | 'daily' | 'achievement' | 'social'
 export type RewardType = 'cash' | 'spin' | 'growth'
 export type TaskStatus = 'locked' | 'claimable' | 'done'
-export type TaskActionKind = 'claim' | 'goto' | 'bind_telegram' | 'code_redeem' | 'manual_review'
+export type TaskActionKind = 'claim' | 'goto' | 'bind_telegram' | 'code_redeem' | 'manual_review' | 'open_module'
 
 export interface TaskReward {
   type: RewardType
@@ -20,7 +20,8 @@ export interface TaskCard {
   subtitle: string
   status: TaskStatus
   reward: TaskReward
-  action: { kind: TaskActionKind; url?: string; verifyStrategy?: string }
+  progress?: { current: number; target: number }
+  action: { kind: TaskActionKind; url?: string; target?: string; verifyStrategy?: string }
 }
 
 export interface TaskCenter {
