@@ -24,6 +24,7 @@ export type FullPageView =
   | { type: 'spin' }
   | { type: 'kycSetting' }
   | { type: 'download' }
+  | { type: 'tasks' }
 
 /** 全屏专题页：走 document/body 滚动，勿用 fixed + 内部 overflow-y-auto */
 export function isImmersiveFullPage(view: FullPageView): boolean {
@@ -34,6 +35,7 @@ export function isImmersiveFullPage(view: FullPageView): boolean {
     || view.type === 'spin'
     || view.type === 'kycSetting'
     || view.type === 'download'
+    || view.type === 'tasks'
 }
 
 export function useFullPageOverlay() {
@@ -52,6 +54,7 @@ export function useFullPageOverlay() {
     openSpin:          () => setView({ type: 'spin' }),
     openKycSetting:    () => setView({ type: 'kycSetting' }),
     openDownload:      () => setView({ type: 'download' }),
+    openTasks:         () => setView({ type: 'tasks' }),
     close:             () => setView({ type: 'none' }),
     is: (t: FullPageView['type']) => view.type === t,
   }

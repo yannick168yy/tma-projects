@@ -30,6 +30,7 @@ const OVERLAY_PATHS: Record<string, FullPageView['type']> = {
   '/rewards-spin': 'spin',
   '/kyc-setting': 'kycSetting',
   '/download': 'download',
+  '/tasks': 'tasks',
 }
 
 // games 页筛选状态放 URL：/games?cat=slot&provider=PGSoft，首页/外链可深链到指定分类+厂商
@@ -82,6 +83,7 @@ export function parseAppRoute(pathname: string, search: string): ParsedAppRoute 
   if (overlayType === 'spin') return { kind: 'overlay', overlay: { type: 'spin' } }
   if (overlayType === 'kycSetting') return { kind: 'overlay', overlay: { type: 'kycSetting' } }
   if (overlayType === 'download') return { kind: 'overlay', overlay: { type: 'download' } }
+  if (overlayType === 'tasks') return { kind: 'overlay', overlay: { type: 'tasks' } }
 
   if (pathname.startsWith('/slots/')) {
     return { kind: 'overlay', overlay: parseCategoryLobby(pathname, new URLSearchParams(search)) }

@@ -39,6 +39,7 @@ interface Props {
   onOpenReferralPromo: () => void
   onOpenAgentCenter: () => void
   onOpenCashback: () => void
+  onOpenTasks: () => void
   onOpenRewardsSpin: () => void
   onOpenKycSetting: () => void
   onOpenDownload: () => void
@@ -207,7 +208,7 @@ function BottomSheet({ title, children, onClose }: { title: string; children: Re
   )
 }
 
-export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory, onOpenLedgerRecords, onOpenReferralPromo, onOpenAgentCenter, onOpenCashback, onOpenRewardsSpin, onOpenKycSetting, onOpenDownload, onOpenTopUp, onOpenCashOut, onOpenWalletHistory }: Props) {
+export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory, onOpenLedgerRecords, onOpenReferralPromo, onOpenAgentCenter, onOpenCashback, onOpenTasks, onOpenRewardsSpin, onOpenKycSetting, onOpenDownload, onOpenTopUp, onOpenCashOut, onOpenWalletHistory }: Props) {
   const { t } = useTranslation()
   const auth = useAuthStore()
   const { locale, setLocale } = useLocaleStore()
@@ -462,6 +463,7 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
         </section>
 
         <MenuSection title={t('menu.rewards')}>
+          <MenuRow icon={icon('01_rewards')} title={t('tasks.pageTitle')} subtitle={t('tasks.entrySub')} onClick={onOpenTasks} bordered />
           <MenuRow icon={icon('03_3_circle_rewards')} title={t('referralPromo.title')} subtitle={t('referralPromo.subtitle')} onClick={onOpenReferralPromo} bordered />
           <MenuRow icon={icon('cashback')} title={t('category.cashback')} subtitle={t('cashback.pageSubtitle')} onClick={onOpenCashback} bordered />
           <MenuRow icon={icon('rewards_spin')} title={t('category.rewardsSpin')} subtitle={t('spin.kicker')} onClick={onOpenRewardsSpin} bordered={auth.user?.isAgent} />

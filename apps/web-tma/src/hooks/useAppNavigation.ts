@@ -151,6 +151,11 @@ export function useAppNavigation() {
     window.scrollTo({ top: 0, behavior: 'instant' })
   }, [pushOverlay])
 
+  const openTasks = useCallback(() => {
+    pushOverlay('/tasks')
+    window.scrollTo({ top: 0, behavior: 'instant' })
+  }, [pushOverlay])
+
   const closeImmersive = useCallback(() => {
     closeOverlayPage()
     window.scrollTo({ top: 0, behavior: 'instant' })
@@ -187,6 +192,7 @@ export function useAppNavigation() {
     openSpin,
     openKycSetting,
     openDownload,
+    openTasks,
     closeImmersive,
     closeOverlay,
     resetToTab,
