@@ -1,12 +1,14 @@
 import Router from '@koa/router'
 import { listAdminUsers, writeAuditLog, updateUserLabel, getLoginLogs, getBetOrders, getOpPasswordHash } from '../../services/admin-store.js'
-import { getUser, saveUser, getWallet, listLedger, adminAdjustBalance, getKyc, setUserKycOverride, listUserIdentities } from '../../services/store/index.js'
+import { getUser, saveUser, getWallet, listLedger, adminAdjustBalance, getKyc, setUserKycOverride, listUserIdentities, reassignIdentity } from '../../services/store/index.js'
 import { buildKycStatusResponse, getKycStepConfig } from '../../services/kyc.service.js'
 import { verifyPassword } from '../../services/admin-auth.service.js'
+import { hashPassword } from '../../utils/password.js'
 import { getMysqlPool, isMysqlEnabled } from '../../clients/mysql.client.js'
 import { getUserTotalTurnover, getLevelThresholds, resolveLevel } from '../../services/rebate.service.js'
 import { fail, ok } from '../../utils/response.js'
 import type { RowDataPacket, OkPacket } from 'mysql2/promise'
+import type { IdentityProvider } from '../../types/domain.js'
 
 const router = new Router({ prefix: '/users' })
 
@@ -126,6 +128,53 @@ router.patch('/:id/status', async (ctx) => {
     ip: ctx.ip,
   })
   ok(ctx, { status: user.status })
+})
+
+router.post('/:id/reset-password', async (ctx) => {
+  const body = ctx.request.body as { provider?: string; password?: string; opPassword?: string }
+  if (body.provider !== 'phone' && body.provider !== 'account') {
+    fail(ctx, 400, 'provider must be phone | account'); return
+  }
+  if (!body.password || body.password.length < 8) {
+    fail(ctx, 400, 'Password must be at least 8 characters'); return
+  }
+  if (!body.opPassword) {
+    fail(ctx, 400, 'opPassword is required'); return
+  }
+
+  const opHash = await getOpPasswordHash(ctx.state.env)
+  if (!opHash) {
+    fail(ctx, 403, 'Operation password not configured. Please ask super_admin to set it first.'); return
+  }
+  const valid = await verifyPassword(body.opPassword, opHash)
+  if (!valid) {
+    fail(ctx, 403, 'Incorrect operation password'); return
+  }
+
+  const user = await getUser(ctx.state.redis, ctx.params.id)
+  if (!user) { fail(ctx, 404, 'User not found', 404); return }
+
+  const provider = body.provider as IdentityProvider
+  const identities = await listUserIdentities(ctx.state.redis, ctx.params.id)
+  const identity = identities.find((i) => i.provider === provider)
+  if (!identity) {
+    fail(ctx, 404, 'Identity not found', 404); return
+  }
+
+  await reassignIdentity(ctx.state.redis, {
+    ...identity,
+    credentialHash: await hashPassword(body.password),
+  })
+  await writeAuditLog(ctx.state.env, {
+    adminId: ctx.state.adminId!,
+    adminUsername: ctx.state.adminUsername!,
+    action: 'user.password_reset',
+    targetType: 'user',
+    targetId: user.id,
+    detail: { provider },
+    ip: ctx.ip,
+  })
+  ok(ctx, { success: true })
 })
 
 const SUPPORTED_CURRENCIES = ['PHP', 'USDT', 'USDC', 'TRX_TESTNET']

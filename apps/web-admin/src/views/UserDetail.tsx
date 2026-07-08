@@ -35,7 +35,7 @@ export default function UserDetail() {
       <Spin spinning={loading}>
         {detail && (
           <Row gutter={16}>
-            <Col span={12}><UserInfo detail={detail} /></Col>
+            <Col span={12}><UserInfo detail={detail} onSuccess={loadDetail} /></Col>
             <Col span={12}>
               <UserActions
                 userId={id!}

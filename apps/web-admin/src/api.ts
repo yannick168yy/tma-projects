@@ -141,6 +141,8 @@ export const updateUserStatus = (id: string, status: string, reason?: string) =>
   patch<{ status: string }>(`/admin/users/${id}/status`, { status, reason })
 export const updateUserLabel = (id: string, label: string) =>
   patch<{ label: string }>(`/admin/users/${id}/label`, { label })
+export const resetUserPassword = (id: string, provider: 'phone' | 'account', password: string, opPassword: string) =>
+  post<{ success: boolean }>(`/admin/users/${id}/reset-password`, { provider, password, opPassword })
 export const SUPPORTED_CURRENCIES = ['PHP', 'USDT', 'USDC', 'TRX_TESTNET'] as const
 export type SupportedCurrency = typeof SUPPORTED_CURRENCIES[number]
 
