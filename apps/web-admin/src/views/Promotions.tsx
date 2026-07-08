@@ -5,7 +5,10 @@ import { getPromoConfig, savePromoConfig, FIRSTDEP_CURRENCIES, type PromoConfig,
 
 const { Title, Text } = Typography
 
-const POPUP_NAMES: Record<string, string> = { new_player: '新人礼包弹窗' }
+const POPUP_NAMES: Record<string, string> = { new_player: '新人礼包弹窗', firstdep: '首充悬浮入口', trial: '首席体验官' }
+
+// 仅这些是进站自动弹窗，弹出频率才生效；其余为常驻入口（悬浮球/活动页卡片），只用开关+人群
+const AUTO_POPUP_IDS = new Set(['new_player'])
 
 const AUDIENCE_OPTIONS = [
   { value: 'all', label: '所有访客' },
@@ -244,7 +247,7 @@ export default function Promotions() {
   const popupsTab = (
     <Card title="首页进站弹窗调度">
       <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 12 }}>
-        控制用户进入首页后各弹窗的开关、弹出顺序与覆盖人群；弹出频率决定同一用户多久弹一次（新人礼包弹窗在三步任务全部完成后自动不再弹出，不受此处配置影响）
+        控制首页各活动入口的开关与覆盖人群；新人礼包为进站自动弹窗（弹出频率决定多久弹一次，三步任务全部完成后自动不再弹）；首充悬浮入口、首席体验官为常驻入口（悬浮球/活动页卡片），仅开关与人群生效
       </Text>
       <Table<PopupConfig>
         size="small"
@@ -278,7 +281,9 @@ export default function Promotions() {
           {
             title: '弹出频率', width: 150,
             render: (_, __, idx) => (
-              <Select style={{ width: '100%' }} options={FREQUENCY_OPTIONS} value={cfg.popups[idx].frequency} onChange={(v) => patch((d) => { d.popups[idx].frequency = v })} />
+              AUTO_POPUP_IDS.has(cfg.popups[idx].id)
+                ? <Select style={{ width: '100%' }} options={FREQUENCY_OPTIONS} value={cfg.popups[idx].frequency} onChange={(v) => patch((d) => { d.popups[idx].frequency = v })} />
+                : <Text type="secondary" style={{ fontSize: 12 }}>常驻入口·不适用</Text>
             ),
           },
         ]}

@@ -5,7 +5,7 @@ import { BONUS_WINNERS, PROMOS } from '@/data/promos'
 import { usePromotionStore, getHighlightMap } from '@/stores/promotion'
 import { useAuthStore } from '@/stores/auth'
 import { useWalletStore } from '@/stores/wallet'
-import { fetchAppdlStatus, claimAppdlBonus, type NewPlayerSummary } from '@/api/promotion'
+import { fetchAppdlStatus, claimAppdlBonus, matchPopupAudience, type NewPlayerSummary } from '@/api/promotion'
 import { isStandalone } from '@/utils/pwa'
 import { isInsideTelegram } from '@/utils/initTelegramWebApp'
 import { analytics } from '@/utils/analytics'
@@ -120,7 +120,15 @@ export default function BonusesPage({ promoFilter, onOpenWallet, onOpenTeam, onO
 
   const localizedPromos = useMemo(
     () =>
-      PROMOS.filter((p) => p.id !== 'appdl' || (!isInsideTelegram() && Boolean(promoConfig?.appdl?.enabled))).map((p) => {
+      PROMOS.filter((p) => p.id !== 'appdl' || (!isInsideTelegram() && Boolean(promoConfig?.appdl?.enabled)))
+        .filter((p) => {
+          // 首席体验官卡片受后台「首页弹窗」开关+人群控制
+          if (p.id !== 'trial') return true
+          const popup = promoConfig?.popups?.find((x) => x.id === 'trial')
+          if (!popup) return true
+          return popup.enabled && matchPopupAudience(popup.audience, Boolean(token), highlightMap.get('firstdep')?.highlight === false)
+        })
+        .map((p) => {
         const base = `bonuses.promos.${p.id}`
         const cfg = promoConfig
 
@@ -157,7 +165,7 @@ export default function BonusesPage({ promoFilter, onOpenWallet, onOpenTeam, onO
           expiry: p.expiry === 'Ongoing' ? t('common.ongoing') : t('common.limitedTime'),
         }
       }),
-    [t, promoConfig],
+    [t, promoConfig, token, highlightMap],
   )
 
   const agentSteps = useMemo(

@@ -56,7 +56,12 @@ export const PROMO_DEFAULTS: PromoConfig = {
   firstdep: { enabled: true, turnoverX: 15, turnoverDays: 30, tiers: DEFAULT_FIRSTDEP_TIERS },
   // App/PWA 下载礼金：默认关闭，后台开启后客户端宣传位才展示
   appdl:    { amount: 66, enabled: false, turnoverX: 5, turnoverDays: 30 },
-  popups:   [{ id: 'new_player', enabled: true, order: 1, audience: 'all', frequency: 'daily' }],
+  popups:   [
+    { id: 'new_player', enabled: true, order: 1, audience: 'all', frequency: 'daily' },
+    // firstdep=首页首充悬浮球，trial=活动页首席体验官卡片；均为常驻入口，frequency 不生效，仅用开关/人群
+    { id: 'firstdep',   enabled: true, order: 2, audience: 'all', frequency: 'always' },
+    { id: 'trial',      enabled: true, order: 3, audience: 'all', frequency: 'always' },
+  ],
 }
 
 const POPUP_AUDIENCES = ['all', 'guest', 'no_deposit', 'new', 'deposited'] as const
@@ -76,8 +81,10 @@ function sanitizePopups(raw: unknown): PopupConfig[] {
       frequency: POPUP_FREQUENCIES.includes(it.frequency as never) ? it.frequency as PopupConfig['frequency'] : 'daily',
     })
   }
-  // 后台未配置过时保证 new_player 存在，避免客户端拿到空调度表
-  if (!items.some((p) => p.id === 'new_player')) items.push(...PROMO_DEFAULTS.popups)
+  // 补齐缺失的默认弹窗（历史配置只存了 new_player 时，自动补上 firstdep/trial）
+  for (const def of PROMO_DEFAULTS.popups) {
+    if (!items.some((p) => p.id === def.id)) items.push({ ...def })
+  }
   return items.sort((a, b) => a.order - b.order)
 }
 

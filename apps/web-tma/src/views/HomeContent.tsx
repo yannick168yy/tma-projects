@@ -15,6 +15,7 @@ import { fetchHomeContent, type HomeSocialLink } from '@/api/home'
 import { resolveHomeActionPath } from '@/navigation/appRoutes'
 import { ApiError } from '@/api/client'
 import { usePromotionStore } from '@/stores/promotion'
+import { matchPopupAudience } from '@/api/promotion'
 import { useAuthStore } from '@/stores/auth'
 import { useWalletStore } from '@/stores/wallet'
 import { localizedGameName } from '@/utils/game'
@@ -416,7 +417,11 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
   const latestBetScrollDuration = `${Math.max(56, latestBets.length * 4.8)}s`
   const rankBetScrollDuration = `${Math.max(56, rankBets.length * 4.8)}s`
   const firstDepositHighlight = promotion.highlights.find((item) => item.promoId === 'firstdep')
-  const showFirstDepositFiesta = !auth.token || firstDepositHighlight?.highlight !== false
+  const firstdepPopup = promotion.promoConfig?.popups?.find((p) => p.id === 'firstdep')
+  // 后台「首页弹窗」开关+人群控制悬浮球显隐；叠加原有「已充值则不再展示首充」逻辑
+  const showFirstDepositFiesta = (firstdepPopup?.enabled ?? true)
+    && matchPopupAudience(firstdepPopup?.audience ?? 'all', Boolean(auth.token), firstDepositHighlight?.highlight === false)
+    && (!auth.token || firstDepositHighlight?.highlight !== false)
 
   // ── 板块渲染辅助：大卡=3列固定网格，小卡=单行横滑 ──
   function sectionHeader(icon: React.ReactNode, title: string, onAll?: () => void) {

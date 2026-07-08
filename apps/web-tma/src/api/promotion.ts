@@ -148,6 +148,17 @@ export interface PopupConfig {
   frequency: 'daily' | 'once' | 'always'
 }
 
+/** 按弹窗覆盖人群判断是否对当前用户展示；frequency 由各调用点自行处理（常驻入口不消费） */
+export function matchPopupAudience(audience: PopupConfig['audience'], loggedIn: boolean, deposited: boolean): boolean {
+  switch (audience) {
+    case 'guest':      return !loggedIn
+    case 'no_deposit': return !deposited
+    case 'new':        return loggedIn && !deposited
+    case 'deposited':  return loggedIn && deposited
+    default:           return true
+  }
+}
+
 export interface PromoConfig {
   trial:    { amount: number; enabled: boolean }
   firstdep: { enabled: boolean; turnoverX: number; turnoverDays?: number; tiers: Record<string, FirstDepTier[]> }
