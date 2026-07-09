@@ -34,6 +34,7 @@ export default function TaskFloatBall({ onNavigatePath }: TaskFloatBallProps) {
   const [center, setCenter] = useState<TaskCenter>(EMPTY_CENTER)
   const [expanded, setExpanded] = useState(false)
   const [position, setPosition] = useState<{ left: number; top: number } | null>(null)
+  const [dragging, setDragging] = useState(false)
 
   useEffect(() => {
     if (!auth.token) {
@@ -58,41 +59,51 @@ export default function TaskFloatBall({ onNavigatePath }: TaskFloatBallProps) {
   const claimable = stats.newbie.claimable + stats.daily.claimable + stats.social.claimable
   const progress = total > 0 ? Math.round((done / total) * 100) : 0
 
-  const clampPosition = useCallback((left: number, top: number) => {
+  const clampFreePosition = useCallback((left: number, top: number) => {
     const viewportWidth = window.innerWidth
     const viewportHeight = window.innerHeight
     const frameWidth = Math.min(viewportWidth, 430)
     const frameLeft = (viewportWidth - frameWidth) / 2
     const minLeft = frameLeft
     const maxLeft = Math.max(minLeft, frameLeft + frameWidth - BALL_SIZE)
-    const nextLeft = left + BALL_SIZE / 2 < frameLeft + frameWidth / 2 ? minLeft : maxLeft
     const minTop = 72
     const maxTop = Math.max(minTop, viewportHeight - 156)
     return {
-      left: nextLeft,
+      left: Math.min(Math.max(left, minLeft), maxLeft),
       top: Math.min(Math.max(top, minTop), maxTop),
     }
   }, [])
+
+  const snapPosition = useCallback((left: number, top: number) => {
+    const viewportWidth = window.innerWidth
+    const frameWidth = Math.min(viewportWidth, 430)
+    const frameLeft = (viewportWidth - frameWidth) / 2
+    const freePosition = clampFreePosition(left, top)
+    const edgeLeft = freePosition.left + BALL_SIZE / 2 < frameLeft + frameWidth / 2
+      ? frameLeft
+      : frameLeft + frameWidth - BALL_SIZE
+    return { ...freePosition, left: edgeLeft }
+  }, [clampFreePosition])
 
   const defaultPosition = useCallback(() => {
     const viewportWidth = window.innerWidth
     const viewportHeight = window.innerHeight
     const frameWidth = Math.min(viewportWidth, 430)
     const frameLeft = (viewportWidth - frameWidth) / 2
-    return clampPosition(frameLeft + frameWidth - BALL_SIZE, viewportHeight - 240)
-  }, [clampPosition])
+    return snapPosition(frameLeft + frameWidth - BALL_SIZE, viewportHeight - 240)
+  }, [snapPosition])
 
   useEffect(() => {
     const syncPosition = () => {
       setPosition((current) => {
         const next = current ?? defaultPosition()
-        return clampPosition(next.left, next.top)
+        return snapPosition(next.left, next.top)
       })
     }
     syncPosition()
     window.addEventListener('resize', syncPosition)
     return () => window.removeEventListener('resize', syncPosition)
-  }, [clampPosition, defaultPosition])
+  }, [defaultPosition, snapPosition])
 
   async function openPath(path: TaskBallPath) {
     if (!(await auth.ensureLoggedIn(t('auth.signInPlay')))) return
@@ -121,6 +132,7 @@ export default function TaskFloatBall({ onNavigatePath }: TaskFloatBallProps) {
       suppressClick: false,
     }
     setPosition(current)
+    setDragging(false)
     event.currentTarget.setPointerCapture(event.pointerId)
   }
 
@@ -131,14 +143,17 @@ export default function TaskFloatBall({ onNavigatePath }: TaskFloatBallProps) {
     const dy = event.clientY - drag.startY
     if (!drag.moved && Math.hypot(dx, dy) < 5) return
     drag.moved = true
+    setDragging(true)
     setExpanded(false)
-    setPosition(clampPosition(drag.startLeft + dx, drag.startTop + dy))
+    setPosition(clampFreePosition(drag.startLeft + dx, drag.startTop + dy))
   }
 
   function onPointerUp(event: PointerEvent<HTMLDivElement>) {
     const drag = dragRef.current
     if (drag.pointerId !== event.pointerId) return
     drag.suppressClick = drag.moved
+    if (drag.moved) setPosition((current) => snapPosition(current?.left ?? drag.startLeft, current?.top ?? drag.startTop))
+    setDragging(false)
     if (drag.moved) window.setTimeout(() => { dragRef.current.suppressClick = false }, 0)
     drag.pointerId = -1
     if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
@@ -169,7 +184,7 @@ export default function TaskFloatBall({ onNavigatePath }: TaskFloatBallProps) {
         />
       )}
       <div
-        className="pointer-events-none fixed z-[31] h-16 w-16"
+        className={`pointer-events-none fixed z-[31] h-16 w-16 ${dragging ? '' : 'transition-[left,top] duration-200 ease-out'}`}
         style={position ? { left: position.left, top: position.top } : { right: 88, bottom: 176 }}
       >
         <div
