@@ -1,6 +1,10 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { CheckCircle2, Circle, Lock, Milestone, Sparkles } from 'lucide-react'
+import {
+  Cake, CalendarDays, Check, Download, Gamepad2, Gift, Lock,
+  MailCheck, Server, Smartphone, Sparkles, Star, Trophy, UserPlus, Users,
+  Wallet, type LucideIcon,
+} from 'lucide-react'
 import {
   fetchTaskCenter, claimTask, claimSocialTask,
   type TaskCenter, type TaskCard,
@@ -9,6 +13,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useWalletStore, formatCurrencyAmount } from '@/stores/wallet'
 import { ApiError } from '@/api/client'
 import BindModal from '@/components/auth/BindModal'
+import taskHero from '@/assets/tasks/task-hero.webp'
 
 export type TaskPath = 'newbie' | 'daily' | 'social'
 
@@ -160,6 +165,21 @@ export default function TasksPage({ initialPath = 'newbie', onNavigate }: { init
     return t('tasks.claim')
   }
 
+  function taskVisual(card: TaskCard): { Icon: LucideIcon; className: string } {
+    if (card.id === 'profile_complete') return { Icon: MailCheck, className: 'from-[#4aa8ff] to-[#1261d6]' }
+    if (card.id === 'first_game') return { Icon: Gamepad2, className: 'from-[#36d45d] to-[#0b8d33]' }
+    if (card.id === 'invite_milestone') return { Icon: UserPlus, className: 'from-[#ffd528] to-[#e88d00]' }
+    if (card.id === 'agg_trial') return { Icon: Smartphone, className: 'from-[#15d2bd] to-[#058d7f]' }
+    if (card.id === 'agg_appdl') return { Icon: Download, className: 'from-[#ab50ea] to-[#6826a7]' }
+    if (card.id === 'agg_firstdep') return { Icon: Wallet, className: 'from-[#ff602f] to-[#e62b0b]' }
+    if (card.id === 'agg_birthday') return { Icon: Cake, className: 'from-[#2088ff] to-[#064aa3]' }
+    if (card.id === 'daily_login' || card.id === 'agg_checkin') return { Icon: CalendarDays, className: 'from-[#ffb334] to-[#f06a00]' }
+    if (card.id === 'daily_deposit') return { Icon: Wallet, className: 'from-[#ff7d1a] to-[#df3e00]' }
+    if (card.id.startsWith('agg_checkin_ms')) return { Icon: Trophy, className: 'from-[#ffd43b] to-[#d99000]' }
+    if (card.group === 'social') return { Icon: Users, className: 'from-[#5bb6ff] to-[#1855d6]' }
+    return { Icon: Gift, className: 'from-[#ffbe20] to-[#f06a00]' }
+  }
+
   function renderSummary() {
     const rewardParts = [
       summary.cash > 0 ? formatCurrencyAmount(summary.cashCurrency, summary.cash) : '',
@@ -169,38 +189,56 @@ export default function TasksPage({ initialPath = 'newbie', onNavigate }: { init
     const progressPct = summary.total > 0 ? Math.min(100, Math.round(summary.done / summary.total * 100)) : 0
 
     return (
-      <section className="mx-4 mt-3 overflow-hidden rounded-2xl border border-amber-300/30 bg-gradient-to-br from-[#241605] via-[#0c0905] to-[#050403] p-4">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="text-[11px] font-black uppercase tracking-[0.16em] text-amber-300/80">{t('tasks.tree.todayPath')}</p>
-            <h1 className="mt-1 text-xl font-black text-amber-50">{t('tasks.pageTitle')}</h1>
-          </div>
-          <div className="rounded-full bg-amber-300 px-3 py-1 text-xs font-black text-[#241604]">
-            {summary.done}/{summary.total}
+      <section className="relative overflow-hidden px-4 pb-4 pt-9">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_72%_18%,rgba(255,185,28,0.34),transparent_31%),radial-gradient(circle_at_40%_38%,rgba(255,190,34,0.12),transparent_30%)]" />
+        <img
+          src={taskHero}
+          alt=""
+          className="pointer-events-none absolute right-[-38px] top-0 h-[220px] w-[270px] object-cover object-left-top opacity-95"
+        />
+        <div className="pointer-events-none absolute right-0 top-0 h-[230px] w-[52%] bg-gradient-to-l from-transparent via-transparent to-[#050403]" />
+        <div className="relative">
+          <p className="flex items-center gap-2 text-[13px] font-black uppercase tracking-[0.22em] text-[#ffd21c]">
+            <Sparkles size={15} fill="currentColor" strokeWidth={2.8} />
+            {t('tasks.tree.todayPath')}
+            <Sparkles size={15} fill="currentColor" strokeWidth={2.8} />
+          </p>
+          <h1 className="mt-3 text-[42px] font-black leading-none text-white [text-shadow:0_2px_16px_rgba(255,255,255,0.18)]">
+            {t('tasks.pageTitle')}
+          </h1>
+          <div className="mt-8 flex max-w-[255px] items-center gap-4">
+            <div className="h-[18px] flex-1 overflow-hidden rounded-full bg-black/72 shadow-[inset_0_1px_4px_rgba(255,196,31,0.16)]">
+              <div className="h-full rounded-full bg-gradient-to-b from-[#ffe15a] to-[#ffc000]" style={{ width: `${progressPct}%` }} />
+            </div>
+            <div className="rounded-full bg-[#ffd21d] px-4 py-2 text-[22px] font-black leading-none text-[#211300] shadow-[0_8px_22px_rgba(255,185,20,0.32)]">
+              {summary.done}/{summary.total}
+            </div>
           </div>
         </div>
-        <div className="mt-4 h-2 overflow-hidden rounded-full bg-black/35">
-          <div className="h-full rounded-full bg-gradient-to-r from-amber-300 to-yellow-500" style={{ width: `${progressPct}%` }} />
-        </div>
-        <div className="mt-3 grid grid-cols-2 gap-2">
-          <SummaryTile label={t('tasks.tree.claimable')} value={String(summary.claimable)} />
-          <SummaryTile label={t('tasks.tree.rewards')} value={rewardParts.length ? rewardParts.join(' · ') : '—'} />
+        <div className="relative mt-6 grid grid-cols-2 gap-3">
+          <SummaryTile tone="purple" Icon={Gift} label={t('tasks.tree.claimable')} value={String(summary.claimable)} />
+          <SummaryTile tone="orange" Icon={Server} label={t('tasks.tree.rewards')} value={rewardParts.length ? rewardParts.join(' · ') : '-'} />
         </div>
       </section>
     )
   }
 
   function renderTabs() {
+    const tabIcons = { newbie: Star, daily: CalendarDays, social: Users } satisfies Record<TaskPath, LucideIcon>
     return (
-      <div className="sticky top-0 z-10 bg-[#050403]/92 px-4 py-3 backdrop-blur">
-        <div className="grid grid-cols-3 rounded-xl border border-amber-300/18 bg-black/25 p-1">
+      <div className="sticky top-0 z-20 bg-[#050403]/94 px-4 py-3 backdrop-blur">
+        <div className="grid grid-cols-3 overflow-hidden rounded-[17px] border border-[#8a5b13]/55 bg-black/38 p-1.5 shadow-[0_0_24px_rgba(255,174,22,0.08)]">
           {PATHS.map((path) => (
             <button
               key={path}
               type="button"
               onClick={() => setActivePath(path)}
-              className={`rounded-lg px-1 py-2 text-[10px] font-black transition-colors ${activePath === path ? 'bg-amber-300 text-[#241604]' : 'text-amber-100/58'}`}
+              className={`flex min-w-0 items-center justify-center gap-2 rounded-[13px] px-2 py-3 text-[15px] font-black transition-colors ${activePath === path ? 'bg-gradient-to-b from-[#ffe15a] to-[#ffc000] text-[#1c1300] shadow-[0_5px_16px_rgba(255,193,17,0.34)]' : 'text-[#d8b889]'}`}
             >
+              {(() => {
+                const Icon = tabIcons[path]
+                return <Icon size={21} fill={activePath === path ? 'currentColor' : 'none'} strokeWidth={2.7} />
+              })()}
               {t(`tasks.path.${path}`)}
             </button>
           ))}
@@ -212,7 +250,6 @@ export default function TasksPage({ initialPath = 'newbie', onNavigate }: { init
   function renderTaskNode(card: TaskCard, index: number, total: number) {
     const done = card.status === 'done'
     const busy = busyId === card.id
-    const locked = card.status === 'locked'
     const isClaimable = card.status === 'claimable'
     const isMilestone = Boolean(card.progress) || card.group === 'achievement'
     const kind = card.action.kind
@@ -221,36 +258,43 @@ export default function TasksPage({ initialPath = 'newbie', onNavigate }: { init
     const reward = rewardText(card)
     const buttonLabel = reward || actionLabel(card)
     const progressPct = card.progress ? Math.min(100, Math.round((card.progress.current / Math.max(1, card.progress.target)) * 100)) : 0
-    const NodeIcon = done ? CheckCircle2 : locked ? Lock : isMilestone ? Milestone : Circle
-    const nodeTone = done ? 'text-emerald-300 border-emerald-300/35 bg-emerald-300/10'
-      : isClaimable ? 'text-amber-300 border-amber-300/55 bg-amber-300/12'
-        : 'text-amber-100/45 border-amber-300/18 bg-black/28'
-    const buttonTone = done ? 'border border-emerald-300/45 bg-emerald-300/12 text-emerald-200'
-      : isClaimable ? 'bg-gradient-to-b from-amber-300 to-yellow-500 text-[#2a1a05]'
-        : 'border border-amber-300/25 text-amber-100/70'
+    const visual = taskVisual(card)
+    const buttonTone = done ? 'bg-gradient-to-b from-[#27d85d] to-[#09963b] text-white shadow-[0_7px_18px_rgba(12,189,74,0.25)]'
+      : 'bg-gradient-to-b from-[#ff961f] to-[#ff6500] text-white shadow-[0_7px_18px_rgba(255,101,0,0.28)]'
 
     return (
       <div key={card.id} className="relative flex gap-3">
-        <div className="flex w-8 flex-shrink-0 flex-col items-center">
-          <span className={`z-[1] flex h-8 w-8 items-center justify-center rounded-full border ${nodeTone}`}>
-            <NodeIcon size={16} />
+        <div className="flex w-[70px] flex-shrink-0 flex-col items-center">
+          <span className={`z-[1] mt-[13px] flex h-[45px] w-[45px] items-center justify-center rounded-full border ${done ? 'border-[#15b653]/70 bg-[#05a647] text-white shadow-[0_0_18px_rgba(0,189,80,0.42)]' : 'border-[#875714]/80 bg-[#14100a] text-[#d2b083]'}`}>
+            {done ? <Check size={28} strokeWidth={4} /> : <Lock size={20} strokeWidth={2.6} />}
           </span>
-          {index < total - 1 && <span className="mt-1 h-full min-h-8 w-px bg-gradient-to-b from-amber-300/35 to-amber-300/8" />}
+          {index < total - 1 && <span className="h-full min-h-[48px] w-px bg-gradient-to-b from-[#ffc31e]/72 via-[#7d520d]/70 to-[#7d520d]/30" />}
         </div>
 
-        <div className={`mb-3 min-w-0 flex-1 rounded-2xl border px-4 py-3.5 ${isClaimable ? 'border-amber-300/35 bg-[#110c05]' : 'border-amber-300/18 bg-[#0c0905]/76'}`}>
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                {isMilestone && <span className="rounded-full bg-amber-300/15 px-2 py-0.5 text-[9px] font-black uppercase text-amber-300">{t('tasks.tree.milestone')}</span>}
-                <p className="truncate text-sm font-black text-amber-50">{cardTitle(card)}</p>
+        <div className="mb-3 min-w-0 flex-1 rounded-[13px] border border-[#7f520f]/55 bg-[#080806]/86 px-3 py-3 shadow-[inset_0_1px_0_rgba(255,206,89,0.06)]">
+          <div className="flex items-center gap-3">
+            <div className={`flex h-[70px] w-[70px] flex-shrink-0 items-center justify-center rounded-[14px] bg-gradient-to-br ${visual.className} shadow-[inset_0_1px_0_rgba(255,255,255,0.3),0_10px_22px_rgba(0,0,0,0.3)]`}>
+              <visual.Icon size={39} className="text-white drop-shadow-[0_2px_2px_rgba(0,0,0,0.32)]" strokeWidth={2.7} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex min-w-0 items-center gap-2">
+                {isMilestone && <span className="flex-shrink-0 rounded-full border border-[#81550f]/80 bg-black/42 px-2 py-1 text-[10px] font-black uppercase leading-none text-[#ffd21d]">{t('tasks.tree.milestone')}</span>}
+                <p className="truncate text-[21px] font-black leading-tight text-[#fff8ea]">{cardTitle(card)}</p>
               </div>
-              {cardSubtitle(card) && <p className="mt-0.5 line-clamp-2 text-xs text-amber-200/62">{cardSubtitle(card)}</p>}
+              {cardSubtitle(card) && <p className="mt-1 line-clamp-2 text-[15px] font-medium leading-snug text-[#f0dfc5]">{cardSubtitle(card)}</p>}
+              {card.progress && (
+                <div className="mt-3 flex items-center gap-3">
+                  <div className="h-[13px] flex-1 overflow-hidden rounded-full bg-[#1c1710] shadow-[inset_0_1px_3px_rgba(0,0,0,0.65)]">
+                    <div className="h-full rounded-full bg-gradient-to-b from-[#ffe15a] to-[#ffc000]" style={{ width: `${progressPct}%` }} />
+                  </div>
+                  <span className="min-w-[42px] text-[17px] font-black text-[#f0dfc5]">{card.progress.current}/{card.progress.target}</span>
+                </div>
+              )}
             </div>
             <div className="flex flex-shrink-0 items-center gap-2">
               {card.group === 'social' && kind === 'goto' && card.action.url && !done && (
                 <a href={card.action.url} target="_blank" rel="noreferrer"
-                  className="rounded-full border border-amber-300/40 px-3 py-2 text-xs font-black text-amber-200 active:scale-95">
+                  className="rounded-full border border-[#ffc31e]/50 px-3 py-2 text-xs font-black text-[#ffd78a] active:scale-95">
                   {t('tasks.go')}
                 </a>
               )}
@@ -258,29 +302,20 @@ export default function TasksPage({ initialPath = 'newbie', onNavigate }: { init
                 type="button"
                 onClick={() => onCardAction(card)}
                 disabled={disabled}
-                className={`min-w-[76px] rounded-full px-4 py-2 text-xs font-black active:scale-95 disabled:cursor-default ${!done && disabled ? 'opacity-45' : ''} ${buttonTone}`}
+                className={`min-w-[102px] rounded-full px-5 py-3 text-[16px] font-black leading-none active:scale-95 disabled:cursor-default ${!done && disabled ? 'opacity-95' : ''} ${buttonTone}`}
               >
                 {buttonLabel}
               </button>
             </div>
           </div>
 
-          {card.progress && (
-            <div className="mt-3 flex items-center gap-2">
-              <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-black/40">
-                <div className="h-full rounded-full bg-gradient-to-r from-amber-300 to-yellow-500" style={{ width: `${progressPct}%` }} />
-              </div>
-              <span className="text-[11px] font-bold text-amber-200/70">{card.progress.current}/{card.progress.target}</span>
-            </div>
-          )}
-
           {showCode && (
-            <div className="mt-2.5 flex gap-2">
+            <div className="mt-3 flex gap-2 pl-[82px]">
               <input
                 value={codeInputs[card.id] ?? ''}
                 onChange={(e) => setCodeInputs((s) => ({ ...s, [card.id]: e.target.value }))}
                 placeholder={t('tasks.codePlaceholder')}
-                className="min-w-0 flex-1 rounded-lg border border-amber-300/20 bg-black/40 px-3 py-2 text-sm text-amber-50 placeholder:text-amber-200/40 outline-none"
+                className="min-w-0 flex-1 rounded-lg border border-[#8c5c12]/70 bg-black/48 px-3 py-2 text-sm text-amber-50 placeholder:text-amber-200/40 outline-none"
               />
             </div>
           )}
@@ -294,19 +329,23 @@ export default function TasksPage({ initialPath = 'newbie', onNavigate }: { init
     const totalNodes = cards.length
     return (
       <section className="px-4 pb-10">
-        <div className="mb-3 flex items-center justify-between">
+        <div className="mb-4 flex items-start justify-between">
           <div>
-            <p className="text-xs font-black uppercase tracking-wide text-amber-300/80">{t(`tasks.path.${activePath}`)}</p>
-            <p className="mt-0.5 text-xs text-amber-100/45">{t(`tasks.pathSub.${activePath}`)}</p>
+            <p className="flex items-center gap-2 text-[24px] font-black uppercase tracking-[0.14em] text-[#ffd21d]">
+              <Sparkles size={18} fill="currentColor" />
+              {t(`tasks.path.${activePath}`)}
+              <Sparkles size={18} fill="currentColor" />
+            </p>
+            <p className="mt-1 text-[17px] text-[#f0dfc5]">{t(`tasks.pathSub.${activePath}`)}</p>
           </div>
-          <span className="rounded-full border border-amber-300/20 px-2.5 py-1 text-[11px] font-black text-amber-200/70">
+          <span className="mt-1 rounded-full border border-[#8a5b13]/70 bg-black/38 px-4 py-2 text-[20px] font-black leading-none text-[#f0dfc5]">
             {cards.filter((card) => card.status === 'done').length}/{cards.length}
           </span>
         </div>
         {totalNodes === 0 ? (
-          <div className="rounded-2xl border border-amber-300/18 bg-[#0c0905]/76 px-4 py-8 text-center">
-            <Sparkles size={26} className="mx-auto text-amber-300/70" />
-            <p className="mt-2 text-sm font-bold text-amber-100/60">{t('tasks.empty')}</p>
+          <div className="rounded-[13px] border border-[#7f520f]/55 bg-[#080806]/86 px-4 py-8 text-center">
+            <Sparkles size={26} className="mx-auto text-[#ffd21d]" />
+            <p className="mt-2 text-sm font-bold text-[#f0dfc5]">{t('tasks.empty')}</p>
           </div>
         ) : (
           <div>
@@ -318,7 +357,7 @@ export default function TasksPage({ initialPath = 'newbie', onNavigate }: { init
   }
 
   return (
-    <div className="page-main min-h-screen pb-4 pt-3" style={{ background: 'linear-gradient(180deg,#050403 0%,#080603 42%,#040302 100%)' }}>
+    <div className="page-main min-h-screen pb-4" style={{ background: 'linear-gradient(180deg,#050403 0%,#080603 42%,#040302 100%)' }}>
       {renderSummary()}
       {renderTabs()}
       {renderPath()}
@@ -327,11 +366,17 @@ export default function TasksPage({ initialPath = 'newbie', onNavigate }: { init
   )
 }
 
-function SummaryTile({ label, value }: { label: string; value: string }) {
+function SummaryTile({ tone, Icon, label, value }: { tone: 'purple' | 'orange'; Icon: LucideIcon; label: string; value: string }) {
+  const iconClass = tone === 'purple' ? 'from-[#ab50ea] to-[#6418a7]' : 'from-[#ff9f22] to-[#ff6500]'
   return (
-    <div className="min-w-0 rounded-xl bg-black/28 px-3 py-2">
-      <p className="truncate text-[10px] font-bold text-amber-100/45">{label}</p>
-      <p className="mt-0.5 truncate text-sm font-black text-amber-300">{value}</p>
+    <div className="flex min-w-0 items-center gap-4 rounded-[18px] border border-[#8a5b13]/55 bg-black/54 px-4 py-4 shadow-[inset_0_1px_0_rgba(255,206,89,0.06)]">
+      <span className={`flex h-[64px] w-[64px] flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br ${iconClass} shadow-[inset_0_1px_0_rgba(255,255,255,0.28)]`}>
+        <Icon size={34} className="text-white" strokeWidth={2.6} />
+      </span>
+      <span className="min-w-0">
+        <span className="block truncate text-[17px] font-medium leading-tight text-[#f0dfc5]">{label}</span>
+        <span className="mt-1 block truncate text-[28px] font-black leading-none text-[#ffd21d]">{value}</span>
+      </span>
     </div>
   )
 }
