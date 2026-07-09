@@ -9,6 +9,8 @@ export type CategoryLobbyParams = {
   gameUuids?: string[]
 }
 
+export type VipTab = 'overview' | 'cashback' | 'benefits' | 'records'
+
 // 互斥全屏 overlay 的状态机——同一时刻只有一个可见
 export type FullPageView =
   | { type: 'none' }
@@ -20,7 +22,7 @@ export type FullPageView =
   | { type: 'agentCenter' }
   | { type: 'betHistory' }
   | { type: 'ledgerRecords' }
-  | { type: 'cashback' }
+  | { type: 'vipCenter'; initialTab?: VipTab }
   | { type: 'spin' }
   | { type: 'kycSetting' }
   | { type: 'download' }
@@ -31,7 +33,7 @@ export function isImmersiveFullPage(view: FullPageView): boolean {
   return view.type === 'agentCenter'
     || view.type === 'betHistory'
     || view.type === 'ledgerRecords'
-    || view.type === 'cashback'
+    || view.type === 'vipCenter'
     || view.type === 'spin'
     || view.type === 'kycSetting'
     || view.type === 'download'
@@ -50,7 +52,7 @@ export function useFullPageOverlay() {
     openAgentCenter:   () => setView({ type: 'agentCenter' }),
     openBetHistory:    () => setView({ type: 'betHistory' }),
     openLedgerRecords: () => setView({ type: 'ledgerRecords' }),
-    openCashback:      () => setView({ type: 'cashback' }),
+    openVipCenter:     (initialTab?: VipTab) => setView({ type: 'vipCenter', initialTab }),
     openSpin:          () => setView({ type: 'spin' }),
     openKycSetting:    () => setView({ type: 'kycSetting' }),
     openDownload:      () => setView({ type: 'download' }),

@@ -36,6 +36,10 @@ export interface VipProgress {
   birthdaySet: boolean
 }
 
+export interface VipLevelConfig extends VipBenefit {
+  minTurnover: number
+}
+
 export interface VipReward {
   id: number
   level: number
@@ -53,6 +57,10 @@ export async function fetchVipProgress(currency?: string): Promise<VipProgress> 
   if (currency) params.set('currency', currency)
   const qs = params.toString()
   return apiRequest<VipProgress>(`/vip/progress${qs ? `?${qs}` : ''}`)
+}
+
+export async function fetchVipLevels(): Promise<{ levels: VipLevelConfig[] }> {
+  return apiRequest<{ levels: VipLevelConfig[] }>('/vip/levels')
 }
 
 export async function fetchVipRewards(): Promise<{ rewards: VipReward[] }> {

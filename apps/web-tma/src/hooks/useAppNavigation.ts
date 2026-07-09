@@ -10,7 +10,7 @@ import {
   type OverlayNavigateState,
   type TabId,
 } from '@/navigation/appRoutes'
-import type { CategoryLobbyParams, FullPageView } from '@/hooks/useFullPageOverlay'
+import type { CategoryLobbyParams, FullPageView, VipTab } from '@/hooks/useFullPageOverlay'
 
 function hasSameOriginReferrer() {
   if (typeof document === 'undefined' || !document.referrer) return false
@@ -132,7 +132,12 @@ export function useAppNavigation() {
   }, [pushOverlay])
 
   const openCashback = useCallback(() => {
-    pushOverlay('/cashback')
+    pushOverlay('/vip?tab=cashback')
+    window.scrollTo({ top: 0, behavior: 'instant' })
+  }, [pushOverlay])
+
+  const openVipCenter = useCallback((initialTab?: VipTab) => {
+    pushOverlay(initialTab ? `/vip?tab=${initialTab}` : '/vip')
     window.scrollTo({ top: 0, behavior: 'instant' })
   }, [pushOverlay])
 
@@ -189,6 +194,7 @@ export function useAppNavigation() {
     openLedgerRecords,
     openReferralPromo,
     openCashback,
+    openVipCenter,
     openSpin,
     openKycSetting,
     openDownload,

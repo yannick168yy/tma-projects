@@ -56,6 +56,10 @@ export interface VipProgress {
   birthdaySet: boolean
 }
 
+export interface VipLevelConfig extends VipBenefit {
+  minTurnover: number
+}
+
 function vgId(): string {
   return `VG_${Date.now()}_${randomBytes(3).toString('hex')}`
 }
@@ -116,6 +120,18 @@ export async function saveVipBenefits(env: Env, items: VipBenefit[]): Promise<vo
        it.negativeRebatePct, it.retentionLine, it.withdrawDailyLimit, it.withdrawDailyCount],
     )
   }
+}
+
+export async function getVipLevelConfig(env: Env): Promise<VipLevelConfig[]> {
+  if (!isMysqlEnabled(env)) return []
+  const [thresholds, benefits] = await Promise.all([
+    getLevelThresholds(env),
+    getVipBenefits(env),
+  ])
+  const thresholdMap = new Map(thresholds.map((t) => [t.level, t.minTurnover]))
+  return benefits
+    .map((b) => ({ ...b, minTurnover: thresholdMap.get(b.level) ?? 0 }))
+    .sort((a, b) => a.level - b.level)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

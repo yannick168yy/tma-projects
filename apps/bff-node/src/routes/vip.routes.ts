@@ -1,8 +1,13 @@
 import Router from '@koa/router'
 import { ok, fail } from '../utils/response.js'
-import { getUserVipProgress, listVipRewards, claimVipRewards, setUserBirthday } from '../services/vip.service.js'
+import { getUserVipProgress, listVipRewards, claimVipRewards, setUserBirthday, getVipLevelConfig } from '../services/vip.service.js'
 
 const router = new Router({ prefix: '/vip' })
+
+router.get('/levels', async (ctx) => {
+  const levels = await getVipLevelConfig(ctx.state.env)
+  ok(ctx, { levels })
+})
 
 // GET /vip/progress — 需要登录：当前等级 / 成长值 / 下一级 / 本级与下一级权益 / 可领取总额
 router.get('/progress', async (ctx) => {

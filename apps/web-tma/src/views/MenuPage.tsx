@@ -38,6 +38,7 @@ interface Props {
   onOpenLedgerRecords: () => void
   onOpenReferralPromo: () => void
   onOpenAgentCenter: () => void
+  onOpenVipCenter: () => void
   onOpenCashback: () => void
   onOpenTasks: () => void
   onOpenRewardsSpin: () => void
@@ -208,7 +209,7 @@ function BottomSheet({ title, children, onClose }: { title: string; children: Re
   )
 }
 
-export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory, onOpenLedgerRecords, onOpenReferralPromo, onOpenAgentCenter, onOpenCashback, onOpenTasks, onOpenRewardsSpin, onOpenKycSetting, onOpenDownload, onOpenTopUp, onOpenCashOut, onOpenWalletHistory }: Props) {
+export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory, onOpenLedgerRecords, onOpenReferralPromo, onOpenAgentCenter, onOpenVipCenter, onOpenCashback, onOpenTasks, onOpenRewardsSpin, onOpenKycSetting, onOpenDownload, onOpenTopUp, onOpenCashOut, onOpenWalletHistory }: Props) {
   const { t } = useTranslation()
   const auth = useAuthStore()
   const { locale, setLocale } = useLocaleStore()
@@ -243,8 +244,7 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
   const COMMUNITY_LINKS = [
     { icon: '24_official_channel', label: t('profile.links.channel'), sub: t('profile.links.channelSub') },
     { icon: '25_community_group', label: t('profile.links.community'), sub: t('profile.links.communitySub') },
-    // VIP 暂无独立成长体系页，先落到现有洗码等级页（P3 再建真 VIP 页），避免死链
-    { icon: '26_vip_club', label: t('profile.links.vip'), sub: t('profile.links.vipSub'), onClick: onOpenCashback },
+    { icon: '26_vip_club', label: t('profile.links.vip'), sub: t('profile.links.vipSub'), onClick: onOpenVipCenter },
     { icon: '27_facebook', label: t('profile.links.facebook'), sub: t('profile.links.facebookSub') },
   ]
   const DOCS = [

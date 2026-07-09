@@ -26,7 +26,8 @@ const OVERLAY_PATHS: Record<string, FullPageView['type']> = {
   '/bet-history': 'betHistory',
   '/rewards': 'ledgerRecords',
   '/referral': 'teamCenter',
-  '/cashback': 'cashback',
+  '/vip': 'vipCenter',
+  '/cashback': 'vipCenter',
   '/rewards-spin': 'spin',
   '/kyc-setting': 'kycSetting',
   '/download': 'download',
@@ -79,7 +80,14 @@ export function parseAppRoute(pathname: string, search: string): ParsedAppRoute 
   if (overlayType === 'agentCenter') return { kind: 'overlay', overlay: { type: 'agentCenter' } }
   if (overlayType === 'betHistory') return { kind: 'overlay', overlay: { type: 'betHistory' } }
   if (overlayType === 'ledgerRecords') return { kind: 'overlay', overlay: { type: 'ledgerRecords' } }
-  if (overlayType === 'cashback') return { kind: 'overlay', overlay: { type: 'cashback' } }
+  if (overlayType === 'vipCenter') {
+    const params = new URLSearchParams(search)
+    const rawTab = params.get('tab')
+    const initialTab = rawTab === 'cashback' || rawTab === 'benefits' || rawTab === 'records' || rawTab === 'overview'
+      ? rawTab
+      : pathname === '/cashback' ? 'cashback' : undefined
+    return { kind: 'overlay', overlay: { type: 'vipCenter', initialTab } }
+  }
   if (overlayType === 'spin') return { kind: 'overlay', overlay: { type: 'spin' } }
   if (overlayType === 'kycSetting') return { kind: 'overlay', overlay: { type: 'kycSetting' } }
   if (overlayType === 'download') return { kind: 'overlay', overlay: { type: 'download' } }
@@ -129,7 +137,7 @@ export function resolveHomeActionPath(actionType: string, actionValue: string | 
     case 'promo':
       return actionValue ? buildTabPath('bonuses', actionValue) : TAB_PATHS.bonuses
     case 'cashback':
-      return '/cashback'
+      return '/vip?tab=cashback'
     case 'spin':
       return '/rewards-spin'
     case 'lobby':
