@@ -31,6 +31,23 @@ function fingerprint(ctx: import('koa').Context): { deviceId?: string; fpVisitor
   return { deviceId, fpVisitor, fpSignals }
 }
 
+function hostFromHeader(raw: string): string | undefined {
+  const value = raw.trim()
+  if (!value) return undefined
+  try {
+    return new URL(value).hostname.slice(0, 255) || undefined
+  } catch {
+    return value.split('/')[0].split(':')[0].slice(0, 255) || undefined
+  }
+}
+
+function entrySource(ctx: import('koa').Context, forceTma = false): string | undefined {
+  if (forceTma) return 'tma'
+  return hostFromHeader(ctx.get('origin'))
+    ?? hostFromHeader(ctx.get('referer'))
+    ?? hostFromHeader(ctx.get('host'))
+}
+
 // 新注册用户按来源域名归因到代理（非致命，不阻塞登录）
 function attributeAgent(ctx: import('koa').Context, isNewUser: boolean, userId: string): void {
   if (!isNewUser) return
@@ -62,6 +79,8 @@ router.post('/telegram', async (ctx) => {
       ...fingerprint(ctx),
       userAgent: ctx.get('user-agent'),
       authMethod: 'telegram',
+      entrySource: entrySource(ctx, true),
+      isNewUser: result.isNewUser,
     }).catch(() => {})
   } catch (e) {
     if (e instanceof AuthError) {
@@ -102,6 +121,8 @@ router.post('/google', async (ctx) => {
       ...fingerprint(ctx),
       userAgent: ctx.get('user-agent'),
       authMethod: 'google',
+      entrySource: entrySource(ctx),
+      isNewUser: result.isNewUser,
     }).catch(() => {})
   } catch (e) {
     if (e instanceof AuthError) {
@@ -142,6 +163,8 @@ router.post('/telegram-oidc', async (ctx) => {
       ...fingerprint(ctx),
       userAgent: ctx.get('user-agent'),
       authMethod: 'telegram',
+      entrySource: entrySource(ctx),
+      isNewUser: result.isNewUser,
     }).catch(() => {})
   } catch (e) {
     if (e instanceof AuthError) {
@@ -180,6 +203,8 @@ router.post('/register', async (ctx) => {
       ...fingerprint(ctx),
       userAgent: ctx.get('user-agent'),
       authMethod: body.method,
+      entrySource: entrySource(ctx),
+      isNewUser: result.isNewUser,
     }).catch(() => {})
   } catch (e) {
     if (e instanceof AuthError) {
@@ -229,6 +254,8 @@ router.post('/login', async (ctx) => {
       ...fingerprint(ctx),
       userAgent: ctx.get('user-agent'),
       authMethod: body.method,
+      entrySource: entrySource(ctx),
+      isNewUser: result.isNewUser,
     }).catch(() => {})
   } catch (e) {
     if (e instanceof AuthError) {
@@ -309,6 +336,8 @@ router.post('/telegram-widget', async (ctx) => {
       ...fingerprint(ctx),
       userAgent: ctx.get('user-agent'),
       authMethod: 'telegram',
+      entrySource: entrySource(ctx),
+      isNewUser: result.isNewUser,
     }).catch(() => {})
   } catch (e) {
     if (e instanceof AuthError) {

@@ -100,6 +100,7 @@ export default function UserInfo({ detail, onSuccess }: Props) {
             <span>{String(u.registerRegion ?? '') || '-'}</span>
             {!!u.registerIp && <span style={{ marginLeft: 6 }}>{lookup('ip', u.registerIp)}</span>}
           </Descriptions.Item>
+          <Descriptions.Item label="注册入口">{String(u.registerEntrySource ?? '') || '-'}</Descriptions.Item>
           <Descriptions.Item label="注册设备">{lookup('deviceId', u.registerDeviceId)}</Descriptions.Item>
           <Descriptions.Item label="最后登录">{u.lastLoginAt ? fmtDate(String(u.lastLoginAt)) : '-'}</Descriptions.Item>
           <Descriptions.Item label="最后登录区域">

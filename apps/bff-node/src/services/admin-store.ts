@@ -339,9 +339,9 @@ export async function getLoginLogs(
   env: Env,
   userId: string,
   limit = 20,
-): Promise<{ id: number; ip: string | null; region: string | null; userAgent: string | null; authMethod: string; deviceId: string | null; fpVisitor: string | null; createdAt: string }[]> {
+): Promise<{ id: number; ip: string | null; region: string | null; userAgent: string | null; authMethod: string; entrySource: string | null; deviceId: string | null; fpVisitor: string | null; createdAt: string }[]> {
   const [rows] = await pool(env).query<RowDataPacket[]>(
-    `SELECT id, ip, region, user_agent, auth_method, device_id, fp_visitor, created_at FROM bg_login_log WHERE user_id = ? ORDER BY created_at DESC LIMIT ?`,
+    `SELECT id, ip, region, user_agent, auth_method, entry_source, device_id, fp_visitor, created_at FROM bg_login_log WHERE user_id = ? ORDER BY created_at DESC LIMIT ?`,
     [userId, limit],
   )
   return rows.map((r) => ({
@@ -350,6 +350,7 @@ export async function getLoginLogs(
     region: r.region ? String(r.region) : null,
     userAgent: r.user_agent ? String(r.user_agent) : null,
     authMethod: String(r.auth_method),
+    entrySource: r.entry_source ? String(r.entry_source) : null,
     deviceId: r.device_id ? String(r.device_id) : null,
     fpVisitor: r.fp_visitor ? String(r.fp_visitor) : null,
     createdAt: new Date(r.created_at as Date).toISOString(),
@@ -363,7 +364,7 @@ export async function lookupLoginByValue(
 ): Promise<{
   value: string
   accounts: { userId: string; displayName: string; status: string; loginCount: number; firstSeen: string; lastSeen: string }[]
-  logs: { id: number; userId: string; ip: string | null; region: string | null; userAgent: string | null; authMethod: string; deviceId: string | null; fpVisitor: string | null; createdAt: string }[]
+  logs: { id: number; userId: string; ip: string | null; region: string | null; userAgent: string | null; authMethod: string; entrySource: string | null; deviceId: string | null; fpVisitor: string | null; createdAt: string }[]
 }> {
   if (!value) return { value, accounts: [], logs: [] }
   const p = pool(env)
@@ -378,7 +379,7 @@ export async function lookupLoginByValue(
     args,
   )
   const [logRows] = await p.query<RowDataPacket[]>(
-    `SELECT id, user_id, ip, region, user_agent, auth_method, device_id, fp_visitor, created_at
+    `SELECT id, user_id, ip, region, user_agent, auth_method, entry_source, device_id, fp_visitor, created_at
      FROM bg_login_log l WHERE ${match} ORDER BY created_at DESC LIMIT 200`,
     args,
   )
@@ -399,6 +400,7 @@ export async function lookupLoginByValue(
       region: r.region ? String(r.region) : null,
       userAgent: r.user_agent ? String(r.user_agent) : null,
       authMethod: String(r.auth_method),
+      entrySource: r.entry_source ? String(r.entry_source) : null,
       deviceId: r.device_id ? String(r.device_id) : null,
       fpVisitor: r.fp_visitor ? String(r.fp_visitor) : null,
       createdAt: new Date(r.created_at as Date).toISOString(),

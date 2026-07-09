@@ -38,6 +38,7 @@ type UserRow = RowDataPacket & {
   last_login_region: string | null
   register_ip: string | null
   register_region: string | null
+  register_entry_source: string | null
   register_device_id: string | null
   registered_at: Date
   trial_claimed: number
@@ -79,6 +80,7 @@ function mapUser(row: UserRow): UserRecord {
     lastLoginRegion: row.last_login_region ?? undefined,
     registerIp: row.register_ip ?? undefined,
     registerRegion: row.register_region ?? undefined,
+    registerEntrySource: row.register_entry_source ?? undefined,
     registerDeviceId: row.register_device_id ?? undefined,
     registeredAt: new Date(row.registered_at).toISOString(),
     trialClaimed: Boolean(row.trial_claimed),
@@ -125,8 +127,8 @@ export async function saveUser(env: Env, user: UserRecord): Promise<void> {
   try {
     await conn.beginTransaction()
     await conn.execute(
-      `INSERT INTO bg_user (id, email, display_name, avatar_url, invite_code, inviter_id, locale, status, status_reason, label, register_ip, register_region, registered_at)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
+      `INSERT INTO bg_user (id, email, display_name, avatar_url, invite_code, inviter_id, locale, status, status_reason, label, register_ip, register_region, register_entry_source, registered_at)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
        ON DUPLICATE KEY UPDATE
          display_name=VALUES(display_name), avatar_url=VALUES(avatar_url), email=VALUES(email),
          locale=VALUES(locale), status=VALUES(status), status_reason=VALUES(status_reason),
@@ -144,6 +146,7 @@ export async function saveUser(env: Env, user: UserRecord): Promise<void> {
         user.label ?? 'normal',
         user.registerIp ?? null,
         user.registerRegion ?? null,
+        user.registerEntrySource ?? null,
         new Date(user.registeredAt),
       ],
     )
@@ -831,19 +834,25 @@ export const listWithdrawals = listOrderWithdrawals
 export async function recordUserLogin(
   env: Env,
   userId: string,
-  opts: { ip?: string; region?: string; userAgent?: string; authMethod?: string; deviceId?: string; fpVisitor?: string; fpSignals?: string },
+  opts: { ip?: string; region?: string; userAgent?: string; authMethod?: string; deviceId?: string; fpVisitor?: string; fpSignals?: string; entrySource?: string; isNewUser?: boolean },
 ): Promise<void> {
   const conn = await pool(env).getConnection()
   try {
     await conn.beginTransaction()
     // register_device_id 用 COALESCE：仅首次为空时写入，记录"注册/首见设备"锚点，后续登录不覆盖
     await conn.execute(
-      `UPDATE bg_user SET last_login_at = NOW(3), last_login_ip = ?, last_login_region = ?, register_device_id = COALESCE(register_device_id, ?) WHERE id = ?`,
-      [opts.ip ?? null, opts.region ?? null, opts.deviceId ?? null, userId],
+      `UPDATE bg_user
+       SET last_login_at = NOW(3),
+           last_login_ip = ?,
+           last_login_region = ?,
+           register_device_id = COALESCE(register_device_id, ?),
+           register_entry_source = IF(? = 1, COALESCE(register_entry_source, ?), register_entry_source)
+       WHERE id = ?`,
+      [opts.ip ?? null, opts.region ?? null, opts.deviceId ?? null, opts.isNewUser ? 1 : 0, opts.entrySource ?? null, userId],
     )
     await conn.execute(
-      `INSERT INTO bg_login_log (user_id, ip, region, user_agent, auth_method, device_id, fp_visitor, fp_signals) VALUES (?,?,?,?,?,?,?,?)`,
-      [userId, opts.ip ?? null, opts.region ?? null, opts.userAgent?.slice(0, 512) ?? null, opts.authMethod ?? 'telegram', opts.deviceId ?? null, opts.fpVisitor ?? null, opts.fpSignals ?? null],
+      `INSERT INTO bg_login_log (user_id, ip, region, user_agent, auth_method, entry_source, device_id, fp_visitor, fp_signals) VALUES (?,?,?,?,?,?,?,?,?)`,
+      [userId, opts.ip ?? null, opts.region ?? null, opts.userAgent?.slice(0, 512) ?? null, opts.authMethod ?? 'telegram', opts.entrySource?.slice(0, 255) ?? null, opts.deviceId ?? null, opts.fpVisitor ?? null, opts.fpSignals ?? null],
     )
     await conn.commit()
   } catch (e) {

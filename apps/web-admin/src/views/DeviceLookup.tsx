@@ -56,6 +56,7 @@ export default function DeviceLookup() {
     { title: '时间', dataIndex: 'createdAt', key: 'createdAt', width: 160, render: fmt },
     { title: '账号', dataIndex: 'userId', key: 'userId', width: 110, render: (v: string) => <Button type="link" size="small" style={{ padding: 0 }} onClick={() => navigate(`/users/${v}`)}>{v}</Button> },
     { title: '方式', dataIndex: 'authMethod', key: 'authMethod', width: 80 },
+    { title: '入口', dataIndex: 'entrySource', key: 'entrySource', width: 130, render: (v: string | null) => v || '-' },
     { title: 'IP', dataIndex: 'ip', key: 'ip', width: 130, render: (v: string | null) => lookupLink(v) },
     { title: '区域', dataIndex: 'region', key: 'region', width: 120, render: (v: string | null) => v || '-' },
     { title: '设备ID', dataIndex: 'deviceId', key: 'deviceId', width: 150, ellipsis: true, render: (v: string | null) => lookupLink(v) },

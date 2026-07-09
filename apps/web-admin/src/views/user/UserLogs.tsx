@@ -68,6 +68,7 @@ export default function UserLogs({ userId, detail }: Props) {
   ]
   const loginCols = [
     { title: '登录方式', dataIndex: 'authMethod', key: 'method', width: 90 },
+    { title: '入口', dataIndex: 'entrySource', key: 'entrySource', width: 130, render: (v: string | null) => v || '-' },
     { title: 'IP', dataIndex: 'ip', key: 'ip', width: 120, render: (v: string | null) => lookup('ip', v) },
     { title: '区域', dataIndex: 'region', key: 'region', width: 130, render: (v: string | null) => v || '-' },
     { title: '设备ID', dataIndex: 'deviceId', key: 'deviceId', width: 140, ellipsis: true, render: (v: string | null) => lookup('deviceId', v) },
