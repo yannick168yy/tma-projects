@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 import HomeCategoryShortcut from '@/components/home/HomeCategoryShortcut'
 import GameCardV2 from '@/components/home/GameCardV2'
+import TaskFloatBall from '@/components/tasks/TaskFloatBall'
 import { WINNERS, INFO_LINKS } from '@/data/home'
 import { fetchHomepageGames, fetchGames, fetchGameHistory, launchGame, fetchBettingActivity, type SlotGame, type BetRecord, type BetTab, type GameHistoryItem } from '@/api/slots'
 import { fetchHomeContent, type HomeSocialLink } from '@/api/home'
@@ -1010,6 +1011,7 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
         onOpenCashback={onOpenCashback}
         onOpenCheckin={onOpenCheckin}
       />
+      <TaskFloatBall onNavigatePath={onNavigatePath} />
     </div>
   )
 }

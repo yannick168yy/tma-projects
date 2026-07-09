@@ -436,6 +436,11 @@ export default {
       vipSub: 'View VIP level, benefits, growth progress and reward records',
       vipBtn: 'View VIP',
     },
+    ball: {
+      label: 'Tasks',
+      short: 'Tasks',
+      close: 'Close task ball',
+    },
     claim: 'Claim',
     claiming: 'Claiming…',
     claimed: 'Claimed',

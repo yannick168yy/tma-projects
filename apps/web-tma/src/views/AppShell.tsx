@@ -607,7 +607,7 @@ export default function AppShell() {
               >
                 <ChevronLeft size={20} />
               </button>
-              <TasksPage onNavigate={(target) => {
+              <TasksPage initialPath={view.initialPath} onNavigate={(target) => {
                 if (target === 'checkin') { void onOpenCheckin(); return }
                 if (target === 'vip_center') { openVipCenter(); return }
                 if (target === 'trial_bonus') { void openTrialBonus(); return }

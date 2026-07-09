@@ -10,7 +10,7 @@ import {
   type OverlayNavigateState,
   type TabId,
 } from '@/navigation/appRoutes'
-import type { CategoryLobbyParams, FullPageView, VipTab } from '@/hooks/useFullPageOverlay'
+import type { CategoryLobbyParams, FullPageView, TaskInitialPath, VipTab } from '@/hooks/useFullPageOverlay'
 
 function hasSameOriginReferrer() {
   if (typeof document === 'undefined' || !document.referrer) return false
@@ -156,8 +156,8 @@ export function useAppNavigation() {
     window.scrollTo({ top: 0, behavior: 'instant' })
   }, [pushOverlay])
 
-  const openTasks = useCallback(() => {
-    pushOverlay('/tasks')
+  const openTasks = useCallback((initialPath?: TaskInitialPath) => {
+    pushOverlay(initialPath ? `/tasks?tab=${initialPath}` : '/tasks')
     window.scrollTo({ top: 0, behavior: 'instant' })
   }, [pushOverlay])
 

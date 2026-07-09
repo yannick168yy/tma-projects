@@ -426,6 +426,11 @@ export default {
       vipSub: '查看 VIP 等级、权益、成长进度和礼金记录',
       vipBtn: '查看 VIP',
     },
+    ball: {
+      label: '任务',
+      short: '任务',
+      close: '关闭任务球',
+    },
     claim: '领取',
     claiming: '领取中…',
     claimed: '已领取',

@@ -10,12 +10,12 @@ import { useWalletStore, formatCurrencyAmount } from '@/stores/wallet'
 import { ApiError } from '@/api/client'
 import BindModal from '@/components/auth/BindModal'
 
-type TaskPath = 'newbie' | 'daily' | 'growth' | 'social'
+export type TaskPath = 'newbie' | 'daily' | 'growth' | 'social'
 
 const PATHS: TaskPath[] = ['newbie', 'daily', 'growth', 'social']
 const EMPTY_CENTER: TaskCenter = { groups: { newbie: [], daily: [], achievement: [], social: [] } }
 
-export default function TasksPage({ onNavigate }: { onNavigate?: (target: string) => void }) {
+export default function TasksPage({ initialPath = 'newbie', onNavigate }: { initialPath?: TaskPath; onNavigate?: (target: string) => void }) {
   const { t } = useTranslation()
   const auth = useAuthStore()
   const [center, setCenter] = useState<TaskCenter | null>(null)
@@ -28,6 +28,7 @@ export default function TasksPage({ onNavigate }: { onNavigate?: (target: string
     try { setCenter(await fetchTaskCenter()) } catch { setCenter(EMPTY_CENTER) }
   }, [])
   useEffect(() => { void load() }, [load])
+  useEffect(() => { setActivePath(initialPath) }, [initialPath])
 
   const groups = center?.groups ?? EMPTY_CENTER.groups
   const allCards = useMemo(

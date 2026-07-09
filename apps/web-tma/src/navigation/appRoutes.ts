@@ -1,4 +1,4 @@
-import type { CategoryLobbyParams } from '@/hooks/useFullPageOverlay'
+import type { CategoryLobbyParams, TaskInitialPath } from '@/hooks/useFullPageOverlay'
 import type { FullPageView } from '@/hooks/useFullPageOverlay'
 
 export type TabId = 'casino' | 'games' | 'bonuses' | 'menu'
@@ -93,7 +93,11 @@ export function parseAppRoute(pathname: string, search: string): ParsedAppRoute 
   if (overlayType === 'spin') return { kind: 'overlay', overlay: { type: 'spin' } }
   if (overlayType === 'kycSetting') return { kind: 'overlay', overlay: { type: 'kycSetting' } }
   if (overlayType === 'download') return { kind: 'overlay', overlay: { type: 'download' } }
-  if (overlayType === 'tasks') return { kind: 'overlay', overlay: { type: 'tasks' } }
+  if (overlayType === 'tasks') {
+    const rawTab = new URLSearchParams(search).get('tab')
+    const initialPath: TaskInitialPath | undefined = rawTab === 'newbie' || rawTab === 'daily' || rawTab === 'social' ? rawTab : undefined
+    return { kind: 'overlay', overlay: { type: 'tasks', initialPath } }
+  }
 
   if (pathname.startsWith('/slots/')) {
     return { kind: 'overlay', overlay: parseCategoryLobby(pathname, new URLSearchParams(search)) }

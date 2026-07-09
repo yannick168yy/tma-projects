@@ -10,6 +10,7 @@ export type CategoryLobbyParams = {
 }
 
 export type VipTab = 'overview' | 'cashback' | 'benefits' | 'records'
+export type TaskInitialPath = 'newbie' | 'daily' | 'social'
 
 // 互斥全屏 overlay 的状态机——同一时刻只有一个可见
 export type FullPageView =
@@ -27,7 +28,7 @@ export type FullPageView =
   | { type: 'spin' }
   | { type: 'kycSetting' }
   | { type: 'download' }
-  | { type: 'tasks' }
+  | { type: 'tasks'; initialPath?: TaskInitialPath }
 
 /** 全屏专题页：走 document/body 滚动，勿用 fixed + 内部 overflow-y-auto */
 export function isImmersiveFullPage(view: FullPageView): boolean {
@@ -59,7 +60,7 @@ export function useFullPageOverlay() {
     openSpin:          () => setView({ type: 'spin' }),
     openKycSetting:    () => setView({ type: 'kycSetting' }),
     openDownload:      () => setView({ type: 'download' }),
-    openTasks:         () => setView({ type: 'tasks' }),
+    openTasks:         (initialPath?: TaskInitialPath) => setView({ type: 'tasks', initialPath }),
     close:             () => setView({ type: 'none' }),
     is: (t: FullPageView['type']) => view.type === t,
   }
