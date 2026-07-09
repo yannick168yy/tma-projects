@@ -31,7 +31,7 @@ const NATIVE_TASKS: NativeTaskDef[] = [
   { id: 'daily_deposit',    group: 'daily',  period: 'daily', title: '今日完成一笔存款', subtitle: '当日成功充值达标即可领取', useThreshold: true, todoTarget: 'deposit' },
   { id: 'profile_complete', group: 'newbie', period: 'once',  title: '完善资料 / 绑定邮箱', subtitle: '绑定邮箱、完善账户资料', todoTarget: 'bind_profile' },
   { id: 'first_game',       group: 'newbie', period: 'once',  title: '首次游戏下注',     subtitle: '体验任意游戏并完成一笔下注', todoTarget: 'games' },
-  { id: 'invite_milestone', group: 'achievement', period: 'once', title: '邀请好友', subtitle: '成功邀请好友注册达标领奖', useThreshold: true, todoTarget: 'team_center' },
+  { id: 'invite_milestone', group: 'newbie', period: 'once', title: '邀请好友', subtitle: '成功邀请好友注册达标领奖', useThreshold: true, todoTarget: 'team_center' },
 ]
 
 const NATIVE_BY_ID = new Map(NATIVE_TASKS.map((t) => [t.id, t]))

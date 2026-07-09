@@ -425,7 +425,7 @@ export default {
       newbie: 'Complete setup and unlock your first rewards',
       daily: 'Build a daily routine and collect repeat rewards',
       growth: 'Earn growth value from tasks and check VIP progress',
-      social: 'Connect channels and grow your community rewards',
+      social: 'Follow our official Telegram, Facebook, and Viber channels',
     },
     tree: {
       todayPath: 'Today’s Path',

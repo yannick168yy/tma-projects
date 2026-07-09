@@ -38,12 +38,11 @@ export default function TasksPage({ onNavigate }: { onNavigate?: (target: string
   const pathCards = useMemo(() => {
     const growthIds = new Set(allCards.filter((card) => card.reward.type === 'growth').map((card) => card.id))
     const dailyMilestones = groups.achievement.filter((card) => card.id.startsWith('agg_checkin_ms'))
-    const socialMilestones = groups.achievement.filter((card) => card.id === 'invite_milestone')
     return {
       newbie: groups.newbie.filter((card) => !growthIds.has(card.id)),
       daily: [...groups.daily, ...dailyMilestones].filter((card) => !growthIds.has(card.id)),
       growth: allCards.filter((card) => card.reward.type === 'growth'),
-      social: [...groups.social, ...socialMilestones].filter((card) => !growthIds.has(card.id)),
+      social: groups.social.filter((card) => !growthIds.has(card.id)),
     } satisfies Record<TaskPath, TaskCard[]>
   }, [allCards, groups])
 

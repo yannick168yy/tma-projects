@@ -415,7 +415,7 @@ export default {
       newbie: '完成账户起步任务，解锁第一批奖励',
       daily: '建立每日习惯，领取可重复奖励',
       growth: '通过任务获得成长值，并查看 VIP 进度',
-      social: '连接官方渠道，推进社群与邀请奖励',
+      social: '关注官方 Telegram、Facebook、Viber 渠道',
     },
     tree: {
       todayPath: '今日任务路径',
