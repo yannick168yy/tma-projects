@@ -22,6 +22,7 @@ export type FullPageView =
   | { type: 'agentCenter' }
   | { type: 'betHistory' }
   | { type: 'ledgerRecords' }
+  | { type: 'rebate' }
   | { type: 'vipCenter'; initialTab?: VipTab }
   | { type: 'spin' }
   | { type: 'kycSetting' }
@@ -33,6 +34,7 @@ export function isImmersiveFullPage(view: FullPageView): boolean {
   return view.type === 'agentCenter'
     || view.type === 'betHistory'
     || view.type === 'ledgerRecords'
+    || view.type === 'rebate'
     || view.type === 'vipCenter'
     || view.type === 'spin'
     || view.type === 'kycSetting'
@@ -52,6 +54,7 @@ export function useFullPageOverlay() {
     openAgentCenter:   () => setView({ type: 'agentCenter' }),
     openBetHistory:    () => setView({ type: 'betHistory' }),
     openLedgerRecords: () => setView({ type: 'ledgerRecords' }),
+    openRebate:        () => setView({ type: 'rebate' }),
     openVipCenter:     (initialTab?: VipTab) => setView({ type: 'vipCenter', initialTab }),
     openSpin:          () => setView({ type: 'spin' }),
     openKycSetting:    () => setView({ type: 'kycSetting' }),

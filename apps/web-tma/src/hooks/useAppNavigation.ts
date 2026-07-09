@@ -132,7 +132,7 @@ export function useAppNavigation() {
   }, [pushOverlay])
 
   const openCashback = useCallback(() => {
-    pushOverlay('/vip?tab=cashback')
+    pushOverlay('/rebate')
     window.scrollTo({ top: 0, behavior: 'instant' })
   }, [pushOverlay])
 

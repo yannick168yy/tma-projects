@@ -26,8 +26,9 @@ const OVERLAY_PATHS: Record<string, FullPageView['type']> = {
   '/bet-history': 'betHistory',
   '/rewards': 'ledgerRecords',
   '/referral': 'teamCenter',
+  '/rebate': 'rebate',
   '/vip': 'vipCenter',
-  '/cashback': 'vipCenter',
+  '/cashback': 'rebate',
   '/rewards-spin': 'spin',
   '/kyc-setting': 'kycSetting',
   '/download': 'download',
@@ -80,12 +81,13 @@ export function parseAppRoute(pathname: string, search: string): ParsedAppRoute 
   if (overlayType === 'agentCenter') return { kind: 'overlay', overlay: { type: 'agentCenter' } }
   if (overlayType === 'betHistory') return { kind: 'overlay', overlay: { type: 'betHistory' } }
   if (overlayType === 'ledgerRecords') return { kind: 'overlay', overlay: { type: 'ledgerRecords' } }
+  if (overlayType === 'rebate') return { kind: 'overlay', overlay: { type: 'rebate' } }
   if (overlayType === 'vipCenter') {
     const params = new URLSearchParams(search)
     const rawTab = params.get('tab')
     const initialTab = rawTab === 'cashback' || rawTab === 'benefits' || rawTab === 'records' || rawTab === 'overview'
       ? rawTab
-      : pathname === '/cashback' ? 'cashback' : undefined
+      : undefined
     return { kind: 'overlay', overlay: { type: 'vipCenter', initialTab } }
   }
   if (overlayType === 'spin') return { kind: 'overlay', overlay: { type: 'spin' } }
@@ -137,7 +139,7 @@ export function resolveHomeActionPath(actionType: string, actionValue: string | 
     case 'promo':
       return actionValue ? buildTabPath('bonuses', actionValue) : TAB_PATHS.bonuses
     case 'cashback':
-      return '/vip?tab=cashback'
+      return '/rebate'
     case 'spin':
       return '/rewards-spin'
     case 'lobby':

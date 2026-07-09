@@ -38,6 +38,7 @@ const AgentCenterPage = lazyWithReload(() => import('@/views/AgentCenterPage'))
 const KycSettingPage = lazyWithReload(() => import('@/views/KycSettingPage'))
 const BetHistoryPage = lazyWithReload(() => import('@/views/BetHistoryPage'))
 const LedgerRecordsPage = lazyWithReload(() => import('@/views/LedgerRecordsPage'))
+const RebatePage = lazyWithReload(() => import('@/views/RebatePage'))
 const VipPage = lazyWithReload(() => import('@/views/VipPage'))
 const RewardsSpinPage = lazyWithReload(() => import('@/views/RewardsSpinPage'))
 const GamePlayer = lazyWithReload(() => import('@/components/GamePlayer'))
@@ -568,6 +569,18 @@ export default function AppShell() {
           {view.type === 'ledgerRecords' && (
             <div className="app-safe-header">
               <LedgerRecordsPage onClose={closeImmersive} />
+            </div>
+          )}
+          {view.type === 'rebate' && (
+            <div className="relative">
+              <button
+                type="button"
+                className="cashback-back-btn absolute left-3 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur-sm border border-white/15 active:scale-95 transition-transform"
+                onClick={closeImmersive}
+              >
+                <ChevronLeft size={20} />
+              </button>
+              <RebatePage onOpenGame={(url) => setGamePlayerUrl(url)} onOpenCategory={onOpenCategoryLobby} />
             </div>
           )}
           {view.type === 'vipCenter' && (
