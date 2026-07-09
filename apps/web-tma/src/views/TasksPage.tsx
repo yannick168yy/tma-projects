@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { CheckCircle2, Circle, Crown, Lock, Milestone, Sparkles } from 'lucide-react'
+import { CheckCircle2, Circle, Lock, Milestone, Sparkles } from 'lucide-react'
 import {
   fetchTaskCenter, claimTask, claimSocialTask,
   type TaskCenter, type TaskCard,
@@ -10,9 +10,9 @@ import { useWalletStore, formatCurrencyAmount } from '@/stores/wallet'
 import { ApiError } from '@/api/client'
 import BindModal from '@/components/auth/BindModal'
 
-export type TaskPath = 'newbie' | 'daily' | 'growth' | 'social'
+export type TaskPath = 'newbie' | 'daily' | 'social'
 
-const PATHS: TaskPath[] = ['newbie', 'daily', 'growth', 'social']
+const PATHS: TaskPath[] = ['newbie', 'daily', 'social']
 const EMPTY_CENTER: TaskCenter = { groups: { newbie: [], daily: [], achievement: [], social: [] } }
 
 export default function TasksPage({ initialPath = 'newbie', onNavigate }: { initialPath?: TaskPath; onNavigate?: (target: string) => void }) {
@@ -42,7 +42,6 @@ export default function TasksPage({ initialPath = 'newbie', onNavigate }: { init
     return {
       newbie: groups.newbie.filter((card) => !growthIds.has(card.id)),
       daily: [...groups.daily, ...dailyMilestones].filter((card) => !growthIds.has(card.id)),
-      growth: allCards.filter((card) => card.reward.type === 'growth'),
       social: groups.social.filter((card) => !growthIds.has(card.id)),
     } satisfies Record<TaskPath, TaskCard[]>
   }, [allCards, groups])
@@ -194,7 +193,7 @@ export default function TasksPage({ initialPath = 'newbie', onNavigate }: { init
   function renderTabs() {
     return (
       <div className="sticky top-0 z-10 bg-[#050403]/92 px-4 py-3 backdrop-blur">
-        <div className="grid grid-cols-4 rounded-xl border border-amber-300/18 bg-black/25 p-1">
+        <div className="grid grid-cols-3 rounded-xl border border-amber-300/18 bg-black/25 p-1">
           {PATHS.map((path) => (
             <button
               key={path}
@@ -287,38 +286,9 @@ export default function TasksPage({ initialPath = 'newbie', onNavigate }: { init
     )
   }
 
-  function renderVipNode(index: number, total: number) {
-    return (
-      <div className="relative flex gap-3">
-        <div className="flex w-8 flex-shrink-0 flex-col items-center">
-          <span className="z-[1] flex h-8 w-8 items-center justify-center rounded-full border border-amber-300/55 bg-amber-300/12 text-amber-300">
-            <Crown size={16} />
-          </span>
-          {index < total - 1 && <span className="mt-1 h-full min-h-8 w-px bg-gradient-to-b from-amber-300/35 to-amber-300/8" />}
-        </div>
-        <div className="mb-3 min-w-0 flex-1 rounded-2xl border border-amber-300/22 bg-[#0c0905]/76 px-4 py-3.5">
-          <div className="flex items-center justify-between gap-3">
-            <div className="min-w-0">
-              <p className="truncate text-sm font-black text-amber-50">{t('tasks.tree.vipTitle')}</p>
-              <p className="mt-0.5 line-clamp-2 text-xs text-amber-200/62">{t('tasks.tree.vipSub')}</p>
-            </div>
-            <button
-              type="button"
-              onClick={() => onNavigate?.('vip_center')}
-              className="flex-shrink-0 rounded-full bg-gradient-to-b from-amber-300 to-yellow-500 px-4 py-2 text-xs font-black text-[#2a1a05] active:scale-95"
-            >
-              {t('tasks.tree.vipBtn')}
-            </button>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
   function renderPath() {
     const cards = pathCards[activePath]
-    const hasVipNode = activePath === 'growth'
-    const totalNodes = cards.length + (hasVipNode ? 1 : 0)
+    const totalNodes = cards.length
     return (
       <section className="px-4 pb-10">
         <div className="mb-3 flex items-center justify-between">
@@ -338,7 +308,6 @@ export default function TasksPage({ initialPath = 'newbie', onNavigate }: { init
         ) : (
           <div>
             {cards.map((card, index) => renderTaskNode(card, index, totalNodes))}
-            {hasVipNode && renderVipNode(cards.length, totalNodes)}
           </div>
         )}
       </section>
