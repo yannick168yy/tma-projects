@@ -438,7 +438,6 @@ export default {
       daily_login: { title: 'Daily Login', subtitle: 'Log in every day to claim' },
       daily_deposit: { title: 'Deposit Today', subtitle: 'Make a deposit today to claim' },
       profile_complete: { title: 'Complete Profile', subtitle: 'Bind email & complete your account' },
-      first_withdraw: { title: 'First Withdrawal', subtitle: 'Complete your first withdrawal' },
       first_game: { title: 'First Bet', subtitle: 'Play any game and place a bet' },
       invite_milestone: { title: 'Invite Friends', subtitle: 'Invite friends to register to claim' },
       agg_trial: { title: 'Claim Newbie Bonus', subtitle: 'Verify phone to claim' },

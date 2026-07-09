@@ -428,7 +428,6 @@ export default {
       daily_login: { title: '每日登录', subtitle: '每天登录即可领取' },
       daily_deposit: { title: '今日完成一笔存款', subtitle: '当日成功充值达标即可领取' },
       profile_complete: { title: '完善资料 / 绑定邮箱', subtitle: '绑定邮箱、完善账户资料' },
-      first_withdraw: { title: '首次提现', subtitle: '完成首笔提现' },
       first_game: { title: '首次游戏下注', subtitle: '体验任意游戏并完成一笔下注' },
       invite_milestone: { title: '邀请好友', subtitle: '成功邀请好友注册达标领奖' },
       agg_trial: { title: '领取新手体验金', subtitle: '完成手机验证即可领取' },

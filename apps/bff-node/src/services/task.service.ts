@@ -23,15 +23,15 @@ interface NativeTaskDef {
   subtitle: string
   /** 需要阈值的任务（如今日存款满 Y），threshold 生效；0=任意即达标 */
   useThreshold?: boolean
+  todoTarget?: string
 }
 
 const NATIVE_TASKS: NativeTaskDef[] = [
   { id: 'daily_login',      group: 'daily',  period: 'daily', title: '每日登录',        subtitle: '每天登录即可领取' },
-  { id: 'daily_deposit',    group: 'daily',  period: 'daily', title: '今日完成一笔存款', subtitle: '当日成功充值达标即可领取', useThreshold: true },
-  { id: 'profile_complete', group: 'newbie', period: 'once',  title: '完善资料 / 绑定邮箱', subtitle: '绑定邮箱、完善账户资料' },
-  { id: 'first_withdraw',   group: 'newbie', period: 'once',  title: '首次提现',        subtitle: '完成首笔提现' },
-  { id: 'first_game',       group: 'newbie', period: 'once',  title: '首次游戏下注',     subtitle: '体验任意游戏并完成一笔下注' },
-  { id: 'invite_milestone', group: 'achievement', period: 'once', title: '邀请好友', subtitle: '成功邀请好友注册达标领奖', useThreshold: true },
+  { id: 'daily_deposit',    group: 'daily',  period: 'daily', title: '今日完成一笔存款', subtitle: '当日成功充值达标即可领取', useThreshold: true, todoTarget: 'deposit' },
+  { id: 'profile_complete', group: 'newbie', period: 'once',  title: '完善资料 / 绑定邮箱', subtitle: '绑定邮箱、完善账户资料', todoTarget: 'bind_profile' },
+  { id: 'first_game',       group: 'newbie', period: 'once',  title: '首次游戏下注',     subtitle: '体验任意游戏并完成一笔下注', todoTarget: 'games' },
+  { id: 'invite_milestone', group: 'achievement', period: 'once', title: '邀请好友', subtitle: '成功邀请好友注册达标领奖', useThreshold: true, todoTarget: 'team_center' },
 ]
 
 const NATIVE_BY_ID = new Map(NATIVE_TASKS.map((t) => [t.id, t]))
@@ -60,7 +60,6 @@ export const DEFAULT_TASK_CONFIG: TaskConfig = {
   daily_login:      { enabled: true, rewardType: 'spin', amount: 0,  spin: 1, turnoverX: 0, currency: 'PHP', threshold: 0 },
   daily_deposit:    { enabled: true, rewardType: 'cash', amount: 5,  spin: 0, turnoverX: 3, currency: 'PHP', threshold: 100 },
   profile_complete: { enabled: true, rewardType: 'cash', amount: 5,  spin: 0, turnoverX: 3, currency: 'PHP', threshold: 0 },
-  first_withdraw:   { enabled: true, rewardType: 'cash', amount: 10, spin: 0, turnoverX: 3, currency: 'PHP', threshold: 0 },
   first_game:       { enabled: true, rewardType: 'cash', amount: 5,  spin: 0, turnoverX: 3, currency: 'PHP', threshold: 0 },
   invite_milestone: { enabled: true, rewardType: 'cash', amount: 20, spin: 0, turnoverX: 3, currency: 'PHP', threshold: 1 },
 }
@@ -131,14 +130,6 @@ async function depositMetToday(pool: Pool, userId: string, date: string, thresho
   return Number(row?.total ?? 0) >= Math.max(0, threshold)
 }
 
-async function hasCompletedWithdraw(pool: Pool, userId: string): Promise<boolean> {
-  const [[row]] = await pool.query<RowDataPacket[]>(
-    `SELECT 1 AS ok FROM bg_withdraw_order WHERE user_id = ? AND status = 'completed' LIMIT 1`,
-    [userId],
-  )
-  return Boolean(row)
-}
-
 async function hasBet(pool: Pool, userId: string): Promise<boolean> {
   const [[row]] = await pool.query<RowDataPacket[]>(
     `SELECT 1 AS ok FROM bg_bet_order WHERE user_id = ? AND bet_type = 'bet' LIMIT 1`,
@@ -162,7 +153,6 @@ async function isEligible(env: Env, userId: string, def: NativeTaskDef, cfg: Tas
     case 'daily_login':      return true // 能调到本接口即已登录
     case 'daily_deposit':    return depositMetToday(pool, userId, manilaToday(), cfg.threshold)
     case 'profile_complete': { const u = await getUser(env, userId); return Boolean(u?.email) }
-    case 'first_withdraw':   return hasCompletedWithdraw(pool, userId)
     case 'first_game':       return hasBet(pool, userId)
     case 'invite_milestone': return (await inviteeCount(pool, userId)) >= Math.max(1, cfg.threshold)
     default: return false
@@ -247,7 +237,7 @@ export interface TaskCard {
   progress?: { current: number; target: number }
   /**
    * 动作：claim=原生领取；goto=社群外链;bind_telegram/code_redeem/manual_review=社群验证;
-   * open_module=聚合的老模块卡，跳到各自入口（target=checkin/bonuses/vip_center），不由任务引擎领取
+   * open_module=跳到既有入口，不由任务引擎领取（如 checkin/deposit/games/team_center）
    */
   action: { kind: 'claim' | 'goto' | 'bind_telegram' | 'code_redeem' | 'manual_review' | 'open_module'; url?: string; target?: string; verifyStrategy?: string }
 }
@@ -306,7 +296,9 @@ export async function getTaskCenter(env: Env, userId: string): Promise<TaskCente
     cards.push({
       id: def.id, group: def.group, title: def.title, subtitle: def.subtitle, status, progress,
       reward: { type: c.rewardType, amount: c.amount, spin: c.spin, currency: c.currency, turnoverX: c.turnoverX },
-      action: { kind: 'claim' },
+      action: status === 'locked' && def.todoTarget
+        ? { kind: 'open_module', target: def.todoTarget }
+        : { kind: 'claim' },
     })
   }
 
@@ -355,14 +347,14 @@ async function buildAggregatedCards(env: Env, userId: string): Promise<{ newbie:
   const promo = await getPromoConfig(env).catch(() => null)
 
   if (promo?.trial.enabled) {
-    newbie.push(aggCard('agg_trial', '领取新手体验金', '完成手机验证即可领取', Boolean(user?.trialClaimed), 'bonuses', zeroReward('cash', promo.trial.amount), 'newbie'))
+    newbie.push(aggCard('agg_trial', '领取新手体验金', '完成手机验证即可领取', Boolean(user?.trialClaimed), 'trial_bonus', zeroReward('cash', promo.trial.amount), 'newbie'))
   }
   if (promo?.appdl.enabled) {
     const [[c]] = await pool.query<RowDataPacket[]>('SELECT 1 AS ok FROM bg_app_download_claim WHERE user_id = ? LIMIT 1', [userId])
-    newbie.push(aggCard('agg_appdl', '下载 App 领礼金', '安装 App / PWA 一次性奖励', Boolean(c), 'bonuses', zeroReward('cash', promo.appdl.amount), 'newbie'))
+    newbie.push(aggCard('agg_appdl', '下载 App 领礼金', '安装 App / PWA 一次性奖励', Boolean(c), 'app_download', zeroReward('cash', promo.appdl.amount), 'newbie'))
   }
   if (promo?.firstdep.enabled) {
-    newbie.push(aggCard('agg_firstdep', '完成首充', '首次充值即得彩金', Boolean(user?.firstDepClaimed), 'bonuses', zeroReward('cash', 0), 'newbie'))
+    newbie.push(aggCard('agg_firstdep', '完成首充', '首次充值即得彩金', Boolean(user?.firstDepClaimed), 'deposit', zeroReward('cash', 0), 'newbie'))
   }
   const [[bday]] = await pool.query<RowDataPacket[]>('SELECT birthday FROM bg_user WHERE id = ?', [userId])
   newbie.push(aggCard('agg_birthday', '完善生日资料', '设置生日解锁 VIP 生日礼金', bday?.birthday != null, 'vip_center', zeroReward('cash', 0), 'newbie'))

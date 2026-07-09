@@ -12,8 +12,8 @@ const NATIVE_LABELS: Record<string, string> = {
   daily_login: '每日登录',
   daily_deposit: '今日完成一笔存款',
   profile_complete: '完善资料 / 绑定邮箱',
-  first_withdraw: '首次提现',
   first_game: '首次游戏下注',
+  invite_milestone: '邀请好友',
 }
 
 const REWARD_TYPE_OPTS: { value: TaskRewardType; label: string }[] = [

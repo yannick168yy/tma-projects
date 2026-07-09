@@ -90,7 +90,11 @@ export default function TasksPage({ onNavigate }: { onNavigate?: (target: string
   }
 
   function onCardAction(card: TaskCard) {
-    if (card.action.kind === 'open_module') { onNavigate?.(card.action.target ?? ''); return }
+    if (card.action.kind === 'open_module') {
+      if (card.action.target === 'bind_profile') { setBindOpen(true); return }
+      onNavigate?.(card.action.target ?? '')
+      return
+    }
     if (card.group === 'social') { void onClaimSocial(card); return }
     void onClaimNative(card)
   }
@@ -105,11 +109,11 @@ export default function TasksPage({ onNavigate }: { onNavigate?: (target: string
     const disabled = done || busy || (kind === 'claim' && card.status !== 'claimable')
     const label = done ? t('tasks.done')
       : busy ? t('tasks.claiming')
+      : card.status === 'locked' ? t('tasks.todo')
       : kind === 'open_module' ? t('tasks.go')
       : kind === 'bind_telegram' ? t('tasks.bind')
       : kind === 'goto' ? t('tasks.verify')
       : kind === 'manual_review' ? t('tasks.submit')
-      : card.status === 'locked' ? t('tasks.todo')
       : t('tasks.claim')
 
     return (

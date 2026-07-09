@@ -15,10 +15,10 @@ import {
 } from '@/stores/wallet'
 import { isImmersiveFullPage } from '@/hooks/useFullPageOverlay'
 import { useAppNavigation } from '@/hooks/useAppNavigation'
-import { shouldShowDownloadBar, dismissDownloadBar, isIos } from '@/utils/pwa'
+import { shouldShowDownloadBar, dismissDownloadBar, isIos, isStandalone } from '@/utils/pwa'
 import { isInsideTelegram } from '@/utils/initTelegramWebApp'
 import { usePromotionStore } from '@/stores/promotion'
-import { fetchNewPlayerSummary, matchPopupAudience, type NewPlayerSummary } from '@/api/promotion'
+import { claimAppdlBonus, fetchNewPlayerSummary, matchPopupAudience, type NewPlayerSummary } from '@/api/promotion'
 import TopDownloadBar from '@/components/pwa/TopDownloadBar'
 import OrientationGuard from '@/components/OrientationGuard'
 import threeCirclesMenu from '@/assets/team/3-circles/menu-entry.webp'
@@ -198,6 +198,28 @@ export default function AppShell() {
     setWalletOpen(false)
     void refreshNpSummary()
     setGiftSheetOpen(true)
+  }
+
+  async function openTrialBonus() {
+    setWalletOpen(false)
+    if (!(await auth.ensureLoggedIn(t('auth.signInBonus')))) return
+    setTrialClaimOpen(true)
+  }
+
+  async function openAppDownloadBonus() {
+    setWalletOpen(false)
+    if (!isStandalone()) {
+      openAppInstall()
+      return
+    }
+    if (!(await auth.ensureLoggedIn(t('auth.signInBonus')))) return
+    try {
+      const res = await claimAppdlBonus('pwa')
+      alert(t('bonuses.promos.appdl.claimSuccess', { amount: res.amountPhp }))
+      await Promise.all([wallet.refresh(), refreshNpSummary()])
+    } catch (e) {
+      alert(e instanceof Error ? e.message : t('bonuses.promos.appdl.claimFailed'))
+    }
   }
 
   const headerRef = useRef<HTMLElement>(null)
@@ -574,6 +596,13 @@ export default function AppShell() {
               <TasksPage onNavigate={(target) => {
                 if (target === 'checkin') { void onOpenCheckin(); return }
                 if (target === 'vip_center') { onOpenCashback(); return }
+                if (target === 'trial_bonus') { void openTrialBonus(); return }
+                if (target === 'app_download') { void openAppDownloadBonus(); return }
+                if (target === 'deposit') { void openWalletFull('deposit'); return }
+                if (target === 'team_center') { onOpenTeamCenter(); return }
+                if (target === 'games') { navigateTab('games'); return }
+                if (target === 'bonuses') { goBonuses(); return }
+                if (target) { goBonuses(target); return }
                 goBonuses()
               }} />
             </div>
