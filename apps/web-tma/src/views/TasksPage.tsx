@@ -1,9 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
-  Cake, CalendarDays, Check, Download, Gamepad2, Gift, Lock,
-  MailCheck, Server, Smartphone, Sparkles, Star, Trophy, UserPlus, Users,
-  Wallet, type LucideIcon,
+  CalendarDays, Check, Lock, Sparkles, Star, Users, type LucideIcon,
 } from 'lucide-react'
 import {
   fetchTaskCenter, claimTask, claimSocialTask,
@@ -14,6 +12,15 @@ import { useWalletStore, formatCurrencyAmount } from '@/stores/wallet'
 import { ApiError } from '@/api/client'
 import BindModal from '@/components/auth/BindModal'
 import taskHero from '@/assets/tasks/task-hero.webp'
+import iconBirthday from '@/assets/tasks/icon-birthday.webp'
+import iconClaimable from '@/assets/tasks/icon-claimable.webp'
+import iconDownload from '@/assets/tasks/icon-download.webp'
+import iconGame from '@/assets/tasks/icon-game.webp'
+import iconInvite from '@/assets/tasks/icon-invite.webp'
+import iconPhone from '@/assets/tasks/icon-phone.webp'
+import iconProfile from '@/assets/tasks/icon-profile.webp'
+import iconRewards from '@/assets/tasks/icon-rewards.webp'
+import iconWallet from '@/assets/tasks/icon-wallet.webp'
 
 export type TaskPath = 'newbie' | 'daily' | 'social'
 
@@ -165,19 +172,17 @@ export default function TasksPage({ initialPath = 'newbie', onNavigate }: { init
     return t('tasks.claim')
   }
 
-  function taskVisual(card: TaskCard): { Icon: LucideIcon; className: string } {
-    if (card.id === 'profile_complete') return { Icon: MailCheck, className: 'from-[#4aa8ff] to-[#1261d6]' }
-    if (card.id === 'first_game') return { Icon: Gamepad2, className: 'from-[#36d45d] to-[#0b8d33]' }
-    if (card.id === 'invite_milestone') return { Icon: UserPlus, className: 'from-[#ffd528] to-[#e88d00]' }
-    if (card.id === 'agg_trial') return { Icon: Smartphone, className: 'from-[#15d2bd] to-[#058d7f]' }
-    if (card.id === 'agg_appdl') return { Icon: Download, className: 'from-[#ab50ea] to-[#6826a7]' }
-    if (card.id === 'agg_firstdep') return { Icon: Wallet, className: 'from-[#ff602f] to-[#e62b0b]' }
-    if (card.id === 'agg_birthday') return { Icon: Cake, className: 'from-[#2088ff] to-[#064aa3]' }
-    if (card.id === 'daily_login' || card.id === 'agg_checkin') return { Icon: CalendarDays, className: 'from-[#ffb334] to-[#f06a00]' }
-    if (card.id === 'daily_deposit') return { Icon: Wallet, className: 'from-[#ff7d1a] to-[#df3e00]' }
-    if (card.id.startsWith('agg_checkin_ms')) return { Icon: Trophy, className: 'from-[#ffd43b] to-[#d99000]' }
-    if (card.group === 'social') return { Icon: Users, className: 'from-[#5bb6ff] to-[#1855d6]' }
-    return { Icon: Gift, className: 'from-[#ffbe20] to-[#f06a00]' }
+  function taskIcon(card: TaskCard): string {
+    if (card.id === 'profile_complete') return iconProfile
+    if (card.id === 'first_game') return iconGame
+    if (card.id === 'invite_milestone') return iconInvite
+    if (card.id === 'agg_trial') return iconPhone
+    if (card.id === 'agg_appdl') return iconDownload
+    if (card.id === 'agg_firstdep' || card.id === 'daily_deposit') return iconWallet
+    if (card.id === 'agg_birthday') return iconBirthday
+    if (card.id === 'daily_login' || card.id === 'agg_checkin' || card.id.startsWith('agg_checkin_ms')) return iconRewards
+    if (card.group === 'social') return iconInvite
+    return iconClaimable
   }
 
   function renderSummary() {
@@ -189,35 +194,35 @@ export default function TasksPage({ initialPath = 'newbie', onNavigate }: { init
     const progressPct = summary.total > 0 ? Math.min(100, Math.round(summary.done / summary.total * 100)) : 0
 
     return (
-      <section className="relative overflow-hidden px-4 pb-4 pt-9">
+      <section className="relative overflow-hidden px-3 pb-3 pt-7">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_72%_18%,rgba(255,185,28,0.34),transparent_31%),radial-gradient(circle_at_40%_38%,rgba(255,190,34,0.12),transparent_30%)]" />
         <img
           src={taskHero}
           alt=""
-          className="pointer-events-none absolute right-[-38px] top-0 h-[220px] w-[270px] object-cover object-left-top opacity-95"
+          className="pointer-events-none absolute right-[-18px] top-0 h-[172px] w-[214px] object-cover object-left-top opacity-95"
         />
-        <div className="pointer-events-none absolute right-0 top-0 h-[230px] w-[52%] bg-gradient-to-l from-transparent via-transparent to-[#050403]" />
+        <div className="pointer-events-none absolute right-0 top-0 h-[180px] w-[56%] bg-gradient-to-l from-transparent via-transparent to-[#050403]" />
         <div className="relative">
-          <p className="flex items-center gap-2 text-[13px] font-black uppercase tracking-[0.22em] text-[#ffd21c]">
-            <Sparkles size={15} fill="currentColor" strokeWidth={2.8} />
+          <p className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-[0.2em] text-[#ffd21c]">
+            <Sparkles size={12} fill="currentColor" strokeWidth={2.8} />
             {t('tasks.tree.todayPath')}
-            <Sparkles size={15} fill="currentColor" strokeWidth={2.8} />
+            <Sparkles size={12} fill="currentColor" strokeWidth={2.8} />
           </p>
-          <h1 className="mt-3 text-[42px] font-black leading-none text-white [text-shadow:0_2px_16px_rgba(255,255,255,0.18)]">
+          <h1 className="mt-2 text-[30px] font-black leading-none text-white [text-shadow:0_2px_16px_rgba(255,255,255,0.18)]">
             {t('tasks.pageTitle')}
           </h1>
-          <div className="mt-8 flex max-w-[255px] items-center gap-4">
-            <div className="h-[18px] flex-1 overflow-hidden rounded-full bg-black/72 shadow-[inset_0_1px_4px_rgba(255,196,31,0.16)]">
+          <div className="mt-7 flex max-w-[202px] items-center gap-3">
+            <div className="h-[11px] flex-1 overflow-hidden rounded-full bg-black/72 shadow-[inset_0_1px_4px_rgba(255,196,31,0.16)]">
               <div className="h-full rounded-full bg-gradient-to-b from-[#ffe15a] to-[#ffc000]" style={{ width: `${progressPct}%` }} />
             </div>
-            <div className="rounded-full bg-[#ffd21d] px-4 py-2 text-[22px] font-black leading-none text-[#211300] shadow-[0_8px_22px_rgba(255,185,20,0.32)]">
+            <div className="rounded-full bg-[#ffd21d] px-3 py-1.5 text-[15px] font-black leading-none text-[#211300] shadow-[0_8px_22px_rgba(255,185,20,0.32)]">
               {summary.done}/{summary.total}
             </div>
           </div>
         </div>
-        <div className="relative mt-6 grid grid-cols-2 gap-3">
-          <SummaryTile tone="purple" Icon={Gift} label={t('tasks.tree.claimable')} value={String(summary.claimable)} />
-          <SummaryTile tone="orange" Icon={Server} label={t('tasks.tree.rewards')} value={rewardParts.length ? rewardParts.join(' · ') : '-'} />
+        <div className="relative mt-5 grid grid-cols-2 gap-2.5">
+          <SummaryTile icon={iconClaimable} label={t('tasks.tree.claimable')} value={String(summary.claimable)} />
+          <SummaryTile icon={iconRewards} label={t('tasks.tree.rewards')} value={rewardParts.length ? rewardParts.join(' · ') : '-'} />
         </div>
       </section>
     )
@@ -226,18 +231,18 @@ export default function TasksPage({ initialPath = 'newbie', onNavigate }: { init
   function renderTabs() {
     const tabIcons = { newbie: Star, daily: CalendarDays, social: Users } satisfies Record<TaskPath, LucideIcon>
     return (
-      <div className="sticky top-0 z-20 bg-[#050403]/94 px-4 py-3 backdrop-blur">
-        <div className="grid grid-cols-3 overflow-hidden rounded-[17px] border border-[#8a5b13]/55 bg-black/38 p-1.5 shadow-[0_0_24px_rgba(255,174,22,0.08)]">
+      <div className="sticky top-0 z-20 bg-[#050403]/94 px-3 py-2.5 backdrop-blur">
+        <div className="grid grid-cols-3 overflow-hidden rounded-[14px] border border-[#8a5b13]/55 bg-black/38 p-1 shadow-[0_0_24px_rgba(255,174,22,0.08)]">
           {PATHS.map((path) => (
             <button
               key={path}
               type="button"
               onClick={() => setActivePath(path)}
-              className={`flex min-w-0 items-center justify-center gap-2 rounded-[13px] px-2 py-3 text-[15px] font-black transition-colors ${activePath === path ? 'bg-gradient-to-b from-[#ffe15a] to-[#ffc000] text-[#1c1300] shadow-[0_5px_16px_rgba(255,193,17,0.34)]' : 'text-[#d8b889]'}`}
+              className={`flex min-w-0 items-center justify-center gap-1.5 rounded-[11px] px-1.5 py-2.5 text-[13px] font-black transition-colors ${activePath === path ? 'bg-gradient-to-b from-[#ffe15a] to-[#ffc000] text-[#1c1300] shadow-[0_5px_16px_rgba(255,193,17,0.34)]' : 'text-[#d8b889]'}`}
             >
               {(() => {
                 const Icon = tabIcons[path]
-                return <Icon size={21} fill={activePath === path ? 'currentColor' : 'none'} strokeWidth={2.7} />
+                return <Icon size={17} fill={activePath === path ? 'currentColor' : 'none'} strokeWidth={2.7} />
               })()}
               {t(`tasks.path.${path}`)}
             </button>
@@ -258,43 +263,41 @@ export default function TasksPage({ initialPath = 'newbie', onNavigate }: { init
     const reward = rewardText(card)
     const buttonLabel = reward || actionLabel(card)
     const progressPct = card.progress ? Math.min(100, Math.round((card.progress.current / Math.max(1, card.progress.target)) * 100)) : 0
-    const visual = taskVisual(card)
+    const icon = taskIcon(card)
     const buttonTone = done ? 'bg-gradient-to-b from-[#27d85d] to-[#09963b] text-white shadow-[0_7px_18px_rgba(12,189,74,0.25)]'
       : 'bg-gradient-to-b from-[#ff961f] to-[#ff6500] text-white shadow-[0_7px_18px_rgba(255,101,0,0.28)]'
 
     return (
       <div key={card.id} className="relative flex gap-3">
-        <div className="flex w-[70px] flex-shrink-0 flex-col items-center">
-          <span className={`z-[1] mt-[13px] flex h-[45px] w-[45px] items-center justify-center rounded-full border ${done ? 'border-[#15b653]/70 bg-[#05a647] text-white shadow-[0_0_18px_rgba(0,189,80,0.42)]' : 'border-[#875714]/80 bg-[#14100a] text-[#d2b083]'}`}>
-            {done ? <Check size={28} strokeWidth={4} /> : <Lock size={20} strokeWidth={2.6} />}
+        <div className="flex w-[43px] flex-shrink-0 flex-col items-center">
+          <span className={`z-[1] mt-[9px] flex h-[31px] w-[31px] items-center justify-center rounded-full border ${done ? 'border-[#15b653]/70 bg-[#05a647] text-white shadow-[0_0_18px_rgba(0,189,80,0.42)]' : 'border-[#875714]/80 bg-[#14100a] text-[#d2b083]'}`}>
+            {done ? <Check size={19} strokeWidth={4} /> : <Lock size={14} strokeWidth={2.6} />}
           </span>
-          {index < total - 1 && <span className="h-full min-h-[48px] w-px bg-gradient-to-b from-[#ffc31e]/72 via-[#7d520d]/70 to-[#7d520d]/30" />}
+          {index < total - 1 && <span className="h-full min-h-[36px] w-px bg-gradient-to-b from-[#ffc31e]/72 via-[#7d520d]/70 to-[#7d520d]/30" />}
         </div>
 
-        <div className="mb-3 min-w-0 flex-1 rounded-[13px] border border-[#7f520f]/55 bg-[#080806]/86 px-3 py-3 shadow-[inset_0_1px_0_rgba(255,206,89,0.06)]">
-          <div className="flex items-center gap-3">
-            <div className={`flex h-[70px] w-[70px] flex-shrink-0 items-center justify-center rounded-[14px] bg-gradient-to-br ${visual.className} shadow-[inset_0_1px_0_rgba(255,255,255,0.3),0_10px_22px_rgba(0,0,0,0.3)]`}>
-              <visual.Icon size={39} className="text-white drop-shadow-[0_2px_2px_rgba(0,0,0,0.32)]" strokeWidth={2.7} />
-            </div>
+        <div className="mb-2.5 min-w-0 flex-1 rounded-[10px] border border-[#7f520f]/55 bg-[#080806]/86 px-2.5 py-2.5 shadow-[inset_0_1px_0_rgba(255,206,89,0.06)]">
+          <div className="flex items-center gap-2.5">
+            <img src={icon} alt="" className="h-[46px] w-[46px] flex-shrink-0 rounded-[9px]" />
             <div className="min-w-0 flex-1">
               <div className="flex min-w-0 items-center gap-2">
-                {isMilestone && <span className="flex-shrink-0 rounded-full border border-[#81550f]/80 bg-black/42 px-2 py-1 text-[10px] font-black uppercase leading-none text-[#ffd21d]">{t('tasks.tree.milestone')}</span>}
-                <p className="truncate text-[21px] font-black leading-tight text-[#fff8ea]">{cardTitle(card)}</p>
+                {isMilestone && <span className="flex-shrink-0 rounded-full border border-[#81550f]/80 bg-black/42 px-1.5 py-0.5 text-[8px] font-black uppercase leading-none text-[#ffd21d]">{t('tasks.tree.milestone')}</span>}
+                <p className="truncate text-[15px] font-black leading-tight text-[#fff8ea]">{cardTitle(card)}</p>
               </div>
-              {cardSubtitle(card) && <p className="mt-1 line-clamp-2 text-[15px] font-medium leading-snug text-[#f0dfc5]">{cardSubtitle(card)}</p>}
+              {cardSubtitle(card) && <p className="mt-0.5 line-clamp-2 text-[12px] font-medium leading-snug text-[#f0dfc5]">{cardSubtitle(card)}</p>}
               {card.progress && (
-                <div className="mt-3 flex items-center gap-3">
-                  <div className="h-[13px] flex-1 overflow-hidden rounded-full bg-[#1c1710] shadow-[inset_0_1px_3px_rgba(0,0,0,0.65)]">
+                <div className="mt-2 flex items-center gap-2">
+                  <div className="h-[8px] flex-1 overflow-hidden rounded-full bg-[#1c1710] shadow-[inset_0_1px_3px_rgba(0,0,0,0.65)]">
                     <div className="h-full rounded-full bg-gradient-to-b from-[#ffe15a] to-[#ffc000]" style={{ width: `${progressPct}%` }} />
                   </div>
-                  <span className="min-w-[42px] text-[17px] font-black text-[#f0dfc5]">{card.progress.current}/{card.progress.target}</span>
+                  <span className="min-w-[30px] text-[12px] font-black text-[#f0dfc5]">{card.progress.current}/{card.progress.target}</span>
                 </div>
               )}
             </div>
             <div className="flex flex-shrink-0 items-center gap-2">
               {card.group === 'social' && kind === 'goto' && card.action.url && !done && (
                 <a href={card.action.url} target="_blank" rel="noreferrer"
-                  className="rounded-full border border-[#ffc31e]/50 px-3 py-2 text-xs font-black text-[#ffd78a] active:scale-95">
+                  className="rounded-full border border-[#ffc31e]/50 px-2.5 py-1.5 text-[11px] font-black text-[#ffd78a] active:scale-95">
                   {t('tasks.go')}
                 </a>
               )}
@@ -302,7 +305,7 @@ export default function TasksPage({ initialPath = 'newbie', onNavigate }: { init
                 type="button"
                 onClick={() => onCardAction(card)}
                 disabled={disabled}
-                className={`min-w-[102px] rounded-full px-5 py-3 text-[16px] font-black leading-none active:scale-95 disabled:cursor-default ${!done && disabled ? 'opacity-95' : ''} ${buttonTone}`}
+                className={`min-w-[76px] rounded-full px-3 py-2 text-[13px] font-black leading-none active:scale-95 disabled:cursor-default ${!done && disabled ? 'opacity-95' : ''} ${buttonTone}`}
               >
                 {buttonLabel}
               </button>
@@ -310,7 +313,7 @@ export default function TasksPage({ initialPath = 'newbie', onNavigate }: { init
           </div>
 
           {showCode && (
-            <div className="mt-3 flex gap-2 pl-[82px]">
+            <div className="mt-2.5 flex gap-2 pl-[56px]">
               <input
                 value={codeInputs[card.id] ?? ''}
                 onChange={(e) => setCodeInputs((s) => ({ ...s, [card.id]: e.target.value }))}
@@ -328,17 +331,17 @@ export default function TasksPage({ initialPath = 'newbie', onNavigate }: { init
     const cards = pathCards[activePath]
     const totalNodes = cards.length
     return (
-      <section className="px-4 pb-10">
-        <div className="mb-4 flex items-start justify-between">
+      <section className="px-3 pb-10">
+        <div className="mb-3 flex items-start justify-between">
           <div>
-            <p className="flex items-center gap-2 text-[24px] font-black uppercase tracking-[0.14em] text-[#ffd21d]">
-              <Sparkles size={18} fill="currentColor" />
+            <p className="flex items-center gap-1.5 text-[18px] font-black uppercase tracking-[0.12em] text-[#ffd21d]">
+              <Sparkles size={14} fill="currentColor" />
               {t(`tasks.path.${activePath}`)}
-              <Sparkles size={18} fill="currentColor" />
+              <Sparkles size={14} fill="currentColor" />
             </p>
-            <p className="mt-1 text-[17px] text-[#f0dfc5]">{t(`tasks.pathSub.${activePath}`)}</p>
+            <p className="mt-0.5 text-[13px] text-[#f0dfc5]">{t(`tasks.pathSub.${activePath}`)}</p>
           </div>
-          <span className="mt-1 rounded-full border border-[#8a5b13]/70 bg-black/38 px-4 py-2 text-[20px] font-black leading-none text-[#f0dfc5]">
+          <span className="mt-1 rounded-full border border-[#8a5b13]/70 bg-black/38 px-3 py-1.5 text-[14px] font-black leading-none text-[#f0dfc5]">
             {cards.filter((card) => card.status === 'done').length}/{cards.length}
           </span>
         </div>
@@ -366,16 +369,13 @@ export default function TasksPage({ initialPath = 'newbie', onNavigate }: { init
   )
 }
 
-function SummaryTile({ tone, Icon, label, value }: { tone: 'purple' | 'orange'; Icon: LucideIcon; label: string; value: string }) {
-  const iconClass = tone === 'purple' ? 'from-[#ab50ea] to-[#6418a7]' : 'from-[#ff9f22] to-[#ff6500]'
+function SummaryTile({ icon, label, value }: { icon: string; label: string; value: string }) {
   return (
-    <div className="flex min-w-0 items-center gap-4 rounded-[18px] border border-[#8a5b13]/55 bg-black/54 px-4 py-4 shadow-[inset_0_1px_0_rgba(255,206,89,0.06)]">
-      <span className={`flex h-[64px] w-[64px] flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br ${iconClass} shadow-[inset_0_1px_0_rgba(255,255,255,0.28)]`}>
-        <Icon size={34} className="text-white" strokeWidth={2.6} />
-      </span>
+    <div className="flex min-w-0 items-center gap-2.5 rounded-[13px] border border-[#8a5b13]/55 bg-black/54 px-2.5 py-2.5 shadow-[inset_0_1px_0_rgba(255,206,89,0.06)]">
+      <img src={icon} alt="" className="h-[44px] w-[44px] flex-shrink-0 rounded-full" />
       <span className="min-w-0">
-        <span className="block truncate text-[17px] font-medium leading-tight text-[#f0dfc5]">{label}</span>
-        <span className="mt-1 block truncate text-[28px] font-black leading-none text-[#ffd21d]">{value}</span>
+        <span className="block truncate text-[12px] font-medium leading-tight text-[#f0dfc5]">{label}</span>
+        <span className="mt-0.5 block truncate text-[18px] font-black leading-none text-[#ffd21d]">{value}</span>
       </span>
     </div>
   )
