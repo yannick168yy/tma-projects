@@ -17,6 +17,7 @@ interface TaskStat {
 }
 
 const EMPTY_CENTER: TaskCenter = { groups: { newbie: [], daily: [], achievement: [], social: [] } }
+const BALL_SIZE = 64
 
 function statOf(cards: TaskCard[]): TaskStat {
   return {
@@ -62,12 +63,13 @@ export default function TaskFloatBall({ onNavigatePath }: TaskFloatBallProps) {
     const viewportHeight = window.innerHeight
     const frameWidth = Math.min(viewportWidth, 430)
     const frameLeft = (viewportWidth - frameWidth) / 2
-    const minLeft = frameLeft + 8
-    const maxLeft = Math.max(minLeft, frameLeft + frameWidth - 72)
+    const minLeft = frameLeft
+    const maxLeft = Math.max(minLeft, frameLeft + frameWidth - BALL_SIZE)
+    const nextLeft = left + BALL_SIZE / 2 < frameLeft + frameWidth / 2 ? minLeft : maxLeft
     const minTop = 72
     const maxTop = Math.max(minTop, viewportHeight - 156)
     return {
-      left: Math.min(Math.max(left, minLeft), maxLeft),
+      left: nextLeft,
       top: Math.min(Math.max(top, minTop), maxTop),
     }
   }, [])
@@ -77,7 +79,7 @@ export default function TaskFloatBall({ onNavigatePath }: TaskFloatBallProps) {
     const viewportHeight = window.innerHeight
     const frameWidth = Math.min(viewportWidth, 430)
     const frameLeft = (viewportWidth - frameWidth) / 2
-    return clampPosition(frameLeft + frameWidth - 152, viewportHeight - 240)
+    return clampPosition(frameLeft + frameWidth - BALL_SIZE, viewportHeight - 240)
   }, [clampPosition])
 
   useEffect(() => {
@@ -142,10 +144,18 @@ export default function TaskFloatBall({ onNavigatePath }: TaskFloatBallProps) {
     if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
   }
 
+  const isLeftEdge = (() => {
+    if (!position) return false
+    const viewportWidth = window.innerWidth
+    const frameWidth = Math.min(viewportWidth, 430)
+    const frameLeft = (viewportWidth - frameWidth) / 2
+    return position.left < frameLeft + frameWidth / 2
+  })()
+
   const entries: { path: TaskBallPath; className: string }[] = [
-    { path: 'newbie', className: 'right-[76px] top-2' },
-    { path: 'daily', className: 'bottom-[76px] left-1/2 -translate-x-1/2' },
-    { path: 'social', className: 'left-[76px] top-2' },
+    { path: 'newbie', className: 'bottom-[76px] left-1/2 -translate-x-1/2' },
+    { path: 'daily', className: isLeftEdge ? 'left-[76px] top-2' : 'right-[76px] top-2' },
+    { path: 'social', className: 'left-1/2 top-[76px] -translate-x-1/2' },
   ]
 
   return (
