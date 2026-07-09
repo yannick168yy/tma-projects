@@ -219,11 +219,15 @@ export default function TasksPage({ initialPath = 'newbie', onNavigate }: { init
     const showCode = kind === 'code_redeem' && !done
     const disabled = done || busy || (kind === 'claim' && !isClaimable)
     const reward = rewardText(card)
+    const buttonLabel = reward || actionLabel(card)
     const progressPct = card.progress ? Math.min(100, Math.round((card.progress.current / Math.max(1, card.progress.target)) * 100)) : 0
     const NodeIcon = done ? CheckCircle2 : locked ? Lock : isMilestone ? Milestone : Circle
     const nodeTone = done ? 'text-emerald-300 border-emerald-300/35 bg-emerald-300/10'
       : isClaimable ? 'text-amber-300 border-amber-300/55 bg-amber-300/12'
         : 'text-amber-100/45 border-amber-300/18 bg-black/28'
+    const buttonTone = done ? 'border border-emerald-300/45 bg-emerald-300/12 text-emerald-200'
+      : isClaimable ? 'bg-gradient-to-b from-amber-300 to-yellow-500 text-[#2a1a05]'
+        : 'border border-amber-300/25 text-amber-100/70'
 
     return (
       <div key={card.id} className="relative flex gap-3">
@@ -242,7 +246,6 @@ export default function TasksPage({ initialPath = 'newbie', onNavigate }: { init
                 <p className="truncate text-sm font-black text-amber-50">{cardTitle(card)}</p>
               </div>
               {cardSubtitle(card) && <p className="mt-0.5 line-clamp-2 text-xs text-amber-200/62">{cardSubtitle(card)}</p>}
-              {reward && <p className="mt-1 text-xs font-bold text-amber-300">{reward}</p>}
             </div>
             <div className="flex flex-shrink-0 items-center gap-2">
               {card.group === 'social' && kind === 'goto' && card.action.url && !done && (
@@ -255,9 +258,9 @@ export default function TasksPage({ initialPath = 'newbie', onNavigate }: { init
                 type="button"
                 onClick={() => onCardAction(card)}
                 disabled={disabled}
-                className={`min-w-[68px] rounded-full px-4 py-2 text-xs font-black active:scale-95 disabled:opacity-45 ${isClaimable ? 'bg-gradient-to-b from-amber-300 to-yellow-500 text-[#2a1a05]' : 'border border-amber-300/25 text-amber-100/70'}`}
+                className={`min-w-[76px] rounded-full px-4 py-2 text-xs font-black active:scale-95 disabled:cursor-default ${!done && disabled ? 'opacity-45' : ''} ${buttonTone}`}
               >
-                {actionLabel(card)}
+                {buttonLabel}
               </button>
             </div>
           </div>
