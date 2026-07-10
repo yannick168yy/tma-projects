@@ -75,10 +75,4 @@ export async function claimVipRewards(currency?: string): Promise<{ claimed: num
   })
 }
 
-export async function setVipBirthday(birthday: string): Promise<{ ok: boolean }> {
-  return apiRequest<{ ok: boolean }>('/vip/birthday', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ birthday }),
-  })
-}
+// 生日不再支持手输：KYC 通过后由后端从证件信息自动同步

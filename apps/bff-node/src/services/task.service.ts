@@ -5,6 +5,7 @@ import { creditWallet, listUserIdentities, getUser } from './store/mysql-store.j
 import { createPromoRequirement } from './turnover.service.js'
 import { manilaToday, getCheckinStatus } from './checkin.service.js'
 import { getPromoConfig } from './promo-config.service.js'
+import { ensureBirthdayFromKyc } from './vip.service.js'
 
 // ───────────────────────── 任务定义（硬编码，一期不做 def 表） ─────────────────────────
 //
@@ -356,8 +357,9 @@ async function buildAggregatedCards(env: Env, userId: string): Promise<{ newbie:
   if (promo?.firstdep.enabled) {
     newbie.push(aggCard('agg_firstdep', '完成首充', '首次充值即得彩金', Boolean(user?.firstDepClaimed), 'deposit', zeroReward('cash', 0), 'newbie'))
   }
-  const [[bday]] = await pool.query<RowDataPacket[]>('SELECT birthday FROM bg_user WHERE id = ?', [userId])
-  newbie.push(aggCard('agg_birthday', '完善生日资料', '设置生日解锁 VIP 生日礼金', bday?.birthday != null, 'vip_center', zeroReward('cash', 0), 'newbie'))
+  // 生日只来自 KYC 证件：未设置时引导去实名认证，KYC 已通过的历史用户在 ensure 内懒回填
+  const birthdaySet = await ensureBirthdayFromKyc(env, userId).catch(() => false)
+  newbie.push(aggCard('agg_birthday', '解锁生日礼金', '完成实名认证，自动同步证件生日', birthdaySet, 'kyc', zeroReward('cash', 0), 'newbie'))
 
   const ck = await getCheckinStatus(env, userId).catch(() => null)
   if (ck?.enabled) {

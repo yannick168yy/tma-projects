@@ -202,9 +202,7 @@ export async function getUserVipProgress(env: Env, userId: string, currency = 'P
      GROUP BY type`,
     [userId, currency],
   )
-  const [[bday]] = await pool.query<RowDataPacket[]>(
-    'SELECT birthday FROM bg_user WHERE id = ?', [userId],
-  )
+  const birthdaySet = await ensureBirthdayFromKyc(env, userId)
 
   return {
     currency,
@@ -222,8 +220,33 @@ export async function getUserVipProgress(env: Env, userId: string, currency = 'P
     quarterTurnover: Math.max(0, total - state.quarterStartTurnover),
     retentionLine: byLevel.get(level)?.retentionLine ?? 0,
     prioritySupport: level >= PRIORITY_SUPPORT_LEVEL,
-    birthdaySet: bday?.birthday != null,
+    birthdaySet,
   }
+}
+
+/**
+ * 生日只来自 KYC 证件（Gemini 识别的 dob），不接受用户手输。
+ * 已设置返回 true；未设置且 KYC 已通过则从 gemini_result 提取 dob 懒回填（覆盖历史已认证用户）。
+ */
+export async function ensureBirthdayFromKyc(env: Env, userId: string): Promise<boolean> {
+  if (!isMysqlEnabled(env)) return false
+  const pool = getMysqlPool(env)
+  const [[u]] = await pool.query<RowDataPacket[]>('SELECT birthday FROM bg_user WHERE id = ?', [userId])
+  if (!u) return false
+  if (u.birthday != null) return true
+  const [[kyc]] = await pool.query<RowDataPacket[]>(
+    'SELECT status, gemini_result FROM bg_kyc WHERE user_id = ? LIMIT 1', [userId],
+  )
+  if (!kyc || kyc.status !== 'approved') return false
+  let dob = ''
+  try {
+    const g = typeof kyc.gemini_result === 'string' ? JSON.parse(kyc.gemini_result) : kyc.gemini_result
+    const raw = (g as { document?: { dob?: unknown } } | null)?.document?.dob
+    if (typeof raw === 'string' && /^\d{4}-\d{2}-\d{2}/.test(raw)) dob = raw.slice(0, 10)
+  } catch { /* gemini_result 脏数据时不回填 */ }
+  if (!dob) return false
+  const res = await setUserBirthday(env, userId, dob)
+  return res.ok || res.reason === 'already_set'
 }
 
 export async function listVipRewards(env: Env, userId: string, limit = 50): Promise<VipRewardItem[]> {

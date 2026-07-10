@@ -3,6 +3,7 @@ import type { RowDataPacket, ResultSetHeader } from 'mysql2/promise'
 import { getMysqlPool } from '../../clients/mysql.client.js'
 import { getKyc } from '../../services/store/index.js'
 import { KycError, adminReviewKyc, buildKycStatusResponse } from '../../services/kyc.service.js'
+import { ensureBirthdayFromKyc } from '../../services/vip.service.js'
 import { getStorageProvider } from '../../services/storage/index.js'
 import { broadcastBadges } from '../../services/sse-badges.js'
 import { writeAuditLog } from '../../services/admin-store.js'
@@ -168,6 +169,9 @@ async function review(ctx: import('koa').Context, decision: 'approved' | 'reject
       body.note,
     )
     broadcastBadges(ctx.state.env).catch(() => {})
+    if (status === 'approved') {
+      ensureBirthdayFromKyc(ctx.state.env, ctx.params.userId).catch((e) => console.error('[admin-kyc] sync birthday failed:', e))
+    }
     ok(ctx, { status })
   } catch (e) {
     if (e instanceof KycError) {

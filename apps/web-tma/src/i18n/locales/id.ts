@@ -311,10 +311,9 @@ export default {
     vipPrioritySupport: 'Priority VIP support',
     vipRetention: 'Keep VIP: {{have}} / {{need}} this quarter',
     vipDemoted: 'Level dropped — stay active to climb back',
-    vipSetBirthday: 'Set birthday for a gift',
-    vipBirthdaySaved: 'Birthday saved',
-    vipBirthdayHint: 'One-time, cannot be changed',
-    vipBirthdaySet: 'Birthday saved',
+    vipBirthdaySet: 'Birthday synced from your verified ID',
+    vipBirthdayKyc: 'Verify your identity (KYC) — your ID birthday unlocks the gift automatically',
+    vipBirthdayKycBtn: 'Verify Now',
   },
   vipPage: {
     title: 'VIP Club',

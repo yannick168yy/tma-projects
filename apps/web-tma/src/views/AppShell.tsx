@@ -588,7 +588,7 @@ export default function AppShell() {
               >
                 <ChevronLeft size={20} />
               </button>
-              <RebatePage onOpenGame={(url) => setGamePlayerUrl(url)} onOpenCategory={onOpenCategoryLobby} />
+              <RebatePage onOpenGame={(url) => setGamePlayerUrl(url)} onOpenCategory={onOpenCategoryLobby} onOpenKycSetting={onOpenKycSetting} />
             </div>
           )}
           {view.type === 'vipCenter' && (
@@ -600,7 +600,7 @@ export default function AppShell() {
               >
                 <ChevronLeft size={20} />
               </button>
-              <VipPage initialTab={view.initialTab} onOpenGame={(url) => setGamePlayerUrl(url)} onOpenCategory={onOpenCategoryLobby} />
+              <VipPage initialTab={view.initialTab} onOpenGame={(url) => setGamePlayerUrl(url)} onOpenCategory={onOpenCategoryLobby} onOpenKycSetting={onOpenKycSetting} />
             </div>
           )}
           {view.type === 'spin' && (
@@ -617,6 +617,7 @@ export default function AppShell() {
               </button>
               <TasksPage initialPath={view.initialPath} onNavigate={(target) => {
                 if (target === 'checkin') { void onOpenCheckin(); return }
+                if (target === 'kyc') { onOpenKycSetting(); return }
                 if (target === 'vip_center') { openVipCenter(); return }
                 if (target === 'trial_bonus') { void openTrialBonus(); return }
                 if (target === 'app_download') { void openAppDownloadBonus(); return }

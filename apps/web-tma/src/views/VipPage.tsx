@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Crown, Gift, History, ShieldCheck, TrendingUp } from 'lucide-react'
 import { fetchRebateConfig, fetchRebateProgress, claimRebate, type RebateConfig, type RebateProgress } from '@/api/rebate'
-import { fetchVipProgress, fetchVipLevels, fetchVipRewards, claimVipRewards, setVipBirthday, type VipLevelConfig, type VipProgress, type VipReward } from '@/api/vip'
+import { fetchVipProgress, fetchVipLevels, fetchVipRewards, claimVipRewards, type VipLevelConfig, type VipProgress, type VipReward } from '@/api/vip'
 import { launchGame } from '@/api/slots'
 import { useAuthStore } from '@/stores/auth'
 import { useWalletStore, formatCurrencyAmount } from '@/stores/wallet'
@@ -24,6 +24,7 @@ interface Props {
   initialTab?: VipTab
   onOpenGame: (url: string) => void
   onOpenCategory: (params: { title: string; sortCategory: string }) => void
+  onOpenKycSetting?: () => void
 }
 
 function amtStr(currency: string, v: number) {
@@ -39,7 +40,7 @@ function categoryRank(cat: string) {
   return index === -1 ? CATEGORY_ORDER.length : index
 }
 
-export default function VipPage({ initialTab = 'overview', onOpenGame, onOpenCategory }: Props) {
+export default function VipPage({ initialTab = 'overview', onOpenGame, onOpenCategory, onOpenKycSetting }: Props) {
   const { t } = useTranslation()
   const token = useAuthStore((s) => s.token)
   const auth = useAuthStore()
@@ -116,17 +117,6 @@ export default function VipPage({ initialTab = 'overview', onOpenGame, onOpenCat
     } catch (e) {
       alert(e instanceof ApiError ? e.message : 'Claim failed')
     } finally { setClaimingVip(false) }
-  }
-
-  async function onSetBirthday(value: string) {
-    if (!value) return
-    try {
-      await setVipBirthday(value)
-      alert(t('cashback.vipBirthdaySaved'))
-      await loadProgress()
-    } catch (e) {
-      alert(e instanceof ApiError ? e.message : 'Failed')
-    }
   }
 
   async function onGameTap(uuid: string) {
@@ -309,12 +299,15 @@ export default function VipPage({ initialTab = 'overview', onOpenGame, onOpenCat
             {vip.birthdaySet ? (
               <p className="mt-2 text-xs text-amber-100/55">{t('cashback.vipBirthdaySet')}</p>
             ) : (
-              <div className="mt-3 flex items-center gap-2">
-                <input
-                  type="date"
-                  onChange={(e) => { if (e.target.value) void onSetBirthday(e.target.value) }}
-                  className="min-w-0 flex-1 rounded-lg border border-amber-300/25 bg-[#090704] px-3 py-2 text-xs text-amber-50"
-                />
+              <div className="mt-3 flex items-center justify-between gap-3">
+                <p className="min-w-0 text-xs leading-snug text-amber-100/55">{t('cashback.vipBirthdayKyc')}</p>
+                <button
+                  type="button"
+                  onClick={() => onOpenKycSetting?.()}
+                  className="flex-shrink-0 rounded-full bg-gradient-to-b from-amber-300 to-yellow-500 px-4 py-2 text-xs font-black text-[#2a1a05] active:scale-95"
+                >
+                  {t('cashback.vipBirthdayKycBtn')}
+                </button>
               </div>
             )}
           </section>

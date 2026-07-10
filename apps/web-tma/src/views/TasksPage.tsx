@@ -193,43 +193,46 @@ export default function TasksPage({ initialPath = 'newbie', onNavigate }: { init
     const titleParts = { first: titleFirst, rest: titleRestArr.join(' ') }
 
     return (
-      <section className="relative overflow-hidden pb-3">
-        {/* 整幅节日街景 hero 铺满顶部，底部渐隐进页面底色，统计卡叠在渐隐区上 */}
-        {/* hero 约半屏：图高378 + 统计卡横跨图底边，整区到统计卡底 ≈ 406px */}
-        <img
-          src={taskHero}
-          alt=""
-          className="pointer-events-none absolute inset-x-0 top-0 h-[378px] w-full object-cover object-top"
-        />
-        {/* 图底纯色渐变过渡到页面底色（无模糊） */}
-        <div className="pointer-events-none absolute inset-x-0 top-[288px] h-[90px] bg-gradient-to-b from-transparent via-[#050403]/45 to-[#050403]" />
-        <div className="relative px-5 pt-[250px]">
-          <p className="flex items-center gap-1 text-[9px] font-black uppercase tracking-[0.18em] text-[#ffb81c] [text-shadow:0_1px_6px_rgba(60,30,0,0.65)]">
-            <Sparkles size={9} fill="currentColor" strokeWidth={2.8} />
-            {t('tasks.tree.todayPath')}
-            <Sparkles size={9} fill="currentColor" strokeWidth={2.8} />
-          </p>
-          {/* 设计稿 Task 偏小 Center 偏大；中文等无空格标题保持单行；字号控宽避开人物 */}
-          <h1 className="mt-1 font-black leading-[0.92] text-[#1f1305]">
-            {titleParts.rest ? (
-              <>
-                <span className="block text-[22px]">{titleParts.first}</span>
-                <span className="block text-[31px]">{titleParts.rest}</span>
-              </>
-            ) : (
-              <span className="block text-[27px]">{titleParts.first}</span>
-            )}
-          </h1>
-          <div className="mt-2 flex items-center gap-2">
-            <div className="h-[8px] w-[96px] overflow-hidden rounded-full bg-[#221a10]/85 shadow-[inset_0_1px_4px_rgba(0,0,0,0.5)]">
-              <div className="h-full rounded-full bg-gradient-to-b from-[#ffe15a] to-[#ffc000]" style={{ width: `${progressPct}%` }} />
-            </div>
-            <div className="rounded-full bg-[#ffd21d] px-2 py-1 text-[11px] font-black leading-none text-[#211300] shadow-[0_6px_18px_rgba(60,30,0,0.35)]">
-              {summary.done}/{summary.total}
+      <section className="relative pb-3">
+        {/* hero 可视区=50vh-半卡高：统计卡中线跨机型都压在屏高 50% 分界线，上下内容跟随该区移动 */}
+        <div className="relative h-[calc(50vh-25px)] max-h-[470px] min-h-[300px]">
+          <img
+            src={taskHero}
+            alt=""
+            className="pointer-events-none absolute inset-0 h-full w-full object-cover object-top"
+          />
+          {/* 图底纯色渐变过渡到页面底色（无模糊），锚定图底自动跟随 */}
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[90px] bg-gradient-to-b from-transparent via-[#050403]/45 to-[#050403]" />
+          {/* 标题块锚定图底，跨机型与统计卡保持固定间距 */}
+          <div className="absolute inset-x-0 bottom-[34px] px-5">
+            <p className="flex items-center gap-1 text-[9px] font-black uppercase tracking-[0.18em] text-[#ffb81c] [text-shadow:0_1px_6px_rgba(60,30,0,0.65)]">
+              <Sparkles size={9} fill="currentColor" strokeWidth={2.8} />
+              {t('tasks.tree.todayPath')}
+              <Sparkles size={9} fill="currentColor" strokeWidth={2.8} />
+            </p>
+            {/* 设计稿 Task 偏小 Center 偏大；中文等无空格标题保持单行；字号控宽避开人物 */}
+            <h1 className="mt-1 font-black leading-[0.92] text-[#1f1305]">
+              {titleParts.rest ? (
+                <>
+                  <span className="block text-[22px]">{titleParts.first}</span>
+                  <span className="block text-[31px]">{titleParts.rest}</span>
+                </>
+              ) : (
+                <span className="block text-[27px]">{titleParts.first}</span>
+              )}
+            </h1>
+            <div className="mt-2 flex items-center gap-2">
+              <div className="h-[8px] w-[96px] overflow-hidden rounded-full bg-[#221a10]/85 shadow-[inset_0_1px_4px_rgba(0,0,0,0.5)]">
+                <div className="h-full rounded-full bg-gradient-to-b from-[#ffe15a] to-[#ffc000]" style={{ width: `${progressPct}%` }} />
+              </div>
+              <div className="rounded-full bg-[#ffd21d] px-2 py-1 text-[11px] font-black leading-none text-[#211300] shadow-[0_6px_18px_rgba(60,30,0,0.35)]">
+                {summary.done}/{summary.total}
+              </div>
             </div>
           </div>
         </div>
-        <div className="relative mt-2.5 grid grid-cols-[5fr_6fr] gap-2 px-5">
+        {/* 负半卡高上移：卡片上半压 hero、下半压背景 */}
+        <div className="relative -mt-[25px] grid grid-cols-[5fr_6fr] gap-2 px-5">
           <SummaryTile icon={iconClaimable} label={t('tasks.tree.claimable')} value={String(summary.claimable)} />
           <SummaryTile icon={iconRewards} label={t('tasks.tree.rewards')} value={rewardParts.length ? rewardParts.join(' · ') : '-'} />
         </div>

@@ -1,6 +1,6 @@
 import Router from '@koa/router'
 import { ok, fail } from '../utils/response.js'
-import { getUserVipProgress, listVipRewards, claimVipRewards, setUserBirthday, getVipLevelConfig } from '../services/vip.service.js'
+import { getUserVipProgress, listVipRewards, claimVipRewards, getVipLevelConfig } from '../services/vip.service.js'
 
 const router = new Router({ prefix: '/vip' })
 
@@ -34,18 +34,6 @@ router.post('/claim', async (ctx) => {
   ok(ctx, result)
 })
 
-// POST /vip/birthday — 需要登录：设置生日（一次性，设置后不可改，用于生日礼金）
-router.post('/birthday', async (ctx) => {
-  if (!ctx.state.userId) { fail(ctx, 401, 'Unauthorized', 401); return }
-  const body = (ctx.request.body ?? {}) as { birthday?: string }
-  if (!body.birthday) { fail(ctx, 400, 'birthday required'); return }
-  const res = await setUserBirthday(ctx.state.env, ctx.state.userId, body.birthday)
-  if (!res.ok) {
-    if (res.reason === 'already_set') { fail(ctx, 409, 'Birthday already set'); return }
-    if (res.reason === 'invalid') { fail(ctx, 400, 'Invalid birthday'); return }
-    fail(ctx, 503, 'Unavailable'); return
-  }
-  ok(ctx, { ok: true })
-})
+// 生日不再接受用户手输：只在 KYC 通过时从证件信息同步（见 vip.service.ensureBirthdayFromKyc）
 
 export default router

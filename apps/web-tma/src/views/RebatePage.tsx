@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { fetchRebateConfig, fetchRebateProgress, claimRebate, type RebateConfig, type RebateProgress } from '@/api/rebate'
-import { fetchVipProgress, claimVipRewards, setVipBirthday, type VipProgress } from '@/api/vip'
+import { fetchVipProgress, claimVipRewards, type VipProgress } from '@/api/vip'
 import { launchGame } from '@/api/slots'
 import { useAuthStore } from '@/stores/auth'
 import { useWalletStore, formatCurrencyAmount } from '@/stores/wallet'
@@ -25,6 +25,7 @@ const categoryRank = (cat: string) => {
 interface Props {
   onOpenGame: (url: string) => void
   onOpenCategory: (params: { title: string; sortCategory: string }) => void
+  onOpenKycSetting?: () => void
 }
 
 function amtStr(currency: string, v: number) {
@@ -35,7 +36,7 @@ function catKeyOf(cat: string) {
   return `cashback.category${cat.charAt(0).toUpperCase() + cat.slice(1)}`
 }
 
-export default function RebatePage({ onOpenGame, onOpenCategory }: Props) {
+export default function RebatePage({ onOpenGame, onOpenCategory, onOpenKycSetting }: Props) {
   const { t } = useTranslation()
   const token = useAuthStore((s) => s.token)
   const auth = useAuthStore()
@@ -78,16 +79,6 @@ export default function RebatePage({ onOpenGame, onOpenCategory }: Props) {
     } finally { setClaiming(false) }
   }
 
-  async function onSetBirthday(value: string) {
-    if (!value) return
-    try {
-      await setVipBirthday(value)
-      alert(t('cashback.vipBirthdaySaved'))
-      await loadProgress()
-    } catch (e) {
-      alert(e instanceof ApiError ? e.message : 'Failed')
-    }
-  }
 
   async function onClaimVip() {
     if (!(await auth.ensureLoggedIn(t('auth.signInPlay')))) return
@@ -271,14 +262,13 @@ export default function RebatePage({ onOpenGame, onOpenCategory }: Props) {
             vip.birthdaySet ? (
               <p className="mt-2 text-[11px] text-amber-100/45">{t('cashback.vipBirthdaySet')}</p>
             ) : (
-              <div className="mt-2 flex items-center gap-2">
-                <label className="text-[11px] text-amber-200/80 font-bold">{t('cashback.vipSetBirthday')}</label>
-                <input
-                  type="date"
-                  onChange={(e) => { if (e.target.value) void onSetBirthday(e.target.value) }}
-                  className="bg-[#0c0905] border border-amber-300/25 rounded-lg text-amber-50 text-xs px-2 py-1"
-                />
-              </div>
+              <button
+                type="button"
+                onClick={() => onOpenKycSetting?.()}
+                className="mt-2 text-left text-[11px] font-bold text-amber-300 underline underline-offset-2 active:opacity-70"
+              >
+                {t('cashback.vipBirthdayKyc')} →
+              </button>
             )
           )}
         </div>

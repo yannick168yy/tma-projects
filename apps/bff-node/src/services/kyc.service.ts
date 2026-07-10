@@ -6,6 +6,7 @@ import type { KycSubmission, LivenessFrameMeta } from '../types/domain.js'
 import { normalizePhonePH } from '../utils/phone.js'
 import { nowIso } from '../utils/format.js'
 import { getAdminSetting } from './admin-store.js'
+import { ensureBirthdayFromKyc } from './vip.service.js'
 import { getMysqlPool, isMysqlEnabled } from '../clients/mysql.client.js'
 import { getSmsProvider, isSmsTestModeEnabled } from './sms/index.js'
 import { appendSmsSendLog } from './sms/send-log.js'
@@ -652,6 +653,10 @@ export async function submitKycDocument(
   }
   await saveApprovedWithIdGuard(redis, submission)
   broadcastBadges(env).catch(() => {})
+  // 证件通过即完成实名时，把证件生日同步进用户生日字段（生日只来自 KYC，不接受手输）
+  if (submission.status === 'approved') {
+    ensureBirthdayFromKyc(env, userId).catch((e) => console.error('[kyc] sync birthday failed:', e))
+  }
 
   // 记录历史提交（MySQL），管理后台可查看所有提交记录
   if (isMysqlEnabled(env)) {
@@ -737,6 +742,9 @@ export async function submitKycFace(
 
   await saveApprovedWithIdGuard(redis, submission)
   broadcastBadges(env).catch(() => {})
+  if (submission.status === 'approved') {
+    ensureBirthdayFromKyc(env, userId).catch((e) => console.error('[kyc] sync birthday failed:', e))
+  }
   return {
     faceVerified,
     status: submission.status,
