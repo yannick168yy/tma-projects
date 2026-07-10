@@ -177,9 +177,10 @@ export default function TasksPage({ initialPath = 'newbie', onNavigate }: { init
     if (card.id === 'invite_milestone') return iconInvite
     if (card.id === 'agg_trial') return iconPhone
     if (card.id === 'agg_appdl') return iconDownload
-    if (card.id === 'agg_firstdep' || card.id === 'daily_deposit') return iconWallet
+    if (card.id === 'agg_firstdep' || card.id.startsWith('daily_deposit')) return iconWallet
+    if (card.id === 'daily_bets' || card.id === 'daily_play') return iconGame
     if (card.id === 'agg_birthday') return iconBirthday
-    if (card.id === 'daily_login' || card.id === 'agg_checkin' || card.id.startsWith('agg_checkin_ms')) return iconRewards
+    if (card.id === 'agg_checkin' || card.id.startsWith('agg_checkin_ms')) return iconRewards
     if (card.group === 'social') return iconInvite
     return iconClaimable
   }
@@ -276,7 +277,8 @@ export default function TasksPage({ initialPath = 'newbie', onNavigate }: { init
     const done = card.status === 'done'
     const busy = busyId === card.id
     const isClaimable = card.status === 'claimable'
-    const isMilestone = Boolean(card.progress) || card.group === 'achievement'
+    // MILESTONE 徽章只给成就/邀请里程碑；每日进度卡（存款阶梯/投注挑战）不标，避免标题被挤截断
+    const isMilestone = card.group === 'achievement' || card.id === 'invite_milestone'
     const kind = card.action.kind
     const showCode = kind === 'code_redeem' && !done
     const disabled = done || busy || (kind === 'claim' && !isClaimable)
