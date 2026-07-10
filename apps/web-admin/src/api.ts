@@ -805,6 +805,10 @@ export interface TaskRewardCfg {
   turnoverX: number
   currency: string
   threshold: number
+  /** daily_bets：单笔投注 ≥ 此额才计数 */
+  minStake: number
+  /** daily_play：指定 site_category */
+  category: string
 }
 export type TaskConfig = Record<string, TaskRewardCfg>
 export const getTaskConfig = () => get<TaskConfig>('/admin/tasks/config')

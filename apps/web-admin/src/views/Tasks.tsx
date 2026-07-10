@@ -9,12 +9,18 @@ import {
 const { Title, Text } = Typography
 
 const NATIVE_LABELS: Record<string, string> = {
-  daily_login: '每日登录',
-  daily_deposit: '今日完成一笔存款',
-  profile_complete: '完善资料 / 绑定邮箱',
+  daily_deposit_t1: '今日存款阶梯 · 第1档',
+  daily_deposit_t2: '今日存款阶梯 · 第2档',
+  daily_deposit_t3: '今日存款阶梯 · 第3档',
+  daily_bets: '每日投注挑战（阈值=笔数）',
+  daily_play: '今日试玩运营位（阈值=局数）',
+  profile_complete: '绑定社交账号（Google+TG）',
   first_game: '首次游戏下注',
   invite_milestone: '邀请好友',
 }
+
+const PLAY_CATEGORY_OPTS = ['slot', 'live', 'fishing', 'poker', 'perya', 'sports', 'lottery', 'other']
+  .map((v) => ({ value: v, label: v }))
 
 const REWARD_TYPE_OPTS: { value: TaskRewardType; label: string }[] = [
   { value: 'cash', label: '现金' },
@@ -58,6 +64,8 @@ function NativeConfig() {
           { title: '抽奖次数', dataIndex: 'spin', render: (v: number, r) => <InputNumber min={0} value={v} onChange={(x) => patch(r.key, { spin: Number(x) })} /> },
           { title: '打码倍数', dataIndex: 'turnoverX', render: (v: number, r) => <InputNumber min={0} value={v} onChange={(x) => patch(r.key, { turnoverX: Number(x) })} /> },
           { title: '达标阈值', dataIndex: 'threshold', render: (v: number, r) => <InputNumber min={0} value={v} onChange={(x) => patch(r.key, { threshold: Number(x) })} /> },
+          { title: '单笔有效额', dataIndex: 'minStake', render: (v: number, r) => r.key === 'daily_bets' ? <InputNumber min={0} value={v} onChange={(x) => patch(r.key, { minStake: Number(x) })} /> : <Text type="secondary">-</Text> },
+          { title: '指定分类', dataIndex: 'category', render: (v: string, r) => r.key === 'daily_play' ? <Select style={{ width: 100 }} value={v || 'slot'} options={PLAY_CATEGORY_OPTS} onChange={(x) => patch(r.key, { category: x })} /> : <Text type="secondary">-</Text> },
         ]}
       />
     </Card>

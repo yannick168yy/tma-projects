@@ -618,7 +618,9 @@ export default function AppShell() {
               <TasksPage initialPath={view.initialPath} onNavigate={(target) => {
                 if (target === 'checkin') { void onOpenCheckin(); return }
                 if (target === 'kyc') { onOpenKycSetting(); return }
+                if (target === 'cashback') { onOpenCashback(); return }
                 if (target === 'vip_center') { openVipCenter(); return }
+                if (target?.startsWith('games?')) { navigatePath(`/${target}`); return }
                 if (target === 'trial_bonus') { void openTrialBonus(); return }
                 if (target === 'app_download') { void openAppDownloadBonus(); return }
                 if (target === 'deposit') { void openWalletFull('deposit'); return }

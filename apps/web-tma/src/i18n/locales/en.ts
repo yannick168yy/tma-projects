@@ -471,9 +471,10 @@ export default {
     submittedReview: 'Submitted, pending review',
     screenshotPrompt: 'Paste the screenshot URL',
     item: {
-      daily_login: { title: 'Daily Login', subtitle: 'Log in every day to claim' },
-      daily_deposit: { title: 'Deposit Today', subtitle: 'Make a deposit today to claim' },
-      profile_complete: { title: 'Complete Profile', subtitle: 'Bind email & complete your account' },
+      daily_deposit_tier: { title: 'Deposit ₱{{n}} Today', subtitle: 'Tier {{i}}/3 · resets daily' },
+      daily_bets: { title: 'Place {{n}} Bets Today', subtitle: 'Valid bets count · resets daily' },
+      daily_play: { title: "Play Today's Featured Games", subtitle: 'Play a round in the featured category' },
+      profile_complete: { title: 'Link Your Accounts', subtitle: 'Link Google & Telegram to your account' },
       first_game: { title: 'First Bet', subtitle: 'Play any game and place a bet' },
       invite_milestone: { title: 'Invite Friends', subtitle: 'Invite friends to register to claim' },
       agg_trial: { title: 'Claim Newbie Bonus', subtitle: 'Verify phone to claim' },
@@ -482,6 +483,12 @@ export default {
       agg_birthday: { title: 'Unlock Birthday Gift', subtitle: 'Verify your identity to sync your ID birthday' },
       agg_checkin: { title: 'Daily Check-in', subtitle: 'Check in to earn spin chances' },
       checkin_ms: { title: 'Check in {{n}} days this month', subtitle: 'Reach the milestone for extra rewards' },
+    },
+    earn: {
+      rebate: 'Rebate claimable',
+      vipLabel: 'VIP progress',
+      vipNext: '{{amt}} to VIP{{n}}',
+      vipMax: 'Top level reached',
     },
     footer: {
       howTitle: 'How It Works',

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
-  CalendarDays, Check, Sparkles, Star, Users, type LucideIcon,
+  CalendarDays, Check, ChevronRight, Sparkles, Star, Users, type LucideIcon,
 } from 'lucide-react'
 import {
   fetchTaskCenter, claimTask, claimSocialTask,
@@ -13,6 +13,8 @@ import { useActiveTaskStore } from '@/stores/activeTask'
 import { ApiError } from '@/api/client'
 import BindModal from '@/components/auth/BindModal'
 import { cardSubtitle as labelSubtitle, cardTitle as labelTitle, rewardText as labelReward } from '@/components/tasks/taskLabels'
+import { fetchVipProgress } from '@/api/vip'
+import { fetchRebateProgress } from '@/api/rebate'
 import taskHero from '@/assets/tasks/task-hero.webp'
 import iconBirthday from '@/assets/tasks/icon-birthday.webp'
 import iconClaimable from '@/assets/tasks/icon-claimable.webp'
@@ -369,6 +371,7 @@ export default function TasksPage({ initialPath = 'newbie', onNavigate }: { init
             {cards.filter((card) => card.status === 'done').length}/{cards.length}
           </span>
         </div>
+        {activePath === 'daily' && <DailyEarningsCard onNavigate={onNavigate} />}
         {totalNodes === 0 ? (
           <div className="rounded-[13px] border border-[#7f520f]/55 bg-[#080806]/86 px-4 py-8 text-center">
             <Sparkles size={26} className="mx-auto text-[#ffd21d]" />
@@ -402,6 +405,66 @@ function SummaryTile({ icon, label, value }: { icon: string; label: string; valu
         <span className="block truncate text-[11px] font-medium leading-tight text-[#f0e6d2]">{label}</span>
         <span className="mt-0.5 block truncate text-[12px] font-black leading-none text-[#ffd21d]">{value}</span>
       </span>
+    </div>
+  )
+}
+
+// 每日收益聚合卡：洗码可领 + VIP 进度，纯展示跳转，不新增经济（高玩的"每日目标"可视化）
+function DailyEarningsCard({ onNavigate }: { onNavigate?: (target: string) => void }) {
+  const { t } = useTranslation()
+  const token = useAuthStore((s) => s.token)
+  const [data, setData] = useState<{ rebate: number; currency: string; vipNext: { level: number; need: number } | null } | null>(null)
+
+  useEffect(() => {
+    if (!token) { setData(null); return }
+    let alive = true
+    void (async () => {
+      try {
+        const [reb, vip] = await Promise.all([fetchRebateProgress(), fetchVipProgress()])
+        if (!alive) return
+        setData({
+          rebate: reb.claimable,
+          currency: reb.currency,
+          vipNext: vip.nextLevel != null && vip.nextThreshold != null
+            ? { level: vip.nextLevel, need: Math.max(0, vip.nextThreshold - vip.totalTurnover) }
+            : null,
+        })
+      } catch { /* 拉不到就不显示 */ }
+    })()
+    return () => { alive = false }
+  }, [token])
+
+  if (!token || !data) return null
+  return (
+    <div className="mb-2.5 grid grid-cols-2 gap-2">
+      <button
+        type="button"
+        onClick={() => onNavigate?.('cashback')}
+        className="flex min-w-0 items-center justify-between gap-1.5 rounded-[12px] border border-[#6d480f]/45 bg-[#0a0906]/90 px-3 py-2.5 text-left active:scale-[0.98]"
+      >
+        <span className="min-w-0">
+          <span className="block truncate text-[10px] font-medium text-[#d8c7a5]">{t('tasks.earn.rebate')}</span>
+          <span className="mt-0.5 block truncate text-[13px] font-black leading-none text-[#ffd21d]">
+            {formatCurrencyAmount(data.currency, data.rebate)}
+          </span>
+        </span>
+        <ChevronRight size={14} className="flex-shrink-0 text-[#a98b57]" />
+      </button>
+      <button
+        type="button"
+        onClick={() => onNavigate?.('vip_center')}
+        className="flex min-w-0 items-center justify-between gap-1.5 rounded-[12px] border border-[#6d480f]/45 bg-[#0a0906]/90 px-3 py-2.5 text-left active:scale-[0.98]"
+      >
+        <span className="min-w-0">
+          <span className="block truncate text-[10px] font-medium text-[#d8c7a5]">{t('tasks.earn.vipLabel')}</span>
+          <span className="mt-0.5 block truncate text-[13px] font-black leading-none text-[#ffd21d]">
+            {data.vipNext
+              ? t('tasks.earn.vipNext', { n: data.vipNext.level, amt: formatCurrencyAmount(data.currency, data.vipNext.need) })
+              : t('tasks.earn.vipMax')}
+          </span>
+        </span>
+        <ChevronRight size={14} className="flex-shrink-0 text-[#a98b57]" />
+      </button>
     </div>
   )
 }

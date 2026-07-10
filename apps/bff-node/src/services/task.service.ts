@@ -28,12 +28,21 @@ interface NativeTaskDef {
 }
 
 const NATIVE_TASKS: NativeTaskDef[] = [
-  { id: 'daily_login',      group: 'daily',  period: 'daily', title: '每日登录',        subtitle: '每天登录即可领取' },
-  { id: 'daily_deposit',    group: 'daily',  period: 'daily', title: '今日完成一笔存款', subtitle: '当日成功充值达标即可领取', useThreshold: true, todoTarget: 'deposit' },
-  { id: 'profile_complete', group: 'newbie', period: 'once',  title: '完善资料 / 绑定邮箱', subtitle: '绑定邮箱、完善账户资料', todoTarget: 'bind_profile' },
+  // 今日存款阶梯：三档各自独立领取，前台只显示当前档（后端收纳）
+  { id: 'daily_deposit_t1', group: 'daily',  period: 'daily', title: '今日存款 · 第 1 档', subtitle: '当日累计存款达标领取', useThreshold: true, todoTarget: 'deposit' },
+  { id: 'daily_deposit_t2', group: 'daily',  period: 'daily', title: '今日存款 · 第 2 档', subtitle: '当日累计存款达标领取', useThreshold: true, todoTarget: 'deposit' },
+  { id: 'daily_deposit_t3', group: 'daily',  period: 'daily', title: '今日存款 · 第 3 档', subtitle: '当日累计存款达标领取', useThreshold: true, todoTarget: 'deposit' },
+  // threshold=次数，minStake=单笔有效投注额（防 1 分钱刷单）
+  { id: 'daily_bets',       group: 'daily',  period: 'daily', title: '每日投注挑战',      subtitle: '完成有效投注即可领取', useThreshold: true, todoTarget: 'games' },
+  // 运营位：threshold=局数，category=指定分类（后台每周可换），默认关
+  { id: 'daily_play',       group: 'daily',  period: 'daily', title: '今日试玩指定游戏',  subtitle: '试玩指定分类游戏', useThreshold: true, todoTarget: 'games' },
+  { id: 'profile_complete', group: 'newbie', period: 'once',  title: '绑定社交账号', subtitle: '绑定 Google 与 Telegram 账号', todoTarget: 'bind_profile' },
   { id: 'first_game',       group: 'newbie', period: 'once',  title: '首次游戏下注',     subtitle: '体验任意游戏并完成一笔下注', todoTarget: 'games' },
   { id: 'invite_milestone', group: 'newbie', period: 'once', title: '邀请好友', subtitle: '成功邀请好友注册达标领奖', useThreshold: true, todoTarget: 'team_center' },
 ]
+
+/** 新手区展示顺序（体验金第一、绑定账号在邀请后） */
+const NEWBIE_ORDER = ['agg_trial', 'first_game', 'invite_milestone', 'profile_complete', 'agg_appdl', 'agg_firstdep', 'agg_birthday']
 
 const NATIVE_BY_ID = new Map(NATIVE_TASKS.map((t) => [t.id, t]))
 
@@ -49,8 +58,12 @@ export interface TaskRewardCfg {
   /** 现金奖励打码倍数（0=直接可提） */
   turnoverX: number
   currency: string
-  /** useThreshold 任务的达标阈值（PHP） */
+  /** useThreshold 任务的达标阈值（金额/次数/局数） */
   threshold: number
+  /** daily_bets：单笔投注 ≥ 此额（PHP）才计数 */
+  minStake: number
+  /** daily_play：指定 site_category（slot/live/fishing/perya…） */
+  category: string
 }
 
 export type TaskConfig = Record<string, TaskRewardCfg>
@@ -58,11 +71,14 @@ export type TaskConfig = Record<string, TaskRewardCfg>
 const TASK_CONFIG_KEY = 'task_config'
 
 export const DEFAULT_TASK_CONFIG: TaskConfig = {
-  daily_login:      { enabled: true, rewardType: 'spin', amount: 0,  spin: 1, turnoverX: 0, currency: 'PHP', threshold: 0 },
-  daily_deposit:    { enabled: true, rewardType: 'cash', amount: 5,  spin: 0, turnoverX: 3, currency: 'PHP', threshold: 100 },
-  profile_complete: { enabled: true, rewardType: 'cash', amount: 5,  spin: 0, turnoverX: 3, currency: 'PHP', threshold: 0 },
-  first_game:       { enabled: true, rewardType: 'cash', amount: 5,  spin: 0, turnoverX: 3, currency: 'PHP', threshold: 0 },
-  invite_milestone: { enabled: true, rewardType: 'cash', amount: 20, spin: 0, turnoverX: 3, currency: 'PHP', threshold: 1 },
+  daily_deposit_t1: { enabled: true,  rewardType: 'spin', amount: 0,  spin: 1, turnoverX: 0, currency: 'PHP', threshold: 100,  minStake: 0, category: '' },
+  daily_deposit_t2: { enabled: true,  rewardType: 'cash', amount: 10, spin: 0, turnoverX: 3, currency: 'PHP', threshold: 500,  minStake: 0, category: '' },
+  daily_deposit_t3: { enabled: true,  rewardType: 'cash', amount: 30, spin: 0, turnoverX: 3, currency: 'PHP', threshold: 2000, minStake: 0, category: '' },
+  daily_bets:       { enabled: true,  rewardType: 'spin', amount: 0,  spin: 1, turnoverX: 0, currency: 'PHP', threshold: 5,    minStake: 10, category: '' },
+  daily_play:       { enabled: false, rewardType: 'spin', amount: 0,  spin: 1, turnoverX: 0, currency: 'PHP', threshold: 1,    minStake: 0, category: 'slot' },
+  profile_complete: { enabled: true,  rewardType: 'cash', amount: 5,  spin: 0, turnoverX: 3, currency: 'PHP', threshold: 0,    minStake: 0, category: '' },
+  first_game:       { enabled: true,  rewardType: 'cash', amount: 5,  spin: 0, turnoverX: 3, currency: 'PHP', threshold: 0,    minStake: 0, category: '' },
+  invite_milestone: { enabled: true,  rewardType: 'cash', amount: 20, spin: 0, turnoverX: 3, currency: 'PHP', threshold: 1,    minStake: 0, category: '' },
 }
 
 const ALL_REWARD_TYPES: RewardType[] = ['cash', 'spin', 'growth']
@@ -86,6 +102,8 @@ function sanitizeTaskConfig(raw: unknown): TaskConfig {
       turnoverX: clampNum(c.turnoverX, d.turnoverX),
       currency: typeof c.currency === 'string' && c.currency ? c.currency.slice(0, 8) : d.currency,
       threshold: clampNum(c.threshold, d.threshold),
+      minStake: clampNum(c.minStake, d.minStake),
+      category: typeof c.category === 'string' ? c.category.slice(0, 24) : d.category,
     }
   }
   return out
@@ -121,14 +139,14 @@ function periodKey(def: NativeTaskDef, today: string): string {
   return def.period === 'daily' ? today : 'once'
 }
 
-/** 当日是否有 ≥threshold 的成功充值（马尼拉日） */
-async function depositMetToday(pool: Pool, userId: string, date: string, threshold: number): Promise<boolean> {
+/** 当日成功充值累计额（马尼拉日，PHP） */
+async function todayDepositTotal(pool: Pool, userId: string, date: string): Promise<number> {
   const [[row]] = await pool.query<RowDataPacket[]>(
     `SELECT COALESCE(SUM(amount), 0) AS total FROM bg_deposit_order
      WHERE user_id = ? AND status = 'paid' AND DATE(created_at + INTERVAL 8 HOUR) = ?`,
     [userId, date],
   )
-  return Number(row?.total ?? 0) >= Math.max(0, threshold)
+  return Number(row?.total ?? 0)
 }
 
 async function hasBet(pool: Pool, userId: string): Promise<boolean> {
@@ -139,6 +157,41 @@ async function hasBet(pool: Pool, userId: string): Promise<boolean> {
   return Boolean(row)
 }
 
+/** 当日有效投注笔数（单笔 ≥ minStake 才计数，马尼拉日） */
+async function todayBetCount(pool: Pool, userId: string, date: string, minStake: number): Promise<number> {
+  const [[row]] = await pool.query<RowDataPacket[]>(
+    `SELECT COUNT(*) AS n FROM bg_bet_order
+     WHERE user_id = ? AND bet_type = 'bet' AND amount >= ?
+       AND DATE(created_at + INTERVAL 8 HOUR) = ?`,
+    [userId, Math.max(0, minStake), date],
+  )
+  return Number(row?.n ?? 0)
+}
+
+/** 当日指定 site_category 的投注局数（bet.provider_id = 568win game_id） */
+async function todayCategoryBetCount(pool: Pool, userId: string, date: string, category: string): Promise<number> {
+  if (!category) return 0
+  const [[row]] = await pool.query<RowDataPacket[]>(
+    `SELECT COUNT(DISTINCT b.id) AS n FROM bg_bet_order b
+     JOIN bg_568win_game g ON g.game_id = b.provider_id
+     LEFT JOIN bg_568win_game_override o ON o.game_provider_id = g.game_provider_id AND o.game_id = g.game_id
+     WHERE b.user_id = ? AND b.bet_type = 'bet'
+       AND DATE(b.created_at + INTERVAL 8 HOUR) = ?
+       AND COALESCE(o.site_category, g.site_category_auto, 'other') = ?`,
+    [userId, date, category],
+  )
+  return Number(row?.n ?? 0)
+}
+
+/** 已绑定的社交账号数（google + telegram，0..2） */
+async function boundSocialCount(env: Env, userId: string): Promise<number> {
+  const ids = await listUserIdentities(env, userId)
+  let n = 0
+  if (ids.some((i) => i.provider === 'google')) n += 1
+  if (ids.some((i) => i.provider === 'telegram')) n += 1
+  return n
+}
+
 /** 成功邀请人数（下线注册数，inviter_id 指向邀请人 user id） */
 async function inviteeCount(pool: Pool, userId: string): Promise<number> {
   const [[row]] = await pool.query<RowDataPacket[]>(
@@ -147,17 +200,50 @@ async function inviteeCount(pool: Pool, userId: string): Promise<number> {
   return Number(row?.n ?? 0)
 }
 
+interface TaskEval { eligible: boolean; progress?: { current: number; target: number } }
+
+/**
+ * 判定达标 + 计算进度。memo 缓存同请求内的共享查询（如三档存款共用当日累计额）。
+ */
+async function evalTask(
+  env: Env, userId: string, def: NativeTaskDef, cfg: TaskRewardCfg,
+  memo: { depositTotal?: number } = {},
+): Promise<TaskEval> {
+  const pool = getMysqlPool(env)
+  const today = manilaToday()
+  if (def.id.startsWith('daily_deposit_t')) {
+    memo.depositTotal ??= await todayDepositTotal(pool, userId, today)
+    const target = Math.max(1, cfg.threshold)
+    return { eligible: memo.depositTotal >= target, progress: { current: Math.min(memo.depositTotal, target), target } }
+  }
+  switch (def.id) {
+    case 'daily_bets': {
+      const target = Math.max(1, cfg.threshold)
+      const n = await todayBetCount(pool, userId, today, cfg.minStake)
+      return { eligible: n >= target, progress: { current: Math.min(n, target), target } }
+    }
+    case 'daily_play': {
+      const target = Math.max(1, cfg.threshold)
+      const n = await todayCategoryBetCount(pool, userId, today, cfg.category)
+      return { eligible: n >= target, progress: { current: Math.min(n, target), target } }
+    }
+    case 'profile_complete': {
+      const n = await boundSocialCount(env, userId)
+      return { eligible: n >= 2, progress: { current: n, target: 2 } }
+    }
+    case 'first_game':       return { eligible: await hasBet(pool, userId) }
+    case 'invite_milestone': {
+      const target = Math.max(1, cfg.threshold)
+      const n = await inviteeCount(pool, userId)
+      return { eligible: n >= target, progress: { current: Math.min(n, target), target } }
+    }
+    default: return { eligible: false }
+  }
+}
+
 /** 判定某原生任务当前是否达标（未考虑是否已领取） */
 async function isEligible(env: Env, userId: string, def: NativeTaskDef, cfg: TaskRewardCfg): Promise<boolean> {
-  const pool = getMysqlPool(env)
-  switch (def.id) {
-    case 'daily_login':      return true // 能调到本接口即已登录
-    case 'daily_deposit':    return depositMetToday(pool, userId, manilaToday(), cfg.threshold)
-    case 'profile_complete': { const u = await getUser(env, userId); return Boolean(u?.email) }
-    case 'first_game':       return hasBet(pool, userId)
-    case 'invite_milestone': return (await inviteeCount(pool, userId)) >= Math.max(1, cfg.threshold)
-    default: return false
-  }
+  return (await evalTask(env, userId, def, cfg)).eligible
 }
 
 /** 查已领取的 (task_id → period_key 集合)，用于判 done */
@@ -283,24 +369,30 @@ export async function getTaskCenter(env: Env, userId: string): Promise<TaskCente
   const claimed = await claimedPeriods(pool, userId, nativeEnabled.map((d) => d.id))
 
   const cards: TaskCard[] = []
+  const memo: { depositTotal?: number } = {}
   for (const def of nativeEnabled) {
     const c = cfg[def.id]
     const pk = periodKey(def, today)
     const isClaimed = claimed.has(`${def.id}:${pk}`)
-    let status: TaskCard['status']
-    if (isClaimed) status = 'done'
-    else status = (await isEligible(env, userId, def, c)) ? 'claimable' : 'locked'
-    let progress: TaskCard['progress']
-    if (def.id === 'invite_milestone') {
-      progress = { current: await inviteeCount(pool, userId), target: Math.max(1, c.threshold) }
-    }
+    const ev = await evalTask(env, userId, def, c, memo)
+    const status: TaskCard['status'] = isClaimed ? 'done' : ev.eligible ? 'claimable' : 'locked'
+    // 运营位跳对应分类大厅
+    const todoTarget = def.id === 'daily_play' && c.category ? `games?cat=${c.category}` : def.todoTarget
     cards.push({
-      id: def.id, group: def.group, title: def.title, subtitle: def.subtitle, status, progress,
+      id: def.id, group: def.group, title: def.title, subtitle: def.subtitle, status, progress: ev.progress,
       reward: { type: c.rewardType, amount: c.amount, spin: c.spin, currency: c.currency, turnoverX: c.turnoverX },
-      action: status === 'locked' && def.todoTarget
-        ? { kind: 'open_module', target: def.todoTarget }
+      action: status === 'locked' && todoTarget
+        ? { kind: 'open_module', target: todoTarget }
         : { kind: 'claim' },
     })
+  }
+  // 存款阶梯收纳：只展示最低未完成档；三档全领完展示末档（done）
+  const tierCards = cards.filter((c) => c.id.startsWith('daily_deposit_t'))
+  if (tierCards.length > 1) {
+    const active = tierCards.find((c) => c.status !== 'done') ?? tierCards[tierCards.length - 1]
+    for (const tc of tierCards) {
+      if (tc !== active) cards.splice(cards.indexOf(tc), 1)
+    }
   }
 
   // 社群任务
@@ -329,6 +421,10 @@ export async function getTaskCenter(env: Env, userId: string): Promise<TaskCente
   out.groups.newbie.push(...agg.newbie)
   out.groups.daily.unshift(...agg.daily)         // 签到置每日区首位
   out.groups.achievement.push(...agg.achievement)
+
+  // 新手区固定展示顺序（体验金第一）
+  const orderOf = (id: string) => { const i = NEWBIE_ORDER.indexOf(id); return i === -1 ? NEWBIE_ORDER.length : i }
+  out.groups.newbie.sort((a, b) => orderOf(a.id) - orderOf(b.id))
   return out
 }
 
@@ -364,11 +460,13 @@ async function buildAggregatedCards(env: Env, userId: string): Promise<{ newbie:
   const ck = await getCheckinStatus(env, userId).catch(() => null)
   if (ck?.enabled) {
     daily.push(aggCard('agg_checkin', '每日签到', ck.todayClaimed ? '今日已签到' : '签到领取抽奖次数', ck.todayClaimed, 'checkin', zeroReward('spin', 0, 1), 'daily'))
-    for (const m of ck.milestones) {
+    // 里程碑收纳：只展示下一个未达成的（全达成则展示末档 done），避免 7/15/30 三张卡常驻撑爆列表
+    const next = ck.milestones.find((m) => !m.reached) ?? ck.milestones[ck.milestones.length - 1]
+    if (next) {
       achievement.push(aggCard(
-        `agg_checkin_ms_${m.atDays}`, `本月签到 ${m.atDays} 天`, '达成额外奖励',
-        m.reached, 'checkin', zeroReward('spin', 0, m.n), 'achievement',
-        { current: Math.min(ck.monthDays, m.atDays), target: m.atDays },
+        `agg_checkin_ms_${next.atDays}`, `本月签到 ${next.atDays} 天`, '达成额外奖励',
+        next.reached, 'checkin', zeroReward('spin', 0, next.n), 'achievement',
+        { current: Math.min(ck.monthDays, next.atDays), target: next.atDays },
       ))
     }
   }

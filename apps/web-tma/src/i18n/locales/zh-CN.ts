@@ -461,9 +461,10 @@ export default {
     submittedReview: '已提交，等待审核',
     screenshotPrompt: '粘贴截图链接',
     item: {
-      daily_login: { title: '每日登录', subtitle: '每天登录即可领取' },
-      daily_deposit: { title: '今日完成一笔存款', subtitle: '当日成功充值达标即可领取' },
-      profile_complete: { title: '完善资料 / 绑定邮箱', subtitle: '绑定邮箱、完善账户资料' },
+      daily_deposit_tier: { title: '今日存款满 ₱{{n}}', subtitle: '第 {{i}}/3 档 · 每日重置' },
+      daily_bets: { title: '今日完成 {{n}} 笔投注', subtitle: '有效投注计数 · 每日重置' },
+      daily_play: { title: '试玩今日主推游戏', subtitle: '试玩指定分类任一游戏' },
+      profile_complete: { title: '绑定社交账号', subtitle: '绑定 Google 与 Telegram' },
       first_game: { title: '首次游戏下注', subtitle: '体验任意游戏并完成一笔下注' },
       invite_milestone: { title: '邀请好友', subtitle: '成功邀请好友注册达标领奖' },
       agg_trial: { title: '领取新手体验金', subtitle: '完成手机验证即可领取' },
@@ -472,6 +473,12 @@ export default {
       agg_birthday: { title: '解锁生日礼金', subtitle: '完成实名认证，自动同步证件生日' },
       agg_checkin: { title: '每日签到', subtitle: '签到领取抽奖次数' },
       checkin_ms: { title: '本月签到 {{n}} 天', subtitle: '达成额外奖励' },
+    },
+    earn: {
+      rebate: '洗码可领',
+      vipLabel: 'VIP 进度',
+      vipNext: '距 VIP{{n}} 还差 {{amt}}',
+      vipMax: '已达最高等级',
     },
     footer: {
       howTitle: '玩法说明',
