@@ -196,14 +196,13 @@ export default function TasksPage({ initialPath = 'newbie', onNavigate }: { init
     return (
       <section className="relative overflow-hidden px-3 pb-3 pt-8">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_72%_18%,rgba(255,185,28,0.3),transparent_31%),radial-gradient(circle_at_40%_38%,rgba(255,190,34,0.1),transparent_30%)]" />
-        {/* 素材 411x330 即设计稿右上角原始裁切，按原比例贴右上角，不再二次裁 */}
+        {/* 素材 411x400 带 alpha：统计卡区域已挖空+底部渐隐，底边藏在统计卡后手臂完整露出 */}
         <img
           src={taskHero}
           alt=""
           className="pointer-events-none absolute right-0 top-0 h-auto w-[46%] max-w-[186px]"
         />
-        <div className="pointer-events-none absolute right-0 top-0 h-[150px] w-[52%] bg-gradient-to-l from-transparent via-transparent to-[#050403]" />
-        <div className="pointer-events-none absolute right-0 top-[104px] h-[48px] w-[52%] bg-gradient-to-t from-[#050403] to-transparent" />
+        <div className="pointer-events-none absolute right-0 top-0 h-[172px] w-[52%] bg-gradient-to-l from-transparent via-transparent to-[#050403]" />
         <div className="relative">
           <p className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-[0.2em] text-[#ffd21c]">
             <Sparkles size={12} fill="currentColor" strokeWidth={2.8} />
@@ -234,7 +233,7 @@ export default function TasksPage({ initialPath = 'newbie', onNavigate }: { init
     const tabIcons = { newbie: Star, daily: CalendarDays, social: Users } satisfies Record<TaskPath, LucideIcon>
     return (
       <div className="sticky top-0 z-20 bg-[#050403]/94 px-3 py-2 backdrop-blur">
-        <div className="flex rounded-[16px] border border-[#3d2f16]/80 bg-[#16110a]/92 p-[5px]">
+        <div className="flex rounded-[16px] bg-[#16110a] p-[5px]">
           {PATHS.map((path, i) => {
             const active = activePath === path
             const prevActive = i > 0 && activePath === PATHS[i - 1]
@@ -292,7 +291,7 @@ export default function TasksPage({ initialPath = 'newbie', onNavigate }: { init
 
         <div className="mb-1.5 min-w-0 flex-1 rounded-[11px] border border-[#6d480f]/45 bg-[#0a0906]/90 px-2.5 py-2 shadow-[inset_0_1px_0_rgba(255,206,89,0.05)]">
           <div className="flex items-center gap-2.5">
-            <img src={icon} alt="" className="h-[36px] w-[36px] flex-shrink-0 rounded-[8px]" />
+            <img src={icon} alt="" className="h-[44px] w-[44px] flex-shrink-0 rounded-[9px]" />
             <div className="min-w-0 flex-1">
               <div className="flex min-w-0 items-center gap-1.5">
                 {isMilestone && <span className="flex-shrink-0 rounded-full border border-[#81550f]/80 bg-black/42 px-1.5 py-0.5 text-[8px] font-black uppercase leading-none text-[#ffd21d]">{t('tasks.tree.milestone')}</span>}
@@ -385,11 +384,11 @@ export default function TasksPage({ initialPath = 'newbie', onNavigate }: { init
 
 function SummaryTile({ icon, label, value }: { icon: string; label: string; value: string }) {
   return (
-    <div className="flex min-w-0 items-center gap-2 rounded-[11px] border border-[#8a5b13]/50 bg-black/54 px-2.5 py-1.5 shadow-[inset_0_1px_0_rgba(255,206,89,0.06)]">
+    <div className="flex min-w-0 items-center gap-2 rounded-[11px] border border-[#8a5b13]/50 bg-[#0d0b08] px-2.5 py-1.5 shadow-[inset_0_1px_0_rgba(255,206,89,0.06)]">
       <img src={icon} alt="" className="h-[34px] w-[34px] flex-shrink-0 rounded-full" />
       <span className="min-w-0">
         <span className="block truncate text-[11px] font-medium leading-tight text-[#f0dfc5]">{label}</span>
-        <span className="mt-0.5 block truncate text-[15px] font-black leading-none text-[#ffd21d]">{value}</span>
+        <span className="mt-0.5 block truncate text-[14px] font-black leading-none text-[#ffd21d]">{value}</span>
       </span>
     </div>
   )
