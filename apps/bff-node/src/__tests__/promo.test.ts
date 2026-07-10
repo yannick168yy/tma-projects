@@ -14,6 +14,7 @@ vi.mock('../services/store.js', () => ({
   saveUser: vi.fn(),
   creditWallet: vi.fn(),
   listLedger: vi.fn(),
+  getKyc: vi.fn(),
 }))
 
 vi.mock('../services/promo-config.service.js', () => ({
@@ -28,6 +29,7 @@ const mockGetUser = vi.mocked(store.getUser)
 const mockSaveUser = vi.mocked(store.saveUser)
 const mockCreditWallet = vi.mocked(store.creditWallet)
 const mockListLedger = vi.mocked(store.listLedger)
+const mockGetKyc = vi.mocked(store.getKyc)
 const mockGetPromoConfig = vi.mocked(promoConfigSvc.getPromoConfig)
 
 // ──────────────────────────────────────────
@@ -82,6 +84,8 @@ describe('首席体验官 (trial)', () => {
     mockGetPromoConfig.mockResolvedValue(DEFAULT_CONFIG)
     mockSaveUser.mockResolvedValue(undefined)
     mockCreditWallet.mockResolvedValue({ available: 88, frozen: 0 })
+    // trial 领取有手机短信验证硬闸门
+    mockGetKyc.mockResolvedValue({ phoneVerified: true } as never)
   })
 
   it('GET /promotions/trial-play — 未领取时返回 claimed:false', async () => {

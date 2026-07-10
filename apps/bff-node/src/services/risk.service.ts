@@ -128,7 +128,15 @@ async function logHit(
 
 export async function evaluateCheckpoint(env: Env, ctx: RiskContext): Promise<RiskDecision> {
   if (!isMysqlEnabled(env)) return { action: 'pass' }
-  return evaluateWithPool(getMysqlPool(env), ctx)
+  // getMysqlPool 自身可能抛（池未初始化），必须一并兜住：
+  // 风控不可用时应放行，绝不能让它把登录/领取主链路一起拖垮
+  let pool: Pool
+  try {
+    pool = getMysqlPool(env)
+  } catch {
+    return { action: 'pass' }
+  }
+  return evaluateWithPool(pool, ctx)
 }
 
 /**
