@@ -195,49 +195,41 @@ export default function TasksPage({ initialPath = 'newbie', onNavigate }: { init
     return (
       <section className="relative overflow-hidden pb-3">
         {/* 整幅节日街景 hero 铺满顶部，底部渐隐进页面底色，统计卡叠在渐隐区上 */}
+        {/* hero 约半屏：图高378 + 统计卡横跨图底边，整区到统计卡底 ≈ 406px */}
         <img
           src={taskHero}
           alt=""
-          className="pointer-events-none absolute inset-x-0 top-0 h-[302px] w-full object-cover object-top"
+          className="pointer-events-none absolute inset-x-0 top-0 h-[378px] w-full object-cover object-top"
         />
-        {/* 图底模糊带 + 暗色渐隐，向页面底色过渡 */}
-        <div
-          className="pointer-events-none absolute inset-x-0 top-[206px] h-[96px] backdrop-blur-[7px]"
-          style={{ maskImage: 'linear-gradient(to bottom, transparent, black 55%)', WebkitMaskImage: 'linear-gradient(to bottom, transparent, black 55%)' }}
-        />
-        <div className="pointer-events-none absolute inset-x-0 top-[226px] h-[96px] bg-gradient-to-b from-transparent via-[#050403]/55 to-[#050403]" />
-        <div className="relative px-5 pt-[166px]">
-          {/* 标题区背后局部模糊压暗，凸显文字 */}
-          <div
-            className="pointer-events-none absolute -left-1 -top-2 h-[112px] w-[240px] bg-[#3a2c14]/16 backdrop-blur-[6px]"
-            style={{ maskImage: 'radial-gradient(75% 70% at 42% 46%, black 45%, transparent 100%)', WebkitMaskImage: 'radial-gradient(75% 70% at 42% 46%, black 45%, transparent 100%)' }}
-          />
-          <p className="relative flex items-center gap-1 text-[10px] font-black uppercase tracking-[0.18em] text-[#ffb81c] [text-shadow:0_1px_6px_rgba(60,30,0,0.65)]">
-            <Sparkles size={10} fill="currentColor" strokeWidth={2.8} />
+        {/* 图底纯色渐变过渡到页面底色（无模糊） */}
+        <div className="pointer-events-none absolute inset-x-0 top-[288px] h-[90px] bg-gradient-to-b from-transparent via-[#050403]/45 to-[#050403]" />
+        <div className="relative px-5 pt-[250px]">
+          <p className="flex items-center gap-1 text-[9px] font-black uppercase tracking-[0.18em] text-[#ffb81c] [text-shadow:0_1px_6px_rgba(60,30,0,0.65)]">
+            <Sparkles size={9} fill="currentColor" strokeWidth={2.8} />
             {t('tasks.tree.todayPath')}
-            <Sparkles size={10} fill="currentColor" strokeWidth={2.8} />
+            <Sparkles size={9} fill="currentColor" strokeWidth={2.8} />
           </p>
-          {/* 设计稿 Task 偏小 Center 偏大；中文等无空格标题保持单行 */}
-          <h1 className="relative mt-1 font-black leading-[0.92] text-[#1f1305]">
+          {/* 设计稿 Task 偏小 Center 偏大；中文等无空格标题保持单行；字号控宽避开人物 */}
+          <h1 className="mt-1 font-black leading-[0.92] text-[#1f1305]">
             {titleParts.rest ? (
               <>
-                <span className="block text-[27px]">{titleParts.first}</span>
-                <span className="block text-[38px]">{titleParts.rest}</span>
+                <span className="block text-[22px]">{titleParts.first}</span>
+                <span className="block text-[31px]">{titleParts.rest}</span>
               </>
             ) : (
-              <span className="block text-[32px]">{titleParts.first}</span>
+              <span className="block text-[27px]">{titleParts.first}</span>
             )}
           </h1>
-          <div className="relative mt-2.5 flex items-center gap-2.5">
-            <div className="h-[9px] w-[106px] overflow-hidden rounded-full bg-[#221a10]/85 shadow-[inset_0_1px_4px_rgba(0,0,0,0.5)]">
+          <div className="mt-2 flex items-center gap-2">
+            <div className="h-[8px] w-[96px] overflow-hidden rounded-full bg-[#221a10]/85 shadow-[inset_0_1px_4px_rgba(0,0,0,0.5)]">
               <div className="h-full rounded-full bg-gradient-to-b from-[#ffe15a] to-[#ffc000]" style={{ width: `${progressPct}%` }} />
             </div>
-            <div className="rounded-full bg-[#ffd21d] px-2.5 py-1 text-[12px] font-black leading-none text-[#211300] shadow-[0_6px_18px_rgba(60,30,0,0.35)]">
+            <div className="rounded-full bg-[#ffd21d] px-2 py-1 text-[11px] font-black leading-none text-[#211300] shadow-[0_6px_18px_rgba(60,30,0,0.35)]">
               {summary.done}/{summary.total}
             </div>
           </div>
         </div>
-        <div className="relative mt-3 grid grid-cols-[5fr_6fr] gap-2.5 px-5">
+        <div className="relative mt-2.5 grid grid-cols-[5fr_6fr] gap-2 px-5">
           <SummaryTile icon={iconClaimable} label={t('tasks.tree.claimable')} value={String(summary.claimable)} />
           <SummaryTile icon={iconRewards} label={t('tasks.tree.rewards')} value={rewardParts.length ? rewardParts.join(' · ') : '-'} />
         </div>
@@ -310,8 +302,8 @@ export default function TasksPage({ initialPath = 'newbie', onNavigate }: { init
             <img src={icon} alt="" className="h-[48px] w-[48px] flex-shrink-0 rounded-[10px]" />
             <div className="min-w-0 flex-1">
               <div className="flex min-w-0 items-center gap-1">
-                {isMilestone && <span className="flex-shrink-0 rounded-full border border-[#81550f]/80 bg-black/42 px-1 py-0.5 text-[8px] font-black uppercase leading-none text-[#ffd21d]">{t('tasks.tree.milestone')}</span>}
                 <p className="truncate text-[13px] font-black leading-tight text-[#fff8ea]">{cardTitle(card)}</p>
+                {isMilestone && <span className="flex-shrink-0 rounded-full border border-[#81550f]/80 bg-black/42 px-1 py-0.5 text-[8px] font-black uppercase leading-none text-[#ffd21d]">{t('tasks.tree.milestone')}</span>}
               </div>
               {cardSubtitle(card) && <p className="mt-0.5 line-clamp-2 text-[11px] font-medium leading-snug text-[#e8d5b5]">{cardSubtitle(card)}</p>}
               {card.progress && (
@@ -401,11 +393,11 @@ export default function TasksPage({ initialPath = 'newbie', onNavigate }: { init
 
 function SummaryTile({ icon, label, value }: { icon: string; label: string; value: string }) {
   return (
-    <div className="flex min-w-0 items-center gap-2.5 rounded-[14px] bg-[#12100b]/95 px-3 py-3 shadow-[0_4px_14px_rgba(0,0,0,0.35)]">
-      <img src={icon} alt="" className="h-[40px] w-[40px] flex-shrink-0 rounded-full" />
+    <div className="flex min-w-0 items-center gap-2 rounded-[12px] bg-[#12100b]/95 px-2.5 py-2 shadow-[0_4px_14px_rgba(0,0,0,0.4)]">
+      <img src={icon} alt="" className="h-[34px] w-[34px] flex-shrink-0 rounded-full" />
       <span className="min-w-0">
-        <span className="block truncate text-[12px] font-medium leading-tight text-[#f0e6d2]">{label}</span>
-        <span className="mt-1 block truncate text-[13px] font-black leading-none text-[#ffd21d]">{value}</span>
+        <span className="block truncate text-[11px] font-medium leading-tight text-[#f0e6d2]">{label}</span>
+        <span className="mt-0.5 block truncate text-[12px] font-black leading-none text-[#ffd21d]">{value}</span>
       </span>
     </div>
   )
