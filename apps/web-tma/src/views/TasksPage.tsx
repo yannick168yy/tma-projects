@@ -9,8 +9,10 @@ import {
 } from '@/api/tasks'
 import { useAuthStore } from '@/stores/auth'
 import { useWalletStore, formatCurrencyAmount } from '@/stores/wallet'
+import { useActiveTaskStore } from '@/stores/activeTask'
 import { ApiError } from '@/api/client'
 import BindModal from '@/components/auth/BindModal'
+import { cardSubtitle as labelSubtitle, cardTitle as labelTitle, rewardText as labelReward } from '@/components/tasks/taskLabels'
 import taskHero from '@/assets/tasks/task-hero.webp'
 import iconBirthday from '@/assets/tasks/icon-birthday.webp'
 import iconClaimable from '@/assets/tasks/icon-claimable.webp'
@@ -26,6 +28,7 @@ export type TaskPath = 'newbie' | 'daily' | 'social'
 
 const PATHS: TaskPath[] = ['newbie', 'daily', 'social']
 const EMPTY_CENTER: TaskCenter = { groups: { newbie: [], daily: [], achievement: [], social: [] } }
+const STAYS_ON_TASKS_PAGE = new Set(['checkin', 'trial_bonus', 'app_download', 'deposit'])
 
 export default function TasksPage({ initialPath = 'newbie', onNavigate }: { initialPath?: TaskPath; onNavigate?: (target: string) => void }) {
   const { t } = useTranslation()
@@ -35,12 +38,16 @@ export default function TasksPage({ initialPath = 'newbie', onNavigate }: { init
   const [busyId, setBusyId] = useState<string | null>(null)
   const [codeInputs, setCodeInputs] = useState<Record<string, string>>({})
   const [bindOpen, setBindOpen] = useState(false)
+  const startActiveTask = useActiveTaskStore((s) => s.start)
+  const clearActiveTask = useActiveTaskStore((s) => s.clear)
 
   const load = useCallback(async () => {
     try { setCenter(await fetchTaskCenter()) } catch { setCenter(EMPTY_CENTER) }
   }, [])
   useEffect(() => { void load() }, [load])
   useEffect(() => { setActivePath(initialPath) }, [initialPath])
+  // 回到任务中心即视为这一轮跟随结束，卡片本身已展示进度与领取入口
+  useEffect(() => { clearActiveTask() }, [clearActiveTask])
 
   const groups = center?.groups ?? EMPTY_CENTER.groups
   const allCards = useMemo(
@@ -85,22 +92,9 @@ export default function TasksPage({ initialPath = 'newbie', onNavigate }: { init
     }
   }, [allCards])
 
-  // 原生/聚合卡按稳定 id 查 i18n（缺失回落后端中文标题）；社群卡是后台自定义文案，直接用后端值
-  function cardTitle(card: TaskCard): string {
-    if (card.id.startsWith('agg_checkin_ms')) return t('tasks.item.checkin_ms.title', { n: card.progress?.target ?? 0 })
-    return t(`tasks.item.${card.id}.title`, { defaultValue: card.title })
-  }
-  function cardSubtitle(card: TaskCard): string {
-    if (card.id.startsWith('agg_checkin_ms')) return t('tasks.item.checkin_ms.subtitle', { defaultValue: card.subtitle })
-    return t(`tasks.item.${card.id}.subtitle`, { defaultValue: card.subtitle })
-  }
-
-  function rewardText(card: TaskCard): string {
-    const r = card.reward
-    if (r.type === 'cash') return r.amount > 0 ? `+${formatCurrencyAmount(r.currency, r.amount)}` : ''
-    if (r.type === 'spin') return r.spin > 0 ? t('tasks.rewardSpin', { n: r.spin }) : ''
-    return r.amount > 0 ? t('tasks.rewardGrowth', { n: r.amount }) : ''
-  }
+  const cardTitle = (card: TaskCard) => labelTitle(t, card)
+  const cardSubtitle = (card: TaskCard) => labelSubtitle(t, card)
+  const rewardText = (card: TaskCard) => labelReward(t, card)
 
   async function afterSuccess(msg: string) {
     alert(msg)
@@ -153,6 +147,8 @@ export default function TasksPage({ initialPath = 'newbie', onNavigate }: { init
   function onCardAction(card: TaskCard) {
     if (card.action.kind === 'open_module') {
       if (card.action.target === 'bind_profile') { setBindOpen(true); return }
+      // 这些 target 只在任务页上开模态/弹层，用户没离开任务中心，不需要任务条
+      if (!STAYS_ON_TASKS_PAGE.has(card.action.target ?? '')) startActiveTask(card)
       onNavigate?.(card.action.target ?? '')
       return
     }

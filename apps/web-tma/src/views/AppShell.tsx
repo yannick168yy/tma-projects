@@ -18,10 +18,15 @@ import { useAppNavigation } from '@/hooks/useAppNavigation'
 import { shouldShowDownloadBar, dismissDownloadBar, isIos, isStandalone } from '@/utils/pwa'
 import { isInsideTelegram } from '@/utils/initTelegramWebApp'
 import { usePromotionStore } from '@/stores/promotion'
+import { useActiveTaskStore } from '@/stores/activeTask'
 import { claimAppdlBonus, fetchNewPlayerSummary, matchPopupAudience, type NewPlayerSummary } from '@/api/promotion'
 import TopDownloadBar from '@/components/pwa/TopDownloadBar'
+import ActiveTaskBar from '@/components/tasks/ActiveTaskBar'
 import OrientationGuard from '@/components/OrientationGuard'
 import threeCirclesMenu from '@/assets/team/3-circles/menu-entry.webp'
+
+/** 任务条实测高度，用于给 main 补底部内边距，避免盖住页面最后一行内容 */
+const TASK_BAR_HEIGHT = 58
 
 const WalletModal = lazyWithReload(() => import('@/components/wallet/WalletModal'))
 const SearchOverlay = lazyWithReload(() => import('@/components/search/SearchOverlay'))
@@ -233,6 +238,9 @@ export default function AppShell() {
   const [headerH, setHeaderH] = useState(80)
   const [navH, setNavH] = useState(64)
 
+  const activeTaskId = useActiveTaskStore((s) => s.task?.id)
+  const taskBarVisible = Boolean(activeTaskId) && !(view.type === 'tasks' || gamePlayerUrl || walletModalOpen || csOpen)
+
   const fiatBalances = useMemo(() => allBalances.filter((b) => isFiatCurrency(b.code)), [allBalances])
   const cryptoBalances = useMemo(() => allBalances.filter((b) => !isFiatCurrency(b.code)), [allBalances])
 
@@ -266,8 +274,8 @@ export default function AppShell() {
 
   const mainStyle = useMemo(() => {
     if (isImmersive) return undefined
-    return { paddingTop: `${headerH}px`, paddingBottom: `${navH}px` }
-  }, [headerH, navH, isImmersive])
+    return { paddingTop: `${headerH}px`, paddingBottom: `${navH + (taskBarVisible ? TASK_BAR_HEIGHT : 0)}px` }
+  }, [headerH, navH, isImmersive, taskBarVisible])
 
   async function openWallet() {
     if (!(await auth.ensureLoggedIn(t('auth.signInDepositWithdraw')))) return
@@ -662,6 +670,12 @@ export default function AppShell() {
           })}
         </nav>
         )}
+
+        <ActiveTaskBar
+          bottomOffset={isImmersive ? 0 : navH}
+          hidden={!taskBarVisible}
+          onReturnToTasks={() => openTasks()}
+        />
       </div>
 
       <Suspense fallback={null}>
