@@ -1,6 +1,7 @@
 import Router from '@koa/router'
 import { drawSpin, getSpinStatus, getPublicSpinStatus, listSpinRecords } from '../services/spin.service.js'
 import { fail, ok } from '../utils/response.js'
+import { riskAllowed } from '../utils/risk-guard.js'
 
 const router = new Router({ prefix: '/spin' })
 
@@ -17,6 +18,7 @@ router.post('/draw', async (ctx) => {
   const userId = ctx.state.userId
   if (!userId) { fail(ctx, 401, 'Unauthorized', 401); return }
   try {
+    if (!(await riskAllowed(ctx, 'promo_claim'))) return
     const body = (ctx.request.body ?? {}) as { ruleId?: number }
     const ruleId = body.ruleId ? Number(body.ruleId) : undefined
     const result = await drawSpin(ctx.state.env, userId, ruleId, ctx.state.traceId)

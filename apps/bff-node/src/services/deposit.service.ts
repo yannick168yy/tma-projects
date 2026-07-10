@@ -12,6 +12,7 @@ import {
 import { nowIso } from '../utils/format.js'
 import { createDepositRequirement, createPromoRequirement } from './turnover.service.js'
 import { getFirstDepConfigByPool, matchFirstDepBonus, PROMO_DEFAULTS } from './promo-config.service.js'
+import { evaluateWithPool } from './risk.service.js'
 
 export type DepositCurrency = 'PHP' | 'USDT'
 
@@ -53,6 +54,12 @@ async function applyFirstDepPromo(
   if (!cfg.enabled) return
   const bonus = matchFirstDepBonus(cfg.tiers[currency], depositAmount)
   if (bonus <= 0) return
+
+  // 走支付 webhook 无 ctx，拿不到 ip/device，只能按 userId 判风控（用户名单 + 行为规则）
+  if (opts.pool) {
+    const decision = await evaluateWithPool(opts.pool, { checkpoint: 'promo_claim', userId })
+    if (decision.action === 'deny') return
+  }
 
   user.firstDepClaimed = true
   await saveUser(redis, user)

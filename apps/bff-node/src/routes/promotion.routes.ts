@@ -7,6 +7,7 @@ import { fail, ok } from '../utils/response.js'
 import { getPromoConfig } from '../services/promo-config.service.js'
 import { getMysqlPool, isMysqlEnabled } from '../clients/mysql.client.js'
 import { createPromoRequirement } from '../services/turnover.service.js'
+import { riskAllowed } from '../utils/risk-guard.js'
 
 const PROMOS = [
   {
@@ -101,6 +102,7 @@ router.get('/trial-play', async (ctx) => {
 
 router.post('/trial-play/claim', async (ctx) => {
   try {
+    if (!(await riskAllowed(ctx, 'promo_claim'))) return
     const result = await withUserPromoLock(ctx, ctx.state.userId!, 'trial', async () => {
       const user = await getUser(ctx.state.redis, ctx.state.userId!)
       if (!user) throw new Error('User not found')
@@ -169,6 +171,7 @@ router.get('/app-download', async (ctx) => {
 // App/PWA 下载礼金：领取（客户端仅在 standalone/APK 内展示入口；服务端一人一次+记录来源）
 router.post('/app-download/claim', async (ctx) => {
   try {
+    if (!(await riskAllowed(ctx, 'promo_claim'))) return
     const body = (ctx.request.body ?? {}) as { source?: string }
     const source = body.source === 'apk' ? 'apk' : 'pwa'
     const result = await withUserPromoLock(ctx, ctx.state.userId!, 'appdl', async () => {

@@ -6,11 +6,27 @@ import { lookupRegion } from '../services/geo.service.js'
 import { attributeAgentByDomain } from '../services/agent.service.js'
 import { fail, ok } from '../utils/response.js'
 import { getLoginPasswordFailureLimit, getLoginPasswordLockSeconds } from '../services/otp-policy.service.js'
+import { evaluateCheckpoint } from '../services/risk.service.js'
 
 const router = new Router({ prefix: '/auth' })
 
 function cleanIp(raw: string): string {
   return raw.replace(/^::ffff:/i, '')
+}
+
+// 登录/注册风控闸门。此时 session 已签发，但 token 不返回给客户端即等效拒绝。
+// 放在 ok() 之前是因为 userId 要等 login 成功才拿得到。
+async function loginRiskDenied(ctx: import('koa').Context, userId: string, ip: string): Promise<boolean> {
+  const decision = await evaluateCheckpoint(ctx.state.env, {
+    checkpoint: 'login',
+    userId,
+    ip,
+    deviceId: ctx.get('x-device-id') || undefined,
+    region: lookupRegion(ip),
+  })
+  if (decision.action !== 'deny') return false
+  fail(ctx, 403, 'Account access denied', 403)
+  return true
 }
 
 // 从请求头提取设备指纹（前端 client.ts 统一注入）。全部非致命，缺失即降级
@@ -65,6 +81,7 @@ router.post('/telegram', async (ctx) => {
   try {
     const ip = cleanIp(ctx.ip)
     const result = await loginWithInitData(ctx.state.redis, ctx.state.env, initData, body.start_param, ip)
+    if (await loginRiskDenied(ctx, result.user.id, ip)) return
     ok(ctx, {
       token: result.token,
       expiresIn: result.expiresIn,
@@ -107,6 +124,7 @@ router.post('/google', async (ctx) => {
       ip,
       body.referralCode,
     )
+    if (await loginRiskDenied(ctx, result.user.id, ip)) return
     ok(ctx, {
       token: result.token,
       expiresIn: result.expiresIn,
@@ -149,6 +167,7 @@ router.post('/telegram-oidc', async (ctx) => {
       ip,
       body.referralCode,
     )
+    if (await loginRiskDenied(ctx, result.user.id, ip)) return
     ok(ctx, {
       token: result.token,
       expiresIn: result.expiresIn,
@@ -189,6 +208,7 @@ router.post('/register', async (ctx) => {
       { method: body.method, identifier: body.identifier, password: body.password, referralCode: body.referralCode },
       ip,
     )
+    if (await loginRiskDenied(ctx, result.user.id, ip)) return
     ok(ctx, {
       token: result.token,
       expiresIn: result.expiresIn,
@@ -240,6 +260,7 @@ router.post('/login', async (ctx) => {
       password: body.password,
     })
     await ctx.state.redis.del(throttleKey, lockKey)
+    if (await loginRiskDenied(ctx, result.user.id, ip)) return
     ok(ctx, {
       token: result.token,
       expiresIn: result.expiresIn,
@@ -322,6 +343,7 @@ router.post('/telegram-widget', async (ctx) => {
     const ip = cleanIp(ctx.ip)
     const { referralCode, ...data } = body
     const result = await loginWithTelegramWidget(ctx.state.redis, ctx.state.env, data, ip, referralCode)
+    if (await loginRiskDenied(ctx, result.user.id, ip)) return
     ok(ctx, {
       token: result.token,
       expiresIn: result.expiresIn,

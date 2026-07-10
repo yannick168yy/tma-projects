@@ -1,6 +1,7 @@
 import Router from '@koa/router'
 import { ok, fail } from '../utils/response.js'
 import { getTaskCenter, claimTask, claimSocialTask } from '../services/task.service.js'
+import { riskAllowed } from '../utils/risk-guard.js'
 
 const router = new Router({ prefix: '/tasks' })
 
@@ -18,6 +19,7 @@ router.get('/', async (ctx) => {
 router.post('/:id/claim', async (ctx) => {
   if (!ctx.state.userId) { fail(ctx, 401, 'Unauthorized', 401); return }
   try {
+    if (!(await riskAllowed(ctx, 'promo_claim'))) return
     const result = await claimTask(ctx.state.env, ctx.state.userId, ctx.params.id)
     ok(ctx, result)
   } catch (e) {
@@ -34,6 +36,7 @@ router.post('/social/:key/claim', async (ctx) => {
   if (!ctx.state.userId) { fail(ctx, 401, 'Unauthorized', 401); return }
   const body = (ctx.request.body ?? {}) as { code?: string; screenshotUrl?: string }
   try {
+    if (!(await riskAllowed(ctx, 'promo_claim'))) return
     const result = await claimSocialTask(ctx.state.env, ctx.state.userId, ctx.params.key, {
       code: body.code, screenshotUrl: body.screenshotUrl, ip: ctx.ip,
     })

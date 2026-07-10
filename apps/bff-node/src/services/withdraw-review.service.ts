@@ -77,6 +77,7 @@ export const RULE_META: Record<string, { name: string; desc: string }> = {
   upstream_reconcile:       { name: '上游对账', desc: '窗口内本地已结算注单与 568Win 报表按 RefNo 双边核对：本地有上游无（伪造注单）、投注额不符（篡改）、上游已作废但本地已派彩（回滚遗漏）任一命中转人工。报表同步停摆时跳过不拦截。' },
   bonus_bet_abuse:          { name: '上游彩金异常', desc: '窗口内 568Win Bonus 入账总额超过阈值（PHP 分）或笔数超过 params.count，疑似薅上游活动，转人工。' },
   cancel_pattern:           { name: '取消注单异常', desc: '窗口内被作废（Void）的注单笔数 ≥ 阈值且占比 ≥ params.ratio，疑似利用取消机制套利，转人工。' },
+  risk_hit:                 { name: '风控命中', desc: '风控模块在本次取款请求上命中了 escalate/deny 动作（如用户/IP/设备在风控名单中），转人工。窗口 params.windowMins 分钟。' },
   commission_surge:         { name: '佣金激增', desc: '（佣金提现专用）窗口内佣金入账超过之前 30 天佣金总和 × params.mult，且不低于 params.minCents 起查额，疑似速成刷佣，转人工。新代理首笔大额佣金也会命中，由人工过目。' },
   fresh_downline_commission:{ name: '新号佣金占比', desc: '（佣金提现专用）窗口内佣金中来自「注册 ≤ params.days 天下线」的占比 ≥ params.ratio 且总额 ≥ params.minCents，疑似批量注册小号刷佣，转人工。' },
   commission_deposit_ratio: { name: '佣金存款比', desc: '（佣金提现专用）累计佣金 > 下线累计真实存款 × params.ratio 且 ≥ params.minCents。佣金规模不可能长期超过下线净存入，命中即彩金刷佣或结算故障，转人工。' },
@@ -350,6 +351,25 @@ const RULES: Record<string, Rule> = {
       actualValue: voided,
       threshold: minCount > 0 ? minCount : undefined,
       detail: { totalBets: total, voidRatio: round2(ratio), ratioThreshold: ratioTh },
+    }
+  },
+
+  // 风控模块通过 bg_risk_hit_log 把「这个人有问题」交给审核模块处置。
+  // 风控在创建提现单时已判定并落日志（那时才拿得到 ip/device），此处只读结论。
+  async risk_hit(ctx, cfg) {
+    const windowMins = Number(cfg.params?.windowMins ?? 10)
+    const [rows] = await ctx.pool.query<RowDataPacket[]>(
+      `SELECT rule_code FROM bg_risk_hit_log
+        WHERE user_id = ? AND checkpoint = 'withdraw' AND action IN ('escalate','deny')
+          AND created_at >= DATE_SUB(NOW(3), INTERVAL ? MINUTE)
+        ORDER BY id DESC LIMIT 1`,
+      [ctx.order.userId, windowMins],
+    )
+    const hit = rows.length > 0
+    return {
+      code: 'risk_hit',
+      verdict: hit ? 'manual' : 'pass',
+      detail: hit ? { riskRule: String(rows[0].rule_code), windowMins } : undefined,
     }
   },
 }

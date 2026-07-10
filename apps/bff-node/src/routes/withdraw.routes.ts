@@ -11,6 +11,7 @@ import { randomOrderId } from '../utils/id.js'
 import { canWithdraw as checkTurnover } from '../services/turnover.service.js'
 import { reviewWithdraw } from '../services/withdraw-review.service.js'
 import { isKycApproved } from '../services/kyc.service.js'
+import { riskAllowed } from '../utils/risk-guard.js'
 import type { WithdrawOrder } from '../types/domain.js'
 
 const router = new Router({ prefix: '/withdrawals' })
@@ -62,6 +63,9 @@ router.post('/', async (ctx) => {
     chain?: string
     cryptoAmount?: string
   }
+
+  // 风控前置：deny 直接拒；escalate 只落日志放行，由审核引擎的 risk_hit 规则读日志转人工
+  if (!(await riskAllowed(ctx, 'withdraw'))) return
 
   // ── Matrix 提现 ─────────────────────────────────────────────────────────────
   if (body.channelId === 'matrix') {

@@ -1,6 +1,7 @@
 import Router from '@koa/router'
 import { ok, fail } from '../utils/response.js'
 import { getCheckinStatus, claimCheckin } from '../services/checkin.service.js'
+import { riskAllowed } from '../utils/risk-guard.js'
 
 const router = new Router({ prefix: '/promotions/checkin' })
 
@@ -15,6 +16,7 @@ router.get('/status', async (ctx) => {
 
 router.post('/claim', async (ctx) => {
   try {
+    if (!(await riskAllowed(ctx, 'promo_claim'))) return
     const result = await claimCheckin(ctx.state.env, ctx.state.userId!)
     ok(ctx, result)
   } catch (e) {
