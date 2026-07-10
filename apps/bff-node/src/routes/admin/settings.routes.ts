@@ -3,6 +3,7 @@ import type { Redis } from 'ioredis'
 import { getOpPasswordHash, setOpPassword, getSmsTestMode, setSmsTestMode, getAdminSetting, setAdminSetting, writeAuditLog } from '../../services/admin-store.js'
 import { hashPassword, verifyPassword } from '../../services/admin-auth.service.js'
 import { fail, ok } from '../../utils/response.js'
+import { requireRole } from '../../middleware/require-role.js'
 import { listSmsSendLogs } from '../../services/sms/send-log.js'
 import {
   DEFAULT_SMS_DAILY_IP_LIMIT,
@@ -40,10 +41,7 @@ router.get('/op-password', async (ctx) => {
 })
 
 // 设置/修改操作密码（仅 super_admin）
-router.post('/op-password', async (ctx) => {
-  if (ctx.state.adminRole !== 'super_admin') {
-    fail(ctx, 403, 'Only super_admin can manage the operation password'); return
-  }
+router.post('/op-password', requireRole('super_admin', 'Only super_admin can manage the operation password'), async (ctx) => {
 
   const body = ctx.request.body as { newPassword?: string; currentPassword?: string }
   if (!body.newPassword || body.newPassword.length < 6) {
@@ -75,10 +73,7 @@ router.get('/sms', async (ctx) => {
   ok(ctx, { testMode })
 })
 
-router.put('/sms', async (ctx) => {
-  if (ctx.state.adminRole !== 'super_admin') {
-    fail(ctx, 403, 'Only super_admin can manage SMS test mode'); return
-  }
+router.put('/sms', requireRole('super_admin', 'Only super_admin can manage SMS test mode'), async (ctx) => {
   const body = ctx.request.body as { testMode?: unknown }
   if (typeof body.testMode !== 'boolean') {
     fail(ctx, 400, 'testMode must be a boolean'); return
@@ -110,10 +105,7 @@ router.get('/win568-key-rotation', async (ctx) => {
   ok(ctx, { enabled: raw !== '0' })
 })
 
-router.put('/win568-key-rotation', async (ctx) => {
-  if (ctx.state.adminRole !== 'super_admin') {
-    fail(ctx, 403, 'Only super_admin can manage 568Win key rotation'); return
-  }
+router.put('/win568-key-rotation', requireRole('super_admin', 'Only super_admin can manage 568Win key rotation'), async (ctx) => {
   const body = ctx.request.body as { enabled?: unknown }
   if (typeof body.enabled !== 'boolean') {
     fail(ctx, 400, 'enabled must be a boolean'); return
@@ -162,10 +154,7 @@ router.get('/system-params', async (ctx) => {
   })
 })
 
-router.put('/system-params', async (ctx) => {
-  if (ctx.state.adminRole !== 'super_admin') {
-    fail(ctx, 403, 'Only super_admin can manage system parameters'); return
-  }
+router.put('/system-params', requireRole('super_admin', 'Only super_admin can manage system parameters'), async (ctx) => {
   const body = ctx.request.body as {
     smsDailyLimitPerUser?: unknown
     smsDailyLimitPerIp?: unknown
@@ -254,10 +243,7 @@ router.get('/kyc', async (ctx) => {
   ok(ctx, { requireDocument, requireFace: requireDocument && face !== '0', faceMatchThreshold })
 })
 
-router.put('/kyc', async (ctx) => {
-  if (ctx.state.adminRole !== 'super_admin') {
-    fail(ctx, 403, 'Only super_admin can manage KYC verification settings'); return
-  }
+router.put('/kyc', requireRole('super_admin', 'Only super_admin can manage KYC verification settings'), async (ctx) => {
   const body = ctx.request.body as { requireDocument?: unknown; requireFace?: unknown; faceMatchThreshold?: unknown }
   if (typeof body.requireDocument !== 'boolean' || typeof body.requireFace !== 'boolean') {
     fail(ctx, 400, 'requireDocument and requireFace must be booleans'); return
@@ -313,11 +299,7 @@ router.post('/exchange-rates/refresh', async (ctx) => {
 })
 
 // 设置手动汇率（super_admin 或 finance 可操作）
-router.post('/exchange-rates/manual', async (ctx) => {
-  const role = ctx.state.adminRole as string
-  if (role !== 'super_admin' && role !== 'finance') {
-    fail(ctx, 403, '无操作权限'); return
-  }
+router.post('/exchange-rates/manual', requireRole(['super_admin', 'finance']), async (ctx) => {
   const body = ctx.request.body as { from?: string; to?: string; rate?: unknown }
   const from = String(body.from ?? '').toUpperCase()
   const to = String(body.to ?? '').toUpperCase()
@@ -331,11 +313,7 @@ router.post('/exchange-rates/manual', async (ctx) => {
 })
 
 // 清除手动汇率（恢复 API 自动获取）
-router.delete('/exchange-rates/manual/:from/:to', async (ctx) => {
-  const role = ctx.state.adminRole as string
-  if (role !== 'super_admin' && role !== 'finance') {
-    fail(ctx, 403, '无操作权限'); return
-  }
+router.delete('/exchange-rates/manual/:from/:to', requireRole(['super_admin', 'finance']), async (ctx) => {
   const from = ctx.params.from.toUpperCase()
   const to = ctx.params.to.toUpperCase()
   const redis = ctx.state.redis as Redis

@@ -6,6 +6,7 @@ import {
 } from '../../services/payment-channel.service.js'
 import { getAccounting, getBalances, refreshBalances } from '../../services/payment-accounting.service.js'
 import { writeAuditLog } from '../../services/admin-store.js'
+import { requireRole } from '../../middleware/require-role.js'
 
 const router = new Router({ prefix: '/payment' })
 const FEE_TYPES: FeeType[] = ['none', 'percent', 'fixed']
@@ -17,8 +18,7 @@ router.get('/channels', async (ctx) => {
   ok(ctx, channels)
 })
 
-router.post('/channels', async (ctx) => {
-  if (ctx.state.adminRole !== 'super_admin') { fail(ctx, 403, '无操作权限'); return }
+router.post('/channels', requireRole('super_admin'), async (ctx) => {
   const body = ctx.request.body as {
     name?: string; provider?: string; label?: string; category?: string
     depositFeeType?: string; depositFeeValue?: unknown
@@ -48,8 +48,7 @@ router.post('/channels', async (ctx) => {
   ok(ctx, { id })
 })
 
-router.put('/channels/:id', async (ctx) => {
-  if (ctx.state.adminRole !== 'super_admin') { fail(ctx, 403, '无操作权限'); return }
+router.put('/channels/:id', requireRole('super_admin'), async (ctx) => {
   const id = Number(ctx.params.id)
   const body = ctx.request.body as {
     name?: string; provider?: string; label?: string; category?: string
@@ -78,8 +77,7 @@ router.put('/channels/:id', async (ctx) => {
   ok(ctx, null)
 })
 
-router.delete('/channels/:id', async (ctx) => {
-  if (ctx.state.adminRole !== 'super_admin') { fail(ctx, 403, '无操作权限'); return }
+router.delete('/channels/:id', requireRole('super_admin'), async (ctx) => {
   const id = Number(ctx.params.id)
   const deleted = await deleteChannel(ctx.state.env, id)
   if (!deleted) { fail(ctx, 404, '渠道不存在'); return }
@@ -115,8 +113,7 @@ function normalizeFeeType(v: unknown): FeeType {
   return FEE_TYPES.includes(v as FeeType) ? v as FeeType : 'none'
 }
 
-router.post('/channels/:channelId/rules', async (ctx) => {
-  if (ctx.state.adminRole !== 'super_admin') { fail(ctx, 403, '无操作权限'); return }
+router.post('/channels/:channelId/rules', requireRole('super_admin'), async (ctx) => {
   const channelId = Number(ctx.params.channelId)
   const body = ctx.request.body as {
     currency?: string; txType?: string; amountMin?: unknown; amountMax?: unknown
@@ -137,8 +134,7 @@ router.post('/channels/:channelId/rules', async (ctx) => {
   ok(ctx, { id })
 })
 
-router.put('/rules/:id', async (ctx) => {
-  if (ctx.state.adminRole !== 'super_admin') { fail(ctx, 403, '无操作权限'); return }
+router.put('/rules/:id', requireRole('super_admin'), async (ctx) => {
   const id = Number(ctx.params.id)
   const body = ctx.request.body as {
     currency?: string; txType?: string; amountMin?: unknown; amountMax?: unknown
@@ -156,8 +152,7 @@ router.put('/rules/:id', async (ctx) => {
   ok(ctx, null)
 })
 
-router.delete('/rules/:id', async (ctx) => {
-  if (ctx.state.adminRole !== 'super_admin') { fail(ctx, 403, '无操作权限'); return }
+router.delete('/rules/:id', requireRole('super_admin'), async (ctx) => {
   const id = Number(ctx.params.id)
   const deleted = await deleteRule(ctx.state.env, id)
   if (!deleted) { fail(ctx, 404, '规则不存在'); return }

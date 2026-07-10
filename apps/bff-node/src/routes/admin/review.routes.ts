@@ -4,6 +4,7 @@ import { getMysqlPool, isMysqlEnabled } from '../../clients/mysql.client.js'
 import { RULE_META, getReviewLog, getRelatedAccounts, rerunReview } from '../../services/withdraw-review.service.js'
 import { rerunTeamWithdrawalReview } from '../../services/team-withdraw-review.service.js'
 import { writeAuditLog } from '../../services/admin-store.js'
+import { requireRole } from '../../middleware/require-role.js'
 import type { ResultSetHeader, RowDataPacket } from 'mysql2/promise'
 
 const router = new Router({ prefix: '/review' })
@@ -218,8 +219,7 @@ router.get('/config', async (ctx) => {
   })
 })
 
-router.put('/config', async (ctx) => {
-  if (ctx.state.adminRole !== 'super_admin') { fail(ctx, 403, '仅超级管理员可修改审核规则配置'); return }
+router.put('/config', requireRole('super_admin', '仅超级管理员可修改审核规则配置'), async (ctx) => {
   if (!isMysqlEnabled(ctx.state.env)) { fail(ctx, 503, 'DB not available'); return }
   const body = ctx.request.body as {
     scope?: string
@@ -263,8 +263,7 @@ router.get('/blacklist', async (ctx) => {
   })
 })
 
-router.post('/blacklist', async (ctx) => {
-  if (ctx.state.adminRole !== 'super_admin') { fail(ctx, 403, '仅超级管理员可管理风控名单'); return }
+router.post('/blacklist', requireRole('super_admin', '仅超级管理员可管理风控名单'), async (ctx) => {
   if (!isMysqlEnabled(ctx.state.env)) { fail(ctx, 503, 'DB not available'); return }
   const body = ctx.request.body as { type?: string; value?: string; reason?: string }
   if (!body.type || !['ip', 'device', 'region', 'user'].includes(body.type) || !body.value) {
@@ -284,8 +283,7 @@ router.post('/blacklist', async (ctx) => {
   ok(ctx, { added: true })
 })
 
-router.delete('/blacklist/:id', async (ctx) => {
-  if (ctx.state.adminRole !== 'super_admin') { fail(ctx, 403, '仅超级管理员可管理风控名单'); return }
+router.delete('/blacklist/:id', requireRole('super_admin', '仅超级管理员可管理风控名单'), async (ctx) => {
   if (!isMysqlEnabled(ctx.state.env)) { fail(ctx, 503, 'DB not available'); return }
   const pool = getMysqlPool(ctx.state.env)
   await pool.execute(`DELETE FROM bg_risk_blacklist WHERE id = ?`, [Number(ctx.params.id)])
