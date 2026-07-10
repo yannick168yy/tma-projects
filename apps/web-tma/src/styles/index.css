@@ -64,3 +64,76 @@
   from { transform: translateY(0); }
   to { transform: translateY(-50%); }
 }
+
+/* ── 任务中心动效（只动 transform/opacity/box-shadow，GPU 合成层友好） ── */
+@media (prefers-reduced-motion: no-preference) {
+  .task-kenburns {
+    animation: taskKenburns 22s ease-in-out infinite;
+    will-change: transform;
+  }
+  .task-sparkle { animation: taskSparkle 1.8s ease-in-out infinite; }
+  .task-sparkle-alt { animation: taskSparkle 1.8s ease-in-out -0.9s infinite; }
+  .task-progress-fill::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(105deg, transparent 25%, rgba(255, 255, 255, 0.45) 50%, transparent 75%);
+    transform: translateX(-100%);
+    animation: taskSheen 2.6s ease-in-out infinite;
+  }
+  .task-grow { animation: taskGrow 0.8s ease-out both; }
+  .task-btn-pulse { animation: taskBtnPulse 2s ease-in-out infinite; }
+  .task-card-in { animation: taskCardIn 0.35s ease-out both; }
+  .task-wiggle { animation: taskWiggle 3s ease-in-out infinite; }
+  .task-pop-ring { animation: taskPop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both, taskRing 0.8s ease-out 0.1s both; }
+  .task-toast-in { animation: taskToastIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+  .task-coin { display: inline-block; animation: taskCoin 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+}
+.task-progress-fill { position: relative; overflow: hidden; }
+
+@keyframes taskKenburns {
+  0%, 100% { transform: scale(1) translate(0, 0); }
+  50% { transform: scale(1.045) translate(-1.2%, 0.8%); }
+}
+@keyframes taskSparkle {
+  0%, 100% { opacity: 0.35; transform: scale(0.8); }
+  50% { opacity: 1; transform: scale(1.05); }
+}
+@keyframes taskSheen {
+  0%, 35% { transform: translateX(-100%); }
+  85%, 100% { transform: translateX(100%); }
+}
+@keyframes taskGrow { from { max-width: 0; } to { max-width: 100%; } }
+@keyframes taskBtnPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 140, 20, 0.45); }
+  50% { box-shadow: 0 0 0 7px rgba(255, 140, 20, 0); }
+}
+@keyframes taskCardIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes taskWiggle {
+  0%, 30%, 100% { transform: rotate(0); }
+  6% { transform: rotate(-12deg); }
+  12% { transform: rotate(10deg); }
+  18% { transform: rotate(-8deg); }
+  24% { transform: rotate(6deg); }
+}
+@keyframes taskPop {
+  0% { transform: scale(0.3); }
+  60% { transform: scale(1.22); }
+  100% { transform: scale(1); }
+}
+@keyframes taskRing {
+  from { box-shadow: 0 0 0 0 rgba(0, 200, 90, 0.55); }
+  to { box-shadow: 0 0 0 14px rgba(0, 200, 90, 0); }
+}
+@keyframes taskToastIn {
+  from { opacity: 0; transform: translateY(16px) scale(0.9); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes taskCoin {
+  0% { transform: scale(0) rotate(-120deg); }
+  70% { transform: scale(1.25) rotate(8deg); }
+  100% { transform: scale(1) rotate(0); }
+}

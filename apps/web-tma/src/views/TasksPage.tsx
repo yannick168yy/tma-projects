@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   CalendarDays, Check, ChevronRight, Sparkles, Star, Users, type LucideIcon,
@@ -38,6 +38,9 @@ export default function TasksPage({ initialPath = 'newbie', onNavigate }: { init
   const [center, setCenter] = useState<TaskCenter | null>(null)
   const [activePath, setActivePath] = useState<TaskPath>('newbie')
   const [busyId, setBusyId] = useState<string | null>(null)
+  const [justClaimedId, setJustClaimedId] = useState<string | null>(null)
+  const [toast, setToast] = useState<{ msg: string; kind: 'ok' | 'err' } | null>(null)
+  const toastTimer = useRef<number | null>(null)
   const [codeInputs, setCodeInputs] = useState<Record<string, string>>({})
   const [bindOpen, setBindOpen] = useState(false)
   const startActiveTask = useActiveTaskStore((s) => s.start)
@@ -99,8 +102,16 @@ export default function TasksPage({ initialPath = 'newbie', onNavigate }: { init
   const cardSubtitle = (card: TaskCard) => (card.id === 'invite_milestone' ? '' : labelSubtitle(t, card))
   const rewardText = (card: TaskCard) => labelReward(t, card)
 
+  // 页内 toast 取代原生 alert：不打断操作流，成功带金币入场动效
+  const showToast = useCallback((msg: string, kind: 'ok' | 'err' = 'ok') => {
+    if (toastTimer.current) window.clearTimeout(toastTimer.current)
+    setToast({ msg, kind })
+    toastTimer.current = window.setTimeout(() => setToast(null), 2400)
+  }, [])
+  useEffect(() => () => { if (toastTimer.current) window.clearTimeout(toastTimer.current) }, [])
+
   async function afterSuccess(msg: string) {
-    alert(msg)
+    showToast(msg, 'ok')
     await Promise.all([load(), useWalletStore.getState().refresh()])
   }
 
@@ -111,9 +122,10 @@ export default function TasksPage({ initialPath = 'newbie', onNavigate }: { init
     setBusyId(card.id)
     try {
       await claimTask(card.id)
+      setJustClaimedId(card.id)
       await afterSuccess(t('tasks.claimSuccess', { reward: rewardText(card) }))
     } catch (e) {
-      alert(e instanceof ApiError ? e.message : t('tasks.claimFailed'))
+      showToast(e instanceof ApiError ? e.message : t('tasks.claimFailed'), 'err')
     } finally { setBusyId(null) }
   }
 
@@ -125,7 +137,7 @@ export default function TasksPage({ initialPath = 'newbie', onNavigate }: { init
     const input: { code?: string; screenshotUrl?: string } = {}
     if (kind === 'code_redeem') {
       const code = (codeInputs[card.id] ?? '').trim()
-      if (!code) { alert(t('tasks.codeRequired')); return }
+      if (!code) { showToast(t('tasks.codeRequired'), 'err'); return }
       input.code = code
     }
     if (kind === 'manual_review') {
@@ -136,14 +148,14 @@ export default function TasksPage({ initialPath = 'newbie', onNavigate }: { init
     setBusyId(card.id)
     try {
       const res = await claimSocialTask(card.id, input)
-      if (res.status === 'pending_review') { alert(t('tasks.submittedReview')); await load() }
-      else await afterSuccess(t('tasks.claimSuccess', { reward: rewardText(card) }))
+      if (res.status === 'pending_review') { showToast(t('tasks.submittedReview'), 'ok'); await load() }
+      else { setJustClaimedId(card.id); await afterSuccess(t('tasks.claimSuccess', { reward: rewardText(card) })) }
     } catch (e) {
       const msg = e instanceof ApiError ? e.message : ''
       if (msg === 'need_bind_telegram') { setBindOpen(true); return }
-      if (msg === 'not_member') { alert(t('tasks.notMember')); return }
-      if (msg === 'bad_code') { alert(t('tasks.badCode')); return }
-      alert(msg || t('tasks.claimFailed'))
+      if (msg === 'not_member') { showToast(t('tasks.notMember'), 'err'); return }
+      if (msg === 'bad_code') { showToast(t('tasks.badCode'), 'err'); return }
+      showToast(msg || t('tasks.claimFailed'), 'err')
     } finally { setBusyId(null) }
   }
 
@@ -198,20 +210,20 @@ export default function TasksPage({ initialPath = 'newbie', onNavigate }: { init
     return (
       <section className="relative pb-3">
         {/* hero 可视区=50vh-半卡高：统计卡中线跨机型都压在屏高 50% 分界线，上下内容跟随该区移动 */}
-        <div className="relative h-[calc(50vh-25px)] max-h-[470px] min-h-[300px]">
+        <div className="relative h-[calc(50vh-25px)] max-h-[470px] min-h-[300px] overflow-hidden">
           <img
             src={taskHero}
             alt=""
-            className="pointer-events-none absolute inset-0 h-full w-full object-cover object-top"
+            className="task-kenburns pointer-events-none absolute inset-0 h-full w-full object-cover object-top"
           />
           {/* 图底纯色渐变过渡到页面底色（无模糊），锚定图底自动跟随 */}
           <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[90px] bg-gradient-to-b from-transparent via-[#050403]/45 to-[#050403]" />
           {/* 标题块锚定图底，跨机型与统计卡保持固定间距 */}
           <div className="absolute inset-x-0 bottom-[34px] px-5">
             <p className="flex items-center gap-1 text-[9px] font-black uppercase tracking-[0.18em] text-[#ffb81c] [text-shadow:0_1px_6px_rgba(60,30,0,0.65)]">
-              <Sparkles size={9} fill="currentColor" strokeWidth={2.8} />
+              <Sparkles size={9} fill="currentColor" strokeWidth={2.8} className="task-sparkle" />
               {t('tasks.tree.todayPath')}
-              <Sparkles size={9} fill="currentColor" strokeWidth={2.8} />
+              <Sparkles size={9} fill="currentColor" strokeWidth={2.8} className="task-sparkle-alt" />
             </p>
             {/* 设计稿 Task 偏小 Center 偏大；中文等无空格标题保持单行；字号控宽避开人物 */}
             <h1 className="mt-1 font-black leading-[0.92] text-[#1f1305]">
@@ -226,7 +238,7 @@ export default function TasksPage({ initialPath = 'newbie', onNavigate }: { init
             </h1>
             <div className="mt-2 flex items-center gap-2">
               <div className="h-[8px] w-[96px] overflow-hidden rounded-full bg-[#221a10]/85 shadow-[inset_0_1px_4px_rgba(0,0,0,0.5)]">
-                <div className="h-full rounded-full bg-gradient-to-b from-[#ffe15a] to-[#ffc000]" style={{ width: `${progressPct}%` }} />
+                <div className="task-progress-fill task-grow h-full rounded-full bg-gradient-to-b from-[#ffe15a] to-[#ffc000]" style={{ width: `${progressPct}%` }} />
               </div>
               <div className="rounded-full bg-[#ffd21d] px-2 py-1 text-[11px] font-black leading-none text-[#211300] shadow-[0_6px_18px_rgba(60,30,0,0.35)]">
                 {summary.done}/{summary.total}
@@ -236,7 +248,7 @@ export default function TasksPage({ initialPath = 'newbie', onNavigate }: { init
         </div>
         {/* 负半卡高上移：卡片上半压 hero、下半压背景 */}
         <div className="relative -mt-[25px] grid grid-cols-[5fr_6fr] gap-2 px-5">
-          <SummaryTile icon={iconClaimable} label={t('tasks.tree.claimable')} value={String(summary.claimable)} />
+          <SummaryTile icon={iconClaimable} label={t('tasks.tree.claimable')} value={String(summary.claimable)} iconClass={summary.claimable > 0 ? 'task-wiggle' : ''} />
           <SummaryTile icon={iconRewards} label={t('tasks.tree.rewards')} value={rewardParts.length ? rewardParts.join(' · ') : '-'} />
         </div>
       </section>
@@ -247,18 +259,23 @@ export default function TasksPage({ initialPath = 'newbie', onNavigate }: { init
     const tabIcons = { newbie: Star, daily: CalendarDays, social: Users } satisfies Record<TaskPath, LucideIcon>
     return (
       <div className="sticky top-0 z-20 bg-[#050403]/94 px-3 py-2 backdrop-blur">
-        <div className="flex rounded-[16px] bg-[#16110a] p-[5px]">
+        <div className="relative flex rounded-[16px] bg-[#16110a] p-[5px]">
+          {/* 滑动黄胶囊：随选中项平移，按钮自身不再带底色 */}
+          <span
+            className="pointer-events-none absolute bottom-[5px] top-[5px] rounded-full bg-gradient-to-b from-[#ffdb37] to-[#ffc400] shadow-[0_5px_16px_rgba(255,193,17,0.34)] transition-[left] duration-300 ease-out"
+            style={{ width: 'calc((100% - 10px) / 3)', left: `calc(${PATHS.indexOf(activePath)} * (100% - 10px) / 3 + 5px)` }}
+          />
           {PATHS.map((path, i) => {
             const active = activePath === path
             const prevActive = i > 0 && activePath === PATHS[i - 1]
             const Icon = tabIcons[path]
             return (
-              <div key={path} className="flex min-w-0 flex-1 items-center">
-                {i > 0 && <span className={`h-[18px] w-px flex-shrink-0 bg-[#8a6a35]/45 ${active || prevActive ? 'opacity-0' : ''}`} />}
+              <div key={path} className="relative flex min-w-0 flex-1 items-center">
+                {i > 0 && <span className={`h-[18px] w-px flex-shrink-0 bg-[#8a6a35]/45 transition-opacity ${active || prevActive ? 'opacity-0' : ''}`} />}
                 <button
                   type="button"
                   onClick={() => setActivePath(path)}
-                  className={`flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-full px-1 py-2 text-[13px] font-black transition-colors ${active ? 'bg-gradient-to-b from-[#ffdb37] to-[#ffc400] text-[#241600] shadow-[0_5px_16px_rgba(255,193,17,0.34)]' : 'text-[#f3e5cb]'}`}
+                  className={`flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-full px-1 py-2 text-[13px] font-black transition-colors duration-300 ${active ? 'text-[#241600]' : 'text-[#f3e5cb]'}`}
                 >
                   {path === 'daily'
                     ? <CalendarSolid size={16} className={active ? '' : 'text-[#e0b878]'} punch={active ? '#ffd230' : '#16110a'} />
@@ -290,11 +307,11 @@ export default function TasksPage({ initialPath = 'newbie', onNavigate }: { init
       : 'bg-gradient-to-b from-[#ff961f] to-[#ff6500] text-white shadow-[0_7px_18px_rgba(255,101,0,0.28)]'
 
     return (
-      <div key={card.id} className="relative flex gap-2.5">
+      <div key={card.id} className="task-card-in relative flex gap-2.5" style={{ animationDelay: `${Math.min(index, 8) * 45}ms` }}>
         <div className="flex w-[38px] flex-shrink-0 flex-col items-center">
           {done ? (
-            <span className="z-[1] mt-[9px] flex aspect-square h-[33px] w-[33px] flex-shrink-0 items-center justify-center rounded-full bg-[radial-gradient(circle_at_38%_30%,#33c96a,#0a9440)] text-white shadow-[0_0_16px_rgba(0,189,80,0.5)]">
-              <Check size={19} strokeWidth={4.2} />
+            <span className={`z-[1] mt-[11px] flex aspect-square h-[29px] w-[29px] flex-shrink-0 items-center justify-center rounded-full bg-[radial-gradient(circle_at_38%_30%,#33c96a,#0a9440)] text-white shadow-[0_0_16px_rgba(0,189,80,0.5)] ${justClaimedId === card.id ? 'task-pop-ring' : ''}`}>
+              <Check size={16} strokeWidth={4.2} />
             </span>
           ) : (
             <span className="z-[1] mt-[11px] flex aspect-square h-[29px] w-[29px] flex-shrink-0 items-center justify-center rounded-full border border-[#8a6425]/60 bg-[#14100a] text-[#d2a878] shadow-[0_0_10px_rgba(255,190,40,0.12)]">
@@ -316,7 +333,7 @@ export default function TasksPage({ initialPath = 'newbie', onNavigate }: { init
               {card.progress && (
                 <div className="mt-1.5 flex items-center gap-2">
                   <div className="h-[6px] flex-1 overflow-hidden rounded-full bg-[#1c1710] shadow-[inset_0_1px_3px_rgba(0,0,0,0.65)]">
-                    <div className="h-full rounded-full bg-gradient-to-b from-[#ffe15a] to-[#ffc000]" style={{ width: `${progressPct}%` }} />
+                    <div className="task-progress-fill task-grow h-full rounded-full bg-gradient-to-b from-[#ffe15a] to-[#ffc000]" style={{ width: `${progressPct}%` }} />
                   </div>
                   <span className="min-w-[26px] text-[11px] font-black text-[#f0dfc5]">{card.progress.current}/{card.progress.target}</span>
                 </div>
@@ -333,7 +350,7 @@ export default function TasksPage({ initialPath = 'newbie', onNavigate }: { init
                 type="button"
                 onClick={() => onCardAction(card)}
                 disabled={disabled}
-                className={`min-w-[64px] rounded-full px-2.5 py-1.5 text-[12px] font-black leading-none active:scale-95 disabled:cursor-default ${!done && disabled ? 'opacity-95' : ''} ${buttonTone}`}
+                className={`min-w-[64px] rounded-full px-2.5 py-1.5 text-[12px] font-black leading-none active:scale-95 disabled:cursor-default ${!done && disabled ? 'opacity-95' : ''} ${isClaimable && kind !== 'open_module' && !busy ? 'task-btn-pulse' : ''} ${buttonTone}`}
               >
                 {buttonLabel}
               </button>
@@ -363,9 +380,9 @@ export default function TasksPage({ initialPath = 'newbie', onNavigate }: { init
         <div className="mb-2.5 flex items-start justify-between px-2">
           <div>
             <p className="flex items-center gap-1.5 text-[14px] font-black uppercase tracking-[0.18em] text-[#ffd21d]">
-              <Sparkles size={12} fill="currentColor" />
+              <Sparkles size={12} fill="currentColor" className="task-sparkle" />
               {t(`tasks.path.${activePath}`)}
-              <Sparkles size={12} fill="currentColor" />
+              <Sparkles size={12} fill="currentColor" className="task-sparkle-alt" />
             </p>
             <p className="mt-0.5 text-[11px] text-[#eeddbf]">{t(`tasks.pathSub.${activePath}`)}</p>
           </div>
@@ -394,15 +411,23 @@ export default function TasksPage({ initialPath = 'newbie', onNavigate }: { init
       {renderTabs()}
       {renderPath()}
       <TasksFooter />
+      {toast && (
+        <div className="pointer-events-none fixed inset-x-0 bottom-24 z-50 flex justify-center px-6">
+          <div className={`task-toast-in flex max-w-full items-center gap-2 rounded-full border px-4 py-2.5 text-[13px] font-black shadow-[0_10px_30px_rgba(0,0,0,0.5)] ${toast.kind === 'ok' ? 'border-[#2f7a44] bg-[#122d18] text-[#8dffb5]' : 'border-[#7a2f2a] bg-[#2f1412] text-[#ffb3a8]'}`}>
+            <span className="task-coin text-[15px] leading-none">{toast.kind === 'ok' ? '🪙' : '⚠️'}</span>
+            <span className="min-w-0 truncate">{toast.msg}</span>
+          </div>
+        </div>
+      )}
       <BindModal open={bindOpen} onClose={() => { setBindOpen(false); void load() }} />
     </div>
   )
 }
 
-function SummaryTile({ icon, label, value }: { icon: string; label: string; value: string }) {
+function SummaryTile({ icon, label, value, iconClass = '' }: { icon: string; label: string; value: string; iconClass?: string }) {
   return (
     <div className="flex min-w-0 items-center gap-2 rounded-[12px] bg-[#12100b]/95 px-2.5 py-2 shadow-[0_4px_14px_rgba(0,0,0,0.4)]">
-      <img src={icon} alt="" className="h-[34px] w-[34px] flex-shrink-0 rounded-full" />
+      <img src={icon} alt="" className={`h-[34px] w-[34px] flex-shrink-0 rounded-full ${iconClass}`} />
       <span className="min-w-0">
         <span className="block truncate text-[11px] font-medium leading-tight text-[#f0e6d2]">{label}</span>
         <span className="mt-0.5 block truncate text-[12px] font-black leading-none text-[#ffd21d]">{value}</span>
