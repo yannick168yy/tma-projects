@@ -75,7 +75,7 @@ export const DEFAULT_TASK_CONFIG: TaskConfig = {
   daily_deposit_t2: { enabled: true,  rewardType: 'cash', amount: 10, spin: 0, turnoverX: 3, currency: 'PHP', threshold: 500,  minStake: 0, category: '' },
   daily_deposit_t3: { enabled: true,  rewardType: 'cash', amount: 30, spin: 0, turnoverX: 3, currency: 'PHP', threshold: 2000, minStake: 0, category: '' },
   daily_bets:       { enabled: true,  rewardType: 'spin', amount: 0,  spin: 1, turnoverX: 0, currency: 'PHP', threshold: 5,    minStake: 10, category: '' },
-  daily_play:       { enabled: false, rewardType: 'spin', amount: 0,  spin: 1, turnoverX: 0, currency: 'PHP', threshold: 1,    minStake: 0, category: 'slot' },
+  daily_play:       { enabled: true,  rewardType: 'spin', amount: 0,  spin: 1, turnoverX: 0, currency: 'PHP', threshold: 1,    minStake: 0, category: 'slot' },
   profile_complete: { enabled: true,  rewardType: 'cash', amount: 5,  spin: 0, turnoverX: 3, currency: 'PHP', threshold: 0,    minStake: 0, category: '' },
   first_game:       { enabled: true,  rewardType: 'cash', amount: 5,  spin: 0, turnoverX: 3, currency: 'PHP', threshold: 0,    minStake: 0, category: '' },
   invite_milestone: { enabled: true,  rewardType: 'cash', amount: 20, spin: 0, turnoverX: 3, currency: 'PHP', threshold: 1,    minStake: 0, category: '' },

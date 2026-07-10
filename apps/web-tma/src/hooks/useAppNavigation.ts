@@ -52,11 +52,18 @@ export function useAppNavigation() {
   const returnTo = currentReturnTo(location.pathname, location.search)
 
   const pushOverlay = useCallback((path: string) => {
-    navigate(path, { state: { returnTo } satisfies OverlayNavigateState })
+    navigate(path, { state: { returnTo, pushed: true } satisfies OverlayNavigateState })
   }, [navigate, returnTo])
 
   const closeOverlayPage = useCallback(() => {
     const state = location.state as OverlayNavigateState | null
+    // 应用内压栈打开的浮层：navigate(-1) 精确弹栈。
+    // 不能用 navigate(returnTo,{replace})——那会把当前条目替换成 returnTo 的副本，
+    // 造成栈里出现两个相同页面（tasks→kyc→返回tasks→再返回还是tasks 的 bug 根因）
+    if (state?.pushed && window.history.length > 1) {
+      navigate(-1)
+      return
+    }
     if (state?.returnTo) {
       navigate(state.returnTo, { replace: true })
       return

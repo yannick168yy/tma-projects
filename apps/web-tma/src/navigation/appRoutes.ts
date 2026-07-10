@@ -153,7 +153,8 @@ export function resolveHomeActionPath(actionType: string, actionValue: string | 
   }
 }
 
-export type OverlayNavigateState = { returnTo?: string }
+/** pushed=应用内压栈打开（关闭时 navigate(-1) 精确回退）；returnTo 仅作深链/兜底 */
+export type OverlayNavigateState = { returnTo?: string; pushed?: boolean }
 
 export function currentReturnTo(pathname: string, search: string): string {
   return pathname + search
