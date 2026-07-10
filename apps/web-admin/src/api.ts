@@ -1192,3 +1192,56 @@ export const getAgentCommissionReport = (period?: string) =>
   get<{ period: string; summary: { total_commission_cents: number; pending_cents: number }; items: AgentCommissionReportItem[] }>('/admin/agent/commissions/report', period ? { period } : undefined)
 export const payAgentCommission = (agentId: string, period: string) =>
   post('/admin/agent/commission/pay', { agentId, period })
+
+// ── 风控中心 ──────────────────────────────────────────────────────────────
+export type RiskAction = 'tag_only' | 'limit' | 'deny' | 'escalate'
+export interface RiskTagMeta { name: string; desc: string }
+
+export interface RiskOverview {
+  tags: { tagCode: string; source: string; count: number }[]
+  hits24h: { checkpoint: string; action: string; count: number }[]
+  profiledUsers: number
+  highRiskUsers: number
+  tagMeta: Record<string, RiskTagMeta>
+}
+export const getRiskOverview = () => get<RiskOverview>('/admin/risk/overview')
+
+export interface RiskUserItem {
+  userId: string; bonusTotal: number; netDeposit: number; bonusRatio: number
+  withdrawCount: number; deviceSharedUsers: number; ipSharedUsers: number
+  riskScore: number; computedAt: string
+  tags: { tagCode: string; source: string }[]
+}
+export const getRiskUsers = (params?: { tag?: string; minScore?: number; limit?: number }) =>
+  get<{ items: RiskUserItem[] }>('/admin/risk/users', params)
+
+export interface RiskUserTag {
+  tagCode: string; source: string; confidence: number
+  evidence: unknown; assignedBy: string | null; createdAt: string
+}
+export interface RiskHit {
+  id?: number; userId?: string | null; checkpoint: string; ruleCode: string; action: RiskAction
+  matchedValue: string | null; detail: unknown; ip: string | null; deviceId: string | null; createdAt: string
+}
+export interface RiskUserDetail {
+  signal: (Omit<RiskUserItem, 'tags'>) | null
+  tags: RiskUserTag[]
+  hits: RiskHit[]
+  tagMeta: Record<string, RiskTagMeta>
+}
+export const getRiskUser = (userId: string) => get<RiskUserDetail>(`/admin/risk/users/${userId}`)
+export const addRiskTag = (userId: string, data: { tagCode: string; reason?: string }) =>
+  post<{ added: boolean }>(`/admin/risk/users/${userId}/tags`, data)
+export const removeRiskTag = (userId: string, tagCode: string) =>
+  req<{ removed: boolean }>('DELETE', `/admin/risk/users/${userId}/tags/${encodeURIComponent(tagCode)}`)
+
+export interface RiskPolicyItem {
+  checkpoint: string; ruleCode: string; action: RiskAction; enabled: boolean
+  params: Record<string, number> | null; updatedAt: string
+}
+export const getRiskPolicies = () => get<{ items: RiskPolicyItem[]; actions: RiskAction[] }>('/admin/risk/policies')
+export const saveRiskPolicies = (items: Omit<RiskPolicyItem, 'updatedAt'>[]) =>
+  put<{ updated: number }>('/admin/risk/policies', { items })
+
+export const getRiskHits = (params?: { checkpoint?: string; action?: string; limit?: number }) =>
+  get<{ items: RiskHit[] }>('/admin/risk/hits', params)

@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect, useCallback } from 'react'
+import { useMemo, useState, useEffect, useCallback, type ReactNode } from 'react'
 import { Outlet, useNavigate, useLocation } from 'react-router-dom'
 import {
   Layout, Menu, Dropdown, Button, Modal, Form, Input, message, Badge, Drawer, Grid,
@@ -8,6 +8,7 @@ import {
   AppstoreOutlined, SettingOutlined, CustomerServiceOutlined,
   TransactionOutlined, ApartmentOutlined, GiftOutlined,
   SafetyCertificateOutlined, MenuOutlined, CrownOutlined, TrophyOutlined,
+  AlertOutlined,
 } from '@ant-design/icons'
 import { useAuthStore } from '../stores/auth'
 import { adminChangePassword, getAdminBadges, type AdminBadges } from '../api'
@@ -37,7 +38,19 @@ function buildMenuItems(badges: AdminBadges) {
         { key: '/users', label: '用户列表' },
         { key: '/device-lookup', label: '指纹/IP 查询' },
         { key: '/kyc', label: <MenuBadgeLabel text="实名认证" count={badges.rejectedKyc} /> },
-        { key: '/review/blacklist', label: '风控名单' },
+      ],
+    },
+    // 风控（防与管，自动化识别拦截「人」）独立于取款审核（查与核，人工复核单笔订单）
+    {
+      key: 'risk-control',
+      icon: <AlertOutlined />,
+      label: '风控中心',
+      children: [
+        { key: '/risk/overview', label: '风险总览' },
+        { key: '/risk/users', label: '用户画像' },
+        { key: '/risk/blacklist', label: '风控名单' },
+        { key: '/risk/policies', label: '规则与策略', roles: ['super_admin'] },
+        { key: '/risk/hits', label: '命中日志' },
       ],
     },
     {
@@ -157,8 +170,19 @@ function buildMenuItems(badges: AdminBadges) {
   ]
 }
 
+// 菜单项可声明 roles 白名单；未声明即所有已登录管理员可见。
+// 前端过滤只是体验层，真正的权限边界在后端 requireRole 中间件。
+type MenuNode = { key: string; label?: ReactNode; icon?: ReactNode; roles?: string[]; children?: MenuNode[] }
+
+function filterMenuByRole(items: MenuNode[], role: string): MenuNode[] {
+  return items
+    .filter((item) => !item.roles || item.roles.includes(role))
+    .map((item) => (item.children ? { ...item, children: filterMenuByRole(item.children, role) } : item))
+    .filter((item) => !item.children || item.children.length > 0)
+}
+
 function getDefaultOpenKeys(pathname: string): string[] {
-  if (pathname.startsWith('/review/blacklist')) return ['user-center']
+  if (pathname.startsWith('/risk')) return ['risk-control']
   if (pathname.startsWith('/review') || pathname.startsWith('/withdrawals')) return ['review']
   if (['/users', '/device-lookup', '/kyc'].some((p) => pathname.startsWith(p))) return ['user-center']
   if (['/deposits', '/payment', '/wallet-ledger', '/exchange-rates'].some((p) => pathname.startsWith(p))) return ['finance']
@@ -223,7 +247,7 @@ export default function AppLayout() {
   const badges = useAdminBadges()
   const defaultOpenKeys = useMemo(() => getDefaultOpenKeys(location.pathname), [])
 
-  const menuItems = useMemo(() => buildMenuItems(badges), [badges])
+  const menuItems = useMemo(() => filterMenuByRole(buildMenuItems(badges) as MenuNode[], role), [badges, role])
 
   async function handleChangePwd() {
     const values = form.getFieldsValue()

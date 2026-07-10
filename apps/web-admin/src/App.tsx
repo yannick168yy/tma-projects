@@ -11,7 +11,11 @@ import ReviewOverview from './views/review/Overview'
 import ReviewProposals from './views/review/Proposals'
 import ReviewProposalDetail from './views/review/ProposalDetail'
 import ReviewRuleConfig from './views/review/RuleConfig'
-import ReviewBlacklist from './views/review/Blacklist'
+import RiskOverview from './views/risk/Overview'
+import RiskUserProfiles from './views/risk/UserProfiles'
+import RiskBlacklist from './views/risk/Blacklist'
+import RiskPolicies from './views/risk/Policies'
+import RiskHitLogs from './views/risk/HitLogs'
 import ReviewManualQueue from './views/review/ManualQueue'
 import WithdrawRecords from './views/review/WithdrawRecords'
 import AuditLog from './views/AuditLog'
@@ -57,6 +61,12 @@ function GuestOnly({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }
 
+// 前端守卫只防误入，真正的权限边界在后端 requireRole 中间件
+function RequireRole({ role, children }: { role: string; children: React.ReactNode }) {
+  if (localStorage.getItem('admin_role') !== role) return <Navigate to="/dashboard" replace />
+  return <>{children}</>
+}
+
 export default function App() {
   return (
     <BrowserRouter>
@@ -79,7 +89,13 @@ export default function App() {
           <Route path="review/manual" element={<ReviewManualQueue />} />
           <Route path="review/records" element={<WithdrawRecords />} />
           <Route path="review/config" element={<ReviewRuleConfig />} />
-          <Route path="review/blacklist" element={<ReviewBlacklist />} />
+          <Route path="review/blacklist" element={<Navigate to="/risk/blacklist" replace />} />
+          <Route path="risk" element={<Navigate to="/risk/overview" replace />} />
+          <Route path="risk/overview" element={<RiskOverview />} />
+          <Route path="risk/users" element={<RiskUserProfiles />} />
+          <Route path="risk/blacklist" element={<RiskBlacklist />} />
+          <Route path="risk/policies" element={<RequireRole role="super_admin"><RiskPolicies /></RequireRole>} />
+          <Route path="risk/hits" element={<RiskHitLogs />} />
           <Route path="audit-log" element={<AuditLog />} />
           <Route path="games" element={<Games />} />
           <Route path="settings" element={<Settings />} />
