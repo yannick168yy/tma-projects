@@ -93,7 +93,8 @@ export default function TasksPage({ initialPath = 'newbie', onNavigate }: { init
   }, [allCards])
 
   const cardTitle = (card: TaskCard) => labelTitle(t, card)
-  const cardSubtitle = (card: TaskCard) => labelSubtitle(t, card)
+  // 设计稿：邀请卡只留标题+进度条，不显示副标题
+  const cardSubtitle = (card: TaskCard) => (card.id === 'invite_milestone' ? '' : labelSubtitle(t, card))
   const rewardText = (card: TaskCard) => labelReward(t, card)
 
   async function afterSuccess(msg: string) {
@@ -188,6 +189,8 @@ export default function TasksPage({ initialPath = 'newbie', onNavigate }: { init
       summary.growth > 0 ? t('tasks.rewardGrowth', { n: summary.growth }).replace('+', '') : '',
     ].filter(Boolean)
     const progressPct = summary.total > 0 ? Math.min(100, Math.round(summary.done / summary.total * 100)) : 0
+    const [titleFirst, ...titleRestArr] = t('tasks.pageTitle').split(' ')
+    const titleParts = { first: titleFirst, rest: titleRestArr.join(' ') }
 
     return (
       <section className="relative overflow-hidden pb-3">
@@ -197,18 +200,35 @@ export default function TasksPage({ initialPath = 'newbie', onNavigate }: { init
           alt=""
           className="pointer-events-none absolute inset-x-0 top-0 h-[302px] w-full object-cover object-top"
         />
+        {/* 图底模糊带 + 暗色渐隐，向页面底色过渡 */}
+        <div
+          className="pointer-events-none absolute inset-x-0 top-[206px] h-[96px] backdrop-blur-[7px]"
+          style={{ maskImage: 'linear-gradient(to bottom, transparent, black 55%)', WebkitMaskImage: 'linear-gradient(to bottom, transparent, black 55%)' }}
+        />
         <div className="pointer-events-none absolute inset-x-0 top-[226px] h-[96px] bg-gradient-to-b from-transparent via-[#050403]/55 to-[#050403]" />
         <div className="relative px-5 pt-[166px]">
-          <p className="flex items-center gap-1.5 text-[12px] font-black uppercase tracking-[0.2em] text-[#ffb81c] [text-shadow:0_1px_8px_rgba(70,35,0,0.5)]">
-            <Sparkles size={12} fill="currentColor" strokeWidth={2.8} />
+          {/* 标题区背后局部模糊压暗，凸显文字 */}
+          <div
+            className="pointer-events-none absolute -left-1 -top-2 h-[112px] w-[240px] bg-[#3a2c14]/16 backdrop-blur-[6px]"
+            style={{ maskImage: 'radial-gradient(75% 70% at 42% 46%, black 45%, transparent 100%)', WebkitMaskImage: 'radial-gradient(75% 70% at 42% 46%, black 45%, transparent 100%)' }}
+          />
+          <p className="relative flex items-center gap-1 text-[10px] font-black uppercase tracking-[0.18em] text-[#ffb81c] [text-shadow:0_1px_6px_rgba(60,30,0,0.65)]">
+            <Sparkles size={10} fill="currentColor" strokeWidth={2.8} />
             {t('tasks.tree.todayPath')}
-            <Sparkles size={12} fill="currentColor" strokeWidth={2.8} />
+            <Sparkles size={10} fill="currentColor" strokeWidth={2.8} />
           </p>
-          {/* 首个空格换成换行：英文两行(Task/Center)贴设计稿，中文无空格保持单行 */}
-          <h1 className="mt-1 whitespace-pre-line text-[34px] font-black leading-[0.95] text-[#1f1305]">
-            {t('tasks.pageTitle').replace(' ', '\n')}
+          {/* 设计稿 Task 偏小 Center 偏大；中文等无空格标题保持单行 */}
+          <h1 className="relative mt-1 font-black leading-[0.92] text-[#1f1305]">
+            {titleParts.rest ? (
+              <>
+                <span className="block text-[27px]">{titleParts.first}</span>
+                <span className="block text-[38px]">{titleParts.rest}</span>
+              </>
+            ) : (
+              <span className="block text-[32px]">{titleParts.first}</span>
+            )}
           </h1>
-          <div className="mt-2.5 flex items-center gap-2.5">
+          <div className="relative mt-2.5 flex items-center gap-2.5">
             <div className="h-[9px] w-[106px] overflow-hidden rounded-full bg-[#221a10]/85 shadow-[inset_0_1px_4px_rgba(0,0,0,0.5)]">
               <div className="h-full rounded-full bg-gradient-to-b from-[#ffe15a] to-[#ffc000]" style={{ width: `${progressPct}%` }} />
             </div>
@@ -217,7 +237,7 @@ export default function TasksPage({ initialPath = 'newbie', onNavigate }: { init
             </div>
           </div>
         </div>
-        <div className="relative mt-3 grid grid-cols-2 gap-2 px-3.5">
+        <div className="relative mt-3 grid grid-cols-[5fr_6fr] gap-2.5 px-5">
           <SummaryTile icon={iconClaimable} label={t('tasks.tree.claimable')} value={String(summary.claimable)} />
           <SummaryTile icon={iconRewards} label={t('tasks.tree.rewards')} value={rewardParts.length ? rewardParts.join(' · ') : '-'} />
         </div>
@@ -274,23 +294,23 @@ export default function TasksPage({ initialPath = 'newbie', onNavigate }: { init
       <div key={card.id} className="relative flex gap-2.5">
         <div className="flex w-[38px] flex-shrink-0 flex-col items-center">
           {done ? (
-            <span className="z-[1] mt-[6px] flex h-[33px] w-[33px] items-center justify-center rounded-full bg-[radial-gradient(circle_at_38%_30%,#33c96a,#0a9440)] text-white shadow-[0_0_16px_rgba(0,189,80,0.5)]">
+            <span className="z-[1] mt-[9px] flex aspect-square h-[33px] w-[33px] flex-shrink-0 items-center justify-center rounded-full bg-[radial-gradient(circle_at_38%_30%,#33c96a,#0a9440)] text-white shadow-[0_0_16px_rgba(0,189,80,0.5)]">
               <Check size={19} strokeWidth={4.2} />
             </span>
           ) : (
-            <span className="z-[1] mt-[8px] flex h-[29px] w-[29px] items-center justify-center rounded-full border border-[#8a6425]/60 bg-[#14100a] text-[#d2a878] shadow-[0_0_10px_rgba(255,190,40,0.12)]">
+            <span className="z-[1] mt-[11px] flex aspect-square h-[29px] w-[29px] flex-shrink-0 items-center justify-center rounded-full border border-[#8a6425]/60 bg-[#14100a] text-[#d2a878] shadow-[0_0_10px_rgba(255,190,40,0.12)]">
               <LockSolid size={13} />
             </span>
           )}
           {index < total - 1 && <span className="h-full min-h-[24px] w-px bg-gradient-to-b from-[#ffc31e]/72 via-[#7d520d]/70 to-[#7d520d]/30" />}
         </div>
 
-        <div className="mb-1.5 min-w-0 flex-1 rounded-[11px] border border-[#6d480f]/45 bg-[#0a0906]/90 px-2.5 py-2 shadow-[inset_0_1px_0_rgba(255,206,89,0.05)]">
+        <div className="mb-1.5 min-w-0 flex-1 rounded-[12px] border border-[#6d480f]/45 bg-[#0a0906]/90 px-2.5 py-3 shadow-[inset_0_1px_0_rgba(255,206,89,0.05)]">
           <div className="flex items-center gap-2.5">
-            <img src={icon} alt="" className="h-[44px] w-[44px] flex-shrink-0 rounded-[9px]" />
+            <img src={icon} alt="" className="h-[48px] w-[48px] flex-shrink-0 rounded-[10px]" />
             <div className="min-w-0 flex-1">
-              <div className="flex min-w-0 items-center gap-1.5">
-                {isMilestone && <span className="flex-shrink-0 rounded-full border border-[#81550f]/80 bg-black/42 px-1.5 py-0.5 text-[8px] font-black uppercase leading-none text-[#ffd21d]">{t('tasks.tree.milestone')}</span>}
+              <div className="flex min-w-0 items-center gap-1">
+                {isMilestone && <span className="flex-shrink-0 rounded-full border border-[#81550f]/80 bg-black/42 px-1 py-0.5 text-[8px] font-black uppercase leading-none text-[#ffd21d]">{t('tasks.tree.milestone')}</span>}
                 <p className="truncate text-[13px] font-black leading-tight text-[#fff8ea]">{cardTitle(card)}</p>
               </div>
               {cardSubtitle(card) && <p className="mt-0.5 line-clamp-2 text-[11px] font-medium leading-snug text-[#e8d5b5]">{cardSubtitle(card)}</p>}
@@ -340,8 +360,8 @@ export default function TasksPage({ initialPath = 'newbie', onNavigate }: { init
     const cards = pathCards[activePath]
     const totalNodes = cards.length
     return (
-      <section className="px-3 pb-10 pt-1">
-        <div className="mb-2.5 flex items-start justify-between">
+      <section className="px-3 pb-4 pt-1">
+        <div className="mb-2.5 flex items-start justify-between px-2">
           <div>
             <p className="flex items-center gap-1.5 text-[14px] font-black uppercase tracking-[0.18em] text-[#ffd21d]">
               <Sparkles size={12} fill="currentColor" />
@@ -373,6 +393,7 @@ export default function TasksPage({ initialPath = 'newbie', onNavigate }: { init
       {renderSummary()}
       {renderTabs()}
       {renderPath()}
+      <TasksFooter />
       <BindModal open={bindOpen} onClose={() => { setBindOpen(false); void load() }} />
     </div>
   )
@@ -380,13 +401,57 @@ export default function TasksPage({ initialPath = 'newbie', onNavigate }: { init
 
 function SummaryTile({ icon, label, value }: { icon: string; label: string; value: string }) {
   return (
-    <div className="flex min-w-0 items-center gap-2 rounded-[12px] bg-[#12100b]/95 px-2.5 py-1.5 shadow-[0_4px_14px_rgba(0,0,0,0.35)]">
-      <img src={icon} alt="" className="h-[36px] w-[36px] flex-shrink-0 rounded-full" />
+    <div className="flex min-w-0 items-center gap-2.5 rounded-[14px] bg-[#12100b]/95 px-3 py-3 shadow-[0_4px_14px_rgba(0,0,0,0.35)]">
+      <img src={icon} alt="" className="h-[40px] w-[40px] flex-shrink-0 rounded-full" />
       <span className="min-w-0">
         <span className="block truncate text-[12px] font-medium leading-tight text-[#f0e6d2]">{label}</span>
-        <span className="mt-0.5 block truncate text-[13px] font-black leading-none text-[#ffd21d]">{value}</span>
+        <span className="mt-1 block truncate text-[13px] font-black leading-none text-[#ffd21d]">{value}</span>
       </span>
     </div>
+  )
+}
+
+// 页面底部说明区：玩法三步 + 奖励规则，充实列表下方留白
+function TasksFooter() {
+  const { t } = useTranslation()
+  const steps = [
+    { title: t('tasks.footer.step1Title'), sub: t('tasks.footer.step1Sub') },
+    { title: t('tasks.footer.step2Title'), sub: t('tasks.footer.step2Sub') },
+    { title: t('tasks.footer.step3Title'), sub: t('tasks.footer.step3Sub') },
+  ]
+  const notes = [t('tasks.footer.note1'), t('tasks.footer.note2'), t('tasks.footer.note3'), t('tasks.footer.note4')]
+  return (
+    <section className="px-5 pb-10">
+      <p className="flex items-center gap-1.5 text-[13px] font-black uppercase tracking-[0.16em] text-[#ffd21d]">
+        <Sparkles size={11} fill="currentColor" />
+        {t('tasks.footer.howTitle')}
+      </p>
+      <div className="mt-2.5 space-y-2">
+        {steps.map((step, i) => (
+          <div key={step.title} className="flex items-center gap-3 rounded-[12px] bg-[#0d0b08] px-3 py-2.5">
+            <span className="flex h-[26px] w-[26px] flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-b from-[#ffe15a] to-[#ffc000] text-[13px] font-black text-[#241600]">
+              {i + 1}
+            </span>
+            <span className="min-w-0">
+              <span className="block text-[13px] font-black leading-tight text-[#fff8ea]">{step.title}</span>
+              <span className="mt-0.5 block text-[11px] leading-snug text-[#d8c7a5]">{step.sub}</span>
+            </span>
+          </div>
+        ))}
+      </div>
+      <p className="mt-5 flex items-center gap-1.5 text-[13px] font-black uppercase tracking-[0.16em] text-[#ffd21d]">
+        <Sparkles size={11} fill="currentColor" />
+        {t('tasks.footer.notesTitle')}
+      </p>
+      <ul className="mt-2.5 space-y-1.5 rounded-[12px] bg-[#0d0b08] px-3.5 py-3">
+        {notes.map((note) => (
+          <li key={note} className="flex gap-2 text-[11px] leading-snug text-[#c9b89a]">
+            <span className="mt-[5px] h-[4px] w-[4px] flex-shrink-0 rounded-full bg-[#ffc31e]/80" />
+            {note}
+          </li>
+        ))}
+      </ul>
+    </section>
   )
 }
 
