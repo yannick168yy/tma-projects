@@ -73,7 +73,8 @@ function resolveStep(s: Awaited<ReturnType<typeof fetchKycStatus>>): KycStep {
   if (s.status === 'approved') return 'done'
   if (!s.phoneVerified) return 'phone'
   if (s.requireDocument && !s.docVerified) {
-    if (s.status === 'pending') return 'reviewing'
+    // pending 可能只是"手机验证完成"（领体验金也走这步）：没交过证件就该进证件步骤，而不是显示审核中
+    if (s.status === 'pending' && s.docSubmittedAt) return 'reviewing'
     return 'document'
   }
   if (s.requireFace && !s.faceVerified) return 'face'

@@ -37,6 +37,12 @@ export async function fetchTaskCenter(): Promise<TaskCenter> {
   return apiRequest<TaskCenter>('/tasks')
 }
 
+/** 模块弹层（签到/体验金/充值/装机）关闭后广播，任务中心据此刷新状态 */
+export const TASKS_REFRESH_EVENT = 'betogo:tasks-refresh'
+export function notifyTasksRefresh(): void {
+  window.dispatchEvent(new Event(TASKS_REFRESH_EVENT))
+}
+
 export interface ClaimResult {
   taskId: string
   reward: TaskReward

@@ -18,6 +18,7 @@ import { useAppNavigation } from '@/hooks/useAppNavigation'
 import { shouldShowDownloadBar, dismissDownloadBar, isIos, isStandalone } from '@/utils/pwa'
 import { isInsideTelegram } from '@/utils/initTelegramWebApp'
 import { usePromotionStore } from '@/stores/promotion'
+import { notifyTasksRefresh } from '@/api/tasks'
 import { useActiveTaskStore } from '@/stores/activeTask'
 import { claimAppdlBonus, fetchNewPlayerSummary, matchPopupAudience, type NewPlayerSummary } from '@/api/promotion'
 import TopDownloadBar from '@/components/pwa/TopDownloadBar'
@@ -683,7 +684,7 @@ export default function AppShell() {
 
       <Suspense fallback={null}>
         {walletModalOpen && (
-          <WalletModal open onClose={() => setWalletModalOpen(false)} initialTab={walletInitialTab} fullscreen={walletFullscreen} />
+          <WalletModal open onClose={() => { setWalletModalOpen(false); notifyTasksRefresh() }} initialTab={walletInitialTab} fullscreen={walletFullscreen} />
         )}
 
         {csOpen && (
@@ -697,7 +698,7 @@ export default function AppShell() {
         {gamePlayerUrl && <GamePlayer url={gamePlayerUrl} onClose={() => setGamePlayerUrl(null)} />}
 
         {iosGuideOpen && (
-          <InstallGuideSheet platform="ios" onClose={() => setIosGuideOpen(false)} />
+          <InstallGuideSheet platform="ios" onClose={() => { setIosGuideOpen(false); notifyTasksRefresh() }} />
         )}
 
         {giftSheetOpen && (
@@ -722,10 +723,10 @@ export default function AppShell() {
         <TrialClaimModal
           open={trialClaimOpen}
           amountPhp={promoConfig?.trial.amount ?? 0}
-          onClose={() => { setTrialClaimOpen(false); void refreshNpSummary() }}
+          onClose={() => { setTrialClaimOpen(false); void refreshNpSummary(); notifyTasksRefresh() }}
         />
 
-        <CheckinSheet open={checkinOpen} onClose={() => setCheckinOpen(false)} onOpenSpin={() => onOpenRewardsSpin('checkin')} />
+        <CheckinSheet open={checkinOpen} onClose={() => { setCheckinOpen(false); notifyTasksRefresh() }} onOpenSpin={() => onOpenRewardsSpin('checkin')} />
       </Suspense>
 
       <OrientationGuard allowLandscape={!!gamePlayerUrl} />

@@ -137,3 +137,31 @@
   70% { transform: scale(1.25) rotate(8deg); }
   100% { transform: scale(1) rotate(0); }
 }
+
+/* 金色花瓣/彩纸粒子：默认透明，仅在允许动效时飘落 */
+.task-petal {
+  position: absolute;
+  top: -20px;
+  opacity: 0;
+  border-radius: 62% 38% 55% 45% / 55% 45% 62% 38%;
+  background: linear-gradient(135deg, #ffdf7e, #ffa62e);
+  will-change: transform;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .task-petal { animation: taskPetalFallA linear infinite; }
+  .task-petal:nth-child(even) { animation-name: taskPetalFallB; }
+}
+@keyframes taskPetalFallA {
+  0% { transform: translate3d(0, 0, 0) rotate(0deg); opacity: 0; }
+  8% { opacity: 0.9; }
+  45% { transform: translate3d(-26px, 21vh, 0) rotate(150deg); }
+  88% { opacity: 0.8; }
+  100% { transform: translate3d(12px, 46vh, 0) rotate(330deg); opacity: 0; }
+}
+@keyframes taskPetalFallB {
+  0% { transform: translate3d(0, 0, 0) rotate(0deg); opacity: 0; }
+  8% { opacity: 0.85; }
+  45% { transform: translate3d(24px, 20vh, 0) rotate(-140deg); }
+  88% { opacity: 0.75; }
+  100% { transform: translate3d(-14px, 46vh, 0) rotate(-300deg); opacity: 0; }
+}

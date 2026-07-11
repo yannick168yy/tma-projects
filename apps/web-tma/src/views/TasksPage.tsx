@@ -4,7 +4,7 @@ import {
   CalendarDays, Check, ChevronRight, Sparkles, Star, Users, type LucideIcon,
 } from 'lucide-react'
 import {
-  fetchTaskCenter, claimTask, claimSocialTask,
+  fetchTaskCenter, claimTask, claimSocialTask, TASKS_REFRESH_EVENT,
   type TaskCenter, type TaskCard,
 } from '@/api/tasks'
 import { useAuthStore } from '@/stores/auth'
@@ -30,6 +30,15 @@ export type TaskPath = 'newbie' | 'daily' | 'social'
 
 const PATHS: TaskPath[] = ['newbie', 'daily', 'social']
 const EMPTY_CENTER: TaskCenter = { groups: { newbie: [], daily: [], achievement: [], social: [] } }
+
+// 金色花瓣粒子：位置/尺寸/节奏错开，呼应 hero 图里的飘落花瓣
+const PETALS: React.CSSProperties[] = [
+  { left: '12%', width: 9,  height: 13, animationDuration: '8.5s',  animationDelay: '0s' },
+  { left: '32%', width: 7,  height: 10, animationDuration: '10.5s', animationDelay: '2.2s' },
+  { left: '55%', width: 11, height: 15, animationDuration: '9s',    animationDelay: '4.1s' },
+  { left: '74%', width: 8,  height: 11, animationDuration: '11.5s', animationDelay: '1.3s' },
+  { left: '90%', width: 9,  height: 13, animationDuration: '9.8s',  animationDelay: '5.4s' },
+]
 const STAYS_ON_TASKS_PAGE = new Set(['checkin', 'trial_bonus', 'app_download', 'deposit'])
 
 export default function TasksPage({ initialPath = 'newbie', onNavigate }: { initialPath?: TaskPath; onNavigate?: (target: string) => void }) {
@@ -46,10 +55,28 @@ export default function TasksPage({ initialPath = 'newbie', onNavigate }: { init
   const startActiveTask = useActiveTaskStore((s) => s.start)
   const clearActiveTask = useActiveTaskStore((s) => s.clear)
 
+  const prevStatusRef = useRef<Map<string, string> | null>(null)
   const load = useCallback(async () => {
-    try { setCenter(await fetchTaskCenter()) } catch { setCenter(EMPTY_CENTER) }
+    try {
+      const next = await fetchTaskCenter()
+      const flat = [...next.groups.newbie, ...next.groups.daily, ...next.groups.achievement, ...next.groups.social]
+      // 状态从非 done → done 的卡（在签到/体验金等模块内完成后回来），触发绿勾达成动效
+      const prev = prevStatusRef.current
+      if (prev) {
+        const newlyDone = flat.find((c) => c.status === 'done' && prev.has(c.id) && prev.get(c.id) !== 'done')
+        if (newlyDone) setJustClaimedId(newlyDone.id)
+      }
+      prevStatusRef.current = new Map(flat.map((c) => [c.id, c.status]))
+      setCenter(next)
+    } catch { setCenter(EMPTY_CENTER) }
   }, [])
   useEffect(() => { void load() }, [load])
+  // 模块弹层（签到/体验金/充值/装机）关闭后刷新任务状态
+  useEffect(() => {
+    const onRefresh = () => { void load() }
+    window.addEventListener(TASKS_REFRESH_EVENT, onRefresh)
+    return () => window.removeEventListener(TASKS_REFRESH_EVENT, onRefresh)
+  }, [load])
   useEffect(() => { setActivePath(initialPath) }, [initialPath])
   // 回到任务中心即视为这一轮跟随结束，卡片本身已展示进度与领取入口
   useEffect(() => { clearActiveTask() }, [clearActiveTask])
@@ -216,6 +243,10 @@ export default function TasksPage({ initialPath = 'newbie', onNavigate }: { init
             alt=""
             className="task-kenburns pointer-events-none absolute inset-0 h-full w-full object-cover object-top"
           />
+          {/* 金色花瓣飘落粒子 */}
+          <div className="pointer-events-none absolute inset-0" aria-hidden>
+            {PETALS.map((style, i) => <span key={i} className="task-petal" style={style} />)}
+          </div>
           {/* 图底纯色渐变过渡到页面底色（无模糊），锚定图底自动跟随 */}
           <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[90px] bg-gradient-to-b from-transparent via-[#050403]/45 to-[#050403]" />
           {/* 标题块锚定图底，跨机型与统计卡保持固定间距 */}

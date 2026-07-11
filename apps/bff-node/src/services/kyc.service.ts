@@ -159,6 +159,8 @@ export function buildKycStatusResponse(kyc: KycSubmission | null) {
     docType: kyc?.docType ?? null,
     rejectReason: kyc?.rejectReason ?? null,
     rejectStep: kyc?.rejectStep ?? null,
+    /** 是否真的提交过证件：区分"手机验证后的 pending"与"证件已交待审核" */
+    docSubmittedAt: kyc?.docSubmittedAt ?? null,
   }
 }
 
