@@ -3,6 +3,9 @@ import { useTranslation } from 'react-i18next'
 import { fetchTaskCenter, type TaskCard, type TaskCenter } from '@/api/tasks'
 import { useAuthStore } from '@/stores/auth'
 import taskWidgetImg from '@/assets/tasks/task-float-widget.webp'
+import ballNewbieImg from '@/assets/tasks/ball-newbie.webp'
+import ballDailyImg from '@/assets/tasks/ball-daily.webp'
+import ballSocialImg from '@/assets/tasks/ball-social.webp'
 
 type TaskBallPath = 'newbie' | 'daily' | 'social'
 
@@ -18,6 +21,21 @@ interface TaskStat {
 
 const EMPTY_CENTER: TaskCenter = { groups: { newbie: [], daily: [], achievement: [], social: [] } }
 const BALL_SIZE = 96
+const CARD_W = 116
+
+// 展开卡片切图：红点与数字已从原图抹除，由代码按原位叠加；num* 为数字左缘/垂直中心的相对坐标
+const CARD_ART: Record<TaskBallPath, { img: string; numLeft: string; numTop: string }> = {
+  newbie: { img: ballNewbieImg, numLeft: '45.7%', numTop: '67.8%' },
+  daily:  { img: ballDailyImg,  numLeft: '47.7%', numTop: '69.8%' },
+  social: { img: ballSocialImg, numLeft: '47.1%', numTop: '63.5%' },
+}
+
+// 扇形展开的卡片终点（相对球心，贴右边缘时向左展开；贴左边缘时 dx 取反）
+const FAN: { path: TaskBallPath; dx: number; dy: number }[] = [
+  { path: 'newbie', dx: -30, dy: -92 },
+  { path: 'daily',  dx: -116, dy: -6 },
+  { path: 'social', dx: -30, dy: 92 },
+]
 
 function statOf(cards: TaskCard[]): TaskStat {
   return {
@@ -54,7 +72,9 @@ export default function TaskFloatBall({ onNavigatePath }: TaskFloatBallProps) {
     social: statOf(center.groups.social),
   }), [center])
 
-  const claimable = stats.newbie.claimable + stats.daily.claimable + stats.social.claimable
+  const total = stats.newbie.total + stats.daily.total + stats.social.total
+  const done = stats.newbie.done + stats.daily.done + stats.social.done
+  const pending = total - done
 
   const clampFreePosition = useCallback((left: number, top: number) => {
     const viewportWidth = window.innerWidth
@@ -164,12 +184,6 @@ export default function TaskFloatBall({ onNavigatePath }: TaskFloatBallProps) {
     return position.left < frameLeft + frameWidth / 2
   })()
 
-  const entries: { path: TaskBallPath; className: string }[] = [
-    { path: 'newbie', className: 'bottom-[108px] left-1/2 -translate-x-1/2' },
-    { path: 'daily', className: isLeftEdge ? 'left-[108px] top-2' : 'right-[108px] top-2' },
-    { path: 'social', className: 'left-1/2 top-[108px] -translate-x-1/2' },
-  ]
-
   return (
     <>
       {expanded && (
@@ -191,33 +205,59 @@ export default function TaskFloatBall({ onNavigatePath }: TaskFloatBallProps) {
           onPointerUp={onPointerUp}
           onPointerCancel={onPointerUp}
         >
-        {entries.map((entry) => {
-          const stat = stats[entry.path]
-          const hot = stat.claimable > 0
+        {/* 挂件周边渐变透明光晕，展开时淡出 */}
+        <span
+          aria-hidden
+          className={`pointer-events-none absolute -inset-4 rounded-full transition-opacity duration-200 ${expanded ? 'opacity-0' : 'opacity-100'}`}
+          style={{ background: 'radial-gradient(circle, rgba(6,4,1,0.55) 30%, rgba(6,4,1,0) 72%)' }}
+        />
+        {/* 扇形展开卡片：从球心弹出到弧线终点，逐张延迟成扇形展开 */}
+        {FAN.map((f, i) => {
+          const stat = stats[f.path]
+          const art = CARD_ART[f.path]
+          const dx = isLeftEdge ? -f.dx : f.dx
           return (
             <button
-              key={entry.path}
+              key={f.path}
               type="button"
               data-task-ball-entry
-              className={`absolute flex h-12 w-[78px] flex-col items-center justify-center rounded-2xl border text-center shadow-[0_8px_20px_rgba(0,0,0,0.35)] transition-all duration-200 active:scale-95 ${entry.className} ${expanded ? 'scale-100 opacity-100' : 'pointer-events-none scale-75 opacity-0'} ${hot ? 'border-amber-300 bg-[#251804] text-amber-100' : 'border-amber-300/25 bg-[#0b0805]/95 text-amber-100/80'}`}
-              onClick={() => void openPath(entry.path)}
+              className="absolute left-1/2 top-1/2 transition-all duration-300"
+              style={{
+                width: CARD_W,
+                transitionTimingFunction: 'cubic-bezier(0.34, 1.56, 0.64, 1)',
+                transitionDelay: expanded ? `${i * 60}ms` : '0ms',
+                transform: expanded
+                  ? `translate(calc(-50% + ${dx}px), calc(-50% + ${f.dy}px)) scale(1) rotate(0deg)`
+                  : 'translate(-50%, -50%) scale(0.2) rotate(-12deg)',
+                opacity: expanded ? 1 : 0,
+                pointerEvents: expanded ? 'auto' : 'none',
+              }}
+              onClick={() => void openPath(f.path)}
+              aria-label={t(`tasks.path.${f.path}`)}
             >
-              {hot && <span className="absolute right-2 top-1.5 h-1.5 w-1.5 rounded-full bg-red-500" />}
-              <span className="text-[10px] font-black leading-none">{t(`tasks.path.${entry.path}`)}</span>
-              <span className="mt-1 text-[13px] font-black leading-none tabular-nums text-amber-300">{stat.done}/{stat.total}</span>
+              <img src={art.img} alt="" draggable={false} className="w-full drop-shadow-[0_8px_18px_rgba(0,0,0,0.4)]" />
+              <span
+                className="absolute -translate-y-1/2 text-[14px] font-black leading-none tabular-nums"
+                style={{ left: art.numLeft, top: art.numTop, color: '#ffb52e', textShadow: '0 1px 3px rgba(0,0,0,0.7)' }}
+              >
+                {stat.done}/{stat.total}
+              </span>
+              {stat.total - stat.done > 0 && (
+                <span className="absolute h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-red-500" style={{ left: '91.4%', top: '17%' }} />
+              )}
             </button>
           )
         })}
         <button
           type="button"
-          className={`relative flex h-24 w-24 items-center justify-center transition-transform active:scale-95 ${expanded ? 'scale-110' : ''}`}
+          className={`relative z-[1] flex h-24 w-24 items-center justify-center transition-transform active:scale-95 ${expanded ? 'scale-110' : ''}`}
           onClick={toggleExpanded}
           aria-label={t('tasks.ball.label')}
         >
           <img src={taskWidgetImg} alt="" draggable={false} className="h-24 w-24 object-contain drop-shadow-[0_8px_20px_rgba(0,0,0,0.45)]" />
-          {claimable > 0 && (
-            <span className="absolute right-0.5 top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-black text-white">
-              {claimable}
+          {pending > 0 && (
+            <span className="absolute right-0 top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[11px] font-black text-white shadow-[0_2px_6px_rgba(0,0,0,0.4)]">
+              {pending}
             </span>
           )}
         </button>
