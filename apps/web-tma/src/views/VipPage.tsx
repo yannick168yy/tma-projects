@@ -33,14 +33,14 @@ const CATEGORY_ORDER = ['slots', 'live', 'sports', 'fishing', 'poker', 'bingo', 
 const VIP_TABS: VipTab[] = ['overview', 'cashback', 'benefits', 'records']
 const VIP_GLASS_STYLE: CSSProperties = {
   background: 'linear-gradient(135deg, rgba(43, 39, 27, 0.62) 0%, rgba(18, 17, 13, 0.78) 42%, rgba(6, 6, 5, 0.86) 100%)',
-  borderColor: 'rgba(190, 143, 49, 0.42)',
-  boxShadow: 'inset 1px 1px 0 rgba(255, 226, 145, 0.22), inset -1px -1px 0 rgba(83, 57, 18, 0.34), 0 10px 26px rgba(0, 0, 0, 0.24)',
+  borderColor: 'rgba(190, 143, 49, 0.24)',
+  boxShadow: 'inset 1px 1px 0 rgba(255, 226, 145, 0.1), inset -1px -1px 0 rgba(83, 57, 18, 0.16), 0 10px 26px rgba(0, 0, 0, 0.24)',
   backdropFilter: 'blur(8px)',
 }
 const VIP_INNER_GLASS_STYLE: CSSProperties = {
   background: 'linear-gradient(135deg, rgba(38, 34, 23, 0.5) 0%, rgba(10, 10, 8, 0.62) 100%)',
-  borderColor: 'rgba(190, 143, 49, 0.3)',
-  boxShadow: 'inset 1px 1px 0 rgba(255, 226, 145, 0.14), inset -1px -1px 0 rgba(70, 48, 17, 0.25)',
+  borderColor: 'rgba(190, 143, 49, 0.18)',
+  boxShadow: 'inset 1px 1px 0 rgba(255, 226, 145, 0.07), inset -1px -1px 0 rgba(70, 48, 17, 0.12)',
 }
 
 interface Props {
