@@ -537,24 +537,9 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
 
   return (
     <div className="page-main">
-      {/* Recent Wins marquee */}
-      <div className="mx-4 mt-2 bg-secondary rounded-xl p-3 flex items-center gap-2 overflow-hidden">
-        <div className="flex-shrink-0 flex items-center gap-1.5 text-primary"><Trophy size={13} /><span className="text-xs font-bold uppercase tracking-wide whitespace-nowrap">{t('home.recentWins')}</span></div>
-        <div className="w-px h-4 bg-border flex-shrink-0" />
-        <div className="overflow-hidden flex-1">
-          <div className="flex w-max animate-marquee whitespace-nowrap" style={{ animationDuration: '96s' }}>
-            {[0, 1].map((group) => (
-              <div key={group} className="flex flex-shrink-0 gap-6 pr-6">
-                {marqueeWinners.map((w, i) => <span key={`${group}-${i}`} className="text-xs text-foreground/80 flex-shrink-0"><span className="text-primary font-bold">{w.name}</span> {t('common.won')} <span className="text-emerald-400 font-bold">{w.amount}</span> · <span className="text-muted-foreground">{w.game}</span></span>)}
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
       {/* Banner 轮播（后台装修配置） */}
       {homeBanners.length > 0 && (
-        <div className="px-4 mt-3">
+        <div className="px-4 mt-2">
           <div className="relative h-56 overflow-hidden rounded-2xl">
             <div ref={bannerTrackRef} className="banner-carousel flex h-full snap-x snap-mandatory hide-scrollbar" onScroll={onBannerScroll} onTouchStart={onBannerTouchStart} onTouchMove={onBannerTouchMove} onTouchEnd={onBannerTouchEnd} onTouchCancel={onBannerTouchEnd}>
               {homeBanners.map((banner) => (
@@ -580,8 +565,9 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
             {recentGames.map((g) => <GameCardV2 key={g.uuid} game={g} onTap={() => void onGameTapAction(g.uuid)} size="sm" />)}
             {recentFillGames.length > 0 && (
               <>
-                <div className="flex-shrink-0 h-[76px] flex items-center rounded-lg bg-gradient-to-b from-amber-400/15 via-amber-400/5 to-amber-400/15 px-1">
-                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-400" style={{ writingMode: 'vertical-rl' }}>{t('home.recommended')}</span>
+                <div className="flex-shrink-0 h-[76px] flex flex-col items-center justify-center gap-0.5 rounded-lg bg-gradient-to-b from-amber-400/15 via-amber-400/5 to-amber-400/15 px-1">
+                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-400" style={{ writingMode: 'vertical-rl' }}>RECOMM</span>
+                  <ChevronRight size={12} className="text-amber-400" />
                 </div>
                 {recentFillGames.map((g) => <GameCardV2 key={g.uuid} game={g} onTap={() => void onGameTapAction(g.uuid)} size="sm" />)}
               </>
@@ -597,10 +583,13 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
       </section>
 
       {/* Cash Rebate 活动横条 → rebate 页 */}
-      <section className="mt-6 px-4">
-        <button type="button" className="block w-full active:scale-[0.98] transition-transform" onClick={() => onNavigatePath('/rebate')}>
-          <img src={cashRebateBannerImg} alt="Cash Rebate" draggable={false} className="w-full rounded-2xl" />
-        </button>
+      <section className="mt-6">
+        {sectionHeader(<Percent size={15} className="text-amber-400" />, t('cashback.pageTitle'))}
+        <div className="px-4">
+          <button type="button" className="block w-full active:scale-[0.98] transition-transform" onClick={() => onNavigatePath('/rebate')}>
+            <img src={cashRebateBannerImg} alt="Cash Rebate" draggable={false} className="w-full rounded-2xl" />
+          </button>
+        </div>
       </section>
 
       {/* 推荐精选：竞品验证权重的次高梯队，大卡 */}
@@ -720,8 +709,23 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
       )}
 
 
+      {/* Recent Wins marquee */}
+      <div className="mx-4 mt-8 bg-secondary rounded-xl p-3 flex items-center gap-2 overflow-hidden">
+        <div className="flex-shrink-0 flex items-center gap-1.5 text-primary"><Trophy size={13} /><span className="text-xs font-bold uppercase tracking-wide whitespace-nowrap">{t('home.recentWins')}</span></div>
+        <div className="w-px h-4 bg-border flex-shrink-0" />
+        <div className="overflow-hidden flex-1">
+          <div className="flex w-max animate-marquee whitespace-nowrap" style={{ animationDuration: '96s' }}>
+            {[0, 1].map((group) => (
+              <div key={group} className="flex flex-shrink-0 gap-6 pr-6">
+                {marqueeWinners.map((w, i) => <span key={`${group}-${i}`} className="text-xs text-foreground/80 flex-shrink-0"><span className="text-primary font-bold">{w.name}</span> {t('common.won')} <span className="text-emerald-400 font-bold">{w.amount}</span> · <span className="text-muted-foreground">{w.game}</span></span>)}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
       {/* Betting Table */}
-      <section ref={betSectionRef} className="mt-8 px-4">
+      <section ref={betSectionRef} className="mt-4 px-4">
         <h3 className="text-muted-foreground font-black text-xs font-display tracking-widest mb-3">
           {t('home.bettingTable')}
         </h3>
