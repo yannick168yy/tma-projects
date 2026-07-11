@@ -44,6 +44,8 @@ const schema = z.object({
   NACOS_DATA_ID: z.string().default('bff-node'),
   NACOS_GROUP: z.string().default('DEFAULT_GROUP'),
   GEMINI_API_KEY: z.string().default(''),
+  // Cloudflare Turnstile 人机验证密钥；留空则注册不要求验证码
+  TURNSTILE_SECRET_KEY: z.string().default(''),
   // ── TeleSMS(特利信) 短信通道（KYC 手机验证用）────────────────────────────────
   TELESMS_BASE_URL: z.string().default('https://api2.santo.cc'),
   TELESMS_CPID: z.string().default(''),

@@ -12,6 +12,7 @@ export default {
     withdrawSubmitFailed: 'Yêu cầu rút tiền thất bại, vui lòng thử lại',
     notAgent: 'Không phải tài khoản đại lý',
     tooManyAttempts: 'Quá nhiều lần thử, vui lòng thử lại sau',
+    captchaFailed: 'Xác minh không thành công, vui lòng thử lại',
     noPermission: 'Thao tác không được phép',
     csEmpty: 'Tin nhắn không được để trống',
     csTooLong: 'Tin nhắn quá dài',

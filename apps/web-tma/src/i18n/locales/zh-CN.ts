@@ -37,6 +37,7 @@ export default {
     withdrawSubmitFailed: '提现申请失败，请重试',
     notAgent: '非代理用户',
     tooManyAttempts: '尝试次数过多，请稍后再试',
+    captchaFailed: '人机验证未通过，请重试',
     noPermission: '无权操作',
     csEmpty: '消息不能为空',
     csTooLong: '消息过长',

@@ -125,10 +125,17 @@ export async function registerPassword(
   identifier: string,
   password: string,
   referralCode?: string,
+  turnstileToken?: string,
 ): Promise<AuthSession> {
   return apiRequest<AuthSession>('/auth/register', {
     method: 'POST',
-    body: JSON.stringify({ method, identifier, password, referralCode: referralCode || undefined }),
+    body: JSON.stringify({
+      method,
+      identifier,
+      password,
+      referralCode: referralCode || undefined,
+      turnstileToken: turnstileToken || undefined,
+    }),
   })
 }
 

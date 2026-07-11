@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { X, User, Phone, Lock, Eye, EyeOff, Check, ArrowLeft } from 'lucide-react'
 import { createPortal } from 'react-dom'
@@ -8,6 +8,7 @@ import { useAuthStore } from '@/stores/auth'
 import { clearLastLogin, getLastLogin, isRememberMeEnabled, setRememberMeEnabled } from '@/utils/lastLogin'
 import { getStoredReferral } from '@/utils/referral'
 import { translateApiError } from '@/utils/translateApiError'
+import { TURNSTILE_SITE_KEY, loadTurnstile } from '@/utils/turnstile'
 import type { PasswordMethod } from '@/types/api'
 
 interface Props {
@@ -70,6 +71,36 @@ export default function LoginSheet({ open, onClose }: Props) {
   const [resetPassword, setResetPassword] = useState('')
   const [resetSent, setResetSent] = useState(false)
   const storedRef = getStoredReferral()
+
+  // Turnstile 人机验证：配置了 site key 才渲染；token 随注册请求提交
+  const turnstileRef = useRef<HTMLDivElement | null>(null)
+  const turnstileWidgetRef = useRef<string | null>(null)
+  const [turnstileToken, setTurnstileToken] = useState<string | undefined>()
+  useEffect(() => {
+    if (!open || !TURNSTILE_SITE_KEY || view !== 'auth') return
+    let cancelled = false
+    void loadTurnstile()
+      .then((ts) => {
+        if (cancelled || !turnstileRef.current || turnstileWidgetRef.current) return
+        turnstileWidgetRef.current = ts.render(turnstileRef.current, {
+          sitekey: TURNSTILE_SITE_KEY,
+          theme: 'dark',
+          callback: (token) => setTurnstileToken(token),
+          'expired-callback': () => setTurnstileToken(undefined),
+          'error-callback': () => setTurnstileToken(undefined),
+        })
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+      // 弹层关闭即卸载 portal DOM，widget 一并销毁，下次打开重新渲染
+      if (turnstileWidgetRef.current) {
+        window.turnstile?.remove(turnstileWidgetRef.current)
+        turnstileWidgetRef.current = null
+        setTurnstileToken(undefined)
+      }
+    }
+  }, [open, view])
 
   function normalizePhoneInput(value: string): string {
     const cleaned = value.replace(/[^\d+]/g, '')
@@ -139,9 +170,14 @@ export default function LoginSheet({ open, onClose }: Props) {
     setError(null)
     setNotice(null)
     try {
-      await loginOrRegisterWithPassword(method, identifier.trim(), password)
+      await loginOrRegisterWithPassword(method, identifier.trim(), password, undefined, turnstileToken)
     } catch (e) {
       setError(e instanceof Error ? translateApiError(e.message, t) : t('auth.loginFailed'))
+      // 验证码校验失败或已消费，重置 widget 换新 token
+      if (e instanceof Error && e.message === 'errors.captchaFailed' && turnstileWidgetRef.current) {
+        setTurnstileToken(undefined)
+        window.turnstile?.reset(turnstileWidgetRef.current)
+      }
     } finally {
       setLoading(false)
     }
@@ -346,6 +382,7 @@ export default function LoginSheet({ open, onClose }: Props) {
                     {t('auth.forgotPassword')}
                   </button>
                 </div>
+                {TURNSTILE_SITE_KEY && <div ref={turnstileRef} className="flex justify-center" />}
                 <button
                   type="button"
                   className="w-full rounded-[14px] bg-gradient-to-b from-[#ffcc19] to-[#ffae00] py-3.5 text-sm font-black text-black shadow-[0_8px_24px_rgba(255,184,0,0.28)] transition-all active:scale-[0.98] disabled:opacity-60"

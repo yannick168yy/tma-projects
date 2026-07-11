@@ -12,6 +12,7 @@ export default {
     withdrawSubmitFailed: 'Permintaan penarikan gagal, silakan coba lagi',
     notAgent: 'Bukan akun agen',
     tooManyAttempts: 'Terlalu banyak percobaan, coba lagi nanti',
+    captchaFailed: 'Verifikasi gagal, silakan coba lagi',
     noPermission: 'Operasi tidak diizinkan',
     csEmpty: 'Pesan tidak boleh kosong',
     csTooLong: 'Pesan terlalu panjang',
