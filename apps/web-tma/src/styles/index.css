@@ -203,8 +203,8 @@
   }
 }
 @keyframes rbClaimPulse {
-  0%, 100% { box-shadow: 0 3px 14px rgba(56, 168, 248, 0.45); }
-  50% { box-shadow: 0 3px 26px rgba(124, 200, 255, 0.85); }
+  0%, 100% { box-shadow: 0 3px 14px rgba(232, 155, 18, 0.5); }
+  50% { box-shadow: 0 3px 26px rgba(255, 210, 87, 0.9); }
 }
 @keyframes rbWiggle {
   0%, 86%, 100% { transform: rotate(0deg); }
