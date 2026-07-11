@@ -565,9 +565,9 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
             {recentGames.map((g) => <GameCardV2 key={g.uuid} game={g} onTap={() => void onGameTapAction(g.uuid)} size="sm" />)}
             {recentFillGames.length > 0 && (
               <>
-                <div className="flex-shrink-0 h-[76px] flex flex-col items-center justify-center gap-0.5 rounded-lg bg-gradient-to-b from-amber-400/15 via-amber-400/5 to-amber-400/15 px-1">
-                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-400" style={{ writingMode: 'vertical-rl' }}>RECOMM</span>
-                  <ChevronRight size={12} className="text-amber-400" />
+                <div className="flex-shrink-0 h-[76px] w-6 flex flex-col items-center justify-center gap-0.5 rounded-full bg-secondary">
+                  <span className="text-[10px] font-bold text-primary" style={{ writingMode: 'vertical-rl' }}>Recommend</span>
+                  <ChevronRight size={12} className="text-primary" />
                 </div>
                 {recentFillGames.map((g) => <GameCardV2 key={g.uuid} game={g} onTap={() => void onGameTapAction(g.uuid)} size="sm" />)}
               </>
