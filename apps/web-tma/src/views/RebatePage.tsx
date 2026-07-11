@@ -8,7 +8,7 @@ import { useLocaleStore } from '@/stores/locale'
 import { localizedGameName } from '@/utils/game'
 import { ApiError } from '@/api/client'
 import { analytics } from '@/utils/analytics'
-import cashbackHero from '@/assets/home/promos/cashback-hero-2.webp'
+import rebateHero from '@/assets/home/promos/rebate-hero-purple.webp'
 
 const CATEGORY_ICONS: Record<string, string> = {
   slots: '🎰', live: '🎲', sports: '⚽', fishing: '🐟',
@@ -32,6 +32,45 @@ function amtStr(currency: string, v: number) {
 
 function catKeyOf(cat: string) {
   return `cashback.category${cat.charAt(0).toUpperCase() + cat.slice(1)}`
+}
+
+const PINK = '#f882c8'
+
+function RateIcon() {
+  return (
+    <svg viewBox="0 0 48 48" className="w-11 h-11" fill="none">
+      <circle cx="24" cy="24" r="21" stroke={PINK} strokeOpacity="0.4" strokeWidth="2" />
+      <circle cx="24" cy="24" r="16.5" stroke={PINK} strokeWidth="2.5" />
+      <text x="24" y="29" textAnchor="middle" fill={PINK} fontSize="13" fontWeight="900" fontFamily="inherit">2%</text>
+    </svg>
+  )
+}
+
+function DailyIcon() {
+  return (
+    <svg viewBox="0 0 48 48" className="w-11 h-11" fill="none">
+      <rect x="7" y="10" width="34" height="31" rx="6" fill={PINK} fillOpacity="0.18" stroke={PINK} strokeWidth="2.5" />
+      <path d="M7 19h34" stroke={PINK} strokeWidth="2.5" />
+      <path d="M15 6v7M33 6v7" stroke={PINK} strokeWidth="2.5" strokeLinecap="round" />
+      <circle cx="15" cy="26" r="1.8" fill={PINK} />
+      <circle cx="22" cy="26" r="1.8" fill={PINK} />
+      <circle cx="29" cy="26" r="1.8" fill={PINK} />
+      <circle cx="15" cy="33" r="1.8" fill={PINK} />
+      <path d="M25 33.5l3.2 3.2 5.8-6" stroke={PINK} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+function EveryIcon() {
+  return (
+    <svg viewBox="0 0 48 48" className="w-11 h-11" fill="none">
+      <path d="M10 20a15 15 0 0 1 26.5-5.5" stroke={PINK} strokeWidth="2.5" strokeLinecap="round" />
+      <path d="M37 6.5v8.5h-8.5" stroke={PINK} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M38 28a15 15 0 0 1-26.5 5.5" stroke={PINK} strokeWidth="2.5" strokeLinecap="round" />
+      <path d="M11 41.5V33h8.5" stroke={PINK} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+      <text x="24" y="29.5" textAnchor="middle" fill="#f6c453" fontSize="16" fontWeight="900" fontFamily="inherit">₱</text>
+    </svg>
+  )
 }
 
 export default function RebatePage({ onOpenGame, onOpenCategory }: Props) {
@@ -128,267 +167,284 @@ export default function RebatePage({ onOpenGame, onOpenCategory }: Props) {
 
   const tierRate = (tier: string) => tier === 'elite' ? t('cashback.tierEliteRate') : t('cashback.tierProRate')
 
+  const features = [
+    { icon: <RateIcon />, title: t('cashback.heroRateLabel'), desc: t('cashback.featRateDesc') },
+    { icon: <DailyIcon />, title: t('cashback.heroCreditValue'), desc: t('cashback.featDailyDesc') },
+    { icon: <EveryIcon />, title: t('cashback.heroFeaturedValue'), desc: t('cashback.featEveryDesc') },
+  ]
+
   return (
-    <div
-      className="page-main pb-8 min-h-screen"
-      style={{ background: 'linear-gradient(180deg,#030302 0%,#080603 32%,#0b0804 64%,#040302 100%)' }}
-    >
-      {/* Hero —— 成品 banner 图贴顶 */}
+    <div className="page-main pb-8 min-h-screen bg-[#0f0a1d]">
+      {/* Hero —— 设计稿成品图贴顶（含标题/徽章/副标题） */}
       <img
-        src={cashbackHero}
+        src={rebateHero}
         alt={t('cashback.pageTitle')}
         className="block w-full select-none"
         draggable={false}
       />
 
-      {/* Total Bonus —— 紧凑横排，Claim 在右 */}
-      <div className="mx-4 mt-4 relative overflow-hidden rounded-2xl border border-amber-300/35 bg-gradient-to-r from-[#0b0804]/90 via-[#171006]/80 to-[#2c1b05]/55 shadow-[0_0_24px_rgba(180,118,28,0.12)]">
-        <div className="pointer-events-none absolute right-20 top-1/2 -translate-y-1/2 h-28 w-28 rounded-full bg-amber-300/20 blur-2xl" />
-        <div className="relative flex items-center justify-between gap-3 px-4 py-3.5">
-          <div className="min-w-0">
-            <p className="text-amber-200/90 font-bold text-[11px] uppercase tracking-wider">{t('cashback.totalBonus')}</p>
-            <p className="text-white font-black text-2xl font-display drop-shadow mt-0.5">
-              {amtStr(currency, token ? (progress?.claimable ?? 0) : 0)}
-            </p>
+      {/* 内容区背景与 hero 裁剪线无缝衔接 */}
+      <div style={{ background: 'linear-gradient(180deg,#26174c 0%,#1c0e38 40%,#150c28 72%,#0f0a1d 100%)' }}>
+        {/* Total Bonus —— 功能区，Claim 在右 */}
+        <div className="mx-4 relative overflow-hidden rounded-2xl border-[1.5px] border-violet-400/45 bg-[#231240]/70 shadow-[0_0_24px_rgba(139,92,246,0.15)]">
+          <div className="pointer-events-none absolute right-20 top-1/2 -translate-y-1/2 h-28 w-28 rounded-full bg-fuchsia-400/15 blur-2xl" />
+          <div className="relative flex items-center justify-between gap-3 px-4 py-4">
+            <div className="min-w-0">
+              <p className="text-violet-300 font-bold text-[12px] uppercase tracking-widest">{t('cashback.totalBonus')}</p>
+              <p className="text-white font-black text-[26px] font-display drop-shadow mt-1">
+                {amtStr(currency, token ? (progress?.claimable ?? 0) : 0)}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => void onClaim()}
+              disabled={claiming || !token || !progress || progress.claimable <= 0}
+              className="flex-shrink-0 bg-gradient-to-b from-[#fb8ecb] to-[#e8489f] text-white font-black text-base rounded-full px-7 py-2.5 shadow-[0_3px_14px_rgba(232,72,159,0.45)] active:opacity-80 transition disabled:opacity-50"
+            >
+              {claiming ? t('cashback.claiming') : t('cashback.claimBtn')}
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={() => void onClaim()}
-            disabled={claiming || !token || !progress || progress.claimable <= 0}
-            className="flex-shrink-0 bg-gradient-to-b from-amber-300 to-yellow-500 text-[#2a1a05] font-black text-sm rounded-full px-6 py-2.5 shadow-[0_3px_12px_rgba(245,158,11,0.45)] active:opacity-80 transition disabled:opacity-50"
-          >
-            {claiming ? t('cashback.claiming') : t('cashback.claimBtn')}
-          </button>
         </div>
-      </div>
 
-      {token && claimableBreakdown.length > 0 && (
-        <div className="mx-4 mt-2 bg-[#0c0905]/70 rounded-2xl px-4 py-3 space-y-1.5 border border-amber-300/15">
-          {claimableBreakdown.map((item) => (
-            <div key={item.gameCategory} className="flex items-center justify-between text-xs">
-              <span className="flex items-center gap-1.5 text-amber-50/70">
-                <span>{CATEGORY_ICONS[item.gameCategory] ?? '🎮'}</span>
-                <span>{t(catKeyOf(item.gameCategory))}</span>
-                <span className="text-[10px] text-amber-300/80">{item.ratePct}%</span>
-              </span>
-              <span className="font-semibold text-amber-300">+{amtStr(currency, item.rebateAmount)}</span>
+        {token && claimableBreakdown.length > 0 && (
+          <div className="mx-4 mt-2 bg-[#1a0e33]/70 rounded-2xl px-4 py-3 space-y-1.5 border border-violet-400/20">
+            {claimableBreakdown.map((item) => (
+              <div key={item.gameCategory} className="flex items-center justify-between text-xs">
+                <span className="flex items-center gap-1.5 text-violet-100/70">
+                  <span>{CATEGORY_ICONS[item.gameCategory] ?? '🎮'}</span>
+                  <span>{t(catKeyOf(item.gameCategory))}</span>
+                  <span className="text-[10px] text-pink-300/80">{item.ratePct}%</span>
+                </span>
+                <span className="font-semibold text-pink-300">+{amtStr(currency, item.rebateAmount)}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* 三个特性卡片：Max Rate / Daily / Every */}
+        <div className="mx-4 mt-3 grid grid-cols-3 gap-2.5">
+          {features.map((f) => (
+            <div key={f.title} className="rounded-2xl border border-violet-400/30 bg-[#1e1038]/55 px-2 py-4 flex flex-col items-center text-center">
+              {f.icon}
+              <p className="text-white font-black text-sm mt-2.5">{f.title}</p>
+              <p className="text-violet-200/60 text-[11px] leading-snug mt-1">{f.desc}</p>
             </div>
           ))}
         </div>
-      )}
 
-      {/* CASHBACK GAMES */}
-      {tiers.length > 0 && (
-        <div className="mx-4 mt-5">
-          <h3 className="font-black text-amber-100 text-base tracking-wide mb-3">{t('cashback.cashbackGames').toUpperCase()}</h3>
-          <div className="space-y-3">
-            {tiers.map(([tier, games]) => {
-              const cover = games[0]?.coverUrl
-              const expanded = expandedTier === tier
-              return (
-                <div key={tier} className="rounded-2xl bg-[#0c0905]/75 border border-amber-300/20 overflow-hidden shadow-[0_0_18px_rgba(180,118,28,0.08)]">
-                  <div className="flex items-center gap-3 p-3">
-                    <div className="w-16 h-16 rounded-xl overflow-hidden flex-shrink-0 bg-black/35 border border-amber-300/15">
-                      {cover
-                        ? <img src={cover} alt="" className="w-full h-full object-cover" />
-                        : <div className="w-full h-full flex items-center justify-center text-2xl">🎰</div>
-                      }
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-amber-300 font-black text-sm">
-                        {t(tier === 'elite' ? 'cashback.tierElite' : 'cashback.tierPro')}
-                      </p>
-                      <div className="flex gap-5 mt-1">
-                        <div>
-                          <p className="text-amber-100/55 text-[10px]">{t('cashback.cashbackRate')}</p>
-                          <p className="text-amber-50 font-bold text-sm">{tierRate(tier)}</p>
+        {/* CASHBACK GAMES */}
+        {tiers.length > 0 && (
+          <div className="mx-4 mt-5">
+            <h3 className="font-black text-violet-100 text-base tracking-wide mb-3">{t('cashback.cashbackGames').toUpperCase()}</h3>
+            <div className="space-y-3">
+              {tiers.map(([tier, games]) => {
+                const cover = games[0]?.coverUrl
+                const expanded = expandedTier === tier
+                return (
+                  <div key={tier} className="rounded-2xl bg-[#1a0e33]/75 border border-violet-400/25 overflow-hidden shadow-[0_0_18px_rgba(139,92,246,0.1)]">
+                    <div className="flex items-center gap-3 p-3">
+                      <div className="w-16 h-16 rounded-xl overflow-hidden flex-shrink-0 bg-black/35 border border-violet-400/20">
+                        {cover
+                          ? <img src={cover} alt="" className="w-full h-full object-cover" />
+                          : <div className="w-full h-full flex items-center justify-center text-2xl">🎰</div>
+                        }
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-pink-300 font-black text-sm">
+                          {t(tier === 'elite' ? 'cashback.tierElite' : 'cashback.tierPro')}
+                        </p>
+                        <div className="flex gap-5 mt-1">
+                          <div>
+                            <p className="text-violet-200/55 text-[10px]">{t('cashback.cashbackRate')}</p>
+                            <p className="text-violet-50 font-bold text-sm">{tierRate(tier)}</p>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => toggleTier(tier)}
-                      className="flex-shrink-0 flex items-center gap-1.5 bg-gradient-to-r from-amber-300 to-yellow-500 text-[#1b1204] rounded-full pl-4 pr-1.5 py-1.5 active:opacity-80 transition-opacity shadow-[0_2px_10px_rgba(245,158,11,0.25)]"
-                    >
-                      <span className="font-bold text-xs">{t('cashback.viewBtn')}</span>
-                      <span className="bg-[#5b3a0d]/55 text-amber-100 text-[11px] font-bold rounded-full min-w-5 h-5 px-1.5 flex items-center justify-center">
-                        {games.length}
-                      </span>
-                    </button>
-                  </div>
-                  {expanded && (
-                    <div className="px-3 pb-3 border-t border-amber-300/15 pt-3">
-                      {games.length > 0 ? (
-                        <div className="grid grid-cols-3 gap-2">
-                          {games.map((g) => (
-                            <button
-                              key={g.gameUuid}
-                              type="button"
-                              onClick={() => void onGameTap(g.gameUuid)}
-                              className="flex flex-col rounded-xl overflow-hidden bg-[#120f0a] active:scale-[0.98] transition-transform"
-                            >
-                              <div className="aspect-square w-full bg-black/45">
-                                {g.coverUrl
-                                  ? <img src={g.coverUrl} alt="" className="w-full h-full object-cover" />
-                                  : <div className="w-full h-full flex items-center justify-center text-2xl">🎰</div>
-                                }
-                              </div>
-                              <p className="text-[11px] font-bold text-white/95 truncate px-1.5 py-1.5">
-                                {localizedGameName({ name: g.name ?? '', nameZh: g.nameZh }, locale)}
-                              </p>
-                            </button>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="text-muted-foreground text-xs text-center py-2">No games configured</p>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* REBATE RATES：顶部引导 + 升级进度 + 分级费率卡片（可左右翻动，默认当前等级） */}
-      {levelCards.length > 0 && (
-        <div className="mt-5">
-          <div className="flex items-center justify-between mb-3 mx-4">
-            <h3 className="font-black text-amber-100 text-base tracking-wide">{t('cashback.rateTable').toUpperCase()}</h3>
-            {token && progress && (
-              <span className="bg-gradient-to-r from-amber-300 to-yellow-500 text-[#1b1204] font-black text-xs rounded-full px-3 py-1">
-                {t('cashback.levelTag', { level: progress.level })}
-              </span>
-            )}
-          </div>
-
-          {/* 冲刺最高级 banner */}
-          {topBest && (
-            <div className="mx-4 mb-3 flex items-center gap-2.5 rounded-xl border border-amber-300/35 bg-gradient-to-r from-[#2b1a05]/75 via-[#151006]/80 to-[#070504]/85 px-3.5 py-2.5">
-              <span className="text-xl leading-none">👑</span>
-              <p className="text-[12px] font-bold text-amber-100 leading-snug">
-                {t('cashback.topTierBanner', {
-                  cat: t(catKeyOf(topBest.gameCategory)),
-                  rate: topBest.ratePct,
-                  amount: topBest.maxBonus > 0 ? amtStr(currency, topBest.maxBonus) : t('cashback.unlimited'),
-                })}
-              </p>
-            </div>
-          )}
-
-          {/* total turnover：标签 + 数值 + 升级进度条 */}
-          {token && progress && (
-            <div className="mx-4 mb-3 bg-[#0c0905]/75 rounded-2xl border border-amber-300/20 px-4 py-3">
-              <p className="text-amber-100/60 text-[11px]">{t('cashback.totalTurnover')}</p>
-              <p className="text-amber-50 font-black text-2xl font-display mt-0.5">{amtStr(currency, progress.totalTurnover)}</p>
-              <div className="h-2 rounded-full bg-black/30 overflow-hidden mt-2">
-                <div
-                  className="h-full bg-gradient-to-r from-amber-400 to-yellow-500 rounded-full transition-all"
-                  style={{ width: `${progressPct}%` }}
-                />
-              </div>
-              <p className="text-[11px] text-amber-300/80 mt-1.5">
-                {progress.nextThreshold != null
-                  ? t('cashback.progressToNext', { remaining: amtStr(currency, remaining), level: progress.nextLevel })
-                  : t('cashback.maxLevel')}
-              </p>
-            </div>
-          )}
-
-          {/* 分级费率卡片横向轮播 */}
-          <div
-            ref={scrollRef}
-            className="flex gap-3 overflow-x-auto snap-x snap-mandatory px-4 pb-2 hide-scrollbar"
-          >
-            {levelCards.map((lc) => {
-              const isCurrent = token && lc.level === userLevel
-              const isMax = lc.level === (levelCards[levelCards.length - 1]?.level ?? lc.level)
-              const cardCls = isMax
-                ? 'border-amber-300/60 bg-gradient-to-br from-[#161006]/90 via-[#0d0a06]/85 to-[#3a2407]/50 shadow-lg shadow-amber-500/10'
-                : isCurrent
-                  ? 'border-amber-300/45 bg-[#100c06]/85'
-                  : 'border-amber-300/18 bg-[#0c0905]/70'
-              const catRates = CATEGORY_ORDER
-                .map((cat) => lc.rates.find((r) => r.gameCategory === cat && r.enabled))
-                .filter((r): r is NonNullable<typeof r> => Boolean(r))
-              const toUnlock = progress ? Math.max(0, lc.minTurnover - progress.totalTurnover) : lc.minTurnover
-              return (
-                <div
-                  key={lc.level}
-                  ref={isCurrent ? activeCardRef : undefined}
-                  className={`snap-center shrink-0 w-[82%] max-w-[330px] rounded-2xl border p-4 flex flex-col ${cardCls}`}
-                >
-                  <div className="flex items-start justify-between mb-3">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className={`font-black text-xl font-display ${isMax ? 'text-amber-300' : 'text-amber-50'}`}>
-                          {t('cashback.levelTag', { level: lc.level })}
+                      <button
+                        type="button"
+                        onClick={() => toggleTier(tier)}
+                        className="flex-shrink-0 flex items-center gap-1.5 bg-gradient-to-r from-[#fb8ecb] to-[#e8489f] text-white rounded-full pl-4 pr-1.5 py-1.5 active:opacity-80 transition-opacity shadow-[0_2px_10px_rgba(232,72,159,0.3)]"
+                      >
+                        <span className="font-bold text-xs">{t('cashback.viewBtn')}</span>
+                        <span className="bg-black/25 text-white text-[11px] font-bold rounded-full min-w-5 h-5 px-1.5 flex items-center justify-center">
+                          {games.length}
                         </span>
-                        {isCurrent && (
-                          <span className="bg-amber-300/90 text-[#1b1204] text-[10px] font-black rounded-full px-2 py-0.5">
-                            {t('cashback.levelCurrent')}
-                          </span>
+                      </button>
+                    </div>
+                    {expanded && (
+                      <div className="px-3 pb-3 border-t border-violet-400/20 pt-3">
+                        {games.length > 0 ? (
+                          <div className="grid grid-cols-3 gap-2">
+                            {games.map((g) => (
+                              <button
+                                key={g.gameUuid}
+                                type="button"
+                                onClick={() => void onGameTap(g.gameUuid)}
+                                className="flex flex-col rounded-xl overflow-hidden bg-[#241542] active:scale-[0.98] transition-transform"
+                              >
+                                <div className="aspect-square w-full bg-black/45">
+                                  {g.coverUrl
+                                    ? <img src={g.coverUrl} alt="" className="w-full h-full object-cover" />
+                                    : <div className="w-full h-full flex items-center justify-center text-2xl">🎰</div>
+                                  }
+                                </div>
+                                <p className="text-[11px] font-bold text-white/95 truncate px-1.5 py-1.5">
+                                  {localizedGameName({ name: g.name ?? '', nameZh: g.nameZh }, locale)}
+                                </p>
+                              </button>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-muted-foreground text-xs text-center py-2">No games configured</p>
                         )}
                       </div>
-                      <p className="text-[11px] text-amber-100/55 mt-0.5">
-                        {lc.minTurnover > 0
-                          ? t('cashback.levelReq', { amount: amtStr(currency, lc.minTurnover) })
-                          : t('cashback.levelEntry')}
-                      </p>
-                    </div>
-                    {isMax && (
-                      <span className="bg-gradient-to-r from-amber-300 to-yellow-500 text-[#1b1204] text-[10px] font-black rounded-md px-2 py-1">MAX</span>
                     )}
                   </div>
-
-                  <div className="space-y-2 flex-1">
-                    {catRates.map((r) => {
-                      const bonus = isCurrent ? (categoryBonusMap.get(r.gameCategory) ?? 0) : 0
-                      return (
-                        <button
-                          key={r.gameCategory}
-                          type="button"
-                          onClick={() => onOpenCategory({ title: t(catKeyOf(r.gameCategory)), sortCategory: r.gameCategory })}
-                          className="w-full flex items-center gap-2 active:opacity-70 transition-opacity"
-                        >
-                          <span className="text-xl leading-none flex-shrink-0">{CATEGORY_ICONS[r.gameCategory] ?? '🎮'}</span>
-                          <span className="text-sm font-semibold text-amber-50/90 w-16 text-left truncate">{t(catKeyOf(r.gameCategory))}</span>
-                          <span className="flex-1 text-right leading-tight">
-                            <span className="block text-amber-300 font-bold text-sm">+{amtStr(currency, bonus)}</span>
-                            <span className="block text-[9px] text-amber-100/45">
-                              {t('cashback.maxShort')} {r.maxBonus > 0 ? amtStr(currency, r.maxBonus) : t('cashback.unlimited')}
-                            </span>
-                          </span>
-                          <span className={`w-10 text-right font-black text-sm ${isMax ? 'text-amber-300' : 'text-amber-300/90'}`}>{r.ratePct}%</span>
-                        </button>
-                      )
-                    })}
-                  </div>
-
-                  {/* 底部解锁状态 */}
-                  <div className={`mt-3 rounded-lg py-2 text-center text-xs font-black ${
-                    isCurrent || (progress && lc.level < userLevel)
-                      ? 'bg-[#5b3a0d]/55 text-amber-50'
-                      : isMax
-                        ? 'bg-gradient-to-r from-amber-300 to-yellow-500 text-[#1b1204]'
-                        : 'bg-[#1c1408] text-amber-200'
-                  }`}>
-                    {isCurrent
-                      ? t('cashback.levelCurrent')
-                      : progress && lc.level < userLevel
-                        ? t('cashback.unlocked')
-                        : t('cashback.toUnlock', { amount: amtStr(currency, toUnlock) })}
-                  </div>
-                </div>
-              )
-            })}
+                )
+              })}
+            </div>
           </div>
-          <p className="text-[10px] text-amber-100/35 mt-1 px-4 text-center">
-            {t('cashback.creditedTomorrow')} · {t('cashback.unsettledNotCounted')}
-          </p>
-        </div>
-      )}
+        )}
+
+        {/* REBATE RATES：顶部引导 + 升级进度 + 分级费率卡片（可左右翻动，默认当前等级） */}
+        {levelCards.length > 0 && (
+          <div className="mt-5">
+            <div className="flex items-center justify-between mb-3 mx-4">
+              <h3 className="font-black text-violet-100 text-base tracking-wide">{t('cashback.rateTable').toUpperCase()}</h3>
+              {token && progress && (
+                <span className="bg-gradient-to-r from-[#fb8ecb] to-[#e8489f] text-white font-black text-xs rounded-full px-3 py-1">
+                  {t('cashback.levelTag', { level: progress.level })}
+                </span>
+              )}
+            </div>
+
+            {/* 冲刺最高级 banner */}
+            {topBest && (
+              <div className="mx-4 mb-3 flex items-center gap-2.5 rounded-xl border border-violet-400/35 bg-gradient-to-r from-[#33195e]/75 via-[#221244]/80 to-[#150c28]/85 px-3.5 py-2.5">
+                <span className="text-xl leading-none">👑</span>
+                <p className="text-[12px] font-bold text-violet-100 leading-snug">
+                  {t('cashback.topTierBanner', {
+                    cat: t(catKeyOf(topBest.gameCategory)),
+                    rate: topBest.ratePct,
+                    amount: topBest.maxBonus > 0 ? amtStr(currency, topBest.maxBonus) : t('cashback.unlimited'),
+                  })}
+                </p>
+              </div>
+            )}
+
+            {/* total turnover：标签 + 数值 + 升级进度条 */}
+            {token && progress && (
+              <div className="mx-4 mb-3 bg-[#1a0e33]/75 rounded-2xl border border-violet-400/25 px-4 py-3">
+                <p className="text-violet-200/60 text-[11px]">{t('cashback.totalTurnover')}</p>
+                <p className="text-white font-black text-2xl font-display mt-0.5">{amtStr(currency, progress.totalTurnover)}</p>
+                <div className="h-2 rounded-full bg-black/30 overflow-hidden mt-2">
+                  <div
+                    className="h-full bg-gradient-to-r from-pink-400 to-fuchsia-500 rounded-full transition-all"
+                    style={{ width: `${progressPct}%` }}
+                  />
+                </div>
+                <p className="text-[11px] text-pink-300/80 mt-1.5">
+                  {progress.nextThreshold != null
+                    ? t('cashback.progressToNext', { remaining: amtStr(currency, remaining), level: progress.nextLevel })
+                    : t('cashback.maxLevel')}
+                </p>
+              </div>
+            )}
+
+            {/* 分级费率卡片横向轮播 */}
+            <div
+              ref={scrollRef}
+              className="flex gap-3 overflow-x-auto snap-x snap-mandatory px-4 pb-2 hide-scrollbar"
+            >
+              {levelCards.map((lc) => {
+                const isCurrent = token && lc.level === userLevel
+                const isMax = lc.level === (levelCards[levelCards.length - 1]?.level ?? lc.level)
+                const cardCls = isMax
+                  ? 'border-pink-400/60 bg-gradient-to-br from-[#2c1552]/90 via-[#1c0f38]/85 to-[#471b56]/50 shadow-lg shadow-fuchsia-500/10'
+                  : isCurrent
+                    ? 'border-violet-300/50 bg-[#221244]/85'
+                    : 'border-violet-400/20 bg-[#180d30]/70'
+                const catRates = CATEGORY_ORDER
+                  .map((cat) => lc.rates.find((r) => r.gameCategory === cat && r.enabled))
+                  .filter((r): r is NonNullable<typeof r> => Boolean(r))
+                const toUnlock = progress ? Math.max(0, lc.minTurnover - progress.totalTurnover) : lc.minTurnover
+                return (
+                  <div
+                    key={lc.level}
+                    ref={isCurrent ? activeCardRef : undefined}
+                    className={`snap-center shrink-0 w-[82%] max-w-[330px] rounded-2xl border p-4 flex flex-col ${cardCls}`}
+                  >
+                    <div className="flex items-start justify-between mb-3">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className={`font-black text-xl font-display ${isMax ? 'text-pink-300' : 'text-violet-50'}`}>
+                            {t('cashback.levelTag', { level: lc.level })}
+                          </span>
+                          {isCurrent && (
+                            <span className="bg-pink-400/90 text-white text-[10px] font-black rounded-full px-2 py-0.5">
+                              {t('cashback.levelCurrent')}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[11px] text-violet-200/55 mt-0.5">
+                          {lc.minTurnover > 0
+                            ? t('cashback.levelReq', { amount: amtStr(currency, lc.minTurnover) })
+                            : t('cashback.levelEntry')}
+                        </p>
+                      </div>
+                      {isMax && (
+                        <span className="bg-gradient-to-r from-[#fb8ecb] to-[#e8489f] text-white text-[10px] font-black rounded-md px-2 py-1">MAX</span>
+                      )}
+                    </div>
+
+                    <div className="space-y-2 flex-1">
+                      {catRates.map((r) => {
+                        const bonus = isCurrent ? (categoryBonusMap.get(r.gameCategory) ?? 0) : 0
+                        return (
+                          <button
+                            key={r.gameCategory}
+                            type="button"
+                            onClick={() => onOpenCategory({ title: t(catKeyOf(r.gameCategory)), sortCategory: r.gameCategory })}
+                            className="w-full flex items-center gap-2 active:opacity-70 transition-opacity"
+                          >
+                            <span className="text-xl leading-none flex-shrink-0">{CATEGORY_ICONS[r.gameCategory] ?? '🎮'}</span>
+                            <span className="text-sm font-semibold text-violet-50/90 w-16 text-left truncate">{t(catKeyOf(r.gameCategory))}</span>
+                            <span className="flex-1 text-right leading-tight">
+                              <span className="block text-pink-300 font-bold text-sm">+{amtStr(currency, bonus)}</span>
+                              <span className="block text-[9px] text-violet-200/45">
+                                {t('cashback.maxShort')} {r.maxBonus > 0 ? amtStr(currency, r.maxBonus) : t('cashback.unlimited')}
+                              </span>
+                            </span>
+                            <span className={`w-10 text-right font-black text-sm ${isMax ? 'text-pink-300' : 'text-pink-300/90'}`}>{r.ratePct}%</span>
+                          </button>
+                        )
+                      })}
+                    </div>
+
+                    {/* 底部解锁状态 */}
+                    <div className={`mt-3 rounded-lg py-2 text-center text-xs font-black ${
+                      isCurrent || (progress && lc.level < userLevel)
+                        ? 'bg-violet-500/30 text-violet-50'
+                        : isMax
+                          ? 'bg-gradient-to-r from-[#fb8ecb] to-[#e8489f] text-white'
+                          : 'bg-[#241542] text-violet-200'
+                    }`}>
+                      {isCurrent
+                        ? t('cashback.levelCurrent')
+                        : progress && lc.level < userLevel
+                          ? t('cashback.unlocked')
+                          : t('cashback.toUnlock', { amount: amtStr(currency, toUnlock) })}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+            <p className="text-[10px] text-violet-200/35 mt-1 px-4 text-center">
+              {t('cashback.creditedTomorrow')} · {t('cashback.unsettledNotCounted')}
+            </p>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
