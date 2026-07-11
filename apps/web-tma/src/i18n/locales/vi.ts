@@ -1005,4 +1005,11 @@ export default {
     telegramBrowserOnly: 'Liên kết trong trình duyệt',
     entry: 'Liên kết tài khoản',
   },
+  tasks: {
+    item: {
+      follow_telegram: { title: 'Theo dõi Telegram chính thức', subtitle: 'Tham gia kênh để nhận thưởng' },
+      follow_facebook: { title: 'Theo dõi Facebook chính thức', subtitle: 'Lấy mã trên trang rồi nhập lại' },
+      follow_viber: { title: 'Tham gia cộng đồng Viber chính thức', subtitle: 'Lấy mã trong cộng đồng rồi nhập lại' },
+    },
+  },
 }

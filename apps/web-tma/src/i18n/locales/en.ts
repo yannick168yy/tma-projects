@@ -488,6 +488,9 @@ export default {
       agg_birthday: { title: 'Unlock Birthday Gift', subtitle: 'Verify your identity to sync your ID birthday' },
       agg_checkin: { title: 'Daily Check-in', subtitle: 'Check in to earn spin chances' },
       checkin_ms: { title: 'Check in {{n}} days this month', subtitle: 'Reach the milestone for extra rewards' },
+      follow_telegram: { title: 'Follow Official Telegram', subtitle: 'Join the channel to earn rewards' },
+      follow_facebook: { title: 'Follow Official Facebook', subtitle: 'Get the code from our page and enter it' },
+      follow_viber: { title: 'Join Official Viber Community', subtitle: 'Get the code in the community and enter it' },
     },
     earn: {
       rebate: 'Rebate claimable',

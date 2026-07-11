@@ -478,6 +478,9 @@ export default {
       agg_birthday: { title: '解锁生日礼金', subtitle: '完成实名认证，自动同步证件生日' },
       agg_checkin: { title: '每日签到', subtitle: '签到领取抽奖次数' },
       checkin_ms: { title: '本月签到 {{n}} 天', subtitle: '达成额外奖励' },
+      follow_telegram: { title: '关注官方 Telegram 频道', subtitle: '加入频道领奖励' },
+      follow_facebook: { title: '关注官方 Facebook', subtitle: '主页领取暗号回填' },
+      follow_viber: { title: '加入官方 Viber 社区', subtitle: '社区内领取暗号回填' },
     },
     earn: {
       rebate: '洗码可领',

@@ -987,4 +987,11 @@ export default {
     telegramBrowserOnly: 'Hubungkan di browser',
     entry: 'Tautkan Akun',
   },
+  tasks: {
+    item: {
+      follow_telegram: { title: 'Ikuti Telegram Resmi', subtitle: 'Gabung channel untuk dapat hadiah' },
+      follow_facebook: { title: 'Ikuti Facebook Resmi', subtitle: 'Ambil kode di halaman lalu masukkan' },
+      follow_viber: { title: 'Gabung Komunitas Viber Resmi', subtitle: 'Ambil kode di komunitas lalu masukkan' },
+    },
+  },
 }
