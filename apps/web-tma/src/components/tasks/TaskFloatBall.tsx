@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ClipboardList } from 'lucide-react'
 import { fetchTaskCenter, type TaskCard, type TaskCenter } from '@/api/tasks'
 import { useAuthStore } from '@/stores/auth'
+import taskWidgetImg from '@/assets/tasks/task-float-widget.webp'
 
 type TaskBallPath = 'newbie' | 'daily' | 'social'
 
@@ -54,10 +54,7 @@ export default function TaskFloatBall({ onNavigatePath }: TaskFloatBallProps) {
     social: statOf(center.groups.social),
   }), [center])
 
-  const total = stats.newbie.total + stats.daily.total + stats.social.total
-  const done = stats.newbie.done + stats.daily.done + stats.social.done
   const claimable = stats.newbie.claimable + stats.daily.claimable + stats.social.claimable
-  const progress = total > 0 ? Math.round((done / total) * 100) : 0
 
   const clampFreePosition = useCallback((left: number, top: number) => {
     const viewportWidth = window.innerWidth
@@ -213,19 +210,11 @@ export default function TaskFloatBall({ onNavigatePath }: TaskFloatBallProps) {
         })}
         <button
           type="button"
-          className={`relative flex h-16 w-16 flex-col items-center justify-center overflow-hidden rounded-full border text-[#261803] shadow-[0_10px_28px_rgba(0,0,0,0.42)] transition-transform active:scale-95 ${expanded ? 'scale-105 border-yellow-200 bg-yellow-300' : 'border-amber-200 bg-gradient-to-b from-amber-200 to-yellow-500'}`}
+          className={`relative flex h-16 w-16 items-center justify-center transition-transform active:scale-95 ${expanded ? 'scale-110' : ''}`}
           onClick={toggleExpanded}
           aria-label={t('tasks.ball.label')}
         >
-          <span
-            className="absolute inset-0 rounded-full"
-            style={{ background: `conic-gradient(rgba(146,64,14,0.32) ${progress * 3.6}deg, rgba(255,255,255,0.22) 0deg)` }}
-          />
-          <span className="relative flex items-center gap-0.5 text-[13px] font-black leading-none tabular-nums">
-            <ClipboardList size={13} strokeWidth={3} />
-            {total > 0 ? `${done}/${total}` : t('tasks.ball.short')}
-          </span>
-          <span className="relative mt-0.5 text-[9px] font-black uppercase leading-none">{t('tasks.ball.label')}</span>
+          <img src={taskWidgetImg} alt="" draggable={false} className="h-16 w-16 object-contain drop-shadow-[0_8px_20px_rgba(0,0,0,0.45)]" />
           {claimable > 0 && (
             <span className="absolute right-0.5 top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-black text-white">
               {claimable}
