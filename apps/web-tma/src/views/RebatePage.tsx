@@ -10,6 +10,7 @@ import { useLocaleStore } from '@/stores/locale'
 import { localizedGameName } from '@/utils/game'
 import { ApiError } from '@/api/client'
 import { analytics } from '@/utils/analytics'
+import cashbackHero from '@/assets/home/promos/cashback-hero-2.webp'
 
 const CATEGORY_ICONS: Record<string, string> = {
   slots: '🎰', live: '🎲', sports: '⚽', fishing: '🐟',
@@ -25,7 +26,6 @@ const categoryRank = (cat: string) => {
 interface Props {
   onOpenGame: (url: string) => void
   onOpenCategory: (params: { title: string; sortCategory: string }) => void
-  onOpenKycSetting?: () => void
   onOpenVipCenter?: () => void
 }
 
@@ -37,7 +37,7 @@ function catKeyOf(cat: string) {
   return `cashback.category${cat.charAt(0).toUpperCase() + cat.slice(1)}`
 }
 
-export default function RebatePage({ onOpenGame, onOpenCategory, onOpenKycSetting, onOpenVipCenter }: Props) {
+export default function RebatePage({ onOpenGame, onOpenCategory, onOpenVipCenter }: Props) {
   const { t } = useTranslation()
   const token = useAuthStore((s) => s.token)
   const auth = useAuthStore()
@@ -158,13 +158,17 @@ export default function RebatePage({ onOpenGame, onOpenCategory, onOpenKycSettin
 
   return (
     <div
-      className="page-main min-h-screen space-y-3 px-4 pb-8"
+      className="page-main min-h-screen pb-8"
       style={{ background: 'linear-gradient(180deg,#050403 0%,#080603 42%,#040302 100%)' }}
     >
-      <div className="vip-page-header flex h-9 items-center pl-11">
-        <h1 className="font-display text-base font-normal uppercase tracking-[0.08em] text-amber-300">{t('cashback.pageTitle')}</h1>
-      </div>
+      <img
+        src={cashbackHero}
+        alt={t('cashback.pageTitle')}
+        className="block w-full select-none"
+        draggable={false}
+      />
 
+      <div className="space-y-3 px-4 pt-4">
       <div className="rounded-2xl border border-white/5 bg-[#161512] p-4">
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
@@ -242,9 +246,7 @@ export default function RebatePage({ onOpenGame, onOpenCategory, onOpenKycSettin
                 </div>
               ))}
             </div>
-          ) : (
-            <p className="mt-2 text-[11px] text-[#c9c9c5]">{t('cashback.vipEmpty')}</p>
-          )}
+          ) : null}
 
           <div className="mt-3 space-y-1 border-t border-white/5 pt-3">
             {vip?.benefit && vip.benefit.negativeRebatePct > 0 && (
@@ -263,20 +265,6 @@ export default function RebatePage({ onOpenGame, onOpenCategory, onOpenKycSettin
             )}
           </div>
 
-          {/* 生日礼金采集 */}
-          {vip && (
-            vip.birthdaySet ? (
-              <p className="mt-2 text-[11px] text-amber-100/45">{t('cashback.vipBirthdaySet')}</p>
-            ) : (
-              <button
-                type="button"
-                onClick={() => onOpenKycSetting?.()}
-                className="mt-2 text-left text-[11px] font-bold text-[#f0b429] underline underline-offset-2 active:opacity-70"
-              >
-                {t('cashback.vipBirthdayKyc')} →
-              </button>
-            )
-          )}
         </div>
       )}
 
@@ -492,6 +480,7 @@ export default function RebatePage({ onOpenGame, onOpenCategory, onOpenKycSettin
           </p>
         </div>
       )}
+      </div>
     </div>
   )
 }

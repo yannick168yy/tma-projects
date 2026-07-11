@@ -589,7 +589,7 @@ export default function AppShell() {
               >
                 <ChevronLeft size={20} />
               </button>
-              <RebatePage onOpenGame={(url) => setGamePlayerUrl(url)} onOpenCategory={onOpenCategoryLobby} onOpenKycSetting={onOpenKycSetting} onOpenVipCenter={() => openVipCenter()} />
+              <RebatePage onOpenGame={(url) => setGamePlayerUrl(url)} onOpenCategory={onOpenCategoryLobby} onOpenVipCenter={() => openVipCenter()} />
             </div>
           )}
           {view.type === 'vipCenter' && (
