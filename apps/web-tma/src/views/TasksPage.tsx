@@ -282,21 +282,23 @@ export default function TasksPage({ initialPath = 'newbie', onNavigate }: { init
           {/* 图底纯色渐变过渡到页面底色（无模糊），锚定图底自动跟随 */}
           <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[90px] bg-gradient-to-b from-transparent via-[#050403]/45 to-[#050403]" />
           {/* 标题块锚定图底，跨机型与统计卡保持固定间距 */}
-          <div className="absolute inset-x-0 bottom-[34px] px-5">
-            <p className="flex items-center gap-1 text-[9px] font-black uppercase tracking-[0.18em] text-[#ffb81c] [text-shadow:0_1px_6px_rgba(60,30,0,0.65)]">
-              <Sparkles size={9} fill="currentColor" strokeWidth={2.8} className="task-sparkle" />
+          <div className="absolute inset-x-0 bottom-[34px] px-5 isolate">
+            {/* 暖金光晕垫底：配色贴近身后金盏花 hero 底色，柔化花丛让深色标题更突出 */}
+            <div className="pointer-events-none absolute -inset-x-1 -top-2 bottom-0 -z-10 bg-[radial-gradient(62%_74%_at_22%_58%,rgba(240,164,28,0.5),transparent_72%)] blur-lg" aria-hidden />
+            <p className="flex items-center gap-1 text-[10px] font-black uppercase tracking-[0.18em] text-[#ffb81c] [text-shadow:0_1px_6px_rgba(60,30,0,0.65)]">
+              <Sparkles size={10} fill="currentColor" strokeWidth={2.8} className="task-sparkle" />
               {t('tasks.tree.todayPath')}
-              <Sparkles size={9} fill="currentColor" strokeWidth={2.8} className="task-sparkle-alt" />
+              <Sparkles size={10} fill="currentColor" strokeWidth={2.8} className="task-sparkle-alt" />
             </p>
             {/* 设计稿 Task 偏小 Center 偏大；中文等无空格标题保持单行；字号控宽避开人物 */}
             <h1 className="mt-1 font-black leading-[0.92] text-[#1f1305]">
               {titleParts.rest ? (
                 <>
-                  <span className="block text-[22px]">{titleParts.first}</span>
-                  <span className="block text-[31px]">{titleParts.rest}</span>
+                  <span className="block text-[24px]">{titleParts.first}</span>
+                  <span className="block text-[34px]">{titleParts.rest}</span>
                 </>
               ) : (
-                <span className="block text-[27px]">{titleParts.first}</span>
+                <span className="block text-[30px]">{titleParts.first}</span>
               )}
             </h1>
             <div className="mt-2 flex items-center gap-2">
