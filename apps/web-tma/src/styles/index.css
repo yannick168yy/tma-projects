@@ -173,33 +173,14 @@
 .task-sheet-in { animation: taskSheetIn 0.28s ease-out both; }
 
 /* ============ Rebate 页动效（rb- 前缀） ============ */
-/* hero 粒子：金币飘落 + 星光闪烁，默认透明仅动效时可见 */
-.rb-coin {
-  position: absolute;
-  top: -16px;
-  opacity: 0;
-  border-radius: 9999px;
-  background: radial-gradient(circle at 35% 30%, #ffe89a, #f0b429 62%, #b97a12);
-  box-shadow: 0 0 6px rgba(255, 214, 90, 0.55);
-  will-change: transform;
-}
-.rb-star {
-  position: absolute;
-  opacity: 0;
-  color: #ffd9ef;
-  text-shadow: 0 0 8px rgba(248, 130, 200, 0.8);
-  font-size: 11px;
-  line-height: 1;
-  will-change: transform;
-}
+/* hero 标题图层（Cash Rebate + UP TO 2% 徽章切图）呼吸缩放 */
+.rb-title-zoom { will-change: transform; }
 .rb-progress-fill { position: relative; overflow: hidden; }
 .rb-shine { position: relative; overflow: hidden; }
 @media (prefers-reduced-motion: no-preference) {
-  .rb-coin { animation: rbFallA linear infinite; }
-  .rb-coin:nth-child(even) { animation-name: rbFallB; }
-  .rb-star { animation: rbTwinkle 2.2s ease-in-out infinite; }
+  .rb-title-zoom { animation: rbTitleZoom 3.2s ease-in-out infinite; }
   .rb-claim-live { animation: rbClaimPulse 2s ease-in-out infinite, rbWiggle 4.5s ease-in-out 1.2s infinite; }
-  .rb-spin-slow { animation: rbSpin 8s linear infinite; }
+  .rb-spin-burst { animation: rbSpinBurst 8s ease-in-out infinite; }
   .rb-breathe { animation: rbBreathe 2.4s ease-in-out infinite; }
   .rb-rise { animation: rbRise 0.45s cubic-bezier(0.22, 1, 0.36, 1) both; }
   .rb-pop { animation: rbPop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 0.75s both; }
@@ -224,27 +205,13 @@
     animation: rbShine 4.2s ease-in-out infinite;
   }
 }
-@keyframes rbFallA {
-  0% { transform: translate3d(0, 0, 0) rotate(0deg); opacity: 0; }
-  8% { opacity: 0.9; }
-  50% { transform: translate3d(-18px, 230px, 0) rotate(160deg); }
-  88% { opacity: 0.75; }
-  100% { transform: translate3d(10px, 460px, 0) rotate(340deg); opacity: 0; }
-}
-@keyframes rbFallB {
-  0% { transform: translate3d(0, 0, 0) rotate(0deg); opacity: 0; }
-  8% { opacity: 0.85; }
-  50% { transform: translate3d(20px, 220px, 0) rotate(-150deg); }
-  88% { opacity: 0.7; }
-  100% { transform: translate3d(-12px, 460px, 0) rotate(-320deg); opacity: 0; }
-}
-@keyframes rbTwinkle {
-  0%, 100% { opacity: 0.12; transform: scale(0.7); }
-  50% { opacity: 0.95; transform: scale(1.15); }
+@keyframes rbTitleZoom {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
 }
 @keyframes rbClaimPulse {
-  0%, 100% { box-shadow: 0 3px 14px rgba(232, 72, 159, 0.45); }
-  50% { box-shadow: 0 3px 26px rgba(232, 72, 159, 0.85); }
+  0%, 100% { box-shadow: 0 3px 14px rgba(207, 160, 68, 0.45); }
+  50% { box-shadow: 0 3px 26px rgba(233, 201, 126, 0.85); }
 }
 @keyframes rbWiggle {
   0%, 86%, 100% { transform: rotate(0deg); }
@@ -254,7 +221,11 @@
   94% { transform: rotate(1deg); }
   96% { transform: rotate(0deg); }
 }
-@keyframes rbSpin { to { transform: rotate(360deg); } }
+/* 快转一圈(前1秒)后停 7 秒 */
+@keyframes rbSpinBurst {
+  0% { transform: rotate(0deg); }
+  12.5%, 100% { transform: rotate(360deg); }
+}
 @keyframes rbBreathe {
   0%, 100% { opacity: 0.3; }
   50% { opacity: 0.85; }
