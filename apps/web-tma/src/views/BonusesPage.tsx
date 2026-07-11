@@ -177,6 +177,7 @@ export default function BonusesPage({ promoFilter, onOpenWallet, onOpenTeam, onO
     <div className="page-main">
       <div className="relative overflow-hidden bg-[#080b14]">
         <img src={bonusesHero} alt="" className="block w-full h-auto" />
+        <div className="absolute inset-x-0 bottom-0 h-[18%] bg-gradient-to-b from-transparent to-[#080b14]" />
         <div className="absolute inset-x-4 bottom-[4%] z-10 bg-secondary/95 rounded-xl px-3 py-2 flex items-center gap-2 overflow-hidden shadow-[0_8px_24px_rgba(0,0,0,0.35)]">
           <div className="flex-shrink-0 flex items-center gap-1 text-primary">
             <Trophy size={12} />
