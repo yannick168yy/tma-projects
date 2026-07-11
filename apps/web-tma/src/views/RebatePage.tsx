@@ -9,7 +9,6 @@ import { localizedGameName } from '@/utils/game'
 import { ApiError } from '@/api/client'
 import { analytics } from '@/utils/analytics'
 import rebateHero from '@/assets/home/promos/rebate-hero-purple.webp'
-import rebateHeroTitle from '@/assets/home/promos/rebate-hero-title.webp'
 
 const CATEGORY_ICONS: Record<string, string> = {
   slots: '🎰', live: '🎲', sports: '⚽', fishing: '🐟',
@@ -282,22 +281,13 @@ export default function RebatePage({ onOpenGame, onOpenCategory }: Props) {
 
   return (
     <div className="page-main pb-8 min-h-screen bg-[#0f0a1d]">
-      {/* Hero —— 设计稿成品图贴顶（含标题/徽章/副标题）+ 粒子层 */}
-      <div className="relative">
-        <img
-          src={rebateHero}
-          alt={t('cashback.pageTitle')}
-          className="block w-full select-none"
-          draggable={false}
-        />
-        <img
-          src={rebateHeroTitle}
-          alt=""
-          className="rb-title-zoom absolute select-none pointer-events-none"
-          style={{ left: '13.6%', top: '60.97%', width: '73.15%' }}
-          draggable={false}
-        />
-      </div>
+      {/* Hero —— 设计稿成品图贴顶（含标题/徽章/副标题） */}
+      <img
+        src={rebateHero}
+        alt={t('cashback.pageTitle')}
+        className="block w-full select-none"
+        draggable={false}
+      />
 
       {/* 内容区背景与 hero 裁剪线无缝衔接 */}
       <div style={{ background: 'linear-gradient(180deg,#26174c 0%,#1c0e38 40%,#150c28 72%,#0f0a1d 100%)' }}>

@@ -173,12 +173,9 @@
 .task-sheet-in { animation: taskSheetIn 0.28s ease-out both; }
 
 /* ============ Rebate 页动效（rb- 前缀） ============ */
-/* hero 标题图层（Cash Rebate + UP TO 2% 徽章切图）呼吸缩放 */
-.rb-title-zoom { will-change: transform; }
 .rb-progress-fill { position: relative; overflow: hidden; }
 .rb-shine { position: relative; overflow: hidden; }
 @media (prefers-reduced-motion: no-preference) {
-  .rb-title-zoom { animation: rbTitleZoom 3.2s ease-in-out infinite; }
   .rb-claim-live { animation: rbClaimPulse 2s ease-in-out infinite, rbWiggle 4.5s ease-in-out 1.2s infinite; }
   .rb-spin-burst { animation: rbSpinBurst 8s ease-in-out infinite; }
   .rb-breathe { animation: rbBreathe 2.4s ease-in-out infinite; }
@@ -204,10 +201,6 @@
     transform: translateX(-160%) skewX(-12deg);
     animation: rbShine 4.2s ease-in-out infinite;
   }
-}
-@keyframes rbTitleZoom {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.05); }
 }
 @keyframes rbClaimPulse {
   0%, 100% { box-shadow: 0 3px 14px rgba(207, 160, 68, 0.45); }
