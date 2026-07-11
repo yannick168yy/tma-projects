@@ -565,9 +565,10 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
             {recentGames.map((g) => <GameCardV2 key={g.uuid} game={g} onTap={() => void onGameTapAction(g.uuid)} size="sm" />)}
             {recentFillGames.length > 0 && (
               <>
-                <div className="flex-shrink-0 h-[76px] w-6 flex flex-col items-center justify-center gap-0.5 rounded-full bg-secondary">
-                  <span className="text-[10px] font-bold text-primary" style={{ writingMode: 'vertical-rl' }}>Recommend</span>
-                  <ChevronRight size={12} className="text-primary" />
+                <div className="flex-shrink-0 h-[64px] flex flex-col items-center justify-center gap-1 px-0.5">
+                  <span className="w-0.5 flex-1 rounded-full bg-gradient-to-b from-transparent to-amber-400/70" />
+                  <span className="w-1.5 h-1.5 rotate-45 bg-amber-400/80 rounded-[2px]" />
+                  <span className="w-0.5 flex-1 rounded-full bg-gradient-to-t from-transparent to-amber-400/70" />
                 </div>
                 {recentFillGames.map((g) => <GameCardV2 key={g.uuid} game={g} onTap={() => void onGameTapAction(g.uuid)} size="sm" />)}
               </>
@@ -586,8 +587,12 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
       <section className="mt-6">
         {sectionHeader(<Percent size={15} className="text-amber-400" />, t('cashback.pageTitle'))}
         <div className="px-4">
-          <button type="button" className="block w-full active:scale-[0.98] transition-transform" onClick={() => onNavigatePath('/rebate')}>
+          <button type="button" className="relative block w-full active:scale-[0.98] transition-transform" onClick={() => onNavigatePath('/rebate')}>
             <img src={cashRebateBannerImg} alt="Cash Rebate" draggable={false} className="w-full rounded-2xl" />
+            {/* ENTER NOW 金条区域流光扫过（区域按图内按钮实测位置定位；rb-shine 自带 position:relative 故外层定位） */}
+            <span className="pointer-events-none absolute" style={{ left: '60%', top: '77.5%', right: 0, bottom: '2.5%' }}>
+              <span className="rb-shine block h-full w-full rounded-lg" />
+            </span>
           </button>
         </div>
       </section>
