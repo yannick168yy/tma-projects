@@ -71,6 +71,7 @@ run run -d --name tma-bff-node --network "$NET" --restart=always \
   -e SG_CURRENCY="${SG_CURRENCY:-EUR}" \
   -e SG_RETURN_URL="${SG_RETURN_URL:-https://www.188facai.com}" \
   -e GEMINI_API_KEY="${GEMINI_API_KEY:-}" \
+  -e TURNSTILE_SECRET_KEY="${TURNSTILE_SECRET_KEY:-}" \
   -e TELESMS_BASE_URL="${TELESMS_BASE_URL:-https://api2.santo.cc}" \
   -e TELESMS_CPID="${TELESMS_CPID:-}" \
   -e TELESMS_CPPWD="${TELESMS_CPPWD:-}" \
