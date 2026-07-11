@@ -73,6 +73,82 @@ function EveryIcon() {
   )
 }
 
+function RebateFooter({ onGoBet }: { onGoBet: () => void }) {
+  const { t } = useTranslation()
+  const [openFaq, setOpenFaq] = useState<number | null>(null)
+  const steps = [
+    { title: t('cashback.footStep1Title'), sub: t('cashback.footStep1Sub') },
+    { title: t('cashback.footStep2Title'), sub: t('cashback.footStep2Sub') },
+    { title: t('cashback.footStep3Title'), sub: t('cashback.footStep3Sub') },
+  ]
+  const faqs = [
+    { q: t('cashback.footFaq1Q'), a: t('cashback.footFaq1A') },
+    { q: t('cashback.footFaq2Q'), a: t('cashback.footFaq2A') },
+    { q: t('cashback.footFaq3Q'), a: t('cashback.footFaq3A') },
+  ]
+  const notes = [t('cashback.footNote1'), t('cashback.footNote2'), t('cashback.footNote3'), t('cashback.footNote4')]
+  return (
+    <section className="mx-4 mt-6">
+      <h3 className="font-black text-violet-100 text-base tracking-wide">{t('cashback.footHowTitle').toUpperCase()}</h3>
+      <div className="mt-3 space-y-2">
+        {steps.map((step, i) => (
+          <div key={step.title} className="flex items-center gap-3 rounded-xl bg-[#1a0e33]/75 border border-violet-400/20 px-3 py-2.5">
+            <span className="flex h-[26px] w-[26px] flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-b from-[#fb8ecb] to-[#e8489f] text-[13px] font-black text-white">
+              {i + 1}
+            </span>
+            <span className="min-w-0">
+              <span className="block text-[13px] font-black leading-tight text-violet-50">{step.title}</span>
+              <span className="mt-0.5 block text-[11px] leading-snug text-violet-200/60">{step.sub}</span>
+            </span>
+          </div>
+        ))}
+      </div>
+
+      <h3 className="mt-6 font-black text-violet-100 text-base tracking-wide">{t('cashback.footFaqTitle').toUpperCase()}</h3>
+      <div className="mt-3 space-y-2">
+        {faqs.map((faq, i) => {
+          const open = openFaq === i
+          return (
+            <div key={faq.q} className="rounded-xl bg-[#1a0e33]/75 border border-violet-400/20 overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setOpenFaq(open ? null : i)}
+                className="w-full flex items-center justify-between gap-3 px-3.5 py-3 text-left active:opacity-80"
+              >
+                <span className="text-[13px] font-bold text-violet-50">{faq.q}</span>
+                <svg viewBox="0 0 16 16" className={`w-3.5 h-3.5 flex-shrink-0 text-pink-300 transition-transform ${open ? 'rotate-180' : ''}`} fill="none">
+                  <path d="M3 6l5 5 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
+              {open && (
+                <p className="px-3.5 pb-3 text-[12px] leading-relaxed text-violet-200/70">{faq.a}</p>
+              )}
+            </div>
+          )
+        })}
+      </div>
+
+      <h3 className="mt-6 font-black text-violet-100 text-base tracking-wide">{t('cashback.footNotesTitle').toUpperCase()}</h3>
+      <ul className="mt-3 space-y-1.5 rounded-xl bg-[#1a0e33]/75 border border-violet-400/20 px-3.5 py-3">
+        {notes.map((note) => (
+          <li key={note} className="flex gap-2 text-[11px] leading-snug text-violet-200/60">
+            <span className="mt-[5px] h-[4px] w-[4px] flex-shrink-0 rounded-full bg-pink-400/80" />
+            {note}
+          </li>
+        ))}
+      </ul>
+
+      <button
+        type="button"
+        onClick={onGoBet}
+        className="mt-6 w-full bg-gradient-to-b from-[#fb8ecb] to-[#e8489f] text-white font-black text-base rounded-full py-3.5 shadow-[0_4px_18px_rgba(232,72,159,0.4)] active:opacity-80 transition"
+      >
+        {t('cashback.goBet')}
+      </button>
+    </section>
+  )
+}
+
 export default function RebatePage({ onOpenGame, onOpenCategory }: Props) {
   const { t } = useTranslation()
   const token = useAuthStore((s) => s.token)
@@ -444,6 +520,8 @@ export default function RebatePage({ onOpenGame, onOpenCategory }: Props) {
             </p>
           </div>
         )}
+
+        <RebateFooter onGoBet={() => onOpenCategory({ title: t('cashback.categorySlots'), sortCategory: 'slots' })} />
       </div>
     </div>
   )
