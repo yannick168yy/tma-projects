@@ -100,6 +100,7 @@ function HomePromoFloat({ rewardsLabel, cashbackLabel, checkinLabel, checkinEnab
   const [activePromo, setActivePromo] = useState(0)
   const [closed, setClosed] = useState(homePromoFloatClosedUntilReload)
   const [position, setPosition] = useState<{ left: number; top: number } | null>(null)
+  const [dragging, setDragging] = useState(false)
   const promos = [
     ...(checkinEnabled ? [{ key: 'checkin', label: checkinLabel, ariaLabel: checkinLabel, image: '', imageClass: '', emoji: '📅', action: onOpenCheckin }] : []),
     { key: 'cashback', label: 'cashback', ariaLabel: cashbackLabel, image: cashbackFloatImg, imageClass: 'home-cashback-swing-float', emoji: '', action: onOpenCashback },
@@ -175,6 +176,7 @@ function HomePromoFloat({ rewardsLabel, cashbackLabel, checkinLabel, checkinEnab
     const dy = event.clientY - drag.startY
     if (!drag.moved && Math.hypot(dx, dy) < 5) return
     drag.moved = true
+    setDragging(true)
     setPosition(clampPosition(drag.startLeft + dx, drag.startTop + dy))
   }
 
@@ -182,6 +184,13 @@ function HomePromoFloat({ rewardsLabel, cashbackLabel, checkinLabel, checkinEnab
     const drag = dragRef.current
     if (drag.pointerId !== event.pointerId) return
     drag.suppressClick = drag.moved
+    // 松手后固定吸附回左边缘（纵向保持，仅横向归位）
+    setDragging(false)
+    if (drag.moved) {
+      const frameWidth = Math.min(window.innerWidth, 430)
+      const frameLeft = (window.innerWidth - frameWidth) / 2
+      setPosition((current) => clampPosition(frameLeft + 8, current?.top ?? drag.startTop))
+    }
     if (drag.moved) window.setTimeout(() => { dragRef.current.suppressClick = false }, 0)
     drag.pointerId = -1
     if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
@@ -216,7 +225,7 @@ function HomePromoFloat({ rewardsLabel, cashbackLabel, checkinLabel, checkinEnab
   return (
     <div
       ref={widgetRef}
-      className={`fixed z-30 flex touch-none select-none flex-col items-center gap-1.5 px-1.5 pb-1.5 pt-12 ${expanded ? 'rounded-full bg-neutral-950/70' : ''}`}
+      className={`fixed z-30 flex touch-none select-none flex-col items-center gap-1.5 px-1.5 pb-1.5 pt-12 ${dragging ? '' : 'transition-[left,top] duration-200 ease-out'} ${expanded ? 'rounded-full bg-neutral-950/70' : ''}`}
       style={position ? { left: position.left, top: position.top } : { left: 8, bottom: 96 }}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}

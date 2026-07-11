@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent } from 'react'
 import { useTranslation } from 'react-i18next'
+import { X } from 'lucide-react'
 import { fetchTaskCenter, type TaskCard, type TaskCenter } from '@/api/tasks'
 import { useAuthStore } from '@/stores/auth'
 import taskWidgetImg from '@/assets/tasks/task-float-widget.webp'
 import ballNewbieImg from '@/assets/tasks/ball-newbie.webp'
 import ballDailyImg from '@/assets/tasks/ball-daily.webp'
 import ballSocialImg from '@/assets/tasks/ball-social.webp'
+import edgeTabImg from '@/assets/tasks/tasks-edge-tab.webp'
 
 type TaskBallPath = 'newbie' | 'daily' | 'social'
 
@@ -51,6 +53,7 @@ export default function TaskFloatBall({ onNavigatePath }: TaskFloatBallProps) {
   const dragRef = useRef({ pointerId: -1, startX: 0, startY: 0, startLeft: 0, startTop: 0, moved: false, suppressClick: false })
   const [center, setCenter] = useState<TaskCenter>(EMPTY_CENTER)
   const [expanded, setExpanded] = useState(false)
+  const [docked, setDocked] = useState(false)
   const [position, setPosition] = useState<{ left: number; top: number } | null>(null)
   const [dragging, setDragging] = useState(false)
 
@@ -91,15 +94,13 @@ export default function TaskFloatBall({ onNavigatePath }: TaskFloatBallProps) {
     }
   }, [])
 
+  // 松手后固定吸附到右边缘（不再就近吸附）
   const snapPosition = useCallback((left: number, top: number) => {
     const viewportWidth = window.innerWidth
     const frameWidth = Math.min(viewportWidth, 430)
     const frameLeft = (viewportWidth - frameWidth) / 2
     const freePosition = clampFreePosition(left, top)
-    const edgeLeft = freePosition.left + BALL_SIZE / 2 < frameLeft + frameWidth / 2
-      ? frameLeft
-      : frameLeft + frameWidth - BALL_SIZE
-    return { ...freePosition, left: edgeLeft }
+    return { ...freePosition, left: frameLeft + frameWidth - BALL_SIZE }
   }, [clampFreePosition])
 
   const defaultPosition = useCallback(() => {
@@ -134,6 +135,16 @@ export default function TaskFloatBall({ onNavigatePath }: TaskFloatBallProps) {
       return
     }
     setExpanded((v) => !v)
+  }
+
+  function dockToEdge() {
+    setExpanded(false)
+    setDocked(true)
+  }
+
+  function undock() {
+    setDocked(false)
+    setPosition((current) => snapPosition(current?.left ?? 0, current?.top ?? 0))
   }
 
   function onPointerDown(event: PointerEvent<HTMLDivElement>) {
@@ -184,6 +195,12 @@ export default function TaskFloatBall({ onNavigatePath }: TaskFloatBallProps) {
     return position.left < frameLeft + frameWidth / 2
   })()
 
+  // 右边缘挂件的定位：贴帧右边缘、纵向对齐悬浮球
+  const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 375
+  const frameWidth = Math.min(viewportWidth, 430)
+  const frameRight = (viewportWidth - frameWidth) / 2
+  const dockTop = position?.top ?? 176
+
   return (
     <>
       {expanded && (
@@ -195,16 +212,28 @@ export default function TaskFloatBall({ onNavigatePath }: TaskFloatBallProps) {
         />
       )}
       <div
-        className={`pointer-events-none fixed z-[31] h-24 w-24 ${dragging ? '' : 'transition-[left,top] duration-200 ease-out'}`}
+        className={`pointer-events-none fixed z-[31] h-24 w-24 duration-300 ease-out ${dragging ? 'transition-[transform,opacity]' : 'transition-all'} ${docked ? 'translate-x-[135%] opacity-0' : 'opacity-100'}`}
         style={position ? { left: position.left, top: position.top } : { right: 88, bottom: 176 }}
       >
         <div
-          className="pointer-events-auto relative h-24 w-24 touch-none select-none"
+          className={`relative h-24 w-24 touch-none select-none ${docked ? 'pointer-events-none' : 'pointer-events-auto'}`}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
           onPointerCancel={onPointerUp}
         >
+        {/* 展开态关闭按钮：点击收进右边缘 */}
+        {expanded && (
+          <button
+            type="button"
+            data-task-ball-entry
+            className="absolute -top-2 right-0 z-[3] flex h-7 w-7 items-center justify-center rounded-full border border-white/20 bg-black/75 text-white shadow-[0_4px_12px_rgba(0,0,0,0.5)] active:scale-90"
+            onClick={dockToEdge}
+            aria-label={t('tasks.ball.close')}
+          >
+            <X size={15} strokeWidth={3} />
+          </button>
+        )}
         {/* 挂件周边渐变透明光晕，展开时淡出 */}
         <span
           aria-hidden
@@ -238,7 +267,7 @@ export default function TaskFloatBall({ onNavigatePath }: TaskFloatBallProps) {
               <img src={art.img} alt="" draggable={false} className="w-full drop-shadow-[0_8px_18px_rgba(0,0,0,0.4)]" />
               <span
                 className="absolute -translate-y-1/2 text-[14px] font-black leading-none tabular-nums"
-                style={{ left: art.numLeft, top: art.numTop, color: '#ffb52e', textShadow: '0 1px 3px rgba(0,0,0,0.7)' }}
+                style={{ left: art.numLeft, top: art.numTop, color: 'var(--primary)', textShadow: '0 1px 3px rgba(0,0,0,0.7)' }}
               >
                 {stat.done}/{stat.total}
               </span>
@@ -255,7 +284,7 @@ export default function TaskFloatBall({ onNavigatePath }: TaskFloatBallProps) {
           aria-label={t('tasks.ball.label')}
         >
           <img src={taskWidgetImg} alt="" draggable={false} className="h-24 w-24 object-contain drop-shadow-[0_8px_20px_rgba(0,0,0,0.45)]" />
-          {pending > 0 && (
+          {!expanded && pending > 0 && (
             <span className="absolute right-0 top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[11px] font-black text-white shadow-[0_2px_6px_rgba(0,0,0,0.4)]">
               {pending}
             </span>
@@ -263,6 +292,22 @@ export default function TaskFloatBall({ onNavigatePath }: TaskFloatBallProps) {
         </button>
         </div>
       </div>
+
+      {/* 收进右边缘的 TASKS 挂件：点击滑出还原 */}
+      <button
+        type="button"
+        className={`fixed z-[31] duration-300 ease-out transition-all active:scale-95 ${docked ? 'translate-x-0 opacity-100' : 'pointer-events-none translate-x-full opacity-0'}`}
+        style={{ right: frameRight, top: dockTop, height: 120 }}
+        onClick={undock}
+        aria-label={t('tasks.ball.label')}
+      >
+        <img src={edgeTabImg} alt="" draggable={false} className="h-full w-auto drop-shadow-[0_6px_16px_rgba(0,0,0,0.45)]" />
+        {pending > 0 && (
+          <span className="absolute -left-1 top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[11px] font-black text-white shadow-[0_2px_6px_rgba(0,0,0,0.4)]">
+            {pending}
+          </span>
+        )}
+      </button>
     </>
   )
 }
