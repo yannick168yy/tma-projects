@@ -77,22 +77,18 @@ interface Props {
   onOpenFirstDepositFiesta: () => void
   onOpenRewardsSpin: () => void
   onOpenCashback: () => void
-  onOpenCheckin: () => void
 }
 
 interface HomePromoFloatProps {
   rewardsLabel: string
   cashbackLabel: string
-  checkinLabel: string
-  checkinEnabled: boolean
   onOpenRewardsSpin: () => void
   onOpenCashback: () => void
-  onOpenCheckin: () => void
 }
 
 let homePromoFloatClosedUntilReload = false
 
-function HomePromoFloat({ rewardsLabel, cashbackLabel, checkinLabel, checkinEnabled, onOpenRewardsSpin, onOpenCashback, onOpenCheckin }: HomePromoFloatProps) {
+function HomePromoFloat({ rewardsLabel, cashbackLabel, onOpenRewardsSpin, onOpenCashback }: HomePromoFloatProps) {
   const widgetRef = useRef<HTMLDivElement>(null)
   const collapsedPositionRef = useRef<{ left: number; top: number } | null>(null)
   const dragRef = useRef({ pointerId: -1, startX: 0, startY: 0, startLeft: 0, startTop: 0, moved: false, suppressClick: false })
@@ -102,7 +98,6 @@ function HomePromoFloat({ rewardsLabel, cashbackLabel, checkinLabel, checkinEnab
   const [position, setPosition] = useState<{ left: number; top: number } | null>(null)
   const [dragging, setDragging] = useState(false)
   const promos = [
-    ...(checkinEnabled ? [{ key: 'checkin', label: checkinLabel, ariaLabel: checkinLabel, image: '', imageClass: '', emoji: '📅', action: onOpenCheckin }] : []),
     { key: 'cashback', label: 'cashback', ariaLabel: cashbackLabel, image: cashbackFloatImg, imageClass: 'home-cashback-swing-float', emoji: '', action: onOpenCashback },
     { key: 'rewards', label: 'rewards', ariaLabel: rewardsLabel, image: rewardsSpinFloatImg, imageClass: 'home-rewards-spin-float', emoji: '', action: onOpenRewardsSpin },
   ]
@@ -290,7 +285,7 @@ function HomePromoFloat({ rewardsLabel, cashbackLabel, checkinLabel, checkinEnab
   )
 }
 
-export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOpenFirstDepositFiesta, onOpenRewardsSpin, onOpenCashback, onOpenCheckin }: Props) {
+export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOpenFirstDepositFiesta, onOpenRewardsSpin, onOpenCashback }: Props) {
   const { t, i18n } = useTranslation()
   const locale = i18n.language
   const promotion = usePromotionStore()
@@ -984,11 +979,8 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
       <HomePromoFloat
         rewardsLabel={t('category.rewardsSpin')}
         cashbackLabel={t('cashback.title')}
-        checkinLabel={t('checkin.floatLabel')}
-        checkinEnabled={Boolean(promotion.promoConfig?.checkinEnabled)}
         onOpenRewardsSpin={onOpenRewardsSpin}
         onOpenCashback={onOpenCashback}
-        onOpenCheckin={onOpenCheckin}
       />
       <TaskFloatBall onNavigatePath={onNavigatePath} />
     </div>

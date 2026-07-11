@@ -103,25 +103,25 @@ export default function TaskFloatBall({ onNavigatePath }: TaskFloatBallProps) {
     return { ...freePosition, left: frameLeft + frameWidth - BALL_SIZE }
   }, [clampFreePosition])
 
+  // 默认出现在左上方；拖动松手后才吸附到右边缘（onPointerUp 的 snapPosition）
   const defaultPosition = useCallback(() => {
     const viewportWidth = window.innerWidth
-    const viewportHeight = window.innerHeight
     const frameWidth = Math.min(viewportWidth, 430)
     const frameLeft = (viewportWidth - frameWidth) / 2
-    return snapPosition(frameLeft + frameWidth - BALL_SIZE, viewportHeight - 240)
-  }, [snapPosition])
+    return clampFreePosition(frameLeft + 8, 96)
+  }, [clampFreePosition])
 
   useEffect(() => {
     const syncPosition = () => {
       setPosition((current) => {
         const next = current ?? defaultPosition()
-        return snapPosition(next.left, next.top)
+        return clampFreePosition(next.left, next.top)
       })
     }
     syncPosition()
     window.addEventListener('resize', syncPosition)
     return () => window.removeEventListener('resize', syncPosition)
-  }, [defaultPosition, snapPosition])
+  }, [defaultPosition, clampFreePosition])
 
   async function openPath(path: TaskBallPath) {
     if (!(await auth.ensureLoggedIn(t('auth.signInPlay')))) return
