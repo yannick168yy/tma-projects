@@ -103,12 +103,12 @@ export default function TaskFloatBall({ onNavigatePath }: TaskFloatBallProps) {
     return { ...freePosition, left: frameLeft + frameWidth - BALL_SIZE }
   }, [clampFreePosition])
 
-  // 默认出现在左上方；拖动松手后才吸附到右边缘（onPointerUp 的 snapPosition）
+  // 默认出现在右上方；拖动松手后仍吸附到右边缘（onPointerUp 的 snapPosition）
   const defaultPosition = useCallback(() => {
     const viewportWidth = window.innerWidth
     const frameWidth = Math.min(viewportWidth, 430)
     const frameLeft = (viewportWidth - frameWidth) / 2
-    return clampFreePosition(frameLeft + 8, 96)
+    return clampFreePosition(frameLeft + frameWidth - BALL_SIZE, 96)
   }, [clampFreePosition])
 
   useEffect(() => {
