@@ -1,7 +1,18 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Cake, CalendarDays, ChevronRight, Coins, Crown, Gift, History, Lock, Percent, RefreshCcw, ShieldCheck, TrendingUp, Wallet } from 'lucide-react'
+import { ChevronRight, Crown, Gift, History, Lock, ShieldCheck } from 'lucide-react'
 import diamondImg from '@/assets/vip/diamond.webp'
+import giftboxImg from '@/assets/vip/giftbox.webp'
+import iconGift from '@/assets/vip/icon-gift.webp'
+import iconRebate from '@/assets/vip/icon-rebate.webp'
+import iconCrown from '@/assets/vip/icon-crown.webp'
+import iconLoss from '@/assets/vip/icon-loss.webp'
+import iconWeekly from '@/assets/vip/icon-weekly.webp'
+import iconMonthly from '@/assets/vip/icon-monthly.webp'
+import iconBday from '@/assets/vip/icon-bday.webp'
+import iconLevelup from '@/assets/vip/icon-levelup.webp'
+import iconPercent from '@/assets/vip/icon-percent.webp'
+import iconCake from '@/assets/vip/icon-cake.webp'
 import { fetchRebateConfig, fetchRebateProgress, claimRebate, type RebateConfig, type RebateProgress } from '@/api/rebate'
 import { fetchVipProgress, fetchVipLevels, fetchVipRewards, claimVipRewards, type VipLevelConfig, type VipProgress, type VipReward } from '@/api/vip'
 import { launchGame } from '@/api/slots'
@@ -177,9 +188,7 @@ export default function VipPage({ initialTab = 'overview', onOpenGame, onOpenCat
       <section className="vip-page-header mx-4">
         <div className="flex h-9 items-center justify-between pl-11">
           <h1 className="font-display text-lg font-black uppercase tracking-[0.1em] text-amber-300">{t('vipPage.title')}</h1>
-          <div className="flex h-9 w-9 items-center justify-center rounded-full border border-amber-300/45 bg-amber-300/10 text-amber-300">
-            <Crown size={18} />
-          </div>
+          <img src={iconCrown} alt="" className="h-10 w-10" />
         </div>
         <div className="relative mt-3 overflow-hidden rounded-2xl border border-amber-300/40 bg-gradient-to-br from-[#251807] via-[#0d0a06] to-[#050403] p-4 shadow-[0_0_28px_rgba(180,118,28,0.16)]">
           <img src={diamondImg} alt="" className="pointer-events-none absolute -right-2 top-4 w-36 drop-shadow-[0_0_24px_rgba(180,140,60,0.35)]" />
@@ -223,7 +232,7 @@ export default function VipPage({ initialTab = 'overview', onOpenGame, onOpenCat
             </button>
           </div>
           <div className="relative mt-4 flex items-center gap-3">
-            <div className="h-2 flex-1 overflow-hidden rounded-full bg-black/38">
+            <div className="h-2 flex-1 overflow-hidden rounded-full bg-white/10">
               <div className="h-full rounded-full bg-gradient-to-r from-amber-300 to-yellow-500 transition-all" style={{ width: `${progressPct}%` }} />
             </div>
             <button
@@ -277,12 +286,12 @@ export default function VipPage({ initialTab = 'overview', onOpenGame, onOpenCat
           className="rounded-2xl border border-amber-300/22 bg-[#0c0905]/76 p-4"
         >
           <div className="flex items-center gap-3">
-            <CircleIcon><Gift size={20} /></CircleIcon>
+            <img src={iconGift} alt="" className="h-12 w-12 flex-shrink-0" />
             <div className="min-w-0 flex-1">
-              <h2 className="text-sm font-black text-amber-50">{t('vipPage.pendingRewards')}</h2>
+              <h2 className="truncate text-sm font-black text-amber-50">{t('vipPage.pendingRewards')}</h2>
               <p className="mt-1 truncate text-xs text-amber-100/45">{t('cashback.vipEmpty')}</p>
             </div>
-            <span className="flex-shrink-0 text-3xl leading-none">🎁</span>
+            <img src={giftboxImg} alt="" className="w-14 flex-shrink-0" />
             <ChevronRight size={18} className="flex-shrink-0 text-amber-300/70" />
           </div>
           {vip && vip.claimableByType.length > 0 && (
@@ -300,27 +309,27 @@ export default function VipPage({ initialTab = 'overview', onOpenGame, onOpenCat
         <section className="grid grid-cols-2 gap-3">
           <button type="button" onClick={() => setActiveTab('cashback')} className="flex items-center justify-between gap-2 rounded-2xl border border-amber-300/22 bg-[#0c0905]/76 p-4 text-left">
             <div className="min-w-0">
-              <p className="text-sm font-black text-amber-50">{t('category.cashback')}</p>
+              <p className="truncate text-[13px] font-black text-amber-50">{t('category.cashback')}</p>
               <p className="mt-1.5 truncate text-sm font-black text-amber-300">{amtStr(currency, token ? (progress?.claimable ?? 0) : 0)}</p>
             </div>
-            <CircleIcon><Coins size={20} /></CircleIcon>
+            <img src={iconRebate} alt="" className="h-11 w-11 flex-shrink-0" />
           </button>
           <button type="button" onClick={() => setActiveTab('benefits')} className="flex items-center justify-between gap-2 rounded-2xl border border-amber-300/22 bg-[#0c0905]/76 p-4 text-left">
             <div className="min-w-0">
-              <p className="text-sm font-black text-amber-50">{t('vipPage.benefits')}</p>
+              <p className="truncate text-[13px] font-black text-amber-50">{t('vipPage.benefits')}</p>
               <p className="mt-1.5 text-sm font-black text-amber-300">VIP{vipLevel}</p>
             </div>
-            <CircleIcon><Crown size={20} /></CircleIcon>
+            <img src={iconCrown} alt="" className="h-11 w-11 flex-shrink-0" />
           </button>
         </section>
 
         <section className="rounded-2xl border border-amber-300/22 bg-[#0c0905]/76 p-4">
           <h2 className="text-sm font-black text-amber-50">{t('vipPage.currentBenefits')}</h2>
           <div className="mt-4 grid grid-cols-2 gap-x-2 gap-y-4">
-            <BenefitItem icon={<RefreshCcw size={18} />} label={t('cashback.vipNegativeRebate')} value={`${vip?.benefit?.negativeRebatePct ?? currentLevel?.negativeRebatePct ?? 0}%`} />
-            <BenefitItem icon={<Wallet size={18} />} label={t('cashback.vipWeekly')} value={amtStr(currency, vip?.benefit?.weeklySalary ?? currentLevel?.weeklySalary ?? 0)} />
-            <BenefitItem icon={<CalendarDays size={18} />} label={t('cashback.vipMonthly')} value={amtStr(currency, vip?.benefit?.monthlySalary ?? currentLevel?.monthlySalary ?? 0)} />
-            <BenefitItem icon={<Gift size={18} />} label={t('cashback.vipBirthday')} value={amtStr(currency, vip?.benefit?.birthdayBonus ?? currentLevel?.birthdayBonus ?? 0)} />
+            <BenefitItem icon={iconLoss} label={t('cashback.vipNegativeRebate')} value={`${vip?.benefit?.negativeRebatePct ?? currentLevel?.negativeRebatePct ?? 0}%`} />
+            <BenefitItem icon={iconWeekly} label={t('cashback.vipWeekly')} value={amtStr(currency, vip?.benefit?.weeklySalary ?? currentLevel?.weeklySalary ?? 0)} />
+            <BenefitItem icon={iconMonthly} label={t('cashback.vipMonthly')} value={amtStr(currency, vip?.benefit?.monthlySalary ?? currentLevel?.monthlySalary ?? 0)} />
+            <BenefitItem icon={iconBday} label={t('cashback.vipBirthday')} value={amtStr(currency, vip?.benefit?.birthdayBonus ?? currentLevel?.birthdayBonus ?? 0)} />
           </div>
           {vip?.retentionLine && vip.retentionLine > 0 && (
             <p className="mt-4 text-[11px] text-amber-100/55">{t('cashback.vipRetention', { have: amtStr(currency, vip.quarterTurnover), need: amtStr(currency, vip.retentionLine) })}</p>
@@ -332,8 +341,8 @@ export default function VipPage({ initialTab = 'overview', onOpenGame, onOpenCat
           <section className="rounded-2xl border border-amber-300/22 bg-[#0c0905]/76 p-4">
             <h2 className="text-sm font-black text-amber-50">{t('vipPage.nextUnlock', { level: nextLevel.level })}</h2>
             <div className="mt-4 grid grid-cols-2 gap-x-2 gap-y-4">
-              <BenefitItem icon={<TrendingUp size={18} />} label={t('cashback.vipPromotion')} value={amtStr(currency, nextLevel.promotionBonus)} />
-              <BenefitItem icon={<Percent size={18} />} label={t('cashback.vipNegativeRebate')} value={`${nextLevel.negativeRebatePct}%`} />
+              <BenefitItem icon={iconLevelup} label={t('cashback.vipPromotion')} value={amtStr(currency, nextLevel.promotionBonus)} />
+              <BenefitItem icon={iconPercent} label={t('cashback.vipNegativeRebate')} value={`${nextLevel.negativeRebatePct}%`} />
             </div>
           </section>
         )}
@@ -345,7 +354,7 @@ export default function VipPage({ initialTab = 'overview', onOpenGame, onOpenCat
               <p className="mt-2 text-xs text-amber-100/55">{t('cashback.vipBirthdaySet')}</p>
             ) : (
               <div className="mt-3 flex items-center gap-3">
-                <CircleIcon size="sm"><Cake size={16} /></CircleIcon>
+                <img src={iconCake} alt="" className="h-10 w-10 flex-shrink-0" />
                 <p className="min-w-0 flex-1 text-xs leading-snug text-amber-100/55">{t('cashback.vipBirthdayKyc')}</p>
                 <button
                   type="button"
@@ -616,19 +625,10 @@ export default function VipPage({ initialTab = 'overview', onOpenGame, onOpenCat
   )
 }
 
-function CircleIcon({ children, size = 'md' }: { children: React.ReactNode; size?: 'sm' | 'md' }) {
-  const cls = size === 'sm' ? 'h-9 w-9' : 'h-11 w-11'
-  return (
-    <div className={`flex ${cls} flex-shrink-0 items-center justify-center rounded-full border border-amber-300/40 bg-amber-300/8 text-amber-300`}>
-      {children}
-    </div>
-  )
-}
-
-function BenefitItem({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+function BenefitItem({ icon, label, value }: { icon: string; label: string; value: string }) {
   return (
     <div className="flex items-center gap-2.5">
-      <CircleIcon>{icon}</CircleIcon>
+      <img src={icon} alt="" className="h-11 w-11 flex-shrink-0" />
       <div className="min-w-0">
         <p className="truncate text-[11px] font-bold text-amber-100/50">{label}</p>
         <p className="mt-0.5 truncate text-sm font-black text-amber-300">{value}</p>
