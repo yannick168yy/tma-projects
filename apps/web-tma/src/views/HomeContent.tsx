@@ -538,10 +538,11 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
       {/* Banner 轮播（后台装修配置） */}
       {homeBanners.length > 0 && (
         <div className="px-4 mt-2">
-          <div className="relative h-56 overflow-hidden rounded-2xl">
+          {/* 16:9 跟随屏宽自适应，固定高度在窄屏机会横向裁切图片 */}
+          <div className="relative aspect-video overflow-hidden rounded-2xl">
             <div ref={bannerTrackRef} className="banner-carousel flex h-full snap-x snap-mandatory hide-scrollbar" onScroll={onBannerScroll} onTouchStart={onBannerTouchStart} onTouchMove={onBannerTouchMove} onTouchEnd={onBannerTouchEnd} onTouchCancel={onBannerTouchEnd}>
               {homeBanners.map((banner) => (
-                <article key={banner.id} className="relative h-56 w-full flex-shrink-0 snap-center" onClick={() => navHomeTarget(banner.target)}>
+                <article key={banner.id} className="relative h-full w-full flex-shrink-0 snap-center" onClick={() => navHomeTarget(banner.target)}>
                   <img src={banner.image} alt="" draggable={false} className="absolute inset-0 h-full w-full object-cover" />
                 </article>
               ))}
