@@ -63,7 +63,7 @@ function useCountUp(target: number, duration = 800) {
 
 function RateIcon() {
   return (
-    <svg viewBox="0 0 48 48" className="w-11 h-11" fill="none">
+    <svg viewBox="0 0 48 48" className="w-9 h-9" fill="none">
       <circle className="rb-breathe" cx="24" cy="24" r="21" stroke={GOLD} strokeOpacity="0.4" strokeWidth="2" />
       <circle cx="24" cy="24" r="16.5" stroke={GOLD} strokeWidth="2.5" />
       <text x="24" y="29" textAnchor="middle" fill={GOLD} fontSize="13" fontWeight="900" fontFamily="inherit">2%</text>
@@ -73,7 +73,7 @@ function RateIcon() {
 
 function DailyIcon() {
   return (
-    <svg viewBox="0 0 48 48" className="w-11 h-11" fill="none">
+    <svg viewBox="0 0 48 48" className="w-9 h-9" fill="none">
       <rect x="7" y="10" width="34" height="31" rx="6" fill={GOLD} fillOpacity="0.18" stroke={GOLD} strokeWidth="2.5" />
       <path d="M7 19h34" stroke={GOLD} strokeWidth="2.5" />
       <path d="M15 6v7M33 6v7" stroke={GOLD} strokeWidth="2.5" strokeLinecap="round" />
@@ -88,7 +88,7 @@ function DailyIcon() {
 
 function EveryIcon() {
   return (
-    <svg viewBox="0 0 48 48" className="w-11 h-11" fill="none">
+    <svg viewBox="0 0 48 48" className="w-9 h-9" fill="none">
       <g className="rb-spin-burst" style={{ transformOrigin: '24px 24px' }}>
         <path d="M10 20a15 15 0 0 1 26.5-5.5" stroke={GOLD} strokeWidth="2.5" strokeLinecap="round" />
         <path d="M37 6.5v8.5h-8.5" stroke={GOLD} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -294,10 +294,10 @@ export default function RebatePage({ onOpenGame, onOpenCategory }: Props) {
         {/* Total Bonus —— 功能区，Claim 在右 */}
         <div className="rb-rise mx-4 relative overflow-hidden rounded-2xl border-[1.5px] border-violet-400/45 bg-[#231240]/70 shadow-[0_0_24px_rgba(139,92,246,0.15)]">
           <div className="pointer-events-none absolute right-20 top-1/2 -translate-y-1/2 h-28 w-28 rounded-full bg-[#f2b535]/15 blur-2xl" />
-          <div className="relative flex items-center justify-between gap-3 px-4 py-4">
+          <div className="relative flex items-center justify-between gap-3 px-4 py-3">
             <div className="min-w-0">
-              <p className="text-violet-300 font-bold text-[12px] uppercase tracking-widest">{t('cashback.totalBonus')}</p>
-              <p className={`text-white font-black text-[26px] font-display drop-shadow mt-1 ${claimableTarget > 0 ? 'rb-pop' : ''}`}>
+              <p className="text-violet-300 font-bold text-[11px] uppercase tracking-widest">{t('cashback.totalBonus')}</p>
+              <p className={`text-white font-black text-[22px] font-display drop-shadow mt-0.5 ${claimableTarget > 0 ? 'rb-pop' : ''}`}>
                 {amtStr(currency, animatedClaimable)}
               </p>
             </div>
@@ -305,7 +305,7 @@ export default function RebatePage({ onOpenGame, onOpenCategory }: Props) {
               type="button"
               onClick={() => void onClaim()}
               disabled={claiming || !token || !progress || progress.claimable <= 0}
-              className={`flex-shrink-0 bg-gradient-to-b from-[#ffd257] to-[#e89b12] text-[#3a2a0d] font-black text-base rounded-full px-7 py-2.5 shadow-[0_3px_14px_rgba(232,155,18,0.45)] active:opacity-80 transition disabled:opacity-50 ${!claiming && claimableTarget > 0 ? 'rb-claim-live' : ''}`}
+              className={`flex-shrink-0 bg-gradient-to-b from-[#ffd257] to-[#e89b12] text-[#3a2a0d] font-black text-sm rounded-full px-6 py-2 shadow-[0_3px_14px_rgba(232,155,18,0.45)] active:opacity-80 transition disabled:opacity-50 ${!claiming && claimableTarget > 0 ? 'rb-claim-live' : ''}`}
             >
               {claiming ? t('cashback.claiming') : t('cashback.claimBtn')}
             </button>
@@ -330,10 +330,10 @@ export default function RebatePage({ onOpenGame, onOpenCategory }: Props) {
         {/* 三个特性卡片：Max Rate / Daily / Every */}
         <div className="mx-4 mt-3 grid grid-cols-3 gap-2.5">
           {features.map((f, i) => (
-            <div key={f.title} className="rb-rise rounded-2xl border border-violet-400/30 bg-[#1e1038]/55 px-2 py-4 flex flex-col items-center text-center" style={{ animationDelay: `${90 + i * 45}ms` }}>
+            <div key={f.title} className="rb-rise rounded-2xl border border-violet-400/30 bg-[#1e1038]/55 px-2 py-3 flex flex-col items-center text-center" style={{ animationDelay: `${90 + i * 45}ms` }}>
               {f.icon}
-              <p className="text-white font-black text-sm mt-2.5">{f.title}</p>
-              <p className="text-violet-200/60 text-[11px] leading-snug mt-1">{f.desc}</p>
+              <p className="text-white font-black text-[13px] mt-2">{f.title}</p>
+              <p className="text-violet-200/60 text-[10px] leading-snug mt-0.5">{f.desc}</p>
             </div>
           ))}
         </div>
