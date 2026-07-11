@@ -8,6 +8,7 @@ import {
   ChevronDown,
   ChevronRight,
   Copy,
+  Crown,
   History,
   Languages,
   LogOut,
@@ -23,6 +24,8 @@ import { useLocaleStore } from '@/stores/locale'
 import { useThemeStore, type ThemeMode } from '@/stores/theme'
 import { LANGUAGES } from '@/data/languages'
 import { fetchRebateProgress } from '@/api/rebate'
+import { fetchVipProgress, type VipProgress } from '@/api/vip'
+import { useWalletStore, formatCurrencyAmount } from '@/stores/wallet'
 import { fetchKycStatus, type KycStatus } from '@/api/kyc'
 import { isInsideTelegram } from '@/utils/initTelegramWebApp'
 import menuCasino from '@/assets/home/promos/menu-card-casino.webp'
@@ -224,7 +227,9 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
   const [docModalKey, setDocModalKey] = useState<string | null>(null)
   const [langOpen, setLangOpen] = useState(false)
   const [rebateLevel, setRebateLevel] = useState<number | null>(null)
+  const [vip, setVip] = useState<VipProgress | null>(null)
   const [kycStatus, setKycStatus] = useState<KycStatus | null>(null)
+  const activeCurrency = useWalletStore((s) => s.activeCurrency)
   const comingSoonTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const USER_ID = auth.user?.id ?? '—'
@@ -272,6 +277,16 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
       .then((progress) => setRebateLevel(progress.level))
       .catch(() => setRebateLevel(null))
   }, [isLoggedIn, auth.user?.id])
+
+  useEffect(() => {
+    if (!isLoggedIn) {
+      setVip(null)
+      return
+    }
+    fetchVipProgress(activeCurrency)
+      .then(setVip)
+      .catch(() => setVip(null))
+  }, [isLoggedIn, auth.user?.id, activeCurrency])
 
   useEffect(() => {
     if (!isLoggedIn) {
@@ -366,7 +381,11 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
                       <User size={25} />
                     )}
                   </div>
-                  <span className="absolute -right-1 -top-1 rounded-full bg-zinc-900 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wide text-amber-300 shadow">LV{rebateLevel ?? 1}</span>
+                  <button
+                    type="button"
+                    className="absolute -right-1 -top-1 rounded-full bg-zinc-900 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wide text-amber-300 shadow"
+                    onClick={onOpenVipCenter}
+                  >VIP{vip?.level ?? rebateLevel ?? 1}</button>
                 </div>
                 <div className="min-w-0 flex-1 pt-0.5">
                   <p className="mb-1 text-[10px] font-black uppercase tracking-wide text-black/45">{t('profile.playerAccount')}</p>
@@ -392,6 +411,43 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
               </button>
             </div>
           )}
+
+          {isLoggedIn && vip && (() => {
+            const nextThreshold = vip.nextThreshold
+            const remaining = nextThreshold != null ? Math.max(0, nextThreshold - vip.totalTurnover) : 0
+            const progressPct = nextThreshold != null
+              ? Math.min(100, Math.max(0, (vip.totalTurnover - vip.currentThreshold) / Math.max(1, nextThreshold - vip.currentThreshold) * 100))
+              : 100
+            return (
+              <button
+                type="button"
+                className="relative mt-3 flex w-full items-center gap-2.5 rounded-2xl bg-black/15 px-3 py-2.5 text-left transition-opacity active:opacity-80"
+                onClick={onOpenVipCenter}
+              >
+                <div className="flex flex-shrink-0 items-center gap-1">
+                  <Crown size={16} className="text-amber-300" fill="currentColor" />
+                  <span className="text-sm font-black text-white">VIP{vip.level}</span>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="h-1.5 overflow-hidden rounded-full bg-black/25">
+                    <div className="h-full rounded-full bg-gradient-to-r from-[#e9c97e] to-[#cfa044]" style={{ width: `${progressPct}%` }} />
+                  </div>
+                  <p className="mt-1 truncate text-[10px] font-semibold text-black/50">
+                    {nextThreshold != null
+                      ? t('cashback.progressToNext', { remaining: formatCurrencyAmount(vip.currency, remaining), level: vip.nextLevel ?? vip.level + 1 })
+                      : t('cashback.maxLevel')}
+                  </p>
+                </div>
+                {vip.claimable > 0 ? (
+                  <span className="flex-shrink-0 rounded-full bg-zinc-900 px-2 py-1 text-[10px] font-black text-amber-300 shadow">
+                    {t('cashback.claimableLabel')} {formatCurrencyAmount(vip.currency, vip.claimable)}
+                  </span>
+                ) : (
+                  <ChevronRight size={16} className="flex-shrink-0 text-black/45" />
+                )}
+              </button>
+            )
+          })()}
 
           <div className="relative mt-4 grid grid-cols-4 overflow-hidden rounded-2xl bg-black/15">
             <div className="min-w-0 px-1.5 py-2.5 text-center">
