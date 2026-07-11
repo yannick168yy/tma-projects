@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { fetchRebateConfig, fetchRebateProgress, claimRebate, type RebateConfig, type RebateProgress } from '@/api/rebate'
-import { fetchVipProgress, claimVipRewards, type VipProgress } from '@/api/vip'
 import { launchGame } from '@/api/slots'
 import { useAuthStore } from '@/stores/auth'
 import { useWalletStore, formatCurrencyAmount } from '@/stores/wallet'
@@ -25,7 +24,6 @@ const categoryRank = (cat: string) => {
 interface Props {
   onOpenGame: (url: string) => void
   onOpenCategory: (params: { title: string; sortCategory: string }) => void
-  onOpenKycSetting?: () => void
 }
 
 function amtStr(currency: string, v: number) {
@@ -36,7 +34,7 @@ function catKeyOf(cat: string) {
   return `cashback.category${cat.charAt(0).toUpperCase() + cat.slice(1)}`
 }
 
-export default function RebatePage({ onOpenGame, onOpenCategory, onOpenKycSetting }: Props) {
+export default function RebatePage({ onOpenGame, onOpenCategory }: Props) {
   const { t } = useTranslation()
   const token = useAuthStore((s) => s.token)
   const auth = useAuthStore()
@@ -46,9 +44,7 @@ export default function RebatePage({ onOpenGame, onOpenCategory, onOpenKycSettin
 
   const [config, setConfig] = useState<RebateConfig | null>(null)
   const [progress, setProgress] = useState<RebateProgress | null>(null)
-  const [vip, setVip] = useState<VipProgress | null>(null)
   const [claiming, setClaiming] = useState(false)
-  const [claimingVip, setClaimingVip] = useState(false)
   const [expandedTier, setExpandedTier] = useState<string | null>(null)
   const [launchingUuid, setLaunchingUuid] = useState<string | null>(null)
   void launchingUuid // 保留，后续可扩展 loading 状态展示
@@ -58,9 +54,8 @@ export default function RebatePage({ onOpenGame, onOpenCategory, onOpenKycSettin
   }, [])
 
   const loadProgress = useCallback(async () => {
-    if (!token) { setProgress(null); setVip(null); return }
+    if (!token) { setProgress(null); return }
     try { setProgress(await fetchRebateProgress(currency)) } catch { setProgress(null) }
-    try { setVip(await fetchVipProgress(currency)) } catch { setVip(null) }
   }, [token, currency])
 
   useEffect(() => { void loadProgress() }, [loadProgress])
@@ -77,28 +72,6 @@ export default function RebatePage({ onOpenGame, onOpenCategory, onOpenKycSettin
     } catch (e) {
       alert(e instanceof ApiError ? e.message : 'Claim failed')
     } finally { setClaiming(false) }
-  }
-
-
-  async function onClaimVip() {
-    if (!(await auth.ensureLoggedIn(t('auth.signInPlay')))) return
-    if (claimingVip || !vip || vip.claimable <= 0) return
-    setClaimingVip(true)
-    try {
-      const res = await claimVipRewards(currency)
-      alert(t('cashback.vipClaimSuccess', { amount: amtStr(currency, res.totalAmount) }))
-      await Promise.all([loadProgress(), useWalletStore.getState().refresh()])
-    } catch (e) {
-      alert(e instanceof ApiError ? e.message : 'Claim failed')
-    } finally { setClaimingVip(false) }
-  }
-
-  const VIP_TYPE_KEY: Record<string, string> = {
-    negative_rebate: 'cashback.vipNegativeRebate',
-    promotion: 'cashback.vipPromotion',
-    weekly: 'cashback.vipWeekly',
-    monthly: 'cashback.vipMonthly',
-    birthday: 'cashback.vipBirthday',
   }
 
   function toggleTier(tier: string) {
@@ -201,76 +174,6 @@ export default function RebatePage({ onOpenGame, onOpenCategory, onOpenKycSettin
               <span className="font-semibold text-amber-300">+{amtStr(currency, item.rebateAmount)}</span>
             </div>
           ))}
-        </div>
-      )}
-
-      {/* VIP 成长权益：负盈利返水 + 晋级礼金（登录可见，单独领取） */}
-      {token && (
-        <div className="mx-4 mt-3 rounded-2xl border border-amber-300/30 bg-gradient-to-r from-[#0b0804]/90 via-[#171006]/80 to-[#241605]/55 p-4 shadow-[0_0_20px_rgba(180,118,28,0.10)]">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-amber-200/95 font-black text-sm flex items-center gap-1.5">👑 {t('cashback.vipTitle')}</p>
-              <p className="text-amber-100/50 text-[11px] mt-0.5">{t('cashback.vipSubtitle')}</p>
-            </div>
-            {vip && vip.claimable > 0 && (
-              <button
-                type="button"
-                onClick={() => void onClaimVip()}
-                disabled={claimingVip}
-                className="flex-shrink-0 bg-gradient-to-b from-amber-300 to-yellow-500 text-[#2a1a05] font-black text-xs rounded-full px-4 py-2 shadow-[0_3px_12px_rgba(245,158,11,0.4)] active:opacity-80 transition disabled:opacity-50"
-              >
-                {claimingVip ? t('cashback.claiming') : `${t('cashback.claimBtn')} ${amtStr(currency, vip.claimable)}`}
-              </button>
-            )}
-          </div>
-
-          {vip && vip.claimableByType.length > 0 ? (
-            <div className="mt-3 space-y-1.5">
-              {vip.claimableByType.map((it) => (
-                <div key={it.type} className="flex items-center justify-between text-xs">
-                  <span className="text-amber-50/70">{t(VIP_TYPE_KEY[it.type] ?? 'cashback.vipTitle')}</span>
-                  <span className="font-semibold text-amber-300">+{amtStr(currency, it.amount)}</span>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="mt-2 text-[11px] text-amber-100/40">{t('cashback.vipEmpty')}</p>
-          )}
-
-          <div className="mt-3 pt-3 border-t border-amber-300/12 space-y-1">
-            {vip?.benefit && vip.benefit.negativeRebatePct > 0 && (
-              <p className="text-[11px] text-amber-100/60">{t('cashback.vipCurrentRate', { rate: vip.benefit.negativeRebatePct })}</p>
-            )}
-            {vip?.nextBenefit && vip.nextBenefit.promotionBonus > 0 && vip.nextLevel != null && (
-              <p className="text-[11px] text-amber-300/80">{t('cashback.vipNextUnlock', { level: vip.nextLevel, amount: amtStr(currency, vip.nextBenefit.promotionBonus) })}</p>
-            )}
-            {vip && vip.retentionLine > 0 && (
-              <p className="text-[11px] text-amber-100/55">
-                {t('cashback.vipRetention', { have: amtStr(currency, vip.quarterTurnover), need: amtStr(currency, vip.retentionLine) })}
-              </p>
-            )}
-            {vip?.demoted && (
-              <p className="text-[11px] text-rose-300/80">{t('cashback.vipDemoted')}</p>
-            )}
-            {vip?.prioritySupport && (
-              <p className="text-[11px] text-amber-300/80">👑 {t('cashback.vipPrioritySupport')}</p>
-            )}
-          </div>
-
-          {/* 生日礼金采集 */}
-          {vip && (
-            vip.birthdaySet ? (
-              <p className="mt-2 text-[11px] text-amber-100/45">{t('cashback.vipBirthdaySet')}</p>
-            ) : (
-              <button
-                type="button"
-                onClick={() => onOpenKycSetting?.()}
-                className="mt-2 text-left text-[11px] font-bold text-amber-300 underline underline-offset-2 active:opacity-70"
-              >
-                {t('cashback.vipBirthdayKyc')} →
-              </button>
-            )
-          )}
         </div>
       )}
 
