@@ -603,6 +603,10 @@ export default {
     withdrawLimit: '提现额度',
     recordsTitle: 'VIP 礼金记录',
     noRecords: '暂无 VIP 礼金记录',
+    toNextLevel: '距下一等级',
+    upgradeGuide: '升级攻略',
+    locked: '未解锁',
+    disclaimer: '理性投注,谨防沉迷。',
   },
   menu: {
     searchPlaceholder: '搜索任意游戏…',

@@ -613,6 +613,10 @@ export default {
     withdrawLimit: 'Withdraw Limit',
     recordsTitle: 'VIP Reward Records',
     noRecords: 'No VIP reward records yet',
+    toNextLevel: 'To Next Level',
+    upgradeGuide: 'Upgrade Guide',
+    locked: 'Locked',
+    disclaimer: 'Invest with caution. Gambling may be addictive.',
   },
   menu: {
     searchPlaceholder: 'Search any game…',

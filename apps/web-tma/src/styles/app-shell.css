@@ -159,6 +159,15 @@ html.is-telegram-webapp .cashback-back-btn {
   top: calc(var(--app-safe-top) + 10px);
 }
 
+/* VIP 页顶栏与返回按钮同一安全区基线 */
+.vip-page-header {
+  padding-top: max(6px, env(safe-area-inset-top, 0px));
+}
+
+html.is-telegram-webapp .vip-page-header {
+  padding-top: calc(var(--app-safe-top) + 10px);
+}
+
 /* Prevent iOS double-tap zoom on taps (buttons, links) */
 button,
 a,
