@@ -25,6 +25,14 @@ import iconPhone from '@/assets/tasks/icon-phone.webp'
 import iconProfile from '@/assets/tasks/icon-profile.webp'
 import iconRewards from '@/assets/tasks/icon-rewards.webp'
 import iconWallet from '@/assets/tasks/icon-wallet.webp'
+import iconCheckin from '@/assets/tasks/icon-checkin.webp'
+import iconTrophy from '@/assets/tasks/icon-trophy.webp'
+import iconDice from '@/assets/tasks/icon-dice.webp'
+import iconTarget from '@/assets/tasks/icon-target.webp'
+import iconTelegram from '@/assets/team/3-circles/telegram.webp'
+import iconFacebook from '@/assets/team/3-circles/facebook.webp'
+import iconViber from '@/assets/team/3-circles/viber.webp'
+import iconWhatsapp from '@/assets/team/3-circles/whatsapp.webp'
 
 export type TaskPath = 'newbie' | 'daily' | 'social'
 
@@ -217,10 +225,19 @@ export default function TasksPage({ initialPath = 'newbie', onNavigate }: { init
     if (card.id === 'agg_trial') return iconPhone
     if (card.id === 'agg_appdl') return iconDownload
     if (card.id === 'agg_firstdep' || card.id.startsWith('daily_deposit')) return iconWallet
-    if (card.id === 'daily_bets' || card.id === 'daily_play') return iconGame
+    if (card.id === 'daily_bets') return iconDice
+    if (card.id === 'daily_play') return iconTarget
     if (card.id === 'agg_birthday') return iconBirthday
-    if (card.id === 'agg_checkin' || card.id.startsWith('agg_checkin_ms')) return iconRewards
-    if (card.group === 'social') return iconInvite
+    if (card.id.startsWith('agg_checkin_ms')) return iconTrophy
+    if (card.id === 'agg_checkin') return iconCheckin
+    if (card.group === 'social') {
+      // 社群卡按 task_key 匹配对应社交平台图标
+      if (card.id.includes('telegram')) return iconTelegram
+      if (card.id.includes('facebook')) return iconFacebook
+      if (card.id.includes('viber')) return iconViber
+      if (card.id.includes('whatsapp')) return iconWhatsapp
+      return iconInvite
+    }
     return iconClaimable
   }
 

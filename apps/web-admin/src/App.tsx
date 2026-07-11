@@ -115,12 +115,14 @@ export default function App() {
           <Route path="home-content" element={<HomeContentConfig />} />
           <Route path="homepage-sections" element={<HomepageSections />} />
           <Route path="category-sort" element={<CategorySort />} />
-          <Route path="tasks" element={<Navigate to="/tasks/config" replace />} />
-          <Route path="tasks/config" element={<Tasks section="config" />} />
+          <Route path="tasks" element={<Navigate to="/tasks/center" replace />} />
+          <Route path="tasks/center" element={<Tasks />} />
+          {/* 旧路径兼容：三个分散页已合并进任务中心 */}
+          <Route path="tasks/config" element={<Navigate to="/tasks/center" replace />} />
+          <Route path="tasks/social" element={<Navigate to="/tasks/center" replace />} />
+          <Route path="tasks/reviews" element={<Navigate to="/tasks/center" replace />} />
           <Route path="tasks/checkin" element={<Checkin />} />
           <Route path="tasks/rewards-spin" element={<RewardsSpin />} />
-          <Route path="tasks/social" element={<Tasks section="social" />} />
-          <Route path="tasks/reviews" element={<Tasks section="reviews" />} />
           <Route path="growth" element={<Navigate to="/growth/vip-benefits" replace />} />
           <Route path="growth/vip-benefits" element={<Vip section="benefits" />} />
           <Route path="growth/vip-records" element={<Vip section="records" />} />

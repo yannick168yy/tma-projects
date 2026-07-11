@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Card, Table, Switch, InputNumber, Input, Select, Button, message, Spin, Typography, Tag, Space, Popconfirm } from 'antd'
+import { Alert, Card, Table, Switch, InputNumber, Input, Select, Button, message, Spin, Tabs, Typography, Tag, Space, Popconfirm } from 'antd'
 import {
   getTaskConfig, saveTaskConfig, type TaskConfig, type TaskRewardCfg, type TaskRewardType,
   getTaskSocial, saveTaskSocial, type TaskSocialConfig,
@@ -28,7 +28,8 @@ const REWARD_TYPE_OPTS: { value: TaskRewardType; label: string }[] = [
   { value: 'growth', label: '成长值' },
 ]
 
-function NativeConfig() {
+/** 按前台分区展示原生任务配置；保存时提交全量配置（其余分区字段原样带回） */
+function NativeConfig({ ids, title }: { ids: string[]; title: string }) {
   const [cfg, setCfg] = useState<TaskConfig | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -49,10 +50,10 @@ function NativeConfig() {
   }
 
   if (loading || !cfg) return <Spin style={{ margin: 40 }} />
-  const rows = Object.keys(cfg).map((k) => ({ key: k, ...cfg[k] }))
+  const rows = ids.filter((k) => cfg[k]).map((k) => ({ key: k, ...cfg[k] }))
 
   return (
-    <Card title="原生任务配置" extra={<Button type="primary" loading={saving} onClick={save}>保存</Button>}>
+    <Card title={title} extra={<Button type="primary" loading={saving} onClick={save}>保存</Button>}>
       <Text type="secondary">任务只奖成长体系不碰的行为（首次/回访/完善）。现金奖励带打码倍数防薅。</Text>
       <Table
         style={{ marginTop: 12 }} pagination={false} dataSource={rows} rowKey="key"
@@ -162,13 +163,57 @@ function Reviews() {
   )
 }
 
-export default function Tasks({ section }: { section: 'config' | 'social' | 'reviews' }) {
+// 与前台任务中心的三个 tab（New Player / Daily / Social）一一对应
+const NEWBIE_IDS = ['profile_complete', 'first_game', 'invite_milestone']
+const DAILY_IDS = ['daily_deposit_t1', 'daily_deposit_t2', 'daily_deposit_t3', 'daily_bets', 'daily_play']
+
+function NewbieTab() {
+  return (
+    <>
+      <Alert
+        style={{ marginBottom: 12 }} type="info" showIcon
+        message="前台新手区其余卡片的配置位置"
+        description="领取新手体验金 / 下载 App 礼金 / 首充彩金 → 营销运营 · 活动配置；解锁生日礼金 → KYC 通过后自动同步证件生日，无需配置。"
+      />
+      <NativeConfig ids={NEWBIE_IDS} title="新手任务" />
+    </>
+  )
+}
+
+function DailyTab() {
+  return (
+    <>
+      <Alert
+        style={{ marginBottom: 12 }} type="info" showIcon
+        message="前台每日区其余卡片的配置位置"
+        description="每日签到与签到里程碑（7/15/30 天）→ 任务体系 · 每日签到 页配置。"
+      />
+      <NativeConfig ids={DAILY_IDS} title="每日任务" />
+    </>
+  )
+}
+
+function SocialTab() {
+  return (
+    <>
+      <SocialConfig />
+      <div style={{ marginTop: 16 }}><Reviews /></div>
+    </>
+  )
+}
+
+export default function Tasks() {
   return (
     <div>
-      <Title level={4} style={{ marginBottom: 16 }}>任务体系</Title>
-      {section === 'config' && <NativeConfig />}
-      {section === 'social' && <SocialConfig />}
-      {section === 'reviews' && <Reviews />}
+      <Title level={4} style={{ marginBottom: 16 }}>任务中心</Title>
+      <Tabs
+        defaultActiveKey="newbie"
+        items={[
+          { key: 'newbie', label: '新手任务', children: <NewbieTab /> },
+          { key: 'daily', label: '每日任务', children: <DailyTab /> },
+          { key: 'social', label: '社群任务', children: <SocialTab /> },
+        ]}
+      />
     </div>
   )
 }

@@ -117,11 +117,9 @@ function buildMenuItems(badges: AdminBadges) {
       icon: <TrophyOutlined />,
       label: '任务体系',
       children: [
-        { key: '/tasks/config', label: '任务配置' },
+        { key: '/tasks/center', label: '任务中心' },
         { key: '/tasks/checkin', label: '每日签到' },
         { key: '/tasks/rewards-spin', label: '转盘抽奖' },
-        { key: '/tasks/social', label: '社群关注任务' },
-        { key: '/tasks/reviews', label: '任务截图审核' },
       ],
     },
     {
