@@ -3,7 +3,7 @@ import { apiRequest } from '@/api/client'
 export type TaskGroup = 'newbie' | 'daily' | 'achievement' | 'social'
 export type RewardType = 'cash' | 'spin' | 'growth'
 export type TaskStatus = 'locked' | 'claimable' | 'done'
-export type TaskActionKind = 'claim' | 'goto' | 'bind_telegram' | 'code_redeem' | 'manual_review' | 'open_module'
+export type TaskActionKind = 'claim' | 'goto' | 'code_redeem' | 'manual_review' | 'open_module'
 
 export interface TaskReward {
   type: RewardType

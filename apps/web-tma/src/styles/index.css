@@ -165,3 +165,9 @@
   88% { opacity: 0.75; }
   100% { transform: translate3d(-14px, 46vh, 0) rotate(-300deg); opacity: 0; }
 }
+
+@keyframes taskSheetIn {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+.task-sheet-in { animation: taskSheetIn 0.28s ease-out both; }

@@ -58,7 +58,9 @@ export default function TasksPage({ initialPath = 'newbie', onNavigate }: { init
   const [justClaimedId, setJustClaimedId] = useState<string | null>(null)
   const [toast, setToast] = useState<{ msg: string; kind: 'ok' | 'err' } | null>(null)
   const toastTimer = useRef<number | null>(null)
-  const [codeInputs, setCodeInputs] = useState<Record<string, string>>({})
+  // code_redeem 改底部弹层填码；goto/tg_member 单按钮先开外链再验证（visited 记录本次会话已打开过外链的任务）
+  const [codeSheetCard, setCodeSheetCard] = useState<TaskCard | null>(null)
+  const visitedUrlRef = useRef<Set<string>>(new Set())
   const [bindOpen, setBindOpen] = useState(false)
   const startActiveTask = useActiveTaskStore((s) => s.start)
   const clearActiveTask = useActiveTaskStore((s) => s.clear)
@@ -164,20 +166,20 @@ export default function TasksPage({ initialPath = 'newbie', onNavigate }: { init
     } finally { setBusyId(null) }
   }
 
-  // 社群任务领取（bind_only / tg_member / code_redeem / manual_review）
-  async function onClaimSocial(card: TaskCard) {
-    if (!(await auth.ensureLoggedIn(t('auth.signInPlay')))) return
-    if (busyId) return
+  // 社群任务领取（tg_member / code_redeem / manual_review）。code 由底部填码弹层传入。
+  // 返回是否成功（填码弹层据此决定收起还是显示错误）
+  async function onClaimSocial(card: TaskCard, code?: string): Promise<boolean> {
+    if (!(await auth.ensureLoggedIn(t('auth.signInPlay')))) return false
+    if (busyId) return false
     const kind = card.action.kind
     const input: { code?: string; screenshotUrl?: string } = {}
     if (kind === 'code_redeem') {
-      const code = (codeInputs[card.id] ?? '').trim()
-      if (!code) { showToast(t('tasks.codeRequired'), 'err'); return }
-      input.code = code
+      if (!code?.trim()) { showToast(t('tasks.codeRequired'), 'err'); return false }
+      input.code = code.trim()
     }
     if (kind === 'manual_review') {
       const url = window.prompt(t('tasks.screenshotPrompt')) ?? ''
-      if (!url.trim()) return
+      if (!url.trim()) return false
       input.screenshotUrl = url.trim()
     }
     setBusyId(card.id)
@@ -185,12 +187,14 @@ export default function TasksPage({ initialPath = 'newbie', onNavigate }: { init
       const res = await claimSocialTask(card.id, input)
       if (res.status === 'pending_review') { showToast(t('tasks.submittedReview'), 'ok'); await load() }
       else { setJustClaimedId(card.id); await afterSuccess(t('tasks.claimSuccess', { reward: rewardText(card) })) }
+      return true
     } catch (e) {
       const msg = e instanceof ApiError ? e.message : ''
-      if (msg === 'need_bind_telegram') { setBindOpen(true); return }
-      if (msg === 'not_member') { showToast(t('tasks.notMember'), 'err'); return }
-      if (msg === 'bad_code') { showToast(t('tasks.badCode'), 'err'); return }
+      if (msg === 'need_bind_telegram') { setBindOpen(true); return false }
+      if (msg === 'not_member') { showToast(t('tasks.notMember'), 'err'); return false }
+      if (msg === 'bad_code') { showToast(t('tasks.badCode'), 'err'); return false }
       showToast(msg || t('tasks.claimFailed'), 'err')
+      return false
     } finally { setBusyId(null) }
   }
 
@@ -202,7 +206,19 @@ export default function TasksPage({ initialPath = 'newbie', onNavigate }: { init
       onNavigate?.(card.action.target ?? '')
       return
     }
-    if (card.group === 'social') { void onClaimSocial(card); return }
+    if (card.group === 'social') {
+      // code_redeem：底部填码弹层（Go 并入弹层内的"查看暗号"链接）
+      if (card.action.kind === 'code_redeem') { setCodeSheetCard(card); return }
+      // goto/tg_member 等：单按钮合并 Go+领取——首次点击打开外链，回来再点执行验证领取
+      if (card.action.url && !visitedUrlRef.current.has(card.id)) {
+        visitedUrlRef.current.add(card.id)
+        window.open(card.action.url, '_blank', 'noopener')
+        showToast(t('tasks.visitThenClaim'), 'ok')
+        return
+      }
+      void onClaimSocial(card)
+      return
+    }
     void onClaimNative(card)
   }
 
@@ -212,7 +228,6 @@ export default function TasksPage({ initialPath = 'newbie', onNavigate }: { init
     if (busy) return t('tasks.claiming')
     if (card.status === 'locked') return t('tasks.todo')
     if (card.action.kind === 'open_module') return t('tasks.go')
-    if (card.action.kind === 'bind_telegram') return t('tasks.bind')
     if (card.action.kind === 'goto') return t('tasks.verify')
     if (card.action.kind === 'manual_review') return t('tasks.submit')
     return t('tasks.claim')
@@ -345,7 +360,6 @@ export default function TasksPage({ initialPath = 'newbie', onNavigate }: { init
     // MILESTONE 徽章只给成就/邀请里程碑；每日进度卡（存款阶梯/投注挑战）不标，避免标题被挤截断
     const isMilestone = card.group === 'achievement' || card.id === 'invite_milestone'
     const kind = card.action.kind
-    const showCode = kind === 'code_redeem' && !done
     const disabled = done || busy || (kind === 'claim' && !isClaimable)
     const reward = rewardText(card)
     const buttonLabel = reward || actionLabel(card)
@@ -388,12 +402,6 @@ export default function TasksPage({ initialPath = 'newbie', onNavigate }: { init
               )}
             </div>
             <div className="flex flex-shrink-0 items-center gap-1.5">
-              {card.group === 'social' && kind === 'goto' && card.action.url && !done && (
-                <a href={card.action.url} target="_blank" rel="noreferrer"
-                  className="rounded-full border border-[#ffc31e]/50 px-2 py-1 text-[10px] font-black text-[#ffd78a] active:scale-95">
-                  {t('tasks.go')}
-                </a>
-              )}
               <button
                 type="button"
                 onClick={() => onCardAction(card)}
@@ -404,17 +412,6 @@ export default function TasksPage({ initialPath = 'newbie', onNavigate }: { init
               </button>
             </div>
           </div>
-
-          {showCode && (
-            <div className="mt-2 flex gap-2 pl-[46px]">
-              <input
-                value={codeInputs[card.id] ?? ''}
-                onChange={(e) => setCodeInputs((s) => ({ ...s, [card.id]: e.target.value }))}
-                placeholder={t('tasks.codePlaceholder')}
-                className="min-w-0 flex-1 rounded-lg border border-[#8c5c12]/70 bg-black/48 px-3 py-1.5 text-[12px] text-amber-50 placeholder:text-amber-200/40 outline-none"
-              />
-            </div>
-          )}
         </div>
       </div>
     )
@@ -466,6 +463,15 @@ export default function TasksPage({ initialPath = 'newbie', onNavigate }: { init
             <span className="min-w-0 truncate">{toast.msg}</span>
           </div>
         </div>
+      )}
+      {codeSheetCard && (
+        <CodeRedeemSheet
+          card={codeSheetCard}
+          reward={rewardText(codeSheetCard)}
+          busy={busyId === codeSheetCard.id}
+          onClose={() => setCodeSheetCard(null)}
+          onSubmit={(code) => { void onClaimSocial(codeSheetCard, code).then((ok) => { if (ok) setCodeSheetCard(null) }) }}
+        />
       )}
       <BindModal open={bindOpen} onClose={() => { setBindOpen(false); void load() }} />
     </div>
@@ -540,6 +546,52 @@ function DailyEarningsCard({ onNavigate }: { onNavigate?: (target: string) => vo
         </span>
         <ChevronRight size={14} className="flex-shrink-0 text-[#a98b57]" />
       </button>
+    </div>
+  )
+}
+
+// code_redeem 填码弹层：查看暗号入口 + 输入 + 领取（Go 与领取合并进同一流程）
+function CodeRedeemSheet({ card, reward, busy, onSubmit, onClose }: {
+  card: TaskCard
+  reward: string
+  busy: boolean
+  onSubmit: (code: string) => void
+  onClose: () => void
+}) {
+  const { t } = useTranslation()
+  const [code, setCode] = useState('')
+  return (
+    <div className="fixed inset-0 z-[70] flex justify-center">
+      <div className="absolute inset-0 bg-black/60" onClick={onClose} />
+      <div className="task-sheet-in absolute inset-x-0 bottom-0 mx-auto w-full max-w-[430px] rounded-t-2xl border-t border-[#8a5b13]/40 bg-[#12100b] px-5 pb-8 pt-3">
+        <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-white/15" />
+        <p className="text-[15px] font-black text-[#fff8ea]">{card.title}</p>
+        <p className="mt-1 text-[12px] leading-snug text-[#d8c7a5]">{t('tasks.codeSheetHint')}</p>
+        {card.action.url && (
+          <a
+            href={card.action.url} target="_blank" rel="noreferrer"
+            className="mt-3 flex items-center justify-between rounded-xl border border-[#ffc31e]/40 bg-black/40 px-3.5 py-3 text-[13px] font-black text-[#ffd78a] active:scale-[0.98]"
+          >
+            {t('tasks.codeSheetGo')}
+            <ChevronRight size={16} />
+          </a>
+        )}
+        <input
+          autoFocus
+          value={code}
+          onChange={(e) => setCode(e.target.value)}
+          placeholder={t('tasks.codePlaceholder')}
+          className="mt-3 w-full rounded-xl border border-[#8c5c12]/70 bg-black/48 px-3.5 py-3 text-[14px] text-amber-50 placeholder:text-amber-200/40 outline-none focus:border-[#ffc31e]/70"
+        />
+        <button
+          type="button"
+          onClick={() => onSubmit(code)}
+          disabled={busy || !code.trim()}
+          className="mt-3 w-full rounded-full bg-gradient-to-b from-[#ffdb37] to-[#ffc400] py-3 text-[14px] font-black leading-none text-[#241600] shadow-[0_6px_18px_rgba(255,193,17,0.3)] active:scale-[0.98] disabled:opacity-50"
+        >
+          {busy ? t('tasks.claiming') : `${t('tasks.claim')}${reward ? ` ${reward}` : ''}`}
+        </button>
+      </div>
     </div>
   )
 }

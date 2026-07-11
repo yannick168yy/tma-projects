@@ -323,16 +323,16 @@ export interface TaskCard {
   /** 进度（成就/里程碑类展示进度条） */
   progress?: { current: number; target: number }
   /**
-   * 动作：claim=原生领取；goto=社群外链;bind_telegram/code_redeem/manual_review=社群验证;
+   * 动作：claim=原生领取；goto=社群外链;code_redeem/manual_review=社群验证;
    * open_module=跳到既有入口，不由任务引擎领取（如 checkin/deposit/games/team_center）
    */
-  action: { kind: 'claim' | 'goto' | 'bind_telegram' | 'code_redeem' | 'manual_review' | 'open_module'; url?: string; target?: string; verifyStrategy?: string }
+  action: { kind: 'claim' | 'goto' | 'code_redeem' | 'manual_review' | 'open_module'; url?: string; target?: string; verifyStrategy?: string }
 }
 
 interface SocialRow {
   task_key: string
   platform: 'telegram' | 'facebook' | 'viber'
-  verify_strategy: 'tg_member' | 'code_redeem' | 'manual_review' | 'bind_only'
+  verify_strategy: 'tg_member' | 'code_redeem' | 'manual_review'
   title: string
   subtitle: string
   action_url: string
@@ -401,8 +401,7 @@ export async function getTaskCenter(env: Env, userId: string): Promise<TaskCente
   const socialCards: TaskCard[] = socials.map((s) => {
     const done = socialClaimed.has(s.task_key)
     const kind: TaskCard['action']['kind'] =
-      s.verify_strategy === 'bind_only' ? 'bind_telegram'
-      : s.verify_strategy === 'code_redeem' ? 'code_redeem'
+      s.verify_strategy === 'code_redeem' ? 'code_redeem'
       : s.verify_strategy === 'manual_review' ? 'manual_review'
       : 'goto'
     return {
@@ -542,7 +541,6 @@ export interface SocialClaimResult { status: 'claimed' | 'pending_review'; rewar
 
 /**
  * 社群任务领取：
- *  - bind_only     校验已绑定 Telegram
  *  - tg_member     getChatMember 强验证（未绑定抛 need_bind_telegram，退群抛 not_member）
  *  - code_redeem   回填码比对（弱验证）
  *  - manual_review 入人工审核队列，不立即发奖
@@ -563,11 +561,6 @@ export async function claimSocialTask(env: Env, userId: string, taskKey: string,
 
   let codeUsed = ''
   switch (s.verify_strategy) {
-    case 'bind_only': {
-      const tgId = await getUserTgId(env, userId)
-      if (!tgId) throw new Error('need_bind_telegram')
-      break
-    }
     case 'tg_member': {
       const tgId = await getUserTgId(env, userId)
       if (!tgId) throw new Error('need_bind_telegram')

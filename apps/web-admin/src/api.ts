@@ -814,7 +814,7 @@ export type TaskConfig = Record<string, TaskRewardCfg>
 export const getTaskConfig = () => get<TaskConfig>('/admin/tasks/config')
 export const saveTaskConfig = (data: TaskConfig) => req<TaskConfig>('PUT', '/admin/tasks/config', data)
 
-export type TaskVerifyStrategy = 'tg_member' | 'code_redeem' | 'manual_review' | 'bind_only'
+export type TaskVerifyStrategy = 'tg_member' | 'code_redeem' | 'manual_review'
 export interface TaskSocialConfig {
   task_key: string
   platform: 'telegram' | 'facebook' | 'viber'

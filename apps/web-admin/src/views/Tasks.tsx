@@ -97,7 +97,7 @@ function SocialConfig() {
   return (
     <Card title="社群关注任务">
       <Text type="secondary">
-        tg_member=Bot 须设为频道管理员，channel_ref 填频道 @username 或 chat_id；code_redeem=码放"加入才可见"处并定期轮换、奖励压小；bind_only=仅需绑定 Telegram。
+        tg_member=Bot 须设为频道管理员，channel_ref 填频道 @username 或 chat_id；code_redeem=码放"加入才可见"处并定期轮换、奖励压小。
       </Text>
       <Table
         style={{ marginTop: 12 }} pagination={false} dataSource={rows} rowKey="task_key" scroll={{ x: 1300 }}
@@ -106,7 +106,7 @@ function SocialConfig() {
           { title: '平台', dataIndex: 'platform', width: 90 },
           { title: '验证策略', dataIndex: 'verify_strategy', width: 130, render: (v: TaskSocialConfig['verify_strategy'], r) => (
             <Select style={{ width: 120 }} value={v} onChange={(x) => patch(r.task_key, { verify_strategy: x })}
-              options={[{ value: 'tg_member', label: 'TG成员' }, { value: 'code_redeem', label: '回填码' }, { value: 'manual_review', label: '截图审核' }, { value: 'bind_only', label: '仅绑定' }]} /> ) },
+              options={[{ value: 'tg_member', label: 'TG成员' }, { value: 'code_redeem', label: '回填码' }, { value: 'manual_review', label: '截图审核' }]} /> ) },
           { title: '标题', dataIndex: 'title', width: 160, render: (v: string, r) => <Input value={v} onChange={(e) => patch(r.task_key, { title: e.target.value })} /> },
           { title: '副标题', dataIndex: 'subtitle', width: 180, render: (v: string, r) => <Input value={v} onChange={(e) => patch(r.task_key, { subtitle: e.target.value })} /> },
           { title: '跳转链接', dataIndex: 'action_url', width: 180, render: (v: string, r) => <Input value={v} onChange={(e) => patch(r.task_key, { action_url: e.target.value })} /> },
