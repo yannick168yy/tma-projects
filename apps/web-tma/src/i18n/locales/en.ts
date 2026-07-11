@@ -889,6 +889,12 @@ export default {
     overviewStep2Desc: 'Friends who join with your official link become C1.',
     overviewStep3Title: 'Track and withdraw rewards',
     overviewStep3Desc: 'Follow C1/C2/C3 activity, then submit withdrawals from Rewards.',
+    overviewGuideTitle: 'What are 3-Circle Rewards?',
+    overviewGuideDesc: 'Circles, reward rates, activation and settlement rules explained.',
+    overviewNotesTitle: 'Good to know',
+    overviewNote1: 'A member is activated after a first deposit of ₱100 or more — only activated members\' bets generate rewards.',
+    overviewNote2: 'Bets funded by free bonuses and turnover from members who have never deposited are excluded from the reward base.',
+    overviewNote3: 'Rewards are settled daily (Philippine time) and can be withdrawn after review.',
     available: 'Available Rewards',
     frozen: 'Pending',
     lifetime: 'Lifetime',
@@ -935,7 +941,7 @@ export default {
         'C3 reward = member\'s monthly valid bets (PHP equiv.) × {{l3Rate}}%\n' +
         'Rates shown on this page apply to your account.\n\n' +
         'Circle activation\n\n' +
-        'A circle member must make a first deposit of at least ₱100 and become activated before their bets generate rewards. Bets from inactive members do not generate rewards (same-day qualifying bets may still appear in the circle tree for reference).\n\n' +
+        'A circle member must make a first deposit of at least ₱100 and become activated before their bets generate rewards. Bets from inactive members do not generate rewards (same-day qualifying bets may still appear in the circle tree for reference). Bets funded by free bonuses (red packets, spins, task rewards, etc.) and turnover from members who have never deposited are excluded from the reward base.\n\n' +
         'Qualified bets & settlement\n\n' +
         'Valid bets: only settled bet orders count; win payouts are not subtracted.\n' +
         'Multi-currency: PHP, USDT, USDC, etc. are tracked separately and converted to PHP for rewards.\n' +

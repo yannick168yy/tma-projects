@@ -515,6 +515,52 @@ export default function TeamCenterPage() {
                 {enabling ? t('bonuses.promos.agent.activating') : t('bonuses.promos.agent.cta')}
               </button>
             )}
+
+            <section>
+              <h2 className={sectionTitleClass}>{t('team.overviewHowTitle')}</h2>
+              <div className="space-y-3">
+                {[
+                  { n: 1, title: t('team.overviewStep1Title'), desc: t('team.overviewStep1Desc') },
+                  { n: 2, title: t('team.overviewStep2Title'), desc: t('team.overviewStep2Desc') },
+                  { n: 3, title: t('team.overviewStep3Title'), desc: t('team.overviewStep3Desc') },
+                ].map(({ n, title, desc }) => (
+                  <div key={n} className="flex items-start gap-3 rounded-2xl border border-white/10 bg-[#101824] p-3">
+                    <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-amber-400/15 text-sm font-black text-amber-300">{n}</span>
+                    <div className="min-w-0">
+                      <p className="text-sm font-black text-white">{title}</p>
+                      <p className="mt-1 text-[11px] leading-relaxed text-slate-400">{desc}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <button
+              type="button"
+              className="flex w-full items-center gap-3 rounded-2xl border border-amber-300/25 bg-[linear-gradient(135deg,rgba(245,158,11,0.14),rgba(255,255,255,0.03))] p-4 text-left active:scale-[0.99]"
+              onClick={() => setGuideOpen(true)}
+            >
+              <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-amber-500/15">
+                <CircleHelp size={22} className="text-amber-300" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-black text-white">{t('team.overviewGuideTitle')}</p>
+                <p className="mt-0.5 text-[11px] text-slate-400">{t('team.overviewGuideDesc')}</p>
+              </div>
+              <ChevronRight size={18} className="flex-shrink-0 text-amber-300" />
+            </button>
+
+            <section>
+              <h2 className={sectionTitleClass}>{t('team.overviewNotesTitle')}</h2>
+              <ul className="space-y-2.5 rounded-2xl border border-white/10 bg-[#101824] p-4">
+                {[1, 2, 3].map((i) => (
+                  <li key={i} className="flex gap-2.5 text-[11px] leading-relaxed text-slate-400">
+                    <span className="mt-[5px] h-1.5 w-1.5 flex-shrink-0 rounded-full bg-amber-400/70" />
+                    {t(`team.overviewNote${i}`)}
+                  </li>
+                ))}
+              </ul>
+            </section>
           </div>
         )}
 

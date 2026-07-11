@@ -571,6 +571,12 @@ export default {
     overviewStep2Desc: 'Teman yang bergabung dengan tautan resmi Anda menjadi C1.',
     overviewStep3Title: 'Pantau dan tarik reward',
     overviewStep3Desc: 'Ikuti aktivitas C1/C2/C3, lalu ajukan penarikan dari Rewards.',
+    overviewGuideTitle: 'Apa itu 3-Circle Rewards?',
+    overviewGuideDesc: 'Penjelasan lingkaran, tarif reward, aktivasi, dan aturan penyelesaian.',
+    overviewNotesTitle: 'Perlu diketahui',
+    overviewNote1: 'Anggota aktif setelah deposit pertama minimal ₱100 — hanya taruhan anggota aktif yang menghasilkan reward.',
+    overviewNote2: 'Taruhan dari bonus gratis dan omzet anggota yang belum pernah deposit tidak dihitung dalam dasar reward.',
+    overviewNote3: 'Reward diselesaikan setiap hari (waktu Filipina) dan dapat ditarik setelah ditinjau.',
     available: 'Reward Tersedia',
     frozen: 'Tertunda',
     lifetime: 'Seumur Hidup',
@@ -616,7 +622,7 @@ export default {
         'Reward C3 = taruhan valid bulanan anggota (setara PHP) × {{l3Rate}}%\n' +
         'Tarif di halaman ini berlaku untuk akun Anda.\n\n' +
         'Aktivasi circle\n\n' +
-        'Anggota circle harus deposit pertama minimal ₱100 dan aktif sebelum permainannya menghasilkan reward untuk Anda. Permainan dari anggota yang belum aktif tidak menghasilkan reward (permainan valid hari yang sama mungkin tetap tampil di pohon circle sebagai referensi).\n\n' +
+        'Anggota circle harus deposit pertama minimal ₱100 dan aktif sebelum permainannya menghasilkan reward untuk Anda. Permainan dari anggota yang belum aktif tidak menghasilkan reward (permainan valid hari yang sama mungkin tetap tampil di pohon circle sebagai referensi). Taruhan dari bonus gratis (angpau, spin, reward tugas, dll.) dan omzet anggota yang belum pernah deposit tidak dihitung dalam dasar reward.\n\n' +
         'Permainan valid & penyelesaian\n\n' +
         'Taruhan valid: hanya order bet yang sudah settled; payout win tidak dikurangi.\n' +
         'Multi-mata uang: PHP, USDT, USDC, dll. dicatat terpisah lalu dikonversi ke PHP untuk reward.\n' +

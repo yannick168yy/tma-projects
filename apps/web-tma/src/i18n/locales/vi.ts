@@ -571,6 +571,12 @@ export default {
     overviewStep2Desc: 'Bạn bè tham gia bằng liên kết chính thức của bạn sẽ trở thành C1.',
     overviewStep3Title: 'Theo dõi và rút thưởng',
     overviewStep3Desc: 'Theo dõi hoạt động C1/C2/C3, sau đó gửi yêu cầu rút tiền từ Rewards.',
+    overviewGuideTitle: '3-Circle Rewards là gì?',
+    overviewGuideDesc: 'Giải thích vòng tròn, tỷ lệ thưởng, kích hoạt và quy tắc quyết toán.',
+    overviewNotesTitle: 'Lưu ý',
+    overviewNote1: 'Thành viên được kích hoạt sau khi nạp lần đầu từ ₱100 — chỉ cược của thành viên đã kích hoạt mới tạo thưởng.',
+    overviewNote2: 'Cược từ thưởng miễn phí và cược của thành viên chưa từng nạp tiền không được tính vào cơ sở thưởng.',
+    overviewNote3: 'Thưởng quyết toán hằng ngày (giờ Philippines), có thể rút sau khi được duyệt.',
     available: 'Thưởng khả dụng',
     frozen: 'Đang xử lý',
     lifetime: 'Tổng tích lũy',
@@ -616,7 +622,7 @@ export default {
         'Thưởng C3 = cược hợp lệ tháng của thành viên (quy PHP) × {{l3Rate}}%\n' +
         'Tỷ lệ trên trang áp dụng cho tài khoản của bạn.\n\n' +
         'Kích hoạt vòng\n\n' +
-        'Thành viên trong vòng phải nạp lần đầu tối thiểu ₱100 và được kích hoạt thì cược mới tạo thưởng cho bạn. Cược từ thành viên chưa kích hoạt không có thưởng (cược đủ điều kiện trong ngày vẫn có thể hiển thị trên cây vòng để tham khảo).\n\n' +
+        'Thành viên trong vòng phải nạp lần đầu tối thiểu ₱100 và được kích hoạt thì cược mới tạo thưởng cho bạn. Cược từ thành viên chưa kích hoạt không có thưởng (cược đủ điều kiện trong ngày vẫn có thể hiển thị trên cây vòng để tham khảo). Cược bằng thưởng miễn phí (lì xì, vòng quay, thưởng nhiệm vụ, v.v.) và doanh thu của thành viên chưa từng nạp tiền không được tính vào cơ sở thưởng.\n\n' +
         'Cược đủ điều kiện & quyết toán\n\n' +
         'Cược hợp lệ: chỉ tính lệnh bet đã settled; tiền thắng không bị trừ.\n' +
         'Đa tiền tệ: PHP, USDT, USDC... ghi riêng rồi quy PHP để tính thưởng.\n' +
