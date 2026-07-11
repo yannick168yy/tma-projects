@@ -21,34 +21,16 @@ import { useAuthStore } from '@/stores/auth'
 import { useWalletStore } from '@/stores/wallet'
 import { localizedGameName } from '@/utils/game'
 import { analytics } from '@/utils/analytics'
-import chipHotImg from '@/assets/chips/hot.webp'
-import chipSlotsImg from '@/assets/chips/slots.png'
-import chipLiveImg from '@/assets/chips/live.png'
-import chipPokerImg from '@/assets/chips/poker.png'
-import chipBingoImg from '@/assets/chips/bingo.png'
-import chipSportsImg from '@/assets/chips/sports.png'
-import chipFishingImg from '@/assets/chips/fishing.png'
 import pagcorImg from '@/assets/home/compliance/pagcor.png'
 import age21Img from '@/assets/home/compliance/age21.png'
 import rewardsSpinFloatImg from '@/assets/home/promos/rewards-spin-float.webp'
 import cashbackFloatImg from '@/assets/home/promos/cashback-float.webp'
 import yellowExpandUpImg from '@/assets/home/promos/yellow-expand-up.webp'
 import yellowCollapseDownImg from '@/assets/home/promos/yellow-collapse-down.webp'
+import cashRebateBannerImg from '@/assets/home/promos/cash-rebate-banner.webp'
 
-interface GameChipDef { id: string; labelKey: string; gamesPath: string; icon?: string; image?: string }
-
-// 分类 chip = games 页导航入口（筛选逻辑统一在 GamesPage，首页不再内嵌筛选网格）
-const GAME_CHIPS: GameChipDef[] = [
-  { id: 'hot',     image: chipHotImg,     labelKey: 'home.chipHot',     gamesPath: '/games' },
-  { id: 'slot',    image: chipSlotsImg,   labelKey: 'home.chipSlots',   gamesPath: '/games?cat=slot'    },
-  { id: 'casino',  image: chipLiveImg,    labelKey: 'home.chipCasino',  gamesPath: '/games?cat=casino'  },
-  { id: 'perya',   icon: '🐓', labelKey: 'home.chipPerya',   gamesPath: '/games?cat=perya'   },
-  { id: 'poker',   image: chipPokerImg,   labelKey: 'home.chipPoker',   gamesPath: '/games?cat=poker'   },
-  { id: 'fishing', image: chipFishingImg, labelKey: 'home.chipFishing', gamesPath: '/games?cat=fishing' },
-  { id: 'sports',  image: chipSportsImg,  labelKey: 'home.chipSports',  gamesPath: '/games?cat=sports'  },
-  { id: 'lottery', image: chipBingoImg,   labelKey: 'home.chipLottery', gamesPath: '/games?cat=lottery' },
-  { id: 'other',   icon: '🎮', labelKey: 'home.chipOther',   gamesPath: '/games?cat=other'   },
-]
+// 最近在玩区最大展示数，不足时用推荐游戏补齐
+const RECENT_ROW_MAX = 10
 
 // 厂商专区：菲市场认知度最高的三家
 const PROVIDER_ZONE = [
@@ -381,6 +363,14 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
   const [homepageGames, setHomepageGames] = useState<Record<keyof typeof emptyHomepage, SlotGame[]>>(emptyHomepage)
   const [gamesLoading, setGamesLoading] = useState(true)
   const [recentGames, setRecentGames] = useState<SlotGame[]>([])
+  // 最近在玩不足最大数时，从推荐里挑未玩过的补齐
+  const recentFillGames = useMemo(() => {
+    if (recentGames.length === 0 || recentGames.length >= RECENT_ROW_MAX) return []
+    const played = new Set(recentGames.map((g) => g.uuid))
+    return [...homepageGames.recommended, ...homepageGames.popular]
+      .filter((g, i, arr) => !played.has(g.uuid) && arr.findIndex((x) => x.uuid === g.uuid) === i)
+      .slice(0, RECENT_ROW_MAX - recentGames.length)
+  }, [recentGames, homepageGames.recommended, homepageGames.popular])
   const [providerZoneTab, setProviderZoneTab] = useState(PROVIDER_ZONE[0].code)
   const [providerZoneGames, setProviderZoneGames] = useState<SlotGame[]>([])
   const providerZoneFetchRef = useRef(0)
@@ -547,9 +537,24 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
 
   return (
     <div className="page-main">
+      {/* Recent Wins marquee */}
+      <div className="mx-4 mt-2 bg-secondary rounded-xl p-3 flex items-center gap-2 overflow-hidden">
+        <div className="flex-shrink-0 flex items-center gap-1.5 text-primary"><Trophy size={13} /><span className="text-xs font-bold uppercase tracking-wide whitespace-nowrap">{t('home.recentWins')}</span></div>
+        <div className="w-px h-4 bg-border flex-shrink-0" />
+        <div className="overflow-hidden flex-1">
+          <div className="flex w-max animate-marquee whitespace-nowrap" style={{ animationDuration: '96s' }}>
+            {[0, 1].map((group) => (
+              <div key={group} className="flex flex-shrink-0 gap-6 pr-6">
+                {marqueeWinners.map((w, i) => <span key={`${group}-${i}`} className="text-xs text-foreground/80 flex-shrink-0"><span className="text-primary font-bold">{w.name}</span> {t('common.won')} <span className="text-emerald-400 font-bold">{w.amount}</span> · <span className="text-muted-foreground">{w.game}</span></span>)}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
       {/* Banner 轮播（后台装修配置） */}
       {homeBanners.length > 0 && (
-        <div className="px-4 mt-2">
+        <div className="px-4 mt-3">
           <div className="relative h-56 overflow-hidden rounded-2xl">
             <div ref={bannerTrackRef} className="banner-carousel flex h-full snap-x snap-mandatory hide-scrollbar" onScroll={onBannerScroll} onTouchStart={onBannerTouchStart} onTouchMove={onBannerTouchMove} onTouchEnd={onBannerTouchEnd} onTouchCancel={onBannerTouchEnd}>
               {homeBanners.map((banner) => (
@@ -567,60 +572,21 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
         </div>
       )}
 
-      {/* Game type chip 条 — games 页导航入口 */}
-      <div className="mt-4 border-b border-white/5">
-        <div className="flex gap-0.5 px-2 overflow-x-auto hide-scrollbar snap-x snap-mandatory">
-          {GAME_CHIPS.map((chip) => (
-            <button
-              key={chip.id}
-              type="button"
-              onClick={() => onNavigatePath(chip.gamesPath)}
-              className="relative flex-shrink-0 snap-start flex flex-col items-center gap-0.5 px-2.5 pt-2 pb-0 min-w-[58px] active:scale-95 transition-transform"
-            >
-              {chip.image ? (
-                <img
-                  src={chip.image}
-                  alt=""
-                  draggable={false}
-                  className="relative h-9 w-9 object-contain select-none"
-                  style={{ filter: 'drop-shadow(0 3px 5px rgba(0,0,0,0.45))' }}
-                />
-              ) : (
-                <span
-                  className="relative text-[34px] leading-none select-none"
-                  style={{ filter: 'drop-shadow(0 3px 5px rgba(0,0,0,0.45))' }}
-                >
-                  {chip.icon}
-                </span>
-              )}
-              <span className="relative text-[11px] font-semibold leading-tight pb-2.5 text-foreground/75">
-                {t(chip.labelKey)}
-              </span>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Recent Wins marquee */}
-      <div className="mx-4 mt-4 bg-secondary rounded-xl p-3 flex items-center gap-2 overflow-hidden">
-        <div className="flex-shrink-0 flex items-center gap-1.5 text-primary"><Trophy size={13} /><span className="text-xs font-bold uppercase tracking-wide whitespace-nowrap">{t('home.recentWins')}</span></div>
-        <div className="w-px h-4 bg-border flex-shrink-0" />
-        <div className="overflow-hidden flex-1">
-          <div className="flex w-max animate-marquee whitespace-nowrap" style={{ animationDuration: '96s' }}>
-            {[0, 1].map((group) => (
-              <div key={group} className="flex flex-shrink-0 gap-6 pr-6">
-                {marqueeWinners.map((w, i) => <span key={`${group}-${i}`} className="text-xs text-foreground/80 flex-shrink-0"><span className="text-primary font-bold">{w.name}</span> {t('common.won')} <span className="text-emerald-400 font-bold">{w.amount}</span> · <span className="text-muted-foreground">{w.game}</span></span>)}
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* 最近在玩（登录用户） */}
+      {/* 最近在玩（登录用户）：不足最大数时用推荐游戏补齐，中间以金色竖排 Recommended 分隔 */}
       {recentGames.length > 0 && (
         <section className="mt-5">
           {sectionHeader(<History size={15} className="text-amber-400" />, t('home.recentPlayed'))}
-          {smallRow(recentGames, false)}
+          <div className="flex items-center gap-2 px-4 overflow-x-auto hide-scrollbar">
+            {recentGames.map((g) => <GameCardV2 key={g.uuid} game={g} onTap={() => void onGameTapAction(g.uuid)} size="sm" />)}
+            {recentFillGames.length > 0 && (
+              <>
+                <div className="flex-shrink-0 h-[76px] flex items-center rounded-lg bg-gradient-to-b from-amber-400/15 via-amber-400/5 to-amber-400/15 px-1">
+                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-400" style={{ writingMode: 'vertical-rl' }}>{t('home.recommended')}</span>
+                </div>
+                {recentFillGames.map((g) => <GameCardV2 key={g.uuid} game={g} onTap={() => void onGameTapAction(g.uuid)} size="sm" />)}
+              </>
+            )}
+          </div>
         </section>
       )}
 
@@ -628,6 +594,13 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
       <section className="mt-5">
         {sectionHeader(<TrendingUp size={15} className="text-primary" />, t('home.popularGames'), () => onNavigatePath('/games'))}
         {bigGrid(homepageGames.popular, 12, true)}
+      </section>
+
+      {/* Cash Rebate 活动横条 → rebate 页 */}
+      <section className="mt-6 px-4">
+        <button type="button" className="block w-full active:scale-[0.98] transition-transform" onClick={() => onNavigatePath('/rebate')}>
+          <img src={cashRebateBannerImg} alt="Cash Rebate" draggable={false} className="w-full rounded-2xl" />
+        </button>
       </section>
 
       {/* 推荐精选：竞品验证权重的次高梯队，大卡 */}
