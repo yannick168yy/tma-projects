@@ -23,8 +23,6 @@ import { useLocaleStore } from '@/stores/locale'
 import { useThemeStore, type ThemeMode } from '@/stores/theme'
 import { LANGUAGES } from '@/data/languages'
 import { fetchRebateProgress } from '@/api/rebate'
-import { fetchVipProgress, type VipProgress } from '@/api/vip'
-import { useWalletStore, formatCurrencyAmount } from '@/stores/wallet'
 import { fetchKycStatus, type KycStatus } from '@/api/kyc'
 import { isInsideTelegram } from '@/utils/initTelegramWebApp'
 import menuCasino from '@/assets/home/promos/menu-card-casino.webp'
@@ -226,22 +224,13 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
   const [docModalKey, setDocModalKey] = useState<string | null>(null)
   const [langOpen, setLangOpen] = useState(false)
   const [rebateLevel, setRebateLevel] = useState<number | null>(null)
-  const [vip, setVip] = useState<VipProgress | null>(null)
   const [kycStatus, setKycStatus] = useState<KycStatus | null>(null)
-  const activeCurrency = useWalletStore((s) => s.activeCurrency)
   const comingSoonTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const USER_ID = auth.user?.id ?? '—'
   const displayName = auth.user?.displayName ?? t('profile.playerAccount')
   const avatarUrl = auth.user?.avatarUrl
   const currentLang = LANGUAGES.find((l) => l.code === locale) ?? LANGUAGES[0]
-  const vipRemaining = vip?.nextThreshold != null ? Math.max(0, vip.nextThreshold - vip.totalTurnover) : 0
-  const vipPct = vip
-    ? vip.nextThreshold != null
-      ? Math.min(100, Math.max(0, (vip.totalTurnover - vip.currentThreshold) / Math.max(1, vip.nextThreshold - vip.currentThreshold) * 100))
-      : 100
-    : 0
-  const RING_C = 185.35
   const kycApproved = kycStatus?.status === 'approved'
   const phoneVerified = kycApproved || Boolean(kycStatus?.phoneVerified)
   const docVerified = kycApproved || Boolean(kycStatus?.docVerified)
@@ -283,16 +272,6 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
       .then((progress) => setRebateLevel(progress.level))
       .catch(() => setRebateLevel(null))
   }, [isLoggedIn, auth.user?.id])
-
-  useEffect(() => {
-    if (!isLoggedIn) {
-      setVip(null)
-      return
-    }
-    fetchVipProgress(activeCurrency)
-      .then(setVip)
-      .catch(() => setVip(null))
-  }, [isLoggedIn, auth.user?.id, activeCurrency])
 
   useEffect(() => {
     if (!isLoggedIn) {
@@ -374,37 +353,20 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
             <div className="relative pr-24">
               <div className="flex items-start gap-3">
                 <div className="relative flex-shrink-0">
-                  <button type="button" className="relative block" onClick={onOpenVipCenter}>
-                    {vip && (
-                      <svg className="pointer-events-none absolute -inset-1" viewBox="0 0 64 64" aria-hidden="true">
-                        <circle cx="32" cy="32" r="29.5" fill="none" stroke="rgba(255,255,255,0.35)" strokeWidth="3" />
-                        <circle
-                          cx="32" cy="32" r="29.5" fill="none"
-                          stroke="#1c1917" strokeWidth="3" strokeLinecap="round"
-                          strokeDasharray={RING_C} strokeDashoffset={RING_C * (1 - vipPct / 100)}
-                          transform="rotate(-90 32 32)"
-                        />
-                      </svg>
+                  <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-full border border-white/40 bg-white/15 text-white shadow-[0_10px_24px_rgba(0,0,0,0.22)]">
+                    {avatarUrl ? (
+                      <img
+                        src={avatarUrl}
+                        alt=""
+                        className="h-full w-full object-cover"
+                        referrerPolicy="no-referrer"
+                        onError={(e) => { e.currentTarget.style.display = 'none' }}
+                      />
+                    ) : (
+                      <User size={25} />
                     )}
-                    <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-full border border-white/40 bg-white/15 text-white shadow-[0_10px_24px_rgba(0,0,0,0.22)]">
-                      {avatarUrl ? (
-                        <img
-                          src={avatarUrl}
-                          alt=""
-                          className="h-full w-full object-cover"
-                          referrerPolicy="no-referrer"
-                          onError={(e) => { e.currentTarget.style.display = 'none' }}
-                        />
-                      ) : (
-                        <User size={25} />
-                      )}
-                    </div>
-                  </button>
-                  <button
-                    type="button"
-                    className="absolute -right-1 -top-1 rounded-full bg-zinc-900 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wide text-amber-300 shadow"
-                    onClick={onOpenVipCenter}
-                  >VIP{vip?.level ?? rebateLevel ?? 1}</button>
+                  </div>
+                  <span className="absolute -right-1 -top-1 rounded-full bg-zinc-900 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wide text-amber-300 shadow">LV{rebateLevel ?? 1}</span>
                 </div>
                 <div className="min-w-0 flex-1 pt-0.5">
                   <p className="mb-1 text-[10px] font-black uppercase tracking-wide text-black/45">{t('profile.playerAccount')}</p>
@@ -414,22 +376,6 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
                     <span className="truncate text-xs font-black text-amber-950">{USER_ID}</span>
                     {copied ? <CheckCircle2 size={12} className="flex-shrink-0 text-emerald-800" /> : <Copy size={12} className="flex-shrink-0 text-black/45" />}
                   </button>
-                  {vip && (
-                    <button type="button" className="mt-1.5 flex max-w-full items-center gap-1 transition-opacity active:opacity-80" onClick={onOpenVipCenter}>
-                      {vip.claimable > 0 ? (
-                        <span className="truncate rounded-full bg-zinc-900 px-2 py-0.5 text-[10px] font-black text-amber-300 shadow">
-                          {t('cashback.claimableLabel')} {formatCurrencyAmount(vip.currency, vip.claimable)}
-                        </span>
-                      ) : (
-                        <span className="truncate text-[10px] font-bold text-black/55">
-                          {vip.nextThreshold != null
-                            ? t('cashback.progressToNext', { remaining: formatCurrencyAmount(vip.currency, vipRemaining), level: vip.nextLevel ?? vip.level + 1 })
-                            : t('cashback.maxLevel')}
-                        </span>
-                      )}
-                      <ChevronRight size={11} className="flex-shrink-0 text-black/45" />
-                    </button>
-                  )}
                 </div>
               </div>
               {copied && <p className="mt-2 text-[10px] font-semibold text-emerald-900">{t('common.copied')}</p>}
