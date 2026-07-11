@@ -20,9 +20,11 @@ export default function ActiveTaskBar({
   const task = useActiveTaskStore((s) => s.task)
   const claiming = useActiveTaskStore((s) => s.claiming)
   const success = useActiveTaskStore((s) => s.success)
+  const advanced = useActiveTaskStore((s) => s.advanced)
   const sync = useActiveTaskStore((s) => s.sync)
   const claim = useActiveTaskStore((s) => s.claim)
   const clear = useActiveTaskStore((s) => s.clear)
+  const advance = useActiveTaskStore((s) => s.advance)
 
   // 任务条被游戏/钱包等全屏层盖住时不轮询；重新可见立即同步一次，退出游戏即可看到达标态
   const taskId = task?.id
@@ -38,11 +40,12 @@ export default function ActiveTaskBar({
     }
   }, [taskId, success, hidden, sync])
 
+  // 庆祝动画播完不收起：接力下一个未完成任务，引导用户继续（无任务可接才收起）
   useEffect(() => {
     if (!success) return
-    const timer = setTimeout(clear, SUCCESS_HOLD_MS)
+    const timer = setTimeout(() => { void advance() }, SUCCESS_HOLD_MS)
     return () => clearTimeout(timer)
-  }, [success, clear])
+  }, [success, advance])
 
   if (!task || hidden) return null
 
@@ -85,7 +88,7 @@ export default function ActiveTaskBar({
               <>
                 <div className="flex min-w-0 items-center gap-1.5">
                   <span className="flex-shrink-0 rounded-full bg-[#ffd21d]/15 px-1.5 py-0.5 text-[8px] font-black uppercase leading-none text-[#ffd21d]">
-                    {claimable ? t('tasks.bar.readyTag') : t('tasks.bar.doingTag')}
+                    {claimable ? t('tasks.bar.readyTag') : advanced ? t('tasks.bar.nextTag') : t('tasks.bar.doingTag')}
                   </span>
                   <p className="truncate text-[12.5px] font-black leading-tight text-[#fff8ea]">{cardTitle(t, task)}</p>
                 </div>

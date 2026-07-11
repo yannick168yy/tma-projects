@@ -433,6 +433,7 @@ export default {
     },
     bar: {
       doingTag: '进行中',
+      nextTag: '下一个',
       readyTag: '可领取',
       backToTasks: '任务中心',
       claimNow: '领取',

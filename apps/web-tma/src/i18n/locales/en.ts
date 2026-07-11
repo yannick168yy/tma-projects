@@ -443,6 +443,7 @@ export default {
     },
     bar: {
       doingTag: 'In progress',
+      nextTag: 'Next up',
       readyTag: 'Ready',
       backToTasks: 'Tasks',
       claimNow: 'Claim',

@@ -9,8 +9,10 @@ interface ActiveTaskState {
   task: TaskCard | null
   startedAt: number
   claiming: boolean
-  /** 领取成功 / 聚合卡达成后的庆祝态，由任务条播完动画再 clear */
+  /** 领取成功 / 聚合卡达成后的庆祝态，由任务条播完动画再 advance 接力下一个 */
   success: boolean
+  /** 刚从上一个任务接力过来（任务条显示"下一个"标签，首次轮询后复位） */
+  advanced: boolean
 }
 
 interface ActiveTaskActions {
@@ -18,6 +20,8 @@ interface ActiveTaskActions {
   clear: () => void
   sync: () => Promise<void>
   claim: () => Promise<boolean>
+  /** 庆祝动画播完后调用：接力同组优先的下一个未完成任务，无任务可接则收起 */
+  advance: () => Promise<void>
 }
 
 function findCard(cards: TaskCard[], id: string): TaskCard | undefined {
@@ -29,13 +33,14 @@ export const useActiveTaskStore = create<ActiveTaskState & ActiveTaskActions>((s
   startedAt: 0,
   claiming: false,
   success: false,
+  advanced: false,
 
   start(card) {
-    set({ task: card, startedAt: Date.now(), claiming: false, success: false })
+    set({ task: card, startedAt: Date.now(), claiming: false, success: false, advanced: false })
   },
 
   clear() {
-    set({ task: null, startedAt: 0, claiming: false, success: false })
+    set({ task: null, startedAt: 0, claiming: false, success: false, advanced: false })
   },
 
   async sync() {
@@ -51,7 +56,22 @@ export const useActiveTaskStore = create<ActiveTaskState & ActiveTaskActions>((s
 
     // 聚合卡（agg_*）没有 claim 动作，达成的唯一信号是 status=done
     if (next.status === 'done') { set({ task: next, success: true }); return }
-    set({ task: next })
+    set({ task: next }) // advanced 标签保持到任务切换（start/advance/clear），不被轮询复位
+  },
+
+  async advance() {
+    const { task } = get()
+    let center
+    try { center = await fetchTaskCenter() } catch { get().clear(); return }
+    const g = center.groups
+    const ordered = [...g.newbie, ...g.daily, ...g.achievement, ...g.social]
+    // 同组优先接力，组内顺序即展示顺序
+    const pool = task
+      ? [...ordered.filter((c) => c.group === task.group), ...ordered.filter((c) => c.group !== task.group)]
+      : ordered
+    const next = pool.find((c) => c.status !== 'done' && c.id !== task?.id)
+    if (next) set({ task: next, startedAt: Date.now(), claiming: false, success: false, advanced: true })
+    else get().clear()
   },
 
   async claim() {
