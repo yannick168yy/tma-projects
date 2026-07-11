@@ -461,8 +461,8 @@ function buildHomepageSelection(all: DbGame[], cur: string, overrides: SectionOv
 
   const selection: HomepageSelection = {
     popular:    applyManual('popular', popularMerged.slice(0, POPULAR_N), POPULAR_N),
-    // 推荐精选：竞品验证权重的次高梯队（popular 已取走的会被 seen 去重）
-    recommended: topSection('recommended', all, score, 6, 3),
+    // 推荐精选：竞品验证权重的次高梯队（popular 已取走的会被 seen 去重），首页 4 行 × 3 列
+    recommended: topSection('recommended', all, score, 12, 3),
     newGames:   sampleSection('newGames', newPool, score, 12, 4),
     slots:      sampleSection('slots', bySite('slot'), score, 6),
     // 真人：排除百家乐(ntype101)，避免与百家乐专栏重复且被同款变体屠版
@@ -476,11 +476,14 @@ function buildHomepageSelection(all: DbGame[], cur: string, overrides: SectionOv
     baccarat:   sampleSection('baccarat', all.filter((g) => g.category === '101'), score, 12),
     // 高 RTP 专栏：上游标称 rtp≥0.96，对标竞品「98%」栏
     highRtp:    sampleSection('highRtp', all.filter((g) => (g.rtp ?? 0) >= 0.96), score, 6),
-    // 体育：LuckySports 的 28 个分项(足球/拳击/…)是同一产品的不同入口，只保留 Basketball，
-    // 其余席位给独立体育产品(AFB/BTi/Panda/Saba 等)；体育投注合成条目由前端在本板块内做入口通栏
-    sports:     sampleSection('sports', bySite('sports').filter((g) =>
-      g.uuid !== WIN568_SPORTSBOOK_UUID
-      && !(g.provider === 'LuckySports' && g.name !== 'Basketball')), score, 6, 6),
+    // 体育：sportsbook 合成条目固定第一席位（前端已移除专属通栏）；LuckySports 的 28 个
+    // 分项(足球/拳击/…)是同一产品的不同入口，只保留 Basketball，其余席位给独立体育产品(AFB/BTi/Panda/Saba 等)
+    sports:     applyManual('sports', [
+      win568SportsbookGame(),
+      ...pick(exFilter('sports', bySite('sports').filter((g) =>
+        g.uuid !== WIN568_SPORTSBOOK_UUID
+        && !(g.provider === 'LuckySports' && g.name !== 'Basketball'))), score, 5, 6),
+    ], 6),
     generatedAt: new Date().toISOString(),
   }
 

@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef, useMemo, useCallback, type PointerEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
-  ChevronRight, Trophy, TrendingUp, Gamepad2, Sparkles, History, Factory,
-  Fish, Dice5, Ticket, Drama, Rocket, X, Gem, Percent,
+  Trophy, TrendingUp, Gamepad2, Sparkles, History, Factory,
+  Fish, Ticket, Drama, Rocket, X, Gem, Percent,
   Zap, Headphones, ShieldCheck, Phone, Globe, Mail,
   Send, Facebook, Instagram, Youtube, Twitter, Music2, MessageCircle,
   type LucideIcon,
@@ -38,8 +38,6 @@ const PROVIDER_ZONE = [
   { code: 'PGSoft', label: 'PG' },
   { code: 'PragmaticPlay', label: 'Pragmatic' },
 ]
-
-const WIN568_SPORTSBOOK_UUID = '568win:sportsbook'
 
 function historyToGame(item: GameHistoryItem): SlotGame {
   return {
@@ -690,34 +688,16 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
       {(gamesLoading || homepageGames.sports.length > 0) && (
         <section className="mt-6">
           {sectionHeader(<Trophy size={15} className="text-green-400" />, t('home.sportsZone'), () => onNavigatePath('/games?cat=sports'))}
-          {/* Sportsbook 体育投注入口，归属体育板块 */}
-          <div className="px-4 mb-3">
-            <button
-              type="button"
-              className="w-full flex items-center justify-between rounded-2xl px-5 py-4 active:scale-[0.98] transition-transform"
-              style={{ background: 'linear-gradient(120deg, #14532d 0%, #166534 55%, #15803d 100%)' }}
-              onClick={() => void onGameTapAction(WIN568_SPORTSBOOK_UUID)}
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center"><Dice5 size={20} className="text-white" /></div>
-                <div className="text-left">
-                  <p className="text-sm font-black text-white font-display">{t('home.sportsEntry')}</p>
-                  <p className="text-[11px] text-white/70">{t('home.sportsEntrySub')}</p>
-                </div>
-              </div>
-              <ChevronRight size={18} className="text-white/80" />
-            </button>
-          </div>
           {bigGrid(homepageGames.sports, 6)}
         </section>
       )}
 
 
-      {/* 推荐精选：有最近在玩时移到投注流上方，大卡 */}
+      {/* 推荐精选：有最近在玩时移到投注流上方，大卡 4 行 */}
       {recentGames.length > 0 && (gamesLoading || homepageGames.recommended.length > 0) && (
         <section className="mt-6">
           {sectionHeader(<Percent size={15} className="text-red-400" />, t('home.recommended'), () => onNavigatePath('/games'))}
-          {bigGrid(homepageGames.recommended, 6)}
+          {bigGrid(homepageGames.recommended.slice(0, 12), 12)}
         </section>
       )}
 
