@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ChevronRight, Crown, Gift, History, Lock, ShieldCheck } from 'lucide-react'
+import { ChevronRight, Crown, History, ShieldCheck } from 'lucide-react'
 import diamondImg from '@/assets/vip/diamond.webp'
 import giftboxImg from '@/assets/vip/giftbox.webp'
 import iconGift from '@/assets/vip/icon-gift.webp'
@@ -190,55 +190,61 @@ export default function VipPage({ initialTab = 'overview', onOpenGame, onOpenCat
           <h1 className="font-display text-lg font-black uppercase tracking-[0.1em] text-amber-300">{t('vipPage.title')}</h1>
           <img src={iconCrown} alt="" className="h-10 w-10" />
         </div>
-        <div className="relative mt-3 overflow-hidden rounded-2xl border border-amber-300/40 bg-gradient-to-br from-[#251807] via-[#0d0a06] to-[#050403] p-4 shadow-[0_0_28px_rgba(180,118,28,0.16)]">
-          <img src={diamondImg} alt="" className="pointer-events-none absolute -right-2 top-4 w-36 drop-shadow-[0_0_24px_rgba(180,140,60,0.35)]" />
+        <div className="relative mt-3 overflow-hidden rounded-2xl border border-amber-300/25 bg-[#131210] p-4">
+          <img src={diamondImg} alt="" className="pointer-events-none absolute -right-1 top-3 w-32 drop-shadow-[0_0_20px_rgba(180,140,60,0.3)]" />
           <div className="relative pr-32">
-            <div className="flex items-center gap-1.5 text-amber-100/60">
-              <Lock size={12} />
-              <span className="text-[11px] font-bold">{t('vipPage.locked')}</span>
+            <div className="flex items-center gap-1.5">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="#c9c9c7" className="flex-shrink-0">
+                <path d="M12 2a5 5 0 0 0-5 5v3H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2h-1V7a5 5 0 0 0-5-5Zm-3 8V7a3 3 0 1 1 6 0v3H9Z" />
+              </svg>
+              <span className="text-[11px] font-semibold text-[#d2d2d1]">{t('vipPage.locked')}</span>
               {nextLv != null && (
-                <svg width="110" height="34" viewBox="0 0 110 34" className="ml-1 overflow-visible">
+                <svg width="116" height="34" viewBox="0 0 116 34" className="ml-1 overflow-visible">
                   <defs>
                     <linearGradient id="vipArcLine" x1="0" y1="1" x2="1" y2="0">
-                      <stop offset="0%" stopColor="rgba(255,255,255,0.15)" />
-                      <stop offset="100%" stopColor="rgba(252,211,77,0.9)" />
+                      <stop offset="0%" stopColor="rgba(255,255,255,0.1)" />
+                      <stop offset="100%" stopColor="rgba(255,255,255,0.9)" />
                     </linearGradient>
+                    <radialGradient id="vipStarGlow">
+                      <stop offset="0%" stopColor="rgba(255,255,255,0.85)" />
+                      <stop offset="100%" stopColor="rgba(255,255,255,0)" />
+                    </radialGradient>
                   </defs>
-                  <path d="M8 18 Q 58 0 102 8" stroke="url(#vipArcLine)" strokeWidth="1.5" fill="none" />
-                  <circle cx="8" cy="18" r="2.5" fill="rgba(255,255,255,0.55)" />
-                  <circle cx="102" cy="8" r="5.5" fill="rgba(252,211,77,0.25)" />
-                  <circle cx="102" cy="8" r="3" fill="#fcd34d" />
-                  <text x="8" y="31" textAnchor="middle" fill="rgba(255,255,255,0.75)" fontSize="10" fontWeight="700">Lv{vipLevel}</text>
-                  <text x="102" y="24" textAnchor="middle" fill="#fde68a" fontSize="10" fontWeight="700">Lv{nextLv}</text>
+                  <path d="M8 19 Q 58 1 104 8" stroke="url(#vipArcLine)" strokeWidth="1.4" fill="none" />
+                  <circle cx="8" cy="19" r="2.4" fill="rgba(255,255,255,0.75)" />
+                  <circle cx="104" cy="8" r="9" fill="url(#vipStarGlow)" />
+                  <path d="M104 1.5 L105.7 6.3 L110.5 8 L105.7 9.7 L104 14.5 L102.3 9.7 L97.5 8 L102.3 6.3 Z" fill="#ffffff" />
+                  <text x="8" y="32" textAnchor="middle" fill="#ddddda" fontSize="10" fontWeight="600">Lv{vipLevel}</text>
+                  <text x="104" y="27" textAnchor="middle" fill="#ffffff" fontSize="10" fontWeight="600">Lv{nextLv}</text>
                 </svg>
               )}
             </div>
-            <div className="mt-1 flex items-end gap-2">
-              <h2 className="font-display text-5xl font-black leading-none text-amber-100">VIP{vipLevel}</h2>
-              {vip?.demoted && <span className="mb-1 rounded-full border border-rose-300/35 px-2 py-0.5 text-[10px] font-black text-rose-200">{t('cashback.vipDemoted')}</span>}
+            <div className="mt-1.5 flex items-end gap-2">
+              <h2 className="text-[34px] font-normal leading-none text-white">VIP{vipLevel}</h2>
+              {vip?.demoted && <span className="mb-1 rounded-full border border-rose-300/35 px-2 py-0.5 text-[10px] font-bold text-rose-200">{t('cashback.vipDemoted')}</span>}
             </div>
           </div>
-          <div className="relative mt-4 grid grid-cols-[1fr_1.2fr] gap-2 pr-14">
+          <div className="relative mt-3.5 grid grid-cols-[1fr_1.2fr] gap-2 pr-14">
             <div className="min-w-0">
-              <p className="text-[11px] font-bold text-amber-100/50">{t('vipPage.growthValue')}</p>
-              <p className="mt-1 truncate text-lg font-black text-amber-300">{amtStr(currency, totalTurnover)}</p>
+              <p className="text-[10px] font-medium text-[#c9c9c5]">{t('vipPage.growthValue')}</p>
+              <p className="mt-1 truncate text-[15px] font-bold text-[#ffe082]">{amtStr(currency, totalTurnover)}</p>
             </div>
             <button type="button" onClick={() => setActiveTab('benefits')} className="min-w-0 text-left">
-              <p className="text-[11px] font-bold text-amber-100/50">{nextThreshold != null ? t('vipPage.toNextLevel') : t('cashback.maxLevel')}</p>
-              <p className="mt-1 flex items-center gap-0.5 truncate text-lg font-black text-amber-300">
+              <p className="text-[10px] font-medium text-[#c9c9c5]">{nextThreshold != null ? t('vipPage.toNextLevel') : t('cashback.maxLevel')}</p>
+              <p className="mt-1 flex items-center gap-0.5 truncate text-[15px] font-bold text-[#e8bf4e]">
                 {nextThreshold != null ? amtStr(currency, remaining) : 'MAX'}
-                <ChevronRight size={16} className="flex-shrink-0 text-amber-300/80" />
+                <ChevronRight size={14} className="flex-shrink-0 text-[#e8bf4e]/80" />
               </p>
             </button>
           </div>
-          <div className="relative mt-4 flex items-center gap-3">
-            <div className="h-2 flex-1 overflow-hidden rounded-full bg-white/10">
-              <div className="h-full rounded-full bg-gradient-to-r from-amber-300 to-yellow-500 transition-all" style={{ width: `${progressPct}%` }} />
+          <div className="relative mt-3.5 flex items-center gap-3">
+            <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/10">
+              <div className="h-full rounded-full bg-gradient-to-r from-[#e9c97e] to-[#cfa044] transition-all" style={{ width: `${progressPct}%` }} />
             </div>
             <button
               type="button"
               onClick={() => setActiveTab('benefits')}
-              className="flex-shrink-0 rounded-lg bg-gradient-to-b from-amber-300 to-yellow-500 px-3.5 py-1.5 text-xs font-black text-[#241604] active:scale-95"
+              className="flex-shrink-0 rounded-lg bg-gradient-to-b from-[#e9c97e] to-[#cfa044] px-3 py-1.5 text-[11px] font-bold text-[#3a2a0d] active:scale-95"
             >
               {t('vipPage.upgradeGuide')}
             </button>
@@ -248,9 +254,9 @@ export default function VipPage({ initialTab = 'overview', onOpenGame, onOpenCat
           type="button"
           disabled={claimingVip || !token || !vip || vip.claimable <= 0}
           onClick={() => void onClaimVip()}
-          className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-b from-amber-200 via-amber-300 to-yellow-600 px-4 py-3.5 text-base font-black text-[#241604] shadow-[0_4px_18px_rgba(245,158,11,0.4)] disabled:opacity-45"
+          className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-b from-[#e9c97e] to-[#cfa044] px-4 py-2.5 text-sm font-bold text-[#3a2a0d] shadow-[0_3px_14px_rgba(210,166,68,0.3)] disabled:opacity-45"
         >
-          <Gift size={18} />
+          <GiftSolid size={17} />
           {claimingVip ? t('cashback.claiming') : t('vipPage.claimVip')}
         </button>
       </section>
@@ -260,13 +266,13 @@ export default function VipPage({ initialTab = 'overview', onOpenGame, onOpenCat
   function renderTabs() {
     return (
       <div className="sticky top-0 z-10 bg-[#050403]/92 px-4 py-3 backdrop-blur">
-        <div className="grid grid-cols-4 rounded-2xl border border-amber-300/18 bg-[#0c0905]/80 p-1">
+        <div className="grid grid-cols-4 rounded-2xl bg-[#141412] p-1">
           {VIP_TABS.map((tab) => (
             <button
               key={tab}
               type="button"
               onClick={() => setActiveTab(tab)}
-              className={`rounded-xl px-1 py-2 text-[11px] font-black transition-colors ${activeTab === tab ? 'bg-gradient-to-b from-amber-200 to-yellow-500 text-[#241604] shadow-[0_2px_10px_rgba(245,158,11,0.35)]' : 'text-amber-100/58'}`}
+              className={`rounded-xl px-1 py-2 text-[11px] transition-colors ${activeTab === tab ? 'bg-gradient-to-b from-[#e9c97e] to-[#cfa044] font-bold text-[#3a2a0d]' : 'font-semibold text-[#d5d5d1]'}`}
             >
               {t(`vipPage.tabs.${tab}`)}
             </button>
@@ -283,23 +289,23 @@ export default function VipPage({ initialTab = 'overview', onOpenGame, onOpenCat
           role="button"
           tabIndex={0}
           onClick={() => void onClaimVip()}
-          className="rounded-2xl border border-amber-300/22 bg-[#0c0905]/76 p-4"
+          className="rounded-2xl border border-white/5 bg-[#161512] p-4"
         >
-          <div className="flex items-center gap-3">
-            <img src={iconGift} alt="" className="h-12 w-12 flex-shrink-0" />
+          <div className="flex items-center gap-2.5">
+            <img src={iconGift} alt="" className="h-10 w-10 flex-shrink-0" />
             <div className="min-w-0 flex-1">
-              <h2 className="truncate text-sm font-black text-amber-50">{t('vipPage.pendingRewards')}</h2>
-              <p className="mt-1 truncate text-xs text-amber-100/45">{t('cashback.vipEmpty')}</p>
+              <h2 className="truncate text-sm font-semibold text-white">{t('vipPage.pendingRewards')}</h2>
+              <p className="mt-1 truncate text-[11px] text-[#c9c9c5]">{t('cashback.vipEmpty')}</p>
             </div>
-            <img src={giftboxImg} alt="" className="w-14 flex-shrink-0" />
-            <ChevronRight size={18} className="flex-shrink-0 text-amber-300/70" />
+            <img src={giftboxImg} alt="" className="w-12 flex-shrink-0" />
+            <ChevronRight size={16} className="flex-shrink-0 text-[#c9c9c5]" />
           </div>
           {vip && vip.claimableByType.length > 0 && (
             <div className="mt-3 space-y-2 border-t border-amber-300/12 pt-3">
               {vip.claimableByType.map((it) => (
                 <div key={it.type} className="flex items-center justify-between text-xs">
-                  <span className="text-amber-50/70">{t(VIP_TYPE_KEY[it.type] ?? 'cashback.vipTitle')}</span>
-                  <span className="font-semibold text-amber-300">+{amtStr(currency, it.amount)}</span>
+                  <span className="text-[#c9c9c5]">{t(VIP_TYPE_KEY[it.type] ?? 'cashback.vipTitle')}</span>
+                  <span className="font-semibold text-[#f0b429]">+{amtStr(currency, it.amount)}</span>
                 </div>
               ))}
             </div>
@@ -307,39 +313,39 @@ export default function VipPage({ initialTab = 'overview', onOpenGame, onOpenCat
         </section>
 
         <section className="grid grid-cols-2 gap-3">
-          <button type="button" onClick={() => setActiveTab('cashback')} className="flex items-center justify-between gap-2 rounded-2xl border border-amber-300/22 bg-[#0c0905]/76 p-4 text-left">
+          <button type="button" onClick={() => setActiveTab('cashback')} className="flex items-center justify-between gap-2 rounded-2xl border border-white/5 bg-[#161512] p-4 text-left">
             <div className="min-w-0">
-              <p className="truncate text-[13px] font-black text-amber-50">{t('category.cashback')}</p>
-              <p className="mt-1.5 truncate text-sm font-black text-amber-300">{amtStr(currency, token ? (progress?.claimable ?? 0) : 0)}</p>
+              <p className="truncate text-[13px] font-semibold text-white">{t('category.cashback')}</p>
+              <p className="mt-1.5 truncate text-sm font-bold text-[#f0b429]">{amtStr(currency, token ? (progress?.claimable ?? 0) : 0)}</p>
             </div>
             <img src={iconRebate} alt="" className="h-11 w-11 flex-shrink-0" />
           </button>
-          <button type="button" onClick={() => setActiveTab('benefits')} className="flex items-center justify-between gap-2 rounded-2xl border border-amber-300/22 bg-[#0c0905]/76 p-4 text-left">
+          <button type="button" onClick={() => setActiveTab('benefits')} className="flex items-center justify-between gap-2 rounded-2xl border border-white/5 bg-[#161512] p-4 text-left">
             <div className="min-w-0">
-              <p className="truncate text-[13px] font-black text-amber-50">{t('vipPage.benefits')}</p>
-              <p className="mt-1.5 text-sm font-black text-amber-300">VIP{vipLevel}</p>
+              <p className="truncate text-[13px] font-semibold text-white">{t('vipPage.benefits')}</p>
+              <p className="mt-1.5 text-sm font-bold text-[#f0b429]">VIP{vipLevel}</p>
             </div>
             <img src={iconCrown} alt="" className="h-11 w-11 flex-shrink-0" />
           </button>
         </section>
 
-        <section className="rounded-2xl border border-amber-300/22 bg-[#0c0905]/76 p-4">
-          <h2 className="text-sm font-black text-amber-50">{t('vipPage.currentBenefits')}</h2>
+        <section className="rounded-2xl border border-white/5 bg-[#161512] p-4">
+          <h2 className="text-sm font-semibold text-white">{t('vipPage.currentBenefits')}</h2>
           <div className="mt-4 grid grid-cols-2 gap-x-2 gap-y-4">
             <BenefitItem icon={iconLoss} label={t('cashback.vipNegativeRebate')} value={`${vip?.benefit?.negativeRebatePct ?? currentLevel?.negativeRebatePct ?? 0}%`} />
             <BenefitItem icon={iconWeekly} label={t('cashback.vipWeekly')} value={amtStr(currency, vip?.benefit?.weeklySalary ?? currentLevel?.weeklySalary ?? 0)} />
             <BenefitItem icon={iconMonthly} label={t('cashback.vipMonthly')} value={amtStr(currency, vip?.benefit?.monthlySalary ?? currentLevel?.monthlySalary ?? 0)} />
             <BenefitItem icon={iconBday} label={t('cashback.vipBirthday')} value={amtStr(currency, vip?.benefit?.birthdayBonus ?? currentLevel?.birthdayBonus ?? 0)} />
           </div>
-          {vip?.retentionLine && vip.retentionLine > 0 && (
-            <p className="mt-4 text-[11px] text-amber-100/55">{t('cashback.vipRetention', { have: amtStr(currency, vip.quarterTurnover), need: amtStr(currency, vip.retentionLine) })}</p>
+          {vip != null && vip.retentionLine > 0 && (
+            <p className="mt-4 text-[11px] text-[#c9c9c5]">{t('cashback.vipRetention', { have: amtStr(currency, vip.quarterTurnover), need: amtStr(currency, vip.retentionLine) })}</p>
           )}
-          {vip?.prioritySupport && <p className="mt-2 text-[11px] font-bold text-amber-300">{t('cashback.vipPrioritySupport')}</p>}
+          {vip?.prioritySupport && <p className="mt-2 text-[11px] font-bold text-[#f0b429]">{t('cashback.vipPrioritySupport')}</p>}
         </section>
 
         {nextLevel && (
-          <section className="rounded-2xl border border-amber-300/22 bg-[#0c0905]/76 p-4">
-            <h2 className="text-sm font-black text-amber-50">{t('vipPage.nextUnlock', { level: nextLevel.level })}</h2>
+          <section className="rounded-2xl border border-white/5 bg-[#161512] p-4">
+            <h2 className="text-sm font-semibold text-white">{t('vipPage.nextUnlock', { level: nextLevel.level })}</h2>
             <div className="mt-4 grid grid-cols-2 gap-x-2 gap-y-4">
               <BenefitItem icon={iconLevelup} label={t('cashback.vipPromotion')} value={amtStr(currency, nextLevel.promotionBonus)} />
               <BenefitItem icon={iconPercent} label={t('cashback.vipNegativeRebate')} value={`${nextLevel.negativeRebatePct}%`} />
@@ -348,18 +354,18 @@ export default function VipPage({ initialTab = 'overview', onOpenGame, onOpenCat
         )}
 
         {token && vip && (
-          <section className="rounded-2xl border border-amber-300/22 bg-[#0c0905]/76 p-4">
-            <h2 className="text-sm font-black text-amber-50">{t('vipPage.birthdayTitle')}</h2>
+          <section className="rounded-2xl border border-white/5 bg-[#161512] p-4">
+            <h2 className="text-sm font-semibold text-white">{t('vipPage.birthdayTitle')}</h2>
             {vip.birthdaySet ? (
-              <p className="mt-2 text-xs text-amber-100/55">{t('cashback.vipBirthdaySet')}</p>
+              <p className="mt-2 text-xs text-[#c9c9c5]">{t('cashback.vipBirthdaySet')}</p>
             ) : (
               <div className="mt-3 flex items-center gap-3">
                 <img src={iconCake} alt="" className="h-10 w-10 flex-shrink-0" />
-                <p className="min-w-0 flex-1 text-xs leading-snug text-amber-100/55">{t('cashback.vipBirthdayKyc')}</p>
+                <p className="min-w-0 flex-1 text-xs leading-snug text-[#c9c9c5]">{t('cashback.vipBirthdayKyc')}</p>
                 <button
                   type="button"
                   onClick={() => onOpenKycSetting?.()}
-                  className="flex-shrink-0 rounded-lg bg-gradient-to-b from-amber-300 to-yellow-500 px-4 py-2.5 text-xs font-black text-[#2a1a05] active:scale-95"
+                  className="flex-shrink-0 rounded-lg bg-gradient-to-b from-[#e9c97e] to-[#cfa044] px-4 py-2 text-xs font-bold text-[#3a2a0d] active:scale-95"
                 >
                   {t('cashback.vipBirthdayKycBtn')}
                 </button>
@@ -368,7 +374,7 @@ export default function VipPage({ initialTab = 'overview', onOpenGame, onOpenCat
           </section>
         )}
 
-        <p className="flex items-center justify-center gap-1.5 pt-1 text-[11px] text-amber-100/40">
+        <p className="flex items-center justify-center gap-1.5 pt-1 text-[11px] text-[#9a9a96]">
           <ShieldCheck size={13} className="text-amber-300/50" />
           {t('vipPage.disclaimer')}
         </p>
@@ -548,8 +554,8 @@ export default function VipPage({ initialTab = 'overview', onOpenGame, onOpenCat
     const sortedLevels = levels.length ? levels : currentLevel ? [currentLevel] : []
     return (
       <div className="px-4 pb-8">
-        <section className="rounded-2xl border border-amber-300/22 bg-[#0c0905]/76 p-4">
-          <h2 className="text-sm font-black text-amber-50">{t('vipPage.levelBenefits')}</h2>
+        <section className="rounded-2xl border border-white/5 bg-[#161512] p-4">
+          <h2 className="text-sm font-semibold text-white">{t('vipPage.levelBenefits')}</h2>
           <div className="mt-3 flex snap-x snap-mandatory gap-3 overflow-x-auto pb-1 hide-scrollbar">
             {sortedLevels.map((lv) => {
               const isCurrent = lv.level === vipLevel
@@ -583,10 +589,10 @@ export default function VipPage({ initialTab = 'overview', onOpenGame, onOpenCat
   function renderRecords() {
     return (
       <div className="px-4 pb-8">
-        <section className="rounded-2xl border border-amber-300/22 bg-[#0c0905]/76 p-4">
+        <section className="rounded-2xl border border-white/5 bg-[#161512] p-4">
           <div className="mb-3 flex items-center gap-2">
             <History size={17} className="text-amber-300" />
-            <h2 className="text-sm font-black text-amber-50">{t('vipPage.recordsTitle')}</h2>
+            <h2 className="text-sm font-semibold text-white">{t('vipPage.recordsTitle')}</h2>
           </div>
           {!token ? (
             <p className="text-xs text-amber-100/45">{t('auth.signInProfile')}</p>
@@ -625,13 +631,23 @@ export default function VipPage({ initialTab = 'overview', onOpenGame, onOpenCat
   )
 }
 
+function GiftSolid({ size = 16 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="#3a2a0d">
+      <path d="M12 7c-2.1 0-4.4-1-4.4-2.8C7.6 2.9 8.8 2 10.1 2c.8 0 1.5.4 1.9 1.1.4-.7 1.1-1.1 1.9-1.1 1.3 0 2.5.9 2.5 2.2C16.4 6 14.1 7 12 7Z" />
+      <path d="M3 9.4C3 8.6 3.7 8 4.5 8H11v3.5H3V9.4ZM13 11.5V8h6.5c.8 0 1.5.6 1.5 1.4v2.1h-8Z" />
+      <path d="M4 13h7v8H6a2 2 0 0 1-2-2v-6ZM13 21v-8h7v6a2 2 0 0 1-2 2h-5Z" />
+    </svg>
+  )
+}
+
 function BenefitItem({ icon, label, value }: { icon: string; label: string; value: string }) {
   return (
     <div className="flex items-center gap-2.5">
       <img src={icon} alt="" className="h-11 w-11 flex-shrink-0" />
       <div className="min-w-0">
-        <p className="truncate text-[11px] font-bold text-amber-100/50">{label}</p>
-        <p className="mt-0.5 truncate text-sm font-black text-amber-300">{value}</p>
+        <p className="truncate text-[11px] font-medium text-[#c9c9c5]">{label}</p>
+        <p className="mt-0.5 truncate text-sm font-bold text-[#f0b429]">{value}</p>
       </div>
     </div>
   )

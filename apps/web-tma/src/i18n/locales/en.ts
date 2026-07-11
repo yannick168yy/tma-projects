@@ -590,8 +590,8 @@ export default {
     vipPrioritySupport: 'Priority VIP support',
     vipRetention: 'Keep VIP: {{have}} / {{need}} this quarter',
     vipDemoted: 'Level dropped — stay active to climb back',
-    vipBirthdaySet: '🎂 Birthday synced from your verified ID',
-    vipBirthdayKyc: '🎂 Verify your identity (KYC) — your ID birthday unlocks the gift automatically',
+    vipBirthdaySet: 'Birthday synced from your verified ID',
+    vipBirthdayKyc: 'Verify your identity (KYC) — your ID birthday unlocks the gift automatically',
     vipBirthdayKycBtn: 'Verify Now',
   },
   vipPage: {

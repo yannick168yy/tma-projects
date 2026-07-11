@@ -580,8 +580,8 @@ export default {
     vipPrioritySupport: '专属 VIP 客服',
     vipRetention: '本季保级：{{have}} / {{need}}',
     vipDemoted: '已降级 — 保持活跃可回升',
-    vipBirthdaySet: '🎂 生日已从实名证件同步',
-    vipBirthdayKyc: '🎂 完成实名认证，证件生日将自动同步并解锁礼金',
+    vipBirthdaySet: '生日已从实名证件同步',
+    vipBirthdayKyc: '完成实名认证，证件生日将自动同步并解锁礼金',
     vipBirthdayKycBtn: '去认证',
   },
   vipPage: {
