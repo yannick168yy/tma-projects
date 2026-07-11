@@ -285,7 +285,7 @@ export default function TaskFloatBall({ onNavigatePath }: TaskFloatBallProps) {
         >
           <img src={taskWidgetImg} alt="" draggable={false} className="h-24 w-24 object-contain drop-shadow-[0_8px_20px_rgba(0,0,0,0.45)]" />
           {!expanded && pending > 0 && (
-            <span className="absolute right-0 top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[11px] font-black text-white shadow-[0_2px_6px_rgba(0,0,0,0.4)]">
+            <span className="absolute right-0 top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[11px] font-black text-primary-foreground shadow-[0_2px_6px_rgba(0,0,0,0.4)]">
               {pending}
             </span>
           )}
@@ -297,16 +297,11 @@ export default function TaskFloatBall({ onNavigatePath }: TaskFloatBallProps) {
       <button
         type="button"
         className={`fixed z-[31] duration-300 ease-out transition-all active:scale-95 ${docked ? 'translate-x-0 opacity-100' : 'pointer-events-none translate-x-full opacity-0'}`}
-        style={{ right: frameRight, top: dockTop, height: 120 }}
+        style={{ right: frameRight, top: dockTop, height: 60 }}
         onClick={undock}
         aria-label={t('tasks.ball.label')}
       >
         <img src={edgeTabImg} alt="" draggable={false} className="h-full w-auto drop-shadow-[0_6px_16px_rgba(0,0,0,0.45)]" />
-        {pending > 0 && (
-          <span className="absolute -left-1 top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[11px] font-black text-white shadow-[0_2px_6px_rgba(0,0,0,0.4)]">
-            {pending}
-          </span>
-        )}
       </button>
     </>
   )
