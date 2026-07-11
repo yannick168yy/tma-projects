@@ -47,36 +47,6 @@ function fingerprint(ctx: import('koa').Context): { deviceId?: string; fpVisitor
   return { deviceId, fpVisitor, fpSignals }
 }
 
-// ── 注册防刷 ─────────────────────────────────────────────────────────────────
-// 同 IP 每小时/每天、同设备每天的注册数上限；只统计注册成功的请求
-const REG_IP_HOUR_LIMIT = 3
-const REG_IP_DAY_LIMIT = 5
-const REG_DEVICE_DAY_LIMIT = 3
-
-type RedisLike = import('ioredis').Redis
-
-async function registerThrottled(redis: RedisLike, ip: string, deviceId?: string): Promise<boolean> {
-  const [ipHour, ipDay, devDay] = await Promise.all([
-    redis.get(`auth:reg:ip:h:${ip}`),
-    redis.get(`auth:reg:ip:d:${ip}`),
-    deviceId ? redis.get(`auth:reg:dev:d:${deviceId}`) : Promise.resolve(null),
-  ])
-  return Number(ipHour) >= REG_IP_HOUR_LIMIT
-    || Number(ipDay) >= REG_IP_DAY_LIMIT
-    || Number(devDay) >= REG_DEVICE_DAY_LIMIT
-}
-
-async function bumpRegisterCounter(redis: RedisLike, key: string, ttlSec: number): Promise<void> {
-  const n = await redis.incr(key)
-  if (n === 1) await redis.expire(key, ttlSec)
-}
-
-function recordRegisterSuccess(redis: RedisLike, ip: string, deviceId?: string): void {
-  void bumpRegisterCounter(redis, `auth:reg:ip:h:${ip}`, 3600).catch(() => {})
-  void bumpRegisterCounter(redis, `auth:reg:ip:d:${ip}`, 86400).catch(() => {})
-  if (deviceId) void bumpRegisterCounter(redis, `auth:reg:dev:d:${deviceId}`, 86400).catch(() => {})
-}
-
 // Cloudflare Turnstile 服务端校验。密钥未配置时不启用；校验失败/网络异常一律拒绝
 async function verifyTurnstile(secret: string, token: string | undefined, ip: string): Promise<boolean> {
   if (!token) return false
@@ -247,14 +217,9 @@ router.post('/register', async (ctx) => {
     return
   }
   const regIp = cleanIp(ctx.ip)
-  const regDeviceId = ctx.get('x-device-id') || undefined
   if (ctx.state.env.TURNSTILE_SECRET_KEY
     && !(await verifyTurnstile(ctx.state.env.TURNSTILE_SECRET_KEY, body.turnstileToken, regIp))) {
     fail(ctx, 403, 'errors.captchaFailed', 403)
-    return
-  }
-  if (await registerThrottled(ctx.state.redis, regIp, regDeviceId)) {
-    fail(ctx, 429, 'errors.tooManyAttempts', 429)
     return
   }
   try {
@@ -273,7 +238,6 @@ router.post('/register', async (ctx) => {
       trialRedPacketEligible: result.trialRedPacketEligible,
       user: await toAuthUser(ctx.state.redis, result.user),
     })
-    recordRegisterSuccess(ctx.state.redis, regIp, regDeviceId)
     attributeAgent(ctx, result.isNewUser, result.user.id)
     recordUserLogin(ctx.state.redis, result.user.id, {
       ip,
