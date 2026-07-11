@@ -32,13 +32,13 @@ const CATEGORY_ICONS: Record<string, string> = {
 const CATEGORY_ORDER = ['slots', 'live', 'sports', 'fishing', 'poker', 'bingo', 'pinoy', 'table', 'crash', 'other']
 const VIP_TABS: VipTab[] = ['overview', 'cashback', 'benefits', 'records']
 const VIP_GLASS_STYLE: CSSProperties = {
-  background: 'linear-gradient(180deg, rgba(22, 21, 18, 0.96), rgba(22, 21, 18, 0.96)) padding-box, linear-gradient(128deg, rgba(255, 222, 134, 0.62) 0%, rgba(197, 144, 42, 0.2) 24%, rgba(93, 63, 20, 0.14) 48%, rgba(246, 196, 86, 0.5) 72%, rgba(68, 45, 14, 0.16) 100%) border-box',
+  background: 'linear-gradient(180deg, rgba(13, 13, 12, 0.97), rgba(8, 8, 7, 0.98)) padding-box, linear-gradient(128deg, rgba(255, 222, 134, 0.42) 0%, rgba(197, 144, 42, 0.12) 24%, rgba(60, 43, 17, 0.08) 48%, rgba(246, 196, 86, 0.32) 72%, rgba(44, 31, 12, 0.1) 100%) border-box',
   borderColor: 'transparent',
   boxShadow: '0 10px 26px rgba(0, 0, 0, 0.24)',
   backdropFilter: 'blur(8px)',
 }
 const VIP_INNER_GLASS_STYLE: CSSProperties = {
-  background: 'linear-gradient(180deg, rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.2)) padding-box, linear-gradient(128deg, rgba(255, 222, 134, 0.4) 0%, rgba(190, 143, 49, 0.14) 30%, rgba(77, 52, 17, 0.1) 58%, rgba(232, 181, 73, 0.32) 78%, rgba(52, 35, 12, 0.12) 100%) border-box',
+  background: 'linear-gradient(180deg, rgba(3, 3, 3, 0.34), rgba(0, 0, 0, 0.44)) padding-box, linear-gradient(128deg, rgba(255, 222, 134, 0.24) 0%, rgba(190, 143, 49, 0.08) 30%, rgba(50, 35, 13, 0.06) 58%, rgba(232, 181, 73, 0.18) 78%, rgba(30, 22, 10, 0.08) 100%) border-box',
   borderColor: 'transparent',
   boxShadow: 'none',
 }
