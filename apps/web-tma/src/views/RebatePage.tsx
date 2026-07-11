@@ -34,7 +34,7 @@ function catKeyOf(cat: string) {
   return `cashback.category${cat.charAt(0).toUpperCase() + cat.slice(1)}`
 }
 
-const ORANGE = '#fb8c3c'
+const BLUE = '#5db8f8'
 
 const REDUCED_MOTION = typeof window !== 'undefined'
   && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
@@ -64,9 +64,9 @@ function useCountUp(target: number, duration = 800) {
 function RateIcon() {
   return (
     <svg viewBox="0 0 48 48" className="w-11 h-11" fill="none">
-      <circle className="rb-breathe" cx="24" cy="24" r="21" stroke={ORANGE} strokeOpacity="0.4" strokeWidth="2" />
-      <circle cx="24" cy="24" r="16.5" stroke={ORANGE} strokeWidth="2.5" />
-      <text x="24" y="29" textAnchor="middle" fill={ORANGE} fontSize="13" fontWeight="900" fontFamily="inherit">2%</text>
+      <circle className="rb-breathe" cx="24" cy="24" r="21" stroke={BLUE} strokeOpacity="0.4" strokeWidth="2" />
+      <circle cx="24" cy="24" r="16.5" stroke={BLUE} strokeWidth="2.5" />
+      <text x="24" y="29" textAnchor="middle" fill={BLUE} fontSize="13" fontWeight="900" fontFamily="inherit">2%</text>
     </svg>
   )
 }
@@ -74,14 +74,14 @@ function RateIcon() {
 function DailyIcon() {
   return (
     <svg viewBox="0 0 48 48" className="w-11 h-11" fill="none">
-      <rect x="7" y="10" width="34" height="31" rx="6" fill={ORANGE} fillOpacity="0.18" stroke={ORANGE} strokeWidth="2.5" />
-      <path d="M7 19h34" stroke={ORANGE} strokeWidth="2.5" />
-      <path d="M15 6v7M33 6v7" stroke={ORANGE} strokeWidth="2.5" strokeLinecap="round" />
-      <circle cx="15" cy="26" r="1.8" fill={ORANGE} />
-      <circle cx="22" cy="26" r="1.8" fill={ORANGE} />
-      <circle cx="29" cy="26" r="1.8" fill={ORANGE} />
-      <circle cx="15" cy="33" r="1.8" fill={ORANGE} />
-      <path d="M25 33.5l3.2 3.2 5.8-6" stroke={ORANGE} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+      <rect x="7" y="10" width="34" height="31" rx="6" fill={BLUE} fillOpacity="0.18" stroke={BLUE} strokeWidth="2.5" />
+      <path d="M7 19h34" stroke={BLUE} strokeWidth="2.5" />
+      <path d="M15 6v7M33 6v7" stroke={BLUE} strokeWidth="2.5" strokeLinecap="round" />
+      <circle cx="15" cy="26" r="1.8" fill={BLUE} />
+      <circle cx="22" cy="26" r="1.8" fill={BLUE} />
+      <circle cx="29" cy="26" r="1.8" fill={BLUE} />
+      <circle cx="15" cy="33" r="1.8" fill={BLUE} />
+      <path d="M25 33.5l3.2 3.2 5.8-6" stroke={BLUE} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   )
 }
@@ -90,10 +90,10 @@ function EveryIcon() {
   return (
     <svg viewBox="0 0 48 48" className="w-11 h-11" fill="none">
       <g className="rb-spin-burst" style={{ transformOrigin: '24px 24px' }}>
-        <path d="M10 20a15 15 0 0 1 26.5-5.5" stroke={ORANGE} strokeWidth="2.5" strokeLinecap="round" />
-        <path d="M37 6.5v8.5h-8.5" stroke={ORANGE} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-        <path d="M38 28a15 15 0 0 1-26.5 5.5" stroke={ORANGE} strokeWidth="2.5" strokeLinecap="round" />
-        <path d="M11 41.5V33h8.5" stroke={ORANGE} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M10 20a15 15 0 0 1 26.5-5.5" stroke={BLUE} strokeWidth="2.5" strokeLinecap="round" />
+        <path d="M37 6.5v8.5h-8.5" stroke={BLUE} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M38 28a15 15 0 0 1-26.5 5.5" stroke={BLUE} strokeWidth="2.5" strokeLinecap="round" />
+        <path d="M11 41.5V33h8.5" stroke={BLUE} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
       </g>
       <text x="24" y="29.5" textAnchor="middle" fill="#f6c453" fontSize="16" fontWeight="900" fontFamily="inherit">₱</text>
     </svg>
@@ -120,7 +120,7 @@ function RebateFooter({ onGoBet }: { onGoBet: () => void }) {
       <div className="mt-3 space-y-2">
         {steps.map((step, i) => (
           <div key={step.title} className="flex items-center gap-3 rounded-xl bg-[#1a0e33]/75 border border-violet-400/20 px-3 py-2.5">
-            <span className="flex h-[26px] w-[26px] flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-b from-[#fda75c] to-[#f4791f] text-[13px] font-black text-[#4a1b0c]">
+            <span className="flex h-[26px] w-[26px] flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-b from-[#7cc8ff] to-[#2e9bf0] text-[13px] font-black text-[#06283f]">
               {i + 1}
             </span>
             <span className="min-w-0">
@@ -143,7 +143,7 @@ function RebateFooter({ onGoBet }: { onGoBet: () => void }) {
                 className="w-full flex items-center justify-between gap-3 px-3.5 py-3 text-left active:opacity-80"
               >
                 <span className="text-[13px] font-bold text-violet-50">{faq.q}</span>
-                <svg viewBox="0 0 16 16" className={`w-3.5 h-3.5 flex-shrink-0 text-[#ffa257] transition-transform ${open ? 'rotate-180' : ''}`} fill="none">
+                <svg viewBox="0 0 16 16" className={`w-3.5 h-3.5 flex-shrink-0 text-[#5ec3ff] transition-transform ${open ? 'rotate-180' : ''}`} fill="none">
                   <path d="M3 6l5 5 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               </button>
@@ -159,7 +159,7 @@ function RebateFooter({ onGoBet }: { onGoBet: () => void }) {
       <ul className="mt-3 space-y-1.5 rounded-xl bg-[#1a0e33]/75 border border-violet-400/20 px-3.5 py-3">
         {notes.map((note) => (
           <li key={note} className="flex gap-2 text-[11px] leading-snug text-violet-200/60">
-            <span className="mt-[5px] h-[4px] w-[4px] flex-shrink-0 rounded-full bg-[#fb8c3c]/80" />
+            <span className="mt-[5px] h-[4px] w-[4px] flex-shrink-0 rounded-full bg-[#38a8f8]/80" />
             {note}
           </li>
         ))}
@@ -168,7 +168,7 @@ function RebateFooter({ onGoBet }: { onGoBet: () => void }) {
       <button
         type="button"
         onClick={onGoBet}
-        className="rb-shine mt-6 w-full bg-gradient-to-b from-[#fda75c] to-[#f4791f] text-[#4a1b0c] font-black text-base rounded-full py-3.5 shadow-[0_4px_18px_rgba(244,121,31,0.4)] active:opacity-80 transition"
+        className="rb-shine mt-6 w-full bg-gradient-to-b from-[#7cc8ff] to-[#2e9bf0] text-[#06283f] font-black text-base rounded-full py-3.5 shadow-[0_4px_18px_rgba(46,155,240,0.4)] active:opacity-80 transition"
       >
         {t('cashback.goBet')}
       </button>
@@ -293,7 +293,7 @@ export default function RebatePage({ onOpenGame, onOpenCategory }: Props) {
       <div style={{ background: 'linear-gradient(180deg,#26174c 0%,#1c0e38 40%,#150c28 72%,#0f0a1d 100%)' }}>
         {/* Total Bonus —— 功能区，Claim 在右 */}
         <div className="rb-rise mx-4 relative overflow-hidden rounded-2xl border-[1.5px] border-violet-400/45 bg-[#231240]/70 shadow-[0_0_24px_rgba(139,92,246,0.15)]">
-          <div className="pointer-events-none absolute right-20 top-1/2 -translate-y-1/2 h-28 w-28 rounded-full bg-[#fb8c3c]/15 blur-2xl" />
+          <div className="pointer-events-none absolute right-20 top-1/2 -translate-y-1/2 h-28 w-28 rounded-full bg-[#38a8f8]/15 blur-2xl" />
           <div className="relative flex items-center justify-between gap-3 px-4 py-4">
             <div className="min-w-0">
               <p className="text-violet-300 font-bold text-[12px] uppercase tracking-widest">{t('cashback.totalBonus')}</p>
@@ -305,7 +305,7 @@ export default function RebatePage({ onOpenGame, onOpenCategory }: Props) {
               type="button"
               onClick={() => void onClaim()}
               disabled={claiming || !token || !progress || progress.claimable <= 0}
-              className={`flex-shrink-0 bg-gradient-to-b from-[#fda75c] to-[#f4791f] text-[#4a1b0c] font-black text-base rounded-full px-7 py-2.5 shadow-[0_3px_14px_rgba(244,121,31,0.45)] active:opacity-80 transition disabled:opacity-50 ${!claiming && claimableTarget > 0 ? 'rb-claim-live' : ''}`}
+              className={`flex-shrink-0 bg-gradient-to-b from-[#7cc8ff] to-[#2e9bf0] text-[#06283f] font-black text-base rounded-full px-7 py-2.5 shadow-[0_3px_14px_rgba(46,155,240,0.45)] active:opacity-80 transition disabled:opacity-50 ${!claiming && claimableTarget > 0 ? 'rb-claim-live' : ''}`}
             >
               {claiming ? t('cashback.claiming') : t('cashback.claimBtn')}
             </button>
@@ -319,9 +319,9 @@ export default function RebatePage({ onOpenGame, onOpenCategory }: Props) {
                 <span className="flex items-center gap-1.5 text-violet-100/70">
                   <span>{CATEGORY_ICONS[item.gameCategory] ?? '🎮'}</span>
                   <span>{t(catKeyOf(item.gameCategory))}</span>
-                  <span className="text-[10px] text-[#ffa257]/80">{item.ratePct}%</span>
+                  <span className="text-[10px] text-[#5ec3ff]/80">{item.ratePct}%</span>
                 </span>
-                <span className="font-semibold text-[#ffa257]">+{amtStr(currency, item.rebateAmount)}</span>
+                <span className="font-semibold text-[#5ec3ff]">+{amtStr(currency, item.rebateAmount)}</span>
               </div>
             ))}
           </div>
@@ -356,7 +356,7 @@ export default function RebatePage({ onOpenGame, onOpenCategory }: Props) {
                         }
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-[#ffa257] font-black text-sm">
+                        <p className="text-[#5ec3ff] font-black text-sm">
                           {t(tier === 'elite' ? 'cashback.tierElite' : 'cashback.tierPro')}
                         </p>
                         <div className="flex gap-5 mt-1">
@@ -369,10 +369,10 @@ export default function RebatePage({ onOpenGame, onOpenCategory }: Props) {
                       <button
                         type="button"
                         onClick={() => toggleTier(tier)}
-                        className="rb-shine flex-shrink-0 flex items-center gap-1.5 bg-gradient-to-r from-[#fda75c] to-[#f4791f] text-[#4a1b0c] rounded-full pl-4 pr-1.5 py-1.5 active:opacity-80 transition-opacity shadow-[0_2px_10px_rgba(244,121,31,0.3)]"
+                        className="rb-shine flex-shrink-0 flex items-center gap-1.5 bg-gradient-to-r from-[#7cc8ff] to-[#2e9bf0] text-[#06283f] rounded-full pl-4 pr-1.5 py-1.5 active:opacity-80 transition-opacity shadow-[0_2px_10px_rgba(46,155,240,0.3)]"
                       >
                         <span className="font-bold text-xs">{t('cashback.viewBtn')}</span>
-                        <span className="bg-[#4a1b0c]/30 text-[#fff3e8] text-[11px] font-bold rounded-full min-w-5 h-5 px-1.5 flex items-center justify-center">
+                        <span className="bg-[#06283f]/30 text-[#eaf6ff] text-[11px] font-bold rounded-full min-w-5 h-5 px-1.5 flex items-center justify-center">
                           {games.length}
                         </span>
                       </button>
@@ -418,7 +418,7 @@ export default function RebatePage({ onOpenGame, onOpenCategory }: Props) {
             <div className="flex items-center justify-between mb-3 mx-4">
               <h3 className="font-black text-violet-100 text-base tracking-wide">{t('cashback.rateTable').toUpperCase()}</h3>
               {token && progress && (
-                <span className="bg-gradient-to-r from-[#fda75c] to-[#f4791f] text-[#4a1b0c] font-black text-xs rounded-full px-3 py-1">
+                <span className="bg-gradient-to-r from-[#7cc8ff] to-[#2e9bf0] text-[#06283f] font-black text-xs rounded-full px-3 py-1">
                   {t('cashback.levelTag', { level: progress.level })}
                 </span>
               )}
@@ -445,11 +445,11 @@ export default function RebatePage({ onOpenGame, onOpenCategory }: Props) {
                 <p className="text-white font-black text-2xl font-display mt-0.5">{amtStr(currency, progress.totalTurnover)}</p>
                 <div className="h-2 rounded-full bg-black/30 overflow-hidden mt-2">
                   <div
-                    className="rb-progress-fill h-full bg-gradient-to-r from-[#ffb475] to-[#fb8c3c] rounded-full transition-all"
+                    className="rb-progress-fill h-full bg-gradient-to-r from-[#9ad8ff] to-[#38a8f8] rounded-full transition-all"
                     style={{ width: `${progressPct}%` }}
                   />
                 </div>
-                <p className="text-[11px] text-[#ffa257]/80 mt-1.5">
+                <p className="text-[11px] text-[#5ec3ff]/80 mt-1.5">
                   {progress.nextThreshold != null
                     ? t('cashback.progressToNext', { remaining: amtStr(currency, remaining), level: progress.nextLevel })
                     : t('cashback.maxLevel')}
@@ -466,7 +466,7 @@ export default function RebatePage({ onOpenGame, onOpenCategory }: Props) {
                 const isCurrent = token && lc.level === userLevel
                 const isMax = lc.level === (levelCards[levelCards.length - 1]?.level ?? lc.level)
                 const cardCls = isMax
-                  ? 'border-[#fb8c3c]/60 bg-gradient-to-br from-[#2c1552]/90 via-[#1c0f38]/85 to-[#471b56]/50 shadow-lg shadow-orange-500/10'
+                  ? 'border-[#38a8f8]/60 bg-gradient-to-br from-[#2c1552]/90 via-[#1c0f38]/85 to-[#471b56]/50 shadow-lg shadow-sky-500/10'
                   : isCurrent
                     ? 'border-violet-300/50 bg-[#221244]/85'
                     : 'border-violet-400/20 bg-[#180d30]/70'
@@ -483,11 +483,11 @@ export default function RebatePage({ onOpenGame, onOpenCategory }: Props) {
                     <div className="flex items-start justify-between mb-3">
                       <div>
                         <div className="flex items-center gap-2">
-                          <span className={`font-black text-xl font-display ${isMax ? 'text-[#ffa257]' : 'text-violet-50'}`}>
+                          <span className={`font-black text-xl font-display ${isMax ? 'text-[#5ec3ff]' : 'text-violet-50'}`}>
                             {t('cashback.levelTag', { level: lc.level })}
                           </span>
                           {isCurrent && (
-                            <span className="bg-[#fb8c3c] text-[#4a1b0c] text-[10px] font-black rounded-full px-2 py-0.5">
+                            <span className="bg-[#38a8f8] text-[#06283f] text-[10px] font-black rounded-full px-2 py-0.5">
                               {t('cashback.levelCurrent')}
                             </span>
                           )}
@@ -499,7 +499,7 @@ export default function RebatePage({ onOpenGame, onOpenCategory }: Props) {
                         </p>
                       </div>
                       {isMax && (
-                        <span className="bg-gradient-to-r from-[#fda75c] to-[#f4791f] text-[#4a1b0c] text-[10px] font-black rounded-md px-2 py-1">MAX</span>
+                        <span className="bg-gradient-to-r from-[#7cc8ff] to-[#2e9bf0] text-[#06283f] text-[10px] font-black rounded-md px-2 py-1">MAX</span>
                       )}
                     </div>
 
@@ -516,12 +516,12 @@ export default function RebatePage({ onOpenGame, onOpenCategory }: Props) {
                             <span className="text-xl leading-none flex-shrink-0">{CATEGORY_ICONS[r.gameCategory] ?? '🎮'}</span>
                             <span className="text-sm font-semibold text-violet-50/90 w-16 text-left truncate">{t(catKeyOf(r.gameCategory))}</span>
                             <span className="flex-1 text-right leading-tight">
-                              <span className="block text-[#ffa257] font-bold text-sm">+{amtStr(currency, bonus)}</span>
+                              <span className="block text-[#5ec3ff] font-bold text-sm">+{amtStr(currency, bonus)}</span>
                               <span className="block text-[9px] text-violet-200/45">
                                 {t('cashback.maxShort')} {r.maxBonus > 0 ? amtStr(currency, r.maxBonus) : t('cashback.unlimited')}
                               </span>
                             </span>
-                            <span className={`w-10 text-right font-black text-sm ${isMax ? 'text-[#ffa257]' : 'text-[#ffa257]/90'}`}>{r.ratePct}%</span>
+                            <span className={`w-10 text-right font-black text-sm ${isMax ? 'text-[#5ec3ff]' : 'text-[#5ec3ff]/90'}`}>{r.ratePct}%</span>
                           </button>
                         )
                       })}
@@ -532,7 +532,7 @@ export default function RebatePage({ onOpenGame, onOpenCategory }: Props) {
                       isCurrent || (progress && lc.level < userLevel)
                         ? 'bg-violet-500/30 text-violet-50'
                         : isMax
-                          ? 'bg-gradient-to-r from-[#fda75c] to-[#f4791f] text-[#4a1b0c]'
+                          ? 'bg-gradient-to-r from-[#7cc8ff] to-[#2e9bf0] text-[#06283f]'
                           : 'bg-[#241542] text-violet-200'
                     }`}>
                       {isCurrent
