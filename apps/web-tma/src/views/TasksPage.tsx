@@ -268,8 +268,8 @@ export default function TasksPage({ initialPath = 'newbie', onNavigate }: { init
 
     return (
       <section className="relative pb-3">
-        {/* hero 可视区=50vh-半卡高：统计卡中线跨机型都压在屏高 50% 分界线，上下内容跟随该区移动 */}
-        <div className="relative h-[calc(50vh-25px)] max-h-[470px] min-h-[300px] overflow-hidden">
+        {/* hero 可视区=2/3屏-半卡高：统计卡中线跨机型都压在屏高 2/3 分界线，上下内容跟随该区移动 */}
+        <div className="relative h-[calc(66.7vh-25px)] max-h-[660px] min-h-[380px] overflow-hidden">
           <img
             src={taskHero}
             alt=""
