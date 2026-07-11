@@ -17,7 +17,7 @@ interface TaskStat {
 }
 
 const EMPTY_CENTER: TaskCenter = { groups: { newbie: [], daily: [], achievement: [], social: [] } }
-const BALL_SIZE = 64
+const BALL_SIZE = 96
 
 function statOf(cards: TaskCard[]): TaskStat {
   return {
@@ -165,9 +165,9 @@ export default function TaskFloatBall({ onNavigatePath }: TaskFloatBallProps) {
   })()
 
   const entries: { path: TaskBallPath; className: string }[] = [
-    { path: 'newbie', className: 'bottom-[76px] left-1/2 -translate-x-1/2' },
-    { path: 'daily', className: isLeftEdge ? 'left-[76px] top-2' : 'right-[76px] top-2' },
-    { path: 'social', className: 'left-1/2 top-[76px] -translate-x-1/2' },
+    { path: 'newbie', className: 'bottom-[108px] left-1/2 -translate-x-1/2' },
+    { path: 'daily', className: isLeftEdge ? 'left-[108px] top-2' : 'right-[108px] top-2' },
+    { path: 'social', className: 'left-1/2 top-[108px] -translate-x-1/2' },
   ]
 
   return (
@@ -181,11 +181,11 @@ export default function TaskFloatBall({ onNavigatePath }: TaskFloatBallProps) {
         />
       )}
       <div
-        className={`pointer-events-none fixed z-[31] h-16 w-16 ${dragging ? '' : 'transition-[left,top] duration-200 ease-out'}`}
+        className={`pointer-events-none fixed z-[31] h-24 w-24 ${dragging ? '' : 'transition-[left,top] duration-200 ease-out'}`}
         style={position ? { left: position.left, top: position.top } : { right: 88, bottom: 176 }}
       >
         <div
-          className="pointer-events-auto relative h-16 w-16 touch-none select-none"
+          className="pointer-events-auto relative h-24 w-24 touch-none select-none"
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
@@ -210,11 +210,11 @@ export default function TaskFloatBall({ onNavigatePath }: TaskFloatBallProps) {
         })}
         <button
           type="button"
-          className={`relative flex h-16 w-16 items-center justify-center transition-transform active:scale-95 ${expanded ? 'scale-110' : ''}`}
+          className={`relative flex h-24 w-24 items-center justify-center transition-transform active:scale-95 ${expanded ? 'scale-110' : ''}`}
           onClick={toggleExpanded}
           aria-label={t('tasks.ball.label')}
         >
-          <img src={taskWidgetImg} alt="" draggable={false} className="h-16 w-16 object-contain drop-shadow-[0_8px_20px_rgba(0,0,0,0.45)]" />
+          <img src={taskWidgetImg} alt="" draggable={false} className="h-24 w-24 object-contain drop-shadow-[0_8px_20px_rgba(0,0,0,0.45)]" />
           {claimable > 0 && (
             <span className="absolute right-0.5 top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-black text-white">
               {claimable}
