@@ -557,8 +557,8 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
         </div>
       )}
 
-      {/* 最近在玩（登录用户）：不足最大数时用推荐游戏补齐，中间以金色竖排 Recommended 分隔 */}
-      {recentGames.length > 0 && (
+      {/* 最近在玩（登录用户）：不足最大数时用推荐游戏补齐，金色竖线分隔；无最近在玩时该区放推荐（小卡） */}
+      {recentGames.length > 0 ? (
         <section className="mt-5">
           {sectionHeader(<History size={15} className="text-amber-400" />, t('home.recentPlayed'))}
           <div className="flex items-center gap-2 px-4 overflow-x-auto hide-scrollbar">
@@ -575,6 +575,13 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
             )}
           </div>
         </section>
+      ) : (
+        (gamesLoading || homepageGames.recommended.length > 0) && (
+          <section className="mt-5">
+            {sectionHeader(<Percent size={15} className="text-red-400" />, t('home.recommended'), () => onNavigatePath('/games'))}
+            {smallRow(homepageGames.recommended)}
+          </section>
+        )
       )}
 
       {/* Popular：大卡 3x3 */}
@@ -596,14 +603,6 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
           </button>
         </div>
       </section>
-
-      {/* 推荐精选：竞品验证权重的次高梯队，大卡 */}
-      {(gamesLoading || homepageGames.recommended.length > 0) && (
-        <section className="mt-6">
-          {sectionHeader(<Percent size={15} className="text-red-400" />, t('home.recommended'), () => onNavigatePath('/games'))}
-          {bigGrid(homepageGames.recommended, 6)}
-        </section>
-      )}
 
       {/* New Games：小卡横滑 */}
       {(gamesLoading || homepageGames.newGames.length > 0) && (
@@ -647,6 +646,14 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
         </section>
       )}
 
+      {/* 高 RTP 专栏：小卡横滑 */}
+      {(gamesLoading || homepageGames.highRtp.length > 0) && (
+        <section className="mt-6">
+          {sectionHeader(<Rocket size={15} className="text-yellow-400" />, t('home.highRtp'))}
+          {smallRow(homepageGames.highRtp)}
+        </section>
+      )}
+
       {/* Perya：小卡横滑 */}
       {(gamesLoading || homepageGames.perya.length > 0) && (
         <section className="mt-6">
@@ -667,7 +674,7 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
       {(gamesLoading || homepageGames.lottery.length > 0) && (
         <section className="mt-6">
           {sectionHeader(<Ticket size={15} className="text-pink-400" />, t('home.lotteryZone'), () => onNavigatePath('/games?cat=lottery'))}
-          {bigGrid(homepageGames.lottery, 12)}
+          {bigGrid(homepageGames.lottery.slice(0, 6), 6)}
         </section>
       )}
 
@@ -676,14 +683,6 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
         <section className="mt-6">
           {sectionHeader(<Gem size={15} className="text-purple-400" />, t('home.baccaratZone'))}
           {smallRow(homepageGames.baccarat)}
-        </section>
-      )}
-
-      {/* 高 RTP 专栏：小卡横滑 */}
-      {(gamesLoading || homepageGames.highRtp.length > 0) && (
-        <section className="mt-6">
-          {sectionHeader(<Rocket size={15} className="text-yellow-400" />, t('home.highRtp'))}
-          {smallRow(homepageGames.highRtp)}
         </section>
       )}
 
@@ -714,23 +713,16 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
       )}
 
 
-      {/* Recent Wins marquee */}
-      <div className="mx-4 mt-8 bg-secondary rounded-xl p-3 flex items-center gap-2 overflow-hidden">
-        <div className="flex-shrink-0 flex items-center gap-1.5 text-primary"><Trophy size={13} /><span className="text-xs font-bold uppercase tracking-wide whitespace-nowrap">{t('home.recentWins')}</span></div>
-        <div className="w-px h-4 bg-border flex-shrink-0" />
-        <div className="overflow-hidden flex-1">
-          <div className="flex w-max animate-marquee whitespace-nowrap" style={{ animationDuration: '96s' }}>
-            {[0, 1].map((group) => (
-              <div key={group} className="flex flex-shrink-0 gap-6 pr-6">
-                {marqueeWinners.map((w, i) => <span key={`${group}-${i}`} className="text-xs text-foreground/80 flex-shrink-0"><span className="text-primary font-bold">{w.name}</span> {t('common.won')} <span className="text-emerald-400 font-bold">{w.amount}</span> · <span className="text-muted-foreground">{w.game}</span></span>)}
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
+      {/* 推荐精选：有最近在玩时移到投注流上方，大卡 */}
+      {recentGames.length > 0 && (gamesLoading || homepageGames.recommended.length > 0) && (
+        <section className="mt-6">
+          {sectionHeader(<Percent size={15} className="text-red-400" />, t('home.recommended'), () => onNavigatePath('/games'))}
+          {bigGrid(homepageGames.recommended, 6)}
+        </section>
+      )}
 
       {/* Betting Table */}
-      <section ref={betSectionRef} className="mt-4 px-4">
+      <section ref={betSectionRef} className="mt-8 px-4">
         <h3 className="text-muted-foreground font-black text-xs font-display tracking-widest mb-3">
           {t('home.bettingTable')}
         </h3>
@@ -848,8 +840,23 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
 
       {/* ── 底部信息区：优势 → 支付 → 社区 → 合规 → 页脚 ── */}
 
+      {/* Recent Wins marquee */}
+      <div className="mx-4 mt-8 bg-secondary rounded-xl p-3 flex items-center gap-2 overflow-hidden">
+        <div className="flex-shrink-0 flex items-center gap-1.5 text-primary"><Trophy size={13} /><span className="text-xs font-bold uppercase tracking-wide whitespace-nowrap">{t('home.recentWins')}</span></div>
+        <div className="w-px h-4 bg-border flex-shrink-0" />
+        <div className="overflow-hidden flex-1">
+          <div className="flex w-max animate-marquee whitespace-nowrap" style={{ animationDuration: '96s' }}>
+            {[0, 1].map((group) => (
+              <div key={group} className="flex flex-shrink-0 gap-6 pr-6">
+                {marqueeWinners.map((w, i) => <span key={`${group}-${i}`} className="text-xs text-foreground/80 flex-shrink-0"><span className="text-primary font-bold">{w.name}</span> {t('common.won')} <span className="text-emerald-400 font-bold">{w.amount}</span> · <span className="text-muted-foreground">{w.game}</span></span>)}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
       {/* 产品优势条 */}
-      <section className="mt-8 px-4">
+      <section className="mt-4 px-4">
         <div className="grid grid-cols-3 gap-2">
           <div className="bg-secondary border border-border rounded-2xl px-2 py-3.5 flex flex-col items-center gap-2 text-center">
             <div className="w-9 h-9 rounded-full bg-amber-500/15 flex items-center justify-center"><Zap size={17} className="text-amber-400" /></div>
