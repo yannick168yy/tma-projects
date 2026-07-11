@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
+import { ChevronRight } from 'lucide-react'
 import { fetchRebateConfig, fetchRebateProgress, claimRebate, type RebateConfig, type RebateProgress } from '@/api/rebate'
 import { fetchVipProgress, claimVipRewards, type VipProgress } from '@/api/vip'
 import { launchGame } from '@/api/slots'
@@ -9,7 +10,6 @@ import { useLocaleStore } from '@/stores/locale'
 import { localizedGameName } from '@/utils/game'
 import { ApiError } from '@/api/client'
 import { analytics } from '@/utils/analytics'
-import cashbackHero from '@/assets/home/promos/cashback-hero-2.webp'
 
 const CATEGORY_ICONS: Record<string, string> = {
   slots: '🎰', live: '🎲', sports: '⚽', fishing: '🐟',
@@ -26,6 +26,7 @@ interface Props {
   onOpenGame: (url: string) => void
   onOpenCategory: (params: { title: string; sortCategory: string }) => void
   onOpenKycSetting?: () => void
+  onOpenVipCenter?: () => void
 }
 
 function amtStr(currency: string, v: number) {
@@ -36,7 +37,7 @@ function catKeyOf(cat: string) {
   return `cashback.category${cat.charAt(0).toUpperCase() + cat.slice(1)}`
 }
 
-export default function RebatePage({ onOpenGame, onOpenCategory, onOpenKycSetting }: Props) {
+export default function RebatePage({ onOpenGame, onOpenCategory, onOpenKycSetting, onOpenVipCenter }: Props) {
   const { t } = useTranslation()
   const token = useAuthStore((s) => s.token)
   const auth = useAuthStore()
@@ -157,24 +158,18 @@ export default function RebatePage({ onOpenGame, onOpenCategory, onOpenKycSettin
 
   return (
     <div
-      className="page-main pb-8 min-h-screen"
-      style={{ background: 'linear-gradient(180deg,#030302 0%,#080603 32%,#0b0804 64%,#040302 100%)' }}
+      className="page-main min-h-screen space-y-3 px-4 pb-8"
+      style={{ background: 'linear-gradient(180deg,#050403 0%,#080603 42%,#040302 100%)' }}
     >
-      {/* Hero —— 成品 banner 图贴顶 */}
-      <img
-        src={cashbackHero}
-        alt={t('cashback.pageTitle')}
-        className="block w-full select-none"
-        draggable={false}
-      />
+      <div className="vip-page-header flex h-9 items-center pl-11">
+        <h1 className="font-display text-base font-normal uppercase tracking-[0.08em] text-amber-300">{t('cashback.pageTitle')}</h1>
+      </div>
 
-      {/* Total Bonus —— 紧凑横排，Claim 在右 */}
-      <div className="mx-4 mt-4 relative overflow-hidden rounded-2xl border border-amber-300/35 bg-gradient-to-r from-[#0b0804]/90 via-[#171006]/80 to-[#2c1b05]/55 shadow-[0_0_24px_rgba(180,118,28,0.12)]">
-        <div className="pointer-events-none absolute right-20 top-1/2 -translate-y-1/2 h-28 w-28 rounded-full bg-amber-300/20 blur-2xl" />
-        <div className="relative flex items-center justify-between gap-3 px-4 py-3.5">
+      <div className="rounded-2xl border border-white/5 bg-[#161512] p-4">
+        <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-amber-200/90 font-bold text-[11px] uppercase tracking-wider">{t('cashback.totalBonus')}</p>
-            <p className="text-white font-black text-2xl font-display drop-shadow mt-0.5">
+            <p className="text-[11px] font-medium text-[#c9c9c5]">{t('cashback.totalBonus')}</p>
+            <p className="mt-1 font-display text-2xl font-bold text-white">
               {amtStr(currency, token ? (progress?.claimable ?? 0) : 0)}
             </p>
           </div>
@@ -182,7 +177,7 @@ export default function RebatePage({ onOpenGame, onOpenCategory, onOpenKycSettin
             type="button"
             onClick={() => void onClaim()}
             disabled={claiming || !token || !progress || progress.claimable <= 0}
-            className="flex-shrink-0 bg-gradient-to-b from-amber-300 to-yellow-500 text-[#2a1a05] font-black text-sm rounded-full px-6 py-2.5 shadow-[0_3px_12px_rgba(245,158,11,0.45)] active:opacity-80 transition disabled:opacity-50"
+            className="flex-shrink-0 rounded-xl bg-gradient-to-b from-[#e9c97e] to-[#cfa044] px-5 py-2.5 text-sm font-bold text-[#3a2a0d] active:opacity-80 disabled:opacity-45"
           >
             {claiming ? t('cashback.claiming') : t('cashback.claimBtn')}
           </button>
@@ -190,15 +185,15 @@ export default function RebatePage({ onOpenGame, onOpenCategory, onOpenKycSettin
       </div>
 
       {token && claimableBreakdown.length > 0 && (
-        <div className="mx-4 mt-2 bg-[#0c0905]/70 rounded-2xl px-4 py-3 space-y-1.5 border border-amber-300/15">
+        <div className="space-y-1.5 rounded-2xl border border-white/5 bg-[#161512] px-4 py-3">
           {claimableBreakdown.map((item) => (
             <div key={item.gameCategory} className="flex items-center justify-between text-xs">
-              <span className="flex items-center gap-1.5 text-amber-50/70">
+              <span className="flex items-center gap-1.5 text-[#d5d5d1]">
                 <span>{CATEGORY_ICONS[item.gameCategory] ?? '🎮'}</span>
                 <span>{t(catKeyOf(item.gameCategory))}</span>
-                <span className="text-[10px] text-amber-300/80">{item.ratePct}%</span>
+                <span className="text-[10px] text-[#f0b429]">{item.ratePct}%</span>
               </span>
-              <span className="font-semibold text-amber-300">+{amtStr(currency, item.rebateAmount)}</span>
+              <span className="font-semibold text-[#f0b429]">+{amtStr(currency, item.rebateAmount)}</span>
             </div>
           ))}
         </div>
@@ -206,20 +201,34 @@ export default function RebatePage({ onOpenGame, onOpenCategory, onOpenKycSettin
 
       {/* VIP 成长权益：负盈利返水 + 晋级礼金（登录可见，单独领取） */}
       {token && (
-        <div className="mx-4 mt-3 rounded-2xl border border-amber-300/30 bg-gradient-to-r from-[#0b0804]/90 via-[#171006]/80 to-[#241605]/55 p-4 shadow-[0_0_20px_rgba(180,118,28,0.10)]">
+        <div className="rounded-2xl border border-white/5 bg-[#161512] p-4">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <p className="text-amber-200/95 font-black text-sm flex items-center gap-1.5">👑 {t('cashback.vipTitle')}</p>
-              <p className="text-amber-100/50 text-[11px] mt-0.5">{t('cashback.vipSubtitle')}</p>
+              <p className="flex items-center gap-1.5 text-sm font-semibold text-white">👑 {t('cashback.vipTitle')}</p>
+              <p className="mt-1 text-[11px] text-[#c9c9c5]">{t('cashback.vipSubtitle')}</p>
+            </div>
+            <button
+              type="button"
+              onClick={onOpenVipCenter}
+              className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-white/5 text-[#f0b429] active:scale-95"
+            >
+              <ChevronRight size={18} />
+            </button>
+          </div>
+
+          <div className="mt-3 flex items-center justify-between gap-3 rounded-xl bg-black/20 px-3 py-2.5">
+            <div className="min-w-0">
+              <p className="text-[11px] text-[#c9c9c5]">{t('vipPage.vipClaimable')}</p>
+              <p className="mt-0.5 truncate text-sm font-bold text-[#f0b429]">{amtStr(currency, vip?.claimable ?? 0)}</p>
             </div>
             {vip && vip.claimable > 0 && (
               <button
                 type="button"
                 onClick={() => void onClaimVip()}
                 disabled={claimingVip}
-                className="flex-shrink-0 bg-gradient-to-b from-amber-300 to-yellow-500 text-[#2a1a05] font-black text-xs rounded-full px-4 py-2 shadow-[0_3px_12px_rgba(245,158,11,0.4)] active:opacity-80 transition disabled:opacity-50"
+                className="flex-shrink-0 rounded-lg bg-gradient-to-b from-[#e9c97e] to-[#cfa044] px-4 py-2 text-xs font-bold text-[#3a2a0d] active:opacity-80 disabled:opacity-45"
               >
-                {claimingVip ? t('cashback.claiming') : `${t('cashback.claimBtn')} ${amtStr(currency, vip.claimable)}`}
+                {claimingVip ? t('cashback.claiming') : t('cashback.claimBtn')}
               </button>
             )}
           </div>
@@ -228,24 +237,21 @@ export default function RebatePage({ onOpenGame, onOpenCategory, onOpenKycSettin
             <div className="mt-3 space-y-1.5">
               {vip.claimableByType.map((it) => (
                 <div key={it.type} className="flex items-center justify-between text-xs">
-                  <span className="text-amber-50/70">{t(VIP_TYPE_KEY[it.type] ?? 'cashback.vipTitle')}</span>
-                  <span className="font-semibold text-amber-300">+{amtStr(currency, it.amount)}</span>
+                  <span className="text-[#c9c9c5]">{t(VIP_TYPE_KEY[it.type] ?? 'cashback.vipTitle')}</span>
+                  <span className="font-semibold text-[#f0b429]">+{amtStr(currency, it.amount)}</span>
                 </div>
               ))}
             </div>
           ) : (
-            <p className="mt-2 text-[11px] text-amber-100/40">{t('cashback.vipEmpty')}</p>
+            <p className="mt-2 text-[11px] text-[#c9c9c5]">{t('cashback.vipEmpty')}</p>
           )}
 
-          <div className="mt-3 pt-3 border-t border-amber-300/12 space-y-1">
+          <div className="mt-3 space-y-1 border-t border-white/5 pt-3">
             {vip?.benefit && vip.benefit.negativeRebatePct > 0 && (
-              <p className="text-[11px] text-amber-100/60">{t('cashback.vipCurrentRate', { rate: vip.benefit.negativeRebatePct })}</p>
-            )}
-            {vip?.nextBenefit && vip.nextBenefit.promotionBonus > 0 && vip.nextLevel != null && (
-              <p className="text-[11px] text-amber-300/80">{t('cashback.vipNextUnlock', { level: vip.nextLevel, amount: amtStr(currency, vip.nextBenefit.promotionBonus) })}</p>
+              <p className="text-[11px] text-[#c9c9c5]">{t('cashback.vipCurrentRate', { rate: vip.benefit.negativeRebatePct })}</p>
             )}
             {vip && vip.retentionLine > 0 && (
-              <p className="text-[11px] text-amber-100/55">
+              <p className="text-[11px] text-[#c9c9c5]">
                 {t('cashback.vipRetention', { have: amtStr(currency, vip.quarterTurnover), need: amtStr(currency, vip.retentionLine) })}
               </p>
             )}
@@ -253,7 +259,7 @@ export default function RebatePage({ onOpenGame, onOpenCategory, onOpenKycSettin
               <p className="text-[11px] text-rose-300/80">{t('cashback.vipDemoted')}</p>
             )}
             {vip?.prioritySupport && (
-              <p className="text-[11px] text-amber-300/80">👑 {t('cashback.vipPrioritySupport')}</p>
+              <p className="text-[11px] font-bold text-[#f0b429]">👑 {t('cashback.vipPrioritySupport')}</p>
             )}
           </div>
 
@@ -265,7 +271,7 @@ export default function RebatePage({ onOpenGame, onOpenCategory, onOpenKycSettin
               <button
                 type="button"
                 onClick={() => onOpenKycSetting?.()}
-                className="mt-2 text-left text-[11px] font-bold text-amber-300 underline underline-offset-2 active:opacity-70"
+                className="mt-2 text-left text-[11px] font-bold text-[#f0b429] underline underline-offset-2 active:opacity-70"
               >
                 {t('cashback.vipBirthdayKyc')} →
               </button>
@@ -276,36 +282,36 @@ export default function RebatePage({ onOpenGame, onOpenCategory, onOpenKycSettin
 
       {/* CASHBACK GAMES */}
       {tiers.length > 0 && (
-        <div className="mx-4 mt-5">
-          <h3 className="font-black text-amber-100 text-base tracking-wide mb-3">{t('cashback.cashbackGames').toUpperCase()}</h3>
+        <div className="rounded-2xl border border-white/5 bg-[#161512] p-4">
+          <h3 className="mb-3 text-sm font-semibold text-white">{t('cashback.cashbackGames')}</h3>
           <div className="space-y-3">
             {tiers.map(([tier, games]) => {
               const cover = games[0]?.coverUrl
               const expanded = expandedTier === tier
               return (
-                <div key={tier} className="rounded-2xl bg-[#0c0905]/75 border border-amber-300/20 overflow-hidden shadow-[0_0_18px_rgba(180,118,28,0.08)]">
+                <div key={tier} className="overflow-hidden rounded-2xl border border-white/5 bg-black/20">
                   <div className="flex items-center gap-3 p-3">
-                    <div className="w-16 h-16 rounded-xl overflow-hidden flex-shrink-0 bg-black/35 border border-amber-300/15">
+                    <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-xl border border-white/5 bg-black/35">
                       {cover
                         ? <img src={cover} alt="" className="w-full h-full object-cover" />
                         : <div className="w-full h-full flex items-center justify-center text-2xl">🎰</div>
                       }
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-amber-300 font-black text-sm">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold text-white">
                         {t(tier === 'elite' ? 'cashback.tierElite' : 'cashback.tierPro')}
                       </p>
                       <div className="flex gap-5 mt-1">
                         <div>
-                          <p className="text-amber-100/55 text-[10px]">{t('cashback.cashbackRate')}</p>
-                          <p className="text-amber-50 font-bold text-sm">{tierRate(tier)}</p>
+                          <p className="text-[10px] text-[#c9c9c5]">{t('cashback.cashbackRate')}</p>
+                          <p className="text-sm font-bold text-[#f0b429]">{tierRate(tier)}</p>
                         </div>
                       </div>
                     </div>
                     <button
                       type="button"
                       onClick={() => toggleTier(tier)}
-                      className="flex-shrink-0 flex items-center gap-1.5 bg-gradient-to-r from-amber-300 to-yellow-500 text-[#1b1204] rounded-full pl-4 pr-1.5 py-1.5 active:opacity-80 transition-opacity shadow-[0_2px_10px_rgba(245,158,11,0.25)]"
+                      className="flex flex-shrink-0 items-center gap-1.5 rounded-lg bg-gradient-to-b from-[#e9c97e] to-[#cfa044] py-1.5 pl-4 pr-1.5 text-[#3a2a0d] active:opacity-80"
                     >
                       <span className="font-bold text-xs">{t('cashback.viewBtn')}</span>
                       <span className="bg-[#5b3a0d]/55 text-amber-100 text-[11px] font-bold rounded-full min-w-5 h-5 px-1.5 flex items-center justify-center">
@@ -314,7 +320,7 @@ export default function RebatePage({ onOpenGame, onOpenCategory, onOpenKycSettin
                     </button>
                   </div>
                   {expanded && (
-                    <div className="px-3 pb-3 border-t border-amber-300/15 pt-3">
+                    <div className="border-t border-white/5 px-3 pb-3 pt-3">
                       {games.length > 0 ? (
                         <div className="grid grid-cols-3 gap-2">
                           {games.map((g) => (
@@ -350,11 +356,11 @@ export default function RebatePage({ onOpenGame, onOpenCategory, onOpenKycSettin
 
       {/* REBATE RATES：顶部引导 + 升级进度 + 分级费率卡片（可左右翻动，默认当前等级） */}
       {levelCards.length > 0 && (
-        <div className="mt-5">
-          <div className="flex items-center justify-between mb-3 mx-4">
-            <h3 className="font-black text-amber-100 text-base tracking-wide">{t('cashback.rateTable').toUpperCase()}</h3>
+        <div className="rounded-2xl border border-white/5 bg-[#161512] py-4">
+          <div className="mb-3 flex items-center justify-between px-4">
+            <h3 className="text-sm font-semibold text-white">{t('cashback.rateTable')}</h3>
             {token && progress && (
-              <span className="bg-gradient-to-r from-amber-300 to-yellow-500 text-[#1b1204] font-black text-xs rounded-full px-3 py-1">
+              <span className="rounded-full bg-gradient-to-b from-[#e9c97e] to-[#cfa044] px-3 py-1 text-xs font-bold text-[#3a2a0d]">
                 {t('cashback.levelTag', { level: progress.level })}
               </span>
             )}
@@ -362,7 +368,7 @@ export default function RebatePage({ onOpenGame, onOpenCategory, onOpenKycSettin
 
           {/* 冲刺最高级 banner */}
           {topBest && (
-            <div className="mx-4 mb-3 flex items-center gap-2.5 rounded-xl border border-amber-300/35 bg-gradient-to-r from-[#2b1a05]/75 via-[#151006]/80 to-[#070504]/85 px-3.5 py-2.5">
+            <div className="mx-4 mb-3 flex items-center gap-2.5 rounded-xl border border-white/5 bg-black/20 px-3.5 py-2.5">
               <span className="text-xl leading-none">👑</span>
               <p className="text-[12px] font-bold text-amber-100 leading-snug">
                 {t('cashback.topTierBanner', {
@@ -376,12 +382,12 @@ export default function RebatePage({ onOpenGame, onOpenCategory, onOpenKycSettin
 
           {/* total turnover：标签 + 数值 + 升级进度条 */}
           {token && progress && (
-            <div className="mx-4 mb-3 bg-[#0c0905]/75 rounded-2xl border border-amber-300/20 px-4 py-3">
-              <p className="text-amber-100/60 text-[11px]">{t('cashback.totalTurnover')}</p>
-              <p className="text-amber-50 font-black text-2xl font-display mt-0.5">{amtStr(currency, progress.totalTurnover)}</p>
-              <div className="h-2 rounded-full bg-black/30 overflow-hidden mt-2">
+            <div className="mx-4 mb-3 rounded-2xl border border-white/5 bg-black/20 px-4 py-3">
+              <p className="text-[11px] text-[#c9c9c5]">{t('cashback.totalTurnover')}</p>
+              <p className="mt-0.5 font-display text-2xl font-bold text-white">{amtStr(currency, progress.totalTurnover)}</p>
+              <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/10">
                 <div
-                  className="h-full bg-gradient-to-r from-amber-400 to-yellow-500 rounded-full transition-all"
+                  className="h-full rounded-full bg-gradient-to-r from-[#e9c97e] to-[#cfa044] transition-all"
                   style={{ width: `${progressPct}%` }}
                 />
               </div>

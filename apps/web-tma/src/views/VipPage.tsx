@@ -187,7 +187,7 @@ export default function VipPage({ initialTab = 'overview', onOpenGame, onOpenCat
     return (
       <section className="vip-page-header mx-4">
         <div className="flex h-9 items-center justify-between pl-11">
-          <h1 className="font-display text-lg font-normal uppercase tracking-[0.1em] text-amber-300">{t('vipPage.title')}</h1>
+          <h1 className="font-display text-base font-normal uppercase tracking-[0.08em] text-amber-300">{t('vipPage.title')}</h1>
           <img src={iconCrown} alt="" className="h-10 w-10" />
         </div>
         <div className="relative mt-3 overflow-hidden rounded-2xl border border-amber-300/25 bg-[#131210] p-4">
