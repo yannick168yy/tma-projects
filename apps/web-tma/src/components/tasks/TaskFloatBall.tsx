@@ -297,7 +297,7 @@ export default function TaskFloatBall({ onNavigatePath }: TaskFloatBallProps) {
       <button
         type="button"
         className={`fixed z-[31] duration-300 ease-out transition-all active:scale-95 ${docked ? 'translate-x-0 opacity-100' : 'pointer-events-none translate-x-full opacity-0'}`}
-        style={{ right: frameRight, top: dockTop, height: 60 }}
+        style={{ right: frameRight, top: dockTop, height: 90 }}
         onClick={undock}
         aria-label={t('tasks.ball.label')}
       >

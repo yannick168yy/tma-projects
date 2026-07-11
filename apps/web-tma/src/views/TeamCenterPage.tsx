@@ -502,20 +502,6 @@ export default function TeamCenterPage() {
               </div>
             </section>
 
-            {!isAgent && (
-              <button
-                ref={openCtaRef}
-                type="button"
-                className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-amber-500 text-[#08111f] font-black text-sm disabled:opacity-60 shadow-[0_12px_26px_rgba(245,158,11,0.26)]"
-                style={openCtaShake ? { animation: 'team-open-shake 1240ms ease-in-out' } : undefined}
-                disabled={enabling}
-                onClick={() => void onEnable()}
-              >
-                <Zap size={15} />
-                {enabling ? t('bonuses.promos.agent.activating') : t('bonuses.promos.agent.cta')}
-              </button>
-            )}
-
             <section>
               <h2 className={sectionTitleClass}>{t('team.overviewHowTitle')}</h2>
               <div className="space-y-3">
@@ -550,17 +536,19 @@ export default function TeamCenterPage() {
               <ChevronRight size={18} className="flex-shrink-0 text-amber-300" />
             </button>
 
-            <section>
-              <h2 className={sectionTitleClass}>{t('team.overviewNotesTitle')}</h2>
-              <ul className="space-y-2.5 rounded-2xl border border-white/10 bg-[#101824] p-4">
-                {[1, 2, 3].map((i) => (
-                  <li key={i} className="flex gap-2.5 text-[11px] leading-relaxed text-slate-400">
-                    <span className="mt-[5px] h-1.5 w-1.5 flex-shrink-0 rounded-full bg-amber-400/70" />
-                    {t(`team.overviewNote${i}`)}
-                  </li>
-                ))}
-              </ul>
-            </section>
+            {!isAgent && (
+              <button
+                ref={openCtaRef}
+                type="button"
+                className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-amber-500 text-[#08111f] font-black text-sm disabled:opacity-60 shadow-[0_12px_26px_rgba(245,158,11,0.26)]"
+                style={openCtaShake ? { animation: 'team-open-shake 1240ms ease-in-out' } : undefined}
+                disabled={enabling}
+                onClick={() => void onEnable()}
+              >
+                <Zap size={15} />
+                {enabling ? t('bonuses.promos.agent.activating') : t('bonuses.promos.agent.cta')}
+              </button>
+            )}
           </div>
         )}
 
