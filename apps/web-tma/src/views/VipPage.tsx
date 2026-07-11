@@ -187,7 +187,7 @@ export default function VipPage({ initialTab = 'overview', onOpenGame, onOpenCat
     return (
       <section className="vip-page-header mx-4">
         <div className="flex h-9 items-center justify-between pl-11">
-          <h1 className="font-display text-lg font-black uppercase tracking-[0.1em] text-amber-300">{t('vipPage.title')}</h1>
+          <h1 className="font-display text-lg font-normal uppercase tracking-[0.1em] text-amber-300">{t('vipPage.title')}</h1>
           <img src={iconCrown} alt="" className="h-10 w-10" />
         </div>
         <div className="relative mt-3 overflow-hidden rounded-2xl border border-amber-300/25 bg-[#131210] p-4">
@@ -199,7 +199,7 @@ export default function VipPage({ initialTab = 'overview', onOpenGame, onOpenCat
               </svg>
               <span className="text-[11px] font-semibold text-[#d2d2d1]">{t('vipPage.locked')}</span>
               {nextLv != null && (
-                <svg width="116" height="34" viewBox="0 0 116 34" className="ml-1 overflow-visible">
+                <svg width="154" height="34" viewBox="0 0 154 34" className="ml-1 overflow-visible">
                   <defs>
                     <linearGradient id="vipArcLine" x1="0" y1="1" x2="1" y2="0">
                       <stop offset="0%" stopColor="rgba(255,255,255,0.1)" />
@@ -210,17 +210,18 @@ export default function VipPage({ initialTab = 'overview', onOpenGame, onOpenCat
                       <stop offset="100%" stopColor="rgba(255,255,255,0)" />
                     </radialGradient>
                   </defs>
-                  <path d="M8 19 Q 58 1 104 8" stroke="url(#vipArcLine)" strokeWidth="1.4" fill="none" />
+                  <path d="M8 19 Q 78 -1 142 8" stroke="url(#vipArcLine)" strokeWidth="1.4" fill="none" />
                   <circle cx="8" cy="19" r="2.4" fill="rgba(255,255,255,0.75)" />
-                  <circle cx="104" cy="8" r="9" fill="url(#vipStarGlow)" />
-                  <path d="M104 1.5 L105.7 6.3 L110.5 8 L105.7 9.7 L104 14.5 L102.3 9.7 L97.5 8 L102.3 6.3 Z" fill="#ffffff" />
+                  <circle cx="142" cy="8" r="14" fill="url(#vipStarGlow)" />
+                  <circle cx="142" cy="8" r="11" fill="none" stroke="rgba(255,255,255,0.72)" strokeWidth="1.2" />
+                  <path d="M142 1.5 L143.7 6.3 L148.5 8 L143.7 9.7 L142 14.5 L140.3 9.7 L135.5 8 L140.3 6.3 Z" fill="#ffffff" />
                   <text x="8" y="32" textAnchor="middle" fill="#ddddda" fontSize="10" fontWeight="600">Lv{vipLevel}</text>
-                  <text x="104" y="27" textAnchor="middle" fill="#ffffff" fontSize="10" fontWeight="600">Lv{nextLv}</text>
+                  <text x="142" y="27" textAnchor="middle" fill="#ffffff" fontSize="10" fontWeight="600">Lv{nextLv}</text>
                 </svg>
               )}
             </div>
             <div className="mt-1.5 flex items-end gap-2">
-              <h2 className="text-[34px] font-normal leading-none text-white">VIP{vipLevel}</h2>
+              <h2 className="text-[34px] font-bold leading-none text-white">VIP{vipLevel}</h2>
               {vip?.demoted && <span className="mb-1 rounded-full border border-rose-300/35 px-2 py-0.5 text-[10px] font-bold text-rose-200">{t('cashback.vipDemoted')}</span>}
             </div>
           </div>
@@ -374,6 +375,15 @@ export default function VipPage({ initialTab = 'overview', onOpenGame, onOpenCat
           </section>
         )}
 
+        <section className="rounded-2xl border border-white/5 bg-[#161512] p-4">
+          <h2 className="text-sm font-semibold text-white">{t('vipPage.overviewTipsTitle')}</h2>
+          <div className="mt-3 grid gap-2">
+            <CompactNote icon={iconLevelup} label={t('vipPage.overviewTipGrowth')} value={nextThreshold != null ? t('cashback.progressToNext', { remaining: amtStr(currency, remaining), level: nextLvOf(vipLevel) }) : t('cashback.maxLevel')} />
+            <CompactNote icon={iconGift} label={t('vipPage.overviewTipClaim')} value={t('vipPage.overviewTipClaimDesc')} />
+            <CompactNote icon={iconCrown} label={t('vipPage.overviewTipLevel')} value={t('vipPage.overviewTipLevelDesc')} />
+          </div>
+        </section>
+
         <p className="flex items-center justify-center gap-1.5 pt-1 text-[11px] text-[#9a9a96]">
           <ShieldCheck size={13} className="text-amber-300/50" />
           {t('vipPage.disclaimer')}
@@ -384,18 +394,18 @@ export default function VipPage({ initialTab = 'overview', onOpenGame, onOpenCat
 
   function renderCashback() {
     return (
-      <div className="pb-8">
-        <section className="mx-4 rounded-2xl border border-amber-300/35 bg-gradient-to-r from-[#0b0804]/90 via-[#171006]/80 to-[#2c1b05]/55 p-4">
+      <div className="space-y-3 px-4 pb-8">
+        <section className="rounded-2xl border border-white/5 bg-[#161512] p-4">
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
-              <p className="text-[11px] font-bold uppercase tracking-wider text-amber-200/90">{t('cashback.totalBonus')}</p>
-              <p className="mt-0.5 font-display text-2xl font-black text-white">{amtStr(currency, token ? (progress?.claimable ?? 0) : 0)}</p>
+              <p className="text-[11px] font-medium text-[#c9c9c5]">{t('cashback.totalBonus')}</p>
+              <p className="mt-1 font-display text-2xl font-bold text-white">{amtStr(currency, token ? (progress?.claimable ?? 0) : 0)}</p>
             </div>
             <button
               type="button"
               onClick={() => void onClaimCashback()}
               disabled={claimingCashback || !token || !progress || progress.claimable <= 0}
-              className="flex-shrink-0 rounded-full bg-gradient-to-b from-amber-300 to-yellow-500 px-6 py-2.5 text-sm font-black text-[#2a1a05] disabled:opacity-50"
+              className="flex-shrink-0 rounded-xl bg-gradient-to-b from-[#e9c97e] to-[#cfa044] px-5 py-2.5 text-sm font-bold text-[#3a2a0d] disabled:opacity-45"
             >
               {claimingCashback ? t('cashback.claiming') : t('cashback.claimBtn')}
             </button>
@@ -403,48 +413,48 @@ export default function VipPage({ initialTab = 'overview', onOpenGame, onOpenCat
         </section>
 
         {token && claimableBreakdown.length > 0 && (
-          <section className="mx-4 mt-2 space-y-1.5 rounded-2xl border border-amber-300/15 bg-[#0c0905]/70 px-4 py-3">
+          <section className="space-y-1.5 rounded-2xl border border-white/5 bg-[#161512] px-4 py-3">
             {claimableBreakdown.map((item) => (
               <div key={item.gameCategory} className="flex items-center justify-between text-xs">
-                <span className="flex items-center gap-1.5 text-amber-50/70">
+                <span className="flex items-center gap-1.5 text-[#d5d5d1]">
                   <span>{CATEGORY_ICONS[item.gameCategory] ?? '🎮'}</span>
                   <span>{t(catKeyOf(item.gameCategory))}</span>
-                  <span className="text-[10px] text-amber-300/80">{item.ratePct}%</span>
+                  <span className="text-[10px] text-[#f0b429]">{item.ratePct}%</span>
                 </span>
-                <span className="font-semibold text-amber-300">+{amtStr(currency, item.rebateAmount)}</span>
+                <span className="font-semibold text-[#f0b429]">+{amtStr(currency, item.rebateAmount)}</span>
               </div>
             ))}
           </section>
         )}
 
         {tiers.length > 0 && (
-          <section className="mx-4 mt-5">
-            <h2 className="mb-3 text-base font-black tracking-wide text-amber-100">{t('cashback.cashbackGames').toUpperCase()}</h2>
+          <section className="rounded-2xl border border-white/5 bg-[#161512] p-4">
+            <h2 className="mb-3 text-sm font-semibold text-white">{t('cashback.cashbackGames')}</h2>
             <div className="space-y-3">
               {tiers.map(([tier, games]) => {
                 const cover = games[0]?.coverUrl
                 const expanded = expandedTier === tier
                 return (
-                  <div key={tier} className="overflow-hidden rounded-2xl border border-amber-300/20 bg-[#0c0905]/75">
+                  <div key={tier} className="overflow-hidden rounded-2xl border border-white/5 bg-black/20">
                     <div className="flex items-center gap-3 p-3">
-                      <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-xl border border-amber-300/15 bg-black/35">
+                      <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-xl border border-white/5 bg-black/35">
                         {cover ? <img src={cover} alt="" className="h-full w-full object-cover" /> : <div className="flex h-full w-full items-center justify-center text-2xl">🎰</div>}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="text-sm font-black text-amber-300">{t(tier === 'elite' ? 'cashback.tierElite' : 'cashback.tierPro')}</p>
-                        <p className="mt-1 text-sm font-bold text-amber-50">{tierRate(tier)}</p>
+                        <p className="text-sm font-semibold text-white">{t(tier === 'elite' ? 'cashback.tierElite' : 'cashback.tierPro')}</p>
+                        <p className="mt-1 text-sm font-bold text-[#f0b429]">{tierRate(tier)}</p>
                       </div>
                       <button
                         type="button"
                         onClick={() => setExpandedTier(expanded ? null : tier)}
-                        className="flex flex-shrink-0 items-center gap-1.5 rounded-full bg-gradient-to-r from-amber-300 to-yellow-500 py-1.5 pl-4 pr-1.5 text-[#1b1204]"
+                        className="flex flex-shrink-0 items-center gap-1.5 rounded-lg bg-gradient-to-b from-[#e9c97e] to-[#cfa044] py-1.5 pl-4 pr-1.5 text-[#3a2a0d]"
                       >
                         <span className="text-xs font-bold">{t('cashback.viewBtn')}</span>
                         <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[#5b3a0d]/55 px-1.5 text-[11px] font-bold text-amber-100">{games.length}</span>
                       </button>
                     </div>
                     {expanded && (
-                      <div className="border-t border-amber-300/15 px-3 pb-3 pt-3">
+                      <div className="border-t border-white/5 px-3 pb-3 pt-3">
                         {games.length > 0 ? (
                           <div className="grid grid-cols-3 gap-2">
                             {games.map((g) => (
@@ -469,14 +479,14 @@ export default function VipPage({ initialTab = 'overview', onOpenGame, onOpenCat
         )}
 
         {levelCards.length > 0 && (
-          <section className="mt-5">
-            <div className="mx-4 mb-3 flex items-center justify-between">
-              <h2 className="text-base font-black tracking-wide text-amber-100">{t('cashback.rateTable').toUpperCase()}</h2>
-              {token && progress && <span className="rounded-full bg-gradient-to-r from-amber-300 to-yellow-500 px-3 py-1 text-xs font-black text-[#1b1204]">{t('cashback.levelTag', { level: progress.level })}</span>}
+          <section className="rounded-2xl border border-white/5 bg-[#161512] py-4">
+            <div className="mb-3 flex items-center justify-between px-4">
+              <h2 className="text-sm font-semibold text-white">{t('cashback.rateTable')}</h2>
+              {token && progress && <span className="rounded-full bg-gradient-to-b from-[#e9c97e] to-[#cfa044] px-3 py-1 text-xs font-bold text-[#3a2a0d]">{t('cashback.levelTag', { level: progress.level })}</span>}
             </div>
 
             {topBest && (
-              <div className="mx-4 mb-3 flex items-center gap-2.5 rounded-xl border border-amber-300/35 bg-gradient-to-r from-[#2b1a05]/75 via-[#151006]/80 to-[#070504]/85 px-3.5 py-2.5">
+              <div className="mx-4 mb-3 flex items-center gap-2.5 rounded-xl border border-white/5 bg-black/20 px-3.5 py-2.5">
                 <Crown size={18} className="flex-shrink-0 text-amber-300" />
                 <p className="text-[12px] font-bold leading-snug text-amber-100">
                   {t('cashback.topTierBanner', {
@@ -489,10 +499,10 @@ export default function VipPage({ initialTab = 'overview', onOpenGame, onOpenCat
             )}
 
             {token && progress && (
-              <div className="mx-4 mb-3 rounded-2xl border border-amber-300/20 bg-[#0c0905]/75 px-4 py-3">
-                <p className="text-[11px] text-amber-100/60">{t('cashback.totalTurnover')}</p>
-                <p className="mt-0.5 font-display text-2xl font-black text-amber-50">{amtStr(currency, progress.totalTurnover)}</p>
-                <div className="mt-2 h-2 overflow-hidden rounded-full bg-black/30"><div className="h-full rounded-full bg-gradient-to-r from-amber-400 to-yellow-500" style={{ width: `${progressPct}%` }} /></div>
+              <div className="mx-4 mb-3 rounded-2xl border border-white/5 bg-black/20 px-4 py-3">
+                <p className="text-[11px] text-[#c9c9c5]">{t('cashback.totalTurnover')}</p>
+                <p className="mt-0.5 font-display text-2xl font-bold text-white">{amtStr(currency, progress.totalTurnover)}</p>
+                <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-gradient-to-r from-[#e9c97e] to-[#cfa044]" style={{ width: `${progressPct}%` }} /></div>
                 <p className="mt-1.5 text-[11px] text-amber-300/80">{progress.nextThreshold != null ? t('cashback.progressToNext', { remaining: amtStr(currency, remaining), level: progress.nextLevel }) : t('cashback.maxLevel')}</p>
               </div>
             )}
@@ -546,6 +556,15 @@ export default function VipPage({ initialTab = 'overview', onOpenGame, onOpenCat
             <p className="mt-1 px-4 text-center text-[10px] text-amber-100/35">{t('cashback.creditedTomorrow')} · {t('cashback.unsettledNotCounted')}</p>
           </section>
         )}
+
+        <FooterPanel
+          title={t('vipPage.cashbackFooterTitle')}
+          items={[
+            t('vipPage.cashbackFooterItem1'),
+            t('vipPage.cashbackFooterItem2'),
+            t('vipPage.cashbackFooterItem3'),
+          ]}
+        />
       </div>
     )
   }
@@ -582,6 +601,15 @@ export default function VipPage({ initialTab = 'overview', onOpenGame, onOpenCat
             })}
           </div>
         </section>
+        <FooterPanel
+          className="mt-3"
+          title={t('vipPage.benefitsFooterTitle')}
+          items={[
+            t('vipPage.benefitsFooterItem1'),
+            t('vipPage.benefitsFooterItem2'),
+            t('vipPage.benefitsFooterItem3'),
+          ]}
+        />
       </div>
     )
   }
@@ -615,6 +643,15 @@ export default function VipPage({ initialTab = 'overview', onOpenGame, onOpenCat
             </div>
           )}
         </section>
+        <FooterPanel
+          className="mt-3"
+          title={t('vipPage.recordsFooterTitle')}
+          items={[
+            t('vipPage.recordsFooterItem1'),
+            t('vipPage.recordsFooterItem2'),
+            t('vipPage.recordsFooterItem3'),
+          ]}
+        />
       </div>
     )
   }
@@ -629,6 +666,10 @@ export default function VipPage({ initialTab = 'overview', onOpenGame, onOpenCat
       {activeTab === 'records' && renderRecords()}
     </div>
   )
+}
+
+function nextLvOf(level: number) {
+  return level + 1
 }
 
 function GiftSolid({ size = 16 }: { size?: number }) {
@@ -659,5 +700,33 @@ function BenefitLine({ label, value }: { label: string; value: string }) {
       <span className="text-amber-50/62">{label}</span>
       <span className="font-bold text-amber-300">{value}</span>
     </div>
+  )
+}
+
+function CompactNote({ icon, label, value }: { icon: string; label: string; value: string }) {
+  return (
+    <div className="flex items-center gap-2.5 rounded-xl bg-black/20 px-3 py-2.5">
+      <img src={icon} alt="" className="h-8 w-8 flex-shrink-0" />
+      <div className="min-w-0">
+        <p className="truncate text-xs font-semibold text-white">{label}</p>
+        <p className="mt-0.5 truncate text-[11px] text-[#c9c9c5]">{value}</p>
+      </div>
+    </div>
+  )
+}
+
+function FooterPanel({ title, items, className = '' }: { title: string; items: string[]; className?: string }) {
+  return (
+    <section className={`rounded-2xl border border-white/5 bg-[#161512] p-4 ${className}`}>
+      <h2 className="text-sm font-semibold text-white">{title}</h2>
+      <div className="mt-3 space-y-2">
+        {items.map((item, index) => (
+          <div key={item} className="flex gap-2.5 text-[11px] leading-snug text-[#c9c9c5]">
+            <span className="mt-0.5 flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full bg-[#2b261b] text-[10px] font-bold text-[#f0b429]">{index + 1}</span>
+            <span>{item}</span>
+          </div>
+        ))}
+      </div>
+    </section>
   )
 }
