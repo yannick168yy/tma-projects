@@ -159,12 +159,21 @@ export function matchPopupAudience(audience: PopupConfig['audience'], loggedIn: 
   }
 }
 
+export type BonusCardId = 'checkin' | 'agent' | 'trial' | 'appdl' | 'firstdep'
+export interface BonusCard {
+  id: BonusCardId
+  enabled: boolean
+  order: number
+  audience: PopupConfig['audience']
+}
+
 export interface PromoConfig {
   trial:    { amount: number; enabled: boolean }
   firstdep: { enabled: boolean; turnoverX: number; turnoverDays?: number; tiers: Record<string, FirstDepTier[]> }
   appdl:    { amount: number; enabled: boolean; turnoverX: number; turnoverDays?: number }
   popups?:  PopupConfig[]
   checkinEnabled?: boolean
+  bonusCards?: BonusCard[]
 }
 
 // ── 复充限时优惠 ──

@@ -21,6 +21,7 @@ router.put('/config', async (ctx) => {
     appdl:    { ...current.appdl,    ...(body.appdl    ?? {}) },
     redep:    { ...current.redep,    ...(body.redep    ?? {}) },
     popups:   body.popups ?? current.popups,
+    bonusCards: body.bonusCards ?? current.bonusCards,
   }
 
   // 简单校验

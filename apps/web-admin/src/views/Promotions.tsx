@@ -1,11 +1,20 @@
 import { useEffect, useState } from 'react'
 import { Card, InputNumber, Select, Switch, Button, message, Typography, Row, Col, Spin, Tabs, Table, Space } from 'antd'
 import { GiftOutlined, PlusOutlined, DeleteOutlined, ArrowUpOutlined, ArrowDownOutlined } from '@ant-design/icons'
-import { getPromoConfig, savePromoConfig, FIRSTDEP_CURRENCIES, type PromoConfig, type FirstDepTier, type PopupConfig } from '../api'
+import { getPromoConfig, savePromoConfig, FIRSTDEP_CURRENCIES, type PromoConfig, type FirstDepTier, type PopupConfig, type BonusCard } from '../api'
 
 const { Title, Text } = Typography
 
 const POPUP_NAMES: Record<string, string> = { new_player: '新人礼包弹窗', firstdep: '首充悬浮入口', trial: '首席体验官' }
+
+// Bonuses 页卡片：统一开关/排序/人群
+const BONUS_CARD_NAMES: Record<string, string> = {
+  checkin: '📅 每日签到',
+  agent: '🏆 3-Circle 推广返佣',
+  trial: '🎖️ 首席体验官',
+  appdl: '📲 App 下载礼金',
+  firstdep: '💰 首充嘉年华',
+}
 
 // 进站自动弹窗，弹出频率才生效；其余为常驻入口（首充悬浮球），只用开关+人群
 const AUTO_POPUP_IDS = new Set(['new_player', 'trial'])
@@ -34,6 +43,7 @@ export default function Promotions() {
     try {
       const data = await getPromoConfig()
       for (const c of FIRSTDEP_CURRENCIES) if (!data.firstdep.tiers[c]) data.firstdep.tiers[c] = []
+      if (!Array.isArray(data.bonusCards)) data.bonusCards = []
       setCfg(data)
     } catch (e) {
       message.error(e instanceof Error ? e.message : '加载失败')
@@ -126,18 +136,11 @@ export default function Promotions() {
   const firstdepTab = (
     <>
       <Card style={{ marginBottom: 16 }}>
+        <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 12 }}>
+          活动开关在「常规活动 · 活动卡片编排」统一控制；此处配置流水要求与各币种档位
+        </Text>
         <Row gutter={24} align="middle">
-          <Col span={8}>
-            <Space>
-              <Text>活动开关</Text>
-              <Switch
-                checkedChildren="开启" unCheckedChildren="关闭"
-                checked={cfg.firstdep.enabled}
-                onChange={(v) => patch((d) => { d.firstdep.enabled = v })}
-              />
-            </Space>
-          </Col>
-          <Col span={8}>
+          <Col span={12}>
             <Text>流水倍率（0=不要求）</Text>
             <InputNumber
               suffix="x" style={{ width: '100%', marginTop: 4 }} min={0} max={100} precision={0}
@@ -145,7 +148,7 @@ export default function Promotions() {
               onChange={(v) => patch((d) => { d.firstdep.turnoverX = Number(v ?? 0) })}
             />
           </Col>
-          <Col span={8}>
+          <Col span={12}>
             <Text>流水有效期（0=永久）</Text>
             <InputNumber
               suffix="天" style={{ width: '100%', marginTop: 4 }} min={0} max={365} precision={0}
@@ -185,12 +188,52 @@ export default function Promotions() {
     </>
   )
 
+  const bonusCardsTable = (
+    <Card title="Bonuses 页活动卡片编排" style={{ marginBottom: 16 }}>
+      <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 12 }}>
+        统一控制客户端 Bonuses 页各活动卡片的开关、显示顺序与覆盖人群；顺序即页面从上到下的渲染顺序。金额/流水/档位等明细在下方及「首充嘉年华」页配置
+      </Text>
+      <Table<BonusCard>
+        size="small"
+        pagination={false}
+        rowKey="id"
+        dataSource={cfg.bonusCards}
+        columns={[
+          { title: '活动', dataIndex: 'id', render: (id: string) => BONUS_CARD_NAMES[id] ?? id },
+          {
+            title: '开关', width: 100,
+            render: (_, __, idx) => (
+              <Switch checkedChildren="开" unCheckedChildren="关" checked={cfg.bonusCards[idx].enabled} onChange={(v) => patch((d) => { d.bonusCards[idx].enabled = v })} />
+            ),
+          },
+          {
+            title: '顺序', width: 110,
+            render: (_, __, idx) => (
+              <Space>
+                <span>{cfg.bonusCards[idx].order}</span>
+                <Button size="small" type="text" icon={<ArrowUpOutlined />} disabled={idx === 0} onClick={() => moveBonusCard(idx, -1)} />
+                <Button size="small" type="text" icon={<ArrowDownOutlined />} disabled={idx === cfg.bonusCards.length - 1} onClick={() => moveBonusCard(idx, 1)} />
+              </Space>
+            ),
+          },
+          {
+            title: '覆盖人群', width: 180,
+            render: (_, __, idx) => (
+              <Select style={{ width: '100%' }} options={AUDIENCE_OPTIONS} value={cfg.bonusCards[idx].audience} onChange={(v) => patch((d) => { d.bonusCards[idx].audience = v })} />
+            ),
+          },
+        ]}
+      />
+    </Card>
+  )
+
   const generalTab = (
     <>
+      {bonusCardsTable}
+
       <Card
-        title={<span>🎖️ 首席体验官</span>}
+        title={<span>🎖️ 首席体验官 · 金额设置</span>}
         style={{ marginBottom: 16 }}
-        extra={<Switch checkedChildren="开启" unCheckedChildren="关闭" checked={cfg.trial.enabled} onChange={(v) => patch((d) => { d.trial.enabled = v })} />}
       >
         <Row gutter={24}>
           <Col span={8}>
@@ -209,12 +252,11 @@ export default function Promotions() {
       </Card>
 
       <Card
-        title={<span>📲 App 下载礼金</span>}
+        title={<span>📲 App 下载礼金 · 金额设置</span>}
         style={{ marginBottom: 16 }}
-        extra={<Switch checkedChildren="开启" unCheckedChildren="关闭" checked={cfg.appdl.enabled} onChange={(v) => patch((d) => { d.appdl.enabled = v })} />}
       >
         <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 12 }}>
-          用户在 App / PWA（添加到主屏幕）内一次性领取；开启后客户端顶部下载条、Bonuses 页展示区自动亮出金额宣传
+          用户在 App / PWA（添加到主屏幕）内一次性领取；卡片开关在上方「活动卡片编排」统一控制
         </Text>
         <Row gutter={24}>
           <Col span={8}>
@@ -274,6 +316,16 @@ export default function Promotions() {
       </Row>
     </Card>
   )
+
+  function moveBonusCard(idx: number, delta: number) {
+    patch((d) => {
+      const to = idx + delta
+      if (to < 0 || to >= d.bonusCards.length) return
+      const [item] = d.bonusCards.splice(idx, 1)
+      d.bonusCards.splice(to, 0, item)
+      d.bonusCards.forEach((c, i) => { c.order = i + 1 })
+    })
+  }
 
   function movePopup(idx: number, delta: number) {
     patch((d) => {

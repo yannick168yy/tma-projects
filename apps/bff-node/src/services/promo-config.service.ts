@@ -36,12 +36,22 @@ export interface RedepConfig {
   turnoverDays: number
 }
 
+/** Bonuses 页卡片编排：开关/顺序/覆盖人群，客户端按此渲染各活动卡片（与 popups 进站弹窗调度相互独立） */
+export type BonusCardId = 'checkin' | 'agent' | 'trial' | 'appdl' | 'firstdep'
+export interface BonusCard {
+  id: BonusCardId
+  enabled: boolean
+  order: number
+  audience: PopupConfig['audience']
+}
+
 export interface PromoConfig {
   trial:    { amount: number; enabled: boolean; turnoverX: number; turnoverDays: number }
   firstdep: { enabled: boolean; turnoverX: number; turnoverDays: number; tiers: Record<string, FirstDepTier[]> }
   appdl:    { amount: number; enabled: boolean; turnoverX: number; turnoverDays: number }
   redep:    RedepConfig
   popups:   PopupConfig[]
+  bonusCards: BonusCard[]
 }
 
 const DEFAULT_FIRSTDEP_TIERS: Record<string, FirstDepTier[]> = {
@@ -77,10 +87,63 @@ export const PROMO_DEFAULTS: PromoConfig = {
   redep:    { enabled: false, minDeposit: 500, bonusAmount: 75, windowHours: 4, cooldownDays: 2, turnoverX: 1, turnoverDays: 30 },
   popups:   [
     { id: 'new_player', enabled: true, order: 1, audience: 'all', frequency: 'daily' },
-    // firstdep=首页首充悬浮球，trial=活动页首席体验官卡片；均为常驻入口，frequency 不生效，仅用开关/人群
+    // firstdep=首页首充悬浮球，trial=活动页进站弹窗；均为常驻/进站入口，frequency 不生效于常驻，仅用开关/人群
     { id: 'firstdep',   enabled: true, order: 2, audience: 'all', frequency: 'always' },
     { id: 'trial',      enabled: true, order: 3, audience: 'all', frequency: 'always' },
   ],
+  // Bonuses 页卡片编排：顺序即渲染顺序；trial/appdl/firstdep 的 enabled 与各自标量开关对账，checkin/agent 独立
+  bonusCards: [
+    { id: 'checkin',  enabled: true,  order: 1, audience: 'all' },
+    { id: 'agent',    enabled: true,  order: 2, audience: 'all' },
+    { id: 'trial',    enabled: true,  order: 3, audience: 'all' },
+    { id: 'appdl',    enabled: false, order: 4, audience: 'all' },
+    { id: 'firstdep', enabled: true,  order: 5, audience: 'all' },
+  ],
+}
+
+const BONUS_CARD_IDS: BonusCardId[] = ['checkin', 'agent', 'trial', 'appdl', 'firstdep']
+
+function sanitizeBonusCards(raw: unknown): BonusCard[] {
+  const byId = new Map<string, Partial<BonusCard>>()
+  if (Array.isArray(raw)) {
+    for (const p of raw) {
+      if (p && typeof p === 'object' && typeof (p as BonusCard).id === 'string') {
+        byId.set(String((p as BonusCard).id), p as Partial<BonusCard>)
+      }
+    }
+  }
+  // 以 5 张固定卡片为准，缺失项补默认，未知 id 丢弃
+  const items: BonusCard[] = BONUS_CARD_IDS.map((id) => {
+    const def = PROMO_DEFAULTS.bonusCards.find((c) => c.id === id)!
+    const it = byId.get(id)
+    return {
+      id,
+      enabled: it && typeof it.enabled === 'boolean' ? it.enabled : def.enabled,
+      order: it && Number.isFinite(Number(it.order)) ? Number(it.order) : def.order,
+      audience: POPUP_AUDIENCES.includes(it?.audience as never) ? (it!.audience as BonusCard['audience']) : def.audience,
+    }
+  })
+  items.sort((a, b) => a.order - b.order)
+  items.forEach((c, i) => { c.order = i + 1 })
+  return items
+}
+
+/** 卡片开关以标量为准：读取时把 trial/appdl/firstdep 的标量 enabled 回灌到卡片，防两处漂移 */
+function reconcileBonusCardEnabled(config: PromoConfig): void {
+  for (const card of config.bonusCards) {
+    if (card.id === 'trial') card.enabled = config.trial.enabled
+    else if (card.id === 'appdl') card.enabled = config.appdl.enabled
+    else if (card.id === 'firstdep') card.enabled = config.firstdep.enabled
+  }
+}
+
+/** 保存时反向对账：把卡片列表里 trial/appdl/firstdep 的开关写回标量，实现「统一列表即单一开关」 */
+function syncScalarEnabledFromCards(config: PromoConfig): void {
+  for (const card of config.bonusCards) {
+    if (card.id === 'trial') config.trial.enabled = card.enabled
+    else if (card.id === 'appdl') config.appdl.enabled = card.enabled
+    else if (card.id === 'firstdep') config.firstdep.enabled = card.enabled
+  }
 }
 
 const POPUP_AUDIENCES = ['all', 'guest', 'no_deposit', 'new', 'deposited'] as const
@@ -180,13 +243,21 @@ export async function getPromoConfig(env: Env): Promise<PromoConfig> {
     if (map.popups?.items) {
       try { popups = sanitizePopups(JSON.parse(map.popups.items)) } catch { /* 配置损坏时回退默认 */ }
     }
-    return {
+    let bonusCards = D.bonusCards
+    if (map.bonuscards?.items) {
+      try { bonusCards = sanitizeBonusCards(JSON.parse(map.bonuscards.items)) } catch { /* 配置损坏时回退默认 */ }
+    }
+    const config: PromoConfig = {
       trial:    { amount: num(t.amount, D.trial.amount), enabled: bool(t.enabled, D.trial.enabled), turnoverX: num(t.turnover_x, D.trial.turnoverX), turnoverDays: num(t.turnover_days, D.trial.turnoverDays) },
       firstdep: { enabled: bool(f.enabled, D.firstdep.enabled), turnoverX: num(f.turnover_x, D.firstdep.turnoverX), turnoverDays: num(f.turnover_days, D.firstdep.turnoverDays), tiers },
       appdl:    { amount: num(a.amount, D.appdl.amount), enabled: bool(a.enabled, D.appdl.enabled), turnoverX: num(a.turnover_x, D.appdl.turnoverX), turnoverDays: num(a.turnover_days, D.appdl.turnoverDays) },
       redep:    parseRedepConfig(r),
       popups,
+      bonusCards,
     }
+    // trial/appdl/firstdep 的卡片开关以各自标量为准，避免两处漂移
+    reconcileBonusCardEnabled(config)
+    return config
   } catch {
     return PROMO_DEFAULTS
   }
@@ -195,6 +266,8 @@ export async function getPromoConfig(env: Env): Promise<PromoConfig> {
 export async function savePromoConfig(env: Env, config: PromoConfig): Promise<void> {
   const pool = getMysqlPool(env)
   const D = PROMO_DEFAULTS
+  // 统一列表的开关是单一真源：写库前把卡片开关灌回 trial/appdl/firstdep 标量
+  if (Array.isArray(config.bonusCards)) syncScalarEnabledFromCards(config)
   const entries: [string, string, string][] = [
     ['trial',    'amount',         String(config.trial.amount            ?? D.trial.amount)],
     ['trial',    'enabled',        config.trial.enabled                  ? '1' : '0'],
@@ -215,6 +288,7 @@ export async function savePromoConfig(env: Env, config: PromoConfig): Promise<vo
     ['redep',    'turnover_x',     String(config.redep.turnoverX         ?? D.redep.turnoverX)],
     ['redep',    'turnover_days',  String(config.redep.turnoverDays      ?? D.redep.turnoverDays)],
     ['popups',   'items',          JSON.stringify(sanitizePopups(config.popups))],
+    ['bonuscards', 'items',        JSON.stringify(sanitizeBonusCards(config.bonusCards))],
   ]
   await pool.query(
     `INSERT INTO bg_promo_config (promo_id, config_key, config_value) VALUES ?

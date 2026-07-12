@@ -5,7 +5,7 @@ import { BONUS_WINNERS, PROMOS } from '@/data/promos'
 import { usePromotionStore, getHighlightMap } from '@/stores/promotion'
 import { useAuthStore } from '@/stores/auth'
 import { useWalletStore } from '@/stores/wallet'
-import { fetchAppdlStatus, claimAppdlBonus, matchPopupAudience, type NewPlayerSummary } from '@/api/promotion'
+import { fetchAppdlStatus, claimAppdlBonus, matchPopupAudience, type NewPlayerSummary, type BonusCard } from '@/api/promotion'
 import { isStandalone } from '@/utils/pwa'
 import { isInsideTelegram } from '@/utils/initTelegramWebApp'
 import { analytics } from '@/utils/analytics'
@@ -25,6 +25,15 @@ interface Props {
 function phpDisplay(cents: number) {
   return '₱' + (cents / 100).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
+
+// 后台 bonusCards 配置缺失/弱网未加载时的兜底顺序，保证页面不空白
+const DEFAULT_BONUS_CARDS: BonusCard[] = [
+  { id: 'checkin', enabled: true, order: 1, audience: 'all' },
+  { id: 'agent', enabled: true, order: 2, audience: 'all' },
+  { id: 'trial', enabled: true, order: 3, audience: 'all' },
+  { id: 'appdl', enabled: false, order: 4, audience: 'all' },
+  { id: 'firstdep', enabled: true, order: 5, audience: 'all' },
+]
 
 export default function BonusesPage({ promoFilter, onOpenWallet, onOpenTeam, onOpenAppInstall, newPlayerSummary, onOpenNewPlayerGift, onOpenCheckin }: Props) {
   const { t } = useTranslation()
@@ -120,15 +129,7 @@ export default function BonusesPage({ promoFilter, onOpenWallet, onOpenTeam, onO
 
   const localizedPromos = useMemo(
     () =>
-      PROMOS.filter((p) => p.id !== 'appdl' || (!isInsideTelegram() && Boolean(promoConfig?.appdl?.enabled)))
-        .filter((p) => {
-          // 首席体验官卡片受后台「首页弹窗」开关+人群控制
-          if (p.id !== 'trial') return true
-          const popup = promoConfig?.popups?.find((x) => x.id === 'trial')
-          if (!popup) return true
-          return popup.enabled && matchPopupAudience(popup.audience, Boolean(token), highlightMap.get('firstdep')?.highlight === false)
-        })
-        .map((p) => {
+      PROMOS.map((p) => {
         const base = `bonuses.promos.${p.id}`
         const cfg = promoConfig
 
@@ -165,13 +166,265 @@ export default function BonusesPage({ promoFilter, onOpenWallet, onOpenTeam, onO
           expiry: p.expiry === 'Ongoing' ? t('common.ongoing') : t('common.limitedTime'),
         }
       }),
-    [t, promoConfig, token, highlightMap],
+    [t, promoConfig],
   )
 
   const agentSteps = useMemo(
     () => [t('bonuses.promos.agent.step1'), t('bonuses.promos.agent.step2'), t('bonuses.promos.agent.step3')],
     [t],
   )
+
+  // 后台统一编排：按 bonusCards 的开关 + 覆盖人群 + 顺序决定 Bonuses 页卡片
+  const orderedCards = useMemo(() => {
+    const deposited = highlightMap.get('firstdep')?.highlight === false
+    const cards = promoConfig?.bonusCards?.length ? promoConfig.bonusCards : DEFAULT_BONUS_CARDS
+    return [...cards]
+      .filter((c) => c.enabled)
+      .filter((c) => matchPopupAudience(c.audience, Boolean(token), deposited))
+      .filter((c) => {
+        if (c.id === 'appdl') return !isInsideTelegram() // Telegram 内无法安装 PWA/APK
+        if (c.id === 'checkin') return promoConfig?.checkinEnabled !== false // 签到功能自身也需开启
+        return true
+      })
+      .sort((a, b) => a.order - b.order)
+  }, [promoConfig, token, highlightMap])
+
+  type LocalizedPromo = (typeof localizedPromos)[number]
+
+  function renderPromoCard(p: LocalizedPromo) {
+    return (
+      <div
+        key={p.id}
+        id={`promo-${p.id}`}
+        className={`rounded-2xl overflow-hidden border ${p.highlight ? 'border-purple-500/40' : 'border-white/8'} ${promoFilter === p.id ? 'ring-2 ring-primary/60' : ''}`}
+      >
+        <div className={`relative bg-gradient-to-br px-4 py-4 ${p.gradient}`}>
+          {p.highlight && (
+            <div className="absolute top-3 right-3 bg-primary text-primary-foreground text-[10px] font-black px-2 py-0.5 rounded-full">
+              {t('bonuses.featuredBadge')}
+            </div>
+          )}
+          <div className="flex items-start justify-between">
+            <div className="flex-1 pr-12">
+              <span className="text-[10px] font-black uppercase tracking-widest" style={{ color: p.accentColor }}>
+                {p.tag}
+              </span>
+              <h2 className="text-white font-black leading-tight mt-0.5 font-display text-[1.3rem]">{p.title}</h2>
+              <p className="text-white/60 text-xs mt-0.5">{p.tagline}</p>
+            </div>
+            <span className="text-3xl">{p.icon}</span>
+          </div>
+          <div className="mt-3 flex items-center gap-2">
+            <div className="bg-black/30 rounded-xl px-3 py-1.5 flex items-baseline gap-1.5">
+              <span className="text-white font-black text-xl leading-none font-display">{p.reward}</span>
+              <span className="text-white/60 text-xs">{p.rewardLabel}</span>
+            </div>
+            <span className={`text-[10px] font-black px-2 py-1 rounded-full ${p.badgeColor}`}>{p.badge}</span>
+            <span className="ml-auto text-[10px] text-white/40 font-semibold">🕐 {p.expiry}</span>
+          </div>
+        </div>
+
+        <div className="bg-card px-4 py-3">
+          <p className="text-muted-foreground text-xs leading-relaxed">{p.desc}</p>
+          <button
+            type="button"
+            className="w-full flex items-center justify-between mt-3 py-2 border-t border-border"
+            onClick={() => setExpanded(expanded === p.id ? null : p.id)}
+          >
+            <span className="text-foreground text-xs font-bold">{t('bonuses.howItWorks')}</span>
+            <ChevronDown
+              size={14}
+              className={`text-muted-foreground transition-transform duration-200 ${expanded === p.id ? 'rotate-180' : ''}`}
+            />
+          </button>
+          {expanded === p.id && (
+            <div className="pb-2 space-y-2">
+              {p.steps.map((step, i) => (
+                <div key={i} className="flex items-start gap-2.5">
+                  <div
+                    className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 font-black text-[11px] text-black mt-0.5"
+                    style={{ background: p.accentColor }}
+                  >
+                    {i + 1}
+                  </div>
+                  <span className="text-foreground/80 text-xs leading-relaxed">{step}</span>
+                </div>
+              ))}
+            </div>
+          )}
+          <button
+            type="button"
+            disabled={(p.id === 'trial' && (!isTrialClaimable() || trialClaiming)) || (p.id === 'appdl' && inApp && (appdlClaimed || appdlClaiming))}
+            className={`w-full mt-3 py-3 rounded-xl text-white font-black text-sm transition-colors ${p.ctaColor} ${((p.id === 'trial' && (!isTrialClaimable() || trialClaiming)) || (p.id === 'appdl' && inApp && (appdlClaimed || appdlClaiming))) ? 'opacity-50 pointer-events-none' : ''}`}
+            onClick={() => void onPromoCta(p.id)}
+          >
+            {p.id === 'trial' && trialClaiming
+              ? t('bonuses.promos.trial.claiming')
+              : p.id === 'trial' && !isTrialClaimable()
+                ? t('bonuses.promos.trial.ctaClaimed')
+                : p.id === 'appdl' && inApp
+                  ? (appdlClaiming
+                    ? t('bonuses.promos.appdl.claiming')
+                    : appdlClaimed
+                      ? t('bonuses.promos.appdl.ctaClaimed')
+                      : t('bonuses.promos.appdl.ctaClaim', { amount: promoConfig?.appdl?.amount ?? '' }))
+                  : p.cta}
+          </button>
+          {p.id === 'trial' && promoError && (
+            <p className="mt-2 text-[11px] text-red-400 text-center">{promoError}</p>
+          )}
+          {p.id === 'appdl' && !inApp && (
+            <p className="mt-2 text-[11px] text-muted-foreground text-center">{t('bonuses.promos.appdl.openInApp')}</p>
+          )}
+          {p.id === 'appdl' && appdlMsg && (
+            <p className={`mt-2 text-[11px] text-center ${appdlMsg.ok ? 'text-emerald-400' : 'text-red-400'}`}>{appdlMsg.text}</p>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  function renderCheckinCard() {
+    return (
+      <div key="checkin" className="rounded-2xl overflow-hidden border border-primary/30">
+        <div className="relative bg-gradient-to-br from-[#2b1259] via-[#1a1440] to-[#141B2D] px-4 py-4">
+          <span className="text-3xl absolute top-3 right-4">📅</span>
+          <span className="text-[10px] font-black uppercase tracking-widest text-primary">{t('checkin.entryTag')}</span>
+          <h2 className="text-white font-black leading-tight mt-0.5 font-display text-[1.3rem]">{t('checkin.entryTitle')}</h2>
+          <p className="text-white/60 text-xs mt-0.5">{t('checkin.entryDesc')}</p>
+        </div>
+        <div className="bg-card px-4 py-3">
+          <button
+            type="button"
+            className="w-full py-3 rounded-xl text-primary-foreground font-black text-sm bg-primary hover:opacity-90 transition-opacity"
+            onClick={onOpenCheckin}
+          >
+            {t('checkin.entryCta')}
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  function renderAgentCard() {
+    return (
+      <div key="agent" className="rounded-2xl overflow-hidden border border-amber-500/30">
+        <div className="relative bg-gradient-to-br from-[#78350f] via-[#92400e] to-[#b45309] px-4 py-4">
+          <span className="text-3xl absolute top-3 right-4">🏆</span>
+          <span className="text-[10px] font-black uppercase tracking-widest text-amber-300">
+            {t('bonuses.promos.agent.tag')}
+          </span>
+
+          {!teamStatus?.isAgent ? (
+            <>
+              <h2 className="text-white font-black leading-tight mt-0.5 font-display text-[1.3rem]">
+                {t('bonuses.promos.agent.title')}
+              </h2>
+              <p className="text-white/60 text-xs mt-0.5">{t('bonuses.promos.agent.tagline')}</p>
+              <div className="flex gap-2 mt-3">
+                {([
+                  [teamStatus?.ratePlan?.l1RatePct ?? 0.6, t('bonuses.promos.agent.rateL1')],
+                  [teamStatus?.ratePlan?.l2RatePct ?? 0.3, t('bonuses.promos.agent.rateL2')],
+                  [teamStatus?.ratePlan?.l3RatePct ?? 0.2, t('bonuses.promos.agent.rateL3')],
+                ] as const).map(([rate, label]) => (
+                  <div key={label} className="flex-1 bg-black/30 rounded-xl p-2 text-center">
+                    <div className="text-amber-400 font-black text-lg leading-none">{rate}%</div>
+                    <div className="text-white/50 text-[9px] mt-0.5">{label}</div>
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : (
+            <>
+              <h2 className="text-white font-black leading-tight mt-0.5 font-display text-[1.3rem]">
+                {t('bonuses.promos.agent.title')}
+              </h2>
+              <div className="flex gap-2 mt-3">
+                <div className="flex-1 bg-black/30 rounded-xl px-3 py-2">
+                  <div className="flex items-center gap-1 mb-0.5">
+                    <Users size={10} className="text-amber-400" />
+                    <span className="text-white/50 text-[9px]">{t('bonuses.promos.agent.teamLabel')}</span>
+                  </div>
+                  <div className="text-amber-400 font-black text-sm leading-none">
+                    C1 {teamStatus.l1Count} · C2 {teamStatus.l2Count} · C3 {teamStatus.l3Count}
+                  </div>
+                </div>
+                <div className="bg-black/30 rounded-xl px-3 py-2 text-right">
+                  <div className="flex items-center justify-end gap-1 mb-0.5">
+                    <Wallet size={10} className="text-amber-400" />
+                    <span className="text-white/50 text-[9px]">{t('bonuses.promos.agent.commissionLabel')}</span>
+                  </div>
+                  <div className="text-amber-400 font-black text-sm leading-none">
+                    {phpDisplay(teamStatus.availableCents)}
+                  </div>
+                </div>
+              </div>
+              {!teamStatus.activated && (
+                <div className="mt-2 bg-amber-500/15 border border-amber-500/30 rounded-lg px-3 py-1.5">
+                  <p className="text-amber-300 text-[10px] leading-relaxed">
+                    {t('bonuses.promos.agent.activationHint')}
+                  </p>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
+        <div className="bg-card px-4 py-3">
+          <p className="text-muted-foreground text-xs leading-relaxed">{t('bonuses.promos.agent.desc')}</p>
+
+          <button
+            type="button"
+            className="w-full flex items-center justify-between mt-3 py-2 border-t border-border"
+            onClick={() => setAgentExpanded((v) => !v)}
+          >
+            <span className="text-foreground text-xs font-bold">{t('bonuses.howItWorks')}</span>
+            <ChevronDown
+              size={14}
+              className={`text-muted-foreground transition-transform duration-200 ${agentExpanded ? 'rotate-180' : ''}`}
+            />
+          </button>
+          {agentExpanded && (
+            <div className="pb-2 space-y-2">
+              {agentSteps.map((step, i) => (
+                <div key={i} className="flex items-start gap-2.5">
+                  <div className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 font-black text-[11px] text-black mt-0.5 bg-amber-400">
+                    {i + 1}
+                  </div>
+                  <span className="text-foreground/80 text-xs leading-relaxed">{step}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {!teamStatus?.isAgent ? (
+            <button
+              type="button"
+              className={`w-full mt-3 py-3 rounded-xl text-black font-black text-sm transition-opacity bg-amber-500 hover:bg-amber-400 ${agentActivating ? 'opacity-60 pointer-events-none' : ''}`}
+              onClick={() => void onActivateAgent()}
+            >
+              {agentActivating ? t('bonuses.promos.agent.activating') : t('bonuses.promos.agent.cta')}
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="w-full mt-3 py-3 rounded-xl text-black font-black text-sm bg-amber-500 hover:bg-amber-400 transition-colors"
+              onClick={onOpenTeam}
+            >
+              {t('bonuses.promos.agent.ctaActive')}
+            </button>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  function renderCard(id: BonusCard['id']) {
+    if (id === 'agent') return renderAgentCard()
+    if (id === 'checkin') return renderCheckinCard()
+    const p = localizedPromos.find((x) => x.id === id)
+    return p ? renderPromoCard(p) : null
+  }
 
   return (
     <div className="page-main">
@@ -205,6 +458,9 @@ export default function BonusesPage({ promoFilter, onOpenWallet, onOpenTeam, onO
       </div>
 
       <div className="px-4 mt-4 space-y-3">
+        {orderedCards.map((c) => renderCard(c.id))}
+
+        {/* New Player Gifts 测试入口：放在最底部，不纳入后台编排 */}
         {newPlayerSummary && onOpenNewPlayerGift && newPlayerSummary.totalShowcase > 0 && (
           <button
             type="button"
@@ -227,224 +483,6 @@ export default function BonusesPage({ promoFilter, onOpenWallet, onOpenTeam, onO
             </div>
           </button>
         )}
-
-        {/* 每日签到入口（后台开启时才显示） */}
-        {promoConfig?.checkinEnabled && (
-        <button
-          type="button"
-          onClick={onOpenCheckin}
-          className="w-full text-left rounded-2xl overflow-hidden border border-primary/30 bg-gradient-to-br from-[#2b1259] via-[#1a1440] to-[#141B2D] px-4 py-4 active:scale-[0.98] transition-transform"
-        >
-          <div className="flex items-center justify-between gap-3">
-            <div className="min-w-0">
-              <span className="text-[10px] font-black uppercase tracking-widest text-primary">{t('checkin.entryTag')}</span>
-              <h2 className="text-white font-black leading-tight mt-0.5 font-display text-[1.3rem]">{t('checkin.entryTitle')}</h2>
-              <p className="text-white/70 text-xs mt-0.5">{t('checkin.entryDesc')}</p>
-            </div>
-            <span className="text-4xl flex-shrink-0">📅</span>
-          </div>
-          <span className="mt-3 inline-block rounded-full bg-primary px-4 py-1.5 text-xs font-black text-primary-foreground">{t('checkin.entryCta')}</span>
-        </button>
-        )}
-        <div className="rounded-2xl overflow-hidden border border-amber-500/30">
-          <div className="relative bg-gradient-to-br from-[#78350f] via-[#92400e] to-[#b45309] px-4 py-4">
-            <span className="text-3xl absolute top-3 right-4">🏆</span>
-            <span className="text-[10px] font-black uppercase tracking-widest text-amber-300">
-              {t('bonuses.promos.agent.tag')}
-            </span>
-
-            {!teamStatus?.isAgent ? (
-              <>
-                <h2 className="text-white font-black leading-tight mt-0.5 font-display text-[1.3rem]">
-                  {t('bonuses.promos.agent.title')}
-                </h2>
-                <p className="text-white/60 text-xs mt-0.5">{t('bonuses.promos.agent.tagline')}</p>
-                <div className="flex gap-2 mt-3">
-                  {([
-                    [teamStatus?.ratePlan?.l1RatePct ?? 0.6, t('bonuses.promos.agent.rateL1')],
-                    [teamStatus?.ratePlan?.l2RatePct ?? 0.3, t('bonuses.promos.agent.rateL2')],
-                    [teamStatus?.ratePlan?.l3RatePct ?? 0.2, t('bonuses.promos.agent.rateL3')],
-                  ] as const).map(([rate, label]) => (
-                    <div key={label} className="flex-1 bg-black/30 rounded-xl p-2 text-center">
-                      <div className="text-amber-400 font-black text-lg leading-none">{rate}%</div>
-                      <div className="text-white/50 text-[9px] mt-0.5">{label}</div>
-                    </div>
-                  ))}
-                </div>
-              </>
-            ) : (
-              <>
-                <h2 className="text-white font-black leading-tight mt-0.5 font-display text-[1.3rem]">
-                  {t('bonuses.promos.agent.title')}
-                </h2>
-                <div className="flex gap-2 mt-3">
-                  <div className="flex-1 bg-black/30 rounded-xl px-3 py-2">
-                    <div className="flex items-center gap-1 mb-0.5">
-                      <Users size={10} className="text-amber-400" />
-                      <span className="text-white/50 text-[9px]">{t('bonuses.promos.agent.teamLabel')}</span>
-                    </div>
-                    <div className="text-amber-400 font-black text-sm leading-none">
-                      C1 {teamStatus.l1Count} · C2 {teamStatus.l2Count} · C3 {teamStatus.l3Count}
-                    </div>
-                  </div>
-                  <div className="bg-black/30 rounded-xl px-3 py-2 text-right">
-                    <div className="flex items-center justify-end gap-1 mb-0.5">
-                      <Wallet size={10} className="text-amber-400" />
-                      <span className="text-white/50 text-[9px]">{t('bonuses.promos.agent.commissionLabel')}</span>
-                    </div>
-                    <div className="text-amber-400 font-black text-sm leading-none">
-                      {phpDisplay(teamStatus.availableCents)}
-                    </div>
-                  </div>
-                </div>
-                {!teamStatus.activated && (
-                  <div className="mt-2 bg-amber-500/15 border border-amber-500/30 rounded-lg px-3 py-1.5">
-                    <p className="text-amber-300 text-[10px] leading-relaxed">
-                      {t('bonuses.promos.agent.activationHint')}
-                    </p>
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-
-          <div className="bg-card px-4 py-3">
-            <p className="text-muted-foreground text-xs leading-relaxed">{t('bonuses.promos.agent.desc')}</p>
-
-            <button
-              type="button"
-              className="w-full flex items-center justify-between mt-3 py-2 border-t border-border"
-              onClick={() => setAgentExpanded((v) => !v)}
-            >
-              <span className="text-foreground text-xs font-bold">{t('bonuses.howItWorks')}</span>
-              <ChevronDown
-                size={14}
-                className={`text-muted-foreground transition-transform duration-200 ${agentExpanded ? 'rotate-180' : ''}`}
-              />
-            </button>
-            {agentExpanded && (
-              <div className="pb-2 space-y-2">
-                {agentSteps.map((step, i) => (
-                  <div key={i} className="flex items-start gap-2.5">
-                    <div className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 font-black text-[11px] text-black mt-0.5 bg-amber-400">
-                      {i + 1}
-                    </div>
-                    <span className="text-foreground/80 text-xs leading-relaxed">{step}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {!teamStatus?.isAgent ? (
-              <button
-                type="button"
-                className={`w-full mt-3 py-3 rounded-xl text-black font-black text-sm transition-opacity bg-amber-500 hover:bg-amber-400 ${agentActivating ? 'opacity-60 pointer-events-none' : ''}`}
-                onClick={() => void onActivateAgent()}
-              >
-                {agentActivating ? t('bonuses.promos.agent.activating') : t('bonuses.promos.agent.cta')}
-              </button>
-            ) : (
-              <button
-                type="button"
-                className="w-full mt-3 py-3 rounded-xl text-black font-black text-sm bg-amber-500 hover:bg-amber-400 transition-colors"
-                onClick={onOpenTeam}
-              >
-                {t('bonuses.promos.agent.ctaActive')}
-              </button>
-            )}
-          </div>
-        </div>
-
-        {localizedPromos.map((p) => (
-          <div
-            key={p.id}
-            id={`promo-${p.id}`}
-            className={`rounded-2xl overflow-hidden border ${p.highlight ? 'border-purple-500/40' : 'border-white/8'} ${promoFilter === p.id ? 'ring-2 ring-primary/60' : ''}`}
-          >
-            <div className={`relative bg-gradient-to-br px-4 py-4 ${p.gradient}`}>
-              {p.highlight && (
-                <div className="absolute top-3 right-3 bg-primary text-primary-foreground text-[10px] font-black px-2 py-0.5 rounded-full">
-                  {t('bonuses.featuredBadge')}
-                </div>
-              )}
-              <div className="flex items-start justify-between">
-                <div className="flex-1 pr-12">
-                  <span className="text-[10px] font-black uppercase tracking-widest" style={{ color: p.accentColor }}>
-                    {p.tag}
-                  </span>
-                  <h2 className="text-white font-black leading-tight mt-0.5 font-display text-[1.3rem]">{p.title}</h2>
-                  <p className="text-white/60 text-xs mt-0.5">{p.tagline}</p>
-                </div>
-                <span className="text-3xl">{p.icon}</span>
-              </div>
-              <div className="mt-3 flex items-center gap-2">
-                <div className="bg-black/30 rounded-xl px-3 py-1.5 flex items-baseline gap-1.5">
-                  <span className="text-white font-black text-xl leading-none font-display">{p.reward}</span>
-                  <span className="text-white/60 text-xs">{p.rewardLabel}</span>
-                </div>
-                <span className={`text-[10px] font-black px-2 py-1 rounded-full ${p.badgeColor}`}>{p.badge}</span>
-                <span className="ml-auto text-[10px] text-white/40 font-semibold">🕐 {p.expiry}</span>
-              </div>
-            </div>
-
-            <div className="bg-card px-4 py-3">
-              <p className="text-muted-foreground text-xs leading-relaxed">{p.desc}</p>
-              <button
-                type="button"
-                className="w-full flex items-center justify-between mt-3 py-2 border-t border-border"
-                onClick={() => setExpanded(expanded === p.id ? null : p.id)}
-              >
-                <span className="text-foreground text-xs font-bold">{t('bonuses.howItWorks')}</span>
-                <ChevronDown
-                  size={14}
-                  className={`text-muted-foreground transition-transform duration-200 ${expanded === p.id ? 'rotate-180' : ''}`}
-                />
-              </button>
-              {expanded === p.id && (
-                <div className="pb-2 space-y-2">
-                  {p.steps.map((step, i) => (
-                    <div key={i} className="flex items-start gap-2.5">
-                      <div
-                        className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 font-black text-[11px] text-black mt-0.5"
-                        style={{ background: p.accentColor }}
-                      >
-                        {i + 1}
-                      </div>
-                      <span className="text-foreground/80 text-xs leading-relaxed">{step}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-              <button
-                type="button"
-                disabled={(p.id === 'trial' && (!isTrialClaimable() || trialClaiming)) || (p.id === 'appdl' && inApp && (appdlClaimed || appdlClaiming))}
-                className={`w-full mt-3 py-3 rounded-xl text-white font-black text-sm transition-colors ${p.ctaColor} ${((p.id === 'trial' && (!isTrialClaimable() || trialClaiming)) || (p.id === 'appdl' && inApp && (appdlClaimed || appdlClaiming))) ? 'opacity-50 pointer-events-none' : ''}`}
-                onClick={() => void onPromoCta(p.id)}
-              >
-                {p.id === 'trial' && trialClaiming
-                  ? t('bonuses.promos.trial.claiming')
-                  : p.id === 'trial' && !isTrialClaimable()
-                    ? t('bonuses.promos.trial.ctaClaimed')
-                    : p.id === 'appdl' && inApp
-                      ? (appdlClaiming
-                        ? t('bonuses.promos.appdl.claiming')
-                        : appdlClaimed
-                          ? t('bonuses.promos.appdl.ctaClaimed')
-                          : t('bonuses.promos.appdl.ctaClaim', { amount: promoConfig?.appdl?.amount ?? '' }))
-                      : p.cta}
-              </button>
-              {p.id === 'trial' && promoError && (
-                <p className="mt-2 text-[11px] text-red-400 text-center">{promoError}</p>
-              )}
-              {p.id === 'appdl' && !inApp && (
-                <p className="mt-2 text-[11px] text-muted-foreground text-center">{t('bonuses.promos.appdl.openInApp')}</p>
-              )}
-              {p.id === 'appdl' && appdlMsg && (
-                <p className={`mt-2 text-[11px] text-center ${appdlMsg.ok ? 'text-emerald-400' : 'text-red-400'}`}>{appdlMsg.text}</p>
-              )}
-            </div>
-          </div>
-        ))}
       </div>
 
       <div className="mx-4 mt-4 mb-2 bg-secondary/50 rounded-xl px-4 py-3 border border-border">

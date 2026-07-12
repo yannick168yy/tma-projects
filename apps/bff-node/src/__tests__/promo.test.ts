@@ -59,6 +59,7 @@ const DEFAULT_CONFIG = {
   appdl: { amount: 66, enabled: true, turnoverX: 5, turnoverDays: 30 },
   redep: { enabled: false, minDeposit: 500, bonusAmount: 75, windowHours: 4, cooldownDays: 2, turnoverX: 1, turnoverDays: 30 },
   popups: [{ id: 'new_player', enabled: true, order: 1, audience: 'all' as const, frequency: 'daily' as const }],
+  bonusCards: [{ id: 'trial' as const, enabled: true, order: 1, audience: 'all' as const }],
 }
 
 function createApp() {

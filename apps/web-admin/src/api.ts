@@ -784,12 +784,20 @@ export interface RedepConfig {
   turnoverX: number
   turnoverDays: number
 }
+export type BonusCardId = 'checkin' | 'agent' | 'trial' | 'appdl' | 'firstdep'
+export interface BonusCard {
+  id: BonusCardId
+  enabled: boolean
+  order: number
+  audience: PopupAudience
+}
 export interface PromoConfig {
   trial:    { amount: number; enabled: boolean; turnoverX: number; turnoverDays: number }
   firstdep: { enabled: boolean; turnoverX: number; turnoverDays: number; tiers: Record<string, FirstDepTier[]> }
   appdl:    { amount: number; enabled: boolean; turnoverX: number; turnoverDays: number }
   redep:    RedepConfig
   popups:   PopupConfig[]
+  bonusCards: BonusCard[]
 }
 export const getPromoConfig = () => get<PromoConfig>('/admin/promotions/config')
 export const savePromoConfig = (data: PromoConfig) => req<PromoConfig>('PUT', '/admin/promotions/config', data)
