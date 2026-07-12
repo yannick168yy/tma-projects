@@ -285,6 +285,8 @@ export default {
     tierPro: 'Pro',
     tierEliteRate: '2%',
     tierProRate: '1.5%',
+    tierBasic: 'Basic',
+    tierBasicRate: '1%',
     viewGames: 'Xem Game',
     rateTable: 'Tỷ Lệ Hoàn Tiền',
     rateTableDesc: 'Hoàn tiền hàng ngày theo loại game',

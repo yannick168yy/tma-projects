@@ -91,14 +91,16 @@ function formatLedgerRebateDate(value: unknown): string {
 function featuredTierRatePct(tier: string): number {
   if (tier === 'elite') return 2
   if (tier === 'pro') return 1.5
+  if (tier === 'basic') return 1
   return 0
 }
 
-/** 单行 turnover 的有效洗码费率 %：精选游戏用 elite/pro 档位，否则用分级大类配置 lc.rate_pct */
+/** 单行 turnover 的有效洗码费率 %：精选游戏用 elite/pro/basic 档位，否则用分级大类配置 lc.rate_pct */
 const SQL_EFFECTIVE_RATE_PCT = `
   CASE
     WHEN rfg.tier = 'elite' THEN 2.000
     WHEN rfg.tier = 'pro' THEN 1.500
+    WHEN rfg.tier = 'basic' THEN 1.000
     ELSE COALESCE(lc.rate_pct, 0.800)
   END
 `

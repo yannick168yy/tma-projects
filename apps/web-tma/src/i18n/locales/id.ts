@@ -285,6 +285,8 @@ export default {
     tierPro: 'Pro',
     tierEliteRate: '2%',
     tierProRate: '1.5%',
+    tierBasic: 'Basic',
+    tierBasicRate: '1%',
     viewGames: 'Lihat Game',
     rateTable: 'Tarif Rebate',
     rateTableDesc: 'Rebate harian per kategori game',

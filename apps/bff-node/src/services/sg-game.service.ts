@@ -32,8 +32,8 @@ export interface DbGame {
   isMobile: boolean
   weight: number
   isFeatured: boolean
-  /** Cashback Games 精选档位角标：elite=2% 档 / pro=1.5% 档（bg_rebate_featured_game，纯展示） */
-  cashbackTier?: 'elite' | 'pro' | null
+  /** Cashback Games 精选档位角标：elite=2% / pro=1.5% / basic=1%（bg_rebate_featured_game，真实结算费率） */
+  cashbackTier?: 'elite' | 'pro' | 'basic' | null
   createdAt?: string | null
   supportedCurrencies?: string[] | null
   supportsActiveCurrency?: boolean
@@ -209,9 +209,9 @@ export async function loadGamesCache(env: Env): Promise<number> {
   ]
   // Cashback 精选档位角标（elite=2%/pro=1.5%，纯展示不参与结算）
   const [featRows] = await db.query<RowDataPacket[]>(
-    "SELECT game_uuid, tier FROM bg_rebate_featured_game WHERE enabled = 1 AND tier IN ('elite','pro')",
+    "SELECT game_uuid, tier FROM bg_rebate_featured_game WHERE enabled = 1 AND tier IN ('elite','pro','basic')",
   )
-  const tierByUuid = new Map(featRows.map((r) => [String(r.game_uuid), String(r.tier) as 'elite' | 'pro']))
+  const tierByUuid = new Map(featRows.map((r) => [String(r.game_uuid), String(r.tier) as 'elite' | 'pro' | 'basic']))
   if (tierByUuid.size > 0) {
     for (const g of games) {
       const tier = tierByUuid.get(g.uuid)

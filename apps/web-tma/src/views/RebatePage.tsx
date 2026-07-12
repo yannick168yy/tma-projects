@@ -266,9 +266,19 @@ export default function RebatePage({ onOpenGame, onOpenCategory }: Props) {
   const progressPct = progress && progress.nextThreshold != null
     ? Math.min(100, Math.max(0, (progress.totalTurnover - progress.currentThreshold) / Math.max(1, progress.nextThreshold - progress.currentThreshold) * 100))
     : 100
-  const tiers = config ? Object.entries(config.featured ?? {}) : []
+  const TIER_ORDER: Record<string, number> = { elite: 0, pro: 1, basic: 2 }
+  const tiers = config
+    ? Object.entries(config.featured ?? {}).sort((a, b) => (TIER_ORDER[a[0]] ?? 9) - (TIER_ORDER[b[0]] ?? 9))
+    : []
 
-  const tierRate = (tier: string) => tier === 'elite' ? t('cashback.tierEliteRate') : t('cashback.tierProRate')
+  const tierRate = (tier: string) =>
+    tier === 'elite' ? t('cashback.tierEliteRate')
+    : tier === 'pro' ? t('cashback.tierProRate')
+    : t('cashback.tierBasicRate')
+  const tierName = (tier: string) =>
+    tier === 'elite' ? t('cashback.tierElite')
+    : tier === 'pro' ? t('cashback.tierPro')
+    : t('cashback.tierBasic')
 
   const features = [
     { icon: <RateIcon />, title: t('cashback.heroRateLabel'), desc: t('cashback.featRateDesc') },
@@ -357,7 +367,7 @@ export default function RebatePage({ onOpenGame, onOpenCategory }: Props) {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-[#ffc93d] font-black text-sm">
-                          {t(tier === 'elite' ? 'cashback.tierElite' : 'cashback.tierPro')}
+                          {tierName(tier)}
                         </p>
                         <div className="flex gap-5 mt-1">
                           <div>

@@ -101,7 +101,7 @@ router.post('/featured-games', async (ctx) => {
   const body = ctx.request.body as { gameUuid?: string; tier?: string; sortOrder?: number }
   if (!body.gameUuid) { fail(ctx, 400, 'gameUuid required'); return }
   const tier = body.tier ?? 'elite'
-  if (tier !== 'elite' && tier !== 'pro') { fail(ctx, 400, 'tier must be elite or pro'); return }
+  if (tier !== 'elite' && tier !== 'pro' && tier !== 'basic') { fail(ctx, 400, 'tier must be elite, pro or basic'); return }
 
   if (!isMysqlEnabled(ctx.state.env)) { fail(ctx, 503, 'DB not available'); return }
 

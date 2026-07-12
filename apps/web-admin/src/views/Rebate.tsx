@@ -40,6 +40,7 @@ const categoryRank = (cat: string) => {
 const TIER_LABELS: Record<string, { label: string; color: string }> = {
   elite: { label: '⭐ Elite (2%)', color: 'gold' },
   pro: { label: '✨ Pro (1.5%)', color: 'blue' },
+  basic: { label: '🔹 Basic (1%)', color: 'cyan' },
 }
 
 type RebateTab = 'config' | 'featured' | 'records'
@@ -335,7 +336,8 @@ export default function Rebate({ tab = 'config' }: { tab?: RebateTab }) {
         }
       >
         <Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>
-          配置 C 端"Cashback Games"展示区的精选游戏。Elite = 2% 噱头档，Pro = 1.5% 噱头档，仅为展示分组，不影响实际洗码计算。
+          配置 C 端"Cashback Games"精选游戏。Elite=2% / Pro=1.5% / Basic=1%，
+          <b>为真实洗码费率</b>：精选游戏结算时按此档位费率覆盖分级大类费率（不叠加）。只放高 hold(RTP≤96%)的低分成爆款以守盈亏。
         </Text>
         <Table
           dataSource={featuredGames}
@@ -415,6 +417,7 @@ export default function Rebate({ tab = 'config' }: { tab?: RebateTab }) {
             <Select options={[
               { value: 'elite', label: '⭐ Elite (2% 档)' },
               { value: 'pro', label: '✨ Pro (1.5% 档)' },
+              { value: 'basic', label: '🔹 Basic (1% 档)' },
             ]} />
           </Form.Item>
           <Form.Item label="排序（升序）" name="sortOrder" initialValue={0}>

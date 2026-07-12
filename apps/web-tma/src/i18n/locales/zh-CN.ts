@@ -557,6 +557,8 @@ export default {
     tierPro: '进阶',
     tierEliteRate: '2%',
     tierProRate: '1.5%',
+    tierBasic: '基础',
+    tierBasicRate: '1%',
     viewGames: '查看游戏',
     rateTable: '返利费率',
     rateTableDesc: '各游戏大类每日返利比例',

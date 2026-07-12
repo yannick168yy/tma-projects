@@ -567,6 +567,8 @@ export default {
     tierPro: 'Pro',
     tierEliteRate: '2%',
     tierProRate: '1.5%',
+    tierBasic: 'Basic',
+    tierBasicRate: '1%',
     viewGames: 'View Games',
     rateTable: 'Rebate Rates',
     rateTableDesc: 'Daily rebate by game category',
