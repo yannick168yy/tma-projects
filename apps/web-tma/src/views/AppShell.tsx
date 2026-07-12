@@ -1,4 +1,4 @@
-import { Suspense, useState, useEffect, useRef, useMemo } from 'react'
+import { Suspense, useState, useEffect, useLayoutEffect, useRef, useMemo } from 'react'
 import { lazyWithReload } from '@/utils/lazyWithReload'
 import { useTranslation } from 'react-i18next'
 import { ChevronDown, ChevronLeft, Wallet, Gift, Home, Menu, Gamepad2, Check, Search, Headset } from 'lucide-react'
@@ -258,15 +258,20 @@ export default function AppShell() {
     return () => document.removeEventListener('pointerdown', onPointerDown, true)
   }, [walletOpen])
 
-  useEffect(() => {
-    const ro = new ResizeObserver(() => {
+  // header/nav 由 !isImmersive 条件渲染，进出沉浸式全屏页会卸载再挂载成新节点；下载栏显隐也会改 header 高度。
+  // 用 useLayoutEffect 在 paint 前同步测一次（消除首帧按默认值排版导致顶部内容被 fixed header 盖住），
+  // 并在这些切换时把观察器重挂到当前节点，避免观察器盯着已卸载的旧节点导致 headerH/navH 冻结。
+  useLayoutEffect(() => {
+    const measure = () => {
       if (headerRef.current) setHeaderH(headerRef.current.offsetHeight)
       if (navRef.current) setNavH(navRef.current.offsetHeight)
-    })
+    }
+    measure()
+    const ro = new ResizeObserver(measure)
     if (headerRef.current) ro.observe(headerRef.current)
     if (navRef.current) ro.observe(navRef.current)
     return () => ro.disconnect()
-  }, [])
+  }, [isImmersive, downloadBarVisible])
 
   // 供子页面 sticky 使用；全屏专题页无 AppShell header
   useEffect(() => {
