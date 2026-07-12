@@ -2,6 +2,11 @@ import { useEffect, useState } from 'react'
 import { Button, InputNumber, Modal, Space, Switch, Table, Tag, message } from 'antd'
 import { getWin568ProviderStats, setWin568ProviderWeight, toggleWin568ProviderGames, type ProviderStat } from '../../api'
 
+// 568Win 上游 rtp 为 0-1 小数，统一按百分数展示（与游戏列表页一致）
+function rtpPct(rtp: number): number {
+  return rtp <= 1 ? Math.round(rtp * 10000) / 100 : rtp
+}
+
 export default function Win568Providers() {
   const [stats, setStats] = useState<ProviderStat[]>([])
   const [loading, setLoading] = useState(false)
@@ -65,7 +70,7 @@ export default function Win568Providers() {
       title: 'RTP 列表', key: 'rtps',
       render: (_: unknown, r: ProviderStat) => r.rtps?.length ? (
         <Space size={[0, 4]} wrap>
-          {r.rtps.map((rtp) => <Tag key={rtp}>{rtp}%</Tag>)}
+          {r.rtps.map((rtp) => <Tag key={rtp}>{rtpPct(rtp)}%</Tag>)}
         </Space>
       ) : '—',
     },

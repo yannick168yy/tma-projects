@@ -748,7 +748,7 @@ export async function getWin568ProviderStats(env: Env): Promise<ProviderStat[]> 
             COALESCE(MAX(p.weight), 1000) AS provider_weight,
             COUNT(*) AS total,
             SUM(CASE WHEN ${win568UpstreamAvailableExpr()} AND ${win568LocalActiveExpr()} THEN 1 ELSE 0 END) AS active,
-            JSON_ARRAYAGG(CASE WHEN g.rtp IS NOT NULL AND g.rtp >= 0 THEN g.rtp ELSE NULL END) AS rtps
+            JSON_ARRAYAGG(CASE WHEN g.rtp IS NOT NULL AND g.rtp > 0 THEN g.rtp ELSE NULL END) AS rtps
      FROM bg_568win_game g
      LEFT JOIN bg_568win_game_override o ON o.game_provider_id = g.game_provider_id AND o.game_id = g.game_id
      LEFT JOIN bg_568win_provider p ON p.provider = g.provider
