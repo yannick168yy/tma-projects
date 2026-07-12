@@ -3,7 +3,7 @@ import { ok, fail } from '../../utils/response.js'
 import {
   getVipBenefits,
   saveVipBenefits,
-  runWeeklyNegativeRebate,
+  runDailyLossRebate,
   runWeeklySalary,
   runMonthlySalary,
   runBirthdayBonus,
@@ -67,11 +67,11 @@ router.put('/benefits', async (ctx) => {
   ok(ctx, { saved: body.benefits.length })
 })
 
-// POST /admin/vip/negative-rebate/manual — 手动结算负盈利返水
-//   body.includeCurrentWeek=true 结算本周至今（测试用），否则结算上一整周
+// POST /admin/vip/negative-rebate/manual — 手动结算负盈利返水（路线A·每日）
+//   body.includeToday=true 结算今日至今（测试用），否则结算昨天整日
 router.post('/negative-rebate/manual', async (ctx) => {
-  const body = (ctx.request.body ?? {}) as { includeCurrentWeek?: boolean }
-  const result = await runWeeklyNegativeRebate(ctx.state.env, { includeCurrentWeek: Boolean(body.includeCurrentWeek) })
+  const body = (ctx.request.body ?? {}) as { includeToday?: boolean; includeCurrentWeek?: boolean }
+  const result = await runDailyLossRebate(ctx.state.env, { includeToday: Boolean(body.includeToday ?? body.includeCurrentWeek) })
   ok(ctx, result)
 })
 

@@ -16,7 +16,7 @@ import { refreshRates } from './services/exchange-rate.service.js'
 import { refreshBalances } from './services/payment-accounting.service.js'
 import { runDailyRebateSettlement, yesterdayPHT } from './services/rebate.service.js'
 import {
-  runWeeklyNegativeRebate, runWeeklySalary, runMonthlySalary,
+  runDailyLossRebate, runWeeklySalary, runMonthlySalary,
   runBirthdayBonus, runQuarterlyRetention, ensureAndClimbVipStates,
 } from './services/vip.service.js'
 import { isMysqlEnabled } from './clients/mysql.client.js'
@@ -93,17 +93,14 @@ export function createApp(env: Env): Koa {
     }, msUntilRebate())
   }
 
-  // 负盈利返水每周结算：每天 UTC 16:30（PHT 00:30）检查，仅在 PHT 周一结算上一整周（用户手动领取）
+  // 负盈利返水（路线A）：每天 UTC 16:30（PHT 00:30）结算「昨天」整日（活动开关关闭时内部 no-op；用户手动领取）
   if (isMysqlEnabled(env)) {
     const runNegRebate = () => {
-      // PHT 周一 = UTC 周日（+8h 后为周一）；用 PHT 墙钟判断
-      const pht = new Date(Date.now() + 8 * 60 * 60 * 1000)
-      if (pht.getUTCDay() !== 1) return
-      runWeeklyNegativeRebate(env)
-        .then(({ periodKey, users, totalAmount }) =>
-          log.vip.info({ periodKey, users, totalAmount }, 'weekly negative rebate settled'),
+      runDailyLossRebate(env)
+        .then(({ periodKey, users, totalAmount, skipped }) =>
+          log.vip.info({ periodKey, users, totalAmount, skipped }, 'daily loss rebate settled'),
         )
-        .catch((err) => log.vip.error({ err }, 'negative rebate settlement error'))
+        .catch((err) => log.vip.error({ err }, 'daily loss rebate settlement error'))
     }
     const msUntilNegRebate = () => {
       const now = new Date()

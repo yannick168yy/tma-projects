@@ -20,6 +20,7 @@ router.put('/config', async (ctx) => {
     firstdep: { ...current.firstdep, ...(body.firstdep ?? {}) },
     appdl:    { ...current.appdl,    ...(body.appdl    ?? {}) },
     redep:    { ...current.redep,    ...(body.redep    ?? {}) },
+    lossRebate: { ...current.lossRebate, ...(body.lossRebate ?? {}) },
     popups:   body.popups ?? current.popups,
     bonusCards: body.bonusCards ?? current.bonusCards,
   }
@@ -37,6 +38,9 @@ router.put('/config', async (ctx) => {
   if (updated.redep.minDeposit <= 0 || updated.redep.bonusAmount < 0 || updated.redep.windowHours <= 0
     || updated.redep.cooldownDays < 0 || updated.redep.turnoverX < 0 || updated.redep.turnoverDays < 0) {
     fail(ctx, 400, 'redep 档位/时长必须为正,奖励/冷却/流水参数不能为负'); return
+  }
+  if (updated.lossRebate.ratePct < 0 || updated.lossRebate.ratePct > 100 || updated.lossRebate.minDeposit < 0) {
+    fail(ctx, 400, 'lossRebate 费率须在 0-100、门槛不能为负'); return
   }
   for (const [currency, list] of Object.entries(updated.firstdep.tiers)) {
     for (const tier of list) {

@@ -69,6 +69,7 @@ export default function Promotions() {
     if (c.appdl.amount <= 0 || c.appdl.amount > 50000) return 'App 下载礼金必须在 1-50000'
     if (c.appdl.turnoverX < 0 || c.appdl.turnoverDays < 0) return 'App 下载礼金流水倍率/有效期不能为负'
     if (c.redep.minDeposit <= 0 || c.redep.bonusAmount < 0 || c.redep.windowHours <= 0) return '复充限时:档位/时长必须为正、奖励不能为负'
+    if (c.lossRebate.ratePct < 0 || c.lossRebate.ratePct > 100 || c.lossRebate.minDeposit < 0) return '负盈利返水:费率须在 0-100、门槛不能为负'
     for (const [currency, list] of Object.entries(c.firstdep.tiers)) {
       for (const t of list) {
         if (!(t.depositAmount > 0) || t.bonusAmount < 0) return `${currency} 档位金额必须大于 0、奖励不能为负`
@@ -317,6 +318,53 @@ export default function Promotions() {
     </Card>
   )
 
+  const lossRebateTab = (
+    <Card
+      title={<span>💸 负盈利返水</span>}
+      extra={<Switch checkedChildren="开启" unCheckedChildren="关闭" checked={cfg.lossRebate.enabled} onChange={(v) => patch((d) => { d.lossRebate.enabled = v })} />}
+    >
+      <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 12 }}>
+        路线A：每日结算「昨天」净输（Σ投注−Σ派彩），按统一费率返还，全等级一致、无上限，用户手动领取。
+        门槛=当日有效存款达标才有资格；封顶=返水基数不超过当日存款；品类白名单只含电子类，排除真人/体育防对赌套利。
+      </Text>
+      <Row gutter={24} style={{ marginBottom: 16 }}>
+        <Col span={8}>
+          <Text>返水率</Text>
+          <InputNumber suffix="%" style={{ width: '100%', marginTop: 4 }} min={0} max={100} precision={2} value={cfg.lossRebate.ratePct} onChange={(v) => patch((d) => { d.lossRebate.ratePct = Number(v ?? 0) })} />
+        </Col>
+        <Col span={8}>
+          <Text>当日存款门槛（PHP）</Text>
+          <InputNumber prefix="₱" style={{ width: '100%', marginTop: 4 }} min={0} precision={0} value={cfg.lossRebate.minDeposit} onChange={(v) => patch((d) => { d.lossRebate.minDeposit = Number(v ?? 0) })} />
+        </Col>
+        <Col span={8}>
+          <Text>返水基数封顶当日存款</Text>
+          <div style={{ marginTop: 4 }}>
+            <Switch checkedChildren="封顶" unCheckedChildren="不封顶" checked={cfg.lossRebate.capToDeposit} onChange={(v) => patch((d) => { d.lossRebate.capToDeposit = v })} />
+          </div>
+        </Col>
+      </Row>
+      <Row gutter={24}>
+        <Col span={24}>
+          <Text>参与返水的品类白名单（⚠️ 勾选真人/体育有对赌无损套利风险）</Text>
+          <Select
+            mode="multiple"
+            style={{ width: '100%', marginTop: 4 }}
+            value={cfg.lossRebate.eligibleCats}
+            onChange={(v) => patch((d) => { d.lossRebate.eligibleCats = v as string[] })}
+            options={[
+              { value: 'slots', label: '电子 slots' },
+              { value: 'fishing', label: '捕鱼 fishing' },
+              { value: 'table', label: '桌游 table' },
+              { value: 'other', label: '其他 other' },
+              { value: 'live', label: '⚠️ 真人 live' },
+              { value: 'sports', label: '⚠️ 体育 sports' },
+            ]}
+          />
+        </Col>
+      </Row>
+    </Card>
+  )
+
   function moveBonusCard(idx: number, delta: number) {
     patch((d) => {
       const to = idx + delta
@@ -398,6 +446,7 @@ export default function Promotions() {
           { key: 'general', label: '常规活动', children: generalTab },
           { key: 'firstdep', label: '💰 首充嘉年华', children: firstdepTab },
           { key: 'redep', label: '⏰ 复充限时', children: redepTab },
+          { key: 'lossRebate', label: '💸 负盈利返水', children: lossRebateTab },
           { key: 'popups', label: '🪟 首页弹窗', children: popupsTab },
         ]}
       />

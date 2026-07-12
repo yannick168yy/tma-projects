@@ -36,6 +36,21 @@ export interface RedepConfig {
   turnoverDays: number
 }
 
+/** 负盈利返水（路线A·CasinoPlus 式）：每日结算，统一费率、全等级、无上限。
+ *  品类白名单复用 bg_turnover_logs.sort_category（与洗码同源）；门槛+封顶当日存款防对赌套利。
+ *  注：VIP 等级差异化返水（bg_vip_level_benefit.negative_rebate_pct）已降格停用，字段保留可回滚。 */
+export interface LossRebateConfig {
+  enabled: boolean
+  /** 统一返水率 %（对净输） */
+  ratePct: number
+  /** 门槛：当日有效存款 ≥ 此值（同币种）才有返水资格 */
+  minDeposit: number
+  /** 封顶：返水基数不超过当日存款（防对赌无损套利） */
+  capToDeposit: boolean
+  /** 参与返水的品类白名单（turnover sort_category 取值：slots/fishing/table/live/sports/other）；排除 live/sports */
+  eligibleCats: string[]
+}
+
 /** Bonuses 页卡片编排：开关/顺序/覆盖人群，客户端按此渲染各活动卡片（与 popups 进站弹窗调度相互独立） */
 export type BonusCardId = 'checkin' | 'agent' | 'trial' | 'appdl' | 'firstdep'
 export interface BonusCard {
@@ -50,6 +65,7 @@ export interface PromoConfig {
   firstdep: { enabled: boolean; turnoverX: number; turnoverDays: number; tiers: Record<string, FirstDepTier[]> }
   appdl:    { amount: number; enabled: boolean; turnoverX: number; turnoverDays: number }
   redep:    RedepConfig
+  lossRebate: LossRebateConfig
   popups:   PopupConfig[]
   bonusCards: BonusCard[]
 }
@@ -85,6 +101,8 @@ export const PROMO_DEFAULTS: PromoConfig = {
   appdl:    { amount: 66, enabled: false, turnoverX: 5, turnoverDays: 30 },
   // 复充限时优惠：默认关闭，后台开启后按人群触发
   redep:    { enabled: false, minDeposit: 500, bonusAmount: 75, windowHours: 4, cooldownDays: 2, turnoverX: 1, turnoverDays: 30 },
+  // 负盈利返水：默认关闭，后台开启后每日结算。白名单只含电子类(slots/fishing)，排除真人(live)/体育(sports)防对赌套利
+  lossRebate: { enabled: false, ratePct: 5, minDeposit: 50, capToDeposit: true, eligibleCats: ['slots', 'fishing'] },
   popups:   [
     { id: 'new_player', enabled: true, order: 1, audience: 'all', frequency: 'daily' },
     // firstdep=首页首充悬浮球，trial=活动页进站弹窗；均为常驻/进站入口，frequency 不生效于常驻，仅用开关/人群
@@ -191,6 +209,40 @@ function parseRedepConfig(r: Record<string, string>): RedepConfig {
   }
 }
 
+/** turnover sort_category 全集（turnover.service 产出）；白名单仅从中取值，过滤脏数据 */
+const TURNOVER_CATEGORIES = ['slots', 'fishing', 'table', 'live', 'sports', 'other'] as const
+
+function parseCats(v: string | undefined, fallback: string[]): string[] {
+  if (v == null) return fallback
+  const cats = v.split(',').map((s) => s.trim()).filter((s) => (TURNOVER_CATEGORIES as readonly string[]).includes(s))
+  return cats.length > 0 ? Array.from(new Set(cats)) : fallback
+}
+
+function parseLossRebateConfig(r: Record<string, string>): LossRebateConfig {
+  const D = PROMO_DEFAULTS.lossRebate
+  return {
+    enabled: bool(r.enabled, D.enabled),
+    ratePct: num(r.rate_pct, D.ratePct),
+    minDeposit: num(r.min_deposit, D.minDeposit),
+    capToDeposit: bool(r.cap_to_deposit, D.capToDeposit),
+    eligibleCats: parseCats(r.eligible_cats, D.eligibleCats),
+  }
+}
+
+/** 每日返水结算任务按 Pool 直接读配置 */
+export async function getLossRebateConfigByPool(pool: Pool): Promise<LossRebateConfig> {
+  try {
+    const [rows] = await pool.query<RowDataPacket[]>(
+      "SELECT config_key, config_value FROM bg_promo_config WHERE promo_id = 'loss_rebate'",
+    )
+    const r: Record<string, string> = {}
+    for (const row of rows) r[String(row.config_key)] = String(row.config_value)
+    return parseLossRebateConfig(r)
+  } catch {
+    return PROMO_DEFAULTS.lossRebate
+  }
+}
+
 /** 充值结算/进站触发时按 Pool 直接读复充配置（同 getFirstDepConfigByPool 的场景） */
 export async function getRedepConfigByPool(pool: Pool): Promise<RedepConfig> {
   try {
@@ -252,6 +304,7 @@ export async function getPromoConfig(env: Env): Promise<PromoConfig> {
       firstdep: { enabled: bool(f.enabled, D.firstdep.enabled), turnoverX: num(f.turnover_x, D.firstdep.turnoverX), turnoverDays: num(f.turnover_days, D.firstdep.turnoverDays), tiers },
       appdl:    { amount: num(a.amount, D.appdl.amount), enabled: bool(a.enabled, D.appdl.enabled), turnoverX: num(a.turnover_x, D.appdl.turnoverX), turnoverDays: num(a.turnover_days, D.appdl.turnoverDays) },
       redep:    parseRedepConfig(r),
+      lossRebate: parseLossRebateConfig(map.loss_rebate ?? {}),
       popups,
       bonusCards,
     }
@@ -287,6 +340,11 @@ export async function savePromoConfig(env: Env, config: PromoConfig): Promise<vo
     ['redep',    'cooldown_days',  String(config.redep.cooldownDays      ?? D.redep.cooldownDays)],
     ['redep',    'turnover_x',     String(config.redep.turnoverX         ?? D.redep.turnoverX)],
     ['redep',    'turnover_days',  String(config.redep.turnoverDays      ?? D.redep.turnoverDays)],
+    ['loss_rebate', 'enabled',        config.lossRebate.enabled            ? '1' : '0'],
+    ['loss_rebate', 'rate_pct',       String(config.lossRebate.ratePct     ?? D.lossRebate.ratePct)],
+    ['loss_rebate', 'min_deposit',    String(config.lossRebate.minDeposit  ?? D.lossRebate.minDeposit)],
+    ['loss_rebate', 'cap_to_deposit', config.lossRebate.capToDeposit       ? '1' : '0'],
+    ['loss_rebate', 'eligible_cats',  parseCats(config.lossRebate.eligibleCats?.join(','), D.lossRebate.eligibleCats).join(',')],
     ['popups',   'items',          JSON.stringify(sanitizePopups(config.popups))],
     ['bonuscards', 'items',        JSON.stringify(sanitizeBonusCards(config.bonusCards))],
   ]

@@ -4,6 +4,7 @@ import { getMysqlPool, isMysqlEnabled } from '../clients/mysql.client.js'
 import { creditWalletTx } from './store/mysql-store.js'
 import { randomBytes } from 'node:crypto'
 import { getUserTotalTurnover, getLevelThresholds, resolveLevel } from './rebate.service.js'
+import { getLossRebateConfigByPool } from './promo-config.service.js'
 
 export const MAX_VIP_LEVEL = 9
 
@@ -412,6 +413,106 @@ export async function runWeeklyNegativeRebate(
        amount = IF(status = 'pending', VALUES(amount), amount),
        level  = IF(status = 'pending', VALUES(level), level)`,
     [periodKey, startUtc, endUtc],
+  )
+
+  const [[agg]] = await pool.query<RowDataPacket[]>(
+    `SELECT COUNT(DISTINCT user_id) AS users, COALESCE(SUM(amount), 0) AS total
+     FROM bg_vip_reward_log WHERE type = 'negative_rebate' AND period_key = ?`,
+    [periodKey],
+  )
+  return { periodKey, users: Number(agg?.users ?? 0), totalAmount: Number(agg?.total ?? 0) }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 负盈利返水（路线A·每日）：统一费率、全等级、无上限；品类白名单 + 门槛 + 封顶当日存款
+//   费率/门槛/白名单来自 bg_promo_config(promo_id='loss_rebate')，与 VIP 等级解耦（等级不再影响返水率）
+//   品类来自 bg_turnover_logs.sort_category（与洗码同源，gpid+gameId 无歧义）；净输按 round 归属品类
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** 计算 PHT 日窗口；includeToday=true 结算今日至今（后台手动测试用），否则结算昨天整日（定时任务用） */
+function vipDayWindow(includeToday: boolean): { periodKey: string; startUtc: string; endUtc: string } {
+  const nowMs = Date.now()
+  const phtMs = nowMs + 8 * 3600 * 1000
+  const pht = new Date(phtMs)
+  const todayPhtMs = Date.UTC(pht.getUTCFullYear(), pht.getUTCMonth(), pht.getUTCDate(), 0, 0, 0)
+  let startPhtMs: number
+  let endPhtMs: number
+  let keyPhtMs: number
+  if (includeToday) {
+    startPhtMs = todayPhtMs
+    endPhtMs = phtMs
+    keyPhtMs = todayPhtMs
+  } else {
+    startPhtMs = todayPhtMs - 24 * 3600 * 1000
+    endPhtMs = todayPhtMs
+    keyPhtMs = startPhtMs
+  }
+  const toUtcStr = (phtWallMs: number) => new Date(phtWallMs - 8 * 3600 * 1000).toISOString().slice(0, 19).replace('T', ' ')
+  return {
+    periodKey: new Date(keyPhtMs).toISOString().slice(0, 10),
+    startUtc: toUtcStr(startPhtMs),
+    endUtc: toUtcStr(endPhtMs),
+  }
+}
+
+export async function runDailyLossRebate(
+  env: Env,
+  opts: { includeToday?: boolean } = {},
+): Promise<{ periodKey: string; users: number; totalAmount: number; skipped?: string }> {
+  if (!isMysqlEnabled(env)) return { periodKey: '', users: 0, totalAmount: 0 }
+  const pool = getMysqlPool(env)
+  const cfg = await getLossRebateConfigByPool(pool)
+  const { periodKey, startUtc, endUtc } = vipDayWindow(Boolean(opts.includeToday))
+  if (!cfg.enabled || cfg.ratePct <= 0 || cfg.eligibleCats.length === 0) {
+    return { periodKey, users: 0, totalAmount: 0, skipped: 'disabled' }
+  }
+  const catPlaceholders = cfg.eligibleCats.map(() => '?').join(', ')
+  const cap = cfg.capToDeposit ? 1 : 0
+
+  // 净输 = Σbet − Σ(win+refund)，仅统计「品类∈白名单且未撤销的 bet 所属 round」的注单（round_id 全覆盖）
+  // 返水基数封顶当日存款；门槛=当日有效存款≥minDeposit；写 pending 待用户手动领
+  await pool.query(
+    `INSERT INTO bg_vip_reward_log
+       (user_id, level, type, amount, currency_code, period_key, status)
+     SELECT
+       x.user_id,
+       COALESCE(vs.current_level, 1) AS level,
+       'negative_rebate',
+       ROUND(IF(? = 1, LEAST(x.net_loss, COALESCE(d.dep, 0)), x.net_loss) * ? / 100, 2) AS amount,
+       x.currency_code,
+       ? AS period_key,
+       'pending'
+     FROM (
+       SELECT bo.user_id, bo.currency_code,
+         SUM(CASE WHEN bo.bet_type = 'bet' THEN bo.amount
+                  WHEN bo.bet_type IN ('win', 'refund') THEN -bo.amount
+                  ELSE 0 END) AS net_loss
+       FROM bg_bet_order bo
+       WHERE bo.aggregator_id = '568win'
+         AND bo.created_at >= ? AND bo.created_at < ?
+         AND EXISTS (
+           SELECT 1 FROM bg_bet_order bb
+           JOIN bg_turnover_logs tl ON tl.bet_order_id = bb.id AND tl.is_reversed = 0
+           WHERE bb.aggregator_id = '568win' AND bb.bet_type = 'bet'
+             AND bb.user_id = bo.user_id AND bb.round_id = bo.round_id
+             AND tl.sort_category IN (${catPlaceholders})
+         )
+       GROUP BY bo.user_id, bo.currency_code
+       HAVING net_loss > 0
+     ) x
+     LEFT JOIN bg_user_vip_state vs ON vs.user_id = x.user_id
+     LEFT JOIN (
+       SELECT user_id, currency, SUM(amount) AS dep
+       FROM bg_deposit_order
+       WHERE status = 'paid' AND created_at >= ? AND created_at < ?
+       GROUP BY user_id, currency
+     ) d ON d.user_id = x.user_id AND d.currency = x.currency_code
+     WHERE COALESCE(d.dep, 0) >= ?
+       AND ROUND(IF(? = 1, LEAST(x.net_loss, COALESCE(d.dep, 0)), x.net_loss) * ? / 100, 2) > 0
+     ON DUPLICATE KEY UPDATE
+       amount = IF(status = 'pending', VALUES(amount), amount),
+       level  = IF(status = 'pending', VALUES(level), level)`,
+    [cap, cfg.ratePct, periodKey, startUtc, endUtc, ...cfg.eligibleCats, startUtc, endUtc, cfg.minDeposit, cap, cfg.ratePct],
   )
 
   const [[agg]] = await pool.query<RowDataPacket[]>(

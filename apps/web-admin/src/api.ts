@@ -784,6 +784,13 @@ export interface RedepConfig {
   turnoverX: number
   turnoverDays: number
 }
+export interface LossRebateConfig {
+  enabled: boolean
+  ratePct: number
+  minDeposit: number
+  capToDeposit: boolean
+  eligibleCats: string[]
+}
 export type BonusCardId = 'checkin' | 'agent' | 'trial' | 'appdl' | 'firstdep'
 export interface BonusCard {
   id: BonusCardId
@@ -796,6 +803,7 @@ export interface PromoConfig {
   firstdep: { enabled: boolean; turnoverX: number; turnoverDays: number; tiers: Record<string, FirstDepTier[]> }
   appdl:    { amount: number; enabled: boolean; turnoverX: number; turnoverDays: number }
   redep:    RedepConfig
+  lossRebate: LossRebateConfig
   popups:   PopupConfig[]
   bonusCards: BonusCard[]
 }
