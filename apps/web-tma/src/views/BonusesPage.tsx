@@ -20,6 +20,7 @@ interface Props {
   newPlayerSummary?: NewPlayerSummary | null
   onOpenNewPlayerGift?: () => void
   onOpenCheckin: () => void
+  onOpenLossRebate: () => void
 }
 
 function phpDisplay(cents: number) {
@@ -33,9 +34,10 @@ const DEFAULT_BONUS_CARDS: BonusCard[] = [
   { id: 'trial', enabled: true, order: 3, audience: 'all' },
   { id: 'appdl', enabled: false, order: 4, audience: 'all' },
   { id: 'firstdep', enabled: true, order: 5, audience: 'all' },
+  { id: 'lossrebate', enabled: false, order: 6, audience: 'all' },
 ]
 
-export default function BonusesPage({ promoFilter, onOpenWallet, onOpenTeam, onOpenAppInstall, newPlayerSummary, onOpenNewPlayerGift, onOpenCheckin }: Props) {
+export default function BonusesPage({ promoFilter, onOpenWallet, onOpenTeam, onOpenAppInstall, newPlayerSummary, onOpenNewPlayerGift, onOpenCheckin, onOpenLossRebate }: Props) {
   const { t } = useTranslation()
   const promotionStore = usePromotionStore()
   const highlights = usePromotionStore((s) => s.highlights)
@@ -463,9 +465,35 @@ export default function BonusesPage({ promoFilter, onOpenWallet, onOpenTeam, onO
     )
   }
 
+  function renderLossRebateCard() {
+    const rate = promoConfig?.lossRebate?.ratePct ?? 5
+    return (
+      <div key="lossrebate" id="promo-lossrebate" className="rounded-2xl overflow-hidden border border-white/8">
+        <button type="button" onClick={onOpenLossRebate} className="w-full text-left">
+          <div className="relative bg-gradient-to-br from-rose-600/30 to-purple-700/30 px-4 py-4">
+            <div className="flex items-start justify-between">
+              <div className="flex-1 pr-12">
+                <span className="text-[10px] font-black uppercase tracking-widest text-rose-300">
+                  {t('lossRebate.cardTag')}
+                </span>
+                <h2 className="text-white font-black leading-tight mt-0.5 font-display text-[1.3rem]">{t('lossRebate.cardTitle', { rate })}</h2>
+                <p className="text-white/60 text-xs mt-0.5">{t('lossRebate.cardTagline', { rate })}</p>
+              </div>
+              <span className="text-3xl">💸</span>
+            </div>
+            <div className="mt-3 inline-flex items-center gap-1 rounded-full bg-white/10 px-3 py-1 text-xs font-bold text-white">
+              {t('lossRebate.cardCta')} ›
+            </div>
+          </div>
+        </button>
+      </div>
+    )
+  }
+
   function renderCard(id: BonusCard['id']) {
     if (id === 'agent') return renderAgentCard()
     if (id === 'checkin') return renderCheckinCard()
+    if (id === 'lossrebate') return renderLossRebateCard()
     const p = localizedPromos.find((x) => x.id === id)
     return p ? renderPromoCard(p) : null
   }

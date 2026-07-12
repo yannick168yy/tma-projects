@@ -790,8 +790,9 @@ export interface LossRebateConfig {
   minDeposit: number
   capToDeposit: boolean
   eligibleCats: string[]
+  settleHour: number
 }
-export type BonusCardId = 'checkin' | 'agent' | 'trial' | 'appdl' | 'firstdep'
+export type BonusCardId = 'checkin' | 'agent' | 'trial' | 'appdl' | 'firstdep' | 'lossrebate'
 export interface BonusCard {
   id: BonusCardId
   enabled: boolean
@@ -1046,8 +1047,8 @@ export const getVipBenefits = () =>
   get<{ benefits: VipBenefitItem[] }>('/admin/vip/benefits')
 export const saveVipBenefits = (benefits: VipBenefitItem[]) =>
   req<{ saved: number }>('PUT', '/admin/vip/benefits', { benefits })
-export const triggerVipNegativeRebate = (includeCurrentWeek?: boolean) =>
-  req<{ periodKey: string; users: number; totalAmount: number }>('POST', '/admin/vip/negative-rebate/manual', { includeCurrentWeek })
+export const triggerVipNegativeRebate = (includeToday?: boolean) =>
+  req<{ periodKey: string; users: number; totalAmount: number; skipped?: string }>('POST', '/admin/vip/negative-rebate/manual', { includeToday })
 export const triggerVipWeeklySalary = (includeCurrentWeek?: boolean) =>
   req<{ periodKey: string; users: number; totalAmount: number }>('POST', '/admin/vip/weekly-salary/manual', { includeCurrentWeek })
 export const triggerVipMonthlySalary = (includeCurrentMonth?: boolean) =>

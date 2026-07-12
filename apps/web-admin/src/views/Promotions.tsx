@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Card, InputNumber, Select, Switch, Button, message, Typography, Row, Col, Spin, Tabs, Table, Space } from 'antd'
 import { GiftOutlined, PlusOutlined, DeleteOutlined, ArrowUpOutlined, ArrowDownOutlined } from '@ant-design/icons'
-import { getPromoConfig, savePromoConfig, FIRSTDEP_CURRENCIES, type PromoConfig, type FirstDepTier, type PopupConfig, type BonusCard } from '../api'
+import { getPromoConfig, savePromoConfig, triggerVipNegativeRebate, FIRSTDEP_CURRENCIES, type PromoConfig, type FirstDepTier, type PopupConfig, type BonusCard } from '../api'
 
 const { Title, Text } = Typography
 
@@ -14,6 +14,7 @@ const BONUS_CARD_NAMES: Record<string, string> = {
   trial: '🎖️ 首席体验官',
   appdl: '📲 App 下载礼金',
   firstdep: '💰 首充嘉年华',
+  lossrebate: '💸 负盈利返水',
 }
 
 // 进站自动弹窗，弹出频率才生效；其余为常驻入口（首充悬浮球），只用开关+人群
@@ -36,7 +37,17 @@ const FREQUENCY_OPTIONS = [
 export default function Promotions() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [settling, setSettling] = useState(false)
   const [cfg, setCfg] = useState<PromoConfig | null>(null)
+
+  async function settleNow() {
+    setSettling(true)
+    try {
+      const r = await triggerVipNegativeRebate(true)
+      if (r.skipped) message.warning('活动未开启，未结算（请先开启开关并保存）')
+      else message.success(`结算完成：${r.users} 人，共 ₱${r.totalAmount}（写入待领取，幂等可重跑）`)
+    } catch { message.error('结算失败') } finally { setSettling(false) }
+  }
 
   async function load() {
     setLoading(true)
@@ -360,6 +371,16 @@ export default function Promotions() {
               { value: 'sports', label: '⚠️ 体育 sports' },
             ]}
           />
+        </Col>
+      </Row>
+      <Row gutter={24} style={{ marginTop: 16 }} align="bottom">
+        <Col span={8}>
+          <Text>每日结算时刻（PHT 整点，结算前一日）</Text>
+          <InputNumber suffix="点" style={{ width: '100%', marginTop: 4 }} min={0} max={23} precision={0} value={cfg.lossRebate.settleHour} onChange={(v) => patch((d) => { d.lossRebate.settleHour = Number(v ?? 0) })} />
+        </Col>
+        <Col span={16}>
+          <Button onClick={settleNow} loading={settling}>⚡ 立刻结算「今日至今」（测试）</Button>
+          <Text type="secondary" style={{ fontSize: 12, marginLeft: 12 }}>需先开启开关并保存；结算今日至今的返水写入待领取，幂等可重跑</Text>
         </Col>
       </Row>
     </Card>

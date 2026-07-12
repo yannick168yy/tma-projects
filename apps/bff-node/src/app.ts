@@ -19,7 +19,8 @@ import {
   runDailyLossRebate, runWeeklySalary, runMonthlySalary,
   runBirthdayBonus, runQuarterlyRetention, ensureAndClimbVipStates,
 } from './services/vip.service.js'
-import { isMysqlEnabled } from './clients/mysql.client.js'
+import { isMysqlEnabled, getMysqlPool } from './clients/mysql.client.js'
+import { getLossRebateConfigByPool } from './services/promo-config.service.js'
 import { ok } from './utils/response.js'
 import { seedDefaultAdmin } from './services/admin-auth.service.js'
 
@@ -93,26 +94,32 @@ export function createApp(env: Env): Koa {
     }, msUntilRebate())
   }
 
-  // 负盈利返水（路线A）：每天 UTC 16:30（PHT 00:30）结算「昨天」整日（活动开关关闭时内部 no-op；用户手动领取）
+  // 负盈利返水（路线A）：每小时 :30 检查，PHT 到达配置的结算时刻（lossRebate.settleHour）时结算「昨天」整日
+  //   活动关闭时内部 no-op；结算幂等（ON DUPLICATE KEY），同一小时多次触发安全；用户手动领取
   if (isMysqlEnabled(env)) {
-    const runNegRebate = () => {
-      runDailyLossRebate(env)
-        .then(({ periodKey, users, totalAmount, skipped }) =>
-          log.vip.info({ periodKey, users, totalAmount, skipped }, 'daily loss rebate settled'),
-        )
-        .catch((err) => log.vip.error({ err }, 'daily loss rebate settlement error'))
+    const runNegRebate = async () => {
+      try {
+        const cfg = await getLossRebateConfigByPool(getMysqlPool(env))
+        if (!cfg.enabled) return
+        const phtHour = new Date(Date.now() + 8 * 60 * 60 * 1000).getUTCHours()
+        if (phtHour !== cfg.settleHour) return
+        const { periodKey, users, totalAmount, skipped } = await runDailyLossRebate(env)
+        log.vip.info({ periodKey, users, totalAmount, skipped }, 'daily loss rebate settled')
+      } catch (err) {
+        log.vip.error({ err }, 'daily loss rebate settlement error')
+      }
     }
-    const msUntilNegRebate = () => {
+    const msUntilNextHalfHour = () => {
       const now = new Date()
-      const next = new Date()
-      next.setUTCHours(16, 30, 0, 0)
-      if (next <= now) next.setUTCDate(next.getUTCDate() + 1)
+      const next = new Date(now)
+      next.setUTCMinutes(30, 0, 0)
+      if (next <= now) next.setUTCHours(next.getUTCHours() + 1)
       return next.getTime() - now.getTime()
     }
     setTimeout(() => {
-      runNegRebate()
-      setInterval(runNegRebate, 24 * 60 * 60 * 1000)
-    }, msUntilNegRebate())
+      void runNegRebate()
+      setInterval(() => void runNegRebate(), 60 * 60 * 1000)
+    }, msUntilNextHalfHour())
   }
 
   // VIP 每日维护：每天 UTC 16:40（PHT 00:40）建行/爬升 + 周俸(周一)/月俸(1号)/生日/季度保级

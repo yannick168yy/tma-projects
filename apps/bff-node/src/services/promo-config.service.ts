@@ -49,10 +49,12 @@ export interface LossRebateConfig {
   capToDeposit: boolean
   /** 参与返水的品类白名单（turnover sort_category 取值：slots/fishing/table/live/sports/other）；排除 live/sports */
   eligibleCats: string[]
+  /** 每日结算时刻（PHT 小时 0-23）：结算「昨天」整日的返水，默认 0=PHT 00:xx */
+  settleHour: number
 }
 
 /** Bonuses 页卡片编排：开关/顺序/覆盖人群，客户端按此渲染各活动卡片（与 popups 进站弹窗调度相互独立） */
-export type BonusCardId = 'checkin' | 'agent' | 'trial' | 'appdl' | 'firstdep'
+export type BonusCardId = 'checkin' | 'agent' | 'trial' | 'appdl' | 'firstdep' | 'lossrebate'
 export interface BonusCard {
   id: BonusCardId
   enabled: boolean
@@ -102,7 +104,7 @@ export const PROMO_DEFAULTS: PromoConfig = {
   // 复充限时优惠：默认关闭，后台开启后按人群触发
   redep:    { enabled: false, minDeposit: 500, bonusAmount: 75, windowHours: 4, cooldownDays: 2, turnoverX: 1, turnoverDays: 30 },
   // 负盈利返水：默认关闭，后台开启后每日结算。白名单只含电子类(slots/fishing)，排除真人(live)/体育(sports)防对赌套利
-  lossRebate: { enabled: false, ratePct: 5, minDeposit: 50, capToDeposit: true, eligibleCats: ['slots', 'fishing'] },
+  lossRebate: { enabled: false, ratePct: 5, minDeposit: 50, capToDeposit: true, eligibleCats: ['slots', 'fishing'], settleHour: 0 },
   popups:   [
     { id: 'new_player', enabled: true, order: 1, audience: 'all', frequency: 'daily' },
     // firstdep=首页首充悬浮球，trial=活动页进站弹窗；均为常驻/进站入口，frequency 不生效于常驻，仅用开关/人群
@@ -116,10 +118,12 @@ export const PROMO_DEFAULTS: PromoConfig = {
     { id: 'trial',    enabled: true,  order: 3, audience: 'all' },
     { id: 'appdl',    enabled: false, order: 4, audience: 'all' },
     { id: 'firstdep', enabled: true,  order: 5, audience: 'all' },
+    // 负盈利返水营销卡片：enabled 与活动开关 lossRebate.enabled 对账（活动开才宣传）
+    { id: 'lossrebate', enabled: false, order: 6, audience: 'all' },
   ],
 }
 
-const BONUS_CARD_IDS: BonusCardId[] = ['checkin', 'agent', 'trial', 'appdl', 'firstdep']
+const BONUS_CARD_IDS: BonusCardId[] = ['checkin', 'agent', 'trial', 'appdl', 'firstdep', 'lossrebate']
 
 function sanitizeBonusCards(raw: unknown): BonusCard[] {
   const byId = new Map<string, Partial<BonusCard>>()
@@ -152,6 +156,7 @@ function reconcileBonusCardEnabled(config: PromoConfig): void {
     if (card.id === 'trial') card.enabled = config.trial.enabled
     else if (card.id === 'appdl') card.enabled = config.appdl.enabled
     else if (card.id === 'firstdep') card.enabled = config.firstdep.enabled
+    else if (card.id === 'lossrebate') card.enabled = config.lossRebate.enabled
   }
 }
 
@@ -161,6 +166,7 @@ function syncScalarEnabledFromCards(config: PromoConfig): void {
     if (card.id === 'trial') config.trial.enabled = card.enabled
     else if (card.id === 'appdl') config.appdl.enabled = card.enabled
     else if (card.id === 'firstdep') config.firstdep.enabled = card.enabled
+    else if (card.id === 'lossrebate') config.lossRebate.enabled = card.enabled
   }
 }
 
@@ -226,6 +232,7 @@ function parseLossRebateConfig(r: Record<string, string>): LossRebateConfig {
     minDeposit: num(r.min_deposit, D.minDeposit),
     capToDeposit: bool(r.cap_to_deposit, D.capToDeposit),
     eligibleCats: parseCats(r.eligible_cats, D.eligibleCats),
+    settleHour: Math.min(23, Math.max(0, Math.round(num(r.settle_hour, D.settleHour)))),
   }
 }
 
@@ -345,6 +352,7 @@ export async function savePromoConfig(env: Env, config: PromoConfig): Promise<vo
     ['loss_rebate', 'min_deposit',    String(config.lossRebate.minDeposit  ?? D.lossRebate.minDeposit)],
     ['loss_rebate', 'cap_to_deposit', config.lossRebate.capToDeposit       ? '1' : '0'],
     ['loss_rebate', 'eligible_cats',  parseCats(config.lossRebate.eligibleCats?.join(','), D.lossRebate.eligibleCats).join(',')],
+    ['loss_rebate', 'settle_hour',    String(Math.min(23, Math.max(0, Math.round(config.lossRebate.settleHour ?? D.lossRebate.settleHour))))],
     ['popups',   'items',          JSON.stringify(sanitizePopups(config.popups))],
     ['bonuscards', 'items',        JSON.stringify(sanitizeBonusCards(config.bonusCards))],
   ]

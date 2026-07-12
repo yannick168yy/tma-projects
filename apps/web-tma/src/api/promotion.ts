@@ -159,7 +159,7 @@ export function matchPopupAudience(audience: PopupConfig['audience'], loggedIn: 
   }
 }
 
-export type BonusCardId = 'checkin' | 'agent' | 'trial' | 'appdl' | 'firstdep'
+export type BonusCardId = 'checkin' | 'agent' | 'trial' | 'appdl' | 'firstdep' | 'lossrebate'
 export interface BonusCard {
   id: BonusCardId
   enabled: boolean
