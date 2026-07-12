@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { SlotGame } from '@/api/slots'
 import { useLocaleStore } from '@/stores/locale'
 import { localizedGameName } from '@/utils/game'
+import { shortProviderName } from '@/utils/providers'
 
 interface Props {
   game: SlotGame
@@ -52,6 +53,11 @@ export default function GameCardV2({ game, onTap, size, showLive }: Props) {
         <div className="absolute inset-0 flex items-center justify-center px-1.5">
           <span className="text-[10px] font-bold text-foreground/60 text-center leading-tight line-clamp-3">{localizedGameName(game, locale)}</span>
         </div>
+      )}
+      {game.provider && (
+        <span className="absolute top-1 right-1 rounded-md bg-black/60 px-1 py-px text-[8px] font-bold leading-tight text-white/90 pointer-events-none">
+          {shortProviderName(game.provider)}
+        </span>
       )}
       {showLive && (
         <div className="absolute top-1 left-1 flex items-center gap-1 bg-red-500/85 rounded-full px-1.5 py-0.5">

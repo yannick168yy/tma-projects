@@ -34,6 +34,7 @@ const SHORT_NAMES: Record<string, string> = {
   '168 Game': '168',
   '1x2 Gaming': '1X2',
   '568WinGames': '568W',
+  '568Win Sports': 'SPORTS',
   '5G Games': '5G',
   '77 Gaming': '77G',
   '7Mojos': '7MJ',
