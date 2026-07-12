@@ -11,7 +11,6 @@ import {
   History,
   Languages,
   LogOut,
-  RefreshCw,
   ScanFace,
   Smartphone,
   User,
@@ -418,21 +417,33 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
 
           {isLoggedIn && (
             <>
-              <div className="relative mt-4 flex items-end justify-between gap-3">
+              <div className="relative mt-4 flex items-center justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="mb-0.5 text-[10px] font-black uppercase tracking-wide text-black/45">{t('profile.balance')}</p>
+                  <p className="mb-0.5 text-[11px] font-black uppercase tracking-wider text-black/[0.42]">{t('profile.balance')}</p>
                   <button
                     type="button"
-                    className="flex items-center gap-2.5 transition-opacity active:opacity-70"
+                    className="flex items-center gap-3 transition-opacity active:opacity-70"
                     onClick={() => void refreshBalance()}
                   >
-                    <span className="font-display text-[2rem] font-black leading-none text-white/95 drop-shadow-[0_2px_4px_rgba(0,0,0,0.22)]">{displayBalance}</span>
-                    <RefreshCw size={19} strokeWidth={2.4} className={`flex-shrink-0 text-white/75 ${balanceSpinning ? 'animate-spin' : ''}`} />
+                    <span className="text-[2rem] font-extrabold leading-none text-[#f0c870]">{displayBalance}</span>
+                    <svg
+                      viewBox="0 0 24 24"
+                      className={`h-[26px] w-[26px] flex-shrink-0 text-[#f2cd85] ${balanceSpinning ? 'animate-spin' : ''}`}
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth={2.6}
+                      strokeLinecap="round"
+                    >
+                      <path d="M5.1 8 A8 8 0 0 1 20 12" />
+                      <path d="M17.7 17.7 A8 8 0 0 1 4 12" />
+                      <path d="M20 16.6 L17.5 11.9 L22.5 11.9 Z" fill="currentColor" stroke="none" />
+                      <path d="M4 7.4 L1.5 12.1 L6.5 12.1 Z" fill="currentColor" stroke="none" />
+                    </svg>
                   </button>
                 </div>
                 <button
                   type="button"
-                  className="flex-shrink-0 rounded-2xl bg-[#f7ecc2] px-6 py-3 text-sm font-black text-[#3a2a08] shadow-[0_6px_16px_rgba(0,0,0,0.2)] transition-transform active:scale-[0.97]"
+                  className="flex-shrink-0 rounded-xl bg-[#ecb849] px-[18px] py-1.5 text-base font-bold text-black shadow-[0_4px_10px_rgba(0,0,0,0.18)] transition-transform active:scale-[0.97]"
                   onClick={onOpenTopUp}
                 >
                   {t('profile.deposit')}
@@ -441,15 +452,15 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
 
               <button
                 type="button"
-                className="relative mt-4 flex w-full items-center gap-3 overflow-hidden rounded-2xl bg-black/15 px-4 py-3.5 text-left transition-colors active:bg-black/25"
+                className="relative mt-4 flex w-full items-center gap-3.5 overflow-hidden rounded-2xl bg-black/35 px-4 py-2 text-left transition-colors active:bg-black/45"
                 onClick={onOpenVipCenter}
               >
-                <img src={VIP_CENTER_ICON} alt="" className="h-11 w-11 flex-shrink-0 object-contain" />
+                <img src={VIP_CENTER_ICON} alt="" className="h-9 w-9 flex-shrink-0 object-contain" />
                 <span className="min-w-0 flex-1">
-                  <span className="block text-lg font-black leading-tight text-white">{t('profile.vipCenter')}</span>
-                  <span className="mt-0.5 block truncate text-xs font-semibold text-amber-100/70">{t('profile.vipCenterSub')}</span>
+                  <span className="block text-lg font-extrabold leading-tight text-white">{t('profile.vipCenter')}</span>
+                  <span className="block truncate text-[13px] font-semibold text-[#f0c050]">{t('profile.vipCenterSub')}</span>
                 </span>
-                <ChevronRight size={22} className="flex-shrink-0 text-white/70" />
+                <ChevronRight size={20} strokeWidth={2.5} className="flex-shrink-0 text-[#ecbc52]" />
               </button>
             </>
           )}
