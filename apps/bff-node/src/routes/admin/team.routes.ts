@@ -37,7 +37,7 @@ router.get('/overview', async (ctx) => {
 router.get('/agents', async (ctx) => {
   const search   = ctx.query.search ? String(ctx.query.search) : ''
   const page     = Math.max(1, Number(ctx.query.page ?? 1))
-  const pageSize = Math.min(100, Math.max(10, Number(ctx.query.pageSize ?? 20)))
+  const pageSize = Math.min(1000, Math.max(10, Number(ctx.query.pageSize ?? 20)))
   const offset   = (page - 1) * pageSize
   const db       = getMysqlPool(ctx.state.env)
 
@@ -229,7 +229,7 @@ router.get('/commissions', async (ctx) => {
   const beneficiary = ctx.query.beneficiaryId ? String(ctx.query.beneficiaryId) : ''
   const status      = ctx.query.status ? String(ctx.query.status) : ''
   const page        = Math.max(1, Number(ctx.query.page ?? 1))
-  const pageSize    = 50
+  const pageSize    = Math.min(1000, Math.max(1, Number(ctx.query.pageSize ?? 50)))
   const offset      = (page - 1) * pageSize
   const db          = getMysqlPool(ctx.state.env)
 
@@ -280,7 +280,7 @@ router.post('/settle', async (ctx) => {
 router.get('/withdrawals', async (ctx) => {
   const status   = ctx.query.status ? String(ctx.query.status) : ''
   const page     = Math.max(1, Number(ctx.query.page ?? 1))
-  const pageSize = 20
+  const pageSize = Math.min(1000, Math.max(10, Number(ctx.query.pageSize ?? 20)))
   const offset   = (page - 1) * pageSize
   const db       = getMysqlPool(ctx.state.env)
   const where    = status ? 'WHERE tw.status = ?' : ''

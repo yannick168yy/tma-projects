@@ -10,7 +10,7 @@ import {
   triggerVipWeeklySalary, triggerVipMonthlySalary, triggerVipBirthday, triggerVipRetention,
   type VipBenefitItem, type VipRewardRecord,
 } from '../api'
-import { PAGE_SIZE_OPTIONS, DEFAULT_PAGE_SIZE } from '../pagination'
+import { PAGE_SIZE_OPTIONS } from '../pagination'
 
 const { Title, Text } = Typography
 
@@ -43,7 +43,7 @@ export default function Vip({ section = 'benefits' }: { section?: 'benefits' | '
   const [records, setRecords] = useState<VipRewardRecord[]>([])
   const [recordsTotal, setRecordsTotal] = useState(0)
   const [recordsPage, setRecordsPage] = useState(1)
-  const [recordsPageSize, setRecordsPageSize] = useState(DEFAULT_PAGE_SIZE)
+  const [recordsPageSize, setRecordsPageSize] = useState(50)
   const [recordsLoading, setRecordsLoading] = useState(false)
   const [recordsType, setRecordsType] = useState<string | undefined>()
   const [recordsUser, setRecordsUser] = useState('')

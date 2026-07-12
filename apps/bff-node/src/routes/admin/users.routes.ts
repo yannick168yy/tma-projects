@@ -14,7 +14,7 @@ const router = new Router({ prefix: '/users' })
 
 router.get('/', async (ctx) => {
   const page = Math.max(1, Number(ctx.query.page ?? 1))
-  const pageSize = Math.min(100, Math.max(10, Number(ctx.query.pageSize ?? 20)))
+  const pageSize = Math.min(1000, Math.max(10, Number(ctx.query.pageSize ?? 20)))
   const search = ctx.query.search ? String(ctx.query.search) : undefined
   const status = ctx.query.status ? String(ctx.query.status) : undefined
   const result = await listAdminUsers(ctx.state.env, { page, pageSize, search, status })

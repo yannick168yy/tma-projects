@@ -106,7 +106,7 @@ router.get('/records', async (ctx) => {
   if (!isMysqlEnabled(ctx.state.env)) { ok(ctx, { items: [], total: 0 }); return }
   const pool = getMysqlPool(ctx.state.env)
   const page = Math.max(1, Number(ctx.query.page ?? 1))
-  const pageSize = Math.min(100, Math.max(1, Number(ctx.query.pageSize ?? 50)))
+  const pageSize = Math.min(1000, Math.max(1, Number(ctx.query.pageSize ?? 50)))
   const typeFilter = ctx.query.type ? String(ctx.query.type) : undefined
   const userFilter = ctx.query.userId ? String(ctx.query.userId) : undefined
 

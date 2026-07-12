@@ -2,13 +2,13 @@ import { useEffect, useState } from 'react'
 import { Table, Tooltip, Button } from 'antd'
 import type { TablePaginationConfig } from 'antd'
 import { getAuditLog, type AuditEntry } from '../api'
-import { PAGE_SIZE_OPTIONS, DEFAULT_PAGE_SIZE } from '../pagination'
+import { PAGE_SIZE_OPTIONS } from '../pagination'
 
 export default function AuditLog() {
   const [loading, setLoading] = useState(false)
   const [items, setItems] = useState<AuditEntry[]>([])
   const [page, setPage] = useState(1)
-  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE)
+  const [pageSize, setPageSize] = useState(50)
 
   async function load(p = 1, ps = pageSize) {
     setPage(p); setPageSize(ps); setLoading(true)

@@ -62,7 +62,7 @@ router.get('/proposals', async (ctx) => {
   if (!isMysqlEnabled(ctx.state.env)) { ok(ctx, { total: 0, items: [] }); return }
   const pool = getMysqlPool(ctx.state.env)
   const page = Math.max(1, Number(ctx.query.page ?? 1))
-  const pageSize = Math.min(100, Math.max(10, Number(ctx.query.pageSize ?? 20)))
+  const pageSize = Math.min(1000, Math.max(10, Number(ctx.query.pageSize ?? 20)))
   const offset = (page - 1) * pageSize
 
   const where: string[] = []
@@ -295,7 +295,7 @@ router.get('/manual-queue', async (ctx) => {
   if (!isMysqlEnabled(ctx.state.env)) { ok(ctx, { total: 0, items: [] }); return }
   const pool = getMysqlPool(ctx.state.env)
   const page = Math.max(1, Number(ctx.query.page ?? 1))
-  const pageSize = Math.min(100, Math.max(10, Number(ctx.query.pageSize ?? 20)))
+  const pageSize = Math.min(1000, Math.max(10, Number(ctx.query.pageSize ?? 20)))
   const offset = (page - 1) * pageSize
 
   // 用户提款：pending + manual verdict

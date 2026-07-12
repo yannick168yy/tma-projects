@@ -32,7 +32,7 @@ async function agentExists(db: ReturnType<typeof getMysqlPool>, agentId: string)
 router.get('/list', async (ctx) => {
   const search = ctx.query.search ? String(ctx.query.search) : ''
   const page = Math.max(1, Number(ctx.query.page ?? 1))
-  const pageSize = Math.min(100, Math.max(10, Number(ctx.query.pageSize ?? 20)))
+  const pageSize = Math.min(1000, Math.max(10, Number(ctx.query.pageSize ?? 20)))
   const offset = (page - 1) * pageSize
   const db = getMysqlPool(ctx.state.env)
   const period = currentPeriod()
@@ -274,7 +274,7 @@ router.get('/:agentId', async (ctx) => {
 router.get('/:agentId/users', async (ctx) => {
   const { agentId } = ctx.params
   const page = Math.max(1, Number(ctx.query.page ?? 1))
-  const pageSize = Math.min(100, Math.max(10, Number(ctx.query.pageSize ?? 20)))
+  const pageSize = Math.min(1000, Math.max(10, Number(ctx.query.pageSize ?? 20)))
   const offset = (page - 1) * pageSize
   const db = getMysqlPool(ctx.state.env)
   const { start, end } = currentMonthRange()

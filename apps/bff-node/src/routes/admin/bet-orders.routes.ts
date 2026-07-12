@@ -6,7 +6,7 @@ const router = new Router({ prefix: '/bet-orders' })
 
 router.get('/', async (ctx) => {
   const page     = Math.max(1, Number(ctx.query.page ?? 1))
-  const pageSize = Math.min(100, Math.max(10, Number(ctx.query.pageSize ?? 20)))
+  const pageSize = Math.min(1000, Math.max(10, Number(ctx.query.pageSize ?? 20)))
   const offset   = (page - 1) * pageSize
   const view     = ctx.query.view === 'round' ? 'round' : 'detail'
   const userId   = ctx.query.userId   ? String(ctx.query.userId)   : undefined

@@ -25,7 +25,7 @@ router.put('/config', async (ctx) => {
 
 router.get('/records', async (ctx) => {
   const page = Math.max(1, Number(ctx.query.page ?? 1))
-  const pageSize = Math.min(100, Math.max(1, Number(ctx.query.pageSize ?? 20)))
+  const pageSize = Math.min(1000, Math.max(1, Number(ctx.query.pageSize ?? 20)))
   const userId = ctx.query.userId ? String(ctx.query.userId) : undefined
   ok(ctx, await listSpinRecords(ctx.state.env, { page, pageSize, userId }))
 })

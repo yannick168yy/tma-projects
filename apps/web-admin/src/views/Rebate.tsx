@@ -14,7 +14,7 @@ import {
   getWin568ProviderStats, getAdminWin568Games,
   type RebateConfigItem, type RebateThresholdItem, type RebateFeaturedGame, type RebateRecord, type AdminWin568Game,
 } from '../api'
-import { PAGE_SIZE_OPTIONS, DEFAULT_PAGE_SIZE } from '../pagination'
+import { PAGE_SIZE_OPTIONS } from '../pagination'
 
 const { Title, Text } = Typography
 
@@ -66,7 +66,7 @@ export default function Rebate({ tab = 'config' }: { tab?: RebateTab }) {
   const [records, setRecords] = useState<RebateRecord[]>([])
   const [recordsTotal, setRecordsTotal] = useState(0)
   const [recordsPage, setRecordsPage] = useState(1)
-  const [recordsPageSize, setRecordsPageSize] = useState(DEFAULT_PAGE_SIZE)
+  const [recordsPageSize, setRecordsPageSize] = useState(50)
   const [recordsLoading, setRecordsLoading] = useState(false)
   const [recordsDate, setRecordsDate] = useState<string | undefined>()
   const [recordsUser, setRecordsUser] = useState('')

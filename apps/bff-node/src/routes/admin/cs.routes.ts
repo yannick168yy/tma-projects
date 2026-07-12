@@ -57,7 +57,7 @@ router.put('/cs/welcome', async (ctx) => {
 // GET /admin/cs/conversations — 会话列表
 router.get('/cs/conversations', async (ctx) => {
   const { status, page = '1', pageSize = '20' } = ctx.query as Record<string, string>
-  const limit = Math.min(Number(pageSize), 100)
+  const limit = Math.min(Number(pageSize), 1000)
   const offset = (Number(page) - 1) * limit
   const result = await listConversations(ctx.state.env, { status, limit, offset })
   ok(ctx, { ...result, page: Number(page), pageSize: limit })
@@ -118,7 +118,7 @@ router.post('/cs/conversations/:id/resolve', async (ctx) => {
 router.get('/cs/faq', async (ctx) => {
   const { keyword, category, page = '1', pageSize = '20' } = ctx.query as Record<string, string>
   const pool = getMysqlPool(ctx.state.env)
-  const limit = Math.min(Number(pageSize), 100)
+  const limit = Math.min(Number(pageSize), 1000)
   const offset = (Number(page) - 1) * limit
 
   const conditions: string[] = []

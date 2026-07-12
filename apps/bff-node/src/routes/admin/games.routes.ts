@@ -41,7 +41,7 @@ router.get('/jobs/:jobId', async (ctx) => {
 
 router.get('/win568', async (ctx) => {
   const page = Math.max(1, Number(ctx.query.page ?? 1))
-  const pageSize = Math.min(100, Math.max(10, Number(ctx.query.pageSize ?? 20)))
+  const pageSize = Math.min(1000, Math.max(10, Number(ctx.query.pageSize ?? 20)))
   const providerValue = ctx.query.provider
   const result = await listAdminWin568Games(ctx.state.env, {
     page,

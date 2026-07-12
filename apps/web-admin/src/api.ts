@@ -719,7 +719,7 @@ export const setDefaultTeamRatePlan = (id: number) =>
 export const setAgentRatePlan = (userId: string, planId: number | null) =>
   req<{ ok: boolean }>('PUT', `/admin/team/agents/${userId}/rate-plan`, { planId })
 
-export const getTeamWithdrawals = (params?: { status?: string; page?: number }) =>
+export const getTeamWithdrawals = (params?: { status?: string; page?: number; pageSize?: number }) =>
   get<{ items: TeamWithdrawalAdmin[]; total: number; page: number; pageSize: number }>('/admin/team/withdrawals', params)
 
 

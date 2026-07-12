@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Input, Select, Button, Table, Tag, message } from 'antd'
 import type { TablePaginationConfig } from 'antd'
 import { getTeamCommissions, type TeamCommission } from '../../api'
-import { PAGE_SIZE_OPTIONS, DEFAULT_PAGE_SIZE } from '../../pagination'
+import { PAGE_SIZE_OPTIONS } from '../../pagination'
 
 function phpCell(cents: number) {
   const val = (cents ?? 0) / 100
@@ -14,7 +14,7 @@ export default function TeamCommissions() {
   const [items, setItems] = useState<TeamCommission[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
-  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE)
+  const [pageSize, setPageSize] = useState(50)
   const [loading, setLoading] = useState(false)
 
   async function load(p = 1, ps = pageSize) {
