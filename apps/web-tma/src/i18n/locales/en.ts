@@ -973,6 +973,10 @@ export default {
   },
   profile: {
     playerAccount: 'Player Account',
+    balance: 'Balance',
+    deposit: 'Deposit',
+    vipCenter: 'VIP Center',
+    vipCenterSub: 'Explore exclusive benefits',
     personalInfo: 'PERSONAL INFORMATION',
     info: 'Info',
     firstName: 'First Name',

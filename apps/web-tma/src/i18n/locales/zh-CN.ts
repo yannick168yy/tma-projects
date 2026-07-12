@@ -962,6 +962,10 @@ export default {
   },
   profile: {
     playerAccount: '玩家账户',
+    balance: '余额',
+    deposit: '存款',
+    vipCenter: 'VIP 中心',
+    vipCenterSub: '探索专属特权',
     personalInfo: '个人信息',
     info: '资料',
     firstName: '名',

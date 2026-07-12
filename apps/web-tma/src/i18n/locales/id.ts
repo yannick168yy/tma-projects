@@ -651,6 +651,10 @@ export default {
   },
   profile: {
     playerAccount: 'Akun Pemain',
+    balance: 'Saldo',
+    deposit: 'Deposit',
+    vipCenter: 'Pusat VIP',
+    vipCenterSub: 'Jelajahi manfaat eksklusif',
     personalInfo: 'INFORMASI PRIBADI',
     info: 'Info',
     firstName: 'Nama Depan',
