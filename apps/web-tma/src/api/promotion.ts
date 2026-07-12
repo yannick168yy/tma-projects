@@ -167,10 +167,18 @@ export interface BonusCard {
   audience: PopupConfig['audience']
 }
 
+/** 负盈利返水（路线A）：统一费率、每日、全等级；用于前台展示统一返水率 */
+export interface LossRebateConfig {
+  enabled: boolean
+  ratePct: number
+  minDeposit: number
+}
+
 export interface PromoConfig {
   trial:    { amount: number; enabled: boolean }
   firstdep: { enabled: boolean; turnoverX: number; turnoverDays?: number; tiers: Record<string, FirstDepTier[]> }
   appdl:    { amount: number; enabled: boolean; turnoverX: number; turnoverDays?: number }
+  lossRebate?: LossRebateConfig
   popups?:  PopupConfig[]
   checkinEnabled?: boolean
   bonusCards?: BonusCard[]

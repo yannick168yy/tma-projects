@@ -14,6 +14,7 @@ import iconLevelup from '@/assets/vip/icon-levelup.webp'
 import iconPercent from '@/assets/vip/icon-percent.webp'
 import iconCake from '@/assets/vip/icon-cake.webp'
 import { fetchRebateConfig, fetchRebateProgress, claimRebate, type RebateConfig, type RebateProgress } from '@/api/rebate'
+import { fetchPromoConfig, type LossRebateConfig } from '@/api/promotion'
 import { fetchVipProgress, fetchVipLevels, fetchVipRewards, claimVipRewards, type VipLevelConfig, type VipProgress, type VipReward } from '@/api/vip'
 import { launchGame } from '@/api/slots'
 import { useAuthStore } from '@/stores/auth'
@@ -77,6 +78,7 @@ export default function VipPage({ initialTab = 'overview', onOpenGame, onOpenCat
   const [vip, setVip] = useState<VipProgress | null>(null)
   const [levels, setLevels] = useState<VipLevelConfig[]>([])
   const [rewards, setRewards] = useState<VipReward[]>([])
+  const [lossRebate, setLossRebate] = useState<LossRebateConfig | null>(null)
   const [claimingCashback, setClaimingCashback] = useState(false)
   const [claimingVip, setClaimingVip] = useState(false)
   const [expandedTier, setExpandedTier] = useState<string | null>(null)
@@ -88,7 +90,12 @@ export default function VipPage({ initialTab = 'overview', onOpenGame, onOpenCat
   useEffect(() => {
     fetchRebateConfig().then(setConfig).catch(() => null)
     fetchVipLevels().then((res) => setLevels(res.levels)).catch(() => null)
+    fetchPromoConfig().then((c) => setLossRebate(c.lossRebate ?? null)).catch(() => null)
   }, [])
+
+  // 负盈利返水已降格为平台活动（统一费率、全等级）：活动开启时按统一率展示，关闭时回落各级配置值（无回归）
+  const rebateRateLabel = (perLevelPct: number): string =>
+    lossRebate?.enabled ? `${lossRebate.ratePct}%` : `${perLevelPct}%`
 
   const loadProgress = useCallback(async () => {
     if (!token) { setProgress(null); setVip(null); setRewards([]); return }
@@ -345,7 +352,7 @@ export default function VipPage({ initialTab = 'overview', onOpenGame, onOpenCat
         <section className="rounded-2xl border p-4" style={VIP_GLASS_STYLE}>
           <h2 className="text-sm font-semibold text-white">{t('vipPage.currentBenefits')}</h2>
           <div className="mt-4 grid grid-cols-2 gap-x-2 gap-y-4">
-            <BenefitItem icon={iconLoss} label={t('cashback.vipNegativeRebate')} value={`${vip?.benefit?.negativeRebatePct ?? currentLevel?.negativeRebatePct ?? 0}%`} />
+            <BenefitItem icon={iconLoss} label={t('cashback.vipNegativeRebate')} value={rebateRateLabel(vip?.benefit?.negativeRebatePct ?? currentLevel?.negativeRebatePct ?? 0)} />
             <BenefitItem icon={iconWeekly} label={t('cashback.vipWeekly')} value={amtStr(currency, vip?.benefit?.weeklySalary ?? currentLevel?.weeklySalary ?? 0)} />
             <BenefitItem icon={iconMonthly} label={t('cashback.vipMonthly')} value={amtStr(currency, vip?.benefit?.monthlySalary ?? currentLevel?.monthlySalary ?? 0)} />
             <BenefitItem icon={iconBday} label={t('cashback.vipBirthday')} value={amtStr(currency, vip?.benefit?.birthdayBonus ?? currentLevel?.birthdayBonus ?? 0)} />
@@ -361,7 +368,7 @@ export default function VipPage({ initialTab = 'overview', onOpenGame, onOpenCat
             <h2 className="text-sm font-semibold text-white">{t('vipPage.nextUnlock', { level: nextLevel.level })}</h2>
             <div className="mt-4 grid grid-cols-2 gap-x-2 gap-y-4">
               <BenefitItem icon={iconLevelup} label={t('cashback.vipPromotion')} value={amtStr(currency, nextLevel.promotionBonus)} />
-              <BenefitItem icon={iconPercent} label={t('cashback.vipNegativeRebate')} value={`${nextLevel.negativeRebatePct}%`} />
+              <BenefitItem icon={iconPercent} label={t('cashback.vipNegativeRebate')} value={rebateRateLabel(nextLevel.negativeRebatePct)} />
             </div>
           </section>
         )}
@@ -601,7 +608,7 @@ export default function VipPage({ initialTab = 'overview', onOpenGame, onOpenCat
                     <BenefitLine label={t('cashback.vipWeekly')} value={amtStr(currency, lv.weeklySalary)} />
                     <BenefitLine label={t('cashback.vipMonthly')} value={amtStr(currency, lv.monthlySalary)} />
                     <BenefitLine label={t('cashback.vipBirthday')} value={amtStr(currency, lv.birthdayBonus)} />
-                    <BenefitLine label={t('cashback.vipNegativeRebate')} value={`${lv.negativeRebatePct}%`} />
+                    <BenefitLine label={t('cashback.vipNegativeRebate')} value={rebateRateLabel(lv.negativeRebatePct)} />
                     <BenefitLine label={t('vipPage.retentionLine')} value={amtStr(currency, lv.retentionLine)} />
                     <BenefitLine label={t('vipPage.withdrawLimit')} value={`${amtStr(currency, lv.withdrawDailyLimit)} / ${lv.withdrawDailyCount}x`} />
                   </div>
