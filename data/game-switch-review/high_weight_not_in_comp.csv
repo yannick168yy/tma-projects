@@ -6,7 +6,6 @@ game_id,game_provider_id,provider,name_en,site_cat,eff_weight,ov_weight,ov_featu
 2,12,IONLC,IONLCRoulette,casino,9999,,,1,,provider_absent
 564,13,WorldMatch,Arena de Toros,slot,9999,,,1,d/m,provider_absent
 9,14,SBOSlot,1c dafudacai-88Fortunes,slot,9999,,,1,d/m,provider_absent
-295,16,FunkyGames,Golden Mahjong Deluxe,slot,9999,,,1,d/m,game_absent
 0,17,IDNLive,IDNLive,lobby,9999,,,0,,provider_absent
 1,19,SaGaming,SaGamingBaccarat,casino,9999,,,1,,game_absent
 101,22,Yggdrasil,Big Bucks Bandits Megaways,slot,9999,,,1,d/m,game_absent
@@ -65,7 +64,6 @@ game_id,game_provider_id,provider,name_en,site_cat,eff_weight,ov_weight,ov_featu
 1,12,IONLC,IONLCBaccarat,casino,9998,,,1,,provider_absent
 342,13,WorldMatch,All Fruits,slot,9998,,,1,d/m,provider_absent
 69,14,SBOSlot,Good�Fortune,slot,9998,,0,1,d/m,provider_absent
-322,16,FunkyGames,Roma Reborn,slot,9998,,,1,d/m,game_absent
 7,28,AllBet,Roulette,casino,9998,,,1,d/m,provider_absent
 590,29,MicroGaming,Pong Pong Mahjong 2,slot,9998,,,1,d/m,provider_absent
 1,33,GreenDragon,GreenDragonBaccarat,casino,9998,,,1,,provider_absent
@@ -119,7 +117,6 @@ game_id,game_provider_id,provider,name_en,site_cat,eff_weight,ov_weight,ov_featu
 3,12,IONLC,IONLCSicBo,casino,9997,,,1,,provider_absent
 240,13,WorldMatch,Fair Roulette - Standard,casino,9997,,,1,d/m,provider_absent
 8,14,SBOSlot,1c dafudacai-5Treasures,slot,9997,,,1,d/m,provider_absent
-312,16,FunkyGames,Aztec Fortune Megaways,slot,9997,,,1,d/m,game_absent
 2,19,SaGaming,SaGamingDragonTiger,casino,9997,,,1,,game_absent
 3,28,AllBet,QuickBaccarat,casino,9997,,,1,d/m,provider_absent
 337,29,MicroGaming,Lucky Twins Wilds,slot,9997,,,1,d/m,provider_absent
@@ -226,7 +223,6 @@ game_id,game_provider_id,provider,name_en,site_cat,eff_weight,ov_weight,ov_featu
 4,12,IONLC,IONLCDragonTiger,casino,9995,,,1,,provider_absent
 498,13,WorldMatch,Bandit's bounty,slot,9995,,,1,d/m,provider_absent
 67,14,SBOSlot,Sun Quest,slot,9995,,,1,d/m,provider_absent
-305,16,FunkyGames,Clover Coin Combo,slot,9995,,,1,d/m,game_absent
 4,19,SaGaming,SaGamingRoulette,casino,9995,,,1,,game_absent
 540,22,Yggdrasil,Piggies Prize Party,slot,9995,,,1,d/m,game_absent
 8,28,AllBet,PokDeng,casino,9995,,,1,d/m,provider_absent
@@ -280,7 +276,6 @@ game_id,game_provider_id,provider,name_en,site_cat,eff_weight,ov_weight,ov_featu
 207,10,JokerGaming,Mayan Gems,slot,9994,,,1,d/m,provider_absent
 818,13,WorldMatch,Fa Fa Spin,slot,9994,,,1,d/m,provider_absent
 10,14,SBOSlot,1c dafudacai-DiamondEternity,slot,9994,,,1,d/m,provider_absent
-329,16,FunkyGames,3 Combo Bombs,slot,9994,,,1,d/m,game_absent
 0,20,EvolutionGaming,EvolutionGamingLobby,lobby,9994,,,0,,game_absent
 30,22,Yggdrasil,Valley of the Gods,slot,9994,,,1,d/m,game_absent
 6,28,AllBet,DragonTiger,casino,9994,,,1,d/m,provider_absent
@@ -332,7 +327,6 @@ game_id,game_provider_id,provider,name_en,site_cat,eff_weight,ov_weight,ov_featu
 179,10,JokerGaming,SCHEHERAZADE,slot,9993,,,1,d/m,provider_absent
 331,13,WorldMatch,Mythos,slot,9993,,,1,d/m,provider_absent
 115,14,SBOSlot,Aladdin,slot,9993,,,1,d/m,provider_absent
-306,16,FunkyGames,CaiShenBaoXi,slot,9993,,,1,d/m,game_absent
 7,19,SaGaming,SaGamingSedie,casino,9993,,,0,d/m,game_absent
 11,28,AllBet,WinThreeCardsOrThreePictures,casino,9993,,,1,d/m,provider_absent
 515,29,MicroGaming,Pong Pong Mahjong Jackpots,slot,9993,,,1,d/m,provider_absent
@@ -379,7 +373,6 @@ game_id,game_provider_id,provider,name_en,site_cat,eff_weight,ov_weight,ov_featu
 109,10,JokerGaming,Lucky God Progressive,slot,9992,,,1,d/m,provider_absent
 835,13,WorldMatch,Magic Moon Palace,slot,9992,,,1,d/m,provider_absent
 11,14,SBOSlot,1c dafudacai-DancingDrum,slot,9992,,,1,d/m,provider_absent
-294,16,FunkyGames,777 Blazing Hold and Win,slot,9992,,,1,d/m,game_absent
 0,19,SaGaming,SaGaming,lobby,9992,,,1,,game_absent
 126,22,Yggdrasil,12 Trojan Mysteries,slot,9992,,,1,d/m,game_absent
 5,28,AllBet,SicboHiLo,perya,9992,,,1,d/m,provider_absent
@@ -429,7 +422,6 @@ game_id,game_provider_id,provider,name_en,site_cat,eff_weight,ov_weight,ov_featu
 205,10,JokerGaming,Fabulous Eights,slot,9991,,,1,d/m,provider_absent
 822,13,WorldMatch,Golden Tree,slot,9991,,,1,d/m,provider_absent
 23,14,SBOSlot,1c JuFuNaCai-Rhythm Of Fortune,slot,9991,,,1,d/m,provider_absent
-315,16,FunkyGames,Buffalo Splash,slot,9991,,,1,d/m,game_absent
 5,19,SaGaming,SaGamingFanTan,casino,9991,,,0,,game_absent
 1,28,AllBet,NormalBaccarat,casino,9991,,,1,d/m,provider_absent
 495,29,MicroGaming,Almighty Zeus Wilds,slot,9991,,,1,d/m,provider_absent
@@ -480,7 +472,6 @@ game_id,game_provider_id,provider,name_en,site_cat,eff_weight,ov_weight,ov_featu
 93,10,JokerGaming,Hot Fruits,slot,9990,,,1,d/m,provider_absent
 313,13,WorldMatch,Vampire Killer,slot,9990,,,1,d/m,provider_absent
 113,14,SBOSlot,Lost�City�Of�Gold,slot,9990,,,1,d/m,provider_absent
-330,16,FunkyGames,3 Combo Lucky Crackers,slot,9990,,,1,d/m,game_absent
 6,19,SaGaming,SaGamingMoneyWheel,casino,9990,,,1,,game_absent
 131,22,Yggdrasil,Crystal Falls,slot,9990,,,1,d/m,game_absent
 2,28,AllBet,VIPBaccarat,casino,9990,,,0,d/m,provider_absent

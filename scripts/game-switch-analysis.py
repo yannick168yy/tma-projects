@@ -102,22 +102,22 @@ manual_confirm = []   # (game, reason)
 kept = []
 prov_close_stats = defaultdict(lambda: [0, 0])  # canon -> [close, total]
 
+# 用户拍板(2026-07-12): 97家整厂全关(仅FunkyGames保留)、高权重豁免跟随规则关闭、
+# 体育/斗鸡/彩票保留、无名厂商杂盘关闭
 for g in ours:
     canon = g['canon']
     reasons = []
-    if canon == '568win':
-        kept.append((g, 'special:用户手动处理'))
-        continue
     if canon in SPECIAL_KEEP:
-        manual_confirm.append((g, 'special:' + SPECIAL_KEEP[canon]))
+        kept.append((g, 'special:' + SPECIAL_KEEP[canon]))
         continue
     if canon in ('__dirty__', '__unmapped__'):
-        manual_confirm.append((g, '厂商名脏数据(%s)' % g['provider']))
+        closed_games.append((g, 'dirty_provider(%s)' % g['provider']))
+        prov_close_stats[canon][0] += 1
+        prov_close_stats[canon][1] += 1
         continue
 
     provider_absent = canon not in comp_providers
     if provider_absent:
-        # 整厂关闭是厂商级商务判断，高权重不豁免，但会出现在高权重提示清单里
         reasons.append('provider_absent')
     else:
         if g['site_cat'] == 'lobby':
@@ -137,12 +137,10 @@ for g in ours:
         kept.append((g, 'match'))
         continue
 
-    # 游戏级/规则4 关闭时高权重豁免进人工确认；整厂关闭不豁免
-    if 'provider_absent' not in reasons and is_protected(g):
-        manual_confirm.append((g, '+'.join(reasons)))
-    else:
-        closed_games.append((g, '+'.join(reasons)))
-        prov_close_stats[canon][0] += 1
+    if is_protected(g):
+        manual_confirm.append((g, 'closed_high_weight:' + '+'.join(reasons)))  # 已关,仅提示
+    closed_games.append((g, '+'.join(reasons)))
+    prov_close_stats[canon][0] += 1
     prov_close_stats[canon][1] += 1
 
 # ---------- 我方权重高但竞品未开放(提示清单, 不影响动作) ----------
@@ -196,7 +194,7 @@ with open(os.path.join(outdir, 'report_summary.txt'), 'w') as f:
     def p(*a):
         print(*a, file=f)
     p('我方总游戏数:', len(ours))
-    p('保留:', len(kept), ' 关闭:', len(closed_games), ' 人工确认:', len(manual_confirm))
+    p('保留:', len(kept), ' 关闭:', len(closed_games), ' 其中高权重被关(提示):', len(manual_confirm))
     p('竞品厂商(canonical) %d 个:' % len(comp_providers), sorted(comp_providers))
     p('\n竞品未映射厂商名(忽略):', dict(comp_unmapped))
     p('我方未映射厂商名(进人工确认):', dict(our_unmapped))
@@ -212,9 +210,29 @@ with open(os.path.join(outdir, 'report_summary.txt'), 'w') as f:
         p('  %-20s %d/%d' % (canon, c, by_canon_total[canon]))
     rule4 = [1 for _, r in closed_games if 'no_php_usd' in r or 'desktop_only' in r]
     p('\n规则4(币种/设备)命中:', len(rule4))
-    p('保护豁免进人工确认:', len([1 for _, r in manual_confirm if '厂商名脏' not in r and not r.startswith('special')]))
-    p('特殊品类(体育/斗鸡/彩票)进人工确认:', len([1 for _, r in manual_confirm if r.startswith('special')]))
+    p('无名厂商杂盘关闭:', len([1 for _, r in closed_games if r.startswith('dirty_provider')]))
+    p('特殊保留(568win/funkygames/体育斗鸡彩票):', len([1 for _, r in kept if r.startswith('special')]))
     p('高权重但竞品未开放(提示清单):', len(high_not_in_comp))
     p('保护定义: featured / 手工weight>=8000 / 厂商内rank<=10')
+
+# ---------- 生成执行SQL(手动执行,不进迁移) ----------
+today = '20260712'
+with open(os.path.join(outdir, 'close_override.sql'), 'w') as f:
+    f.write('-- 568Win 游戏开关筛选：本地关闭 %d 款（手动执行，不自动部署）\n' % len(closed_games))
+    f.write('-- 依据 data/game-switch-review/ 清单，用户已确认。回滚用 rollback_override.sql\n')
+    f.write('CREATE TABLE IF NOT EXISTS bg_568win_game_override_bak_%s AS SELECT * FROM bg_568win_game_override;\n\n' % today)
+    pairs = [(g['game_provider_id'], g['game_id']) for g, _ in closed_games]
+    for i in range(0, len(pairs), 500):
+        chunk = pairs[i:i + 500]
+        f.write('INSERT INTO bg_568win_game_override (game_provider_id, game_id, is_active) VALUES\n')
+        f.write(',\n'.join('(%s,%s,0)' % pr for pr in chunk))
+        f.write('\nON DUPLICATE KEY UPDATE is_active = 0;\n\n')
+    f.write("SELECT CONCAT('closed=', COUNT(*)) FROM bg_568win_game_override WHERE is_active = 0;\n")
+with open(os.path.join(outdir, 'rollback_override.sql'), 'w') as f:
+    f.write('-- 回滚：is_active 还原到备份时状态（本次新插入的行还原为 NULL=跟随上游）\n')
+    f.write('UPDATE bg_568win_game_override o\n'
+            'LEFT JOIN bg_568win_game_override_bak_%s b USING (game_provider_id, game_id)\n'
+            'SET o.is_active = b.is_active\n'
+            'WHERE o.is_active = 0;\n' % today)
 
 print('done. closed=%d manual=%d kept=%d' % (len(closed_games), len(manual_confirm), len(kept)))
