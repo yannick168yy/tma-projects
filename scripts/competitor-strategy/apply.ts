@@ -86,9 +86,12 @@ async function main() {
     const uuid = f[col.uuid]
     const m = uuid.match(/^568win:(\d+):(\d+)$/)
     if (!m) continue
-    const isFeatured = f[col.featured] === '1' && f[col.providerMatch] === '1'
-    const weight = Math.max(10000 - rank * 5, 3000)
-    const breakdown = JSON.stringify({ source: 'competitor', score, sites: f[col.sites], provider_match: f[col.providerMatch] === '1' })
+    const providerMatch = f[col.providerMatch] === '1'
+    const isFeatured = f[col.featured] === '1' && providerMatch
+    // 通用名撞厂商(provider_match=false)：品类热度可信但厂商归属存疑，封顶 7000
+    // (Funky Mines 曾因5站同名Mines蹭分到9995压过真爆款)
+    const weight = Math.min(Math.max(10000 - rank * 5, 3000), providerMatch ? 10000 : 7000)
+    const breakdown = JSON.stringify({ source: 'competitor', score, sites: f[col.sites], provider_match: providerMatch })
     applied++
     if (isFeatured) featured++
     if (DRY_RUN) continue
