@@ -670,7 +670,8 @@ export default {
     walletTopUp: '充值',
     walletCashOut: '提现',
     walletRecords: '记录',
-    vipHeaderHint: '累积 VIP 积分升级到',
+    vipHeaderEarn: '还需 <g>{{points}}</g> VIP 积分升级到 <g>VIP {{next}}</g>',
+    vipHeaderMax: '已达最高 VIP 等级',
     enterVipCenter: '进入 VIP 中心',
     sections: {
       theme: '游戏主题',

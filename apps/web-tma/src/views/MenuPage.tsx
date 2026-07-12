@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, type ComponentType, type ReactNode } from 'react'
-import { useTranslation } from 'react-i18next'
+import { Trans, useTranslation } from 'react-i18next'
 import {
   ArrowDownToLine,
   ArrowUpFromLine,
@@ -22,7 +22,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useLocaleStore } from '@/stores/locale'
 import { useThemeStore, type ThemeMode } from '@/stores/theme'
 import { LANGUAGES } from '@/data/languages'
-import { fetchVipProgress } from '@/api/vip'
+import { fetchVipProgress, type VipProgress } from '@/api/vip'
 import { fetchKycStatus, type KycStatus } from '@/api/kyc'
 import { isInsideTelegram } from '@/utils/initTelegramWebApp'
 import menuCasino from '@/assets/home/promos/menu-card-casino.webp'
@@ -225,7 +225,7 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
   const [comingSoonToast, setComingSoonToast] = useState(false)
   const [docModalKey, setDocModalKey] = useState<string | null>(null)
   const [langOpen, setLangOpen] = useState(false)
-  const [vipLevel, setVipLevel] = useState<number | null>(null)
+  const [vip, setVip] = useState<VipProgress | null>(null)
   const [kycStatus, setKycStatus] = useState<KycStatus | null>(null)
   const comingSoonTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -237,8 +237,9 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
   const phoneVerified = kycApproved || Boolean(kycStatus?.phoneVerified)
   const docVerified = kycApproved || Boolean(kycStatus?.docVerified)
   const faceVerified = kycApproved || Boolean(kycStatus?.faceVerified)
-  const currentVipLevel = vipLevel ?? 1
-  const nextVipLevel = currentVipLevel + 1
+  const currentVipLevel = vip?.level ?? 1
+  const nextVipLevel = vip?.nextLevel ?? null
+  const vipPointsToNext = vip && vip.nextThreshold != null ? Math.max(0, vip.nextThreshold - vip.totalTurnover) : null
 
   const SUPPORT_ITEMS = [
     { icon: '21_live_chat', label: t('profile.supportItems.liveChat'), sub: t('profile.supportItems.liveChatSub'), badge: t('common.online'), onClick: onOpenCs },
@@ -269,12 +270,12 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
 
   useEffect(() => {
     if (!isLoggedIn) {
-      setVipLevel(null)
+      setVip(null)
       return
     }
     fetchVipProgress()
-      .then((progress) => setVipLevel(progress.level))
-      .catch(() => setVipLevel(null))
+      .then(setVip)
+      .catch(() => setVip(null))
   }, [isLoggedIn, auth.user?.id])
 
   useEffect(() => {
@@ -346,21 +347,36 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
         <div
           className="relative overflow-hidden rounded-[28px] border border-[#d7a83d] bg-[#070c15] shadow-[0_18px_40px_rgba(0,0,0,0.32)]"
         >
-          <button type="button" className="relative flex h-[50px] w-full items-center gap-2 overflow-hidden px-4 text-left" onClick={onOpenVipCenter}>
-            <img src={vipHeaderBg} alt="" aria-hidden="true" className="pointer-events-none absolute inset-0 h-full w-full object-fill" />
-            <span className="relative flex min-w-0 flex-1 items-center gap-2.5">
-              <img src={vipCrown} alt="" aria-hidden="true" className="h-7 w-9 flex-shrink-0 object-contain" />
-              <span className="whitespace-nowrap font-display text-2xl font-black leading-none text-[#ffe59b] drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)]">VIP {currentVipLevel}</span>
-              <span className="h-7 w-px flex-shrink-0 bg-[#e9c970]/55" />
-              <span className="min-w-0 truncate text-xs font-medium text-[#e7e4dc]">
-                {t('menu.vipHeaderHint')} <span className="font-black text-[#ffe48a]">VIP {nextVipLevel}</span>
-              </span>
-            </span>
-            <span className="relative flex h-[34px] flex-shrink-0 items-center gap-1 whitespace-nowrap rounded-[14px] border border-[#ffe7a6]/80 bg-gradient-to-b from-[#ffe7a6] to-[#e5b23f] px-3 text-xs font-black text-[#15110a] shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]">
-              {t('menu.enterVipCenter')}
-              <ChevronRight size={14} strokeWidth={3} />
-            </span>
-          </button>
+          {isLoggedIn && (
+            <div className="relative overflow-hidden px-4 py-2.5">
+              <img src={vipHeaderBg} alt="" aria-hidden="true" className="pointer-events-none absolute inset-0 h-full w-full object-cover" />
+              <div className="relative flex items-center justify-between gap-2">
+                <span className="flex min-w-0 items-center gap-2">
+                  <img src={vipCrown} alt="" aria-hidden="true" className="h-8 w-auto flex-shrink-0 object-contain drop-shadow-[0_2px_4px_rgba(0,0,0,0.45)]" />
+                  <span className="whitespace-nowrap font-display text-2xl font-black leading-none text-[#f6dea5] drop-shadow-[0_1px_2px_rgba(0,0,0,0.45)]">VIP {currentVipLevel}</span>
+                </span>
+                <button
+                  type="button"
+                  className="flex flex-shrink-0 items-center gap-0.5 whitespace-nowrap rounded-full bg-gradient-to-r from-[#f8ebbb] to-[#e4b750] px-3 py-1.5 text-[11px] font-black text-[#1b1c19] shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] transition-transform active:scale-[0.97]"
+                  onClick={onOpenVipCenter}
+                >
+                  {t('menu.enterVipCenter')}
+                  <ChevronRight size={13} strokeWidth={3} />
+                </button>
+              </div>
+              {nextVipLevel != null && vipPointsToNext != null ? (
+                <p className="relative mt-1.5 text-[11px] font-medium leading-snug text-[#cfcfd4]">
+                  <Trans
+                    i18nKey="menu.vipHeaderEarn"
+                    values={{ points: vipPointsToNext.toLocaleString('en-US'), next: nextVipLevel }}
+                    components={{ g: <span className="font-black text-[#f0c24a]" /> }}
+                  />
+                </p>
+              ) : (
+                <p className="relative mt-1.5 text-[11px] font-medium leading-snug text-[#cfcfd4]">{t('menu.vipHeaderMax')}</p>
+              )}
+            </div>
+          )}
 
           <div className="relative rounded-t-[28px] border-t border-[#e9bc48]/70 px-4 pb-3 pt-4" style={{ background: 'linear-gradient(135deg, #e2af37 0%, #c79023 52%, #946615 100%)' }}>
             <img
@@ -386,7 +402,7 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
                         <User size={25} />
                       )}
                     </div>
-                    <span className="absolute -right-1 -top-1 rounded-full bg-zinc-900 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wide text-amber-300 shadow">VIP{currentVipLevel}</span>
+                    <span className="absolute -right-1 -top-1 rounded-full bg-zinc-900 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wide text-amber-300 shadow">LV{currentVipLevel}</span>
                   </div>
                   <div className="min-w-0 flex-1 pt-0.5">
                     <p className="mb-1 text-[10px] font-black uppercase tracking-wide text-black/45">{t('profile.playerAccount')}</p>
