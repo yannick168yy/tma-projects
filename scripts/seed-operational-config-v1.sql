@@ -62,19 +62,21 @@ UPDATE bg_vip_level_benefit SET weekly_salary=65,  monthly_salary=350,  withdraw
 UPDATE bg_vip_level_benefit SET weekly_salary=175, monthly_salary=900,  withdraw_daily_limit=600000,  withdraw_daily_count=20 WHERE level=8;
 UPDATE bg_vip_level_benefit SET weekly_salary=500, monthly_salary=2500, withdraw_daily_limit=1000000, withdraw_daily_count=30 WHERE level=9;
 
--- ── 4. 首充嘉年华:奖励适度提高(头部30-40%),打码 1x→10x(原1x等于白送,严重漏洞) ──
-UPDATE bg_promo_config SET config_value = '10' WHERE promo_id = 'firstdep' AND config_key = 'turnover_x';
+-- ── 4. 首充嘉年华:低充高送+打码 1x(用户拍板:首存机会只有一次,低档高比例拉转化;
+--      1x 下奖励≈现金,成本=面值,是明码标价的获客成本) ──
+UPDATE bg_promo_config SET config_value = '1' WHERE promo_id = 'firstdep' AND config_key = 'turnover_x';
 DELETE FROM bg_firstdep_tiers;
 INSERT INTO bg_firstdep_tiers (currency, deposit_amount, bonus_amount) VALUES
-  ('PHP',    20,    8), ('PHP',    50,   15), ('PHP',   100,   40), ('PHP',  200,  70),
-  ('PHP',   500,  150), ('PHP',  1000,  250), ('PHP',  2000,  450), ('PHP', 5000, 900),
-  ('PHP', 10000, 1500), ('PHP', 50000, 4000),
+  ('PHP',    20,   10), ('PHP',    50,   20), ('PHP',   100,   50), ('PHP',  200,   60),
+  ('PHP',   500,  100), ('PHP',  1000,  150), ('PHP',  5000,  900),
+  ('PHP', 10000, 1200), ('PHP', 50000, 2000),
   ('USDT',  1, 0.3), ('USDT',  5, 1.2), ('USDT', 10, 3), ('USDT', 50, 12),
   ('USDT', 100, 25), ('USDT', 500, 80), ('USDT', 1000, 150),
   ('USDC',  1, 0.3), ('USDC',  5, 1.2), ('USDC', 10, 3), ('USDC', 50, 12),
   ('USDC', 100, 25), ('USDC', 500, 80), ('USDC', 1000, 150);
 
--- ── 5. 邀请共赢:50+30→25+10(被邀人已享首充40%,且与任务里程碑叠发,80/人补贴过高) ──
+-- ── 5. 邀请共赢:整体关闭(用户拍板只开三级分销;该活动本无发放链路,关闭为表意) ──
+UPDATE bg_promo_config SET config_value = '0'  WHERE promo_id = 'referral' AND config_key = 'enabled';
 UPDATE bg_promo_config SET config_value = '25' WHERE promo_id = 'referral' AND config_key = 'inviter_amount';
 UPDATE bg_promo_config SET config_value = '10' WHERE promo_id = 'referral' AND config_key = 'invitee_amount';
 
