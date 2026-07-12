@@ -477,13 +477,13 @@ function buildHomepageSelection(all: DbGame[], cur: string, overrides: SectionOv
     baccarat:   sampleSection('baccarat', all.filter((g) => g.category === '101'), score, 12),
     // 高 RTP 专栏：上游标称 rtp≥0.96，对标竞品「98%」栏
     highRtp:    sampleSection('highRtp', all.filter((g) => (g.rtp ?? 0) >= 0.96), score, 6),
-    // 体育：sportsbook 合成条目固定第一席位（前端已移除专属通栏）；LuckySports 的 28 个
+    // 体育：sportsbook 合成条目固定第一席位（前端已移除专属通栏）；Lucky Sports(迁移134统一名) 的 28 个
     // 分项(足球/拳击/…)是同一产品的不同入口，只保留 Basketball，其余席位给独立体育产品(AFB/BTi/Panda/Saba 等)
     sports:     applyManual('sports', [
       win568SportsbookGame(),
       ...pick(exFilter('sports', bySite('sports').filter((g) =>
         g.uuid !== WIN568_SPORTSBOOK_UUID
-        && !(g.provider === 'LuckySports' && g.name !== 'Basketball'))), score, 5, 6),
+        && !(g.provider === 'Lucky Sports' && g.name !== 'Basketball'))), score, 5, 6),
     ], 6),
     generatedAt: new Date().toISOString(),
   }
