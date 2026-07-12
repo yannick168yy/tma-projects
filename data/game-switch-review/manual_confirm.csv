@@ -1,0 +1,376 @@
+game_id,game_provider_id,provider,name_en,site_cat,eff_weight,ov_weight,ov_featured,is_enabled,device,reason
+295,16,FunkyGames,Golden Mahjong Deluxe,slot,9999,,,1,d/m,game_absent
+1,19,SaGaming,SaGamingBaccarat,casino,9999,,,1,,game_absent
+101,22,Yggdrasil,Big Bucks Bandits Megaways,slot,9999,,,1,d/m,game_absent
+0,44,Saba Sports,Saba Sports LOBBY,sports,9999,,,1,d/m,"special:体育类,竞品有SABA"
+0,1015,AFB Sports,AFB Sports,sports,9999,,,1,"d,m","special:体育类,人工确认"
+109,1018,PlayTech,Legacy of the Tiger,slot,9999,,,1,"d,m",game_absent
+0,1022,BTiSports,BTi Sports,sports,9999,,,1,"d,m","special:体育类,人工确认"
+1,1053,PandaSports,PandaSports,sports,9999,,,1,"d,m","special:体育类,人工确认"
+11,1065,,Mermaid's Treasure,slot,9999,,,1,d/m,厂商名脏数据()
+1,1070,WS168Cockfighting,WS168 Cockfighting,other,9999,,,1,"d,m","special:斗鸡类,人工确认"
+41,1078,,Wild Bang Bang,slot,9999,,,1,"d,m",厂商名脏数据()
+0,1080,LuckySports,LuckySports Lobby,sports,9999,,,1,"d,m","special:体育类,人工确认"
+10,1083,,Sticky 777,slot,9999,,,1,"d,m",厂商名脏数据()
+6,1085,,Golden Empire2,slot,9999,,,1,"d,m",厂商名脏数据()
+237,1096,HacksawGaming,Bullet and Bounty,slot,9999,,,1,d/m,game_absent
+16,1099,0,WinGo 1mins,lottery,9999,,,1,"d,m",厂商名脏数据(0)
+322,16,FunkyGames,Roma Reborn,slot,9998,,,1,d/m,game_absent
+402,38,PragmaticPlayCasino,PragmaticPlaySpeedBaccaratA,casino,9998,,,1,,game_absent
+1,44,Saba Sports,TableGame,casino,9998,,,1,d/m,"special:体育类,竞品有SABA"
+163,1058,JDB,Aviator Extra Bet,perya,9998,,,1,d/m,game_absent
+2,1065,,Sakura Neko,slot,9998,,,1,d/m,厂商名脏数据()
+13,1072,Spribe,Pilot Chicken,other,9998,,,1,d/m,game_absent
+9,1078,,Kelly's Wheel Single,slot,9998,,,1,"d,m",厂商名脏数据()
+1,1080,LuckySports,Soccer,sports,9998,,0,1,"d,m","special:体育类,人工确认"
+31,1083,,Book of Egypt,slot,9998,,,1,"d,m",厂商名脏数据()
+21,1098,,BlockChain Sicbo,casino,9998,,,1,d/m,厂商名脏数据()
+43,1099,0,3Min Car Race,lottery,9998,,,1,"d,m",厂商名脏数据(0)
+312,16,FunkyGames,Aztec Fortune Megaways,slot,9997,,,1,d/m,game_absent
+2,19,SaGaming,SaGamingDragonTiger,casino,9997,,,1,,game_absent
+2,44,Saba Sports,Saba E-Sports,sports,9997,,,1,d/m,"special:体育类,竞品有SABA"
+543,1042,KAGaming,KA Fish Hunter,fishing,9997,,,1,"d,m",game_absent
+12,1065,,Longevity Dragon,slot,9997,,,1,d/m,厂商名脏数据()
+42,1078,,Hello Neko,slot,9997,,,1,"d,m",厂商名脏数据()
+2,1080,LuckySports,Tennis,sports,9997,,0,1,"d,m","special:体育类,人工确认"
+18,1083,,Wild Corrida,slot,9997,,,1,"d,m",厂商名脏数据()
+7,1085,,Golden Empire,slot,9997,,,1,"d,m",厂商名脏数据()
+20,1098,,Blockchain Roulette,casino,9997,,,1,d/m,厂商名脏数据()
+77,1099,0,Bhagyathara,lottery,9997,,,1,"d,m",厂商名脏数据(0)
+134,1102,BNG,3 Clover Pots: Hold and Win,slot,9997,,,1,d/m,game_absent
+3,19,SaGaming,SaGamingSicBo,casino,9996,,,1,,game_absent
+355,1018,PlayTech,Blue Wizard,slot,9996,,,1,"d,m",game_absent
+28,1025,PlayTech,x1000 Quantum Roulette,casino,9996,,,0,"d,m",game_absent
+593,1042,KAGaming,Shenron Hunter,fishing,9996,,,1,"d,m",game_absent
+36,1058,JDB,Treasure Bowl X-Huge,slot,9996,,,1,d/m,game_absent
+15,1065,,Kawaii Neko,slot,9996,,,1,d/m,厂商名脏数据()
+3,1080,LuckySports,Cricket,sports,9996,,,1,"d,m","special:体育类,人工确认"
+49,1083,,Beach Penalties,other,9996,,,1,"d,m",厂商名脏数据()
+4,1085,,Mahjong Self-Drawn Win 2,slot,9996,,,1,"d,m",厂商名脏数据()
+78,1099,IndiaLotto,1Min Dice,lottery,9996,,,0,d/m,"special:彩票类,人工确认"
+305,16,FunkyGames,Clover Coin Combo,slot,9995,,,1,d/m,game_absent
+4,19,SaGaming,SaGamingRoulette,casino,9995,,,1,,game_absent
+540,22,Yggdrasil,Piggies Prize Party,slot,9995,,,1,d/m,game_absent
+403,38,PragmaticPlayCasino,PragmaticPlaySpeedBaccaratB,casino,9995,,,1,,game_absent
+117,1018,PlayTech,Jinns Moon,slot,9995,,,1,"d,m",game_absent
+695,1042,KAGaming,Battle of Luck,fishing,9995,,,1,d/m,game_absent
+24,1065,,Temple of Gods,slot,9995,,,1,d/m,厂商名脏数据()
+29,1078,,Nine Jackpots,slot,9995,,,1,"d,m",厂商名脏数据()
+4,1080,LuckySports,Aussie Rules,sports,9995,,,1,"d,m","special:体育类,人工确认"
+41,1083,,Pia,slot,9995,,,1,"d,m",厂商名脏数据()
+2,1085,,Mahjong Self-Drawn Win 3,slot,9995,,,1,"d,m",厂商名脏数据()
+176,1096,HacksawGaming,Pirate Bonanza,slot,9995,,,1,d/m,game_absent
+79,1099,IndiaLotto,3Min Dice,lottery,9995,,,0,d/m,"special:彩票类,人工确认"
+329,16,FunkyGames,3 Combo Bombs,slot,9994,,,1,d/m,game_absent
+30,22,Yggdrasil,Valley of the Gods,slot,9994,,,1,d/m,game_absent
+350,1018,PlayTech,Sky Queen,slot,9994,,,1,"d,m",game_absent
+20,1025,PlayTech,Ruyi ?? Roulette,casino,9994,,,0,"d,m",game_absent
+82,1034,AdvantPlay,Zeustrike,slot,9994,,,1,d/m,game_absent
+6,1065,,Mahjong Fortune,slot,9994,,,1,d/m,厂商名脏数据()
+18,1078,,Gold Bonus,slot,9994,,,1,"d,m",厂商名脏数据()
+5,1080,LuckySports,Badminton,sports,9994,,,1,"d,m","special:体育类,人工确认"
+55,1085,,Fortune Overflow,slot,9994,,,1,d/m,厂商名脏数据()
+254,1096,HacksawGaming,Pirate Bonanza 2,slot,9994,,,1,d/m,game_absent
+72,1099,0,SHILLONG TEER,lottery,9994,,,1,"d,m",厂商名脏数据(0)
+306,16,FunkyGames,CaiShenBaoXi,slot,9993,,,1,d/m,game_absent
+7,19,SaGaming,SaGamingSedie,casino,9993,,,0,d/m,game_absent
+387,1018,PlayTech,Witches:�Cash�Collect,slot,9993,,,1,"d,m",game_absent
+146,1025,PlayTech,Adventures Beyond Wonderland Brasil,other,9993,,,0,d/m,game_absent
+7,1065,,Queen Of Aztec,slot,9993,,,1,d/m,厂商名脏数据()
+16,1078,,Child of Happiness,slot,9993,,,1,"d,m",厂商名脏数据()
+6,1080,LuckySports,Baseball,sports,9993,,0,1,"d,m","special:体育类,人工确认"
+44,1083,,Shaolin Crew,slot,9993,,,1,"d,m",厂商名脏数据()
+9,1085,,Hot Ace,slot,9993,,,1,"d,m",厂商名脏数据()
+22,1098,,BlockChain Xoc Dia,casino,9993,,,1,d/m,厂商名脏数据()
+73,1099,0,1Min SHILLONG TEER ONLINE,lottery,9993,,,1,"d,m",厂商名脏数据(0)
+294,16,FunkyGames,777 Blazing Hold and Win,slot,9992,,,1,d/m,game_absent
+126,22,Yggdrasil,12 Trojan Mysteries,slot,9992,,,1,d/m,game_absent
+404,38,PragmaticPlayCasino,PragmaticPlayLiveBaccaratB,casino,9992,,,1,,game_absent
+552,1042,KAGaming,The Deep Monster,fishing,9992,,,1,"d,m",game_absent
+3,1065,,Sugary Bonanza,slot,9992,,,1,d/m,厂商名脏数据()
+23,1072,Spribe,Oink Heist: Pigy Collect,slot,9992,,,1,d/m,game_absent
+2,1078,,Kelly's Wheel Double,slot,9992,,,1,"d,m",厂商名脏数据()
+7,1080,LuckySports,Basketball,sports,9992,,0,1,"d,m","special:体育类,人工确认"
+46,1083,,100 Super Icy,slot,9992,,,1,"d,m",厂商名脏数据()
+74,1099,0,2Min SHILLONG TEER ONLINE,lottery,9992,,,1,"d,m",厂商名脏数据(0)
+139,1102,BNG,3 Coins : Hold and Win,slot,9992,,,1,d/m,game_absent
+315,16,FunkyGames,Buffalo Splash,slot,9991,,,1,d/m,game_absent
+5,19,SaGaming,SaGamingFanTan,casino,9991,,,0,,game_absent
+401,38,PragmaticPlayCasino,PragmaticPlayLiveBaccaratA,casino,9991,,,1,,game_absent
+18,1025,PlayTech,Quantum Ruleta Espa�a,casino,9991,,,0,"d,m",game_absent
+771,1042,KAGaming,Lucky Money,slot,9991,,,1,d/m,game_absent
+39,1065,,Forbidden Island,slot,9991,,,1,"d,m",厂商名脏数据()
+16,1072,Spribe,Gates of Egypt,slot,9991,,,1,d/m,game_absent
+34,1078,,God of Thunder,slot,9991,,,1,"d,m",厂商名脏数据()
+8,1080,LuckySports,Basketball 3X3,sports,9991,,,1,"d,m","special:体育类,人工确认"
+34,1083,,Fortune Farm,slot,9991,,,1,"d,m",厂商名脏数据()
+56,1085,,Wealth Coins,slot,9991,,,1,d/m,厂商名脏数据()
+75,1099,0,1-Minute 2D Game,lottery,9991,,,1,"d,m",厂商名脏数据(0)
+140,1102,BNG,3 Coins: Egypt Hold and Win,slot,9991,,,1,d/m,game_absent
+572,3,PragmaticPlay,Mahjong Wins � Gong Xi Fa Cai,slot,9990,,,1,d/m,game_absent
+330,16,FunkyGames,3 Combo Lucky Crackers,slot,9990,,,1,d/m,game_absent
+6,19,SaGaming,SaGamingMoneyWheel,casino,9990,,,1,,game_absent
+131,22,Yggdrasil,Crystal Falls,slot,9990,,,1,d/m,game_absent
+811,38,PragmaticPlayCasino,Sic Bo (China theme),casino,9990,,,1,,game_absent
+21,1065,,Super Phoenix,slot,9990,,,1,d/m,厂商名脏数据()
+17,1078,,Christmas Gift,slot,9990,,,1,"d,m",厂商名脏数据()
+9,1080,LuckySports,Beach Volley,sports,9990,,,1,"d,m","special:体育类,人工确认"
+3,1085,,Mahjong Self-Drawn Win,slot,9990,,,1,"d,m",厂商名脏数据()
+76,1099,0,3-Minute 2D Game,lottery,9990,,,1,"d,m",厂商名脏数据(0)
+5,1065,,Persian Gems,slot,9989,,,1,d/m,厂商名脏数据()
+32,1078,,Jackpot Star,slot,9989,,,1,"d,m",厂商名脏数据()
+10,1080,LuckySports,Bowls,sports,9989,,,1,"d,m","special:体育类,人工确认"
+50,1083,,Rich Panda,slot,9989,,,1,"d,m",厂商名脏数据()
+43,1085,,Bullfight King,slot,9989,,,1,"d,m",厂商名脏数据()
+1,1099,0,India Lotto Lobby,lottery,9989,,,1,"d,m",厂商名脏数据(0)
+4,1065,,Wild West Saloon,slot,9988,,,1,d/m,厂商名脏数据()
+35,1078,,Blazing Wild,slot,9988,,,1,"d,m",厂商名脏数据()
+11,1080,LuckySports,Boxing,sports,9988,,0,1,"d,m","special:体育类,人工确认"
+42,1083,,Veni Vidi Vici,slot,9988,,,1,"d,m",厂商名脏数据()
+10,1085,,Maneki Neko,slot,9988,,,1,"d,m",厂商名脏数据()
+2,1099,0,Sthree Sakthi,lottery,9988,,,1,"d,m",厂商名脏数据(0)
+16,1065,,Legendary El Toro,slot,9987,,,1,d/m,厂商名脏数据()
+39,1078,,Tumble Fortune,slot,9987,,,1,"d,m",厂商名脏数据()
+12,1080,LuckySports,Cycling,sports,9987,,,1,"d,m","special:体育类,人工确认"
+3,1099,0,Dhanalekshmi,lottery,9987,,,1,"d,m",厂商名脏数据(0)
+40,1065,,Wishes of the Genie,slot,9986,,,1,"d,m",厂商名脏数据()
+1,1078,,Pumpkin Farm,slot,9986,,,1,"d,m",厂商名脏数据()
+13,1080,LuckySports,Darts,sports,9986,,,1,"d,m","special:体育类,人工确认"
+37,1083,,Spinning Buddha,slot,9986,,,1,"d,m",厂商名脏数据()
+15,1085,,Fireworks Blessings,slot,9986,,,1,"d,m",厂商名脏数据()
+45,1088,,Ultimate Flip,casino,9986,,,1,d/m,厂商名脏数据()
+4,1099,0,Karunya Plus,lottery,9986,,,1,"d,m",厂商名脏数据(0)
+27,1065,,Gold Seekers,slot,9985,,,1,d/m,厂商名脏数据()
+8,1078,,Road to Mystic OZ,slot,9985,,,1,"d,m",厂商名脏数据()
+14,1080,LuckySports,Field Hockey,sports,9985,,,1,"d,m","special:体育类,人工确认"
+43,1083,,Pinata Loca,slot,9985,,,1,"d,m",厂商名脏数据()
+5,1099,0,Suvarana Keralam,lottery,9985,,,1,"d,m",厂商名脏数据(0)
+15,1080,LuckySports,Formula 1,sports,9984,,,1,"d,m","special:体育类,人工确认"
+12,1083,,Diamond Blackjack,casino,9984,,,1,"d,m",厂商名脏数据()
+6,1099,0,Karunya,lottery,9984,,,1,"d,m",厂商名脏数据(0)
+21,1078,,Buffalo Gold,slot,9983,,,1,"d,m",厂商名脏数据()
+16,1080,LuckySports,Futsal,sports,9983,,,1,"d,m","special:体育类,人工确认"
+15,1083,,Piggy Party,slot,9983,,,1,"d,m",厂商名脏数据()
+8,1085,,Mining Maestro,slot,9983,,,1,"d,m",厂商名脏数据()
+7,1099,0,Samrudhi,lottery,9983,,,1,"d,m",厂商名脏数据(0)
+26,1065,,Wrath of Zeus,slot,9982,,,1,d/m,厂商名脏数据()
+7,1078,,Treasure of Zeus,slot,9982,,,1,"d,m",厂商名脏数据()
+17,1080,LuckySports,Golf,sports,9982,,,1,"d,m","special:体育类,人工确认"
+48,1085,,Eternal Night Clash,slot,9982,,,1,d/m,厂商名脏数据()
+44,1088,,EZ Marble Race Monaco,casino,9982,,,1,d/m,厂商名脏数据()
+8,1099,0,Online Only,lottery,9982,,,1,"d,m",厂商名脏数据(0)
+17,1065,,Sexy Christmas Sirens,slot,9981,,,1,d/m,厂商名脏数据()
+28,1078,,Piggy Money,slot,9981,,,1,"d,m",厂商名脏数据()
+18,1080,LuckySports,Handball,sports,9981,,,1,"d,m","special:体育类,人工确认"
+33,1083,,Pirates Power,slot,9981,,,1,"d,m",厂商名脏数据()
+25,1085,,Wild Legends,slot,9981,,,1,"d,m",厂商名脏数据()
+9,1099,0,Christmax New Year Bumper,lottery,9981,,,0,"d,m",厂商名脏数据(0)
+8,1065,,Stallion Princess,slot,9980,,,1,d/m,厂商名脏数据()
+30,1078,,Buffalo Freedom,slot,9980,,,1,"d,m",厂商名脏数据()
+19,1080,LuckySports,Ice Hockey,sports,9980,,,1,"d,m","special:体育类,人工确认"
+20,1083,,Forest Rock,slot,9980,,,1,"d,m",厂商名脏数据()
+5,1085,,Dragon Treasure 4,slot,9980,,,1,"d,m",厂商名脏数据()
+10,1099,0,Summer Bumper,lottery,9980,,,0,"d,m",厂商名脏数据(0)
+18,1065,,Bikini Babes,slot,9979,,,1,d/m,厂商名脏数据()
+22,1078,,Golden Fish,slot,9979,,,1,"d,m",厂商名脏数据()
+20,1080,LuckySports,Kabaddi,sports,9979,,,1,"d,m","special:体育类,人工确认"
+12,1085,,Wild Fortune 2,slot,9979,,,1,"d,m",厂商名脏数据()
+11,1099,0,Vishu Bumper,lottery,9979,,,0,"d,m",厂商名脏数据(0)
+21,1080,LuckySports,Mma,sports,9978,,,1,"d,m","special:体育类,人工确认"
+1,1083,,Titan roulette,casino,9978,,,0,"d,m",厂商名脏数据()
+54,1085,,Mahjong Saga,slot,9978,,,1,d/m,厂商名脏数据()
+12,1099,0,Monsoon Bumper,lottery,9978,,,0,"d,m",厂商名脏数据(0)
+34,1065,,Pawsome Xmas,slot,9977,,,1,d/m,厂商名脏数据()
+10,1078,,Three Little Pigs,slot,9977,,,1,"d,m",厂商名脏数据()
+22,1080,LuckySports,Motorcycle Racing,sports,9977,,,1,"d,m","special:体育类,人工确认"
+2,1083,,Evoji,other,9977,,,0,"d,m",厂商名脏数据()
+33,1085,,Emperor Qin Shi Huang PLUS,slot,9977,,,1,"d,m",厂商名脏数据()
+13,1099,0,Thiruvonam Bumper,lottery,9977,,,0,"d,m",厂商名脏数据(0)
+1,1065,,God Of Fortune,slot,9976,,,1,d/m,厂商名脏数据()
+19,1078,,Green Hat Fairy,slot,9976,,,1,"d,m",厂商名脏数据()
+23,1080,LuckySports,Rugby,sports,9976,,,1,"d,m","special:体育类,人工确认"
+3,1083,,Swipe,other,9976,,,0,"d,m",厂商名脏数据()
+20,1085,,Golden Maitreya,slot,9976,,,1,"d,m",厂商名脏数据()
+14,1099,0,Pooja Bumper,lottery,9976,,,0,"d,m",厂商名脏数据(0)
+31,1065,,Gladiators,slot,9975,,,1,d/m,厂商名脏数据()
+3,1078,,Killer Whale,slot,9975,,,1,"d,m",厂商名脏数据()
+24,1080,LuckySports,Snooker,sports,9975,,,1,"d,m","special:体育类,人工确认"
+4,1083,,Titan Dice,casino,9975,,,0,"d,m",厂商名脏数据()
+17,1085,,Three Star Fortune,slot,9975,,,1,"d,m",厂商名脏数据()
+15,1099,0,1.5Min Car Race,lottery,9975,,,1,"d,m",厂商名脏数据(0)
+35,1065,,Dragon Wonder,slot,9974,,,1,d/m,厂商名脏数据()
+27,1078,,Burning Seven,slot,9974,,,1,"d,m",厂商名脏数据()
+25,1080,LuckySports,Squash,sports,9974,,,1,"d,m","special:体育类,人工确认"
+5,1083,,Gem Miner,other,9974,,,0,"d,m",厂商名脏数据()
+1,1085,,Inca Zuma,slot,9974,,,1,"d,m",厂商名脏数据()
+17,1099,0,WinGo 3mins,lottery,9974,,,1,"d,m",厂商名脏数据(0)
+19,1065,,Spring Harvest,slot,9973,,,1,d/m,厂商名脏数据()
+14,1078,,Golden Agent,slot,9973,,,1,"d,m",厂商名脏数据()
+26,1080,LuckySports,Table Tennis,sports,9973,,0,1,"d,m","special:体育类,人工确认"
+6,1083,,Joker Poker,poker,9973,,,0,"d,m",厂商名脏数据()
+35,1085,,Lion Dance,slot,9973,,,1,"d,m",厂商名脏数据()
+23,1098,,Amethyst Xoc Dia,casino,9973,,,0,d/m,厂商名脏数据()
+18,1099,0,Dear Nagaland Lottery 1PM,lottery,9973,,,1,"d,m",厂商名脏数据(0)
+12,1078,,Child of Success,slot,9972,,,1,"d,m",厂商名脏数据()
+27,1080,LuckySports,Volleyball,sports,9972,,0,1,"d,m","special:体育类,人工确认"
+7,1083,,Pixel Poker,poker,9972,,,0,"d,m",厂商名脏数据()
+26,1085,,Rich roll in,slot,9972,,,1,"d,m",厂商名脏数据()
+24,1098,,Amethyst Bull Bull,casino,9972,,,0,d/m,厂商名脏数据()
+19,1099,0,Dear Sikkim Lottery 6PM,lottery,9972,,,1,"d,m",厂商名脏数据(0)
+9,1065,,Gates Of Kunlun,slot,9971,,,1,d/m,厂商名脏数据()
+31,1078,,Medusa Queen,slot,9971,,,1,"d,m",厂商名脏数据()
+28,1080,LuckySports,American Football,sports,9971,,,1,"d,m","special:体育类,人工确认"
+8,1083,,Crazy Horses,other,9971,,,0,"d,m",厂商名脏数据()
+16,1085,,Chili King,slot,9971,,,1,"d,m",厂商名脏数据()
+20,1099,0,Dear Nagaland Lottery 8PM,lottery,9971,,,1,"d,m",厂商名脏数据(0)
+37,1065,,Viking Valor,slot,9970,,,1,"d,m",厂商名脏数据()
+9,1083,,Casino Heist,slot,9970,,,1,"d,m",厂商名脏数据()
+50,1085,,Mahjong Self-Drawn Win 4,slot,9970,,,1,d/m,厂商名脏数据()
+21,1099,0,Dear Lottery Online Only 1PM,lottery,9970,,,1,"d,m",厂商名脏数据(0)
+11,1083,,Clown Fever ,other,9969,,,0,"d,m",厂商名脏数据()
+21,1085,,The Hand of Midas,slot,9969,,,1,"d,m",厂商名脏数据()
+22,1099,0,Dear Lottery Online Only 6PM,lottery,9969,,,1,"d,m",厂商名脏数据(0)
+20,1078,,Shoot the Cannon,slot,9968,,,1,"d,m",厂商名脏数据()
+13,1083,,Fairy in Wonderland,slot,9968,,,1,"d,m",厂商名脏数据()
+23,1099,0,Dear Lottery Online Only 8PM,lottery,9968,,,1,"d,m",厂商名脏数据(0)
+25,1078,,King's Knight,slot,9967,,,1,"d,m",厂商名脏数据()
+14,1083,,Hi - Lo,casino,9967,,,0,"d,m",厂商名脏数据()
+36,1085,,Golden Farm,slot,9967,,,1,"d,m",厂商名脏数据()
+24,1099,0,BSE SENSEX Matka,lottery,9967,,,1,"d,m",厂商名脏数据(0)
+36,1078,,Cleopatra Tumble,slot,9966,,,1,"d,m",厂商名脏数据()
+16,1083,,Maya's treasure,slot,9966,,,1,"d,m",厂商名脏数据()
+27,1085,,Rocket God of Wealth,slot,9966,,,1,"d,m",厂商名脏数据()
+25,1099,0,1Min Pune PICK3,lottery,9966,,,1,"d,m",厂商名脏数据(0)
+4,1078,,Egyptian Beauty,slot,9965,,,1,"d,m",厂商名脏数据()
+17,1083,,Sic Bo,casino,9965,,,0,"d,m",厂商名脏数据()
+26,1099,0,1Min Kolkata PICK3,lottery,9965,,,0,"d,m",厂商名脏数据(0)
+40,1078,,Lady of the Generals,slot,9964,,,1,"d,m",厂商名脏数据()
+19,1083,,Multihand Titan Poker,poker,9964,,,0,"d,m",厂商名脏数据()
+19,1085,,Legend of Phoenix,slot,9964,,,1,"d,m",厂商名脏数据()
+27,1099,0,1Min Mumbai PICK3,lottery,9964,,,0,"d,m",厂商名脏数据(0)
+10,1065,,SanGuo - The Brotherhood,slot,9963,,,1,d/m,厂商名脏数据()
+33,1078,,Cabaret Cash,slot,9963,,,1,"d,m",厂商名脏数据()
+21,1083,,Lucky Betting Shop,slot,9963,,,1,"d,m",厂商名脏数据()
+31,1085,,Maya Empire,slot,9963,,,1,"d,m",厂商名脏数据()
+28,1099,0,3Min Pune PICK3,lottery,9963,,,1,"d,m",厂商名脏数据(0)
+22,1065,,Aphrodite - Goddess of Love,slot,9962,,,1,d/m,厂商名脏数据()
+23,1078,,Samba Trio,slot,9962,,,1,"d,m",厂商名脏数据()
+22,1083,,Instant Keno,other,9962,,,0,"d,m",厂商名脏数据()
+47,1085,,Roman Gladiator,slot,9962,,,1,d/m,厂商名脏数据()
+29,1099,0,3Min Kolkata PICK3,lottery,9962,,,0,"d,m",厂商名脏数据(0)
+13,1078,,Child of Fortune,slot,9961,,,1,"d,m",厂商名脏数据()
+23,1083,,Odd One Out,slot,9961,,,1,"d,m",厂商名脏数据()
+46,1085,,Lucky Gold Rush,slot,9961,,,1,d/m,厂商名脏数据()
+30,1099,0,3Min Mumbai PICK3,lottery,9961,,,0,"d,m",厂商名脏数据(0)
+11,1078,,WILD Kelly,slot,9960,,,1,"d,m",厂商名脏数据()
+24,1083,,Bounty Hunters,slot,9960,,,1,"d,m",厂商名脏数据()
+11,1085,,Dragon's Treasure 3 M,slot,9960,,,1,"d,m",厂商名脏数据()
+31,1099,0,1Min Chennai PICK4,lottery,9960,,,1,"d,m",厂商名脏数据(0)
+28,1065,,Samba Fiesta,slot,9959,,,1,d/m,厂商名脏数据()
+6,1078,,Dancing Ladybug,slot,9959,,,1,"d,m",厂商名脏数据()
+25,1083,,Mini Power roulette,casino,9959,,,0,"d,m",厂商名脏数据()
+53,1085,,Pi�ata,slot,9959,,,1,d/m,厂商名脏数据()
+32,1099,0,1Min Delhi PICK4,lottery,9959,,,0,"d,m",厂商名脏数据(0)
+41,1065,,Muay Thai Arena,slot,9958,,,1,"d,m",厂商名脏数据()
+5,1078,,Kitty in the Basket,slot,9958,,,1,"d,m",厂商名脏数据()
+26,1083,,Titan roulette deluxe,casino,9958,,,0,"d,m",厂商名脏数据()
+51,1085,,Forgefire God,slot,9958,,,1,d/m,厂商名脏数据()
+33,1099,0,1Min Bangalore PICK4,lottery,9958,,,0,"d,m",厂商名脏数据(0)
+25,1065,,Mochi Mochi,slot,9957,,,1,d/m,厂商名脏数据()
+27,1083,,Battle for the throne,slot,9957,,,1,"d,m",厂商名脏数据()
+34,1099,0,3Min Chennai PICK4,lottery,9957,,,1,"d,m",厂商名脏数据(0)
+23,1065,,Chasing Leprechaun Coins,slot,9956,,,1,d/m,厂商名脏数据()
+24,1078,,Jungle King,slot,9956,,,1,"d,m",厂商名脏数据()
+28,1083,,Book of Eskimo,slot,9956,,,1,"d,m",厂商名脏数据()
+39,1085,,Kingdom of Fire Dragon,slot,9956,,,1,"d,m",厂商名脏数据()
+35,1099,0,3Min Delhi PICK4,lottery,9956,,,0,"d,m",厂商名脏数据(0)
+26,1078,,Giant's Lamp,slot,9955,,,1,"d,m",厂商名脏数据()
+29,1083,,Clown Fever Deluxe,other,9955,,,0,"d,m",厂商名脏数据()
+38,1085,,Capybara Bar,slot,9955,,,1,"d,m",厂商名脏数据()
+36,1099,0,3Min Bangalore PICK4,lottery,9955,,,0,"d,m",厂商名脏数据(0)
+13,1065,,Mysteries of Pandora,slot,9954,,,1,d/m,厂商名脏数据()
+37,1078,,Jelly Jelly,slot,9954,,,1,"d,m",厂商名脏数据()
+30,1083,,Wild Icy Fruits,slot,9954,,,1,"d,m",厂商名脏数据()
+14,1085,,Wild Fortune,slot,9954,,,1,"d,m",厂商名脏数据()
+37,1099,0,1Min Surat PICK5,lottery,9954,,,1,"d,m",厂商名脏数据(0)
+33,1065,,Bierfest Delight,slot,9953,,,1,"d,m",厂商名脏数据()
+38,1078,,Clash of slots,slot,9953,,,1,"d,m",厂商名脏数据()
+32,1083,,Capital City Derby,slot,9953,,,1,"d,m",厂商名脏数据()
+40,1085,,Toucan,slot,9953,,,1,"d,m",厂商名脏数据()
+38,1099,0,1Min Kanpur PICK5,lottery,9953,,,0,"d,m",厂商名脏数据(0)
+29,1065,,Empress of the Black Seas,slot,9952,,,1,d/m,厂商名脏数据()
+15,1078,,Dragon Queen,slot,9952,,,1,"d,m",厂商名脏数据()
+35,1083,,Magic Wheel,other,9952,,,0,"d,m",厂商名脏数据()
+13,1085,,Dragon's Treasure 3,slot,9952,,,1,"d,m",厂商名脏数据()
+46,1088,,Bet with Streamers,casino,9952,,,1,d/m,厂商名脏数据()
+39,1099,0,1Min Hyderabad PICK5,lottery,9952,,,0,"d,m",厂商名脏数据(0)
+36,1083,,Planets Power,slot,9951,,,1,"d,m",厂商名脏数据()
+37,1085,,open sesame,slot,9951,,,1,"d,m",厂商名脏数据()
+47,1088,,Manga Madness,casino,9951,,,0,d/m,厂商名脏数据()
+40,1099,0,3Min Surat PICK5,lottery,9951,,,1,"d,m",厂商名脏数据(0)
+30,1065,,Rave On,slot,9950,,,1,d/m,厂商名脏数据()
+38,1083,,God of Coins,slot,9950,,,1,"d,m",厂商名脏数据()
+52,1085,,Arcane Dragon,slot,9950,,,1,d/m,厂商名脏数据()
+48,1088,,Imperial Fortune,casino,9950,,,0,d/m,厂商名脏数据()
+41,1099,0,3Min Kanpur PICK5,lottery,9950,,,0,"d,m",厂商名脏数据(0)
+39,1083,,Wild White Whale,slot,9949,,,1,"d,m",厂商名脏数据()
+49,1088,,Diwali Auto Roulette,casino,9949,,,1,d/m,厂商名脏数据()
+42,1099,0,3Min Hyderabad PICK5,lottery,9949,,,0,"d,m",厂商名脏数据(0)
+20,1065,,Amazing Circus,slot,9948,,,1,d/m,厂商名脏数据()
+40,1083,,Zombie Apocalypse,slot,9948,,,1,"d,m",厂商名脏数据()
+34,1085,,Gem Gala,slot,9948,,,1,"d,m",厂商名脏数据()
+50,1088,,Halloween Auto Roulette,casino,9948,,,1,d/m,厂商名脏数据()
+44,1099,0,TW TAIEX Matka,lottery,9948,,,1,"d,m",厂商名脏数据(0)
+14,1065,,Steampunk Reloaded,slot,9947,,,1,d/m,厂商名脏数据()
+45,1083,,Leprechaun Wish,slot,9947,,,1,"d,m",厂商名脏数据()
+49,1085,,Wild Tyrannosaurus,slot,9947,,,0,d/m,厂商名脏数据()
+51,1088,,EZ Dealer Roulette Diwali,casino,9947,,,1,d/m,厂商名脏数据()
+45,1099,0,DOW JONES Matka,lottery,9947,,,1,"d,m",厂商名脏数据(0)
+47,1083,,Super Heli,other,9946,,,0,"d,m",厂商名脏数据()
+41,1085,,Raging Bison,slot,9946,,,0,"d,m",厂商名脏数据()
+46,1099,0,NASDAQ Matka,lottery,9946,,,1,"d,m",厂商名脏数据(0)
+32,1065,,Run Pug Run,slot,9945,,,1,d/m,厂商名脏数据()
+48,1083,,Win & Go,other,9945,,,0,"d,m",厂商名脏数据()
+42,1085,,Long Long Long III,slot,9945,,,0,"d,m",厂商名脏数据()
+47,1099,0,10-Min Speed ??Matka,lottery,9945,,,1,"d,m",厂商名脏数据(0)
+51,1083,,Wild West Spirit,casino,9944,,,1,"d,m",厂商名脏数据()
+44,1085,,Robin Hood,slot,9944,,,0,"d,m",厂商名脏数据()
+48,1099,0,4Min Speed ??Matka,lottery,9944,,,1,"d,m",厂商名脏数据(0)
+38,1065,,Mega Wild Safari,slot,9943,,,1,"d,m",厂商名脏数据()
+45,1085,,Bounty Fishing,fishing,9943,,,0,"d,m",厂商名脏数据()
+49,1099,0,6-Min Speed ??Matka,lottery,9943,,,1,"d,m",厂商名脏数据(0)
+50,1099,0,1Min Fast Matka,lottery,9942,,,1,"d,m",厂商名脏数据(0)
+18,1085,,Honor of Kings,slot,9941,,,0,"d,m",厂商名脏数据()
+51,1099,0,3Min Fast Matka,lottery,9941,,,1,"d,m",厂商名脏数据(0)
+22,1085,,Candy Crush Saga,slot,9940,,,0,"d,m",厂商名脏数据()
+52,1099,0,1Min Color Game,perya,9940,,,1,"d,m",厂商名脏数据(0)
+36,1065,,Adventures Of Caramelo,slot,9939,,,1,d/m,厂商名脏数据()
+23,1085,,Crazy Diamonds,slot,9939,,,0,"d,m",厂商名脏数据()
+53,1099,0,3Min Color Game,perya,9939,,,1,"d,m",厂商名脏数据(0)
+24,1085,,Wealth is Coming,slot,9938,,,0,"d,m",厂商名脏数据()
+54,1099,0,1 Min 7 Up 7 Down,lottery,9938,,,1,"d,m",厂商名脏数据(0)
+28,1085,,Zeus,slot,9937,,,0,"d,m",厂商名脏数据()
+55,1099,0,3Min 7Up7Down,lottery,9937,,,1,"d,m",厂商名脏数据(0)
+29,1085,,Gold Miner,slot,9936,,,0,"d,m",厂商名脏数据()
+56,1099,0,NIFTY 50 Matka,lottery,9936,,,1,"d,m",厂商名脏数据(0)
+30,1085,,Emperor Qin Shi Huang,slot,9935,,,0,"d,m",厂商名脏数据()
+57,1099,0,Nifty Bank Matka,lottery,9935,,,1,"d,m",厂商名脏数据(0)
+32,1085,,Tiki Totem,slot,9934,,,0,"d,m",厂商名脏数据()
+58,1099,0,BSE MIDCAP Matka,lottery,9934,,,1,"d,m",厂商名脏数据(0)
+59,1099,0,BSE Smallcap Matka,lottery,9933,,,1,"d,m",厂商名脏数据(0)
+60,1099,0,KERALA 3D Game,lottery,9932,,,1,"d,m",厂商名脏数据(0)
+61,1099,0,KERALA 4D Game,lottery,9931,,,1,"d,m",厂商名脏数据(0)
+62,1099,0,KERALA 5D Game,lottery,9930,,,1,"d,m",厂商名脏数据(0)
+63,1099,0,DEAR 1PM 3D Game,lottery,9929,,,1,"d,m",厂商名脏数据(0)
+72,1082,,Dim Sum Fortune,slot,9928,,,0,d/m,厂商名脏数据()
+64,1099,0,DEAR 1PM 4D Game,lottery,9928,,,1,"d,m",厂商名脏数据(0)
+73,1082,,Choco Rush,slot,9927,,,0,d/m,厂商名脏数据()
+65,1099,0,DEAR 1PM 5D Game,lottery,9927,,,1,"d,m",厂商名脏数据(0)
+74,1082,,Moonlight Princess,slot,9926,,,0,d/m,厂商名脏数据()
+66,1099,0,DEAR 6PM 3D Game,lottery,9926,,,1,"d,m",厂商名脏数据(0)
+67,1099,0,DEAR 6PM 4D Game,lottery,9925,,,1,"d,m",厂商名脏数据(0)
+68,1099,0,DEAR 6PM 5D Game,lottery,9924,,,1,"d,m",厂商名脏数据(0)
+69,1099,0,DEAR 8PM 3D Game,lottery,9923,,,1,"d,m",厂商名脏数据(0)
+70,1099,0,DEAR 8PM 4D Game,lottery,9922,,,1,"d,m",厂商名脏数据(0)
+71,1099,0,DEAR 8PM 5D Game,lottery,9921,,,1,"d,m",厂商名脏数据(0)
+67,1046,FaChai,GODS FORTUNE FISHING,fishing,8740,8740,0,1,d/m,game_absent
