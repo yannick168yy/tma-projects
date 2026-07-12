@@ -581,7 +581,7 @@ export default {
     categoryPinoy: 'Pinoy',
     categoryOther: 'Other',
     levelTitle: 'Your Level',
-    levelTag: 'LV{{level}}',
+    levelTag: 'VIP{{level}}',
     levelCurrent: 'Current',
     levelReq: 'Requires {{amount}}',
     levelEntry: 'Entry level',

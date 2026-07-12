@@ -299,7 +299,7 @@ export default {
     categoryPinoy: 'Pinoy',
     categoryOther: 'Lainnya',
     levelTitle: 'Level Anda',
-    levelTag: 'LV{{level}}',
+    levelTag: 'VIP{{level}}',
     levelCurrent: 'Saat ini',
     levelReq: 'Butuh {{amount}}',
     levelEntry: 'Level awal',

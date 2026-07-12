@@ -299,7 +299,7 @@ export default {
     categoryPinoy: 'Pinoy',
     categoryOther: 'Khác',
     levelTitle: 'Level của bạn',
-    levelTag: 'LV{{level}}',
+    levelTag: 'VIP{{level}}',
     levelCurrent: 'Hiện tại',
     levelReq: 'Cần {{amount}}',
     levelEntry: 'Level khởi đầu',

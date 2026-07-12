@@ -367,11 +367,11 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
               </div>
               <button
                 type="button"
-                className="relative flex flex-shrink-0 items-center gap-0.5 whitespace-nowrap rounded-full bg-gradient-to-r from-[#f8ebbb] to-[#e4b750] px-2.5 py-1.5 text-[10px] font-black text-[#1b1c19] shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] transition-transform active:scale-[0.97]"
+                className="relative flex flex-shrink-0 items-center gap-1 whitespace-nowrap rounded-full bg-gradient-to-r from-[#f8ebbb] to-[#e4b750] px-3.5 py-2 text-xs font-black text-[#1b1c19] shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] transition-transform active:scale-[0.97]"
                 onClick={onOpenVipCenter}
               >
                 {t('menu.enterVipCenter')}
-                <ChevronRight size={12} strokeWidth={3} />
+                <ChevronRight size={15} strokeWidth={3} />
               </button>
             </div>
           )}
@@ -400,7 +400,6 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
                         <User size={25} />
                       )}
                     </div>
-                    <span className="absolute -right-1 -top-1 rounded-full bg-zinc-900 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wide text-amber-300 shadow">LV{currentVipLevel}</span>
                   </div>
                   <div className="min-w-0 flex-1 pt-0.5">
                     <p className="mb-1 text-[10px] font-black uppercase tracking-wide text-black/45">{t('profile.playerAccount')}</p>

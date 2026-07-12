@@ -571,7 +571,7 @@ export default {
     categoryPinoy: 'Pinoy',
     categoryOther: '其他',
     levelTitle: '我的等级',
-    levelTag: 'LV{{level}}',
+    levelTag: 'VIP{{level}}',
     levelCurrent: '当前',
     levelReq: '需累计 {{amount}}',
     levelEntry: '入门等级',
