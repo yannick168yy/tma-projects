@@ -376,7 +376,7 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
             </div>
           )}
 
-          <div className="relative rounded-t-[28px] border-t border-[#e9bc48]/70 px-4 pb-3 pt-4" style={{ background: 'linear-gradient(135deg, #e2af37 0%, #c79023 52%, #946615 100%)' }}>
+          <div className="relative border-t border-[#e9bc48]/70 px-4 pb-3 pt-4" style={{ background: 'linear-gradient(135deg, #e2af37 0%, #c79023 52%, #946615 100%)' }}>
             <img
               src={menuCasino}
               alt=""
