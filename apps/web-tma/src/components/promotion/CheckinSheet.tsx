@@ -34,9 +34,9 @@ function SectionTitle({ text }: { text: string }) {
   return (
     <div className="flex items-center justify-center gap-2">
       <span className="h-px w-6 bg-gradient-to-l from-amber-400 to-transparent" />
-      <span className="text-sm leading-none">⭐</span>
-      <span className="whitespace-nowrap font-display text-lg font-black tracking-wide text-white">{text}</span>
-      <span className="text-sm leading-none">⭐</span>
+      <span className="text-base leading-none">⭐</span>
+      <span className="whitespace-nowrap font-display text-[22px] font-black tracking-wide text-white">{text}</span>
+      <span className="text-base leading-none">⭐</span>
       <span className="h-px w-6 bg-gradient-to-r from-amber-400 to-transparent" />
     </div>
   )
@@ -110,37 +110,38 @@ export default function CheckinSheet({ open, onClose, onOpenSpin }: Props) {
   return (
     <div className="fixed inset-0 z-[94] flex items-end justify-center bg-black/70">
       <div className="absolute inset-0" onClick={onClose} />
-      <div className="relative z-10 flex h-[96dvh] w-full max-w-[480px] flex-col overflow-hidden rounded-t-[28px] bg-gradient-to-b from-[#2b2792] via-[#272184] to-[#201c6c]">
+      <div className="relative z-10 flex max-h-[100dvh] w-full max-w-[480px] flex-col overflow-hidden rounded-t-[28px] bg-gradient-to-b from-[#2b2792] via-[#272184] to-[#201c6c] pt-5">
+        <button
+          type="button"
+          className="absolute right-3 top-5 z-20 flex h-9 w-9 items-center justify-center rounded-full text-white/90 ring-1 ring-white/50 active:scale-95"
+          onClick={onClose}
+          aria-label="Close"
+        >
+          <X size={18} />
+        </button>
+
         {/* Hero:标题/独角兽/转盘为设计图切图,Your Spins 数值动态覆盖 */}
         <div className="relative flex-none">
           <img src={heroImg} alt="" className="block w-full select-none" draggable={false} />
-          <button
-            type="button"
-            className="absolute right-3 top-3 z-20 flex h-9 w-9 items-center justify-center rounded-full text-white/90 ring-1 ring-white/50 active:scale-95"
-            onClick={onClose}
-            aria-label="Close"
-          >
-            <X size={18} />
-          </button>
 
           {/* Your Spins 动态卡:盖住设计图内写死的 "1",数值来自签到转盘剩余次数 */}
           <button
             type="button"
             disabled={spinRemaining <= 0}
             onClick={() => { if (spinRemaining > 0) { onOpenSpin(); onClose() } }}
-            className="absolute flex flex-col justify-center rounded-2xl border border-[#524cbd] bg-[#312c98] px-[5%] text-left disabled:cursor-default"
-            style={{ left: '4.3%', top: '65%', width: '27.5%', height: '30%' }}
+            className="absolute flex flex-col justify-center rounded-2xl border border-[#524cbd] bg-[#312c98] px-[6%] text-left disabled:cursor-default"
+            style={{ left: '4.3%', top: '66%', width: '27%', height: '26%' }}
           >
-            <span className="whitespace-nowrap text-[12px] font-bold leading-tight text-indigo-100">{t('checkin.yourSpins')}</span>
-            <div className="mt-1 flex items-center gap-1.5">
-              <span className="font-display text-[28px] font-black leading-none text-amber-400">{spinRemaining}</span>
-              <Wheel className="h-8 w-8" />
+            <span className="whitespace-nowrap text-[11px] font-bold leading-tight text-indigo-100">{t('checkin.yourSpins')}</span>
+            <div className="mt-1 flex items-center gap-1">
+              <span className="font-display text-[21px] font-black leading-none text-amber-400">{spinRemaining}</span>
+              <Wheel className="h-[22px] w-[22px]" />
             </div>
           </button>
         </div>
 
-        {/* 主体:填满剩余高度,不滚动 */}
-        <div className="flex min-h-0 flex-1 flex-col gap-2.5 px-3 pb-3 pt-2.5">
+        {/* 主体:内容自适应高度,不滚动 */}
+        <div className="flex flex-col gap-3 px-3 pb-5 pt-3">
           {loading && <div className="py-10 text-center text-sm text-white/60">…</div>}
 
           {!loading && status && status.enabled === false && (
@@ -150,9 +151,9 @@ export default function CheckinSheet({ open, onClose, onOpenSpin }: Props) {
           {!loading && status && status.enabled !== false && (
             <>
               {/* ── This Week ── */}
-              <section className="rounded-2xl border border-white/12 bg-[#2c2793] p-2.5">
+              <section className="rounded-2xl border border-white/12 bg-[#2c2793] p-3">
                 <SectionTitle text={t('checkin.thisWeek')} />
-                <div className="mt-3 grid grid-cols-7 gap-1.5">
+                <div className="mt-3.5 grid grid-cols-7 gap-1.5">
                   {status.cycle.map((c) => {
                     const done = c.day < status.cycleDay || (c.day === status.cycleDay && status.todayClaimed)
                     const active = c.day === status.cycleDay && !status.todayClaimed
@@ -160,7 +161,7 @@ export default function CheckinSheet({ open, onClose, onOpenSpin }: Props) {
                     return (
                       <div
                         key={c.day}
-                        className={`relative flex flex-col items-center gap-1 rounded-xl px-0.5 py-2 ${
+                        className={`relative flex flex-col items-center gap-1.5 rounded-xl px-0.5 py-2.5 ${
                           active ? 'border-2 border-amber-400 bg-[#37329e]'
                           : done ? 'bg-[#37329e]'
                           : 'border border-dashed border-[#6f68cf]'
@@ -189,21 +190,21 @@ export default function CheckinSheet({ open, onClose, onOpenSpin }: Props) {
                     )
                   })}
                 </div>
-                <div className="mt-2.5 flex items-center justify-center gap-2 rounded-xl bg-black/15 px-4 py-2 text-[12px] text-indigo-200/80">
+                <div className="mt-3 flex items-center justify-center gap-2 rounded-xl bg-black/15 px-4 py-2.5 text-[12px] text-indigo-200/80">
                   <span className="flex h-4 w-4 items-center justify-center rounded-full text-[10px] ring-1 ring-indigo-200/60">i</span>
                   {t('checkin.streakResetHint')}
                 </div>
               </section>
 
               {/* ── Monthly Milestones ── */}
-              <section className="rounded-2xl border border-white/12 bg-[#2c2793] p-2.5">
+              <section className="rounded-2xl border border-white/12 bg-[#2c2793] p-3">
                 <SectionTitle text={t('checkin.milestoneTitle')} />
                 <p className="mt-1.5 text-center text-[12px] text-indigo-200/80">{t('checkin.milestoneSubtitle')}</p>
                 <div className="mt-3 grid grid-cols-3 gap-2">
                   {status.milestones.map((m) => {
                     const frac = Math.max(0, Math.min(1, status.monthDays / m.atDays))
                     return (
-                      <div key={m.atDays} className="flex flex-col rounded-xl border border-white/10 bg-[#37329e] px-3 py-2.5">
+                      <div key={m.atDays} className="flex flex-col rounded-xl border border-white/10 bg-[#37329e] px-3 py-3">
                         <div className="flex items-baseline gap-1">
                           <span className="text-lg font-black leading-none text-white">{m.atDays}</span>
                           <span className="text-[11px] font-bold text-white/70">{t('checkin.daysWord')}</span>
@@ -222,8 +223,8 @@ export default function CheckinSheet({ open, onClose, onOpenSpin }: Props) {
                 </div>
               </section>
 
-              {/* ── 底部固定:结果/报错 + CTA + 页脚 ── */}
-              <div className="mt-auto">
+              {/* ── 结果/报错 + CTA + 页脚 ── */}
+              <div className="mt-0.5">
                 {result && (
                   <div className="mb-2 rounded-2xl border border-amber-400/40 bg-[#37329e] p-3 text-center">
                     <p className="text-base font-black text-white">🎉 {t('checkin.gotSpins', { n: result.grantedChances })}</p>
