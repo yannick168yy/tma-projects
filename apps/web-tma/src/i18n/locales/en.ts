@@ -680,7 +680,7 @@ export default {
     walletTopUp: 'Top Up',
     walletCashOut: 'Cash Out',
     walletRecords: 'History',
-    vipHeaderEarn: 'Earn <g>{{points}}</g> more VIP points to upgrade to <g>VIP {{next}}</g>',
+    vipHeaderEarn: 'Earn <g>{{points}}</g> pts to <g>VIP {{next}}</g>',
     vipHeaderMax: "You've reached the highest VIP level",
     enterVipCenter: 'Enter VIP Center',
     sections: {

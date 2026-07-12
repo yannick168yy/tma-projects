@@ -398,7 +398,7 @@ export default {
     walletTopUp: 'Nạp tiền',
     walletCashOut: 'Rút tiền',
     walletRecords: 'Lịch sử',
-    vipHeaderEarn: 'Kiếm thêm <g>{{points}}</g> điểm VIP để lên <g>VIP {{next}}</g>',
+    vipHeaderEarn: 'Cần <g>{{points}}</g> điểm lên <g>VIP {{next}}</g>',
     vipHeaderMax: 'Bạn đã đạt cấp VIP cao nhất',
     enterVipCenter: 'Vào VIP Center',
     sections: {

@@ -398,7 +398,7 @@ export default {
     walletTopUp: 'Isi Ulang',
     walletCashOut: 'Tarik Dana',
     walletRecords: 'Riwayat',
-    vipHeaderEarn: 'Dapatkan <g>{{points}}</g> poin VIP lagi untuk naik ke <g>VIP {{next}}</g>',
+    vipHeaderEarn: '<g>{{points}}</g> poin lagi ke <g>VIP {{next}}</g>',
     vipHeaderMax: 'Anda telah mencapai level VIP tertinggi',
     enterVipCenter: 'Masuk VIP Center',
     sections: {
