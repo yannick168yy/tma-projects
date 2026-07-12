@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import {
-  buildCategoryLobbyPath,
   buildGamesPath,
   buildTabPath,
   currentReturnTo,
@@ -10,7 +9,7 @@ import {
   type OverlayNavigateState,
   type TabId,
 } from '@/navigation/appRoutes'
-import type { CategoryLobbyParams, FullPageView, TaskInitialPath, VipTab } from '@/hooks/useFullPageOverlay'
+import type { FullPageView, TaskInitialPath, VipTab } from '@/hooks/useFullPageOverlay'
 
 function hasSameOriginReferrer() {
   if (typeof document === 'undefined' || !document.referrer) return false
@@ -110,10 +109,11 @@ export function useAppNavigation() {
     window.scrollTo({ top: 0, behavior: 'instant' })
   }, [pushOverlay])
 
-  const openCategoryLobby = useCallback((params: CategoryLobbyParams) => {
-    pushOverlay(buildCategoryLobbyPath(params))
+  // 旧分类大厅退役后，运营位"看全部/GO BET"跳 games 页对应分类（push 压栈，返回可回原页）
+  const goGamesFilter = useCallback((filter: Partial<GamesFilter>) => {
+    navigate(buildGamesPath(filter))
     window.scrollTo({ top: 0, behavior: 'instant' })
-  }, [pushOverlay])
+  }, [navigate])
 
   const openTeamCenter = useCallback(() => {
     pushOverlay('/team')
@@ -194,7 +194,7 @@ export function useAppNavigation() {
     goBonuses,
     openPerya,
     openSearch,
-    openCategoryLobby,
+    goGamesFilter,
     openTeamCenter,
     openAgentCenter,
     openBetHistory,

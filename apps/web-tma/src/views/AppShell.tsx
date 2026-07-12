@@ -15,6 +15,7 @@ import {
 } from '@/stores/wallet'
 import { isImmersiveFullPage } from '@/hooks/useFullPageOverlay'
 import { useAppNavigation } from '@/hooks/useAppNavigation'
+import { legacyLobbyCat } from '@/navigation/appRoutes'
 import { shouldShowDownloadBar, dismissDownloadBar, isIos, isStandalone } from '@/utils/pwa'
 import { isInsideTelegram } from '@/utils/initTelegramWebApp'
 import { usePromotionStore } from '@/stores/promotion'
@@ -37,7 +38,6 @@ const BingoPage = lazyWithReload(() => import('@/views/BingoPage'))
 const GamesPage = lazyWithReload(() => import('@/views/GamesPage'))
 const MenuPage = lazyWithReload(() => import('@/views/MenuPage'))
 const TasksPage = lazyWithReload(() => import('@/views/TasksPage'))
-const SlotsLobby = lazyWithReload(() => import('@/views/SlotsLobby'))
 const CustomerServicePage = lazyWithReload(() => import('@/views/CustomerServicePage'))
 const TeamCenterPage = lazyWithReload(() => import('@/views/TeamCenterPage'))
 const AgentCenterPage = lazyWithReload(() => import('@/views/AgentCenterPage'))
@@ -103,7 +103,7 @@ export default function AppShell() {
     goBonuses,
     openPerya,
     openSearch,
-    openCategoryLobby,
+    goGamesFilter,
     openTeamCenter,
     openAgentCenter,
     openBetHistory,
@@ -317,9 +317,10 @@ export default function AppShell() {
     openSearch()
   }
 
-  function onOpenCategoryLobby(params: Parameters<typeof openCategoryLobby>[0]) {
+  // 旧分类大厅退役：运营位(Perya看全部/Rebate GO BET/VIP洗码分类)统一跳 games 页对应分类
+  function onOpenCategoryLobby(params: { title: string; sortCategory?: string; siteCategory?: string }) {
     setWalletOpen(false)
-    openCategoryLobby(params)
+    goGamesFilter({ cat: legacyLobbyCat(params.siteCategory ?? params.sortCategory), provider: 'all' })
   }
 
   function onOpenTeamCenter() {
@@ -552,12 +553,6 @@ export default function AppShell() {
           )}
           {view.type === 'search' && (
             <SearchOverlay onClose={closeOverlay} onGameTap={() => void onGameTap()} onOpenGame={(url) => setGamePlayerUrl(url)} />
-          )}
-          {view.type === 'slotsLobby' && (
-            <SlotsLobby onClose={closeOverlay} onGameTap={() => void onGameTap()} onOpenGame={(url) => setGamePlayerUrl(url)} />
-          )}
-          {view.type === 'categoryLobby' && (
-            <SlotsLobby {...view.params} onClose={closeOverlay} onGameTap={() => void onGameTap()} onOpenGame={(url) => setGamePlayerUrl(url)} />
           )}
           {view.type === 'teamCenter' && (
             <TeamCenterPage />

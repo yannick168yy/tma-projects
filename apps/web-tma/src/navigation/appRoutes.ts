@@ -1,4 +1,4 @@
-import type { CategoryLobbyParams, TaskInitialPath } from '@/hooks/useFullPageOverlay'
+import type { TaskInitialPath } from '@/hooks/useFullPageOverlay'
 import type { FullPageView } from '@/hooks/useFullPageOverlay'
 
 export type TabId = 'casino' | 'games' | 'bonuses' | 'menu'
@@ -20,7 +20,6 @@ const PATH_TO_TAB: Record<string, TabId> = {
 const OVERLAY_PATHS: Record<string, FullPageView['type']> = {
   '/perya': 'perya',
   '/search': 'search',
-  '/slots': 'slotsLobby',
   '/team': 'teamCenter',
   '/agent': 'agentCenter',
   '/bet-history': 'betHistory',
@@ -42,22 +41,17 @@ export type ParsedAppRoute =
   | { kind: 'tab'; tab: TabId; promoFilter: string | null; gamesFilter: GamesFilter | null }
   | { kind: 'overlay'; overlay: FullPageView }
 
-function parseCategoryLobby(pathname: string, search: URLSearchParams): FullPageView {
-  const rawSlug = pathname.slice('/slots/'.length)
-  const slug = decodeURIComponent(rawSlug)
-  const params: CategoryLobbyParams = {
-    title: search.get('title') ? decodeURIComponent(search.get('title')!) : slug,
-  }
-  if (slug !== 'popular') params.sortCategory = slug
-  const siteCategory = search.get('siteCategory')
-  if (siteCategory) params.siteCategory = siteCategory
-  const provider = search.get('provider')
-  if (provider) params.provider = provider
-  const sortBy = search.get('sortBy')
-  if (sortBy === 'weight') params.sortBy = sortBy
-  const gameUuids = search.get('gameUuids')
-  if (gameUuids) params.gameUuids = gameUuids.split(',').filter(Boolean)
-  return { type: 'categoryLobby', params }
+// 旧分类大厅(SlotsLobby)的 sortCategory/siteCategory → games 页分类 id
+const LEGACY_LOBBY_CAT: Record<string, string> = {
+  slots: 'slot', slot: 'slot', live: 'casino', casino: 'casino', table: 'casino',
+  perya: 'perya', bingo: 'perya', pinoy: 'perya', crash: 'perya',
+  poker: 'poker', fishing: 'fishing', sports: 'sports',
+  lottery: 'lottery', other: 'other',
+}
+
+/** 旧大厅入参(运营位按钮/历史深链)映射成 games 页分类，认不出的归 all */
+export function legacyLobbyCat(value?: string | null): string {
+  return (value && LEGACY_LOBBY_CAT[value]) ?? 'all'
 }
 
 export function parseAppRoute(pathname: string, search: string): ParsedAppRoute | null {
@@ -73,9 +67,16 @@ export function parseAppRoute(pathname: string, search: string): ParsedAppRoute 
     return { kind: 'tab', tab, promoFilter, gamesFilter }
   }
 
+  // 旧分类大厅已退役：/slots、/slots/<slug> 老链接映射到 games 页对应分类
+  if (pathname === '/slots' || pathname.startsWith('/slots/')) {
+    const params = new URLSearchParams(search)
+    const slug = pathname.startsWith('/slots/') ? decodeURIComponent(pathname.slice('/slots/'.length)) : 'slots'
+    const cat = legacyLobbyCat(params.get('siteCategory') ?? slug)
+    return { kind: 'tab', tab: 'games', promoFilter: null, gamesFilter: { cat, provider: params.get('provider') ?? 'all' } }
+  }
+
   const overlayType = OVERLAY_PATHS[pathname]
   if (overlayType === 'perya') return { kind: 'overlay', overlay: { type: 'perya' } }
-  if (overlayType === 'slotsLobby') return { kind: 'overlay', overlay: { type: 'slotsLobby' } }
   if (overlayType === 'search') return { kind: 'overlay', overlay: { type: 'search' } }
   if (overlayType === 'teamCenter') return { kind: 'overlay', overlay: { type: 'teamCenter' } }
   if (overlayType === 'agentCenter') return { kind: 'overlay', overlay: { type: 'agentCenter' } }
@@ -99,23 +100,7 @@ export function parseAppRoute(pathname: string, search: string): ParsedAppRoute 
     return { kind: 'overlay', overlay: { type: 'tasks', initialPath } }
   }
 
-  if (pathname.startsWith('/slots/')) {
-    return { kind: 'overlay', overlay: parseCategoryLobby(pathname, new URLSearchParams(search)) }
-  }
-
   return null
-}
-
-export function buildCategoryLobbyPath(params: CategoryLobbyParams): string {
-  const slug = encodeURIComponent(params.sortCategory ?? 'popular')
-  const q = new URLSearchParams()
-  if (params.siteCategory) q.set('siteCategory', params.siteCategory)
-  if (params.provider) q.set('provider', params.provider)
-  if (params.sortBy) q.set('sortBy', params.sortBy)
-  if (params.title) q.set('title', params.title)
-  if (params.gameUuids?.length) q.set('gameUuids', params.gameUuids.join(','))
-  const qs = q.toString()
-  return `/slots/${slug}${qs ? `?${qs}` : ''}`
 }
 
 export function buildGamesPath(filter?: Partial<GamesFilter>): string {
@@ -147,7 +132,7 @@ export function resolveHomeActionPath(actionType: string, actionValue: string | 
     case 'spin':
       return '/rewards-spin'
     case 'lobby':
-      return '/slots/popular?sortBy=weight'
+      return '/games'
     default:
       return ''
   }

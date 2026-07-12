@@ -1,14 +1,5 @@
 import { useState } from 'react'
 
-export type CategoryLobbyParams = {
-  title: string
-  sortCategory?: string
-  siteCategory?: string
-  provider?: string
-  sortBy?: 'weight'
-  gameUuids?: string[]
-}
-
 export type VipTab = 'overview' | 'cashback' | 'benefits' | 'records'
 export type TaskInitialPath = 'newbie' | 'daily' | 'social'
 
@@ -17,8 +8,6 @@ export type FullPageView =
   | { type: 'none' }
   | { type: 'perya' }
   | { type: 'search' }
-  | { type: 'slotsLobby' }
-  | { type: 'categoryLobby'; params: CategoryLobbyParams }
   | { type: 'teamCenter' }
   | { type: 'agentCenter' }
   | { type: 'betHistory' }
@@ -49,8 +38,6 @@ export function useFullPageOverlay() {
   return {
     view,
     openSearch:        () => setView({ type: 'search' }),
-    openSlotsLobby:    () => setView({ type: 'slotsLobby' }),
-    openCategoryLobby: (params: CategoryLobbyParams) => setView({ type: 'categoryLobby', params }),
     openTeamCenter:    () => setView({ type: 'teamCenter' }),
     openAgentCenter:   () => setView({ type: 'agentCenter' }),
     openBetHistory:    () => setView({ type: 'betHistory' }),
