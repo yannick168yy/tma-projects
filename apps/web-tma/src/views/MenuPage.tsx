@@ -346,19 +346,19 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
         <div
           className="relative overflow-hidden rounded-[28px] border border-[#d7a83d] bg-[#070c15] shadow-[0_18px_40px_rgba(0,0,0,0.32)]"
         >
-          <button type="button" className="relative flex h-[72px] w-full items-center gap-3 overflow-hidden px-5 text-left" onClick={onOpenVipCenter}>
-            <img src={vipHeaderBg} alt="" aria-hidden="true" className="pointer-events-none absolute inset-0 h-full w-full object-cover" />
-            <span className="relative flex min-w-0 flex-1 items-center gap-3">
-              <img src={vipCrown} alt="" aria-hidden="true" className="h-9 w-11 flex-shrink-0 object-contain" />
-              <span className="whitespace-nowrap font-display text-[32px] font-black leading-none text-[#ffe48a] drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)]">VIP {currentVipLevel}</span>
-              <span className="h-8 w-px flex-shrink-0 bg-[#f5d57a]/55" />
-              <span className="min-w-0 truncate text-sm font-medium text-white/82">
+          <button type="button" className="relative flex h-[50px] w-full items-center gap-2 overflow-hidden px-4 text-left" onClick={onOpenVipCenter}>
+            <img src={vipHeaderBg} alt="" aria-hidden="true" className="pointer-events-none absolute inset-0 h-full w-full object-fill" />
+            <span className="relative flex min-w-0 flex-1 items-center gap-2.5">
+              <img src={vipCrown} alt="" aria-hidden="true" className="h-7 w-9 flex-shrink-0 object-contain" />
+              <span className="whitespace-nowrap font-display text-2xl font-black leading-none text-[#ffe59b] drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)]">VIP {currentVipLevel}</span>
+              <span className="h-7 w-px flex-shrink-0 bg-[#e9c970]/55" />
+              <span className="min-w-0 truncate text-xs font-medium text-[#e7e4dc]">
                 {t('menu.vipHeaderHint')} <span className="font-black text-[#ffe48a]">VIP {nextVipLevel}</span>
               </span>
             </span>
-            <span className="relative flex h-11 flex-shrink-0 items-center gap-1.5 whitespace-nowrap rounded-[18px] border border-[#ffe7a6]/80 bg-gradient-to-b from-[#ffe7a6] to-[#e5b23f] px-4 text-sm font-black text-[#15110a] shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]">
+            <span className="relative flex h-[34px] flex-shrink-0 items-center gap-1 whitespace-nowrap rounded-[14px] border border-[#ffe7a6]/80 bg-gradient-to-b from-[#ffe7a6] to-[#e5b23f] px-3 text-xs font-black text-[#15110a] shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]">
               {t('menu.enterVipCenter')}
-              <ChevronRight size={16} strokeWidth={3} />
+              <ChevronRight size={14} strokeWidth={3} />
             </span>
           </button>
 
