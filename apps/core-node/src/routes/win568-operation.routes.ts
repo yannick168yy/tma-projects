@@ -4,6 +4,7 @@ import { env } from '../config/env.js'
 import { Win568Client } from '../clients/win568.client.js'
 import { getWin568OperationCompanyKey } from '../services/win568-key-settings.service.js'
 import { probePendingGameIcons } from '../services/game-icon-probe.service.js'
+import { normalizeWin568Provider } from '../services/win568-provider-canon.js'
 
 function validUsername(username: string) {
   return /^[A-Za-z0-9_]{6,40}$/.test(username)
@@ -191,15 +192,16 @@ export async function saveWin568Games(app: FastifyInstance, result: unknown) {
     const infoEn = gameInfo(g, 'en')
     const infoZh = gameInfo(g, 'zh_cn')
     const enabled = boolValue(g.isEnabled) && !boolValue(g.isMaintain) && text(g.providerStatus) === 'Online' && boolValue(g.isProviderOnline)
+    const canonProvider = normalizeWin568Provider(text(g.provider) || null)
     await app.mysql.execute(
       `INSERT INTO bg_568win_game
-       (game_id, game_provider_id, provider, new_game_type, game_type, site_category_auto, rank_no, device, platform,
+       (game_id, game_provider_id, provider, provider_short, new_game_type, game_type, site_category_auto, rank_no, device, platform,
         rtp, rows_count, reels_count, lines_count, name_en, name_zh, icon_url,
         supported_currencies, block_countries, is_enabled, is_maintain, provider_status,
         is_provider_online, is_provide_commission, has_hedge_bet, raw_game, raw_response)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON DUPLICATE KEY UPDATE game_provider_id = VALUES(game_provider_id),
-         provider = VALUES(provider), new_game_type = VALUES(new_game_type),
+         provider = VALUES(provider), provider_short = VALUES(provider_short), new_game_type = VALUES(new_game_type),
          game_type = VALUES(game_type), site_category_auto = VALUES(site_category_auto),
          rank_no = VALUES(rank_no), device = VALUES(device),
          platform = VALUES(platform), rtp = VALUES(rtp), rows_count = VALUES(rows_count),
@@ -217,7 +219,8 @@ export async function saveWin568Games(app: FastifyInstance, result: unknown) {
       [
         gameId,
         gpId,
-        text(g.provider) || null,
+        canonProvider.provider,
+        canonProvider.short,
         intOrNull(g.newGameType),
         intOrNull(g.gameType),
         classifyWin568SiteCategory(intOrNull(g.newGameType), text(infoEn?.gameName), text(infoZh?.gameName)),

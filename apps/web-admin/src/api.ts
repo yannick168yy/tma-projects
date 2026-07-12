@@ -427,13 +427,14 @@ export const startWin568SyncGames = () =>
 export const getGameJob = (jobId: string) =>
   get<AdminGameJob>(`/admin/games/jobs/${jobId}`)
 
-export interface ProviderStat { provider: string; total: number; active: number; rtps?: number[] }
+export interface ProviderStat { provider: string; providerShort: string | null; total: number; active: number; rtps?: number[] }
 
 export interface AdminWin568Game {
   uuid: string
   gameId: number
   gameProviderId: number
   provider: string
+  providerShort: string | null
   name: string
   nameEn: string | null
   nameZh: string | null

@@ -33,10 +33,11 @@ import cashRebateBannerImg from '@/assets/home/promos/cash-rebate-banner.webp'
 const RECENT_ROW_MAX = 10
 
 // 厂商专区：菲市场认知度最高的三家
+// code 须与 bg_568win_game.provider 统一后的显示名一致(迁移134)
 const PROVIDER_ZONE = [
-  { code: 'JiLiGaming', label: 'JILI' },
-  { code: 'PGSoft', label: 'PG' },
-  { code: 'PragmaticPlay', label: 'Pragmatic' },
+  { code: 'JILI', label: 'JILI' },
+  { code: 'PG Soft', label: 'PG' },
+  { code: 'Pragmatic Play', label: 'Pragmatic' },
 ]
 
 function historyToGame(item: GameHistoryItem): SlotGame {

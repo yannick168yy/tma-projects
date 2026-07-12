@@ -432,6 +432,7 @@ export async function getBetOrders(
 
 export interface ProviderStat {
   provider: string
+  providerShort: string | null
   total: number
   active: number
   rtps?: number[]
@@ -547,7 +548,7 @@ export async function listAdminWin568Games(
   const sortDir = opts.sortOrder === 'asc' ? 'ASC' : 'DESC'
 
   const [rows] = await pool(env).query<RowDataPacket[]>(
-    `SELECT g.game_id, g.game_provider_id, g.provider, g.new_game_type, g.game_type, g.rank_no,
+    `SELECT g.game_id, g.game_provider_id, g.provider, g.provider_short, g.new_game_type, g.game_type, g.rank_no,
             g.device, g.platform, g.rtp, g.rows_count, g.reels_count, g.lines_count,
             g.name_en, g.name_zh, g.icon_url, g.icon_width, g.icon_height, g.icon_probed_at,
             g.supported_currencies, g.block_countries,
@@ -581,6 +582,7 @@ export async function listAdminWin568Games(
     gameId: Number(r.game_id),
     gameProviderId: Number(r.game_provider_id),
     provider: r.provider ? String(r.provider) : '568Win',
+    providerShort: r.provider_short ? String(r.provider_short) : null,
     name: String(r.effective_name),
     nameEn: r.name_en ? String(r.name_en) : null,
     nameZh: r.name_zh ? String(r.name_zh) : null,
@@ -740,6 +742,7 @@ export async function toggleAdminWin568Game(env: Env, gameProviderId: number, ga
 export async function getWin568ProviderStats(env: Env): Promise<ProviderStat[]> {
   const [rows] = await pool(env).query<RowDataPacket[]>(
     `SELECT g.provider,
+            MAX(g.provider_short) AS provider_short,
             COUNT(*) AS total,
             SUM(CASE WHEN ${win568UpstreamAvailableExpr()} AND ${win568LocalActiveExpr()} THEN 1 ELSE 0 END) AS active,
             JSON_ARRAYAGG(CASE WHEN g.rtp IS NOT NULL AND g.rtp >= 0 THEN g.rtp ELSE NULL END) AS rtps
@@ -750,6 +753,7 @@ export async function getWin568ProviderStats(env: Env): Promise<ProviderStat[]> 
   )
   return rows.map((r) => ({
     provider: String(r.provider),
+    providerShort: r.provider_short ? String(r.provider_short) : null,
     total: Number(r.total),
     active: Number(r.active),
     rtps: [...new Set((parseJsonValue(r.rtps) as unknown[] | null ?? [])

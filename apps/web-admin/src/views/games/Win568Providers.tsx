@@ -39,6 +39,7 @@ export default function Win568Providers() {
 
   const columns = [
     { title: '568Win 厂商', dataIndex: 'provider', key: 'provider', render: (v: string) => <span style={{ fontWeight: 600 }}>{v}</span> },
+    { title: '简称', dataIndex: 'providerShort', key: 'providerShort', width: 90, render: (v: string | null) => v ? <Tag color="geekblue">{v}</Tag> : '—' },
     { title: '游戏总数', dataIndex: 'total', key: 'total', width: 120, render: (v: number) => <Tag>{v} 款</Tag> },
     {
       title: 'RTP 列表', key: 'rtps',

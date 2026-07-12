@@ -290,7 +290,15 @@ export default function Win568GameList({ refreshKey }: Props) {
         </div>
       ),
     },
-    { title: '厂商', dataIndex: 'provider', key: 'provider', width: 140 },
+    {
+      title: '厂商', dataIndex: 'provider', key: 'provider', width: 160,
+      render: (v: string, r: AdminWin568Game) => (
+        <Space size={4}>
+          {v}
+          {r.providerShort && <Tag color="geekblue" style={{ marginInlineEnd: 0 }}>{r.providerShort}</Tag>}
+        </Space>
+      ),
+    },
     {
       title: '分类', key: 'category', width: 120,
       render: (_: unknown, r: AdminWin568Game) => (
@@ -413,6 +421,7 @@ export default function Win568GameList({ refreshKey }: Props) {
               <Descriptions.Item label="GpId">{editing.gameProviderId}</Descriptions.Item>
               <Descriptions.Item label="GameId">{editing.gameId}</Descriptions.Item>
               <Descriptions.Item label="厂商">{editing.provider}</Descriptions.Item>
+              <Descriptions.Item label="厂商简称">{editing.providerShort ? <Tag color="geekblue">{editing.providerShort}</Tag> : '—'}</Descriptions.Item>
               <Descriptions.Item label="平台">{editing.platform || '—'}</Descriptions.Item>
               <Descriptions.Item label="newGameType">{editing.newGameType ?? '—'}</Descriptions.Item>
               <Descriptions.Item label="gameType">{editing.gameType ?? '—'}</Descriptions.Item>
