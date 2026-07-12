@@ -19,6 +19,10 @@ os.makedirs(outdir, exist_ok=True)
 
 alias = json.load(open(os.path.join(DATA, 'provider-alias.json')))
 COMP_ALIAS, OUR_ALIAS = alias['competitor'], alias['ours']
+# 迁移134后库里 provider 已是统一显示名，把 display 也纳入映射
+for _c, _m in alias.get('canonical_meta', {}).items():
+    if not _c.startswith('_'):
+        OUR_ALIAS.setdefault(_m['display'], _c)
 COMP_ALIAS_CI = {k.lower(): v for k, v in COMP_ALIAS.items()}
 OUR_ALIAS_CI = {k.lower(): v for k, v in OUR_ALIAS.items()}
 SPECIAL_KEEP = {k: v for k, v in alias['special_keep'].items() if not k.startswith('_')}
