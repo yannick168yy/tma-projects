@@ -398,6 +398,8 @@ export default {
     walletTopUp: 'Nạp tiền',
     walletCashOut: 'Rút tiền',
     walletRecords: 'Lịch sử',
+    vipHeaderHint: 'Mở thêm phần thưởng VIP',
+    enterVipCenter: 'Vào VIP Center',
     sections: {
       theme: 'Chủ đề game',
       gameStyle: 'Phong cách',

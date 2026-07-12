@@ -680,6 +680,8 @@ export default {
     walletTopUp: 'Top Up',
     walletCashOut: 'Cash Out',
     walletRecords: 'History',
+    vipHeaderHint: 'Unlock more VIP rewards',
+    enterVipCenter: 'Enter VIP Center',
     sections: {
       theme: 'Game Theme',
       gameStyle: 'Game Style',

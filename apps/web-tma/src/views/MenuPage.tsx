@@ -22,10 +22,12 @@ import { useAuthStore } from '@/stores/auth'
 import { useLocaleStore } from '@/stores/locale'
 import { useThemeStore, type ThemeMode } from '@/stores/theme'
 import { LANGUAGES } from '@/data/languages'
-import { fetchRebateProgress } from '@/api/rebate'
+import { fetchVipProgress } from '@/api/vip'
 import { fetchKycStatus, type KycStatus } from '@/api/kyc'
 import { isInsideTelegram } from '@/utils/initTelegramWebApp'
 import menuCasino from '@/assets/home/promos/menu-card-casino.webp'
+import vipHeaderBg from '@/assets/menu/user-card/vip-header-bg.webp'
+import vipCrown from '@/assets/menu/user-card/vip-crown.webp'
 
 const ICONS = import.meta.glob('../assets/menu/icons/*.webp', { eager: true, import: 'default' }) as Record<string, string>
 const icon = (name: string): string => ICONS[`../assets/menu/icons/${name}.webp`]
@@ -223,7 +225,7 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
   const [comingSoonToast, setComingSoonToast] = useState(false)
   const [docModalKey, setDocModalKey] = useState<string | null>(null)
   const [langOpen, setLangOpen] = useState(false)
-  const [rebateLevel, setRebateLevel] = useState<number | null>(null)
+  const [vipLevel, setVipLevel] = useState<number | null>(null)
   const [kycStatus, setKycStatus] = useState<KycStatus | null>(null)
   const comingSoonTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -265,12 +267,12 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
 
   useEffect(() => {
     if (!isLoggedIn) {
-      setRebateLevel(null)
+      setVipLevel(null)
       return
     }
-    fetchRebateProgress()
-      .then((progress) => setRebateLevel(progress.level))
-      .catch(() => setRebateLevel(null))
+    fetchVipProgress()
+      .then((progress) => setVipLevel(progress.level))
+      .catch(() => setVipLevel(null))
   }, [isLoggedIn, auth.user?.id])
 
   useEffect(() => {
@@ -340,88 +342,103 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
     <div className="page-main min-h-full pb-24">
       <div className="px-4 pb-1 pt-3">
         <div
-          className="relative overflow-hidden rounded-3xl px-4 pb-3 pt-4 shadow-[0_18px_40px_rgba(0,0,0,0.32)]"
-          style={{ background: 'linear-gradient(135deg, #e2af37 0%, #c79023 52%, #946615 100%)' }}
+          className="relative overflow-hidden rounded-3xl shadow-[0_18px_40px_rgba(0,0,0,0.32)]"
         >
-          <img
-            src={menuCasino}
-            alt=""
-            aria-hidden="true"
-            className="pointer-events-none absolute -right-2 top-1 h-[112px] w-auto select-none"
-          />
-          {isLoggedIn ? (
-            <div className="relative pr-24">
-              <div className="flex items-start gap-3">
-                <div className="relative flex-shrink-0">
-                  <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-full border border-white/40 bg-white/15 text-white shadow-[0_10px_24px_rgba(0,0,0,0.22)]">
-                    {avatarUrl ? (
-                      <img
-                        src={avatarUrl}
-                        alt=""
-                        className="h-full w-full object-cover"
-                        referrerPolicy="no-referrer"
-                        onError={(e) => { e.currentTarget.style.display = 'none' }}
-                      />
-                    ) : (
-                      <User size={25} />
-                    )}
-                  </div>
-                  <span className="absolute -right-1 -top-1 rounded-full bg-zinc-900 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wide text-amber-300 shadow">LV{rebateLevel ?? 1}</span>
-                </div>
-                <div className="min-w-0 flex-1 pt-0.5">
-                  <p className="mb-1 text-[10px] font-black uppercase tracking-wide text-black/45">{t('profile.playerAccount')}</p>
-                  <h1 className="truncate font-display text-[1.6rem] font-black leading-none text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.22)]">{displayName}</h1>
-                  <button type="button" className="mt-2 flex max-w-full items-center gap-1.5 transition-opacity hover:opacity-80" onClick={copyId}>
-                    <span className="text-xs font-semibold text-black/50">ID:</span>
-                    <span className="truncate text-xs font-black text-amber-950">{USER_ID}</span>
-                    {copied ? <CheckCircle2 size={12} className="flex-shrink-0 text-emerald-800" /> : <Copy size={12} className="flex-shrink-0 text-black/45" />}
-                  </button>
-                </div>
-              </div>
-              {copied && <p className="mt-2 text-[10px] font-semibold text-emerald-900">{t('common.copied')}</p>}
-            </div>
-          ) : (
-            <div className="relative pr-24">
-              <button type="button" className="flex min-h-[86px] w-full items-center gap-3 text-left transition-opacity active:opacity-80" onClick={onLogin}>
-                <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-full border border-white/40 bg-white/15 text-white shadow-[0_10px_24px_rgba(0,0,0,0.22)]">
-                  <User size={25} />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <h1 className="font-display text-[1.6rem] font-black leading-none text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.22)]">{t('auth.signInTitle')}</h1>
-                </div>
-              </button>
-            </div>
-          )}
+          <button type="button" className="relative flex min-h-[58px] w-full items-center gap-2.5 overflow-hidden px-4 py-3 text-left" onClick={onOpenVipCenter}>
+            <img src={vipHeaderBg} alt="" aria-hidden="true" className="pointer-events-none absolute inset-0 h-full w-full object-fill" />
+            <span className="relative flex min-w-0 flex-1 items-center gap-2.5">
+              <img src={vipCrown} alt="" aria-hidden="true" className="h-7 w-9 flex-shrink-0 object-contain" />
+              <span className="font-display text-2xl font-black leading-none text-[#ffe58b] drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)]">VIP {vipLevel ?? 1}</span>
+              <span className="h-7 w-px flex-shrink-0 bg-[#f5d57a]/45" />
+              <span className="min-w-0 truncate text-[11px] font-semibold text-white/80">{t('menu.vipHeaderHint')}</span>
+            </span>
+            <span className="relative flex flex-shrink-0 items-center gap-1 rounded-xl bg-gradient-to-b from-[#ffe19a] to-[#d9a336] px-3 py-2 text-[11px] font-black text-[#18130b] shadow-[inset_0_1px_0_rgba(255,255,255,0.65)]">
+              {t('menu.enterVipCenter')}
+              <ChevronRight size={13} strokeWidth={3} />
+            </span>
+          </button>
 
-          <div className="relative mt-4 grid grid-cols-4 overflow-hidden rounded-2xl bg-black/15">
-            <div className="min-w-0 px-1.5 py-2.5 text-center">
-              <p className="truncate text-[7px] font-black uppercase text-black/45">{t('menu.language')}</p>
-              <div className="mt-1 flex min-w-0 items-center justify-center gap-1">
-                <Languages size={20} className="flex-shrink-0 text-white" strokeWidth={1.8} />
-                <p className="min-w-0 truncate text-[10px] font-black text-white">{currentLang.flag} {t(`languages.${currentLang.code}`)}</p>
+          <div className="relative -mt-1 rounded-t-[1.75rem] px-4 pb-3 pt-4" style={{ background: 'linear-gradient(135deg, #e2af37 0%, #c79023 52%, #946615 100%)' }}>
+            <img
+              src={menuCasino}
+              alt=""
+              aria-hidden="true"
+              className="pointer-events-none absolute -right-2 top-1 h-[112px] w-auto select-none"
+            />
+            {isLoggedIn ? (
+              <div className="relative pr-24">
+                <div className="flex items-start gap-3">
+                  <div className="relative flex-shrink-0">
+                    <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-full border border-white/40 bg-white/15 text-white shadow-[0_10px_24px_rgba(0,0,0,0.22)]">
+                      {avatarUrl ? (
+                        <img
+                          src={avatarUrl}
+                          alt=""
+                          className="h-full w-full object-cover"
+                          referrerPolicy="no-referrer"
+                          onError={(e) => { e.currentTarget.style.display = 'none' }}
+                        />
+                      ) : (
+                        <User size={25} />
+                      )}
+                    </div>
+                    <span className="absolute -right-1 -top-1 rounded-full bg-zinc-900 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wide text-amber-300 shadow">VIP{vipLevel ?? 1}</span>
+                  </div>
+                  <div className="min-w-0 flex-1 pt-0.5">
+                    <p className="mb-1 text-[10px] font-black uppercase tracking-wide text-black/45">{t('profile.playerAccount')}</p>
+                    <h1 className="truncate font-display text-[1.6rem] font-black leading-none text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.22)]">{displayName}</h1>
+                    <button type="button" className="mt-2 flex max-w-full items-center gap-1.5 transition-opacity hover:opacity-80" onClick={copyId}>
+                      <span className="text-xs font-semibold text-black/50">ID:</span>
+                      <span className="truncate text-xs font-black text-amber-950">{USER_ID}</span>
+                      {copied ? <CheckCircle2 size={12} className="flex-shrink-0 text-emerald-800" /> : <Copy size={12} className="flex-shrink-0 text-black/45" />}
+                    </button>
+                  </div>
+                </div>
+                {copied && <p className="mt-2 text-[10px] font-semibold text-emerald-900">{t('common.copied')}</p>}
               </div>
+            ) : (
+              <div className="relative pr-24">
+                <button type="button" className="flex min-h-[86px] w-full items-center gap-3 text-left transition-opacity active:opacity-80" onClick={onLogin}>
+                  <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-full border border-white/40 bg-white/15 text-white shadow-[0_10px_24px_rgba(0,0,0,0.22)]">
+                    <User size={25} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h1 className="font-display text-[1.6rem] font-black leading-none text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.22)]">{t('auth.signInTitle')}</h1>
+                  </div>
+                </button>
+              </div>
+            )}
+
+            <div className="relative mt-4 grid grid-cols-4 overflow-hidden rounded-2xl bg-black/15">
+              <div className="min-w-0 px-1.5 py-2.5 text-center">
+                <p className="truncate text-[7px] font-black uppercase text-black/45">{t('menu.language')}</p>
+                <div className="mt-1 flex min-w-0 items-center justify-center gap-1">
+                  <Languages size={20} className="flex-shrink-0 text-white" strokeWidth={1.8} />
+                  <p className="min-w-0 truncate text-[10px] font-black text-white">{currentLang.flag} {t(`languages.${currentLang.code}`)}</p>
+                </div>
+              </div>
+              <AccountInfoItem
+                title={t('kyc.stepPhone')}
+                value={phoneVerified ? t('common.verified') : t('kyc.verify')}
+                icon={Smartphone}
+                done={phoneVerified}
+                onClick={openKycFromStatus}
+              />
+              <AccountInfoItem
+                title={t('kyc.stepDocument')}
+                value={docVerified ? t('common.verified') : t('kyc.verify')}
+                image={VERIFY_IDENTITY_ICON}
+                done={docVerified}
+                onClick={openKycFromStatus}
+              />
+              <AccountInfoItem
+                title={t('kyc.stepFace')}
+                value={faceVerified ? t('kyc.matched') : t('kyc.match')}
+                icon={ScanFace}
+                done={faceVerified}
+                onClick={openKycFromStatus}
+              />
             </div>
-            <AccountInfoItem
-              title={t('kyc.stepPhone')}
-              value={phoneVerified ? t('common.verified') : t('kyc.verify')}
-              icon={Smartphone}
-              done={phoneVerified}
-              onClick={openKycFromStatus}
-            />
-            <AccountInfoItem
-              title={t('kyc.stepDocument')}
-              value={docVerified ? t('common.verified') : t('kyc.verify')}
-              image={VERIFY_IDENTITY_ICON}
-              done={docVerified}
-              onClick={openKycFromStatus}
-            />
-            <AccountInfoItem
-              title={t('kyc.stepFace')}
-              value={faceVerified ? t('kyc.matched') : t('kyc.match')}
-              icon={ScanFace}
-              done={faceVerified}
-              onClick={openKycFromStatus}
-            />
           </div>
         </div>
       </div>
