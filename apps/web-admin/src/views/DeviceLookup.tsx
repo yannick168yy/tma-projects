@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Table, Space, Input, Tag, Button, Alert, Card, Typography } from 'antd'
 import { lookupDevice, type DeviceLookupResult } from '../api'
+import { PAGE_SIZE_OPTIONS } from '../pagination'
 
 function statusColor(s: string) {
   return ({ active: 'green', frozen: 'orange', banned: 'red' } as Record<string, string>)[s] ?? 'default'
@@ -104,7 +105,7 @@ export default function DeviceLookup() {
             <Table columns={accountCols} dataSource={result.accounts} loading={loading} rowKey="userId" size="small" pagination={false} locale={{ emptyText: '无' }} />
           </Card>
           <Card title={`登录记录（${result.logs.length}，最多200条）`} size="small">
-            <Table columns={logCols} dataSource={result.logs} loading={loading} rowKey="id" size="small" pagination={{ pageSize: 20, showTotal: (t) => `共 ${t} 条` }} locale={{ emptyText: '无' }} />
+            <Table columns={logCols} dataSource={result.logs} loading={loading} rowKey="id" size="small" pagination={{ pageSize: 20, pageSizeOptions: PAGE_SIZE_OPTIONS, showTotal: (t) => `共 ${t} 条` }} locale={{ emptyText: '无' }} />
           </Card>
         </>
       )}

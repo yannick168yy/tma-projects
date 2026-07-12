@@ -2,16 +2,18 @@ import { useEffect, useState } from 'react'
 import { Table, Tooltip, Button } from 'antd'
 import type { TablePaginationConfig } from 'antd'
 import { getAuditLog, type AuditEntry } from '../api'
+import { PAGE_SIZE_OPTIONS, DEFAULT_PAGE_SIZE } from '../pagination'
 
 export default function AuditLog() {
   const [loading, setLoading] = useState(false)
   const [items, setItems] = useState<AuditEntry[]>([])
   const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE)
 
-  async function load(p = 1) {
-    setPage(p); setLoading(true)
+  async function load(p = 1, ps = pageSize) {
+    setPage(p); setPageSize(ps); setLoading(true)
     try {
-      const res = await getAuditLog({ page: p, pageSize: 50 })
+      const res = await getAuditLog({ page: p, pageSize: ps })
       setItems(res.items)
     } finally { setLoading(false) }
   }
@@ -37,10 +39,11 @@ export default function AuditLog() {
   ]
 
   const pagination: TablePaginationConfig = {
-    current: page, pageSize: 50,
-    total: items.length >= 50 ? page * 50 + 1 : (page - 1) * 50 + items.length,
+    current: page, pageSize,
+    total: items.length >= pageSize ? page * pageSize + 1 : (page - 1) * pageSize + items.length,
     showTotal: () => `第 ${page} 页`,
-    onChange: (p) => load(p),
+    pageSizeOptions: PAGE_SIZE_OPTIONS,
+    onChange: (p, ps) => load(p, ps),
   }
 
   return (

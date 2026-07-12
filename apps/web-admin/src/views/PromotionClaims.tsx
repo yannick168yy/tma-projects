@@ -3,6 +3,7 @@ import { Table, Select, Typography, Tag, message } from 'antd'
 import { GiftOutlined } from '@ant-design/icons'
 import type { ColumnsType } from 'antd/es/table'
 import { getPromoClaims, type PromoClaimRecord } from '../api'
+import { PAGE_SIZE_OPTIONS, DEFAULT_PAGE_SIZE } from '../pagination'
 
 const { Title, Text } = Typography
 
@@ -42,15 +43,17 @@ export default function PromotionClaims() {
   const [items, setItems] = useState<PromoClaimRecord[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE)
   const [promoId, setPromoId] = useState('')
 
-  async function load(p = page, pid = promoId) {
+  async function load(p = page, pid = promoId, ps = pageSize) {
     setLoading(true)
     try {
-      const res = await getPromoClaims({ page: p, pageSize: 20, promoId: pid || undefined })
+      const res = await getPromoClaims({ page: p, pageSize: ps, promoId: pid || undefined })
       setItems(res.items)
       setTotal(res.total)
       setPage(res.page)
+      setPageSize(ps)
     } catch (e) {
       message.error(e instanceof Error ? e.message : '加载失败')
     } finally {
@@ -84,10 +87,11 @@ export default function PromotionClaims() {
         columns={columns}
         pagination={{
           current: page,
-          pageSize: 20,
+          pageSize,
           total,
           showTotal: (t) => `共 ${t} 条`,
-          onChange: (p) => void load(p),
+          pageSizeOptions: PAGE_SIZE_OPTIONS,
+          onChange: (p, ps) => void load(p, promoId, ps),
         }}
         size="middle"
       />

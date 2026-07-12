@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { Table, Space, Input, Select, Button, Tag } from 'antd'
 import type { TablePaginationConfig } from 'antd'
 import { getReviewProposals, type ReviewProposal } from '../../api'
+import { PAGE_SIZE_OPTIONS, DEFAULT_PAGE_SIZE } from '../../pagination'
 import { verdictTag, wdStatusLabel } from './shared'
 
 export default function Proposals({ queue = false }: { queue?: boolean }) {
@@ -13,12 +14,13 @@ export default function Proposals({ queue = false }: { queue?: boolean }) {
   const [items, setItems] = useState<ReviewProposal[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE)
 
-  async function load(p = 1) {
-    setPage(p); setLoading(true)
+  async function load(p = 1, ps = pageSize) {
+    setPage(p); setPageSize(ps); setLoading(true)
     try {
       const res = await getReviewProposals({
-        page: p, pageSize: 20,
+        page: p, pageSize: ps,
         userId: userIdFilter || undefined,
         reviewVerdict: queue ? undefined : verdictFilter,
         queue: queue ? 'manual' : undefined,
@@ -47,7 +49,7 @@ export default function Proposals({ queue = false }: { queue?: boolean }) {
   ]
 
   const pagination: TablePaginationConfig = {
-    current: page, pageSize: 20, total, showTotal: (t) => `共 ${t} 条`, onChange: (p) => load(p),
+    current: page, pageSize, total, showTotal: (t) => `共 ${t} 条`, pageSizeOptions: PAGE_SIZE_OPTIONS, onChange: (p, ps) => load(p, ps),
   }
 
   return (

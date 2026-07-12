@@ -5,6 +5,7 @@ import type { TablePaginationConfig } from 'antd'
 import type { Dayjs } from 'dayjs'
 import dayjs from 'dayjs'
 import { getLedgerRecords, SUPPORTED_CURRENCIES, type AdminLedgerRecord } from '../api'
+import { PAGE_SIZE_OPTIONS, DEFAULT_PAGE_SIZE } from '../pagination'
 
 const { RangePicker } = DatePicker
 
@@ -44,14 +45,16 @@ export default function LedgerRecords() {
   const [items, setItems] = useState<AdminLedgerRecord[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE)
 
-  async function load(p = 1) {
+  async function load(p = 1, ps = pageSize) {
     setPage(p)
+    setPageSize(ps)
     setLoading(true)
     try {
       const res = await getLedgerRecords({
         page: p,
-        pageSize: 20,
+        pageSize: ps,
         userId: userId.trim() || undefined,
         type,
         currency,
@@ -102,10 +105,11 @@ export default function LedgerRecords() {
 
   const pagination: TablePaginationConfig = {
     current: page,
-    pageSize: 20,
+    pageSize,
     total,
     showTotal: (t) => `共 ${t} 条`,
-    onChange: (p) => void load(p),
+    pageSizeOptions: PAGE_SIZE_OPTIONS,
+    onChange: (p, ps) => void load(p, ps),
   }
 
   return (

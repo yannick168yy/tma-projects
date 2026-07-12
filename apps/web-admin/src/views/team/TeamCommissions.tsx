@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Input, Select, Button, Table, Tag, message } from 'antd'
 import type { TablePaginationConfig } from 'antd'
 import { getTeamCommissions, type TeamCommission } from '../../api'
+import { PAGE_SIZE_OPTIONS, DEFAULT_PAGE_SIZE } from '../../pagination'
 
 function phpCell(cents: number) {
   const val = (cents ?? 0) / 100
@@ -13,13 +14,14 @@ export default function TeamCommissions() {
   const [items, setItems] = useState<TeamCommission[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE)
   const [loading, setLoading] = useState(false)
 
-  async function load(p = 1) {
+  async function load(p = 1, ps = pageSize) {
     setLoading(true)
     try {
-      const data = await getTeamCommissions({ ...filter, page: p })
-      setItems(data.items); setTotal(data.total); setPage(p)
+      const data = await getTeamCommissions({ ...filter, page: p, pageSize: ps })
+      setItems(data.items); setTotal(data.total); setPage(p); setPageSize(ps)
     } catch { message.error('加载失败') }
     finally { setLoading(false) }
   }
@@ -56,7 +58,7 @@ export default function TeamCommissions() {
     { title: '状态', key: 'status', width: 90, render: (_: unknown, r: TeamCommission) => <Tag color={r.status === 'paid' ? 'green' : r.status === 'pending' ? 'orange' : 'default'}>{r.status}</Tag> },
   ]
 
-  const pagination: TablePaginationConfig = { current: page, pageSize: 50, total, showTotal: (t) => `共 ${t} 条`, onChange: (p) => load(p) }
+  const pagination: TablePaginationConfig = { current: page, pageSize, total, showTotal: (t) => `共 ${t} 条`, pageSizeOptions: PAGE_SIZE_OPTIONS, onChange: (p, ps) => load(p, ps) }
 
   return (
     <div>

@@ -4,6 +4,7 @@ import { Table, Space, Button, Tag, Modal, Input, message, Grid, Card } from 'an
 import type { TablePaginationConfig } from 'antd'
 import { getManualQueue, approveTeamWithdrawal, rejectTeamWithdrawal, type ManualQueueItem } from '../../api'
 import { MobileCardList } from '../../components/MobileCardList'
+import { PAGE_SIZE_OPTIONS, DEFAULT_PAGE_SIZE } from '../../pagination'
 import { wdStatusLabel } from './shared'
 
 export default function ManualQueue() {
@@ -14,14 +15,15 @@ export default function ManualQueue() {
   const [items, setItems] = useState<ManualQueueItem[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE)
   const [rejecting, setRejecting] = useState<ManualQueueItem | null>(null)
   const [rejectReason, setRejectReason] = useState('')
   const [opLoading, setOpLoading] = useState(false)
 
-  async function load(p = 1) {
-    setPage(p); setLoading(true)
+  async function load(p = 1, ps = pageSize) {
+    setPage(p); setPageSize(ps); setLoading(true)
     try {
-      const res = await getManualQueue({ page: p, pageSize: 20 })
+      const res = await getManualQueue({ page: p, pageSize: ps })
       setItems(res.items); setTotal(res.total)
     } finally { setLoading(false) }
   }
@@ -118,9 +120,10 @@ export default function ManualQueue() {
   ]
 
   const pagination: TablePaginationConfig = {
-    current: page, pageSize: 20, total,
+    current: page, pageSize, total,
     showTotal: (t) => `共 ${t} 条`,
-    onChange: (p) => load(p),
+    pageSizeOptions: PAGE_SIZE_OPTIONS,
+    onChange: (p, ps) => load(p, ps),
   }
 
   return (
@@ -147,7 +150,7 @@ export default function ManualQueue() {
       </Modal>
       {isMobile ? (
         <MobileCardList
-          items={items} loading={loading} page={page} total={total} onPage={load} empty="暂无待处理"
+          items={items} loading={loading} page={page} total={total} pageSize={pageSize} onPage={load} empty="暂无待处理"
           renderItem={(r) => (
             <Card
               key={`${r.kind}-${r.id}`}

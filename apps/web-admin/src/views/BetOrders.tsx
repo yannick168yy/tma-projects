@@ -3,6 +3,7 @@ import { Table, Space, Input, Select, Button, Tag, Row, Col, Statistic, DatePick
 import type { TablePaginationConfig } from 'antd'
 import type { Dayjs } from 'dayjs'
 import { getBetOrders, getBetRounds, type BetOrderRecord, type BetRoundRecord, type BetOrderStats } from '../api'
+import { PAGE_SIZE_OPTIONS, DEFAULT_PAGE_SIZE } from '../pagination'
 
 function betTypeColor(t: string) {
   if (t === 'bet') return 'blue'
@@ -26,8 +27,6 @@ function fmtTime(t: string | null) {
   return <span style={{ fontSize: 12, color: '#888' }}>{new Date(t).toLocaleString('zh-CN', { hour12: false })}</span>
 }
 
-const pageSize = 20
-
 export default function BetOrders() {
   const [view, setView] = useState<'detail' | 'round'>('detail')
   const [loading, setLoading] = useState(false)
@@ -35,17 +34,19 @@ export default function BetOrders() {
   const [roundItems,  setRoundItems]  = useState<BetRoundRecord[]>([])
   const [total, setTotal] = useState(0)
   const [page,  setPage]  = useState(1)
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE)
   const [stats, setStats] = useState<BetOrderStats>({ totalBet: 0, totalWin: 0, roundCount: 0 })
   const [userId,    setUserId]    = useState('')
   const [betType,   setBetType]   = useState<string | undefined>()
   const [status,    setStatus]    = useState<string | undefined>()
   const [dateRange, setDateRange] = useState<[Dayjs | null, Dayjs | null] | null>(null)
 
-  async function load(p = 1, v = view) {
+  async function load(p = 1, v = view, ps = pageSize) {
     setLoading(true)
+    setPageSize(ps)
     try {
       const base = {
-        page: p, pageSize,
+        page: p, pageSize: ps,
         userId: userId || undefined,
         dateFrom: dateRange?.[0]?.format('YYYY-MM-DD'),
         dateTo:   dateRange?.[1]?.format('YYYY-MM-DD'),
@@ -128,9 +129,9 @@ export default function BetOrders() {
 
   const pagination: TablePaginationConfig = {
     current: page, pageSize, total,
-    showSizeChanger: false,
+    pageSizeOptions: PAGE_SIZE_OPTIONS,
     showTotal: (t) => view === 'round' ? `共 ${t} 局` : `共 ${t} 条`,
-    onChange: (p) => load(p),
+    onChange: (p, ps) => load(p, view, ps),
   }
 
   return (

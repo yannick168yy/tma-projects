@@ -4,6 +4,7 @@ import { Table, Space, Input, Select, Button, Tag, Modal, Popconfirm, message, D
 import type { TablePaginationConfig } from 'antd'
 import { getWithdrawals, approveWithdrawal, rejectWithdrawal, getWithdrawalReview, type AdminWithdrawal, type ReviewRuleResult } from '../api'
 import { MobileCardList } from '../components/MobileCardList'
+import { PAGE_SIZE_OPTIONS, DEFAULT_PAGE_SIZE } from '../pagination'
 
 function wdStatusColor(s: string) {
   return ({ completed: 'green', pending: 'orange', processing: 'blue', rejected: 'red', admin_rejected: 'red', failed: 'red' } as Record<string, string>)[s] ?? 'default'
@@ -60,12 +61,13 @@ export default function Withdrawals() {
   const [items, setItems] = useState<AdminWithdrawal[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE)
   const [rejectModal, setRejectModal] = useState({ visible: false, orderId: '', reason: '' })
 
-  async function load(p = 1) {
-    setPage(p); setLoading(true)
+  async function load(p = 1, ps = pageSize) {
+    setPage(p); setPageSize(ps); setLoading(true)
     try {
-      const res = await getWithdrawals({ page: p, pageSize: 20, userId: userIdFilter || undefined, status: statusFilter, reviewVerdict: verdictFilter })
+      const res = await getWithdrawals({ page: p, pageSize: ps, userId: userIdFilter || undefined, status: statusFilter, reviewVerdict: verdictFilter })
       setItems(res.items); setTotal(res.total)
     } finally { setLoading(false) }
   }
@@ -116,9 +118,10 @@ export default function Withdrawals() {
   ]
 
   const pagination: TablePaginationConfig = {
-    current: page, pageSize: 20, total,
+    current: page, pageSize, total,
     showTotal: (t) => `共 ${t} 条`,
-    onChange: (p) => load(p),
+    pageSizeOptions: PAGE_SIZE_OPTIONS,
+    onChange: (p, ps) => load(p, ps),
   }
 
   return (
@@ -138,7 +141,7 @@ export default function Withdrawals() {
       </Space>
       {isMobile ? (
         <MobileCardList
-          items={items} loading={loading} page={page} total={total} onPage={load}
+          items={items} loading={loading} page={page} total={total} pageSize={pageSize} onPage={load}
           renderItem={(r) => (
             <Card key={r.orderId} size="small" style={{ marginBottom: 10 }}
               title={<span style={{ fontFamily: 'monospace', fontSize: 12 }}>{r.orderId}</span>}

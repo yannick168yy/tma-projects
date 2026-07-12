@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Table, Space, Input, Select, Button, Tag, Switch, Modal, Form, Row, Col, InputNumber, Popconfirm, Typography, Card, message } from 'antd'
 import type { TablePaginationConfig } from 'antd'
 import { getFaqList, createFaq, updateFaq, deleteFaq, getCsWelcome, saveCsWelcome, type FaqItem } from '../api'
+import { PAGE_SIZE_OPTIONS, DEFAULT_PAGE_SIZE } from '../pagination'
 
 const CATEGORIES = [
   { value: 'deposit', label: '充值', color: 'blue' },
@@ -57,16 +58,17 @@ export default function CsFaq() {
   const [items, setItems] = useState<FaqItem[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE)
   const [togglingId, setTogglingId] = useState<number | null>(null)
   const [modalOpen, setModalOpen] = useState(false)
   const [saving, setSaving] = useState(false)
   const [editingId, setEditingId] = useState<number | null>(null)
   const [form] = Form.useForm<{ category: string; question: string; answer: string; lang: string; sort_order: number }>()
 
-  async function load(p = 1) {
-    setPage(p); setLoading(true)
+  async function load(p = 1, ps = pageSize) {
+    setPage(p); setPageSize(ps); setLoading(true)
     try {
-      const res = await getFaqList({ page: p, pageSize: 20, keyword: keyword || undefined, category: categoryFilter })
+      const res = await getFaqList({ page: p, pageSize: ps, keyword: keyword || undefined, category: categoryFilter })
       setItems(res.items); setTotal(res.total)
     } finally { setLoading(false) }
   }
@@ -141,9 +143,9 @@ export default function CsFaq() {
   ]
 
   const pagination: TablePaginationConfig = {
-    current: page, pageSize: 20, total,
+    current: page, pageSize, total, pageSizeOptions: PAGE_SIZE_OPTIONS,
     showTotal: (t) => `共 ${t} 条`,
-    onChange: (p) => load(p),
+    onChange: (p, ps) => load(p, ps),
   }
 
   return (

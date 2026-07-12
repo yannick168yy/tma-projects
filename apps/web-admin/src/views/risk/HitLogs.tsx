@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Alert, Button, Card, Select, Space, Table, message } from 'antd'
 import { getRiskHits, type RiskAction, type RiskHit } from '../../api'
+import { PAGE_SIZE_OPTIONS } from '../../pagination'
 import { actionTag } from './shared'
 
 export default function RiskHitLogs() {
@@ -41,7 +42,7 @@ export default function RiskHitLogs() {
         size="small"
         loading={loading}
         dataSource={items}
-        pagination={{ pageSize: 20 }}
+        pagination={{ pageSize: 20, pageSizeOptions: PAGE_SIZE_OPTIONS }}
         columns={[
           { title: '时间', dataIndex: 'createdAt', render: (v: string) => String(v).slice(0, 19) },
           { title: '用户', dataIndex: 'userId', render: (v: string | null) => v ?? <span style={{ color: '#999' }}>未登录</span> },

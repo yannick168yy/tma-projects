@@ -3,6 +3,7 @@ import { Row, Col, Statistic, Input, Button, Table, Tag, Space, Modal, Tree, Spi
 import type { TablePaginationConfig } from 'antd'
 import dayjs from 'dayjs'
 import { getTeamOverview, getTeamAgents, getTeamAgentTree, getTeamRatePlans, setAgentRatePlan, type TeamOverview, type TeamAgent, type TeamTreeMember, type TeamRatePlan } from '../../api'
+import { PAGE_SIZE_OPTIONS, DEFAULT_PAGE_SIZE } from '../../pagination'
 
 interface TreeNodeItem { key: string; title: React.ReactNode; children?: TreeNodeItem[] }
 
@@ -60,6 +61,7 @@ export default function TeamAgents() {
   const [agents, setAgents] = useState<TeamAgent[]>([])
   const [agentsTotal, setAgentsTotal] = useState(0)
   const [agentsPage, setAgentsPage] = useState(1)
+  const [agentsPageSize, setAgentsPageSize] = useState(DEFAULT_PAGE_SIZE)
   const [agentsLoading, setAgentsLoading] = useState(false)
   const [treeVisible, setTreeVisible] = useState(false)
   const [treeAgent, setTreeAgent] = useState<TeamAgent | null>(null)
@@ -83,11 +85,11 @@ export default function TeamAgents() {
     try { setOverview(await getTeamOverview()) } catch { /* ignore */ }
   }
 
-  async function loadAgents(page = 1) {
+  async function loadAgents(page = 1, ps = agentsPageSize) {
     setAgentsLoading(true)
     try {
-      const data = await getTeamAgents({ search: agentSearch, page, pageSize: 20 })
-      setAgents(data.items); setAgentsTotal(data.total); setAgentsPage(page)
+      const data = await getTeamAgents({ search: agentSearch, page, pageSize: ps })
+      setAgents(data.items); setAgentsTotal(data.total); setAgentsPage(page); setAgentsPageSize(ps)
     } finally { setAgentsLoading(false) }
   }
 
@@ -177,7 +179,7 @@ export default function TeamAgents() {
     },
   ]
 
-  const agentPagination: TablePaginationConfig = { current: agentsPage, pageSize: 20, total: agentsTotal, showTotal: (t) => `共 ${t} 条`, onChange: (p) => loadAgents(p) }
+  const agentPagination: TablePaginationConfig = { current: agentsPage, pageSize: agentsPageSize, total: agentsTotal, showTotal: (t) => `共 ${t} 条`, pageSizeOptions: PAGE_SIZE_OPTIONS, onChange: (p, ps) => loadAgents(p, ps) }
 
   return (
     <div>

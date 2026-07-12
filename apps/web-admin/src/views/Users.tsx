@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { Table, Space, Input, Select, Tag, Button, Popconfirm, Dropdown, message } from 'antd'
 import type { TablePaginationConfig } from 'antd'
 import { getUsers, updateUserStatus, updateUserLabel, type AdminUser } from '../api'
+import { PAGE_SIZE_OPTIONS, DEFAULT_PAGE_SIZE } from '../pagination'
 
 function statusColor(s: string) {
   return ({ active: 'green', frozen: 'orange', banned: 'red' } as Record<string, string>)[s] ?? 'default'
@@ -22,13 +23,15 @@ export default function Users() {
   const [users, setUsers] = useState<AdminUser[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE)
   const [opUid, setOpUid] = useState<string | null>(null)
 
-  async function load(p = 1) {
+  async function load(p = 1, ps = pageSize) {
     setPage(p)
+    setPageSize(ps)
     setLoading(true)
     try {
-      const res = await getUsers({ page: p, pageSize: 20, search: search || undefined, status: statusFilter })
+      const res = await getUsers({ page: p, pageSize: ps, search: search || undefined, status: statusFilter })
       setUsers(res.items)
       setTotal(res.total)
     } finally {
@@ -111,9 +114,10 @@ export default function Users() {
   ]
 
   const pagination: TablePaginationConfig = {
-    current: page, pageSize: 20, total,
+    current: page, pageSize, total,
     showTotal: (t) => `共 ${t} 条`,
-    onChange: (p) => load(p),
+    pageSizeOptions: PAGE_SIZE_OPTIONS,
+    onChange: (p, ps) => load(p, ps),
   }
 
   return (

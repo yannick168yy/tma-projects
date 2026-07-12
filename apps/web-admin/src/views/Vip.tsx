@@ -10,6 +10,7 @@ import {
   triggerVipWeeklySalary, triggerVipMonthlySalary, triggerVipBirthday, triggerVipRetention,
   type VipBenefitItem, type VipRewardRecord,
 } from '../api'
+import { PAGE_SIZE_OPTIONS, DEFAULT_PAGE_SIZE } from '../pagination'
 
 const { Title, Text } = Typography
 
@@ -42,6 +43,7 @@ export default function Vip({ section = 'benefits' }: { section?: 'benefits' | '
   const [records, setRecords] = useState<VipRewardRecord[]>([])
   const [recordsTotal, setRecordsTotal] = useState(0)
   const [recordsPage, setRecordsPage] = useState(1)
+  const [recordsPageSize, setRecordsPageSize] = useState(DEFAULT_PAGE_SIZE)
   const [recordsLoading, setRecordsLoading] = useState(false)
   const [recordsType, setRecordsType] = useState<string | undefined>()
   const [recordsUser, setRecordsUser] = useState('')
@@ -56,13 +58,14 @@ export default function Vip({ section = 'benefits' }: { section?: 'benefits' | '
     } finally { setLoading(false) }
   }
 
-  async function loadRecords(page = 1) {
+  async function loadRecords(page = 1, ps = recordsPageSize) {
     setRecordsLoading(true)
     try {
-      const res = await getVipRecords({ page, pageSize: 50, type: recordsType, userId: recordsUser || undefined })
+      const res = await getVipRecords({ page, pageSize: ps, type: recordsType, userId: recordsUser || undefined })
       setRecords(res.items)
       setRecordsTotal(res.total)
       setRecordsPage(page)
+      setRecordsPageSize(ps)
     } catch (e) {
       message.error(e instanceof Error ? e.message : '加载失败')
     } finally { setRecordsLoading(false) }
@@ -196,8 +199,8 @@ export default function Vip({ section = 'benefits' }: { section?: 'benefits' | '
         rowKey="id" size="small" loading={recordsLoading}
         columns={recordColumns} dataSource={records}
         pagination={{
-          current: recordsPage, total: recordsTotal, pageSize: 50, showSizeChanger: false,
-          onChange: (p) => loadRecords(p),
+          current: recordsPage, total: recordsTotal, pageSize: recordsPageSize, pageSizeOptions: PAGE_SIZE_OPTIONS,
+          onChange: (p, ps) => loadRecords(p, ps),
         }}
       />
     </Card>

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Button, Col, Descriptions, Empty, Form, Input, InputNumber, Modal, Row, Select, Space, Spin, Switch, Table, Tag, message } from 'antd'
 import type { TablePaginationConfig, TableProps } from 'antd'
 import { getAdminWin568Games, getWin568CoverCandidates, toggleWin568Game, updateWin568Game, type AdminWin568Game, type CoverCandidate } from '../../api'
+import { PAGE_SIZE_OPTIONS, DEFAULT_PAGE_SIZE } from '../../pagination'
 
 interface Props { refreshKey: number }
 
@@ -106,6 +107,7 @@ export default function Win568GameList({ refreshKey }: Props) {
   const [providers, setProviders] = useState<string[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE)
   const [sortField, setSortField] = useState<string | undefined>()
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc' | undefined>()
   const [toggling, setToggling] = useState<string | null>(null)
@@ -155,14 +157,15 @@ export default function Win568GameList({ refreshKey }: Props) {
     }
   }
 
-  async function load(p = 1, clearFilters = false) {
+  async function load(p = 1, clearFilters = false, ps = pageSize) {
     setPage(p)
+    setPageSize(ps)
     setLoading(true)
     try {
       const eff = !clearFilters
       const res = await getAdminWin568Games({
         page: p,
-        pageSize: 20,
+        pageSize: ps,
         provider: eff && provider.length ? provider.join(',') : undefined,
         search: eff ? search || undefined : undefined,
         sortCategory: eff ? sortCategory : undefined,
@@ -257,7 +260,7 @@ export default function Win568GameList({ refreshKey }: Props) {
       setSortField(undefined)
       setSortOrder(undefined)
     }
-    void load(pag.current ?? 1)
+    void load(pag.current ?? 1, false, pag.pageSize ?? pageSize)
   }
 
   const columns = [
@@ -361,7 +364,7 @@ export default function Win568GameList({ refreshKey }: Props) {
     },
   ]
 
-  const pagination: TablePaginationConfig = { current: page, pageSize: 20, total, showTotal: (t) => `共 ${t} 款`, showSizeChanger: false }
+  const pagination: TablePaginationConfig = { current: page, pageSize, total, showTotal: (t) => `共 ${t} 款`, pageSizeOptions: PAGE_SIZE_OPTIONS }
 
   return (
     <>

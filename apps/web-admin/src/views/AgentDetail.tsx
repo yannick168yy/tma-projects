@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import { PAGE_SIZE_OPTIONS, DEFAULT_PAGE_SIZE } from '../pagination'
 import {
   Card, Descriptions, Button, Table, Tag, Space, Select, message, Popconfirm,
 } from 'antd'
@@ -23,6 +24,7 @@ export default function AgentDetail() {
   const [users, setUsers] = useState<AgentUser[]>([])
   const [usersTotal, setUsersTotal] = useState(0)
   const [usersPage, setUsersPage] = useState(1)
+  const [usersPageSize, setUsersPageSize] = useState(DEFAULT_PAGE_SIZE)
   const [commissions, setCommissions] = useState<AgentCommission[]>([])
   const [freeDomains, setFreeDomains] = useState<AgentDomain[]>([])
   const [freeBots, setFreeBots] = useState<AgentBot[]>([])
@@ -42,7 +44,7 @@ export default function AgentDetail() {
   }
   async function loadUsers() {
     if (!agentId) return
-    const data = await getAgentUsers(agentId, { page: usersPage, pageSize: 20 })
+    const data = await getAgentUsers(agentId, { page: usersPage, pageSize: usersPageSize })
     setUsers(data.items)
     setUsersTotal(data.total)
   }
@@ -52,7 +54,7 @@ export default function AgentDetail() {
   }
 
   useEffect(() => { void loadDetail(); void loadFree(); void loadCommissions() }, [agentId])
-  useEffect(() => { void loadUsers() }, [agentId, usersPage])
+  useEffect(() => { void loadUsers() }, [agentId, usersPage, usersPageSize])
 
   async function handleAssignDomain() {
     if (!agentId || !pickDomain) return
@@ -137,7 +139,7 @@ export default function AgentDetail() {
       <Card title="名下用户" size="small" style={{ marginBottom: 16 }} extra={<span style={{ color: '#999', fontSize: 12 }}>GGR 为本月（投注-派彩-赠金）</span>}>
         <Table<AgentUser>
           rowKey="user_id" size="small" dataSource={users}
-          pagination={{ current: usersPage, total: usersTotal, pageSize: 20, onChange: setUsersPage }}
+          pagination={{ current: usersPage, total: usersTotal, pageSize: usersPageSize, pageSizeOptions: PAGE_SIZE_OPTIONS, onChange: (p, ps) => { setUsersPage(p); setUsersPageSize(ps) } }}
           columns={[
             { title: '用户ID', dataIndex: 'user_id', render: (id) => <a onClick={() => navigate(`/users/${id}`)}>{id}</a> },
             { title: '昵称', dataIndex: 'display_name' },

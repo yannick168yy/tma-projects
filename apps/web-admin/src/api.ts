@@ -697,7 +697,7 @@ export interface TeamTreeMember {
 export const getTeamAgentTree = (userId: string, date?: string) =>
   get<{ l1Members: TeamTreeMember[] }>(`/admin/team/agents/${userId}/tree`, date ? { date } : undefined)
 
-export const getTeamCommissions = (params?: { period?: string; beneficiaryId?: string; status?: string; page?: number }) =>
+export const getTeamCommissions = (params?: { period?: string; beneficiaryId?: string; status?: string; page?: number; pageSize?: number }) =>
   get<{ items: TeamCommission[]; total: number; page: number; pageSize: number }>('/admin/team/commissions', params)
 
 export const triggerTeamSettle = (date: string, force = false) =>

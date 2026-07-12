@@ -24,6 +24,12 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev", "--prefix", "apps/web-tma", "--", "--port", "5176"],
       "port": 5176
+    },
+    {
+      "name": "web-admin",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--prefix", "apps/web-admin", "--", "--port", "5180"],
+      "port": 5180
     }
   ]
 }

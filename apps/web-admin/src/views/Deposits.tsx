@@ -4,6 +4,7 @@ import { Table, Space, Input, Select, Button, Tag, Grid, Card } from 'antd'
 import type { TablePaginationConfig } from 'antd'
 import { getDeposits, type AdminDeposit } from '../api'
 import { MobileCardList } from '../components/MobileCardList'
+import { PAGE_SIZE_OPTIONS, DEFAULT_PAGE_SIZE } from '../pagination'
 
 function depositStatusColor(s: string) {
   return ({ paid: 'green', pending: 'orange', failed: 'red', cancelled: 'default', rejected: 'red' } as Record<string, string>)[s] ?? 'default'
@@ -22,11 +23,12 @@ export default function Deposits() {
   const [items, setItems] = useState<AdminDeposit[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE)
 
-  async function load(p = 1) {
-    setPage(p); setLoading(true)
+  async function load(p = 1, ps = pageSize) {
+    setPage(p); setPageSize(ps); setLoading(true)
     try {
-      const res = await getDeposits({ page: p, pageSize: 20, userId: userIdFilter || undefined, status: statusFilter })
+      const res = await getDeposits({ page: p, pageSize: ps, userId: userIdFilter || undefined, status: statusFilter })
       setItems(res.items); setTotal(res.total)
     } finally { setLoading(false) }
   }
@@ -44,9 +46,10 @@ export default function Deposits() {
   ]
 
   const pagination: TablePaginationConfig = {
-    current: page, pageSize: 20, total,
+    current: page, pageSize, total,
     showTotal: (t) => `共 ${t} 条`,
-    onChange: (p) => load(p),
+    pageSizeOptions: PAGE_SIZE_OPTIONS,
+    onChange: (p, ps) => load(p, ps),
   }
 
   return (
@@ -63,7 +66,7 @@ export default function Deposits() {
       </Space>
       {isMobile ? (
         <MobileCardList
-          items={items} loading={loading} page={page} total={total} onPage={load}
+          items={items} loading={loading} page={page} total={total} pageSize={pageSize} onPage={load}
           renderItem={(r) => (
             <Card key={r.orderId} size="small" style={{ marginBottom: 10 }}
               title={<span style={{ fontFamily: 'monospace', fontSize: 12 }}>{r.orderId}</span>}

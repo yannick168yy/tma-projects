@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Card, Table, Input, Button, Tag, Space, Modal, Form, InputNumber, Select, message } from 'antd'
 import { getAgentList, createAgent, getAgentDomains, getAgentBots, type AgentListItem, type AgentDomain, type AgentBot } from '../api'
+import { PAGE_SIZE_OPTIONS, DEFAULT_PAGE_SIZE } from '../pagination'
 
 const peso = (c: number) => `₱${(c / 100).toFixed(2)}`
 
@@ -11,6 +12,7 @@ export default function Agents() {
   const [items, setItems] = useState<AgentListItem[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE)
   const [search, setSearch] = useState('')
   const [showCreate, setShowCreate] = useState(false)
   const [freeDomains, setFreeDomains] = useState<AgentDomain[]>([])
@@ -28,13 +30,13 @@ export default function Agents() {
   async function load() {
     setLoading(true)
     try {
-      const data = await getAgentList({ search, page, pageSize: 20 })
+      const data = await getAgentList({ search, page, pageSize })
       setItems(data.items)
       setTotal(data.total)
     } finally { setLoading(false) }
   }
 
-  useEffect(() => { void load() }, [page])
+  useEffect(() => { void load() }, [page, pageSize])
 
   async function handleCreate() {
     try {
@@ -66,7 +68,7 @@ export default function Agents() {
         rowKey="agent_id"
         loading={loading}
         dataSource={items}
-        pagination={{ current: page, total, pageSize: 20, onChange: setPage }}
+        pagination={{ current: page, total, pageSize, pageSizeOptions: PAGE_SIZE_OPTIONS, onChange: (p, ps) => { setPage(p); setPageSize(ps) } }}
         columns={[
           { title: '代理ID', dataIndex: 'agent_id' },
           { title: '名称', render: (_, r) => r.name || r.display_name },

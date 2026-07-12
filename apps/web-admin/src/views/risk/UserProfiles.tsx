@@ -5,6 +5,7 @@ import {
   type RiskUserDetail, type RiskUserItem,
 } from '../../api'
 import { actionTag, scoreTag, sourceTag, tagLabel } from './shared'
+import { PAGE_SIZE_OPTIONS } from '../../pagination'
 
 const TAG_OPTIONS = [
   { value: 'risk.bonus_abuse', label: '薅优惠党' },
@@ -79,7 +80,7 @@ export default function RiskUserProfiles() {
         size="small"
         loading={loading}
         dataSource={items}
-        pagination={{ pageSize: 20 }}
+        pagination={{ pageSize: 20, pageSizeOptions: PAGE_SIZE_OPTIONS }}
         columns={[
           { title: '用户', dataIndex: 'userId', render: (id: string) => <a onClick={() => void openDetail(id)}>{id}</a> },
           { title: '风险分', dataIndex: 'riskScore', render: scoreTag, sorter: (a, b) => a.riskScore - b.riskScore, defaultSortOrder: 'descend' },

@@ -14,6 +14,7 @@ import {
   getWin568ProviderStats, getAdminWin568Games,
   type RebateConfigItem, type RebateThresholdItem, type RebateFeaturedGame, type RebateRecord, type AdminWin568Game,
 } from '../api'
+import { PAGE_SIZE_OPTIONS, DEFAULT_PAGE_SIZE } from '../pagination'
 
 const { Title, Text } = Typography
 
@@ -65,6 +66,7 @@ export default function Rebate({ tab = 'config' }: { tab?: RebateTab }) {
   const [records, setRecords] = useState<RebateRecord[]>([])
   const [recordsTotal, setRecordsTotal] = useState(0)
   const [recordsPage, setRecordsPage] = useState(1)
+  const [recordsPageSize, setRecordsPageSize] = useState(DEFAULT_PAGE_SIZE)
   const [recordsLoading, setRecordsLoading] = useState(false)
   const [recordsDate, setRecordsDate] = useState<string | undefined>()
   const [recordsUser, setRecordsUser] = useState('')
@@ -92,18 +94,19 @@ export default function Rebate({ tab = 'config' }: { tab?: RebateTab }) {
     } finally { setFeaturedLoading(false) }
   }
 
-  async function loadRecords(page = 1) {
+  async function loadRecords(page = 1, ps = recordsPageSize) {
     setRecordsLoading(true)
     try {
       const res = await getRebateRecords({
         page,
-        pageSize: 50,
+        pageSize: ps,
         date: recordsDate,
         userId: recordsUser || undefined,
       })
       setRecords(res.items)
       setRecordsTotal(res.total)
       setRecordsPage(page)
+      setRecordsPageSize(ps)
     } catch (e) {
       message.error(e instanceof Error ? e.message : '加载失败')
     } finally { setRecordsLoading(false) }
@@ -460,8 +463,9 @@ export default function Rebate({ tab = 'config' }: { tab?: RebateTab }) {
         pagination={{
           total: recordsTotal,
           current: recordsPage,
-          pageSize: 50,
-          onChange: (p) => void loadRecords(p),
+          pageSize: recordsPageSize,
+          pageSizeOptions: PAGE_SIZE_OPTIONS,
+          onChange: (p, ps) => void loadRecords(p, ps),
           showTotal: (t) => `共 ${t} 条`,
         }}
         columns={[

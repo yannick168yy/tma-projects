@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { Table, Tag, Select, Button, Space, Switch, Card, InputNumber, message, Grid } from 'antd'
 import { getKycList, getKycSettings, setKycSettings, type AdminKycListItem, type KycStepSettings } from '../api'
 import { MobileCardList } from '../components/MobileCardList'
+import { PAGE_SIZE_OPTIONS, DEFAULT_PAGE_SIZE } from '../pagination'
 
 function kycStatusTag(status: string) {
   const map: Record<string, { color: string; label: string }> = {
@@ -23,6 +24,7 @@ export default function KycList() {
   const [items, setItems] = useState<AdminKycListItem[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE)
   const [status, setStatus] = useState<string | undefined>()
   const [cfg, setCfg] = useState<KycStepSettings | null>(null)
   const [savingCfg, setSavingCfg] = useState(false)
@@ -45,13 +47,13 @@ export default function KycList() {
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await getKycList({ page, pageSize: 20, status })
+      const res = await getKycList({ page, pageSize, status })
       setItems(res.items)
       setTotal(res.total)
     } finally {
       setLoading(false)
     }
-  }, [page, status])
+  }, [page, pageSize, status])
 
   useEffect(() => { void load() }, [load])
 
@@ -144,7 +146,7 @@ export default function KycList() {
       </div>
       {isMobile ? (
         <MobileCardList
-          items={items} loading={loading} page={page} total={total} onPage={setPage}
+          items={items} loading={loading} page={page} total={total} pageSize={pageSize} onPage={setPage}
           renderItem={(r) => {
             const ts = r.faceSubmittedAt ?? r.docSubmittedAt ?? r.submittedAt
             return (
@@ -175,7 +177,7 @@ export default function KycList() {
           loading={loading}
           columns={columns}
           dataSource={items}
-          pagination={{ current: page, total, pageSize: 20, onChange: setPage }}
+          pagination={{ current: page, total, pageSize, pageSizeOptions: PAGE_SIZE_OPTIONS, onChange: (p, ps) => { setPage(p); setPageSize(ps) } }}
         />
       )}
     </div>

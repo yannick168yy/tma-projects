@@ -13,6 +13,7 @@ import {
   type SpinPrize,
   type SpinRecord,
 } from '../api'
+import { PAGE_SIZE_OPTIONS, DEFAULT_PAGE_SIZE } from '../pagination'
 import { SPIN_PRIZE_IMAGES } from '../assets/spin/prizeImages'
 
 const { Title, Text } = Typography
@@ -261,6 +262,7 @@ export default function RewardsSpin() {
   const [records, setRecords] = useState<SpinRecord[]>([])
   const [recordTotal, setRecordTotal] = useState(0)
   const [recordPage, setRecordPage] = useState(1)
+  const [recordPageSize, setRecordPageSize] = useState(DEFAULT_PAGE_SIZE)
   const [userId, setUserId] = useState('')
   const [form] = Form.useForm<SpinConfig>()
   const watchedRules = Form.useWatch('depositRules', form) ?? []
@@ -276,13 +278,14 @@ export default function RewardsSpin() {
     }
   }
 
-  async function loadRecords(page = recordPage, uid = userId) {
+  async function loadRecords(page = recordPage, uid = userId, ps = recordPageSize) {
     setRecordsLoading(true)
     try {
-      const res = await getSpinRecords({ page, pageSize: 20, userId: uid.trim() || undefined })
+      const res = await getSpinRecords({ page, pageSize: ps, userId: uid.trim() || undefined })
       setRecords(res.items)
       setRecordTotal(res.total)
       setRecordPage(res.page)
+      setRecordPageSize(ps)
     } catch (e) {
       message.error(e instanceof Error ? e.message : '记录加载失败')
     } finally {
@@ -439,10 +442,11 @@ export default function RewardsSpin() {
                   columns={recordColumns}
                   pagination={{
                     current: recordPage,
-                    pageSize: 20,
+                    pageSize: recordPageSize,
                     total: recordTotal,
                     showTotal: (t) => `共 ${t} 条`,
-                    onChange: (p) => void loadRecords(p),
+                    pageSizeOptions: PAGE_SIZE_OPTIONS,
+                    onChange: (p, ps) => void loadRecords(p, userId, ps),
                   }}
                 />
               </>

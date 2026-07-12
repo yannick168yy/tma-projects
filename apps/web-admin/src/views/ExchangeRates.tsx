@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef, useMemo } from 'react'
 import { Table, Button, Space, Tag, Modal, Form, InputNumber, Alert, Collapse, message } from 'antd'
 import { SyncOutlined } from '@ant-design/icons'
+import { PAGE_SIZE_OPTIONS } from '../pagination'
 import {
   getExchangeRates, getRateHistory, refreshExchangeRates,
   setManualRate, clearManualRate,
@@ -172,7 +173,7 @@ export default function ExchangeRates() {
       <Collapse items={[{
         key: 'history',
         label: '汇率历史记录（最近 1000 条，按批次合并）',
-        children: <Table dataSource={history} columns={historyColumns} rowKey="id" loading={histLoading} size="small" scroll={{ x: 1200 }} pagination={{ pageSize: 20, showSizeChanger: false }} />,
+        children: <Table dataSource={history} columns={historyColumns} rowKey="id" loading={histLoading} size="small" scroll={{ x: 1200 }} pagination={{ pageSize: 20, pageSizeOptions: PAGE_SIZE_OPTIONS }} />,
       }]} />
 
       <Modal

@@ -9,7 +9,7 @@ import App from './App'
 
 createRoot(document.getElementById('app')!).render(
   <StrictMode>
-    <ConfigProvider locale={zhCN} theme={{ token: { colorPrimary: '#1677ff' } }}>
+    <ConfigProvider locale={zhCN} pagination={{ showSizeChanger: true }} theme={{ token: { colorPrimary: '#1677ff' } }}>
       <App />
     </ConfigProvider>
   </StrictMode>,
