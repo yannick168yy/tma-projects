@@ -15,6 +15,16 @@ const CHECKPOINT_LABEL: Record<string, string> = {
   withdraw: '提现申请',
 }
 
+// 规则说明：与后端 risk.service.ts 的判定逻辑一一对应
+const RULE_DESC: Record<string, string> = {
+  blacklist_user: '用户 ID 命中风控名单（黑名单表 type=user）。命中即按动作处置，无阈值。',
+  blacklist_ip: '本次请求的客户端 IP 命中风控名单（type=ip）。IP 在下单时才拿得到，无阈值。',
+  blacklist_device: '本次请求的设备指纹 device_id 命中风控名单（type=device）。无阈值。',
+  blacklist_region: '本次请求所在地区命中风控名单（type=region）。主要用于登录 / 注册管控点，无阈值。',
+  bonus_abuse: '薅彩金党：彩金/充值比 bonus_ratio ≥ minRatio（默认 1.5）且成功提现数 withdraw_count ≥ minWithdrawCount（默认 1）。读每日重算的风险信号快照。',
+  multi_account: '多账户 / 工作室：同一 device_id 关联的账号数 device_shared_users ≥ minSharedUsers（默认 3）。读风险信号快照。',
+}
+
 export default function RiskPolicies() {
   const [rows, setRows] = useState<RiskPolicyItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -66,8 +76,12 @@ export default function RiskPolicies() {
         dataSource={rows}
         pagination={false}
         columns={[
-          { title: '管控点', dataIndex: 'checkpoint', render: (c: string) => CHECKPOINT_LABEL[c] ?? c },
-          { title: '规则', dataIndex: 'ruleCode', render: (c: string) => <code>{c}</code> },
+          { title: '管控点', dataIndex: 'checkpoint', width: 110, render: (c: string) => CHECKPOINT_LABEL[c] ?? c },
+          { title: '规则', dataIndex: 'ruleCode', width: 150, render: (c: string) => <code>{c}</code> },
+          {
+            title: '规则说明', dataIndex: 'ruleCode', key: 'ruleDesc',
+            render: (c: string) => <span style={{ color: '#666', fontSize: 12 }}>{RULE_DESC[c] ?? '—'}</span>,
+          },
           {
             title: '启用', dataIndex: 'enabled', width: 90,
             render: (v: boolean, r) => <Switch checked={v} onChange={(checked) => update(r.checkpoint, r.ruleCode, { enabled: checked })} />,
