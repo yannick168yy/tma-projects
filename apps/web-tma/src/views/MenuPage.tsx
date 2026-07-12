@@ -237,6 +237,8 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
   const phoneVerified = kycApproved || Boolean(kycStatus?.phoneVerified)
   const docVerified = kycApproved || Boolean(kycStatus?.docVerified)
   const faceVerified = kycApproved || Boolean(kycStatus?.faceVerified)
+  const currentVipLevel = vipLevel ?? 1
+  const nextVipLevel = currentVipLevel + 1
 
   const SUPPORT_ITEMS = [
     { icon: '21_live_chat', label: t('profile.supportItems.liveChat'), sub: t('profile.supportItems.liveChatSub'), badge: t('common.online'), onClick: onOpenCs },
@@ -342,23 +344,25 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
     <div className="page-main min-h-full pb-24">
       <div className="px-4 pb-1 pt-3">
         <div
-          className="relative overflow-hidden rounded-3xl shadow-[0_18px_40px_rgba(0,0,0,0.32)]"
+          className="relative overflow-hidden rounded-[28px] border border-[#d7a83d] bg-[#070c15] shadow-[0_18px_40px_rgba(0,0,0,0.32)]"
         >
-          <button type="button" className="relative flex min-h-[58px] w-full items-center gap-2.5 overflow-hidden px-4 py-3 text-left" onClick={onOpenVipCenter}>
-            <img src={vipHeaderBg} alt="" aria-hidden="true" className="pointer-events-none absolute inset-0 h-full w-full object-fill" />
-            <span className="relative flex min-w-0 flex-1 items-center gap-2.5">
-              <img src={vipCrown} alt="" aria-hidden="true" className="h-7 w-9 flex-shrink-0 object-contain" />
-              <span className="font-display text-2xl font-black leading-none text-[#ffe58b] drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)]">VIP {vipLevel ?? 1}</span>
-              <span className="h-7 w-px flex-shrink-0 bg-[#f5d57a]/45" />
-              <span className="min-w-0 truncate text-[11px] font-semibold text-white/80">{t('menu.vipHeaderHint')}</span>
+          <button type="button" className="relative flex h-[72px] w-full items-center gap-3 overflow-hidden px-5 text-left" onClick={onOpenVipCenter}>
+            <img src={vipHeaderBg} alt="" aria-hidden="true" className="pointer-events-none absolute inset-0 h-full w-full object-cover" />
+            <span className="relative flex min-w-0 flex-1 items-center gap-3">
+              <img src={vipCrown} alt="" aria-hidden="true" className="h-9 w-11 flex-shrink-0 object-contain" />
+              <span className="whitespace-nowrap font-display text-[32px] font-black leading-none text-[#ffe48a] drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)]">VIP {currentVipLevel}</span>
+              <span className="h-8 w-px flex-shrink-0 bg-[#f5d57a]/55" />
+              <span className="min-w-0 truncate text-sm font-medium text-white/82">
+                {t('menu.vipHeaderHint')} <span className="font-black text-[#ffe48a]">VIP {nextVipLevel}</span>
+              </span>
             </span>
-            <span className="relative flex flex-shrink-0 items-center gap-1 rounded-xl bg-gradient-to-b from-[#ffe19a] to-[#d9a336] px-3 py-2 text-[11px] font-black text-[#18130b] shadow-[inset_0_1px_0_rgba(255,255,255,0.65)]">
+            <span className="relative flex h-11 flex-shrink-0 items-center gap-1.5 whitespace-nowrap rounded-[18px] border border-[#ffe7a6]/80 bg-gradient-to-b from-[#ffe7a6] to-[#e5b23f] px-4 text-sm font-black text-[#15110a] shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]">
               {t('menu.enterVipCenter')}
-              <ChevronRight size={13} strokeWidth={3} />
+              <ChevronRight size={16} strokeWidth={3} />
             </span>
           </button>
 
-          <div className="relative -mt-1 rounded-t-[1.75rem] px-4 pb-3 pt-4" style={{ background: 'linear-gradient(135deg, #e2af37 0%, #c79023 52%, #946615 100%)' }}>
+          <div className="relative rounded-t-[28px] border-t border-[#e9bc48]/70 px-4 pb-3 pt-4" style={{ background: 'linear-gradient(135deg, #e2af37 0%, #c79023 52%, #946615 100%)' }}>
             <img
               src={menuCasino}
               alt=""
@@ -382,7 +386,7 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
                         <User size={25} />
                       )}
                     </div>
-                    <span className="absolute -right-1 -top-1 rounded-full bg-zinc-900 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wide text-amber-300 shadow">VIP{vipLevel ?? 1}</span>
+                    <span className="absolute -right-1 -top-1 rounded-full bg-zinc-900 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wide text-amber-300 shadow">VIP{currentVipLevel}</span>
                   </div>
                   <div className="min-w-0 flex-1 pt-0.5">
                     <p className="mb-1 text-[10px] font-black uppercase tracking-wide text-black/45">{t('profile.playerAccount')}</p>

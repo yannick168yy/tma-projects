@@ -398,7 +398,7 @@ export default {
     walletTopUp: 'Isi Ulang',
     walletCashOut: 'Tarik Dana',
     walletRecords: 'Riwayat',
-    vipHeaderHint: 'Buka lebih banyak reward VIP',
+    vipHeaderHint: 'Kumpulkan poin VIP untuk naik ke',
     enterVipCenter: 'Masuk VIP Center',
     sections: {
       theme: 'Tema Game',
