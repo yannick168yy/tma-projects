@@ -46,11 +46,17 @@ router.get('/overview', async (ctx) => {
 router.get('/users', async (ctx) => {
   const pool = db(ctx); if (!pool) return
   const tag = String(ctx.query.tag ?? '').trim()
+  const userId = String(ctx.query.userId ?? '').trim()
   const minScore = Number(ctx.query.minScore ?? 0)
+  const minDeviceShared = Number(ctx.query.minDeviceShared ?? 0)
+  const minBonusRatio = Number(ctx.query.minBonusRatio ?? 0)
   const limit = Math.min(200, Math.max(1, Number(ctx.query.limit ?? 50)))
 
   const where: string[] = ['s.risk_score >= ?']
   const params: unknown[] = [Number.isFinite(minScore) ? minScore : 0]
+  if (userId) { where.push('s.user_id LIKE ?'); params.push(`%${userId}%`) }
+  if (Number.isFinite(minDeviceShared) && minDeviceShared > 0) { where.push('s.device_shared_users >= ?'); params.push(minDeviceShared) }
+  if (Number.isFinite(minBonusRatio) && minBonusRatio > 0) { where.push('s.bonus_ratio >= ?'); params.push(minBonusRatio) }
   if (tag) { where.push('EXISTS (SELECT 1 FROM bg_user_tag t2 WHERE t2.user_id = s.user_id AND t2.tag_code = ?)'); params.push(tag) }
 
   const [rows] = await pool.query<RowDataPacket[]>(

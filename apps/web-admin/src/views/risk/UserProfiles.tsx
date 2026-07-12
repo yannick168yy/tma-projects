@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Button, Card, Drawer, Descriptions, Form, Input, InputNumber, Modal, Popconfirm, Select, Space, Table, Tag, message } from 'antd'
+import { Button, Card, Checkbox, Drawer, Descriptions, Form, Input, InputNumber, Modal, Popconfirm, Select, Space, Table, Tag, message } from 'antd'
 import {
   addRiskTag, getRiskUser, getRiskUsers, removeRiskTag,
+  getBlacklist, addBlacklist, removeBlacklist,
   type RiskUserDetail, type RiskUserItem,
 } from '../../api'
 import { actionTag, scoreTag, sourceTag, tagLabel } from './shared'
@@ -18,23 +19,63 @@ export default function RiskUserProfiles() {
   const [loading, setLoading] = useState(false)
   const [tag, setTag] = useState<string | undefined>()
   const [minScore, setMinScore] = useState(0)
+  const [minDeviceShared, setMinDeviceShared] = useState(0)
+  const [minBonusRatio, setMinBonusRatio] = useState(0)
+  const [userIdInput, setUserIdInput] = useState('')
+  const [userIdQuery, setUserIdQuery] = useState('')
+  const [onlyBlacklisted, setOnlyBlacklisted] = useState(false)
+  // userId -> 名单记录 id，用于展示状态与移出名单
+  const [blacklistMap, setBlacklistMap] = useState<Map<string, number>>(new Map())
   const [detail, setDetail] = useState<RiskUserDetail | null>(null)
   const [detailUser, setDetailUser] = useState<string | null>(null)
   const [tagModal, setTagModal] = useState(false)
   const [form] = Form.useForm()
+  // 加入名单弹窗
+  const [blockModal, setBlockModal] = useState<{ open: boolean; userId: string; reason: string }>({ open: false, userId: '', reason: '' })
+  const [blocking, setBlocking] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await getRiskUsers({ tag, minScore, limit: 100 })
+      const [res, bl] = await Promise.all([
+        getRiskUsers({ tag, minScore, minDeviceShared, minBonusRatio, userId: userIdQuery || undefined, limit: 100 }),
+        getBlacklist('user'),
+      ])
       setItems(res.items)
+      setBlacklistMap(new Map(bl.items.map((b) => [b.value, b.id])))
     } catch (e) {
       message.error(e instanceof Error ? e.message : '加载失败')
     } finally {
       setLoading(false)
     }
-  }, [tag, minScore])
+  }, [tag, minScore, minDeviceShared, minBonusRatio, userIdQuery])
   useEffect(() => { void load() }, [load])
+
+  async function confirmBlock() {
+    setBlocking(true)
+    try {
+      await addBlacklist({ type: 'user', value: blockModal.userId, reason: blockModal.reason || undefined })
+      message.success('已加入风控名单')
+      setBlockModal({ open: false, userId: '', reason: '' })
+      await load()
+    } catch (e) {
+      message.error(e instanceof Error ? e.message : '加入失败（需权限）')
+    } finally {
+      setBlocking(false)
+    }
+  }
+
+  async function unblock(id: number) {
+    try {
+      await removeBlacklist(id)
+      message.success('已移出风控名单')
+      await load()
+    } catch (e) {
+      message.error(e instanceof Error ? e.message : '移出失败')
+    }
+  }
+
+  const shown = onlyBlacklisted ? items.filter((r) => blacklistMap.has(r.userId)) : items
 
   const openDetail = useCallback(async (userId: string) => {
     setDetailUser(userId)
@@ -65,21 +106,27 @@ export default function RiskUserProfiles() {
   }
 
   return (
-    <Card
-      title="用户风险画像"
-      extra={
-        <Space>
-          <Select allowClear placeholder="按标签筛选" style={{ width: 160 }} value={tag} onChange={setTag} options={TAG_OPTIONS} />
-          <InputNumber min={0} max={100} value={minScore} onChange={(v) => setMinScore(v ?? 0)} addonBefore="风险分 ≥" style={{ width: 150 }} />
-          <Button onClick={() => void load()}>刷新</Button>
-        </Space>
-      }
-    >
+    <Card title="用户风险画像">
+      <Space wrap style={{ marginBottom: 16 }}>
+        <Input.Search
+          allowClear placeholder="用户ID" style={{ width: 180 }}
+          value={userIdInput}
+          onChange={(e) => setUserIdInput(e.target.value)}
+          onSearch={(v) => setUserIdQuery(v.trim())}
+        />
+        <Select allowClear placeholder="按标签筛选" style={{ width: 160 }} value={tag} onChange={setTag} options={TAG_OPTIONS} />
+        <InputNumber min={0} max={100} value={minScore} onChange={(v) => setMinScore(v ?? 0)} addonBefore="风险分 ≥" style={{ width: 150 }} />
+        <InputNumber min={0} value={minDeviceShared} onChange={(v) => setMinDeviceShared(v ?? 0)} addonBefore="同设备账号 ≥" style={{ width: 180 }} />
+        <InputNumber min={0} step={0.5} value={minBonusRatio} onChange={(v) => setMinBonusRatio(v ?? 0)} addonBefore="彩金/充值 ≥" style={{ width: 190 }} />
+        <Checkbox checked={onlyBlacklisted} onChange={(e) => setOnlyBlacklisted(e.target.checked)}>仅名单用户</Checkbox>
+        <Button onClick={() => void load()}>刷新</Button>
+      </Space>
       <Table
         rowKey="userId"
         size="small"
         loading={loading}
-        dataSource={items}
+        dataSource={shown}
+        scroll={{ x: 1100 }}
         pagination={{ pageSize: 20, pageSizeOptions: PAGE_SIZE_OPTIONS }}
         columns={[
           { title: '用户', dataIndex: 'userId', render: (id: string) => <a onClick={() => void openDetail(id)}>{id}</a> },
@@ -91,6 +138,19 @@ export default function RiskUserProfiles() {
           { title: '提现次数', dataIndex: 'withdrawCount' },
           { title: '同设备账号', dataIndex: 'deviceSharedUsers', render: (v: number) => v >= 3 ? <Tag color="red">{v}</Tag> : v },
           { title: '同IP账号', dataIndex: 'ipSharedUsers' },
+          {
+            title: '名单', key: 'blacklist', fixed: 'right', width: 120,
+            render: (_: unknown, r: RiskUserItem) => {
+              const blId = blacklistMap.get(r.userId)
+              return blId
+                ? (
+                  <Popconfirm title="将该用户移出风控名单？" onConfirm={() => void unblock(blId)}>
+                    <Space size={4}><Tag color="red">已在名单</Tag><a style={{ color: '#1677ff' }}>移出</a></Space>
+                  </Popconfirm>
+                )
+                : <a onClick={() => setBlockModal({ open: true, userId: r.userId, reason: '' })}>加入名单</a>
+            },
+          },
         ]}
       />
 
@@ -165,6 +225,24 @@ export default function RiskUserProfiles() {
             <Input.TextArea rows={3} placeholder="例：核对注单后确认为对冲套利" />
           </Form.Item>
         </Form>
+      </Modal>
+
+      <Modal
+        open={blockModal.open}
+        title={`加入风控名单 · ${blockModal.userId}`}
+        confirmLoading={blocking}
+        okText="确认加入"
+        okButtonProps={{ danger: true }}
+        onCancel={() => setBlockModal({ open: false, userId: '', reason: '' })}
+        onOk={() => void confirmBlock()}
+      >
+        <p style={{ color: '#cf1322', marginBottom: 12 }}>名单立即生效：登录/注册、优惠领取将被拒绝，提现将转人工审核。</p>
+        <Input.TextArea
+          rows={3}
+          placeholder="原因（选填，供日后复核与用户申诉）"
+          value={blockModal.reason}
+          onChange={(e) => setBlockModal((m) => ({ ...m, reason: e.target.value }))}
+        />
       </Modal>
     </Card>
   )

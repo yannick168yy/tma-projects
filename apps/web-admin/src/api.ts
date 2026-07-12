@@ -1217,7 +1217,7 @@ export interface RiskUserItem {
   riskScore: number; computedAt: string
   tags: { tagCode: string; source: string }[]
 }
-export const getRiskUsers = (params?: { tag?: string; minScore?: number; limit?: number }) =>
+export const getRiskUsers = (params?: { tag?: string; minScore?: number; limit?: number; userId?: string; minDeviceShared?: number; minBonusRatio?: number }) =>
   get<{ items: RiskUserItem[] }>('/admin/risk/users', params)
 
 export interface RiskUserTag {
