@@ -64,7 +64,7 @@ export default function GameCardV2({ game, onTap, size, showLive }: Props) {
         </div>
       )}
       {game.provider && (
-        <span className={`absolute top-1 right-1 rounded-md bg-black/60 font-bold leading-tight text-white/90 pointer-events-none ${size === 'lg' ? 'px-2 py-0.5 text-[13px]' : 'px-1 py-px text-[8px]'}`}>
+        <span className={`absolute top-1 right-1 rounded-md bg-black/60 font-bold leading-tight text-white/90 pointer-events-none ${size === 'lg' ? 'px-1.5 py-0.5 text-[12px]' : 'px-1 py-px text-[8px]'}`}>
           {shortProviderName(game.provider)}
         </span>
       )}
@@ -75,7 +75,7 @@ export default function GameCardV2({ game, onTap, size, showLive }: Props) {
           src={CASHBACK_BADGE[game.cashbackTier]}
           alt=""
           draggable={false}
-          className={`absolute top-0 left-0 pointer-events-none ${size === 'lg' ? 'w-[42%]' : 'w-[52%]'}`}
+          className={`absolute top-0 left-0 pointer-events-none ${size === 'lg' ? 'w-[37%]' : 'w-[52%]'}`}
         />
       )}
       {showLive && (
