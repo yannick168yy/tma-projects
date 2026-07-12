@@ -348,22 +348,23 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
           className="relative overflow-hidden rounded-[28px] border border-[#d7a83d] bg-[#070c15] shadow-[0_18px_40px_rgba(0,0,0,0.32)]"
         >
           {isLoggedIn && (
-            <div className="relative flex items-center gap-2 overflow-hidden px-3.5 py-2">
+            <div className="relative flex items-center gap-2.5 overflow-hidden px-3.5 py-2">
               <img src={vipHeaderBg} alt="" aria-hidden="true" className="pointer-events-none absolute inset-0 h-full w-full object-cover" />
-              <img src={vipCrown} alt="" aria-hidden="true" className="relative h-[26px] w-auto flex-shrink-0 object-contain drop-shadow-[0_2px_3px_rgba(0,0,0,0.45)]" />
-              <span className="relative whitespace-nowrap font-display text-xl font-black leading-none text-[#f6dea5] drop-shadow-[0_1px_2px_rgba(0,0,0,0.45)]">VIP {currentVipLevel}</span>
-              <span className="relative h-[22px] w-px flex-shrink-0 bg-[#e9c970]/50" />
-              <p className="relative min-w-0 flex-1 truncate text-[9px] font-medium leading-tight text-[#cfcfd4]">
-                {nextVipLevel != null && vipPointsToNext != null ? (
-                  <Trans
-                    i18nKey="menu.vipHeaderEarn"
-                    values={{ points: vipPointsToNext.toLocaleString('en-US'), next: nextVipLevel }}
-                    components={{ g: <span className="font-extrabold text-[#f0c24a]" /> }}
-                  />
-                ) : (
-                  t('menu.vipHeaderMax')
-                )}
-              </p>
+              <img src={vipCrown} alt="" aria-hidden="true" className="relative h-9 w-auto flex-shrink-0 object-contain drop-shadow-[0_2px_3px_rgba(0,0,0,0.45)]" />
+              <div className="relative min-w-0 flex-1 leading-tight">
+                <div className="font-display text-lg font-black leading-none text-[#f6dea5] drop-shadow-[0_1px_2px_rgba(0,0,0,0.45)]">VIP {currentVipLevel}</div>
+                <p className="mt-[3px] truncate text-[10px] font-medium leading-tight text-[#cfcfd4]">
+                  {nextVipLevel != null && vipPointsToNext != null ? (
+                    <Trans
+                      i18nKey="menu.vipHeaderEarn"
+                      values={{ points: vipPointsToNext.toLocaleString('en-US'), next: nextVipLevel }}
+                      components={{ g: <span className="font-extrabold text-[#f0c24a]" /> }}
+                    />
+                  ) : (
+                    t('menu.vipHeaderMax')
+                  )}
+                </p>
+              </div>
               <button
                 type="button"
                 className="relative flex flex-shrink-0 items-center gap-0.5 whitespace-nowrap rounded-full bg-gradient-to-r from-[#f8ebbb] to-[#e4b750] px-2.5 py-1.5 text-[10px] font-black text-[#1b1c19] shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] transition-transform active:scale-[0.97]"
