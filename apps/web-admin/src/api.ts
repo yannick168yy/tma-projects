@@ -775,10 +775,20 @@ export interface PopupConfig {
   audience: PopupAudience
   frequency: PopupFrequency
 }
+export interface RedepConfig {
+  enabled: boolean
+  minDeposit: number
+  bonusAmount: number
+  windowHours: number
+  cooldownDays: number
+  turnoverX: number
+  turnoverDays: number
+}
 export interface PromoConfig {
   trial:    { amount: number; enabled: boolean; turnoverX: number; turnoverDays: number }
   firstdep: { enabled: boolean; turnoverX: number; turnoverDays: number; tiers: Record<string, FirstDepTier[]> }
   appdl:    { amount: number; enabled: boolean; turnoverX: number; turnoverDays: number }
+  redep:    RedepConfig
   popups:   PopupConfig[]
 }
 export const getPromoConfig = () => get<PromoConfig>('/admin/promotions/config')

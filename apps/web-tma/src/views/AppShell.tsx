@@ -21,7 +21,7 @@ import { isInsideTelegram } from '@/utils/initTelegramWebApp'
 import { usePromotionStore } from '@/stores/promotion'
 import { notifyTasksRefresh } from '@/api/tasks'
 import { useActiveTaskStore } from '@/stores/activeTask'
-import { claimAppdlBonus, fetchNewPlayerSummary, matchPopupAudience, type NewPlayerSummary } from '@/api/promotion'
+import { claimAppdlBonus, fetchNewPlayerSummary, fetchRedepOffer, matchPopupAudience, type NewPlayerSummary, type RedepOffer } from '@/api/promotion'
 import TopDownloadBar from '@/components/pwa/TopDownloadBar'
 import ActiveTaskBar from '@/components/tasks/ActiveTaskBar'
 import OrientationGuard from '@/components/OrientationGuard'
@@ -54,9 +54,11 @@ const NewPlayerGiftSheet = lazyWithReload(() => import('@/components/promotion/N
 const CheckinSheet = lazyWithReload(() => import('@/components/promotion/CheckinSheet'))
 const TrialWelcomeSheet = lazyWithReload(() => import('@/components/promotion/TrialWelcomeSheet'))
 const TrialClaimModal = lazyWithReload(() => import('@/components/promotion/TrialClaimModal'))
+const RedepOfferSheet = lazyWithReload(() => import('@/components/promotion/RedepOfferSheet'))
 
 const NEW_PLAYER_POPUP_KEY = 'betogo_popup_new_player'
 const TRIAL_POPUP_KEY = 'betogo_popup_trial'
+const REDEP_POPUP_KEY = 'betogo_popup_redep'
 
 type NavId = (typeof NAV_ITEMS)[number]['id']
 
@@ -139,6 +141,8 @@ export default function AppShell() {
   const [spinInitialKind, setSpinInitialKind] = useState<'deposit' | 'checkin' | undefined>(undefined)
   const [trialWelcomeOpen, setTrialWelcomeOpen] = useState(false)
   const [trialClaimOpen, setTrialClaimOpen] = useState(false)
+  const [redepOffer, setRedepOffer] = useState<RedepOffer | null>(null)
+  const [redepSheetOpen, setRedepSheetOpen] = useState(false)
   // 本会话最多自动弹一个进站弹窗，避免新人礼包与首席体验官同时弹出
   const autoPopupFired = useRef(false)
   const inTelegram = isInsideTelegram()
@@ -201,6 +205,22 @@ export default function AppShell() {
     setTrialWelcomeOpen(false)
     setTrialClaimOpen(true)
   }
+
+  // 复充限时优惠进站弹窗：登录后拉取（后端按人群惰性开窗），同一窗口只自动弹一次
+  useEffect(() => {
+    if (!auth.token) { setRedepOffer(null); return }
+    fetchRedepOffer().then(setRedepOffer).catch(() => setRedepOffer(null))
+  }, [auth.token])
+
+  useEffect(() => {
+    if (autoPopupFired.current || !redepOffer?.active || !redepOffer.endsAt) return
+    if (view.type !== 'none' || activeNav !== 'casino' || gamePlayerUrl) return
+    if (new Date(redepOffer.endsAt).getTime() <= Date.now()) return
+    if (localStorage.getItem(REDEP_POPUP_KEY) === redepOffer.endsAt) return
+    autoPopupFired.current = true
+    localStorage.setItem(REDEP_POPUP_KEY, redepOffer.endsAt)
+    setRedepSheetOpen(true)
+  }, [redepOffer, view.type, activeNav, gamePlayerUrl])
 
   function openNewPlayerGift() {
     setWalletOpen(false)
@@ -725,6 +745,16 @@ export default function AppShell() {
           amountPhp={promoConfig?.trial.amount ?? 0}
           onClose={() => { setTrialClaimOpen(false); void refreshNpSummary(); notifyTasksRefresh() }}
         />
+
+        {redepSheetOpen && redepOffer?.active && redepOffer.endsAt && (
+          <RedepOfferSheet
+            minDeposit={redepOffer.minDeposit ?? 0}
+            bonusAmount={redepOffer.bonusAmount ?? 0}
+            endsAt={redepOffer.endsAt}
+            onDeposit={() => { setRedepSheetOpen(false); void openWallet() }}
+            onDismiss={() => setRedepSheetOpen(false)}
+          />
+        )}
 
         <CheckinSheet open={checkinOpen} onClose={() => { setCheckinOpen(false); notifyTasksRefresh() }} onOpenSpin={() => onOpenRewardsSpin('checkin')} />
       </Suspense>

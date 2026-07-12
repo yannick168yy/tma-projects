@@ -13,6 +13,7 @@ import { nowIso } from '../utils/format.js'
 import { createDepositRequirement, createPromoRequirement } from './turnover.service.js'
 import { getFirstDepConfigByPool, matchFirstDepBonus, PROMO_DEFAULTS } from './promo-config.service.js'
 import { evaluateWithPool } from './risk.service.js'
+import { applyRedepPromo } from './redep.service.js'
 
 export type DepositCurrency = 'PHP' | 'USDT'
 
@@ -133,6 +134,11 @@ export async function settlePaidDeposit(
   })
 
   await applyFirstDepPromo(redis, order.userId, order.orderId, opts.amountPhpUnits, opts.currency, { pool: opts.mysqlPool, traceId: opts.traceId })
+
+  // 复充限时优惠：仅 PHP 入账参与达标（加密币入账不计）
+  if (opts.mysqlPool && creditedCurrency === 'PHP') {
+    await applyRedepPromo(redis, opts.mysqlPool, order.userId, order.orderId, credited, opts.traceId)
+  }
 
   if (opts.mysqlPool) {
     await createDepositRequirement(opts.mysqlPool, order.userId, order.orderId, credited, creditedCurrency)

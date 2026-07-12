@@ -57,6 +57,7 @@ const DEFAULT_CONFIG = {
   trial: { amount: 88, enabled: true, turnoverX: 3, turnoverDays: 0 },
   firstdep: { enabled: true, turnoverX: 15, turnoverDays: 30, tiers: { PHP: [{ depositAmount: 100, bonusAmount: 15 }, { depositAmount: 1000, bonusAmount: 70 }] } },
   appdl: { amount: 66, enabled: true, turnoverX: 5, turnoverDays: 30 },
+  redep: { enabled: false, minDeposit: 500, bonusAmount: 75, windowHours: 4, cooldownDays: 2, turnoverX: 1, turnoverDays: 30 },
   popups: [{ id: 'new_player', enabled: true, order: 1, audience: 'all' as const, frequency: 'daily' as const }],
 }
 

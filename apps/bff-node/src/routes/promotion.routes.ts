@@ -5,6 +5,7 @@ import { creditWallet, getKyc, getUser, listLedger, saveUser } from '../services
 import { formatDisplayTime, nowIso } from '../utils/format.js'
 import { fail, ok } from '../utils/response.js'
 import { getPromoConfig } from '../services/promo-config.service.js'
+import { getOrCreateRedepOffer } from '../services/redep.service.js'
 import { getMysqlPool, isMysqlEnabled } from '../clients/mysql.client.js'
 import { createPromoRequirement } from '../services/turnover.service.js'
 import { riskAllowed } from '../utils/risk-guard.js'
@@ -70,6 +71,11 @@ function promoHighlights(user: Awaited<ReturnType<typeof getUser>>, firstDeposit
 }
 
 // GET /promotions/config 已移至公开路由（routes/index.ts），无需登录即可拉取活动配置
+
+// 复充限时优惠：进站拉取（符合人群时惰性开窗，窗口内重复拉取返回同一倒计时）
+router.get('/redep-offer', async (ctx) => {
+  ok(ctx, await getOrCreateRedepOffer(ctx.state.env, ctx.state.userId!))
+})
 
 router.get('/', async (ctx) => {
   const user = await getUser(ctx.state.redis, ctx.state.userId!)

@@ -58,6 +58,7 @@ export default function Promotions() {
     if (c.firstdep.turnoverX < 0 || c.firstdep.turnoverDays < 0) return 'firstdep 流水倍率/有效期不能为负'
     if (c.appdl.amount <= 0 || c.appdl.amount > 50000) return 'App 下载礼金必须在 1-50000'
     if (c.appdl.turnoverX < 0 || c.appdl.turnoverDays < 0) return 'App 下载礼金流水倍率/有效期不能为负'
+    if (c.redep.minDeposit <= 0 || c.redep.bonusAmount < 0 || c.redep.windowHours <= 0) return '复充限时:档位/时长必须为正、奖励不能为负'
     for (const [currency, list] of Object.entries(c.firstdep.tiers)) {
       for (const t of list) {
         if (!(t.depositAmount > 0) || t.bonusAmount < 0) return `${currency} 档位金额必须大于 0、奖励不能为负`
@@ -234,6 +235,46 @@ export default function Promotions() {
     </>
   )
 
+  const redepTab = (
+    <Card
+      title={<span>⏰ 复充限时优惠</span>}
+      extra={<Switch checkedChildren="开启" unCheckedChildren="关闭" checked={cfg.redep.enabled} onChange={(v) => patch((d) => { d.redep.enabled = v })} />}
+    >
+      <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 12 }}>
+        面向「已首充且当日未充值」的用户：进站触发限时弹窗，窗口内充值 ≥ 档位金额额外送固定奖励（每个窗口只发一次）。
+        不在充值页常驻展示，仅倒计时内充值面板对应金额档显示奖励角标与倒计时横幅
+      </Text>
+      <Row gutter={24} style={{ marginBottom: 16 }}>
+        <Col span={8}>
+          <Text>达标充值额（PHP）</Text>
+          <InputNumber prefix="₱" style={{ width: '100%', marginTop: 4 }} min={1} precision={0} value={cfg.redep.minDeposit} onChange={(v) => patch((d) => { d.redep.minDeposit = Number(v ?? 0) })} />
+        </Col>
+        <Col span={8}>
+          <Text>额外奖励（PHP）</Text>
+          <InputNumber prefix="₱" style={{ width: '100%', marginTop: 4 }} min={0} precision={0} value={cfg.redep.bonusAmount} onChange={(v) => patch((d) => { d.redep.bonusAmount = Number(v ?? 0) })} />
+        </Col>
+        <Col span={8}>
+          <Text>窗口时长</Text>
+          <InputNumber suffix="小时" style={{ width: '100%', marginTop: 4 }} min={1} max={72} precision={0} value={cfg.redep.windowHours} onChange={(v) => patch((d) => { d.redep.windowHours = Number(v ?? 0) })} />
+        </Col>
+      </Row>
+      <Row gutter={24}>
+        <Col span={8}>
+          <Text>触发冷却（天）</Text>
+          <InputNumber suffix="天" style={{ width: '100%', marginTop: 4 }} min={0} max={30} precision={0} value={cfg.redep.cooldownDays} onChange={(v) => patch((d) => { d.redep.cooldownDays = Number(v ?? 0) })} />
+        </Col>
+        <Col span={8}>
+          <Text>流水倍率（0=不要求）</Text>
+          <InputNumber suffix="x" style={{ width: '100%', marginTop: 4 }} min={0} max={100} precision={0} value={cfg.redep.turnoverX} onChange={(v) => patch((d) => { d.redep.turnoverX = Number(v ?? 0) })} />
+        </Col>
+        <Col span={8}>
+          <Text>流水有效期（0=永久）</Text>
+          <InputNumber suffix="天" style={{ width: '100%', marginTop: 4 }} min={0} max={365} precision={0} value={cfg.redep.turnoverDays} onChange={(v) => patch((d) => { d.redep.turnoverDays = Number(v ?? 0) })} />
+        </Col>
+      </Row>
+    </Card>
+  )
+
   function movePopup(idx: number, delta: number) {
     patch((d) => {
       const to = idx + delta
@@ -304,6 +345,7 @@ export default function Promotions() {
         items={[
           { key: 'general', label: '常规活动', children: generalTab },
           { key: 'firstdep', label: '💰 首充嘉年华', children: firstdepTab },
+          { key: 'redep', label: '⏰ 复充限时', children: redepTab },
           { key: 'popups', label: '🪟 首页弹窗', children: popupsTab },
         ]}
       />

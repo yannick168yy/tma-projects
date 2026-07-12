@@ -21,20 +21,37 @@ export interface PopupConfig {
   frequency: 'daily' | 'once' | 'always'
 }
 
+/** 复充限时优惠：已首充且当日未充值的用户进站触发限时窗口，窗口内充值 ≥ minDeposit 送 bonusAmount（每窗口一次） */
+export interface RedepConfig {
+  enabled: boolean
+  /** 达标充值额（PHP） */
+  minDeposit: number
+  /** 达标奖励（PHP 固定金额） */
+  bonusAmount: number
+  /** 窗口时长（小时） */
+  windowHours: number
+  /** 触发冷却（天）：距上次窗口开启不足 N 天不再触发 */
+  cooldownDays: number
+  turnoverX: number
+  turnoverDays: number
+}
+
 export interface PromoConfig {
   trial:    { amount: number; enabled: boolean; turnoverX: number; turnoverDays: number }
   firstdep: { enabled: boolean; turnoverX: number; turnoverDays: number; tiers: Record<string, FirstDepTier[]> }
   appdl:    { amount: number; enabled: boolean; turnoverX: number; turnoverDays: number }
+  redep:    RedepConfig
   popups:   PopupConfig[]
 }
 
 const DEFAULT_FIRSTDEP_TIERS: Record<string, FirstDepTier[]> = {
+  // 低充高送：首充机会只有一次，低档位给高比例拉转化（与线上运营配置一致）
   PHP: [
-    { depositAmount: 20, bonusAmount: 5 }, { depositAmount: 50, bonusAmount: 10 },
-    { depositAmount: 100, bonusAmount: 15 }, { depositAmount: 200, bonusAmount: 30 },
-    { depositAmount: 500, bonusAmount: 60 }, { depositAmount: 1000, bonusAmount: 70 },
-    { depositAmount: 5000, bonusAmount: 100 }, { depositAmount: 10000, bonusAmount: 150 },
-    { depositAmount: 50000, bonusAmount: 1000 },
+    { depositAmount: 20, bonusAmount: 10 }, { depositAmount: 50, bonusAmount: 20 },
+    { depositAmount: 100, bonusAmount: 50 }, { depositAmount: 200, bonusAmount: 60 },
+    { depositAmount: 500, bonusAmount: 100 }, { depositAmount: 1000, bonusAmount: 150 },
+    { depositAmount: 5000, bonusAmount: 900 }, { depositAmount: 10000, bonusAmount: 1200 },
+    { depositAmount: 50000, bonusAmount: 2000 },
   ],
   USDT: [
     { depositAmount: 1, bonusAmount: 0.2 }, { depositAmount: 5, bonusAmount: 1 },
@@ -53,9 +70,11 @@ const DEFAULT_FIRSTDEP_TIERS: Record<string, FirstDepTier[]> = {
 export const PROMO_DEFAULTS: PromoConfig = {
   // trial 流水 3x：0x 时体验金可直接提现（资损口子），与活动展示口径一致
   trial:    { amount: 88, enabled: true, turnoverX: 3, turnoverDays: 0 },
-  firstdep: { enabled: true, turnoverX: 15, turnoverDays: 30, tiers: DEFAULT_FIRSTDEP_TIERS },
+  firstdep: { enabled: true, turnoverX: 1, turnoverDays: 30, tiers: DEFAULT_FIRSTDEP_TIERS },
   // App/PWA 下载礼金：默认关闭，后台开启后客户端宣传位才展示
   appdl:    { amount: 66, enabled: false, turnoverX: 5, turnoverDays: 30 },
+  // 复充限时优惠：默认关闭，后台开启后按人群触发
+  redep:    { enabled: false, minDeposit: 500, bonusAmount: 75, windowHours: 4, cooldownDays: 2, turnoverX: 1, turnoverDays: 30 },
   popups:   [
     { id: 'new_player', enabled: true, order: 1, audience: 'all', frequency: 'daily' },
     // firstdep=首页首充悬浮球，trial=活动页首席体验官卡片；均为常驻入口，frequency 不生效，仅用开关/人群
@@ -96,6 +115,33 @@ function bool(v: string | undefined, fallback: boolean): boolean {
   return v != null ? v === '1' : fallback
 }
 
+function parseRedepConfig(r: Record<string, string>): RedepConfig {
+  const D = PROMO_DEFAULTS.redep
+  return {
+    enabled: bool(r.enabled, D.enabled),
+    minDeposit: num(r.min_deposit, D.minDeposit),
+    bonusAmount: num(r.bonus_amount, D.bonusAmount),
+    windowHours: num(r.window_hours, D.windowHours),
+    cooldownDays: num(r.cooldown_days, D.cooldownDays),
+    turnoverX: num(r.turnover_x, D.turnoverX),
+    turnoverDays: num(r.turnover_days, D.turnoverDays),
+  }
+}
+
+/** 充值结算/进站触发时按 Pool 直接读复充配置（同 getFirstDepConfigByPool 的场景） */
+export async function getRedepConfigByPool(pool: Pool): Promise<RedepConfig> {
+  try {
+    const [rows] = await pool.query<RowDataPacket[]>(
+      "SELECT config_key, config_value FROM bg_promo_config WHERE promo_id = 'redep'",
+    )
+    const r: Record<string, string> = {}
+    for (const row of rows) r[String(row.config_key)] = String(row.config_value)
+    return parseRedepConfig(r)
+  } catch {
+    return PROMO_DEFAULTS.redep
+  }
+}
+
 async function loadFirstDepTiers(env: Env): Promise<Record<string, FirstDepTier[]>> {
   const pool = getMysqlPool(env)
   const [rows] = await pool.query<RowDataPacket[]>(
@@ -127,6 +173,7 @@ export async function getPromoConfig(env: Env): Promise<PromoConfig> {
     const t = map.trial ?? {}
     const f = map.firstdep ?? {}
     const a = map.appdl ?? {}
+    const r = map.redep ?? {}
     const D = PROMO_DEFAULTS
     const tiers = await loadFirstDepTiers(env)
     let popups = D.popups
@@ -137,6 +184,7 @@ export async function getPromoConfig(env: Env): Promise<PromoConfig> {
       trial:    { amount: num(t.amount, D.trial.amount), enabled: bool(t.enabled, D.trial.enabled), turnoverX: num(t.turnover_x, D.trial.turnoverX), turnoverDays: num(t.turnover_days, D.trial.turnoverDays) },
       firstdep: { enabled: bool(f.enabled, D.firstdep.enabled), turnoverX: num(f.turnover_x, D.firstdep.turnoverX), turnoverDays: num(f.turnover_days, D.firstdep.turnoverDays), tiers },
       appdl:    { amount: num(a.amount, D.appdl.amount), enabled: bool(a.enabled, D.appdl.enabled), turnoverX: num(a.turnover_x, D.appdl.turnoverX), turnoverDays: num(a.turnover_days, D.appdl.turnoverDays) },
+      redep:    parseRedepConfig(r),
       popups,
     }
   } catch {
@@ -159,6 +207,13 @@ export async function savePromoConfig(env: Env, config: PromoConfig): Promise<vo
     ['appdl',    'enabled',        config.appdl.enabled                  ? '1' : '0'],
     ['appdl',    'turnover_x',     String(config.appdl.turnoverX         ?? D.appdl.turnoverX)],
     ['appdl',    'turnover_days',  String(config.appdl.turnoverDays      ?? D.appdl.turnoverDays)],
+    ['redep',    'enabled',        config.redep.enabled                  ? '1' : '0'],
+    ['redep',    'min_deposit',    String(config.redep.minDeposit        ?? D.redep.minDeposit)],
+    ['redep',    'bonus_amount',   String(config.redep.bonusAmount       ?? D.redep.bonusAmount)],
+    ['redep',    'window_hours',   String(config.redep.windowHours       ?? D.redep.windowHours)],
+    ['redep',    'cooldown_days',  String(config.redep.cooldownDays      ?? D.redep.cooldownDays)],
+    ['redep',    'turnover_x',     String(config.redep.turnoverX         ?? D.redep.turnoverX)],
+    ['redep',    'turnover_days',  String(config.redep.turnoverDays      ?? D.redep.turnoverDays)],
     ['popups',   'items',          JSON.stringify(sanitizePopups(config.popups))],
   ]
   await pool.query(

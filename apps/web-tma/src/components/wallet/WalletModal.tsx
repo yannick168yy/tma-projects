@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { QRCodeSVG } from 'qrcode.react'
-import { Wallet, X, ArrowDownToLine, ArrowUpFromLine, History, CheckCircle2, AlertCircle, XCircle, Loader2, ArrowLeft, Send, ShieldCheck, Zap, Headphones, Copy, Check, Lock, Gift } from 'lucide-react'
+import { Wallet, X, ArrowDownToLine, ArrowUpFromLine, History, CheckCircle2, AlertCircle, XCircle, Loader2, ArrowLeft, Send, ShieldCheck, Zap, Headphones, Copy, Check, Lock, Gift, Clock } from 'lucide-react'
 import { createPortal } from 'react-dom'
 import PayMethodGrid from '@/components/wallet/PayMethodGrid'
 import { createDeposit } from '@/api/deposit'
@@ -17,7 +17,7 @@ import { fetchHomeContent } from '@/api/home'
 import { usePromotionStore } from '@/stores/promotion'
 import { useAuthStore } from '@/stores/auth'
 import { analytics } from '@/utils/analytics'
-import type { FirstDepTier } from '@/api/promotion'
+import { fetchRedepOffer, type FirstDepTier, type RedepOffer } from '@/api/promotion'
 import KycModal from '@/components/wallet/KycModal'
 import { useKycGate } from '@/hooks/useKycGate'
 import { CRYPTO_DEPOSIT, CRYPTO_WITHDRAW, FIAT_DEPOSIT, FIAT_WITHDRAW, TG_WALLET_DEPOSIT, type PayMethod } from '@/data/wallet'
@@ -122,6 +122,27 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
   const [turnoverLoading, setTurnoverLoading] = useState(false)
   const [turnoverShake, setTurnoverShake] = useState(false)
   const [walletBannerUrl, setWalletBannerUrl] = useState(defaultTopupBanner)
+  const [redepOffer, setRedepOffer] = useState<RedepOffer | null>(null)
+  const [redepNow, setRedepNow] = useState(() => Date.now())
+
+  // 复充限时优惠：打开充值页时拉取；窗口生效期间每秒走倒计时
+  useEffect(() => {
+    if (!open || tab !== 'deposit' || !isLoggedIn) return
+    fetchRedepOffer().then(setRedepOffer).catch(() => setRedepOffer(null))
+  }, [open, tab, isLoggedIn])
+  const redepEndsMs = redepOffer?.active && redepOffer.endsAt ? new Date(redepOffer.endsAt).getTime() : 0
+  const redepActive = redepEndsMs > redepNow
+  useEffect(() => {
+    if (!redepActive) return
+    const timer = setInterval(() => setRedepNow(Date.now()), 1000)
+    return () => clearInterval(timer)
+  }, [redepActive])
+  function redepCountdown(): string {
+    const s = Math.max(0, Math.floor((redepEndsMs - redepNow) / 1000))
+    const hh = Math.floor(s / 3600), mm = Math.floor((s % 3600) / 60), ss = s % 60
+    const p = (n: number) => String(n).padStart(2, '0')
+    return hh > 0 ? `${p(hh)}:${p(mm)}:${p(ss)}` : `${p(mm)}:${p(ss)}`
+  }
 
   function selectDepositAmount(amt: string) {
     setAmount(amt)
@@ -297,7 +318,10 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
   const firstDepEligible = isLoggedIn && !firstDepClaimed && (promoConfig?.firstdep.enabled ?? false)
   const depositPresets = DEPOSIT_PRESETS[depositCurrency] ?? DEPOSIT_PRESETS.PHP
   const depositTierList = promoConfig?.firstdep.tiers?.[depositCurrency]
-  const selectedBonus = firstDepEligible ? matchTierBonus(depositTierList, Number(amount)) : 0
+  // 复充限时优惠仅 PHP 充值参与；首充资格存续时以首充为准，不叠加展示
+  const redepShow = redepActive && !firstDepEligible && depositCurrency === 'PHP'
+  const redepBonusFor = (amt: number) => (redepShow && amt >= (redepOffer?.minDeposit ?? Infinity) ? (redepOffer?.bonusAmount ?? 0) : 0)
+  const selectedBonus = firstDepEligible ? matchTierBonus(depositTierList, Number(amount)) : redepBonusFor(Number(amount))
   const receiveAmount = Math.max(0, Number(amount) || 0) + selectedBonus
 
   // 充值：切换分类（或渠道加载完成）时自动选中该分类首个可用、非地址型渠道
@@ -518,6 +542,19 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
                       </div>
                     ) : (
                     <>
+                      {/* 复充限时优惠：仅窗口生效期间显示倒计时横幅 */}
+                      {redepShow && (
+                        <div className="flex items-center justify-between gap-3 rounded-2xl border border-amber-400/40 bg-gradient-to-r from-amber-500/15 to-orange-500/10 px-4 py-3">
+                          <div className="flex items-center gap-2.5">
+                            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-400/15 text-amber-300"><Clock size={18}/></div>
+                            <div>
+                              <p className="text-xs font-black text-amber-300 uppercase tracking-wide">{t('wallet.limitedOfferTitle')}</p>
+                              <p className="text-[11px] font-bold text-white/75">{t('wallet.limitedOfferDesc',{min:fmtPreset(redepOffer?.minDeposit??0,depositCurrency),bonus:fmtPreset(redepOffer?.bonusAmount??0,depositCurrency)})}</p>
+                            </div>
+                          </div>
+                          <span className="font-mono text-base font-black text-amber-300 tabular-nums">{redepCountdown()}</span>
+                        </div>
+                      )}
                       <div className="flex items-center justify-between gap-3">
                         <p className="text-white/40 text-[11px] font-black uppercase tracking-widest">{t('wallet.depositAmount')}</p>
                         {selectedBonus > 0 && (
@@ -527,10 +564,10 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
                           </div>
                         )}
                       </div>
-                      {/* 金额档位网格（带首存奖励角标） */}
+                      {/* 金额档位网格（带首存/复充奖励角标） */}
                       <div className="grid grid-cols-3 gap-2">
                         {depositPresets.map((amt)=>{
-                          const sel=amount===String(amt); const bonus=firstDepEligible?matchTierBonus(depositTierList,amt):0
+                          const sel=amount===String(amt); const bonus=firstDepEligible?matchTierBonus(depositTierList,amt):redepBonusFor(amt)
                           return (
                             <button key={amt} type="button" onClick={()=>selectDepositAmount(String(amt))} className={`relative rounded-xl border py-2.5 px-1 flex flex-col items-center transition-colors ${sel?'border-primary bg-primary/15 shadow-[0_0_18px_rgba(245,158,11,0.24)]':'border-white/10 bg-[#101a2c]'}`}>
                               {sel&&<span className="absolute right-2 top-2 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-black"><Check size={10} strokeWidth={3}/></span>}
@@ -546,6 +583,7 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
                         <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-white/65">{t('wallet.editAmount')}</span>
                       </div>
                       {firstDepEligible&&Number(amount)>0&&selectedBonus>0&&<p className="text-[11px] font-bold text-primary text-center -mt-1">{t('wallet.firstDepBonusHint',{amount:fmtPreset(selectedBonus,depositCurrency)})}</p>}
+                      {redepShow&&Number(amount)>0&&selectedBonus>0&&<p className="text-[11px] font-bold text-amber-300 text-center -mt-1">{t('wallet.limitedOfferHint',{amount:fmtPreset(selectedBonus,depositCurrency)})}</p>}
                       {depositMessage&&<p className={`text-xs font-bold text-center ${depositSuccess?'text-emerald-400':'text-amber-400'}`}>{depositMessage}</p>}
                       {Number(amount)>0&&<div className="flex items-center justify-between rounded-2xl border border-primary/25 bg-primary/10 px-4 py-3">
                         <div className="flex items-center gap-3">

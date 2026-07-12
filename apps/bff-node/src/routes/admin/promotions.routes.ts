@@ -19,6 +19,7 @@ router.put('/config', async (ctx) => {
     trial:    { ...current.trial,    ...(body.trial    ?? {}) },
     firstdep: { ...current.firstdep, ...(body.firstdep ?? {}) },
     appdl:    { ...current.appdl,    ...(body.appdl    ?? {}) },
+    redep:    { ...current.redep,    ...(body.redep    ?? {}) },
     popups:   body.popups ?? current.popups,
   }
 
@@ -31,6 +32,10 @@ router.put('/config', async (ctx) => {
   }
   if (updated.appdl.amount <= 0 || updated.appdl.amount > 50000 || updated.appdl.turnoverX < 0 || updated.appdl.turnoverDays < 0) {
     fail(ctx, 400, 'appdl 金额必须在 1-50000、流水倍率/有效期不能为负'); return
+  }
+  if (updated.redep.minDeposit <= 0 || updated.redep.bonusAmount < 0 || updated.redep.windowHours <= 0
+    || updated.redep.cooldownDays < 0 || updated.redep.turnoverX < 0 || updated.redep.turnoverDays < 0) {
+    fail(ctx, 400, 'redep 档位/时长必须为正,奖励/冷却/流水参数不能为负'); return
   }
   for (const [currency, list] of Object.entries(updated.firstdep.tiers)) {
     for (const tier of list) {
