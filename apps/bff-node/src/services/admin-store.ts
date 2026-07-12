@@ -562,7 +562,8 @@ export async function listAdminWin568Games(
             ${sortCategory} AS effective_sort_category,
             ${upstreamAvailable} AS upstream_available,
             ${localActive} AS local_active,
-            COALESCE(o.weight, GREATEST(1, 10000 - COALESCE(g.rank_no, 9999))) AS effective_weight,
+            -- 与 sg-game.service 缓存查询同公式：rank兜底封顶3998，低于手工层(>=4000)
+            COALESCE(o.weight, GREATEST(1, 3999 - COALESCE(g.rank_no, 9999))) AS effective_weight,
             COALESCE(o.is_featured, 0) AS effective_featured,
             COALESCE(o.name_override, g.name_en, g.name_zh, CONCAT('568Win ', g.game_id)) AS effective_name,
             COALESCE(o.image_override, g.icon_url) AS effective_image

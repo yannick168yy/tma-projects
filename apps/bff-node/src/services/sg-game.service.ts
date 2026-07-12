@@ -116,7 +116,7 @@ function rowToWin568Game(r: RowDataPacket): DbGame {
     imageHeight: probedDims ? Number(r.icon_height) : null,
     hasLobby: newGameType === 100 || newGameType === 200,
     isMobile: devices.includes('m'),
-    weight: r.effective_weight == null ? Math.max(1, 10000 - rank) : Number(r.effective_weight),
+    weight: r.effective_weight == null ? Math.max(1, 3999 - rank) : Number(r.effective_weight),
     isFeatured: Boolean(r.effective_featured),
     createdAt: r.created_at ? new Date(r.created_at as Date).toISOString() : null,
     supportedCurrencies: parseJsonArray(r.supported_currencies),
@@ -169,7 +169,8 @@ export async function loadGamesCache(env: Env): Promise<number> {
               WHEN cp.url IS NOT NULL THEN cp.anim_url
               ELSE NULL
             END AS image_anim,
-            COALESCE(o.weight, GREATEST(1, 10000 - COALESCE(g.rank_no, 9999))) AS effective_weight,
+            -- rank_no 是上游厂商内排名(每家都有第1名)，兜底权重封顶 3998，必须低于竞品评分手工层(>=4000)
+            COALESCE(o.weight, GREATEST(1, 3999 - COALESCE(g.rank_no, 9999))) AS effective_weight,
             COALESCE(o.is_featured, 0) AS effective_featured,
             COALESCE(o.site_category, g.site_category_auto, 'other') AS effective_site_category,
             COALESCE(o.sort_category,
