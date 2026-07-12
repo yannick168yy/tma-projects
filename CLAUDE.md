@@ -81,3 +81,5 @@ bash deploy/single-node/deploy-web-tma.sh
 
 ## AI 编码行为准则
 - 编码遵循 `docs/coding-guidelines.md`（Karpathy Guidelines：编码前先思考 / 简洁优先 / 精准修改 / 目标驱动）。涉及非琐碎改动时先读该文件。
+
+---

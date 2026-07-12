@@ -285,18 +285,62 @@ export default function BonusesPage({ promoFilter, onOpenWallet, onOpenTeam, onO
   }
 
   function renderCheckinCard() {
+    const accent = '#c084fc'
+    const steps = [t('checkin.cardStep1'), t('checkin.cardStep2')]
     return (
-      <div key="checkin" className="rounded-2xl overflow-hidden border border-primary/30">
+      <div key="checkin" id="promo-checkin" className="rounded-2xl overflow-hidden border border-purple-500/40">
         <div className="relative bg-gradient-to-br from-[#2b1259] via-[#1a1440] to-[#141B2D] px-4 py-4">
-          <span className="text-3xl absolute top-3 right-4">📅</span>
-          <span className="text-[10px] font-black uppercase tracking-widest text-primary">{t('checkin.entryTag')}</span>
-          <h2 className="text-white font-black leading-tight mt-0.5 font-display text-[1.3rem]">{t('checkin.entryTitle')}</h2>
-          <p className="text-white/60 text-xs mt-0.5">{t('checkin.entryDesc')}</p>
+          <div className="flex items-start justify-between">
+            <div className="flex-1 pr-12">
+              <span className="text-[10px] font-black uppercase tracking-widest" style={{ color: accent }}>
+                {t('checkin.entryTag')}
+              </span>
+              <h2 className="text-white font-black leading-tight mt-0.5 font-display text-[1.3rem]">{t('checkin.entryTitle')}</h2>
+              <p className="text-white/60 text-xs mt-0.5">{t('checkin.entryDesc')}</p>
+            </div>
+            <span className="text-3xl">📅</span>
+          </div>
+          <div className="mt-3 flex items-center gap-2">
+            <div className="bg-black/30 rounded-xl px-3 py-1.5 flex items-baseline gap-1.5">
+              <span className="text-white font-black text-xl leading-none font-display">{t('checkin.cardReward')}</span>
+              <span className="text-white/60 text-xs">{t('checkin.cardRewardLabel')}</span>
+            </div>
+            <span className="text-[10px] font-black px-2 py-1 rounded-full bg-purple-400/20 text-purple-300">{t('checkin.cardBadge')}</span>
+            <span className="ml-auto text-[10px] text-white/40 font-semibold">🕐 {t('common.ongoing')}</span>
+          </div>
         </div>
+
         <div className="bg-card px-4 py-3">
+          <p className="text-muted-foreground text-xs leading-relaxed">{t('checkin.rewardIntro')}</p>
           <button
             type="button"
-            className="w-full py-3 rounded-xl text-primary-foreground font-black text-sm bg-primary hover:opacity-90 transition-opacity"
+            className="w-full flex items-center justify-between mt-3 py-2 border-t border-border"
+            onClick={() => setExpanded(expanded === 'checkin' ? null : 'checkin')}
+          >
+            <span className="text-foreground text-xs font-bold">{t('bonuses.howItWorks')}</span>
+            <ChevronDown
+              size={14}
+              className={`text-muted-foreground transition-transform duration-200 ${expanded === 'checkin' ? 'rotate-180' : ''}`}
+            />
+          </button>
+          {expanded === 'checkin' && (
+            <div className="pb-2 space-y-2">
+              {steps.map((step, i) => (
+                <div key={i} className="flex items-start gap-2.5">
+                  <div
+                    className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 font-black text-[11px] text-black mt-0.5"
+                    style={{ background: accent }}
+                  >
+                    {i + 1}
+                  </div>
+                  <span className="text-foreground/80 text-xs leading-relaxed">{step}</span>
+                </div>
+              ))}
+            </div>
+          )}
+          <button
+            type="button"
+            className="w-full mt-3 py-3 rounded-xl text-white font-black text-sm transition-colors bg-purple-500 hover:bg-purple-400"
             onClick={onOpenCheckin}
           >
             {t('checkin.entryCta')}
