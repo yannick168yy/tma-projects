@@ -367,7 +367,7 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
               </div>
               <button
                 type="button"
-                className="relative flex flex-shrink-0 items-center gap-1 whitespace-nowrap rounded-full bg-gradient-to-r from-[#f8ebbb] to-[#e4b750] px-3.5 py-2 text-xs font-black text-[#1b1c19] shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] transition-transform active:scale-[0.97]"
+                className="relative flex flex-shrink-0 items-center gap-1 whitespace-nowrap rounded-xl bg-gradient-to-r from-[#f8ebbb] to-[#e4b750] px-3.5 py-2 text-xs font-black text-[#1b1c19] shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] transition-transform active:scale-[0.97]"
                 onClick={onOpenVipCenter}
               >
                 {t('menu.enterVipCenter')}

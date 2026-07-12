@@ -337,7 +337,7 @@ export default function Rebate({ tab = 'config' }: { tab?: RebateTab }) {
       >
         <Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>
           配置 C 端"Cashback Games"精选游戏。Elite=2% / Pro=1.5% / Basic=1%，
-          <b>为真实洗码费率</b>：精选游戏结算时按此档位费率覆盖分级大类费率（不叠加）。只放高 hold(RTP≤96%)的低分成爆款以守盈亏。
+          <b>为真实洗码费率</b>：精选游戏结算时按此档位费率覆盖分级大类费率（不叠加）。守盈亏——返水越高越卡高 hold：Elite RTP≤95% / Pro ≤96% / Basic ≤97%，且限低分成(≤7.5%)厂商。
         </Text>
         <Table
           dataSource={featuredGames}
