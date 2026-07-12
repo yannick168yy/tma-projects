@@ -548,7 +548,8 @@ export async function runQuarterlyRetention(env: Env): Promise<{ quarterKey: str
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 周俸 / 月俸（按等级固定发放，需当期有效投注，限时手动领取）
+// 周俸 / 月俸（按等级固定发放，需当期有效流水达门槛，限时手动领取）
+// 门槛 = 该级保级线折算到当期：周俸 retention_line/13（季≈13周）、月俸 retention_line/3，防低流水躺领
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** 计算月窗口（PHT 月初为起点）；includeCurrentMonth=true 结算本月至今，否则结算上一整月 */
@@ -589,18 +590,21 @@ async function runSalary(
 ): Promise<{ periodKey: string; users: number; totalAmount: number }> {
   const pool = getMysqlPool(env)
   const amountCol = kind === 'weekly' ? 'b.weekly_salary' : 'b.monthly_salary'
+  const retentionDivisor = kind === 'weekly' ? 13 : 3
   await pool.query(
     `INSERT INTO bg_vip_reward_log
        (user_id, level, type, amount, currency_code, period_key, status, expire_at)
      SELECT act.user_id, COALESCE(vs.current_level, thr.lvl, 1) AS lvl, ?, ${amountCol}, ?, ?, 'pending',
             DATE_ADD(NOW(3), INTERVAL ? DAY)
-     FROM (SELECT DISTINCT user_id FROM bg_turnover_logs WHERE is_reversed = 0 AND created_at >= ? AND created_at < ?) act
+     FROM (SELECT user_id, SUM(effective_amount) AS period_turnover
+             FROM bg_turnover_logs WHERE is_reversed = 0 AND created_at >= ? AND created_at < ?
+             GROUP BY user_id) act
      LEFT JOIN bg_user_vip_state vs ON vs.user_id = act.user_id
      LEFT JOIN (${SQL_USER_LEVEL}) thr ON thr.user_id = act.user_id
      JOIN bg_vip_level_benefit b ON b.level = COALESCE(vs.current_level, thr.lvl, 1)
-     WHERE ${amountCol} > 0
+     WHERE ${amountCol} > 0 AND act.period_turnover >= b.retention_line / ?
      ON DUPLICATE KEY UPDATE amount = IF(status = 'pending', VALUES(amount), amount)`,
-    [kind, BASE_CURRENCY, window.periodKey, expireDays, window.startUtc, window.endUtc],
+    [kind, BASE_CURRENCY, window.periodKey, expireDays, window.startUtc, window.endUtc, retentionDivisor],
   )
   const [[agg]] = await pool.query<RowDataPacket[]>(
     `SELECT COUNT(DISTINCT user_id) AS users, COALESCE(SUM(amount), 0) AS total
