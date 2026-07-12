@@ -32,6 +32,8 @@ export interface DbGame {
   isMobile: boolean
   weight: number
   isFeatured: boolean
+  /** Cashback Games 精选档位角标：elite=2% 档 / pro=1.5% 档（bg_rebate_featured_game，纯展示） */
+  cashbackTier?: 'elite' | 'pro' | null
   createdAt?: string | null
   supportedCurrencies?: string[] | null
   supportsActiveCurrency?: boolean
@@ -205,6 +207,17 @@ export async function loadGamesCache(env: Env): Promise<number> {
     win568SportsbookGame(),
     ...(win568Rows as RowDataPacket[]).map(rowToWin568Game),
   ]
+  // Cashback 精选档位角标（elite=2%/pro=1.5%，纯展示不参与结算）
+  const [featRows] = await db.query<RowDataPacket[]>(
+    "SELECT game_uuid, tier FROM bg_rebate_featured_game WHERE enabled = 1 AND tier IN ('elite','pro')",
+  )
+  const tierByUuid = new Map(featRows.map((r) => [String(r.game_uuid), String(r.tier) as 'elite' | 'pro']))
+  if (tierByUuid.size > 0) {
+    for (const g of games) {
+      const tier = tierByUuid.get(g.uuid)
+      if (tier) g.cashbackTier = tier
+    }
+  }
   await redis.set(GAMES_CACHE_KEY, JSON.stringify(games), 'EX', GAMES_CACHE_TTL)
   setMemGames(games) // 同步进程内副本，后台改动即时生效
   console.log(`[games-cache] cached ${games.length} games`)

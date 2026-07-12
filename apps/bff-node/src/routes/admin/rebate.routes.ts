@@ -12,7 +12,7 @@ import {
   runDailyRebateSettlement,
   todayPHT,
 } from '../../services/rebate.service.js'
-import { getGamesFromCache } from '../../services/sg-game.service.js'
+import { getGamesFromCache, loadGamesCache } from '../../services/sg-game.service.js'
 import { getMysqlPool, isMysqlEnabled } from '../../clients/mysql.client.js'
 import type { RowDataPacket } from 'mysql2/promise'
 
@@ -111,6 +111,7 @@ router.post('/featured-games', async (ctx) => {
   if (!game) { fail(ctx, 404, 'Game not found'); return }
 
   await addFeaturedGame(ctx.state.env, body.gameUuid, tier, body.sortOrder ?? 0)
+  await loadGamesCache(ctx.state.env) // 精选档位烘在游戏缓存里(cashbackTier 角标)，改完即时重建
   ok(ctx, { gameUuid: body.gameUuid, tier, name: game.name })
 })
 
@@ -119,6 +120,7 @@ router.delete('/featured-games/:id', async (ctx) => {
   const id = Number(ctx.params.id)
   if (!id) { fail(ctx, 400, 'invalid id'); return }
   await removeFeaturedGame(ctx.state.env, id)
+  await loadGamesCache(ctx.state.env)
   ok(ctx, { deleted: id })
 })
 

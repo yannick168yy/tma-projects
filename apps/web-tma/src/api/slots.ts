@@ -20,6 +20,8 @@ export interface SlotGame {
   isMobile: boolean
   weight: number
   isFeatured: boolean
+  /** Cashback Games 精选档位角标：elite=2% / pro=1.5%（纯展示） */
+  cashbackTier?: 'elite' | 'pro' | null
   supportedCurrencies?: string[] | null
   supportsActiveCurrency?: boolean
 }
