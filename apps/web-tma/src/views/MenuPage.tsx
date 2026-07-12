@@ -21,7 +21,6 @@ import BindModal from '@/components/auth/BindModal'
 import { useAuthStore } from '@/stores/auth'
 import { useLocaleStore } from '@/stores/locale'
 import { useThemeStore, type ThemeMode } from '@/stores/theme'
-import { useWalletStore, formatHeaderBalance } from '@/stores/wallet'
 import { LANGUAGES } from '@/data/languages'
 import { fetchRebateProgress } from '@/api/rebate'
 import { fetchKycStatus, type KycStatus } from '@/api/kyc'
@@ -58,7 +57,6 @@ const CURRENCIES = [
 const HOME_DOC_KEYS = new Set(['terms', 'privacy', 'responsible', 'about'])
 type StatusIcon = ComponentType<{ size?: number; strokeWidth?: number }>
 const VERIFY_IDENTITY_ICON = icon('verify_identity_unselected_white')
-const VIP_CENTER_ICON = icon('vip_center_crown')
 
 function MenuSection({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -216,14 +214,8 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
   const auth = useAuthStore()
   const { locale, setLocale } = useLocaleStore()
   const { mode: themeMode, setMode: setThemeMode } = useThemeStore()
-  const wallet = useWalletStore()
   const isLoggedIn = Boolean(auth.token && auth.user)
 
-  const activeCurrency = wallet.activeCurrency
-  const activeAvailable = wallet.balance?.balances.find((b) => b.currency === activeCurrency)?.available ?? 0
-  const displayBalance = wallet.balance ? formatHeaderBalance(activeCurrency, activeAvailable) : (activeCurrency === 'PHP' ? '₱ —' : '—')
-
-  const [balanceSpinning, setBalanceSpinning] = useState(false)
   const [loggingOut, setLoggingOut] = useState(false)
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false)
   const [bindOpen, setBindOpen] = useState(false)
@@ -282,10 +274,6 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
   }, [isLoggedIn, auth.user?.id])
 
   useEffect(() => {
-    if (isLoggedIn && !wallet.balance) void wallet.refresh()
-  }, [isLoggedIn])
-
-  useEffect(() => {
     if (!isLoggedIn) {
       setKycStatus(null)
       return
@@ -309,16 +297,6 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
   async function openLedger() {
     if (!isLoggedIn) { onLogin(); return }
     onOpenLedgerRecords()
-  }
-
-  async function refreshBalance() {
-    if (!isLoggedIn || balanceSpinning) return
-    setBalanceSpinning(true)
-    try {
-      await Promise.all([wallet.refresh(), new Promise((r) => setTimeout(r, 600))])
-    } finally {
-      setBalanceSpinning(false)
-    }
   }
 
   function copyId() {
@@ -413,56 +391,6 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
                 </div>
               </button>
             </div>
-          )}
-
-          {isLoggedIn && (
-            <>
-              <div className="relative mt-4 flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="mb-0.5 text-[11px] font-black uppercase tracking-wider text-black/[0.42]">{t('profile.balance')}</p>
-                  <button
-                    type="button"
-                    className="flex items-center gap-3 transition-opacity active:opacity-70"
-                    onClick={() => void refreshBalance()}
-                  >
-                    <span className="text-[2rem] font-extrabold leading-none text-[#f0c870]">{displayBalance}</span>
-                    <svg
-                      viewBox="0 0 24 24"
-                      className={`h-[26px] w-[26px] flex-shrink-0 text-[#f2cd85] ${balanceSpinning ? 'animate-spin' : ''}`}
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth={2.6}
-                      strokeLinecap="round"
-                    >
-                      <path d="M5.1 8 A8 8 0 0 1 20 12" />
-                      <path d="M17.7 17.7 A8 8 0 0 1 4 12" />
-                      <path d="M20 16.6 L17.5 11.9 L22.5 11.9 Z" fill="currentColor" stroke="none" />
-                      <path d="M4 7.4 L1.5 12.1 L6.5 12.1 Z" fill="currentColor" stroke="none" />
-                    </svg>
-                  </button>
-                </div>
-                <button
-                  type="button"
-                  className="flex-shrink-0 rounded-xl bg-[#ecb849] px-[18px] py-1.5 text-base font-bold text-black shadow-[0_4px_10px_rgba(0,0,0,0.18)] transition-transform active:scale-[0.97]"
-                  onClick={onOpenTopUp}
-                >
-                  {t('profile.deposit')}
-                </button>
-              </div>
-
-              <button
-                type="button"
-                className="relative mt-4 flex w-full items-center gap-3.5 overflow-hidden rounded-2xl bg-black/35 px-4 py-2 text-left transition-colors active:bg-black/45"
-                onClick={onOpenVipCenter}
-              >
-                <img src={VIP_CENTER_ICON} alt="" className="h-9 w-9 flex-shrink-0 object-contain" />
-                <span className="min-w-0 flex-1">
-                  <span className="block text-lg font-extrabold leading-tight text-white">{t('profile.vipCenter')}</span>
-                  <span className="block truncate text-[13px] font-semibold text-[#f0c050]">{t('profile.vipCenterSub')}</span>
-                </span>
-                <ChevronRight size={20} strokeWidth={2.5} className="flex-shrink-0 text-[#ecbc52]" />
-              </button>
-            </>
           )}
 
           <div className="relative mt-4 grid grid-cols-4 overflow-hidden rounded-2xl bg-black/15">

@@ -651,10 +651,6 @@ export default {
   },
   profile: {
     playerAccount: 'Tài khoản người chơi',
-    balance: 'Số dư',
-    deposit: 'Nạp tiền',
-    vipCenter: 'Trung tâm VIP',
-    vipCenterSub: 'Khám phá đặc quyền độc quyền',
     personalInfo: 'THÔNG TIN CÁ NHÂN',
     info: 'Thông tin',
     firstName: 'Tên',
