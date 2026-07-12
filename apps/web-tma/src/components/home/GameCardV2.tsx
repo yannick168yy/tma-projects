@@ -3,6 +3,15 @@ import type { SlotGame } from '@/api/slots'
 import { useLocaleStore } from '@/stores/locale'
 import { localizedGameName } from '@/utils/game'
 import { shortProviderName } from '@/utils/providers'
+import cashbackBadge2 from '@/assets/home/promos/cashback-badge-2.webp'
+import cashbackBadge15 from '@/assets/home/promos/cashback-badge-1_5.webp'
+import cashbackBadge1 from '@/assets/home/promos/cashback-badge-1.webp'
+
+const CASHBACK_BADGE: Record<'elite' | 'pro' | 'basic', string> = {
+  elite: cashbackBadge2,
+  pro: cashbackBadge15,
+  basic: cashbackBadge1,
+}
 
 interface Props {
   game: SlotGame
@@ -55,24 +64,20 @@ export default function GameCardV2({ game, onTap, size, showLive }: Props) {
         </div>
       )}
       {game.provider && (
-        <span className={`absolute top-1 right-1 rounded-md bg-black/60 font-bold leading-tight text-white/90 pointer-events-none ${size === 'lg' ? 'px-1.5 py-0.5 text-[10px]' : 'px-1 py-px text-[8px]'}`}>
+        <span className={`absolute top-1 right-1 rounded-md bg-black/60 font-bold leading-tight text-white/90 pointer-events-none ${size === 'lg' ? 'px-2 py-0.5 text-[13px]' : 'px-1 py-px text-[8px]'}`}>
           {shortProviderName(game.provider)}
         </span>
       )}
-      {/* Cashback 精选角标：elite=2% 金底最醒目 / pro=1.5% 深底亮金描边 / basic=1% 深底暗金；
-          与 LIVE 同占左上角,LIVE 优先。三档字号随卡片尺寸 */}
-      {game.cashbackTier && !showLive && (() => {
-        const sz = size === 'lg' ? 'px-1.5 py-0.5 text-[10px]' : 'px-1 py-px text-[8px]'
-        if (game.cashbackTier === 'elite') return (
-          <span className={`absolute top-1 left-1 rounded-md bg-gradient-to-r from-amber-300 to-yellow-500 font-black leading-tight text-black pointer-events-none ${sz}`}>2% CASH</span>
-        )
-        if (game.cashbackTier === 'pro') return (
-          <span className={`absolute top-1 left-1 rounded-md bg-black/70 border border-amber-400/60 font-black leading-tight text-amber-300 pointer-events-none ${sz}`}>1.5%</span>
-        )
-        return (
-          <span className={`absolute top-1 left-1 rounded-md bg-black/70 font-black leading-tight text-amber-300/80 pointer-events-none ${sz}`}>1%</span>
-        )
-      })()}
+      {/* Cashback 精选角标：三档奖牌徽标图(2%/1.5%/1%)贴左上角；与 LIVE 同占位,LIVE 优先。徽标含浮动金币,
+          图本身带透明留白,故贴到 top-0/left-0 视觉即有内缩。宽度随卡片尺寸自适应 */}
+      {game.cashbackTier && !showLive && (
+        <img
+          src={CASHBACK_BADGE[game.cashbackTier]}
+          alt=""
+          draggable={false}
+          className={`absolute top-0 left-0 pointer-events-none ${size === 'lg' ? 'w-[42%]' : 'w-[52%]'}`}
+        />
+      )}
       {showLive && (
         <div className="absolute top-1 left-1 flex items-center gap-1 bg-red-500/85 rounded-full px-1.5 py-0.5">
           <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
