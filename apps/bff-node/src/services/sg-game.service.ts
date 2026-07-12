@@ -688,6 +688,20 @@ export async function getUserGameHistory(
   }))
 }
 
+const MEM_PROVIDER_WEIGHTS_TTL = 60 * 1000
+let memProviderWeights: Map<string, number> | null = null
+let memProviderWeightsAt = 0
+
+/** 厂商权重表(bg_568win_provider)，无行的厂商按 1000 兜底 */
+export async function getProviderWeights(env: Env): Promise<Map<string, number>> {
+  if (memProviderWeights && Date.now() - memProviderWeightsAt < MEM_PROVIDER_WEIGHTS_TTL) return memProviderWeights
+  const db = getMysqlPool(env)
+  const [rows] = await db.query<RowDataPacket[]>(`SELECT provider, weight FROM bg_568win_provider`)
+  memProviderWeights = new Map(rows.map((r) => [String(r.provider), Number(r.weight)]))
+  memProviderWeightsAt = Date.now()
+  return memProviderWeights
+}
+
 /** Returns distinct provider codes from cached games, optionally filtered by sortCategory / siteCategory (comma-separated) */
 export async function listProviders(env: Env, sortCategory?: string, siteCategory?: string): Promise<string[]> {
   let games = await getGamesFromCache(env)
@@ -699,7 +713,12 @@ export async function listProviders(env: Env, sortCategory?: string, siteCategor
     const cats = new Set(siteCategory.split(',').map((s) => s.trim()).filter(Boolean))
     games = games.filter((g) => g.siteCategory != null && cats.has(g.siteCategory))
   }
-  const providers = [...new Set(games.map((g) => g.provider))].sort()
+  const weights = await getProviderWeights(env)
+  const providers = [...new Set(games.map((g) => g.provider))].sort((a, b) => {
+    const wa = weights.get(a) ?? 1000
+    const wb = weights.get(b) ?? 1000
+    return wb - wa || a.localeCompare(b)
+  })
   return providers
 }
 

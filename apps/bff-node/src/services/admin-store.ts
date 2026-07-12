@@ -433,6 +433,7 @@ export async function getBetOrders(
 export interface ProviderStat {
   provider: string
   providerShort: string | null
+  weight: number
   total: number
   active: number
   rtps?: number[]
@@ -744,17 +745,20 @@ export async function getWin568ProviderStats(env: Env): Promise<ProviderStat[]> 
   const [rows] = await pool(env).query<RowDataPacket[]>(
     `SELECT g.provider,
             MAX(g.provider_short) AS provider_short,
+            COALESCE(MAX(p.weight), 1000) AS provider_weight,
             COUNT(*) AS total,
             SUM(CASE WHEN ${win568UpstreamAvailableExpr()} AND ${win568LocalActiveExpr()} THEN 1 ELSE 0 END) AS active,
             JSON_ARRAYAGG(CASE WHEN g.rtp IS NOT NULL AND g.rtp >= 0 THEN g.rtp ELSE NULL END) AS rtps
      FROM bg_568win_game g
      LEFT JOIN bg_568win_game_override o ON o.game_provider_id = g.game_provider_id AND o.game_id = g.game_id
+     LEFT JOIN bg_568win_provider p ON p.provider = g.provider
      GROUP BY g.provider
-     ORDER BY g.provider ASC`,
+     ORDER BY provider_weight DESC, g.provider ASC`,
   )
   return rows.map((r) => ({
     provider: String(r.provider),
     providerShort: r.provider_short ? String(r.provider_short) : null,
+    weight: Number(r.provider_weight),
     total: Number(r.total),
     active: Number(r.active),
     rtps: [...new Set((parseJsonValue(r.rtps) as unknown[] | null ?? [])
@@ -763,6 +767,14 @@ export async function getWin568ProviderStats(env: Env): Promise<ProviderStat[]> 
       .filter((v) => Number.isFinite(v)))]
       .sort((a, b) => a - b),
   }))
+}
+
+export async function setWin568ProviderWeight(env: Env, provider: string, weight: number): Promise<void> {
+  await pool(env).execute(
+    `INSERT INTO bg_568win_provider (provider, weight) VALUES (?, ?)
+     ON DUPLICATE KEY UPDATE weight = VALUES(weight)`,
+    [provider, weight],
+  )
 }
 
 export async function toggleWin568ProviderGames(env: Env, provider: string, isActive: boolean): Promise<number> {

@@ -427,7 +427,7 @@ export const startWin568SyncGames = () =>
 export const getGameJob = (jobId: string) =>
   get<AdminGameJob>(`/admin/games/jobs/${jobId}`)
 
-export interface ProviderStat { provider: string; providerShort: string | null; total: number; active: number; rtps?: number[] }
+export interface ProviderStat { provider: string; providerShort: string | null; weight: number; total: number; active: number; rtps?: number[] }
 
 export interface AdminWin568Game {
   uuid: string
@@ -521,6 +521,8 @@ export const getWin568ProviderStats = () =>
   get<ProviderStat[]>('/admin/games/win568-provider-stats')
 export const toggleWin568ProviderGames = (provider: string, isActive: boolean) =>
   post<{ provider: string; isActive: boolean; affected: number }>('/admin/games/win568-provider-toggle', { provider, isActive })
+export const setWin568ProviderWeight = (provider: string, weight: number) =>
+  post<{ provider: string; weight: number }>('/admin/games/win568-provider-weight', { provider, weight })
 
 // 首页板块手动干预（pin/exclude）
 export interface HomepageSectionEntry {

@@ -3,7 +3,6 @@ import { useTranslation } from 'react-i18next'
 import { ChevronDown, ChevronUp, RefreshCw } from 'lucide-react'
 import GameCardV2 from '@/components/home/GameCardV2'
 import { fetchGames, fetchProviders, launchGame, type SlotGame } from '@/api/slots'
-import { shortProviderName } from '@/utils/providers'
 import { ApiError } from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
 import { useWalletStore } from '@/stores/wallet'
@@ -225,7 +224,7 @@ export default function GamesPage({ cat, provider, onChangeFilter, onOpenPerya, 
                     provider === p ? 'bg-primary text-primary-foreground' : 'bg-secondary text-foreground/70'
                   }`}
                 >
-                  {shortProviderName(p)}
+                  {p}
                 </button>
               ))}
             </div>

@@ -7,6 +7,7 @@ import {
   listWin568CoverCandidates,
   getWin568ProviderStats,
   toggleWin568ProviderGames,
+  setWin568ProviderWeight,
   listHomepageSectionGames,
   replaceHomepageSectionGames,
   HOMEPAGE_SECTION_KEYS,
@@ -143,6 +144,25 @@ router.get('/win568-provider-stats', async (ctx) => {
   } catch (e) {
     fail(ctx, 500, e instanceof Error ? e.message : 'Failed')
   }
+})
+
+router.post('/win568-provider-weight', async (ctx) => {
+  const body = ctx.request.body as { provider?: string; weight?: number }
+  const weight = Number(body.weight)
+  if (!body.provider || !Number.isInteger(weight) || weight < 0 || weight > 10000) {
+    fail(ctx, 400, 'provider and weight(0-10000) required'); return
+  }
+  await setWin568ProviderWeight(ctx.state.env, body.provider, weight)
+  await writeAuditLog(ctx.state.env, {
+    adminId: ctx.state.adminId!,
+    adminUsername: ctx.state.adminUsername!,
+    action: 'win568.provider.weight',
+    targetType: 'win568_provider',
+    targetId: body.provider,
+    detail: { weight },
+    ip: ctx.ip,
+  })
+  ok(ctx, { provider: body.provider, weight })
 })
 
 router.post('/win568-provider-toggle', async (ctx) => {
