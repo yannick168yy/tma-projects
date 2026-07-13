@@ -477,7 +477,7 @@ export default {
     submittedReview: '已提交，等待审核',
     screenshotPrompt: '粘贴截图链接',
     item: {
-      daily_deposit_tier: { title: '今日存款满 ₱{{n}}', subtitle: '第 {{i}}/3 档 · 每日重置' },
+      daily_deposit_tier: { title: '今日存款满 {{n}}', subtitle: '第 {{i}}/3 档 · 每日重置' },
       daily_bets: { title: '今日完成 {{n}} 笔投注', subtitle: '有效投注计数 · 每日重置' },
       daily_play: { title: '试玩今日主推游戏', subtitle: '试玩指定分类任一游戏' },
       profile_complete: { title: '绑定社交账号', subtitle: '绑定 Google 与 Telegram' },

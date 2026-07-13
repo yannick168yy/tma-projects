@@ -487,7 +487,7 @@ export default {
     submittedReview: 'Submitted, pending review',
     screenshotPrompt: 'Paste the screenshot URL',
     item: {
-      daily_deposit_tier: { title: 'Deposit ₱{{n}} Today', subtitle: 'Tier {{i}}/3 · resets daily' },
+      daily_deposit_tier: { title: 'Deposit {{n}} Today', subtitle: 'Tier {{i}}/3 · resets daily' },
       daily_bets: { title: 'Place {{n}} Bets Today', subtitle: 'Valid bets count · resets daily' },
       daily_play: { title: "Play Today's Featured Games", subtitle: 'Play a round in the featured category' },
       profile_complete: { title: 'Link Your Accounts', subtitle: 'Link Google & Telegram to your account' },

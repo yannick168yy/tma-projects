@@ -205,7 +205,9 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
   useEffect(() => {
     document.body.style.overflow = open ? 'hidden' : ''
     if (open) {
-      setTab(initialTab); setDepositView('select'); setSelectedMethod(null); setAmount(''); setHistoryFilter('all'); setHistoryStatus('all'); setDepositCategory('ewallet')
+      // 存款分类默认跟随当前币种：稳定币(USDT/USDC)默认打开虚拟币分类，PHP 默认电子钱包
+      const defaultDepositCat: DepositCategory = (activeCurrency === 'USDT' || activeCurrency === 'USDC') ? 'crypto' : 'ewallet'
+      setTab(initialTab); setDepositView('select'); setSelectedMethod(null); setAmount(''); setHistoryFilter('all'); setHistoryStatus('all'); setDepositCategory(defaultDepositCat)
       void loadPromoConfig()
       setDepositLoading(false); setDepositMessage(''); setDepositSuccess(false)
       setWithdrawAccount(''); setWithdrawOwner(''); setWithdrawMessage(''); setWithdrawSuccess(false)

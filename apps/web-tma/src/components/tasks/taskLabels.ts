@@ -5,8 +5,12 @@ import { formatCurrencyAmount } from '@/stores/wallet'
 // 原生/聚合卡按稳定 id 查 i18n（缺失回落后端中文标题）；社群卡是后台自定义文案，直接用后端值
 export function cardTitle(t: TFunction, card: TaskCard): string {
   if (card.id.startsWith('agg_checkin_ms')) return t('tasks.item.checkin_ms.title', { n: card.progress?.target ?? 0 })
-  // 存款阶梯/投注挑战标题带配置化数值（来自 progress.target）
-  if (card.id.startsWith('daily_deposit_t')) return t('tasks.item.daily_deposit_tier.title', { n: card.progress?.target ?? 0, defaultValue: card.title })
+  // 存款阶梯标题带配置化门槛，按卡片币种格式化（多币种：USDT 显示 USDT 门槛与符号）
+  if (card.id.startsWith('daily_deposit_t')) {
+    const amt = formatCurrencyAmount(card.reward.currency, card.progress?.target ?? 0)
+    return t('tasks.item.daily_deposit_tier.title', { n: amt, defaultValue: card.title })
+  }
+  // 投注挑战标题带笔数（次数，与币种无关）
   if (card.id === 'daily_bets') return t('tasks.item.daily_bets.title', { n: card.progress?.target ?? 0, defaultValue: card.title })
   return t(`tasks.item.${card.id}.title`, { defaultValue: card.title })
 }
