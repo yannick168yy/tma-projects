@@ -23,6 +23,7 @@ async function launchWin568GameUrl(input: {
   userLocale?: string
   gameUuid: string
   device?: string
+  currency?: string
 }) {
   const device = input.device === 'desktop' ? 'desktop' : 'mobile'
   const language = input.userLocale ?? 'en'
@@ -31,7 +32,7 @@ async function launchWin568GameUrl(input: {
     const res = await fetch(`${input.env.CORE_NODE_URL}/internal/win568/sports/launch`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-Internal-Token': input.env.INTERNAL_TOKEN },
-      body: JSON.stringify({ userId: input.userId, device, language }),
+      body: JSON.stringify({ userId: input.userId, device, language, currency: input.currency }),
     })
     const payload = await res.json() as { url?: string; error?: { id?: number; msg?: string }; message?: string }
     if (!res.ok || payload.error?.id) throw new Error(payload.error?.msg || payload.message || 'Failed to launch 568Win Sports')
@@ -48,7 +49,7 @@ async function launchWin568GameUrl(input: {
   const res = await fetch(`${input.env.CORE_NODE_URL}/internal/win568/game/launch`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'X-Internal-Token': input.env.INTERNAL_TOKEN },
-    body: JSON.stringify({ userId: input.userId, gpId, gameId, device, language }),
+    body: JSON.stringify({ userId: input.userId, gpId, gameId, device, language, currency: input.currency }),
   })
   const payload = await res.json() as { url?: string; error?: { id?: number; msg?: string }; message?: string }
   if (!res.ok || payload.error?.id) throw new Error(payload.error?.msg || payload.message || 'Failed to launch 568Win game')
@@ -193,7 +194,7 @@ router.post('/init', async (ctx) => {
 
   if (body.gameUuid === WIN568_SPORTSBOOK_UUID) {
     try {
-      const url = await launchWin568GameUrl({ env, userId, userLocale: user.locale, gameUuid: body.gameUuid, device: body.device })
+      const url = await launchWin568GameUrl({ env, userId, userLocale: user.locale, gameUuid: body.gameUuid, device: body.device, currency: body.currency })
       void recordGameLaunch(env, userId, body.gameUuid)
       ok(ctx, { url })
     } catch (e) {
@@ -204,7 +205,7 @@ router.post('/init', async (ctx) => {
 
   if (body.gameUuid.startsWith('568win:')) {
     try {
-      const url = await launchWin568GameUrl({ env, userId, userLocale: user.locale, gameUuid: body.gameUuid, device: body.device })
+      const url = await launchWin568GameUrl({ env, userId, userLocale: user.locale, gameUuid: body.gameUuid, device: body.device, currency: body.currency })
       void recordGameLaunch(env, userId, body.gameUuid)
       ok(ctx, { url })
     } catch (e) {

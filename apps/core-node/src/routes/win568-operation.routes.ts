@@ -14,6 +14,19 @@ export function toWin568Username(userId: string) {
   return userId.trim().replace(/[^A-Za-z0-9_]/g, '_')
 }
 
+// 568Win agent 按币种划分，目前支持 PHP / USDT 两种。前端 activeCurrency（USDT/UCC/USD 等）归一到 USDT，其余归 PHP。
+function win568AgentCurrency(currency?: string): 'PHP' | 'USDT' {
+  const c = (currency || env.WIN568_DEFAULT_CURRENCY).toUpperCase()
+  return c === 'USDT' || c === 'UCC' || c === 'USD' || c === 'USDC' ? 'USDT' : 'PHP'
+}
+
+// 同一用户在不同币种 agent 下需要不同的 568Win 账号（账号全局唯一、且绑定单一 agent）。
+// PHP 保持原账号（历史映射兼容），USDT 追加 U 后缀。
+function win568Username(userId: string, currency: 'PHP' | 'USDT') {
+  const base = toWin568Username(userId)
+  return currency === 'USDT' ? `${base}U` : base
+}
+
 function validPassword(password: string) {
   return /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d_!@#$%^&*.-]{6,20}$/.test(password)
 }
@@ -250,15 +263,16 @@ export async function saveWin568Games(app: FastifyInstance, result: unknown) {
   return games.length
 }
 
-async function resolveWin568Player(app: FastifyInstance, userId: string) {
+async function resolveWin568Player(app: FastifyInstance, userId: string, currency?: string) {
+  const target = win568AgentCurrency(currency)
   const [[mapped]] = await app.mysql.query<RowDataPacket[]>(
     `SELECT external_username FROM bg_aggregator_player
-     WHERE aggregator_id = '568win' AND user_id = ? LIMIT 1`,
-    [userId],
+     WHERE aggregator_id = '568win' AND user_id = ? AND currency = ? LIMIT 1`,
+    [userId, target],
   )
   if (mapped) return String(mapped.external_username)
 
-  const username = toWin568Username(userId)
+  const username = win568Username(userId, target)
   if (!validUsername(username)) throw new Error('invalid 568Win username')
 
   const [[used]] = await app.mysql.query<RowDataPacket[]>(
@@ -272,9 +286,9 @@ async function resolveWin568Player(app: FastifyInstance, userId: string) {
     `SELECT agent_username, currency FROM bg_568win_agent
      WHERE status = 'active' AND currency = ?
      ORDER BY created_at DESC LIMIT 1`,
-    [env.WIN568_DEFAULT_CURRENCY],
+    [target],
   )
-  if (!agent) throw new Error('568Win PHP agent not found')
+  if (!agent) throw new Error(`568Win ${target} agent not found`)
 
   const result = await (new Win568Client(await getWin568OperationCompanyKey(app))).registerPlayer({
     Username: username,
@@ -338,12 +352,12 @@ export async function win568OperationRoutes(app: FastifyInstance) {
   })
 
   app.post<{
-    Body: { userId: string; device?: string; language?: string }
+    Body: { userId: string; device?: string; language?: string; currency?: string }
   }>('/sports/launch', async (req, reply) => {
     if (!req.body.userId) {
       return reply.status(400).send({ error: 'userId is required' })
     }
-    const username = await resolveWin568Player(app, req.body.userId)
+    const username = await resolveWin568Player(app, req.body.userId, req.body.currency)
     const result = await (await client()).login(buildWin568SportsbookPayload({
       username,
       language: req.body.language,
@@ -353,7 +367,7 @@ export async function win568OperationRoutes(app: FastifyInstance) {
   })
 
   app.post<{
-    Body: { userId: string; gpId?: number; gameId: number; device?: string; language?: string }
+    Body: { userId: string; gpId?: number; gameId: number; device?: string; language?: string; currency?: string }
   }>('/game/launch', async (req, reply) => {
     const gpId = req.body.gpId === undefined ? null : Number(req.body.gpId)
     const gameId = Number(req.body.gameId)
@@ -369,7 +383,7 @@ export async function win568OperationRoutes(app: FastifyInstance) {
     )
     if (!game) return reply.status(404).send({ error: 'game not found' })
 
-    const username = await resolveWin568Player(app, req.body.userId)
+    const username = await resolveWin568Player(app, req.body.userId, req.body.currency)
     const result = await (await client()).login(buildWin568LaunchPayload({
       username,
       gameId,
