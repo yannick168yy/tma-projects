@@ -657,6 +657,8 @@ export default {
     cardTitle: 'Loss Rebate {{rate}}%',
     cardTagline: 'Get {{rate}}% of your net losses back, every day',
     cardCta: 'Learn more',
+    cardRewardLabel: 'Net Loss Back',
+    cardBadge: 'No Cap',
   },
   vipPage: {
     title: 'VIP Club',

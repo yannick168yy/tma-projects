@@ -467,25 +467,71 @@ export default function BonusesPage({ promoFilter, onOpenWallet, onOpenTeam, onO
 
   function renderLossRebateCard() {
     const rate = promoConfig?.lossRebate?.ratePct ?? 5
+    const accent = '#fda4af'
+    const steps = [
+      t('lossRebate.how1', { rate }),
+      t('lossRebate.how2', { rate }),
+      t('lossRebate.how3', { rate }),
+    ]
     return (
       <div key="lossrebate" id="promo-lossrebate" className="rounded-2xl overflow-hidden border border-white/8">
-        <button type="button" onClick={onOpenLossRebate} className="w-full text-left">
-          <div className="relative bg-gradient-to-br from-rose-600/30 to-purple-700/30 px-4 py-4">
-            <div className="flex items-start justify-between">
-              <div className="flex-1 pr-12">
-                <span className="text-[10px] font-black uppercase tracking-widest text-rose-300">
-                  {t('lossRebate.cardTag')}
-                </span>
-                <h2 className="text-white font-black leading-tight mt-0.5 font-display text-[1.3rem]">{t('lossRebate.cardTitle', { rate })}</h2>
-                <p className="text-white/60 text-xs mt-0.5">{t('lossRebate.cardTagline', { rate })}</p>
-              </div>
-              <span className="text-3xl">💸</span>
+        <div className="relative bg-gradient-to-br from-[#4a1d3f] via-[#831843] to-[#6b21a8] px-4 py-4">
+          <div className="flex items-start justify-between">
+            <div className="flex-1 pr-12">
+              <span className="text-[10px] font-black uppercase tracking-widest" style={{ color: accent }}>
+                {t('lossRebate.cardTag')}
+              </span>
+              <h2 className="text-white font-black leading-tight mt-0.5 font-display text-[1.3rem]">{t('lossRebate.cardTitle', { rate })}</h2>
+              <p className="text-white/60 text-xs mt-0.5">{t('lossRebate.cardTagline', { rate })}</p>
             </div>
-            <div className="mt-3 inline-flex items-center gap-1 rounded-full bg-white/10 px-3 py-1 text-xs font-bold text-white">
-              {t('lossRebate.cardCta')} ›
-            </div>
+            <span className="text-3xl">💸</span>
           </div>
-        </button>
+          <div className="mt-3 flex items-center gap-2">
+            <div className="bg-black/30 rounded-xl px-3 py-1.5 flex items-baseline gap-1.5">
+              <span className="text-white font-black text-xl leading-none font-display">{rate}%</span>
+              <span className="text-white/60 text-xs">{t('lossRebate.cardRewardLabel')}</span>
+            </div>
+            <span className="text-[10px] font-black px-2 py-1 rounded-full bg-rose-400/20 text-rose-300">{t('lossRebate.cardBadge')}</span>
+            <span className="ml-auto text-[10px] text-white/40 font-semibold">🕐 {t('common.ongoing')}</span>
+          </div>
+        </div>
+
+        <div className="bg-card px-4 py-3">
+          <p className="text-muted-foreground text-xs leading-relaxed">{t('lossRebate.introBody', { rate })}</p>
+          <button
+            type="button"
+            className="w-full flex items-center justify-between mt-3 py-2 border-t border-border"
+            onClick={() => setExpanded(expanded === 'lossrebate' ? null : 'lossrebate')}
+          >
+            <span className="text-foreground text-xs font-bold">{t('bonuses.howItWorks')}</span>
+            <ChevronDown
+              size={14}
+              className={`text-muted-foreground transition-transform duration-200 ${expanded === 'lossrebate' ? 'rotate-180' : ''}`}
+            />
+          </button>
+          {expanded === 'lossrebate' && (
+            <div className="pb-2 space-y-2">
+              {steps.map((step, i) => (
+                <div key={i} className="flex items-start gap-2.5">
+                  <div
+                    className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 font-black text-[11px] text-black mt-0.5"
+                    style={{ background: accent }}
+                  >
+                    {i + 1}
+                  </div>
+                  <span className="text-foreground/80 text-xs leading-relaxed">{step}</span>
+                </div>
+              ))}
+            </div>
+          )}
+          <button
+            type="button"
+            className="w-full mt-3 py-3 rounded-xl text-white font-black text-sm transition-colors bg-rose-500 hover:bg-rose-400"
+            onClick={onOpenLossRebate}
+          >
+            {t('lossRebate.cardCta')}
+          </button>
+        </div>
       </div>
     )
   }

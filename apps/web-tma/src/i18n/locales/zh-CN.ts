@@ -647,6 +647,8 @@ export default {
     cardTitle: '负盈利返水 {{rate}}%',
     cardTagline: '每天返还你净输的 {{rate}}%',
     cardCta: '了解详情',
+    cardRewardLabel: '净输返还',
+    cardBadge: '无上限',
   },
   vipPage: {
     title: 'VIP 俱乐部',
