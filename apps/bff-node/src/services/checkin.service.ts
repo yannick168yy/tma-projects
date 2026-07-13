@@ -155,17 +155,18 @@ async function grantSpin(conn: PoolConnection, userId: string, source: string, r
 }
 
 /** 当日增强轨是否达标：有存款 或 有效投注流水≥阈值（马尼拉日） */
-async function enhancedEligible(conn: PoolConnection | Pool, userId: string, date: string, minPhp: number): Promise<boolean> {
+async function enhancedEligible(conn: PoolConnection | Pool, userId: string, date: string, minPhp: number, usdRate: number): Promise<boolean> {
   const [[dep]] = await conn.query<RowDataPacket[]>(
     `SELECT 1 AS ok FROM bg_deposit_order
      WHERE user_id = ? AND status = 'paid' AND DATE(created_at + INTERVAL 8 HOUR) = ? LIMIT 1`,
     [userId, date],
   )
   if (dep) return true
+  // 门槛 enhancedMinPhp 为 PHP 口径：跨币种流水折 PHP 等值（USDT/USDC 按 usdRate）再比较
   const [[bet]] = await conn.query<RowDataPacket[]>(
-    `SELECT COALESCE(SUM(amount), 0) AS turnover FROM bg_bet_order
+    `SELECT COALESCE(SUM(amount * (CASE WHEN currency_code IN ('USDT','USDC') THEN ? ELSE 1 END)), 0) AS turnover FROM bg_bet_order
      WHERE user_id = ? AND bet_type = 'bet' AND status = 'settled' AND DATE(created_at + INTERVAL 8 HOUR) = ?`,
-    [userId, date],
+    [usdRate, userId, date],
   )
   return Number(bet?.turnover ?? 0) >= minPhp
 }
@@ -226,7 +227,7 @@ export async function getCheckinStatus(env: Env, userId: string): Promise<Checki
   )
   const last = await lastLogRow(pool, userId)
   const monthDays = await monthCount(pool, userId, today)
-  const eligible = await enhancedEligible(pool, userId, today, cfg.enhancedMinPhp)
+  const eligible = await enhancedEligible(pool, userId, today, cfg.enhancedMinPhp, env.USDT_TO_PHP_RATE)
 
   const claimed = Boolean(todayRow)
   const todayTrack = (todayRow?.track as 'base' | 'enhanced' | undefined) ?? null
@@ -276,7 +277,7 @@ export async function claimCheckin(env: Env, userId: string): Promise<CheckinCla
     await conn.beginTransaction()
     const today = manilaToday()
     const tiers = await tierRuleIds(conn)
-    const eligible = await enhancedEligible(conn, userId, today, cfg.enhancedMinPhp)
+    const eligible = await enhancedEligible(conn, userId, today, cfg.enhancedMinPhp, env.USDT_TO_PHP_RATE)
 
     // 先按可靠的字符串比较查今天是否已签（不依赖 DATE 列回读格式）
     const [[todayRow]] = await conn.query<RowDataPacket[]>(

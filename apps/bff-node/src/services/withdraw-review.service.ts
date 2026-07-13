@@ -118,6 +118,7 @@ export async function buildWin568ReviewStats(
   userId: string,
   since: Date,
   graceMinutes: number,
+  usdRate = 1,
 ): Promise<Win568ReviewStats> {
   const [wmRows] = await pool.query<RowDataPacket[]>(
     `SELECT \`key\`, \`value\` FROM bg_admin_settings
@@ -136,9 +137,9 @@ export async function buildWin568ReviewStats(
        COALESCE(SUM(txn_type = 'bet'), 0) AS bet_cnt,
        COALESCE(SUM(txn_type = 'bet' AND status = 'Void'), 0) AS void_cnt,
        COALESCE(SUM(txn_type = 'bonus' AND status <> 'Void'), 0) AS bonus_cnt,
-       COALESCE(SUM(CASE WHEN txn_type = 'bonus' AND status <> 'Void' THEN ROUND(amount * 100) ELSE 0 END), 0) AS bonus_cents
+       COALESCE(SUM(CASE WHEN txn_type = 'bonus' AND status <> 'Void' THEN ROUND(amount * 100 * (CASE WHEN currency IN ('USDT','USDC','USD') THEN ? ELSE 1 END)) ELSE 0 END), 0) AS bonus_cents
      FROM bg_568win_wallet_txn WHERE user_id = ? AND created_at > ?`,
-    [userId, since],
+    [usdRate, userId, since],
   )
 
   let checked = 0, missing = 0, stakeMismatch = 0, voidPaid = 0
@@ -398,7 +399,7 @@ export async function loadReviewConfig(pool: Pool, scope: ReviewScope = 'user'):
 
 // ── 上下文构建 ────────────────────────────────────────────────────────────────
 
-async function buildContext(pool: Pool, order: OrderWithdraw, config: Record<string, RuleConfig>): Promise<ReviewContext> {
+async function buildContext(pool: Pool, order: OrderWithdraw, config: Record<string, RuleConfig>, usdRate: number): Promise<ReviewContext> {
   const userId = order.userId
 
   const [[user]] = await pool.query<RowDataPacket[]>(
@@ -419,23 +420,24 @@ async function buildContext(pool: Pool, order: OrderWithdraw, config: Record<str
   const sinceDate = wd?.last_at ? new Date(wd.last_at as Date) : registeredAt
   const since = sinceDate.toISOString()
 
+  // 风控口径：跨币种统一折 PHP 等值（USDT/USDC 按 usdRate），防稳定币大额活动被 ~58x 低估而漏判审核
   const [[dep]] = await pool.query<RowDataPacket[]>(
     `SELECT
-       COALESCE(SUM(CASE WHEN created_at > ? THEN ROUND(amount * 100) END), 0) AS window_cents,
-       COALESCE(SUM(CASE WHEN created_at > NOW() - INTERVAL 24 HOUR THEN ROUND(amount * 100) END), 0) AS d24_cents,
+       COALESCE(SUM(CASE WHEN created_at > ? THEN ROUND(amount * 100 * (CASE WHEN currency IN ('USDT','USDC') THEN ? ELSE 1 END)) END), 0) AS window_cents,
+       COALESCE(SUM(CASE WHEN created_at > NOW() - INTERVAL 24 HOUR THEN ROUND(amount * 100 * (CASE WHEN currency IN ('USDT','USDC') THEN ? ELSE 1 END)) END), 0) AS d24_cents,
        COUNT(*) AS lifetime_cnt
      FROM bg_deposit_order WHERE user_id = ? AND status = 'paid'`,
-    [sinceDate, userId],
+    [sinceDate, usdRate, usdRate, userId],
   )
 
   const [[bet]] = await pool.query<RowDataPacket[]>(
     `SELECT
-       COALESCE(SUM(CASE WHEN created_at > ? AND bet_type IN ('win','refund') THEN amount
-                         WHEN created_at > ? AND bet_type = 'bet' THEN -amount ELSE 0 END), 0) AS window_profit,
-       COALESCE(SUM(CASE WHEN created_at > NOW() - INTERVAL 24 HOUR AND bet_type IN ('win','refund') THEN amount
-                         WHEN created_at > NOW() - INTERVAL 24 HOUR AND bet_type = 'bet' THEN -amount ELSE 0 END), 0) AS d24_profit
+       COALESCE(SUM(CASE WHEN created_at > ? AND bet_type IN ('win','refund') THEN amount * (CASE WHEN currency_code IN ('USDT','USDC') THEN ? ELSE 1 END)
+                         WHEN created_at > ? AND bet_type = 'bet' THEN -amount * (CASE WHEN currency_code IN ('USDT','USDC') THEN ? ELSE 1 END) ELSE 0 END), 0) AS window_profit,
+       COALESCE(SUM(CASE WHEN created_at > NOW() - INTERVAL 24 HOUR AND bet_type IN ('win','refund') THEN amount * (CASE WHEN currency_code IN ('USDT','USDC') THEN ? ELSE 1 END)
+                         WHEN created_at > NOW() - INTERVAL 24 HOUR AND bet_type = 'bet' THEN -amount * (CASE WHEN currency_code IN ('USDT','USDC') THEN ? ELSE 1 END) ELSE 0 END), 0) AS d24_profit
      FROM bg_bet_order WHERE user_id = ? AND status = 'settled'`,
-    [sinceDate, sinceDate, userId],
+    [sinceDate, usdRate, sinceDate, usdRate, usdRate, usdRate, userId],
   )
 
   // 优惠流水未完成（promotion 类型），只检查与本次取款同币种的要求，跨币种不拦截
@@ -495,7 +497,7 @@ async function buildContext(pool: Pool, order: OrderWithdraw, config: Record<str
     [userId],
   )
 
-  const win568 = await buildWin568ReviewStats(pool, userId, sinceDate, reconcileGraceMinutes(config))
+  const win568 = await buildWin568ReviewStats(pool, userId, sinceDate, reconcileGraceMinutes(config), usdRate)
 
   return {
     pool, order, since,
@@ -569,7 +571,7 @@ export async function reviewWithdraw(env: Env, redis: Redis, orderId: string, ro
 
   try {
     const config = await loadReviewConfig(pool)
-    const ctx = await buildContext(pool, order, config)
+    const ctx = await buildContext(pool, order, config, env.USDT_TO_PHP_RATE)
     snapshot = snapshotOf(ctx)
 
     const results: RuleResult[] = []
