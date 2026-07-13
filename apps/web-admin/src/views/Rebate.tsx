@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import {
   Card, Form, InputNumber, Switch, Button, message, Typography,
   Row, Col, Spin, Table, Tag, Space, Input, DatePicker,
-  Popconfirm, Select, Modal,
+  Popconfirm, Select, Modal, Segmented,
 } from 'antd'
 import { PercentageOutlined, StarOutlined, DeleteOutlined, PlusOutlined, ThunderboltOutlined } from '@ant-design/icons'
 import type { ColumnsType } from 'antd/es/table'
@@ -12,6 +12,7 @@ import {
   getFeaturedGames, addFeaturedGame, removeFeaturedGame,
   triggerRebatePayout, getRebateRecords,
   getWin568ProviderStats, getAdminWin568Games,
+  FIRSTDEP_CURRENCIES,
   type RebateConfigItem, type RebateThresholdItem, type RebateFeaturedGame, type RebateRecord, type AdminWin568Game,
 } from '../api'
 import { PAGE_SIZE_OPTIONS } from '../pagination'
@@ -48,6 +49,7 @@ type RebateTab = 'config' | 'featured' | 'records'
 export default function Rebate({ tab = 'config' }: { tab?: RebateTab }) {
   const [configLoading, setConfigLoading] = useState(true)
   const [configSaving, setConfigSaving] = useState(false)
+  const [currency, setCurrency] = useState<string>('PHP')
   const [configItems, setConfigItems] = useState<RebateConfigItem[]>([])
   const [thresholds, setThresholds] = useState<RebateThresholdItem[]>([])
   const [thresholdsSaving, setThresholdsSaving] = useState(false)
@@ -74,10 +76,10 @@ export default function Rebate({ tab = 'config' }: { tab?: RebateTab }) {
 
   const [payoutLoading, setPayoutLoading] = useState(false)
 
-  async function loadConfig() {
+  async function loadConfig(cur = currency) {
     setConfigLoading(true)
     try {
-      const res = await getRebateConfig()
+      const res = await getRebateConfig(cur)
       setConfigItems(res.config)
       setThresholds(res.thresholds)
     } catch (e) {
@@ -139,10 +141,11 @@ export default function Rebate({ tab = 'config' }: { tab?: RebateTab }) {
   }
 
   useEffect(() => {
-    if (tab === 'config') void loadConfig()
+    if (tab === 'config') void loadConfig(currency)
     else if (tab === 'featured') void loadFeatured()
     else void loadRecords()
-  }, [tab])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, currency])
 
   function updateRate(level: number, category: string, value: number) {
     setConfigItems((prev) => prev.map((item) =>
@@ -170,8 +173,8 @@ export default function Rebate({ tab = 'config' }: { tab?: RebateTab }) {
   async function handleSaveConfig() {
     setConfigSaving(true)
     try {
-      await saveRebateConfig(configItems)
-      message.success('分级费率已保存')
+      await saveRebateConfig(configItems, currency)
+      message.success(`分级费率已保存（${currency}）`)
     } catch (e) {
       message.error(e instanceof Error ? e.message : '保存失败')
     } finally { setConfigSaving(false) }
@@ -180,8 +183,8 @@ export default function Rebate({ tab = 'config' }: { tab?: RebateTab }) {
   async function handleSaveThresholds() {
     setThresholdsSaving(true)
     try {
-      await saveRebateThresholds(thresholds)
-      message.success('等级流水阈值已保存')
+      await saveRebateThresholds(thresholds, currency)
+      message.success(`等级流水阈值已保存（${currency}）`)
     } catch (e) {
       message.error(e instanceof Error ? e.message : '保存失败')
     } finally { setThresholdsSaving(false) }
@@ -278,8 +281,21 @@ export default function Rebate({ tab = 'config' }: { tab?: RebateTab }) {
 
   const configTab = (
     <Spin spinning={configLoading}>
+      <Card style={{ marginBottom: 16 }}>
+        <Space align="center">
+          <Text strong>币种：</Text>
+          <Segmented
+            value={currency}
+            onChange={(v) => setCurrency(String(v))}
+            options={FIRSTDEP_CURRENCIES.map((c) => ({ value: c, label: c }))}
+          />
+          <Text type="secondary" style={{ fontSize: 12 }}>
+            每币种独立配置：阈值与封顶为该币种绝对金额，费率%全币种通用。切换即加载该币种数值。
+          </Text>
+        </Space>
+      </Card>
       <Card
-        title={<span>📈 等级流水阈值</span>}
+        title={<span>📈 等级流水阈值（{currency}）</span>}
         extra={<Button type="primary" loading={thresholdsSaving} onClick={handleSaveThresholds}>保存阈值</Button>}
         style={{ marginBottom: 16 }}
       >

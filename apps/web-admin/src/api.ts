@@ -1001,12 +1001,12 @@ export interface RebateRecord {
   status: string
   paidAt: string | null
 }
-export const getRebateConfig = () =>
-  get<{ config: RebateConfigItem[]; thresholds: RebateThresholdItem[] }>('/admin/rebate/config')
-export const saveRebateConfig = (config: RebateConfigItem[]) =>
-  req<{ saved: number }>('PUT', '/admin/rebate/config', { config })
-export const saveRebateThresholds = (thresholds: RebateThresholdItem[]) =>
-  req<{ saved: number }>('PUT', '/admin/rebate/thresholds', { thresholds })
+export const getRebateConfig = (currency = 'PHP') =>
+  get<{ currency: string; config: RebateConfigItem[]; thresholds: RebateThresholdItem[] }>('/admin/rebate/config', { currency })
+export const saveRebateConfig = (config: RebateConfigItem[], currency = 'PHP') =>
+  req<{ saved: number }>('PUT', '/admin/rebate/config', { config, currency })
+export const saveRebateThresholds = (thresholds: RebateThresholdItem[], currency = 'PHP') =>
+  req<{ saved: number }>('PUT', '/admin/rebate/thresholds', { thresholds, currency })
 export const getFeaturedGames = () =>
   get<{ games: RebateFeaturedGame[] }>('/admin/rebate/featured-games')
 export const addFeaturedGame = (data: { gameUuid: string; tier: string; sortOrder?: number }) =>
@@ -1043,10 +1043,10 @@ export interface VipRewardRecord {
   createdAt: string | null
   paidAt: string | null
 }
-export const getVipBenefits = () =>
-  get<{ benefits: VipBenefitItem[] }>('/admin/vip/benefits')
-export const saveVipBenefits = (benefits: VipBenefitItem[]) =>
-  req<{ saved: number }>('PUT', '/admin/vip/benefits', { benefits })
+export const getVipBenefits = (currency = 'PHP') =>
+  get<{ currency: string; benefits: VipBenefitItem[] }>('/admin/vip/benefits', { currency })
+export const saveVipBenefits = (benefits: VipBenefitItem[], currency = 'PHP') =>
+  req<{ saved: number }>('PUT', '/admin/vip/benefits', { benefits, currency })
 export const triggerVipNegativeRebate = (includeToday?: boolean) =>
   req<{ periodKey: string; users: number; totalAmount: number; skipped?: string }>('POST', '/admin/vip/negative-rebate/manual', { includeToday })
 export const triggerVipWeeklySalary = (includeCurrentWeek?: boolean) =>

@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react'
 import {
   Card, Button, message, Typography, Spin, Table, Tag, Space, Input,
-  InputNumber, Popconfirm, Select,
+  InputNumber, Popconfirm, Select, Segmented,
 } from 'antd'
 import { ThunderboltOutlined, CrownOutlined } from '@ant-design/icons'
 import type { ColumnsType } from 'antd/es/table'
 import {
   getVipBenefits, saveVipBenefits, triggerVipNegativeRebate, getVipRecords,
   triggerVipWeeklySalary, triggerVipMonthlySalary, triggerVipBirthday, triggerVipRetention,
+  FIRSTDEP_CURRENCIES,
   type VipBenefitItem, type VipRewardRecord,
 } from '../api'
 import { PAGE_SIZE_OPTIONS } from '../pagination'
@@ -36,6 +37,7 @@ function EditableNumber({ value, onChange, step = 1, precision = 2, min = 0 }: {
 export default function Vip({ section = 'benefits' }: { section?: 'benefits' | 'records' }) {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [currency, setCurrency] = useState<string>('PHP')
   const [benefits, setBenefits] = useState<VipBenefitItem[]>([])
 
   const [settleLoading, setSettleLoading] = useState(false)
@@ -48,10 +50,10 @@ export default function Vip({ section = 'benefits' }: { section?: 'benefits' | '
   const [recordsType, setRecordsType] = useState<string | undefined>()
   const [recordsUser, setRecordsUser] = useState('')
 
-  async function loadBenefits() {
+  async function loadBenefits(cur = currency) {
     setLoading(true)
     try {
-      const res = await getVipBenefits()
+      const res = await getVipBenefits(cur)
       setBenefits(res.benefits)
     } catch (e) {
       message.error(e instanceof Error ? e.message : '加载失败')
@@ -73,9 +75,9 @@ export default function Vip({ section = 'benefits' }: { section?: 'benefits' | '
 
   useEffect(() => {
     if (section === 'records') loadRecords(1)
-    else loadBenefits()
+    else loadBenefits(currency)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [section])
+  }, [section, currency])
 
   function patchLevel(level: number, field: keyof VipBenefitItem, value: number) {
     setBenefits((prev) => prev.map((b) => (b.level === level ? { ...b, [field]: value } : b)))
@@ -84,9 +86,9 @@ export default function Vip({ section = 'benefits' }: { section?: 'benefits' | '
   async function handleSave() {
     setSaving(true)
     try {
-      await saveVipBenefits(benefits)
-      message.success('已保存')
-      await loadBenefits()
+      await saveVipBenefits(benefits, currency)
+      message.success(`已保存（${currency}）`)
+      await loadBenefits(currency)
     } catch (e) {
       message.error(e instanceof Error ? e.message : '保存失败')
     } finally { setSaving(false) }
@@ -141,6 +143,15 @@ export default function Vip({ section = 'benefits' }: { section?: 'benefits' | '
 
   const benefitsCard = (
     <Card>
+      <Space style={{ marginBottom: 12 }} align="center">
+        <Text strong>币种：</Text>
+        <Segmented
+          value={currency}
+          onChange={(v) => setCurrency(String(v))}
+          options={FIRSTDEP_CURRENCIES.map((c) => ({ value: c, label: c }))}
+        />
+        <Text type="secondary" style={{ fontSize: 12 }}>各币种独立配置，切换即加载该币种数值</Text>
+      </Space>
       {loading ? <Spin /> : (
         <>
           <Space style={{ marginBottom: 12 }} wrap>
@@ -173,7 +184,7 @@ export default function Vip({ section = 'benefits' }: { section?: 'benefits' | '
             columns={benefitColumns} dataSource={benefits}
           />
           <Text type="secondary" style={{ display: 'block', marginTop: 12, fontSize: 12 }}>
-            金额单位与钱包一致（PHP）。周俸/月俸需当期有效投注才发放，限时手动领取。保级考核每季度执行（未达标降1级，总降幅封顶一级）。
+            金额单位为当前所选币种（{currency}），各币种独立发放到对应钱包。周俸/月俸需当期有效投注才发放，限时手动领取。保级考核每季度执行（未达标降1级，总降幅封顶一级）。
             每日提现额度/次数为专属权益展示配置，暂未接入提现闸门（当前提现无每日限额基线）。
           </Text>
         </>
