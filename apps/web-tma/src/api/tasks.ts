@@ -33,8 +33,9 @@ export interface TaskCenter {
   }
 }
 
-export async function fetchTaskCenter(): Promise<TaskCenter> {
-  return apiRequest<TaskCenter>('/tasks')
+export async function fetchTaskCenter(currency?: string): Promise<TaskCenter> {
+  const qs = currency ? `?currency=${encodeURIComponent(currency)}` : ''
+  return apiRequest<TaskCenter>(`/tasks${qs}`)
 }
 
 /** 模块弹层（签到/体验金/充值/装机）关闭后广播，任务中心据此刷新状态 */
@@ -48,8 +49,12 @@ export interface ClaimResult {
   reward: TaskReward
 }
 
-export async function claimTask(taskId: string): Promise<ClaimResult> {
-  return apiRequest<ClaimResult>(`/tasks/${encodeURIComponent(taskId)}/claim`, { method: 'POST' })
+export async function claimTask(taskId: string, currency?: string): Promise<ClaimResult> {
+  return apiRequest<ClaimResult>(`/tasks/${encodeURIComponent(taskId)}/claim`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ currency }),
+  })
 }
 
 export interface SocialClaimResult {

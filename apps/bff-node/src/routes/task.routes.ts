@@ -8,8 +8,9 @@ const router = new Router({ prefix: '/tasks' })
 // GET /tasks — 任务中心（新手/每日/成就/社群 四区卡片）
 router.get('/', async (ctx) => {
   if (!ctx.state.userId) { fail(ctx, 401, 'Unauthorized', 401); return }
+  const currency = (ctx.query.currency as string) || 'PHP'
   try {
-    ok(ctx, await getTaskCenter(ctx.state.env, ctx.state.userId))
+    ok(ctx, await getTaskCenter(ctx.state.env, ctx.state.userId, currency))
   } catch (e) {
     fail(ctx, 500, e instanceof Error ? e.message : 'task center failed')
   }
@@ -20,7 +21,9 @@ router.post('/:id/claim', async (ctx) => {
   if (!ctx.state.userId) { fail(ctx, 401, 'Unauthorized', 401); return }
   try {
     if (!(await riskAllowed(ctx, 'promo_claim'))) return
-    const result = await claimTask(ctx.state.env, ctx.state.userId, ctx.params.id)
+    const body = (ctx.request.body ?? {}) as { currency?: string }
+    const currency = body.currency || 'PHP'
+    const result = await claimTask(ctx.state.env, ctx.state.userId, ctx.params.id, currency)
     ok(ctx, result)
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'claim failed'

@@ -841,8 +841,10 @@ export interface TaskRewardCfg {
   category: string
 }
 export type TaskConfig = Record<string, TaskRewardCfg>
-export const getTaskConfig = () => get<TaskConfig>('/admin/tasks/config')
-export const saveTaskConfig = (data: TaskConfig) => req<TaskConfig>('PUT', '/admin/tasks/config', data)
+export const getTaskConfig = (currency = 'PHP') =>
+  get<{ currency: string; config: TaskConfig }>('/admin/tasks/config', { currency })
+export const saveTaskConfig = (config: TaskConfig, currency = 'PHP') =>
+  req<TaskConfig>('PUT', '/admin/tasks/config', { config, currency })
 
 export type TaskVerifyStrategy = 'tg_member' | 'code_redeem' | 'manual_review'
 export interface TaskSocialConfig {

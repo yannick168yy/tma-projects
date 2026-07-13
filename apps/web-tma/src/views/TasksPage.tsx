@@ -65,10 +65,11 @@ export default function TasksPage({ initialPath = 'newbie', onNavigate }: { init
   const startActiveTask = useActiveTaskStore((s) => s.start)
   const clearActiveTask = useActiveTaskStore((s) => s.clear)
 
+  const activeCurrency = useWalletStore((s) => s.activeCurrency)
   const prevStatusRef = useRef<Map<string, string> | null>(null)
   const load = useCallback(async () => {
     try {
-      const next = await fetchTaskCenter()
+      const next = await fetchTaskCenter(activeCurrency)
       const flat = [...next.groups.newbie, ...next.groups.daily, ...next.groups.achievement, ...next.groups.social]
       // 状态从非 done → done 的卡（在签到/体验金等模块内完成后回来），触发绿勾达成动效
       const prev = prevStatusRef.current
@@ -79,7 +80,7 @@ export default function TasksPage({ initialPath = 'newbie', onNavigate }: { init
       prevStatusRef.current = new Map(flat.map((c) => [c.id, c.status]))
       setCenter(next)
     } catch { setCenter(EMPTY_CENTER) }
-  }, [])
+  }, [activeCurrency])
   useEffect(() => { void load() }, [load])
   // 模块弹层（签到/体验金/充值/装机）关闭后刷新任务状态
   useEffect(() => {
@@ -158,7 +159,7 @@ export default function TasksPage({ initialPath = 'newbie', onNavigate }: { init
     if (busyId) return
     setBusyId(card.id)
     try {
-      await claimTask(card.id)
+      await claimTask(card.id, activeCurrency)
       setJustClaimedId(card.id)
       await afterSuccess(t('tasks.claimSuccess', { reward: rewardText(card) }))
     } catch (e) {

@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
-import { Alert, Card, Table, Switch, InputNumber, Input, Select, Button, message, Spin, Tabs, Typography, Tag, Space, Popconfirm } from 'antd'
+import { Alert, Card, Table, Switch, InputNumber, Input, Select, Button, message, Spin, Tabs, Typography, Tag, Space, Popconfirm, Segmented } from 'antd'
 import {
   getTaskConfig, saveTaskConfig, type TaskConfig, type TaskRewardCfg, type TaskRewardType,
   getTaskSocial, saveTaskSocial, type TaskSocialConfig,
   getTaskReviews, reviewTaskManual, type TaskManualReview,
+  FIRSTDEP_CURRENCIES,
 } from '../api'
 
 const { Title, Text } = Typography
@@ -28,16 +29,19 @@ const REWARD_TYPE_OPTS: { value: TaskRewardType; label: string }[] = [
   { value: 'growth', label: '成长值' },
 ]
 
-/** 按前台分区展示原生任务配置；保存时提交全量配置（其余分区字段原样带回） */
-function NativeConfig({ ids, title }: { ids: string[]; title: string }) {
+/** 按前台分区展示原生任务配置；保存时提交全量配置（其余分区字段原样带回）
+ *  currencyScoped=true（每日留存任务）时按币种独立配置；否则（新手拉新任务）固定 PHP */
+function NativeConfig({ ids, title, currencyScoped = false }: { ids: string[]; title: string; currencyScoped?: boolean }) {
   const [cfg, setCfg] = useState<TaskConfig | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [currency, setCurrency] = useState<string>('PHP')
+  const effCur = currencyScoped ? currency : 'PHP'
 
-  useEffect(() => { void load() }, [])
+  useEffect(() => { void load() /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [effCur])
   async function load() {
     setLoading(true)
-    try { setCfg(await getTaskConfig()) } catch { message.error('加载失败') } finally { setLoading(false) }
+    try { setCfg((await getTaskConfig(effCur)).config) } catch { message.error('加载失败') } finally { setLoading(false) }
   }
   function patch(key: string, p: Partial<TaskRewardCfg>) {
     setCfg((c) => (c ? { ...c, [key]: { ...c[key], ...p } } : c))
@@ -45,7 +49,7 @@ function NativeConfig({ ids, title }: { ids: string[]; title: string }) {
   async function save() {
     if (!cfg) return
     setSaving(true)
-    try { await saveTaskConfig(cfg); message.success('已保存'); setCfg(await getTaskConfig()) }
+    try { await saveTaskConfig(cfg, effCur); message.success(`已保存（${effCur}）`); setCfg((await getTaskConfig(effCur)).config) }
     catch { message.error('保存失败') } finally { setSaving(false) }
   }
 
@@ -54,6 +58,14 @@ function NativeConfig({ ids, title }: { ids: string[]; title: string }) {
 
   return (
     <Card title={title} extra={<Button type="primary" loading={saving} onClick={save}>保存</Button>}>
+      {currencyScoped && (
+        <Space style={{ marginBottom: 12 }} align="center">
+          <Text strong>币种：</Text>
+          <Segmented value={currency} onChange={(v) => setCurrency(String(v))}
+            options={FIRSTDEP_CURRENCIES.map((c) => ({ value: c, label: c }))} />
+          <Text type="secondary" style={{ fontSize: 12 }}>留存类每日任务按币种独立(金额/门槛为该币种口径);切换即加载该币种,未配则从PHP÷58派生</Text>
+        </Space>
+      )}
       <Text type="secondary">任务只奖成长体系不碰的行为（首次/回访/完善）。现金奖励带打码倍数防薅。</Text>
       <Table
         style={{ marginTop: 12 }} pagination={false} dataSource={rows} rowKey="key"
@@ -188,7 +200,7 @@ function DailyTab() {
         message="前台每日区其余卡片的配置位置"
         description="每日签到与签到里程碑（7/15/30 天）→ 任务体系 · 每日签到 页配置。"
       />
-      <NativeConfig ids={DAILY_IDS} title="每日任务" />
+      <NativeConfig ids={DAILY_IDS} title="每日任务" currencyScoped />
     </>
   )
 }

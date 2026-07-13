@@ -8,12 +8,17 @@ import {
 
 const router = new Router({ prefix: '/tasks' })
 
-// 原生任务配置（开关/金额/阈值/打码）
+// 原生任务配置（开关/金额/阈值/打码）；currency 区分留存类每日任务的按币种配置（默认 PHP）
 router.get('/config', async (ctx) => {
-  ok(ctx, await getTaskConfig(ctx.state.env))
+  const currency = (ctx.query.currency as string) || 'PHP'
+  ok(ctx, { currency, config: await getTaskConfig(ctx.state.env, currency) })
 })
 router.put('/config', async (ctx) => {
-  ok(ctx, await saveTaskConfig(ctx.state.env, ctx.request.body))
+  const body = (ctx.request.body ?? {}) as { currency?: string; config?: unknown }
+  const currency = body.currency || 'PHP'
+  // 兼容旧前端直接 PUT 整个 config 对象（无 currency 包裹）
+  const payload = body.config !== undefined ? body.config : ctx.request.body
+  ok(ctx, await saveTaskConfig(ctx.state.env, payload, currency))
 })
 
 // 社群任务配置（频道标识/验证策略/轮换码/奖励）
