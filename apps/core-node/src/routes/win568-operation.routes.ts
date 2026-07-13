@@ -14,17 +14,25 @@ export function toWin568Username(userId: string) {
   return userId.trim().replace(/[^A-Za-z0-9_]/g, '_')
 }
 
-// 568Win agent 按币种划分，目前支持 PHP / USDT 两种。前端 activeCurrency（USDT/UCC/USD 等）归一到 USDT，其余归 PHP。
-function win568AgentCurrency(currency?: string): 'PHP' | 'USDT' {
+// 我方钱包币种：读余额/记账用的实际币种（bg_wallet.currency）。
+type WalletCcy = 'PHP' | 'USDT' | 'USDC'
+function normalizeWalletCcy(currency?: string): WalletCcy {
   const c = (currency || env.WIN568_DEFAULT_CURRENCY).toUpperCase()
-  return c === 'USDT' || c === 'UCC' || c === 'USD' || c === 'USDC' ? 'USDT' : 'PHP'
+  if (c === 'USDT' || c === 'UCC') return 'USDT'
+  if (c === 'USDC') return 'USDC'
+  return 'PHP'
 }
 
-// 同一用户在不同币种 agent 下需要不同的 568Win 账号（账号全局唯一、且绑定单一 agent）。
-// PHP 保持原账号（历史映射兼容），USDT 追加 U 后缀。
-function win568Username(userId: string, currency: 'PHP' | 'USDT') {
-  const base = toWin568Username(userId)
-  return currency === 'USDT' ? `${base}U` : base
+// 568Win agent 币种：稳定币(USDT/USDC)统一玩 USD 币种游戏（568Win 对 USDT/USDC 的游戏少，USD 游戏最多；1:1 折算）。
+function win568AgentCurrency(walletCcy: WalletCcy): 'PHP' | 'USD' {
+  return walletCcy === 'PHP' ? 'PHP' : 'USD'
+}
+
+// 同一用户不同钱包币种需要不同的 568Win 账号（账号全局唯一、且绑定单一 agent）。
+// PHP 保持原账号（历史映射兼容），USDT 加 U 后缀、USDC 加 C 后缀。
+const USERNAME_SUFFIX: Record<WalletCcy, string> = { PHP: '', USDT: 'U', USDC: 'C' }
+function win568Username(userId: string, walletCcy: WalletCcy) {
+  return toWin568Username(userId) + USERNAME_SUFFIX[walletCcy]
 }
 
 function validPassword(password: string) {
@@ -264,15 +272,17 @@ export async function saveWin568Games(app: FastifyInstance, result: unknown) {
 }
 
 async function resolveWin568Player(app: FastifyInstance, userId: string, currency?: string) {
-  const target = win568AgentCurrency(currency)
+  const walletCcy = normalizeWalletCcy(currency)
+  const agentCcy = win568AgentCurrency(walletCcy)
+  // 映射按「钱包币种」维度存取：一个用户每种钱包币种一条，回调据此读对应 bg_wallet
   const [[mapped]] = await app.mysql.query<RowDataPacket[]>(
     `SELECT external_username FROM bg_aggregator_player
      WHERE aggregator_id = '568win' AND user_id = ? AND currency = ? LIMIT 1`,
-    [userId, target],
+    [userId, walletCcy],
   )
   if (mapped) return String(mapped.external_username)
 
-  const username = win568Username(userId, target)
+  const username = win568Username(userId, walletCcy)
   if (!validUsername(username)) throw new Error('invalid 568Win username')
 
   const [[used]] = await app.mysql.query<RowDataPacket[]>(
@@ -286,9 +296,9 @@ async function resolveWin568Player(app: FastifyInstance, userId: string, currenc
     `SELECT agent_username, currency FROM bg_568win_agent
      WHERE status = 'active' AND currency = ?
      ORDER BY created_at DESC LIMIT 1`,
-    [target],
+    [agentCcy],
   )
-  if (!agent) throw new Error(`568Win ${target} agent not found`)
+  if (!agent) throw new Error(`568Win ${agentCcy} agent not found`)
 
   const result = await (new Win568Client(await getWin568OperationCompanyKey(app))).registerPlayer({
     Username: username,
@@ -299,6 +309,7 @@ async function resolveWin568Player(app: FastifyInstance, userId: string, currenc
     throw new Error(result.error.msg || '568Win register player failed')
   }
 
+  // 存钱包币种(walletCcy)而非 agent 币种：GetBalance/扣款/派彩按此读 bg_wallet（稳定币 1:1 当 USD 玩）
   await app.mysql.execute(
     `INSERT INTO bg_aggregator_player
      (aggregator_id, user_id, external_username, agent_username, currency, raw_response)
@@ -306,7 +317,7 @@ async function resolveWin568Player(app: FastifyInstance, userId: string, currenc
      ON DUPLICATE KEY UPDATE external_username = VALUES(external_username),
        agent_username = VALUES(agent_username), currency = VALUES(currency),
        raw_response = VALUES(raw_response), updated_at = NOW(3)`,
-    [userId, username, String(agent.agent_username), String(agent.currency), JSON.stringify(result)],
+    [userId, username, String(agent.agent_username), walletCcy, JSON.stringify(result)],
   )
   return username
 }
@@ -399,7 +410,7 @@ export async function win568OperationRoutes(app: FastifyInstance) {
     Body: {
       username: string
       password: string
-      currency: 'PHP' | 'USDT' | 'TMP'
+      currency: 'PHP' | 'USD' | 'USDT' | 'TMP'
       min: number
       max: number
       maxPerMatch: number
