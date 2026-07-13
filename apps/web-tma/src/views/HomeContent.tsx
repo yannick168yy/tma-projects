@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo, useCallback, type PointerEvent } from 'react'
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Trophy, TrendingUp, Gamepad2, Sparkles, History, Factory,
@@ -24,8 +24,6 @@ import { analytics } from '@/utils/analytics'
 import pagcorImg from '@/assets/home/compliance/pagcor.png'
 import age21Img from '@/assets/home/compliance/age21.png'
 import cashbackFloatImg from '@/assets/home/promos/cashback-float.webp'
-import yellowExpandUpImg from '@/assets/home/promos/yellow-expand-up.webp'
-import yellowCollapseDownImg from '@/assets/home/promos/yellow-collapse-down.webp'
 import cashRebateBannerImg from '@/assets/home/promos/cash-rebate-banner.webp'
 
 // 最近在玩区最大展示数，不足时用推荐游戏补齐
@@ -83,200 +81,28 @@ interface HomePromoFloatProps {
   onOpenCashback: () => void
 }
 
-let homePromoFloatClosedUntilReload = false
-
 function HomePromoFloat({ cashbackLabel, onOpenCashback }: HomePromoFloatProps) {
-  const widgetRef = useRef<HTMLDivElement>(null)
-  const collapsedPositionRef = useRef<{ left: number; top: number } | null>(null)
-  const dragRef = useRef({ pointerId: -1, startX: 0, startY: 0, startLeft: 0, startTop: 0, moved: false, suppressClick: false })
-  const [expanded, setExpanded] = useState(false)
-  const [activePromo, setActivePromo] = useState(0)
-  const [closed, setClosed] = useState(homePromoFloatClosedUntilReload)
-  const [position, setPosition] = useState<{ left: number; top: number } | null>(null)
-  const [dragging, setDragging] = useState(false)
-  const promos = [
-    { key: 'cashback', label: 'cashback', ariaLabel: cashbackLabel, image: cashbackFloatImg, imageClass: 'home-cashback-swing-float', emoji: '', action: onOpenCashback },
-  ]
-
-  const clampPosition = useCallback((left: number, top: number) => {
-    const el = widgetRef.current
-    const width = el?.offsetWidth ?? 112
-    const height = el?.offsetHeight ?? (expanded ? 290 : 146)
-    const viewportWidth = window.innerWidth
-    const viewportHeight = window.innerHeight
-    const frameWidth = Math.min(viewportWidth, 430)
-    const frameLeft = (viewportWidth - frameWidth) / 2
-    const minLeft = frameLeft + 8
-    const maxLeft = Math.max(minLeft, frameLeft + frameWidth - width - 8)
-    const minTop = 72
-    const maxTop = Math.max(minTop, viewportHeight - height - 92)
-    return {
-      left: Math.min(Math.max(left, minLeft), maxLeft),
-      top: Math.min(Math.max(top, minTop), maxTop),
-    }
-  }, [expanded])
-
-  const defaultPosition = useCallback(() => {
-    const el = widgetRef.current
-    const height = el?.offsetHeight ?? (expanded ? 290 : 146)
-    const viewportWidth = window.innerWidth
-    const viewportHeight = window.innerHeight
-    const frameWidth = Math.min(viewportWidth, 430)
-    const frameLeft = (viewportWidth - frameWidth) / 2
-    return clampPosition(frameLeft + 8, viewportHeight - height - 96)
-  }, [clampPosition, expanded])
-
-  useEffect(() => {
-    const syncPosition = () => {
-      setPosition((current) => {
-        const next = current ?? defaultPosition()
-        return clampPosition(next.left, next.top)
-      })
-    }
-    syncPosition()
-    window.addEventListener('resize', syncPosition)
-    return () => window.removeEventListener('resize', syncPosition)
-  }, [clampPosition, defaultPosition])
-
-  useEffect(() => {
-    if (expanded) return
-    const timer = window.setInterval(() => setActivePromo((current) => (current + 1) % promos.length), 5000)
-    return () => window.clearInterval(timer)
-  }, [expanded, promos.length])
-
-  function onPointerDown(event: PointerEvent<HTMLDivElement>) {
-    if ((event.target as HTMLElement).closest('[data-float-control]')) return
-    const current = position ?? defaultPosition()
-    dragRef.current = {
-      pointerId: event.pointerId,
-      startX: event.clientX,
-      startY: event.clientY,
-      startLeft: current.left,
-      startTop: current.top,
-      moved: false,
-      suppressClick: false,
-    }
-    setPosition(current)
-    event.currentTarget.setPointerCapture(event.pointerId)
-  }
-
-  function onPointerMove(event: PointerEvent<HTMLDivElement>) {
-    const drag = dragRef.current
-    if (drag.pointerId !== event.pointerId) return
-    const dx = event.clientX - drag.startX
-    const dy = event.clientY - drag.startY
-    if (!drag.moved && Math.hypot(dx, dy) < 5) return
-    drag.moved = true
-    setDragging(true)
-    setPosition(clampPosition(drag.startLeft + dx, drag.startTop + dy))
-  }
-
-  function onPointerUp(event: PointerEvent<HTMLDivElement>) {
-    const drag = dragRef.current
-    if (drag.pointerId !== event.pointerId) return
-    drag.suppressClick = drag.moved
-    // 松手后固定吸附回左边缘（纵向保持，仅横向归位）
-    setDragging(false)
-    if (drag.moved) {
-      const frameWidth = Math.min(window.innerWidth, 430)
-      const frameLeft = (window.innerWidth - frameWidth) / 2
-      setPosition((current) => clampPosition(frameLeft + 8, current?.top ?? drag.startTop))
-    }
-    if (drag.moved) window.setTimeout(() => { dragRef.current.suppressClick = false }, 0)
-    drag.pointerId = -1
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
-  }
-
-  function runAction(action: () => void) {
-    if (dragRef.current.suppressClick) {
-      dragRef.current.suppressClick = false
-      return
-    }
-    action()
-  }
-
-  function toggleExpanded() {
-    if (expanded) {
-      if (collapsedPositionRef.current) setPosition(collapsedPositionRef.current)
-      setExpanded(false)
-      return
-    }
-    collapsedPositionRef.current = position
-    setExpanded(true)
-  }
-
-  function closeFloat() {
-    homePromoFloatClosedUntilReload = true
-    setClosed(true)
-  }
-
-  const visiblePromos = expanded ? promos : [promos[activePromo]]
-  if (closed) return null
-
+  // 固定悬浮在首页左下角（cashback 在 tasks 下方），不可移动、无展开
   return (
-    <div
-      ref={widgetRef}
-      className={`fixed z-30 flex touch-none select-none flex-col items-center gap-1.5 px-1.5 pb-1.5 pt-12 ${dragging ? '' : 'transition-[left,top] duration-200 ease-out'} ${expanded ? 'rounded-full bg-neutral-950/70' : ''}`}
-      style={position ? { left: position.left, top: position.top } : { left: 8, bottom: 96 }}
-      onPointerDown={onPointerDown}
-      onPointerMove={onPointerMove}
-      onPointerUp={onPointerUp}
-      onPointerCancel={onPointerUp}
-    >
+    <div className="pointer-events-none fixed left-2 z-30 select-none" style={{ bottom: 92 }}>
       <button
         type="button"
-        data-float-control
-        className="absolute left-1/2 top-0 h-6 w-6 -translate-x-1/2 active:scale-95"
-        onClick={toggleExpanded}
-        aria-label={expanded ? 'Collapse' : 'Expand'}
+        className="pointer-events-auto relative flex h-24 w-24 items-center justify-center active:scale-95"
+        onClick={onOpenCashback}
+        aria-label={cashbackLabel}
       >
-        <img src={expanded ? yellowCollapseDownImg : yellowExpandUpImg} alt="" className="h-full w-full object-contain drop-shadow-[0_4px_12px_rgba(255,184,0,0.55)]" />
+        {/* 与 tasks 挂件一致的渐变透明光晕 */}
+        <span
+          aria-hidden
+          className="pointer-events-none absolute -inset-6 rounded-full"
+          style={{ background: 'radial-gradient(circle, rgba(6,4,1,0.55) 30%, rgba(6,4,1,0) 72%)' }}
+        />
+        <img
+          src={cashbackFloatImg}
+          alt=""
+          className="home-cashback-swing-float relative h-[92px] w-[92px] object-contain drop-shadow-[0_8px_18px_rgba(0,0,0,0.38)]"
+        />
       </button>
-      {expanded && (
-        <button
-          type="button"
-          data-float-control
-          className="absolute right-1 top-3 flex h-6 w-6 items-center justify-center rounded-full bg-black/70 text-white/85 shadow-[0_4px_12px_rgba(0,0,0,0.35)] active:scale-95"
-          onClick={closeFloat}
-          aria-label="Close"
-        >
-          <X size={14} strokeWidth={3} />
-        </button>
-      )}
-      {expanded ? (
-        visiblePromos.map((promo) => (
-          <button
-            key={promo.key}
-            type="button"
-            className="flex w-[106px] flex-col items-center gap-0.5 active:scale-95"
-            onClick={() => runAction(promo.action)}
-            aria-label={promo.ariaLabel}
-          >
-            {promo.image
-              ? <img src={promo.image} alt="" className={`${promo.imageClass} h-[94px] w-[94px] object-contain drop-shadow-[0_8px_18px_rgba(0,0,0,0.38)]`} />
-              : <span className="home-rewards-spin-float flex h-[94px] w-[94px] items-center justify-center rounded-2xl bg-gradient-to-br from-primary/30 to-amber-500/20 text-[46px] ring-1 ring-primary/40 drop-shadow-[0_8px_18px_rgba(0,0,0,0.38)]">{promo.emoji}</span>}
-            <span className="text-xs font-black leading-none text-white drop-shadow-[0_1px_4px_rgba(0,0,0,0.8)]">{promo.label}</span>
-          </button>
-        ))
-      ) : (
-        <div className="w-[106px] overflow-hidden">
-          <div className="flex transition-transform duration-[1400ms] ease-[cubic-bezier(0.22,1,0.36,1)]" style={{ transform: `translateX(-${activePromo * 106}px)` }}>
-            {promos.map((promo) => (
-              <button
-                key={promo.key}
-                type="button"
-                className="flex h-[100px] w-[106px] flex-shrink-0 items-center justify-center active:scale-95"
-                onClick={() => runAction(promo.action)}
-                aria-label={promo.ariaLabel}
-              >
-                {promo.image
-                  ? <img src={promo.image} alt="" className={`${promo.imageClass} h-[99px] w-[99px] object-contain drop-shadow-[0_8px_18px_rgba(0,0,0,0.38)]`} />
-                  : <span className="home-rewards-spin-float flex h-[92px] w-[92px] items-center justify-center rounded-2xl bg-gradient-to-br from-primary/30 to-amber-500/20 text-[46px] ring-1 ring-primary/40 drop-shadow-[0_8px_18px_rgba(0,0,0,0.38)]">{promo.emoji}</span>}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   )
 }

@@ -125,6 +125,23 @@ body {
   transform-origin: center bottom;
 }
 
+/* 首页 tasks 挂件循环小幅呼吸：基准约 94%，缓慢放大缩小 */
+.home-float-breathe {
+  animation: home-float-breathe 2.4s ease-in-out infinite;
+  transform-origin: center center;
+}
+
+@keyframes home-float-breathe {
+  0%,
+  100% {
+    transform: scale(0.94);
+  }
+
+  50% {
+    transform: scale(1);
+  }
+}
+
 @keyframes home-cashback-swing-float {
   0%,
   100% {
