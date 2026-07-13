@@ -91,16 +91,11 @@ function HomePromoFloat({ cashbackLabel, onOpenCashback }: HomePromoFloatProps) 
         onClick={onOpenCashback}
         aria-label={cashbackLabel}
       >
-        {/* 与 tasks 挂件一致的渐变透明光晕 */}
-        <span
-          aria-hidden
-          className="pointer-events-none absolute -inset-6 rounded-full"
-          style={{ background: 'radial-gradient(circle, rgba(6,4,1,0.55) 30%, rgba(6,4,1,0) 72%)' }}
-        />
+        {/* 阴影紧贴图片非透明轮廓一圈（drop-shadow 跟随 alpha） */}
         <img
           src={cashbackFloatImg}
           alt=""
-          className="home-cashback-swing-float relative h-[92px] w-[92px] object-contain drop-shadow-[0_8px_18px_rgba(0,0,0,0.38)]"
+          className="home-cashback-swing-float relative h-[92px] w-[92px] object-contain [filter:drop-shadow(0_0_3px_rgba(0,0,0,0.55))_drop-shadow(0_1px_2px_rgba(0,0,0,0.5))]"
         />
       </button>
     </div>

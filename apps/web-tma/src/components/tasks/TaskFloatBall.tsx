@@ -127,14 +127,8 @@ export default function TaskFloatBall({ onNavigatePath }: TaskFloatBallProps) {
               </button>
             )
           })}
-          {/* 收起态：光晕 + 挂件一起做循环放大缩小的呼吸动效；展开时停止 */}
+          {/* 收起态：挂件做循环放大缩小的呼吸动效；展开时停止 */}
           <div className={`absolute inset-0 ${expanded ? '' : 'home-float-breathe'}`}>
-            {/* 挂件周边渐变透明光晕，展开时淡出 */}
-            <span
-              aria-hidden
-              className={`pointer-events-none absolute -inset-6 rounded-full transition-opacity duration-200 ${expanded ? 'opacity-0' : 'opacity-100'}`}
-              style={{ background: 'radial-gradient(circle, rgba(6,4,1,0.55) 30%, rgba(6,4,1,0) 72%)' }}
-            />
             {/* 展开时整个挂件即关闭按钮（96px 大热区，点任意位置收起），右上角显示 X 提示 */}
             <button
               type="button"
@@ -142,7 +136,8 @@ export default function TaskFloatBall({ onNavigatePath }: TaskFloatBallProps) {
               onClick={() => setExpanded((v) => !v)}
               aria-label={expanded ? t('tasks.ball.close') : t('tasks.ball.label')}
             >
-              <img src={taskWidgetImg} alt="" draggable={false} className="h-24 w-24 object-contain drop-shadow-[0_8px_20px_rgba(0,0,0,0.45)]" />
+              {/* 阴影紧贴图片非透明轮廓一圈（drop-shadow 跟随 alpha） */}
+              <img src={taskWidgetImg} alt="" draggable={false} className="h-24 w-24 object-contain [filter:drop-shadow(0_0_3px_rgba(0,0,0,0.55))_drop-shadow(0_1px_2px_rgba(0,0,0,0.5))]" />
               {expanded && (
                 <span aria-hidden className="absolute right-1 top-1 flex h-7 w-7 items-center justify-center rounded-full border border-white/25 bg-black/80 text-white shadow-[0_3px_10px_rgba(0,0,0,0.55)]">
                   <X size={16} strokeWidth={3} />
