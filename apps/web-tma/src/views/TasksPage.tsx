@@ -497,6 +497,7 @@ function SummaryTile({ icon, label, value, iconClass = '' }: { icon: string; lab
 function DailyEarningsCard({ onNavigate }: { onNavigate?: (target: string) => void }) {
   const { t } = useTranslation()
   const token = useAuthStore((s) => s.token)
+  const activeCurrency = useWalletStore((s) => s.activeCurrency)
   const [data, setData] = useState<{ rebate: number; currency: string; vipNext: { level: number; need: number } | null } | null>(null)
 
   useEffect(() => {
@@ -504,7 +505,7 @@ function DailyEarningsCard({ onNavigate }: { onNavigate?: (target: string) => vo
     let alive = true
     void (async () => {
       try {
-        const [reb, vip] = await Promise.all([fetchRebateProgress(), fetchVipProgress()])
+        const [reb, vip] = await Promise.all([fetchRebateProgress(activeCurrency), fetchVipProgress(activeCurrency)])
         if (!alive) return
         setData({
           rebate: reb.claimable,
@@ -516,7 +517,7 @@ function DailyEarningsCard({ onNavigate }: { onNavigate?: (target: string) => vo
       } catch { /* 拉不到就不显示 */ }
     })()
     return () => { alive = false }
-  }, [token])
+  }, [token, activeCurrency])
 
   if (!token || !data) return null
   return (

@@ -62,6 +62,10 @@ export default function BonusesPage({ promoFilter, onOpenWallet, onOpenTeam, onO
 
   const teamStatus = promotionStore.teamStatus
   const promoConfig = usePromotionStore((s) => s.promoConfig)
+  const activeCurrency = useWalletStore((s) => s.activeCurrency)
+  const fmtBonus = (amt: number) => activeCurrency === 'PHP'
+    ? `₱${amt.toLocaleString('en-PH')}`
+    : `${amt.toLocaleString('en-US')} ${activeCurrency}`
 
   useEffect(() => {
     if (token && user) void promotionStore.loadTeamStatus()
@@ -144,10 +148,11 @@ export default function BonusesPage({ promoFilter, onOpenWallet, onOpenTeam, onO
           vars = { amount: cfg.appdl.amount }
           reward = `₱ ${cfg.appdl.amount}`
         } else if (p.id === 'firstdep' && cfg) {
-          const phpTiers = cfg.firstdep.tiers?.PHP ?? []
-          const maxBonus = phpTiers.length ? Math.max(...phpTiers.map((tier) => tier.bonusAmount)) : 0
-          vars = { maxBonus: maxBonus.toLocaleString('en-PH'), turnoverX: cfg.firstdep.turnoverX }
-          reward = `₱${maxBonus.toLocaleString('en-PH')}`
+          // 首充多币种：按当前币种取档位与格式化(bg_firstdep_tiers 有 PHP/USDT/USDC)
+          const tiers = cfg.firstdep.tiers?.[activeCurrency] ?? cfg.firstdep.tiers?.PHP ?? []
+          const maxBonus = tiers.length ? Math.max(...tiers.map((tier) => tier.bonusAmount)) : 0
+          vars = { maxBonus: fmtBonus(maxBonus), turnoverX: cfg.firstdep.turnoverX }
+          reward = fmtBonus(maxBonus)
         }
 
         const stepList =
@@ -168,7 +173,8 @@ export default function BonusesPage({ promoFilter, onOpenWallet, onOpenTeam, onO
           expiry: p.expiry === 'Ongoing' ? t('common.ongoing') : t('common.limitedTime'),
         }
       }),
-    [t, promoConfig],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [t, promoConfig, activeCurrency],
   )
 
   const agentSteps = useMemo(
