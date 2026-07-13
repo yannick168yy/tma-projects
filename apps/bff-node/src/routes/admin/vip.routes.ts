@@ -21,15 +21,17 @@ function fmtDateTime(value: unknown): string | null {
   return String(value).replace('T', ' ').slice(0, 19)
 }
 
-// GET /admin/vip/benefits — 各级权益配置
+// GET /admin/vip/benefits?currency=PHP|USDT|USDC — 各级权益配置（按币种）
 router.get('/benefits', async (ctx) => {
-  const benefits = await getVipBenefits(ctx.state.env)
-  ok(ctx, { benefits })
+  const currency = (ctx.query.currency as string) || 'PHP'
+  const benefits = await getVipBenefits(ctx.state.env, currency)
+  ok(ctx, { currency, benefits })
 })
 
-// PUT /admin/vip/benefits — 保存各级权益配置
+// PUT /admin/vip/benefits — 保存各级权益配置（按币种）
 router.put('/benefits', async (ctx) => {
   const body = ctx.request.body as {
+    currency?: string
     benefits?: {
       level: number
       promotionBonus: number
@@ -63,7 +65,7 @@ router.put('/benefits', async (ctx) => {
       return
     }
   }
-  await saveVipBenefits(ctx.state.env, body.benefits)
+  await saveVipBenefits(ctx.state.env, body.benefits, body.currency || 'PHP')
   ok(ctx, { saved: body.benefits.length })
 })
 

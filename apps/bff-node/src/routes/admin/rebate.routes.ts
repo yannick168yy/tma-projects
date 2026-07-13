@@ -29,20 +29,23 @@ function formatDateTime(value: unknown): string | null {
   return String(value).replace('T', ' ').slice(0, 19)
 }
 
-// GET /admin/rebate/config — 分级费率矩阵 + 等级流水阈值
+// GET /admin/rebate/config?currency=PHP|USDT|USDC — 分级费率矩阵 + 等级流水阈值（按币种）
 router.get('/config', async (ctx) => {
+  const currency = (ctx.query.currency as string) || 'PHP'
   const [config, thresholds] = await Promise.all([
-    getLevelConfig(ctx.state.env),
-    getLevelThresholds(ctx.state.env),
+    getLevelConfig(ctx.state.env, currency),
+    getLevelThresholds(ctx.state.env, currency),
   ])
-  ok(ctx, { config, thresholds })
+  ok(ctx, { currency, config, thresholds })
 })
 
-// PUT /admin/rebate/config — 保存分级费率矩阵
+// PUT /admin/rebate/config — 保存分级费率矩阵（按币种）
 router.put('/config', async (ctx) => {
   const body = ctx.request.body as {
+    currency?: string
     config?: { level: number; gameCategory: string; ratePct: number; maxBonus: number; enabled: boolean }[]
   }
+  const currency = body.currency || 'PHP'
   if (!Array.isArray(body.config) || body.config.length === 0) {
     fail(ctx, 400, 'config array required')
     return
@@ -65,13 +68,14 @@ router.put('/config', async (ctx) => {
       return
     }
   }
-  await saveLevelConfig(ctx.state.env, body.config)
+  await saveLevelConfig(ctx.state.env, body.config, currency)
   ok(ctx, { saved: body.config.length })
 })
 
-// PUT /admin/rebate/thresholds — 保存等级流水阈值（LV1 固定 0，服务层忽略）
+// PUT /admin/rebate/thresholds — 保存等级流水阈值（按币种；LV1 固定 0，服务层忽略）
 router.put('/thresholds', async (ctx) => {
-  const body = ctx.request.body as { thresholds?: { level: number; minTurnover: number }[] }
+  const body = ctx.request.body as { currency?: string; thresholds?: { level: number; minTurnover: number }[] }
+  const currency = body.currency || 'PHP'
   if (!Array.isArray(body.thresholds) || body.thresholds.length === 0) {
     fail(ctx, 400, 'thresholds array required')
     return
@@ -86,7 +90,7 @@ router.put('/thresholds', async (ctx) => {
       return
     }
   }
-  await saveLevelThresholds(ctx.state.env, body.thresholds)
+  await saveLevelThresholds(ctx.state.env, body.thresholds, currency)
   ok(ctx, { saved: body.thresholds.length })
 })
 

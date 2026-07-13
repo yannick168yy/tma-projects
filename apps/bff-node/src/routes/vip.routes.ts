@@ -5,7 +5,8 @@ import { getUserVipProgress, listVipRewards, claimVipRewards, getVipLevelConfig 
 const router = new Router({ prefix: '/vip' })
 
 router.get('/levels', async (ctx) => {
-  const levels = await getVipLevelConfig(ctx.state.env)
+  const currency = (ctx.query.currency as string) || 'PHP'
+  const levels = await getVipLevelConfig(ctx.state.env, currency)
   ok(ctx, { levels })
 })
 

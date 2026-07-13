@@ -268,10 +268,10 @@ export async function listAdminUsers(
     const placeholders = ids.map(() => '?').join(',')
     const [tRows] = await pool(env).query<RowDataPacket[]>(
       `SELECT user_id, SUM(effective_amount) AS total FROM bg_turnover_logs
-       WHERE is_reversed = 0 AND user_id IN (${placeholders}) GROUP BY user_id`,
+       WHERE is_reversed = 0 AND currency = 'PHP' AND user_id IN (${placeholders}) GROUP BY user_id`,
       ids,
     )
-    const thresholds = await getLevelThresholds(env)
+    const thresholds = await getLevelThresholds(env, 'PHP')
     for (const tr of tRows) levelMap.set(String(tr.user_id), resolveLevel(thresholds, Number(tr.total)))
   }
 

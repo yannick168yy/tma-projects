@@ -13,11 +13,12 @@ import {
 
 const router = new Router({ prefix: '/rebate' })
 
-// GET /rebate/config — 公开：LV1 费率 + 全等级费率矩阵(分级卡片) + 精选游戏（登录用户用 /rebate/progress 取本级与进度）
+// GET /rebate/config?currency=PHP|USDT|USDC — 公开：LV1 费率 + 全等级费率矩阵(分级卡片) + 精选游戏（登录用户用 /rebate/progress 取本级与进度）
 router.get('/config', async (ctx) => {
+  const currency = (ctx.query.currency as string) || 'PHP'
   const [config, levels, featured] = await Promise.all([
-    getLevelRates(ctx.state.env, 1),
-    getAllLevelRates(ctx.state.env),
+    getLevelRates(ctx.state.env, 1, currency),
+    getAllLevelRates(ctx.state.env, currency),
     getFeaturedGames(ctx.state.env),
   ])
   const featuredByTier: Record<string, typeof featured> = {}

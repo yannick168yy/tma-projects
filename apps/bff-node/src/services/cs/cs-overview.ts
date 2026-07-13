@@ -25,7 +25,7 @@ export async function getBusinessOverview(env: Env): Promise<string> {
     )
     const [spinRows] = await pool.query<RowDataPacket[]>(`SELECT enabled FROM bg_spin_config LIMIT 1`)
     const [levelRows] = await pool.query<RowDataPacket[]>(
-      `SELECT level, min_turnover FROM bg_rebate_level_threshold ORDER BY level`,
+      `SELECT level, min_turnover FROM bg_rebate_level_threshold WHERE currency = 'PHP' ORDER BY level`,
     )
 
     const promo: Record<string, Record<string, string>> = {}

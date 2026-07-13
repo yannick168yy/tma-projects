@@ -137,11 +137,12 @@ export function yesterdayPHT(): string {
 // 分级费率配置（后台）
 // ─────────────────────────────────────────────────────────────────────────────
 
-export async function getLevelConfig(env: Env): Promise<RebateLevelConfigItem[]> {
+export async function getLevelConfig(env: Env, currency = 'PHP'): Promise<RebateLevelConfigItem[]> {
   if (!isMysqlEnabled(env)) return []
   const pool = getMysqlPool(env)
   const [rows] = await pool.query<RowDataPacket[]>(
-    'SELECT level, game_category, rate_pct, max_bonus, enabled FROM bg_rebate_level_config ORDER BY level, game_category',
+    'SELECT level, game_category, rate_pct, max_bonus, enabled FROM bg_rebate_level_config WHERE currency = ? ORDER BY level, game_category',
+    [currency],
   )
   return rows.map((r) => ({
     level: Number(r.level),
@@ -152,25 +153,25 @@ export async function getLevelConfig(env: Env): Promise<RebateLevelConfigItem[]>
   }))
 }
 
-export async function saveLevelConfig(env: Env, items: RebateLevelConfigItem[]): Promise<void> {
+export async function saveLevelConfig(env: Env, items: RebateLevelConfigItem[], currency = 'PHP'): Promise<void> {
   const pool = getMysqlPool(env)
   for (const item of items) {
     await pool.execute(
-      `INSERT INTO bg_rebate_level_config (level, game_category, rate_pct, max_bonus, enabled)
-       VALUES (?, ?, ?, ?, ?)
+      `INSERT INTO bg_rebate_level_config (level, game_category, currency, rate_pct, max_bonus, enabled)
+       VALUES (?, ?, ?, ?, ?, ?)
        ON DUPLICATE KEY UPDATE rate_pct = VALUES(rate_pct), max_bonus = VALUES(max_bonus), enabled = VALUES(enabled)`,
-      [item.level, item.gameCategory, item.ratePct, item.maxBonus ?? 0, item.enabled ? 1 : 0],
+      [item.level, item.gameCategory, currency, item.ratePct, item.maxBonus ?? 0, item.enabled ? 1 : 0],
     )
   }
 }
 
-/** 指定等级的各大类费率（公开展示 / 进度接口用） */
-export async function getLevelRates(env: Env, level: number): Promise<RebateConfig[]> {
+/** 指定等级的各大类费率（公开展示 / 进度接口用）；按币种取（rate_pct 币种无关，max_bonus 币种相关） */
+export async function getLevelRates(env: Env, level: number, currency = 'PHP'): Promise<RebateConfig[]> {
   if (!isMysqlEnabled(env)) return []
   const pool = getMysqlPool(env)
   const [rows] = await pool.query<RowDataPacket[]>(
-    'SELECT game_category, rate_pct, max_bonus, enabled FROM bg_rebate_level_config WHERE level = ? ORDER BY game_category',
-    [level],
+    'SELECT game_category, rate_pct, max_bonus, enabled FROM bg_rebate_level_config WHERE level = ? AND currency = ? ORDER BY game_category',
+    [level, currency],
   )
   return rows.map((r) => ({
     gameCategory: String(r.game_category),
@@ -180,14 +181,15 @@ export async function getLevelRates(env: Env, level: number): Promise<RebateConf
   }))
 }
 
-/** 全部等级各大类费率 + 该级阈值（C 端分级卡片展示用） */
-export async function getAllLevelRates(env: Env): Promise<RebateLevelRates[]> {
+/** 全部等级各大类费率 + 该级阈值（C 端分级卡片展示用）；按币种取 */
+export async function getAllLevelRates(env: Env, currency = 'PHP'): Promise<RebateLevelRates[]> {
   if (!isMysqlEnabled(env)) return []
   const pool = getMysqlPool(env)
   const [rows] = await pool.query<RowDataPacket[]>(
-    'SELECT level, game_category, rate_pct, max_bonus, enabled FROM bg_rebate_level_config ORDER BY level, game_category',
+    'SELECT level, game_category, rate_pct, max_bonus, enabled FROM bg_rebate_level_config WHERE currency = ? ORDER BY level, game_category',
+    [currency],
   )
-  const thresholds = await getLevelThresholds(env)
+  const thresholds = await getLevelThresholds(env, currency)
   const thMap = new Map(thresholds.map((t) => [t.level, t.minTurnover]))
   const byLevel = new Map<number, RebateConfig[]>()
   for (const r of rows) {
@@ -205,24 +207,25 @@ export async function getAllLevelRates(env: Env): Promise<RebateLevelRates[]> {
     .map(([level, rates]) => ({ level, minTurnover: thMap.get(level) ?? 0, rates }))
 }
 
-export async function getLevelThresholds(env: Env): Promise<RebateLevelThreshold[]> {
+export async function getLevelThresholds(env: Env, currency = 'PHP'): Promise<RebateLevelThreshold[]> {
   if (!isMysqlEnabled(env)) return []
   const pool = getMysqlPool(env)
   const [rows] = await pool.query<RowDataPacket[]>(
-    'SELECT level, min_turnover FROM bg_rebate_level_threshold ORDER BY level',
+    'SELECT level, min_turnover FROM bg_rebate_level_threshold WHERE currency = ? ORDER BY level',
+    [currency],
   )
   return rows.map((r) => ({ level: Number(r.level), minTurnover: Number(r.min_turnover) }))
 }
 
-export async function saveLevelThresholds(env: Env, items: RebateLevelThreshold[]): Promise<void> {
+export async function saveLevelThresholds(env: Env, items: RebateLevelThreshold[], currency = 'PHP'): Promise<void> {
   const pool = getMysqlPool(env)
   for (const item of items) {
     if (item.level === 1) continue // LV1 固定 0，不可改
     await pool.execute(
-      `INSERT INTO bg_rebate_level_threshold (level, min_turnover)
-       VALUES (?, ?)
+      `INSERT INTO bg_rebate_level_threshold (level, currency, min_turnover)
+       VALUES (?, ?, ?)
        ON DUPLICATE KEY UPDATE min_turnover = VALUES(min_turnover)`,
-      [item.level, item.minTurnover],
+      [item.level, currency, item.minTurnover],
     )
   }
 }
@@ -232,17 +235,17 @@ export async function saveLevelThresholds(env: Env, items: RebateLevelThreshold[
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * 用户累计有效流水（lifetime，跨币种合计；用于等级判定）。
- * 含任务喂入的成长值 bg_user_vip_state.task_growth（等效有效流水，加速升级）。
+ * 用户在【指定币种】的累计有效流水（lifetime，仅本币种；用于该币种账号的等级判定）。
+ * 每币种当独立账号，不跨币种相加。含任务喂入的成长值 bg_user_vip_state.task_growth（该币种行）。
  */
-export async function getUserTotalTurnover(env: Env, userId: string): Promise<number> {
+export async function getUserTotalTurnover(env: Env, userId: string, currency: string): Promise<number> {
   if (!isMysqlEnabled(env)) return 0
   const pool = getMysqlPool(env)
   const [[row]] = await pool.query<RowDataPacket[]>(
     `SELECT COALESCE(SUM(effective_amount), 0)
-            + COALESCE((SELECT task_growth FROM bg_user_vip_state WHERE user_id = ?), 0) AS total
-     FROM bg_turnover_logs WHERE user_id = ? AND is_reversed = 0`,
-    [userId, userId],
+            + COALESCE((SELECT task_growth FROM bg_user_vip_state WHERE user_id = ? AND currency = ?), 0) AS total
+     FROM bg_turnover_logs WHERE user_id = ? AND currency = ? AND is_reversed = 0`,
+    [userId, currency, userId, currency],
   )
   return Number(row?.total ?? 0)
 }
@@ -257,19 +260,19 @@ export function resolveLevel(thresholds: RebateLevelThreshold[], total: number):
 }
 
 /**
- * 用户权威等级：优先取 bg_user_vip_state.current_level（VIP 二期支持降级），
- * 无状态行则回落到按累计有效流水的阈值计算。洗码率、进度、结算均以此为准。
+ * 用户在【指定币种】的权威等级：优先取 bg_user_vip_state.current_level（该币种行，支持降级），
+ * 无状态行则回落到按本币种累计有效流水的阈值计算。该币种的洗码率、进度、结算均以此为准。
  */
-export async function getEffectiveLevel(env: Env, userId: string): Promise<number> {
+export async function getEffectiveLevel(env: Env, userId: string, currency: string): Promise<number> {
   if (!isMysqlEnabled(env)) return 1
   const pool = getMysqlPool(env)
   const [[st]] = await pool.query<RowDataPacket[]>(
-    'SELECT current_level FROM bg_user_vip_state WHERE user_id = ?',
-    [userId],
+    'SELECT current_level FROM bg_user_vip_state WHERE user_id = ? AND currency = ?',
+    [userId, currency],
   )
   if (st) return Number(st.current_level)
-  const total = await getUserTotalTurnover(env, userId)
-  const thresholds = await getLevelThresholds(env)
+  const total = await getUserTotalTurnover(env, userId, currency)
+  const thresholds = await getLevelThresholds(env, currency)
   return resolveLevel(thresholds, total)
 }
 
@@ -280,14 +283,14 @@ export async function getUserLevelProgress(env: Env, userId: string, currency = 
     return { currency, totalTurnover: 0, level: 1, currentThreshold: 0, nextLevel: null, nextThreshold: null, rates: emptyRates, claimable: 0, claimableBreakdown: [] }
   }
   const [total, thresholds, level] = await Promise.all([
-    getUserTotalTurnover(env, userId),
-    getLevelThresholds(env),
-    getEffectiveLevel(env, userId),
+    getUserTotalTurnover(env, userId, currency),
+    getLevelThresholds(env, currency),
+    getEffectiveLevel(env, userId, currency),
   ])
   const sorted = [...thresholds].sort((a, b) => a.level - b.level)
   const current = sorted.find((t) => t.level === level)
   const next = sorted.find((t) => t.level === level + 1)
-  const rates = await getLevelRates(env, level)
+  const rates = await getLevelRates(env, level, currency)
 
   const pool = getMysqlPool(env)
   const [[claim]] = await pool.query<RowDataPacket[]>(
@@ -376,8 +379,8 @@ export async function getUserRebateSummary(env: Env, userId: string, phtDate: st
   const isToday = phtDate === today
 
   if (isToday) {
-    // 今日：按用户权威等级（支持降级）实时从 bg_turnover_logs 计算估算值
-    const level = await getEffectiveLevel(env, userId)
+    // 今日：按用户【该币种】权威等级（支持降级）实时从 bg_turnover_logs 计算估算值
+    const level = await getEffectiveLevel(env, userId, currency)
     const [rows] = await pool.query<RowDataPacket[]>(
       `SELECT
          COALESCE(tl.sort_category, 'other') AS game_category,
@@ -389,7 +392,8 @@ export async function getUserRebateSummary(env: Env, userId: string, phtDate: st
        LEFT JOIN bg_rebate_featured_game rfg
          ON rfg.game_uuid = bo.provider_id AND rfg.enabled = 1
        LEFT JOIN bg_rebate_level_config lc
-         ON lc.level = ? AND lc.game_category = COALESCE(tl.sort_category, 'other') AND lc.enabled = 1
+         ON lc.level = ? AND lc.game_category = COALESCE(tl.sort_category, 'other')
+            AND lc.currency = tl.currency AND lc.enabled = 1
        WHERE tl.user_id = ?
          AND tl.is_reversed = 0
          AND tl.currency = ?
@@ -525,17 +529,19 @@ export async function runDailyRebateSettlement(env: Env, date: string): Promise<
      LEFT JOIN bg_rebate_featured_game rfg
        ON rfg.game_uuid = bo.provider_id AND rfg.enabled = 1
      LEFT JOIN (
-       SELECT tt.user_id, (
-         SELECT MAX(th.level) FROM bg_rebate_level_threshold th WHERE th.min_turnover <= tt.total
+       SELECT tt.user_id, tt.currency, (
+         SELECT MAX(th.level) FROM bg_rebate_level_threshold th
+         WHERE th.currency = tt.currency AND th.min_turnover <= tt.total
        ) AS level
        FROM (
-         SELECT user_id, SUM(effective_amount) AS total
-         FROM bg_turnover_logs WHERE is_reversed = 0 GROUP BY user_id
+         SELECT user_id, currency, SUM(effective_amount) AS total
+         FROM bg_turnover_logs WHERE is_reversed = 0 GROUP BY user_id, currency
        ) tt
-     ) ul ON ul.user_id = tl.user_id
-     LEFT JOIN bg_user_vip_state vs ON vs.user_id = tl.user_id
+     ) ul ON ul.user_id = tl.user_id AND ul.currency = tl.currency
+     LEFT JOIN bg_user_vip_state vs ON vs.user_id = tl.user_id AND vs.currency = tl.currency
      LEFT JOIN bg_rebate_level_config lc
-       ON lc.level = COALESCE(vs.current_level, ul.level, 1) AND lc.game_category = COALESCE(tl.sort_category, 'other') AND lc.enabled = 1
+       ON lc.level = COALESCE(vs.current_level, ul.level, 1) AND lc.game_category = COALESCE(tl.sort_category, 'other')
+          AND lc.currency = tl.currency AND lc.enabled = 1
      WHERE tl.is_reversed = 0
        AND DATE(CONVERT_TZ(tl.created_at, '+00:00', '+08:00')) = ?
      GROUP BY tl.user_id, COALESCE(tl.sort_category, 'other'), tl.currency

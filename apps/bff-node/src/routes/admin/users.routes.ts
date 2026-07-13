@@ -32,8 +32,8 @@ router.get('/:id', async (ctx) => {
     getKyc(ctx.state.redis, ctx.params.id),
     getKycStepConfig(ctx.state.redis, ctx.state.env),
     getKycStepConfig(ctx.state.redis, ctx.state.env, ctx.params.id),
-    getUserTotalTurnover(ctx.state.env, ctx.params.id),
-    getLevelThresholds(ctx.state.env),
+    getUserTotalTurnover(ctx.state.env, ctx.params.id, 'PHP'),
+    getLevelThresholds(ctx.state.env, 'PHP'),
     listUserIdentities(ctx.state.redis, ctx.params.id),
   ])
   const telegram = identities.find((i) => i.provider === 'telegram') ?? identities.find((i) => i.provider === 'telegram_oidc')
