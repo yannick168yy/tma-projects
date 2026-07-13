@@ -22,12 +22,15 @@ export interface PopupConfig {
 }
 
 /** 复充限时优惠：已首充且当日未充值的用户进站触发限时窗口，窗口内充值 ≥ minDeposit 送 bonusAmount（每窗口一次） */
+export interface RedepCcyTier { minDeposit: number; bonusAmount: number }
 export interface RedepConfig {
   enabled: boolean
-  /** 达标充值额（PHP） */
+  /** 达标充值额（PHP，= byCcy.PHP.minDeposit，兼容旧消费方） */
   minDeposit: number
-  /** 达标奖励（PHP 固定金额） */
+  /** 达标奖励（PHP，= byCcy.PHP.bonusAmount） */
   bonusAmount: number
+  /** 按币种独立的门槛/奖励（PHP/USDT/USDC，每币种当独立账号，发奖入对应币种钱包） */
+  byCcy: Record<string, RedepCcyTier>
   /** 窗口时长（小时） */
   windowHours: number
   /** 触发冷却（天）：距上次窗口开启不足 N 天不再触发 */
@@ -43,8 +46,10 @@ export interface LossRebateConfig {
   enabled: boolean
   /** 统一返水率 %（对净输） */
   ratePct: number
-  /** 门槛：当日有效存款 ≥ 此值（同币种）才有返水资格 */
+  /** 门槛：当日有效存款 ≥ 此值（同币种）才有返水资格（= minDepositByCcy.PHP，兼容旧消费方） */
   minDeposit: number
+  /** 按币种独立的存款门槛（PHP/USDT/USDC） */
+  minDepositByCcy: Record<string, number>
   /** 封顶：返水基数不超过当日存款（防对赌无损套利） */
   capToDeposit: boolean
   /** 参与返水的品类白名单（turnover sort_category 取值：slots/fishing/table/live/sports/other）；排除 live/sports */
@@ -101,10 +106,12 @@ export const PROMO_DEFAULTS: PromoConfig = {
   firstdep: { enabled: true, turnoverX: 1, turnoverDays: 30, tiers: DEFAULT_FIRSTDEP_TIERS },
   // App/PWA 下载礼金：默认关闭，后台开启后客户端宣传位才展示
   appdl:    { amount: 66, enabled: false, turnoverX: 5, turnoverDays: 30 },
-  // 复充限时优惠：默认关闭，后台开启后按人群触发
-  redep:    { enabled: false, minDeposit: 500, bonusAmount: 75, windowHours: 4, cooldownDays: 2, turnoverX: 1, turnoverDays: 30 },
+  // 复充限时优惠：默认关闭，后台开启后按人群触发；按币种独立(PHP/USDT/USDC)
+  redep:    { enabled: false, minDeposit: 500, bonusAmount: 75,
+              byCcy: { PHP: { minDeposit: 500, bonusAmount: 75 }, USDT: { minDeposit: 8.62, bonusAmount: 1.29 }, USDC: { minDeposit: 8.62, bonusAmount: 1.29 } },
+              windowHours: 4, cooldownDays: 2, turnoverX: 1, turnoverDays: 30 },
   // 负盈利返水：默认关闭，后台开启后每日结算。白名单只含电子类(slots/fishing)，排除真人(live)/体育(sports)防对赌套利
-  lossRebate: { enabled: false, ratePct: 5, minDeposit: 50, capToDeposit: true, eligibleCats: ['slots', 'fishing'], settleHour: 0 },
+  lossRebate: { enabled: false, ratePct: 5, minDeposit: 50, minDepositByCcy: { PHP: 50, USDT: 0.86, USDC: 0.86 }, capToDeposit: true, eligibleCats: ['slots', 'fishing'], settleHour: 0 },
   popups:   [
     { id: 'new_player', enabled: true, order: 1, audience: 'all', frequency: 'daily' },
     // firstdep=首页首充悬浮球，trial=活动页进站弹窗；均为常驻/进站入口，frequency 不生效于常驻，仅用开关/人群
@@ -202,12 +209,25 @@ function bool(v: string | undefined, fallback: boolean): boolean {
   return v != null ? v === '1' : fallback
 }
 
+/** 金额型 config_key 的币种后缀：PHP 用原 key，稳定币用 key_usdt / key_usdc */
+export const PROMO_CCYS = ['PHP', 'USDT', 'USDC'] as const
+const ccyKey = (base: string, ccy: string): string => (ccy === 'PHP' ? base : `${base}_${ccy.toLowerCase()}`)
+
 function parseRedepConfig(r: Record<string, string>): RedepConfig {
   const D = PROMO_DEFAULTS.redep
+  const byCcy: Record<string, RedepCcyTier> = {}
+  for (const c of PROMO_CCYS) {
+    const dc = D.byCcy[c] ?? { minDeposit: D.minDeposit, bonusAmount: D.bonusAmount }
+    byCcy[c] = {
+      minDeposit: num(r[ccyKey('min_deposit', c)], dc.minDeposit),
+      bonusAmount: num(r[ccyKey('bonus_amount', c)], dc.bonusAmount),
+    }
+  }
   return {
     enabled: bool(r.enabled, D.enabled),
-    minDeposit: num(r.min_deposit, D.minDeposit),
-    bonusAmount: num(r.bonus_amount, D.bonusAmount),
+    minDeposit: byCcy.PHP.minDeposit,
+    bonusAmount: byCcy.PHP.bonusAmount,
+    byCcy,
     windowHours: num(r.window_hours, D.windowHours),
     cooldownDays: num(r.cooldown_days, D.cooldownDays),
     turnoverX: num(r.turnover_x, D.turnoverX),
@@ -226,10 +246,15 @@ function parseCats(v: string | undefined, fallback: string[]): string[] {
 
 function parseLossRebateConfig(r: Record<string, string>): LossRebateConfig {
   const D = PROMO_DEFAULTS.lossRebate
+  const minDepositByCcy: Record<string, number> = {}
+  for (const c of PROMO_CCYS) {
+    minDepositByCcy[c] = num(r[ccyKey('min_deposit', c)], D.minDepositByCcy[c] ?? D.minDeposit)
+  }
   return {
     enabled: bool(r.enabled, D.enabled),
     ratePct: num(r.rate_pct, D.ratePct),
-    minDeposit: num(r.min_deposit, D.minDeposit),
+    minDeposit: minDepositByCcy.PHP,
+    minDepositByCcy,
     capToDeposit: bool(r.cap_to_deposit, D.capToDeposit),
     eligibleCats: parseCats(r.eligible_cats, D.eligibleCats),
     settleHour: Math.min(23, Math.max(0, Math.round(num(r.settle_hour, D.settleHour)))),
@@ -341,15 +366,21 @@ export async function savePromoConfig(env: Env, config: PromoConfig): Promise<vo
     ['appdl',    'turnover_x',     String(config.appdl.turnoverX         ?? D.appdl.turnoverX)],
     ['appdl',    'turnover_days',  String(config.appdl.turnoverDays      ?? D.appdl.turnoverDays)],
     ['redep',    'enabled',        config.redep.enabled                  ? '1' : '0'],
-    ['redep',    'min_deposit',    String(config.redep.minDeposit        ?? D.redep.minDeposit)],
-    ['redep',    'bonus_amount',   String(config.redep.bonusAmount       ?? D.redep.bonusAmount)],
     ['redep',    'window_hours',   String(config.redep.windowHours       ?? D.redep.windowHours)],
     ['redep',    'cooldown_days',  String(config.redep.cooldownDays      ?? D.redep.cooldownDays)],
     ['redep',    'turnover_x',     String(config.redep.turnoverX         ?? D.redep.turnoverX)],
     ['redep',    'turnover_days',  String(config.redep.turnoverDays      ?? D.redep.turnoverDays)],
+    ...PROMO_CCYS.flatMap((c): [string, string, string][] => {
+      const t = config.redep.byCcy?.[c] ?? D.redep.byCcy[c] ?? { minDeposit: D.redep.minDeposit, bonusAmount: D.redep.bonusAmount }
+      return [
+        ['redep', ccyKey('min_deposit', c),  String(t.minDeposit)],
+        ['redep', ccyKey('bonus_amount', c), String(t.bonusAmount)],
+      ]
+    }),
     ['loss_rebate', 'enabled',        config.lossRebate.enabled            ? '1' : '0'],
     ['loss_rebate', 'rate_pct',       String(config.lossRebate.ratePct     ?? D.lossRebate.ratePct)],
-    ['loss_rebate', 'min_deposit',    String(config.lossRebate.minDeposit  ?? D.lossRebate.minDeposit)],
+    ...PROMO_CCYS.map((c): [string, string, string] =>
+      ['loss_rebate', ccyKey('min_deposit', c), String(config.lossRebate.minDepositByCcy?.[c] ?? D.lossRebate.minDepositByCcy[c] ?? D.lossRebate.minDeposit)]),
     ['loss_rebate', 'cap_to_deposit', config.lossRebate.capToDeposit       ? '1' : '0'],
     ['loss_rebate', 'eligible_cats',  parseCats(config.lossRebate.eligibleCats?.join(','), D.lossRebate.eligibleCats).join(',')],
     ['loss_rebate', 'settle_hour',    String(Math.min(23, Math.max(0, Math.round(config.lossRebate.settleHour ?? D.lossRebate.settleHour))))],

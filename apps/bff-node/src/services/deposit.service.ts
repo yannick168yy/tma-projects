@@ -135,9 +135,9 @@ export async function settlePaidDeposit(
 
   await applyFirstDepPromo(redis, order.userId, order.orderId, opts.amountPhpUnits, opts.currency, { pool: opts.mysqlPool, traceId: opts.traceId })
 
-  // 复充限时优惠：仅 PHP 入账参与达标（加密币入账不计）
-  if (opts.mysqlPool && creditedCurrency === 'PHP') {
-    await applyRedepPromo(redis, opts.mysqlPool, order.userId, order.orderId, credited, opts.traceId)
+  // 复充限时优惠：按币种独立，达标额与发奖均用原币种（credited/creditedCurrency 即入账原币种口径）
+  if (opts.mysqlPool) {
+    await applyRedepPromo(redis, opts.mysqlPool, order.userId, order.orderId, credited, creditedCurrency, opts.traceId)
   }
 
   if (opts.mysqlPool) {

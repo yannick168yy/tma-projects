@@ -506,12 +506,14 @@ export async function runDailyLossRebate(
        WHERE status = 'paid' AND created_at >= ? AND created_at < ?
        GROUP BY user_id, currency
      ) d ON d.user_id = x.user_id AND d.currency = x.currency_code
-     WHERE COALESCE(d.dep, 0) >= ?
+     WHERE COALESCE(d.dep, 0) >= CASE x.currency_code WHEN 'USDT' THEN ? WHEN 'USDC' THEN ? ELSE ? END
        AND ROUND(IF(? = 1, LEAST(x.net_loss, COALESCE(d.dep, 0)), x.net_loss) * ? / 100, 2) > 0
      ON DUPLICATE KEY UPDATE
        amount = IF(status = 'pending', VALUES(amount), amount),
        level  = IF(status = 'pending', VALUES(level), level)`,
-    [cap, cfg.ratePct, periodKey, startUtc, endUtc, ...cfg.eligibleCats, startUtc, endUtc, cfg.minDeposit, cap, cfg.ratePct],
+    [cap, cfg.ratePct, periodKey, startUtc, endUtc, ...cfg.eligibleCats, startUtc, endUtc,
+     cfg.minDepositByCcy?.USDT ?? cfg.minDeposit, cfg.minDepositByCcy?.USDC ?? cfg.minDeposit, cfg.minDeposit,
+     cap, cfg.ratePct],
   )
 
   const [[agg]] = await pool.query<RowDataPacket[]>(

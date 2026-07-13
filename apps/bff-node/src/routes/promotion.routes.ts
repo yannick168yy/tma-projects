@@ -72,9 +72,10 @@ function promoHighlights(user: Awaited<ReturnType<typeof getUser>>, firstDeposit
 
 // GET /promotions/config 已移至公开路由（routes/index.ts），无需登录即可拉取活动配置
 
-// 复充限时优惠：进站拉取（符合人群时惰性开窗，窗口内重复拉取返回同一倒计时）
+// 复充限时优惠：进站拉取（符合人群时惰性开窗，窗口内重复拉取返回同一倒计时）；按币种独立
 router.get('/redep-offer', async (ctx) => {
-  ok(ctx, await getOrCreateRedepOffer(ctx.state.env, ctx.state.userId!))
+  const currency = (ctx.query.currency as string) || 'PHP'
+  ok(ctx, await getOrCreateRedepOffer(ctx.state.env, ctx.state.userId!, currency))
 })
 
 router.get('/', async (ctx) => {
