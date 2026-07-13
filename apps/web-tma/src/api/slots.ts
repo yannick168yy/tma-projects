@@ -41,7 +41,7 @@ export interface GameListParams {
   category?: string
   sortCategory?: string
   siteCategory?: string
-  cashbackTier?: 'elite' | 'pro' | 'basic'
+  cashbackTier?: 'elite' | 'pro' | 'basic' | 'all'
   sortBy?: 'weight' | 'name'
   currency?: string
 }

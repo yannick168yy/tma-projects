@@ -309,7 +309,7 @@ export default {
     gameHistory: 'GAME HISTORY',
     recentWins: 'Recent Wins',
     popularGames: 'POPULAR GAMES',
-    highRebate: 'HIGH REBATE GAMES',
+    highRebate: 'HIGH CASHBACK GAMES',
     egamesZone: 'SLOT GAMES',
     liveGames: 'LIVE GAMES',
     fishingZone: 'FISHING GAMES',
@@ -1202,7 +1202,7 @@ export default {
   },
   games: {
     catAll: 'All',
-    catHighRebate: 'High Rebate',
+    catHighRebate: 'High Cashback',
     peryaCarnival: 'Perya Carnival',
     peryaCarnivalSub: 'Pinoy classics, jackpots & fiesta fun',
     enter: 'Enter',

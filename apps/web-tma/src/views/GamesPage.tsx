@@ -24,12 +24,13 @@ const CATEGORIES: CategoryDef[] = [
   { id: 'other',   labelKey: 'home.chipOther',   siteCategory: 'other'   },
 ]
 
-// 高洗码二级档位子菜单：elite=2% / pro=1.5% / basic=1%（Cashback 精选真实费率档）
-type RebateTier = 'elite' | 'pro' | 'basic'
-const TIER_TABS: { id: RebateTier; label: string }[] = [
-  { id: 'elite', label: '2%' },
-  { id: 'pro',   label: '1.5%' },
-  { id: 'basic', label: '1%' },
+// 高 cashback 二级档位子菜单：All(混合) + elite=2% / pro=1.5% / basic=1%
+type RebateTier = 'all' | 'elite' | 'pro' | 'basic'
+const TIER_TABS: { id: RebateTier; labelKey?: string; label?: string }[] = [
+  { id: 'all',   labelKey: 'games.catAll' },
+  { id: 'elite', label: '2% cashback' },
+  { id: 'pro',   label: '1.5% cashback' },
+  { id: 'basic', label: '1% cashback' },
 ]
 
 interface Props {
@@ -48,7 +49,7 @@ export default function GamesPage({ cat, provider, onChangeFilter, onOpenPerya, 
   const activeCat = CATEGORIES.find((c) => c.id === cat) ?? CATEGORIES[0]
   const isRebate = cat === 'highrebate'
 
-  const [tier, setTier] = useState<RebateTier>('elite')
+  const [tier, setTier] = useState<RebateTier>('all')
   const [providers, setProviders] = useState<string[]>([])
   const [providersExpanded, setProvidersExpanded] = useState(false)
   const [hidden, setHidden] = useState(false)
@@ -225,7 +226,7 @@ export default function GamesPage({ cat, provider, onChangeFilter, onOpenPerya, 
                   tier === tt.id ? 'bg-primary text-primary-foreground' : 'bg-secondary text-foreground/70'
                 }`}
               >
-                {tt.label}
+                {tt.labelKey ? t(tt.labelKey) : tt.label}
               </button>
             ))}
           </div>

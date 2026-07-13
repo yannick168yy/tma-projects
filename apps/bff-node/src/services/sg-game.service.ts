@@ -604,8 +604,11 @@ export async function listGames(
     const cats = new Set(siteCategory.split(',').map((s) => s.trim()).filter(Boolean))
     games = games.filter((g) => g.siteCategory != null && cats.has(g.siteCategory))
   }
-  // 高洗码档位过滤：elite=2% / pro=1.5% / basic=1%（Cashback 精选真实费率档）
-  if (cashbackTier && cashbackTier !== 'all') {
+  // 高 cashback 档位过滤：elite=2% / pro=1.5% / basic=1%（Cashback 精选真实费率档）；
+  // 'all'=任一档位精选游戏混合展示，undefined=不过滤(普通全量目录)
+  if (cashbackTier === 'all') {
+    games = games.filter((g) => g.cashbackTier != null)
+  } else if (cashbackTier) {
     games = games.filter((g) => g.cashbackTier === cashbackTier)
   }
   // 不支持当前币种的游戏直接不显示(与首页选品口径一致)，避免 PHP 目录混入大量 USD 专用灰卡

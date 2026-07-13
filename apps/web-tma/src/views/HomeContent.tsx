@@ -377,7 +377,7 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
   const [providerZoneTab, setProviderZoneTab] = useState(PROVIDER_ZONE[0].code)
   const [providerZoneGames, setProviderZoneGames] = useState<SlotGame[]>([])
   const providerZoneFetchRef = useRef(0)
-  // 高返水：三档(2%/1.5%/1%)各取 3 款，合成 9 款展示
+  // 高 cashback：首页只放最好比例(2%/elite)的 9 款
   const [cashbackGames, setCashbackGames] = useState<SlotGame[]>([])
 
   const onGameTapAction = useCallback(async (uuid: string) => {
@@ -506,12 +506,8 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
 
   useEffect(() => {
     let alive = true
-    Promise.all([
-      fetchGames({ cashbackTier: 'elite', limit: 3, sortBy: 'weight', currency: activeCurrency }),
-      fetchGames({ cashbackTier: 'pro', limit: 3, sortBy: 'weight', currency: activeCurrency }),
-      fetchGames({ cashbackTier: 'basic', limit: 3, sortBy: 'weight', currency: activeCurrency }),
-    ])
-      .then(([e, p, b]) => { if (alive) setCashbackGames([...e.items, ...p.items, ...b.items]) })
+    fetchGames({ cashbackTier: 'elite', limit: 9, sortBy: 'weight', currency: activeCurrency })
+      .then((res) => { if (alive) setCashbackGames(res.items) })
       .catch(() => {})
     return () => { alive = false }
   }, [activeCurrency])
