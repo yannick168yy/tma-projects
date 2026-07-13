@@ -8,7 +8,7 @@ import {
   getSpinConfig,
   getSpinRecords,
   saveSpinConfig,
-  FIRSTDEP_CURRENCIES,
+  CONFIG_CCY_OPTIONS,
   type SpinConfig,
   type SpinDepositRule,
   type SpinPrize,
@@ -291,7 +291,7 @@ export default function RewardsSpin() {
       </div>
       <Space style={{ marginBottom: 16 }} align="center">
         <Text strong>币种：</Text>
-        <Segmented value={currency} onChange={(v) => setCurrency(String(v))} options={FIRSTDEP_CURRENCIES.map((c) => ({ value: c, label: c }))} />
+        <Segmented value={currency} onChange={(v) => setCurrency(String(v))} options={CONFIG_CCY_OPTIONS.map((o) => ({ value: o.value, label: o.label }))} />
         <Text type="secondary" style={{ fontSize: 12 }}>每币种一套独立奖池，抽奖按用户当前币种发对应币种奖金；切换即加载该币种奖池</Text>
       </Space>
 

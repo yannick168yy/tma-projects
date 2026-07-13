@@ -353,6 +353,10 @@ export async function savePromoConfig(env: Env, config: PromoConfig): Promise<vo
   const D = PROMO_DEFAULTS
   // 统一列表的开关是单一真源：写库前把卡片开关灌回 trial/appdl/firstdep 标量
   if (Array.isArray(config.bonusCards)) syncScalarEnabledFromCards(config)
+  // 稳定币共用一套：redep/loss_rebate/首充档位 的 USDC 镜像 USDT
+  if (config.redep?.byCcy?.USDT) config.redep.byCcy.USDC = { ...config.redep.byCcy.USDT }
+  if (config.lossRebate?.minDepositByCcy?.USDT != null) config.lossRebate.minDepositByCcy.USDC = config.lossRebate.minDepositByCcy.USDT
+  if (config.firstdep?.tiers?.USDT) config.firstdep.tiers.USDC = config.firstdep.tiers.USDT.map((t) => ({ ...t }))
   const entries: [string, string, string][] = [
     ['trial',    'amount',         String(config.trial.amount            ?? D.trial.amount)],
     ['trial',    'enabled',        config.trial.enabled                  ? '1' : '0'],

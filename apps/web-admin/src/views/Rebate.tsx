@@ -12,7 +12,7 @@ import {
   getFeaturedGames, addFeaturedGame, removeFeaturedGame,
   triggerRebatePayout, getRebateRecords,
   getWin568ProviderStats, getAdminWin568Games,
-  FIRSTDEP_CURRENCIES,
+  CONFIG_CCY_OPTIONS,
   type RebateConfigItem, type RebateThresholdItem, type RebateFeaturedGame, type RebateRecord, type AdminWin568Game,
 } from '../api'
 import { PAGE_SIZE_OPTIONS } from '../pagination'
@@ -287,7 +287,7 @@ export default function Rebate({ tab = 'config' }: { tab?: RebateTab }) {
           <Segmented
             value={currency}
             onChange={(v) => setCurrency(String(v))}
-            options={FIRSTDEP_CURRENCIES.map((c) => ({ value: c, label: c }))}
+            options={CONFIG_CCY_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
           />
           <Text type="secondary" style={{ fontSize: 12 }}>
             每币种独立配置：阈值与封顶为该币种绝对金额，费率%全币种通用。切换即加载该币种数值。

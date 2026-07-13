@@ -173,6 +173,8 @@ export async function saveTaskConfig(env: Env, config: unknown, currency = 'PHP'
   const raw = await readSetting(env, TASK_CONFIG_KEY)
   const nested = toNestedRaw(raw ? JSON.parse(raw) : {})
   nested[currency] = clean
+  // 稳定币共用一套：保存 USDT 时镜像同步 USDC
+  if (currency === 'USDT') nested['USDC'] = clean
   await getMysqlPool(env).execute(
     'INSERT INTO bg_admin_settings (`key`, `value`) VALUES (?, ?) ON DUPLICATE KEY UPDATE `value` = VALUES(`value`)',
     [TASK_CONFIG_KEY, JSON.stringify(nested)],

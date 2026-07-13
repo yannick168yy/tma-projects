@@ -119,6 +119,8 @@ export async function saveVipBenefits(env: Env, items: VipBenefit[], currency = 
        it.negativeRebatePct, it.retentionLine, it.withdrawDailyLimit, it.withdrawDailyCount],
     )
   }
+  // 稳定币共用一套：保存 USDT 时镜像同步 USDC
+  if (currency === 'USDT') await saveVipBenefits(env, items, 'USDC')
 }
 
 export async function getVipLevelConfig(env: Env, currency = 'PHP'): Promise<VipLevelConfig[]> {

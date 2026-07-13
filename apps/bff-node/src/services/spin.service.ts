@@ -270,6 +270,22 @@ export async function saveSpinConfig(env: Env, config: SpinConfig, currency = 'P
       )
     }
 
+    // 稳定币共用一套：保存 USDT 时把 USDC 奖池重同步为 USDT 的副本
+    // 奖品有独立 id 且被派奖记录外键引用，故用「停用旧 USDC + 插入 USDT 当前启用奖品的副本」，FK 安全
+    if (currency === 'USDT') {
+      await conn.query(`UPDATE bg_spin_prize SET enabled = 0 WHERE currency = 'USDC'`)
+      await conn.query(
+        `INSERT INTO bg_spin_prize (rule_id, currency, name, image_key, amount_php, weight, turnover_x, enabled, sort_order)
+         SELECT rule_id, 'USDC', name, image_key, amount_php, weight, turnover_x, enabled, sort_order
+         FROM bg_spin_prize WHERE currency = 'USDT' AND enabled = 1`,
+      )
+      // 清理无派奖记录引用的历史 USDC 停用奖品，防累积
+      await conn.query(
+        `DELETE FROM bg_spin_prize WHERE currency = 'USDC' AND enabled = 0
+         AND id NOT IN (SELECT prize_id FROM bg_spin_record)`,
+      )
+    }
+
     await conn.commit()
     return getSpinConfig(env, currency)
   } catch (e) {

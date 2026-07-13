@@ -766,6 +766,11 @@ export const getBetRounds = (params: {
 export interface FirstDepTier { depositAmount: number; bonusAmount: number }
 export const FIRSTDEP_CURRENCIES = ['PHP', 'USDT', 'USDC'] as const
 export type FirstDepCurrency = (typeof FIRSTDEP_CURRENCIES)[number]
+// 激励类配置币种选项：稳定币 USDT/USDC 共用一套（保存 USDT 后端自动同步 USDC），后台只需维护两套
+export const CONFIG_CCY_OPTIONS = [
+  { value: 'PHP', label: 'PHP' },
+  { value: 'USDT', label: 'USDT / USDC' },
+] as const
 export type PopupAudience = 'all' | 'guest' | 'no_deposit' | 'new' | 'deposited'
 export type PopupFrequency = 'daily' | 'once' | 'always'
 export interface PopupConfig {

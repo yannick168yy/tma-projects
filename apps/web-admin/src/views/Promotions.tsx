@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Card, InputNumber, Select, Switch, Button, message, Typography, Row, Col, Spin, Tabs, Table, Space, Segmented } from 'antd'
 import { GiftOutlined, PlusOutlined, DeleteOutlined, ArrowUpOutlined, ArrowDownOutlined } from '@ant-design/icons'
-import { getPromoConfig, savePromoConfig, triggerVipNegativeRebate, FIRSTDEP_CURRENCIES, type PromoConfig, type FirstDepTier, type PopupConfig, type BonusCard } from '../api'
+import { getPromoConfig, savePromoConfig, triggerVipNegativeRebate, FIRSTDEP_CURRENCIES, CONFIG_CCY_OPTIONS, type PromoConfig, type FirstDepTier, type PopupConfig, type BonusCard } from '../api'
 
 const { Title, Text } = Typography
 
@@ -180,9 +180,9 @@ export default function Promotions() {
 
       <Card title={<span>各币种档位（充值额 → 首存奖励，向下匹配）</span>}>
         <Tabs
-          items={FIRSTDEP_CURRENCIES.map((currency) => ({
+          items={CONFIG_CCY_OPTIONS.map(({ value: currency, label }) => ({
             key: currency,
-            label: currency === 'USDC' ? `${currency}（预留）` : currency,
+            label,
             children: (
               <>
                 <Table<FirstDepTier>
@@ -307,7 +307,7 @@ export default function Promotions() {
       </Text>
       <Space style={{ marginBottom: 8 }} align="center">
         <Text strong>币种：</Text>
-        <Segmented value={redepCcy} onChange={(v) => setRedepCcy(String(v))} options={FIRSTDEP_CURRENCIES.map((c) => ({ value: c, label: c }))} />
+        <Segmented value={redepCcy} onChange={(v) => setRedepCcy(String(v))} options={CONFIG_CCY_OPTIONS.map((o) => ({ value: o.value, label: o.label }))} />
         <Text type="secondary" style={{ fontSize: 12 }}>门槛/奖励按币种独立(该币种口径);窗口/冷却/流水全币种通用</Text>
       </Space>
       <Row gutter={24} style={{ marginBottom: 16 }}>
@@ -362,7 +362,7 @@ export default function Promotions() {
         <Col span={8}>
           <Space size={4} align="center" style={{ marginBottom: 2 }}>
             <Text>当日存款门槛（{lossCcy}）</Text>
-            <Segmented size="small" value={lossCcy} onChange={(v) => setLossCcy(String(v))} options={FIRSTDEP_CURRENCIES.map((c) => ({ value: c, label: c }))} />
+            <Segmented size="small" value={lossCcy} onChange={(v) => setLossCcy(String(v))} options={CONFIG_CCY_OPTIONS.map((o) => ({ value: o.value, label: o.label }))} />
           </Space>
           <InputNumber prefix={lossCcy === 'PHP' ? '₱' : lossCcy} style={{ width: '100%', marginTop: 4 }} min={0} precision={2}
             value={cfg.lossRebate.minDepositByCcy[lossCcy] ?? 0}

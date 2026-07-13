@@ -8,7 +8,7 @@ import type { ColumnsType } from 'antd/es/table'
 import {
   getVipBenefits, saveVipBenefits, triggerVipNegativeRebate, getVipRecords,
   triggerVipWeeklySalary, triggerVipMonthlySalary, triggerVipBirthday, triggerVipRetention,
-  FIRSTDEP_CURRENCIES,
+  CONFIG_CCY_OPTIONS,
   type VipBenefitItem, type VipRewardRecord,
 } from '../api'
 import { PAGE_SIZE_OPTIONS } from '../pagination'
@@ -148,7 +148,7 @@ export default function Vip({ section = 'benefits' }: { section?: 'benefits' | '
         <Segmented
           value={currency}
           onChange={(v) => setCurrency(String(v))}
-          options={FIRSTDEP_CURRENCIES.map((c) => ({ value: c, label: c }))}
+          options={CONFIG_CCY_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
         />
         <Text type="secondary" style={{ fontSize: 12 }}>各币种独立配置，切换即加载该币种数值</Text>
       </Space>

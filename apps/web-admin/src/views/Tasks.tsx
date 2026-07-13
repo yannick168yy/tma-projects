@@ -4,7 +4,7 @@ import {
   getTaskConfig, saveTaskConfig, type TaskConfig, type TaskRewardCfg, type TaskRewardType,
   getTaskSocial, saveTaskSocial, type TaskSocialConfig,
   getTaskReviews, reviewTaskManual, type TaskManualReview,
-  FIRSTDEP_CURRENCIES,
+  CONFIG_CCY_OPTIONS,
 } from '../api'
 
 const { Title, Text } = Typography
@@ -62,7 +62,7 @@ function NativeConfig({ ids, title, currencyScoped = false }: { ids: string[]; t
         <Space style={{ marginBottom: 12 }} align="center">
           <Text strong>币种：</Text>
           <Segmented value={currency} onChange={(v) => setCurrency(String(v))}
-            options={FIRSTDEP_CURRENCIES.map((c) => ({ value: c, label: c }))} />
+            options={CONFIG_CCY_OPTIONS.map((o) => ({ value: o.value, label: o.label }))} />
           <Text type="secondary" style={{ fontSize: 12 }}>留存类每日任务按币种独立(金额/门槛为该币种口径);切换即加载该币种,未配则从PHP÷58派生</Text>
         </Space>
       )}

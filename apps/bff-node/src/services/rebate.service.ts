@@ -163,6 +163,8 @@ export async function saveLevelConfig(env: Env, items: RebateLevelConfigItem[], 
       [item.level, item.gameCategory, currency, item.ratePct, item.maxBonus ?? 0, item.enabled ? 1 : 0],
     )
   }
+  // 稳定币共用一套：保存 USDT 时镜像同步 USDC
+  if (currency === 'USDT') await saveLevelConfig(env, items, 'USDC')
 }
 
 /** 指定等级的各大类费率（公开展示 / 进度接口用）；按币种取（rate_pct 币种无关，max_bonus 币种相关） */
@@ -228,6 +230,8 @@ export async function saveLevelThresholds(env: Env, items: RebateLevelThreshold[
       [item.level, currency, item.minTurnover],
     )
   }
+  // 稳定币共用一套：保存 USDT 时镜像同步 USDC
+  if (currency === 'USDT') await saveLevelThresholds(env, items, 'USDC')
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
