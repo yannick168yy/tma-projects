@@ -92,17 +92,6 @@ export default function TaskFloatBall({ onNavigatePath }: TaskFloatBallProps) {
       {/* 固定悬浮在首页左下角（tasks 在上），不可移动 */}
       <div className="pointer-events-none fixed left-2 z-[31] h-24 w-24" style={{ bottom: 214 }}>
         <div className="relative h-24 w-24 select-none">
-          {/* 展开态关闭按钮：放在球体右上角（避开手机左侧返回手势区，确保可点），点击收起 */}
-          {expanded && (
-            <button
-              type="button"
-              className="pointer-events-auto absolute -top-2 -right-2 z-[40] flex h-7 w-7 items-center justify-center rounded-full border border-white/20 bg-black/80 text-white shadow-[0_4px_12px_rgba(0,0,0,0.5)] active:scale-90"
-              onClick={() => setExpanded(false)}
-              aria-label={t('tasks.ball.close')}
-            >
-              <X size={15} strokeWidth={3} />
-            </button>
-          )}
           {/* 扇形展开卡片：从球心弹出到弧线终点，逐张延迟成扇形展开 */}
           {FAN.map((f, i) => {
             const stat = stats[f.path]
@@ -146,13 +135,19 @@ export default function TaskFloatBall({ onNavigatePath }: TaskFloatBallProps) {
               className={`pointer-events-none absolute -inset-6 rounded-full transition-opacity duration-200 ${expanded ? 'opacity-0' : 'opacity-100'}`}
               style={{ background: 'radial-gradient(circle, rgba(6,4,1,0.55) 30%, rgba(6,4,1,0) 72%)' }}
             />
+            {/* 展开时整个挂件即关闭按钮（96px 大热区，点任意位置收起），右上角显示 X 提示 */}
             <button
               type="button"
               className={`pointer-events-auto relative z-[1] flex h-24 w-24 items-center justify-center transition-transform active:scale-95 ${expanded ? 'scale-110' : ''}`}
               onClick={() => setExpanded((v) => !v)}
-              aria-label={t('tasks.ball.label')}
+              aria-label={expanded ? t('tasks.ball.close') : t('tasks.ball.label')}
             >
               <img src={taskWidgetImg} alt="" draggable={false} className="h-24 w-24 object-contain drop-shadow-[0_8px_20px_rgba(0,0,0,0.45)]" />
+              {expanded && (
+                <span aria-hidden className="absolute right-1 top-1 flex h-7 w-7 items-center justify-center rounded-full border border-white/25 bg-black/80 text-white shadow-[0_3px_10px_rgba(0,0,0,0.55)]">
+                  <X size={16} strokeWidth={3} />
+                </span>
+              )}
               {!expanded && pending > 0 && (
                 <span className="absolute right-0 top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[11px] font-black text-primary-foreground shadow-[0_2px_6px_rgba(0,0,0,0.4)]">
                   {pending}
