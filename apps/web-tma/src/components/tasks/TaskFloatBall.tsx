@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { X } from 'lucide-react'
 import { fetchTaskCenter, type TaskCard, type TaskCenter } from '@/api/tasks'
 import { useAuthStore } from '@/stores/auth'
 import taskWidgetImg from '@/assets/tasks/task-float-widget.webp'
@@ -29,11 +30,11 @@ const CARD_ART: Record<TaskBallPath, { img: string; numLeft: string; numTop: str
   social: { img: ballSocialImg, numLeft: '47.1%', numTop: '63.5%' },
 }
 
-// 固定在左下角，向右上方扇形展开的卡片终点（相对球心）
+// 固定在左下角，向右侧竖向弧线展开的卡片终点（相对球心；允许盖住下方 cashback 挂件）
 const FAN: { path: TaskBallPath; dx: number; dy: number }[] = [
-  { path: 'newbie', dx: 30, dy: -104 },
-  { path: 'daily',  dx: 118, dy: -46 },
-  { path: 'social', dx: 34, dy: 8 },
+  { path: 'newbie', dx: 30, dy: -92 },
+  { path: 'daily',  dx: 116, dy: -6 },
+  { path: 'social', dx: 30, dy: 92 },
 ]
 
 function statOf(cards: TaskCard[]): TaskStat {
@@ -89,8 +90,19 @@ export default function TaskFloatBall({ onNavigatePath }: TaskFloatBallProps) {
         />
       )}
       {/* 固定悬浮在首页左下角（tasks 在上），不可移动 */}
-      <div className="pointer-events-none fixed left-2 z-[31] h-24 w-24" style={{ bottom: 188 }}>
+      <div className="pointer-events-none fixed left-2 z-[31] h-24 w-24" style={{ bottom: 214 }}>
         <div className="relative h-24 w-24 select-none">
+          {/* 展开态关闭按钮：放在球体左侧空位（卡片向右展开），点击收起 */}
+          {expanded && (
+            <button
+              type="button"
+              className="pointer-events-auto absolute -top-1 -left-1 z-[5] flex h-7 w-7 items-center justify-center rounded-full border border-white/20 bg-black/75 text-white shadow-[0_4px_12px_rgba(0,0,0,0.5)] active:scale-90"
+              onClick={() => setExpanded(false)}
+              aria-label={t('tasks.ball.close')}
+            >
+              <X size={15} strokeWidth={3} />
+            </button>
+          )}
           {/* 扇形展开卡片：从球心弹出到弧线终点，逐张延迟成扇形展开 */}
           {FAN.map((f, i) => {
             const stat = stats[f.path]
