@@ -52,11 +52,12 @@ export async function getOrCreateRedepOffer(env: Env, userId: string, currency =
     return { active: true, currency, endsAt: toIso(w.ends_at), minDeposit: Number(w.min_deposit), bonusAmount: Number(w.bonus_amount) }
   }
 
-  // 复充人群（同币种）：曾有该币种成功充值，且今日（PHT）尚未该币种充值
+  // 复充人群（同币种）：曾有该币种"真实"成功充值，且今日（PHT）尚未该币种充值
+  // channel='admin' 是后台手动加款/补偿写入的 paid 单，非真实充值，必须排除，否则未首充用户会被误弹复充框
   const [depRows] = await pool.query<RowDataPacket[]>(
     `SELECT
-       EXISTS(SELECT 1 FROM bg_deposit_order WHERE user_id = ? AND currency = ? AND status = 'paid') AS has_paid,
-       EXISTS(SELECT 1 FROM bg_deposit_order WHERE user_id = ? AND currency = ? AND status = 'paid' AND updated_at >= ?) AS paid_today`,
+       EXISTS(SELECT 1 FROM bg_deposit_order WHERE user_id = ? AND currency = ? AND status = 'paid' AND channel <> 'admin') AS has_paid,
+       EXISTS(SELECT 1 FROM bg_deposit_order WHERE user_id = ? AND currency = ? AND status = 'paid' AND channel <> 'admin' AND updated_at >= ?) AS paid_today`,
     [userId, currency, userId, currency, phtDayStartUtc()],
   )
   if (!Number(depRows[0]?.has_paid) || Number(depRows[0]?.paid_today)) return { active: false }
