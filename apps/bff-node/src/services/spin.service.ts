@@ -1,7 +1,7 @@
 import type { Redis } from 'ioredis'
 import type { PoolConnection, RowDataPacket } from 'mysql2/promise'
 import type { Env } from '../config/env.js'
-import { getMysqlPool, isMysqlEnabled } from '../clients/mysql.client.js'
+import { getMysqlPool } from '../clients/mysql.client.js'
 import { creditWalletTx } from './store/mysql-store.js'
 
 const TICKER_SIZE = 100
@@ -126,14 +126,15 @@ async function getEnabledConfig(conn: PoolConnection): Promise<SpinConfig> {
   const [rules] = await conn.query<RowDataPacket[]>(
     `SELECT id, kind, checkin_tier, name, min_deposit_php, max_deposit_php, chances, enabled, sort_order
      FROM bg_spin_deposit_rule
-     WHERE enabled = 1
+     WHERE enabled = 1 AND kind = 'checkin'
      ORDER BY sort_order ASC, min_deposit_php ASC`,
   )
   const [prizes] = await conn.query<RowDataPacket[]>(
-    `SELECT id, rule_id, name, image_key, amount_php, weight, turnover_x, enabled, sort_order
-     FROM bg_spin_prize
-     WHERE enabled = 1
-     ORDER BY sort_order ASC, id ASC`,
+    `SELECT p.id, p.rule_id, p.name, p.image_key, p.amount_php, p.weight, p.turnover_x, p.enabled, p.sort_order
+     FROM bg_spin_prize p
+     JOIN bg_spin_deposit_rule r ON r.id = p.rule_id AND r.kind = 'checkin'
+     WHERE p.enabled = 1
+     ORDER BY p.sort_order ASC, p.id ASC`,
   )
   return {
     enabled: Boolean(cfg?.enabled),
@@ -150,14 +151,16 @@ export async function getSpinConfig(env: Env): Promise<SpinConfig> {
       `SELECT enabled FROM bg_spin_config WHERE id = 1 LIMIT 1`,
     )
     const [rules] = await conn.query<RowDataPacket[]>(
-      `SELECT id, name, min_deposit_php, max_deposit_php, chances, enabled, sort_order
+      `SELECT id, kind, checkin_tier, name, min_deposit_php, max_deposit_php, chances, enabled, sort_order
        FROM bg_spin_deposit_rule
+       WHERE kind = 'checkin'
        ORDER BY sort_order ASC, min_deposit_php ASC`,
     )
     const [prizes] = await conn.query<RowDataPacket[]>(
-      `SELECT id, rule_id, name, image_key, amount_php, weight, turnover_x, enabled, sort_order
-       FROM bg_spin_prize
-       ORDER BY sort_order ASC, id ASC`,
+      `SELECT p.id, p.rule_id, p.name, p.image_key, p.amount_php, p.weight, p.turnover_x, p.enabled, p.sort_order
+       FROM bg_spin_prize p
+       JOIN bg_spin_deposit_rule r ON r.id = p.rule_id AND r.kind = 'checkin'
+       ORDER BY p.sort_order ASC, p.id ASC`,
     )
     return {
       enabled: Boolean(cfg?.enabled),
@@ -170,9 +173,7 @@ export async function getSpinConfig(env: Env): Promise<SpinConfig> {
 }
 
 function validRule(rule: SpinDepositRule): boolean {
-  if (rule.kind === 'checkin') return true
-  const amount = Number(rule.depositAmountPhp ?? rule.minDepositPhp)
-  return amount > 0
+  return rule.kind === 'checkin'
 }
 
 function validPrize(prize: SpinPrize): boolean {
@@ -188,11 +189,11 @@ export async function saveSpinConfig(env: Env, config: SpinConfig): Promise<Spin
   const pool = getMysqlPool(env)
   const rules = config.depositRules.filter(validRule).slice(0, 9)
   const prizes = config.prizes.filter(validPrize)
-  if (!rules.length) throw new Error('至少需要一个有效存款档位')
+  if (!rules.length) throw new Error('至少需要一个有效签到档位')
   if (!prizes.length) throw new Error('至少需要一个有效奖品')
   for (const rule of rules) {
     const count = prizes.filter((p) => Number(p.ruleId) === Number(rule.id)).length
-    if (rule.id && count !== 8) throw new Error(`${rule.name || '存款级别'} 必须配置 8 个奖品`)
+    if (rule.id && count !== 8) throw new Error(`${rule.name || '签到档位'} 必须配置 8 个奖品`)
   }
 
   const conn = await pool.getConnection()
@@ -205,29 +206,24 @@ export async function saveSpinConfig(env: Env, config: SpinConfig): Promise<Spin
     )
 
     const keptRuleIds: number[] = []
-    let depositIdx = 0
     for (const rule of rules) {
-      const isCheckin = rule.kind === 'checkin'
-      const tier = isCheckin && rule.checkinTier && CHECKIN_TIERS.includes(rule.checkinTier) ? rule.checkinTier : null
-      const amount = isCheckin ? 0 : Number(rule.depositAmountPhp ?? rule.minDepositPhp)
-      const name = isCheckin
-        ? `Check-in ${tier ? tier[0].toUpperCase() + tier.slice(1) : ''}`.trim()
-        : `Deposit ${Math.round(amount)}`
-      // 存款档位 sort 10,20,...；签到档位 900/910/920 按 tier 排最后
-      const sortOrder = isCheckin ? 900 + (tier ? CHECKIN_TIERS.indexOf(tier) * 10 : 0) : (depositIdx += 1) * 10
+      const tier = rule.checkinTier && CHECKIN_TIERS.includes(rule.checkinTier) ? rule.checkinTier : null
+      const name = `Check-in ${tier ? tier[0].toUpperCase() + tier.slice(1) : ''}`.trim()
+      // 签到档位固定 sort 900/910/920 按 tier 排序
+      const sortOrder = 900 + (tier ? CHECKIN_TIERS.indexOf(tier) * 10 : 0)
       if (rule.id) {
         keptRuleIds.push(rule.id)
         await conn.execute(
           `UPDATE bg_spin_deposit_rule
-           SET kind = ?, checkin_tier = ?, name = ?, min_deposit_php = ?, max_deposit_php = ?, chances = ?, enabled = ?, sort_order = ?
+           SET kind = 'checkin', checkin_tier = ?, name = ?, min_deposit_php = 0, max_deposit_php = NULL, chances = 1, enabled = ?, sort_order = ?
            WHERE id = ?`,
-          [rule.kind, tier, name, amount, null, 1, rule.enabled ? 1 : 0, sortOrder, rule.id],
+          [tier, name, rule.enabled ? 1 : 0, sortOrder, rule.id],
         )
       } else {
         const [res] = await conn.execute(
           `INSERT INTO bg_spin_deposit_rule (kind, checkin_tier, name, min_deposit_php, max_deposit_php, chances, enabled, sort_order)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-          [rule.kind, tier, name, amount, null, 1, rule.enabled ? 1 : 0, sortOrder],
+           VALUES ('checkin', ?, ?, 0, NULL, 1, ?, ?)`,
+          [tier, name, rule.enabled ? 1 : 0, sortOrder],
         )
         keptRuleIds.push(Number((res as { insertId: number }).insertId))
       }
@@ -270,49 +266,6 @@ export async function saveSpinConfig(env: Env, config: SpinConfig): Promise<Spin
   } catch (e) {
     await conn.rollback()
     throw e
-  } finally {
-    conn.release()
-  }
-}
-
-function ruleForDeposit(amount: number, rules: SpinDepositRule[]): SpinDepositRule | null {
-  const matched = rules
-    .filter((rule) => rule.kind !== 'checkin' && amount >= rule.minDepositPhp)
-    .sort((a, b) => b.minDepositPhp - a.minDepositPhp || a.sortOrder - b.sortOrder)
-  return matched[0] ?? null
-}
-
-export async function syncSpinChances(env: Env, userId: string): Promise<void> {
-  if (!isMysqlEnabled(env)) return
-  const pool = getMysqlPool(env)
-  const conn = await pool.getConnection()
-  try {
-    const config = await getEnabledConfig(conn)
-    if (!config.enabled || !config.depositRules.length) return
-
-    const [orders] = await conn.query<RowDataPacket[]>(
-      `SELECT o.order_id, o.amount
-       FROM bg_deposit_order o
-       LEFT JOIN bg_spin_chance sc ON sc.source_order_id = o.order_id
-       WHERE o.user_id = ?
-         AND o.status = 'paid'
-         AND o.currency = 'PHP'
-         AND sc.id IS NULL
-       ORDER BY o.created_at ASC`,
-      [userId],
-    )
-
-    for (const order of orders) {
-      const amount = Number(order.amount)
-      const rule = ruleForDeposit(amount, config.depositRules)
-      if (!rule?.id) continue
-      await conn.execute(
-        `INSERT IGNORE INTO bg_spin_chance
-           (user_id, source_order_id, rule_id, deposit_amount_php, chances_total)
-         VALUES (?, ?, ?, ?, ?)`,
-        [userId, String(order.order_id), rule.id, amount, 1],
-      )
-    }
   } finally {
     conn.release()
   }
@@ -439,7 +392,6 @@ async function getTickerRecords(redis: Redis, config: SpinConfig, ruleId?: numbe
 }
 
 export async function getSpinStatus(env: Env, userId: string, redis: Redis, ruleId?: number): Promise<SpinStatus> {
-  await syncSpinChances(env, userId)
   const pool = getMysqlPool(env)
   const conn = await pool.getConnection()
   try {
@@ -493,7 +445,6 @@ function pickPrize(prizes: SpinPrize[]): SpinPrize {
 }
 
 export async function drawSpin(env: Env, userId: string, ruleId?: number, traceId?: string): Promise<SpinDrawResult> {
-  await syncSpinChances(env, userId)
   const pool = getMysqlPool(env)
   const conn = await pool.getConnection()
   try {

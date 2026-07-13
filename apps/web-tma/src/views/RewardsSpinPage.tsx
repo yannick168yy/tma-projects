@@ -16,22 +16,18 @@ import mascotRightImg from '@/assets/spin/fbm/item-right.webp'
 import winIconImg from '@/assets/spin/fbm/icon-win.webp'
 import oopsIconImg from '@/assets/spin/fbm/icon-oops.webp'
 
-interface Props { onClose: () => void; initialKind?: 'deposit' | 'checkin' }
+interface Props { onClose: () => void }
 
 function fmtPhp(amount: number): string {
   if (amount >= 1000) return `₱${Math.round(amount).toLocaleString('en-PH')}`
   return `₱${amount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
-function fmtDepositAmount(amount: number): string {
-  return Math.round(amount).toLocaleString('en-PH')
-}
-
 function fmtRecordDate(iso: string): string {
   try { return new Date(iso).toLocaleString('en-PH', { dateStyle: 'medium', timeStyle: 'short' }) } catch { return iso }
 }
 
-export default function RewardsSpinPage({ onClose, initialKind }: Props) {
+export default function RewardsSpinPage({ onClose }: Props) {
   const { t } = useTranslation()
   const wallet = useWalletStore()
   const user = useAuthStore((s) => s.user)
@@ -48,11 +44,10 @@ export default function RewardsSpinPage({ onClose, initialKind }: Props) {
   const [historyLoading, setHistoryLoading] = useState(false)
   const [historyRecords, setHistoryRecords] = useState<SpinRecord[]>([])
 
-  // 来源模式：从签到进入只显示签到三档，其它入口只显示存款档
-  const mode: 'deposit' | 'checkin' = initialKind === 'checkin' ? 'checkin' : 'deposit'
+  // 只保留每日签到转盘：仅显示签到三档
   const rules = useMemo(
-    () => (status?.depositRules ?? []).filter((r) => r.enabled && r.id && (r.kind ?? 'deposit') === mode),
-    [status, mode],
+    () => (status?.depositRules ?? []).filter((r) => r.enabled && r.id && r.kind === 'checkin'),
+    [status],
   )
   const selectedRule = useMemo(
     () => rules.find((rule) => rule.id === selectedRuleId) ?? rules[0] ?? null,
@@ -70,7 +65,6 @@ export default function RewardsSpinPage({ onClose, initialKind }: Props) {
     return Array.from({ length: 8 }, (_, i) => source[i % source.length])
   }, [allEnabledPrizes, prizes])
   const remaining = selectedRule?.remainingChances ?? status?.remainingChances ?? 0
-  const selectedAmount = selectedRule ? Number(selectedRule.depositAmountPhp ?? selectedRule.minDepositPhp) : 580
   const canSpin = Boolean(selectedRule?.id && status?.enabled && remaining > 0 && wheelPrizes.length > 0)
   const tickerRecords = status?.tickerRecords ?? []
 
@@ -91,7 +85,7 @@ export default function RewardsSpinPage({ onClose, initialKind }: Props) {
       const next = await fetchSpinStatus(ruleId ?? undefined)
       setStatus(next)
       setSelectedRuleId((current) => {
-        const inMode = next.depositRules.filter((rule) => rule.enabled && (rule.kind ?? 'deposit') === mode)
+        const inMode = next.depositRules.filter((rule) => rule.enabled && rule.kind === 'checkin')
         if (current && inMode.some((rule) => rule.id === current)) return current
         const available = inMode.find((rule) => (rule.remainingChances ?? 0) > 0)
         return available?.id ?? inMode[0]?.id ?? null
@@ -107,7 +101,7 @@ export default function RewardsSpinPage({ onClose, initialKind }: Props) {
     const next = await fetchSpinStatus(ruleId ?? selectedRuleId ?? undefined)
     setStatus(next)
     setSelectedRuleId((current) => {
-      const inMode = next.depositRules.filter((rule) => rule.enabled && (rule.kind ?? 'deposit') === mode)
+      const inMode = next.depositRules.filter((rule) => rule.enabled && rule.kind === 'checkin')
       if (current && inMode.some((rule) => rule.id === current)) return current
       const available = inMode.find((rule) => (rule.remainingChances ?? 0) > 0)
       return available?.id ?? inMode[0]?.id ?? null
@@ -237,9 +231,7 @@ export default function RewardsSpinPage({ onClose, initialKind }: Props) {
                   onClick={() => { setSelectedRuleId(rule.id!); setResult(null); setMessage('') }}
                 >
                   <p className="truncate text-sm font-black uppercase leading-none">
-                    {rule.kind === 'checkin'
-                      ? (rule.checkinTier ? t(`checkin.tier.${rule.checkinTier}`) : t('spin.checkinTab'))
-                      : `DEPOSIT ${fmtDepositAmount(Number(rule.depositAmountPhp ?? rule.minDepositPhp))}`}
+                    {rule.checkinTier ? t(`checkin.tier.${rule.checkinTier}`) : t('spin.checkinTab')}
                   </p>
                   <p className="mt-1 text-xs font-black">{rule.remainingChances ?? 0} {t('spin.chances')}</p>
                 </button>
@@ -285,9 +277,7 @@ export default function RewardsSpinPage({ onClose, initialKind }: Props) {
             <img src={oopsIconImg} alt="" draggable={false} className="absolute left-1/2 top-[-62px] w-[158px] -translate-x-1/2" />
             <h2 className="text-xl font-black">{t('spin.oopsTitle')}</h2>
             <p className="mt-4 text-base leading-relaxed text-[#777]">
-              {selectedRule?.kind === 'checkin'
-                ? t('spin.oopsBodyCheckin')
-                : t('spin.oopsBody', { amount: fmtDepositAmount(selectedAmount) })}
+              {t('spin.oopsBodyCheckin')}
             </p>
             <button
               type="button"

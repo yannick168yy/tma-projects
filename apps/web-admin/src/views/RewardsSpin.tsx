@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import {
-  Button, Card, Col, Collapse, Form, Input, InputNumber, message, Row, Select, Space, Spin, Switch, Table, Tabs, Tag, Typography,
+  Button, Card, Collapse, Form, Input, InputNumber, message, Select, Space, Spin, Switch, Table, Tabs, Tag, Typography,
 } from 'antd'
 import { GiftOutlined } from '@ant-design/icons'
 import type { ColumnsType } from 'antd/es/table'
@@ -18,14 +18,10 @@ import { SPIN_PRIZE_IMAGES } from '../assets/spin/prizeImages'
 
 const { Title, Text } = Typography
 
-const LEVEL_COUNT = 6
 const CHECKIN_TIERS = ['starter', 'premium', 'elite'] as const
 type CheckinTier = (typeof CHECKIN_TIERS)[number]
 const CHECKIN_TIER_LABEL: Record<CheckinTier, string> = { starter: '初级', premium: '中级', elite: '高级' }
-// 签到三档固定排在 6 个存款档位之后：索引 6/7/8
-const checkinFlatIndex = (tierIndex: number) => LEVEL_COUNT + tierIndex
 const PRIZE_COUNT = 8
-const DEFAULT_AMOUNTS = [108, 580, 1080, 2000, 5000, 10000]
 const PRIZE_SLOTS = Array.from({ length: PRIZE_COUNT }, (_, i) => i)
 const IMAGE_OPTIONS = Array.from({ length: PRIZE_COUNT }, (_, i) => {
   const value = `prize-${i + 1}`
@@ -70,20 +66,6 @@ const recordColumns: ColumnsType<SpinRecord> = [
 
 function prizeFlatIndex(ruleIndex: number, prizeIndex: number): number {
   return ruleIndex * PRIZE_COUNT + prizeIndex
-}
-
-function defaultRule(i: number): SpinDepositRule {
-  const amount = DEFAULT_AMOUNTS[i] ?? (i + 1) * 1000
-  return {
-    kind: 'deposit',
-    name: `Deposit ${amount}`,
-    minDepositPhp: amount,
-    depositAmountPhp: amount,
-    maxDepositPhp: null,
-    chances: 1,
-    enabled: true,
-    sortOrder: (i + 1) * 10,
-  }
 }
 
 function defaultCheckinRule(tier: CheckinTier, tierIndex: number): SpinDepositRule {
@@ -133,23 +115,6 @@ function prizesForRule(config: SpinConfig, rule: SpinDepositRule, ruleIndex: num
 }
 
 function normalizeConfig(config: SpinConfig): SpinConfig {
-  const depositExisting = config.depositRules.filter((r) => r.kind !== 'checkin')
-  const depositRules = Array.from({ length: LEVEL_COUNT }, (_, i) => {
-    const existing = depositExisting[i]
-    const amount = Number(existing?.depositAmountPhp ?? existing?.minDepositPhp ?? DEFAULT_AMOUNTS[i])
-    return {
-      ...defaultRule(i),
-      ...existing,
-      kind: 'deposit' as const,
-      name: `Deposit ${Math.round(amount)}`,
-      minDepositPhp: amount,
-      depositAmountPhp: amount,
-      maxDepositPhp: null,
-      chances: 1,
-      sortOrder: (i + 1) * 10,
-    }
-  })
-
   const checkinRules = CHECKIN_TIERS.map((tier, tierIndex) => {
     const existing = config.depositRules.find((r) => r.kind === 'checkin' && r.checkinTier === tier)
     return {
@@ -166,10 +131,9 @@ function normalizeConfig(config: SpinConfig): SpinConfig {
     }
   })
 
-  const rules = [...depositRules, ...checkinRules]
-  const prizes = rules.flatMap((rule, ruleIndex) => prizesForRule(config, rule, ruleIndex))
+  const prizes = checkinRules.flatMap((rule, ruleIndex) => prizesForRule(config, rule, ruleIndex))
 
-  return { enabled: config.enabled, depositRules: rules, prizes }
+  return { enabled: config.enabled, depositRules: checkinRules, prizes }
 }
 
 function PrizeRowFields({ flatIndex }: { flatIndex: number }) {
@@ -319,8 +283,8 @@ export default function RewardsSpin() {
     <div style={{ maxWidth: 1180 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20 }}>
         <GiftOutlined style={{ fontSize: 20, color: '#faad14' }} />
-        <Title level={4} style={{ margin: 0 }}>转盘抽奖</Title>
-        <Text type="secondary" style={{ fontSize: 13 }}>固定 6 个存款级别，每笔 paid PHP 存款只发放命中的最高级别 1 次机会</Text>
+        <Title level={4} style={{ margin: 0 }}>每日签到转盘</Title>
+        <Text type="secondary" style={{ fontSize: 13 }}>签到三档独立奖池，用户按连签档位获得转盘次数并在对应奖池兑奖</Text>
       </div>
 
       <Tabs
@@ -336,57 +300,11 @@ export default function RewardsSpin() {
                   </Form.Item>
                 </Card>
 
-                <Card title="存款级别" style={{ marginBottom: 16 }}>
-                  <Text type="secondary">客户端固定显示为 DEPOSIT {'{金额}'}。单次存款达到多个级别时，只发放最高级别 1 次机会。</Text>
-                  <div style={{ marginTop: 16 }}>
-                    {Array.from({ length: LEVEL_COUNT }, (_, ruleIndex) => {
-                      const rule = watchedRules[ruleIndex]
-                      return (
-                        <Collapse
-                          key={ruleIndex}
-                          style={{ marginBottom: 12 }}
-                          items={[{
-                            key: String(ruleIndex),
-                            forceRender: true,
-                            label: (
-                              <Space>
-                                <b>存款级别 {ruleIndex + 1}</b>
-                                <Tag color={rule?.enabled ? 'green' : 'default'}>{rule?.enabled ? '启用' : '关闭'}</Tag>
-                                <Tag color="blue">DEPOSIT {Number(rule?.depositAmountPhp ?? rule?.minDepositPhp ?? DEFAULT_AMOUNTS[ruleIndex]).toLocaleString('en-PH')}</Tag>
-                              </Space>
-                            ),
-                            children: (
-                              <>
-                                <Form.Item name={['depositRules', ruleIndex, 'id']} hidden><InputNumber /></Form.Item>
-                                <Form.Item name={['depositRules', ruleIndex, 'name']} hidden><Input /></Form.Item>
-                                <Form.Item name={['depositRules', ruleIndex, 'sortOrder']} hidden><InputNumber /></Form.Item>
-                                <Row gutter={16}>
-                                  <Col span={8}>
-                                    <Form.Item label="达标金额 PHP" name={['depositRules', ruleIndex, 'depositAmountPhp']} rules={[{ required: true, type: 'number', min: 1 }]}>
-                                      <InputNumber prefix="₱" min={1} precision={2} style={{ width: '100%' }} />
-                                    </Form.Item>
-                                  </Col>
-                                  <Col span={4}>
-                                    <Form.Item label="启用" name={['depositRules', ruleIndex, 'enabled']} valuePropName="checked">
-                                      <Switch />
-                                    </Form.Item>
-                                  </Col>
-                                </Row>
-                                <PrizeTable ruleIndex={ruleIndex} />
-                              </>
-                            ),
-                          }]}
-                        />
-                      )
-                    })}
-                  </div>
-                </Card>
-
                 <Card title="签到专用档位（三档独立奖池）" style={{ marginBottom: 16 }}>
-                  <Text type="secondary">每日签到按连签档位发放转盘次数，进入对应 tier 的奖池。客户端签到页显示为「初级/中级/高级」三个 tab，排在存款档位之后。</Text>
+                  <Text type="secondary">每日签到按连签档位发放转盘次数，进入对应 tier 的奖池。客户端签到页显示为「初级/中级/高级」三个 tab。</Text>
                   <div style={{ marginTop: 16 }}>
                     {CHECKIN_TIERS.map((tier, tierIndex) => {
-                      const ruleIndex = checkinFlatIndex(tierIndex)
+                      const ruleIndex = tierIndex
                       const rule = watchedRules[ruleIndex]
                       return (
                         <Collapse

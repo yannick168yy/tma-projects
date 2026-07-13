@@ -396,10 +396,8 @@ export default {
     referWin: 'Refer & Win',
     firstDep: '120% Bonus',
     cashback: 'Cash Rebate',
-    rewardsSpin: 'Rewards Spin',
   },
   spin: {
-    kicker: 'Deposit Rewards',
     title: 'Rewards Spin',
     subtitle: 'Make a qualifying PHP deposit, get spin chances, and win instant wallet rewards.',
     remaining: 'Remaining chances',
@@ -414,7 +412,6 @@ export default {
     historyTitle: 'Spin History',
     noHistory: 'No spin history yet',
     oopsTitle: 'Oops!',
-    oopsBody: "You're almost there! Reach a total deposit of {{amount}} to unlock the Lucky Spin.",
     oopsBodyCheckin: 'No spins left here. Check in daily to earn more Lucky Wheel spins.',
     checkinTab: 'CHECK-IN',
     loadFailed: 'Failed to load Rewards Spin',

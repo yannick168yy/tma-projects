@@ -139,7 +139,6 @@ export default function AppShell() {
   const [npSummary, setNpSummary] = useState<NewPlayerSummary | null>(null)
   const [giftSheetOpen, setGiftSheetOpen] = useState(false)
   const [checkinOpen, setCheckinOpen] = useState(false)
-  const [spinInitialKind, setSpinInitialKind] = useState<'deposit' | 'checkin' | undefined>(undefined)
   const [trialWelcomeOpen, setTrialWelcomeOpen] = useState(false)
   const [trialClaimOpen, setTrialClaimOpen] = useState(false)
   const [redepOffer, setRedepOffer] = useState<RedepOffer | null>(null)
@@ -384,9 +383,7 @@ export default function AppShell() {
     openTasks()
   }
 
-  function onOpenRewardsSpin(kind?: 'deposit' | 'checkin') {
-    // 其它入口可能以 onClick={onOpenRewardsSpin} 形式透传事件对象，这里只认合法 kind
-    setSpinInitialKind(kind === 'checkin' ? 'checkin' : undefined)
+  function onOpenCheckinSpin() {
     setWalletOpen(false)
     openSpin()
   }
@@ -638,7 +635,7 @@ export default function AppShell() {
             </div>
           )}
           {view.type === 'spin' && (
-            <RewardsSpinPage onClose={closeImmersive} initialKind={spinInitialKind} />
+            <RewardsSpinPage onClose={closeImmersive} />
           )}
           {view.type === 'tasks' && (
             <div className="relative">
@@ -668,9 +665,9 @@ export default function AppShell() {
           )}
           {view.type === 'none' && activeNav === 'bonuses' && <BonusesPage promoFilter={promoFilter} onOpenWallet={() => void openWallet()} onOpenTeam={onOpenTeamCenter} onOpenAppInstall={openAppInstall} newPlayerSummary={npSummary} onOpenNewPlayerGift={openNewPlayerGift} onOpenCheckin={() => void onOpenCheckin()} onOpenLossRebate={() => navigatePath('/loss-rebate')} />}
           {view.type === 'none' && activeNav === 'games' && <GamesPage cat={gamesFilter.cat} provider={gamesFilter.provider} onChangeFilter={setGamesFilter} onOpenPerya={openPerya} onGameTap={() => void onGameTap()} onOpenGame={(url) => setGamePlayerUrl(url)} />}
-          {view.type === 'none' && activeNav === 'menu' && <MenuPage onOpenCs={openCs} onLogin={() => void auth.ensureLoggedIn(t('auth.signInProfile'))} onLogout={onLogout} onOpenBetHistory={onOpenBetHistory} onOpenLedgerRecords={onOpenLedgerRecords} onOpenReferralPromo={onOpenReferralPromo} onOpenAgentCenter={onOpenAgentCenter} onOpenVipCenter={() => openVipCenter()} onOpenCashback={onOpenCashback} onOpenTasks={onOpenTasks} onOpenRewardsSpin={onOpenRewardsSpin} onOpenKycSetting={onOpenKycSetting} onOpenDownload={openDownload} onOpenTopUp={() => void openWalletFull('deposit')} onOpenCashOut={() => void openWalletFull('withdraw')} onOpenWalletHistory={() => void openWalletFull('history')} />}
+          {view.type === 'none' && activeNav === 'menu' && <MenuPage onOpenCs={openCs} onLogin={() => void auth.ensureLoggedIn(t('auth.signInProfile'))} onLogout={onLogout} onOpenBetHistory={onOpenBetHistory} onOpenLedgerRecords={onOpenLedgerRecords} onOpenReferralPromo={onOpenReferralPromo} onOpenAgentCenter={onOpenAgentCenter} onOpenVipCenter={() => openVipCenter()} onOpenCashback={onOpenCashback} onOpenTasks={onOpenTasks} onOpenKycSetting={onOpenKycSetting} onOpenDownload={openDownload} onOpenTopUp={() => void openWalletFull('deposit')} onOpenCashOut={() => void openWalletFull('withdraw')} onOpenWalletHistory={() => void openWalletFull('history')} />}
           {view.type === 'none' && activeNav === 'casino' && (
-            <HomeContent onNavigatePath={navigatePath} onOpenCs={openCs} onOpenGame={(url) => setGamePlayerUrl(url)} onOpenFirstDepositFiesta={onOpenFirstDepositFiesta} onOpenRewardsSpin={onOpenRewardsSpin} onOpenCashback={onOpenCashback} />
+            <HomeContent onNavigatePath={navigatePath} onOpenCs={openCs} onOpenGame={(url) => setGamePlayerUrl(url)} onOpenFirstDepositFiesta={onOpenFirstDepositFiesta} onOpenCashback={onOpenCashback} />
           )}
           </Suspense>
         </main>
@@ -769,7 +766,7 @@ export default function AppShell() {
           />
         )}
 
-        <CheckinSheet open={checkinOpen} onClose={() => { setCheckinOpen(false); notifyTasksRefresh() }} onOpenSpin={() => onOpenRewardsSpin('checkin')} />
+        <CheckinSheet open={checkinOpen} onClose={() => { setCheckinOpen(false); notifyTasksRefresh() }} onOpenSpin={onOpenCheckinSpin} />
       </Suspense>
 
       <OrientationGuard allowLandscape={!!gamePlayerUrl} />

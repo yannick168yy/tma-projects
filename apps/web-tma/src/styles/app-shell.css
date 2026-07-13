@@ -120,23 +120,9 @@ body {
   padding-right: var(--app-safe-right);
 }
 
-.home-rewards-spin-float {
-  animation: home-rewards-spin-float 2.6s linear infinite;
-}
-
 .home-cashback-swing-float {
   animation: home-cashback-swing-float 1.4s ease-in-out infinite;
   transform-origin: center bottom;
-}
-
-@keyframes home-rewards-spin-float {
-  from {
-    transform: rotate(0deg);
-  }
-
-  to {
-    transform: rotate(360deg);
-  }
 }
 
 @keyframes home-cashback-swing-float {

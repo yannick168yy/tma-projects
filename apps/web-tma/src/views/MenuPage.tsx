@@ -43,7 +43,6 @@ interface Props {
   onOpenVipCenter: () => void
   onOpenCashback: () => void
   onOpenTasks: () => void
-  onOpenRewardsSpin: () => void
   onOpenKycSetting: () => void
   onOpenDownload: () => void
   onOpenTopUp: () => void
@@ -211,7 +210,7 @@ function BottomSheet({ title, children, onClose }: { title: string; children: Re
   )
 }
 
-export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory, onOpenLedgerRecords, onOpenReferralPromo, onOpenAgentCenter, onOpenVipCenter, onOpenCashback, onOpenTasks, onOpenRewardsSpin, onOpenKycSetting, onOpenDownload, onOpenTopUp, onOpenCashOut, onOpenWalletHistory }: Props) {
+export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory, onOpenLedgerRecords, onOpenReferralPromo, onOpenAgentCenter, onOpenVipCenter, onOpenCashback, onOpenTasks, onOpenKycSetting, onOpenDownload, onOpenTopUp, onOpenCashOut, onOpenWalletHistory }: Props) {
   const { t } = useTranslation()
   const auth = useAuthStore()
   const { locale, setLocale } = useLocaleStore()
@@ -499,8 +498,7 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
         <MenuSection title={t('menu.rewards')}>
           <MenuRow icon={icon('01_rewards')} title={t('tasks.pageTitle')} subtitle={t('tasks.entrySub')} onClick={onOpenTasks} bordered />
           <MenuRow icon={icon('03_3_circle_rewards')} title={t('referralPromo.title')} subtitle={t('referralPromo.subtitle')} onClick={onOpenReferralPromo} bordered />
-          <MenuRow icon={icon('cashback')} title={t('category.cashback')} subtitle={t('cashback.pageSubtitle')} onClick={onOpenCashback} bordered />
-          <MenuRow icon={icon('rewards_spin')} title={t('category.rewardsSpin')} subtitle={t('spin.kicker')} onClick={onOpenRewardsSpin} bordered={auth.user?.isAgent} />
+          <MenuRow icon={icon('cashback')} title={t('category.cashback')} subtitle={t('cashback.pageSubtitle')} onClick={onOpenCashback} bordered={auth.user?.isAgent} />
           {auth.user?.isAgent && <MenuRow icon={icon('04_agent_center')} title={t('agentCenter.entry')} subtitle={t('agentCenter.entrySub')} onClick={onOpenAgentCenter} />}
         </MenuSection>
 

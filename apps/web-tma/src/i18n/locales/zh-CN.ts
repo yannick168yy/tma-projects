@@ -386,10 +386,8 @@ export default {
     referWin: '邀请有奖',
     firstDep: '120%奖励',
     cashback: '洗码返利',
-    rewardsSpin: '奖励转盘',
   },
   spin: {
-    kicker: '存款奖励',
     title: '奖励转盘',
     subtitle: '完成达标 PHP 存款即可获得抽奖机会，中奖奖金直接进入钱包。',
     remaining: '剩余机会',
@@ -404,7 +402,6 @@ export default {
     historyTitle: '转盘记录',
     noHistory: '暂无转盘记录',
     oopsTitle: 'Oops!',
-    oopsBody: '再存款一点就可以啦！累计存款达到 {{amount}} 即可解锁幸运转盘。',
     oopsBodyCheckin: '签到抽奖次数已用完，每日签到可获得更多幸运转盘次数。',
     checkinTab: '签到',
     loadFailed: '奖励转盘加载失败',

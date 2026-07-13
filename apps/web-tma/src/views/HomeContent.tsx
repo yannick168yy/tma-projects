@@ -23,7 +23,6 @@ import { localizedGameName } from '@/utils/game'
 import { analytics } from '@/utils/analytics'
 import pagcorImg from '@/assets/home/compliance/pagcor.png'
 import age21Img from '@/assets/home/compliance/age21.png'
-import rewardsSpinFloatImg from '@/assets/home/promos/rewards-spin-float.webp'
 import cashbackFloatImg from '@/assets/home/promos/cashback-float.webp'
 import yellowExpandUpImg from '@/assets/home/promos/yellow-expand-up.webp'
 import yellowCollapseDownImg from '@/assets/home/promos/yellow-collapse-down.webp'
@@ -76,20 +75,17 @@ interface Props {
   onOpenCs: () => void
   onOpenGame: (url: string) => void
   onOpenFirstDepositFiesta: () => void
-  onOpenRewardsSpin: () => void
   onOpenCashback: () => void
 }
 
 interface HomePromoFloatProps {
-  rewardsLabel: string
   cashbackLabel: string
-  onOpenRewardsSpin: () => void
   onOpenCashback: () => void
 }
 
 let homePromoFloatClosedUntilReload = false
 
-function HomePromoFloat({ rewardsLabel, cashbackLabel, onOpenRewardsSpin, onOpenCashback }: HomePromoFloatProps) {
+function HomePromoFloat({ cashbackLabel, onOpenCashback }: HomePromoFloatProps) {
   const widgetRef = useRef<HTMLDivElement>(null)
   const collapsedPositionRef = useRef<{ left: number; top: number } | null>(null)
   const dragRef = useRef({ pointerId: -1, startX: 0, startY: 0, startLeft: 0, startTop: 0, moved: false, suppressClick: false })
@@ -100,7 +96,6 @@ function HomePromoFloat({ rewardsLabel, cashbackLabel, onOpenRewardsSpin, onOpen
   const [dragging, setDragging] = useState(false)
   const promos = [
     { key: 'cashback', label: 'cashback', ariaLabel: cashbackLabel, image: cashbackFloatImg, imageClass: 'home-cashback-swing-float', emoji: '', action: onOpenCashback },
-    { key: 'rewards', label: 'rewards', ariaLabel: rewardsLabel, image: rewardsSpinFloatImg, imageClass: 'home-rewards-spin-float', emoji: '', action: onOpenRewardsSpin },
   ]
 
   const clampPosition = useCallback((left: number, top: number) => {
@@ -286,7 +281,7 @@ function HomePromoFloat({ rewardsLabel, cashbackLabel, onOpenRewardsSpin, onOpen
   )
 }
 
-export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOpenFirstDepositFiesta, onOpenRewardsSpin, onOpenCashback }: Props) {
+export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOpenFirstDepositFiesta, onOpenCashback }: Props) {
   const { t, i18n } = useTranslation()
   const locale = i18n.language
   const promotion = usePromotionStore()
@@ -998,9 +993,7 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
       )}
 
       <HomePromoFloat
-        rewardsLabel={t('category.rewardsSpin')}
         cashbackLabel={t('cashback.title')}
-        onOpenRewardsSpin={onOpenRewardsSpin}
         onOpenCashback={onOpenCashback}
       />
       <TaskFloatBall onNavigatePath={onNavigatePath} />
