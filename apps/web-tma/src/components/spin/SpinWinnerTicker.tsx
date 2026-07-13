@@ -8,7 +8,8 @@ interface Props {
   records: SpinRecord[]
 }
 
-function fmtPhp(amount: number): string {
+function fmtPhp(amount: number, currency = 'PHP'): string {
+  if (currency !== 'PHP') return `${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`
   if (amount >= 1000) return `₱${Math.round(amount).toLocaleString('en-PH')}`
   return `₱${amount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
@@ -52,7 +53,7 @@ export default function SpinWinnerTicker({ records }: Props) {
             >
               <span className="truncate text-[clamp(0.82rem,3.4vw,1.05rem)]">{rec.displayName}</span>
               <span className="truncate text-center text-[clamp(0.82rem,3.4vw,1.05rem)] text-[#ff553d]">
-                {t('common.won')} {fmtPhp(rec.amountPhp)}
+                {t('common.won')} {fmtPhp(rec.amountPhp, rec.currency)}
               </span>
               <span className="text-right text-[clamp(0.82rem,3.4vw,1.05rem)]">{fmtDate(rec.createdAt)}</span>
             </div>

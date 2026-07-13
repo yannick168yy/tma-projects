@@ -18,7 +18,8 @@ import oopsIconImg from '@/assets/spin/fbm/icon-oops.webp'
 
 interface Props { onClose: () => void }
 
-function fmtPhp(amount: number): string {
+function fmtPhp(amount: number, currency = 'PHP'): string {
+  if (currency !== 'PHP') return `${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`
   if (amount >= 1000) return `₱${Math.round(amount).toLocaleString('en-PH')}`
   return `₱${amount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
@@ -82,7 +83,7 @@ export default function RewardsSpinPage({ onClose }: Props) {
   async function load(ruleId?: number | null) {
     setLoading(true)
     try {
-      const next = await fetchSpinStatus(ruleId ?? undefined)
+      const next = await fetchSpinStatus(ruleId ?? undefined, wallet.activeCurrency)
       setStatus(next)
       setSelectedRuleId((current) => {
         const inMode = next.depositRules.filter((rule) => rule.enabled && rule.kind === 'checkin')
@@ -98,7 +99,7 @@ export default function RewardsSpinPage({ onClose }: Props) {
   }
 
   async function refreshStatus(ruleId?: number | null) {
-    const next = await fetchSpinStatus(ruleId ?? selectedRuleId ?? undefined)
+    const next = await fetchSpinStatus(ruleId ?? selectedRuleId ?? undefined, wallet.activeCurrency)
     setStatus(next)
     setSelectedRuleId((current) => {
       const inMode = next.depositRules.filter((rule) => rule.enabled && rule.kind === 'checkin')
@@ -108,11 +109,11 @@ export default function RewardsSpinPage({ onClose }: Props) {
     })
   }
 
-  useEffect(() => { void load() }, [])
+  useEffect(() => { void load() /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [wallet.activeCurrency])
 
   useEffect(() => {
     if (!selectedRuleId || loading) return
-    void fetchSpinStatus(selectedRuleId)
+    void fetchSpinStatus(selectedRuleId, wallet.activeCurrency)
       .then((next) => {
         setStatus((prev) => prev ? { ...prev, tickerRecords: next.tickerRecords ?? [] } : prev)
       })
@@ -133,7 +134,7 @@ export default function RewardsSpinPage({ onClose }: Props) {
     setResult(null)
     setMessage('')
     try {
-      const res = await drawSpin(selectedRule.id)
+      const res = await drawSpin(selectedRule.id, wallet.activeCurrency)
       const idx = Math.max(0, wheelPrizes.findIndex((p) => p.id === res.prizeId))
       setRotation((prev) => computeSpinRotation(prev, idx, wheelPrizes.length))
       window.setTimeout(async () => {
@@ -249,7 +250,7 @@ export default function RewardsSpinPage({ onClose }: Props) {
             <img src={winIconImg} alt="" draggable={false} className="absolute left-1/2 top-[-64px] w-[170px] -translate-x-1/2" />
             <h2 className="text-xl font-black">Congratulations!</h2>
             <p className="mt-4 text-base leading-relaxed text-[#777]">
-              You won {fmtPhp(result.amountPhp)}! Cash has been credited to your wallet.
+              You won {fmtPhp(result.amountPhp, result.currency)}! Cash has been credited to your wallet.
             </p>
             <div className="mt-7 grid grid-cols-2 gap-3">
               <button
@@ -316,7 +317,7 @@ export default function RewardsSpinPage({ onClose }: Props) {
                         <p className="truncate text-sm font-black text-[#0b4c2d]">{record.prizeName}</p>
                         <p className="mt-1 text-xs font-bold text-[#0b4c2d]/55">{fmtRecordDate(record.createdAt)}</p>
                       </div>
-                      <p className="self-center whitespace-nowrap text-base font-black text-[#ff553d]">+{fmtPhp(record.amountPhp)}</p>
+                      <p className="self-center whitespace-nowrap text-base font-black text-[#ff553d]">+{fmtPhp(record.amountPhp, record.currency)}</p>
                     </div>
                   ))}
                 </div>

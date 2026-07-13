@@ -30,6 +30,8 @@ export interface SpinDepositRule {
 export interface SpinPrize {
   id?: number
   ruleId?: number | null
+  /** 奖品币种（每币种一套奖池）；amountPhp 为该币种原生金额 */
+  currency: string
   name: string
   imageKey: string
   amountPhp: number
@@ -51,6 +53,7 @@ export interface SpinRecord {
   displayName: string
   prizeName: string
   amountPhp: number
+  currency: string
   createdAt: string
 }
 
@@ -68,6 +71,7 @@ export interface SpinDrawResult {
   prizeId: number
   prizeName: string
   amountPhp: number
+  currency: string
   remainingChances: number
 }
 
@@ -109,6 +113,7 @@ function mapPrize(r: RowDataPacket): SpinPrize {
   return {
     id: Number(r.id),
     ruleId: r.rule_id == null ? null : Number(r.rule_id),
+    currency: String(r.currency ?? 'PHP'),
     name: String(r.name),
     imageKey: String(r.image_key ?? 'prize-1'),
     amountPhp: Number(r.amount_php),
@@ -119,7 +124,7 @@ function mapPrize(r: RowDataPacket): SpinPrize {
   }
 }
 
-async function getEnabledConfig(conn: PoolConnection): Promise<SpinConfig> {
+async function getEnabledConfig(conn: PoolConnection, currency = 'PHP'): Promise<SpinConfig> {
   const [[cfg]] = await conn.query<RowDataPacket[]>(
     `SELECT enabled FROM bg_spin_config WHERE id = 1 LIMIT 1`,
   )
@@ -130,11 +135,12 @@ async function getEnabledConfig(conn: PoolConnection): Promise<SpinConfig> {
      ORDER BY sort_order ASC, min_deposit_php ASC`,
   )
   const [prizes] = await conn.query<RowDataPacket[]>(
-    `SELECT p.id, p.rule_id, p.name, p.image_key, p.amount_php, p.weight, p.turnover_x, p.enabled, p.sort_order
+    `SELECT p.id, p.rule_id, p.currency, p.name, p.image_key, p.amount_php, p.weight, p.turnover_x, p.enabled, p.sort_order
      FROM bg_spin_prize p
      JOIN bg_spin_deposit_rule r ON r.id = p.rule_id AND r.kind = 'checkin'
-     WHERE p.enabled = 1
+     WHERE p.enabled = 1 AND p.currency = ?
      ORDER BY p.sort_order ASC, p.id ASC`,
+    [currency],
   )
   return {
     enabled: Boolean(cfg?.enabled),
@@ -143,7 +149,7 @@ async function getEnabledConfig(conn: PoolConnection): Promise<SpinConfig> {
   }
 }
 
-export async function getSpinConfig(env: Env): Promise<SpinConfig> {
+export async function getSpinConfig(env: Env, currency = 'PHP'): Promise<SpinConfig> {
   const pool = getMysqlPool(env)
   const conn = await pool.getConnection()
   try {
@@ -157,10 +163,12 @@ export async function getSpinConfig(env: Env): Promise<SpinConfig> {
        ORDER BY sort_order ASC, min_deposit_php ASC`,
     )
     const [prizes] = await conn.query<RowDataPacket[]>(
-      `SELECT p.id, p.rule_id, p.name, p.image_key, p.amount_php, p.weight, p.turnover_x, p.enabled, p.sort_order
+      `SELECT p.id, p.rule_id, p.currency, p.name, p.image_key, p.amount_php, p.weight, p.turnover_x, p.enabled, p.sort_order
        FROM bg_spin_prize p
        JOIN bg_spin_deposit_rule r ON r.id = p.rule_id AND r.kind = 'checkin'
+       WHERE p.currency = ?
        ORDER BY p.sort_order ASC, p.id ASC`,
+      [currency],
     )
     return {
       enabled: Boolean(cfg?.enabled),
@@ -185,7 +193,7 @@ function validPrize(prize: SpinPrize): boolean {
     && prize.turnoverX >= 0
 }
 
-export async function saveSpinConfig(env: Env, config: SpinConfig): Promise<SpinConfig> {
+export async function saveSpinConfig(env: Env, config: SpinConfig, currency = 'PHP'): Promise<SpinConfig> {
   const pool = getMysqlPool(env)
   const rules = config.depositRules.filter(validRule).slice(0, 9)
   const prizes = config.prizes.filter(validPrize)
@@ -247,22 +255,23 @@ export async function saveSpinConfig(env: Env, config: SpinConfig): Promise<Spin
         )
       } else {
         const [res] = await conn.execute(
-          `INSERT INTO bg_spin_prize (rule_id, name, image_key, amount_php, weight, turnover_x, enabled, sort_order)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-          [prize.ruleId ?? null, prize.name.trim(), prize.imageKey, prize.amountPhp, prize.weight, prize.turnoverX, prize.enabled ? 1 : 0, prize.sortOrder],
+          `INSERT INTO bg_spin_prize (rule_id, currency, name, image_key, amount_php, weight, turnover_x, enabled, sort_order)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [prize.ruleId ?? null, currency, prize.name.trim(), prize.imageKey, prize.amountPhp, prize.weight, prize.turnoverX, prize.enabled ? 1 : 0, prize.sortOrder],
         )
         keptPrizeIds.push(Number((res as { insertId: number }).insertId))
       }
     }
+    // 只停用【本币种】未保留的奖品，避免误关其它币种奖池
     if (keptPrizeIds.length) {
       await conn.query(
-        `UPDATE bg_spin_prize SET enabled = 0 WHERE id NOT IN (?)`,
-        [keptPrizeIds],
+        `UPDATE bg_spin_prize SET enabled = 0 WHERE currency = ? AND id NOT IN (?)`,
+        [currency, keptPrizeIds],
       )
     }
 
     await conn.commit()
-    return getSpinConfig(env)
+    return getSpinConfig(env, currency)
   } catch (e) {
     await conn.rollback()
     throw e
@@ -294,7 +303,7 @@ async function remainingByRule(conn: PoolConnection, userId: string): Promise<Ma
 
 async function recentRecords(conn: PoolConnection, limit: number): Promise<SpinRecord[]> {
   const [rows] = await conn.query<RowDataPacket[]>(
-    `SELECT sr.id, sr.user_id, u.display_name, sr.prize_name, sr.amount_php, sr.created_at
+    `SELECT sr.id, sr.user_id, u.display_name, sr.prize_name, sr.amount_php, sr.currency, sr.created_at
      FROM bg_spin_record sr
      LEFT JOIN bg_user u ON u.id = sr.user_id
      ORDER BY sr.created_at DESC
@@ -307,6 +316,7 @@ async function recentRecords(conn: PoolConnection, limit: number): Promise<SpinR
     displayName: maskName(String(r.display_name ?? ''), String(r.user_id)),
     prizeName: String(r.prize_name),
     amountPhp: Number(r.amount_php),
+    currency: String(r.currency ?? 'PHP'),
     createdAt: toIso(r.created_at),
   }))
 }
@@ -325,17 +335,17 @@ function syntheticDisplayName(): string {
   return `${h}*****${t}`
 }
 
-function pickSyntheticPrize(prizes: SpinPrize[]): { amountPhp: number; prizeName: string } {
+function pickSyntheticPrize(prizes: SpinPrize[]): { amountPhp: number; prizeName: string; currency: string } {
   const pool = prizes.filter((p) => p.enabled && p.amountPhp > 0)
-  if (!pool.length) return { amountPhp: 7.77, prizeName: '₱7.77' }
+  if (!pool.length) return { amountPhp: 7.77, prizeName: '₱7.77', currency: 'PHP' }
   const total = pool.reduce((sum, prize) => sum + prize.weight, 0)
   let n = Math.random() * total
   for (const prize of pool) {
     n -= prize.weight
-    if (n <= 0) return { amountPhp: prize.amountPhp, prizeName: prize.name }
+    if (n <= 0) return { amountPhp: prize.amountPhp, prizeName: prize.name, currency: prize.currency }
   }
   const last = pool[pool.length - 1]
-  return { amountPhp: last.amountPhp, prizeName: last.name }
+  return { amountPhp: last.amountPhp, prizeName: last.name, currency: last.currency }
 }
 
 function buildRuleTicker(ruleId: number, prizes: SpinPrize[], bucket: number): SpinRecord[] {
@@ -349,6 +359,7 @@ function buildRuleTicker(ruleId: number, prizes: SpinPrize[], bucket: number): S
       displayName: syntheticDisplayName(),
       prizeName: picked.prizeName,
       amountPhp: picked.amountPhp,
+      currency: picked.currency,
       createdAt: new Date(now - ageMs).toISOString(),
     }
   }).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
@@ -391,13 +402,13 @@ async function getTickerRecords(redis: Redis, config: SpinConfig, ruleId?: numbe
   return feeds[ruleId] ?? []
 }
 
-export async function getSpinStatus(env: Env, userId: string, redis: Redis, ruleId?: number): Promise<SpinStatus> {
+export async function getSpinStatus(env: Env, userId: string, redis: Redis, ruleId?: number, currency = 'PHP'): Promise<SpinStatus> {
   const pool = getMysqlPool(env)
   const conn = await pool.getConnection()
   try {
-    const config = await getEnabledConfig(conn)
+    const config = await getEnabledConfig(conn, currency)
     const byRule = await remainingByRule(conn, userId)
-    const fullConfig = await getSpinConfig(env)
+    const fullConfig = await getSpinConfig(env, currency)
     const tickerRecords = await getTickerRecords(redis, fullConfig, ruleId)
     return {
       ...config,
@@ -415,12 +426,12 @@ export async function getSpinStatus(env: Env, userId: string, redis: Redis, rule
 }
 
 // 未登录时返回公共配置（奖品/规则），所有抽奖次数为 0
-export async function getPublicSpinStatus(env: Env, redis: Redis, ruleId?: number): Promise<SpinStatus> {
+export async function getPublicSpinStatus(env: Env, redis: Redis, ruleId?: number, currency = 'PHP'): Promise<SpinStatus> {
   const pool = getMysqlPool(env)
   const conn = await pool.getConnection()
   try {
-    const config = await getEnabledConfig(conn)
-    const fullConfig = await getSpinConfig(env)
+    const config = await getEnabledConfig(conn, currency)
+    const fullConfig = await getSpinConfig(env, currency)
     const tickerRecords = await getTickerRecords(redis, fullConfig, ruleId)
     return {
       ...config,
@@ -444,12 +455,12 @@ function pickPrize(prizes: SpinPrize[]): SpinPrize {
   return prizes[prizes.length - 1]
 }
 
-export async function drawSpin(env: Env, userId: string, ruleId?: number, traceId?: string): Promise<SpinDrawResult> {
+export async function drawSpin(env: Env, userId: string, ruleId?: number, currency = 'PHP', traceId?: string): Promise<SpinDrawResult> {
   const pool = getMysqlPool(env)
   const conn = await pool.getConnection()
   try {
     await conn.beginTransaction()
-    const config = await getEnabledConfig(conn)
+    const config = await getEnabledConfig(conn, currency)
     if (!config.enabled) throw new Error('Rewards Spin is disabled')
     if (!config.prizes.length) throw new Error('No active prize')
 
@@ -481,20 +492,20 @@ export async function drawSpin(env: Env, userId: string, ruleId?: number, traceI
     )
     await conn.execute(
       `INSERT INTO bg_spin_record
-         (id, user_id, chance_id, prize_id, prize_name, amount_php, turnover_x, ledger_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [recordId, userId, chance.id, prizeId, prize.name, prize.amountPhp, prize.turnoverX, lgId],
+         (id, user_id, chance_id, prize_id, prize_name, amount_php, currency, turnover_x, ledger_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [recordId, userId, chance.id, prizeId, prize.name, prize.amountPhp, currency, prize.turnoverX, lgId],
     )
     await creditWalletTx(conn, userId, prize.amountPhp, {
-      type: 'bonus', currency: 'PHP', refType: 'promo', refId: recordId,
+      type: 'bonus', currency, refType: 'promo', refId: recordId,
       description: `Rewards Spin ${prize.name}`, traceId: traceId ?? null, id: lgId,
     })
     if (prize.turnoverX > 0) {
       await conn.execute(
         `INSERT INTO bg_turnover_requirements
            (user_id, currency, source_type, source_ref, required_amount)
-         VALUES (?, 'PHP', 'promotion', ?, ?)`,
-        [userId, `spin:${recordId}`, Math.round(prize.amountPhp * prize.turnoverX * 10000) / 10000],
+         VALUES (?, ?, 'promotion', ?, ?)`,
+        [userId, currency, `spin:${recordId}`, Math.round(prize.amountPhp * prize.turnoverX * 10000) / 10000],
       )
     }
 
@@ -505,6 +516,7 @@ export async function drawSpin(env: Env, userId: string, ruleId?: number, traceI
       prizeId,
       prizeName: prize.name,
       amountPhp: prize.amountPhp,
+      currency,
       remainingChances: remaining,
     }
   } catch (e) {
@@ -524,7 +536,7 @@ export async function listSpinRecords(
   const where = params.userId ? 'WHERE sr.user_id = ?' : ''
   const args = params.userId ? [params.userId] : []
   const [rows] = await pool.query<RowDataPacket[]>(
-    `SELECT sr.id, sr.user_id, u.display_name, sr.prize_name, sr.amount_php, sr.created_at
+    `SELECT sr.id, sr.user_id, u.display_name, sr.prize_name, sr.amount_php, sr.currency, sr.created_at
      FROM bg_spin_record sr
      LEFT JOIN bg_user u ON u.id = sr.user_id
      ${where}
@@ -543,6 +555,7 @@ export async function listSpinRecords(
       displayName: String(r.display_name ?? r.user_id),
       prizeName: String(r.prize_name),
       amountPhp: Number(r.amount_php),
+      currency: String(r.currency ?? 'PHP'),
       createdAt: toIso(r.created_at),
     })),
     total: Number(countRow?.total ?? 0),

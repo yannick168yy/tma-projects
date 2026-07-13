@@ -19,6 +19,7 @@ export interface SpinDepositRule {
 export interface SpinPrize {
   id?: number
   ruleId?: number | null
+  currency?: string
   name: string
   imageKey: string
   amountPhp: number
@@ -34,6 +35,7 @@ export interface SpinRecord {
   displayName: string
   prizeName: string
   amountPhp: number
+  currency?: string
   createdAt: string
 }
 
@@ -51,6 +53,7 @@ export interface SpinDrawResult {
   prizeId: number
   prizeName: string
   amountPhp: number
+  currency?: string
   remainingChances: number
 }
 
@@ -61,13 +64,16 @@ export interface SpinRecordsResult {
   pageSize: number
 }
 
-export function fetchSpinStatus(ruleId?: number): Promise<SpinStatus> {
-  const qs = ruleId ? `?ruleId=${ruleId}` : ''
-  return apiRequest<SpinStatus>(`/spin/status${qs}`)
+export function fetchSpinStatus(ruleId?: number, currency?: string): Promise<SpinStatus> {
+  const p = new URLSearchParams()
+  if (ruleId) p.set('ruleId', String(ruleId))
+  if (currency) p.set('currency', currency)
+  const qs = p.toString()
+  return apiRequest<SpinStatus>(`/spin/status${qs ? `?${qs}` : ''}`)
 }
 
-export function drawSpin(ruleId: number): Promise<SpinDrawResult> {
-  return apiRequest<SpinDrawResult>('/spin/draw', { method: 'POST', body: JSON.stringify({ ruleId }) })
+export function drawSpin(ruleId: number, currency?: string): Promise<SpinDrawResult> {
+  return apiRequest<SpinDrawResult>('/spin/draw', { method: 'POST', body: JSON.stringify({ ruleId, currency }) })
 }
 
 export function fetchSpinRecords(page = 1, pageSize = 20): Promise<SpinRecordsResult> {

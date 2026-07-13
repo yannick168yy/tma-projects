@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import {
-  Button, Card, Collapse, Form, Input, InputNumber, message, Select, Space, Spin, Switch, Table, Tabs, Tag, Typography,
+  Button, Card, Collapse, Form, Input, InputNumber, message, Segmented, Select, Space, Spin, Switch, Table, Tabs, Tag, Typography,
 } from 'antd'
 import { GiftOutlined } from '@ant-design/icons'
 import type { ColumnsType } from 'antd/es/table'
@@ -8,6 +8,7 @@ import {
   getSpinConfig,
   getSpinRecords,
   saveSpinConfig,
+  FIRSTDEP_CURRENCIES,
   type SpinConfig,
   type SpinDepositRule,
   type SpinPrize,
@@ -228,13 +229,14 @@ export default function RewardsSpin() {
   const [recordPage, setRecordPage] = useState(1)
   const [recordPageSize, setRecordPageSize] = useState(DEFAULT_PAGE_SIZE)
   const [userId, setUserId] = useState('')
+  const [currency, setCurrency] = useState<string>('PHP')
   const [form] = Form.useForm<SpinConfig>()
   const watchedRules = Form.useWatch('depositRules', form) ?? []
 
-  async function loadConfig() {
+  async function loadConfig(cur = currency) {
     setLoading(true)
     try {
-      form.setFieldsValue(normalizeConfig(await getSpinConfig()))
+      form.setFieldsValue(normalizeConfig(await getSpinConfig(cur)))
     } catch (e) {
       message.error(e instanceof Error ? e.message : '加载失败')
     } finally {
@@ -258,9 +260,10 @@ export default function RewardsSpin() {
   }
 
   useEffect(() => {
-    void loadConfig()
-    void loadRecords(1)
-  }, [])
+    void loadConfig(currency)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currency])
+  useEffect(() => { void loadRecords(1) /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [])
 
   async function handleSave() {
     let values: SpinConfig
@@ -268,8 +271,8 @@ export default function RewardsSpin() {
     const normalized = normalizeConfig(values)
     setSaving(true)
     try {
-      form.setFieldsValue(normalizeConfig(await saveSpinConfig(normalized)))
-      message.success('转盘配置已保存')
+      form.setFieldsValue(normalizeConfig(await saveSpinConfig(normalized, currency)))
+      message.success(`转盘配置已保存（${currency}）`)
     } catch (e) {
       message.error(e instanceof Error ? e.message : '保存失败')
     } finally {
@@ -281,11 +284,16 @@ export default function RewardsSpin() {
 
   return (
     <div style={{ maxWidth: 1180 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
         <GiftOutlined style={{ fontSize: 20, color: '#faad14' }} />
         <Title level={4} style={{ margin: 0 }}>每日签到转盘</Title>
         <Text type="secondary" style={{ fontSize: 13 }}>签到三档独立奖池，用户按连签档位获得转盘次数并在对应奖池兑奖</Text>
       </div>
+      <Space style={{ marginBottom: 16 }} align="center">
+        <Text strong>币种：</Text>
+        <Segmented value={currency} onChange={(v) => setCurrency(String(v))} options={FIRSTDEP_CURRENCIES.map((c) => ({ value: c, label: c }))} />
+        <Text type="secondary" style={{ fontSize: 12 }}>每币种一套独立奖池，抽奖按用户当前币种发对应币种奖金；切换即加载该币种奖池</Text>
+      </Space>
 
       <Tabs
         items={[

@@ -968,8 +968,8 @@ export interface SpinRecord {
   amountPhp: number
   createdAt: string
 }
-export const getSpinConfig = () => get<SpinConfig>('/admin/spin/config')
-export const saveSpinConfig = (data: SpinConfig) => req<SpinConfig>('PUT', '/admin/spin/config', data)
+export const getSpinConfig = (currency = 'PHP') => get<SpinConfig>('/admin/spin/config', { currency })
+export const saveSpinConfig = (data: SpinConfig, currency = 'PHP') => req<SpinConfig>('PUT', '/admin/spin/config', { ...data, currency })
 export const getSpinRecords = (params?: { page?: number; pageSize?: number; userId?: string }) =>
   get<{ items: SpinRecord[]; total: number; page: number; pageSize: number }>('/admin/spin/records', params)
 

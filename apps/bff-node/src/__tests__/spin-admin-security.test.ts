@@ -127,7 +127,7 @@ describe('转盘接口', () => {
     const res = await request(createSpinApp()).get('/spin/status?ruleId=2')
 
     expect(res.status).toBe(200)
-    expect(mockGetPublicSpinStatus).toHaveBeenCalledWith(expect.anything(), expect.anything(), 2)
+    expect(mockGetPublicSpinStatus).toHaveBeenCalledWith(expect.anything(), expect.anything(), 2, 'PHP')
     expect(mockGetSpinStatus).not.toHaveBeenCalled()
   })
 
@@ -136,7 +136,7 @@ describe('转盘接口', () => {
 
     expect(res.status).toBe(200)
     expect(res.body.data.remainingChances).toBe(2)
-    expect(mockGetSpinStatus).toHaveBeenCalledWith(expect.anything(), 'BG-10001', expect.anything(), undefined)
+    expect(mockGetSpinStatus).toHaveBeenCalledWith(expect.anything(), 'BG-10001', expect.anything(), undefined, 'PHP')
   })
 
   it('POST /spin/draw 未登录返回 401', async () => {

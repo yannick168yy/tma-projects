@@ -10,13 +10,14 @@ import { fail, ok } from '../../utils/response.js'
 const router = new Router({ prefix: '/spin' })
 
 router.get('/config', async (ctx) => {
-  ok(ctx, await getSpinConfig(ctx.state.env))
+  const currency = (ctx.query.currency as string) || 'PHP'
+  ok(ctx, { currency, ...(await getSpinConfig(ctx.state.env, currency)) })
 })
 
 router.put('/config', async (ctx) => {
   try {
-    const body = ctx.request.body as SpinConfig
-    const saved = await saveSpinConfig(ctx.state.env, body)
+    const body = ctx.request.body as SpinConfig & { currency?: string }
+    const saved = await saveSpinConfig(ctx.state.env, body, body.currency || 'PHP')
     ok(ctx, saved)
   } catch (e) {
     fail(ctx, 400, e instanceof Error ? e.message : '保存失败')

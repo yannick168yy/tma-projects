@@ -8,9 +8,10 @@ const router = new Router({ prefix: '/spin' })
 router.get('/status', async (ctx) => {
   const userId = ctx.state.userId
   const ruleId = ctx.query.ruleId ? Number(ctx.query.ruleId) : undefined
+  const currency = (ctx.query.currency as string) || 'PHP'
   const status = userId
-    ? await getSpinStatus(ctx.state.env, userId, ctx.state.redis, ruleId)
-    : await getPublicSpinStatus(ctx.state.env, ctx.state.redis, ruleId)
+    ? await getSpinStatus(ctx.state.env, userId, ctx.state.redis, ruleId, currency)
+    : await getPublicSpinStatus(ctx.state.env, ctx.state.redis, ruleId, currency)
   ok(ctx, status)
 })
 
@@ -19,9 +20,10 @@ router.post('/draw', async (ctx) => {
   if (!userId) { fail(ctx, 401, 'Unauthorized', 401); return }
   try {
     if (!(await riskAllowed(ctx, 'promo_claim'))) return
-    const body = (ctx.request.body ?? {}) as { ruleId?: number }
+    const body = (ctx.request.body ?? {}) as { ruleId?: number; currency?: string }
     const ruleId = body.ruleId ? Number(body.ruleId) : undefined
-    const result = await drawSpin(ctx.state.env, userId, ruleId, ctx.state.traceId)
+    const currency = body.currency || 'PHP'
+    const result = await drawSpin(ctx.state.env, userId, ruleId, currency, ctx.state.traceId)
     ok(ctx, result)
   } catch (e) {
     fail(ctx, 400, e instanceof Error ? e.message : 'Spin failed')
