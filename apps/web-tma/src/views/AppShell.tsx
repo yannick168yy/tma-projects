@@ -206,11 +206,11 @@ export default function AppShell() {
     setTrialClaimOpen(true)
   }
 
-  // 复充限时优惠进站弹窗：登录后拉取（后端按人群惰性开窗），同一窗口只自动弹一次
+  // 复充限时优惠进站弹窗：登录后按当前币种拉取（后端按人群惰性开窗），同一窗口只自动弹一次
   useEffect(() => {
     if (!auth.token) { setRedepOffer(null); return }
-    fetchRedepOffer().then(setRedepOffer).catch(() => setRedepOffer(null))
-  }, [auth.token])
+    fetchRedepOffer(activeCurrency).then(setRedepOffer).catch(() => setRedepOffer(null))
+  }, [auth.token, activeCurrency])
 
   useEffect(() => {
     if (autoPopupFired.current || !redepOffer?.active || !redepOffer.endsAt) return
@@ -761,6 +761,7 @@ export default function AppShell() {
             minDeposit={redepOffer.minDeposit ?? 0}
             bonusAmount={redepOffer.bonusAmount ?? 0}
             endsAt={redepOffer.endsAt}
+            currency={redepOffer.currency ?? 'PHP'}
             onDeposit={() => { setRedepSheetOpen(false); void openWallet() }}
             onDismiss={() => setRedepSheetOpen(false)}
           />

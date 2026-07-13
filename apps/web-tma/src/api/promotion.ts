@@ -187,14 +187,16 @@ export interface PromoConfig {
 // ── 复充限时优惠 ──
 export interface RedepOffer {
   active: boolean
+  currency?: string
   endsAt?: string
   minDeposit?: number
   bonusAmount?: number
 }
 
-/** 进站拉取复充限时优惠（登录态）；符合人群时后端惰性开窗，窗口内重复拉取返回同一倒计时 */
-export async function fetchRedepOffer(): Promise<RedepOffer> {
-  return apiRequest<RedepOffer>('/promotions/redep-offer')
+/** 进站拉取复充限时优惠（登录态）；符合人群时后端惰性开窗，窗口内重复拉取返回同一倒计时。按币种独立 */
+export async function fetchRedepOffer(currency?: string): Promise<RedepOffer> {
+  const qs = currency ? `?currency=${encodeURIComponent(currency)}` : ''
+  return apiRequest<RedepOffer>(`/promotions/redep-offer${qs}`)
 }
 
 export interface NewPlayerSummary {

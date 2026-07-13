@@ -2,17 +2,19 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { createPortal } from 'react-dom'
 import { Clock } from 'lucide-react'
+import { formatCurrencyAmount } from '@/stores/wallet'
 
 interface Props {
   minDeposit: number
   bonusAmount: number
   endsAt: string
+  currency?: string
   onDeposit: () => void
   onDismiss: () => void
 }
 
 /** 复充限时优惠进站弹窗：倒计时 + 引导充值（窗口内充值达标自动发奖励）。 */
-export default function RedepOfferSheet({ minDeposit, bonusAmount, endsAt, onDeposit, onDismiss }: Props) {
+export default function RedepOfferSheet({ minDeposit, bonusAmount, endsAt, currency = 'PHP', onDeposit, onDismiss }: Props) {
   const { t } = useTranslation()
   const [now, setNow] = useState(() => Date.now())
   const endsMs = new Date(endsAt).getTime()
@@ -31,7 +33,7 @@ export default function RedepOfferSheet({ minDeposit, bonusAmount, endsAt, onDep
   const p = (n: number) => String(n).padStart(2, '0')
   const hh = Math.floor(s / 3600), mm = Math.floor((s % 3600) / 60), ss = s % 60
   const countdown = hh > 0 ? `${p(hh)}:${p(mm)}:${p(ss)}` : `${p(mm)}:${p(ss)}`
-  const vars = { min: `₱${minDeposit.toLocaleString()}`, bonus: `₱${bonusAmount.toLocaleString()}` }
+  const vars = { min: formatCurrencyAmount(currency, minDeposit), bonus: formatCurrencyAmount(currency, bonusAmount) }
 
   return createPortal(
     <div className="fixed inset-0 z-[94] flex items-end justify-center">
@@ -40,7 +42,7 @@ export default function RedepOfferSheet({ minDeposit, bonusAmount, endsAt, onDep
         <p className="mb-2 text-4xl">⏰</p>
         <h3 className="text-xl font-black text-white">{t('wallet.limitedOfferTitle')}</h3>
         <p className="mt-2 text-sm leading-relaxed text-white/60">{t('wallet.limitedOfferDesc', vars)}</p>
-        <p className="mt-3 text-3xl font-black text-primary">+₱{bonusAmount.toLocaleString()}</p>
+        <p className="mt-3 text-3xl font-black text-primary">+{formatCurrencyAmount(currency, bonusAmount)}</p>
         <div className="mt-3 inline-flex items-center gap-2 rounded-xl bg-amber-400/15 px-4 py-2 text-amber-300">
           <Clock size={16} />
           <span className="font-mono text-lg font-black tabular-nums">{countdown}</span>

@@ -775,10 +775,13 @@ export interface PopupConfig {
   audience: PopupAudience
   frequency: PopupFrequency
 }
+export interface RedepCcyTier { minDeposit: number; bonusAmount: number }
 export interface RedepConfig {
   enabled: boolean
   minDeposit: number
   bonusAmount: number
+  /** 按币种独立的门槛/奖励（PHP/USDT/USDC） */
+  byCcy: Record<string, RedepCcyTier>
   windowHours: number
   cooldownDays: number
   turnoverX: number
@@ -788,6 +791,8 @@ export interface LossRebateConfig {
   enabled: boolean
   ratePct: number
   minDeposit: number
+  /** 按币种独立的存款门槛（PHP/USDT/USDC） */
+  minDepositByCcy: Record<string, number>
   capToDeposit: boolean
   eligibleCats: string[]
   settleHour: number

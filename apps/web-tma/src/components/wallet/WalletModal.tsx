@@ -125,11 +125,11 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
   const [redepOffer, setRedepOffer] = useState<RedepOffer | null>(null)
   const [redepNow, setRedepNow] = useState(() => Date.now())
 
-  // 复充限时优惠：打开充值页时拉取；窗口生效期间每秒走倒计时
+  // 复充限时优惠：打开充值页时按当前币种拉取；窗口生效期间每秒走倒计时（每币种独立）
   useEffect(() => {
     if (!open || tab !== 'deposit' || !isLoggedIn) return
-    fetchRedepOffer().then(setRedepOffer).catch(() => setRedepOffer(null))
-  }, [open, tab, isLoggedIn])
+    fetchRedepOffer(activeCurrency).then(setRedepOffer).catch(() => setRedepOffer(null))
+  }, [open, tab, isLoggedIn, activeCurrency])
   const redepEndsMs = redepOffer?.active && redepOffer.endsAt ? new Date(redepOffer.endsAt).getTime() : 0
   const redepActive = redepEndsMs > redepNow
   useEffect(() => {
@@ -321,7 +321,8 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
   const depositPresets = DEPOSIT_PRESETS[depositCurrency] ?? DEPOSIT_PRESETS.PHP
   const depositTierList = promoConfig?.firstdep.tiers?.[depositCurrency]
   // 复充限时优惠仅 PHP 充值参与；首充资格存续时以首充为准，不叠加展示
-  const redepShow = redepActive && !firstDepEligible && depositCurrency === 'PHP'
+  // 复充展示条件：offer 币种与当前充值币种一致（redep 已多币种）
+  const redepShow = redepActive && !firstDepEligible && depositCurrency === (redepOffer?.currency ?? 'PHP')
   const redepBonusFor = (amt: number) => (redepShow && amt >= (redepOffer?.minDeposit ?? Infinity) ? (redepOffer?.bonusAmount ?? 0) : 0)
   const selectedBonus = firstDepEligible ? matchTierBonus(depositTierList, Number(amount)) : redepBonusFor(Number(amount))
   const receiveAmount = Math.max(0, Number(amount) || 0) + selectedBonus

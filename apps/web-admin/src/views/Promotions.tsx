@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Card, InputNumber, Select, Switch, Button, message, Typography, Row, Col, Spin, Tabs, Table, Space } from 'antd'
+import { Card, InputNumber, Select, Switch, Button, message, Typography, Row, Col, Spin, Tabs, Table, Space, Segmented } from 'antd'
 import { GiftOutlined, PlusOutlined, DeleteOutlined, ArrowUpOutlined, ArrowDownOutlined } from '@ant-design/icons'
 import { getPromoConfig, savePromoConfig, triggerVipNegativeRebate, FIRSTDEP_CURRENCIES, type PromoConfig, type FirstDepTier, type PopupConfig, type BonusCard } from '../api'
 
@@ -39,6 +39,8 @@ export default function Promotions() {
   const [saving, setSaving] = useState(false)
   const [settling, setSettling] = useState(false)
   const [cfg, setCfg] = useState<PromoConfig | null>(null)
+  const [redepCcy, setRedepCcy] = useState<string>('PHP')
+  const [lossCcy, setLossCcy] = useState<string>('PHP')
 
   async function settleNow() {
     setSettling(true)
@@ -54,6 +56,11 @@ export default function Promotions() {
     try {
       const data = await getPromoConfig()
       for (const c of FIRSTDEP_CURRENCIES) if (!data.firstdep.tiers[c]) data.firstdep.tiers[c] = []
+      // 防御性初始化按币种结构（后端一般已下发）
+      if (!data.redep.byCcy) data.redep.byCcy = {}
+      for (const c of FIRSTDEP_CURRENCIES) if (!data.redep.byCcy[c]) data.redep.byCcy[c] = { minDeposit: data.redep.minDeposit, bonusAmount: data.redep.bonusAmount }
+      if (!data.lossRebate.minDepositByCcy) data.lossRebate.minDepositByCcy = {}
+      for (const c of FIRSTDEP_CURRENCIES) if (data.lossRebate.minDepositByCcy[c] == null) data.lossRebate.minDepositByCcy[c] = data.lossRebate.minDeposit
       if (!Array.isArray(data.bonusCards)) data.bonusCards = []
       setCfg(data)
     } catch (e) {
@@ -298,14 +305,23 @@ export default function Promotions() {
         面向「已首充且当日未充值」的用户：进站触发限时弹窗，窗口内充值 ≥ 档位金额额外送固定奖励（每个窗口只发一次）。
         不在充值页常驻展示，仅倒计时内充值面板对应金额档显示奖励角标与倒计时横幅
       </Text>
+      <Space style={{ marginBottom: 8 }} align="center">
+        <Text strong>币种：</Text>
+        <Segmented value={redepCcy} onChange={(v) => setRedepCcy(String(v))} options={FIRSTDEP_CURRENCIES.map((c) => ({ value: c, label: c }))} />
+        <Text type="secondary" style={{ fontSize: 12 }}>门槛/奖励按币种独立(该币种口径);窗口/冷却/流水全币种通用</Text>
+      </Space>
       <Row gutter={24} style={{ marginBottom: 16 }}>
         <Col span={8}>
-          <Text>达标充值额（PHP）</Text>
-          <InputNumber prefix="₱" style={{ width: '100%', marginTop: 4 }} min={1} precision={0} value={cfg.redep.minDeposit} onChange={(v) => patch((d) => { d.redep.minDeposit = Number(v ?? 0) })} />
+          <Text>达标充值额（{redepCcy}）</Text>
+          <InputNumber prefix={redepCcy === 'PHP' ? '₱' : redepCcy} style={{ width: '100%', marginTop: 4 }} min={0} precision={2}
+            value={cfg.redep.byCcy[redepCcy]?.minDeposit ?? 0}
+            onChange={(v) => patch((d) => { d.redep.byCcy[redepCcy] = { ...d.redep.byCcy[redepCcy], minDeposit: Number(v ?? 0) }; if (redepCcy === 'PHP') d.redep.minDeposit = Number(v ?? 0) })} />
         </Col>
         <Col span={8}>
-          <Text>额外奖励（PHP）</Text>
-          <InputNumber prefix="₱" style={{ width: '100%', marginTop: 4 }} min={0} precision={0} value={cfg.redep.bonusAmount} onChange={(v) => patch((d) => { d.redep.bonusAmount = Number(v ?? 0) })} />
+          <Text>额外奖励（{redepCcy}）</Text>
+          <InputNumber prefix={redepCcy === 'PHP' ? '₱' : redepCcy} style={{ width: '100%', marginTop: 4 }} min={0} precision={2}
+            value={cfg.redep.byCcy[redepCcy]?.bonusAmount ?? 0}
+            onChange={(v) => patch((d) => { d.redep.byCcy[redepCcy] = { ...d.redep.byCcy[redepCcy], bonusAmount: Number(v ?? 0) }; if (redepCcy === 'PHP') d.redep.bonusAmount = Number(v ?? 0) })} />
         </Col>
         <Col span={8}>
           <Text>窗口时长</Text>
@@ -344,8 +360,13 @@ export default function Promotions() {
           <InputNumber suffix="%" style={{ width: '100%', marginTop: 4 }} min={0} max={100} precision={2} value={cfg.lossRebate.ratePct} onChange={(v) => patch((d) => { d.lossRebate.ratePct = Number(v ?? 0) })} />
         </Col>
         <Col span={8}>
-          <Text>当日存款门槛（PHP）</Text>
-          <InputNumber prefix="₱" style={{ width: '100%', marginTop: 4 }} min={0} precision={0} value={cfg.lossRebate.minDeposit} onChange={(v) => patch((d) => { d.lossRebate.minDeposit = Number(v ?? 0) })} />
+          <Space size={4} align="center" style={{ marginBottom: 2 }}>
+            <Text>当日存款门槛（{lossCcy}）</Text>
+            <Segmented size="small" value={lossCcy} onChange={(v) => setLossCcy(String(v))} options={FIRSTDEP_CURRENCIES.map((c) => ({ value: c, label: c }))} />
+          </Space>
+          <InputNumber prefix={lossCcy === 'PHP' ? '₱' : lossCcy} style={{ width: '100%', marginTop: 4 }} min={0} precision={2}
+            value={cfg.lossRebate.minDepositByCcy[lossCcy] ?? 0}
+            onChange={(v) => patch((d) => { d.lossRebate.minDepositByCcy[lossCcy] = Number(v ?? 0); if (lossCcy === 'PHP') d.lossRebate.minDeposit = Number(v ?? 0) })} />
         </Col>
         <Col span={8}>
           <Text>返水基数封顶当日存款</Text>
