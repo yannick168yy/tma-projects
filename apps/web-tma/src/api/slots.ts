@@ -41,6 +41,7 @@ export interface GameListParams {
   category?: string
   sortCategory?: string
   siteCategory?: string
+  cashbackTier?: 'elite' | 'pro' | 'basic'
   sortBy?: 'weight' | 'name'
   currency?: string
 }
@@ -90,6 +91,7 @@ export function fetchGames(params: GameListParams = {}): Promise<GameListResult>
   if (params.category && params.category !== 'all') qs.set('category', params.category)
   if (params.sortCategory) qs.set('sortCategory', params.sortCategory)
   if (params.siteCategory) qs.set('siteCategory', params.siteCategory)
+  if (params.cashbackTier) qs.set('cashbackTier', params.cashbackTier)
   if (params.sortBy) qs.set('sortBy', params.sortBy)
   if (params.currency) qs.set('currency', params.currency)
   const q = qs.toString()

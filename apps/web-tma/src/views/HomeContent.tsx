@@ -377,6 +377,8 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
   const [providerZoneTab, setProviderZoneTab] = useState(PROVIDER_ZONE[0].code)
   const [providerZoneGames, setProviderZoneGames] = useState<SlotGame[]>([])
   const providerZoneFetchRef = useRef(0)
+  // 高返水：三档(2%/1.5%/1%)各取 3 款，合成 9 款展示
+  const [cashbackGames, setCashbackGames] = useState<SlotGame[]>([])
 
   const onGameTapAction = useCallback(async (uuid: string) => {
     if (!(await auth.ensureLoggedIn(t('auth.signInPlay')))) return
@@ -503,6 +505,18 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
   }, [providerZoneTab, activeCurrency])
 
   useEffect(() => {
+    let alive = true
+    Promise.all([
+      fetchGames({ cashbackTier: 'elite', limit: 3, sortBy: 'weight', currency: activeCurrency }),
+      fetchGames({ cashbackTier: 'pro', limit: 3, sortBy: 'weight', currency: activeCurrency }),
+      fetchGames({ cashbackTier: 'basic', limit: 3, sortBy: 'weight', currency: activeCurrency }),
+    ])
+      .then(([e, p, b]) => { if (alive) setCashbackGames([...e.items, ...p.items, ...b.items]) })
+      .catch(() => {})
+    return () => { alive = false }
+  }, [activeCurrency])
+
+  useEffect(() => {
     fetchHomeContent().then((content) => {
       setHomeBanners(content.banners.map((item) => ({
         id: item.slot,
@@ -607,6 +621,16 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
           </button>
         </div>
       </section>
+
+      {/* 高返水游戏：三档(2%/1.5%/1%)各 3 款 → games 高洗码分类 */}
+      {cashbackGames.length > 0 && (
+        <section className="mt-6">
+          {sectionHeader(<Gem size={15} className="text-amber-400" />, t('home.highRebate'), () => onNavigatePath('/games?cat=highrebate'))}
+          <div className="px-4 grid grid-cols-3 gap-x-2 gap-y-3">
+            {cashbackGames.map((g) => <GameCardV2 key={g.uuid} game={g} onTap={() => void onGameTapAction(g.uuid)} size="lg" />)}
+          </div>
+        </section>
+      )}
 
       {/* New Games：小卡横滑 */}
       {(gamesLoading || homepageGames.newGames.length > 0) && (

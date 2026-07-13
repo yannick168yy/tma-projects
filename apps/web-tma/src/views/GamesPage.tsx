@@ -10,9 +10,10 @@ import { analytics } from '@/utils/analytics'
 
 interface CategoryDef { id: string; labelKey: string; siteCategory?: string }
 
-// 一级分类：All + site_category（纯文字 tab，对齐 casinoplus）；顺序与首页 chip 一致
+// 一级分类：All + 高洗码 + site_category（纯文字 tab，对齐 casinoplus）；顺序与首页 chip 一致
 const CATEGORIES: CategoryDef[] = [
-  { id: 'all',     labelKey: 'games.catAll'      },
+  { id: 'all',        labelKey: 'games.catAll'         },
+  { id: 'highrebate', labelKey: 'games.catHighRebate'  },
   { id: 'slot',    labelKey: 'home.chipSlots',   siteCategory: 'slot'    },
   { id: 'casino',  labelKey: 'home.chipCasino',  siteCategory: 'casino'  },
   { id: 'perya',   labelKey: 'home.chipPerya',   siteCategory: 'perya'   },
@@ -21,6 +22,14 @@ const CATEGORIES: CategoryDef[] = [
   { id: 'sports',  labelKey: 'home.chipSports',  siteCategory: 'sports'  },
   { id: 'lottery', labelKey: 'home.chipLottery', siteCategory: 'lottery' },
   { id: 'other',   labelKey: 'home.chipOther',   siteCategory: 'other'   },
+]
+
+// 高洗码二级档位子菜单：elite=2% / pro=1.5% / basic=1%（Cashback 精选真实费率档）
+type RebateTier = 'elite' | 'pro' | 'basic'
+const TIER_TABS: { id: RebateTier; label: string }[] = [
+  { id: 'elite', label: '2%' },
+  { id: 'pro',   label: '1.5%' },
+  { id: 'basic', label: '1%' },
 ]
 
 interface Props {
@@ -37,7 +46,9 @@ export default function GamesPage({ cat, provider, onChangeFilter, onOpenPerya, 
   const isLoggedIn = useAuthStore((s) => Boolean(s.token && s.user))
   const activeCurrency = useWalletStore((s) => s.activeCurrency)
   const activeCat = CATEGORIES.find((c) => c.id === cat) ?? CATEGORIES[0]
+  const isRebate = cat === 'highrebate'
 
+  const [tier, setTier] = useState<RebateTier>('elite')
   const [providers, setProviders] = useState<string[]>([])
   const [providersExpanded, setProvidersExpanded] = useState(false)
   const [hidden, setHidden] = useState(false)
@@ -67,8 +78,9 @@ export default function GamesPage({ cat, provider, onChangeFilter, onOpenPerya, 
       const res = await fetchGames({
         page: nextPage,
         limit: 30,
-        siteCategory: activeCat.siteCategory,
-        provider: provider !== 'all' ? provider : undefined,
+        siteCategory: isRebate ? undefined : activeCat.siteCategory,
+        cashbackTier: isRebate ? tier : undefined,
+        provider: !isRebate && provider !== 'all' ? provider : undefined,
         sortBy: 'weight',
         currency: activeCurrency,
       })
@@ -95,7 +107,7 @@ export default function GamesPage({ cat, provider, onChangeFilter, onOpenPerya, 
 
   useEffect(() => {
     void loadGames(true)
-  }, [cat, provider, activeCurrency])
+  }, [cat, provider, tier, activeCurrency])
 
   // 菜单栏随滚动方向显隐：上滑(向下滚)收起、下滑(向上滚)出现；接近顶部时常驻显示
   useEffect(() => {
@@ -138,7 +150,7 @@ export default function GamesPage({ cat, provider, onChangeFilter, onOpenPerya, 
     }, { threshold: 0.1, rootMargin: '200px' })
     observer.observe(el)
     return () => observer.disconnect()
-  }, [loading, loadingMore, page, pages, cat, provider])
+  }, [loading, loadingMore, page, pages, cat, provider, tier])
 
   function selectCat(id: string) {
     if (id === cat) return
@@ -163,7 +175,7 @@ export default function GamesPage({ cat, provider, onChangeFilter, onOpenPerya, 
 
   // All 分类默认不给二级厂商菜单（全量厂商近百个噪音大，对齐 casinoplus：仅具体分类有二级）；
   // 但深链带了厂商筛选（如首页厂商专区 View All）时必须显示，否则用户看不到也清不掉筛选
-  const showProviders = providers.length >= 2 && (cat !== 'all' || provider !== 'all')
+  const showProviders = !isRebate && providers.length >= 2 && (cat !== 'all' || provider !== 'all')
 
   return (
     <div className="page-main">
@@ -200,6 +212,24 @@ export default function GamesPage({ cat, provider, onChangeFilter, onOpenPerya, 
             )
           })}
         </div>
+
+        {/* 高洗码二级档位子菜单：2% / 1.5% / 1% */}
+        {isRebate && (
+          <div className="flex items-center gap-2 px-4 py-2.5">
+            {TIER_TABS.map((tt) => (
+              <button
+                key={tt.id}
+                type="button"
+                onClick={() => setTier(tt.id)}
+                className={`flex-shrink-0 px-3.5 py-1 rounded-full text-xs font-bold transition-colors active:scale-95 ${
+                  tier === tt.id ? 'bg-primary text-primary-foreground' : 'bg-secondary text-foreground/70'
+                }`}
+              >
+                {tt.label}
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* 二级厂商菜单：单行横滑，⌄ 展开成多行面板（随整条菜单栏一起显隐，不再单独收起） */}
         {showProviders && (

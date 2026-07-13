@@ -90,6 +90,7 @@ router.get('/games', async (ctx) => {
       category: q.category || undefined,
       sortCategory: q.sortCategory || undefined,
       siteCategory: q.siteCategory || undefined,
+      cashbackTier: q.cashbackTier || undefined,
       sortBy: (q.sortBy as 'weight' | 'name') || undefined,
       currency: q.currency || undefined,
     })

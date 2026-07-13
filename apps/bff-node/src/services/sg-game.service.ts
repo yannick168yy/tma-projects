@@ -577,11 +577,12 @@ export async function listGames(
     category?: string
     sortCategory?: string
     siteCategory?: string
+    cashbackTier?: string
     sortBy?: 'weight' | 'name'
     currency?: string
   } = {},
 ): Promise<GameListResult> {
-  const { page = 1, limit = 30, search, provider, category, sortCategory, siteCategory, sortBy = 'weight', currency } = opts
+  const { page = 1, limit = 30, search, provider, category, sortCategory, siteCategory, cashbackTier, sortBy = 'weight', currency } = opts
 
   let games = await getGamesFromCache(env)
 
@@ -603,6 +604,10 @@ export async function listGames(
     const cats = new Set(siteCategory.split(',').map((s) => s.trim()).filter(Boolean))
     games = games.filter((g) => g.siteCategory != null && cats.has(g.siteCategory))
   }
+  // 高洗码档位过滤：elite=2% / pro=1.5% / basic=1%（Cashback 精选真实费率档）
+  if (cashbackTier && cashbackTier !== 'all') {
+    games = games.filter((g) => g.cashbackTier === cashbackTier)
+  }
   // 不支持当前币种的游戏直接不显示(与首页选品口径一致)，避免 PHP 目录混入大量 USD 专用灰卡
   if (currency) {
     games = games.filter((g) => supportsCurrency(g, currency))
@@ -612,7 +617,7 @@ export async function listGames(
   // 仅在「无搜索 + 全部厂商 + 按权重排序 + 单一分类(或全部)」时生效，与前台 All 视图口径一致。
   const singleSiteCategory = siteCategory && !siteCategory.includes(',') && siteCategory !== 'all' ? siteCategory : null
   const categoryKey = singleSiteCategory ?? (!siteCategory ? 'all' : null)
-  const canManualSort = !search && (!provider || provider === 'all') && sortBy === 'weight' && categoryKey != null
+  const canManualSort = !search && !cashbackTier && (!provider || provider === 'all') && sortBy === 'weight' && categoryKey != null
   const pinnedOrder = canManualSort ? (await getCategorySortMap(env)).get(categoryKey!) : undefined
 
   if (pinnedOrder && pinnedOrder.length) {

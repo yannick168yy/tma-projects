@@ -308,6 +308,7 @@ export default {
     gameHistory: '游戏记录',
     recentWins: '最近中奖',
     popularGames: '热门游戏',
+    highRebate: '高返水游戏',
     egamesZone: '老虎机游戏',
     liveGames: '真人游戏',
     fishingZone: '捕鱼游戏',
@@ -1188,6 +1189,7 @@ export default {
   },
   games: {
     catAll: '全部',
+    catHighRebate: '高洗码',
     peryaCarnival: 'Perya Carnival',
     peryaCarnivalSub: '菲式嘉年华专区 · 经典本土游戏',
     enter: '进入',
