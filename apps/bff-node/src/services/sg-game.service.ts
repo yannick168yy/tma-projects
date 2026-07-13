@@ -567,6 +567,35 @@ export interface GameListResult {
   pages: number
 }
 
+// 高 cashback「All」分档配额轮播：三档各自按热度降序，每轮按配额从各档取，某档取完则跳过该档继续
+const CASHBACK_QUOTA: Array<{ tier: 'elite' | 'pro' | 'basic'; take: number }> = [
+  { tier: 'elite', take: 2 },
+  { tier: 'pro', take: 3 },
+  { tier: 'basic', take: 4 },
+]
+
+function orderByCashbackQuota(games: DbGame[]): DbGame[] {
+  const buckets: Record<'elite' | 'pro' | 'basic', DbGame[]> = { elite: [], pro: [], basic: [] }
+  for (const g of games) {
+    if (g.cashbackTier === 'elite' || g.cashbackTier === 'pro' || g.cashbackTier === 'basic') buckets[g.cashbackTier].push(g)
+  }
+  for (const tier of ['elite', 'pro', 'basic'] as const) buckets[tier].sort((a, b) => b.weight - a.weight)
+
+  const idx = { elite: 0, pro: 0, basic: 0 }
+  const result: DbGame[] = []
+  let progressed = true
+  while (progressed) {
+    progressed = false
+    for (const { tier, take } of CASHBACK_QUOTA) {
+      for (let k = 0; k < take && idx[tier] < buckets[tier].length; k++) {
+        result.push(buckets[tier][idx[tier]++])
+        progressed = true
+      }
+    }
+  }
+  return result
+}
+
 export async function listGames(
   env: Env,
   opts: {
@@ -623,7 +652,11 @@ export async function listGames(
   const canManualSort = !search && !cashbackTier && (!provider || provider === 'all') && sortBy === 'weight' && categoryKey != null
   const pinnedOrder = canManualSort ? (await getCategorySortMap(env)).get(categoryKey!) : undefined
 
-  if (pinnedOrder && pinnedOrder.length) {
+  if (cashbackTier === 'all') {
+    // 分档配额轮播：每轮按 elite 2 : pro 3 : basic 4 从各档(档内按热度降序)轮流取，
+    // 让 2%/1.5%/1% 三档在整列表里持续穿插露出，而非纯热度把 basic 全顶到前面
+    games = orderByCashbackQuota(games)
+  } else if (pinnedOrder && pinnedOrder.length) {
     const posByUuid = new Map(pinnedOrder.map((u, i) => [u, i]))
     games = [...games].sort((a, b) => {
       const pa = posByUuid.get(a.uuid)
