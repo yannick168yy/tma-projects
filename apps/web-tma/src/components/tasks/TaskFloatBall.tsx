@@ -92,11 +92,11 @@ export default function TaskFloatBall({ onNavigatePath }: TaskFloatBallProps) {
       {/* 固定悬浮在首页左下角（tasks 在上），不可移动 */}
       <div className="pointer-events-none fixed left-2 z-[31] h-24 w-24" style={{ bottom: 214 }}>
         <div className="relative h-24 w-24 select-none">
-          {/* 展开态关闭按钮：放在球体左侧空位（卡片向右展开），点击收起 */}
+          {/* 展开态关闭按钮：放在球体右上角（避开手机左侧返回手势区，确保可点），点击收起 */}
           {expanded && (
             <button
               type="button"
-              className="pointer-events-auto absolute -top-1 -left-1 z-[5] flex h-7 w-7 items-center justify-center rounded-full border border-white/20 bg-black/75 text-white shadow-[0_4px_12px_rgba(0,0,0,0.5)] active:scale-90"
+              className="pointer-events-auto absolute -top-2 -right-2 z-[40] flex h-7 w-7 items-center justify-center rounded-full border border-white/20 bg-black/80 text-white shadow-[0_4px_12px_rgba(0,0,0,0.5)] active:scale-90"
               onClick={() => setExpanded(false)}
               aria-label={t('tasks.ball.close')}
             >
