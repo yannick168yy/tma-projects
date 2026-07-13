@@ -59,8 +59,9 @@ export async function fetchVipProgress(currency?: string): Promise<VipProgress> 
   return apiRequest<VipProgress>(`/vip/progress${qs ? `?${qs}` : ''}`)
 }
 
-export async function fetchVipLevels(): Promise<{ levels: VipLevelConfig[] }> {
-  return apiRequest<{ levels: VipLevelConfig[] }>('/vip/levels')
+export async function fetchVipLevels(currency?: string): Promise<{ levels: VipLevelConfig[] }> {
+  const qs = currency ? `?currency=${encodeURIComponent(currency)}` : ''
+  return apiRequest<{ levels: VipLevelConfig[] }>(`/vip/levels${qs}`)
 }
 
 export async function fetchVipRewards(): Promise<{ rewards: VipReward[] }> {

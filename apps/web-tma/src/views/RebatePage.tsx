@@ -192,8 +192,8 @@ export default function RebatePage({ onOpenGame, onOpenCategory }: Props) {
   void launchingUuid // 保留，后续可扩展 loading 状态展示
 
   useEffect(() => {
-    fetchRebateConfig().then(setConfig).catch(() => null)
-  }, [])
+    fetchRebateConfig(currency).then(setConfig).catch(() => null)
+  }, [currency])
 
   const loadProgress = useCallback(async () => {
     if (!token) { setProgress(null); return }

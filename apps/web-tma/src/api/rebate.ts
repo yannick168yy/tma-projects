@@ -64,8 +64,9 @@ export interface RebateProgress {
   claimableBreakdown: RebateSummaryItem[]
 }
 
-export async function fetchRebateConfig(): Promise<RebateConfig> {
-  return apiRequest<RebateConfig>('/rebate/config')
+export async function fetchRebateConfig(currency?: string): Promise<RebateConfig> {
+  const qs = currency ? `?currency=${encodeURIComponent(currency)}` : ''
+  return apiRequest<RebateConfig>(`/rebate/config${qs}`)
 }
 
 export async function fetchRebateProgress(currency?: string): Promise<RebateProgress> {

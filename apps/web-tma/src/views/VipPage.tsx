@@ -84,9 +84,9 @@ export default function VipPage({ initialTab = 'overview', onOpenGame, onOpenCat
   useEffect(() => { setActiveTab(initialTab) }, [initialTab])
 
   useEffect(() => {
-    fetchRebateConfig().then(setConfig).catch(() => null)
-    fetchVipLevels().then((res) => setLevels(res.levels)).catch(() => null)
-  }, [])
+    fetchRebateConfig(currency).then(setConfig).catch(() => null)
+    fetchVipLevels(currency).then((res) => setLevels(res.levels)).catch(() => null)
+  }, [currency])
 
   const loadProgress = useCallback(async () => {
     if (!token) { setProgress(null); setVip(null); setRewards([]); return }
