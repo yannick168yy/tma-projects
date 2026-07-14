@@ -55,6 +55,14 @@ const CURRENCIES = [
   { icon: '29_usdt', name: 'USDT' },
 ]
 
+// 官方社群外链（已创建的账号）
+const COMMUNITY_URLS = {
+  telegram: 'https://telegram.me/betogo_gaming',
+  viber: 'https://invite.viber.com/?g2=AQBhXJCwtpAV81bXwM93sEjLZsg%2FLSk%2FjwMfIuJNShYEdNkwvHqOqU8AFEFtKo5I',
+  facebook: 'https://www.facebook.com/share/1LPECYxaAS/',
+}
+const openExternal = (url: string) => window.open(url, '_blank', 'noopener,noreferrer')
+
 const HOME_DOC_KEYS = new Set(['terms', 'privacy', 'responsible', 'about'])
 type StatusIcon = ComponentType<{ size?: number; strokeWidth?: number }>
 const VERIFY_IDENTITY_ICON = icon('verify_identity_unselected_white')
@@ -246,10 +254,10 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
     { icon: '23_email', label: t('profile.supportItems.email'), sub: 'support@betogo.com', badge: null, onClick: showComingSoon },
   ]
   const COMMUNITY_LINKS = [
-    { icon: '24_official_channel', label: t('profile.links.channel'), sub: t('profile.links.channelSub') },
-    { icon: '25_community_group', label: t('profile.links.community'), sub: t('profile.links.communitySub') },
+    { icon: '24_official_channel', label: t('profile.links.channel'), sub: t('profile.links.channelSub'), onClick: () => openExternal(COMMUNITY_URLS.telegram) },
+    { icon: '25_community_group', label: t('profile.links.community'), sub: t('profile.links.communitySub'), onClick: () => openExternal(COMMUNITY_URLS.viber) },
     { icon: '26_vip_club', label: t('profile.links.vip'), sub: t('profile.links.vipSub'), onClick: onOpenVipCenter },
-    { icon: '27_facebook', label: t('profile.links.facebook'), sub: t('profile.links.facebookSub') },
+    { icon: '27_facebook', label: t('profile.links.facebook'), sub: t('profile.links.facebookSub'), onClick: () => openExternal(COMMUNITY_URLS.facebook) },
   ]
   const DOCS = [
     { key: 'terms', icon: '05_terms_of_service', label: t('profile.docs.terms') },
