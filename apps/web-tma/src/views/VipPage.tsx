@@ -98,8 +98,8 @@ export default function VipPage({ initialTab = 'overview', onOpenGame, onOpenCat
 
   useEffect(() => {
     if (!token || activeTab !== 'records') return
-    fetchVipRewards().then((res) => setRewards(res.rewards)).catch(() => setRewards([]))
-  }, [token, activeTab])
+    fetchVipRewards(currency).then((res) => setRewards(res.rewards)).catch(() => setRewards([]))
+  }, [token, activeTab, currency])
 
   const VIP_TYPE_KEY: Record<string, string> = {
     negative_rebate: 'cashback.vipNegativeRebate',
@@ -132,7 +132,7 @@ export default function VipPage({ initialTab = 'overview', onOpenGame, onOpenCat
       alert(t('cashback.vipClaimSuccess', { amount: amtStr(currency, res.totalAmount) }))
       await Promise.all([
         loadProgress(),
-        fetchVipRewards().then((r) => setRewards(r.rewards)).catch(() => null),
+        fetchVipRewards(currency).then((r) => setRewards(r.rewards)).catch(() => null),
         useWalletStore.getState().refresh(),
       ])
     } catch (e) {

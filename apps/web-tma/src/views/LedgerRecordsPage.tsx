@@ -8,7 +8,7 @@ interface Props { onClose: () => void }
 type Range = 'today' | '7d' | '30d'
 
 const RANGES: Range[] = ['today', '7d', '30d']
-const REWARD_TYPES = ['bonus', 'rebate']
+const REWARD_TYPES = ['bonus', 'rebate', 'vip_bonus']
 
 function dateFrom(range: Range): string {
   const d = new Date()

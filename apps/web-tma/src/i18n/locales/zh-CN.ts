@@ -754,6 +754,7 @@ export default {
       adjust: '调整',
       admin_adjust: '额度调整',
       rebate: '洗码返利',
+      vip_bonus: 'VIP 礼金',
     },
   },
   search: {

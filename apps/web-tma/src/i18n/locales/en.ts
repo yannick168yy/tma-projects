@@ -764,6 +764,7 @@ export default {
       adjust: 'Adjustment',
       admin_adjust: 'Balance Adjustment',
       rebate: 'Cash Rebate',
+      vip_bonus: 'VIP Bonus',
     },
   },
   search: {

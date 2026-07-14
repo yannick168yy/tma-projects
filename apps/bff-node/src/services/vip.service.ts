@@ -250,16 +250,18 @@ export async function ensureBirthdayFromKyc(env: Env, userId: string): Promise<b
   return res.ok || res.reason === 'already_set'
 }
 
-export async function listVipRewards(env: Env, userId: string, limit = 50): Promise<VipRewardItem[]> {
+export async function listVipRewards(env: Env, userId: string, limit = 50, currency?: string): Promise<VipRewardItem[]> {
   if (!isMysqlEnabled(env)) return []
   const pool = getMysqlPool(env)
+  const where = currency ? 'user_id = ? AND currency_code = ?' : 'user_id = ?'
+  const params = currency ? [userId, currency, limit] : [userId, limit]
   const [rows] = await pool.query<RowDataPacket[]>(
     `SELECT id, level, type, amount, currency_code, period_key, status, created_at, paid_at
      FROM bg_vip_reward_log
-     WHERE user_id = ?
+     WHERE ${where}
      ORDER BY (status = 'pending') DESC, created_at DESC
      LIMIT ?`,
-    [userId, limit],
+    params,
   )
   return rows.map((r) => ({
     id: Number(r.id),

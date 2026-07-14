@@ -444,6 +444,7 @@ export default {
       adjust: 'Penyesuaian',
       admin_adjust: 'Penyesuaian Saldo',
       rebate: 'Cash Rebate',
+      vip_bonus: 'Bonus VIP',
     },
   },
   search: {

@@ -444,6 +444,7 @@ export default {
       adjust: 'Điều chỉnh',
       admin_adjust: 'Điều chỉnh số dư',
       rebate: 'Hoàn tiền',
+      vip_bonus: 'Thưởng VIP',
     },
   },
   search: {

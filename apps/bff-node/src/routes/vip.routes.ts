@@ -21,7 +21,8 @@ router.get('/progress', async (ctx) => {
 // GET /vip/rewards — 需要登录：VIP 礼金发放记录（待领取 + 历史）
 router.get('/rewards', async (ctx) => {
   if (!ctx.state.userId) { fail(ctx, 401, 'Unauthorized', 401); return }
-  const rewards = await listVipRewards(ctx.state.env, ctx.state.userId)
+  const currency = ctx.query.currency ? String(ctx.query.currency) : undefined
+  const rewards = await listVipRewards(ctx.state.env, ctx.state.userId, 50, currency)
   ok(ctx, { rewards })
 })
 
