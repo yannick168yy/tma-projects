@@ -4,7 +4,7 @@ import {
   Trophy, TrendingUp, Gamepad2, Sparkles, History, Factory,
   Fish, Ticket, Drama, Rocket, X, Gem, Percent,
   Zap, Headphones, ShieldCheck, Phone, Globe, Mail,
-  Send, Facebook, Instagram, Youtube, Twitter, Music2, MessageCircle,
+  Send, Facebook,
   type LucideIcon,
 } from 'lucide-react'
 import HomeCategoryShortcut from '@/components/home/HomeCategoryShortcut'
@@ -12,7 +12,7 @@ import GameCardV2 from '@/components/home/GameCardV2'
 import TaskFloatBall from '@/components/tasks/TaskFloatBall'
 import { WINNERS, INFO_LINKS } from '@/data/home'
 import { fetchHomepageGames, fetchGames, fetchGameHistory, launchGame, fetchBettingActivity, type SlotGame, type BetRecord, type BetTab, type GameHistoryItem } from '@/api/slots'
-import { fetchHomeContent, type HomeSocialLink } from '@/api/home'
+import { fetchHomeContent } from '@/api/home'
 import { resolveHomeActionPath } from '@/navigation/appRoutes'
 import { ApiError } from '@/api/client'
 import { usePromotionStore } from '@/stores/promotion'
@@ -46,17 +46,12 @@ function historyToGame(item: GameHistoryItem): SlotGame {
   }
 }
 
-// 社交平台品牌样式：平台在后台「首页装修」配置，配了才显示
-const SOCIAL_BRANDS: Record<string, { icon: LucideIcon; bg: string }> = {
-  telegram: { icon: Send, bg: '#229ED9' },
-  facebook: { icon: Facebook, bg: '#1877F2' },
-  x: { icon: Twitter, bg: '#0f1419' },
-  instagram: { icon: Instagram, bg: '#E1306C' },
-  youtube: { icon: Youtube, bg: '#FF0000' },
-  tiktok: { icon: Music2, bg: '#010101' },
-  viber: { icon: Phone, bg: '#7360F2' },
-  whatsapp: { icon: MessageCircle, bg: '#25D366' },
-}
+// 官方社群入口（写死，运营账号变更时改这里）
+const COMMUNITY_LINKS: { label: string; icon: LucideIcon; bg: string; url: string }[] = [
+  { label: 'Telegram', icon: Send, bg: '#229ED9', url: 'https://telegram.me/betogo_gaming' },
+  { label: 'Viber', icon: Phone, bg: '#7360F2', url: 'https://invite.viber.com/?g2=AQBhXJCwtpAV81bXwM93sEjLZsg%2FLSk%2FjwMfIuJNShYEdNkwvHqOqU8AFEFtKo5I' },
+  { label: 'Facebook', icon: Facebook, bg: '#1877F2', url: 'https://www.facebook.com/share/1LPECYxaAS/' },
+]
 
 const PAYMENT_LOGOS = [
   { name: 'GCash', src: '/logos/gcash.svg' },
@@ -110,7 +105,6 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
   const activeCurrency = useWalletStore((s) => s.activeCurrency)
   const [homeBanners, setHomeBanners] = useState<HomeBanner[]>([])
   const [homeCards, setHomeCards] = useState<HomeCard[]>([])
-  const [socialLinks, setSocialLinks] = useState<HomeSocialLink[]>([])
 
   // 首页装修配置的统一跳转：内部路由走 navigate，外链走 window.open，空串不跳转
   function navHomeTarget(target: string) {
@@ -340,7 +334,6 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
         image: item.imageUrl,
         target: resolveHomeActionPath(item.actionType, item.actionValue),
       })))
-      setSocialLinks(content.socialLinks ?? [])
     }).catch(() => {})
     if (auth.token && auth.user) void promotion.loadTeamStatus()
   }, [])
@@ -706,26 +699,22 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
         </div>
       </section>
 
-      {/* 社区（后台装修配置，未配置整块隐藏） */}
-      {socialLinks.length > 0 && (
-        <section className="mt-8 px-4">
-          <h3 className="text-muted-foreground font-black text-xs font-display tracking-widest mb-3 text-center">{t('home.communitySection')}</h3>
-          <div className="flex justify-center flex-wrap gap-3.5">
-            {socialLinks.map((link) => {
-              const brand = SOCIAL_BRANDS[link.platform]
-              if (!brand) return null
-              const Icon = brand.icon
-              return (
-                <a key={link.platform} href={link.url} target="_blank" rel="noopener noreferrer" aria-label={link.platform}
-                  className="w-11 h-11 rounded-full flex items-center justify-center active:scale-95 transition-transform"
-                  style={{ background: brand.bg }}>
-                  <Icon size={20} className="text-white" fill={link.platform === 'facebook' || link.platform === 'x' ? 'currentColor' : 'none'} />
-                </a>
-              )
-            })}
-          </div>
-        </section>
-      )}
+      {/* 社区（官方社群入口，写死） */}
+      <section className="mt-8 px-4">
+        <h3 className="text-muted-foreground font-black text-xs font-display tracking-widest mb-3 text-center">{t('home.communitySection')}</h3>
+        <div className="flex justify-center flex-wrap gap-3.5">
+          {COMMUNITY_LINKS.map((link) => {
+            const Icon = link.icon
+            return (
+              <a key={link.label} href={link.url} target="_blank" rel="noopener noreferrer" aria-label={link.label}
+                className="w-11 h-11 rounded-full flex items-center justify-center active:scale-95 transition-transform"
+                style={{ background: link.bg }}>
+                <Icon size={20} className="text-white" fill={link.label === 'Facebook' ? 'currentColor' : 'none'} />
+              </a>
+            )
+          })}
+        </div>
+      </section>
 
       {/* 合规区 */}
       <section className="mt-8 px-4">

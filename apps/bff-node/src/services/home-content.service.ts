@@ -2,7 +2,6 @@ import { randomUUID } from 'node:crypto'
 import type { ResultSetHeader, RowDataPacket } from 'mysql2/promise'
 import { getMysqlPool, isMysqlEnabled } from '../clients/mysql.client.js'
 import type { Env } from '../config/env.js'
-import { getAdminSetting, setAdminSetting } from './admin-store.js'
 import { getStorageProvider } from './storage/index.js'
 
 export type HomeContentKind = 'banner' | 'card' | 'wallet_banner'
@@ -23,38 +22,6 @@ export interface HomeContent {
   banners: HomeContentItem[]
   cards: HomeContentItem[]
   walletBanners: HomeContentItem[]
-  socialLinks: HomeSocialLink[]
-}
-
-export const SOCIAL_PLATFORMS = ['telegram', 'facebook', 'x', 'instagram', 'youtube', 'tiktok', 'viber', 'whatsapp'] as const
-export type HomeSocialPlatform = (typeof SOCIAL_PLATFORMS)[number]
-
-export interface HomeSocialLink {
-  platform: HomeSocialPlatform
-  url: string
-}
-
-const SOCIAL_LINKS_KEY = 'home_social_links'
-
-export async function getHomeSocialLinks(env: Env): Promise<HomeSocialLink[]> {
-  if (!isMysqlEnabled(env)) return []
-  const raw = await getAdminSetting(env, SOCIAL_LINKS_KEY)
-  if (!raw) return []
-  try {
-    const parsed = JSON.parse(raw) as unknown
-    if (!Array.isArray(parsed)) return []
-    return parsed.filter((item): item is HomeSocialLink =>
-      !!item && typeof item === 'object'
-      && SOCIAL_PLATFORMS.includes((item as HomeSocialLink).platform)
-      && typeof (item as HomeSocialLink).url === 'string'
-      && /^https?:\/\//.test((item as HomeSocialLink).url))
-  } catch {
-    return []
-  }
-}
-
-export async function setHomeSocialLinks(env: Env, links: HomeSocialLink[]): Promise<void> {
-  await setAdminSetting(env, SOCIAL_LINKS_KEY, JSON.stringify(links))
 }
 
 interface HomeContentRow extends RowDataPacket {
@@ -89,7 +56,7 @@ function mapRow(row: HomeContentRow): HomeContentItem {
 }
 
 export async function getHomeContent(env: Env, includeDisabled = false): Promise<HomeContent> {
-  if (!isMysqlEnabled(env)) return { banners: [], cards: [], walletBanners: [], socialLinks: [] }
+  if (!isMysqlEnabled(env)) return { banners: [], cards: [], walletBanners: [] }
   const db = getMysqlPool(env)
   const [rows] = await db.query<HomeContentRow[]>(
     `SELECT kind, slot, image_key, action_type, action_value, enabled, updated_at
@@ -102,7 +69,6 @@ export async function getHomeContent(env: Env, includeDisabled = false): Promise
     banners: items.filter((item) => item.kind === 'banner'),
     cards: items.filter((item) => item.kind === 'card'),
     walletBanners: items.filter((item) => item.kind === 'wallet_banner'),
-    socialLinks: await getHomeSocialLinks(env),
   }
 }
 

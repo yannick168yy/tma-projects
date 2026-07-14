@@ -914,20 +914,12 @@ export interface HomeContentItem {
   enabled: boolean
   updatedAt: string | null
 }
-export type HomeSocialPlatform = 'telegram' | 'facebook' | 'x' | 'instagram' | 'youtube' | 'tiktok' | 'viber' | 'whatsapp'
-export interface HomeSocialLink {
-  platform: HomeSocialPlatform
-  url: string
-}
 export interface HomeContent {
   banners: HomeContentItem[]
   cards: HomeContentItem[]
   walletBanners: HomeContentItem[]
-  socialLinks: HomeSocialLink[]
 }
 export const getHomeContent = () => get<HomeContent>('/admin/home-content')
-export const saveHomeSocialLinks = (links: HomeSocialLink[]) =>
-  req<{ links: HomeSocialLink[] }>('PUT', '/admin/home-content/social', { links })
 export const uploadHomeImage = (kind: HomeContentItem['kind'], imageData: string) =>
   post<{ imageKey: string; imageUrl: string }>('/admin/home-content/upload', { kind, imageData })
 export const saveHomeContentItem = (item: Pick<HomeContentItem, 'kind' | 'slot' | 'imageKey' | 'actionType' | 'actionValue' | 'enabled'>) =>
