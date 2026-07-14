@@ -40,17 +40,19 @@ export interface RedepConfig {
 }
 
 /** 负盈利返水（路线A·CasinoPlus 式）：每日结算，统一费率、全等级、无上限。
- *  品类白名单复用 bg_turnover_logs.sort_category（与洗码同源）；门槛+封顶当日存款防对赌套利。
+ *  品类白名单复用 bg_turnover_logs.sort_category（与洗码同源）；门槛+封顶用「近 windowDays 天存款」（滚动窗口，非当日），防对赌套利靠白名单+打码。
  *  注：VIP 等级差异化返水（bg_vip_level_benefit.negative_rebate_pct）已降格停用，字段保留可回滚。 */
 export interface LossRebateConfig {
   enabled: boolean
   /** 统一返水率 %（对净输） */
   ratePct: number
-  /** 门槛：当日有效存款 ≥ 此值（同币种）才有返水资格（= minDepositByCcy.PHP，兼容旧消费方） */
+  /** 门槛：近 windowDays 天累计有效存款 ≥ 此值（同币种）才有返水资格（= minDepositByCcy.PHP，兼容旧消费方） */
   minDeposit: number
   /** 按币种独立的存款门槛（PHP/USDT/USDC） */
   minDepositByCcy: Record<string, number>
-  /** 封顶：返水基数不超过当日存款（防对赌无损套利） */
+  /** 存款统计滚动窗口天数（门槛与封顶都按「近 N 天累计存款」，松绑「必须当日存款」的限制） */
+  windowDays: number
+  /** 封顶：返水基数不超过近 windowDays 天累计存款（防对赌无损套利） */
   capToDeposit: boolean
   /** 参与返水的品类白名单（turnover sort_category 取值：slots/fishing/table/live/sports/other）；排除 live/sports */
   eligibleCats: string[]
@@ -111,7 +113,7 @@ export const PROMO_DEFAULTS: PromoConfig = {
               byCcy: { PHP: { minDeposit: 500, bonusAmount: 75 }, USDT: { minDeposit: 8.62, bonusAmount: 1.29 }, USDC: { minDeposit: 8.62, bonusAmount: 1.29 } },
               windowHours: 4, cooldownDays: 2, turnoverX: 1, turnoverDays: 30 },
   // 负盈利返水：默认关闭，后台开启后每日结算。白名单只含电子类(slots/fishing)，排除真人(live)/体育(sports)防对赌套利
-  lossRebate: { enabled: false, ratePct: 5, minDeposit: 50, minDepositByCcy: { PHP: 50, USDT: 0.86, USDC: 0.86 }, capToDeposit: true, eligibleCats: ['slots', 'fishing'], settleHour: 0 },
+  lossRebate: { enabled: false, ratePct: 5, minDeposit: 50, minDepositByCcy: { PHP: 50, USDT: 0.86, USDC: 0.86 }, windowDays: 7, capToDeposit: true, eligibleCats: ['slots', 'fishing'], settleHour: 0 },
   popups:   [
     { id: 'new_player', enabled: true, order: 1, audience: 'all', frequency: 'daily' },
     // firstdep=首页首充悬浮球，trial=活动页进站弹窗；均为常驻/进站入口，frequency 不生效于常驻，仅用开关/人群
@@ -255,6 +257,7 @@ function parseLossRebateConfig(r: Record<string, string>): LossRebateConfig {
     ratePct: num(r.rate_pct, D.ratePct),
     minDeposit: minDepositByCcy.PHP,
     minDepositByCcy,
+    windowDays: Math.max(1, Math.round(num(r.window_days, D.windowDays))),
     capToDeposit: bool(r.cap_to_deposit, D.capToDeposit),
     eligibleCats: parseCats(r.eligible_cats, D.eligibleCats),
     settleHour: Math.min(23, Math.max(0, Math.round(num(r.settle_hour, D.settleHour)))),
@@ -385,6 +388,7 @@ export async function savePromoConfig(env: Env, config: PromoConfig): Promise<vo
     ['loss_rebate', 'rate_pct',       String(config.lossRebate.ratePct     ?? D.lossRebate.ratePct)],
     ...PROMO_CCYS.map((c): [string, string, string] =>
       ['loss_rebate', ccyKey('min_deposit', c), String(config.lossRebate.minDepositByCcy?.[c] ?? D.lossRebate.minDepositByCcy[c] ?? D.lossRebate.minDeposit)]),
+    ['loss_rebate', 'window_days',    String(Math.max(1, Math.round(config.lossRebate.windowDays ?? D.lossRebate.windowDays)))],
     ['loss_rebate', 'cap_to_deposit', config.lossRebate.capToDeposit       ? '1' : '0'],
     ['loss_rebate', 'eligible_cats',  parseCats(config.lossRebate.eligibleCats?.join(','), D.lossRebate.eligibleCats).join(',')],
     ['loss_rebate', 'settle_hour',    String(Math.min(23, Math.max(0, Math.round(config.lossRebate.settleHour ?? D.lossRebate.settleHour))))],

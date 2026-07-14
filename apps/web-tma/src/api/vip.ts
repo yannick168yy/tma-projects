@@ -82,8 +82,9 @@ export interface LossRebateStatus {
   currency: string
   ratePct: number
   minDeposit: number
+  windowDays: number
   netLoss: number
-  todayDeposit: number
+  windowDeposit: number
   potentialRebate: number
   eligible: boolean
   reason: 'disabled' | 'no_loss' | 'need_deposit' | 'eligible' | 'pending'

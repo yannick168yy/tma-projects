@@ -471,9 +471,12 @@ export async function runDailyLossRebate(
   }
   const catPlaceholders = cfg.eligibleCats.map(() => '?').join(', ')
   const cap = cfg.capToDeposit ? 1 : 0
+  // 存款统计滚动窗口：结算日结束往前 windowDays 天（松绑「必须当日存款」）
+  const depStartUtc = new Date(new Date(endUtc.replace(' ', 'T') + 'Z').getTime() - cfg.windowDays * 86400000)
+    .toISOString().slice(0, 19).replace('T', ' ')
 
   // 净输 = Σbet − Σ(win+refund)，仅统计「品类∈白名单且未撤销的 bet 所属 round」的注单（round_id 全覆盖）
-  // 返水基数封顶当日存款；门槛=当日有效存款≥minDeposit；写 pending 待用户手动领
+  // 返水基数封顶「近 windowDays 天累计存款」；门槛=近 windowDays 天累计有效存款≥minDeposit；写 pending 待用户手动领
   await pool.query(
     `INSERT INTO bg_vip_reward_log
        (user_id, level, type, amount, currency_code, period_key, status)
@@ -515,7 +518,7 @@ export async function runDailyLossRebate(
      ON DUPLICATE KEY UPDATE
        amount = IF(status = 'pending', VALUES(amount), amount),
        level  = IF(status = 'pending', VALUES(level), level)`,
-    [cap, cfg.ratePct, periodKey, startUtc, endUtc, ...cfg.eligibleCats, startUtc, endUtc,
+    [cap, cfg.ratePct, periodKey, startUtc, endUtc, ...cfg.eligibleCats, depStartUtc, endUtc,
      cfg.minDepositByCcy?.USDT ?? cfg.minDeposit, cfg.minDepositByCcy?.USDC ?? cfg.minDeposit, cfg.minDeposit,
      cap, cfg.ratePct],
   )
@@ -533,8 +536,11 @@ export interface LossRebateStatus {
   currency: string
   ratePct: number
   minDeposit: number
+  /** 存款统计滚动窗口天数（门槛/封顶按近 N 天累计存款） */
+  windowDays: number
   netLoss: number
-  todayDeposit: number
+  /** 近 windowDays 天累计有效存款 */
+  windowDeposit: number
   potentialRebate: number
   eligible: boolean
   /** disabled=活动未开 / no_loss=今日暂无净输 / need_deposit=需当日存款达标 / eligible=达标结算后可领 / pending=已结算待领(在VIP待领取) */
@@ -549,7 +555,7 @@ export interface LossRebateStatus {
  */
 export async function getLossRebateStatus(env: Env, userId: string, currency: string): Promise<LossRebateStatus> {
   const base: LossRebateStatus = {
-    enabled: false, currency, ratePct: 0, minDeposit: 0, netLoss: 0, todayDeposit: 0,
+    enabled: false, currency, ratePct: 0, minDeposit: 0, windowDays: 7, netLoss: 0, windowDeposit: 0,
     potentialRebate: 0, eligible: false, reason: 'disabled', pendingClaimable: 0,
   }
   if (!isMysqlEnabled(env)) return base
@@ -557,10 +563,13 @@ export async function getLossRebateStatus(env: Env, userId: string, currency: st
   const cfg = await getLossRebateConfigByPool(pool)
   const minDeposit = cfg.minDepositByCcy?.[currency] ?? cfg.minDeposit
   const ratePct = cfg.ratePct
-  base.enabled = cfg.enabled; base.ratePct = ratePct; base.minDeposit = minDeposit
+  base.enabled = cfg.enabled; base.ratePct = ratePct; base.minDeposit = minDeposit; base.windowDays = cfg.windowDays
   if (!cfg.enabled || ratePct <= 0 || cfg.eligibleCats.length === 0) return base
 
-  const { startUtc, endUtc } = vipDayWindow(true) // 今日至今
+  const { startUtc, endUtc } = vipDayWindow(true) // 净输统计：今日至今
+  // 存款统计：近 windowDays 天滚动窗口（松绑「必须当日存款」）
+  const depStartUtc = new Date(new Date(endUtc.replace(' ', 'T') + 'Z').getTime() - cfg.windowDays * 86400000)
+    .toISOString().slice(0, 19).replace('T', ' ')
   const catPlaceholders = cfg.eligibleCats.map(() => '?').join(', ')
 
   // 今日该币种、白名单品类的净输
@@ -581,13 +590,13 @@ export async function getLossRebateStatus(env: Env, userId: string, currency: st
   )
   const netLoss = Math.max(0, Number(loss?.net_loss ?? 0))
 
-  // 今日该币种有效存款
+  // 近 windowDays 天该币种累计有效存款
   const [[dep]] = await pool.query<RowDataPacket[]>(
     `SELECT COALESCE(SUM(amount), 0) AS dep FROM bg_deposit_order
      WHERE user_id = ? AND currency = ? AND status = 'paid' AND created_at >= ? AND created_at < ?`,
-    [userId, currency, startUtc, endUtc],
+    [userId, currency, depStartUtc, endUtc],
   )
-  const todayDeposit = Number(dep?.dep ?? 0)
+  const windowDeposit = Number(dep?.dep ?? 0)
 
   // 已结算待领取（历史所有 pending 负盈利返水，本币种）
   const [[pend]] = await pool.query<RowDataPacket[]>(
@@ -597,9 +606,9 @@ export async function getLossRebateStatus(env: Env, userId: string, currency: st
   )
   const pendingClaimable = Number(pend?.c ?? 0)
 
-  const rebateBase = cfg.capToDeposit ? Math.min(netLoss, todayDeposit) : netLoss
+  const rebateBase = cfg.capToDeposit ? Math.min(netLoss, windowDeposit) : netLoss
   const potentialRebate = Math.round(rebateBase * ratePct / 100 * 100) / 100
-  const depositOk = todayDeposit >= minDeposit
+  const depositOk = windowDeposit >= minDeposit
   const eligible = netLoss > 0 && depositOk && potentialRebate > 0
 
   let reason: LossRebateStatus['reason']
@@ -608,7 +617,7 @@ export async function getLossRebateStatus(env: Env, userId: string, currency: st
   else if (!depositOk) reason = 'need_deposit'
   else reason = 'eligible'
 
-  return { enabled: true, currency, ratePct, minDeposit, netLoss, todayDeposit, potentialRebate, eligible, reason, pendingClaimable }
+  return { enabled: true, currency, ratePct, minDeposit, windowDays: cfg.windowDays, netLoss, windowDeposit, potentialRebate, eligible, reason, pendingClaimable }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

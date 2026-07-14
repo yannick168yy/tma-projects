@@ -59,6 +59,7 @@ export default function Promotions() {
       // 防御性初始化按币种结构（后端一般已下发）
       if (!data.redep.byCcy) data.redep.byCcy = {}
       for (const c of FIRSTDEP_CURRENCIES) if (!data.redep.byCcy[c]) data.redep.byCcy[c] = { minDeposit: data.redep.minDeposit, bonusAmount: data.redep.bonusAmount }
+      if (data.lossRebate.windowDays == null) data.lossRebate.windowDays = 7
       if (!data.lossRebate.minDepositByCcy) data.lossRebate.minDepositByCcy = {}
       for (const c of FIRSTDEP_CURRENCIES) if (data.lossRebate.minDepositByCcy[c] == null) data.lossRebate.minDepositByCcy[c] = data.lossRebate.minDeposit
       if (!Array.isArray(data.bonusCards)) data.bonusCards = []
@@ -352,7 +353,7 @@ export default function Promotions() {
     >
       <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 12 }}>
         路线A：每日结算「昨天」净输（Σ投注−Σ派彩），按统一费率返还，全等级一致、无上限，用户手动领取。
-        门槛=当日有效存款达标才有资格；封顶=返水基数不超过当日存款；品类白名单只含电子类，排除真人/体育防对赌套利。
+        门槛/封顶均按「近 N 天累计有效充值」（滚动窗口，无需当天存款）；品类白名单只含电子类，排除真人/体育防对赌套利。
       </Text>
       <Row gutter={24} style={{ marginBottom: 16 }}>
         <Col span={8}>
@@ -361,7 +362,7 @@ export default function Promotions() {
         </Col>
         <Col span={8}>
           <Space size={4} align="center" style={{ marginBottom: 2 }}>
-            <Text>当日存款门槛（{lossCcy}）</Text>
+            <Text>充值门槛（{lossCcy}）</Text>
             <Segmented size="small" value={lossCcy} onChange={(v) => setLossCcy(String(v))} options={CONFIG_CCY_OPTIONS.map((o) => ({ value: o.value, label: o.label }))} />
           </Space>
           <InputNumber prefix={lossCcy === 'PHP' ? '₱' : lossCcy} style={{ width: '100%', marginTop: 4 }} min={0} precision={2}
@@ -369,7 +370,13 @@ export default function Promotions() {
             onChange={(v) => patch((d) => { d.lossRebate.minDepositByCcy[lossCcy] = Number(v ?? 0); if (lossCcy === 'PHP') d.lossRebate.minDeposit = Number(v ?? 0) })} />
         </Col>
         <Col span={8}>
-          <Text>返水基数封顶当日存款</Text>
+          <Text>存款统计窗口</Text>
+          <InputNumber suffix="天" style={{ width: '100%', marginTop: 4 }} min={1} max={90} precision={0} value={cfg.lossRebate.windowDays} onChange={(v) => patch((d) => { d.lossRebate.windowDays = Number(v ?? 7) })} />
+        </Col>
+      </Row>
+      <Row gutter={24} style={{ marginBottom: 16 }}>
+        <Col span={8}>
+          <Text>返水基数封顶近 {cfg.lossRebate.windowDays} 天存款</Text>
           <div style={{ marginTop: 4 }}>
             <Switch checkedChildren="封顶" unCheckedChildren="不封顶" checked={cfg.lossRebate.capToDeposit} onChange={(v) => patch((d) => { d.lossRebate.capToDeposit = v })} />
           </div>

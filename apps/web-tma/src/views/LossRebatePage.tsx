@@ -55,7 +55,7 @@ export default function LossRebatePage({ onOpenVipCenter }: Props) {
               {status.pendingClaimable > 0
                 ? t('lossRebate.status.pending', { amt: fmt(status.pendingClaimable) })
                 : status.reason === 'need_deposit'
-                  ? t('lossRebate.status.needDeposit', { min: fmt(status.minDeposit), dep: fmt(status.todayDeposit) })
+                  ? t('lossRebate.status.needDeposit', { days: status.windowDays, min: fmt(status.minDeposit), dep: fmt(status.windowDeposit) })
                   : t('lossRebate.status.eligible')}
             </p>
             {(status.pendingClaimable > 0 || status.eligible) && (
@@ -88,7 +88,7 @@ export default function LossRebatePage({ onOpenVipCenter }: Props) {
 
         <Section title={t('lossRebate.condTitle')}>
           <ul className="list-disc space-y-1 pl-5">
-            <li>{t('lossRebate.cond1', { min: fmt(min) })}</li>
+            <li>{t('lossRebate.cond1', { days: status?.windowDays ?? 7, min: fmt(min) })}</li>
             <li>{t('lossRebate.cond2')}</li>
           </ul>
         </Section>

@@ -798,6 +798,8 @@ export interface LossRebateConfig {
   minDeposit: number
   /** 按币种独立的存款门槛（PHP/USDT/USDC） */
   minDepositByCcy: Record<string, number>
+  /** 存款统计滚动窗口天数（门槛/封顶按近 N 天累计存款） */
+  windowDays: number
   capToDeposit: boolean
   eligibleCats: string[]
   settleHour: number
