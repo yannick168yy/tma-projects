@@ -650,9 +650,13 @@ export default {
     claimTitle: 'How to claim',
     claimBody: 'Your daily rebate shows up as a claimable reward in the VIP Center — tap to collect it into your balance.',
     claimCta: 'Go to VIP Center',
+    claimNow: 'Claim {{amt}}',
+    noClaim: 'Nothing to claim yet',
+    viewHistory: 'View claim history',
     status: {
       title: 'Your rebate (today so far)',
       netLoss: "Today's net loss",
+      pendingLabel: 'Rebate ready to claim',
       potential: 'Est. rebate ({{rate}}%)',
       needDeposit: 'Deposit ≥ {{min}} within {{days}} days to unlock (now {{dep}})',
       eligible: 'Qualified — claimable in VIP Center after settlement',

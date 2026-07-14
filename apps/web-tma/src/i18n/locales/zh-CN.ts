@@ -640,9 +640,13 @@ export default {
     claimTitle: '如何领取',
     claimBody: '每日返水会作为待领取奖金出现在 VIP 中心，点击即可领入余额。',
     claimCta: '前往 VIP 中心',
+    claimNow: '领取 {{amt}}',
+    noClaim: '暂无可领取返水',
+    viewHistory: '查看领取记录',
     status: {
       title: '你的返水（今日至今）',
       netLoss: '今日净输',
+      pendingLabel: '待领取返水',
       potential: '预计可返（{{rate}}%）',
       needDeposit: '近 {{days}} 天充值满 {{min}} 即可领取（当前 {{dep}}）',
       eligible: '已达标，结算后可在 VIP 中心领取',

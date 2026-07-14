@@ -18,7 +18,6 @@ export type FullPageView =
   | { type: 'kycSetting' }
   | { type: 'download' }
   | { type: 'tasks'; initialPath?: TaskInitialPath }
-  | { type: 'lossRebate' }
 
 /** 全屏专题页：走 document/body 滚动，勿用 fixed + 内部 overflow-y-auto */
 export function isImmersiveFullPage(view: FullPageView): boolean {
@@ -26,7 +25,6 @@ export function isImmersiveFullPage(view: FullPageView): boolean {
     || view.type === 'betHistory'
     || view.type === 'ledgerRecords'
     || view.type === 'rebate'
-    || view.type === 'lossRebate'
     || view.type === 'vipCenter'
     || view.type === 'spin'
     || view.type === 'kycSetting'
