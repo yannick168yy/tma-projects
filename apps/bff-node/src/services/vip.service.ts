@@ -547,6 +547,10 @@ export interface LossRebateStatus {
   reason: 'disabled' | 'no_loss' | 'need_deposit' | 'eligible' | 'pending'
   /** 已结算待领取的返水（bg_vip_reward_log pending） */
   pendingClaimable: number
+  /** 今日 period 已结算金额（含已领 paid + 待领 pending）；预览需扣掉这部分避免重复展示 */
+  todaySettled: number
+  /** 今日 period 已领取(paid)金额 */
+  todayClaimed: number
 }
 
 /**
@@ -556,7 +560,7 @@ export interface LossRebateStatus {
 export async function getLossRebateStatus(env: Env, userId: string, currency: string): Promise<LossRebateStatus> {
   const base: LossRebateStatus = {
     enabled: false, currency, ratePct: 0, minDeposit: 0, windowDays: 7, netLoss: 0, windowDeposit: 0,
-    potentialRebate: 0, eligible: false, reason: 'disabled', pendingClaimable: 0,
+    potentialRebate: 0, eligible: false, reason: 'disabled', pendingClaimable: 0, todaySettled: 0, todayClaimed: 0,
   }
   if (!isMysqlEnabled(env)) return base
   const pool = getMysqlPool(env)
@@ -566,7 +570,7 @@ export async function getLossRebateStatus(env: Env, userId: string, currency: st
   base.enabled = cfg.enabled; base.ratePct = ratePct; base.minDeposit = minDeposit; base.windowDays = cfg.windowDays
   if (!cfg.enabled || ratePct <= 0 || cfg.eligibleCats.length === 0) return base
 
-  const { startUtc, endUtc } = vipDayWindow(true) // 净输统计：今日至今
+  const { periodKey, startUtc, endUtc } = vipDayWindow(true) // 净输统计：今日至今
   // 存款统计：近 windowDays 天滚动窗口（松绑「必须当日存款」）
   const depStartUtc = new Date(new Date(endUtc.replace(' ', 'T') + 'Z').getTime() - cfg.windowDays * 86400000)
     .toISOString().slice(0, 19).replace('T', ' ')
@@ -606,6 +610,18 @@ export async function getLossRebateStatus(env: Env, userId: string, currency: st
   )
   const pendingClaimable = Number(pend?.c ?? 0)
 
+  // 今日 period 已结算（含已领 paid + 待领 pending）：预览的「预计可返」要扣掉这部分，
+  // 否则会把已经结算/领取过的金额再算进「还能返」，误导用户（如已领 0.5 仍显示预计 0.7）
+  const [[settled]] = await pool.query<RowDataPacket[]>(
+    `SELECT COALESCE(SUM(amount), 0) AS s,
+            COALESCE(SUM(CASE WHEN status = 'paid' THEN amount ELSE 0 END), 0) AS c
+     FROM bg_vip_reward_log
+     WHERE user_id = ? AND currency_code = ? AND type = 'negative_rebate' AND period_key = ?`,
+    [userId, currency, periodKey],
+  )
+  const todaySettled = Number(settled?.s ?? 0)
+  const todayClaimed = Number(settled?.c ?? 0)
+
   const rebateBase = cfg.capToDeposit ? Math.min(netLoss, windowDeposit) : netLoss
   const potentialRebate = Math.round(rebateBase * ratePct / 100 * 100) / 100
   const depositOk = windowDeposit >= minDeposit
@@ -617,7 +633,7 @@ export async function getLossRebateStatus(env: Env, userId: string, currency: st
   else if (!depositOk) reason = 'need_deposit'
   else reason = 'eligible'
 
-  return { enabled: true, currency, ratePct, minDeposit, windowDays: cfg.windowDays, netLoss, windowDeposit, potentialRebate, eligible, reason, pendingClaimable }
+  return { enabled: true, currency, ratePct, minDeposit, windowDays: cfg.windowDays, netLoss, windowDeposit, potentialRebate, eligible, reason, pendingClaimable, todaySettled, todayClaimed }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

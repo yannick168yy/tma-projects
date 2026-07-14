@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, type CSSProperties } from 'react'
+import { useState, useEffect, useCallback, useRef, type CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ChevronRight, History, ShieldCheck } from 'lucide-react'
 import diamondImg from '@/assets/vip/diamond.webp'
@@ -55,6 +55,8 @@ export default function VipPage({ initialTab = 'overview', onOpenKycSetting, onO
   const [rewards, setRewards] = useState<VipReward[]>([])
   const [lossStatus, setLossStatus] = useState<LossRebateStatus | null>(null)
   const [claimingVip, setClaimingVip] = useState(false)
+  const benefitsScrollRef = useRef<HTMLDivElement>(null)
+  const currentCardRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => { setActiveTab(initialTab) }, [initialTab])
 
@@ -111,6 +113,14 @@ export default function VipPage({ initialTab = 'overview', onOpenKycSetting, onO
   const progressPct = nextThreshold != null
     ? Math.min(100, Math.max(0, (totalTurnover - currentThreshold) / Math.max(1, nextThreshold - currentThreshold) * 100))
     : 100
+
+  // 进入 benefits tab 时把当前等级卡片居中，默认展示用户所处等级
+  useEffect(() => {
+    if (activeTab !== 'benefits') return
+    const c = benefitsScrollRef.current, card = currentCardRef.current
+    if (!c || !card) return
+    c.scrollTo({ left: card.offsetLeft - (c.clientWidth - card.clientWidth) / 2, behavior: 'auto' })
+  }, [activeTab, levels, vipLevel])
 
   function renderHero() {
     const nextLv = nextLevel?.level ?? (nextThreshold != null ? vipLevel + 1 : null)
@@ -325,6 +335,11 @@ export default function VipPage({ initialTab = 'overview', onOpenKycSetting, onO
     const s = lossStatus
     const rate = s?.ratePct ?? 5
     const canClaim = (s?.pendingClaimable ?? 0) > 0
+    const settled = s?.todaySettled ?? 0
+    const claimed = s?.todayClaimed ?? 0
+    // 待结算预计 = 今日预计返水 − 今日已结算(含已领/待领)，避免把已结算部分重复算进「还能返」
+    const remainingEstimate = Math.max(0, Math.round(((s?.potentialRebate ?? 0) - settled) * 100) / 100)
+    const heroVal = canClaim ? (s?.pendingClaimable ?? 0) : remainingEstimate
     const reasonMsg = !s || !s.enabled
       ? t('lossRebate.introBody', { rate })
       : canClaim
@@ -333,15 +348,25 @@ export default function VipPage({ initialTab = 'overview', onOpenKycSetting, onO
           ? t('lossRebate.status.noLoss')
           : s.reason === 'need_deposit'
             ? t('lossRebate.status.needDeposit', { days: s.windowDays, min: amtStr(currency, s.minDeposit), dep: amtStr(currency, s.windowDeposit) })
-            : t('lossRebate.status.eligible')
+            : remainingEstimate > 0
+              ? t('lossRebate.status.pendingSettle')
+              : t('lossRebate.status.settledAll')
     return (
       <div className="space-y-3 px-4 pb-8">
         <section className="rounded-2xl border p-4" style={VIP_GLASS_STYLE}>
-          <p className="text-[11px] font-medium text-[#c9c9c5]">{canClaim ? t('lossRebate.status.pendingLabel') : t('lossRebate.status.potential', { rate })}</p>
-          <p className="mt-1 font-display text-3xl font-black text-amber-200">{amtStr(currency, canClaim ? (s?.pendingClaimable ?? 0) : (s?.potentialRebate ?? 0))}</p>
-          <div className="mt-2.5 flex items-center justify-between rounded-xl border px-3 py-2 text-xs" style={VIP_INNER_GLASS_STYLE}>
-            <span className="text-[#c9c9c5]">{t('lossRebate.status.netLoss')} · {rate}%</span>
-            <span className="font-bold text-white">{amtStr(currency, s?.netLoss ?? 0)}</span>
+          <p className="text-[11px] font-medium text-[#c9c9c5]">{canClaim ? t('lossRebate.status.pendingLabel') : t('lossRebate.status.remaining')}</p>
+          <p className="mt-1 font-display text-3xl font-black text-amber-200">{amtStr(currency, heroVal)}</p>
+          <div className="mt-2.5 space-y-1.5 rounded-xl border px-3 py-2.5 text-xs" style={VIP_INNER_GLASS_STYLE}>
+            <div className="flex items-center justify-between">
+              <span className="text-[#c9c9c5]">{t('lossRebate.status.netLoss')} · {rate}%</span>
+              <span className="font-bold text-white">{amtStr(currency, s?.netLoss ?? 0)}</span>
+            </div>
+            {claimed > 0 && (
+              <div className="flex items-center justify-between">
+                <span className="text-[#c9c9c5]">{t('lossRebate.status.claimedToday')}</span>
+                <span className="font-bold text-emerald-300">{amtStr(currency, claimed)}</span>
+              </div>
+            )}
           </div>
           <p className="mt-2 text-[11px] leading-relaxed text-amber-100/70">{reasonMsg}</p>
           <button
@@ -390,30 +415,30 @@ export default function VipPage({ initialTab = 'overview', onOpenKycSetting, onO
     return (
       <div className="px-4 pb-8">
         <h2 className="mb-3 px-1 text-sm font-semibold text-white">{t('vipPage.levelBenefits')}</h2>
-        <div className="flex snap-x snap-mandatory gap-3.5 overflow-x-auto pb-2 hide-scrollbar">
+        <div ref={benefitsScrollRef} className="flex snap-x snap-mandatory gap-3.5 overflow-x-auto pb-2 hide-scrollbar">
           {sortedLevels.map((lv) => {
             const isCurrent = lv.level === vipLevel
             const isMax = lv.level === (sortedLevels[sortedLevels.length - 1]?.level ?? lv.level)
             return (
-              <div key={lv.level} className="flex w-[87%] max-w-[344px] shrink-0 snap-center flex-col overflow-hidden rounded-[26px] border" style={isCurrent ? VIP_GLASS_STYLE : VIP_INNER_GLASS_STYLE}>
-                <div className="relative flex items-center gap-3 border-b border-amber-300/14 px-5 py-4">
-                  <img src={iconCrown} alt="" className="h-14 w-14 flex-shrink-0 drop-shadow-[0_2px_8px_rgba(180,140,60,0.45)]" />
+              <div key={lv.level} ref={isCurrent ? currentCardRef : undefined} className="flex min-h-[430px] w-[87%] max-w-[344px] shrink-0 snap-center flex-col overflow-hidden rounded-[26px] border" style={isCurrent ? VIP_GLASS_STYLE : VIP_INNER_GLASS_STYLE}>
+                <div className="relative flex items-center gap-3 border-b border-amber-300/14 px-5 py-5">
+                  <img src={iconCrown} alt="" className="h-16 w-16 flex-shrink-0 drop-shadow-[0_2px_8px_rgba(180,140,60,0.45)]" />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <p className="font-display text-[32px] font-black leading-none text-amber-100">VIP {lv.level}</p>
+                      <p className="font-display text-[34px] font-black leading-none text-amber-100">VIP {lv.level}</p>
                       {isCurrent && <span className="rounded-full bg-amber-300 px-2 py-0.5 text-[10px] font-black text-[#241604]">{t('cashback.levelCurrent')}</span>}
                       {isMax && !isCurrent && <span className="rounded-md bg-gradient-to-r from-amber-300 to-yellow-500 px-2 py-0.5 text-[10px] font-black text-[#1b1204]">MAX</span>}
                     </div>
                     <p className="mt-1.5 text-[11px] text-amber-100/55">{lv.minTurnover > 0 ? t('cashback.levelReq', { amount: amtStr(currency, lv.minTurnover) }) : t('cashback.levelEntry')}</p>
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-x-3 gap-y-5 px-5 py-6">
+                <div className="grid flex-1 grid-cols-2 content-center gap-x-3 gap-y-7 px-5 py-7">
                   <BenefitItem icon={iconLevelup} label={t('cashback.vipPromotion')} value={amtStr(currency, lv.promotionBonus)} />
                   <BenefitItem icon={iconWeekly} label={t('cashback.vipWeekly')} value={amtStr(currency, lv.weeklySalary)} />
                   <BenefitItem icon={iconMonthly} label={t('cashback.vipMonthly')} value={amtStr(currency, lv.monthlySalary)} />
                   <BenefitItem icon={iconBday} label={t('cashback.vipBirthday')} value={amtStr(currency, lv.birthdayBonus)} />
                 </div>
-                <div className="mt-auto space-y-2 border-t border-amber-300/14 px-5 py-4 text-[13px]">
+                <div className="space-y-2.5 border-t border-amber-300/14 px-5 py-5 text-[13px]">
                   <BenefitLine label={t('vipPage.retentionLine')} value={amtStr(currency, lv.retentionLine)} />
                   <BenefitLine label={t('vipPage.withdrawLimit')} value={`${amtStr(currency, lv.withdrawDailyLimit)} / ${lv.withdrawDailyCount}x`} />
                 </div>

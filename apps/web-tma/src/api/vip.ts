@@ -89,6 +89,10 @@ export interface LossRebateStatus {
   eligible: boolean
   reason: 'disabled' | 'no_loss' | 'need_deposit' | 'eligible' | 'pending'
   pendingClaimable: number
+  /** 今日 period 已结算（含已领+待领） */
+  todaySettled: number
+  /** 今日 period 已领取金额 */
+  todayClaimed: number
 }
 
 /** 负盈利返水「今日至今」实时状态：净输 / 预计可返 / 是否达标 / 不可领原因 */
