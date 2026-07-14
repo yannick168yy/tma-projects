@@ -3,6 +3,17 @@
 > 基于 2026-07-06 代码现状整理。测试环境：`https://www.188facai.com`（47.84.34.139）。
 > API 前缀 `/api/v1`；后台账号 admin / aa888888（super_admin）。
 > 优先级：P0=资金/安全核心路径，P1=主流程，P2=次要功能/边界。
+>
+> **第一部分（一~十三章）** 为 2026-07-06 基线用例。
+> **第二部分（十四章起）** 为 2026-07-06 之后新增/变更业务的补充用例，每条带「测试执行」标注。
+
+### 测试执行标注说明（第二部分）
+
+| 标记 | 含义 | Claude 能做的验证手段 |
+|---|---|---|
+| 🤖 | **Claude 可独立完成** | curl 打 `/api/v1` 接口、SSH 进 47.84.34.139 查 MySQL、in-app 浏览器访问站点检查渲染/console/network、后台 API 改配置后验证前台响应、防重/幂等重放、计算口径查库比对、cron 结算后查 pending 表 |
+| 🤝 | **需人工配合触发，Claude 验数据** | 核心逻辑/接口/落库我能验，但触发链路需人工完成（真实充值到账、真机下注产生注单、TG 内打开、收到短信后回填），之后我核对数据库与接口返回是否正确 |
+| 👤 | **必须人工** | 真机行为（全屏/横屏/PWA 安装/窄屏适配）、真实支付出款、短信 OTP、OAuth 授权、Turnstile/CAPTCHA、KYC 证件/人脸、视觉设计还原度、动画动效主观判断 |
 
 ---
 
@@ -369,3 +380,230 @@
 | PERF-002 | 弱网竞态 | 弱网快速切分类/搜索，旧响应不覆盖新结果（请求序号机制） | P1 |
 | STAB-001 | 部署后冒烟 | fast 部署后 /health ok、登录/首页/充值渠道三接口 200；DNS 坑（ENOTFOUND tma-mysql）出现时按 [[reference_deploy_dns]] 再 restart 恢复 | P0 |
 | STAB-002 | 迁移安全 | 新迁移只执行一次（schema_migrations），重复部署不清数据 | P0 |
+
+---
+---
+
+# 第二部分：2026-07-06 后新增/变更业务补充用例
+
+> 每条标「测试执行」列：🤖 Claude 可独立完成 / 🤝 需人工配合触发 Claude 验数据 / 👤 必须人工。
+
+## 十四、任务中心（TaskCenterPage + 首页任务浮球）
+
+> 统一任务引擎，四组任务：newbie / daily / achievement / social；奖励类型 cash（走 creditWallet，带 turnoverX 时叠加打码）/ spin（写 bg_spin_chance）/ growth（累加 bg_user_vip_state.task_growth 喂 VIP 等级）。接口 `GET /tasks?currency=`、`POST /tasks/:id/claim`、`POST /tasks/social/:key/claim`；均前置风控 `riskAllowed('promo_claim')`。任务配置按币种存 `bg_admin_settings.task_config`，稳定币未配则 PHP÷58 派生。
+
+| 编号 | 用例名称 | 前置 / 操作 | 预期结果 | 优先级 | 执行 |
+|---|---|---|---|---|---|
+| TASK-001 | 任务中心四区加载 | 登录后打开任务中心 | `GET /tasks` 返回 newbie/daily/achievement/social 四组卡片；进度、可领状态与后台配置一致 | P0 | 🤖 |
+| TASK-002 | 每日存款三档 | 当日累计存款分别达 100/500/2000（默认阈值） | daily_deposit_t1/t2/t3 依次点亮可领；未达档位置灰 | P1 | 🤝 |
+| TASK-003 | 每日投注笔数任务 | 当日有效投注（单注≥10）满 5 笔 | daily_bets 达成可领；不足笔数不可领 | P1 | 🤝 |
+| TASK-004 | 每日指定分类局数 | 玩 slot 分类满配置局数 | daily_play 进度按分类局数累计并可领 | P2 | 🤝 |
+| TASK-005 | 新手·完善资料 | 同时绑定 Google + Telegram | profile_complete 达成（需 2 个绑定齐全）；缺一不可领 | P1 | 👤 |
+| TASK-006 | 新手·首次下注 | 首次真钱下注 | first_game 一次性达成可领 | P1 | 🤝 |
+| TASK-007 | 邀请里程碑 | 名下有效邀请人数达阈值 | invite_milestone 达标可领；同 achievement 区签到里程碑卡展示 | P2 | 🤝 |
+| TASK-008 | cash 任务领取入账+打码 | 领取带 turnoverX>0 的 cash 任务 | 走 creditWallet 入账一次；生成 promoRequirement 打码要求；重复领取被拒 | P0 | 🤖 |
+| TASK-009 | spin 任务发转盘次数 | 领取 spin 奖励任务 | bg_spin_chance +N（复用 kind='checkin' 最低启用档），转盘页次数同步 | P1 | 🤖 |
+| TASK-010 | growth 任务喂 VIP 成长 | 领取 growth 任务后查 VIP 进度 | bg_user_vip_state.task_growth 增加对应 amount（按币种独立）；VIP 等级判定累计流水含 task_growth | P1 | 🤖 |
+| TASK-011 | 社群·Telegram 关注验证 | 已绑 TG，加入官方频道后领取 | `/tasks/social/:key/claim` 经 Bot getChatMember 校验 member/admin/creator 通过入账；未加入 403 not_member；未绑 TG 428 need_bind_telegram | P1 | 🤝 |
+| TASK-012 | 社群·回填码/截图审核 | Facebook/Viber 任务提交码或截图 | code_redeem 码错 400；截图走 manual_review 入 bg_task_manual_review 待后台审核，不立即入账 | P2 | 🤝 |
+| TASK-013 | 领奖后接力下一任务 | 完成并领取任务条中的任务 | 领奖后就地延续下一个任务上下文（不整条消失），进度回流刷新 | P2 | 🤖 |
+| TASK-014 | 聚合卡跳转入口 | 查看 achievement/newbie 聚合卡（trial/appdl/firstdep/birthday/checkin） | display-only 卡点击跳对应原模块入口，不在任务内领取 | P2 | 🤖 |
+| TASK-015 | 单聚合块容错 | 某聚合数据源异常 | buildAggregatedCards 各块独立 try/catch，单块失败不拖垮整页 | P1 | 🤖 |
+| TASK-016 | 任务多语言 | 切 en/zh-CN/vi/id | social 三任务（follow_telegram/facebook/viber）及原生任务标题副标题按语言切换，无键名裸串 | P2 | 🤖 |
+| TASK-017 | 首页任务浮球 | 首页观察任务悬浮球 | 浮球默认右上、可拖动、松手吸附边缘；红点=未完成任务数；点击扇形展开三入口 | P2 | 👤 |
+| TASK-018 | 浮球贴边 TASKS 竖条 | 展开后点 X 收起 | 收进右边缘 TASKS 竖条控件；点竖条滑出还原；整个挂件即关闭热区（修小 X 点不中） | P2 | 👤 |
+| TASK-019 | 后台任务配置三 tab | 后台任务中心改配置 | newbie/daily/social 三 tab 与前台三区一一对应；改阈值/奖励保存后前台 `/tasks` 同步 | P1 | 🤖 |
+| TASK-020 | 后台截图人工审核 | social tab 审核队列 | `/admin/tasks/manual-reviews` 列表可通过/驳回；通过后对应用户任务入账 | P2 | 🤖 |
+
+---
+
+## 十五、VIP 成长中心（原洗码页升格为 VipPage）
+
+> 等级扩至 **9 级**，按**每币种独立**累计有效流水（含 task_growth）判级。权益（bg_vip_level_benefit，按币种）：晋级礼金 / 周俸 / 月俸 / 生日礼金 / 保级线 / 提现日额度·次数。C 端接口 `/vip/levels`、`/vip/progress`、`/vip/rewards`、`POST /vip/claim`；洗码沿用 `/rebate/*`。原独立 loss-rebate 页已删并入 VIP 页负盈利 tab（见十六章）。
+
+| 编号 | 用例名称 | 前置 / 操作 | 预期结果 | 优先级 | 执行 |
+|---|---|---|---|---|---|
+| VIP-001 | 9 级体系与进度 | 打开 VIP 页 | `/vip/levels` 返回 LV1-9；`/vip/progress` 当前级、距下级流水、进度条正确；LV1 阈值 0 | P1 | 🤖 |
+| VIP-002 | 每币种独立等级 | 同账号 PHP 与 USDT 各有不同流水 | 切币种时等级/进度按该币种独立账拉取，互不影响（迁移 141） | P1 | 🤖 |
+| VIP-003 | 晋级礼金补发 | 流水跨过多级阈值 | awardPromotionBonus 按已发放最高级到当前级差，补发中间每级 promotion_bonus，幂等不重发 | P1 | 🤖 |
+| VIP-004 | 周俸门槛防躺领 | 当期有效流水 < 保级线/13 | 周俸不发；达门槛才发到 pending，领取有效期 7 天 | P1 | 🤖 |
+| VIP-005 | 月俸门槛 | 当期有效流水 vs 保级线/3 | 达门槛发月俸 pending，有效期 14 天；未达不发 | P1 | 🤖 |
+| VIP-006 | 生日礼金 KYC 同步 | KYC approved 且证件 dob 命中今日 | 从 bg_kyc.gemini_result.document.dob 懒回填 birthday 后发放，每年一次；**不接受用户手输生日** | P2 | 🤝 |
+| VIP-007 | 季度硬降级封顶一级 | 当季流水增量 < 保级线且 current≥awarded | runQuarterlyRetention 每季每人一次，最多降 1 级，降到 awarded−1 触底不再下掉 | P1 | 🤖 |
+| VIP-008 | 降级后回升 | current<awarded 且当季流水≥保级线 | 回升 1 级；达历史新高时 current 跟进覆盖过去降级 | P1 | 🤖 |
+| VIP-009 | VIP6+ 专属客服标识 | 账号等级≥6 | 前端 prioritySupport=true，展示专属客服权益 | P2 | 🤖 |
+| VIP-010 | 提现额度/次数按级 | 不同等级发起提现 | withdraw_daily_limit / withdraw_daily_count 按当前等级权益生效 | P1 | 🤝 |
+| VIP-011 | 待领礼金统一领取 | 有 pending 的晋级/周俸/月俸/生日/负盈利礼金 | `POST /vip/claim` 一次性入账全部 pending（creditWalletTx type=vip_bonus）；重复点不重复入账 | P0 | 🤖 |
+| VIP-012 | 礼金币种记录显示 | 领取多币种礼金后查记录 | VIP 礼金记录按币种正确显示金额（修复 2c27034） | P2 | 🤖 |
+| VIP-013 | benefits 卡片交互 | 横滑权益卡 | 卡片加高、默认居中当前等级 | P2 | 👤 |
+| VIP-014 | 后台权益配置按币种 | 后台 VIP 权益页切 PHP/USDT/USDC | 币种切换器生效，各币种权益独立保存；`PUT /admin/vip/benefits` 前台同步 | P1 | 🤖 |
+| VIP-015 | 后台手动跑批 | 后台触发 weekly/monthly/birthday/retention manual | 各 `POST /admin/vip/*/manual` 按币种正确生成 pending，不重复 | P1 | 🤖 |
+
+---
+
+## 十六、负盈利返水（Net-loss Rebate，VIP 页负盈利 tab）
+
+> 路线A·每日：净输按**昨天整日**结算，费率默认 **5%**（后台可配、全等级统一、无上限），近 **7 天滚动存款**窗口用于门槛与封顶。品类白名单默认 slots/fishing（排除 live/sports 防对赌）。领取门槛=近 7 天累计有效存款≥minDeposit（PHP 默认 50）。封顶 cap_to_deposit=true → 基数=LEAST(净输, 近7天存款)×费率。预览接口 `GET /vip/loss-rebate-status`，领取走 `POST /vip/claim`，后台手动结算 `POST /admin/vip/negative-rebate/manual`。配置 `bg_promo_config` promo_id='loss_rebate'。
+
+| 编号 | 用例名称 | 前置 / 操作 | 预期结果 | 优先级 | 执行 |
+|---|---|---|---|---|---|
+| NLR-001 | C 端实时预览 | VIP 页负盈利 tab | `/vip/loss-rebate-status` 返回 netLoss/windowDeposit/potentialRebate/eligible/reason；显示今日净输、预计可返 | P1 | 🤖 |
+| NLR-002 | 不可领原因展示 | 分别构造 disabled/no_loss/need_deposit/pending 场景 | reason 各自回对文案：活动关/无净输/存款未达门槛/待结算 | P1 | 🤖 |
+| NLR-003 | 费率与全等级统一 | 不同 VIP 等级各查预览 | 返水率均为配置的统一值（默认 5%），不再按等级差异化（negative_rebate_pct 已停用） | P1 | 🤖 |
+| NLR-004 | 品类白名单 | 分别在 slots/fishing 与 live/sports 产生净输 | 仅白名单品类计入净输基数；live/sports 不计（按 round_id 归属 sort_category） | P0 | 🤖 |
+| NLR-005 | 存款门槛闸 | 近 7 天存款 < minDeposit | reason=need_deposit，不可领；达门槛后可领 | P0 | 🤖 |
+| NLR-006 | 净存款封顶 | 净输 > 近 7 天累计存款 | 返水基数=近 7 天存款而非净输（LEAST 取小）×费率 | P0 | 🤖 |
+| NLR-007 | 滚动窗口非当日闸 | 仅前几日有存款、当日无存款但有净输 | 近 7 天滚动窗口内存款满足门槛即可领（方案2 松绑当日存款闸） | P1 | 🤖 |
+| NLR-008 | 扣减已结算金额 | 今日已结算/已领部分后再查预览 | remainingEstimate = max(0, potentialRebate − todaySettled)，不把已结算重复算进"还能返" | P0 | 🤖 |
+| NLR-009 | 领取入账 | 有 pending 负盈利返水 | `POST /vip/claim` 入账（type=vip_bonus / negative_rebate）；重复点不重复入账 | P0 | 🤖 |
+| NLR-010 | 每日 cron 结算 | 到 settleHour（默认 PHT 0 点） | runDailyLossRebate 结算昨天整日净输，写 bg_vip_reward_log status=pending，不自动入账 | P0 | 🤖 |
+| NLR-011 | 后台手动结算 | 后台点立刻结算（includeToday 开/关） | `/admin/vip/negative-rebate/manual` 结算今日至今或昨天整日；C 端无"立刻结算"按钮（仅后台） | P1 | 🤖 |
+| NLR-012 | 门槛按币种 | USDT 账号净输 | min_deposit_usdt（默认 0.86）等按币种取值，不用 PHP 阈值（迁移 143） | P1 | 🤖 |
+
+---
+
+## 十七、每日签到（Daily Check-in）
+
+> 双轨 base/enhanced：增强轨达标=当日有存款 **或** 当日有效投注流水≥enhancedMinPhp（默认 100 PHP，跨币种折 PHP）。7 日固定小周期（day1-6 base=starter+enh=premium；day7 峰值 base=premium+enh=elite）。30 日里程碑（第 7/15/30 天=premium/elite/elite×3，按当月累计签到天数）。主奖=**转盘次数**（bg_spin_chance）。签到转盘 kind='checkin'，starter/premium/elite 三档独立奖池。接口 `GET /promotions/checkin/status`、`POST /promotions/checkin/claim`（前置风控）。配置 `bg_admin_settings.checkin_config`。
+
+| 编号 | 用例名称 | 前置 / 操作 | 预期结果 | 优先级 | 执行 |
+|---|---|---|---|---|---|
+| CKIN-001 | 签到状态 | 打开签到弹窗/活动卡 | `/promotions/checkin/status` 返回连签天数、今日可签、7 日周期与里程碑进度 | P1 | 🤖 |
+| CKIN-002 | 基础轨签到 | 当日无存款无流水直接签到 | 领 base 档（day1-6=starter），发对应转盘次数；连签+1 | P1 | 🤖 |
+| CKIN-003 | 增强轨升级补发 | 先签 base，当日再产生存款或流水≥100PHP | canUpgradeToday 允许升级补发 enh 档差额 | P1 | 🤝 |
+| CKIN-004 | 第 7 天峰值 | 连签到第 7 天 | base=premium、enh=elite 峰值奖励发放 | P1 | 🤖 |
+| CKIN-005 | 月度里程碑 | 当月累计签到达 7/15/30 天 | 分别额外发 premium/elite/elite×3，独立于连签 | P2 | 🤖 |
+| CKIN-006 | 主奖=转盘次数 | 签到领取后查 | bg_spin_chance 增加（source_order_id 幂等），转盘页次数同步；文案讲清领的是抽奖次数 | P0 | 🤖 |
+| CKIN-007 | 签到转盘专用档 | 从签到进入转盘 | 默认选中 kind='checkin' 对应 checkin_tier 档；三档奖池独立；无档回落最小启用档 | P1 | 🤖 |
+| CKIN-008 | 重复签到防重 | 当日已签再点 | 409 already claimed，不重复发次数 | P0 | 🤖 |
+| CKIN-009 | 断签重置 | 隔日未签后再签 | 连签归 1 | P2 | 🤖 |
+| CKIN-010 | 活动关闭 | 后台关签到 | claim 返回 403 disabled；前台入口/弹窗不再弹 | P1 | 🤖 |
+| CKIN-011 | 后台配置 | 后台改每日奖励/阈值/里程碑 | checkin_config 保存后前台生效；周期天数固定 7 不可改 | P1 | 🤖 |
+| CKIN-012 | 签到弹窗设计稿 | 首次进站/复访弹窗 | 皇家紫全屏定高弹窗，Your Spins/This Week/里程碑卡展示正确 | P2 | 👤 |
+
+---
+
+## 十八、复充限时优惠（Redeposit / redep）
+
+> 复充人群判定**排除后台加款**（channel='admin' 不算首充人群）。进站弹窗+倒计时+充值面板角标。门槛按币种（迁移 143）。
+
+| 编号 | 用例名称 | 前置 / 操作 | 预期结果 | 优先级 | 执行 |
+|---|---|---|---|---|---|
+| REDEP-001 | 复充弹窗与倒计时 | 已首充用户进站，活动开启 | 弹复充限时弹窗+倒计时；充值面板显示复充角标 | P1 | 🤝 |
+| REDEP-002 | 复充人群判定 | 仅被后台加款(channel='admin')、无真实充值的用户 | 不被判为已首充人群，不误弹复充框（修复 8b0f119） | P1 | 🤖 |
+| REDEP-003 | 复充奖励发放 | 达复充条件充值 | 按配置发放复充奖励一次+打码要求 | P0 | 🤝 |
+| REDEP-004 | 复充按币种 | USDT 账号复充 | 门槛/奖励按 USDT 配置取值，非 PHP | P1 | 🤖 |
+
+---
+
+## 十九、多币种激励与钱包（PHP / USDT / USDC）
+
+> 阶段 1-7：等级/VIP/Cashback/任务(留存)/复充/转盘奖池/负盈利均改「每币种独立账」，拉新类固定 PHP（见 [[project_acquisition_promo_php_only]]）；风控审核+签到门槛跨币种折 PHP 等值。568win 稳定币玩 USD 游戏（USDT/USDC 挂 USD agent 1:1，账号后缀 U/C）。钱包币种收敛为 PHP/USDT/USDC(+TRX 测试链)，虚拟币 TON/BNB/ETH/BTC/TLK 已下线。
+
+| 编号 | 用例名称 | 前置 / 操作 | 预期结果 | 优先级 | 执行 |
+|---|---|---|---|---|---|
+| CUR-001 | 留存活动按币种 | 切 PHP/USDT/USDC 看 VIP/Cashback/任务/复充/负盈利 | 各币种档位矩阵/门槛/奖励按 activeCurrency 独立拉取 | P1 | 🤖 |
+| CUR-002 | 拉新固定 PHP | 试玩金/App下载/首充在非 PHP 币种下 | 仍按 PHP 单币种一次性发放，不按币种化 | P1 | 🤖 |
+| CUR-003 | 风控/签到跨币种折 PHP | USDT 流水触发签到增强轨/风控阈值 | 按 USDT_TO_PHP_RATE 折 PHP 等值判定（闭合稳定币漏判） | P1 | 🤖 |
+| CUR-004 | 稳定币配置合并 | 后台改 USDT 营销值 | USDT/USDC 共用一套配置+镜像同步（ba95c24） | P1 | 🤖 |
+| CUR-005 | 568win 稳定币玩 USD 游戏 | USDT 钱包启动 568win 游戏 | launch 透传 currency，选 USD agent（后缀 U）；bg_aggregator_player 每用户每币种一条映射（迁移 140） | P0 | 🤝 |
+| CUR-006 | 无缝钱包回调对钱包 | USDT 游戏下注/派彩回调 | 回调按会话币种读对应 USDT 钱包扣加，不串 PHP 钱包 | P0 | 🤝 |
+| CUR-007 | 转盘奖池每币种独立 | 不同币种抽转盘 | 奖池按币种独立配置（迁移 144） | P1 | 🤖 |
+| CUR-008 | 菜单 VIP 卡片币种 | 切 activeCurrency | 菜单卡片 VIP 头按当前币种显示等级（修币种盲 f7ad28d） | P2 | 🤖 |
+| CUR-009 | 虚拟币入口下线回归 | 钱包/充值/提现各页 | 无 TON/BNB/ETH/BTC/TLK/TRX 主网入口与文案（仅 PHP/USDT/USDC+TRX 测试链） | P1 | 🤖 |
+
+---
+
+## 二十、高返水游戏（High Cashback Games）
+
+> Cashback 三档 2%/1.5%/1%（elite/pro/basic）。首页高返水区（三档各 3 款）+ games 页高洗码一级菜单（2%/1.5%/1% 二级）。后端 listGames 增 cashbackTier 过滤；tier=all 时分档配额轮播（每轮 elite2:pro3:basic4 从各档按热度轮流取）。
+
+| 编号 | 用例名称 | 前置 / 操作 | 预期结果 | 优先级 | 执行 |
+|---|---|---|---|---|---|
+| HCB-001 | 首页高返水区 | 打开首页 | 三档各 3 款展示，卡片带 2%/1.5%/1% 奖牌角标 | P2 | 🤖 |
+| HCB-002 | games 页高洗码菜单 | Games 页点高洗码一级 | 二级菜单 2%/1.5%/1% 切换，列表按 `listGames?cashbackTier=` 过滤正确 | P1 | 🤖 |
+| HCB-003 | All 混合分档轮播 | 高洗码 tier=all | 每轮按 elite2:pro3:basic4 从各档（档内按热度）轮流取，三档持续穿插 | P2 | 🤖 |
+| HCB-004 | X cashback 标签 | All 列表卡片 | 卡片标 X% cashback 标签，与该游戏实际档位一致 | P2 | 🤖 |
+| HCB-005 | 精选选品扩量口径 | 对比选品脚本 v3 结果 | 2% 档 9 款 / 1.5% 档 30 款 / 1% 档不变，与线上一致 | P2 | 🤖 |
+| HCB-006 | 返水计算按精选档 | 玩精选游戏产生流水 | 洗码按精选覆盖档（elite2%/pro1.5%/basic1%）计，非大类默认率 | P1 | 🤖 |
+
+---
+
+## 二十一、风控中心（Risk Control）
+
+> 管控点 login / promo_claim / withdraw。动作等级 deny(403 risk_denied) > escalate(放行+提现转人工) > limit > tag_only(仅日志)。新规则默认影子模式 tag_only，后台改成 deny/escalate 转正式拦截。自动打标 core-node `recomputeRiskSignals` 每日全量重算，人工标 source='manual' 不被覆盖。后台 risk/overview·users·blacklist·policies(super_admin)·hits。**风控异常一律 pass 不拖垮主链路**。
+
+| 编号 | 用例名称 | 前置 / 操作 | 预期结果 | 优先级 | 执行 |
+|---|---|---|---|---|---|
+| RISK-001 | 名单命中拦登录 | 用户/IP 在 deny 名单 | 登录 403 "Account access denied" | P0 | 🤖 |
+| RISK-002 | 名单命中拦领取 | deny 名单用户领任务/签到/转盘/活动 | promo_claim 各入口 403 risk_denied，不入账 | P0 | 🤖 |
+| RISK-003 | 名单命中拦提现 | deny 名单用户提现 | withdraw 403 risk_denied | P0 | 🤖 |
+| RISK-004 | escalate 提现转人工 | 命中 escalate 规则 | 提现不阻断但落日志并进人工审核队列 | P1 | 🤖 |
+| RISK-005 | tag_only 影子模式 | 新规则 action=tag_only | 只落 bg_risk_hit_log，不阻断任何动作 | P1 | 🤖 |
+| RISK-006 | 影子转正式 | 后台 `PUT /admin/risk/policies` 改 tag_only→deny | 同场景开始返回 403 拦截 | P1 | 🤖 |
+| RISK-007 | 自动打标跑批 | core-node recomputeRiskSignals | bonus_abuse(minRatio1.5)/multi_account(minSharedUsers3) 自动写 bg_user_risk_signal + bg_user_tag source='auto'；risk_score 0-100 | P1 | 🤖 |
+| RISK-008 | 人工标不被覆盖 | 手动加 source='manual' 标签后跑批 | 自动跑批绝不覆盖/撤销人工标 | P1 | 🤖 |
+| RISK-009 | 后台风控中心 | 各 risk/* 页 | overview 标签分布+近24h命中、users 画像、blacklist 增删、hits 命中日志正常 | P1 | 🤖 |
+| RISK-010 | policies 需 super_admin | finance/ops 访问策略修改 | `PUT /admin/risk/policies` 及打标增删 requireRole('super_admin')→403 | P0 | 🤖 |
+| RISK-011 | 用户画像加入/移出名单 | 风控画像页操作名单 | 增删名单即时生效，提现 upline_blacklist 联动（ADM-015） | P1 | 🤖 |
+| RISK-012 | 风控异常兜底 | MySQL 未启用/评估抛错 | evaluateCheckpoint 返回 pass，登录/领取/提现主链路不被拖垮 | P0 | 🤖 |
+
+---
+
+## 二十二、设备指纹与人机验证
+
+> 登录链路采集 device_id/fp_visitor/signals 落库；提现审核 same_ip_device 加设备阈值维度。注册启用 Cloudflare Turnstile，已删除注册同 IP/同设备频控。
+
+| 编号 | 用例名称 | 前置 / 操作 | 预期结果 | 优先级 | 执行 |
+|---|---|---|---|---|---|
+| FP-001 | 指纹采集落库 | 登录 | device_id/fp_visitor/signals 写入登录记录 | P1 | 🤖 |
+| FP-002 | 后台指纹/IP 查询页 | 后台按指纹/IP/user_id 查 | 返回关联账号全量列表；用户详情/登录记录展示指纹可点击跳转 | P1 | 🤖 |
+| FP-003 | 提现设备维度审核 | 同设备多账号提现 | same_ip_device 命中含 device 阈值（deviceTh=设备账号总数含本人）转人工 | P1 | 🤖 |
+| FP-004 | 注册 Turnstile 验证 | 浏览器注册 | 需通过 Turnstile 人机验证；密钥未配置时默认关不拦 | P1 | 👤 |
+| FP-005 | 注册无 IP/设备频控 | 同 IP 连续注册 | 不再触发注册频控（已移除），仅 Turnstile 拦人机 | P2 | 👤 |
+
+---
+
+## 二十三、首席体验官弹窗 & 弹窗调度补充
+
+> 首席体验官进站弹窗送礼金，领取前先绑手机号（短信验证）；纳入后台首页弹窗配置 popups.trial（开关+人群：未充值用户或游客）。
+
+| 编号 | 用例名称 | 前置 / 操作 | 预期结果 | 优先级 | 执行 |
+|---|---|---|---|---|---|
+| TRIAL-001 | 首席体验官弹窗弹出 | 未充值用户/游客，popups.trial 开 | 按后台人群配置自动弹出送礼金弹窗（紫色渐变） | P1 | 🤖 |
+| TRIAL-002 | 领礼金前绑手机 | 点领取 | 先要求绑定手机号+短信验证码，验证通过后发礼金 | P0 | 👤 |
+| TRIAL-003 | 后台弹窗调度 | 后台配 popups 开关/顺序/人群 | 前台弹窗按配置出现/隐藏；人群命中正确 | P1 | 🤖 |
+| TRIAL-004 | 首充悬浮入口配置 | 后台首页弹窗配置纳入首充入口 | 首充悬浮入口按开关+人群展示 | P2 | 🤖 |
+
+---
+
+## 二十四、后台新增/变更补充
+
+| 编号 | 用例名称 | 前置 / 操作 | 预期结果 | 优先级 | 执行 |
+|---|---|---|---|---|---|
+| ADM2-001 | 重置用户登录密码 | 后台用户详情 | 管理员可重置 C 端用户登录密码，用户用新密码可登录、旧密码失效 | P1 | 🤖 |
+| ADM2-002 | 分页每页条数下拉 | 各后台分页表 | 默认 20，可选 20/50/100/200/500/1000 | P2 | 🤖 |
+| ADM2-003 | 厂商权重排序 | 后台厂商列表 / C 端厂商菜单 | 均按 bg_provider 权重排序；后台可维护权重与厂商简称 | P1 | 🤖 |
+| ADM2-004 | 厂商名数据层统一 | 撞名厂商 | display 名统一，provider_match=false 竞品权重封顶 7000，不虚高 | P2 | 🤖 |
+| ADM2-005 | 后台移动端视图 | 手机浏览器开后台 | 响应式地基+PWA；高频页移动卡片视图、筛选栏/统计行响应式 | P2 | 👤 |
+| ADM2-006 | 风控规则说明列 | 后台风控策略列表 | 策略列表含「规则说明」列 | P2 | 🤖 |
+| ADM2-007 | 活动配置统一列表 | 后台常规活动列表 | 开关/排序/人群统一驱动前台 bonuses 卡片顺序（39eedee） | P1 | 🤖 |
+| ADM2-008 | 注册登录入口来源 | 后台看用户 | 展示并记录用户注册/登录入口来源网址 | P2 | 🤖 |
+
+---
+
+## 二十五、下线/移除业务回归
+
+> 确认已删业务的入口彻底消失、且删除未误伤主链路。
+
+| 编号 | 用例名称 | 前置 / 操作 | 预期结果 | 优先级 | 执行 |
+|---|---|---|---|---|---|
+| REG-001 | 邀请奖金业务下线 | 分销/活动页 | 无 "Invite & Earn Together" 邀请奖金入口（与 3-Circle 三级分销冲突已删 bf3917d） | P1 | 🤖 |
+| REG-002 | 存款侧转盘抽奖下线 | 充值流程 | 仅保留每日签到转盘，删除存款侧转盘抽奖（39aac97） | P1 | 🤖 |
+| REG-003 | Slotegrator 聚合商下线 | 游戏列表 | 无 Slotegrator 游戏/配置（迁移 137），死脚本已清 | P2 | 🤖 |
+| REG-004 | 旧分类大厅退役 | 深链/运营位 | SlotsLobby 退役，运营位与深链统一并入 games 页（500e991） | P1 | 🤖 |
+| REG-005 | Maya 渠道充值奖励移除 | 充值 | 移除 chdep 渠道奖励（与首充送冲突 1f83c31），首充送正常 | P1 | 🤖 |
+| REG-006 | 首页社交位改写死 | 首页/菜单社区入口 | 社区图标写死接真实外链（TG betogo_gaming/Viber 群/Facebook），删后台首页装修社交链接配置逻辑 | P2 | 🤖 |
+| REG-007 | 虚拟币业务下线 | 后端/DB/后台/core | TON/BNB/ETH/BTC/TLK/TRX 主网充提代码与配置已移除，无残留死代码报错 | P1 | 🤖 |
+| REG-008 | 无用表清理 | DB | 迁移 145 清理 19 张无用表后，主链路接口无因缺表报错 | P1 | 🤖 |
+| REG-009 | chunk 加载自愈 | 发版后旧客户端 | 懒加载 chunk 失败自动刷新自愈，无部署后黑屏（053ff32） | P1 | 🤝 |
