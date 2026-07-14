@@ -420,7 +420,7 @@ export default function VipPage({ initialTab = 'overview', onOpenKycSetting, onO
             const isCurrent = lv.level === vipLevel
             const isMax = lv.level === (sortedLevels[sortedLevels.length - 1]?.level ?? lv.level)
             return (
-              <div key={lv.level} ref={isCurrent ? currentCardRef : undefined} className="flex min-h-[430px] w-[87%] max-w-[344px] shrink-0 snap-center flex-col overflow-hidden rounded-[26px] border" style={isCurrent ? VIP_GLASS_STYLE : VIP_INNER_GLASS_STYLE}>
+              <div key={lv.level} ref={isCurrent ? currentCardRef : undefined} className="flex min-h-[430px] w-[78%] max-w-[312px] shrink-0 snap-center flex-col overflow-hidden rounded-[26px] border" style={isCurrent ? VIP_GLASS_STYLE : VIP_INNER_GLASS_STYLE}>
                 <div className="relative flex items-center gap-3 border-b border-amber-300/14 px-5 py-5">
                   <img src={iconCrown} alt="" className="h-16 w-16 flex-shrink-0 drop-shadow-[0_2px_8px_rgba(180,140,60,0.45)]" />
                   <div className="min-w-0 flex-1">
