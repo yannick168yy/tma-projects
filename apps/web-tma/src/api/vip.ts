@@ -77,4 +77,23 @@ export async function claimVipRewards(currency?: string): Promise<{ claimed: num
   })
 }
 
+export interface LossRebateStatus {
+  enabled: boolean
+  currency: string
+  ratePct: number
+  minDeposit: number
+  netLoss: number
+  todayDeposit: number
+  potentialRebate: number
+  eligible: boolean
+  reason: 'disabled' | 'no_loss' | 'need_deposit' | 'eligible' | 'pending'
+  pendingClaimable: number
+}
+
+/** 负盈利返水「今日至今」实时状态：净输 / 预计可返 / 是否达标 / 不可领原因 */
+export async function fetchLossRebateStatus(currency?: string): Promise<LossRebateStatus> {
+  const qs = currency ? `?currency=${encodeURIComponent(currency)}` : ''
+  return apiRequest<LossRebateStatus>(`/vip/loss-rebate-status${qs}`)
+}
+
 // 生日不再支持手输：KYC 通过后由后端从证件信息自动同步

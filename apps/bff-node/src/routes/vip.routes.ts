@@ -1,6 +1,6 @@
 import Router from '@koa/router'
 import { ok, fail } from '../utils/response.js'
-import { getUserVipProgress, listVipRewards, claimVipRewards, getVipLevelConfig } from '../services/vip.service.js'
+import { getUserVipProgress, listVipRewards, claimVipRewards, getVipLevelConfig, getLossRebateStatus } from '../services/vip.service.js'
 
 const router = new Router({ prefix: '/vip' })
 
@@ -24,6 +24,14 @@ router.get('/rewards', async (ctx) => {
   const currency = ctx.query.currency ? String(ctx.query.currency) : undefined
   const rewards = await listVipRewards(ctx.state.env, ctx.state.userId, 50, currency)
   ok(ctx, { rewards })
+})
+
+// GET /vip/loss-rebate-status — 需要登录：负盈利返水「今日至今」状态（净输/预计可返/是否达标/原因）
+router.get('/loss-rebate-status', async (ctx) => {
+  if (!ctx.state.userId) { fail(ctx, 401, 'Unauthorized', 401); return }
+  const currency = (ctx.query.currency as string) || 'PHP'
+  const status = await getLossRebateStatus(ctx.state.env, ctx.state.userId, currency)
+  ok(ctx, status)
 })
 
 // POST /vip/claim — 需要登录：领取所有待领取 VIP 礼金

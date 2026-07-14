@@ -528,6 +528,89 @@ export async function runDailyLossRebate(
   return { periodKey, users: Number(agg?.users ?? 0), totalAmount: Number(agg?.total ?? 0) }
 }
 
+export interface LossRebateStatus {
+  enabled: boolean
+  currency: string
+  ratePct: number
+  minDeposit: number
+  netLoss: number
+  todayDeposit: number
+  potentialRebate: number
+  eligible: boolean
+  /** disabled=活动未开 / no_loss=今日暂无净输 / need_deposit=需当日存款达标 / eligible=达标结算后可领 / pending=已结算待领(在VIP待领取) */
+  reason: 'disabled' | 'no_loss' | 'need_deposit' | 'eligible' | 'pending'
+  /** 已结算待领取的返水（bg_vip_reward_log pending） */
+  pendingClaimable: number
+}
+
+/**
+ * 负盈利返水「今日至今」实时状态（单用户、单币种）：即使未达标/未结算也返回净输与预计可返 + 原因，
+ * 供 C 端展示「有净输就显示可领取金额，未存款也给出不可领原因」。
+ */
+export async function getLossRebateStatus(env: Env, userId: string, currency: string): Promise<LossRebateStatus> {
+  const base: LossRebateStatus = {
+    enabled: false, currency, ratePct: 0, minDeposit: 0, netLoss: 0, todayDeposit: 0,
+    potentialRebate: 0, eligible: false, reason: 'disabled', pendingClaimable: 0,
+  }
+  if (!isMysqlEnabled(env)) return base
+  const pool = getMysqlPool(env)
+  const cfg = await getLossRebateConfigByPool(pool)
+  const minDeposit = cfg.minDepositByCcy?.[currency] ?? cfg.minDeposit
+  const ratePct = cfg.ratePct
+  base.enabled = cfg.enabled; base.ratePct = ratePct; base.minDeposit = minDeposit
+  if (!cfg.enabled || ratePct <= 0 || cfg.eligibleCats.length === 0) return base
+
+  const { startUtc, endUtc } = vipDayWindow(true) // 今日至今
+  const catPlaceholders = cfg.eligibleCats.map(() => '?').join(', ')
+
+  // 今日该币种、白名单品类的净输
+  const [[loss]] = await pool.query<RowDataPacket[]>(
+    `SELECT COALESCE(SUM(CASE WHEN bo.bet_type = 'bet' THEN bo.amount
+                              WHEN bo.bet_type IN ('win','refund') THEN -bo.amount ELSE 0 END), 0) AS net_loss
+     FROM bg_bet_order bo
+     WHERE bo.aggregator_id = '568win' AND bo.user_id = ? AND bo.currency_code = ?
+       AND bo.created_at >= ? AND bo.created_at < ?
+       AND EXISTS (
+         SELECT 1 FROM bg_bet_order bb
+         JOIN bg_turnover_logs tl ON tl.bet_order_id = bb.id AND tl.is_reversed = 0
+         WHERE bb.aggregator_id = '568win' AND bb.bet_type = 'bet'
+           AND bb.user_id = bo.user_id AND bb.round_id = bo.round_id
+           AND tl.sort_category IN (${catPlaceholders})
+       )`,
+    [userId, currency, startUtc, endUtc, ...cfg.eligibleCats],
+  )
+  const netLoss = Math.max(0, Number(loss?.net_loss ?? 0))
+
+  // 今日该币种有效存款
+  const [[dep]] = await pool.query<RowDataPacket[]>(
+    `SELECT COALESCE(SUM(amount), 0) AS dep FROM bg_deposit_order
+     WHERE user_id = ? AND currency = ? AND status = 'paid' AND created_at >= ? AND created_at < ?`,
+    [userId, currency, startUtc, endUtc],
+  )
+  const todayDeposit = Number(dep?.dep ?? 0)
+
+  // 已结算待领取（历史所有 pending 负盈利返水，本币种）
+  const [[pend]] = await pool.query<RowDataPacket[]>(
+    `SELECT COALESCE(SUM(amount), 0) AS c FROM bg_vip_reward_log
+     WHERE user_id = ? AND currency_code = ? AND type = 'negative_rebate' AND status = 'pending'`,
+    [userId, currency],
+  )
+  const pendingClaimable = Number(pend?.c ?? 0)
+
+  const rebateBase = cfg.capToDeposit ? Math.min(netLoss, todayDeposit) : netLoss
+  const potentialRebate = Math.round(rebateBase * ratePct / 100 * 100) / 100
+  const depositOk = todayDeposit >= minDeposit
+  const eligible = netLoss > 0 && depositOk && potentialRebate > 0
+
+  let reason: LossRebateStatus['reason']
+  if (pendingClaimable > 0) reason = 'pending'
+  else if (netLoss <= 0) reason = 'no_loss'
+  else if (!depositOk) reason = 'need_deposit'
+  else reason = 'eligible'
+
+  return { enabled: true, currency, ratePct, minDeposit, netLoss, todayDeposit, potentialRebate, eligible, reason, pendingClaimable }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // 等级状态机（硬降级模型）
 //   current_level = 权威等级（可降级）；awarded_level = 历史最高（累计流水单调爬升）
