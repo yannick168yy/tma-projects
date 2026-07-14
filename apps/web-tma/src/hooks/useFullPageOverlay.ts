@@ -1,6 +1,6 @@
 import { useState } from 'react'
 
-export type VipTab = 'overview' | 'cashback' | 'benefits' | 'records'
+export type VipTab = 'overview' | 'lossrebate' | 'benefits' | 'records'
 export type TaskInitialPath = 'newbie' | 'daily' | 'social'
 
 // 互斥全屏 overlay 的状态机——同一时刻只有一个可见

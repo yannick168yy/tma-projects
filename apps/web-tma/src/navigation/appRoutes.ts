@@ -87,7 +87,7 @@ export function parseAppRoute(pathname: string, search: string): ParsedAppRoute 
   if (overlayType === 'vipCenter') {
     const params = new URLSearchParams(search)
     const rawTab = params.get('tab')
-    const initialTab = rawTab === 'cashback' || rawTab === 'benefits' || rawTab === 'records' || rawTab === 'overview'
+    const initialTab = rawTab === 'lossrebate' || rawTab === 'benefits' || rawTab === 'records' || rawTab === 'overview'
       ? rawTab
       : undefined
     return { kind: 'overlay', overlay: { type: 'vipCenter', initialTab } }

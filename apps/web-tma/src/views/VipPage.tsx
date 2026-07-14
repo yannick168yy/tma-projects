@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback, useMemo, useRef, type CSSProperties } from 'react'
+import { useState, useEffect, useCallback, type CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ChevronRight, Crown, History, ShieldCheck } from 'lucide-react'
+import { ChevronRight, History, ShieldCheck } from 'lucide-react'
 import diamondImg from '@/assets/vip/diamond.webp'
 import giftboxImg from '@/assets/vip/giftbox.webp'
 import iconGift from '@/assets/vip/icon-gift.webp'
@@ -11,24 +11,14 @@ import iconMonthly from '@/assets/vip/icon-monthly.webp'
 import iconBday from '@/assets/vip/icon-bday.webp'
 import iconLevelup from '@/assets/vip/icon-levelup.webp'
 import iconCake from '@/assets/vip/icon-cake.webp'
-import { fetchRebateConfig, fetchRebateProgress, claimRebate, type RebateConfig, type RebateProgress } from '@/api/rebate'
-import { fetchVipProgress, fetchVipLevels, fetchVipRewards, claimVipRewards, type VipLevelConfig, type VipProgress, type VipReward } from '@/api/vip'
-import { launchGame } from '@/api/slots'
+import { fetchRebateProgress, type RebateProgress } from '@/api/rebate'
+import { fetchVipProgress, fetchVipLevels, fetchVipRewards, claimVipRewards, fetchLossRebateStatus, type VipLevelConfig, type VipProgress, type VipReward, type LossRebateStatus } from '@/api/vip'
 import { useAuthStore } from '@/stores/auth'
 import { useWalletStore, formatCurrencyAmount } from '@/stores/wallet'
-import { useLocaleStore } from '@/stores/locale'
-import { localizedGameName } from '@/utils/game'
 import { ApiError } from '@/api/client'
-import { analytics } from '@/utils/analytics'
 import type { VipTab } from '@/hooks/useFullPageOverlay'
 
-const CATEGORY_ICONS: Record<string, string> = {
-  slots: '🎰', live: '🎲', sports: '⚽', fishing: '🐟',
-  poker: '♠️', bingo: '🎱', pinoy: '🐓', table: '🃏', crash: '🚀', other: '🎮',
-}
-
-const CATEGORY_ORDER = ['slots', 'live', 'sports', 'fishing', 'poker', 'bingo', 'pinoy', 'table', 'crash', 'other']
-const VIP_TABS: VipTab[] = ['overview', 'cashback', 'benefits', 'records']
+const VIP_TABS: VipTab[] = ['overview', 'lossrebate', 'benefits', 'records']
 const VIP_GLASS_STYLE: CSSProperties = {
   background: 'linear-gradient(180deg, rgba(13, 13, 12, 0.97), rgba(8, 8, 7, 0.98)) padding-box, linear-gradient(128deg, rgba(255, 222, 134, 0.42) 0%, rgba(197, 144, 42, 0.12) 24%, rgba(60, 43, 17, 0.08) 48%, rgba(246, 196, 86, 0.32) 72%, rgba(44, 31, 12, 0.1) 100%) border-box',
   borderColor: 'transparent',
@@ -43,55 +33,40 @@ const VIP_INNER_GLASS_STYLE: CSSProperties = {
 
 interface Props {
   initialTab?: VipTab
-  onOpenGame: (url: string) => void
-  onOpenCategory: (params: { title: string; sortCategory: string }) => void
   onOpenKycSetting?: () => void
+  onOpenCashback?: () => void
 }
 
 function amtStr(currency: string, v: number) {
   return formatCurrencyAmount(currency, v)
 }
 
-function catKeyOf(cat: string) {
-  return `cashback.category${cat.charAt(0).toUpperCase() + cat.slice(1)}`
-}
-
-function categoryRank(cat: string) {
-  const index = CATEGORY_ORDER.indexOf(cat)
-  return index === -1 ? CATEGORY_ORDER.length : index
-}
-
-export default function VipPage({ initialTab = 'overview', onOpenGame, onOpenCategory, onOpenKycSetting }: Props) {
+export default function VipPage({ initialTab = 'overview', onOpenKycSetting, onOpenCashback }: Props) {
   const { t } = useTranslation()
   const token = useAuthStore((s) => s.token)
   const auth = useAuthStore()
   const activeCurrency = useWalletStore((s) => s.activeCurrency)
-  const locale = useLocaleStore((s) => s.locale)
   const currency = activeCurrency
 
   const [activeTab, setActiveTab] = useState<VipTab>(initialTab)
-  const [config, setConfig] = useState<RebateConfig | null>(null)
   const [progress, setProgress] = useState<RebateProgress | null>(null)
   const [vip, setVip] = useState<VipProgress | null>(null)
   const [levels, setLevels] = useState<VipLevelConfig[]>([])
   const [rewards, setRewards] = useState<VipReward[]>([])
-  const [claimingCashback, setClaimingCashback] = useState(false)
+  const [lossStatus, setLossStatus] = useState<LossRebateStatus | null>(null)
   const [claimingVip, setClaimingVip] = useState(false)
-  const [expandedTier, setExpandedTier] = useState<string | null>(null)
-  const [launchingUuid, setLaunchingUuid] = useState<string | null>(null)
-  void launchingUuid
 
   useEffect(() => { setActiveTab(initialTab) }, [initialTab])
 
   useEffect(() => {
-    fetchRebateConfig(currency).then(setConfig).catch(() => null)
     fetchVipLevels(currency).then((res) => setLevels(res.levels)).catch(() => null)
   }, [currency])
 
   const loadProgress = useCallback(async () => {
-    if (!token) { setProgress(null); setVip(null); setRewards([]); return }
+    if (!token) { setProgress(null); setVip(null); setRewards([]); setLossStatus(null); return }
     try { setProgress(await fetchRebateProgress(currency)) } catch { setProgress(null) }
     try { setVip(await fetchVipProgress(currency)) } catch { setVip(null) }
+    try { setLossStatus(await fetchLossRebateStatus(currency)) } catch { setLossStatus(null) }
   }, [token, currency])
 
   useEffect(() => { void loadProgress() }, [loadProgress])
@@ -107,20 +82,6 @@ export default function VipPage({ initialTab = 'overview', onOpenGame, onOpenCat
     weekly: 'cashback.vipWeekly',
     monthly: 'cashback.vipMonthly',
     birthday: 'cashback.vipBirthday',
-  }
-
-  async function onClaimCashback() {
-    if (!(await auth.ensureLoggedIn(t('auth.signInPlay')))) return
-    if (claimingCashback || !progress || progress.claimable <= 0) return
-    setClaimingCashback(true)
-    try {
-      const res = await claimRebate(currency)
-      analytics.rebateClaimSuccess(res.totalRebate, currency)
-      alert(t('cashback.claimSuccess', { amount: amtStr(currency, res.totalRebate) }))
-      await Promise.all([loadProgress(), useWalletStore.getState().refresh()])
-    } catch (e) {
-      alert(e instanceof ApiError ? e.message : 'Claim failed')
-    } finally { setClaimingCashback(false) }
   }
 
   async function onClaimVip() {
@@ -140,18 +101,6 @@ export default function VipPage({ initialTab = 'overview', onOpenGame, onOpenCat
     } finally { setClaimingVip(false) }
   }
 
-  async function onGameTap(uuid: string) {
-    if (!(await auth.ensureLoggedIn(t('auth.signInPlay')))) return
-    if (launchingUuid) return
-    setLaunchingUuid(uuid)
-    try {
-      const { url } = await launchGame(uuid, 'mobile', activeCurrency)
-      analytics.gameLaunch('real', uuid, activeCurrency, 'cashback')
-      onOpenGame(url)
-    } catch (e) { alert(e instanceof ApiError ? e.message : 'Launch failed') }
-    finally { setLaunchingUuid(null) }
-  }
-
   const vipLevel = vip?.level ?? progress?.level ?? 1
   const currentLevel = levels.find((l) => l.level === vipLevel)
   const nextLevel = levels.find((l) => l.level === vipLevel + 1) ?? null
@@ -162,34 +111,6 @@ export default function VipPage({ initialTab = 'overview', onOpenGame, onOpenCat
   const progressPct = nextThreshold != null
     ? Math.min(100, Math.max(0, (totalTurnover - currentThreshold) / Math.max(1, nextThreshold - currentThreshold) * 100))
     : 100
-
-  const levelCards = config?.levels ?? []
-  const userLevel = progress?.level ?? vipLevel
-  const tiers = config ? Object.entries(config.featured ?? {}) : []
-  const claimableBreakdown = useMemo(
-    () => [...(progress?.claimableBreakdown ?? [])].sort((a, b) => categoryRank(a.gameCategory) - categoryRank(b.gameCategory) || a.gameCategory.localeCompare(b.gameCategory)),
-    [progress?.claimableBreakdown],
-  )
-  const categoryBonusMap = useMemo(() => {
-    const m = new Map<string, number>()
-    for (const b of claimableBreakdown) m.set(b.gameCategory, b.rebateAmount)
-    return m
-  }, [claimableBreakdown])
-
-  const topTier = levelCards.length ? levelCards[levelCards.length - 1] : null
-  const topBest = topTier
-    ? topTier.rates.filter((r) => r.enabled && CATEGORY_ORDER.includes(r.gameCategory))
-        .reduce<typeof topTier.rates[number] | null>((best, r) => (!best || r.ratePct > best.ratePct ? r : best), null)
-    : null
-
-  const scrollRef = useRef<HTMLDivElement | null>(null)
-  const activeCardRef = useRef<HTMLDivElement | null>(null)
-  useEffect(() => {
-    const c = scrollRef.current, a = activeCardRef.current
-    if (c && a) c.scrollLeft = a.offsetLeft - (c.clientWidth - a.clientWidth) / 2
-  }, [levelCards.length, userLevel, activeTab])
-
-  const tierRate = (tier: string) => tier === 'elite' ? t('cashback.tierEliteRate') : t('cashback.tierProRate')
 
   function renderHero() {
     const nextLv = nextLevel?.level ?? (nextThreshold != null ? vipLevel + 1 : null)
@@ -324,7 +245,7 @@ export default function VipPage({ initialTab = 'overview', onOpenGame, onOpenCat
         </section>
 
         <section className="grid grid-cols-2 gap-3">
-          <button type="button" onClick={() => setActiveTab('cashback')} className="flex items-center justify-between gap-2 rounded-2xl border p-4 text-left" style={VIP_GLASS_STYLE}>
+          <button type="button" onClick={() => onOpenCashback?.()} className="flex items-center justify-between gap-2 rounded-2xl border p-4 text-left" style={VIP_GLASS_STYLE}>
             <div className="min-w-0">
               <p className="truncate text-[13px] font-semibold text-white">{t('category.cashback')}</p>
               <p className="mt-1.5 truncate text-sm font-bold text-[#f0b429]">{amtStr(currency, token ? (progress?.claimable ?? 0) : 0)}</p>
@@ -400,175 +321,58 @@ export default function VipPage({ initialTab = 'overview', onOpenGame, onOpenCat
     )
   }
 
-  function renderCashback() {
+  function renderLossRebate() {
+    const s = lossStatus
+    const reasonMsg = !s || !s.enabled
+      ? t('lossRebate.introBody', { rate: s?.ratePct ?? 5 })
+      : s.pendingClaimable > 0
+        ? t('lossRebate.status.pending', { amt: amtStr(currency, s.pendingClaimable) })
+        : s.netLoss <= 0
+          ? t('lossRebate.status.noLoss', { defaultValue: t('lossRebate.introBody', { rate: s.ratePct }) })
+          : s.reason === 'need_deposit'
+            ? t('lossRebate.status.needDeposit', { days: s.windowDays, min: amtStr(currency, s.minDeposit), dep: amtStr(currency, s.windowDeposit) })
+            : t('lossRebate.status.eligible')
+    const canClaim = (s?.pendingClaimable ?? 0) > 0
     return (
       <div className="space-y-3 px-4 pb-8">
         <section className="rounded-2xl border p-4" style={VIP_GLASS_STYLE}>
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
-              <p className="text-[11px] font-medium text-[#c9c9c5]">{t('cashback.totalBonus')}</p>
-              <p className="mt-1 font-display text-2xl font-bold text-white">{amtStr(currency, token ? (progress?.claimable ?? 0) : 0)}</p>
+              <p className="text-[11px] font-medium text-[#c9c9c5]">{t('lossRebate.status.potential', { rate: s?.ratePct ?? 5 })}</p>
+              <p className="mt-1 font-display text-2xl font-bold text-white">{amtStr(currency, canClaim ? (s?.pendingClaimable ?? 0) : (s?.potentialRebate ?? 0))}</p>
             </div>
             <button
               type="button"
-              onClick={() => void onClaimCashback()}
-              disabled={claimingCashback || !token || !progress || progress.claimable <= 0}
+              onClick={() => void onClaimVip()}
+              disabled={claimingVip || !canClaim}
               className="flex-shrink-0 rounded-xl bg-gradient-to-b from-[#e9c97e] to-[#cfa044] px-5 py-2.5 text-sm font-bold text-[#3a2a0d] disabled:opacity-45"
             >
-              {claimingCashback ? t('cashback.claiming') : t('cashback.claimBtn')}
+              {claimingVip ? t('cashback.claiming') : t('lossRebate.claimCta')}
             </button>
+          </div>
+          <div className="mt-3 space-y-1.5 border-t border-amber-300/12 pt-3">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-[#c9c9c5]">{t('lossRebate.status.netLoss')}</span>
+              <span className="font-semibold text-white">{amtStr(currency, s?.netLoss ?? 0)}</span>
+            </div>
+            <p className="pt-1 text-[11px] leading-relaxed text-[#c9c9c5]">{reasonMsg}</p>
           </div>
         </section>
 
-        {token && claimableBreakdown.length > 0 && (
-          <section className="space-y-1.5 rounded-2xl border px-4 py-3" style={VIP_GLASS_STYLE}>
-            {claimableBreakdown.map((item) => (
-              <div key={item.gameCategory} className="flex items-center justify-between text-xs">
-                <span className="flex items-center gap-1.5 text-[#d5d5d1]">
-                  <span>{CATEGORY_ICONS[item.gameCategory] ?? '🎮'}</span>
-                  <span>{t(catKeyOf(item.gameCategory))}</span>
-                  <span className="text-[10px] text-[#f0b429]">{item.ratePct}%</span>
-                </span>
-                <span className="font-semibold text-[#f0b429]">+{amtStr(currency, item.rebateAmount)}</span>
-              </div>
-            ))}
-          </section>
-        )}
-
-        {tiers.length > 0 && (
-          <section className="rounded-2xl border p-4" style={VIP_GLASS_STYLE}>
-            <h2 className="mb-3 text-sm font-semibold text-white">{t('cashback.cashbackGames')}</h2>
-            <div className="space-y-3">
-              {tiers.map(([tier, games]) => {
-                const cover = games[0]?.coverUrl
-                const expanded = expandedTier === tier
-                return (
-                  <div key={tier} className="overflow-hidden rounded-2xl border" style={VIP_INNER_GLASS_STYLE}>
-                    <div className="flex items-center gap-3 p-3">
-                      <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-xl border bg-black/35" style={{ borderColor: 'rgba(190, 143, 49, 0.28)' }}>
-                        {cover ? <img src={cover} alt="" className="h-full w-full object-cover" /> : <div className="flex h-full w-full items-center justify-center text-2xl">🎰</div>}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-semibold text-white">{t(tier === 'elite' ? 'cashback.tierElite' : 'cashback.tierPro')}</p>
-                        <p className="mt-1 text-sm font-bold text-[#f0b429]">{tierRate(tier)}</p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setExpandedTier(expanded ? null : tier)}
-                        className="flex flex-shrink-0 items-center gap-1.5 rounded-lg bg-gradient-to-b from-[#e9c97e] to-[#cfa044] py-1.5 pl-4 pr-1.5 text-[#3a2a0d]"
-                      >
-                        <span className="text-xs font-bold">{t('cashback.viewBtn')}</span>
-                        <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[#5b3a0d]/55 px-1.5 text-[11px] font-bold text-amber-100">{games.length}</span>
-                      </button>
-                    </div>
-                    {expanded && (
-                      <div className="border-t px-3 pb-3 pt-3" style={{ borderColor: 'rgba(190, 143, 49, 0.18)' }}>
-                        {games.length > 0 ? (
-                          <div className="grid grid-cols-3 gap-2">
-                            {games.map((g) => (
-                              <button key={g.gameUuid} type="button" onClick={() => void onGameTap(g.gameUuid)} className="flex flex-col overflow-hidden rounded-xl bg-[#120f0a] active:scale-[0.98]">
-                                <div className="aspect-square w-full bg-black/45">
-                                  {g.coverUrl ? <img src={g.coverUrl} alt="" className="h-full w-full object-cover" /> : <div className="flex h-full w-full items-center justify-center text-2xl">🎰</div>}
-                                </div>
-                                <p className="truncate px-1.5 py-1.5 text-[11px] font-bold text-white/95">{localizedGameName({ name: g.name ?? '', nameZh: g.nameZh }, locale)}</p>
-                              </button>
-                            ))}
-                          </div>
-                        ) : (
-                          <p className="py-2 text-center text-xs text-muted-foreground">No games configured</p>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          </section>
-        )}
-
-        {levelCards.length > 0 && (
-          <section className="rounded-2xl border py-4" style={VIP_GLASS_STYLE}>
-            <div className="mb-3 flex items-center justify-between px-4">
-              <h2 className="text-sm font-semibold text-white">{t('cashback.rateTable')}</h2>
-              {token && progress && <span className="rounded-full bg-gradient-to-b from-[#e9c97e] to-[#cfa044] px-3 py-1 text-xs font-bold text-[#3a2a0d]">{t('cashback.levelTag', { level: progress.level })}</span>}
-            </div>
-
-            {topBest && (
-              <div className="mx-4 mb-3 flex items-center gap-2.5 rounded-xl border px-3.5 py-2.5" style={VIP_INNER_GLASS_STYLE}>
-                <Crown size={18} className="flex-shrink-0 text-amber-300" />
-                <p className="text-[12px] font-bold leading-snug text-amber-100">
-                  {t('cashback.topTierBanner', {
-                    cat: t(catKeyOf(topBest.gameCategory)),
-                    rate: topBest.ratePct,
-                    amount: topBest.maxBonus > 0 ? amtStr(currency, topBest.maxBonus) : t('cashback.unlimited'),
-                  })}
-                </p>
-              </div>
-            )}
-
-            {token && progress && (
-              <div className="mx-4 mb-3 rounded-2xl border px-4 py-3" style={VIP_INNER_GLASS_STYLE}>
-                <p className="text-[11px] text-[#c9c9c5]">{t('cashback.totalTurnover')}</p>
-                <p className="mt-0.5 font-display text-2xl font-bold text-white">{amtStr(currency, progress.totalTurnover)}</p>
-                <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-gradient-to-r from-[#e9c97e] to-[#cfa044]" style={{ width: `${progressPct}%` }} /></div>
-                <p className="mt-1.5 text-[11px] text-amber-300/80">{progress.nextThreshold != null ? t('cashback.progressToNext', { remaining: amtStr(currency, remaining), level: progress.nextLevel }) : t('cashback.maxLevel')}</p>
-              </div>
-            )}
-
-            <div ref={scrollRef} className="flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2 hide-scrollbar">
-              {levelCards.map((lc) => {
-                const isCurrent = token && lc.level === userLevel
-                const isMax = lc.level === (levelCards[levelCards.length - 1]?.level ?? lc.level)
-                const catRates = CATEGORY_ORDER.map((cat) => lc.rates.find((r) => r.gameCategory === cat && r.enabled)).filter((r): r is NonNullable<typeof r> => Boolean(r))
-                const toUnlock = progress ? Math.max(0, lc.minTurnover - progress.totalTurnover) : lc.minTurnover
-                return (
-                  <div key={lc.level} ref={isCurrent ? activeCardRef : undefined} className="flex w-[82%] max-w-[330px] shrink-0 snap-center flex-col rounded-2xl border p-4" style={isMax || isCurrent ? VIP_GLASS_STYLE : VIP_INNER_GLASS_STYLE}>
-                    <div className="mb-3 flex items-start justify-between">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className={`font-display text-xl font-black ${isMax ? 'text-amber-300' : 'text-amber-50'}`}>{t('cashback.levelTag', { level: lc.level })}</span>
-                          {isCurrent && <span className="rounded-full bg-amber-300/90 px-2 py-0.5 text-[10px] font-black text-[#1b1204]">{t('cashback.levelCurrent')}</span>}
-                        </div>
-                        <p className="mt-0.5 text-[11px] text-amber-100/55">{lc.minTurnover > 0 ? t('cashback.levelReq', { amount: amtStr(currency, lc.minTurnover) }) : t('cashback.levelEntry')}</p>
-                      </div>
-                      {isMax && <span className="rounded-md bg-gradient-to-r from-amber-300 to-yellow-500 px-2 py-1 text-[10px] font-black text-[#1b1204]">MAX</span>}
-                    </div>
-
-                    <div className="flex-1 space-y-2">
-                      {catRates.map((r) => {
-                        const bonus = isCurrent ? (categoryBonusMap.get(r.gameCategory) ?? 0) : 0
-                        return (
-                          <button key={r.gameCategory} type="button" onClick={() => onOpenCategory({ title: t(catKeyOf(r.gameCategory)), sortCategory: r.gameCategory })} className="flex w-full items-center gap-2 active:opacity-70">
-                            <span className="flex-shrink-0 text-xl leading-none">{CATEGORY_ICONS[r.gameCategory] ?? '🎮'}</span>
-                            <span className="w-16 truncate text-left text-sm font-semibold text-amber-50/90">{t(catKeyOf(r.gameCategory))}</span>
-                            <span className="flex-1 text-right leading-tight">
-                              <span className="block text-sm font-bold text-amber-300">+{amtStr(currency, bonus)}</span>
-                              <span className="block text-[9px] text-amber-100/45">{t('cashback.maxShort')} {r.maxBonus > 0 ? amtStr(currency, r.maxBonus) : t('cashback.unlimited')}</span>
-                            </span>
-                            <span className="w-10 text-right text-sm font-black text-amber-300/90">{r.ratePct}%</span>
-                          </button>
-                        )
-                      })}
-                    </div>
-
-                    <div className={`mt-3 rounded-lg py-2 text-center text-xs font-black ${isCurrent || (progress && lc.level < userLevel) ? 'bg-[#5b3a0d]/55 text-amber-50' : isMax ? 'bg-gradient-to-r from-amber-300 to-yellow-500 text-[#1b1204]' : 'bg-[#1c1408] text-amber-200'}`}>
-                      {isCurrent ? t('cashback.levelCurrent') : progress && lc.level < userLevel ? t('cashback.unlocked') : t('cashback.toUnlock', { amount: amtStr(currency, toUnlock) })}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-            <p className="mt-1 px-4 text-center text-[10px] text-amber-100/35">{t('cashback.creditedTomorrow')} · {t('cashback.unsettledNotCounted')}</p>
-          </section>
-        )}
+        <section className="rounded-2xl border p-4" style={VIP_GLASS_STYLE}>
+          <h2 className="mb-2 text-sm font-semibold text-white">{t('lossRebate.howTitle')}</h2>
+          <ul className="list-disc space-y-1 pl-5 text-[12px] leading-relaxed text-[#c9c9c5]">
+            <li>{t('lossRebate.how1')}</li>
+            <li>{t('lossRebate.how2', { rate: s?.ratePct ?? 5 })}</li>
+            <li>{t('lossRebate.how3')}</li>
+            <li>{t('lossRebate.cond1', { days: s?.windowDays ?? 7, min: amtStr(currency, s?.minDeposit ?? 0) })}</li>
+            <li>{t('lossRebate.cond2')}</li>
+          </ul>
+        </section>
 
         <FooterPanel
-          title={t('vipPage.cashbackFooterTitle')}
-          items={[
-            t('vipPage.cashbackFooterItem1'),
-            t('vipPage.cashbackFooterItem2'),
-            t('vipPage.cashbackFooterItem3'),
-          ]}
+          title={t('lossRebate.pageTitle')}
+          items={[t('lossRebate.claimBody'), t('lossRebate.gamesBody'), t('lossRebate.disclaimer')]}
         />
       </div>
     )
@@ -665,7 +469,7 @@ export default function VipPage({ initialTab = 'overview', onOpenGame, onOpenCat
       {renderHero()}
       {renderTabs()}
       {activeTab === 'overview' && renderOverview()}
-      {activeTab === 'cashback' && renderCashback()}
+      {activeTab === 'lossrebate' && renderLossRebate()}
       {activeTab === 'benefits' && renderBenefits()}
       {activeTab === 'records' && renderRecords()}
     </div>

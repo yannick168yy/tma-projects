@@ -647,6 +647,7 @@ export default {
       needDeposit: '近 {{days}} 天充值满 {{min}} 即可领取（当前 {{dep}}）',
       eligible: '已达标，结算后可在 VIP 中心领取',
       pending: '有 {{amt}} 已到账待领取',
+      noLoss: '今日暂无净输，去玩几局；有净输就实时显示可返金额。',
     },
     disclaimer: '奖金受活动条款约束，平台保留最终解释权。',
     cardTag: '每日返水',
@@ -660,7 +661,7 @@ export default {
     title: 'VIP 俱乐部',
     tabs: {
       overview: '总览',
-      cashback: '返利',
+      lossrebate: '负盈利返水',
       benefits: '权益',
       records: '记录',
     },

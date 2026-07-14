@@ -657,6 +657,7 @@ export default {
       needDeposit: 'Deposit ≥ {{min}} within {{days}} days to unlock (now {{dep}})',
       eligible: 'Qualified — claimable in VIP Center after settlement',
       pending: '{{amt}} credited and ready to claim',
+      noLoss: 'No net loss yet today — your estimated rebate shows here in real time once you have a net loss.',
     },
     disclaimer: 'Bonus subject to terms and conditions. The operator reserves the right of final interpretation.',
     cardTag: 'DAILY REBATE',
@@ -670,7 +671,7 @@ export default {
     title: 'VIP Club',
     tabs: {
       overview: 'Overview',
-      cashback: 'Cashback',
+      lossrebate: 'Loss Rebate',
       benefits: 'Benefits',
       records: 'Records',
     },

@@ -631,7 +631,7 @@ export default function AppShell() {
               >
                 <ChevronLeft size={20} />
               </button>
-              <VipPage initialTab={view.initialTab} onOpenGame={(url) => setGamePlayerUrl(url)} onOpenCategory={onOpenCategoryLobby} onOpenKycSetting={onOpenKycSetting} />
+              <VipPage initialTab={view.initialTab} onOpenKycSetting={onOpenKycSetting} onOpenCashback={onOpenCashback} />
             </div>
           )}
           {view.type === 'spin' && (
