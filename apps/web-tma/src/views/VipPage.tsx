@@ -432,7 +432,7 @@ export default function VipPage({ initialTab = 'overview', onOpenKycSetting, onO
                     <p className="mt-1.5 text-[11px] text-amber-100/55">{lv.minTurnover > 0 ? t('cashback.levelReq', { amount: amtStr(currency, lv.minTurnover) }) : t('cashback.levelEntry')}</p>
                   </div>
                 </div>
-                <div className="grid flex-1 grid-cols-2 content-center gap-x-3 gap-y-7 px-5 py-7">
+                <div className="flex flex-1 flex-col justify-center gap-5 px-5 py-6">
                   <BenefitItem icon={iconLevelup} label={t('cashback.vipPromotion')} value={amtStr(currency, lv.promotionBonus)} />
                   <BenefitItem icon={iconWeekly} label={t('cashback.vipWeekly')} value={amtStr(currency, lv.weeklySalary)} />
                   <BenefitItem icon={iconMonthly} label={t('cashback.vipMonthly')} value={amtStr(currency, lv.monthlySalary)} />
