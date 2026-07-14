@@ -11,6 +11,33 @@ import { isInsideTelegram } from '@/utils/initTelegramWebApp'
 import { analytics } from '@/utils/analytics'
 import TrialClaimModal from '@/components/promotion/TrialClaimModal'
 import bonusesHero from '@/assets/home/promos/bonuses-hero.webp'
+import heroLossRebate from '@/assets/home/promos/hero/lossrebate.webp'
+import heroFirstDep from '@/assets/home/promos/hero/firstdep.webp'
+import heroAppdl from '@/assets/home/promos/hero/appdl.webp'
+import heroTrial from '@/assets/home/promos/hero/trial.webp'
+import heroAgent from '@/assets/home/promos/hero/agent.webp'
+import heroCheckin from '@/assets/home/promos/hero/checkin.webp'
+
+// 各活动卡片 hero 背景图（从设计稿切出，替换原纯色渐变）
+const HERO_IMG: Record<string, string> = {
+  lossrebate: heroLossRebate,
+  firstdep: heroFirstDep,
+  appdl: heroAppdl,
+  trial: heroTrial,
+  agent: heroAgent,
+  checkin: heroCheckin,
+}
+
+// hero 图上叠加的暗色蒙版，保证左侧标题/文字可读
+function HeroBg({ id }: { id: string }) {
+  return (
+    <>
+      <img src={HERO_IMG[id]} alt="" className="absolute inset-0 w-full h-full object-cover" />
+      <div className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/45 to-transparent" />
+      <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/70 to-transparent" />
+    </>
+  )
+}
 
 interface Props {
   promoFilter?: string | null
@@ -206,13 +233,14 @@ export default function BonusesPage({ promoFilter, onOpenWallet, onOpenTeam, onO
         id={`promo-${p.id}`}
         className={`rounded-2xl overflow-hidden border ${p.highlight ? 'border-purple-500/40' : 'border-white/8'} ${promoFilter === p.id ? 'ring-2 ring-primary/60' : ''}`}
       >
-        <div className={`relative bg-gradient-to-br px-4 py-4 ${p.gradient}`}>
+        <div className="relative px-4 py-4 overflow-hidden">
+          <HeroBg id={p.id} />
           {p.highlight && (
             <div className="absolute top-3 right-3 bg-primary text-primary-foreground text-[10px] font-black px-2 py-0.5 rounded-full">
               {t('bonuses.featuredBadge')}
             </div>
           )}
-          <div className="flex items-start justify-between">
+          <div className="relative flex items-start justify-between">
             <div className="flex-1 pr-12">
               <span className="text-[10px] font-black uppercase tracking-widest" style={{ color: p.accentColor }}>
                 {p.tag}
@@ -220,9 +248,8 @@ export default function BonusesPage({ promoFilter, onOpenWallet, onOpenTeam, onO
               <h2 className="text-white font-black leading-tight mt-0.5 font-display text-[1.3rem]">{p.title}</h2>
               <p className="text-white/60 text-xs mt-0.5">{p.tagline}</p>
             </div>
-            <span className="text-3xl">{p.icon}</span>
           </div>
-          <div className="mt-3 flex items-center gap-2">
+          <div className="relative mt-3 flex items-center gap-2">
             <div className="bg-black/30 rounded-xl px-3 py-1.5 flex items-baseline gap-1.5">
               <span className="text-white font-black text-xl leading-none font-display">{p.reward}</span>
               <span className="text-white/60 text-xs">{p.rewardLabel}</span>
@@ -297,8 +324,9 @@ export default function BonusesPage({ promoFilter, onOpenWallet, onOpenTeam, onO
     const steps = [t('checkin.cardStep1'), t('checkin.cardStep2')]
     return (
       <div key="checkin" id="promo-checkin" className="rounded-2xl overflow-hidden border border-purple-500/40">
-        <div className="relative bg-gradient-to-br from-[#2b1259] via-[#1a1440] to-[#141B2D] px-4 py-4">
-          <div className="flex items-start justify-between">
+        <div className="relative px-4 py-4 overflow-hidden">
+          <HeroBg id="checkin" />
+          <div className="relative flex items-start justify-between">
             <div className="flex-1 pr-12">
               <span className="text-[10px] font-black uppercase tracking-widest" style={{ color: accent }}>
                 {t('checkin.entryTag')}
@@ -306,9 +334,8 @@ export default function BonusesPage({ promoFilter, onOpenWallet, onOpenTeam, onO
               <h2 className="text-white font-black leading-tight mt-0.5 font-display text-[1.3rem]">{t('checkin.entryTitle')}</h2>
               <p className="text-white/60 text-xs mt-0.5">{t('checkin.entryDesc')}</p>
             </div>
-            <span className="text-3xl">📅</span>
           </div>
-          <div className="mt-3 flex items-center gap-2">
+          <div className="relative mt-3 flex items-center gap-2">
             <div className="bg-black/30 rounded-xl px-3 py-1.5 flex items-baseline gap-1.5">
               <span className="text-white font-black text-xl leading-none font-display">{t('checkin.cardReward')}</span>
               <span className="text-white/60 text-xs">{t('checkin.cardRewardLabel')}</span>
@@ -361,8 +388,9 @@ export default function BonusesPage({ promoFilter, onOpenWallet, onOpenTeam, onO
   function renderAgentCard() {
     return (
       <div key="agent" className="rounded-2xl overflow-hidden border border-amber-500/30">
-        <div className="relative bg-gradient-to-br from-[#78350f] via-[#92400e] to-[#b45309] px-4 py-4">
-          <span className="text-3xl absolute top-3 right-4">🏆</span>
+        <div className="relative px-4 py-4 overflow-hidden">
+          <HeroBg id="agent" />
+          <div className="relative">
           <span className="text-[10px] font-black uppercase tracking-widest text-amber-300">
             {t('bonuses.promos.agent.tag')}
           </span>
@@ -420,6 +448,7 @@ export default function BonusesPage({ promoFilter, onOpenWallet, onOpenTeam, onO
               )}
             </>
           )}
+          </div>
         </div>
 
         <div className="bg-card px-4 py-3">
@@ -481,8 +510,9 @@ export default function BonusesPage({ promoFilter, onOpenWallet, onOpenTeam, onO
     ]
     return (
       <div key="lossrebate" id="promo-lossrebate" className="rounded-2xl overflow-hidden border border-white/8">
-        <div className="relative bg-gradient-to-br from-[#4a1d3f] via-[#831843] to-[#6b21a8] px-4 py-4">
-          <div className="flex items-start justify-between">
+        <div className="relative px-4 py-4 overflow-hidden">
+          <HeroBg id="lossrebate" />
+          <div className="relative flex items-start justify-between">
             <div className="flex-1 pr-12">
               <span className="text-[10px] font-black uppercase tracking-widest" style={{ color: accent }}>
                 {t('lossRebate.cardTag')}
@@ -490,9 +520,8 @@ export default function BonusesPage({ promoFilter, onOpenWallet, onOpenTeam, onO
               <h2 className="text-white font-black leading-tight mt-0.5 font-display text-[1.3rem]">{t('lossRebate.cardTitle', { rate })}</h2>
               <p className="text-white/60 text-xs mt-0.5">{t('lossRebate.cardTagline', { rate })}</p>
             </div>
-            <span className="text-3xl">💸</span>
           </div>
-          <div className="mt-3 flex items-center gap-2">
+          <div className="relative mt-3 flex items-center gap-2">
             <div className="bg-black/30 rounded-xl px-3 py-1.5 flex items-baseline gap-1.5">
               <span className="text-white font-black text-xl leading-none font-display">{rate}%</span>
               <span className="text-white/60 text-xs">{t('lossRebate.cardRewardLabel')}</span>
