@@ -19,6 +19,7 @@ import {
 import { createPortal } from 'react-dom'
 import BindModal from '@/components/auth/BindModal'
 import { useAuthStore } from '@/stores/auth'
+import { useWalletStore } from '@/stores/wallet'
 import { useLocaleStore } from '@/stores/locale'
 import { useThemeStore, type ThemeMode } from '@/stores/theme'
 import { LANGUAGES } from '@/data/languages'
@@ -221,6 +222,7 @@ function BottomSheet({ title, children, onClose }: { title: string; children: Re
 export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory, onOpenLedgerRecords, onOpenReferralPromo, onOpenAgentCenter, onOpenVipCenter, onOpenCashback, onOpenTasks, onOpenKycSetting, onOpenDownload, onOpenTopUp, onOpenCashOut, onOpenWalletHistory }: Props) {
   const { t } = useTranslation()
   const auth = useAuthStore()
+  const activeCurrency = useWalletStore((s) => s.activeCurrency)
   const { locale, setLocale } = useLocaleStore()
   const { mode: themeMode, setMode: setThemeMode } = useThemeStore()
   const isLoggedIn = Boolean(auth.token && auth.user)
@@ -280,10 +282,10 @@ export default function MenuPage({ onOpenCs, onLogin, onLogout, onOpenBetHistory
       setVip(null)
       return
     }
-    fetchVipProgress()
+    fetchVipProgress(activeCurrency)
       .then(setVip)
       .catch(() => setVip(null))
-  }, [isLoggedIn, auth.user?.id])
+  }, [isLoggedIn, auth.user?.id, activeCurrency])
 
   useEffect(() => {
     if (!isLoggedIn) {
