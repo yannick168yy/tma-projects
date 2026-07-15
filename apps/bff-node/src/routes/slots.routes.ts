@@ -92,6 +92,7 @@ router.get('/games', async (ctx) => {
       sortCategory: q.sortCategory || undefined,
       siteCategory: q.siteCategory || undefined,
       cashbackTier: q.cashbackTier || undefined,
+      rtpMin: q.rtpMin ? Number(q.rtpMin) : undefined,
       sortBy: (q.sortBy as 'weight' | 'name') || undefined,
       currency: q.currency || undefined,
     })
@@ -121,7 +122,8 @@ router.get('/providers', async (ctx) => {
   try {
     const sortCategory = (ctx.query.sortCategory as string) || undefined
     const siteCategory = (ctx.query.siteCategory as string) || undefined
-    const providers = await listProviders(env, sortCategory, siteCategory)
+    const rtpMin = ctx.query.rtpMin ? Number(ctx.query.rtpMin) : undefined
+    const providers = await listProviders(env, sortCategory, siteCategory, rtpMin)
     ok(ctx, providers)
   } catch (e) {
     fail(ctx, 500, 'Failed to list providers')

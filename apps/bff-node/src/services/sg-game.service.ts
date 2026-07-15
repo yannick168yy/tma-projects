@@ -512,8 +512,8 @@ function buildHomepageSelection(all: DbGame[], cur: string, overrides: SectionOv
     lottery:    applyManual('lottery', [...pick(bySite('lottery'), score, 4), ...pick(bySite('other'), score, 8)], 12),
     // 百家乐专栏：casinoplus 有独立返水专栏验证的品类需求（new_game_type=101）
     baccarat:   sampleSection('baccarat', all.filter((g) => g.category === '101'), score, 12),
-    // 高 RTP 专栏：上游标称 rtp≥0.96，对标竞品「98%」栏
-    highRtp:    sampleSection('highRtp', all.filter((g) => (g.rtp ?? 0) >= 0.96), score, 6),
+    // 高 RTP 专栏：上游标称 rtp≥0.97，对标竞品「98%」栏
+    highRtp:    sampleSection('highRtp', all.filter((g) => (g.rtp ?? 0) >= 0.97), score, 6),
     // 体育：sportsbook 合成条目固定第一席位（前端已移除专属通栏）；Lucky Sports(迁移134统一名) 的 28 个
     // 分项(足球/拳击/…)是同一产品的不同入口，只保留 Basketball，其余席位给独立体育产品(AFB/BTi/Panda/Saba 等)
     sports:     applyManual('sports', [
@@ -631,11 +631,12 @@ export async function listGames(
     sortCategory?: string
     siteCategory?: string
     cashbackTier?: string
+    rtpMin?: number
     sortBy?: 'weight' | 'name'
     currency?: string
   } = {},
 ): Promise<GameListResult> {
-  const { page = 1, limit = 30, search, provider, category, sortCategory, siteCategory, cashbackTier, sortBy = 'weight', currency } = opts
+  const { page = 1, limit = 30, search, provider, category, sortCategory, siteCategory, cashbackTier, rtpMin, sortBy = 'weight', currency } = opts
 
   let games = await getGamesFromCache(env)
 
@@ -663,6 +664,9 @@ export async function listGames(
     games = games.filter((g) => g.cashbackTier != null)
   } else if (cashbackTier) {
     games = games.filter((g) => g.cashbackTier === cashbackTier)
+  }
+  if (rtpMin != null) {
+    games = games.filter((g) => (g.rtp ?? 0) >= rtpMin)
   }
   // 不支持当前币种的游戏直接不显示(与首页选品口径一致)，避免 PHP 目录混入大量 USD 专用灰卡
   if (currency) {
@@ -781,7 +785,7 @@ export async function getProviderWeights(env: Env): Promise<Map<string, number>>
 }
 
 /** Returns distinct provider codes from cached games, optionally filtered by sortCategory / siteCategory (comma-separated) */
-export async function listProviders(env: Env, sortCategory?: string, siteCategory?: string): Promise<string[]> {
+export async function listProviders(env: Env, sortCategory?: string, siteCategory?: string, rtpMin?: number): Promise<string[]> {
   let games = await getGamesFromCache(env)
   if (sortCategory && sortCategory !== 'all') {
     const cats = new Set(sortCategory.split(',').map((s) => s.trim()).filter(Boolean))
@@ -790,6 +794,9 @@ export async function listProviders(env: Env, sortCategory?: string, siteCategor
   if (siteCategory && siteCategory !== 'all') {
     const cats = new Set(siteCategory.split(',').map((s) => s.trim()).filter(Boolean))
     games = games.filter((g) => g.siteCategory != null && cats.has(g.siteCategory))
+  }
+  if (rtpMin != null) {
+    games = games.filter((g) => (g.rtp ?? 0) >= rtpMin)
   }
   const weights = await getProviderWeights(env)
   const providers = [...new Set(games.map((g) => g.provider))].sort((a, b) => {

@@ -325,7 +325,7 @@ export default {
     lotteryZone: '彩票 & 其他',
     recommended: '推荐精选',
     baccaratZone: '百家乐',
-    highRtp: '高返奖 RTP 96%+',
+    highRtp: '高返奖 RTP 97%+',
     sportsZone: '体育游戏',
     providerZone: '热门厂商',
     sportsEntry: '体育投注',

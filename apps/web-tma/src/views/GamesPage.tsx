@@ -14,6 +14,7 @@ interface CategoryDef { id: string; labelKey: string; siteCategory?: string }
 const CATEGORIES: CategoryDef[] = [
   { id: 'all',        labelKey: 'games.catAll'         },
   { id: 'highrebate', labelKey: 'games.catHighRebate'  },
+  { id: 'highrtp',    labelKey: 'home.highRtp'         },
   { id: 'slot',    labelKey: 'home.chipSlots',   siteCategory: 'slot'    },
   { id: 'casino',  labelKey: 'home.chipCasino',  siteCategory: 'casino'  },
   { id: 'perya',   labelKey: 'home.chipPerya',   siteCategory: 'perya'   },
@@ -48,6 +49,7 @@ export default function GamesPage({ cat, provider, onChangeFilter, onOpenPerya, 
   const activeCurrency = useWalletStore((s) => s.activeCurrency)
   const activeCat = CATEGORIES.find((c) => c.id === cat) ?? CATEGORIES[0]
   const isRebate = cat === 'highrebate'
+  const isHighRtp = cat === 'highrtp'
 
   const [tier, setTier] = useState<RebateTier>('all')
   const [providers, setProviders] = useState<string[]>([])
@@ -79,8 +81,9 @@ export default function GamesPage({ cat, provider, onChangeFilter, onOpenPerya, 
       const res = await fetchGames({
         page: nextPage,
         limit: 30,
-        siteCategory: isRebate ? undefined : activeCat.siteCategory,
+        siteCategory: isRebate || isHighRtp ? undefined : activeCat.siteCategory,
         cashbackTier: isRebate ? tier : undefined,
+        rtpMin: isHighRtp ? 0.97 : undefined,
         provider: !isRebate && provider !== 'all' ? provider : undefined,
         sortBy: 'weight',
         currency: activeCurrency,
@@ -101,10 +104,10 @@ export default function GamesPage({ cat, provider, onChangeFilter, onOpenPerya, 
   useEffect(() => {
     const seq = ++providerSeq.current
     setProvidersExpanded(false)
-    fetchProviders(undefined, activeCat.siteCategory)
+    fetchProviders(undefined, activeCat.siteCategory, isHighRtp ? 0.97 : undefined)
       .then((list) => { if (seq === providerSeq.current) setProviders(list) })
       .catch(() => { if (seq === providerSeq.current) setProviders([]) })
-  }, [activeCat.siteCategory])
+  }, [activeCat.siteCategory, isHighRtp])
 
   useEffect(() => {
     void loadGames(true)

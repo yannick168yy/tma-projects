@@ -326,7 +326,7 @@ export default {
     lotteryZone: 'LOTTERY & MORE',
     recommended: 'RECOMMENDED',
     baccaratZone: 'BACCARAT',
-    highRtp: 'HIGH RTP 96%+',
+    highRtp: 'HIGH RTP 97%+',
     sportsZone: 'SPORTS GAMES',
     providerZone: 'TOP PROVIDERS',
     sportsEntry: 'SPORTSBOOK',

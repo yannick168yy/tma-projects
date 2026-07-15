@@ -42,6 +42,7 @@ export interface GameListParams {
   sortCategory?: string
   siteCategory?: string
   cashbackTier?: 'elite' | 'pro' | 'basic' | 'all'
+  rtpMin?: number
   sortBy?: 'weight' | 'name'
   currency?: string
 }
@@ -92,16 +93,18 @@ export function fetchGames(params: GameListParams = {}): Promise<GameListResult>
   if (params.sortCategory) qs.set('sortCategory', params.sortCategory)
   if (params.siteCategory) qs.set('siteCategory', params.siteCategory)
   if (params.cashbackTier) qs.set('cashbackTier', params.cashbackTier)
+  if (params.rtpMin != null) qs.set('rtpMin', String(params.rtpMin))
   if (params.sortBy) qs.set('sortBy', params.sortBy)
   if (params.currency) qs.set('currency', params.currency)
   const q = qs.toString()
   return apiRequest<GameListResult>(`/slots/games${q ? `?${q}` : ''}`)
 }
 
-export function fetchProviders(sortCategory?: string, siteCategory?: string): Promise<string[]> {
+export function fetchProviders(sortCategory?: string, siteCategory?: string, rtpMin?: number): Promise<string[]> {
   const qs = new URLSearchParams()
   if (sortCategory) qs.set('sortCategory', sortCategory)
   if (siteCategory) qs.set('siteCategory', siteCategory)
+  if (rtpMin != null) qs.set('rtpMin', String(rtpMin))
   const q = qs.toString()
   return apiRequest<string[]>(`/slots/providers${q ? `?${q}` : ''}`)
 }
