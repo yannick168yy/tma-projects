@@ -190,3 +190,45 @@
 | 🤖+🤝 全链路 | **~80 条** | 含真实注单/无缝钱包/负盈利结算领取全链路，**0 产品缺陷**（发现均为配置漂移/API契约/自造残留） |
 | ⏳ 剩余造场景 | 洗码每日结算、VIP 季度降级、提现规则命中(大额/篡改/对账) | 方法已全部验证可行 |
 | 🔒 待你配合 | KYC 通过后真实出款(WD-003 全链路)、短信、真机(PWA/全屏/横屏) | — |
+
+---
+
+# 第 5 轮 · 剩余造场景扫尾（洗码结算 / VIP 降级 / 提现规则）
+
+## 十九、洗码每日结算（RB-*，真实 45 流水）✅
+
+| 编号 | 用例 | 结果 | 证据 |
+|---|---|---|---|
+| RB-003 | 每日结算生成待领 | ✅ | `POST /admin/rebate/payout/manual` → totalRebate=**0.135**（45×0.3% slots） |
+| RB-006 | 精选/品类费率口径 | ✅ | claimableBreakdown: slots betAmount=45, ratePct=0.3, rebateAmount=0.135 |
+| RB-004 | 领取入账 | ✅ | `/rebate/claim` → 钱包 +0.135 |
+
+## 二十、VIP 季度保级/降级（VIP-007/008）✅
+
+| 编号 | 用例 | 结果 | 证据 |
+|---|---|---|---|
+| VIP-007 | 硬降级封顶一级 | ✅ | 构造 LV3+本季增量0(<保级线2000) → `retention/manual` demoted=1 → current_level 3→2，awarded_level 保持 3 |
+| VIP-008 | 降级后回升 | ✅ | current2<awarded3 且增量≥保级线 → current 2→3 |
+
+## 二十一、提现自动审核规则（WD-020）✅ + 🐞 **发现真实缺陷**
+
+| 编号 | 用例 | 结果 | 证据 |
+|---|---|---|---|
+| WD-020 | 规则命中转人工 | ✅ | 构造 ₱15,000 提现订单 `/review/proposals/:id/rerun` → verdict=**manual**（turnover 规则命中，未完成流水），16 条规则逐条落 `bg_withdraw_review_log` |
+
+### 🐞 缺陷 DEFECT-001（P1，风控）：large_amount 大额取款规则单位不匹配，阈值实际放大 100 倍
+
+- **位置**：`apps/bff-node/src/services/withdraw-review.service.ts:233`
+- **现象**：法币分支 `hit = ctx.order.amount > threshold`，其中 `ctx.order.amount` 是**比索**（下单存 `body.amount`，如 15000=₱15,000），而 `threshold = params.phpCents` 是**分**（配置 1000000 = ₱10,000）。两者单位不一致。
+- **实测**：₱15,000 提现 → large_amount **pass**（未命中，actual=15000 < threshold=1000000）；改成 ₱1,500,000 → 才命中 manual。
+- **影响**：配置意图 ₱10,000 触发大额转人工，**实际要 ₱1,000,000 才触发**。₱10,000~₱100 万区间的大额法币提现**不被本规则拦截**（其他规则如 turnover/high_profit 仍可能兜底，但大额安全网在此区间失效）。Matrix/USDT 分支用 usdt 主单位对比，无此问题。
+- **修复方向**：法币分支统一单位，如 `ctx.order.amount * 100 > threshold`（比索转分）或阈值 `phpCents/100`。**待你确认后我可改+部署**（属风控逻辑，未擅自改动）。
+
+## 二十二、最终累计（5 轮）
+
+| 类别 | 已验证 | 结果 |
+|---|---|---|
+| 🤖+🤝 全站 | **~90 条** | 覆盖全部技术类；**1 个真实缺陷 DEFECT-001（large_amount 单位）**；3 项知悉项（负盈利7%线上配置、授权失败HTTP400/code403、提现名单escalate） |
+| 🔒 仅剩需你 | KYC 通过后真实出款(WD-003)、短信 OTP、真机(PWA/全屏/横屏/窄屏) | 其余 🤖/🤝 已扫完 |
+
+> 收尾：所有测试数据已清理；BG-10002 最终 PHP=466.935（含真实洗码0.135）、USDT=500，VIP 等级 1/1，无残留测试订单/名单/流水。
