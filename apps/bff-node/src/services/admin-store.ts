@@ -465,15 +465,124 @@ function parseJsonValue(value: unknown): unknown {
   try { return JSON.parse(value) } catch { return null }
 }
 
+const VIRTUAL_SPORTSBOOK_UUID = '568win:sportsbook'
+const VIRTUAL_SPORTSBOOK_PROVIDER = '365Win Sports'
+const VIRTUAL_SPORTSBOOK_NAME = '365Win Sports'
+const VIRTUAL_SPORTSBOOK_NAME_ZH = '365Win 体育'
+
+type ListAdminWin568GamesOpts = {
+  page: number; pageSize: number
+  provider?: string | string[]; search?: string; isActive?: boolean; upstreamAvailable?: boolean
+  sortCategory?: string; siteCategory?: string; newGameType?: number; currency?: string; device?: string
+  gameProviderId?: number; gameId?: number
+  isFeatured?: boolean; coverStatus?: string; sortField?: string; sortOrder?: 'asc' | 'desc'
+}
+
+async function getVirtualSportsbookRow(env: Env): Promise<RowDataPacket | null> {
+  const [rows] = await pool(env).query<RowDataPacket[]>(
+    `SELECT uuid, provider, name, name_zh, category, sort_category, site_category,
+            is_active, weight, is_featured, image_override, image_source, supported_currencies,
+            created_at, updated_at
+     FROM bg_virtual_game_config WHERE uuid = ? LIMIT 1`,
+    [VIRTUAL_SPORTSBOOK_UUID],
+  )
+  return rows[0] ?? null
+}
+
+function mapVirtualSportsbook(row: RowDataPacket | null) {
+  const imageUrl = row?.image_override ? String(row.image_override) : null
+  const supportedCurrencies = parseJsonValue(row?.supported_currencies) ?? ['PHP', 'USDT']
+  const localActive = row?.is_active == null ? true : Boolean(row.is_active)
+  const updatedAt = row?.updated_at ? new Date(row.updated_at as Date) : null
+  return {
+    uuid: VIRTUAL_SPORTSBOOK_UUID,
+    gameId: 0,
+    gameProviderId: 0,
+    provider: row?.provider ? String(row.provider) : VIRTUAL_SPORTSBOOK_PROVIDER,
+    providerShort: 'SPORTS',
+    name: row?.name ? String(row.name) : VIRTUAL_SPORTSBOOK_NAME,
+    nameEn: row?.name ? String(row.name) : VIRTUAL_SPORTSBOOK_NAME,
+    nameZh: row?.name_zh ? String(row.name_zh) : VIRTUAL_SPORTSBOOK_NAME_ZH,
+    nameOverride: row?.name ? String(row.name) : null,
+    imageUrl,
+    iconUrl: null,
+    iconWidth: null,
+    iconHeight: null,
+    iconProbedAt: null,
+    coverStatus: imageUrl ? 'square' : 'none',
+    imageOverride: imageUrl,
+    newGameType: 300,
+    gameType: null,
+    sortCategory: row?.sort_category ? String(row.sort_category) : 'sports',
+    overrideSortCategory: row?.sort_category ? String(row.sort_category) : null,
+    siteCategory: row?.site_category ? String(row.site_category) : 'sports',
+    siteCategoryAuto: 'sports',
+    overrideSiteCategory: row?.site_category ? String(row.site_category) : null,
+    rankNo: null,
+    device: 'd,m',
+    platform: 'HTML5',
+    rtp: null,
+    rowsCount: null,
+    reelsCount: null,
+    linesCount: null,
+    supportedCurrencies,
+    blockCountries: null,
+    upstreamAvailable: true,
+    localActive,
+    isActive: localActive,
+    isEnabled: true,
+    isMaintain: false,
+    providerStatus: 'Online',
+    isProviderOnline: true,
+    isProvideCommission: false,
+    hasHedgeBet: false,
+    weight: row?.weight == null ? 10000 : Number(row.weight),
+    overrideWeight: row?.weight == null ? null : Number(row.weight),
+    weightBreakdown: null,
+    weightUpdatedAt: null,
+    isFeatured: row?.is_featured == null ? true : Boolean(row.is_featured),
+    overrideFeatured: row?.is_featured == null ? null : Boolean(row.is_featured),
+    overrideActive: localActive,
+    syncedAt: null,
+    updatedAt: updatedAt && !isNaN(updatedAt.getTime()) ? updatedAt.toISOString() : null,
+  }
+}
+
+function arrayValue(value: string | string[] | undefined): string[] {
+  if (!value) return []
+  return Array.isArray(value) ? value : [value]
+}
+
+function virtualSportsbookMatches(item: ReturnType<typeof mapVirtualSportsbook>, opts: ListAdminWin568GamesOpts): boolean {
+  if (opts.gameProviderId !== undefined && opts.gameProviderId !== 0) return false
+  if (opts.gameId !== undefined && opts.gameId !== 0) return false
+  const providers = arrayValue(opts.provider)
+  if (providers.length && !providers.includes(item.provider)) return false
+  if (opts.search) {
+    const s = opts.search.toLowerCase()
+    const haystack = [item.name, item.nameZh, item.provider, item.uuid, String(item.gameId), String(item.gameProviderId)].filter(Boolean).join(' ').toLowerCase()
+    if (!haystack.includes(s)) return false
+  }
+  if (opts.isActive !== undefined && item.localActive !== opts.isActive) return false
+  if (opts.upstreamAvailable !== undefined && item.upstreamAvailable !== opts.upstreamAvailable) return false
+  if (opts.sortCategory && item.sortCategory !== opts.sortCategory) return false
+  if (opts.siteCategory && item.siteCategory !== opts.siteCategory) return false
+  if (opts.newGameType !== undefined && item.newGameType !== opts.newGameType) return false
+  if (opts.currency) {
+    const currency = opts.currency.toUpperCase()
+    const supported = Array.isArray(item.supportedCurrencies) ? item.supportedCurrencies.map(String) : []
+    const aliases = currency === 'USDT' || currency === 'UCC' ? ['USDT', 'UCC', 'USD', 'USDC'] : [currency]
+    if (supported.length && !supported.some((c) => aliases.includes(c))) return false
+  }
+  if (opts.device && !String(item.device).split(/[,/]/).map((s) => s.trim()).includes(opts.device)) return false
+  if (opts.isFeatured !== undefined && item.isFeatured !== opts.isFeatured) return false
+  if (opts.coverStatus && item.coverStatus !== opts.coverStatus) return false
+  return true
+}
+
 export async function listAdminWin568Games(
   env: Env,
-  opts: {
-    page: number; pageSize: number
-    provider?: string | string[]; search?: string; isActive?: boolean; upstreamAvailable?: boolean
-    sortCategory?: string; siteCategory?: string; newGameType?: number; currency?: string; device?: string
-    gameProviderId?: number; gameId?: number
-    isFeatured?: boolean; coverStatus?: string; sortField?: string; sortOrder?: 'asc' | 'desc'
-  },
+  opts: ListAdminWin568GamesOpts,
 ) {
   const offset = (opts.page - 1) * opts.pageSize
   const conditions: string[] = []
@@ -481,6 +590,8 @@ export async function listAdminWin568Games(
   const sortCategory = win568SortCategoryExpr()
   const upstreamAvailable = win568UpstreamAvailableExpr()
   const localActive = win568LocalActiveExpr()
+  const virtualSportsbook = mapVirtualSportsbook(await getVirtualSportsbookRow(env))
+  const includeVirtualSportsbook = virtualSportsbookMatches(virtualSportsbook, opts)
 
   if (opts.provider) {
     const providers = Array.isArray(opts.provider) ? opts.provider : [opts.provider]
@@ -495,8 +606,8 @@ export async function listAdminWin568Games(
   if (opts.gameProviderId !== undefined) { conditions.push('g.game_provider_id = ?'); params.push(opts.gameProviderId) }
   if (opts.gameId !== undefined) { conditions.push('g.game_id = ?'); params.push(opts.gameId) }
   if (opts.search) {
-    conditions.push('(g.name_en LIKE ? OR g.name_zh LIKE ? OR o.name_override LIKE ? OR CAST(g.game_id AS CHAR) LIKE ? OR CAST(g.game_provider_id AS CHAR) LIKE ?)')
-    params.push(`%${opts.search}%`, `%${opts.search}%`, `%${opts.search}%`, `%${opts.search}%`, `%${opts.search}%`)
+    conditions.push('(g.name_en LIKE ? OR g.name_zh LIKE ? OR o.name_override LIKE ? OR g.provider LIKE ? OR CAST(g.game_id AS CHAR) LIKE ? OR CAST(g.game_provider_id AS CHAR) LIKE ?)')
+    params.push(`%${opts.search}%`, `%${opts.search}%`, `%${opts.search}%`, `%${opts.search}%`, `%${opts.search}%`, `%${opts.search}%`)
   }
   if (opts.isActive !== undefined) conditions.push(`${localActive} = ${opts.isActive ? 1 : 0}`)
   if (opts.upstreamAvailable !== undefined) conditions.push(`${upstreamAvailable} = ${opts.upstreamAvailable ? 1 : 0}`)
@@ -537,7 +648,8 @@ export async function listAdminWin568Games(
      ${where}`,
     params,
   )
-  const total = Number(countRows[0]?.cnt ?? 0)
+  const realTotal = Number(countRows[0]?.cnt ?? 0)
+  const total = realTotal + (includeVirtualSportsbook ? 1 : 0)
 
   const allowedSortFields: Record<string, string> = {
     weight: 'effective_weight',
@@ -547,6 +659,9 @@ export async function listAdminWin568Games(
   }
   const sortCol = (opts.sortField && allowedSortFields[opts.sortField]) || 'effective_weight'
   const sortDir = opts.sortOrder === 'asc' ? 'ASC' : 'DESC'
+  const virtualFirst = includeVirtualSportsbook
+  const realLimit = virtualFirst && offset === 0 ? Math.max(0, opts.pageSize - 1) : opts.pageSize
+  const realOffset = virtualFirst && offset > 0 ? Math.max(0, offset - 1) : offset
 
   const [rows] = await pool(env).query<RowDataPacket[]>(
     `SELECT g.game_id, g.game_provider_id, g.provider, g.provider_short, g.new_game_type, g.game_type, g.rank_no,
@@ -573,7 +688,7 @@ export async function listAdminWin568Games(
      ${where}
      ORDER BY ${sortCol} ${sortDir}, g.provider, effective_name
      LIMIT ? OFFSET ?`,
-    [...params, opts.pageSize, offset],
+    [...params, realLimit, realOffset],
   )
   const [provRows] = await pool(env).query<RowDataPacket[]>(
     `SELECT DISTINCT provider FROM bg_568win_game ORDER BY provider`,
@@ -636,7 +751,9 @@ export async function listAdminWin568Games(
     updatedAt: (() => { const d = new Date(r.updated_at as Date); return isNaN(d.getTime()) ? null : d.toISOString() })(),
   }))
 
-  return { total, items, providers: provRows.map((r) => String(r.provider)) }
+  const pagedItems = virtualFirst && offset === 0 ? [virtualSportsbook, ...items] : items
+  const providers = [...new Set([...provRows.map((r) => String(r.provider)), virtualSportsbook.provider])].sort((a, b) => a.localeCompare(b))
+  return { total, items: pagedItems, providers }
 }
 
 export async function updateAdminWin568Game(
@@ -655,6 +772,43 @@ export async function updateAdminWin568Game(
     imageAnim?: string | null
   },
 ): Promise<void> {
+  if (gameProviderId === 0 && gameId === 0) {
+    const current = await getVirtualSportsbookRow(env)
+    await pool(env).execute(
+      `INSERT INTO bg_virtual_game_config
+       (uuid, provider, name, name_zh, category, sort_category, site_category, is_active, weight, is_featured,
+        image_override, image_source, supported_currencies)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, JSON_ARRAY('PHP', 'USDT'))
+       ON DUPLICATE KEY UPDATE
+         provider = VALUES(provider),
+         name = VALUES(name),
+         name_zh = VALUES(name_zh),
+         category = VALUES(category),
+         sort_category = VALUES(sort_category),
+         site_category = VALUES(site_category),
+         is_active = VALUES(is_active),
+         weight = VALUES(weight),
+         is_featured = VALUES(is_featured),
+         image_override = VALUES(image_override),
+         image_source = VALUES(image_source)`,
+      [
+        VIRTUAL_SPORTSBOOK_UUID,
+        current?.provider ? String(current.provider) : VIRTUAL_SPORTSBOOK_PROVIDER,
+        patch.nameOverride === undefined ? (current?.name ? String(current.name) : VIRTUAL_SPORTSBOOK_NAME) : (patch.nameOverride || VIRTUAL_SPORTSBOOK_NAME),
+        current?.name_zh ? String(current.name_zh) : VIRTUAL_SPORTSBOOK_NAME_ZH,
+        current?.category ? String(current.category) : 'sportsbook',
+        patch.sortCategory === undefined ? (current?.sort_category ? String(current.sort_category) : 'sports') : (patch.sortCategory || 'sports'),
+        patch.siteCategory === undefined ? (current?.site_category ? String(current.site_category) : 'sports') : (patch.siteCategory || 'sports'),
+        patch.isActive === undefined ? (current?.is_active == null ? 1 : Number(Boolean(current.is_active))) : Number(Boolean(patch.isActive)),
+        patch.weight === undefined ? (current?.weight == null ? 10000 : Number(current.weight)) : (patch.weight ?? 10000),
+        patch.isFeatured === undefined ? (current?.is_featured == null ? 1 : Number(Boolean(current.is_featured))) : Number(Boolean(patch.isFeatured)),
+        patch.imageOverride === undefined ? (current?.image_override ? String(current.image_override) : null) : patch.imageOverride,
+        patch.imageOverrideSource === undefined ? (current?.image_source ? String(current.image_source) : null) : patch.imageOverrideSource,
+      ],
+    )
+    return
+  }
+
   const [[game]] = await pool(env).query<RowDataPacket[]>(
     `SELECT g.game_id, o.is_active, o.weight, o.is_featured, o.sort_category, o.site_category, o.name_override,
             o.image_override, o.image_override_source, o.image_anim
@@ -706,6 +860,26 @@ export async function listWin568CoverCandidates(
   currentSource: string
   currentUrl: string
 }> {
+  if (gameProviderId === 0 && gameId === 0) {
+    const row = await getVirtualSportsbookRow(env)
+    const [rows] = await pool(env).query<RowDataPacket[]>(
+      `SELECT provider, icon_url FROM bg_568win_game
+       WHERE new_game_type = 300 AND icon_url IS NOT NULL AND icon_url <> ''
+       GROUP BY provider, icon_url
+       ORDER BY provider, icon_url`,
+    )
+    const seen = new Set<string>()
+    const candidates = rows
+      .map((r) => ({ source: String(r.provider || '568win'), url: String(r.icon_url), animUrl: null }))
+      .filter((c) => {
+        if (seen.has(c.url)) return false
+        seen.add(c.url)
+        return true
+      })
+    const currentUrl = row?.image_override ? String(row.image_override) : ''
+    return { candidates, currentSource: row?.image_source ? String(row.image_source) : 'manual', currentUrl }
+  }
+
   const [[g]] = await pool(env).query<RowDataPacket[]>(
     `SELECT g.icon_url, o.image_override, o.image_override_source
      FROM bg_568win_game g

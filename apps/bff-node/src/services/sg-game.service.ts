@@ -6,6 +6,15 @@ import { getRedis } from '../clients/redis.client.js'
 const GAMES_CACHE_KEY = 'games:all'
 const GAMES_CACHE_TTL = 30 * 60 // 30 分钟
 export const WIN568_SPORTSBOOK_UUID = '568win:sportsbook'
+const WIN568_SPORTSBOOK_DEFAULT = {
+  provider: '365Win Sports',
+  name: '365Win Sports',
+  nameZh: '365Win 体育',
+  category: 'sportsbook',
+  sortCategory: 'sports',
+  siteCategory: 'sports',
+  supportedCurrencies: ['PHP', 'USDT'],
+}
 
 // ── Query ─────────────────────────────────────────────────────────────────────
 
@@ -125,27 +134,41 @@ function rowToWin568Game(r: RowDataPacket): DbGame {
   }
 }
 
-function win568SportsbookGame(): DbGame {
+function win568SportsbookGame(row?: RowDataPacket | null): DbGame {
+  const supportedCurrencies = parseJsonArray(row?.supported_currencies) ?? WIN568_SPORTSBOOK_DEFAULT.supportedCurrencies
   return {
     uuid: WIN568_SPORTSBOOK_UUID,
     aggregator: '568win',
-    name: '568Win Sports',
+    name: row?.name ? String(row.name) : WIN568_SPORTSBOOK_DEFAULT.name,
     nameId: null,
     nameVi: null,
-    nameZh: '568Win 体育',
-    provider: '568Win Sports',
-    category: 'sportsbook',
+    nameZh: row?.name_zh ? String(row.name_zh) : WIN568_SPORTSBOOK_DEFAULT.nameZh,
+    provider: row?.provider ? String(row.provider) : WIN568_SPORTSBOOK_DEFAULT.provider,
+    category: row?.category ? String(row.category) : WIN568_SPORTSBOOK_DEFAULT.category,
     subCategory: null,
-    sortCategory: 'sports',
-    siteCategory: 'sports',
-    imageUrl: null,
-    imageHqUrl: null,
+    sortCategory: row?.sort_category ? String(row.sort_category) : WIN568_SPORTSBOOK_DEFAULT.sortCategory,
+    siteCategory: row?.site_category ? String(row.site_category) : WIN568_SPORTSBOOK_DEFAULT.siteCategory,
+    imageUrl: row?.image_override ? String(row.image_override) : null,
+    imageHqUrl: row?.image_override ? String(row.image_override) : null,
+    imageSource: row?.image_source ? String(row.image_source) : null,
     hasLobby: true,
     isMobile: true,
-    weight: 10000,
-    isFeatured: true,
-    supportedCurrencies: ['PHP', 'USDT'],
+    weight: row?.weight == null ? 10000 : Number(row.weight),
+    isFeatured: row?.is_featured == null ? true : Boolean(row.is_featured),
+    supportedCurrencies,
   }
+}
+
+async function loadWin568SportsbookGame(db: ReturnType<typeof getMysqlPool>): Promise<DbGame | null> {
+  const [rows] = await db.query<RowDataPacket[]>(
+    `SELECT uuid, provider, name, name_zh, category, sort_category, site_category,
+            is_active, weight, is_featured, image_override, image_source, supported_currencies
+     FROM bg_virtual_game_config WHERE uuid = ? LIMIT 1`,
+    [WIN568_SPORTSBOOK_UUID],
+  )
+  const row = rows[0]
+  if (row && !Boolean(row.is_active)) return null
+  return win568SportsbookGame(row)
 }
 
 // ── 全量缓存 ──────────────────────────────────────────────────────────────────
@@ -203,8 +226,9 @@ export async function loadGamesCache(env: Env): Promise<number> {
          OR JSON_CONTAINS(supported_currencies, JSON_QUOTE('USDC')))
        AND (g.device IS NULL OR FIND_IN_SET('m', REPLACE(REPLACE(g.device, ' ', ''), '/', ',')) > 0)`,
   )
+  const sportsbookGame = await loadWin568SportsbookGame(db)
   const games = [
-    win568SportsbookGame(),
+    ...(sportsbookGame ? [sportsbookGame] : []),
     ...(win568Rows as RowDataPacket[]).map(rowToWin568Game),
   ]
   // Cashback 精选档位角标（elite=2%/pro=1.5%，纯展示不参与结算）
@@ -493,7 +517,7 @@ function buildHomepageSelection(all: DbGame[], cur: string, overrides: SectionOv
     // 体育：sportsbook 合成条目固定第一席位（前端已移除专属通栏）；Lucky Sports(迁移134统一名) 的 28 个
     // 分项(足球/拳击/…)是同一产品的不同入口，只保留 Basketball，其余席位给独立体育产品(AFB/BTi/Panda/Saba 等)
     sports:     applyManual('sports', [
-      win568SportsbookGame(),
+      ...all.filter((g) => g.uuid === WIN568_SPORTSBOOK_UUID).slice(0, 1),
       ...pick(exFilter('sports', bySite('sports').filter((g) =>
         g.uuid !== WIN568_SPORTSBOOK_UUID
         && !(g.provider === 'Lucky Sports' && g.name !== 'Basketball'))), score, 5, 6),
