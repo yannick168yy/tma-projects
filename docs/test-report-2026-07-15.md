@@ -107,3 +107,46 @@
 | 🤖 只读+行为+造场景 | **~58 条** | 本文覆盖，0 真实缺陷，2 处配置/契约提示 |
 | ⏳ 待造场景（剩余） | 负盈利返水完整计算、洗码每日结算、VIP 降级(季度cron)、提现规则命中 | techniques 已验证可行，按需继续 |
 | 🔒 待你配合 | 多币种(USDT钱包已授权可加)、充值/提现/下注(sandbox)、短信/KYC/真机 | — |
+
+---
+
+# 第 3 轮 · 充值后深度测试（BG-10002 已有 500 PHP + 500 USDT）
+
+## 十一、多币种独立账（CUR-*）✅
+
+| 编号 | 用例 | 结果 | 证据 |
+|---|---|---|---|
+| CUR-001 | VIP/任务/洗码按币种独立 | ✅ | PHP VIP 与 USDT VIP 各自独立账（USDT lv1）；`/tasks?currency=USDT`、`/rebate/progress?currency=USDT` 均按币种返回 |
+| CUR-002 | 负盈利门槛按币种 | ✅ | USDT 负盈利 minDeposit=5、PHP=200（各币种独立配置） |
+| LEDGER-001 | 账变入账记录 | ✅ | 500 PHP + 500 USDT 充值为 `admin_adjust` 类型账变，各一条，余额快照正确 |
+
+## 十二、提现闸门（WD-*，均拒绝类不出款）✅
+
+| 编号 | 用例 | 结果 | 证据 |
+|---|---|---|---|
+| WD-001 | 未 KYC 提现被拒 | ✅ | tg_wallet 与 matrix 两通道 POST 均 body.code=403 `errors.kycRequired` |
+| WD-002 | 流水闸门可见 | ✅ | `GET /withdrawals/eligibility` 返回 turnoverOk=false、rejectReasons=["KYC not approved","Turnover requirement not met"] |
+| WD-005 | 闸门顺序 | ✅ | 超额提现仍先撞 KYC（403 kyc）→ 证实 **KYC > 流水 > 余额** 闸门顺序，KYC 为最外层 |
+
+> 附注：法币提现当前仅支持 `channelId=tg_wallet`+PHP；最低提现额 ₱10,000。
+
+## 十三、负盈利返水完整计算（旗舰 P0，DB 造 3 表）✅
+
+构造 `bg_bet_order`(bet 1000 / win 200，同 round，slots) + `bg_turnover_logs`(关联 slots) + `bg_deposit_order`(paid)，验证 C 端 `/vip/loss-rebate-status` 计算：
+
+| 编号 | 验证点 | 结果 | 证据 |
+|---|---|---|---|
+| NLR-004 | 净输=白名单品类 bet−win | ✅ | netLoss=800（1000−200，经 slots round EXISTS 命中） |
+| NLR-005 | 存款窗口按币种累计 | ✅ | windowDeposit=500（仅 PHP 币种 paid 存款；USDT 不混入） |
+| NLR-006 | 净存款封顶（min 取小） | ✅ | 存款≥净输时 base=800→返水 **56.00**；删存款使 500<800 时 base=500→返水 **35.00**，精确命中 min(netLoss,dep)×7% |
+| NLR-001/002 | 预览与原因流转 | ✅ | eligible→no_loss 随数据正确切换 |
+
+> 全部测试数据用后即删；收尾核对：你的 500 PHP + 500 USDT 真实存款完整保留，负盈利预览回落 no_loss，无残留。
+
+## 十四、累计进度（截至第 3 轮）
+
+| 类别 | 已验证 | 说明 |
+|---|---|---|
+| 🤖 全技术类 | **~72 条** | 只读/行为/安全/风控场景/RBAC/计算场景/多币种/提现闸门/负盈利全链路，**0 真实缺陷** |
+| ⏳ 剩余造场景 | 洗码每日结算(cron)、VIP 季度降级、提现规则命中(大额/篡改/对账) | 方法同 NLR，可续 |
+| 🔒 待你配合 | 真实下注一局(注单/流水口径 BET-001/GAME-011)、KYC 通过后真实出款(WD-003)、短信/真机 | — |
