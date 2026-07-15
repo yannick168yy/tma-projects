@@ -61,7 +61,7 @@ export default function NewPlayerGiftSheet({ onClose, onContinue }: Props) {
                 aria-label="Continue"
                 onClick={onContinue}
                 className="absolute cursor-pointer"
-                style={{ left: '8%', right: '8%', top: '84%', height: '9%' }}
+                style={{ left: '21%', right: '21%', top: '89.5%', height: '7.5%' }}
               />
             </>
           )}
