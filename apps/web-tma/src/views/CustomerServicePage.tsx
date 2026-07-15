@@ -142,6 +142,94 @@ const QUICK_OPTIONS: QuickNode[] = [
 
 type LocalMsg = CsMessage & { orders?: CsOrder[]; orderKind?: 'deposit' | 'withdraw' }
 
+type QuickLang = 'en' | 'zh-CN' | 'id' | 'vi'
+
+const QUICK_LABELS: Record<string, Record<QuickLang, string>> = {
+  deposit: { en: 'Deposit issues', 'zh-CN': '充值问题', id: 'Masalah deposit', vi: 'Vấn đề nạp tiền' },
+  deposit_not_credited: { en: 'Paid but balance not credited', 'zh-CN': '已支付但余额没到账', id: 'Sudah bayar tapi saldo belum masuk', vi: 'Đã thanh toán nhưng chưa cộng tiền' },
+  deposit_amount_wrong: { en: 'Deposit amount is wrong', 'zh-CN': '充值金额不对', id: 'Jumlah deposit tidak sesuai', vi: 'Số tiền nạp không đúng' },
+  deposit_status: { en: 'Check latest deposit status', 'zh-CN': '查询最近充值状态', id: 'Cek status deposit terbaru', vi: 'Kiểm tra trạng thái nạp gần nhất' },
+  deposit_method_limit: { en: 'Deposit methods or minimum amount', 'zh-CN': '充值方式或最低金额', id: 'Metode atau minimum deposit', vi: 'Phương thức hoặc mức nạp tối thiểu' },
+  withdraw: { en: 'Withdrawal issues', 'zh-CN': '提现问题', id: 'Masalah penarikan', vi: 'Vấn đề rút tiền' },
+  withdrawal_status: { en: 'Check withdrawal status', 'zh-CN': '查询提现进度', id: 'Cek status penarikan', vi: 'Kiểm tra trạng thái rút tiền' },
+  withdrawal_rejected: { en: 'Withdrawal failed or rejected', 'zh-CN': '提现失败或被拒', id: 'Penarikan gagal atau ditolak', vi: 'Rút tiền thất bại hoặc bị từ chối' },
+  withdrawal_amount_wrong: { en: 'Withdrawal amount is wrong', 'zh-CN': '提现金额不对', id: 'Jumlah penarikan tidak sesuai', vi: 'Số tiền rút không đúng' },
+  withdrawal_arrival_time: { en: 'Withdrawal arrival time', 'zh-CN': '提现到账时间', id: 'Waktu penarikan masuk', vi: 'Thời gian tiền rút về' },
+  cannot_withdraw: { en: "Can't withdraw", 'zh-CN': '无法提现', id: 'Tidak bisa menarik', vi: 'Không thể rút tiền' },
+  cannot_withdraw_unknown: { en: "I don't know why", 'zh-CN': '不知道原因', id: 'Saya tidak tahu alasannya', vi: 'Tôi không biết lý do' },
+  cannot_withdraw_kyc: { en: 'KYC not approved', 'zh-CN': 'KYC 未通过', id: 'KYC belum disetujui', vi: 'KYC chưa được duyệt' },
+  cannot_withdraw_turnover: { en: 'Wagering requirement issue', 'zh-CN': '流水要求问题', id: 'Masalah syarat taruhan', vi: 'Vấn đề yêu cầu cược' },
+  cannot_withdraw_pending: { en: 'Pending withdrawal issue', 'zh-CN': '有处理中提现', id: 'Masalah penarikan tertunda', vi: 'Có lệnh rút đang xử lý' },
+  kyc: { en: 'KYC verification', 'zh-CN': 'KYC 认证', id: 'Verifikasi KYC', vi: 'Xác minh KYC' },
+  kyc_help: { en: 'Check my KYC status', 'zh-CN': '查询我的 KYC 状态', id: 'Cek status KYC saya', vi: 'Kiểm tra trạng thái KYC' },
+  kyc_phone_issue: { en: 'Phone verification issue', 'zh-CN': '手机验证问题', id: 'Masalah verifikasi telepon', vi: 'Vấn đề xác minh điện thoại' },
+  kyc_document_issue: { en: 'ID upload issue', 'zh-CN': '证件上传问题', id: 'Masalah unggah ID', vi: 'Vấn đề tải giấy tờ' },
+  kyc_face_issue: { en: 'Face verification issue', 'zh-CN': '人脸验证问题', id: 'Masalah verifikasi wajah', vi: 'Vấn đề xác minh khuôn mặt' },
+  kyc_rejected_reason: { en: 'KYC rejected reason', 'zh-CN': 'KYC 被拒原因', id: 'Alasan KYC ditolak', vi: 'Lý do KYC bị từ chối' },
+  promotions: { en: 'Bonuses & promotions', 'zh-CN': '优惠活动', id: 'Bonus & promosi', vi: 'Khuyến mãi & thưởng' },
+  promo_first_deposit: { en: 'First deposit bonus', 'zh-CN': '首充活动', id: 'Bonus deposit pertama', vi: 'Thưởng nạp lần đầu' },
+  promo_trial: { en: 'Free trial bonus', 'zh-CN': '免费体验金', id: 'Bonus trial gratis', vi: 'Thưởng dùng thử miễn phí' },
+  promo_reward_missing: { en: 'Promotion reward missing', 'zh-CN': '活动奖励未到账', id: 'Hadiah promosi belum masuk', vi: 'Chưa nhận thưởng khuyến mãi' },
+  promo_rules: { en: 'Promotion rules', 'zh-CN': '活动规则说明', id: 'Aturan promosi', vi: 'Quy tắc khuyến mãi' },
+  game: { en: 'Game issues', 'zh-CN': '游戏问题', id: 'Masalah game', vi: 'Vấn đề trò chơi' },
+  game_cannot_open: { en: "Game won't open", 'zh-CN': '游戏打不开', id: 'Game tidak bisa dibuka', vi: 'Không mở được game' },
+  game_crashed: { en: 'Game crashed or froze', 'zh-CN': '游戏卡住或闪退', id: 'Game crash atau macet', vi: 'Game bị treo hoặc thoát' },
+  game_settlement_issue: { en: 'Bet settlement issue', 'zh-CN': '投注结算异常', id: 'Masalah penyelesaian taruhan', vi: 'Vấn đề kết toán cược' },
+  game_missing: { en: "Can't find a game", 'zh-CN': '找不到游戏', id: 'Tidak menemukan game', vi: 'Không tìm thấy game' },
+  game_maintenance: { en: 'Game maintenance', 'zh-CN': '游戏维护', id: 'Game maintenance', vi: 'Game đang bảo trì' },
+  account: { en: 'Account & login', 'zh-CN': '账号与登录', id: 'Akun & login', vi: 'Tài khoản & đăng nhập' },
+  account_login_issue: { en: "Can't log in", 'zh-CN': '无法登录', id: 'Tidak bisa login', vi: 'Không thể đăng nhập' },
+  account_frozen: { en: 'Account frozen', 'zh-CN': '账号被冻结', id: 'Akun dibekukan', vi: 'Tài khoản bị khóa' },
+  account_bind_issue: { en: 'Binding Telegram / Google / phone', 'zh-CN': '绑定 Telegram / Google / 手机', id: 'Tautkan Telegram / Google / telepon', vi: 'Liên kết Telegram / Google / điện thoại' },
+  account_security: { en: 'Suspected account theft', 'zh-CN': '怀疑账号被盗', id: 'Diduga akun dicuri', vi: 'Nghi tài khoản bị đánh cắp' },
+  human: { en: 'Talk to a human agent', 'zh-CN': '转人工客服', id: 'Bicara dengan agen', vi: 'Gặp nhân viên hỗ trợ' },
+  human_agent: { en: 'I need a human agent', 'zh-CN': '我要人工客服', id: 'Saya perlu agen manusia', vi: 'Tôi cần nhân viên hỗ trợ' },
+  human_complaint: { en: 'Complaint or refund', 'zh-CN': '投诉或退款', id: 'Keluhan atau refund', vi: 'Khiếu nại hoặc hoàn tiền' },
+  human_money_dispute: { en: 'Money dispute', 'zh-CN': '资金争议', id: 'Sengketa dana', vi: 'Tranh chấp tiền' },
+  human_account_security: { en: 'Urgent account security', 'zh-CN': '紧急账号安全', id: 'Keamanan akun mendesak', vi: 'Bảo mật tài khoản khẩn cấp' },
+  cashback: { en: 'Cashback / Cash rebate', 'zh-CN': 'Cashback / 洗码', id: 'Cashback / rebate taruhan', vi: 'Cashback / hoàn cược' },
+  cashback_turnover: { en: 'Rebate turnover issue', 'zh-CN': '洗码流水异常', id: 'Masalah turnover rebate', vi: 'Vấn đề doanh số hoàn cược' },
+  cashback_turnover_missing: { en: 'Bets not counted', 'zh-CN': '投注未计入', id: 'Taruhan tidak dihitung', vi: 'Cược không được tính' },
+  cashback_game_category: { en: 'Game category not counted', 'zh-CN': '游戏类型未计入', id: 'Kategori game tidak dihitung', vi: 'Loại game không được tính' },
+  cashback_time_range: { en: 'Time range looks wrong', 'zh-CN': '统计时间不对', id: 'Rentang waktu tidak sesuai', vi: 'Khoảng thời gian không đúng' },
+  cashback_currency: { en: 'Multi-currency amount issue', 'zh-CN': '多币种金额问题', id: 'Masalah multi-mata uang', vi: 'Vấn đề nhiều loại tiền' },
+  cashback_amount_wrong: { en: 'Cash rebate amount is wrong', 'zh-CN': '洗码金额不对', id: 'Jumlah cash rebate salah', vi: 'Số tiền hoàn cược không đúng' },
+  cashback_not_received: { en: 'Cash rebate not received', 'zh-CN': '洗码未到账', id: 'Cash rebate belum diterima', vi: 'Chưa nhận hoàn cược' },
+  cashback_rate_wrong: { en: 'Cash rebate rate is wrong', 'zh-CN': '洗码比例不对', id: 'Rate cash rebate salah', vi: 'Tỷ lệ hoàn cược không đúng' },
+  cashback_rules: { en: 'Cash rebate rules', 'zh-CN': '洗码规则说明', id: 'Aturan cash rebate', vi: 'Quy tắc hoàn cược' },
+  loss_rebate: { en: 'Loss rebate', 'zh-CN': '负盈利返水', id: 'Rebate kerugian', vi: 'Hoàn tiền thua lỗ' },
+  loss_rebate_amount: { en: 'Loss rebate amount issue', 'zh-CN': '负盈利金额问题', id: 'Masalah jumlah rebate kerugian', vi: 'Vấn đề số tiền hoàn thua lỗ' },
+  loss_rebate_net_loss_wrong: { en: 'Net loss amount is wrong', 'zh-CN': '净输金额不对', id: 'Net loss tidak sesuai', vi: 'Số tiền thua ròng không đúng' },
+  loss_rebate_deposit_threshold: { en: 'Deposit threshold issue', 'zh-CN': '存款门槛问题', id: 'Masalah syarat deposit', vi: 'Vấn đề ngưỡng nạp tiền' },
+  loss_rebate_category: { en: 'Game category not eligible', 'zh-CN': '游戏类型不符合', id: 'Kategori game tidak memenuhi syarat', vi: 'Loại game không đủ điều kiện' },
+  loss_rebate_period: { en: 'Settlement period issue', 'zh-CN': '结算周期问题', id: 'Masalah periode settlement', vi: 'Vấn đề kỳ kết toán' },
+  loss_rebate_not_received: { en: 'Loss rebate not received', 'zh-CN': '负盈利返水未到账', id: 'Rebate kerugian belum diterima', vi: 'Chưa nhận hoàn thua lỗ' },
+  loss_rebate_eligibility: { en: 'Am I eligible?', 'zh-CN': '是否符合条件', id: 'Apakah saya memenuhi syarat?', vi: 'Tôi có đủ điều kiện không?' },
+  loss_rebate_time: { en: 'Settlement time', 'zh-CN': '结算时间', id: 'Waktu settlement', vi: 'Thời gian kết toán' },
+  loss_rebate_rules: { en: 'Loss rebate rules', 'zh-CN': '负盈利返水规则', id: 'Aturan rebate kerugian', vi: 'Quy tắc hoàn thua lỗ' },
+  vip: { en: 'VIP system', 'zh-CN': 'VIP体系', id: 'Sistem VIP', vi: 'Hệ thống VIP' },
+  vip_level_status: { en: 'Check my VIP level', 'zh-CN': '查询 VIP 等级', id: 'Cek level VIP saya', vi: 'Kiểm tra cấp VIP' },
+  vip_not_upgraded: { en: 'Why did I not upgrade?', 'zh-CN': '为什么没升级', id: 'Kenapa belum naik level?', vi: 'Vì sao chưa lên cấp?' },
+  vip_growth_wrong: { en: 'VIP growth / turnover issue', 'zh-CN': 'VIP成长值/流水异常', id: 'Masalah growth / turnover VIP', vi: 'Vấn đề điểm tăng trưởng / doanh số VIP' },
+  vip_reward_missing: { en: 'VIP reward missing', 'zh-CN': 'VIP奖励未到账', id: 'Reward VIP belum diterima', vi: 'Chưa nhận thưởng VIP' },
+  vip_benefits: { en: 'VIP benefits', 'zh-CN': 'VIP权益说明', id: 'Benefit VIP', vi: 'Quyền lợi VIP' },
+  vip_retention: { en: 'VIP retention / downgrade', 'zh-CN': 'VIP保级/降级', id: 'Retensi / turun level VIP', vi: 'Giữ cấp / hạ cấp VIP' },
+  tasks: { en: 'Task system', 'zh-CN': '任务体系', id: 'Sistem tugas', vi: 'Hệ thống nhiệm vụ' },
+  task_status: { en: 'Check task status', 'zh-CN': '查询任务状态', id: 'Cek status tugas', vi: 'Kiểm tra trạng thái nhiệm vụ' },
+  task_not_approved: { en: 'Task completed but not approved', 'zh-CN': '任务完成但未通过', id: 'Tugas selesai tapi belum disetujui', vi: 'Nhiệm vụ hoàn thành nhưng chưa duyệt' },
+  task_reward_missing: { en: 'Task reward missing', 'zh-CN': '任务奖励未到账', id: 'Reward tugas belum diterima', vi: 'Chưa nhận thưởng nhiệm vụ' },
+  task_social_verify_failed: { en: 'Channel / community verification failed', 'zh-CN': '频道/社区验证失败', id: 'Verifikasi channel / komunitas gagal', vi: 'Xác minh kênh / cộng đồng thất bại' },
+  task_code_failed: { en: 'Code verification failed', 'zh-CN': '验证码验证失败', id: 'Verifikasi kode gagal', vi: 'Xác minh mã thất bại' },
+  task_rules: { en: 'Task rules', 'zh-CN': '任务规则说明', id: 'Aturan tugas', vi: 'Quy tắc nhiệm vụ' },
+}
+
+function normalizeQuickLang(language?: string): QuickLang {
+  if (language?.startsWith('zh')) return 'zh-CN'
+  if (language?.startsWith('id')) return 'id'
+  if (language?.startsWith('vi')) return 'vi'
+  return 'en'
+}
+
 const ORDER_STATE_CLASS: Record<string, string> = {
   success: 'bg-green-500/15 text-green-400',
   pending: 'bg-yellow-500/15 text-yellow-500',
@@ -149,7 +237,7 @@ const ORDER_STATE_CLASS: Record<string, string> = {
 }
 
 export default function CustomerServicePage({ onClose }: Props) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const isLoggedIn = useAuthStore((s) => Boolean(s.token && s.user))
   const [messages, setMessages] = useState<LocalMsg[]>([])
   const [inputText, setInputText] = useState('')
@@ -164,9 +252,14 @@ export default function CustomerServicePage({ onClose }: Props) {
   const leftSentRef = useRef(false)
   const endedRef = useRef(false)
   const conversationEnded = conversationStatus === 'closed' || conversationStatus === 'resolved'
+  const quickLang = normalizeQuickLang(i18n.resolvedLanguage || i18n.language)
   const currentQuickParent = quickPath[quickPath.length - 1]
   const currentQuickOptions = currentQuickParent?.children ?? QUICK_OPTIONS
-  const quickTitle = currentQuickParent?.label ?? t('cs.quickMenuTitle')
+  const quickTitle = currentQuickParent ? quickLabel(currentQuickParent) : t('cs.quickMenuTitle')
+
+  function quickLabel(node: QuickNode) {
+    return QUICK_LABELS[node.id]?.[quickLang] ?? node.label
+  }
 
   function scrollToBottom() {
     setTimeout(() => { if (msgRef.current) msgRef.current.scrollTop = msgRef.current.scrollHeight }, 0)
@@ -320,7 +413,7 @@ export default function CustomerServicePage({ onClose }: Props) {
     }
     if (!node.intent) return
     setMenuOpen(false)
-    void sendQuickOption(node.intent, node.label, node.orderKind)
+    void sendQuickOption(node.intent, quickLabel(node), node.orderKind)
   }
 
   function backQuickMenu() {
@@ -396,7 +489,7 @@ export default function CustomerServicePage({ onClose }: Props) {
                       onClick={() => handleQuickNode(opt)}
                     >
                       {opt.emoji && <span>{opt.emoji}</span>}
-                      <span className="flex-1 leading-tight">{opt.label}</span>
+                      <span className="flex-1 leading-tight">{quickLabel(opt)}</span>
                       {opt.children?.length && <span className="text-muted-foreground">›</span>}
                     </button>
                   ))}
@@ -492,7 +585,7 @@ export default function CustomerServicePage({ onClose }: Props) {
                       onClick={() => handleQuickNode(opt)}
                     >
                       {opt.emoji && <span>{opt.emoji}</span>}
-                      <span className="flex-1 leading-tight">{opt.label}</span>
+                      <span className="flex-1 leading-tight">{quickLabel(opt)}</span>
                       {opt.children?.length && <span className="text-muted-foreground">›</span>}
                     </button>
                   ))}

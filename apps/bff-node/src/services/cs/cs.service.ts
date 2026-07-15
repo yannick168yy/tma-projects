@@ -71,6 +71,7 @@ export async function handleUserMessage(
   const history = await getMessages(env, conversationId, MAX_HISTORY)
   // 去掉最后一条（刚刚存入的 user 消息，sendMessage 会单独发）
   const historyContents = buildHistory(history.slice(0, -1))
+  while (historyContents[0]?.role === 'model') historyContents.shift()
 
   const model = getClient(env).getGenerativeModel({
     model: MODEL,
