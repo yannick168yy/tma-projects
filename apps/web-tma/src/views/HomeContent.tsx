@@ -454,6 +454,7 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
 
       {/* 负盈利返水活动横条 → VIP 负盈利返水 tab */}
       <section className="mt-6">
+        {sectionHeader(<Percent size={15} className="text-amber-400" />, t('lossRebate.title'))}
         <div className="px-4">
           <button type="button" className="relative block w-full active:scale-[0.98] transition-transform" onClick={() => void onLossRebateBannerTap()}>
             <img src={lossRebateBannerImg} alt="Loss Rebate" draggable={false} className="w-full rounded-2xl" />
