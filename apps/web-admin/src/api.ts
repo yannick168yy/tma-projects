@@ -93,6 +93,9 @@ export interface LedgerEntry {
   id: string; type: string; amount: number; currency: string
   balanceAfter: number; description: string; createdAt: string
 }
+export interface WalletBalance {
+  currency: string; available: number; frozen: number
+}
 export const getUsers = (params: { page?: number; pageSize?: number; search?: string; status?: string }) =>
   get<{ total: number; items: AdminUser[] }>('/admin/users', params)
 
@@ -121,6 +124,7 @@ export const getUserDetail = (id: string) =>
     level: number
     totalTurnover: number
     wallet: { available: number; frozen: number }
+    walletBalances: WalletBalance[]
     ledger: LedgerEntry[]
     loginLogs: LoginLog[]
     betOrders: BetOrder[]

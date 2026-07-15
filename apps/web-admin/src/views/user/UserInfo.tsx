@@ -13,6 +13,10 @@ function labelText(l: string) {
   return ({ normal: '普通', arbitrage: '套利客' } as Record<string, string>)[l] ?? l
 }
 function fmtDate(s: string) { return new Date(s).toLocaleString('zh-CN') }
+function fmtBalance(n: number, currency: string) {
+  const digits = currency === 'PHP' ? 2 : 6
+  return Number(n).toLocaleString('en-US', { minimumFractionDigits: digits, maximumFractionDigits: digits })
+}
 
 interface Props { detail: Detail; onSuccess?: () => void }
 
@@ -30,6 +34,9 @@ export default function UserInfo({ detail, onSuccess }: Props) {
   const userId = String(u.id ?? '')
   const phone = String(u.phone ?? '')
   const username = String(u.username ?? '')
+  const walletBalances = detail.walletBalances?.length
+    ? detail.walletBalances
+    : [{ currency: 'PHP', available: detail.wallet.available, frozen: detail.wallet.frozen }]
 
   async function submitResetPassword() {
     if (!resetTarget || !userId) return
@@ -107,7 +114,17 @@ export default function UserInfo({ detail, onSuccess }: Props) {
             <span>{String(u.lastLoginRegion ?? '') || '-'}</span>
             {!!u.lastLoginIp && <span style={{ marginLeft: 6 }}>{lookup('ip', u.lastLoginIp)}</span>}
           </Descriptions.Item>
-          <Descriptions.Item label="余额">₱{Number(detail.wallet.available).toFixed(2)}</Descriptions.Item>
+          <Descriptions.Item label="余额">
+            <Space direction="vertical" size={2}>
+              {walletBalances.map((w) => (
+                <span key={w.currency}>
+                  <Typography.Text strong>{w.currency}</Typography.Text>
+                  <span> 可用 {fmtBalance(w.available, w.currency)}</span>
+                  {Number(w.frozen) !== 0 && <Typography.Text type="secondary">，冻结 {fmtBalance(w.frozen, w.currency)}</Typography.Text>}
+                </span>
+              ))}
+            </Space>
+          </Descriptions.Item>
         </Descriptions>
       </Card>
       <Modal

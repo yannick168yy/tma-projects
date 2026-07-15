@@ -1,6 +1,6 @@
 import Router from '@koa/router'
 import { listAdminUsers, writeAuditLog, updateUserLabel, getLoginLogs, getBetOrders, getOpPasswordHash } from '../../services/admin-store.js'
-import { getUser, saveUser, getWallet, listLedger, adminAdjustBalance, getKyc, setUserKycOverride, listUserIdentities, reassignIdentity } from '../../services/store/index.js'
+import { getUser, saveUser, getWallet, getWalletBalances, listLedger, adminAdjustBalance, getKyc, setUserKycOverride, listUserIdentities, reassignIdentity } from '../../services/store/index.js'
 import { buildKycStatusResponse, getKycStepConfig } from '../../services/kyc.service.js'
 import { verifyPassword } from '../../services/admin-auth.service.js'
 import { hashPassword } from '../../utils/password.js'
@@ -24,8 +24,9 @@ router.get('/', async (ctx) => {
 router.get('/:id', async (ctx) => {
   const user = await getUser(ctx.state.redis, ctx.params.id)
   if (!user) { fail(ctx, 404, 'User not found', 404); return }
-  const [wallet, ledger, loginLogs, betOrders, kyc, systemCfg, effectiveCfg, totalTurnover, thresholds, identities] = await Promise.all([
+  const [wallet, walletBalances, ledger, loginLogs, betOrders, kyc, systemCfg, effectiveCfg, totalTurnover, thresholds, identities] = await Promise.all([
     getWallet(ctx.state.redis, ctx.params.id),
+    getWalletBalances(ctx.state.redis, ctx.params.id),
     listLedger(ctx.state.redis, ctx.params.id, 20),
     getLoginLogs(ctx.state.env, ctx.params.id, 20),
     getBetOrders(ctx.state.env, ctx.params.id, 30),
@@ -52,6 +53,7 @@ router.get('/:id', async (ctx) => {
     level: resolveLevel(thresholds, totalTurnover),
     totalTurnover,
     wallet,
+    walletBalances: walletBalances.length ? walletBalances : [{ currency: 'PHP', available: wallet.available, frozen: wallet.frozen }],
     ledger,
     loginLogs,
     betOrders,
