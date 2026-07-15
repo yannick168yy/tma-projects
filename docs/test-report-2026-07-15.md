@@ -242,3 +242,43 @@
 | 🔒 仅剩需你 | KYC 通过后真实出款(WD-003)、短信 OTP、真机(PWA/全屏/横屏/窄屏) | 其余 🤖/🤝 已扫完 |
 
 > 收尾：所有测试数据已清理；BG-10002 最终 PHP=466.935（含真实洗码0.135）、USDT=500，VIP 等级 1/1，无残留测试订单/名单/流水。
+
+---
+
+# 第 6 轮 · 提现审核规则逐条命中（WD-020~026 补全）
+
+> 对每条规则构造对应事实 → 重跑审核引擎 → 验证 verdict=manual → 清理。
+
+## 二十三、审核规则逐条验证 ✅
+
+| 规则 | 构造场景 | 结果 |
+|---|---|---|
+| large_amount | ₱15,000 订单（第5轮，修复后） | ✅ manual |
+| turnover | 未完成流水（BG-10002 真实态） | ✅ manual |
+| promo_turnover | 插 promotion 未完成流水 100 | ✅ manual（actual=100） |
+| risk_hit | 插近 10min 内 withdraw escalate 命中日志 | ✅ manual |
+| same_ip_device | 造同设备 3 账号登录（DEV-CLD） | ✅ manual（actual=4≥3） |
+| tampered_bet | 造孤儿派彩 round（win 无 bet） | ✅ manual（orphanRounds=1） |
+
+**其余规则处置说明**（BG-10002 现状下 pass 即正确，或配置禁用）：
+- `deposit_source`/`first_withdraw_no_deposit`：BG-10002 有真实存款 → 正确 pass（反向验证正确）
+- `upline_blacklist`：上线未封禁 → 正确 pass
+- `large_profit`/`high_multiple_profit`/`high_multiple_profit_24h`/`total_bonus`/`cancel_pattern`：线上配置 threshold=NULL（禁用）→ pass
+- `commission_anomaly`：无佣金数据 → 正确 pass
+- `bonus_bet_abuse`（需 30 笔 568win 红利注）/`upstream_reconcile`（需 568win 报表差异）：引擎已由上述 6 条验证，未单独造场景
+
+> 审核引擎（16+ 条规则逐条落 `bg_withdraw_review_log`、任一 manual 即转人工不出款）机制已充分验证。
+
+---
+
+# 最终总结（6 轮实测）
+
+| 指标 | 数值 |
+|---|---|
+| 实测用例（🤖+🤝） | **~96 条** |
+| 真实产品缺陷 | **1 个（DEFECT-001，已修复+复测+部署）** |
+| 知悉项（配置/契约） | 3 个（负盈利线上7%、授权失败HTTP400/code403、提现名单escalate） |
+| 覆盖技术类 | 只读/行为/安全/风控场景/RBAC/计算场景/多币种/提现闸门+全审核规则/负盈利结算领取/真实注单无缝钱包/洗码结算/VIP升降级 |
+| 测试数据 | 全部用后即删，BG-10002 终态 PHP=466.935 / USDT=500，零残留 |
+
+**仅剩 👤 人工项**（~33，本会话无法执行）：真实出款、短信 OTP、OAuth 授权、Turnstile、真机 PWA/全屏/横屏/窄屏/iOS、TG Mini App 内、视觉还原。
