@@ -5,6 +5,7 @@ import { GEMINI_TOOLS, executeTool } from './cs-tools.js'
 import { getSystemPrompt } from './cs-prompt.js'
 import { isHumanOnDuty } from './cs-duty.js'
 import { detectQuickIntent, detectLang, buildQuickReply } from './cs-quick-reply.js'
+import type { CsReplyLocale } from './cs-deterministic.js'
 
 const MODEL = 'gemini-2.5-flash'
 const MAX_HISTORY = 20
@@ -17,6 +18,31 @@ const HARD_ESCALATION_RE =
 function getClient(env: Env) {
   if (!env.GEMINI_API_KEY) throw new Error('GEMINI_API_KEY not configured')
   return new GoogleGenerativeAI(env.GEMINI_API_KEY)
+}
+
+function serviceText(locale: CsReplyLocale) {
+  return {
+    humanHandling: {
+      en: 'A human agent is handling this conversation and will reply here shortly. Please wait a moment.',
+      'zh-CN': '人工客服正在处理本次会话，请稍等，客服会在这里回复你。',
+      id: 'Agen manusia sedang menangani percakapan ini dan akan segera membalas di sini. Mohon tunggu sebentar.',
+      vi: 'Nhân viên hỗ trợ đang xử lý cuộc trò chuyện này và sẽ phản hồi tại đây. Vui lòng chờ một chút.',
+    }[locale],
+    escalatedOnline: {
+      en: 'Sorry, I could not resolve this myself. I have escalated it to a human agent who will reply here shortly.',
+      'zh-CN': '抱歉，我无法直接解决这个问题，已为你转人工客服，客服会尽快在这里回复。',
+      id: 'Maaf, saya tidak bisa menyelesaikan ini sendiri. Saya sudah meneruskannya ke agen manusia yang akan segera membalas di sini.',
+      vi: 'Xin lỗi, tôi không thể tự xử lý vấn đề này. Tôi đã chuyển cho nhân viên hỗ trợ và họ sẽ sớm phản hồi tại đây.',
+    }[locale],
+    escalatedOffline(conversationId: number) {
+      return ({
+        en: `Sorry, I could not resolve this myself. I have recorded it as ticket #${conversationId} - no agent is online right now, but one will follow up in this chat as soon as available.`,
+        'zh-CN': `抱歉，我无法直接解决这个问题。已记录为工单 #${conversationId}，当前没有人工客服在线，客服上线后会在这里跟进。`,
+        id: `Maaf, saya tidak bisa menyelesaikan ini sendiri. Saya sudah mencatatnya sebagai tiket #${conversationId}. Saat ini tidak ada agen online, tetapi agen akan menindaklanjuti di chat ini saat tersedia.`,
+        vi: `Xin lỗi, tôi không thể tự xử lý vấn đề này. Tôi đã ghi nhận thành ticket #${conversationId}. Hiện không có nhân viên online, nhưng họ sẽ phản hồi trong chat này khi có thể.`,
+      })[locale]
+    },
+  }
 }
 
 // Gemini 要求 history 严格交替 user/model，合并相邻同角色消息
@@ -40,13 +66,15 @@ export async function handleUserMessage(
   userText: string,
   hint?: string,
   onDelta?: (text: string) => void,
+  locale?: CsReplyLocale,
 ): Promise<{ reply: string; conversationId: number; status: string }> {
   const conversation = await getOrCreateConversation(env, userId)
   const conversationId = conversation.id
+  const replyLocale = locale ?? detectLang(userText)
 
   if (conversation.status === 'human_taken') {
     await saveMessage(env, conversationId, 'user', userText)
-    const reply = 'A human agent is handling this conversation and will reply here shortly. Please wait a moment.'
+    const reply = serviceText(replyLocale).humanHandling
     onDelta?.(reply)
     return { reply, conversationId, status: 'human_taken' }
   }
@@ -59,7 +87,7 @@ export async function handleUserMessage(
   if (!hint && !hardEscalation && conversation.status === 'active' && !userId.startsWith('guest:')) {
     const intent = detectQuickIntent(userText)
     if (intent) {
-      const quick = await buildQuickReply(env, userId, intent, detectLang(userText))
+      const quick = await buildQuickReply(env, userId, intent, replyLocale)
       if (quick) {
         onDelta?.(quick)
         await saveMessage(env, conversationId, 'assistant', quick)
@@ -142,8 +170,8 @@ export async function handleUserMessage(
   const toStatus = onDuty ? 'human_taken' : 'escalated'
   await escalateConversation(env, conversationId, 'unresolved', toStatus)
   const fallback = onDuty
-    ? 'Sorry, I could not resolve this myself. I have escalated it to a human agent who will reply here shortly.'
-    : `Sorry, I could not resolve this myself. I have recorded it as ticket #${conversationId} — no agent is online right now, but one will follow up in this chat as soon as available.`
+    ? serviceText(replyLocale).escalatedOnline
+    : serviceText(replyLocale).escalatedOffline(conversationId)
   onDelta?.(fallback)
   await saveMessage(env, conversationId, 'assistant', fallback)
   return { reply: fallback, conversationId, status: toStatus }

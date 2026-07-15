@@ -4,7 +4,7 @@ import type { Redis } from 'ioredis'
 import { createHash } from 'node:crypto'
 import { ok, fail } from '../utils/response.js'
 import { handleUserMessage } from '../services/cs/cs.service.js'
-import { handleDeterministicCsIntent } from '../services/cs/cs-deterministic.js'
+import { csSessionEndedMessage, handleDeterministicCsIntent, normalizeCsReplyLocale } from '../services/cs/cs-deterministic.js'
 import { closeCurrentConversation, getOrCreateConversation, getMessages, markUserLeftConversation } from '../services/cs/cs-store.js'
 import { CS_INTENTS, CS_WELCOME_SETTING_KEY, DEFAULT_WELCOME } from '../services/cs/cs-intents.js'
 import { queryRecentOrders, type OrderKind } from '../services/cs/cs-orders.js'
@@ -46,6 +46,15 @@ async function checkRateLimit(
 
 const router = new Router()
 
+function replyLanguageHint(locale: ReturnType<typeof normalizeCsReplyLocale>): string {
+  return ({
+    en: 'Reply in English.',
+    'zh-CN': 'Reply in Simplified Chinese.',
+    id: 'Reply in Indonesian.',
+    vi: 'Reply in Vietnamese.',
+  })[locale]
+}
+
 // GET /cs/welcome — 欢迎语 + 后台可配（登录/游客均可）
 router.get('/cs/welcome', async (ctx) => {
   const configured = await getAdminSetting(ctx.state.env, CS_WELCOME_SETTING_KEY)
@@ -55,7 +64,8 @@ router.get('/cs/welcome', async (ctx) => {
 // POST /cs/message — 发送消息，获取 AI 回复（登录/游客均可）
 // 传 intent（快捷选项）时忽略 message，使用意图预设文案 + 模型定向指令
 router.post('/cs/message', async (ctx) => {
-  const { message, intent } = ctx.request.body as { message?: string; intent?: string }
+  const { message, intent, locale } = ctx.request.body as { message?: string; intent?: string; locale?: string }
+  const replyLocale = normalizeCsReplyLocale(locale)
   const intentDef = intent ? CS_INTENTS[intent] : undefined
   if (intent && !intentDef) {
     fail(ctx, 400, 'errors.csEmpty')
@@ -101,17 +111,18 @@ router.post('/cs/message', async (ctx) => {
   }
 
   const deterministic = intentDef
-    ? await handleDeterministicCsIntent(ctx.state.env, effectiveUserId, intent!, intentDef.userText)
+    ? await handleDeterministicCsIntent(ctx.state.env, effectiveUserId, intent!, intentDef.userText, replyLocale)
     : null
   const result = deterministic ?? (intentDef
-    ? await handleUserMessage(ctx.state.env, effectiveUserId, intentDef.userText, intentDef.hint)
-    : await handleUserMessage(ctx.state.env, effectiveUserId, message!.trim()))
+    ? await handleUserMessage(ctx.state.env, effectiveUserId, intentDef.userText, `${intentDef.hint} ${replyLanguageHint(replyLocale)}`, undefined, replyLocale)
+    : await handleUserMessage(ctx.state.env, effectiveUserId, message!.trim(), undefined, undefined, replyLocale))
   ok(ctx, result)
 })
 
 // POST /cs/message/stream — 自由文本消息，SSE 流式返回 AI 逐字回复（intent 仍走 /cs/message）
 router.post('/cs/message/stream', async (ctx) => {
-  const { message } = ctx.request.body as { message?: string }
+  const { message, locale } = ctx.request.body as { message?: string; locale?: string }
+  const replyLocale = normalizeCsReplyLocale(locale)
   if (!message?.trim()) {
     fail(ctx, 400, 'errors.csEmpty')
     return
@@ -153,8 +164,13 @@ router.post('/cs/message/stream', async (ctx) => {
   const send = (event: string, data: unknown) => res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)
 
   try {
-    const result = await handleUserMessage(ctx.state.env, effectiveUserId, message.trim(), undefined, (delta) =>
-      send('delta', { delta }),
+    const result = await handleUserMessage(
+      ctx.state.env,
+      effectiveUserId,
+      message.trim(),
+      undefined,
+      (delta) => send('delta', { delta }),
+      replyLocale,
     )
     send('done', result)
   } catch (e) {
@@ -187,11 +203,13 @@ router.post('/cs/leave', async (ctx) => {
 
 // POST /cs/end — 用户主动结束当前会话
 router.post('/cs/end', async (ctx) => {
+  const { locale } = ctx.request.body as { locale?: string }
+  const replyLocale = normalizeCsReplyLocale(locale)
   const conversation = await closeCurrentConversation(ctx.state.env, getCsUserId(ctx))
   ok(ctx, {
     success: true,
     conversation,
-    message: 'This support session has ended. Start a new chat next time you open support.',
+    message: csSessionEndedMessage(replyLocale),
   })
 })
 

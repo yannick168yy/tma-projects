@@ -15,12 +15,12 @@ export interface CsConversation {
   updatedAt: string
 }
 
-export async function sendCsMessage(text: string): Promise<{ reply: string; conversationId: number; status: string }> {
-  return apiRequest('/cs/message', { method: 'POST', body: JSON.stringify({ message: text }) })
+export async function sendCsMessage(text: string, locale?: string): Promise<{ reply: string; conversationId: number; status: string }> {
+  return apiRequest('/cs/message', { method: 'POST', body: JSON.stringify({ message: text, locale }) })
 }
 
-export async function sendCsIntent(intent: string): Promise<{ reply: string; conversationId: number; status: string }> {
-  return apiRequest('/cs/message', { method: 'POST', body: JSON.stringify({ intent }) })
+export async function sendCsIntent(intent: string, locale?: string): Promise<{ reply: string; conversationId: number; status: string }> {
+  return apiRequest('/cs/message', { method: 'POST', body: JSON.stringify({ intent, locale }) })
 }
 
 export async function fetchCsWelcome(): Promise<{ welcome: string }> {
@@ -35,8 +35,8 @@ export async function markCsLeft(): Promise<{ success: boolean }> {
   return apiRequest('/cs/leave', { method: 'POST', body: JSON.stringify({}) })
 }
 
-export async function endCsConversation(): Promise<{ success: boolean; conversation: CsConversation | null; message: string }> {
-  return apiRequest('/cs/end', { method: 'POST', body: JSON.stringify({}) })
+export async function endCsConversation(locale?: string): Promise<{ success: boolean; conversation: CsConversation | null; message: string }> {
+  return apiRequest('/cs/end', { method: 'POST', body: JSON.stringify({ locale }) })
 }
 
 export type CsOrderState = 'success' | 'pending' | 'failed'
@@ -64,11 +64,11 @@ interface CsStreamHandlers {
 }
 
 // 自由文本消息走 SSE 流式,逐字回调 onDelta
-export async function sendCsMessageStream(text: string, handlers: CsStreamHandlers): Promise<void> {
+export async function sendCsMessageStream(text: string, locale: string | undefined, handlers: CsStreamHandlers): Promise<void> {
   const res = await fetch(`${BASE_URL}/cs/message/stream`, {
     method: 'POST',
     headers: authHeaders(),
-    body: JSON.stringify({ message: text }),
+    body: JSON.stringify({ message: text, locale }),
   })
   if (!res.ok || !res.body) {
     let msg = 'cs.sendFailed'

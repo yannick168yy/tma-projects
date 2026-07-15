@@ -297,7 +297,7 @@ export default function CustomerServicePage({ onClose }: Props) {
     if (sending || conversationEnded) return
     setSending(true)
     try {
-      const res = await endCsConversation()
+      const res = await endCsConversation(quickLang)
       endedRef.current = true
       leftSentRef.current = true
       setConversationStatus(res.conversation?.status ?? 'closed')
@@ -353,7 +353,7 @@ export default function CustomerServicePage({ onClose }: Props) {
       return assistantId
     }
     try {
-      await sendCsMessageStream(text, {
+      await sendCsMessageStream(text, quickLang, {
         onDelta: (d) => {
           if (assistantId === null) ensure(d)
           else {
@@ -403,7 +403,7 @@ export default function CustomerServicePage({ onClose }: Props) {
     setQuickPath([])
     // 存款/提现是确定性查询:登录用户直接查库秒回,不经 AI
     if (orderKind && isLoggedIn) { await queryOrders(orderKind, label); return }
-    await dispatch(label, () => sendCsIntent(intent))
+    await dispatch(label, () => sendCsIntent(intent, quickLang))
   }
 
   function handleQuickNode(node: QuickNode) {
