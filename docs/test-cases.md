@@ -224,7 +224,7 @@
 |---|---|---|---|---|---|---|
 | TEAM-001 | 开通分销 | 已登录 | 团队中心→开通 | /team/enable 成功，获得邀请链接 | P1 | 🤖 |
 | TEAM-002 | 三级关系建立 | A 邀 B，B 邀 C，C 邀 D | 依次注册 | tree 正确：B/C/D 分别是 A 的 1/2/3 级 | P1 | 🤝 |
-| TEAM-003 | 佣金计算 | 下线产生 GGR | 结算后查 commissions | level1/2/3 比例正确；GGR=bet−win−赠金口径 | P0 | 🤖 |
+| TEAM-003 | 佣金计算 | 下线产生投注流水 | 结算后查 commissions | level1/2/3 比例正确。**实测口径=当日投注流水(仅 bet，不减 win)×费率**，非 GGR；ggr_cents 存 0。已实测 ₱45 流水→l1(0.35%)=15分/l2(0.10%)=4分/l3(0.05%)=2分 | P0 | 🤖 |
 | TEAM-004 | 佣金提现（人工审核） | 佣金钱包有余额 | 发起 /team/withdraw | 进 team 审核队列；通过后入玩家钱包；拒绝退回 | P0 | 🤖 |
 | TEAM-005 | 佣金提现风控规则 | — | 构造佣金激增/新下线占比高/佣金>下线存款×0.5/同 IP 下线 | commission_surge / fresh_downline_commission / commission_deposit_ratio / downline_ip_overlap 各自命中转人工 | P1 | 🤖 |
 | TEAM-006 | 佣金重复结算防护 | 已结算月份 | 后台再次 settle 同月 | 已 paid 不覆盖、不重复入账 | P0 | 🤖 |
