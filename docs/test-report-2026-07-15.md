@@ -222,7 +222,17 @@
 - **现象**：法币分支 `hit = ctx.order.amount > threshold`，其中 `ctx.order.amount` 是**比索**（下单存 `body.amount`，如 15000=₱15,000），而 `threshold = params.phpCents` 是**分**（配置 1000000 = ₱10,000）。两者单位不一致。
 - **实测**：₱15,000 提现 → large_amount **pass**（未命中，actual=15000 < threshold=1000000）；改成 ₱1,500,000 → 才命中 manual。
 - **影响**：配置意图 ₱10,000 触发大额转人工，**实际要 ₱1,000,000 才触发**。₱10,000~₱100 万区间的大额法币提现**不被本规则拦截**（其他规则如 turnover/high_profit 仍可能兜底，但大额安全网在此区间失效）。Matrix/USDT 分支用 usdt 主单位对比，无此问题。
-- **修复方向**：法币分支统一单位，如 `ctx.order.amount * 100 > threshold`（比索转分）或阈值 `phpCents/100`。**待你确认后我可改+部署**（属风控逻辑，未擅自改动）。
+- **修复方向**：法币分支统一单位，如 `ctx.order.amount * 100 > threshold`（比索转分）或阈值 `phpCents/100`。
+
+#### ✅ DEFECT-001 已修复（2026-07-15，提交 62c0614，已部署测试环境）
+
+- **方案**：按需求把大额取款单位统一为**比索（php）**，字段 `phpCents`→`php`：
+  - `withdraw-review.service.ts`（user）：`amount(比索) > params.php(比索)`，消除单位错配。
+  - `team-withdraw-review.service.ts`（team）：`amountCents/100` 折比索后比 `php`，与 user 口径统一。
+  - 种子 `055`/`084`：`phpCents:5000000` → `php:50000`（₱50,000）。
+  - 线上 DB 配置手动改：user/team 两 scope 均 `php:10000`（保持原 ₱10,000 意图阈值），user 保留 usdt:200。
+- **复测**：₱15,000 → large_amount **manual 命中**（15000>10000）；₱5,000 → **pass**。修复确认。
+- **KYC 闸门复测**：BG-10002 已实名，`/withdrawals/eligibility` 现 kycApproved=**true**，仅剩 turnover 闸门——WD-001 动态放行再确认。
 
 ## 二十二、最终累计（5 轮）
 
