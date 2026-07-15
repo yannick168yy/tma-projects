@@ -26,7 +26,6 @@ import age21Img from '@/assets/home/compliance/age21.png'
 import cashbackFloatImg from '@/assets/home/promos/cashback-float.webp'
 import cashRebateBannerImg from '@/assets/home/promos/cash-rebate-banner.webp'
 import lossRebateBannerImg from '@/assets/home/promos/loss-rebate-banner.webp'
-import vipClubBannerImg from '@/assets/home/promos/vip-club-banner.webp'
 
 // 最近在玩区最大展示数，不足时用推荐游戏补齐
 const RECENT_ROW_MAX = 10
@@ -445,11 +444,11 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
         </section>
       )}
 
-      {/* New Games：小卡横滑 */}
-      {(gamesLoading || homepageGames.newGames.length > 0) && (
+      {/* 高 RTP 专栏：小卡横滑 */}
+      {(gamesLoading || homepageGames.highRtp.length > 0) && (
         <section className="mt-6">
-          {sectionHeader(<Sparkles size={15} className="text-emerald-400" />, t('home.newGames'))}
-          {smallRow(homepageGames.newGames)}
+          {sectionHeader(<Rocket size={15} className="text-yellow-400" />, t('home.highRtp'), () => onNavigatePath('/games?cat=highrtp'))}
+          {smallRow(homepageGames.highRtp)}
         </section>
       )}
 
@@ -497,21 +496,11 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
         </section>
       )}
 
-      {/* VIP Club 活动横条 → VIP 页 */}
-      <section className="mt-6">
-        {sectionHeader(<Gem size={15} className="text-amber-400" />, t('vipPage.title'))}
-        <div className="px-4">
-          <button type="button" className="relative block w-full active:scale-[0.98] transition-transform" onClick={() => onNavigatePath('/vip')}>
-            <img src={vipClubBannerImg} alt="VIP Club" draggable={false} className="w-full rounded-2xl" />
-          </button>
-        </div>
-      </section>
-
-      {/* 高 RTP 专栏：小卡横滑 */}
-      {(gamesLoading || homepageGames.highRtp.length > 0) && (
+      {/* New Games：小卡横滑 */}
+      {(gamesLoading || homepageGames.newGames.length > 0) && (
         <section className="mt-6">
-          {sectionHeader(<Rocket size={15} className="text-yellow-400" />, t('home.highRtp'))}
-          {smallRow(homepageGames.highRtp)}
+          {sectionHeader(<Sparkles size={15} className="text-emerald-400" />, t('home.newGames'))}
+          {smallRow(homepageGames.newGames)}
         </section>
       )}
 
