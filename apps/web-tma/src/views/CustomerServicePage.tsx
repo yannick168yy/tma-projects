@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Send, Headphones, Loader2, LayoutGrid } from 'lucide-react'
-import { sendCsIntent, fetchCsHistory, fetchCsWelcome, fetchCsOrders, sendCsMessageStream } from '@/api/cs'
+import { Send, Headphones, Loader2, LayoutGrid, CircleX } from 'lucide-react'
+import { sendCsIntent, fetchCsHistory, fetchCsWelcome, fetchCsOrders, sendCsMessageStream, markCsLeft, endCsConversation } from '@/api/cs'
 import type { CsMessage, CsOrder } from '@/api/cs'
 import { ApiError } from '@/api/client'
 import { translateApiError } from '@/utils/translateApiError'
@@ -40,6 +40,9 @@ export default function CustomerServicePage({ onClose }: Props) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [streamingId, setStreamingId] = useState<number | null>(null)
   const msgRef = useRef<HTMLDivElement>(null)
+  const leftSentRef = useRef(false)
+  const endedRef = useRef(false)
+  const conversationEnded = conversationStatus === 'closed' || conversationStatus === 'resolved'
 
   function scrollToBottom() {
     setTimeout(() => { if (msgRef.current) msgRef.current.scrollTop = msgRef.current.scrollHeight }, 0)
@@ -54,7 +57,47 @@ export default function CustomerServicePage({ onClose }: Props) {
       .finally(() => { setLoading(false); scrollToBottom() })
   }, [isLoggedIn])
 
+  useEffect(() => {
+    endedRef.current = conversationEnded
+  }, [conversationEnded])
+
+  useEffect(() => () => {
+    if (!leftSentRef.current && !endedRef.current) {
+      leftSentRef.current = true
+      markCsLeft().catch(() => {})
+    }
+  }, [])
+
+  function closePage() {
+    if (!leftSentRef.current && !conversationEnded) {
+      leftSentRef.current = true
+      markCsLeft().catch(() => {})
+    }
+    onClose()
+  }
+
+  async function endConversation() {
+    if (sending || conversationEnded) return
+    setSending(true)
+    try {
+      const res = await endCsConversation()
+      endedRef.current = true
+      leftSentRef.current = true
+      setConversationStatus(res.conversation?.status ?? 'closed')
+      setMenuOpen(false)
+      const notice: LocalMsg = { id: Date.now(), conversationId: res.conversation?.id ?? 0, role: 'assistant', content: t('cs.sessionEndedNotice'), createdAt: new Date().toISOString() }
+      setMessages((prev) => [...prev, notice])
+      scrollToBottom()
+    } catch (e) {
+      const content = e instanceof ApiError ? translateApiError(e.message, t) : t('cs.sendFailed')
+      setMessages((prev) => [...prev, { id: Date.now(), conversationId: 0, role: 'assistant', content, createdAt: new Date().toISOString() }])
+    } finally {
+      setSending(false)
+    }
+  }
+
   async function dispatch(displayText: string, request: () => Promise<{ reply: string; conversationId: number; status: string }>) {
+    if (conversationEnded) return
     const userMsg: CsMessage = { id: Date.now(), conversationId: 0, role: 'user', content: displayText, createdAt: new Date().toISOString() }
     setMessages((prev) => [...prev, userMsg])
     scrollToBottom()
@@ -76,7 +119,7 @@ export default function CustomerServicePage({ onClose }: Props) {
 
   async function send() {
     const text = inputText.trim()
-    if (!text || sending) return
+    if (!text || sending || conversationEnded) return
     setInputText('')
     const userMsg: LocalMsg = { id: Date.now(), conversationId: 0, role: 'user', content: text, createdAt: new Date().toISOString() }
     setMessages((prev) => [...prev, userMsg])
@@ -120,6 +163,7 @@ export default function CustomerServicePage({ onClose }: Props) {
   }
 
   async function queryOrders(kind: 'deposit' | 'withdraw', label: string) {
+    if (conversationEnded) return
     const userMsg: LocalMsg = { id: Date.now(), conversationId: 0, role: 'user', content: label, createdAt: new Date().toISOString() }
     setMessages((prev) => [...prev, userMsg])
     scrollToBottom()
@@ -138,7 +182,7 @@ export default function CustomerServicePage({ onClose }: Props) {
   }
 
   async function sendQuickOption(intent: string, label: string, orderKind?: 'deposit' | 'withdraw') {
-    if (sending) return
+    if (sending || conversationEnded) return
     // 存款/提现是确定性查询:登录用户直接查库秒回,不经 AI
     if (orderKind && isLoggedIn) { await queryOrders(orderKind, label); return }
     await dispatch(label, () => sendCsIntent(intent))
@@ -165,10 +209,19 @@ export default function CustomerServicePage({ onClose }: Props) {
         <div className="flex-1">
           <p className="text-sm font-bold text-foreground">{t('cs.title')}</p>
           <p className="text-xs text-muted-foreground">
-            {conversationStatus === 'human_taken' ? t('cs.humanService') : conversationStatus === 'escalated' ? t('cs.escalatedService') : t('cs.aiService')}
+            {conversationEnded ? t('cs.sessionEndedStatus') : conversationStatus === 'human_taken' ? t('cs.humanService') : conversationStatus === 'escalated' ? t('cs.escalatedService') : t('cs.aiService')}
           </p>
         </div>
-        <button type="button" className="text-muted-foreground hover:text-foreground p-1" onClick={onClose}>
+        <button
+          type="button"
+          className="flex items-center gap-1 rounded-lg border border-border px-2 py-1 text-xs font-semibold text-muted-foreground hover:text-foreground disabled:opacity-40"
+          disabled={sending || conversationEnded}
+          onClick={() => void endConversation()}
+        >
+          <CircleX size={14} />
+          <span>{t('cs.endSession')}</span>
+        </button>
+        <button type="button" className="text-muted-foreground hover:text-foreground p-1" onClick={closePage}>
           <span className="text-lg leading-none">×</span>
         </button>
       </div>
@@ -191,7 +244,7 @@ export default function CustomerServicePage({ onClose }: Props) {
                     <button
                       key={opt.intent}
                       type="button"
-                      disabled={sending}
+                      disabled={sending || conversationEnded}
                       className="flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2.5 text-left text-sm text-foreground active:bg-secondary disabled:opacity-40"
                       onClick={() => void sendQuickOption(opt.intent, t(opt.labelKey), opt.orderKind)}
                     >
@@ -258,6 +311,11 @@ export default function CustomerServicePage({ onClose }: Props) {
                 </div>
               </div>
             )}
+            {conversationEnded && (
+              <div className="rounded-xl border border-border bg-card px-3 py-2 text-center text-xs text-muted-foreground">
+                {t('cs.sessionEndedHint')}
+              </div>
+            )}
           </>
         )}
       </div>
@@ -274,7 +332,7 @@ export default function CustomerServicePage({ onClose }: Props) {
                     <button
                       key={opt.intent}
                       type="button"
-                      disabled={sending}
+                      disabled={sending || conversationEnded}
                       className="flex items-center gap-2 rounded-xl border border-border bg-background px-3 py-2.5 text-left text-sm text-foreground active:bg-secondary disabled:opacity-40"
                       onClick={() => { setMenuOpen(false); void sendQuickOption(opt.intent, t(opt.labelKey), opt.orderKind) }}
                     >
@@ -291,7 +349,7 @@ export default function CustomerServicePage({ onClose }: Props) {
           <button
             type="button"
             className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl border border-border disabled:opacity-40 ${menuOpen ? 'bg-primary text-primary-foreground' : 'bg-background text-muted-foreground'}`}
-            disabled={sending}
+            disabled={sending || conversationEnded}
             onClick={() => setMenuOpen((v) => !v)}
           >
             <LayoutGrid size={16} />
@@ -302,7 +360,7 @@ export default function CustomerServicePage({ onClose }: Props) {
             placeholder={t('cs.inputPlaceholder')}
             className="flex-1 resize-none rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
             style={{ maxHeight: '80px', overflowY: 'auto' }}
-            disabled={sending}
+            disabled={sending || conversationEnded}
             onChange={(e) => setInputText(e.target.value)}
             onKeyDown={onKeydown}
             onFocus={() => setMenuOpen(false)}
@@ -310,7 +368,7 @@ export default function CustomerServicePage({ onClose }: Props) {
           <button
             type="button"
             className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground disabled:opacity-40"
-            disabled={!inputText.trim() || sending}
+            disabled={!inputText.trim() || sending || conversationEnded}
             onClick={() => void send()}
           >
             <Send size={16} />

@@ -4,7 +4,7 @@ import type { Redis } from 'ioredis'
 import { createHash } from 'node:crypto'
 import { ok, fail } from '../utils/response.js'
 import { handleUserMessage } from '../services/cs/cs.service.js'
-import { getOrCreateConversation, getMessages } from '../services/cs/cs-store.js'
+import { closeCurrentConversation, getOrCreateConversation, getMessages, markUserLeftConversation } from '../services/cs/cs-store.js'
 import { CS_INTENTS, CS_WELCOME_SETTING_KEY, DEFAULT_WELCOME } from '../services/cs/cs-intents.js'
 import { queryRecentOrders, type OrderKind } from '../services/cs/cs-orders.js'
 import { getAdminSetting } from '../services/admin-store.js'
@@ -21,6 +21,11 @@ function getClientIp(ctx: Context): string {
   const forwarded = ctx.get('X-Forwarded-For')
   const ip = forwarded ? forwarded.split(',')[0].trim() : ctx.ip
   return ip.replace(/[^a-zA-Z0-9.:]/g, '').slice(0, 64) || 'unknown'
+}
+
+function getCsUserId(ctx: Context): string {
+  if (ctx.state.userId) return ctx.state.userId
+  return guestId(getClientIp(ctx))
 }
 
 async function checkRateLimit(
@@ -168,6 +173,18 @@ router.post('/cs/orders', async (ctx) => {
   }
   const orders = await queryRecentOrders(ctx.state.env, ctx.state.userId, type as OrderKind)
   ok(ctx, { type, orders })
+})
+
+// POST /cs/leave — 用户关闭客服弹框，仅记录离开时间，不结束会话
+router.post('/cs/leave', async (ctx) => {
+  await markUserLeftConversation(ctx.state.env, getCsUserId(ctx))
+  ok(ctx, { success: true })
+})
+
+// POST /cs/end — 用户主动结束当前会话
+router.post('/cs/end', async (ctx) => {
+  const conversation = await closeCurrentConversation(ctx.state.env, getCsUserId(ctx))
+  ok(ctx, { success: true, conversation })
 })
 
 // GET /cs/history — 获取历史消息（游客返回空）

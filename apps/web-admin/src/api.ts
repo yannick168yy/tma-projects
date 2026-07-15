@@ -591,6 +591,8 @@ export const csTakeover = (id: number) =>
   post(`/admin/cs/conversations/${id}/takeover`)
 export const csResolve = (id: number) =>
   post(`/admin/cs/conversations/${id}/resolve`)
+export const csClose = (id: number) =>
+  post(`/admin/cs/conversations/${id}/close`)
 
 // 汇率管理
 export interface ExchangeRate {

@@ -6,12 +6,15 @@ import { broadcastBadges } from '../sse-badges.js'
 export type ConversationStatus = 'active' | 'escalated' | 'human_taken' | 'resolved' | 'closed'
 export type MessageRole = 'user' | 'assistant' | 'admin'
 
+const SESSION_IDLE_MINUTES = 10
+
 export interface Conversation {
   id: number
   userId: string
   status: ConversationStatus
   assignedAdminId: number | null
   escalateReason: string | null
+  userLeftAt: Date | null
   createdAt: Date
   updatedAt: Date
   resolvedAt: Date | null
@@ -31,6 +34,7 @@ function db(env: Env) {
 
 export async function getOrCreateConversation(env: Env, userId: string): Promise<Conversation> {
   const pool = db(env)
+  await expireStaleConversations(env, userId)
   const [rows] = await pool.query<RowDataPacket[]>(
     `SELECT * FROM cs_conversation WHERE user_id = ? AND status IN ('active','escalated','human_taken') ORDER BY updated_at DESC LIMIT 1`,
     [userId],
@@ -48,6 +52,24 @@ export async function getOrCreateConversation(env: Env, userId: string): Promise
   return rowToConversation(newRows[0])
 }
 
+export async function expireStaleConversations(env: Env, userId?: string): Promise<number> {
+  const params: unknown[] = userId ? [userId] : []
+  const userClause = userId ? 'AND c.user_id = ?' : ''
+  const [result] = await db(env).query<ResultSetHeader>(
+    `UPDATE cs_conversation c
+     SET c.status = 'closed', c.resolved_at = NOW()
+     WHERE c.status IN ('active','escalated','human_taken')
+       ${userClause}
+       AND COALESCE(
+         (SELECT MAX(m.created_at) FROM cs_message m WHERE m.conversation_id = c.id AND m.role = 'user'),
+         c.created_at
+       ) < DATE_SUB(NOW(), INTERVAL ${SESSION_IDLE_MINUTES} MINUTE)`,
+    params,
+  )
+  if (result.affectedRows > 0) broadcastBadges(env).catch(() => {})
+  return result.affectedRows
+}
+
 export async function getConversationById(env: Env, id: number): Promise<Conversation | null> {
   const [rows] = await db(env).query<RowDataPacket[]>(
     `SELECT * FROM cs_conversation WHERE id = ?`,
@@ -61,6 +83,7 @@ export async function listConversations(
   opts: { status?: string; limit: number; offset: number },
 ): Promise<{ items: (Conversation & { displayName: string; lastMessage: string })[]; total: number }> {
   const pool = db(env)
+  await expireStaleConversations(env)
   const where = opts.status ? `WHERE c.status = ?` : ''
   const params: unknown[] = opts.status ? [opts.status, opts.limit, opts.offset] : [opts.limit, opts.offset]
 
@@ -91,6 +114,27 @@ export async function listConversations(
   }
 }
 
+export async function markUserLeftConversation(env: Env, userId: string): Promise<void> {
+  await db(env).query(
+    `UPDATE cs_conversation SET user_left_at = NOW()
+     WHERE user_id = ? AND status IN ('active','escalated','human_taken')
+     ORDER BY updated_at DESC LIMIT 1`,
+    [userId],
+  )
+}
+
+export async function closeCurrentConversation(env: Env, userId: string): Promise<Conversation | null> {
+  await expireStaleConversations(env, userId)
+  const [rows] = await db(env).query<RowDataPacket[]>(
+    `SELECT * FROM cs_conversation WHERE user_id = ? AND status IN ('active','escalated','human_taken') ORDER BY updated_at DESC LIMIT 1`,
+    [userId],
+  )
+  if (rows.length === 0) return null
+  await updateConversationStatus(env, Number(rows[0].id), 'closed')
+  const conversation = await getConversationById(env, Number(rows[0].id))
+  return conversation
+}
+
 export async function updateConversationStatus(
   env: Env,
   id: number,
@@ -109,9 +153,7 @@ export async function updateConversationStatus(
       [status, adminId ?? null, id],
     )
   }
-  if (status === 'human_taken' || status === 'escalated') {
-    broadcastBadges(env).catch(() => {})
-  }
+  broadcastBadges(env).catch(() => {})
 }
 
 // 转人工:记录原因与时间。人工在线→human_taken(AI 停答);离线→escalated(离线工单,AI 继续应答)
@@ -178,6 +220,7 @@ function rowToConversation(r: RowDataPacket): Conversation {
     status: r.status,
     assignedAdminId: r.assigned_admin_id ?? null,
     escalateReason: r.escalate_reason ?? null,
+    userLeftAt: r.user_left_at ?? null,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
     resolvedAt: r.resolved_at ?? null,

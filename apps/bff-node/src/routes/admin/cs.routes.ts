@@ -8,6 +8,7 @@ import {
   getMessages,
   saveMessage,
   updateConversationStatus,
+  expireStaleConversations,
 } from '../../services/cs/cs-store.js'
 import { CS_WELCOME_SETTING_KEY, DEFAULT_WELCOME } from '../../services/cs/cs-intents.js'
 import { CS_DUTY_SETTING_KEY, isHumanOnDuty, notifyTicketReplyViaTelegram } from '../../services/cs/cs-duty.js'
@@ -66,6 +67,7 @@ router.get('/cs/conversations', async (ctx) => {
 // GET /admin/cs/conversations/:id — 单个会话详情 + 消息
 router.get('/cs/conversations/:id', async (ctx) => {
   const id = Number(ctx.params.id)
+  await expireStaleConversations(ctx.state.env)
   const conversation = await getConversationById(ctx.state.env, id)
   if (!conversation) {
     fail(ctx, 404, '会话不存在', 404)
@@ -83,9 +85,14 @@ router.post('/cs/conversations/:id/reply', async (ctx) => {
     fail(ctx, 400, '消息不能为空')
     return
   }
+  await expireStaleConversations(ctx.state.env)
   const conversation = await getConversationById(ctx.state.env, id)
   if (!conversation) {
     fail(ctx, 404, '会话不存在', 404)
+    return
+  }
+  if (conversation.status === 'resolved' || conversation.status === 'closed') {
+    fail(ctx, 400, '会话已结束')
     return
   }
   // 自动标记为人工接管(active/escalated 均可)
@@ -101,6 +108,16 @@ router.post('/cs/conversations/:id/reply', async (ctx) => {
 // POST /admin/cs/conversations/:id/takeover — 接管会话
 router.post('/cs/conversations/:id/takeover', async (ctx) => {
   const id = Number(ctx.params.id)
+  await expireStaleConversations(ctx.state.env)
+  const conversation = await getConversationById(ctx.state.env, id)
+  if (!conversation) {
+    fail(ctx, 404, '会话不存在', 404)
+    return
+  }
+  if (conversation.status === 'resolved' || conversation.status === 'closed') {
+    fail(ctx, 400, '会话已结束')
+    return
+  }
   await updateConversationStatus(ctx.state.env, id, 'human_taken', ctx.state.adminId)
   ok(ctx, { success: true })
 })
@@ -109,6 +126,13 @@ router.post('/cs/conversations/:id/takeover', async (ctx) => {
 router.post('/cs/conversations/:id/resolve', async (ctx) => {
   const id = Number(ctx.params.id)
   await updateConversationStatus(ctx.state.env, id, 'resolved', ctx.state.adminId)
+  ok(ctx, { success: true })
+})
+
+// POST /admin/cs/conversations/:id/close — 手动结束会话
+router.post('/cs/conversations/:id/close', async (ctx) => {
+  const id = Number(ctx.params.id)
+  await updateConversationStatus(ctx.state.env, id, 'closed', ctx.state.adminId)
   ok(ctx, { success: true })
 })
 

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Card, Select, Tag, Button, Input, Space, Empty, Badge, Switch, Tooltip, message, Grid } from 'antd'
 import type { CsConversation, CsMessage } from '../api'
-import { getCsConversations, getCsConversation, csReply, csTakeover, csResolve, getCsDuty, saveCsDuty } from '../api'
+import { getCsConversations, getCsConversation, csReply, csTakeover, csClose, getCsDuty, saveCsDuty } from '../api'
 
 function statusColor(status?: string) {
   return ({ active: 'blue', escalated: 'red', human_taken: 'orange', resolved: 'green', closed: 'default' } as Record<string, string>)[status ?? ''] ?? 'default'
@@ -111,8 +111,8 @@ export default function CustomerService() {
 
   async function resolve() {
     if (!selectedId) return
-    await csResolve(selectedId)
-    message.success('会话已结单')
+    await csClose(selectedId)
+    message.success('会话已结束')
     setSelectedId(null); setMessages([])
     await loadList(1)
   }
@@ -149,6 +149,7 @@ export default function CustomerService() {
                 { value: '', label: '全部' }, { value: 'active', label: 'AI 处理中' },
                 { value: 'escalated', label: '离线工单' },
                 { value: 'human_taken', label: '待人工' }, { value: 'resolved', label: '已解决' },
+                { value: 'closed', label: '已关闭' },
               ]}
             />
           </Space>
@@ -201,7 +202,7 @@ export default function CustomerService() {
             <Space>
               {(selectedConv?.status === 'active' || selectedConv?.status === 'escalated') && <Button size="small" onClick={takeover}>接管会话</Button>}
               {selectedConv?.status !== 'resolved' && selectedConv?.status !== 'closed' && (
-                <Button size="small" type="primary" ghost onClick={resolve}>结单</Button>
+                <Button size="small" type="primary" ghost onClick={resolve}>结束会话</Button>
               )}
               <Button size="small" onClick={refreshDetail} loading={detailLoading}>刷新</Button>
             </Space>
