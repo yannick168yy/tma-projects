@@ -723,7 +723,7 @@ export default function AppShell() {
             onClose={() => setGiftSheetOpen(false)}
             onContinue={() => {
               setGiftSheetOpen(false)
-              if (isLoggedIn) goBonuses()
+              if (isLoggedIn) openTasks('newbie')
               else void auth.ensureLoggedIn(t('auth.signInBonus'))
             }}
           />
