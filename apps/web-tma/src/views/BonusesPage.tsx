@@ -18,17 +18,17 @@ import charAppdl from '@/assets/home/promos/char/appdl.webp'
 import charFirstdep from '@/assets/home/promos/char/firstdep.webp'
 import charLossrebate from '@/assets/home/promos/char/lossrebate.webp'
 
-// 各活动卡 hero 右侧人物插图（按业务匹配），左缘渐隐融入原背景色，置于文字下层不遮挡
+// 各活动卡 hero 右侧人物插图（按业务匹配），整幅完整显示不裁切，左缘渐隐融入原背景色，置于文字下层不遮挡
 const CHAR_IMG: Record<string, { src: string; cls: string }> = {
-  checkin: { src: charCheckin, cls: 'h-[135%] right-1' },
-  agent: { src: charAgent, cls: 'h-[115%] -right-2' },
-  trial: { src: charTrial, cls: 'h-[150%] -right-2' },
-  appdl: { src: charAppdl, cls: 'h-[128%] right-1' },
-  firstdep: { src: charFirstdep, cls: 'h-[140%] right-0' },
-  lossrebate: { src: charLossrebate, cls: 'h-[132%] -right-1' },
+  checkin: { src: charCheckin, cls: 'h-[96%] right-1' },
+  agent: { src: charAgent, cls: 'h-[80%] right-0' },
+  trial: { src: charTrial, cls: 'h-[98%] right-0' },
+  appdl: { src: charAppdl, cls: 'h-[94%] right-1' },
+  firstdep: { src: charFirstdep, cls: 'h-[96%] right-0' },
+  lossrebate: { src: charLossrebate, cls: 'h-[96%] -right-1' },
 }
 
-// 人物图：绝对定位在 hero 右下，左侧渐隐蒙版让其自然融入背景渐变；z 低于文字层
+// 人物图：绝对定位在 hero 右下，高度限制在 hero 内使整幅完整显示；左侧渐隐蒙版让其自然融入背景渐变；z 低于文字层
 function HeroChar({ id }: { id: string }) {
   const c = CHAR_IMG[id]
   if (!c) return null
@@ -37,8 +37,8 @@ function HeroChar({ id }: { id: string }) {
       src={c.src}
       alt=""
       aria-hidden
-      className={`pointer-events-none select-none absolute bottom-0 w-auto max-w-[60%] object-contain object-bottom opacity-95 ${c.cls}`}
-      style={{ WebkitMaskImage: 'linear-gradient(to right, transparent 0%, #000 32%)', maskImage: 'linear-gradient(to right, transparent 0%, #000 32%)' }}
+      className={`pointer-events-none select-none absolute bottom-0 w-auto max-w-[58%] object-contain object-bottom opacity-95 ${c.cls}`}
+      style={{ WebkitMaskImage: 'linear-gradient(to right, transparent 0%, #000 24%)', maskImage: 'linear-gradient(to right, transparent 0%, #000 24%)' }}
     />
   )
 }
