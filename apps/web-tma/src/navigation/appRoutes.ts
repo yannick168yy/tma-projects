@@ -36,6 +36,7 @@ const OVERLAY_PATHS: Record<string, FullPageView['type']> = {
 
 // games 页筛选状态放 URL：/games?cat=slot&provider=PGSoft，首页/外链可深链到指定分类+厂商
 export interface GamesFilter { cat: string; provider: string }
+export const DEFAULT_GAMES_FILTER: GamesFilter = { cat: 'highrebate', provider: 'all' }
 
 export type ParsedAppRoute =
   | { kind: 'tab'; tab: TabId; promoFilter: string | null; gamesFilter: GamesFilter | null }
@@ -62,7 +63,7 @@ export function parseAppRoute(pathname: string, search: string): ParsedAppRoute 
     const params = new URLSearchParams(search)
     const promoFilter = tab === 'bonuses' ? params.get('promo') : null
     const gamesFilter = tab === 'games'
-      ? { cat: params.get('cat') ?? 'all', provider: params.get('provider') ?? 'all' }
+      ? { cat: params.get('cat') ?? DEFAULT_GAMES_FILTER.cat, provider: params.get('provider') ?? DEFAULT_GAMES_FILTER.provider }
       : null
     return { kind: 'tab', tab, promoFilter, gamesFilter }
   }
@@ -105,8 +106,8 @@ export function parseAppRoute(pathname: string, search: string): ParsedAppRoute 
 
 export function buildGamesPath(filter?: Partial<GamesFilter>): string {
   const q = new URLSearchParams()
-  if (filter?.cat && filter.cat !== 'all') q.set('cat', filter.cat)
-  if (filter?.provider && filter.provider !== 'all') q.set('provider', filter.provider)
+  if (filter?.cat && filter.cat !== DEFAULT_GAMES_FILTER.cat) q.set('cat', filter.cat)
+  if (filter?.provider && filter.provider !== DEFAULT_GAMES_FILTER.provider) q.set('provider', filter.provider)
   const qs = q.toString()
   return `/games${qs ? `?${qs}` : ''}`
 }

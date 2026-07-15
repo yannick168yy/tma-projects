@@ -90,7 +90,7 @@ export default function TaskFloatBall({ onNavigatePath }: TaskFloatBallProps) {
         />
       )}
       {/* 固定悬浮在首页左下角（tasks 在上），不可移动 */}
-      <div className="pointer-events-none fixed left-2 z-[31] h-24 w-24" style={{ bottom: 214 }}>
+      <div className="pointer-events-none fixed left-2 z-[31] h-24 w-24 origin-bottom-left scale-90" style={{ bottom: 214 }}>
         <div className="relative h-24 w-24 select-none">
           {/* 扇形展开卡片：从球心弹出到弧线终点，逐张延迟成扇形展开 */}
           {FAN.map((f, i) => {

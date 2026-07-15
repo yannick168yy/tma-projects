@@ -65,10 +65,20 @@ function toRecord(g: DbGame, betAmount: number): BetRecord {
   }
 }
 
+function gameWeightScore(g: DbGame): number {
+  return Math.max(1, g.weight * (g.isFeatured ? 1.5 : 1))
+}
+
+function weightedTopAmount(g: DbGame, maxScore: number, min: number, max: number): number {
+  const ratio = Math.pow(gameWeightScore(g) / Math.max(1, maxScore), 0.55)
+  const noise = 0.86 + Math.random() * 0.28
+  return Math.max(min, Math.min(max, Math.round((min + (max - min) * ratio) * noise)))
+}
+
 // 加权随机选 n 款不重复游戏（权重 = weight × isFeatured ? 1.5 : 1）
 function weightedPick(games: DbGame[], n: number): DbGame[] {
   if (games.length <= n) return [...games]
-  const scores = games.map((g) => g.weight * (g.isFeatured ? 1.5 : 1))
+  const scores = games.map(gameWeightScore)
   const result: DbGame[] = []
   const used = new Set<number>()
   const totalRounds = Math.min(n, games.length)
@@ -88,6 +98,14 @@ function weightedPick(games: DbGame[], n: number): DbGame[] {
   return result
 }
 
+function buildWeightedTop(games: DbGame[], min: number, max: number): BetRecord[] {
+  const picked = weightedPick(games, 10)
+  const maxScore = Math.max(...picked.map(gameWeightScore), 1)
+  return picked
+    .map((g) => toRecord(g, weightedTopAmount(g, maxScore, min, max)))
+    .sort((a, b) => b.betAmount - a.betAmount)
+}
+
 // ── 刷新函数 ────────────────────────────────────────────────────────────────
 
 export async function refreshLatestPool(env: Env): Promise<void> {
@@ -105,29 +123,14 @@ export async function refreshLatestPool(env: Env): Promise<void> {
 export async function refreshWeekTop(env: Env): Promise<void> {
   const games = await getGamesFromCache(env)
   if (games.length === 0) return
-  const picked = weightedPick(games, 10)
-  weekTop = picked
-    .map((g) => toRecord(g, randInt(50_000, 500_000)))
-    .sort((a, b) => b.betAmount - a.betAmount)
+  weekTop = buildWeightedTop(games, 50_000, 500_000)
   console.log('[betting-activity] week top refreshed (10 records)')
 }
 
 export async function refreshMonthTop(env: Env): Promise<void> {
   const games = await getGamesFromCache(env)
   if (games.length === 0) return
-
-  // 周榜所有游戏进入月榜，金额按随机倍数放大体现月度积累
-  const base = weekTop.map((r) => ({
-    ...r,
-    betAmount: Math.round(r.betAmount * (3 + Math.random() * 5)),
-  }))
-  // 不足 10 条时从剩余游戏库补
-  const usedUuids = new Set(base.map((r) => r.uuid))
-  const remaining = games.filter((g) => !usedUuids.has(g.uuid))
-  const extra = weightedPick(remaining, 10 - base.length).map((g) =>
-    toRecord(g, randInt(200_000, 2_000_000)),
-  )
-  monthTop = [...base, ...extra].sort((a, b) => b.betAmount - a.betAmount)
+  monthTop = buildWeightedTop(games, 200_000, 2_000_000)
   console.log('[betting-activity] month top refreshed (10 records)')
 }
 

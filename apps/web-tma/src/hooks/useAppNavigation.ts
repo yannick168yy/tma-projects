@@ -4,6 +4,7 @@ import {
   buildGamesPath,
   buildTabPath,
   currentReturnTo,
+  DEFAULT_GAMES_FILTER,
   parseAppRoute,
   type GamesFilter,
   type OverlayNavigateState,
@@ -25,7 +26,7 @@ export function useAppNavigation() {
   const location = useLocation()
   const [backgroundTab, setBackgroundTab] = useState<TabId>('casino')
   const [promoFilter, setPromoFilter] = useState<string | null>(null)
-  const [gamesFilter, setGamesFilterState] = useState<GamesFilter>({ cat: 'all', provider: 'all' })
+  const [gamesFilter, setGamesFilterState] = useState<GamesFilter>(DEFAULT_GAMES_FILTER)
   const [view, setView] = useState<FullPageView>({ type: 'none' })
 
   useEffect(() => {
