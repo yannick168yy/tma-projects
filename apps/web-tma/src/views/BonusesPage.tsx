@@ -11,6 +11,37 @@ import { isInsideTelegram } from '@/utils/initTelegramWebApp'
 import { analytics } from '@/utils/analytics'
 import TrialClaimModal from '@/components/promotion/TrialClaimModal'
 import bonusesHero from '@/assets/home/promos/bonuses-hero.webp'
+import charCheckin from '@/assets/home/promos/char/checkin.webp'
+import charAgent from '@/assets/home/promos/char/agent.webp'
+import charTrial from '@/assets/home/promos/char/trial.webp'
+import charAppdl from '@/assets/home/promos/char/appdl.webp'
+import charFirstdep from '@/assets/home/promos/char/firstdep.webp'
+import charLossrebate from '@/assets/home/promos/char/lossrebate.webp'
+
+// 各活动卡 hero 右侧人物插图（按业务匹配），左缘渐隐融入原背景色，置于文字下层不遮挡
+const CHAR_IMG: Record<string, { src: string; cls: string }> = {
+  checkin: { src: charCheckin, cls: 'h-[135%] right-1' },
+  agent: { src: charAgent, cls: 'h-[115%] -right-2' },
+  trial: { src: charTrial, cls: 'h-[150%] -right-2' },
+  appdl: { src: charAppdl, cls: 'h-[128%] right-1' },
+  firstdep: { src: charFirstdep, cls: 'h-[140%] right-0' },
+  lossrebate: { src: charLossrebate, cls: 'h-[132%] -right-1' },
+}
+
+// 人物图：绝对定位在 hero 右下，左侧渐隐蒙版让其自然融入背景渐变；z 低于文字层
+function HeroChar({ id }: { id: string }) {
+  const c = CHAR_IMG[id]
+  if (!c) return null
+  return (
+    <img
+      src={c.src}
+      alt=""
+      aria-hidden
+      className={`pointer-events-none select-none absolute bottom-0 w-auto max-w-[60%] object-contain object-bottom opacity-95 ${c.cls}`}
+      style={{ WebkitMaskImage: 'linear-gradient(to right, transparent 0%, #000 32%)', maskImage: 'linear-gradient(to right, transparent 0%, #000 32%)' }}
+    />
+  )
+}
 
 interface Props {
   promoFilter?: string | null
@@ -206,23 +237,23 @@ export default function BonusesPage({ promoFilter, onOpenWallet, onOpenTeam, onO
         id={`promo-${p.id}`}
         className={`rounded-2xl overflow-hidden border ${p.highlight ? 'border-purple-500/40' : 'border-white/8'} ${promoFilter === p.id ? 'ring-2 ring-primary/60' : ''}`}
       >
-        <div className={`relative bg-gradient-to-br px-4 py-4 ${p.gradient}`}>
+        <div className={`relative bg-gradient-to-br px-4 py-4 overflow-hidden ${p.gradient}`}>
+          <HeroChar id={p.id} />
           {p.highlight && (
-            <div className="absolute top-3 right-3 bg-primary text-primary-foreground text-[10px] font-black px-2 py-0.5 rounded-full">
+            <div className="absolute top-3 right-3 z-20 bg-primary text-primary-foreground text-[10px] font-black px-2 py-0.5 rounded-full">
               {t('bonuses.featuredBadge')}
             </div>
           )}
-          <div className="flex items-start justify-between">
-            <div className="flex-1 pr-12">
+          <div className="relative z-10 flex items-start justify-between">
+            <div className="flex-1 pr-16">
               <span className="text-[10px] font-black uppercase tracking-widest" style={{ color: p.accentColor }}>
                 {p.tag}
               </span>
               <h2 className="text-white font-black leading-tight mt-0.5 font-display text-[1.3rem]">{p.title}</h2>
               <p className="text-white/60 text-xs mt-0.5">{p.tagline}</p>
             </div>
-            <span className="text-3xl">{p.icon}</span>
           </div>
-          <div className="mt-3 flex items-center gap-2">
+          <div className="relative z-10 mt-3 flex items-center gap-2">
             <div className="bg-black/30 rounded-xl px-3 py-1.5 flex items-baseline gap-1.5">
               <span className="text-white font-black text-xl leading-none font-display">{p.reward}</span>
               <span className="text-white/60 text-xs">{p.rewardLabel}</span>
@@ -297,18 +328,18 @@ export default function BonusesPage({ promoFilter, onOpenWallet, onOpenTeam, onO
     const steps = [t('checkin.cardStep1'), t('checkin.cardStep2')]
     return (
       <div key="checkin" id="promo-checkin" className="rounded-2xl overflow-hidden border border-purple-500/40">
-        <div className="relative bg-gradient-to-br from-[#2b1259] via-[#1a1440] to-[#141B2D] px-4 py-4">
-          <div className="flex items-start justify-between">
-            <div className="flex-1 pr-12">
+        <div className="relative bg-gradient-to-br from-[#2b1259] via-[#1a1440] to-[#141B2D] px-4 py-4 overflow-hidden">
+          <HeroChar id="checkin" />
+          <div className="relative z-10 flex items-start justify-between">
+            <div className="flex-1 pr-16">
               <span className="text-[10px] font-black uppercase tracking-widest" style={{ color: accent }}>
                 {t('checkin.entryTag')}
               </span>
               <h2 className="text-white font-black leading-tight mt-0.5 font-display text-[1.3rem]">{t('checkin.entryTitle')}</h2>
               <p className="text-white/60 text-xs mt-0.5">{t('checkin.entryDesc')}</p>
             </div>
-            <span className="text-3xl">📅</span>
           </div>
-          <div className="mt-3 flex items-center gap-2">
+          <div className="relative z-10 mt-3 flex items-center gap-2">
             <div className="bg-black/30 rounded-xl px-3 py-1.5 flex items-baseline gap-1.5">
               <span className="text-white font-black text-xl leading-none font-display">{t('checkin.cardReward')}</span>
               <span className="text-white/60 text-xs">{t('checkin.cardRewardLabel')}</span>
@@ -361,8 +392,9 @@ export default function BonusesPage({ promoFilter, onOpenWallet, onOpenTeam, onO
   function renderAgentCard() {
     return (
       <div key="agent" className="rounded-2xl overflow-hidden border border-amber-500/30">
-        <div className="relative bg-gradient-to-br from-[#78350f] via-[#92400e] to-[#b45309] px-4 py-4">
-          <span className="text-3xl absolute top-3 right-4">🏆</span>
+        <div className="relative bg-gradient-to-br from-[#78350f] via-[#92400e] to-[#b45309] px-4 py-4 overflow-hidden">
+          <HeroChar id="agent" />
+          <div className="relative z-10">
           <span className="text-[10px] font-black uppercase tracking-widest text-amber-300">
             {t('bonuses.promos.agent.tag')}
           </span>
@@ -420,6 +452,7 @@ export default function BonusesPage({ promoFilter, onOpenWallet, onOpenTeam, onO
               )}
             </>
           )}
+          </div>
         </div>
 
         <div className="bg-card px-4 py-3">
@@ -481,18 +514,18 @@ export default function BonusesPage({ promoFilter, onOpenWallet, onOpenTeam, onO
     ]
     return (
       <div key="lossrebate" id="promo-lossrebate" className="rounded-2xl overflow-hidden border border-white/8">
-        <div className="relative bg-gradient-to-br from-[#4a1d3f] via-[#831843] to-[#6b21a8] px-4 py-4">
-          <div className="flex items-start justify-between">
-            <div className="flex-1 pr-12">
+        <div className="relative bg-gradient-to-br from-[#4a1d3f] via-[#831843] to-[#6b21a8] px-4 py-4 overflow-hidden">
+          <HeroChar id="lossrebate" />
+          <div className="relative z-10 flex items-start justify-between">
+            <div className="flex-1 pr-16">
               <span className="text-[10px] font-black uppercase tracking-widest" style={{ color: accent }}>
                 {t('lossRebate.cardTag')}
               </span>
               <h2 className="text-white font-black leading-tight mt-0.5 font-display text-[1.3rem]">{t('lossRebate.cardTitle', { rate })}</h2>
               <p className="text-white/60 text-xs mt-0.5">{t('lossRebate.cardTagline', { rate })}</p>
             </div>
-            <span className="text-3xl">💸</span>
           </div>
-          <div className="mt-3 flex items-center gap-2">
+          <div className="relative z-10 mt-3 flex items-center gap-2">
             <div className="bg-black/30 rounded-xl px-3 py-1.5 flex items-baseline gap-1.5">
               <span className="text-white font-black text-xl leading-none font-display">{rate}%</span>
               <span className="text-white/60 text-xs">{t('lossRebate.cardRewardLabel')}</span>
