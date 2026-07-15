@@ -35,7 +35,7 @@ export async function markCsLeft(): Promise<{ success: boolean }> {
   return apiRequest('/cs/leave', { method: 'POST', body: JSON.stringify({}) })
 }
 
-export async function endCsConversation(): Promise<{ success: boolean; conversation: CsConversation | null }> {
+export async function endCsConversation(): Promise<{ success: boolean; conversation: CsConversation | null; message: string }> {
   return apiRequest('/cs/end', { method: 'POST', body: JSON.stringify({}) })
 }
 

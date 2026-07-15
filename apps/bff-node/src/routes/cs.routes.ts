@@ -4,6 +4,7 @@ import type { Redis } from 'ioredis'
 import { createHash } from 'node:crypto'
 import { ok, fail } from '../utils/response.js'
 import { handleUserMessage } from '../services/cs/cs.service.js'
+import { handleDeterministicCsIntent } from '../services/cs/cs-deterministic.js'
 import { closeCurrentConversation, getOrCreateConversation, getMessages, markUserLeftConversation } from '../services/cs/cs-store.js'
 import { CS_INTENTS, CS_WELCOME_SETTING_KEY, DEFAULT_WELCOME } from '../services/cs/cs-intents.js'
 import { queryRecentOrders, type OrderKind } from '../services/cs/cs-orders.js'
@@ -99,9 +100,12 @@ router.post('/cs/message', async (ctx) => {
     }
   }
 
-  const result = intentDef
+  const deterministic = intentDef
+    ? await handleDeterministicCsIntent(ctx.state.env, effectiveUserId, intent!, intentDef.userText)
+    : null
+  const result = deterministic ?? (intentDef
     ? await handleUserMessage(ctx.state.env, effectiveUserId, intentDef.userText, intentDef.hint)
-    : await handleUserMessage(ctx.state.env, effectiveUserId, message!.trim())
+    : await handleUserMessage(ctx.state.env, effectiveUserId, message!.trim()))
   ok(ctx, result)
 })
 
@@ -184,7 +188,11 @@ router.post('/cs/leave', async (ctx) => {
 // POST /cs/end — 用户主动结束当前会话
 router.post('/cs/end', async (ctx) => {
   const conversation = await closeCurrentConversation(ctx.state.env, getCsUserId(ctx))
-  ok(ctx, { success: true, conversation })
+  ok(ctx, {
+    success: true,
+    conversation,
+    message: 'This support session has ended. Start a new chat next time you open support.',
+  })
 })
 
 // GET /cs/history — 获取历史消息（游客返回空）

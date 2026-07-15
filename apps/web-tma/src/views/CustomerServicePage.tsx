@@ -85,7 +85,7 @@ export default function CustomerServicePage({ onClose }: Props) {
       leftSentRef.current = true
       setConversationStatus(res.conversation?.status ?? 'closed')
       setMenuOpen(false)
-      const notice: LocalMsg = { id: Date.now(), conversationId: res.conversation?.id ?? 0, role: 'assistant', content: t('cs.sessionEndedNotice'), createdAt: new Date().toISOString() }
+      const notice: LocalMsg = { id: Date.now(), conversationId: res.conversation?.id ?? 0, role: 'assistant', content: res.message || t('cs.sessionEndedNotice'), createdAt: new Date().toISOString() }
       setMessages((prev) => [...prev, notice])
       scrollToBottom()
     } catch (e) {
