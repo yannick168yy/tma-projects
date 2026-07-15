@@ -63,3 +63,47 @@
 2. **多币种**：本账号只有 PHP 钱包（余额 0）。测 CUR-* 需要一个 USDT/USDC 钱包——我可用后台给 BG-10002 加币种钱包+调余额。
 3. **额外后台账号**：RISK-010/ADM-003 越权测试需一个 finance/ops 角色账号（我可用 super_admin 建）。
 4. **资金主链路（sandbox）**：充值→下注→提现，需你在收银台/游戏里点一下触发，我验回调与落库。
+
+---
+
+# 第 2 轮 · 造场景深度测试（已授权写测试库）
+
+> 已打通 SSH→tma-mysql 通道，DB 密码全程留服务器端不落本地。所有测试数据**用后即删**，收尾核对：仅剩 admin 账号、无残留测试流水/名单。
+
+## 六、风控名单 403（DB 造场景，端到端）✅
+
+| 编号 | 用例 | 结果 | 证据 |
+|---|---|---|---|
+| RISK-001 | 名单命中拦登录 | ✅ | 插 `bg_risk_blacklist(user,BG-10002)` → 登录 HTTP 403；命中日志 `login/blacklist_user/deny` |
+| RISK-002 | 名单命中拦领取 | ✅ | 同名单下 checkin/claim、spin/draw 均 403；命中日志 `promo_claim/blacklist_user/deny`×2 |
+| RISK-005 | 影子模式 | ✅ | `bg_risk_policy`：bonus_abuse/multi_account 均 action=`tag_only`（仅日志不拦） |
+| RISK-012 | 异常兜底/解除恢复 | ✅ | 删名单后登录立即恢复 200；旧会话在拉黑期间 /user/me 仍 200（名单只在动作点拦，不校验会话，符合设计） |
+| RISK-010 | 策略修改需 super_admin | ✅ | finance 账号 PUT `/admin/risk/policies` → body.code=403「仅超级管理员可修改风控策略」；super_admin 同请求 code=0 |
+
+## 七、RBAC 角色越权（建 finance 子账号）✅
+
+| 编号 | 用例 | 结果 | 证据 |
+|---|---|---|---|
+| ADM-003 | 角色越权 | ✅ | finance 打 op-password POST / system-params PUT / risk-policies PUT 均 body.code=403，附专属文案；读类接口(用户列表/op-password GET)正常 200 |
+
+## 八、激励计算（DB 造流水）✅
+
+| 编号 | 用例 | 结果 | 证据 |
+|---|---|---|---|
+| VIP-001/升级 | VIP 9 级判级 | ✅ | 阈值表 LV1-9=0/1k/5k/20k/60k/150k/400k/1M/3M；插 6000 流水 → `/vip/progress` level=3、next=20000 |
+| RB-005 | 洗码等级联动 | ✅ | 同流水下 `/rebate/progress` level=3（与 VIP 一致，每币种独立账） |
+
+## 九、第 2 轮新发现（配置漂移 + API 契约，均非缺陷）
+
+1. **提现名单动作 = escalate 非 deny**：线上 `bg_risk_policy` 中 withdraw 的 blacklist_* 配成 **escalate（转人工）**，login/promo_claim 才是 deny。
+   → 用例 **RISK-003** 原写"withdraw 403"是代码默认值；**线上实为转人工放行**。建议按线上口径修订 RISK-003 预期为「escalate 进人工队列」。
+2. **授权失败的 HTTP 码 = 400（body.code=403）**：`requireRole` 用 `fail(ctx,403)`，但 HTTP status 走默认 **400**、仅 body.code=403（代码注释明确"与替换前行为一致"）。
+   → 前端/自动化若按 HTTP status 判断权限会看到 400。用例里 super_admin 越权类的"403"应理解为 **body.code=403 / HTTP 400**。
+
+## 十、累计进度
+
+| 类别 | 已验证 | 备注 |
+|---|---|---|
+| 🤖 只读+行为+造场景 | **~58 条** | 本文覆盖，0 真实缺陷，2 处配置/契约提示 |
+| ⏳ 待造场景（剩余） | 负盈利返水完整计算、洗码每日结算、VIP 降级(季度cron)、提现规则命中 | techniques 已验证可行，按需继续 |
+| 🔒 待你配合 | 多币种(USDT钱包已授权可加)、充值/提现/下注(sandbox)、短信/KYC/真机 | — |

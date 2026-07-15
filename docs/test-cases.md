@@ -537,7 +537,7 @@
 |---|---|---|---|---|---|
 | RISK-001 | 名单命中拦登录 | 用户/IP 在 deny 名单 | 登录 403 "Account access denied" | P0 | 🤖 |
 | RISK-002 | 名单命中拦领取 | deny 名单用户领任务/签到/转盘/活动 | promo_claim 各入口 403 risk_denied，不入账 | P0 | 🤖 |
-| RISK-003 | 名单命中拦提现 | deny 名单用户提现 | withdraw 403 risk_denied | P0 | 🤖 |
+| RISK-003 | 名单命中提现处置 | 名单用户提现 | 线上 withdraw 的 blacklist 动作配为 **escalate**：不 403，落日志并转人工审核队列（若配 deny 才 403）。已实测线上=escalate | P0 | 🤖 |
 | RISK-004 | escalate 提现转人工 | 命中 escalate 规则 | 提现不阻断但落日志并进人工审核队列 | P1 | 🤖 |
 | RISK-005 | tag_only 影子模式 | 新规则 action=tag_only | 只落 bg_risk_hit_log，不阻断任何动作 | P1 | 🤖 |
 | RISK-006 | 影子转正式 | 后台 `PUT /admin/risk/policies` 改 tag_only→deny | 同场景开始返回 403 拦截 | P1 | 🤖 |
