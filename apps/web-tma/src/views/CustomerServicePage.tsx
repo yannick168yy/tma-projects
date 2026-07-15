@@ -9,15 +9,135 @@ import { useAuthStore } from '@/stores/auth'
 
 interface Props { onClose: () => void }
 
-const QUICK_OPTIONS: { intent: string; emoji: string; labelKey: string; orderKind?: 'deposit' | 'withdraw' }[] = [
-  { intent: 'deposit_not_credited', emoji: '💰', labelKey: 'cs.quick.deposit', orderKind: 'deposit' },
-  { intent: 'withdrawal_status', emoji: '💸', labelKey: 'cs.quick.withdrawal', orderKind: 'withdraw' },
-  { intent: 'cannot_withdraw', emoji: '🔒', labelKey: 'cs.quick.cannotWithdraw' },
-  { intent: 'kyc_help', emoji: '🪪', labelKey: 'cs.quick.kyc' },
-  { intent: 'promotions', emoji: '🎁', labelKey: 'cs.quick.promotions' },
-  { intent: 'game_issue', emoji: '🎮', labelKey: 'cs.quick.games' },
-  { intent: 'account_issue', emoji: '👤', labelKey: 'cs.quick.account' },
-  { intent: 'human_agent', emoji: '🧑‍💻', labelKey: 'cs.quick.human' },
+interface QuickNode {
+  id: string
+  label: string
+  emoji?: string
+  intent?: string
+  orderKind?: 'deposit' | 'withdraw'
+  children?: QuickNode[]
+}
+
+const QUICK_OPTIONS: QuickNode[] = [
+  {
+    id: 'deposit', label: 'Deposit issues', emoji: '💰', children: [
+      { id: 'deposit_not_credited', label: 'Paid but balance not credited', intent: 'deposit_not_credited', orderKind: 'deposit' },
+      { id: 'deposit_amount_wrong', label: 'Deposit amount is wrong', intent: 'deposit_amount_wrong' },
+      { id: 'deposit_status', label: 'Check latest deposit status', intent: 'deposit_status', orderKind: 'deposit' },
+      { id: 'deposit_method_limit', label: 'Deposit methods or minimum amount', intent: 'deposit_method_limit' },
+    ],
+  },
+  {
+    id: 'withdraw', label: 'Withdrawal issues', emoji: '💸', children: [
+      { id: 'withdrawal_status', label: 'Check withdrawal status', intent: 'withdrawal_status', orderKind: 'withdraw' },
+      { id: 'withdrawal_rejected', label: 'Withdrawal failed or rejected', intent: 'withdrawal_rejected' },
+      { id: 'withdrawal_amount_wrong', label: 'Withdrawal amount is wrong', intent: 'withdrawal_amount_wrong' },
+      { id: 'withdrawal_arrival_time', label: 'Withdrawal arrival time', intent: 'withdrawal_arrival_time' },
+    ],
+  },
+  {
+    id: 'cannot_withdraw', label: "Can't withdraw", emoji: '🔒', children: [
+      { id: 'cannot_withdraw_unknown', label: "I don't know why", intent: 'cannot_withdraw' },
+      { id: 'cannot_withdraw_kyc', label: 'KYC not approved', intent: 'cannot_withdraw_kyc' },
+      { id: 'cannot_withdraw_turnover', label: 'Wagering requirement issue', intent: 'cannot_withdraw_turnover' },
+      { id: 'cannot_withdraw_pending', label: 'Pending withdrawal issue', intent: 'cannot_withdraw_pending' },
+    ],
+  },
+  {
+    id: 'kyc', label: 'KYC verification', emoji: '🪪', children: [
+      { id: 'kyc_help', label: 'Check my KYC status', intent: 'kyc_help' },
+      { id: 'kyc_phone_issue', label: 'Phone verification issue', intent: 'kyc_phone_issue' },
+      { id: 'kyc_document_issue', label: 'ID upload issue', intent: 'kyc_document_issue' },
+      { id: 'kyc_face_issue', label: 'Face verification issue', intent: 'kyc_face_issue' },
+      { id: 'kyc_rejected_reason', label: 'KYC rejected reason', intent: 'kyc_rejected_reason' },
+    ],
+  },
+  {
+    id: 'promotions', label: 'Bonuses & promotions', emoji: '🎁', children: [
+      { id: 'promotions', label: 'Current promotions', intent: 'promotions' },
+      { id: 'promo_first_deposit', label: 'First deposit bonus', intent: 'promo_first_deposit' },
+      { id: 'promo_trial', label: 'Free trial bonus', intent: 'promo_trial' },
+      { id: 'promo_reward_missing', label: 'Promotion reward missing', intent: 'promo_reward_missing' },
+      { id: 'promo_rules', label: 'Promotion rules', intent: 'promo_rules' },
+    ],
+  },
+  {
+    id: 'game', label: 'Game issues', emoji: '🎮', children: [
+      { id: 'game_cannot_open', label: "Game won't open", intent: 'game_cannot_open' },
+      { id: 'game_crashed', label: 'Game crashed or froze', intent: 'game_crashed' },
+      { id: 'game_settlement_issue', label: 'Bet settlement issue', intent: 'game_settlement_issue' },
+      { id: 'game_missing', label: "Can't find a game", intent: 'game_missing' },
+      { id: 'game_maintenance', label: 'Game maintenance', intent: 'game_maintenance' },
+    ],
+  },
+  {
+    id: 'account', label: 'Account & login', emoji: '👤', children: [
+      { id: 'account_login_issue', label: "Can't log in", intent: 'account_login_issue' },
+      { id: 'account_frozen', label: 'Account frozen', intent: 'account_frozen' },
+      { id: 'account_bind_issue', label: 'Binding Telegram / Google / phone', intent: 'account_bind_issue' },
+      { id: 'account_security', label: 'Suspected account theft', intent: 'account_security' },
+    ],
+  },
+  {
+    id: 'human', label: 'Talk to a human agent', emoji: '🧑‍💻', children: [
+      { id: 'human_agent', label: 'I need a human agent', intent: 'human_agent' },
+      { id: 'human_complaint', label: 'Complaint or refund', intent: 'human_complaint' },
+      { id: 'human_money_dispute', label: 'Money dispute', intent: 'human_money_dispute' },
+      { id: 'human_account_security', label: 'Urgent account security', intent: 'human_account_security' },
+    ],
+  },
+  {
+    id: 'cashback', label: 'Cashback / Cash rebate', emoji: '💎', children: [
+      {
+        id: 'cashback_turnover', label: 'Rebate turnover issue', children: [
+          { id: 'cashback_turnover_missing', label: 'Bets not counted', intent: 'cashback_turnover_missing' },
+          { id: 'cashback_game_category', label: 'Game category not counted', intent: 'cashback_game_category' },
+          { id: 'cashback_time_range', label: 'Time range looks wrong', intent: 'cashback_time_range' },
+          { id: 'cashback_currency', label: 'Multi-currency amount issue', intent: 'cashback_currency' },
+        ],
+      },
+      { id: 'cashback_amount_wrong', label: 'Cash rebate amount is wrong', intent: 'cashback_amount_wrong' },
+      { id: 'cashback_not_received', label: 'Cash rebate not received', intent: 'cashback_not_received' },
+      { id: 'cashback_rate_wrong', label: 'Cash rebate rate is wrong', intent: 'cashback_rate_wrong' },
+      { id: 'cashback_rules', label: 'Cash rebate rules', intent: 'cashback_rules' },
+    ],
+  },
+  {
+    id: 'loss_rebate', label: 'Loss rebate', emoji: '📉', children: [
+      {
+        id: 'loss_rebate_amount', label: 'Loss rebate amount issue', children: [
+          { id: 'loss_rebate_net_loss_wrong', label: 'Net loss amount is wrong', intent: 'loss_rebate_net_loss_wrong' },
+          { id: 'loss_rebate_deposit_threshold', label: 'Deposit threshold issue', intent: 'loss_rebate_deposit_threshold' },
+          { id: 'loss_rebate_category', label: 'Game category not eligible', intent: 'loss_rebate_category' },
+          { id: 'loss_rebate_period', label: 'Settlement period issue', intent: 'loss_rebate_period' },
+        ],
+      },
+      { id: 'loss_rebate_not_received', label: 'Loss rebate not received', intent: 'loss_rebate_not_received' },
+      { id: 'loss_rebate_eligibility', label: 'Am I eligible?', intent: 'loss_rebate_eligibility' },
+      { id: 'loss_rebate_time', label: 'Settlement time', intent: 'loss_rebate_time' },
+      { id: 'loss_rebate_rules', label: 'Loss rebate rules', intent: 'loss_rebate_rules' },
+    ],
+  },
+  {
+    id: 'vip', label: 'VIP system', emoji: '👑', children: [
+      { id: 'vip_level_status', label: 'Check my VIP level', intent: 'vip_level_status' },
+      { id: 'vip_not_upgraded', label: 'Why did I not upgrade?', intent: 'vip_not_upgraded' },
+      { id: 'vip_growth_wrong', label: 'VIP growth / turnover issue', intent: 'vip_growth_wrong' },
+      { id: 'vip_reward_missing', label: 'VIP reward missing', intent: 'vip_reward_missing' },
+      { id: 'vip_benefits', label: 'VIP benefits', intent: 'vip_benefits' },
+      { id: 'vip_retention', label: 'VIP retention / downgrade', intent: 'vip_retention' },
+    ],
+  },
+  {
+    id: 'tasks', label: 'Task system', emoji: '✅', children: [
+      { id: 'task_status', label: 'Check task status', intent: 'task_status' },
+      { id: 'task_not_approved', label: 'Task completed but not approved', intent: 'task_not_approved' },
+      { id: 'task_reward_missing', label: 'Task reward missing', intent: 'task_reward_missing' },
+      { id: 'task_social_verify_failed', label: 'Channel / community verification failed', intent: 'task_social_verify_failed' },
+      { id: 'task_code_failed', label: 'Code verification failed', intent: 'task_code_failed' },
+      { id: 'task_rules', label: 'Task rules', intent: 'task_rules' },
+    ],
+  },
 ]
 
 type LocalMsg = CsMessage & { orders?: CsOrder[]; orderKind?: 'deposit' | 'withdraw' }
@@ -38,11 +158,15 @@ export default function CustomerServicePage({ onClose }: Props) {
   const [conversationStatus, setConversationStatus] = useState('active')
   const [welcome, setWelcome] = useState('')
   const [menuOpen, setMenuOpen] = useState(false)
+  const [quickPath, setQuickPath] = useState<QuickNode[]>([])
   const [streamingId, setStreamingId] = useState<number | null>(null)
   const msgRef = useRef<HTMLDivElement>(null)
   const leftSentRef = useRef(false)
   const endedRef = useRef(false)
   const conversationEnded = conversationStatus === 'closed' || conversationStatus === 'resolved'
+  const currentQuickParent = quickPath[quickPath.length - 1]
+  const currentQuickOptions = currentQuickParent?.children ?? QUICK_OPTIONS
+  const quickTitle = currentQuickParent?.label ?? t('cs.quickMenuTitle')
 
   function scrollToBottom() {
     setTimeout(() => { if (msgRef.current) msgRef.current.scrollTop = msgRef.current.scrollHeight }, 0)
@@ -183,9 +307,24 @@ export default function CustomerServicePage({ onClose }: Props) {
 
   async function sendQuickOption(intent: string, label: string, orderKind?: 'deposit' | 'withdraw') {
     if (sending || conversationEnded) return
+    setQuickPath([])
     // 存款/提现是确定性查询:登录用户直接查库秒回,不经 AI
     if (orderKind && isLoggedIn) { await queryOrders(orderKind, label); return }
     await dispatch(label, () => sendCsIntent(intent))
+  }
+
+  function handleQuickNode(node: QuickNode) {
+    if (node.children?.length) {
+      setQuickPath((prev) => [...prev, node])
+      return
+    }
+    if (!node.intent) return
+    setMenuOpen(false)
+    void sendQuickOption(node.intent, node.label, node.orderKind)
+  }
+
+  function backQuickMenu() {
+    setQuickPath((prev) => prev.slice(0, -1))
   }
 
   function onKeydown(e: React.KeyboardEvent) {
@@ -239,17 +378,26 @@ export default function CustomerServicePage({ onClose }: Props) {
                     <p className="text-sm text-foreground">{welcome || t('cs.welcome')}</p>
                   </div>
                 </div>
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-xs font-semibold text-muted-foreground">{quickTitle}</p>
+                  {quickPath.length > 0 && (
+                    <button type="button" className="text-xs font-semibold text-primary" onClick={backQuickMenu}>
+                      Back
+                    </button>
+                  )}
+                </div>
                 <div className="grid grid-cols-2 gap-2">
-                  {QUICK_OPTIONS.map((opt) => (
+                  {currentQuickOptions.map((opt) => (
                     <button
-                      key={opt.intent}
+                      key={opt.id}
                       type="button"
                       disabled={sending || conversationEnded}
                       className="flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2.5 text-left text-sm text-foreground active:bg-secondary disabled:opacity-40"
-                      onClick={() => void sendQuickOption(opt.intent, t(opt.labelKey), opt.orderKind)}
+                      onClick={() => handleQuickNode(opt)}
                     >
-                      <span>{opt.emoji}</span>
-                      <span className="flex-1 leading-tight">{t(opt.labelKey)}</span>
+                      {opt.emoji && <span>{opt.emoji}</span>}
+                      <span className="flex-1 leading-tight">{opt.label}</span>
+                      {opt.children?.length && <span className="text-muted-foreground">›</span>}
                     </button>
                   ))}
                 </div>
@@ -326,18 +474,26 @@ export default function CustomerServicePage({ onClose }: Props) {
             <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
             <div className="absolute bottom-full left-0 right-0 z-20 mb-2 px-3">
               <div className="rounded-2xl border border-border bg-card p-3 shadow-lg">
-                <p className="mb-2 text-xs text-muted-foreground">{t('cs.quickMenuTitle')}</p>
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <p className="text-xs text-muted-foreground">{quickTitle}</p>
+                  {quickPath.length > 0 && (
+                    <button type="button" className="text-xs font-semibold text-primary" onClick={backQuickMenu}>
+                      Back
+                    </button>
+                  )}
+                </div>
                 <div className="grid grid-cols-2 gap-2">
-                  {QUICK_OPTIONS.map((opt) => (
+                  {currentQuickOptions.map((opt) => (
                     <button
-                      key={opt.intent}
+                      key={opt.id}
                       type="button"
                       disabled={sending || conversationEnded}
                       className="flex items-center gap-2 rounded-xl border border-border bg-background px-3 py-2.5 text-left text-sm text-foreground active:bg-secondary disabled:opacity-40"
-                      onClick={() => { setMenuOpen(false); void sendQuickOption(opt.intent, t(opt.labelKey), opt.orderKind) }}
+                      onClick={() => handleQuickNode(opt)}
                     >
-                      <span>{opt.emoji}</span>
-                      <span className="flex-1 leading-tight">{t(opt.labelKey)}</span>
+                      {opt.emoji && <span>{opt.emoji}</span>}
+                      <span className="flex-1 leading-tight">{opt.label}</span>
+                      {opt.children?.length && <span className="text-muted-foreground">›</span>}
                     </button>
                   ))}
                 </div>

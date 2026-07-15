@@ -18,19 +18,88 @@ export interface DeterministicCsResult {
   status: string
 }
 
-const DETERMINISTIC_INTENTS = new Set([
+const DEPOSIT_INTENTS = new Set([
   'deposit_not_credited',
+  'deposit_amount_wrong',
+  'deposit_status',
+  'deposit_method_limit',
+])
+
+const WITHDRAWAL_INTENTS = new Set([
   'withdrawal_status',
+  'withdrawal_rejected',
+  'withdrawal_amount_wrong',
+  'withdrawal_arrival_time',
+])
+
+const CANNOT_WITHDRAW_INTENTS = new Set([
   'cannot_withdraw',
+  'cannot_withdraw_kyc',
+  'cannot_withdraw_turnover',
+  'cannot_withdraw_pending',
+])
+
+const KYC_INTENTS = new Set([
   'kyc_help',
+  'kyc_phone_issue',
+  'kyc_document_issue',
+  'kyc_face_issue',
+  'kyc_rejected_reason',
+])
+
+const PROMO_INTENTS = new Set([
   'promotions',
+  'promo_first_deposit',
+  'promo_trial',
+  'promo_reward_missing',
+  'promo_rules',
+])
+
+const GAME_INTENTS = new Set([
   'game_issue',
+  'game_cannot_open',
+  'game_crashed',
+  'game_settlement_issue',
+  'game_missing',
+  'game_maintenance',
+])
+
+const ACCOUNT_GUIDE_INTENTS = new Set([
   'account_issue',
-  'human_agent',
+  'account_login_issue',
+  'account_bind_issue',
+])
+
+const HUMAN_REASON_BY_INTENT: Record<string, 'user_request' | 'money_dispute' | 'account_security' | 'complaint'> = {
+  human_agent: 'user_request',
+  human_complaint: 'complaint',
+  human_money_dispute: 'money_dispute',
+  human_account_security: 'account_security',
+  account_frozen: 'account_security',
+  account_security: 'account_security',
+}
+
+const DETERMINISTIC_INTENTS = new Set([
+  ...DEPOSIT_INTENTS,
+  ...WITHDRAWAL_INTENTS,
+  ...CANNOT_WITHDRAW_INTENTS,
+  ...KYC_INTENTS,
+  ...PROMO_INTENTS,
+  ...GAME_INTENTS,
+  ...ACCOUNT_GUIDE_INTENTS,
+  ...Object.keys(HUMAN_REASON_BY_INTENT),
 ])
 
 function isGuest(userId: string): boolean {
   return userId.startsWith('guest:')
+}
+
+function canGuestUseIntent(intent: string): boolean {
+  return intent === 'deposit_method_limit'
+    || PROMO_INTENTS.has(intent)
+    || GAME_INTENTS.has(intent)
+    || ACCOUNT_GUIDE_INTENTS.has(intent)
+    || Boolean(HUMAN_REASON_BY_INTENT[intent])
 }
 
 function money(amount: number, currency = 'PHP'): string {
@@ -130,6 +199,22 @@ async function withdrawalReply(env: Env, userId: string): Promise<string> {
   return orderLine(latest, 'withdraw')
 }
 
+function depositGuideReply(): string {
+  return 'Please open Wallet > Deposit to see live deposit methods and exact limits. Available channels and minimum amounts may change by payment provider.'
+}
+
+function gameGuideReply(intent: string): string {
+  if (intent === 'game_settlement_issue') return 'Please send the game name, bet time, round/order id, and what result you expected. Keep screenshots if balance or settlement is affected.'
+  if (intent === 'game_missing' || intent === 'game_maintenance') return 'Please send the game name or provider. I can help check whether it is available or under maintenance.'
+  return 'Please send the game name and what happened, for example: cannot load, game crashed, missing settlement, or cannot find the game.'
+}
+
+function accountGuideReply(intent: string): string {
+  if (intent === 'account_login_issue') return 'Please tell me which login method failed and what error you saw. You can also try reopening the Telegram Mini App and checking your network first.'
+  if (intent === 'account_bind_issue') return 'Please tell me which binding has an issue: Telegram, Google, or phone. Include the error message if one appears.'
+  return 'Please describe the account or login issue, for example: cannot log in, account frozen, phone verification, or suspected account theft.'
+}
+
 export async function handleDeterministicCsIntent(
   env: Env,
   userId: string,
@@ -152,30 +237,32 @@ export async function handleDeterministicCsIntent(
   let reply: string
   let status: string = conversation.status
 
-  if (isGuest(userId) && !['game_issue', 'account_issue', 'promotions'].includes(intent)) {
+  if (isGuest(userId) && !canGuestUseIntent(intent)) {
     reply = 'Please log in first so I can check your account information.'
-  } else if (intent === 'deposit_not_credited') {
-    reply = await depositReply(env, userId)
-  } else if (intent === 'withdrawal_status') {
+  } else if (DEPOSIT_INTENTS.has(intent)) {
+    reply = intent === 'deposit_method_limit' ? depositGuideReply() : await depositReply(env, userId)
+  } else if (WITHDRAWAL_INTENTS.has(intent)) {
     reply = await withdrawalReply(env, userId)
-  } else if (intent === 'cannot_withdraw') {
+  } else if (CANNOT_WITHDRAW_INTENTS.has(intent)) {
     reply = await cannotWithdrawReply(env, userId)
-  } else if (intent === 'kyc_help') {
+  } else if (KYC_INTENTS.has(intent)) {
     reply = kycReply(await getKycRow(env, userId))
-  } else if (intent === 'promotions') {
+  } else if (PROMO_INTENTS.has(intent)) {
     reply = await promotionsReply(env)
-  } else if (intent === 'game_issue') {
-    reply = 'Please send the game name and what happened, for example: cannot load, game crashed, missing settlement, or cannot find the game.'
-  } else if (intent === 'account_issue') {
-    reply = 'Please describe the account or login issue, for example: cannot log in, account frozen, phone verification, or suspected account theft.'
-  } else {
+  } else if (GAME_INTENTS.has(intent)) {
+    reply = gameGuideReply(intent)
+  } else if (ACCOUNT_GUIDE_INTENTS.has(intent)) {
+    reply = accountGuideReply(intent)
+  } else if (HUMAN_REASON_BY_INTENT[intent]) {
     const onDuty = await isHumanOnDuty(env)
     const toStatus = onDuty ? 'human_taken' : 'escalated'
     status = toStatus
-    await escalateConversation(env, conversationId, 'user_request', toStatus)
+    await escalateConversation(env, conversationId, HUMAN_REASON_BY_INTENT[intent], toStatus)
     reply = onDuty
       ? 'A human agent is online and will reply here shortly. Please wait in this chat.'
       : `No human agent is online right now. I have recorded this as ticket #${conversationId}, and an agent will follow up here as soon as one is available.`
+  } else {
+    return null
   }
 
   await saveMessage(env, conversationId, status === 'human_taken' ? 'admin' : 'assistant', reply)
