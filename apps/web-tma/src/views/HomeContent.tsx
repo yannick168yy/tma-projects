@@ -25,6 +25,7 @@ import pagcorImg from '@/assets/home/compliance/pagcor.png'
 import age21Img from '@/assets/home/compliance/age21.png'
 import cashbackFloatImg from '@/assets/home/promos/cashback-float.webp'
 import cashRebateBannerImg from '@/assets/home/promos/cash-rebate-banner.webp'
+import lossRebateBannerImg from '@/assets/home/promos/loss-rebate-banner.webp'
 
 // 最近在玩区最大展示数，不足时用推荐游戏补齐
 const RECENT_ROW_MAX = 10
@@ -204,6 +205,10 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
     finally { setLaunchingUuid(null) }
   }, [auth, launchingUuid, onOpenGame, t, activeCurrency])
 
+  const onLossRebateBannerTap = useCallback(async () => {
+    if (!(await auth.ensureLoggedIn(t('auth.signInBonus')))) return
+    onNavigatePath('/vip?tab=lossrebate')
+  }, [auth, onNavigatePath, t])
 
   // Betting table
   const betSectionRef = useRef<HTMLElement>(null)
@@ -446,6 +451,15 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
           {smallRow(homepageGames.newGames)}
         </section>
       )}
+
+      {/* 负盈利返水活动横条 → VIP 负盈利返水 tab */}
+      <section className="mt-6">
+        <div className="px-4">
+          <button type="button" className="relative block w-full active:scale-[0.98] transition-transform" onClick={() => void onLossRebateBannerTap()}>
+            <img src={lossRebateBannerImg} alt="Loss Rebate" draggable={false} className="w-full rounded-2xl" />
+          </button>
+        </div>
+      </section>
 
       {/* Slots：大卡 3x2 */}
       {(gamesLoading || homepageGames.slots.length > 0) && (
