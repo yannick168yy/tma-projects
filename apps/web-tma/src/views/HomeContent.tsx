@@ -58,6 +58,8 @@ const PAYMENT_LOGOS = [
   { name: 'Maya', src: '/logos/maya.svg' },
   { name: 'USDT', src: '/logos/usdt.svg' },
 ]
+const BET_SCROLL_MIN_DURATION_SECONDS = 32
+const BET_SCROLL_SECONDS_PER_ITEM = 2.8
 
 // 首页 banner / 小卡片均来自后台装修配置，只需图片 + 跳转目标
 interface HomeBanner { id: number; image: string; target: string }
@@ -220,8 +222,8 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
   const latestBetsLoop = useMemo(() => [...latestBets, ...latestBets], [latestBets])
   const rankBets = activeBetTab === 'week' ? weekBets : monthBets
   const rankBetsLoop = useMemo(() => [...rankBets, ...rankBets], [rankBets])
-  const latestBetScrollDuration = `${Math.max(56, latestBets.length * 4.8)}s`
-  const rankBetScrollDuration = `${Math.max(56, rankBets.length * 4.8)}s`
+  const latestBetScrollDuration = `${Math.max(BET_SCROLL_MIN_DURATION_SECONDS, latestBets.length * BET_SCROLL_SECONDS_PER_ITEM)}s`
+  const rankBetScrollDuration = `${Math.max(BET_SCROLL_MIN_DURATION_SECONDS, rankBets.length * BET_SCROLL_SECONDS_PER_ITEM)}s`
   const firstDepositHighlight = promotion.highlights.find((item) => item.promoId === 'firstdep')
   const firstdepPopup = promotion.promoConfig?.popups?.find((p) => p.id === 'firstdep')
   // 后台「首页弹窗」开关+人群控制悬浮球显隐；叠加原有「已充值则不再展示首充」逻辑
