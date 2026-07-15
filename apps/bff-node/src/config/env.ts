@@ -6,6 +6,12 @@ const schema = z.object({
   BFF_PORT: z.coerce.number().default(3000),
   REDIS_URL: z.string().default('redis://127.0.0.1:6379'),
   TELEGRAM_BOT_TOKEN: z.string().min(1, 'TELEGRAM_BOT_TOKEN is required'),
+  // ── 后台告警 Telegram 群(与面向用户的 TELEGRAM_BOT_TOKEN 相互独立)───────────────
+  // 两者留空则静默禁用告警,不影响主流程
+  ADMIN_TG_BOT_TOKEN: z.string().default(''),
+  ADMIN_TG_CHAT_ID: z.string().default(''),
+  // 告警消息里后台深链前缀
+  ADMIN_WEB_URL: z.string().default('https://www.188facai.com/admin-panel'),
   BFF_DEV_SKIP_TELEGRAM_AUTH: z
     .enum(['true', 'false'])
     .default('false')

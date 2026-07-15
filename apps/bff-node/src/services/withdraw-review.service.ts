@@ -7,6 +7,7 @@ import { getWithdraw } from './store/index.js'
 import { canWithdraw } from './turnover.service.js'
 import { approveWithdraw } from './withdraw-approve.service.js'
 import { broadcastBadges } from './sse-badges.js'
+import { notifyWithdrawManual } from './admin-notify.js'
 
 // ── 规则结果 / 上下文 ─────────────────────────────────────────────────────────
 
@@ -619,6 +620,15 @@ export async function reviewWithdraw(env: Env, redis: Redis, orderId: string, ro
     catch { /* 出款失败内部已退款并置 failed，留人工跟进 */ }
   } else {
     broadcastBadges(env).catch(() => {})
+    if (round === 1) {
+      notifyWithdrawManual(env, {
+        scope: 'personal',
+        orderId: order.orderId,
+        userId: order.userId,
+        amount: order.amount,
+        currency: order.currency,
+      }).catch(() => {})
+    }
   }
 }
 

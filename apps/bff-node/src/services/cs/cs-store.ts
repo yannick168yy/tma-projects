@@ -2,6 +2,7 @@ import type { RowDataPacket, ResultSetHeader } from 'mysql2/promise'
 import type { Env } from '../../config/env.js'
 import { getMysqlPool } from '../../clients/mysql.client.js'
 import { broadcastBadges } from '../sse-badges.js'
+import { notifyCsHuman } from '../admin-notify.js'
 
 export type ConversationStatus = 'active' | 'escalated' | 'human_taken' | 'resolved' | 'closed'
 export type MessageRole = 'user' | 'assistant' | 'admin'
@@ -163,11 +164,21 @@ export async function escalateConversation(
   reason: string,
   toStatus: 'escalated' | 'human_taken',
 ): Promise<void> {
-  await db(env).query(
+  const pool = db(env)
+  const [before] = await pool.query<RowDataPacket[]>(
+    `SELECT status, user_id FROM cs_conversation WHERE id = ?`,
+    [id],
+  )
+  const prevStatus = before[0]?.status as ConversationStatus | undefined
+  await pool.query(
     `UPDATE cs_conversation SET status = ?, escalate_reason = ?, escalated_at = NOW() WHERE id = ?`,
     [toStatus, reason.slice(0, 64), id],
   )
   broadcastBadges(env).catch(() => {})
+  // 仅在真正发生状态跃迁时告警(escalated 重复命中不刷屏)
+  if (prevStatus !== toStatus) {
+    notifyCsHuman(env, { conversationId: id, userId: before[0]?.user_id, reason, toStatus }).catch(() => {})
+  }
 }
 
 export async function getMessages(

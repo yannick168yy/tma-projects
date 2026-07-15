@@ -21,6 +21,7 @@ import {
 } from './otp-policy.service.js'
 import { getStorageProvider } from './storage/index.js'
 import { broadcastBadges } from './sse-badges.js'
+import { notifyKycRejected } from './admin-notify.js'
 import {
   findKycByExtractedIdNo,
   findKycByVerifiedPhone,
@@ -655,6 +656,9 @@ export async function submitKycDocument(
   }
   await saveApprovedWithIdGuard(redis, submission)
   broadcastBadges(env).catch(() => {})
+  if (submission.status === 'rejected') {
+    notifyKycRejected(env, { userId, fullName: input.fullName, stage: 'document', reasons }).catch(() => {})
+  }
   // 证件通过即完成实名时，把证件生日同步进用户生日字段（生日只来自 KYC，不接受手输）
   if (submission.status === 'approved') {
     ensureBirthdayFromKyc(env, userId).catch((e) => console.error('[kyc] sync birthday failed:', e))
@@ -744,6 +748,9 @@ export async function submitKycFace(
 
   await saveApprovedWithIdGuard(redis, submission)
   broadcastBadges(env).catch(() => {})
+  if (submission.status === 'rejected') {
+    notifyKycRejected(env, { userId, fullName: existing.fullName, stage: 'face', reasons }).catch(() => {})
+  }
   if (submission.status === 'approved') {
     ensureBirthdayFromKyc(env, userId).catch((e) => console.error('[kyc] sync birthday failed:', e))
   }

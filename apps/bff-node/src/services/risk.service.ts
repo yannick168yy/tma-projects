@@ -1,6 +1,7 @@
 import type { Pool, RowDataPacket } from 'mysql2/promise'
 import type { Env } from '../config/env.js'
 import { getMysqlPool, isMysqlEnabled } from '../clients/mysql.client.js'
+import { notifyRiskHit } from './admin-notify.js'
 
 // 风控管控层：识别「人」的风险并在关键时刻自动干预。
 // 与 withdraw-review（审核）的分工：审核判定单笔订单是否需要人工复核，风控判定这个人能不能做这件事。
@@ -136,7 +137,18 @@ export async function evaluateCheckpoint(env: Env, ctx: RiskContext): Promise<Ri
   } catch {
     return { action: 'pass' }
   }
-  return evaluateWithPool(pool, ctx)
+  const decision = await evaluateWithPool(pool, ctx)
+  // 仅高危动作(拦截/升级)告警;tag_only/limit 噪音大不推
+  if ((decision.action === 'deny' || decision.action === 'escalate') && decision.ruleCode) {
+    notifyRiskHit(env, {
+      userId: ctx.userId,
+      checkpoint: ctx.checkpoint,
+      ruleCode: decision.ruleCode,
+      action: decision.action,
+      ip: ctx.ip,
+    }).catch(() => {})
+  }
+  return decision
 }
 
 /**

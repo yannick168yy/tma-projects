@@ -14,6 +14,7 @@ import {
   type Win568ReviewStats,
 } from './withdraw-review.service.js'
 import { broadcastBadges } from './sse-badges.js'
+import { notifyWithdrawManual } from './admin-notify.js'
 
 interface TeamWithdrawal {
   id: number
@@ -404,6 +405,17 @@ export async function reviewTeamWithdrawal(env: Env, _redis: Redis, withdrawalId
     [verdict, round, Date.now() - t0, snapshot ? JSON.stringify(snapshot) : null, withdrawal.id],
   )
 
+  const notifyManual = () => {
+    if (round !== 1) return
+    notifyWithdrawManual(env, {
+      scope: 'team',
+      orderId: withdrawal.id,
+      userId: withdrawal.userId,
+      amount: withdrawal.amountCents / 100,
+      currency: 'PHP',
+    }).catch(() => {})
+  }
+
   if (verdict === 'pass') {
     try {
       await approveTeamWithdrawal(env, withdrawal.id)
@@ -413,9 +425,11 @@ export async function reviewTeamWithdrawal(env: Env, _redis: Redis, withdrawalId
         [withdrawal.id],
       )
       broadcastBadges(env).catch(() => {})
+      notifyManual()
     }
   } else {
     broadcastBadges(env).catch(() => {})
+    notifyManual()
   }
 }
 
