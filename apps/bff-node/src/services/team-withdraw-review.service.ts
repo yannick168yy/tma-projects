@@ -54,10 +54,11 @@ type Rule = (ctx: ReviewContext, cfg: RuleConfig) => Promise<RuleResult> | RuleR
 
 const TEAM_RULES: Record<string, Rule> = {
   large_amount(ctx, cfg) {
-    const threshold = Number((cfg.params ?? {}).phpCents)
+    const threshold = Number((cfg.params ?? {}).php)
     if (!Number.isFinite(threshold) || threshold <= 0) return { code: 'large_amount', verdict: 'pass' }
-    const hit = ctx.withdrawal.amountCents > threshold
-    return { code: 'large_amount', verdict: hit ? 'manual' : 'pass', actualValue: ctx.withdrawal.amountCents, threshold }
+    const amountPhp = ctx.withdrawal.amountCents / 100
+    const hit = amountPhp > threshold
+    return { code: 'large_amount', verdict: hit ? 'manual' : 'pass', actualValue: amountPhp, threshold }
   },
 
   deposit_source(ctx) {

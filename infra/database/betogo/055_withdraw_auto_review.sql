@@ -36,7 +36,7 @@ CREATE TABLE IF NOT EXISTS bg_withdraw_review_log (
 -- 规则默认配置（阈值偏宽松，保证大多数提案自动通过，仅异常转人工）
 INSERT IGNORE INTO bg_withdraw_review_config (rule_code, enabled, threshold, params) VALUES
   ('turnover',                 1, NULL,        NULL),
-  ('large_amount',             1, NULL,        JSON_OBJECT('phpCents', 5000000, 'usdt', 20000)),
+  ('large_amount',             1, NULL,        JSON_OBJECT('php', 50000, 'usdt', 20000)),
   ('large_profit',             1, 20000000,    NULL),
   ('high_multiple_profit',     1, 10,          NULL),
   ('high_multiple_profit_24h', 1, 15,          NULL),

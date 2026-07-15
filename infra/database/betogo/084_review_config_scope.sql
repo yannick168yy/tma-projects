@@ -10,7 +10,7 @@ ALTER TABLE bg_withdraw_review_config
 
 -- 佣金提现(team)默认配置：仅团队侧实际使用的 7 条规则，阈值偏宽松
 INSERT IGNORE INTO bg_withdraw_review_config (rule_code, scope, enabled, threshold, params) VALUES
-  ('large_amount',             'team', 1, NULL, JSON_OBJECT('phpCents', 5000000)),
+  ('large_amount',             'team', 1, NULL, JSON_OBJECT('php', 50000)),
   ('deposit_source',           'team', 1, NULL, NULL),
   ('first_withdraw_no_deposit','team', 1, NULL, NULL),
   ('upline_blacklist',         'team', 1, NULL, NULL),

@@ -63,7 +63,7 @@ interface ReviewContext {
 
 export const RULE_META: Record<string, { name: string; desc: string }> = {
   turnover:                  { name: '流水检查', desc: '复核「上次成功取款至今」窗口内的有效投注流水是否达到打码要求；未达标则转人工（与请求路径的流水闸门一致，此处兜底）。' },
-  large_amount:             { name: '大额取款', desc: '本次取款金额超过设定阈值转人工；按币种分别设阈（phpCents=法币分，usdt=Matrix 链上 USDT）。' },
+  large_amount:             { name: '大额取款', desc: '本次取款金额超过设定阈值转人工；按币种分别设阈（php=法币元/比索，usdt=Matrix 链上 USDT）。' },
   large_profit:             { name: '大额盈利', desc: '统计窗口内的净盈利（总派彩−总投注）超过阈值（PHP 分）转人工。阈值≤0 表示不启用。' },
   high_multiple_profit:     { name: '高倍盈利', desc: '窗口内 净盈利 ÷ 累计存款 的倍数 ≥ 阈值倍数转人工；无存款时跳过。' },
   high_multiple_profit_24h: { name: '24小时高倍盈利', desc: '近 24 小时内 盈利 ÷ 存款 的倍数 ≥ 阈值倍数转人工，用于抓短时暴赚；近 24h 无存款时跳过。' },
@@ -228,7 +228,7 @@ const RULES: Record<string, Rule> = {
   large_amount(ctx, cfg) {
     const params = cfg.params ?? {}
     const isMatrix = ctx.order.channelId === 'matrix'
-    const threshold = Number(isMatrix ? params.usdt : params.phpCents)
+    const threshold = Number(isMatrix ? params.usdt : params.php)
     if (!Number.isFinite(threshold) || threshold <= 0) return { code: 'large_amount', verdict: 'pass' }
     const hit = ctx.order.amount > threshold
     return { code: 'large_amount', verdict: hit ? 'manual' : 'pass', actualValue: ctx.order.amount, threshold }
