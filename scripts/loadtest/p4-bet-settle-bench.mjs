@@ -12,6 +12,7 @@ const POOLMAX = Number(process.env.POOLMAX || 10)
 const USERS = Number(process.env.USERS || 200)
 const SAME_USER = process.env.SAME_USER === '1' // 单用户行锁热点模式
 
+const RUN = String(Date.now() % 1000000) // 本轮标签:对账只汇总本轮 ledger,避免混入上轮残留
 const pool = mysql.createPool({
   host: process.env.MYSQL_HOST, port: Number(process.env.MYSQL_PORT || 3306),
   user: process.env.MYSQL_USER, password: process.env.MYSQL_PASSWORD, database: process.env.MYSQL_DATABASE,
@@ -20,14 +21,28 @@ const pool = mysql.createPool({
 const sleep = (ms) => new Promise(r => setTimeout(r, ms))
 
 if (MODE === 'cleanup') {
-  const one = async (label, sql) => { const [r] = await pool.query(sql); process.stderr.write(`  cleanup ${label}: ${r.affectedRows}\n`); await sleep(100) }
-  await one('turnover', `DELETE tl FROM bg_turnover_logs tl JOIN bg_bet_order b ON b.id = tl.bet_order_id WHERE b.provider_txn_id LIKE 'p4-%'`)
-  for (;;) { const [r] = await pool.query(`DELETE FROM bg_wallet_ledger WHERE id LIKE 'lg-p4-%' LIMIT 2000`); if (r.affectedRows < 2000) break; await sleep(100) }
-  await one('bet_order(win)', `DELETE FROM bg_bet_order WHERE provider_txn_id LIKE 'settle:p4-%'`)
-  await one('bet_order(bet)', `DELETE FROM bg_bet_order WHERE provider_txn_id LIKE 'p4-%'`)
-  await one('wallet_txn', `DELETE FROM bg_568win_wallet_txn WHERE transfer_code LIKE 'p4-%'`)
-  await one('恢复钱包', `UPDATE bg_wallet SET available = 1000000 WHERE user_id LIKE 'LT-%' AND currency = 'PHP'`)
-  process.stderr.write('cleanup done\n')
+  // 全部小批次删(教训:无LIMIT大删在64M buffer pool小机上会跑几分钟持锁)
+  const batch = async (label, sql) => {
+    let total = 0
+    for (;;) { const [r] = await pool.query(`${sql} LIMIT 1000`); total += r.affectedRows; if (r.affectedRows < 1000) break; await sleep(80) }
+    process.stderr.write(`  cleanup ${label}: ${total}\n`)
+  }
+  { // join删不支持LIMIT:先选id再按主键删
+    let total = 0
+    for (;;) {
+      const [ids] = await pool.query(`SELECT tl.id FROM bg_turnover_logs tl JOIN bg_bet_order b ON b.id = tl.bet_order_id WHERE b.provider_txn_id LIKE 'p4%' LIMIT 1000`)
+      if (!ids.length) break
+      const [r] = await pool.query(`DELETE FROM bg_turnover_logs WHERE id IN (?)`, [ids.map(x => x.id)])
+      total += r.affectedRows; await sleep(80)
+    }
+    process.stderr.write(`  cleanup turnover: ${total}\n`)
+  }
+  await batch('ledger', `DELETE FROM bg_wallet_ledger WHERE id LIKE 'lg-p4%'`)
+  await batch('bet_order(win)', `DELETE FROM bg_bet_order WHERE provider_txn_id LIKE 'settle:p4%'`)
+  await batch('bet_order(bet)', `DELETE FROM bg_bet_order WHERE provider_txn_id LIKE 'p4%'`)
+  await batch('wallet_txn', `DELETE FROM bg_568win_wallet_txn WHERE transfer_code LIKE 'p4%'`)
+  const [r] = await pool.query(`UPDATE bg_wallet SET available = 1000000 WHERE user_id LIKE 'LT-%' AND currency = 'PHP'`)
+  process.stderr.write(`  恢复钱包: ${r.affectedRows}\ncleanup done\n`)
   await pool.end(); process.exit(0)
 }
 
@@ -78,7 +93,7 @@ async function worker(id) {
   let i = 0
   while (Date.now() < deadline) {
     const uid = SAME_USER ? 'LT-1' : `LT-${((id * 7 + i) % USERS) + 1}`
-    const tc = `p4-${id}-${i}-${Date.now()}`
+    const tc = `p4${RUN}-${id}-${i}`
     i++
     const t = process.hrtime.bigint()
     try { await betCycle(uid, tc); bets++ } catch (e) { errs++ }
@@ -91,7 +106,7 @@ await Promise.all(Array.from({ length: CONC }, (_, i) => worker(i)))
 await sleep(500)
 const after = await snap()
 const [led] = await pool.query(
-  `SELECT user_id, SUM(amount) AS net, COUNT(*) AS n FROM bg_wallet_ledger WHERE id LIKE 'lg-p4-%' GROUP BY user_id`)
+  `SELECT user_id, SUM(amount) AS net, COUNT(*) AS n FROM bg_wallet_ledger WHERE id LIKE ? GROUP BY user_id`, [`lg-p4${RUN}-%`])
 let checked = 0, mismatch = 0
 for (const r of led) {
   checked++
