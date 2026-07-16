@@ -138,23 +138,35 @@ cleanup.mjs 清种子 → 关限流旁路 + 恢复 Turnstile → recreate-bff-no
 
 ## 5. 结果记录（跨 session 回填区）
 
-### 5.1 P1 接口基线表
+### 5.1 P1 接口基线表 ✅（2026-07-16 服务器本机压测，原始数据 `scripts/loadtest/results/p1-server-2026-07-16.csv`）
 
-| 接口 | 数据形态 | 拐点VU | 拐点RPS | p95@拐点前 | 瓶颈层 | 结论/优化点 | 状态 |
-|------|----------|--------|---------|-----------|--------|-------------|------|
-| GET /bets | 3000局/人 | | | | | 预聚合修复后复测 | ⬜ |
-| GET /promotions/team/tree | 3级80人 | | | | | | ⬜ |
-| GET /promotions/team/downlines | 同上 | | | | | | ⬜ |
-| GET /rebate/progress | 有流水 | | | | | | ⬜ |
-| GET /ledger | 5000条/人 | | | | | | ⬜ |
-| GET /wallet/balances | — | | | | | | ⬜ |
-| GET /user/me | — | | | | | | ⬜ |
-| GET /slots/games | 全量目录 | | | | | | ⬜ |
-| GET /tasks | — | | | | | | ⬜ |
-| GET /vip/progress | — | | | | | | ⬜ |
-| GET /deposits | 有订单 | | | | | | ⬜ |
-| GET /withdrawals | 有订单 | | | | | | ⬜ |
-| （配置类合并一行记录） | — | | | | | | ⬜ |
+**⚠️ 方法论修正（重要，复用必读）**：从 Mac 外部发压的第一轮数据（`results/p1-mac-wan-2026-07-16.csv`）已作废——测试机公网仅 ~2.5Mbps，>2KB 响应的接口先撞带宽墙（homepage 未压缩 67KB 时中位被压到 7.2s，本机实测仅 14ms）。修正两点：①k6 必须带 `Accept-Encoding: gzip`（真实浏览器行为，67KB→7.6KB）②量服务器容量必须本机发压（`LOCAL=1` 钉 127.0.0.1，走本地 nginx 完整链路）。本机压有探针效应（k6 与服务共享 2 核），数字略保守，作选型下限安全。Mac 端数据保留作"带宽瓶颈"证据。
+
+结果（全部 0 错误率；"容量"=吞吐平台值；p95@40 = VU40 时的 p95）：
+
+| 接口 | 数据形态 | 容量(rps) | p95@40 | 梯队 | 结论 | 状态 |
+|------|----------|-----------|--------|------|------|------|
+| GET /tasks | 任务进度 | **45** | **1.06s ❌破线** | 聚合 | 全场最低，唯一破线 → 优化#1 | ✅ |
+| GET /promotions/team/tree | 3级80下线 | 73 | 644ms | 聚合 | 最重读之一，观察 | ✅ |
+| GET /vip/progress | 有流水 | 76 | 608ms | 聚合 | 观察 | ✅ |
+| GET /vip/levels | 配置 | 116 | 212ms@20 | 明细 | 正常 | ✅ |
+| GET /bets | 3000局/人 | 120 | 406ms | 明细 | **预聚合改造验证通过**（改前~17rps） | ✅ |
+| GET /promotions/team/downlines | 3级80下线 | 160 | 300ms | 明细 | 正常 | ✅ |
+| GET /promotions/checkin/status | — | 185 | 264ms | 明细 | 正常 | ✅ |
+| GET /rebate/progress | 15万打码流水 | 188 | 272ms | 明细 | 意外健康，索引有效 | ✅ |
+| GET /rebate/config | 配置 | 245 | 119ms@20 | 明细 | Mac轮86%错误=MySQL崩溃窗口殃及，本身正常 | ✅ |
+| GET /ledger | 6000条/人 | 245 | 225ms | 明细 | 正常 | ✅ |
+| GET /withdrawals | 30单/人 | 300 | 189ms | 明细 | 正常 | ✅ |
+| GET /slots/homepage | 11分类全量 | 306 | 91ms@20 | 缓存 | Redis缓存有效，Mac端7.2s纯属带宽假象 | ✅ |
+| GET /deposits | 100单/人 | 350 | 162ms | 明细 | 正常 | ✅ |
+| GET /user/me | — | 440 | 135ms | 缓存 | 正常 | ✅ |
+| GET /slots/games | 全量目录 | 505 | 114ms | 缓存 | 内存缓存有效 | ✅ |
+| GET /wallet/balances | — | 500 | 118ms | 缓存 | 正常 | ✅ |
+| GET /promotions/config | 配置 | 604 | 57ms@20 | 缓存 | 正常 | ✅ |
+| GET /home/content | 配置 | 946 | 36ms@20 | 缓存 | 全场最快 | ✅ |
+
+**读侧三梯队结论**：缓存/单键读 300-950 rps；索引明细读 120-350 rps；多查询聚合 45-80 rps。曲线均为"吞吐平台化+延迟随并发线性涨"= 2 核 CPU 共享是统一的顶，无病态查询（/tasks 待查证）。
+**事故记录**：Mac 轮压测尾段（16:57）MySQL 容器 OOM 崩溃自动重启（RestartCount 3→4），2C2G 全容器同机持续读压即可打崩 MySQL——生产 DB 必须独立部署/加内存的直接证据。
 
 ### 5.2 P2 页面首屏表
 
@@ -183,7 +195,12 @@ cleanup.mjs 清种子 → 关限流旁路 + 恢复 Turnstile → recreate-bff-no
 
 | # | 发现 | 影响 | 建议 | 状态 |
 |---|------|------|------|------|
-| 1 | /bets group-then-sort（已修） | 读天花板17rps | bg_bet_round 预聚合（已上线，待复测） | 🔧复测 |
+| 1 | /bets group-then-sort（已修） | 读天花板17rps | bg_bet_round 预聚合（已上线） | ✅复测通过(120rps) |
+| 2 | /tasks 容量仅45rps，VU40 p95 1.06s破线 | tasks页+首页浮窗高频接口 | 查 task.service 是否每请求逐任务串行聚合（当日存款/投注计数多次查询）；可合并查询或短缓存 | ⬜待查 |
+| 3 | 测试机公网带宽~2.5Mbps是外部访问第一瓶颈 | 真实用户体验直接受限 | **生产采购必含带宽/CDN**：按gzip后首页链路~15KB/打开、峰值100打开/s → 出口≥12Mbps起步；静态与游戏列表走CDN | ⬜选型输入 |
+| 4 | MySQL 容器在持续读压下OOM崩溃(重启+3) | 全站不可用~1分钟/次 | 生产：DB独立部署+buffer pool≥数据集；测试机勿再全容器同机高压 | ⬜选型输入 |
+| 5 | team/tree(73rps)与vip/progress(76rps)聚合偏重 | 高并发下最先劣化的第二梯队 | 暂不动；生产加核后复测，若仍<150rps再优化查询 | 🟡观察 |
+| 6 | bff MySQL 连接池=10（上轮结论沿用） | 读写吞吐上限因素 | 生产按核数调大(30+)，写重场景压测验证 | ⬜选型输入 |
 
 ## 6. 生产服务器选型换算（P3/P4 完成后回填）
 
