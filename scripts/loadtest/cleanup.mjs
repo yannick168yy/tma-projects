@@ -1,19 +1,25 @@
-// 清除压测种子数据 —— 删除 seed-users.mjs 记录在 SET `tma:loadtest:keys` 里的全部 key
+// 清除压测种子 —— 删 MySQL 的 LT-* 用户行 + Redis 的 LTK-* session
 //   ssh ... 'podman exec -i tma-bff-node node --input-type=module' < cleanup.mjs
-import Redis from 'ioredis'
+const { loadEnv } = await import('/app/dist/config/env.js')
+const { getRedis } = await import('/app/dist/clients/redis.client.js')
+const { getMysqlPool } = await import('/app/dist/clients/mysql.client.js')
 
-const REDIS_URL = process.env.REDIS_URL || 'redis://127.0.0.1:6379'
-const INDEX_KEY = 'tma:loadtest:keys'
-const redis = new Redis(REDIS_URL)
+const env = loadEnv()
+const redis = getRedis(env)
 
-const keys = await redis.smembers(INDEX_KEY)
-if (keys.length === 0) {
-  process.stderr.write('no loadtest keys found\n')
-} else {
-  const pipe = redis.pipeline()
-  for (const k of keys) pipe.del(k)
-  pipe.del(INDEX_KEY)
-  await pipe.exec()
-  process.stderr.write(`deleted ${keys.length} keys + index\n`)
-}
+// Redis: 删所有 LTK-* session
+let cursor = '0', delSess = 0
+do {
+  const [next, keys] = await redis.scan(cursor, 'MATCH', 'tma:session:LTK-*', 'COUNT', 500)
+  cursor = next
+  if (keys.length) { await redis.del(...keys); delSess += keys.length }
+} while (cursor !== '0')
+
+// MySQL: 删 LT-* 用户相关行
+const pool = getMysqlPool(env)
+const [w] = await pool.query("DELETE FROM bg_wallet WHERE user_id LIKE 'LT-%'").catch(() => [{ affectedRows: 'skip' }])
+const [ps] = await pool.query("DELETE FROM bg_user_promo_state WHERE user_id LIKE 'LT-%'")
+const [u] = await pool.query("DELETE FROM bg_user WHERE id LIKE 'LT-%'")
+process.stderr.write(`redis session 删 ${delSess}；mysql bg_wallet=${w.affectedRows} promo_state=${ps.affectedRows} bg_user=${u.affectedRows}\n`)
 await redis.quit()
+process.exit(0)

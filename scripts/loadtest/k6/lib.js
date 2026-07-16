@@ -1,12 +1,12 @@
-// k6 共享库：加载用户池 token、构造带鉴权+设备指纹的请求头
-// tokens.json 由 seed-users.mjs 产出，放在 scripts/loadtest/ 下（相对本文件上一级）
-const RAW = open('../tokens.json')
-export const TOKENS = JSON.parse(RAW)
+// k6 共享库：按与 seed-users.mjs 相同的确定性规则复算用户池 token，构造带鉴权+设备指纹的请求头
+// 无需 tokens.json —— 用户数由 -e POOL=200 指定（须与 seed 的 LT_COUNT 一致）
 export const BASE = __ENV.BASE_URL || 'https://www.188facai.com'
+const POOL = Number(__ENV.POOL || 200)
 
-// 每个 VU 固定绑定一个用户 + 稳定的 X-Device-Id（避免同 IP 无 device 触发风控）
+// 每个 VU 固定绑定一个用户（LT-i / token LTK-i）+ 稳定 X-Device-Id（避免同 IP 无 device 触发风控）
 export function pick() {
-  return TOKENS[(__VU - 1) % TOKENS.length]
+  const i = ((__VU - 1) % POOL) + 1
+  return { userId: `LT-${i}`, token: `LTK-${i}` }
 }
 export function authParams(tags) {
   const u = pick()
@@ -47,6 +47,6 @@ export const stages = PROFILES[__ENV.PROFILE || 'small']
 
 // 通用阈值：p95<800ms、错误率<1%；越界即判定拐点已过
 export const thresholds = {
-  http_req_duration: ['p95<800', 'p99<2000'],
+  http_req_duration: ['p(95)<800', 'p(99)<2000'],
   http_req_failed: ['rate<0.01'],
 }
