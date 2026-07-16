@@ -249,21 +249,32 @@ cleanup.mjs 清种子 → 关限流旁路 + 恢复 Turnstile → recreate-bff-no
 **结论**：/bets、/ledger 的"预聚合+索引扫一页"路径扛住了数据增长；**rebate/vip 共用的总流水聚合（`getUserTotalTurnover` 对 bg_turnover_logs 全量 SUM）随数据线性放大成本**——数据再涨（半年真实运营）这两个接口会继续腰斩，方向=流水累计预聚合（进优化清单#11）。
 **瞬态事故记录**：灌数（+180 万行）后立即压测，rebate VU10/20 两档出现 100% 60 秒超时窗口，复跑四档全平 0 错误不可复现 → 根因=MySQL 灌后 purge/change buffer 后台 IO 未消化完。**教训：大批量灌数/迁移后必须等后台 IO 归零再压测/放量**（生产数据迁移后同理）。
 
-### 5.6 优化点清单（随测随记）
+### 5.6 优化落地前后对比 ✅（2026-07-16 晚，同 P1/P5 服务器本机 LOCAL=1 口径）
+
+| 接口 | 优化前 | 优化后 | 提升 | 手法 |
+|------|--------|--------|------|------|
+| /rebate/progress | P1 188 / P5(3×数据) 84 rps | **450 rps** | 2.4× vs P1、5.4× vs P5，且**不再随数据量变化** | #11 总流水累计列（bg_user_vip_state.turnover_total 写侧增量维护，读侧单行主键查替代全量 SUM） |
+| /vip/progress | P1 76 / P5 53 rps，p95@40 866ms❌ | **~100 rps，p95@40 447ms** ✅ | 破线转健康 | 同#11（共用 getUserTotalTurnover） |
+| /tasks | 45 rps，p95@40 1.06s❌ | **208 rps，p95@40 272ms** ✅ | 4.6×，破线转健康 | #2 20s 用户级短缓存（claim 主动失效） |
+
+**⚠️#2 走过的弯路（重要教训）**：先试"把单请求内十余次串行查询改 Promise.all 并行"——**在池 10 + 2 核小机上实测 45→15rps 反向劣化**。根因=单请求并行 fire 多查询各占一条池连接，几个并发请求就把 10 连接池打空、互相头阻塞。**结论：小连接池下减查询次数（缓存/合并 SQL）才是正解，并行化只在大池+多核才收益**（与生产场景 E"连接池读 30 写 10-15"档位互证）。已回退并行、改短缓存。
+
+### 5.7 优化点清单（随测随记）
 
 | # | 发现 | 影响 | 建议 | 状态 |
 |---|------|------|------|------|
 | 1 | /bets group-then-sort（已修） | 读天花板17rps | bg_bet_round 预聚合（已上线） | ✅复测通过(120rps) |
-| 2 | /tasks 容量仅45rps，VU40 p95 1.06s破线 | tasks页+首页浮窗高频接口 | 查 task.service 是否每请求逐任务串行聚合（当日存款/投注计数多次查询）；可合并查询或短缓存 | ⬜待查 |
+| 2 | /tasks 容量仅45rps，VU40 p95 1.06s破线 | tasks页+首页浮窗高频接口 | 20s 用户级短缓存+claim 主动失效（并行化尝试反劣化已回退，见5.6） | ✅已修，复测 208rps/p95 272ms |
 | 3 | 测试机公网带宽~2.5Mbps是外部访问第一瓶颈 | 真实用户体验直接受限 | **生产采购必含带宽/CDN**：按gzip后首页链路~15KB/打开、峰值100打开/s → 出口≥12Mbps起步；静态与游戏列表走CDN | ⬜选型输入 |
 | 4 | MySQL 容器在持续读压下OOM崩溃(重启+3) | 全站不可用~1分钟/次 | 生产：DB独立部署+buffer pool≥数据集；测试机勿再全容器同机高压 | ⬜选型输入 |
-| 5 | team/tree(73rps)与vip/progress(76rps)聚合偏重 | 高并发下最先劣化的第二梯队 | 暂不动；生产加核后复测，若仍<150rps再优化查询 | 🟡观察 |
+| 5 | team/tree(73rps)与vip/progress(76rps)聚合偏重 | 高并发下最先劣化的第二梯队 | vip/progress 已随#11 解决(→100rps)；team/tree 暂不动，生产加核后复测，若仍<150rps再优化 | 🟡team仍观察 |
 | 6 | bff MySQL 连接池=10（上轮结论沿用） | 读写吞吐上限因素 | 生产按核数调大(30+)，写重场景压测验证 | ⬜选型输入 |
 | 7 | checkin claim 并发竞态落败请求 500 崩溃（RR 快照下 row undefined） | 仅体验/告警噪音，无资金风险 | 补 `!row`→409（P4b 发现即修） | ✅已修(7ea6c62) |
 | 8 | **注册 id 生成两重缺陷（P4c 同名并发测试挖出，🔴高危）**：①`nextUserId`=全表 `MAX(CAST(SUBSTRING(id,4) AS UNSIGNED))+1`，遇到非 `BG-<n>` 格式 id（如压测 LTD-* 下线号）负数回绕到 2^64，之后**所有注册都算出同一 id**；②即使 id 全合法，MAX+1 无锁竞态下两个同瞬注册算出同一 id，`saveUser` 的 `ON DUPLICATE KEY UPDATE` **静默合并两个陌生人到同一账号/钱包**。测试实证：10 并发同名注册全部 200 返回同一 uid，两轮不同用户名绑进同一账号（坏账号已清理） | 生产并发注册可发生账号合并=资金互通，属正确性红线 | 迁移150 单行序列表取号（UPDATE+LAST_INSERT_ID，REPLACE 版并发死锁已二次修正）+ 同名落败回收孤儿账号映射 409 | ✅已修(60500d5+a656d44)，同名10并发复测恰1成功 |
 | 9 | bff 容器 256MB 内存 limit 对注册路径偏紧：并发 scrypt 每个可占 16-32MB，10 并发注册+容器内其他负载有 OOM 风险（实测容器内跑发压脚本时打爆过一次） | 注册高峰可能 OOM 重启 bff（约 10s 不可用） | 生产 bff 内存 limit ≥512MB，或注册限流单独收紧（bcrypt/scrypt 类接口天然要限流防 CPU 打满） | ⬜选型输入 |
-| 10 | `fail(ctx, 429/500, msg)` 3 参调用 HTTP 状态统一落 400，语义码只在 body.code（withdraw 429、checkin 曾 500 均如此，checkin/tasks 路由显式传第 4 参才对） | 客户端/监控按 HTTP 状态判断会误判 | 低优先级：全局排查 fail() 3 参调用补第 4 参 | ⬜backlog |
-| 11 | **rebate/vip 共用的总流水聚合随数据量超线性劣化（P5 实证）**：`getUserTotalTurnover` 每请求对 bg_turnover_logs 全量 SUM，3 倍数据下 /rebate/progress 容量 188→84（-55%）、/vip/progress p95@40 866ms 破线 | 等级/费率/进度是 vip/rebate/tasks 页高频依赖，随运营时间必然继续恶化 | 仿 bg_bet_round 思路：per(user,currency) 流水累计字段/表，结算时增量更新（bg_user_vip_state 可扩展）；或先上 30-60s 短缓存止血 | ⬜**P5 后最高优先级**（与#2 /tasks 并列） |
+| 10 | `fail(ctx, 429/500, msg)` 3 参调用 HTTP 状态统一落 400，语义码只在 body.code | 客户端/监控按 HTTP 状态判断会误判 | fail() status 缺省跟随 code（4xx/5xx 自动同步 HTTP 状态），一处修全局193处 | ✅已修 |
+| 11 | **rebate/vip 共用的总流水聚合随数据量超线性劣化（P5 实证）**：`getUserTotalTurnover` 每请求对 bg_turnover_logs 全量 SUM，3 倍数据下 /rebate/progress 容量 188→84（-55%）、/vip/progress p95@40 866ms 破线 | 等级/费率/进度是 vip/rebate/tasks 页高频依赖 | 迁移151：bg_user_vip_state.turnover_total 累计列，core 写侧事务内增量维护，读侧单行主键查 | ✅已修，复测 450rps（不再随数据量变化） |
+| 12 | 注册/登录 scrypt 密码哈希 24-27/s 即打满 2 核 | 最便宜的 CPU-DoS 攻击面 | auth-credential 限流规则 15/分/IP（register/login/reset），比通用 auth 30/分更严 | ✅已修（收尾关旁路后生效） |
 
 ## 6. 生产服务器选型换算（P3/P4 完成后回填）
 
