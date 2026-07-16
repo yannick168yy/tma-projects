@@ -10,7 +10,9 @@ import mysql from 'mysql2/promise'
 const MODE = process.env.MODE || 'register'
 const CONC = Number(process.env.CONC || 5)
 const DUR = Number(process.env.DUR || 20) * 1000
-const BASE = 'http://127.0.0.1:3000/api/v1'
+// 教训：别在 bff 容器内跑本压测(共享 256MB cgroup,10并发scrypt+压测进程直接把 bff 打 OOM)；
+// 从 core 容器跑: -e BASE_URL=http://tma-bff-node:3000/api/v1
+const BASE = process.env.BASE_URL || 'http://127.0.0.1:3000/api/v1'
 const PASSWORD = 'LoadTest#123'
 const RUN = String(Date.now() % 100000)
 
