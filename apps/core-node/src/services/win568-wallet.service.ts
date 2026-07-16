@@ -187,6 +187,26 @@ export class Win568WalletService {
     )
   }
 
+  // 按 round_id 从 bg_bet_order 重算该局汇总，写入 bg_bet_round(读加速表)。
+  // 派生数据：恒等于旧 /bets 分组结果；一局仅几行、走 (user_id, round_id) 索引，成本极低。
+  private async refreshBetRound(conn: PoolConnection, userId: string, roundId: string): Promise<void> {
+    if (!roundId) return
+    await conn.execute(
+      `INSERT INTO bg_bet_round (user_id, round_id, aggregator_id, provider_txn_id, bet_amount, win_amount, currency_code, first_at, last_id)
+       SELECT user_id, round_id, MAX(aggregator_id),
+         COALESCE(MAX(CASE WHEN bet_type = 'bet' THEN provider_txn_id END), MAX(provider_txn_id)),
+         SUM(CASE WHEN bet_type = 'bet' THEN amount ELSE 0 END),
+         SUM(CASE WHEN bet_type IN ('win', 'refund') THEN amount ELSE 0 END),
+         MAX(currency_code), MIN(created_at), MAX(id)
+       FROM bg_bet_order WHERE user_id = ? AND round_id = ? GROUP BY user_id, round_id
+       ON DUPLICATE KEY UPDATE
+         aggregator_id = VALUES(aggregator_id), provider_txn_id = VALUES(provider_txn_id),
+         bet_amount = VALUES(bet_amount), win_amount = VALUES(win_amount),
+         currency_code = VALUES(currency_code), first_at = VALUES(first_at), last_id = VALUES(last_id)`,
+      [userId, roundId],
+    )
+  }
+
   private async changeBalance(conn: PoolConnection, player: PlayerRef, amount: number): Promise<number> {
     await conn.execute(
       `UPDATE bg_wallet SET available = ROUND(available + ?, 2), version = version + 1 WHERE user_id = ? AND currency = ?`,
@@ -316,6 +336,7 @@ export class Win568WalletService {
                 player.currency)
             }
             await this.addLedger(conn, player, 'bet', -diff, newBalance, transferCode, '568Win raise bet')
+            await this.refreshBetRound(conn, player.userId, text(body, 'GameRoundId') || transferCode)
             await conn.commit()
             return ok(player.username, newBalance, { BetAmount: amount })
           }
@@ -352,6 +373,7 @@ export class Win568WalletService {
         { gpid: body.Gpid === undefined ? null : int(body, 'Gpid'), gameId: body.GameId === undefined ? null : int(body, 'GameId') },
         player.currency)
       await this.addLedger(conn, player, 'bet', -amount, newBalance, transferCode, '568Win deduct')
+      await this.refreshBetRound(conn, player.userId, text(body, 'GameRoundId') || transferCode)
       await conn.commit()
       return ok(player.username, newBalance, { BetAmount: amount })
     } catch (e) {
@@ -415,6 +437,7 @@ export class Win568WalletService {
         )
         await this.addLedger(conn, player, 'adjust', refund, newBalance, text(body, 'TransferCode'), '568Win return stake')
       }
+      await this.refreshBetRound(conn, player.userId, bet.round_id ?? text(body, 'TransferCode'))
       await conn.commit()
       return ok(player.username, newBalance)
     } catch (e) {
@@ -479,6 +502,7 @@ export class Win568WalletService {
         [player.userId, text(body, 'GameCode') || bet.provider_id, `settle:${bet.id}`, bet.round_id ?? bet.transfer_code, winLoss, player.currency, winLoss],
       )
       await this.addLedger(conn, player, 'win', winLoss, newBalance, bet.transfer_code, '568Win settle')
+      await this.refreshBetRound(conn, player.userId, bet.round_id ?? bet.transfer_code)
       await conn.commit()
       return ok(player.username, newBalance)
     } catch (e) {
@@ -570,6 +594,7 @@ export class Win568WalletService {
         [player.userId, String(body.GameId ?? body.Gpid ?? ''), `${mode}:${transferKey(body)}`, text(body, 'TransferCode'), mode === 'cancel' ? 'cancel' : 'refund', adjustment, player.currency, adjustment],
       )
       await this.addLedger(conn, player, adjustment >= 0 ? 'adjust' : 'bet', adjustment, newBalance, text(body, 'TransferCode'), `568Win ${mode}`)
+      await this.refreshBetRound(conn, player.userId, text(body, 'TransferCode'))
       await conn.commit()
       if (mode === 'rollback') {
         reverseBetTurnover(this.db, player.userId, text(body, 'TransferCode')).catch((rollbackErr) => {

@@ -18,15 +18,15 @@ router.get('/', async (ctx) => {
 
   const pool = getMysqlPool(ctx.state.env)
 
+  // 读加速：查预聚合的 bg_bet_round(每局一行)，索引扫一页(无 GROUP BY/无 filesort)，
+  // 游戏名对已分页的 ~20 行做廉价 JOIN 解析。汇总表由 core-node 下注/结算事务维护。
   const where = dateFrom
-    ? 'WHERE user_id = ? AND created_at >= ?'
+    ? 'WHERE user_id = ? AND first_at >= ?'
     : 'WHERE user_id = ?'
   const baseParams: unknown[] = dateFrom ? [userId, `${dateFrom} 00:00:00`] : [userId]
 
   const [[{ total }]] = await pool.query<RowDataPacket[]>(
-    `SELECT COUNT(*) AS total FROM (
-       SELECT 1 FROM bg_bet_order ${where} GROUP BY IFNULL(round_id, id)
-     ) t`,
+    `SELECT COUNT(*) AS total FROM bg_bet_round ${where}`,
     baseParams,
   )
 
@@ -37,7 +37,6 @@ router.get('/', async (ctx) => {
        sub.win_amount,
        sub.currency_code,
        sub.created_at,
-       sub.max_id,
        COALESCE(wo.name_override, wg.name_en, wg.name_zh, IF(wg.game_id IS NULL, NULL, CONCAT('568Win ', wg.game_id))) AS game_name,
        wg.name_zh AS game_name_zh,
        NULL AS game_name_vi,
@@ -46,20 +45,11 @@ router.get('/', async (ctx) => {
        COALESCE(wo.image_override, wg.icon_url) AS game_image,
        COALESCE(wo.image_override, wg.icon_url) AS game_image_hq
      FROM (
-       SELECT
-         MAX(round_id)                                                         AS round_id,
-         COALESCE(MAX(CASE WHEN bet_type = 'bet' THEN provider_id END), MAX(provider_id)) AS game_uuid,
-         COALESCE(MAX(CASE WHEN bet_type = 'bet' THEN provider_txn_id END), MAX(provider_txn_id)) AS provider_txn_id,
-         MAX(aggregator_id)                                                    AS aggregator_id,
-         SUM(CASE WHEN bet_type = 'bet'             THEN amount ELSE 0 END)   AS bet_amount,
-         SUM(CASE WHEN bet_type IN ('win','refund') THEN amount ELSE 0 END)   AS win_amount,
-         MAX(currency_code) AS currency_code,
-         MIN(created_at)    AS created_at,
-         MAX(id)            AS max_id
-       FROM bg_bet_order
+       SELECT round_id, bet_amount, win_amount, currency_code,
+              first_at AS created_at, provider_txn_id, aggregator_id, last_id
+       FROM bg_bet_round
        ${where}
-       GROUP BY IFNULL(round_id, id)
-       ORDER BY MAX(id) DESC
+       ORDER BY last_id DESC
        LIMIT ? OFFSET ?
      ) sub
      LEFT JOIN bg_568win_wallet_txn wt
@@ -78,7 +68,7 @@ router.get('/', async (ctx) => {
      LEFT JOIN bg_568win_game_override wo
        ON wo.game_provider_id = wg.game_provider_id
       AND wo.game_id = wg.game_id
-     ORDER BY sub.max_id DESC`,
+     ORDER BY sub.last_id DESC`,
     [...baseParams, pageSize, offset],
   )
 
