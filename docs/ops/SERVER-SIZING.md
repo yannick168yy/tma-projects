@@ -206,6 +206,8 @@
 
 **超过 30,000 DAU**：读写分离（从库）→ 热表分区（bg_bet_order/bg_wallet_ledger 按月）→ 分库分表，按此顺序，先测后动。
 
+**AWS 单机变体（用户候选方案，2026-07-16 评估 OK）**：EC2 **c6i.2xlarge 8C16G**（新加坡 ap-southeast-1，≈$250/月 on-demand）+ EBS gp3 150GB + S3 + CloudFront。总算力=双机方案，读容量 ~500 打开/s，支撑到 ~2 万 DAU。前提：①内存 cgroup 硬切分——MySQL limit 10G（buffer pool 8G）、bff 768MB，宿主留 ~3G 吃构建尖峰 ②S3 只管对象存储（KYC 图/静态/备份），CDN 靠 CloudFront，动态流量按量计费（起步档 ≈$65-85/月）无带宽墙 ③EBS 快照必开（单点） ④镜像构建勿在业务机跑。到顶演进：MySQL 拆 RDS/独立 EC2 → App 多实例。
+
 #### E.3 扩容触发指标（对齐压测判读标准）
 
 | 信号 | 动作 |
