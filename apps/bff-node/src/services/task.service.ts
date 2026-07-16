@@ -420,16 +420,35 @@ export async function getTaskCenter(env: Env, userId: string, currency = 'PHP'):
   const today = manilaToday()
 
   const nativeEnabled = NATIVE_TASKS.filter((d) => cfgFor(d)[d.id]?.enabled)
-  const claimed = await claimedPeriods(pool, userId, nativeEnabled.map((d) => d.id))
+
+  // 压测优化#2：原实现逐任务串行 await（全链 ~18 次 DB 往返，45rps 全场最低破线）。
+  // 改为已领取集合 / 全任务判定 / 社群 / 聚合卡片四路并行；depositTotal 预取一次，
+  // 避免三档存款任务并行时 memo ??= 竞态导致重复查询。
+  const [claimed, evals, socialPack, agg] = await Promise.all([
+    claimedPeriods(pool, userId, nativeEnabled.map((d) => d.id)),
+    (async () => {
+      const memo: { depositTotal?: number } = {}
+      if (nativeEnabled.some((d) => d.id.startsWith('daily_deposit_t'))) {
+        memo.depositTotal = await todayDepositTotal(pool, userId, today, currency)
+      }
+      return Promise.all(nativeEnabled.map((def) => evalTask(env, userId, def, cfgFor(def)[def.id], curFor(def), memo)))
+    })(),
+    (async () => {
+      const socials = await loadSocialConfigs(pool, true)
+      const socialClaimed = await socialClaimedKeys(pool, userId, socials.map((s) => s.task_key))
+      return { socials, socialClaimed }
+    })(),
+    buildAggregatedCards(env, userId),
+  ])
 
   const cards: TaskCard[] = []
-  const memo: { depositTotal?: number } = {}
-  for (const def of nativeEnabled) {
+  for (let i = 0; i < nativeEnabled.length; i++) {
+    const def = nativeEnabled[i]
     const c = cfgFor(def)[def.id]
     const effCur = curFor(def)
     const pk = periodKey(def, today)
     const isClaimed = claimed.has(`${def.id}:${pk}:${effCur}`)
-    const ev = await evalTask(env, userId, def, c, effCur, memo)
+    const ev = evals[i]
     const status: TaskCard['status'] = isClaimed ? 'done' : ev.eligible ? 'claimable' : 'locked'
     // 运营位跳对应分类大厅
     const todoTarget = def.id === 'daily_play' && c.category ? `games?cat=${c.category}` : def.todoTarget
@@ -450,9 +469,8 @@ export async function getTaskCenter(env: Env, userId: string, currency = 'PHP'):
     }
   }
 
-  // 社群任务
-  const socials = await loadSocialConfigs(pool, true)
-  const socialClaimed = await socialClaimedKeys(pool, userId, socials.map((s) => s.task_key))
+  // 社群任务（已随上方 Promise.all 并行取回）
+  const { socials, socialClaimed } = socialPack
   const socialCards: TaskCard[] = socials.map((s) => {
     const done = socialClaimed.has(s.task_key)
     const kind: TaskCard['action']['kind'] =
@@ -470,8 +488,7 @@ export async function getTaskCenter(env: Env, userId: string, currency = 'PHP'):
   const out: TaskCenter = { groups: { newbie: [], daily: [], achievement: [], social: socialCards } }
   for (const card of cards) out.groups[card.group].push(card)
 
-  // 聚合层：把散落的老模块（签到/trial/appdl/首充/生日）读现状串成任务卡（display-only，跳各自入口）
-  const agg = await buildAggregatedCards(env, userId)
+  // 聚合层：把散落的老模块（签到/trial/appdl/首充/生日）读现状串成任务卡（display-only，跳各自入口；已并行取回）
   out.groups.newbie.push(...agg.newbie)
   out.groups.daily.unshift(...agg.daily)         // 签到置每日区首位
   out.groups.achievement.push(...agg.achievement)
@@ -494,24 +511,28 @@ async function buildAggregatedCards(env: Env, userId: string): Promise<{ newbie:
   const aggCard = (id: string, title: string, subtitle: string, done: boolean, target: string, reward: TaskCard['reward'], group: TaskGroup, progress?: TaskCard['progress']): TaskCard =>
     ({ id, group, title, subtitle, status: done ? 'done' : 'claimable', reward, progress, action: { kind: 'open_module', target } })
 
-  const user = await getUser(env, userId).catch(() => null)
-  const promo = await getPromoConfig(env).catch(() => null)
+  // 压测优化#2：五路读现状并行（appdl 领取查询无条件预取，是否使用由 promo 开关决定）
+  const [user, promo, appdlRow, birthdaySet, ck] = await Promise.all([
+    getUser(env, userId).catch(() => null),
+    getPromoConfig(env).catch(() => null),
+    pool.query<RowDataPacket[]>('SELECT 1 AS ok FROM bg_app_download_claim WHERE user_id = ? LIMIT 1', [userId])
+      .then(([rows]) => rows[0] ?? null).catch(() => null),
+    // 生日只来自 KYC 证件：未设置时引导去实名认证，KYC 已通过的历史用户在 ensure 内懒回填
+    ensureBirthdayFromKyc(env, userId).catch(() => false),
+    getCheckinStatus(env, userId).catch(() => null),
+  ])
 
   if (promo?.trial.enabled) {
     newbie.push(aggCard('agg_trial', '领取新手体验金', '完成手机验证即可领取', Boolean(user?.trialClaimed), 'trial_bonus', zeroReward('cash', promo.trial.amount), 'newbie'))
   }
   if (promo?.appdl.enabled) {
-    const [[c]] = await pool.query<RowDataPacket[]>('SELECT 1 AS ok FROM bg_app_download_claim WHERE user_id = ? LIMIT 1', [userId])
-    newbie.push(aggCard('agg_appdl', '下载 App 领礼金', '安装 App / PWA 一次性奖励', Boolean(c), 'app_download', zeroReward('cash', promo.appdl.amount), 'newbie'))
+    newbie.push(aggCard('agg_appdl', '下载 App 领礼金', '安装 App / PWA 一次性奖励', Boolean(appdlRow), 'app_download', zeroReward('cash', promo.appdl.amount), 'newbie'))
   }
   if (promo?.firstdep.enabled) {
     newbie.push(aggCard('agg_firstdep', '完成首充', '首次充值即得彩金', Boolean(user?.firstDepClaimed), 'deposit', zeroReward('cash', 0), 'newbie'))
   }
-  // 生日只来自 KYC 证件：未设置时引导去实名认证，KYC 已通过的历史用户在 ensure 内懒回填
-  const birthdaySet = await ensureBirthdayFromKyc(env, userId).catch(() => false)
   newbie.push(aggCard('agg_birthday', '解锁生日礼金', '完成实名认证，自动同步证件生日', birthdaySet, 'kyc', zeroReward('cash', 0), 'newbie'))
 
-  const ck = await getCheckinStatus(env, userId).catch(() => null)
   if (ck?.enabled) {
     daily.push(aggCard('agg_checkin', '每日签到', ck.todayClaimed ? '今日已签到' : '签到领取抽奖次数', ck.todayClaimed, 'checkin', zeroReward('spin', 0, 1), 'daily'))
     // 里程碑收纳：只展示下一个未达成的（全达成则展示末档 done），避免 7/15/30 三张卡常驻撑爆列表

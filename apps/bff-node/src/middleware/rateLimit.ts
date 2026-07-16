@@ -25,6 +25,18 @@ const rules: Rule[] = [
     keyBy: ipKey,
   },
   {
+    // scrypt 密码哈希接口单独收紧（压测实测 ~24 注册/s 即打满 2 核，是最便宜的 CPU 攻击面）；
+    // 15/分/IP 兼顾菲律宾运营商 CGNAT 共享出口（≈5-7 个新用户/分/出口 IP）
+    name: 'auth-credential',
+    match: (ctx) =>
+      ctx.method === 'POST' &&
+      (ctx.path === '/api/v1/auth/register' || ctx.path === '/api/v1/auth/login'
+        || ctx.path === '/api/v1/auth/forgot-password/reset'),
+    windowSec: 60,
+    max: 15,
+    keyBy: ipKey,
+  },
+  {
     name: 'auth',
     match: (ctx) => ctx.path.startsWith('/api/v1/auth/'),
     windowSec: 60,
