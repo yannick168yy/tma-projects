@@ -13,13 +13,11 @@ run() { # run <ep> <umin> <umax> <vus...>
   for vus in "$@"; do
     k6 run -q -e EP="$ep" -e UMIN="$umin" -e UMAX="$umax" -e VUS="$vus" -e DUR="$DUR" \
       --summary-export /tmp/k6sum.json --summary-trend-stats "med,p(95),p(99)" k6/endpoint.js >/dev/null 2>&1
-    jq -r --arg ep "$ep" --arg a "$umin" --arg b "$umax" --arg v "$vus" \
-      '[$ep,$a,$b,$v,
-        (.metrics.http_reqs.rate*10|round/10),
-        (.metrics.http_req_duration.med|round),
-        (.metrics.http_req_duration["p(95)"]|round),
-        (.metrics.http_req_duration["p(99)"]|round),
-        (.metrics.http_req_failed.value*10000|round/10000)] | @csv' /tmp/k6sum.json >> "$OUT"
+    EP_="$ep" A_="$umin" B_="$umax" V_="$vus" node -e '
+      const m = require("/tmp/k6sum.json").metrics, e = process.env, r = Math.round
+      const d = m.http_req_duration
+      console.log([e.EP_, e.A_, e.B_, e.V_, m.http_reqs.rate.toFixed(1),
+        r(d.med), r(d["p(95)"]), r(d["p(99)"]), m.http_req_failed.value.toFixed(4)].join(","))' >> "$OUT"
     tail -1 "$OUT" >&2
     sleep 10
   done
