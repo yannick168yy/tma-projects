@@ -328,16 +328,25 @@ export async function registerWithPassword(
 
   const passwordHash = await hashPassword(input.password)
   const region = ip ? lookupRegion(ip) : undefined
-  const { user, isNewUser } = await createUserFromPassword(redis, {
-    identifierType: input.method,
-    identifier,
-    passwordHash,
-    displayName: input.method === 'phone' ? identifier : input.identifier.trim(),
-    referredBy,
-    registerIp: ip,
-    registerRegion: region,
-  })
-  return issueSession(redis, env, user, isNewUser)
+  let created: { user: UserRecord; isNewUser: boolean }
+  try {
+    created = await createUserFromPassword(redis, {
+      identifierType: input.method,
+      identifier,
+      passwordHash,
+      displayName: input.method === 'phone' ? identifier : input.identifier.trim(),
+      referredBy,
+      registerIp: ip,
+      registerRegion: region,
+    })
+  } catch (e) {
+    // 同名并发注册竞态：预检通过但 bindIdentity 撞唯一键，与预检命中同语义返 409
+    if (e instanceof Error && e.message === 'Identity already bound to another account') {
+      throw new AuthError(input.method === 'phone' ? 'Phone already registered' : 'Username already taken', 409)
+    }
+    throw e
+  }
+  return issueSession(redis, env, created.user, created.isNewUser)
 }
 
 export async function loginWithPassword(

@@ -1,4 +1,4 @@
-import type { Pool, PoolConnection, RowDataPacket } from 'mysql2/promise'
+import type { Pool, PoolConnection, ResultSetHeader, RowDataPacket } from 'mysql2/promise'
 import type {
   OrderDeposit,
   OrderWithdraw,
@@ -115,11 +115,10 @@ const USER_SELECT = `
 `
 
 async function nextUserId(env: Env): Promise<string> {
-  const [rows] = await pool(env).query<RowDataPacket[]>(
-    `SELECT COALESCE(MAX(CAST(SUBSTRING(id, 4) AS UNSIGNED)), 10000) + 1 AS n FROM bg_user`,
-  )
-  const n = Number(rows[0]?.n ?? 10001)
-  return `BG-${n}`
+  // REPLACE 单行取号（迁移150）：原子递增。旧的全表 MAX 扫描有双缺陷——脏 id CAST 回绕污染计数，
+  // 且 MAX+1 无锁竞态下两个同瞬注册取同号，会被 saveUser 的 ON DUPLICATE 静默合并成同一账号
+  const [res] = await pool(env).execute<ResultSetHeader>(`REPLACE INTO bg_user_id_seq (stub) VALUES ('a')`)
+  return `BG-${res.insertId}`
 }
 
 export async function saveUser(env: Env, user: UserRecord): Promise<void> {
@@ -534,14 +533,24 @@ export async function createUserFromPassword(
     referralReady: false,
     firstDepReady: false,
   })
-  await bindIdentity(env, {
-    userId: created.user.id,
-    provider: input.identifierType,
-    identifier: input.identifier,
-    credentialHash: input.passwordHash,
-    displayLabel: input.identifier,
-    verifiedAt: nowIso(),
-  })
+  try {
+    await bindIdentity(env, {
+      userId: created.user.id,
+      provider: input.identifierType,
+      identifier: input.identifier,
+      credentialHash: input.passwordHash,
+      displayLabel: input.identifier,
+      verifiedAt: nowIso(),
+    })
+  } catch (e) {
+    // 同名并发注册落败：identifier 唯一键已被赢家占用，回收刚建的孤儿账号再抛
+    const uid = created.user.id
+    await pool(env).execute(`DELETE FROM bg_team_node WHERE user_id = ?`, [uid]).catch(() => {})
+    await pool(env).execute(`DELETE FROM bg_user_promo_state WHERE user_id = ?`, [uid]).catch(() => {})
+    await pool(env).execute(`DELETE FROM bg_wallet WHERE user_id = ?`, [uid]).catch(() => {})
+    await pool(env).execute(`DELETE FROM bg_user WHERE id = ?`, [uid]).catch(() => {})
+    throw e
+  }
   return created
 }
 
