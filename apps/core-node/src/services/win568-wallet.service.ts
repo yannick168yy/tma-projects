@@ -587,14 +587,17 @@ export class Win568WalletService {
       }
 
       const newBalance = await this.changeBalance(conn, player, adjustment)
+      // 冲正行归入原注单的 round_id(而非另起一个 TransferCode 局)，使 cancel/rollback 与其 bet/win
+      // 聚合到同一局。bets[0].round_id(wallet_txn.round_id)?? TransferCode 精确等于原 bg_bet_order.round_id。
+      const reverseRoundId = bets[0].round_id ?? text(body, 'TransferCode')
       await conn.execute(
         `INSERT IGNORE INTO bg_bet_order
          (user_id, aggregator_id, provider_id, provider_txn_id, round_id, bet_type, amount, currency_code, original_amount, exchange_rate, status, settled_at)
          VALUES (?, '568win', ?, ?, ?, ?, ?, ?, ?, 1, 'settled', NOW(3))`,
-        [player.userId, String(body.GameId ?? body.Gpid ?? ''), `${mode}:${transferKey(body)}`, text(body, 'TransferCode'), mode === 'cancel' ? 'cancel' : 'refund', adjustment, player.currency, adjustment],
+        [player.userId, String(body.GameId ?? body.Gpid ?? ''), `${mode}:${transferKey(body)}`, reverseRoundId, mode === 'cancel' ? 'cancel' : 'refund', adjustment, player.currency, adjustment],
       )
       await this.addLedger(conn, player, adjustment >= 0 ? 'adjust' : 'bet', adjustment, newBalance, text(body, 'TransferCode'), `568Win ${mode}`)
-      await this.refreshBetRound(conn, player.userId, text(body, 'TransferCode'))
+      await this.refreshBetRound(conn, player.userId, reverseRoundId)
       await conn.commit()
       if (mode === 'rollback') {
         reverseBetTurnover(this.db, player.userId, text(body, 'TransferCode')).catch((rollbackErr) => {
