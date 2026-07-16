@@ -107,10 +107,12 @@ for (let u = 1; u <= HEAVY; u++) {
   const uid = `LT-${u}`
   const [[{ n: existing }]] = await conn.query('SELECT COUNT(*) AS n FROM bg_bet_round WHERE user_id = ?', [uid])
   if (Number(existing) >= ROUNDS) { log(`${uid} 已有 ${existing} 局，跳过`); continue }
+  // 增量补灌（P5 数据量敏感性用）：从已有局数+1 续灌到 ROUNDS，避开旧局的 PK/UK
+  const startN = Number(existing) + 1
 
   const orders = [], txns = [], ledgers = []
   let bal = 1_000_000
-  for (let n = 1; n <= ROUNDS; n++) {
+  for (let n = startN; n <= ROUNDS; n++) {
     const rid = `LTH-${u}-${n}`
     const ts = spreadTs(n, ROUNDS)
     const amt = Math.round((5 + rnd() * 495) * 100) / 100
