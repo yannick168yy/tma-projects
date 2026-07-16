@@ -245,11 +245,11 @@ export async function saveLevelThresholds(env: Env, items: RebateLevelThreshold[
 export async function getUserTotalTurnover(env: Env, userId: string, currency: string): Promise<number> {
   if (!isMysqlEnabled(env)) return 0
   const pool = getMysqlPool(env)
+  // turnover_total 由 core 写侧事务内增量维护（迁移151），单行主键查替代对 bg_turnover_logs 的全量 SUM
+  // （P5 实证：全量 SUM 随数据量线性放大，3 倍数据下本接口容量 -55%）
   const [[row]] = await pool.query<RowDataPacket[]>(
-    `SELECT COALESCE(SUM(effective_amount), 0)
-            + COALESCE((SELECT task_growth FROM bg_user_vip_state WHERE user_id = ? AND currency = ?), 0) AS total
-     FROM bg_turnover_logs WHERE user_id = ? AND currency = ? AND is_reversed = 0`,
-    [userId, currency, userId, currency],
+    `SELECT turnover_total + task_growth AS total FROM bg_user_vip_state WHERE user_id = ? AND currency = ?`,
+    [userId, currency],
   )
   return Number(row?.total ?? 0)
 }

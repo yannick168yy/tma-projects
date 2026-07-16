@@ -67,6 +67,13 @@ export async function allocateBetTurnoverInTransaction(
   )
   const logId = logResult.insertId
 
+  // 总流水累计（迁移151）：同事务增量维护，读侧(getUserTotalTurnover)免于全表 SUM
+  await conn.execute(
+    `INSERT INTO bg_user_vip_state (user_id, currency, turnover_total) VALUES (?, ?, ?)
+     ON DUPLICATE KEY UPDATE turnover_total = turnover_total + VALUES(turnover_total)`,
+    [userId, currency, effectiveAmount],
+  )
+
   // FIFO：同货币的 pending 要求，按创建时间顺序填满
   const [reqs] = await conn.query<RowDataPacket[]>(
     `SELECT id, required_amount - completed_amount AS remaining
@@ -110,7 +117,7 @@ export async function reverseBetTurnover(
     await conn.beginTransaction()
 
     const [logs] = await conn.query<RowDataPacket[]>(
-      `SELECT tl.id
+      `SELECT tl.id, tl.currency, tl.effective_amount
        FROM bg_turnover_logs tl
        JOIN bg_bet_order bo ON bo.id = tl.bet_order_id
        WHERE bo.user_id = ? AND bo.round_id = ? AND bo.bet_type = 'bet'
@@ -137,6 +144,12 @@ export async function reverseBetTurnover(
       await conn.execute(
         `UPDATE bg_turnover_logs SET is_reversed = 1 WHERE id = ?`,
         [log.id],
+      )
+      // 总流水累计（迁移151）：冲正同事务减量，保持与 is_reversed=0 口径一致
+      await conn.execute(
+        `UPDATE bg_user_vip_state SET turnover_total = GREATEST(0, turnover_total - ?)
+         WHERE user_id = ? AND currency = ?`,
+        [Number(log.effective_amount), userId, log.currency],
       )
     }
 
