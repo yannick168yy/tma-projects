@@ -331,6 +331,8 @@ export async function claimCheckin(env: Env, userId: string): Promise<CheckinCla
       `SELECT track, streak, cycle_day, month_days FROM bg_checkin_log WHERE user_id = ? AND checkin_date = ? LIMIT 1`,
       [userId, today],
     )
+    // 并发竞态：INSERT IGNORE 输给了另一请求，但本事务的 REPEATABLE READ 快照看不到赢家已提交的行
+    if (!row) { await conn.rollback(); throw new Error('already claimed') }
     const cur = { track: String(row.track), streak: Number(row.streak), cycleDay: Number(row.cycle_day), monthDays: Number(row.month_days) }
     if (cur.track === 'base' && eligible) {
       const reward = cfg.cycle[cur.cycleDay - 1]
