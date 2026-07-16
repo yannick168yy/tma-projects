@@ -1,0 +1,235 @@
+# 客户端核心业务全面压测方案
+
+> 版本：v1（2026-07-16）
+> 目标：对 home / bonuses / team / games / menu / tasks / rebate / vip / 注册登录 / 充值提现历史 / 下注结算 共 11 个业务域做全面压力测试，检查设计、逻辑与效率，找出优化点，并为生产服务器选型给出量化依据。
+> 配套 runbook：`scripts/loadtest/README.md`（操作命令）；本文档是**计划 + 范围 + 进度 + 结论**的唯一入口，跨 session 恢复工作先读本文档第 9 节。
+
+---
+
+## 1. 背景与已有基础
+
+已有脚手架（`scripts/loadtest/`，可直接复用）：
+
+| 资产 | 作用 |
+|------|------|
+| `seed-users.mjs` / `cleanup.mjs` | 种子用户池（LT-i / LTK-i，直写 Redis+MySQL，绕过 captcha） |
+| `k6/lib.js` | 鉴权头 + 设备指纹 + small/medium/large 阶梯档位 + 通用阈值（p95<800ms、错误率<1%） |
+| `k6/a-balance.js` | 纯 Redis 读天花板 |
+| `k6/b-mysql-read.js` | MySQL 读（games 分页 + bets JOIN） |
+| `k6/c-mixed.js` | 混合流量（余额40/游戏25/用户15/注单10/任务10） |
+| `k6/knee.js` | 定并发逐档拐点探测 |
+| `monitor.sh` | 服务器侧 2s 粒度资源采集 CSV（容器 CPU/内存、MySQL threads、Redis 内存） |
+| `db-lock-bench(-full).mjs` | 直压 bg_wallet 行锁，复刻 Deduct/Settle 完整写入集（5-6 写/事务） |
+| `BFF_DISABLE_RATE_LIMIT=true` | 限流旁路开关（压完必关，用 `recreate-bff-node.sh` 生效） |
+
+已有结论（不必重测，直接进优化清单）：
+
+- `/bets` 旧实现读天花板 ~17 req/s、拐点 <5 并发，根因 group-then-sort 临时表+filesort；**已用 bg_bet_round 预聚合修复**（迁移 149），修复后需复测确认。
+- 下注结算写事务为 5-6 写/事务 + bg_wallet `FOR UPDATE` 行锁，db-lock-bench 已量化 DB 层成本（core HTTP 层拐点待测）。
+
+被测环境：阿里云 2C2G 单节点（47.84.34.139，全部容器同机），入口 `https://www.188facai.com`（真实 nginx→bff）。k6 从本地 Mac 发压。**测试机很小，所有场景先 small 档摸底。**
+
+---
+
+## 2. 测试范围矩阵（页面 → 接口 → 存储特征）
+
+> 完整接口清单含义：压测按「接口基线 → 页面首屏 → 混合流量 → 写专项」四层递进（见第 3 节）。
+> 存储特征标注：R=Redis、M=MySQL 单表、J=MySQL JOIN、X=外部三方、W=写事务。
+
+### 2.1 全局启动链（每次打开 App 必发，权重最高）
+
+| 接口 | 特征 |
+|------|------|
+| POST /auth/session | R |
+| GET /user/me | R |
+| GET /promotions/config | R |
+| GET /promotions/new-player-summary | R+M（2 次 EXISTS） |
+| GET /wallet/balances | R |
+
+### 2.2 各页面首屏 + 核心交互
+
+| 页面 | 读接口（首屏） | 写接口（交互） |
+|------|----------------|----------------|
+| home | GET /home/content、/slots/homepage(30min缓存)、/wallet/balances、/slots/betting-activity | POST /slots/init（X，mock 或跳过） |
+| bonuses | GET /promotions、/promotions/app-download、/promotions/red-packets、/promotions/checkin/status | POST /promotions/{app-download,trial-play,firstdep,checkin}/claim（W） |
+| team | GET /promotions/team/status、/team/tree（J）、/team/downlines（J）、/team/commissions、/team/wallet、/team/withdrawals | POST /team/enable、/team/withdraw（W） |
+| games | GET /slots/games（M 分页）、/slots/providers、/slots/history | POST /slots/init（X） |
+| menu | GET /vip/progress、/kyc/status（+全局 balances/me） | — |
+| tasks | GET /tasks、/vip/progress、/rebate/progress | POST /tasks/:id/claim、/tasks/social/:key/claim（W） |
+| rebate | GET /rebate/config、/rebate/progress（流水聚合）、/rebate/summary | POST /rebate/claim（W） |
+| vip | GET /vip/progress、/vip/levels、/vip/rewards、/vip/loss-rebate-status | POST /vip/claim（W） |
+| 注册登录 | GET /auth/session、POST /auth/refresh | POST /auth/register（W+Turnstile）、/auth/login（失败限流）、/auth/telegram |
+| 充值提现历史 | GET /deposits、/withdrawals、/ledger（bg_wallet_ledger）、/payment/*/orders、/turnover | POST /deposits、/withdrawals（W+X，只测到落单不打真三方） |
+| 下注结算 | GET /bets（预聚合后复测） | core-node POST /Deduct、/Settle、/ReturnStake、/Rollback、/Cancel（W，行锁热点） |
+
+### 2.3 外部依赖（一律 mock 或跳过，不打真三方）
+
+`POST /slots/init`（568win 启动）、`/auth/google`、`/auth/telegram-oidc`、`/auth/forgot-password/send-otp`、所有三方支付下单/查询（payment/yfpay）。core 回调压测由我们自造合法 CompanyKey 请求，不依赖 568win 真回调。
+
+### 2.4 压测障碍与对策
+
+| 障碍 | 对策 |
+|------|------|
+| 全局限流 | `BFF_DISABLE_RATE_LIMIT=true` 旁路，压完必关 |
+| /auth/register 强制 Turnstile | 测试环境置空 `TURNSTILE_SECRET_KEY`，压完恢复 |
+| /auth/login 失败锁定（ip+identifier） | 种子池预置正确密码账号，只测成功路径；错误路径单独小并发验证限流本身有效 |
+| LT 用户无历史数据 | P0 灌数：给部分 LT 用户造注单/账变/团队关系（见 3.1） |
+| core-node 4000 不对公网 | 服务器上跑发压脚本（podman exec / 落地 autocannon），或 ssh 隧道转发到本地 k6 |
+
+---
+
+## 3. 分阶段执行计划
+
+### P0 准备（半天）
+
+1. 种子池 500 用户（LT-1..500），并给其中 3 组灌数据：
+   - **重历史组**（LT-1..50）：每人 3000 局注单（bg_bet_order/bg_568win_wallet_txn/bg_bet_round）+ 5000 条 ledger —— 压 /bets、/ledger 的真实数据量成本；
+   - **团队组**（LT-51..80）：3 级下线各 50/20/10 人 + 佣金记录 —— 压 team/tree、downlines JOIN；
+   - **轻用户组**（其余）：仅钱包+余额，模拟新用户。
+   - 产出灌数脚本 `scripts/loadtest/seed-history.mjs`（幂等、可 cleanup）。
+2. 开限流旁路、置空 Turnstile、起 monitor.sh。
+3. 基线记录：空载时各容器 CPU/内存、MySQL buffer pool 命中率。
+
+### P1 读接口逐项基线（1 天）——「哪个接口最先倒」
+
+用 `knee.js` 模式对下列接口**逐个**定并发扫描（VUS=5/10/20/40，each 60s），记录拐点：
+
+- 优先级 ①（JOIN/聚合重查询）：`/bets`（重历史组用户）、`/promotions/team/tree`、`/team/downlines`、`/rebate/progress`、`/ledger`
+- 优先级 ②（高频单表/Redis）：`/wallet/balances`、`/user/me`、`/slots/games`、`/tasks`、`/vip/progress`、`/promotions/checkin/status`、`/deposits`、`/withdrawals`
+- 优先级 ③（低频配置类）：`/home/content`、`/slots/homepage`、`/vip/levels`、`/rebate/config`、`/promotions/config`
+
+产出：每接口一行的基线表（见 5.1 模板）。**p95 劣化或错误率>1% 的档位即拐点；拐点异常低（如旧 /bets 的 17rps）→ 进优化清单。**
+
+### P2 页面级首屏场景（半天）——「用户打开一个页面的真实成本」
+
+为每个页面写一个 k6 场景：一次迭代 = 该页首屏全部请求并发发出（http.batch），模拟真实打开页面。新增 `k6/page-<name>.js` × 11。记录：单页首屏 P95 总耗时、每秒可支撑「页面打开次数」。
+
+### P3 混合真实流量（半天）——「系统级拐点，服务器选型主依据」
+
+扩展 `c-mixed.js` 权重覆盖全部页面（按真实用户行为估计：启动链 30% / home 15% / games 15% / 钱包历史 10% / bonuses 8% / tasks 7% / vip 5% / team 4% / rebate 3% / bets 3%），small→medium 阶梯，配合 monitor.sh 定位瓶颈层（bff CPU vs MySQL CPU vs 内存）。
+
+### P4 写事务专项（1 天）——「钱高频路径的正确性 + 吞吐」
+
+| 场景 | 方法 | 关注点 |
+|------|------|--------|
+| 下注+结算（核心） | 服务器侧直压 core `POST /Deduct`→`/Settle`（合法 CompanyKey，多用户并发 + 单用户串行两种） | bg_wallet 行锁等待、事务吞吐、与 db-lock-bench 的 DB 层数据对比得出 HTTP 层开销；**并发下余额一致性**（压完对账：ledger 求和 == 余额变化） |
+| 领奖类 claim | 多用户并发打 checkin/tasks/rebate/vip claim | 防重（同用户并发 10 请求只成功 1 次）、锁竞争 |
+| 注册 | 并发 /auth/register（Turnstile 已置空） | 建号事务吞吐、唯一键冲突处理 |
+| 登录 | 种子账号并发 /auth/login | bcrypt/argon CPU 成本（预计是 CPU 大户） |
+| 充值/提现落单 | POST /deposits、/withdrawals（不真打三方，观察到落单/被拒即可） | 防重锁、风控校验成本 |
+
+写专项每个场景跑完必须**对账**：余额/ledger/订单计数一致才算通过——压测同时是并发正确性测试。
+
+### P5 数据量敏感性（半天）——「半年后还快吗」
+
+把重历史组数据翻 3 倍（1 万局/人），复跑 P1 优先级①接口，观察 p95 是否随数据量线性/超线性劣化。超线性 → 缺索引或查询设计问题，进优化清单。
+
+### 收尾（每轮压完）
+
+cleanup.mjs 清种子 → 关限流旁路 + 恢复 Turnstile → recreate-bff-node.sh → 停 monitor.sh → 结果回填本文档第 5/6 节 → commit。
+
+---
+
+## 4. 判读标准
+
+- **拐点定义**：p95 > 800ms 或错误率 > 1% 的最低并发档。
+- **瓶颈层判定**：拐点时刻对齐 monitor CSV —— bff CPU 饱和=Node 层；MySQL CPU/threads 飙升=查询层；内存逼近 limit/swap 涨=容量层；均不饱和但 p95 高=锁等待或外部依赖。
+- **红线（保护 2C2G 测试机）**：swap 猛涨或任一容器逼近内存 limit 立即停；单场景最长 5 分钟；medium 档以上需前一档完全健康才升。
+
+## 5. 结果记录（跨 session 回填区）
+
+### 5.1 P1 接口基线表
+
+| 接口 | 数据形态 | 拐点VU | 拐点RPS | p95@拐点前 | 瓶颈层 | 结论/优化点 | 状态 |
+|------|----------|--------|---------|-----------|--------|-------------|------|
+| GET /bets | 3000局/人 | | | | | 预聚合修复后复测 | ⬜ |
+| GET /promotions/team/tree | 3级80人 | | | | | | ⬜ |
+| GET /promotions/team/downlines | 同上 | | | | | | ⬜ |
+| GET /rebate/progress | 有流水 | | | | | | ⬜ |
+| GET /ledger | 5000条/人 | | | | | | ⬜ |
+| GET /wallet/balances | — | | | | | | ⬜ |
+| GET /user/me | — | | | | | | ⬜ |
+| GET /slots/games | 全量目录 | | | | | | ⬜ |
+| GET /tasks | — | | | | | | ⬜ |
+| GET /vip/progress | — | | | | | | ⬜ |
+| GET /deposits | 有订单 | | | | | | ⬜ |
+| GET /withdrawals | 有订单 | | | | | | ⬜ |
+| （配置类合并一行记录） | — | | | | | | ⬜ |
+
+### 5.2 P2 页面首屏表
+
+| 页面 | 首屏请求数 | 首屏P95 | 每秒可支撑打开数 | 状态 |
+|------|-----------|---------|------------------|------|
+| home / bonuses / team / games / menu / tasks / rebate / vip / 钱包历史 / bets | | | | ⬜ |
+
+### 5.3 P3 混合流量系统拐点
+
+| 档位 | 峰值VU | 总RPS | p95 | 错误率 | 瓶颈层 | 状态 |
+|------|--------|-------|-----|--------|--------|------|
+| small | | | | | | ⬜ |
+| medium | | | | | | ⬜ |
+
+### 5.4 P4 写事务表
+
+| 场景 | 并发 | TPS | p95 | 对账结果 | 防重结果 | 状态 |
+|------|------|-----|-----|----------|----------|------|
+| Deduct+Settle 多用户 | | | | | — | ⬜ |
+| Deduct+Settle 单用户热点 | | | | | — | ⬜ |
+| claim 并发防重 ×4 | | | | | | ⬜ |
+| 注册 / 登录 | | | | — | — | ⬜ |
+| 充值/提现落单 | | | | | | ⬜ |
+
+### 5.5 优化点清单（随测随记）
+
+| # | 发现 | 影响 | 建议 | 状态 |
+|---|------|------|------|------|
+| 1 | /bets group-then-sort（已修） | 读天花板17rps | bg_bet_round 预聚合（已上线，待复测） | 🔧复测 |
+
+## 6. 生产服务器选型换算（P3/P4 完成后回填）
+
+方法：
+
+1. 流量模型：目标 DAU → 峰值同时在线 ≈ DAU×10%~15% → 峰值 RPS ≈ 在线数 × 0.3~0.5 req/s/人（含启动链+轮询+页面切换，用 P3 权重复核）。
+2. 容量换算：2C2G 实测系统拐点 RPS 为基准，Node/MySQL 均近似随核数线性（同架构放大），得出目标 RPS 所需核数；内存按 SERVER-SIZING.md 场景 C 公式（容器 limit×1.3 + 宿主 + 余量）。
+3. 写热点单列：下注结算 TPS 上限由 bg_wallet 行锁决定，**不随加核线性扩展**（单用户串行部分）；若 P4 实测 TPS 低于目标（峰值下注 TPS ≈ 在线人数×每人每分钟下注数/60），优化方向按序：事务内写合并/异步化 → 热账户内存队列 → 分库分表。
+4. 结论落到 `docs/ops/SERVER-SIZING.md` 新增「场景 E：实测数据版生产选型」章节。
+
+预期产出（回填）：
+
+- [ ] 推荐生产起步配置（vCPU/内存/盘/带宽 + 是否拆库）
+- [ ] 各配置档支撑的 DAU 区间
+- [ ] 扩容触发指标（何时加核/拆库/上从库）
+
+## 7. 交付物清单
+
+- [ ] `scripts/loadtest/seed-history.mjs`（历史数据灌注+清理）
+- [ ] `scripts/loadtest/k6/page-*.js` × 11（页面首屏场景）
+- [ ] `scripts/loadtest/k6/c-mixed.js` 权重扩展版
+- [ ] `scripts/loadtest/core-write-bench.mjs`（core 回调 HTTP 层写压测）
+- [ ] 本文档 5/6 节全部回填 + SERVER-SIZING.md 场景 E
+- [ ] 优化点清单（5.5）逐条转化为修复 commit 或 backlog
+
+## 8. 里程碑
+
+| 阶段 | 预估 | 前置 |
+|------|------|------|
+| P0 准备+灌数 | 0.5 天 | 方案确认 |
+| P1 读基线 | 1 天 | P0 |
+| P2 页面首屏 | 0.5 天 | P0 |
+| P3 混合拐点 | 0.5 天 | P1 |
+| P4 写专项 | 1 天 | P0（可与 P1 并行推进） |
+| P5 数据量敏感性 | 0.5 天 | P1 |
+| 选型报告 | 0.5 天 | P3+P4 |
+
+合计约 4.5 天（跨多个 session 分批执行，每完成一项回填本文档并 commit）。
+
+## 9. 跨 session 恢复指引
+
+新 session 继续本工作时：
+
+1. 读本文档（`docs/testing/loadtest-plan.md`）→ 看第 5 节各表的 ⬜/✅ 状态，找到第一个未完成项；
+2. 读 `scripts/loadtest/README.md` 拿操作命令（种子/旁路/监控/收尾）；
+3. 压测前检查：限流旁路是否残留开启、种子数据是否残留（有则先 cleanup）；
+4. 每完成一个场景：回填对应表格 → 发现的优化点记入 5.5 → commit（消息带「压测:」前缀）。
+
+生产升级后复用：同一套脚本改 `BASE_URL` 指向生产域名即可复跑 P1-P3 只读部分做验收（写专项 P4 仅在测试环境跑）；对照 5.x 历史数据即得新旧配置容量对比。
