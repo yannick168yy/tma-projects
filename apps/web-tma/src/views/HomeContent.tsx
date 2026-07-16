@@ -3,9 +3,7 @@ import { useTranslation } from 'react-i18next'
 import {
   Trophy, TrendingUp, Gamepad2, Sparkles, History, Factory,
   Fish, Ticket, Drama, Rocket, X, Gem, Percent,
-  Zap, Headphones, ShieldCheck, Phone, Globe, Mail,
-  Send, Facebook,
-  type LucideIcon,
+  Zap, Headphones, ShieldCheck,
 } from 'lucide-react'
 import HomeCategoryShortcut from '@/components/home/HomeCategoryShortcut'
 import GameCardV2 from '@/components/home/GameCardV2'
@@ -23,6 +21,9 @@ import { localizedGameName } from '@/utils/game'
 import { analytics } from '@/utils/analytics'
 import pagcorImg from '@/assets/home/compliance/pagcor.png'
 import age21Img from '@/assets/home/compliance/age21.png'
+import iconFacebook from '@/assets/team/3-circles/facebook.webp'
+import iconTelegram from '@/assets/team/3-circles/telegram.webp'
+import iconViber from '@/assets/team/3-circles/viber.webp'
 import cashbackFloatImg from '@/assets/home/promos/cashback-float.webp'
 import cashRebateBannerImg from '@/assets/home/promos/cash-rebate-banner.webp'
 import lossRebateBannerImg from '@/assets/home/promos/loss-rebate-banner.webp'
@@ -47,17 +48,11 @@ function historyToGame(item: GameHistoryItem): SlotGame {
   }
 }
 
-// 官方社群入口（写死，运营账号变更时改这里）
-const COMMUNITY_LINKS: { label: string; icon: LucideIcon; bg: string; url: string }[] = [
-  { label: 'Telegram', icon: Send, bg: '#229ED9', url: 'https://telegram.me/betogo_gaming' },
-  { label: 'Viber', icon: Phone, bg: '#7360F2', url: 'https://invite.viber.com/?g2=AQBhXJCwtpAV81bXwM93sEjLZsg%2FLSk%2FjwMfIuJNShYEdNkwvHqOqU8AFEFtKo5I' },
-  { label: 'Facebook', icon: Facebook, bg: '#1877F2', url: 'https://www.facebook.com/share/1LPECYxaAS/' },
-]
-
-const PAYMENT_LOGOS = [
-  { name: 'GCash', src: '/logos/gcash.svg' },
-  { name: 'Maya', src: '/logos/maya.svg' },
-  { name: 'USDT', src: '/logos/usdt.svg' },
+// 官方社群入口（写死，运营账号变更时改这里）；图标复用 team 页面的品牌圆标
+const COMMUNITY_LINKS: { label: string; icon: string; url: string }[] = [
+  { label: 'Telegram', icon: iconTelegram, url: 'https://telegram.me/betogo_gaming' },
+  { label: 'Viber', icon: iconViber, url: 'https://invite.viber.com/?g2=AQBhXJCwtpAV81bXwM93sEjLZsg%2FLSk%2FjwMfIuJNShYEdNkwvHqOqU8AFEFtKo5I' },
+  { label: 'Facebook', icon: iconFacebook, url: 'https://www.facebook.com/share/1LPECYxaAS/' },
 ]
 const BET_SCROLL_MIN_DURATION_SECONDS = 32
 const BET_SCROLL_SECONDS_PER_ITEM = 2.8
@@ -705,31 +700,37 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
         </div>
       </section>
 
-      {/* 支付方式信任条 */}
-      <section className="mt-4 px-4">
-        <div className="flex justify-center gap-2.5">
-          {PAYMENT_LOGOS.map((p) => (
-            <div key={p.name} className="bg-white rounded-xl h-10 px-4 flex items-center">
-              <img src={p.src} alt={p.name} className="h-5 object-contain" />
-            </div>
-          ))}
+      {/* 品牌业务介绍 */}
+      <section className="mt-8 px-4">
+        <div className="bg-secondary border border-border rounded-2xl p-5">
+          <h3 className="text-center font-display font-black text-base text-foreground">{t('home.brandIntroTitle')}</h3>
+          <p className="mt-2.5 text-center text-[12px] text-muted-foreground leading-relaxed">{t('home.brandIntroBody')}</p>
+          <div className="mt-4 grid grid-cols-4 gap-2">
+            {[
+              { v: '2,000+', l: t('home.brandStatGames') },
+              { v: '20+', l: t('home.brandStatProviders') },
+              { v: t('home.brandStatInstant'), l: t('home.brandStatPayouts') },
+              { v: '24/7', l: t('home.brandStatSupport') },
+            ].map((s) => (
+              <div key={s.l} className="rounded-xl bg-background/40 border border-border/60 py-2.5 px-1 text-center">
+                <p className="text-primary font-black text-[13px] leading-none">{s.v}</p>
+                <p className="mt-1 text-[9px] text-muted-foreground leading-tight">{s.l}</p>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 
-      {/* 社区（官方社群入口，写死） */}
+      {/* 社区（官方社群入口，写死）；图标复用 team 页品牌圆标 */}
       <section className="mt-8 px-4">
         <h3 className="text-muted-foreground font-black text-xs font-display tracking-widest mb-3 text-center">{t('home.communitySection')}</h3>
-        <div className="flex justify-center flex-wrap gap-3.5">
-          {COMMUNITY_LINKS.map((link) => {
-            const Icon = link.icon
-            return (
-              <a key={link.label} href={link.url} target="_blank" rel="noopener noreferrer" aria-label={link.label}
-                className="w-11 h-11 rounded-full flex items-center justify-center active:scale-95 transition-transform"
-                style={{ background: link.bg }}>
-                <Icon size={20} className="text-white" fill={link.label === 'Facebook' ? 'currentColor' : 'none'} />
-              </a>
-            )
-          })}
+        <div className="flex justify-center flex-wrap gap-4">
+          {COMMUNITY_LINKS.map((link) => (
+            <a key={link.label} href={link.url} target="_blank" rel="noopener noreferrer" aria-label={link.label}
+              className="w-11 h-11 active:scale-95 transition-transform">
+              <img src={link.icon} alt={link.label} className="w-full h-full" />
+            </a>
+          ))}
         </div>
       </section>
 
@@ -741,29 +742,6 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
           <img src={age21Img} alt="21+ Gambling can be addictive, know when to stop" className="h-8 object-contain" />
         </div>
         <p className="mt-4 text-center text-[11px] text-muted-foreground leading-relaxed px-2">{t('home.responsibleNote')}</p>
-        <div className="mt-4 space-y-2.5">
-          <a href="tel:0282489568" className="w-full bg-secondary border border-border rounded-xl p-3.5 flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-primary/15 flex items-center justify-center flex-shrink-0"><Phone size={16} className="text-primary" /></div>
-            <div className="min-w-0">
-              <p className="text-[11px] text-muted-foreground leading-snug">{t('home.helplineLabel')}</p>
-              <p className="text-sm font-bold text-foreground">(02) 8248-9568</p>
-            </div>
-          </a>
-          <a href="https://www.pagcor.ph/regulatory/responsible-gaming.php" target="_blank" rel="noopener noreferrer" className="w-full bg-secondary border border-border rounded-xl p-3.5 flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-primary/15 flex items-center justify-center flex-shrink-0"><Globe size={16} className="text-primary" /></div>
-            <div className="min-w-0">
-              <p className="text-[11px] text-muted-foreground leading-snug">{t('home.pagcorHelpLabel')}</p>
-              <p className="text-sm font-bold text-foreground break-all">www.pagcor.ph/regulatory/responsible-gaming.php</p>
-            </div>
-          </a>
-          <a href="mailto:ResponsibleGaming@pagcor.ph" className="w-full bg-secondary border border-border rounded-xl p-3.5 flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-primary/15 flex items-center justify-center flex-shrink-0"><Mail size={16} className="text-primary" /></div>
-            <div className="min-w-0">
-              <p className="text-[11px] text-muted-foreground leading-snug">{t('home.emailLabel')}</p>
-              <p className="text-sm font-bold text-foreground break-all">ResponsibleGaming@pagcor.ph</p>
-            </div>
-          </a>
-        </div>
       </section>
 
       {/* Info Modal */}

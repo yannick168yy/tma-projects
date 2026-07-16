@@ -11,37 +11,6 @@ import { isInsideTelegram } from '@/utils/initTelegramWebApp'
 import { analytics } from '@/utils/analytics'
 import TrialClaimModal from '@/components/promotion/TrialClaimModal'
 import bonusesHero from '@/assets/home/promos/bonuses-hero.webp'
-import charCheckin from '@/assets/home/promos/char/checkin.webp'
-import charAgent from '@/assets/home/promos/char/agent.webp'
-import charTrial from '@/assets/home/promos/char/trial.webp'
-import charAppdl from '@/assets/home/promos/char/appdl.webp'
-import charFirstdep from '@/assets/home/promos/char/firstdep.webp'
-import charLossrebate from '@/assets/home/promos/char/lossrebate.webp'
-
-// 各活动卡 hero 右侧人物插图（按业务匹配），整幅完整显示不裁切，左缘渐隐融入原背景色，置于文字下层不遮挡
-const CHAR_IMG: Record<string, { src: string; cls: string }> = {
-  checkin: { src: charCheckin, cls: 'h-[96%] right-1' },
-  agent: { src: charAgent, cls: 'h-[80%] right-0' },
-  trial: { src: charTrial, cls: 'h-[98%] right-0' },
-  appdl: { src: charAppdl, cls: 'h-[94%] right-1' },
-  firstdep: { src: charFirstdep, cls: 'h-[96%] right-0' },
-  lossrebate: { src: charLossrebate, cls: 'h-[96%] -right-1' },
-}
-
-// 人物图：绝对定位在 hero 右下，高度限制在 hero 内使整幅完整显示；左侧渐隐蒙版让其自然融入背景渐变；z 低于文字层
-function HeroChar({ id }: { id: string }) {
-  const c = CHAR_IMG[id]
-  if (!c) return null
-  return (
-    <img
-      src={c.src}
-      alt=""
-      aria-hidden
-      className={`pointer-events-none select-none absolute bottom-0 w-auto max-w-[58%] object-contain object-bottom opacity-95 ${c.cls}`}
-      style={{ WebkitMaskImage: 'linear-gradient(to right, transparent 0%, #000 24%)', maskImage: 'linear-gradient(to right, transparent 0%, #000 24%)' }}
-    />
-  )
-}
 
 interface Props {
   promoFilter?: string | null
@@ -238,7 +207,6 @@ export default function BonusesPage({ promoFilter, onOpenWallet, onOpenTeam, onO
         className={`rounded-2xl overflow-hidden border ${p.highlight ? 'border-purple-500/40' : 'border-white/8'} ${promoFilter === p.id ? 'ring-2 ring-primary/60' : ''}`}
       >
         <div className={`relative bg-gradient-to-br px-4 py-4 overflow-hidden ${p.gradient}`}>
-          <HeroChar id={p.id} />
           {p.highlight && (
             <div className="absolute top-3 right-3 z-20 bg-primary text-primary-foreground text-[10px] font-black px-2 py-0.5 rounded-full">
               {t('bonuses.featuredBadge')}
@@ -329,7 +297,6 @@ export default function BonusesPage({ promoFilter, onOpenWallet, onOpenTeam, onO
     return (
       <div key="checkin" id="promo-checkin" className="rounded-2xl overflow-hidden border border-purple-500/40">
         <div className="relative bg-gradient-to-br from-[#2b1259] via-[#1a1440] to-[#141B2D] px-4 py-4 overflow-hidden">
-          <HeroChar id="checkin" />
           <div className="relative z-10 flex items-start justify-between">
             <div className="flex-1 pr-16">
               <span className="text-[10px] font-black uppercase tracking-widest" style={{ color: accent }}>
@@ -393,7 +360,6 @@ export default function BonusesPage({ promoFilter, onOpenWallet, onOpenTeam, onO
     return (
       <div key="agent" className="rounded-2xl overflow-hidden border border-amber-500/30">
         <div className="relative bg-gradient-to-br from-[#78350f] via-[#92400e] to-[#b45309] px-4 py-4 overflow-hidden">
-          <HeroChar id="agent" />
           <div className="relative z-10">
           <span className="text-[10px] font-black uppercase tracking-widest text-amber-300">
             {t('bonuses.promos.agent.tag')}
@@ -515,7 +481,6 @@ export default function BonusesPage({ promoFilter, onOpenWallet, onOpenTeam, onO
     return (
       <div key="lossrebate" id="promo-lossrebate" className="rounded-2xl overflow-hidden border border-white/8">
         <div className="relative bg-gradient-to-br from-[#4a1d3f] via-[#831843] to-[#6b21a8] px-4 py-4 overflow-hidden">
-          <HeroChar id="lossrebate" />
           <div className="relative z-10 flex items-start justify-between">
             <div className="flex-1 pr-16">
               <span className="text-[10px] font-black uppercase tracking-widest" style={{ color: accent }}>
