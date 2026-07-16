@@ -115,9 +115,12 @@ const USER_SELECT = `
 `
 
 async function nextUserId(env: Env): Promise<string> {
-  // REPLACE 单行取号（迁移150）：原子递增。旧的全表 MAX 扫描有双缺陷——脏 id CAST 回绕污染计数，
-  // 且 MAX+1 无锁竞态下两个同瞬注册取同号，会被 saveUser 的 ON DUPLICATE 静默合并成同一账号
-  const [res] = await pool(env).execute<ResultSetHeader>(`REPLACE INTO bg_user_id_seq (stub) VALUES ('a')`)
+  // 单行 UPDATE 取号（迁移150）：LAST_INSERT_ID(n+1) 经 OK 包回传 insertId，行锁串行、原子无死锁
+  // （REPLACE 取号在 InnoDB 下并发会死锁；旧的全表 MAX 扫描则有脏 id 回绕污染 + 并发同号被
+  //  saveUser 的 ON DUPLICATE 静默合并账号的双缺陷）
+  const [res] = await pool(env).execute<ResultSetHeader>(
+    `UPDATE bg_user_id_seq SET n = LAST_INSERT_ID(n + 1) WHERE stub = 'a'`,
+  )
   return `BG-${res.insertId}`
 }
 
