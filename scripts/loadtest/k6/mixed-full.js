@@ -3,7 +3,7 @@
 // 权重：startup30 home15 games15 wallet-history10 bonuses8 tasks7 vip5 team4 rebate3 bets3
 import http from 'k6/http'
 import { check } from 'k6'
-import { BASE, stages } from './lib.js'
+import { BASE, HOSTS, stages } from './lib.js'
 import { PAGES } from './pages.js'
 
 const WEIGHTS = [
@@ -16,6 +16,7 @@ export const options = {
   scenarios: VUS
     ? { mix: { executor: 'constant-vus', vus: VUS, duration: __ENV.DUR || '60s' } }
     : { mix: { executor: 'ramping-vus', startVUs: 0, stages } },
+  hosts: HOSTS,
 }
 
 function pickPage() {
@@ -28,7 +29,7 @@ export default function () {
   const page = pickPage()
   const [paths, UMIN, UMAX] = PAGES[page]
   const i = UMIN + ((__VU - 1) % (UMAX - UMIN + 1))
-  const params = { headers: { Authorization: `Bearer LTK-${i}`, 'X-Device-Id': `lt-LT-${i}` }, tags: { page } }
+  const params = { headers: { Authorization: `Bearer LTK-${i}`, 'X-Device-Id': `lt-LT-${i}`, 'Accept-Encoding': 'gzip' }, tags: { page } }
   const reqs = paths.map(p => ['GET', `${BASE}/api/v1${p}`, null, params])
   for (const r of http.batch(reqs)) check(r, { '2xx': (x) => x.status >= 200 && x.status < 300 })
 }

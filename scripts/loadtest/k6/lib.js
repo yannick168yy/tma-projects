@@ -15,10 +15,15 @@ export function authParams(tags) {
       Authorization: `Bearer ${u.token}`,
       'X-Device-Id': `lt-${u.userId}`,
       'Content-Type': 'application/json',
+      'Accept-Encoding': 'gzip', // 真实浏览器都带；不带会把带宽消耗放大5-9倍
     },
     tags: tags || {},
   }
 }
+
+// LOCAL=1 时把域名解析钉到 127.0.0.1：k6 在服务器本机跑，走本地 nginx 完整链路(TLS+gzip)但绕开公网带宽。
+// 教训：测试机公网仅~2.5Mbps，从外部发压时 >2KB 响应的接口先撞带宽墙，量不到服务器真实容量。
+export const HOSTS = __ENV.LOCAL ? { 'www.188facai.com': '127.0.0.1' } : {}
 
 // 阶梯加压档位，可用 -e PROFILE=small|medium|large 切换；默认 small（先摸底，保护 2 核小机）
 const PROFILES = {

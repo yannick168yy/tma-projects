@@ -3,7 +3,7 @@
 // UMIN/UMAX 绑定用户段：重历史组 1-50(bets/ledger/存提)、团队组 51-80(team/*)、其余任意
 import http from 'k6/http'
 import { check } from 'k6'
-import { BASE } from './lib.js'
+import { BASE, HOSTS } from './lib.js'
 
 const EP = __ENV.EP || '/api/v1/wallet/balances'
 const VUS = Number(__ENV.VUS || 10)
@@ -13,12 +13,13 @@ const UMAX = Number(__ENV.UMAX || 500)
 
 export const options = {
   scenarios: { ep: { executor: 'constant-vus', vus: VUS, duration: DUR } },
+  hosts: HOSTS,
 }
 
 export default function () {
   const i = UMIN + ((__VU - 1) % (UMAX - UMIN + 1))
   const res = http.get(`${BASE}${EP}`, {
-    headers: { Authorization: `Bearer LTK-${i}`, 'X-Device-Id': `lt-LT-${i}` },
+    headers: { Authorization: `Bearer LTK-${i}`, 'X-Device-Id': `lt-LT-${i}`, 'Accept-Encoding': 'gzip' },
   })
   check(res, { '2xx': (r) => r.status >= 200 && r.status < 300 })
 }
