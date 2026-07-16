@@ -16,6 +16,11 @@ const schema = z.object({
     .enum(['true', 'false'])
     .default('false')
     .transform((v) => v === 'true'),
+  // 压测专用：设为 true 时旁路全局限流中间件（默认 false）。仅测试环境临时开启，压完必须关。
+  BFF_DISABLE_RATE_LIMIT: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((v) => v === 'true'),
   SESSION_TTL_SECONDS: z.coerce.number().default(86400),
   GOOGLE_CLIENT_ID: z.string().default(''),
   GOOGLE_CLIENT_SECRET: z.string().default(''),

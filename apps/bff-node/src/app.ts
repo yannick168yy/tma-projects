@@ -223,7 +223,7 @@ export function createApp(env: Env): Koa {
   )
   app.use(requestIdMiddleware())
   app.use(injectDeps(env, redis))
-  app.use(rateLimitMiddleware())
+  if (!env.BFF_DISABLE_RATE_LIMIT) app.use(rateLimitMiddleware())
   app.use(accessLogMiddleware())
   app.use(bodyParser({ jsonLimit: '2mb', formLimit: '2mb', textLimit: '2mb' }))
 
