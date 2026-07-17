@@ -309,12 +309,15 @@ export default function CustomerServicePage({ onClose }: Props) {
   }
 
   useEffect(() => {
-    fetchCsWelcome().then((res) => { setWelcome(res.welcome); setAgentName(res.agentName) }).catch(() => {})
-    if (!isLoggedIn) { setLoading(false); return }
-    fetchCsHistory()
+    // 开场白要等客服名到位再渲染,否则首页图片抢带宽时会先闪一版没名字的兜底文案
+    const welcomeReady = fetchCsWelcome()
+      .then((res) => { setWelcome(res.welcome); setAgentName(res.agentName) })
+      .catch(() => {})
+    if (!isLoggedIn) { void welcomeReady.finally(() => setLoading(false)); return }
+    const historyReady = fetchCsHistory()
       .then((res) => { setMessages(res.messages); setConversationStatus(res.conversation.status); setAgentName(res.conversation.agentName) })
       .catch(() => {})
-      .finally(() => { setLoading(false); scrollToBottom() })
+    void Promise.all([welcomeReady, historyReady]).finally(() => { setLoading(false); scrollToBottom() })
   }, [isLoggedIn])
 
   useEffect(() => {
@@ -509,7 +512,7 @@ export default function CustomerServicePage({ onClose }: Props) {
                 <div className="flex justify-start">
                   <div className="max-w-[85%] rounded-2xl rounded-tl-sm bg-secondary px-3.5 py-2.5">
                     <p className="text-xs text-muted-foreground mb-1">{agentLabel}</p>
-                    <p className="text-sm text-foreground">{welcome || t('cs.welcome', { agent: agentName })}</p>
+                    <p className="text-sm text-foreground">{welcome || t('cs.welcome')}</p>
                   </div>
                 </div>
                 <div className="flex items-center justify-between gap-2">

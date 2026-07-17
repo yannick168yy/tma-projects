@@ -181,7 +181,7 @@ export default {
     sessionEndedNotice: 'This support session has ended. Start a new chat next time you open support.',
     sessionEndedHint: 'Session ended. Reopen support to start a new chat.',
     agentLabel: 'Support agent',
-    welcome: 'Hi! I’m {{agent}} from BetoGo support. How can I help you today?',
+    welcome: 'Hi! Welcome to BetoGo support. How can I help you today?',
     sendFailed: 'Sorry, the message failed to send. Please try again later.',
     inputPlaceholder: 'Type your question…',
     quickMenuTitle: 'Common questions',

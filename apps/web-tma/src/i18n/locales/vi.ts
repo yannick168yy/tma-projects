@@ -958,7 +958,7 @@ export default {
     sessionEndedNotice: 'Phiên hỗ trợ này đã kết thúc. Mở lại hỗ trợ để bắt đầu chat mới.',
     sessionEndedHint: 'Phiên đã kết thúc. Mở lại hỗ trợ để bắt đầu chat mới.',
     agentLabel: 'Nhân viên hỗ trợ',
-    welcome: 'Xin chào! Tôi là {{agent}} từ bộ phận hỗ trợ BetoGo. Tôi có thể giúp gì cho bạn?',
+    welcome: 'Xin chào! Chào mừng bạn đến với hỗ trợ BetoGo. Tôi có thể giúp gì cho bạn?',
     sendFailed: 'Xin lỗi, không gửi được tin nhắn. Vui lòng thử lại sau.',
     inputPlaceholder: 'Nhập câu hỏi của bạn…',
   },

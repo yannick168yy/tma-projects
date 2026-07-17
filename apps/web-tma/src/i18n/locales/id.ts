@@ -940,7 +940,7 @@ export default {
     sessionEndedNotice: 'Sesi dukungan ini telah berakhir. Buka dukungan lagi untuk memulai chat baru.',
     sessionEndedHint: 'Sesi berakhir. Buka ulang dukungan untuk memulai chat baru.',
     agentLabel: 'Agen dukungan',
-    welcome: 'Hai! Saya {{agent}} dari dukungan BetoGo. Ada yang bisa saya bantu?',
+    welcome: 'Hai! Selamat datang di dukungan BetoGo. Ada yang bisa saya bantu?',
     sendFailed: 'Maaf, pesan gagal terkirim. Silakan coba lagi nanti.',
     inputPlaceholder: 'Ketik pertanyaan Anda…',
   },

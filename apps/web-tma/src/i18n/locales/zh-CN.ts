@@ -180,7 +180,7 @@ export default {
     sessionEndedNotice: '本次客服会话已结束。下次打开客服会开启新的会话。',
     sessionEndedHint: '会话已结束，重新打开客服即可开始新会话。',
     agentLabel: '人工客服',
-    welcome: '您好！我是 BetoGo 客服 {{agent}}，很高兴为您服务。有什么可以帮到您？',
+    welcome: '您好！这里是 BetoGo 客服，很高兴为您服务。有什么可以帮到您？',
     sendFailed: '抱歉，消息发送失败，请稍后再试。',
     inputPlaceholder: '输入您的问题…',
     quickMenuTitle: '常见问题',
