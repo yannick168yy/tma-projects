@@ -12,7 +12,7 @@ import { fail, ok } from '../../utils/response.js'
 const router = new Router({ prefix: '/home-content' })
 
 const actionTypes = new Set<HomeContentActionType>(['promo', 'cashback', 'spin', 'lobby', 'none', 'path', 'url'])
-const kinds = new Set<HomeContentKind>(['banner', 'card', 'wallet_banner'])
+const kinds = new Set<HomeContentKind>(['banner', 'wallet_banner'])
 
 function validKind(value: unknown): value is HomeContentKind {
   return typeof value === 'string' && kinds.has(value as HomeContentKind)
@@ -29,7 +29,7 @@ router.get('/', async (ctx) => {
 router.post('/upload', async (ctx) => {
   const body = (ctx.request.body ?? {}) as { kind?: unknown; imageData?: unknown }
   if (!validKind(body.kind)) {
-    fail(ctx, 400, 'kind 必须是 banner、card 或 wallet_banner')
+    fail(ctx, 400, 'kind 必须是 banner 或 wallet_banner')
     return
   }
   if (typeof body.imageData !== 'string') {
@@ -53,7 +53,7 @@ router.put('/item', async (ctx) => {
     enabled?: unknown
   }
   if (!validKind(body.kind)) {
-    fail(ctx, 400, 'kind 必须是 banner、card 或 wallet_banner')
+    fail(ctx, 400, 'kind 必须是 banner 或 wallet_banner')
     return
   }
   const slot = Number(body.slot)
@@ -81,7 +81,7 @@ router.put('/item', async (ctx) => {
 
 router.delete('/item/:kind/:slot', async (ctx) => {
   if (!validKind(ctx.params.kind)) {
-    fail(ctx, 400, 'kind 必须是 banner、card 或 wallet_banner')
+    fail(ctx, 400, 'kind 必须是 banner 或 wallet_banner')
     return
   }
   const slot = Number(ctx.params.slot)

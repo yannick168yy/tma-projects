@@ -913,7 +913,7 @@ export const getPromoClaims = (params?: { page?: number; pageSize?: number; prom
 
 // 首页装修
 export interface HomeContentItem {
-  kind: 'banner' | 'card' | 'wallet_banner'
+  kind: 'banner' | 'wallet_banner'
   slot: number
   imageKey: string
   imageUrl: string
@@ -924,7 +924,6 @@ export interface HomeContentItem {
 }
 export interface HomeContent {
   banners: HomeContentItem[]
-  cards: HomeContentItem[]
   walletBanners: HomeContentItem[]
 }
 export const getHomeContent = () => get<HomeContent>('/admin/home-content')

@@ -5,7 +5,6 @@ import {
   Fish, Ticket, Drama, Rocket, X, Gem, Percent,
   Zap, Headphones, ShieldCheck,
 } from 'lucide-react'
-import HomeCategoryShortcut from '@/components/home/HomeCategoryShortcut'
 import GameCardV2 from '@/components/home/GameCardV2'
 import TaskFloatBall from '@/components/tasks/TaskFloatBall'
 import { INFO_LINKS } from '@/data/home'
@@ -55,9 +54,8 @@ const COMMUNITY_LINKS: { label: string; icon: string; url: string }[] = [
 const BET_SCROLL_MIN_DURATION_SECONDS = 32
 const BET_SCROLL_SECONDS_PER_ITEM = 2.8
 
-// 首页 banner / 小卡片均来自后台装修配置，只需图片 + 跳转目标
+// 首页 banner 来自后台装修配置，只需图片 + 跳转目标
 interface HomeBanner { id: number; image: string; target: string }
-interface HomeCard { slot: number; image: string; target: string }
 
 interface Props {
   onNavigatePath: (path: string) => void
@@ -100,7 +98,6 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
   const auth = useAuthStore()
   const activeCurrency = useWalletStore((s) => s.activeCurrency)
   const [homeBanners, setHomeBanners] = useState<HomeBanner[]>([])
-  const [homeCards, setHomeCards] = useState<HomeCard[]>([])
 
   // 首页装修配置的统一跳转：内部路由走 navigate，外链走 window.open，空串不跳转
   function navHomeTarget(target: string) {
@@ -115,7 +112,6 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
   // Banner
   const [activeBanner, setActiveBanner] = useState(0)
   const bannerTrackRef = useRef<HTMLDivElement>(null)
-  const cardTrackRef = useRef<HTMLDivElement>(null)
   const bannerDragRef = useRef({ startX: 0, startY: 0, startScroll: 0, axis: null as 'x'|'y'|null, lastX: 0, lastT: 0 })
 
   function onBannerScroll() {
@@ -328,11 +324,6 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
         image: item.imageUrl,
         target: resolveHomeActionPath(item.actionType, item.actionValue),
       })))
-      setHomeCards(content.cards.map((item) => ({
-        slot: item.slot,
-        image: item.imageUrl,
-        target: resolveHomeActionPath(item.actionType, item.actionValue),
-      })))
     }).catch(() => {})
     if (auth.token && auth.user) void promotion.loadTeamStatus()
   }, [])
@@ -350,10 +341,6 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
     observer.observe(el)
     return () => observer.disconnect()
   }, [])
-
-  useEffect(() => {
-    if (cardTrackRef.current) cardTrackRef.current.scrollLeft = 0
-  }, [homeCards])
 
 
   return (
@@ -650,17 +637,6 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
           </div>
         )}
       </section>
-
-      {/* 首页彩色小卡片（后台装修配置） */}
-      {homeCards.length > 0 && (
-        <section className="mt-6">
-          <div ref={cardTrackRef} className="category-shortcut-row flex gap-3 pl-4 pr-4 pb-2 overflow-x-auto hide-scrollbar scroll-ps-4">
-            {homeCards.map((c) => (
-              <HomeCategoryShortcut key={c.slot} image={c.image} onClick={() => navHomeTarget(c.target)} />
-            ))}
-          </div>
-        </section>
-      )}
 
       {/* 页脚：社群+品牌介绍 / 合规 / 优势 / 条款，统一无色块风格，靠间距分层 */}
       <footer className="mt-10 border-t border-border/50 pt-14">

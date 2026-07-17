@@ -4,7 +4,7 @@ import { getMysqlPool, isMysqlEnabled } from '../clients/mysql.client.js'
 import type { Env } from '../config/env.js'
 import { getStorageProvider } from './storage/index.js'
 
-export type HomeContentKind = 'banner' | 'card' | 'wallet_banner'
+export type HomeContentKind = 'banner' | 'wallet_banner'
 export type HomeContentActionType = 'promo' | 'cashback' | 'spin' | 'lobby' | 'none' | 'path' | 'url'
 
 export interface HomeContentItem {
@@ -20,7 +20,6 @@ export interface HomeContentItem {
 
 export interface HomeContent {
   banners: HomeContentItem[]
-  cards: HomeContentItem[]
   walletBanners: HomeContentItem[]
 }
 
@@ -56,7 +55,7 @@ function mapRow(row: HomeContentRow): HomeContentItem {
 }
 
 export async function getHomeContent(env: Env, includeDisabled = false): Promise<HomeContent> {
-  if (!isMysqlEnabled(env)) return { banners: [], cards: [], walletBanners: [] }
+  if (!isMysqlEnabled(env)) return { banners: [], walletBanners: [] }
   const db = getMysqlPool(env)
   const [rows] = await db.query<HomeContentRow[]>(
     `SELECT kind, slot, image_key, action_type, action_value, enabled, updated_at
@@ -67,7 +66,6 @@ export async function getHomeContent(env: Env, includeDisabled = false): Promise
   const items = rows.map(mapRow)
   return {
     banners: items.filter((item) => item.kind === 'banner'),
-    cards: items.filter((item) => item.kind === 'card'),
     walletBanners: items.filter((item) => item.kind === 'wallet_banner'),
   }
 }
