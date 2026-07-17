@@ -980,6 +980,7 @@ export default {
       unsupported_doc_type: 'Jenis dokumen tidak didukung',
       name_mismatch: 'Nama di dokumen tidak cocok',
       low_confidence: 'Kepercayaan keaslian dokumen rendah',
+      missing_id_number: 'Nomor dokumen tidak dapat dibaca',
       underage: 'Harus berusia minimal 21 tahun untuk verifikasi',
       no_live_person: 'Orang hidup tidak terdeteksi',
       no_blink: 'Gerakan berkedip tidak terdeteksi',

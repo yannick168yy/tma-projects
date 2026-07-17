@@ -52,6 +52,11 @@ function normalizeDocType(raw: string): string {
   if (s === 'acr_i_card' || s === 'i_card' || s === 'icard') return 'acr_icard'
   return s
 }
+
+/** 证件号归一化：去掉分隔符只留字母数字并大写，保证跨次 OCR 输出格式差异不影响查重 */
+function normalizeIdNo(raw: string | null | undefined): string {
+  return (raw ?? '').replace(/[^A-Za-z0-9]/g, '').toUpperCase()
+}
 const VERIFY_RL_WINDOW_SEC = 86400
 
 /** 人脸 vs 证件照相似度通过阈值：后台 kyc_face_match_threshold 优先，否则用 env 兜底 */
@@ -525,7 +530,8 @@ Return ONLY a valid JSON object (no markdown) with exactly these keys:
   "nameMatches": boolean,
   "confidence": number,
   "reasons": string[]
-}`
+}
+idNumber must be the document's ID/passport number exactly as printed; use an empty string if it is not clearly readable. Never guess or fabricate it.`
 
   const idImg = stripBase64(idImage)
   const text = await generateGeminiContent(
@@ -603,8 +609,10 @@ export async function submitKycDocument(
 
   const verdict = await runGeminiDocument(env, input.fullName, input.idImage)
 
-  if (verdict.idNumber) {
-    const owner = await findKycByExtractedIdNo(redis, verdict.idNumber, userId)
+  // 证件号归一化(去分隔符+大写)后作为唯一键;提得出必查重
+  const idNo = normalizeIdNo(verdict.idNumber)
+  if (idNo) {
+    const owner = await findKycByExtractedIdNo(redis, idNo, userId)
     if (owner) throw new KycError('kyc.errors.docAlreadyUsed', 409)
   }
 
@@ -621,6 +629,8 @@ export async function submitKycDocument(
   const reasons: string[] = []
   if (!verdict.isValidDocument) reasons.push('invalid_doc')
   if (!ACCEPTED_DOC_TYPES.includes(normalizeDocType(verdict.docType))) reasons.push('unsupported_doc_type')
+  // 证件号是防多账号复用的唯一键，提不出一律拒绝重拍
+  if (!idNo) reasons.push('missing_id_number')
   if (!verdict.nameMatches) reasons.push('name_mismatch')
   if (verdict.confidence < env.KYC_GEMINI_MIN_CONFIDENCE) reasons.push('low_confidence')
   // 年龄限制：证件出生日期可解析且不足 21 周岁 → 拒绝（OCR 无法解析出生日期时不拦截，避免误杀）
@@ -646,7 +656,7 @@ export async function submitKycDocument(
     verifyMode: 'document',
     docVerified,
     faceVerified: false,
-    extractedIdNo: verdict.idNumber || undefined,
+    extractedIdNo: idNo || undefined,
     dob: verdict.dob || existing?.dob || '',
     geminiConfidence: verdict.confidence,
     geminiResult: { document: verdict },

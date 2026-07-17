@@ -262,6 +262,7 @@ export default {
       unsupported_doc_type: 'Unsupported document type',
       name_mismatch: 'Name on document does not match',
       low_confidence: 'Document authenticity confidence too low',
+      missing_id_number: 'ID number on the document could not be read',
       underage: 'Must be at least 21 years old to complete verification',
       no_live_person: 'No live person detected',
       no_blink: 'Blink action not detected',

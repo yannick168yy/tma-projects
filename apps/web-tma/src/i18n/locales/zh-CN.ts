@@ -261,6 +261,7 @@ export default {
       unsupported_doc_type: '不支持的证件类型',
       name_mismatch: '证件姓名与填写不符',
       low_confidence: '证件真实性置信度不足',
+      missing_id_number: '证件号码无法识别',
       underage: '未满 21 周岁，无法通过实名认证',
       no_live_person: '未检测到真人',
       no_blink: '未检测到眨眼动作',

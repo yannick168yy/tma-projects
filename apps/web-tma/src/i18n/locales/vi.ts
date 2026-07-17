@@ -998,6 +998,7 @@ export default {
       unsupported_doc_type: 'Loại tài liệu không được hỗ trợ',
       name_mismatch: 'Tên trên tài liệu không khớp',
       low_confidence: 'Độ tin cậy xác thực tài liệu thấp',
+      missing_id_number: 'Không đọc được số giấy tờ trên tài liệu',
       underage: 'Phải đủ 21 tuổi mới có thể xác minh danh tính',
       no_live_person: 'Không phát hiện người thật',
       no_blink: 'Không phát hiện hành động chớp mắt',
