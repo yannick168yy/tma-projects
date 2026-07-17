@@ -305,10 +305,6 @@ export async function getUserByInviteCode(env: Env, code: string): Promise<UserR
   return rows[0] ? mapUser(rows[0]) : null
 }
 
-export async function getUserByUsername(env: Env, username: string): Promise<UserRecord | null> {
-  return getUserByIdentity(env, 'account', username)
-}
-
 export async function getUserByPhoneAccount(env: Env, phone: string): Promise<UserRecord | null> {
   return getUserByIdentity(env, 'phone', phone)
 }
@@ -514,7 +510,7 @@ export async function createUserFromGoogle(
 export async function createUserFromPassword(
   env: Env,
   input: {
-    identifierType: 'phone' | 'account'
+    identifierType: 'phone'
     identifier: string
     passwordHash: string
     displayName: string

@@ -88,7 +88,7 @@ function attributeAgent(ctx: import('koa').Context, isNewUser: boolean, userId: 
 }
 
 function isPasswordMethod(m: unknown): m is PasswordMethod {
-  return m === 'phone' || m === 'account'
+  return m === 'phone'
 }
 
 router.post('/telegram', async (ctx) => {

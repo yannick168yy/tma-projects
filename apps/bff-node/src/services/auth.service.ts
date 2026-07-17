@@ -21,7 +21,6 @@ import {
   getUserByInviteCode,
   getUserByPhoneAccount,
   getUserByTelegramId,
-  getUserByUsername,
   listUserIdentities,
   reassignIdentity,
   saveSession,
@@ -41,7 +40,7 @@ import { toPublicUser } from './userPresentation.js'
 import { lookupRegion } from './geo.service.js'
 import { findEntryBotAgent, attributeAgentByBot } from './agent.service.js'
 
-export type PasswordMethod = 'phone' | 'account'
+export type PasswordMethod = 'phone'
 
 const OTP_TTL_SEC = 300
 const RESEND_INTERVAL_SEC = 60
@@ -268,19 +267,10 @@ export async function loginWithGoogleCode(
   }
 }
 
-const USERNAME_RE = /^[A-Za-z0-9_]{4,20}$/
-
-function normalizeIdentifier(method: PasswordMethod, identifier: string): string {
-  const id = identifier.trim()
-  if (method === 'phone') {
-    const e164 = normalizePhonePH(id)
-    if (!e164) throw new AuthError('Invalid phone number', 400)
-    return e164
-  }
-  if (!USERNAME_RE.test(id)) {
-    throw new AuthError('Username must be 4-20 letters, digits or underscore', 400)
-  }
-  return id
+function normalizeIdentifier(_method: PasswordMethod, identifier: string): string {
+  const e164 = normalizePhonePH(identifier.trim())
+  if (!e164) throw new AuthError('Invalid phone number', 400)
+  return e164
 }
 
 const forgotOtpKey = (phone: string) => `auth:forgot:otp:${phone}`
@@ -309,14 +299,12 @@ export async function registerWithPassword(
   }
   const identifier = normalizeIdentifier(input.method, input.identifier)
 
-  const existing = input.method === 'phone'
-    ? await getUserByPhoneAccount(redis, identifier)
-    : await getUserByUsername(redis, identifier)
+  const existing = await getUserByPhoneAccount(redis, identifier)
   if (existing) {
-    throw new AuthError(input.method === 'phone' ? 'Phone already registered' : 'Username already taken', 409)
+    throw new AuthError('Phone already registered', 409)
   }
   // 手机全局互斥：注册手机不能是他号已验证的 KYC 手机
-  if (input.method === 'phone' && (await findKycByVerifiedPhone(redis, identifier, ''))) {
+  if (await findKycByVerifiedPhone(redis, identifier, '')) {
     throw new AuthError('该手机号已被其他账号使用', 409)
   }
 
@@ -334,15 +322,15 @@ export async function registerWithPassword(
       identifierType: input.method,
       identifier,
       passwordHash,
-      displayName: input.method === 'phone' ? identifier : input.identifier.trim(),
+      displayName: identifier,
       referredBy,
       registerIp: ip,
       registerRegion: region,
     })
   } catch (e) {
-    // 同名并发注册竞态：预检通过但 bindIdentity 撞唯一键，与预检命中同语义返 409
+    // 同号并发注册竞态：预检通过但 bindIdentity 撞唯一键，与预检命中同语义返 409
     if (e instanceof Error && e.message === 'Identity already bound to another account') {
-      throw new AuthError(input.method === 'phone' ? 'Phone already registered' : 'Username already taken', 409)
+      throw new AuthError('Phone already registered', 409)
     }
     throw e
   }
@@ -698,33 +686,6 @@ export async function bindPhone(
     identifier: phone,
     credentialHash,
     displayLabel: phone,
-    verifiedAt: new Date().toISOString(),
-  })
-  await saveUser(redis, user)
-  return user
-}
-
-export async function bindAccount(
-  redis: Redis,
-  userId: string,
-  username: string,
-  password: string,
-): Promise<UserRecord> {
-  if (!USERNAME_RE.test(username)) {
-    throw new AuthError('Username must be 4-20 letters, digits or underscore', 400)
-  }
-  if (!password || password.length < 8) {
-    throw new AuthError('Password must be at least 8 characters', 400)
-  }
-  const owner = await getUserByUsername(redis, username)
-  if (owner && owner.id !== userId) throw new AuthError('用户名已被占用', 409)
-  const user = await loadUser(redis, userId)
-  await bindIdentity(redis, {
-    userId,
-    provider: 'account',
-    identifier: username,
-    credentialHash: await hashPassword(password),
-    displayLabel: username,
     verifiedAt: new Date().toISOString(),
   })
   await saveUser(redis, user)

@@ -22,7 +22,7 @@ interface Props { detail: Detail; onSuccess?: () => void }
 
 export default function UserInfo({ detail, onSuccess }: Props) {
   const navigate = useNavigate()
-  const [resetTarget, setResetTarget] = useState<{ provider: 'phone' | 'account'; label: string } | null>(null)
+  const [resetTarget, setResetTarget] = useState<{ provider: 'phone'; label: string } | null>(null)
   const [resetLoading, setResetLoading] = useState(false)
   const [form] = Form.useForm<{ password: string; confirm: string; opPassword: string }>()
   const lookup = (field: 'ip' | 'deviceId' | 'fpVisitor', v: unknown) => {
@@ -64,13 +64,10 @@ export default function UserInfo({ detail, onSuccess }: Props) {
     }
   }
 
-  const passwordIdentity = (provider: 'phone' | 'account', value: string) => value ? (
+  const passwordIdentity = (provider: 'phone', value: string) => value ? (
     <Space>
       <span>{value}</span>
-      <Button
-        size="small"
-        onClick={() => setResetTarget({ provider, label: provider === 'phone' ? 'Phone' : 'Username' })}
-      >
+      <Button size="small" onClick={() => setResetTarget({ provider, label: 'Phone' })}>
         重置密码
       </Button>
     </Space>
@@ -99,7 +96,8 @@ export default function UserInfo({ detail, onSuccess }: Props) {
           <Descriptions.Item label="Telegram">{String(u.telegramUsername ?? u.telegramUserId ?? '') || '-'}</Descriptions.Item>
           <Descriptions.Item label="Google">{String(u.googleEmail ?? u.email ?? '') || '-'}</Descriptions.Item>
           <Descriptions.Item label="Phone">{passwordIdentity('phone', phone)}</Descriptions.Item>
-          <Descriptions.Item label="Username">{passwordIdentity('account', username)}</Descriptions.Item>
+          {/* 账号密码登录已下线,仅展示存量用户名 */}
+          <Descriptions.Item label="Username">{username || '-'}</Descriptions.Item>
           <Descriptions.Item label="状态"><Tag color={statusColor(String(u.status ?? ''))}>{String(u.status ?? '')}</Tag></Descriptions.Item>
           <Descriptions.Item label="标记"><Tag color={String(u.label) === 'arbitrage' ? 'red' : 'default'}>{labelText(String(u.label ?? 'normal'))}</Tag></Descriptions.Item>
           <Descriptions.Item label="注册时间">{fmtDate(String(u.registeredAt ?? ''))}</Descriptions.Item>

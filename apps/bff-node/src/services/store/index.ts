@@ -94,11 +94,6 @@ export const getUserByGoogleSub = (redis: Redis, sub: string) =>
     ? mysqlStore.getUserByGoogleSub(env(), sub)
     : redisStore.getUserByGoogleSub(redis, sub)
 
-export const getUserByUsername = (redis: Redis, username: string) =>
-  isMysqlEnabled(env())
-    ? mysqlStore.getUserByUsername(env(), username)
-    : redisStore.getUserByUsername(redis, username)
-
 export const getUserByPhoneAccount = (redis: Redis, phone: string) =>
   isMysqlEnabled(env())
     ? mysqlStore.getUserByPhoneAccount(env(), phone)

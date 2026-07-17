@@ -362,10 +362,6 @@ export async function createUserFromGoogle(
   return { user, isNewUser: true }
 }
 
-export async function getUserByUsername(redis: Redis, username: string): Promise<UserRecord | null> {
-  return getUserByIdentity(redis, 'account', username)
-}
-
 export async function getUserByPhoneAccount(redis: Redis, phone: string): Promise<UserRecord | null> {
   return getUserByIdentity(redis, 'phone', phone)
 }
@@ -379,7 +375,7 @@ export async function getUserByEmail(redis: Redis, email: string): Promise<UserR
 export async function createUserFromPassword(
   redis: Redis,
   input: {
-    identifierType: 'phone' | 'account'
+    identifierType: 'phone'
     identifier: string
     passwordHash: string
     displayName: string

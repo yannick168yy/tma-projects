@@ -13,7 +13,6 @@ interface MeResponse {
   id: string
   telegramUserId?: number
   telegramUsername?: string
-  username?: string
   displayName: string
   avatarUrl?: string
   inviteCode?: string
@@ -23,7 +22,6 @@ interface MeResponse {
   boundTelegram?: boolean
   boundGoogle?: boolean
   boundPhone?: boolean
-  boundAccount?: boolean
   isAgent?: boolean
 }
 
@@ -32,7 +30,6 @@ function toAuthUser(me: MeResponse): AuthUser {
     id: me.id,
     telegramUserId: me.telegramUserId,
     telegramUsername: me.telegramUsername,
-    username: me.username,
     displayName: me.displayName,
     avatarUrl: me.avatarUrl,
     inviteCode: me.inviteCode,
@@ -42,7 +39,6 @@ function toAuthUser(me: MeResponse): AuthUser {
     boundTelegram: me.boundTelegram,
     boundGoogle: me.boundGoogle,
     boundPhone: me.boundPhone,
-    boundAccount: me.boundAccount,
     isAgent: me.isAgent,
   }
 }
@@ -64,10 +60,6 @@ export async function bindGoogle(code: string, redirectUri: string): Promise<{ u
 
 export async function bindPhone(phone: string, password: string): Promise<{ user: AuthUser }> {
   return apiRequest('/user/bind/phone', { method: 'POST', body: JSON.stringify({ phone, password }) })
-}
-
-export async function bindAccount(username: string, password: string): Promise<{ user: AuthUser }> {
-  return apiRequest('/user/bind/account', { method: 'POST', body: JSON.stringify({ username, password }) })
 }
 
 export async function loginTelegram(): Promise<AuthSession> {

@@ -117,7 +117,7 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
     // 固定优先级(telegram>google>...)从已绑定身份推导的，多绑用户会恒为 telegram，导致
     // 上次用 Google 登录却提示"继续用 Telegram"。boot/restore 无本次方式，不覆写记录。
     if (loginMethod) {
-      const identifier = loginMethod === 'phone' ? session.user.phone : loginMethod === 'account' ? session.user.username : undefined
+      const identifier = loginMethod === 'phone' ? session.user.phone : undefined
       saveLastLogin({
         provider: loginMethod,
         identifier: isRememberMeEnabled() ? identifier : undefined,

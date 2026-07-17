@@ -5,14 +5,13 @@ export interface ApiResponse<T> {
   traceId?: string
 }
 
-export type LoginProvider = 'telegram' | 'google' | 'phone' | 'account'
-export type PasswordMethod = 'phone' | 'account'
+export type LoginProvider = 'telegram' | 'google' | 'phone'
+export type PasswordMethod = 'phone'
 
 export interface AuthUser {
   id: string
   telegramUserId?: number
   telegramUsername?: string
-  username?: string
   displayName: string
   avatarUrl?: string
   inviteCode?: string
@@ -23,7 +22,6 @@ export interface AuthUser {
   boundTelegram?: boolean
   boundGoogle?: boolean
   boundPhone?: boolean
-  boundAccount?: boolean
   isAgent?: boolean
   firstDepClaimed?: boolean
 }

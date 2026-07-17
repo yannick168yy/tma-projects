@@ -1,6 +1,6 @@
 import type { IdentityProvider, UserIdentity, UserRecord } from '../types/domain.js'
 
-export type LoginProvider = 'telegram' | 'google' | 'phone' | 'account'
+export type LoginProvider = 'telegram' | 'google' | 'phone'
 
 function hasIdentity(identities: UserIdentity[], provider: IdentityProvider): boolean {
   return identities.some((item) => item.provider === provider)
@@ -14,7 +14,6 @@ export function resolveLoginProvider(identities: UserIdentity[]): LoginProvider 
   if (hasIdentity(identities, 'telegram') || hasIdentity(identities, 'telegram_oidc')) return 'telegram'
   if (hasIdentity(identities, 'google')) return 'google'
   if (hasIdentity(identities, 'phone')) return 'phone'
-  if (hasIdentity(identities, 'account')) return 'account'
   return 'telegram'
 }
 
@@ -23,7 +22,6 @@ export function toPublicUser(user: UserRecord, identities: UserIdentity[] = []) 
   const email = user.email || undefined
   const telegram = firstIdentity(identities, 'telegram', 'telegram_oidc')
   const phone = firstIdentity(identities, 'phone')
-  const account = firstIdentity(identities, 'account')
 
   return {
     id: user.id,
@@ -35,12 +33,10 @@ export function toPublicUser(user: UserRecord, identities: UserIdentity[] = []) 
     email,
     telegramUsername: telegram?.displayLabel,
     phone: phone?.displayLabel ?? phone?.identifier,
-    username: account?.identifier,
     // 各登录方式是否已绑定（绑定页用）
     boundTelegram: hasIdentity(identities, 'telegram') || hasIdentity(identities, 'telegram_oidc'),
     boundGoogle: hasIdentity(identities, 'google'),
     boundPhone: hasIdentity(identities, 'phone'),
-    boundAccount: hasIdentity(identities, 'account'),
     // 首充嘉年华是否已发放（充值页首存奖励角标用）
     firstDepClaimed: user.firstDepClaimed,
   }

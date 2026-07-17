@@ -3,7 +3,7 @@ import type { RowDataPacket } from 'mysql2/promise'
 import { getMysqlPool } from '../clients/mysql.client.js'
 import { getUser, listUserIdentities, saveUser } from '../services/store.js'
 import { toPublicUser } from '../services/userPresentation.js'
-import { AuthError, bindAccount, bindGoogleAccount, bindPhone, bindTelegramOidc, bindTelegramWidget } from '../services/auth.service.js'
+import { AuthError, bindGoogleAccount, bindPhone, bindTelegramOidc, bindTelegramWidget } from '../services/auth.service.js'
 import { isAppLocale } from '../types/locale.js'
 import { fail, ok } from '../utils/response.js'
 
@@ -93,15 +93,6 @@ router.post('/bind/phone', async (ctx) => {
   if (!body.password) { fail(ctx, 400, 'password is required'); return }
   try {
     const user = await bindPhone(ctx.state.redis, ctx.state.userId!, body.phone, body.password)
-    ok(ctx, { user: toPublicUser(user, await listUserIdentities(ctx.state.redis, user.id)) })
-  } catch (e) { if (!handleBindError(ctx, e)) throw e }
-})
-
-router.post('/bind/account', async (ctx) => {
-  const body = ctx.request.body as { username?: string; password?: string }
-  if (!body.username || !body.password) { fail(ctx, 400, 'username and password are required'); return }
-  try {
-    const user = await bindAccount(ctx.state.redis, ctx.state.userId!, body.username, body.password)
     ok(ctx, { user: toPublicUser(user, await listUserIdentities(ctx.state.redis, user.id)) })
   } catch (e) { if (!handleBindError(ctx, e)) throw e }
 })

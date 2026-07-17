@@ -134,8 +134,8 @@ router.patch('/:id/status', async (ctx) => {
 
 router.post('/:id/reset-password', async (ctx) => {
   const body = ctx.request.body as { provider?: string; password?: string; opPassword?: string }
-  if (body.provider !== 'phone' && body.provider !== 'account') {
-    fail(ctx, 400, 'provider must be phone | account'); return
+  if (body.provider !== 'phone') {
+    fail(ctx, 400, 'provider must be phone'); return
   }
   if (!body.password || body.password.length < 8) {
     fail(ctx, 400, 'Password must be at least 8 characters'); return

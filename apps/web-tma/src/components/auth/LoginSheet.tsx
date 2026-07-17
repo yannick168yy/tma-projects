@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { X, User, Phone, Lock, Eye, EyeOff, Check, ArrowLeft } from 'lucide-react'
+import { X, Phone, Lock, Eye, EyeOff, Check, ArrowLeft } from 'lucide-react'
 import { createPortal } from 'react-dom'
 import BetogoLogo from '@/components/BetogoLogo'
 import { resetForgotPassword, sendForgotPasswordOtp } from '@/api/auth'
@@ -9,7 +9,6 @@ import { clearLastLogin, getLastLogin, isRememberMeEnabled, setRememberMeEnabled
 import { getStoredReferral } from '@/utils/referral'
 import { translateApiError } from '@/utils/translateApiError'
 import { TURNSTILE_SITE_KEY, loadTurnstile } from '@/utils/turnstile'
-import type { PasswordMethod } from '@/types/api'
 
 interface Props {
   open: boolean
@@ -47,23 +46,19 @@ export default function LoginSheet({ open, onClose }: Props) {
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
 
-  const [method, setMethod] = useState<PasswordMethod>('phone')
   const [view, setView] = useState<'auth' | 'forgot'>('auth')
   const [identifier, setIdentifier] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [rememberMe, setRememberMe] = useState(() => isRememberMeEnabled())
-  // 上次登录记忆：OAuth 显示快捷续登卡片，phone/account 预填标识
+  // 上次登录记忆：OAuth 显示快捷续登卡片，phone 预填手机号
   const initialLastLogin = useMemo(() => (open ? getLastLogin() : null), [open])
   const [lastLogin, setLastLogin] = useState(initialLastLogin)
   useEffect(() => {
     if (!open) return
     const last = getLastLogin()
     setLastLogin(last)
-    if (last && (last.provider === 'phone' || last.provider === 'account')) {
-      setMethod(last.provider)
-      if (last.identifier) setIdentifier(last.identifier)
-    }
+    if (last?.provider === 'phone' && last.identifier) setIdentifier(last.identifier)
   }, [open])
   const quickLogin = lastLogin && (lastLogin.provider === 'google' || lastLogin.provider === 'telegram') ? lastLogin : null
   const [resetPhone, setResetPhone] = useState('')
@@ -109,7 +104,7 @@ export default function LoginSheet({ open, onClose }: Props) {
   }
 
   function onIdentifierChange(value: string) {
-    setIdentifier(method === 'phone' ? normalizePhoneInput(value) : value)
+    setIdentifier(normalizePhoneInput(value))
   }
 
   function onQuickLogin() {
@@ -170,7 +165,7 @@ export default function LoginSheet({ open, onClose }: Props) {
     setError(null)
     setNotice(null)
     try {
-      await loginOrRegisterWithPassword(method, identifier.trim(), password, undefined, turnstileToken)
+      await loginOrRegisterWithPassword('phone', identifier.trim(), password, undefined, turnstileToken)
     } catch (e) {
       setError(e instanceof Error ? translateApiError(e.message, t) : t('auth.loginFailed'))
       // 验证码校验失败或已消费，重置 widget 换新 token
@@ -308,34 +303,16 @@ export default function LoginSheet({ open, onClose }: Props) {
 
           {view === 'auth' ? (
             <>
-              <div className="mt-5 grid grid-cols-2 rounded-[18px] border border-white/8 bg-[#121827] p-1">
-                {(['phone', 'account'] as const).map((m) => (
-                  <button
-                    key={m}
-                    type="button"
-                    className={`flex items-center justify-center gap-1.5 rounded-[14px] border py-2.5 text-xs font-black transition-all ${
-                      method === m
-                        ? 'border-primary/35 bg-primary/8 text-primary shadow-[0_0_18px_rgba(255,184,0,0.12)]'
-                        : 'border-transparent text-[#8f96ad]'
-                    }`}
-                    onClick={() => { setMethod(m); setError(null); setNotice(null); setIdentifier('') }}
-                  >
-                    {m === 'account' ? <User size={16} /> : <Phone size={16} />}
-                    {m === 'account' ? t('auth.tabAccount') : t('auth.tabPhone')}
-                  </button>
-                ))}
-              </div>
-
               <div className="mt-4 space-y-3">
                 <div className="relative">
                   <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[#9aa1c7]">
-                    {method === 'phone' ? <Phone size={18} /> : <User size={18} />}
+                    <Phone size={18} />
                   </span>
                   <input
                     value={identifier}
-                    type={method === 'phone' ? 'tel' : 'text'}
-                    autoComplete={method === 'phone' ? 'tel' : 'username'}
-                    placeholder={method === 'phone' ? t('auth.phonePlaceholder') : t('auth.usernamePlaceholder')}
+                    type="tel"
+                    autoComplete="tel"
+                    placeholder={t('auth.phonePlaceholder')}
                     className="w-full rounded-[14px] border border-white/12 bg-[#121824] py-3.5 pl-11 pr-4 text-sm font-bold text-foreground transition-colors placeholder:text-[#798098] focus:border-primary focus:outline-none"
                     onChange={(e) => onIdentifierChange(e.target.value)}
                   />
@@ -377,7 +354,7 @@ export default function LoginSheet({ open, onClose }: Props) {
                   <button
                     type="button"
                     className="text-xs font-black text-primary"
-                    onClick={() => { setView('forgot'); setError(null); setNotice(null); setResetPhone(method === 'phone' ? identifier : '') }}
+                    onClick={() => { setView('forgot'); setError(null); setNotice(null); setResetPhone(identifier) }}
                   >
                     {t('auth.forgotPassword')}
                   </button>
