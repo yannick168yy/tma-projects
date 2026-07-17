@@ -73,7 +73,7 @@ async function enforceVerifyRateLimit(
   const n = await redis.incr(key)
   if (n === 1) await redis.expire(key, VERIFY_RL_WINDOW_SEC)
   if (n > env.KYC_VERIFY_MAX_PER_DAY) {
-    throw new KycError('实名认证尝试过于频繁，请 24 小时后再试', 429)
+    throw new KycError('kyc.errors.verifyTooFrequent', 429)
   }
 }
 
@@ -88,10 +88,10 @@ async function saveApprovedWithIdGuard(redis: Redis, submission: KycSubmission):
   }
   const lockKey = idLockKey(idNo)
   const locked = await redis.set(lockKey, submission.userId, 'EX', 30, 'NX')
-  if (!locked) throw new KycError('该证件正在被其他账号验证，请稍后再试', 409)
+  if (!locked) throw new KycError('kyc.errors.docVerifyBusy', 409)
   try {
     const owner = await findKycByExtractedIdNo(redis, idNo, submission.userId)
-    if (owner) throw new KycError('该证件已被其他账号用于实名认证', 409)
+    if (owner) throw new KycError('kyc.errors.docAlreadyUsed', 409)
     await saveKyc(redis, submission)
   } finally {
     await redis.del(lockKey)
@@ -605,7 +605,7 @@ export async function submitKycDocument(
 
   if (verdict.idNumber) {
     const owner = await findKycByExtractedIdNo(redis, verdict.idNumber, userId)
-    if (owner) throw new KycError('该证件已被其他账号用于实名认证', 409)
+    if (owner) throw new KycError('kyc.errors.docAlreadyUsed', 409)
   }
 
   const storage = getStorageProvider(env)

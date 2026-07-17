@@ -989,6 +989,9 @@ export default {
       unsupportedDocType: 'Loại giấy tờ không được hỗ trợ',
       docFailureLimitReached: 'Xác minh giấy tờ đang bị khóa. Vui lòng thử lại sau 3 phút.',
       faceFailureLimitReached: 'Xác minh khuôn mặt đang bị khóa. Vui lòng thử lại sau 3 phút.',
+      docAlreadyUsed: 'Giấy tờ này đã được tài khoản khác dùng để xác minh danh tính',
+      docVerifyBusy: 'Giấy tờ này đang được tài khoản khác xác minh. Vui lòng thử lại sau.',
+      verifyTooFrequent: 'Thử xác minh quá nhiều lần. Vui lòng thử lại sau 24 giờ.',
     },
     reasons: {
       invalid_doc: 'Tài liệu không hợp lệ hoặc không đọc được',

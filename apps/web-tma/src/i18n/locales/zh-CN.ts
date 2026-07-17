@@ -284,6 +284,9 @@ export default {
       unsupportedDocType: '不支持的证件类型',
       docFailureLimitReached: '证件验证已锁定，请 3 分钟后再试',
       faceFailureLimitReached: '人脸验证已锁定，请 3 分钟后再试',
+      docAlreadyUsed: '该证件已被其他账号用于实名认证',
+      docVerifyBusy: '该证件正在被其他账号验证，请稍后再试',
+      verifyTooFrequent: '实名认证尝试过于频繁，请 24 小时后再试',
     },
   },
   bind: {

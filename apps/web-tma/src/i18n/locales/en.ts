@@ -285,6 +285,9 @@ export default {
       unsupportedDocType: 'Unsupported document type',
       docFailureLimitReached: 'Document verification is locked. Please try again in 3 minutes.',
       faceFailureLimitReached: 'Face verification is locked. Please try again in 3 minutes.',
+      docAlreadyUsed: 'This ID document has already been used by another account',
+      docVerifyBusy: 'This ID document is being verified by another account. Please try again later.',
+      verifyTooFrequent: 'Too many verification attempts. Please try again in 24 hours.',
     },
   },
   bind: {

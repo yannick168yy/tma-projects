@@ -971,6 +971,9 @@ export default {
       unsupportedDocType: 'Jenis dokumen tidak didukung',
       docFailureLimitReached: 'Verifikasi dokumen dikunci. Coba lagi dalam 3 menit.',
       faceFailureLimitReached: 'Verifikasi wajah dikunci. Coba lagi dalam 3 menit.',
+      docAlreadyUsed: 'Dokumen identitas ini sudah digunakan oleh akun lain',
+      docVerifyBusy: 'Dokumen ini sedang diverifikasi oleh akun lain. Coba lagi nanti.',
+      verifyTooFrequent: 'Terlalu banyak percobaan verifikasi. Coba lagi dalam 24 jam.',
     },
     reasons: {
       invalid_doc: 'Dokumen tidak valid atau tidak terbaca',

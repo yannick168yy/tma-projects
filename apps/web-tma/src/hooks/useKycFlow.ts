@@ -55,17 +55,26 @@ function formatFaceRejectError(reason: string | null | undefined, t: Translate):
   return `${reasonText}. ${t('kyc.faceRetryHint')}`
 }
 
+// 非"照片质量"类错误(锁定/重复占用/频控)追加重拍提示只会误导,原样展示
+const NO_RETRY_HINT_ERRORS = new Set([
+  'kyc.errors.docFailureLimitReached',
+  'kyc.errors.faceFailureLimitReached',
+  'kyc.errors.docAlreadyUsed',
+  'kyc.errors.docVerifyBusy',
+  'kyc.errors.verifyTooFrequent',
+])
+
 function formatDocApiError(e: unknown, t: Translate): string {
   if (!(e instanceof ApiError)) return t('kyc.rejected')
   const message = translateKycError(e.message, t, t('kyc.docRecognitionFailed'))
-  if (e.message === 'kyc.errors.docFailureLimitReached') return message
+  if (NO_RETRY_HINT_ERRORS.has(e.message)) return message
   return `${message}. ${t('kyc.docReuploadHint')}`
 }
 
 function formatFaceApiError(e: unknown, t: Translate): string {
   if (!(e instanceof ApiError)) return t('kyc.rejected')
   const message = translateKycError(e.message, t, t('kyc.faceFailed'))
-  if (e.message === 'kyc.errors.faceFailureLimitReached') return message
+  if (NO_RETRY_HINT_ERRORS.has(e.message)) return message
   return `${message}. ${t('kyc.faceRetryHint')}`
 }
 
