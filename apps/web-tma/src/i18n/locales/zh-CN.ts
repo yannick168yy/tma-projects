@@ -544,7 +544,6 @@ export default {
     statusProcessing: '处理中...',
     noActivity: '今日暂无投注',
     totalBonus: '返利总额',
-    estimatedTodayLabel: '今日预估（00:00 结算）：',
     dataUpdates: '数据每 10 分钟更新',
     cashbackRate: '洗码比例',
     bonusLabel: '返利',

@@ -287,8 +287,10 @@ export default function RebatePage({ onOpenGame, onOpenCategory }: Props) {
   ]
 
   const claimableTarget = token ? (progress?.claimable ?? 0) : 0
-  const animatedClaimable = useCountUp(claimableTarget)
   const estimatedToday = token ? (progress?.estimatedToday ?? 0) : 0
+  // Total Bonus 显示"已结算可领 + 今日未结算预估"合计; Claim 仍只领 claimable 部分
+  const totalTarget = claimableTarget + estimatedToday
+  const animatedTotal = useCountUp(totalTarget)
 
   return (
     <div className="page-main pb-8 min-h-screen bg-[#0f0a1d]">
@@ -308,14 +310,9 @@ export default function RebatePage({ onOpenGame, onOpenCategory }: Props) {
           <div className="relative flex items-center justify-between gap-3 px-4 py-3">
             <div className="min-w-0">
               <p className="text-violet-300 font-bold text-[11px] uppercase tracking-widest">{t('cashback.totalBonus')}</p>
-              <p className={`text-white font-black text-[22px] font-display drop-shadow mt-0.5 ${claimableTarget > 0 ? 'rb-pop' : ''}`}>
-                {amtStr(currency, animatedClaimable)}
+              <p className={`text-white font-black text-[22px] font-display drop-shadow mt-0.5 ${totalTarget > 0 ? 'rb-pop' : ''}`}>
+                {amtStr(currency, animatedTotal)}
               </p>
-              {estimatedToday > 0 && (
-                <p className="mt-1 text-[11px] text-violet-200/50">
-                  {t('cashback.estimatedTodayLabel')} <span className="font-bold text-violet-200/75">{amtStr(currency, estimatedToday)}</span>
-                </p>
-              )}
             </div>
             <button
               type="button"

@@ -545,7 +545,6 @@ export default {
     statusProcessing: 'Processing...',
     noActivity: 'No bets yet today',
     totalBonus: 'Total Bonus',
-    estimatedTodayLabel: 'Today (settles at 00:00):',
     dataUpdates: 'Data Updates Every 10 Minutes',
     cashbackRate: 'Cashback rate',
     bonusLabel: 'Bonus',
