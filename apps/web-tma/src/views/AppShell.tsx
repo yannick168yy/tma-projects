@@ -14,6 +14,7 @@ import {
   displayCurrencyCode,
 } from '@/stores/wallet'
 import { isImmersiveFullPage } from '@/hooks/useFullPageOverlay'
+import type { TaskInitialPath } from '@/hooks/useFullPageOverlay'
 import { useAppNavigation } from '@/hooks/useAppNavigation'
 import { legacyLobbyCat } from '@/navigation/appRoutes'
 import { shouldShowDownloadBar, dismissDownloadBar, isIos, isStandalone } from '@/utils/pwa'
@@ -144,6 +145,8 @@ export default function AppShell() {
   const [redepSheetOpen, setRedepSheetOpen] = useState(false)
   // 本会话最多自动弹一个进站弹窗，避免新人礼包与首席体验官同时弹出
   const autoPopupFired = useRef(false)
+  // 新人礼包 continue 触发登录时记录意图，登录成功后续跳 tasks
+  const pendingTasksTab = useRef<TaskInitialPath | null>(null)
   const inTelegram = isInsideTelegram()
 
   const giftAllDone = useMemo(() => {
@@ -181,6 +184,20 @@ export default function AppShell() {
     localStorage.setItem(NEW_PLAYER_POPUP_KEY, popup.frequency === 'once' ? '1' : today)
     setGiftSheetOpen(true)
   }, [promoConfig, npSummary, view.type, activeNav, auth.token, giftAllDone, gamePlayerUrl])
+
+  // 登录成功后续跳：礼包 continue 时若未登录，登录完成后自动打开 tasks
+  useEffect(() => {
+    if (isLoggedIn && pendingTasksTab.current) {
+      const tab = pendingTasksTab.current
+      pendingTasksTab.current = null
+      openTasks(tab)
+    }
+  }, [isLoggedIn])
+
+  // 用户未登录就关闭登录框(放弃)，清掉续跳意图，避免之后别处登录误跳 tasks
+  useEffect(() => {
+    if (!auth.loginSheetOpen && !isLoggedIn) pendingTasksTab.current = null
+  }, [auth.loginSheetOpen, isLoggedIn])
 
   // 首席体验官进站弹窗：登录且资格未领取时，按后台 popups.trial 配置自动弹出
   useEffect(() => {
@@ -724,7 +741,7 @@ export default function AppShell() {
             onContinue={() => {
               setGiftSheetOpen(false)
               if (isLoggedIn) openTasks('newbie')
-              else void auth.ensureLoggedIn(t('auth.signInBonus'))
+              else { pendingTasksTab.current = 'newbie'; void auth.ensureLoggedIn(t('auth.signInBonus')) }
             }}
           />
         )}
