@@ -682,66 +682,81 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
         </div>
       </div>
 
-      {/* 产品优势条 */}
-      <section className="mt-4 px-4">
-        <div className="grid grid-cols-3 gap-2">
-          <div className="bg-secondary border border-border rounded-2xl px-2 py-3.5 flex flex-col items-center gap-2 text-center">
-            <div className="w-9 h-9 rounded-full bg-amber-500/15 flex items-center justify-center"><Zap size={17} className="text-amber-400" /></div>
-            <p className="text-[11px] font-bold text-foreground leading-tight">{t('home.advFast')}</p>
-          </div>
-          <button type="button" className="bg-secondary border border-border rounded-2xl px-2 py-3.5 flex flex-col items-center gap-2 text-center active:scale-95 transition-transform" onClick={onOpenCs}>
-            <div className="w-9 h-9 rounded-full bg-primary/15 flex items-center justify-center"><Headphones size={17} className="text-primary" /></div>
-            <p className="text-[11px] font-bold text-foreground leading-tight">{t('home.advSupport')}</p>
-          </button>
-          <div className="bg-secondary border border-border rounded-2xl px-2 py-3.5 flex flex-col items-center gap-2 text-center">
-            <div className="w-9 h-9 rounded-full bg-emerald-500/15 flex items-center justify-center"><ShieldCheck size={17} className="text-emerald-400" /></div>
-            <p className="text-[11px] font-bold text-foreground leading-tight">{t('home.advLicensed')}</p>
-          </div>
-        </div>
-      </section>
-
-      {/* 品牌业务介绍：不套卡片，直接落在页面背景上 */}
-      <section className="mt-12 px-6">
-        <h3 className="text-center font-display font-black text-2xl leading-tight text-foreground">{t('home.brandIntroTitle')}</h3>
-        <div className="mx-auto mt-4 h-px w-10 bg-primary/50" />
-        <p className="mx-auto mt-5 max-w-[30rem] text-center text-[13px] leading-[1.9] text-muted-foreground">{t('home.brandIntroBody')}</p>
-        <div className="mx-auto mt-8 grid max-w-[30rem] grid-cols-4 gap-2">
-          {[
-            { v: '2,000+', l: t('home.brandStatGames') },
-            { v: '20+', l: t('home.brandStatProviders') },
-            { v: t('home.brandStatInstant'), l: t('home.brandStatPayouts') },
-            { v: '24/7', l: t('home.brandStatSupport') },
-          ].map((s) => (
-            <div key={s.l} className="text-center">
-              <p className="font-display text-[15px] font-black leading-none text-primary">{s.v}</p>
-              <p className="mt-2 text-[10px] leading-tight text-muted-foreground">{s.l}</p>
+      {/* 页脚：优势 / 品牌介绍 / 社群 / 合规 / 条款，统一无色块风格，靠间距分层 */}
+      <footer className="mt-10 border-t border-border/50 pt-10">
+        <section className="px-6">
+          <div className="grid grid-cols-3 gap-3">
+            <div className="flex flex-col items-center gap-2.5 text-center">
+              <Zap size={20} className="text-amber-400" />
+              <p className="text-[11px] font-bold leading-tight text-foreground/90">{t('home.advFast')}</p>
             </div>
-          ))}
-        </div>
-      </section>
+            <button type="button" className="flex flex-col items-center gap-2.5 text-center active:scale-95 transition-transform" onClick={onOpenCs}>
+              <Headphones size={20} className="text-primary" />
+              <p className="text-[11px] font-bold leading-tight text-foreground/90">{t('home.advSupport')}</p>
+            </button>
+            <div className="flex flex-col items-center gap-2.5 text-center">
+              <ShieldCheck size={20} className="text-emerald-400" />
+              <p className="text-[11px] font-bold leading-tight text-foreground/90">{t('home.advLicensed')}</p>
+            </div>
+          </div>
+        </section>
 
-      {/* 社区（官方社群入口，写死）；图标复用 team 页品牌圆标 */}
-      <section className="mt-8 px-4">
-        <h3 className="text-muted-foreground font-black text-xs font-display tracking-widest mb-3 text-center">{t('home.communitySection')}</h3>
-        <div className="flex justify-center flex-wrap gap-4">
-          {COMMUNITY_LINKS.map((link) => (
-            <a key={link.label} href={link.url} target="_blank" rel="noopener noreferrer" aria-label={link.label}
-              className="w-11 h-11 active:scale-95 transition-transform">
-              <img src={link.icon} alt={link.label} className="w-full h-full" />
-            </a>
-          ))}
-        </div>
-      </section>
+        <section className="mt-14 px-6">
+          <h3 className="text-center font-display text-2xl font-black leading-tight text-foreground">{t('home.brandIntroTitle')}</h3>
+          <div className="mx-auto mt-4 h-px w-10 bg-primary/50" />
+          <p className="mx-auto mt-5 max-w-[30rem] text-center text-[13px] leading-[1.9] text-muted-foreground">{t('home.brandIntroBody')}</p>
+          <div className="mx-auto mt-8 grid max-w-[30rem] grid-cols-4 gap-2">
+            {[
+              { v: '2,000+', l: t('home.brandStatGames') },
+              { v: '20+', l: t('home.brandStatProviders') },
+              { v: t('home.brandStatInstant'), l: t('home.brandStatPayouts') },
+              { v: '24/7', l: t('home.brandStatSupport') },
+            ].map((s) => (
+              <div key={s.l} className="text-center">
+                <p className="font-display text-[15px] font-black leading-none text-primary">{s.v}</p>
+                <p className="mt-2 text-[10px] leading-tight text-muted-foreground">{s.l}</p>
+              </div>
+            ))}
+          </div>
+        </section>
 
-      {/* 合规区 */}
-      <section className="mt-8 px-4">
-        <p className="text-center text-xs font-bold text-foreground/80 mb-3">{t('home.licenseTitle')}</p>
-        <div className="mx-auto w-fit max-w-full bg-white rounded-full px-5 py-2 flex items-center gap-4">
-          <img src={pagcorImg} alt="PAGCOR" className="h-8 object-contain" />
-          <img src={age21Img} alt="21+ Gambling can be addictive, know when to stop" className="h-8 object-contain" />
-        </div>
-        <p className="mt-4 text-center text-[11px] text-muted-foreground leading-relaxed px-2">{t('home.responsibleNote')}</p>
-      </section>
+        {/* 社群：页脚里的重点板块，前后留白最大、图标最大并带名称 */}
+        <section className="mt-20 px-6">
+          <h3 className="text-center font-display text-base font-black tracking-widest text-foreground">{t('home.communitySection')}</h3>
+          <div className="mt-7 flex flex-wrap justify-center gap-9">
+            {COMMUNITY_LINKS.map((link) => (
+              <a key={link.label} href={link.url} target="_blank" rel="noopener noreferrer"
+                className="flex w-16 flex-col items-center gap-2.5 transition-transform active:scale-95">
+                <img src={link.icon} alt="" className="h-14 w-14" />
+                <span className="text-[11px] text-muted-foreground">{link.label}</span>
+              </a>
+            ))}
+          </div>
+        </section>
+
+        <section className="mt-20 px-6">
+          <p className="mb-4 text-center text-xs font-bold text-foreground/80">{t('home.licenseTitle')}</p>
+          <div className="mx-auto flex w-fit max-w-full items-center gap-4 rounded-full bg-white px-5 py-2">
+            <img src={pagcorImg} alt="PAGCOR" className="h-8 object-contain" />
+            <img src={age21Img} alt="21+ Gambling can be addictive, know when to stop" className="h-8 object-contain" />
+          </div>
+          <p className="mx-auto mt-5 max-w-[30rem] text-center text-[11px] leading-[1.8] text-muted-foreground">{t('home.responsibleNote')}</p>
+        </section>
+
+        <section className="mt-14 border-t border-border/40 px-6 pb-2 pt-7">
+          <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-2">
+            {INFO_LINKS.map((link, i) => (
+              <span key={link.key} className="flex items-center gap-2">
+                {i > 0 && <span className="text-[11px] text-muted-foreground/30">|</span>}
+                <button type="button" className="text-[11px] text-muted-foreground underline-offset-2 active:underline" onClick={() => setInfoModal(link.key)}>
+                  {t(`home.info${link.key.charAt(0).toUpperCase() + link.key.slice(1)}`)}
+                </button>
+              </span>
+            ))}
+          </div>
+          <p className="mb-4 mt-5 text-center text-[10px] text-muted-foreground/50">@2025-2026 BETOGO ALL RIGHTS RESERVED · 21+</p>
+        </section>
+      </footer>
 
       {/* Info Modal */}
       {infoModal && (
@@ -763,21 +778,6 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
           </div>
         </div>
       )}
-
-      {/* 页脚：条款文字链 + 版权 */}
-      <section className="mt-7 px-4 pb-2">
-        <div className="flex items-center justify-center flex-wrap gap-x-2 gap-y-1.5">
-          {INFO_LINKS.map((link, i) => (
-            <span key={link.key} className="flex items-center gap-2">
-              {i > 0 && <span className="text-muted-foreground/30 text-[11px]">|</span>}
-              <button type="button" className="text-[11px] text-muted-foreground underline-offset-2 active:underline" onClick={() => setInfoModal(link.key)}>
-                {t(`home.info${link.key.charAt(0).toUpperCase() + link.key.slice(1)}`)}
-              </button>
-            </span>
-          ))}
-        </div>
-        <p className="mt-3 mb-4 text-center text-[10px] text-muted-foreground/50">@2025-2026 BETOGO ALL RIGHTS RESERVED · 21+</p>
-      </section>
 
 
       {/* First Deposit Fiesta floating entry */}
