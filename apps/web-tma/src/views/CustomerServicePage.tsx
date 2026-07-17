@@ -142,23 +142,44 @@ const QUICK_OPTIONS: QuickNode[] = [
 
 type LocalMsg = CsMessage & { orders?: CsOrder[]; orderKind?: 'deposit' | 'withdraw' }
 
-// 头像图放 public/cs-avatars/<客服名小写>.jpg;缺图时降级成首字母圆头像,不回退到耳机图标
+// 每个客服固定一套配色,Jenny/Jasmine 首字母都是 J,靠颜色区分
+const AGENT_COLORS: Record<string, [string, string]> = {
+  Mika: ['#FB7185', '#E11D48'],
+  Jenny: ['#FBBF24', '#D97706'],
+  Kaye: ['#34D399', '#059669'],
+  Rina: ['#38BDF8', '#0284C7'],
+  Lyca: ['#A78BFA', '#7C3AED'],
+  Anne: ['#F472B6', '#DB2777'],
+  Chloe: ['#2DD4BF', '#0D9488'],
+  Jasmine: ['#FB923C', '#EA580C'],
+  Ella: ['#818CF8', '#4F46E5'],
+  Nica: ['#A3E635', '#65A30D'],
+}
+
+function agentColors(name: string): [string, string] {
+  if (AGENT_COLORS[name]) return AGENT_COLORS[name]
+  // 名池扩容但前端没跟上时,按名字 hash 稳定取一套,不至于全都撞成同一个颜色
+  const palette = Object.values(AGENT_COLORS)
+  const hash = [...name].reduce((acc, c) => acc + c.charCodeAt(0), 0)
+  return palette[hash % palette.length]
+}
+
 function CsAvatar({ name }: { name: string }) {
-  const [failed, setFailed] = useState(false)
-  if (!name || failed) {
+  if (!name) {
     return (
-      <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-primary/15 text-sm font-bold text-primary">
-        {name ? name.charAt(0).toUpperCase() : <Headphones size={18} />}
+      <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary">
+        <Headphones size={18} />
       </div>
     )
   }
+  const [from, to] = agentColors(name)
   return (
-    <img
-      src={`/cs-avatars/${name.toLowerCase()}.jpg`}
-      alt={name}
-      className="h-9 w-9 flex-shrink-0 rounded-full object-cover"
-      onError={() => setFailed(true)}
-    />
+    <div
+      className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-sm font-bold text-white"
+      style={{ backgroundImage: `linear-gradient(135deg, ${from}, ${to})` }}
+    >
+      {name.charAt(0).toUpperCase()}
+    </div>
   )
 }
 
@@ -457,7 +478,7 @@ export default function CustomerServicePage({ onClose }: Props) {
   return (
     <div className="page-scroll hide-scrollbar flex flex-col" style={{ height: '100%' }}>
       <div className="app-safe-header flex items-center gap-3 border-b border-border bg-card px-4 pb-3 pt-3 flex-shrink-0">
-        <CsAvatar key={agentName} name={agentName} />
+        <CsAvatar name={agentName} />
         <div className="flex-1">
           <p className="text-sm font-bold text-foreground">{agentName || t('cs.title')}</p>
           <p className="text-xs text-muted-foreground">
