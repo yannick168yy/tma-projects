@@ -16,6 +16,7 @@ export interface DeterministicCsResult {
   reply: string
   conversationId: number
   status: string
+  agentName: string
 }
 
 export type CsReplyLocale = 'en' | 'zh-CN' | 'id' | 'vi'
@@ -397,7 +398,7 @@ export async function handleDeterministicCsIntent(
   if (conversation.status === 'human_taken') {
     await saveMessage(env, conversationId, 'user', userText)
     const reply = text(locale).humanHandling
-    return { reply, conversationId, status: 'human_taken' }
+    return { reply, conversationId, status: 'human_taken', agentName: conversation.agentName }
   }
 
   await saveMessage(env, conversationId, 'user', userText)
@@ -440,5 +441,5 @@ export async function handleDeterministicCsIntent(
 
   await saveMessage(env, conversationId, status === 'human_taken' ? 'admin' : 'assistant', reply)
   const latest = await getConversationById(env, conversationId)
-  return { reply, conversationId, status: latest?.status ?? status }
+  return { reply, conversationId, status: latest?.status ?? status, agentName: conversation.agentName }
 }

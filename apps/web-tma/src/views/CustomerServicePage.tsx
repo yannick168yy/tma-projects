@@ -142,6 +142,26 @@ const QUICK_OPTIONS: QuickNode[] = [
 
 type LocalMsg = CsMessage & { orders?: CsOrder[]; orderKind?: 'deposit' | 'withdraw' }
 
+// 头像图放 public/cs-avatars/<客服名小写>.jpg;缺图时降级成首字母圆头像,不回退到耳机图标
+function CsAvatar({ name }: { name: string }) {
+  const [failed, setFailed] = useState(false)
+  if (!name || failed) {
+    return (
+      <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-primary/15 text-sm font-bold text-primary">
+        {name ? name.charAt(0).toUpperCase() : <Headphones size={18} />}
+      </div>
+    )
+  }
+  return (
+    <img
+      src={`/cs-avatars/${name.toLowerCase()}.jpg`}
+      alt={name}
+      className="h-9 w-9 flex-shrink-0 rounded-full object-cover"
+      onError={() => setFailed(true)}
+    />
+  )
+}
+
 type QuickLang = 'en' | 'zh-CN' | 'id' | 'vi'
 
 const QUICK_LABELS: Record<string, Record<QuickLang, string>> = {
@@ -245,6 +265,7 @@ export default function CustomerServicePage({ onClose }: Props) {
   const [loading, setLoading] = useState(true)
   const [conversationStatus, setConversationStatus] = useState('active')
   const [welcome, setWelcome] = useState('')
+  const [agentName, setAgentName] = useState('')
   const [menuOpen, setMenuOpen] = useState(false)
   const [quickPath, setQuickPath] = useState<QuickNode[]>([])
   const [streamingId, setStreamingId] = useState<number | null>(null)
@@ -256,6 +277,7 @@ export default function CustomerServicePage({ onClose }: Props) {
   const currentQuickParent = quickPath[quickPath.length - 1]
   const currentQuickOptions = currentQuickParent?.children ?? QUICK_OPTIONS
   const quickTitle = currentQuickParent ? quickLabel(currentQuickParent) : t('cs.quickMenuTitle')
+  const agentLabel = agentName || t('cs.title')
 
   function quickLabel(node: QuickNode) {
     return QUICK_LABELS[node.id]?.[quickLang] ?? node.label
@@ -266,10 +288,10 @@ export default function CustomerServicePage({ onClose }: Props) {
   }
 
   useEffect(() => {
-    fetchCsWelcome().then((res) => setWelcome(res.welcome)).catch(() => {})
+    fetchCsWelcome().then((res) => { setWelcome(res.welcome); setAgentName(res.agentName) }).catch(() => {})
     if (!isLoggedIn) { setLoading(false); return }
     fetchCsHistory()
-      .then((res) => { setMessages(res.messages); setConversationStatus(res.conversation.status) })
+      .then((res) => { setMessages(res.messages); setConversationStatus(res.conversation.status); setAgentName(res.conversation.agentName) })
       .catch(() => {})
       .finally(() => { setLoading(false); scrollToBottom() })
   }, [isLoggedIn])
@@ -435,13 +457,11 @@ export default function CustomerServicePage({ onClose }: Props) {
   return (
     <div className="page-scroll hide-scrollbar flex flex-col" style={{ height: '100%' }}>
       <div className="app-safe-header flex items-center gap-3 border-b border-border bg-card px-4 pb-3 pt-3 flex-shrink-0">
-        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10">
-          <Headphones size={18} className="text-primary" />
-        </div>
+        <CsAvatar key={agentName} name={agentName} />
         <div className="flex-1">
-          <p className="text-sm font-bold text-foreground">{t('cs.title')}</p>
+          <p className="text-sm font-bold text-foreground">{agentName || t('cs.title')}</p>
           <p className="text-xs text-muted-foreground">
-            {conversationEnded ? t('cs.sessionEndedStatus') : conversationStatus === 'human_taken' ? t('cs.humanService') : conversationStatus === 'escalated' ? t('cs.escalatedService') : t('cs.aiService')}
+            {conversationEnded ? t('cs.sessionEndedStatus') : conversationStatus === 'human_taken' ? t('cs.humanService') : conversationStatus === 'escalated' ? t('cs.escalatedService') : t('cs.onlineStatus')}
           </p>
         </div>
         <button
@@ -467,8 +487,8 @@ export default function CustomerServicePage({ onClose }: Props) {
               <>
                 <div className="flex justify-start">
                   <div className="max-w-[85%] rounded-2xl rounded-tl-sm bg-secondary px-3.5 py-2.5">
-                    <p className="text-xs text-muted-foreground mb-1">{t('cs.aiLabel')}</p>
-                    <p className="text-sm text-foreground">{welcome || t('cs.welcome')}</p>
+                    <p className="text-xs text-muted-foreground mb-1">{agentLabel}</p>
+                    <p className="text-sm text-foreground">{welcome || t('cs.welcome', { agent: agentName })}</p>
                   </div>
                 </div>
                 <div className="flex items-center justify-between gap-2">
@@ -499,7 +519,7 @@ export default function CustomerServicePage({ onClose }: Props) {
             {messages.map((msg) => (
               <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                 <div className={`${msg.orders ? 'max-w-[92%]' : 'max-w-[85%]'} rounded-2xl px-3.5 py-2.5 ${msg.role === 'user' ? 'rounded-tr-sm bg-primary text-primary-foreground' : 'rounded-tl-sm bg-secondary text-foreground'}`}>
-                  {msg.role !== 'user' && <p className="text-xs text-muted-foreground mb-1">{msg.role === 'assistant' ? t('cs.aiLabel') : t('cs.agentLabel')}</p>}
+                  {msg.role !== 'user' && <p className="text-xs text-muted-foreground mb-1">{msg.role === 'assistant' ? agentLabel : t('cs.agentLabel')}</p>}
                   {msg.orders ? (
                     <div>
                       <p className="mb-2 text-sm text-foreground">{t(msg.orderKind === 'deposit' ? 'cs.orders.depositIntro' : 'cs.orders.withdrawIntro')}</p>
@@ -545,7 +565,7 @@ export default function CustomerServicePage({ onClose }: Props) {
             {sending && streamingId === null && (
               <div className="flex justify-start">
                 <div className="rounded-2xl rounded-tl-sm bg-secondary px-3.5 py-2.5">
-                  <p className="text-xs text-muted-foreground mb-1">{t('cs.aiLabel')}</p>
+                  <p className="text-xs text-muted-foreground mb-1">{agentLabel}</p>
                   <div className="flex gap-1 items-center h-5">
                     {[0, 150, 300].map((d) => <span key={d} className="w-1.5 h-1.5 rounded-full bg-muted-foreground animate-bounce" style={{ animationDelay: `${d}ms` }} />)}
                   </div>

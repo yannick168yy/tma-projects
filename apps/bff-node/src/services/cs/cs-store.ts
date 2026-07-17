@@ -3,6 +3,7 @@ import type { Env } from '../../config/env.js'
 import { getMysqlPool } from '../../clients/mysql.client.js'
 import { broadcastBadges } from '../sse-badges.js'
 import { notifyCsHuman } from '../admin-notify.js'
+import { consumeAgentName, fallbackAgentName, normalizeAgentName, reserveAgentName, type CsAgentName } from './cs-agents.js'
 
 export type ConversationStatus = 'active' | 'escalated' | 'human_taken' | 'resolved' | 'closed'
 export type MessageRole = 'user' | 'assistant' | 'admin'
@@ -14,6 +15,7 @@ export interface Conversation {
   userId: string
   status: ConversationStatus
   assignedAdminId: number | null
+  agentName: CsAgentName
   escalateReason: string | null
   userLeftAt: Date | null
   createdAt: Date
@@ -42,15 +44,28 @@ export async function getOrCreateConversation(env: Env, userId: string): Promise
   )
   if (rows.length > 0) return rowToConversation(rows[0])
 
+  const agentName = await reserveAgentName(env, userId)
   const [result] = await pool.query<ResultSetHeader>(
-    `INSERT INTO cs_conversation (user_id, status) VALUES (?, 'active')`,
-    [userId],
+    `INSERT INTO cs_conversation (user_id, status, agent_name) VALUES (?, 'active', ?)`,
+    [userId, agentName],
   )
+  await consumeAgentName(env, userId)
   const [newRows] = await pool.query<RowDataPacket[]>(
     `SELECT * FROM cs_conversation WHERE id = ?`,
     [result.insertId],
   )
   return rowToConversation(newRows[0])
+}
+
+// 开场白用:有进行中的会话就沿用该会话的客服,否则占一个新人选(不建会话行)
+export async function resolveAgentName(env: Env, userId: string): Promise<CsAgentName> {
+  await expireStaleConversations(env, userId)
+  const [rows] = await db(env).query<RowDataPacket[]>(
+    `SELECT id, agent_name FROM cs_conversation WHERE user_id = ? AND status IN ('active','escalated','human_taken') ORDER BY updated_at DESC LIMIT 1`,
+    [userId],
+  )
+  if (rows.length > 0) return normalizeAgentName(rows[0].agent_name) ?? fallbackAgentName(Number(rows[0].id))
+  return reserveAgentName(env, userId)
 }
 
 export async function expireStaleConversations(env: Env, userId?: string): Promise<number> {
@@ -230,6 +245,7 @@ function rowToConversation(r: RowDataPacket): Conversation {
     userId: String(r.user_id),
     status: r.status,
     assignedAdminId: r.assigned_admin_id ?? null,
+    agentName: normalizeAgentName(r.agent_name) ?? fallbackAgentName(Number(r.id)),
     escalateReason: r.escalate_reason ?? null,
     userLeftAt: r.user_left_at ?? null,
     createdAt: r.created_at,

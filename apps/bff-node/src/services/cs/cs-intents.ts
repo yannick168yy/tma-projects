@@ -269,5 +269,10 @@ export const CS_INTENTS: Record<string, CsIntent> = {
 
 export const CS_WELCOME_SETTING_KEY = 'cs_welcome_text'
 
+// {agent} 由 /cs/welcome 替换成本次会话分配的客服名,后台自定义文案同样支持该占位符
 export const DEFAULT_WELCOME =
-  "Hi! I'm Kaya, BetoGo's AI assistant. I can check your deposits, withdrawals, KYC status and more in real time. Pick a topic below or just type your question. 👋"
+  "Hi! I'm {agent} from BetoGo support. I can check your deposits, withdrawals, KYC status and more right away. Pick a topic below or just type your question. 👋"
+
+export function renderWelcome(template: string, agentName: string): string {
+  return template.replace(/\{agent\}/g, agentName)
+}

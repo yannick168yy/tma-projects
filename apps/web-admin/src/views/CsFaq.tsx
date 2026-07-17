@@ -36,7 +36,7 @@ function WelcomeConfig() {
   }
 
   return (
-    <Card size="small" title="AI 客服欢迎语（留空使用默认英文欢迎语）" style={{ marginBottom: 16 }}>
+    <Card size="small" title="客服欢迎语（留空使用默认英文欢迎语；{agent} 会替换成本次接线的客服名）" style={{ marginBottom: 16 }}>
       <Input.TextArea
         value={welcome}
         autoSize={{ minRows: 2, maxRows: 4 }}

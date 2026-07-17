@@ -5,8 +5,8 @@ import { createHash } from 'node:crypto'
 import { ok, fail } from '../utils/response.js'
 import { handleUserMessage } from '../services/cs/cs.service.js'
 import { csSessionEndedMessage, handleDeterministicCsIntent, normalizeCsReplyLocale } from '../services/cs/cs-deterministic.js'
-import { closeCurrentConversation, getOrCreateConversation, getMessages, markUserLeftConversation } from '../services/cs/cs-store.js'
-import { CS_INTENTS, CS_WELCOME_SETTING_KEY, DEFAULT_WELCOME } from '../services/cs/cs-intents.js'
+import { closeCurrentConversation, getOrCreateConversation, getMessages, markUserLeftConversation, resolveAgentName } from '../services/cs/cs-store.js'
+import { CS_INTENTS, CS_WELCOME_SETTING_KEY, DEFAULT_WELCOME, renderWelcome } from '../services/cs/cs-intents.js'
 import { queryRecentOrders, type OrderKind } from '../services/cs/cs-orders.js'
 import { getAdminSetting } from '../services/admin-store.js'
 
@@ -55,10 +55,11 @@ function replyLanguageHint(locale: ReturnType<typeof normalizeCsReplyLocale>): s
   })[locale]
 }
 
-// GET /cs/welcome — 欢迎语 + 后台可配（登录/游客均可）
+// GET /cs/welcome — 欢迎语 + 本次会话接线的客服名（登录/游客均可）
 router.get('/cs/welcome', async (ctx) => {
   const configured = await getAdminSetting(ctx.state.env, CS_WELCOME_SETTING_KEY)
-  ok(ctx, { welcome: configured?.trim() || DEFAULT_WELCOME })
+  const agentName = await resolveAgentName(ctx.state.env, getCsUserId(ctx))
+  ok(ctx, { welcome: renderWelcome(configured?.trim() || DEFAULT_WELCOME, agentName), agentName })
 })
 
 // POST /cs/message — 发送消息，获取 AI 回复（登录/游客均可）

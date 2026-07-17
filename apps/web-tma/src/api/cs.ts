@@ -12,18 +12,26 @@ export interface CsConversation {
   id: number
   userId: string
   status: string
+  agentName: string
   updatedAt: string
 }
 
-export async function sendCsMessage(text: string, locale?: string): Promise<{ reply: string; conversationId: number; status: string }> {
+export interface CsReply {
+  reply: string
+  conversationId: number
+  status: string
+  agentName: string
+}
+
+export async function sendCsMessage(text: string, locale?: string): Promise<CsReply> {
   return apiRequest('/cs/message', { method: 'POST', body: JSON.stringify({ message: text, locale }) })
 }
 
-export async function sendCsIntent(intent: string, locale?: string): Promise<{ reply: string; conversationId: number; status: string }> {
+export async function sendCsIntent(intent: string, locale?: string): Promise<CsReply> {
   return apiRequest('/cs/message', { method: 'POST', body: JSON.stringify({ intent, locale }) })
 }
 
-export async function fetchCsWelcome(): Promise<{ welcome: string }> {
+export async function fetchCsWelcome(): Promise<{ welcome: string; agentName: string }> {
   return apiRequest('/cs/welcome')
 }
 
@@ -59,7 +67,7 @@ export async function fetchCsOrders(type: 'deposit' | 'withdraw'): Promise<{ typ
 
 interface CsStreamHandlers {
   onDelta: (text: string) => void
-  onDone: (result: { conversationId: number; status: string }) => void
+  onDone: (result: { conversationId: number; status: string; agentName: string }) => void
   onError: (message: string) => void
 }
 
@@ -99,14 +107,14 @@ export async function sendCsMessageStream(text: string, locale: string | undefin
         else if (line.startsWith('data:')) data += line.slice(5).trim()
       }
       if (!data) continue
-      let parsed: { delta?: string; message?: string; conversationId?: number; status?: string }
+      let parsed: { delta?: string; message?: string; conversationId?: number; status?: string; agentName?: string }
       try {
         parsed = JSON.parse(data)
       } catch {
         continue
       }
       if (event === 'delta') handlers.onDelta(parsed.delta ?? '')
-      else if (event === 'done') handlers.onDone({ conversationId: parsed.conversationId ?? 0, status: parsed.status ?? 'active' })
+      else if (event === 'done') handlers.onDone({ conversationId: parsed.conversationId ?? 0, status: parsed.status ?? 'active', agentName: parsed.agentName ?? '' })
       else if (event === 'error') handlers.onError(parsed.message ?? 'cs.sendFailed')
     }
   }

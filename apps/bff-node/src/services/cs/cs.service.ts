@@ -67,16 +67,17 @@ export async function handleUserMessage(
   hint?: string,
   onDelta?: (text: string) => void,
   locale?: CsReplyLocale,
-): Promise<{ reply: string; conversationId: number; status: string }> {
+): Promise<{ reply: string; conversationId: number; status: string; agentName: string }> {
   const conversation = await getOrCreateConversation(env, userId)
   const conversationId = conversation.id
+  const agentName = conversation.agentName
   const replyLocale = locale ?? detectLang(userText)
 
   if (conversation.status === 'human_taken') {
     await saveMessage(env, conversationId, 'user', userText)
     const reply = serviceText(replyLocale).humanHandling
     onDelta?.(reply)
-    return { reply, conversationId, status: 'human_taken' }
+    return { reply, conversationId, status: 'human_taken', agentName }
   }
 
   await saveMessage(env, conversationId, 'user', userText)
@@ -91,7 +92,7 @@ export async function handleUserMessage(
       if (quick) {
         onDelta?.(quick)
         await saveMessage(env, conversationId, 'assistant', quick)
-        return { reply: quick, conversationId, status: conversation.status }
+        return { reply: quick, conversationId, status: conversation.status, agentName }
       }
     }
   }
@@ -103,7 +104,7 @@ export async function handleUserMessage(
 
   const model = getClient(env).getGenerativeModel({
     model: MODEL,
-    systemInstruction: await getSystemPrompt(env),
+    systemInstruction: await getSystemPrompt(env, conversation.agentName),
     tools: GEMINI_TOOLS,
   })
 
@@ -143,12 +144,12 @@ export async function handleUserMessage(
         if (latest?.status === 'active') {
           const onDuty = await isHumanOnDuty(env)
           await escalateConversation(env, conversationId, 'user_request', onDuty ? 'human_taken' : 'escalated')
-          return { reply, conversationId, status: onDuty ? 'human_taken' : 'escalated' }
+          return { reply, conversationId, status: onDuty ? 'human_taken' : 'escalated', agentName }
         }
-        return { reply, conversationId, status: latest?.status ?? conversation.status }
+        return { reply, conversationId, status: latest?.status ?? conversation.status, agentName }
       }
       const latest = await getConversationById(env, conversationId)
-      return { reply, conversationId, status: latest?.status ?? conversation.status }
+      return { reply, conversationId, status: latest?.status ?? conversation.status, agentName }
     }
 
     // 执行所有工具，批量回传结果
@@ -174,5 +175,5 @@ export async function handleUserMessage(
     : serviceText(replyLocale).escalatedOffline(conversationId)
   onDelta?.(fallback)
   await saveMessage(env, conversationId, 'assistant', fallback)
-  return { reply: fallback, conversationId, status: toStatus }
+  return { reply: fallback, conversationId, status: toStatus, agentName }
 }
