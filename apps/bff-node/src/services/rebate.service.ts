@@ -1,7 +1,6 @@
 import type { RowDataPacket } from 'mysql2/promise'
 import type { Env } from '../config/env.js'
 import { getMysqlPool, isMysqlEnabled } from '../clients/mysql.client.js'
-import { getRedis } from '../clients/redis.client.js'
 import { creditWalletTx } from './store/mysql-store.js'
 import { randomBytes } from 'node:crypto'
 
@@ -134,6 +133,14 @@ export function yesterdayPHT(): string {
   const d = new Date()
   d.setTime(d.getTime() - 24 * 60 * 60 * 1000)
   return toPhtDateStr(d)
+}
+
+// PHT 日历日 → UTC 区间 [start, end)。created_at 存 UTC, 用区间比较可走 (user_id, created_at) 索引,
+// 避免 DATE(CONVERT_TZ(created_at)) 包裹列导致全量扫描。
+function phtDayUtcRange(phtDate: string): [Date, Date] {
+  const [y, m, d] = phtDate.split('-').map(Number)
+  const off = 8 * 60 * 60 * 1000
+  return [new Date(Date.UTC(y, m - 1, d) - off), new Date(Date.UTC(y, m - 1, d + 1) - off)]
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -284,21 +291,14 @@ export async function getEffectiveLevel(env: Env, userId: string, currency: stri
 }
 
 /** 用户洗码等级进度：总流水、当前等级、下一级阈值、本级费率、可领取总额 */
-// 今日预估返利缓存 TTL(秒)：命中缓存直接读, 不重扫今日流水, 故为"结算后再显示"的准实时
-const EST_CACHE_TTL = 600
 
 /**
- * 今日尚未结算的预估返利。带 Redis 缓存(10min)避免每次请求重扫 bg_turnover_logs。
+ * 今日尚未结算的预估返利。今日流水查询已走 (user_id, created_at) 索引区间(sargable),
+ * 只扫今日实际条数, 故无需缓存即可实时算。
  * 双算防护：今日若被后台手动结算写入 bg_rebate_record(date=今日), 那部分已并入 claimable, 从预估里扣除。
  */
 async function getEstimatedTodayRebate(env: Env, userId: string, currency: string): Promise<number> {
   const today = todayPHT()
-  const key = `rebate:est:${userId}:${currency}:${today}`
-  try {
-    const cached = await getRedis(env).get(key)
-    if (cached != null) return Number(cached)
-  } catch { /* redis 不可用则直接实时算, 不影响可用性 */ }
-
   const summary = await getUserRebateSummary(env, userId, today, currency)
   const pool = getMysqlPool(env)
   const [[settled]] = await pool.query<RowDataPacket[]>(
@@ -307,9 +307,7 @@ async function getEstimatedTodayRebate(env: Env, userId: string, currency: strin
      WHERE user_id = ? AND currency_code = ? AND date = ?`,
     [userId, currency, today],
   )
-  const est = Math.max(0, summary.totalRebate - Number(settled?.amt ?? 0))
-  try { await getRedis(env).setex(key, EST_CACHE_TTL, String(est)) } catch { /* noop */ }
-  return est
+  return Math.max(0, summary.totalRebate - Number(settled?.amt ?? 0))
 }
 
 export async function getUserLevelProgress(env: Env, userId: string, currency = 'PHP'): Promise<RebateLevelProgress> {
@@ -390,9 +388,9 @@ async function getUserTierRebateBreakdown(
      WHERE tl.user_id = ?
        AND tl.is_reversed = 0
        AND tl.currency = ?
-       AND DATE(CONVERT_TZ(tl.created_at, '+00:00', '+08:00')) = ?
+       AND tl.created_at >= ? AND tl.created_at < ?
      GROUP BY rfg.tier`,
-    [userId, currency, phtDate],
+    [userId, currency, ...phtDayUtcRange(phtDate)],
   )
   return rows.map((r) => {
     const tier = String(r.tier)
@@ -434,9 +432,9 @@ export async function getUserRebateSummary(env: Env, userId: string, phtDate: st
        WHERE tl.user_id = ?
          AND tl.is_reversed = 0
          AND tl.currency = ?
-         AND DATE(CONVERT_TZ(tl.created_at, '+00:00', '+08:00')) = ?
+         AND tl.created_at >= ? AND tl.created_at < ?
        GROUP BY COALESCE(tl.sort_category, 'other'), tl.currency`,
-      [level, userId, currency, phtDate],
+      [level, userId, currency, ...phtDayUtcRange(phtDate)],
     )
     const breakdown: RebateSummaryItem[] = rows.map((r) => {
       const betAmt = Number(r.bet_amount)
