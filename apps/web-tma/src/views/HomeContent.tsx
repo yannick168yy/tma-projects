@@ -8,7 +8,7 @@ import {
 import HomeCategoryShortcut from '@/components/home/HomeCategoryShortcut'
 import GameCardV2 from '@/components/home/GameCardV2'
 import TaskFloatBall from '@/components/tasks/TaskFloatBall'
-import { WINNERS, INFO_LINKS } from '@/data/home'
+import { INFO_LINKS } from '@/data/home'
 import { fetchHomepageGames, fetchGames, fetchGameHistory, launchGame, fetchBettingActivity, type SlotGame, type BetRecord, type BetTab, type GameHistoryItem } from '@/api/slots'
 import { fetchHomeContent } from '@/api/home'
 import { resolveHomeActionPath } from '@/navigation/appRoutes'
@@ -19,8 +19,6 @@ import { useAuthStore } from '@/stores/auth'
 import { useWalletStore } from '@/stores/wallet'
 import { localizedGameName } from '@/utils/game'
 import { analytics } from '@/utils/analytics'
-import pagcorImg from '@/assets/home/compliance/pagcor.png'
-import age21Img from '@/assets/home/compliance/age21.png'
 import iconFacebook from '@/assets/team/3-circles/facebook.webp'
 import iconTelegram from '@/assets/team/3-circles/telegram.webp'
 import iconViber from '@/assets/team/3-circles/viber.webp'
@@ -119,7 +117,6 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
   const bannerTrackRef = useRef<HTMLDivElement>(null)
   const cardTrackRef = useRef<HTMLDivElement>(null)
   const bannerDragRef = useRef({ startX: 0, startY: 0, startScroll: 0, axis: null as 'x'|'y'|null, lastX: 0, lastT: 0 })
-  const marqueeWinners = useMemo(() => Array.from({ length: 24 }, (_, i) => WINNERS[i % WINNERS.length]), [])
 
   function onBannerScroll() {
     const el = bannerTrackRef.current; if (!el || el.clientWidth <= 0) return
@@ -665,23 +662,6 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
         </section>
       )}
 
-      {/* ── 底部信息区：优势 → 支付 → 社区 → 合规 → 页脚 ── */}
-
-      {/* Recent Wins marquee */}
-      <div className="mx-4 mt-8 bg-secondary rounded-xl p-3 flex items-center gap-2 overflow-hidden">
-        <div className="flex-shrink-0 flex items-center gap-1.5 text-primary"><Trophy size={13} /><span className="text-xs font-bold uppercase tracking-wide whitespace-nowrap">{t('home.recentWins')}</span></div>
-        <div className="w-px h-4 bg-border flex-shrink-0" />
-        <div className="overflow-hidden flex-1">
-          <div className="flex w-max animate-marquee whitespace-nowrap" style={{ animationDuration: '96s' }}>
-            {[0, 1].map((group) => (
-              <div key={group} className="flex flex-shrink-0 gap-6 pr-6">
-                {marqueeWinners.map((w, i) => <span key={`${group}-${i}`} className="text-xs text-foreground/80 flex-shrink-0"><span className="text-primary font-bold">{w.name}</span> {t('common.won')} <span className="text-emerald-400 font-bold">{w.amount}</span> · <span className="text-muted-foreground">{w.game}</span></span>)}
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
       {/* 页脚：社群+品牌介绍 / 合规 / 优势 / 条款，统一无色块风格，靠间距分层 */}
       <footer className="mt-10 border-t border-border/50 pt-14">
         {/* 品牌介绍：顶部为社群入口（原 Welcome 标题位置） */}
@@ -713,12 +693,7 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
         </section>
 
         <section className="mt-20 px-6">
-          <p className="mb-4 text-center text-xs font-bold text-foreground/80">{t('home.licenseTitle')}</p>
-          <div className="mx-auto flex w-fit max-w-full items-center gap-4 rounded-full bg-white px-5 py-2">
-            <img src={pagcorImg} alt="PAGCOR" className="h-8 object-contain" />
-            <img src={age21Img} alt="21+ Gambling can be addictive, know when to stop" className="h-8 object-contain" />
-          </div>
-          <p className="mx-auto mt-5 max-w-[30rem] text-center text-[11px] leading-[1.8] text-muted-foreground">{t('home.responsibleNote')}</p>
+          <p className="mx-auto max-w-[30rem] text-center text-[11px] leading-[1.8] text-muted-foreground">{t('home.responsibleNote')}</p>
         </section>
 
         {/* 产品优势条 */}
