@@ -99,10 +99,13 @@ export default function GamePlayer({ url, onClose }: Props) {
         </div>
       )}
 
+      {/* 不给 iframe fullscreen 权限: 否则 Jili Super Ace 等游戏会把 iframe 单独全屏,
+          令全屏元素只剩 iframe, 兄弟节点的返回按钮被盖住消失.
+          全屏由外层 rootRef(含返回按钮)统一接管, 见 enterFullscreen. */}
       <iframe
         src={url}
         className="flex-1 w-full border-none"
-        allow="fullscreen; autoplay; camera; microphone"
+        allow="autoplay; camera; microphone"
         onLoad={() => setIframeLoaded(true)}
       />
     </div>
