@@ -5,8 +5,17 @@ import { ok } from '../utils/response.js'
 
 const router = new Router({ prefix: '/bets' })
 
+const PHT_OFFSET_MS = 8 * 60 * 60 * 1000
+
 function displayCurrencyCode(code: string): string {
   return code.toUpperCase() === 'UCC' ? 'USDT' : code
+}
+
+// dateFrom 是 PHT(+8) 日历日, first_at 存 UTC, 故按 PHT 日起点换算成 UTC 实例再比较,
+// 否则 PHT 当天 00:00-08:00 的注单会因 UTC 仍属前一日而漏在"今天"之外。
+function phtDateStartUtc(date: string): Date {
+  const [y, m, d] = date.split('-').map(Number)
+  return new Date(Date.UTC(y, m - 1, d) - PHT_OFFSET_MS)
 }
 
 router.get('/', async (ctx) => {
@@ -23,7 +32,7 @@ router.get('/', async (ctx) => {
   const where = dateFrom
     ? 'WHERE user_id = ? AND first_at >= ?'
     : 'WHERE user_id = ?'
-  const baseParams: unknown[] = dateFrom ? [userId, `${dateFrom} 00:00:00`] : [userId]
+  const baseParams: unknown[] = dateFrom ? [userId, phtDateStartUtc(dateFrom)] : [userId]
 
   const [[{ total }]] = await pool.query<RowDataPacket[]>(
     `SELECT COUNT(*) AS total FROM bg_bet_round ${where}`,

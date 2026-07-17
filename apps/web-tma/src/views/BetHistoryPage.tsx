@@ -9,11 +9,11 @@ type Range = 'today' | '7d' | '30d'
 
 const RANGES: Range[] = ['today', '7d', '30d']
 
+// 按 PHT(+8) 业务日算区间, 与后端一致; 用设备本地时区会让 PHT 凌晨的注单错位到前一天
 function dateFrom(range: Range): string {
-  const d = new Date()
-  if (range === '7d')  d.setDate(d.getDate() - 6)
-  if (range === '30d') d.setDate(d.getDate() - 29)
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  const shiftDays = range === '7d' ? 6 : range === '30d' ? 29 : 0
+  const pht = new Date(Date.now() + 8 * 3600 * 1000 - shiftDays * 86400 * 1000)
+  return pht.toISOString().slice(0, 10)
 }
 
 function formatAmount(amount: number, currencyCode: string): string {

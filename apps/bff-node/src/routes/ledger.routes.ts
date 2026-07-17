@@ -6,6 +6,14 @@ import type { RowDataPacket } from 'mysql2/promise'
 
 const router = new Router({ prefix: '/ledger' })
 
+const PHT_OFFSET_MS = 8 * 60 * 60 * 1000
+
+// dateFrom 是 PHT(+8) 日历日, created_at 存 UTC, 按 PHT 日起点换算成 UTC 实例再比较
+function phtDateStartUtc(date: string): Date {
+  const [y, m, d] = date.split('-').map(Number)
+  return new Date(Date.UTC(y, m - 1, d) - PHT_OFFSET_MS)
+}
+
 router.get('/', async (ctx) => {
   const pageValue = Number(ctx.query.page ?? 1)
   const page = Number.isFinite(pageValue) ? Math.max(1, Math.floor(pageValue)) : 1
@@ -25,7 +33,7 @@ router.get('/', async (ctx) => {
     }
     if (dateFrom) {
       where.push('created_at >= ?')
-      params.push(dateFrom)
+      params.push(phtDateStartUtc(dateFrom))
     } else {
       where.push('created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)')
     }
@@ -62,7 +70,7 @@ router.get('/', async (ctx) => {
 
   const limit = 200
   let items = await listLedger(ctx.state.redis, ctx.state.userId!, limit)
-  const since = dateFrom ? new Date(dateFrom).getTime() : Date.now() - 7 * 24 * 60 * 60 * 1000
+  const since = dateFrom ? phtDateStartUtc(dateFrom).getTime() : Date.now() - 7 * 24 * 60 * 60 * 1000
   items = items.filter((e) => new Date(e.createdAt).getTime() >= since)
   if (types.length > 0) {
     items = items.filter((e) => types.includes(e.type))
