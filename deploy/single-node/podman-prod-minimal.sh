@@ -77,7 +77,7 @@ run run -d --name tma-mysql --network "$NET" --network-alias mysql --restart=alw
   --collation-server=utf8mb4_unicode_ci \
   --default-authentication-plugin=mysql_native_password \
   --max_connections=50 \
-  --innodb_buffer_pool_size=256M \
+  --innodb_buffer_pool_size=128M \
   --performance_schema=OFF \
   --table_open_cache=200
 
