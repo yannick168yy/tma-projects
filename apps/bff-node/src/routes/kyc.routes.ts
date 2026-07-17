@@ -31,6 +31,7 @@ router.get('/status', async (ctx) => {
   ok(ctx, {
     ...buildKycStatusResponse(kyc),
     registeredPhone,
+    requirePhone: cfg.requirePhone,
     requireDocument: cfg.requireDocument,
     requireFace: cfg.requireFace,
   })

@@ -40,7 +40,6 @@ router.get('/:id', async (ctx) => {
   const telegram = identities.find((i) => i.provider === 'telegram') ?? identities.find((i) => i.provider === 'telegram_oidc')
   const google = identities.find((i) => i.provider === 'google')
   const phone = identities.find((i) => i.provider === 'phone')
-  const account = identities.find((i) => i.provider === 'account')
   ok(ctx, {
     user: {
       ...user,
@@ -48,7 +47,6 @@ router.get('/:id', async (ctx) => {
       telegramUsername: telegram?.displayLabel ?? null,
       googleEmail: google?.displayLabel ?? user.email ?? null,
       phone: phone?.displayLabel ?? phone?.identifier ?? null,
-      username: account?.identifier ?? null,
     },
     level: resolveLevel(thresholds, totalTurnover),
     totalTurnover,

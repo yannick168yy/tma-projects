@@ -33,7 +33,6 @@ export default function UserInfo({ detail, onSuccess }: Props) {
   const avatarUrl = typeof u.avatarUrl === 'string' ? u.avatarUrl : undefined
   const userId = String(u.id ?? '')
   const phone = String(u.phone ?? '')
-  const username = String(u.username ?? '')
   const walletBalances = detail.walletBalances?.length
     ? detail.walletBalances
     : [{ currency: 'PHP', available: detail.wallet.available, frozen: detail.wallet.frozen }]
@@ -96,8 +95,6 @@ export default function UserInfo({ detail, onSuccess }: Props) {
           <Descriptions.Item label="Telegram">{String(u.telegramUsername ?? u.telegramUserId ?? '') || '-'}</Descriptions.Item>
           <Descriptions.Item label="Google">{String(u.googleEmail ?? u.email ?? '') || '-'}</Descriptions.Item>
           <Descriptions.Item label="Phone">{passwordIdentity('phone', phone)}</Descriptions.Item>
-          {/* 账号密码登录已下线,仅展示存量用户名 */}
-          <Descriptions.Item label="Username">{username || '-'}</Descriptions.Item>
           <Descriptions.Item label="状态"><Tag color={statusColor(String(u.status ?? ''))}>{String(u.status ?? '')}</Tag></Descriptions.Item>
           <Descriptions.Item label="标记"><Tag color={String(u.label) === 'arbitrage' ? 'red' : 'default'}>{labelText(String(u.label ?? 'normal'))}</Tag></Descriptions.Item>
           <Descriptions.Item label="注册时间">{fmtDate(String(u.registeredAt ?? ''))}</Descriptions.Item>

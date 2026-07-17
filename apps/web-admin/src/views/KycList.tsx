@@ -97,12 +97,21 @@ export default function KycList() {
       <Card size="small" title="验证流程设置" style={{ marginBottom: 16 }}>
         <Space size={32} wrap>
           <Space>
+            <span>手机号验证</span>
+            <Switch
+              checked={cfg?.requirePhone ?? true}
+              loading={savingCfg}
+              disabled={!cfg}
+              onChange={(v) => void saveCfg({ requirePhone: v, requireDocument: cfg?.requireDocument ?? true, requireFace: cfg?.requireFace ?? true, faceMatchThreshold: cfg?.faceMatchThreshold ?? 0.75 })}
+            />
+          </Space>
+          <Space>
             <span>证件验证</span>
             <Switch
               checked={cfg?.requireDocument ?? true}
               loading={savingCfg}
               disabled={!cfg}
-              onChange={(v) => void saveCfg({ requireDocument: v, requireFace: v && (cfg?.requireFace ?? true), faceMatchThreshold: cfg?.faceMatchThreshold ?? 0.75 })}
+              onChange={(v) => void saveCfg({ requirePhone: cfg?.requirePhone ?? true, requireDocument: v, requireFace: v && (cfg?.requireFace ?? true), faceMatchThreshold: cfg?.faceMatchThreshold ?? 0.75 })}
             />
           </Space>
           <Space>
@@ -111,7 +120,7 @@ export default function KycList() {
               checked={cfg?.requireFace ?? true}
               loading={savingCfg}
               disabled={!cfg || !cfg.requireDocument}
-              onChange={(v) => void saveCfg({ requireDocument: cfg?.requireDocument ?? true, requireFace: v, faceMatchThreshold: cfg?.faceMatchThreshold ?? 0.75 })}
+              onChange={(v) => void saveCfg({ requirePhone: cfg?.requirePhone ?? true, requireDocument: cfg?.requireDocument ?? true, requireFace: v, faceMatchThreshold: cfg?.faceMatchThreshold ?? 0.75 })}
             />
           </Space>
           <Space>
@@ -126,7 +135,7 @@ export default function KycList() {
             />
             <span style={{ color: '#999', fontSize: 12 }}>0~1，自拍与证件照相似度达到此值才通过</span>
           </Space>
-          <span style={{ color: '#999', fontSize: 12 }}>关闭证件验证将一并关闭人脸验证（人脸需证件照比对）。手机验证始终开启。</span>
+          <span style={{ color: '#999', fontSize: 12 }}>关闭手机号验证后实名流程不再要求 OTP；关闭证件验证将一并关闭人脸验证（人脸需证件照比对）。</span>
         </Space>
       </Card>
       <div style={{ background: '#fff', marginBottom: 16, padding: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>

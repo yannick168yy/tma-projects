@@ -16,6 +16,7 @@ export interface KycStatus {
   /** 是否真的提交过证件（null=从未提交，pending 仅为手机验证完成） */
   docSubmittedAt: string | null
   registeredPhone: string | null
+  requirePhone: boolean
   requireDocument: boolean
   requireFace: boolean
 }

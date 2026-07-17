@@ -71,7 +71,7 @@ function formatFaceApiError(e: unknown, t: Translate): string {
 
 function resolveStep(s: Awaited<ReturnType<typeof fetchKycStatus>>): KycStep {
   if (s.status === 'approved') return 'done'
-  if (!s.phoneVerified) return 'phone'
+  if (s.requirePhone && !s.phoneVerified) return 'phone'
   if (s.requireDocument && !s.docVerified) {
     // pending 可能只是"手机验证完成"（领体验金也走这步）：没交过证件就该进证件步骤，而不是显示审核中
     if (s.status === 'pending' && s.docSubmittedAt) return 'reviewing'
@@ -101,6 +101,7 @@ export function useKycFlow(active: boolean, onApproved?: () => void) {
   const [docReuploadRequired, setDocReuploadRequired] = useState(false)
   const idInputRef = useRef<HTMLInputElement>(null)
 
+  const [requirePhone, setRequirePhone] = useState(true)
   const [requireDocument, setRequireDocument] = useState(true)
   const [requireFace, setRequireFace] = useState(true)
 
@@ -109,6 +110,7 @@ export function useKycFlow(active: boolean, onApproved?: () => void) {
     setError(null)
     setDocReuploadRequired(false)
     void fetchKycStatus().then((s) => {
+      setRequirePhone(s.requirePhone)
       setRequireDocument(s.requireDocument)
       setRequireFace(s.requireFace)
       setStep(resolveStep(s))
@@ -220,7 +222,7 @@ export function useKycFlow(active: boolean, onApproved?: () => void) {
   }
 
   return {
-    step, requireDocument, requireFace, loading, error,
+    step, requirePhone, requireDocument, requireFace, loading, error,
     phone, setPhone, phoneLocked, code, setCode, resendIn,
     fullName, setFullName, docType, setDocType, idImage, docReuploadRequired, idInputRef,
     onSendCode, onVerifyCode, onPickImage, onSubmitDoc, onSubmitFace,

@@ -48,7 +48,7 @@ export default function TrialClaimModal({ open, amountPhp, onClose }: Props) {
     setResendIn(0)
     void fetchKycStatus()
       .then((s) => {
-        if (s.phoneVerified) {
+        if (s.phoneVerified || !s.requirePhone) {
           setStep('claim')
           return
         }

@@ -14,7 +14,7 @@ interface Props {
 export default function KycFlowContent({ flow, onClose, compactFace }: Props) {
   const { t } = useTranslation()
   const {
-    step, requireDocument, requireFace, loading, error,
+    step, requirePhone, requireDocument, requireFace, loading, error,
     phone, setPhone, phoneLocked, code, setCode, resendIn,
     fullName, setFullName, docType, setDocType, idImage, docReuploadRequired, idInputRef,
     onSendCode, onVerifyCode, onPickImage, onSubmitDoc, onSubmitFace,
@@ -31,12 +31,14 @@ export default function KycFlowContent({ flow, onClose, compactFace }: Props) {
       <p className={`${compactFace && step === 'face' ? 'mb-3 truncate' : 'mb-5'} text-xs text-muted-foreground`}>{t('kyc.subtitle')}</p>
 
       <div className={`${compactFace && step === 'face' ? 'mb-3' : 'mb-5'} flex items-center gap-1 text-[10px] font-bold`}>
-        <span className={step === 'phone' ? 'text-primary' : ['document', 'reviewing', 'face', 'done'].includes(step) ? 'text-emerald-400' : 'text-muted-foreground'}>
-          {t('kyc.stepPhone')}
-        </span>
+        {requirePhone && (
+          <span className={step === 'phone' ? 'text-primary' : ['document', 'reviewing', 'face', 'done'].includes(step) ? 'text-emerald-400' : 'text-muted-foreground'}>
+            {t('kyc.stepPhone')}
+          </span>
+        )}
         {requireDocument && (
           <>
-            <span className="h-px w-2 bg-border" />
+            {requirePhone && <span className="h-px w-2 bg-border" />}
             <span className={['document', 'reviewing'].includes(step) ? 'text-primary' : ['face', 'done'].includes(step) ? 'text-emerald-400' : 'text-muted-foreground'}>
               {t('kyc.stepDocument')}
             </span>

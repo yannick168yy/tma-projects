@@ -11,7 +11,7 @@ export interface LivenessFrameMeta {
   capturedAt: string
 }
 export type DepositCurrency = 'PHP' | 'USDT'
-export type IdentityProvider = 'phone' | 'account' | 'google' | 'telegram' | 'telegram_oidc'
+export type IdentityProvider = 'phone' | 'google' | 'telegram' | 'telegram_oidc'
 
 export interface UserIdentity {
   id?: number

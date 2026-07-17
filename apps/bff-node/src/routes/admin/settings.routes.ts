@@ -227,10 +227,11 @@ router.put('/system-params', requireRole('super_admin', 'Only super_admin can ma
   })
 })
 
-// ── KYC 证件/人脸验证开关 ─────────────────────────────────────────────────────
+// ── KYC 手机/证件/人脸验证开关 ────────────────────────────────────────────────
 
 router.get('/kyc', async (ctx) => {
-  const [doc, face, threshold] = await Promise.all([
+  const [phone, doc, face, threshold] = await Promise.all([
+    getAdminSetting(ctx.state.env, 'kyc_require_phone'),
     getAdminSetting(ctx.state.env, 'kyc_require_document'),
     getAdminSetting(ctx.state.env, 'kyc_require_face'),
     getAdminSetting(ctx.state.env, 'kyc_face_match_threshold'),
@@ -240,17 +241,18 @@ router.get('/kyc', async (ctx) => {
   const faceMatchThreshold = Number.isFinite(parsed) && parsed >= 0 && parsed <= 1
     ? parsed
     : ctx.state.env.KYC_FACE_MATCH_MIN
-  ok(ctx, { requireDocument, requireFace: requireDocument && face !== '0', faceMatchThreshold })
+  ok(ctx, { requirePhone: phone !== '0', requireDocument, requireFace: requireDocument && face !== '0', faceMatchThreshold })
 })
 
 router.put('/kyc', requireRole('super_admin', 'Only super_admin can manage KYC verification settings'), async (ctx) => {
-  const body = ctx.request.body as { requireDocument?: unknown; requireFace?: unknown; faceMatchThreshold?: unknown }
-  if (typeof body.requireDocument !== 'boolean' || typeof body.requireFace !== 'boolean') {
-    fail(ctx, 400, 'requireDocument and requireFace must be booleans'); return
+  const body = ctx.request.body as { requirePhone?: unknown; requireDocument?: unknown; requireFace?: unknown; faceMatchThreshold?: unknown }
+  if (typeof body.requirePhone !== 'boolean' || typeof body.requireDocument !== 'boolean' || typeof body.requireFace !== 'boolean') {
+    fail(ctx, 400, 'requirePhone, requireDocument and requireFace must be booleans'); return
   }
   // 人脸验证需证件照比对，证件关闭时人脸强制关闭
   const requireDocument = body.requireDocument
   const requireFace = requireDocument && body.requireFace
+  await setAdminSetting(ctx.state.env, 'kyc_require_phone', body.requirePhone ? '1' : '0')
   await setAdminSetting(ctx.state.env, 'kyc_require_document', requireDocument ? '1' : '0')
   await setAdminSetting(ctx.state.env, 'kyc_require_face', requireFace ? '1' : '0')
 
@@ -269,10 +271,10 @@ router.put('/kyc', requireRole('super_admin', 'Only super_admin can manage KYC v
     action: 'kyc_steps_update',
     targetType: 'settings',
     targetId: 'kyc_steps',
-    detail: { requireDocument, requireFace, faceMatchThreshold },
+    detail: { requirePhone: body.requirePhone, requireDocument, requireFace, faceMatchThreshold },
     ip: ctx.ip,
   })
-  ok(ctx, { requireDocument, requireFace, faceMatchThreshold })
+  ok(ctx, { requirePhone: body.requirePhone, requireDocument, requireFace, faceMatchThreshold })
 })
 
 // ── 汇率管理 ──────────────────────────────────────────────────────────────────
