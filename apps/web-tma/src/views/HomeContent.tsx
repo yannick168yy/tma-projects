@@ -638,64 +638,57 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
         )}
       </section>
 
-      {/* 页脚：社群+品牌介绍 / 合规 / 优势 / 条款，统一无色块风格，靠间距分层 */}
+      {/* 页脚三层：社群(主角) / 品牌介绍+数据(点缀) / 法务收尾 */}
       <footer className="mt-10 border-t border-border/50 pt-14">
-        {/* 品牌介绍：顶部为社群入口（原 Welcome 标题位置） */}
-        <section className="px-6">
-          <h3 className="text-center font-display text-base font-black tracking-widest text-foreground">{t('home.communitySection')}</h3>
-          <div className="mt-7 flex flex-wrap justify-center gap-9">
+        {/* 社群：页脚主角，卡片式大入口 */}
+        <section className="px-5">
+          <h3 className="text-center font-display text-lg font-black tracking-widest text-foreground">{t('home.communitySection')}</h3>
+          <p className="mx-auto mt-3 max-w-[26rem] text-center text-[12px] leading-relaxed text-muted-foreground">{t('home.communitySubtitle')}</p>
+          <div className="mx-auto mt-8 grid max-w-[26rem] grid-cols-3 gap-3">
             {COMMUNITY_LINKS.map((link) => (
               <a key={link.label} href={link.url} target="_blank" rel="noopener noreferrer"
-                className="flex w-16 flex-col items-center gap-2.5 transition-transform active:scale-95">
+                className="flex flex-col items-center gap-3 rounded-2xl border border-border/60 bg-secondary/50 py-5 transition-transform active:scale-95">
                 <img src={link.icon} alt="" className="h-14 w-14" />
-                <span className="text-[11px] text-muted-foreground">{link.label}</span>
+                <span className="text-[12px] font-bold text-foreground/90">{link.label}</span>
               </a>
             ))}
           </div>
         </section>
 
-        <section className="mt-14 px-6">
-          <p className="mx-auto max-w-[30rem] text-center text-[11px] leading-[1.8] text-muted-foreground">{t('home.responsibleNote')}</p>
-        </section>
-
-        {/* 产品优势条 */}
-        <section className="mt-14 px-6">
-          <div className="grid grid-cols-3 gap-3">
-            <div className="flex flex-col items-center gap-2.5 text-center">
-              <Zap size={20} className="text-amber-400" />
-              <p className="text-[11px] font-bold leading-tight text-foreground/90">{t('home.advFast')}</p>
-            </div>
-            <button type="button" className="flex flex-col items-center gap-2.5 text-center active:scale-95 transition-transform" onClick={onOpenCs}>
-              <Headphones size={20} className="text-primary" />
-              <p className="text-[11px] font-bold leading-tight text-foreground/90">{t('home.advSupport')}</p>
-            </button>
-            <div className="flex flex-col items-center gap-2.5 text-center">
-              <ShieldCheck size={20} className="text-emerald-400" />
-              <p className="text-[11px] font-bold leading-tight text-foreground/90">{t('home.advLicensed')}</p>
-            </div>
-          </div>
-        </section>
-
-        {/* 品牌介绍文案 + 数据条 */}
-        <section className="mt-20 px-6">
+        {/* 品牌介绍 + 数据卡片 */}
+        <section className="mt-16 px-6">
           <p className="mx-auto max-w-[30rem] text-center text-[13px] leading-[1.9] text-muted-foreground">{t('home.brandIntroBody')}</p>
-          <div className="mx-auto mt-8 grid max-w-[30rem] grid-cols-4 gap-2">
+          <div className="mx-auto mt-8 grid max-w-[26rem] grid-cols-2 gap-3">
             {[
-              { v: '2,000+', l: t('home.brandStatGames') },
-              { v: '20+', l: t('home.brandStatProviders') },
-              { v: t('home.brandStatInstant'), l: t('home.brandStatPayouts') },
-              { v: '24/7', l: t('home.brandStatSupport') },
-            ].map((s) => (
-              <div key={s.l} className="text-center">
-                <p className="font-display text-[15px] font-black leading-none text-primary">{s.v}</p>
-                <p className="mt-2 text-[10px] leading-tight text-muted-foreground">{s.l}</p>
-              </div>
-            ))}
+              { icon: <Gamepad2 size={18} className="text-amber-400" />, v: '2,000+', l: t('home.brandStatGames') },
+              { icon: <Factory size={18} className="text-sky-400" />, v: '20+', l: t('home.brandStatProviders') },
+              { icon: <Zap size={18} className="text-emerald-400" />, v: t('home.brandStatInstant'), l: t('home.brandStatPayouts') },
+              { icon: <Headphones size={18} className="text-primary" />, v: '24/7', l: t('home.brandStatSupport'), onClick: onOpenCs },
+            ].map((s) => {
+              const inner = (
+                <>
+                  {s.icon}
+                  <p className="mt-2.5 font-display text-base font-black leading-none text-primary">{s.v}</p>
+                  <p className="mt-1.5 text-[10px] leading-tight text-muted-foreground">{s.l}</p>
+                </>
+              )
+              const cls = 'flex flex-col items-center rounded-2xl border border-border/60 bg-secondary/50 py-5 text-center'
+              return s.onClick
+                ? <button key={s.l} type="button" className={`${cls} active:scale-95 transition-transform`} onClick={s.onClick}>{inner}</button>
+                : <div key={s.l} className={cls}>{inner}</div>
+            })}
           </div>
         </section>
 
-        <section className="mt-14 border-t border-border/40 px-6 pb-2 pt-7">
-          <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-2">
+        {/* 法务收尾：徽章 / 合规提示 / 条款 / 版权 */}
+        <section className="mt-16 border-t border-border/40 px-6 pb-2 pt-9">
+          <div className="flex justify-center">
+            <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-emerald-400">
+              <ShieldCheck size={14} />{t('home.advLicensed')}
+            </span>
+          </div>
+          <p className="mx-auto mt-5 max-w-[30rem] text-center text-[10px] leading-[1.8] text-muted-foreground/70">{t('home.responsibleNote')}</p>
+          <div className="mt-7 flex flex-wrap items-center justify-center gap-x-2 gap-y-2">
             {INFO_LINKS.map((link, i) => (
               <span key={link.key} className="flex items-center gap-2">
                 {i > 0 && <span className="text-[11px] text-muted-foreground/30">|</span>}
