@@ -325,7 +325,6 @@ export default function LoginSheet({ open, onClose }: Props) {
                     value={password}
                     type={showPassword ? 'text' : 'password'}
                     autoComplete="current-password"
-                    autoFocus={Boolean(initialLastLogin?.identifier)}
                     placeholder={t('auth.passwordPlaceholder')}
                     className="w-full rounded-[14px] border border-white/12 bg-[#121824] py-3.5 pl-11 pr-11 text-sm font-bold text-foreground transition-colors placeholder:text-[#798098] focus:border-primary focus:outline-none"
                     onChange={(e) => setPassword(e.target.value)}
