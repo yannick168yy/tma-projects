@@ -9,6 +9,18 @@ CTR="${CTR:-podman}"
 PORT="${WEB_TMA_PORT:-8080}"
 NET="${TMA_PODMAN_NETWORK:-tma-prod}"
 
+# 容器内存 limit 与 MySQL 调参。默认值 = 阿里云 2C2G 测试机现值，改机器时用环境变量覆盖，
+# 不要直接改默认值（生产 16G 参数见同目录 env-aws-16g.sh）。
+MEM_MYSQL="${MEM_MYSQL:-512m}"
+MEM_REDIS="${MEM_REDIS:-96m}"
+MEM_NATS="${MEM_NATS:-64m}"
+MEM_CORE="${MEM_CORE:-192m}"
+MEM_BFF="${MEM_BFF:-256m}"
+MEM_WEB="${MEM_WEB:-64m}"
+MYSQL_BUFFER_POOL="${MYSQL_BUFFER_POOL:-128M}"
+MYSQL_MAX_CONN="${MYSQL_MAX_CONN:-50}"
+REDIS_MAXMEM="${REDIS_MAXMEM:-64mb}"
+
 if [[ "$CTR" != podman ]] && [[ "$CTR" != docker ]]; then
   echo "CTR 必须是 podman 或 docker" >&2
   exit 1
@@ -62,11 +74,11 @@ done
 echo "==> [${CTR}] 创建网络 ${NET}"
 run network inspect "$NET" >/dev/null 2>&1 || run network create "$NET"
 
-echo "==> [${CTR}] MySQL betogo (limit 512m, :13306)"
+echo "==> [${CTR}] MySQL betogo (limit ${MEM_MYSQL}, buffer_pool ${MYSQL_BUFFER_POOL}, :13306)"
 run rm -f tma-mysql 2>/dev/null || true
 run volume create tma-mysql-data 2>/dev/null || true
 run run -d --name tma-mysql --network "$NET" --network-alias mysql --restart=always \
-  --memory=512m --memory-swap=512m \
+  --memory="$MEM_MYSQL" --memory-swap="$MEM_MYSQL" \
   -p 127.0.0.1:13306:3306 \
   -v tma-mysql-data:/var/lib/mysql:Z \
   -e MYSQL_ROOT_PASSWORD="${MYSQL_ROOT_PASSWORD}" \
@@ -76,8 +88,8 @@ run run -d --name tma-mysql --network "$NET" --network-alias mysql --restart=alw
   --character-set-server=utf8mb4 \
   --collation-server=utf8mb4_unicode_ci \
   --default-authentication-plugin=mysql_native_password \
-  --max_connections=50 \
-  --innodb_buffer_pool_size=128M \
+  --max_connections="$MYSQL_MAX_CONN" \
+  --innodb_buffer_pool_size="$MYSQL_BUFFER_POOL" \
   --performance_schema=OFF \
   --table_open_cache=200
 
@@ -85,20 +97,20 @@ export CTR
 chmod +x scripts/apply-betogo-schema.sh
 bash scripts/apply-betogo-schema.sh
 
-echo "==> [${CTR}] Redis (limit 96m)"
+echo "==> [${CTR}] Redis (limit ${MEM_REDIS})"
 run rm -f tma-redis 2>/dev/null || true
 run run -d --name tma-redis --network "$NET" --network-alias redis --restart=always \
-  --memory=96m --memory-swap=96m \
+  --memory="$MEM_REDIS" --memory-swap="$MEM_REDIS" \
   -p 127.0.0.1:6379:6379 \
   redis:7.0-alpine \
-  redis-server --maxmemory 64mb --maxmemory-policy allkeys-lru --save "" --appendonly no
+  redis-server --maxmemory "$REDIS_MAXMEM" --maxmemory-policy allkeys-lru --save "" --appendonly no
 
 REDIS_URL_WIRED="redis://redis:6379"
 
-echo "==> [${CTR}] NATS JetStream (limit 64m)"
+echo "==> [${CTR}] NATS JetStream (limit ${MEM_NATS})"
 run volume create tma-nats-data 2>/dev/null || true
 run run -d --name tma-nats --network "$NET" --network-alias nats --restart=always \
-  --memory=64m --memory-swap=64m \
+  --memory="$MEM_NATS" --memory-swap="$MEM_NATS" \
   -p 127.0.0.1:4222:4222 \
   -v tma-nats-data:/data:Z \
   nats:2.10-alpine \
@@ -116,7 +128,7 @@ LOG_OPTS=(--log-driver=json-file --log-opt max-size=50m --log-opt max-file=3)
 
 run run -d --name tma-core-node --network "$NET" --restart=always \
   "${LOG_OPTS[@]}" \
-  --memory=192m --memory-swap=192m \
+  --memory="$MEM_CORE" --memory-swap="$MEM_CORE" \
   -p 127.0.0.1:4000:4000 \
   -v "${DIR}/apps/core-node/dist:/app/dist:ro" \
   -e NODE_ENV=production \
@@ -160,7 +172,7 @@ run rm -f tma-bff-node 2>/dev/null || true
 run build -t betogo-bff-node:latest -f apps/bff-node/Dockerfile apps/bff-node
 run run -d --name tma-bff-node --network "$NET" --restart=always \
   "${LOG_OPTS[@]}" \
-  --memory=256m --memory-swap=256m \
+  --memory="$MEM_BFF" --memory-swap="$MEM_BFF" \
   -p 127.0.0.1:3000:3000 \
   -v "${DIR}/apps/bff-node/dist:/app/dist:ro" \
   -e NODE_ENV=production \
@@ -225,7 +237,7 @@ run build -t tma-web-tma:latest \
   --build-arg "VITE_TELEGRAM_WEB_APP_URL=${VITE_TELEGRAM_WEB_APP_URL:-https://www.188facai.com}" \
   -f apps/web-tma/Dockerfile apps/web-tma
 run run -d --name tma-web-tma --network "$NET" --restart=always \
-  --memory=64m --memory-swap=64m \
+  --memory="$MEM_WEB" --memory-swap="$MEM_WEB" \
   -v "${DIR}/apps/web-tma/dist:/usr/share/nginx/html:ro" \
   -p "${PORT}:80" \
   tma-web-tma:latest
@@ -235,7 +247,7 @@ ADMIN_PORT="${WEB_ADMIN_PORT:-8085}"
 run rm -f tma-web-admin 2>/dev/null || true
 run build -t betogo-web-admin:latest -f apps/web-admin/Dockerfile apps/web-admin
 run run -d --name tma-web-admin --network "$NET" --restart=always \
-  --memory=64m --memory-swap=64m \
+  --memory="$MEM_WEB" --memory-swap="$MEM_WEB" \
   -v "${DIR}/apps/web-admin/dist:/usr/share/nginx/html:ro" \
   -p "${ADMIN_PORT}:80" \
   betogo-web-admin:latest
