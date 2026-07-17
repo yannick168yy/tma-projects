@@ -14,7 +14,7 @@ interface CategoryDef { id: string; labelKey: string; siteCategory?: string }
 const CATEGORIES: CategoryDef[] = [
   { id: 'all',        labelKey: 'games.catAll'         },
   { id: 'highrebate', labelKey: 'games.catHighRebate'  },
-  { id: 'highrtp',    labelKey: 'home.highRtp'         },
+  { id: 'highrtp',    labelKey: 'games.catHighRtp'     },
   { id: 'slot',    labelKey: 'home.chipSlots',   siteCategory: 'slot'    },
   { id: 'casino',  labelKey: 'home.chipCasino',  siteCategory: 'casino'  },
   { id: 'perya',   labelKey: 'home.chipPerya',   siteCategory: 'perya'   },

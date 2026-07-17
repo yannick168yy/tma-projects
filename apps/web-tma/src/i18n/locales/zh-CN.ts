@@ -638,6 +638,7 @@ export default {
     vipBirthdayKycBtn: '去认证',
   },
   lossRebate: {
+    title: '负盈利返水',
     pageTitle: '每日负盈利返水',
     subtitle: '每天返还你净输的 {{rate}}%',
     introTitle: '什么是负盈利返水？',
@@ -1219,6 +1220,7 @@ export default {
   games: {
     catAll: '全部',
     catHighRebate: '高洗码',
+    catHighRtp: '高返奖 RTP 97%+',
     peryaCarnival: 'Perya Carnival',
     peryaCarnivalSub: '菲式嘉年华专区 · 经典本土游戏',
     enter: '进入',

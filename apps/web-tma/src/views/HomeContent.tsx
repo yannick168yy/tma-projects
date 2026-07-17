@@ -401,7 +401,7 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
 
       {/* Cash Rebate 活动横条 → rebate 页 */}
       <section className="mt-6">
-        {sectionHeader(<Percent size={15} className="text-amber-400" />, t('cashback.pageTitle'))}
+        {sectionHeader(<Percent size={15} className="text-amber-400" />, t('cashback.pageTitle').toUpperCase())}
         <div className="px-4">
           <button type="button" className="relative block w-full active:scale-[0.98] transition-transform" onClick={() => onNavigatePath('/rebate')}>
             <img src={cashRebateBannerImg} alt="Cash Rebate" draggable={false} className="w-full rounded-2xl" />

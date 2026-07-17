@@ -639,6 +639,7 @@ export default {
     vipBirthdayKycBtn: 'Verify Now',
   },
   lossRebate: {
+    title: 'LOSS REBATE',
     pageTitle: 'Daily Loss Rebate',
     subtitle: 'Get {{rate}}% of your net losses back — every day',
     introTitle: 'What is Loss Rebate?',
@@ -1223,6 +1224,7 @@ export default {
   games: {
     catAll: 'All',
     catHighRebate: 'High Cashback',
+    catHighRtp: 'High RTP 97%+',
     peryaCarnival: 'Perya Carnival',
     peryaCarnivalSub: 'Pinoy classics, jackpots & fiesta fun',
     enter: 'Enter',
