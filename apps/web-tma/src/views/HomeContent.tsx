@@ -676,23 +676,9 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
               </a>
             ))}
           </div>
-          <p className="mx-auto mt-8 max-w-[30rem] text-center text-[13px] leading-[1.9] text-muted-foreground">{t('home.brandIntroBody')}</p>
-          <div className="mx-auto mt-8 grid max-w-[30rem] grid-cols-4 gap-2">
-            {[
-              { v: '2,000+', l: t('home.brandStatGames') },
-              { v: '20+', l: t('home.brandStatProviders') },
-              { v: t('home.brandStatInstant'), l: t('home.brandStatPayouts') },
-              { v: '24/7', l: t('home.brandStatSupport') },
-            ].map((s) => (
-              <div key={s.l} className="text-center">
-                <p className="font-display text-[15px] font-black leading-none text-primary">{s.v}</p>
-                <p className="mt-2 text-[10px] leading-tight text-muted-foreground">{s.l}</p>
-              </div>
-            ))}
-          </div>
         </section>
 
-        <section className="mt-20 px-6">
+        <section className="mt-14 px-6">
           <p className="mx-auto max-w-[30rem] text-center text-[11px] leading-[1.8] text-muted-foreground">{t('home.responsibleNote')}</p>
         </section>
 
@@ -711,6 +697,24 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
               <ShieldCheck size={20} className="text-emerald-400" />
               <p className="text-[11px] font-bold leading-tight text-foreground/90">{t('home.advLicensed')}</p>
             </div>
+          </div>
+        </section>
+
+        {/* 品牌介绍文案 + 数据条 */}
+        <section className="mt-20 px-6">
+          <p className="mx-auto max-w-[30rem] text-center text-[13px] leading-[1.9] text-muted-foreground">{t('home.brandIntroBody')}</p>
+          <div className="mx-auto mt-8 grid max-w-[30rem] grid-cols-4 gap-2">
+            {[
+              { v: '2,000+', l: t('home.brandStatGames') },
+              { v: '20+', l: t('home.brandStatProviders') },
+              { v: t('home.brandStatInstant'), l: t('home.brandStatPayouts') },
+              { v: '24/7', l: t('home.brandStatSupport') },
+            ].map((s) => (
+              <div key={s.l} className="text-center">
+                <p className="font-display text-[15px] font-black leading-none text-primary">{s.v}</p>
+                <p className="mt-2 text-[10px] leading-tight text-muted-foreground">{s.l}</p>
+              </div>
+            ))}
           </div>
         </section>
 
