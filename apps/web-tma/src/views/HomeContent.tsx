@@ -701,10 +701,19 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
           </div>
         </section>
 
+        {/* 品牌介绍：顶部为社群入口（原 Welcome 标题位置） */}
         <section className="mt-14 px-6">
-          <h3 className="text-center font-display text-2xl font-black leading-tight text-foreground">{t('home.brandIntroTitle')}</h3>
-          <div className="mx-auto mt-4 h-px w-10 bg-primary/50" />
-          <p className="mx-auto mt-5 max-w-[30rem] text-center text-[13px] leading-[1.9] text-muted-foreground">{t('home.brandIntroBody')}</p>
+          <h3 className="text-center font-display text-base font-black tracking-widest text-foreground">{t('home.communitySection')}</h3>
+          <div className="mt-7 flex flex-wrap justify-center gap-9">
+            {COMMUNITY_LINKS.map((link) => (
+              <a key={link.label} href={link.url} target="_blank" rel="noopener noreferrer"
+                className="flex w-16 flex-col items-center gap-2.5 transition-transform active:scale-95">
+                <img src={link.icon} alt="" className="h-14 w-14" />
+                <span className="text-[11px] text-muted-foreground">{link.label}</span>
+              </a>
+            ))}
+          </div>
+          <p className="mx-auto mt-8 max-w-[30rem] text-center text-[13px] leading-[1.9] text-muted-foreground">{t('home.brandIntroBody')}</p>
           <div className="mx-auto mt-8 grid max-w-[30rem] grid-cols-4 gap-2">
             {[
               { v: '2,000+', l: t('home.brandStatGames') },
@@ -716,20 +725,6 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
                 <p className="font-display text-[15px] font-black leading-none text-primary">{s.v}</p>
                 <p className="mt-2 text-[10px] leading-tight text-muted-foreground">{s.l}</p>
               </div>
-            ))}
-          </div>
-        </section>
-
-        {/* 社群：页脚里的重点板块，前后留白最大、图标最大并带名称 */}
-        <section className="mt-20 px-6">
-          <h3 className="text-center font-display text-base font-black tracking-widest text-foreground">{t('home.communitySection')}</h3>
-          <div className="mt-7 flex flex-wrap justify-center gap-9">
-            {COMMUNITY_LINKS.map((link) => (
-              <a key={link.label} href={link.url} target="_blank" rel="noopener noreferrer"
-                className="flex w-16 flex-col items-center gap-2.5 transition-transform active:scale-95">
-                <img src={link.icon} alt="" className="h-14 w-14" />
-                <span className="text-[11px] text-muted-foreground">{link.label}</span>
-              </a>
             ))}
           </div>
         </section>
