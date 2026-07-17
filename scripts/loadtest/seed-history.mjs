@@ -79,6 +79,8 @@ if (MODE === 'cleanup') {
   await batchDelete('ledger(LTD)', "DELETE FROM bg_wallet_ledger WHERE user_id LIKE 'LTD-%'")
   await batchDelete('wallet(LTD)', "DELETE FROM bg_wallet WHERE user_id LIKE 'LTD-%'")
   await batchDelete('user(LTD)', "DELETE FROM bg_user WHERE id LIKE 'LTD-%'")
+  // 迁移151：seed 回填过 bg_user_vip_state.turnover_total，清理时一并删（LT 用户行由 cleanup.mjs 删）
+  await batchDelete('vip_state(LT)', "DELETE FROM bg_user_vip_state WHERE user_id LIKE 'LT-%'")
   await batchDelete('wallet(LT)', "DELETE FROM bg_wallet WHERE user_id LIKE 'LT-%'")
   log('== cleanup 完成 ==')
   await conn.end(); process.exit(0)
@@ -148,6 +150,15 @@ for (let u = 1; u <= HEAVY; u++) {
      SELECT user_id, 'PHP', id, amount, 1, amount,
             ELT(1 + (id MOD ${CATS.length}), ${CATS.map(c => `'${c}'`).join(',')}), created_at
      FROM bg_bet_order WHERE user_id = ? AND bet_type = 'bet'`, [uid])
+
+  // 总流水累计（迁移151）：线上 getUserTotalTurnover 已改读 bg_user_vip_state.turnover_total 单行，
+  // 不再 SUM bg_turnover_logs。seed 必须同步回填此列，否则灌完的用户 rebate/vip 等级全读 0→LV1（测空路径）。
+  // 从 turnover_logs 重算，幂等（增量补灌后也得到正确的全量总额）。
+  await conn.query(
+    `INSERT INTO bg_user_vip_state (user_id, currency, turnover_total)
+     SELECT user_id, currency, SUM(effective_amount) FROM bg_turnover_logs
+     WHERE user_id = ? AND is_reversed = 0 GROUP BY user_id, currency
+     ON DUPLICATE KEY UPDATE turnover_total = VALUES(turnover_total)`, [uid])
 
   // 存提单历史
   const deps = [], wds = []

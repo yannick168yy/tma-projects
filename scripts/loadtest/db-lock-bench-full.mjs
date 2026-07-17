@@ -1,3 +1,5 @@
+// ⚠️已被 p4-bet-settle-bench.mjs（对账版：带 MODE=cleanup + 余额对账 + 迁移151 vip_state 累加）取代，优先用那个。
+//   本文件无 cleanup 且写入集停留在 pre-迁移151（未写 bg_user_vip_state.turnover_total），仅作历史 B+ 参考保留。
 // B+：复刻 568win deduct+settle 的完整写入集(比纯B多5-6个INSERT/UPDATE)，量真实下注DB成本。
 // 略去:turnover-requirements FIFO(bg_turnover_requirements) + 品类查询(用固定rate=1/slots)。其余照 win568-wallet.service 原样。
 // 在 tma-bff-node 容器内跑:  podman exec -i -e CONC=10 -e DUR=20 -e POOLMAX=10 tma-bff-node node --input-type=module < db-lock-bench-full.mjs

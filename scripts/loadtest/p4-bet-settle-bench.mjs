@@ -42,7 +42,14 @@ if (MODE === 'cleanup') {
   await batch('bet_order(bet)', `DELETE FROM bg_bet_order WHERE provider_txn_id LIKE 'p4%'`)
   await batch('wallet_txn', `DELETE FROM bg_568win_wallet_txn WHERE transfer_code LIKE 'p4%'`)
   const [r] = await pool.query(`UPDATE bg_wallet SET available = 1000000 WHERE user_id LIKE 'LT-%' AND currency = 'PHP'`)
-  process.stderr.write(`  恢复钱包: ${r.affectedRows}\ncleanup done\n`)
+  // 迁移151：betCycle 曾把 p4 下注累加进 turnover_total；删 p4 turnover 后从残留 logs 重算，
+  // 让累计列与 bg_turnover_logs 复归一致（保留 seed-history 灌入的历史总额）。
+  const [vs] = await pool.query(
+    `UPDATE bg_user_vip_state vs SET turnover_total = COALESCE(
+       (SELECT SUM(effective_amount) FROM bg_turnover_logs tl
+        WHERE tl.user_id = vs.user_id AND tl.currency = vs.currency AND tl.is_reversed = 0), 0)
+     WHERE vs.user_id LIKE 'LT-%'`)
+  process.stderr.write(`  恢复钱包: ${r.affectedRows}；重算累计列: ${vs.affectedRows}\ncleanup done\n`)
   await pool.end(); process.exit(0)
 }
 
@@ -67,6 +74,10 @@ async function betCycle(uid, tc) {
       VALUES (?,'568win','101',?,?,'bet',?,'PHP',?,1,'pending')`, [uid, tc, tc, amt, amt])
     await c.query(`INSERT INTO bg_turnover_logs (user_id,currency,bet_order_id,bet_amount,rate,effective_amount,sort_category)
       VALUES (?,?,?,?,1,?,'slots')`, [uid, 'PHP', r.insertId, amt, amt])
+    // 迁移151：真实 allocateBetTurnover 现同事务增量维护 turnover_total，复刻进来保持写入集完整
+    // （写事务从 5→6 写；与 pre-151 的 266下注/s 基线对比时留意这一项）
+    await c.query(`INSERT INTO bg_user_vip_state (user_id,currency,turnover_total) VALUES (?,?,?)
+      ON DUPLICATE KEY UPDATE turnover_total = turnover_total + VALUES(turnover_total)`, [uid, 'PHP', amt])
     await c.query(`INSERT INTO bg_wallet_ledger (id,user_id,currency,type,amount,balance_after,ref_type,ref_id,description)
       VALUES (?,?,?,'bet',?,?,'game',?,'P4 deduct')`, ['lg-' + tc + '-d', uid, 'PHP', -amt, bal - amt, tc])
     await c.query('UPDATE bg_wallet SET available=ROUND(available-?,2), version=version+1 WHERE user_id=? AND currency=?', [amt, uid, 'PHP'])

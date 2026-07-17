@@ -87,6 +87,7 @@
    - **团队组**（LT-51..80）：3 级下线各 50/20/10 人 + 佣金记录 —— 压 team/tree、downlines JOIN；
    - **轻用户组**（其余）：仅钱包+余额，模拟新用户。
    - 产出灌数脚本 `scripts/loadtest/seed-history.mjs`（幂等、可 cleanup）。
+   - **⚠️脚本-代码同步依赖（迁移150/151 后必读）**：`getUserTotalTurnover` 已改读 `bg_user_vip_state.turnover_total` 单行（迁移151），不再 SUM `bg_turnover_logs`。故 seed-history 灌完 turnover 必须同步回填该累计列（已内置），否则 rebate/vip 等级全读 0/LV1；对应地 cleanup（seed-history + cleanup.mjs）需删 `bg_user_vip_state`/`bg_spin_chance` 等 FK 子表才能删 `bg_user`（已内置）。p4-bet-settle 的 betCycle 也已补上 vip_state 累加以复刻完整写入集（写事务 5→6 写）。
 2. 开限流旁路、置空 Turnstile、起 monitor.sh。
 3. 基线记录：空载时各容器 CPU/内存、MySQL buffer pool 命中率。
 
