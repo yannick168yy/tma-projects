@@ -62,6 +62,7 @@ export interface RebateProgress {
   rates: RebateConfigItem[]
   claimable: number
   claimableBreakdown: RebateSummaryItem[]
+  estimatedToday: number
 }
 
 export async function fetchRebateConfig(currency?: string): Promise<RebateConfig> {

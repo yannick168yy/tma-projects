@@ -288,6 +288,7 @@ export default function RebatePage({ onOpenGame, onOpenCategory }: Props) {
 
   const claimableTarget = token ? (progress?.claimable ?? 0) : 0
   const animatedClaimable = useCountUp(claimableTarget)
+  const estimatedToday = token ? (progress?.estimatedToday ?? 0) : 0
 
   return (
     <div className="page-main pb-8 min-h-screen bg-[#0f0a1d]">
@@ -310,6 +311,11 @@ export default function RebatePage({ onOpenGame, onOpenCategory }: Props) {
               <p className={`text-white font-black text-[22px] font-display drop-shadow mt-0.5 ${claimableTarget > 0 ? 'rb-pop' : ''}`}>
                 {amtStr(currency, animatedClaimable)}
               </p>
+              {estimatedToday > 0 && (
+                <p className="mt-1 text-[11px] text-violet-200/50">
+                  {t('cashback.estimatedTodayLabel')} <span className="font-bold text-violet-200/75">{amtStr(currency, estimatedToday)}</span>
+                </p>
+              )}
             </div>
             <button
               type="button"

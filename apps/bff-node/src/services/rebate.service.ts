@@ -1,6 +1,7 @@
 import type { RowDataPacket } from 'mysql2/promise'
 import type { Env } from '../config/env.js'
 import { getMysqlPool, isMysqlEnabled } from '../clients/mysql.client.js'
+import { getRedis } from '../clients/redis.client.js'
 import { creditWalletTx } from './store/mysql-store.js'
 import { randomBytes } from 'node:crypto'
 
@@ -40,6 +41,8 @@ export interface RebateLevelProgress {
   rates: RebateConfig[]
   claimable: number
   claimableBreakdown: RebateSummaryItem[]
+  // 今日尚未结算的预估返利(只展示不可领)；带 TTL 缓存, 非真实时
+  estimatedToday: number
 }
 
 export interface RebateSummaryItem {
@@ -281,15 +284,44 @@ export async function getEffectiveLevel(env: Env, userId: string, currency: stri
 }
 
 /** 用户洗码等级进度：总流水、当前等级、下一级阈值、本级费率、可领取总额 */
+// 今日预估返利缓存 TTL(秒)：命中缓存直接读, 不重扫今日流水, 故为"结算后再显示"的准实时
+const EST_CACHE_TTL = 600
+
+/**
+ * 今日尚未结算的预估返利。带 Redis 缓存(10min)避免每次请求重扫 bg_turnover_logs。
+ * 双算防护：今日若被后台手动结算写入 bg_rebate_record(date=今日), 那部分已并入 claimable, 从预估里扣除。
+ */
+async function getEstimatedTodayRebate(env: Env, userId: string, currency: string): Promise<number> {
+  const today = todayPHT()
+  const key = `rebate:est:${userId}:${currency}:${today}`
+  try {
+    const cached = await getRedis(env).get(key)
+    if (cached != null) return Number(cached)
+  } catch { /* redis 不可用则直接实时算, 不影响可用性 */ }
+
+  const summary = await getUserRebateSummary(env, userId, today, currency)
+  const pool = getMysqlPool(env)
+  const [[settled]] = await pool.query<RowDataPacket[]>(
+    `SELECT COALESCE(SUM(rebate_amount), 0) AS amt
+     FROM bg_rebate_record
+     WHERE user_id = ? AND currency_code = ? AND date = ?`,
+    [userId, currency, today],
+  )
+  const est = Math.max(0, summary.totalRebate - Number(settled?.amt ?? 0))
+  try { await getRedis(env).setex(key, EST_CACHE_TTL, String(est)) } catch { /* noop */ }
+  return est
+}
+
 export async function getUserLevelProgress(env: Env, userId: string, currency = 'PHP'): Promise<RebateLevelProgress> {
   const emptyRates: RebateConfig[] = []
   if (!isMysqlEnabled(env)) {
-    return { currency, totalTurnover: 0, level: 1, currentThreshold: 0, nextLevel: null, nextThreshold: null, rates: emptyRates, claimable: 0, claimableBreakdown: [] }
+    return { currency, totalTurnover: 0, level: 1, currentThreshold: 0, nextLevel: null, nextThreshold: null, rates: emptyRates, claimable: 0, claimableBreakdown: [], estimatedToday: 0 }
   }
-  const [total, thresholds, level] = await Promise.all([
+  const [total, thresholds, level, estimatedToday] = await Promise.all([
     getUserTotalTurnover(env, userId, currency),
     getLevelThresholds(env, currency),
     getEffectiveLevel(env, userId, currency),
+    getEstimatedTodayRebate(env, userId, currency),
   ])
   const sorted = [...thresholds].sort((a, b) => a.level - b.level)
   const current = sorted.find((t) => t.level === level)
@@ -330,6 +362,7 @@ export async function getUserLevelProgress(env: Env, userId: string, currency = 
       rebateAmount: Number(r.rebate_amount),
       ratePct: Number(r.rate_pct),
     })),
+    estimatedToday,
   }
 }
 
