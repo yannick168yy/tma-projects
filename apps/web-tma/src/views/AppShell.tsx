@@ -396,6 +396,7 @@ export default function AppShell() {
 
   function onOpenTasks() {
     setWalletOpen(false)
+    if (!isLoggedIn) { pendingTasksTab.current = 'newbie'; void auth.ensureLoggedIn(t('auth.signInPlay')); return }
     openTasks()
   }
 
