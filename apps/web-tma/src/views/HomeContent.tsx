@@ -700,24 +700,23 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
         </div>
       </section>
 
-      {/* 品牌业务介绍 */}
-      <section className="mt-8 px-4">
-        <div className="bg-secondary border border-border rounded-2xl p-5">
-          <h3 className="text-center font-display font-black text-base text-foreground">{t('home.brandIntroTitle')}</h3>
-          <p className="mt-2.5 text-center text-[12px] text-muted-foreground leading-relaxed">{t('home.brandIntroBody')}</p>
-          <div className="mt-4 grid grid-cols-4 gap-2">
-            {[
-              { v: '2,000+', l: t('home.brandStatGames') },
-              { v: '20+', l: t('home.brandStatProviders') },
-              { v: t('home.brandStatInstant'), l: t('home.brandStatPayouts') },
-              { v: '24/7', l: t('home.brandStatSupport') },
-            ].map((s) => (
-              <div key={s.l} className="rounded-xl bg-background/40 border border-border/60 py-2.5 px-1 text-center">
-                <p className="text-primary font-black text-[13px] leading-none">{s.v}</p>
-                <p className="mt-1 text-[9px] text-muted-foreground leading-tight">{s.l}</p>
-              </div>
-            ))}
-          </div>
+      {/* 品牌业务介绍：不套卡片，直接落在页面背景上 */}
+      <section className="mt-12 px-6">
+        <h3 className="text-center font-display font-black text-2xl leading-tight text-foreground">{t('home.brandIntroTitle')}</h3>
+        <div className="mx-auto mt-4 h-px w-10 bg-primary/50" />
+        <p className="mx-auto mt-5 max-w-[30rem] text-center text-[13px] leading-[1.9] text-muted-foreground">{t('home.brandIntroBody')}</p>
+        <div className="mx-auto mt-8 grid max-w-[30rem] grid-cols-4 gap-2">
+          {[
+            { v: '2,000+', l: t('home.brandStatGames') },
+            { v: '20+', l: t('home.brandStatProviders') },
+            { v: t('home.brandStatInstant'), l: t('home.brandStatPayouts') },
+            { v: '24/7', l: t('home.brandStatSupport') },
+          ].map((s) => (
+            <div key={s.l} className="text-center">
+              <p className="font-display text-[15px] font-black leading-none text-primary">{s.v}</p>
+              <p className="mt-2 text-[10px] leading-tight text-muted-foreground">{s.l}</p>
+            </div>
+          ))}
         </div>
       </section>
 
