@@ -682,27 +682,10 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
         </div>
       </div>
 
-      {/* 页脚：优势 / 品牌介绍 / 社群 / 合规 / 条款，统一无色块风格，靠间距分层 */}
-      <footer className="mt-10 border-t border-border/50 pt-10">
-        <section className="px-6">
-          <div className="grid grid-cols-3 gap-3">
-            <div className="flex flex-col items-center gap-2.5 text-center">
-              <Zap size={20} className="text-amber-400" />
-              <p className="text-[11px] font-bold leading-tight text-foreground/90">{t('home.advFast')}</p>
-            </div>
-            <button type="button" className="flex flex-col items-center gap-2.5 text-center active:scale-95 transition-transform" onClick={onOpenCs}>
-              <Headphones size={20} className="text-primary" />
-              <p className="text-[11px] font-bold leading-tight text-foreground/90">{t('home.advSupport')}</p>
-            </button>
-            <div className="flex flex-col items-center gap-2.5 text-center">
-              <ShieldCheck size={20} className="text-emerald-400" />
-              <p className="text-[11px] font-bold leading-tight text-foreground/90">{t('home.advLicensed')}</p>
-            </div>
-          </div>
-        </section>
-
+      {/* 页脚：社群+品牌介绍 / 合规 / 优势 / 条款，统一无色块风格，靠间距分层 */}
+      <footer className="mt-10 border-t border-border/50 pt-14">
         {/* 品牌介绍：顶部为社群入口（原 Welcome 标题位置） */}
-        <section className="mt-14 px-6">
+        <section className="px-6">
           <h3 className="text-center font-display text-base font-black tracking-widest text-foreground">{t('home.communitySection')}</h3>
           <div className="mt-7 flex flex-wrap justify-center gap-9">
             {COMMUNITY_LINKS.map((link) => (
@@ -736,6 +719,24 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
             <img src={age21Img} alt="21+ Gambling can be addictive, know when to stop" className="h-8 object-contain" />
           </div>
           <p className="mx-auto mt-5 max-w-[30rem] text-center text-[11px] leading-[1.8] text-muted-foreground">{t('home.responsibleNote')}</p>
+        </section>
+
+        {/* 产品优势条 */}
+        <section className="mt-14 px-6">
+          <div className="grid grid-cols-3 gap-3">
+            <div className="flex flex-col items-center gap-2.5 text-center">
+              <Zap size={20} className="text-amber-400" />
+              <p className="text-[11px] font-bold leading-tight text-foreground/90">{t('home.advFast')}</p>
+            </div>
+            <button type="button" className="flex flex-col items-center gap-2.5 text-center active:scale-95 transition-transform" onClick={onOpenCs}>
+              <Headphones size={20} className="text-primary" />
+              <p className="text-[11px] font-bold leading-tight text-foreground/90">{t('home.advSupport')}</p>
+            </button>
+            <div className="flex flex-col items-center gap-2.5 text-center">
+              <ShieldCheck size={20} className="text-emerald-400" />
+              <p className="text-[11px] font-bold leading-tight text-foreground/90">{t('home.advLicensed')}</p>
+            </div>
+          </div>
         </section>
 
         <section className="mt-14 border-t border-border/40 px-6 pb-2 pt-7">
