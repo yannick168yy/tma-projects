@@ -186,13 +186,12 @@ export default {
     advLicensed: 'Berlisensi & Aman',
     communitySection: 'GABUNG KOMUNITAS KAMI',
     brandIntroTitle: 'Selamat Datang di BetoGo',
-    brandIntroBody: 'BetoGo adalah platform gaming berlisensi PAGCOR terkemuka yang menghadirkan ribuan slot premium, live casino, serta game fishing dan crash dari studio kelas dunia seperti JILI, PG Soft dan Pragmatic Play dalam satu aplikasi yang mulus dan aman. Nikmati deposit instan, penarikan super cepat, dan dukungan sepanjang waktu — kapan saja, di mana saja.',
+    brandIntroBody: 'BetoGo adalah platform gaming berlisensi internasional terkemuka yang menghadirkan ribuan slot premium, live casino, serta game fishing dan crash dari studio kelas dunia seperti JILI, PG Soft dan Pragmatic Play dalam satu aplikasi yang mulus dan aman. Nikmati deposit instan, penarikan super cepat, dan dukungan sepanjang waktu — kapan saja, di mana saja.',
     brandStatGames: 'Game',
     brandStatProviders: 'Provider',
     brandStatInstant: 'Instan',
     brandStatPayouts: 'Pembayaran',
     brandStatSupport: 'Dukungan',
-    licenseTitle: 'Lisensi Resmi & Perjudian Bertanggung Jawab',
     responsibleNote: 'Perjudian bisa menimbulkan kecanduan, ketahui kapan harus berhenti. Perjudian tidak menjamin penghasilan atau perbaikan kondisi keuangan — bermainlah sesuai batas Anda. Hanya untuk usia 21 tahun ke atas.',
     infoDetails: {
       terms: {
@@ -205,7 +204,7 @@ export default {
       },
       responsible: {
         title: 'Perjudian Bertanggung Jawab',
-        content: 'BetoGo berkomitmen untuk perjudian bertanggung jawab sesuai lisensi PAGCOR. Perjudian adalah hiburan, bukan sumber pendapatan atau pelarian dari masalah.\n\n21+ Diberlakukan Ketat\n\nSesuai peraturan PAGCOR, BetoGo melarang keras pemain di bawah 21 tahun. Verifikasi usia dilakukan secara berkala. Akun yang terbukti milik anak di bawah umur akan ditangguhkan permanen.\n\nAlat Perlindungan Pemain\n\n• Batas Deposit — Tetapkan batas harian/mingguan/bulanan\n• Pengingat Waktu — Notifikasi saat bermain terlalu lama\n• Pengecualian Diri — Keluar sementara atau permanen dari platform\n• Pemeriksaan Realita — Pop-up berkala menampilkan waktu bermain dan pengeluaran\n\nBantuan Perjudian Bermasalah\n\n• Dukungan BetoGo 24/7 — Live chat\n• Hotline PAGCOR — 1-800-1888-0098\n• Gamblers Anonymous Philippines — www.gamblersanonymous.org\n\nAnda tidak sendirian. Bermainlah dengan bertanggung jawab.',
+        content: 'BetoGo berkomitmen untuk perjudian bertanggung jawab sesuai standar internasional perjudian bertanggung jawab. Perjudian adalah hiburan, bukan sumber pendapatan atau pelarian dari masalah.\n\n21+ Diberlakukan Ketat\n\nSesuai aturan platform dan standar verifikasi usia internasional, BetoGo melarang keras pemain di bawah 21 tahun. Verifikasi usia dilakukan secara berkala. Akun yang terbukti milik anak di bawah umur akan ditangguhkan permanen.\n\nAlat Perlindungan Pemain\n\n• Batas Deposit — Tetapkan batas harian/mingguan/bulanan\n• Pengingat Waktu — Notifikasi saat bermain terlalu lama\n• Pengecualian Diri — Keluar sementara atau permanen dari platform\n• Pemeriksaan Realita — Pop-up berkala menampilkan waktu bermain dan pengeluaran\n\nBantuan Perjudian Bermasalah\n\n• Dukungan BetoGo 24/7 — Live chat\n• Gamblers Anonymous — www.gamblersanonymous.org\n\nAnda tidak sendirian. Bermainlah dengan bertanggung jawab.',
       },
       about: {
         title: 'Tentang BetoGo',
@@ -742,7 +741,7 @@ export default {
     docDetails: {
       aml: {
         title: 'Kebijakan AML',
-        content: 'BetoGo berkomitmen untuk mencegah pencucian uang dan pendanaan terorisme sesuai peraturan yang berlaku dan lisensi PAGCOR kami.\n\nKenali Pelanggan Anda (KYC)\n\nKami memverifikasi identitas pemain melalui autentikasi Telegram dan Google. Untuk penarikan jumlah besar atau saat aktivitas mencurigakan terdeteksi, dokumentasi tambahan mungkin diperlukan. Verifikasi identitas memastikan integritas platform bagi semua pemain.\n\nPemantauan Transaksi\n\nSemua transaksi keuangan dipantau secara berkelanjutan untuk mendeteksi pola yang tidak biasa. Setoran dan penarikan disaring terhadap daftar sanksi internasional dan indikator risiko. Tim kepatuhan kami menyelidiki aktivitas yang ditandai dengan segera.\n\nKewajiban Pelaporan\n\nBetoGo bekerja sama penuh dengan PAGCOR dan otoritas penegak hukum. Transaksi mencurigakan dilaporkan sesuai undang-undang AML yang berlaku. Kami menyimpan catatan transaksi terperinci sesuai persyaratan regulasi.\n\nTanggung Jawab Pemain\n\nPemain harus memastikan semua dana yang digunakan untuk bermain berasal dari sumber yang sah. Menggunakan platform untuk pencucian uang atau aktivitas keuangan ilegal apa pun dilarang keras dan akan mengakibatkan penangguhan akun serta pelaporan kepada pihak berwenang.\n\nHubungi Tim Kepatuhan\n\nUntuk pertanyaan AML atau melaporkan aktivitas mencurigakan, hubungi tim dukungan kami melalui live chat. Semua laporan ditangani dengan kerahasiaan ketat.',
+        content: 'BetoGo berkomitmen untuk mencegah pencucian uang dan pendanaan terorisme sesuai peraturan yang berlaku dan standar anti pencucian uang internasional.\n\nKenali Pelanggan Anda (KYC)\n\nKami memverifikasi identitas pemain melalui autentikasi Telegram dan Google. Untuk penarikan jumlah besar atau saat aktivitas mencurigakan terdeteksi, dokumentasi tambahan mungkin diperlukan. Verifikasi identitas memastikan integritas platform bagi semua pemain.\n\nPemantauan Transaksi\n\nSemua transaksi keuangan dipantau secara berkelanjutan untuk mendeteksi pola yang tidak biasa. Setoran dan penarikan disaring terhadap daftar sanksi internasional dan indikator risiko. Tim kepatuhan kami menyelidiki aktivitas yang ditandai dengan segera.\n\nKewajiban Pelaporan\n\nBetoGo bekerja sama penuh dengan regulator terkait dan otoritas penegak hukum. Transaksi mencurigakan dilaporkan sesuai undang-undang AML yang berlaku. Kami menyimpan catatan transaksi terperinci sesuai persyaratan regulasi.\n\nTanggung Jawab Pemain\n\nPemain harus memastikan semua dana yang digunakan untuk bermain berasal dari sumber yang sah. Menggunakan platform untuk pencucian uang atau aktivitas keuangan ilegal apa pun dilarang keras dan akan mengakibatkan penangguhan akun serta pelaporan kepada pihak berwenang.\n\nHubungi Tim Kepatuhan\n\nUntuk pertanyaan AML atau melaporkan aktivitas mencurigakan, hubungi tim dukungan kami melalui live chat. Semua laporan ditangani dengan kerahasiaan ketat.',
       },
       bonusTerms: {
         title: 'Syarat Bonus',

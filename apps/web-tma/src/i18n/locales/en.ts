@@ -370,17 +370,13 @@ export default {
     advLicensed: 'Licensed & Secure',
     communitySection: 'JOIN OUR COMMUNITY',
     brandIntroTitle: 'Welcome to BetoGo',
-    brandIntroBody: 'BetoGo is a premier PAGCOR-licensed gaming platform bringing thousands of premium slots, live casino, fishing and crash games from world-class studios like JILI, PG Soft and Pragmatic Play into one seamless, secure app. Enjoy instant deposits, lightning-fast withdrawals and round-the-clock support — anytime, anywhere.',
+    brandIntroBody: 'BetoGo is a premier internationally licensed gaming platform bringing thousands of premium slots, live casino, fishing and crash games from world-class studios like JILI, PG Soft and Pragmatic Play into one seamless, secure app. Enjoy instant deposits, lightning-fast withdrawals and round-the-clock support — anytime, anywhere.',
     brandStatGames: 'Games',
     brandStatProviders: 'Providers',
     brandStatInstant: 'Instant',
     brandStatPayouts: 'Payouts',
     brandStatSupport: 'Support',
-    licenseTitle: 'Official License & Gaming Responsibility',
     responsibleNote: 'Gambling can be addictive, know when to stop. Gambling doesn’t guarantee earnings or financial improvement — stay within your limits. For 21 years old and above only.',
-    helplineLabel: '24/7 National Problem Gambling Helpline (NPGH)',
-    pagcorHelpLabel: 'Need help? Contact PAGCOR',
-    emailLabel: 'Email',
     infoDetails: {
       terms: {
         title: 'Terms of Service',
@@ -392,7 +388,7 @@ export default {
       },
       responsible: {
         title: 'Responsible Gaming',
-        content: 'BetoGo is committed to responsible gaming as required by our PAGCOR license. Gambling should be entertainment — never a source of income or an escape from problems. We actively promote responsible gambling practices across our platform.\n\n21+ Strictly Enforced\n\nIn compliance with PAGCOR regulations, BetoGo strictly prohibits players under 21 years of age. Age verification checks are conducted regularly. Any account found to belong to a minor will be permanently suspended.\n\nPlayer Protection Tools\n\n• Deposit Limits — Set daily/weekly/monthly deposit caps\n• Session Time Reminders — Get notified when you have played for extended periods\n• Self-Exclusion — Temporarily or permanently exclude yourself from the platform\n• Reality Check — Regular pop-ups showing your session time and spend\n\nProblem Gambling Help\n\nIf gambling is negatively affecting your life, please reach out:\n• BetoGo 24/7 Support — Available via live chat\n• PAGCOR Helpline — 1-800-1888-0098\n• Gamblers Anonymous Philippines — www.gamblersanonymous.org\n\nYou are never alone. Help is always available. Play responsibly.',
+        content: 'BetoGo is committed to responsible gaming in line with international responsible gaming standards. Gambling should be entertainment — never a source of income or an escape from problems. We actively promote responsible gambling practices across our platform.\n\n21+ Strictly Enforced\n\nIn line with our platform rules and international age-verification standards, BetoGo strictly prohibits players under 21 years of age. Age verification checks are conducted regularly. Any account found to belong to a minor will be permanently suspended.\n\nPlayer Protection Tools\n\n• Deposit Limits — Set daily/weekly/monthly deposit caps\n• Session Time Reminders — Get notified when you have played for extended periods\n• Self-Exclusion — Temporarily or permanently exclude yourself from the platform\n• Reality Check — Regular pop-ups showing your session time and spend\n\nProblem Gambling Help\n\nIf gambling is negatively affecting your life, please reach out:\n• BetoGo 24/7 Support — Available via live chat\n• Gamblers Anonymous — www.gamblersanonymous.org\n\nYou are never alone. Help is always available. Play responsibly.',
       },
       about: {
         title: 'About BetoGo',
@@ -1121,7 +1117,7 @@ export default {
     docDetails: {
       aml: {
         title: 'AML Policy',
-        content: 'BetoGo is committed to preventing money laundering and terrorist financing in full compliance with applicable regulations and our PAGCOR gaming license.\n\nKnow Your Customer (KYC)\n\nWe verify player identities through Telegram and Google authentication. For higher withdrawal amounts or when suspicious activity is detected, additional documentation may be required. Identity verification ensures the integrity of our platform for all players.\n\nTransaction Monitoring\n\nAll financial transactions are continuously monitored for unusual patterns. Deposits and withdrawals are screened against international sanctions lists and risk indicators. Our compliance team investigates flagged activities promptly.\n\nReporting Obligations\n\nBetoGo cooperates fully with PAGCOR and relevant law enforcement authorities. Suspicious transactions are reported in accordance with applicable anti-money laundering laws. We maintain detailed transaction records as required by regulation.\n\nPlayer Responsibilities\n\nPlayers must ensure all funds used for gaming are from legitimate sources. Using the platform for money laundering or any illegal financial activity is strictly prohibited and will result in immediate account suspension and reporting to authorities.\n\nContact Compliance\n\nFor AML-related queries or to report suspicious activity, contact our support team via live chat. All reports are treated with strict confidentiality.',
+        content: 'BetoGo is committed to preventing money laundering and terrorist financing in full compliance with applicable regulations and international anti-money laundering standards.\n\nKnow Your Customer (KYC)\n\nWe verify player identities through Telegram and Google authentication. For higher withdrawal amounts or when suspicious activity is detected, additional documentation may be required. Identity verification ensures the integrity of our platform for all players.\n\nTransaction Monitoring\n\nAll financial transactions are continuously monitored for unusual patterns. Deposits and withdrawals are screened against international sanctions lists and risk indicators. Our compliance team investigates flagged activities promptly.\n\nReporting Obligations\n\nBetoGo cooperates fully with relevant regulators and law enforcement authorities. Suspicious transactions are reported in accordance with applicable anti-money laundering laws. We maintain detailed transaction records as required by regulation.\n\nPlayer Responsibilities\n\nPlayers must ensure all funds used for gaming are from legitimate sources. Using the platform for money laundering or any illegal financial activity is strictly prohibited and will result in immediate account suspension and reporting to authorities.\n\nContact Compliance\n\nFor AML-related queries or to report suspicious activity, contact our support team via live chat. All reports are treated with strict confidentiality.',
       },
       bonusTerms: {
         title: 'Bonus Terms',

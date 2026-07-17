@@ -186,13 +186,12 @@ export default {
     advLicensed: 'Có giấy phép & An toàn',
     communitySection: 'THAM GIA CỘNG ĐỒNG',
     brandIntroTitle: 'Chào mừng đến với BetoGo',
-    brandIntroBody: 'BetoGo là nền tảng game hàng đầu được PAGCOR cấp phép, quy tụ hàng nghìn game slot cao cấp, casino trực tuyến, bắn cá và game crash từ các studio đẳng cấp thế giới như JILI, PG Soft và Pragmatic Play trong một ứng dụng mượt mà, an toàn. Nạp tiền tức thì, rút tiền siêu nhanh và hỗ trợ suốt ngày đêm — mọi lúc, mọi nơi.',
+    brandIntroBody: 'BetoGo là nền tảng game hàng đầu được cấp phép quốc tế, quy tụ hàng nghìn game slot cao cấp, casino trực tuyến, bắn cá và game crash từ các studio đẳng cấp thế giới như JILI, PG Soft và Pragmatic Play trong một ứng dụng mượt mà, an toàn. Nạp tiền tức thì, rút tiền siêu nhanh và hỗ trợ suốt ngày đêm — mọi lúc, mọi nơi.',
     brandStatGames: 'Trò chơi',
     brandStatProviders: 'Nhà cung cấp',
     brandStatInstant: 'Tức thì',
     brandStatPayouts: 'Thanh toán',
     brandStatSupport: 'Hỗ trợ',
-    licenseTitle: 'Giấy phép chính thức & Chơi có trách nhiệm',
     responsibleNote: 'Cờ bạc có thể gây nghiện, hãy biết dừng đúng lúc. Cờ bạc không đảm bảo thu nhập hay cải thiện tài chính — hãy chơi trong giới hạn của bạn. Chỉ dành cho người từ 21 tuổi trở lên.',
     infoDetails: {
       terms: {
@@ -205,7 +204,7 @@ export default {
       },
       responsible: {
         title: 'Cờ bạc có trách nhiệm',
-        content: 'BetoGo cam kết cờ bạc có trách nhiệm theo yêu cầu giấy phép PAGCOR. Cờ bạc là giải trí, không phải nguồn thu nhập hay trốn tránh vấn đề.\n\nNghiêm cấm dưới 21 tuổi\n\nTheo quy định PAGCOR, BetoGo nghiêm cấm người dưới 21 tuổi. Kiểm tra độ tuổi được thực hiện thường xuyên. Tài khoản chưa đủ tuổi sẽ bị khóa vĩnh viễn.\n\nCông cụ bảo vệ người chơi\n\n• Giới hạn nạp tiền — Đặt hạn mức ngày/tuần/tháng\n• Nhắc nhở thời gian — Thông báo khi chơi quá lâu\n• Tự loại trừ — Tạm thời hoặc vĩnh viễn rời nền tảng\n• Kiểm tra thực tế — Hiển thị thời gian và chi tiêu định kỳ\n\nHỗ trợ cờ bạc có vấn đề\n\n• Hỗ trợ BetoGo 24/7 — Live chat\n• Đường dây PAGCOR — 1-800-1888-0098\n• Gamblers Anonymous Philippines — www.gamblersanonymous.org\n\nBạn không cô đơn. Hãy chơi có trách nhiệm.',
+        content: 'BetoGo cam kết cờ bạc có trách nhiệm theo tiêu chuẩn quốc tế về chơi có trách nhiệm. Cờ bạc là giải trí, không phải nguồn thu nhập hay trốn tránh vấn đề.\n\nNghiêm cấm dưới 21 tuổi\n\nTheo quy định nền tảng và tiêu chuẩn xác minh độ tuổi quốc tế, BetoGo nghiêm cấm người dưới 21 tuổi. Kiểm tra độ tuổi được thực hiện thường xuyên. Tài khoản chưa đủ tuổi sẽ bị khóa vĩnh viễn.\n\nCông cụ bảo vệ người chơi\n\n• Giới hạn nạp tiền — Đặt hạn mức ngày/tuần/tháng\n• Nhắc nhở thời gian — Thông báo khi chơi quá lâu\n• Tự loại trừ — Tạm thời hoặc vĩnh viễn rời nền tảng\n• Kiểm tra thực tế — Hiển thị thời gian và chi tiêu định kỳ\n\nHỗ trợ cờ bạc có vấn đề\n\n• Hỗ trợ BetoGo 24/7 — Live chat\n• Gamblers Anonymous — www.gamblersanonymous.org\n\nBạn không cô đơn. Hãy chơi có trách nhiệm.',
       },
       about: {
         title: 'Về BetoGo',
@@ -742,7 +741,7 @@ export default {
     docDetails: {
       aml: {
         title: 'Chính sách AML',
-        content: 'BetoGo cam kết phòng chống rửa tiền và tài trợ khủng bố theo đúng các quy định hiện hành và giấy phép PAGCOR.\n\nXác minh danh tính khách hàng (KYC)\n\nChúng tôi xác minh danh tính người chơi qua Telegram và Google. Đối với số tiền rút cao hoặc khi phát hiện hoạt động đáng ngờ, có thể yêu cầu tài liệu bổ sung. Xác minh danh tính giúp bảo vệ tính toàn vẹn của nền tảng cho tất cả người chơi.\n\nGiám sát giao dịch\n\nTất cả giao dịch tài chính được giám sát liên tục để phát hiện các mẫu bất thường. Tiền nạp và rút được kiểm tra với danh sách trừng phạt quốc tế. Đội tuân thủ điều tra ngay các hoạt động bị đánh dấu.\n\nNghĩa vụ báo cáo\n\nBetoGo hợp tác đầy đủ với PAGCOR và cơ quan thực thi pháp luật. Các giao dịch đáng ngờ được báo cáo theo luật AML hiện hành. Chúng tôi lưu giữ hồ sơ giao dịch chi tiết theo yêu cầu pháp lý.\n\nTrách nhiệm của người chơi\n\nNgười chơi phải đảm bảo tất cả tiền dùng để chơi game có nguồn gốc hợp pháp. Nghiêm cấm sử dụng nền tảng để rửa tiền hoặc bất kỳ hoạt động tài chính bất hợp pháp nào, sẽ bị đình chỉ tài khoản và báo cáo cho cơ quan chức năng.\n\nLiên hệ tuân thủ\n\nĐể biết thêm về AML hoặc báo cáo hoạt động đáng ngờ, liên hệ đội hỗ trợ qua live chat. Mọi báo cáo được bảo mật tuyệt đối.',
+        content: 'BetoGo cam kết phòng chống rửa tiền và tài trợ khủng bố theo đúng các quy định hiện hành và tiêu chuẩn phòng chống rửa tiền quốc tế.\n\nXác minh danh tính khách hàng (KYC)\n\nChúng tôi xác minh danh tính người chơi qua Telegram và Google. Đối với số tiền rút cao hoặc khi phát hiện hoạt động đáng ngờ, có thể yêu cầu tài liệu bổ sung. Xác minh danh tính giúp bảo vệ tính toàn vẹn của nền tảng cho tất cả người chơi.\n\nGiám sát giao dịch\n\nTất cả giao dịch tài chính được giám sát liên tục để phát hiện các mẫu bất thường. Tiền nạp và rút được kiểm tra với danh sách trừng phạt quốc tế. Đội tuân thủ điều tra ngay các hoạt động bị đánh dấu.\n\nNghĩa vụ báo cáo\n\nBetoGo hợp tác đầy đủ với các cơ quan quản lý liên quan và cơ quan thực thi pháp luật. Các giao dịch đáng ngờ được báo cáo theo luật AML hiện hành. Chúng tôi lưu giữ hồ sơ giao dịch chi tiết theo yêu cầu pháp lý.\n\nTrách nhiệm của người chơi\n\nNgười chơi phải đảm bảo tất cả tiền dùng để chơi game có nguồn gốc hợp pháp. Nghiêm cấm sử dụng nền tảng để rửa tiền hoặc bất kỳ hoạt động tài chính bất hợp pháp nào, sẽ bị đình chỉ tài khoản và báo cáo cho cơ quan chức năng.\n\nLiên hệ tuân thủ\n\nĐể biết thêm về AML hoặc báo cáo hoạt động đáng ngờ, liên hệ đội hỗ trợ qua live chat. Mọi báo cáo được bảo mật tuyệt đối.',
       },
       bonusTerms: {
         title: 'Điều khoản thưởng',
