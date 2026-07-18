@@ -34,6 +34,8 @@ const schema = z.object({
     .default('https://www.188facai.com/auth/telegram/callback'),
   AMMER_PAY_PROVIDER_TOKEN: z.string().default(''),
   AMMER_PAY_PHP_PER_STAR: z.coerce.number().positive().default(1.12),
+  // 社区营销 AI 文案改写(Claude Haiku)。留空则跳过改写直接用模板原文
+  ANTHROPIC_API_KEY: z.string().default(''),
   // 第三方汇率 API（freecurrencyapi.com，免费额度 5000 次/月）
   EXCHANGE_RATE_API_KEY: z.string().default(''),
   // CoinGecko API key（可选，无 key 也可用免费 demo tier，50 次/分）

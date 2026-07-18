@@ -98,6 +98,7 @@ function buildMenuItems(badges: AdminBadges) {
         { key: '/category-sort', label: '分类列表排序' },
         { key: '/promotions', label: '活动配置' },
         { key: '/promotions/claims', label: '参与记录' },
+        { key: '/community', label: '社区营销' },
       ],
     },
     {

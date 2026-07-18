@@ -21,6 +21,7 @@ import {
 } from './services/vip.service.js'
 import { isMysqlEnabled, getMysqlPool } from './clients/mysql.client.js'
 import { getLossRebateConfigByPool } from './services/promo-config.service.js'
+import { runCommunityTick } from './services/community.service.js'
 import { ok } from './utils/response.js'
 import { seedDefaultAdmin } from './services/admin-auth.service.js'
 
@@ -155,6 +156,16 @@ export function createApp(env: Env): Koa {
       void runVipDaily()
       setInterval(() => void runVipDaily(), 24 * 60 * 60 * 1000)
     }, msUntilVipDaily())
+  }
+
+  // 社区营销自动发帖:每 30s tick(setInterval 长期漂移可能跳过整分,30s 步长+槽位 Redis 去重保证不漏不重)
+  if (isMysqlEnabled(env)) {
+    const communityLog = childLogger('community-tick')
+    setTimeout(() => {
+      const run = () => runCommunityTick(env, redis).catch((err) => communityLog.error({ err }, 'tick error'))
+      run()
+      setInterval(run, 30_000)
+    }, 15_000)
   }
 
   // Betting activity 初始化（需要 games cache 已加载）

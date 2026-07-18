@@ -1290,3 +1290,45 @@ export const saveRiskPolicies = (items: Omit<RiskPolicyItem, 'updatedAt'>[]) =>
 
 export const getRiskHits = (params?: { checkpoint?: string; action?: string; limit?: number }) =>
   get<{ items: RiskHit[] }>('/admin/risk/hits', params)
+
+// ── 社区营销自动发帖 ─────────────────────────────────────────────────────────
+export type CmPlatform = 'telegram' | 'viber' | 'facebook'
+export type CmCategory = 'promo' | 'winner' | 'hotgame' | 'sports' | 'checkin' | 'festival'
+export interface CmButton { text: string; url: string }
+export interface CmChannel {
+  id: number; platform: CmPlatform; name: string
+  config: Record<string, string>; dailyLimit: number; enabled: boolean
+}
+export interface CmTemplate {
+  id: number; category: CmCategory; title: string; body: string
+  imageUrl: string | null; buttons: CmButton[] | null; enabled: boolean; sort: number
+}
+export interface CmRule {
+  id: number; name: string; category: CmCategory; channelIds: number[]
+  slots: string[]; strategy: 'sequential' | 'random'; aiRewrite: boolean; cursor: number; enabled: boolean
+}
+export interface CmPostLog {
+  id: number; ruleId: number | null; channelId: number; templateId: number | null
+  content: string; imageUrl: string | null; buttons: CmButton[] | null
+  status: 'pending' | 'sent' | 'failed' | 'skipped'; error: string | null
+  sentAt: string | null; createdAt: string
+}
+export const cmListChannels = () => get<{ items: CmChannel[] }>('/admin/community/channels')
+export const cmSaveChannel = (data: Partial<CmChannel>) => put<{ id: number }>('/admin/community/channels', data)
+export const cmDeleteChannel = (id: number) => req('DELETE', `/admin/community/channels/${id}`)
+export const cmListTemplates = (category?: string) =>
+  get<{ items: CmTemplate[]; categories: CmCategory[] }>('/admin/community/templates', category ? { category } : undefined)
+export const cmSaveTemplate = (data: Partial<CmTemplate>) => put<{ id: number }>('/admin/community/templates', data)
+export const cmDeleteTemplate = (id: number) => req('DELETE', `/admin/community/templates/${id}`)
+export const cmPreviewTemplate = (body: string, platform: CmPlatform, aiRewrite: boolean) =>
+  post<{ rendered: string; content: string; aiApplied: boolean }>('/admin/community/templates/preview', { body, platform, aiRewrite })
+export const cmListRules = () => get<{ items: CmRule[] }>('/admin/community/rules')
+export const cmSaveRule = (data: Partial<CmRule>) => put<{ id: number }>('/admin/community/rules', data)
+export const cmDeleteRule = (id: number) => req('DELETE', `/admin/community/rules/${id}`)
+export const cmListPosts = (params?: { status?: string; limit?: number }) =>
+  get<{ items: CmPostLog[] }>('/admin/community/posts', params)
+export const cmSendNow = (data: { channelIds: number[]; content: string; imageUrl?: string; buttons?: CmButton[]; aiRewrite?: boolean }) =>
+  post<{ results: Array<{ channelId: number; status: string; error?: string }> }>('/admin/community/posts/send-now', data)
+export const cmApprovePost = (id: number) => post(`/admin/community/posts/${id}/approve`)
+export const cmMarkManualPost = (id: number) => post(`/admin/community/posts/${id}/mark-manual`)
+export const cmRejectPost = (id: number) => post(`/admin/community/posts/${id}/reject`)
