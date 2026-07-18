@@ -1036,7 +1036,9 @@ export default {
       empty: 'Điểm danh mỗi ngày để nhận lượt quay',
       goSpin: 'Quay',
       goCheckin: 'Điểm danh',
+      tileReady: '{{n}} lượt',
     },
+    loading: 'Đang tải…',
     item: {
       follow_telegram: { title: 'Theo dõi Telegram chính thức', subtitle: 'Tham gia kênh để nhận thưởng' },
       follow_facebook: { title: 'Theo dõi Facebook chính thức', subtitle: 'Lấy mã trên trang rồi nhập lại' },

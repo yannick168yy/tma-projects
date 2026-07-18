@@ -316,7 +316,7 @@ export default function TasksPage({ initialPath = 'newbie', onNavigate }: { init
         </div>
         {/* 负半卡高上移：卡片上半压 hero、下半压背景 */}
         <div className="relative -mt-[25px] grid grid-cols-[5fr_6fr] gap-2 px-5">
-          <SummaryTile icon={iconClaimable} label={t('tasks.tree.claimable')} value={String(summary.claimable)} iconClass={summary.claimable > 0 ? 'task-wiggle' : ''} />
+          <SpinTile onNavigate={onNavigate} />
           <SummaryTile icon={iconRewards} label={t('tasks.tree.rewards')} value={rewardParts.length ? rewardParts.join(' · ') : '-'} />
         </div>
       </section>
@@ -423,6 +423,7 @@ export default function TasksPage({ initialPath = 'newbie', onNavigate }: { init
   }
 
   function renderPath() {
+    const loading = center === null
     const cards = pathCards[activePath]
     const totalNodes = cards.length
     return (
@@ -437,11 +438,15 @@ export default function TasksPage({ initialPath = 'newbie', onNavigate }: { init
             <p className="mt-0.5 text-[11px] text-[#eeddbf]">{t(`tasks.pathSub.${activePath}`)}</p>
           </div>
           <span className="mt-0.5 rounded-full border border-[#8a5b13]/70 bg-black/38 px-2.5 py-1 text-[12px] font-black leading-none text-[#f0dfc5]">
-            {cards.filter((card) => card.status === 'done').length}/{cards.length}
+            {loading ? '…' : `${cards.filter((card) => card.status === 'done').length}/${cards.length}`}
           </span>
         </div>
-        {activePath === 'daily' && <DailyEarningsCard onNavigate={onNavigate} />}
-        {totalNodes === 0 ? (
+        {activePath === 'daily' && !loading && <DailyEarningsCard onNavigate={onNavigate} />}
+        {loading ? (
+          <div className="space-y-1.5">
+            {[0, 1, 2, 3].map((i) => <SkeletonTaskCard key={i} />)}
+          </div>
+        ) : totalNodes === 0 ? (
           <div className="rounded-[13px] border border-[#7f520f]/55 bg-[#080806]/86 px-4 py-8 text-center">
             <Sparkles size={26} className="mx-auto text-[#ffd21d]" />
             <p className="mt-2 text-sm font-bold text-[#f0dfc5]">{t('tasks.empty')}</p>
@@ -460,8 +465,15 @@ export default function TasksPage({ initialPath = 'newbie', onNavigate }: { init
       {renderSummary()}
       {renderTabs()}
       {renderPath()}
-      <SpinEntryCard onNavigate={onNavigate} />
       <TasksFooter />
+      {center === null && (
+        <div className="pointer-events-none fixed inset-0 z-40 flex items-center justify-center">
+          <div className="flex flex-col items-center gap-2.5 rounded-2xl bg-black/55 px-6 py-5 backdrop-blur-sm">
+            <span className="h-9 w-9 animate-spin rounded-full border-[3px] border-[#ffd21d]/25 border-t-[#ffd21d]" />
+            <span className="text-[12px] font-bold text-[#f0dfc5]">{t('tasks.loading')}</span>
+          </div>
+        </div>
+      )}
       {toast && (
         <div className="pointer-events-none fixed inset-x-0 bottom-24 z-50 flex justify-center px-6">
           <div className={`task-toast-in flex max-w-full items-center gap-2 rounded-full border px-4 py-2.5 text-[13px] font-black shadow-[0_10px_30px_rgba(0,0,0,0.5)] ${toast.kind === 'ok' ? 'border-[#2f7a44] bg-[#122d18] text-[#8dffb5]' : 'border-[#7a2f2a] bg-[#2f1412] text-[#ffb3a8]'}`}>
@@ -496,9 +508,9 @@ function SummaryTile({ icon, label, value, iconClass = '' }: { icon: string; lab
   )
 }
 
-// 转盘入口：常驻在任务页顶部，签到后返回也能随时进转盘。
-// 有 checkin 剩余次数→高亮"去转盘"；没次数→置灰并引导"去签到"（拿次数），两种情况都给明确出路。
-function SpinEntryCard({ onNavigate }: { onNavigate?: (target: string) => void }) {
+// 转盘入口 tile：占据统计区左格（原 Claimable 位置），与 Rewards 并排。
+// 有 checkin 剩余次数→显示次数点转盘；没次数→引导去签到；自身数据加载中显示 …
+function SpinTile({ onNavigate }: { onNavigate?: (target: string) => void }) {
   const { t } = useTranslation()
   const token = useAuthStore((s) => s.token)
   const activeCurrency = useWalletStore((s) => s.activeCurrency)
@@ -524,33 +536,51 @@ function SpinEntryCard({ onNavigate }: { onNavigate?: (target: string) => void }
     return () => window.removeEventListener(TASKS_REFRESH_EVENT, onRefresh)
   }, [loadSpin])
 
-  if (!token || remaining === null) return null
-  const has = remaining > 0
+  const loading = !!token && remaining === null
+  const has = (remaining ?? 0) > 0
+  const value = loading ? '…' : has ? t('tasks.spinCard.tileReady', { n: remaining }) : t('tasks.spinCard.goCheckin')
 
   return (
-    <div className="px-5 pb-1 pt-1">
-      <button
-        type="button"
-        onClick={() => onNavigate?.(has ? 'spin' : 'checkin')}
-        className="flex w-full items-center gap-2.5 rounded-[12px] bg-[#12100b]/95 px-2.5 py-2.5 text-left shadow-[0_4px_14px_rgba(0,0,0,0.4)] active:scale-[0.98]"
-      >
-        <img
-          src={wheelImg}
-          alt=""
-          draggable={false}
-          className={`h-[38px] w-[38px] flex-shrink-0 rounded-full object-cover ${has ? '' : 'opacity-55 grayscale'}`}
-        />
-        <span className="min-w-0 flex-1">
-          <span className="block text-[13px] font-black leading-tight text-[#fff8ea]">{t('tasks.spinCard.title')}</span>
-          <span className="mt-0.5 block truncate text-[11px] font-medium leading-snug text-[#d8c7a5]">
-            {has ? t('tasks.spinCard.ready', { n: remaining }) : t('tasks.spinCard.empty')}
-          </span>
+    <button
+      type="button"
+      onClick={() => { if (!loading) onNavigate?.(has ? 'spin' : 'checkin') }}
+      className="flex min-w-0 items-center gap-2 rounded-[12px] bg-[#12100b]/95 px-2.5 py-2 text-left shadow-[0_4px_14px_rgba(0,0,0,0.4)] active:scale-[0.98]"
+    >
+      <img
+        src={wheelImg}
+        alt=""
+        draggable={false}
+        className={`h-[34px] w-[34px] flex-shrink-0 rounded-full object-cover ${has || loading ? '' : 'opacity-55 grayscale'}`}
+      />
+      <span className="min-w-0">
+        <span className="block truncate text-[11px] font-medium leading-tight text-[#f0e6d2]">{t('tasks.spinCard.title')}</span>
+        <span className="mt-0.5 flex items-center gap-0.5 text-[12px] font-black leading-none text-[#ffd21d]">
+          <span className="truncate">{value}</span>
+          {!loading && <ChevronRight size={12} className="flex-shrink-0 text-[#a98b57]" />}
         </span>
-        <span className="flex flex-shrink-0 items-center gap-0.5 text-[12px] font-black leading-none text-[#ffd21d]">
-          {has ? t('tasks.spinCard.goSpin') : t('tasks.spinCard.goCheckin')}
-          <ChevronRight size={14} className="text-[#a98b57]" />
-        </span>
-      </button>
+      </span>
+    </button>
+  )
+}
+
+// 任务卡骨架：数据加载期间占位，配合页面顶部 hero + 浮层 spinner
+function SkeletonTaskCard() {
+  return (
+    <div className="flex gap-2.5">
+      <div className="flex w-[38px] flex-shrink-0 flex-col items-center">
+        <span className="mt-[11px] h-[29px] w-[29px] flex-shrink-0 animate-pulse rounded-full bg-[#1c1710]" />
+        <span className="h-full min-h-[24px] w-px bg-[#2a2114]" />
+      </div>
+      <div className="mb-1.5 flex-1 rounded-[12px] border border-[#6d480f]/25 bg-[#0a0906]/70 px-2.5 py-3">
+        <div className="flex items-center gap-2.5">
+          <span className="h-[48px] w-[48px] flex-shrink-0 animate-pulse rounded-[10px] bg-[#1c1710]" />
+          <div className="min-w-0 flex-1 space-y-2">
+            <span className="block h-[12px] w-2/3 animate-pulse rounded bg-[#1c1710]" />
+            <span className="block h-[10px] w-1/2 animate-pulse rounded bg-[#171308]" />
+          </div>
+          <span className="h-[28px] w-[60px] flex-shrink-0 animate-pulse rounded-full bg-[#1c1710]" />
+        </div>
+      </div>
     </div>
   )
 }
