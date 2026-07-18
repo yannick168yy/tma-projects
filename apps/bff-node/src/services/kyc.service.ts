@@ -309,6 +309,47 @@ export async function sendKycOtp(
   return { phone, resendInSec: RESEND_INTERVAL_SEC }
 }
 
+/**
+ * OTP 关闭时的直接绑定：不发短信，仅校验号码格式与占用后落库。
+ * 「手机验证」开关只决定是否需要短信 OTP，绑定手机号本身始终必须；开关开启时禁止走此通道（防绕过 OTP）。
+ */
+export async function bindKycPhone(
+  redis: Redis,
+  env: Env,
+  userId: string,
+  phoneRaw: string,
+): Promise<{ phoneVerified: true; status: KycSubmission['status'] }> {
+  const cfg = await getKycStepConfig(redis, env, userId)
+  if (cfg.requirePhone) throw new KycError('kyc.errors.otpRequired', 400)
+  const phone = normalizePhonePH(phoneRaw)
+  if (!phone) throw new KycError('kyc.errors.invalidPhone', 400)
+
+  const phoneIdentity = (await listUserIdentities(redis, userId)).find((item) => item.provider === 'phone')
+  if (phoneIdentity) {
+    const bound = normalizePhonePH(phoneIdentity.identifier)
+    if (bound && bound !== phone) throw new KycError('kyc.errors.phoneUseRegistered', 400)
+  }
+  const otherOwner = await findKycByVerifiedPhone(redis, phone, userId)
+  if (otherOwner) throw new KycError('kyc.errors.phoneTaken', 409)
+  const phoneAccountOwner = await getUserByPhoneAccount(redis, phone)
+  if (phoneAccountOwner && phoneAccountOwner.id !== userId) throw new KycError('kyc.errors.phoneTaken', 409)
+
+  const existing = await getKyc(redis, userId)
+  const approvedByPhoneOnly = !cfg.requireDocument
+  const now = nowIso()
+  await saveKyc(redis, {
+    ...(existing ?? blankSubmission(userId)),
+    userId,
+    phone,
+    phoneVerified: true,
+    status: existing?.status === 'approved' || approvedByPhoneOnly ? 'approved' : 'pending',
+    rejectReason: undefined,
+    rejectStep: undefined,
+    reviewedAt: approvedByPhoneOnly ? now : existing?.reviewedAt,
+  })
+  return { phoneVerified: true, status: approvedByPhoneOnly ? 'approved' : 'pending' }
+}
+
 export async function verifyKycOtp(
   redis: Redis,
   env: Env,

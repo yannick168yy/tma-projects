@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Table, Tag, Select, Button, Space, Switch, Card, InputNumber, message, Grid } from 'antd'
+import { Table, Tag, Select, Button, Space, Switch, Card, InputNumber, message, Grid, Tooltip } from 'antd'
 import { getKycList, getKycSettings, setKycSettings, type AdminKycListItem, type KycStepSettings } from '../api'
 import { MobileCardList } from '../components/MobileCardList'
 import { PAGE_SIZE_OPTIONS, DEFAULT_PAGE_SIZE } from '../pagination'
@@ -97,7 +97,9 @@ export default function KycList() {
       <Card size="small" title="验证流程设置" style={{ marginBottom: 16 }}>
         <Space size={32} wrap>
           <Space>
-            <span>手机号验证</span>
+            <Tooltip title="开=绑定手机号需短信 OTP 验证；关=免验证码直接绑定。两种情况下用户都必须绑定手机号">
+              <span>手机号短信验证（OTP）</span>
+            </Tooltip>
             <Switch
               checked={cfg?.requirePhone ?? true}
               loading={savingCfg}

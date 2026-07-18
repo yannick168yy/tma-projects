@@ -33,6 +33,11 @@ export function verifyKycOtp(code: string): Promise<{ phoneVerified: true; statu
   return apiRequest('/kyc/phone/verify', { method: 'POST', body: JSON.stringify({ code }) })
 }
 
+/** OTP 关闭时的直接绑定通道（开关开启时后端会拒绝，须走 sendKycOtp/verifyKycOtp） */
+export function bindKycPhone(phone: string): Promise<{ phoneVerified: true; status: KycStatusValue }> {
+  return apiRequest('/kyc/phone/bind', { method: 'POST', body: JSON.stringify({ phone }) })
+}
+
 export function submitKycDocument(input: {
   fullName: string
   docType: string

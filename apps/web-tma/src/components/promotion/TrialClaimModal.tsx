@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { X, Check, Gift, Loader2, ShieldCheck } from 'lucide-react'
 import { ApiError } from '@/api/client'
-import { fetchKycStatus, sendKycOtp, verifyKycOtp } from '@/api/kyc'
+import { bindKycPhone, fetchKycStatus, sendKycOtp, verifyKycOtp } from '@/api/kyc'
 import { usePromotionStore } from '@/stores/promotion'
 
 interface Props {
@@ -32,6 +32,8 @@ export default function TrialClaimModal({ open, amountPhp, onClose }: Props) {
   const trialClaiming = usePromotionStore((s) => s.trialClaiming)
 
   const [step, setStep] = useState<Step>('loading')
+  // 后台「手机验证」开关：开=绑定需短信 OTP；关=直接绑定。两种情况都必须绑定手机号
+  const [otpRequired, setOtpRequired] = useState(true)
   const [phone, setPhone] = useState('')
   const [phoneLocked, setPhoneLocked] = useState(false)
   const [code, setCode] = useState('')
@@ -48,10 +50,11 @@ export default function TrialClaimModal({ open, amountPhp, onClose }: Props) {
     setResendIn(0)
     void fetchKycStatus()
       .then((s) => {
-        if (s.phoneVerified || !s.requirePhone) {
+        if (s.phoneVerified) {
           setStep('claim')
           return
         }
+        setOtpRequired(s.requirePhone)
         if (s.registeredPhone) {
           setPhone(s.registeredPhone)
           setPhoneLocked(true)
@@ -93,6 +96,17 @@ export default function TrialClaimModal({ open, amountPhp, onClose }: Props) {
     } finally { setLoading(false) }
   }
 
+  async function onBindDirect() {
+    if (!phone.trim()) { setError(t('kyc.fillAll')); return }
+    setLoading(true); setError(null)
+    try {
+      await bindKycPhone(phone.trim())
+      setStep('claim')
+    } catch (e) {
+      setError(e instanceof ApiError ? translateSmsError(e.message, t) : t('auth.loginFailed'))
+    } finally { setLoading(false) }
+  }
+
   async function onClaim() {
     setError(null)
     const result = await claimTrialIfEligible()
@@ -129,17 +143,29 @@ export default function TrialClaimModal({ open, amountPhp, onClose }: Props) {
 
         {step === 'phone' && (
           <div className="space-y-3">
-            <div className="flex gap-2">
-              <input value={phone} type="tel" placeholder={t('auth.phonePlaceholder')} className={`flex-1 rounded-xl border border-border bg-secondary px-4 py-3 text-sm font-bold text-foreground focus:border-primary focus:outline-none${phoneLocked ? ' opacity-60' : ''}`} readOnly={phoneLocked} onChange={(e) => setPhone(e.target.value)} />
-              <button type="button" className="shrink-0 rounded-xl border border-border bg-secondary px-4 py-3 text-sm font-bold text-foreground disabled:opacity-50" disabled={loading || resendIn > 0} onClick={() => void onSendCode()}>
-                {resendIn > 0 ? t('kyc.resendIn', { s: resendIn }) : t('kyc.sendCode')}
-              </button>
-            </div>
-            {phoneLocked && <p className="text-[10px] text-muted-foreground">{t('kyc.phoneLocked')}</p>}
-            <input value={code} type="text" inputMode="numeric" maxLength={6} placeholder={t('kyc.codeLabel')} className={inputCls} onChange={(e) => setCode(e.target.value)} />
-            <button type="button" className="w-full rounded-xl bg-primary py-3 text-sm font-bold text-primary-foreground disabled:opacity-50" disabled={loading} onClick={() => void onVerifyCode()}>
-              {loading ? <Loader2 size={16} className="mx-auto animate-spin" /> : t('kyc.verify')}
-            </button>
+            {otpRequired ? (
+              <>
+                <div className="flex gap-2">
+                  <input value={phone} type="tel" placeholder={t('auth.phonePlaceholder')} className={`flex-1 rounded-xl border border-border bg-secondary px-4 py-3 text-sm font-bold text-foreground focus:border-primary focus:outline-none${phoneLocked ? ' opacity-60' : ''}`} readOnly={phoneLocked} onChange={(e) => setPhone(e.target.value)} />
+                  <button type="button" className="shrink-0 rounded-xl border border-border bg-secondary px-4 py-3 text-sm font-bold text-foreground disabled:opacity-50" disabled={loading || resendIn > 0} onClick={() => void onSendCode()}>
+                    {resendIn > 0 ? t('kyc.resendIn', { s: resendIn }) : t('kyc.sendCode')}
+                  </button>
+                </div>
+                {phoneLocked && <p className="text-[10px] text-muted-foreground">{t('kyc.phoneLocked')}</p>}
+                <input value={code} type="text" inputMode="numeric" maxLength={6} placeholder={t('kyc.codeLabel')} className={inputCls} onChange={(e) => setCode(e.target.value)} />
+                <button type="button" className="w-full rounded-xl bg-primary py-3 text-sm font-bold text-primary-foreground disabled:opacity-50" disabled={loading} onClick={() => void onVerifyCode()}>
+                  {loading ? <Loader2 size={16} className="mx-auto animate-spin" /> : t('kyc.verify')}
+                </button>
+              </>
+            ) : (
+              <>
+                <input value={phone} type="tel" placeholder={t('auth.phonePlaceholder')} className={`${inputCls}${phoneLocked ? ' opacity-60' : ''}`} readOnly={phoneLocked} onChange={(e) => setPhone(e.target.value)} />
+                {phoneLocked && <p className="text-[10px] text-muted-foreground">{t('kyc.phoneLocked')}</p>}
+                <button type="button" className="w-full rounded-xl bg-primary py-3 text-sm font-bold text-primary-foreground disabled:opacity-50" disabled={loading} onClick={() => void onBindDirect()}>
+                  {loading ? <Loader2 size={16} className="mx-auto animate-spin" /> : t('kyc.bindPhoneCta')}
+                </button>
+              </>
+            )}
           </div>
         )}
 

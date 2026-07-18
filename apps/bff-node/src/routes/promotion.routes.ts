@@ -9,7 +9,6 @@ import { getOrCreateRedepOffer } from '../services/redep.service.js'
 import { getMysqlPool, isMysqlEnabled } from '../clients/mysql.client.js'
 import { createPromoRequirement } from '../services/turnover.service.js'
 import { riskAllowed } from '../utils/risk-guard.js'
-import { getKycStepConfig } from '../services/kyc.service.js'
 
 const PROMOS = [
   {
@@ -115,12 +114,10 @@ router.post('/trial-play/claim', async (ctx) => {
       const user = await getUser(ctx.state.redis, ctx.state.userId!)
       if (!user) throw new Error('User not found')
       if (user.trialClaimed) throw new Error('Trial bonus already claimed')
-      // 领取前必须完成手机号短信验证（前端弹窗引导绑定，此处为防绕过的后端硬闸门）；
-      // 后台关闭手机验证时该闸门随之放行（否则 OTP 不可用会卡死领取）
-      if ((await getKycStepConfig(ctx.state.redis, ctx.state.env, ctx.state.userId!)).requirePhone) {
-        const kyc = await getKyc(ctx.state.redis, ctx.state.userId!)
-        if (!kyc?.phoneVerified) throw new Error('Phone verification required')
-      }
+      // 领取前必须已绑定手机号（前端弹窗引导，此处为防绕过的后端硬闸门）。
+      // 后台「手机验证」开关只决定绑定时是否需要短信 OTP，不豁免绑定本身
+      const kyc = await getKyc(ctx.state.redis, ctx.state.userId!)
+      if (!kyc?.phoneVerified) throw new Error('Phone verification required')
       const cfg = await getPromoConfig(ctx.state.env)
       if (!cfg.trial.enabled) throw new Error('Trial bonus is currently disabled')
       const amount = cfg.trial.amount

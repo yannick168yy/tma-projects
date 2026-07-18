@@ -2,6 +2,7 @@ import Router from '@koa/router'
 import { getKyc, listUserIdentities } from '../services/store.js'
 import {
   KycError,
+  bindKycPhone,
   buildKycStatusResponse,
   getKycStepConfig,
   sendKycOtp,
@@ -35,6 +36,21 @@ router.get('/status', async (ctx) => {
     requireDocument: cfg.requireDocument,
     requireFace: cfg.requireFace,
   })
+})
+
+// OTP 关闭时的直接绑定通道；开关开启时该接口返回 400，必须走 send-otp/verify
+router.post('/phone/bind', async (ctx) => {
+  const body = ctx.request.body as { phone?: string }
+  if (!body.phone) {
+    fail(ctx, 400, 'phone is required')
+    return
+  }
+  try {
+    const result = await bindKycPhone(ctx.state.redis, ctx.state.env, ctx.state.userId!, body.phone)
+    ok(ctx, result)
+  } catch (e) {
+    if (!handleKycError(ctx, e)) throw e
+  }
 })
 
 router.post('/phone/send-otp', async (ctx) => {
