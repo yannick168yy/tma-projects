@@ -20,7 +20,7 @@ alwaysApply: true
 cd /Users/yannicky/tma-projects && \
 DEPLOY_HOST=root@47.84.34.139 \
 DEPLOY_DIR=/root/workspace/tma-projects \
-SSH_IDENTITY_FILE=/Users/yannicky/TMA_FILES/aliyun.pem \
+SSH_IDENTITY_FILE=/Users/yannicky/TMA_FILES/亚马逊云-阿里云/aliyun.pem \
 SSH_OPTS="-o StrictHostKeyChecking=no" \
 bash deploy/single-node/deploy-fast.sh web-tma
 # 或: bff-node | core-node | all
@@ -41,7 +41,7 @@ bash deploy/single-node/deploy-fast.sh web-tma
 cd /Users/yannicky/tma-projects && \
 DEPLOY_HOST=root@47.84.34.139 \
 DEPLOY_DIR=/root/workspace/tma-projects \
-SSH_IDENTITY_FILE=/Users/yannicky/TMA_FILES/aliyun.pem \
+SSH_IDENTITY_FILE=/Users/yannicky/TMA_FILES/亚马逊云-阿里云/aliyun.pem \
 SSH_OPTS="-o StrictHostKeyChecking=no" \
 bash deploy/single-node/deploy-web-tma.sh
 ```
