@@ -309,8 +309,10 @@ async function fetchJson(url: string, body: unknown, timeoutMs = 15_000): Promis
 
 async function sendTelegram(env: Env, channel: CmChannel, content: string, imageUrl: string | null, buttons: CmButton[] | null): Promise<void> {
   const token = channel.config.botToken || env.TELEGRAM_BOT_TOKEN
-  const chatId = channel.config.chatId
+  let chatId = channel.config.chatId?.trim()
   if (!chatId) throw new Error('渠道缺少 chatId 配置')
+  // 频道用户名必须带 @,数字 ID 保持原样;漏 @ 是高频误填(Telegram 报 chat not found)
+  if (!/^(@|-?\d+$)/.test(chatId)) chatId = `@${chatId}`
   const replyMarkup = buttons?.length ? { inline_keyboard: [buttons.map((b) => ({ text: b.text, url: b.url }))] } : undefined
   const r = imageUrl
     ? await fetchJson(`https://api.telegram.org/bot${token}/sendPhoto`,
