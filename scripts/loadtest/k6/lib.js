@@ -1,6 +1,8 @@
 // k6 共享库：按与 seed-users.mjs 相同的确定性规则复算用户池 token，构造带鉴权+设备指纹的请求头
 // 无需 tokens.json —— 用户数由 -e POOL=200 指定（须与 seed 的 LT_COUNT 一致）
-export const BASE = __ENV.BASE_URL || 'https://www.188facai.com'
+// HOST 参数化：测试=www.188facai.com(默认)，生产验收传 -e HOST=www.betogo.games
+export const HOST = __ENV.HOST || 'www.188facai.com'
+export const BASE = __ENV.BASE_URL || `https://${HOST}`
 const POOL = Number(__ENV.POOL || 200)
 
 // 每个 VU 固定绑定一个用户（LT-i / token LTK-i）+ 稳定 X-Device-Id（避免同 IP 无 device 触发风控）
@@ -23,7 +25,7 @@ export function authParams(tags) {
 
 // LOCAL=1 时把域名解析钉到 127.0.0.1：k6 在服务器本机跑，走本地 nginx 完整链路(TLS+gzip)但绕开公网带宽。
 // 教训：测试机公网仅~2.5Mbps，从外部发压时 >2KB 响应的接口先撞带宽墙，量不到服务器真实容量。
-export const HOSTS = __ENV.LOCAL ? { 'www.188facai.com': '127.0.0.1' } : {}
+export const HOSTS = __ENV.LOCAL ? { [HOST]: '127.0.0.1' } : {}
 
 // 阶梯加压档位，可用 -e PROFILE=small|medium|large 切换；默认 small（先摸底，保护 2 核小机）
 const PROFILES = {

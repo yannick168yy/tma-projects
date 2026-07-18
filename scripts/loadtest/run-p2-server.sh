@@ -7,11 +7,14 @@ cd "$(dirname "$0")"
 OUT=${OUT:-p2-server-results.csv}
 DUR=${DUR:-45s}
 K6DIR=${K6DIR:-/root/loadtest-k6}
+HOST=${HOST:-www.188facai.com}          # 生产验收: HOST=www.betogo.games
+MEM_ABORT_MB=${MEM_ABORT_MB:-150}       # 内存熔断阈值(2G 测试机 150；16G 生产建议 2000)
+VUS_LIST=${VUS_LIST:-"10 20"}           # 4核16G 生产建议 "10 20 40"
 [[ -f "$OUT" ]] || echo "page,vus,iter_rps,iter_med_ms,iter_p95_ms,req_p95_ms,err_rate" > "$OUT"
 
 for page in startup home bonuses team games menu tasks rebate vip wallet-history bets; do
-  for vus in 10 20; do
-    k6 run -q -e LOCAL=1 -e PAGE="$page" -e VUS="$vus" -e DUR="$DUR" \
+  for vus in $VUS_LIST; do
+    k6 run -q -e LOCAL=1 -e HOST="$HOST" -e PAGE="$page" -e VUS="$vus" -e DUR="$DUR" \
       --summary-export /tmp/k6sum.json --summary-trend-stats "med,p(95),p(99)" "$K6DIR/pages.js" >/dev/null 2>&1
     PAGE_="$page" V_="$vus" python3 - >> "$OUT" <<'PY'
 import json, os
@@ -23,7 +26,7 @@ print(','.join([e['PAGE_'], e['V_'], f"{m['iterations']['rate']:.1f}",
 PY
     tail -1 "$OUT" >&2
     avail=$(free -m | awk '/Mem:/{print $7}')
-    if [[ "$avail" -lt 150 ]]; then echo "ABORT: available mem ${avail}MB" >&2; exit 1; fi
+    if [[ "$avail" -lt "$MEM_ABORT_MB" ]]; then echo "ABORT: available mem ${avail}MB < ${MEM_ABORT_MB}MB" >&2; exit 1; fi
     sleep 8
   done
 done

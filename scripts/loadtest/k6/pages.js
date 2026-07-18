@@ -13,7 +13,7 @@ export const PAGES = {
   team: [['/promotions/team/status', '/promotions/team/tree', '/promotions/team/downlines?level=1&page=1', '/promotions/team/commissions', '/promotions/team/wallet'], 51, 80],
   games: [['/slots/games?limit=30&offset=0', '/slots/providers', '/slots/history?limit=10'], 1, 500],
   menu: [['/user/me', '/wallet/balances', '/vip/progress', '/kyc/status'], 1, 500],
-  tasks: [['/tasks', '/vip/progress', '/rebate/progress'], 1, 50],
+  tasks: [['/tasks', '/vip/progress', '/rebate/progress', '/spin/status'], 1, 50], // 2026-07-18 任务页新增 Lucky Wheel 入口，首屏多拉 /spin/status
   rebate: [['/rebate/config', '/rebate/progress', '/rebate/summary'], 1, 50],
   vip: [['/vip/progress', '/vip/levels', '/vip/rewards', '/vip/loss-rebate-status', '/rebate/progress'], 1, 50],
   'wallet-history': [['/deposits', '/withdrawals', '/ledger?limit=20', '/turnover'], 1, 50],
