@@ -340,6 +340,24 @@ async function sendViber(channel: CmChannel, content: string, imageUrl: string |
   if (!r.ok || !/"status"\s*:\s*0/.test(r.detail)) throw new Error(`Viber API: ${r.detail}`)
 }
 
+// Viber 发帖前置:必须先给 Public Account 设置 webhook(status 10 webhookNotSet)。
+// event_types 传空数组=不订阅任何可选事件,webhook 端点只做 200 应答
+export async function setViberWebhook(env: Env, channelId: number, url?: string): Promise<{ ok: boolean; detail: string }> {
+  const channel = (await listChannels(env)).find((c) => c.id === channelId)
+  if (!channel) throw new Error('渠道不存在')
+  if (channel.platform !== 'viber') throw new Error('仅 Viber 渠道需要设置 webhook')
+  const authToken = channel.config.authToken
+  if (!authToken) throw new Error('渠道缺少 authToken 配置')
+  const webhookUrl = url || 'https://www.188facai.com/api/v1/webhooks/viber'
+  return fetchJson('https://chatapi.viber.com/pa/set_webhook', {
+    auth_token: authToken,
+    url: webhookUrl,
+    event_types: [],
+    send_name: false,
+    send_photo: false,
+  })
+}
+
 async function sendFacebook(channel: CmChannel, content: string, imageUrl: string | null, buttons: CmButton[] | null): Promise<void> {
   const { pageId, pageToken } = channel.config
   if (!pageId || !pageToken) throw new Error('渠道缺少 pageId/pageToken 配置,可先"标记已手动发布"')

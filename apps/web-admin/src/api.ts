@@ -1332,3 +1332,5 @@ export const cmSendNow = (data: { channelIds: number[]; content: string; imageUr
 export const cmApprovePost = (id: number) => post(`/admin/community/posts/${id}/approve`)
 export const cmMarkManualPost = (id: number) => post(`/admin/community/posts/${id}/mark-manual`)
 export const cmRejectPost = (id: number) => post(`/admin/community/posts/${id}/reject`)
+export const cmSetViberWebhook = (id: number, url?: string) =>
+  post<{ ok: boolean; detail: string }>(`/admin/community/channels/${id}/viber-webhook`, url ? { url } : {})

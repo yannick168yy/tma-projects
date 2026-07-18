@@ -4,7 +4,7 @@ import {
 } from 'antd'
 import {
   cmApprovePost, cmDeleteChannel, cmDeleteRule, cmDeleteTemplate, cmListChannels, cmListPosts, cmListRules,
-  cmListTemplates, cmMarkManualPost, cmPreviewTemplate, cmRejectPost, cmSaveChannel, cmSaveRule, cmSaveTemplate, cmSendNow,
+  cmListTemplates, cmMarkManualPost, cmPreviewTemplate, cmRejectPost, cmSaveChannel, cmSaveRule, cmSaveTemplate, cmSendNow, cmSetViberWebhook,
   type CmButton, type CmCategory, type CmChannel, type CmPlatform, type CmPostLog, type CmRule, type CmTemplate,
 } from '../api'
 
@@ -103,6 +103,13 @@ function ChannelsTab({ channels, reload }: { channels: CmChannel[]; reload: () =
             title: '操作', width: 220, render: (_, record) => (
               <Space>
                 <Button size="small" loading={testingId === record.id} onClick={() => void testSend(record)}>测试发送</Button>
+                {record.platform === 'viber' && (
+                  <Button size="small" onClick={() => {
+                    void cmSetViberWebhook(record.id)
+                      .then(() => message.success('Webhook 已设置,可以发帖了'))
+                      .catch((e) => message.error(e instanceof Error ? e.message : '设置失败'))
+                  }}>设置Webhook</Button>
+                )}
                 <Button size="small" onClick={() => openModal(record)}>编辑</Button>
                 <Popconfirm title="删除该渠道?" onConfirm={() => void cmDeleteChannel(record.id).then(reload)}>
                   <Button size="small" danger>删除</Button>

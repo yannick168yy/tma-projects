@@ -4,7 +4,7 @@ import {
   listChannels, saveChannel, deleteChannel,
   listTemplates, saveTemplate, deleteTemplate,
   listRules, saveRule, deleteRule,
-  listPostLogs, sendNow, approvePost, markManualPosted, rejectPost,
+  listPostLogs, sendNow, approvePost, markManualPosted, rejectPost, setViberWebhook,
   aiRewrite, renderTemplateVars,
   type CmButton, type CmCategory, type CmPlatform, type CmStrategy,
 } from '../../services/community.service.js'
@@ -52,6 +52,21 @@ router.put('/channels', async (ctx) => {
     enabled: b.enabled !== false,
   })
   ok(ctx, { id })
+})
+
+// Viber 渠道一键设置 webhook(Viber 强制要求设置后才允许发帖)。url 可选,默认指向本站 /webhooks/viber
+router.post('/channels/:id/viber-webhook', async (ctx) => {
+  const b = (ctx.request.body ?? {}) as { url?: unknown }
+  try {
+    const r = await setViberWebhook(ctx.state.env, Number(ctx.params.id), typeof b.url === 'string' && b.url ? b.url : undefined)
+    if (!r.ok || !/"status"\s*:\s*0/.test(r.detail)) {
+      fail(ctx, 400, `Viber set_webhook 失败: ${r.detail}`)
+      return
+    }
+    ok(ctx, { ok: true, detail: r.detail })
+  } catch (e) {
+    fail(ctx, 400, e instanceof Error ? e.message : '设置失败')
+  }
 })
 
 router.delete('/channels/:id', async (ctx) => {

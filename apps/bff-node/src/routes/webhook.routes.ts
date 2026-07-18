@@ -173,4 +173,11 @@ router.post('/yfpay', async (ctx) => {
   ok(ctx, { handled: true, orderId: merchantSerial })
 })
 
+// Viber 强制要求 Public Account 先 set_webhook 才允许调发帖 API(否则报 status 10 webhookNotSet)。
+// 社区营销只发不收,此端点仅应答 200 让 Viber 的 webhook 校验通过,收到的事件一律忽略。
+router.post('/viber', (ctx) => {
+  ctx.status = 200
+  ctx.body = { status: 0, status_message: 'ok' }
+})
+
 export default router
