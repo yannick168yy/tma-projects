@@ -58,6 +58,7 @@ export interface HomepageGames {
   lottery: SlotGame[]
   baccarat: SlotGame[]
   highRtp: SlotGame[]
+  highRebate: SlotGame[]
   sports: SlotGame[]
   generatedAt: string
 }

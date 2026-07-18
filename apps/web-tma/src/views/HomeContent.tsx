@@ -162,7 +162,7 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
   }, [homeBanners.length])
 
   // Game data
-  const emptyHomepage = { popular: [], recommended: [], newGames: [], slots: [], casino: [], perya: [], fishing: [], lottery: [], baccarat: [], highRtp: [], sports: [] }
+  const emptyHomepage = { popular: [], recommended: [], newGames: [], slots: [], casino: [], perya: [], fishing: [], lottery: [], baccarat: [], highRtp: [], highRebate: [], sports: [] }
   const [launchingUuid, setLaunchingUuid] = useState<string | null>(null)
   const [homepageGames, setHomepageGames] = useState<Record<keyof typeof emptyHomepage, SlotGame[]>>(emptyHomepage)
   const [gamesLoading, setGamesLoading] = useState(true)
@@ -179,7 +179,6 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
   const [providerZoneGames, setProviderZoneGames] = useState<SlotGame[]>([])
   const providerZoneFetchRef = useRef(0)
   // 高 cashback：首页只放最好比例(2%/elite)的 9 款
-  const [cashbackGames, setCashbackGames] = useState<SlotGame[]>([])
 
   const onGameTapAction = useCallback(async (uuid: string) => {
     if (!(await auth.ensureLoggedIn(t('auth.signInPlay')))) return
@@ -291,7 +290,7 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
     fetchHomepageGames(activeCurrency)
       .then((data) => setHomepageGames({
         popular: data.popular ?? [], recommended: data.recommended ?? [], newGames: data.newGames ?? [], slots: data.slots ?? [], casino: data.casino ?? [],
-        perya: data.perya ?? [], fishing: data.fishing ?? [], lottery: data.lottery ?? [], baccarat: data.baccarat ?? [], highRtp: data.highRtp ?? [], sports: data.sports ?? [],
+        perya: data.perya ?? [], fishing: data.fishing ?? [], lottery: data.lottery ?? [], baccarat: data.baccarat ?? [], highRtp: data.highRtp ?? [], highRebate: data.highRebate ?? [], sports: data.sports ?? [],
       }))
       .catch(() => {})
       .finally(() => setGamesLoading(false))
@@ -308,14 +307,6 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
       .then((res) => { if (token === providerZoneFetchRef.current) setProviderZoneGames(res.items) })
       .catch(() => {})
   }, [providerZoneTab, activeCurrency])
-
-  useEffect(() => {
-    let alive = true
-    fetchGames({ cashbackTier: 'elite', limit: 9, sortBy: 'weight', currency: activeCurrency })
-      .then((res) => { if (alive) setCashbackGames(res.items) })
-      .catch(() => {})
-    return () => { alive = false }
-  }, [activeCurrency])
 
   useEffect(() => {
     fetchHomeContent().then((content) => {
@@ -413,12 +404,12 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
         </div>
       </section>
 
-      {/* 高返水游戏：三档(2%/1.5%/1%)各 3 款 → games 高洗码分类 */}
-      {cashbackGames.length > 0 && (
+      {/* 高洗码游戏：elite 档(2% 返水)精选，板块内容由后台首页板块配置管理 */}
+      {homepageGames.highRebate.length > 0 && (
         <section className="mt-6">
           {sectionHeader(<Gem size={15} className="text-amber-400" />, t('home.highRebate'), () => onNavigatePath('/games?cat=highrebate'))}
           <div className="px-4 grid grid-cols-3 gap-x-2 gap-y-3">
-            {cashbackGames.map((g) => <GameCardV2 key={g.uuid} game={g} onTap={() => void onGameTapAction(g.uuid)} size="lg" />)}
+            {homepageGames.highRebate.map((g) => <GameCardV2 key={g.uuid} game={g} onTap={() => void onGameTapAction(g.uuid)} size="lg" />)}
           </div>
         </section>
       )}

@@ -13,7 +13,7 @@ import {
 const { Title } = Typography
 
 // 板块顺序与前端首页一致
-const SECTION_ORDER = ['popular', 'recommended', 'newGames', 'slots', 'casino', 'perya', 'fishing', 'lottery', 'baccarat', 'highRtp', 'sports']
+const SECTION_ORDER = ['popular', 'recommended', 'newGames', 'slots', 'casino', 'perya', 'fishing', 'lottery', 'baccarat', 'highRtp', 'highRebate', 'sports']
 const SECTION_LABELS: Record<string, string> = {
   popular: '热门推荐',
   recommended: '推荐精选',
@@ -24,7 +24,8 @@ const SECTION_LABELS: Record<string, string> = {
   fishing: '捕鱼',
   lottery: '彩票 & 其他',
   baccarat: '百家乐',
-  highRtp: '高RTP 96%+',
+  highRtp: '高RTP 97%+',
+  highRebate: '高洗码游戏',
   sports: '体育游戏',
 }
 const CURRENCIES = [{ value: 'PHP', label: 'PHP 首页' }, { value: 'USDT', label: 'USDT 首页' }]

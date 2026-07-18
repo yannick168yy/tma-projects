@@ -325,12 +325,13 @@ export interface HomepageSelection {
   lottery: DbGame[]
   baccarat: DbGame[]
   highRtp: DbGame[]
+  highRebate: DbGame[]
   sports: DbGame[]
   generatedAt: string
 }
 
 export const EMPTY_HOMEPAGE_SELECTION: HomepageSelection = {
-  popular: [], recommended: [], newGames: [], slots: [], casino: [], perya: [], fishing: [], lottery: [], baccarat: [], highRtp: [], sports: [],
+  popular: [], recommended: [], newGames: [], slots: [], casino: [], perya: [], fishing: [], lottery: [], baccarat: [], highRtp: [], highRebate: [], sports: [],
   generatedAt: '',
 }
 
@@ -519,8 +520,11 @@ function buildHomepageSelection(all: DbGame[], cur: string, overrides: SectionOv
     lottery:    applyManual('lottery', [...pick(bySite('lottery'), score, 4), ...pick(bySite('other'), score, 8)], 12),
     // 百家乐专栏：casinoplus 有独立返水专栏验证的品类需求（new_game_type=101）
     baccarat:   sampleSection('baccarat', all.filter((g) => g.category === '101'), score, 12),
-    // 高 RTP 专栏：上游标称 rtp≥0.97，对标竞品「98%」栏
-    highRtp:    sampleSection('highRtp', all.filter((g) => (g.rtp ?? 0) >= 0.97), score, 6),
+    // 高 RTP 专栏：上游标称 rtp≥0.97，对标竞品「98%」栏；默认放 12 款
+    highRtp:    sampleSection('highRtp', all.filter((g) => (g.rtp ?? 0) >= 0.97), score, 12),
+    // 高洗码专栏：elite 档(2% 返水)游戏，按热度取 top 且不参与跨板块去重(需固定展示高返水游戏本身)，默认 9 款
+    highRebate: applyManual('highRebate',
+      [...exFilter('highRebate', all.filter((g) => g.cashbackTier === 'elite'))].sort((a, b) => score(b) - score(a)).slice(0, 9), 9),
     // 体育：sportsbook 合成条目固定第一席位（前端已移除专属通栏）；Lucky Sports(迁移134统一名) 的 28 个
     // 分项(足球/拳击/…)是同一产品的不同入口，只保留 Basketball，其余席位给独立体育产品(AFB/BTi/Panda/Saba 等)
     sports:     applyManual('sports', [
@@ -586,6 +590,7 @@ export function applyHomepageCurrency(selection: HomepageSelection, currency?: s
     lottery: apply(selection.lottery ?? []),
     baccarat: apply(selection.baccarat ?? []),
     highRtp: apply(selection.highRtp ?? []),
+    highRebate: apply(selection.highRebate ?? []),
     sports: apply(selection.sports ?? []),
     generatedAt: selection.generatedAt,
   }
