@@ -74,6 +74,10 @@ done
 echo "==> [${CTR}] 创建网络 ${NET}"
 run network inspect "$NET" >/dev/null 2>&1 || run network create "$NET"
 
+REDIS_URL_WIRED="redis://redis:6379"
+
+# SKIP_INFRA=1：基础设施(MySQL/Redis/NATS)已就绪时跳过重建，只 build+起应用层
+if [ "${SKIP_INFRA:-0}" != "1" ]; then
 echo "==> [${CTR}] MySQL betogo (limit ${MEM_MYSQL}, buffer_pool ${MYSQL_BUFFER_POOL}, :13306)"
 run rm -f tma-mysql 2>/dev/null || true
 run volume create tma-mysql-data 2>/dev/null || true
@@ -105,8 +109,6 @@ run run -d --name tma-redis --network "$NET" --network-alias redis --restart=alw
   redis:7.0-alpine \
   redis-server --maxmemory "$REDIS_MAXMEM" --maxmemory-policy allkeys-lru --save "" --appendonly no
 
-REDIS_URL_WIRED="redis://redis:6379"
-
 echo "==> [${CTR}] NATS JetStream (limit ${MEM_NATS})"
 run volume create tma-nats-data 2>/dev/null || true
 run run -d --name tma-nats --network "$NET" --network-alias nats --restart=always \
@@ -120,6 +122,7 @@ echo "==> 等待 NATS 就绪…"
 for i in $(seq 1 10); do
   run exec tma-nats nats-server --version >/dev/null 2>&1 && break || sleep 1
 done
+fi  # end SKIP_INFRA
 
 echo "==> [${CTR}] core-node (Fastify, limit 192m)"
 run rm -f tma-core-node 2>/dev/null || true
