@@ -34,6 +34,13 @@ router.put('/channels', async (ctx) => {
   if (!CM_PLATFORMS.includes(b.platform as CmPlatform)) return fail(ctx, 400, 'platform 无效')
   if (typeof b.name !== 'string' || !b.name.trim()) return fail(ctx, 400, 'name 必填')
   if (typeof b.config !== 'object' || b.config == null) return fail(ctx, 400, 'config 必填')
+  const cfg = b.config as Record<string, string>
+  // 常见误填:把 bot 用户名(@xxx)当 token 填进来,拼出的 API 地址 404
+  if (cfg.botToken && !/^\d{6,}:[\w-]{30,}$/.test(cfg.botToken.trim())) {
+    return fail(ctx, 400, 'botToken 格式无效:应为 BotFather 下发的完整 token(形如 1234567890:AAxx...),不是 @用户名;留空则使用系统默认 bot')
+  }
+  if (cfg.chatId) cfg.chatId = cfg.chatId.trim()
+  if (cfg.botToken) cfg.botToken = cfg.botToken.trim()
   const dailyLimit = Number(b.dailyLimit ?? 10)
   if (!Number.isInteger(dailyLimit) || dailyLimit < 1 || dailyLimit > 100) return fail(ctx, 400, 'dailyLimit 须为 1-100')
   const id = await saveChannel(ctx.state.env, {
