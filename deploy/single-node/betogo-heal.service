@@ -1,0 +1,15 @@
+[Unit]
+Description=BetoGo stack DNS heal after boot (fix nats network-alias)
+# 等 podman-restart 起完 restart=always 容器、网络就绪后再自愈
+After=podman-restart.service network-online.target
+Wants=podman-restart.service network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/tma-projects/deploy/single-node/boot-heal.sh
+RemainAfterExit=no
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
