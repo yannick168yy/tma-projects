@@ -178,9 +178,11 @@ run run -d --name tma-bff-node --network "$NET" --restart=always \
   --memory="$MEM_BFF" --memory-swap="$MEM_BFF" \
   -p 127.0.0.1:3000:3000 \
   -v "${DIR}/apps/bff-node/dist:/app/dist:ro" \
+  -v "${DIR}/data/kyc:/app/data/kyc" \
   -e NODE_ENV=production \
   -e LOG_LEVEL="${LOG_LEVEL:-info}" \
   -e BFF_PORT=3000 \
+  -e KYC_STORAGE_DIR="${KYC_STORAGE_DIR:-/app/data/kyc}" \
   -e BFF_STORAGE=mysql \
   -e REDIS_URL="${REDIS_URL_WIRED}" \
   -e MYSQL_HOST=tma-mysql \
