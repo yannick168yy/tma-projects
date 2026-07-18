@@ -1012,6 +1012,13 @@ export default {
     entry: 'Tautkan Akun',
   },
   tasks: {
+    spinCard: {
+      title: 'Roda Keberuntungan',
+      ready: '{{n}} putaran siap',
+      empty: 'Check-in harian untuk dapat putaran',
+      goSpin: 'Putar',
+      goCheckin: 'Check-in',
+    },
     item: {
       follow_telegram: { title: 'Ikuti Telegram Resmi', subtitle: 'Gabung channel untuk dapat hadiah' },
       follow_facebook: { title: 'Ikuti Facebook Resmi', subtitle: 'Ambil kode di halaman lalu masukkan' },

@@ -1030,6 +1030,13 @@ export default {
     entry: 'Liên kết tài khoản',
   },
   tasks: {
+    spinCard: {
+      title: 'Vòng Quay May Mắn',
+      ready: 'Sẵn {{n}} lượt quay',
+      empty: 'Điểm danh mỗi ngày để nhận lượt quay',
+      goSpin: 'Quay',
+      goCheckin: 'Điểm danh',
+    },
     item: {
       follow_telegram: { title: 'Theo dõi Telegram chính thức', subtitle: 'Tham gia kênh để nhận thưởng' },
       follow_facebook: { title: 'Theo dõi Facebook chính thức', subtitle: 'Lấy mã trên trang rồi nhập lại' },

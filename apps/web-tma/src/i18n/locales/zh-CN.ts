@@ -422,6 +422,13 @@ export default {
     spinFailed: '抽奖失败',
   },
   tasks: {
+    spinCard: {
+      title: '幸运转盘',
+      ready: '{{n}} 次抽奖机会',
+      empty: '每日签到可得抽奖机会',
+      goSpin: '去转盘',
+      goCheckin: '去签到',
+    },
     pageTitle: '任务中心',
     entrySub: '完成任务，领取奖励',
     empty: '暂时没有可做的任务',
