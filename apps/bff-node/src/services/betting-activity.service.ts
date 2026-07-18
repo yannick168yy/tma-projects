@@ -69,10 +69,11 @@ function gameWeightScore(g: DbGame): number {
   return Math.max(1, g.weight * (g.isFeatured ? 1.5 : 1))
 }
 
-function weightedTopAmount(g: DbGame, maxScore: number, min: number, max: number): number {
-  const ratio = Math.pow(gameWeightScore(g) / Math.max(1, maxScore), 0.55)
-  const noise = 0.86 + Math.random() * 0.28
-  return Math.max(min, Math.min(max, Math.round((min + (max - min) * ratio) * noise)))
+// 去整：把金额抹成带零头的非整数（真实投注不会恰好是 2,000,000）。
+// 精确到 1 元；若碰巧落在整千上，补一个 13~987 的随机零头。
+function deround(v: number): number {
+  const n = Math.round(v)
+  return n % 1000 === 0 ? n + randInt(13, 987) : n
 }
 
 // 加权随机选 n 款不重复游戏（权重 = weight × isFeatured ? 1.5 : 1）
@@ -110,12 +111,26 @@ function topGamePool(games: DbGame[], n: number): DbGame[] {
   return [...featured, ...backfill]
 }
 
-function buildWeightedTop(games: DbGame[], min: number, max: number): BetRecord[] {
+const WEEK_MIN = 60_000
+const WEEK_MAX = 520_000
+
+// 周榜/月榜关联生成：同一批精选游戏，每款先算一个周投注额，月额 = 周额 × 各款独立的
+// 3.6~4.8 倍（月累计），因此两榜游戏一致、量级关联，但倍数不同使名次略有变化。
+// 金额按 权重分 + 每款独立热度系数 分布，不 clamp 到固定上限，避免多款撞同一整数。
+function buildRankTops(games: DbGame[]): { week: BetRecord[]; month: BetRecord[] } {
   const picked = weightedPick(topGamePool(games, 10), 10)
   const maxScore = Math.max(...picked.map(gameWeightScore), 1)
-  return picked
-    .map((g) => toRecord(g, weightedTopAmount(g, maxScore, min, max)))
-    .sort((a, b) => b.betAmount - a.betAmount)
+  const rows = picked.map((g) => {
+    const ratio = Math.pow(gameWeightScore(g) / maxScore, 0.55)
+    const heat = 0.80 + Math.random() * 0.4 // 每款独立热度，拉开彼此金额、避免撞顶
+    const week = deround(WEEK_MIN + (WEEK_MAX - WEEK_MIN) * ratio * heat)
+    const month = deround(week * (3.6 + Math.random() * 1.2))
+    return { g, week, month }
+  })
+  return {
+    week: rows.map((r) => toRecord(r.g, r.week)).sort((a, b) => b.betAmount - a.betAmount),
+    month: rows.map((r) => toRecord(r.g, r.month)).sort((a, b) => b.betAmount - a.betAmount),
+  }
 }
 
 // ── 刷新函数 ────────────────────────────────────────────────────────────────
@@ -132,18 +147,14 @@ export async function refreshLatestPool(env: Env): Promise<void> {
   console.log('[betting-activity] latest pool refreshed (300 records)')
 }
 
-export async function refreshWeekTop(env: Env): Promise<void> {
+// 周榜与月榜一起生成以保证关联（同一批游戏、月额≈周额数倍）
+export async function refreshRankTops(env: Env): Promise<void> {
   const games = await getGamesFromCache(env)
   if (games.length === 0) return
-  weekTop = buildWeightedTop(games, 50_000, 500_000)
-  console.log('[betting-activity] week top refreshed (10 records)')
-}
-
-export async function refreshMonthTop(env: Env): Promise<void> {
-  const games = await getGamesFromCache(env)
-  if (games.length === 0) return
-  monthTop = buildWeightedTop(games, 200_000, 2_000_000)
-  console.log('[betting-activity] month top refreshed (10 records)')
+  const { week, month } = buildRankTops(games)
+  weekTop = week
+  monthTop = month
+  console.log('[betting-activity] week/month top refreshed (10+10 records)')
 }
 
 // ── 对外查询 ────────────────────────────────────────────────────────────────

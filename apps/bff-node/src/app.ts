@@ -11,7 +11,7 @@ import { childLogger } from './lib/logger.js'
 import { createApiRouter } from './routes/index.js'
 import { initStore } from './services/store/index.js'
 import { loadGamesCache, refreshHomepageSelection } from './services/sg-game.service.js'
-import { refreshLatestPool, refreshWeekTop, refreshMonthTop } from './services/betting-activity.service.js'
+import { refreshLatestPool, refreshRankTops } from './services/betting-activity.service.js'
 import { refreshRates } from './services/exchange-rate.service.js'
 import { refreshBalances } from './services/payment-accounting.service.js'
 import { runDailyRebateSettlement, yesterdayPHT } from './services/rebate.service.js'
@@ -161,8 +161,7 @@ export function createApp(env: Env): Koa {
   const initBettingActivity = () =>
     Promise.all([
       refreshLatestPool(env),
-      refreshWeekTop(env),
-      refreshMonthTop(env),
+      refreshRankTops(env),
     ]).catch((err) => log.betting.error({ err }, 'init error'))
 
   // 游戏缓存 + 首页推荐：启动 8s 后首次加载，失败则每 10s 重试，之后每 3 小时刷新首页推荐
@@ -193,20 +192,14 @@ export function createApp(env: Env): Koa {
       refreshLatestPool(env).catch((err) => log.betting.error({ err }, 'latest refresh error'))
     }, 20 * 60 * 1000)
 
-    // week / month: JS setInterval 上限约 24.8 天，用每天检查 + 时间戳守卫
-    let weekLastAt = 0
-    let monthLastAt = 0
-    const WEEK_MS  = 7  * 24 * 60 * 60 * 1000
-    const MONTH_MS = 30 * 24 * 60 * 60 * 1000
+    // week / month 一起刷新以保持关联（同一批游戏）；每 7 天一次，用每天检查 + 时间戳守卫
+    let rankLastAt = 0
+    const WEEK_MS = 7 * 24 * 60 * 60 * 1000
     setInterval(() => {
       const now = Date.now()
-      if (now - weekLastAt >= WEEK_MS) {
-        weekLastAt = now
-        refreshWeekTop(env).catch((err) => log.betting.error({ err }, 'week refresh error'))
-      }
-      if (now - monthLastAt >= MONTH_MS) {
-        monthLastAt = now
-        refreshMonthTop(env).catch((err) => log.betting.error({ err }, 'month refresh error'))
+      if (now - rankLastAt >= WEEK_MS) {
+        rankLastAt = now
+        refreshRankTops(env).catch((err) => log.betting.error({ err }, 'rank refresh error'))
       }
     }, 24 * 60 * 60 * 1000)
   }

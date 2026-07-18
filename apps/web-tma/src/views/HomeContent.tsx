@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import {
   Trophy, TrendingUp, Gamepad2, Sparkles, History, Factory,
   Fish, Ticket, Drama, Rocket, X, Gem, Percent,
-  Zap, Headphones, ShieldCheck,
+  Zap, Headphones, ShieldCheck, Crown,
 } from 'lucide-react'
 import GameCardV2 from '@/components/home/GameCardV2'
 import TaskFloatBall from '@/components/tasks/TaskFloatBall'
@@ -53,6 +53,13 @@ const COMMUNITY_LINKS: { label: string; icon: string; url: string }[] = [
 ]
 const BET_SCROLL_MIN_DURATION_SECONDS = 32
 const BET_SCROLL_SECONDS_PER_ITEM = 2.8
+
+// 榜单前三名的金/银/铜华丽配色
+const RANK_TOP_STYLES = [
+  { row: 'bg-gradient-to-r from-amber-500/25 via-amber-500/8 to-transparent border-amber-400/25', medal: 'bg-gradient-to-br from-amber-200 to-amber-500 text-amber-950 shadow-[0_3px_12px_rgba(245,158,11,0.55)]', ring: 'ring-2 ring-amber-400/60', amount: 'text-amber-300' },
+  { row: 'bg-gradient-to-r from-slate-200/18 via-slate-200/6 to-transparent border-slate-300/20', medal: 'bg-gradient-to-br from-slate-100 to-slate-400 text-slate-800 shadow-[0_3px_10px_rgba(203,213,225,0.45)]', ring: 'ring-2 ring-slate-300/55', amount: 'text-slate-100' },
+  { row: 'bg-gradient-to-r from-orange-700/22 via-orange-700/7 to-transparent border-orange-500/20', medal: 'bg-gradient-to-br from-orange-300 to-orange-600 text-orange-950 shadow-[0_3px_10px_rgba(194,120,3,0.45)]', ring: 'ring-2 ring-orange-500/55', amount: 'text-orange-300' },
+]
 
 // 首页 banner 来自后台装修配置，只需图片 + 跳转目标
 interface HomeBanner { id: number; image: string; target: string }
@@ -597,30 +604,54 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
               </div>
             ) : (
               <div>
-                {rankBets.map((rec, idx) => (
-                <button
-                  key={`${rec.uuid}-${idx}`}
-                  type="button"
-                  className="w-full flex items-center gap-3 px-3 py-2.5 border-b border-white/5 last:border-0 active:bg-white/5 transition-colors text-left"
-                  onClick={() => void onGameTapAction(rec.uuid)}
-                >
-                  <span
-                    className={`w-5 text-center text-xs font-black flex-shrink-0 ${idx === 0 ? 'text-primary' : idx === 1 ? 'text-white/50' : idx === 2 ? 'text-amber-600' : 'text-muted-foreground'}`}
-                  >
-                    #{idx + 1}
-                  </span>
-                  {rec.imageUrl ? (
-                    <img src={rec.imageUrl} alt={rec.name} className="w-10 h-10 rounded-lg object-cover flex-shrink-0 bg-white/5" />
-                  ) : (
-                    <div className="w-10 h-10 rounded-lg bg-white/10 flex-shrink-0" />
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-bold text-foreground truncate">{localizedGameName(rec, locale)}</p>
-                    <p className="text-[10px] text-muted-foreground">{rec.provider}</p>
-                  </div>
-                  <span className="text-xs font-bold text-primary flex-shrink-0">{formatBet(rec.betAmount)}</span>
-                </button>
-                ))}
+                {rankBets.map((rec, idx) => {
+                  const top = idx < 3 ? RANK_TOP_STYLES[idx] : null
+                  if (top) {
+                    return (
+                      <button
+                        key={`${rec.uuid}-${idx}`}
+                        type="button"
+                        className={`relative w-full flex items-center gap-3.5 px-3.5 py-4 border-b active:brightness-110 transition text-left ${top.row}`}
+                        onClick={() => void onGameTapAction(rec.uuid)}
+                      >
+                        <div className="relative flex-shrink-0">
+                          <span className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-black ${top.medal}`}>{idx + 1}</span>
+                          {idx === 0 && <Crown size={16} className="absolute -top-2.5 left-1/2 -translate-x-1/2 rotate-[8deg] text-amber-300 drop-shadow" fill="currentColor" />}
+                        </div>
+                        {rec.imageUrl ? (
+                          <img src={rec.imageUrl} alt={rec.name} className={`w-16 h-16 rounded-xl object-cover flex-shrink-0 bg-white/5 ${top.ring}`} />
+                        ) : (
+                          <div className={`w-16 h-16 rounded-xl bg-white/10 flex-shrink-0 ${top.ring}`} />
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-black text-foreground truncate">{localizedGameName(rec, locale)}</p>
+                          <p className="text-[11px] text-muted-foreground">{rec.provider}</p>
+                        </div>
+                        <span className={`text-base font-black flex-shrink-0 ${top.amount}`}>{formatBet(rec.betAmount)}</span>
+                      </button>
+                    )
+                  }
+                  return (
+                    <button
+                      key={`${rec.uuid}-${idx}`}
+                      type="button"
+                      className="w-full flex items-center gap-3 px-3 py-2.5 border-b border-white/5 last:border-0 active:bg-white/5 transition-colors text-left"
+                      onClick={() => void onGameTapAction(rec.uuid)}
+                    >
+                      <span className="w-5 text-center text-xs font-black flex-shrink-0 text-muted-foreground">#{idx + 1}</span>
+                      {rec.imageUrl ? (
+                        <img src={rec.imageUrl} alt={rec.name} className="w-10 h-10 rounded-lg object-cover flex-shrink-0 bg-white/5" />
+                      ) : (
+                        <div className="w-10 h-10 rounded-lg bg-white/10 flex-shrink-0" />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-bold text-foreground truncate">{localizedGameName(rec, locale)}</p>
+                        <p className="text-[10px] text-muted-foreground">{rec.provider}</p>
+                      </div>
+                      <span className="text-xs font-bold text-primary flex-shrink-0">{formatBet(rec.betAmount)}</span>
+                    </button>
+                  )
+                })}
               </div>
             )}
           </div>
