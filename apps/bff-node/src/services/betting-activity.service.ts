@@ -98,8 +98,20 @@ function weightedPick(games: DbGame[], n: number): DbGame[] {
   return result
 }
 
+// 榜单入池：精选(isFeatured)爆款优先，不足 10 款再用权重最高的非精选游戏补齐。
+// 避免从全库加权随机抽——那样会混进大量无名气的长尾游戏，榜单显得没热度。
+function topGamePool(games: DbGame[], n: number): DbGame[] {
+  const featured = games.filter((g) => g.isFeatured)
+  if (featured.length >= n) return featured
+  const backfill = games
+    .filter((g) => !g.isFeatured)
+    .sort((a, b) => gameWeightScore(b) - gameWeightScore(a))
+    .slice(0, n - featured.length)
+  return [...featured, ...backfill]
+}
+
 function buildWeightedTop(games: DbGame[], min: number, max: number): BetRecord[] {
-  const picked = weightedPick(games, 10)
+  const picked = weightedPick(topGamePool(games, 10), 10)
   const maxScore = Math.max(...picked.map(gameWeightScore), 1)
   return picked
     .map((g) => toRecord(g, weightedTopAmount(g, maxScore, min, max)))
