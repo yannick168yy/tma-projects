@@ -82,6 +82,7 @@ run run -d --name tma-bff-node --network "$NET" --restart=always \
   -e TELESMS_SENDER="${TELESMS_SENDER:-}" \
   -e KYC_GEMINI_MIN_CONFIDENCE="${KYC_GEMINI_MIN_CONFIDENCE:-0.85}" \
   -e KYC_STORAGE_DIR="${KYC_STORAGE_DIR:-/app/data/kyc}" \
+  -e IMAGE_CDN_BASE="${IMAGE_CDN_BASE:-}" \
   -e CS_ENABLED="${CS_ENABLED:-true}" \
   -e EXCHANGE_RATE_API_KEY="${EXCHANGE_RATE_API_KEY:-}" \
   -e COINGECKO_API_KEY="${COINGECKO_API_KEY:-}" \

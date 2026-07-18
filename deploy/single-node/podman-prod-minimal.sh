@@ -183,6 +183,7 @@ run run -d --name tma-bff-node --network "$NET" --restart=always \
   -e LOG_LEVEL="${LOG_LEVEL:-info}" \
   -e BFF_PORT=3000 \
   -e KYC_STORAGE_DIR="${KYC_STORAGE_DIR:-/app/data/kyc}" \
+  -e IMAGE_CDN_BASE="${IMAGE_CDN_BASE:-}" \
   -e BFF_STORAGE=mysql \
   -e REDIS_URL="${REDIS_URL_WIRED}" \
   -e MYSQL_HOST=tma-mysql \

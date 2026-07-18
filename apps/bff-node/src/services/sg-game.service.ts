@@ -97,6 +97,13 @@ function sortCategoryFromWin568(newGameType: number | null): string {
   return 'other'
 }
 
+// 游戏封面图(/api/v1/home/images/*)走 CloudFront CDN；icon_url 等第三方外链原样。
+// IMAGE_CDN_BASE 未设时回退相对路径(即走源站),便于回滚。
+const IMAGE_CDN_BASE = process.env.IMAGE_CDN_BASE || ''
+function cdnImg(url: string | null): string | null {
+  return url && IMAGE_CDN_BASE && url.startsWith('/api/v1/home/images/') ? IMAGE_CDN_BASE + url : url
+}
+
 function rowToWin568Game(r: RowDataPacket): DbGame {
   const newGameType = r.new_game_type == null ? null : Number(r.new_game_type)
   const rank = r.rank_no == null ? 9999 : Number(r.rank_no)
@@ -119,9 +126,9 @@ function rowToWin568Game(r: RowDataPacket): DbGame {
     sortCategory: String(sortCategory),
     siteCategory: r.effective_site_category ? String(r.effective_site_category) : null,
     rtp: r.rtp == null || Number(r.rtp) < 0 ? null : Number(r.rtp),
-    imageUrl: imageUrl ? String(imageUrl) : null,
-    imageHqUrl: imageUrl ? String(imageUrl) : null,
-    imageAnim: r.image_anim ? String(r.image_anim) : null,
+    imageUrl: cdnImg(imageUrl ? String(imageUrl) : null),
+    imageHqUrl: cdnImg(imageUrl ? String(imageUrl) : null),
+    imageAnim: cdnImg(r.image_anim ? String(r.image_anim) : null),
     imageSource: r.effective_image_source ? String(r.effective_image_source) : null,
     imageWidth: probedDims ? Number(r.icon_width) : null,
     imageHeight: probedDims ? Number(r.icon_height) : null,
@@ -148,8 +155,8 @@ function win568SportsbookGame(row?: RowDataPacket | null): DbGame {
     subCategory: null,
     sortCategory: row?.sort_category ? String(row.sort_category) : WIN568_SPORTSBOOK_DEFAULT.sortCategory,
     siteCategory: row?.site_category ? String(row.site_category) : WIN568_SPORTSBOOK_DEFAULT.siteCategory,
-    imageUrl: row?.image_override ? String(row.image_override) : null,
-    imageHqUrl: row?.image_override ? String(row.image_override) : null,
+    imageUrl: cdnImg(row?.image_override ? String(row.image_override) : null),
+    imageHqUrl: cdnImg(row?.image_override ? String(row.image_override) : null),
     imageSource: row?.image_source ? String(row.image_source) : null,
     hasLobby: true,
     isMobile: true,
@@ -768,8 +775,8 @@ export async function getUserGameHistory(
     nameVi: null,
     nameZh: (r.name_zh as string) ?? null,
     provider: r.provider as string,
-    imageUrl: r.image_url ? String(r.image_url) : null,
-    imageHqUrl: r.image_hq_url ? String(r.image_hq_url) : null,
+    imageUrl: cdnImg(r.image_url ? String(r.image_url) : null),
+    imageHqUrl: cdnImg(r.image_hq_url ? String(r.image_hq_url) : null),
     lastPlayedAt: new Date(r.last_played_at as Date).toISOString(),
   }))
 }
