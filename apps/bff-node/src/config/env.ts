@@ -12,6 +12,16 @@ const schema = z.object({
   ADMIN_TG_CHAT_ID: z.string().default(''),
   // 告警消息里后台深链前缀
   ADMIN_WEB_URL: z.string().default('https://www.188facai.com/admin-panel'),
+  // 告警消息环境标签(如 🧪[测试环境]),留空不加。多环境共用同一告警群时用于区分来源
+  ADMIN_NOTIFY_ENV_LABEL: z.string().default(''),
+  // MySQL 连接池大小。生产验收压测(5.8节)证明池 10 是 4C16G 上的吞吐软上限之一
+  MYSQL_POOL_SIZE: z.coerce.number().default(10),
+  // 多实例部署时,副实例设 true:跳过全部"只能跑一份"的定时任务
+  // (洗码/负盈利/VIP日任务/支付快照/汇率刷新/社区营销/种子),内存缓存类任务(games cache 等)不受影响
+  BFF_DISABLE_SINGLETON_JOBS: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((v) => v === 'true'),
   BFF_DEV_SKIP_TELEGRAM_AUTH: z
     .enum(['true', 'false'])
     .default('false')

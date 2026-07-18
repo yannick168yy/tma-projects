@@ -46,7 +46,7 @@ async function send(env: Env, alert: AdminAlert): Promise<void> {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         chat_id: env.ADMIN_TG_CHAT_ID,
-        text: alert.text,
+        text: env.ADMIN_NOTIFY_ENV_LABEL ? `${env.ADMIN_NOTIFY_ENV_LABEL}\n${alert.text}` : alert.text,
         disable_web_page_preview: true,
       }),
       signal: ctrl.signal,

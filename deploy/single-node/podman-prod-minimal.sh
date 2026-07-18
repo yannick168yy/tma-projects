@@ -170,13 +170,22 @@ run run -d --name tma-core-node --network "$NET" --restart=always \
   -e MATRIX_WITHDRAW_CHECK_URL="${MATRIX_WITHDRAW_CHECK_URL:-}" \
   betogo-core-node:latest
 
-echo "==> [${CTR}] bff-node (MySQL store + Redis session)"
-run rm -f tma-bff-node 2>/dev/null || true
+echo "==> [${CTR}] bff-node (MySQL store + Redis session), 实例数=${BFF_INSTANCES:-1}"
+# BFF_INSTANCES=2 时起 tma-bff-node-2 于 127.0.0.1:3001,副实例 BFF_DISABLE_SINGLETON_JOBS=true
+# (跳过洗码/VIP/快照等结算类定时任务防双跑);宿主 nginx upstream 需同步加 3001
 run build -t betogo-bff-node:latest -f apps/bff-node/Dockerfile apps/bff-node
-run run -d --name tma-bff-node --network "$NET" --restart=always \
+BFF_INSTANCES="${BFF_INSTANCES:-1}"
+for BI in $(seq 1 "$BFF_INSTANCES"); do
+BFF_NAME=tma-bff-node; BFF_PORT=3000; BFF_SINGLETON_OFF=false
+if [ "$BI" -gt 1 ]; then BFF_NAME="tma-bff-node-$BI"; BFF_PORT=$((3000 + BI - 1)); BFF_SINGLETON_OFF=true; fi
+run rm -f "$BFF_NAME" 2>/dev/null || true
+run run -d --name "$BFF_NAME" --network "$NET" --restart=always \
   "${LOG_OPTS[@]}" \
   --memory="$MEM_BFF" --memory-swap="$MEM_BFF" \
-  -p 127.0.0.1:3000:3000 \
+  -p 127.0.0.1:${BFF_PORT}:3000 \
+  -e BFF_DISABLE_SINGLETON_JOBS="$BFF_SINGLETON_OFF" \
+  -e MYSQL_POOL_SIZE="${MYSQL_POOL_SIZE:-10}" \
+  -e ADMIN_NOTIFY_ENV_LABEL="${ADMIN_NOTIFY_ENV_LABEL:-}" \
   -v "${DIR}/apps/bff-node/dist:/app/dist:ro" \
   -v "${DIR}/data/kyc:/app/data/kyc" \
   -e NODE_ENV=production \
@@ -243,6 +252,7 @@ run run -d --name tma-bff-node --network "$NET" --restart=always \
   -e MATRIX_NOTIFY_URL="${MATRIX_NOTIFY_URL:-}" \
   -e MATRIX_WITHDRAW_CHECK_URL="${MATRIX_WITHDRAW_CHECK_URL:-}" \
   betogo-bff-node:latest
+done  # end BFF_INSTANCES
 
 echo "==> [${CTR}] web-tma (limit 64m)"
 run rm -f tma-web-tma 2>/dev/null || true

@@ -41,8 +41,12 @@ export function createApp(env: Env): Koa {
     payment: childLogger('payment-balance'),
   }
 
+  // 多实例部署:副实例(BFF_DISABLE_SINGLETON_JOBS=true)跳过"只能跑一份"的任务,
+  // 防止结算/发奖类定时任务双跑重复入账;内存缓存类任务(games cache 等)每实例照常跑
+  const singletonJobs = !env.BFF_DISABLE_SINGLETON_JOBS
+
   // Seed default admin account — retry with backoff until MySQL is reachable
-  if (isMysqlEnabled(env)) {
+  if (singletonJobs && isMysqlEnabled(env)) {
     const trySeed = (attempt: number): void => {
       seedDefaultAdmin(env).catch((err) => {
         if (attempt < 8) {
@@ -56,8 +60,8 @@ export function createApp(env: Env): Koa {
     setTimeout(() => trySeed(0), 10_000)
   }
 
-  // 汇率定时刷新：启动后 30s 先跑一次，之后每 10 分钟（全部走 CoinGecko）
-  setTimeout(() => {
+  // 汇率定时刷新：启动后 30s 先跑一次，之后每 10 分钟（全部走 CoinGecko）。结果落 Redis 共享,单实例跑即可
+  if (singletonJobs) setTimeout(() => {
     refreshRates(redis, env).catch((err) => log.rates.error({ err }, 'refresh error'))
     setInterval(
       () => refreshRates(redis, env).catch((err) => log.rates.error({ err }, 'refresh error')),
@@ -66,7 +70,7 @@ export function createApp(env: Env): Koa {
   }, 30_000)
 
   // 支付服务商余额快照：启动后 60s 先刷一次，之后每 1 小时（用于与我方记账核对）
-  if (isMysqlEnabled(env)) {
+  if (singletonJobs && isMysqlEnabled(env)) {
     setTimeout(() => {
       const run = () => refreshBalances(env).catch((err) => log.payment.error({ err }, 'balance refresh error'))
       run()
@@ -75,7 +79,7 @@ export function createApp(env: Env): Koa {
   }
 
   // 洗码每日结算：每天 UTC 16:00（PHT 00:00 凌晨）结算昨日流水写入待领取记录（不自动入账，用户手动领取）
-  if (isMysqlEnabled(env)) {
+  if (singletonJobs && isMysqlEnabled(env)) {
     const runRebate = () =>
       runDailyRebateSettlement(env, yesterdayPHT())
         .then(({ users, totalRebate }) =>
@@ -97,7 +101,7 @@ export function createApp(env: Env): Koa {
 
   // 负盈利返水（路线A）：每小时 :30 检查，PHT 到达配置的结算时刻（lossRebate.settleHour）时结算「昨天」整日
   //   活动关闭时内部 no-op；结算幂等（ON DUPLICATE KEY），同一小时多次触发安全；用户手动领取
-  if (isMysqlEnabled(env)) {
+  if (singletonJobs && isMysqlEnabled(env)) {
     const runNegRebate = async () => {
       try {
         const cfg = await getLossRebateConfigByPool(getMysqlPool(env))
@@ -124,7 +128,7 @@ export function createApp(env: Env): Koa {
   }
 
   // VIP 每日维护：每天 UTC 16:40（PHT 00:40）建行/爬升 + 周俸(周一)/月俸(1号)/生日/季度保级
-  if (isMysqlEnabled(env)) {
+  if (singletonJobs && isMysqlEnabled(env)) {
     const runVipDaily = async () => {
       try {
         await ensureAndClimbVipStates(env)
@@ -159,7 +163,7 @@ export function createApp(env: Env): Koa {
   }
 
   // 社区营销自动发帖:每 30s tick(setInterval 长期漂移可能跳过整分,30s 步长+槽位 Redis 去重保证不漏不重)
-  if (isMysqlEnabled(env)) {
+  if (singletonJobs && isMysqlEnabled(env)) {
     const communityLog = childLogger('community-tick')
     setTimeout(() => {
       const run = () => runCommunityTick(env, redis).catch((err) => communityLog.error({ err }, 'tick error'))

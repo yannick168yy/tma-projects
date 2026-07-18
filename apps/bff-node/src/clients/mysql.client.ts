@@ -29,7 +29,7 @@ export function getMysqlPool(env: Env): Pool {
       password: process.env.MYSQL_PASSWORD,
       database: process.env.MYSQL_DATABASE ?? 'betogo',
       waitForConnections: true,
-      connectionLimit: 10,
+      connectionLimit: Number(process.env.MYSQL_POOL_SIZE ?? 10),
       timezone: 'Z',
       charset: 'UTF8MB4_UNICODE_CI',
     })
