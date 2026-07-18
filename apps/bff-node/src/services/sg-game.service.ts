@@ -519,7 +519,8 @@ function buildHomepageSelection(all: DbGame[], cur: string, overrides: SectionOv
     // 彩票 & 其他：彩票(ntype207)低权重会被 other 淹没，先保底 4 彩票再用 other 补 8
     lottery:    applyManual('lottery', [...pick(bySite('lottery'), score, 4), ...pick(bySite('other'), score, 8)], 12),
     // 百家乐专栏：casinoplus 有独立返水专栏验证的品类需求（new_game_type=101）
-    baccarat:   sampleSection('baccarat', all.filter((g) => g.category === '101'), score, 12),
+    // 可用百家乐仅 2 家厂商(Pragmatic/Playtech)，默认每厂商≤2 只能凑出 4 款；放宽到 6 以填满 12
+    baccarat:   sampleSection('baccarat', all.filter((g) => g.category === '101'), score, 12, 6),
     // 高 RTP 专栏：上游标称 rtp≥0.97，对标竞品「98%」栏；默认放 12 款
     highRtp:    sampleSection('highRtp', all.filter((g) => (g.rtp ?? 0) >= 0.97), score, 12),
     // 高洗码专栏：elite 档(2% 返水)游戏，按热度取 top 且不参与跨板块去重(需固定展示高返水游戏本身)，默认 9 款

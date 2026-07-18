@@ -12,8 +12,8 @@ import {
 
 const { Title } = Typography
 
-// 板块顺序与前端首页一致
-const SECTION_ORDER = ['popular', 'recommended', 'newGames', 'slots', 'casino', 'perya', 'fishing', 'lottery', 'baccarat', 'highRtp', 'highRebate', 'sports']
+// 板块顺序与前端首页渲染顺序一致
+const SECTION_ORDER = ['recommended', 'popular', 'highRebate', 'highRtp', 'slots', 'casino', 'newGames', 'perya', 'fishing', 'lottery', 'baccarat', 'sports']
 const SECTION_LABELS: Record<string, string> = {
   popular: '热门推荐',
   recommended: '推荐精选',

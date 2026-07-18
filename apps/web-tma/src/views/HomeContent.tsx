@@ -213,9 +213,7 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
   async function switchBetTab(tab: BetTab) { setActiveBetTab(tab); await loadBetTab(tab) }
   const latestBetsLoop = useMemo(() => [...latestBets, ...latestBets], [latestBets])
   const rankBets = activeBetTab === 'week' ? weekBets : monthBets
-  const rankBetsLoop = useMemo(() => [...rankBets, ...rankBets], [rankBets])
   const latestBetScrollDuration = `${Math.max(BET_SCROLL_MIN_DURATION_SECONDS, latestBets.length * BET_SCROLL_SECONDS_PER_ITEM)}s`
-  const rankBetScrollDuration = `${Math.max(BET_SCROLL_MIN_DURATION_SECONDS, rankBets.length * BET_SCROLL_SECONDS_PER_ITEM)}s`
   const firstDepositHighlight = promotion.highlights.find((item) => item.promoId === 'firstdep')
   const firstdepPopup = promotion.promoConfig?.popups?.find((p) => p.id === 'firstdep')
   // 后台「首页弹窗」开关+人群控制悬浮球显隐；叠加原有「已充值则不再展示首充」逻辑
@@ -582,7 +580,7 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
             )}
           </div>
         ) : (
-          <div className="rounded-xl bg-secondary overflow-hidden h-[600px]">
+          <div className="rounded-xl bg-secondary overflow-y-auto hide-scrollbar h-[600px]">
             {rankBets.length === 0 ? (
               <div className="space-y-px pt-1">
                 {Array.from({ length: 8 }).map((_, n) => (
@@ -598,8 +596,8 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
                 ))}
               </div>
             ) : (
-              <div className="animate-scroll-up" style={{ animationDuration: rankBetScrollDuration }}>
-                {rankBetsLoop.map((rec, idx) => (
+              <div>
+                {rankBets.map((rec, idx) => (
                 <button
                   key={`${rec.uuid}-${idx}`}
                   type="button"
@@ -607,9 +605,9 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
                   onClick={() => void onGameTapAction(rec.uuid)}
                 >
                   <span
-                    className={`w-5 text-center text-xs font-black flex-shrink-0 ${idx % rankBets.length === 0 ? 'text-primary' : idx % rankBets.length === 1 ? 'text-white/50' : idx % rankBets.length === 2 ? 'text-amber-600' : 'text-muted-foreground'}`}
+                    className={`w-5 text-center text-xs font-black flex-shrink-0 ${idx === 0 ? 'text-primary' : idx === 1 ? 'text-white/50' : idx === 2 ? 'text-amber-600' : 'text-muted-foreground'}`}
                   >
-                    #{idx % rankBets.length + 1}
+                    #{idx + 1}
                   </span>
                   {rec.imageUrl ? (
                     <img src={rec.imageUrl} alt={rec.name} className="w-10 h-10 rounded-lg object-cover flex-shrink-0 bg-white/5" />
