@@ -532,28 +532,23 @@ function SpinEntryCard({ onNavigate }: { onNavigate?: (target: string) => void }
       <button
         type="button"
         onClick={() => onNavigate?.(has ? 'spin' : 'checkin')}
-        className={`flex w-full items-center gap-3 rounded-[14px] border px-3.5 py-3 text-left transition active:scale-[0.98] ${
-          has
-            ? 'border-[#ffc31e]/55 bg-gradient-to-r from-[#2a2138] to-[#231b4e] shadow-[0_6px_20px_rgba(120,80,220,0.22)]'
-            : 'border-[#6d480f]/45 bg-[#0a0906]/90'
-        }`}
+        className="flex w-full items-center gap-2.5 rounded-[12px] bg-[#12100b]/95 px-2.5 py-2.5 text-left shadow-[0_4px_14px_rgba(0,0,0,0.4)] active:scale-[0.98]"
       >
         <img
           src={wheelImg}
           alt=""
           draggable={false}
-          className={`h-[46px] w-[46px] flex-shrink-0 rounded-full ${has ? 'task-wiggle' : 'opacity-55 grayscale'}`}
+          className={`h-[38px] w-[38px] flex-shrink-0 rounded-full object-cover ${has ? '' : 'opacity-55 grayscale'}`}
         />
         <span className="min-w-0 flex-1">
-          <span className="block text-[14px] font-black leading-tight text-[#fff8ea]">{t('tasks.spinCard.title')}</span>
-          <span className={`mt-0.5 block truncate text-[12px] font-medium leading-snug ${has ? 'text-[#ffd78a]' : 'text-[#d8c7a5]'}`}>
+          <span className="block text-[13px] font-black leading-tight text-[#fff8ea]">{t('tasks.spinCard.title')}</span>
+          <span className="mt-0.5 block truncate text-[11px] font-medium leading-snug text-[#d8c7a5]">
             {has ? t('tasks.spinCard.ready', { n: remaining }) : t('tasks.spinCard.empty')}
           </span>
         </span>
-        <span className={`flex-shrink-0 rounded-full px-3 py-1.5 text-[12px] font-black leading-none ${
-          has ? 'bg-gradient-to-b from-[#ffdb37] to-[#ffc400] text-[#241600]' : 'border border-[#8a5b13]/70 text-[#f0dfc5]'
-        }`}>
+        <span className="flex flex-shrink-0 items-center gap-0.5 text-[12px] font-black leading-none text-[#ffd21d]">
           {has ? t('tasks.spinCard.goSpin') : t('tasks.spinCard.goCheckin')}
+          <ChevronRight size={14} className="text-[#a98b57]" />
         </span>
       </button>
     </div>
