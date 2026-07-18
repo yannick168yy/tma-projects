@@ -324,10 +324,12 @@ async function createUser(
     inviteCode,
     registeredAt: nowIso(),
   }
+  // saveUser 自带独立事务且内部会取池连接——必须在取外层连接之前调用，
+  // 否则并发注册各握一条连接等 saveUser 的第二条，池满即整池死锁
+  await saveUser(env, user)
   const conn = await pool(env).getConnection()
   try {
     await conn.beginTransaction()
-    await saveUser(env, user)
     await conn.execute(
       `INSERT INTO bg_wallet (user_id, currency, available, frozen) VALUES (?, 'PHP', 0, 0)
        ON DUPLICATE KEY UPDATE user_id=user_id`,

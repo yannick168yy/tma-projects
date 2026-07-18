@@ -726,6 +726,8 @@ export async function adminListManualReviews(env: Env, status: 'pending' | 'appr
 /** 审核截图任务：通过则补发领取记录 + 发奖 */
 export async function adminReviewManual(env: Env, id: number, approve: boolean, reviewer: string, note = ''): Promise<void> {
   const pool = getMysqlPool(env)
+  let rewardUserId: string | null = null
+  let taskKey = ''
   const conn: PoolConnection = await pool.getConnection()
   try {
     await conn.beginTransaction()
@@ -744,20 +746,23 @@ export async function adminReviewManual(env: Env, id: number, approve: boolean, 
       )
     }
     await conn.commit()
-    if (approve) {
-      const [[s]] = await pool.query<RowDataPacket[]>(`SELECT * FROM bg_task_social WHERE task_key = ? LIMIT 1`, [rev.task_key])
-      if (s) {
-        const row = s as unknown as SocialRow
-        await grantReward(env, String(rev.user_id), {
-          type: row.reward_type, amount: Number(row.reward_amount), spin: Number(row.reward_spin),
-          turnoverX: Number(row.turnover_x), currency: row.currency,
-        }, `social:${rev.task_key}`)
-      }
-    }
+    rewardUserId = approve ? String(rev.user_id) : null
+    taskKey = String(rev.task_key)
   } catch (e) {
     try { await conn.rollback() } catch { /* noop */ }
     throw e
   } finally {
     conn.release()
+  }
+  // 发奖放在连接归还之后：grantReward/pool.query 会再取池连接，持有连接时调用会嵌套（池满即死锁）
+  if (rewardUserId) {
+    const [[s]] = await pool.query<RowDataPacket[]>(`SELECT * FROM bg_task_social WHERE task_key = ? LIMIT 1`, [taskKey])
+    if (s) {
+      const row = s as unknown as SocialRow
+      await grantReward(env, rewardUserId, {
+        type: row.reward_type, amount: Number(row.reward_amount), spin: Number(row.reward_spin),
+        turnoverX: Number(row.turnover_x), currency: row.currency,
+      }, `social:${taskKey}`)
+    }
   }
 }

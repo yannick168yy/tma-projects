@@ -270,10 +270,11 @@ export interface CheckinClaimResult {
 export async function claimCheckin(env: Env, userId: string): Promise<CheckinClaimResult> {
   if (!isMysqlEnabled(env)) throw new Error('storage unavailable')
   const pool = getMysqlPool(env)
+  // 先读配置再取连接：getCheckinConfig 内部走池，持有连接时调用会嵌套取连接（池满即死锁）
+  const cfg = await getCheckinConfig(env)
+  if (!cfg.enabled) throw new Error('disabled')
   const conn = await pool.getConnection()
   try {
-    const cfg = await getCheckinConfig(env)
-    if (!cfg.enabled) throw new Error('disabled')
     await conn.beginTransaction()
     const today = manilaToday()
     const tiers = await tierRuleIds(conn)

@@ -149,32 +149,38 @@ async function getEnabledConfig(conn: PoolConnection, currency = 'PHP'): Promise
   }
 }
 
+// ⚠️ 持有池连接的调用方必须用本函数（复用已持有的 conn），不能调 getSpinConfig(env) 再取第二条连接：
+// 池 10 条时 ≥10 个并发会外层握满连接、内层无限等待，整池死锁（生产压测 P2 实锤过）
+async function loadSpinConfig(conn: PoolConnection, currency = 'PHP'): Promise<SpinConfig> {
+  const [[cfg]] = await conn.query<RowDataPacket[]>(
+    `SELECT enabled FROM bg_spin_config WHERE id = 1 LIMIT 1`,
+  )
+  const [rules] = await conn.query<RowDataPacket[]>(
+    `SELECT id, kind, checkin_tier, name, min_deposit_php, max_deposit_php, chances, enabled, sort_order
+     FROM bg_spin_deposit_rule
+     WHERE kind = 'checkin'
+     ORDER BY sort_order ASC, min_deposit_php ASC`,
+  )
+  const [prizes] = await conn.query<RowDataPacket[]>(
+    `SELECT p.id, p.rule_id, p.currency, p.name, p.image_key, p.amount_php, p.weight, p.turnover_x, p.enabled, p.sort_order
+     FROM bg_spin_prize p
+     JOIN bg_spin_deposit_rule r ON r.id = p.rule_id AND r.kind = 'checkin'
+     WHERE p.currency = ?
+     ORDER BY p.sort_order ASC, p.id ASC`,
+    [currency],
+  )
+  return {
+    enabled: Boolean(cfg?.enabled),
+    depositRules: rules.map(mapRule),
+    prizes: prizes.map(mapPrize),
+  }
+}
+
 export async function getSpinConfig(env: Env, currency = 'PHP'): Promise<SpinConfig> {
   const pool = getMysqlPool(env)
   const conn = await pool.getConnection()
   try {
-    const [[cfg]] = await conn.query<RowDataPacket[]>(
-      `SELECT enabled FROM bg_spin_config WHERE id = 1 LIMIT 1`,
-    )
-    const [rules] = await conn.query<RowDataPacket[]>(
-      `SELECT id, kind, checkin_tier, name, min_deposit_php, max_deposit_php, chances, enabled, sort_order
-       FROM bg_spin_deposit_rule
-       WHERE kind = 'checkin'
-       ORDER BY sort_order ASC, min_deposit_php ASC`,
-    )
-    const [prizes] = await conn.query<RowDataPacket[]>(
-      `SELECT p.id, p.rule_id, p.currency, p.name, p.image_key, p.amount_php, p.weight, p.turnover_x, p.enabled, p.sort_order
-       FROM bg_spin_prize p
-       JOIN bg_spin_deposit_rule r ON r.id = p.rule_id AND r.kind = 'checkin'
-       WHERE p.currency = ?
-       ORDER BY p.sort_order ASC, p.id ASC`,
-      [currency],
-    )
-    return {
-      enabled: Boolean(cfg?.enabled),
-      depositRules: rules.map(mapRule),
-      prizes: prizes.map(mapPrize),
-    }
+    return await loadSpinConfig(conn, currency)
   } finally {
     conn.release()
   }
@@ -287,7 +293,7 @@ export async function saveSpinConfig(env: Env, config: SpinConfig, currency = 'P
     }
 
     await conn.commit()
-    return getSpinConfig(env, currency)
+    return await loadSpinConfig(conn, currency)
   } catch (e) {
     await conn.rollback()
     throw e
@@ -424,7 +430,7 @@ export async function getSpinStatus(env: Env, userId: string, redis: Redis, rule
   try {
     const config = await getEnabledConfig(conn, currency)
     const byRule = await remainingByRule(conn, userId)
-    const fullConfig = await getSpinConfig(env, currency)
+    const fullConfig = await loadSpinConfig(conn, currency)
     const tickerRecords = await getTickerRecords(redis, fullConfig, ruleId)
     return {
       ...config,
@@ -447,7 +453,7 @@ export async function getPublicSpinStatus(env: Env, redis: Redis, ruleId?: numbe
   const conn = await pool.getConnection()
   try {
     const config = await getEnabledConfig(conn, currency)
-    const fullConfig = await getSpinConfig(env, currency)
+    const fullConfig = await loadSpinConfig(conn, currency)
     const tickerRecords = await getTickerRecords(redis, fullConfig, ruleId)
     return {
       ...config,
