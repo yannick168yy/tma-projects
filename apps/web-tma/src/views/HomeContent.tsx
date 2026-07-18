@@ -644,10 +644,10 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
         <section className="px-5">
           <h3 className="text-center font-display text-lg font-black tracking-widest text-foreground">{t('home.communitySection')}</h3>
           <p className="mx-auto mt-3 max-w-[26rem] text-center text-[12px] leading-relaxed text-muted-foreground">{t('home.communitySubtitle')}</p>
-          <div className="mx-auto mt-8 grid max-w-[26rem] grid-cols-3 gap-3">
+          <div className="mt-8 flex justify-center gap-7">
             {COMMUNITY_LINKS.map((link) => (
               <a key={link.label} href={link.url} target="_blank" rel="noopener noreferrer"
-                className="flex flex-col items-center gap-3 rounded-2xl border border-border/60 bg-secondary/50 py-5 transition-transform active:scale-95">
+                className="flex flex-col items-center gap-2.5 transition-transform active:scale-95">
                 <img src={link.icon} alt="" className="h-14 w-14" />
                 <span className="text-[12px] font-bold text-foreground/90">{link.label}</span>
               </a>
