@@ -247,6 +247,20 @@ export default function Settings() {
             </Space>
           </Card>
         </Col>
+        <Col span={24} style={{ marginTop: 16 }}>
+          <Card title="HTTPS 证书" bordered={false}>
+            <Descriptions column={1} bordered size="small" style={{ marginBottom: 16 }}>
+              <Descriptions.Item label="证书机构">Let's Encrypt</Descriptions.Item>
+              <Descriptions.Item label="有效期">90 天</Descriptions.Item>
+              <Descriptions.Item label="自动续期">
+                <Badge status="success" text="已启用（到期前自动续期）" />
+              </Descriptions.Item>
+            </Descriptions>
+            <Typography.Paragraph type="secondary" style={{ marginTop: 8 }}>
+              站点 HTTPS 证书由 Let's Encrypt 签发，有效期 90 天，系统已配置在到期前自动续期，无需人工干预。
+            </Typography.Paragraph>
+          </Card>
+        </Col>
       </Row>
       <Modal
         title="取消 Google Authenticator"
