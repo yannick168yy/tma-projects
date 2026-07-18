@@ -16,7 +16,7 @@ import { cardSubtitle as labelSubtitle, cardTitle as labelTitle, rewardText as l
 import { fetchVipProgress } from '@/api/vip'
 import { fetchRebateProgress } from '@/api/rebate'
 import { fetchSpinStatus } from '@/api/spin'
-import wheelImg from '@/assets/spin/checkin/wheel.webp'
+import wheelImg from '@/assets/spin/checkin/wheel-icon.webp'
 import taskHero from '@/assets/tasks/task-hero.webp'
 import iconBirthday from '@/assets/tasks/icon-birthday.webp'
 import iconClaimable from '@/assets/tasks/icon-claimable.webp'
@@ -458,9 +458,9 @@ export default function TasksPage({ initialPath = 'newbie', onNavigate }: { init
   return (
     <div className="page-main min-h-screen pb-4" style={{ background: 'linear-gradient(180deg,#050403 0%,#080603 42%,#040302 100%)' }}>
       {renderSummary()}
-      <SpinEntryCard onNavigate={onNavigate} />
       {renderTabs()}
       {renderPath()}
+      <SpinEntryCard onNavigate={onNavigate} />
       <TasksFooter />
       {toast && (
         <div className="pointer-events-none fixed inset-x-0 bottom-24 z-50 flex justify-center px-6">
