@@ -587,7 +587,7 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
             )}
           </div>
         ) : (
-          <div className="rounded-xl bg-secondary overflow-y-auto hide-scrollbar h-[600px]">
+          <div className="rounded-xl bg-secondary overflow-hidden">
             {rankBets.length === 0 ? (
               <div className="space-y-px pt-1">
                 {Array.from({ length: 8 }).map((_, n) => (
@@ -615,8 +615,8 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
                         onClick={() => void onGameTapAction(rec.uuid)}
                       >
                         <div className="relative flex-shrink-0">
-                          <span className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-black ${top.medal}`}>{idx + 1}</span>
-                          {idx === 0 && <Crown size={16} className="absolute -top-2.5 left-1/2 -translate-x-1/2 rotate-[8deg] text-amber-300 drop-shadow" fill="currentColor" />}
+                          <span className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-black ${top.medal}`}>{idx + 1}</span>
+                          {idx === 0 && <Crown size={13} className="absolute -top-2 left-1/2 -translate-x-1/2 rotate-[8deg] text-amber-300 drop-shadow" fill="currentColor" />}
                         </div>
                         {rec.imageUrl ? (
                           <img src={rec.imageUrl} alt={rec.name} className={`w-16 h-16 rounded-xl object-cover flex-shrink-0 bg-white/5 ${top.ring}`} />
