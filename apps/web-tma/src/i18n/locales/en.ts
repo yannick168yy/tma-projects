@@ -423,6 +423,13 @@ export default {
     spinFailed: 'Spin failed',
   },
   tasks: {
+    spinCard: {
+      title: 'Lucky Wheel',
+      ready: '{{n}} free spins ready',
+      empty: 'Check in daily to earn spins',
+      goSpin: 'Spin',
+      goCheckin: 'Check in',
+    },
     pageTitle: 'Task Center',
     entrySub: 'Complete tasks, earn rewards',
     empty: 'No tasks available right now',

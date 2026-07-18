@@ -652,6 +652,7 @@ export default function AppShell() {
                 <ChevronLeft size={20} />
               </button>
               <TasksPage initialPath={view.initialPath} onNavigate={(target) => {
+                if (target === 'spin') { openSpin(); return }
                 if (target === 'checkin') { void onOpenCheckin(); return }
                 if (target === 'kyc') { onOpenKycSetting(); return }
                 if (target === 'cashback') { onOpenCashback(); return }

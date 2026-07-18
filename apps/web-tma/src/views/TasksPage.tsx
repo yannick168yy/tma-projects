@@ -15,6 +15,8 @@ import BindModal from '@/components/auth/BindModal'
 import { cardSubtitle as labelSubtitle, cardTitle as labelTitle, rewardText as labelReward } from '@/components/tasks/taskLabels'
 import { fetchVipProgress } from '@/api/vip'
 import { fetchRebateProgress } from '@/api/rebate'
+import { fetchSpinStatus } from '@/api/spin'
+import wheelImg from '@/assets/spin/checkin/wheel.webp'
 import taskHero from '@/assets/tasks/task-hero.webp'
 import iconBirthday from '@/assets/tasks/icon-birthday.webp'
 import iconClaimable from '@/assets/tasks/icon-claimable.webp'
@@ -456,6 +458,7 @@ export default function TasksPage({ initialPath = 'newbie', onNavigate }: { init
   return (
     <div className="page-main min-h-screen pb-4" style={{ background: 'linear-gradient(180deg,#050403 0%,#080603 42%,#040302 100%)' }}>
       {renderSummary()}
+      <SpinEntryCard onNavigate={onNavigate} />
       {renderTabs()}
       {renderPath()}
       <TasksFooter />
@@ -489,6 +492,70 @@ function SummaryTile({ icon, label, value, iconClass = '' }: { icon: string; lab
         <span className="block truncate text-[11px] font-medium leading-tight text-[#f0e6d2]">{label}</span>
         <span className="mt-0.5 block truncate text-[12px] font-black leading-none text-[#ffd21d]">{value}</span>
       </span>
+    </div>
+  )
+}
+
+// 转盘入口：常驻在任务页顶部，签到后返回也能随时进转盘。
+// 有 checkin 剩余次数→高亮"去转盘"；没次数→置灰并引导"去签到"（拿次数），两种情况都给明确出路。
+function SpinEntryCard({ onNavigate }: { onNavigate?: (target: string) => void }) {
+  const { t } = useTranslation()
+  const token = useAuthStore((s) => s.token)
+  const activeCurrency = useWalletStore((s) => s.activeCurrency)
+  const [remaining, setRemaining] = useState<number | null>(null)
+
+  const loadSpin = useCallback(async () => {
+    if (!token) { setRemaining(null); return }
+    try {
+      const spin = await fetchSpinStatus()
+      // 只算每日签到转盘（kind==='checkin'）的次数，与 CheckinSheet / RewardsSpinPage 口径一致
+      const n = (spin.depositRules ?? [])
+        .filter((r) => r.kind === 'checkin')
+        .reduce((sum, r) => sum + (r.remainingChances ?? 0), 0)
+      setRemaining(n)
+    } catch { setRemaining(null) }
+  }, [token])
+
+  useEffect(() => { void loadSpin() }, [loadSpin, activeCurrency])
+  // 签到弹层关闭会派发 TASKS_REFRESH_EVENT，此处同步刷新剩余次数
+  useEffect(() => {
+    const onRefresh = () => { void loadSpin() }
+    window.addEventListener(TASKS_REFRESH_EVENT, onRefresh)
+    return () => window.removeEventListener(TASKS_REFRESH_EVENT, onRefresh)
+  }, [loadSpin])
+
+  if (!token || remaining === null) return null
+  const has = remaining > 0
+
+  return (
+    <div className="px-5 pb-1 pt-1">
+      <button
+        type="button"
+        onClick={() => onNavigate?.(has ? 'spin' : 'checkin')}
+        className={`flex w-full items-center gap-3 rounded-[14px] border px-3.5 py-3 text-left transition active:scale-[0.98] ${
+          has
+            ? 'border-[#ffc31e]/55 bg-gradient-to-r from-[#2a2138] to-[#231b4e] shadow-[0_6px_20px_rgba(120,80,220,0.22)]'
+            : 'border-[#6d480f]/45 bg-[#0a0906]/90'
+        }`}
+      >
+        <img
+          src={wheelImg}
+          alt=""
+          draggable={false}
+          className={`h-[46px] w-[46px] flex-shrink-0 rounded-full ${has ? 'task-wiggle' : 'opacity-55 grayscale'}`}
+        />
+        <span className="min-w-0 flex-1">
+          <span className="block text-[14px] font-black leading-tight text-[#fff8ea]">{t('tasks.spinCard.title')}</span>
+          <span className={`mt-0.5 block truncate text-[12px] font-medium leading-snug ${has ? 'text-[#ffd78a]' : 'text-[#d8c7a5]'}`}>
+            {has ? t('tasks.spinCard.ready', { n: remaining }) : t('tasks.spinCard.empty')}
+          </span>
+        </span>
+        <span className={`flex-shrink-0 rounded-full px-3 py-1.5 text-[12px] font-black leading-none ${
+          has ? 'bg-gradient-to-b from-[#ffdb37] to-[#ffc400] text-[#241600]' : 'border border-[#8a5b13]/70 text-[#f0dfc5]'
+        }`}>
+          {has ? t('tasks.spinCard.goSpin') : t('tasks.spinCard.goCheckin')}
+        </span>
+      </button>
     </div>
   )
 }
