@@ -744,14 +744,18 @@ export async function getUserGameHistory(
             COALESCE(o.name_override, w.name_en, w.name_zh) AS name,
             w.name_zh,
             w.provider,
-            COALESCE(o.image_override, w.icon_url) AS image_url,
-            COALESCE(o.image_override, w.icon_url) AS image_hq_url,
+            -- 封面优先级与主列表(getSlotGames)一致：后台覆盖 > playtime > fbmplay > bingoplus > 568win 原图
+            COALESCE(o.image_override, cp.url, cf.url, cb.url, w.icon_url) AS image_url,
+            COALESCE(o.image_override, cp.url, cf.url, cb.url, w.icon_url) AS image_hq_url,
             l.last_launched_at AS last_played_at
      FROM bg_game_launch l
      LEFT JOIN bg_568win_game w ON l.game_uuid LIKE '568win:%:%'
        AND w.game_provider_id = CAST(SUBSTRING_INDEX(SUBSTRING_INDEX(l.game_uuid, ':', 2), ':', -1) AS UNSIGNED)
        AND w.game_id = CAST(SUBSTRING_INDEX(l.game_uuid, ':', -1) AS UNSIGNED)
      LEFT JOIN bg_568win_game_override o ON o.game_provider_id = w.game_provider_id AND o.game_id = w.game_id
+     LEFT JOIN bg_568win_game_cover_candidate cf ON cf.game_provider_id = w.game_provider_id AND cf.game_id = w.game_id AND cf.source = 'fbmplay'
+     LEFT JOIN bg_568win_game_cover_candidate cb ON cb.game_provider_id = w.game_provider_id AND cb.game_id = w.game_id AND cb.source = 'bingoplus'
+     LEFT JOIN bg_568win_game_cover_candidate cp ON cp.game_provider_id = w.game_provider_id AND cp.game_id = w.game_id AND cp.source = 'playtime'
      WHERE l.user_id = ? AND w.game_id IS NOT NULL
      ORDER BY l.last_launched_at DESC
      LIMIT ?`,
