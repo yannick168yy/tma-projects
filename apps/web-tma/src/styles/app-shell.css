@@ -206,13 +206,21 @@ label {
   -ms-touch-action: pan-y;
 }
 
-/* 大卡金边:叠加层直接画 1px 实色边框(画在封面之上)。
+/* 大卡金边:渐变描边环,放在封面裁剪容器的「外层兄弟」位置并强制提层。
    不用 p-px 内衬包裹——高分屏分数像素宽下内层图会盖住某侧描边;
-   也不用 mask 抠边——iOS WebKit 对 mask-composite 渲染不稳(首行卡顶边丢失) */
+   环在 overflow-hidden 容器内会被 iOS 动图 webp 的独立合成层压住(perya/sports
+   首行顶边丢失的根因),故挪到外层 + z-index + translateZ(0) 自成一层 */
 .gold-card-ring {
   position: absolute;
   inset: 0;
-  border-radius: inherit;
-  border: 1px solid #f0b437;
+  border-radius: 0.75rem;
+  padding: 1px;
   pointer-events: none;
+  z-index: 1;
+  transform: translateZ(0);
+  background: linear-gradient(to bottom, #ffe27a, #f0b437 50%, #b97e14);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: exclude;
 }

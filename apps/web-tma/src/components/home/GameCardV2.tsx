@@ -91,9 +91,16 @@ export default function GameCardV2({ game, onTap, size, showLive }: Props) {
           <span className="rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-bold text-white">Unavailable</span>
         </div>
       )}
-      {goldBorder && <span aria-hidden className="gold-card-ring" />}
     </div>
   )
+
+  // 金边环放在裁剪容器外层,叠于封面之上(iOS 动图层压不到)
+  const card = goldBorder ? (
+    <div className="relative">
+      {image}
+      <span aria-hidden className="gold-card-ring" />
+    </div>
+  ) : image
 
   if (size === 'sm') {
     return (
@@ -103,7 +110,7 @@ export default function GameCardV2({ game, onTap, size, showLive }: Props) {
         disabled={unavailable}
         onClick={onTap}
       >
-        {image}
+        {card}
       </button>
     )
   }
@@ -115,7 +122,7 @@ export default function GameCardV2({ game, onTap, size, showLive }: Props) {
       disabled={unavailable}
       onClick={onTap}
     >
-      {image}
+      {card}
       <p className="w-full px-0.5 text-[12px] font-semibold leading-tight text-white text-center truncate">
         {localizedGameName(game, locale)}
       </p>
