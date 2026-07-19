@@ -97,6 +97,14 @@ export default function LoginSheet({ open, onClose }: Props) {
     }
   }, [open, view])
 
+  // 从 OAuth 整页跳转返回(尤其 iOS Safari 的 bfcache 恢复)时,JS 堆被原样还原,
+  // loading 会残留为 true,导致 Telegram/Google 按钮持续置灰。页面重新可见即复位。
+  useEffect(() => {
+    const reset = () => setLoading(false)
+    window.addEventListener('pageshow', reset)
+    return () => window.removeEventListener('pageshow', reset)
+  }, [])
+
   function normalizePhoneInput(value: string): string {
     const cleaned = value.replace(/[^\d+]/g, '')
     if (!cleaned || cleaned.startsWith('0') || cleaned.startsWith('+') || cleaned.startsWith('63')) return cleaned
