@@ -375,10 +375,8 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
             {recentGames.map((g) => <GameCardV2 key={g.uuid} game={g} onTap={() => void onGameTapAction(g.uuid)} size="sm" />)}
             {recentFillGames.length > 0 && (
               <>
-                <div className="flex-shrink-0 h-[64px] flex flex-col items-center justify-center gap-1 px-0.5">
-                  <span className="w-0.5 flex-1 rounded-full bg-gradient-to-b from-transparent to-amber-400/70" />
-                  <span className="w-1.5 h-1.5 rotate-45 bg-amber-400/80 rounded-[2px]" />
-                  <span className="w-0.5 flex-1 rounded-full bg-gradient-to-t from-transparent to-amber-400/70" />
+                <div className="flex-shrink-0 h-[64px] flex items-center justify-center px-0.5">
+                  <span className="w-0.5 h-full rounded-full bg-gradient-to-b from-transparent via-amber-400/70 to-transparent" />
                 </div>
                 {recentFillGames.map((g) => <GameCardV2 key={g.uuid} game={g} onTap={() => void onGameTapAction(g.uuid)} size="sm" />)}
               </>
