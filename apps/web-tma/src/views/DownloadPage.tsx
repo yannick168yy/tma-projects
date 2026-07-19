@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { ChevronLeft, Star, Loader2, CheckCircle2 } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Star, Loader2, CheckCircle2, ShieldCheck, Share2, Trash2, Flag } from 'lucide-react'
 import InstallGuideSheet from '@/components/pwa/InstallGuideSheet'
 import { canNativeInstall, isIos, isStandalone, promptNativeInstall } from '@/utils/pwa'
 
@@ -8,38 +8,86 @@ const APK_DOWNLOAD_URL = ''
 
 // 仿应用商店页，文案固定英文（面向 PH 用户，模拟 Play Store 不随站点语言切换）
 const SCREENSHOTS = [
-  { title: 'SIGN UP = ₱777', sub: 'FREE BONUS', foot: 'CLAIM YOUR REWARD INSTANTLY! YOUR PRIZE CAN MULTIPLY UP TO 12X!', from: '#1b2a6b', to: '#0c1024' },
-  { title: 'INVITE ONE PERSON', sub: 'AND GET ₱300', foot: 'BETTING CASHBACK UP TO 4%', from: '#4a1265', to: '#140b2e' },
-  { title: 'RECEIVE ₱500', sub: 'FOR FREE', foot: 'FAST WITHDRAWALS IN SECONDS', from: '#0d4b3a', to: '#071f18' },
+  '/download/shots/shot1.webp',
+  '/download/shots/shot2.webp',
+  '/download/shots/shot3.webp',
+  '/download/shots/shot4.webp',
+  '/download/shots/shot5.webp',
 ]
+
+const ABOUT_TEXT = `🔥 🌟🌟🌟🌟🌟 4.9, no ads, smooth game, credit guaranteed, funds withdrawn in seconds 🔥
+🎁 First Deposit 120% Bonus up to ₱1,000 🎁 Free and fast withdrawals 🎁
+Ultimate VIP Rewards Club
+Weekly Pay + Monthly Pay + Birthday Gift
+Loss Rebate up to 7% back — auto relief on every losing day
+Cash Rebate up to 2% on EVERY bet, auto-credited daily at midnight
+Daily Check-in = FREE Lucky Wheel spins 🎡 higher tiers, bigger pots
+Task Center: Newbie Bonus ₱18 + First Bet ₱5 + Invite Friends ₱10
+JILI · PG · FaChai · CQ9 · Pragmatic Play — 2,000+ games in one app`
+
+const TAGS = ['Casino', 'Slots', 'Bingo', 'Live Casino', 'Multiplayer']
 
 const RATING_BARS = [100, 26, 10, 7, 3]
 
 const REVIEWS = [
   {
     name: 'maricel dizon',
-    color: '#c2568c',
-    date: 'june 21, 2026',
+    avatar: '/download/avatars/user1.jpg',
+    date: 'july 12, 2026',
     rating: 5,
     text: 'legit sya, nag cash out ako kahapon 30 mins lang nasa gcash na agad. sulit ung vip rewards araw araw may bonus.',
     helpful: 231,
   },
   {
     name: 'john rey santos',
-    color: '#3f7fc1',
-    date: 'june 14, 2026',
+    avatar: '/download/avatars/user2.jpg',
+    date: 'july 8, 2026',
     rating: 5,
     text: 'grabe ung 500 ko naging 3,800 sa super ace hahaha solid! mabilis din mag load walang lag.',
     helpful: 187,
   },
   {
     name: 'kristine mae',
-    color: '#4ca06a',
-    date: 'may 30, 2026',
+    avatar: '/download/avatars/user3.jpg',
+    date: 'june 30, 2026',
     rating: 4,
     text: 'ok naman, mabilis ang withdrawal at maraming games. sana dagdagan pa ung mga bingo events.',
     helpful: 96,
   },
+  {
+    name: 'shiela hernandez',
+    avatar: '/download/avatars/user4.jpg',
+    date: 'june 27, 2026',
+    rating: 5,
+    text: 'grabe ung vip benefits dito, sa iba weekly lang. dito may daily check in, weekly tapos may monthly pa.',
+    helpful: 154,
+  },
+  {
+    name: 'julia padilla',
+    avatar: '/download/avatars/user5.jpg',
+    date: 'june 22, 2026',
+    rating: 5,
+    text: 'may cash rebate pala kahit natalo, automatic pumapasok every midnight. tsaka ung lucky wheel libre araw araw.',
+    helpful: 118,
+  },
+  {
+    name: 'andrea madrid',
+    avatar: '/download/avatars/user6.jpg',
+    date: 'june 18, 2026',
+    rating: 5,
+    text: 'akala ko di na mawiwithdraw ung panalo ko, buti nalang ang bilis mag response ng customer service, 5 minutes lang nasolve agad.',
+    helpful: 89,
+  },
+]
+
+// Similar games 取自我方首页高权重游戏，封面走 bff 本地图（测试/生产同源可用）
+const SIMILAR_GAMES = [
+  { name: 'Super Ace', dev: 'JILI', rating: '4.8', img: '/api/v1/home/images/covers/ptgaming/JILI__Super_Ace__460.webp' },
+  { name: 'Fortune Gems', dev: 'JILI', rating: '4.9', img: '/api/v1/home/images/covers/ptgaming/JILI__Fortune_Gems__471.webp' },
+  { name: 'Wild Bounty Showdown', dev: 'PG Soft', rating: '4.7', img: '/api/v1/home/images/covers/ptgaming/PGSoft__Wild_Bounty_Showdown__333.webp' },
+  { name: 'Pinata Wins', dev: 'PG Soft', rating: '4.7', img: '/api/v1/home/images/covers/ptgaming/PGSoft__Pinata_Wins__42009.webp' },
+  { name: 'Color Game', dev: 'JILI', rating: '4.8', img: '/api/v1/home/images/covers/bingoplus/161__197__Color_game_540.webp' },
+  { name: 'Zeus', dev: 'CQ9', rating: '4.6', img: '/api/v1/home/images/covers/ptgaming/CQ9__Zeus__190002.webp' },
 ]
 
 function Stars({ n, size = 12 }: { n: number; size?: number }) {
@@ -99,6 +147,33 @@ export default function DownloadPage({ onClose }: { onClose: () => void }) {
 
   const installed = isStandalone()
 
+  const installButton = (
+    <button
+      type="button"
+      className="relative w-full overflow-hidden rounded-lg bg-[#1a73e8] py-3 text-[15px] font-bold text-white active:opacity-90"
+      onClick={startInstall}
+    >
+      {phase === 'installing' && (
+        <span className="absolute inset-y-0 left-0 bg-[#0d47a1] transition-[width] duration-150" style={{ width: `${progress}%` }} />
+      )}
+      <span className="relative flex items-center justify-center gap-2">
+        {phase === 'installing' ? (
+          <>
+            <Loader2 size={17} className="animate-spin" />
+            Installing… {progress}%
+          </>
+        ) : phase === 'done' ? (
+          <>
+            <CheckCircle2 size={17} />
+            Install the app
+          </>
+        ) : (
+          <>Get the app {isIos() ? 'on the App Store' : 'on Google Play'} ↓</>
+        )}
+      </span>
+    </button>
+  )
+
   return (
     <div className="min-h-dvh bg-white pb-10 text-[#202124]" style={{ paddingTop: 'var(--app-safe-top)' }}>
       <div className="flex items-center px-3 py-2.5">
@@ -142,58 +217,63 @@ export default function DownloadPage({ onClose }: { onClose: () => void }) {
             <CheckCircle2 size={16} />
             App installed — open it from your home screen
           </p>
-        ) : (
-          <button
-            type="button"
-            className="relative w-full overflow-hidden rounded-lg bg-[#1a73e8] py-3 text-[15px] font-bold text-white active:opacity-90"
-            onClick={startInstall}
-          >
-            {phase === 'installing' && (
-              <span className="absolute inset-y-0 left-0 bg-[#0d47a1] transition-[width] duration-150" style={{ width: `${progress}%` }} />
-            )}
-            <span className="relative flex items-center justify-center gap-2">
-              {phase === 'installing' ? (
-                <>
-                  <Loader2 size={17} className="animate-spin" />
-                  Installing… {progress}%
-                </>
-              ) : phase === 'done' ? (
-                <>
-                  <CheckCircle2 size={17} />
-                  Install the app
-                </>
-              ) : (
-                <>Get the app {isIos() ? 'on the App Store' : 'on Google Play'} ↓</>
-              )}
-            </span>
-          </button>
-        )}
+        ) : installButton}
       </div>
 
-      {/* 宣传图横滑 */}
+      {/* 应用内截图横滑 */}
       <div className="hide-scrollbar mt-5 flex gap-3 overflow-x-auto px-5">
-        {SCREENSHOTS.map((s) => (
-          <div
-            key={s.title}
-            className="flex h-[300px] w-[168px] flex-shrink-0 flex-col items-center justify-between rounded-xl border border-black/10 p-4 text-center"
-            style={{ background: `linear-gradient(180deg, ${s.from}, ${s.to})` }}
-          >
-            <img src="/icons/icon-192.png" alt="" className="h-14 w-14 rounded-xl shadow-lg shadow-black/40" />
-            <div>
-              <p className="text-[17px] font-black leading-tight text-[#ffd75e]">{s.title}</p>
-              <p className="mt-1 text-[15px] font-black leading-tight text-white">{s.sub}</p>
-            </div>
-            <p className="rounded-lg border border-white/25 bg-white/10 px-2 py-1.5 text-[9px] font-semibold leading-snug text-white/90">{s.foot}</p>
-          </div>
+        {SCREENSHOTS.map((src) => (
+          <img
+            key={src}
+            src={src}
+            alt=""
+            loading="lazy"
+            className="h-[300px] w-auto flex-shrink-0 rounded-xl border border-black/10 object-cover"
+          />
         ))}
       </div>
 
       {/* About */}
       <div className="mt-6 px-5">
-        <h2 className="text-[18px] font-bold">About this App</h2>
-        <p className="mt-2 whitespace-pre-line text-[13px] leading-relaxed text-[#3c4043]">
-          {'🔥 🌟🌟🌟🌟🌟 4.9, no ads, smooth game, credit guaranteed, millions of funds withdrawn in seconds 🔥\n🎁 Get ₱777 free bonus 🎁 Free and fast withdrawals 🎁\nUltimate VIP Rewards Club\nUpgrade bonus: ₱277,777\nDaily bonus: ₱77,777\nWeekly bonus: ₱127,777\nMonthly bonus: ₱177,777'}
+        <div className="flex items-center justify-between">
+          <h2 className="text-[18px] font-bold">About this App</h2>
+          <ChevronRight size={20} className="text-[#5f6368]" />
+        </div>
+        <p className="mt-2 whitespace-pre-line text-[13px] leading-relaxed text-[#3c4043]">{ABOUT_TEXT}</p>
+        <p className="mt-4 text-[13px] font-medium">Updated on</p>
+        <p className="mt-0.5 text-[13px] text-[#5f6368]">July 15, 2026</p>
+        <div className="hide-scrollbar mt-3 flex gap-2 overflow-x-auto">
+          <span className="flex-shrink-0 rounded-full border border-[#dadce0] px-3.5 py-1.5 text-[12px] font-semibold text-[#3c4043]">#1 Top Free Casino Apps</span>
+          {TAGS.map((t) => (
+            <span key={t} className="flex-shrink-0 rounded-full border border-[#dadce0] px-3.5 py-1.5 text-[12px] font-semibold text-[#3c4043]">{t}</span>
+          ))}
+        </div>
+      </div>
+
+      {/* Data Safety */}
+      <div className="mt-7 px-5">
+        <div className="flex items-center justify-between">
+          <h2 className="text-[18px] font-bold">Data Safety</h2>
+          <ChevronRight size={20} className="text-[#5f6368]" />
+        </div>
+        <p className="mt-2 text-[13px] leading-relaxed text-[#5f6368]">
+          Your safety starts with understanding how developers collect and share your data. Data security and privacy practices may vary based on usage, region, and age. The developer provided the following information, which may be updated over time.
         </p>
+        <div className="mt-3 space-y-3 rounded-xl border border-[#dadce0] p-4">
+          <div className="flex gap-3">
+            <Share2 size={18} className="mt-0.5 flex-shrink-0 text-[#5f6368]" />
+            <p className="text-[13px] leading-relaxed text-[#3c4043]">This app does not share your data with third parties</p>
+          </div>
+          <div className="flex gap-3">
+            <ShieldCheck size={18} className="mt-0.5 flex-shrink-0 text-[#5f6368]" />
+            <p className="text-[13px] leading-relaxed text-[#3c4043]">Data is encrypted in transit</p>
+          </div>
+          <div className="flex gap-3">
+            <Trash2 size={18} className="mt-0.5 flex-shrink-0 text-[#5f6368]" />
+            <p className="text-[13px] leading-relaxed text-[#3c4043]">You can request that data be deleted</p>
+          </div>
+          <p className="pl-[30px] text-[13px] font-semibold text-[#1a73e8]">View details</p>
+        </div>
       </div>
 
       {/* Ratings and Reviews */}
@@ -228,9 +308,7 @@ export default function DownloadPage({ onClose }: { onClose: () => void }) {
           {REVIEWS.map((r) => (
             <div key={r.name}>
               <div className="flex items-center gap-2.5">
-                <span className="flex h-8 w-8 items-center justify-center rounded-full text-[13px] font-bold text-white" style={{ background: r.color }}>
-                  {r.name[0].toUpperCase()}
-                </span>
+                <img src={r.avatar} alt="" loading="lazy" className="h-8 w-8 rounded-full object-cover" />
                 <span className="text-[13px] font-medium">{r.name}</span>
               </div>
               <div className="mt-1.5 flex items-center gap-2">
@@ -247,6 +325,48 @@ export default function DownloadPage({ onClose }: { onClose: () => void }) {
             </div>
           ))}
         </div>
+
+        <p className="mt-5 text-[14px] font-semibold text-[#1a73e8]">View all reviews</p>
+      </div>
+
+      {/* What's new */}
+      <div className="mt-7 px-5">
+        <div className="flex items-center justify-between">
+          <h2 className="text-[18px] font-bold">What's new</h2>
+          <ChevronRight size={20} className="text-[#5f6368]" />
+        </div>
+        <p className="mt-2 whitespace-pre-line text-[13px] leading-relaxed text-[#3c4043]">
+          {'Hello lovers, a new version is here! Here are some surprises for you!\n- New: Task Center — claim your Newbie Bonus\n- New: Daily Check-in with FREE Lucky Wheel spins\n- Cash Rebate upgraded, auto-credited every midnight\n- Bug fixed\nNow is the time to spin and win!'}
+        </p>
+      </div>
+
+      {/* Similar games */}
+      <div className="mt-7 px-5">
+        <div className="flex items-center justify-between">
+          <h2 className="text-[18px] font-bold">Similar games</h2>
+          <ChevronRight size={20} className="text-[#5f6368]" />
+        </div>
+        <div className="hide-scrollbar mt-3 flex gap-4 overflow-x-auto">
+          {SIMILAR_GAMES.map((g) => (
+            <div key={g.name} className="w-[88px] flex-shrink-0">
+              <img src={g.img} alt={g.name} loading="lazy" className="h-[88px] w-[88px] rounded-xl object-cover" />
+              <p className="mt-1.5 line-clamp-2 text-[12px] leading-snug text-[#202124]">{g.name}</p>
+              <p className="mt-0.5 text-[11px] text-[#5f6368]">{g.dev}</p>
+              <p className="mt-0.5 flex items-center gap-0.5 text-[11px] text-[#5f6368]">{g.rating}<Star size={9} className="fill-[#5f6368] text-[#5f6368]" /></p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Flag as inappropriate */}
+      <div className="mt-7 flex items-center gap-3 border-t border-[#e8eaed] px-5 pt-5 text-[#5f6368]">
+        <Flag size={16} />
+        <span className="text-[13px]">Flag as inappropriate</span>
+      </div>
+
+      {/* 底部再放一个安装入口 */}
+      <div className="mt-6 px-5">
+        {!installed && installButton}
       </div>
 
       {guideOpen && (
