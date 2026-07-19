@@ -131,6 +131,10 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
     if (session.isNewUser) {
       localStorage.setItem('betogo_seen', '1')
       clearStoredReferral()
+    }
+    // 首次登录默认选中 PHP：一次性标记，避免覆盖用户之后手动切换的币种
+    if (!localStorage.getItem('betogo_currency_init')) {
+      localStorage.setItem('betogo_currency_init', '1')
       useWalletStore.getState().setActiveCurrency('PHP')
     }
   },
