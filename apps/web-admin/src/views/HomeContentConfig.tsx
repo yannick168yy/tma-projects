@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Button, Card, Col, Form, Image, Input, Popconfirm, Row, Select, Space, Switch, Tabs, Typography, Upload, message, Spin } from 'antd'
-import { DeleteOutlined, HomeOutlined, PlusOutlined, UploadOutlined } from '@ant-design/icons'
+import { ArrowDownOutlined, ArrowUpOutlined, DeleteOutlined, HomeOutlined, PlusOutlined, UploadOutlined } from '@ant-design/icons'
 import type { UploadFile } from 'antd'
 import {
   deleteHomeContentItem,
@@ -221,7 +221,50 @@ export default function HomeContentConfig() {
     }
   }
 
+  // 调整位置：slot 号即位置（前端按 slot 升序展示），移动 = 把相邻两个 slot 承载的内容对调，
+  // slot 本身不变，避开主键冲突，复用现有 save 接口写两次。
+  async function handleMove(item: FormItemState, dir: 'up' | 'down') {
+    const items = itemsOf(item.kind)
+    const idx = items.findIndex((i) => i.slot === item.slot)
+    const swapIdx = dir === 'up' ? idx - 1 : idx + 1
+    if (swapIdx < 0 || swapIdx >= items.length) return
+    const a = items[idx]
+    const b = items[swapIdx]
+    if (!a.imageKey || !b.imageKey) {
+      message.warning('请先给两个 Banner 都上传并保存图片后再调整位置')
+      return
+    }
+    const content = (x: FormItemState) => ({
+      imageKey: x.imageKey, imageUrl: x.imageUrl,
+      actionType: x.actionType, actionValue: x.actionValue, enabled: x.enabled,
+    })
+    const aContent = content(a)
+    const bContent = content(b)
+    setSavingKey(`move-${item.kind}-${item.slot}`)
+    try {
+      await saveHomeContentItem({ kind: a.kind, slot: a.slot, ...bContent })
+      await saveHomeContentItem({ kind: b.kind, slot: b.slot, ...aContent })
+      setItemsOf(item.kind, (prev) => prev.map((x) => {
+        if (x.slot === a.slot) return { ...x, ...bContent }
+        if (x.slot === b.slot) return { ...x, ...aContent }
+        return x
+      }))
+      setActiveSlotOf(item.kind, String(b.slot)) // 跟随被移动的 banner
+      message.success('位置已调整')
+    } catch (e) {
+      message.error(e instanceof Error ? e.message : '调整失败')
+      void load() // 失败可能半交换，重新拉取纠正本地状态
+    } finally {
+      setSavingKey('')
+    }
+  }
+
   function renderEditor(item: FormItemState) {
+    const siblings = itemsOf(item.kind)
+    const pos = siblings.findIndex((i) => i.slot === item.slot)
+    const isFirst = pos <= 0
+    const isLast = pos === siblings.length - 1
+    const moving = savingKey === `move-${item.kind}-${item.slot}`
     const ratioText =
       item.kind === 'banner'
         ? '推荐尺寸：1280 x 720（16:9，与首页 banner 区块一致），PNG/JPG/WEBP，≤5MB'
@@ -231,6 +274,19 @@ export default function HomeContentConfig() {
         size="small"
         extra={
           <Space>
+            <Button
+              icon={<ArrowUpOutlined />}
+              disabled={isFirst || moving}
+              loading={moving}
+              onClick={() => void handleMove(item, 'up')}
+              title="上移"
+            >上移</Button>
+            <Button
+              icon={<ArrowDownOutlined />}
+              disabled={isLast || moving}
+              onClick={() => void handleMove(item, 'down')}
+              title="下移"
+            >下移</Button>
             <Switch
               checkedChildren="启用"
               unCheckedChildren="关闭"
@@ -357,9 +413,9 @@ export default function HomeContentConfig() {
             type="card"
             activeKey={items.some((item) => String(item.slot) === activeSlot) ? activeSlot : String(items[0].slot)}
             onChange={(key) => setActiveSlotOf(kind, key)}
-            items={items.map((item) => ({
+            items={items.map((item, index) => ({
               key: String(item.slot),
-              label: `${kind === 'banner' ? 'Banner' : '充值/提现 Banner'} ${item.slot}`,
+              label: `${kind === 'banner' ? 'Banner' : '充值/提现 Banner'} ${index + 1}`,
               children: renderEditor(item),
             }))}
           />
