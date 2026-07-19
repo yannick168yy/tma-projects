@@ -50,12 +50,17 @@ export default function LoginSheet({ open, onClose }: Props) {
   const [identifier, setIdentifier] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
+  // Turnstile 只服务手机号/密码注册,Google/Telegram 登录不需要。iOS PWA standalone 下
+  // 打开即注入 Cloudflare 跨域 iframe 会压垮 webview 渲染进程(白屏→闪退回首页),
+  // 因此延到用户真正聚焦手机号/密码框时才加载。
+  const [turnstileArmed, setTurnstileArmed] = useState(false)
   const [rememberMe, setRememberMe] = useState(() => isRememberMeEnabled())
   // 上次登录记忆：OAuth 显示快捷续登卡片，phone 预填手机号
   const initialLastLogin = useMemo(() => (open ? getLastLogin() : null), [open])
   const [lastLogin, setLastLogin] = useState(initialLastLogin)
   useEffect(() => {
     if (!open) return
+    setTurnstileArmed(false)
     const last = getLastLogin()
     setLastLogin(last)
     if (last?.provider === 'phone' && last.identifier) setIdentifier(last.identifier)
@@ -72,7 +77,7 @@ export default function LoginSheet({ open, onClose }: Props) {
   const turnstileWidgetRef = useRef<string | null>(null)
   const [turnstileToken, setTurnstileToken] = useState<string | undefined>()
   useEffect(() => {
-    if (!open || !TURNSTILE_SITE_KEY || view !== 'auth') return
+    if (!open || !TURNSTILE_SITE_KEY || view !== 'auth' || !turnstileArmed) return
     let cancelled = false
     void loadTurnstile()
       .then((ts) => {
@@ -95,7 +100,7 @@ export default function LoginSheet({ open, onClose }: Props) {
         setTurnstileToken(undefined)
       }
     }
-  }, [open, view])
+  }, [open, view, turnstileArmed])
 
   // 从 OAuth 整页跳转返回(尤其 iOS Safari 的 bfcache 恢复)时,JS 堆被原样还原,
   // loading 会残留为 true,导致 Telegram/Google 按钮持续置灰。页面重新可见即复位。
@@ -323,6 +328,7 @@ export default function LoginSheet({ open, onClose }: Props) {
                     placeholder={t('auth.phonePlaceholder')}
                     className="w-full rounded-[14px] border border-white/12 bg-[#121824] py-3.5 pl-11 pr-4 text-sm font-bold text-foreground transition-colors placeholder:text-[#798098] focus:border-primary focus:outline-none"
                     onChange={(e) => onIdentifierChange(e.target.value)}
+                    onFocus={() => setTurnstileArmed(true)}
                   />
                 </div>
                 <div className="relative">
@@ -337,6 +343,7 @@ export default function LoginSheet({ open, onClose }: Props) {
                     className="w-full rounded-[14px] border border-white/12 bg-[#121824] py-3.5 pl-11 pr-11 text-sm font-bold text-foreground transition-colors placeholder:text-[#798098] focus:border-primary focus:outline-none"
                     onChange={(e) => setPassword(e.target.value)}
                     onKeyDown={(e) => { if (e.key === 'Enter') void onPasswordSubmit() }}
+                    onFocus={() => setTurnstileArmed(true)}
                   />
                   <button
                     type="button"
@@ -366,7 +373,7 @@ export default function LoginSheet({ open, onClose }: Props) {
                     {t('auth.forgotPassword')}
                   </button>
                 </div>
-                {TURNSTILE_SITE_KEY && <div ref={turnstileRef} className="flex justify-center" />}
+                {TURNSTILE_SITE_KEY && turnstileArmed && <div ref={turnstileRef} className="flex justify-center" />}
                 <button
                   type="button"
                   className="w-full rounded-[14px] bg-gradient-to-b from-[#ffcc19] to-[#ffae00] py-3.5 text-sm font-black text-black shadow-[0_8px_24px_rgba(255,184,0,0.28)] transition-all active:scale-[0.98] disabled:opacity-60"
