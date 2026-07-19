@@ -47,6 +47,7 @@ import AgentCommissions from './views/AgentCommissions'
 import AgentChannels from './views/AgentChannels'
 import HomeContentConfig from './views/HomeContentConfig'
 import CommunityMarketing from './views/CommunityMarketing'
+import TgBroadcast from './views/TgBroadcast'
 import HomepageSections from './views/games/HomepageSections'
 import CategorySort from './views/games/CategorySort'
 
@@ -112,6 +113,7 @@ export default function App() {
 
           <Route path="team-referral/config" element={<TeamReferralConfig />} />
           <Route path="community" element={<CommunityMarketing />} />
+          <Route path="tg-broadcast" element={<TgBroadcast />} />
           <Route path="promotions" element={<Promotions />} />
           <Route path="promotions/claims" element={<PromotionClaims />} />
           <Route path="home-content" element={<HomeContentConfig />} />

@@ -99,6 +99,7 @@ function buildMenuItems(badges: AdminBadges) {
         { key: '/promotions', label: '活动配置' },
         { key: '/promotions/claims', label: '参与记录' },
         { key: '/community', label: '社区营销' },
+        { key: '/tg-broadcast', label: 'TG 群发' },
       ],
     },
     {

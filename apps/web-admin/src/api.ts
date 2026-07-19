@@ -1334,3 +1334,25 @@ export const cmMarkManualPost = (id: number) => post(`/admin/community/posts/${i
 export const cmRejectPost = (id: number) => post(`/admin/community/posts/${id}/reject`)
 export const cmSetViberWebhook = (id: number, url?: string) =>
   post<{ ok: boolean; detail: string }>(`/admin/community/channels/${id}/viber-webhook`, url ? { url } : {})
+
+// ── TG 群发 ──────────────────────────────────────────────────────────────────
+export type TbStatus = 'draft' | 'sending' | 'done' | 'canceled'
+export interface TbButton { text: string; kind: 'url' | 'webapp'; url: string }
+export interface TgBroadcast {
+  id: number; title: string; content: string
+  imageKey: string | null; imageUrl: string | null; buttons: TbButton[] | null
+  status: TbStatus; total: number; sentCount: number; failedCount: number; blockedCount: number
+  createdBy: string | null; startedAt: string | null; finishedAt: string | null; createdAt: string
+}
+export interface TbFail { id: number; tgId: string; userId: string | null; blocked: boolean; error: string | null; createdAt: string }
+export const tbList = () => get<{ items: TgBroadcast[] }>('/admin/broadcast')
+export const tbAudience = () => get<{ count: number }>('/admin/broadcast/audience')
+export const tbSave = (data: { id?: number; title: string; content: string; imageKey: string | null; buttons: TbButton[] }) =>
+  put<{ id: number }>('/admin/broadcast', data)
+export const tbDelete = (id: number) => req('DELETE', `/admin/broadcast/${id}`)
+export const tbUploadImage = (imageData: string) =>
+  post<{ imageKey: string; imageUrl: string }>('/admin/broadcast/upload', { imageData })
+export const tbTestSend = (id: number, tgId: string) => post(`/admin/broadcast/${id}/test`, { tgId })
+export const tbStart = (id: number) => post<{ total: number }>(`/admin/broadcast/${id}/send`)
+export const tbCancel = (id: number) => post(`/admin/broadcast/${id}/cancel`)
+export const tbFails = (id: number) => get<{ items: TbFail[] }>(`/admin/broadcast/${id}/fails`)
