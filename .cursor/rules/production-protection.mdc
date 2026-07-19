@@ -1,0 +1,22 @@
+---
+description: 生产 AWS 保护铁律：不自动部署生产、不擅改生产数据（最高优先级）
+alwaysApply: true
+---
+
+# 🔴 生产保护铁律（2026-07-18 用户确立，最高优先级，不可违反）
+
+1. **自动部署只限阿里云测试环境**（`47.84.34.139` / www.188facai.com）。功能改完自动 commit + 部署**测试**即可。
+2. **生产 AWS 的部署，必须用户明确授权后才执行** —— 绝不自动部署生产。
+3. **生产 AWS 的数据（MySQL / 文件）修改或删除，必须用户逐次明确授权** —— 未获授权时对生产数据**只读**（SELECT 查询可以），绝不 INSERT/UPDATE/DELETE/DROP/TRUNCATE。
+
+## 生产环境信息（仅在用户授权后才操作）
+
+- EC2 m8g.xlarge，IP `13.213.107.231`
+- 域名 betogo.games / admin.betogo.games
+- SSH 用户 `ubuntu`，密钥 `/Users/yannicky/TMA_FILES/亚马逊云-阿里云/betogo-amazon-prod.pem`
+- 项目路径 `/opt/tma-projects`，容器 rootful（`sudo podman`）
+
+## 判断标准
+
+- 用户说「部署」默认指**阿里云测试**；一旦涉及生产 / AWS / betogo.games，先停下来向用户确认，拿到明确授权再动。
+- 生产数据库的任何写操作（INSERT/UPDATE/DELETE/DROP/TRUNCATE）都要有用户逐次明确授权；只读 SELECT 可以直接做。

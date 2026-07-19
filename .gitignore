@@ -1,0 +1,78 @@
+# Dependencies
+node_modules/
+target/
+.gradle/
+
+# Build
+dist/
+build/
+*.jar
+!**/src/main/**/placeholder
+
+# Env & secrets
+.env
+.env.local
+*.pem
+*.key
+
+# IDE
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs & runtime
+logs/
+*.log
+tmp/
+artifacts/
+
+# Docker volumes (local)
+infra/docker/data/
+.claude/skills/
+apps/web-tma/.env.development.local
+*.tsbuildinfo
+*.tsbuildinfo
+
+# gzone 爬取的第三方游戏图片（67MB，不入库）
+data/gzone/images/
+data/gzone/download_failed.json
+
+# bingoplus 爬取的游戏卡片图（88MB 540方图，不入库，可由 build+download_images 重跑）
+data/bingoplus/images/
+data/bingoplus/download_failed.json
+
+# casinoplus 爬取的第三方游戏图片（44MB，不入库）
+data/casinoplus/images/
+data/casinoplus/download_failed.json
+
+# ptgaming 爬取的第三方游戏图片（218MB 统一310×314方图，不入库）
+data/ptgaming/images/
+data/ptgaming/download_failed.json
+
+# ptgaming 封面上传暂存(139MB,由 match_covers 生成,不入库)
+data/ptgaming/covers_upload/
+
+# ptgaming 动画帧与合成动图(由 build_animated_covers 生成,不入库)
+data/ptgaming/anim_frames/
+data/ptgaming/anim_frames_rs/
+data/ptgaming/anim_covers/
+data/ptgaming/anim_covers_upload/
+
+# fbmplay 爬取的封面图与暂存(不入库,可由 build_fbmplay 重跑)
+data/fbmplay/images/
+data/fbmplay/covers_upload/
+data/fbmplay/pageContext_data.json
+data/fbmplay/download_failed.json
+
+# 多源封面候选上传暂存(由 cover-candidates/build.mjs 生成,不入库)
+data/cover-candidates/
+
+# playtime 裁剪产出(crop_playtime.py 生成,覆盖上传服务器,不入库)
+data/ptgaming/covers_crop/
+data/ptgaming/anim_covers_crop/
+data/ptgaming/_anim_crop_tmp/

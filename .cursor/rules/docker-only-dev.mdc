@@ -1,0 +1,18 @@
+---
+description: Local dev runs entirely in Docker; do not start host Vite/Node/Java for this repo
+alwaysApply: true
+---
+
+# Docker-only local development
+
+**Default for BetoGo / tma-projects:** run services via root `docker compose`, not on the host.
+
+| Do | Don't |
+|----|--------|
+| `docker compose up -d --build` from repo root | `npm run dev` in `apps/web-tma` |
+| Rebuild client: `docker compose up -d --build web-tma` | Start MySQL/Redis/RabbitMQ via Homebrew |
+| Client URL: http://localhost:8080 | Assume host Java/Node for app services |
+
+After frontend changes, follow `git-and-deploy-on-request.mdc` (auto commit + Aliyun deploy; push on user request). Local Docker rebuild only when explicitly needed for verification.
+
+Future `bff-node` and `core-java` will be added to the same `docker-compose.yml`.

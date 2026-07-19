@@ -1,0 +1,204 @@
+# BetoGo 本地环境 — 默认：mysql + redis + nats + bff-node + core-node + web-tma
+# 用法: cp .env.example .env && ./scripts/local-deploy.sh
+# 可选: docker compose --profile full up -d  # 额外启动服务
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: tma-mysql
+    restart: unless-stopped
+    ports:
+      - "${MYSQL_PORT:-3306}:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root_dev_only}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-tma}
+      MYSQL_USER: ${MYSQL_USER:-tma}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-tma_dev}
+      TZ: UTC
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./infra/docker/mysql/init:/docker-entrypoint-initdb.d:ro
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --default-authentication-plugin=mysql_native_password
+      - --max_connections=200
+      - --innodb_buffer_pool_size=128M
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-root_dev_only}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  redis:
+    image: redis:7.0-alpine
+    container_name: tma-redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    command:
+      - redis-server
+      - --maxmemory
+      - ${REDIS_MAXMEMORY:-128mb}
+      - --maxmemory-policy
+      - allkeys-lru
+      - --save
+      - ""
+      - --appendonly
+      - "no"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 192M
+
+  nats:
+    image: nats:2.10-alpine
+    container_name: tma-nats
+    restart: unless-stopped
+    ports:
+      - "${NATS_PORT:-4222}:4222"
+      - "${NATS_MONITOR_PORT:-8222}:8222"
+    command:
+      - -js                          # 启用 JetStream
+      - -m=8222                      # 监控端口
+      - --store_dir=/data
+    volumes:
+      - nats_data:/data
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8222/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+
+  core-node:
+    build:
+      context: ./apps/core-node
+      dockerfile: Dockerfile
+    image: betogo-core-node:latest
+    container_name: tma-core-node
+    restart: unless-stopped
+    ports:
+      - "${CORE_PORT:-4000}:4000"
+    environment:
+      NODE_ENV: development
+      CORE_PORT: 4000
+      REDIS_URL: redis://redis:6379
+      NATS_URL: nats://nats:4222
+      NATS_STREAM: BETOGO
+      NATS_LEDGER_SUBJECT: betogo.ledger
+      NATS_CALLBACK_SUBJECT: betogo.callback
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-betogo}
+      MYSQL_USER: ${MYSQL_BETOGO_USER:-betogo}
+      MYSQL_PASSWORD: ${MYSQL_BETOGO_PASSWORD:-${MYSQL_PASSWORD:-tma_dev}}
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:4000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  bff-node:
+    build:
+      context: ./apps/bff-node
+      dockerfile: Dockerfile
+    image: betogo-bff-node:latest
+    container_name: tma-bff-node
+    restart: unless-stopped
+    ports:
+      - "${BFF_PORT:-3000}:3000"
+    environment:
+      NODE_ENV: development
+      BFF_PORT: 3000
+      BFF_STORAGE: ${BFF_STORAGE:-mysql}
+      REDIS_URL: redis://redis:6379
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:?Set TELEGRAM_BOT_TOKEN in .env}
+      BFF_DEV_SKIP_TELEGRAM_AUTH: ${BFF_DEV_SKIP_TELEGRAM_AUTH:-true}
+      SESSION_TTL_SECONDS: ${SESSION_TTL_SECONDS:-86400}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI:-https://www.188facai.com/auth/google/callback}
+      AMMER_PAY_PROVIDER_TOKEN: ${AMMER_PAY_PROVIDER_TOKEN:-}
+      TELEGRAM_WEBHOOK_SECRET: ${TELEGRAM_WEBHOOK_SECRET:-}
+      USDT_TO_PHP_RATE: ${USDT_TO_PHP_RATE:-58}
+      YFPAY_USERNAME: ${YFPAY_USERNAME:-}
+      YFPAY_API_KEY: ${YFPAY_API_KEY:-}
+      YFPAY_NOTIFY_URL: ${YFPAY_NOTIFY_URL:-https://www.188facai.com/api/v1/callback/yfpay}
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-betogo}
+      MYSQL_USER: ${MYSQL_BETOGO_USER:-betogo}
+      MYSQL_PASSWORD: ${MYSQL_BETOGO_PASSWORD:-${MYSQL_PASSWORD:-tma_dev}}
+      CORE_NODE_URL: http://core-node:4000
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:3000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  web-tma:
+    build:
+      context: ./apps/web-tma
+      dockerfile: Dockerfile
+      args:
+        VITE_BFF_BASE_URL: ${VITE_BFF_BASE_URL:-http://localhost:3000/api/v1}
+        VITE_USE_MOCK_API: ${VITE_USE_MOCK_API:-false}
+        VITE_GOOGLE_CLIENT_ID: ${VITE_GOOGLE_CLIENT_ID:-}
+        VITE_GOOGLE_REDIRECT_URI: ${VITE_GOOGLE_REDIRECT_URI:-https://www.188facai.com/auth/google/callback}
+    image: betogo-web-tma:latest
+    container_name: tma-web-tma
+    restart: unless-stopped
+    ports:
+      - "${WEB_TMA_PORT:-8080}:80"
+    depends_on:
+      bff-node:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  mysql_data:
+  redis_data:
+  nats_data:

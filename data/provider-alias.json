@@ -1,0 +1,793 @@
+{
+  "_comment": "游戏厂商名称归一化映射表。canonical=统一键；competitor=竞品站(data/下 bingoplus/gzone/ptgaming/fbmplay/casinoplus)出现的厂商写法；ours=我方 bg_568win_game.provider 出现的写法。注意坑：RTG=RealTime Gaming ≠ REDTIGER=Red Tiger；BNG=Booongo(2022年改名BNG)。",
+  "competitor": {
+    "JILI": "jili",
+    "PP": "pragmaticplay",
+    "PG": "pgsoft",
+    "PGSoft": "pgsoft",
+    "HBN": "habanero",
+    "CQ9": "cq9",
+    "EVOLUTION": "evolution",
+    "Evolution": "evolution",
+    "EVO": "evolution",
+    "HACKSAW": "hacksaw",
+    "PT": "playtech",
+    "PlayTech": "playtech",
+    "PLAYTECH": "playtech",
+    "REDTIGER": "redtiger",
+    "BGAMING": "bgaming",
+    "NLC": "nolimitcity",
+    "YGR": "ygr",
+    "PLAYSTAR": "playstar",
+    "PlayStar": "playstar",
+    "FACHAI": "fachai",
+    "FaChai": "fachai",
+    "FC": "fachai",
+    "JDB": "jdb",
+    "RTG": "rtg",
+    "ACEWIN": "acewin",
+    "FTG": "ftg",
+    "GameZone": "gamezone",
+    "BTG": "bigtimegaming",
+    "TPG": "triplepg",
+    "Advantplay": "advantplay",
+    "YB": "yellowbat",
+    "YellowBat": "yellowbat",
+    "GEMH": "gemh",
+    "NETENT": "netent",
+    "SA": "sagaming",
+    "SAGaming": "sagaming",
+    "REELX": "reelx",
+    "ReelX": "reelx",
+    "5G": "5ggames",
+    "KM": "kingmidas",
+    "Spin Master": "spinmaster",
+    "OMNIPLAY": "omniplay",
+    "OP": "omniplay",
+    "BNG": "booongo",
+    "YGG": "yggdrasil",
+    "GGSOFT": "ggsoft",
+    "GALAXSYS": "galaxsys",
+    "galaxsys": "galaxsys",
+    "KA gaming": "kagaming",
+    "KA GAMING": "kagaming",
+    "SPRIBE": "spribe",
+    "EEZE": "eeze",
+    "EEZE1": "eeze",
+    "BP": "bporiginal",
+    "BP Original": "bporiginal",
+    "LNW": "lnw",
+    "LRO": "lro",
+    "BOOM": "boom",
+    "GINTO": "ginto",
+    "Blaze Games": "blaze",
+    "JI HIGH": "jihigh",
+    "COLORGAME": "colorgame",
+    "BINGO": "bingo",
+    "AQUA": "aqua",
+    "EVOPLAY": "evoplay",
+    "Swerte": "swerte",
+    "Funky Game": "funkygames",
+    "Gaming Realms": "gamingrealms",
+    "SABA": "saba",
+    "SABA2": "saba",
+    "Pula Puti": "pulaputi",
+    "Pulaputi": "pulaputi",
+    "PDBT": "pdb",
+    "PDB": "pdb",
+    "PETER&SONS": "petersons",
+    "PNS": "petersons",
+    "DARWIN": "darwin",
+    "EBG": "ebg",
+    "EGS": "egs",
+    "SparkGame": "sparkgame",
+    "Jumbo": "jumbo",
+    "FBM": "fbm",
+    "PragmaticPlay": "pragmaticplay",
+    "JIHIGH": "jihigh"
+  },
+  "ours": {
+    "KAGaming": "kagaming",
+    "KA Gaming": "kagaming",
+    "PragmaticPlay": "pragmaticplay",
+    "PragmaticPlayCasino": "pragmaticplay",
+    "Pragmatic Play Casino": "pragmaticplay",
+    "PlayTech": "playtech",
+    "Playtech Casino": "playtech",
+    "MicroGaming": "microgaming",
+    "Yggdrasil": "yggdrasil",
+    "568WinGames": "568win",
+    "JokerGaming": "jokergaming",
+    "CQ9": "cq9",
+    "CQ9 Casino": "cq9",
+    "FunkyGames": "funkygames",
+    "EvolutionGaming": "evolution",
+    "Booongo": "booongo",
+    "BNG": "booongo",
+    "JiLiGaming": "jili",
+    "Jili": "jili",
+    "HacksawGaming": "hacksaw",
+    "Hacksaw": "hacksaw",
+    "SBOSlot": "sboslot",
+    "Netent": "netent",
+    "NetentExtended": "netent",
+    "JDB": "jdb",
+    "PGSoft": "pgsoft",
+    "PG Soft": "pgsoft",
+    "GamePlaySlot": "gameplay",
+    "GamePlayLiveCasino": "gameplay",
+    "GamePlayLottery": "gameplay",
+    "TCGaming": "tcgaming",
+    "RelaxGaming": "relaxgaming",
+    "AFBGaming": "afb",
+    "AFB Sports": "afbsports",
+    "Rich88": "rich88",
+    "KingMidas": "kingmidas",
+    "King Midas": "kingmidas",
+    "CC88": "cc88",
+    "YGR": "ygr",
+    "DragoonSoft": "dragoonsoft",
+    "Dragoon Soft": "dragoonsoft",
+    "Apollo": "apollo",
+    "WorldMatch": "worldmatch",
+    "PegasusSlot": "pegasus",
+    "Vgaming": "vgaming",
+    "VAGaming": "vagaming",
+    "TomHorn": "tomhorn",
+    "PlayStar": "playstar",
+    "Clotplay": "clotplay",
+    "Live22": "live22",
+    "RoyalSlotGaming": "royalslotgaming",
+    "VoltEnt": "voltent",
+    "AdvantPlay": "advantplay",
+    "IDNSlot": "idn",
+    "IDNLive": "idn",
+    "FaChai": "fachai",
+    "NoLimitCity": "nolimitcity",
+    "BoleGaming": "bole",
+    "BigTimeGaming": "bigtimegaming",
+    "Fastspin": "fastspin",
+    "OGLive": "oglive",
+    "Nextspin": "nextspin",
+    "5GGames": "5ggames",
+    "BigGaming": "biggaming",
+    "MikiWorld": "mikiworld",
+    "MikiWorldLiveCasino": "mikiworld",
+    "SexyGaming": "sexygaming",
+    "LambdaGaming": "lambda",
+    "Ezugi": "ezugi",
+    "SPlus": "splus",
+    "PoggiPlay": "poggiplay",
+    "Phoenix7": "phoenix7",
+    "ViaCasino": "viacasino",
+    "LuckySports": "luckysports",
+    "MPoker": "mpoker",
+    "93connect": "93connect",
+    "WCasino": "wcasino",
+    "CT Interactive": "ctinteractive",
+    "DreamGaming": "dreamgaming",
+    "Spribe": "spribe",
+    "Endorphina": "endorphina",
+    "NagaGames": "naga",
+    "Naga Games": "naga",
+    "YeeBet": "yeebet",
+    "168game": "168game",
+    "Iron Dog Studio": "irondog",
+    "Red Tiger": "redtiger",
+    "Platipus Gaming": "platipus",
+    "GameArt": "gameart",
+    "SaGaming": "sagaming",
+    "PlayAce": "playace",
+    "WanMei": "wanmei",
+    "AllBet": "allbet",
+    "Kalamba": "kalamba",
+    "Play'n GO": "playngo",
+    "Expanse": "expanse",
+    "Gaming Corps": "gamingcorps",
+    "KissGaming": "kiss",
+    "Gamzix": "gamzix",
+    "Rival Powered": "rival",
+    "7Mojos Casino": "7mojos",
+    "NetGame": "netgame",
+    "Blueprint": "blueprint",
+    "Skywind Casino": "skywind",
+    "LuckyMonaco": "luckymonaco",
+    "GreenDragon": "greendragon",
+    "Habanero": "habanero",
+    "IONLC": "ion",
+    "Mascot Gaming": "mascot",
+    "RedRake": "redrake",
+    "77 Gaming": "77gaming",
+    "AfricanBuffalo": "africanbuffalo",
+    "Qora": "qora",
+    "Rubyplay": "rubyplay",
+    "AvatarUX": "avatarux",
+    "Aviatrix": "aviatrix",
+    "Onlyplay": "onlyplay",
+    "ReelPlay": "reelplay",
+    "Saba Sports": "saba",
+    "Triple PG": "triplepg",
+    "Bigpot Gaming": "bigpot",
+    "Bullshark": "bullshark",
+    "Clawbuster": "clawbuster",
+    "Fugaso": "fugaso",
+    "IndiaLotto": "indialotto",
+    "Nownow Gaming": "nownow",
+    "Peter & Sons": "petersons",
+    "Prospect Gaming": "prospect",
+    "Ready Play": "readyplay",
+    "RevDev": "revdev",
+    "Rogue": "rogue",
+    "RTG Slots": "rtg",
+    "Thunderkick": "thunderkick",
+    "1x2 Gaming": "1x2gaming",
+    "AbraCadabra": "abracadabra",
+    "APGaming": "apgaming",
+    "BTiSports": "btisports",
+    "Evoplay": "evoplay",
+    "Fantasma": "fantasma",
+    "Manna Play": "mannaplay",
+    "Mobilots": "mobilots",
+    "mt": "mt",
+    "PandaSports": "pandasports",
+    "Popiplay Gaming": "popiplay",
+    "Predix": "predix",
+    "Quickspin": "quickspin",
+    "Revolver Gaming": "revolver",
+    "Speedy Tomatoes": "speedytomatoes",
+    "Turbo Games": "turbogames",
+    "Upgames": "upgames",
+    "WS168Cockfighting": "ws168"
+  },
+  "special_keep": {
+    "_comment": "特殊处理(不自动关)：568win=自研盘用户手动处理；funkygames=用户2026-07-12拍板整厂保留；sports/cockfighting/lottery 类竞品数据里天然没有，不作关闭依据",
+    "568win": "用户手动处理",
+    "funkygames": "用户拍板整厂保留(2026-07-12)",
+    "luckysports": "体育类,人工确认",
+    "afbsports": "体育类,人工确认",
+    "btisports": "体育类,人工确认",
+    "pandasports": "体育类,人工确认",
+    "saba": "体育类,竞品有SABA",
+    "ws168": "斗鸡类,人工确认",
+    "indialotto": "彩票类,人工确认"
+  },
+  "canonical_meta": {
+    "_comment": "统一显示名与简称。display=数据层统一后的 provider 值；short=后台展示的厂商简称",
+    "168game": {
+      "display": "168 Game",
+      "short": "168"
+    },
+    "1x2gaming": {
+      "display": "1x2 Gaming",
+      "short": "1X2"
+    },
+    "568win": {
+      "display": "568WinGames",
+      "short": "568W"
+    },
+    "5ggames": {
+      "display": "5G Games",
+      "short": "5G"
+    },
+    "77gaming": {
+      "display": "77 Gaming",
+      "short": "77G"
+    },
+    "7mojos": {
+      "display": "7Mojos",
+      "short": "7MJ"
+    },
+    "93connect": {
+      "display": "93Connect",
+      "short": "93C"
+    },
+    "abracadabra": {
+      "display": "AbraCadabra",
+      "short": "ABRA"
+    },
+    "advantplay": {
+      "display": "AdvantPlay",
+      "short": "ADP"
+    },
+    "afb": {
+      "display": "AFB Gaming",
+      "short": "AFB"
+    },
+    "afbsports": {
+      "display": "AFB Sports",
+      "short": "AFBS"
+    },
+    "africanbuffalo": {
+      "display": "African Buffalo",
+      "short": "AFB2"
+    },
+    "allbet": {
+      "display": "AllBet",
+      "short": "AB"
+    },
+    "apgaming": {
+      "display": "AP Gaming",
+      "short": "APG"
+    },
+    "apollo": {
+      "display": "Apollo",
+      "short": "APO"
+    },
+    "avatarux": {
+      "display": "AvatarUX",
+      "short": "AUX"
+    },
+    "aviatrix": {
+      "display": "Aviatrix",
+      "short": "AVX"
+    },
+    "biggaming": {
+      "display": "Big Gaming",
+      "short": "BGM"
+    },
+    "bigpot": {
+      "display": "Bigpot Gaming",
+      "short": "BIGPOT"
+    },
+    "bigtimegaming": {
+      "display": "Big Time Gaming",
+      "short": "BTG"
+    },
+    "blueprint": {
+      "display": "Blueprint",
+      "short": "BP"
+    },
+    "bole": {
+      "display": "Bole Gaming",
+      "short": "BOLE"
+    },
+    "booongo": {
+      "display": "BNG",
+      "short": "BNG"
+    },
+    "btisports": {
+      "display": "BTi Sports",
+      "short": "BTI"
+    },
+    "bullshark": {
+      "display": "Bullshark",
+      "short": "BSK"
+    },
+    "cc88": {
+      "display": "CC88",
+      "short": "CC88"
+    },
+    "clawbuster": {
+      "display": "Clawbuster",
+      "short": "CLB"
+    },
+    "clotplay": {
+      "display": "ClotPlay",
+      "short": "CLOT"
+    },
+    "cq9": {
+      "display": "CQ9",
+      "short": "CQ9"
+    },
+    "ctinteractive": {
+      "display": "CT Interactive",
+      "short": "CTI"
+    },
+    "dragoonsoft": {
+      "display": "Dragoon Soft",
+      "short": "DS"
+    },
+    "dreamgaming": {
+      "display": "Dream Gaming",
+      "short": "DG"
+    },
+    "endorphina": {
+      "display": "Endorphina",
+      "short": "EDP"
+    },
+    "evolution": {
+      "display": "Evolution",
+      "short": "EVO"
+    },
+    "evoplay": {
+      "display": "Evoplay",
+      "short": "EVP"
+    },
+    "expanse": {
+      "display": "Expanse",
+      "short": "EXP"
+    },
+    "ezugi": {
+      "display": "Ezugi",
+      "short": "EZG"
+    },
+    "fachai": {
+      "display": "FaChai",
+      "short": "FC"
+    },
+    "fantasma": {
+      "display": "Fantasma",
+      "short": "FTM"
+    },
+    "fastspin": {
+      "display": "Fastspin",
+      "short": "FS"
+    },
+    "fugaso": {
+      "display": "Fugaso",
+      "short": "FUG"
+    },
+    "funkygames": {
+      "display": "Funky Games",
+      "short": "FG"
+    },
+    "gameart": {
+      "display": "GameArt",
+      "short": "GA"
+    },
+    "gameplay": {
+      "display": "GamePlay",
+      "short": "GPI"
+    },
+    "gamingcorps": {
+      "display": "Gaming Corps",
+      "short": "GC"
+    },
+    "gamzix": {
+      "display": "Gamzix",
+      "short": "GZX"
+    },
+    "greendragon": {
+      "display": "Green Dragon",
+      "short": "GD"
+    },
+    "habanero": {
+      "display": "Habanero",
+      "short": "HBN"
+    },
+    "hacksaw": {
+      "display": "Hacksaw Gaming",
+      "short": "HS"
+    },
+    "idn": {
+      "display": "IDN",
+      "short": "IDN"
+    },
+    "indialotto": {
+      "display": "India Lotto",
+      "short": "INL"
+    },
+    "ion": {
+      "display": "ION Casino",
+      "short": "ION"
+    },
+    "irondog": {
+      "display": "Iron Dog Studio",
+      "short": "IDS"
+    },
+    "jdb": {
+      "display": "JDB",
+      "short": "JDB"
+    },
+    "jili": {
+      "display": "JILI",
+      "short": "JILI"
+    },
+    "jokergaming": {
+      "display": "Joker Gaming",
+      "short": "JOKER"
+    },
+    "kagaming": {
+      "display": "KA Gaming",
+      "short": "KA"
+    },
+    "kalamba": {
+      "display": "Kalamba",
+      "short": "KAL"
+    },
+    "kingmidas": {
+      "display": "King Midas",
+      "short": "KM"
+    },
+    "kiss": {
+      "display": "Kiss Gaming",
+      "short": "KISS"
+    },
+    "lambda": {
+      "display": "Lambda Gaming",
+      "short": "LBD"
+    },
+    "live22": {
+      "display": "Live22",
+      "short": "L22"
+    },
+    "luckymonaco": {
+      "display": "Lucky Monaco",
+      "short": "LKM"
+    },
+    "luckysports": {
+      "display": "Lucky Sports",
+      "short": "LKS"
+    },
+    "mannaplay": {
+      "display": "Manna Play",
+      "short": "MNP"
+    },
+    "mascot": {
+      "display": "Mascot Gaming",
+      "short": "MAS"
+    },
+    "microgaming": {
+      "display": "Microgaming",
+      "short": "MG"
+    },
+    "mikiworld": {
+      "display": "MikiWorld",
+      "short": "MIKI"
+    },
+    "mobilots": {
+      "display": "Mobilots",
+      "short": "MBL"
+    },
+    "mpoker": {
+      "display": "MPoker",
+      "short": "MPK"
+    },
+    "mt": {
+      "display": "MT",
+      "short": "MT"
+    },
+    "naga": {
+      "display": "Naga Games",
+      "short": "NAGA"
+    },
+    "netent": {
+      "display": "NetEnt",
+      "short": "NE"
+    },
+    "netgame": {
+      "display": "NetGame",
+      "short": "NG"
+    },
+    "nextspin": {
+      "display": "Nextspin",
+      "short": "NXS"
+    },
+    "nolimitcity": {
+      "display": "Nolimit City",
+      "short": "NLC"
+    },
+    "nownow": {
+      "display": "Nownow Gaming",
+      "short": "NN"
+    },
+    "oglive": {
+      "display": "OG Live",
+      "short": "OG"
+    },
+    "onlyplay": {
+      "display": "Onlyplay",
+      "short": "OPL"
+    },
+    "pandasports": {
+      "display": "Panda Sports",
+      "short": "PDS"
+    },
+    "pegasus": {
+      "display": "Pegasus",
+      "short": "PEG"
+    },
+    "petersons": {
+      "display": "Peter & Sons",
+      "short": "PNS"
+    },
+    "pgsoft": {
+      "display": "PG Soft",
+      "short": "PG"
+    },
+    "phoenix7": {
+      "display": "Phoenix7",
+      "short": "PH7"
+    },
+    "platipus": {
+      "display": "Platipus",
+      "short": "PLA"
+    },
+    "playace": {
+      "display": "PlayAce",
+      "short": "PACE"
+    },
+    "playngo": {
+      "display": "Play'n GO",
+      "short": "PNG"
+    },
+    "playstar": {
+      "display": "PlayStar",
+      "short": "PS"
+    },
+    "playtech": {
+      "display": "Playtech",
+      "short": "PT"
+    },
+    "poggiplay": {
+      "display": "PoggiPlay",
+      "short": "POGGI"
+    },
+    "popiplay": {
+      "display": "Popiplay",
+      "short": "POPI"
+    },
+    "pragmaticplay": {
+      "display": "Pragmatic Play",
+      "short": "PP"
+    },
+    "predix": {
+      "display": "Predix",
+      "short": "PDX"
+    },
+    "prospect": {
+      "display": "Prospect Gaming",
+      "short": "PRO"
+    },
+    "qora": {
+      "display": "Qora",
+      "short": "QORA"
+    },
+    "quickspin": {
+      "display": "Quickspin",
+      "short": "QS"
+    },
+    "readyplay": {
+      "display": "Ready Play",
+      "short": "RDY"
+    },
+    "redrake": {
+      "display": "Red Rake",
+      "short": "RR"
+    },
+    "redtiger": {
+      "display": "Red Tiger",
+      "short": "RT"
+    },
+    "reelplay": {
+      "display": "ReelPlay",
+      "short": "RPL"
+    },
+    "relaxgaming": {
+      "display": "Relax Gaming",
+      "short": "RELAX"
+    },
+    "revdev": {
+      "display": "RevDev",
+      "short": "REV"
+    },
+    "revolver": {
+      "display": "Revolver Gaming",
+      "short": "RVG"
+    },
+    "rich88": {
+      "display": "Rich88",
+      "short": "R88"
+    },
+    "rival": {
+      "display": "Rival Powered",
+      "short": "RIV"
+    },
+    "rogue": {
+      "display": "Rogue",
+      "short": "ROG"
+    },
+    "royalslotgaming": {
+      "display": "Royal Slot Gaming",
+      "short": "RSG"
+    },
+    "rtg": {
+      "display": "RTG Slots",
+      "short": "RTG"
+    },
+    "rubyplay": {
+      "display": "RubyPlay",
+      "short": "RUBY"
+    },
+    "saba": {
+      "display": "Saba Sports",
+      "short": "SABA"
+    },
+    "sagaming": {
+      "display": "SA Gaming",
+      "short": "SA"
+    },
+    "sboslot": {
+      "display": "SBO Slot",
+      "short": "SBO"
+    },
+    "sexygaming": {
+      "display": "Sexy Gaming",
+      "short": "SEXY"
+    },
+    "skywind": {
+      "display": "Skywind",
+      "short": "SW"
+    },
+    "speedytomatoes": {
+      "display": "Speedy Tomatoes",
+      "short": "SPT"
+    },
+    "splus": {
+      "display": "SPlus",
+      "short": "SPL"
+    },
+    "spribe": {
+      "display": "Spribe",
+      "short": "SPRIBE"
+    },
+    "tcgaming": {
+      "display": "TC Gaming",
+      "short": "TCG"
+    },
+    "thunderkick": {
+      "display": "Thunderkick",
+      "short": "TK"
+    },
+    "tomhorn": {
+      "display": "Tom Horn",
+      "short": "TH"
+    },
+    "triplepg": {
+      "display": "Triple PG",
+      "short": "TPG"
+    },
+    "turbogames": {
+      "display": "Turbo Games",
+      "short": "TURBO"
+    },
+    "upgames": {
+      "display": "Upgames",
+      "short": "UPG"
+    },
+    "vagaming": {
+      "display": "VA Gaming",
+      "short": "VA"
+    },
+    "vgaming": {
+      "display": "VGaming",
+      "short": "VG"
+    },
+    "viacasino": {
+      "display": "Via Casino",
+      "short": "VIA"
+    },
+    "voltent": {
+      "display": "VoltEnt",
+      "short": "VOLT"
+    },
+    "wanmei": {
+      "display": "WanMei",
+      "short": "WME"
+    },
+    "wcasino": {
+      "display": "WCasino",
+      "short": "WCA"
+    },
+    "worldmatch": {
+      "display": "WorldMatch",
+      "short": "WM"
+    },
+    "ws168": {
+      "display": "WS168",
+      "short": "WS168"
+    },
+    "yeebet": {
+      "display": "YeeBet",
+      "short": "YEE"
+    },
+    "yggdrasil": {
+      "display": "Yggdrasil",
+      "short": "YGG"
+    },
+    "ygr": {
+      "display": "YGR",
+      "short": "YGR"
+    }
+  }
+}
