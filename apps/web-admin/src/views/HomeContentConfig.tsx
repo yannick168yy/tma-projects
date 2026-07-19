@@ -47,6 +47,7 @@ const destinations = [
   { label: '洗码返水页', value: '/cashback' },
   { label: '幸运转盘', value: '/rewards-spin' },
   { label: 'VIP 中心', value: '/vip' },
+  { label: '任务中心', value: '/tasks' },
   { label: '充值窗口', value: '/deposit' },
   { label: '团队中心', value: '/team' },
   { label: '代理中心', value: '/agent' },
