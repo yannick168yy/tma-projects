@@ -22,6 +22,7 @@ import {
 import { isMysqlEnabled, getMysqlPool } from './clients/mysql.client.js'
 import { getLossRebateConfigByPool } from './services/promo-config.service.js'
 import { runCommunityTick } from './services/community.service.js'
+import { runBroadcastTick } from './services/broadcast.service.js'
 import { ok } from './utils/response.js'
 import { seedDefaultAdmin } from './services/admin-auth.service.js'
 
@@ -170,6 +171,16 @@ export function createApp(env: Env): Koa {
       run()
       setInterval(run, 30_000)
     }, 15_000)
+  }
+
+  // TG 群发:每 30s 捡一个 sending 任务续发(Redis 锁防重入,cursor 断点续传,进程重启不丢进度)
+  if (singletonJobs && isMysqlEnabled(env)) {
+    const broadcastLog = childLogger('broadcast-tick')
+    setTimeout(() => {
+      const run = () => runBroadcastTick(env, redis).catch((err) => broadcastLog.error({ err }, 'tick error'))
+      run()
+      setInterval(run, 30_000)
+    }, 20_000)
   }
 
   // Betting activity 初始化（需要 games cache 已加载）
