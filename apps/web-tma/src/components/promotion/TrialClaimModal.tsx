@@ -133,7 +133,7 @@ export default function TrialClaimModal({ open, amountPhp, onClose }: Props) {
           <ShieldCheck size={20} className="text-primary" />
           <h2 className="text-lg font-black text-foreground">{t('bonuses.promos.trial.bind.title')}</h2>
         </div>
-        <p className="mb-5 text-xs text-muted-foreground">{t('bonuses.promos.trial.bind.subtitle', { amount: amountPhp })}</p>
+        <p className="mb-5 text-xs text-muted-foreground">{t(otpRequired ? 'bonuses.promos.trial.bind.subtitle' : 'bonuses.promos.trial.bind.subtitleNoOtp', { amount: amountPhp })}</p>
 
         {step === 'loading' && (
           <div className="flex justify-center py-8">

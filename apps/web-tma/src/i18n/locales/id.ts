@@ -501,6 +501,7 @@ export default {
         bind: {
           title: 'Verifikasi Ponsel untuk Klaim',
           subtitle: 'Verifikasi nomor ponsel via SMS untuk klaim ₱{{amount}} kredit gratis',
+          subtitleNoOtp: 'Tautkan nomor ponsel untuk klaim ₱{{amount}} kredit gratis',
           bound: 'Ponsel terverifikasi. Ketuk di bawah untuk klaim bonus',
           claimCta: 'Klaim Bonus ₱{{amount}}',
         },

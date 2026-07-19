@@ -886,6 +886,7 @@ export default {
         bind: {
           title: '绑定手机号领取礼金',
           subtitle: '完成手机号短信验证后即可领取 ₱{{amount}} 免费礼金',
+          subtitleNoOtp: '绑定手机号后即可领取 ₱{{amount}} 免费礼金',
           bound: '手机号已绑定，点击下方领取礼金',
           claimCta: '领取 ₱{{amount}} 礼金',
         },

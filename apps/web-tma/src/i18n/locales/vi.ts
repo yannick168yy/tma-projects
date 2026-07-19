@@ -501,6 +501,7 @@ export default {
         bind: {
           title: 'Xác minh SĐT để nhận',
           subtitle: 'Xác minh số điện thoại qua SMS để nhận ₱{{amount}} tín dụng miễn phí',
+          subtitleNoOtp: 'Liên kết số điện thoại để nhận ₱{{amount}} tín dụng miễn phí',
           bound: 'Đã xác minh SĐT. Nhấn bên dưới để nhận thưởng',
           claimCta: 'Nhận thưởng ₱{{amount}}',
         },

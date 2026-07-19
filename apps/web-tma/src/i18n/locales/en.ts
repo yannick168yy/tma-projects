@@ -887,6 +887,7 @@ export default {
         bind: {
           title: 'Verify Phone to Claim',
           subtitle: 'Verify your phone number via SMS to claim ₱{{amount}} in free credits',
+          subtitleNoOtp: 'Bind your phone number to claim ₱{{amount}} in free credits',
           bound: 'Phone verified. Tap below to claim your bonus',
           claimCta: 'Claim ₱{{amount}} Bonus',
         },
