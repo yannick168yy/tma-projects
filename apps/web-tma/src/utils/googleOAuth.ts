@@ -8,8 +8,8 @@ interface OAuthState {
 }
 
 export function getGoogleRedirectUri(): string {
-  const configured = import.meta.env.VITE_GOOGLE_REDIRECT_URI
-  if (configured) return configured
+  // 一份 bundle 部署到多个域名(测试 188facai / 生产 betogo.games),redirect 必须随当前域名走。
+  // 不再读构建时烤死的 VITE_GOOGLE_REDIRECT_URI,否则生产会带着测试域名回跳。与 telegramOAuth 保持一致。
   return `${window.location.origin}/auth/google/callback`
 }
 
