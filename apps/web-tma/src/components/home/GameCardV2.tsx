@@ -55,9 +55,11 @@ export default function GameCardV2({ game, onTap, size, showLive }: Props) {
   }, [game.imageAnim, imageUrl])
 
   const displaySrc = animSrc ?? imageUrl
-  // 全站封面统一：满幅同尺寸 + 圆角12px；大卡叠加 1px 细金渐变描边(gold-card-ring)
+  // 全站封面统一：满幅同尺寸 + 圆角12px；大卡在容器上画 1px 金色 border——
+  // overflow-hidden 把子元素(含 iOS 动图独立合成层)裁在 padding 盒内碰不到边框区,
+  // 且边框与容器同层无独立像素取整,规避了内衬包裹/mask 环/提层环三种画法的 iOS 跑版坑
   const image = (
-    <div ref={wrapRef} className={`relative overflow-hidden bg-secondary rounded-xl ${size === 'lg' ? 'w-full aspect-square' : 'w-[76px] h-[76px]'}`}>
+    <div ref={wrapRef} className={`relative overflow-hidden bg-secondary rounded-xl ${goldBorder ? 'border border-[#f0b437]' : ''} ${size === 'lg' ? 'w-full aspect-square' : 'w-[76px] h-[76px]'}`}>
       {imageUrl ? (
         <img src={displaySrc ?? undefined} alt="" loading="lazy" draggable={false} className="absolute inset-0 w-full h-full object-cover" />
       ) : (
@@ -94,14 +96,6 @@ export default function GameCardV2({ game, onTap, size, showLive }: Props) {
     </div>
   )
 
-  // 金边环放在裁剪容器外层,叠于封面之上(iOS 动图层压不到)
-  const card = goldBorder ? (
-    <div className="relative">
-      {image}
-      <span aria-hidden className="gold-card-ring" />
-    </div>
-  ) : image
-
   if (size === 'sm') {
     return (
       <button
@@ -110,7 +104,7 @@ export default function GameCardV2({ game, onTap, size, showLive }: Props) {
         disabled={unavailable}
         onClick={onTap}
       >
-        {card}
+        {image}
       </button>
     )
   }
@@ -122,7 +116,7 @@ export default function GameCardV2({ game, onTap, size, showLive }: Props) {
       disabled={unavailable}
       onClick={onTap}
     >
-      {card}
+      {image}
       <p className="w-full px-0.5 text-[12px] font-semibold leading-tight text-white text-center truncate">
         {localizedGameName(game, locale)}
       </p>
