@@ -19,11 +19,12 @@ interface Props {
   size: 'lg' | 'sm'
   showHot?: boolean
   showLive?: boolean
-  goldBorder?: boolean
 }
 
 // casinoplus 风格纯图卡：大卡=3列网格自适应宽 + 图下白色游戏名；小卡=固定 76×95 纯图横滑
-export default function GameCardV2({ game, onTap, size, showLive, goldBorder }: Props) {
+export default function GameCardV2({ game, onTap, size, showLive }: Props) {
+  // 精选(isFeatured)游戏全站统一加细金边,与后台「精选」开关联动
+  const goldBorder = game.isFeatured === true
   const locale = useLocaleStore((s) => s.locale)
   const unavailable = game.supportsActiveCurrency === false
   // 封面裁剪版本：封面图走 immutable 长缓存，重裁同名图后需 bump 才能让客户端拿到新图
@@ -54,10 +55,10 @@ export default function GameCardV2({ game, onTap, size, showLive, goldBorder }: 
   }, [game.imageAnim, imageUrl])
 
   const displaySrc = animSrc ?? imageUrl
-  // 全站封面统一：满幅同尺寸 + 圆角12px；推荐位(goldBorder)外包 2px 金色渐变描边,
-  // 小卡内图缩到 72px 保持 76px 总占位不挤乱横滑行
+  // 全站封面统一：满幅同尺寸 + 圆角12px；精选游戏外包 1px 细金渐变描边,
+  // 小卡内图缩到 74px 保持 76px 总占位不挤乱横滑行
   const image = (
-    <div ref={wrapRef} className={`relative overflow-hidden bg-secondary ${goldBorder ? 'rounded-[10px]' : 'rounded-xl'} ${size === 'lg' ? 'w-full aspect-square' : goldBorder ? 'w-[72px] h-[72px]' : 'w-[76px] h-[76px]'}`}>
+    <div ref={wrapRef} className={`relative overflow-hidden bg-secondary ${goldBorder ? 'rounded-[11px]' : 'rounded-xl'} ${size === 'lg' ? 'w-full aspect-square' : goldBorder ? 'w-[74px] h-[74px]' : 'w-[76px] h-[76px]'}`}>
       {imageUrl ? (
         <img src={displaySrc ?? undefined} alt="" loading="lazy" draggable={false} className="absolute inset-0 w-full h-full object-cover" />
       ) : (
@@ -94,9 +95,9 @@ export default function GameCardV2({ game, onTap, size, showLive, goldBorder }: 
     </div>
   )
 
-  // 推荐位金边：2px 渐变描边(上浅金→下深金),内图圆角略收与描边贴合
+  // 精选金边：1px 细渐变描边(上浅金→下深金),内图圆角略收与描边贴合
   const card = goldBorder ? (
-    <div className="rounded-xl p-[2px] bg-gradient-to-b from-[#ffe27a] via-[#f0b437] to-[#b97e14]">
+    <div className="rounded-xl p-px bg-gradient-to-b from-[#ffe27a] via-[#f0b437] to-[#b97e14]">
       {image}
     </div>
   ) : image

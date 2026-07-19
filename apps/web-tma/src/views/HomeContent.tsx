@@ -238,7 +238,7 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
     )
   }
 
-  function bigGrid(games: SlotGame[], skeletonCount: number, showHot = false, goldBorder = false) {
+  function bigGrid(games: SlotGame[], skeletonCount: number, showHot = false) {
     if (gamesLoading) {
       return (
         <div className="px-4 grid grid-cols-3 gap-x-2 gap-y-3">
@@ -248,12 +248,12 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
     }
     return (
       <div className="px-4 grid grid-cols-3 gap-x-2 gap-y-3">
-        {games.map((g) => <GameCardV2 key={g.uuid} game={g} onTap={() => void onGameTapAction(g.uuid)} size="lg" showHot={showHot} goldBorder={goldBorder} />)}
+        {games.map((g) => <GameCardV2 key={g.uuid} game={g} onTap={() => void onGameTapAction(g.uuid)} size="lg" showHot={showHot} />)}
       </div>
     )
   }
 
-  function smallRow(games: SlotGame[], loading = gamesLoading, goldBorder = false) {
+  function smallRow(games: SlotGame[], loading = gamesLoading) {
     if (loading) {
       return (
         <div className="flex gap-2 px-4 overflow-hidden">
@@ -263,7 +263,7 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
     }
     return (
       <div className="flex gap-2 px-4 overflow-x-auto hide-scrollbar">
-        {games.map((g) => <GameCardV2 key={g.uuid} game={g} onTap={() => void onGameTapAction(g.uuid)} size="sm" goldBorder={goldBorder} />)}
+        {games.map((g) => <GameCardV2 key={g.uuid} game={g} onTap={() => void onGameTapAction(g.uuid)} size="sm" />)}
       </div>
     )
   }
@@ -384,7 +384,7 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
         (gamesLoading || homepageGames.recommended.length > 0) && (
           <section className="mt-5">
             {sectionHeader(<Percent size={15} className="text-red-400" />, t('home.recommended'), () => onNavigatePath('/games'))}
-            {smallRow(homepageGames.recommended, gamesLoading, true)}
+            {smallRow(homepageGames.recommended)}
           </section>
         )
       )}
@@ -524,7 +524,7 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
       {recentGames.length > 0 && (gamesLoading || homepageGames.recommended.length > 0) && (
         <section className="mt-6">
           {sectionHeader(<Percent size={15} className="text-red-400" />, t('home.recommended'), () => onNavigatePath('/games'))}
-          {bigGrid(homepageGames.recommended.slice(0, 12), 12, false, true)}
+          {bigGrid(homepageGames.recommended.slice(0, 12), 12)}
         </section>
       )}
 
