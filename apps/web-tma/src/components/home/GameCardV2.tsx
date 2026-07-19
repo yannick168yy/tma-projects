@@ -55,9 +55,9 @@ export default function GameCardV2({ game, onTap, size, showLive }: Props) {
   }, [game.imageAnim, imageUrl])
 
   const displaySrc = animSrc ?? imageUrl
-  // 全站封面统一：满幅同尺寸 + 圆角12px；大卡外包 1px 细金渐变描边
+  // 全站封面统一：满幅同尺寸 + 圆角12px；大卡叠加 1px 细金渐变描边(gold-card-ring)
   const image = (
-    <div ref={wrapRef} className={`relative overflow-hidden bg-secondary ${goldBorder ? 'rounded-[11px]' : 'rounded-xl'} ${size === 'lg' ? 'w-full aspect-square' : 'w-[76px] h-[76px]'}`}>
+    <div ref={wrapRef} className={`relative overflow-hidden bg-secondary rounded-xl ${size === 'lg' ? 'w-full aspect-square' : 'w-[76px] h-[76px]'}`}>
       {imageUrl ? (
         <img src={displaySrc ?? undefined} alt="" loading="lazy" draggable={false} className="absolute inset-0 w-full h-full object-cover" />
       ) : (
@@ -91,15 +91,9 @@ export default function GameCardV2({ game, onTap, size, showLive }: Props) {
           <span className="rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-bold text-white">Unavailable</span>
         </div>
       )}
+      {goldBorder && <span aria-hidden className="gold-card-ring" />}
     </div>
   )
-
-  // 大卡金边：1px 细渐变描边(上浅金→下深金),内图圆角略收与描边贴合
-  const card = goldBorder ? (
-    <div className="rounded-xl p-px bg-gradient-to-b from-[#ffe27a] via-[#f0b437] to-[#b97e14]">
-      {image}
-    </div>
-  ) : image
 
   if (size === 'sm') {
     return (
@@ -109,7 +103,7 @@ export default function GameCardV2({ game, onTap, size, showLive }: Props) {
         disabled={unavailable}
         onClick={onTap}
       >
-        {card}
+        {image}
       </button>
     )
   }
@@ -121,7 +115,7 @@ export default function GameCardV2({ game, onTap, size, showLive }: Props) {
       disabled={unavailable}
       onClick={onTap}
     >
-      {card}
+      {image}
       <p className="w-full px-0.5 text-[12px] font-semibold leading-tight text-white text-center truncate">
         {localizedGameName(game, locale)}
       </p>

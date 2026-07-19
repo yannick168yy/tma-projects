@@ -205,3 +205,18 @@ label {
   touch-action: pan-y;
   -ms-touch-action: pan-y;
 }
+
+/* 大卡金边:叠加式渐变描边(mask 抠出 1px 边圈画在封面之上)。
+   不用 p-px 内衬包裹——高分屏下卡宽为分数像素时,内层图四舍五入会盖住某一侧描边 */
+.gold-card-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  pointer-events: none;
+  background: linear-gradient(to bottom, #ffe27a, #f0b437 50%, #b97e14);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+}
