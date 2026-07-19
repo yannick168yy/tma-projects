@@ -27,7 +27,7 @@ export default function GameCardV2({ game, onTap, size, showLive }: Props) {
   const unavailable = game.supportsActiveCurrency === false
   // 封面裁剪版本：封面图走 immutable 长缓存，重裁同名图后需 bump 才能让客户端拿到新图
   const bust = (u: string | null | undefined) =>
-    u && u.includes('/covers/') ? `${u}${u.includes('?') ? '&' : '?'}cv=3` : (u ?? null)
+    u && u.includes('/covers/') ? `${u}${u.includes('?') ? '&' : '?'}cv=4` : (u ?? null)
   const imageUrl = bust(game.imageHqUrl ?? game.imageUrl)
   // 封面一律 object-cover 居中裁切填满方卡：横图(真人厂商banner等)按中心裁成方形，与全站方图统一、
   // 无上下留白。焦点基本居中故裁切损失小；个别边缘内容被切的用后台换图弹窗指定方图。
