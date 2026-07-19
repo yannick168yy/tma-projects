@@ -233,7 +233,8 @@ export function createApp(env: Env): Koa {
   app.use(injectDeps(env, redis))
   if (!env.BFF_DISABLE_RATE_LIMIT) app.use(rateLimitMiddleware())
   app.use(accessLogMiddleware())
-  app.use(bodyParser({ jsonLimit: '2mb', formLimit: '2mb', textLimit: '2mb' }))
+  // banner/KYC 图以 base64 data URL 走 JSON 体，5MB 图 base64 后 ~6.7MB，限额需高于此，否则大图上传被 raw-body 拒绝并触发 nginx 504
+  app.use(bodyParser({ jsonLimit: '10mb', formLimit: '10mb', textLimit: '10mb' }))
 
   app.use(async (ctx, next) => {
     if (ctx.path === '/health') {
