@@ -46,9 +46,12 @@ ssh_cmd() {
 }
 
 rsync_cmd() {
+  # ⚠️ data/ 是服务器运行时数据(封面/banner/KYC上传, KYC_STORAGE_DIR=data/kyc)，
+  # 本地没有这些文件，--delete 会把线上传的图全删掉——2026-07-19 生产 covers 因此被清空过，必须排除
   rsync -az --delete \
     --exclude node_modules \
     --exclude .git/objects \
+    --exclude data/ \
     "$ROOT/" "$HOST:$DIR/"
 }
 
