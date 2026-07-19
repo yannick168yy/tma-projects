@@ -222,12 +222,12 @@ export default function DownloadPage({ onClose }: { onClose: () => void }) {
 
       {/* 应用内截图横滑 */}
       <div className="hide-scrollbar mt-5 flex gap-3 overflow-x-auto px-5">
-        {SCREENSHOTS.map((src) => (
+        {SCREENSHOTS.map((src, i) => (
           <img
             key={src}
             src={src}
             alt=""
-            loading="lazy"
+            loading={i < 2 ? 'eager' : 'lazy'}
             className="h-[300px] w-auto flex-shrink-0 rounded-xl border border-black/10 object-cover"
           />
         ))}
