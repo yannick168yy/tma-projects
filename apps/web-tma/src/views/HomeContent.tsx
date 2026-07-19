@@ -70,6 +70,7 @@ interface Props {
   onOpenGame: (url: string) => void
   onOpenFirstDepositFiesta: () => void
   onOpenCashback: () => void
+  onOpenDeposit: () => void
 }
 
 interface HomePromoFloatProps {
@@ -98,7 +99,7 @@ function HomePromoFloat({ cashbackLabel, onOpenCashback }: HomePromoFloatProps) 
   )
 }
 
-export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOpenFirstDepositFiesta, onOpenCashback }: Props) {
+export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOpenFirstDepositFiesta, onOpenCashback, onOpenDeposit }: Props) {
   const { t, i18n } = useTranslation()
   const locale = i18n.language
   const promotion = usePromotionStore()
@@ -106,9 +107,13 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
   const activeCurrency = useWalletStore((s) => s.activeCurrency)
   const [homeBanners, setHomeBanners] = useState<HomeBanner[]>([])
 
-  // 首页装修配置的统一跳转：内部路由走 navigate，外链走 window.open，空串不跳转
+  // 首页装修配置的统一跳转：充值窗口是弹窗特判，内部路由走 navigate，外链走 window.open，空串不跳转
   function navHomeTarget(target: string) {
     if (!target) return
+    if (target === '/deposit') {
+      onOpenDeposit()
+      return
+    }
     if (/^https?:\/\//i.test(target)) {
       window.open(target, '_blank', 'noopener,noreferrer')
       return

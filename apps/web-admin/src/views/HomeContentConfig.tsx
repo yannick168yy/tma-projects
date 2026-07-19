@@ -29,6 +29,14 @@ const promoOptions = [
   { label: '首席体验官', value: 'trial' },
 ]
 
+// VIP 页二级 tab（与前端 VipPage 的 VIP_TABS 一致）
+const vipTabOptions = [
+  { label: '总览', value: 'overview' },
+  { label: '负盈利返水', value: 'lossrebate' },
+  { label: '权益', value: 'benefits' },
+  { label: '记录', value: 'records' },
+]
+
 // 跳转目标 = 前台路由 path（'none' 不跳转，'url' 外链）。优惠页可再选具体优惠区块。
 const destinations = [
   { label: '无跳转', value: 'none' },
@@ -38,6 +46,8 @@ const destinations = [
   { label: '老虎机大厅', value: '/slots' },
   { label: '洗码返水页', value: '/cashback' },
   { label: '幸运转盘', value: '/rewards-spin' },
+  { label: 'VIP 中心', value: '/vip' },
+  { label: '充值窗口', value: '/deposit' },
   { label: '团队中心', value: '/team' },
   { label: '代理中心', value: '/agent' },
   { label: '推荐返利', value: '/referral' },
@@ -73,11 +83,19 @@ function itemToPromo(item: FormItemState): string | undefined {
   return undefined
 }
 
-// 目标下拉 → 存储用的 actionType/actionValue
-function destToAction(dest: string, promo?: string): Pick<FormItemState, 'actionType' | 'actionValue'> {
+function itemToVipTab(item: FormItemState): string | undefined {
+  if (item.actionType === 'path' && (item.actionValue ?? '').startsWith('/vip?tab=')) {
+    return new URLSearchParams((item.actionValue ?? '').split('?')[1]).get('tab') ?? undefined
+  }
+  return undefined
+}
+
+// 目标下拉 → 存储用的 actionType/actionValue（sub = 二级选项：优惠区块 或 VIP 页签）
+function destToAction(dest: string, sub?: string): Pick<FormItemState, 'actionType' | 'actionValue'> {
   if (dest === 'none') return { actionType: 'none', actionValue: null }
   if (dest === 'url') return { actionType: 'url', actionValue: '' }
-  if (dest === '/bonuses') return { actionType: 'path', actionValue: promo ? `/bonuses?promo=${promo}` : '/bonuses' }
+  if (dest === '/bonuses') return { actionType: 'path', actionValue: sub ? `/bonuses?promo=${sub}` : '/bonuses' }
+  if (dest === '/vip') return { actionType: 'path', actionValue: sub ? `/vip?tab=${sub}` : '/vip' }
   return { actionType: 'path', actionValue: dest }
 }
 
@@ -253,9 +271,11 @@ export default function HomeContentConfig() {
             {item.kind !== 'wallet_banner' && (() => {
               const dest = itemToDest(item)
               const promo = itemToPromo(item)
+              const vipTab = itemToVipTab(item)
+              const hasSub = dest === '/bonuses' || dest === 'url' || dest === '/vip'
               return (
                 <Row gutter={12}>
-                  <Col span={dest === '/bonuses' || dest === 'url' ? 12 : 24}>
+                  <Col span={hasSub ? 12 : 24}>
                     <Form.Item label="点击跳转" style={{ marginBottom: 8 }}>
                       <Select
                         value={dest}
@@ -273,6 +293,19 @@ export default function HomeContentConfig() {
                           options={promoOptions}
                           placeholder="不指定则停在优惠页顶部"
                           onChange={(p) => updateItem(item.kind, item.slot, destToAction('/bonuses', p))}
+                        />
+                      </Form.Item>
+                    </Col>
+                  )}
+                  {dest === '/vip' && (
+                    <Col span={12}>
+                      <Form.Item label="VIP 页签（可选）" style={{ marginBottom: 8 }}>
+                        <Select
+                          allowClear
+                          value={vipTab}
+                          options={vipTabOptions}
+                          placeholder="不指定则停在总览"
+                          onChange={(tab) => updateItem(item.kind, item.slot, destToAction('/vip', tab))}
                         />
                       </Form.Item>
                     </Col>
