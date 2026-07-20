@@ -117,6 +117,29 @@ export interface BiAlertRow {
   value: number; baseline: number; deviation: number; severity: string; status: string; createdAt: string
 }
 export const getBiAlerts = (status?: string) => get<BiAlertRow[]>('/admin/bi/alerts', status ? { status } : undefined)
+
+export interface BiFunnel { registered: number; kycApproved: number; firstDep: number; redep: number }
+export const getBiFunnel = (params: { days: number; source?: string }) => get<BiFunnel>('/admin/bi/funnel', params)
+
+export interface BiRetentionCohort { week: string; size: number; d1: number; d3: number; d7: number; d14: number; d30: number }
+export const getBiRetention = (weeks: number) => get<BiRetentionCohort[]>('/admin/bi/retention', { weeks })
+
+export interface BiRfmCell { valueTier: string; recency: string; users: number; depositAmount: number }
+export const getBiRfm = (days: number) =>
+  get<{ cells: BiRfmCell[]; nonDepositors: number; totalUsers: number }>('/admin/bi/rfm', { days })
+
+export interface BiLtvCohort { week: string; size: number; d7: number; d30: number; d60: number; d90: number }
+export const getBiLtv = (weeks: number) => get<BiLtvCohort[]>('/admin/bi/ltv', { weeks })
+
+export interface BiTopWinner { userId: string; displayName: string; netWin: number; betAmount: number }
+export const getBiTopWinners = (days: number) => get<BiTopWinner[]>('/admin/bi/top-winners', { days })
+
+export interface BiAcquisitionRow {
+  source: string; newUsers: number; firstDepUsers: number
+  conversion: number | null; bonusCost: number; ngr: number
+}
+export const getBiAcquisition = (days: number) =>
+  get<{ sources: BiAcquisitionRow[]; dauTrend: { dates: string[]; series: { name: string; data: number[] }[] } }>('/admin/bi/acquisition', { days })
 export const setBiAlertStatus = (id: number, status: 'ack' | 'closed') =>
   patch<{ updated: boolean }>(`/admin/bi/alerts/${id}`, { status })
 

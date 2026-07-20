@@ -5,6 +5,8 @@ import Dashboard from './views/Dashboard'
 import BiDashboard from './views/BiDashboard'
 import BiProviders from './views/BiProviders'
 import BiGames from './views/BiGames'
+import BiUsers from './views/BiUsers'
+import BiAcquisition from './views/BiAcquisition'
 import Users from './views/Users'
 import UserDetail from './views/UserDetail'
 import DeviceLookup from './views/DeviceLookup'
@@ -83,6 +85,8 @@ export default function App() {
           <Route path="bi/dashboard" element={<BiDashboard />} />
           <Route path="bi/providers" element={<BiProviders />} />
           <Route path="bi/games" element={<BiGames />} />
+          <Route path="bi/users" element={<BiUsers />} />
+          <Route path="bi/acquisition" element={<BiAcquisition />} />
           <Route path="users" element={<Users />} />
           <Route path="users/:id" element={<UserDetail />} />
           <Route path="device-lookup" element={<DeviceLookup />} />

@@ -38,6 +38,8 @@ function buildMenuItems(badges: AdminBadges) {
         { key: '/bi/dashboard', label: '运营驾驶舱' },
         { key: '/bi/providers', label: '游戏商分析' },
         { key: '/bi/games', label: '游戏分析' },
+        { key: '/bi/users', label: '用户分析' },
+        { key: '/bi/acquisition', label: '渠道拉新' },
       ],
     },
     {
