@@ -110,6 +110,10 @@ function transferKey(body: CallbackBody): string {
   return transactionId ? `${transferCode}:${transactionId}` : transferCode
 }
 
+function statusText(status: string): string {
+  return status.toLowerCase()
+}
+
 function walletCurrency(currency: string): string {
   return currency.toUpperCase() === 'UCC' ? 'USDT' : currency
 }
@@ -237,7 +241,9 @@ export class Win568WalletService {
       return rows
     }
     const [rows] = await conn.query<TxnRow[]>(
-      `SELECT * FROM bg_568win_wallet_txn WHERE transfer_code = ?${suffix}`,
+      `SELECT * FROM bg_568win_wallet_txn
+       WHERE transfer_code = ?
+       ORDER BY LOWER(status) = 'running' DESC, created_at ASC${suffix}`,
       [transferCode],
     )
     return rows
@@ -303,9 +309,12 @@ export class Win568WalletService {
       const existing = await this.findTxns(conn, body, { lock: true })
 
       if (existing.length > 0) {
-        const bet = existing[0]
+        const bet = productType === 3 || productType === 7
+          ? existing.find((row) => statusText(row.status) === 'running') ?? existing[0]
+          : existing[0]
+        const status = statusText(bet.status)
         const current = await this.currentBalance(conn, player)
-        if (productType === 9 || bet.status === 'Void' || bet.status !== 'running') {
+        if (productType === 9 || status === 'void' || status !== 'running') {
           await conn.commit()
           return err(5003, 'Bet With Same RefNo Exists', player.username, current, { BetAmount: 0 })
         }

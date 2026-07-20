@@ -269,6 +269,199 @@ describe('568Win 钱包回调', () => {
     assert.equal(executes.some((sql) => sql.includes('INSERT INTO bg_568win_wallet_txn')), false)
   })
 
+  it('Deduct 对 ProductType 3 支持先小额失败再大额加注成功', async () => {
+    const { Win568WalletService } = await import('../services/win568-wallet.service.js')
+    let balance = 500
+    let txn: Record<string, unknown> | null = null
+    let txnAmount: unknown = null
+    const conn = {
+      async query(sql: string) {
+        if (sql.includes('SELECT available FROM bg_wallet')) return [[{ available: balance }], undefined]
+        if (sql.includes('SELECT id FROM bg_bet_order')) return [[{ id: 1 }], undefined]
+        if (sql.includes('bg_568win_wallet_txn')) return [txn ? [txn] : [], undefined]
+        return [[], undefined]
+      },
+      async execute(sql: string, params?: unknown[]) {
+        if (sql.includes('UPDATE bg_wallet SET available')) balance += Number(params?.[0] ?? 0)
+        if (sql.includes('INSERT INTO bg_568win_wallet_txn')) {
+          txn = {
+            id: 1,
+            user_id: 'BG-10024',
+            external_username: 'BG-10024',
+            currency: 'PHP',
+            transfer_code: params?.[3],
+            transaction_id: params?.[4],
+            product_type: params?.[5],
+            game_type: params?.[6],
+            gpid: params?.[7],
+            provider_id: '',
+            round_id: params?.[9],
+            txn_type: 'bet',
+            amount: params?.[10],
+            win_loss: null,
+            status: 'running',
+          }
+          txnAmount = params?.[10]
+        }
+        if (sql.includes('UPDATE bg_568win_wallet_txn SET amount = ?') && txn) {
+          txn.amount = params?.[0]
+          txnAmount = params?.[0]
+        }
+        return [{ insertId: 1 }, undefined]
+      },
+      async beginTransaction() {},
+      async commit() {},
+      async rollback() {},
+      release() {},
+    }
+    const mysql = {
+      async query(sql: string) {
+        if (sql.includes('bg_aggregator_player')) {
+          return [[{
+            user_id: 'BG-10024',
+            external_username: 'BG-10024',
+            currency: 'PHP',
+            status: 'active',
+          }], undefined]
+        }
+        return [[], undefined]
+      },
+      async getConnection() {
+        return conn
+      },
+    }
+    const app = {
+      mysql,
+      log: { error() {} },
+    } as unknown as FastifyInstance
+    const req = {
+      headers: { 'x-real-ip': '122.146.58.49' },
+      ip: '127.0.0.1',
+    } as unknown as FastifyRequest
+    const service = new Win568WalletService(app)
+    const body = {
+      CompanyKey: 'test-key',
+      Username: 'BG-10024',
+      TransferCode: 'T319645',
+      TransactionId: 'T319645',
+      ProductType: 3,
+      GameType: 201,
+      Gpid: -1,
+    }
+
+    const first = await service.deduct(req, { ...body, Amount: 10 }) as Record<string, unknown>
+    const second = await service.deduct(req, { ...body, Amount: 5 }) as Record<string, unknown>
+    const third = await service.deduct(req, { ...body, Amount: 20 }) as Record<string, unknown>
+
+    assert.equal(first.ErrorCode, 0)
+    assert.equal(first.Balance, 490)
+    assert.equal(first.BetAmount, 10)
+    assert.equal(second.ErrorCode, 7)
+    assert.equal(second.Balance, 490)
+    assert.equal(third.ErrorCode, 0)
+    assert.equal(third.Balance, 480)
+    assert.equal(third.BetAmount, 20)
+    assert.equal(txnAmount, 20)
+  })
+
+  it('Deduct 对 ProductType 3 同 TransferCode 优先处理 running 注单', async () => {
+    const { Win568WalletService } = await import('../services/win568-wallet.service.js')
+    let balance = 490
+    const rows = [
+      {
+        id: 1,
+        user_id: 'BG-10024',
+        external_username: 'BG-10024',
+        currency: 'PHP',
+        transfer_code: 'T319645',
+        transaction_id: 'T319645-old',
+        product_type: 3,
+        game_type: 201,
+        gpid: -1,
+        provider_id: '',
+        round_id: 'T319645',
+        txn_type: 'bet',
+        amount: '10.0000',
+        win_loss: '30.0000',
+        status: 'settled',
+      },
+      {
+        id: 2,
+        user_id: 'BG-10024',
+        external_username: 'BG-10024',
+        currency: 'PHP',
+        transfer_code: 'T319645',
+        transaction_id: 'T319645',
+        product_type: 3,
+        game_type: 201,
+        gpid: -1,
+        provider_id: '',
+        round_id: 'T319645',
+        txn_type: 'bet',
+        amount: '10.0000',
+        win_loss: null,
+        status: 'Running',
+      },
+    ]
+    const conn = {
+      async query(sql: string) {
+        if (sql.includes('SELECT available FROM bg_wallet')) return [[{ available: balance }], undefined]
+        if (sql.includes('SELECT id FROM bg_bet_order')) return [[{ id: 2 }], undefined]
+        if (sql.includes('bg_568win_wallet_txn')) return [rows, undefined]
+        return [[], undefined]
+      },
+      async execute(sql: string, params?: unknown[]) {
+        if (sql.includes('UPDATE bg_wallet SET available')) balance += Number(params?.[0] ?? 0)
+        if (sql.includes('UPDATE bg_568win_wallet_txn SET amount = ?')) rows[1].amount = String(params?.[0])
+        return [{ insertId: 2 }, undefined]
+      },
+      async beginTransaction() {},
+      async commit() {},
+      async rollback() {},
+      release() {},
+    }
+    const mysql = {
+      async query(sql: string) {
+        if (sql.includes('bg_aggregator_player')) {
+          return [[{
+            user_id: 'BG-10024',
+            external_username: 'BG-10024',
+            currency: 'PHP',
+            status: 'active',
+          }], undefined]
+        }
+        return [[], undefined]
+      },
+      async getConnection() {
+        return conn
+      },
+    }
+    const app = {
+      mysql,
+      log: { error() {} },
+    } as unknown as FastifyInstance
+    const req = {
+      headers: { 'x-real-ip': '122.146.58.49' },
+      ip: '127.0.0.1',
+    } as unknown as FastifyRequest
+
+    const result = await new Win568WalletService(app).deduct(req, {
+      CompanyKey: 'test-key',
+      Username: 'BG-10024',
+      Amount: 20,
+      TransferCode: 'T319645',
+      TransactionId: 'T319645',
+      ProductType: 3,
+      GameType: 201,
+      Gpid: -1,
+    }) as Record<string, unknown>
+
+    assert.equal(result.ErrorCode, 0)
+    assert.equal(result.Balance, 480)
+    assert.equal(result.BetAmount, 20)
+    assert.equal(rows[1].amount, '20')
+  })
+
   it('ReturnStake 退回原 stake 与 CurrentStake 的差额', async () => {
     const { Win568WalletService } = await import('../services/win568-wallet.service.js')
     let balance = 990
