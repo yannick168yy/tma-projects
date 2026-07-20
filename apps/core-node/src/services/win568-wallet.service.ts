@@ -2,7 +2,7 @@ import type { FastifyInstance, FastifyRequest } from 'fastify'
 import type { PoolConnection, ResultSetHeader, RowDataPacket } from 'mysql2/promise'
 import { env } from '../config/env.js'
 import { lgId } from '../utils/id.js'
-import { allocateBetTurnoverInTransaction, reverseBetTurnover } from './turnover.service.js'
+import { allocateBetTurnoverInTransaction, increaseBetTurnoverInTransaction, reverseBetTurnover } from './turnover.service.js'
 import { getWin568SwCompanyKey } from './win568-key-settings.service.js'
 
 type CallbackBody = Record<string, unknown>
@@ -281,7 +281,7 @@ export class Win568WalletService {
         [transferKey(body)],
       )
       if (order) {
-        await allocateBetTurnoverInTransaction(conn, player.userId, Number(order.id), diff,
+        await increaseBetTurnoverInTransaction(conn, player.userId, Number(order.id), diff,
           { gpid: body.Gpid === undefined ? null : int(body, 'Gpid'), gameId: body.GameId === undefined ? null : int(body, 'GameId') },
           player.currency)
       }

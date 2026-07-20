@@ -16,6 +16,45 @@ export async function createDepositRequirement(
   )
 }
 
+async function fillPendingTurnoverRequirements(
+  conn: PoolConnection,
+  userId: string,
+  currency: string,
+  logId: number,
+  effectiveAmount: number,
+): Promise<void> {
+  const [reqs] = await conn.query<RowDataPacket[]>(
+    `SELECT id, required_amount - completed_amount AS remaining
+     FROM bg_turnover_requirements
+     WHERE user_id = ? AND currency = ? AND status = 'pending'
+       AND (expires_at IS NULL OR expires_at > NOW())
+     ORDER BY created_at ASC
+     FOR UPDATE`,
+    [userId, currency],
+  )
+
+  let remaining = effectiveAmount
+  for (const req of reqs) {
+    if (remaining <= 0) break
+    const fill = Math.min(remaining, Number(req.remaining))
+    if (fill <= 0) continue
+    await conn.execute(
+      `INSERT INTO bg_turnover_allocations (log_id, requirement_id, allocated_amount)
+       VALUES (?, ?, ?)`,
+      [logId, req.id, fill],
+    )
+    await conn.execute(
+      `UPDATE bg_turnover_requirements
+       SET status = IF(completed_amount + ? >= required_amount, 'completed', 'pending'),
+           completed_amount = completed_amount + ?,
+           updated_at = NOW()
+       WHERE id = ?`,
+      [fill, fill, req.id],
+    )
+    remaining -= fill
+  }
+}
+
 export async function allocateBetTurnoverInTransaction(
   conn: PoolConnection,
   userId: string,
@@ -74,37 +113,44 @@ export async function allocateBetTurnoverInTransaction(
     [userId, currency, effectiveAmount],
   )
 
-  // FIFO：同货币的 pending 要求，按创建时间顺序填满
-  const [reqs] = await conn.query<RowDataPacket[]>(
-    `SELECT id, required_amount - completed_amount AS remaining
-     FROM bg_turnover_requirements
-     WHERE user_id = ? AND currency = ? AND status = 'pending'
-       AND (expires_at IS NULL OR expires_at > NOW())
-     ORDER BY created_at ASC
-     FOR UPDATE`,
-    [userId, currency],
-  )
+  await fillPendingTurnoverRequirements(conn, userId, currency, logId, effectiveAmount)
+}
 
-  let remaining = effectiveAmount
-  for (const req of reqs) {
-    if (remaining <= 0) break
-    const fill = Math.min(remaining, Number(req.remaining))
-    if (fill <= 0) continue
-    await conn.execute(
-      `INSERT INTO bg_turnover_allocations (log_id, requirement_id, allocated_amount)
-       VALUES (?, ?, ?)`,
-      [logId, req.id, fill],
-    )
-    await conn.execute(
-      `UPDATE bg_turnover_requirements
-       SET status = IF(completed_amount + ? >= required_amount, 'completed', 'pending'),
-           completed_amount = completed_amount + ?,
-           updated_at = NOW()
-       WHERE id = ?`,
-      [fill, fill, req.id],
-    )
-    remaining -= fill
+export async function increaseBetTurnoverInTransaction(
+  conn: PoolConnection,
+  userId: string,
+  betOrderId: number,
+  betDiff: number,
+  game: { gpid: number | null; gameId: number | null },
+  currency = 'PHP',
+): Promise<void> {
+  if (betDiff <= 0) return
+  const [[log]] = await conn.query<RowDataPacket[]>(
+    `SELECT id, rate
+     FROM bg_turnover_logs
+     WHERE user_id = ? AND currency = ? AND bet_order_id = ? AND is_reversed = 0
+     FOR UPDATE`,
+    [userId, currency, betOrderId],
+  )
+  if (!log) {
+    await allocateBetTurnoverInTransaction(conn, userId, betOrderId, betDiff, game, currency)
+    return
   }
+  const rate = Number(log.rate)
+  const effectiveDiff = Math.round(betDiff * rate * 10000) / 10000
+  if (effectiveDiff <= 0) return
+  await conn.execute(
+    `UPDATE bg_turnover_logs
+     SET bet_amount = bet_amount + ?, effective_amount = effective_amount + ?
+     WHERE id = ?`,
+    [betDiff, effectiveDiff, log.id],
+  )
+  await conn.execute(
+    `INSERT INTO bg_user_vip_state (user_id, currency, turnover_total) VALUES (?, ?, ?)
+     ON DUPLICATE KEY UPDATE turnover_total = turnover_total + VALUES(turnover_total)`,
+    [userId, currency, effectiveDiff],
+  )
+  await fillPendingTurnoverRequirements(conn, userId, currency, Number(log.id), effectiveDiff)
 }
 
 export async function reverseBetTurnover(

@@ -274,15 +274,23 @@ describe('568Win 钱包回调', () => {
     let balance = 500
     let txn: Record<string, unknown> | null = null
     let txnAmount: unknown = null
+    let turnoverLogExists = false
+    let turnoverIncreased = false
     const conn = {
       async query(sql: string) {
         if (sql.includes('SELECT available FROM bg_wallet')) return [[{ available: balance }], undefined]
         if (sql.includes('SELECT id FROM bg_bet_order')) return [[{ id: 1 }], undefined]
+        if (sql.includes('FROM bg_turnover_logs')) return [turnoverLogExists ? [{ id: 1, rate: 1 }] : [], undefined]
         if (sql.includes('bg_568win_wallet_txn')) return [txn ? [txn] : [], undefined]
         return [[], undefined]
       },
       async execute(sql: string, params?: unknown[]) {
         if (sql.includes('UPDATE bg_wallet SET available')) balance += Number(params?.[0] ?? 0)
+        if (sql.includes('INSERT INTO bg_turnover_logs')) {
+          assert.equal(turnoverLogExists, false)
+          turnoverLogExists = true
+        }
+        if (sql.includes('UPDATE bg_turnover_logs')) turnoverIncreased = true
         if (sql.includes('INSERT INTO bg_568win_wallet_txn')) {
           txn = {
             id: 1,
@@ -362,6 +370,7 @@ describe('568Win 钱包回调', () => {
     assert.equal(third.Balance, 480)
     assert.equal(third.BetAmount, 20)
     assert.equal(txnAmount, 20)
+    assert.equal(turnoverIncreased, true)
   })
 
   it('Deduct 对 ProductType 3 插入撞唯一键后重试合法加注', async () => {
