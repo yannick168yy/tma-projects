@@ -10,12 +10,14 @@ import { getAdminSetting, setAdminSetting } from './admin-store.js'
 
 const log = childLogger('bi-report')
 const DAY_MS = 24 * 60 * 60 * 1000
+const PHT_OFFSET_MS = 8 * 3600 * 1000
+const REPORT_HOUR_PHT = 10
 
-// AI 运营日报：每天马尼拉 08:00 汇总昨日大盘推送到运营 TG 群。
+// AI 运营日报：每天马尼拉 10:00 汇总昨日大盘推送到运营 TG 群。
 // 配置了 GEMINI_API_KEY 用 Gemini 生成叙述版（与 KYC 共用 key）；否则发纯数据模板。发送失败静默。
 
 function manilaDate(offsetDays = 0): string {
-  return new Date(Date.now() + 8 * 3600 * 1000 + offsetDays * DAY_MS).toISOString().slice(0, 10)
+  return new Date(Date.now() + PHT_OFFSET_MS + offsetDays * DAY_MS).toISOString().slice(0, 10)
 }
 
 interface DayNumbers {
@@ -117,8 +119,8 @@ export async function setBiReportEnabled(env: Env, enabled: boolean): Promise<vo
 
 export async function runBiReportTick(env: Env, redis: Redis): Promise<void> {
   if (!isMysqlEnabled(env) || !env.ADMIN_TG_BOT_TOKEN || !env.ADMIN_TG_CHAT_ID) return
-  const manilaHour = new Date(Date.now() + 8 * 3600 * 1000).getUTCHours()
-  if (manilaHour !== 8) return
+  const manilaHour = new Date(Date.now() + PHT_OFFSET_MS).getUTCHours()
+  if (manilaHour !== REPORT_HOUR_PHT) return
   if (!(await isBiReportEnabled(env))) return
 
   const today = manilaDate()

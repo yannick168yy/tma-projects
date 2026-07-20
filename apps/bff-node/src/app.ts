@@ -184,7 +184,7 @@ export function createApp(env: Env): Koa {
     }, 20_000)
   }
 
-  // BI 运营日报:每 5 分钟检查,马尼拉 08:00 时段发送(Redis 锁保证每天一次)
+  // BI 运营日报:每 5 分钟检查,马尼拉 10:00 时段发送(Redis 锁保证每天一次)
   if (singletonJobs && isMysqlEnabled(env)) {
     const biReportLog = childLogger('bi-report-tick')
     setTimeout(() => {
