@@ -258,6 +258,68 @@ export class Win568WalletService {
     return rows
   }
 
+  private async finishRaiseDeduct(conn: PoolConnection, player: PlayerRef, body: CallbackBody, bet: TxnRow, amount: number, balance: number) {
+    const transferCode = text(body, 'TransferCode')
+    const oldAmount = Number(bet.amount)
+    if (amount > oldAmount) {
+      const diff = round2(amount - oldAmount)
+      if (balance < diff) {
+        await conn.commit()
+        return err(5, 'Not enough balance', player.username, balance, { BetAmount: 0 })
+      }
+      const newBalance = await this.changeBalance(conn, player, -diff)
+      await conn.execute(
+        `UPDATE bg_568win_wallet_txn SET amount = ?, raw_request = ?, updated_at = NOW(3) WHERE id = ?`,
+        [amount, JSON.stringify(body), bet.id],
+      )
+      await conn.execute(
+        `UPDATE bg_bet_order SET amount = ?, original_amount = ? WHERE aggregator_id = '568win' AND provider_txn_id = ? AND bet_type = 'bet'`,
+        [amount, amount, transferKey(body)],
+      )
+      const [[order]] = await conn.query<RowDataPacket[]>(
+        `SELECT id FROM bg_bet_order WHERE aggregator_id = '568win' AND provider_txn_id = ? AND bet_type = 'bet' LIMIT 1`,
+        [transferKey(body)],
+      )
+      if (order) {
+        await allocateBetTurnoverInTransaction(conn, player.userId, Number(order.id), diff,
+          { gpid: body.Gpid === undefined ? null : int(body, 'Gpid'), gameId: body.GameId === undefined ? null : int(body, 'GameId') },
+          player.currency)
+      }
+      await this.addLedger(conn, player, 'bet', -diff, newBalance, transferCode, '568Win raise bet')
+      await this.refreshBetRound(conn, player.userId, text(body, 'GameRoundId') || transferCode)
+      await conn.commit()
+      return ok(player.username, newBalance, { BetAmount: amount })
+    }
+    await conn.commit()
+    return err(amount < oldAmount ? 7 : 5003, amount < oldAmount ? 'Invalid raise amount' : 'Bet With Same RefNo Exists', player.username, balance, { BetAmount: 0 })
+  }
+
+  private async retryDuplicateRaiseDeduct(conn: PoolConnection, player: PlayerRef, body: CallbackBody) {
+    const productType = int(body, 'ProductType')
+    if (productType !== 3 && productType !== 7) return null
+    await sleep(50)
+    await conn.beginTransaction()
+    try {
+      const balance = await this.lockedBalance(conn, player)
+      const existing = await this.findTxns(conn, body, { lock: true })
+      if (existing.length === 0) {
+        await conn.commit()
+        return null
+      }
+      const bet = existing.find((row) => statusText(row.status) === 'running') ?? existing[0]
+      const status = statusText(bet.status)
+      const current = await this.currentBalance(conn, player)
+      if (status === 'void' || status !== 'running') {
+        await conn.commit()
+        return err(5003, 'Bet With Same RefNo Exists', player.username, current, { BetAmount: 0 })
+      }
+      return this.finishRaiseDeduct(conn, player, body, bet, round2(num(body, 'Amount')), balance)
+    } catch (retryErr) {
+      await conn.rollback()
+      throw retryErr
+    }
+  }
+
   private async rollbackAlreadyApplied(conn: PoolConnection, player: PlayerRef, body: CallbackBody): Promise<number | null> {
     const bets = await this.findTxns(conn, body)
     if (!bets.some((b) => b.status === 'running' && b.win_loss !== null)) return null
@@ -318,39 +380,8 @@ export class Win568WalletService {
           await conn.commit()
           return err(5003, 'Bet With Same RefNo Exists', player.username, current, { BetAmount: 0 })
         }
-        const oldAmount = Number(bet.amount)
         if (productType === 3 || productType === 7) {
-          if (amount > oldAmount) {
-            const diff = round2(amount - oldAmount)
-            if (balance < diff) {
-              await conn.commit()
-              return err(5, 'Not enough balance', player.username, balance, { BetAmount: 0 })
-            }
-            const newBalance = await this.changeBalance(conn, player, -diff)
-            await conn.execute(
-              `UPDATE bg_568win_wallet_txn SET amount = ?, raw_request = ?, updated_at = NOW(3) WHERE id = ?`,
-              [amount, JSON.stringify(body), bet.id],
-            )
-            await conn.execute(
-              `UPDATE bg_bet_order SET amount = ?, original_amount = ? WHERE aggregator_id = '568win' AND provider_txn_id = ? AND bet_type = 'bet'`,
-              [amount, amount, transferKey(body)],
-            )
-            const [[order]] = await conn.query<RowDataPacket[]>(
-              `SELECT id FROM bg_bet_order WHERE aggregator_id = '568win' AND provider_txn_id = ? AND bet_type = 'bet' LIMIT 1`,
-              [transferKey(body)],
-            )
-            if (order) {
-              await allocateBetTurnoverInTransaction(conn, player.userId, Number(order.id), diff,
-                { gpid: body.Gpid === undefined ? null : int(body, 'Gpid'), gameId: body.GameId === undefined ? null : int(body, 'GameId') },
-                player.currency)
-            }
-            await this.addLedger(conn, player, 'bet', -diff, newBalance, transferCode, '568Win raise bet')
-            await this.refreshBetRound(conn, player.userId, text(body, 'GameRoundId') || transferCode)
-            await conn.commit()
-            return ok(player.username, newBalance, { BetAmount: amount })
-          }
-          await conn.commit()
-          return err(amount < oldAmount ? 7 : 5003, amount < oldAmount ? 'Invalid raise amount' : 'Bet With Same RefNo Exists', player.username, balance, { BetAmount: 0 })
+          return this.finishRaiseDeduct(conn, player, body, bet, amount, balance)
         }
         await conn.commit()
         return err(5003, 'Bet With Same RefNo Exists', player.username, current, { BetAmount: 0 })
@@ -388,6 +419,12 @@ export class Win568WalletService {
     } catch (e) {
       await conn.rollback()
       if (isDupEntry(e)) {
+        const raised = await this.retryDuplicateRaiseDeduct(conn, player, body)
+          .catch((retryErr) => {
+            this.app.log.error({ err: retryErr }, '[568win] deduct duplicate raise retry failed')
+            return null
+          })
+        if (raised) return raised
         const balance = await this.currentBalance(conn, player).catch(() => 0)
         return err(5003, 'Bet With Same RefNo Exists', player.username, balance, { BetAmount: 0 })
       }
