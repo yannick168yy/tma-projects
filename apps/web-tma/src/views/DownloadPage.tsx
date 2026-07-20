@@ -8,11 +8,11 @@ const APK_DOWNLOAD_URL = ''
 
 // 仿应用商店页，文案固定英文（面向 PH 用户，模拟 Play Store 不随站点语言切换）
 const SCREENSHOTS = [
-  '/download/shots/shot1.webp',
-  '/download/shots/shot2.webp',
-  '/download/shots/shot3.webp',
-  '/download/shots/shot4.webp',
-  '/download/shots/shot5.webp',
+  '/dl/shots/shot1.webp',
+  '/dl/shots/shot2.webp',
+  '/dl/shots/shot3.webp',
+  '/dl/shots/shot4.webp',
+  '/dl/shots/shot5.webp',
 ]
 
 const ABOUT_TEXT = `🔥 🌟🌟🌟🌟🌟 4.9, no ads, smooth game, credit guaranteed, funds withdrawn in seconds 🔥
@@ -32,7 +32,7 @@ const RATING_BARS = [100, 26, 10, 7, 3]
 const REVIEWS = [
   {
     name: 'maricel dizon',
-    avatar: '/download/avatars/user1.jpg',
+    avatar: '/dl/avatars/user1.jpg',
     date: 'july 12, 2026',
     rating: 5,
     text: 'legit sya, nag cash out ako kahapon 30 mins lang nasa gcash na agad. sulit ung vip rewards araw araw may bonus.',
@@ -40,7 +40,7 @@ const REVIEWS = [
   },
   {
     name: 'john rey santos',
-    avatar: '/download/avatars/user2.jpg',
+    avatar: '/dl/avatars/user2.jpg',
     date: 'july 8, 2026',
     rating: 5,
     text: 'grabe ung 500 ko naging 3,800 sa super ace hahaha solid! mabilis din mag load walang lag.',
@@ -48,7 +48,7 @@ const REVIEWS = [
   },
   {
     name: 'kristine mae',
-    avatar: '/download/avatars/user3.jpg',
+    avatar: '/dl/avatars/user3.jpg',
     date: 'june 30, 2026',
     rating: 4,
     text: 'ok naman, mabilis ang withdrawal at maraming games. sana dagdagan pa ung mga bingo events.',
@@ -56,7 +56,7 @@ const REVIEWS = [
   },
   {
     name: 'shiela hernandez',
-    avatar: '/download/avatars/user4.jpg',
+    avatar: '/dl/avatars/user4.jpg',
     date: 'june 27, 2026',
     rating: 5,
     text: 'grabe ung vip benefits dito, sa iba weekly lang. dito may daily check in, weekly tapos may monthly pa.',
@@ -64,7 +64,7 @@ const REVIEWS = [
   },
   {
     name: 'julia padilla',
-    avatar: '/download/avatars/user5.jpg',
+    avatar: '/dl/avatars/user5.jpg',
     date: 'june 22, 2026',
     rating: 5,
     text: 'may cash rebate pala kahit natalo, automatic pumapasok every midnight. tsaka ung lucky wheel libre araw araw.',
@@ -72,7 +72,7 @@ const REVIEWS = [
   },
   {
     name: 'andrea madrid',
-    avatar: '/download/avatars/user6.jpg',
+    avatar: '/dl/avatars/user6.jpg',
     date: 'june 18, 2026',
     rating: 5,
     text: 'akala ko di na mawiwithdraw ung panalo ko, buti nalang ang bilis mag response ng customer service, 5 minutes lang nasolve agad.',
