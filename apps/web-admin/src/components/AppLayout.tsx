@@ -40,6 +40,7 @@ function buildMenuItems(badges: AdminBadges) {
         { key: '/bi/games', label: '游戏分析' },
         { key: '/bi/users', label: '用户分析' },
         { key: '/bi/acquisition', label: '渠道拉新' },
+        { key: '/bi/churn', label: '流失挽回' },
       ],
     },
     {

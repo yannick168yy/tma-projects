@@ -39,7 +39,7 @@ function useChart(render: (chart: echarts.ECharts) => void, deps: unknown[]) {
 
 export function LineChart({ dates, series, height = 300 }: {
   dates: string[]
-  series: { name: string; color?: string; data: number[] }[]
+  series: { name: string; color?: string; data: (number | null)[]; dashed?: boolean }[]
   height?: number
 }) {
   const ref = useChart((chart) => {
@@ -51,8 +51,10 @@ export function LineChart({ dates, series, height = 300 }: {
       yAxis: { type: 'value', splitLine: { lineStyle: { color: '#f0f0f0' } }, axisLabel: { color: '#52514e' } },
       series: series.map((s, i) => ({
         name: s.name, type: 'line', data: s.data,
-        lineStyle: { width: 2 }, itemStyle: { color: s.color ?? BI_SERIES_ORDER[i % 8] },
+        lineStyle: { width: 2, type: s.dashed ? 'dashed' : 'solid' },
+        itemStyle: { color: s.color ?? BI_SERIES_ORDER[i % 8] },
         symbol: 'circle', symbolSize: 8, showSymbol: dates.length <= 31,
+        connectNulls: false,
       })),
     }, true)
   }, [dates, series])

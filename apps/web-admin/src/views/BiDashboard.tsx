@@ -1,8 +1,18 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Alert, Card, Col, Collapse, Row, Segmented, Select, Space, Spin, Table, Tooltip } from 'antd'
+import {
+  Alert, Button, Card, Col, Collapse, Form, InputNumber, Modal, Progress, Row,
+  Segmented, Select, Space, Spin, Table, Tooltip, message,
+} from 'antd'
 import { useNavigate } from 'react-router-dom'
-import { getBiAlerts, getBiOverview, getBiTrends, type BiOverview, type BiTrendPoint, type BiWindowStats } from '../api'
+import {
+  getBiAlerts, getBiForecast, getBiOverview, getBiTargetProgress, getBiTargets, getBiTrends, putBiTarget,
+  type BiForecastPoint, type BiOverview, type BiTargetProgress, type BiTrendPoint, type BiWindowStats,
+} from '../api'
 import { BI_COLORS as C, LineChart } from '../components/BiCharts'
+
+const METRIC_LABEL: Record<string, string> = {
+  ggr: 'GGR (₱)', deposit: '充值 (₱)', new_users: '新增注册', first_dep_users: '首充人数',
+}
 
 const fmtMoney = (v: number) => v.toLocaleString('en-PH', { maximumFractionDigits: 0 })
 
@@ -14,6 +24,109 @@ function DeltaTag({ cur, base, label }: { cur: number; base: number; label: stri
     <span style={{ color, fontSize: 12 }}>
       {label} {pct >= 0 ? '↑' : '↓'}{Math.abs(pct).toFixed(1)}%
     </span>
+  )
+}
+
+function TargetSection() {
+  const canEdit = ['super_admin', 'finance'].includes(localStorage.getItem('admin_role') ?? '')
+  const [progress, setProgress] = useState<{ period: string; items: BiTargetProgress[] } | null>(null)
+  const [editing, setEditing] = useState(false)
+  const [form] = Form.useForm()
+
+  const load = () => getBiTargetProgress().then(setProgress).catch(() => {})
+  useEffect(() => { load() }, [])
+
+  const openEdit = async () => {
+    if (!progress) return
+    const targets = await getBiTargets(progress.period)
+    form.setFieldsValue(Object.fromEntries(targets.map((t) => [t.metric, t.targetValue])))
+    setEditing(true)
+  }
+  const save = async () => {
+    if (!progress) return
+    const values = form.getFieldsValue() as Record<string, number | null>
+    for (const metric of Object.keys(METRIC_LABEL)) {
+      const v = values[metric]
+      if (v != null && v >= 0) await putBiTarget(progress.period, metric, v)
+    }
+    message.success('目标已保存')
+    setEditing(false)
+    load()
+  }
+
+  if (!progress) return null
+  if (progress.items.length === 0 && !canEdit) return null
+
+  return (
+    <Card bordered={false} size="small" style={{ marginBottom: 16 }}
+      title={`本月目标进度（${progress.period}）`}
+      extra={canEdit && <Button size="small" onClick={openEdit}>设置目标</Button>}>
+      {progress.items.length === 0 && <div style={{ color: '#999' }}>尚未设置本月目标</div>}
+      <Row gutter={16}>
+        {progress.items.map((it) => {
+          const compPct = Math.round(it.completion * 100)
+          const timePct = Math.round(it.timeProgress * 100)
+          const ahead = it.completion >= it.timeProgress
+          return (
+            <Col xs={24} md={12} lg={6} key={it.metric}>
+              <div style={{ marginBottom: 4, display: 'flex', justifyContent: 'space-between' }}>
+                <b>{METRIC_LABEL[it.metric] ?? it.metric}</b>
+                <span style={{ color: ahead ? '#3f8600' : '#cf1322', fontSize: 12 }}>
+                  {compPct}% / 时间 {timePct}%
+                </span>
+              </div>
+              <Progress percent={Math.min(compPct, 100)} strokeColor={ahead ? '#008300' : '#eb6834'} showInfo={false} />
+              <div style={{ fontSize: 12, color: '#52514e' }}>
+                {fmtMoney(it.actual)} / {fmtMoney(it.target)}，剩余日均需 {fmtMoney(it.requiredDaily)}
+              </div>
+              <div style={{ fontSize: 12, color: it.projectedCompletion >= 1 ? '#3f8600' : '#d46b08' }}>
+                按趋势预计月底 {Math.round(it.projectedCompletion * 100)}%（{fmtMoney(it.projected)}）
+              </div>
+            </Col>
+          )
+        })}
+      </Row>
+      <Modal title={`设置 ${progress.period} 月度目标`} open={editing} onOk={save} onCancel={() => setEditing(false)}>
+        <Form form={form} layout="vertical">
+          {Object.entries(METRIC_LABEL).map(([metric, label]) => (
+            <Form.Item key={metric} name={metric} label={label}>
+              <InputNumber min={0} style={{ width: '100%' }} />
+            </Form.Item>
+          ))}
+        </Form>
+      </Modal>
+    </Card>
+  )
+}
+
+function ForecastSection() {
+  const [ggr, setGgr] = useState<{ history: BiForecastPoint[]; forecast: BiForecastPoint[] } | null>(null)
+  const [dep, setDep] = useState<{ history: BiForecastPoint[]; forecast: BiForecastPoint[] } | null>(null)
+
+  useEffect(() => {
+    getBiForecast('ggr').then(setGgr).catch(() => {})
+    getBiForecast('deposit').then(setDep).catch(() => {})
+  }, [])
+
+  if (!ggr || !dep) return null
+  const dates = [...ggr.history.map((p) => p.date), ...ggr.forecast.map((p) => p.date)]
+  const n = ggr.history.length
+  // 实际段与预测段在交界处共享一个点，视觉连续
+  const mk = (d: { history: BiForecastPoint[]; forecast: BiForecastPoint[] }) => ({
+    actual: [...d.history.map((p) => p.value), ...d.forecast.map(() => null)],
+    pred: [...d.history.map((p, i) => (i === n - 1 ? p.value : null)), ...d.forecast.map((p) => p.value)],
+  })
+  const g = mk(ggr); const w = mk(dep)
+
+  return (
+    <Card bordered={false} size="small" title="未来 7 天预测（虚线，按星期规律外推，折算 PHP）" style={{ marginBottom: 16 }}>
+      <LineChart dates={dates} height={260} series={[
+        { name: 'GGR', color: C.green, data: g.actual },
+        { name: 'GGR 预测', color: C.green, data: g.pred, dashed: true },
+        { name: '充值', color: C.blue, data: w.actual },
+        { name: '充值预测', color: C.blue, data: w.pred, dashed: true },
+      ]} />
+    </Card>
   )
 }
 
@@ -110,6 +223,9 @@ export default function BiDashboard() {
           </Col>
         ))}
       </Row>
+
+      <TargetSection />
+      <ForecastSection />
 
       <Space style={{ marginBottom: 16 }} wrap>
         <Segmented value={days} onChange={(v) => setDays(v as number)}

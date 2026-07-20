@@ -140,6 +140,29 @@ export interface BiAcquisitionRow {
 }
 export const getBiAcquisition = (days: number) =>
   get<{ sources: BiAcquisitionRow[]; dauTrend: { dates: string[]; series: { name: string; data: number[] }[] } }>('/admin/bi/acquisition', { days })
+
+export interface BiForecastPoint { date: string; value: number }
+export const getBiForecast = (metric: 'ggr' | 'deposit') =>
+  get<{ history: BiForecastPoint[]; forecast: BiForecastPoint[] }>('/admin/bi/forecast', { metric })
+
+export const getBiTargets = (period: string) => get<{ metric: string; targetValue: number }[]>('/admin/bi/targets', { period })
+export const putBiTarget = (period: string, metric: string, targetValue: number) =>
+  put<{ ok: boolean }>('/admin/bi/targets', { period, metric, targetValue })
+
+export interface BiTargetProgress {
+  metric: string; target: number; actual: number
+  timeProgress: number; completion: number; requiredDaily: number
+  projected: number; projectedCompletion: number
+}
+export const getBiTargetProgress = () => get<{ period: string; items: BiTargetProgress[] }>('/admin/bi/target-progress')
+
+export interface BiChurnUser {
+  userId: string; displayName: string; deposit90d: number
+  lastActive: string; idleDays: number; cadenceDays: number; score: number
+}
+export const getBiChurnRisk = () => get<BiChurnUser[]>('/admin/bi/churn-risk')
+export const grantChurnRedepOffer = (userId: string, currency = 'PHP') =>
+  post<{ ok: boolean; reason?: string; bonusAmount?: number; minDeposit?: number; endsAt?: string }>('/admin/bi/churn/redep-offer', { userId, currency })
 export const setBiAlertStatus = (id: number, status: 'ack' | 'closed') =>
   patch<{ updated: boolean }>(`/admin/bi/alerts/${id}`, { status })
 
