@@ -1,5 +1,6 @@
 import type { Redis } from 'ioredis'
 import type { RowDataPacket } from 'mysql2/promise'
+import { GoogleGenerativeAI } from '@google/generative-ai'
 import { getMysqlPool, isMysqlEnabled } from '../clients/mysql.client.js'
 import type { Env } from '../config/env.js'
 import { childLogger } from '../lib/logger.js'
@@ -10,7 +11,7 @@ const log = childLogger('bi-report')
 const DAY_MS = 24 * 60 * 60 * 1000
 
 // AI 运营日报：每天马尼拉 08:00 汇总昨日大盘推送到运营 TG 群。
-// 配置了 ANTHROPIC_API_KEY 用 Claude 生成叙述版；否则发纯数据模板。发送失败静默。
+// 配置了 GEMINI_API_KEY 用 Gemini 生成叙述版（与 KYC 共用 key）；否则发纯数据模板。发送失败静默。
 
 function manilaDate(offsetDays = 0): string {
   return new Date(Date.now() + 8 * 3600 * 1000 + offsetDays * DAY_MS).toISOString().slice(0, 10)
@@ -77,41 +78,27 @@ async function composeRawReport(env: Env, redis: Redis, date: string): Promise<s
   return lines.join('\n')
 }
 
-async function polishWithClaude(env: Env, raw: string): Promise<string> {
-  if (!env.ANTHROPIC_API_KEY) return raw
+async function polishWithGemini(env: Env, raw: string): Promise<string> {
+  if (!env.GEMINI_API_KEY) return raw
   try {
-    const ctrl = new AbortController()
-    const timer = setTimeout(() => ctrl.abort(), 20_000)
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': env.ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 800,
-        system: [
+    const ai = new GoogleGenerativeAI(env.GEMINI_API_KEY)
+    const model = ai.getGenerativeModel(
+      {
+        model: 'gemini-2.5-flash',
+        systemInstruction: [
           '你是菲律宾在线游戏平台 BetoGo 的数据分析师，把每日数据写成给老板看的中文运营日报。',
           '硬性规则：所有数字、百分比、厂商名必须与原文完全一致，不得编造或推算新数字；',
           '结构：一句话大盘结论 → 亮点 → 异常/风险 → 一条可执行建议；全文不超过 200 字；',
           '直接输出日报正文，不要任何前言。',
         ].join('\n'),
-        messages: [{ role: 'user', content: `根据以下数据写今日运营日报：\n\n${raw}` }],
-      }),
-      signal: ctrl.signal,
-    })
-    clearTimeout(timer)
-    if (!resp.ok) {
-      log.warn({ status: resp.status }, 'claude polish failed, use raw')
-      return raw
-    }
-    const data = (await resp.json()) as { content?: Array<{ type: string; text?: string }> }
-    const text = data.content?.find((c) => c.type === 'text')?.text?.trim()
+      },
+      { timeout: 20_000 },
+    )
+    const res = await model.generateContent(`根据以下数据写今日运营日报：\n\n${raw}`)
+    const text = res.response.text().trim()
     return text ? `📊 BetoGo 运营日报 ${manilaDate(-1)}\n\n${text}\n\n——\n${raw.split('\n').slice(2).join('\n')}` : raw
   } catch (err) {
-    log.warn({ err }, 'claude polish error, use raw')
+    log.warn({ err }, 'gemini polish error, use raw')
     return raw
   }
 }
@@ -127,7 +114,7 @@ export async function runBiReportTick(env: Env, redis: Redis): Promise<void> {
 
   try {
     const raw = await composeRawReport(env, redis, manilaDate(-1))
-    const text = await polishWithClaude(env, raw)
+    const text = await polishWithGemini(env, raw)
     const ctrl = new AbortController()
     const timer = setTimeout(() => ctrl.abort(), 10_000)
     await fetch(`https://api.telegram.org/bot${env.ADMIN_TG_BOT_TOKEN}/sendMessage`, {
@@ -148,7 +135,7 @@ export async function runBiReportTick(env: Env, redis: Redis): Promise<void> {
 /** 手动触发（联调用）：忽略时间窗与去重锁，直接生成并发送 */
 export async function sendBiReportNow(env: Env, redis: Redis): Promise<{ sent: boolean; text: string }> {
   const raw = await composeRawReport(env, redis, manilaDate(-1))
-  const text = await polishWithClaude(env, raw)
+  const text = await polishWithGemini(env, raw)
   if (!env.ADMIN_TG_BOT_TOKEN || !env.ADMIN_TG_CHAT_ID) return { sent: false, text }
   const resp = await fetch(`https://api.telegram.org/bot${env.ADMIN_TG_BOT_TOKEN}/sendMessage`, {
     method: 'POST',
