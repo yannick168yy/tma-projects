@@ -36,6 +36,9 @@ export default function TrialClaimModal({ open, amountPhp, onClose }: Props) {
   const [otpRequired, setOtpRequired] = useState(true)
   const [phone, setPhone] = useState('')
   const [phoneLocked, setPhoneLocked] = useState(false)
+  // 非手机号注册用户（无手机登录身份）绑手机时必须同时设密码，绑完即可手机+密码登录
+  const [needPassword, setNeedPassword] = useState(false)
+  const [password, setPassword] = useState('')
   const [code, setCode] = useState('')
   const [resendIn, setResendIn] = useState(0)
   const [loading, setLoading] = useState(false)
@@ -46,21 +49,27 @@ export default function TrialClaimModal({ open, amountPhp, onClose }: Props) {
     document.body.style.overflow = 'hidden'
     setStep('loading')
     setCode('')
+    setPassword('')
     setError(null)
     setResendIn(0)
     void fetchKycStatus()
       .then((s) => {
-        if (s.phoneVerified) {
-          setStep('claim')
-          return
-        }
-        setOtpRequired(s.requirePhone)
+        const hasPhoneLogin = Boolean(s.registeredPhone)
+        setOtpRequired(s.requirePhone && !s.phoneVerified)
+        setNeedPassword(!hasPhoneLogin)
         if (s.registeredPhone) {
           setPhone(s.registeredPhone)
           setPhoneLocked(true)
         } else if (s.phone) {
           setPhone(s.phone)
+          setPhoneLocked(s.phoneVerified)
+        } else {
+          setPhone('')
           setPhoneLocked(false)
+        }
+        if (s.phoneVerified && hasPhoneLogin) {
+          setStep('claim')
+          return
         }
         setStep('phone')
       })
@@ -85,11 +94,18 @@ export default function TrialClaimModal({ open, amountPhp, onClose }: Props) {
     } finally { setLoading(false) }
   }
 
+  function validPassword(): boolean {
+    if (!needPassword) return true
+    if (password.length < 8) { setError(t('bonuses.promos.trial.bind.passwordShort')); return false }
+    return true
+  }
+
   async function onVerifyCode() {
     if (!code.trim()) { setError(t('kyc.fillAll')); return }
+    if (!validPassword()) return
     setLoading(true); setError(null)
     try {
-      await verifyKycOtp(code.trim())
+      await verifyKycOtp(code.trim(), needPassword ? password : undefined)
       setStep('claim')
     } catch (e) {
       setError(e instanceof ApiError ? translateSmsError(e.message, t) : t('kyc.rejected'))
@@ -98,9 +114,10 @@ export default function TrialClaimModal({ open, amountPhp, onClose }: Props) {
 
   async function onBindDirect() {
     if (!phone.trim()) { setError(t('kyc.fillAll')); return }
+    if (!validPassword()) return
     setLoading(true); setError(null)
     try {
-      await bindKycPhone(phone.trim())
+      await bindKycPhone(phone.trim(), needPassword ? password : undefined)
       setStep('claim')
     } catch (e) {
       setError(e instanceof ApiError ? translateSmsError(e.message, t) : t('auth.loginFailed'))
@@ -112,6 +129,17 @@ export default function TrialClaimModal({ open, amountPhp, onClose }: Props) {
     const result = await claimTrialIfEligible()
     if (result.ok || result.alreadyClaimed) {
       onClose()
+      return
+    }
+    if (result.message === 'Phone login setup required') {
+      setNeedPassword(true)
+      setStep('phone')
+      setError(t('bonuses.promos.trial.bind.passwordHint'))
+      return
+    }
+    if (result.message === 'Phone verification required') {
+      setStep('phone')
+      setError(t('bonuses.promos.trial.bind.subtitle', { amount: amountPhp }))
       return
     }
     if (result.message) setError(result.message)
@@ -153,6 +181,12 @@ export default function TrialClaimModal({ open, amountPhp, onClose }: Props) {
                 </div>
                 {phoneLocked && <p className="text-[10px] text-muted-foreground">{t('kyc.phoneLocked')}</p>}
                 <input value={code} type="text" inputMode="numeric" maxLength={6} placeholder={t('kyc.codeLabel')} className={inputCls} onChange={(e) => setCode(e.target.value)} />
+                {needPassword && (
+                  <>
+                    <input value={password} type="password" placeholder={t('bonuses.promos.trial.bind.passwordPlaceholder')} className={inputCls} onChange={(e) => setPassword(e.target.value)} />
+                    <p className="text-[10px] text-muted-foreground">{t('bonuses.promos.trial.bind.passwordHint')}</p>
+                  </>
+                )}
                 <button type="button" className="w-full rounded-xl bg-primary py-3 text-sm font-bold text-primary-foreground disabled:opacity-50" disabled={loading} onClick={() => void onVerifyCode()}>
                   {loading ? <Loader2 size={16} className="mx-auto animate-spin" /> : t('kyc.verify')}
                 </button>
@@ -161,6 +195,12 @@ export default function TrialClaimModal({ open, amountPhp, onClose }: Props) {
               <>
                 <input value={phone} type="tel" placeholder={t('auth.phonePlaceholder')} className={`${inputCls}${phoneLocked ? ' opacity-60' : ''}`} readOnly={phoneLocked} onChange={(e) => setPhone(e.target.value)} />
                 {phoneLocked && <p className="text-[10px] text-muted-foreground">{t('kyc.phoneLocked')}</p>}
+                {needPassword && (
+                  <>
+                    <input value={password} type="password" placeholder={t('bonuses.promos.trial.bind.passwordPlaceholder')} className={inputCls} onChange={(e) => setPassword(e.target.value)} />
+                    <p className="text-[10px] text-muted-foreground">{t('bonuses.promos.trial.bind.passwordHint')}</p>
+                  </>
+                )}
                 <button type="button" className="w-full rounded-xl bg-primary py-3 text-sm font-bold text-primary-foreground disabled:opacity-50" disabled={loading} onClick={() => void onBindDirect()}>
                   {loading ? <Loader2 size={16} className="mx-auto animate-spin" /> : t('kyc.bindPhoneCta')}
                 </button>

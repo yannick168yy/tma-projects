@@ -504,6 +504,9 @@ export default {
           subtitleNoOtp: 'Liên kết số điện thoại để nhận ₱{{amount}} tín dụng miễn phí',
           bound: 'Đã xác minh SĐT. Nhấn bên dưới để nhận thưởng',
           claimCta: 'Nhận thưởng ₱{{amount}}',
+          passwordPlaceholder: 'Đặt mật khẩu đăng nhập (tối thiểu 8 ký tự)',
+          passwordHint: 'Sau khi liên kết, bạn có thể đăng nhập bằng SĐT và mật khẩu này',
+          passwordShort: 'Mật khẩu phải có ít nhất 8 ký tự',
         },
       },
       firstdep: {

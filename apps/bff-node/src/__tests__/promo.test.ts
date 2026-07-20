@@ -6,7 +6,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import Koa from 'koa'
 import bodyParser from 'koa-bodyparser'
 import request from 'supertest'
-import type { UserRecord } from '../types/domain.js'
+import type { UserIdentity, UserRecord } from '../types/domain.js'
 
 // mock 必须在 import 被提升之前声明（vitest 会 hoist vi.mock 调用）
 vi.mock('../services/store.js', () => ({
@@ -15,6 +15,7 @@ vi.mock('../services/store.js', () => ({
   creditWallet: vi.fn(),
   listLedger: vi.fn(),
   getKyc: vi.fn(),
+  listUserIdentities: vi.fn(),
 }))
 
 vi.mock('../services/promo-config.service.js', () => ({
@@ -30,6 +31,7 @@ const mockSaveUser = vi.mocked(store.saveUser)
 const mockCreditWallet = vi.mocked(store.creditWallet)
 const mockListLedger = vi.mocked(store.listLedger)
 const mockGetKyc = vi.mocked(store.getKyc)
+const mockListUserIdentities = vi.mocked(store.listUserIdentities)
 const mockGetPromoConfig = vi.mocked(promoConfigSvc.getPromoConfig)
 
 // ──────────────────────────────────────────
@@ -49,6 +51,17 @@ function makeUser(overrides: Partial<UserRecord> = {}): UserRecord {
     firstDepClaimed: false,
     referralReady: false,
     firstDepReady: false,
+    ...overrides,
+  }
+}
+
+function makePhoneIdentity(overrides: Partial<UserIdentity> = {}): UserIdentity {
+  return {
+    provider: 'phone',
+    identifier: '+639560285761',
+    userId: 'BG-10001',
+    verifiedAt: '2025-01-01T00:00:00.000Z',
+    createdAt: '2025-01-01T00:00:00.000Z',
     ...overrides,
   }
 }
@@ -89,6 +102,7 @@ describe('首席体验官 (trial)', () => {
     mockCreditWallet.mockResolvedValue({ available: 88, frozen: 0 })
     // trial 领取有手机短信验证硬闸门
     mockGetKyc.mockResolvedValue({ phoneVerified: true } as never)
+    mockListUserIdentities.mockResolvedValue([makePhoneIdentity()])
   })
 
   it('GET /promotions/trial-play — 未领取时返回 claimed:false', async () => {
@@ -155,11 +169,22 @@ describe('首席体验官 (trial)', () => {
     )
   })
 
+  it('POST /promotions/trial-play/claim — 已验证手机号但未设置手机登录时返回 403', async () => {
+    mockGetUser.mockResolvedValue(makeUser({ trialClaimed: false }))
+    mockListUserIdentities.mockResolvedValue([])
+
+    const res = await request(createApp()).post('/promotions/trial-play/claim')
+
+    expect(res.status).toBe(403)
+    expect(res.body.message).toBe('Phone login setup required')
+    expect(mockCreditWallet).not.toHaveBeenCalled()
+  })
+
   it('POST /promotions/trial-play/claim — 重复领取返回 409', async () => {
     mockGetUser.mockResolvedValue(makeUser({ trialClaimed: true }))
     const res = await request(createApp()).post('/promotions/trial-play/claim')
 
-    expect(res.status).toBe(400)
+    expect(res.status).toBe(409)
     expect(res.body.code).toBe(409)
     expect(mockCreditWallet).not.toHaveBeenCalled()
   })
@@ -172,7 +197,7 @@ describe('首席体验官 (trial)', () => {
     mockGetUser.mockResolvedValue(makeUser({ trialClaimed: false }))
     const res = await request(createApp()).post('/promotions/trial-play/claim')
 
-    expect(res.status).toBe(400)
+    expect(res.status).toBe(409)
     expect(res.body.code).toBe(409)
     expect(mockCreditWallet).not.toHaveBeenCalled()
   })
@@ -193,7 +218,7 @@ describe('首充嘉年华 (firstdep)', () => {
     mockGetUser.mockResolvedValue(makeUser({ firstDepClaimed: false }))
     const res = await request(createApp()).post('/promotions/firstdep/claim')
 
-    expect(res.status).toBe(400)
+    expect(res.status).toBe(409)
     expect(res.body.code).toBe(409)
     expect(mockCreditWallet).not.toHaveBeenCalled()
   })

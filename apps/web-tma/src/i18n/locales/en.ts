@@ -903,6 +903,9 @@ export default {
           subtitleNoOtp: 'Bind your phone number to claim ₱{{amount}} in free credits',
           bound: 'Phone verified. Tap below to claim your bonus',
           claimCta: 'Claim ₱{{amount}} Bonus',
+          passwordPlaceholder: 'Set login password (min 8 characters)',
+          passwordHint: 'After binding, you can log in with this phone number and password',
+          passwordShort: 'Password must be at least 8 characters',
         },
       },
       firstdep: {

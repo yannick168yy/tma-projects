@@ -902,6 +902,9 @@ export default {
           subtitleNoOtp: '绑定手机号后即可领取 ₱{{amount}} 免费礼金',
           bound: '手机号已绑定，点击下方领取礼金',
           claimCta: '领取 ₱{{amount}} 礼金',
+          passwordPlaceholder: '设置登录密码（至少 8 位）',
+          passwordHint: '绑定后即可用该手机号+密码登录',
+          passwordShort: '密码至少 8 位',
         },
       },
       firstdep: {

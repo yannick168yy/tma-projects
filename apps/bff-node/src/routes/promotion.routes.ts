@@ -1,7 +1,7 @@
 import Router from '@koa/router'
 import type { RowDataPacket } from 'mysql2/promise'
 import type { Env } from '../config/env.js'
-import { creditWallet, getKyc, getUser, listLedger, saveUser } from '../services/store.js'
+import { creditWallet, getKyc, getUser, listLedger, listUserIdentities, saveUser } from '../services/store.js'
 import { formatDisplayTime, nowIso } from '../utils/format.js'
 import { fail, ok } from '../utils/response.js'
 import { getPromoConfig } from '../services/promo-config.service.js'
@@ -118,6 +118,8 @@ router.post('/trial-play/claim', async (ctx) => {
       // 后台「手机验证」开关只决定绑定时是否需要短信 OTP，不豁免绑定本身
       const kyc = await getKyc(ctx.state.redis, ctx.state.userId!)
       if (!kyc?.phoneVerified) throw new Error('Phone verification required')
+      const hasPhoneLogin = (await listUserIdentities(ctx.state.redis, ctx.state.userId!)).some((i) => i.provider === 'phone')
+      if (!hasPhoneLogin) throw new Error('Phone login setup required')
       const cfg = await getPromoConfig(ctx.state.env)
       if (!cfg.trial.enabled) throw new Error('Trial bonus is currently disabled')
       const amount = cfg.trial.amount
@@ -149,6 +151,10 @@ router.post('/trial-play/claim', async (ctx) => {
       return
     }
     if (msg === 'Phone verification required') {
+      fail(ctx, 403, msg, 403)
+      return
+    }
+    if (msg === 'Phone login setup required') {
       fail(ctx, 403, msg, 403)
       return
     }

@@ -355,7 +355,7 @@ export async function verifyKycOtp(
   env: Env,
   userId: string,
   code: string,
-): Promise<{ phoneVerified: true; status: KycSubmission['status'] }> {
+): Promise<{ phoneVerified: true; status: KycSubmission['status']; phone: string }> {
   if (await redis.get(otpLockKey(userId))) throw new KycError('kyc.errors.otpLocked', 429)
   const raw = await redis.get(otpKey(userId))
   if (!raw) throw new KycError('kyc.errors.otpExpired', 400)
@@ -397,7 +397,7 @@ export async function verifyKycOtp(
     rejectStep: undefined,
     reviewedAt: approvedByPhoneOnly ? now : existing?.reviewedAt,
   })
-  return { phoneVerified: true, status: approvedByPhoneOnly ? 'approved' : 'pending' }
+  return { phoneVerified: true, status: approvedByPhoneOnly ? 'approved' : 'pending', phone: state.phone }
 }
 
 function blankSubmission(userId: string): KycSubmission {

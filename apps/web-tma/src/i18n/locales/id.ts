@@ -504,6 +504,9 @@ export default {
           subtitleNoOtp: 'Tautkan nomor ponsel untuk klaim ₱{{amount}} kredit gratis',
           bound: 'Ponsel terverifikasi. Ketuk di bawah untuk klaim bonus',
           claimCta: 'Klaim Bonus ₱{{amount}}',
+          passwordPlaceholder: 'Atur kata sandi login (min 8 karakter)',
+          passwordHint: 'Setelah tertaut, Anda bisa login dengan nomor ponsel dan kata sandi ini',
+          passwordShort: 'Kata sandi minimal 8 karakter',
         },
       },
       firstdep: {
