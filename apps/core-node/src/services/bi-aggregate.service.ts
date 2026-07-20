@@ -191,3 +191,60 @@ export async function aggregateBiRange(app: FastifyInstance, from: string, to: s
   }
   return count
 }
+
+// ---- RTP 异常检测（P2）：厂商当日 RTP 偏离自身 28 天基线 |z|>=3 时写告警 ----
+const RTP_MIN_BET_COUNT = 30      // 当日注单数低于此值样本太小，不检测
+const RTP_MIN_BASELINE_DAYS = 7   // 基线样本天数下限
+const RTP_BASELINE_DAYS = 28
+const RTP_SIGMA_FLOOR = 0.02      // σ 下限，防止基线太稳导致 z 爆表
+
+export async function detectBiAlerts(app: FastifyInstance, date: string): Promise<number> {
+  const db = app.mysql
+  const fromDate = new Date(Date.parse(`${date}T00:00:00Z`) - RTP_BASELINE_DAYS * DAY_MS)
+    .toISOString().slice(0, 10)
+
+  const [curRows] = await db.query<RowDataPacket[]>(
+    `SELECT provider, currency, bet_amount, payout_amount, bet_count
+     FROM bi_daily_provider WHERE stat_date=? AND provider<>'Unknown'`,
+    [date],
+  )
+  const [histRows] = await db.query<RowDataPacket[]>(
+    `SELECT provider, currency, bet_amount, payout_amount
+     FROM bi_daily_provider WHERE stat_date>=? AND stat_date<? AND provider<>'Unknown'`,
+    [fromDate, date],
+  )
+
+  const baseline = new Map<string, number[]>()
+  for (const r of histRows) {
+    const stake = Number(r.bet_amount)
+    if (stake <= 0) continue
+    const key = `${r.provider}|${r.currency}`
+    const arr = baseline.get(key) ?? []
+    arr.push(Number(r.payout_amount) / stake)
+    baseline.set(key, arr)
+  }
+
+  let inserted = 0
+  for (const r of curRows) {
+    const stake = Number(r.bet_amount)
+    if (stake <= 0 || Number(r.bet_count) < RTP_MIN_BET_COUNT) continue
+    const samples = baseline.get(`${r.provider}|${r.currency}`)
+    if (!samples || samples.length < RTP_MIN_BASELINE_DAYS) continue
+
+    const mean = samples.reduce((a, b) => a + b, 0) / samples.length
+    const variance = samples.reduce((a, b) => a + (b - mean) ** 2, 0) / samples.length
+    const sigma = Math.max(Math.sqrt(variance), RTP_SIGMA_FLOOR)
+    const rtp = Number(r.payout_amount) / stake
+    const z = (rtp - mean) / sigma
+    if (Math.abs(z) < 3) continue
+
+    const [res] = await db.execute<import('mysql2/promise').ResultSetHeader>(
+      `INSERT IGNORE INTO bi_alert (stat_date, alert_type, dimension, currency, value, baseline, deviation, severity)
+       VALUES (?,'provider_rtp',?,?,?,?,?,?)`,
+      [date, r.provider, r.currency, rtp, mean, Math.round(z * 100) / 100, Math.abs(z) >= 4 ? 'critical' : 'warn'],
+    )
+    inserted += res.affectedRows
+  }
+  if (inserted > 0) app.log.warn({ date, inserted }, '[bi-alert] provider RTP anomalies detected')
+  return inserted
+}

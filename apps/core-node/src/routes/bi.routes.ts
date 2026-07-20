@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify'
-import { aggregateBiDay, aggregateBiRange, manilaToday } from '../services/bi-aggregate.service.js'
+import { aggregateBiDay, aggregateBiRange, detectBiAlerts, manilaToday } from '../services/bi-aggregate.service.js'
 
 // BI 聚合内部接口：手动触发重算/回填（bff 转发或运维直调）
 export async function biRoutes(app: FastifyInstance) {
@@ -16,4 +16,10 @@ export async function biRoutes(app: FastifyInstance) {
       return reply.send({ code: 0, message: 'ok', date: d })
     },
   )
+
+  app.post<{ Body: { date?: string } }>('/internal/bi/detect-alerts', async (req, reply) => {
+    const d = req.body?.date ?? manilaToday(-1)
+    const inserted = await detectBiAlerts(app, d)
+    return reply.send({ code: 0, message: 'ok', date: d, inserted })
+  })
 }

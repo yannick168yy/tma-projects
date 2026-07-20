@@ -217,3 +217,239 @@ export async function getBiTrends(
     series: [...buckets.values()].sort((a, b) => a.date.localeCompare(b.date)),
   }
 }
+
+function fromDateOf(days: number): string {
+  return new Date(manilaDayStartMs(-(days - 1)) + 8 * 3600 * 1000).toISOString().slice(0, 10)
+}
+
+const dateKey = (v: unknown): string =>
+  v instanceof Date ? new Date(v.getTime() + 8 * 3600 * 1000).toISOString().slice(0, 10) : String(v).slice(0, 10)
+
+export interface BiProviderRow {
+  provider: string
+  betAmount: number
+  payoutAmount: number
+  ggr: number
+  rtp: number | null
+  betCount: number
+  userDays: number
+  share: number
+}
+
+export async function getBiProviders(
+  env: Env,
+  redis: Redis,
+  opts: { days: number; currency?: string },
+): Promise<{ currency: string; providers: BiProviderRow[]; trend: { dates: string[]; series: { name: string; ggr: number[] }[] } }> {
+  const db = pool(env)
+  const fromDate = fromDateOf(opts.days)
+  const convert = !opts.currency || opts.currency === 'ALL'
+  const curFilter = convert ? '' : ' AND currency=?'
+  const params: unknown[] = convert ? [fromDate] : [fromDate, opts.currency]
+
+  const [rows] = await db.query<RowDataPacket[]>(
+    `SELECT provider, currency, SUM(bet_amount) stake, SUM(payout_amount) payout, SUM(bet_count) cnt, SUM(bet_users) user_days
+     FROM bi_daily_provider WHERE stat_date>=?${curFilter} GROUP BY provider, currency`,
+    params,
+  )
+  const rates = convert ? await phpRates(redis, env, rows.map((r) => String(r.currency))) : new Map<string, number>()
+  const toDisplay = (cur: string, v: number) => (convert ? v * (rates.get(cur) ?? 1) : v)
+
+  const byProvider = new Map<string, BiProviderRow>()
+  for (const r of rows) {
+    const cur = String(r.currency)
+    let p = byProvider.get(String(r.provider))
+    if (!p) {
+      p = { provider: String(r.provider), betAmount: 0, payoutAmount: 0, ggr: 0, rtp: null, betCount: 0, userDays: 0, share: 0 }
+      byProvider.set(p.provider, p)
+    }
+    p.betAmount += toDisplay(cur, Number(r.stake))
+    p.payoutAmount += toDisplay(cur, Number(r.payout))
+    p.betCount += Number(r.cnt)
+    p.userDays += Number(r.user_days)
+  }
+  let total = 0
+  for (const p of byProvider.values()) {
+    p.ggr = p.betAmount - p.payoutAmount
+    p.rtp = p.betAmount > 0 ? p.payoutAmount / p.betAmount : null
+    total += p.betAmount
+  }
+  const providers = [...byProvider.values()].sort((a, b) => b.betAmount - a.betAmount)
+  for (const p of providers) p.share = total > 0 ? p.betAmount / total : 0
+
+  // Top 6 厂商 GGR 趋势
+  const top = providers.slice(0, 6).map((p) => p.provider)
+  const trendSeries: { name: string; ggr: number[] }[] = []
+  const dates: string[] = []
+  if (top.length > 0) {
+    const [tRows] = await db.query<RowDataPacket[]>(
+      `SELECT stat_date, provider, currency, bet_amount, payout_amount
+       FROM bi_daily_provider WHERE stat_date>=?${curFilter} AND provider IN (?) ORDER BY stat_date`,
+      convert ? [fromDate, top] : [fromDate, opts.currency, top],
+    )
+    const dateSet = new Set<string>()
+    for (const r of tRows) dateSet.add(dateKey(r.stat_date))
+    dates.push(...[...dateSet].sort())
+    const idx = new Map(dates.map((d, i) => [d, i]))
+    const byName = new Map<string, number[]>()
+    for (const name of top) byName.set(name, dates.map(() => 0))
+    for (const r of tRows) {
+      const arr = byName.get(String(r.provider))
+      const i = idx.get(dateKey(r.stat_date))
+      if (!arr || i === undefined) continue
+      const cur = String(r.currency)
+      arr[i] += toDisplay(cur, Number(r.bet_amount)) - toDisplay(cur, Number(r.payout_amount))
+    }
+    for (const name of top) trendSeries.push({ name, ggr: (byName.get(name) ?? []).map((v) => Math.round(v * 100) / 100) })
+  }
+
+  return { currency: convert ? 'PHP' : (opts.currency as string), providers, trend: { dates, series: trendSeries } }
+}
+
+export interface BiGameRow {
+  gpid: number
+  gameId: number
+  name: string
+  provider: string
+  category: string
+  theoreticalRtp: number | null
+  betAmount: number
+  ggr: number
+  rtp: number | null
+  betCount: number
+  userDays: number
+  launchCount: number
+  launchUsers: number
+}
+
+export async function getBiGames(
+  env: Env,
+  redis: Redis,
+  opts: { days: number; currency?: string; limit: number },
+): Promise<{ currency: string; games: BiGameRow[]; categories: { category: string; betAmount: number; ggr: number }[] }> {
+  const db = pool(env)
+  const fromDate = fromDateOf(opts.days)
+  const convert = !opts.currency || opts.currency === 'ALL'
+  const curFilter = convert ? '' : ' AND d.currency=?'
+  const params: unknown[] = convert ? [fromDate] : [fromDate, opts.currency]
+
+  const [rows] = await db.query<RowDataPacket[]>(
+    `SELECT d.game_provider_id gpid, d.game_id, d.currency,
+            SUM(d.bet_amount) stake, SUM(d.payout_amount) payout, SUM(d.bet_count) cnt, SUM(d.bet_users) user_days
+     FROM bi_daily_game d WHERE d.stat_date>=?${curFilter} GROUP BY d.game_provider_id, d.game_id, d.currency`,
+    params,
+  )
+  const rates = convert ? await phpRates(redis, env, rows.map((r) => String(r.currency))) : new Map<string, number>()
+  const toDisplay = (cur: string, v: number) => (convert ? v * (rates.get(cur) ?? 1) : v)
+
+  const byGame = new Map<string, BiGameRow>()
+  for (const r of rows) {
+    const key = `${r.gpid}:${r.game_id}`
+    let g = byGame.get(key)
+    if (!g) {
+      g = { gpid: Number(r.gpid), gameId: Number(r.game_id), name: '', provider: '', category: '', theoreticalRtp: null,
+            betAmount: 0, ggr: 0, rtp: null, betCount: 0, userDays: 0, launchCount: 0, launchUsers: 0 }
+      byGame.set(key, g)
+    }
+    const cur = String(r.currency)
+    g.betAmount += toDisplay(cur, Number(r.stake))
+    g.ggr += toDisplay(cur, Number(r.stake)) - toDisplay(cur, Number(r.payout))
+    g.betCount += Number(r.cnt)
+    g.userDays += Number(r.user_days)
+  }
+  for (const g of byGame.values()) g.rtp = g.betAmount > 0 ? (g.betAmount - g.ggr) / g.betAmount : null
+
+  const games = [...byGame.values()].sort((a, b) => b.betAmount - a.betAmount).slice(0, opts.limit)
+
+  if (games.length > 0) {
+    const pairConds = games.map(() => '(game_provider_id=? AND game_id=?)').join(' OR ')
+    const pairParams = games.flatMap((g) => [g.gpid, g.gameId])
+    const [metaRows] = await db.query<RowDataPacket[]>(
+      `SELECT game_provider_id gpid, game_id, name_en, provider, site_category_auto, rtp FROM bg_568win_game WHERE ${pairConds}`,
+      pairParams,
+    )
+    const meta = new Map(metaRows.map((m) => [`${m.gpid}:${m.game_id}`, m]))
+    const uuids = games.map((g) => `568win:${g.gpid}:${g.gameId}`)
+    const [launchRows] = await db.query<RowDataPacket[]>(
+      `SELECT game_uuid, SUM(launch_count) launches, COUNT(*) users FROM bg_game_launch WHERE game_uuid IN (?) GROUP BY game_uuid`,
+      [uuids],
+    )
+    const launches = new Map(launchRows.map((l) => [String(l.game_uuid), l]))
+    for (const g of games) {
+      const m = meta.get(`${g.gpid}:${g.gameId}`)
+      g.name = m ? String(m.name_en ?? '') : `#${g.gpid}:${g.gameId}`
+      g.provider = m ? String(m.provider ?? '') : 'Unknown'
+      g.category = m ? String(m.site_category_auto ?? 'other') : 'other'
+      g.theoreticalRtp = m && m.rtp != null ? Number(m.rtp) : null
+      const l = launches.get(`568win:${g.gpid}:${g.gameId}`)
+      g.launchCount = l ? Number(l.launches) : 0
+      g.launchUsers = l ? Number(l.users) : 0
+    }
+  }
+
+  // 品类占比（全部游戏，不止 Top N）
+  const [catRows] = await db.query<RowDataPacket[]>(
+    `SELECT COALESCE(g.site_category_auto,'other') cat, d.currency, SUM(d.bet_amount) stake, SUM(d.payout_amount) payout
+     FROM bi_daily_game d
+     LEFT JOIN bg_568win_game g ON g.game_provider_id=d.game_provider_id AND g.game_id=d.game_id
+     WHERE d.stat_date>=?${curFilter} GROUP BY COALESCE(g.site_category_auto,'other'), d.currency`,
+    params,
+  )
+  const byCat = new Map<string, { category: string; betAmount: number; ggr: number }>()
+  for (const r of catRows) {
+    const cur = String(r.currency)
+    let c = byCat.get(String(r.cat))
+    if (!c) { c = { category: String(r.cat), betAmount: 0, ggr: 0 }; byCat.set(c.category, c) }
+    c.betAmount += toDisplay(cur, Number(r.stake))
+    c.ggr += toDisplay(cur, Number(r.stake)) - toDisplay(cur, Number(r.payout))
+  }
+  const categories = [...byCat.values()].sort((a, b) => b.betAmount - a.betAmount)
+
+  return { currency: convert ? 'PHP' : (opts.currency as string), games, categories }
+}
+
+export interface BiAlertRow {
+  id: number
+  statDate: string
+  alertType: string
+  dimension: string
+  currency: string
+  value: number
+  baseline: number
+  deviation: number
+  severity: string
+  status: string
+  createdAt: string
+}
+
+export async function listBiAlerts(env: Env, status?: string): Promise<BiAlertRow[]> {
+  const db = pool(env)
+  const cond = status ? ' WHERE status=?' : ''
+  const [rows] = await db.query<RowDataPacket[]>(
+    `SELECT id, stat_date, alert_type, dimension, currency, value, baseline, deviation, severity, status, created_at
+     FROM bi_alert${cond} ORDER BY id DESC LIMIT 200`,
+    status ? [status] : [],
+  )
+  return rows.map((r) => ({
+    id: Number(r.id),
+    statDate: dateKey(r.stat_date),
+    alertType: String(r.alert_type),
+    dimension: String(r.dimension),
+    currency: String(r.currency),
+    value: Number(r.value),
+    baseline: Number(r.baseline),
+    deviation: Number(r.deviation),
+    severity: String(r.severity),
+    status: String(r.status),
+    createdAt: r.created_at instanceof Date ? r.created_at.toISOString() : String(r.created_at),
+  }))
+}
+
+export async function setBiAlertStatus(env: Env, id: number, status: 'ack' | 'closed'): Promise<boolean> {
+  const db = pool(env)
+  const [res] = await db.execute<import('mysql2/promise').ResultSetHeader>(
+    `UPDATE bi_alert SET status=? WHERE id=?`,
+    [status, id],
+  )
+  return res.affectedRows > 0
+}
