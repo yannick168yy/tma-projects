@@ -97,6 +97,29 @@ export interface BiTrendPoint {
 export const getBiTrends = (params: { days: number; granularity: 'day' | 'week' | 'month'; currency: string }) =>
   get<{ currency: string; series: BiTrendPoint[] }>('/admin/bi/trends', params)
 
+export interface BiProviderRow {
+  provider: string; betAmount: number; payoutAmount: number; ggr: number
+  rtp: number | null; betCount: number; userDays: number; share: number
+}
+export const getBiProviders = (params: { days: number; currency: string }) =>
+  get<{ currency: string; providers: BiProviderRow[]; trend: { dates: string[]; series: { name: string; ggr: number[] }[] } }>('/admin/bi/providers', params)
+
+export interface BiGameRow {
+  gpid: number; gameId: number; name: string; provider: string; category: string
+  theoreticalRtp: number | null; betAmount: number; ggr: number; rtp: number | null
+  betCount: number; userDays: number; launchCount: number; launchUsers: number
+}
+export const getBiGames = (params: { days: number; currency: string; limit?: number }) =>
+  get<{ currency: string; games: BiGameRow[]; categories: { category: string; betAmount: number; ggr: number }[] }>('/admin/bi/games', params)
+
+export interface BiAlertRow {
+  id: number; statDate: string; alertType: string; dimension: string; currency: string
+  value: number; baseline: number; deviation: number; severity: string; status: string; createdAt: string
+}
+export const getBiAlerts = (status?: string) => get<BiAlertRow[]>('/admin/bi/alerts', status ? { status } : undefined)
+export const setBiAlertStatus = (id: number, status: 'ack' | 'closed') =>
+  patch<{ updated: boolean }>(`/admin/bi/alerts/${id}`, { status })
+
 // Users
 export interface AdminUser {
   id: string; displayName: string; email: string | null; telegramUsername: string | null

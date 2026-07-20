@@ -1,10 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { Card, Col, Collapse, Row, Segmented, Select, Space, Spin, Table, Tooltip } from 'antd'
-import * as echarts from 'echarts'
-import { getBiOverview, getBiTrends, type BiOverview, type BiTrendPoint, type BiWindowStats } from '../api'
-
-// 配色已通过 dataviz 校验（色觉障碍/对比度），黄色系依赖下方数据表格作 relief
-const C = { blue: '#2a78d6', green: '#008300', orange: '#eb6834', violet: '#4a3aa7', red: '#e34948', yellow: '#eda100' }
+import { useEffect, useMemo, useState } from 'react'
+import { Alert, Card, Col, Collapse, Row, Segmented, Select, Space, Spin, Table, Tooltip } from 'antd'
+import { useNavigate } from 'react-router-dom'
+import { getBiAlerts, getBiOverview, getBiTrends, type BiOverview, type BiTrendPoint, type BiWindowStats } from '../api'
+import { BI_COLORS as C, LineChart } from '../components/BiCharts'
 
 const fmtMoney = (v: number) => v.toLocaleString('en-PH', { maximumFractionDigits: 0 })
 
@@ -19,46 +17,9 @@ function DeltaTag({ cur, base, label }: { cur: number; base: number; label: stri
   )
 }
 
-function LineChart({ dates, series, height = 300 }: {
-  dates: string[]
-  series: { name: string; color: string; data: number[] }[]
-  height?: number
-}) {
-  const ref = useRef<HTMLDivElement>(null)
-  const chartRef = useRef<echarts.ECharts | null>(null)
-
-  useEffect(() => {
-    if (!ref.current) return
-    const chart = echarts.init(ref.current)
-    chartRef.current = chart
-    const onResize = () => chart.resize()
-    window.addEventListener('resize', onResize)
-    return () => {
-      window.removeEventListener('resize', onResize)
-      chart.dispose()
-      chartRef.current = null
-    }
-  }, [])
-
-  useEffect(() => {
-    chartRef.current?.setOption({
-      tooltip: { trigger: 'axis', axisPointer: { type: 'cross', label: { show: false } } },
-      legend: { top: 0, textStyle: { color: '#52514e' } },
-      grid: { left: 56, right: 16, top: 32, bottom: 24 },
-      xAxis: { type: 'category', data: dates, axisLine: { lineStyle: { color: '#ddd' } }, axisLabel: { color: '#52514e' } },
-      yAxis: { type: 'value', splitLine: { lineStyle: { color: '#f0f0f0' } }, axisLabel: { color: '#52514e' } },
-      series: series.map((s) => ({
-        name: s.name, type: 'line', data: s.data,
-        lineStyle: { width: 2 }, itemStyle: { color: s.color },
-        symbol: 'circle', symbolSize: 8, showSymbol: dates.length <= 31,
-      })),
-    }, true)
-  }, [dates, series])
-
-  return <div ref={ref} style={{ height }} />
-}
-
 export default function BiDashboard() {
+  const navigate = useNavigate()
+  const [openAlerts, setOpenAlerts] = useState(0)
   const [overview, setOverview] = useState<BiOverview | null>(null)
   const [trend, setTrend] = useState<{ currency: string; series: BiTrendPoint[] } | null>(null)
   const [loading, setLoading] = useState(false)
@@ -68,6 +29,7 @@ export default function BiDashboard() {
 
   useEffect(() => {
     getBiOverview().then(setOverview)
+    getBiAlerts('open').then((a) => setOpenAlerts(a.length)).catch(() => {})
     const timer = setInterval(() => getBiOverview().then(setOverview), 60_000)
     return () => clearInterval(timer)
   }, [])
@@ -122,6 +84,14 @@ export default function BiDashboard() {
       <div style={{ color: '#999', fontSize: 12, marginBottom: 16 }}>
         今日数字为实时累计；对比口径=昨日同时刻/上周同日同时刻。趋势图每日凌晨汇总，多币种按当前汇率折算。
       </div>
+
+      {openAlerts > 0 && (
+        <Alert
+          type="warning" showIcon style={{ marginBottom: 16 }}
+          message={`有 ${openAlerts} 条未处理的数据异常告警（厂商 RTP 偏离基线）`}
+          action={<a onClick={() => navigate('/bi/providers')}>去处理</a>}
+        />
+      )}
 
       <Row gutter={16}>
         {cards.map((c) => (
