@@ -23,6 +23,7 @@ import { isMysqlEnabled, getMysqlPool } from './clients/mysql.client.js'
 import { getLossRebateConfigByPool } from './services/promo-config.service.js'
 import { runCommunityTick } from './services/community.service.js'
 import { runBroadcastTick } from './services/broadcast.service.js'
+import { runBiReportTick } from './services/bi-report.service.js'
 import { ok } from './utils/response.js'
 import { seedDefaultAdmin } from './services/admin-auth.service.js'
 
@@ -181,6 +182,16 @@ export function createApp(env: Env): Koa {
       run()
       setInterval(run, 30_000)
     }, 20_000)
+  }
+
+  // BI 运营日报:每 5 分钟检查,马尼拉 08:00 时段发送(Redis 锁保证每天一次)
+  if (singletonJobs && isMysqlEnabled(env)) {
+    const biReportLog = childLogger('bi-report-tick')
+    setTimeout(() => {
+      const run = () => runBiReportTick(env, redis).catch((err) => biReportLog.error({ err }, 'tick error'))
+      run()
+      setInterval(run, 5 * 60 * 1000)
+    }, 30_000)
   }
 
   // Betting activity 初始化（需要 games cache 已加载）

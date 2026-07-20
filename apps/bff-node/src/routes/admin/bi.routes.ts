@@ -5,6 +5,8 @@ import {
   getBiForecast, listBiTargets, upsertBiTarget, getBiTargetProgress, getBiChurnRisk, grantRedepOffer,
   BI_TARGET_METRICS, type BiTargetMetric,
 } from '../../services/bi.service.js'
+import { getBiChannels } from '../../services/bi.service.js'
+import { sendBiReportNow } from '../../services/bi-report.service.js'
 import { writeAuditLog } from '../../services/admin-store.js'
 import { ok, fail } from '../../utils/response.js'
 
@@ -140,6 +142,16 @@ router.post('/churn/redep-offer', async (ctx) => {
     })
   }
   ok(ctx, result)
+})
+
+router.get('/channels', async (ctx) => {
+  const days = Math.min(Math.max(Number(ctx.query.days) || 30, 7), 365)
+  ok(ctx, await getBiChannels(ctx.state.env, days))
+})
+
+router.post('/report/send', async (ctx) => {
+  if (ctx.state.adminRole !== 'super_admin') { fail(ctx, 403, '仅 super_admin 可手动触发日报', 403); return }
+  ok(ctx, await sendBiReportNow(ctx.state.env, ctx.state.redis))
 })
 
 router.patch('/alerts/:id', async (ctx) => {

@@ -98,6 +98,7 @@ export async function aggregateBiDay(app: FastifyInstance, date: string): Promis
     await conn.execute(`DELETE FROM bi_daily_acquisition WHERE stat_date=?`, [date])
     await conn.execute(`DELETE FROM bi_daily_user WHERE stat_date=?`, [date])
     await conn.execute(`DELETE FROM bi_user_active_day WHERE stat_date=?`, [date])
+    await conn.execute(`DELETE FROM bi_daily_channel WHERE stat_date=?`, [date])
 
     for (const [currency, m] of byCur) {
       await conn.execute(
@@ -211,6 +212,26 @@ export async function aggregateBiDay(app: FastifyInstance, date: string): Promis
       [date, start, end],
     )
 
+    // 支付通道：只统计终态订单，成功率与处理时长
+    await conn.execute(
+      `INSERT INTO bi_daily_channel (stat_date, direction, channel, total, success, avg_secs)
+       SELECT ?, 'deposit', channel, COUNT(*), SUM(status='paid'),
+              AVG(CASE WHEN status='paid' THEN TIMESTAMPDIFF(SECOND, created_at, updated_at) END)
+       FROM bg_deposit_order
+       WHERE status IN ('paid','failed','rejected','admin_rejected') AND created_at>=? AND created_at<?
+       GROUP BY channel`,
+      [date, start, end],
+    )
+    await conn.execute(
+      `INSERT INTO bi_daily_channel (stat_date, direction, channel, total, success, avg_secs)
+       SELECT ?, 'withdraw', channel, COUNT(*), SUM(status='completed'),
+              AVG(CASE WHEN status='completed' THEN TIMESTAMPDIFF(SECOND, created_at, updated_at) END)
+       FROM bg_withdraw_order
+       WHERE status IN ('completed','failed','rejected','admin_rejected') AND created_at>=? AND created_at<?
+       GROUP BY channel`,
+      [date, start, end],
+    )
+
     await conn.execute(
       `INSERT IGNORE INTO bi_user_active_day (stat_date, user_id)
        SELECT DISTINCT ?, user_id FROM (
@@ -292,6 +313,22 @@ export async function detectBiAlerts(app: FastifyInstance, date: string): Promis
     )
     inserted += res.affectedRows
   }
-  if (inserted > 0) app.log.warn({ date, inserted }, '[bi-alert] provider RTP anomalies detected')
+  // 通道成功率告警：终态订单 >=10 且成功率 <80%（<50% 升级 critical）
+  const [chRows] = await db.query<RowDataPacket[]>(
+    `SELECT direction, channel, total, success FROM bi_daily_channel WHERE stat_date=? AND total>=10`,
+    [date],
+  )
+  for (const r of chRows) {
+    const rate = Number(r.success) / Number(r.total)
+    if (rate >= 0.8) continue
+    const [res] = await db.execute<import('mysql2/promise').ResultSetHeader>(
+      `INSERT IGNORE INTO bi_alert (stat_date, alert_type, dimension, currency, value, baseline, deviation, severity)
+       VALUES (?,'channel_success',?,'',?,0.8,0,?)`,
+      [date, `${r.direction}:${r.channel}`, Math.round(rate * 10000) / 10000, rate < 0.5 ? 'critical' : 'warn'],
+    )
+    inserted += res.affectedRows
+  }
+
+  if (inserted > 0) app.log.warn({ date, inserted }, '[bi-alert] anomalies detected')
   return inserted
 }

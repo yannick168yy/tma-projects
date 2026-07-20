@@ -652,6 +652,64 @@ export async function getBiTopWinners(env: Env, redis: Redis, days: number): Pro
   }))
 }
 
+// ---- P5 支付通道监控 ----
+
+export interface BiChannelRow {
+  direction: string
+  channel: string
+  total: number
+  success: number
+  rate: number
+  avgSecs: number | null
+}
+
+export async function getBiChannels(
+  env: Env, days: number,
+): Promise<{ channels: BiChannelRow[]; trend: { dates: string[]; series: { name: string; data: (number | null)[] }[] } }> {
+  const db = pool(env)
+  const fromDate = fromDateOf(days)
+  const [rows] = await db.query<RowDataPacket[]>(
+    `SELECT direction, channel, SUM(total) total, SUM(success) success,
+            ROUND(SUM(avg_secs*success)/NULLIF(SUM(success),0)) avg_secs
+     FROM bi_daily_channel WHERE stat_date>=? GROUP BY direction, channel ORDER BY total DESC`,
+    [fromDate],
+  )
+  const channels: BiChannelRow[] = rows.map((r) => ({
+    direction: String(r.direction),
+    channel: String(r.channel),
+    total: Number(r.total),
+    success: Number(r.success),
+    rate: Number(r.total) > 0 ? Number(r.success) / Number(r.total) : 0,
+    avgSecs: r.avg_secs == null ? null : Number(r.avg_secs),
+  }))
+
+  // Top 5 通道每日成功率趋势（无单日置 null 断线）
+  const top = channels.slice(0, 5)
+  const dates: string[] = []
+  const series: { name: string; data: (number | null)[] }[] = []
+  if (top.length > 0) {
+    const [dRows] = await db.query<RowDataPacket[]>(
+      `SELECT stat_date, direction, channel, total, success FROM bi_daily_channel WHERE stat_date>=? ORDER BY stat_date`,
+      [fromDate],
+    )
+    const dateSet = new Set<string>()
+    for (const r of dRows) dateSet.add(dateKey(r.stat_date))
+    dates.push(...[...dateSet].sort())
+    const idx = new Map(dates.map((d, i) => [d, i]))
+    for (const t of top) {
+      const key = `${t.direction}:${t.channel}`
+      const data: (number | null)[] = dates.map(() => null)
+      for (const r of dRows) {
+        if (`${r.direction}:${r.channel}` !== key) continue
+        const i = idx.get(dateKey(r.stat_date))
+        if (i !== undefined && Number(r.total) > 0) data[i] = Math.round((Number(r.success) / Number(r.total)) * 1000) / 10
+      }
+      series.push({ name: key, data })
+    }
+  }
+  return { channels, trend: { dates, series } }
+}
+
 // ---- P4 预测层 ----
 
 /** 近 N 天平台日汇总（折算 PHP），预测与目标进度共用 */
