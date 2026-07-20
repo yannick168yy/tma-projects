@@ -7,11 +7,14 @@ declare global {
   }
 }
 
-// 单包多域名:测量 ID 按运行时域名选,生产 betogo.games 走独立数据流,避免混入测试流量
+// 单包多域名:测量 ID 按运行时域名选。测试环境走测试流,其余域名(含未来新增生产域名)默认走生产流,
+// GA 按 hostname 维度区分各生产域名
 const PROD_GA_ID = 'G-X8P419MX9C'
-const GA_ID = /(^|\.)betogo\.games$/.test(window.location.hostname)
-  ? PROD_GA_ID
-  : import.meta.env.VITE_GA_MEASUREMENT_ID?.trim()
+const isTestHost = (h: string) =>
+  /(^|\.)188facai\.com$/.test(h) || h === 'localhost' || /^[\d.]+$/.test(h)
+const GA_ID = isTestHost(window.location.hostname)
+  ? import.meta.env.VITE_GA_MEASUREMENT_ID?.trim()
+  : PROD_GA_ID
 const GA_DEBUG = import.meta.env.VITE_GA_DEBUG_MODE === 'true'
 let currentUserId: string | null = null
 
