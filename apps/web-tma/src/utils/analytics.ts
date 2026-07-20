@@ -7,7 +7,11 @@ declare global {
   }
 }
 
-const GA_ID = import.meta.env.VITE_GA_MEASUREMENT_ID?.trim()
+// 单包多域名:测量 ID 按运行时域名选,生产 betogo.games 走独立数据流,避免混入测试流量
+const PROD_GA_ID = 'G-X8P419MX9C'
+const GA_ID = /(^|\.)betogo\.games$/.test(window.location.hostname)
+  ? PROD_GA_ID
+  : import.meta.env.VITE_GA_MEASUREMENT_ID?.trim()
 const GA_DEBUG = import.meta.env.VITE_GA_DEBUG_MODE === 'true'
 let currentUserId: string | null = null
 
