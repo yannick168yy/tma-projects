@@ -74,6 +74,28 @@ export const getDashboard = () => get<{
   pendingWithdrawCount: number; totalBalance: number
 }>('/admin/dashboard')
 
+export interface HomeDashboard {
+  asOf: string
+  todos: { manualWithdrawals: number; rejectedKyc: number; csConversations: number; openAlerts: number }
+  today: BiWindowStats
+  yesterdaySameTime: BiWindowStats
+  balances: {
+    wallets: { currency: string; amount: number; php: number }[]
+    walletTotalPhp: number
+    pendingWithdrawCount: number
+    pendingWithdrawPhp: number
+    providers: { provider: string; balance: number; currency: string; status: string; updatedAt: string | null }[]
+  }
+  heartbeat: {
+    lastBetAt: string | null
+    lastDepositAt: string | null
+    lastLoginAt: string | null
+    channelsToday: { direction: string; channel: string; total: number; success: number }[]
+  }
+  users: { total: number; active: number; frozen: number }
+}
+export const getHomeDashboard = () => get<HomeDashboard>('/admin/dashboard/v2')
+
 // BI 数据分析
 export interface BiWindowStats {
   depositAmount: number; depositCount: number; withdrawAmount: number
