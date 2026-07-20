@@ -74,6 +74,29 @@ export const getDashboard = () => get<{
   pendingWithdrawCount: number; totalBalance: number
 }>('/admin/dashboard')
 
+// BI 数据分析
+export interface BiWindowStats {
+  depositAmount: number; depositCount: number; withdrawAmount: number
+  betAmount: number; ggr: number; bonusCost: number; ngr: number
+  dau: number; newUsers: number; firstDepUsers: number
+}
+export interface BiOverview {
+  asOf: string
+  today: BiWindowStats
+  yesterdaySameTime: BiWindowStats
+  lastWeekSameTime: BiWindowStats
+  yesterdayFull: BiWindowStats
+}
+export const getBiOverview = () => get<BiOverview>('/admin/bi/overview')
+
+export interface BiTrendPoint {
+  date: string; deposit: number; withdraw: number; betAmount: number
+  ggr: number; bonusCost: number; ngr: number
+  dau: number; newUsers: number; firstDepUsers: number
+}
+export const getBiTrends = (params: { days: number; granularity: 'day' | 'week' | 'month'; currency: string }) =>
+  get<{ currency: string; series: BiTrendPoint[] }>('/admin/bi/trends', params)
+
 // Users
 export interface AdminUser {
   id: string; displayName: string; email: string | null; telegramUsername: string | null

@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import AppLayout from './components/AppLayout'
 import Login from './views/Login'
 import Dashboard from './views/Dashboard'
+import BiDashboard from './views/BiDashboard'
 import Users from './views/Users'
 import UserDetail from './views/UserDetail'
 import DeviceLookup from './views/DeviceLookup'
@@ -77,6 +78,7 @@ export default function App() {
         <Route path="/" element={<RequireAuth><AppLayout /></RequireAuth>}>
           <Route index element={<Navigate to="/dashboard" replace />} />
           <Route path="dashboard" element={<Dashboard />} />
+          <Route path="bi/dashboard" element={<BiDashboard />} />
           <Route path="users" element={<Users />} />
           <Route path="users/:id" element={<UserDetail />} />
           <Route path="device-lookup" element={<DeviceLookup />} />

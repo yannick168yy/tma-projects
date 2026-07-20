@@ -8,7 +8,7 @@ import {
   AppstoreOutlined, SettingOutlined, CustomerServiceOutlined,
   TransactionOutlined, ApartmentOutlined, GiftOutlined,
   SafetyCertificateOutlined, MenuOutlined, CrownOutlined, TrophyOutlined,
-  AlertOutlined,
+  AlertOutlined, BarChartOutlined,
 } from '@ant-design/icons'
 import { useAuthStore } from '../stores/auth'
 import { adminChangePassword, getAdminBadges, type AdminBadges } from '../api'
@@ -30,6 +30,14 @@ function MenuBadgeLabel({ text, count }: { text: string; count: number }) {
 function buildMenuItems(badges: AdminBadges) {
   return [
     { key: '/dashboard', icon: <DashboardOutlined />, label: '数据看板' },
+    {
+      key: 'bi',
+      icon: <BarChartOutlined />,
+      label: '数据分析',
+      children: [
+        { key: '/bi/dashboard', label: '运营驾驶舱' },
+      ],
+    },
     {
       key: 'user-center',
       icon: <TeamOutlined />,
