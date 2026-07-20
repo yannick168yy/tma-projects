@@ -38,7 +38,7 @@ export default function BiGames() {
     { title: `GGR(${unit})`, dataIndex: 'ggr', sorter: (a: BiGameRow, b: BiGameRow) => a.ggr - b.ggr,
       render: (v: number) => <span style={{ color: v >= 0 ? undefined : '#cf1322' }}>{fmtMoney(v)}</span> },
     { title: '实际RTP', dataIndex: 'rtp', render: fmtRtp },
-    { title: '理论RTP', dataIndex: 'theoreticalRtp', render: (v: number | null) => (v == null ? '—' : `${v.toFixed(1)}%`) },
+    { title: '理论RTP', dataIndex: 'theoreticalRtp', render: fmtRtp },
     { title: '注单数', dataIndex: 'betCount', sorter: (a: BiGameRow, b: BiGameRow) => a.betCount - b.betCount },
     { title: '人次(日累计)', dataIndex: 'userDays' },
     { title: '启动次数(累计)', dataIndex: 'launchCount' },

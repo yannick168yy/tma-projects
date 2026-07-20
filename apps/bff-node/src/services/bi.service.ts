@@ -380,7 +380,8 @@ export async function getBiGames(
       g.name = m ? String(m.name_en ?? '') : `#${g.gpid}:${g.gameId}`
       g.provider = m ? String(m.provider ?? '') : 'Unknown'
       g.category = m ? String(m.site_category_auto ?? 'other') : 'other'
-      g.theoreticalRtp = m && m.rtp != null ? Number(m.rtp) : null
+      // 游戏表 rtp 为小数(0.96)，0/-1 为未知哨兵值
+      g.theoreticalRtp = m && m.rtp != null && Number(m.rtp) > 0 ? Number(m.rtp) : null
       const l = launches.get(`568win:${g.gpid}:${g.gameId}`)
       g.launchCount = l ? Number(l.launches) : 0
       g.launchUsers = l ? Number(l.users) : 0
