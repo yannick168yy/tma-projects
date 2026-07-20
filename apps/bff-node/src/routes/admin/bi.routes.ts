@@ -6,7 +6,7 @@ import {
   BI_TARGET_METRICS, type BiTargetMetric,
 } from '../../services/bi.service.js'
 import { getBiChannels } from '../../services/bi.service.js'
-import { sendBiReportNow } from '../../services/bi-report.service.js'
+import { sendBiReportNow, isBiReportEnabled, setBiReportEnabled } from '../../services/bi-report.service.js'
 import { writeAuditLog } from '../../services/admin-store.js'
 import { ok, fail } from '../../utils/response.js'
 
@@ -152,6 +152,23 @@ router.get('/channels', async (ctx) => {
 router.post('/report/send', async (ctx) => {
   if (ctx.state.adminRole !== 'super_admin') { fail(ctx, 403, '仅 super_admin 可手动触发日报', 403); return }
   ok(ctx, await sendBiReportNow(ctx.state.env, ctx.state.redis))
+})
+
+router.get('/report/config', async (ctx) => {
+  ok(ctx, { enabled: await isBiReportEnabled(ctx.state.env) })
+})
+
+router.put('/report/config', async (ctx) => {
+  if (ctx.state.adminRole !== 'super_admin') { fail(ctx, 403, '仅 super_admin 可修改日报开关', 403); return }
+  const enabled = Boolean((ctx.request.body as { enabled?: boolean })?.enabled)
+  await setBiReportEnabled(ctx.state.env, enabled)
+  await writeAuditLog(ctx.state.env, {
+    adminId: ctx.state.adminId!,
+    adminUsername: ctx.state.adminUsername!,
+    action: 'bi.report_toggle',
+    detail: { enabled },
+  })
+  ok(ctx, { enabled })
 })
 
 router.patch('/alerts/:id', async (ctx) => {

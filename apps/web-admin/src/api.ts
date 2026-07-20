@@ -171,6 +171,8 @@ export interface BiChannelRow {
 export const getBiChannels = (days: number) =>
   get<{ channels: BiChannelRow[]; trend: { dates: string[]; series: { name: string; data: (number | null)[] }[] } }>('/admin/bi/channels', { days })
 export const sendBiReport = () => post<{ sent: boolean; text: string }>('/admin/bi/report/send')
+export const getBiReportConfig = () => get<{ enabled: boolean }>('/admin/bi/report/config')
+export const setBiReportConfig = (enabled: boolean) => put<{ enabled: boolean }>('/admin/bi/report/config', { enabled })
 export const setBiAlertStatus = (id: number, status: 'ack' | 'closed') =>
   patch<{ updated: boolean }>(`/admin/bi/alerts/${id}`, { status })
 

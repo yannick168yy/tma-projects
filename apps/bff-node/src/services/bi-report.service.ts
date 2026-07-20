@@ -6,6 +6,7 @@ import type { Env } from '../config/env.js'
 import { childLogger } from '../lib/logger.js'
 import { getRate } from './exchange-rate.service.js'
 import { getBiTargetProgress, listBiAlerts } from './bi.service.js'
+import { getAdminSetting, setAdminSetting } from './admin-store.js'
 
 const log = childLogger('bi-report')
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -103,10 +104,22 @@ async function polishWithGemini(env: Env, raw: string): Promise<string> {
   }
 }
 
+// 后台开关：'0'=停发，未设置或其他值=开（默认开）
+const REPORT_ENABLED_KEY = 'bi_daily_report_enabled'
+
+export async function isBiReportEnabled(env: Env): Promise<boolean> {
+  return (await getAdminSetting(env, REPORT_ENABLED_KEY)) !== '0'
+}
+
+export async function setBiReportEnabled(env: Env, enabled: boolean): Promise<void> {
+  await setAdminSetting(env, REPORT_ENABLED_KEY, enabled ? '1' : '0')
+}
+
 export async function runBiReportTick(env: Env, redis: Redis): Promise<void> {
   if (!isMysqlEnabled(env) || !env.ADMIN_TG_BOT_TOKEN || !env.ADMIN_TG_CHAT_ID) return
   const manilaHour = new Date(Date.now() + 8 * 3600 * 1000).getUTCHours()
   if (manilaHour !== 8) return
+  if (!(await isBiReportEnabled(env))) return
 
   const today = manilaDate()
   const locked = await redis.set(`bi:report:${today}`, '1', 'EX', 2 * 24 * 3600, 'NX')

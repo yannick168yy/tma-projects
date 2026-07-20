@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import { Alert, Button, Card, Col, Modal, Row, Segmented, Space, Spin, Table, Tag, message } from 'antd'
+import { Alert, Button, Card, Col, Modal, Row, Segmented, Space, Spin, Switch, Table, Tag, message } from 'antd'
 import {
-  getBiAlerts, getBiChannels, sendBiReport, setBiAlertStatus,
+  getBiAlerts, getBiChannels, getBiReportConfig, sendBiReport, setBiAlertStatus, setBiReportConfig,
   type BiAlertRow, type BiChannelRow,
 } from '../api'
 import { LineChart } from '../components/BiCharts'
@@ -20,11 +20,26 @@ export default function BiChannels() {
   const [data, setData] = useState<Awaited<ReturnType<typeof getBiChannels>> | null>(null)
   const [alerts, setAlerts] = useState<BiAlertRow[]>([])
   const [sending, setSending] = useState(false)
+  const [reportEnabled, setReportEnabled] = useState<boolean | null>(null)
 
   const loadAlerts = () =>
     getBiAlerts('open').then((a) => setAlerts(a.filter((x) => x.alertType === 'channel_success'))).catch(() => {})
 
-  useEffect(() => { loadAlerts() }, [])
+  useEffect(() => {
+    loadAlerts()
+    getBiReportConfig().then((c) => setReportEnabled(c.enabled)).catch(() => {})
+  }, [])
+
+  const toggleReport = async (v: boolean) => {
+    setReportEnabled(v)
+    try {
+      await setBiReportConfig(v)
+      message.success(v ? '每日运营日报已开启' : '每日运营日报已停发')
+    } catch (e) {
+      setReportEnabled(!v)
+      message.error((e as Error).message)
+    }
+  }
   useEffect(() => {
     setLoading(true)
     getBiChannels(days).then(setData).finally(() => setLoading(false))
@@ -80,6 +95,12 @@ export default function BiChannels() {
         <Segmented value={days} onChange={(v) => setDays(v as number)}
           options={[{ label: '近7天', value: 7 }, { label: '近30天', value: 30 }, { label: '近90天', value: 90 }]} />
         {isSuperAdmin && <Button loading={sending} onClick={triggerReport}>手动发送今日运营日报</Button>}
+        {isSuperAdmin && reportEnabled != null && (
+          <span>
+            每日自动日报（马尼拉 08:00）
+            <Switch style={{ marginLeft: 8 }} checked={reportEnabled} onChange={toggleReport} />
+          </span>
+        )}
       </Space>
 
       <Spin spinning={loading}>
