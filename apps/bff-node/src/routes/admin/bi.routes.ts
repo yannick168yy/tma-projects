@@ -1,6 +1,7 @@
 import Router from '@koa/router'
 import {
   getBiOverview, getBiTrends, getBiProviders, getBiGames, listBiAlerts, setBiAlertStatus,
+  getBiFunnel, getBiRetention, getBiRfm, getBiLtv, getBiTopWinners, getBiAcquisition,
 } from '../../services/bi.service.js'
 import { ok, fail } from '../../utils/response.js'
 
@@ -51,6 +52,37 @@ router.get('/alerts', async (ctx) => {
   const status = ctx.query.status ? String(ctx.query.status) : undefined
   if (status && !['open', 'ack', 'closed'].includes(status)) { fail(ctx, 400, 'invalid status'); return }
   ok(ctx, await listBiAlerts(ctx.state.env, status))
+})
+
+router.get('/funnel', async (ctx) => {
+  const days = Math.min(Math.max(Number(ctx.query.days) || 30, 7), 365)
+  const source = ctx.query.source ? String(ctx.query.source) : 'ALL'
+  ok(ctx, await getBiFunnel(ctx.state.env, { days, source }))
+})
+
+router.get('/retention', async (ctx) => {
+  const weeks = Math.min(Math.max(Number(ctx.query.weeks) || 8, 2), 26)
+  ok(ctx, await getBiRetention(ctx.state.env, weeks))
+})
+
+router.get('/rfm', async (ctx) => {
+  const days = Math.min(Math.max(Number(ctx.query.days) || 90, 30), 365)
+  ok(ctx, await getBiRfm(ctx.state.env, ctx.state.redis, days))
+})
+
+router.get('/ltv', async (ctx) => {
+  const weeks = Math.min(Math.max(Number(ctx.query.weeks) || 12, 2), 26)
+  ok(ctx, await getBiLtv(ctx.state.env, ctx.state.redis, weeks))
+})
+
+router.get('/top-winners', async (ctx) => {
+  const days = Math.min(Math.max(Number(ctx.query.days) || 30, 1), 365)
+  ok(ctx, await getBiTopWinners(ctx.state.env, ctx.state.redis, days))
+})
+
+router.get('/acquisition', async (ctx) => {
+  const days = Math.min(Math.max(Number(ctx.query.days) || 30, 7), 365)
+  ok(ctx, await getBiAcquisition(ctx.state.env, ctx.state.redis, days))
 })
 
 router.patch('/alerts/:id', async (ctx) => {

@@ -96,6 +96,8 @@ export async function aggregateBiDay(app: FastifyInstance, date: string): Promis
     await conn.execute(`DELETE FROM bi_daily_provider WHERE stat_date=?`, [date])
     await conn.execute(`DELETE FROM bi_daily_game WHERE stat_date=?`, [date])
     await conn.execute(`DELETE FROM bi_daily_acquisition WHERE stat_date=?`, [date])
+    await conn.execute(`DELETE FROM bi_daily_user WHERE stat_date=?`, [date])
+    await conn.execute(`DELETE FROM bi_user_active_day WHERE stat_date=?`, [date])
 
     for (const [currency, m] of byCur) {
       await conn.execute(
@@ -173,6 +175,51 @@ export async function aggregateBiDay(app: FastifyInstance, date: string): Promis
         [date, entrySource, m.newUsers, m.dau, m.firstDep],
       )
     }
+
+    // 用户日聚合：四个资金来源合并进 bi_daily_user
+    await conn.execute(
+      `INSERT INTO bi_daily_user (stat_date, user_id, currency, bet_amount, payout_amount, bet_count)
+       SELECT ?, user_id, currency, COALESCE(SUM(amount),0),
+              COALESCE(SUM(CASE WHEN status='settled' THEN win_loss ELSE 0 END),0), COUNT(*)
+       FROM bg_568win_wallet_txn
+       WHERE txn_type='bet' AND voided_at IS NULL AND created_at>=? AND created_at<?
+       GROUP BY user_id, currency`,
+      [date, start, end],
+    )
+    await conn.execute(
+      `INSERT INTO bi_daily_user (stat_date, user_id, currency, deposit_amount)
+       SELECT ?, user_id, currency, COALESCE(SUM(amount),0)
+       FROM bg_deposit_order WHERE status='paid' AND created_at>=? AND created_at<?
+       GROUP BY user_id, currency
+       ON DUPLICATE KEY UPDATE deposit_amount=VALUES(deposit_amount)`,
+      [date, start, end],
+    )
+    await conn.execute(
+      `INSERT INTO bi_daily_user (stat_date, user_id, currency, withdraw_amount)
+       SELECT ?, user_id, currency, COALESCE(SUM(amount),0)
+       FROM bg_withdraw_order WHERE status IN ('completed','processing') AND created_at>=? AND created_at<?
+       GROUP BY user_id, currency
+       ON DUPLICATE KEY UPDATE withdraw_amount=VALUES(withdraw_amount)`,
+      [date, start, end],
+    )
+    await conn.execute(
+      `INSERT INTO bi_daily_user (stat_date, user_id, currency, bonus_amount)
+       SELECT ?, user_id, currency, COALESCE(SUM(amount),0)
+       FROM bg_wallet_ledger WHERE type IN (${BONUS_LEDGER_TYPES}) AND amount>0 AND created_at>=? AND created_at<?
+       GROUP BY user_id, currency
+       ON DUPLICATE KEY UPDATE bonus_amount=VALUES(bonus_amount)`,
+      [date, start, end],
+    )
+
+    await conn.execute(
+      `INSERT IGNORE INTO bi_user_active_day (stat_date, user_id)
+       SELECT DISTINCT ?, user_id FROM (
+         SELECT user_id FROM bg_login_log WHERE created_at>=? AND created_at<?
+         UNION SELECT user_id FROM bg_568win_wallet_txn WHERE txn_type='bet' AND created_at>=? AND created_at<?
+         UNION SELECT user_id FROM bg_deposit_order WHERE status='paid' AND created_at>=? AND created_at<?
+       ) u`,
+      [date, start, end, start, end, start, end],
+    )
 
     await conn.commit()
   } catch (err) {
