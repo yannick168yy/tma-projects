@@ -652,6 +652,234 @@ export async function getBiTopWinners(env: Env, redis: Redis, days: number): Pro
   }))
 }
 
+// ---- P4 预测层 ----
+
+/** 近 N 天平台日汇总（折算 PHP），预测与目标进度共用 */
+async function dailyPhpTotals(
+  env: Env, redis: Redis, fromDate: string,
+  metric: 'ggr' | 'deposit' | 'new_users' | 'first_dep_users',
+): Promise<Map<string, number>> {
+  const db = pool(env)
+  const out = new Map<string, number>()
+  if (metric === 'new_users') {
+    const [rows] = await db.query<RowDataPacket[]>(
+      `SELECT stat_date, new_users v FROM bi_daily_active WHERE stat_date>=?`, [fromDate])
+    for (const r of rows) out.set(dateKey(r.stat_date), Number(r.v))
+    return out
+  }
+  const [rows] = await db.query<RowDataPacket[]>(
+    `SELECT stat_date, currency, deposit_amount, bet_amount, payout_amount, first_dep_users
+     FROM bi_daily_platform WHERE stat_date>=?`, [fromDate])
+  const rates = await phpRates(redis, env, rows.map((r) => String(r.currency)))
+  for (const r of rows) {
+    const d = dateKey(r.stat_date)
+    const rate = rates.get(String(r.currency)) ?? 1
+    const v = metric === 'deposit' ? Number(r.deposit_amount) * rate
+      : metric === 'first_dep_users' ? Number(r.first_dep_users)
+      : (Number(r.bet_amount) - Number(r.payout_amount)) * rate
+    out.set(d, (out.get(d) ?? 0) + v)
+  }
+  return out
+}
+
+export interface BiForecastPoint { date: string; value: number }
+
+/** 星期季节性加权移动平均：取近 4 个同星期日加权(4,3,2,1)，样本不足退化为近 7 日均值 */
+function forecastDays(totals: Map<string, number>, horizon: number): BiForecastPoint[] {
+  const todayMs = manilaDayStartMs() + 8 * 3600 * 1000
+  const hist: { date: string; dow: number; value: number }[] = []
+  for (const [date, value] of totals) {
+    if (date >= new Date(todayMs).toISOString().slice(0, 10)) continue // 今天未完整,不进历史
+    hist.push({ date, dow: new Date(`${date}T00:00:00Z`).getUTCDay(), value })
+  }
+  hist.sort((a, b) => a.date.localeCompare(b.date))
+  const last7 = hist.slice(-7)
+  const fallback = last7.length > 0 ? last7.reduce((a, b) => a + b.value, 0) / last7.length : 0
+
+  const out: BiForecastPoint[] = []
+  for (let i = 0; i < horizon; i++) {
+    const ms = todayMs + i * DAY_MS
+    const date = new Date(ms).toISOString().slice(0, 10)
+    const dow = new Date(`${date}T00:00:00Z`).getUTCDay()
+    const samples = hist.filter((h) => h.dow === dow).slice(-4).reverse() // 最近在前
+    let value = fallback
+    if (samples.length >= 2) {
+      const weights = [4, 3, 2, 1]
+      let num = 0; let den = 0
+      samples.forEach((s, j) => { num += s.value * weights[j]; den += weights[j] })
+      value = num / den
+    }
+    out.push({ date, value: Math.round(value * 100) / 100 })
+  }
+  return out
+}
+
+export async function getBiForecast(
+  env: Env, redis: Redis, metric: 'ggr' | 'deposit',
+): Promise<{ history: BiForecastPoint[]; forecast: BiForecastPoint[] }> {
+  const totals = await dailyPhpTotals(env, redis, fromDateOf(56), metric)
+  const history = [...totals.entries()]
+    .map(([date, value]) => ({ date, value: Math.round(value * 100) / 100 }))
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .slice(-14)
+  return { history, forecast: forecastDays(totals, 7) }
+}
+
+// ---- P4 月度目标 ----
+
+export const BI_TARGET_METRICS = ['ggr', 'deposit', 'new_users', 'first_dep_users'] as const
+export type BiTargetMetric = (typeof BI_TARGET_METRICS)[number]
+
+export async function listBiTargets(env: Env, period: string): Promise<{ metric: string; targetValue: number }[]> {
+  const [rows] = await pool(env).query<RowDataPacket[]>(
+    `SELECT metric, target_value FROM bi_target WHERE period=?`, [period])
+  return rows.map((r) => ({ metric: String(r.metric), targetValue: Number(r.target_value) }))
+}
+
+export async function upsertBiTarget(env: Env, period: string, metric: BiTargetMetric, value: number, by: string): Promise<void> {
+  await pool(env).execute(
+    `INSERT INTO bi_target (period, metric, target_value, created_by) VALUES (?,?,?,?)
+     ON DUPLICATE KEY UPDATE target_value=VALUES(target_value), created_by=VALUES(created_by)`,
+    [period, metric, value, by])
+}
+
+export interface BiTargetProgress {
+  metric: string
+  target: number
+  actual: number
+  timeProgress: number       // 时间进度 0-1
+  completion: number         // 完成率 0-1
+  requiredDaily: number      // 剩余天数每日需达成
+  projected: number          // 按预测跑完全月的预计值
+  projectedCompletion: number
+}
+
+export async function getBiTargetProgress(env: Env, redis: Redis): Promise<{ period: string; items: BiTargetProgress[] }> {
+  const todayStr = new Date(manilaDayStartMs() + 8 * 3600 * 1000).toISOString().slice(0, 10)
+  const period = todayStr.slice(0, 7)
+  const monthStart = `${period}-01`
+  const daysInMonth = new Date(Date.UTC(Number(period.slice(0, 4)), Number(period.slice(5, 7)), 0)).getUTCDate()
+  const dayOfMonth = Number(todayStr.slice(8, 10))
+  const remainingDays = daysInMonth - dayOfMonth // 今天不算(未完整)
+
+  const targets = await listBiTargets(env, period)
+  const items: BiTargetProgress[] = []
+  for (const t of targets) {
+    const metric = t.metric as BiTargetMetric
+    if (!BI_TARGET_METRICS.includes(metric)) continue
+    const totals = await dailyPhpTotals(env, redis, monthStart, metric)
+    let actual = 0
+    for (const v of totals.values()) actual += v
+    const fc = forecastDays(totals, Math.max(remainingDays, 0))
+    const projected = actual + fc.reduce((a, b) => a + b.value, 0)
+    items.push({
+      metric,
+      target: t.targetValue,
+      actual: Math.round(actual * 100) / 100,
+      timeProgress: dayOfMonth / daysInMonth,
+      completion: t.targetValue > 0 ? actual / t.targetValue : 0,
+      requiredDaily: remainingDays > 0 ? Math.max(0, (t.targetValue - actual) / remainingDays) : 0,
+      projected: Math.round(projected * 100) / 100,
+      projectedCompletion: t.targetValue > 0 ? projected / t.targetValue : 0,
+    })
+  }
+  return { period, items }
+}
+
+// ---- P4 流失预警 ----
+
+export interface BiChurnUser {
+  userId: string
+  displayName: string
+  deposit90d: number
+  lastActive: string
+  idleDays: number
+  cadenceDays: number
+  score: number
+}
+
+export async function getBiChurnRisk(env: Env, redis: Redis): Promise<BiChurnUser[]> {
+  const db = pool(env)
+  const fromDate = fromDateOf(60)
+  const todayStr = new Date(manilaDayStartMs() + 8 * 3600 * 1000).toISOString().slice(0, 10)
+  const [actRows] = await db.query<RowDataPacket[]>(
+    `SELECT user_id, MIN(stat_date) first_d, MAX(stat_date) last_d, COUNT(*) days
+     FROM bi_user_active_day WHERE stat_date>=? GROUP BY user_id HAVING days>=3`,
+    [fromDate],
+  )
+  const candidates: Omit<BiChurnUser, 'displayName' | 'deposit90d'>[] = []
+  for (const r of actRows) {
+    const first = dateKey(r.first_d)
+    const last = dateKey(r.last_d)
+    const days = Number(r.days)
+    const spanDays = Math.max(1, (Date.parse(last) - Date.parse(first)) / DAY_MS)
+    const cadence = Math.max(1, spanDays / Math.max(days - 1, 1)) // 活跃日平均间隔
+    const idleDays = Math.round((Date.parse(todayStr) - Date.parse(last)) / DAY_MS)
+    if (idleDays < 3 || idleDays < 2 * cadence) continue
+    candidates.push({
+      userId: String(r.user_id),
+      lastActive: last,
+      idleDays,
+      cadenceDays: Math.round(cadence * 10) / 10,
+      score: Math.min(100, Math.round((idleDays / cadence) * 25)),
+    })
+  }
+  if (candidates.length === 0) return []
+
+  const ids = candidates.map((c) => c.userId)
+  const [depRows] = await db.query<RowDataPacket[]>(
+    `SELECT user_id, currency, SUM(amount) amt FROM bg_deposit_order
+     WHERE status='paid' AND user_id IN (?) AND created_at>=? GROUP BY user_id, currency`,
+    [ids, fmtUtc(manilaDayStartMs(-89))],
+  )
+  const rates = await phpRates(redis, env, depRows.map((r) => String(r.currency)))
+  const depMap = new Map<string, number>()
+  for (const r of depRows) {
+    depMap.set(String(r.user_id), (depMap.get(String(r.user_id)) ?? 0) + Number(r.amt) * (rates.get(String(r.currency)) ?? 1))
+  }
+  const [nameRows] = await db.query<RowDataPacket[]>(`SELECT id, display_name FROM bg_user WHERE id IN (?)`, [ids])
+  const nameMap = new Map(nameRows.map((n) => [String(n.id), String(n.display_name ?? '')]))
+
+  return candidates
+    .map((c) => ({
+      ...c,
+      displayName: nameMap.get(c.userId) ?? '',
+      deposit90d: Math.round((depMap.get(c.userId) ?? 0) * 100) / 100,
+    }))
+    .sort((a, b) => b.deposit90d - a.deposit90d || b.score - a.score)
+    .slice(0, 100)
+}
+
+/** 定向给用户开一个复充优惠窗口（绕过进站触发的冷却限制，用于流失挽回） */
+export async function grantRedepOffer(
+  env: Env, userId: string, currency: string,
+): Promise<{ ok: boolean; reason?: string; bonusAmount?: number; minDeposit?: number; endsAt?: string }> {
+  const db = pool(env)
+  const { getRedepConfigByPool } = await import('./promo-config.service.js')
+  const cfg = await getRedepConfigByPool(db)
+  const tier = cfg.byCcy?.[currency] ?? { minDeposit: cfg.minDeposit, bonusAmount: cfg.bonusAmount }
+  if (tier.bonusAmount <= 0 || tier.minDeposit <= 0) return { ok: false, reason: '该币种复充优惠未配置' }
+
+  const [openRows] = await db.query<RowDataPacket[]>(
+    `SELECT id FROM bg_redep_offer WHERE user_id=? AND currency=? AND claimed_at IS NULL AND ends_at>NOW(3) LIMIT 1`,
+    [userId, currency],
+  )
+  if (openRows.length > 0) return { ok: false, reason: '该用户已有生效中的复充窗口' }
+
+  const [ins] = await db.query<import('mysql2/promise').ResultSetHeader>(
+    `INSERT INTO bg_redep_offer (user_id, currency, min_deposit, bonus_amount, starts_at, ends_at)
+     VALUES (?,?,?,?,NOW(3),DATE_ADD(NOW(3), INTERVAL ? HOUR))`,
+    [userId, currency, tier.minDeposit, tier.bonusAmount, cfg.windowHours],
+  )
+  const [[row]] = await db.query<RowDataPacket[]>(`SELECT ends_at FROM bg_redep_offer WHERE id=?`, [ins.insertId])
+  return {
+    ok: true,
+    bonusAmount: tier.bonusAmount,
+    minDeposit: tier.minDeposit,
+    endsAt: row?.ends_at instanceof Date ? row.ends_at.toISOString() : String(row?.ends_at),
+  }
+}
+
 // ---- P3 渠道拉新（渠道=入口域名/tma）----
 
 export interface BiAcquisitionRow {
