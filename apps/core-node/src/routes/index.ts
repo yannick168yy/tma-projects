@@ -3,6 +3,7 @@ import { callbackRoutes } from './callback.routes.js'
 import { internalRoutes } from './internal.routes.js'
 import { win568WalletRoutes } from './win568-wallet.routes.js'
 import { win568OperationRoutes } from './win568-operation.routes.js'
+import { biRoutes } from './bi.routes.js'
 
 export async function registerRoutes(app: FastifyInstance) {
   app.get('/health', async () => ({ status: 'ok' }))
@@ -10,4 +11,5 @@ export async function registerRoutes(app: FastifyInstance) {
   await app.register(win568WalletRoutes)
   await app.register(win568OperationRoutes, { prefix: '/internal/win568' })
   await app.register(internalRoutes)
+  await app.register(biRoutes)
 }

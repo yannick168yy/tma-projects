@@ -11,6 +11,7 @@ import { startWin568KeyRotationCron } from './cron/win568-key-rotation.cron.js'
 import { startWin568ReportSyncCron } from './cron/win568-report-sync.cron.js'
 import { startSegmentRefreshCron } from './cron/segment-refresh.cron.js'
 import { startRiskSignalRefreshCron } from './cron/risk-signal-refresh.cron.js'
+import { startBiAggregateCron } from './cron/bi-aggregate.cron.js'
 import { env } from './config/env.js'
 
 export async function buildApp() {
@@ -43,6 +44,7 @@ export async function buildApp() {
     startWin568ReportSyncCron(app)
     startSegmentRefreshCron(app)
     startRiskSignalRefreshCron(app)
+    startBiAggregateCron(app)
   })
 
   return app
