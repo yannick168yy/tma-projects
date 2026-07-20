@@ -510,7 +510,7 @@ export default {
       invite_milestone: { title: '邀请好友', subtitle: '成功邀请好友注册达标领奖' },
       agg_trial: { title: '领取新手体验金', subtitle: '完成手机验证即可领取' },
       agg_appdl: { title: '下载 App 领礼金', subtitle: '安装 App / PWA 一次性奖励' },
-      agg_firstdep: { title: '完成首充', subtitle: '首次充值即得彩金' },
+      agg_firstdep: { title: '完成首充', subtitle: '首充最高送 ₱2,000' },
       agg_birthday: { title: '解锁生日礼金', subtitle: '完成实名认证，自动同步证件生日' },
       agg_checkin: { title: '每日签到', subtitle: '签到领取抽奖次数' },
       checkin_ms: { title: '本月签到 {{n}} 天', subtitle: '达成额外奖励' },

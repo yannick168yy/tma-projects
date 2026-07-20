@@ -541,11 +541,20 @@ async function buildAggregatedCards(env: Env, userId: string): Promise<{ newbie:
     newbie.push(aggCard('agg_appdl', '下载 App 领礼金', '安装 App / PWA 一次性奖励', Boolean(c), 'app_download', zeroReward('cash', promo.appdl.amount), 'newbie'))
   }
   if (promo?.firstdep.enabled) {
-    newbie.push(aggCard('agg_firstdep', '完成首充', '首次充值即得彩金', Boolean(user?.firstDepClaimed), 'deposit', zeroReward('cash', 0), 'newbie'))
+    // 按钮展示奖励额：取 PHP 档位最高彩金（首充最高可得），拉新活动固定 PHP
+    const firstdepMax = Math.max(0, ...(promo.firstdep.tiers.PHP ?? []).map((t) => t.bonusAmount))
+    newbie.push(aggCard('agg_firstdep', '完成首充', '首次充值即得彩金', Boolean(user?.firstDepClaimed), 'deposit', zeroReward('cash', firstdepMax), 'newbie'))
   }
   // 生日只来自 KYC 证件：未设置时引导去实名认证，KYC 已通过的历史用户在 ensure 内懒回填
   const birthdaySet = await ensureBirthdayFromKyc(env, userId).catch(() => false)
-  newbie.push(aggCard('agg_birthday', '解锁生日礼金', '完成实名认证，自动同步证件生日', birthdaySet, 'kyc', zeroReward('cash', 0), 'newbie'))
+  // 按钮展示奖励额：按用户当前 VIP 等级的生日礼金（无状态行按 1 级），查询失败回落 0（按钮回落 Go）
+  const [[bd]] = await pool.query<RowDataPacket[]>(
+    `SELECT COALESCE(b.birthday_bonus, 0) AS bonus
+     FROM (SELECT COALESCE((SELECT current_level FROM bg_user_vip_state WHERE user_id = ? AND currency = 'PHP'), 1) AS lvl) x
+     LEFT JOIN bg_vip_level_benefit b ON b.level = x.lvl AND b.currency = 'PHP'`,
+    [userId],
+  ).catch(() => [[{ bonus: 0 }]] as unknown as [RowDataPacket[], unknown])
+  newbie.push(aggCard('agg_birthday', '解锁生日礼金', '完成实名认证，自动同步证件生日', birthdaySet, 'kyc', zeroReward('cash', Number(bd?.bonus ?? 0)), 'newbie'))
 
   const ck = await getCheckinStatus(env, userId).catch(() => null)
   if (ck?.enabled) {

@@ -511,7 +511,7 @@ export default {
       invite_milestone: { title: 'Invite Friends', subtitle: 'Invite friends to register to claim' },
       agg_trial: { title: 'Claim Newbie Bonus', subtitle: 'Verify phone to claim' },
       agg_appdl: { title: 'Download App Bonus', subtitle: 'One-time reward for installing the App / PWA' },
-      agg_firstdep: { title: 'First Deposit', subtitle: 'Get a bonus on your first deposit' },
+      agg_firstdep: { title: 'First Deposit', subtitle: 'Get ₱2,000 on your first deposit' },
       agg_birthday: { title: 'Unlock Birthday Gift', subtitle: 'Verify your identity to sync your ID birthday' },
       agg_checkin: { title: 'Daily Check-in', subtitle: 'Check in to earn spin chances' },
       checkin_ms: { title: 'Check in {{n}} days this month', subtitle: 'Reach the milestone for extra rewards' },
