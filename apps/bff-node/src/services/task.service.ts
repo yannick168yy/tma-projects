@@ -42,8 +42,8 @@ const NATIVE_TASKS: NativeTaskDef[] = [
   { id: 'invite_milestone', group: 'newbie', period: 'once', title: '邀请好友', subtitle: '成功邀请好友注册达标领奖', useThreshold: true, todoTarget: 'team_center' },
 ]
 
-/** 新手区展示顺序（体验金第一、绑定账号在邀请后） */
-const NEWBIE_ORDER = ['agg_trial', 'first_game', 'invite_milestone', 'profile_complete', 'agg_appdl', 'agg_firstdep', 'agg_birthday']
+/** 新手区展示顺序（体验金第一、首充在首投前、绑定账号在邀请后） */
+const NEWBIE_ORDER = ['agg_trial', 'agg_firstdep', 'first_game', 'invite_milestone', 'profile_complete', 'agg_appdl', 'agg_birthday']
 
 const NATIVE_BY_ID = new Map(NATIVE_TASKS.map((t) => [t.id, t]))
 
