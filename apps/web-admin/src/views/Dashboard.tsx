@@ -114,7 +114,7 @@ export default function Dashboard() {
               <Table size="small" rowKey="provider" pagination={false}
                 dataSource={data?.balances.providers ?? []}
                 columns={[
-                  { title: '568win 代理账户', dataIndex: 'provider' },
+                  { title: '支付服务商账户', dataIndex: 'provider' },
                   { title: '余额', dataIndex: 'balance', render: (v: number, r) => `${fmtMoney(v)} ${r.currency}` },
                   { title: '状态', dataIndex: 'status',
                     render: (v: string) => v.startsWith('ok') || v === 'success'
