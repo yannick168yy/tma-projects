@@ -41,6 +41,7 @@ function buildMenuItems(badges: AdminBadges) {
         { key: '/bi/users', label: '用户分析' },
         { key: '/bi/acquisition', label: '渠道拉新' },
         { key: '/bi/churn', label: '流失挽回' },
+        { key: '/bi/channels', label: '支付通道监控' },
       ],
     },
     {

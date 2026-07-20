@@ -16,7 +16,8 @@ export default function BiProviders() {
   const [data, setData] = useState<Awaited<ReturnType<typeof getBiProviders>> | null>(null)
   const [alerts, setAlerts] = useState<BiAlertRow[]>([])
 
-  const loadAlerts = () => getBiAlerts('open').then(setAlerts).catch(() => {})
+  const loadAlerts = () =>
+    getBiAlerts('open').then((a) => setAlerts(a.filter((x) => x.alertType === 'provider_rtp'))).catch(() => {})
 
   useEffect(() => { loadAlerts() }, [])
   useEffect(() => {

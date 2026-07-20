@@ -163,6 +163,14 @@ export interface BiChurnUser {
 export const getBiChurnRisk = () => get<BiChurnUser[]>('/admin/bi/churn-risk')
 export const grantChurnRedepOffer = (userId: string, currency = 'PHP') =>
   post<{ ok: boolean; reason?: string; bonusAmount?: number; minDeposit?: number; endsAt?: string }>('/admin/bi/churn/redep-offer', { userId, currency })
+
+export interface BiChannelRow {
+  direction: string; channel: string; total: number; success: number
+  rate: number; avgSecs: number | null
+}
+export const getBiChannels = (days: number) =>
+  get<{ channels: BiChannelRow[]; trend: { dates: string[]; series: { name: string; data: (number | null)[] }[] } }>('/admin/bi/channels', { days })
+export const sendBiReport = () => post<{ sent: boolean; text: string }>('/admin/bi/report/send')
 export const setBiAlertStatus = (id: number, status: 'ack' | 'closed') =>
   patch<{ updated: boolean }>(`/admin/bi/alerts/${id}`, { status })
 
