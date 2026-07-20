@@ -495,6 +495,19 @@ export default {
     codePlaceholder: '输入暗号',
     codeSheetHint: '在社群帖子里查看暗号，回来填入即可领取。',
     codeSheetGo: '去查看帖子获取暗号',
+    codeSheet: {
+      follow_viber: {
+        step1: '点下方按钮加入 Viber 官方社群',
+        step2: '在社群顶部的「置顶消息」里找到暗号',
+        step3: '回到这里输入暗号，领取奖励',
+        go: '去加入社群获取暗号',
+      },
+      follow_facebook: {
+        step1: '点下方按钮打开并关注 Facebook 官方主页',
+        step2: '在主页顶部的「置顶帖」里找到暗号',
+        step3: '回到这里输入暗号，领取奖励',
+      },
+    },
     visitThenClaim: '已打开链接，完成后回来再点一次领取',
     codeRequired: '请输入暗号',
     badCode: '暗号错误，请核对',

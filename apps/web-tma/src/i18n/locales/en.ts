@@ -496,6 +496,19 @@ export default {
     codePlaceholder: 'Enter the code',
     codeSheetHint: 'Find the code in our community post, then enter it below to claim.',
     codeSheetGo: 'View the post & get the code',
+    codeSheet: {
+      follow_viber: {
+        step1: 'Tap the button below to join our official Viber community',
+        step2: 'Find the code in the pinned message at the top of the chat',
+        step3: 'Come back and enter the code to claim your reward',
+        go: 'Join the community & get the code',
+      },
+      follow_facebook: {
+        step1: 'Tap the button below to open & follow our Facebook page',
+        step2: 'Find the code in the pinned post at the top of the page',
+        step3: 'Come back and enter the code to claim your reward',
+      },
+    },
     visitThenClaim: 'Opened — come back and tap again to claim',
     codeRequired: 'Please enter the code',
     badCode: 'Wrong code, please check',

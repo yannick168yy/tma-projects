@@ -656,19 +656,36 @@ function CodeRedeemSheet({ card, reward, busy, onSubmit, onClose }: {
 }) {
   const { t } = useTranslation()
   const [code, setCode] = useState('')
+  // 按任务 id 取分步指引（viber=置顶消息 / facebook=置顶帖），没配置的任务回落通用提示
+  const steps = ['step1', 'step2', 'step3']
+    .map((k) => t(`tasks.codeSheet.${card.id}.${k}`, { defaultValue: '' }))
+    .filter(Boolean)
   return (
     <div className="fixed inset-0 z-[70] flex justify-center">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
       <div className="task-sheet-in absolute inset-x-0 bottom-0 mx-auto w-full max-w-[430px] rounded-t-2xl border-t border-[#8a5b13]/40 bg-[#12100b] px-5 pb-8 pt-3">
         <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-white/15" />
         <p className="text-[15px] font-black text-[#fff8ea]">{labelTitle(t, card)}</p>
-        <p className="mt-1 text-[12px] leading-snug text-[#d8c7a5]">{t('tasks.codeSheetHint')}</p>
+        {steps.length > 0 ? (
+          <ol className="mt-2 space-y-1.5">
+            {steps.map((step, i) => (
+              <li key={step} className="flex gap-2 text-[12px] leading-snug text-[#d8c7a5]">
+                <span className="flex h-[16px] w-[16px] flex-shrink-0 items-center justify-center rounded-full bg-[#ffc31e]/15 text-[10px] font-black text-[#ffd78a]">
+                  {i + 1}
+                </span>
+                {step}
+              </li>
+            ))}
+          </ol>
+        ) : (
+          <p className="mt-1 text-[12px] leading-snug text-[#d8c7a5]">{t('tasks.codeSheetHint')}</p>
+        )}
         {card.action.url && (
           <a
             href={card.action.url} target="_blank" rel="noreferrer"
             className="mt-3 flex items-center justify-between rounded-xl border border-[#ffc31e]/40 bg-black/40 px-3.5 py-3 text-[13px] font-black text-[#ffd78a] active:scale-[0.98]"
           >
-            {t('tasks.codeSheetGo')}
+            {t(`tasks.codeSheet.${card.id}.go`, { defaultValue: t('tasks.codeSheetGo') })}
             <ChevronRight size={16} />
           </a>
         )}
