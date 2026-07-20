@@ -4,6 +4,7 @@ import {
   getTaskConfig, saveTaskConfig, type TaskConfig, type TaskRewardCfg, type TaskRewardType,
   getTaskSocial, saveTaskSocial, type TaskSocialConfig,
   getTaskReviews, reviewTaskManual, type TaskManualReview,
+  getPromoConfig, savePromoConfig, type PromoConfig,
   CONFIG_CCY_OPTIONS,
 } from '../api'
 
@@ -175,6 +176,41 @@ function Reviews() {
   )
 }
 
+/** 下载 App 礼金：数据源=营销活动配置的 appdl 标量，这里只是任务中心侧的编辑入口（同一真源） */
+function AppdlConfig() {
+  const [cfg, setCfg] = useState<PromoConfig | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => { void load() }, [])
+  async function load() {
+    setLoading(true)
+    try { setCfg(await getPromoConfig()) } catch { message.error('加载失败') } finally { setLoading(false) }
+  }
+  function patch(p: Partial<PromoConfig['appdl']>) {
+    setCfg((c) => (c ? { ...c, appdl: { ...c.appdl, ...p } } : c))
+  }
+  async function save() {
+    if (!cfg) return
+    setSaving(true)
+    try { setCfg(await savePromoConfig(cfg)); message.success('已保存') }
+    catch { message.error('保存失败') } finally { setSaving(false) }
+  }
+
+  if (loading || !cfg) return <Spin style={{ margin: 40 }} />
+  return (
+    <Card style={{ marginTop: 16 }} title="下载 App 礼金（agg_appdl）" extra={<Button type="primary" loading={saving} onClick={save}>保存</Button>}>
+      <Text type="secondary">与「营销运营 · 活动配置」同一份配置，两处改任一处即生效。拉新活动固定 PHP 一次性发放。</Text>
+      <Space style={{ marginTop: 12 }} size="large" wrap>
+        <Space><Text>开关</Text><Switch checked={cfg.appdl.enabled} onChange={(x) => patch({ enabled: x })} /></Space>
+        <Space><Text>奖金 ₱</Text><InputNumber min={1} max={50000} precision={0} value={cfg.appdl.amount} onChange={(v) => patch({ amount: Number(v ?? 0) })} /></Space>
+        <Space><Text>打码倍数</Text><InputNumber min={0} max={100} precision={0} value={cfg.appdl.turnoverX} onChange={(v) => patch({ turnoverX: Number(v ?? 0) })} /></Space>
+        <Space><Text>流水有效期(天)</Text><InputNumber min={0} max={365} precision={0} value={cfg.appdl.turnoverDays} onChange={(v) => patch({ turnoverDays: Number(v ?? 0) })} /></Space>
+      </Space>
+    </Card>
+  )
+}
+
 // 与前台任务中心的三个 tab（New Player / Daily / Social）一一对应
 const NEWBIE_IDS = ['profile_complete', 'first_game', 'invite_milestone']
 const DAILY_IDS = ['daily_deposit_t1', 'daily_deposit_t2', 'daily_deposit_t3', 'daily_bets', 'daily_play']
@@ -185,9 +221,10 @@ function NewbieTab() {
       <Alert
         style={{ marginBottom: 12 }} type="info" showIcon
         message="前台新手区其余卡片的配置位置"
-        description="领取新手体验金 / 下载 App 礼金 / 首充彩金 → 营销运营 · 活动配置；解锁生日礼金 → KYC 通过后自动同步证件生日，无需配置。"
+        description="领取新手体验金 / 首充彩金 → 营销运营 · 活动配置；解锁生日礼金 → KYC 通过后自动同步证件生日，无需配置。"
       />
       <NativeConfig ids={NEWBIE_IDS} title="新手任务" />
+      <AppdlConfig />
     </>
   )
 }

@@ -661,7 +661,7 @@ function CodeRedeemSheet({ card, reward, busy, onSubmit, onClose }: {
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
       <div className="task-sheet-in absolute inset-x-0 bottom-0 mx-auto w-full max-w-[430px] rounded-t-2xl border-t border-[#8a5b13]/40 bg-[#12100b] px-5 pb-8 pt-3">
         <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-white/15" />
-        <p className="text-[15px] font-black text-[#fff8ea]">{card.title}</p>
+        <p className="text-[15px] font-black text-[#fff8ea]">{labelTitle(t, card)}</p>
         <p className="mt-1 text-[12px] leading-snug text-[#d8c7a5]">{t('tasks.codeSheetHint')}</p>
         {card.action.url && (
           <a
@@ -673,7 +673,6 @@ function CodeRedeemSheet({ card, reward, busy, onSubmit, onClose }: {
           </a>
         )}
         <input
-          autoFocus
           value={code}
           onChange={(e) => setCode(e.target.value)}
           placeholder={t('tasks.codePlaceholder')}
