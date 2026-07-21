@@ -172,6 +172,8 @@ export interface LossRebateConfig {
   enabled: boolean
   ratePct: number
   minDeposit: number
+  /** 参与返水的品类白名单（对应 game.sortCategory：slots/fishing/table/live/sports/other）；后端已下发 */
+  eligibleCats?: string[]
 }
 
 export interface PromoConfig {
