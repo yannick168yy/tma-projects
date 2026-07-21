@@ -65,11 +65,11 @@ CREATE TABLE IF NOT EXISTS `bg_task_social` (
 
 -- 预置 4 个社群任务（默认关闭，运营配好频道/码后再开启）
 INSERT IGNORE INTO `bg_task_social`
-  (`task_key`, `platform`, `verify_strategy`, `title`, `subtitle`, `reward_type`, `reward_amount`, `reward_spin`, `turnover_x`, `enabled`, `sort`) VALUES
-  ('bind_telegram',  'telegram', 'bind_only',    '绑定 Telegram',   '绑定后可参与更多福利', 'spin', 0, 1, 0, 0, 1),
-  ('follow_telegram','telegram', 'tg_member',    '关注官方 Telegram 频道', '加入频道领奖励', 'cash', 10, 0, 3, 0, 2),
-  ('follow_facebook','facebook', 'code_redeem',  '关注官方 Facebook',      '主页领取暗号回填', 'spin', 0, 1, 0, 0, 3),
-  ('follow_viber',   'viber',    'code_redeem',  '加入官方 Viber 社区',    '社区内领取暗号回填', 'spin', 0, 1, 0, 0, 4);
+  (`task_key`, `platform`, `verify_strategy`, `title`, `subtitle`, `action_url`, `channel_ref`, `reward_type`, `reward_amount`, `reward_spin`, `turnover_x`, `enabled`, `sort`) VALUES
+  ('bind_telegram',  'telegram', 'bind_only',    '绑定 Telegram',   '绑定后可参与更多福利', '', '', 'spin', 0, 1, 0, 0, 1),
+  ('follow_telegram','telegram', 'tg_member',    '关注官方 Telegram 频道', '加入频道领奖励', 'https://t.me/betogo_gaming', '@betogo_gaming', 'cash', 10, 0, 3, 0, 2),
+  ('follow_facebook','facebook', 'code_redeem',  '关注官方 Facebook',      '主页领取暗号回填', '', '', 'spin', 0, 1, 0, 0, 3),
+  ('follow_viber',   'viber',    'code_redeem',  '加入官方 Viber 社区',    '社区内领取暗号回填', '', '', 'spin', 0, 1, 0, 0, 4);
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- 3. bg_task_social_claim  社群任务领取记录（幂等：一人一任务一次）
