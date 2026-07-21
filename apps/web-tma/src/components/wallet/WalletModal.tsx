@@ -508,7 +508,8 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
                           {sel&&<span className="absolute right-1.5 top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-black"><Check size={10} strokeWidth={3}/></span>}
                           {m.iconUrl ? <div className="w-10 h-10 rounded-xl overflow-hidden flex-shrink-0"><img src={m.iconUrl} alt={m.name} className="w-full h-full object-contain" /></div>
                             : <div className={`w-10 h-10 rounded-xl bg-gradient-to-br flex items-center justify-center flex-shrink-0 ${m.color}`}>{m.iconKind==='telegram'?<Send size={18} className="text-white" strokeWidth={2.5}/>:<span className="text-white text-base font-black">{m.icon}</span>}</div>}
-                          <span className="text-xs font-black text-white truncate w-full text-center">{m.name}</span>
+                          <span className="text-xs font-black text-white truncate w-full text-center leading-tight">{m.name}</span>
+                          {m.tag&&<span className="text-[9px] font-bold text-white/45 truncate w-full text-center leading-none uppercase tracking-wide">{m.tag}</span>}
                         </button>
                       )
                     })}
