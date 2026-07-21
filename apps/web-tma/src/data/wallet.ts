@@ -55,8 +55,10 @@ export const FIAT_DEPOSIT: PayMethod[] = [
 ]
 
 export const CRYPTO_DEPOSIT: PayMethod[] = [
-  { id: 'usdt-trc', name: 'USDT', icon: '', iconUrl: '/logos/usdt.svg', color: 'from-teal-500 to-emerald-600', tag: 'TRC20', currency: 'USDT', enabled: false },
-  { id: 'usdc-trc', name: 'USDC', icon: '', iconUrl: '/logos/usdt.svg', color: 'from-blue-500 to-sky-600', tag: 'TRC20', currency: 'USDC', enabled: false },
+  { id: 'matrix_usdt_trc', name: 'USDT', icon: '', iconUrl: '/logos/usdt.svg', color: 'from-teal-500 to-emerald-600', tag: 'TRC20', currency: 'USDT', enabled: true, channelId: 'matrix', matrixSymbol: 'USDT', matrixChain: 'TRON' },
+  { id: 'matrix_usdt_erc', name: 'USDT', icon: '', iconUrl: '/logos/usdt.svg', color: 'from-indigo-500 to-blue-700', tag: 'ERC20', currency: 'USDT', enabled: true, channelId: 'matrix', matrixSymbol: 'USDT', matrixChain: 'ETH' },
+  { id: 'matrix_usdc_trc', name: 'USDC', icon: '', iconUrl: '/logos/usdt.svg', color: 'from-blue-500 to-sky-600', tag: 'TRC20', currency: 'USDC', enabled: true, channelId: 'matrix', matrixSymbol: 'USDC', matrixChain: 'TRON' },
+  { id: 'matrix_usdc_erc', name: 'USDC', icon: '', iconUrl: '/logos/usdt.svg', color: 'from-indigo-500 to-blue-700', tag: 'ERC20', currency: 'USDC', enabled: true, channelId: 'matrix', matrixSymbol: 'USDC', matrixChain: 'ETH' },
   {
     id: 'matrix_trx_testnet',
     name: 'TRX_TESTNET',
