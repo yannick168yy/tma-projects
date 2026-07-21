@@ -55,11 +55,12 @@ export const FIAT_DEPOSIT: PayMethod[] = [
 ]
 
 export const CRYPTO_DEPOSIT: PayMethod[] = [
+  // USDT：TRON(TRC20) 与 ETHEREUM(ERC20) 均已实测能出真实地址
   { id: 'matrix_usdt_trc', name: 'USDT', icon: '', iconUrl: '/logos/usdt.svg', color: 'from-teal-500 to-emerald-600', tag: 'TRC20', currency: 'USDT', enabled: true, channelId: 'matrix', matrixSymbol: 'USDT', matrixChain: 'TRON' },
-  { id: 'matrix_usdc_trc', name: 'USDC', icon: '', iconUrl: '/logos/usdt.svg', color: 'from-blue-500 to-sky-600', tag: 'TRC20', currency: 'USDC', enabled: true, channelId: 'matrix', matrixSymbol: 'USDC', matrixChain: 'TRON' },
-  // ERC20：链代码待 Matrix 确认（dev 网关对 chain=ETH 返回 1015「币种不存在」），拿到正确代码后填 matrixChain 并置 enabled:true
-  { id: 'matrix_usdt_erc', name: 'USDT', icon: '', iconUrl: '/logos/usdt.svg', color: 'from-indigo-500 to-blue-700', tag: 'ERC20', currency: 'USDT', enabled: false, channelId: 'matrix', matrixSymbol: 'USDT', matrixChain: '' },
-  { id: 'matrix_usdc_erc', name: 'USDC', icon: '', iconUrl: '/logos/usdt.svg', color: 'from-indigo-500 to-blue-700', tag: 'ERC20', currency: 'USDC', enabled: false, channelId: 'matrix', matrixSymbol: 'USDC', matrixChain: '' },
+  { id: 'matrix_usdt_erc', name: 'USDT', icon: '', iconUrl: '/logos/usdt.svg', color: 'from-indigo-500 to-blue-700', tag: 'ERC20', currency: 'USDT', enabled: true, channelId: 'matrix', matrixSymbol: 'USDT', matrixChain: 'ETHEREUM' },
+  // USDC：币种已开通但网关返回 1103「暂无可用的支付渠道」，等 Matrix 侧配好收款渠道后置 enabled:true
+  { id: 'matrix_usdc_trc', name: 'USDC', icon: '', iconUrl: '/logos/usdt.svg', color: 'from-blue-500 to-sky-600', tag: 'TRC20', currency: 'USDC', enabled: false, channelId: 'matrix', matrixSymbol: 'USDC', matrixChain: 'TRON' },
+  { id: 'matrix_usdc_erc', name: 'USDC', icon: '', iconUrl: '/logos/usdt.svg', color: 'from-indigo-500 to-blue-700', tag: 'ERC20', currency: 'USDC', enabled: false, channelId: 'matrix', matrixSymbol: 'USDC', matrixChain: 'ETHEREUM' },
   {
     id: 'matrix_trx_testnet',
     name: 'TRX_TESTNET',
