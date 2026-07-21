@@ -90,7 +90,7 @@ export default function GameCardV2({ game, onTap, size, showLive }: Props) {
             <img src={CASHBACK_BADGE[game.cashbackTier]} alt="" draggable={false} className="w-full" />
           )}
           {showLossRebate && (
-            <img src={lossRebateBadge} alt="" draggable={false} className="w-full" />
+            <img src={lossRebateBadge} alt="" draggable={false} className={`w-full ${game.cashbackTier ? 'mt-[4%]' : ''}`} />
           )}
         </div>
       )}
