@@ -59,8 +59,8 @@ export const CRYPTO_DEPOSIT: PayMethod[] = [
   { id: 'matrix_usdt_trc', name: 'USDT', icon: '', iconUrl: '/logos/usdt.svg', color: 'from-teal-500 to-emerald-600', tag: 'TRC20', currency: 'USDT', enabled: true, channelId: 'matrix', matrixSymbol: 'USDT', matrixChain: 'TRON' },
   { id: 'matrix_usdt_erc', name: 'USDT', icon: '', iconUrl: '/logos/usdt.svg', color: 'from-indigo-500 to-blue-700', tag: 'ERC20', currency: 'USDT', enabled: true, channelId: 'matrix', matrixSymbol: 'USDT', matrixChain: 'ETHEREUM' },
   // USDC：TRON(TRC20) 与 ETHEREUM(ERC20) 均已实测能出真实地址
-  { id: 'matrix_usdc_trc', name: 'USDC', icon: '', iconUrl: '/logos/usdt.svg', color: 'from-blue-500 to-sky-600', tag: 'TRC20', currency: 'USDC', enabled: true, channelId: 'matrix', matrixSymbol: 'USDC', matrixChain: 'TRON' },
-  { id: 'matrix_usdc_erc', name: 'USDC', icon: '', iconUrl: '/logos/usdt.svg', color: 'from-indigo-500 to-blue-700', tag: 'ERC20', currency: 'USDC', enabled: true, channelId: 'matrix', matrixSymbol: 'USDC', matrixChain: 'ETHEREUM' },
+  { id: 'matrix_usdc_trc', name: 'USDC', icon: '', iconUrl: '/logos/usdc.svg', color: 'from-blue-500 to-sky-600', tag: 'TRC20', currency: 'USDC', enabled: true, channelId: 'matrix', matrixSymbol: 'USDC', matrixChain: 'TRON' },
+  { id: 'matrix_usdc_erc', name: 'USDC', icon: '', iconUrl: '/logos/usdc.svg', color: 'from-indigo-500 to-blue-700', tag: 'ERC20', currency: 'USDC', enabled: true, channelId: 'matrix', matrixSymbol: 'USDC', matrixChain: 'ETHEREUM' },
   {
     id: 'matrix_trx_testnet',
     name: 'TRX_TESTNET',
@@ -83,8 +83,8 @@ export const FIAT_WITHDRAW: PayMethod[] = [
 export const CRYPTO_WITHDRAW: PayMethod[] = [
   { id: 'usdt-trc-w', name: 'USDT', icon: '', iconUrl: '/logos/usdt.svg', color: 'from-teal-500 to-emerald-600', tag: 'TRC20', currency: 'USDT' },
   { id: 'usdt-erc-w', name: 'USDT', icon: '', iconUrl: '/logos/usdt.svg', color: 'from-indigo-500 to-blue-700', tag: 'ERC20', currency: 'USDT' },
-  { id: 'usdc-trc-w', name: 'USDC', icon: '', iconUrl: '/logos/usdt.svg', color: 'from-blue-500 to-sky-600', tag: 'TRC20', currency: 'USDC' },
-  { id: 'usdc-erc-w', name: 'USDC', icon: '', iconUrl: '/logos/usdt.svg', color: 'from-indigo-500 to-blue-700', tag: 'ERC20', currency: 'USDC' },
+  { id: 'usdc-trc-w', name: 'USDC', icon: '', iconUrl: '/logos/usdc.svg', color: 'from-blue-500 to-sky-600', tag: 'TRC20', currency: 'USDC' },
+  { id: 'usdc-erc-w', name: 'USDC', icon: '', iconUrl: '/logos/usdc.svg', color: 'from-indigo-500 to-blue-700', tag: 'ERC20', currency: 'USDC' },
   {
     id: 'matrix_trx_testnet_w',
     name: 'TRX_TESTNET',

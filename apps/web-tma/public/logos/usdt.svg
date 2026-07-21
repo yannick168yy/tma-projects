@@ -1,9 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
   <circle cx="50" cy="50" r="50" fill="#26A17B"/>
-  <!-- Top horizontal bar of T -->
-  <rect x="17" y="22" width="66" height="14" rx="7" fill="white"/>
-  <!-- Vertical stem -->
-  <rect x="43" y="22" width="14" height="38" fill="white"/>
-  <!-- Bottom underline (Tether's signature band) -->
-  <rect x="23" y="68" width="54" height="10" rx="5" fill="rgba(255,255,255,0.75)"/>
+  <ellipse cx="50" cy="47.5" rx="22" ry="8.6" fill="#fff"/>
+  <ellipse cx="50" cy="47.5" rx="16.5" ry="4.6" fill="#26A17B"/>
+  <rect x="23.5" y="26" width="53" height="12" rx="1.5" fill="#fff"/>
+  <rect x="44" y="27" width="12" height="47.5" fill="#fff"/>
 </svg>
