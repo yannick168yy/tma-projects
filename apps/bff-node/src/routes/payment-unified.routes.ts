@@ -132,7 +132,6 @@ router.post('/payment/deposit/create', async (ctx) => {
       orderId: merchantSerial,
       userId: ctx.state.userId!,
       amount,
-      creditedCents: Math.round(amount * 100),
       currency: 'PHP',
       channelId: `${provider}_${channelName}`,
       status: 'pending',
