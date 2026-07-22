@@ -466,9 +466,9 @@ function parseJsonValue(value: unknown): unknown {
 }
 
 const VIRTUAL_SPORTSBOOK_UUID = '568win:sportsbook'
-const VIRTUAL_SPORTSBOOK_PROVIDER = '365Win Sports'
-const VIRTUAL_SPORTSBOOK_NAME = '365Win Sports'
-const VIRTUAL_SPORTSBOOK_NAME_ZH = '365Win 体育'
+const VIRTUAL_SPORTSBOOK_PROVIDER = '568Win Sports'
+const VIRTUAL_SPORTSBOOK_NAME = '568Win Sports'
+const VIRTUAL_SPORTSBOOK_NAME_ZH = '568Win 体育'
 
 type ListAdminWin568GamesOpts = {
   page: number; pageSize: number

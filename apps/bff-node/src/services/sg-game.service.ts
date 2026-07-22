@@ -7,9 +7,9 @@ const GAMES_CACHE_KEY = 'games:all'
 const GAMES_CACHE_TTL = 30 * 60 // 30 分钟
 export const WIN568_SPORTSBOOK_UUID = '568win:sportsbook'
 const WIN568_SPORTSBOOK_DEFAULT = {
-  provider: '365Win Sports',
-  name: '365Win Sports',
-  nameZh: '365Win 体育',
+  provider: '568Win Sports',
+  name: '568Win Sports',
+  nameZh: '568Win 体育',
   category: 'sportsbook',
   sortCategory: 'sports',
   siteCategory: 'sports',

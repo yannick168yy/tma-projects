@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS `bg_virtual_game_config` (
 INSERT INTO `bg_virtual_game_config`
   (`uuid`, `provider`, `name`, `name_zh`, `category`, `sort_category`, `site_category`, `is_active`, `weight`, `is_featured`, `supported_currencies`)
 VALUES
-  ('568win:sportsbook', '365Win Sports', '365Win Sports', '365Win 体育', 'sportsbook', 'sports', 'sports', 1, 10000, 1, JSON_ARRAY('PHP', 'USDT'))
+  ('568win:sportsbook', '568Win Sports', '568Win Sports', '568Win 体育', 'sportsbook', 'sports', 'sports', 1, 10000, 1, JSON_ARRAY('PHP', 'USDT'))
 ON DUPLICATE KEY UPDATE
   `provider` = VALUES(`provider`),
   `name` = VALUES(`name`),
