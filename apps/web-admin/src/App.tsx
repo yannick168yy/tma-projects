@@ -30,6 +30,7 @@ import Games from './views/Games'
 import Settings from './views/Settings'
 import SystemParams from './views/SystemParams'
 import SmsTest from './views/SmsTest'
+import DbBackup from './views/DbBackup'
 import ExchangeRates from './views/ExchangeRates'
 import CustomerService from './views/CustomerService'
 import CsFaq from './views/CsFaq'
@@ -117,6 +118,7 @@ export default function App() {
           <Route path="settings" element={<Settings />} />
           <Route path="system-params" element={<SystemParams />} />
           <Route path="sms-test" element={<SmsTest />} />
+          <Route path="db-backup" element={<RequireRole role="super_admin"><DbBackup /></RequireRole>} />
           <Route path="exchange-rates" element={<ExchangeRates />} />
           <Route path="customer-service" element={<CustomerService />} />
           <Route path="cs-faq" element={<CsFaq />} />

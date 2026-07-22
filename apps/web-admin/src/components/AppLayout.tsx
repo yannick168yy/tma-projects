@@ -179,6 +179,7 @@ function buildMenuItems(badges: AdminBadges) {
         { key: '/system-params', label: '系统参数' },
         { key: '/audit-log', label: '操作日志' },
         { key: '/sms-test', label: '短信测试' },
+        { key: '/db-backup', label: '数据库备份', roles: ['super_admin'] },
       ],
     },
   ]
@@ -207,7 +208,7 @@ function getDefaultOpenKeys(pathname: string): string[] {
   if (pathname.startsWith('/team-referral')) return ['team']
   if (pathname.startsWith('/agents') || pathname.startsWith('/agent-')) return ['agent']
   if (['/customer-service', '/cs-faq'].some((p) => pathname.startsWith(p))) return ['cs']
-  if (['/audit-log', '/settings', '/system-params', '/sms-test'].some((p) => pathname.startsWith(p))) return ['system']
+  if (['/audit-log', '/settings', '/system-params', '/sms-test', '/db-backup'].some((p) => pathname.startsWith(p))) return ['system']
   return []
 }
 

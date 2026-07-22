@@ -33,6 +33,7 @@ run run -d --name tma-bff-node --network "$NET" --restart=always \
   -p 127.0.0.1:3000:3000 \
   -v "${DIR}/apps/bff-node/dist:/app/dist:ro" \
   -v "${DIR}/data/kyc:/app/data/kyc" \
+  -v "${DIR}/backups:/app/data/backups" \
   -e NODE_ENV=production \
   -e LOG_LEVEL="${LOG_LEVEL:-info}" \
   -e BFF_PORT=3000 \
@@ -85,6 +86,7 @@ run run -d --name tma-bff-node --network "$NET" --restart=always \
   -e TELESMS_SENDER="${TELESMS_SENDER:-}" \
   -e KYC_GEMINI_MIN_CONFIDENCE="${KYC_GEMINI_MIN_CONFIDENCE:-0.85}" \
   -e KYC_STORAGE_DIR="${KYC_STORAGE_DIR:-/app/data/kyc}" \
+  -e DB_BACKUP_DIR="${DB_BACKUP_DIR:-/app/data/backups}" \
   -e IMAGE_CDN_BASE="${IMAGE_CDN_BASE:-}" \
   -e CS_ENABLED="${CS_ENABLED:-true}" \
   -e EXCHANGE_RATE_API_KEY="${EXCHANGE_RATE_API_KEY:-}" \

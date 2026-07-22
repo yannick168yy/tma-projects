@@ -2,6 +2,9 @@ FROM node:20-alpine
 WORKDIR /app
 ENV NODE_ENV=production
 
+# mariadb-client 提供 mysqldump，供后台「立即备份」使用
+RUN apk add --no-cache mariadb-client
+
 COPY package.json package-lock.json* ./
 RUN npm ci --omit=dev
 

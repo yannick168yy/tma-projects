@@ -29,6 +29,7 @@ import riskRoutes from './risk.routes.js'
 import communityRoutes from './community.routes.js'
 import broadcastRoutes from './broadcast.routes.js'
 import biRoutes from './bi.routes.js'
+import dbBackupRoutes from './db-backup.routes.js'
 
 export function createAdminRouter(): Router {
   const admin = new Router({ prefix: '/admin' })
@@ -38,7 +39,7 @@ export function createAdminRouter(): Router {
 
   // 需要 admin token
   const guard = adminAuthMiddleware()
-  for (const r of [dashboardRoutes, usersRoutes, depositsRoutes, withdrawalsRoutes, auditRoutes, gamesRoutes, settingsRoutes, securityRoutes, csRoutes, betOrdersRoutes, teamRoutes, agentRoutes, promotionsRoutes, rebateRoutes, vipRoutes, spinRoutes, homeContentRoutes, reviewRoutes, kycRoutes, paymentRoutes, ledgerRoutes, deviceLookupRoutes, checkinRoutes, taskRoutes, riskRoutes, communityRoutes, broadcastRoutes, biRoutes]) {
+  for (const r of [dashboardRoutes, usersRoutes, depositsRoutes, withdrawalsRoutes, auditRoutes, gamesRoutes, settingsRoutes, securityRoutes, csRoutes, betOrdersRoutes, teamRoutes, agentRoutes, promotionsRoutes, rebateRoutes, vipRoutes, spinRoutes, homeContentRoutes, reviewRoutes, kycRoutes, paymentRoutes, ledgerRoutes, deviceLookupRoutes, checkinRoutes, taskRoutes, riskRoutes, communityRoutes, broadcastRoutes, biRoutes, dbBackupRoutes]) {
     admin.use(guard, r.routes(), r.allowedMethods())
   }
 

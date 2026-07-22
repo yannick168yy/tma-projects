@@ -1480,3 +1480,40 @@ export const tbTestSend = (id: number, tgId: string) => post(`/admin/broadcast/$
 export const tbStart = (id: number) => post<{ total: number }>(`/admin/broadcast/${id}/send`)
 export const tbCancel = (id: number) => post(`/admin/broadcast/${id}/cancel`)
 export const tbFails = (id: number) => get<{ items: TbFail[] }>(`/admin/broadcast/${id}/fails`)
+
+// ── 数据库备份管理（super_admin）─────────────────────────────
+export interface DbBackupItem {
+  name: string
+  sizeBytes: number
+  mtime: string
+  type: 'daily' | 'manual' | 'preclean'
+}
+export const listDbBackups = () =>
+  get<{ dir: string; keep: number; items: DbBackupItem[] }>('/admin/db-backup')
+// 立即备份可能耗时（大库），单独放宽超时到 10 分钟
+export const createDbBackup = async (): Promise<DbBackupItem> => {
+  const resp = await http.request<ApiResp<DbBackupItem>>({
+    method: 'POST', url: '/admin/db-backup', timeout: 600000,
+  })
+  if (resp.data.code !== 0) throw new Error(resp.data.message)
+  return resp.data.data
+}
+export const deleteDbBackup = (name: string) =>
+  del<{ name: string }>(`/admin/db-backup/${encodeURIComponent(name)}`)
+export async function downloadDbBackup(name: string): Promise<void> {
+  const token = localStorage.getItem('admin_token')
+  const base = import.meta.env.VITE_ADMIN_API_BASE_URL || '/api/v1'
+  const res = await fetch(`${base}/admin/db-backup/${encodeURIComponent(name)}/download`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  })
+  if (!res.ok) throw new Error('下载失败')
+  const blob = await res.blob()
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = name
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  URL.revokeObjectURL(url)
+}
