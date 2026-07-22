@@ -17,6 +17,7 @@ const TYPE_LABEL: Record<DbBackupItem['type'], { text: string; color: string }> 
   daily: { text: '每日自动', color: 'blue' },
   manual: { text: '手动', color: 'green' },
   preclean: { text: '清库前', color: 'orange' },
+  preresetseq: { text: '复位发号前', color: 'orange' },
 }
 
 export default function DbBackup() {

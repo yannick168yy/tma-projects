@@ -1486,7 +1486,7 @@ export interface DbBackupItem {
   name: string
   sizeBytes: number
   mtime: string
-  type: 'daily' | 'manual' | 'preclean'
+  type: 'daily' | 'manual' | 'preclean' | 'preresetseq'
 }
 export const listDbBackups = () =>
   get<{ dir: string; keep: number; items: DbBackupItem[] }>('/admin/db-backup')

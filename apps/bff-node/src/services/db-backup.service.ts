@@ -10,15 +10,16 @@ import type { ReadStream } from 'node:fs'
 // 与 scripts/daily-backup.sh 的每日 cron 产出同目录、同命名，前台统一管理。
 const BACKUP_DIR = process.env.DB_BACKUP_DIR ?? '/app/data/backups'
 
-// 命名规范：betogo-<daily|manual|preclean>-YYYYMMDD-HHMMSS.sql.gz
+// 命名规范：betogo-<daily|manual|preclean|preresetseq>-YYYYMMDD-HHMMSS.sql.gz
+// preclean=清库前硬前置备份，preresetseq=复位发号序列前备份，均由清库/复位脚本产出
 // 用于列表过滤 + 删除/下载时的白名单校验（防路径穿越）
-const NAME_RE = /^betogo-(daily|manual|preclean)-\d{8}-\d{6}\.sql\.gz$/
+const NAME_RE = /^betogo-(daily|manual|preclean|preresetseq)-\d{8}-\d{6}\.sql\.gz$/
 
 export interface BackupInfo {
   name: string
   sizeBytes: number
   mtime: string
-  type: 'daily' | 'manual' | 'preclean'
+  type: 'daily' | 'manual' | 'preclean' | 'preresetseq'
 }
 
 function two(n: number): string { return String(n).padStart(2, '0') }

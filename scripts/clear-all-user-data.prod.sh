@@ -47,10 +47,12 @@ fi
 # ── [1/5] 全库备份（硬前置，失败即止）─────────────────────────
 echo "==> [1/5] 生产全库 mysqldump 备份..."
 mkdir -p "$LOCAL_BACKUP_DIR"
-REMOTE_DUMP="/tmp/betogo-preclean-$STAMP.sql.gz"
+# 落到后台备份目录(bff 挂载 /app/data/backups),清库前备份可在后台列表看到/下载
+REMOTE_DUMP="$WORK_DIR/backups/betogo-preclean-$STAMP.sql.gz"
 $SSH "$HOST" "REMOTE_DUMP='$REMOTE_DUMP' bash -s" <<REMOTE
 set -uo pipefail
 $RCREDS
+mkdir -p "\$(dirname "\$REMOTE_DUMP")"
 sudo podman exec -i $MYSQL_CTN sh -c "exec mysql -u\$DB_USER -p'\$DB_PASS' -N -e \"SELECT 1 FROM information_schema.schemata WHERE schema_name='betogo'\"" > /tmp/chk 2>/dev/null
 [ -s /tmp/chk ] || { echo "❌ 找不到 betogo schema，中止"; exit 1; }
 $PODMAN exec -i $MYSQL_CTN sh -c "exec mysqldump --default-character-set=utf8mb4 --single-transaction --quick --no-tablespaces -u\$DB_USER -p'\$DB_PASS' \$DB_NAME" 2>/tmp/de | gzip > "\$REMOTE_DUMP"

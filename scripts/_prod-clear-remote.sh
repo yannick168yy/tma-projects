@@ -15,7 +15,9 @@ DB_PASS=$(grep -m1 '^MYSQL_BETOGO_PASSWORD=' "$WORK_DIR/.env" | cut -d= -f2- | t
 ACTION="${1:-}"
 STAMP="${2:-}"
 [ -n "$STAMP" ] || { echo "缺少 STAMP 参数"; exit 2; }
-DUMP="/tmp/betogo-preclean-$STAMP.sql.gz"
+# 落到后台备份目录(bff 挂载 /app/data/backups),清库前备份可在后台列表看到/下载
+mkdir -p "$WORK_DIR/backups"
+DUMP="$WORK_DIR/backups/betogo-preclean-$STAMP.sql.gz"
 
 mysql_c()     { sudo podman exec -i "$CTN" mysql --default-character-set=utf8mb4 -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" "$@"; }
 mysql_raw()   { sudo podman exec -i "$CTN" mysql -u"$DB_USER" -p"$DB_PASS" -N "$@"; }
