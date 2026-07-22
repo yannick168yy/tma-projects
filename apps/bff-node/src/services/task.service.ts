@@ -46,6 +46,7 @@ const NATIVE_TASKS: NativeTaskDef[] = [
 const NEWBIE_ORDER = ['agg_trial', 'agg_firstdep', 'first_game', 'invite_milestone', 'profile_complete', 'agg_appdl', 'agg_birthday']
 
 const NATIVE_BY_ID = new Map(NATIVE_TASKS.map((t) => [t.id, t]))
+const DAILY_DEPOSIT_TASK_IDS = ['daily_deposit_t1', 'daily_deposit_t2', 'daily_deposit_t3']
 
 // ───────────────────────── 配置（后台可配开关/金额/阈值，缺省用下列常量） ─────────────────────────
 
@@ -61,7 +62,7 @@ export interface TaskRewardCfg {
   currency: string
   /** useThreshold 任务的达标阈值（金额/次数/局数） */
   threshold: number
-  /** daily_bets：单笔投注 ≥ 此额（PHP）才计数 */
+  /** 兼容后台旧字段；daily_bets 当前按正数投注笔数计数 */
   minStake: number
   /** daily_play：指定 site_category（slot/live/fishing/perya…） */
   category: string
@@ -207,13 +208,13 @@ async function hasBet(pool: Pool, userId: string): Promise<boolean> {
   return Boolean(row)
 }
 
-/** 当日有效投注笔数（单笔 ≥ minStake 才计数，马尼拉日，限定币种） */
-async function todayBetCount(pool: Pool, userId: string, date: string, minStake: number, currency: string): Promise<number> {
+/** 当日有效投注笔数（正数投注即计数，马尼拉日，限定币种） */
+async function todayBetCount(pool: Pool, userId: string, date: string, currency: string): Promise<number> {
   const [[row]] = await pool.query<RowDataPacket[]>(
     `SELECT COUNT(*) AS n FROM bg_bet_order
-     WHERE user_id = ? AND bet_type = 'bet' AND currency_code = ? AND amount >= ?
+     WHERE user_id = ? AND bet_type = 'bet' AND currency_code = ? AND amount > 0
        AND DATE(created_at + INTERVAL 8 HOUR) = ?`,
-    [userId, currency, Math.max(0, minStake), date],
+    [userId, currency, date],
   )
   return Number(row?.n ?? 0)
 }
@@ -238,7 +239,7 @@ async function boundSocialCount(env: Env, userId: string): Promise<number> {
   const ids = await listUserIdentities(env, userId)
   let n = 0
   if (ids.some((i) => i.provider === 'google')) n += 1
-  if (ids.some((i) => i.provider === 'telegram')) n += 1
+  if (ids.some((i) => i.provider === 'telegram' || i.provider === 'telegram_oidc')) n += 1
   return n
 }
 
@@ -270,7 +271,7 @@ async function evalTask(
   switch (def.id) {
     case 'daily_bets': {
       const target = Math.max(1, cfg.threshold)
-      const n = await todayBetCount(pool, userId, today, cfg.minStake, currency)
+      const n = await todayBetCount(pool, userId, today, currency)
       return { eligible: n >= target, progress: { current: Math.min(n, target), target } }
     }
     case 'daily_play': {
@@ -477,10 +478,12 @@ async function computeTaskCenter(env: Env, userId: string, currency: string): Pr
         : { kind: 'claim' },
     })
   }
-  // 存款阶梯收纳：只展示最低未完成档；三档全领完展示末档（done）
+  // 存款档位每天只发一个奖励：未领时展示当前最高可领档，否则展示已领档。
   const tierCards = cards.filter((c) => c.id.startsWith('daily_deposit_t'))
   if (tierCards.length > 1) {
-    const active = tierCards.find((c) => c.status !== 'done') ?? tierCards[tierCards.length - 1]
+    const active = [...tierCards].reverse().find((c) => c.status === 'done')
+      ?? [...tierCards].reverse().find((c) => c.status === 'claimable')
+      ?? tierCards[0]
     for (const tc of tierCards) {
       if (tc !== active) cards.splice(cards.indexOf(tc), 1)
     }
@@ -579,6 +582,21 @@ async function socialClaimedKeys(pool: Pool, userId: string, keys: string[]): Pr
 
 export interface ClaimResult { taskId: string; reward: RewardSpec }
 
+async function hasDepositTierClaimed(
+  conn: PoolConnection,
+  userId: string,
+  period: string,
+  currency: string,
+): Promise<boolean> {
+  const [rows] = await conn.query<RowDataPacket[]>(
+    `SELECT 1 AS ok FROM bg_task_claim
+     WHERE user_id = ? AND task_id IN (?) AND period_key = ? AND currency = ?
+     LIMIT 1`,
+    [userId, DAILY_DEPOSIT_TASK_IDS, period, currency],
+  )
+  return Boolean(rows[0])
+}
+
 export async function claimTask(env: Env, userId: string, taskId: string, currency = 'PHP'): Promise<ClaimResult> {
   if (!isMysqlEnabled(env)) throw new Error('storage unavailable')
   const def = NATIVE_BY_ID.get(taskId)
@@ -594,14 +612,31 @@ export async function claimTask(env: Env, userId: string, taskId: string, curren
 
   const pool = getMysqlPool(env)
   const pk = periodKey(def, manilaToday())
-  // INSERT IGNORE 作为幂等闸门（唯一键含 currency，每币种每期各一次）：先落领取记录，再发奖
-  const [res] = await pool.execute<ResultSetHeader>(
-    `INSERT IGNORE INTO bg_task_claim
-       (user_id, task_id, period_key, reward_type, currency, reward_amount, reward_spin, turnover_x)
-     VALUES (?,?,?,?,?,?,?,?)`,
-    [userId, taskId, pk, c.rewardType, effCur, c.amount, c.spin, c.turnoverX],
-  )
-  if (res.affectedRows === 0) throw new Error('already claimed')
+  const conn = await pool.getConnection()
+  try {
+    await conn.beginTransaction()
+    await conn.query(`SELECT id FROM bg_user WHERE id = ? FOR UPDATE`, [userId])
+    if (taskId.startsWith('daily_deposit_t') && await hasDepositTierClaimed(conn, userId, pk, effCur)) {
+      await conn.rollback()
+      throw new Error('already claimed')
+    }
+    const [res] = await conn.execute<ResultSetHeader>(
+      `INSERT IGNORE INTO bg_task_claim
+         (user_id, task_id, period_key, reward_type, currency, reward_amount, reward_spin, turnover_x)
+       VALUES (?,?,?,?,?,?,?,?)`,
+      [userId, taskId, pk, c.rewardType, effCur, c.amount, c.spin, c.turnoverX],
+    )
+    if (res.affectedRows === 0) {
+      await conn.rollback()
+      throw new Error('already claimed')
+    }
+    await conn.commit()
+  } catch (e) {
+    try { await conn.rollback() } catch { /* noop */ }
+    throw e
+  } finally {
+    conn.release()
+  }
 
   const reward: RewardSpec = { ...rewardOf(c), currency: effCur }
   await grantReward(env, userId, reward, `${taskId}:${pk}`)
@@ -614,7 +649,7 @@ export async function claimTask(env: Env, userId: string, taskId: string, curren
 /** 取用户的 Telegram 数字 id（provider='telegram'）；无绑定返回 null */
 async function getUserTgId(env: Env, userId: string): Promise<string | null> {
   const ids = await listUserIdentities(env, userId)
-  const tg = ids.find((i) => i.provider === 'telegram')
+  const tg = ids.find((i) => i.provider === 'telegram' || i.provider === 'telegram_oidc')
   return tg ? tg.identifier : null
 }
 
