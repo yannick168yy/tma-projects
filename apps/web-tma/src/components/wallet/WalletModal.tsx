@@ -27,6 +27,7 @@ import defaultTopupBanner from '@/assets/wallet/topup-banner.webp'
 interface Props { open: boolean; onClose: () => void; initialTab?: 'deposit'|'withdraw'|'history'; fullscreen?: boolean }
 
 interface HistoryItem { id: string; orderId: string; type: 'deposit'|'withdraw'; method: string; amount: string; date: string; sortKey: string; status: 'success'|'pending'|'rejected'|'admin_rejected'|'failed' }
+const STALE_DEPOSIT_PENDING_MS = 30 * 60 * 1000
 
 function methodDisplayName(code: string) { const m: Record<string,string>={GCASH:'GCash',GCash:'GCash',gcash:'GCash',MAYA:'Maya',Maya:'Maya',maya:'Maya',GOTYME:'GoTyme',GoTyme:'GoTyme',gotyme:'GoTyme',BDO:'BDO Bank',BPI:'BPI Bank'}; return m[code]??code??'—' }
 function formatOrderDate(iso: string) { try { return new Date(iso).toLocaleString('en-PH',{dateStyle:'short',timeStyle:'short'}) } catch { return iso } }
@@ -711,6 +712,7 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
                 : filteredHistory.length===0?<div className="py-12 flex flex-col items-center gap-2 text-muted-foreground"><History size={32} className="opacity-30" /><span className="text-sm">{t('common.noRecords')}</span></div>
                 : filteredHistory.map((tx) => {
                   const StatusIcon=statusIconComp(tx.status)
+                  const showPendingHint = tx.type === 'deposit' && tx.status === 'pending' && Date.now() - new Date(tx.sortKey).getTime() >= STALE_DEPOSIT_PENDING_MS
                   return (
                     <div key={tx.id} className="bg-secondary rounded-2xl px-4 py-3 space-y-1.5">
                       <div className="flex items-center gap-3">
@@ -732,6 +734,7 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
                           {copiedId===tx.id?<Check size={10}/>:<Copy size={10}/>}{copiedId===tx.id?t('common.copied'):t('common.copy')}
                         </button>
                       </div>
+                      {showPendingHint&&<p className="pl-12 text-[10px] font-semibold leading-snug text-amber-300/85">{t('wallet.depositPendingStale')}</p>}
                     </div>
                   )
                 })}

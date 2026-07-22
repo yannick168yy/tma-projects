@@ -1216,6 +1216,7 @@ export default {
     yfpayDepositSuccess: 'Deposit successful! Balance updated.',
     yfpayDepositRejected: 'Payment rejected. Please try again.',
     yfpayDepositTimeout: 'Payment timed out. Check history for status.',
+    depositPendingStale: 'This payment may have expired. We are checking the final status.',
     yfpayDepositFailed: 'Deposit failed. Please try again.',
     yfpayAmountOutOfRange: 'Amount must be between ₱{min} and ₱{max}.',
     yfpayAccountNumber: 'Account Number (e.g. phone)',

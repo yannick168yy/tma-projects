@@ -1212,6 +1212,7 @@ export default {
     yfpayDepositSuccess: '充值成功！余额已更新。',
     yfpayDepositRejected: '支付被拒绝，请重试。',
     yfpayDepositTimeout: '支付超时，请在记录中查看状态。',
+    depositPendingStale: '该支付可能已过期，系统正在确认最终状态。',
     yfpayDepositFailed: '充值失败，请重试。',
     yfpayAmountOutOfRange: '金额需在 ₱{min} 至 ₱{max} 之间。',
     yfpayAccountNumber: '账号（如手机号）',

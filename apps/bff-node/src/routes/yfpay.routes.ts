@@ -10,6 +10,7 @@ import {
   normalizeWithdrawOptionCode,
 } from '../services/yfpay.service.js'
 import { creditWallet, getWallet, getDeposit, getWithdraw, saveDeposit, saveWithdraw, listDeposits, listWithdrawals } from '../services/store/index.js'
+import { syncQueriedDepositStatus } from '../services/deposit-status-sync.service.js'
 import { reviewWithdraw } from '../services/withdraw-review.service.js'
 import { isKycApproved } from '../services/kyc.service.js'
 import { getMysqlPool, isMysqlEnabled } from '../clients/mysql.client.js'
@@ -20,6 +21,12 @@ import { nowIso } from '../utils/format.js'
 import type { OrderDeposit, OrderWithdraw } from '../types/domain.js'
 
 const router = new Router()
+
+function depositOrderState(status: OrderDeposit['status']): number {
+  if (status === 'paid') return 2
+  if (status === 'failed' || status === 'rejected' || status === 'cancelled') return 3
+  return 0
+}
 
 // ── 代收 ──────────────────────────────────────────────────────────────────
 
@@ -91,16 +98,25 @@ router.post('/deposit/yfpay/query', async (ctx) => {
     return
   }
   // 归属权校验（MySQL 模式下）
+  let order: OrderDeposit | null = null
   if (isMysqlEnabled(ctx.state.env)) {
-    const order = await getDeposit(ctx.state.redis, body.merchantSerial)
+    order = await getDeposit(ctx.state.redis, body.merchantSerial)
     if (!order || order.userId !== ctx.state.userId) {
       fail(ctx, 403, 'errors.noPermission')
       return
     }
+    if (order.status !== 'pending') {
+      ok(ctx, { state: depositOrderState(order.status) })
+      return
+    }
   }
   try {
-    const result = await queryDeposit(body.merchantSerial, ctx.state.env)
-    ok(ctx, result)
+    if (order) {
+      const synced = await syncQueriedDepositStatus(ctx.state.env, order)
+      ok(ctx, { state: synced?.state ?? depositOrderState(order.status) })
+      return
+    }
+    ok(ctx, await queryDeposit(body.merchantSerial, ctx.state.env))
   } catch (err) {
     const msg = err instanceof YfPayError ? err.message : '查询失败'
     fail(ctx, 500, msg)
@@ -114,11 +130,11 @@ router.get('/deposit/yfpay/orders', async (ctx) => {
     return
   }
   const orders = await listDeposits(ctx.state.redis, ctx.state.userId!, 1, 50)
-  const yfOrders = orders.filter((o) => o.provider === 'yfpay')
+  const yfOrders = orders.filter((o) => (o.provider ?? o.channelId).startsWith('yfpay'))
   ok(ctx, yfOrders.map((o) => ({
     merchantSerial: o.orderId,
     amount: o.amount,
-    state: o.status === 'paid' ? 2 : o.status === 'failed' ? 3 : 0,
+    state: depositOrderState(o.status),
     channelCode: (o.extraData as Record<string, string> | undefined)?.channelCode,
     payUrl: (o.extraData as Record<string, string> | undefined)?.payUrl,
     createdAt: o.createdAt,

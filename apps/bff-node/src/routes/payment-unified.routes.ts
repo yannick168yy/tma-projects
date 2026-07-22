@@ -20,6 +20,7 @@ import {
   queryDeposit as beepayQueryDeposit,
   BeepayError,
 } from '../services/beepay.service.js'
+import { syncQueriedDepositStatus } from '../services/deposit-status-sync.service.js'
 import {
   getWallet, getDeposit, getWithdraw, saveDeposit, saveWithdraw,
   creditWallet, listDeposits, listWithdrawals,
@@ -33,6 +34,12 @@ import type { Redis } from 'ioredis'
 import type { TxType } from '../services/payment-channel.service.js'
 
 const router = new Router()
+
+function depositOrderState(status: OrderDeposit['status']): number {
+  if (status === 'paid') return 2
+  if (status === 'failed' || status === 'rejected' || status === 'cancelled') return 3
+  return 0
+}
 
 // yfpay 渠道列表 Redis 缓存（5 分钟）
 async function getCachedYfpayChannels(redis: Redis, env: Parameters<typeof yfpayGetChannels>[0]) {
@@ -161,15 +168,23 @@ router.post('/payment/deposit/query', async (ctx) => {
   if (!body.merchantSerial) { fail(ctx, 400, '缺少 merchantSerial'); return }
 
   let provider = 'yfpay'
+  let order: OrderDeposit | null = null
   if (isMysqlEnabled(ctx.state.env)) {
-    const order = await getDeposit(ctx.state.redis, body.merchantSerial)
+    order = await getDeposit(ctx.state.redis, body.merchantSerial)
     if (!order || order.userId !== ctx.state.userId) { fail(ctx, 403, 'errors.noPermission'); return }
-    provider = order.provider ?? 'yfpay'
+    provider = order.provider ?? (order.channelId.startsWith('beepay_') ? 'beepay' : 'yfpay')
+    if (order.status !== 'pending') {
+      ok(ctx, { state: depositOrderState(order.status) })
+      return
+    }
   }
 
   try {
     let state: number
-    if (provider === 'beepay') {
+    if (order) {
+      const synced = await syncQueriedDepositStatus(ctx.state.env, order)
+      state = synced?.state ?? depositOrderState(order.status)
+    } else if (provider === 'beepay') {
       const r = await beepayQueryDeposit(body.merchantSerial, ctx.state.env)
       state = r.state
     } else {
@@ -194,8 +209,8 @@ router.get('/payment/deposit/orders', async (ctx) => {
     merchantSerial: o.orderId,
     amount: o.amount,
     channelName: (o.extraData as Record<string, string> | undefined)?.channelName ?? o.channelId,
-    provider: o.provider,
-    state: o.status === 'paid' ? 2 : o.status === 'failed' ? 3 : 0,
+    provider: o.provider ?? (o.channelId.startsWith('beepay_') ? 'beepay' : o.channelId.startsWith('yfpay_') ? 'yfpay' : undefined),
+    state: depositOrderState(o.status),
     payUrl: (o.extraData as Record<string, string> | undefined)?.payUrl,
     createdAt: o.createdAt,
   })))

@@ -24,6 +24,7 @@ import { getLossRebateConfigByPool } from './services/promo-config.service.js'
 import { runCommunityTick } from './services/community.service.js'
 import { runBroadcastTick } from './services/broadcast.service.js'
 import { runBiReportTick } from './services/bi-report.service.js'
+import { runDepositStatusTick } from './services/deposit-status-sync.service.js'
 import { ok } from './utils/response.js'
 import { getMaintenanceMode } from './services/admin-store.js'
 import { seedDefaultAdmin } from './services/admin-auth.service.js'
@@ -42,6 +43,7 @@ export function createApp(env: Env): Koa {
     rebate: childLogger('rebate-payout'),
     vip: childLogger('vip-negative-rebate'),
     payment: childLogger('payment-balance'),
+    depositStatus: childLogger('deposit-status'),
   }
 
   // 多实例部署:副实例(BFF_DISABLE_SINGLETON_JOBS=true)跳过"只能跑一份"的任务,
@@ -79,6 +81,15 @@ export function createApp(env: Env): Koa {
       run()
       setInterval(run, 60 * 60 * 1000)
     }, 60_000)
+  }
+
+  // 支付订单状态补偿：失败/过期回调可能缺失，定时把长时间 pending 的代收订单同步为终态。
+  if (singletonJobs && isMysqlEnabled(env)) {
+    setTimeout(() => {
+      const run = () => runDepositStatusTick(env, log.depositStatus).catch((err) => log.depositStatus.error({ err }, 'deposit status tick error'))
+      run()
+      setInterval(run, 5 * 60 * 1000)
+    }, 90_000)
   }
 
   // 洗码每日结算：每天 UTC 16:00（PHT 00:00 凌晨）结算昨日流水写入待领取记录（不自动入账，用户手动领取）
