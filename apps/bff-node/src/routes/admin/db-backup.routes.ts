@@ -29,9 +29,9 @@ router.post('/', onlySuper, async (ctx) => {
   }
 })
 
-// 下载指定备份
-router.get('/:name/download', onlySuper, async (ctx) => {
-  const name = ctx.params.name
+// 下载指定备份（文件名走 query param，避免以 .gz 结尾的路径被 nginx 当静态文件拦截）
+router.get('/download', onlySuper, async (ctx) => {
+  const name = String(ctx.query.name ?? '')
   try {
     const { stream, sizeBytes } = await openBackupForDownload(name)
     ctx.set('Content-Type', 'application/gzip')
@@ -47,9 +47,9 @@ router.get('/:name/download', onlySuper, async (ctx) => {
   }
 })
 
-// 删除指定备份
-router.delete('/:name', onlySuper, async (ctx) => {
-  const name = ctx.params.name
+// 删除指定备份（同理，文件名走 query param）
+router.delete('/', onlySuper, async (ctx) => {
+  const name = String(ctx.query.name ?? '')
   try {
     await removeBackup(name)
     await writeAuditLog(ctx.state.env, {

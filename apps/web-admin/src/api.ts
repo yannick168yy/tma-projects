@@ -1499,11 +1499,11 @@ export const createDbBackup = async (): Promise<DbBackupItem> => {
   return resp.data.data
 }
 export const deleteDbBackup = (name: string) =>
-  del<{ name: string }>(`/admin/db-backup/${encodeURIComponent(name)}`)
+  del<{ name: string }>(`/admin/db-backup?name=${encodeURIComponent(name)}`)
 export async function downloadDbBackup(name: string): Promise<void> {
   const token = localStorage.getItem('admin_token')
   const base = import.meta.env.VITE_ADMIN_API_BASE_URL || '/api/v1'
-  const res = await fetch(`${base}/admin/db-backup/${encodeURIComponent(name)}/download`, {
+  const res = await fetch(`${base}/admin/db-backup/download?name=${encodeURIComponent(name)}`, {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
   })
   if (!res.ok) throw new Error('下载失败')
