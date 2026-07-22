@@ -87,3 +87,9 @@ CALL reset_autoinc_if_exists('bg_user_profile');
 CALL reset_autoinc_if_exists('bg_user');
 
 DROP PROCEDURE IF EXISTS reset_autoinc_if_exists;
+
+-- 用户显示号 BG-xxxxx 实际由独立序列表 bg_user_id_seq 发放（见 mysql-store.ts nextUserId：
+-- UPDATE bg_user_id_seq SET n = LAST_INSERT_ID(n+1)，返回 BG-<n>）。bg_user.id 是字符串主键、
+-- 无自增列，上面对 bg_user 的 AUTO_INCREMENT 归零是空操作。清库后必须把序列复位回基点 10000，
+-- 否则新号会接着旧号继续（历史上清库后首个用户变成 BG-10014 就是漏了这步）。复位后下一个用户 = BG-10001。
+UPDATE bg_user_id_seq SET n = 10000 WHERE stub = 'a';
