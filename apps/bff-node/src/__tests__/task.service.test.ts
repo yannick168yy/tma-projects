@@ -88,12 +88,14 @@ const taskConfig = {
 
 function setupPool(rows: {
   depositTotal?: number
+  depositCount?: number
   betCount?: number
   claimed?: { task_id: string; period_key: string; currency: string }[]
 } = {}) {
   state.pool.query.mockImplementation((sql: string) => {
     if (sql.includes('FROM bg_admin_settings')) return Promise.resolve([[{ value: JSON.stringify(taskConfig) }]])
     if (sql.includes('FROM bg_task_claim')) return Promise.resolve([rows.claimed ?? []])
+    if (sql.includes('COUNT(*)') && sql.includes('FROM bg_deposit_order')) return Promise.resolve([[{ n: rows.depositCount ?? 0 }]])
     if (sql.includes('FROM bg_deposit_order')) return Promise.resolve([[{ total: rows.depositTotal ?? 0 }]])
     if (sql.includes('FROM bg_bet_order')) return Promise.resolve([[{ n: rows.betCount ?? 0 }]])
     if (sql.includes('FROM bg_app_download_claim')) return Promise.resolve([[]])
@@ -138,8 +140,38 @@ describe('任务服务', () => {
     expect(card?.progress).toEqual({ current: 4, target: 5 })
   })
 
-  it('存款任务未领取时只展示当前最高可领档', async () => {
-    setupPool({ depositTotal: 1000 })
+  it('一笔大额存款未领取时只展示第一档', async () => {
+    setupPool({ depositTotal: 1000, depositCount: 1 })
+
+    const center = await getTaskCenter({} as never, 'BG-10001', 'PHP')
+    const depositCards = center.groups.daily.filter((item) => item.id.startsWith('daily_deposit_t'))
+
+    expect(depositCards).toHaveLength(1)
+    expect(depositCards[0].id).toBe('daily_deposit_t1')
+    expect(depositCards[0].status).toBe('claimable')
+  })
+
+  it('一笔大额存款已领一档后不展示第二档可领', async () => {
+    setupPool({
+      depositTotal: 1000,
+      depositCount: 1,
+      claimed: [{ task_id: 'daily_deposit_t1', period_key: '2026-07-22', currency: 'PHP' }],
+    })
+
+    const center = await getTaskCenter({} as never, 'BG-10001', 'PHP')
+    const depositCards = center.groups.daily.filter((item) => item.id.startsWith('daily_deposit_t'))
+
+    expect(depositCards).toHaveLength(1)
+    expect(depositCards[0].id).toBe('daily_deposit_t1')
+    expect(depositCards[0].status).toBe('done')
+  })
+
+  it('两笔存款已领一档后展示第二档可领', async () => {
+    setupPool({
+      depositTotal: 1000,
+      depositCount: 2,
+      claimed: [{ task_id: 'daily_deposit_t1', period_key: '2026-07-22', currency: 'PHP' }],
+    })
 
     const center = await getTaskCenter({} as never, 'BG-10001', 'PHP')
     const depositCards = center.groups.daily.filter((item) => item.id.startsWith('daily_deposit_t'))
@@ -149,10 +181,11 @@ describe('任务服务', () => {
     expect(depositCards[0].status).toBe('claimable')
   })
 
-  it('存款任务同日同币种已领一档后不能再领另一档', async () => {
-    setupPool({ depositTotal: 1000 })
+  it('一笔存款已领一档后不能再领第二档', async () => {
+    setupPool({ depositTotal: 1000, depositCount: 1 })
     state.conn.query.mockImplementation((sql: string) => {
-      if (sql.includes('FROM bg_task_claim')) return Promise.resolve([[{ ok: 1 }]])
+      if (sql.includes('FROM bg_task_claim')) return Promise.resolve([[{ n: 1 }]])
+      if (sql.includes('FROM bg_deposit_order')) return Promise.resolve([[{ n: 1 }]])
       return Promise.resolve([[]])
     })
 
@@ -160,5 +193,19 @@ describe('任务服务', () => {
       .rejects.toThrow('already claimed')
     expect(state.conn.execute).not.toHaveBeenCalled()
     expect(state.creditWallet).not.toHaveBeenCalled()
+  })
+
+  it('两笔存款已领一档后可以领取第二档', async () => {
+    setupPool({ depositTotal: 1000, depositCount: 2 })
+    state.conn.query.mockImplementation((sql: string) => {
+      if (sql.includes('FROM bg_task_claim')) return Promise.resolve([[{ n: 1 }]])
+      if (sql.includes('FROM bg_deposit_order')) return Promise.resolve([[{ n: 2 }]])
+      return Promise.resolve([[]])
+    })
+    state.conn.execute.mockResolvedValue([{ affectedRows: 1 }])
+
+    await expect(claimTask({} as never, 'BG-10001', 'daily_deposit_t2', 'PHP'))
+      .resolves.toMatchObject({ taskId: 'daily_deposit_t2' })
+    expect(state.creditWallet).toHaveBeenCalledOnce()
   })
 })
