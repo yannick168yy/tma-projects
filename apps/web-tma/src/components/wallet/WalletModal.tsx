@@ -28,16 +28,16 @@ interface Props { open: boolean; onClose: () => void; initialTab?: 'deposit'|'wi
 
 interface HistoryItem { id: string; orderId: string; type: 'deposit'|'withdraw'; method: string; amount: string; date: string; sortKey: string; status: 'success'|'pending'|'rejected'|'admin_rejected'|'failed' }
 
-function methodDisplayName(code: string) { const m: Record<string,string>={GCASH:'GCash',GCash:'GCash',gcash:'GCash',MAYA:'Maya',Maya:'Maya',maya:'Maya',BDO:'BDO Bank',BPI:'BPI Bank'}; return m[code]??code??'—' }
+function methodDisplayName(code: string) { const m: Record<string,string>={GCASH:'GCash',GCash:'GCash',gcash:'GCash',MAYA:'Maya',Maya:'Maya',maya:'Maya',GOTYME:'GoTyme',GoTyme:'GoTyme',gotyme:'GoTyme',BDO:'BDO Bank',BPI:'BPI Bank'}; return m[code]??code??'—' }
 function formatOrderDate(iso: string) { try { return new Date(iso).toLocaleString('en-PH',{dateStyle:'short',timeStyle:'short'}) } catch { return iso } }
 function mapDepositState(state: number): HistoryItem['status'] { if(state===2)return 'success'; if(state===3)return 'rejected'; return 'pending' }
 function mapWithdrawState(state: number): HistoryItem['status'] { if(state===1)return 'success'; if(state===2||state===3)return 'rejected'; return 'pending' }
 function mapDepositStatus(status: string): HistoryItem['status'] { if(status==='paid'||status==='completed')return 'success'; if(status==='rejected')return 'rejected'; if(status==='admin_rejected')return 'admin_rejected'; if(status==='cancelled'||status==='failed')return 'failed'; return 'pending' }
-function mapDepositChannelName(channelId: string) { const m: Record<string,string>={admin:'Admin',tg_wallet:'Telegram',ammer_pay:'Telegram',yfpay_gcash:'GCash',yfpay_maya:'Maya',yfpay_bdo:'BDO Bank',yfpay_bpi:'BPI Bank',yfpay_unknown:'YF Pay',matrix:'Matrix TRX'}; return m[channelId]??channelId??'—' }
+function mapDepositChannelName(channelId: string) { const m: Record<string,string>={admin:'Admin',tg_wallet:'Telegram',ammer_pay:'Telegram',yfpay_gcash:'GCash',yfpay_maya:'Maya',yfpay_gotyme:'GoTyme',yfpay_bdo:'BDO Bank',yfpay_bpi:'BPI Bank',yfpay_unknown:'YF Pay',matrix:'Matrix TRX'}; return m[channelId]??channelId??'—' }
 
 // 各币种充值预设档位（与后台首充档位口径一致），用于充值金额网格
 const DEPOSIT_PRESETS: Record<string, number[]> = {
-  PHP: [20, 50, 100, 200, 500, 1000, 5000, 10000, 50000],
+  PHP: [100, 200, 500, 1000, 2000, 5000, 10000, 20000, 50000],
   USDT: [1, 5, 10, 50, 100, 500, 1000],
   USDC: [1, 5, 10, 50, 100, 500, 1000],
   TRX: [100, 500, 1000, 5000, 10000],
@@ -583,7 +583,7 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
                       </div>
                       <div className="relative rounded-2xl border border-white/10 bg-[#07111f]">
                         <span className="absolute left-4 top-1/2 -translate-y-1/2 text-white/45 font-bold text-sm">{depositCurrency==='USDT'||depositCurrency==='USDC'?'$':isCryptoMethod?'≈ $':'₱'}</span>
-                        <input value={amount} type="number" placeholder="0.00" className="w-full bg-transparent pr-32 py-3 text-white font-black text-xl focus:outline-none pl-10" onChange={(e)=>setAmount(e.target.value)} />
+                        <input value={amount} type="number" min={selectedPayMethod?.minAmount} max={selectedPayMethod?.maxAmount} placeholder="0.00" className="w-full bg-transparent pr-32 py-3 text-white font-black text-xl focus:outline-none pl-10" onChange={(e)=>setAmount(e.target.value)} />
                         <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-white/65">{t('wallet.editAmount')}</span>
                       </div>
                       {firstDepEligible&&Number(amount)>0&&selectedBonus>0&&<p className="text-[11px] font-bold text-primary text-center -mt-1">{t('wallet.firstDepBonusHint',{amount:fmtPreset(selectedBonus,depositCurrency)})}</p>}

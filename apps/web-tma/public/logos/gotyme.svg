@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48" role="img" aria-label="GoTyme">
+  <defs>
+    <linearGradient id="gt" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#14b8a6"/>
+      <stop offset="1" stop-color="#0891b2"/>
+    </linearGradient>
+  </defs>
+  <rect width="48" height="48" rx="11" fill="#0b1520"/>
+  <path d="M31.5 17.6c-1.7-2-4.2-3.2-7.1-3.2-5.3 0-9.4 4.1-9.4 9.6s4.1 9.6 9.4 9.6c2.9 0 5.4-1.2 7.1-3.2v2.1c0 3.4-2.6 5.6-6.5 5.6-2.6 0-4.8-1-6.2-2.6l-2.8 3.1c2.2 2.3 5.4 3.6 9.1 3.6 6.5 0 11-3.9 11-10.2V14.7h-4.1zM24.9 29.2c-2.9 0-5.1-2.2-5.1-5.2s2.2-5.2 5.1-5.2 5.1 2.2 5.1 5.2-2.2 5.2-5.1 5.2z" fill="url(#gt)"/>
+</svg>

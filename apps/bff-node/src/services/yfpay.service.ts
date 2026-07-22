@@ -118,6 +118,8 @@ const WITHDRAW_OPTION_CODE_ALIASES: Record<string, string> = {
   GLOBE_GCASH: '161414',
   MAYA: '161439',
   PAYMAYA: '161439',
+  GOTYME: '161548',
+  GOTYME_BANK: '161548',
 }
 
 export function normalizeWithdrawOptionCode(optionCode: string): string {

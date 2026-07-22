@@ -52,6 +52,7 @@ export const TG_WALLET_DEPOSIT: PayMethod[] = [
 export const FIAT_DEPOSIT: PayMethod[] = [
   { id: 'gcash', name: 'GCash', icon: '', iconUrl: '/logos/gcash.svg', color: 'from-blue-500 to-blue-700', tag: 'Instant' },
   { id: 'maya', name: 'Maya', icon: '', iconUrl: '/logos/maya.svg', color: 'from-green-500 to-emerald-600', tag: 'Instant' },
+  { id: 'gotyme', name: 'GoTyme', icon: '', iconUrl: '/logos/gotyme.svg', color: 'from-teal-500 to-cyan-600', tag: 'Instant' },
 ]
 
 export const CRYPTO_DEPOSIT: PayMethod[] = [
@@ -78,6 +79,7 @@ export const CRYPTO_DEPOSIT: PayMethod[] = [
 export const FIAT_WITHDRAW: PayMethod[] = [
   { id: 'gcash-w', name: 'GCash', icon: '', iconUrl: '/logos/gcash.svg', color: 'from-blue-500 to-blue-700', tag: 'Instant', currency: 'PHP' },
   { id: 'maya-w', name: 'Maya', icon: '', iconUrl: '/logos/maya.svg', color: 'from-green-500 to-emerald-600', tag: 'Instant', currency: 'PHP' },
+  { id: 'gotyme-w', name: 'GoTyme', icon: '', iconUrl: '/logos/gotyme.svg', color: 'from-teal-500 to-cyan-600', tag: 'Instant', currency: 'PHP' },
 ]
 
 export const CRYPTO_WITHDRAW: PayMethod[] = [

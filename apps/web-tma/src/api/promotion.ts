@@ -256,10 +256,10 @@ const DEFAULT_PROMO_CONFIG: PromoConfig = {
     turnoverX: 15,
     tiers: {
       PHP: [
-        { depositAmount: 20, bonusAmount: 5 }, { depositAmount: 50, bonusAmount: 10 },
         { depositAmount: 100, bonusAmount: 15 }, { depositAmount: 200, bonusAmount: 30 },
         { depositAmount: 500, bonusAmount: 60 }, { depositAmount: 1000, bonusAmount: 70 },
-        { depositAmount: 5000, bonusAmount: 100 }, { depositAmount: 10000, bonusAmount: 150 },
+        { depositAmount: 2000, bonusAmount: 100 }, { depositAmount: 5000, bonusAmount: 100 },
+        { depositAmount: 10000, bonusAmount: 150 }, { depositAmount: 20000, bonusAmount: 500 },
         { depositAmount: 50000, bonusAmount: 1000 },
       ],
     },
