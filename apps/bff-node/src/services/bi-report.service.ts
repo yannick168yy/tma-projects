@@ -118,7 +118,8 @@ export async function setBiReportEnabled(env: Env, enabled: boolean): Promise<vo
 }
 
 export async function runBiReportTick(env: Env, redis: Redis): Promise<void> {
-  if (!isMysqlEnabled(env) || !env.ADMIN_TG_BOT_TOKEN || !env.ADMIN_TG_CHAT_ID) return
+  const reportChat = env.BI_REPORT_CHAT_ID || env.ADMIN_TG_CHAT_ID
+  if (!isMysqlEnabled(env) || !env.ADMIN_TG_BOT_TOKEN || !reportChat) return
   const manilaHour = new Date(Date.now() + PHT_OFFSET_MS).getUTCHours()
   if (manilaHour !== REPORT_HOUR_PHT) return
   if (!(await isBiReportEnabled(env))) return
@@ -135,7 +136,7 @@ export async function runBiReportTick(env: Env, redis: Redis): Promise<void> {
     await fetch(`https://api.telegram.org/bot${env.ADMIN_TG_BOT_TOKEN}/sendMessage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chat_id: env.ADMIN_TG_CHAT_ID, text, disable_web_page_preview: true }),
+      body: JSON.stringify({ chat_id: reportChat, text, disable_web_page_preview: true }),
       signal: ctrl.signal,
     })
     clearTimeout(timer)
@@ -151,11 +152,12 @@ export async function runBiReportTick(env: Env, redis: Redis): Promise<void> {
 export async function sendBiReportNow(env: Env, redis: Redis): Promise<{ sent: boolean; text: string }> {
   const raw = await composeRawReport(env, redis, manilaDate(-1))
   const text = await polishWithGemini(env, raw)
-  if (!env.ADMIN_TG_BOT_TOKEN || !env.ADMIN_TG_CHAT_ID) return { sent: false, text }
+  const reportChat = env.BI_REPORT_CHAT_ID || env.ADMIN_TG_CHAT_ID
+  if (!env.ADMIN_TG_BOT_TOKEN || !reportChat) return { sent: false, text }
   const resp = await fetch(`https://api.telegram.org/bot${env.ADMIN_TG_BOT_TOKEN}/sendMessage`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ chat_id: env.ADMIN_TG_CHAT_ID, text, disable_web_page_preview: true }),
+    body: JSON.stringify({ chat_id: reportChat, text, disable_web_page_preview: true }),
   })
   return { sent: resp.ok, text }
 }
