@@ -188,10 +188,12 @@ run run -d --name "$BFF_NAME" --network "$NET" --restart=always \
   -e ADMIN_NOTIFY_ENV_LABEL="${ADMIN_NOTIFY_ENV_LABEL:-}" \
   -v "${DIR}/apps/bff-node/dist:/app/dist:ro" \
   -v "${DIR}/data/kyc:/app/data/kyc" \
+  -v "${DIR}/backups:/app/data/backups" \
   -e NODE_ENV=production \
   -e LOG_LEVEL="${LOG_LEVEL:-info}" \
   -e BFF_PORT=3000 \
   -e KYC_STORAGE_DIR="${KYC_STORAGE_DIR:-/app/data/kyc}" \
+  -e DB_BACKUP_DIR="${DB_BACKUP_DIR:-/app/data/backups}" \
   -e IMAGE_CDN_BASE="${IMAGE_CDN_BASE:-}" \
   -e BFF_STORAGE=mysql \
   -e REDIS_URL="${REDIS_URL_WIRED}" \
