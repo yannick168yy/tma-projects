@@ -4,6 +4,7 @@ import { lgId } from '../utils/id.js'
 import { createDepositRequirement } from '../services/turnover.service.js'
 import { tryActivateTeamNode } from '../routes/internal.routes.js'
 import { getPhpRate } from '../services/exchange-rate.service.js'
+import { applyDepositPromos } from '../services/deposit-promo.service.js'
 
 export interface MatrixDepositNotify {
   notifyType: 1
@@ -141,6 +142,12 @@ async function handleMatrixDeposit(
     const phpCents = Math.floor(amount * phpRate * 100)
     await tryActivateTeamNode(conn, notify.userId, phpCents)
     await conn.commit()
+    await applyDepositPromos(db, {
+      orderId: notify.orderNo,
+      userId: notify.userId,
+      amount,
+      currency,
+    }, { error: (obj, msg) => console.error(`[matrix-callback] ${msg}`, obj) })
   } catch (err) {
     await conn.rollback()
     throw err

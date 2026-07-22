@@ -17,7 +17,7 @@ import { fetchHomeContent } from '@/api/home'
 import { usePromotionStore } from '@/stores/promotion'
 import { useAuthStore } from '@/stores/auth'
 import { analytics } from '@/utils/analytics'
-import { fetchRedepOffer, type FirstDepTier, type RedepOffer } from '@/api/promotion'
+import { fetchNewPlayerSummary, fetchRedepOffer, type FirstDepTier, type RedepOffer } from '@/api/promotion'
 import KycModal from '@/components/wallet/KycModal'
 import { useKycGate } from '@/hooks/useKycGate'
 import { CRYPTO_DEPOSIT, CRYPTO_WITHDRAW, FIAT_DEPOSIT, FIAT_WITHDRAW, TG_WALLET_DEPOSIT, type PayMethod } from '@/data/wallet'
@@ -89,7 +89,6 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
   const [depositCategory, setDepositCategory] = useState<DepositCategory>('ewallet')
   const promoConfig = usePromotionStore((s) => s.promoConfig)
   const loadPromoConfig = usePromotionStore((s) => s.loadPromoConfig)
-  const firstDepClaimed = useAuthStore((s) => s.user?.firstDepClaimed)
   const isLoggedIn = useAuthStore((s) => Boolean(s.user))
   const [selectedMethod, setSelectedMethod] = useState<string|null>(null)
   const [amount, setAmount] = useState('')
@@ -124,12 +123,20 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
   const [walletBannerUrl, setWalletBannerUrl] = useState(defaultTopupBanner)
   const [redepOffer, setRedepOffer] = useState<RedepOffer | null>(null)
   const [redepNow, setRedepNow] = useState(() => Date.now())
+  const [firstDepDone, setFirstDepDone] = useState<boolean | null>(null)
 
   // 复充限时优惠：打开充值页时按当前币种拉取；窗口生效期间每秒走倒计时（每币种独立）
   useEffect(() => {
     if (!open || tab !== 'deposit' || !isLoggedIn) return
     fetchRedepOffer(activeCurrency).then(setRedepOffer).catch(() => setRedepOffer(null))
   }, [open, tab, isLoggedIn, activeCurrency])
+  useEffect(() => {
+    if (!open || tab !== 'deposit' || !isLoggedIn) { setFirstDepDone(null); return }
+    setFirstDepDone(null)
+    fetchNewPlayerSummary()
+      .then((summary) => setFirstDepDone(summary.tasks.firstdep.done))
+      .catch(() => setFirstDepDone(null))
+  }, [open, tab, isLoggedIn])
   const redepEndsMs = redepOffer?.active && redepOffer.endsAt ? new Date(redepOffer.endsAt).getTime() : 0
   const redepActive = redepEndsMs > redepNow
   useEffect(() => {
@@ -317,7 +324,7 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
     ewallet: liveFiatDeposit, crypto: liveCryptoDeposit, telegram: liveTgWalletDeposit,
   }), [liveFiatDeposit, liveCryptoDeposit, liveTgWalletDeposit])
   const currentCategoryMethods = depositCategoryMethods[depositCategory]
-  const firstDepEligible = isLoggedIn && !firstDepClaimed && (promoConfig?.firstdep.enabled ?? false)
+  const firstDepEligible = isLoggedIn && firstDepDone === false && (promoConfig?.firstdep.enabled ?? false)
   const depositPresets = DEPOSIT_PRESETS[depositCurrency] ?? DEPOSIT_PRESETS.PHP
   const depositTierList = promoConfig?.firstdep.tiers?.[depositCurrency]
   // 复充限时优惠仅 PHP 充值参与；首充资格存续时以首充为准，不叠加展示
@@ -349,7 +356,7 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
   const pollFiatDepositCountRef = useRef(0)
   async function pollFiatDeposit() {
     if(!pollSerial)return; pollFiatDepositCountRef.current++; if(pollFiatDepositCountRef.current>60){stopPolling();setDepositLoading(false);setDepositMessage(t('wallet.yfpayDepositTimeout'));return}
-    try { const res=await queryPaymentDeposit(pollSerial); if(res.state===2){stopPolling();setDepositLoading(false);setDepositSuccess(true);setDepositMessage(t('wallet.yfpayDepositSuccess'));analytics.depositSuccess(selectedPayMethod?.paymentChannelName,Number(amount),'PHP',pollSerial);await walletStore.refresh()}else if(res.state===3){stopPolling();setDepositLoading(false);setDepositMessage(t('wallet.yfpayDepositRejected'))} } catch { /* keep polling */ }
+    try { const res=await queryPaymentDeposit(pollSerial); if(res.state===2){stopPolling();setDepositLoading(false);setDepositSuccess(true);setDepositMessage(t('wallet.yfpayDepositSuccess'));analytics.depositSuccess(selectedPayMethod?.paymentChannelName,Number(amount),'PHP',pollSerial);setFirstDepDone(true);await walletStore.refresh()}else if(res.state===3){stopPolling();setDepositLoading(false);setDepositMessage(t('wallet.yfpayDepositRejected'))} } catch { /* keep polling */ }
   }
 
   async function onProceedUnifiedFiatDeposit() {
@@ -375,11 +382,11 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
     try {
       const result=await createDeposit(num,method.currency)
       analytics.depositOrderCreated(method.channelId,num,method.currency,result.orderId)
-      if(result.status==='paid'){analytics.depositSuccess(method.channelId,num,method.currency,result.orderId);await walletStore.refresh();setDepositSuccess(true);setDepositMessage(t('wallet.credited'));return}
+      if(result.status==='paid'){analytics.depositSuccess(method.channelId,num,method.currency,result.orderId);setFirstDepDone(true);await walletStore.refresh();setDepositSuccess(true);setDepositMessage(t('wallet.credited'));return}
       if(result.invoiceLink){
         if(!isTelegramWebApp()){setDepositMessage(t('wallet.openInTelegram'));return}
         const closeStatus=await openTelegramInvoice(result.invoiceLink)
-        if(closeStatus==='paid'){const credited=await waitForDepositPaid(result.orderId);if(credited){analytics.depositSuccess(method.channelId,num,method.currency,result.orderId);await walletStore.refresh();setDepositSuccess(true);setDepositMessage(t('wallet.paymentSuccess'))}else setDepositMessage(t('wallet.paymentPending'))}
+        if(closeStatus==='paid'){const credited=await waitForDepositPaid(result.orderId);if(credited){analytics.depositSuccess(method.channelId,num,method.currency,result.orderId);setFirstDepDone(true);await walletStore.refresh();setDepositSuccess(true);setDepositMessage(t('wallet.paymentSuccess'))}else setDepositMessage(t('wallet.paymentPending'))}
         else if(closeStatus==='cancelled')setDepositMessage(t('wallet.paymentCancelled'))
         else if(closeStatus==='failed')setDepositMessage(t('wallet.paymentFailed'))
         else setDepositMessage(t('wallet.completeInTelegram')); return

@@ -4,7 +4,7 @@ import { lgId } from '../utils/id.js'
 /**
  * 充值成功后的活动发放：首充嘉年华。
  * 挂在所有入账路径（internal.routes 两条 + NATS yfpay/beepay 回调）之后调用，
- * 幂等由 bg_user.first_dep_claimed 条件更新保证，发放失败不影响充值主流程。
+ * 幂等由 bg_user_promo_state.first_dep_claimed 条件更新保证，发放失败不影响充值主流程。
  */
 export interface PaidDepositInfo {
   orderId: string
@@ -93,7 +93,7 @@ async function creditBonus(
 /** 首充嘉年华：仅首笔成功充值，按币种向下匹配档位自动发放 */
 async function applyFirstDepBonus(db: Pool, dep: PaidDepositInfo): Promise<void> {
   const [users] = await db.query<RowDataPacket[]>(
-    'SELECT first_dep_claimed, first_dep_ready FROM bg_user WHERE id = ? LIMIT 1',
+    'SELECT first_dep_claimed, first_dep_ready FROM bg_user_promo_state WHERE user_id = ? LIMIT 1',
     [dep.userId],
   )
   const user = users[0]
@@ -119,7 +119,7 @@ async function applyFirstDepBonus(db: Pool, dep: PaidDepositInfo): Promise<void>
 
   // 条件更新做幂等闸：并发回调只有一个能置位成功
   const [res] = await db.execute<ResultSetHeader>(
-    'UPDATE bg_user SET first_dep_claimed = 1 WHERE id = ? AND first_dep_claimed = 0',
+    'UPDATE bg_user_promo_state SET first_dep_claimed = 1 WHERE user_id = ? AND first_dep_claimed = 0',
     [dep.userId],
   )
   if (res.affectedRows === 0) return
