@@ -5,10 +5,12 @@ import {
   disableAdminTotp,
   enableAdminTotp,
   getAdminTotpStatus,
+  getMaintenanceSettings,
   getOpPasswordStatus,
   getWin568KeyRotationSettings,
   setOpPassword,
   setupAdminTotp,
+  updateMaintenanceSettings,
   updateWin568KeyRotationSettings,
   type AdminTotpSetup,
   type AdminTotpStatus,
@@ -22,6 +24,8 @@ export default function Settings() {
   const [totpStatus, setTotpStatus] = useState<AdminTotpStatus>({ enabled: false, confirmedAt: null })
   const [totpSetup, setTotpSetup] = useState<AdminTotpSetup | null>(null)
   const [win568KeyRotationEnabled, setWin568KeyRotationEnabled] = useState(true)
+  const [maintenanceEnabled, setMaintenanceEnabled] = useState(false)
+  const [maintenanceSaving, setMaintenanceSaving] = useState(false)
   const [saving, setSaving] = useState(false)
   const [totpLoading, setTotpLoading] = useState(false)
   const [win568KeyRotationSaving, setWin568KeyRotationSaving] = useState(false)
@@ -31,12 +35,14 @@ export default function Settings() {
   const [disableForm] = Form.useForm<{ code: string }>()
 
   async function loadStatus() {
-    try {
-      const [op, totp, win568KeyRotation] = await Promise.all([getOpPasswordStatus(), getAdminTotpStatus(), getWin568KeyRotationSettings()])
-      setOpPwdConfigured(op.configured)
-      setTotpStatus(totp)
-      setWin568KeyRotationEnabled(win568KeyRotation.enabled)
-    } catch { /* ignore */ }
+    // 受限 session(强制绑 TOTP 前)只有 totp 接口可用，其余失败不影响绑定流程
+    const [op, totp, win568KeyRotation, maintenance] = await Promise.allSettled([
+      getOpPasswordStatus(), getAdminTotpStatus(), getWin568KeyRotationSettings(), getMaintenanceSettings(),
+    ])
+    if (op.status === 'fulfilled') setOpPwdConfigured(op.value.configured)
+    if (totp.status === 'fulfilled') setTotpStatus(totp.value)
+    if (win568KeyRotation.status === 'fulfilled') setWin568KeyRotationEnabled(win568KeyRotation.value.enabled)
+    if (maintenance.status === 'fulfilled') setMaintenanceEnabled(maintenance.value.enabled)
   }
 
   useEffect(() => { void loadStatus() }, [])
@@ -121,6 +127,41 @@ export default function Settings() {
       <div style={{ background: '#fff', marginBottom: 16, padding: 16 }}>
         <h2 style={{ margin: 0 }}>管理员与权限</h2>
       </div>
+      <Card title="站点维护模式" bordered={false} style={{ marginBottom: 16 }}>
+        <Space align="center" size="large">
+          <Switch
+            checked={maintenanceEnabled}
+            loading={maintenanceSaving}
+            disabled={!isSuperAdmin}
+            checkedChildren="维护中"
+            unCheckedChildren="运行中"
+            onChange={(checked) => {
+              Modal.confirm({
+                title: checked ? '确认开启维护模式?' : '确认关闭维护模式?',
+                content: checked
+                  ? '开启后所有用户接口返回 503,前台显示维护页;后台与支付回调不受影响。'
+                  : '关闭后站点立即恢复对外服务。',
+                okText: '确认',
+                cancelText: '取消',
+                okButtonProps: checked ? { danger: true } : undefined,
+                async onOk() {
+                  setMaintenanceSaving(true)
+                  try {
+                    const res = await updateMaintenanceSettings(checked)
+                    setMaintenanceEnabled(res.enabled)
+                    message.success(res.enabled ? '维护模式已开启' : '维护模式已关闭')
+                  } catch (e) {
+                    message.error(e instanceof Error ? e.message : '操作失败')
+                  } finally { setMaintenanceSaving(false) }
+                },
+              })
+            }}
+          />
+          <Typography.Text type="secondary">
+            开启后除后台(/admin)与支付回调(/webhooks)外的所有用户接口返回 503 维护提示,约 10 秒内全量生效。用于资损级故障止血或计划性停机。仅 super_admin 可操作。
+          </Typography.Text>
+        </Space>
+      </Card>
       <Row gutter={16}>
         <Col span={12}>
           <Card title="操作密码管理" bordered={false}>

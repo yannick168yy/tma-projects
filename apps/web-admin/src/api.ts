@@ -18,6 +18,11 @@ http.interceptors.response.use(
       localStorage.removeItem('admin_role')
       window.location.href = '/login'
     }
+    // 高权限角色未绑 TOTP 的受限 session：统一引导到设置页完成绑定
+    if (err.response?.status === 403 && err.response?.data?.message === 'TOTP setup required'
+      && !window.location.pathname.startsWith('/settings')) {
+      window.location.href = '/settings'
+    }
     return Promise.reject(new Error(err.response?.data?.message ?? err.message))
   },
 )
@@ -41,7 +46,7 @@ const put = <T>(url: string, data?: unknown) => req<T>('PUT', url, data)
 
 // Auth
 export type AdminLoginResult =
-  | { token: string; expiresIn: number; role: string; requiresTotp?: false }
+  | { token: string; expiresIn: number; role: string; requiresTotp?: false; totpSetupRequired?: boolean }
   | { requiresTotp: true; challengeToken: string; expiresIn: number }
 export const adminLogin = (username: string, password: string) =>
   post<AdminLoginResult>('/admin/auth/login', { username, password })
@@ -409,6 +414,8 @@ export interface SmsSendLogEntry {
   mocked: boolean
   createdAt: string
 }
+export const getMaintenanceSettings = () => get<{ enabled: boolean }>('/admin/settings/maintenance')
+export const updateMaintenanceSettings = (enabled: boolean) => put<{ enabled: boolean }>('/admin/settings/maintenance', { enabled })
 export const getSmsSettings = () => get<{ testMode: boolean }>('/admin/settings/sms')
 export const updateSmsSettings = (testMode: boolean) => put<{ testMode: boolean }>('/admin/settings/sms', { testMode })
 export const getSmsSendLogs = () => get<SmsSendLogEntry[]>('/admin/settings/sms/logs')

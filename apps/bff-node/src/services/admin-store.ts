@@ -7,6 +7,10 @@ import { getLevelThresholds, resolveLevel } from './rebate.service.js'
 export const SMS_TEST_MODE_KEY = 'sms_test_mode'
 const SMS_TEST_MODE_CACHE_KEY = 'admin:setting:sms_test_mode'
 const SMS_TEST_MODE_CACHE_TTL_SEC = 300
+export const MAINTENANCE_MODE_KEY = 'maintenance_mode'
+const MAINTENANCE_MODE_CACHE_KEY = 'admin:setting:maintenance_mode'
+// 缓存短 TTL：开关切换最迟 10s 生效，日常请求不打 DB
+const MAINTENANCE_MODE_CACHE_TTL_SEC = 10
 
 function pool(env: Env): Pool {
   return getMysqlPool(env)
@@ -1010,6 +1014,26 @@ export async function getSmsTestMode(redis: Redis, env: Env): Promise<boolean> {
 export async function setSmsTestMode(redis: Redis, env: Env, enabled: boolean): Promise<void> {
   await setAdminSetting(env, SMS_TEST_MODE_KEY, enabled ? '1' : '0')
   await redis.set(SMS_TEST_MODE_CACHE_KEY, enabled ? '1' : '0', 'EX', SMS_TEST_MODE_CACHE_TTL_SEC)
+}
+
+export async function getMaintenanceMode(redis: Redis, env: Env): Promise<boolean> {
+  try {
+    const cached = await redis.get(MAINTENANCE_MODE_CACHE_KEY)
+    if (cached === '1') return true
+    if (cached === '0') return false
+    const raw = await getAdminSetting(env, MAINTENANCE_MODE_KEY)
+    const enabled = raw === '1'
+    await redis.set(MAINTENANCE_MODE_CACHE_KEY, enabled ? '1' : '0', 'EX', MAINTENANCE_MODE_CACHE_TTL_SEC)
+    return enabled
+  } catch {
+    // 维护开关探测失败不能把全站打成 503
+    return false
+  }
+}
+
+export async function setMaintenanceMode(redis: Redis, env: Env, enabled: boolean): Promise<void> {
+  await setAdminSetting(env, MAINTENANCE_MODE_KEY, enabled ? '1' : '0')
+  await redis.set(MAINTENANCE_MODE_CACHE_KEY, enabled ? '1' : '0', 'EX', MAINTENANCE_MODE_CACHE_TTL_SEC)
 }
 
 export async function listAdminWithdrawals(

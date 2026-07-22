@@ -15,6 +15,19 @@ export function adminAuthMiddleware(): Middleware {
       fail(ctx, 401, 'Admin session expired or invalid', 401)
       return
     }
+    // 高权限角色未绑 TOTP 的受限 session：只放行绑定流程（不含 disable）与状态查询
+    if (session.totpSetupRequired) {
+      const p = ctx.path
+      const allowed =
+        p === '/api/v1/admin/security/totp/status'
+        || p === '/api/v1/admin/security/totp/setup'
+        || p === '/api/v1/admin/security/totp/enable'
+        || p === '/api/v1/admin/security/totp/cancel-setup'
+      if (!allowed) {
+        fail(ctx, 403, 'TOTP setup required', 403)
+        return
+      }
+    }
     ctx.state.adminId = session.adminId
     ctx.state.adminUsername = session.username
     ctx.state.adminRole = session.role

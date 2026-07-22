@@ -1,6 +1,6 @@
 import Router from '@koa/router'
 import type { Redis } from 'ioredis'
-import { getOpPasswordHash, setOpPassword, getSmsTestMode, setSmsTestMode, getAdminSetting, setAdminSetting, writeAuditLog } from '../../services/admin-store.js'
+import { getOpPasswordHash, setOpPassword, getSmsTestMode, setSmsTestMode, getMaintenanceMode, setMaintenanceMode, getAdminSetting, setAdminSetting, writeAuditLog } from '../../services/admin-store.js'
 import { hashPassword, verifyPassword } from '../../services/admin-auth.service.js'
 import { fail, ok } from '../../utils/response.js'
 import { requireRole } from '../../middleware/require-role.js'
@@ -63,6 +63,33 @@ router.post('/op-password', requireRole('super_admin', 'Only super_admin can man
   const newHash = await hashPassword(body.newPassword)
   await setOpPassword(ctx.state.env, newHash)
   ok(ctx, null)
+})
+
+// ── 全站维护模式 ──────────────────────────────────────────────────────────────
+
+router.get('/maintenance', async (ctx) => {
+  const redis = ctx.state.redis as Redis
+  const enabled = await getMaintenanceMode(redis, ctx.state.env)
+  ok(ctx, { enabled })
+})
+
+router.put('/maintenance', requireRole('super_admin', 'Only super_admin can toggle maintenance mode'), async (ctx) => {
+  const body = ctx.request.body as { enabled?: unknown }
+  if (typeof body.enabled !== 'boolean') {
+    fail(ctx, 400, 'enabled must be a boolean'); return
+  }
+  const redis = ctx.state.redis as Redis
+  await setMaintenanceMode(redis, ctx.state.env, body.enabled)
+  await writeAuditLog(ctx.state.env, {
+    adminId: ctx.state.adminId!,
+    adminUsername: ctx.state.adminUsername!,
+    action: 'maintenance_mode_update',
+    targetType: 'settings',
+    targetId: 'maintenance_mode',
+    detail: { enabled: body.enabled },
+    ip: ctx.ip,
+  })
+  ok(ctx, { enabled: body.enabled })
 })
 
 // ── 短信测试模式 ──────────────────────────────────────────────────────────────

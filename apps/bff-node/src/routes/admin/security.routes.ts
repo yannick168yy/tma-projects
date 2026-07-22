@@ -1,5 +1,6 @@
 import Router from '@koa/router'
 import { getAdminById, setAdminTotpSecret, disableAdminTotp, writeAuditLog } from '../../services/admin-store.js'
+import { clearTotpSetupRequired } from '../../services/admin-auth.service.js'
 import { buildTotpUri, generateTotpSecret, verifyTotpCode } from '../../utils/totp.js'
 import { fail, ok } from '../../utils/response.js'
 
@@ -48,6 +49,7 @@ router.post('/totp/enable', async (ctx) => {
   }
   await setAdminTotpSecret(ctx.state.env, admin.id, secret)
   await ctx.state.redis.del(setupKey(admin.id))
+  if (ctx.state.adminToken) await clearTotpSetupRequired(ctx.state.redis, ctx.state.adminToken)
   await writeAuditLog(ctx.state.env, {
     adminId: admin.id,
     adminUsername: admin.username,

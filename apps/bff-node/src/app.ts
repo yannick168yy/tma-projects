@@ -25,6 +25,7 @@ import { runCommunityTick } from './services/community.service.js'
 import { runBroadcastTick } from './services/broadcast.service.js'
 import { runBiReportTick } from './services/bi-report.service.js'
 import { ok } from './utils/response.js'
+import { getMaintenanceMode } from './services/admin-store.js'
 import { seedDefaultAdmin } from './services/admin-auth.service.js'
 
 export function createApp(env: Env): Koa {
@@ -242,6 +243,12 @@ export function createApp(env: Env): Koa {
   }
 
   app.use(errorHandler())
+  app.use(async (ctx, next) => {
+    ctx.set('X-Content-Type-Options', 'nosniff')
+    ctx.set('X-Frame-Options', 'DENY')
+    ctx.set('Referrer-Policy', 'strict-origin-when-cross-origin')
+    await next()
+  })
   app.use(
     cors({
       // 鉴权全走 Bearer header 无 cookie，去掉 credentials 以免"反射任意 Origin+带凭证"组合
@@ -261,6 +268,20 @@ export function createApp(env: Env): Koa {
   app.use(async (ctx, next) => {
     if (ctx.path === '/health') {
       ok(ctx, { status: 'ok', service: 'bff-node' })
+      return
+    }
+    await next()
+  })
+
+  // 全站维护模式：放行后台(/admin)与支付回调(/webhooks)，其余用户接口 503
+  app.use(async (ctx, next) => {
+    const p = ctx.path
+    const exempt = !p.startsWith('/api/v1')
+      || p.startsWith('/api/v1/admin')
+      || p.startsWith('/api/v1/webhooks')
+    if (!exempt && await getMaintenanceMode(ctx.state.redis, ctx.state.env)) {
+      ctx.status = 503
+      ctx.body = { code: 503, message: 'maintenance', data: null, traceId: ctx.state.traceId }
       return
     }
     await next()

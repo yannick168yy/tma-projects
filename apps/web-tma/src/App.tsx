@@ -5,6 +5,7 @@ import SplashPage from '@/views/SplashPage'
 import GoogleAuthCallback from '@/views/GoogleAuthCallback'
 import TelegramAuthCallback from '@/views/TelegramAuthCallback'
 import AnalyticsPageTracker from '@/components/AnalyticsPageTracker'
+import MaintenanceOverlay from '@/components/MaintenanceOverlay'
 import LoginSheet from '@/components/auth/LoginSheet'
 import RedPacketSheet from '@/components/promotion/RedPacketSheet'
 import { useAuthStore } from '@/stores/auth'
@@ -50,6 +51,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <AnalyticsPageTracker />
+      <MaintenanceOverlay />
       <Routes>
         <Route path="/auth/google/callback" element={<GoogleAuthCallback />} />
         <Route path="/auth/telegram/callback" element={<TelegramAuthCallback />} />

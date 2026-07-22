@@ -21,6 +21,11 @@ export default function Login() {
         return
       }
       setSession(res.token, res.role)
+      if ('totpSetupRequired' in res && res.totpSetupRequired) {
+        message.warning('该角色必须开启 Google Authenticator，请先完成绑定')
+        navigate('/settings')
+        return
+      }
       message.success('登录成功')
       navigate('/dashboard')
     } catch (e) {

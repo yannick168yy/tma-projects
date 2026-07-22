@@ -59,6 +59,9 @@ export async function apiRequest<T>(
     throw new ApiError(res.ok ? 'Invalid API response' : res.statusText || 'Request failed', res.status)
   }
   if (!res.ok || body.code !== 0) {
+    if (res.status === 503 && body.message === 'maintenance') {
+      window.dispatchEvent(new CustomEvent('betogo:maintenance'))
+    }
     throw new ApiError(body.message || res.statusText, body.code ?? res.status, body.traceId)
   }
   return body.data

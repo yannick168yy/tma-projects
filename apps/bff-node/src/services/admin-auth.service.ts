@@ -36,7 +36,12 @@ export interface AdminSession {
   username: string
   role: string
   expiresAt: string
+  /** 角色要求 TOTP 但尚未绑定：session 只能访问 TOTP 绑定与登出接口 */
+  totpSetupRequired?: boolean
 }
+
+// 正式运营要求：高权限角色必须开二步验证
+const TOTP_REQUIRED_ROLES = new Set(['super_admin', 'finance'])
 
 function sessionKey(token: string): string {
   return `admin:sess:${token}`
@@ -50,13 +55,15 @@ async function createAdminSession(
   redis: Redis,
   env: Env,
   account: AdminAccount,
-): Promise<{ token: string; expiresIn: number; role: string }> {
+  opts: { totpSetupRequired?: boolean } = {},
+): Promise<{ token: string; expiresIn: number; role: string; totpSetupRequired?: boolean }> {
   const token = randomToken()
   const expiresAt = new Date(Date.now() + ADMIN_SESSION_TTL * 1000).toISOString()
   const session: AdminSession = { adminId: account.id, username: account.username, role: account.role, expiresAt }
+  if (opts.totpSetupRequired) session.totpSetupRequired = true
   await redis.setex(sessionKey(token), ADMIN_SESSION_TTL, JSON.stringify(session))
   await updateLastLogin(env, account.id)
-  return { token, expiresIn: ADMIN_SESSION_TTL, role: account.role }
+  return { token, expiresIn: ADMIN_SESSION_TTL, role: account.role, ...(opts.totpSetupRequired ? { totpSetupRequired: true } : {}) }
 }
 
 export async function loginAdmin(
@@ -65,7 +72,7 @@ export async function loginAdmin(
   username: string,
   password: string,
 ): Promise<
-  | { token: string; expiresIn: number; role: string; requiresTotp?: false }
+  | { token: string; expiresIn: number; role: string; requiresTotp?: false; totpSetupRequired?: boolean }
   | { requiresTotp: true; challengeToken: string; expiresIn: number }
   | null
 > {
@@ -81,7 +88,24 @@ export async function loginAdmin(
     return { requiresTotp: true, challengeToken, expiresIn }
   }
 
+  // 高权限角色未绑 TOTP：发受限 session，只允许完成绑定后再进后台
+  if (TOTP_REQUIRED_ROLES.has(account.role)) {
+    return createAdminSession(redis, env, account, { totpSetupRequired: true })
+  }
+
   return createAdminSession(redis, env, account)
+}
+
+/** TOTP 绑定完成后解除 session 限制（保持原 TTL） */
+export async function clearTotpSetupRequired(redis: Redis, token: string): Promise<void> {
+  const key = sessionKey(token)
+  const raw = await redis.get(key)
+  if (!raw) return
+  const session = JSON.parse(raw) as AdminSession
+  if (!session.totpSetupRequired) return
+  delete session.totpSetupRequired
+  const ttl = await redis.ttl(key)
+  if (ttl > 0) await redis.setex(key, ttl, JSON.stringify(session))
 }
 
 export async function verifyAdminTotpLogin(
