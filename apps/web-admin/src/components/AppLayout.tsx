@@ -7,7 +7,7 @@ import {
   DashboardOutlined, TeamOutlined, UserOutlined, DownOutlined,
   AppstoreOutlined, SettingOutlined, CustomerServiceOutlined,
   TransactionOutlined, ApartmentOutlined, GiftOutlined,
-  SafetyCertificateOutlined, MenuOutlined, CrownOutlined, TrophyOutlined,
+  SafetyCertificateOutlined, MenuOutlined, CrownOutlined,
   AlertOutlined, BarChartOutlined,
 } from '@ant-design/icons'
 import { useAuthStore } from '../stores/auth'
@@ -29,7 +29,7 @@ function MenuBadgeLabel({ text, count }: { text: string; count: number }) {
 
 function buildMenuItems(badges: AdminBadges) {
   return [
-    { key: '/dashboard', icon: <DashboardOutlined />, label: '数据看板' },
+    { key: '/dashboard', icon: <DashboardOutlined />, label: '工作台' },
     {
       key: 'bi',
       icon: <BarChartOutlined />,
@@ -93,66 +93,55 @@ function buildMenuItems(badges: AdminBadges) {
         { key: '/review/config', label: '审核策略' },
       ],
     },
+    // 游戏与展示：游戏本体管理 + 前台展示装修（首页/板块/分类排序本质是排布游戏在前台的展示）
     {
       key: 'game',
       icon: <AppstoreOutlined />,
-      label: '游戏中心',
+      label: '游戏与展示',
       children: [
         { key: '/games', label: '游戏管理' },
         { key: '/bet-orders', label: '投注记录' },
+        { key: '/home-content', label: '首页装修' },
+        { key: '/homepage-sections', label: '首页板块配置' },
+        { key: '/category-sort', label: '分类列表排序' },
       ],
     },
     {
       key: 'marketing',
       icon: <GiftOutlined />,
-      label: '营销运营',
+      label: '营销活动',
       children: [
-        { key: '/home-content', label: '首页装修' },
-        { key: '/homepage-sections', label: '首页板块配置' },
-        { key: '/category-sort', label: '分类列表排序' },
         { key: '/promotions', label: '活动配置' },
         { key: '/promotions/claims', label: '参与记录' },
         { key: '/community', label: '社区营销' },
         { key: '/tg-broadcast', label: 'TG 群发' },
       ],
     },
+    // 会员运营：留存返利（VIP/洗码）+ 活跃激励（任务/签到/转盘），同属用户留存激励
     {
-      key: 'growth',
+      key: 'member-ops',
       icon: <CrownOutlined />,
-      label: '成长体系',
+      label: '会员运营',
       children: [
         { key: '/growth/vip-benefits', label: 'VIP 权益配置' },
         { key: '/growth/vip-records', label: 'VIP 礼金记录' },
         { key: '/growth/rebate-rates', label: '洗码费率' },
         { key: '/growth/rebate-featured', label: 'Cashback Games' },
         { key: '/growth/rebate-records', label: '洗码派发记录' },
-      ],
-    },
-    {
-      key: 'task-system',
-      icon: <TrophyOutlined />,
-      label: '任务体系',
-      children: [
         { key: '/tasks/center', label: '任务中心' },
         { key: '/tasks/checkin', label: '每日签到' },
         { key: '/tasks/rewards-spin', label: '转盘抽奖' },
       ],
     },
+    // 推广联盟：C端用户分销裂变 + B端渠道代理，同属拉新分成
     {
-      key: 'team',
+      key: 'promotion-alliance',
       icon: <ApartmentOutlined />,
-      label: '分销裂变',
+      label: '推广联盟',
       children: [
         { key: '/team-referral/agents', label: '分销网体' },
         { key: '/team-referral/commissions', label: '佣金流水' },
         { key: '/team-referral/config', label: '佣金配置' },
-      ],
-    },
-    {
-      key: 'agent',
-      icon: <ApartmentOutlined />,
-      label: '渠道代理',
-      children: [
         { key: '/agents', label: '渠道代理' },
         { key: '/agent-channels', label: '推广渠道' },
         { key: '/agents/commissions', label: '分成报表' },
@@ -201,12 +190,10 @@ function getDefaultOpenKeys(pathname: string): string[] {
   if (pathname.startsWith('/review') || pathname.startsWith('/withdrawals')) return ['review']
   if (['/users', '/device-lookup', '/kyc'].some((p) => pathname.startsWith(p))) return ['user-center']
   if (['/deposits', '/payment', '/wallet-ledger', '/exchange-rates'].some((p) => pathname.startsWith(p))) return ['finance']
-  if (['/games', '/bet-orders'].some((p) => pathname.startsWith(p))) return ['game']
-  if (pathname.startsWith('/growth') || pathname.startsWith('/vip') || pathname.startsWith('/rebate')) return ['growth']
-  if (['/tasks', '/checkin', '/rewards-spin'].some((p) => pathname.startsWith(p))) return ['task-system']
-  if (['/promotions', '/home-content', '/homepage-sections', '/category-sort'].some((p) => pathname.startsWith(p))) return ['marketing']
-  if (pathname.startsWith('/team-referral')) return ['team']
-  if (pathname.startsWith('/agents') || pathname.startsWith('/agent-')) return ['agent']
+  if (['/games', '/bet-orders', '/home-content', '/homepage-sections', '/category-sort'].some((p) => pathname.startsWith(p))) return ['game']
+  if (['/growth', '/vip', '/rebate', '/tasks', '/checkin', '/rewards-spin'].some((p) => pathname.startsWith(p))) return ['member-ops']
+  if (['/promotions', '/community', '/tg-broadcast'].some((p) => pathname.startsWith(p))) return ['marketing']
+  if (pathname.startsWith('/team-referral') || pathname.startsWith('/agents') || pathname.startsWith('/agent-')) return ['promotion-alliance']
   if (['/customer-service', '/cs-faq'].some((p) => pathname.startsWith(p))) return ['cs']
   if (['/audit-log', '/settings', '/system-params', '/sms-test', '/db-backup'].some((p) => pathname.startsWith(p))) return ['system']
   return []
