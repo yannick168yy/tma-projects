@@ -2,6 +2,7 @@ import Router from '@koa/router'
 import {
   getHomeContent,
   deleteHomeContentItem,
+  homeContentImageExists,
   saveHomeContentItem,
   storeHomeImage,
   type HomeContentActionType,
@@ -63,6 +64,10 @@ router.put('/item', async (ctx) => {
   }
   if (typeof body.imageKey !== 'string' || !body.imageKey.startsWith('home/')) {
     fail(ctx, 400, 'imageKey 无效')
+    return
+  }
+  if (!(await homeContentImageExists(ctx.state.env, body.imageKey))) {
+    fail(ctx, 400, '图片文件不存在，请重新上传')
     return
   }
   if (!validActionType(body.actionType)) {

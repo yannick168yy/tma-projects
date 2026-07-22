@@ -1,10 +1,12 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises'
+import { access, mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import type { Env } from '../../config/env.js'
 
 export interface StorageProvider {
   /** 存入二进制，返回可持久化的 key */
   put(key: string, data: Buffer, mimeType: string): Promise<string>
+  /** 检查文件是否存在，不读取文件内容 */
+  exists(key: string): Promise<boolean>
   /** 读取已存储文件 */
   get(key: string): Promise<{ data: Buffer; mimeType: string } | null>
 }
@@ -17,6 +19,15 @@ class LocalStorage implements StorageProvider {
     await mkdir(dirname(full), { recursive: true })
     await writeFile(full, data)
     return key
+  }
+
+  async exists(key: string): Promise<boolean> {
+    try {
+      await access(join(this.baseDir, key))
+      return true
+    } catch {
+      return false
+    }
   }
 
   async get(key: string): Promise<{ data: Buffer; mimeType: string } | null> {

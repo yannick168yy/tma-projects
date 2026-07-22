@@ -63,11 +63,20 @@ export async function getHomeContent(env: Env, includeDisabled = false): Promise
      ${includeDisabled ? '' : 'WHERE enabled = 1'}
      ORDER BY kind, slot`,
   )
-  const items = rows.map(mapRow)
+  let items = rows.map(mapRow)
+  if (!includeDisabled) {
+    const storage = getStorageProvider(env)
+    const existing = await Promise.all(items.map((item) => storage.exists(item.imageKey)))
+    items = items.filter((_, index) => existing[index])
+  }
   return {
     banners: items.filter((item) => item.kind === 'banner'),
     walletBanners: items.filter((item) => item.kind === 'wallet_banner'),
   }
+}
+
+export async function homeContentImageExists(env: Env, imageKey: string): Promise<boolean> {
+  return getStorageProvider(env).exists(imageKey)
 }
 
 export async function saveHomeContentItem(env: Env, item: {
