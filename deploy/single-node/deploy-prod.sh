@@ -48,6 +48,15 @@ sync_dist() {  # <app目录名>
     "$ROOT/apps/$app/dist/" "$PROD_HOST:$PROD_DIR/apps/$app/dist/"
 }
 
+sync_bff_runtime_files() {
+  echo "==> [bff-node] rsync package/Dockerfile（供镜像安装运行时依赖）"
+  rsync -az -e "$RSH" \
+    "$ROOT/apps/bff-node/package.json" \
+    "$ROOT/apps/bff-node/package-lock.json" \
+    "$ROOT/apps/bff-node/Dockerfile" \
+    "$PROD_HOST:$PROD_DIR/apps/bff-node/"
+}
+
 health() {  # <url> <标签>
   local code; code=$(remote "curl -s -o /dev/null -w '%{http_code}' $1" || echo 000)
   echo "    $2 health: $code"
@@ -78,6 +87,8 @@ for t in "${TARGETS[@]}"; do
       echo "### bff-node（逐节点，保持另一节点在线）"
       (cd "$ROOT/apps/bff-node" && npm run build >/dev/null)
       sync_dist bff-node
+      sync_bff_runtime_files
+      remote "IMG=\$(sudo podman inspect tma-bff-node --format '{{.ImageName}}'); cd $PROD_DIR/apps/bff-node && sudo podman build -t \"\$IMG\" . >/dev/null"
       rebuild_bff_node tma-bff-node-2 3001
       rebuild_bff_node tma-bff-node   3000
       ;;

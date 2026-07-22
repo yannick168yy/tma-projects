@@ -35,18 +35,27 @@ interface HomeContentRow extends RowDataPacket {
 
 const VALID_MIME = new Set(['image/png', 'image/jpeg', 'image/webp'])
 
-function imageUrl(key: string): string {
+function encodedImageKey(key: string): string {
   // key 形如 home/banner/xxx.webp，斜杠须保留为路径分隔符（nginx 会解码 %2F），
   // 仅对各段做编码，不编码斜杠
-  return `/api/v1/home/images/${key.split('/').map(encodeURIComponent).join('/')}`
+  return key.split('/').map(encodeURIComponent).join('/')
 }
 
-function mapRow(row: HomeContentRow): HomeContentItem {
+function imageUrl(env: Env, key: string): string {
+  const keyPath = encodedImageKey(key)
+  const s3PublicBase = env.S3_PUBLIC_BASE_URL.trim().replace(/\/$/, '')
+  if (s3PublicBase) return `${s3PublicBase}/${keyPath}`
+  const imageCdnBase = env.IMAGE_CDN_BASE.trim().replace(/\/$/, '')
+  if (imageCdnBase) return `${imageCdnBase}/api/v1/home/images/${keyPath}`
+  return `/api/v1/home/images/${keyPath}`
+}
+
+function mapRow(env: Env, row: HomeContentRow): HomeContentItem {
   return {
     kind: row.kind,
     slot: Number(row.slot),
     imageKey: row.image_key,
-    imageUrl: imageUrl(row.image_key),
+    imageUrl: imageUrl(env, row.image_key),
     actionType: row.action_type,
     actionValue: row.action_value ?? null,
     enabled: Boolean(row.enabled),
@@ -63,7 +72,7 @@ export async function getHomeContent(env: Env, includeDisabled = false): Promise
      ${includeDisabled ? '' : 'WHERE enabled = 1'}
      ORDER BY kind, slot`,
   )
-  let items = rows.map(mapRow)
+  let items = rows.map((row) => mapRow(env, row))
   if (!includeDisabled) {
     const storage = getStorageProvider(env)
     const existing = await Promise.all(items.map((item) => storage.exists(item.imageKey)))
@@ -102,7 +111,7 @@ export async function saveHomeContentItem(env: Env, item: {
     kind: item.kind,
     slot: item.slot,
     imageKey: item.imageKey,
-    imageUrl: imageUrl(item.imageKey),
+    imageUrl: imageUrl(env, item.imageKey),
     actionType: item.actionType,
     actionValue: item.actionValue,
     enabled: item.enabled,
@@ -135,5 +144,5 @@ export async function storeHomeImage(env: Env, kind: HomeContentKind, dataUrl: s
   if (parsed.data.length > 5 * 1024 * 1024) throw new Error('图片不能超过 5MB')
   const key = `home/${kind}/${Date.now()}-${randomUUID()}.${parsed.ext}`
   const imageKey = await getStorageProvider(env).put(key, parsed.data, parsed.mimeType)
-  return { imageKey, imageUrl: imageUrl(imageKey) }
+  return { imageKey, imageUrl: imageUrl(env, imageKey) }
 }

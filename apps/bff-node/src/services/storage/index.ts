@@ -1,5 +1,6 @@
 import { access, mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
+import { GetObjectCommand, HeadObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
 import type { Env } from '../../config/env.js'
 
 export interface StorageProvider {
@@ -42,10 +43,57 @@ class LocalStorage implements StorageProvider {
   }
 }
 
-// S3 实现预留：拿到 S3 凭证后在此实现 PutObject，env.S3_BUCKET 非空时启用
-// class S3Storage implements StorageProvider { ... }
+class S3Storage implements StorageProvider {
+  private readonly client: S3Client
+
+  constructor(private readonly env: Env) {
+    this.client = new S3Client({
+      region: env.S3_REGION,
+      endpoint: env.S3_ENDPOINT || undefined,
+      forcePathStyle: Boolean(env.S3_ENDPOINT),
+      credentials: env.S3_ACCESS_KEY_ID && env.S3_SECRET_ACCESS_KEY
+        ? { accessKeyId: env.S3_ACCESS_KEY_ID, secretAccessKey: env.S3_SECRET_ACCESS_KEY }
+        : undefined,
+    })
+  }
+
+  async put(key: string, data: Buffer, mimeType: string): Promise<string> {
+    await this.client.send(new PutObjectCommand({
+      Bucket: this.env.S3_BUCKET,
+      Key: key,
+      Body: data,
+      ContentType: mimeType,
+      CacheControl: 'public, max-age=31536000, immutable',
+    }))
+    return key
+  }
+
+  async exists(key: string): Promise<boolean> {
+    try {
+      await this.client.send(new HeadObjectCommand({ Bucket: this.env.S3_BUCKET, Key: key }))
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  async get(key: string): Promise<{ data: Buffer; mimeType: string } | null> {
+    try {
+      const res = await this.client.send(new GetObjectCommand({ Bucket: this.env.S3_BUCKET, Key: key }))
+      const bytes = await res.Body?.transformToByteArray()
+      if (!bytes) return null
+      const mimeType = res.ContentType || (key.endsWith('.png') ? 'image/png' : key.endsWith('.webp') ? 'image/webp' : 'image/jpeg')
+      return { data: Buffer.from(bytes), mimeType }
+    } catch {
+      return null
+    }
+  }
+}
 
 export function getStorageProvider(env: Env): StorageProvider {
-  // env.S3_BUCKET 配置后切换到 S3Storage
+  if (env.S3_BUCKET) {
+    if (!env.S3_REGION) throw new Error('S3_REGION is required when S3_BUCKET is set')
+    return new S3Storage(env)
+  }
   return new LocalStorage(env.KYC_STORAGE_DIR)
 }

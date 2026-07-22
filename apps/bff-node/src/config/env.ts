@@ -96,6 +96,8 @@ const schema = z.object({
   S3_ACCESS_KEY_ID: z.string().default(''),
   S3_SECRET_ACCESS_KEY: z.string().default(''),
   S3_ENDPOINT: z.string().default(''),
+  S3_PUBLIC_BASE_URL: z.string().default(''),
+  IMAGE_CDN_BASE: z.string().default(''),
   // 通过 setWebhook ?secret_token= 设置后，Telegram 会在回调 header 中携带此值
   // 空字符串表示跳过验签（向下兼容，建议生产环境设置）
   TELEGRAM_WEBHOOK_SECRET: z.string().default(''),
