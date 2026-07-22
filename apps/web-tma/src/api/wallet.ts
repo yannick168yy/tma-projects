@@ -2,7 +2,8 @@ import { apiRequest } from '@/api/client'
 import * as mock from '@/api/mock/wallet.mock'
 import type { WalletBalance, CurrencyBalance } from '@/types/api'
 
-const useMock = import.meta.env.VITE_USE_MOCK_API !== 'false'
+// 显式 'true' 才启用 mock：构建变量缺失时绝不能默认走假数据
+const useMock = import.meta.env.VITE_USE_MOCK_API === 'true'
 
 export interface TurnoverRequirement {
   id: number

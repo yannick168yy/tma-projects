@@ -57,8 +57,9 @@ function assertProductionSecurity(env: Env): void {
 
   if (env.BFF_DEV_SKIP_TELEGRAM_AUTH) missing.push('BFF_DEV_SKIP_TELEGRAM_AUTH must be false')
   if (!env.INTERNAL_TOKEN.trim()) missing.push('INTERNAL_TOKEN')
+  // 启用 TG 支付却没配 webhook secret = 回调验签整段跳过，生产直接拒绝启动
   if (env.AMMER_PAY_PROVIDER_TOKEN.trim() && !env.TELEGRAM_WEBHOOK_SECRET.trim()) {
-    warnings.push('TELEGRAM_WEBHOOK_SECRET')
+    missing.push('TELEGRAM_WEBHOOK_SECRET (required when AMMER_PAY_PROVIDER_TOKEN is set)')
   }
   if (env.MATRIX_GATEWAY_URL.trim()) {
     for (const key of [

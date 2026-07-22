@@ -41,6 +41,7 @@ async function request<T>(
     method: 'POST',
     headers: { 'Content-Type': 'application/json; charset=UTF-8' },
     body: JSON.stringify(payload),
+    signal: AbortSignal.timeout(15000),
   })
 
   const json = await res.json() as { code: number; msg: string; data: T }

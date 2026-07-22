@@ -124,12 +124,24 @@ export class Win568WalletService {
   private get db() { return this.app.mysql }
 
   private async validate(req: FastifyRequest, body: CallbackBody): Promise<{ code: number; message: string } | null> {
+    // 生产环境 fail-closed：白名单/密钥未配置视为配置错误，直接拒绝，绝不裸奔
+    const strict = env.NODE_ENV === 'production'
     const allowed = env.WIN568_SW_ALLOWED_IPS.split(',').map((ip) => ip.trim()).filter(Boolean)
-    if (allowed.length > 0 && !allowed.includes(getClientIp(req))) {
+    if (allowed.length === 0) {
+      if (strict) {
+        this.app.log.error('WIN568_SW_ALLOWED_IPS not configured, rejecting seamless wallet callback')
+        return { code: 2, message: 'IP address not allowed' }
+      }
+    } else if (!allowed.includes(getClientIp(req))) {
       return { code: 2, message: 'IP address not allowed' }
     }
     const configuredKey = await getWin568SwCompanyKey(this.app)
-    if (configuredKey && keyText(text(body, 'CompanyKey')) !== keyText(configuredKey)) {
+    if (!configuredKey) {
+      if (strict) {
+        this.app.log.error('568win seamless wallet company key not configured, rejecting callback')
+        return { code: 4, message: 'Company key is invalid' }
+      }
+    } else if (keyText(text(body, 'CompanyKey')) !== keyText(configuredKey)) {
       return { code: 4, message: 'Company key is invalid' }
     }
     return null

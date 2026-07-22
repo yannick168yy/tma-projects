@@ -242,7 +242,7 @@ describe('认证接口', () => {
 
     const res = await request(createApp(authRouter, { redis }))
       .post('/auth/login')
-      .send({ method: 'account', identifier: 'tester', password: 'bad-pass' })
+      .send({ method: 'phone', identifier: '09171234567', password: 'bad-pass' })
 
     expect(res.status).toBe(429)
     expect(res.body.message).toBe('errors.tooManyAttempts')
@@ -311,7 +311,7 @@ describe('钱包与提现接口', () => {
       .post('/withdrawals')
       .send({ amount: 500, currency: 'PHP', channelId: 'tg_wallet' })
 
-    expect(res.status).toBe(400)
+    expect(res.status).toBe(429)
     expect(res.body.code).toBe(429)
     expect(mockCreditWallet).not.toHaveBeenCalled()
   })

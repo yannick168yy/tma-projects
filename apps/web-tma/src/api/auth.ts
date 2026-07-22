@@ -4,7 +4,8 @@ import { getGoogleRedirectUri, startGoogleLoginRedirect } from '@/utils/googleOA
 import { getTelegramRedirectUri, startTelegramLoginRedirect } from '@/utils/telegramOAuth'
 import type { AuthSession, AuthUser, LoginProvider, PasswordMethod, TelegramWidgetUser } from '@/types/api'
 
-const useMock = import.meta.env.VITE_USE_MOCK_API !== 'false'
+// 显式 'true' 才启用 mock：构建变量缺失时绝不能默认走假数据
+const useMock = import.meta.env.VITE_USE_MOCK_API === 'true'
 
 /** 本地标记：试玩红包已领取/无资格，置位后恢复会话时跳过 /promotions/trial-play 请求 */
 export const TRIAL_CLAIMED_KEY = 'betogo_trial_claimed'

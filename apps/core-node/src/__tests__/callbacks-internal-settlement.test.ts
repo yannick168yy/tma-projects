@@ -99,6 +99,7 @@ function createRedis(setResult: string | null = 'OK') {
   return {
     setCalls: [] as unknown[][],
     getCalls: [] as string[],
+    delCalls: [] as string[],
     async set(...args: unknown[]) {
       this.setCalls.push(args)
       return setResult
@@ -106,6 +107,10 @@ function createRedis(setResult: string | null = 'OK') {
     async get(key: string) {
       this.getCalls.push(key)
       return null
+    },
+    async del(key: string) {
+      this.delCalls.push(key)
+      return 1
     },
   }
 }
@@ -190,7 +195,9 @@ describe('内部支付入账接口', () => {
     const pool = createPool({
       conn,
       query(sql) {
-        if (sql.includes('SELECT status FROM bg_deposit_order')) return [[{ status: 'pending' }]]
+        if (sql.includes('FROM bg_deposit_order')) {
+          return [[{ user_id: 'U1', status: 'pending', credited: 0, currency: 'PHP', amount: 1000 }]]
+        }
         return [[]]
       },
     })
@@ -245,7 +252,9 @@ describe('内部支付入账接口', () => {
     const pool = createPool({
       conn,
       query(sql) {
-        if (sql.includes('SELECT status FROM bg_deposit_order')) return [[{ status: 'pending' }]]
+        if (sql.includes('FROM bg_deposit_order')) {
+          return [[{ user_id: 'U1', status: 'pending', credited: 0, currency: 'PHP', amount: 500 }]]
+        }
         return [[]]
       },
     })

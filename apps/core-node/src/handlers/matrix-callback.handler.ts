@@ -108,6 +108,15 @@ async function handleMatrixDeposit(
   const conn = await db.getConnection()
   try {
     await conn.beginTransaction()
+    // credited=0 条件是重复/并发回调的最终闸门：只有一个事务能标记成功（上面的预检不在事务内，挡不住并发）
+    const [mark] = await conn.execute<import('mysql2/promise').ResultSetHeader>(
+      `UPDATE bg_deposit_order SET credited = 1, status = 'paid' WHERE order_id = ? AND credited = 0`,
+      [notify.orderNo],
+    )
+    if (mark.affectedRows === 0) {
+      await conn.rollback()
+      return
+    }
     // upsert 钱包行（该币种）
     await conn.execute(
       `INSERT INTO bg_wallet (user_id, currency, available, version)
@@ -126,10 +135,6 @@ async function handleMatrixDeposit(
        VALUES (?, ?, ?, 'deposit', ?, ?, 'deposit', ?, ?)`,
       [lgId(), notify.userId, currency, amount, balanceAfter, notify.orderNo,
         `Matrix ${notify.symbol} 充值 ${amount}`],
-    )
-    await conn.execute(
-      `UPDATE bg_deposit_order SET credited = 1, status = 'paid' WHERE order_id = ?`,
-      [notify.orderNo],
     )
     await createDepositRequirement(conn, notify.userId, notify.orderNo, amount, notify.symbol)
     const phpRate = await getPhpRate(notify.symbol)
@@ -182,6 +187,15 @@ async function handleMatrixWithdraw(
     const conn = await db.getConnection()
     try {
       await conn.beginTransaction()
+      // refunded=0 条件防重复退款（重复回调/并发下只有一个事务能标记成功）
+      const [mark] = await conn.execute<import('mysql2/promise').ResultSetHeader>(
+        `UPDATE bg_withdraw_order SET status = 'failed', refunded = 1 WHERE order_id = ? AND refunded = 0`,
+        [notify.merchantOrderNo],
+      )
+      if (mark.affectedRows === 0) {
+        await conn.rollback()
+        return
+      }
       await conn.execute(
         `INSERT INTO bg_wallet (user_id, currency, available, version)
          VALUES (?, ?, ?, 1)
@@ -199,10 +213,6 @@ async function handleMatrixWithdraw(
          VALUES (?, ?, ?, 'adjust', ?, ?, 'withdraw', ?, ?)`,
         [lgId(), order.user_id, currency, refundAmount, balanceAfter,
           `MXREFUND_${notify.merchantOrderNo}`, `Matrix 提现失败退款 #${notify.merchantOrderNo}`],
-      )
-      await conn.execute(
-        `UPDATE bg_withdraw_order SET status = 'failed', refunded = 1 WHERE order_id = ?`,
-        [notify.merchantOrderNo],
       )
       await conn.commit()
     } catch (err) {

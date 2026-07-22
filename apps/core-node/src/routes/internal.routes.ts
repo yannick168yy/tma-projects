@@ -67,6 +67,7 @@ export async function internalRoutes(app: FastifyInstance) {
   })
 
   // POST /internal/payment/tg-wallet
+  // creditedCents 语义为「已折算成 PHP 元」的入账金额（bff depositAmountToYuan 产出），钱包按 PHP 入账
   app.post<{
     Body: { orderId: string; userId: string; amount: number; creditedCents: number; currency: string; description?: string }
   }>('/internal/payment/tg-wallet', async (req, reply) => {
@@ -80,24 +81,43 @@ export async function internalRoutes(app: FastifyInstance) {
     const locked = await redis.set(idempotencyKey, '1', 'EX', 604800, 'NX')
     if (!locked) return reply.send({ code: 0, message: 'duplicate, skipped' })
     const [rows] = await db.query<RowDataPacket[]>(
-      `SELECT status, currency, amount FROM bg_deposit_order WHERE order_id = ? LIMIT 1`, [orderId],
+      `SELECT user_id, status, credited, currency, amount FROM bg_deposit_order WHERE order_id = ? LIMIT 1`, [orderId],
     )
-    if (rows[0]?.status === 'paid') return reply.send({ code: 0, message: 'already paid' })
+    const order = rows[0]
+    if (!order) {
+      await redis.del(idempotencyKey)
+      return reply.status(404).send({ code: 404, message: 'order not found' })
+    }
+    if (order.status === 'paid' || order.credited) return reply.send({ code: 0, message: 'already paid' })
+    if (String(order.user_id) !== userId) {
+      await redis.del(idempotencyKey)
+      app.log.error({ orderId, userId, orderUserId: order.user_id }, 'TG Wallet deposit user mismatch')
+      return reply.status(409).send({ code: 409, message: 'user mismatch' })
+    }
     const conn = await db.getConnection()
     try {
       await conn.beginTransaction()
+      // credited=0 条件是并发/重复回调的最终闸门：只有一个事务能标记成功
+      const [mark] = await conn.execute<import('mysql2/promise').ResultSetHeader>(
+        `UPDATE bg_deposit_order SET status='paid', credited=1 WHERE order_id=? AND credited=0`, [orderId],
+      )
+      if (mark.affectedRows === 0) {
+        await conn.rollback()
+        return reply.send({ code: 0, message: 'already paid' })
+      }
       const balanceAfter = await creditWalletInTx(conn, userId, creditedCents, orderId, description ?? 'Telegram Wallet deposit')
-      await conn.execute(`UPDATE bg_deposit_order SET status='paid', credited=1 WHERE order_id=?`, [orderId])
       await tryActivateTeamNode(conn, userId, creditedCents)
       await conn.commit()
       await applyDepositPromos(db, {
         orderId, userId,
-        amount: Number(rows[0]?.amount ?? req.body.amount),
-        currency: String(rows[0]?.currency ?? req.body.currency ?? 'PHP'),
+        amount: Number(order.amount ?? req.body.amount),
+        currency: String(order.currency ?? req.body.currency ?? 'PHP'),
       }, app.log)
       return reply.send({ code: 0, message: 'ok', balanceAfter })
     } catch (err) {
       await conn.rollback()
+      // 释放幂等锁，让上游重试仍有机会入账
+      await redis.del(idempotencyKey).catch(() => {})
       app.log.error({ err, orderId }, 'TG Wallet deposit failed')
       return reply.status(500).send({ code: 500, message: 'internal error' })
     } finally {
@@ -106,6 +126,7 @@ export async function internalRoutes(app: FastifyInstance) {
   })
 
   // POST /internal/payment/yfpay
+  // 与 yfpay-callback.handler 同规则：入账金额/币种/用户一律以订单行为准，不信任调用方传值
   app.post<{
     Body: { orderId: string; userId: string; creditedCents: number }
   }>('/internal/payment/yfpay', async (req, reply) => {
@@ -119,24 +140,46 @@ export async function internalRoutes(app: FastifyInstance) {
     const locked = await redis.set(idempotencyKey, '1', 'EX', 604800, 'NX')
     if (!locked) return reply.send({ code: 0, message: 'duplicate, skipped' })
     const [rows] = await db.query<RowDataPacket[]>(
-      `SELECT status, currency, amount FROM bg_deposit_order WHERE order_id = ? LIMIT 1`, [orderId],
+      `SELECT user_id, status, credited, currency, amount FROM bg_deposit_order WHERE order_id = ? LIMIT 1`, [orderId],
     )
-    if (rows[0]?.status === 'paid') return reply.send({ code: 0, message: 'already paid' })
+    const order = rows[0]
+    if (!order) {
+      await redis.del(idempotencyKey)
+      return reply.status(404).send({ code: 404, message: 'order not found' })
+    }
+    if (order.status === 'paid' || order.credited) return reply.send({ code: 0, message: 'already paid' })
+    if (String(order.user_id) !== userId) {
+      await redis.del(idempotencyKey)
+      app.log.error({ orderId, userId, orderUserId: order.user_id }, 'YFPay deposit user mismatch')
+      return reply.status(409).send({ code: 409, message: 'user mismatch' })
+    }
+    const creditAmount = Number(order.amount)
+    const currency = String(order.currency ?? 'PHP')
+    if (Math.abs(creditedCents - creditAmount) > 0.01) {
+      app.log.warn({ orderId, creditedCents, orderAmount: creditAmount }, 'YFPay callback amount differs from order, crediting order amount')
+    }
     const conn = await db.getConnection()
     try {
       await conn.beginTransaction()
-      const balanceAfter = await creditWalletInTx(conn, userId, creditedCents, orderId, 'YFPay deposit')
-      await conn.execute(`UPDATE bg_deposit_order SET status='paid', credited=1 WHERE order_id=?`, [orderId])
-      await tryActivateTeamNode(conn, userId, creditedCents)
+      const [mark] = await conn.execute<import('mysql2/promise').ResultSetHeader>(
+        `UPDATE bg_deposit_order SET status='paid', credited=1 WHERE order_id=? AND credited=0`, [orderId],
+      )
+      if (mark.affectedRows === 0) {
+        await conn.rollback()
+        return reply.send({ code: 0, message: 'already paid' })
+      }
+      const balanceAfter = await creditWalletInTx(conn, userId, creditAmount, orderId, 'YFPay deposit', currency)
+      await tryActivateTeamNode(conn, userId, creditAmount)
       await conn.commit()
       await applyDepositPromos(db, {
         orderId, userId,
-        amount: Number(rows[0]?.amount ?? creditedCents),
-        currency: String(rows[0]?.currency ?? 'PHP'),
+        amount: creditAmount,
+        currency,
       }, app.log)
       return reply.send({ code: 0, message: 'ok', balanceAfter })
     } catch (err) {
       await conn.rollback()
+      await redis.del(idempotencyKey).catch(() => {})
       app.log.error({ err, orderId }, 'YFPay deposit failed')
       return reply.status(500).send({ code: 500, message: 'internal error' })
     } finally {

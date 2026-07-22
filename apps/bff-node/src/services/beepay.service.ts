@@ -76,6 +76,7 @@ async function request<T>(
     method: 'POST',
     headers: { 'Content-Type': 'application/json; charset=UTF-8', midNo: env.BEEPAY_MID_NO },
     body: JSON.stringify(body),
+    signal: AbortSignal.timeout(15000),
   })
 
   const json = await res.json() as { code: string; msg: string; data: T }

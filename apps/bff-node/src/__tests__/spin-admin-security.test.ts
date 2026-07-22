@@ -190,7 +190,7 @@ describe('后台设置权限', () => {
       .post('/settings/op-password')
       .send({ newPassword: 'secret123' })
 
-    expect(res.status).toBe(400)
+    expect(res.status).toBe(403)
     expect(res.body.code).toBe(403)
     expect(mockSetOpPassword).not.toHaveBeenCalled()
   })
@@ -222,7 +222,7 @@ describe('后台设置权限', () => {
       .put('/settings/sms')
       .send({ testMode: true })
 
-    expect(res.status).toBe(400)
+    expect(res.status).toBe(403)
     expect(res.body.code).toBe(403)
     expect(mockSetSmsTestMode).not.toHaveBeenCalled()
   })
