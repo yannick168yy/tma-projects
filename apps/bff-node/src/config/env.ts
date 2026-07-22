@@ -34,9 +34,13 @@ const schema = z.object({
   SESSION_TTL_SECONDS: z.coerce.number().default(86400),
   GOOGLE_CLIENT_ID: z.string().default(''),
   GOOGLE_CLIENT_SECRET: z.string().default(''),
+  // 逗号分隔白名单：一份前端 bundle 部署多域名（测试 188facai + 生产 betogo），
+  // redirect_uri 按运行时 origin 生成，后端只需放行这些可信回调地址
   GOOGLE_REDIRECT_URI: z
     .string()
-    .default('https://www.188facai.com/auth/google/callback'),
+    .default(
+      'https://www.188facai.com/auth/google/callback,https://www.betogo.games/auth/google/callback',
+    ),
   // Telegram 新版网页登录（OIDC）。client_id 即 bot_id，从 TELEGRAM_BOT_TOKEN 前缀推导，无需单独配置
   TELEGRAM_OIDC_CLIENT_SECRET: z.string().default(''),
   TELEGRAM_OIDC_REDIRECT_URI: z

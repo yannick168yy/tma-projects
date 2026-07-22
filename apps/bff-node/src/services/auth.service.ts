@@ -232,8 +232,10 @@ export async function loginWithGoogleCode(
     throw new AuthError('Google login is not configured')
   }
 
-  const expectedRedirect = env.GOOGLE_REDIRECT_URI
-  if (redirectUri !== expectedRedirect) {
+  const allowedRedirects = env.GOOGLE_REDIRECT_URI.split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+  if (!allowedRedirects.includes(redirectUri)) {
     throw new AuthError('Invalid redirect URI')
   }
 
