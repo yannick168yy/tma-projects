@@ -101,8 +101,9 @@ REMOTE
 echo "==> [5/5] 清 KYC 上传图片..."
 $SSH "$HOST" "bash -s" <<REMOTE
 if [ -d "$KYC_IMG_DIR" ]; then
-  find "$KYC_IMG_DIR" -mindepth 1 -delete 2>/dev/null || true
-  echo "  已清空 $KYC_IMG_DIR"
+  # 保留 covers/(游戏封面),只清 KYC 用户上传件
+  find "$KYC_IMG_DIR" -mindepth 1 -maxdepth 1 ! -name covers -exec rm -rf {} + 2>/dev/null || true
+  echo "  已清 $KYC_IMG_DIR（保留 covers/）"
 else
   echo "  目录不存在，跳过: $KYC_IMG_DIR"
 fi

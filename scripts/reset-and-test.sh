@@ -55,8 +55,9 @@ done
 # 清理 KYC 影像文件（证件照 + 活体帧，含 BG-10001）
 KYC_IMG_DIR=/root/workspace/tma-projects/data/kyc
 if [ -d "$KYC_IMG_DIR" ]; then
-  find "$KYC_IMG_DIR" -mindepth 1 -delete
-  echo "已清理 KYC 影像文件（含 BG-10001）"
+  # 保留 covers/(游戏封面),只清 KYC 用户上传件
+  find "$KYC_IMG_DIR" -mindepth 1 -maxdepth 1 ! -name covers -exec rm -rf {} +
+  echo "已清理 KYC 影像文件（含 BG-10001，保留 covers/）"
 fi
 REMOTE
 fi

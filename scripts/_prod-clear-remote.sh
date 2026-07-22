@@ -51,10 +51,11 @@ do_clear() {
     [ "${n:-0}" != "0" ] && echo "  Redis $pattern: $n"
   done
 
-  echo "-- 清 KYC 上传图片 --"
+  echo "-- 清 KYC 上传图片（保留 covers/ 游戏封面，勿删）--"
   if [ -d "$WORK_DIR/data/kyc" ]; then
-    find "$WORK_DIR/data/kyc" -mindepth 1 -delete 2>/dev/null || true
-    echo "  已清空 $WORK_DIR/data/kyc"
+    # covers/ 是游戏封面(全站资产)，与 KYC 用户上传件同放 data/kyc,清用户数据时必须排除
+    find "$WORK_DIR/data/kyc" -mindepth 1 -maxdepth 1 ! -name covers -exec rm -rf {} + 2>/dev/null || true
+    echo "  已清 $WORK_DIR/data/kyc（保留 covers/）"
   else
     echo "  KYC 目录不存在，跳过"
   fi
