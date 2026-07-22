@@ -305,7 +305,7 @@ export async function registerWithPassword(
   }
   // 手机全局互斥：注册手机不能是他号已验证的 KYC 手机
   if (await findKycByVerifiedPhone(redis, identifier, '')) {
-    throw new AuthError('该手机号已被其他账号使用', 409)
+    throw new AuthError('kyc.errors.phoneTaken', 409)
   }
 
   let referredBy: string | undefined
@@ -674,9 +674,9 @@ export async function bindPhone(
   if (!phone) throw new AuthError('Invalid phone number', 400)
   // 全局互斥：手机登录号 + KYC 已验手机
   const owner = await getUserByPhoneAccount(redis, phone)
-  if (owner && owner.id !== userId) throw new AuthError('该手机号已被其他账号使用', 409)
+  if (owner && owner.id !== userId) throw new AuthError('kyc.errors.phoneTaken', 409)
   const kycOwner = await findKycByVerifiedPhone(redis, phone, userId)
-  if (kycOwner) throw new AuthError('该手机号已被其他账号使用', 409)
+  if (kycOwner) throw new AuthError('kyc.errors.phoneTaken', 409)
   const user = await loadUser(redis, userId)
   if (password.length < 8) throw new AuthError('Password must be at least 8 characters', 400)
   const credentialHash = await hashPassword(password)
