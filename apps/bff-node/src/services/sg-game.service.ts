@@ -100,8 +100,14 @@ function sortCategoryFromWin568(newGameType: number | null): string {
 // 游戏封面图(/api/v1/home/images/*)走 CloudFront CDN；icon_url 等第三方外链原样。
 // IMAGE_CDN_BASE 未设时回退相对路径(即走源站),便于回滚。
 const IMAGE_CDN_BASE = process.env.IMAGE_CDN_BASE || ''
+// 临时改写:568win 把体育/彩票/部分slot(共~839款)的图放在 khpic.cdn568.net,该域名在菲律宾
+// 玩家网络按域名(SNI)被封→破图;cdn-test.cdn568.net 是同一批文件、路径一致且未被封,临时改写过去。
+// 待 568win 把这些图换到正式可访问域名(img-3-x)后,设 KHPIC_REWRITE_TO='' 即可回滚。
+const KHPIC_REWRITE_TO = process.env.KHPIC_REWRITE_TO ?? 'cdn-test.cdn568.net'
 function cdnImg(url: string | null): string | null {
-  return url && IMAGE_CDN_BASE && url.startsWith('/api/v1/home/images/') ? IMAGE_CDN_BASE + url : url
+  let u = url
+  if (u && KHPIC_REWRITE_TO) u = u.replace('//khpic.cdn568.net/', `//${KHPIC_REWRITE_TO}/`)
+  return u && IMAGE_CDN_BASE && u.startsWith('/api/v1/home/images/') ? IMAGE_CDN_BASE + u : u
 }
 
 function rowToWin568Game(r: RowDataPacket): DbGame {
