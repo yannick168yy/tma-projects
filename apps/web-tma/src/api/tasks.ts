@@ -20,6 +20,7 @@ export interface TaskCard {
   subtitle: string
   status: TaskStatus
   reward: TaskReward
+  requirements?: { minStake?: number }
   progress?: { current: number; target: number }
   action: { kind: TaskActionKind; url?: string; target?: string; verifyStrategy?: string }
 }

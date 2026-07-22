@@ -18,7 +18,16 @@ export function cardTitle(t: TFunction, card: TaskCard): string {
 export function cardSubtitle(t: TFunction, card: TaskCard): string {
   if (card.id.startsWith('agg_checkin_ms')) return t('tasks.item.checkin_ms.subtitle', { defaultValue: card.subtitle })
   if (card.id.startsWith('daily_deposit_t')) return t('tasks.item.daily_deposit_tier.subtitle', { i: card.id.slice(-1), defaultValue: card.subtitle })
-  if (card.id === 'daily_bets') return t('tasks.item.daily_bets.subtitle', { defaultValue: card.subtitle })
+  if (card.id === 'daily_bets') {
+    const minStake = card.requirements?.minStake ?? 0
+    if (minStake > 0) {
+      return t('tasks.item.daily_bets.subtitleWithMin', {
+        amount: formatCurrencyAmount(card.reward.currency, minStake),
+        defaultValue: card.subtitle,
+      })
+    }
+    return t('tasks.item.daily_bets.subtitle', { defaultValue: card.subtitle })
+  }
   return t(`tasks.item.${card.id}.subtitle`, { defaultValue: card.subtitle })
 }
 

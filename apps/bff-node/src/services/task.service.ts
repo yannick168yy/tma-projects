@@ -46,7 +46,6 @@ const NATIVE_TASKS: NativeTaskDef[] = [
 const NEWBIE_ORDER = ['agg_trial', 'agg_firstdep', 'first_game', 'invite_milestone', 'profile_complete', 'agg_appdl', 'agg_birthday']
 
 const NATIVE_BY_ID = new Map(NATIVE_TASKS.map((t) => [t.id, t]))
-const DAILY_DEPOSIT_TASK_IDS = ['daily_deposit_t1', 'daily_deposit_t2', 'daily_deposit_t3']
 
 // ───────────────────────── 配置（后台可配开关/金额/阈值，缺省用下列常量） ─────────────────────────
 
@@ -62,7 +61,7 @@ export interface TaskRewardCfg {
   currency: string
   /** useThreshold 任务的达标阈值（金额/次数/局数） */
   threshold: number
-  /** 兼容后台旧字段；daily_bets 当前按正数投注笔数计数 */
+  /** daily_bets：单笔投注 ≥ 此额（PHP）才计数 */
   minStake: number
   /** daily_play：指定 site_category（slot/live/fishing/perya…） */
   category: string
@@ -200,16 +199,6 @@ async function todayDepositTotal(pool: Pool, userId: string, date: string, curre
   return Number(row?.total ?? 0)
 }
 
-/** 当日成功充值笔数（马尼拉日，限定币种） */
-async function todayDepositCount(pool: Pool, userId: string, date: string, currency: string): Promise<number> {
-  const [[row]] = await pool.query<RowDataPacket[]>(
-    `SELECT COUNT(*) AS n FROM bg_deposit_order
-     WHERE user_id = ? AND status = 'paid' AND currency = ? AND DATE(created_at + INTERVAL 8 HOUR) = ?`,
-    [userId, currency, date],
-  )
-  return Number(row?.n ?? 0)
-}
-
 async function hasBet(pool: Pool, userId: string): Promise<boolean> {
   const [[row]] = await pool.query<RowDataPacket[]>(
     `SELECT 1 AS ok FROM bg_bet_order WHERE user_id = ? AND bet_type = 'bet' LIMIT 1`,
@@ -218,13 +207,13 @@ async function hasBet(pool: Pool, userId: string): Promise<boolean> {
   return Boolean(row)
 }
 
-/** 当日有效投注笔数（正数投注即计数，马尼拉日，限定币种） */
-async function todayBetCount(pool: Pool, userId: string, date: string, currency: string): Promise<number> {
+/** 当日有效投注笔数（单笔 ≥ minStake 才计数，马尼拉日，限定币种） */
+async function todayBetCount(pool: Pool, userId: string, date: string, minStake: number, currency: string): Promise<number> {
   const [[row]] = await pool.query<RowDataPacket[]>(
     `SELECT COUNT(*) AS n FROM bg_bet_order
-     WHERE user_id = ? AND bet_type = 'bet' AND currency_code = ? AND amount > 0
+     WHERE user_id = ? AND bet_type = 'bet' AND currency_code = ? AND amount >= ?
        AND DATE(created_at + INTERVAL 8 HOUR) = ?`,
-    [userId, currency, date],
+    [userId, currency, Math.max(0, minStake), date],
   )
   return Number(row?.n ?? 0)
 }
@@ -281,7 +270,7 @@ async function evalTask(
   switch (def.id) {
     case 'daily_bets': {
       const target = Math.max(1, cfg.threshold)
-      const n = await todayBetCount(pool, userId, today, currency)
+      const n = await todayBetCount(pool, userId, today, cfg.minStake, currency)
       return { eligible: n >= target, progress: { current: Math.min(n, target), target } }
     }
     case 'daily_play': {
@@ -382,6 +371,7 @@ export interface TaskCard {
   subtitle: string
   status: 'locked' | 'claimable' | 'done'
   reward: { type: RewardType; amount: number; spin: number; currency: string; turnoverX: number }
+  requirements?: { minStake?: number }
   /** 进度（成就/里程碑类展示进度条） */
   progress?: { current: number; target: number }
   /**
@@ -483,20 +473,16 @@ async function computeTaskCenter(env: Env, userId: string, currency: string): Pr
     cards.push({
       id: def.id, group: def.group, title: def.title, subtitle: def.subtitle, status, progress: ev.progress,
       reward: { type: c.rewardType, amount: c.amount, spin: c.spin, currency: effCur, turnoverX: c.turnoverX },
+      requirements: def.id === 'daily_bets' && c.minStake > 0 ? { minStake: c.minStake } : undefined,
       action: status === 'locked' && todoTarget
         ? { kind: 'open_module', target: todoTarget }
         : { kind: 'claim' },
     })
   }
-  // 存款档位可多次领取，但次数必须由当日成功存款笔数支撑，避免一笔大额跨档连领。
+  // 存款阶梯收纳：只展示最低未完成档；三档全领完展示末档（done）
   const tierCards = cards.filter((c) => c.id.startsWith('daily_deposit_t'))
   if (tierCards.length > 1) {
-    const claimedCount = tierCards.filter((c) => c.status === 'done').length
-    const paidDepositCount = await todayDepositCount(pool, userId, today, currency)
-    const hasClaimSlot = claimedCount < paidDepositCount
-    const active = hasClaimSlot
-      ? (tierCards.find((c) => c.status !== 'done') ?? tierCards[tierCards.length - 1])
-      : ([...tierCards].reverse().find((c) => c.status === 'done') ?? tierCards.find((c) => c.status !== 'done') ?? tierCards[0])
+    const active = tierCards.find((c) => c.status !== 'done') ?? tierCards[tierCards.length - 1]
     for (const tc of tierCards) {
       if (tc !== active) cards.splice(cards.indexOf(tc), 1)
     }
@@ -595,35 +581,6 @@ async function socialClaimedKeys(pool: Pool, userId: string, keys: string[]): Pr
 
 export interface ClaimResult { taskId: string; reward: RewardSpec }
 
-async function countDepositTierClaims(
-  conn: PoolConnection,
-  userId: string,
-  period: string,
-  currency: string,
-): Promise<number> {
-  const [[row]] = await conn.query<RowDataPacket[]>(
-    `SELECT COUNT(*) AS n FROM bg_task_claim
-     WHERE user_id = ? AND task_id IN (?) AND period_key = ? AND currency = ?
-     LIMIT 1`,
-    [userId, DAILY_DEPOSIT_TASK_IDS, period, currency],
-  )
-  return Number(row?.n ?? 0)
-}
-
-async function countTodayDeposits(
-  conn: PoolConnection,
-  userId: string,
-  period: string,
-  currency: string,
-): Promise<number> {
-  const [[row]] = await conn.query<RowDataPacket[]>(
-    `SELECT COUNT(*) AS n FROM bg_deposit_order
-     WHERE user_id = ? AND status = 'paid' AND currency = ? AND DATE(created_at + INTERVAL 8 HOUR) = ?`,
-    [userId, currency, period],
-  )
-  return Number(row?.n ?? 0)
-}
-
 export async function claimTask(env: Env, userId: string, taskId: string, currency = 'PHP'): Promise<ClaimResult> {
   if (!isMysqlEnabled(env)) throw new Error('storage unavailable')
   const def = NATIVE_BY_ID.get(taskId)
@@ -643,14 +600,6 @@ export async function claimTask(env: Env, userId: string, taskId: string, curren
   try {
     await conn.beginTransaction()
     await conn.query(`SELECT id FROM bg_user WHERE id = ? FOR UPDATE`, [userId])
-    if (taskId.startsWith('daily_deposit_t')) {
-      const claimedCount = await countDepositTierClaims(conn, userId, pk, effCur)
-      const depositCount = await countTodayDeposits(conn, userId, pk, effCur)
-      if (claimedCount >= depositCount) {
-        await conn.rollback()
-        throw new Error('already claimed')
-      }
-    }
     const [res] = await conn.execute<ResultSetHeader>(
       `INSERT IGNORE INTO bg_task_claim
          (user_id, task_id, period_key, reward_type, currency, reward_amount, reward_spin, turnover_x)
