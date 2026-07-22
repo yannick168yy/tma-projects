@@ -802,7 +802,7 @@ export async function getProviderWeights(env: Env): Promise<Map<string, number>>
 }
 
 /** Returns distinct provider codes from cached games, optionally filtered by sortCategory / siteCategory (comma-separated) */
-export async function listProviders(env: Env, sortCategory?: string, siteCategory?: string, rtpMin?: number): Promise<string[]> {
+export async function listProviders(env: Env, sortCategory?: string, siteCategory?: string, rtpMin?: number, currency?: string): Promise<string[]> {
   let games = await getGamesFromCache(env)
   if (sortCategory && sortCategory !== 'all') {
     const cats = new Set(sortCategory.split(',').map((s) => s.trim()).filter(Boolean))
@@ -814,6 +814,10 @@ export async function listProviders(env: Env, sortCategory?: string, siteCategor
   }
   if (rtpMin != null) {
     games = games.filter((g) => (g.rtp ?? 0) >= rtpMin)
+  }
+  // 与 listGames 同口径：只保留当前币种能玩的游戏，避免出现"点了却 No games found"的空厂商 chip
+  if (currency) {
+    games = games.filter((g) => supportsCurrency(g, currency))
   }
   const weights = await getProviderWeights(env)
   const providers = [...new Set(games.map((g) => g.provider))].sort((a, b) => {

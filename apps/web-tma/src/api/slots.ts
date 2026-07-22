@@ -101,11 +101,12 @@ export function fetchGames(params: GameListParams = {}): Promise<GameListResult>
   return apiRequest<GameListResult>(`/slots/games${q ? `?${q}` : ''}`)
 }
 
-export function fetchProviders(sortCategory?: string, siteCategory?: string, rtpMin?: number): Promise<string[]> {
+export function fetchProviders(sortCategory?: string, siteCategory?: string, rtpMin?: number, currency?: string): Promise<string[]> {
   const qs = new URLSearchParams()
   if (sortCategory) qs.set('sortCategory', sortCategory)
   if (siteCategory) qs.set('siteCategory', siteCategory)
   if (rtpMin != null) qs.set('rtpMin', String(rtpMin))
+  if (currency) qs.set('currency', currency)
   const q = qs.toString()
   return apiRequest<string[]>(`/slots/providers${q ? `?${q}` : ''}`)
 }

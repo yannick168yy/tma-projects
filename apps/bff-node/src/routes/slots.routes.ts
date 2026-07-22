@@ -123,7 +123,8 @@ router.get('/providers', async (ctx) => {
     const sortCategory = (ctx.query.sortCategory as string) || undefined
     const siteCategory = (ctx.query.siteCategory as string) || undefined
     const rtpMin = ctx.query.rtpMin ? Number(ctx.query.rtpMin) : undefined
-    const providers = await listProviders(env, sortCategory, siteCategory, rtpMin)
+    const currency = (ctx.query.currency as string) || undefined
+    const providers = await listProviders(env, sortCategory, siteCategory, rtpMin, currency)
     ok(ctx, providers)
   } catch (e) {
     fail(ctx, 500, 'Failed to list providers')

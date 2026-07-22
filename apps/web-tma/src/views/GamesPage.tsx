@@ -104,10 +104,10 @@ export default function GamesPage({ cat, provider, onChangeFilter, onOpenPerya, 
   useEffect(() => {
     const seq = ++providerSeq.current
     setProvidersExpanded(false)
-    fetchProviders(undefined, activeCat.siteCategory, isHighRtp ? 0.97 : undefined)
+    fetchProviders(undefined, activeCat.siteCategory, isHighRtp ? 0.97 : undefined, activeCurrency)
       .then((list) => { if (seq === providerSeq.current) setProviders(list) })
       .catch(() => { if (seq === providerSeq.current) setProviders([]) })
-  }, [activeCat.siteCategory, isHighRtp])
+  }, [activeCat.siteCategory, isHighRtp, activeCurrency])
 
   useEffect(() => {
     void loadGames(true)
