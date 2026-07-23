@@ -8,8 +8,9 @@ const DOMAIN_TELEGRAM_OIDC_CLIENT_IDS: Record<string, string> = {
   'betogo888.com': '8612790363',
   'betogo666.com': '8028064412',
   'betogo777.com': '8528050220',
+  'betogo.app': '8512572445',
 }
-const DISABLED_TELEGRAM_OIDC_HOSTS = new Set(['betogo.cc', 'betogo.app', 'betogo.vip'])
+const DISABLED_TELEGRAM_OIDC_HOSTS = new Set(['betogo.cc', 'betogo.vip'])
 
 export function getTelegramOidcClientId(): string {
   if (typeof window === 'undefined') return TELEGRAM_OIDC_CLIENT_ID
