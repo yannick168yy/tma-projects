@@ -382,10 +382,10 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
   const selectedBonus = firstDepEligible ? matchTierBonus(depositTierList, Number(amount)) : redepBonusFor(Number(amount))
   const receiveAmount = Math.max(0, Number(amount) || 0) + selectedBonus
 
-  // 充值：切换分类（或渠道加载完成）时自动选中该分类首个可用、非地址型渠道
+  // 充值：切换分类（或渠道加载完成）时自动选中该分类首个可用渠道
   useEffect(() => {
     if (!open || tab !== 'deposit') return
-    const firstEnabled = currentCategoryMethods.find((m) => m.enabled !== false && m.channelId !== 'matrix')
+    const firstEnabled = currentCategoryMethods.find((m) => m.enabled !== false)
     setSelectedMethod(firstEnabled?.id ?? null)
     setAmount(''); setDepositMessage('')
     // eslint-disable-next-line react-hooks/exhaustive-deps
