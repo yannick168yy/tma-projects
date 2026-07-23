@@ -375,7 +375,7 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
   const nextCryptoFirstDepTier = showCryptoFirstDepGuide && cryptoFirstDepAmount > 0
     ? firstDepTiersSorted.find((tier) => cryptoFirstDepAmount < tier.depositAmount)
     : null
-  const recommendedCryptoFirstDepTiers = firstDepTiersSorted.slice(0, 5)
+  const recommendedCryptoFirstDepTiers = firstDepTiersSorted
   const cryptoFirstDepDisplayCurrency = cryptoFirstDepCurrency ?? 'USDT'
   // 首充未完成或状态未确认时不展示复充，避免首充与复充同时出现
   // 复充展示条件：offer 币种与当前充值币种一致（redep 已多币种）
@@ -532,7 +532,7 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
             <p className="mt-0.5 text-[11px] font-bold leading-snug text-white/62">{t('wallet.cryptoFirstDepSubtitle', { currency: cryptoFirstDepDisplayCurrency })}</p>
           </div>
         </div>
-        <div className="grid grid-cols-5 gap-1.5">
+        <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {recommendedCryptoFirstDepTiers.map((tier) => {
             const sel = amount === String(tier.depositAmount)
             return (
@@ -540,7 +540,7 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
                 key={tier.depositAmount}
                 type="button"
                 onClick={() => { setAmount(String(tier.depositAmount)); setCopiedDepositAmount(false) }}
-                className={`rounded-xl border px-1 py-2 text-center transition-colors ${sel ? 'border-primary bg-primary/20' : 'border-white/10 bg-[#07111f]/80'}`}
+                className={`w-[calc((100%-1.5rem)/5)] flex-shrink-0 rounded-xl border px-1 py-2 text-center transition-colors ${sel ? 'border-primary bg-primary/20' : 'border-white/10 bg-[#07111f]/80'}`}
               >
                 <span className="block text-xs font-black text-white leading-none">{fmtCryptoAmount(tier.depositAmount, cryptoFirstDepDisplayCurrency)}</span>
                 <span className="mt-1 block text-[10px] font-black leading-none text-primary">+{fmtCryptoAmount(tier.bonusAmount, cryptoFirstDepDisplayCurrency)}</span>
