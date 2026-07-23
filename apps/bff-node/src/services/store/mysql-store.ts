@@ -218,6 +218,18 @@ export async function getUserByTelegramOidcUsername(env: Env, username: string):
   return getUser(env, String(rows[0].user_id))
 }
 
+export async function getCanonicalUserByTelegramOidcUsername(env: Env, username: string): Promise<UserRecord | null> {
+  const [rows] = await pool(env).query<UserRow[]>(
+    `${USER_SELECT}
+     JOIN bg_user_identity i ON i.user_id = u.id
+     WHERE i.provider = 'telegram_oidc' AND i.display_label = ?
+     ORDER BY u.registered_at ASC, u.id ASC
+     LIMIT 1`,
+    [username],
+  )
+  return rows[0] ? mapUser(rows[0]) : null
+}
+
 export async function bindIdentity(env: Env, identity: UserIdentity): Promise<UserIdentity> {
   await pool(env).execute(
     `INSERT INTO bg_user_identity (user_id, provider, identifier, credential_hash, display_label, verified_at)

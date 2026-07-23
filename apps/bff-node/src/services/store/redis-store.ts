@@ -85,6 +85,24 @@ export async function getUserByTelegramOidcUsername(redis: Redis, username: stri
   return matches[0] ? getUser(redis, matches[0].userId) : null
 }
 
+export async function getCanonicalUserByTelegramOidcUsername(
+  redis: Redis,
+  username: string,
+): Promise<UserRecord | null> {
+  const keys = await redis.keys(KEYS.identity('telegram_oidc', '*'))
+  const matches: UserRecord[] = []
+  for (const key of keys) {
+    const raw = await redis.get(key)
+    if (!raw) continue
+    const identity = JSON.parse(raw) as UserIdentity
+    if (identity.displayLabel !== username) continue
+    const user = await getUser(redis, identity.userId)
+    if (user) matches.push(user)
+  }
+  matches.sort((a, b) => a.registeredAt.localeCompare(b.registeredAt) || a.id.localeCompare(b.id))
+  return matches[0] ?? null
+}
+
 export async function bindIdentity(redis: Redis, identity: UserIdentity): Promise<UserIdentity> {
   const key = KEYS.identity(identity.provider, identity.identifier)
   const existing = await getUserIdentity(redis, identity.provider, identity.identifier)

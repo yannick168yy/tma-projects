@@ -11,6 +11,7 @@ import {
   createUserFromTelegramOidc,
   deleteSession,
   findKycByVerifiedPhone,
+  getCanonicalUserByTelegramOidcUsername,
   getSession,
   getUser,
   getUserIdentity,
@@ -133,6 +134,21 @@ async function reassignTelegramIdentity(
     userId,
     provider: 'telegram',
     identifier: String(telegramUserId),
+    displayLabel: telegramUsername,
+    verifiedAt: new Date().toISOString(),
+  })
+}
+
+async function reassignTelegramOidcIdentity(
+  redis: Redis,
+  userId: string,
+  telegramOidcSub: string,
+  telegramUsername?: string,
+): Promise<void> {
+  await reassignIdentity(redis, {
+    userId,
+    provider: 'telegram_oidc',
+    identifier: telegramOidcSub,
     displayLabel: telegramUsername,
     verifiedAt: new Date().toISOString(),
   })
@@ -592,6 +608,22 @@ export async function loginWithTelegramOidc(
 
     const region = ip ? lookupRegion(ip) : undefined
     const telegramUserId = telegramIdFromOidcSub(profile.sub)
+
+    const oidcUserByUsername = profile.username
+      ? await getCanonicalUserByTelegramOidcUsername(redis, profile.username)
+      : null
+    if (oidcUserByUsername) {
+      await reassignTelegramOidcIdentity(redis, oidcUserByUsername.id, profile.sub, profile.username)
+      if (telegramUserId) await bindTelegramIdentity(redis, oidcUserByUsername.id, telegramUserId, profile.username)
+      oidcUserByUsername.displayName = profile.displayName
+      if (profile.avatarUrl) oidcUserByUsername.avatarUrl = profile.avatarUrl
+      await saveUser(redis, oidcUserByUsername)
+      if (oidcUserByUsername.status === 'banned' || oidcUserByUsername.status === 'frozen') {
+        throw new AuthError('Account has been disabled. Please contact support.')
+      }
+      return issueSession(redis, env, oidcUserByUsername, false)
+    }
+
     const telegramUser = telegramUserId ? await getUserByTelegramId(redis, telegramUserId) : null
     if (telegramUser) {
       await bindTelegramOidcIdentity(redis, telegramUser.id, profile.sub, profile.username)

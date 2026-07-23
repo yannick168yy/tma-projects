@@ -55,6 +55,11 @@ export const getUserByTelegramOidcUsername = (redis: Redis, username: string) =>
     ? mysqlStore.getUserByTelegramOidcUsername(env(), username)
     : redisStore.getUserByTelegramOidcUsername(redis, username)
 
+export const getCanonicalUserByTelegramOidcUsername = (redis: Redis, username: string) =>
+  isMysqlEnabled(env())
+    ? mysqlStore.getCanonicalUserByTelegramOidcUsername(env(), username)
+    : redisStore.getCanonicalUserByTelegramOidcUsername(redis, username)
+
 export const bindIdentity = (redis: Redis, identity: UserIdentity) =>
   isMysqlEnabled(env()) ? mysqlStore.bindIdentity(env(), identity) : redisStore.bindIdentity(redis, identity)
 
