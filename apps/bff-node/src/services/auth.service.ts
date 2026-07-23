@@ -55,6 +55,17 @@ export class AuthError extends Error {
   }
 }
 
+// redirect_uri 白名单：配置项按逗号分隔（一份 bundle 多域名部署），命中任一即放行
+function assertAllowedRedirect(configured: string, redirectUri: string): void {
+  const allowed = configured
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+  if (!allowed.includes(redirectUri)) {
+    throw new AuthError('Invalid redirect URI', 400)
+  }
+}
+
 function displayNameFromInit(data: ReturnType<typeof parse>): string {
   const u = data.user
   if (!u) return 'Telegram User'
@@ -232,12 +243,7 @@ export async function loginWithGoogleCode(
     throw new AuthError('Google login is not configured')
   }
 
-  const allowedRedirects = env.GOOGLE_REDIRECT_URI.split(',')
-    .map((s) => s.trim())
-    .filter(Boolean)
-  if (!allowedRedirects.includes(redirectUri)) {
-    throw new AuthError('Invalid redirect URI')
-  }
+  assertAllowedRedirect(env.GOOGLE_REDIRECT_URI, redirectUri)
 
   try {
     const profile = await exchangeGoogleCode(env, code, redirectUri)
@@ -545,9 +551,7 @@ export async function loginWithTelegramOidc(
   if (!env.TELEGRAM_OIDC_CLIENT_SECRET) {
     throw new AuthError('Telegram web login is not configured')
   }
-  if (redirectUri !== env.TELEGRAM_OIDC_REDIRECT_URI) {
-    throw new AuthError('Invalid redirect URI')
-  }
+  assertAllowedRedirect(env.TELEGRAM_OIDC_REDIRECT_URI, redirectUri)
 
   try {
     const profile = await exchangeTelegramOidcCode(env, code, redirectUri)
@@ -622,7 +626,7 @@ export async function bindTelegramOidc(
   code: string,
   redirectUri: string,
 ): Promise<UserRecord> {
-  if (redirectUri !== env.TELEGRAM_OIDC_REDIRECT_URI) throw new AuthError('Invalid redirect URI', 400)
+  assertAllowedRedirect(env.TELEGRAM_OIDC_REDIRECT_URI, redirectUri)
   const profile = await exchangeTelegramOidcCode(env, code, redirectUri)
   const telegramUserId = telegramIdFromOidcSub(profile.sub)
   if (telegramUserId) {
@@ -643,7 +647,7 @@ export async function bindGoogleAccount(
   code: string,
   redirectUri: string,
 ): Promise<UserRecord> {
-  if (redirectUri !== env.GOOGLE_REDIRECT_URI) throw new AuthError('Invalid redirect URI', 400)
+  assertAllowedRedirect(env.GOOGLE_REDIRECT_URI, redirectUri)
   const profile = await exchangeGoogleCode(env, code, redirectUri)
   const owner = await getUserByGoogleSub(redis, profile.sub)
   if (owner && owner.id !== userId) throw new AuthError('该 Google 已绑定其他账号', 409)
