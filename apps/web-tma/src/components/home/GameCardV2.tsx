@@ -1,13 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import type { SlotGame } from '@/api/slots'
 import { useLocaleStore } from '@/stores/locale'
-import { usePromotionStore } from '@/stores/promotion'
 import { localizedGameName } from '@/utils/game'
 import { shortProviderName } from '@/utils/providers'
 import cashbackBadge2 from '@/assets/home/promos/cashback-badge-2.webp'
 import cashbackBadge15 from '@/assets/home/promos/cashback-badge-1_5.webp'
 import cashbackBadge1 from '@/assets/home/promos/cashback-badge-1.webp'
-import lossRebateBadge from '@/assets/home/promos/lossrebate-badge.webp'
 
 const CASHBACK_BADGE: Record<'elite' | 'pro' | 'basic', string> = {
   elite: cashbackBadge2,
@@ -29,14 +27,6 @@ export default function GameCardV2({ game, onTap, size, showLive }: Props) {
   const goldBorder = size === 'lg'
   const locale = useLocaleStore((s) => s.locale)
   const unavailable = game.supportsActiveCurrency === false
-  // 负盈利返水角标：活动开启且该游戏品类在返水白名单(默认 slots/fishing)内才显示；
-  // 与 cashback 同占左上角，cashback 在则叠其下，无则占 cashback 原位；LIVE 优先故 showLive 时都不显示
-  const lossRebate = usePromotionStore((s) => s.promoConfig?.lossRebate)
-  const showLossRebate =
-    !showLive &&
-    lossRebate?.enabled === true &&
-    !!game.sortCategory &&
-    !!lossRebate.eligibleCats?.includes(game.sortCategory)
   // 封面裁剪版本：封面图走 immutable 长缓存，重裁同名图后需 bump 才能让客户端拿到新图
   const bust = (u: string | null | undefined) =>
     u && u.includes('/covers/') ? `${u}${u.includes('?') ? '&' : '?'}cv=5` : (u ?? null)
@@ -82,16 +72,10 @@ export default function GameCardV2({ game, onTap, size, showLive }: Props) {
           {shortProviderName(game.provider)}
         </span>
       )}
-      {/* 左上角活动角标堆叠：cashback 精选(2%/1.5%/1%)在上、负盈利返水在下；只有返水时占 cashback 原位。
-          与 LIVE 同占位,LIVE 优先。徽标图本身带透明留白,故贴到 top-0/left-0 视觉即有内缩,宽度随卡片尺寸自适应 */}
-      {!showLive && (game.cashbackTier || showLossRebate) && (
+      {/* 左上角 Cashback 精选角标；与 LIVE 同占位,LIVE 优先。徽标图本身带透明留白,故贴到 top-0/left-0 视觉即有内缩,宽度随卡片尺寸自适应 */}
+      {!showLive && game.cashbackTier && (
         <div className={`absolute top-0 left-0 flex flex-col pointer-events-none ${size === 'lg' ? 'w-[37%]' : 'w-[52%]'}`}>
-          {game.cashbackTier && (
-            <img src={CASHBACK_BADGE[game.cashbackTier]} alt="" draggable={false} className="w-full" />
-          )}
-          {showLossRebate && (
-            <img src={lossRebateBadge} alt="" draggable={false} className={`w-full ${game.cashbackTier ? 'mt-[4%]' : ''}`} />
-          )}
+          <img src={CASHBACK_BADGE[game.cashbackTier]} alt="" draggable={false} className="w-full" />
         </div>
       )}
       {showLive && (
