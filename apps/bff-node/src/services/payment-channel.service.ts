@@ -19,6 +19,8 @@ export interface PaymentChannel {
   withdrawMin: number | null
   withdrawMax: number | null
   withdrawGasFee: number
+  withdrawGasDiscountThreshold: number | null
+  withdrawGasDiscountFee: number | null
   enabled: boolean
   sortOrder: number
   rules: PaymentChannelRule[]
@@ -48,6 +50,8 @@ type ChannelRow = RowDataPacket & {
   withdraw_fee_type: FeeType; withdraw_fee_value: string | number
   withdraw_min: string | null; withdraw_max: string | null
   withdraw_gas_fee: string | number
+  withdraw_gas_discount_threshold: string | null
+  withdraw_gas_discount_fee: string | null
   enabled: number; sort_order: number; created_at: Date; updated_at: Date
 }
 
@@ -68,6 +72,8 @@ function mapChannel(row: ChannelRow, rules: PaymentChannelRule[]): PaymentChanne
     withdrawMin: row.withdraw_min !== null ? Number(row.withdraw_min) : null,
     withdrawMax: row.withdraw_max !== null ? Number(row.withdraw_max) : null,
     withdrawGasFee: Number(row.withdraw_gas_fee ?? 0),
+    withdrawGasDiscountThreshold: row.withdraw_gas_discount_threshold !== null ? Number(row.withdraw_gas_discount_threshold) : null,
+    withdrawGasDiscountFee: row.withdraw_gas_discount_fee !== null ? Number(row.withdraw_gas_discount_fee) : null,
     enabled: row.enabled === 1, sortOrder: row.sort_order,
     rules,
     createdAt: new Date(row.created_at).toISOString(),
@@ -115,18 +121,21 @@ export async function createChannel(
     withdrawFeeType?: FeeType; withdrawFeeValue?: number
     withdrawMin?: number | null; withdrawMax?: number | null
     withdrawGasFee?: number
+    withdrawGasDiscountThreshold?: number | null
+    withdrawGasDiscountFee?: number | null
     enabled: boolean; sortOrder: number
   }
 ): Promise<number> {
   const [res] = await pool(env).query<ResultSetHeader>(
     `INSERT INTO payment_channels
-       (name, provider, label, category, deposit_fee_type, deposit_fee_value, withdraw_fee_type, withdraw_fee_value, withdraw_min, withdraw_max, withdraw_gas_fee, enabled, sort_order)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (name, provider, label, category, deposit_fee_type, deposit_fee_value, withdraw_fee_type, withdraw_fee_value, withdraw_min, withdraw_max, withdraw_gas_fee, withdraw_gas_discount_threshold, withdraw_gas_discount_fee, enabled, sort_order)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       data.name, data.provider, data.label, data.category ?? 'fiat',
       data.depositFeeType ?? 'none', data.depositFeeValue ?? 0,
       data.withdrawFeeType ?? 'none', data.withdrawFeeValue ?? 0,
       data.withdrawMin ?? null, data.withdrawMax ?? null, data.withdrawGasFee ?? 0,
+      data.withdrawGasDiscountThreshold ?? null, data.withdrawGasDiscountFee ?? null,
       data.enabled ? 1 : 0, data.sortOrder,
     ]
   )
@@ -142,6 +151,8 @@ export async function updateChannel(
     withdrawFeeType: FeeType; withdrawFeeValue: number
     withdrawMin: number | null; withdrawMax: number | null
     withdrawGasFee: number
+    withdrawGasDiscountThreshold: number | null
+    withdrawGasDiscountFee: number | null
     enabled: boolean; sortOrder: number
   }>
 ): Promise<boolean> {
@@ -158,6 +169,8 @@ export async function updateChannel(
   if ('withdrawMin' in data) { sets.push('withdraw_min = ?'); vals.push(data.withdrawMin ?? null) }
   if ('withdrawMax' in data) { sets.push('withdraw_max = ?'); vals.push(data.withdrawMax ?? null) }
   if (data.withdrawGasFee !== undefined) { sets.push('withdraw_gas_fee = ?'); vals.push(data.withdrawGasFee) }
+  if ('withdrawGasDiscountThreshold' in data) { sets.push('withdraw_gas_discount_threshold = ?'); vals.push(data.withdrawGasDiscountThreshold ?? null) }
+  if ('withdrawGasDiscountFee' in data) { sets.push('withdraw_gas_discount_fee = ?'); vals.push(data.withdrawGasDiscountFee ?? null) }
   if (data.enabled !== undefined) { sets.push('enabled = ?'); vals.push(data.enabled ? 1 : 0) }
   if (data.sortOrder !== undefined) { sets.push('sort_order = ?'); vals.push(data.sortOrder) }
   if (sets.length === 0) return false
@@ -296,26 +309,28 @@ export interface CryptoChannelState {
   label: string
   enabled: boolean
   sortOrder: number
-  withdrawMin: number | null
-  withdrawMax: number | null
   withdrawGasFee: number
+  withdrawGasDiscountThreshold: number | null
+  withdrawGasDiscountFee: number | null
 }
 
-// 虚拟币 / TG 渠道（category='crypto'）的开关状态 + 提现限额 + gas 费，供客户端展示与前置校验
+// 虚拟币 / TG 渠道（category='crypto'）的开关状态 + gas 费，供客户端展示与前置校验
 export async function listCryptoChannelStates(env: Env): Promise<CryptoChannelState[]> {
   type Row = RowDataPacket & {
     name: string; label: string; enabled: number; sort_order: number
-    withdraw_min: string | null; withdraw_max: string | null; withdraw_gas_fee: string | number
+    withdraw_gas_fee: string | number
+    withdraw_gas_discount_threshold: string | null
+    withdraw_gas_discount_fee: string | null
   }
   const [rows] = await pool(env).query<Row[]>(
-    `SELECT name, label, enabled, sort_order, withdraw_min, withdraw_max, withdraw_gas_fee FROM payment_channels
+    `SELECT name, label, enabled, sort_order, withdraw_gas_fee, withdraw_gas_discount_threshold, withdraw_gas_discount_fee FROM payment_channels
      WHERE category = 'crypto' ORDER BY sort_order ASC, id ASC`
   )
   return rows.map((r) => ({
     name: r.name, label: r.label, enabled: r.enabled === 1, sortOrder: r.sort_order,
-    withdrawMin: r.withdraw_min !== null ? Number(r.withdraw_min) : null,
-    withdrawMax: r.withdraw_max !== null ? Number(r.withdraw_max) : null,
     withdrawGasFee: Number(r.withdraw_gas_fee ?? 0),
+    withdrawGasDiscountThreshold: r.withdraw_gas_discount_threshold !== null ? Number(r.withdraw_gas_discount_threshold) : null,
+    withdrawGasDiscountFee: r.withdraw_gas_discount_fee !== null ? Number(r.withdraw_gas_discount_fee) : null,
   }))
 }
 
@@ -332,25 +347,36 @@ export async function isCryptoChannelEnabled(env: Env, name: string): Promise<bo
 export interface CryptoWithdrawGate {
   exists: boolean
   enabled: boolean
-  withdrawMin: number | null
-  withdrawMax: number | null
   gasFee: number
+  gasDiscountThreshold: number | null
+  gasDiscountFee: number | null
 }
 
-// 虚拟币提现的开关 + 每笔限额 + gas 费，一次查询供提现下单校验。未配置该渠道时 fail-open（放行、无限额、无 gas）
+// 虚拟币提现的开关 + gas 费，一次查询供提现下单校验。未配置该渠道时 fail-open（放行、无 gas）
 export async function getCryptoWithdrawGate(env: Env, name: string): Promise<CryptoWithdrawGate> {
   const [rows] = await pool(env).query<RowDataPacket[]>(
-    `SELECT enabled, withdraw_min, withdraw_max, withdraw_gas_fee FROM payment_channels
+    `SELECT enabled, withdraw_gas_fee, withdraw_gas_discount_threshold, withdraw_gas_discount_fee FROM payment_channels
      WHERE name = ? AND category = 'crypto' LIMIT 1`,
     [name]
   )
-  if (rows.length === 0) return { exists: false, enabled: true, withdrawMin: null, withdrawMax: null, gasFee: 0 }
+  if (rows.length === 0) return { exists: false, enabled: true, gasFee: 0, gasDiscountThreshold: null, gasDiscountFee: null }
   const r = rows[0]
   return {
     exists: true,
     enabled: r.enabled === 1,
-    withdrawMin: r.withdraw_min !== null ? Number(r.withdraw_min) : null,
-    withdrawMax: r.withdraw_max !== null ? Number(r.withdraw_max) : null,
     gasFee: Number(r.withdraw_gas_fee ?? 0),
+    gasDiscountThreshold: r.withdraw_gas_discount_threshold !== null ? Number(r.withdraw_gas_discount_threshold) : null,
+    gasDiscountFee: r.withdraw_gas_discount_fee !== null ? Number(r.withdraw_gas_discount_fee) : null,
   }
+}
+
+export function resolveCryptoWithdrawGasFee(gate: CryptoWithdrawGate, amount: number): number {
+  if (
+    gate.gasDiscountThreshold !== null
+    && gate.gasDiscountFee !== null
+    && amount > gate.gasDiscountThreshold
+  ) {
+    return gate.gasDiscountFee
+  }
+  return gate.gasFee
 }

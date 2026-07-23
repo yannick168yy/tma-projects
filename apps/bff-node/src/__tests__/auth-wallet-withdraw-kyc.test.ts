@@ -105,6 +105,8 @@ vi.mock('../clients/matrix.client.js', () => ({
 
 vi.mock('../services/payment-channel.service.js', () => ({
   isCryptoChannelEnabled: vi.fn(() => Promise.resolve(true)),
+  getCryptoWithdrawGate: vi.fn(() => Promise.resolve({ exists: true, enabled: true, gasFee: 0, gasDiscountThreshold: null, gasDiscountFee: null })),
+  resolveCryptoWithdrawGasFee: vi.fn((gate: { gasFee: number }) => gate.gasFee),
 }))
 
 import authRouter from '../routes/auth.routes.js'
