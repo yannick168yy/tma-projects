@@ -52,7 +52,7 @@ const schema = z.object({
   TELEGRAM_OIDC_CLIENT_SECRET: z.string().default(''),
   TELEGRAM_OIDC_REDIRECT_URI: z
     .string()
-    .default('https://www.188facai.com/auth/telegram/callback'),
+    .default('https://www.188facai.com/auth/telegram/callback,https://www.betogo.games/auth/telegram/callback'),
   AMMER_PAY_PROVIDER_TOKEN: z.string().default(''),
   AMMER_PAY_PHP_PER_STAR: z.coerce.number().positive().default(1.12),
   // 社区营销 AI 文案改写(Claude Haiku)。留空则跳过改写直接用模板原文

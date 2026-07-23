@@ -9,8 +9,6 @@ interface OAuthState {
 }
 
 export function getTelegramRedirectUri(): string {
-  const configured = import.meta.env.VITE_TELEGRAM_OIDC_REDIRECT_URI
-  if (configured) return configured
   return `${window.location.origin}/auth/telegram/callback`
 }
 

@@ -1,6 +1,6 @@
 import type { RowDataPacket } from 'mysql2/promise'
 import { validate } from '@tma.js/init-data-node'
-import { getMysqlPool } from '../clients/mysql.client.js'
+import { getMysqlPool, isMysqlEnabled } from '../clients/mysql.client.js'
 import type { Env } from '../config/env.js'
 
 // 来源域名归一化：去协议、去端口、去末尾点、小写
@@ -12,6 +12,17 @@ export function normalizeDomain(raw?: string): string {
   host = host.replace(/:\d+$/, '')        // 去端口
   host = host.replace(/\.$/, '')          // 去末尾点
   return host
+}
+
+export async function isEnabledAgentDomain(env: Env, host?: string): Promise<boolean> {
+  const domain = normalizeDomain(host)
+  if (!domain || !isMysqlEnabled(env)) return false
+  const db = getMysqlPool(env)
+  const [rows] = await db.query<RowDataPacket[]>(
+    `SELECT id FROM bg_agent_domain WHERE domain = ? AND enabled = 1 LIMIT 1`,
+    [domain],
+  )
+  return Boolean(rows[0])
 }
 
 // 注册时按来源域名归因：命中已分配代理且启用的域名 → 写入 bg_user_agent（幂等）。
