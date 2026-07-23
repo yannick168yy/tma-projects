@@ -1243,7 +1243,7 @@ export default {
     matrixDepositTitle: 'Deposit Address',
     matrixDepositNote: 'Send {{symbol}} on {{chain}} to this address',
     matrixDepositLimitNote: 'Network: {{chain}} · Min 1 {{symbol}}',
-    matrixCurrencyUnavailable: 'This crypto channel is temporarily unavailable. Please try another network or contact support.',
+    matrixCurrencyUnavailable: 'The payment provider has not enabled this coin yet. Please contact support.',
     matrixDepositFetchFailed: 'Failed to get deposit address. Please try again.',
     matrixWithdrawAddress: 'To Address ({{symbol}})',
     matrixCryptoAmount: '{{symbol}} Amount',

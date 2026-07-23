@@ -836,7 +836,7 @@ export default {
     matrixDepositTitle: 'Alamat Deposit',
     matrixDepositNote: 'Kirim {{symbol}} melalui jaringan {{chain}} ke alamat ini',
     matrixDepositLimitNote: 'Jaringan: {{chain}} · Min 1 {{symbol}}',
-    matrixCurrencyUnavailable: 'Kanal kripto ini sementara tidak tersedia. Coba jaringan lain atau hubungi dukungan.',
+    matrixCurrencyUnavailable: 'Provider pembayaran belum mengaktifkan koin ini. Silakan hubungi dukungan.',
     matrixDepositFetchFailed: 'Gagal mengambil alamat deposit. Silakan coba lagi.',
     matrixWithdrawAddress: 'Alamat Tujuan ({{symbol}})',
     matrixCryptoAmount: 'Jumlah {{symbol}}',

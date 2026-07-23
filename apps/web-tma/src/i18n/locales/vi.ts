@@ -836,7 +836,7 @@ export default {
     matrixDepositTitle: 'Địa chỉ nạp tiền',
     matrixDepositNote: 'Gửi {{symbol}} trên mạng {{chain}} đến địa chỉ này',
     matrixDepositLimitNote: 'Mạng: {{chain}} · Tối thiểu 1 {{symbol}}',
-    matrixCurrencyUnavailable: 'Kênh crypto này tạm thời không khả dụng. Vui lòng thử mạng khác hoặc liên hệ hỗ trợ.',
+    matrixCurrencyUnavailable: 'Nhà cung cấp thanh toán chưa bật đồng coin này. Vui lòng liên hệ hỗ trợ.',
     matrixDepositFetchFailed: 'Không lấy được địa chỉ nạp. Vui lòng thử lại.',
     matrixWithdrawAddress: 'Địa chỉ nhận ({{symbol}})',
     matrixCryptoAmount: 'Số lượng {{symbol}}',

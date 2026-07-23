@@ -1239,7 +1239,7 @@ export default {
     matrixDepositTitle: '充值地址',
     matrixDepositNote: '请向以下地址发送 {{symbol}}（{{chain}} 网络）',
     matrixDepositLimitNote: '网络：{{chain}} · 最低 1 {{symbol}}',
-    matrixCurrencyUnavailable: '当前虚拟币通道暂不可用，请切换其他网络或联系客服。',
+    matrixCurrencyUnavailable: '支付服务商暂未开通该币种，当前无法获取充值地址，请联系客服。',
     matrixDepositFetchFailed: '获取充值地址失败，请重试。',
     matrixWithdrawAddress: '提现到地址（{{symbol}}）',
     matrixCryptoAmount: '{{symbol}} 数量',
