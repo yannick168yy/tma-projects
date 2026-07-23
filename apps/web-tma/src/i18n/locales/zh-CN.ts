@@ -1235,6 +1235,8 @@ export default {
     matrixWithdrawAddress: '提现到地址（{{symbol}}）',
     matrixCryptoAmount: '{{symbol}} 数量',
     matrixWithdrawRange: '单笔提现 {{min}} ~ {{max}} {{symbol}}',
+    matrixWithdrawGas: 'Gas 费 {{gas}} {{symbol}}（额外承担）',
+    matrixWithdrawTotal: '实际扣除合计 {{total}} {{symbol}}',
     matrixPhpDeduct: '从余额扣除的 PHP 金额',
     matrixWithdrawSubmit: '提交提现',
     matrixWithdrawPending: '提现申请已提交，等待后台审批。',

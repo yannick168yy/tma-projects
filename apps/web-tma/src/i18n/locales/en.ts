@@ -1239,6 +1239,8 @@ export default {
     matrixWithdrawAddress: 'To Address ({{symbol}})',
     matrixCryptoAmount: '{{symbol}} Amount',
     matrixWithdrawRange: 'Per withdrawal {{min}} ~ {{max}} {{symbol}}',
+    matrixWithdrawGas: 'Gas fee {{gas}} {{symbol}} (paid on top)',
+    matrixWithdrawTotal: 'Total deducted {{total}} {{symbol}}',
     matrixPhpDeduct: 'PHP to deduct from balance',
     matrixWithdrawSubmit: 'Submit Withdrawal',
     matrixWithdrawPending: 'Withdrawal submitted, pending admin approval.',

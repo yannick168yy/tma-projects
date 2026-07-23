@@ -23,7 +23,7 @@ router.post('/channels', requireRole('super_admin'), async (ctx) => {
     name?: string; provider?: string; label?: string; category?: string
     depositFeeType?: string; depositFeeValue?: unknown
     withdrawFeeType?: string; withdrawFeeValue?: unknown
-    withdrawMin?: unknown; withdrawMax?: unknown
+    withdrawMin?: unknown; withdrawMax?: unknown; withdrawGasFee?: unknown
     enabled?: unknown; sortOrder?: unknown
   }
   if (!body.name || !body.provider || !body.label) {
@@ -40,6 +40,7 @@ router.post('/channels', requireRole('super_admin'), async (ctx) => {
     withdrawFeeValue: Number(body.withdrawFeeValue ?? 0),
     withdrawMin: parseAmount(body.withdrawMin),
     withdrawMax: parseAmount(body.withdrawMax),
+    withdrawGasFee: parseAmount(body.withdrawGasFee) ?? 0,
     enabled: body.enabled !== false,
     sortOrder: Number(body.sortOrder ?? 0),
   })
@@ -57,7 +58,7 @@ router.put('/channels/:id', requireRole('super_admin'), async (ctx) => {
     name?: string; provider?: string; label?: string; category?: string
     depositFeeType?: string; depositFeeValue?: unknown
     withdrawFeeType?: string; withdrawFeeValue?: unknown
-    withdrawMin?: unknown; withdrawMax?: unknown
+    withdrawMin?: unknown; withdrawMax?: unknown; withdrawGasFee?: unknown
     enabled?: unknown; sortOrder?: unknown
   }
   const data: Parameters<typeof updateChannel>[2] = {}
@@ -71,6 +72,7 @@ router.put('/channels/:id', requireRole('super_admin'), async (ctx) => {
   if (body.withdrawFeeValue !== undefined) data.withdrawFeeValue = Number(body.withdrawFeeValue)
   if ('withdrawMin' in body) data.withdrawMin = parseAmount(body.withdrawMin)
   if ('withdrawMax' in body) data.withdrawMax = parseAmount(body.withdrawMax)
+  if ('withdrawGasFee' in body) data.withdrawGasFee = parseAmount(body.withdrawGasFee) ?? 0
   if (body.enabled !== undefined) data.enabled = Boolean(body.enabled)
   if (body.sortOrder !== undefined) data.sortOrder = Number(body.sortOrder)
   const updated = await updateChannel(ctx.state.env, id, data)

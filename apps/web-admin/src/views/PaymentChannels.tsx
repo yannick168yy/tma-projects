@@ -212,6 +212,7 @@ type ChannelFormValues = {
   withdrawFeeValue: number
   withdrawMin: number | null
   withdrawMax: number | null
+  withdrawGasFee: number
   enabled: boolean
   sortOrder: number
 }
@@ -272,6 +273,7 @@ export default function PaymentChannels() {
           withdrawFeeValue: vals.withdrawFeeValue ?? 0,
           withdrawMin: vals.withdrawMin ?? null,
           withdrawMax: vals.withdrawMax ?? null,
+          withdrawGasFee: vals.withdrawGasFee ?? 0,
         })
       } else {
         await createPaymentChannel({
@@ -283,6 +285,7 @@ export default function PaymentChannels() {
           withdrawFeeValue: vals.withdrawFeeValue ?? 0,
           withdrawMin: vals.withdrawMin ?? null,
           withdrawMax: vals.withdrawMax ?? null,
+          withdrawGasFee: vals.withdrawGasFee ?? 0,
         })
       }
       message.success('已保存')
@@ -313,6 +316,7 @@ export default function PaymentChannels() {
       withdrawFeeValue: channel.withdrawFeeValue ?? 0,
       withdrawMin: channel.withdrawMin ?? null,
       withdrawMax: channel.withdrawMax ?? null,
+      withdrawGasFee: channel.withdrawGasFee ?? 0,
     })
     setChannelModal({ open: true, channel })
   }
@@ -390,7 +394,7 @@ export default function PaymentChannels() {
             <div style={{ padding: '8px 16px' }}>
               {record.category === 'crypto' ? (
                 <Space direction="vertical" size={4}>
-                  <Typography.Text type="secondary">虚拟币 / TG 渠道：开关 + 单笔提现限额（币种单位），无权重路由规则。</Typography.Text>
+                  <Typography.Text type="secondary">虚拟币 / TG 渠道：开关 + 单笔提现限额 + gas 费（币种单位），无权重路由规则。</Typography.Text>
                   <Typography.Text>
                     单笔提现额度：
                     <Tag color="blue" style={{ marginLeft: 8 }}>
@@ -399,6 +403,7 @@ export default function PaymentChannels() {
                     <Tag color="blue">
                       最高 {record.withdrawMax !== null ? record.withdrawMax : '不限'}
                     </Tag>
+                    <Tag color="volcano">gas {record.withdrawGasFee ?? 0}</Tag>
                     <Typography.Text type="secondary" style={{ marginLeft: 8 }}>（编辑渠道修改）</Typography.Text>
                   </Typography.Text>
                 </Space>
@@ -455,6 +460,9 @@ export default function PaymentChannels() {
               </Form.Item>
               <Form.Item label="单笔提现最高额（币种单位，留空=不限）" name="withdrawMax">
                 <InputNumber min={0} style={{ width: '100%' }} placeholder="不限制" />
+              </Form.Item>
+              <Form.Item label="提现 gas 费（币种单位，用户在取款额外额外承担，0=不收）" name="withdrawGasFee">
+                <InputNumber min={0} step={0.01} style={{ width: '100%' }} placeholder="0" />
               </Form.Item>
             </>
           ) : (

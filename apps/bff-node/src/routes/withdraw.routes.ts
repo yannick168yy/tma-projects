@@ -83,6 +83,8 @@ router.post('/', async (ctx) => {
       fail(ctx, 400, 'Invalid cryptoAmount')
       return
     }
+    // gas 费：用户在取款额之外额外承担，从钱包多扣、链上到账仍为 cryptoAmt
+    let gasFee = 0
     if (isMysqlEnabled(ctx.state.env)) {
       const gate = await getCryptoWithdrawGate(ctx.state.env, `matrix_${symbol.toLowerCase()}_w`)
       if (!gate.enabled) { fail(ctx, 403, 'errors.channelClosed'); return }
@@ -92,7 +94,9 @@ router.post('/', async (ctx) => {
       if (gate.withdrawMax !== null && cryptoAmt > gate.withdrawMax) {
         fail(ctx, 400, `errors.withdrawAboveMax:${gate.withdrawMax}`); return
       }
+      gasFee = gate.gasFee
     }
+    const totalDebit = cryptoAmt + gasFee
 
     const userId = ctx.state.userId!
     const redis = ctx.state.redis
@@ -123,27 +127,28 @@ router.post('/', async (ctx) => {
         }
       }
 
-      // 检查对应虚拟币余额
+      // 检查对应虚拟币余额（含 gas 费）
       const balances = await getWalletBalances(redis, userId)
       const cryptoBalance = balances.find((b) => b.currency === currency)?.available ?? 0
-      if (cryptoAmt > cryptoBalance) {
+      if (totalDebit > cryptoBalance) {
         fail(ctx, 400, 'Insufficient balance')
         return
       }
 
       const merchantOrderNo = generateMerchantOrderNo()
+      const gasNote = gasFee > 0 ? `（含 gas ${gasFee}）` : ''
 
-      // 扣款（先扣，等后台审批后才打款）
-      await creditWallet(redis, userId, -cryptoAmt, {
+      // 扣款（取款额 + gas，先扣，等后台审批后才打款）
+      await creditWallet(redis, userId, -totalDebit, {
         type: 'withdraw',
         refId: merchantOrderNo,
-        description: `Matrix ${symbol} 提现 #${merchantOrderNo}`,
+        description: `Matrix ${symbol} 提现 #${merchantOrderNo}${gasNote}`,
         createdAt: nowIso(),
         traceId: ctx.state.traceId,
         currency,
       })
 
-      // 存单，不调 Matrix API，等后台审批
+      // 存单，不调 Matrix API，等后台审批。amount=实扣总额(含gas)供退款；extra.cryptoAmount=链上到账额
       try {
         await initMatrixWithdrawOrder(ctx.state.env, {
           merchantOrderNo,
@@ -152,10 +157,11 @@ router.post('/', async (ctx) => {
           symbol: currency,
           chain: chain.toUpperCase(),
           cryptoAmount,
+          gasFee,
         })
       } catch (dbErr) {
-        // DB 失败：退款
-        await creditWallet(redis, userId, cryptoAmt, {
+        // DB 失败：退款（退回实扣总额）
+        await creditWallet(redis, userId, totalDebit, {
           type: 'deposit',
           refId: merchantOrderNo,
           description: `Matrix 提现申请创建失败退款 #${merchantOrderNo}`,

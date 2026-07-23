@@ -44,6 +44,7 @@ export interface CryptoChannelState {
   sortOrder: number
   withdrawMin: number | null
   withdrawMax: number | null
+  withdrawGasFee: number
 }
 
 export async function fetchCryptoChannels(): Promise<CryptoChannelState[]> {

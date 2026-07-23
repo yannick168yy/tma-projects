@@ -102,8 +102,8 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
   const [paymentDepositChannels, setPaymentDepositChannels] = useState<PaymentChannel[]>([])
   const [paymentWithdrawChannels, setPaymentWithdrawChannels] = useState<PaymentChannel[]>([])
   const [cryptoEnabled, setCryptoEnabled] = useState<Record<string, boolean>>({})
-  // 虚拟币提现每笔限额，键=渠道 name（如 matrix_usdt_w）
-  const [cryptoWithdrawLimits, setCryptoWithdrawLimits] = useState<Record<string, { min: number | null; max: number | null }>>({})
+  // 虚拟币提现每笔限额 + gas 费，键=渠道 name（如 matrix_usdt_w）
+  const [cryptoWithdrawLimits, setCryptoWithdrawLimits] = useState<Record<string, { min: number | null; max: number | null; gas: number }>>({})
   const pollTimerRef = useRef<ReturnType<typeof setInterval>|null>(null)
   const [pollSerial, setPollSerial] = useState('')
   const [withdrawAccount, setWithdrawAccount] = useState('')
@@ -230,7 +230,7 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
       const depP = fetchPaymentChannels('deposit').then(setPaymentDepositChannels).catch(()=>{})
       const cryP = fetchCryptoChannels().then((list)=>{
         setCryptoEnabled(Object.fromEntries(list.map((c)=>[c.name,c.enabled])))
-        setCryptoWithdrawLimits(Object.fromEntries(list.map((c)=>[c.name,{min:c.withdrawMin,max:c.withdrawMax}])))
+        setCryptoWithdrawLimits(Object.fromEntries(list.map((c)=>[c.name,{min:c.withdrawMin,max:c.withdrawMax,gas:c.withdrawGasFee}])))
       }).catch(()=>{})
       void Promise.all([depP, cryP]).finally(()=>setChannelsLoading(false))
       void fetchPaymentChannels('withdraw').then(setPaymentWithdrawChannels).catch(()=>{})
@@ -341,8 +341,8 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
   const isMatrixWithdraw = selectedPayMethod?.channelId === 'matrix' && tab === 'withdraw'
   const matrixWithdrawLimit = useMemo(() => {
     const sym = selectedPayMethod?.matrixSymbol
-    if (!isMatrixWithdraw || !sym) return { min: null as number | null, max: null as number | null }
-    return cryptoWithdrawLimits[`matrix_${sym.toLowerCase()}_w`] ?? { min: null, max: null }
+    if (!isMatrixWithdraw || !sym) return { min: null as number | null, max: null as number | null, gas: 0 }
+    return cryptoWithdrawLimits[`matrix_${sym.toLowerCase()}_w`] ?? { min: null, max: null, gas: 0 }
   }, [isMatrixWithdraw, selectedPayMethod, cryptoWithdrawLimits])
   const isCryptoMethod = /usdt|usdc/.test(selectedMethod ?? '') && !isTgWallet
   const depositCurrency = selectedPayMethod?.currency ?? 'PHP'
@@ -772,6 +772,10 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
                   {tab==='withdraw'&&isMatrixWithdraw&&<>
                     <input value={matrixCryptoAmount} type="number" min={matrixWithdrawLimit.min ?? undefined} max={matrixWithdrawLimit.max ?? undefined} placeholder={t('wallet.matrixCryptoAmount', { symbol: selectedPayMethod?.matrixSymbol ?? 'TRX' })} className="w-full bg-secondary border border-border rounded-xl px-4 py-3 text-foreground font-bold text-sm focus:outline-none focus:border-primary" onChange={(e)=>setMatrixCryptoAmount(e.target.value)} />
                     {(matrixWithdrawLimit.min !== null || matrixWithdrawLimit.max !== null) && <p className="text-muted-foreground text-[11px] font-bold">{t('wallet.matrixWithdrawRange', { min: matrixWithdrawLimit.min ?? 0, max: matrixWithdrawLimit.max ?? '∞', symbol: selectedPayMethod?.matrixSymbol ?? '' })}</p>}
+                    {matrixWithdrawLimit.gas > 0 && <div className="flex flex-col gap-0.5 text-[11px] font-bold">
+                      <p className="text-muted-foreground">{t('wallet.matrixWithdrawGas', { gas: matrixWithdrawLimit.gas, symbol: selectedPayMethod?.matrixSymbol ?? '' })}</p>
+                      <p className="text-amber-400">{t('wallet.matrixWithdrawTotal', { total: +(Number(matrixCryptoAmount || 0) + matrixWithdrawLimit.gas).toFixed(8), symbol: selectedPayMethod?.matrixSymbol ?? '' })}</p>
+                    </div>}
                     <input value={withdrawAccount} type="text" placeholder={t('wallet.matrixWithdrawAddress', { symbol: selectedPayMethod?.matrixSymbol ?? 'TRX' })} className="w-full bg-secondary border border-border rounded-xl px-4 py-3 text-foreground font-bold text-sm focus:outline-none focus:border-primary font-mono" onChange={(e)=>setWithdrawAccount(e.target.value)} />
                     {withdrawMessage&&<p className={`text-xs font-bold text-center ${withdrawSuccess?'text-emerald-400':'text-amber-400'}`}>{withdrawMessage}</p>}
                     <button type="button" className="w-full py-3.5 rounded-2xl font-black text-base flex items-center justify-center gap-2 shadow-lg disabled:opacity-50 bg-red-600 text-white hover:bg-red-500 shadow-red-500/20" disabled={!canSubmitMatrixWithdraw} onClick={()=>void onProceedMatrixWithdraw()}>{withdrawLoading?<Loader2 size={18} className="animate-spin"/>:<ArrowUpFromLine size={18} />}{withdrawLoading?t('wallet.openingPay'):t('wallet.matrixWithdrawSubmit')}</button>

@@ -78,18 +78,21 @@ export async function initMatrixWithdrawOrder(
     symbol: string
     chain: string
     cryptoAmount: string
+    gasFee?: number
   },
 ): Promise<void> {
   const pool = getMysqlPool(env)
+  const gasFee = opts.gasFee ?? 0
+  // amount = 钱包实扣总额(到账额 + gas)，供退款按原路退全；extra.cryptoAmount = 链上实际到账额
   await pool.query(
     `INSERT INTO bg_withdraw_order
        (order_id, user_id, channel, currency, amount, status, to_address, chain, extra)
      VALUES (?, ?, 'matrix', ?, ?, 'pending', ?, ?,
-       JSON_OBJECT('cryptoAmount', ?))`,
+       JSON_OBJECT('cryptoAmount', ?, 'gasFee', ?))`,
     [
       opts.merchantOrderNo, opts.userId, opts.symbol,
-      Number(opts.cryptoAmount), opts.toAddress, opts.chain,
-      opts.cryptoAmount,
+      Number(opts.cryptoAmount) + gasFee, opts.toAddress, opts.chain,
+      opts.cryptoAmount, gasFee,
     ],
   )
 }
@@ -104,7 +107,8 @@ export async function executeMatrixWithdrawOrder(
   const pool = getMysqlPool(env)
 
   const [rows] = await pool.query<RowDataPacket[]>(
-    `SELECT order_id, user_id, currency, amount, to_address, chain
+    `SELECT order_id, user_id, currency, amount, to_address, chain,
+            JSON_UNQUOTE(JSON_EXTRACT(extra, '$.cryptoAmount')) AS payout_amount
      FROM bg_withdraw_order WHERE order_id = ? LIMIT 1`,
     [merchantOrderNo],
   )
@@ -112,6 +116,8 @@ export async function executeMatrixWithdrawOrder(
   if (!order) throw new Error(`Order not found: ${merchantOrderNo}`)
 
   const client = matrixClientFromEnv(env)
+  // 链上实际出款额 = extra.cryptoAmount（不含 gas）；老单无 extra.cryptoAmount 时回退 amount
+  const payoutAmount = order.payout_amount != null ? String(order.payout_amount) : String(order.amount)
 
   try {
     const resp = await client.createWithdrawOrder({
@@ -120,7 +126,7 @@ export async function executeMatrixWithdrawOrder(
       toAddress: String(order.to_address),
       symbol: String(order.currency),
       chain: String(order.chain),
-      amount: String(order.amount),
+      amount: payoutAmount,
     })
     await pool.query(
       `UPDATE bg_withdraw_order

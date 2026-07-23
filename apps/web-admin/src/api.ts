@@ -1226,6 +1226,7 @@ export interface PaymentChannel {
   depositFeeType: FeeType; depositFeeValue: number
   withdrawFeeType: FeeType; withdrawFeeValue: number
   withdrawMin: number | null; withdrawMax: number | null
+  withdrawGasFee: number
   enabled: boolean; sortOrder: number; rules: PaymentChannelRule[]
   createdAt: string; updatedAt: string
 }
@@ -1238,6 +1239,7 @@ export const createPaymentChannel = (data: {
   depositFeeType?: FeeType; depositFeeValue?: number
   withdrawFeeType?: FeeType; withdrawFeeValue?: number
   withdrawMin?: number | null; withdrawMax?: number | null
+  withdrawGasFee?: number
   enabled: boolean; sortOrder: number
 }) => post<{ id: number }>('/admin/payment/channels', data)
 
@@ -1246,6 +1248,7 @@ export const updatePaymentChannel = (id: number, data: Partial<{
   depositFeeType: FeeType; depositFeeValue: number
   withdrawFeeType: FeeType; withdrawFeeValue: number
   withdrawMin: number | null; withdrawMax: number | null
+  withdrawGasFee: number
   enabled: boolean; sortOrder: number
 }>) => req<null>('PUT', `/admin/payment/channels/${id}`, data)
 
