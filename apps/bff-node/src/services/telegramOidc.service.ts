@@ -11,9 +11,31 @@ export interface TelegramOidcProfile {
   phoneNumber?: string
 }
 
-/** bot_id（OIDC client_id）就是 bot token 冒号前的部分 */
-function botClientId(env: Env): string {
-  return env.TELEGRAM_BOT_TOKEN.split(':')[0]
+function botClientId(token: string): string {
+  return token.split(':')[0]
+}
+
+function domainFromRedirectUri(redirectUri: string): string {
+  return new URL(redirectUri).hostname.toLowerCase()
+}
+
+function tokenByRedirectDomain(env: Env, redirectUri: string): string | undefined {
+  const domain = domainFromRedirectUri(redirectUri)
+  for (const item of env.TELEGRAM_OIDC_BOT_TOKENS.split(',')) {
+    const [rawDomain, ...tokenParts] = item.split('=')
+    const token = tokenParts.join('=').trim()
+    if (rawDomain.trim().toLowerCase() === domain && token) return token
+  }
+  return undefined
+}
+
+function oidcCredentials(env: Env, redirectUri: string): { clientId: string; clientSecret: string } {
+  const token = tokenByRedirectDomain(env, redirectUri)
+  if (token) return { clientId: botClientId(token), clientSecret: token }
+  if (!env.TELEGRAM_OIDC_CLIENT_SECRET) {
+    throw new Error('Telegram web login is not configured on the server')
+  }
+  return { clientId: botClientId(env.TELEGRAM_BOT_TOKEN), clientSecret: env.TELEGRAM_OIDC_CLIENT_SECRET }
 }
 
 function decodeJwtPayload(jwt: string): Record<string, unknown> {
@@ -33,12 +55,9 @@ export async function exchangeTelegramOidcCode(
   code: string,
   redirectUri: string,
 ): Promise<TelegramOidcProfile> {
-  if (!env.TELEGRAM_OIDC_CLIENT_SECRET) {
-    throw new Error('Telegram web login is not configured on the server')
-  }
-  const clientId = botClientId(env)
+  const { clientId, clientSecret } = oidcCredentials(env, redirectUri)
 
-  const basic = Buffer.from(`${clientId}:${env.TELEGRAM_OIDC_CLIENT_SECRET}`).toString('base64')
+  const basic = Buffer.from(`${clientId}:${clientSecret}`).toString('base64')
   const res = await fetch(TOKEN_ENDPOINT, {
     method: 'POST',
     headers: {

@@ -56,6 +56,12 @@ const REGISTERED_GOOGLE_AUTH_DOMAINS = new Set([
   'betogo.vip',
 ])
 
+function hasTelegramOidcBotToken(env: Env, host: string): boolean {
+  return env.TELEGRAM_OIDC_BOT_TOKENS
+    .split(',')
+    .some((item) => item.split('=')[0].trim().toLowerCase() === host)
+}
+
 export class AuthError extends Error {
   status?: number
   constructor(message: string, status?: number) {
@@ -82,6 +88,7 @@ async function assertAllowedRedirect(env: Env, configured: string, redirectUri: 
       throw new AuthError('Invalid redirect URI', 400)
     }
     if (callbackPath === '/auth/google/callback' && REGISTERED_GOOGLE_AUTH_DOMAINS.has(url.hostname)) return
+    if (callbackPath === '/auth/telegram/callback' && hasTelegramOidcBotToken(env, url.hostname)) return
     if (!(await isEnabledAgentDomain(env, url.hostname))) throw new AuthError('Invalid redirect URI', 400)
   }
 }
@@ -568,7 +575,7 @@ export async function loginWithTelegramOidc(
   isNewUser: boolean
   trialRedPacketEligible: boolean
 }> {
-  if (!env.TELEGRAM_OIDC_CLIENT_SECRET) {
+  if (!env.TELEGRAM_OIDC_CLIENT_SECRET && !env.TELEGRAM_OIDC_BOT_TOKENS) {
     throw new AuthError('Telegram web login is not configured')
   }
   await assertAllowedRedirect(env, env.TELEGRAM_OIDC_REDIRECT_URI, redirectUri, '/auth/telegram/callback')

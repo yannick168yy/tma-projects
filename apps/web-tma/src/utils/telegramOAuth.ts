@@ -1,4 +1,4 @@
-import { TELEGRAM_OIDC_CLIENT_ID } from '@/constants/telegram'
+import { getTelegramOidcClientId } from '@/constants/telegram'
 import { getStoredReferral } from '@/utils/referral'
 
 const STATE_KEY = 'betogo_telegram_oauth_state'
@@ -19,7 +19,7 @@ export function startTelegramLoginRedirect(): void {
 
   // state 用纯不透明 nonce（非 JSON），避免被 Telegram 改写导致回跳校验失败
   const params = new URLSearchParams({
-    client_id: TELEGRAM_OIDC_CLIENT_ID,
+    client_id: getTelegramOidcClientId(),
     redirect_uri: getTelegramRedirectUri(),
     response_type: 'code',
     scope: 'openid profile',

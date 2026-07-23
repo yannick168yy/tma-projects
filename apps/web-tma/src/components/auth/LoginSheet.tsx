@@ -9,6 +9,7 @@ import { clearLastLogin, getLastLogin, isRememberMeEnabled, setRememberMeEnabled
 import { getStoredReferral } from '@/utils/referral'
 import { translateApiError } from '@/utils/translateApiError'
 import { TURNSTILE_SITE_KEY, loadTurnstile } from '@/utils/turnstile'
+import { isTelegramOidcLoginAvailable } from '@/constants/telegram'
 
 interface Props {
   open: boolean
@@ -65,7 +66,11 @@ export default function LoginSheet({ open, onClose }: Props) {
     setLastLogin(last)
     if (last?.provider === 'phone' && last.identifier) setIdentifier(last.identifier)
   }, [open])
-  const quickLogin = lastLogin && (lastLogin.provider === 'google' || lastLogin.provider === 'telegram') ? lastLogin : null
+  const showTelegramLogin = isTelegram || isTelegramOidcLoginAvailable()
+  const quickLogin = lastLogin
+    && (lastLogin.provider === 'google' || (lastLogin.provider === 'telegram' && showTelegramLogin))
+    ? lastLogin
+    : null
   const [resetPhone, setResetPhone] = useState('')
   const [resetCode, setResetCode] = useState('')
   const [resetPassword, setResetPassword] = useState('')
@@ -459,18 +464,20 @@ export default function LoginSheet({ open, onClose }: Props) {
               </div>
 
               <p className="mb-3 text-center text-xs font-bold text-[#9aa1b8]">{t('auth.continueWith')}</p>
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  type="button"
-                  className="flex min-w-0 items-center justify-center gap-2 rounded-[14px] border border-white/12 bg-[#121824] px-2 py-2.5 text-xs font-black text-white transition-all active:scale-[0.98] disabled:opacity-60"
-                  disabled={loading}
-                  onClick={() => (isTelegram ? void onTelegramLogin() : onTelegramOidcLogin())}
-                >
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#2AABEE] text-white">
-                    <TelegramIcon />
-                  </span>
-                  <span className="truncate">Telegram</span>
-                </button>
+              <div className={`grid gap-3 ${showTelegramLogin ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                {showTelegramLogin && (
+                  <button
+                    type="button"
+                    className="flex min-w-0 items-center justify-center gap-2 rounded-[14px] border border-white/12 bg-[#121824] px-2 py-2.5 text-xs font-black text-white transition-all active:scale-[0.98] disabled:opacity-60"
+                    disabled={loading}
+                    onClick={() => (isTelegram ? void onTelegramLogin() : onTelegramOidcLogin())}
+                  >
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#2AABEE] text-white">
+                      <TelegramIcon />
+                    </span>
+                    <span className="truncate">Telegram</span>
+                  </button>
+                )}
                 <button
                   type="button"
                   className="flex min-w-0 items-center justify-center gap-2 rounded-[14px] border border-white/12 bg-[#121824] px-2 py-2.5 text-xs font-black text-white transition-all active:scale-[0.98] disabled:opacity-60"

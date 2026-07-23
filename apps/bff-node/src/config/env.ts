@@ -50,6 +50,7 @@ const schema = z.object({
     ),
   // Telegram 新版网页登录（OIDC）。client_id 即 bot_id，从 TELEGRAM_BOT_TOKEN 前缀推导，无需单独配置
   TELEGRAM_OIDC_CLIENT_SECRET: z.string().default(''),
+  TELEGRAM_OIDC_BOT_TOKENS: z.string().default(''),
   TELEGRAM_OIDC_REDIRECT_URI: z
     .string()
     .default('https://www.188facai.com/auth/telegram/callback,https://www.betogo.games/auth/telegram/callback'),

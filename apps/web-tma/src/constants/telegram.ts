@@ -2,6 +2,25 @@ export const TELEGRAM_BOT_USERNAME = import.meta.env.VITE_TELEGRAM_BOT_USERNAME 
 // Telegram 新版网页登录（OIDC）的 client_id，即 bot_id
 export const TELEGRAM_OIDC_CLIENT_ID = import.meta.env.VITE_TELEGRAM_OIDC_CLIENT_ID ?? '8736530159'
 
+const DOMAIN_TELEGRAM_OIDC_CLIENT_IDS: Record<string, string> = {
+  'betogo.xyz': '8583165610',
+  'betogo.ph': '8650093054',
+  'betogo888.com': '8612790363',
+  'betogo666.com': '8028064412',
+  'betogo777.com': '8528050220',
+}
+const DISABLED_TELEGRAM_OIDC_HOSTS = new Set(['betogo.cc', 'betogo.app', 'betogo.vip'])
+
+export function getTelegramOidcClientId(): string {
+  if (typeof window === 'undefined') return TELEGRAM_OIDC_CLIENT_ID
+  return DOMAIN_TELEGRAM_OIDC_CLIENT_IDS[window.location.hostname.toLowerCase()] ?? TELEGRAM_OIDC_CLIENT_ID
+}
+
+export function isTelegramOidcLoginAvailable(): boolean {
+  if (typeof window === 'undefined') return true
+  return !DISABLED_TELEGRAM_OIDC_HOSTS.has(window.location.hostname.toLowerCase())
+}
+
 export function buildInviteDeepLink(inviteCode: string): string {
   return `https://t.me/${TELEGRAM_BOT_USERNAME}?startapp=ref_${inviteCode}`
 }
