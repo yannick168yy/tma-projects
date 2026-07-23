@@ -476,11 +476,12 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
           <button type="button" className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/5 transition-colors hover:bg-white/10" onClick={onClose}><X size={18} className="text-white/55" /></button>
         </div>
 
-        {/* 顶部 tab 条：为保持充值纯粹性，充值窗与记录窗不展示"提现"tab；提款窗展示全部三个 */}
+        {/* 顶部 tab 条：从"提款"入口进入时整段保持充值/提款/记录三tab(点充值或记录也不消失)；
+            从充值或记录入口进入则只展示充值·记录，保持充值纯粹性 */}
         <div className="flex flex-shrink-0 gap-2 px-5 pt-3">
           {([
             { id: 'deposit' as const, label: t('wallet.deposit'), Icon: ArrowDownToLine },
-            ...(tab === 'withdraw' ? [{ id: 'withdraw' as const, label: t('wallet.withdraw'), Icon: ArrowUpFromLine }] : []),
+            ...(initialTab === 'withdraw' ? [{ id: 'withdraw' as const, label: t('wallet.withdraw'), Icon: ArrowUpFromLine }] : []),
             { id: 'history' as const, label: t('wallet.history'), Icon: History },
           ]).map(({ id, label, Icon }) => (
             <button key={id} type="button" onClick={() => switchTab(id)}
