@@ -45,6 +45,16 @@ export type PasswordMethod = 'phone'
 const OTP_TTL_SEC = 300
 const RESEND_INTERVAL_SEC = 60
 const MAX_VERIFY_ATTEMPTS = 3
+const REGISTERED_GOOGLE_AUTH_DOMAINS = new Set([
+  'betogo666.com',
+  'betogo777.com',
+  'betogo888.com',
+  'betogo.ph',
+  'betogo.xyz',
+  'betogo.cc',
+  'betogo.app',
+  'betogo.vip',
+])
 
 export class AuthError extends Error {
   status?: number
@@ -55,7 +65,7 @@ export class AuthError extends Error {
   }
 }
 
-// redirect_uri 白名单：配置项按逗号分隔，或命中后台已启用代理域名的固定 callback path
+// redirect_uri 白名单：配置项按逗号分隔，Google 已配置域名，或命中后台已启用代理域名的固定 callback path
 async function assertAllowedRedirect(env: Env, configured: string, redirectUri: string, callbackPath: string): Promise<void> {
   const allowed = configured
     .split(',')
@@ -71,6 +81,7 @@ async function assertAllowedRedirect(env: Env, configured: string, redirectUri: 
     if (url.protocol !== 'https:' || url.pathname !== callbackPath || url.search || url.hash) {
       throw new AuthError('Invalid redirect URI', 400)
     }
+    if (callbackPath === '/auth/google/callback' && REGISTERED_GOOGLE_AUTH_DOMAINS.has(url.hostname)) return
     if (!(await isEnabledAgentDomain(env, url.hostname))) throw new AuthError('Invalid redirect URI', 400)
   }
 }
