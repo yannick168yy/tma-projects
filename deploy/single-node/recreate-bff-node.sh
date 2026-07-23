@@ -50,6 +50,7 @@ run run -d --name tma-bff-node --network "$NET" --restart=always \
   -e ADMIN_WEB_URL="${ADMIN_WEB_URL:-https://www.188facai.com/admin-panel}" \
   -e BFF_DEV_SKIP_TELEGRAM_AUTH="${BFF_DEV_SKIP_TELEGRAM_AUTH:-false}" \
   -e BFF_DISABLE_RATE_LIMIT="${BFF_DISABLE_RATE_LIMIT:-false}" \
+  -e BFF_ADMIN_TOTP_REQUIRED="${BFF_ADMIN_TOTP_REQUIRED:-false}" \
   -e BFF_DISABLE_SINGLETON_JOBS="${BFF_DISABLE_SINGLETON_JOBS:-false}" \
   -e MYSQL_POOL_SIZE="${MYSQL_POOL_SIZE:-10}" \
   -e ADMIN_NOTIFY_ENV_LABEL="${ADMIN_NOTIFY_ENV_LABEL:-}" \

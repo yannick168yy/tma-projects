@@ -33,6 +33,11 @@ const schema = z.object({
     .enum(['true', 'false'])
     .default('false')
     .transform((v) => v === 'true'),
+  // 后台高权限角色是否强制绑定 Google Authenticator。生产保持 true，测试环境可关闭。
+  BFF_ADMIN_TOTP_REQUIRED: z
+    .enum(['true', 'false'])
+    .default('true')
+    .transform((v) => v === 'true'),
   SESSION_TTL_SECONDS: z.coerce.number().default(86400),
   GOOGLE_CLIENT_ID: z.string().default(''),
   GOOGLE_CLIENT_SECRET: z.string().default(''),

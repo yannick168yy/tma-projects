@@ -43,6 +43,10 @@ export interface AdminSession {
 // 正式运营要求：高权限角色必须开二步验证
 const TOTP_REQUIRED_ROLES = new Set(['super_admin', 'finance'])
 
+export function shouldRequireAdminTotp(env: Pick<Env, 'BFF_ADMIN_TOTP_REQUIRED'>, role: string): boolean {
+  return env.BFF_ADMIN_TOTP_REQUIRED && TOTP_REQUIRED_ROLES.has(role)
+}
+
 function sessionKey(token: string): string {
   return `admin:sess:${token}`
 }
@@ -89,7 +93,7 @@ export async function loginAdmin(
   }
 
   // 高权限角色未绑 TOTP：发受限 session，只允许完成绑定后再进后台
-  if (TOTP_REQUIRED_ROLES.has(account.role)) {
+  if (shouldRequireAdminTotp(env, account.role)) {
     return createAdminSession(redis, env, account, { totpSetupRequired: true })
   }
 
