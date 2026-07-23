@@ -83,10 +83,10 @@ export const FIAT_WITHDRAW: PayMethod[] = [
 ]
 
 export const CRYPTO_WITHDRAW: PayMethod[] = [
-  { id: 'usdt-trc-w', name: 'USDT', icon: '', iconUrl: '/logos/usdt.svg', color: 'from-teal-500 to-emerald-600', tag: 'TRC20', currency: 'USDT' },
-  { id: 'usdt-erc-w', name: 'USDT', icon: '', iconUrl: '/logos/usdt.svg', color: 'from-indigo-500 to-blue-700', tag: 'ERC20', currency: 'USDT' },
-  { id: 'usdc-trc-w', name: 'USDC', icon: '', iconUrl: '/logos/usdc.svg', color: 'from-blue-500 to-sky-600', tag: 'TRC20', currency: 'USDC' },
-  { id: 'usdc-erc-w', name: 'USDC', icon: '', iconUrl: '/logos/usdc.svg', color: 'from-indigo-500 to-blue-700', tag: 'ERC20', currency: 'USDC' },
+  { id: 'usdt-trc-w', name: 'USDT', icon: '', iconUrl: '/logos/usdt.svg', color: 'from-teal-500 to-emerald-600', tag: 'TRC20', enabled: true, channelId: 'matrix', currency: 'USDT', matrixSymbol: 'USDT', matrixChain: 'TRON' },
+  { id: 'usdt-erc-w', name: 'USDT', icon: '', iconUrl: '/logos/usdt.svg', color: 'from-indigo-500 to-blue-700', tag: 'ERC20', enabled: true, channelId: 'matrix', currency: 'USDT', matrixSymbol: 'USDT', matrixChain: 'ETHEREUM' },
+  { id: 'usdc-trc-w', name: 'USDC', icon: '', iconUrl: '/logos/usdc.svg', color: 'from-blue-500 to-sky-600', tag: 'TRC20', enabled: true, channelId: 'matrix', currency: 'USDC', matrixSymbol: 'USDC', matrixChain: 'TRON' },
+  { id: 'usdc-erc-w', name: 'USDC', icon: '', iconUrl: '/logos/usdc.svg', color: 'from-indigo-500 to-blue-700', tag: 'ERC20', enabled: true, channelId: 'matrix', currency: 'USDC', matrixSymbol: 'USDC', matrixChain: 'ETHEREUM' },
   {
     id: 'matrix_trx_testnet_w',
     name: 'TRX_TESTNET',
