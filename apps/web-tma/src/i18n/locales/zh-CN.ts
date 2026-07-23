@@ -1236,7 +1236,7 @@ export default {
     matrixWithdrawAddress: '提现到地址（{{symbol}}）',
     matrixCryptoAmount: '{{symbol}} 数量',
     matrixWithdrawGas: 'Gas 费 {{gas}} {{symbol}} 将从提现金额中扣除',
-    matrixWithdrawGasDiscount: '提现金额大于 {{threshold}} {{symbol}} 时，Gas 费为 {{gas}} {{symbol}}',
+    matrixWithdrawGasDiscount: '提现金额满 {{threshold}} {{symbol}} 时，Gas 费为 {{gas}} {{symbol}}',
     matrixWithdrawReceive: '预计到账 {{amount}} {{symbol}}',
     matrixPhpDeduct: '从余额扣除的 PHP 金额',
     matrixWithdrawSubmit: '提交提现',

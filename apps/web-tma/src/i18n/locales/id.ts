@@ -832,7 +832,7 @@ export default {
     matrixWithdrawAddress: 'Alamat Tujuan ({{symbol}})',
     matrixCryptoAmount: 'Jumlah {{symbol}}',
     matrixWithdrawGas: 'Biaya gas {{gas}} {{symbol}} akan dipotong dari jumlah penarikan',
-    matrixWithdrawGasDiscount: 'Tarik lebih dari {{threshold}} {{symbol}} untuk memakai gas {{gas}} {{symbol}}',
+    matrixWithdrawGasDiscount: 'Tarik {{threshold}} {{symbol}} atau lebih untuk memakai gas {{gas}} {{symbol}}',
     matrixWithdrawReceive: 'Anda akan menerima {{amount}} {{symbol}}',
     matrixWithdrawSubmit: 'Kirim Penarikan',
     matrixWithdrawPending: 'Penarikan dikirim, menunggu persetujuan admin.',

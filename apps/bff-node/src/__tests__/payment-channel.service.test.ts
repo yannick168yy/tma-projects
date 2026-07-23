@@ -11,12 +11,12 @@ const gate = (overrides: Partial<CryptoWithdrawGate> = {}): CryptoWithdrawGate =
 })
 
 describe('虚拟币提现 gas 优惠档', () => {
-  it('取款金额大于门槛时使用优惠 gas', () => {
+  it('取款金额达到门槛时使用优惠 gas', () => {
+    expect(resolveCryptoWithdrawGasFee(gate(), 50)).toBe(1.2)
     expect(resolveCryptoWithdrawGasFee(gate(), 50.01)).toBe(1.2)
   })
 
-  it('取款金额等于或低于门槛时使用普通 gas', () => {
-    expect(resolveCryptoWithdrawGasFee(gate(), 50)).toBe(1.5)
+  it('取款金额低于门槛时使用普通 gas', () => {
     expect(resolveCryptoWithdrawGasFee(gate(), 10)).toBe(1.5)
   })
 

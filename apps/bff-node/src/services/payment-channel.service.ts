@@ -374,7 +374,7 @@ export function resolveCryptoWithdrawGasFee(gate: CryptoWithdrawGate, amount: nu
   if (
     gate.gasDiscountThreshold !== null
     && gate.gasDiscountFee !== null
-    && amount > gate.gasDiscountThreshold
+    && amount >= gate.gasDiscountThreshold
   ) {
     return gate.gasDiscountFee
   }

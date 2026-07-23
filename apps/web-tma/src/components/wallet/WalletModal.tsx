@@ -374,7 +374,7 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
     if (
       matrixWithdrawGasConfig.discountThreshold !== null
       && matrixWithdrawGasConfig.discountFee !== null
-      && n > matrixWithdrawGasConfig.discountThreshold
+      && n >= matrixWithdrawGasConfig.discountThreshold
     ) return matrixWithdrawGasConfig.discountFee
     return matrixWithdrawGasConfig.gas
   })()

@@ -832,7 +832,7 @@ export default {
     matrixWithdrawAddress: 'Địa chỉ nhận ({{symbol}})',
     matrixCryptoAmount: 'Số lượng {{symbol}}',
     matrixWithdrawGas: 'Phí gas {{gas}} {{symbol}} sẽ được trừ từ số tiền rút',
-    matrixWithdrawGasDiscount: 'Rút trên {{threshold}} {{symbol}} để dùng phí gas {{gas}} {{symbol}}',
+    matrixWithdrawGasDiscount: 'Rút từ {{threshold}} {{symbol}} trở lên để dùng phí gas {{gas}} {{symbol}}',
     matrixWithdrawReceive: 'Bạn sẽ nhận {{amount}} {{symbol}}',
     matrixWithdrawSubmit: 'Gửi yêu cầu rút tiền',
     matrixWithdrawPending: 'Yêu cầu rút tiền đã gửi, chờ admin duyệt.',

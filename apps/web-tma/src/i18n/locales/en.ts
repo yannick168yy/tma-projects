@@ -1240,7 +1240,7 @@ export default {
     matrixWithdrawAddress: 'To Address ({{symbol}})',
     matrixCryptoAmount: '{{symbol}} Amount',
     matrixWithdrawGas: 'Gas fee {{gas}} {{symbol}} will be deducted from your withdrawal amount',
-    matrixWithdrawGasDiscount: 'Withdraw over {{threshold}} {{symbol}} to use {{gas}} {{symbol}} gas',
+    matrixWithdrawGasDiscount: 'Withdraw {{threshold}} {{symbol}} or more to use {{gas}} {{symbol}} gas',
     matrixWithdrawReceive: 'You will receive {{amount}} {{symbol}}',
     matrixPhpDeduct: 'PHP to deduct from balance',
     matrixWithdrawSubmit: 'Submit Withdrawal',
