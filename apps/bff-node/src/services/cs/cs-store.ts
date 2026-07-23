@@ -147,6 +147,10 @@ export async function closeCurrentConversation(env: Env, userId: string): Promis
     [userId],
   )
   if (rows.length === 0) return null
+  if (rows[0].status === 'escalated') {
+    await db(env).query(`UPDATE cs_conversation SET user_left_at = NOW() WHERE id = ?`, [Number(rows[0].id)])
+    return getConversationById(env, Number(rows[0].id))
+  }
   await updateConversationStatus(env, Number(rows[0].id), 'closed')
   const conversation = await getConversationById(env, Number(rows[0].id))
   return conversation

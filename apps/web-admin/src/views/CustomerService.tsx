@@ -27,7 +27,7 @@ export default function CustomerService() {
   const [conversations, setConversations] = useState<CsConversation[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(false)
-  const [statusFilter, setStatusFilter] = useState('pending')
+  const [statusFilter, setStatusFilter] = useState('escalated')
   const [page, setPage] = useState(1)
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const [messages, setMessages] = useState<CsMessage[]>([])
@@ -36,21 +36,25 @@ export default function CustomerService() {
   const [replying, setReplying] = useState(false)
   const msgListRef = useRef<HTMLDivElement>(null)
 
-  const [duty, setDuty] = useState<{ enabled: boolean; onlineAdmins: number } | null>(null)
+  const [duty, setDuty] = useState<{ enabled: boolean; onlineAdmins: number; onDuty: boolean } | null>(null)
   const [dutySaving, setDutySaving] = useState(false)
 
   const selectedConv = conversations.find((c) => c.id === selectedId) ?? null
   const unreadCount = conversations.filter((c) => c.status === 'human_taken' || c.status === 'escalated').length
 
   useEffect(() => {
-    getCsDuty().then(setDuty).catch(() => {})
+    getCsDuty().then((res) => {
+      setDuty(res)
+      setStatusFilter(res.onDuty ? 'human_taken' : 'escalated')
+    }).catch(() => {})
   }, [])
 
   async function toggleDuty(enabled: boolean) {
     setDutySaving(true)
     try {
       await saveCsDuty(enabled)
-      setDuty((prev) => prev ? { ...prev, enabled } : prev)
+      setDuty((prev) => prev ? { ...prev, enabled, onDuty: enabled && prev.onlineAdmins > 0 } : prev)
+      setStatusFilter(enabled ? 'human_taken' : 'escalated')
       message.success(enabled ? '已开启客服值班' : '已关闭值班,新转人工将进入离线工单')
     } catch { message.error('操作失败') }
     finally { setDutySaving(false) }

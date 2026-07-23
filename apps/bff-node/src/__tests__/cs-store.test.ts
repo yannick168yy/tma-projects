@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { expireStaleConversations, listConversations } from '../services/cs/cs-store.js'
+import { closeCurrentConversation, expireStaleConversations, listConversations } from '../services/cs/cs-store.js'
 
 const query = vi.fn()
 
@@ -55,5 +55,31 @@ describe('客服会话存储', () => {
     expect(String(query.mock.calls[1][0])).toContain("WHERE c.status IN ('human_taken','escalated')")
     expect(query.mock.calls[1][1]).toEqual([30, 0])
     expect(query.mock.calls[2][1]).toEqual([])
+  })
+
+  it('用户结束会话不关闭离线工单', async () => {
+    const escalatedRow = {
+      id: 4,
+      user_id: 'BG-10001',
+      status: 'escalated',
+      assigned_admin_id: null,
+      agent_name: null,
+      escalate_reason: 'user_request',
+      user_left_at: null,
+      created_at: new Date('2026-07-24T00:00:00Z'),
+      updated_at: new Date('2026-07-24T00:01:00Z'),
+      resolved_at: null,
+    }
+    query
+      .mockResolvedValueOnce([{ affectedRows: 0 }])
+      .mockResolvedValueOnce([[escalatedRow]])
+      .mockResolvedValueOnce([{ affectedRows: 1 }])
+      .mockResolvedValueOnce([[escalatedRow]])
+
+    const result = await closeCurrentConversation({} as never, 'BG-10001')
+
+    expect(result?.status).toBe('escalated')
+    expect(String(query.mock.calls[2][0])).toContain('SET user_left_at = NOW()')
+    expect(query.mock.calls.map(([sql]) => String(sql)).join('\n')).not.toContain("SET status = 'closed'")
   })
 })
