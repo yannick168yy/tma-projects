@@ -541,7 +541,7 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
                 key={tier.depositAmount}
                 type="button"
                 onClick={() => { setAmount(String(tier.depositAmount)); setCopiedDepositAmount(false) }}
-                className={`w-[calc((100%-1.5rem)/5)] flex-shrink-0 rounded-xl border px-1 py-2 text-center transition-colors ${sel ? 'border-primary bg-primary/20' : 'border-white/10 bg-[#07111f]/80'}`}
+                className={`w-[calc((100%-1.5rem)/4.5)] flex-shrink-0 rounded-xl border px-1 py-2 text-center transition-colors ${sel ? 'border-primary bg-primary/20' : 'border-white/10 bg-[#07111f]/80'}`}
               >
                 <span className="block text-xs font-black text-white leading-none">{fmtCryptoAmount(tier.depositAmount, cryptoFirstDepDisplayCurrency)}</span>
                 <span className="mt-1 block text-[10px] font-black leading-none text-primary">+{fmtCryptoAmount(tier.bonusAmount, cryptoFirstDepDisplayCurrency)}</span>
