@@ -26,6 +26,7 @@ import {
   creditWallet, listDeposits, listWithdrawals,
 } from '../services/store/index.js'
 import { isKycApproved } from '../services/kyc.service.js'
+import { checkWithdrawPhoneAccount } from '../services/auth.service.js'
 import { getMysqlPool, isMysqlEnabled } from '../clients/mysql.client.js'
 import { canWithdraw as checkTurnover } from '../services/turnover.service.js'
 import { reviewWithdraw } from '../services/withdraw-review.service.js'
@@ -34,6 +35,9 @@ import type { Redis } from 'ioredis'
 import type { TxType } from '../services/payment-channel.service.js'
 
 const router = new Router()
+
+// 收款账号=手机号的电子钱包渠道（GoTyme 是银行卡号，不在此列）
+const PHONE_WALLET_WITHDRAW_CHANNELS = new Set(['gcash', 'maya'])
 
 function depositOrderState(status: OrderDeposit['status']): number {
   if (status === 'paid') return 2
@@ -235,6 +239,12 @@ router.post('/payment/withdraw/create', async (ctx) => {
 
   if (!(await isKycApproved(redis, ctx.state.env, userId))) {
     fail(ctx, 403, 'errors.kycRequired', 403); return
+  }
+
+  // 手机钱包（GCash/Maya）收款号必须归属本人：拦截取到他人手机号，首次取款绑定并锁定
+  if (PHONE_WALLET_WITHDRAW_CHANNELS.has(channelName)) {
+    const phoneCheck = await checkWithdrawPhoneAccount(redis, userId, targetAccount)
+    if (!phoneCheck.ok) { fail(ctx, phoneCheck.status, phoneCheck.error); return }
   }
 
   const lockKey = `withdraw:lock:${userId}`

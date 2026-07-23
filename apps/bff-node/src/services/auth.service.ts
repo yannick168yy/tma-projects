@@ -38,7 +38,7 @@ import { exchangeGoogleCode } from './google.service.js'
 import { exchangeTelegramOidcCode } from './telegramOidc.service.js'
 import { toPublicUser } from './userPresentation.js'
 import { lookupRegion } from './geo.service.js'
-import { findEntryBotAgent, attributeAgentByBot } from './agent.service.js'
+import { findEntryBotAgent, attributeAgentByBot, isEnabledAgentDomain } from './agent.service.js'
 
 export type PasswordMethod = 'phone'
 
@@ -55,14 +55,23 @@ export class AuthError extends Error {
   }
 }
 
-// redirect_uri 白名单：配置项按逗号分隔（一份 bundle 多域名部署），命中任一即放行
-function assertAllowedRedirect(configured: string, redirectUri: string): void {
+// redirect_uri 白名单：配置项按逗号分隔，或命中后台已启用代理域名的固定 callback path
+async function assertAllowedRedirect(env: Env, configured: string, redirectUri: string, callbackPath: string): Promise<void> {
   const allowed = configured
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean)
   if (!allowed.includes(redirectUri)) {
-    throw new AuthError('Invalid redirect URI', 400)
+    let url: URL
+    try {
+      url = new URL(redirectUri)
+    } catch {
+      throw new AuthError('Invalid redirect URI', 400)
+    }
+    if (url.protocol !== 'https:' || url.pathname !== callbackPath || url.search || url.hash) {
+      throw new AuthError('Invalid redirect URI', 400)
+    }
+    if (!(await isEnabledAgentDomain(env, url.hostname))) throw new AuthError('Invalid redirect URI', 400)
   }
 }
 
@@ -243,7 +252,7 @@ export async function loginWithGoogleCode(
     throw new AuthError('Google login is not configured')
   }
 
-  assertAllowedRedirect(env.GOOGLE_REDIRECT_URI, redirectUri)
+  await assertAllowedRedirect(env, env.GOOGLE_REDIRECT_URI, redirectUri, '/auth/google/callback')
 
   try {
     const profile = await exchangeGoogleCode(env, code, redirectUri)
@@ -551,7 +560,7 @@ export async function loginWithTelegramOidc(
   if (!env.TELEGRAM_OIDC_CLIENT_SECRET) {
     throw new AuthError('Telegram web login is not configured')
   }
-  assertAllowedRedirect(env.TELEGRAM_OIDC_REDIRECT_URI, redirectUri)
+  await assertAllowedRedirect(env, env.TELEGRAM_OIDC_REDIRECT_URI, redirectUri, '/auth/telegram/callback')
 
   try {
     const profile = await exchangeTelegramOidcCode(env, code, redirectUri)
@@ -626,7 +635,7 @@ export async function bindTelegramOidc(
   code: string,
   redirectUri: string,
 ): Promise<UserRecord> {
-  assertAllowedRedirect(env.TELEGRAM_OIDC_REDIRECT_URI, redirectUri)
+  await assertAllowedRedirect(env, env.TELEGRAM_OIDC_REDIRECT_URI, redirectUri, '/auth/telegram/callback')
   const profile = await exchangeTelegramOidcCode(env, code, redirectUri)
   const telegramUserId = telegramIdFromOidcSub(profile.sub)
   if (telegramUserId) {
@@ -647,7 +656,7 @@ export async function bindGoogleAccount(
   code: string,
   redirectUri: string,
 ): Promise<UserRecord> {
-  assertAllowedRedirect(env.GOOGLE_REDIRECT_URI, redirectUri)
+  await assertAllowedRedirect(env, env.GOOGLE_REDIRECT_URI, redirectUri, '/auth/google/callback')
   const profile = await exchangeGoogleCode(env, code, redirectUri)
   const owner = await getUserByGoogleSub(redis, profile.sub)
   if (owner && owner.id !== userId) throw new AuthError('该 Google 已绑定其他账号', 409)
@@ -696,6 +705,45 @@ export async function bindPhone(
   })
   await saveUser(redis, user)
   return user
+}
+
+export type WithdrawPhoneCheck =
+  | { ok: true; phone: string }
+  | { ok: false; status: number; error: string }
+
+/**
+ * 手机钱包（GCash/Maya）取款收款号归属校验 + 首次绑定。
+ * - 本人已绑手机 → 收款号必须等于本人号，否则拒绝（不允许取到别的号）。
+ * - 本人未绑手机 → 号码若已属其他用户（登录号或已验证 KYC）则拒绝；否则强制绑定到本人。
+ *   绑定为「无登录凭证的手机 identity」：仅登记归属并锁定后续取款，不开启手机登录（passwordLogin 无 hash 即拒）。
+ * 防止用户把取款打到他人手机号（历史漏洞：取款流程从不校验 targetAccount 归属）。
+ */
+export async function checkWithdrawPhoneAccount(
+  redis: Redis,
+  userId: string,
+  rawAccount: string,
+): Promise<WithdrawPhoneCheck> {
+  const phone = normalizePhonePH(rawAccount)
+  if (!phone) return { ok: false, status: 400, error: 'errors.invalidWithdrawAccount' }
+
+  const ownPhone = (await listUserIdentities(redis, userId)).find((i) => i.provider === 'phone')
+  if (ownPhone) {
+    if (ownPhone.identifier !== phone) return { ok: false, status: 400, error: 'errors.withdrawPhoneMismatch' }
+    return { ok: true, phone }
+  }
+
+  const owner = await getUserByPhoneAccount(redis, phone)
+  if (owner && owner.id !== userId) return { ok: false, status: 409, error: 'errors.withdrawPhoneTaken' }
+  if (await findKycByVerifiedPhone(redis, phone, userId)) return { ok: false, status: 409, error: 'errors.withdrawPhoneTaken' }
+
+  await bindIdentity(redis, {
+    userId,
+    provider: 'phone',
+    identifier: phone,
+    displayLabel: phone,
+    verifiedAt: new Date().toISOString(),
+  })
+  return { ok: true, phone }
 }
 
 async function issueSession(
