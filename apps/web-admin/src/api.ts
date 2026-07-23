@@ -1052,6 +1052,7 @@ export interface HomeContentItem {
   actionValue: string | null
   enabled: boolean
   updatedAt: string | null
+  imageMissing?: boolean
 }
 export interface HomeContent {
   banners: HomeContentItem[]

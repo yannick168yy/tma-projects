@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Button, Card, Col, Form, Image, Input, Popconfirm, Row, Select, Space, Switch, Tabs, Typography, Upload, message, Spin } from 'antd'
+import { Alert, Button, Card, Col, Form, Image, Input, Popconfirm, Row, Select, Space, Switch, Tabs, Typography, Upload, message, Spin } from 'antd'
 import { ArrowDownOutlined, ArrowUpOutlined, DeleteOutlined, HomeOutlined, PlusOutlined, UploadOutlined } from '@ant-design/icons'
 import type { UploadFile } from 'antd'
 import {
@@ -22,6 +22,7 @@ interface FormItemState {
   actionType: HomeContentItem['actionType']
   actionValue: string | null
   enabled: boolean
+  imageMissing?: boolean
 }
 
 const promoOptions = [
@@ -191,7 +192,7 @@ export default function HomeContentConfig() {
     try {
       const imageData = await readFileDataUrl(file)
       const uploaded = await uploadHomeImage(kind, imageData)
-      updateItem(kind, slot, uploaded)
+      updateItem(kind, slot, { ...uploaded, imageMissing: false })
       message.success('图片已上传，请保存设置')
     } catch (e) {
       message.error(e instanceof Error ? e.message : '上传失败')
@@ -302,7 +303,19 @@ export default function HomeContentConfig() {
       >
         <Space direction="vertical" style={{ width: '100%' }} size={12}>
           <Text type="secondary">{ratioText}</Text>
-          {item.imageUrl ? (
+          {item.imageMissing && (
+            <Alert
+              type="error"
+              showIcon
+              message="图片文件已丢失"
+              description="配置仍在，但服务器上的图片文件不存在（可能被部署清理），前台不会显示该 Banner。请重新上传图片并点击「保存设置」。"
+            />
+          )}
+          {item.imageMissing ? (
+            <div style={{ height: item.kind === 'banner' ? 220 : 140, border: '1px dashed #ff4d4f', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ff4d4f', background: '#fff1f0' }}>
+              图片文件已丢失，请重新上传
+            </div>
+          ) : item.imageUrl ? (
             <Image
               src={item.imageUrl}
               height={item.kind === 'banner' ? 220 : 140}

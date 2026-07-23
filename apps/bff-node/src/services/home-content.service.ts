@@ -2,7 +2,10 @@ import { randomUUID } from 'node:crypto'
 import type { ResultSetHeader, RowDataPacket } from 'mysql2/promise'
 import { getMysqlPool, isMysqlEnabled } from '../clients/mysql.client.js'
 import type { Env } from '../config/env.js'
+import { childLogger } from '../lib/logger.js'
 import { getStorageProvider } from './storage/index.js'
+
+const log = childLogger('home-content')
 
 export type HomeContentKind = 'banner' | 'wallet_banner'
 export type HomeContentActionType = 'promo' | 'cashback' | 'spin' | 'lobby' | 'none' | 'path' | 'url'
@@ -16,6 +19,7 @@ export interface HomeContentItem {
   actionValue: string | null
   enabled: boolean
   updatedAt: string | null
+  imageMissing?: boolean
 }
 
 export interface HomeContent {
@@ -73,11 +77,24 @@ export async function getHomeContent(env: Env, includeDisabled = false): Promise
      ORDER BY kind, slot`,
   )
   let items = rows.map((row) => mapRow(env, row))
-  if (!includeDisabled) {
-    const storage = getStorageProvider(env)
-    const existing = await Promise.all(items.map((item) => storage.exists(item.imageKey)))
+
+  // 图片文件缺失检测：配置存在但文件丢失时（历史上部署 --delete 误删过），
+  // 前台过滤避免破图，后台保留并打标供标红提示，两条路径都记 warn 便于排查
+  const storage = getStorageProvider(env)
+  const existing = await Promise.all(items.map((item) => storage.exists(item.imageKey)))
+  const missing = items.filter((_, index) => !existing[index])
+  if (missing.length) {
+    log.warn(
+      { missing: missing.map((item) => ({ kind: item.kind, slot: item.slot, imageKey: item.imageKey })) },
+      `首页图片文件缺失 ${missing.length} 项（配置存在但文件丢失，需在后台重新上传）`,
+    )
+  }
+  if (includeDisabled) {
+    items = items.map((item, index) => (existing[index] ? item : { ...item, imageMissing: true }))
+  } else {
     items = items.filter((_, index) => existing[index])
   }
+
   return {
     banners: items.filter((item) => item.kind === 'banner'),
     walletBanners: items.filter((item) => item.kind === 'wallet_banner'),
