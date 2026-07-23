@@ -372,10 +372,12 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
   const canSubmitWithdraw = Boolean(!withdrawLoading && isFiatWithdraw && Number(amount) > 0 && withdrawAccount.trim() && withdrawOwner.trim())
   const matrixAmountInRange = (() => {
     const n = Number(matrixCryptoAmount)
+    if (matrixWithdrawLimit.gas > 0 && n <= matrixWithdrawLimit.gas) return false
     if (matrixWithdrawLimit.min !== null && n < matrixWithdrawLimit.min) return false
     if (matrixWithdrawLimit.max !== null && n > matrixWithdrawLimit.max) return false
     return true
   })()
+  const matrixReceiveAmount = Math.max(0, Number(matrixCryptoAmount || 0) - matrixWithdrawLimit.gas)
   const canSubmitMatrixWithdraw = Boolean(!withdrawLoading && isMatrixWithdraw && Number(matrixCryptoAmount) > 0 && matrixAmountInRange && withdrawAccount.trim())
   const filteredHistory = useMemo(() => historyOrders.filter((tx) => (historyFilter==='all'||tx.type===historyFilter) && (historyStatus==='all'||tx.status===historyStatus)), [historyOrders, historyFilter, historyStatus])
 
@@ -774,7 +776,7 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
                     {(matrixWithdrawLimit.min !== null || matrixWithdrawLimit.max !== null) && <p className="text-muted-foreground text-[11px] font-bold">{t('wallet.matrixWithdrawRange', { min: matrixWithdrawLimit.min ?? 0, max: matrixWithdrawLimit.max ?? '∞', symbol: selectedPayMethod?.matrixSymbol ?? '' })}</p>}
                     {matrixWithdrawLimit.gas > 0 && <div className="flex flex-col gap-0.5 text-[11px] font-bold">
                       <p className="text-muted-foreground">{t('wallet.matrixWithdrawGas', { gas: matrixWithdrawLimit.gas, symbol: selectedPayMethod?.matrixSymbol ?? '' })}</p>
-                      <p className="text-amber-400">{t('wallet.matrixWithdrawTotal', { total: +(Number(matrixCryptoAmount || 0) + matrixWithdrawLimit.gas).toFixed(8), symbol: selectedPayMethod?.matrixSymbol ?? '' })}</p>
+                      <p className="text-amber-400">{t('wallet.matrixWithdrawReceive', { amount: +matrixReceiveAmount.toFixed(8), symbol: selectedPayMethod?.matrixSymbol ?? '' })}</p>
                     </div>}
                     <input value={withdrawAccount} type="text" placeholder={t('wallet.matrixWithdrawAddress', { symbol: selectedPayMethod?.matrixSymbol ?? 'TRX' })} className="w-full bg-secondary border border-border rounded-xl px-4 py-3 text-foreground font-bold text-sm focus:outline-none focus:border-primary font-mono" onChange={(e)=>setWithdrawAccount(e.target.value)} />
                     {withdrawMessage&&<p className={`text-xs font-bold text-center ${withdrawSuccess?'text-emerald-400':'text-amber-400'}`}>{withdrawMessage}</p>}

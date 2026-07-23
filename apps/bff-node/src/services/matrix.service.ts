@@ -77,13 +77,13 @@ export async function initMatrixWithdrawOrder(
     toAddress: string
     symbol: string
     chain: string
-    cryptoAmount: string
+    payoutAmount: string
     gasFee?: number
   },
 ): Promise<void> {
   const pool = getMysqlPool(env)
   const gasFee = opts.gasFee ?? 0
-  // amount = 钱包实扣总额(到账额 + gas)，供退款按原路退全；extra.cryptoAmount = 链上实际到账额
+  // amount = 钱包实扣总额；extra.cryptoAmount = 扣除 gas 后的链上实际到账额。
   await pool.query(
     `INSERT INTO bg_withdraw_order
        (order_id, user_id, channel, currency, amount, status, to_address, chain, extra)
@@ -91,8 +91,8 @@ export async function initMatrixWithdrawOrder(
        JSON_OBJECT('cryptoAmount', ?, 'gasFee', ?))`,
     [
       opts.merchantOrderNo, opts.userId, opts.symbol,
-      Number(opts.cryptoAmount) + gasFee, opts.toAddress, opts.chain,
-      opts.cryptoAmount, gasFee,
+      Number(opts.payoutAmount) + gasFee, opts.toAddress, opts.chain,
+      opts.payoutAmount, gasFee,
     ],
   )
 }

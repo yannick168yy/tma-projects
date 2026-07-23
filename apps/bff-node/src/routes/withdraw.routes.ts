@@ -83,7 +83,7 @@ router.post('/', async (ctx) => {
       fail(ctx, 400, 'Invalid cryptoAmount')
       return
     }
-    // gas 费：用户在取款额之外额外承担，从钱包多扣、链上到账仍为 cryptoAmt
+    // 输入金额是钱包实扣总额，gas 从中扣除，链上到账为 cryptoAmt - gasFee。
     let gasFee = 0
     if (isMysqlEnabled(ctx.state.env)) {
       const gate = await getCryptoWithdrawGate(ctx.state.env, `matrix_${symbol.toLowerCase()}_w`)
@@ -96,7 +96,12 @@ router.post('/', async (ctx) => {
       }
       gasFee = gate.gasFee
     }
-    const totalDebit = cryptoAmt + gasFee
+    const payoutAmount = cryptoAmt - gasFee
+    if (payoutAmount <= 0) {
+      fail(ctx, 400, 'errors.withdrawAmountMustExceedGas')
+      return
+    }
+    const totalDebit = cryptoAmt
 
     const userId = ctx.state.userId!
     const redis = ctx.state.redis
@@ -127,7 +132,7 @@ router.post('/', async (ctx) => {
         }
       }
 
-      // 检查对应虚拟币余额（含 gas 费）
+      // 检查对应虚拟币余额
       const balances = await getWalletBalances(redis, userId)
       const cryptoBalance = balances.find((b) => b.currency === currency)?.available ?? 0
       if (totalDebit > cryptoBalance) {
@@ -136,9 +141,9 @@ router.post('/', async (ctx) => {
       }
 
       const merchantOrderNo = generateMerchantOrderNo()
-      const gasNote = gasFee > 0 ? `（含 gas ${gasFee}）` : ''
+      const gasNote = gasFee > 0 ? `（gas ${gasFee}，到账 ${payoutAmount}）` : ''
 
-      // 扣款（取款额 + gas，先扣，等后台审批后才打款）
+      // 先扣用户输入的取款总额，等后台审批后按扣除 gas 后的金额打款。
       await creditWallet(redis, userId, -totalDebit, {
         type: 'withdraw',
         refId: merchantOrderNo,
@@ -148,7 +153,7 @@ router.post('/', async (ctx) => {
         currency,
       })
 
-      // 存单，不调 Matrix API，等后台审批。amount=实扣总额(含gas)供退款；extra.cryptoAmount=链上到账额
+      // 存单，不调 Matrix API，等后台审批。amount=实扣总额供退款；extra.cryptoAmount=链上到账额。
       try {
         await initMatrixWithdrawOrder(ctx.state.env, {
           merchantOrderNo,
@@ -156,7 +161,7 @@ router.post('/', async (ctx) => {
           toAddress,
           symbol: currency,
           chain: chain.toUpperCase(),
-          cryptoAmount,
+          payoutAmount: String(payoutAmount),
           gasFee,
         })
       } catch (dbErr) {
