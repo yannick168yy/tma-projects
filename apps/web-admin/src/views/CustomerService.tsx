@@ -27,7 +27,7 @@ export default function CustomerService() {
   const [conversations, setConversations] = useState<CsConversation[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(false)
-  const [statusFilter, setStatusFilter] = useState('human_taken')
+  const [statusFilter, setStatusFilter] = useState('pending')
   const [page, setPage] = useState(1)
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const [messages, setMessages] = useState<CsMessage[]>([])
@@ -146,7 +146,7 @@ export default function CustomerService() {
               style={{ width: 110 }}
               onChange={(v) => { setStatusFilter(v); void loadList(1) }}
               options={[
-                { value: '', label: '全部' }, { value: 'active', label: 'AI 处理中' },
+                { value: 'pending', label: '待处理' }, { value: '', label: '全部' }, { value: 'active', label: 'AI 处理中' },
                 { value: 'escalated', label: '离线工单' },
                 { value: 'human_taken', label: '待人工' }, { value: 'resolved', label: '已解决' },
                 { value: 'closed', label: '已关闭' },
@@ -168,7 +168,7 @@ export default function CustomerService() {
             onMouseLeave={(e) => { if (selectedId !== conv.id) (e.currentTarget as HTMLDivElement).style.background = '' }}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontWeight: 600, fontSize: 13 }}>{conv.displayName || `用户#${conv.userId}`}</span>
+              <span style={{ fontWeight: 600, fontSize: 13 }}>工单 #{conv.id} · {conv.displayName || `用户#${conv.userId}`}</span>
               <Tag color={statusColor(conv.status)} style={{ margin: 0, fontSize: 11 }}>{statusText(conv.status)}</Tag>
             </div>
             <div style={{ color: '#999', fontSize: 12, marginTop: 2, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
@@ -193,7 +193,7 @@ export default function CustomerService() {
           title={
             <span>
               {isMobile && <Button size="small" style={{ marginRight: 8 }} onClick={() => setSelectedId(null)}>返回</Button>}
-              {selectedConv?.displayName || `用户#${selectedConv?.userId}`}
+              工单 #{selectedConv?.id} · {selectedConv?.displayName || `用户#${selectedConv?.userId}`}
               <Tag color={statusColor(selectedConv?.status)} style={{ marginLeft: 8 }}>{statusText(selectedConv?.status)}</Tag>
               {selectedConv?.escalateReason && <Tag color="volcano">{reasonText(selectedConv.escalateReason)}</Tag>}
             </span>

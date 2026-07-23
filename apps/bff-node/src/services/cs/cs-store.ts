@@ -74,7 +74,7 @@ export async function expireStaleConversations(env: Env, userId?: string): Promi
   const [result] = await db(env).query<ResultSetHeader>(
     `UPDATE cs_conversation c
      SET c.status = 'closed', c.resolved_at = NOW()
-     WHERE c.status IN ('active','escalated','human_taken')
+     WHERE c.status IN ('active','human_taken')
        ${userClause}
        AND COALESCE(
          (SELECT MAX(m.created_at) FROM cs_message m WHERE m.conversation_id = c.id AND m.role = 'user'),
@@ -100,8 +100,9 @@ export async function listConversations(
 ): Promise<{ items: (Conversation & { displayName: string; lastMessage: string })[]; total: number }> {
   const pool = db(env)
   await expireStaleConversations(env)
-  const where = opts.status ? `WHERE c.status = ?` : ''
-  const params: unknown[] = opts.status ? [opts.status, opts.limit, opts.offset] : [opts.limit, opts.offset]
+  const pendingOnly = opts.status === 'pending'
+  const where = pendingOnly ? `WHERE c.status IN ('human_taken','escalated')` : opts.status ? `WHERE c.status = ?` : ''
+  const params: unknown[] = pendingOnly ? [opts.limit, opts.offset] : opts.status ? [opts.status, opts.limit, opts.offset] : [opts.limit, opts.offset]
 
   const [rows] = await pool.query<RowDataPacket[]>(
     `SELECT c.*, u.display_name,
@@ -114,7 +115,7 @@ export async function listConversations(
     params,
   )
 
-  const countParams: unknown[] = opts.status ? [opts.status] : []
+  const countParams: unknown[] = pendingOnly ? [] : opts.status ? [opts.status] : []
   const [countRows] = await pool.query<RowDataPacket[]>(
     `SELECT COUNT(*) AS total FROM cs_conversation c ${where}`,
     countParams,
