@@ -314,7 +314,7 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
   const liveFiatWithdraw = useMemo((): PayMethod[] => FIAT_WITHDRAW.map((m) => {
     const channelName = m.id.replace('-w', '')
     const ch = paymentWithdrawChannels.find((c) => c.name === channelName)
-    if (ch) return { ...m, enabled: true, paymentChannelName: channelName }
+    if (ch) return { ...m, enabled: true, paymentChannelName: channelName, minAmount: ch.minAmount ?? undefined, maxAmount: ch.maxAmount ?? undefined, tag: ch.minAmount ? `₱${ch.minAmount}–₱${ch.maxAmount}` : m.tag }
     return { ...m, enabled: false }
   }), [paymentWithdrawChannels])
 
@@ -395,7 +395,13 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [depositCategory, open, tab, currentCategoryMethods])
   const canSubmitDeposit = Boolean(!depositLoading && selectedPayMethod?.channelId && Number(amount) > 0)
-  const canSubmitWithdraw = Boolean(!withdrawLoading && isFiatWithdraw && Number(amount) > 0 && withdrawAccount.trim() && withdrawOwner.trim())
+  // 法币取款金额区间（后台按渠道配置，须 ≥ YfPay 网关最低额，否则送到网关会拒单）
+  const fiatWithdrawMin = selectedPayMethod?.minAmount ?? null
+  const fiatWithdrawMax = selectedPayMethod?.maxAmount ?? null
+  const fiatWithdrawAmountValid = Number(amount) > 0
+    && (fiatWithdrawMin == null || Number(amount) >= fiatWithdrawMin)
+    && (fiatWithdrawMax == null || Number(amount) <= fiatWithdrawMax)
+  const canSubmitWithdraw = Boolean(!withdrawLoading && isFiatWithdraw && fiatWithdrawAmountValid && withdrawAccount.trim() && withdrawOwner.trim())
   const matrixWithdrawGasFee = (() => {
     const n = Number(matrixCryptoAmount)
     if (
@@ -943,6 +949,7 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
                     <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground font-bold text-sm">{isTgWallet&&depositCurrency==='USDT'?'$':isCryptoMethod?'≈ $':'₱'}</span>
                     <input value={amount} type="number" placeholder="0.00" className="w-full bg-secondary border border-border rounded-xl pr-4 py-3 text-foreground font-black text-lg focus:outline-none focus:border-primary pl-10" onChange={(e)=>setAmount(e.target.value)} />
                   </div>}
+                  {tab==='withdraw'&&isFiatWithdraw&&(fiatWithdrawMin!=null||fiatWithdrawMax!=null)&&<p className={`text-[11px] font-bold ${amount&&!fiatWithdrawAmountValid?'text-amber-400':'text-muted-foreground'}`}>{amount&&!fiatWithdrawAmountValid?t('wallet.yfpayAmountOutOfRange',{min:fiatWithdrawMin??0,max:fiatWithdrawMax??'—'}):t('wallet.withdrawAmountRange',{min:fiatWithdrawMin??0,max:fiatWithdrawMax??'—'})}</p>}
                   {tab==='withdraw'&&isFiatWithdraw&&<>
                     <input value={withdrawAccount} type="tel" readOnly={withdrawAccountLocked} placeholder={t('wallet.yfpayAccountNumber')} className={`w-full bg-secondary border border-border rounded-xl px-4 py-3 text-foreground font-bold text-sm focus:outline-none focus:border-primary${withdrawAccountLocked ? ' opacity-60' : ''}`} onChange={withdrawAccountLocked ? undefined : (e)=>setWithdrawAccount(e.target.value)} />
                     {withdrawAccountLocked && <p className="text-[10px] text-muted-foreground">{t('kyc.phoneLocked')}</p>}

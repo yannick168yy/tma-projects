@@ -1225,6 +1225,7 @@ export default {
     depositPendingStale: '该支付可能已过期，系统正在确认最终状态。',
     yfpayDepositFailed: '充值失败，请重试。',
     yfpayAmountOutOfRange: '金额需在 ₱{min} 至 ₱{max} 之间。',
+    withdrawAmountRange: '取款范围：₱{min} – ₱{max}',
     yfpayAccountNumber: '账号（如手机号）',
     yfpayFullName: '持有人姓名',
     yfpayWithdrawSubmit: '提交提现',

@@ -828,6 +828,7 @@ export default {
     yfpayDepositTimeout: 'Pembayaran habis waktu. Cek riwayat untuk status.',
     yfpayDepositFailed: 'Deposit gagal. Silakan coba lagi.',
     yfpayAmountOutOfRange: 'Jumlah harus antara ₱{min} dan ₱{max}.',
+    withdrawAmountRange: 'Rentang penarikan: ₱{min} – ₱{max}',
     yfpayAccountNumber: 'Nomor Akun (mis. nomor HP)',
     yfpayFullName: 'Nama Lengkap',
     yfpayWithdrawSubmit: 'Kirim Penarikan',

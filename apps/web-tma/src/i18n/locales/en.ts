@@ -1229,6 +1229,7 @@ export default {
     depositPendingStale: 'This payment may have expired. We are checking the final status.',
     yfpayDepositFailed: 'Deposit failed. Please try again.',
     yfpayAmountOutOfRange: 'Amount must be between ₱{min} and ₱{max}.',
+    withdrawAmountRange: 'Withdrawal range: ₱{min} – ₱{max}',
     yfpayAccountNumber: 'Account Number (e.g. phone)',
     yfpayFullName: 'Full Name',
     yfpayWithdrawSubmit: 'Submit Withdrawal',
