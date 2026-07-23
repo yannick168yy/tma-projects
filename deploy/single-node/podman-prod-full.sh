@@ -136,6 +136,7 @@ run run -d --name tma-bff-node --network "$NET" --restart=always \
   -e GOOGLE_CLIENT_ID="${GOOGLE_CLIENT_ID:-}" \
   -e GOOGLE_CLIENT_SECRET="${GOOGLE_CLIENT_SECRET:-}" \
   -e GOOGLE_REDIRECT_URI="${GOOGLE_REDIRECT_URI:-https://www.188facai.com/auth/google/callback}" \
+  -e TELEGRAM_OIDC_CLIENTS="${TELEGRAM_OIDC_CLIENTS:-}" \
   -e TELEGRAM_OIDC_BOT_TOKENS="${TELEGRAM_OIDC_BOT_TOKENS:-}" \
   -e IMAGE_CDN_BASE="${IMAGE_CDN_BASE:-}" \
   -e S3_BUCKET="${S3_BUCKET:-}" \

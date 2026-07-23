@@ -59,6 +59,7 @@ run run -d --name tma-bff-node --network "$NET" --restart=always \
   -e GOOGLE_CLIENT_SECRET="${GOOGLE_CLIENT_SECRET:-}" \
   -e GOOGLE_REDIRECT_URI="${GOOGLE_REDIRECT_URI:-https://www.188facai.com/auth/google/callback}" \
   -e TELEGRAM_OIDC_CLIENT_SECRET="${TELEGRAM_OIDC_CLIENT_SECRET:-}" \
+  -e TELEGRAM_OIDC_CLIENTS="${TELEGRAM_OIDC_CLIENTS:-}" \
   -e TELEGRAM_OIDC_BOT_TOKENS="${TELEGRAM_OIDC_BOT_TOKENS:-}" \
   -e TELEGRAM_OIDC_REDIRECT_URI="${TELEGRAM_OIDC_REDIRECT_URI:-https://www.188facai.com/auth/telegram/callback}" \
   -e AMMER_PAY_PROVIDER_TOKEN="${AMMER_PAY_PROVIDER_TOKEN:-}" \

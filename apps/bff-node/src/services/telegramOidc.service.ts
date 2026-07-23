@@ -19,19 +19,32 @@ function domainFromRedirectUri(redirectUri: string): string {
   return new URL(redirectUri).hostname.toLowerCase()
 }
 
-function tokenByRedirectDomain(env: Env, redirectUri: string): string | undefined {
+function clientByRedirectDomain(env: Env, redirectUri: string): { clientId: string; clientSecret: string } | undefined {
   const domain = domainFromRedirectUri(redirectUri)
+  for (const item of env.TELEGRAM_OIDC_CLIENTS.split(',')) {
+    const [rawDomain, ...credentialParts] = item.split('=')
+    const credential = credentialParts.join('=').trim()
+    const colon = credential.indexOf(':')
+    if (rawDomain.trim().toLowerCase() === domain && colon > 0) {
+      return {
+        clientId: credential.slice(0, colon),
+        clientSecret: credential.slice(colon + 1),
+      }
+    }
+  }
   for (const item of env.TELEGRAM_OIDC_BOT_TOKENS.split(',')) {
     const [rawDomain, ...tokenParts] = item.split('=')
     const token = tokenParts.join('=').trim()
-    if (rawDomain.trim().toLowerCase() === domain && token) return token
+    if (rawDomain.trim().toLowerCase() === domain && token) {
+      return { clientId: botClientId(token), clientSecret: token }
+    }
   }
   return undefined
 }
 
 function oidcCredentials(env: Env, redirectUri: string): { clientId: string; clientSecret: string } {
-  const token = tokenByRedirectDomain(env, redirectUri)
-  if (token) return { clientId: botClientId(token), clientSecret: token }
+  const client = clientByRedirectDomain(env, redirectUri)
+  if (client) return client
   if (!env.TELEGRAM_OIDC_CLIENT_SECRET) {
     throw new Error('Telegram web login is not configured on the server')
   }
