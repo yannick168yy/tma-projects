@@ -360,8 +360,8 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
     if (depositCategory !== 'crypto') return null
     const methodCurrency = selectedPayMethod?.currency
     if (methodCurrency === 'USDT' || methodCurrency === 'USDC') return methodCurrency
-    return activeCurrency === 'USDT' || activeCurrency === 'USDC' ? activeCurrency : null
-  }, [depositCategory, selectedPayMethod, activeCurrency])
+    return null
+  }, [depositCategory, selectedPayMethod])
   const cryptoFirstDepTierList = cryptoFirstDepCurrency ? promoConfig?.firstdep.tiers?.[cryptoFirstDepCurrency] : undefined
   const firstDepTiersSorted = useMemo(
     () => [...(cryptoFirstDepTierList ?? [])].filter((tier) => tier.bonusAmount > 0).sort((a, b) => a.depositAmount - b.depositAmount),
@@ -660,7 +660,6 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
                       <button key={id} type="button" onClick={()=>setDepositCategory(id)} className={`flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-black transition-colors border ${depositCategory===id?'border-primary bg-primary/10 text-primary shadow-[0_0_18px_rgba(245,158,11,0.20)]':'border-transparent text-white/45 hover:text-white/75'}`}><Icon size={14} />{label}</button>
                     ))}
                   </div>
-                  {renderCryptoFirstDepGuide()}
                   {/* 渠道 chips：单行横向滑动，可见约 3.5 个 */}
                   {currentCategoryMethods.length===0 ? (channelsLoading ? (
                     <div className="flex gap-2 overflow-hidden -mx-1 px-1 pb-1">
@@ -671,7 +670,7 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
                     {currentCategoryMethods.map((m)=>{
                       const disabled=m.enabled===false; const sel=selectedMethod===m.id
                       return (
-                        <button key={m.id} type="button" disabled={disabled} onClick={()=>{setSelectedMethod(m.id);if(depositCategory!=='crypto')setAmount('');setDepositMessage('')}}
+                        <button key={m.id} type="button" disabled={disabled} onClick={()=>{setSelectedMethod(m.id);setAmount('');setCopiedDepositAmount(false);setDepositMessage('')}}
                           className={`relative flex-shrink-0 w-[27%] rounded-2xl border p-2 flex flex-col items-center justify-center gap-1.5 transition-colors ${sel?'border-primary bg-primary/10 shadow-[0_0_22px_rgba(245,158,11,0.20)]':'border-white/10 bg-[#101a2c]'} ${disabled?'opacity-40':''}`}>
                           {sel&&<span className="absolute right-1.5 top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-black"><Check size={10} strokeWidth={3}/></span>}
                           {m.iconUrl ? <div className="w-10 h-10 rounded-xl overflow-hidden flex-shrink-0"><img src={m.iconUrl} alt={m.name} className="w-full h-full object-contain" /></div>
@@ -683,6 +682,7 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
                     })}
                   </div>
                   )}
+                  {renderCryptoFirstDepGuide()}
                   {selectedPayMethod ? (
                     isMatrixDeposit ? (
                       <div className="space-y-4">
