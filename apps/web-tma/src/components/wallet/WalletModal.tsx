@@ -19,6 +19,7 @@ import { useAuthStore } from '@/stores/auth'
 import { analytics } from '@/utils/analytics'
 import { fetchNewPlayerSummary, fetchRedepOffer, type FirstDepTier, type RedepOffer } from '@/api/promotion'
 import KycModal from '@/components/wallet/KycModal'
+import { isKycGatePassed } from '@/api/kyc'
 import { useKycGate } from '@/hooks/useKycGate'
 import { CRYPTO_DEPOSIT, CRYPTO_WITHDRAW, FIAT_DEPOSIT, FIAT_WITHDRAW, TG_WALLET_DEPOSIT, type PayMethod } from '@/data/wallet'
 import { useBottomSheetDrag } from '@/hooks/useBottomSheetDrag'
@@ -188,7 +189,7 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
       return
     }
     let status = kycApproved === null ? await refreshKyc() : null
-    const approved = status ? status.status === 'approved' : kycApproved === true
+    const approved = status ? isKycGatePassed(status) : kycApproved === true
     if (!approved) {
       pendingWithdrawMethodRef.current = id
       setKycOpen(true)

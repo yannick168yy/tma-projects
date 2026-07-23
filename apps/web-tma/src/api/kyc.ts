@@ -25,6 +25,22 @@ export function fetchKycStatus(): Promise<KycStatus> {
   return apiRequest<KycStatus>('/kyc/status')
 }
 
+/**
+ * 前台提现闸门：镜像后端 isKycApproved，按后台当前开关判断是否已满足实名要求。
+ * 后台关闭证件+人脸（甚至手机）后须与后端一致地放行，否则前台仍强制弹 KYC 且卡死在 done 步。
+ */
+export function isKycGatePassed(s: KycStatus): boolean {
+  if (s.status === 'approved') return true
+  // 手机与证件都关闭 = 实名流程整体关闭，不设闸门
+  if (!s.requirePhone && !s.requireDocument) return true
+  // 人工驳回/撤销（无 rejectStep）永久拦截，需重新走流程
+  if (s.status === 'rejected' && !s.rejectStep) return false
+  if (s.requirePhone && !s.phoneVerified) return false
+  if (s.requireDocument && !s.docVerified) return false
+  if (s.requireFace && !s.faceVerified) return false
+  return true
+}
+
 export function sendKycOtp(phone: string): Promise<{ phone: string; resendInSec: number }> {
   return apiRequest('/kyc/phone/send-otp', { method: 'POST', body: JSON.stringify({ phone }) })
 }

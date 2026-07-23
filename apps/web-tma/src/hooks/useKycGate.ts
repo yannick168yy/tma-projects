@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { fetchKycStatus, type KycStatus } from '@/api/kyc'
+import { fetchKycStatus, isKycGatePassed, type KycStatus } from '@/api/kyc'
 
 export function useKycGate(active: boolean) {
   const [kycApproved, setKycApproved] = useState<boolean | null>(null)
@@ -10,7 +10,7 @@ export function useKycGate(active: boolean) {
   const refreshKyc = useCallback((): Promise<KycStatus | null> => {
     return fetchKycStatus()
       .then((s) => {
-        const approved = s.status === 'approved'
+        const approved = isKycGatePassed(s)
         setKycApproved(approved)
         setBoundPhoneNumber(s.registeredPhone ?? s.phone ?? null)
         setKycFullName(s.fullName?.trim() || null)
