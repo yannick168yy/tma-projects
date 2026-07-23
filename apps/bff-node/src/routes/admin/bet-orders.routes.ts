@@ -54,7 +54,13 @@ router.get('/', async (ctx) => {
     const [items] = await pool.query<import('mysql2/promise').RowDataPacket[]>(
       `SELECT r.round_id, r.user_id, r.currency_code, r.provider_id,
               r.bet_amount, r.win_amount, r.bet_time, r.win_time,
-              NULL AS game_name, NULL AS provider_name
+              (SELECT COALESCE(o.name_override, g.name_en, g.name_zh)
+                 FROM bg_568win_game g
+                 LEFT JOIN bg_568win_game_override o
+                   ON o.game_provider_id = g.game_provider_id AND o.game_id = g.game_id
+                WHERE g.game_id = r.provider_id LIMIT 1) AS game_name,
+              (SELECT COALESCE(g.provider, '568Win') FROM bg_568win_game g
+                WHERE g.game_id = r.provider_id LIMIT 1) AS provider_name
        FROM (
          SELECT b.round_id, b.user_id, b.currency_code, MIN(b.provider_id) AS provider_id,
            SUM(CASE WHEN b.bet_type='bet' THEN b.amount ELSE 0 END) AS bet_amount,
@@ -110,7 +116,13 @@ router.get('/', async (ctx) => {
     `SELECT b.id, b.user_id, b.aggregator_id, b.provider_id, b.provider_txn_id,
             b.round_id, b.bet_type, b.amount, b.currency_code,
             b.original_amount, b.exchange_rate, b.status, b.created_at, b.settled_at,
-            NULL AS game_name, NULL AS provider_name
+            (SELECT COALESCE(o.name_override, g.name_en, g.name_zh)
+               FROM bg_568win_game g
+               LEFT JOIN bg_568win_game_override o
+                 ON o.game_provider_id = g.game_provider_id AND o.game_id = g.game_id
+              WHERE g.game_id = b.provider_id LIMIT 1) AS game_name,
+            (SELECT COALESCE(g.provider, '568Win') FROM bg_568win_game g
+              WHERE g.game_id = b.provider_id LIMIT 1) AS provider_name
      FROM bg_bet_order b
      ${whereClause}
      ORDER BY b.id DESC LIMIT ? OFFSET ?`,
