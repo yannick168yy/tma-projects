@@ -105,6 +105,7 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
   const [paymentDepositChannels, setPaymentDepositChannels] = useState<PaymentChannel[]>([])
   const [paymentWithdrawChannels, setPaymentWithdrawChannels] = useState<PaymentChannel[]>([])
   const [cryptoEnabled, setCryptoEnabled] = useState<Record<string, boolean>>({})
+  const [cryptoChannelsLoaded, setCryptoChannelsLoaded] = useState(false)
   const [cryptoWithdrawGas, setCryptoWithdrawGas] = useState<Record<string, { gas: number; discountThreshold: number | null; discountFee: number | null }>>({})
   const pollTimerRef = useRef<ReturnType<typeof setInterval>|null>(null)
   const [pollSerial, setPollSerial] = useState('')
@@ -230,11 +231,12 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
       void walletStore.refresh()
       void fetchHomeContent().then((content) => setWalletBannerUrl(content.walletBanners[0]?.imageUrl ?? defaultTopupBanner)).catch(()=>setWalletBannerUrl(defaultTopupBanner))
       setChannelsLoading(true)
+      setCryptoChannelsLoaded(false)
       const depP = fetchPaymentChannels('deposit').then(setPaymentDepositChannels).catch(()=>{})
       const cryP = fetchCryptoChannels().then((list)=>{
         setCryptoEnabled(Object.fromEntries(list.map((c)=>[c.name,c.enabled])))
         setCryptoWithdrawGas(Object.fromEntries(list.map((c)=>[c.name,{gas:c.withdrawGasFee,discountThreshold:c.withdrawGasDiscountThreshold,discountFee:c.withdrawGasDiscountFee}])))
-      }).catch(()=>{})
+      }).catch(()=>{}).finally(()=>setCryptoChannelsLoaded(true))
       void Promise.all([depP, cryP]).finally(()=>setChannelsLoading(false))
       void fetchPaymentChannels('withdraw').then(setPaymentWithdrawChannels).catch(()=>{})
     } else { stopPolling() }
@@ -320,11 +322,11 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
     return { ...m, enabled: false }
   }), [paymentWithdrawChannels])
 
-  // 虚拟币/TG 渠道开关由后台控制：命中开关 map 时覆盖 enabled
-  const applyCrypto = (list: PayMethod[]) => list.map((m) => m.id in cryptoEnabled ? { ...m, enabled: cryptoEnabled[m.id] } : m)
-  const liveTgWalletDeposit = useMemo(() => applyCrypto(TG_WALLET_DEPOSIT), [cryptoEnabled])
-  const liveCryptoDeposit = useMemo(() => applyCrypto(CRYPTO_DEPOSIT), [cryptoEnabled])
-  const liveCryptoWithdraw = useMemo(() => applyCrypto(CRYPTO_WITHDRAW), [cryptoEnabled])
+  // 虚拟币/TG 渠道开关由后台控制；开关未加载前不使用静态 enabled，避免误选已关闭币种
+  const applyCrypto = (list: PayMethod[]) => list.map((m) => cryptoChannelsLoaded && m.id in cryptoEnabled ? { ...m, enabled: cryptoEnabled[m.id] } : { ...m, enabled: false })
+  const liveTgWalletDeposit = useMemo(() => applyCrypto(TG_WALLET_DEPOSIT), [cryptoChannelsLoaded, cryptoEnabled])
+  const liveCryptoDeposit = useMemo(() => applyCrypto(CRYPTO_DEPOSIT), [cryptoChannelsLoaded, cryptoEnabled])
+  const liveCryptoWithdraw = useMemo(() => applyCrypto(CRYPTO_WITHDRAW), [cryptoChannelsLoaded, cryptoEnabled])
 
   const allPayMethods = useMemo(() => [...liveTgWalletDeposit, ...liveFiatDeposit, ...liveCryptoDeposit, ...liveFiatWithdraw, ...liveCryptoWithdraw], [liveTgWalletDeposit, liveFiatDeposit, liveCryptoDeposit, liveFiatWithdraw, liveCryptoWithdraw])
   const selectedPayMethod = useMemo(() => allPayMethods.find((m)=>m.id===selectedMethod), [allPayMethods, selectedMethod])
