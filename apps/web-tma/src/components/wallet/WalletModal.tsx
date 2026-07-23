@@ -69,6 +69,9 @@ function fmtTurnoverAmount(amount: number, currency: string) {
   if (currency === 'PHP') return `₱${amount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
   return `${parseFloat(amount.toFixed(6))} ${currency}`
 }
+function fmtCryptoAmount(amount: number, currency: string) {
+  return `${parseFloat(amount.toFixed(6))} ${currency}`
+}
 
 export default function WalletModal({ open, onClose, initialTab = 'deposit', fullscreen = false }: Props) {
   const { t } = useTranslation()
@@ -119,6 +122,7 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
   const [matrixAddressLoading, setMatrixAddressLoading] = useState(false)
   const [matrixCryptoAmount, setMatrixCryptoAmount] = useState('')
   const [copiedAddress, setCopiedAddress] = useState(false)
+  const [copiedDepositAmount, setCopiedDepositAmount] = useState(false)
   const [turnoverProgress, setTurnoverProgress] = useState<TurnoverProgress | null>(null)
   const [turnoverLoading, setTurnoverLoading] = useState(false)
   const [turnoverShake, setTurnoverShake] = useState(false)
@@ -352,6 +356,25 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
   const firstDepEligible = isLoggedIn && firstDepDone === false && (promoConfig?.firstdep.enabled ?? false)
   const depositPresets = DEPOSIT_PRESETS[depositCurrency] ?? DEPOSIT_PRESETS.PHP
   const depositTierList = promoConfig?.firstdep.tiers?.[depositCurrency]
+  const cryptoFirstDepCurrency = useMemo(() => {
+    if (depositCategory !== 'crypto') return null
+    const methodCurrency = selectedPayMethod?.currency
+    if (methodCurrency === 'USDT' || methodCurrency === 'USDC') return methodCurrency
+    return activeCurrency === 'USDT' || activeCurrency === 'USDC' ? activeCurrency : null
+  }, [depositCategory, selectedPayMethod, activeCurrency])
+  const cryptoFirstDepTierList = cryptoFirstDepCurrency ? promoConfig?.firstdep.tiers?.[cryptoFirstDepCurrency] : undefined
+  const firstDepTiersSorted = useMemo(
+    () => [...(cryptoFirstDepTierList ?? [])].filter((tier) => tier.bonusAmount > 0).sort((a, b) => a.depositAmount - b.depositAmount),
+    [cryptoFirstDepTierList],
+  )
+  const showCryptoFirstDepGuide = firstDepEligible && Boolean(cryptoFirstDepCurrency) && firstDepTiersSorted.length > 0
+  const cryptoFirstDepAmount = Number(amount)
+  const cryptoFirstDepBonus = showCryptoFirstDepGuide ? matchTierBonus(firstDepTiersSorted, cryptoFirstDepAmount) : 0
+  const nextCryptoFirstDepTier = showCryptoFirstDepGuide && cryptoFirstDepAmount > 0
+    ? firstDepTiersSorted.find((tier) => cryptoFirstDepAmount < tier.depositAmount)
+    : null
+  const recommendedCryptoFirstDepTiers = firstDepTiersSorted.slice(0, 5)
+  const cryptoFirstDepDisplayCurrency = cryptoFirstDepCurrency ?? 'USDT'
   // 复充限时优惠仅 PHP 充值参与；首充资格存续时以首充为准，不叠加展示
   // 复充展示条件：offer 币种与当前充值币种一致（redep 已多币种）
   const redepShow = redepActive && !firstDepEligible && depositCurrency === (redepOffer?.currency ?? 'PHP')
@@ -463,6 +486,11 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
     try { await navigator.clipboard.writeText(matrixAddress); setCopiedAddress(true); setTimeout(() => setCopiedAddress(false), 2000) } catch { /**/ }
   }
 
+  async function copyDepositAmount() {
+    if (!amount) return
+    try { await navigator.clipboard.writeText(amount); setCopiedDepositAmount(true); setTimeout(() => setCopiedDepositAmount(false), 2000) } catch { /**/ }
+  }
+
   async function loadHistory(silent = false) {
     if (!silent) setHistoryLoading(true)
     try{
@@ -478,7 +506,7 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
 
   async function copyOrderId(id: string) { try{await navigator.clipboard.writeText(id);setCopiedId(id);setTimeout(()=>setCopiedId(null),2000)}catch{/***/} }
 
-  function resetToSelect() { pendingWithdrawMethodRef.current = null; setDepositView('select'); setSelectedMethod(null); setAmount(''); setDepositMessage(''); setWithdrawMessage(''); setWithdrawAccount(''); setWithdrawOwner(''); stopPolling(); setDepositLoading(false); setPollSerial(''); setDepositSuccess(false); setMatrixAddress(''); setMatrixCryptoAmount(''); setCopiedAddress(false) }
+  function resetToSelect() { pendingWithdrawMethodRef.current = null; setDepositView('select'); setSelectedMethod(null); setAmount(''); setDepositMessage(''); setWithdrawMessage(''); setWithdrawAccount(''); setWithdrawOwner(''); stopPolling(); setDepositLoading(false); setPollSerial(''); setDepositSuccess(false); setMatrixAddress(''); setMatrixCryptoAmount(''); setCopiedAddress(false); setCopiedDepositAmount(false) }
 
   function switchTab(next: 'deposit'|'withdraw'|'history') {
     if (next === tab) return
@@ -486,6 +514,79 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
     resetToSelect()
     setDepositMessage(''); setDepositSuccess(false)
     setWithdrawMessage(''); setWithdrawSuccess(false)
+  }
+
+  function renderCryptoFirstDepGuide() {
+    if (!showCryptoFirstDepGuide) return null
+    return (
+      <div className="space-y-3 rounded-2xl border border-primary/35 bg-gradient-to-br from-primary/14 via-emerald-500/10 to-[#101a2c] p-3 shadow-[0_0_22px_rgba(245,158,11,0.16)]">
+        <div className="flex items-start gap-2.5">
+          <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-primary/20 text-primary">
+            <Gift size={18} strokeWidth={2.5} />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-black text-white">{t('wallet.cryptoFirstDepTitle')}</p>
+            <p className="mt-0.5 text-[11px] font-bold leading-snug text-white/62">{t('wallet.cryptoFirstDepSubtitle', { currency: cryptoFirstDepDisplayCurrency })}</p>
+          </div>
+        </div>
+        <div className="grid grid-cols-5 gap-1.5">
+          {recommendedCryptoFirstDepTiers.map((tier) => {
+            const sel = amount === String(tier.depositAmount)
+            return (
+              <button
+                key={tier.depositAmount}
+                type="button"
+                onClick={() => { setAmount(String(tier.depositAmount)); setCopiedDepositAmount(false) }}
+                className={`rounded-xl border px-1 py-2 text-center transition-colors ${sel ? 'border-primary bg-primary/20' : 'border-white/10 bg-[#07111f]/80'}`}
+              >
+                <span className="block text-xs font-black text-white leading-none">{fmtCryptoAmount(tier.depositAmount, cryptoFirstDepDisplayCurrency)}</span>
+                <span className="mt-1 block text-[10px] font-black leading-none text-primary">+{fmtCryptoAmount(tier.bonusAmount, cryptoFirstDepDisplayCurrency)}</span>
+              </button>
+            )
+          })}
+        </div>
+        <div className="grid grid-cols-[1fr_auto] gap-2">
+          <div className="relative rounded-xl border border-white/10 bg-[#07111f]">
+            <input
+              value={amount}
+              type="number"
+              min={0}
+              placeholder={t('wallet.cryptoFirstDepAmount', { currency: cryptoFirstDepDisplayCurrency })}
+              className="w-full bg-transparent px-3 py-2.5 pr-14 text-sm font-black text-white focus:outline-none"
+              onChange={(e) => { setAmount(e.target.value); setCopiedDepositAmount(false) }}
+            />
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-black text-white/45">{cryptoFirstDepDisplayCurrency}</span>
+          </div>
+          <button
+            type="button"
+            disabled={!amount}
+            onClick={() => void copyDepositAmount()}
+            className={`flex min-w-[92px] items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-[11px] font-black transition-colors disabled:opacity-45 ${copiedDepositAmount ? 'bg-emerald-500/18 text-emerald-300' : 'bg-primary text-black hover:bg-yellow-400'}`}
+          >
+            {copiedDepositAmount ? <Check size={13} strokeWidth={3} /> : <Copy size={13} strokeWidth={3} />}
+            {copiedDepositAmount ? t('common.copied') : t('wallet.copyAmount')}
+          </button>
+        </div>
+        {cryptoFirstDepAmount > 0 && (
+          <div className="flex items-center justify-between gap-3 rounded-xl border border-primary/25 bg-primary/10 px-3 py-2.5">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-widest text-white/45">{t('wallet.cryptoFirstDepExpected')}</p>
+              <p className="mt-0.5 text-sm font-black text-white">
+                {fmtCryptoAmount(cryptoFirstDepAmount + cryptoFirstDepBonus, cryptoFirstDepDisplayCurrency)}
+              </p>
+            </div>
+            <div className="text-right text-[11px] font-bold">
+              <p className="text-white/70">{fmtCryptoAmount(cryptoFirstDepAmount, cryptoFirstDepDisplayCurrency)}</p>
+              {cryptoFirstDepBonus > 0 ? (
+                <p className="mt-0.5 text-primary">+{fmtCryptoAmount(cryptoFirstDepBonus, cryptoFirstDepDisplayCurrency)}</p>
+              ) : nextCryptoFirstDepTier ? (
+                <p className="mt-0.5 max-w-[150px] text-amber-300">{t('wallet.cryptoFirstDepNext', { amount: fmtCryptoAmount(nextCryptoFirstDepTier.depositAmount, cryptoFirstDepDisplayCurrency), bonus: fmtCryptoAmount(nextCryptoFirstDepTier.bonusAmount, cryptoFirstDepDisplayCurrency) })}</p>
+              ) : null}
+            </div>
+          </div>
+        )}
+      </div>
+    )
   }
 
   if (!open) return null
@@ -559,6 +660,7 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
                       <button key={id} type="button" onClick={()=>setDepositCategory(id)} className={`flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-black transition-colors border ${depositCategory===id?'border-primary bg-primary/10 text-primary shadow-[0_0_18px_rgba(245,158,11,0.20)]':'border-transparent text-white/45 hover:text-white/75'}`}><Icon size={14} />{label}</button>
                     ))}
                   </div>
+                  {renderCryptoFirstDepGuide()}
                   {/* 渠道 chips：单行横向滑动，可见约 3.5 个 */}
                   {currentCategoryMethods.length===0 ? (channelsLoading ? (
                     <div className="flex gap-2 overflow-hidden -mx-1 px-1 pb-1">
@@ -569,7 +671,7 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
                     {currentCategoryMethods.map((m)=>{
                       const disabled=m.enabled===false; const sel=selectedMethod===m.id
                       return (
-                        <button key={m.id} type="button" disabled={disabled} onClick={()=>{setSelectedMethod(m.id);setAmount('');setDepositMessage('')}}
+                        <button key={m.id} type="button" disabled={disabled} onClick={()=>{setSelectedMethod(m.id);if(depositCategory!=='crypto')setAmount('');setDepositMessage('')}}
                           className={`relative flex-shrink-0 w-[27%] rounded-2xl border p-2 flex flex-col items-center justify-center gap-1.5 transition-colors ${sel?'border-primary bg-primary/10 shadow-[0_0_22px_rgba(245,158,11,0.20)]':'border-white/10 bg-[#101a2c]'} ${disabled?'opacity-40':''}`}>
                           {sel&&<span className="absolute right-1.5 top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-black"><Check size={10} strokeWidth={3}/></span>}
                           {m.iconUrl ? <div className="w-10 h-10 rounded-xl overflow-hidden flex-shrink-0"><img src={m.iconUrl} alt={m.name} className="w-full h-full object-contain" /></div>
@@ -603,11 +705,17 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
                             </div>
                             <div className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/20 rounded-xl px-3 py-2.5">
                               <ShieldCheck size={13} className="text-amber-400 flex-shrink-0" />
-                              <span className="text-[11px] text-amber-300/80">{`Network: ${selectedPayMethod.matrixChain} · Min 1 ${selectedPayMethod.matrixSymbol}`}</span>
+                              <span className="text-[11px] text-amber-300/80">{t('wallet.matrixDepositLimitNote', { chain: selectedPayMethod.matrixChain, symbol: selectedPayMethod.matrixSymbol })}</span>
                             </div>
                           </>
+                        ) : depositMessage ? (
+                          <div className="space-y-3 rounded-2xl border border-white/10 bg-[#101a2c] px-4 py-4 text-center">
+                            <p className="text-xs font-bold leading-relaxed text-amber-400">
+                              {depositMessage}
+                            </p>
+                          </div>
                         ) : (
-                          <p className="text-xs text-amber-400 text-center py-4">{depositMessage}</p>
+                          null
                         )}
                       </div>
                     ) : (

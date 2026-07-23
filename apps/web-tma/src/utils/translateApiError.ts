@@ -5,6 +5,10 @@ type Translate = (key: string, opts?: Record<string, unknown>) => string
  * 前端展示前翻译；非 key 文案原样返回，兼容尚未 key 化的旧消息。
  */
 export function translateApiError(message: string, t: Translate): string {
+  if (/Matrix API error 1017/.test(message) || message.includes('商户未配置该币种')) {
+    return t('wallet.matrixCurrencyUnavailable')
+  }
+
   const withParam = message.match(/^((?:errors|auth\.errors|kyc\.errors)\.[a-zA-Z]+):(.+)$/)
   if (withParam) {
     const param = withParam[1].endsWith('smsFailedWithCode') ? { code: withParam[2] } : { value: withParam[2] }
