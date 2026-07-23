@@ -476,14 +476,14 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
           <button type="button" className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/5 transition-colors hover:bg-white/10" onClick={onClose}><X size={18} className="text-white/55" /></button>
         </div>
 
-        <div className="flex flex-shrink-0 gap-1.5 px-5 pt-3">
+        {/* 顶部 tab 条：为保持充/提纯粹性，永不展示"提现"tab，三个视图下均只显示 充值 · 记录 */}
+        <div className="flex flex-shrink-0 gap-2 px-5 pt-3">
           {([
             { id: 'deposit' as const, label: t('wallet.deposit'), Icon: ArrowDownToLine },
-            { id: 'withdraw' as const, label: t('wallet.withdraw'), Icon: ArrowUpFromLine },
             { id: 'history' as const, label: t('wallet.history'), Icon: History },
           ]).map(({ id, label, Icon }) => (
             <button key={id} type="button" onClick={() => switchTab(id)}
-              className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl border py-2 text-xs font-black transition-colors ${tab===id?'border-primary bg-primary/10 text-primary shadow-[0_0_18px_rgba(245,158,11,0.20)]':'border-white/10 bg-[#0a1424] text-white/45 hover:text-white/75'}`}>
+              className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl border py-3 text-xs font-black transition-colors ${tab===id?'border-primary bg-primary text-black shadow-[0_0_20px_rgba(245,158,11,0.34)]':'border-white/10 bg-[#101a2c] text-white/40 hover:text-white/80'}`}>
               <Icon size={14} />{label}
             </button>
           ))}
