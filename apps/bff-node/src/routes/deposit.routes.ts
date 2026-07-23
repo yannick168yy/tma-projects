@@ -147,7 +147,13 @@ router.get('/matrix/address', async (ctx) => {
     fail(ctx, 400, 'symbol and chain are required')
     return
   }
-  if (isMysqlEnabled(ctx.state.env) && !(await isCryptoChannelEnabled(ctx.state.env, `matrix_${symbol.toLowerCase()}`))) {
+  // 渠道开关按「币×链」粒度存（matrix_usdt_trc / matrix_usdc_erc…），需按链后缀拼出真实 name 再校验；
+  // 否则查 matrix_usdt 这种不存在的 name 会 fail-open，后台的按链开关形同虚设。测试链无后缀，回退到 matrix_{symbol}。
+  const chainSuffix: Record<string, string> = { TRON: 'trc', ETHEREUM: 'erc' }
+  const channelName = chainSuffix[chain]
+    ? `matrix_${symbol.toLowerCase()}_${chainSuffix[chain]}`
+    : `matrix_${symbol.toLowerCase()}`
+  if (isMysqlEnabled(ctx.state.env) && !(await isCryptoChannelEnabled(ctx.state.env, channelName))) {
     fail(ctx, 403, 'errors.channelClosed'); return
   }
 
