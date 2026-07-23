@@ -16,6 +16,8 @@ export interface PaymentChannel {
   depositFeeValue: number
   withdrawFeeType: FeeType
   withdrawFeeValue: number
+  withdrawMin: number | null
+  withdrawMax: number | null
   enabled: boolean
   sortOrder: number
   rules: PaymentChannelRule[]
@@ -43,6 +45,7 @@ type ChannelRow = RowDataPacket & {
   id: number; name: string; provider: string; label: string; category: string
   deposit_fee_type: FeeType; deposit_fee_value: string | number
   withdraw_fee_type: FeeType; withdraw_fee_value: string | number
+  withdraw_min: string | null; withdraw_max: string | null
   enabled: number; sort_order: number; created_at: Date; updated_at: Date
 }
 
@@ -60,6 +63,8 @@ function mapChannel(row: ChannelRow, rules: PaymentChannelRule[]): PaymentChanne
     depositFeeValue: Number(row.deposit_fee_value ?? 0),
     withdrawFeeType: row.withdraw_fee_type ?? 'none',
     withdrawFeeValue: Number(row.withdraw_fee_value ?? 0),
+    withdrawMin: row.withdraw_min !== null ? Number(row.withdraw_min) : null,
+    withdrawMax: row.withdraw_max !== null ? Number(row.withdraw_max) : null,
     enabled: row.enabled === 1, sortOrder: row.sort_order,
     rules,
     createdAt: new Date(row.created_at).toISOString(),
@@ -105,17 +110,19 @@ export async function createChannel(
     name: string; provider: string; label: string; category?: string
     depositFeeType?: FeeType; depositFeeValue?: number
     withdrawFeeType?: FeeType; withdrawFeeValue?: number
+    withdrawMin?: number | null; withdrawMax?: number | null
     enabled: boolean; sortOrder: number
   }
 ): Promise<number> {
   const [res] = await pool(env).query<ResultSetHeader>(
     `INSERT INTO payment_channels
-       (name, provider, label, category, deposit_fee_type, deposit_fee_value, withdraw_fee_type, withdraw_fee_value, enabled, sort_order)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (name, provider, label, category, deposit_fee_type, deposit_fee_value, withdraw_fee_type, withdraw_fee_value, withdraw_min, withdraw_max, enabled, sort_order)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       data.name, data.provider, data.label, data.category ?? 'fiat',
       data.depositFeeType ?? 'none', data.depositFeeValue ?? 0,
       data.withdrawFeeType ?? 'none', data.withdrawFeeValue ?? 0,
+      data.withdrawMin ?? null, data.withdrawMax ?? null,
       data.enabled ? 1 : 0, data.sortOrder,
     ]
   )
@@ -129,6 +136,7 @@ export async function updateChannel(
     name: string; provider: string; label: string; category: string
     depositFeeType: FeeType; depositFeeValue: number
     withdrawFeeType: FeeType; withdrawFeeValue: number
+    withdrawMin: number | null; withdrawMax: number | null
     enabled: boolean; sortOrder: number
   }>
 ): Promise<boolean> {
@@ -142,6 +150,8 @@ export async function updateChannel(
   if (data.depositFeeValue !== undefined) { sets.push('deposit_fee_value = ?'); vals.push(data.depositFeeValue) }
   if (data.withdrawFeeType !== undefined) { sets.push('withdraw_fee_type = ?'); vals.push(data.withdrawFeeType) }
   if (data.withdrawFeeValue !== undefined) { sets.push('withdraw_fee_value = ?'); vals.push(data.withdrawFeeValue) }
+  if ('withdrawMin' in data) { sets.push('withdraw_min = ?'); vals.push(data.withdrawMin ?? null) }
+  if ('withdrawMax' in data) { sets.push('withdraw_max = ?'); vals.push(data.withdrawMax ?? null) }
   if (data.enabled !== undefined) { sets.push('enabled = ?'); vals.push(data.enabled ? 1 : 0) }
   if (data.sortOrder !== undefined) { sets.push('sort_order = ?'); vals.push(data.sortOrder) }
   if (sets.length === 0) return false
@@ -280,16 +290,25 @@ export interface CryptoChannelState {
   label: string
   enabled: boolean
   sortOrder: number
+  withdrawMin: number | null
+  withdrawMax: number | null
 }
 
-// 虚拟币 / TG 渠道（category='crypto'）的开关状态，供客户端按开关展示
+// 虚拟币 / TG 渠道（category='crypto'）的开关状态 + 提现限额，供客户端按开关展示与前置校验
 export async function listCryptoChannelStates(env: Env): Promise<CryptoChannelState[]> {
-  type Row = RowDataPacket & { name: string; label: string; enabled: number; sort_order: number }
+  type Row = RowDataPacket & {
+    name: string; label: string; enabled: number; sort_order: number
+    withdraw_min: string | null; withdraw_max: string | null
+  }
   const [rows] = await pool(env).query<Row[]>(
-    `SELECT name, label, enabled, sort_order FROM payment_channels
+    `SELECT name, label, enabled, sort_order, withdraw_min, withdraw_max FROM payment_channels
      WHERE category = 'crypto' ORDER BY sort_order ASC, id ASC`
   )
-  return rows.map((r) => ({ name: r.name, label: r.label, enabled: r.enabled === 1, sortOrder: r.sort_order }))
+  return rows.map((r) => ({
+    name: r.name, label: r.label, enabled: r.enabled === 1, sortOrder: r.sort_order,
+    withdrawMin: r.withdraw_min !== null ? Number(r.withdraw_min) : null,
+    withdrawMax: r.withdraw_max !== null ? Number(r.withdraw_max) : null,
+  }))
 }
 
 // 服务端拦截：虚拟币渠道是否启用。未配置该渠道时放行（fail-open，避免漏播种打断下单）
@@ -300,4 +319,28 @@ export async function isCryptoChannelEnabled(env: Env, name: string): Promise<bo
   )
   if (rows.length === 0) return true
   return rows[0].enabled === 1
+}
+
+export interface CryptoWithdrawGate {
+  exists: boolean
+  enabled: boolean
+  withdrawMin: number | null
+  withdrawMax: number | null
+}
+
+// 虚拟币提现的开关 + 每笔限额，一次查询供提现下单校验。未配置该渠道时 fail-open（放行、无限额）
+export async function getCryptoWithdrawGate(env: Env, name: string): Promise<CryptoWithdrawGate> {
+  const [rows] = await pool(env).query<RowDataPacket[]>(
+    `SELECT enabled, withdraw_min, withdraw_max FROM payment_channels
+     WHERE name = ? AND category = 'crypto' LIMIT 1`,
+    [name]
+  )
+  if (rows.length === 0) return { exists: false, enabled: true, withdrawMin: null, withdrawMax: null }
+  const r = rows[0]
+  return {
+    exists: true,
+    enabled: r.enabled === 1,
+    withdrawMin: r.withdraw_min !== null ? Number(r.withdraw_min) : null,
+    withdrawMax: r.withdraw_max !== null ? Number(r.withdraw_max) : null,
+  }
 }

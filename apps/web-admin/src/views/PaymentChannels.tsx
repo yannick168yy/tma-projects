@@ -182,6 +182,8 @@ const CRYPTO_PROVIDER_OPTIONS = [
 ]
 const CRYPTO_NAME_OPTIONS: Record<string, { value: string; label: string }[]> = {
   matrix: [
+    { value: 'matrix_usdt_w', label: 'USDT 提现' },
+    { value: 'matrix_usdc_w', label: 'USDC 提现' },
     { value: 'matrix_trx_testnet', label: 'Matrix TRX 充值 (测试)' },
     { value: 'matrix_trx_testnet_w', label: 'Matrix TRX 提现 (测试)' },
   ],
@@ -208,6 +210,8 @@ type ChannelFormValues = {
   depositFeeValue: number
   withdrawFeeType: FeeType
   withdrawFeeValue: number
+  withdrawMin: number | null
+  withdrawMax: number | null
   enabled: boolean
   sortOrder: number
 }
@@ -266,6 +270,8 @@ export default function PaymentChannels() {
           depositFeeValue: vals.depositFeeValue ?? 0,
           withdrawFeeType: vals.withdrawFeeType ?? 'none',
           withdrawFeeValue: vals.withdrawFeeValue ?? 0,
+          withdrawMin: vals.withdrawMin ?? null,
+          withdrawMax: vals.withdrawMax ?? null,
         })
       } else {
         await createPaymentChannel({
@@ -275,6 +281,8 @@ export default function PaymentChannels() {
           depositFeeValue: vals.depositFeeValue ?? 0,
           withdrawFeeType: vals.withdrawFeeType ?? 'none',
           withdrawFeeValue: vals.withdrawFeeValue ?? 0,
+          withdrawMin: vals.withdrawMin ?? null,
+          withdrawMax: vals.withdrawMax ?? null,
         })
       }
       message.success('已保存')
@@ -303,6 +311,8 @@ export default function PaymentChannels() {
       depositFeeValue: channel.depositFeeValue ?? 0,
       withdrawFeeType: channel.withdrawFeeType ?? 'none',
       withdrawFeeValue: channel.withdrawFeeValue ?? 0,
+      withdrawMin: channel.withdrawMin ?? null,
+      withdrawMax: channel.withdrawMax ?? null,
     })
     setChannelModal({ open: true, channel })
   }
@@ -379,7 +389,19 @@ export default function PaymentChannels() {
           expandedRowRender: (record) => (
             <div style={{ padding: '8px 16px' }}>
               {record.category === 'crypto' ? (
-                <Typography.Text type="secondary">虚拟币 / TG 渠道：仅后台开关控制，无金额区间 / 权重路由规则。</Typography.Text>
+                <Space direction="vertical" size={4}>
+                  <Typography.Text type="secondary">虚拟币 / TG 渠道：开关 + 单笔提现限额（币种单位），无权重路由规则。</Typography.Text>
+                  <Typography.Text>
+                    单笔提现额度：
+                    <Tag color="blue" style={{ marginLeft: 8 }}>
+                      最低 {record.withdrawMin !== null ? record.withdrawMin : '不限'}
+                    </Tag>
+                    <Tag color="blue">
+                      最高 {record.withdrawMax !== null ? record.withdrawMax : '不限'}
+                    </Tag>
+                    <Typography.Text type="secondary" style={{ marginLeft: 8 }}>（编辑渠道修改）</Typography.Text>
+                  </Typography.Text>
+                </Space>
               ) : (
                 <>
                   <Typography.Text strong style={{ marginBottom: 8, display: 'block' }}>
@@ -427,6 +449,12 @@ export default function PaymentChannels() {
                   placeholder={formProvider ? '选择渠道标识' : '请先选择服务商'}
                   disabled={!formProvider}
                 />
+              </Form.Item>
+              <Form.Item label="单笔提现最低额（币种单位，留空=不限）" name="withdrawMin">
+                <InputNumber min={0} style={{ width: '100%' }} placeholder="不限制" />
+              </Form.Item>
+              <Form.Item label="单笔提现最高额（币种单位，留空=不限）" name="withdrawMax">
+                <InputNumber min={0} style={{ width: '100%' }} placeholder="不限制" />
               </Form.Item>
             </>
           ) : (

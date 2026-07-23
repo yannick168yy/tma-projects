@@ -8,6 +8,8 @@ export default {
     withdrawableInsufficient: 'Saldo yang dapat ditarik tidak mencukupi',
     amountOrChannelUnavailable: 'Jumlah atau saluran ini tidak tersedia, sesuaikan jumlah lalu coba lagi',
     minWithdrawal: 'Penarikan minimum ₱{{value}}',
+    withdrawBelowMin: 'Di bawah penarikan minimum {{value}}',
+    withdrawAboveMax: 'Di atas penarikan maksimum {{value}}',
     accountDebt: 'Akun Anda memiliki tunggakan, silakan hubungi dukungan terlebih dahulu',
     withdrawSubmitFailed: 'Permintaan penarikan gagal, silakan coba lagi',
     notAgent: 'Bukan akun agen',

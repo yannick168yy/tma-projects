@@ -8,6 +8,8 @@ export default {
     withdrawableInsufficient: 'Số dư có thể rút không đủ',
     amountOrChannelUnavailable: 'Số tiền hoặc kênh này không khả dụng, vui lòng điều chỉnh số tiền và thử lại',
     minWithdrawal: 'Rút tối thiểu ₱{{value}}',
+    withdrawBelowMin: 'Thấp hơn mức rút tối thiểu {{value}}',
+    withdrawAboveMax: 'Cao hơn mức rút tối đa {{value}}',
     accountDebt: 'Tài khoản của bạn đang có khoản nợ, vui lòng liên hệ hỗ trợ trước',
     withdrawSubmitFailed: 'Yêu cầu rút tiền thất bại, vui lòng thử lại',
     notAgent: 'Không phải tài khoản đại lý',

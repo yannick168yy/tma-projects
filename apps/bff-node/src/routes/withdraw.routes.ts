@@ -3,7 +3,7 @@ import { randomBytes } from 'node:crypto'
 import { creditWallet, getKyc, getWallet, getWalletBalances, getWithdraw, listWithdrawals, saveWithdraw } from '../services/store.js'
 import { generateMerchantOrderNo, initMatrixWithdrawOrder } from '../services/matrix.service.js'
 import { isMatrixEnabled } from '../clients/matrix.client.js'
-import { isCryptoChannelEnabled } from '../services/payment-channel.service.js'
+import { getCryptoWithdrawGate } from '../services/payment-channel.service.js'
 import { getMysqlPool, isMysqlEnabled } from '../clients/mysql.client.js'
 import { nowIso } from '../utils/format.js'
 import { fail, ok } from '../utils/response.js'
@@ -78,13 +78,20 @@ router.post('/', async (ctx) => {
       fail(ctx, 400, 'toAddress, symbol, chain, cryptoAmount are required for Matrix withdrawal')
       return
     }
-    if (isMysqlEnabled(ctx.state.env) && !(await isCryptoChannelEnabled(ctx.state.env, `matrix_${symbol.toLowerCase()}_w`))) {
-      fail(ctx, 403, 'errors.channelClosed'); return
-    }
     const cryptoAmt = Number(cryptoAmount)
     if (!Number.isFinite(cryptoAmt) || cryptoAmt <= 0) {
       fail(ctx, 400, 'Invalid cryptoAmount')
       return
+    }
+    if (isMysqlEnabled(ctx.state.env)) {
+      const gate = await getCryptoWithdrawGate(ctx.state.env, `matrix_${symbol.toLowerCase()}_w`)
+      if (!gate.enabled) { fail(ctx, 403, 'errors.channelClosed'); return }
+      if (gate.withdrawMin !== null && cryptoAmt < gate.withdrawMin) {
+        fail(ctx, 400, `errors.withdrawBelowMin:${gate.withdrawMin}`); return
+      }
+      if (gate.withdrawMax !== null && cryptoAmt > gate.withdrawMax) {
+        fail(ctx, 400, `errors.withdrawAboveMax:${gate.withdrawMax}`); return
+      }
     }
 
     const userId = ctx.state.userId!

@@ -23,6 +23,7 @@ router.post('/channels', requireRole('super_admin'), async (ctx) => {
     name?: string; provider?: string; label?: string; category?: string
     depositFeeType?: string; depositFeeValue?: unknown
     withdrawFeeType?: string; withdrawFeeValue?: unknown
+    withdrawMin?: unknown; withdrawMax?: unknown
     enabled?: unknown; sortOrder?: unknown
   }
   if (!body.name || !body.provider || !body.label) {
@@ -37,6 +38,8 @@ router.post('/channels', requireRole('super_admin'), async (ctx) => {
     depositFeeValue: Number(body.depositFeeValue ?? 0),
     withdrawFeeType: normalizeFeeType(body.withdrawFeeType),
     withdrawFeeValue: Number(body.withdrawFeeValue ?? 0),
+    withdrawMin: parseAmount(body.withdrawMin),
+    withdrawMax: parseAmount(body.withdrawMax),
     enabled: body.enabled !== false,
     sortOrder: Number(body.sortOrder ?? 0),
   })
@@ -54,6 +57,7 @@ router.put('/channels/:id', requireRole('super_admin'), async (ctx) => {
     name?: string; provider?: string; label?: string; category?: string
     depositFeeType?: string; depositFeeValue?: unknown
     withdrawFeeType?: string; withdrawFeeValue?: unknown
+    withdrawMin?: unknown; withdrawMax?: unknown
     enabled?: unknown; sortOrder?: unknown
   }
   const data: Parameters<typeof updateChannel>[2] = {}
@@ -65,6 +69,8 @@ router.put('/channels/:id', requireRole('super_admin'), async (ctx) => {
   if (body.depositFeeValue !== undefined) data.depositFeeValue = Number(body.depositFeeValue)
   if (body.withdrawFeeType !== undefined) data.withdrawFeeType = normalizeFeeType(body.withdrawFeeType)
   if (body.withdrawFeeValue !== undefined) data.withdrawFeeValue = Number(body.withdrawFeeValue)
+  if ('withdrawMin' in body) data.withdrawMin = parseAmount(body.withdrawMin)
+  if ('withdrawMax' in body) data.withdrawMax = parseAmount(body.withdrawMax)
   if (body.enabled !== undefined) data.enabled = Boolean(body.enabled)
   if (body.sortOrder !== undefined) data.sortOrder = Number(body.sortOrder)
   const updated = await updateChannel(ctx.state.env, id, data)
@@ -111,6 +117,13 @@ const TX_TYPES: TxType[] = ['deposit', 'withdraw', 'both']
 
 function normalizeFeeType(v: unknown): FeeType {
   return FEE_TYPES.includes(v as FeeType) ? v as FeeType : 'none'
+}
+
+// 空 / null / 非法 → null（不限制）；否则转数字
+function parseAmount(v: unknown): number | null {
+  if (v === undefined || v === null || v === '') return null
+  const n = Number(v)
+  return Number.isFinite(n) ? n : null
 }
 
 router.post('/channels/:channelId/rules', requireRole('super_admin'), async (ctx) => {
