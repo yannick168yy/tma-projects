@@ -133,11 +133,6 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
   const [redepNow, setRedepNow] = useState(() => Date.now())
   const [firstDepDone, setFirstDepDone] = useState<boolean | null>(null)
 
-  // 复充限时优惠：打开充值页时按当前币种拉取；窗口生效期间每秒走倒计时（每币种独立）
-  useEffect(() => {
-    if (!open || tab !== 'deposit' || !isLoggedIn) return
-    fetchRedepOffer(activeCurrency).then(setRedepOffer).catch(() => setRedepOffer(null))
-  }, [open, tab, isLoggedIn, activeCurrency])
   useEffect(() => {
     if (!open || tab !== 'deposit' || !isLoggedIn) { setFirstDepDone(null); return }
     setFirstDepDone(null)
@@ -350,12 +345,17 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
     return cryptoWithdrawGas[`matrix_${sym.toLowerCase()}_w`] ?? { gas: 0, discountThreshold: null, discountFee: null }
   }, [isMatrixWithdraw, selectedPayMethod, cryptoWithdrawGas])
   const isCryptoMethod = /usdt|usdc/.test(selectedMethod ?? '') && !isTgWallet
-  const depositCurrency = selectedPayMethod?.currency ?? 'PHP'
+  const depositCurrency = selectedPayMethod?.currency ?? selectedPayMethod?.matrixSymbol ?? 'PHP'
   const depositCategoryMethods = useMemo((): Record<DepositCategory, PayMethod[]> => ({
     ewallet: liveFiatDeposit, crypto: liveCryptoDeposit, telegram: liveTgWalletDeposit,
   }), [liveFiatDeposit, liveCryptoDeposit, liveTgWalletDeposit])
   const currentCategoryMethods = depositCategoryMethods[depositCategory]
   const firstDepEligible = isLoggedIn && firstDepDone === false && (promoConfig?.firstdep.enabled ?? false)
+  // 复充限时优惠：按当前选择的充值币种拉取；窗口生效期间每秒走倒计时（每币种独立）
+  useEffect(() => {
+    if (!open || tab !== 'deposit' || !isLoggedIn) { setRedepOffer(null); return }
+    fetchRedepOffer(depositCurrency).then(setRedepOffer).catch(() => setRedepOffer(null))
+  }, [open, tab, isLoggedIn, depositCurrency])
   const depositPresets = DEPOSIT_PRESETS[depositCurrency] ?? DEPOSIT_PRESETS.PHP
   const depositTierList = promoConfig?.firstdep.tiers?.[depositCurrency]
   const cryptoFirstDepCurrency = useMemo(() => {
@@ -377,9 +377,10 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
     : null
   const recommendedCryptoFirstDepTiers = firstDepTiersSorted.slice(0, 5)
   const cryptoFirstDepDisplayCurrency = cryptoFirstDepCurrency ?? 'USDT'
-  // 复充限时优惠仅 PHP 充值参与；首充资格存续时以首充为准，不叠加展示
+  // 首充未完成或状态未确认时不展示复充，避免首充与复充同时出现
   // 复充展示条件：offer 币种与当前充值币种一致（redep 已多币种）
-  const redepShow = redepActive && !firstDepEligible && depositCurrency === (redepOffer?.currency ?? 'PHP')
+  const redepShow = redepActive && firstDepDone === true && depositCurrency === (redepOffer?.currency ?? 'PHP')
+  const showCryptoRedepGuide = isMatrixDeposit && redepShow
   const redepBonusFor = (amt: number) => (redepShow && amt >= (redepOffer?.minDeposit ?? Infinity) ? (redepOffer?.bonusAmount ?? 0) : 0)
   const selectedBonus = firstDepEligible ? matchTierBonus(depositTierList, Number(amount)) : redepBonusFor(Number(amount))
   const receiveAmount = Math.max(0, Number(amount) || 0) + selectedBonus
@@ -591,6 +592,69 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
     )
   }
 
+  function renderCryptoRedepGuide() {
+    if (!showCryptoRedepGuide) return null
+    const minDeposit = redepOffer?.minDeposit ?? 0
+    const bonusAmount = redepOffer?.bonusAmount ?? 0
+    const currentAmount = Number(amount)
+    const unlocked = currentAmount >= minDeposit && bonusAmount > 0
+    return (
+      <div className="space-y-3 rounded-2xl border border-amber-400/40 bg-gradient-to-br from-amber-500/15 via-orange-500/10 to-[#101a2c] p-3 shadow-[0_0_22px_rgba(245,158,11,0.16)]">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex min-w-0 items-start gap-2.5">
+            <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-amber-400/15 text-amber-300">
+              <Clock size={18} strokeWidth={2.5} />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-black text-amber-300">{t('wallet.limitedOfferTitle')}</p>
+              <p className="mt-0.5 text-[11px] font-bold leading-snug text-white/70">
+                {t('wallet.limitedOfferDesc', { min: fmtCryptoAmount(minDeposit, depositCurrency), bonus: fmtCryptoAmount(bonusAmount, depositCurrency) })}
+              </p>
+            </div>
+          </div>
+          <span className="flex-shrink-0 rounded-lg bg-amber-400/10 px-2 py-1 font-mono text-sm font-black tabular-nums text-amber-300">{redepCountdown()}</span>
+        </div>
+        <div className="grid grid-cols-[1fr_auto] gap-2">
+          <button
+            type="button"
+            onClick={() => { setAmount(String(minDeposit)); setCopiedDepositAmount(false) }}
+            className={`rounded-xl border px-3 py-2 text-left transition-colors ${amount === String(minDeposit) ? 'border-amber-300 bg-amber-400/20' : 'border-white/10 bg-[#07111f]/80'}`}
+          >
+            <span className="block text-xs font-black text-white leading-none">{fmtCryptoAmount(minDeposit, depositCurrency)}</span>
+            <span className="mt-1 block text-[10px] font-black leading-none text-amber-300">+{fmtCryptoAmount(bonusAmount, depositCurrency)}</span>
+          </button>
+          <button
+            type="button"
+            disabled={!amount}
+            onClick={() => void copyDepositAmount()}
+            className={`flex min-w-[92px] items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-[11px] font-black transition-colors disabled:opacity-45 ${copiedDepositAmount ? 'bg-emerald-500/18 text-emerald-300' : 'bg-amber-400 text-black hover:bg-yellow-300'}`}
+          >
+            {copiedDepositAmount ? <Check size={13} strokeWidth={3} /> : <Copy size={13} strokeWidth={3} />}
+            {copiedDepositAmount ? t('common.copied') : t('wallet.copyAmount')}
+          </button>
+        </div>
+        {currentAmount > 0 && (
+          <div className="flex items-center justify-between gap-3 rounded-xl border border-amber-400/25 bg-amber-400/10 px-3 py-2.5">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-widest text-white/45">{t('wallet.cryptoFirstDepExpected')}</p>
+              <p className="mt-0.5 text-sm font-black text-white">
+                {fmtCryptoAmount(currentAmount + (unlocked ? bonusAmount : 0), depositCurrency)}
+              </p>
+            </div>
+            <div className="text-right text-[11px] font-bold">
+              <p className="text-white/70">{fmtCryptoAmount(currentAmount, depositCurrency)}</p>
+              {unlocked ? (
+                <p className="mt-0.5 text-amber-300">+{fmtCryptoAmount(bonusAmount, depositCurrency)}</p>
+              ) : (
+                <p className="mt-0.5 max-w-[150px] text-amber-300">{t('wallet.cryptoFirstDepNext', { amount: fmtCryptoAmount(minDeposit, depositCurrency), bonus: fmtCryptoAmount(bonusAmount, depositCurrency) })}</p>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  }
+
   if (!open) return null
 
   return createPortal(
@@ -685,6 +749,7 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
                   </div>
                   )}
                   {renderCryptoFirstDepGuide()}
+                  {renderCryptoRedepGuide()}
                   {selectedPayMethod ? (
                     isMatrixDeposit ? (
                       <div className="space-y-4">
