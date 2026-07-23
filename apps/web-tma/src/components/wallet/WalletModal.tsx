@@ -235,6 +235,20 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
 
   useEffect(() => { if(tab==='history')void loadHistory() }, [tab])
 
+  // 记录页存在处理中的充值时，静默轮询刷新，让用户原地看到"处理中→成功"翻转，避免二次恐慌
+  const hasPendingDeposit = useMemo(() => historyOrders.some((o) => o.type === 'deposit' && o.status === 'pending'), [historyOrders])
+  useEffect(() => {
+    if (tab !== 'history' || !hasPendingDeposit) return
+    const timer = setInterval(() => { void loadHistory(true) }, 10000)
+    return () => clearInterval(timer)
+  }, [tab, hasPendingDeposit])
+  // pending 充值消失(到账/失败)时同步刷新顶部余额
+  const prevPendingRef = useRef(false)
+  useEffect(() => {
+    if (prevPendingRef.current && !hasPendingDeposit) void walletStore.refresh()
+    prevPendingRef.current = hasPendingDeposit
+  }, [hasPendingDeposit])
+
   useEffect(() => {
     if (tab !== 'withdraw' || !selectedMethod) return
     const allFiltered = [...filteredFiatWithdraw, ...filteredCryptoWithdraw]
@@ -429,8 +443,8 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
     try { await navigator.clipboard.writeText(matrixAddress); setCopiedAddress(true); setTimeout(() => setCopiedAddress(false), 2000) } catch { /**/ }
   }
 
-  async function loadHistory() {
-    setHistoryLoading(true)
+  async function loadHistory(silent = false) {
+    if (!silent) setHistoryLoading(true)
     try{
       const[yfDeposits,yfWithdrawals,bgDeposits,bgWithdrawals]=await Promise.all([fetchYfDepositOrders().catch(()=>[]),fetchYfWithdrawOrders().catch(()=>[]),fetchDepositHistory().catch(()=>[]),fetchWithdrawHistory().catch(()=>[])])
       const seen=new Set<string>(); const items: HistoryItem[]=[]
@@ -439,7 +453,7 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
       for(const d of yfDeposits)if(!seen.has(d.merchantSerial))items.push({id:d.merchantSerial,orderId:d.merchantSerial,type:'deposit',method:methodDisplayName(d.channelCode??''),amount:`+₱${d.amount.toFixed(2)}`,date:formatOrderDate(d.createdAt),sortKey:d.createdAt,status:mapDepositState(d.state)})
       for(const w of yfWithdrawals)if(!seen.has(w.merchantSerial))items.push({id:w.merchantSerial,orderId:w.merchantSerial,type:'withdraw',method:methodDisplayName(w.optionCode??''),amount:`-₱${w.amount.toFixed(2)}`,date:formatOrderDate(w.createdAt),sortKey:w.createdAt,status:mapWithdrawState(w.state)})
       items.sort((a,b)=>b.sortKey.localeCompare(a.sortKey)); setHistoryOrders(items)
-    }catch{setHistoryOrders([])}finally{setHistoryLoading(false)}
+    }catch{if(!silent)setHistoryOrders([])}finally{if(!silent)setHistoryLoading(false)}
   }
 
   async function copyOrderId(id: string) { try{await navigator.clipboard.writeText(id);setCopiedId(id);setTimeout(()=>setCopiedId(null),2000)}catch{/***/} }
