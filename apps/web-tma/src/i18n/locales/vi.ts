@@ -807,6 +807,8 @@ export default {
     completeInTelegram: 'Hoàn tất thanh toán trong Telegram, rồi kiểm tra số dư.',
     unavailable: 'Thanh toán tạm thời không khả dụng. Thử lại sau.',
     depositFailed: 'Nạp thất bại. Thử lại.',
+    depositProcessing: 'Đang xử lý nạp tiền — thường ghi có trong vài phút, vui lòng chờ.',
+    depositPendingStale: 'Thanh toán này có thể đã hết hạn. Chúng tôi đang kiểm tra trạng thái cuối cùng.',
     tagInstant: 'Tức thì',
     tagHours: '1–24 giờ',
     yfpayProceedDeposit: 'Thanh Toán Ngay',

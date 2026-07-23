@@ -807,6 +807,8 @@ export default {
     completeInTelegram: 'Selesaikan pembayaran di Telegram, lalu cek saldo.',
     unavailable: 'Pembayaran sementara tidak tersedia. Coba lagi nanti.',
     depositFailed: 'Deposit gagal. Coba lagi.',
+    depositProcessing: 'Deposit sedang diproses — biasanya masuk dalam beberapa menit, mohon tunggu.',
+    depositPendingStale: 'Pembayaran ini mungkin sudah kedaluwarsa. Kami sedang memeriksa status akhir.',
     tagInstant: 'Instan',
     tagHours: '1–24 jam',
     yfpayProceedDeposit: 'Bayar Sekarang',

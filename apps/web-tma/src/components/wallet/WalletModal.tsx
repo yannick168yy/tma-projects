@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { QRCodeSVG } from 'qrcode.react'
-import { Wallet, X, ArrowDownToLine, ArrowUpFromLine, History, CheckCircle2, AlertCircle, XCircle, Loader2, ArrowLeft, Send, ShieldCheck, Zap, Headphones, Copy, Check, Lock, Gift, Clock } from 'lucide-react'
+import { Wallet, X, ArrowDownToLine, ArrowUpFromLine, History, CheckCircle2, AlertCircle, XCircle, Loader2, ArrowLeft, Send, ShieldCheck, Zap, Headphones, Copy, Check, Lock, Gift, Clock, ChevronDown } from 'lucide-react'
 import { createPortal } from 'react-dom'
 import PayMethodGrid from '@/components/wallet/PayMethodGrid'
 import { createDeposit } from '@/api/deposit'
@@ -121,6 +121,7 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
   const [turnoverProgress, setTurnoverProgress] = useState<TurnoverProgress | null>(null)
   const [turnoverLoading, setTurnoverLoading] = useState(false)
   const [turnoverShake, setTurnoverShake] = useState(false)
+  const [turnoverExpanded, setTurnoverExpanded] = useState(false)
   const [walletBannerUrl, setWalletBannerUrl] = useState(defaultTopupBanner)
   const [redepOffer, setRedepOffer] = useState<RedepOffer | null>(null)
   const [redepNow, setRedepNow] = useState(() => Date.now())
@@ -445,6 +446,14 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
 
   function resetToSelect() { pendingWithdrawMethodRef.current = null; setDepositView('select'); setSelectedMethod(null); setAmount(''); setDepositMessage(''); setWithdrawMessage(''); setWithdrawAccount(''); setWithdrawOwner(''); stopPolling(); setDepositLoading(false); setPollSerial(''); setDepositSuccess(false); setMatrixAddress(''); setMatrixCryptoAmount(''); setCopiedAddress(false) }
 
+  function switchTab(next: 'deposit'|'withdraw'|'history') {
+    if (next === tab) return
+    setTab(next)
+    resetToSelect()
+    setDepositMessage(''); setDepositSuccess(false)
+    setWithdrawMessage(''); setWithdrawSuccess(false)
+  }
+
   if (!open) return null
 
   return createPortal(
@@ -465,6 +474,19 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
           <div className="flex items-center gap-2.5"><Wallet size={20} className="text-primary" /><span className="font-display text-lg font-black uppercase tracking-wide text-white">{t('wallet.title')}</span></div>
           <span className="text-lg font-black tabular-nums text-primary">{displayActive}</span>
           <button type="button" className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/5 transition-colors hover:bg-white/10" onClick={onClose}><X size={18} className="text-white/55" /></button>
+        </div>
+
+        <div className="flex flex-shrink-0 gap-1.5 px-5 pt-3">
+          {([
+            { id: 'deposit' as const, label: t('wallet.deposit'), Icon: ArrowDownToLine },
+            { id: 'withdraw' as const, label: t('wallet.withdraw'), Icon: ArrowUpFromLine },
+            { id: 'history' as const, label: t('wallet.history'), Icon: History },
+          ]).map(({ id, label, Icon }) => (
+            <button key={id} type="button" onClick={() => switchTab(id)}
+              className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl border py-2 text-xs font-black transition-colors ${tab===id?'border-primary bg-primary/10 text-primary shadow-[0_0_18px_rgba(245,158,11,0.20)]':'border-white/10 bg-[#0a1424] text-white/45 hover:text-white/75'}`}>
+              <Icon size={14} />{label}
+            </button>
+          ))}
         </div>
 
         {tab === 'history' && (
@@ -639,35 +661,55 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
                               <span className="text-xs text-muted-foreground">{t('wallet.turnoverAllClear')}</span>
                             </div>
                           ) : null
-                        ) : (
+                        ) : (() => {
+                          const pend = turnoverProgress.requirements.filter(r=>r.status==='pending')
+                          const totalReq = pend.reduce((s,r)=>s+r.requiredAmount,0)
+                          const totalDone = pend.reduce((s,r)=>s+r.completedAmount,0)
+                          const totalPct = totalReq>0 ? Math.min(100, (totalDone/totalReq)*100) : 0
+                          const cur = pend[0]?.currency ?? 'PHP'
+                          const reqLabel = (req: typeof pend[number]) => req.sourceType==='deposit'?t('wallet.turnoverDeposit'):req.sourceRef==='trial'?t('wallet.promoTrial'):req.sourceRef==='referral'?t('wallet.promoReferral'):req.sourceRef==='firstdep'?t('wallet.promoFirstdep'):t('wallet.turnoverPromo')
+                          return (
                           <div className={`bg-amber-500/10 border border-amber-500/20 rounded-xl px-4 py-3 space-y-2.5${turnoverShake?' turnover-shake':''}`}>
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2">
-                                <Lock size={13} className="text-amber-400 flex-shrink-0" />
-                                <span className="text-[11px] font-bold text-amber-300">{t('wallet.turnoverBlocked')}</span>
-                              </div>
-                              <span className="text-xs font-black text-amber-400">{(() => {
-                                const byCurr: Record<string,number> = {}
-                                for (const r of turnoverProgress.requirements.filter(x=>x.status==='pending')) byCurr[r.currency]=(byCurr[r.currency]??0)+(r.requiredAmount-r.completedAmount)
-                                return Object.entries(byCurr).map(([c,v])=>fmtTurnoverAmount(v,c)).join(' + ')
-                              })()}</span>
-                            </div>
-                            {turnoverProgress.requirements.filter(r=>r.status==='pending').slice(0,3).map(req=>{
-                              const pct=Math.min(100,(req.completedAmount/req.requiredAmount)*100)
-                              return (
-                                <div key={req.id} className="space-y-1">
-                                  <div className="flex justify-between gap-2">
-                                    <span className="min-w-0 truncate text-[10px] text-amber-300/70">{req.sourceType==='deposit'?t('wallet.turnoverDeposit'):req.sourceRef==='trial'?t('wallet.promoTrial'):req.sourceRef==='referral'?t('wallet.promoReferral'):req.sourceRef==='firstdep'?t('wallet.promoFirstdep'):t('wallet.turnoverPromo')} · {fmtTurnoverAmount(req.completedAmount,req.currency??'PHP')} / {fmtTurnoverAmount(req.requiredAmount,req.currency??'PHP')}</span>
-                                    <span className="flex-shrink-0 text-[10px] font-bold text-amber-300/70">{Math.round(pct)}%</span>
-                                  </div>
-                                  <div className="h-1 bg-amber-500/20 rounded-full overflow-hidden">
-                                    <div className="h-full bg-amber-400 rounded-full" style={{width:`${pct}%`}} />
-                                  </div>
+                            <button type="button" className="w-full space-y-2" onClick={()=>setTurnoverExpanded(v=>!v)}>
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  <Lock size={13} className="text-amber-400 flex-shrink-0" />
+                                  <span className="text-[11px] font-bold text-amber-300">{t('wallet.turnoverBlocked')}</span>
                                 </div>
-                              )
-                            })}
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-xs font-black text-amber-400">{Math.round(totalPct)}%</span>
+                                  <ChevronDown size={14} className={`text-amber-300/70 transition-transform ${turnoverExpanded?'rotate-180':''}`} />
+                                </div>
+                              </div>
+                              <div className="h-2 bg-amber-500/20 rounded-full overflow-hidden">
+                                <div className="h-full bg-amber-400 rounded-full transition-all" style={{width:`${totalPct}%`}} />
+                              </div>
+                              <div className="flex justify-between gap-2 text-[10px] font-bold text-amber-300/70">
+                                <span className="truncate">{fmtTurnoverAmount(totalDone,cur)} / {fmtTurnoverAmount(totalReq,cur)}</span>
+                                <span className="flex-shrink-0">{t('wallet.turnoverRemaining')} {fmtTurnoverAmount(Math.max(0,totalReq-totalDone),cur)}</span>
+                              </div>
+                            </button>
+                            {turnoverExpanded && (
+                              <div className="space-y-2 border-t border-amber-500/15 pt-2">
+                                {pend.map(req=>{
+                                  const pct=Math.min(100,(req.completedAmount/req.requiredAmount)*100)
+                                  return (
+                                    <div key={req.id} className="space-y-1">
+                                      <div className="flex justify-between gap-2">
+                                        <span className="min-w-0 truncate text-[10px] text-amber-300/70">{reqLabel(req)} · {fmtTurnoverAmount(req.completedAmount,req.currency??'PHP')} / {fmtTurnoverAmount(req.requiredAmount,req.currency??'PHP')}</span>
+                                        <span className="flex-shrink-0 text-[10px] font-bold text-amber-300/70">{Math.round(pct)}%</span>
+                                      </div>
+                                      <div className="h-1 bg-amber-500/20 rounded-full overflow-hidden">
+                                        <div className="h-full bg-amber-400 rounded-full" style={{width:`${pct}%`}} />
+                                      </div>
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                            )}
                           </div>
-                        )
+                          )
+                        })()
                       ) : null}
                       {filteredFiatWithdraw.length > 0 && <div><p className="text-muted-foreground text-[11px] font-bold uppercase tracking-wider mb-2.5">{t('wallet.fiatSection')}</p><PayMethodGrid methods={filteredFiatWithdraw} selected={selectedMethod} onSelect={onSelectWithdrawMethod} /></div>}
                       {filteredCryptoWithdraw.length > 0 && <div><p className="text-muted-foreground text-[11px] font-bold uppercase tracking-wider mb-2.5">{t('wallet.cryptoSection')}</p><PayMethodGrid methods={filteredCryptoWithdraw} selected={selectedMethod} onSelect={onSelectWithdrawMethod} /></div>}
@@ -712,7 +754,8 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
                 : filteredHistory.length===0?<div className="py-12 flex flex-col items-center gap-2 text-muted-foreground"><History size={32} className="opacity-30" /><span className="text-sm">{t('common.noRecords')}</span></div>
                 : filteredHistory.map((tx) => {
                   const StatusIcon=statusIconComp(tx.status)
-                  const showPendingHint = tx.type === 'deposit' && tx.status === 'pending' && Date.now() - new Date(tx.sortKey).getTime() >= STALE_DEPOSIT_PENDING_MS
+                  const isPendingDeposit = tx.type === 'deposit' && tx.status === 'pending'
+                  const pendingStale = isPendingDeposit && Date.now() - new Date(tx.sortKey).getTime() >= STALE_DEPOSIT_PENDING_MS
                   return (
                     <div key={tx.id} className="bg-secondary rounded-2xl px-4 py-3 space-y-1.5">
                       <div className="flex items-center gap-3">
@@ -734,7 +777,7 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
                           {copiedId===tx.id?<Check size={10}/>:<Copy size={10}/>}{copiedId===tx.id?t('common.copied'):t('common.copy')}
                         </button>
                       </div>
-                      {showPendingHint&&<p className="pl-12 text-[10px] font-semibold leading-snug text-amber-300/85">{t('wallet.depositPendingStale')}</p>}
+                      {isPendingDeposit&&<p className="pl-12 text-[10px] font-semibold leading-snug text-amber-300/85">{pendingStale?t('wallet.depositPendingStale'):t('wallet.depositProcessing')}</p>}
                     </div>
                   )
                 })}

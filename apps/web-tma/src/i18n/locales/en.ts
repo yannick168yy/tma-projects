@@ -1208,6 +1208,7 @@ export default {
     completeInTelegram: 'Complete payment in Telegram, then check your balance.',
     unavailable: 'Payment is temporarily unavailable. Try again later.',
     depositFailed: 'Deposit failed. Try again.',
+    depositProcessing: 'Deposit is being processed — usually credited within a few minutes, please wait.',
     tagInstant: 'Instant',
     tagHours: '1–24 hrs',
     yfpayProceedDeposit: 'Pay Now',

@@ -1204,6 +1204,7 @@ export default {
     completeInTelegram: '请在 Telegram 中完成支付后查看余额。',
     unavailable: '支付暂不可用，请稍后再试。',
     depositFailed: '充值失败，请重试。',
+    depositProcessing: '充值处理中，通常几分钟内到账，请稍候。',
     tagInstant: '即时',
     tagHours: '1–24 小时',
     yfpayProceedDeposit: '立即支付',
