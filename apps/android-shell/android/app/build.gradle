@@ -1,5 +1,14 @@
 apply plugin: 'com.android.application'
 
+// 正式签名的密钥路径与密码放在 android/keystore.properties（已 gitignore，不入库）。
+// 文件缺失时 release 构建会退回未签名，不影响 debug。
+def keystorePropsFile = rootProject.file("keystore.properties")
+def keystoreProps = new Properties()
+if (keystorePropsFile.exists()) {
+    // 必须指定 UTF-8：keystore 路径含中文目录名，Properties 默认按 ISO-8859-1 读会乱码成找不到文件
+    keystorePropsFile.withReader('UTF-8') { keystoreProps.load(it) }
+}
+
 android {
     namespace "games.betogo.app"
     compileSdk rootProject.ext.compileSdkVersion
@@ -16,10 +25,23 @@ android {
             ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        release {
+            if (keystorePropsFile.exists()) {
+                storeFile file(keystoreProps['storeFile'])
+                storePassword keystoreProps['storePassword']
+                keyAlias keystoreProps['keyAlias']
+                keyPassword keystoreProps['keyPassword']
+            }
+        }
+    }
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            if (keystorePropsFile.exists()) {
+                signingConfig signingConfigs.release
+            }
         }
     }
 }
