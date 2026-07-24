@@ -35,13 +35,20 @@ APK 3.9 MB，首次构建 2 分 30 秒。全站在 Android WebView 里**完整�
 `shouldOverrideUrlLoading` 里必须判 `isForMainFrame` —— 游戏是跨域 iframe 加载的，
 不判会把整个游戏踢到浏览器。
 
-### 上生产前还要做
+### 签名与 App Link（2026-07-24 已完成）
 
-- **assetlinks.json 换成 release 签名指纹**：现在放的是 debug keystore 指纹
-  （`18:3C:8E:...:6B:0F`），正式包换签名后 App Link 会失效，Google 登录退回原样。
-  文件可以放多个指纹，debug + release 并存最省事。
-- **生产域名也要部署 assetlinks.json**：`betogo.games` / `www.betogo.games` 当前是未验证状态
-  （模拟器解析不到这两个域名）。文件已随 web-tma 打包，发布生产时自动带上。
+- **正式签名密钥**：`TMA_FILES/亚马逊云-阿里云/betogo-release.jks`，alias `betogo`，
+  密码在同目录的 `betogo-release-keystore-密码.txt`。**不可更换** —— 丢了就再也无法更新已发布的 App。
+  gradle 从 `android/keystore.properties`（已 gitignore）读路径和密码；该文件必须按 UTF-8 解析，
+  因为密钥路径含中文目录，Java Properties 默认 ISO-8859-1 会把路径读成乱码。
+- **assetlinks.json 同时带 release + debug 两个指纹**，内测包和正式包都验得过。
+  已部署测试站与生产（`https://www.betogo.games/.well-known/assetlinks.json` → 200 `application/json`），
+  Google 官方验证器 `digitalassetlinks.googleapis.com` 已能解析出两条 statement。
+- **只注册 www 域名**：裸域 `betogo.games` 是 301 到 www，而 App Link 验证不跟随重定向，
+  注册了也永远验不过。流量本来就全规范化到 www。
+
+### 还没做的
+
 - **真机复测 Custom Tab 外观**：模拟器的 Chrome 停在首次运行页，看不到 Custom Tab 的真实样子。
 - **未实测**：KYC 图片上传、游戏 iframe 加载（都需要登录态）。
   前者靠 `BridgeWebChromeClient` 自带的 `onShowFileChooser`（我们只覆盖了 `onCreateWindow`，它保留着）；
