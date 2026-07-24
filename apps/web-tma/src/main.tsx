@@ -7,8 +7,10 @@ import './styles/index.css'
 import { preventDoubleTapZoom } from '@/utils/preventDoubleTapZoom'
 import { initTelegramWebApp } from '@/utils/initTelegramWebApp'
 import { captureReferralFromUrl } from '@/utils/referral'
+import { captureAttributionFromUrl } from '@/utils/attribution'
 import { initTheme } from '@/stores/theme'
 import { initAnalytics } from '@/utils/analytics'
+import { initPixels } from '@/utils/pixels'
 import { initPwa } from '@/utils/pwa'
 import { initFingerprint } from '@/utils/fingerprint'
 import { initVersionAutoReload } from '@/utils/versionReload'
@@ -23,9 +25,11 @@ window.addEventListener('vite:preloadError', () => {
 
 preventDoubleTapZoom()
 captureReferralFromUrl()
+captureAttributionFromUrl() // 必须早于 initPixels：像素 ID 从归因快照里取
 initTelegramWebApp()
 initTheme()
 initAnalytics()
+initPixels()
 initPwa()
 initFingerprint()
 initVersionAutoReload()

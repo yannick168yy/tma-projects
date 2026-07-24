@@ -42,6 +42,17 @@ const schema = z.object({
 
   // 内部服务间通信 token
   INTERNAL_TOKEN: z.string().default(''),
+
+  // ── 广告转化回传（CAPI）────────────────────────────────────────────────────
+  // 像素 ID 由投放链接带入并存在 bg_user_attribution，这里只配 access token；
+  // token 留空即关闭该平台回传。多条线共用一个 BM token 是 FB/TikTok 的正常用法。
+  FB_CAPI_ACCESS_TOKEN: z.string().default(''),
+  FB_CAPI_TEST_EVENT_CODE: z.string().default(''),
+  TIKTOK_CAPI_ACCESS_TOKEN: z.string().default(''),
+  TIKTOK_CAPI_TEST_EVENT_CODE: z.string().default(''),
+  // 没有从链接带 px 进来时的兜底像素（一般留空）
+  FB_PIXEL_ID: z.string().default(''),
+  TIKTOK_PIXEL_ID: z.string().default(''),
 })
 
 const parsed = schema.parse(process.env)

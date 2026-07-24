@@ -1,5 +1,6 @@
 import type { Pool, RowDataPacket, ResultSetHeader } from 'mysql2/promise'
 import { lgId } from '../utils/id.js'
+import { sendPurchaseConversion } from './capi.service.js'
 
 /**
  * 充值成功后的活动发放：首充嘉年华。
@@ -139,5 +140,17 @@ export async function applyDepositPromos(
     await applyFirstDepBonus(db, dep)
   } catch (err) {
     log.error({ err, orderId: dep.orderId }, 'first deposit bonus failed')
+  }
+  // 广告转化回传挂在这里，是因为这个函数是全部入账路径（internal 三条 + yfpay/beepay/matrix
+  // 回调）的唯一汇合点，挂别处必漏。失败不影响充值与发奖。
+  try {
+    await sendPurchaseConversion(db, {
+      userId: dep.userId,
+      orderId: dep.orderId,
+      amount: dep.amount,
+      currency: dep.currency,
+    })
+  } catch (err) {
+    log.error({ err, orderId: dep.orderId }, 'purchase conversion failed')
   }
 }

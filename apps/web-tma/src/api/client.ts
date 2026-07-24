@@ -1,4 +1,5 @@
 import type { ApiResponse } from '@/types/api'
+import { attributionHeaders } from '@/utils/attribution'
 import { fingerprintHeaders } from '@/utils/fingerprint'
 import { getToken } from '@/utils/tokenStore'
 
@@ -44,7 +45,7 @@ export async function apiRequest<T>(
   try {
     res = await fetch(`${BASE_URL}${path}`, {
       ...init,
-      headers: { ...authHeaders(), ...fingerprintHeaders(), ...(init.headers as Record<string, string>) },
+      headers: { ...authHeaders(), ...fingerprintHeaders(), ...attributionHeaders(), ...(init.headers as Record<string, string>) },
     })
   } catch (e) {
     const hint =

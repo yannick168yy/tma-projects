@@ -265,7 +265,7 @@ export function createApp(env: Env): Koa {
       // 鉴权全走 Bearer header 无 cookie，去掉 credentials 以免"反射任意 Origin+带凭证"组合
       origin: (ctx) => ctx.get('Origin') || '*',
       // 指纹三头(X-Device-Id/X-Fp-*)缺失会让跨源开发预览全量请求被 CORS 拦下(线上同源无感)
-      allowHeaders: ['Content-Type', 'Authorization', 'X-Telegram-Init-Data', 'X-Request-Id', 'X-Device-Id', 'X-Fp-Visitor', 'X-Fp-Signals'],
+      allowHeaders: ['Content-Type', 'Authorization', 'X-Telegram-Init-Data', 'X-Request-Id', 'X-Device-Id', 'X-Fp-Visitor', 'X-Fp-Signals', 'X-Attr'],
       exposeHeaders: ['X-Request-Id'],
     }),
   )

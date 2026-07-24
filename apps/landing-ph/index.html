@@ -182,7 +182,21 @@ function render(){
   }).join('');
 }
 
-function go(url){ location.href = url; }
+/* 归因参数透传：本页是买量落地的第一跳，不带过去站内就认不出这个人是哪条线来的 */
+const TRACK_KEYS = ['c','utm_source','utm_medium','utm_campaign','utm_content','utm_term','fbclid','ttclid','gclid','px','tpx','ref'];
+function trackQuery(){
+  const src = new URLSearchParams(location.search);
+  const out = new URLSearchParams();
+  for(const k of TRACK_KEYS){ const v = src.get(k); if(v) out.set(k, v); }
+  return out.toString();
+}
+function withTrack(url){
+  const q = trackQuery();
+  if(!q) return url;
+  return url + (url.includes('?') ? '&' : '?') + q;
+}
+
+function go(url){ location.href = withTrack(url); }
 
 function updatePrimary(){
   const live = state.filter(s=>s.alive).sort((a,b)=>a.ms-b.ms);
@@ -214,9 +228,9 @@ async function scan(){
 // 官方域名清单
 document.getElementById('official').innerHTML = CONFIG.official
   .map(o=>`<div class="off">${o.d}<small>${o.note}</small></div>`).join('');
-document.getElementById('apk').href = CONFIG.apkUrl;
-document.getElementById('tg').href = CONFIG.telegram;
-document.getElementById('cs').href = CONFIG.cs;
+document.getElementById('apk').href = withTrack(CONFIG.apkUrl);
+document.getElementById('tg').href = CONFIG.telegram; // 站外，不带归因参数
+document.getElementById('cs').href = withTrack(CONFIG.cs);
 
 scan();
 </script>

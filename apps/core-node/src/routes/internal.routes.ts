@@ -8,6 +8,7 @@ import { env } from '../config/env.js'
 import { lgId } from '../utils/id.js'
 import { getPhpRate } from '../services/exchange-rate.service.js'
 import { applyDepositPromos } from '../services/deposit-promo.service.js'
+import { sendRegistrationConversion } from '../services/capi.service.js'
 
 const PHT_OFFSET_MS = 8 * 60 * 60 * 1000
 
@@ -64,6 +65,18 @@ export async function internalRoutes(app: FastifyInstance) {
     if (!env.INTERNAL_TOKEN || token !== env.INTERNAL_TOKEN) {
       return reply.status(401).send({ error: 'Unauthorized' })
     }
+  })
+
+  // POST /internal/capi/registration
+  // bff 注册成功后调用。归因数据在 bff 侧刚写完，这里只负责回传给广告平台。
+  // 立即返回、后台异步发，注册接口不该等第三方 API。
+  app.post<{ Body: { userId: string } }>('/internal/capi/registration', async (req, reply) => {
+    const userId = req.body?.userId
+    if (!userId) return reply.status(400).send({ code: 400, message: 'userId required' })
+    sendRegistrationConversion(app.mysql, userId).catch((err) => {
+      app.log.error({ err, userId }, 'registration conversion failed')
+    })
+    return reply.send({ code: 0, message: 'ok' })
   })
 
   // POST /internal/payment/tg-wallet

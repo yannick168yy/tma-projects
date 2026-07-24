@@ -1,4 +1,5 @@
 import type { AuthUser, LoginProvider, PromoId } from '@/types/api'
+import { pixels } from '@/utils/pixels'
 
 declare global {
   interface Window {
@@ -97,15 +98,20 @@ export const analytics = {
   loginStart(provider: LoginProvider | 'telegram_oidc') {
     track('login_start', { method: provider })
   },
-  loginSuccess(provider: LoginProvider | 'telegram_oidc' | 'unknown', isNewUser: boolean) {
+  loginSuccess(provider: LoginProvider | 'telegram_oidc' | 'unknown', isNewUser: boolean, userId?: string) {
     track('login_success', { method: provider, is_new_user: isNewUser })
-    if (isNewUser) track('sign_up_success', { method: provider })
+    if (isNewUser) {
+      track('sign_up_success', { method: provider })
+      // 广告像素只关心新注册；eventID 用 userId，与服务端 CAPI 去重
+      if (userId) pixels.registration(userId)
+    }
   },
   depositStart(method: string | undefined, amount: number, currency: string) {
     track('deposit_start', { payment_method: method ?? 'unknown', value: amount, currency })
   },
   depositOrderCreated(method: string | undefined, amount: number, currency: string, orderId?: string) {
     track('deposit_order_created', { payment_method: method ?? 'unknown', value: amount, currency, order_id: orderId })
+    pixels.checkoutStart(amount, currency, orderId)
   },
   depositSuccess(method: string | undefined, amount: number, currency: string, orderId?: string) {
     track('deposit_success', { payment_method: method ?? 'unknown', value: amount, currency, order_id: orderId })
