@@ -61,7 +61,7 @@ const NEW_PLAYER_POPUP_KEY = 'betogo_popup_new_player'
 const TRIAL_POPUP_KEY = 'betogo_popup_trial'
 const REDEP_POPUP_KEY = 'betogo_popup_redep'
 // 新玩家/复充进站弹窗延迟:页面就绪后等这么久再弹,避开加载瞬间
-const AUTO_POPUP_DELAY_MS = 3000
+const AUTO_POPUP_DELAY_MS = 5000
 
 type NavId = (typeof NAV_ITEMS)[number]['id']
 
