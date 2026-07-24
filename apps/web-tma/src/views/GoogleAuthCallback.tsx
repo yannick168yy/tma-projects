@@ -4,7 +4,7 @@ import { Loader2 } from 'lucide-react'
 import BetogoLogo from '@/components/BetogoLogo'
 import { bindGoogle, completeGoogleLogin } from '@/api/auth'
 import { ApiError } from '@/api/client'
-import { clearStoredOAuthState, extractRefFromOAuthState, getGoogleRedirectUri, readStoredOAuthState } from '@/utils/googleOAuth'
+import { clearStoredOAuthState, extractRefFromOAuthState, getGoogleRedirectUri, isWellFormedOAuthState, readStoredOAuthState } from '@/utils/googleOAuth'
 import { useAuthStore } from '@/stores/auth'
 import { analytics } from '@/utils/analytics'
 
@@ -23,7 +23,10 @@ export default function GoogleAuthCallback() {
     if (oauthError) { setLoading(false); setError(`${t('auth.googleSignInFailed')} (${oauthError})`); return }
     if (!code) { setLoading(false); setError(t('auth.googleSignInFailed')); return }
     const storedState = readStoredOAuthState()
-    if (state !== storedState) {
+    // 有本地/cookie 记录时严格比对;两者都丢(iOS PWA 跳转期清空存储)时,退回校验
+    // Google 回传的 state 是否为我们生成的合法结构,避免真实用户被硬卡在登录页。
+    const stateOk = storedState ? state === storedState : !!state && isWellFormedOAuthState(state)
+    if (!stateOk) {
       setLoading(false); clearStoredOAuthState(); setError(t('auth.stateInvalid')); return
     }
 
@@ -36,7 +39,7 @@ export default function GoogleAuthCallback() {
       return
     }
 
-    const referralCode = storedState ? extractRefFromOAuthState(storedState) : ''
+    const referralCode = extractRefFromOAuthState(storedState ?? state ?? '')
     completeGoogleLogin(code, getGoogleRedirectUri(), referralCode || undefined)
       .then((session) => {
         applySession(session, 'google')
