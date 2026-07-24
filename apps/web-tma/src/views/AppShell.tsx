@@ -62,6 +62,8 @@ const TRIAL_POPUP_KEY = 'betogo_popup_trial'
 const REDEP_POPUP_KEY = 'betogo_popup_redep'
 // 新玩家/复充进站弹窗延迟:页面就绪后等这么久再弹,避开加载瞬间
 const AUTO_POPUP_DELAY_MS = 3000
+// 这些落地页不弹进站弹窗(除游戏中外)。值为 FullPageView['type']
+const POPUP_BLOCKED_VIEWS = new Set<string>(['download'])
 
 type NavId = (typeof NAV_ITEMS)[number]['id']
 
@@ -148,7 +150,8 @@ export default function AppShell() {
   // 本会话最多自动弹一个进站弹窗，避免新人礼包与首席体验官同时弹出
   const autoPopupFired = useRef(false)
   const autoPopupTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const gameActiveRef = useRef(false)
+  // 到点时若已进游戏 / 处于禁弹落地页,则本次不弹
+  const popupBlockedRef = useRef(false)
   // 新人礼包 continue 触发登录时记录意图，登录成功后续跳 tasks
   const pendingTasksTab = useRef<TaskInitialPath | null>(null)
   const inTelegram = isInsideTelegram()
@@ -170,13 +173,13 @@ export default function AppShell() {
     void refreshNpSummary()
   }, [auth.token]) // 登录态变化后重拉真实领取状态
 
-  // 游戏态镜像 + 卸载清理延迟弹窗 timer(供 setTimeout 内读最新在玩状态)
-  useEffect(() => { gameActiveRef.current = Boolean(gamePlayerUrl) }, [gamePlayerUrl])
+  // 拦截态镜像(游戏中/禁弹落地页) + 卸载清理延迟弹窗 timer(供 setTimeout 内读最新值)
+  useEffect(() => { popupBlockedRef.current = Boolean(gamePlayerUrl) || POPUP_BLOCKED_VIEWS.has(view.type) }, [gamePlayerUrl, view.type])
   useEffect(() => () => { if (autoPopupTimer.current) clearTimeout(autoPopupTimer.current) }, [])
 
   useEffect(() => {
     if (autoPopupFired.current || !promoConfig || !npSummary) return
-    if (gamePlayerUrl) return // 游戏中不安排;其他页面不拦
+    if (popupBlockedRef.current) return // 游戏中 / 禁弹落地页不安排;其他页面不拦
     const popup = promoConfig.popups?.find((p) => p.id === 'new_player')
     if (!popup?.enabled || giftAllDone) return
     const loggedIn = Boolean(auth.token)
@@ -191,11 +194,11 @@ export default function AppShell() {
     autoPopupFired.current = true // 立即占位:防这几秒里 trial/redep 抢 & 防重复
     autoPopupTimer.current = setTimeout(() => {
       autoPopupTimer.current = null
-      if (gameActiveRef.current) return // 到点若已进游戏→本次跳过(未写频控,下次再弹)
+      if (popupBlockedRef.current) return // 到点若在游戏中/禁弹落地页→本次跳过(未写频控,下次再弹)
       localStorage.setItem(NEW_PLAYER_POPUP_KEY, popup.frequency === 'once' ? '1' : today)
       setGiftSheetOpen(true)
     }, AUTO_POPUP_DELAY_MS)
-  }, [promoConfig, npSummary, auth.token, giftAllDone, gamePlayerUrl])
+  }, [promoConfig, npSummary, auth.token, giftAllDone, gamePlayerUrl, view.type])
 
   // 登录成功后续跳：礼包 continue 时若未登录，登录完成后自动打开 tasks
   useEffect(() => {
@@ -242,18 +245,18 @@ export default function AppShell() {
 
   useEffect(() => {
     if (autoPopupFired.current || !redepOffer?.active || !redepOffer.endsAt) return
-    if (gamePlayerUrl) return // 游戏中不安排;其他页面不拦
+    if (popupBlockedRef.current) return // 游戏中 / 禁弹落地页不安排;其他页面不拦
     if (new Date(redepOffer.endsAt).getTime() <= Date.now()) return
     if (localStorage.getItem(REDEP_POPUP_KEY) === redepOffer.endsAt) return
     const endsAt = redepOffer.endsAt
     autoPopupFired.current = true
     autoPopupTimer.current = setTimeout(() => {
       autoPopupTimer.current = null
-      if (gameActiveRef.current) return // 到点若已进游戏→本次跳过(未写频控,下次再弹)
+      if (popupBlockedRef.current) return // 到点若在游戏中/禁弹落地页→本次跳过(未写频控,下次再弹)
       localStorage.setItem(REDEP_POPUP_KEY, endsAt)
       setRedepSheetOpen(true)
     }, AUTO_POPUP_DELAY_MS)
-  }, [redepOffer, gamePlayerUrl])
+  }, [redepOffer, gamePlayerUrl, view.type])
 
   function openNewPlayerGift() {
     setWalletOpen(false)
