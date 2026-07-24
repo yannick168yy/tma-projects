@@ -31,7 +31,7 @@ function probe(host) {
   return new Promise(function (resolve) {
     var done = false
     var timer = setTimeout(function () { if (!done) { done = true; resolve(null) } }, 3500)
-    fetch(host + '/api/v1/health?_=' + Date.now(), { cache: 'no-store' })
+    fetch(host + '/healthz?_=' + Date.now(), { cache: 'no-store' })
       .then(function (r) {
         if (done) return
         done = true; clearTimeout(timer)
