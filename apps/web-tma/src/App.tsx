@@ -10,6 +10,8 @@ import LoginSheet from '@/components/auth/LoginSheet'
 import RedPacketSheet from '@/components/promotion/RedPacketSheet'
 import { useAuthStore } from '@/stores/auth'
 import { usePromotionStore } from '@/stores/promotion'
+import { prewarmTurnstile } from '@/utils/turnstile'
+import { isIos, isStandalone } from '@/utils/pwa'
 
 const AppShell = lazyWithReload(() => import('@/views/AppShell'))
 
@@ -26,6 +28,12 @@ function MainApp() {
     if (bootstrapped.current) return
     bootstrapped.current = true
     void useAuthStore.getState().bootstrap()
+    // iOS PWA:登录框首次渲染 Turnstile 会撑爆 webview 崩溃退回首页,提前在最小 DOM 里预热一次规避
+    if (isIos() && isStandalone()) {
+      const warm = () => prewarmTurnstile()
+      if ('requestIdleCallback' in window) (window as unknown as { requestIdleCallback: (cb: () => void) => void }).requestIdleCallback(warm)
+      else setTimeout(warm, 3000)
+    }
   }, [])
 
   if (phase === 'splash') return <SplashPage error={bootError} />
