@@ -6,7 +6,7 @@ import { usePromotionStore, getHighlightMap } from '@/stores/promotion'
 import { useAuthStore } from '@/stores/auth'
 import { useWalletStore } from '@/stores/wallet'
 import { fetchAppdlStatus, claimAppdlBonus, matchPopupAudience, type NewPlayerSummary, type BonusCard } from '@/api/promotion'
-import { isStandalone } from '@/utils/pwa'
+import { isInstalledApp, installSource } from '@/utils/pwa'
 import { isInsideTelegram } from '@/utils/initTelegramWebApp'
 import { analytics } from '@/utils/analytics'
 import TrialClaimModal from '@/components/promotion/TrialClaimModal'
@@ -56,7 +56,7 @@ export default function BonusesPage({ promoFilter, onOpenWallet, onOpenTeam, onO
   const [appdlClaimed, setAppdlClaimed] = useState(false)
   const [appdlClaiming, setAppdlClaiming] = useState(false)
   const [appdlMsg, setAppdlMsg] = useState<{ ok: boolean; text: string } | null>(null)
-  const inApp = isStandalone()
+  const inApp = isInstalledApp()
   const [agentActivating, setAgentActivating] = useState(false)
   const [agentExpanded, setAgentExpanded] = useState(false)
 
@@ -116,7 +116,7 @@ export default function BonusesPage({ promoFilter, onOpenWallet, onOpenTeam, onO
       setAppdlMsg(null)
       setAppdlClaiming(true)
       try {
-        const res = await claimAppdlBonus('pwa')
+        const res = await claimAppdlBonus(installSource())
         setAppdlClaimed(true)
         setAppdlMsg({ ok: true, text: t('bonuses.promos.appdl.claimSuccess', { amount: res.amountPhp }) })
         void useWalletStore.getState().refresh()

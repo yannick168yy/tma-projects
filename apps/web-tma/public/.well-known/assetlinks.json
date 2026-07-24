@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "games.betogo.app",
+      "sha256_cert_fingerprints": [
+        "18:3C:8E:28:45:9D:87:86:78:80:AE:11:89:0C:17:F3:F0:4C:30:A9:29:8D:F4:58:E1:F4:6C:CC:93:AF:6B:0F"
+      ]
+    }
+  }
+]

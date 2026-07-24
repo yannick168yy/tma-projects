@@ -44,6 +44,21 @@ export function isStandalone(): boolean {
   )
 }
 
+/** 运行在 Android 原生壳（APK）里。壳在 UA 尾部注入 BetogoApp/<ver>，display-mode 不是 standalone */
+export function isNativeApp(): boolean {
+  return /\bBetogoApp\//.test(navigator.userAgent)
+}
+
+/** 已装 App（PWA 从主屏启动，或运行在 APK 壳里）—— 下载引导与下载礼金都按这个判定 */
+export function isInstalledApp(): boolean {
+  return isStandalone() || isNativeApp()
+}
+
+/** 下载礼金的来源标记，落到 bg_app_download_claim.source */
+export function installSource(): 'pwa' | 'apk' {
+  return isNativeApp() ? 'apk' : 'pwa'
+}
+
 export function isIos(): boolean {
   const ua = navigator.userAgent
   return /iPhone|iPad|iPod/.test(ua) || (ua.includes('Mac') && 'ontouchend' in document)
@@ -69,7 +84,7 @@ const DISMISS_KEY = 'betogo_download_bar_dismissed'
 /** 顶部下载条：浏览器访问、未安装、本次会话未关闭过才显示 */
 export function shouldShowDownloadBar(): boolean {
   if (isInsideTelegram()) return false
-  if (isStandalone()) return false
+  if (isInstalledApp()) return false
   return sessionStorage.getItem(DISMISS_KEY) !== '1'
 }
 

@@ -17,7 +17,7 @@ import { isImmersiveFullPage } from '@/hooks/useFullPageOverlay'
 import type { TaskInitialPath } from '@/hooks/useFullPageOverlay'
 import { useAppNavigation } from '@/hooks/useAppNavigation'
 import { legacyLobbyCat } from '@/navigation/appRoutes'
-import { shouldShowDownloadBar, dismissDownloadBar, isIos, isStandalone } from '@/utils/pwa'
+import { shouldShowDownloadBar, dismissDownloadBar, isIos, isInstalledApp, installSource } from '@/utils/pwa'
 import { isInsideTelegram } from '@/utils/initTelegramWebApp'
 import { usePromotionStore } from '@/stores/promotion'
 import { notifyTasksRefresh } from '@/api/tasks'
@@ -272,13 +272,13 @@ export default function AppShell() {
 
   async function openAppDownloadBonus() {
     setWalletOpen(false)
-    if (!isStandalone()) {
+    if (!isInstalledApp()) {
       openAppInstall()
       return
     }
     if (!(await auth.ensureLoggedIn(t('auth.signInBonus')))) return
     try {
-      const res = await claimAppdlBonus('pwa')
+      const res = await claimAppdlBonus(installSource())
       alert(t('bonuses.promos.appdl.claimSuccess', { amount: res.amountPhp }))
       await Promise.all([wallet.refresh(), refreshNpSummary()])
     } catch (e) {

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { ChevronLeft, ChevronRight, Star, Loader2, CheckCircle2, ShieldCheck, Share2, Trash2, Flag } from 'lucide-react'
 import InstallGuideSheet from '@/components/pwa/InstallGuideSheet'
-import { canNativeInstall, isIos, isStandalone, promptNativeInstall } from '@/utils/pwa'
+import { canNativeInstall, isIos, isInstalledApp, promptNativeInstall } from '@/utils/pwa'
 
 // APK 上线后填入下载地址（如 /app/betogo.apk）；为空时 Android 走 PWA 安装过渡方案
 const APK_DOWNLOAD_URL = ''
@@ -129,7 +129,7 @@ export default function DownloadPage({ onClose }: { onClose: () => void }) {
 
   function startInstall() {
     if (phase === 'installing') return
-    if (isStandalone()) return
+    if (isInstalledApp()) return
     setPhase('installing')
     setProgress(0)
     timerRef.current = window.setInterval(() => {
@@ -145,7 +145,7 @@ export default function DownloadPage({ onClose }: { onClose: () => void }) {
     }, 90)
   }
 
-  const installed = isStandalone()
+  const installed = isInstalledApp()
 
   const installButton = (
     <button

@@ -17,16 +17,15 @@ const config: CapacitorConfig = {
     url: 'https://www.188facai.com',
     androidScheme: 'https',
     cleartext: false,
-    // WebView 内允许停留的域名（不走系统浏览器）。支付/OAuth 外跳域名要在这里放行
+    // 只放自己的域名。支付网关与 Google/Telegram 授权页刻意排除在外：
+    // MainActivity 会把它们送进 Custom Tab —— 留在 App 内、可返回、轮询不中断。
+    // Turnstile 和游戏都是 iframe 加载，不受 allowNavigation（只管顶层导航）影响。
     allowNavigation: [
       'www.188facai.com',
       '188facai.com',
       'www.betogo.games',
       'betogo.games',
       '*.betogo.games',
-      'challenges.cloudflare.com',
-      'oauth.telegram.org',
-      '*.568win.com',
     ],
   },
 }

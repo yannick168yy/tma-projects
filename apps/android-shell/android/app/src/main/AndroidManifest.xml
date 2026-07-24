@@ -15,11 +15,26 @@
             android:label="@string/title_activity_main"
             android:theme="@style/AppTheme.NoActionBarLaunch"
             android:launchMode="singleTask"
+            android:screenOrientation="portrait"
             android:exported="true">
 
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!--
+              OAuth 回跳拦截：Google/Telegram 授权在 Custom Tab 里完成后会回跳我们自己的
+              /auth/xxx/callback，系统据此把 URL 交回 App，登录态才落在 App 的 WebView 里。
+              autoVerify 依赖服务器上的 /.well-known/assetlinks.json（见 android-shell/README.md）。
+            -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="www.betogo.games" android:pathPrefix="/auth/" />
+                <data android:scheme="https" android:host="betogo.games" android:pathPrefix="/auth/" />
+                <data android:scheme="https" android:host="www.188facai.com" android:pathPrefix="/auth/" />
             </intent-filter>
 
         </activity>
@@ -38,4 +53,7 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- KYC 证件上传要拍照/选图 -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
 </manifest>
