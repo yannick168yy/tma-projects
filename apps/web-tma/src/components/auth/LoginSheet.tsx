@@ -242,10 +242,10 @@ export default function LoginSheet({ open, onClose }: Props) {
 
   return createPortal(
     <>
-      <div className="fixed inset-0 z-[90] bg-black/70 backdrop-blur-sm" onClick={onClose} />
+      {/* iOS WKWebView(尤其 standalone PWA)下 backdrop-filter + 跨域 iframe(Turnstile)会压垮渲染进程→白屏闪退,故遮罩改用纯色不做模糊 */}
+      <div className="fixed inset-0 z-[90] bg-black/80" onClick={onClose} />
       <div
-        className="fixed bottom-0 left-1/2 z-[91] max-h-[90vh] w-full max-w-[430px] overflow-y-auto rounded-t-[1.8rem] bg-[#090d17] shadow-[0_-18px_70px_rgba(0,0,0,0.55)]"
-        style={{ transform: 'translateX(-50%)' }}
+        className="fixed bottom-0 left-0 right-0 z-[91] mx-auto max-h-[90vh] w-full max-w-[430px] overflow-y-auto rounded-t-[1.8rem] bg-[#090d17] shadow-[0_-18px_70px_rgba(0,0,0,0.55)]"
         role="dialog"
         aria-modal="true"
       >
