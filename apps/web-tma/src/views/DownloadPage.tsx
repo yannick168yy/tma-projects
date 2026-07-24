@@ -3,8 +3,10 @@ import { ChevronLeft, ChevronRight, Star, Loader2, CheckCircle2, ShieldCheck, Sh
 import InstallGuideSheet from '@/components/pwa/InstallGuideSheet'
 import { canNativeInstall, isIos, isInstalledApp, promptNativeInstall } from '@/utils/pwa'
 
-// APK 上线后填入下载地址（如 /app/betogo.apk）；为空时 Android 走 PWA 安装过渡方案
-const APK_DOWNLOAD_URL = ''
+// 相对路径：跟随当前域名（测试 188facai / 生产 betogo.games 各自的 /app/betogo.apk），
+// 别写死域名，否则生产会从测试站下包。为空时 Android 退回 PWA 安装过渡方案。
+// ⚠️ 生产站要单独把 APK 放到 /app/betogo.apk，否则生产点下载会 404。
+const APK_DOWNLOAD_URL = '/app/betogo.apk'
 
 // 仿应用商店页，文案固定英文（面向 PH 用户，模拟 Play Store 不随站点语言切换）
 const SCREENSHOTS = [
