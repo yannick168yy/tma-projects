@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { fetchBalance } from '@/api/wallet'
+import { getToken } from '@/utils/tokenStore'
 import type { WalletBalance } from '@/types/api'
 
 interface WalletState {
@@ -25,7 +26,7 @@ export const useWalletStore = create<WalletState & WalletActions>((set) => ({
   },
 
   async refresh() {
-    if (!localStorage.getItem('betogo_token')) return
+    if (!getToken()) return
     set({ loading: true })
     try {
       const balance = await fetchBalance()

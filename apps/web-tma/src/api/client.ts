@@ -1,5 +1,6 @@
 import type { ApiResponse } from '@/types/api'
 import { fingerprintHeaders } from '@/utils/fingerprint'
+import { getToken } from '@/utils/tokenStore'
 
 /** 生产域名走同源 /api/v1（Nginx → BFF）；避免 www/裸域跨域与 .env 写死 www 导致异常 */
 function resolveBaseUrl(): string {
@@ -16,7 +17,7 @@ function resolveBaseUrl(): string {
 export const BASE_URL = resolveBaseUrl()
 
 export function authHeaders(): HeadersInit {
-  const token = localStorage.getItem('betogo_token')
+  const token = getToken()
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   }

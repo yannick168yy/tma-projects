@@ -2,6 +2,7 @@ import { apiRequest, getInitData } from '@/api/client'
 import * as mock from '@/api/mock/auth.mock'
 import { getGoogleRedirectUri, startGoogleLoginRedirect } from '@/utils/googleOAuth'
 import { getTelegramRedirectUri, startTelegramLoginRedirect } from '@/utils/telegramOAuth'
+import { getToken, setToken } from '@/utils/tokenStore'
 import type { AuthSession, AuthUser, LoginProvider, PasswordMethod, TelegramWidgetUser } from '@/types/api'
 
 // 显式 'true' 才启用 mock：构建变量缺失时绝不能默认走假数据
@@ -77,7 +78,7 @@ export async function loginTelegram(): Promise<AuthSession> {
 export function loginWithGoogleRedirect(): void {
   if (useMock) {
     void mock.mockGoogleLogin().then((session) => {
-      localStorage.setItem('betogo_token', session.token)
+      setToken(session.token)
       window.location.reload()
     })
     return
@@ -168,7 +169,7 @@ export async function logoutSession(): Promise<void> {
 
 export async function restoreSession(): Promise<AuthSession | null> {
   if (useMock) return mock.mockRestoreSession()
-  const token = localStorage.getItem('betogo_token')
+  const token = getToken()
   if (!token) return null
   try {
     const trialClaimed = localStorage.getItem(TRIAL_CLAIMED_KEY) === '1'

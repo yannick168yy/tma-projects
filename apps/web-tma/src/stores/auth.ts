@@ -9,6 +9,7 @@ import type { AuthUser } from '@/types/api'
 import { isInsideTelegram } from '@/utils/initTelegramWebApp'
 import { clearStoredReferral, getStoredReferral } from '@/utils/referral'
 import { isRememberMeEnabled, saveLastLogin } from '@/utils/lastLogin'
+import { clearToken, getToken, setToken } from '@/utils/tokenStore'
 import { analytics, setAnalyticsUser } from '@/utils/analytics'
 import type { LoginProvider, PasswordMethod, TelegramWidgetUser } from '@/types/api'
 
@@ -66,13 +67,13 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
     const promotion = usePromotionStore.getState()
 
     try {
-      const token = localStorage.getItem('betogo_token')
+      const token = getToken()
       if (token) {
         const session = await restoreSession()
         if (session) {
           get().applySession(session)
         } else {
-          localStorage.removeItem('betogo_token')
+          clearToken()
         }
       }
 
@@ -110,7 +111,7 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
       isNewUser: session.isNewUser,
       trialEligible: Boolean(session.trialRedPacketEligible),
     })
-    localStorage.setItem('betogo_token', session.token)
+    setToken(session.token)
     localStorage.removeItem(LOGOUT_FLAG) // 成功登录后解除登出抑制
     // 记住"本次实际使用"的登录方式，供下次打开登录框快捷续登；只记身份标识，不记密码。
     // 必须用 loginMethod（发起登录时确定），不能用 user.loginProvider——后者是后端按
@@ -233,7 +234,7 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
     })
     setAnalyticsUser(null)
     get().closeLoginSheet()
-    localStorage.removeItem('betogo_token')
+    clearToken()
     useWalletStore.getState().reset()
     const promotion = usePromotionStore.getState()
     usePromotionStore.setState({
