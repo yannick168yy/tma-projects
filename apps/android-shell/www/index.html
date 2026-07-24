@@ -1,0 +1,57 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>BETOGO</title>
+<style>
+  html,body{margin:0;height:100%;background:#080b14;color:#8b93a7;
+    font:14px/1.5 -apple-system,system-ui,sans-serif}
+  .c{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px}
+  img{width:84px;height:84px;border-radius:20px}
+  .s{width:22px;height:22px;border:2px solid #1f2937;border-top-color:#3b82f6;
+    border-radius:50%;animation:r .8s linear infinite}
+  @keyframes r{to{transform:rotate(360deg)}}
+</style>
+<div class="c">
+  <img src="icon.png" alt="">
+  <div class="s"></div>
+  <div id="t">Connecting…</div>
+</div>
+<script>
+// 配置了 server.url 时 Capacitor 直接加载线上站，本页不会出现。
+// 本页是「线路容灾」的落点：正式版去掉 server.url，改由这里探活选线后跳转。
+// 域名被封时用户无感切到备用线路 —— 这是 App 相对 PWA 最核心的优势，PWA 的 SW 绑死 origin 做不到。
+var HOSTS = [
+  'https://www.betogo.games',
+  'https://www.188facai.com'
+]
+var t = document.getElementById('t')
+
+function probe(host) {
+  // 带时间戳绕缓存；用 /health 这类轻量端点，超时 3.5s 判定不可用
+  return new Promise(function (resolve) {
+    var done = false
+    var timer = setTimeout(function () { if (!done) { done = true; resolve(null) } }, 3500)
+    fetch(host + '/api/v1/health?_=' + Date.now(), { cache: 'no-store' })
+      .then(function (r) {
+        if (done) return
+        done = true; clearTimeout(timer)
+        resolve(r.ok ? host : null)
+      })
+      .catch(function () {
+        if (done) return
+        done = true; clearTimeout(timer)
+        resolve(null)
+      })
+  })
+}
+
+Promise.all(HOSTS.map(probe)).then(function (results) {
+  var alive = results.filter(Boolean)[0]
+  if (alive) {
+    location.replace(alive + '/?utm_source=apk')
+  } else {
+    t.textContent = 'Network unavailable, please retry'
+    document.querySelector('.s').style.display = 'none'
+  }
+})
+</script>
