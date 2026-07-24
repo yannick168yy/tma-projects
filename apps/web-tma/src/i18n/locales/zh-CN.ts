@@ -94,6 +94,7 @@ export default {
     players: '{{count}} 人在玩',
     live: '直播',
     noMore: '没有更多游戏了',
+    retry: '重试',
   },
   nav: {
     cashier: '收银台',

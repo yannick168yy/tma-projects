@@ -8,9 +8,13 @@ interface TurnstileApi {
   render: (el: HTMLElement, opts: {
     sitekey: string
     theme?: 'light' | 'dark' | 'auto'
+    retry?: 'auto' | 'never'
+    'retry-interval'?: number
     callback?: (token: string) => void
     'expired-callback'?: () => void
-    'error-callback'?: () => void
+    'timeout-callback'?: () => void
+    // Turnstile 会把错误码作为参数传入 error-callback(如 '110200' 域名未授权)
+    'error-callback'?: (code?: string) => void
   }) => string
   reset: (widgetId: string) => void
   remove: (widgetId: string) => void

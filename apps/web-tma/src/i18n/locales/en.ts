@@ -94,6 +94,7 @@ export default {
     players: '{{count}} playing',
     live: 'LIVE',
     noMore: 'No more games',
+    retry: 'Retry',
   },
   nav: {
     cashier: 'Cashier',

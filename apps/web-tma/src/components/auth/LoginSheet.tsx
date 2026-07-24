@@ -81,23 +81,34 @@ export default function LoginSheet({ open, onClose }: Props) {
   const turnstileRef = useRef<HTMLDivElement | null>(null)
   const turnstileWidgetRef = useRef<string | null>(null)
   const [turnstileToken, setTurnstileToken] = useState<string | undefined>()
+  // 诊断/兜底：静默卡死时把原因(错误码/超时/脚本加载失败)暴露出来，并允许重试
+  const [turnstileDiag, setTurnstileDiag] = useState<string | null>(null)
+  const [turnstileReloadKey, setTurnstileReloadKey] = useState(0)
   useEffect(() => {
     if (!open || !TURNSTILE_SITE_KEY || view !== 'auth' || !turnstileArmed) return
     let cancelled = false
+    let settled = false
+    let timer: ReturnType<typeof setTimeout> | undefined
+    setTurnstileDiag(null)
     void loadTurnstile()
       .then((ts) => {
         if (cancelled || !turnstileRef.current || turnstileWidgetRef.current) return
         turnstileWidgetRef.current = ts.render(turnstileRef.current, {
           sitekey: TURNSTILE_SITE_KEY,
           theme: 'dark',
-          callback: (token) => setTurnstileToken(token),
+          retry: 'auto',
+          callback: (token) => { settled = true; setTurnstileToken(token); setTurnstileDiag(null) },
           'expired-callback': () => setTurnstileToken(undefined),
-          'error-callback': () => setTurnstileToken(undefined),
+          'timeout-callback': () => { if (!cancelled) setTurnstileDiag('timeout-cb') },
+          'error-callback': (code) => { settled = true; setTurnstileToken(undefined); setTurnstileDiag(`err:${code ?? ''}`) },
         })
+        // 20s 内既无 token 也无 error-callback = 静默 hang，暴露出来让用户可重试/上报
+        timer = setTimeout(() => { if (!cancelled && !settled) setTurnstileDiag('timeout') }, 20000)
       })
-      .catch(() => {})
+      .catch(() => { if (!cancelled) setTurnstileDiag('script-load-failed') })
     return () => {
       cancelled = true
+      if (timer) clearTimeout(timer)
       // 弹层关闭即卸载 portal DOM，widget 一并销毁，下次打开重新渲染
       if (turnstileWidgetRef.current) {
         window.turnstile?.remove(turnstileWidgetRef.current)
@@ -105,7 +116,7 @@ export default function LoginSheet({ open, onClose }: Props) {
         setTurnstileToken(undefined)
       }
     }
-  }, [open, view, turnstileArmed])
+  }, [open, view, turnstileArmed, turnstileReloadKey])
 
   // 从 OAuth 整页跳转返回(尤其 iOS Safari 的 bfcache 恢复)时,JS 堆被原样还原,
   // loading 会残留为 true,导致 Telegram/Google 按钮持续置灰。页面重新可见即复位。
@@ -378,7 +389,24 @@ export default function LoginSheet({ open, onClose }: Props) {
                     {t('auth.forgotPassword')}
                   </button>
                 </div>
-                {TURNSTILE_SITE_KEY && turnstileArmed && <div ref={turnstileRef} className="flex justify-center" />}
+                {TURNSTILE_SITE_KEY && turnstileArmed && (
+                  <div className="flex flex-col items-center gap-1">
+                    <div ref={turnstileRef} className="flex justify-center" />
+                    {turnstileDiag && (
+                      <div className="text-center text-[11px] font-bold text-amber-400">
+                        {t('auth.captchaFailed')}
+                        <span className="ml-1 opacity-60">[{turnstileDiag}]</span>
+                        <button
+                          type="button"
+                          className="ml-2 underline"
+                          onClick={() => { setTurnstileDiag(null); setTurnstileToken(undefined); setTurnstileReloadKey((k) => k + 1) }}
+                        >
+                          {t('common.retry')}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
                 <button
                   type="button"
                   className="w-full rounded-[14px] bg-gradient-to-b from-[#ffcc19] to-[#ffae00] py-3.5 text-sm font-black text-black shadow-[0_8px_24px_rgba(255,184,0,0.28)] transition-all active:scale-[0.98] disabled:opacity-60"
