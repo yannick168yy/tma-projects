@@ -391,7 +391,8 @@ export default function LoginSheet({ open, onClose }: Props) {
                 </div>
                 {TURNSTILE_SITE_KEY && turnstileArmed && (
                   <div className="flex flex-col items-center gap-1">
-                    <div ref={turnstileRef} className="flex justify-center" />
+                    {/* 预留固定高度+深色底:iframe 冷加载前占好位,消除布局跳动、把首次闪白压成深色 */}
+                    <div ref={turnstileRef} className="flex min-h-[65px] w-full items-center justify-center rounded-[14px] bg-[#121824]" />
                     {turnstileDiag && (
                       <div className="text-center text-[11px] font-bold text-amber-400">
                         {t('auth.captchaFailed')}
