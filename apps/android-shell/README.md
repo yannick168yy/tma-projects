@@ -20,7 +20,34 @@ APK 3.9 MB，首次构建 2 分 30 秒。全站在 Android WebView 里**完整�
 | 登录弹窗 | 完整渲染，无白屏 |
 | 白名单外域名跳转 | 正确唤起系统浏览器，App 保留在后台 |
 
-## 必须修复的问题
+## 四个问题已修复并复测通过（2026-07-24）
+
+修复全部落在壳侧（`MainActivity.java`），站点代码只动了「是否已装 App」的判定 ——
+同一份 bundle 还要服务 H5/PWA/Telegram，不该为 App 特化。
+
+| 问题 | 修法 | 复测结果 |
+|---|---|---|
+| 充值整页覆盖 App | 外部链接走 Custom Tab；开 `setSupportMultipleWindows` + `onCreateWindow` 接住 `window.open` | 触发后 WebView 仍停在 `/home`，原页面和轮询都活着 |
+| Google 登录态回不来 | OAuth 回跳路径注册成 App Link + `assetlinks.json` | `pm get-app-links` 显示 `www.188facai.com: verified`，回跳 intent 正确路由回 App 并加载 callback URL |
+| 返回键直接退出 | 映射到站内路由；首页「2 秒内再按一次退出」 | 二级页返回回上一页且不退出；首页连按两次才退出 |
+| App 内仍推下载横幅 | 站点用 UA 里的 `BetogoApp` 判定（`isNativeApp`/`isInstalledApp`/`installSource`） | 横幅已消失；下载礼金按 `apk` 来源上报 |
+
+`shouldOverrideUrlLoading` 里必须判 `isForMainFrame` —— 游戏是跨域 iframe 加载的，
+不判会把整个游戏踢到浏览器。
+
+### 上生产前还要做
+
+- **assetlinks.json 换成 release 签名指纹**：现在放的是 debug keystore 指纹
+  （`18:3C:8E:...:6B:0F`），正式包换签名后 App Link 会失效，Google 登录退回原样。
+  文件可以放多个指纹，debug + release 并存最省事。
+- **生产域名也要部署 assetlinks.json**：`betogo.games` / `www.betogo.games` 当前是未验证状态
+  （模拟器解析不到这两个域名）。文件已随 web-tma 打包，发布生产时自动带上。
+- **真机复测 Custom Tab 外观**：模拟器的 Chrome 停在首次运行页，看不到 Custom Tab 的真实样子。
+- **未实测**：KYC 图片上传、游戏 iframe 加载（都需要登录态）。
+  前者靠 `BridgeWebChromeClient` 自带的 `onShowFileChooser`（我们只覆盖了 `onCreateWindow`，它保留着）；
+  后者靠上面的 `isForMainFrame` 判断。两条路径都在代码里成立，但没跑过真实流程。
+
+## 原始验证发现的问题（已修，保留记录）
 
 ### 1. 充值跳转会覆盖整个 App（阻断级）
 

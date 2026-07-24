@@ -71,7 +71,9 @@ public class MainActivity extends BridgeActivity {
             @Override
             public void handleOnBackPressed() {
                 WebView webView = getBridge().getWebView();
-                if (webView.canGoBack()) {
+                // SPA 在首页也会攒下一堆 pushState 历史，只看 canGoBack 会让用户按十几次才退得出去，
+                // 所以首页一律走「再按一次退出」
+                if (!isHomeUrl(webView.getUrl()) && webView.canGoBack()) {
                     webView.goBack();
                     return;
                 }
@@ -84,6 +86,12 @@ public class MainActivity extends BridgeActivity {
                 Toast.makeText(MainActivity.this, "Press back again to exit", Toast.LENGTH_SHORT).show();
             }
         });
+    }
+
+    private static boolean isHomeUrl(String url) {
+        if (url == null) return false;
+        String path = Uri.parse(url).getPath();
+        return path == null || path.equals("/") || path.equals("/home");
     }
 
     private static boolean isOwnHost(String host) {
