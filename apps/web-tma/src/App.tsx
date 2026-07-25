@@ -6,6 +6,7 @@ import GoogleAuthCallback from '@/views/GoogleAuthCallback'
 import TelegramAuthCallback from '@/views/TelegramAuthCallback'
 import AnalyticsPageTracker from '@/components/AnalyticsPageTracker'
 import MaintenanceOverlay from '@/components/MaintenanceOverlay'
+import BootSplash from '@/components/BootSplash'
 import LoginSheet from '@/components/auth/LoginSheet'
 import RedPacketSheet from '@/components/promotion/RedPacketSheet'
 import { useAuthStore } from '@/stores/auth'
@@ -39,10 +40,18 @@ function MainApp() {
     }
   }, [])
 
-  if (phase === 'splash') return <SplashPage error={bootError} />
+  if (phase === 'splash') {
+    return (
+      <>
+        <BootSplash />
+        <SplashPage error={bootError} />
+      </>
+    )
+  }
 
   return (
     <>
+      <BootSplash />
       <Suspense fallback={null}>
         <AppShell />
       </Suspense>

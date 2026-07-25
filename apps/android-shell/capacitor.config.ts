@@ -7,13 +7,16 @@ const config: CapacitorConfig = {
   appId: 'games.betogo.app',
   appName: 'BETOGO',
   webDir: 'www',
+  // WebView 底色：原生启动屏结束到页面渲染之间的空档显示深色而非白屏
+  backgroundColor: '#080b14',
   plugins: {
-    // 启动屏固定停留 2.5s：品牌曝光与冷启动体感的平衡点（下次重打包生效）
+    // Android 12+ 系统启动屏强制"居中图标"样式，全屏宣传图只在 ≤11 生效——
+    // 所以品牌启动图改由 web 层实现（App.tsx BootSplash，2.5s），全版本一致且换图免发包。
+    // 原生启动屏只保留一瞬（深色底），避免与 web 启动图叠加成双倍等待。
     SplashScreen: {
-      launchShowDuration: 2500,
+      launchShowDuration: 500,
       launchAutoHide: true,
       backgroundColor: '#080b14',
-      // 宣传图为竖版，等比铺满裁切；不设会被 FIT_XY 拉变形
       androidScaleType: 'CENTER_CROP',
     },
   },
