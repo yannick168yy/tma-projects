@@ -85,13 +85,24 @@ export async function saveUserAttribution(
 
 // ── 站外 APK 安装配对：浏览器点下载 → 落 bg_pending_install，App 首启按 IP+机型 认领 ──
 
-/** 从 UA 提取「android版本|机型」。Chrome 与壳 WebView 的 UA 都含 "Android 13; Pixel 5"，是两侧唯一的公共稳定键 */
+/**
+ * 从 UA 提取「android主版本|机型」——仅作前端设备键缺失时的降级。
+ * Chrome 110+ 的 HTTP UA 冻结为 "Android 10; K"（所有设备一样），这种冻结值配不上
+ * WebView 侧的真实机型，必须拒收；正路是前端用 UA-CH 高熵接口算好键随 body 上报。
+ */
 export function deviceKeyFromUa(ua: string | undefined): string | null {
   const m = /Android ([\d.]+); ([^;)]+)/.exec(ua ?? '')
   if (!m) return null
   const model = m[2].replace(/ Build\/.*$/, '').trim().toLowerCase()
-  if (!model) return null
-  return `${m[1]}|${model}`.slice(0, 128)
+  if (!model || model === 'k') return null
+  return `${m[1].split('.')[0]}|${model}`.slice(0, 128)
+}
+
+/** 校验前端上报的设备键：主版本|机型 的形状，防脏数据 */
+function normalizeClientDeviceKey(dk: unknown): string | null {
+  if (typeof dk !== 'string') return null
+  const s = dk.trim().toLowerCase().slice(0, 128)
+  return /^\d{1,3}\|.{1,120}$/.test(s) ? s : null
 }
 
 const MAX_ATTR_JSON = 2000
@@ -99,10 +110,10 @@ const MAX_ATTR_JSON = 2000
 export async function savePendingInstall(
   env: Env,
   attr: unknown,
-  ctx: { ip?: string; userAgent?: string },
+  ctx: { ip?: string; userAgent?: string; deviceKey?: unknown },
 ): Promise<boolean> {
   if (!isMysqlEnabled(env)) return false
-  const key = deviceKeyFromUa(ctx.userAgent)
+  const key = normalizeClientDeviceKey(ctx.deviceKey) ?? deviceKeyFromUa(ctx.userAgent)
   if (!key || !ctx.ip) return false
   if (!attr || typeof attr !== 'object' || Array.isArray(attr)) return false
   const json = JSON.stringify(attr)
@@ -123,10 +134,10 @@ export async function savePendingInstall(
 /** App 首启认领：24h 窗内同 IP+机型 的最新未认领记录。竞态由 UPDATE 条件兜住 */
 export async function matchPendingInstall(
   env: Env,
-  ctx: { ip?: string; userAgent?: string },
+  ctx: { ip?: string; userAgent?: string; deviceKey?: unknown },
 ): Promise<AttrPayload | null> {
   if (!isMysqlEnabled(env)) return null
-  const key = deviceKeyFromUa(ctx.userAgent)
+  const key = normalizeClientDeviceKey(ctx.deviceKey) ?? deviceKeyFromUa(ctx.userAgent)
   if (!key || !ctx.ip) return null
   const db = getMysqlPool(env)
   const [rows] = await db.query(

@@ -9,18 +9,21 @@ import { savePendingInstall, matchPendingInstall } from '../services/attribution
 const router = new Router({ prefix: '/attribution' })
 
 router.post('/download-click', async (ctx) => {
-  const body = (ctx.request.body ?? {}) as { attr?: unknown }
+  const body = (ctx.request.body ?? {}) as { attr?: unknown; dk?: unknown }
   const stored = await savePendingInstall(ctx.state.env, body.attr, {
     ip: ctx.ip,
     userAgent: ctx.get('user-agent'),
+    deviceKey: body.dk,
   }).catch(() => false)
   ok(ctx, { stored })
 })
 
 router.post('/app-first-open', async (ctx) => {
+  const body = (ctx.request.body ?? {}) as { dk?: unknown }
   const attr = await matchPendingInstall(ctx.state.env, {
     ip: ctx.ip,
     userAgent: ctx.get('user-agent'),
+    deviceKey: body.dk,
   }).catch(() => null)
   ok(ctx, { attr })
 })
