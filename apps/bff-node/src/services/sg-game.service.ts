@@ -386,6 +386,16 @@ function homepageBucket(currency?: string): string {
   return normalizeGameCurrency(currency) === 'USDT' ? 'USDT' : 'PHP'
 }
 
+// 同款游戏系列键：去掉商标符与结尾的代数记号（数字/罗马数字/Deluxe），
+// 「Fortune Gems 2」「Gates of Olympus 1000™」与初代同键，板块内只保留一款。
+// 全数字名（如 777）不会被剥空——只在剩余多个 token 时才剥尾。
+function gameSeriesKey(name: string | null | undefined): string {
+  const base = (name ?? '').toLowerCase().replace(/[™®]/g, '').trim()
+  const tokens = base.split(/\s+/)
+  while (tokens.length > 1 && /^(\d+|ii|iii|iv|deluxe)$/.test(tokens[tokens.length - 1])) tokens.pop()
+  return tokens.join(' ') || base
+}
+
 // 板块手动干预（Phase A）：策略打底，pin/exclude 微调
 export interface SectionGameEntry {
   gameUuid: string
@@ -453,7 +463,7 @@ function buildHomepageSelection(all: DbGame[], cur: string, overrides: SectionOv
     return r
   }
   // 确定性 top-N：按 score 降序钉死前 N，厂商去重（龙头厂商放宽到 maxPerProvider）
-  // + 模块内同名去重（同款游戏不同厂商各出一版，只保留 score 最高的一版）
+  // + 模块内同款去重（同名不同厂商版本、同系列不同代都只保留 score 最高的一款）
   const pickTop = (pool: DbGame[], score: (g: DbGame) => number, n: number, maxPerProvider = 3) => {
     const sorted = pool.filter((g) => !seen.has(g.uuid)).sort((a, b) => score(b) - score(a))
     const result: DbGame[] = []
@@ -461,7 +471,7 @@ function buildHomepageSelection(all: DbGame[], cur: string, overrides: SectionOv
     const names = new Set<string>()
     for (const g of sorted) {
       if (result.length >= n) break
-      const nameKey = (g.name ?? '').trim().toLowerCase()
+      const nameKey = gameSeriesKey(g.name)
       if (nameKey && names.has(nameKey)) continue
       const c = counts.get(g.provider) ?? 0
       if (c < maxPerProvider) {
@@ -473,15 +483,15 @@ function buildHomepageSelection(all: DbGame[], cur: string, overrides: SectionOv
     }
     return result
   }
-  // 确定性按权重降序取 N：跨板块 seen 去重（已出现在首页的跳过）+ 模块内同名去重
-  // （同一款游戏不同厂商各出一版，如 Roma/Mines，单板块只保留权重最高的一版）
+  // 确定性按权重降序取 N：跨板块 seen 去重（已出现在首页的跳过）+ 模块内同款去重
+  // （同名不同厂商版本如 Roma/Mines、同系列不同代如 Fortune Gems 2，只保留权重最高的一款）
   const pickWeightTop = (pool: DbGame[], n: number) => {
     const sorted = pool.filter((g) => !seen.has(g.uuid)).sort((a, b) => b.weight - a.weight)
     const result: DbGame[] = []
     const names = new Set<string>()
     for (const g of sorted) {
       if (result.length >= n) break
-      const nameKey = (g.name ?? '').trim().toLowerCase()
+      const nameKey = gameSeriesKey(g.name)
       if (nameKey && names.has(nameKey)) continue
       result.push(g)
       if (nameKey) names.add(nameKey)
