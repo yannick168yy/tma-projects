@@ -197,6 +197,21 @@ export interface BiChannelRow {
 }
 export const getBiChannels = (days: number) =>
   get<{ channels: BiChannelRow[]; trend: { dates: string[]; series: { name: string; data: (number | null)[] }[] } }>('/admin/bi/channels', { days })
+export interface AdSourceRow {
+  channelCode: string; regUsers: number; firstDepUsers: number
+  firstDepAmount: number; depositAmount: number; depositUsers: number; arpu: number | null
+}
+export interface AdSourceReport {
+  from: string; to: string; currency: string
+  rows: AdSourceRow[]; totals: Omit<AdSourceRow, 'channelCode'>
+}
+export const getAdSources = (params: { from?: string; to?: string; currency?: string; channel?: string }) =>
+  get<AdSourceReport>('/admin/bi/ad-sources', params)
+
+export interface AdSourceTrendPoint { date: string; regUsers: number; firstDepUsers: number; depositAmount: number; arpu: number | null }
+export const getAdSourceTrend = (params: { channel: string; from?: string; to?: string; currency?: string }) =>
+  get<{ channel: string; currency: string; points: AdSourceTrendPoint[] }>('/admin/bi/ad-sources/trend', params)
+
 export const sendBiReport = () => post<{ sent: boolean; text: string }>('/admin/bi/report/send')
 export const getBiReportConfig = () => get<{ enabled: boolean }>('/admin/bi/report/config')
 export const setBiReportConfig = (enabled: boolean) => put<{ enabled: boolean }>('/admin/bi/report/config', { enabled })

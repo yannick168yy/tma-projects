@@ -6,6 +6,7 @@ import {
   BI_TARGET_METRICS, type BiTargetMetric,
 } from '../../services/bi.service.js'
 import { getBiChannels } from '../../services/bi.service.js'
+import { getAdSourceReport, getAdSourceTrend, isValidChannel } from '../../services/marketing-bi.service.js'
 import { sendBiReportNow, isBiReportEnabled, setBiReportEnabled } from '../../services/bi-report.service.js'
 import { writeAuditLog } from '../../services/admin-store.js'
 import { ok, fail } from '../../utils/response.js'
@@ -147,6 +148,41 @@ router.post('/churn/redep-offer', async (ctx) => {
 router.get('/channels', async (ctx) => {
   const days = Math.min(Math.max(Number(ctx.query.days) || 30, 7), 365)
   ok(ctx, await getBiChannels(ctx.state.env, days))
+})
+
+// 买量投放渠道报表：马尼拉日范围，默认最近 7 天，币种默认 PHP
+function parseAdSourceRange(q: Record<string, unknown>): { from: string; to: string; currency: string } | null {
+  const dateRe = /^\d{4}-\d{2}-\d{2}$/
+  const manilaToday = new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10)
+  const to = q.to && dateRe.test(String(q.to)) ? String(q.to) : manilaToday
+  let from: string
+  if (q.from && dateRe.test(String(q.from))) {
+    from = String(q.from)
+  } else {
+    from = new Date(Date.parse(`${to}T00:00:00+08:00`) - 6 * 86400000 + 8 * 3600 * 1000).toISOString().slice(0, 10)
+  }
+  if (from > to) return null
+  // 跨度上限 92 天，防全表大范围扫描
+  if ((Date.parse(`${to}T00:00:00+08:00`) - Date.parse(`${from}T00:00:00+08:00`)) / 86400000 > 92) return null
+  const currency = q.currency ? String(q.currency) : 'PHP'
+  if (!/^[A-Z]{2,10}$/.test(currency)) return null
+  return { from, to, currency }
+}
+
+router.get('/ad-sources', async (ctx) => {
+  const r = parseAdSourceRange(ctx.query)
+  if (!r) { fail(ctx, 400, 'invalid range/currency'); return }
+  const channel = ctx.query.channel ? String(ctx.query.channel) : undefined
+  if (channel && !isValidChannel(channel)) { fail(ctx, 400, 'invalid channel'); return }
+  ok(ctx, await getAdSourceReport(ctx.state.env, { ...r, channel }))
+})
+
+router.get('/ad-sources/trend', async (ctx) => {
+  const r = parseAdSourceRange(ctx.query)
+  if (!r) { fail(ctx, 400, 'invalid range/currency'); return }
+  const channel = ctx.query.channel ? String(ctx.query.channel) : ''
+  if (!isValidChannel(channel)) { fail(ctx, 400, 'channel required'); return }
+  ok(ctx, await getAdSourceTrend(ctx.state.env, { ...r, channel }))
 })
 
 router.post('/report/send', async (ctx) => {

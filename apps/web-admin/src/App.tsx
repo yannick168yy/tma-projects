@@ -9,6 +9,7 @@ import BiUsers from './views/BiUsers'
 import BiAcquisition from './views/BiAcquisition'
 import BiChurn from './views/BiChurn'
 import BiChannels from './views/BiChannels'
+import BiAdSources from './views/BiAdSources'
 import Users from './views/Users'
 import UserDetail from './views/UserDetail'
 import DeviceLookup from './views/DeviceLookup'
@@ -90,6 +91,7 @@ export default function App() {
           <Route path="bi/games" element={<BiGames />} />
           <Route path="bi/users" element={<BiUsers />} />
           <Route path="bi/acquisition" element={<BiAcquisition />} />
+          <Route path="bi/ad-sources" element={<BiAdSources />} />
           <Route path="bi/churn" element={<BiChurn />} />
           <Route path="bi/channels" element={<BiChannels />} />
           <Route path="users" element={<Users />} />

@@ -40,6 +40,7 @@ function buildMenuItems(badges: AdminBadges) {
         { key: '/bi/games', label: '游戏分析' },
         { key: '/bi/users', label: '用户分析' },
         { key: '/bi/acquisition', label: '渠道拉新' },
+        { key: '/bi/ad-sources', label: '投放渠道(买量)' },
         { key: '/bi/churn', label: '流失挽回' },
         { key: '/bi/channels', label: '支付通道监控' },
       ],
