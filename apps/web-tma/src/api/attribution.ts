@@ -57,7 +57,9 @@ export function reportInstallClick(): void {
 export async function pairInstallAttribution(): Promise<void> {
   // Android APK 壳，或 iOS 主屏幕 PWA（Android PWA 与 Chrome 共享存储，无需配对）
   if (!isNativeApp() && !(isIos() && isStandalone())) return
-  if (getAttribution()) return
+  // 注意：本地已有归因也要发认领——iOS 的 PWA 与 Safari 共享 cookie，归因常随 cookie
+  // 带进来（真机实测），此时若跳过认领，配对行永不标记安装、安装数漏计。
+  // 快照采纳由 adoptAttribution 的防覆盖保护兜底，first-touch 语义不变。
   try {
     if (localStorage.getItem(PAIR_DONE_KEY)) return
   } catch { /* 读不了就当没跑过 */ }
