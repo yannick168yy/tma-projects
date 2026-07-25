@@ -187,14 +187,20 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
   const [homepageGames, setHomepageGames] = useState<Record<keyof typeof emptyHomepage, SlotGame[]>>(emptyHomepage)
   const [gamesLoading, setGamesLoading] = useState(true)
   const [recentGames, setRecentGames] = useState<SlotGame[]>([])
-  // 最近在玩不足最大数时，从推荐里挑未玩过的补齐
+  // 最近在玩不足最大数时补齐：只从推荐候选池第 13 款起取（前 12 由推荐板块展示、
+  // popular 有自己的板块），保证补位游戏不与首页其他板块重复
   const recentFillGames = useMemo(() => {
     if (recentGames.length === 0 || recentGames.length >= RECENT_ROW_MAX) return []
     const played = new Set(recentGames.map((g) => g.uuid))
-    return [...homepageGames.recommended, ...homepageGames.popular]
-      .filter((g, i, arr) => !played.has(g.uuid) && arr.findIndex((x) => x.uuid === g.uuid) === i)
+    return homepageGames.recommended.slice(12)
+      .filter((g) => !played.has(g.uuid))
       .slice(0, RECENT_ROW_MAX - recentGames.length)
-  }, [recentGames, homepageGames.recommended, homepageGames.popular])
+  }, [recentGames, homepageGames.recommended])
+  // 推荐板块展示：剔除「最近在玩」行已出现的游戏后取前 12
+  const recommendedDisplay = useMemo(() => {
+    const shown = new Set([...recentGames, ...recentFillGames].map((g) => g.uuid))
+    return homepageGames.recommended.filter((g) => !shown.has(g.uuid)).slice(0, 12)
+  }, [homepageGames.recommended, recentGames, recentFillGames])
   const [providerZoneTab, setProviderZoneTab] = useState(PROVIDER_ZONE[0].code)
   const [providerZoneRaw, setProviderZoneRaw] = useState<SlotGame[]>([])
   const providerZoneFetchRef = useRef(0)
@@ -411,7 +417,7 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
         (gamesLoading || homepageGames.recommended.length > 0) && (
           <section className="mt-5">
             {sectionHeader(<Percent size={15} className="text-red-400" />, t('home.recommended'), () => onNavigatePath('/games'))}
-            {smallRow(homepageGames.recommended)}
+            {smallRow(recommendedDisplay)}
           </section>
         )
       )}
@@ -551,7 +557,7 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
       {recentGames.length > 0 && (gamesLoading || homepageGames.recommended.length > 0) && (
         <section className="mt-6">
           {sectionHeader(<Percent size={15} className="text-red-400" />, t('home.recommended'), () => onNavigatePath('/games'))}
-          {bigGrid(homepageGames.recommended.slice(0, 12), 12)}
+          {bigGrid(recommendedDisplay, 12)}
         </section>
       )}
 

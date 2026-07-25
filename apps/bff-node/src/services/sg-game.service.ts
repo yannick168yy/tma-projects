@@ -531,8 +531,9 @@ function buildHomepageSelection(all: DbGame[], cur: string, overrides: SectionOv
 
   const selection: HomepageSelection = {
     popular:    applyManual('popular', popularMerged.slice(0, POPULAR_N), POPULAR_N),
-    // 推荐精选：竞品验证权重的次高梯队（popular 已取走的会被 seen 去重），首页 4 行 × 3 列
-    recommended: topSection('recommended', all, score, 12, 3),
+    // 推荐精选：竞品验证权重的次高梯队（popular 已取走的会被 seen 去重）。
+    // 取 24 款做候选池：前端展示前 12，后 12 专供「最近在玩」补位，保证补位游戏不与推荐板块重复
+    recommended: topSection('recommended', all, score, 24, 3),
     newGames:   sampleSection('newGames', newPool, score, 12, 4),
     // slots/perya/fishing/highRtp 改为确定性按权重降序推荐（含模块内同名去重）。
     // highRtp 在页面上位于 slots 之前，先计算以按展示顺序优先分配高权重游戏
