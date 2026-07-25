@@ -534,6 +534,12 @@ function buildHomepageSelection(all: DbGame[], cur: string, overrides: SectionOv
   const topSection = (key: string, pool: DbGame[], sc: (g: DbGame) => number, n: number, mpp = 3) =>
     applyManual(key, pickTop(exFilter(key, pool), sc, n, mpp), n)
 
+  // 高洗码专栏：elite 档(2% 返水)游戏按热度取 top 9，必须固定展示高返水游戏本身。
+  // 先于其他板块计算并登记 seen——否则策略会在 popular/recommended 等板块再次选中同款(生产实测 Medusa)
+  const highRebateList = applyManual('highRebate',
+    [...exFilter('highRebate', all.filter((g) => g.cashbackTier === 'elite'))].sort((a, b) => score(b) - score(a)).slice(0, 9), 9)
+  highRebateList.forEach((g) => seen.add(g.uuid))
+
   // popular 混排：纯按热度排会被 slots 屠版。改为①保底 1 个真人娱乐席位(插到第3位保证
   // 露出)②主体从 featured 核心池按热度取、每厂商≤3(JILI 等龙头在 PH 本就多爆款)③featured
   // 池填不满时从全库高热度补足到 POPULAR_N。体育合成条目(isFeatured=true)有专属通栏，从热门剔除。
@@ -580,9 +586,8 @@ function buildHomepageSelection(all: DbGame[], cur: string, overrides: SectionOv
     // 百家乐专栏：casinoplus 有独立返水专栏验证的品类需求（new_game_type=101）
     // 可用百家乐仅 2 家厂商(Pragmatic/Playtech)，默认每厂商≤2 只能凑出 4 款；放宽到 6 以填满 12
     baccarat:   sampleSection('baccarat', all.filter((g) => g.category === '101'), score, 12, 6),
-    // 高洗码专栏：elite 档(2% 返水)游戏，按热度取 top 且不参与跨板块去重(需固定展示高返水游戏本身)，默认 9 款
-    highRebate: applyManual('highRebate',
-      [...exFilter('highRebate', all.filter((g) => g.cashbackTier === 'elite'))].sort((a, b) => score(b) - score(a)).slice(0, 9), 9),
+    // 高洗码专栏：已在 popular 前先算并登记 seen（见 highRebateList 注释）
+    highRebate: highRebateList,
     // 体育：sportsbook 合成条目固定第一席位（前端已移除专属通栏）；Lucky Sports(迁移134统一名) 的 28 个
     // 分项(足球/拳击/…)是同一产品的不同入口，只保留 Basketball，其余席位给独立体育产品(AFB/BTi/Panda/Saba 等)
     sports:     applyManual('sports', [
