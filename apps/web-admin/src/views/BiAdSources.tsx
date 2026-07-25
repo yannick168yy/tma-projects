@@ -18,7 +18,7 @@ function CapiTokenPanel() {
   const isSuper = localStorage.getItem('admin_role') === 'super_admin'
   const [rows, setRows] = useState<CapiPixelToken[]>([])
   const [loading, setLoading] = useState(false)
-  const [form, setForm] = useState({ platform: 'facebook', pixelId: '', accessToken: '', remark: '' })
+  const [form, setForm] = useState({ platform: 'facebook', pixelId: '', accessToken: '', testEventCode: '', remark: '' })
 
   const load = useCallback(() => {
     setLoading(true)
@@ -34,10 +34,11 @@ function CapiTokenPanel() {
         platform: form.platform,
         pixelId: form.pixelId.trim(),
         accessToken: form.accessToken.trim(),
+        testEventCode: form.testEventCode.trim() || undefined,
         remark: form.remark.trim() || undefined,
       })
       message.success('已保存')
-      setForm((f) => ({ ...f, pixelId: '', accessToken: '', remark: '' }))
+      setForm((f) => ({ ...f, pixelId: '', accessToken: '', testEventCode: '', remark: '' }))
       load()
     } catch (e) {
       message.error((e as Error).message)
@@ -48,6 +49,11 @@ function CapiTokenPanel() {
     { title: '平台', dataIndex: 'platform', render: (v: string) => <Tag color={v === 'facebook' ? 'blue' : 'default'}>{v}</Tag> },
     { title: '像素 ID', dataIndex: 'pixelId' },
     { title: 'Token', dataIndex: 'tokenTail', render: (v: string) => <code>••••{v}</code> },
+    {
+      title: <Tooltip title="非空时事件带 test_event_code 上报，FB「测试事件」页实时可见；验证完应清空(重存留空即清)">测试码</Tooltip>,
+      dataIndex: 'testEventCode',
+      render: (v: string | null) => (v ? <Tag color="orange">{v}</Tag> : '—'),
+    },
     { title: '备注', dataIndex: 'remark', render: (v: string | null) => v ?? '—' },
     { title: '更新时间', dataIndex: 'updatedAt', render: (v: string) => dayjs(v).format('MM-DD HH:mm') },
     ...(isSuper ? [{
@@ -83,6 +89,10 @@ function CapiTokenPanel() {
           <Input.Password
             placeholder="access token" value={form.accessToken} style={{ width: 260 }}
             onChange={(e) => setForm((f) => ({ ...f, accessToken: e.target.value }))}
+          />
+          <Input
+            placeholder="测试码 TESTxxx（可空）" value={form.testEventCode} style={{ width: 150 }}
+            onChange={(e) => setForm((f) => ({ ...f, testEventCode: e.target.value }))}
           />
           <Input
             placeholder="备注（线路/投手，可空）" value={form.remark} style={{ width: 180 }}

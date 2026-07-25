@@ -95,20 +95,28 @@ interface EventInput {
 }
 
 // 投流方各自 BM 出像素，token 不通用，必须按 (platform, pixel_id) 匹配；
-// 表里没配的像素回退 env 全局 token。返回空串=没配置，调用方直接跳过（不 claim，配好后还能补发）
-async function resolveToken(db: Pool, platform: 'facebook' | 'tiktok', pixelId: string): Promise<string> {
+// 表里没配的像素回退 env 全局值。token 空串=没配置，调用方直接跳过（不 claim，配好后还能补发）。
+// testEventCode 非空时随事件上报，FB/TT「测试事件」页可实时看到——开测验证用，验证完清空。
+interface PixelCredential { token: string; testEventCode: string }
+
+async function resolveCredential(db: Pool, platform: 'facebook' | 'tiktok', pixelId: string): Promise<PixelCredential> {
   const [rows] = await db.query<RowDataPacket[]>(
-    `SELECT access_token FROM bg_capi_pixel_token WHERE platform = ? AND pixel_id = ? LIMIT 1`,
+    `SELECT access_token, test_event_code FROM bg_capi_pixel_token WHERE platform = ? AND pixel_id = ? LIMIT 1`,
     [platform, pixelId],
   )
-  const fromDb = rows[0]?.access_token ? String(rows[0].access_token).trim() : ''
-  if (fromDb) return fromDb
-  return platform === 'facebook' ? env.FB_CAPI_ACCESS_TOKEN.trim() : env.TIKTOK_CAPI_ACCESS_TOKEN.trim()
+  const r = rows[0]
+  const dbToken = r?.access_token ? String(r.access_token).trim() : ''
+  const dbTest = r?.test_event_code ? String(r.test_event_code).trim() : ''
+  const isFb = platform === 'facebook'
+  return {
+    token: dbToken || (isFb ? env.FB_CAPI_ACCESS_TOKEN.trim() : env.TIKTOK_CAPI_ACCESS_TOKEN.trim()),
+    testEventCode: dbTest || (isFb ? env.FB_CAPI_TEST_EVENT_CODE.trim() : env.TIKTOK_CAPI_TEST_EVENT_CODE.trim()),
+  }
 }
 
 async function sendFacebook(db: Pool, attr: Attribution, ev: EventInput): Promise<void> {
   if (!attr.fbPixelId) return
-  const token = await resolveToken(db, 'facebook', attr.fbPixelId)
+  const { token, testEventCode } = await resolveCredential(db, 'facebook', attr.fbPixelId)
   if (!token) return
   if (!(await claim(db, 'facebook', ev.eventName, ev.eventId, ev.userId))) return
 
@@ -129,7 +137,7 @@ async function sendFacebook(db: Pool, attr: Attribution, ev: EventInput): Promis
       ...(ev.value !== undefined ? { custom_data: { value: ev.value, currency: ev.currency } } : {}),
     }],
   }
-  if (env.FB_CAPI_TEST_EVENT_CODE.trim()) body.test_event_code = env.FB_CAPI_TEST_EVENT_CODE.trim()
+  if (testEventCode) body.test_event_code = testEventCode
 
   const url = `https://graph.facebook.com/${FB_API_VERSION}/${encodeURIComponent(attr.fbPixelId)}/events?access_token=${encodeURIComponent(token)}`
   try {
@@ -142,7 +150,7 @@ async function sendFacebook(db: Pool, attr: Attribution, ev: EventInput): Promis
 
 async function sendTiktok(db: Pool, attr: Attribution, ev: EventInput): Promise<void> {
   if (!attr.ttPixelId) return
-  const token = await resolveToken(db, 'tiktok', attr.ttPixelId)
+  const { token, testEventCode } = await resolveCredential(db, 'tiktok', attr.ttPixelId)
   if (!token) return
   if (!(await claim(db, 'tiktok', ev.eventName, ev.eventId, ev.userId))) return
 
@@ -163,7 +171,7 @@ async function sendTiktok(db: Pool, attr: Attribution, ev: EventInput): Promise<
       ...(ev.value !== undefined ? { properties: { value: ev.value, currency: ev.currency } } : {}),
     }],
   }
-  if (env.TIKTOK_CAPI_TEST_EVENT_CODE.trim()) body.test_event_code = env.TIKTOK_CAPI_TEST_EVENT_CODE.trim()
+  if (testEventCode) body.test_event_code = testEventCode
 
   try {
     const { code, text } = await postJson(

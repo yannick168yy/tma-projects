@@ -13,7 +13,7 @@ const PLATFORMS = ['facebook', 'tiktok'] as const
 router.get('/capi-tokens', async (ctx) => {
   const db = getMysqlPool(ctx.state.env)
   const [rows] = await db.query<RowDataPacket[]>(
-    `SELECT id, platform, pixel_id, access_token, remark, updated_at
+    `SELECT id, platform, pixel_id, access_token, test_event_code, remark, updated_at
      FROM bg_capi_pixel_token ORDER BY platform, pixel_id`,
   )
   ok(ctx, rows.map((r) => ({
@@ -21,6 +21,7 @@ router.get('/capi-tokens', async (ctx) => {
     platform: String(r.platform),
     pixelId: String(r.pixel_id),
     tokenTail: String(r.access_token).slice(-6),
+    testEventCode: r.test_event_code ? String(r.test_event_code) : null,
     remark: r.remark ? String(r.remark) : null,
     updatedAt: r.updated_at,
   })))
@@ -28,21 +29,23 @@ router.get('/capi-tokens', async (ctx) => {
 
 router.post('/capi-tokens', async (ctx) => {
   if (ctx.state.adminRole !== 'super_admin') { fail(ctx, 403, '仅 super_admin 可配置 CAPI token', 403); return }
-  const body = ctx.request.body as { platform?: string; pixelId?: string; accessToken?: string; remark?: string }
+  const body = ctx.request.body as { platform?: string; pixelId?: string; accessToken?: string; testEventCode?: string; remark?: string }
   const platform = String(body?.platform ?? '')
   const pixelId = String(body?.pixelId ?? '').trim()
   const accessToken = String(body?.accessToken ?? '').trim()
+  const testEventCode = body?.testEventCode ? String(body.testEventCode).trim() : ''
   const remark = body?.remark ? String(body.remark).trim().slice(0, 191) : null
   if (!(PLATFORMS as readonly string[]).includes(platform)
     || !/^[\w-]{5,64}$/.test(pixelId)
-    || accessToken.length < 10 || accessToken.length > 512) {
+    || accessToken.length < 10 || accessToken.length > 512
+    || (testEventCode && !/^[\w-]{1,32}$/.test(testEventCode))) {
     fail(ctx, 400, 'invalid params'); return
   }
   const db = getMysqlPool(ctx.state.env)
   await db.execute(
-    `INSERT INTO bg_capi_pixel_token (platform, pixel_id, access_token, remark) VALUES (?,?,?,?)
-     ON DUPLICATE KEY UPDATE access_token = VALUES(access_token), remark = VALUES(remark)`,
-    [platform, pixelId, accessToken, remark],
+    `INSERT INTO bg_capi_pixel_token (platform, pixel_id, access_token, test_event_code, remark) VALUES (?,?,?,?,?)
+     ON DUPLICATE KEY UPDATE access_token = VALUES(access_token), test_event_code = VALUES(test_event_code), remark = VALUES(remark)`,
+    [platform, pixelId, accessToken, testEventCode || null, remark],
   )
   await writeAuditLog(ctx.state.env, {
     adminId: ctx.state.adminId!,
@@ -50,7 +53,7 @@ router.post('/capi-tokens', async (ctx) => {
     action: 'marketing.capi_token_upsert',
     targetType: 'capi_pixel',
     targetId: `${platform}:${pixelId}`,
-    detail: { remark, tokenTail: accessToken.slice(-6) },
+    detail: { remark, tokenTail: accessToken.slice(-6), testEventCode: testEventCode || null },
   })
   ok(ctx, { ok: true })
 })
