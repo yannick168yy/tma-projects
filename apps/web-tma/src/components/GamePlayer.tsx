@@ -11,7 +11,7 @@ interface Props {
 
 // 宣传图最短展示时长：秒开的游戏也让促销信息停留可读，同时盖住 iframe
 // onLoad 到游戏真正渲染之间的衔接段
-const MIN_LOADING_MS = 1500
+const MIN_LOADING_MS = 2000
 
 export default function GamePlayer({ url, onClose }: Props) {
   const { t } = useTranslation()

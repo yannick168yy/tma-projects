@@ -13,6 +13,8 @@ const config: CapacitorConfig = {
       launchShowDuration: 2500,
       launchAutoHide: true,
       backgroundColor: '#080b14',
+      // 宣传图为竖版，等比铺满裁切；不设会被 FIT_XY 拉变形
+      androidScaleType: 'CENTER_CROP',
     },
   },
   android: {
