@@ -452,15 +452,24 @@ function buildHomepageSelection(all: DbGame[], cur: string, overrides: SectionOv
     r.forEach((g) => seen.add(g.uuid))
     return r
   }
-  // 确定性 top-N：按 score 降序钉死前 N，仅按厂商去重（龙头厂商放宽到 maxPerProvider）
+  // 确定性 top-N：按 score 降序钉死前 N，厂商去重（龙头厂商放宽到 maxPerProvider）
+  // + 模块内同名去重（同款游戏不同厂商各出一版，只保留 score 最高的一版）
   const pickTop = (pool: DbGame[], score: (g: DbGame) => number, n: number, maxPerProvider = 3) => {
     const sorted = pool.filter((g) => !seen.has(g.uuid)).sort((a, b) => score(b) - score(a))
     const result: DbGame[] = []
     const counts = new Map<string, number>()
+    const names = new Set<string>()
     for (const g of sorted) {
       if (result.length >= n) break
+      const nameKey = (g.name ?? '').trim().toLowerCase()
+      if (nameKey && names.has(nameKey)) continue
       const c = counts.get(g.provider) ?? 0
-      if (c < maxPerProvider) { result.push(g); counts.set(g.provider, c + 1); seen.add(g.uuid) }
+      if (c < maxPerProvider) {
+        result.push(g)
+        counts.set(g.provider, c + 1)
+        if (nameKey) names.add(nameKey)
+        seen.add(g.uuid)
+      }
     }
     return result
   }
