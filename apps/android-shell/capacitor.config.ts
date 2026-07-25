@@ -13,8 +13,9 @@ const config: CapacitorConfig = {
     allowMixedContent: false,
   },
   server: {
-    // 可行性验证先直连测试站；正式版改为由 www/index.html 探活后跳转
-    url: 'https://www.188facai.com',
+    // 入口域名按环境变量切：出生产包 CAP_SERVER_URL=https://www.betogo.games npx cap sync android
+    // 后再 assembleRelease；不设则默认测试站。两个域名各出各的包，其余配置共用。
+    url: process.env.CAP_SERVER_URL || 'https://www.188facai.com',
     androidScheme: 'https',
     cleartext: false,
     // 只放自己的域名。支付网关与 Google/Telegram 授权页刻意排除在外：
