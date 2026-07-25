@@ -212,6 +212,15 @@ export interface AdSourceTrendPoint { date: string; regUsers: number; firstDepUs
 export const getAdSourceTrend = (params: { channel: string; from?: string; to?: string; currency?: string }) =>
   get<{ channel: string; currency: string; points: AdSourceTrendPoint[] }>('/admin/bi/ad-sources/trend', params)
 
+export interface CapiPixelToken {
+  id: number; platform: 'facebook' | 'tiktok'; pixelId: string
+  tokenTail: string; remark: string | null; updatedAt: string
+}
+export const getCapiTokens = () => get<CapiPixelToken[]>('/admin/marketing/capi-tokens')
+export const upsertCapiToken = (data: { platform: string; pixelId: string; accessToken: string; remark?: string }) =>
+  post<{ ok: boolean }>('/admin/marketing/capi-tokens', data)
+export const deleteCapiToken = (id: number) => del<{ ok: boolean }>(`/admin/marketing/capi-tokens/${id}`)
+
 export const sendBiReport = () => post<{ sent: boolean; text: string }>('/admin/bi/report/send')
 export const getBiReportConfig = () => get<{ enabled: boolean }>('/admin/bi/report/config')
 export const setBiReportConfig = (enabled: boolean) => put<{ enabled: boolean }>('/admin/bi/report/config', { enabled })

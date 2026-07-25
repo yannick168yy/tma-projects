@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Button, Card, DatePicker, Input, Space, Spin, Table, Tag, Tooltip } from 'antd'
+import { Button, Card, DatePicker, Input, Popconfirm, Select, Space, Spin, Table, Tag, Tooltip, message } from 'antd'
 import dayjs, { type Dayjs } from 'dayjs'
-import { getAdSources, getAdSourceTrend, type AdSourceRow, type AdSourceReport } from '../api'
+import {
+  getAdSources, getAdSourceTrend, getCapiTokens, upsertCapiToken, deleteCapiToken,
+  type AdSourceRow, type AdSourceReport, type CapiPixelToken,
+} from '../api'
 import { LineChart } from '../components/BiCharts'
 
 const fmtMoney = (v: number) => Math.round(v).toLocaleString()
@@ -9,6 +12,89 @@ const ARPU_TARGET = 1200 // 条款客均门槛 ₱1200
 
 // 马尼拉今天（展示层用本地 dayjs 即可，服务端按 UTC+8 切日）
 const manilaToday = () => dayjs()
+
+// CAPI 像素 token 配置：投流方各 BM 出像素，token 按像素一一配置；写后不回显只留尾号
+function CapiTokenPanel() {
+  const isSuper = localStorage.getItem('admin_role') === 'super_admin'
+  const [rows, setRows] = useState<CapiPixelToken[]>([])
+  const [loading, setLoading] = useState(false)
+  const [form, setForm] = useState({ platform: 'facebook', pixelId: '', accessToken: '', remark: '' })
+
+  const load = useCallback(() => {
+    setLoading(true)
+    getCapiTokens().then(setRows).finally(() => setLoading(false))
+  }, [])
+  useEffect(() => { load() }, [load])
+
+  const submit = async () => {
+    if (!/^[\w-]{5,64}$/.test(form.pixelId.trim())) { message.warning('像素 ID 格式不对'); return }
+    if (form.accessToken.trim().length < 10) { message.warning('access token 太短'); return }
+    try {
+      await upsertCapiToken({
+        platform: form.platform,
+        pixelId: form.pixelId.trim(),
+        accessToken: form.accessToken.trim(),
+        remark: form.remark.trim() || undefined,
+      })
+      message.success('已保存')
+      setForm((f) => ({ ...f, pixelId: '', accessToken: '', remark: '' }))
+      load()
+    } catch (e) {
+      message.error((e as Error).message)
+    }
+  }
+
+  const columns = [
+    { title: '平台', dataIndex: 'platform', render: (v: string) => <Tag color={v === 'facebook' ? 'blue' : 'default'}>{v}</Tag> },
+    { title: '像素 ID', dataIndex: 'pixelId' },
+    { title: 'Token', dataIndex: 'tokenTail', render: (v: string) => <code>••••{v}</code> },
+    { title: '备注', dataIndex: 'remark', render: (v: string | null) => v ?? '—' },
+    { title: '更新时间', dataIndex: 'updatedAt', render: (v: string) => dayjs(v).format('MM-DD HH:mm') },
+    ...(isSuper ? [{
+      title: '操作', key: 'op',
+      render: (_: unknown, r: CapiPixelToken) => (
+        <Popconfirm title="删除后该像素的服务端回传将回退全局 token（未配则停发）" onConfirm={async () => { await deleteCapiToken(r.id); load() }}>
+          <a style={{ color: '#cf1322' }}>删除</a>
+        </Popconfirm>
+      ),
+    }] : []),
+  ]
+
+  return (
+    <Card
+      bordered={false} size="small" style={{ marginTop: 16 }}
+      title="CAPI 像素 Token（服务端回传凭证）"
+    >
+      <div style={{ color: '#999', fontSize: 12, marginBottom: 12 }}>
+        投流方每条线提供 FB / TikTok 像素 ID + 对应 BM 的 CAPI access token，在此登记后服务端才会给该像素回传
+        CompleteRegistration / Purchase。token 保存后不回显，只显示尾号；换 token 直接同像素重新保存即覆盖。
+      </div>
+      {isSuper && (
+        <Space style={{ marginBottom: 12 }} wrap>
+          <Select
+            value={form.platform} style={{ width: 110 }}
+            options={[{ value: 'facebook', label: 'Facebook' }, { value: 'tiktok', label: 'TikTok' }]}
+            onChange={(v) => setForm((f) => ({ ...f, platform: v }))}
+          />
+          <Input
+            placeholder="像素 ID" value={form.pixelId} style={{ width: 180 }}
+            onChange={(e) => setForm((f) => ({ ...f, pixelId: e.target.value }))}
+          />
+          <Input.Password
+            placeholder="access token" value={form.accessToken} style={{ width: 260 }}
+            onChange={(e) => setForm((f) => ({ ...f, accessToken: e.target.value }))}
+          />
+          <Input
+            placeholder="备注（线路/投手，可空）" value={form.remark} style={{ width: 180 }}
+            onChange={(e) => setForm((f) => ({ ...f, remark: e.target.value }))}
+          />
+          <Button type="primary" onClick={submit}>保存</Button>
+        </Space>
+      )}
+      <Table size="small" rowKey="id" columns={columns} dataSource={rows} loading={loading} pagination={false} />
+    </Card>
+  )
+}
 
 export default function BiAdSources() {
   const [range, setRange] = useState<[Dayjs, Dayjs]>([manilaToday().subtract(6, 'day'), manilaToday()])
@@ -149,6 +235,8 @@ export default function BiAdSources() {
           </Card>
         )}
       </Spin>
+
+      <CapiTokenPanel />
     </div>
   )
 }

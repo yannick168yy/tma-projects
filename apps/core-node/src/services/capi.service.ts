@@ -94,8 +94,22 @@ interface EventInput {
   currency?: string
 }
 
+// 投流方各自 BM 出像素，token 不通用，必须按 (platform, pixel_id) 匹配；
+// 表里没配的像素回退 env 全局 token。返回空串=没配置，调用方直接跳过（不 claim，配好后还能补发）
+async function resolveToken(db: Pool, platform: 'facebook' | 'tiktok', pixelId: string): Promise<string> {
+  const [rows] = await db.query<RowDataPacket[]>(
+    `SELECT access_token FROM bg_capi_pixel_token WHERE platform = ? AND pixel_id = ? LIMIT 1`,
+    [platform, pixelId],
+  )
+  const fromDb = rows[0]?.access_token ? String(rows[0].access_token).trim() : ''
+  if (fromDb) return fromDb
+  return platform === 'facebook' ? env.FB_CAPI_ACCESS_TOKEN.trim() : env.TIKTOK_CAPI_ACCESS_TOKEN.trim()
+}
+
 async function sendFacebook(db: Pool, attr: Attribution, ev: EventInput): Promise<void> {
-  if (!env.FB_CAPI_ACCESS_TOKEN.trim() || !attr.fbPixelId) return
+  if (!attr.fbPixelId) return
+  const token = await resolveToken(db, 'facebook', attr.fbPixelId)
+  if (!token) return
   if (!(await claim(db, 'facebook', ev.eventName, ev.eventId, ev.userId))) return
 
   // external_id 用哈希后的 userId：即使 fbp/fbc 都丢了，同一用户的注册与充值仍能被平台串上
@@ -117,7 +131,7 @@ async function sendFacebook(db: Pool, attr: Attribution, ev: EventInput): Promis
   }
   if (env.FB_CAPI_TEST_EVENT_CODE.trim()) body.test_event_code = env.FB_CAPI_TEST_EVENT_CODE.trim()
 
-  const url = `https://graph.facebook.com/${FB_API_VERSION}/${encodeURIComponent(attr.fbPixelId)}/events?access_token=${encodeURIComponent(env.FB_CAPI_ACCESS_TOKEN)}`
+  const url = `https://graph.facebook.com/${FB_API_VERSION}/${encodeURIComponent(attr.fbPixelId)}/events?access_token=${encodeURIComponent(token)}`
   try {
     const { code, text } = await postJson(url, body)
     await finish(db, 'facebook', ev.eventName, ev.eventId, code, code >= 200 && code < 300 ? undefined : text)
@@ -127,7 +141,9 @@ async function sendFacebook(db: Pool, attr: Attribution, ev: EventInput): Promis
 }
 
 async function sendTiktok(db: Pool, attr: Attribution, ev: EventInput): Promise<void> {
-  if (!env.TIKTOK_CAPI_ACCESS_TOKEN.trim() || !attr.ttPixelId) return
+  if (!attr.ttPixelId) return
+  const token = await resolveToken(db, 'tiktok', attr.ttPixelId)
+  if (!token) return
   if (!(await claim(db, 'tiktok', ev.eventName, ev.eventId, ev.userId))) return
 
   const user: Record<string, unknown> = { external_id: sha256(ev.userId) }
@@ -153,7 +169,7 @@ async function sendTiktok(db: Pool, attr: Attribution, ev: EventInput): Promise<
     const { code, text } = await postJson(
       'https://business-api.tiktok.com/open_api/v1.3/event/track/',
       body,
-      { 'Access-Token': env.TIKTOK_CAPI_ACCESS_TOKEN },
+      { 'Access-Token': token },
     )
     // TikTok 业务错误也返回 HTTP 200，必须看 body 里的 code
     const bizOk = code >= 200 && code < 300 && /"code"\s*:\s*0\b/.test(text)
