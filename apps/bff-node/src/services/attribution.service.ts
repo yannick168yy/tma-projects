@@ -139,13 +139,20 @@ export async function savePendingInstall(
  * 所以 IP 不作硬条件：没有同 IP 候选时，若该设备键在窗内全库唯一（无歧义）也认领；
  * 有多条不同 IP 候选才放弃——宁可漏归因，不错归因。竞态由 UPDATE 条件兜住。
  */
+export interface PendingMatchResult {
+  attr: AttrPayload | null
+  /** matched_ip=同IP精确 | matched_unique=快照一致兜底 | ambiguous=多候选放弃 | none=窗内无候选 | no_key=算不出设备键 */
+  outcome: 'matched_ip' | 'matched_unique' | 'ambiguous' | 'none' | 'no_key'
+  candidates: number
+}
+
 export async function matchPendingInstall(
   env: Env,
   ctx: { ip?: string; userAgent?: string; deviceKey?: unknown },
-): Promise<AttrPayload | null> {
-  if (!isMysqlEnabled(env)) return null
+): Promise<PendingMatchResult> {
+  if (!isMysqlEnabled(env)) return { attr: null, outcome: 'none', candidates: 0 }
   const key = normalizeClientDeviceKey(ctx.deviceKey) ?? deviceKeyFromUa(ctx.userAgent)
-  if (!key || !ctx.ip) return null
+  if (!key || !ctx.ip) return { attr: null, outcome: 'no_key', candidates: 0 }
   const db = getMysqlPool(env)
   const [rows] = await db.query(
     `SELECT id, attr_json, client_ip FROM bg_pending_install
@@ -155,20 +162,23 @@ export async function matchPendingInstall(
     [key],
   )
   const list = rows as { id: number; attr_json: string; client_ip: string }[]
+  if (list.length === 0) return { attr: null, outcome: 'none', candidates: 0 }
   // 同 IP 优先；否则若所有候选快照内容一致（同设备反复点击留下的重复行，IP 轮换所致），
   // 视为无歧义取最新。真正的歧义（同机型不同快照 = 两个用户）才放弃
-  const row = list.find((r) => r.client_ip === ctx.ip)
-    ?? (list.length > 0 && list.every((r) => r.attr_json === list[0].attr_json) ? list[0] : undefined)
-  if (!row) return null
+  const byIp = list.find((r) => r.client_ip === ctx.ip)
+  const row = byIp
+    ?? (list.every((r) => r.attr_json === list[0].attr_json) ? list[0] : undefined)
+  if (!row) return { attr: null, outcome: 'ambiguous', candidates: list.length }
+  const outcome = byIp ? 'matched_ip' as const : 'matched_unique' as const
   const [res] = await db.execute(
     'UPDATE bg_pending_install SET matched_at = NOW(3) WHERE id = ? AND matched_at IS NULL',
     [row.id],
   )
-  if ((res as { affectedRows: number }).affectedRows === 0) return null
+  if ((res as { affectedRows: number }).affectedRows === 0) return { attr: null, outcome: 'none', candidates: list.length }
   try {
-    return JSON.parse(row.attr_json) as AttrPayload
+    return { attr: JSON.parse(row.attr_json) as AttrPayload, outcome, candidates: list.length }
   } catch {
-    return null
+    return { attr: null, outcome: 'none', candidates: list.length }
   }
 }
 

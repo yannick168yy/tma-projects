@@ -20,12 +20,14 @@ router.post('/download-click', async (ctx) => {
 
 router.post('/app-first-open', async (ctx) => {
   const body = (ctx.request.body ?? {}) as { dk?: unknown }
-  const attr = await matchPendingInstall(ctx.state.env, {
+  const result = await matchPendingInstall(ctx.state.env, {
     ip: ctx.ip,
     userAgent: ctx.get('user-agent'),
     deviceKey: body.dk,
   }).catch(() => null)
-  ok(ctx, { attr })
+  // 识别率观测：按 outcome 聚合即可算命中率与损失构成（ambiguous=配对系统损失，none=没点过/超窗）
+  console.log(`[attr-pair] outcome=${result?.outcome ?? 'error'} candidates=${result?.candidates ?? 0} dk=${String(body.dk ?? '')}`)
+  ok(ctx, { attr: result?.attr ?? null })
 })
 
 export default router
