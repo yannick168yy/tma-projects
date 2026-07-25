@@ -64,6 +64,13 @@ export function isIos(): boolean {
   return /iPhone|iPad|iPod/.test(ua) || (ua.includes('Mac') && 'ontouchend' in document)
 }
 
+// FB/IG/TikTok/Line 等 App 的内置浏览器：这些环境里 PWA 装不了（无安装提示、无「添加到主屏」入口），
+// 买量落地页的用户大多在这里，只能引导下 APK。用来决定要不要给「改用网页版」退路。
+export function isInAppWebView(): boolean {
+  const ua = navigator.userAgent
+  return /FBAN|FBAV|FB_IAB|Instagram|musical_ly|TikTok|Trill|BytedanceWebview|\bLine\b|Twitter|Snapchat|MicroMessenger/i.test(ua)
+}
+
 /** Android/桌面 Chromium 已捕获原生安装事件，可一键弹安装 */
 export function canNativeInstall(): boolean {
   return deferredPrompt !== null

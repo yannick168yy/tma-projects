@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { ChevronLeft, ChevronRight, Star, Loader2, CheckCircle2, ShieldCheck, Share2, Trash2, Flag } from 'lucide-react'
 import InstallGuideSheet from '@/components/pwa/InstallGuideSheet'
-import { canNativeInstall, isIos, isInstalledApp, promptNativeInstall } from '@/utils/pwa'
+import ApkInstallGuideSheet from '@/components/pwa/ApkInstallGuideSheet'
+import { canNativeInstall, isIos, isInstalledApp, isInAppWebView, promptNativeInstall } from '@/utils/pwa'
 
 // 相对路径：跟随当前域名（测试 188facai / 生产 betogo.games 各自的 /app/betogo.apk），
 // 别写死域名，否则生产会从测试站下包。为空时 Android 退回 PWA 安装过渡方案。
@@ -106,19 +107,33 @@ export default function DownloadPage({ onClose }: { onClose: () => void }) {
   const [phase, setPhase] = useState<'idle' | 'installing' | 'done'>('idle')
   const [progress, setProgress] = useState(0)
   const [guideOpen, setGuideOpen] = useState(false)
+  const [apkGuideOpen, setApkGuideOpen] = useState(false)
   const timerRef = useRef<number | null>(null)
 
   useEffect(() => () => { if (timerRef.current) window.clearInterval(timerRef.current) }, [])
 
+  // APK 装不上时的退路：能原生装 PWA 就直接弹，否则给 PWA 图文引导。仅系统浏览器可达（内置浏览器 PWA 也装不了）
+  function goPwaFallback() {
+    setApkGuideOpen(false)
+    if (canNativeInstall()) {
+      void promptNativeInstall()
+      return
+    }
+    setGuideOpen(true)
+  }
+
   function finishInstall() {
     setPhase('done')
     window.setTimeout(() => {
+      // iOS 装不了 APK，只能引导 PWA 添加到主屏
       if (isIos()) {
         setGuideOpen(true)
         return
       }
+      // Android 主路径：触发 APK 下载，同时弹安装引导教用户过 Play Protect 拦截
       if (APK_DOWNLOAD_URL) {
         window.location.href = APK_DOWNLOAD_URL
+        setApkGuideOpen(true)
         return
       }
       if (canNativeInstall()) {
@@ -376,6 +391,14 @@ export default function DownloadPage({ onClose }: { onClose: () => void }) {
           platform={isIos() ? 'ios' : 'android'}
           title="Install the app"
           onClose={() => setGuideOpen(false)}
+        />
+      )}
+
+      {apkGuideOpen && (
+        <ApkInstallGuideSheet
+          showPwaFallback={!isInAppWebView()}
+          onPwaFallback={goPwaFallback}
+          onClose={() => setApkGuideOpen(false)}
         />
       )}
     </div>
