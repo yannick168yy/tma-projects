@@ -231,9 +231,13 @@ export interface LoginLog {
 }
 export interface BetOrder {
   id: number; providerTxnId: string; roundId: string | null
-  betType: string; amount: number; currencyCode: string; status: string
+  betType: string; amount: number; currencyCode: string; status: string; createdAt: string
+}
+export interface UserBetRound {
+  roundId: string; currencyCode: string
+  betAmount: number; winAmount: number; cancelled: boolean
   gameName: string | null; providerName: string | null
-  createdAt: string
+  betTime: string | null; winTime: string | null
 }
 export interface LedgerEntry {
   id: string; type: string; amount: number; currency: string
@@ -310,7 +314,7 @@ export const getUserLedgerPage = (id: string, params: { page?: number; pageSize?
 export const getUserLoginLogsPage = (id: string, params: { page?: number; pageSize?: number }) =>
   get<PagedResult<LoginLog>>(`/admin/users/${id}/login-logs`, params)
 export const getUserBetOrdersPage = (id: string, params: { page?: number; pageSize?: number }) =>
-  get<PagedResult<BetOrder>>(`/admin/users/${id}/bet-orders`, params)
+  get<PagedResult<UserBetRound>>(`/admin/users/${id}/bet-orders`, params)
 export const getUserPromoClaimsPage = (id: string, params: { page?: number; pageSize?: number }) =>
   get<PagedResult<PromoClaimRecord>>(`/admin/users/${id}/promo-claims`, params)
 
@@ -913,7 +917,7 @@ export interface BetOrderRecord {
 }
 export interface BetRoundRecord {
   roundId: string; userId: string; currencyCode: string
-  betAmount: number; winAmount: number
+  betAmount: number; winAmount: number; cancelled: boolean
   gameName: string | null; providerName: string | null
   betTime: string | null; winTime: string | null
 }

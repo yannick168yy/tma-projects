@@ -29,7 +29,7 @@ router.get('/', async (ctx) => {
     `SELECT
        COALESCE(SUM(CASE WHEN b.bet_type='bet' THEN b.amount ELSE 0 END), 0) AS totalBet,
        COALESCE(SUM(CASE WHEN b.bet_type='win' THEN b.amount ELSE 0 END), 0) AS totalWin,
-       COUNT(DISTINCT CASE WHEN b.round_id IS NOT NULL THEN b.round_id END) AS roundCount
+       COUNT(DISTINCT COALESCE(b.round_id, b.provider_txn_id)) AS roundCount
      FROM bg_bet_order b ${statsWhereClause}`,
     statsParams,
   )
@@ -37,23 +37,24 @@ router.get('/', async (ctx) => {
 
   // ── 按局视图 ────────────────────────────────────────────────────────────────
   if (view === 'round') {
-    const innerWhere: string[] = ['b.round_id IS NOT NULL']
+    const innerWhere: string[] = []
     const innerParams: unknown[] = []
     if (userId)   { innerWhere.push('b.user_id = ?');     innerParams.push(userId) }
     if (dateFrom) { innerWhere.push('b.created_at >= ?'); innerParams.push(dateFrom + ' 00:00:00') }
     if (dateTo)   { innerWhere.push('b.created_at <= ?'); innerParams.push(dateTo   + ' 23:59:59') }
-    const innerWhereClause = 'WHERE ' + innerWhere.join(' AND ')
+    const innerWhereClause = innerWhere.length ? 'WHERE ' + innerWhere.join(' AND ') : ''
 
+    // 无局号的单以 provider_txn_id 作为独立一局保留，不丢数据
     const [[{ total }]] = await pool.query<import('mysql2/promise').RowDataPacket[]>(
       `SELECT COUNT(*) AS total FROM (
          SELECT 1 FROM bg_bet_order b ${innerWhereClause}
-         GROUP BY b.round_id, b.user_id, b.currency_code
+         GROUP BY COALESCE(b.round_id, b.provider_txn_id), b.user_id, b.currency_code
        ) sub`,
       innerParams,
     )
     const [items] = await pool.query<import('mysql2/promise').RowDataPacket[]>(
       `SELECT r.round_id, r.user_id, r.currency_code, r.provider_id,
-              r.bet_amount, r.win_amount, r.bet_time, r.win_time,
+              r.bet_amount, r.win_amount, r.cancel_count, r.bet_time, r.win_time,
               (SELECT COALESCE(o.name_override, g.name_en, g.name_zh)
                  FROM bg_568win_game g
                  LEFT JOIN bg_568win_game_override o
@@ -62,15 +63,17 @@ router.get('/', async (ctx) => {
               (SELECT COALESCE(g.provider, '568Win') FROM bg_568win_game g
                 WHERE g.game_id = r.provider_id LIMIT 1) AS provider_name
        FROM (
-         SELECT b.round_id, b.user_id, b.currency_code, MIN(b.provider_id) AS provider_id,
+         SELECT COALESCE(b.round_id, b.provider_txn_id) AS round_id,
+           b.user_id, b.currency_code, MIN(b.provider_id) AS provider_id,
            SUM(CASE WHEN b.bet_type='bet' THEN b.amount ELSE 0 END) AS bet_amount,
-           SUM(CASE WHEN b.bet_type='win' THEN b.amount ELSE 0 END) AS win_amount,
+           SUM(CASE WHEN b.bet_type IN ('win','refund') THEN b.amount ELSE 0 END) AS win_amount,
+           SUM(CASE WHEN b.bet_type='cancel' THEN 1 ELSE 0 END)     AS cancel_count,
            MIN(CASE WHEN b.bet_type='bet' THEN b.created_at END)    AS bet_time,
-           MIN(CASE WHEN b.bet_type='win' THEN b.created_at END)    AS win_time
+           MIN(CASE WHEN b.bet_type IN ('win','refund') THEN b.created_at END) AS win_time
          FROM bg_bet_order b ${innerWhereClause}
-         GROUP BY b.round_id, b.user_id, b.currency_code
+         GROUP BY COALESCE(b.round_id, b.provider_txn_id), b.user_id, b.currency_code
        ) r
-       ORDER BY r.bet_time DESC LIMIT ? OFFSET ?`,
+       ORDER BY COALESCE(r.bet_time, r.win_time) DESC LIMIT ? OFFSET ?`,
       [...innerParams, pageSize, offset],
     )
     const toIso = (v: unknown) => {
@@ -87,6 +90,7 @@ router.get('/', async (ctx) => {
         currencyCode: String(r.currency_code),
         betAmount:    Number(r.bet_amount),
         winAmount:    Number(r.win_amount),
+        cancelled:    Number(r.cancel_count) > 0,
         gameName:     r.game_name     ? String(r.game_name)     : null,
         providerName: r.provider_name ? String(r.provider_name) : null,
         betTime:      toIso(r.bet_time),

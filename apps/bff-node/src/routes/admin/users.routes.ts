@@ -134,37 +134,53 @@ router.get('/:id/login-logs', async (ctx) => {
   })
 })
 
+// 按局聚合：一局的 bet/win/refund 合成一行，无局号的单以 provider_txn_id 作独立一局
 router.get('/:id/bet-orders', async (ctx) => {
   if (!isMysqlEnabled(ctx.state.env)) { ok(ctx, { items: [], total: 0, page: 1, pageSize: 20 }); return }
   const { page, pageSize, offset } = pageParams(ctx)
   const pool = getMysqlPool(ctx.state.env)
   const [rows] = await pool.query<RowDataPacket[]>(
-    `SELECT b.id, b.provider_txn_id, b.round_id, b.bet_type, b.amount, b.currency_code, b.status, b.created_at,
+    `SELECT r.round_id, r.currency_code, r.provider_id,
+            r.bet_amount, r.win_amount, r.cancel_count, r.bet_time, r.win_time,
             (SELECT COALESCE(o.name_override, g.name_en, g.name_zh)
                FROM bg_568win_game g
                LEFT JOIN bg_568win_game_override o
                  ON o.game_provider_id = g.game_provider_id AND o.game_id = g.game_id
-              WHERE g.game_id = b.provider_id LIMIT 1) AS game_name,
+              WHERE g.game_id = r.provider_id LIMIT 1) AS game_name,
             (SELECT COALESCE(g.provider, '568Win') FROM bg_568win_game g
-              WHERE g.game_id = b.provider_id LIMIT 1) AS provider_name
-     FROM bg_bet_order b WHERE b.user_id = ? ORDER BY b.created_at DESC LIMIT ? OFFSET ?`,
+              WHERE g.game_id = r.provider_id LIMIT 1) AS provider_name
+     FROM (
+       SELECT COALESCE(b.round_id, b.provider_txn_id) AS round_id,
+         b.currency_code, MIN(b.provider_id) AS provider_id,
+         SUM(CASE WHEN b.bet_type='bet' THEN b.amount ELSE 0 END) AS bet_amount,
+         SUM(CASE WHEN b.bet_type IN ('win','refund') THEN b.amount ELSE 0 END) AS win_amount,
+         SUM(CASE WHEN b.bet_type='cancel' THEN 1 ELSE 0 END)     AS cancel_count,
+         MIN(CASE WHEN b.bet_type='bet' THEN b.created_at END)    AS bet_time,
+         MIN(CASE WHEN b.bet_type IN ('win','refund') THEN b.created_at END) AS win_time
+       FROM bg_bet_order b WHERE b.user_id = ?
+       GROUP BY COALESCE(b.round_id, b.provider_txn_id), b.currency_code
+     ) r
+     ORDER BY COALESCE(r.bet_time, r.win_time) DESC LIMIT ? OFFSET ?`,
     [ctx.params.id, pageSize, offset],
   )
   const [[c]] = await pool.query<RowDataPacket[]>(
-    `SELECT COUNT(*) AS total FROM bg_bet_order WHERE user_id = ?`, [ctx.params.id],
+    `SELECT COUNT(*) AS total FROM (
+       SELECT 1 FROM bg_bet_order WHERE user_id = ?
+       GROUP BY COALESCE(round_id, provider_txn_id), currency_code
+     ) sub`,
+    [ctx.params.id],
   )
   ok(ctx, {
     items: rows.map((r) => ({
-      id: Number(r.id),
-      providerTxnId: String(r.provider_txn_id),
-      roundId: r.round_id ? String(r.round_id) : null,
-      betType: String(r.bet_type),
-      amount: Number(r.amount),
+      roundId: String(r.round_id),
       currencyCode: String(r.currency_code ?? 'PHP'),
-      status: String(r.status),
+      betAmount: Number(r.bet_amount),
+      winAmount: Number(r.win_amount),
+      cancelled: Number(r.cancel_count) > 0,
       gameName: r.game_name ? String(r.game_name) : null,
       providerName: r.provider_name ? String(r.provider_name) : null,
-      createdAt: new Date(r.created_at as Date).toISOString(),
+      betTime: r.bet_time ? new Date(r.bet_time as Date).toISOString() : null,
+      winTime: r.win_time ? new Date(r.win_time as Date).toISOString() : null,
     })),
     total: Number(c?.total ?? 0), page, pageSize,
   })

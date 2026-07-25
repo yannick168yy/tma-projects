@@ -4,7 +4,7 @@ import { Card, Tabs, Table, Spin, Alert, Typography, Modal, Descriptions, InputN
 import {
   getUserTurnover, adjustTurnoverRequirement,
   getUserLedgerPage, getUserLoginLogsPage, getUserBetOrdersPage, getUserPromoClaimsPage,
-  type TurnoverRequirement, type PagedResult,
+  type TurnoverRequirement, type PagedResult, type UserBetRound,
 } from '../../api'
 
 // 服务端分页数据加载：active 首次为 true 时加载第一页，翻页/改页大小时重新请求
@@ -116,12 +116,23 @@ export default function UserLogs({ userId }: Props) {
   const betCols = [
     { title: '游戏商', dataIndex: 'providerName', key: 'provider', width: 110, render: (v: string | null) => v || '-' },
     { title: '游戏名', dataIndex: 'gameName', key: 'game', width: 160, ellipsis: true, render: (v: string | null) => v || '-' },
-    { title: '类型', dataIndex: 'betType', key: 'type', width: 80 },
-    { title: '币种', dataIndex: 'currencyCode', key: 'currency', width: 100 },
-    { title: '金额', dataIndex: 'amount', key: 'amt', width: 100 },
-    { title: '状态', dataIndex: 'status', key: 'status', width: 80 },
-    { title: 'Round ID', dataIndex: 'roundId', key: 'round', ellipsis: true },
-    { title: '时间', dataIndex: 'createdAt', key: 'at', width: 160, render: (v: string) => new Date(v).toLocaleString('zh-CN') },
+    { title: '局号', dataIndex: 'roundId', key: 'round', ellipsis: true },
+    { title: '币种', dataIndex: 'currencyCode', key: 'currency', width: 90 },
+    { title: '投注额', dataIndex: 'betAmount', key: 'bet', width: 100, render: (v: number) => v.toFixed(2) },
+    { title: '派彩额', dataIndex: 'winAmount', key: 'win', width: 100, render: (v: number) => v.toFixed(2) },
+    {
+      title: '输赢', key: 'net', width: 110,
+      render: (_: unknown, r: UserBetRound) => {
+        const net = r.winAmount - r.betAmount
+        return <span style={{ color: net >= 0 ? '#52c41a' : '#ff4d4f', fontWeight: 500 }}>{net >= 0 ? '+' : ''}{net.toFixed(2)}</span>
+      },
+    },
+    {
+      title: '状态', key: 'status', width: 90,
+      render: (_: unknown, r: UserBetRound) =>
+        r.cancelled ? <Tag>已取消</Tag> : r.winTime ? <Tag color="success">已结算</Tag> : <Tag color="processing">进行中</Tag>,
+    },
+    { title: '投注时间', dataIndex: 'betTime', key: 'at', width: 160, render: (v: string | null) => v ? new Date(v).toLocaleString('zh-CN') : '-' },
   ]
   const promoCols = [
     { title: '优惠名称', dataIndex: 'promoName', key: 'name', width: 140 },
@@ -165,7 +176,7 @@ export default function UserLogs({ userId }: Props) {
         items={[
           { key: 'ledger', label: `账变记录${ledger.total ? ` (${ledger.total})` : ''}`, children: <Table columns={ledgerCols} dataSource={ledger.items as object[]} rowKey="id" loading={ledger.loading} pagination={ledger.pagination} size="small" /> },
           { key: 'login', label: `登录记录${logins.total ? ` (${logins.total})` : ''}`, children: <Table columns={loginCols} dataSource={logins.items} rowKey="id" loading={logins.loading} pagination={logins.pagination} size="small" /> },
-          { key: 'bets', label: `游戏记录${bets.total ? ` (${bets.total})` : ''}`, children: <Table columns={betCols} dataSource={bets.items} rowKey="id" loading={bets.loading} pagination={bets.pagination} size="small" /> },
+          { key: 'bets', label: `游戏记录${bets.total ? ` (${bets.total})` : ''}`, children: <Table columns={betCols} dataSource={bets.items} rowKey={(r) => `${r.roundId}_${r.currencyCode}`} loading={bets.loading} pagination={bets.pagination} size="small" /> },
           { key: 'promo', label: `优惠领取记录${promos.total ? ` (${promos.total})` : ''}`, children: <Table columns={promoCols} dataSource={promos.items} rowKey="id" loading={promos.loading} pagination={promos.pagination} size="small" /> },
           {
             key: 'turnover', label: '流水记录',

@@ -28,7 +28,7 @@ function fmtTime(t: string | null) {
 }
 
 export default function BetOrders() {
-  const [view, setView] = useState<'detail' | 'round'>('detail')
+  const [view, setView] = useState<'detail' | 'round'>('round')
   const [loading, setLoading] = useState(false)
   const [detailItems, setDetailItems] = useState<BetOrderRecord[]>([])
   const [roundItems,  setRoundItems]  = useState<BetRoundRecord[]>([])
@@ -122,9 +122,9 @@ export default function BetOrders() {
     { title: '投注时间', key: 'betTime', width: 155,
       render: (_: unknown, r: BetRoundRecord) => fmtTime(r.betTime) },
     { title: '派彩时间', key: 'winTime', width: 155,
-      render: (_: unknown, r: BetRoundRecord) => r.winTime
-        ? fmtTime(r.winTime)
-        : <Tag color="processing">进行中</Tag> },
+      render: (_: unknown, r: BetRoundRecord) => r.cancelled
+        ? <Tag>已取消</Tag>
+        : r.winTime ? fmtTime(r.winTime) : <Tag color="processing">进行中</Tag> },
   ]
 
   const pagination: TablePaginationConfig = {
