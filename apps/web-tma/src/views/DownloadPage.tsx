@@ -130,9 +130,15 @@ export default function DownloadPage({ onClose }: { onClose: () => void }) {
         setGuideOpen(true)
         return
       }
-      // Android 主路径：触发 APK 下载，同时弹安装引导教用户过 Play Protect 拦截
+      // Android 主路径：触发 APK 下载，同时弹安装引导教用户过 Play Protect 拦截。
+      // 用 <a download> 而非 location.href —— 后者会发起页面导航把当前页(和引导弹窗)冲掉
       if (APK_DOWNLOAD_URL) {
-        window.location.href = APK_DOWNLOAD_URL
+        const a = document.createElement('a')
+        a.href = APK_DOWNLOAD_URL
+        a.download = 'betogo.apk'
+        document.body.appendChild(a)
+        a.click()
+        a.remove()
         setApkGuideOpen(true)
         return
       }
