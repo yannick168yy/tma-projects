@@ -12,6 +12,7 @@ import {
 } from '@ant-design/icons'
 import { useAuthStore } from '../stores/auth'
 import { adminChangePassword, getAdminBadges, type AdminBadges } from '../api'
+import HistoryTabs from './HistoryTabs'
 import './admin-menu.css'
 
 const { Sider, Header, Content } = Layout
@@ -346,6 +347,8 @@ export default function AppLayout() {
             </Button>
           </Dropdown>
         </Header>
+
+        <HistoryTabs />
 
         <Content style={{ margin: isMobile ? 8 : 16 }}>
           <Outlet />
