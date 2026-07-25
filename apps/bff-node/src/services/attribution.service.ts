@@ -98,11 +98,11 @@ export function deviceKeyFromUa(ua: string | undefined): string | null {
   return `${m[1].split('.')[0]}|${model}`.slice(0, 128)
 }
 
-/** 校验前端上报的设备键：主版本|机型 的形状，防脏数据 */
+/** 校验前端上报的设备键：Android「主版本|机型」或 iOS「ios主版本|屏宽x屏高xDPR」，防脏数据 */
 function normalizeClientDeviceKey(dk: unknown): string | null {
   if (typeof dk !== 'string') return null
   const s = dk.trim().toLowerCase().slice(0, 128)
-  return /^\d{1,3}\|.{1,120}$/.test(s) ? s : null
+  return /^(?:ios)?\d{1,3}\|.{1,120}$/.test(s) ? s : null
 }
 
 const MAX_ATTR_JSON = 2000
