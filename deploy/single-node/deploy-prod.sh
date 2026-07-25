@@ -67,6 +67,8 @@ rebuild_bff_node() {  # <容器名> <health端口>
   local c="$1" port="$2"
   echo "==> [$c] 复用 CreateCommand 重建（重读 --env-file）"
   remote "sudo podman inspect $c --format '{{json .Config.CreateCommand}}' > /tmp/cc_$c.json"
+  # /tmp 会被系统清理，env-file 丢了 run 会失败且容器已被 rm——重建前先从在线容器导出兜底
+  remote "sudo podman inspect $c --format '{{range .Config.Env}}{{println .}}{{end}}' | grep -vE '^(PATH|TERM|HOSTNAME|container|HOME|NODE_VERSION|YARN_VERSION)=' | grep -v '^\$' > /tmp/$c.recreate.env"
   remote "sudo podman rm -f $c >/dev/null"
   remote "sudo python3 -c 'import json,subprocess; subprocess.run(json.load(open(\"/tmp/cc_$c.json\")),check=True)'"
   sleep 7
