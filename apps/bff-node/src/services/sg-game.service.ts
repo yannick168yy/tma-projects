@@ -464,6 +464,22 @@ function buildHomepageSelection(all: DbGame[], cur: string, overrides: SectionOv
     }
     return result
   }
+  // 确定性按权重降序取 N：跨板块 seen 去重（已出现在首页的跳过）+ 模块内同名去重
+  // （同一款游戏不同厂商各出一版，如 Roma/Mines，单板块只保留权重最高的一版）
+  const pickWeightTop = (pool: DbGame[], n: number) => {
+    const sorted = pool.filter((g) => !seen.has(g.uuid)).sort((a, b) => b.weight - a.weight)
+    const result: DbGame[] = []
+    const names = new Set<string>()
+    for (const g of sorted) {
+      if (result.length >= n) break
+      const nameKey = (g.name ?? '').trim().toLowerCase()
+      if (nameKey && names.has(nameKey)) continue
+      result.push(g)
+      if (nameKey) names.add(nameKey)
+      seen.add(g.uuid)
+    }
+    return result
+  }
   const bySite = (cat: string) => all.filter((g) => g.siteCategory === cat)
   const score = (g: DbGame) => g.weight * (g.isFeatured ? 1.5 : 1)
 
@@ -484,6 +500,8 @@ function buildHomepageSelection(all: DbGame[], cur: string, overrides: SectionOv
   }
   const sampleSection = (key: string, pool: DbGame[], sc: (g: DbGame) => number, n: number, mpp = 2) =>
     applyManual(key, pick(exFilter(key, pool), sc, n, mpp), n)
+  const weightSection = (key: string, pool: DbGame[], n: number) =>
+    applyManual(key, pickWeightTop(exFilter(key, pool), n), n)
   const topSection = (key: string, pool: DbGame[], sc: (g: DbGame) => number, n: number, mpp = 3) =>
     applyManual(key, pickTop(exFilter(key, pool), sc, n, mpp), n)
 
@@ -516,19 +534,21 @@ function buildHomepageSelection(all: DbGame[], cur: string, overrides: SectionOv
     // 推荐精选：竞品验证权重的次高梯队（popular 已取走的会被 seen 去重），首页 4 行 × 3 列
     recommended: topSection('recommended', all, score, 12, 3),
     newGames:   sampleSection('newGames', newPool, score, 12, 4),
-    slots:      sampleSection('slots', bySite('slot'), score, 6),
+    // slots/perya/fishing/highRtp 改为确定性按权重降序推荐（含模块内同名去重）。
+    // highRtp 在页面上位于 slots 之前，先计算以按展示顺序优先分配高权重游戏
+    // 高 RTP 专栏：上游标称 rtp≥0.97，对标竞品「98%」栏；默认放 12 款
+    highRtp:    weightSection('highRtp', all.filter((g) => (g.rtp ?? 0) >= 0.97), 12),
+    slots:      weightSection('slots', bySite('slot'), 6),
     // 真人：排除百家乐(ntype101)，避免与百家乐专栏重复且被同款变体屠版
     casino:     sampleSection('casino', bySite('casino').filter((g) => g.category !== '101'), score, 6),
     // perya 含 bingo(bingo 游戏 site_category 本就归 perya)，2 行 6 款
-    perya:      sampleSection('perya', bySite('perya'), score, 6),
-    fishing:    sampleSection('fishing', bySite('fishing'), score, 6),
+    perya:      weightSection('perya', bySite('perya'), 6),
+    fishing:    weightSection('fishing', bySite('fishing'), 6),
     // 彩票 & 其他：彩票(ntype207)低权重会被 other 淹没，先保底 4 彩票再用 other 补 8
     lottery:    applyManual('lottery', [...pick(bySite('lottery'), score, 4), ...pick(bySite('other'), score, 8)], 12),
     // 百家乐专栏：casinoplus 有独立返水专栏验证的品类需求（new_game_type=101）
     // 可用百家乐仅 2 家厂商(Pragmatic/Playtech)，默认每厂商≤2 只能凑出 4 款；放宽到 6 以填满 12
     baccarat:   sampleSection('baccarat', all.filter((g) => g.category === '101'), score, 12, 6),
-    // 高 RTP 专栏：上游标称 rtp≥0.97，对标竞品「98%」栏；默认放 12 款
-    highRtp:    sampleSection('highRtp', all.filter((g) => (g.rtp ?? 0) >= 0.97), score, 12),
     // 高洗码专栏：elite 档(2% 返水)游戏，按热度取 top 且不参与跨板块去重(需固定展示高返水游戏本身)，默认 9 款
     highRebate: applyManual('highRebate',
       [...exFilter('highRebate', all.filter((g) => g.cashbackTier === 'elite'))].sort((a, b) => score(b) - score(a)).slice(0, 9), 9),

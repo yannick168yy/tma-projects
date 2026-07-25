@@ -28,13 +28,21 @@ import lossRebateBannerImg from '@/assets/home/promos/loss-rebate-banner.webp'
 // 最近在玩区最大展示数，不足时用推荐游戏补齐
 const RECENT_ROW_MAX = 10
 
-// 厂商专区：菲市场认知度最高的三家
+// 厂商专区（TOP PROVIDERS）
 // code 须与 bg_568win_game.provider 统一后的显示名一致(迁移134)
 const PROVIDER_ZONE = [
   { code: 'JILI', label: 'JILI' },
   { code: 'PG Soft', label: 'PG' },
   { code: 'Pragmatic Play', label: 'Pragmatic' },
+  { code: 'CQ9', label: 'CQ9' },
+  { code: 'FaChai', label: 'FaChai' },
+  { code: 'Playtech', label: 'Playtech' },
+  { code: '5G Games', label: '5G' },
+  { code: '568WinGames', label: '568Win' },
 ]
+// 厂商专区每页展示数；多拉一些做「已出现在首页的游戏跳过 + 同名去重」后再截取
+const PROVIDER_ZONE_SHOW = 12
+const PROVIDER_ZONE_FETCH = 36
 
 function historyToGame(item: GameHistoryItem): SlotGame {
   return {
@@ -188,8 +196,24 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
       .slice(0, RECENT_ROW_MAX - recentGames.length)
   }, [recentGames, homepageGames.recommended, homepageGames.popular])
   const [providerZoneTab, setProviderZoneTab] = useState(PROVIDER_ZONE[0].code)
-  const [providerZoneGames, setProviderZoneGames] = useState<SlotGame[]>([])
+  const [providerZoneRaw, setProviderZoneRaw] = useState<SlotGame[]>([])
   const providerZoneFetchRef = useRef(0)
+  // TOP PROVIDERS 最后筛选：跳过已出现在其他首页板块的游戏，模块内同名游戏只留一款
+  const homepageShownUuids = useMemo(() => {
+    const s = new Set<string>()
+    Object.values(homepageGames).forEach((list) => list.forEach((g) => s.add(g.uuid)))
+    return s
+  }, [homepageGames])
+  const providerZoneGames = useMemo(() => {
+    const names = new Set<string>()
+    return providerZoneRaw.filter((g) => {
+      if (homepageShownUuids.has(g.uuid)) return false
+      const key = (g.name ?? '').trim().toLowerCase()
+      if (key && names.has(key)) return false
+      if (key) names.add(key)
+      return true
+    }).slice(0, PROVIDER_ZONE_SHOW)
+  }, [providerZoneRaw, homepageShownUuids])
   // 高 cashback：首页只放最好比例(2%/elite)的 9 款
 
   const onGameTapAction = useCallback(async (uuid: string) => {
@@ -313,8 +337,8 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
 
   useEffect(() => {
     const token = ++providerZoneFetchRef.current
-    fetchGames({ provider: providerZoneTab, limit: 12, sortBy: 'weight', currency: activeCurrency })
-      .then((res) => { if (token === providerZoneFetchRef.current) setProviderZoneGames(res.items) })
+    fetchGames({ provider: providerZoneTab, limit: PROVIDER_ZONE_FETCH, sortBy: 'weight', currency: activeCurrency })
+      .then((res) => { if (token === providerZoneFetchRef.current) setProviderZoneRaw(res.items) })
       .catch(() => {})
   }, [providerZoneTab, activeCurrency])
 
@@ -451,13 +475,13 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
       {/* 厂商专区：tab + 小卡横滑 */}
       <section className="mt-6">
         {sectionHeader(<Factory size={15} className="text-sky-400" />, t('home.providerZone'), () => onNavigatePath(`/games?provider=${providerZoneTab}`))}
-        <div className="flex gap-2 px-4 mb-3">
+        <div className="flex gap-2 px-4 mb-3 overflow-x-auto hide-scrollbar">
           {PROVIDER_ZONE.map((p) => (
             <button
               key={p.code}
               type="button"
               onClick={() => setProviderZoneTab(p.code)}
-              className={`px-3 py-1 rounded-full text-xs font-bold transition-colors active:scale-95 ${providerZoneTab === p.code ? 'bg-primary text-primary-foreground' : 'bg-secondary text-foreground/70'}`}
+              className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-bold transition-colors active:scale-95 ${providerZoneTab === p.code ? 'bg-primary text-primary-foreground' : 'bg-secondary text-foreground/70'}`}
             >
               {p.label}
             </button>
