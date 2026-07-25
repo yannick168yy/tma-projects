@@ -131,7 +131,12 @@ export async function savePendingInstall(
   return true
 }
 
-/** App 首启认领：24h 窗内同 IP+机型 的最新未认领记录。竞态由 UPDATE 条件兜住 */
+/**
+ * App 首启认领：24h 窗内按设备键找候选，同 IP 的优先。
+ * CGNAT/VPN 下「点下载」与「App 首启」两次请求出口 IP 常不同（真机实测已踩），
+ * 所以 IP 不作硬条件：没有同 IP 候选时，若该设备键在窗内全库唯一（无歧义）也认领；
+ * 有多条不同 IP 候选才放弃——宁可漏归因，不错归因。竞态由 UPDATE 条件兜住。
+ */
 export async function matchPendingInstall(
   env: Env,
   ctx: { ip?: string; userAgent?: string; deviceKey?: unknown },
@@ -141,13 +146,14 @@ export async function matchPendingInstall(
   if (!key || !ctx.ip) return null
   const db = getMysqlPool(env)
   const [rows] = await db.query(
-    `SELECT id, attr_json FROM bg_pending_install
-      WHERE client_ip = ? AND device_key = ? AND matched_at IS NULL
+    `SELECT id, attr_json, client_ip FROM bg_pending_install
+      WHERE device_key = ? AND matched_at IS NULL
         AND created_at > NOW(3) - INTERVAL 24 HOUR
-      ORDER BY id DESC LIMIT 1`,
-    [ctx.ip, key],
+      ORDER BY id DESC LIMIT 5`,
+    [key],
   )
-  const row = (rows as { id: number; attr_json: string }[])[0]
+  const list = rows as { id: number; attr_json: string; client_ip: string }[]
+  const row = list.find((r) => r.client_ip === ctx.ip) ?? (list.length === 1 ? list[0] : undefined)
   if (!row) return null
   const [res] = await db.execute(
     'UPDATE bg_pending_install SET matched_at = NOW(3) WHERE id = ? AND matched_at IS NULL',
