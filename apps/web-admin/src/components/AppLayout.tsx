@@ -54,17 +54,19 @@ function buildMenuItems(badges: AdminBadges) {
         { key: '/kyc', label: <MenuBadgeLabel text="实名认证" count={badges.rejectedKyc} /> },
       ],
     },
-    // 风控（防与管，自动化识别拦截「人」）独立于取款审核（查与核，人工复核单笔订单）
+    // 推广联盟：C端用户分销裂变 + B端渠道代理，同属拉新分成
     {
-      key: 'risk-control',
-      icon: <AlertOutlined />,
-      label: '风控中心',
+      key: 'promotion-alliance',
+      icon: <ApartmentOutlined />,
+      label: '推广联盟',
       children: [
-        { key: '/risk/overview', label: '风险总览' },
-        { key: '/risk/users', label: '用户画像' },
-        { key: '/risk/blacklist', label: '风控名单' },
-        { key: '/risk/policies', label: '规则与策略', roles: ['super_admin'] },
-        { key: '/risk/hits', label: '命中日志' },
+        { key: '/bi/ad-sources', label: '投放渠道(买量)' },
+        { key: '/team-referral/agents', label: '分销网体' },
+        { key: '/team-referral/commissions', label: '佣金流水' },
+        { key: '/team-referral/config', label: '佣金配置' },
+        { key: '/agents', label: '渠道代理' },
+        { key: '/agent-channels', label: '推广渠道' },
+        { key: '/agents/commissions', label: '分成报表' },
       ],
     },
     {
@@ -133,19 +135,17 @@ function buildMenuItems(badges: AdminBadges) {
         { key: '/tasks/rewards-spin', label: '转盘抽奖' },
       ],
     },
-    // 推广联盟：C端用户分销裂变 + B端渠道代理，同属拉新分成
+    // 风控（防与管，自动化识别拦截「人」）独立于取款审核（查与核，人工复核单笔订单）
     {
-      key: 'promotion-alliance',
-      icon: <ApartmentOutlined />,
-      label: '推广联盟',
+      key: 'risk-control',
+      icon: <AlertOutlined />,
+      label: '风控中心',
       children: [
-        { key: '/bi/ad-sources', label: '投放渠道(买量)' },
-        { key: '/team-referral/agents', label: '分销网体' },
-        { key: '/team-referral/commissions', label: '佣金流水' },
-        { key: '/team-referral/config', label: '佣金配置' },
-        { key: '/agents', label: '渠道代理' },
-        { key: '/agent-channels', label: '推广渠道' },
-        { key: '/agents/commissions', label: '分成报表' },
+        { key: '/risk/overview', label: '风险总览' },
+        { key: '/risk/users', label: '用户画像' },
+        { key: '/risk/blacklist', label: '风控名单' },
+        { key: '/risk/policies', label: '规则与策略', roles: ['super_admin'] },
+        { key: '/risk/hits', label: '命中日志' },
       ],
     },
     {
