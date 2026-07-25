@@ -122,8 +122,15 @@ export default function LoginSheet({ open, onClose }: Props) {
   // loading 会残留为 true,导致 Telegram/Google 按钮持续置灰。页面重新可见即复位。
   useEffect(() => {
     const reset = () => setLoading(false)
+    // APK 壳里 OAuth 走 Custom Tab,WebView 页面并未跳走,pageshow 不触发;
+    // 用户取消授权关掉 Custom Tab 回来时靠 visibilitychange 复位按钮
+    const onVisible = () => { if (document.visibilityState === 'visible') setLoading(false) }
     window.addEventListener('pageshow', reset)
-    return () => window.removeEventListener('pageshow', reset)
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      window.removeEventListener('pageshow', reset)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
   }, [])
 
   function normalizePhoneInput(value: string): string {
