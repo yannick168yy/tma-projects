@@ -18,6 +18,12 @@ android {
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
         versionName "1.0"
+        // 桌面显示名按构建参数切，测试包与生产包同机肉眼可辨：
+        //   ./gradlew assembleRelease -PappLabel="BETOGO Test"
+        // 不传默认 BETOGO。注意包名相同，同一台设备两个包互相覆盖、不能共存
+        def appLabel = (project.findProperty('appLabel') ?: 'BETOGO')
+        resValue "string", "app_name", appLabel
+        resValue "string", "title_activity_main", appLabel
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.

@@ -32,8 +32,10 @@
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <!-- 只注册 www：裸域 betogo.games 是 301 到 www，而 App Link 验证不跟随重定向，
-                     注册了也永远验不过；流量本来就全规范化到 www，OAuth 回跳也走 location.origin -->
+                <!-- 只注册规范域：betogo.games 裸域 301 到 www，而 App Link 验证不跟随重定向，
+                     注册了也永远验不过；betogo.app 则相反，裸域直出（www 未配证书），故注册裸域。
+                     OAuth 回跳走 location.origin，App 跑在哪个域回跳就是哪个域 -->
+                <data android:scheme="https" android:host="betogo.app" android:pathPrefix="/auth/" />
                 <data android:scheme="https" android:host="www.betogo.games" android:pathPrefix="/auth/" />
                 <data android:scheme="https" android:host="www.188facai.com" android:pathPrefix="/auth/" />
             </intent-filter>

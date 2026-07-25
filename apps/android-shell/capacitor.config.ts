@@ -27,6 +27,8 @@ const config: CapacitorConfig = {
       'www.betogo.games',
       'betogo.games',
       '*.betogo.games',
+      'betogo.app',
+      '*.betogo.app',
     ],
   },
 }
