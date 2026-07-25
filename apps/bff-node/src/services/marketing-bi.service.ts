@@ -34,6 +34,10 @@ function manilaDateOf(d: Date): string {
 
 export interface AdSourceRow {
   channelCode: string
+  /** APK 下载点击数（bg_pending_install，按点击日归属） */
+  downloads: number
+  /** 其中 App 首启配对成功数（≈实际安装打开数） */
+  installs: number
   regUsers: number
   firstDepUsers: number
   firstDepAmount: number
@@ -77,10 +81,28 @@ export async function getAdSourceReport(
   const rowOf = (code: string): AdSourceRow => {
     let r = map.get(code)
     if (!r) {
-      r = { channelCode: code, regUsers: 0, firstDepUsers: 0, firstDepAmount: 0, depositAmount: 0, depositUsers: 0, arpu: null }
+      r = { channelCode: code, downloads: 0, installs: 0, regUsers: 0, firstDepUsers: 0, firstDepAmount: 0, depositAmount: 0, depositUsers: 0, arpu: null }
       map.set(code, r)
     }
     return r
+  }
+
+  // 下载/安装：bg_pending_install 每行=一次 APK 下载点击，matched_at 非空=App 首启配对成功。
+  // 渠道码在 attr_json 快照里（$.c 采集时已做 utm_source 兜底）；表只有买量下载点击，量小，JSON 提取够用
+  const pChanFilter = opts.channel ? " AND JSON_UNQUOTE(JSON_EXTRACT(p.attr_json,'$.c'))=?" : ''
+  const [dlRows] = await db.query<RowDataPacket[]>(
+    `SELECT JSON_UNQUOTE(JSON_EXTRACT(p.attr_json,'$.c')) code,
+            COUNT(*) dl, COUNT(p.matched_at) inst
+     FROM bg_pending_install p
+     WHERE p.created_at>=? AND p.created_at<?
+       AND JSON_UNQUOTE(JSON_EXTRACT(p.attr_json,'$.c')) IS NOT NULL${pChanFilter}
+     GROUP BY code`,
+    [start, end, ...chanArg],
+  )
+  for (const r of dlRows) {
+    const row = rowOf(String(r.code))
+    row.downloads = Number(r.dl)
+    row.installs = Number(r.inst)
   }
 
   // 注册数：attribution.created_at 即注册时刻
@@ -135,6 +157,8 @@ export async function getAdSourceReport(
 
   const totals = rows.reduce(
     (t, r) => {
+      t.downloads += r.downloads
+      t.installs += r.installs
       t.regUsers += r.regUsers
       t.firstDepUsers += r.firstDepUsers
       t.firstDepAmount += r.firstDepAmount
@@ -142,7 +166,7 @@ export async function getAdSourceReport(
       t.depositUsers += r.depositUsers
       return t
     },
-    { regUsers: 0, firstDepUsers: 0, firstDepAmount: 0, depositAmount: 0, depositUsers: 0, arpu: null as number | null },
+    { downloads: 0, installs: 0, regUsers: 0, firstDepUsers: 0, firstDepAmount: 0, depositAmount: 0, depositUsers: 0, arpu: null as number | null },
   )
   totals.arpu = totals.firstDepUsers > 0 ? totals.depositAmount / totals.firstDepUsers : null
 

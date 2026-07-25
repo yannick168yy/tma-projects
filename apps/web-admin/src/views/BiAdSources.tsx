@@ -59,6 +59,16 @@ export default function BiAdSources() {
       title: '渠道标识', dataIndex: 'channelCode', fixed: 'left' as const,
       render: (v: string) => <a onClick={() => openTrend(v)}>{v}</a>,
     },
+    {
+      title: <Tooltip title="download 页点 APK 下载的次数（仅 Android 站外包）">下载数</Tooltip>,
+      dataIndex: 'downloads',
+      sorter: (a: AdSourceRow, b: AdSourceRow) => a.downloads - b.downloads,
+    },
+    {
+      title: <Tooltip title="下载后实际安装并首次打开 App 的数量（按 IP+机型 24h 窗配对成功）">安装数</Tooltip>,
+      dataIndex: 'installs',
+      sorter: (a: AdSourceRow, b: AdSourceRow) => a.installs - b.installs,
+    },
     { title: '注册数', dataIndex: 'regUsers', sorter: (a: AdSourceRow, b: AdSourceRow) => a.regUsers - b.regUsers },
     {
       title: <Tooltip title="平台历史首笔成功充值发生在所选区间内的人数">首存人数</Tooltip>,
@@ -102,6 +112,7 @@ export default function BiAdSources() {
       <Spin spinning={loading}>
         {data && (
           <Space style={{ marginBottom: 12 }} wrap>
+            <Tag>下载 {data.totals.downloads} / 安装 {data.totals.installs}</Tag>
             <Tag color="blue">注册 {data.totals.regUsers}</Tag>
             <Tag color="geekblue">首存 {data.totals.firstDepUsers}</Tag>
             <Tag color="green">总充值 ₱{fmtMoney(data.totals.depositAmount)}</Tag>
@@ -114,7 +125,7 @@ export default function BiAdSources() {
         <Card bordered={false} size="small">
           <Table
             size="small" rowKey="channelCode" columns={columns}
-            dataSource={data?.rows ?? []} pagination={false} scroll={{ x: 760 }}
+            dataSource={data?.rows ?? []} pagination={false} scroll={{ x: 900 }}
           />
         </Card>
 

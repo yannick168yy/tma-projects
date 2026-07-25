@@ -198,7 +198,7 @@ export interface BiChannelRow {
 export const getBiChannels = (days: number) =>
   get<{ channels: BiChannelRow[]; trend: { dates: string[]; series: { name: string; data: (number | null)[] }[] } }>('/admin/bi/channels', { days })
 export interface AdSourceRow {
-  channelCode: string; regUsers: number; firstDepUsers: number
+  channelCode: string; downloads: number; installs: number; regUsers: number; firstDepUsers: number
   firstDepAmount: number; depositAmount: number; depositUsers: number; arpu: number | null
 }
 export interface AdSourceReport {
