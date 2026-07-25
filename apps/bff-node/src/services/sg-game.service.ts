@@ -445,9 +445,12 @@ function buildHomepageSelection(all: DbGame[], cur: string, overrides: SectionOv
       .map((e) => ({ e, g: gameByUuid.get(e.gameUuid) }))
       .filter((x): x is { e: SectionGameEntry; g: DbGame } => !!x.g && !ex.has(x.e.gameUuid))
     const pinnedUuids = new Set(pins.map((x) => x.e.gameUuid))
+    // pin 优先：策略结果里与 pin 同系列的游戏剔除（板块内同款不同代只留 pin 的那款）
+    const pinSeries = new Set(pins.map((x) => gameSeriesKey(x.g.name)).filter(Boolean))
     // 无 pin_position 的 pin 前插（按 sort_order），有位置的按位置插入
     const floating = pins.filter((x) => x.e.pinPosition == null).sort((a, b) => a.e.sortOrder - b.e.sortOrder)
-    let result = [...floating.map((x) => x.g), ...list.filter((g) => !ex.has(g.uuid) && !pinnedUuids.has(g.uuid))]
+    let result = [...floating.map((x) => x.g),
+      ...list.filter((g) => !ex.has(g.uuid) && !pinnedUuids.has(g.uuid) && !pinSeries.has(gameSeriesKey(g.name)))]
     const positioned = pins.filter((x) => x.e.pinPosition != null).sort((a, b) => a.e.pinPosition! - b.e.pinPosition!)
     for (const x of positioned) {
       const idx = Math.min(Math.max(x.e.pinPosition! - 1, 0), result.length)
@@ -457,6 +460,13 @@ function buildHomepageSelection(all: DbGame[], cur: string, overrides: SectionOv
   }
 
   const seen = new Set<string>()
+  // 手动 pin 的游戏预登记进 seen：pin 不走策略抽样，不登记的话策略会在其他板块再次选中同一款
+  // （生产实测：Fortune Gems 2 钉在 recommended，highRtp 策略又按权重选中它）
+  for (const entries of overrides.values()) {
+    for (const e of entries) {
+      if (e.action === 'pin' && (e.currency === '' || e.currency === cur)) seen.add(e.gameUuid)
+    }
+  }
   const pick = (pool: DbGame[], score: (g: DbGame) => number, n: number, maxPerProvider = 2) => {
     const r = serverWeightedSample(pool.filter((g) => !seen.has(g.uuid)), score, n, maxPerProvider)
     r.forEach((g) => seen.add(g.uuid))
