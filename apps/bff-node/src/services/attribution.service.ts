@@ -119,10 +119,12 @@ export async function savePendingInstall(
   const json = JSON.stringify(attr)
   if (json.length > MAX_ATTR_JSON) return false
   const db = getMysqlPool(env)
-  // 同设备重复点下载只留最新一条：既防表膨胀，也让认领无歧义
+  // 同设备重复点下载只留最新一条。判定「同设备」用 设备键+快照内容 而非 IP——
+  // CGNAT/VPN 下同设备每次请求出口 IP 会变（真机实测），按 IP 去重会留下重复行，
+  // 认领侧撞上多候选歧义而放弃。同键同快照 = 同浏览器的 first-touch，删旧无风险
   await db.execute(
-    'DELETE FROM bg_pending_install WHERE client_ip = ? AND device_key = ? AND matched_at IS NULL',
-    [ctx.ip, key],
+    'DELETE FROM bg_pending_install WHERE device_key = ? AND attr_json = ? AND matched_at IS NULL',
+    [key, json],
   )
   await db.execute(
     'INSERT INTO bg_pending_install (attr_json, client_ip, device_key, user_agent) VALUES (?,?,?,?)',
@@ -153,7 +155,10 @@ export async function matchPendingInstall(
     [key],
   )
   const list = rows as { id: number; attr_json: string; client_ip: string }[]
-  const row = list.find((r) => r.client_ip === ctx.ip) ?? (list.length === 1 ? list[0] : undefined)
+  // 同 IP 优先；否则若所有候选快照内容一致（同设备反复点击留下的重复行，IP 轮换所致），
+  // 视为无歧义取最新。真正的歧义（同机型不同快照 = 两个用户）才放弃
+  const row = list.find((r) => r.client_ip === ctx.ip)
+    ?? (list.length > 0 && list.every((r) => r.attr_json === list[0].attr_json) ? list[0] : undefined)
   if (!row) return null
   const [res] = await db.execute(
     'UPDATE bg_pending_install SET matched_at = NOW(3) WHERE id = ? AND matched_at IS NULL',
