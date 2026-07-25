@@ -154,6 +154,8 @@ export default function AppShell() {
   const popupBlockedRef = useRef(false)
   // new_player 弹窗仅限首页:到点时若已切走首页,则本次不弹
   const npOnHomeRef = useRef(false)
+  // new_player 弹窗:登录窗或充值窗打开时抑制,避免盖住登录/充值流程
+  const npOverlayBlockedRef = useRef(false)
   // 新人礼包 continue 触发登录时记录意图，登录成功后续跳 tasks
   const pendingTasksTab = useRef<TaskInitialPath | null>(null)
   const inTelegram = isInsideTelegram()
@@ -178,11 +180,13 @@ export default function AppShell() {
   // 拦截态镜像(游戏中/禁弹落地页) + 卸载清理延迟弹窗 timer(供 setTimeout 内读最新值)
   useEffect(() => { popupBlockedRef.current = Boolean(gamePlayerUrl) || POPUP_BLOCKED_VIEWS.has(view.type) }, [gamePlayerUrl, view.type])
   useEffect(() => { npOnHomeRef.current = view.type === 'none' && activeNav === 'casino' }, [view.type, activeNav])
+  useEffect(() => { npOverlayBlockedRef.current = auth.loginSheetOpen || walletModalOpen }, [auth.loginSheetOpen, walletModalOpen])
   useEffect(() => () => { if (autoPopupTimer.current) clearTimeout(autoPopupTimer.current) }, [])
 
   useEffect(() => {
     if (autoPopupFired.current || !promoConfig || !npSummary) return
     if (!npOnHomeRef.current) return // new_player 弹窗仅在首页安排
+    if (npOverlayBlockedRef.current) return // 登录窗/充值窗打开时不安排
     const popup = promoConfig.popups?.find((p) => p.id === 'new_player')
     if (!popup?.enabled || giftAllDone) return
     const loggedIn = Boolean(auth.token)
@@ -197,11 +201,11 @@ export default function AppShell() {
     autoPopupFired.current = true // 立即占位:防这几秒里 trial/redep 抢 & 防重复
     autoPopupTimer.current = setTimeout(() => {
       autoPopupTimer.current = null
-      if (!npOnHomeRef.current) return // 到点若已切走首页→本次跳过(未写频控,下次再弹)
+      if (!npOnHomeRef.current || npOverlayBlockedRef.current) return // 到点若已切走首页/登录窗/充值窗打开→本次跳过(未写频控,下次再弹)
       localStorage.setItem(NEW_PLAYER_POPUP_KEY, popup.frequency === 'once' ? '1' : today)
       setGiftSheetOpen(true)
     }, AUTO_POPUP_DELAY_MS)
-  }, [promoConfig, npSummary, auth.token, giftAllDone, gamePlayerUrl, view.type, activeNav])
+  }, [promoConfig, npSummary, auth.token, giftAllDone, gamePlayerUrl, view.type, activeNav, auth.loginSheetOpen, walletModalOpen])
 
   // 登录成功后续跳：礼包 continue 时若未登录，登录完成后自动打开 tasks
   useEffect(() => {
