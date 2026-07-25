@@ -27,6 +27,7 @@ import TopDownloadBar from '@/components/pwa/TopDownloadBar'
 import ActiveTaskBar from '@/components/tasks/ActiveTaskBar'
 import OrientationGuard from '@/components/OrientationGuard'
 import threeCirclesMenu from '@/assets/team/3-circles/menu-entry.webp'
+import gameLoadingImg from '@/assets/game-loading.webp'
 
 /** 任务条实测高度，用于给 main 补底部内边距，避免盖住页面最后一行内容 */
 const TASK_BAR_HEIGHT = 58
@@ -176,6 +177,14 @@ export default function AppShell() {
     if (!promoConfig) void loadPromoConfig()
     void refreshNpSummary()
   }, [auth.token]) // 登录态变化后重拉真实领取状态
+
+  // 空闲预热游戏加载宣传图：进游戏瞬间图已在缓存，慢网下不会出现"加载图还在加载"
+  useEffect(() => {
+    const warm = () => { const img = new Image(); img.src = gameLoadingImg }
+    const idle = (window as { requestIdleCallback?: (cb: () => void) => number }).requestIdleCallback
+    if (idle) idle(warm)
+    else setTimeout(warm, 3000)
+  }, [])
 
   // 拦截态镜像(游戏中/禁弹落地页) + 卸载清理延迟弹窗 timer(供 setTimeout 内读最新值)
   useEffect(() => { popupBlockedRef.current = Boolean(gamePlayerUrl) || POPUP_BLOCKED_VIEWS.has(view.type) }, [gamePlayerUrl, view.type])

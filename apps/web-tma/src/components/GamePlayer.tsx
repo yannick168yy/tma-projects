@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ArrowLeft } from 'lucide-react'
 import { isInsideTelegram } from '@/utils/initTelegramWebApp'
+import gameLoadingImg from '@/assets/game-loading.webp'
 
 interface Props {
   url: string
@@ -12,6 +13,8 @@ export default function GamePlayer({ url, onClose }: Props) {
   const { t } = useTranslation()
   const [iframeLoaded, setIframeLoaded] = useState(false)
   const [expanded, setExpanded] = useState(false)
+  // 进度条是演出：iframe 没有真实进度事件，首帧后缓动到 92%，加载完成整层卸载
+  const [barStarted, setBarStarted] = useState(false)
   const isTMA = isInsideTelegram()
   const collapseTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const rootRef = useRef<HTMLDivElement>(null)
@@ -40,6 +43,11 @@ export default function GamePlayer({ url, onClose }: Props) {
       try { ex.call(d) } catch { /* noop */ }
     }
   }
+
+  useEffect(() => {
+    const raf = requestAnimationFrame(() => setBarStarted(true))
+    return () => cancelAnimationFrame(raf)
+  }, [])
 
   useEffect(() => {
     if (isTMA) {
@@ -94,8 +102,28 @@ export default function GamePlayer({ url, onClose }: Props) {
       )}
 
       {!iframeLoaded && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black z-10">
-          <div className="w-10 h-10 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+        <div className="absolute inset-0 z-10 bg-[#080b14]">
+          <img
+            src={gameLoadingImg}
+            alt=""
+            draggable={false}
+            className="w-full h-full object-cover object-top select-none"
+          />
+          <div
+            className="absolute inset-x-0 flex flex-col items-center gap-2"
+            style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 22px)' }}
+          >
+            <div className="w-2/3 max-w-[280px] h-1.5 rounded-full bg-white/15 overflow-hidden">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-amber-400 to-yellow-300"
+                style={{
+                  width: barStarted ? '92%' : '4%',
+                  transition: 'width 7s cubic-bezier(0.08, 0.62, 0.23, 0.98)',
+                }}
+              />
+            </div>
+            <span className="text-[11px] font-medium text-white/70">{t('game.loading', 'Loading...')}</span>
+          </div>
         </div>
       )}
 
