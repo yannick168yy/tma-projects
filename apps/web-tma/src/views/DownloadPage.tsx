@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight, Star, Loader2, CheckCircle2, ShieldCheck, Sh
 import InstallGuideSheet from '@/components/pwa/InstallGuideSheet'
 import ApkInstallGuideSheet from '@/components/pwa/ApkInstallGuideSheet'
 import { canNativeInstall, isIos, isInstalledApp, isInAppWebView, promptNativeInstall } from '@/utils/pwa'
+import { reportApkDownloadClick } from '@/api/attribution'
 
 // 相对路径：跟随当前域名（测试 188facai / 生产 betogo.games 各自的 /app/betogo.apk），
 // 别写死域名，否则生产会从测试站下包。为空时 Android 退回 PWA 安装过渡方案。
@@ -139,6 +140,8 @@ export default function DownloadPage({ onClose }: { onClose: () => void }) {
         document.body.appendChild(a)
         a.click()
         a.remove()
+        // 归因快照暂存服务端，装好的 App 首启认领（浏览器与 App 存储隔离，直传不过去）
+        reportApkDownloadClick()
         setApkGuideOpen(true)
         return
       }

@@ -107,6 +107,12 @@ export function getAttribution(): Attribution | null {
   return load()
 }
 
+/** 采纳服务端配对回来的快照。first-touch 语义不变：本地已有归因则不覆盖 */
+export function adoptAttribution(attr: Attribution): void {
+  if (load()) return
+  save(attr)
+}
+
 // _fbp/_fbc/_ttp 由像素脚本自己种，落地瞬间还没有，所以不进 first-touch 快照，
 // 每次发请求时现读。fbclid 已知但 _fbc 还没种上时按 FB 规范合成，避免匹配率白丢。
 function pixelCookies(attr: Attribution | null): Record<string, string> {

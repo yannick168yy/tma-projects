@@ -24,6 +24,7 @@ import rebateRoutes from './rebate.routes.js'
 import vipRoutes from './vip.routes.js'
 import spinRoutes from './spin.routes.js'
 import homeContentRoutes from './home-content.routes.js'
+import attributionRoutes from './attribution.routes.js'
 import { authMiddleware, optionalAuthMiddleware } from '../middleware/auth.js'
 import { getDepositChannels, YfPayError } from '../services/yfpay.service.js'
 import { getPromoConfig } from '../services/promo-config.service.js'
@@ -48,6 +49,8 @@ export function createApiRouter(): Router {
   api.use(webhookRoutes.routes(), webhookRoutes.allowedMethods())
   api.use(authRoutes.routes(), authRoutes.allowedMethods())
   api.use(homeContentRoutes.routes(), homeContentRoutes.allowedMethods())
+  // 公开：APK 安装归因配对（点下载在登录前，App 首启也在登录前）
+  api.use(attributionRoutes.routes(), attributionRoutes.allowedMethods())
 
   // 公开：活动参数配置（App 启动即拉，先于登录完成，不含用户数据）
   api.get('/promotions/config', async (ctx) => {

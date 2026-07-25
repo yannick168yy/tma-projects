@@ -12,6 +12,7 @@ import { useAuthStore } from '@/stores/auth'
 import { usePromotionStore } from '@/stores/promotion'
 import { prewarmTurnstile } from '@/utils/turnstile'
 import { isIos, isStandalone } from '@/utils/pwa'
+import { pairApkAttribution } from '@/api/attribution'
 
 const AppShell = lazyWithReload(() => import('@/views/AppShell'))
 
@@ -28,6 +29,8 @@ function MainApp() {
     if (bootstrapped.current) return
     bootstrapped.current = true
     void useAuthStore.getState().bootstrap()
+    // APK 壳首启：向服务端认领点下载时暂存的归因快照（浏览器与 App 存储隔离）
+    void pairApkAttribution()
     // iOS PWA:登录框首次渲染 Turnstile 会撑爆 webview 崩溃退回首页,提前在最小 DOM 里预热一次规避
     if (isIos() && isStandalone()) {
       const warm = () => prewarmTurnstile()

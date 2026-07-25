@@ -83,6 +83,73 @@ export async function saveUserAttribution(
   )
 }
 
+// ── 站外 APK 安装配对：浏览器点下载 → 落 bg_pending_install，App 首启按 IP+机型 认领 ──
+
+/** 从 UA 提取「android版本|机型」。Chrome 与壳 WebView 的 UA 都含 "Android 13; Pixel 5"，是两侧唯一的公共稳定键 */
+export function deviceKeyFromUa(ua: string | undefined): string | null {
+  const m = /Android ([\d.]+); ([^;)]+)/.exec(ua ?? '')
+  if (!m) return null
+  const model = m[2].replace(/ Build\/.*$/, '').trim().toLowerCase()
+  if (!model) return null
+  return `${m[1]}|${model}`.slice(0, 128)
+}
+
+const MAX_ATTR_JSON = 2000
+
+export async function savePendingInstall(
+  env: Env,
+  attr: unknown,
+  ctx: { ip?: string; userAgent?: string },
+): Promise<boolean> {
+  if (!isMysqlEnabled(env)) return false
+  const key = deviceKeyFromUa(ctx.userAgent)
+  if (!key || !ctx.ip) return false
+  if (!attr || typeof attr !== 'object' || Array.isArray(attr)) return false
+  const json = JSON.stringify(attr)
+  if (json.length > MAX_ATTR_JSON) return false
+  const db = getMysqlPool(env)
+  // 同设备重复点下载只留最新一条：既防表膨胀，也让认领无歧义
+  await db.execute(
+    'DELETE FROM bg_pending_install WHERE client_ip = ? AND device_key = ? AND matched_at IS NULL',
+    [ctx.ip, key],
+  )
+  await db.execute(
+    'INSERT INTO bg_pending_install (attr_json, client_ip, device_key, user_agent) VALUES (?,?,?,?)',
+    [json, ctx.ip, key, str(ctx.userAgent, 255)],
+  )
+  return true
+}
+
+/** App 首启认领：24h 窗内同 IP+机型 的最新未认领记录。竞态由 UPDATE 条件兜住 */
+export async function matchPendingInstall(
+  env: Env,
+  ctx: { ip?: string; userAgent?: string },
+): Promise<AttrPayload | null> {
+  if (!isMysqlEnabled(env)) return null
+  const key = deviceKeyFromUa(ctx.userAgent)
+  if (!key || !ctx.ip) return null
+  const db = getMysqlPool(env)
+  const [rows] = await db.query(
+    `SELECT id, attr_json FROM bg_pending_install
+      WHERE client_ip = ? AND device_key = ? AND matched_at IS NULL
+        AND created_at > NOW(3) - INTERVAL 24 HOUR
+      ORDER BY id DESC LIMIT 1`,
+    [ctx.ip, key],
+  )
+  const row = (rows as { id: number; attr_json: string }[])[0]
+  if (!row) return null
+  const [res] = await db.execute(
+    'UPDATE bg_pending_install SET matched_at = NOW(3) WHERE id = ? AND matched_at IS NULL',
+    [row.id],
+  )
+  if ((res as { affectedRows: number }).affectedRows === 0) return null
+  try {
+    return JSON.parse(row.attr_json) as AttrPayload
+  } catch {
+    return null
+  }
+}
+
 /** 通知 core-node 发注册转化事件。core 侧再读 bg_user_attribution 决定发不发、发给谁 */
 async function notifyRegistrationConversion(env: Env, userId: string): Promise<void> {
   if (!env.INTERNAL_TOKEN.trim()) return
