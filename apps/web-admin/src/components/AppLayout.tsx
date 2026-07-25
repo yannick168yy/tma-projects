@@ -40,7 +40,6 @@ function buildMenuItems(badges: AdminBadges) {
         { key: '/bi/games', label: '游戏分析' },
         { key: '/bi/users', label: '用户分析' },
         { key: '/bi/acquisition', label: '渠道拉新' },
-        { key: '/bi/ad-sources', label: '投放渠道(买量)' },
         { key: '/bi/churn', label: '流失挽回' },
         { key: '/bi/channels', label: '支付通道监控' },
       ],
@@ -140,6 +139,7 @@ function buildMenuItems(badges: AdminBadges) {
       icon: <ApartmentOutlined />,
       label: '推广联盟',
       children: [
+        { key: '/bi/ad-sources', label: '投放渠道(买量)' },
         { key: '/team-referral/agents', label: '分销网体' },
         { key: '/team-referral/commissions', label: '佣金流水' },
         { key: '/team-referral/config', label: '佣金配置' },
@@ -194,7 +194,7 @@ function getDefaultOpenKeys(pathname: string): string[] {
   if (['/games', '/bet-orders', '/home-content', '/homepage-sections', '/category-sort'].some((p) => pathname.startsWith(p))) return ['game']
   if (['/growth', '/vip', '/rebate', '/tasks', '/checkin', '/rewards-spin'].some((p) => pathname.startsWith(p))) return ['member-ops']
   if (['/promotions', '/community', '/tg-broadcast'].some((p) => pathname.startsWith(p))) return ['marketing']
-  if (pathname.startsWith('/team-referral') || pathname.startsWith('/agents') || pathname.startsWith('/agent-')) return ['promotion-alliance']
+  if (pathname.startsWith('/team-referral') || pathname.startsWith('/agents') || pathname.startsWith('/agent-') || pathname === '/bi/ad-sources') return ['promotion-alliance']
   if (['/customer-service', '/cs-faq'].some((p) => pathname.startsWith(p))) return ['cs']
   if (['/audit-log', '/settings', '/system-params', '/sms-test', '/db-backup'].some((p) => pathname.startsWith(p))) return ['system']
   return []
