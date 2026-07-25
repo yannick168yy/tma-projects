@@ -297,6 +297,21 @@ export type SupportedCurrency = typeof SUPPORTED_CURRENCIES[number]
 export const adjustBalance = (id: string, amount: number, opPassword: string, currency: string, note?: string) =>
   post<{ available: number; orderId: string }>(`/admin/users/${id}/adjust-balance`, { amount, opPassword, currency, note })
 
+// 用户详情各记录 Tab 的分页查询
+export interface PagedResult<T> { total: number; items: T[]; page: number; pageSize: number }
+export interface PromoClaimRecord {
+  id: string; promoName: string; type: string; description: string
+  amount: number; currency: string; claimedAt: string
+}
+export const getUserLedgerPage = (id: string, params: { page?: number; pageSize?: number }) =>
+  get<PagedResult<LedgerEntry>>(`/admin/users/${id}/ledger`, params)
+export const getUserLoginLogsPage = (id: string, params: { page?: number; pageSize?: number }) =>
+  get<PagedResult<LoginLog>>(`/admin/users/${id}/login-logs`, params)
+export const getUserBetOrdersPage = (id: string, params: { page?: number; pageSize?: number }) =>
+  get<PagedResult<BetOrder>>(`/admin/users/${id}/bet-orders`, params)
+export const getUserPromoClaimsPage = (id: string, params: { page?: number; pageSize?: number }) =>
+  get<PagedResult<PromoClaimRecord>>(`/admin/users/${id}/promo-claims`, params)
+
 export interface AdminLedgerRecord {
   id: string
   userId: string

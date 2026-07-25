@@ -53,7 +53,7 @@ router.put('/config', async (ctx) => {
   ok(ctx, updated)
 })
 
-function promoLabel(type: string, description: string): string {
+export function promoLabel(type: string, description: string): string {
   if (type === 'red_packet') {
     if (/app download/i.test(description)) return 'App下载礼金'
     return '首席体验官'

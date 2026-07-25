@@ -7,10 +7,18 @@ import { hashPassword } from '../../utils/password.js'
 import { getMysqlPool, isMysqlEnabled } from '../../clients/mysql.client.js'
 import { getUserTotalTurnover, getLevelThresholds, resolveLevel } from '../../services/rebate.service.js'
 import { fail, ok } from '../../utils/response.js'
+import { promoLabel } from './promotions.routes.js'
 import type { RowDataPacket, OkPacket } from 'mysql2/promise'
 import type { IdentityProvider } from '../../types/domain.js'
+import type { Context } from 'koa'
 
 const router = new Router({ prefix: '/users' })
+
+function pageParams(ctx: Context) {
+  const page = Math.max(1, Number(ctx.query.page ?? 1))
+  const pageSize = Math.min(200, Math.max(1, Number(ctx.query.pageSize ?? 20)))
+  return { page, pageSize, offset: (page - 1) * pageSize }
+}
 
 router.get('/', async (ctx) => {
   const page = Math.max(1, Number(ctx.query.page ?? 1))
@@ -68,6 +76,117 @@ router.get('/:id', async (ctx) => {
       faceSubmittedAt: kyc.faceSubmittedAt ?? null,
       reviewedAt: kyc.reviewedAt ?? null,
     } : null,
+  })
+})
+
+// 用户详情各记录 Tab 的分页查询
+router.get('/:id/ledger', async (ctx) => {
+  if (!isMysqlEnabled(ctx.state.env)) { ok(ctx, { items: [], total: 0, page: 1, pageSize: 20 }); return }
+  const { page, pageSize, offset } = pageParams(ctx)
+  const pool = getMysqlPool(ctx.state.env)
+  const [rows] = await pool.query<RowDataPacket[]>(
+    `SELECT id, type, currency, amount, balance_after, description, created_at
+     FROM bg_wallet_ledger WHERE user_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?`,
+    [ctx.params.id, pageSize, offset],
+  )
+  const [[c]] = await pool.query<RowDataPacket[]>(
+    `SELECT COUNT(*) AS total FROM bg_wallet_ledger WHERE user_id = ?`, [ctx.params.id],
+  )
+  ok(ctx, {
+    items: rows.map((r) => ({
+      id: String(r.id),
+      type: String(r.type),
+      currency: String(r.currency ?? 'PHP'),
+      amount: Number(r.amount),
+      balanceAfter: Number(r.balance_after),
+      description: String(r.description ?? ''),
+      createdAt: new Date(r.created_at as Date).toISOString(),
+    })),
+    total: Number(c?.total ?? 0), page, pageSize,
+  })
+})
+
+router.get('/:id/login-logs', async (ctx) => {
+  if (!isMysqlEnabled(ctx.state.env)) { ok(ctx, { items: [], total: 0, page: 1, pageSize: 20 }); return }
+  const { page, pageSize, offset } = pageParams(ctx)
+  const pool = getMysqlPool(ctx.state.env)
+  const [rows] = await pool.query<RowDataPacket[]>(
+    `SELECT id, ip, region, user_agent, auth_method, entry_source, device_id, fp_visitor, created_at
+     FROM bg_login_log WHERE user_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?`,
+    [ctx.params.id, pageSize, offset],
+  )
+  const [[c]] = await pool.query<RowDataPacket[]>(
+    `SELECT COUNT(*) AS total FROM bg_login_log WHERE user_id = ?`, [ctx.params.id],
+  )
+  ok(ctx, {
+    items: rows.map((r) => ({
+      id: Number(r.id),
+      ip: r.ip ? String(r.ip) : null,
+      region: r.region ? String(r.region) : null,
+      userAgent: r.user_agent ? String(r.user_agent) : null,
+      authMethod: String(r.auth_method),
+      entrySource: r.entry_source ? String(r.entry_source) : null,
+      deviceId: r.device_id ? String(r.device_id) : null,
+      fpVisitor: r.fp_visitor ? String(r.fp_visitor) : null,
+      createdAt: new Date(r.created_at as Date).toISOString(),
+    })),
+    total: Number(c?.total ?? 0), page, pageSize,
+  })
+})
+
+router.get('/:id/bet-orders', async (ctx) => {
+  if (!isMysqlEnabled(ctx.state.env)) { ok(ctx, { items: [], total: 0, page: 1, pageSize: 20 }); return }
+  const { page, pageSize, offset } = pageParams(ctx)
+  const pool = getMysqlPool(ctx.state.env)
+  const [rows] = await pool.query<RowDataPacket[]>(
+    `SELECT id, provider_txn_id, round_id, bet_type, amount, currency_code, status, created_at
+     FROM bg_bet_order WHERE user_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?`,
+    [ctx.params.id, pageSize, offset],
+  )
+  const [[c]] = await pool.query<RowDataPacket[]>(
+    `SELECT COUNT(*) AS total FROM bg_bet_order WHERE user_id = ?`, [ctx.params.id],
+  )
+  ok(ctx, {
+    items: rows.map((r) => ({
+      id: Number(r.id),
+      providerTxnId: String(r.provider_txn_id),
+      roundId: r.round_id ? String(r.round_id) : null,
+      betType: String(r.bet_type),
+      amount: Number(r.amount),
+      currencyCode: String(r.currency_code ?? 'PHP'),
+      status: String(r.status),
+      createdAt: new Date(r.created_at as Date).toISOString(),
+    })),
+    total: Number(c?.total ?? 0), page, pageSize,
+  })
+})
+
+router.get('/:id/promo-claims', async (ctx) => {
+  if (!isMysqlEnabled(ctx.state.env)) { ok(ctx, { items: [], total: 0, page: 1, pageSize: 20 }); return }
+  const { page, pageSize, offset } = pageParams(ctx)
+  const pool = getMysqlPool(ctx.state.env)
+  const [rows] = await pool.query<RowDataPacket[]>(
+    `SELECT id, type, description, amount, currency, created_at
+     FROM bg_wallet_ledger
+     WHERE user_id = ? AND type IN ('red_packet', 'bonus')
+     ORDER BY created_at DESC LIMIT ? OFFSET ?`,
+    [ctx.params.id, pageSize, offset],
+  )
+  const [[c]] = await pool.query<RowDataPacket[]>(
+    `SELECT COUNT(*) AS total FROM bg_wallet_ledger WHERE user_id = ? AND type IN ('red_packet', 'bonus')`,
+    [ctx.params.id],
+  )
+  ok(ctx, {
+    items: rows.map((r) => ({
+      id: String(r.id),
+      promoName: promoLabel(String(r.type), String(r.description ?? '')),
+      type: String(r.type),
+      description: String(r.description ?? ''),
+      amount: Number(r.amount),
+      currency: String(r.currency ?? 'PHP'),
+      claimedAt: new Date(r.created_at as Date).toISOString(),
+    })),
+    total: Number(c?.total ?? 0), page, pageSize,
   })
 })
 

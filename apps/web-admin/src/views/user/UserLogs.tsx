@@ -1,9 +1,41 @@
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Card, Tabs, Table, Spin, Alert, Typography, Modal, Descriptions, InputNumber, Input, Space, Button, Progress, Tag, message } from 'antd'
-import { getUserDetail, getUserTurnover, adjustTurnoverRequirement, type TurnoverRequirement } from '../../api'
+import {
+  getUserTurnover, adjustTurnoverRequirement,
+  getUserLedgerPage, getUserLoginLogsPage, getUserBetOrdersPage, getUserPromoClaimsPage,
+  type TurnoverRequirement, type PagedResult,
+} from '../../api'
 
-type Detail = Awaited<ReturnType<typeof getUserDetail>>
+// 服务端分页数据加载：active 首次为 true 时加载第一页，翻页/改页大小时重新请求
+function usePaged<T>(fetcher: (page: number, pageSize: number) => Promise<PagedResult<T>>, active: boolean) {
+  const [items, setItems] = useState<T[]>([])
+  const [total, setTotal] = useState(0)
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(20)
+  const [loading, setLoading] = useState(false)
+  const [loaded, setLoaded] = useState(false)
+
+  const load = useCallback(async (p: number, ps: number) => {
+    setLoading(true)
+    try {
+      const r = await fetcher(p, ps)
+      setItems(r.items); setTotal(r.total); setPage(p); setPageSize(ps); setLoaded(true)
+    } catch (e) { message.error(e instanceof Error ? e.message : '加载失败') }
+    finally { setLoading(false) }
+  }, [fetcher])
+
+  useEffect(() => { if (active && !loaded) void load(1, 20) }, [active, loaded, load])
+
+  const pagination = {
+    current: page, pageSize, total,
+    showSizeChanger: true,
+    pageSizeOptions: [10, 20, 50, 100],
+    showTotal: (t: number) => `共 ${t} 条`,
+    onChange: (p: number, ps: number) => { void load(ps !== pageSize ? 1 : p, ps) },
+  }
+  return { items, total, loading, pagination }
+}
 
 function ledgerTypeColor(t: string) {
   return ({ deposit: 'green', admin_adjust: 'blue', withdraw: 'orange', bet: 'purple', bonus: 'cyan', red_packet: 'magenta' } as Record<string, string>)[t] ?? 'default'
@@ -27,12 +59,17 @@ function reqStatusTag(s: string) {
   return <Tag color={d.color}>{d.text}</Tag>
 }
 
-interface Props { userId: string; detail: Detail }
+interface Props { userId: string }
 
-export default function UserLogs({ userId, detail }: Props) {
+export default function UserLogs({ userId }: Props) {
   const navigate = useNavigate()
   const lookup = (field: 'ip' | 'deviceId' | 'fpVisitor', v: string | null) =>
     v ? <Button type="link" size="small" style={{ padding: 0 }} onClick={() => navigate(`/device-lookup?field=${field}&value=${encodeURIComponent(v)}`)}>{v}</Button> : '-'
+  const [activeTab, setActiveTab] = useState('ledger')
+  const ledger = usePaged(useCallback((p: number, ps: number) => getUserLedgerPage(userId, { page: p, pageSize: ps }), [userId]), activeTab === 'ledger')
+  const logins = usePaged(useCallback((p: number, ps: number) => getUserLoginLogsPage(userId, { page: p, pageSize: ps }), [userId]), activeTab === 'login')
+  const bets = usePaged(useCallback((p: number, ps: number) => getUserBetOrdersPage(userId, { page: p, pageSize: ps }), [userId]), activeTab === 'bets')
+  const promos = usePaged(useCallback((p: number, ps: number) => getUserPromoClaimsPage(userId, { page: p, pageSize: ps }), [userId]), activeTab === 'promo')
   const [turnover, setTurnover] = useState<Awaited<ReturnType<typeof getUserTurnover>> | null>(null)
   const [turnoverLoading, setTurnoverLoading] = useState(false)
   const [adjustModal, setAdjustModal] = useState<{ req: TurnoverRequirement } | null>(null)
@@ -84,6 +121,13 @@ export default function UserLogs({ userId, detail }: Props) {
     { title: 'Round ID', dataIndex: 'roundId', key: 'round', ellipsis: true },
     { title: '时间', dataIndex: 'createdAt', key: 'at', width: 160, render: (v: string) => new Date(v).toLocaleString('zh-CN') },
   ]
+  const promoCols = [
+    { title: '优惠名称', dataIndex: 'promoName', key: 'name', width: 140 },
+    { title: '金额', dataIndex: 'amount', key: 'amount', width: 120, render: (v: number) => <span style={{ color: '#52c41a' }}>+{v}</span> },
+    { title: '币种', dataIndex: 'currency', key: 'currency', width: 100 },
+    { title: '描述', dataIndex: 'description', key: 'desc', ellipsis: true },
+    { title: '领取时间', dataIndex: 'claimedAt', key: 'at', width: 160, render: (v: string) => new Date(v).toLocaleString('zh-CN') },
+  ]
   const turnoverCols = [
     { title: '来源', key: 'source', render: (_: unknown, r: TurnoverRequirement) => sourceLabel(r) },
     { title: '要求金额', dataIndex: 'requiredAmount', key: 'req', width: 110, render: (v: number) => v.toFixed(4) },
@@ -114,11 +158,13 @@ export default function UserLogs({ userId, detail }: Props) {
   return (
     <Card bordered={false} style={{ marginBottom: 16 }}>
       <Tabs
-        onChange={(key) => { if (key === 'turnover' && !turnover) void loadTurnover() }}
+        activeKey={activeTab}
+        onChange={(key) => { setActiveTab(key); if (key === 'turnover' && !turnover) void loadTurnover() }}
         items={[
-          { key: 'ledger', label: '账变记录', children: <Table columns={ledgerCols} dataSource={detail.ledger as object[]} rowKey="id" pagination={false} size="small" /> },
-          { key: 'login', label: `登录记录 (${detail.loginLogs.length})`, children: <Table columns={loginCols} dataSource={detail.loginLogs} rowKey="id" pagination={false} size="small" /> },
-          { key: 'bets', label: `游戏记录 (${detail.betOrders.length})`, children: <Table columns={betCols} dataSource={detail.betOrders} rowKey="id" pagination={false} size="small" /> },
+          { key: 'ledger', label: `账变记录${ledger.total ? ` (${ledger.total})` : ''}`, children: <Table columns={ledgerCols} dataSource={ledger.items as object[]} rowKey="id" loading={ledger.loading} pagination={ledger.pagination} size="small" /> },
+          { key: 'login', label: `登录记录${logins.total ? ` (${logins.total})` : ''}`, children: <Table columns={loginCols} dataSource={logins.items} rowKey="id" loading={logins.loading} pagination={logins.pagination} size="small" /> },
+          { key: 'bets', label: `游戏记录${bets.total ? ` (${bets.total})` : ''}`, children: <Table columns={betCols} dataSource={bets.items} rowKey="id" loading={bets.loading} pagination={bets.pagination} size="small" /> },
+          { key: 'promo', label: `优惠领取记录${promos.total ? ` (${promos.total})` : ''}`, children: <Table columns={promoCols} dataSource={promos.items} rowKey="id" loading={promos.loading} pagination={promos.pagination} size="small" /> },
           {
             key: 'turnover', label: '流水记录',
             children: (
@@ -131,7 +177,7 @@ export default function UserLogs({ userId, detail }: Props) {
                       message={turnover.canWithdraw ? '流水要求已全部完成，可提款' : `流水未完成，还需完成 ${turnover.totalRemaining.toFixed(4)}`}
                       showIcon
                     />
-                    <Table columns={turnoverCols} dataSource={turnover.requirements} rowKey="id" pagination={false} size="small" />
+                    <Table columns={turnoverCols} dataSource={turnover.requirements} rowKey="id" pagination={{ pageSize: 20, showSizeChanger: true, showTotal: (t) => `共 ${t} 条` }} size="small" />
                   </div>
                 )}
                 {!turnover && !turnoverLoading && <Typography.Text type="secondary">点击「流水记录」Tab 加载数据</Typography.Text>}

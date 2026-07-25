@@ -52,7 +52,7 @@ export default function UserDetail() {
                 onSuccess={loadDetail}
               />
             </Col>
-            <Col span={24}><UserLogs userId={id!} detail={detail} /></Col>
+            <Col span={24}><UserLogs userId={id!} /></Col>
           </Row>
         )}
       </Spin>
