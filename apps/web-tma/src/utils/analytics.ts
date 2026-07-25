@@ -13,9 +13,14 @@ declare global {
 const PROD_GA_ID = 'G-X8P419MX9C'
 const isTestHost = (h: string) =>
   /(^|\.)188facai\.com$/.test(h) || h === 'localhost' || /^[\d.]+$/.test(h)
-const GA_ID = isTestHost(window.location.hostname)
-  ? import.meta.env.VITE_GA_MEASUREMENT_ID?.trim()
-  : PROD_GA_ID
+// 后台/内部域名不计入分析:nginx 对所有 Host 都回 web-tma dist,导致 admin/origin 等子域被访问时也误触发 GA,
+// 污染"生产域名"聚合。这类域名直接不初始化 GA(用排除表而非白名单,保留新增生产域名自动接入的能力)。
+const isBackendHost = (h: string) => /^(admin|origin|kobcgdashboard|mgvqqapps)\./.test(h)
+const GA_ID = isBackendHost(window.location.hostname)
+  ? undefined
+  : isTestHost(window.location.hostname)
+    ? import.meta.env.VITE_GA_MEASUREMENT_ID?.trim()
+    : PROD_GA_ID
 const GA_DEBUG = import.meta.env.VITE_GA_DEBUG_MODE === 'true'
 let currentUserId: string | null = null
 
