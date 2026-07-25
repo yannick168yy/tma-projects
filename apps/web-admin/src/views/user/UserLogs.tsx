@@ -114,6 +114,8 @@ export default function UserLogs({ userId }: Props) {
     { title: '时间', dataIndex: 'createdAt', key: 'at', width: 160, render: (v: string) => new Date(v).toLocaleString('zh-CN') },
   ]
   const betCols = [
+    { title: '游戏商', dataIndex: 'providerName', key: 'provider', width: 110, render: (v: string | null) => v || '-' },
+    { title: '游戏名', dataIndex: 'gameName', key: 'game', width: 160, ellipsis: true, render: (v: string | null) => v || '-' },
     { title: '类型', dataIndex: 'betType', key: 'type', width: 80 },
     { title: '币种', dataIndex: 'currencyCode', key: 'currency', width: 100 },
     { title: '金额', dataIndex: 'amount', key: 'amt', width: 100 },

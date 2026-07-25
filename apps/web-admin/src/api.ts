@@ -231,7 +231,9 @@ export interface LoginLog {
 }
 export interface BetOrder {
   id: number; providerTxnId: string; roundId: string | null
-  betType: string; amount: number; currencyCode: string; status: string; createdAt: string
+  betType: string; amount: number; currencyCode: string; status: string
+  gameName: string | null; providerName: string | null
+  createdAt: string
 }
 export interface LedgerEntry {
   id: string; type: string; amount: number; currency: string

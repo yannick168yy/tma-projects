@@ -139,8 +139,15 @@ router.get('/:id/bet-orders', async (ctx) => {
   const { page, pageSize, offset } = pageParams(ctx)
   const pool = getMysqlPool(ctx.state.env)
   const [rows] = await pool.query<RowDataPacket[]>(
-    `SELECT id, provider_txn_id, round_id, bet_type, amount, currency_code, status, created_at
-     FROM bg_bet_order WHERE user_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?`,
+    `SELECT b.id, b.provider_txn_id, b.round_id, b.bet_type, b.amount, b.currency_code, b.status, b.created_at,
+            (SELECT COALESCE(o.name_override, g.name_en, g.name_zh)
+               FROM bg_568win_game g
+               LEFT JOIN bg_568win_game_override o
+                 ON o.game_provider_id = g.game_provider_id AND o.game_id = g.game_id
+              WHERE g.game_id = b.provider_id LIMIT 1) AS game_name,
+            (SELECT COALESCE(g.provider, '568Win') FROM bg_568win_game g
+              WHERE g.game_id = b.provider_id LIMIT 1) AS provider_name
+     FROM bg_bet_order b WHERE b.user_id = ? ORDER BY b.created_at DESC LIMIT ? OFFSET ?`,
     [ctx.params.id, pageSize, offset],
   )
   const [[c]] = await pool.query<RowDataPacket[]>(
@@ -155,6 +162,8 @@ router.get('/:id/bet-orders', async (ctx) => {
       amount: Number(r.amount),
       currencyCode: String(r.currency_code ?? 'PHP'),
       status: String(r.status),
+      gameName: r.game_name ? String(r.game_name) : null,
+      providerName: r.provider_name ? String(r.provider_name) : null,
       createdAt: new Date(r.created_at as Date).toISOString(),
     })),
     total: Number(c?.total ?? 0), page, pageSize,
