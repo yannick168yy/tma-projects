@@ -132,6 +132,10 @@ public class MainActivity extends BridgeActivity {
             String scheme = url.getScheme();
             if (scheme == null || scheme.equals("data") || scheme.equals("blob")) return false;
             if (isOwnHost(url.getHost())) return false;
+            // Telegram OIDC 留在 WebView：它的回跳是 JS 跳转，Custom Tab 里不触发 App Link
+            // 交接，登录态会落在浏览器侧。TG 不像 Google 禁止 WebView OAuth，留下反而全通。
+            // 页内"Open Telegram"的 tg:// 深链走下面 openInCustomTab 的 ACTION_VIEW 兜底拉起 TG App。
+            if ("oauth.telegram.org".equals(url.getHost())) return false;
 
             openInCustomTab(url);
             return true;
