@@ -9,9 +9,14 @@ interface Props {
   onClose: () => void
 }
 
+// 宣传图最短展示时长：秒开的游戏也让促销信息停留可读，同时盖住 iframe
+// onLoad 到游戏真正渲染之间的衔接段
+const MIN_LOADING_MS = 1500
+
 export default function GamePlayer({ url, onClose }: Props) {
   const { t } = useTranslation()
   const [iframeLoaded, setIframeLoaded] = useState(false)
+  const shownAt = useRef(Date.now())
   const [expanded, setExpanded] = useState(false)
   // 进度条是演出：iframe 没有真实进度事件，首帧后缓动到 92%，加载完成整层卸载
   const [barStarted, setBarStarted] = useState(false)
@@ -134,7 +139,11 @@ export default function GamePlayer({ url, onClose }: Props) {
         src={url}
         className="flex-1 w-full border-none"
         allow="autoplay; camera; microphone"
-        onLoad={() => setIframeLoaded(true)}
+        onLoad={() => {
+          const remain = MIN_LOADING_MS - (Date.now() - shownAt.current)
+          if (remain > 0) setTimeout(() => setIframeLoaded(true), remain)
+          else setIframeLoaded(true)
+        }}
       />
     </div>
   )

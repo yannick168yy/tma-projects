@@ -7,6 +7,14 @@ const config: CapacitorConfig = {
   appId: 'games.betogo.app',
   appName: 'BETOGO',
   webDir: 'www',
+  plugins: {
+    // 启动屏固定停留 2.5s：品牌曝光与冷启动体感的平衡点（下次重打包生效）
+    SplashScreen: {
+      launchShowDuration: 2500,
+      launchAutoHide: true,
+      backgroundColor: '#080b14',
+    },
+  },
   android: {
     // 后端可用 UA 里的 BetogoApp/<ver> 识别 App 用户，做归因与「已安装」判定
     appendUserAgent: 'BetogoApp/0.1.0',
