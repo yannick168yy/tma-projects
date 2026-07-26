@@ -29,6 +29,9 @@ export default function GamePlayer({ url, onClose }: Props) {
   const [pos, setPos] = useState<{ x: number; y: number } | null>(null)
   const dragState = useRef<{ startX: number; startY: number; baseX: number; baseY: number; moved: boolean } | null>(null)
   const justDragged = useRef(false)
+  // dragging 时禁用位移过渡（跟手），松手吸附边缘时启用过渡（平滑滑到边）
+  const [dragging, setDragging] = useState(false)
+  const EDGE_MARGIN = 12
 
   function onBtnPointerDown(e: React.PointerEvent) {
     const rect = btnRef.current?.getBoundingClientRect()
@@ -48,11 +51,12 @@ export default function GamePlayer({ url, onClose }: Props) {
     if (!st.moved && Math.hypot(dx, dy) < 4) return
     st.moved = true
     justDragged.current = true
+    setDragging(true)
     const rect = btnRef.current?.getBoundingClientRect()
     const w = rect?.width ?? 36
     const h = rect?.height ?? 36
-    const nx = Math.min(Math.max(st.baseX + dx, 4), window.innerWidth - w - 4)
-    const ny = Math.min(Math.max(st.baseY + dy, 4), window.innerHeight - h - 4)
+    const nx = Math.min(Math.max(st.baseX + dx, EDGE_MARGIN), window.innerWidth - w - EDGE_MARGIN)
+    const ny = Math.min(Math.max(st.baseY + dy, EDGE_MARGIN), window.innerHeight - h - EDGE_MARGIN)
     setPos({ x: nx, y: ny })
   }
 
@@ -60,8 +64,22 @@ export default function GamePlayer({ url, onClose }: Props) {
     const st = dragState.current
     dragState.current = null
     btnRef.current?.releasePointerCapture(e.pointerId)
-    // 拖动过就吞掉紧随其后的 click，避免误触展开/退出游戏
-    if (st?.moved) setTimeout(() => { justDragged.current = false }, 0)
+    if (st?.moved) {
+      setDragging(false)
+      // 松手后吸附到最近的左/右屏幕边缘（按钮中心在哪半屏就贴哪边）
+      const rect = btnRef.current?.getBoundingClientRect()
+      const w = rect?.width ?? 36
+      const h = rect?.height ?? 36
+      setPos((p) => {
+        if (!p) return p
+        const centerX = p.x + w / 2
+        const snapX = centerX < window.innerWidth / 2 ? EDGE_MARGIN : window.innerWidth - w - EDGE_MARGIN
+        const clampedY = Math.min(Math.max(p.y, EDGE_MARGIN), window.innerHeight - h - EDGE_MARGIN)
+        return { x: snapX, y: clampedY }
+      })
+      // 吞掉紧随其后的 click，避免误触展开/退出游戏
+      setTimeout(() => { justDragged.current = false }, 0)
+    }
   }
 
   function expand() {
@@ -129,6 +147,7 @@ export default function GamePlayer({ url, onClose }: Props) {
             ...(pos
               ? { top: `${pos.y}px`, left: `${pos.x}px` }
               : { top: 'max(env(safe-area-inset-top, 0px) + 10px, 18px)', left: '12px' }),
+            transition: dragging ? 'none' : 'left 0.22s ease-out, top 0.22s ease-out',
             touchAction: 'none',
           }}
           onPointerDown={onBtnPointerDown}

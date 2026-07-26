@@ -470,23 +470,7 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
         </div>
       </section>
 
-      {/* 推荐精选（大卡）：有最近在玩时展示，置于 Slots 板块上方 */}
-      {recentGames.length > 0 && (gamesLoading || homepageGames.recommended.length > 0) && (
-        <section className="mt-6">
-          {sectionHeader(<Percent size={15} className="text-red-400" />, t('home.recommended'), () => onNavigatePath('/games'))}
-          {bigGrid(recommendedDisplay, 12)}
-        </section>
-      )}
-
-      {/* Slots：大卡 3x2 */}
-      {(gamesLoading || homepageGames.slots.length > 0) && (
-        <section className="mt-6">
-          {sectionHeader(<Gamepad2 size={15} className="text-violet-400" />, t('home.egamesZone'), () => onNavigatePath('/games?cat=slot'))}
-          {bigGrid(homepageGames.slots, 6)}
-        </section>
-      )}
-
-      {/* 厂商专区：tab + 小卡横滑 */}
+      {/* 厂商专区（Top Providers）：tab + 小卡横滑，置于 Loss Rebate 下方 */}
       <section className="mt-6">
         {sectionHeader(<Factory size={15} className="text-sky-400" />, t('home.providerZone'), () => onNavigatePath(`/games?provider=${providerZoneTab}`))}
         <div className="flex gap-2 px-4 mb-3 overflow-x-auto hide-scrollbar">
@@ -503,6 +487,22 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
         </div>
         {smallRow(providerZoneGames, providerZoneGames.length === 0)}
       </section>
+
+      {/* 推荐精选（大卡）：有最近在玩时展示，置于 Slots 板块上方 */}
+      {recentGames.length > 0 && (gamesLoading || homepageGames.recommended.length > 0) && (
+        <section className="mt-6">
+          {sectionHeader(<Percent size={15} className="text-red-400" />, t('home.recommended'), () => onNavigatePath('/games'))}
+          {bigGrid(recommendedDisplay, 12)}
+        </section>
+      )}
+
+      {/* Slots：大卡 3x2 */}
+      {(gamesLoading || homepageGames.slots.length > 0) && (
+        <section className="mt-6">
+          {sectionHeader(<Gamepad2 size={15} className="text-violet-400" />, t('home.egamesZone'), () => onNavigatePath('/games?cat=slot'))}
+          {bigGrid(homepageGames.slots, 6)}
+        </section>
+      )}
 
       {/* Casino：大卡 3x2 */}
       {(gamesLoading || homepageGames.casino.length > 0) && (
