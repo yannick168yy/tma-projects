@@ -11,6 +11,7 @@
 import { createHash } from 'node:crypto'
 import type { Pool, ResultSetHeader, RowDataPacket } from 'mysql2/promise'
 import { env } from '../config/env.js'
+import { getPhpRate } from './exchange-rate.service.js'
 
 const FB_API_VERSION = 'v21.0'
 const TIMEOUT_MS = 5000
@@ -203,17 +204,29 @@ export async function sendRegistrationConversion(db: Pool, userId: string): Prom
   })
 }
 
+// FB/TT 只认 ISO 4217 货币代码，USDT/USDC/TRX(_TESTNET) 这类直接报会被
+// 「invalid currency」400 拒掉(FB subcode 2804011,测试环境实测)。非 ISO 一律折成 PHP 上报。
+const ISO_REPORTABLE = new Set(['PHP', 'USD', 'EUR'])
+
+async function toReportableValue(amount: number, currency: string): Promise<{ value: number; currency: string }> {
+  if (ISO_REPORTABLE.has(currency.toUpperCase())) return { value: amount, currency: currency.toUpperCase() }
+  const rate = await getPhpRate(currency).catch(() => 0)
+  if (rate <= 0) return { value: amount, currency: 'PHP' } // 兜底：宁可金额失真也别丢转化事件
+  return { value: Math.round(amount * rate * 100) / 100, currency: 'PHP' }
+}
+
 /** 充值到账转化。event_id = orderId，天然唯一 */
 export async function sendPurchaseConversion(
   db: Pool,
   input: { userId: string; orderId: string; amount: number; currency: string },
 ): Promise<void> {
+  const { value, currency } = await toReportableValue(input.amount, input.currency)
   await dispatch(db, {
     userId: input.userId,
     eventName: 'Purchase',
     eventId: input.orderId,
     eventTimeSec: Math.floor(Date.now() / 1000),
-    value: input.amount,
-    currency: input.currency,
+    value,
+    currency,
   })
 }
