@@ -1331,6 +1331,8 @@ export interface ProviderBalanceRow {
   diffStatus: 'normal' | 'mismatch' | 'error'
   currency: string
   status: 'ok' | 'error'; errorMsg: string | null; updatedAt: string | null
+  source: 'api' | 'manual'
+  alertThreshold: number | null
 }
 
 export const getPaymentAccounting = (range: { from?: string; to?: string } = {}) => {
@@ -1342,6 +1344,10 @@ export const getPaymentAccounting = (range: { from?: string; to?: string } = {})
 }
 export const getProviderBalances = () => get<ProviderBalanceRow[]>('/admin/payment/balance')
 export const refreshProviderBalances = () => post<ProviderBalanceRow[]>('/admin/payment/balance/refresh', {})
+export const setProviderAlertThreshold = (provider: string, threshold: number) =>
+  post<ProviderBalanceRow[]>('/admin/payment/balance/threshold', { provider, threshold })
+export const setMatrixBalance = (balance: number) =>
+  post<ProviderBalanceRow[]>('/admin/payment/balance/matrix', { balance })
 
 // ── 代理分成 ───────────────────────────────────────────────────────────────
 const del = <T>(url: string) => req<T>('DELETE', url)

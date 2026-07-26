@@ -162,13 +162,15 @@ async function handleMatrixWithdraw(
   db: Pool,
 ): Promise<void> {
   const [rows] = await db.query<RowDataPacket[]>(
-    `SELECT order_id, user_id, currency, amount, status, refunded
+    `SELECT order_id, user_id, currency, amount, status, refunded,
+            JSON_UNQUOTE(JSON_EXTRACT(extra, '$.cryptoAmount')) AS crypto_amount
      FROM bg_withdraw_order WHERE order_id = ? LIMIT 1`,
     [notify.merchantOrderNo],
   )
   const order = rows[0] as {
     order_id: string; user_id: string; currency: string
     amount: number; status: string; refunded: number
+    crypto_amount: string | null
   } | undefined
   if (!order || order.status === 'completed') return
 
@@ -220,6 +222,14 @@ async function handleMatrixWithdraw(
          VALUES (?, ?, ?, 'adjust', ?, ?, 'withdraw', ?, ?)`,
         [lgId(), order.user_id, currency, refundAmount, balanceAfter,
           `MXREFUND_${notify.merchantOrderNo}`, `Matrix 提现失败退款 #${notify.merchantOrderNo}`],
+      )
+      // 出款失败：把 bff 发起出款时预扣的 Matrix 登记余额加回（链上额 + gas 1.2，与扣减对称）
+      const cryptoAmount = order.crypto_amount != null ? Number(order.crypto_amount) : Number(order.amount)
+      await conn.execute(
+        `UPDATE provider_balance_snapshot
+            SET balance = balance + ?, updated_at = CURRENT_TIMESTAMP
+          WHERE provider = 'matrix'`,
+        [Math.round((cryptoAmount + 1.2) * 100) / 100],
       )
       await conn.commit()
     } catch (err) {

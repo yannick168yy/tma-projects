@@ -4,7 +4,10 @@ import {
   listChannels, createChannel, updateChannel, deleteChannel,
   createRule, updateRule, deleteRule, type FeeType, type TxType,
 } from '../../services/payment-channel.service.js'
-import { getAccounting, getBalances, refreshBalances } from '../../services/payment-accounting.service.js'
+import {
+  getAccounting, getBalances, refreshBalances,
+  setAlertThreshold, setManualProviderBalance, ALERT_PROVIDERS,
+} from '../../services/payment-accounting.service.js'
 import { writeAuditLog } from '../../services/admin-store.js'
 import { requireRole } from '../../middleware/require-role.js'
 
@@ -117,6 +120,36 @@ router.get('/balance', async (ctx) => {
 
 router.post('/balance/refresh', async (ctx) => {
   ok(ctx, await refreshBalances(ctx.state.env))
+})
+
+// 设置告警金额（0 = 关闭告警）
+router.post('/balance/threshold', async (ctx) => {
+  const body = ctx.request.body as { provider?: string; threshold?: unknown }
+  const provider = String(body.provider ?? '')
+  if (!ALERT_PROVIDERS.includes(provider)) { fail(ctx, 400, 'provider 非法'); return }
+  const threshold = Number(body.threshold ?? 0)
+  if (!Number.isFinite(threshold) || threshold < 0) { fail(ctx, 400, '告警金额非法'); return }
+  await setAlertThreshold(ctx.state.env, provider, threshold)
+  await writeAuditLog(ctx.state.env, {
+    adminId: ctx.state.adminId!, adminUsername: ctx.state.adminUsername!,
+    action: 'provider_balance_threshold_set', targetType: 'provider_balance', targetId: provider,
+    detail: { threshold }, ip: ctx.ip,
+  })
+  ok(ctx, await getBalances(ctx.state.env))
+})
+
+// Matrix 手动登记余额（无余额查询 API）
+router.post('/balance/matrix', async (ctx) => {
+  const body = ctx.request.body as { balance?: unknown }
+  const balance = Number(body.balance)
+  if (!Number.isFinite(balance) || balance < 0) { fail(ctx, 400, '余额金额非法'); return }
+  await setManualProviderBalance(ctx.state.env, 'matrix', balance)
+  await writeAuditLog(ctx.state.env, {
+    adminId: ctx.state.adminId!, adminUsername: ctx.state.adminUsername!,
+    action: 'provider_balance_manual_set', targetType: 'provider_balance', targetId: 'matrix',
+    detail: { balance }, ip: ctx.ip,
+  })
+  ok(ctx, await getBalances(ctx.state.env))
 })
 
 // ── 规则管理 ──────────────────────────────────────────────────────────────────

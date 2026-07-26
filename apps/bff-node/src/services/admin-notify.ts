@@ -104,6 +104,21 @@ export function notifyCsHuman(
   return send(env, { dedupKey: `cs:${p.conversationId}:${p.toStatus}`, text })
 }
 
+// ── 服务商余额不足 ─────────────────────────────────────────────────────────────
+export function notifyProviderBalanceLow(
+  env: Env,
+  p: { provider: string; label: string; balance: number; threshold: number; currency: string },
+): Promise<void> {
+  const text = [
+    `⚠️ 服务商余额不足`,
+    `服务商: ${p.label}`,
+    `当前余额: ${p.balance.toFixed(2)} ${p.currency}`,
+    `告警金额: ${p.threshold.toFixed(2)} ${p.currency}`,
+    `${env.ADMIN_WEB_URL}/payment/accounting`,
+  ].join('\n')
+  return send(env, { dedupKey: `balance:${p.provider}`, text })
+}
+
 // ── 风控命中(仅 deny/escalate 高危)────────────────────────────────────────────
 export function notifyRiskHit(
   env: Env,

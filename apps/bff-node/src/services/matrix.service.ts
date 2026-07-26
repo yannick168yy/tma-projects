@@ -3,6 +3,7 @@ import type { Env } from '../config/env.js'
 import { getMysqlPool } from '../clients/mysql.client.js'
 import { getMatrixClient, MatrixApiError, isMatrixEnabled } from '../clients/matrix.client.js'
 import { creditWallet } from './store/index.js'
+import { deductMatrixBalance, MATRIX_GAS_COST } from './payment-accounting.service.js'
 import { randomOrderId } from '../utils/id.js'
 import { nowIso } from '../utils/format.js'
 import type { Redis } from 'ioredis'
@@ -135,6 +136,8 @@ export async function executeMatrixWithdrawOrder(
        WHERE order_id=?`,
       [resp.orderNo, merchantOrderNo],
     )
+    // 扣减 Matrix 登记余额：链上实际出款额 + 真实 gas（内部吞错，不影响出款主流程）
+    await deductMatrixBalance(env, Number(payoutAmount) + MATRIX_GAS_COST, merchantOrderNo)
     return resp.orderNo
   } catch (err) {
     await pool.query(
