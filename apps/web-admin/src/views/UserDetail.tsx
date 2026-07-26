@@ -68,7 +68,7 @@ function AttributionCard({ attr }: { attr: UserAttribution | null }) {
   const platColor = attr.clickPlatform === 'facebook' ? 'blue' : attr.clickPlatform === 'tiktok' ? 'magenta' : 'default'
   return (
     <Card size="small" title="投放归因（对账时核这条线）">
-      <Descriptions size="small" column={3} bordered>
+      <Descriptions size="small" column={{ xs: 1, sm: 2, md: 3 }} bordered contentStyle={{ wordBreak: 'break-all' }}>
         <Descriptions.Item label="投放渠道">{attr.channelCode ? <Tag color="geekblue">{attr.channelCode}</Tag> : '—'}</Descriptions.Item>
         <Descriptions.Item label="平台"><Tag color={platColor}>{attr.clickPlatform}</Tag></Descriptions.Item>
         <Descriptions.Item label="落地时间">{new Date(attr.createdAt).toLocaleString('zh-CN')}</Descriptions.Item>
