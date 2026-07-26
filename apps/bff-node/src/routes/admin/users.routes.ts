@@ -190,15 +190,17 @@ router.get('/:id/promo-claims', async (ctx) => {
   if (!isMysqlEnabled(ctx.state.env)) { ok(ctx, { items: [], total: 0, page: 1, pageSize: 20 }); return }
   const { page, pageSize, offset } = pageParams(ctx)
   const pool = getMysqlPool(ctx.state.env)
+  // ref_type='game' 是 568Win 游戏内派彩(Bonus 回调)写入的,厂商报文里 IsGameProviderPromotion=false,
+  // 并非平台优惠(且大量金额为 0 的每局结算),此处只展示真·优惠(promo/红包等)。
   const [rows] = await pool.query<RowDataPacket[]>(
     `SELECT id, type, description, amount, currency, created_at
      FROM bg_wallet_ledger
-     WHERE user_id = ? AND type IN ('red_packet', 'bonus')
+     WHERE user_id = ? AND type IN ('red_packet', 'bonus') AND COALESCE(ref_type, '') <> 'game'
      ORDER BY created_at DESC LIMIT ? OFFSET ?`,
     [ctx.params.id, pageSize, offset],
   )
   const [[c]] = await pool.query<RowDataPacket[]>(
-    `SELECT COUNT(*) AS total FROM bg_wallet_ledger WHERE user_id = ? AND type IN ('red_packet', 'bonus')`,
+    `SELECT COUNT(*) AS total FROM bg_wallet_ledger WHERE user_id = ? AND type IN ('red_packet', 'bonus') AND COALESCE(ref_type, '') <> 'game'`,
     [ctx.params.id],
   )
   ok(ctx, {
