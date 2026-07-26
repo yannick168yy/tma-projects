@@ -470,6 +470,14 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
         </div>
       </section>
 
+      {/* 推荐精选（大卡）：有最近在玩时展示，置于 Slots 板块上方 */}
+      {recentGames.length > 0 && (gamesLoading || homepageGames.recommended.length > 0) && (
+        <section className="mt-6">
+          {sectionHeader(<Percent size={15} className="text-red-400" />, t('home.recommended'), () => onNavigatePath('/games'))}
+          {bigGrid(recommendedDisplay, 12)}
+        </section>
+      )}
+
       {/* Slots：大卡 3x2 */}
       {(gamesLoading || homepageGames.slots.length > 0) && (
         <section className="mt-6">
@@ -549,15 +557,6 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
         <section className="mt-6">
           {sectionHeader(<Trophy size={15} className="text-green-400" />, t('home.sportsZone'), () => onNavigatePath('/games?cat=sports'))}
           {bigGrid(homepageGames.sports, 6)}
-        </section>
-      )}
-
-
-      {/* 推荐精选：有最近在玩时移到投注流上方，大卡 4 行 */}
-      {recentGames.length > 0 && (gamesLoading || homepageGames.recommended.length > 0) && (
-        <section className="mt-6">
-          {sectionHeader(<Percent size={15} className="text-red-400" />, t('home.recommended'), () => onNavigatePath('/games'))}
-          {bigGrid(recommendedDisplay, 12)}
         </section>
       )}
 

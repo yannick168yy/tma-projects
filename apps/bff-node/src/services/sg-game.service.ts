@@ -495,8 +495,9 @@ function buildHomepageSelection(all: DbGame[], cur: string, overrides: SectionOv
   }
   // 确定性按权重降序取 N：跨板块 seen 去重（已出现在首页的跳过）+ 模块内同款去重
   // （同名不同厂商版本如 Roma/Mines、同系列不同代如 Fortune Gems 2，只保留权重最高的一款）
-  const pickWeightTop = (pool: DbGame[], n: number) => {
-    const sorted = pool.filter((g) => !seen.has(g.uuid)).sort((a, b) => b.weight - a.weight)
+  const pickWeightTop = (pool: DbGame[], n: number, priority: (g: DbGame) => number = () => 0) => {
+    const sorted = pool.filter((g) => !seen.has(g.uuid))
+      .sort((a, b) => (priority(b) - priority(a)) || (b.weight - a.weight))
     const result: DbGame[] = []
     const names = new Set<string>()
     for (const g of sorted) {
@@ -529,8 +530,10 @@ function buildHomepageSelection(all: DbGame[], cur: string, overrides: SectionOv
   }
   const sampleSection = (key: string, pool: DbGame[], sc: (g: DbGame) => number, n: number, mpp = 2) =>
     applyManual(key, pick(exFilter(key, pool), sc, n, mpp), n)
-  const weightSection = (key: string, pool: DbGame[], n: number) =>
-    applyManual(key, pickWeightTop(exFilter(key, pool), n), n)
+  const weightSection = (key: string, pool: DbGame[], n: number, priority?: (g: DbGame) => number) =>
+    applyManual(key, pickWeightTop(exFilter(key, pool), n, priority), n)
+  // 返水档位优先级：elite(2%)>pro(1.5%)>basic(1%)>无。用于 slots 首推 cashback 游戏
+  const cashbackRank = (g: DbGame) => g.cashbackTier === 'elite' ? 3 : g.cashbackTier === 'pro' ? 2 : g.cashbackTier === 'basic' ? 1 : 0
   const topSection = (key: string, pool: DbGame[], sc: (g: DbGame) => number, n: number, mpp = 3) =>
     applyManual(key, pickTop(exFilter(key, pool), sc, n, mpp), n)
 
@@ -575,7 +578,9 @@ function buildHomepageSelection(all: DbGame[], cur: string, overrides: SectionOv
     // highRtp 在页面上位于 slots 之前，先计算以按展示顺序优先分配高权重游戏
     // 高 RTP 专栏：上游标称 rtp≥0.97，对标竞品「98%」栏；默认放 12 款
     highRtp:    weightSection('highRtp', all.filter((g) => (g.rtp ?? 0) >= 0.97), 12),
-    slots:      weightSection('slots', bySite('slot'), 6),
+    // slots 首推 cashback（返水）游戏：按返水档位优先、档内按权重降序；不足再用普通老虎机补。
+    // 跨板块 seen 去重保证这里选中的游戏不会在其他板块重复出现
+    slots:      weightSection('slots', bySite('slot'), 6, cashbackRank),
     // 真人：排除百家乐(ntype101)，避免与百家乐专栏重复且被同款变体屠版
     casino:     sampleSection('casino', bySite('casino').filter((g) => g.category !== '101'), score, 6),
     // perya 含 bingo(bingo 游戏 site_category 本就归 perya)，2 行 6 款

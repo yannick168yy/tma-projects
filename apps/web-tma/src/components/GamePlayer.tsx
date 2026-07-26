@@ -24,7 +24,48 @@ export default function GamePlayer({ url, onClose }: Props) {
   const collapseTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const rootRef = useRef<HTMLDivElement>(null)
 
+  // 返回按钮可拖拽：pos 为 null 时用默认左上角定位，一旦拖动改为受控 left/top
+  const btnRef = useRef<HTMLDivElement>(null)
+  const [pos, setPos] = useState<{ x: number; y: number } | null>(null)
+  const dragState = useRef<{ startX: number; startY: number; baseX: number; baseY: number; moved: boolean } | null>(null)
+  const justDragged = useRef(false)
+
+  function onBtnPointerDown(e: React.PointerEvent) {
+    const rect = btnRef.current?.getBoundingClientRect()
+    if (!rect) return
+    dragState.current = { startX: e.clientX, startY: e.clientY, baseX: rect.left, baseY: rect.top, moved: false }
+    justDragged.current = false
+    btnRef.current?.setPointerCapture(e.pointerId)
+    e.stopPropagation()
+  }
+
+  function onBtnPointerMove(e: React.PointerEvent) {
+    const st = dragState.current
+    if (!st) return
+    const dx = e.clientX - st.startX
+    const dy = e.clientY - st.startY
+    // 超过阈值才算拖动，避免点按时的微小抖动被误判
+    if (!st.moved && Math.hypot(dx, dy) < 4) return
+    st.moved = true
+    justDragged.current = true
+    const rect = btnRef.current?.getBoundingClientRect()
+    const w = rect?.width ?? 36
+    const h = rect?.height ?? 36
+    const nx = Math.min(Math.max(st.baseX + dx, 4), window.innerWidth - w - 4)
+    const ny = Math.min(Math.max(st.baseY + dy, 4), window.innerHeight - h - 4)
+    setPos({ x: nx, y: ny })
+  }
+
+  function onBtnPointerUp(e: React.PointerEvent) {
+    const st = dragState.current
+    dragState.current = null
+    btnRef.current?.releasePointerCapture(e.pointerId)
+    // 拖动过就吞掉紧随其后的 click，避免误触展开/退出游戏
+    if (st?.moved) setTimeout(() => { justDragged.current = false }, 0)
+  }
+
   function expand() {
+    if (justDragged.current) return
     setExpanded(true)
     if (collapseTimer.current) clearTimeout(collapseTimer.current)
     collapseTimer.current = setTimeout(() => setExpanded(false), 2500)
@@ -82,8 +123,17 @@ export default function GamePlayer({ url, onClose }: Props) {
     >
       {!isTMA && (
         <div
-          className="absolute z-20 transition-all duration-300"
-          style={{ top: 'max(env(safe-area-inset-top, 0px) + 10px, 18px)', left: '12px' }}
+          ref={btnRef}
+          className="absolute z-20 cursor-grab active:cursor-grabbing"
+          style={{
+            ...(pos
+              ? { top: `${pos.y}px`, left: `${pos.x}px` }
+              : { top: 'max(env(safe-area-inset-top, 0px) + 10px, 18px)', left: '12px' }),
+            touchAction: 'none',
+          }}
+          onPointerDown={onBtnPointerDown}
+          onPointerMove={onBtnPointerMove}
+          onPointerUp={onBtnPointerUp}
         >
           {!expanded ? (
             <button
@@ -97,7 +147,7 @@ export default function GamePlayer({ url, onClose }: Props) {
             <button
               type="button"
               className="flex items-center gap-1.5 rounded-full bg-black/60 backdrop-blur-sm border border-white/20 px-4 py-2 text-sm font-bold text-white active:bg-black/80 transition-colors"
-              onClick={onClose}
+              onClick={() => { if (!justDragged.current) onClose() }}
             >
               <ArrowLeft size={15} />
               {t('game.backToBetoGo')}
