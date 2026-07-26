@@ -73,18 +73,23 @@ function CapiTokenPanel() {
   }
 
   const columns = [
-    { title: '平台', dataIndex: 'platform', render: (v: string) => <Tag color={v === 'facebook' ? 'blue' : 'default'}>{v}</Tag> },
-    { title: '像素 ID', dataIndex: 'pixelId' },
     {
-      title: <Tooltip title="投放短链 = https://推广域名/t/短码，进站自动换出渠道与像素；短码同时是渠道标识(c)">短码 / 投放短链</Tooltip>,
-      dataIndex: 'channelCode',
+      title: <Tooltip title="短码=渠道标识(c)，归因与业绩统计只认它，任意域名 /t/<短码> 都归这条线。短链按当前约定域名拼出，仅为方便复制；换域名只改此处配置，短码与历史业绩不变">短码 / 投放短链</Tooltip>,
+      dataIndex: 'channelCode', fixed: 'left' as const,
       render: (v: string | null, r: CapiPixelToken) => {
-        if (!v) return '—'
-        if (!r.promoDomain) return <Tag>{v}</Tag>
-        const link = `https://${r.promoDomain}/t/${v}`
-        return <Typography.Text copyable={{ text: link }} style={{ fontSize: 12 }}>{link}</Typography.Text>
+        if (!v) return <span style={{ color: '#bbb' }}>未设短码</span>
+        return (
+          <Space direction="vertical" size={2}>
+            <Tag color="geekblue">{v}</Tag>
+            {r.promoDomain
+              ? <Typography.Text copyable={{ text: `https://${r.promoDomain}/t/${v}` }} style={{ fontSize: 12 }}>{`https://${r.promoDomain}/t/${v}`}</Typography.Text>
+              : <span style={{ color: '#bbb', fontSize: 12 }}>未配域名，短链自行拼 /t/{v}</span>}
+          </Space>
+        )
       },
     },
+    { title: '平台', dataIndex: 'platform', render: (v: string) => <Tag color={v === 'facebook' ? 'blue' : 'default'}>{v}</Tag> },
+    { title: '像素 ID', dataIndex: 'pixelId' },
     {
       title: 'Token', dataIndex: 'tokenTail',
       render: (v: string, r: CapiPixelToken) => (revealed[r.id]
@@ -106,11 +111,6 @@ function CapiTokenPanel() {
       dataIndex: 'testEventCode',
       render: (v: string | null) => (v ? <Tag color="orange">{v}</Tag> : '—'),
     },
-    {
-      title: <Tooltip title="该线投放使用的推广域名，投放链接应带此域名">推广域名</Tooltip>,
-      dataIndex: 'promoDomain',
-      render: (v: string | null) => (v ? <a href={`https://${v}`} target="_blank" rel="noreferrer">{v}</a> : '—'),
-    },
     { title: '备注', dataIndex: 'remark', render: (v: string | null) => v ?? '—' },
     { title: '更新时间', dataIndex: 'updatedAt', render: (v: string) => dayjs(v).format('MM-DD HH:mm') },
     ...(isSuper ? [{
@@ -129,11 +129,12 @@ function CapiTokenPanel() {
   return (
     <Card
       bordered={false} size="small" style={{ marginTop: 16 }}
-      title="CAPI 像素 Token（服务端回传凭证）"
+      title="投放线配置（短链 / 像素 / CAPI 凭证）"
     >
       <div style={{ color: '#999', fontSize: 12, marginBottom: 12 }}>
-        投流方每条线提供 FB / TikTok 像素 ID + 对应 BM 的 CAPI access token，在此登记后服务端才会给该像素回传
-        CompleteRegistration / Purchase。super_admin 可点「显示」查看完整 token；编辑既有像素时 token 留空即保持不变。
+        一条投放线 = 一个短码，FB / TikTok 像素各占一行、共用短码。归因与业绩只认短码，域名仅用于拼短链（被封换域改这里即可，短码与业绩不断）。
+        登记像素 ID + 对应 BM 的 CAPI access token 后，服务端才会给该像素回传 CompleteRegistration / Purchase。
+        super_admin 可点「显示」查看完整 token；编辑时 token 留空即保持不变。
       </div>
       {isSuper && (
         <Space style={{ marginBottom: 12 }} wrap>
