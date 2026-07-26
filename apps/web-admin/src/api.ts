@@ -213,12 +213,12 @@ export const getAdSourceTrend = (params: { channel: string; from?: string; to?: 
   get<{ channel: string; currency: string; points: AdSourceTrendPoint[] }>('/admin/bi/ad-sources/trend', params)
 
 export interface CapiPixelToken {
-  id: number; platform: 'facebook' | 'tiktok'; pixelId: string
+  id: number; platform: 'facebook' | 'tiktok'; pixelId: string; channelCode: string | null
   tokenTail: string; testEventCode: string | null; promoDomain: string | null; remark: string | null; updatedAt: string
 }
 export const getCapiTokens = () => get<CapiPixelToken[]>('/admin/marketing/capi-tokens')
 export const revealCapiToken = (id: number) => get<{ token: string }>(`/admin/marketing/capi-tokens/${id}/token`)
-export const upsertCapiToken = (data: { platform: string; pixelId: string; accessToken?: string; testEventCode?: string; promoDomain?: string; remark?: string }) =>
+export const upsertCapiToken = (data: { platform: string; pixelId: string; channelCode?: string; accessToken?: string; testEventCode?: string; promoDomain?: string; remark?: string }) =>
   post<{ ok: boolean }>('/admin/marketing/capi-tokens', data)
 export const deleteCapiToken = (id: number) => del<{ ok: boolean }>(`/admin/marketing/capi-tokens/${id}`)
 

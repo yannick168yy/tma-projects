@@ -19,7 +19,7 @@ function CapiTokenPanel() {
   const isSuper = localStorage.getItem('admin_role') === 'super_admin'
   const [rows, setRows] = useState<CapiPixelToken[]>([])
   const [loading, setLoading] = useState(false)
-  const emptyForm = { platform: 'facebook', pixelId: '', accessToken: '', testEventCode: '', promoDomain: '', remark: '' }
+  const emptyForm = { platform: 'facebook', pixelId: '', channelCode: '', accessToken: '', testEventCode: '', promoDomain: '', remark: '' }
   const [form, setForm] = useState(emptyForm)
   const [editingId, setEditingId] = useState<number | null>(null)
   const [revealed, setRevealed] = useState<Record<number, string>>({})
@@ -35,7 +35,7 @@ function CapiTokenPanel() {
   const startEdit = (r: CapiPixelToken) => {
     setEditingId(r.id)
     setForm({
-      platform: r.platform, pixelId: r.pixelId, accessToken: '',
+      platform: r.platform, pixelId: r.pixelId, channelCode: r.channelCode ?? '', accessToken: '',
       testEventCode: r.testEventCode ?? '', promoDomain: r.promoDomain ?? '', remark: r.remark ?? '',
     })
   }
@@ -57,6 +57,7 @@ function CapiTokenPanel() {
       await upsertCapiToken({
         platform: form.platform,
         pixelId: form.pixelId.trim(),
+        channelCode: form.channelCode.trim() || undefined,
         accessToken: token || undefined, // 编辑时留空=保持原 token
         testEventCode: form.testEventCode.trim() || undefined,
         promoDomain: form.promoDomain.trim() || undefined,
@@ -74,6 +75,16 @@ function CapiTokenPanel() {
   const columns = [
     { title: '平台', dataIndex: 'platform', render: (v: string) => <Tag color={v === 'facebook' ? 'blue' : 'default'}>{v}</Tag> },
     { title: '像素 ID', dataIndex: 'pixelId' },
+    {
+      title: <Tooltip title="投放短链 = https://推广域名/t/短码，进站自动换出渠道与像素；短码同时是渠道标识(c)">短码 / 投放短链</Tooltip>,
+      dataIndex: 'channelCode',
+      render: (v: string | null, r: CapiPixelToken) => {
+        if (!v) return '—'
+        if (!r.promoDomain) return <Tag>{v}</Tag>
+        const link = `https://${r.promoDomain}/t/${v}`
+        return <Typography.Text copyable={{ text: link }} style={{ fontSize: 12 }}>{link}</Typography.Text>
+      },
+    },
     {
       title: 'Token', dataIndex: 'tokenTail',
       render: (v: string, r: CapiPixelToken) => (revealed[r.id]
@@ -134,6 +145,10 @@ function CapiTokenPanel() {
           <Input
             placeholder="像素 ID" value={form.pixelId} style={{ width: 180 }} disabled={editingId !== null}
             onChange={(e) => setForm((f) => ({ ...f, pixelId: e.target.value }))}
+          />
+          <Input
+            placeholder="渠道短码 mars01（可空）" value={form.channelCode} style={{ width: 170 }}
+            onChange={(e) => setForm((f) => ({ ...f, channelCode: e.target.value }))}
           />
           <Input.Password
             placeholder={editingId !== null ? '留空=不修改 token' : 'access token'} value={form.accessToken} style={{ width: 260 }}

@@ -7,7 +7,7 @@ import './styles/index.css'
 import { preventDoubleTapZoom } from '@/utils/preventDoubleTapZoom'
 import { initTelegramWebApp } from '@/utils/initTelegramWebApp'
 import { captureReferralFromUrl } from '@/utils/referral'
-import { captureAttributionFromUrl } from '@/utils/attribution'
+import { captureAttributionFromUrl, resolveShortLinkAttribution } from '@/utils/attribution'
 import { initTheme } from '@/stores/theme'
 import { initAnalytics } from '@/utils/analytics'
 import { initPixels } from '@/utils/pixels'
@@ -29,15 +29,23 @@ captureAttributionFromUrl() // 必须早于 initPixels：像素 ID 从归因快�
 initTelegramWebApp()
 initTheme()
 initAnalytics()
-initPixels()
-initPwa()
-initFingerprint()
-initVersionAutoReload()
 
-createRoot(document.getElementById('app')!).render(
-  <StrictMode>
-    <I18nextProvider i18n={i18n}>
-      <App />
-    </I18nextProvider>
-  </StrictMode>,
-)
+async function bootstrap() {
+  // 短链 /t/<code> 落地：先换出归因（含像素 ID）并把地址清回首页，再装像素、再挂路由。
+  // 非短链路径 resolve 立即返回，不引入任何延迟
+  await resolveShortLinkAttribution()
+  initPixels()
+  initPwa()
+  initFingerprint()
+  initVersionAutoReload()
+
+  createRoot(document.getElementById('app')!).render(
+    <StrictMode>
+      <I18nextProvider i18n={i18n}>
+        <App />
+      </I18nextProvider>
+    </StrictMode>,
+  )
+}
+
+void bootstrap()

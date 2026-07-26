@@ -13,13 +13,14 @@ const PLATFORMS = ['facebook', 'tiktok'] as const
 router.get('/capi-tokens', async (ctx) => {
   const db = getMysqlPool(ctx.state.env)
   const [rows] = await db.query<RowDataPacket[]>(
-    `SELECT id, platform, pixel_id, access_token, test_event_code, promo_domain, remark, updated_at
+    `SELECT id, platform, pixel_id, channel_code, access_token, test_event_code, promo_domain, remark, updated_at
      FROM bg_capi_pixel_token ORDER BY platform, pixel_id`,
   )
   ok(ctx, rows.map((r) => ({
     id: Number(r.id),
     platform: String(r.platform),
     pixelId: String(r.pixel_id),
+    channelCode: r.channel_code ? String(r.channel_code) : null,
     tokenTail: String(r.access_token).slice(-6),
     testEventCode: r.test_event_code ? String(r.test_event_code) : null,
     promoDomain: r.promo_domain ? String(r.promo_domain) : null,
@@ -50,9 +51,11 @@ router.get('/capi-tokens/:id/token', async (ctx) => {
 
 router.post('/capi-tokens', async (ctx) => {
   if (ctx.state.adminRole !== 'super_admin') { fail(ctx, 403, '仅 super_admin 可配置 CAPI token', 403); return }
-  const body = ctx.request.body as { platform?: string; pixelId?: string; accessToken?: string; testEventCode?: string; promoDomain?: string; remark?: string }
+  const body = ctx.request.body as { platform?: string; pixelId?: string; channelCode?: string; accessToken?: string; testEventCode?: string; promoDomain?: string; remark?: string }
   const platform = String(body?.platform ?? '')
   const pixelId = String(body?.pixelId ?? '').trim()
+  // 渠道短码：短链 /t/<code> 与归因 c 值；同一条线的 FB/TT 两行可共用一个
+  const channelCode = body?.channelCode ? String(body.channelCode).trim() : ''
   // token 可留空：编辑既有像素时表示「保持原 token 不变」，新增时必须提供
   const accessToken = String(body?.accessToken ?? '').trim()
   const testEventCode = body?.testEventCode ? String(body.testEventCode).trim() : ''
@@ -63,23 +66,32 @@ router.post('/capi-tokens', async (ctx) => {
   const remark = body?.remark ? String(body.remark).trim().slice(0, 191) : null
   if (!(PLATFORMS as readonly string[]).includes(platform)
     || !/^[\w-]{5,64}$/.test(pixelId)
+    || (channelCode && !/^[\w.-]{1,64}$/.test(channelCode))
     || (accessToken && (accessToken.length < 10 || accessToken.length > 512))
     || (testEventCode && !/^[\w-]{1,32}$/.test(testEventCode))
     || (promoDomain && !/^[a-z0-9.-]{3,191}$/i.test(promoDomain))) {
     fail(ctx, 400, 'invalid params'); return
   }
   const db = getMysqlPool(ctx.state.env)
+  // 短码是短链入口，同平台内不允许两条线共用（跨平台同线共用是预期用法）
+  if (channelCode) {
+    const [dup] = await db.query<RowDataPacket[]>(
+      `SELECT id FROM bg_capi_pixel_token WHERE platform = ? AND channel_code = ? AND pixel_id != ? LIMIT 1`,
+      [platform, channelCode, pixelId],
+    )
+    if (dup.length) { fail(ctx, 400, `短码 ${channelCode} 已被同平台其它像素占用`); return }
+  }
   if (accessToken) {
     await db.execute(
-      `INSERT INTO bg_capi_pixel_token (platform, pixel_id, access_token, test_event_code, promo_domain, remark) VALUES (?,?,?,?,?,?)
-       ON DUPLICATE KEY UPDATE access_token = VALUES(access_token), test_event_code = VALUES(test_event_code), promo_domain = VALUES(promo_domain), remark = VALUES(remark)`,
-      [platform, pixelId, accessToken, testEventCode || null, promoDomain || null, remark],
+      `INSERT INTO bg_capi_pixel_token (platform, pixel_id, channel_code, access_token, test_event_code, promo_domain, remark) VALUES (?,?,?,?,?,?,?)
+       ON DUPLICATE KEY UPDATE channel_code = VALUES(channel_code), access_token = VALUES(access_token), test_event_code = VALUES(test_event_code), promo_domain = VALUES(promo_domain), remark = VALUES(remark)`,
+      [platform, pixelId, channelCode || null, accessToken, testEventCode || null, promoDomain || null, remark],
     )
   } else {
     // 无 token = 编辑既有像素的其它字段；记录不存在则拒绝（新增必须带 token）
     const [res] = await db.execute<ResultSetHeader>(
-      `UPDATE bg_capi_pixel_token SET test_event_code = ?, promo_domain = ?, remark = ? WHERE platform = ? AND pixel_id = ?`,
-      [testEventCode || null, promoDomain || null, remark, platform, pixelId],
+      `UPDATE bg_capi_pixel_token SET channel_code = ?, test_event_code = ?, promo_domain = ?, remark = ? WHERE platform = ? AND pixel_id = ?`,
+      [channelCode || null, testEventCode || null, promoDomain || null, remark, platform, pixelId],
     )
     if (res.affectedRows === 0) { fail(ctx, 400, '新增像素必须提供 access token'); return }
   }
@@ -89,7 +101,7 @@ router.post('/capi-tokens', async (ctx) => {
     action: 'marketing.capi_token_upsert',
     targetType: 'capi_pixel',
     targetId: `${platform}:${pixelId}`,
-    detail: { remark, tokenTail: accessToken ? accessToken.slice(-6) : '(unchanged)', testEventCode: testEventCode || null, promoDomain: promoDomain || null },
+    detail: { remark, channelCode: channelCode || null, tokenTail: accessToken ? accessToken.slice(-6) : '(unchanged)', testEventCode: testEventCode || null, promoDomain: promoDomain || null },
   })
   ok(ctx, { ok: true })
 })

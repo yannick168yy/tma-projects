@@ -107,6 +107,61 @@ export function getAttribution(): Attribution | null {
   return load()
 }
 
+/**
+ * 短链落地：/t/<code> 用短码到后端换出 c/px/tpx，合并 URL 上平台自动追加的
+ * fbclid/ttclid 等参数后走同一套 first-touch 存储，然后把地址栏清回首页。
+ * 必须在 initPixels 之前 await——像素 ID 就在换出的快照里。
+ */
+export async function resolveShortLinkAttribution(): Promise<void> {
+  try {
+    const m = window.location.pathname.match(/^\/t\/([\w.-]{1,64})$/)
+    if (!m) return
+    const code = m[1]
+    const url = new URL(window.location.href)
+    // 先把地址栏清回首页，解析失败也不能让用户停在 /t/ 路径上
+    const cleanup = () => {
+      try {
+        window.history.replaceState(null, '', `/${url.search}`)
+      } catch { /* 不阻断 */ }
+    }
+    if (load()) { cleanup(); return } // first-touch 已占位，不覆盖
+    const base = window.location.hostname === 'localhost' ? 'http://localhost:3000/api/v1' : `${window.location.origin}/api/v1`
+    let resolved: { c?: string; px?: string | null; tpx?: string | null } | null = null
+    try {
+      const res = await fetch(`${base}/attribution/resolve/${encodeURIComponent(code)}`)
+      if (res.ok) {
+        const body = (await res.json()) as { code: number; data?: { c?: string; px?: string | null; tpx?: string | null } }
+        if (body.code === 0 && body.data) resolved = body.data
+      }
+    } catch { /* 网络失败走兜底 */ }
+    const q = url.searchParams
+    const fbclid = trim(q.get('fbclid'), 255)
+    const ttclid = trim(q.get('ttclid'), 255)
+    const gclid = trim(q.get('gclid'), 255)
+    const attr: Attribution = {
+      // 后端解析失败时短码本身就是渠道标识——归因（结算的命根）不依赖解析成功
+      c: resolved?.c ?? code,
+      utm_source: trim(q.get('utm_source'), 128),
+      utm_medium: trim(q.get('utm_medium'), 128),
+      utm_campaign: trim(q.get('utm_campaign'), 191),
+      utm_content: trim(q.get('utm_content'), 191),
+      utm_term: trim(q.get('utm_term'), 191),
+      plat: fbclid ? 'facebook' : ttclid ? 'tiktok' : gclid ? 'google' : undefined,
+      clid: fbclid ?? ttclid ?? gclid,
+      lh: url.hostname.slice(0, 191),
+      lp: url.pathname.slice(0, 255),
+      ref: trim(document.referrer, 255),
+      px: resolved?.px ?? undefined,
+      tpx: resolved?.tpx ?? undefined,
+      ts: Math.floor(Date.now() / 1000),
+    }
+    save(attr)
+    cleanup()
+  } catch {
+    /* 归因永远不能阻断进站 */
+  }
+}
+
 /** 采纳服务端配对回来的快照。first-touch 语义不变：本地已有归因则不覆盖 */
 export function adoptAttribution(attr: Attribution): void {
   if (load()) return
