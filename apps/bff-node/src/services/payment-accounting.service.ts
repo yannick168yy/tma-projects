@@ -303,6 +303,15 @@ export async function checkBalanceAlert(env: Env, provider: string): Promise<voi
   }
 }
 
+/** 出款发起成功后即时刷新该服务商余额并检查告警（不等每小时定时刷新） */
+export async function refreshAndCheckProviderBalance(
+  env: Env,
+  provider: (typeof BALANCE_PROVIDERS)[number],
+): Promise<void> {
+  await refreshOne(env, provider)
+  await checkBalanceAlert(env, provider)
+}
+
 // ── Matrix 手动余额登记 / 取款自动扣减 ────────────────────────────────────────
 
 export async function setManualProviderBalance(env: Env, provider: string, balance: number): Promise<void> {

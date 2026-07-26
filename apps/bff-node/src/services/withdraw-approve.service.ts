@@ -5,6 +5,7 @@ import { saveWithdraw, creditWallet } from './store/index.js'
 import { executeMatrixWithdrawOrder } from './matrix.service.js'
 import { createWithdrawal as yfpayCreateWithdrawal, YfPayError } from './yfpay.service.js'
 import { createWithdrawal as beepayCreateWithdrawal, BeepayError } from './beepay.service.js'
+import { refreshAndCheckProviderBalance } from './payment-accounting.service.js'
 import { nowIso } from '../utils/format.js'
 import { providerFromChannel } from '../utils/payment-provider.js'
 
@@ -52,6 +53,8 @@ export async function approveWithdraw(
       order.status = 'processing'
       order.extraData = { ...ex, platformId: r.platformId }
       await saveWithdraw(redis, order)
+      // 出款后即时刷新余额并检查低额告警，不阻塞审批响应
+      void refreshAndCheckProviderBalance(env, 'yfpay').catch(() => {})
       return { status: 'processing' }
     } catch (err) {
       console.error('[bff] yfpay withdrawal/create failed', {
@@ -86,6 +89,7 @@ export async function approveWithdraw(
       order.status = 'processing'
       order.extraData = { ...ex, platformId: r.platformId }
       await saveWithdraw(redis, order)
+      void refreshAndCheckProviderBalance(env, 'beepay').catch(() => {})
       return { status: 'processing' }
     } catch (err) {
       await creditWallet(redis, order.userId, order.amount, {
