@@ -1,13 +1,15 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Button, Card, DatePicker, Input, Popconfirm, Select, Space, Spin, Table, Tag, Tooltip, Typography, message } from 'antd'
+import { Button, Card, DatePicker, Input, InputNumber, Popconfirm, Select, Space, Spin, Table, Tag, Tooltip, Typography, message } from 'antd'
 import dayjs, { type Dayjs } from 'dayjs'
 import {
   getAdSources, getAdSourceTrend, getCapiTokens, upsertCapiToken, deleteCapiToken, revealCapiToken,
-  type AdSourceRow, type AdSourceReport, type CapiPixelToken,
+  getChannelQuality, getChannelPrices, upsertChannelPrice,
+  type AdSourceRow, type AdSourceReport, type CapiPixelToken, type ChannelQualityRow, type ChannelPrice,
 } from '../api'
 import { LineChart } from '../components/BiCharts'
 
 const fmtMoney = (v: number) => Math.round(v).toLocaleString()
+const pct = (v: number | null) => (v == null ? '—' : `${(v * 100).toFixed(1)}%`)
 const ARPU_TARGET = 1200 // 条款客均门槛 ₱1200
 
 // 马尼拉今天（展示层用本地 dayjs 即可，服务端按 UTC+8 切日）
@@ -183,17 +185,25 @@ export default function BiAdSources() {
   const [channel, setChannel] = useState('')
   const [loading, setLoading] = useState(false)
   const [data, setData] = useState<AdSourceReport | null>(null)
+  const [quality, setQuality] = useState<{ rows: ChannelQualityRow[]; usdToPhp: number } | null>(null)
+  const [prices, setPrices] = useState<Record<string, number>>({})
   const [trendChannel, setTrendChannel] = useState<string | null>(null)
   const [trend, setTrend] = useState<{ dates: string[]; reg: number[]; fd: number[]; arpu: (number | null)[] } | null>(null)
+  const isSuper = localStorage.getItem('admin_role') === 'super_admin'
 
   const load = useCallback(() => {
     setLoading(true)
-    getAdSources({
-      from: range[0].format('YYYY-MM-DD'),
-      to: range[1].format('YYYY-MM-DD'),
-      currency: 'PHP',
-      channel: channel.trim() || undefined,
-    }).then(setData).finally(() => setLoading(false))
+    const from = range[0].format('YYYY-MM-DD')
+    const to = range[1].format('YYYY-MM-DD')
+    Promise.all([
+      getAdSources({ from, to, currency: 'PHP', channel: channel.trim() || undefined }),
+      getChannelQuality({ from, to, currency: 'PHP' }),
+      getChannelPrices(),
+    ]).then(([rep, qual, pr]) => {
+      setData(rep)
+      setQuality(qual)
+      setPrices(Object.fromEntries(pr.map((p: ChannelPrice) => [p.channelCode, p.cpaUsd])))
+    }).finally(() => setLoading(false))
   }, [range, channel])
 
   useEffect(() => { load() }, [load])
@@ -221,6 +231,43 @@ export default function BiAdSources() {
     const ok = v >= ARPU_TARGET
     return <span style={{ color: ok ? '#3f8600' : '#cf1322', fontWeight: 500 }}>{fmtMoney(v)}</span>
   }
+
+  const savePrice = async (channelCode: string, cpaUsd: number) => {
+    try {
+      await upsertChannelPrice({ channelCode, cpaUsd })
+      setPrices((m) => ({ ...m, [channelCode]: cpaUsd }))
+      message.success('已保存单价')
+    } catch (e) { message.error((e as Error).message) }
+  }
+
+  const usdToPhp = quality?.usdToPhp ?? 58
+
+  const qualityCols = [
+    { title: '渠道', dataIndex: 'channelCode', fixed: 'left' as const },
+    { title: <Tooltip title="注册后次日仍有登录/投注">D1留存</Tooltip>, key: 'd1', render: (_: unknown, r: ChannelQualityRow) => `${r.d1Retained}${r.regUsers ? ` (${((r.d1Retained / r.regUsers) * 100).toFixed(0)}%)` : ''}` },
+    { title: <Tooltip title="注册后第7日仍有活跃">D7留存</Tooltip>, key: 'd7', render: (_: unknown, r: ChannelQualityRow) => `${r.d7Retained}${r.regUsers ? ` (${((r.d7Retained / r.regUsers) * 100).toFixed(0)}%)` : ''}` },
+    { title: <Tooltip title="首存后又充过的人数占比">复充率</Tooltip>, key: 'redep', render: (_: unknown, r: ChannelQualityRow) => pct(r.reDepRate) },
+    { title: <Tooltip title="人均累计充值(LTV雏形)=总充值÷首存人数">人均充值(₱)</Tooltip>, dataIndex: 'avgLtvPhp', render: (v: number | null) => v == null ? '—' : fmtMoney(v) },
+    {
+      title: <Tooltip title="每首存单价(USD)，用于算回本倍数。super_admin 可改">CPA单价($)</Tooltip>, key: 'cpa',
+      render: (_: unknown, r: ChannelQualityRow) => isSuper
+        ? <InputNumber size="small" min={0} max={100000} defaultValue={prices[r.channelCode] ?? r.cpaUsd} style={{ width: 90 }} onBlur={(e) => { const v = Number((e.target as HTMLInputElement).value); if (v >= 0) savePrice(r.channelCode, v) }} />
+        : (prices[r.channelCode] ?? r.cpaUsd) || '—',
+    },
+    {
+      title: <Tooltip title="人均累计充值 ÷ (CPA单价×汇率)，>1=已回本">回本倍数</Tooltip>, key: 'roi',
+      render: (_: unknown, r: ChannelQualityRow) => {
+        const cpa = prices[r.channelCode] ?? r.cpaUsd
+        if (!cpa || r.avgLtvPhp == null) return '—'
+        const roi = r.avgLtvPhp / (cpa * usdToPhp)
+        return <span style={{ color: roi >= 1 ? '#3f8600' : '#cf1322', fontWeight: 500 }}>{roi.toFixed(2)}x</span>
+      },
+    },
+    {
+      title: <Tooltip title="同一注册IP出现≥2个账号的用户数，疑似刷量，结算前重点核">刷量预警</Tooltip>, dataIndex: 'suspiciousUsers',
+      render: (v: number) => v > 0 ? <Tag color="red">{v}</Tag> : <span style={{ color: '#bbb' }}>0</span>,
+    },
+  ]
 
   const columns = [
     {
@@ -294,11 +341,18 @@ export default function BiAdSources() {
           </Space>
         )}
 
-        <Card bordered={false} size="small">
+        <Card bordered={false} size="small" title="渠道规模（来了多少人）">
           <Table
             size="small" rowKey="channelCode" columns={columns}
             dataSource={data?.rows ?? []} pagination={false} scroll={{ x: 900 }}
           />
+        </Card>
+
+        <Card bordered={false} size="small" title="渠道质量（值不值 CPA）" style={{ marginTop: 16 }}>
+          <div style={{ color: '#999', fontSize: 12, marginBottom: 8 }}>
+            留存、复充、人均充值、回本倍数、刷量预警——看「来的人值不值 CPA」。CPA 单价按渠道配置（一线一价，super_admin 可改）。
+          </div>
+          <Table size="small" rowKey="channelCode" columns={qualityCols} dataSource={quality?.rows ?? []} pagination={false} scroll={{ x: 800 }} />
         </Card>
 
         {trendChannel && (
