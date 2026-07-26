@@ -128,8 +128,13 @@ export async function resolveShortLinkAttribution(): Promise<void> {
     // 测试机换渠道重测用——正常用户不会碰到，误触也只是丢自己设备的归因，无资损面。
     if (code === '_reset') {
       try { localStorage.removeItem(ATTR_KEY) } catch { /* 忽略 */ }
+      // 像素 cookie(_fbp等)由三方脚本按根域(.betogo777.com)种，删除必须带同样的 domain 才生效
+      const host = window.location.hostname
+      const root = host.split('.').slice(-2).join('.')
       for (const k of [ATTR_KEY, '_fbp', '_fbc', '_ttp']) {
-        document.cookie = `${k}=; path=/; max-age=0`
+        for (const d of ['', `; domain=${host}`, `; domain=.${root}`]) {
+          document.cookie = `${k}=; path=/; max-age=0${d}`
+        }
       }
       cleanup()
       return
