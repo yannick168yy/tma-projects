@@ -18,7 +18,7 @@ function CapiTokenPanel() {
   const isSuper = localStorage.getItem('admin_role') === 'super_admin'
   const [rows, setRows] = useState<CapiPixelToken[]>([])
   const [loading, setLoading] = useState(false)
-  const [form, setForm] = useState({ platform: 'facebook', pixelId: '', accessToken: '', testEventCode: '', remark: '' })
+  const [form, setForm] = useState({ platform: 'facebook', pixelId: '', accessToken: '', testEventCode: '', promoDomain: '', remark: '' })
 
   const load = useCallback(() => {
     setLoading(true)
@@ -35,10 +35,11 @@ function CapiTokenPanel() {
         pixelId: form.pixelId.trim(),
         accessToken: form.accessToken.trim(),
         testEventCode: form.testEventCode.trim() || undefined,
+        promoDomain: form.promoDomain.trim() || undefined,
         remark: form.remark.trim() || undefined,
       })
       message.success('已保存')
-      setForm((f) => ({ ...f, pixelId: '', accessToken: '', testEventCode: '', remark: '' }))
+      setForm((f) => ({ ...f, pixelId: '', accessToken: '', testEventCode: '', promoDomain: '', remark: '' }))
       load()
     } catch (e) {
       message.error((e as Error).message)
@@ -53,6 +54,11 @@ function CapiTokenPanel() {
       title: <Tooltip title="非空时事件带 test_event_code 上报，FB「测试事件」页实时可见；验证完应清空(重存留空即清)">测试码</Tooltip>,
       dataIndex: 'testEventCode',
       render: (v: string | null) => (v ? <Tag color="orange">{v}</Tag> : '—'),
+    },
+    {
+      title: <Tooltip title="该线投放使用的推广域名，投放链接应带此域名">推广域名</Tooltip>,
+      dataIndex: 'promoDomain',
+      render: (v: string | null) => (v ? <a href={`https://${v}`} target="_blank" rel="noreferrer">{v}</a> : '—'),
     },
     { title: '备注', dataIndex: 'remark', render: (v: string | null) => v ?? '—' },
     { title: '更新时间', dataIndex: 'updatedAt', render: (v: string) => dayjs(v).format('MM-DD HH:mm') },
@@ -93,6 +99,10 @@ function CapiTokenPanel() {
           <Input
             placeholder="测试码 TESTxxx（可空）" value={form.testEventCode} style={{ width: 150 }}
             onChange={(e) => setForm((f) => ({ ...f, testEventCode: e.target.value }))}
+          />
+          <Input
+            placeholder="推广域名 betogo666.com（可空）" value={form.promoDomain} style={{ width: 190 }}
+            onChange={(e) => setForm((f) => ({ ...f, promoDomain: e.target.value }))}
           />
           <Input
             placeholder="备注（线路/投手，可空）" value={form.remark} style={{ width: 180 }}

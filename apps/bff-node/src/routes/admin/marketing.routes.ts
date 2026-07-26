@@ -13,7 +13,7 @@ const PLATFORMS = ['facebook', 'tiktok'] as const
 router.get('/capi-tokens', async (ctx) => {
   const db = getMysqlPool(ctx.state.env)
   const [rows] = await db.query<RowDataPacket[]>(
-    `SELECT id, platform, pixel_id, access_token, test_event_code, remark, updated_at
+    `SELECT id, platform, pixel_id, access_token, test_event_code, promo_domain, remark, updated_at
      FROM bg_capi_pixel_token ORDER BY platform, pixel_id`,
   )
   ok(ctx, rows.map((r) => ({
@@ -22,6 +22,7 @@ router.get('/capi-tokens', async (ctx) => {
     pixelId: String(r.pixel_id),
     tokenTail: String(r.access_token).slice(-6),
     testEventCode: r.test_event_code ? String(r.test_event_code) : null,
+    promoDomain: r.promo_domain ? String(r.promo_domain) : null,
     remark: r.remark ? String(r.remark) : null,
     updatedAt: r.updated_at,
   })))
@@ -29,23 +30,28 @@ router.get('/capi-tokens', async (ctx) => {
 
 router.post('/capi-tokens', async (ctx) => {
   if (ctx.state.adminRole !== 'super_admin') { fail(ctx, 403, '仅 super_admin 可配置 CAPI token', 403); return }
-  const body = ctx.request.body as { platform?: string; pixelId?: string; accessToken?: string; testEventCode?: string; remark?: string }
+  const body = ctx.request.body as { platform?: string; pixelId?: string; accessToken?: string; testEventCode?: string; promoDomain?: string; remark?: string }
   const platform = String(body?.platform ?? '')
   const pixelId = String(body?.pixelId ?? '').trim()
   const accessToken = String(body?.accessToken ?? '').trim()
   const testEventCode = body?.testEventCode ? String(body.testEventCode).trim() : ''
+  // 推广域名：去掉误粘的协议/路径，只留主机名；宽松校验，允许 betogo666.com 这类
+  const promoDomain = body?.promoDomain
+    ? String(body.promoDomain).trim().replace(/^https?:\/\//i, '').replace(/\/.*$/, '').slice(0, 191)
+    : ''
   const remark = body?.remark ? String(body.remark).trim().slice(0, 191) : null
   if (!(PLATFORMS as readonly string[]).includes(platform)
     || !/^[\w-]{5,64}$/.test(pixelId)
     || accessToken.length < 10 || accessToken.length > 512
-    || (testEventCode && !/^[\w-]{1,32}$/.test(testEventCode))) {
+    || (testEventCode && !/^[\w-]{1,32}$/.test(testEventCode))
+    || (promoDomain && !/^[a-z0-9.-]{3,191}$/i.test(promoDomain))) {
     fail(ctx, 400, 'invalid params'); return
   }
   const db = getMysqlPool(ctx.state.env)
   await db.execute(
-    `INSERT INTO bg_capi_pixel_token (platform, pixel_id, access_token, test_event_code, remark) VALUES (?,?,?,?,?)
-     ON DUPLICATE KEY UPDATE access_token = VALUES(access_token), test_event_code = VALUES(test_event_code), remark = VALUES(remark)`,
-    [platform, pixelId, accessToken, testEventCode || null, remark],
+    `INSERT INTO bg_capi_pixel_token (platform, pixel_id, access_token, test_event_code, promo_domain, remark) VALUES (?,?,?,?,?,?)
+     ON DUPLICATE KEY UPDATE access_token = VALUES(access_token), test_event_code = VALUES(test_event_code), promo_domain = VALUES(promo_domain), remark = VALUES(remark)`,
+    [platform, pixelId, accessToken, testEventCode || null, promoDomain || null, remark],
   )
   await writeAuditLog(ctx.state.env, {
     adminId: ctx.state.adminId!,
@@ -53,7 +59,7 @@ router.post('/capi-tokens', async (ctx) => {
     action: 'marketing.capi_token_upsert',
     targetType: 'capi_pixel',
     targetId: `${platform}:${pixelId}`,
-    detail: { remark, tokenTail: accessToken.slice(-6), testEventCode: testEventCode || null },
+    detail: { remark, tokenTail: accessToken.slice(-6), testEventCode: testEventCode || null, promoDomain: promoDomain || null },
   })
   ok(ctx, { ok: true })
 })
