@@ -28,11 +28,32 @@ router.get('/capi-tokens', async (ctx) => {
   })))
 })
 
+// 查看完整 token：敏感操作，仅 super_admin，每次都写审计
+router.get('/capi-tokens/:id/token', async (ctx) => {
+  if (ctx.state.adminRole !== 'super_admin') { fail(ctx, 403, '仅 super_admin 可查看完整 token', 403); return }
+  const id = Number(ctx.params.id)
+  if (!Number.isInteger(id) || id <= 0) { fail(ctx, 400, 'invalid id'); return }
+  const db = getMysqlPool(ctx.state.env)
+  const [rows] = await db.query<RowDataPacket[]>(
+    `SELECT platform, pixel_id, access_token FROM bg_capi_pixel_token WHERE id = ? LIMIT 1`, [id],
+  )
+  if (!rows[0]) { fail(ctx, 404, 'not found', 404); return }
+  await writeAuditLog(ctx.state.env, {
+    adminId: ctx.state.adminId!,
+    adminUsername: ctx.state.adminUsername!,
+    action: 'marketing.capi_token_reveal',
+    targetType: 'capi_pixel',
+    targetId: `${rows[0].platform}:${rows[0].pixel_id}`,
+  })
+  ok(ctx, { token: String(rows[0].access_token) })
+})
+
 router.post('/capi-tokens', async (ctx) => {
   if (ctx.state.adminRole !== 'super_admin') { fail(ctx, 403, '仅 super_admin 可配置 CAPI token', 403); return }
   const body = ctx.request.body as { platform?: string; pixelId?: string; accessToken?: string; testEventCode?: string; promoDomain?: string; remark?: string }
   const platform = String(body?.platform ?? '')
   const pixelId = String(body?.pixelId ?? '').trim()
+  // token 可留空：编辑既有像素时表示「保持原 token 不变」，新增时必须提供
   const accessToken = String(body?.accessToken ?? '').trim()
   const testEventCode = body?.testEventCode ? String(body.testEventCode).trim() : ''
   // 推广域名：去掉误粘的协议/路径，只留主机名；宽松校验，允许 betogo666.com 这类
@@ -42,24 +63,33 @@ router.post('/capi-tokens', async (ctx) => {
   const remark = body?.remark ? String(body.remark).trim().slice(0, 191) : null
   if (!(PLATFORMS as readonly string[]).includes(platform)
     || !/^[\w-]{5,64}$/.test(pixelId)
-    || accessToken.length < 10 || accessToken.length > 512
+    || (accessToken && (accessToken.length < 10 || accessToken.length > 512))
     || (testEventCode && !/^[\w-]{1,32}$/.test(testEventCode))
     || (promoDomain && !/^[a-z0-9.-]{3,191}$/i.test(promoDomain))) {
     fail(ctx, 400, 'invalid params'); return
   }
   const db = getMysqlPool(ctx.state.env)
-  await db.execute(
-    `INSERT INTO bg_capi_pixel_token (platform, pixel_id, access_token, test_event_code, promo_domain, remark) VALUES (?,?,?,?,?,?)
-     ON DUPLICATE KEY UPDATE access_token = VALUES(access_token), test_event_code = VALUES(test_event_code), promo_domain = VALUES(promo_domain), remark = VALUES(remark)`,
-    [platform, pixelId, accessToken, testEventCode || null, promoDomain || null, remark],
-  )
+  if (accessToken) {
+    await db.execute(
+      `INSERT INTO bg_capi_pixel_token (platform, pixel_id, access_token, test_event_code, promo_domain, remark) VALUES (?,?,?,?,?,?)
+       ON DUPLICATE KEY UPDATE access_token = VALUES(access_token), test_event_code = VALUES(test_event_code), promo_domain = VALUES(promo_domain), remark = VALUES(remark)`,
+      [platform, pixelId, accessToken, testEventCode || null, promoDomain || null, remark],
+    )
+  } else {
+    // 无 token = 编辑既有像素的其它字段；记录不存在则拒绝（新增必须带 token）
+    const [res] = await db.execute<ResultSetHeader>(
+      `UPDATE bg_capi_pixel_token SET test_event_code = ?, promo_domain = ?, remark = ? WHERE platform = ? AND pixel_id = ?`,
+      [testEventCode || null, promoDomain || null, remark, platform, pixelId],
+    )
+    if (res.affectedRows === 0) { fail(ctx, 400, '新增像素必须提供 access token'); return }
+  }
   await writeAuditLog(ctx.state.env, {
     adminId: ctx.state.adminId!,
     adminUsername: ctx.state.adminUsername!,
     action: 'marketing.capi_token_upsert',
     targetType: 'capi_pixel',
     targetId: `${platform}:${pixelId}`,
-    detail: { remark, tokenTail: accessToken.slice(-6), testEventCode: testEventCode || null, promoDomain: promoDomain || null },
+    detail: { remark, tokenTail: accessToken ? accessToken.slice(-6) : '(unchanged)', testEventCode: testEventCode || null, promoDomain: promoDomain || null },
   })
   ok(ctx, { ok: true })
 })

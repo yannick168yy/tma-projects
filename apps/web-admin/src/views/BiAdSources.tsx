@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Button, Card, DatePicker, Input, Popconfirm, Select, Space, Spin, Table, Tag, Tooltip, message } from 'antd'
+import { Button, Card, DatePicker, Input, Popconfirm, Select, Space, Spin, Table, Tag, Tooltip, Typography, message } from 'antd'
 import dayjs, { type Dayjs } from 'dayjs'
 import {
-  getAdSources, getAdSourceTrend, getCapiTokens, upsertCapiToken, deleteCapiToken,
+  getAdSources, getAdSourceTrend, getCapiTokens, upsertCapiToken, deleteCapiToken, revealCapiToken,
   type AdSourceRow, type AdSourceReport, type CapiPixelToken,
 } from '../api'
 import { LineChart } from '../components/BiCharts'
@@ -13,12 +13,16 @@ const ARPU_TARGET = 1200 // 条款客均门槛 ₱1200
 // 马尼拉今天（展示层用本地 dayjs 即可，服务端按 UTC+8 切日）
 const manilaToday = () => dayjs()
 
-// CAPI 像素 token 配置：投流方各 BM 出像素，token 按像素一一配置；写后不回显只留尾号
+// CAPI 像素 token 配置：投流方各 BM 出像素，token 按像素一一配置。
+// token 默认只显尾号；super_admin 可点「显示」拉完整明文（走独立接口+审计）。支持编辑既有像素。
 function CapiTokenPanel() {
   const isSuper = localStorage.getItem('admin_role') === 'super_admin'
   const [rows, setRows] = useState<CapiPixelToken[]>([])
   const [loading, setLoading] = useState(false)
-  const [form, setForm] = useState({ platform: 'facebook', pixelId: '', accessToken: '', testEventCode: '', promoDomain: '', remark: '' })
+  const emptyForm = { platform: 'facebook', pixelId: '', accessToken: '', testEventCode: '', promoDomain: '', remark: '' }
+  const [form, setForm] = useState(emptyForm)
+  const [editingId, setEditingId] = useState<number | null>(null)
+  const [revealed, setRevealed] = useState<Record<number, string>>({})
 
   const load = useCallback(() => {
     setLoading(true)
@@ -26,20 +30,41 @@ function CapiTokenPanel() {
   }, [])
   useEffect(() => { load() }, [load])
 
+  const resetForm = () => { setForm(emptyForm); setEditingId(null) }
+
+  const startEdit = (r: CapiPixelToken) => {
+    setEditingId(r.id)
+    setForm({
+      platform: r.platform, pixelId: r.pixelId, accessToken: '',
+      testEventCode: r.testEventCode ?? '', promoDomain: r.promoDomain ?? '', remark: r.remark ?? '',
+    })
+  }
+
+  const reveal = async (id: number) => {
+    try {
+      const { token } = await revealCapiToken(id)
+      setRevealed((m) => ({ ...m, [id]: token }))
+    } catch (e) { message.error((e as Error).message) }
+  }
+  const hide = (id: number) => setRevealed((m) => { const n = { ...m }; delete n[id]; return n })
+
   const submit = async () => {
+    const token = form.accessToken.trim()
     if (!/^[\w-]{5,64}$/.test(form.pixelId.trim())) { message.warning('像素 ID 格式不对'); return }
-    if (form.accessToken.trim().length < 10) { message.warning('access token 太短'); return }
+    if (editingId === null && token.length < 10) { message.warning('新增像素必须填 access token'); return }
+    if (token && token.length < 10) { message.warning('access token 太短'); return }
     try {
       await upsertCapiToken({
         platform: form.platform,
         pixelId: form.pixelId.trim(),
-        accessToken: form.accessToken.trim(),
+        accessToken: token || undefined, // 编辑时留空=保持原 token
         testEventCode: form.testEventCode.trim() || undefined,
         promoDomain: form.promoDomain.trim() || undefined,
         remark: form.remark.trim() || undefined,
       })
       message.success('已保存')
-      setForm((f) => ({ ...f, pixelId: '', accessToken: '', testEventCode: '', promoDomain: '', remark: '' }))
+      if (editingId !== null) hide(editingId) // token 可能已变，清掉旧的明文缓存
+      resetForm()
       load()
     } catch (e) {
       message.error((e as Error).message)
@@ -49,9 +74,24 @@ function CapiTokenPanel() {
   const columns = [
     { title: '平台', dataIndex: 'platform', render: (v: string) => <Tag color={v === 'facebook' ? 'blue' : 'default'}>{v}</Tag> },
     { title: '像素 ID', dataIndex: 'pixelId' },
-    { title: 'Token', dataIndex: 'tokenTail', render: (v: string) => <code>••••{v}</code> },
     {
-      title: <Tooltip title="非空时事件带 test_event_code 上报，FB「测试事件」页实时可见；验证完应清空(重存留空即清)">测试码</Tooltip>,
+      title: 'Token', dataIndex: 'tokenTail',
+      render: (v: string, r: CapiPixelToken) => (revealed[r.id]
+        ? (
+          <Space size={4}>
+            <Typography.Text copyable={{ text: revealed[r.id] }} style={{ fontSize: 11, wordBreak: 'break-all', maxWidth: 260, display: 'inline-block' }} code>{revealed[r.id]}</Typography.Text>
+            <a onClick={() => hide(r.id)}>隐藏</a>
+          </Space>
+        )
+        : (
+          <Space size={6}>
+            <code>••••{v}</code>
+            {isSuper && <a onClick={() => reveal(r.id)}>显示</a>}
+          </Space>
+        )),
+    },
+    {
+      title: <Tooltip title="非空时事件带 test_event_code 上报，FB「测试事件」页实时可见；验证完应清空(编辑留空即清)">测试码</Tooltip>,
       dataIndex: 'testEventCode',
       render: (v: string | null) => (v ? <Tag color="orange">{v}</Tag> : '—'),
     },
@@ -65,9 +105,12 @@ function CapiTokenPanel() {
     ...(isSuper ? [{
       title: '操作', key: 'op',
       render: (_: unknown, r: CapiPixelToken) => (
-        <Popconfirm title="删除后该像素的服务端回传将回退全局 token（未配则停发）" onConfirm={async () => { await deleteCapiToken(r.id); load() }}>
-          <a style={{ color: '#cf1322' }}>删除</a>
-        </Popconfirm>
+        <Space size={8}>
+          <a onClick={() => startEdit(r)}>编辑</a>
+          <Popconfirm title="删除后该像素的服务端回传将回退全局 token（未配则停发）" onConfirm={async () => { await deleteCapiToken(r.id); load() }}>
+            <a style={{ color: '#cf1322' }}>删除</a>
+          </Popconfirm>
+        </Space>
       ),
     }] : []),
   ]
@@ -79,21 +122,21 @@ function CapiTokenPanel() {
     >
       <div style={{ color: '#999', fontSize: 12, marginBottom: 12 }}>
         投流方每条线提供 FB / TikTok 像素 ID + 对应 BM 的 CAPI access token，在此登记后服务端才会给该像素回传
-        CompleteRegistration / Purchase。token 保存后不回显，只显示尾号；换 token 直接同像素重新保存即覆盖。
+        CompleteRegistration / Purchase。super_admin 可点「显示」查看完整 token；编辑既有像素时 token 留空即保持不变。
       </div>
       {isSuper && (
         <Space style={{ marginBottom: 12 }} wrap>
           <Select
-            value={form.platform} style={{ width: 110 }}
+            value={form.platform} style={{ width: 110 }} disabled={editingId !== null}
             options={[{ value: 'facebook', label: 'Facebook' }, { value: 'tiktok', label: 'TikTok' }]}
             onChange={(v) => setForm((f) => ({ ...f, platform: v }))}
           />
           <Input
-            placeholder="像素 ID" value={form.pixelId} style={{ width: 180 }}
+            placeholder="像素 ID" value={form.pixelId} style={{ width: 180 }} disabled={editingId !== null}
             onChange={(e) => setForm((f) => ({ ...f, pixelId: e.target.value }))}
           />
           <Input.Password
-            placeholder="access token" value={form.accessToken} style={{ width: 260 }}
+            placeholder={editingId !== null ? '留空=不修改 token' : 'access token'} value={form.accessToken} style={{ width: 260 }}
             onChange={(e) => setForm((f) => ({ ...f, accessToken: e.target.value }))}
           />
           <Input
@@ -108,7 +151,8 @@ function CapiTokenPanel() {
             placeholder="备注（线路/投手，可空）" value={form.remark} style={{ width: 180 }}
             onChange={(e) => setForm((f) => ({ ...f, remark: e.target.value }))}
           />
-          <Button type="primary" onClick={submit}>保存</Button>
+          <Button type="primary" onClick={submit}>{editingId !== null ? '保存修改' : '新增'}</Button>
+          {editingId !== null && <Button onClick={resetForm}>取消编辑</Button>}
         </Space>
       )}
       <Table size="small" rowKey="id" columns={columns} dataSource={rows} loading={loading} pagination={false} />

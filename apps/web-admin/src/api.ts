@@ -217,7 +217,8 @@ export interface CapiPixelToken {
   tokenTail: string; testEventCode: string | null; promoDomain: string | null; remark: string | null; updatedAt: string
 }
 export const getCapiTokens = () => get<CapiPixelToken[]>('/admin/marketing/capi-tokens')
-export const upsertCapiToken = (data: { platform: string; pixelId: string; accessToken: string; testEventCode?: string; promoDomain?: string; remark?: string }) =>
+export const revealCapiToken = (id: number) => get<{ token: string }>(`/admin/marketing/capi-tokens/${id}/token`)
+export const upsertCapiToken = (data: { platform: string; pixelId: string; accessToken?: string; testEventCode?: string; promoDomain?: string; remark?: string }) =>
   post<{ ok: boolean }>('/admin/marketing/capi-tokens', data)
 export const deleteCapiToken = (id: number) => del<{ ok: boolean }>(`/admin/marketing/capi-tokens/${id}`)
 
