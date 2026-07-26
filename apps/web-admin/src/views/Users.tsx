@@ -12,7 +12,7 @@ function statusLabel(s: string) {
   return ({ active: '活跃', frozen: '冻结', banned: '封禁' } as Record<string, string>)[s] ?? s
 }
 function labelText(l: string) {
-  return ({ normal: '普通', arbitrage: '套利客' } as Record<string, string>)[l] ?? l
+  return ({ normal: '普通', arbitrage: '套利客', test: '测试' } as Record<string, string>)[l] ?? l
 }
 
 export default function Users() {
@@ -76,7 +76,7 @@ export default function Users() {
     { title: 'TG用户名', dataIndex: 'telegramUsername', key: 'tg', render: (v: string | null) => v || '-' },
     { title: '余额', key: 'balance', width: 100, render: (_: unknown, r: AdminUser) => `₱${Number(r.balance).toFixed(2)}` },
     { title: '状态', key: 'status', width: 80, render: (_: unknown, r: AdminUser) => <Tag color={statusColor(r.status)}>{statusLabel(r.status)}</Tag> },
-    { title: '标记', key: 'label', width: 90, render: (_: unknown, r: AdminUser) => <Tag color={r.label === 'arbitrage' ? 'red' : 'default'}>{labelText(r.label)}</Tag> },
+    { title: '标记', key: 'label', width: 90, render: (_: unknown, r: AdminUser) => <Tag color={r.label === 'arbitrage' ? 'red' : r.label === 'test' ? 'blue' : 'default'}>{labelText(r.label)}</Tag> },
     { title: '注册区域', dataIndex: 'registerRegion', key: 'registerRegion', width: 120, render: (v: string | null) => v || '-' },
     {
       title: '最后登录', key: 'lastLoginAt', width: 160,
@@ -105,6 +105,7 @@ export default function Users() {
           <Dropdown menu={{ items: [
             { key: 'normal', label: '普通', onClick: () => doLabel(r, 'normal') },
             { key: 'arbitrage', label: '套利客', danger: true, onClick: () => doLabel(r, 'arbitrage') },
+            { key: 'test', label: '测试', onClick: () => doLabel(r, 'test') },
           ]}}>
             <Button type="link" size="small">标记▾</Button>
           </Dropdown>

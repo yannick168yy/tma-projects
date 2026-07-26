@@ -68,7 +68,7 @@ export default function UserActions({ userId, currentStatus, currentLabel, onSuc
         <div>
           <div style={{ marginBottom: 8, fontWeight: 500 }}>用户标记</div>
           <Space>
-            <Select value={newLabel} style={{ width: 150 }} onChange={setNewLabel} options={[{ value: 'normal', label: '普通' }, { value: 'arbitrage', label: '套利客' }]} />
+            <Select value={newLabel} style={{ width: 150 }} onChange={setNewLabel} options={[{ value: 'normal', label: '普通' }, { value: 'arbitrage', label: '套利客' }, { value: 'test', label: '测试' }]} />
             <Button loading={opLoading} onClick={doUpdateLabel}>确认</Button>
           </Space>
         </div>

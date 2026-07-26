@@ -460,9 +460,9 @@ router.patch('/:id/turnover/:reqId', async (ctx) => {
 
 router.patch('/:id/label', async (ctx) => {
   const body = ctx.request.body as { label?: string }
-  const allowed = ['normal', 'arbitrage']
+  const allowed = ['normal', 'arbitrage', 'test']
   if (!body.label || !allowed.includes(body.label)) {
-    fail(ctx, 400, 'label must be normal | arbitrage'); return
+    fail(ctx, 400, 'label must be normal | arbitrage | test'); return
   }
   const user = await getUser(ctx.state.redis, ctx.params.id)
   if (!user) { fail(ctx, 404, 'User not found', 404); return }
