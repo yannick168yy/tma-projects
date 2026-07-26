@@ -74,19 +74,21 @@ function CapiTokenPanel() {
 
   const columns = [
     {
-      title: <Tooltip title="短码=渠道标识(c)，归因与业绩统计只认它，任意域名 /t/<短码> 都归这条线。短链按当前约定域名拼出，仅为方便复制；换域名只改此处配置，短码与历史业绩不变">短码 / 投放短链</Tooltip>,
+      title: <Tooltip title="短码=渠道标识(c)，归因与业绩统计只认它——任意域名 /t/<短码> 都归这条线">短码</Tooltip>,
       dataIndex: 'channelCode', fixed: 'left' as const,
-      render: (v: string | null, r: CapiPixelToken) => {
-        if (!v) return <span style={{ color: '#bbb' }}>未设短码</span>
-        return (
-          <Space direction="vertical" size={2}>
-            <Tag color="geekblue">{v}</Tag>
-            {r.promoDomain
-              ? <Typography.Text copyable={{ text: `https://${r.promoDomain}/t/${v}` }} style={{ fontSize: 12 }}>{`https://${r.promoDomain}/t/${v}`}</Typography.Text>
-              : <span style={{ color: '#bbb', fontSize: 12 }}>未配域名，短链自行拼 /t/{v}</span>}
-          </Space>
-        )
-      },
+      render: (v: string | null) => (v ? <Tag color="geekblue">{v}</Tag> : <span style={{ color: '#bbb' }}>未设</span>),
+    },
+    {
+      title: <Tooltip title="仅作参考与拼短链用，不影响归因；域名被封换新域改这里即可，短码与业绩不断">参考域名</Tooltip>,
+      dataIndex: 'promoDomain',
+      render: (v: string | null) => (v ? <a href={`https://${v}`} target="_blank" rel="noreferrer">{v}</a> : <span style={{ color: '#bbb' }}>未配</span>),
+    },
+    {
+      title: <Tooltip title="参考域名 + /t/ + 短码 拼出，点复制发给投手；实际任何己方域名带 /t/<短码> 效果相同">投放短链</Tooltip>,
+      key: 'shortLink',
+      render: (_: unknown, r: CapiPixelToken) => (r.channelCode && r.promoDomain
+        ? <Typography.Text copyable={{ text: `https://${r.promoDomain}/t/${r.channelCode}` }} style={{ fontSize: 12 }}>{`https://${r.promoDomain}/t/${r.channelCode}`}</Typography.Text>
+        : <span style={{ color: '#bbb' }}>{r.channelCode ? '缺参考域名' : '缺短码'}</span>),
     },
     { title: '平台', dataIndex: 'platform', render: (v: string) => <Tag color={v === 'facebook' ? 'blue' : 'default'}>{v}</Tag> },
     { title: '像素 ID', dataIndex: 'pixelId' },
@@ -160,7 +162,7 @@ function CapiTokenPanel() {
             onChange={(e) => setForm((f) => ({ ...f, testEventCode: e.target.value }))}
           />
           <Input
-            placeholder="推广域名 betogo666.com（可空）" value={form.promoDomain} style={{ width: 190 }}
+            placeholder="参考域名 betogo666.com（可空）" value={form.promoDomain} style={{ width: 190 }}
             onChange={(e) => setForm((f) => ({ ...f, promoDomain: e.target.value }))}
           />
           <Input
