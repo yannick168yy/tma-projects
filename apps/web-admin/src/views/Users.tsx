@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Table, Space, Input, Select, Tag, Button, Popconfirm, Dropdown, message } from 'antd'
 import type { TablePaginationConfig } from 'antd'
-import { getUsers, updateUserStatus, updateUserLabel, type AdminUser } from '../api'
+import { getUsers, updateUserStatus, updateUserLabel, getAdChannelCodes, type AdminUser } from '../api'
 import { PAGE_SIZE_OPTIONS, DEFAULT_PAGE_SIZE } from '../pagination'
 
 function statusColor(s: string) {
@@ -19,6 +19,8 @@ export default function Users() {
   const navigate = useNavigate()
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<string | undefined>()
+  const [channelFilter, setChannelFilter] = useState<string | undefined>()
+  const [channelOptions, setChannelOptions] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
   const [users, setUsers] = useState<AdminUser[]>([])
   const [total, setTotal] = useState(0)
@@ -31,7 +33,7 @@ export default function Users() {
     setPageSize(ps)
     setLoading(true)
     try {
-      const res = await getUsers({ page: p, pageSize: ps, search: search || undefined, status: statusFilter })
+      const res = await getUsers({ page: p, pageSize: ps, search: search || undefined, status: statusFilter, channel: channelFilter })
       setUsers(res.items)
       setTotal(res.total)
     } finally {
@@ -40,6 +42,7 @@ export default function Users() {
   }
 
   useEffect(() => { void load() }, [])
+  useEffect(() => { getAdChannelCodes().then(setChannelOptions).catch(() => {}) }, [])
 
   async function doDisable(record: AdminUser) {
     setOpUid(record.id)
@@ -77,6 +80,7 @@ export default function Users() {
     { title: '余额', key: 'balance', width: 100, render: (_: unknown, r: AdminUser) => `₱${Number(r.balance).toFixed(2)}` },
     { title: '状态', key: 'status', width: 80, render: (_: unknown, r: AdminUser) => <Tag color={statusColor(r.status)}>{statusLabel(r.status)}</Tag> },
     { title: '标记', key: 'label', width: 90, render: (_: unknown, r: AdminUser) => <Tag color={r.label === 'arbitrage' ? 'red' : r.label === 'test' ? 'blue' : 'default'}>{labelText(r.label)}</Tag> },
+    { title: '投放渠道', dataIndex: 'channelCode', key: 'channelCode', width: 100, render: (v: string | null) => v ? <Tag color="geekblue">{v}</Tag> : <span style={{ color: '#bbb' }}>自然量</span> },
     { title: '注册区域', dataIndex: 'registerRegion', key: 'registerRegion', width: 120, render: (v: string | null) => v || '-' },
     {
       title: '最后登录', key: 'lastLoginAt', width: 160,
@@ -143,6 +147,17 @@ export default function Users() {
             { value: 'active', label: '活跃' },
             { value: 'frozen', label: '冻结' },
             { value: 'banned', label: '封禁' },
+          ]}
+        />
+        <Select
+          value={channelFilter}
+          placeholder="投放渠道"
+          allowClear showSearch
+          style={{ width: 150 }}
+          onChange={(v) => { setChannelFilter(v); void load(1) }}
+          options={[
+            { value: 'organic', label: '自然量（无归因）' },
+            ...channelOptions.map((c) => ({ value: c, label: c })),
           ]}
         />
       </Space>

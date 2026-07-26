@@ -32,6 +32,13 @@ function manilaDateOf(d: Date): string {
   return new Date(d.getTime() + 8 * 3600 * 1000).toISOString().slice(0, 10)
 }
 
+/** DATE 列 → YYYY-MM-DD（mysql2 可能回字符串或 UTC 午夜 Date） */
+function dateKey(v: unknown): string {
+  if (typeof v === 'string') return v.slice(0, 10)
+  if (v instanceof Date) return v.toISOString().slice(0, 10)
+  return String(v).slice(0, 10)
+}
+
 export interface AdSourceRow {
   channelCode: string
   /** APK 下载点击数（bg_pending_install，按点击日归属） */
@@ -241,6 +248,202 @@ export async function getAdSourceTrend(
   const points = [...byDate.values()]
   for (const p of points) p.arpu = p.firstDepUsers > 0 ? p.depositAmount / p.firstDepUsers : null
   return { channel, currency, points }
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// 渠道下拉：配置过的短码 ∪ 归因表实际出现过的渠道
+// ─────────────────────────────────────────────────────────────────────────
+export async function listChannelCodes(env: Env): Promise<string[]> {
+  const db = pool(env)
+  const [rows] = await db.query<RowDataPacket[]>(
+    `SELECT channel_code c FROM bg_capi_pixel_token WHERE channel_code IS NOT NULL
+     UNION SELECT channel_code FROM bg_user_attribution WHERE channel_code IS NOT NULL`,
+  )
+  return rows.map((r) => String(r.c)).filter(Boolean).sort()
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// 用户详情：单个用户的完整归因快照
+// ─────────────────────────────────────────────────────────────────────────
+export interface UserAttributionDetail {
+  channelCode: string | null
+  clickPlatform: string
+  clickId: string | null
+  utmSource: string | null
+  utmCampaign: string | null
+  landingHost: string | null
+  landingPath: string | null
+  referrer: string | null
+  clientIp: string | null
+  createdAt: string
+}
+
+export async function getUserAttributionDetail(env: Env, userId: string): Promise<UserAttributionDetail | null> {
+  const db = pool(env)
+  const [rows] = await db.query<RowDataPacket[]>(
+    `SELECT channel_code, click_platform, click_id, utm_source, utm_campaign,
+            landing_host, landing_path, referrer, client_ip, created_at
+     FROM bg_user_attribution WHERE user_id = ? LIMIT 1`,
+    [userId],
+  )
+  const r = rows[0]
+  if (!r) return null
+  return {
+    channelCode: r.channel_code ? String(r.channel_code) : null,
+    clickPlatform: String(r.click_platform ?? 'other'),
+    clickId: r.click_id ? String(r.click_id) : null,
+    utmSource: r.utm_source ? String(r.utm_source) : null,
+    utmCampaign: r.utm_campaign ? String(r.utm_campaign) : null,
+    landingHost: r.landing_host ? String(r.landing_host) : null,
+    landingPath: r.landing_path ? String(r.landing_path) : null,
+    referrer: r.referrer ? String(r.referrer) : null,
+    clientIp: r.client_ip ? String(r.client_ip) : null,
+    createdAt: new Date(r.created_at as Date).toISOString(),
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// 渠道 CPA 单价配置
+// ─────────────────────────────────────────────────────────────────────────
+export interface ChannelPrice { channelCode: string; cpaUsd: number; remark: string | null; updatedAt: string }
+
+export async function listChannelPrices(env: Env): Promise<ChannelPrice[]> {
+  const db = pool(env)
+  const [rows] = await db.query<RowDataPacket[]>(
+    `SELECT channel_code, cpa_usd, remark, updated_at FROM bg_ad_channel_price ORDER BY channel_code`,
+  )
+  return rows.map((r) => ({
+    channelCode: String(r.channel_code),
+    cpaUsd: Number(r.cpa_usd),
+    remark: r.remark ? String(r.remark) : null,
+    updatedAt: new Date(r.updated_at as Date).toISOString(),
+  }))
+}
+
+export async function upsertChannelPrice(env: Env, channelCode: string, cpaUsd: number, remark: string | null): Promise<void> {
+  const db = pool(env)
+  await db.execute(
+    `INSERT INTO bg_ad_channel_price (channel_code, cpa_usd, remark) VALUES (?,?,?)
+     ON DUPLICATE KEY UPDATE cpa_usd = VALUES(cpa_usd), remark = VALUES(remark)`,
+    [channelCode, cpaUsd, remark],
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// 渠道质量对比：以「注册同期群」为口径，衡量买来的量值不值 CPA
+//   留存/复充/人均累计充值(LTV雏形)/刷量预警；回本倍数由前端用 cpaUsd×usdToPhp 算
+// ─────────────────────────────────────────────────────────────────────────
+export interface ChannelQualityRow {
+  channelCode: string
+  regUsers: number
+  firstDepUsers: number
+  depositAmount: number
+  arpu: number | null
+  reDepUsers: number
+  reDepRate: number | null
+  d1Retained: number
+  d7Retained: number
+  avgLtvPhp: number | null
+  cpaUsd: number
+  suspiciousUsers: number
+}
+
+export async function getChannelQuality(
+  env: Env,
+  opts: { from: string; to: string; currency: string },
+): Promise<{ rows: ChannelQualityRow[]; usdToPhp: number }> {
+  const db = pool(env)
+  const { currency } = opts
+  const startMs = Date.parse(`${opts.from}T00:00:00+08:00`)
+  const endMs = Date.parse(`${opts.to}T00:00:00+08:00`) + DAY_MS
+  const start = fmtUtc(startMs)
+  const end = fmtUtc(endMs)
+
+  // 1. 注册同期群
+  const [users] = await db.query<RowDataPacket[]>(
+    `SELECT user_id, channel_code, created_at, client_ip FROM bg_user_attribution
+     WHERE channel_code IS NOT NULL AND created_at>=? AND created_at<?`,
+    [start, end],
+  )
+  if (!users.length) return { rows: [], usdToPhp: env.USDT_TO_PHP_RATE }
+  const uid = users.map((u) => String(u.user_id))
+  const ph = uid.map(() => '?').join(',')
+  const regDay = new Map<string, string>()
+  for (const u of users) regDay.set(String(u.user_id), manilaDateOf(new Date(u.created_at as Date)))
+
+  // 2. 充值：paid 订单数 + 累计充值额(指定币种)
+  const [deps] = await db.query<RowDataPacket[]>(
+    `SELECT user_id, COUNT(*) cnt, COALESCE(SUM(amount),0) amt FROM bg_deposit_order
+     WHERE status='paid' AND currency=? AND user_id IN (${ph}) GROUP BY user_id`,
+    [currency, ...uid],
+  )
+  const depByUser = new Map<string, { cnt: number; amt: number }>()
+  for (const d of deps) depByUser.set(String(d.user_id), { cnt: Number(d.cnt), amt: Number(d.amt) })
+
+  // 3. 留存：活跃日集合
+  const [acts] = await db.query<RowDataPacket[]>(
+    `SELECT user_id, stat_date FROM bi_user_active_day WHERE user_id IN (${ph})`, uid,
+  )
+  const activeDays = new Map<string, Set<string>>()
+  for (const a of acts) {
+    const k = String(a.user_id)
+    if (!activeDays.has(k)) activeDays.set(k, new Set())
+    activeDays.get(k)!.add(dateKey(a.stat_date))
+  }
+  const dayShift = (d: string, n: number) => new Date(Date.parse(`${d}T00:00:00+08:00`) + n * DAY_MS + 8 * 3600 * 1000).toISOString().slice(0, 10)
+
+  // 4. 刷量：渠道内同注册IP≥2账号
+  const ipCount = new Map<string, Map<string, number>>()
+  for (const u of users) {
+    const ch = String(u.channel_code)
+    const ip = u.client_ip ? String(u.client_ip) : ''
+    if (!ip) continue
+    if (!ipCount.has(ch)) ipCount.set(ch, new Map())
+    const m = ipCount.get(ch)!
+    m.set(ip, (m.get(ip) ?? 0) + 1)
+  }
+
+  const agg = new Map<string, ChannelQualityRow>()
+  const rowOf = (ch: string): ChannelQualityRow => {
+    let r = agg.get(ch)
+    if (!r) {
+      r = { channelCode: ch, regUsers: 0, firstDepUsers: 0, depositAmount: 0, arpu: null, reDepUsers: 0, reDepRate: null, d1Retained: 0, d7Retained: 0, avgLtvPhp: null, cpaUsd: 0, suspiciousUsers: 0 }
+      agg.set(ch, r)
+    }
+    return r
+  }
+  for (const u of users) {
+    const id = String(u.user_id)
+    const row = rowOf(String(u.channel_code))
+    row.regUsers += 1
+    const dep = depByUser.get(id)
+    if (dep && dep.amt > 0) {
+      row.firstDepUsers += 1
+      row.depositAmount += dep.amt
+      if (dep.cnt >= 2) row.reDepUsers += 1
+    }
+    const days = activeDays.get(id)
+    const rd = regDay.get(id)!
+    if (days?.has(dayShift(rd, 1))) row.d1Retained += 1
+    if (days?.has(dayShift(rd, 7))) row.d7Retained += 1
+  }
+  for (const [ch, ips] of ipCount) {
+    let sus = 0
+    for (const c of ips.values()) if (c >= 2) sus += c
+    rowOf(ch).suspiciousUsers = sus
+  }
+
+  const prices = await listChannelPrices(env)
+  const priceMap = new Map(prices.map((p) => [p.channelCode, p.cpaUsd]))
+  const rows = [...agg.values()]
+  for (const r of rows) {
+    r.arpu = r.firstDepUsers > 0 ? r.depositAmount / r.firstDepUsers : null
+    r.avgLtvPhp = r.arpu
+    r.reDepRate = r.firstDepUsers > 0 ? r.reDepUsers / r.firstDepUsers : null
+    r.cpaUsd = priceMap.get(r.channelCode) ?? 0
+  }
+  rows.sort((a, b) => b.firstDepUsers - a.firstDepUsers || b.regUsers - a.regUsers)
+  return { rows, usdToPhp: env.USDT_TO_PHP_RATE }
 }
 
 export { isValidChannel }

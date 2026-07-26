@@ -4,11 +4,35 @@ import Router from '@koa/router'
 import type { ResultSetHeader, RowDataPacket } from 'mysql2/promise'
 import { getMysqlPool } from '../../clients/mysql.client.js'
 import { writeAuditLog } from '../../services/admin-store.js'
+import { listChannelPrices, upsertChannelPrice, isValidChannel } from '../../services/marketing-bi.service.js'
 import { ok, fail } from '../../utils/response.js'
 
 const router = new Router({ prefix: '/marketing' })
 
 const PLATFORMS = ['facebook', 'tiktok'] as const
+
+// 渠道 CPA 单价：投放渠道分析算回本倍数用，写仅 super_admin
+router.get('/channel-prices', async (ctx) => {
+  ok(ctx, await listChannelPrices(ctx.state.env))
+})
+
+router.post('/channel-prices', async (ctx) => {
+  if (ctx.state.adminRole !== 'super_admin') { fail(ctx, 403, '仅 super_admin 可配置渠道单价', 403); return }
+  const body = ctx.request.body as { channelCode?: string; cpaUsd?: number; remark?: string }
+  const channelCode = String(body?.channelCode ?? '').trim()
+  const cpaUsd = Number(body?.cpaUsd)
+  const remark = body?.remark ? String(body.remark).trim().slice(0, 191) : null
+  if (!isValidChannel(channelCode) || !Number.isFinite(cpaUsd) || cpaUsd < 0 || cpaUsd > 100000) {
+    fail(ctx, 400, 'invalid params'); return
+  }
+  await upsertChannelPrice(ctx.state.env, channelCode, cpaUsd, remark)
+  await writeAuditLog(ctx.state.env, {
+    adminId: ctx.state.adminId!, adminUsername: ctx.state.adminUsername!,
+    action: 'marketing.channel_price_upsert', targetType: 'ad_channel', targetId: channelCode,
+    detail: { cpaUsd, remark },
+  })
+  ok(ctx, { ok: true })
+})
 
 router.get('/capi-tokens', async (ctx) => {
   const db = getMysqlPool(ctx.state.env)

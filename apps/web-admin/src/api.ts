@@ -212,6 +212,20 @@ export interface AdSourceTrendPoint { date: string; regUsers: number; firstDepUs
 export const getAdSourceTrend = (params: { channel: string; from?: string; to?: string; currency?: string }) =>
   get<{ channel: string; currency: string; points: AdSourceTrendPoint[] }>('/admin/bi/ad-sources/trend', params)
 
+export interface ChannelQualityRow {
+  channelCode: string; regUsers: number; firstDepUsers: number; depositAmount: number; arpu: number | null
+  reDepUsers: number; reDepRate: number | null; d1Retained: number; d7Retained: number
+  avgLtvPhp: number | null; cpaUsd: number; suspiciousUsers: number
+}
+export const getChannelQuality = (params: { from?: string; to?: string; currency?: string }) =>
+  get<{ rows: ChannelQualityRow[]; usdToPhp: number }>('/admin/bi/ad-sources/quality', params)
+export const getAdChannelCodes = () => get<string[]>('/admin/bi/ad-sources/channels')
+
+export interface ChannelPrice { channelCode: string; cpaUsd: number; remark: string | null; updatedAt: string }
+export const getChannelPrices = () => get<ChannelPrice[]>('/admin/marketing/channel-prices')
+export const upsertChannelPrice = (data: { channelCode: string; cpaUsd: number; remark?: string }) =>
+  post<{ ok: boolean }>('/admin/marketing/channel-prices', data)
+
 export interface CapiPixelToken {
   id: number; platform: 'facebook' | 'tiktok'; pixelId: string; channelCode: string | null
   tokenTail: string; testEventCode: string | null; promoDomain: string | null; remark: string | null; updatedAt: string
@@ -235,6 +249,13 @@ export interface AdminUser {
   lastLoginAt: string | null; lastLoginRegion: string | null
   registerRegion: string | null
   registeredAt: string; balance: number; level: number
+  channelCode: string | null
+}
+export interface UserAttribution {
+  channelCode: string | null; clickPlatform: string; clickId: string | null
+  utmSource: string | null; utmCampaign: string | null
+  landingHost: string | null; landingPath: string | null; referrer: string | null
+  clientIp: string | null; createdAt: string
 }
 export interface LoginLog {
   id: number; ip: string | null; region: string | null; userAgent: string | null; authMethod: string; entrySource: string | null; deviceId: string | null; fpVisitor: string | null; createdAt: string
@@ -256,7 +277,7 @@ export interface LedgerEntry {
 export interface WalletBalance {
   currency: string; available: number; frozen: number
 }
-export const getUsers = (params: { page?: number; pageSize?: number; search?: string; status?: string }) =>
+export const getUsers = (params: { page?: number; pageSize?: number; search?: string; status?: string; channel?: string }) =>
   get<{ total: number; items: AdminUser[] }>('/admin/users', params)
 
 export interface DeviceLookupAccount {
@@ -290,6 +311,7 @@ export const getUserDetail = (id: string) =>
     betOrders: BetOrder[]
     kycConfig: KycUserConfig
     kyc: AdminKycSummary | null
+    attribution: UserAttribution | null
   }>(`/admin/users/${id}`)
 export const updateUserKycOverride = (
   id: string,

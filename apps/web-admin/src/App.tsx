@@ -10,6 +10,7 @@ import BiAcquisition from './views/BiAcquisition'
 import BiChurn from './views/BiChurn'
 import BiChannels from './views/BiChannels'
 import BiAdSources from './views/BiAdSources'
+import BiAdChannel from './views/BiAdChannel'
 import Users from './views/Users'
 import UserDetail from './views/UserDetail'
 import DeviceLookup from './views/DeviceLookup'
@@ -94,6 +95,7 @@ export default function App() {
           <Route path="bi/ad-sources" element={<BiAdSources />} />
           <Route path="bi/churn" element={<BiChurn />} />
           <Route path="bi/channels" element={<BiChannels />} />
+          <Route path="bi/ad-channel" element={<BiAdChannel />} />
           <Route path="users" element={<Users />} />
           <Route path="users/:id" element={<UserDetail />} />
           <Route path="device-lookup" element={<DeviceLookup />} />

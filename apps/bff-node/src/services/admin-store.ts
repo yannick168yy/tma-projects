@@ -219,7 +219,7 @@ export async function getDashboardStats(env: Env): Promise<DashboardStats> {
 
 export async function listAdminUsers(
   env: Env,
-  opts: { page: number; pageSize: number; search?: string; status?: string },
+  opts: { page: number; pageSize: number; search?: string; status?: string; channel?: string },
 ) {
   const offset = (opts.page - 1) * opts.pageSize
   const conditions: string[] = []
@@ -238,11 +238,19 @@ export async function listAdminUsers(
     conditions.push(`u.status = ?`)
     params.push(opts.status)
   }
+  // 投放渠道筛选：organic=自然量(无归因记录)，其余精确匹配短码
+  if (opts.channel === 'organic') {
+    conditions.push(`attr.user_id IS NULL`)
+  } else if (opts.channel) {
+    conditions.push(`attr.channel_code = ?`)
+    params.push(opts.channel)
+  }
 
   const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : ''
+  const attrJoin = `LEFT JOIN bg_user_attribution attr ON attr.user_id = u.id`
 
   const [countRows] = await pool(env).query<RowDataPacket[]>(
-    `SELECT COUNT(*) as cnt FROM bg_user u ${where}`,
+    `SELECT COUNT(*) as cnt FROM bg_user u ${attrJoin} ${where}`,
     params,
   )
   const total = Number(countRows[0]?.cnt ?? 0)
@@ -250,7 +258,7 @@ export async function listAdminUsers(
   const [rows] = await pool(env).query<RowDataPacket[]>(
     `SELECT u.id, u.display_name, u.email, tg.display_label AS telegram_username, u.status, u.label,
             u.last_login_at, u.last_login_region, u.register_region, u.registered_at,
-            COALESCE(w.available,0) as available
+            COALESCE(w.available,0) as available, attr.channel_code
      FROM bg_user u
      LEFT JOIN bg_wallet w ON w.user_id = u.id AND w.currency = 'PHP'
      LEFT JOIN (
@@ -259,6 +267,7 @@ export async function listAdminUsers(
        WHERE provider IN ('telegram','telegram_oidc')
        GROUP BY user_id
      ) tg ON tg.user_id = u.id
+     ${attrJoin}
      ${where}
      ORDER BY u.registered_at DESC
      LIMIT ? OFFSET ?`,
@@ -291,6 +300,7 @@ export async function listAdminUsers(
     registerRegion: r.register_region ? String(r.register_region) : null,
     registeredAt: (() => { const d = new Date(r.registered_at as Date); return isNaN(d.getTime()) ? null : d.toISOString() })(),
     balance: Number(r.available),
+    channelCode: r.channel_code ? String(r.channel_code) : null,
     level: levelMap.get(String(r.id)) ?? 1,
   }))
 

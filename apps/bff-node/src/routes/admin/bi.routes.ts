@@ -6,7 +6,7 @@ import {
   BI_TARGET_METRICS, type BiTargetMetric,
 } from '../../services/bi.service.js'
 import { getBiChannels } from '../../services/bi.service.js'
-import { getAdSourceReport, getAdSourceTrend, isValidChannel } from '../../services/marketing-bi.service.js'
+import { getAdSourceReport, getAdSourceTrend, isValidChannel, getChannelQuality, listChannelCodes } from '../../services/marketing-bi.service.js'
 import { sendBiReportNow, isBiReportEnabled, setBiReportEnabled } from '../../services/bi-report.service.js'
 import { writeAuditLog } from '../../services/admin-store.js'
 import { ok, fail } from '../../utils/response.js'
@@ -183,6 +183,18 @@ router.get('/ad-sources/trend', async (ctx) => {
   const channel = ctx.query.channel ? String(ctx.query.channel) : ''
   if (!isValidChannel(channel)) { fail(ctx, 400, 'channel required'); return }
   ok(ctx, await getAdSourceTrend(ctx.state.env, { ...r, channel }))
+})
+
+// 渠道质量对比：留存/复充/人均充值/刷量预警(注册同期群口径)
+router.get('/ad-sources/quality', async (ctx) => {
+  const r = parseAdSourceRange(ctx.query)
+  if (!r) { fail(ctx, 400, 'invalid range/currency'); return }
+  ok(ctx, await getChannelQuality(ctx.state.env, r))
+})
+
+// 渠道短码下拉（配置过的 ∪ 实际出现过的）
+router.get('/ad-sources/channels', async (ctx) => {
+  ok(ctx, await listChannelCodes(ctx.state.env))
 })
 
 router.post('/report/send', async (ctx) => {

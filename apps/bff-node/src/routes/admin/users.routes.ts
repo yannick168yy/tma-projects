@@ -6,6 +6,7 @@ import { verifyPassword } from '../../services/admin-auth.service.js'
 import { hashPassword } from '../../utils/password.js'
 import { getMysqlPool, isMysqlEnabled } from '../../clients/mysql.client.js'
 import { getUserTotalTurnover, getLevelThresholds, resolveLevel } from '../../services/rebate.service.js'
+import { getUserAttributionDetail } from '../../services/marketing-bi.service.js'
 import { fail, ok } from '../../utils/response.js'
 import { promoLabel } from './promotions.routes.js'
 import type { RowDataPacket, OkPacket } from 'mysql2/promise'
@@ -25,14 +26,15 @@ router.get('/', async (ctx) => {
   const pageSize = Math.min(1000, Math.max(10, Number(ctx.query.pageSize ?? 20)))
   const search = ctx.query.search ? String(ctx.query.search) : undefined
   const status = ctx.query.status ? String(ctx.query.status) : undefined
-  const result = await listAdminUsers(ctx.state.env, { page, pageSize, search, status })
+  const channel = ctx.query.channel ? String(ctx.query.channel) : undefined
+  const result = await listAdminUsers(ctx.state.env, { page, pageSize, search, status, channel })
   ok(ctx, result)
 })
 
 router.get('/:id', async (ctx) => {
   const user = await getUser(ctx.state.redis, ctx.params.id)
   if (!user) { fail(ctx, 404, 'User not found', 404); return }
-  const [wallet, walletBalances, ledger, loginLogs, betOrders, kyc, systemCfg, effectiveCfg, totalTurnover, thresholds, identities] = await Promise.all([
+  const [wallet, walletBalances, ledger, loginLogs, betOrders, kyc, systemCfg, effectiveCfg, totalTurnover, thresholds, identities, attribution] = await Promise.all([
     getWallet(ctx.state.redis, ctx.params.id),
     getWalletBalances(ctx.state.redis, ctx.params.id),
     listLedger(ctx.state.redis, ctx.params.id, 20),
@@ -44,6 +46,7 @@ router.get('/:id', async (ctx) => {
     getUserTotalTurnover(ctx.state.env, ctx.params.id, 'PHP'),
     getLevelThresholds(ctx.state.env, 'PHP'),
     listUserIdentities(ctx.state.redis, ctx.params.id),
+    getUserAttributionDetail(ctx.state.env, ctx.params.id).catch(() => null),
   ])
   const telegram = identities.find((i) => i.provider === 'telegram') ?? identities.find((i) => i.provider === 'telegram_oidc')
   const google = identities.find((i) => i.provider === 'google')
@@ -76,6 +79,7 @@ router.get('/:id', async (ctx) => {
       faceSubmittedAt: kyc.faceSubmittedAt ?? null,
       reviewedAt: kyc.reviewedAt ?? null,
     } : null,
+    attribution,
   })
 })
 
