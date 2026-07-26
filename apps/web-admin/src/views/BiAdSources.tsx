@@ -263,6 +263,10 @@ export default function BiAdSources() {
       <div style={{ color: '#999', fontSize: 12, marginBottom: 16 }}>
         渠道标识 = 投放链接里的 <code>?c=</code>（缺省时退回 utm_source）。数据实时查询，按马尼拉日（UTC+8）切日，
         币种口径 PHP。首存成本由投手用「广告花费 ÷ 首存人数」自算——我方只提供首存数。点渠道名看逐日趋势。
+        <br />
+        测试提示：设备归因 first-touch 一次写死、后续链接不覆盖（cookie 90 天）。换渠道重测请用无痕窗口，
+        或先访问任意己方域名的 <code>/t/_reset</code> 清除本机归因与像素 cookie 再走新链接（测试/生产均生效）。
+        注意：已注册账号的归属在服务端写死，重置只影响之后的新注册。
       </div>
 
       <Space style={{ marginBottom: 16 }} wrap>

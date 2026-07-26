@@ -124,6 +124,16 @@ export async function resolveShortLinkAttribution(): Promise<void> {
         window.history.replaceState(null, '', `/${url.search}`)
       } catch { /* 不阻断 */ }
     }
+    // 隐藏重置入口 /t/_reset：清掉本机 first-touch 归因与像素 cookie。
+    // 测试机换渠道重测用——正常用户不会碰到，误触也只是丢自己设备的归因，无资损面。
+    if (code === '_reset') {
+      try { localStorage.removeItem(ATTR_KEY) } catch { /* 忽略 */ }
+      for (const k of [ATTR_KEY, '_fbp', '_fbc', '_ttp']) {
+        document.cookie = `${k}=; path=/; max-age=0`
+      }
+      cleanup()
+      return
+    }
     if (load()) { cleanup(); return } // first-touch 已占位，不覆盖
     const base = window.location.hostname === 'localhost' ? 'http://localhost:3000/api/v1' : `${window.location.origin}/api/v1`
     let resolved: { c?: string; px?: string | null; tpx?: string | null } | null = null
