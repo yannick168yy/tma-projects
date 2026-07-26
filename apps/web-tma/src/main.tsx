@@ -25,15 +25,17 @@ window.addEventListener('vite:preloadError', () => {
 
 preventDoubleTapZoom()
 captureReferralFromUrl()
-captureAttributionFromUrl() // 必须早于 initPixels：像素 ID 从归因快照里取
 initTelegramWebApp()
 initTheme()
 initAnalytics()
 
 async function bootstrap() {
   // 短链 /t/<code> 落地：先换出归因（含像素 ID）并把地址清回首页，再装像素、再挂路由。
-  // 非短链路径 resolve 立即返回，不引入任何延迟
+  // 非短链路径 resolve 立即返回，不引入任何延迟。
+  // 顺序敏感：短链解析必须在普通参数捕获之前——短链 URL 上往往还挂着 fbclid，
+  // 若先跑普通捕获会拿 fbclid 抢占 first-touch，短码换出的 c/px 就永远进不去了
   await resolveShortLinkAttribution()
+  captureAttributionFromUrl() // 必须早于 initPixels：像素 ID 从归因快照里取
   initPixels()
   initPwa()
   initFingerprint()
