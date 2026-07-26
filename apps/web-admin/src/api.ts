@@ -205,11 +205,11 @@ export interface AdSourceReport {
   from: string; to: string; currency: string
   rows: AdSourceRow[]; totals: Omit<AdSourceRow, 'channelCode'>
 }
-export const getAdSources = (params: { from?: string; to?: string; currency?: string; channel?: string }) =>
+export const getAdSources = (params: { from?: string; to?: string; channel?: string }) =>
   get<AdSourceReport>('/admin/bi/ad-sources', params)
 
 export interface AdSourceTrendPoint { date: string; regUsers: number; firstDepUsers: number; depositAmount: number; arpu: number | null }
-export const getAdSourceTrend = (params: { channel: string; from?: string; to?: string; currency?: string }) =>
+export const getAdSourceTrend = (params: { channel: string; from?: string; to?: string }) =>
   get<{ channel: string; currency: string; points: AdSourceTrendPoint[] }>('/admin/bi/ad-sources/trend', params)
 
 export interface ChannelQualityRow {
@@ -217,7 +217,7 @@ export interface ChannelQualityRow {
   reDepUsers: number; reDepRate: number | null; d1Retained: number; d7Retained: number
   avgLtvPhp: number | null; cpaUsd: number; suspiciousUsers: number
 }
-export const getChannelQuality = (params: { from?: string; to?: string; currency?: string }) =>
+export const getChannelQuality = (params: { from?: string; to?: string }) =>
   get<{ rows: ChannelQualityRow[]; usdToPhp: number }>('/admin/bi/ad-sources/quality', params)
 export const getAdChannelCodes = () => get<string[]>('/admin/bi/ad-sources/channels')
 

@@ -7,8 +7,12 @@
 //   首存人数   = 平台历史首笔成功充值发生在当日、且归因到该渠道的人
 //   客均       = 当日该渠道所有用户的充值总额 ÷ 首存人数
 //   首存成本   = 广告花费在投手侧，我方只给首存数；成本由投手用「花费 ÷ 首存数」自算
+//   金额口径   = 全币种折 PHP 合并（与 CAPI Purchase 折 PHP 上报一致）：结算条款按 ₱ 客均看总额，
+//               买量用户首笔充 USDT/USDC 也必须计入首存，单币种过滤会漏
 import type { Pool, RowDataPacket } from 'mysql2/promise'
+import type { Redis } from 'ioredis'
 import { getMysqlPool } from '../clients/mysql.client.js'
+import { getRate } from './exchange-rate.service.js'
 import type { Env } from '../config/env.js'
 
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -66,16 +70,38 @@ function isValidChannel(c: string): boolean {
   return /^[\w.-]{1,64}$/.test(c)
 }
 
+/** 测试链币种归一化到主网符号取汇率（TRX_TESTNET→TRX），测试环境的测试币充值照常折算入账 */
+function rateSymbol(currency: string): string {
+  const c = currency.toUpperCase().replace(/_TESTNET$/, '')
+  return c === 'USD' ? 'USDT' : c
+}
+
+async function phpRateMap(redis: Redis, env: Env, currencies: string[]): Promise<Map<string, number>> {
+  const map = new Map<string, number>()
+  for (const cur of currencies) {
+    if (map.has(cur)) continue
+    const sym = rateSymbol(cur)
+    if (sym === 'PHP') { map.set(cur, 1); continue }
+    try {
+      map.set(cur, (await getRate(redis, sym, 'PHP', env)).rate)
+    } catch {
+      // 汇率不可得的兜底：稳定币按环境配置价，其余按 1 计——宁可金额失真也别把首存漏掉
+      map.set(cur, sym === 'USDT' || sym === 'USDC' ? env.USDT_TO_PHP_RATE : 1)
+    }
+  }
+  return map
+}
+
 /**
  * 渠道汇总报表：给定马尼拉日范围 [from, to]（含端点），按 channel_code 聚合。
- * currency 固定单币种（投放默认 PHP，客均门槛即 PHP 口径）；channel 省略则返回全部渠道。
+ * 金额全币种折 PHP 合并；channel 省略则返回全部渠道。
  */
 export async function getAdSourceReport(
   env: Env,
-  opts: { from: string; to: string; currency: string; channel?: string },
+  redis: Redis,
+  opts: { from: string; to: string; channel?: string },
 ): Promise<AdSourceReport> {
   const db = pool(env)
-  const { currency } = opts
   // from/to 是马尼拉日；转成 UTC 半开区间 [start, end)
   const startMs = Date.parse(`${opts.from}T00:00:00+08:00`)
   const endMs = Date.parse(`${opts.to}T00:00:00+08:00`) + DAY_MS
@@ -122,40 +148,51 @@ export async function getAdSourceReport(
   )
   for (const r of regRows) rowOf(String(r.code)).regUsers = Number(r.cnt)
 
-  // 当日充值（指定币种）：该渠道用户当日全部成功充值的额与人数
+  // 当日充值（全币种）：按 渠道×币种 聚合后折 PHP 相加；充值人数单独按渠道去重（跨币种不重计）
   const [depRows] = await db.query<RowDataPacket[]>(
-    `SELECT a.channel_code code, COALESCE(SUM(d.amount),0) amt, COUNT(DISTINCT d.user_id) users
+    `SELECT a.channel_code code, d.currency cur, COALESCE(SUM(d.amount),0) amt
      FROM bg_deposit_order d
      JOIN bg_user_attribution a ON a.user_id=d.user_id
-     WHERE d.status='paid' AND d.currency=? AND d.created_at>=? AND d.created_at<?
+     WHERE d.status='paid' AND d.created_at>=? AND d.created_at<?
+       AND a.channel_code IS NOT NULL${chanFilter}
+     GROUP BY a.channel_code, d.currency`,
+    [start, end, ...chanArg],
+  )
+  const rates = await phpRateMap(redis, env, depRows.map((r) => String(r.cur)))
+  for (const r of depRows) {
+    rowOf(String(r.code)).depositAmount += Number(r.amt) * (rates.get(String(r.cur)) ?? 1)
+  }
+  const [depUserRows] = await db.query<RowDataPacket[]>(
+    `SELECT a.channel_code code, COUNT(DISTINCT d.user_id) users
+     FROM bg_deposit_order d
+     JOIN bg_user_attribution a ON a.user_id=d.user_id
+     WHERE d.status='paid' AND d.created_at>=? AND d.created_at<?
        AND a.channel_code IS NOT NULL${chanFilter}
      GROUP BY a.channel_code`,
-    [currency, start, end, ...chanArg],
+    [start, end, ...chanArg],
   )
-  for (const r of depRows) {
-    const row = rowOf(String(r.code))
-    row.depositAmount = Number(r.amt)
-    row.depositUsers = Number(r.users)
-  }
+  for (const r of depUserRows) rowOf(String(r.code)).depositUsers = Number(r.users)
 
-  // 首存：平台历史首笔成功充值在当日窗口内（NOT EXISTS 更早的 paid 单），且币种匹配
+  // 首存：平台历史首笔成功充值在当日窗口内（NOT EXISTS 更早的 paid 单，任意币种）。
+  // 每个用户只会落在其首单币种的分组里，跨币种分组累加人数不会重计
   const [fdRows] = await db.query<RowDataPacket[]>(
-    `SELECT a.channel_code code, COUNT(DISTINCT d.user_id) users, COALESCE(SUM(d.amount),0) amt
+    `SELECT a.channel_code code, d.currency cur, COUNT(DISTINCT d.user_id) users, COALESCE(SUM(d.amount),0) amt
      FROM bg_deposit_order d
      JOIN bg_user_attribution a ON a.user_id=d.user_id
-     WHERE d.status='paid' AND d.currency=? AND d.created_at>=? AND d.created_at<?
+     WHERE d.status='paid' AND d.created_at>=? AND d.created_at<?
        AND a.channel_code IS NOT NULL${chanFilter}
        AND NOT EXISTS (
          SELECT 1 FROM bg_deposit_order d2
          WHERE d2.user_id=d.user_id AND d2.status='paid' AND d2.created_at<d.created_at
        )
-     GROUP BY a.channel_code`,
-    [currency, start, end, ...chanArg],
+     GROUP BY a.channel_code, d.currency`,
+    [start, end, ...chanArg],
   )
+  const fdRates = await phpRateMap(redis, env, fdRows.map((r) => String(r.cur)))
   for (const r of fdRows) {
     const row = rowOf(String(r.code))
-    row.firstDepUsers = Number(r.users)
-    row.firstDepAmount = Number(r.amt)
+    row.firstDepUsers += Number(r.users)
+    row.firstDepAmount += Number(r.amt) * (fdRates.get(String(r.cur)) ?? 1)
   }
 
   const rows = [...map.values()]
@@ -177,7 +214,7 @@ export async function getAdSourceReport(
   )
   totals.arpu = totals.firstDepUsers > 0 ? totals.depositAmount / totals.firstDepUsers : null
 
-  return { from: opts.from, to: opts.to, currency, rows, totals }
+  return { from: opts.from, to: opts.to, currency: 'PHP', rows, totals }
 }
 
 export interface AdSourceTrendPoint {
@@ -189,14 +226,15 @@ export interface AdSourceTrendPoint {
 }
 
 /**
- * 单渠道逐日趋势，用于投手面板画曲线。channel 必填。
+ * 单渠道逐日趋势，用于投手面板画曲线。channel 必填。金额全币种折 PHP。
  */
 export async function getAdSourceTrend(
   env: Env,
-  opts: { channel: string; from: string; to: string; currency: string },
+  redis: Redis,
+  opts: { channel: string; from: string; to: string },
 ): Promise<{ channel: string; currency: string; points: AdSourceTrendPoint[] }> {
   const db = pool(env)
-  const { channel, currency } = opts
+  const { channel } = opts
   const startMs = Date.parse(`${opts.from}T00:00:00+08:00`)
   const endMs = Date.parse(`${opts.to}T00:00:00+08:00`) + DAY_MS
   const start = fmtUtc(startMs)
@@ -220,25 +258,26 @@ export async function getAdSourceTrend(
   }
 
   const [depRows] = await db.query<RowDataPacket[]>(
-    `SELECT d.created_at ca, d.amount amt
+    `SELECT d.created_at ca, d.amount amt, d.currency cur
      FROM bg_deposit_order d JOIN bg_user_attribution a ON a.user_id=d.user_id
-     WHERE a.channel_code=? AND d.status='paid' AND d.currency=? AND d.created_at>=? AND d.created_at<?`,
-    [channel, currency, start, end],
+     WHERE a.channel_code=? AND d.status='paid' AND d.created_at>=? AND d.created_at<?`,
+    [channel, start, end],
   )
+  const rates = await phpRateMap(redis, env, depRows.map((r) => String(r.cur)))
   for (const r of depRows) {
     const p = byDate.get(manilaDateOf(new Date(r.ca)))
-    if (p) p.depositAmount += Number(r.amt)
+    if (p) p.depositAmount += Number(r.amt) * (rates.get(String(r.cur)) ?? 1)
   }
 
   const [fdRows] = await db.query<RowDataPacket[]>(
     `SELECT d.created_at ca
      FROM bg_deposit_order d JOIN bg_user_attribution a ON a.user_id=d.user_id
-     WHERE a.channel_code=? AND d.status='paid' AND d.currency=? AND d.created_at>=? AND d.created_at<?
+     WHERE a.channel_code=? AND d.status='paid' AND d.created_at>=? AND d.created_at<?
        AND NOT EXISTS (
          SELECT 1 FROM bg_deposit_order d2
          WHERE d2.user_id=d.user_id AND d2.status='paid' AND d2.created_at<d.created_at
        )`,
-    [channel, currency, start, end],
+    [channel, start, end],
   )
   for (const r of fdRows) {
     const p = byDate.get(manilaDateOf(new Date(r.ca)))
@@ -247,7 +286,7 @@ export async function getAdSourceTrend(
 
   const points = [...byDate.values()]
   for (const p of points) p.arpu = p.firstDepUsers > 0 ? p.depositAmount / p.firstDepUsers : null
-  return { channel, currency, points }
+  return { channel, currency: 'PHP', points }
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -350,10 +389,10 @@ export interface ChannelQualityRow {
 
 export async function getChannelQuality(
   env: Env,
-  opts: { from: string; to: string; currency: string },
+  redis: Redis,
+  opts: { from: string; to: string },
 ): Promise<{ rows: ChannelQualityRow[]; usdToPhp: number }> {
   const db = pool(env)
-  const { currency } = opts
   const startMs = Date.parse(`${opts.from}T00:00:00+08:00`)
   const endMs = Date.parse(`${opts.to}T00:00:00+08:00`) + DAY_MS
   const start = fmtUtc(startMs)
@@ -371,14 +410,21 @@ export async function getChannelQuality(
   const regDay = new Map<string, string>()
   for (const u of users) regDay.set(String(u.user_id), manilaDateOf(new Date(u.created_at as Date)))
 
-  // 2. 充值：paid 订单数 + 累计充值额(指定币种)
+  // 2. 充值：paid 订单数 + 累计充值额（全币种折 PHP）
   const [deps] = await db.query<RowDataPacket[]>(
-    `SELECT user_id, COUNT(*) cnt, COALESCE(SUM(amount),0) amt FROM bg_deposit_order
-     WHERE status='paid' AND currency=? AND user_id IN (${ph}) GROUP BY user_id`,
-    [currency, ...uid],
+    `SELECT user_id, currency cur, COUNT(*) cnt, COALESCE(SUM(amount),0) amt FROM bg_deposit_order
+     WHERE status='paid' AND user_id IN (${ph}) GROUP BY user_id, currency`,
+    uid,
   )
+  const depRates = await phpRateMap(redis, env, deps.map((d) => String(d.cur)))
   const depByUser = new Map<string, { cnt: number; amt: number }>()
-  for (const d of deps) depByUser.set(String(d.user_id), { cnt: Number(d.cnt), amt: Number(d.amt) })
+  for (const d of deps) {
+    const k = String(d.user_id)
+    const prev = depByUser.get(k) ?? { cnt: 0, amt: 0 }
+    prev.cnt += Number(d.cnt)
+    prev.amt += Number(d.amt) * (depRates.get(String(d.cur)) ?? 1)
+    depByUser.set(k, prev)
+  }
 
   // 3. 留存：活跃日集合
   const [acts] = await db.query<RowDataPacket[]>(

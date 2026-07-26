@@ -196,8 +196,8 @@ export default function BiAdSources() {
     const from = range[0].format('YYYY-MM-DD')
     const to = range[1].format('YYYY-MM-DD')
     Promise.all([
-      getAdSources({ from, to, currency: 'PHP', channel: channel.trim() || undefined }),
-      getChannelQuality({ from, to, currency: 'PHP' }),
+      getAdSources({ from, to, channel: channel.trim() || undefined }),
+      getChannelQuality({ from, to }),
       getChannelPrices(),
     ]).then(([rep, qual, pr]) => {
       setData(rep)
@@ -215,7 +215,6 @@ export default function BiAdSources() {
       channel: code,
       from: range[0].format('YYYY-MM-DD'),
       to: range[1].format('YYYY-MM-DD'),
-      currency: 'PHP',
     }).then((r) => {
       setTrend({
         dates: r.points.map((p) => p.date.slice(5)),
@@ -308,8 +307,9 @@ export default function BiAdSources() {
     <div>
       <h2 style={{ marginBottom: 4 }}>投放渠道（买量）</h2>
       <div style={{ color: '#999', fontSize: 12, marginBottom: 16 }}>
-        渠道标识 = 投放链接里的 <code>?c=</code>（缺省时退回 utm_source）。数据实时查询，按马尼拉日（UTC+8）切日，
-        币种口径 PHP。首存成本由投手用「广告花费 ÷ 首存人数」自算——我方只提供首存数。点渠道名看逐日趋势。
+        渠道标识 = 投放链接里的 <code>?c=</code>（缺省时退回 utm_source）。数据实时查询，按马尼拉日（UTC+8）切日。
+        金额口径 = 全币种折 PHP 合并（USDT/USDC/TRX 按实时汇率折算，测试链币种按主网价，与 CAPI 上报口径一致）。
+        首存成本由投手用「广告花费 ÷ 首存人数」自算——我方只提供首存数。点渠道名看逐日趋势。
         <br />
         测试提示：设备归因 first-touch 一次写死、后续链接不覆盖（cookie 90 天）。换渠道重测请用无痕窗口，
         或先访问任意己方域名的 <code>/t/_reset</code> 清除本机归因与像素 cookie 再走新链接（测试/生产均生效）。

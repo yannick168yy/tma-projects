@@ -150,8 +150,8 @@ router.get('/channels', async (ctx) => {
   ok(ctx, await getBiChannels(ctx.state.env, days))
 })
 
-// 买量投放渠道报表：马尼拉日范围，默认最近 7 天，币种默认 PHP
-function parseAdSourceRange(q: Record<string, unknown>): { from: string; to: string; currency: string } | null {
+// 买量投放渠道报表：马尼拉日范围，默认最近 7 天；金额口径固定=全币种折 PHP 合并
+function parseAdSourceRange(q: Record<string, unknown>): { from: string; to: string } | null {
   const dateRe = /^\d{4}-\d{2}-\d{2}$/
   const manilaToday = new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10)
   const to = q.to && dateRe.test(String(q.to)) ? String(q.to) : manilaToday
@@ -164,9 +164,7 @@ function parseAdSourceRange(q: Record<string, unknown>): { from: string; to: str
   if (from > to) return null
   // 跨度上限 92 天，防全表大范围扫描
   if ((Date.parse(`${to}T00:00:00+08:00`) - Date.parse(`${from}T00:00:00+08:00`)) / 86400000 > 92) return null
-  const currency = q.currency ? String(q.currency) : 'PHP'
-  if (!/^[A-Z]{2,10}$/.test(currency)) return null
-  return { from, to, currency }
+  return { from, to }
 }
 
 router.get('/ad-sources', async (ctx) => {
@@ -174,7 +172,7 @@ router.get('/ad-sources', async (ctx) => {
   if (!r) { fail(ctx, 400, 'invalid range/currency'); return }
   const channel = ctx.query.channel ? String(ctx.query.channel) : undefined
   if (channel && !isValidChannel(channel)) { fail(ctx, 400, 'invalid channel'); return }
-  ok(ctx, await getAdSourceReport(ctx.state.env, { ...r, channel }))
+  ok(ctx, await getAdSourceReport(ctx.state.env, ctx.state.redis, { ...r, channel }))
 })
 
 router.get('/ad-sources/trend', async (ctx) => {
@@ -182,14 +180,14 @@ router.get('/ad-sources/trend', async (ctx) => {
   if (!r) { fail(ctx, 400, 'invalid range/currency'); return }
   const channel = ctx.query.channel ? String(ctx.query.channel) : ''
   if (!isValidChannel(channel)) { fail(ctx, 400, 'channel required'); return }
-  ok(ctx, await getAdSourceTrend(ctx.state.env, { ...r, channel }))
+  ok(ctx, await getAdSourceTrend(ctx.state.env, ctx.state.redis, { ...r, channel }))
 })
 
 // 渠道质量对比：留存/复充/人均充值/刷量预警(注册同期群口径)
 router.get('/ad-sources/quality', async (ctx) => {
   const r = parseAdSourceRange(ctx.query)
   if (!r) { fail(ctx, 400, 'invalid range/currency'); return }
-  ok(ctx, await getChannelQuality(ctx.state.env, r))
+  ok(ctx, await getChannelQuality(ctx.state.env, ctx.state.redis, r))
 })
 
 // 渠道短码下拉（配置过的 ∪ 实际出现过的）
