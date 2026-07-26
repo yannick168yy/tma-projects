@@ -250,6 +250,7 @@ export interface AdminUser {
   registerRegion: string | null
   registeredAt: string; balance: number; level: number
   channelCode: string | null
+  depositAmount: number
 }
 export interface UserAttribution {
   channelCode: string | null; clickPlatform: string; clickId: string | null
@@ -304,6 +305,7 @@ export const getUserDetail = (id: string) =>
     user: Record<string, unknown>
     level: number
     totalTurnover: number
+    depositTotal: number
     wallet: { available: number; frozen: number }
     walletBalances: WalletBalance[]
     ledger: LedgerEntry[]

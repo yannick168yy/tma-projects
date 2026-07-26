@@ -78,6 +78,7 @@ export default function Users() {
     { title: '等级', key: 'level', width: 70, render: (_: unknown, r: AdminUser) => <Tag color={r.level === 6 ? 'gold' : 'blue'}>LV{r.level}</Tag> },
     { title: 'TG用户名', dataIndex: 'telegramUsername', key: 'tg', render: (v: string | null) => v || '-' },
     { title: '余额', key: 'balance', width: 100, render: (_: unknown, r: AdminUser) => `₱${Number(r.balance).toFixed(2)}` },
+    { title: '充值金额', key: 'depositAmount', width: 110, render: (_: unknown, r: AdminUser) => <span style={{ color: Number(r.depositAmount) > 0 ? '#389e0d' : '#bbb' }}>₱{Number(r.depositAmount).toFixed(2)}</span> },
     { title: '状态', key: 'status', width: 80, render: (_: unknown, r: AdminUser) => <Tag color={statusColor(r.status)}>{statusLabel(r.status)}</Tag> },
     { title: '标记', key: 'label', width: 90, render: (_: unknown, r: AdminUser) => <Tag color={r.label === 'arbitrage' ? 'red' : r.label === 'test' ? 'blue' : 'default'}>{labelText(r.label)}</Tag> },
     { title: '投放渠道', dataIndex: 'channelCode', key: 'channelCode', width: 100, render: (v: string | null) => v ? <Tag color="geekblue">{v}</Tag> : <span style={{ color: '#bbb' }}>自然量</span> },

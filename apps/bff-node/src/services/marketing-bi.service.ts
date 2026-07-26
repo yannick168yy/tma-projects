@@ -76,7 +76,7 @@ function rateSymbol(currency: string): string {
   return c === 'USD' ? 'USDT' : c
 }
 
-async function phpRateMap(redis: Redis, env: Env, currencies: string[]): Promise<Map<string, number>> {
+export async function phpRateMap(redis: Redis, env: Env, currencies: string[]): Promise<Map<string, number>> {
   const map = new Map<string, number>()
   for (const cur of currencies) {
     if (map.has(cur)) continue

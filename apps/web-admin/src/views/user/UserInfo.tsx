@@ -109,6 +109,16 @@ export default function UserInfo({ detail, onSuccess }: Props) {
             <span>{String(u.lastLoginRegion ?? '') || '-'}</span>
             {!!u.lastLoginIp && <span style={{ marginLeft: 6 }}>{lookup('ip', u.lastLoginIp)}</span>}
           </Descriptions.Item>
+          <Descriptions.Item label="投放渠道">
+            {detail.attribution?.channelCode
+              ? <Tag color="geekblue">{detail.attribution.channelCode}</Tag>
+              : <span style={{ color: '#bbb' }}>自然量</span>}
+          </Descriptions.Item>
+          <Descriptions.Item label="累计充值">
+            <Typography.Text strong style={{ color: Number(detail.depositTotal) > 0 ? '#389e0d' : undefined }}>
+              ₱{Number(detail.depositTotal ?? 0).toFixed(2)}
+            </Typography.Text>
+          </Descriptions.Item>
           <Descriptions.Item label="余额">
             <Space direction="vertical" size={2}>
               {walletBalances.map((w) => (

@@ -3,6 +3,32 @@ import type { Pool, RowDataPacket } from 'mysql2/promise'
 import { getMysqlPool } from '../clients/mysql.client.js'
 import type { Env } from '../config/env.js'
 import { getLevelThresholds, resolveLevel } from './rebate.service.js'
+import { phpRateMap } from './marketing-bi.service.js'
+
+// 累计充值金额（已支付订单，全币种折 PHP 合并）：批量查一页用户，返回 user_id -> PHP 金额
+export async function getUserDepositTotals(
+  env: Env,
+  redis: Redis,
+  userIds: string[],
+): Promise<Map<string, number>> {
+  const map = new Map<string, number>()
+  if (!userIds.length) return map
+  const placeholders = userIds.map(() => '?').join(',')
+  const [rows] = await pool(env).query<RowDataPacket[]>(
+    `SELECT user_id, currency AS cur, COALESCE(SUM(amount),0) AS amt
+     FROM bg_deposit_order
+     WHERE status='paid' AND user_id IN (${placeholders})
+     GROUP BY user_id, currency`,
+    userIds,
+  )
+  const rates = await phpRateMap(redis, env, rows.map((r) => String(r.cur)))
+  for (const r of rows) {
+    const uid = String(r.user_id)
+    const php = Number(r.amt) * (rates.get(String(r.cur)) ?? 1)
+    map.set(uid, (map.get(uid) ?? 0) + php)
+  }
+  return map
+}
 
 export const SMS_TEST_MODE_KEY = 'sms_test_mode'
 const SMS_TEST_MODE_CACHE_KEY = 'admin:setting:sms_test_mode'
@@ -219,6 +245,7 @@ export async function getDashboardStats(env: Env): Promise<DashboardStats> {
 
 export async function listAdminUsers(
   env: Env,
+  redis: Redis,
   opts: { page: number; pageSize: number; search?: string; status?: string; channel?: string },
 ) {
   const offset = (opts.page - 1) * opts.pageSize
@@ -288,6 +315,8 @@ export async function listAdminUsers(
     for (const tr of tRows) levelMap.set(String(tr.user_id), resolveLevel(thresholds, Number(tr.total)))
   }
 
+  const depositMap = await getUserDepositTotals(env, redis, ids)
+
   const items = rows.map((r) => ({
     id: String(r.id),
     displayName: String(r.display_name),
@@ -302,6 +331,7 @@ export async function listAdminUsers(
     balance: Number(r.available),
     channelCode: r.channel_code ? String(r.channel_code) : null,
     level: levelMap.get(String(r.id)) ?? 1,
+    depositAmount: depositMap.get(String(r.id)) ?? 0,
   }))
 
   return { total, items }
