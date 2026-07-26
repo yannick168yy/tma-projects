@@ -3,6 +3,8 @@ export const TELEGRAM_BOT_USERNAME = import.meta.env.VITE_TELEGRAM_BOT_USERNAME 
 export const TELEGRAM_OIDC_CLIENT_ID = import.meta.env.VITE_TELEGRAM_OIDC_CLIENT_ID ?? '8736530159'
 
 const DOMAIN_TELEGRAM_OIDC_CLIENT_IDS: Record<string, string> = {
+  // 测试环境专用 bot @betogotestbot（BotFather /setdomain 已绑 www.188facai.com）
+  'www.188facai.com': '8820696982',
   'betogo.xyz': '8583165610',
   'betogo.ph': '8650093054',
   'betogo888.com': '8612790363',
