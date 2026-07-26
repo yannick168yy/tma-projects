@@ -7,7 +7,7 @@
 set -euo pipefail
 
 HOST=root@47.84.34.139
-KEY=/Users/yannicky/TMA_FILES/aliyun.pem
+KEY=/Users/yannicky/TMA_FILES/亚马逊云-阿里云/aliyun.pem
 SSH="ssh -i $KEY -o StrictHostKeyChecking=no -o ServerAliveInterval=10 -o ServerAliveCountMax=12"
 WORK_DIR=/root/workspace/tma-projects
 
@@ -22,7 +22,8 @@ DB_USER=$(grep -m1 '^MYSQL_BETOGO_USER=' /root/workspace/tma-projects/.env | cut
 DB_USER=${DB_USER:-$(grep -m1 '^MYSQL_USER=' /root/workspace/tma-projects/.env | cut -d= -f2- | tr -d "\"'")}
 DB_PASS=$(grep -m1 '^MYSQL_BETOGO_PASSWORD=' /root/workspace/tma-projects/.env | cut -d= -f2- | tr -d "\"'")
 DB_PASS=${DB_PASS:-$(grep -m1 '^MYSQL_PASSWORD=' /root/workspace/tma-projects/.env | cut -d= -f2- | tr -d "\"'")}
-DB_NAME=$(grep -m1 '^MYSQL_DATABASE=' /root/workspace/tma-projects/.env | cut -d= -f2- | tr -d "\"'"); DB_NAME=${DB_NAME:-betogo}
+# .env 有多行 MYSQL_DATABASE(首行是 tma 基础库),业务库取最后一行;守卫仍要求必须是 betogo
+DB_NAME=$(grep '^MYSQL_DATABASE=' /root/workspace/tma-projects/.env | tail -1 | cut -d= -f2- | tr -d "\"'"); DB_NAME=${DB_NAME:-betogo}
 if [ "$DB_NAME" != "betogo" ]; then
   echo "MYSQL_DATABASE must be betogo, got: $DB_NAME" >&2
   exit 1

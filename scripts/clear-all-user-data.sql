@@ -120,6 +120,12 @@ CALL delete_table_if_exists('bg_wallet_ledger');
 CALL delete_table_if_exists('bg_wallet');
 CALL delete_table_if_exists('bg_idempotency');
 
+-- ── 买量归因 / CAPI 回传（像素 token 配置 bg_capi_pixel_token 保留）──
+-- bg_capi_event 必清：它是回传幂等闸，残留会挡住同 event_id 的重新回传，归因实验必炸
+CALL delete_table_if_exists('bg_user_attribution');
+CALL delete_table_if_exists('bg_capi_event');
+CALL delete_table_if_exists('bg_pending_install');
+
 -- ── KYC / 登录 / 身份 / 用户 ─────────────────────────────────
 CALL delete_table_if_exists('bg_kyc_doc_log');
 CALL delete_table_if_exists('bg_kyc_submission');
@@ -130,6 +136,9 @@ CALL delete_table_if_exists('bg_user_identity');
 CALL delete_table_if_exists('bg_user_profile');
 CALL delete_table_if_exists('bg_user');
 
+-- 发号器复位：与迁移150空库起点一致，下一个新用户回到 BG-10001
+CALL exec_if_table_exists('bg_user_id_seq', 'UPDATE `bg_user_id_seq` SET `n` = 10000');
+
 DROP PROCEDURE IF EXISTS delete_table_if_exists;
 DROP PROCEDURE IF EXISTS exec_if_table_exists;
 
@@ -137,6 +146,8 @@ SET FOREIGN_KEY_CHECKS = 1;
 
 -- ── 验证：这些用户数据表应为 0 ───────────────────────────────
 SELECT 'bg_user' AS tbl, COUNT(*) AS remaining FROM bg_user
+UNION ALL SELECT 'bg_user_attribution', COUNT(*) FROM bg_user_attribution
+UNION ALL SELECT 'bg_capi_event', COUNT(*) FROM bg_capi_event
 UNION ALL SELECT 'bg_wallet', COUNT(*) FROM bg_wallet
 UNION ALL SELECT 'bg_wallet_ledger', COUNT(*) FROM bg_wallet_ledger
 UNION ALL SELECT 'bg_deposit_order', COUNT(*) FROM bg_deposit_order
