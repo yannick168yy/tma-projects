@@ -4,6 +4,7 @@ import {
   buildWin568LaunchPayload,
   buildWin568SportsbookPayload,
   collectWin568ReportBets,
+  saveReportBets,
   toWin568Username,
 } from '../routes/win568-operation.routes.js'
 
@@ -22,6 +23,25 @@ describe('568Win Operation', () => {
       },
     })
     assert.deepEqual(bets.map((bet) => bet.refNo ?? bet.refno), ['1001', '1002'])
+  })
+
+  it('保存报表注单时不重复保存整页响应', async () => {
+    const calls: { sql: string; params: unknown[] }[] = []
+    const app = {
+      mysql: {
+        async execute(sql: string, params: unknown[]) {
+          calls.push({ sql, params })
+        },
+      },
+    }
+
+    await saveReportBets(app as never, 'SeamlessGame', [
+      { refNo: '1001', username: 'BG_10025', currency: 'PHP', stake: 10 },
+    ])
+
+    assert.equal(calls.length, 1)
+    assert.equal(calls[0].params.length, 12)
+    assert.match(calls[0].sql, /raw_response = NULL/)
   })
 
   it('568Win Sports 使用 568WinSportsbook 登录入口', () => {

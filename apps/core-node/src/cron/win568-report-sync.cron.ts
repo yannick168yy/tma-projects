@@ -92,7 +92,7 @@ async function syncWin568ReportBets(app: FastifyInstance): Promise<void> {
             failed = true
             break
           }
-          saved += await saveReportBets(app, portfolio, result.result, result)
+          saved += await saveReportBets(app, portfolio, result.result)
           const lastPage = Number(result.lastPage ?? 1)
           if (page >= lastPage) break
           page += 1

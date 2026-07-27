@@ -130,22 +130,23 @@ export function collectWin568ReportBets(value: unknown): Record<string, unknown>
   return bets
 }
 
-export async function saveReportBets(app: FastifyInstance, portfolio: string, result: unknown, rawResponse: unknown) {
+export async function saveReportBets(app: FastifyInstance, portfolio: string, result: unknown) {
   const bets = collectWin568ReportBets(result)
   for (const bet of bets) {
     const refNo = text(bet.refNo ?? bet.refno)
     if (!refNo) continue
+    // raw_response 保存整页响应会随每条注单重复放大；单条原文保留在 raw_bet。
     await app.mysql.execute(
       `INSERT INTO bg_568win_report_bet
        (portfolio, ref_no, external_username, currency, status, stake, win_lost,
         order_time, settle_time, win_lost_date, modify_date, raw_bet, raw_response)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)
        ON DUPLICATE KEY UPDATE external_username = VALUES(external_username),
          currency = VALUES(currency), status = VALUES(status), stake = VALUES(stake),
          win_lost = VALUES(win_lost), order_time = VALUES(order_time),
          settle_time = VALUES(settle_time), win_lost_date = VALUES(win_lost_date),
          modify_date = VALUES(modify_date), raw_bet = VALUES(raw_bet),
-         raw_response = VALUES(raw_response), fetched_at = NOW(3)`,
+         raw_response = NULL, fetched_at = NOW(3)`,
       [
         portfolio,
         refNo,
@@ -159,7 +160,6 @@ export async function saveReportBets(app: FastifyInstance, portfolio: string, re
         dateOrNull(bet.winLostDate ?? bet.winlostDate),
         dateOrNull(bet.modifyDate ?? bet.modifiedDate),
         JSON.stringify(bet),
-        JSON.stringify(rawResponse),
       ],
     )
   }
@@ -498,7 +498,7 @@ export async function win568OperationRoutes(app: FastifyInstance) {
       language: req.body.language ?? 'en',
       isGetDownline: req.body.isGetDownline ?? false,
     })
-    const savedCount = result.error.id === 0 ? await saveReportBets(app, req.body.portfolio, result.result, result) : 0
+    const savedCount = result.error.id === 0 ? await saveReportBets(app, req.body.portfolio, result.result) : 0
     return reply.send({ ...result, savedCount })
   })
 
@@ -511,7 +511,7 @@ export async function win568OperationRoutes(app: FastifyInstance) {
       refNos,
       language: req.body.language ?? 'en',
     })
-    const savedCount = result.error.id === 0 ? await saveReportBets(app, req.body.portfolio, result.result, result) : 0
+    const savedCount = result.error.id === 0 ? await saveReportBets(app, req.body.portfolio, result.result) : 0
     return reply.send({ ...result, savedCount })
   })
 
