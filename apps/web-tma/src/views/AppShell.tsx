@@ -14,7 +14,6 @@ import {
   displayCurrencyCode,
 } from '@/stores/wallet'
 import { isImmersiveFullPage } from '@/hooks/useFullPageOverlay'
-import type { TaskInitialPath } from '@/hooks/useFullPageOverlay'
 import { useAppNavigation } from '@/hooks/useAppNavigation'
 import { legacyLobbyCat } from '@/navigation/appRoutes'
 import { shouldShowDownloadBar, dismissDownloadBar, isIos, isInstalledApp, installSource } from '@/utils/pwa'
@@ -157,8 +156,6 @@ export default function AppShell() {
   const npOnHomeRef = useRef(false)
   // new_player 弹窗:登录窗或充值窗打开时抑制,避免盖住登录/充值流程
   const npOverlayBlockedRef = useRef(false)
-  // 新人礼包 continue 触发登录时记录意图，登录成功后续跳 tasks
-  const pendingTasksTab = useRef<TaskInitialPath | null>(null)
   const inTelegram = isInsideTelegram()
 
   // 首充档位（PHP）：欢迎弹窗/破产承接弹窗共用。示例档=有奖励的最低档（最低门槛的钩子）
@@ -268,20 +265,6 @@ export default function AppShell() {
       setGiftSheetOpen(true)
     }, AUTO_POPUP_DELAY_MS)
   }, [promoConfig, npSummary, auth.token, giftAllDone, trialPopupEligible, gamePlayerUrl, view.type, activeNav, auth.loginSheetOpen, walletModalOpen])
-
-  // 登录成功后续跳：礼包 continue 时若未登录，登录完成后自动打开 tasks
-  useEffect(() => {
-    if (isLoggedIn && pendingTasksTab.current) {
-      const tab = pendingTasksTab.current
-      pendingTasksTab.current = null
-      openTasks(tab)
-    }
-  }, [isLoggedIn])
-
-  // 用户未登录就关闭登录框(放弃)，清掉续跳意图，避免之后别处登录误跳 tasks
-  useEffect(() => {
-    if (!auth.loginSheetOpen && !isLoggedIn) pendingTasksTab.current = null
-  }, [auth.loginSheetOpen, isLoggedIn])
 
   // 首席体验官进站弹窗：登录且资格未领取时，按后台 popups.trial 配置自动弹出
   useEffect(() => {
@@ -485,7 +468,8 @@ export default function AppShell() {
 
   function onOpenTasks() {
     setWalletOpen(false)
-    if (!isLoggedIn) { pendingTasksTab.current = 'newbie'; void auth.ensureLoggedIn(t('auth.signInPlay')); return }
+    // 未登录只拉登录不续跳:登录后留在首页,新用户由试玩金欢迎弹窗接管
+    if (!isLoggedIn) { void auth.ensureLoggedIn(t('auth.signInPlay')); return }
     openTasks()
   }
 
@@ -831,8 +815,10 @@ export default function AppShell() {
             onClose={() => setGiftSheetOpen(false)}
             onContinue={() => {
               setGiftSheetOpen(false)
+              // 已登录(领过试玩金的老新人)→任务中心看剩余权益;
+              // 访客→只拉登录,登录后留在首页让试玩金欢迎弹窗接管(领取+首充引导),不跳任务页
               if (isLoggedIn) openTasks('newbie')
-              else { pendingTasksTab.current = 'newbie'; void auth.ensureLoggedIn(t('auth.signInBonus')) }
+              else void auth.ensureLoggedIn(t('auth.signInBonus'))
             }}
           />
         )}
