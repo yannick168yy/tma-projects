@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Avatar, Card, Descriptions, Tag, Typography, Button, Modal, Form, Input, Space, message } from 'antd'
 import { UserOutlined } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
-import { getUserDetail, resetUserPassword } from '../../api'
+import { getUserDetail, resetUserPassword, fmtCurrencyAmounts } from '../../api'
 
 type Detail = Awaited<ReturnType<typeof getUserDetail>>
 
@@ -118,11 +118,17 @@ export default function UserInfo({ detail, onSuccess }: Props) {
             <Typography.Text strong style={{ color: Number(detail.depositTotal) > 0 ? '#389e0d' : undefined }}>
               ₱{Number(detail.depositTotal ?? 0).toFixed(2)}
             </Typography.Text>
+            {fmtCurrencyAmounts(detail.depositByCurrency) && (
+              <Typography.Text type="secondary" style={{ fontSize: 12 }}> （{fmtCurrencyAmounts(detail.depositByCurrency)}）</Typography.Text>
+            )}
           </Descriptions.Item>
           <Descriptions.Item label="累计取款">
             <Typography.Text strong style={{ color: Number(detail.withdrawTotal) > 0 ? '#cf1322' : undefined }}>
               ₱{Number(detail.withdrawTotal ?? 0).toFixed(2)}
             </Typography.Text>
+            {fmtCurrencyAmounts(detail.withdrawByCurrency) && (
+              <Typography.Text type="secondary" style={{ fontSize: 12 }}> （{fmtCurrencyAmounts(detail.withdrawByCurrency)}）</Typography.Text>
+            )}
           </Descriptions.Item>
           <Descriptions.Item label="余额">
             <Space direction="vertical" size={2}>

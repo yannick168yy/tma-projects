@@ -251,7 +251,17 @@ export interface AdminUser {
   registeredAt: string; balance: number; level: number
   channelCode: string | null
   depositAmount: number
+  depositByCurrency: CurrencyAmount[]
   withdrawAmount: number
+  withdrawByCurrency: CurrencyAmount[]
+}
+export interface CurrencyAmount { currency: string; amount: number }
+// 非 PHP 币种原额格式化，如 "USDT 40, USDC 10.5"（PHP 后括号展示用）
+export function fmtCurrencyAmounts(list: CurrencyAmount[] | undefined | null): string {
+  if (!list?.length) return ''
+  return list
+    .map((c) => `${c.currency} ${Number(c.amount).toLocaleString('en-US', { maximumFractionDigits: 6 })}`)
+    .join(', ')
 }
 export interface UserAttribution {
   channelCode: string | null; clickPlatform: string; clickId: string | null
@@ -311,7 +321,9 @@ export const getUserDetail = (id: string) =>
     level: number
     totalTurnover: number
     depositTotal: number
+    depositByCurrency: CurrencyAmount[]
     withdrawTotal: number
+    withdrawByCurrency: CurrencyAmount[]
     wallet: { available: number; frozen: number }
     walletBalances: WalletBalance[]
     ledger: LedgerEntry[]

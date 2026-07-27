@@ -5,7 +5,7 @@ import type { TablePaginationConfig } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import type { SorterResult, SortOrder } from 'antd/es/table/interface'
 import dayjs, { type Dayjs } from 'dayjs'
-import { getUsers, updateUserStatus, updateUserLabel, getAdChannelCodes, type AdminUser } from '../api'
+import { getUsers, updateUserStatus, updateUserLabel, getAdChannelCodes, fmtCurrencyAmounts, type AdminUser } from '../api'
 import { PAGE_SIZE_OPTIONS, DEFAULT_PAGE_SIZE } from '../pagination'
 
 function statusColor(s: string) {
@@ -100,8 +100,30 @@ export default function Users() {
     { title: '显示名', dataIndex: 'displayName', key: 'displayName' },
     { title: '等级', key: 'level', width: 70, render: (_: unknown, r: AdminUser) => <Tag color={r.level === 6 ? 'gold' : 'blue'}>LV{r.level}</Tag> },
     { title: '余额', key: 'balance', width: 100, sorter: true, sortOrder: sortOrderProp('balance'), render: (_: unknown, r: AdminUser) => `₱${Number(r.balance).toFixed(2)}` },
-    { title: '充值金额', key: 'depositAmount', width: 110, sorter: true, sortOrder: sortOrderProp('depositAmount'), render: (_: unknown, r: AdminUser) => <span style={{ color: Number(r.depositAmount) > 0 ? '#389e0d' : '#bbb' }}>₱{Number(r.depositAmount).toFixed(2)}</span> },
-    { title: '取款金额', key: 'withdrawAmount', width: 110, sorter: true, sortOrder: sortOrderProp('withdrawAmount'), render: (_: unknown, r: AdminUser) => <span style={{ color: Number(r.withdrawAmount) > 0 ? '#cf1322' : '#bbb' }}>₱{Number(r.withdrawAmount).toFixed(2)}</span> },
+    {
+      title: '充值金额', key: 'depositAmount', width: 150, sorter: true, sortOrder: sortOrderProp('depositAmount'),
+      render: (_: unknown, r: AdminUser) => {
+        const detail = fmtCurrencyAmounts(r.depositByCurrency)
+        return (
+          <span style={{ color: Number(r.depositAmount) > 0 ? '#389e0d' : '#bbb' }}>
+            ₱{Number(r.depositAmount).toFixed(2)}
+            {detail && <span style={{ color: '#888', fontSize: 11 }}> ({detail})</span>}
+          </span>
+        )
+      },
+    },
+    {
+      title: '取款金额', key: 'withdrawAmount', width: 150, sorter: true, sortOrder: sortOrderProp('withdrawAmount'),
+      render: (_: unknown, r: AdminUser) => {
+        const detail = fmtCurrencyAmounts(r.withdrawByCurrency)
+        return (
+          <span style={{ color: Number(r.withdrawAmount) > 0 ? '#cf1322' : '#bbb' }}>
+            ₱{Number(r.withdrawAmount).toFixed(2)}
+            {detail && <span style={{ color: '#888', fontSize: 11 }}> ({detail})</span>}
+          </span>
+        )
+      },
+    },
     { title: '状态', key: 'status', width: 80, render: (_: unknown, r: AdminUser) => <Tag color={statusColor(r.status)}>{statusLabel(r.status)}</Tag> },
     { title: '标记', key: 'label', width: 90, render: (_: unknown, r: AdminUser) => <Tag color={r.label === 'arbitrage' ? 'red' : r.label === 'test' ? 'blue' : 'default'}>{labelText(r.label)}</Tag> },
     { title: '投放渠道', dataIndex: 'channelCode', key: 'channelCode', width: 100, render: (v: string | null) => v ? <Tag color="geekblue">{v}</Tag> : <span style={{ color: '#bbb' }}>自然量</span> },

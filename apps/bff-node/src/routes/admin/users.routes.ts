@@ -1,5 +1,5 @@
 import Router from '@koa/router'
-import { listAdminUsers, writeAuditLog, updateUserLabel, getLoginLogs, getBetOrders, getOpPasswordHash, getUserDepositTotals, getUserWithdrawTotals } from '../../services/admin-store.js'
+import { listAdminUsers, writeAuditLog, updateUserLabel, getLoginLogs, getBetOrders, getOpPasswordHash, getUserDepositSummaries, getUserWithdrawSummaries } from '../../services/admin-store.js'
 import { getUser, saveUser, getWallet, getWalletBalances, listLedger, adminAdjustBalance, getKyc, setUserKycOverride, listUserIdentities, reassignIdentity } from '../../services/store/index.js'
 import { buildKycStatusResponse, getKycStepConfig } from '../../services/kyc.service.js'
 import { verifyPassword } from '../../services/admin-auth.service.js'
@@ -58,8 +58,8 @@ router.get('/:id', async (ctx) => {
     getLevelThresholds(ctx.state.env, 'PHP'),
     listUserIdentities(ctx.state.redis, ctx.params.id),
     getUserAttributionDetail(ctx.state.env, ctx.params.id).catch(() => null),
-    getUserDepositTotals(ctx.state.env, ctx.state.redis, [ctx.params.id]).catch(() => new Map<string, number>()),
-    getUserWithdrawTotals(ctx.state.env, ctx.state.redis, [ctx.params.id]).catch(() => new Map<string, number>()),
+    getUserDepositSummaries(ctx.state.env, ctx.state.redis, [ctx.params.id]).catch(() => new Map()),
+    getUserWithdrawSummaries(ctx.state.env, ctx.state.redis, [ctx.params.id]).catch(() => new Map()),
   ])
   const telegram = identities.find((i) => i.provider === 'telegram') ?? identities.find((i) => i.provider === 'telegram_oidc')
   const google = identities.find((i) => i.provider === 'google')
@@ -74,8 +74,10 @@ router.get('/:id', async (ctx) => {
     },
     level: resolveLevel(thresholds, totalTurnover),
     totalTurnover,
-    depositTotal: depositTotals.get(ctx.params.id) ?? 0,
-    withdrawTotal: withdrawTotals.get(ctx.params.id) ?? 0,
+    depositTotal: depositTotals.get(ctx.params.id)?.php ?? 0,
+    depositByCurrency: depositTotals.get(ctx.params.id)?.byCurrency ?? [],
+    withdrawTotal: withdrawTotals.get(ctx.params.id)?.php ?? 0,
+    withdrawByCurrency: withdrawTotals.get(ctx.params.id)?.byCurrency ?? [],
     wallet,
     walletBalances: walletBalances.length ? walletBalances : [{ currency: 'PHP', available: wallet.available, frozen: wallet.frozen }],
     ledger,

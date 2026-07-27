@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { Tabs } from 'antd'
+import { Tabs, Dropdown } from 'antd'
+import type { MenuProps } from 'antd'
 
 // 路由 → 页签标题。与 AppLayout 菜单叶子节点保持一致。
 const ROUTE_TITLES: Record<string, string> = {
@@ -113,6 +114,37 @@ export default function HistoryTabs() {
     }
   }
 
+  // 关闭右侧：保留 path 及其左侧；关闭其他：只保留 path。均切换到 path 页避免停在已关闭页。
+  function closeRight(path: string) {
+    const idx = tabs.findIndex((t) => t.path === path)
+    if (idx < 0) return
+    setTabs(tabs.slice(0, idx + 1))
+    navigate(path)
+  }
+  function closeOthers(path: string) {
+    const target = tabs.find((t) => t.path === path)
+    if (!target) return
+    setTabs([target])
+    navigate(path)
+  }
+
+  function menuFor(path: string): MenuProps {
+    const idx = tabs.findIndex((t) => t.path === path)
+    return {
+      items: [
+        { key: 'close', label: '关闭', disabled: tabs.length <= 1 },
+        { key: 'closeOthers', label: '关闭其他', disabled: tabs.length <= 1 },
+        { key: 'closeRight', label: '关闭右侧', disabled: idx >= tabs.length - 1 },
+      ],
+      onClick: ({ key, domEvent }) => {
+        domEvent.stopPropagation()
+        if (key === 'close') remove(path)
+        else if (key === 'closeOthers') closeOthers(path)
+        else if (key === 'closeRight') closeRight(path)
+      },
+    }
+  }
+
   if (tabs.length === 0) return null
 
   return (
@@ -127,7 +159,11 @@ export default function HistoryTabs() {
         tabBarStyle={{ margin: 0 }}
         items={tabs.map((t) => ({
           key: t.path,
-          label: t.title,
+          label: (
+            <Dropdown menu={menuFor(t.path)} trigger={['contextMenu']}>
+              <span>{t.title}</span>
+            </Dropdown>
+          ),
           closable: tabs.length > 1,
         }))}
       />

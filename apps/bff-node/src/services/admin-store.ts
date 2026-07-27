@@ -5,15 +5,20 @@ import type { Env } from '../config/env.js'
 import { getLevelThresholds, resolveLevel } from './rebate.service.js'
 import { phpRateMap } from './marketing-bi.service.js'
 
-// 金额全币种折 PHP 合并：批量查一页用户，返回 user_id -> PHP 金额
-async function sumOrdersPhp(
+export interface OrderSummary {
+  php: number                                          // 全币种折 PHP 合计
+  byCurrency: { currency: string; amount: number }[]   // 非 PHP 原币种金额（用于 PHP 后括号展示）
+}
+
+// 金额全币种折 PHP 合并 + 非 PHP 原币种明细：批量查一页用户，返回 user_id -> OrderSummary
+async function orderSummaries(
   env: Env,
   redis: Redis,
   table: 'bg_deposit_order' | 'bg_withdraw_order',
   statusIn: string[],
   userIds: string[],
-): Promise<Map<string, number>> {
-  const map = new Map<string, number>()
+): Promise<Map<string, OrderSummary>> {
+  const map = new Map<string, OrderSummary>()
   if (!userIds.length) return map
   const idPh = userIds.map(() => '?').join(',')
   const stPh = statusIn.map(() => '?').join(',')
@@ -27,19 +32,24 @@ async function sumOrdersPhp(
   const rates = await phpRateMap(redis, env, rows.map((r) => String(r.cur)))
   for (const r of rows) {
     const uid = String(r.user_id)
-    const php = Number(r.amt) * (rates.get(String(r.cur)) ?? 1)
-    map.set(uid, (map.get(uid) ?? 0) + php)
+    const cur = String(r.cur)
+    const amt = Number(r.amt)
+    if (amt === 0) continue
+    let s = map.get(uid)
+    if (!s) { s = { php: 0, byCurrency: [] }; map.set(uid, s) }
+    s.php += amt * (rates.get(cur) ?? 1)
+    if (cur !== 'PHP') s.byCurrency.push({ currency: cur, amount: amt })
   }
   return map
 }
 
-// 累计充值金额（已支付订单，全币种折 PHP 合并）
-export function getUserDepositTotals(env: Env, redis: Redis, userIds: string[]) {
-  return sumOrdersPhp(env, redis, 'bg_deposit_order', ['paid'], userIds)
+// 累计充值（已支付订单，全币种折 PHP + 非 PHP 明细）
+export function getUserDepositSummaries(env: Env, redis: Redis, userIds: string[]) {
+  return orderSummaries(env, redis, 'bg_deposit_order', ['paid'], userIds)
 }
-// 累计取款金额（已完成订单，全币种折 PHP 合并）
-export function getUserWithdrawTotals(env: Env, redis: Redis, userIds: string[]) {
-  return sumOrdersPhp(env, redis, 'bg_withdraw_order', ['completed'], userIds)
+// 累计取款（已完成订单，全币种折 PHP + 非 PHP 明细）
+export function getUserWithdrawSummaries(env: Env, redis: Redis, userIds: string[]) {
+  return orderSummaries(env, redis, 'bg_withdraw_order', ['completed'], userIds)
 }
 
 export const SMS_TEST_MODE_KEY = 'sms_test_mode'
@@ -382,6 +392,12 @@ export async function listAdminUsers(
     for (const tr of tRows) levelMap.set(String(tr.user_id), resolveLevel(thresholds, Number(tr.total)))
   }
 
+  // 充值/取款：折 PHP 总额 + 非 PHP 原币种明细（展示用；排序/筛选仍用 SQL 内的折 PHP 值）
+  const [depSum, wdSum] = await Promise.all([
+    getUserDepositSummaries(env, redis, ids),
+    getUserWithdrawSummaries(env, redis, ids),
+  ])
+
   const items = rows.map((r) => ({
     id: String(r.id),
     displayName: String(r.display_name),
@@ -396,7 +412,9 @@ export async function listAdminUsers(
     channelCode: r.channel_code ? String(r.channel_code) : null,
     level: levelMap.get(String(r.id)) ?? 1,
     depositAmount: Number(r.deposit_php),
+    depositByCurrency: depSum.get(String(r.id))?.byCurrency ?? [],
     withdrawAmount: Number(r.withdraw_php),
+    withdrawByCurrency: wdSum.get(String(r.id))?.byCurrency ?? [],
   }))
 
   return { total, items }
