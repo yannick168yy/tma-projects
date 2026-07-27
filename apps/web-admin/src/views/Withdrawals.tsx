@@ -107,7 +107,6 @@ export default function Withdrawals() {
 
   async function doReject() {
     if (!rejectModal.userReason) { message.warning('请选择用户可见原因'); return }
-    if (!rejectModal.reason.trim()) { message.warning('请填写拒绝原因'); return }
     setOpLoading(true)
     try {
       await rejectWithdrawal(rejectModal.orderId, rejectModal.reason, rejectModal.userReason)
@@ -231,7 +230,7 @@ export default function Withdrawals() {
             value={rejectModal.reason}
             rows={3}
             onChange={(e) => setRejectModal(m => ({ ...m, reason: e.target.value }))}
-            placeholder="请输入内部拒绝原因（仅后台可见）"
+            placeholder="内部拒绝原因（可选，仅后台可见）"
           />
         </Space>
       </Modal>
