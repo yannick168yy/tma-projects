@@ -221,10 +221,34 @@ export default function AppShell() {
   useEffect(() => { npOverlayBlockedRef.current = auth.loginSheetOpen || walletModalOpen }, [auth.loginSheetOpen, walletModalOpen])
   useEffect(() => () => { if (autoPopupTimer.current) clearTimeout(autoPopupTimer.current) }, [])
 
+  // 试玩金欢迎弹窗资格（含频控）：已登录未领试玩金时体验官优先，新人礼包让位——
+  // 礼包是泛展示+跳任务中心，欢迎弹窗是一键领取+首充引导，后者转化价值更高，不能被礼包占位挤掉
+  const trialPopupEligible = useMemo(() => {
+    if (!promoConfig || !npSummary || !auth.token) return false
+    const trialTask = npSummary.tasks.trial
+    if (!trialTask.enabled || trialTask.claimed) return false
+    const popup = promoConfig.popups?.find((p) => p.id === 'trial')
+    if (!popup?.enabled) return false
+    if (!matchPopupAudience(popup.audience, true, npSummary.tasks.firstdep.done)) return false
+    const last = localStorage.getItem(TRIAL_POPUP_KEY)
+    if (popup.frequency === 'once' && last) return false
+    if (popup.frequency === 'daily' && last === new Date().toISOString().slice(0, 10)) return false
+    return true
+  }, [promoConfig, npSummary, auth.token])
+
+  // 注册/登录成功是关键状态跃迁：释放本会话弹窗占位，让试玩金欢迎弹窗在注册后立即接上
+  // （访客路径：新人礼包已占位→注册→若不释放，欢迎弹窗整个会话都不会弹）
+  const wasLoggedInRef = useRef(isLoggedIn)
+  useEffect(() => {
+    if (!wasLoggedInRef.current && isLoggedIn) autoPopupFired.current = false
+    wasLoggedInRef.current = isLoggedIn
+  }, [isLoggedIn])
+
   useEffect(() => {
     if (autoPopupFired.current || !promoConfig || !npSummary) return
     if (!npOnHomeRef.current) return // new_player 弹窗仅在首页安排
     if (npOverlayBlockedRef.current) return // 登录窗/充值窗打开时不安排
+    if (trialPopupEligible) return // 体验官弹窗优先，本效果让位
     const popup = promoConfig.popups?.find((p) => p.id === 'new_player')
     if (!popup?.enabled || giftAllDone) return
     const loggedIn = Boolean(auth.token)
@@ -243,7 +267,7 @@ export default function AppShell() {
       localStorage.setItem(NEW_PLAYER_POPUP_KEY, popup.frequency === 'once' ? '1' : today)
       setGiftSheetOpen(true)
     }, AUTO_POPUP_DELAY_MS)
-  }, [promoConfig, npSummary, auth.token, giftAllDone, gamePlayerUrl, view.type, activeNav, auth.loginSheetOpen, walletModalOpen])
+  }, [promoConfig, npSummary, auth.token, giftAllDone, trialPopupEligible, gamePlayerUrl, view.type, activeNav, auth.loginSheetOpen, walletModalOpen])
 
   // 登录成功后续跳：礼包 continue 时若未登录，登录完成后自动打开 tasks
   useEffect(() => {
