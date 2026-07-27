@@ -9,7 +9,7 @@ import { getOrCreateRedepOffer } from '../services/redep.service.js'
 import { getMysqlPool, isMysqlEnabled } from '../clients/mysql.client.js'
 import { createPromoRequirement } from '../services/turnover.service.js'
 import { riskAllowed } from '../utils/risk-guard.js'
-import { getDeviceId } from '../utils/client-context.js'
+import { getClientIp, getDeviceId } from '../utils/client-context.js'
 import { appdlClaimedOnSameDevice, trialClaimedOnSameDevice } from '../services/promo-device-guard.service.js'
 
 const PROMOS = [
@@ -120,7 +120,7 @@ router.post('/trial-play/claim', async (ctx) => {
       // 2026-07-27 起免绑手机号：领取即到账。防薅羊毛 = 设备去重(下方) + riskAllowed 风控
       // + 提现闸门（未存款纯彩金不可提、trial 流水墙），绑定手机号后移到提现前(KYC)
       if (isMysqlEnabled(ctx.state.env)
-        && await trialClaimedOnSameDevice(getMysqlPool(ctx.state.env), user.id, [getDeviceId(ctx), user.registerDeviceId], ctx.get('x-fp-visitor') || undefined)) {
+        && await trialClaimedOnSameDevice(getMysqlPool(ctx.state.env), user.id, [getDeviceId(ctx), user.registerDeviceId], ctx.get('x-fp-visitor') || undefined, getClientIp(ctx))) {
         throw new Error('errors.deviceAlreadyClaimed')
       }
       const cfg = await getPromoConfig(ctx.state.env)
@@ -195,7 +195,7 @@ router.post('/app-download/claim', async (ctx) => {
       const pool = getMysqlPool(ctx.state.env)
       const deviceId = getDeviceId(ctx)
       const claimer = await getUser(ctx.state.redis, ctx.state.userId!)
-      if (await appdlClaimedOnSameDevice(pool, ctx.state.userId!, [deviceId, claimer?.registerDeviceId], ctx.get('x-fp-visitor') || undefined)) {
+      if (await appdlClaimedOnSameDevice(pool, ctx.state.userId!, [deviceId, claimer?.registerDeviceId], ctx.get('x-fp-visitor') || undefined, getClientIp(ctx))) {
         throw new Error('errors.deviceAlreadyClaimed')
       }
       const ua = String(ctx.get('user-agent') ?? '').slice(0, 500)

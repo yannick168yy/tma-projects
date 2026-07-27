@@ -290,6 +290,50 @@ router.delete('/blacklist/:id', requireRole('super_admin', '仅超级管理员�
   ok(ctx, { deleted: Number(ctx.params.id) })
 })
 
+// ── 领奖白名单（测试机放行拉新礼金设备防薅）───────────────────────────────────
+router.get('/promo-whitelist', async (ctx) => {
+  if (!isMysqlEnabled(ctx.state.env)) { ok(ctx, { items: [] }); return }
+  const pool = getMysqlPool(ctx.state.env)
+  const [rows] = await pool.query<RowDataPacket[]>(
+    `SELECT id, type, value, note, created_by, created_at FROM bg_promo_claim_whitelist ORDER BY created_at DESC LIMIT 500`,
+  )
+  ok(ctx, {
+    items: rows.map((r) => ({
+      id: Number(r.id), type: String(r.type), value: String(r.value),
+      note: r.note ? String(r.note) : null,
+      createdBy: r.created_by ? String(r.created_by) : null,
+      createdAt: new Date(r.created_at as Date).toISOString(),
+    })),
+  })
+})
+
+router.post('/promo-whitelist', requireRole('super_admin', '仅超级管理员可管理领奖白名单'), async (ctx) => {
+  if (!isMysqlEnabled(ctx.state.env)) { fail(ctx, 503, 'DB not available'); return }
+  const body = ctx.request.body as { type?: string; value?: string; note?: string }
+  if (!body.type || !['device', 'ip', 'user'].includes(body.type) || !body.value) {
+    fail(ctx, 400, 'type(device|ip|user) 和 value 必填'); return
+  }
+  const pool = getMysqlPool(ctx.state.env)
+  await pool.execute(
+    `INSERT INTO bg_promo_claim_whitelist (type, value, note, created_by) VALUES (?,?,?,?)
+     ON DUPLICATE KEY UPDATE note = VALUES(note)`,
+    [body.type, body.value.trim(), body.note ?? null, ctx.state.adminUsername ?? null],
+  )
+  await writeAuditLog(ctx.state.env, {
+    adminId: ctx.state.adminId!, adminUsername: ctx.state.adminUsername!,
+    action: 'review.promo_whitelist.add', targetType: 'promo_whitelist', targetId: `${body.type}:${body.value}`,
+    detail: { note: body.note }, ip: ctx.ip,
+  })
+  ok(ctx, { added: true })
+})
+
+router.delete('/promo-whitelist/:id', requireRole('super_admin', '仅超级管理员可管理领奖白名单'), async (ctx) => {
+  if (!isMysqlEnabled(ctx.state.env)) { fail(ctx, 503, 'DB not available'); return }
+  const pool = getMysqlPool(ctx.state.env)
+  await pool.execute(`DELETE FROM bg_promo_claim_whitelist WHERE id = ?`, [Number(ctx.params.id)])
+  ok(ctx, { deleted: Number(ctx.params.id) })
+})
+
 // ── 统一待人工队列（用户提款 + 佣金提现）─────────────────────────────────────
 router.get('/manual-queue', async (ctx) => {
   if (!isMysqlEnabled(ctx.state.env)) { ok(ctx, { total: 0, items: [] }); return }

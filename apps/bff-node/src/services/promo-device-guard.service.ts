@@ -15,6 +15,30 @@ function dedupeIds(deviceIds: Array<string | undefined>): string[] {
   return [...new Set(deviceIds.filter((d): d is string => Boolean(d && d.trim())))]
 }
 
+/**
+ * 领奖白名单：命中即完全放行防薅（供己方测试机反复领优惠）。
+ * device 类型同时比对 deviceId 与硬件指纹；user 比对用户ID；ip 比对出口IP。任一匹配即算白名单。
+ */
+export async function isPromoClaimWhitelisted(
+  pool: Pool,
+  userId: string,
+  deviceIds: Array<string | undefined>,
+  fp?: string,
+  ip?: string,
+): Promise<boolean> {
+  const pairs: Array<[string, string]> = []
+  if (userId?.trim()) pairs.push(['user', userId.trim()])
+  for (const d of dedupeIds([...deviceIds, fp])) pairs.push(['device', d])
+  if (ip?.trim()) pairs.push(['ip', ip.trim()])
+  if (pairs.length === 0) return false
+  const where = pairs.map(() => '(type = ? AND value = ?)').join(' OR ')
+  const [rows] = await pool.query<RowDataPacket[]>(
+    `SELECT 1 FROM bg_promo_claim_whitelist WHERE ${where} LIMIT 1`,
+    pairs.flat(),
+  )
+  return rows.length > 0
+}
+
 // 当前请求 header 的 fp + 该用户历史登录留下的 fp。服务端兜底：伪造客户端不发
 // X-Fp-Visitor 也逃不掉——只要注册/登录时留过一次指纹就能关联上。
 async function collectFingerprints(pool: Pool, userId: string, headerFp?: string): Promise<string[]> {
@@ -44,7 +68,9 @@ export async function trialClaimedOnSameDevice(
   userId: string,
   deviceIds: Array<string | undefined>,
   headerFp?: string,
+  ip?: string,
 ): Promise<boolean> {
+  if (await isPromoClaimWhitelisted(pool, userId, deviceIds, headerFp, ip)) return false
   const ids = dedupeIds(deviceIds)
   if (ids.length > 0) {
     const [rows] = await pool.query<RowDataPacket[]>(
@@ -76,7 +102,9 @@ export async function appdlClaimedOnSameDevice(
   userId: string,
   deviceIds: Array<string | undefined>,
   headerFp?: string,
+  ip?: string,
 ): Promise<boolean> {
+  if (await isPromoClaimWhitelisted(pool, userId, deviceIds, headerFp, ip)) return false
   const ids = dedupeIds(deviceIds)
   if (ids.length > 0) {
     const [rows] = await pool.query<RowDataPacket[]>(
@@ -118,6 +146,8 @@ export async function flagRegistrationBurst(
     const addr = ip?.trim() || null
     const fp = fpVisitor?.trim() || null
     if (!dev && !addr && !fp) return
+    // 白名单测试机连环注册不误打 multi_account 标签
+    if (await isPromoClaimWhitelisted(pool, userId, [dev ?? undefined, fp ?? undefined], fp ?? undefined, addr ?? undefined)) return
     const NO_MATCH = '\u0000'
     const [rows] = await pool.query<RowDataPacket[]>(
       `SELECT

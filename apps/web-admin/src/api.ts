@@ -635,6 +635,16 @@ export const addBlacklist = (data: { type: string; value: string; reason?: strin
 export const removeBlacklist = (id: number) =>
   req<{ deleted: number }>('DELETE', `/admin/review/blacklist/${id}`)
 
+export interface PromoWhitelistItem {
+  id: number; type: string; value: string; note: string | null; createdBy: string | null; createdAt: string
+}
+export const getPromoWhitelist = () =>
+  get<{ items: PromoWhitelistItem[] }>('/admin/review/promo-whitelist')
+export const addPromoWhitelist = (data: { type: string; value: string; note?: string }) =>
+  post<{ added: boolean }>('/admin/review/promo-whitelist', data)
+export const removePromoWhitelist = (id: number) =>
+  req<{ deleted: number }>('DELETE', `/admin/review/promo-whitelist/${id}`)
+
 // Games
 export interface AdminGameJob {
   id: string
