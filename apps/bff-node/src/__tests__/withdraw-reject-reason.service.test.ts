@@ -21,8 +21,8 @@ describe('提款用户可见拒绝原因', () => {
   })
 
   it('后台提交的用户原因必须来自允许列表', () => {
-    const allowed = 'Withdrawal account information does not match your verified details.'
+    const allowed = 'Your recent winnings require additional verification before withdrawal. Please contact support.'
     expect(normalizeUserWithdrawRejectReason(allowed)).toBe(allowed)
-    expect(normalizeUserWithdrawRejectReason('internal fraud note')).toBe(USER_WITHDRAW_REJECT_REASON)
+    expect(normalizeUserWithdrawRejectReason('high_multiple_profit risk hit')).toBe(USER_WITHDRAW_REJECT_REASON)
   })
 })
