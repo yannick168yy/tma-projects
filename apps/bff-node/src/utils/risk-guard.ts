@@ -13,6 +13,7 @@ export async function riskAllowed(ctx: Context, checkpoint: RiskCheckpoint): Pro
     userId: ctx.state.userId,
     ip: getClientIp(ctx),
     deviceId: getDeviceId(ctx),
+    fpVisitor: ctx.get('x-fp-visitor')?.slice(0, 128) || undefined,
   })
   if (decision.action === 'deny') {
     fail(ctx, 403, 'risk_denied', 403)

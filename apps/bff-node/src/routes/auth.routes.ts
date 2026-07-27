@@ -23,6 +23,7 @@ async function loginRiskDenied(ctx: import('koa').Context, userId: string, ip: s
     userId,
     ip,
     deviceId: ctx.get('x-device-id') || undefined,
+    fpVisitor: ctx.get('x-fp-visitor')?.slice(0, 128) || undefined,
     region: lookupRegion(ip),
   })
   if (decision.action !== 'deny') return false

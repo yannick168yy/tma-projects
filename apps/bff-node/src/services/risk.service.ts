@@ -22,6 +22,8 @@ export interface RiskContext {
   userId?: string
   ip?: string
   deviceId?: string
+  /** FingerprintJS 硬件指纹：清缓存 deviceId 会重置，指纹不变，设备名单按两者任一匹配 */
+  fpVisitor?: string
   region?: string
 }
 
@@ -71,6 +73,7 @@ async function matchBlacklist(pool: Pool, ctx: RiskContext): Promise<Map<string,
   if (ctx.userId) pairs.push(['user', ctx.userId])
   if (ctx.ip) pairs.push(['ip', ctx.ip])
   if (ctx.deviceId) pairs.push(['device', ctx.deviceId])
+  if (ctx.fpVisitor && ctx.fpVisitor !== ctx.deviceId) pairs.push(['device', ctx.fpVisitor])
   if (ctx.region) pairs.push(['region', ctx.region])
   if (pairs.length === 0) return new Map()
 
