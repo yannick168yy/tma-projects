@@ -798,6 +798,8 @@ export const getAuditLog = (params: { page?: number; pageSize?: number }) =>
 export interface CsConversation {
   id: number; userId: string; status: string; assignedAdminId: number | null
   escalateReason: string | null
+  aiSummary: string | null; aiSummaryModel: string | null
+  aiSummaryMessageCount: number; aiSummaryUpdatedAt: string | null
   displayName: string; lastMessage: string; createdAt: string; updatedAt: string
 }
 export interface CsMessage {
@@ -809,7 +811,7 @@ export const getCsConversations = (params: { status?: string; page?: number; pag
 export const getCsConversation = (id: number) =>
   get<{ conversation: CsConversation; messages: CsMessage[] }>(`/admin/cs/conversations/${id}`)
 export const csSummarizeConversation = (id: number) =>
-  post<{ summary: string; model: string; messageCount: number }>(`/admin/cs/conversations/${id}/summary`)
+  post<{ summary: string; model: string; messageCount: number; summarizedAt: string }>(`/admin/cs/conversations/${id}/summary`)
 export const csReply = (id: number, message: string) =>
   post<CsMessage>(`/admin/cs/conversations/${id}/reply`, { message })
 export const csTakeover = (id: number) =>

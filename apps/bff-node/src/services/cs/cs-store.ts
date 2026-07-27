@@ -18,6 +18,10 @@ export interface Conversation {
   agentName: CsAgentName
   escalateReason: string | null
   userLeftAt: Date | null
+  aiSummary: string | null
+  aiSummaryModel: string | null
+  aiSummaryMessageCount: number
+  aiSummaryUpdatedAt: Date | null
   createdAt: Date
   updatedAt: Date
   resolvedAt: Date | null
@@ -201,6 +205,19 @@ export async function escalateConversation(
   }
 }
 
+export async function saveConversationSummary(
+  env: Env,
+  id: number,
+  input: { summary: string; model: string; messageCount: number },
+): Promise<void> {
+  await db(env).query(
+    `UPDATE cs_conversation
+     SET ai_summary = ?, ai_summary_model = ?, ai_summary_message_count = ?, ai_summary_updated_at = NOW()
+     WHERE id = ?`,
+    [input.summary, input.model, input.messageCount, id],
+  )
+}
+
 export async function getMessages(
   env: Env,
   conversationId: number,
@@ -253,6 +270,10 @@ function rowToConversation(r: RowDataPacket): Conversation {
     agentName: normalizeAgentName(r.agent_name) ?? fallbackAgentName(Number(r.id)),
     escalateReason: r.escalate_reason ?? null,
     userLeftAt: r.user_left_at ?? null,
+    aiSummary: r.ai_summary ?? null,
+    aiSummaryModel: r.ai_summary_model ?? null,
+    aiSummaryMessageCount: Number(r.ai_summary_message_count ?? 0),
+    aiSummaryUpdatedAt: r.ai_summary_updated_at ?? null,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
     resolvedAt: r.resolved_at ?? null,

@@ -21,6 +21,11 @@ function formatTime(t?: string) {
   if (!t) return ''
   return new Date(t).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
 }
+function summaryMetaText(model?: string | null, messageCount?: number, updatedAt?: string | null) {
+  if (!model) return ''
+  const savedAt = updatedAt ? ` · ${formatTime(updatedAt)} 保存` : ''
+  return `${model} · ${messageCount ?? 0} 条消息${savedAt}`
+}
 
 export default function CustomerService() {
   const navigate = useNavigate()
@@ -83,6 +88,8 @@ export default function CustomerService() {
       const res = await getCsConversation(selectedId)
       setMessages(res.messages)
       setConversations((prev) => prev.map((c) => c.id === selectedId ? { ...c, ...res.conversation } : c))
+      setSummary(res.conversation.aiSummary ?? '')
+      setSummaryMeta(summaryMetaText(res.conversation.aiSummaryModel, res.conversation.aiSummaryMessageCount, res.conversation.aiSummaryUpdatedAt))
       setTimeout(() => { if (msgListRef.current) msgListRef.current.scrollTop = msgListRef.current.scrollHeight }, 50)
     } finally { setDetailLoading(false) }
   }
@@ -142,7 +149,14 @@ export default function CustomerService() {
     try {
       const res = await csSummarizeConversation(selectedId)
       setSummary(res.summary)
-      setSummaryMeta(`${res.model} · ${res.messageCount} 条消息`)
+      setSummaryMeta(summaryMetaText(res.model, res.messageCount, res.summarizedAt))
+      setConversations((prev) => prev.map((c) => c.id === selectedId ? {
+        ...c,
+        aiSummary: res.summary,
+        aiSummaryModel: res.model,
+        aiSummaryMessageCount: res.messageCount,
+        aiSummaryUpdatedAt: res.summarizedAt,
+      } : c))
     } catch (e) {
       message.error(e instanceof Error ? e.message : 'AI 总结失败')
     } finally {
@@ -262,7 +276,7 @@ export default function CustomerService() {
             <Alert
               type="info"
               showIcon
-              message="AI总结"
+              message="AI总结（已保存）"
               description={<div><div>{summary}</div><div style={{ marginTop: 4, color: '#999', fontSize: 12 }}>{summaryMeta}</div></div>}
               style={{ marginBottom: 8 }}
             />

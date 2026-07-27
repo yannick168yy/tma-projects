@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { closeCurrentConversation, expireStaleConversations, listConversations } from '../services/cs/cs-store.js'
+import { closeCurrentConversation, expireStaleConversations, listConversations, saveConversationSummary } from '../services/cs/cs-store.js'
 
 const query = vi.fn()
 
@@ -81,5 +81,23 @@ describe('客服会话存储', () => {
     expect(result?.status).toBe('escalated')
     expect(String(query.mock.calls[2][0])).toContain('SET user_left_at = NOW()')
     expect(query.mock.calls.map(([sql]) => String(sql)).join('\n')).not.toContain("SET status = 'closed'")
+  })
+
+  it('保存 AI 总结到会话', async () => {
+    query.mockResolvedValueOnce([{ affectedRows: 1 }])
+
+    await saveConversationSummary({} as never, 4, {
+      summary: '用户询问提现失败，AI 已提示查看订单状态，建议人工核对出款记录。',
+      model: 'gemini-2.5-flash-lite',
+      messageCount: 6,
+    })
+
+    expect(String(query.mock.calls[0][0])).toContain('ai_summary = ?')
+    expect(query.mock.calls[0][1]).toEqual([
+      '用户询问提现失败，AI 已提示查看订单状态，建议人工核对出款记录。',
+      'gemini-2.5-flash-lite',
+      6,
+      4,
+    ])
   })
 })

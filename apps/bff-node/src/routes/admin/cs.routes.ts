@@ -7,6 +7,7 @@ import {
   getConversationById,
   getMessages,
   saveMessage,
+  saveConversationSummary,
   updateConversationStatus,
   expireStaleConversations,
 } from '../../services/cs/cs-store.js'
@@ -88,7 +89,10 @@ router.post('/cs/conversations/:id/summary', async (ctx) => {
   }
   const messages = await getMessages(ctx.state.env, id, 100)
   try {
-    ok(ctx, await summarizeCsConversation(ctx.state.env, messages))
+    const summary = await summarizeCsConversation(ctx.state.env, messages)
+    await saveConversationSummary(ctx.state.env, id, summary)
+    const updated = await getConversationById(ctx.state.env, id)
+    ok(ctx, { ...summary, summarizedAt: updated?.aiSummaryUpdatedAt ?? new Date() })
   } catch (e) {
     console.error('[admin-cs] summarize failed:', e)
     fail(ctx, 502, 'AI 总结失败，请稍后重试')
