@@ -129,6 +129,7 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
   const [turnoverLoading, setTurnoverLoading] = useState(false)
   const [turnoverShake, setTurnoverShake] = useState(false)
   const [turnoverExpanded, setTurnoverExpanded] = useState(false)
+  const [guideRulesExpanded, setGuideRulesExpanded] = useState(false)
   const [walletBannerUrl, setWalletBannerUrl] = useState(defaultTopupBanner)
   const [redepOffer, setRedepOffer] = useState<RedepOffer | null>(null)
   const [redepNow, setRedepNow] = useState(() => Date.now())
@@ -395,6 +396,25 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [depositCategory, open, tab, currentCategoryMethods])
   const canSubmitDeposit = Boolean(!depositLoading && selectedPayMethod?.channelId && Number(amount) > 0)
+  // 未存款且余额全是待解锁彩金 → 提款页整体替换为存款引导（不展示流水墙）
+  const pendingPromoReqs = useMemo(
+    () => (turnoverProgress?.requirements ?? []).filter((r) => r.status === 'pending' && r.sourceType === 'promotion'),
+    [turnoverProgress],
+  )
+  const showDepositGuide = turnoverProgress !== null && !turnoverProgress.hasDeposit && turnoverProgress.lockedBonus > 0
+  const guideTiers = useMemo(() => {
+    const tiers = promoConfig?.firstdep.tiers?.[activeCurrency] ?? promoConfig?.firstdep.tiers?.PHP ?? []
+    return [...tiers].filter((tier) => tier.bonusAmount > 0).sort((a, b) => a.depositAmount - b.depositAmount).slice(0, 3)
+  }, [promoConfig, activeCurrency])
+  const guideTierCurrency = (promoConfig?.firstdep.tiers?.[activeCurrency]?.length ?? 0) > 0 ? activeCurrency : 'PHP'
+  const promoLabel = (sourceRef: string) =>
+    sourceRef === 'trial' ? t('wallet.promoTrial')
+    : sourceRef === 'referral' ? t('wallet.promoReferral')
+    : sourceRef === 'firstdep' ? t('wallet.promoFirstdep')
+    : sourceRef === 'appdl' ? t('wallet.promoAppdl')
+    : sourceRef.startsWith('task:') ? t('wallet.promoTask')
+    : sourceRef.startsWith('redep:') ? t('wallet.promoRedep')
+    : t('wallet.turnoverPromo')
   // 法币取款金额区间（后台按渠道配置，须 ≥ YfPay 网关最低额，否则送到网关会拒单）
   const fiatWithdrawMin = selectedPayMethod?.minAmount ?? null
   const fiatWithdrawMax = selectedPayMethod?.maxAmount ?? null
@@ -867,6 +887,43 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
                   ) : <p className="text-center text-sm text-muted-foreground py-8">{t('wallet.comingSoon')}</p>}
                 </div>
               ) : depositView === 'select' ? (
+                showDepositGuide ? (
+                  <div className="space-y-4">
+                    <div className="rounded-2xl border border-primary/25 bg-primary/10 px-5 py-6 text-center space-y-1.5">
+                      <Gift size={30} className="mx-auto text-primary" />
+                      <p className="text-lg font-black text-white">{t('wallet.depositGuideTitle')}</p>
+                      <p className="text-xs font-bold text-muted-foreground">{t('wallet.depositGuideSubtitle')}</p>
+                    </div>
+                    {guideTiers.length > 0 && (
+                      <div className="grid grid-cols-3 gap-2">
+                        {guideTiers.map((tier) => (
+                          <div key={tier.depositAmount} className="rounded-xl border border-white/10 bg-secondary px-2 py-3 text-center">
+                            <p className="text-sm font-black text-white">{fmtPreset(tier.depositAmount, guideTierCurrency)}</p>
+                            <p className="mt-0.5 text-[11px] font-black text-primary">+{fmtPreset(tier.bonusAmount, guideTierCurrency)}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <button type="button" className="w-full py-3.5 rounded-2xl font-black text-base flex items-center justify-center gap-2 shadow-lg bg-primary text-black hover:bg-yellow-400 shadow-amber-500/25" onClick={() => { setTab('deposit'); setDepositView('select') }}>
+                      <ArrowDownToLine size={20} />{t('wallet.depositGuideCta')}
+                    </button>
+                    <button type="button" className="w-full flex items-center justify-center gap-1 text-[11px] font-bold text-muted-foreground/70" onClick={() => setGuideRulesExpanded((v) => !v)}>
+                      {t('wallet.depositGuideRules')}
+                      <ChevronDown size={12} className={`transition-transform ${guideRulesExpanded ? 'rotate-180' : ''}`} />
+                    </button>
+                    {guideRulesExpanded && (
+                      <div className="rounded-xl bg-secondary px-4 py-3 space-y-1.5">
+                        {pendingPromoReqs.map((req) => (
+                          <p key={req.id} className="text-[11px] leading-relaxed text-muted-foreground">
+                            {promoLabel(req.sourceRef)} {fmtTurnoverAmount(req.baseAmount, req.currency)} · {t('wallet.guideRuleNeedTurnover', { required: fmtTurnoverAmount(req.requiredAmount, req.currency) })}
+                          </p>
+                        ))}
+                        <p className="text-[11px] leading-relaxed text-muted-foreground">{t('wallet.guideRuleDeposit')}</p>
+                        {promoConfig?.firstdep.enabled && <p className="text-[11px] leading-relaxed text-muted-foreground">{t('wallet.guideRuleFirstdep', { x: promoConfig.firstdep.turnoverX || 1 })}</p>}
+                      </div>
+                    )}
+                  </div>
+                ) : (
                 <div className="space-y-5">
                       {turnoverLoading ? (
                         <div className="h-11 bg-secondary rounded-xl animate-pulse" />
@@ -885,7 +942,7 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
                           const totalDone = pend.reduce((s,r)=>s+r.completedAmount,0)
                           const totalPct = totalReq>0 ? Math.min(100, (totalDone/totalReq)*100) : 0
                           const cur = pend[0]?.currency ?? 'PHP'
-                          const reqLabel = (req: typeof pend[number]) => req.sourceType==='deposit'?t('wallet.turnoverDeposit'):req.sourceRef==='trial'?t('wallet.promoTrial'):req.sourceRef==='referral'?t('wallet.promoReferral'):req.sourceRef==='firstdep'?t('wallet.promoFirstdep'):t('wallet.turnoverPromo')
+                          const reqLabel = (req: typeof pend[number]) => req.sourceType==='deposit'?t('wallet.turnoverDeposit'):promoLabel(req.sourceRef)
                           return (
                           <div className={`bg-amber-500/10 border border-amber-500/20 rounded-xl px-4 py-3 space-y-2.5${turnoverShake?' turnover-shake':''}`}>
                             <button type="button" className="w-full space-y-2" onClick={()=>setTurnoverExpanded(v=>!v)}>
@@ -933,6 +990,7 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
                       {filteredCryptoWithdraw.length > 0 && <div><p className="text-muted-foreground text-[11px] font-bold uppercase tracking-wider mb-2.5">{t('wallet.cryptoSection')}</p><PayMethodGrid methods={filteredCryptoWithdraw} selected={selectedMethod} onSelect={onSelectWithdrawMethod} /></div>}
                   {filteredFiatWithdraw.length === 0 && filteredCryptoWithdraw.length === 0 && <p className="text-center text-sm text-muted-foreground py-8">{t('wallet.noWithdrawMethodsForCurrency', { currency: activeCurrency })}</p>}
                 </div>
+                )
               ) : (
                 <div className="space-y-4">
                   <div className="flex items-center gap-3">
@@ -949,6 +1007,7 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
                     <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground font-bold text-sm">{isTgWallet&&depositCurrency==='USDT'?'$':isCryptoMethod?'≈ $':'₱'}</span>
                     <input value={amount} type="number" placeholder="0.00" className="w-full bg-secondary border border-border rounded-xl pr-4 py-3 text-foreground font-black text-lg focus:outline-none focus:border-primary pl-10" onChange={(e)=>setAmount(e.target.value)} />
                   </div>}
+                  {tab==='withdraw'&&turnoverProgress!==null&&turnoverProgress.lockedBonus>0&&<p className="text-[11px] font-bold text-muted-foreground">{t('wallet.bonusLockedHint',{locked:fmtTurnoverAmount(turnoverProgress.lockedBonus,activeCurrency),amount:fmtTurnoverAmount(Math.max(0,activeAvailable-turnoverProgress.lockedBonus),activeCurrency)})}</p>}
                   {tab==='withdraw'&&isFiatWithdraw&&(fiatWithdrawMin!=null||fiatWithdrawMax!=null)&&<p className={`text-[11px] font-bold ${amount&&!fiatWithdrawAmountValid?'text-amber-400':'text-muted-foreground'}`}>{amount&&!fiatWithdrawAmountValid?t('wallet.yfpayAmountOutOfRange',{min:fiatWithdrawMin??0,max:fiatWithdrawMax??'—'}):t('wallet.withdrawAmountRange',{min:fiatWithdrawMin??0,max:fiatWithdrawMax??'—'})}</p>}
                   {tab==='withdraw'&&isFiatWithdraw&&<>
                     <input value={withdrawAccount} type="tel" readOnly={withdrawAccountLocked} placeholder={t('wallet.yfpayAccountNumber')} className={`w-full bg-secondary border border-border rounded-xl px-4 py-3 text-foreground font-bold text-sm focus:outline-none focus:border-primary${withdrawAccountLocked ? ' opacity-60' : ''}`} onChange={withdrawAccountLocked ? undefined : (e)=>setWithdrawAccount(e.target.value)} />

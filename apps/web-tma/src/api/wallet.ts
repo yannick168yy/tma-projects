@@ -10,6 +10,7 @@ export interface TurnoverRequirement {
   sourceType: string
   sourceRef: string
   currency: string
+  baseAmount: number
   requiredAmount: number
   completedAmount: number
   status: string
@@ -20,6 +21,12 @@ export interface TurnoverRequirement {
 export interface TurnoverProgress {
   canWithdraw: boolean
   totalRemaining: number
+  /** 存款类要求剩余流水，>0 时后端禁止任何提现 */
+  depositRemaining: number
+  /** 未解锁彩金本金合计：可提现金额 = 余额 - lockedBonus */
+  lockedBonus: number
+  /** 是否有过已支付存款订单（存款引导分支判定） */
+  hasDeposit: boolean
   requirements: TurnoverRequirement[]
 }
 
