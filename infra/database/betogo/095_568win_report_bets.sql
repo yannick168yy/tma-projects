@@ -4,7 +4,7 @@ SET NAMES utf8mb4;
 CREATE TABLE `bg_568win_report_bet` (
   `id`                BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   `portfolio`         VARCHAR(32)     NOT NULL COMMENT '568Win portfolio',
-  `ref_no`            VARCHAR(64)     NOT NULL COMMENT '568Win RefNo',
+  `ref_no`            VARCHAR(191)    NOT NULL COMMENT '568Win RefNo',
   `external_username` VARCHAR(40)     NULL COMMENT '568Win Username',
   `currency`          VARCHAR(16)     NULL,
   `status`            VARCHAR(32)     NULL,
