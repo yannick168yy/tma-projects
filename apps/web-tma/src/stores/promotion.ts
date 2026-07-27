@@ -62,8 +62,8 @@ interface PromotionActions {
   loadTeamWallet: () => Promise<void>
   submitWithdrawal: (amountCents: number) => Promise<{ ok: boolean; message?: string }>
   loadTeamWithdrawals: (page?: number) => Promise<void>
-  claimPromo: (id: PromoId) => Promise<{ ok: boolean; code?: number; message?: string }>
-  claimTrialIfEligible: () => Promise<{ ok: boolean; alreadyClaimed?: boolean; message?: string }>
+  claimPromo: (id: PromoId, opts?: { silent?: boolean }) => Promise<{ ok: boolean; code?: number; message?: string }>
+  claimTrialIfEligible: (opts?: { silent?: boolean }) => Promise<{ ok: boolean; alreadyClaimed?: boolean; message?: string }>
 }
 
 export const usePromotionStore = create<PromotionState & PromotionActions>((set, get) => ({
@@ -194,7 +194,7 @@ export const usePromotionStore = create<PromotionState & PromotionActions>((set,
     }
   },
 
-  async claimPromo(id) {
+  async claimPromo(id, opts) {
     const titleKey =
       id === 'trial'
         ? 'bonuses.promos.trial.title'
@@ -207,7 +207,8 @@ export const usePromotionStore = create<PromotionState & PromotionActions>((set,
       await useWalletStore.getState().refresh()
       await get().refreshHighlights()
       await get().loadLists()
-      get().showRedPacket(i18n.t(titleKey), amountPhp)
+      // silent=调用方自带成功态 UI（如欢迎弹窗领取后原地引导首充），不再叠红包动画
+      if (!opts?.silent) get().showRedPacket(i18n.t(titleKey), amountPhp)
       if (id === 'trial') useAuthStore.getState().clearTrialEligible()
       return { ok: true }
     } catch (e) {
@@ -225,16 +226,17 @@ export const usePromotionStore = create<PromotionState & PromotionActions>((set,
     }
   },
 
-  async claimTrialIfEligible() {
+  async claimTrialIfEligible(opts) {
     const trialHighlight = getHighlightMap().get('trial')
     const authEligible = useAuthStore.getState().trialEligible
-    if (!trialHighlight?.highlight && !authEligible) {
+    // highlights 未加载(map 无 trial 项)时不本地拦截，交给服务端判定(重复领取返回 409)
+    if (trialHighlight && !trialHighlight.highlight && !authEligible) {
       return { ok: false, alreadyClaimed: true }
     }
     if (get().trialClaiming) return { ok: false, message: i18n.t('bonuses.promos.trial.claiming') }
     set({ trialClaiming: true })
     try {
-      const result = await get().claimPromo('trial')
+      const result = await get().claimPromo('trial', opts)
       if (!result.ok && result.code === 409) {
         return { ok: false, alreadyClaimed: true, message: result.message }
       }

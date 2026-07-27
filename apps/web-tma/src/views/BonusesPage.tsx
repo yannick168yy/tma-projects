@@ -9,7 +9,6 @@ import { fetchAppdlStatus, claimAppdlBonus, matchPopupAudience, type NewPlayerSu
 import { isInstalledApp, installSource } from '@/utils/pwa'
 import { isInsideTelegram } from '@/utils/initTelegramWebApp'
 import { analytics } from '@/utils/analytics'
-import TrialClaimModal from '@/components/promotion/TrialClaimModal'
 import bonusesHero from '@/assets/home/promos/bonuses-hero.webp'
 
 interface Props {
@@ -52,7 +51,6 @@ export default function BonusesPage({ promoFilter, onOpenWallet, onOpenTeam, onO
 
   const [expanded, setExpanded] = useState<string | null>(promoFilter ?? null)
   const [promoError, setPromoError] = useState<string | null>(null)
-  const [trialModalOpen, setTrialModalOpen] = useState(false)
   const [appdlClaimed, setAppdlClaimed] = useState(false)
   const [appdlClaiming, setAppdlClaiming] = useState(false)
   const [appdlMsg, setAppdlMsg] = useState<{ ok: boolean; text: string } | null>(null)
@@ -129,8 +127,9 @@ export default function BonusesPage({ promoFilter, onOpenWallet, onOpenTeam, onO
     }
     if (promoId !== 'trial') return
     if (!(await ensureLoggedIn(t('auth.signInProfile')))) return
-    // 领礼金前先引导绑定手机号（短信验证），绑定成功后在弹窗内领取
-    setTrialModalOpen(true)
+    // 免绑定一键领取，成功走红包动画
+    const result = await promotionStore.claimTrialIfEligible()
+    if (!result.ok && !result.alreadyClaimed && result.message) setPromoError(result.message)
   }
 
   const localizedPromos = useMemo(
@@ -611,11 +610,6 @@ export default function BonusesPage({ promoFilter, onOpenWallet, onOpenTeam, onO
         <p className="text-muted-foreground text-[11px] leading-relaxed text-center">{t('bonuses.disclaimer')}</p>
       </div>
 
-      <TrialClaimModal
-        open={trialModalOpen}
-        amountPhp={promoConfig?.trial.amount ?? 0}
-        onClose={() => setTrialModalOpen(false)}
-      />
     </div>
   )
 }

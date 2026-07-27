@@ -536,7 +536,7 @@ async function buildAggregatedCards(env: Env, userId: string): Promise<{ newbie:
   const promo = await getPromoConfig(env).catch(() => null)
 
   if (promo?.trial.enabled) {
-    newbie.push(aggCard('agg_trial', '领取新手体验金', '完成手机验证即可领取', Boolean(user?.trialClaimed), 'trial_bonus', zeroReward('cash', promo.trial.amount), 'newbie'))
+    newbie.push(aggCard('agg_trial', '领取新手体验金', '登录即可一键领取，无需充值', Boolean(user?.trialClaimed), 'trial_bonus', zeroReward('cash', promo.trial.amount), 'newbie'))
   }
   if (promo?.appdl.enabled) {
     const [[c]] = await pool.query<RowDataPacket[]>('SELECT 1 AS ok FROM bg_app_download_claim WHERE user_id = ? LIMIT 1', [userId])

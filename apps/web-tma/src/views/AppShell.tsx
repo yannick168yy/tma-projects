@@ -55,7 +55,6 @@ const InstallGuideSheet = lazyWithReload(() => import('@/components/pwa/InstallG
 const NewPlayerGiftSheet = lazyWithReload(() => import('@/components/promotion/NewPlayerGiftSheet'))
 const CheckinSheet = lazyWithReload(() => import('@/components/promotion/CheckinSheet'))
 const TrialWelcomeSheet = lazyWithReload(() => import('@/components/promotion/TrialWelcomeSheet'))
-const TrialClaimModal = lazyWithReload(() => import('@/components/promotion/TrialClaimModal'))
 const RedepOfferSheet = lazyWithReload(() => import('@/components/promotion/RedepOfferSheet'))
 
 const NEW_PLAYER_POPUP_KEY = 'betogo_popup_new_player'
@@ -145,7 +144,6 @@ export default function AppShell() {
   const [giftSheetOpen, setGiftSheetOpen] = useState(false)
   const [checkinOpen, setCheckinOpen] = useState(false)
   const [trialWelcomeOpen, setTrialWelcomeOpen] = useState(false)
-  const [trialClaimOpen, setTrialClaimOpen] = useState(false)
   const [redepOffer, setRedepOffer] = useState<RedepOffer | null>(null)
   const [redepSheetOpen, setRedepSheetOpen] = useState(false)
   // 本会话最多自动弹一个进站弹窗，避免新人礼包与首席体验官同时弹出
@@ -160,6 +158,16 @@ export default function AppShell() {
   // 新人礼包 continue 触发登录时记录意图，登录成功后续跳 tasks
   const pendingTasksTab = useRef<TaskInitialPath | null>(null)
   const inTelegram = isInsideTelegram()
+
+  // 首充档位（PHP）：欢迎弹窗/破产承接弹窗共用。示例档=有奖励的最低档（最低门槛的钩子）
+  const firstDepPhpTiers = useMemo(() => {
+    if (!promoConfig?.firstdep.enabled) return []
+    return [...(promoConfig.firstdep.tiers?.PHP ?? [])]
+      .filter((tier) => tier.bonusAmount > 0)
+      .sort((a, b) => a.depositAmount - b.depositAmount)
+  }, [promoConfig])
+  const firstDepSampleTier = firstDepPhpTiers[0] ?? null
+  const firstDepMaxBonus = useMemo(() => Math.max(0, ...firstDepPhpTiers.map((tier) => tier.bonusAmount)), [firstDepPhpTiers])
 
   const giftAllDone = useMemo(() => {
     if (!npSummary) return true
@@ -248,10 +256,6 @@ export default function AppShell() {
     setTrialWelcomeOpen(true)
   }, [promoConfig, npSummary, view.type, activeNav, auth.token, gamePlayerUrl])
 
-  function onTrialWelcomeClaim() {
-    setTrialWelcomeOpen(false)
-    setTrialClaimOpen(true)
-  }
 
   // 复充限时优惠进站弹窗：登录后按当前币种拉取（后端按人群惰性开窗），同一窗口只自动弹一次
   useEffect(() => {
@@ -280,10 +284,14 @@ export default function AppShell() {
     setGiftSheetOpen(true)
   }
 
+  // 免绑定一键领取：成功走红包动画，失败(除已领取)提示错误
   async function openTrialBonus() {
     setWalletOpen(false)
     if (!(await auth.ensureLoggedIn(t('auth.signInBonus')))) return
-    setTrialClaimOpen(true)
+    const result = await usePromotionStore.getState().claimTrialIfEligible()
+    if (!result.ok && !result.alreadyClaimed && result.message) alert(result.message)
+    void refreshNpSummary()
+    notifyTasksRefresh()
   }
 
   async function openAppDownloadBonus() {
@@ -787,16 +795,13 @@ export default function AppShell() {
         {trialWelcomeOpen && (
           <TrialWelcomeSheet
             amount={promoConfig?.trial.amount ?? 0}
-            onClaim={onTrialWelcomeClaim}
+            firstDepTier={firstDepSampleTier}
+            firstDepMaxBonus={firstDepMaxBonus}
+            onClaimed={() => { void refreshNpSummary(); notifyTasksRefresh() }}
+            onDeposit={() => { setTrialWelcomeOpen(false); void openWalletFull('deposit') }}
             onDismiss={() => setTrialWelcomeOpen(false)}
           />
         )}
-
-        <TrialClaimModal
-          open={trialClaimOpen}
-          amountPhp={promoConfig?.trial.amount ?? 0}
-          onClose={() => { setTrialClaimOpen(false); void refreshNpSummary(); notifyTasksRefresh() }}
-        />
 
         {redepSheetOpen && redepOffer?.active && redepOffer.endsAt && (
           <RedepOfferSheet
