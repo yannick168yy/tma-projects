@@ -34,21 +34,21 @@ interface ReviewContext {
   order: OrderWithdraw
   /** 统计窗口起点：上次成功取款时间，无则注册时间 */
   since: string
-  // 资金面（窗口内，PHP 分）
-  depositCents: number
-  deposit24hCents: number
+  // 资金面（窗口内，PHP 元。跨币种已折 PHP 等值）
+  depositPhp: number
+  deposit24hPhp: number
   lifetimeDepositCount: number
-  /** 历史累计真实存款（全周期，PHP 分） */
-  lifetimeDepositCents: number
-  /** 本次取款金额（折 PHP 分） */
-  withdrawCents: number
-  /** 净盈利：投注盈亏 + 游戏内 bonus 通道派彩（PHP 分）。已含 gameBonusCents。 */
-  profitCents: number
-  profit24hCents: number
-  /** 游戏厂商 bonus 通道派彩（老虎机 feature/免费游戏，走 type=bonus ref_type=game），PHP 分 */
-  gameBonusCents: number
-  gameBonus24hCents: number
-  bonusCents: number
+  /** 历史累计真实存款（全周期，PHP 元） */
+  lifetimeDepositPhp: number
+  /** 本次取款金额（折 PHP 元） */
+  withdrawPhp: number
+  /** 净盈利：投注盈亏 + 游戏内 bonus 通道派彩（PHP 元）。已含 gameBonusPhp。 */
+  profitPhp: number
+  profit24hPhp: number
+  /** 游戏厂商 bonus 通道派彩（老虎机 feature/免费游戏，走 type=bonus ref_type=game），PHP 元 */
+  gameBonusPhp: number
+  gameBonus24hPhp: number
+  bonusPhp: number
   completedWithdrawCount: number
   // 关系/风控面
   uplineBlacklisted: boolean
@@ -60,10 +60,10 @@ interface ReviewContext {
   relatedDeviceAccounts: number
   /** 窗口内"有派彩无下注"的异常 round 数 */
   tamperOrphanRounds: number
-  /** 作为收益人累计佣金（PHP 分） */
-  commissionEarnedCents: number
-  /** 名下下线累计 GGR（PHP 分，可为负） */
-  commissionDownlineGgrCents: number
+  /** 作为收益人累计佣金（PHP 元） */
+  commissionEarnedPhp: number
+  /** 名下下线累计 GGR（PHP 元，可为负） */
+  commissionDownlineGgrPhp: number
   /** 佣金重复入账组数 */
   commissionDupGroups: number
   /** 568Win 数据面统计（上游对账/彩金/取消） */
@@ -73,7 +73,7 @@ interface ReviewContext {
 export const RULE_META: Record<string, { name: string; desc: string }> = {
   turnover:                  { name: '流水检查', desc: '复核「上次成功取款至今」窗口内的有效投注流水是否达到打码要求；未达标则转人工（与请求路径的流水闸门一致，此处兜底）。' },
   large_amount:             { name: '大额取款', desc: '本次取款金额超过设定阈值转人工；按币种分别设阈（php=法币元/比索，usdt=Matrix 链上 USDT）。' },
-  large_profit:             { name: '大额盈利', desc: '统计窗口内的净盈利（总派彩−总投注）超过阈值（PHP 分）转人工。阈值≤0 表示不启用。' },
+  large_profit:             { name: '大额盈利', desc: '统计窗口内的净盈利（投注盈亏＋游戏bonus通道派彩）超过阈值（PHP 元）转人工。阈值≤0 表示不启用。' },
   high_multiple_profit:     { name: '高倍盈利', desc: '窗口内 净盈利 ÷ 累计存款 的倍数 ≥ 阈值倍数转人工；无存款时跳过。' },
   high_multiple_profit_24h: { name: '24小时高倍盈利', desc: '近 24 小时内 盈利 ÷ 存款 的倍数 ≥ 阈值倍数转人工，用于抓短时暴赚；近 24h 无存款时跳过。' },
   withdraw_deposit_ratio:   { name: '取款存款倍数', desc: '本次取款额 ÷ 历史累计真实存款 的倍数 ≥ 阈值转人工。不依赖盈利口径，直接抓「小存大取」（如存110取5000=45x），可拦到赢利经 bonus 通道套现、被盈利规则漏看的情形；无真实存款时跳过（交由存款来源/首次取款规则）。' },
@@ -86,7 +86,7 @@ export const RULE_META: Record<string, { name: string; desc: string }> = {
   tampered_bet:             { name: '篡改注单', desc: '存在无对应投注却凭空派彩的 round，疑似数据被篡改，转人工。' },
   commission_anomaly:       { name: '三级分销佣金', desc: '三级分销佣金出现重复入账，或自身有佣金收益但下线累计 GGR ≤ 0（疑似刷佣），转人工。' },
   upstream_reconcile:       { name: '上游对账', desc: '窗口内本地已结算注单与 568Win 报表按 RefNo 双边核对：本地有上游无（伪造注单）、投注额不符（篡改）、上游已作废但本地已派彩（回滚遗漏）任一命中转人工。报表同步停摆时跳过不拦截。' },
-  bonus_bet_abuse:          { name: '上游彩金异常', desc: '窗口内 568Win 活动彩金入账总额超过阈值（PHP 分）或笔数超过 params.count，疑似薅上游活动，转人工。只统计真正的活动彩金，排除 IsGameProviderPromotion=false 的游戏内派彩（如 PG Soft feature 派彩走 bonus 通道），避免正常玩老虎机被误判。' },
+  bonus_bet_abuse:          { name: '上游彩金异常', desc: '窗口内 568Win 活动彩金入账总额超过阈值（PHP 元）或笔数超过 params.count，疑似薅上游活动，转人工。只统计真正的活动彩金，排除 IsGameProviderPromotion=false 的游戏内派彩（如 PG Soft feature 派彩走 bonus 通道），避免正常玩老虎机被误判。' },
   cancel_pattern:           { name: '取消注单异常', desc: '窗口内被作废（Void）的注单笔数 ≥ 阈值且占比 ≥ params.ratio，疑似利用取消机制套利，转人工。' },
   risk_hit:                 { name: '风控命中', desc: '风控模块在本次取款请求上命中了 escalate/deny 动作（如用户/IP/设备在风控名单中），转人工。窗口 params.windowMins 分钟。' },
   commission_surge:         { name: '佣金激增', desc: '（佣金提现专用）窗口内佣金入账超过之前 30 天佣金总和 × params.mult，且不低于 params.minCents 起查额，疑似速成刷佣，转人工。新代理首笔大额佣金也会命中，由人工过目。' },
@@ -107,7 +107,8 @@ export interface Win568ReviewStats {
   reconcileStakeMismatch: number
   reconcileVoidPaid: number
   bonusCount: number
-  bonusAmountCents: number
+  /** 上游活动彩金入账总额（PHP 元） */
+  bonusAmountPhp: number
   betTxnCount: number
   voidTxnCount: number
 }
@@ -148,7 +149,7 @@ export async function buildWin568ReviewStats(
        COALESCE(SUM(txn_type = 'bet'), 0) AS bet_cnt,
        COALESCE(SUM(txn_type = 'bet' AND status = 'Void'), 0) AS void_cnt,
        COALESCE(SUM(txn_type = 'bonus' AND status <> 'Void' AND COALESCE(raw_request->>'$.IsGameProviderPromotion', '') <> 'false'), 0) AS bonus_cnt,
-       COALESCE(SUM(CASE WHEN txn_type = 'bonus' AND status <> 'Void' AND COALESCE(raw_request->>'$.IsGameProviderPromotion', '') <> 'false' THEN ROUND(amount * 100 * (CASE WHEN currency IN ('USDT','USDC','USD') THEN ? ELSE 1 END)) ELSE 0 END), 0) AS bonus_cents
+       COALESCE(SUM(CASE WHEN txn_type = 'bonus' AND status <> 'Void' AND COALESCE(raw_request->>'$.IsGameProviderPromotion', '') <> 'false' THEN amount * (CASE WHEN currency IN ('USDT','USDC','USD') THEN ? ELSE 1 END) ELSE 0 END), 0) AS bonus_amt
      FROM bg_568win_wallet_txn WHERE user_id = ? AND created_at > ?`,
     [usdRate, userId, since],
   )
@@ -194,7 +195,7 @@ export async function buildWin568ReviewStats(
     reconcileStakeMismatch: stakeMismatch,
     reconcileVoidPaid: voidPaid,
     bonusCount: Number(txn?.bonus_cnt ?? 0),
-    bonusAmountCents: Number(txn?.bonus_cents ?? 0),
+    bonusAmountPhp: Number(txn?.bonus_amt ?? 0),
     betTxnCount: Number(txn?.bet_cnt ?? 0),
     voidTxnCount: Number(txn?.void_cnt ?? 0),
   }
@@ -248,21 +249,21 @@ const RULES: Record<string, Rule> = {
   large_profit(ctx, cfg) {
     const threshold = Number(cfg.threshold ?? 0)
     if (threshold <= 0) return { code: 'large_profit', verdict: 'pass' }
-    const hit = ctx.profitCents > threshold
-    return { code: 'large_profit', verdict: hit ? 'manual' : 'pass', actualValue: ctx.profitCents, threshold }
+    const hit = ctx.profitPhp > threshold
+    return { code: 'large_profit', verdict: hit ? 'manual' : 'pass', actualValue: round2(ctx.profitPhp), threshold }
   },
 
   high_multiple_profit(ctx, cfg) {
     const mult = Number(cfg.threshold ?? 0)
-    if (mult <= 0 || ctx.depositCents <= 0) return { code: 'high_multiple_profit', verdict: 'pass', detail: { depositCents: ctx.depositCents } }
-    const ratio = ctx.profitCents / ctx.depositCents
+    if (mult <= 0 || ctx.depositPhp <= 0) return { code: 'high_multiple_profit', verdict: 'pass', detail: { depositPhp: ctx.depositPhp } }
+    const ratio = ctx.profitPhp / ctx.depositPhp
     return { code: 'high_multiple_profit', verdict: ratio >= mult ? 'manual' : 'pass', actualValue: round2(ratio), threshold: mult }
   },
 
   high_multiple_profit_24h(ctx, cfg) {
     const mult = Number(cfg.threshold ?? 0)
-    if (mult <= 0 || ctx.deposit24hCents <= 0) return { code: 'high_multiple_profit_24h', verdict: 'pass', detail: { deposit24hCents: ctx.deposit24hCents } }
-    const ratio = ctx.profit24hCents / ctx.deposit24hCents
+    if (mult <= 0 || ctx.deposit24hPhp <= 0) return { code: 'high_multiple_profit_24h', verdict: 'pass', detail: { deposit24hPhp: ctx.deposit24hPhp } }
+    const ratio = ctx.profit24hPhp / ctx.deposit24hPhp
     return { code: 'high_multiple_profit_24h', verdict: ratio >= mult ? 'manual' : 'pass', actualValue: round2(ratio), threshold: mult }
   },
 
@@ -271,16 +272,16 @@ const RULES: Record<string, Rule> = {
   withdraw_deposit_ratio(ctx, cfg) {
     const mult = Number(cfg.threshold ?? 0)
     // 无真实存款交由 deposit_source / first_withdraw_no_deposit 处置，这里不重复拦
-    if (mult <= 0 || ctx.lifetimeDepositCents <= 0) {
-      return { code: 'withdraw_deposit_ratio', verdict: 'pass', detail: { lifetimeDepositCents: ctx.lifetimeDepositCents } }
+    if (mult <= 0 || ctx.lifetimeDepositPhp <= 0) {
+      return { code: 'withdraw_deposit_ratio', verdict: 'pass', detail: { lifetimeDepositPhp: ctx.lifetimeDepositPhp } }
     }
-    const ratio = ctx.withdrawCents / ctx.lifetimeDepositCents
+    const ratio = ctx.withdrawPhp / ctx.lifetimeDepositPhp
     return {
       code: 'withdraw_deposit_ratio',
       verdict: ratio >= mult ? 'manual' : 'pass',
       actualValue: round2(ratio),
       threshold: mult,
-      detail: { withdrawCents: ctx.withdrawCents, lifetimeDepositCents: ctx.lifetimeDepositCents },
+      detail: { withdrawPhp: ctx.withdrawPhp, lifetimeDepositPhp: ctx.lifetimeDepositPhp },
     }
   },
 
@@ -292,8 +293,8 @@ const RULES: Record<string, Rule> = {
   total_bonus(ctx, cfg) {
     const threshold = Number(cfg.threshold ?? 0)
     if (threshold <= 0) return { code: 'total_bonus', verdict: 'pass' }
-    const hit = ctx.bonusCents > threshold
-    return { code: 'total_bonus', verdict: hit ? 'manual' : 'pass', actualValue: ctx.bonusCents, threshold }
+    const hit = ctx.bonusPhp > threshold
+    return { code: 'total_bonus', verdict: hit ? 'manual' : 'pass', actualValue: ctx.bonusPhp, threshold }
   },
 
   first_withdraw_no_deposit(ctx) {
@@ -339,14 +340,14 @@ const RULES: Record<string, Rule> = {
 
   commission_anomaly(ctx) {
     const dup = ctx.commissionDupGroups > 0
-    const noGgr = ctx.commissionEarnedCents > 0 && ctx.commissionDownlineGgrCents <= 0
+    const noGgr = ctx.commissionEarnedPhp > 0 && ctx.commissionDownlineGgrPhp <= 0
     return {
       code: 'commission_anomaly',
       verdict: dup || noGgr ? 'manual' : 'pass',
       detail: {
         dupGroups: ctx.commissionDupGroups,
-        earnedCents: ctx.commissionEarnedCents,
-        downlineGgrCents: ctx.commissionDownlineGgrCents,
+        earnedPhp: ctx.commissionEarnedPhp,
+        downlineGgrPhp: ctx.commissionDownlineGgrPhp,
       },
     }
   },
@@ -358,12 +359,12 @@ const RULES: Record<string, Rule> = {
   bonus_bet_abuse(ctx, cfg) {
     const threshold = Number(cfg.threshold ?? 0)
     const countTh = Number(cfg.params?.count ?? 0)
-    const amtHit = threshold > 0 && ctx.win568.bonusAmountCents > threshold
+    const amtHit = threshold > 0 && ctx.win568.bonusAmountPhp > threshold
     const cntHit = countTh > 0 && ctx.win568.bonusCount >= countTh
     return {
       code: 'bonus_bet_abuse',
       verdict: amtHit || cntHit ? 'manual' : 'pass',
-      actualValue: ctx.win568.bonusAmountCents,
+      actualValue: round2(ctx.win568.bonusAmountPhp),
       threshold: threshold > 0 ? threshold : undefined,
       detail: { bonusCount: ctx.win568.bonusCount, countThreshold: countTh },
     }
@@ -450,35 +451,35 @@ async function buildContext(pool: Pool, order: OrderWithdraw, config: Record<str
   const sinceDate = wd?.last_at ? new Date(wd.last_at as Date) : registeredAt
   const since = sinceDate.toISOString()
 
-  // 风控口径：跨币种统一折 PHP 等值（USDT/USDC 按 usdRate），防稳定币大额活动被 ~58x 低估而漏判审核
+  // 风控口径：跨币种统一折 PHP 等值（USDT/USDC 按 usdRate），防稳定币大额活动被 ~58x 低估而漏判审核。单位=PHP 元。
   const [[dep]] = await pool.query<RowDataPacket[]>(
     `SELECT
-       COALESCE(SUM(CASE WHEN created_at > ? THEN ROUND(amount * 100 * (CASE WHEN currency IN ('USDT','USDC') THEN ? ELSE 1 END)) END), 0) AS window_cents,
-       COALESCE(SUM(CASE WHEN created_at > NOW() - INTERVAL 24 HOUR THEN ROUND(amount * 100 * (CASE WHEN currency IN ('USDT','USDC') THEN ? ELSE 1 END)) END), 0) AS d24_cents,
-       COALESCE(SUM(ROUND(amount * 100 * (CASE WHEN currency IN ('USDT','USDC') THEN ? ELSE 1 END))), 0) AS lifetime_cents,
+       COALESCE(SUM(CASE WHEN created_at > ? THEN amount * (CASE WHEN currency IN ('USDT','USDC') THEN ? ELSE 1 END) END), 0) AS window_amt,
+       COALESCE(SUM(CASE WHEN created_at > NOW() - INTERVAL 24 HOUR THEN amount * (CASE WHEN currency IN ('USDT','USDC') THEN ? ELSE 1 END) END), 0) AS d24_amt,
+       COALESCE(SUM(amount * (CASE WHEN currency IN ('USDT','USDC') THEN ? ELSE 1 END)), 0) AS lifetime_amt,
        COUNT(*) AS lifetime_cnt
      FROM bg_deposit_order WHERE user_id = ? AND status = 'paid'`,
     [sinceDate, usdRate, usdRate, usdRate, userId],
   )
 
-  // 投注盈亏。注意 * 100 折成分，与 depositCents 同口径（历史遗漏 *100 导致盈利倍数被低估 100 倍，高倍盈利规则形同虚设）
+  // 投注盈亏（PHP 元，与 depositPhp 同口径）
   const [[bet]] = await pool.query<RowDataPacket[]>(
     `SELECT
-       COALESCE(SUM(CASE WHEN created_at > ? AND bet_type IN ('win','refund') THEN amount * 100 * (CASE WHEN currency_code IN ('USDT','USDC') THEN ? ELSE 1 END)
-                         WHEN created_at > ? AND bet_type = 'bet' THEN -amount * 100 * (CASE WHEN currency_code IN ('USDT','USDC') THEN ? ELSE 1 END) ELSE 0 END), 0) AS window_profit,
-       COALESCE(SUM(CASE WHEN created_at > NOW() - INTERVAL 24 HOUR AND bet_type IN ('win','refund') THEN amount * 100 * (CASE WHEN currency_code IN ('USDT','USDC') THEN ? ELSE 1 END)
-                         WHEN created_at > NOW() - INTERVAL 24 HOUR AND bet_type = 'bet' THEN -amount * 100 * (CASE WHEN currency_code IN ('USDT','USDC') THEN ? ELSE 1 END) ELSE 0 END), 0) AS d24_profit
+       COALESCE(SUM(CASE WHEN created_at > ? AND bet_type IN ('win','refund') THEN amount * (CASE WHEN currency_code IN ('USDT','USDC') THEN ? ELSE 1 END)
+                         WHEN created_at > ? AND bet_type = 'bet' THEN -amount * (CASE WHEN currency_code IN ('USDT','USDC') THEN ? ELSE 1 END) ELSE 0 END), 0) AS window_profit,
+       COALESCE(SUM(CASE WHEN created_at > NOW() - INTERVAL 24 HOUR AND bet_type IN ('win','refund') THEN amount * (CASE WHEN currency_code IN ('USDT','USDC') THEN ? ELSE 1 END)
+                         WHEN created_at > NOW() - INTERVAL 24 HOUR AND bet_type = 'bet' THEN -amount * (CASE WHEN currency_code IN ('USDT','USDC') THEN ? ELSE 1 END) ELSE 0 END), 0) AS d24_profit
      FROM bg_bet_order WHERE user_id = ? AND status = 'settled'`,
     [sinceDate, usdRate, sinceDate, usdRate, usdRate, usdRate, userId],
   )
 
   // 游戏厂商 bonus 通道派彩（老虎机 feature/免费游戏，走 ledger type=bonus ref_type=game）。
   // 这类是真实赢钱但不进 bg_bet_order，历史上盈利/高倍规则完全看不见 → 存110赢13k靠 bonus 通道套现无人拦。
-  // 折 PHP 分后并入 profit，让 large_profit / high_multiple_profit 能看见。
+  // 折 PHP 元后并入 profit，让 large_profit / high_multiple_profit 能看见。
   const [[gb]] = await pool.query<RowDataPacket[]>(
     `SELECT
-       COALESCE(SUM(CASE WHEN created_at > ? THEN ROUND(amount * 100 * (CASE WHEN currency IN ('USDT','USDC') THEN ? ELSE 1 END)) END), 0) AS window_cents,
-       COALESCE(SUM(CASE WHEN created_at > NOW() - INTERVAL 24 HOUR THEN ROUND(amount * 100 * (CASE WHEN currency IN ('USDT','USDC') THEN ? ELSE 1 END)) END), 0) AS d24_cents
+       COALESCE(SUM(CASE WHEN created_at > ? THEN amount * (CASE WHEN currency IN ('USDT','USDC') THEN ? ELSE 1 END) END), 0) AS window_amt,
+       COALESCE(SUM(CASE WHEN created_at > NOW() - INTERVAL 24 HOUR THEN amount * (CASE WHEN currency IN ('USDT','USDC') THEN ? ELSE 1 END) END), 0) AS d24_amt
      FROM bg_wallet_ledger WHERE user_id = ? AND type = 'bonus' AND ref_type = 'game'`,
     [sinceDate, usdRate, usdRate, userId],
   )
@@ -542,31 +543,32 @@ async function buildContext(pool: Pool, order: OrderWithdraw, config: Record<str
 
   const win568 = await buildWin568ReviewStats(pool, userId, sinceDate, reconcileGraceMinutes(config), usdRate)
 
-  const gameBonusCents = Number(gb?.window_cents ?? 0)
-  const gameBonus24hCents = Number(gb?.d24_cents ?? 0)
+  const gameBonusPhp = Number(gb?.window_amt ?? 0)
+  const gameBonus24hPhp = Number(gb?.d24_amt ?? 0)
   const isStable = order.currency === 'USDT' || order.currency === 'USDC'
-  const withdrawCents = Math.round(order.amount * 100 * (isStable ? usdRate : 1))
+  const withdrawPhp = order.amount * (isStable ? usdRate : 1)
 
   return {
     pool, order, since,
-    depositCents: Number(dep?.window_cents ?? 0),
-    deposit24hCents: Number(dep?.d24_cents ?? 0),
+    depositPhp: Number(dep?.window_amt ?? 0),
+    deposit24hPhp: Number(dep?.d24_amt ?? 0),
     lifetimeDepositCount: Number(dep?.lifetime_cnt ?? 0),
-    lifetimeDepositCents: Number(dep?.lifetime_cents ?? 0),
-    withdrawCents,
-    profitCents: Number(bet?.window_profit ?? 0) + gameBonusCents,
-    profit24hCents: Number(bet?.d24_profit ?? 0) + gameBonus24hCents,
-    gameBonusCents,
-    gameBonus24hCents,
-    bonusCents: 0,
+    lifetimeDepositPhp: Number(dep?.lifetime_amt ?? 0),
+    withdrawPhp,
+    profitPhp: Number(bet?.window_profit ?? 0) + gameBonusPhp,
+    profit24hPhp: Number(bet?.d24_profit ?? 0) + gameBonus24hPhp,
+    gameBonusPhp,
+    gameBonus24hPhp,
+    bonusPhp: 0,
     completedWithdrawCount,
     uplineBlacklisted,
     promoTurnoverRemaining: Number(pt?.remaining ?? 0),
     relatedIpAccounts: Number(ip?.cnt ?? 0),
     relatedDeviceAccounts: Number(dev?.cnt ?? 0),
     tamperOrphanRounds: Number(orphan?.cnt ?? 0),
-    commissionEarnedCents: Number(comm?.earned ?? 0),
-    commissionDownlineGgrCents: Number(comm?.downline_ggr ?? 0),
+    // commission_cents / ggr_cents 是数据库真·分列，/100 折成元统一口径
+    commissionEarnedPhp: Number(comm?.earned ?? 0) / 100,
+    commissionDownlineGgrPhp: Number(comm?.downline_ggr ?? 0) / 100,
     commissionDupGroups: Number(dup?.cnt ?? 0),
     win568,
   }
@@ -575,24 +577,24 @@ async function buildContext(pool: Pool, order: OrderWithdraw, config: Record<str
 function snapshotOf(ctx: ReviewContext): Record<string, number | string | boolean> {
   return {
     since: ctx.since,
-    depositCents: ctx.depositCents,
-    deposit24hCents: ctx.deposit24hCents,
+    depositPhp: ctx.depositPhp,
+    deposit24hPhp: ctx.deposit24hPhp,
     lifetimeDepositCount: ctx.lifetimeDepositCount,
-    lifetimeDepositCents: ctx.lifetimeDepositCents,
-    withdrawCents: ctx.withdrawCents,
-    profitCents: ctx.profitCents,
-    profit24hCents: ctx.profit24hCents,
-    gameBonusCents: ctx.gameBonusCents,
-    gameBonus24hCents: ctx.gameBonus24hCents,
-    bonusCents: ctx.bonusCents,
+    lifetimeDepositPhp: ctx.lifetimeDepositPhp,
+    withdrawPhp: ctx.withdrawPhp,
+    profitPhp: ctx.profitPhp,
+    profit24hPhp: ctx.profit24hPhp,
+    gameBonusPhp: ctx.gameBonusPhp,
+    gameBonus24hPhp: ctx.gameBonus24hPhp,
+    bonusPhp: ctx.bonusPhp,
     completedWithdrawCount: ctx.completedWithdrawCount,
     uplineBlacklisted: ctx.uplineBlacklisted,
     promoTurnoverRemaining: ctx.promoTurnoverRemaining,
     relatedIpAccounts: ctx.relatedIpAccounts,
     relatedDeviceAccounts: ctx.relatedDeviceAccounts,
     tamperOrphanRounds: ctx.tamperOrphanRounds,
-    commissionEarnedCents: ctx.commissionEarnedCents,
-    commissionDownlineGgrCents: ctx.commissionDownlineGgrCents,
+    commissionEarnedPhp: ctx.commissionEarnedPhp,
+    commissionDownlineGgrPhp: ctx.commissionDownlineGgrPhp,
     commissionDupGroups: ctx.commissionDupGroups,
     win568SyncWatermark: ctx.win568.watermarkMs === null ? '' : new Date(ctx.win568.watermarkMs).toISOString(),
     win568CoverageStart: ctx.win568.coverageStartMs === null ? '' : new Date(ctx.win568.coverageStartMs).toISOString(),
@@ -601,7 +603,7 @@ function snapshotOf(ctx: ReviewContext): Record<string, number | string | boolea
     win568ReconcileStakeMismatch: ctx.win568.reconcileStakeMismatch,
     win568ReconcileVoidPaid: ctx.win568.reconcileVoidPaid,
     win568BonusCount: ctx.win568.bonusCount,
-    win568BonusAmountCents: ctx.win568.bonusAmountCents,
+    win568BonusAmountPhp: ctx.win568.bonusAmountPhp,
     win568BetTxnCount: ctx.win568.betTxnCount,
     win568VoidTxnCount: ctx.win568.voidTxnCount,
   }

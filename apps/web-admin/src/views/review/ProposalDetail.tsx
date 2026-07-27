@@ -8,23 +8,27 @@ import {
 import { ruleVerdictTag, wdStatusLabel, toPhp } from './shared'
 import { DEFAULT_WITHDRAW_USER_REJECT_REASON, WITHDRAW_USER_REJECT_REASON_OPTIONS } from './withdrawRejectReasons'
 
-// 快照字段 → 中文标签 + 是否金额(分)
-const SNAP_LABELS: Record<string, { label: string; cents?: boolean }> = {
-  depositCents: { label: '窗口内真实存款', cents: true },
-  deposit24hCents: { label: '近24h存款', cents: true },
+// 快照字段 → 中文标签 + 是否金额(元)。yuan=true 直接按元展示，不再 /100
+const SNAP_LABELS: Record<string, { label: string; yuan?: boolean }> = {
+  depositPhp: { label: '窗口内真实存款', yuan: true },
+  deposit24hPhp: { label: '近24h存款', yuan: true },
+  lifetimeDepositPhp: { label: '累计真实存款', yuan: true },
+  withdrawPhp: { label: '本次取款额', yuan: true },
   lifetimeDepositCount: { label: '生涯存款笔数' },
-  profitCents: { label: '窗口内净盈利', cents: true },
-  profit24hCents: { label: '近24h净盈利', cents: true },
-  bonusCents: { label: '窗口内优惠总额', cents: true },
+  profitPhp: { label: '窗口内净盈利(含bonus通道)', yuan: true },
+  profit24hPhp: { label: '近24h净盈利', yuan: true },
+  gameBonusPhp: { label: '游戏bonus通道派彩', yuan: true },
+  bonusPhp: { label: '窗口内优惠总额', yuan: true },
   completedWithdrawCount: { label: '已完成取款笔数' },
-  promoTurnoverRemaining: { label: '未完成优惠流水', cents: true },
+  promoTurnoverRemaining: { label: '未完成优惠流水' },
   relatedIpAccounts: { label: '同IP关联账号数' },
   relatedDeviceAccounts: { label: '同设备关联账号数' },
   tamperOrphanRounds: { label: '凭空派彩round数' },
-  commissionEarnedCents: { label: '累计佣金收入', cents: true },
-  commissionDownlineGgrCents: { label: '下线累计GGR', cents: true },
+  commissionEarnedPhp: { label: '累计佣金收入', yuan: true },
+  commissionDownlineGgrPhp: { label: '下线累计GGR', yuan: true },
   commissionDupGroups: { label: '佣金重复入账组' },
 }
+const yuan = (n: number) => `₱${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
 export default function ProposalDetail() {
   const { orderId = '' } = useParams()
@@ -157,7 +161,7 @@ export default function ProposalDetail() {
           <Descriptions column={3} size="small" bordered>
             {Object.entries(SNAP_LABELS).map(([k, meta]) => (
               <Descriptions.Item key={k} label={meta.label}>
-                {snapshot[k] == null ? '—' : meta.cents ? toPhp(Number(snapshot[k])) : String(snapshot[k])}
+                {snapshot[k] == null ? '—' : meta.yuan ? yuan(Number(snapshot[k])) : String(snapshot[k])}
               </Descriptions.Item>
             ))}
           </Descriptions>

@@ -3,10 +3,11 @@ import { Table, Switch, InputNumber, Button, Space, Card, Tag, Tabs, message } f
 import { getReviewConfig, saveReviewConfig, type ReviewConfigItem, type ReviewScope } from '../../api'
 
 const THRESHOLD_HINT: Record<string, string> = {
-  large_profit: '净盈利（PHP分），如 20000000 = 20万',
+  large_profit: '净盈利（PHP元），如 200000 = 20万',
   high_multiple_profit: '盈利/存款 倍数',
   high_multiple_profit_24h: '近24h 盈利/存款 倍数',
-  total_bonus: '优惠总额（PHP分），如 5000000 = 5万',
+  withdraw_deposit_ratio: '取款额/累计存款 倍数，如 5',
+  total_bonus: '优惠总额（PHP元），如 50000 = 5万',
 }
 
 function ScopePanel({ scope }: { scope: ReviewScope }) {
