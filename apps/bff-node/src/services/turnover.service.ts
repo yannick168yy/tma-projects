@@ -16,15 +16,15 @@ export interface TurnoverRequirement {
 export interface TurnoverProgress {
   canWithdraw: boolean
   totalRemaining: number
-  /** 存款类要求剩余流水（1倍 AML），>0 时禁止任何提现 */
+  /** 存款类要求剩余流水（1倍 AML） */
   depositRemaining: number
-  /** 未解锁彩金本金合计：可提现金额 = 余额 - lockedBonus */
+  /** 未解锁彩金本金合计（前端存款引导分支判定用） */
   lockedBonus: number
   requirements: TurnoverRequirement[]
 }
 
 export interface WithdrawGate {
-  /** 存款类要求已清零（彩金要求不再连坐） */
+  /** 所有 pending 流水要求（存款+彩金）已清零 */
   ok: boolean
   depositRemaining: number
   lockedBonus: number
@@ -102,7 +102,7 @@ export async function getTurnoverProgress(
     .reduce((s, r) => s + r.baseAmount, 0)
 
   return {
-    canWithdraw: depositRemaining <= 0,
+    canWithdraw: totalRemaining <= 0,
     totalRemaining: Math.max(0, totalRemaining),
     depositRemaining: Math.max(0, depositRemaining),
     lockedBonus: Math.max(0, lockedBonus),
@@ -110,10 +110,12 @@ export async function getTurnoverProgress(
   }
 }
 
-// 可提额模型：存款类 1 倍流水必须清零；彩金类不再连坐整个余额，只锁定彩金本金部分
+// 提款闸门：所有 pending 流水要求（存款+彩金）全部清零才可提款。
+// 彩金及其衍生盈利在流水打完前整体锁定——只锁本金会让彩金盈利经 1 倍存款流水套现。
 export async function getWithdrawGate(pool: Pool, userId: string, currency = 'PHP'): Promise<WithdrawGate> {
   const [[row]] = await pool.query<RowDataPacket[]>(
     `SELECT
+       COALESCE(SUM(required_amount - completed_amount), 0) AS remaining,
        COALESCE(SUM(IF(source_type = 'deposit', required_amount - completed_amount, 0)), 0) AS deposit_remaining,
        COALESCE(SUM(IF(source_type = 'promotion', COALESCE(base_amount, required_amount), 0)), 0) AS locked_bonus
      FROM bg_turnover_requirements
@@ -122,5 +124,5 @@ export async function getWithdrawGate(pool: Pool, userId: string, currency = 'PH
   )
   const depositRemaining = Math.max(0, Number(row?.deposit_remaining ?? 0))
   const lockedBonus = Math.max(0, Number(row?.locked_bonus ?? 0))
-  return { ok: depositRemaining <= 0, depositRemaining, lockedBonus }
+  return { ok: Number(row?.remaining ?? 0) <= 0, depositRemaining, lockedBonus }
 }
