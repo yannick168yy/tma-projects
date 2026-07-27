@@ -8,12 +8,6 @@ import dayjs, { type Dayjs } from 'dayjs'
 import { getUsers, updateUserStatus, updateUserLabel, getAdChannelCodes, fmtCurrencyAmounts, platformMeta, type AdminUser } from '../api'
 import { PAGE_SIZE_OPTIONS, DEFAULT_PAGE_SIZE } from '../pagination'
 
-function statusColor(s: string) {
-  return ({ active: 'green', frozen: 'orange', banned: 'red' } as Record<string, string>)[s] ?? 'default'
-}
-function statusLabel(s: string) {
-  return ({ active: '活跃', frozen: '冻结', banned: '封禁' } as Record<string, string>)[s] ?? s
-}
 function labelText(l: string) {
   return ({ normal: '普通', arbitrage: '套利客', test: '测试' } as Record<string, string>)[l] ?? l
 }
@@ -125,7 +119,6 @@ export default function Users() {
         )
       },
     },
-    { title: '状态', key: 'status', width: 80, render: (_: unknown, r: AdminUser) => <Tag color={statusColor(r.status)}>{statusLabel(r.status)}</Tag> },
     { title: '标记', key: 'label', width: 90, render: (_: unknown, r: AdminUser) => <Tag color={r.label === 'arbitrage' ? 'red' : r.label === 'test' ? 'blue' : 'default'}>{labelText(r.label)}</Tag> },
     { title: '投放渠道', dataIndex: 'channelCode', key: 'channelCode', width: 100, render: (v: string | null) => v ? <Tag color="geekblue">{v}</Tag> : <span style={{ color: '#bbb' }}>自然量</span> },
     { title: '客户端', dataIndex: 'lastPlatform', key: 'lastPlatform', width: 90, render: (v: string | null) => { const m = platformMeta(v); return v ? <Tag color={m.color}>{m.text}</Tag> : <span style={{ color: '#bbb' }}>-</span> } },
