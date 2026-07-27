@@ -28,7 +28,7 @@ import {
 import { isKycApproved } from '../services/kyc.service.js'
 import { checkWithdrawPhoneAccount } from '../services/auth.service.js'
 import { getMysqlPool, isMysqlEnabled } from '../clients/mysql.client.js'
-import { canWithdraw as checkTurnover } from '../services/turnover.service.js'
+import { getWithdrawGate } from '../services/turnover.service.js'
 import { reviewWithdraw } from '../services/withdraw-review.service.js'
 import type { OrderDeposit, OrderWithdraw } from '../types/domain.js'
 import type { Redis } from 'ioredis'
@@ -253,13 +253,17 @@ router.post('/payment/withdraw/create', async (ctx) => {
   if (!locked) { fail(ctx, 429, 'errors.duplicateWithdraw'); return }
 
   try {
+    // 流水校验：存款 1 倍必须清零；未解锁彩金本金不可提
+    let lockedBonus = 0
     if (isMysqlEnabled(ctx.state.env)) {
-      const turnoverOk = await checkTurnover(getMysqlPool(ctx.state.env), userId, 'PHP')
-      if (!turnoverOk) { fail(ctx, 403, 'errors.turnoverIncomplete'); return }
+      const gate = await getWithdrawGate(getMysqlPool(ctx.state.env), userId, 'PHP')
+      if (!gate.ok) { fail(ctx, 403, 'errors.turnoverIncomplete'); return }
+      lockedBonus = gate.lockedBonus
     }
 
     const wallet = await getWallet(redis, userId)
     if (wallet.available < amount) { fail(ctx, 400, 'errors.insufficientBalance'); return }
+    if (amount > wallet.available - lockedBonus) { fail(ctx, 403, 'errors.bonusLocked'); return }
 
     const provider = await resolveChannel(ctx.state.env, channelName, 'withdraw', amount, 'PHP')
     if (!provider) { fail(ctx, 400, 'errors.amountOrChannelUnavailable'); return }

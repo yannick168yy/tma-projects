@@ -10,9 +10,9 @@ export async function createDepositRequirement(
   if (amount <= 0) return
   await conn.execute(
     `INSERT IGNORE INTO bg_turnover_requirements
-       (user_id, currency, source_type, source_ref, required_amount)
-     VALUES (?, ?, 'deposit', ?, ?)`,
-    [userId, currency, orderId, amount],
+       (user_id, currency, source_type, source_ref, base_amount, required_amount)
+     VALUES (?, ?, 'deposit', ?, ?, ?)`,
+    [userId, currency, orderId, amount, amount],
   )
 }
 
@@ -28,7 +28,7 @@ async function fillPendingTurnoverRequirements(
      FROM bg_turnover_requirements
      WHERE user_id = ? AND currency = ? AND status = 'pending'
        AND (expires_at IS NULL OR expires_at > NOW())
-     ORDER BY created_at ASC
+     ORDER BY (source_type = 'deposit') DESC, created_at ASC
      FOR UPDATE`,
     [userId, currency],
   )

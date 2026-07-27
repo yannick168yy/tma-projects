@@ -14,7 +14,7 @@ import { syncQueriedDepositStatus } from '../services/deposit-status-sync.servic
 import { reviewWithdraw } from '../services/withdraw-review.service.js'
 import { isKycApproved } from '../services/kyc.service.js'
 import { getMysqlPool, isMysqlEnabled } from '../clients/mysql.client.js'
-import { canWithdraw as checkTurnover } from '../services/turnover.service.js'
+import { getWithdrawGate } from '../services/turnover.service.js'
 import { ok, fail } from '../utils/response.js'
 import { randomOrderId } from '../utils/id.js'
 import { nowIso } from '../utils/format.js'
@@ -190,19 +190,25 @@ router.post('/withdraw/yfpay/create', async (ctx) => {
   }
 
   try {
-    // 流水校验
+    // 流水校验：存款 1 倍必须清零；未解锁彩金本金不可提
+    let lockedBonus = 0
     if (isMysqlEnabled(ctx.state.env)) {
-      const turnoverOk = await checkTurnover(getMysqlPool(ctx.state.env), userId, 'PHP')
-      if (!turnoverOk) {
+      const gate = await getWithdrawGate(getMysqlPool(ctx.state.env), userId, 'PHP')
+      if (!gate.ok) {
         fail(ctx, 403, 'errors.turnoverIncomplete')
         return
       }
+      lockedBonus = gate.lockedBonus
     }
 
     // 检查余额是否充足
     const wallet = await getWallet(redis, userId)
     if (wallet.available < amount) {
       fail(ctx, 400, 'errors.insufficientBalance')
+      return
+    }
+    if (amount > wallet.available - lockedBonus) {
+      fail(ctx, 403, 'errors.bonusLocked')
       return
     }
 

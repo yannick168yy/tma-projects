@@ -4,7 +4,7 @@ import type { Env } from '../config/env.js'
 import type { OrderWithdraw } from '../types/domain.js'
 import { getMysqlPool, isMysqlEnabled } from '../clients/mysql.client.js'
 import { getWithdraw } from './store/index.js'
-import { canWithdraw } from './turnover.service.js'
+import { getWithdrawGate } from './turnover.service.js'
 import { approveWithdraw } from './withdraw-approve.service.js'
 import { broadcastBadges } from './sse-badges.js'
 import { notifyWithdrawManual } from './admin-notify.js'
@@ -221,8 +221,9 @@ type Rule = (ctx: ReviewContext, cfg: RuleConfig) => Promise<RuleResult> | RuleR
 
 const RULES: Record<string, Rule> = {
   async turnover(ctx) {
-    const ok = await canWithdraw(ctx.pool, ctx.order.userId, ctx.order.currency)
-    return { code: 'turnover', verdict: ok ? 'pass' : 'manual' }
+    // 存款 1 倍流水清零即过；彩金锁定额在下单时已按可提额校验过
+    const gate = await getWithdrawGate(ctx.pool, ctx.order.userId, ctx.order.currency)
+    return { code: 'turnover', verdict: gate.ok ? 'pass' : 'manual' }
   },
 
   large_amount(ctx, cfg) {
