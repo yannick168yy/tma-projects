@@ -21,6 +21,7 @@ export default {
     notAgent: 'Bukan akun agen',
     tooManyAttempts: 'Terlalu banyak percobaan, coba lagi nanti',
     captchaFailed: 'Verifikasi gagal, silakan coba lagi',
+    requestTimeout: 'Permintaan habis waktu. Silakan coba lagi.',
     noPermission: 'Operasi tidak diizinkan',
     csEmpty: 'Pesan tidak boleh kosong',
     csTooLong: 'Pesan terlalu panjang',

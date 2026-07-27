@@ -37,28 +37,49 @@ export class ApiError extends Error {
   }
 }
 
+/** 请求超时：弱网/服务重启瞬间 fetch 可能永久挂起，悬死的 promise 会让调用方 loading 态卡死（按钮永久置灰） */
+const REQUEST_TIMEOUT_MS = 20000
+
 export async function apiRequest<T>(
   path: string,
   init: RequestInit = {},
 ): Promise<T> {
-  let res: Response
-  try {
-    res = await fetch(`${BASE_URL}${path}`, {
-      ...init,
-      headers: { ...authHeaders(), ...fingerprintHeaders(), ...attributionHeaders(), ...(init.headers as Record<string, string>) },
-    })
-  } catch (e) {
-    const hint =
-      BASE_URL.includes('localhost') && typeof window !== 'undefined'
-        ? 'Cannot reach API (localhost is invalid on mobile). Use the production site URL.'
-        : 'Network request failed. Check connection and try again.'
-    throw new ApiError(e instanceof Error ? `${hint} (${e.message})` : hint, 0)
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
+  const outerSignal = init.signal
+  if (outerSignal) {
+    if (outerSignal.aborted) controller.abort()
+    else outerSignal.addEventListener('abort', () => controller.abort(), { once: true })
   }
+  let res: Response
   let body: ApiResponse<T>
   try {
-    body = (await res.json()) as ApiResponse<T>
-  } catch {
-    throw new ApiError(res.ok ? 'Invalid API response' : res.statusText || 'Request failed', res.status)
+    try {
+      res = await fetch(`${BASE_URL}${path}`, {
+        ...init,
+        signal: controller.signal,
+        headers: { ...authHeaders(), ...fingerprintHeaders(), ...attributionHeaders(), ...(init.headers as Record<string, string>) },
+      })
+    } catch (e) {
+      if (e instanceof DOMException && e.name === 'AbortError' && !outerSignal?.aborted) {
+        throw new ApiError('errors.requestTimeout', 0)
+      }
+      const hint =
+        BASE_URL.includes('localhost') && typeof window !== 'undefined'
+          ? 'Cannot reach API (localhost is invalid on mobile). Use the production site URL.'
+          : 'Network request failed. Check connection and try again.'
+      throw new ApiError(e instanceof Error ? `${hint} (${e.message})` : hint, 0)
+    }
+    try {
+      body = (await res.json()) as ApiResponse<T>
+    } catch (e) {
+      if (e instanceof DOMException && e.name === 'AbortError' && !outerSignal?.aborted) {
+        throw new ApiError('errors.requestTimeout', 0)
+      }
+      throw new ApiError(res.ok ? 'Invalid API response' : res.statusText || 'Request failed', res.status)
+    }
+  } finally {
+    clearTimeout(timer)
   }
   if (!res.ok || body.code !== 0) {
     if (res.status === 503 && body.message === 'maintenance') {

@@ -59,6 +59,7 @@ export default {
     notAgent: 'Not an agent account',
     tooManyAttempts: 'Too many attempts, please try again later',
     captchaFailed: 'Human verification failed, please try again',
+    requestTimeout: 'Request timed out. Please try again.',
     noPermission: 'Operation not allowed',
     csEmpty: 'Message cannot be empty',
     csTooLong: 'Message is too long',

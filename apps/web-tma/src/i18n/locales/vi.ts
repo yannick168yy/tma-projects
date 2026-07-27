@@ -21,6 +21,7 @@ export default {
     notAgent: 'Không phải tài khoản đại lý',
     tooManyAttempts: 'Quá nhiều lần thử, vui lòng thử lại sau',
     captchaFailed: 'Xác minh không thành công, vui lòng thử lại',
+    requestTimeout: 'Yêu cầu quá hạn. Vui lòng thử lại.',
     noPermission: 'Thao tác không được phép',
     csEmpty: 'Tin nhắn không được để trống',
     csTooLong: 'Tin nhắn quá dài',
