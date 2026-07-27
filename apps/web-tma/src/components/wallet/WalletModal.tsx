@@ -184,6 +184,12 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
   }
 
   async function onSelectWithdrawMethod(id: string) {
+    if (turnoverProgress === null) return
+    if (!turnoverProgress.hasDeposit) {
+      setTurnoverShake(true)
+      setTimeout(() => setTurnoverShake(false), 500)
+      return
+    }
     if (turnoverProgress !== null && !turnoverProgress.canWithdraw) {
       setTurnoverShake(true)
       setTimeout(() => setTurnoverShake(false), 500)
@@ -396,12 +402,14 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [depositCategory, open, tab, currentCategoryMethods])
   const canSubmitDeposit = Boolean(!depositLoading && selectedPayMethod?.channelId && Number(amount) > 0)
-  // 未存款且余额全是待解锁彩金 → 提款页整体替换为存款引导（不展示流水墙）
+  // 未完成合格真实存款 → 提款页整体替换为存款引导（不展示取款按钮）
   const pendingPromoReqs = useMemo(
     () => (turnoverProgress?.requirements ?? []).filter((r) => r.status === 'pending' && r.sourceType === 'promotion'),
     [turnoverProgress],
   )
-  const showDepositGuide = turnoverProgress !== null && !turnoverProgress.hasDeposit && turnoverProgress.lockedBonus > 0
+  const hasRealDepositForWithdraw = turnoverProgress?.hasDeposit === true
+  const depositRequiredForWithdraw = turnoverProgress !== null && !hasRealDepositForWithdraw
+  const showDepositGuide = depositRequiredForWithdraw
   const guideTiers = useMemo(() => {
     const tiers = promoConfig?.firstdep.tiers?.[activeCurrency] ?? promoConfig?.firstdep.tiers?.PHP ?? []
     return [...tiers].filter((tier) => tier.bonusAmount > 0).sort((a, b) => a.depositAmount - b.depositAmount).slice(0, 3)
@@ -422,7 +430,7 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
   const fiatWithdrawAmountValid = Number(amount) > 0
     && (fiatWithdrawMin == null || Number(amount) >= fiatWithdrawMin)
     && (fiatWithdrawMax == null || Number(amount) <= fiatWithdrawMax)
-  const canSubmitWithdraw = Boolean(!withdrawLoading && isFiatWithdraw && fiatWithdrawAmountValid && withdrawAccount.trim() && withdrawOwner.trim())
+  const canSubmitWithdraw = Boolean(!withdrawLoading && hasRealDepositForWithdraw && isFiatWithdraw && fiatWithdrawAmountValid && withdrawAccount.trim() && withdrawOwner.trim())
   const matrixWithdrawGasFee = (() => {
     const n = Number(matrixCryptoAmount)
     if (
@@ -434,7 +442,7 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
   })()
   const matrixAmountValid = Number(matrixCryptoAmount) > matrixWithdrawGasFee
   const matrixReceiveAmount = Math.max(0, Number(matrixCryptoAmount || 0) - matrixWithdrawGasFee)
-  const canSubmitMatrixWithdraw = Boolean(!withdrawLoading && isMatrixWithdraw && matrixAmountValid && withdrawAccount.trim())
+  const canSubmitMatrixWithdraw = Boolean(!withdrawLoading && hasRealDepositForWithdraw && isMatrixWithdraw && matrixAmountValid && withdrawAccount.trim())
   const filteredHistory = useMemo(() => historyOrders.filter((tx) => (historyFilter==='all'||tx.type===historyFilter) && (historyStatus==='all'||tx.status===historyStatus)), [historyOrders, historyFilter, historyStatus])
 
   const depositCategoryTabs = useMemo(() => [
@@ -920,6 +928,7 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
                           </p>
                         ))}
                         <p className="text-[11px] leading-relaxed text-muted-foreground">{t('wallet.guideRuleDeposit')}</p>
+                        <p className="text-[11px] leading-relaxed text-muted-foreground">{t('wallet.guideRuleCryptoMinDeposit')}</p>
                         {promoConfig?.firstdep.enabled && <p className="text-[11px] leading-relaxed text-muted-foreground">{t('wallet.guideRuleFirstdep', { x: promoConfig.firstdep.turnoverX || 1 })}</p>}
                       </div>
                     )}

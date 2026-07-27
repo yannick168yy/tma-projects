@@ -10,6 +10,7 @@ import { fail, ok } from '../utils/response.js'
 import { randomOrderId } from '../utils/id.js'
 import { getWithdrawGate } from '../services/turnover.service.js'
 import { reviewWithdraw } from '../services/withdraw-review.service.js'
+import { hasRealDepositForWithdraw } from '../services/withdraw-eligibility.service.js'
 import { isKycApproved } from '../services/kyc.service.js'
 import { riskAllowed } from '../utils/risk-guard.js'
 import type { WithdrawOrder } from '../types/domain.js'
@@ -31,17 +32,23 @@ router.get('/eligibility', async (ctx) => {
     getKyc(ctx.state.redis, userId),
   ])
   const kycApproved = kyc?.status === 'approved'
-  const gate = isMysqlEnabled(ctx.state.env)
-    ? await getWithdrawGate(getMysqlPool(ctx.state.env), userId, currency)
-    : { ok: true, depositRemaining: 0, lockedBonus: 0 }
+  const mysqlEnabled = isMysqlEnabled(ctx.state.env)
+  const pool = mysqlEnabled ? getMysqlPool(ctx.state.env) : null
+  const [gate, hasDeposit] = mysqlEnabled && pool
+    ? await Promise.all([
+      getWithdrawGate(pool, userId, currency),
+      hasRealDepositForWithdraw(pool, userId),
+    ])
+    : [{ ok: true, depositRemaining: 0, lockedBonus: 0 }, true] as const
   const withdrawable = Math.max(0, wallet.available - gate.lockedBonus)
 
   ok(ctx, {
     currency,
     channelId,
     amount,
-    eligible: kycApproved && gate.ok && amount > 0 && amount <= withdrawable,
+    eligible: kycApproved && hasDeposit && gate.ok && amount > 0 && amount <= withdrawable,
     kycApproved,
+    hasDeposit,
     turnoverOk: gate.ok,
     available: wallet.available,
     lockedBonus: gate.lockedBonus,
@@ -51,6 +58,7 @@ router.get('/eligibility', async (ctx) => {
     maxAmount: withdrawable,
     rejectReasons: [
       !kycApproved ? 'KYC not approved' : null,
+      !hasDeposit ? 'Deposit required before withdrawal' : null,
       !gate.ok ? 'Turnover requirement not met' : null,
       amount > withdrawable ? 'Insufficient balance' : null,
     ].filter(Boolean),
@@ -108,6 +116,10 @@ router.post('/', async (ctx) => {
     // KYC 硬闸门：未实名禁止提款
     if (!(await isKycApproved(redis, ctx.state.env, userId))) {
       fail(ctx, 403, 'errors.kycRequired', 403)
+      return
+    }
+    if (isMysqlEnabled(ctx.state.env) && !(await hasRealDepositForWithdraw(getMysqlPool(ctx.state.env), userId))) {
+      fail(ctx, 403, 'errors.depositRequiredBeforeWithdraw', 403)
       return
     }
 
@@ -207,6 +219,10 @@ router.post('/', async (ctx) => {
   // KYC 硬闸门：未实名禁止提款
   if (!(await isKycApproved(redis, ctx.state.env, userId))) {
     fail(ctx, 403, 'errors.kycRequired', 403)
+    return
+  }
+  if (isMysqlEnabled(ctx.state.env) && !(await hasRealDepositForWithdraw(getMysqlPool(ctx.state.env), userId))) {
+    fail(ctx, 403, 'errors.depositRequiredBeforeWithdraw', 403)
     return
   }
 

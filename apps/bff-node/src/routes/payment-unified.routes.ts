@@ -30,6 +30,7 @@ import { checkWithdrawPhoneAccount } from '../services/auth.service.js'
 import { getMysqlPool, isMysqlEnabled } from '../clients/mysql.client.js'
 import { getWithdrawGate } from '../services/turnover.service.js'
 import { reviewWithdraw } from '../services/withdraw-review.service.js'
+import { hasRealDepositForWithdraw } from '../services/withdraw-eligibility.service.js'
 import type { OrderDeposit, OrderWithdraw } from '../types/domain.js'
 import type { Redis } from 'ioredis'
 import type { TxType } from '../services/payment-channel.service.js'
@@ -239,6 +240,9 @@ router.post('/payment/withdraw/create', async (ctx) => {
 
   if (!(await isKycApproved(redis, ctx.state.env, userId))) {
     fail(ctx, 403, 'errors.kycRequired', 403); return
+  }
+  if (isMysqlEnabled(ctx.state.env) && !(await hasRealDepositForWithdraw(getMysqlPool(ctx.state.env), userId))) {
+    fail(ctx, 403, 'errors.depositRequiredBeforeWithdraw', 403); return
   }
 
   // 手机钱包（GCash/Maya）收款号必须归属本人：拦截取到他人手机号，首次取款绑定并锁定

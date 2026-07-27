@@ -25,7 +25,7 @@ export interface TurnoverProgress {
   depositRemaining: number
   /** 未解锁彩金本金合计：可提现金额 = 余额 - lockedBonus */
   lockedBonus: number
-  /** 是否有过已支付存款订单（存款引导分支判定） */
+  /** 是否有过合格真实存款：USDT/USDC 单笔至少 5 */
   hasDeposit: boolean
   requirements: TurnoverRequirement[]
 }

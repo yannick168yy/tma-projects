@@ -15,6 +15,7 @@ import { reviewWithdraw } from '../services/withdraw-review.service.js'
 import { isKycApproved } from '../services/kyc.service.js'
 import { getMysqlPool, isMysqlEnabled } from '../clients/mysql.client.js'
 import { getWithdrawGate } from '../services/turnover.service.js'
+import { hasRealDepositForWithdraw } from '../services/withdraw-eligibility.service.js'
 import { ok, fail } from '../utils/response.js'
 import { randomOrderId } from '../utils/id.js'
 import { nowIso } from '../utils/format.js'
@@ -177,6 +178,10 @@ router.post('/withdraw/yfpay/create', async (ctx) => {
   // KYC 硬闸门：未实名禁止提款
   if (!(await isKycApproved(redis, ctx.state.env, userId))) {
     fail(ctx, 403, 'errors.kycRequired', 403)
+    return
+  }
+  if (isMysqlEnabled(ctx.state.env) && !(await hasRealDepositForWithdraw(getMysqlPool(ctx.state.env), userId))) {
+    fail(ctx, 403, 'errors.depositRequiredBeforeWithdraw', 403)
     return
   }
 
