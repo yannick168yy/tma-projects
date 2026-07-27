@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
-import { Card, Select, Tag, Button, Input, Space, Empty, Badge, Switch, Tooltip, message, Grid } from 'antd'
+import { Card, Select, Tag, Button, Input, Space, Empty, Badge, Switch, Tooltip, message, Grid, Alert } from 'antd'
 import { useNavigate } from 'react-router-dom'
 import type { CsConversation, CsMessage } from '../api'
-import { getCsConversations, getCsConversation, csReply, csTakeover, csClose, getCsDuty, saveCsDuty } from '../api'
+import { getCsConversations, getCsConversation, csReply, csTakeover, csClose, getCsDuty, saveCsDuty, csSummarizeConversation } from '../api'
 
 function statusColor(status?: string) {
   return ({ active: 'blue', escalated: 'red', human_taken: 'orange', resolved: 'green', closed: 'default' } as Record<string, string>)[status ?? ''] ?? 'default'
@@ -36,6 +36,9 @@ export default function CustomerService() {
   const [detailLoading, setDetailLoading] = useState(false)
   const [replyText, setReplyText] = useState('')
   const [replying, setReplying] = useState(false)
+  const [summary, setSummary] = useState('')
+  const [summaryMeta, setSummaryMeta] = useState('')
+  const [summaryLoading, setSummaryLoading] = useState(false)
   const msgListRef = useRef<HTMLDivElement>(null)
 
   const [duty, setDuty] = useState<{ enabled: boolean; onlineAdmins: number; onDuty: boolean } | null>(null)
@@ -94,6 +97,7 @@ export default function CustomerService() {
   }, [statusFilter])
 
   useEffect(() => { if (selectedId) void refreshDetail() }, [selectedId])
+  useEffect(() => { setSummary(''); setSummaryMeta('') }, [selectedId])
 
   async function sendReply() {
     if (!replyText.trim() || !selectedId) return
@@ -130,6 +134,20 @@ export default function CustomerService() {
   function openUserDetail(userId: string | undefined) {
     if (!userId) return
     navigate(`/users/${userId}`)
+  }
+
+  async function summarize() {
+    if (!selectedId) return
+    setSummaryLoading(true)
+    try {
+      const res = await csSummarizeConversation(selectedId)
+      setSummary(res.summary)
+      setSummaryMeta(`${res.model} · ${res.messageCount} 条消息`)
+    } catch (e) {
+      message.error(e instanceof Error ? e.message : 'AI 总结失败')
+    } finally {
+      setSummaryLoading(false)
+    }
   }
 
   return (
@@ -235,10 +253,20 @@ export default function CustomerService() {
               {selectedConv?.status !== 'resolved' && selectedConv?.status !== 'closed' && (
                 <Button size="small" type="primary" ghost onClick={resolve}>结束会话</Button>
               )}
+              <Button size="small" onClick={summarize} loading={summaryLoading}>AI总结</Button>
               <Button size="small" onClick={refreshDetail} loading={detailLoading}>刷新</Button>
             </Space>
           }
         >
+          {summary && (
+            <Alert
+              type="info"
+              showIcon
+              message="AI总结"
+              description={<div><div>{summary}</div><div style={{ marginTop: 4, color: '#999', fontSize: 12 }}>{summaryMeta}</div></div>}
+              style={{ marginBottom: 8 }}
+            />
+          )}
           <div ref={msgListRef} style={{ flex: 1, overflowY: 'auto', padding: '4px 0' }}>
             {messages.map((msg) => (
               <div key={msg.id} style={{ display: 'flex', marginBottom: 12, justifyContent: msg.role === 'user' ? 'flex-start' : 'flex-end' }}>

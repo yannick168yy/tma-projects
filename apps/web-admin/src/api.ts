@@ -808,6 +808,8 @@ export const getCsConversations = (params: { status?: string; page?: number; pag
   get<{ items: CsConversation[]; total: number; page: number; pageSize: number }>('/admin/cs/conversations', params)
 export const getCsConversation = (id: number) =>
   get<{ conversation: CsConversation; messages: CsMessage[] }>(`/admin/cs/conversations/${id}`)
+export const csSummarizeConversation = (id: number) =>
+  post<{ summary: string; model: string; messageCount: number }>(`/admin/cs/conversations/${id}/summary`)
 export const csReply = (id: number, message: string) =>
   post<CsMessage>(`/admin/cs/conversations/${id}/reply`, { message })
 export const csTakeover = (id: number) =>

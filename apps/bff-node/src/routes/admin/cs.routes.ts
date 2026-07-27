@@ -12,6 +12,7 @@ import {
 } from '../../services/cs/cs-store.js'
 import { CS_WELCOME_SETTING_KEY, DEFAULT_WELCOME } from '../../services/cs/cs-intents.js'
 import { CS_DUTY_SETTING_KEY, isHumanOnDuty, notifyTicketReplyViaTelegram } from '../../services/cs/cs-duty.js'
+import { summarizeCsConversation } from '../../services/cs/cs-summary.js'
 import { getSseBadgeClientCount } from '../../services/sse-badges.js'
 import { getAdminSetting, setAdminSetting } from '../../services/admin-store.js'
 
@@ -75,6 +76,23 @@ router.get('/cs/conversations/:id', async (ctx) => {
   }
   const messages = await getMessages(ctx.state.env, id, 100)
   ok(ctx, { conversation, messages })
+})
+
+// POST /admin/cs/conversations/:id/summary — 调 Gemini 总结用户与 AI 客服对话
+router.post('/cs/conversations/:id/summary', async (ctx) => {
+  const id = Number(ctx.params.id)
+  const conversation = await getConversationById(ctx.state.env, id)
+  if (!conversation) {
+    fail(ctx, 404, '会话不存在', 404)
+    return
+  }
+  const messages = await getMessages(ctx.state.env, id, 100)
+  try {
+    ok(ctx, await summarizeCsConversation(ctx.state.env, messages))
+  } catch (e) {
+    console.error('[admin-cs] summarize failed:', e)
+    fail(ctx, 502, 'AI 总结失败，请稍后重试')
+  }
 })
 
 // POST /admin/cs/conversations/:id/reply — 人工回复
