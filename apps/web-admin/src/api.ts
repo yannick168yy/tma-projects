@@ -546,7 +546,9 @@ export const rejectWithdrawal = (orderId: string, reason: string, userReason: st
 export interface ReviewRuleResult {
   ruleCode: string; ruleName: string; verdict: string
   actualValue: number | null; threshold: number | null
-  detail: Record<string, unknown> | null; createdAt: string
+  detail: Record<string, unknown> | null
+  recommendedUserReason?: string | null
+  createdAt: string
 }
 export const getWithdrawalReview = (orderId: string) =>
   get<{ rules: ReviewRuleResult[] }>(`/admin/withdrawals/${orderId}/review`)

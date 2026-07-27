@@ -8,6 +8,7 @@ import { getWithdrawGate } from './turnover.service.js'
 import { approveWithdraw } from './withdraw-approve.service.js'
 import { broadcastBadges } from './sse-badges.js'
 import { notifyWithdrawManual } from './admin-notify.js'
+import { recommendedUserReasonForRule } from './withdraw-reject-reason.service.js'
 
 // ── 规则结果 / 上下文 ─────────────────────────────────────────────────────────
 
@@ -721,6 +722,8 @@ export async function getReviewLog(env: Env, orderId: string) {
     actualValue: x.actual_value == null ? null : Number(x.actual_value),
     threshold: x.threshold == null ? null : Number(x.threshold),
     detail: x.detail ?? null,
+    // 命中该规则时推荐的用户可见驳回话术（前端据此自动预选）
+    recommendedUserReason: recommendedUserReasonForRule(String(x.rule_code)),
     createdAt: new Date(x.created_at as Date).toISOString(),
   }))
 }

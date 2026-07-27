@@ -68,7 +68,23 @@ export default function Withdrawals() {
     orderId: '',
     reason: '',
     userReason: DEFAULT_WITHDRAW_USER_REJECT_REASON,
+    recommendedNote: '',
   })
+
+  // 打开驳回弹窗：先拉审核明细，按命中的规则自动预选用户可见话术（管理员仍可改）
+  async function openReject(orderId: string) {
+    let userReason = DEFAULT_WITHDRAW_USER_REJECT_REASON
+    let recommendedNote = ''
+    try {
+      const { rules } = await getWithdrawalReview(orderId)
+      const hit = rules.find((r) => r.verdict === 'manual' && r.recommendedUserReason)
+      if (hit?.recommendedUserReason) {
+        userReason = hit.recommendedUserReason
+        recommendedNote = `已按命中规则「${hit.ruleName}」预选话术，可手动调整`
+      }
+    } catch { /* 预选失败用默认话术 */ }
+    setRejectModal({ visible: true, orderId, reason: '', userReason, recommendedNote })
+  }
 
   async function load(p = 1, ps = pageSize) {
     setPage(p); setPageSize(ps); setLoading(true)
@@ -118,7 +134,7 @@ export default function Withdrawals() {
           <Popconfirm title="确认批准此提款？" onConfirm={() => doApprove(r.orderId)}>
             <Button type="link" size="small" style={{ color: '#52c41a' }}>批准</Button>
           </Popconfirm>
-          <Button type="link" size="small" danger onClick={() => setRejectModal({ visible: true, orderId: r.orderId, reason: '', userReason: DEFAULT_WITHDRAW_USER_REJECT_REASON })}>拒绝</Button>
+          <Button type="link" size="small" danger onClick={() => openReject(r.orderId)}>拒绝</Button>
         </Space>
       ) : <span>-</span>,
     },
@@ -173,7 +189,7 @@ export default function Withdrawals() {
                   <Popconfirm title="确认批准此提款？" onConfirm={() => doApprove(r.orderId)}>
                     <Button type="primary" size="large" style={{ flex: 1 }}>批准</Button>
                   </Popconfirm>
-                  <Button danger size="large" style={{ flex: 1 }} onClick={() => setRejectModal({ visible: true, orderId: r.orderId, reason: '', userReason: DEFAULT_WITHDRAW_USER_REJECT_REASON })}>拒绝</Button>
+                  <Button danger size="large" style={{ flex: 1 }} onClick={() => openReject(r.orderId)}>拒绝</Button>
                 </div>
               )}
             </Card>
@@ -201,6 +217,9 @@ export default function Withdrawals() {
         onCancel={() => setRejectModal(m => ({ ...m, visible: false }))}
       >
         <Space direction="vertical" style={{ width: '100%' }}>
+          {rejectModal.recommendedNote && (
+            <div style={{ color: '#1677ff', fontSize: 12 }}>💡 {rejectModal.recommendedNote}</div>
+          )}
           <Select
             value={rejectModal.userReason}
             options={WITHDRAW_USER_REJECT_REASON_OPTIONS}
