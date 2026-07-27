@@ -16,9 +16,9 @@ export function authMiddleware(): Middleware {
       return
     }
     const user = await getUser(ctx.state.redis, session.userId)
-    if (!user || user.status === 'banned') {
+    if (!user || user.status === 'banned' || user.status === 'frozen') {
       await deleteSession(ctx.state.redis, token)
-      fail(ctx, 401, 'Account has been permanently banned', 401)
+      fail(ctx, 401, 'Account has been disabled', 401)
       return
     }
     ctx.state.userId = session.userId
@@ -36,6 +36,12 @@ export function optionalAuthMiddleware(): Middleware {
       if (session && new Date(session.expiresAt).getTime() > Date.now()) {
         ctx.state.userId = session.userId
         ctx.state.token = token
+        const user = await getUser(ctx.state.redis, session.userId)
+        if (!user || user.status === 'banned' || user.status === 'frozen') {
+          await deleteSession(ctx.state.redis, token)
+          ctx.state.userId = undefined
+          ctx.state.token = undefined
+        }
       }
     }
     await next()

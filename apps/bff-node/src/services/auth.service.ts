@@ -73,6 +73,12 @@ export class AuthError extends Error {
   }
 }
 
+function assertUserCanLogin(user: UserRecord, status = 401): void {
+  if (user.status === 'banned' || user.status === 'frozen') {
+    throw new AuthError('Account has been disabled. Please contact support.', status)
+  }
+}
+
 // redirect_uri 白名单：配置项按逗号分隔，Google 已配置域名，或命中后台已启用代理域名的固定 callback path
 async function assertAllowedRedirect(env: Env, configured: string, redirectUri: string, callbackPath: string): Promise<void> {
   const allowed = configured
@@ -227,9 +233,7 @@ export async function loginWithInitData(
     oidcUserByUsername.displayName = displayName
     if (avatarUrl) oidcUserByUsername.avatarUrl = avatarUrl
     await saveUser(redis, oidcUserByUsername)
-    if (oidcUserByUsername.status === 'banned') {
-      throw new AuthError('Account has been permanently banned. Please contact support.')
-    }
+    assertUserCanLogin(oidcUserByUsername)
     return issueSession(redis, env, oidcUserByUsername, false)
   }
 
@@ -239,9 +243,7 @@ export async function loginWithInitData(
     oidcUser.displayName = displayName
     if (avatarUrl) oidcUser.avatarUrl = avatarUrl
     await saveUser(redis, oidcUser)
-    if (oidcUser.status === 'banned') {
-      throw new AuthError('Account has been permanently banned. Please contact support.')
-    }
+    assertUserCanLogin(oidcUser)
     return issueSession(redis, env, oidcUser, false)
   }
 
@@ -255,11 +257,7 @@ export async function loginWithInitData(
     registerRegion: region,
   })
 
-  // Telegram 登录不受账号禁用状态影响（禁用仅屏蔽 Google 登录）
-  // banned 状态除外：完全封禁
-  if (user.status === 'banned') {
-    throw new AuthError('Account has been permanently banned. Please contact support.')
-  }
+  assertUserCanLogin(user)
 
   // 经代理 bot 进入的新用户：归因到该代理（非致命）
   if (isNewUser && entryBotAgentId) {
@@ -308,10 +306,7 @@ export async function loginWithGoogleCode(
       registerIp: ip,
       registerRegion: region,
     })
-    // Google 登录：frozen 和 banned 均拦截
-    if (user.status === 'frozen' || user.status === 'banned') {
-      throw new AuthError('Account has been disabled. Please contact support.')
-    }
+    assertUserCanLogin(user)
     return issueSession(redis, env, user, isNewUser)
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Google login failed'
@@ -410,9 +405,7 @@ export async function loginWithPassword(
   if (!(await verifyPassword(input.password, identity.credentialHash))) {
     throw new AuthError('Invalid credentials')
   }
-  if (user.status === 'banned' || user.status === 'frozen') {
-    throw new AuthError('Account has been disabled. Please contact support.')
-  }
+  assertUserCanLogin(user)
   return issueSession(redis, env, user, false)
 }
 
@@ -545,9 +538,7 @@ export async function loginWithTelegramWidget(
     oidcUserByUsername.displayName = displayName
     if (v.photoUrl) oidcUserByUsername.avatarUrl = v.photoUrl
     await saveUser(redis, oidcUserByUsername)
-    if (oidcUserByUsername.status === 'banned') {
-      throw new AuthError('Account has been permanently banned. Please contact support.', 401)
-    }
+    assertUserCanLogin(oidcUserByUsername, 401)
     return issueSession(redis, env, oidcUserByUsername, false)
   }
 
@@ -557,9 +548,7 @@ export async function loginWithTelegramWidget(
     oidcUser.displayName = displayName
     if (v.photoUrl) oidcUser.avatarUrl = v.photoUrl
     await saveUser(redis, oidcUser)
-    if (oidcUser.status === 'banned') {
-      throw new AuthError('Account has been permanently banned. Please contact support.', 401)
-    }
+    assertUserCanLogin(oidcUser, 401)
     return issueSession(redis, env, oidcUser, false)
   }
 
@@ -572,9 +561,7 @@ export async function loginWithTelegramWidget(
     registerIp: ip,
     registerRegion: region,
   })
-  if (user.status === 'banned') {
-    throw new AuthError('Account has been permanently banned. Please contact support.', 401)
-  }
+  assertUserCanLogin(user, 401)
   return issueSession(redis, env, user, isNewUser)
 }
 
@@ -618,9 +605,7 @@ export async function loginWithTelegramOidc(
       oidcUserByUsername.displayName = profile.displayName
       if (profile.avatarUrl) oidcUserByUsername.avatarUrl = profile.avatarUrl
       await saveUser(redis, oidcUserByUsername)
-      if (oidcUserByUsername.status === 'banned' || oidcUserByUsername.status === 'frozen') {
-        throw new AuthError('Account has been disabled. Please contact support.')
-      }
+      assertUserCanLogin(oidcUserByUsername)
       return issueSession(redis, env, oidcUserByUsername, false)
     }
 
@@ -630,9 +615,7 @@ export async function loginWithTelegramOidc(
       telegramUser.displayName = profile.displayName
       if (profile.avatarUrl) telegramUser.avatarUrl = profile.avatarUrl
       await saveUser(redis, telegramUser)
-      if (telegramUser.status === 'banned' || telegramUser.status === 'frozen') {
-        throw new AuthError('Account has been disabled. Please contact support.')
-      }
+      assertUserCanLogin(telegramUser)
       return issueSession(redis, env, telegramUser, false)
     }
 
@@ -646,9 +629,7 @@ export async function loginWithTelegramOidc(
       registerRegion: region,
     })
     if (telegramUserId) await bindTelegramIdentity(redis, user.id, telegramUserId, profile.username)
-    if (user.status === 'banned' || user.status === 'frozen') {
-      throw new AuthError('Account has been disabled. Please contact support.')
-    }
+    assertUserCanLogin(user)
     return issueSession(redis, env, user, isNewUser)
   } catch (e) {
     if (e instanceof AuthError) throw e
@@ -831,6 +812,11 @@ export async function resolveSession(
     await deleteSession(redis, token)
     return { valid: false }
   }
+  const user = await getUser(redis, session.userId)
+  if (!user || user.status === 'banned' || user.status === 'frozen') {
+    await deleteSession(redis, token)
+    return { valid: false }
+  }
   return { valid: true, userId: session.userId, expiresAt: session.expiresAt }
 }
 
@@ -842,7 +828,10 @@ export async function refreshSession(
   const session = await getSession(redis, token)
   if (!session) return null
   const user = await getUser(redis, session.userId)
-  if (!user) return null
+  if (!user || user.status === 'banned' || user.status === 'frozen') {
+    await deleteSession(redis, token)
+    return null
+  }
   await deleteSession(redis, token)
   const next = await issueSession(redis, env, user, false)
   return { token: next.token, expiresIn: next.expiresIn }
