@@ -871,6 +871,14 @@ export default {
       entryTitle: 'New Player Gifts',
       entrySub: 'Up to {{amount}} in welcome gifts',
     },
+    bustRescue: {
+      title: 'So close to a comeback!',
+      subtitle: 'Your free bonus is used up. Deposit real money to keep playing — first deposit earns up to ₱{{max}}',
+      offerLine: 'Deposit ₱{{dep}}, get ₱{{total}}',
+      offerHint: 'Bigger deposits earn bigger bonuses — up to ₱{{max}}',
+      cta: 'Deposit & Play On',
+      later: 'Maybe later',
+    },
     promos: {
       appdl: {
         tag: 'APP EXCLUSIVE',

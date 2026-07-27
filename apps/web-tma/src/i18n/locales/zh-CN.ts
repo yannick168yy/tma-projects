@@ -870,6 +870,14 @@ export default {
       entryTitle: '新人礼包',
       entrySub: '最高 {{amount}} 新人好礼',
     },
+    bustRescue: {
+      title: '差一点就翻盘了！',
+      subtitle: '免费彩金玩完了，存入真金继续赢，首充最高送 ₱{{max}}',
+      offerLine: '充 ₱{{dep}} 立得 ₱{{total}}',
+      offerHint: '充得越多送得越多，最高送 ₱{{max}}',
+      cta: '立即充值翻盘',
+      later: '下次再说',
+    },
     promos: {
       appdl: {
         tag: 'APP 专属',

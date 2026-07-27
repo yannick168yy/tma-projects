@@ -488,6 +488,14 @@ export default {
       active: 'Khuyến mãi đang chạy',
       winnersToday: 'Người thắng hôm nay',
     },
+    bustRescue: {
+      title: 'Suýt nữa là lật kèo!',
+      subtitle: 'Thưởng miễn phí đã hết. Nạp tiền thật để chơi tiếp — nạp lần đầu nhận tới ₱{{max}}',
+      offerLine: 'Nạp ₱{{dep}}, nhận ₱{{total}}',
+      offerHint: 'Nạp càng nhiều thưởng càng lớn — tới ₱{{max}}',
+      cta: 'Nạp ngay chơi tiếp',
+      later: 'Để sau',
+    },
     promos: {
       trial: {
         tag: 'NGƯỜI CHƠI MỚI',

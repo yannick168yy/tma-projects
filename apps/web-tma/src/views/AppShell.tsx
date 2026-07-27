@@ -56,6 +56,7 @@ const NewPlayerGiftSheet = lazyWithReload(() => import('@/components/promotion/N
 const CheckinSheet = lazyWithReload(() => import('@/components/promotion/CheckinSheet'))
 const TrialWelcomeSheet = lazyWithReload(() => import('@/components/promotion/TrialWelcomeSheet'))
 const RedepOfferSheet = lazyWithReload(() => import('@/components/promotion/RedepOfferSheet'))
+const BustRescueSheet = lazyWithReload(() => import('@/components/promotion/BustRescueSheet'))
 
 const NEW_PLAYER_POPUP_KEY = 'betogo_popup_new_player'
 const TRIAL_POPUP_KEY = 'betogo_popup_trial'
@@ -146,6 +147,7 @@ export default function AppShell() {
   const [trialWelcomeOpen, setTrialWelcomeOpen] = useState(false)
   const [redepOffer, setRedepOffer] = useState<RedepOffer | null>(null)
   const [redepSheetOpen, setRedepSheetOpen] = useState(false)
+  const [bustRescueOpen, setBustRescueOpen] = useState(false)
   // 本会话最多自动弹一个进站弹窗，避免新人礼包与首席体验官同时弹出
   const autoPopupFired = useRef(false)
   const autoPopupTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -168,6 +170,25 @@ export default function AppShell() {
   }, [promoConfig])
   const firstDepSampleTier = firstDepPhpTiers[0] ?? null
   const firstDepMaxBonus = useMemo(() => Math.max(0, ...firstDepPhpTiers.map((tier) => tier.bonusAmount)), [firstDepPhpTiers])
+
+  // ── 破产承接：未充值用户把彩金输光(PHP 余额跌破阈值)时，在退出游戏后弹首充承接 ──
+  const BUST_RESCUE_THRESHOLD = 1
+  const phpAvailable = allBalances.find((b) => b.code === 'PHP')?.available ?? 0
+  const prevPhpBalanceRef = useRef<number | null>(null)
+  const bustPendingRef = useRef(false)
+  useEffect(() => {
+    const prev = prevPhpBalanceRef.current
+    prevPhpBalanceRef.current = phpAvailable
+    if (!isLoggedIn || !npSummary || npSummary.tasks.firstdep.done || firstDepMaxBonus <= 0) return
+    if (prev !== null && prev >= BUST_RESCUE_THRESHOLD && phpAvailable < BUST_RESCUE_THRESHOLD) {
+      bustPendingRef.current = true
+    }
+    // 输光可能发生在游戏内(余额刷新于退出游戏时)，等回到站内且无其他浮层再弹
+    if (bustPendingRef.current && !gamePlayerUrl && !walletModalOpen && !auth.loginSheetOpen) {
+      bustPendingRef.current = false
+      setBustRescueOpen(true)
+    }
+  }, [phpAvailable, gamePlayerUrl, isLoggedIn, npSummary, firstDepMaxBonus, walletModalOpen, auth.loginSheetOpen])
 
   const giftAllDone = useMemo(() => {
     if (!npSummary) return true
@@ -775,7 +796,7 @@ export default function AppShell() {
           </div>
         )}
 
-        {gamePlayerUrl && <GamePlayer url={gamePlayerUrl} onClose={() => setGamePlayerUrl(null)} />}
+        {gamePlayerUrl && <GamePlayer url={gamePlayerUrl} onClose={() => { setGamePlayerUrl(null); void wallet.refresh() }} />}
 
         {iosGuideOpen && (
           <InstallGuideSheet platform="ios" onClose={() => { setIosGuideOpen(false); notifyTasksRefresh() }} />
@@ -800,6 +821,15 @@ export default function AppShell() {
             onClaimed={() => { void refreshNpSummary(); notifyTasksRefresh() }}
             onDeposit={() => { setTrialWelcomeOpen(false); void openWalletFull('deposit') }}
             onDismiss={() => setTrialWelcomeOpen(false)}
+          />
+        )}
+
+        {bustRescueOpen && (
+          <BustRescueSheet
+            firstDepTier={firstDepSampleTier}
+            firstDepMaxBonus={firstDepMaxBonus}
+            onDeposit={() => { setBustRescueOpen(false); void openWalletFull('deposit') }}
+            onDismiss={() => setBustRescueOpen(false)}
           />
         )}
 

@@ -488,6 +488,14 @@ export default {
       active: 'Promo Aktif',
       winnersToday: 'Pemenang Hari Ini',
     },
+    bustRescue: {
+      title: 'Hampir menang besar!',
+      subtitle: 'Bonus gratis sudah habis. Deposit uang asli untuk lanjut main — deposit pertama dapat hingga ₱{{max}}',
+      offerLine: 'Deposit ₱{{dep}}, dapat ₱{{total}}',
+      offerHint: 'Makin besar deposit, makin besar bonus — hingga ₱{{max}}',
+      cta: 'Deposit & Lanjut Main',
+      later: 'Nanti saja',
+    },
     promos: {
       trial: {
         tag: 'PEMAIN BARU',
