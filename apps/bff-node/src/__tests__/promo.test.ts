@@ -100,7 +100,6 @@ describe('首席体验官 (trial)', () => {
     mockGetPromoConfig.mockResolvedValue(DEFAULT_CONFIG)
     mockSaveUser.mockResolvedValue(undefined)
     mockCreditWallet.mockResolvedValue({ available: 88, frozen: 0 })
-    // trial 领取有手机短信验证硬闸门
     mockGetKyc.mockResolvedValue({ phoneVerified: true } as never)
     mockListUserIdentities.mockResolvedValue([makePhoneIdentity()])
   })
@@ -169,15 +168,16 @@ describe('首席体验官 (trial)', () => {
     )
   })
 
-  it('POST /promotions/trial-play/claim — 已验证手机号但未设置手机登录时返回 403', async () => {
+  it('POST /promotions/trial-play/claim — 未绑手机号/未验证也可领取（免绑定）', async () => {
     mockGetUser.mockResolvedValue(makeUser({ trialClaimed: false }))
+    mockGetKyc.mockResolvedValue({ phoneVerified: false } as never)
     mockListUserIdentities.mockResolvedValue([])
 
     const res = await request(createApp()).post('/promotions/trial-play/claim')
 
-    expect(res.status).toBe(403)
-    expect(res.body.message).toBe('Phone login setup required')
-    expect(mockCreditWallet).not.toHaveBeenCalled()
+    expect(res.status).toBe(200)
+    expect(res.body.data.amountPhp).toBe(88)
+    expect(mockCreditWallet).toHaveBeenCalledOnce()
   })
 
   it('POST /promotions/trial-play/claim — 重复领取返回 409', async () => {

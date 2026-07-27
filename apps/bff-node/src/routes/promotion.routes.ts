@@ -1,7 +1,7 @@
 import Router from '@koa/router'
 import type { RowDataPacket } from 'mysql2/promise'
 import type { Env } from '../config/env.js'
-import { creditWallet, getKyc, getUser, listLedger, listUserIdentities, saveUser } from '../services/store.js'
+import { creditWallet, getUser, listLedger, saveUser } from '../services/store.js'
 import { formatDisplayTime, nowIso } from '../utils/format.js'
 import { fail, ok } from '../utils/response.js'
 import { getPromoConfig } from '../services/promo-config.service.js'
@@ -60,11 +60,11 @@ async function hasFirstDeposit(env: Env, user: Awaited<ReturnType<typeof getUser
   return rows.length > 0
 }
 
-function promoHighlights(user: Awaited<ReturnType<typeof getUser>>, firstDepositDone: boolean) {
+function promoHighlights(user: Awaited<ReturnType<typeof getUser>>, firstDepositDone: boolean, trialAmount: number) {
   if (!user) return []
   return PROMOS.map((p) => {
     if (p.promoId === 'trial') {
-      return { promoId: p.promoId, highlight: !user.trialClaimed, flagLabel: !user.trialClaimed ? '₱88' : null }
+      return { promoId: p.promoId, highlight: !user.trialClaimed, flagLabel: !user.trialClaimed ? `₱${trialAmount}` : null }
     }
     return { promoId: p.promoId, highlight: !firstDepositDone, flagLabel: !firstDepositDone ? 'Deposit' : null }
   })
@@ -80,7 +80,8 @@ router.get('/redep-offer', async (ctx) => {
 
 router.get('/', async (ctx) => {
   const user = await getUser(ctx.state.redis, ctx.state.userId!)
-  const highlights = promoHighlights(user, await hasFirstDeposit(ctx.state.env, user))
+  const cfg = await getPromoConfig(ctx.state.env)
+  const highlights = promoHighlights(user, await hasFirstDeposit(ctx.state.env, user), cfg.trial.amount)
   ok(
     ctx,
     PROMOS.map((p) => {
@@ -114,12 +115,8 @@ router.post('/trial-play/claim', async (ctx) => {
       const user = await getUser(ctx.state.redis, ctx.state.userId!)
       if (!user) throw new Error('User not found')
       if (user.trialClaimed) throw new Error('Trial bonus already claimed')
-      // 领取前必须已绑定手机号（前端弹窗引导，此处为防绕过的后端硬闸门）。
-      // 后台「手机验证」开关只决定绑定时是否需要短信 OTP，不豁免绑定本身
-      const kyc = await getKyc(ctx.state.redis, ctx.state.userId!)
-      if (!kyc?.phoneVerified) throw new Error('Phone verification required')
-      const hasPhoneLogin = (await listUserIdentities(ctx.state.redis, ctx.state.userId!)).some((i) => i.provider === 'phone')
-      if (!hasPhoneLogin) throw new Error('Phone login setup required')
+      // 2026-07-27 起免绑手机号：领取即到账。防薅羊毛靠 riskAllowed(promo_claim) 风控标记
+      // + 提现闸门（未存款纯彩金不可提、trial 流水墙），绑定手机号后移到提现前(KYC)
       const cfg = await getPromoConfig(ctx.state.env)
       if (!cfg.trial.enabled) throw new Error('Trial bonus is currently disabled')
       const amount = cfg.trial.amount
@@ -148,14 +145,6 @@ router.post('/trial-play/claim', async (ctx) => {
     }
     if (msg === 'errors.duplicateRequest') {
       fail(ctx, 429, msg, 429)
-      return
-    }
-    if (msg === 'Phone verification required') {
-      fail(ctx, 403, msg, 403)
-      return
-    }
-    if (msg === 'Phone login setup required') {
-      fail(ctx, 403, msg, 403)
       return
     }
     fail(ctx, 409, msg)
