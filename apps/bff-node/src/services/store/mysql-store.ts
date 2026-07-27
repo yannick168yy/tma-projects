@@ -887,7 +887,7 @@ export async function recordUserLogin(
     conn.release()
   }
   // 连环注册检测(同设备/同IP 24h≥3)只在新用户注册时跑一次;fire-and-forget,内部自兜异常
-  if (opts.isNewUser) void flagRegistrationBurst(pool(env), userId, opts.deviceId, opts.ip)
+  if (opts.isNewUser) void flagRegistrationBurst(pool(env), userId, opts.deviceId, opts.ip, opts.fpVisitor)
 }
 
 function mapKyc(r: RowDataPacket): KycSubmission {
