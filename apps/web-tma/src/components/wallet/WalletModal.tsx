@@ -407,6 +407,7 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
     return [...tiers].filter((tier) => tier.bonusAmount > 0).sort((a, b) => a.depositAmount - b.depositAmount).slice(0, 3)
   }, [promoConfig, activeCurrency])
   const guideTierCurrency = (promoConfig?.firstdep.tiers?.[activeCurrency]?.length ?? 0) > 0 ? activeCurrency : 'PHP'
+  const guideMaxBonus = Math.max(0, ...(promoConfig?.firstdep.tiers?.[guideTierCurrency] ?? []).map((tier) => tier.bonusAmount))
   const promoLabel = (sourceRef: string) =>
     sourceRef === 'trial' ? t('wallet.promoTrial')
     : sourceRef === 'referral' ? t('wallet.promoReferral')
@@ -891,7 +892,7 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
                   <div className="space-y-4">
                     <div className="rounded-2xl border border-primary/25 bg-primary/10 px-5 py-6 text-center space-y-1.5">
                       <Gift size={30} className="mx-auto text-primary" />
-                      <p className="text-lg font-black text-white">{t('wallet.depositGuideTitle')}</p>
+                      <p className="text-lg font-black text-white">{guideMaxBonus > 0 ? t('wallet.depositGuideTitleMax', { max: fmtPreset(guideMaxBonus, guideTierCurrency) }) : t('wallet.depositGuideTitle')}</p>
                       <p className="text-xs font-bold text-muted-foreground">{t('wallet.depositGuideSubtitle')}</p>
                     </div>
                     {guideTiers.length > 0 && (
