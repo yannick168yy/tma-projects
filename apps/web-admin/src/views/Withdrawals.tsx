@@ -5,6 +5,7 @@ import type { TablePaginationConfig } from 'antd'
 import { getWithdrawals, approveWithdrawal, rejectWithdrawal, getWithdrawalReview, type AdminWithdrawal, type ReviewRuleResult } from '../api'
 import { MobileCardList } from '../components/MobileCardList'
 import { PAGE_SIZE_OPTIONS, DEFAULT_PAGE_SIZE } from '../pagination'
+import { DEFAULT_WITHDRAW_USER_REJECT_REASON, WITHDRAW_USER_REJECT_REASON_OPTIONS } from './review/withdrawRejectReasons'
 
 function wdStatusColor(s: string) {
   return ({ completed: 'green', pending: 'orange', processing: 'blue', rejected: 'red', admin_rejected: 'red', failed: 'red' } as Record<string, string>)[s] ?? 'default'
@@ -62,7 +63,12 @@ export default function Withdrawals() {
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE)
-  const [rejectModal, setRejectModal] = useState({ visible: false, orderId: '', reason: '' })
+  const [rejectModal, setRejectModal] = useState({
+    visible: false,
+    orderId: '',
+    reason: '',
+    userReason: DEFAULT_WITHDRAW_USER_REJECT_REASON,
+  })
 
   async function load(p = 1, ps = pageSize) {
     setPage(p); setPageSize(ps); setLoading(true)
@@ -84,10 +90,11 @@ export default function Withdrawals() {
   }
 
   async function doReject() {
+    if (!rejectModal.userReason) { message.warning('请选择用户可见原因'); return }
     if (!rejectModal.reason.trim()) { message.warning('请填写拒绝原因'); return }
     setOpLoading(true)
     try {
-      await rejectWithdrawal(rejectModal.orderId, rejectModal.reason)
+      await rejectWithdrawal(rejectModal.orderId, rejectModal.reason, rejectModal.userReason)
       message.success('已拒绝，款项已退回用户')
       setRejectModal(m => ({ ...m, visible: false }))
       await load(page)
@@ -111,7 +118,7 @@ export default function Withdrawals() {
           <Popconfirm title="确认批准此提款？" onConfirm={() => doApprove(r.orderId)}>
             <Button type="link" size="small" style={{ color: '#52c41a' }}>批准</Button>
           </Popconfirm>
-          <Button type="link" size="small" danger onClick={() => setRejectModal({ visible: true, orderId: r.orderId, reason: '' })}>拒绝</Button>
+          <Button type="link" size="small" danger onClick={() => setRejectModal({ visible: true, orderId: r.orderId, reason: '', userReason: DEFAULT_WITHDRAW_USER_REJECT_REASON })}>拒绝</Button>
         </Space>
       ) : <span>-</span>,
     },
@@ -166,7 +173,7 @@ export default function Withdrawals() {
                   <Popconfirm title="确认批准此提款？" onConfirm={() => doApprove(r.orderId)}>
                     <Button type="primary" size="large" style={{ flex: 1 }}>批准</Button>
                   </Popconfirm>
-                  <Button danger size="large" style={{ flex: 1 }} onClick={() => setRejectModal({ visible: true, orderId: r.orderId, reason: '' })}>拒绝</Button>
+                  <Button danger size="large" style={{ flex: 1 }} onClick={() => setRejectModal({ visible: true, orderId: r.orderId, reason: '', userReason: DEFAULT_WITHDRAW_USER_REJECT_REASON })}>拒绝</Button>
                 </div>
               )}
             </Card>
@@ -193,11 +200,21 @@ export default function Withdrawals() {
         confirmLoading={opLoading}
         onCancel={() => setRejectModal(m => ({ ...m, visible: false }))}
       >
-        <Input
-          value={rejectModal.reason}
-          onChange={(e) => setRejectModal(m => ({ ...m, reason: e.target.value }))}
-          placeholder="请输入拒绝原因"
-        />
+        <Space direction="vertical" style={{ width: '100%' }}>
+          <Select
+            value={rejectModal.userReason}
+            options={WITHDRAW_USER_REJECT_REASON_OPTIONS}
+            onChange={(userReason) => setRejectModal(m => ({ ...m, userReason }))}
+            style={{ width: '100%' }}
+            placeholder="请选择用户可见原因"
+          />
+          <Input.TextArea
+            value={rejectModal.reason}
+            rows={3}
+            onChange={(e) => setRejectModal(m => ({ ...m, reason: e.target.value }))}
+            placeholder="请输入内部拒绝原因（仅后台可见）"
+          />
+        </Space>
       </Modal>
     </div>
   )

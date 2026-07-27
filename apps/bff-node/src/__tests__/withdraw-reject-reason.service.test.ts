@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { USER_WITHDRAW_REJECT_REASON, resolveUserWithdrawRejectReason } from '../services/withdraw-reject-reason.service.js'
+import {
+  USER_WITHDRAW_REJECT_REASON,
+  normalizeUserWithdrawRejectReason,
+  resolveUserWithdrawRejectReason,
+} from '../services/withdraw-reject-reason.service.js'
 
 describe('提款用户可见拒绝原因', () => {
   it('后台拒绝且未配置用户原因时返回通用文案', () => {
@@ -14,5 +18,11 @@ describe('提款用户可见拒绝原因', () => {
   it('非拒绝状态不返回原因', () => {
     expect(resolveUserWithdrawRejectReason('pending', 'internal note')).toBeNull()
     expect(resolveUserWithdrawRejectReason('failed', 'provider failed')).toBeNull()
+  })
+
+  it('后台提交的用户原因必须来自允许列表', () => {
+    const allowed = 'Withdrawal account information does not match your verified details.'
+    expect(normalizeUserWithdrawRejectReason(allowed)).toBe(allowed)
+    expect(normalizeUserWithdrawRejectReason('internal fraud note')).toBe(USER_WITHDRAW_REJECT_REASON)
   })
 })

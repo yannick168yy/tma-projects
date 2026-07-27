@@ -539,8 +539,8 @@ export const getWithdrawals = (params: { page?: number; pageSize?: number; userI
   get<{ total: number; items: AdminWithdrawal[] }>('/admin/withdrawals', params)
 export const approveWithdrawal = (orderId: string) =>
   post<{ orderId: string; status: string }>(`/admin/withdrawals/${orderId}/approve`)
-export const rejectWithdrawal = (orderId: string, reason: string) =>
-  post<{ orderId: string; status: string }>(`/admin/withdrawals/${orderId}/reject`, { reason })
+export const rejectWithdrawal = (orderId: string, reason: string, userReason: string) =>
+  post<{ orderId: string; status: string }>(`/admin/withdrawals/${orderId}/reject`, { reason, userReason })
 
 // 自动审核
 export interface ReviewRuleResult {

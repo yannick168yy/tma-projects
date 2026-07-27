@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Card, Descriptions, Tag, Button, Space, Table, Modal, Input, message, Spin, Row, Col, Alert, Popconfirm } from 'antd'
+import { Card, Descriptions, Tag, Button, Space, Table, Modal, Input, message, Spin, Row, Col, Alert, Popconfirm, Select } from 'antd'
 import {
   getReviewProposalDetail, approveWithdrawal, rejectWithdrawal, rerunReview,
   type ReviewProposalDetail,
 } from '../../api'
 import { ruleVerdictTag, wdStatusLabel, toPhp } from './shared'
+import { DEFAULT_WITHDRAW_USER_REJECT_REASON, WITHDRAW_USER_REJECT_REASON_OPTIONS } from './withdrawRejectReasons'
 
 // 快照字段 → 中文标签 + 是否金额(分)
 const SNAP_LABELS: Record<string, { label: string; cents?: boolean }> = {
@@ -33,6 +34,7 @@ export default function ProposalDetail() {
   const [data, setData] = useState<ReviewProposalDetail | null>(null)
   const [rejectOpen, setRejectOpen] = useState(false)
   const [reason, setReason] = useState('')
+  const [userReason, setUserReason] = useState(DEFAULT_WITHDRAW_USER_REJECT_REASON)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -55,9 +57,10 @@ export default function ProposalDetail() {
     finally { setOpLoading(false) }
   }
   async function doReject() {
+    if (!userReason) { message.warning('请选择用户可见原因'); return }
     if (!reason.trim()) { message.warning('请填写拒绝原因'); return }
     setOpLoading(true)
-    try { await rejectWithdrawal(orderId, reason); message.success('已拒绝并退款'); setRejectOpen(false); await load() }
+    try { await rejectWithdrawal(orderId, reason, userReason); message.success('已拒绝并退款'); setRejectOpen(false); await load() }
     catch (e) { message.error(e instanceof Error ? e.message : '操作失败') }
     finally { setOpLoading(false) }
   }
@@ -204,7 +207,21 @@ export default function ProposalDetail() {
       </Row>
 
       <Modal open={rejectOpen} title="拒绝原因" onOk={doReject} confirmLoading={opLoading} onCancel={() => setRejectOpen(false)}>
-        <Input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="请输入拒绝原因（将退款给用户）" />
+        <Space direction="vertical" style={{ width: '100%' }}>
+          <Select
+            value={userReason}
+            options={WITHDRAW_USER_REJECT_REASON_OPTIONS}
+            onChange={setUserReason}
+            style={{ width: '100%' }}
+            placeholder="请选择用户可见原因"
+          />
+          <Input.TextArea
+            value={reason}
+            rows={3}
+            onChange={(e) => setReason(e.target.value)}
+            placeholder="请输入内部拒绝原因（仅后台可见）"
+          />
+        </Space>
       </Modal>
     </div>
   )

@@ -7,7 +7,7 @@ import { getMysqlPool, isMysqlEnabled } from '../../clients/mysql.client.js'
 import { fail, ok } from '../../utils/response.js'
 import { nowIso } from '../../utils/format.js'
 import type { Env } from '../../config/env.js'
-import { USER_WITHDRAW_REJECT_REASON } from '../../services/withdraw-reject-reason.service.js'
+import { normalizeUserWithdrawRejectReason } from '../../services/withdraw-reject-reason.service.js'
 
 const router = new Router({ prefix: '/withdrawals' })
 
@@ -64,7 +64,7 @@ router.get('/:orderId/review', async (ctx) => {
 })
 
 router.post('/:orderId/reject', async (ctx) => {
-  const body = ctx.request.body as { reason?: string }
+  const body = ctx.request.body as { reason?: string; userReason?: string }
   const order = await getWithdraw(ctx.state.redis, ctx.params.orderId)
   if (!order) { fail(ctx, 404, 'Order not found', 404); return }
   if (order.status !== 'pending') {
@@ -73,7 +73,7 @@ router.post('/:orderId/reject', async (ctx) => {
 
   order.status = 'admin_rejected'
   order.rejectReason = body.reason ?? 'Rejected by admin'
-  order.rejectReasonUser = USER_WITHDRAW_REJECT_REASON
+  order.rejectReasonUser = normalizeUserWithdrawRejectReason(body.userReason)
   order.completedAt = nowIso()
   await saveWithdraw(ctx.state.redis, order)
 
