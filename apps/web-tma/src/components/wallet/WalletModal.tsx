@@ -23,7 +23,6 @@ import { isKycGatePassed } from '@/api/kyc'
 import { useKycGate } from '@/hooks/useKycGate'
 import { CRYPTO_DEPOSIT, CRYPTO_WITHDRAW, FIAT_DEPOSIT, FIAT_WITHDRAW, TG_WALLET_DEPOSIT, type PayMethod } from '@/data/wallet'
 import { useBottomSheetDrag } from '@/hooks/useBottomSheetDrag'
-import defaultTopupBanner from '@/assets/wallet/topup-banner.webp'
 
 interface Props { open: boolean; onClose: () => void; initialTab?: 'deposit'|'withdraw'|'history'; fullscreen?: boolean }
 
@@ -130,7 +129,8 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
   const [turnoverShake, setTurnoverShake] = useState(false)
   const [turnoverExpanded, setTurnoverExpanded] = useState(false)
   const [guideRulesExpanded, setGuideRulesExpanded] = useState(false)
-  const [walletBannerUrl, setWalletBannerUrl] = useState(defaultTopupBanner)
+  // null=无后台上传 banner，走代码渲染的首充默认 banner（金额动态取档位，避免图片文案与实际活动口径不符）
+  const [walletBannerUrl, setWalletBannerUrl] = useState<string | null>(null)
   const [redepOffer, setRedepOffer] = useState<RedepOffer | null>(null)
   const [redepNow, setRedepNow] = useState(() => Date.now())
   const [firstDepDone, setFirstDepDone] = useState<boolean | null>(null)
@@ -232,7 +232,7 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
       pendingWithdrawMethodRef.current = null
       setTurnoverProgress(null); setTurnoverLoading(false)
       void walletStore.refresh()
-      void fetchHomeContent().then((content) => setWalletBannerUrl(content.walletBanners[0]?.imageUrl ?? defaultTopupBanner)).catch(()=>setWalletBannerUrl(defaultTopupBanner))
+      void fetchHomeContent().then((content) => setWalletBannerUrl(content.walletBanners[0]?.imageUrl ?? null)).catch(()=>setWalletBannerUrl(null))
       setChannelsLoading(true)
       setCryptoChannelsLoaded(false)
       const depP = fetchPaymentChannels('deposit').then(setPaymentDepositChannels).catch(()=>{})
@@ -416,6 +416,9 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
   }, [promoConfig, activeCurrency])
   const guideTierCurrency = (promoConfig?.firstdep.tiers?.[activeCurrency]?.length ?? 0) > 0 ? activeCurrency : 'PHP'
   const guideMaxBonus = Math.max(0, ...(promoConfig?.firstdep.tiers?.[guideTierCurrency] ?? []).map((tier) => tier.bonusAmount))
+  const guideMaxBonusDisplay = guideTierCurrency === 'PHP' ? `₱${guideMaxBonus.toLocaleString('en-PH')}` : `${guideMaxBonus} ${guideTierCurrency}`
+  // 已完成首充的用户不再看首充默认 banner（后台上传图不受此限制）
+  const showFirstDepDefaultBanner = guideMaxBonus > 0 && (promoConfig?.firstdep.enabled ?? false) && firstDepDone !== true
   const promoLabel = (sourceRef: string) =>
     sourceRef === 'trial' ? t('wallet.promoTrial')
     : sourceRef === 'referral' ? t('wallet.promoReferral')
@@ -750,10 +753,22 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
         <div ref={scrollRef} data-sheet-scroll className="page-scroll flex-1 px-5 pb-4 pt-4 hide-scrollbar overflow-y-auto">
           {tab !== 'history' ? (
             <>
-              {/* Banner 随内容滚动，可向上滑动隐藏 */}
-              <div className="overflow-hidden rounded-2xl border border-primary/50 bg-[#0b1424] shadow-[0_0_24px_rgba(245,158,11,0.18)] mb-4">
-                <img src={walletBannerUrl} alt="" className="block w-full aspect-[5.6/1] object-cover" />
-              </div>
+              {/* Banner 随内容滚动，可向上滑动隐藏；后台上传图优先，否则代码渲染首充 banner（金额取实际档位） */}
+              {(walletBannerUrl || showFirstDepDefaultBanner) && (
+                <div className="overflow-hidden rounded-2xl border border-primary/50 bg-[#0b1424] shadow-[0_0_24px_rgba(245,158,11,0.18)] mb-4">
+                  {walletBannerUrl ? (
+                    <img src={walletBannerUrl} alt="" className="block w-full aspect-[5.6/1] object-cover" />
+                  ) : (
+                    <div className="flex w-full aspect-[5.6/1] items-center gap-3 bg-gradient-to-r from-[#1a0533] via-[#4a0e82] to-[#c0392b] px-4">
+                      <span className="text-2xl">🎁</span>
+                      <div className="min-w-0 text-left">
+                        <p className="text-[10px] font-black tracking-widest text-amber-300/90">{t('wallet.firstDepBannerLabel')}</p>
+                        <p className="truncate text-base font-black text-white">{t('wallet.firstDepBannerText', { max: guideMaxBonusDisplay })}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
               {tab === 'deposit' ? (
                 <div className="space-y-4">
                   {/* 充值分类 tab：电子钱包 / 虚拟币 / Telegram */}

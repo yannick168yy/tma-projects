@@ -1268,6 +1268,8 @@ export default {
     turnoverRemaining: '还需流水',
     turnoverDeposit: '存款流水',
     turnoverPromo: '优惠流水',
+    firstDepBannerLabel: '首充加码',
+    firstDepBannerText: '首充最高送 {{max}}',
     promoTrial: '首席体验官',
     promoReferral: '邀请共赢',
     promoFirstdep: '首充嘉年华',

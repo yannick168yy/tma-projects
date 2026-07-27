@@ -869,6 +869,8 @@ export default {
     turnoverRemaining: 'Còn cần',
     turnoverDeposit: 'Nạp tiền',
     turnoverPromo: 'Khuyến mãi',
+    firstDepBannerLabel: 'THƯỞNG NẠP ĐẦU',
+    firstDepBannerText: 'Nhận tới {{max}} khi nạp lần đầu',
     promoTrial: 'Thưởng Thử',
     promoReferral: 'Thưởng Giới Thiệu',
     promoFirstdep: 'Thưởng Nạp Đầu',

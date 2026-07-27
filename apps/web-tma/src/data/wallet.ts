@@ -102,7 +102,3 @@ export const CRYPTO_WITHDRAW: PayMethod[] = [
   },
 ]
 
-export const WALLET_BANNERS = [
-  { gradient: 'from-[#1a0533] via-[#4a0e82] to-[#c0392b]', label: 'FIRST DEPOSIT BONUS', text: '100% up to ₱50,000', icon: '🎁' },
-  { gradient: 'from-[#0a2444] via-[#1a4a8a] to-[#0d7b4f]', label: 'ZERO FEE CRYPTO', text: 'Deposit with 0% fees', icon: '💎' },
-]
