@@ -37,6 +37,7 @@ type UserRow = RowDataPacket & {
   last_login_at: Date | null
   last_login_ip: string | null
   last_login_region: string | null
+  last_platform: string | null
   register_ip: string | null
   register_region: string | null
   register_entry_source: string | null
@@ -79,6 +80,7 @@ function mapUser(row: UserRow): UserRecord {
     lastLoginAt: row.last_login_at ? new Date(row.last_login_at).toISOString() : undefined,
     lastLoginIp: row.last_login_ip ?? undefined,
     lastLoginRegion: row.last_login_region ?? undefined,
+    lastPlatform: row.last_platform ?? undefined,
     registerIp: row.register_ip ?? undefined,
     registerRegion: row.register_region ?? undefined,
     registerEntrySource: row.register_entry_source ?? undefined,
@@ -859,7 +861,7 @@ export const listWithdrawals = listOrderWithdrawals
 export async function recordUserLogin(
   env: Env,
   userId: string,
-  opts: { ip?: string; region?: string; userAgent?: string; authMethod?: string; deviceId?: string; fpVisitor?: string; fpSignals?: string; entrySource?: string; isNewUser?: boolean },
+  opts: { ip?: string; region?: string; userAgent?: string; authMethod?: string; deviceId?: string; fpVisitor?: string; fpSignals?: string; entrySource?: string; platform?: string; isNewUser?: boolean },
 ): Promise<void> {
   const conn = await pool(env).getConnection()
   try {
@@ -870,14 +872,15 @@ export async function recordUserLogin(
        SET last_login_at = NOW(3),
            last_login_ip = ?,
            last_login_region = ?,
+           last_platform = COALESCE(?, last_platform),
            register_device_id = COALESCE(register_device_id, ?),
            register_entry_source = IF(? = 1, COALESCE(register_entry_source, ?), register_entry_source)
        WHERE id = ?`,
-      [opts.ip ?? null, opts.region ?? null, opts.deviceId ?? null, opts.isNewUser ? 1 : 0, opts.entrySource ?? null, userId],
+      [opts.ip ?? null, opts.region ?? null, opts.platform ?? null, opts.deviceId ?? null, opts.isNewUser ? 1 : 0, opts.entrySource ?? null, userId],
     )
     await conn.execute(
-      `INSERT INTO bg_login_log (user_id, ip, region, user_agent, auth_method, entry_source, device_id, fp_visitor, fp_signals) VALUES (?,?,?,?,?,?,?,?,?)`,
-      [userId, opts.ip ?? null, opts.region ?? null, opts.userAgent?.slice(0, 512) ?? null, opts.authMethod ?? 'telegram', opts.entrySource?.slice(0, 255) ?? null, opts.deviceId ?? null, opts.fpVisitor ?? null, opts.fpSignals ?? null],
+      `INSERT INTO bg_login_log (user_id, ip, region, user_agent, auth_method, entry_source, platform, device_id, fp_visitor, fp_signals) VALUES (?,?,?,?,?,?,?,?,?,?)`,
+      [userId, opts.ip ?? null, opts.region ?? null, opts.userAgent?.slice(0, 512) ?? null, opts.authMethod ?? 'telegram', opts.entrySource?.slice(0, 255) ?? null, opts.platform ?? null, opts.deviceId ?? null, opts.fpVisitor ?? null, opts.fpSignals ?? null],
     )
     await conn.commit()
   } catch (e) {

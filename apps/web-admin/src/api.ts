@@ -246,7 +246,7 @@ export const setBiAlertStatus = (id: number, status: 'ack' | 'closed') =>
 export interface AdminUser {
   id: string; displayName: string; email: string | null; telegramUsername: string | null
   status: string; label: string
-  lastLoginAt: string | null; lastLoginRegion: string | null
+  lastLoginAt: string | null; lastLoginRegion: string | null; lastPlatform: string | null
   registerRegion: string | null
   registeredAt: string; balance: number; level: number
   channelCode: string | null
@@ -270,7 +270,17 @@ export interface UserAttribution {
   clientIp: string | null; createdAt: string
 }
 export interface LoginLog {
-  id: number; ip: string | null; region: string | null; userAgent: string | null; authMethod: string; entrySource: string | null; deviceId: string | null; fpVisitor: string | null; createdAt: string
+  id: number; ip: string | null; region: string | null; userAgent: string | null; authMethod: string; entrySource: string | null; platform: string | null; deviceId: string | null; fpVisitor: string | null; createdAt: string
+}
+
+// 客户端平台展示：与 web-tma pwa.ts clientPlatform() 上报值一一对应
+export function platformMeta(p: string | null | undefined): { text: string; color: string } {
+  return ({
+    web: { text: '🌐 网页', color: 'default' },
+    app: { text: '📱 App', color: 'green' },
+    pwa: { text: '⚡ PWA', color: 'geekblue' },
+    telegram: { text: '✈️ TG', color: 'cyan' },
+  } as Record<string, { text: string; color: string }>)[p ?? ''] ?? { text: p || '-', color: 'default' }
 }
 export interface BetOrder {
   id: number; providerTxnId: string; roundId: string | null
@@ -290,7 +300,7 @@ export interface WalletBalance {
   currency: string; available: number; frozen: number
 }
 export const getUsers = (params: {
-  page?: number; pageSize?: number; search?: string; status?: string; channel?: string
+  page?: number; pageSize?: number; search?: string; status?: string; channel?: string; platform?: string
   dateFrom?: string; dateTo?: string; minDeposit?: number; minWithdraw?: number
   sortBy?: string; sortOrder?: string
 }) =>

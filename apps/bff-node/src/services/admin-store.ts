@@ -290,7 +290,7 @@ export async function listAdminUsers(
   env: Env,
   redis: Redis,
   opts: {
-    page: number; pageSize: number; search?: string; status?: string; channel?: string
+    page: number; pageSize: number; search?: string; status?: string; channel?: string; platform?: string
     dateFrom?: string; dateTo?: string; minDeposit?: number; minWithdraw?: number
     sortBy?: string; sortOrder?: string
   },
@@ -311,6 +311,10 @@ export async function listAdminUsers(
   if (opts.status) {
     conditions.push(`u.status = ?`)
     params.push(opts.status)
+  }
+  if (opts.platform) {
+    conditions.push(`u.last_platform = ?`)
+    params.push(opts.platform)
   }
   // 投放渠道筛选：organic=自然量(无归因记录)，其余精确匹配短码
   if (opts.channel === 'organic') {
@@ -367,7 +371,7 @@ export async function listAdminUsers(
 
   const [rows] = await pool(env).query<RowDataPacket[]>(
     `SELECT u.id, u.display_name, u.email, u.status, u.label,
-            u.last_login_at, u.last_login_region, u.register_region, u.registered_at,
+            u.last_login_at, u.last_login_region, u.last_platform, u.register_region, u.registered_at,
             COALESCE(w.available,0) as available, attr.channel_code,
             COALESCE(dep.php,0) AS deposit_php, COALESCE(wd.php,0) AS withdraw_php
      FROM bg_user u
@@ -406,6 +410,7 @@ export async function listAdminUsers(
     label: String(r.label ?? 'normal'),
     lastLoginAt: r.last_login_at ? new Date(r.last_login_at as Date).toISOString() : null,
     lastLoginRegion: r.last_login_region ? String(r.last_login_region) : null,
+    lastPlatform: r.last_platform ? String(r.last_platform) : null,
     registerRegion: r.register_region ? String(r.register_region) : null,
     registeredAt: (() => { const d = new Date(r.registered_at as Date); return isNaN(d.getTime()) ? null : d.toISOString() })(),
     balance: Number(r.available),

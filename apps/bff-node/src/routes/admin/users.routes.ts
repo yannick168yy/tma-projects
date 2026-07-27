@@ -27,6 +27,7 @@ router.get('/', async (ctx) => {
   const search = ctx.query.search ? String(ctx.query.search) : undefined
   const status = ctx.query.status ? String(ctx.query.status) : undefined
   const channel = ctx.query.channel ? String(ctx.query.channel) : undefined
+  const platform = ctx.query.platform ? String(ctx.query.platform) : undefined
   const dateFrom = ctx.query.dateFrom ? String(ctx.query.dateFrom) : undefined
   const dateTo = ctx.query.dateTo ? String(ctx.query.dateTo) : undefined
   const minDeposit = ctx.query.minDeposit != null && ctx.query.minDeposit !== '' ? Number(ctx.query.minDeposit) : undefined
@@ -34,7 +35,7 @@ router.get('/', async (ctx) => {
   const sortBy = ctx.query.sortBy ? String(ctx.query.sortBy) : undefined
   const sortOrder = ctx.query.sortOrder ? String(ctx.query.sortOrder) : undefined
   const result = await listAdminUsers(ctx.state.env, ctx.state.redis, {
-    page, pageSize, search, status, channel, dateFrom, dateTo,
+    page, pageSize, search, status, channel, platform, dateFrom, dateTo,
     minDeposit: Number.isFinite(minDeposit) ? minDeposit : undefined,
     minWithdraw: Number.isFinite(minWithdraw) ? minWithdraw : undefined,
     sortBy, sortOrder,
@@ -132,7 +133,7 @@ router.get('/:id/login-logs', async (ctx) => {
   const { page, pageSize, offset } = pageParams(ctx)
   const pool = getMysqlPool(ctx.state.env)
   const [rows] = await pool.query<RowDataPacket[]>(
-    `SELECT id, ip, region, user_agent, auth_method, entry_source, device_id, fp_visitor, created_at
+    `SELECT id, ip, region, user_agent, auth_method, entry_source, platform, device_id, fp_visitor, created_at
      FROM bg_login_log WHERE user_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?`,
     [ctx.params.id, pageSize, offset],
   )
@@ -147,6 +148,7 @@ router.get('/:id/login-logs', async (ctx) => {
       userAgent: r.user_agent ? String(r.user_agent) : null,
       authMethod: String(r.auth_method),
       entrySource: r.entry_source ? String(r.entry_source) : null,
+      platform: r.platform ? String(r.platform) : null,
       deviceId: r.device_id ? String(r.device_id) : null,
       fpVisitor: r.fp_visitor ? String(r.fp_visitor) : null,
       createdAt: new Date(r.created_at as Date).toISOString(),

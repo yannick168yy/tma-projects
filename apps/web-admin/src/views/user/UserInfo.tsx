@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Avatar, Card, Descriptions, Tag, Typography, Button, Modal, Form, Input, Space, message } from 'antd'
 import { UserOutlined } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
-import { getUserDetail, resetUserPassword, fmtCurrencyAmounts } from '../../api'
+import { getUserDetail, resetUserPassword, fmtCurrencyAmounts, platformMeta } from '../../api'
 
 type Detail = Awaited<ReturnType<typeof getUserDetail>>
 
@@ -108,6 +108,11 @@ export default function UserInfo({ detail, onSuccess }: Props) {
           <Descriptions.Item label="最后登录区域">
             <span>{String(u.lastLoginRegion ?? '') || '-'}</span>
             {!!u.lastLoginIp && <span style={{ marginLeft: 6 }}>{lookup('ip', u.lastLoginIp)}</span>}
+          </Descriptions.Item>
+          <Descriptions.Item label="最近登录客户端">
+            {u.lastPlatform
+              ? (() => { const m = platformMeta(String(u.lastPlatform)); return <Tag color={m.color}>{m.text}</Tag> })()
+              : <span style={{ color: '#bbb' }}>-</span>}
           </Descriptions.Item>
           <Descriptions.Item label="投放渠道">
             {detail.attribution?.channelCode

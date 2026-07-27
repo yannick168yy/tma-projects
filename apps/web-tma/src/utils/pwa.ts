@@ -59,6 +59,15 @@ export function installSource(): 'pwa' | 'apk' {
   return isNativeApp() ? 'apk' : 'pwa'
 }
 
+// 当前运行的客户端平台，随登录请求经 X-Platform 头上报，后端落 bg_login_log.platform / bg_user.last_platform。
+// 优先级：Telegram > App(APK壳) > PWA(主屏启动) > 普通网页 —— 一个环境同时命中多项时取更具体者。
+export function clientPlatform(): 'telegram' | 'app' | 'pwa' | 'web' {
+  if (isInsideTelegram()) return 'telegram'
+  if (isNativeApp()) return 'app'
+  if (isStandalone()) return 'pwa'
+  return 'web'
+}
+
 export function isIos(): boolean {
   const ua = navigator.userAgent
   return /iPhone|iPad|iPod/.test(ua) || (ua.includes('Mac') && 'ontouchend' in document)

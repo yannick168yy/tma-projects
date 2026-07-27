@@ -45,6 +45,8 @@ export interface UserRecord {
   lastLoginAt?: string
   lastLoginIp?: string
   lastLoginRegion?: string
+  /** 最近登录客户端平台 web/app/pwa/telegram */
+  lastPlatform?: string
   registerIp?: string
   registerRegion?: string
   registerEntrySource?: string

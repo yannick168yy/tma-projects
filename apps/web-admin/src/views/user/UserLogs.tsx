@@ -4,6 +4,7 @@ import { Card, Tabs, Table, Spin, Alert, Typography, Modal, Descriptions, InputN
 import {
   getUserTurnover, adjustTurnoverRequirement,
   getUserLedgerPage, getUserLoginLogsPage, getUserBetOrdersPage, getUserPromoClaimsPage,
+  platformMeta,
   type TurnoverRequirement, type PagedResult, type UserBetRound,
 } from '../../api'
 
@@ -105,6 +106,7 @@ export default function UserLogs({ userId }: Props) {
   ]
   const loginCols = [
     { title: '登录方式', dataIndex: 'authMethod', key: 'method', width: 90 },
+    { title: '客户端', dataIndex: 'platform', key: 'platform', width: 90, render: (v: string | null) => { const m = platformMeta(v); return v ? <Tag color={m.color}>{m.text}</Tag> : '-' } },
     { title: '登录网址/TMA', dataIndex: 'entrySource', key: 'entrySource', width: 130, render: (v: string | null) => v || '-' },
     { title: 'IP', dataIndex: 'ip', key: 'ip', width: 120, render: (v: string | null) => lookup('ip', v) },
     { title: '区域', dataIndex: 'region', key: 'region', width: 130, render: (v: string | null) => v || '-' },

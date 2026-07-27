@@ -5,6 +5,7 @@
 //   signals   —— 原始信号，后端做相似度匹配用（hash 漂了但 GPU+屏幕+时区一致仍可判同设备）
 // 三者都与 IP 无关：用户换 WiFi/4G/代理，这三个值都不变。
 import FingerprintJS from '@fingerprintjs/fingerprintjs'
+import { clientPlatform } from '@/utils/pwa'
 
 const DEVICE_ID_KEY = 'betogo_device_id'
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 365 * 2 // 2 年
@@ -98,7 +99,7 @@ export async function initFingerprint(): Promise<void> {
 // fpVisitor/signals 在 initFingerprint 完成前可能为空，属可接受的降级。
 export function fingerprintHeaders(): Record<string, string> {
   const deviceId = cache?.deviceId ?? getDeviceId()
-  const headers: Record<string, string> = { 'X-Device-Id': deviceId }
+  const headers: Record<string, string> = { 'X-Device-Id': deviceId, 'X-Platform': clientPlatform() }
   if (cache?.fpVisitor) headers['X-Fp-Visitor'] = cache.fpVisitor
   if (cache?.signals) headers['X-Fp-Signals'] = cache.signals
   return headers

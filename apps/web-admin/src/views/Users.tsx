@@ -5,7 +5,7 @@ import type { TablePaginationConfig } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import type { SorterResult, SortOrder } from 'antd/es/table/interface'
 import dayjs, { type Dayjs } from 'dayjs'
-import { getUsers, updateUserStatus, updateUserLabel, getAdChannelCodes, fmtCurrencyAmounts, type AdminUser } from '../api'
+import { getUsers, updateUserStatus, updateUserLabel, getAdChannelCodes, fmtCurrencyAmounts, platformMeta, type AdminUser } from '../api'
 import { PAGE_SIZE_OPTIONS, DEFAULT_PAGE_SIZE } from '../pagination'
 
 function statusColor(s: string) {
@@ -28,6 +28,7 @@ export default function Users() {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<string | undefined>()
   const [channelFilter, setChannelFilter] = useState<string | undefined>()
+  const [platformFilter, setPlatformFilter] = useState<string | undefined>()
   const [channelOptions, setChannelOptions] = useState<string[]>([])
   const [dateRange, setDateRange] = useState<[Dayjs | null, Dayjs | null] | null>(null)
   const [minDeposit, setMinDeposit] = useState<number | null>(null)
@@ -48,7 +49,7 @@ export default function Users() {
     try {
       const res = await getUsers({
         page: p, pageSize: ps,
-        search: search || undefined, status: statusFilter, channel: channelFilter,
+        search: search || undefined, status: statusFilter, channel: channelFilter, platform: platformFilter,
         dateFrom: dateRange?.[0]?.format('YYYY-MM-DD'),
         dateTo: dateRange?.[1]?.format('YYYY-MM-DD'),
         minDeposit: minDeposit ?? undefined,
@@ -127,6 +128,7 @@ export default function Users() {
     { title: '状态', key: 'status', width: 80, render: (_: unknown, r: AdminUser) => <Tag color={statusColor(r.status)}>{statusLabel(r.status)}</Tag> },
     { title: '标记', key: 'label', width: 90, render: (_: unknown, r: AdminUser) => <Tag color={r.label === 'arbitrage' ? 'red' : r.label === 'test' ? 'blue' : 'default'}>{labelText(r.label)}</Tag> },
     { title: '投放渠道', dataIndex: 'channelCode', key: 'channelCode', width: 100, render: (v: string | null) => v ? <Tag color="geekblue">{v}</Tag> : <span style={{ color: '#bbb' }}>自然量</span> },
+    { title: '客户端', dataIndex: 'lastPlatform', key: 'lastPlatform', width: 90, render: (v: string | null) => { const m = platformMeta(v); return v ? <Tag color={m.color}>{m.text}</Tag> : <span style={{ color: '#bbb' }}>-</span> } },
     { title: '注册区域', dataIndex: 'registerRegion', key: 'registerRegion', width: 120, render: (v: string | null) => v || '-' },
     {
       title: '最后登录', key: 'lastLoginAt', width: 160, sorter: true, sortOrder: sortOrderProp('lastLoginAt'),
@@ -222,6 +224,19 @@ export default function Users() {
           options={[
             { value: 'organic', label: '自然量（无归因）' },
             ...channelOptions.map((c) => ({ value: c, label: c })),
+          ]}
+        />
+        <Select
+          value={platformFilter}
+          placeholder="客户端"
+          allowClear
+          style={{ width: 120 }}
+          onChange={(v) => { setPlatformFilter(v); void load(1) }}
+          options={[
+            { value: 'web', label: '🌐 网页' },
+            { value: 'app', label: '📱 App' },
+            { value: 'pwa', label: '⚡ PWA' },
+            { value: 'telegram', label: '✈️ Telegram' },
           ]}
         />
         <InputNumber
