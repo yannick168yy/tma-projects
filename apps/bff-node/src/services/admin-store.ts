@@ -5,21 +5,24 @@ import type { Env } from '../config/env.js'
 import { getLevelThresholds, resolveLevel } from './rebate.service.js'
 import { phpRateMap } from './marketing-bi.service.js'
 
-// 累计充值金额（已支付订单，全币种折 PHP 合并）：批量查一页用户，返回 user_id -> PHP 金额
-export async function getUserDepositTotals(
+// 金额全币种折 PHP 合并：批量查一页用户，返回 user_id -> PHP 金额
+async function sumOrdersPhp(
   env: Env,
   redis: Redis,
+  table: 'bg_deposit_order' | 'bg_withdraw_order',
+  statusIn: string[],
   userIds: string[],
 ): Promise<Map<string, number>> {
   const map = new Map<string, number>()
   if (!userIds.length) return map
-  const placeholders = userIds.map(() => '?').join(',')
+  const idPh = userIds.map(() => '?').join(',')
+  const stPh = statusIn.map(() => '?').join(',')
   const [rows] = await pool(env).query<RowDataPacket[]>(
     `SELECT user_id, currency AS cur, COALESCE(SUM(amount),0) AS amt
-     FROM bg_deposit_order
-     WHERE status='paid' AND user_id IN (${placeholders})
+     FROM ${table}
+     WHERE status IN (${stPh}) AND user_id IN (${idPh})
      GROUP BY user_id, currency`,
-    userIds,
+    [...statusIn, ...userIds],
   )
   const rates = await phpRateMap(redis, env, rows.map((r) => String(r.cur)))
   for (const r of rows) {
@@ -28,6 +31,15 @@ export async function getUserDepositTotals(
     map.set(uid, (map.get(uid) ?? 0) + php)
   }
   return map
+}
+
+// 累计充值金额（已支付订单，全币种折 PHP 合并）
+export function getUserDepositTotals(env: Env, redis: Redis, userIds: string[]) {
+  return sumOrdersPhp(env, redis, 'bg_deposit_order', ['paid'], userIds)
+}
+// 累计取款金额（已完成订单，全币种折 PHP 合并）
+export function getUserWithdrawTotals(env: Env, redis: Redis, userIds: string[]) {
+  return sumOrdersPhp(env, redis, 'bg_withdraw_order', ['completed'], userIds)
 }
 
 export const SMS_TEST_MODE_KEY = 'sms_test_mode'
@@ -243,10 +255,35 @@ export async function getDashboardStats(env: Env): Promise<DashboardStats> {
   }
 }
 
+// 折 PHP 支持的币种（其余按 1:1 计）
+const FOLD_CURRENCIES = ['PHP', 'USDT', 'USDC', 'TRX_TESTNET']
+
+// 排序字段白名单 -> SQL 列（值来自后端固定映射，杜绝注入）
+const USER_SORT_COLUMNS: Record<string, string> = {
+  lastLoginAt: 'u.last_login_at',
+  balance: 'available',
+  depositAmount: 'deposit_php',
+  withdrawAmount: 'withdraw_php',
+  id: 'CAST(REGEXP_REPLACE(u.id, "[^0-9]", "") AS UNSIGNED)',
+}
+
+// 折 PHP 的 CASE 片段：币种->汇率来自 Redis 快照，数值直接内联（非用户输入，安全）
+function phpFoldCase(rates: Map<string, number>): string {
+  const whens = [...rates.entries()]
+    .filter(([cur]) => cur !== 'PHP')
+    .map(([cur, rate]) => `WHEN ${JSON.stringify(cur)} THEN ${Number(rate) || 0}`)
+    .join(' ')
+  return whens ? `CASE currency ${whens} ELSE 1 END` : '1'
+}
+
 export async function listAdminUsers(
   env: Env,
   redis: Redis,
-  opts: { page: number; pageSize: number; search?: string; status?: string; channel?: string },
+  opts: {
+    page: number; pageSize: number; search?: string; status?: string; channel?: string
+    dateFrom?: string; dateTo?: string; minDeposit?: number; minWithdraw?: number
+    sortBy?: string; sortOrder?: string
+  },
 ) {
   const offset = (opts.page - 1) * opts.pageSize
   const conditions: string[] = []
@@ -272,31 +309,61 @@ export async function listAdminUsers(
     conditions.push(`attr.channel_code = ?`)
     params.push(opts.channel)
   }
+  // 注册日期范围（马尼拉日 -> UTC 半开区间）
+  if (opts.dateFrom) {
+    conditions.push(`u.registered_at >= ?`)
+    params.push(new Date(`${opts.dateFrom}T00:00:00+08:00`))
+  }
+  if (opts.dateTo) {
+    conditions.push(`u.registered_at < ?`)
+    params.push(new Date(new Date(`${opts.dateTo}T00:00:00+08:00`).getTime() + 86400000))
+  }
+
+  // 充值/取款金额门槛需先算折 PHP 汇率快照，构造 SQL 内联 CASE
+  const rates = await phpRateMap(redis, env, FOLD_CURRENCIES)
+  const foldCase = phpFoldCase(rates)
+  const depJoin = `LEFT JOIN (
+       SELECT user_id, SUM(amount * (${foldCase})) AS php
+       FROM bg_deposit_order WHERE status = 'paid' GROUP BY user_id
+     ) dep ON dep.user_id = u.id`
+  const wdJoin = `LEFT JOIN (
+       SELECT user_id, SUM(amount * (${foldCase})) AS php
+       FROM bg_withdraw_order WHERE status = 'completed' GROUP BY user_id
+     ) wd ON wd.user_id = u.id`
+
+  if (opts.minDeposit != null) {
+    conditions.push(`COALESCE(dep.php,0) >= ?`)
+    params.push(opts.minDeposit)
+  }
+  if (opts.minWithdraw != null) {
+    conditions.push(`COALESCE(wd.php,0) >= ?`)
+    params.push(opts.minWithdraw)
+  }
 
   const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : ''
   const attrJoin = `LEFT JOIN bg_user_attribution attr ON attr.user_id = u.id`
+  const walletJoin = `LEFT JOIN bg_wallet w ON w.user_id = u.id AND w.currency = 'PHP'`
+  const baseJoins = `${walletJoin} ${attrJoin} ${depJoin} ${wdJoin}`
+
+  const sortCol = USER_SORT_COLUMNS[opts.sortBy ?? ''] ?? null
+  const sortDir = opts.sortOrder === 'asc' ? 'ASC' : 'DESC'
+  const orderBy = sortCol ? `ORDER BY ${sortCol} ${sortDir}` : `ORDER BY u.registered_at DESC`
 
   const [countRows] = await pool(env).query<RowDataPacket[]>(
-    `SELECT COUNT(*) as cnt FROM bg_user u ${attrJoin} ${where}`,
+    `SELECT COUNT(*) as cnt FROM bg_user u ${baseJoins} ${where}`,
     params,
   )
   const total = Number(countRows[0]?.cnt ?? 0)
 
   const [rows] = await pool(env).query<RowDataPacket[]>(
-    `SELECT u.id, u.display_name, u.email, tg.display_label AS telegram_username, u.status, u.label,
+    `SELECT u.id, u.display_name, u.email, u.status, u.label,
             u.last_login_at, u.last_login_region, u.register_region, u.registered_at,
-            COALESCE(w.available,0) as available, attr.channel_code
+            COALESCE(w.available,0) as available, attr.channel_code,
+            COALESCE(dep.php,0) AS deposit_php, COALESCE(wd.php,0) AS withdraw_php
      FROM bg_user u
-     LEFT JOIN bg_wallet w ON w.user_id = u.id AND w.currency = 'PHP'
-     LEFT JOIN (
-       SELECT user_id, MAX(display_label) AS display_label
-       FROM bg_user_identity
-       WHERE provider IN ('telegram','telegram_oidc')
-       GROUP BY user_id
-     ) tg ON tg.user_id = u.id
-     ${attrJoin}
+     ${baseJoins}
      ${where}
-     ORDER BY u.registered_at DESC
+     ${orderBy}
      LIMIT ? OFFSET ?`,
     [...params, opts.pageSize, offset],
   )
@@ -315,13 +382,10 @@ export async function listAdminUsers(
     for (const tr of tRows) levelMap.set(String(tr.user_id), resolveLevel(thresholds, Number(tr.total)))
   }
 
-  const depositMap = await getUserDepositTotals(env, redis, ids)
-
   const items = rows.map((r) => ({
     id: String(r.id),
     displayName: String(r.display_name),
     email: r.email ? String(r.email) : null,
-    telegramUsername: r.telegram_username ? String(r.telegram_username) : null,
     status: String(r.status),
     label: String(r.label ?? 'normal'),
     lastLoginAt: r.last_login_at ? new Date(r.last_login_at as Date).toISOString() : null,
@@ -331,7 +395,8 @@ export async function listAdminUsers(
     balance: Number(r.available),
     channelCode: r.channel_code ? String(r.channel_code) : null,
     level: levelMap.get(String(r.id)) ?? 1,
-    depositAmount: depositMap.get(String(r.id)) ?? 0,
+    depositAmount: Number(r.deposit_php),
+    withdrawAmount: Number(r.withdraw_php),
   }))
 
   return { total, items }

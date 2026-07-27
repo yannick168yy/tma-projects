@@ -119,6 +119,11 @@ export default function UserInfo({ detail, onSuccess }: Props) {
               ₱{Number(detail.depositTotal ?? 0).toFixed(2)}
             </Typography.Text>
           </Descriptions.Item>
+          <Descriptions.Item label="累计取款">
+            <Typography.Text strong style={{ color: Number(detail.withdrawTotal) > 0 ? '#cf1322' : undefined }}>
+              ₱{Number(detail.withdrawTotal ?? 0).toFixed(2)}
+            </Typography.Text>
+          </Descriptions.Item>
           <Descriptions.Item label="余额">
             <Space direction="vertical" size={2}>
               {walletBalances.map((w) => (

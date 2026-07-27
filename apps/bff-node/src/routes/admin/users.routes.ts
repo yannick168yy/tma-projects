@@ -1,5 +1,5 @@
 import Router from '@koa/router'
-import { listAdminUsers, writeAuditLog, updateUserLabel, getLoginLogs, getBetOrders, getOpPasswordHash, getUserDepositTotals } from '../../services/admin-store.js'
+import { listAdminUsers, writeAuditLog, updateUserLabel, getLoginLogs, getBetOrders, getOpPasswordHash, getUserDepositTotals, getUserWithdrawTotals } from '../../services/admin-store.js'
 import { getUser, saveUser, getWallet, getWalletBalances, listLedger, adminAdjustBalance, getKyc, setUserKycOverride, listUserIdentities, reassignIdentity } from '../../services/store/index.js'
 import { buildKycStatusResponse, getKycStepConfig } from '../../services/kyc.service.js'
 import { verifyPassword } from '../../services/admin-auth.service.js'
@@ -27,14 +27,25 @@ router.get('/', async (ctx) => {
   const search = ctx.query.search ? String(ctx.query.search) : undefined
   const status = ctx.query.status ? String(ctx.query.status) : undefined
   const channel = ctx.query.channel ? String(ctx.query.channel) : undefined
-  const result = await listAdminUsers(ctx.state.env, ctx.state.redis, { page, pageSize, search, status, channel })
+  const dateFrom = ctx.query.dateFrom ? String(ctx.query.dateFrom) : undefined
+  const dateTo = ctx.query.dateTo ? String(ctx.query.dateTo) : undefined
+  const minDeposit = ctx.query.minDeposit != null && ctx.query.minDeposit !== '' ? Number(ctx.query.minDeposit) : undefined
+  const minWithdraw = ctx.query.minWithdraw != null && ctx.query.minWithdraw !== '' ? Number(ctx.query.minWithdraw) : undefined
+  const sortBy = ctx.query.sortBy ? String(ctx.query.sortBy) : undefined
+  const sortOrder = ctx.query.sortOrder ? String(ctx.query.sortOrder) : undefined
+  const result = await listAdminUsers(ctx.state.env, ctx.state.redis, {
+    page, pageSize, search, status, channel, dateFrom, dateTo,
+    minDeposit: Number.isFinite(minDeposit) ? minDeposit : undefined,
+    minWithdraw: Number.isFinite(minWithdraw) ? minWithdraw : undefined,
+    sortBy, sortOrder,
+  })
   ok(ctx, result)
 })
 
 router.get('/:id', async (ctx) => {
   const user = await getUser(ctx.state.redis, ctx.params.id)
   if (!user) { fail(ctx, 404, 'User not found', 404); return }
-  const [wallet, walletBalances, ledger, loginLogs, betOrders, kyc, systemCfg, effectiveCfg, totalTurnover, thresholds, identities, attribution, depositTotals] = await Promise.all([
+  const [wallet, walletBalances, ledger, loginLogs, betOrders, kyc, systemCfg, effectiveCfg, totalTurnover, thresholds, identities, attribution, depositTotals, withdrawTotals] = await Promise.all([
     getWallet(ctx.state.redis, ctx.params.id),
     getWalletBalances(ctx.state.redis, ctx.params.id),
     listLedger(ctx.state.redis, ctx.params.id, 20),
@@ -48,6 +59,7 @@ router.get('/:id', async (ctx) => {
     listUserIdentities(ctx.state.redis, ctx.params.id),
     getUserAttributionDetail(ctx.state.env, ctx.params.id).catch(() => null),
     getUserDepositTotals(ctx.state.env, ctx.state.redis, [ctx.params.id]).catch(() => new Map<string, number>()),
+    getUserWithdrawTotals(ctx.state.env, ctx.state.redis, [ctx.params.id]).catch(() => new Map<string, number>()),
   ])
   const telegram = identities.find((i) => i.provider === 'telegram') ?? identities.find((i) => i.provider === 'telegram_oidc')
   const google = identities.find((i) => i.provider === 'google')
@@ -63,6 +75,7 @@ router.get('/:id', async (ctx) => {
     level: resolveLevel(thresholds, totalTurnover),
     totalTurnover,
     depositTotal: depositTotals.get(ctx.params.id) ?? 0,
+    withdrawTotal: withdrawTotals.get(ctx.params.id) ?? 0,
     wallet,
     walletBalances: walletBalances.length ? walletBalances : [{ currency: 'PHP', available: wallet.available, frozen: wallet.frozen }],
     ledger,

@@ -251,6 +251,7 @@ export interface AdminUser {
   registeredAt: string; balance: number; level: number
   channelCode: string | null
   depositAmount: number
+  withdrawAmount: number
 }
 export interface UserAttribution {
   channelCode: string | null; clickPlatform: string; clickId: string | null
@@ -278,7 +279,11 @@ export interface LedgerEntry {
 export interface WalletBalance {
   currency: string; available: number; frozen: number
 }
-export const getUsers = (params: { page?: number; pageSize?: number; search?: string; status?: string; channel?: string }) =>
+export const getUsers = (params: {
+  page?: number; pageSize?: number; search?: string; status?: string; channel?: string
+  dateFrom?: string; dateTo?: string; minDeposit?: number; minWithdraw?: number
+  sortBy?: string; sortOrder?: string
+}) =>
   get<{ total: number; items: AdminUser[] }>('/admin/users', params)
 
 export interface DeviceLookupAccount {
@@ -306,6 +311,7 @@ export const getUserDetail = (id: string) =>
     level: number
     totalTurnover: number
     depositTotal: number
+    withdrawTotal: number
     wallet: { available: number; frozen: number }
     walletBalances: WalletBalance[]
     ledger: LedgerEntry[]
