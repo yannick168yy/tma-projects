@@ -46,6 +46,21 @@ const RESEND_INTERVAL_SEC = 60
 const MAX_VERIFY_ATTEMPTS = 3
 const KYC_FAILURE_LOCK_SECONDS = 180
 const ACCEPTED_DOC_TYPES = ['passport', 'drivers_license', 'philid', 'umid', 'acr_icard']
+const NAME_SUFFIX_TOKENS = new Set(['JR', 'SR', 'II', 'III', 'IV', 'V'])
+const WEAK_NAME_TOKENS = new Set([
+  'DA',
+  'DAS',
+  'DE',
+  'DEL',
+  'DELA',
+  'DI',
+  'DOS',
+  'LA',
+  'LAS',
+  'LOS',
+  'VAN',
+  'VON',
+])
 
 function normalizeDocType(raw: string): string {
   const s = raw.toLowerCase().trim().replace(/[\s-]+/g, '_')
@@ -56,6 +71,87 @@ function normalizeDocType(raw: string): string {
 /** 证件号归一化：去掉分隔符只留字母数字并大写，保证跨次 OCR 输出格式差异不影响查重 */
 function normalizeIdNo(raw: string | null | undefined): string {
   return (raw ?? '').replace(/[^A-Za-z0-9]/g, '').toUpperCase()
+}
+
+type KycNameMatchReason = 'exact' | 'reordered' | 'middle_initial' | 'core_tokens' | 'mismatch'
+
+interface KycNameCheck {
+  matched: boolean
+  reason: KycNameMatchReason
+  inputTokens: string[]
+  documentTokens: string[]
+}
+
+function kycNameTokens(raw: string): string[] {
+  return raw
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+    .toUpperCase()
+    .trim()
+    .split(/\s+/)
+    .filter((token) => token && !NAME_SUFFIX_TOKENS.has(token) && !WEAK_NAME_TOKENS.has(token))
+}
+
+function nameTokenMatches(a: string, b: string): boolean {
+  return a === b || (a.length === 1 && b.startsWith(a)) || (b.length === 1 && a.startsWith(b))
+}
+
+function allNameTokensMatch(from: string[], to: string[]): { matched: boolean; usedInitial: boolean } {
+  const used = new Set<number>()
+  let usedInitial = false
+  for (const token of from) {
+    const idx = to.findIndex((candidate, i) => !used.has(i) && nameTokenMatches(token, candidate))
+    if (idx < 0) return { matched: false, usedInitial: false }
+    used.add(idx)
+    if (token !== to[idx]) usedInitial = true
+  }
+  return { matched: true, usedInitial }
+}
+
+function endpointTokensMatch(shorter: string[], longer: string[]): boolean {
+  if (shorter.length < 2 || longer.length < 2) return false
+  return (
+    nameTokenMatches(shorter[0], longer[0])
+    && nameTokenMatches(shorter[shorter.length - 1], longer[longer.length - 1])
+  ) || (
+    nameTokenMatches(shorter[0], longer[longer.length - 1])
+    && nameTokenMatches(shorter[shorter.length - 1], longer[0])
+  )
+}
+
+export function compareKycNames(inputName: string, documentName: string): KycNameCheck {
+  const inputTokens = kycNameTokens(inputName)
+  const documentTokens = kycNameTokens(documentName)
+  if (inputTokens.length < 2 || documentTokens.length < 2) {
+    const exactSingleName = inputTokens.length === 1
+      && documentTokens.length === 1
+      && inputTokens[0] === documentTokens[0]
+    return { matched: exactSingleName, reason: exactSingleName ? 'exact' : 'mismatch', inputTokens, documentTokens }
+  }
+
+  const sameOrder = inputTokens.length === documentTokens.length
+    && inputTokens.every((token, i) => nameTokenMatches(token, documentTokens[i]))
+  if (sameOrder) {
+    const usedInitial = inputTokens.some((token, i) => token !== documentTokens[i])
+    return { matched: true, reason: usedInitial ? 'middle_initial' : 'exact', inputTokens, documentTokens }
+  }
+
+  if (inputTokens.length === documentTokens.length) {
+    const result = allNameTokensMatch(inputTokens, documentTokens)
+    if (result.matched) {
+      return { matched: true, reason: result.usedInitial ? 'middle_initial' : 'reordered', inputTokens, documentTokens }
+    }
+  }
+
+  const shorter = inputTokens.length < documentTokens.length ? inputTokens : documentTokens
+  const longer = inputTokens.length < documentTokens.length ? documentTokens : inputTokens
+  const subset = allNameTokensMatch(shorter, longer)
+  if (subset.matched && endpointTokensMatch(shorter, longer)) {
+    return { matched: true, reason: subset.usedInitial ? 'middle_initial' : 'core_tokens', inputTokens, documentTokens }
+  }
+
+  return { matched: false, reason: 'mismatch', inputTokens, documentTokens }
 }
 const VERIFY_RL_WINDOW_SEC = 86400
 
@@ -668,11 +764,12 @@ export async function submitKycDocument(
   }
 
   const reasons: string[] = []
+  const nameCheck = compareKycNames(input.fullName, verdict.fullName)
   if (!verdict.isValidDocument) reasons.push('invalid_doc')
   if (!ACCEPTED_DOC_TYPES.includes(normalizeDocType(verdict.docType))) reasons.push('unsupported_doc_type')
   // 证件号是防多账号复用的唯一键，提不出一律拒绝重拍
   if (!idNo) reasons.push('missing_id_number')
-  if (!verdict.nameMatches) reasons.push('name_mismatch')
+  if (!nameCheck.matched) reasons.push('name_mismatch')
   if (verdict.confidence < env.KYC_GEMINI_MIN_CONFIDENCE) reasons.push('low_confidence')
   // 年龄限制：证件出生日期可解析且不足 21 周岁 → 拒绝（OCR 无法解析出生日期时不拦截，避免误杀）
   const age = ageFromDob(verdict.dob)
@@ -700,7 +797,7 @@ export async function submitKycDocument(
     extractedIdNo: idNo || undefined,
     dob: verdict.dob || existing?.dob || '',
     geminiConfidence: verdict.confidence,
-    geminiResult: { document: verdict },
+    geminiResult: { document: { ...verdict, nameCheck } },
     docImageKey,
     rejectReason: docVerified ? undefined : reasons.join(';'),
     rejectStep: docVerified ? undefined : 'document',
