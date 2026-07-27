@@ -803,20 +803,22 @@ function mapOrderWithdraw(r: RowDataPacket): OrderWithdraw {
     createdAt: new Date(r.created_at as Date).toISOString(),
     completedAt: extra?.completedAt ? String(extra.completedAt) : undefined,
     rejectReason: r.reject_reason ? String(r.reject_reason) : undefined,
+    rejectReasonUser: r.reject_reason_user ? String(r.reject_reason_user) : undefined,
     extraData: extra,
   }
 }
 
 export async function saveOrderWithdraw(env: Env, order: OrderWithdraw): Promise<void> {
   await pool(env).execute(
-    `INSERT INTO bg_withdraw_order (order_id, user_id, channel, currency, amount, status, to_address, chain, reject_reason, extra)
-     VALUES (?,?,?,?,?,?,?,?,?,?)
-     ON DUPLICATE KEY UPDATE status=VALUES(status), reject_reason=VALUES(reject_reason), extra=VALUES(extra)`,
+    `INSERT INTO bg_withdraw_order (order_id, user_id, channel, currency, amount, status, to_address, chain, reject_reason, reject_reason_user, extra)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?)
+     ON DUPLICATE KEY UPDATE status=VALUES(status), reject_reason=VALUES(reject_reason), reject_reason_user=VALUES(reject_reason_user), extra=VALUES(extra)`,
     [
       order.orderId, order.userId, order.channelId, order.currency,
       order.amount, order.status,
       null, null,
       order.rejectReason ?? null,
+      order.rejectReasonUser ?? null,
       order.extraData ? JSON.stringify(order.extraData) : null,
     ],
   )

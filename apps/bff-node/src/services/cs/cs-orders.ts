@@ -1,6 +1,7 @@
 import type { RowDataPacket } from 'mysql2/promise'
 import type { Env } from '../../config/env.js'
 import { getMysqlPool } from '../../clients/mysql.client.js'
+import { resolveUserWithdrawRejectReason } from '../withdraw-reject-reason.service.js'
 
 // 存款/提现查询走确定性直查,不经 LLM。state 三态供前端上色
 export type OrderState = 'success' | 'pending' | 'failed'
@@ -52,7 +53,7 @@ export async function queryRecentOrders(env: Env, userId: string, kind: OrderKin
   }
 
   const [rows] = await pool.query<RowDataPacket[]>(
-    `SELECT order_id, amount, currency, channel, status, created_at, handled_at, reject_reason
+    `SELECT order_id, amount, currency, channel, status, created_at, handled_at, reject_reason_user
      FROM bg_withdraw_order WHERE user_id = ? ORDER BY created_at DESC LIMIT 5`,
     [userId],
   )
@@ -68,7 +69,7 @@ export async function queryRecentOrders(env: Env, userId: string, kind: OrderKin
       state,
       createdAt: iso(r.created_at)!,
       settledAt: iso(r.handled_at),
-      rejectReason: r.reject_reason ?? null,
+      rejectReason: resolveUserWithdrawRejectReason(String(r.status), r.reject_reason_user as string | null),
     }
   })
 }

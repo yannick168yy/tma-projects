@@ -7,6 +7,7 @@ import { getMysqlPool, isMysqlEnabled } from '../../clients/mysql.client.js'
 import { fail, ok } from '../../utils/response.js'
 import { nowIso } from '../../utils/format.js'
 import type { Env } from '../../config/env.js'
+import { USER_WITHDRAW_REJECT_REASON } from '../../services/withdraw-reject-reason.service.js'
 
 const router = new Router({ prefix: '/withdrawals' })
 
@@ -72,6 +73,7 @@ router.post('/:orderId/reject', async (ctx) => {
 
   order.status = 'admin_rejected'
   order.rejectReason = body.reason ?? 'Rejected by admin'
+  order.rejectReasonUser = USER_WITHDRAW_REJECT_REASON
   order.completedAt = nowIso()
   await saveWithdraw(ctx.state.redis, order)
 
@@ -82,7 +84,7 @@ router.post('/:orderId/reject', async (ctx) => {
     order.amount,
     {
       type: 'withdraw',
-      description: `Withdrawal rejected: ${body.reason ?? 'no reason'}`,
+      description: `Withdrawal rejected #${order.orderId}`,
       traceId: ctx.state.traceId,
       refId: order.orderId,
       createdAt: nowIso(),

@@ -796,7 +796,7 @@ export const getAuditLog = (params: { page?: number; pageSize?: number }) =>
 
 // Customer Service
 export interface CsConversation {
-  id: number; userId: number; status: string; assignedAdminId: number | null
+  id: number; userId: string; status: string; assignedAdminId: number | null
   escalateReason: string | null
   displayName: string; lastMessage: string; createdAt: string; updatedAt: string
 }

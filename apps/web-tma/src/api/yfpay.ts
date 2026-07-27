@@ -91,6 +91,7 @@ export interface WithdrawHistoryItem {
   status: string
   createdAt: string
   completedAt: string | null
+  rejectReason: string | null
 }
 
 export async function fetchDepositHistory(): Promise<DepositHistoryItem[]> {

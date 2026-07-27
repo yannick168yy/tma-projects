@@ -11,6 +11,7 @@ import { randomOrderId } from '../utils/id.js'
 import { getWithdrawGate } from '../services/turnover.service.js'
 import { reviewWithdraw } from '../services/withdraw-review.service.js'
 import { hasRealDepositForWithdraw } from '../services/withdraw-eligibility.service.js'
+import { resolveUserWithdrawRejectReason } from '../services/withdraw-reject-reason.service.js'
 import { isKycApproved } from '../services/kyc.service.js'
 import { riskAllowed } from '../utils/risk-guard.js'
 import type { WithdrawOrder } from '../types/domain.js'
@@ -300,6 +301,7 @@ router.get('/', async (ctx) => {
       status: o.status,
       createdAt: o.createdAt,
       completedAt: o.completedAt ?? null,
+      rejectReason: resolveUserWithdrawRejectReason(o.status, o.rejectReasonUser),
     })),
     page,
   })
@@ -318,7 +320,7 @@ router.get('/:orderId', async (ctx) => {
     currency: order.currency,
     createdAt: order.createdAt,
     completedAt: order.completedAt,
-    rejectReason: order.rejectReason,
+    rejectReason: resolveUserWithdrawRejectReason(order.status, order.rejectReasonUser),
   })
 })
 

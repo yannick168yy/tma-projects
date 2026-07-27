@@ -107,6 +107,7 @@ export interface OrderWithdraw {
   createdAt: string
   completedAt?: string
   rejectReason?: string
+  rejectReasonUser?: string
   provider?: string
   providerRef?: string
   extraData?: Record<string, unknown>

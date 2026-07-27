@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Card, Select, Tag, Button, Input, Space, Empty, Badge, Switch, Tooltip, message, Grid } from 'antd'
+import { useNavigate } from 'react-router-dom'
 import type { CsConversation, CsMessage } from '../api'
 import { getCsConversations, getCsConversation, csReply, csTakeover, csClose, getCsDuty, saveCsDuty } from '../api'
 
@@ -22,6 +23,7 @@ function formatTime(t?: string) {
 }
 
 export default function CustomerService() {
+  const navigate = useNavigate()
   const screens = Grid.useBreakpoint()
   const isMobile = !screens.md
   const [conversations, setConversations] = useState<CsConversation[]>([])
@@ -125,6 +127,11 @@ export default function CustomerService() {
   const showList = !isMobile || !selectedId
   const showChat = !isMobile || !!selectedId
 
+  function openUserDetail(userId: string | undefined) {
+    if (!userId) return
+    navigate(`/users/${userId}`)
+  }
+
   return (
     <div style={{ display: 'flex', gap: 16, height: 'calc(100vh - 112px)' }}>
       {showList && (
@@ -172,7 +179,18 @@ export default function CustomerService() {
             onMouseLeave={(e) => { if (selectedId !== conv.id) (e.currentTarget as HTMLDivElement).style.background = '' }}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontWeight: 600, fontSize: 13 }}>工单 #{conv.id} · {conv.displayName || `用户#${conv.userId}`}</span>
+              <span style={{ fontWeight: 600, fontSize: 13 }}>
+                工单 #{conv.id} ·
+                <Button
+                  type="link"
+                  size="small"
+                  style={{ padding: '0 4px', height: 'auto', fontSize: 12 }}
+                  onClick={(e) => { e.stopPropagation(); openUserDetail(conv.userId) }}
+                >
+                  {conv.userId}
+                </Button>
+                {conv.displayName ? `· ${conv.displayName}` : ''}
+              </span>
               <Tag color={statusColor(conv.status)} style={{ margin: 0, fontSize: 11 }}>{statusText(conv.status)}</Tag>
             </div>
             <div style={{ color: '#999', fontSize: 12, marginTop: 2, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
@@ -197,7 +215,16 @@ export default function CustomerService() {
           title={
             <span>
               {isMobile && <Button size="small" style={{ marginRight: 8 }} onClick={() => setSelectedId(null)}>返回</Button>}
-              工单 #{selectedConv?.id} · {selectedConv?.displayName || `用户#${selectedConv?.userId}`}
+              工单 #{selectedConv?.id} ·
+              <Button
+                type="link"
+                size="small"
+                style={{ padding: '0 4px', height: 'auto' }}
+                onClick={() => openUserDetail(selectedConv?.userId)}
+              >
+                {selectedConv?.userId}
+              </Button>
+              {selectedConv?.displayName ? `· ${selectedConv.displayName}` : ''}
               <Tag color={statusColor(selectedConv?.status)} style={{ marginLeft: 8 }}>{statusText(selectedConv?.status)}</Tag>
               {selectedConv?.escalateReason && <Tag color="volcano">{reasonText(selectedConv.escalateReason)}</Tag>}
             </span>
