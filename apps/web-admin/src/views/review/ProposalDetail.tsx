@@ -39,6 +39,7 @@ export default function ProposalDetail() {
   const [rejectOpen, setRejectOpen] = useState(false)
   const [reason, setReason] = useState('')
   const [userReason, setUserReason] = useState(DEFAULT_WITHDRAW_USER_REJECT_REASON)
+  const [recommendedNote, setRecommendedNote] = useState('')
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -67,6 +68,17 @@ export default function ProposalDetail() {
     try { await rejectWithdrawal(orderId, reason, userReason); message.success('已拒绝并退款'); setRejectOpen(false); await load() }
     catch (e) { message.error(e instanceof Error ? e.message : '操作失败') }
     finally { setOpLoading(false) }
+  }
+  // 打开驳回弹窗：按命中的规则自动预选用户可见话术（rules 已随详情加载）
+  function openReject() {
+    const hit = rules.find((r) => (r.verdict === 'manual' || r.verdict === 'error') && r.recommendedUserReason)
+    if (hit?.recommendedUserReason) {
+      setUserReason(hit.recommendedUserReason)
+      setRecommendedNote(`已按命中规则「${hit.ruleName}」预选话术，可手动调整`)
+    } else {
+      setRecommendedNote('')
+    }
+    setRejectOpen(true)
   }
   async function doRerun() {
     setOpLoading(true)
@@ -149,7 +161,7 @@ export default function ProposalDetail() {
             <Popconfirm title="确认批准并出款？" onConfirm={doApprove}>
               <Button type="primary" loading={opLoading}>批准出款</Button>
             </Popconfirm>
-            <Button danger loading={opLoading} onClick={() => setRejectOpen(true)}>拒绝退款</Button>
+            <Button danger loading={opLoading} onClick={openReject}>拒绝退款</Button>
             <Button loading={opLoading} onClick={doRerun}>重跑审核</Button>
           </Space>
         </Card>
@@ -212,6 +224,9 @@ export default function ProposalDetail() {
 
       <Modal open={rejectOpen} title="拒绝原因" onOk={doReject} confirmLoading={opLoading} onCancel={() => setRejectOpen(false)}>
         <Space direction="vertical" style={{ width: '100%' }}>
+          {recommendedNote && (
+            <div style={{ color: '#1677ff', fontSize: 12 }}>💡 {recommendedNote}</div>
+          )}
           <Select
             value={userReason}
             options={WITHDRAW_USER_REJECT_REASON_OPTIONS}
