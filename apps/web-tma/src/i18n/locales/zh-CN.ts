@@ -60,6 +60,7 @@ export default {
     tooManyAttempts: '尝试次数过多，请稍后再试',
     captchaFailed: '人机验证未通过，请重试',
     requestTimeout: '网络请求超时，请重试',
+    deviceAlreadyClaimed: '该设备已领取过此礼金',
     noPermission: '无权操作',
     csEmpty: '消息不能为空',
     csTooLong: '消息过长',

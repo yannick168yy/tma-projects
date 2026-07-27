@@ -9,6 +9,8 @@ import { getOrCreateRedepOffer } from '../services/redep.service.js'
 import { getMysqlPool, isMysqlEnabled } from '../clients/mysql.client.js'
 import { createPromoRequirement } from '../services/turnover.service.js'
 import { riskAllowed } from '../utils/risk-guard.js'
+import { getDeviceId } from '../utils/client-context.js'
+import { appdlClaimedOnSameDevice, trialClaimedOnSameDevice } from '../services/promo-device-guard.service.js'
 
 const PROMOS = [
   {
@@ -115,8 +117,12 @@ router.post('/trial-play/claim', async (ctx) => {
       const user = await getUser(ctx.state.redis, ctx.state.userId!)
       if (!user) throw new Error('User not found')
       if (user.trialClaimed) throw new Error('Trial bonus already claimed')
-      // 2026-07-27 起免绑手机号：领取即到账。防薅羊毛靠 riskAllowed(promo_claim) 风控标记
+      // 2026-07-27 起免绑手机号：领取即到账。防薅羊毛 = 设备去重(下方) + riskAllowed 风控
       // + 提现闸门（未存款纯彩金不可提、trial 流水墙），绑定手机号后移到提现前(KYC)
+      if (isMysqlEnabled(ctx.state.env)
+        && await trialClaimedOnSameDevice(getMysqlPool(ctx.state.env), user.id, [getDeviceId(ctx), user.registerDeviceId])) {
+        throw new Error('errors.deviceAlreadyClaimed')
+      }
       const cfg = await getPromoConfig(ctx.state.env)
       if (!cfg.trial.enabled) throw new Error('Trial bonus is currently disabled')
       const amount = cfg.trial.amount
@@ -145,6 +151,10 @@ router.post('/trial-play/claim', async (ctx) => {
     }
     if (msg === 'errors.duplicateRequest') {
       fail(ctx, 429, msg, 429)
+      return
+    }
+    if (msg === 'errors.deviceAlreadyClaimed') {
+      fail(ctx, 403, msg, 403)
       return
     }
     fail(ctx, 409, msg)
@@ -183,10 +193,15 @@ router.post('/app-download/claim', async (ctx) => {
       if (!cfg.appdl.enabled) throw new Error('App download bonus is currently disabled')
       const amount = cfg.appdl.amount
       const pool = getMysqlPool(ctx.state.env)
+      const deviceId = getDeviceId(ctx)
+      const claimer = await getUser(ctx.state.redis, ctx.state.userId!)
+      if (await appdlClaimedOnSameDevice(pool, ctx.state.userId!, [deviceId, claimer?.registerDeviceId])) {
+        throw new Error('errors.deviceAlreadyClaimed')
+      }
       const ua = String(ctx.get('user-agent') ?? '').slice(0, 500)
       const [res] = await pool.execute(
-        'INSERT IGNORE INTO bg_app_download_claim (user_id, source, user_agent, ip, amount) VALUES (?, ?, ?, ?, ?)',
-        [ctx.state.userId!, source, ua, ctx.ip ?? '', amount],
+        'INSERT IGNORE INTO bg_app_download_claim (user_id, source, user_agent, ip, amount, device_id) VALUES (?, ?, ?, ?, ?, ?)',
+        [ctx.state.userId!, source, ua, ctx.ip ?? '', amount, deviceId?.slice(0, 64) ?? null],
       )
       if ((res as { affectedRows: number }).affectedRows === 0) throw new Error('App download bonus already claimed')
       await creditWallet(ctx.state.redis, ctx.state.userId!, amount, {
@@ -208,6 +223,10 @@ router.post('/app-download/claim', async (ctx) => {
     const msg = e instanceof Error ? e.message : 'App download bonus claim failed'
     if (msg === 'errors.duplicateRequest') {
       fail(ctx, 429, msg, 429)
+      return
+    }
+    if (msg === 'errors.deviceAlreadyClaimed') {
+      fail(ctx, 403, msg, 403)
       return
     }
     fail(ctx, 409, msg)

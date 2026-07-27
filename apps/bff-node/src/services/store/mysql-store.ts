@@ -15,6 +15,7 @@ import { getMysqlPool } from '../../clients/mysql.client.js'
 import { generateInviteCode } from '../../utils/id.js'
 import { nowIso } from '../../utils/format.js'
 import { providerFromChannel } from '../../utils/payment-provider.js'
+import { flagRegistrationBurst } from '../promo-device-guard.service.js'
 
 function pool(env: Env): Pool {
   return getMysqlPool(env)
@@ -885,6 +886,8 @@ export async function recordUserLogin(
   } finally {
     conn.release()
   }
+  // 连环注册检测(同设备/同IP 24h≥3)只在新用户注册时跑一次;fire-and-forget,内部自兜异常
+  if (opts.isNewUser) void flagRegistrationBurst(pool(env), userId, opts.deviceId, opts.ip)
 }
 
 function mapKyc(r: RowDataPacket): KycSubmission {
