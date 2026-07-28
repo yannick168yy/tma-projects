@@ -71,7 +71,7 @@ export default function GameImageCard({
           className="relative flex-1 overflow-hidden"
           style={{ background: `linear-gradient(135deg, ${fallbackBg[0]}, ${fallbackBg[1]})` }}
         >
-          {imageUrl && <img src={imageUrl} className="absolute inset-0 w-full h-full object-cover" />}
+          {imageUrl && <img src={imageUrl} loading="lazy" className="absolute inset-0 w-full h-full object-cover" />}
           <span className={PROVIDER_BADGE_CLASS}>
             {shortProviderName(provider)}
           </span>
@@ -98,6 +98,7 @@ export default function GameImageCard({
           <img
             src={imageUrl}
             crossOrigin="anonymous"
+            loading="lazy"
             className="absolute inset-0 w-full h-full object-cover"
             onLoad={onImageLoad}
           />

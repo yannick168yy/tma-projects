@@ -37,27 +37,43 @@ export default function GameCardV2({ game, onTap, size, showLive }: Props) {
   // 封面一律 object-cover 居中裁切填满方卡：横图(真人厂商banner等)按中心裁成方形，与全站方图统一、
   // 无上下留白。焦点基本居中故裁切损失小；个别边缘内容被切的用后台换图弹窗指定方图。
 
-  // 动图懒加载：首屏只加载静态首帧(imageUrl)；卡片进视口后后台预载动图(imageAnim)，
-  // 加载完成才切换 src 播放，避免动图拖慢首屏（对齐 ptgaming 原始"首图先行、就绪后连播"逻辑）
+  // 真懒加载：卡片接近视口(300px)才开始加载封面。原生 loading=lazy 在横滑行里基本失效——
+  // 会把整行离屏图全下载,是首屏图片过重的主因；改用 IntersectionObserver 精确门控。
   const wrapRef = useRef<HTMLDivElement>(null)
+  const [inView, setInView] = useState(false)
   const [animSrc, setAnimSrc] = useState<string | null>(null)
   useEffect(() => {
-    const anim = bust(game.imageAnim)
-    if (!anim || !imageUrl) return
     const el = wrapRef.current
     if (!el) return
     const io = new IntersectionObserver((entries) => {
       if (!entries.some((e) => e.isIntersecting)) return
       io.disconnect()
+      setInView(true)
+    }, { rootMargin: '300px' })
+    io.observe(el)
+    return () => io.disconnect()
+  }, [])
+
+  // 动图不占首屏：卡片入视口且浏览器空闲后再预载动图(imageAnim)，就绪才切 src 连播，
+  // 使首屏只承载静态封面（对齐 ptgaming"首图先行、就绪后连播"，且不与首屏渲染争带宽）
+  useEffect(() => {
+    if (!inView) return
+    const anim = bust(game.imageAnim)
+    if (!anim || !imageUrl) return
+    const idle = (cb: () => void): number =>
+      typeof requestIdleCallback === 'function' ? requestIdleCallback(cb, { timeout: 1500 }) : window.setTimeout(cb, 600)
+    const handle = idle(() => {
       const pre = new Image()
       pre.onload = () => setAnimSrc(anim)
       pre.src = anim
-    }, { rootMargin: '200px' })
-    io.observe(el)
-    return () => io.disconnect()
-  }, [game.imageAnim, imageUrl])
+    })
+    return () => {
+      if (typeof cancelIdleCallback === 'function') cancelIdleCallback(handle)
+      else window.clearTimeout(handle)
+    }
+  }, [inView, game.imageAnim, imageUrl])
 
-  const displaySrc = animSrc ?? imageUrl
+  const displaySrc = inView ? (animSrc ?? imageUrl) : null
   // 全站封面统一：满幅同尺寸 + 圆角12px；大卡在容器上画 1px 金色 border——
   // overflow-hidden 把子元素(含 iOS 动图独立合成层)裁在 padding 盒内碰不到边框区,
   // 且边框与容器同层无独立像素取整,规避了内衬包裹/mask 环/提层环三种画法的 iOS 跑版坑
