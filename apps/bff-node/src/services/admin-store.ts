@@ -1294,6 +1294,58 @@ export async function listHomepageSectionGames(env: Env): Promise<HomepageSectio
   }))
 }
 
+// ── 首页板块「冻结名单」(popular/recommended/highRebate) ──────────────────────
+export const FREEZABLE_SECTION_KEYS = ['popular', 'recommended', 'highRebate'] as const
+
+// 按 (板块, 币种) 整体写入冻结名单：先删后插，sort_order 用数组下标。currency 必须 PHP|USDT。
+export async function replaceFrozenBoard(
+  env: Env,
+  sectionKey: string,
+  currency: string,
+  uuids: string[],
+): Promise<void> {
+  if (!FREEZABLE_SECTION_KEYS.includes(sectionKey as (typeof FREEZABLE_SECTION_KEYS)[number])) {
+    throw new Error(`section not freezable: ${sectionKey}`)
+  }
+  const cur = currency === 'PHP' || currency === 'USDT' ? currency : ''
+  if (!cur) throw new Error('frozen board requires currency PHP|USDT')
+  const seen = new Set<string>()
+  const conn = await pool(env).getConnection()
+  try {
+    await conn.beginTransaction()
+    await conn.execute(`DELETE FROM bg_homepage_frozen_board WHERE section_key = ? AND currency = ?`, [sectionKey, cur])
+    let i = 0
+    for (const u of uuids) {
+      if (!u || seen.has(u)) continue
+      seen.add(u)
+      await conn.execute(
+        `INSERT INTO bg_homepage_frozen_board (section_key, currency, game_uuid, sort_order) VALUES (?, ?, ?, ?)`,
+        [sectionKey, u, cur, i++],
+      )
+    }
+    await conn.commit()
+  } catch (e) {
+    await conn.rollback()
+    throw e
+  } finally {
+    conn.release()
+  }
+}
+
+// 解冻：删除该 (板块,币种) 冻结名单，回到算法
+export async function deleteFrozenBoard(env: Env, sectionKey: string, currency: string): Promise<void> {
+  const cur = currency === 'PHP' || currency === 'USDT' ? currency : ''
+  await pool(env).execute(`DELETE FROM bg_homepage_frozen_board WHERE section_key = ? AND currency = ?`, [sectionKey, cur])
+}
+
+// 冻结状态：各 (可冻结板块,币种) 是否已冻结 + 条数（后台展示用）
+export async function listFrozenBoardStatus(env: Env): Promise<{ sectionKey: string; currency: string; count: number }[]> {
+  const [rows] = await pool(env).query<RowDataPacket[]>(
+    `SELECT section_key, currency, COUNT(*) AS cnt FROM bg_homepage_frozen_board GROUP BY section_key, currency`,
+  )
+  return rows.map((r) => ({ sectionKey: String(r.section_key), currency: String(r.currency), count: Number(r.cnt) }))
+}
+
 // 按 (板块, 币种) 整体替换：先删后插，sort_order 用数组下标。currency='' 表示全币种。
 export async function replaceHomepageSectionGames(
   env: Env,

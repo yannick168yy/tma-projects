@@ -436,8 +436,34 @@ export async function loadSectionOverrides(env: Env): Promise<SectionOverrides> 
   return map
 }
 
-function buildHomepageSelection(all: DbGame[], cur: string, overrides: SectionOverrides): HomepageSelection {
+// 冻结名单读取：key = `${section_key}|${currency}` → 有序 uuid 列表。无行=未冻结走算法。
+export async function loadFrozenBoards(env: Env): Promise<Map<string, string[]>> {
+  const db = getMysqlPool(env)
+  const [rows] = await db.query<RowDataPacket[]>(
+    `SELECT section_key, currency, game_uuid FROM bg_homepage_frozen_board ORDER BY sort_order ASC, id ASC`,
+  )
+  const map = new Map<string, string[]>()
+  for (const r of rows) {
+    const k = `${String(r.section_key)}|${String(r.currency)}`
+    const list = map.get(k) ?? []
+    list.push(String(r.game_uuid))
+    map.set(k, list)
+  }
+  return map
+}
+
+// frozen: 本币种的冻结名单(key=sectionKey → uuid[])。popular/recommended/highRebate 若有冻结名单则直接用，
+// 不跑算法(维护游戏保留在名单里、前端置灰)；其余板块不受影响。
+function buildHomepageSelection(all: DbGame[], cur: string, overrides: SectionOverrides, frozen: Map<string, string[]> = new Map()): HomepageSelection {
   const gameByUuid = new Map(all.map((g) => [g.uuid, g]))
+  // 冻结名单 → 游戏对象(保序，缓存里已不存在的uuid跳过)，并登记 seen 供其它板块跨块去重
+  const frozenList = (key: string): DbGame[] | null => {
+    const f = frozen.get(key)
+    if (!f || !f.length) return null
+    const list = f.map((u) => gameByUuid.get(u)).filter((g): g is DbGame => !!g)
+    list.forEach((g) => seen.add(g.uuid))
+    return list
+  }
   // 可用池:过滤掉上游维护/下线游戏。第2/3组(newGames/slots/casino/perya/fishing/lottery/baccarat/sports)
   // 从这里取——维护即剔除,算法自动用其他可用游戏补足 N。第1组+highRtp 仍从 all 取(维护游戏保留原位置灰)。
   const available = all.filter((g) => g.isAvailable !== false)
@@ -553,7 +579,7 @@ function buildHomepageSelection(all: DbGame[], cur: string, overrides: SectionOv
 
   // 高洗码专栏：elite 档(2% 返水)游戏按热度取 top 9，必须固定展示高返水游戏本身。
   // 先于其他板块计算并登记 seen——否则策略会在 popular/recommended 等板块再次选中同款(生产实测 Medusa)
-  const highRebateList = applyManual('highRebate',
+  const highRebateList = frozenList('highRebate') ?? applyManual('highRebate',
     [...exFilter('highRebate', all.filter((g) => g.cashbackTier === 'elite'))].sort((a, b) => score(b) - score(a)).slice(0, 9), 9)
   highRebateList.forEach((g) => seen.add(g.uuid))
 
@@ -562,31 +588,39 @@ function buildHomepageSelection(all: DbGame[], cur: string, overrides: SectionOv
   // 池填不满时从全库高热度补足到 POPULAR_N。体育合成条目(isFeatured=true)有专属通栏，从热门剔除。
   const POPULAR_N = 12 // 首页 4 行 × 3 列
   const notSports = (g: DbGame) => g.uuid !== WIN568_SPORTSBOOK_UUID
-  // 全局厂商配额(≤3)贯穿"真人席位+featured 主体+全库补足"三段，避免跨来源各自限厂商、
-  // 累加后单厂商屠版(USDT featured 池小、JDB 密集时尤甚)。共享 seen 保留跨板块去重。
-  const popCounts = new Map<string, number>()
-  const takePopular = (pool: DbGame[], n: number) => {
-    const out: DbGame[] = []
-    for (const g of pool.filter((x) => !seen.has(x.uuid) && notSports(x)).sort((a, b) => score(b) - score(a))) {
-      if (out.length >= n) break
-      if ((popCounts.get(g.provider) ?? 0) >= 3) continue
-      out.push(g); seen.add(g.uuid); popCounts.set(g.provider, (popCounts.get(g.provider) ?? 0) + 1)
+  // popular 若已冻结则直接用固定名单；否则跑算法(下方 takePopular 写 seen 供跨块去重)
+  const frozenPopular = frozenList('popular')
+  let popularResult: DbGame[]
+  if (frozenPopular) {
+    popularResult = frozenPopular
+  } else {
+    // 全局厂商配额(≤3)贯穿"真人席位+featured 主体+全库补足"三段，避免跨来源各自限厂商、
+    // 累加后单厂商屠版(USDT featured 池小、JDB 密集时尤甚)。共享 seen 保留跨板块去重。
+    const popCounts = new Map<string, number>()
+    const takePopular = (pool: DbGame[], n: number) => {
+      const out: DbGame[] = []
+      for (const g of pool.filter((x) => !seen.has(x.uuid) && notSports(x)).sort((a, b) => score(b) - score(a))) {
+        if (out.length >= n) break
+        if ((popCounts.get(g.provider) ?? 0) >= 3) continue
+        out.push(g); seen.add(g.uuid); popCounts.set(g.provider, (popCounts.get(g.provider) ?? 0) + 1)
+      }
+      return out
     }
-    return out
+    // 真人席位从全部真人游戏取（不限 featured，真人竞品覆盖弱进不了核心池），其余 featured 优先、不足从全库补
+    const casinoSeat = takePopular(exFilter('popular', bySite('casino')), 1)
+    const featuredPart = takePopular(exFilter('popular', featuredPool), POPULAR_N - casinoSeat.length)
+    const backfillPart = takePopular(exFilter('popular', all), POPULAR_N - casinoSeat.length - featuredPart.length)
+    const popularMerged = [...featuredPart, ...backfillPart]
+    if (casinoSeat.length) popularMerged.splice(Math.min(2, popularMerged.length), 0, ...casinoSeat)
+    popularResult = applyManual('popular', popularMerged.slice(0, POPULAR_N), POPULAR_N)
   }
-  // 真人席位从全部真人游戏取（不限 featured，真人竞品覆盖弱进不了核心池），其余 featured 优先、不足从全库补
-  const casinoSeat = takePopular(exFilter('popular', bySite('casino')), 1)
-  const featuredPart = takePopular(exFilter('popular', featuredPool), POPULAR_N - casinoSeat.length)
-  const backfillPart = takePopular(exFilter('popular', all), POPULAR_N - casinoSeat.length - featuredPart.length)
-  const popularMerged = [...featuredPart, ...backfillPart]
-  if (casinoSeat.length) popularMerged.splice(Math.min(2, popularMerged.length), 0, ...casinoSeat)
 
   const selection: HomepageSelection = {
-    popular:    applyManual('popular', popularMerged.slice(0, POPULAR_N), POPULAR_N),
+    popular:    popularResult,
     // 推荐精选：竞品验证权重的次高梯队（popular 已取走的会被 seen 去重）。
     // 取 24 款做候选池：前端展示前 12，后 12 专供「最近在玩」补位，保证补位游戏不与推荐板块重复。
     // sportsbook 合成条目(权重10000)排除——体育板块固定给它第一席位，进推荐必重复
-    recommended: topSection('recommended', all.filter(notSports), score, 24, 3),
+    recommended: frozenList('recommended') ?? topSection('recommended', all.filter(notSports), score, 24, 3),
     newGames:   sampleSection('newGames', newPool, score, 12, 4, true),
     // slots/perya/fishing/highRtp 改为确定性按权重降序推荐（含模块内同名去重）。
     // highRtp 在页面上位于 slots 之前，先计算以按展示顺序优先分配高权重游戏
@@ -621,18 +655,40 @@ function buildHomepageSelection(all: DbGame[], cur: string, overrides: SectionOv
   return selection
 }
 
+// 取某币种的冻结名单切片：从全量 Map(key=`section|cur`)过滤出该币种，key 收敛为 sectionKey
+function frozenForCurrency(frozenAll: Map<string, string[]>, cur: string): Map<string, string[]> {
+  const m = new Map<string, string[]>()
+  for (const [k, v] of frozenAll) {
+    const idx = k.lastIndexOf('|')
+    if (idx > 0 && k.slice(idx + 1) === cur) m.set(k.slice(0, idx), v)
+  }
+  return m
+}
+
 export async function refreshHomepageSelection(env: Env): Promise<void> {
   const redis = getRedis(env)
   const allGames = await getGamesFromCache(env)
   if (!allGames.length) return
   const overrides = await loadSectionOverrides(env)
+  const frozenAll = await loadFrozenBoards(env)
 
   for (const cur of HOMEPAGE_CURRENCIES) {
     const pool = allGames.filter((g) => supportsCurrency(g, cur))
-    const selection = buildHomepageSelection(pool, cur, overrides)
+    const selection = buildHomepageSelection(pool, cur, overrides, frozenForCurrency(frozenAll, cur))
     await redis.set(`${HOMEPAGE_KEY}:${cur}`, JSON.stringify(selection), 'EX', HOMEPAGE_TTL)
   }
   console.log('[homepage] selection refreshed (per-currency)')
+}
+
+// 生成某板块某币种的「冻结快照」：用纯算法(空 frozen)重算当前 popular/recommended/highRebate 的实际内容，
+// 返回有序 uuid 列表供写入冻结表。运营点「(重新)生成并冻结」时调用——这样每次都吃当前钉/权重的最新结果。
+export async function computeFrozenSnapshot(env: Env, sectionKey: string, currency: string): Promise<string[]> {
+  const allGames = await getGamesFromCache(env)
+  const overrides = await loadSectionOverrides(env)
+  const pool = allGames.filter((g) => supportsCurrency(g, currency))
+  const selection = buildHomepageSelection(pool, currency, overrides, new Map())
+  const board = (selection as unknown as Record<string, unknown>)[sectionKey]
+  return Array.isArray(board) ? (board as DbGame[]).map((g) => g.uuid) : []
 }
 
 // 后台单游戏改动后的缓存重建去抖：全量重建(大 JOIN + 双币种选品)代价高，

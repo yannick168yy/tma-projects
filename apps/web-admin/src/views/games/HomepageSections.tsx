@@ -5,12 +5,70 @@ import {
   getPublicHomepage,
   putHomepageSection,
   getAdminWin568Games,
+  freezeHomepageSection,
+  unfreezeHomepageSection,
   type HomepageSectionEntry,
   type PublicHomepageGame,
   type AdminWin568Game,
+  type FrozenBoardStatus,
 } from '../../api'
 
 const { Title } = Typography
+
+// 冻结控制条：仅 popular/recommended/highRebate 显示。把当前(算法+钉)内容冻结成固定名单。
+function FreezeControl({ sectionKey, currency, frozenCount, onChanged }: {
+  sectionKey: string; currency: string; frozenCount: number | null; onChanged: () => void
+}) {
+  const [busy, setBusy] = useState(false)
+  const isFrozen = frozenCount != null && frozenCount > 0
+  const freeze = async () => {
+    setBusy(true)
+    try {
+      const r = await freezeHomepageSection(sectionKey, currency)
+      message.success(`已冻结 ${r.count} 款为固定名单`)
+      onChanged()
+    } catch (e) { message.error(e instanceof Error ? e.message : '冻结失败') } finally { setBusy(false) }
+  }
+  const unfreeze = async () => {
+    setBusy(true)
+    try {
+      await unfreezeHomepageSection(sectionKey, currency)
+      message.success('已恢复为算法推荐')
+      onChanged()
+    } catch (e) { message.error(e instanceof Error ? e.message : '操作失败') } finally { setBusy(false) }
+  }
+  return (
+    <Alert
+      style={{ marginBottom: 12 }}
+      type={isFrozen ? 'success' : 'warning'}
+      showIcon
+      message={isFrozen
+        ? `已冻结（固定名单 ${frozenCount} 款）—— 前台固定展示下方内容，不再跑算法`
+        : '未冻结 —— 前台仍按算法实时推荐'}
+      description={isFrozen
+        ? '维护中的游戏仍留在名单里（前端置灰，恢复后自动变亮）。改动下方钉/权重后点「重新生成并冻结」才生效，或「恢复算法」取消固定。'
+        : '内容满意后点「生成并冻结」，把当前（算法+钉）的实际内容固定下来；之后前台就固定读它、不再变动。建议在上游游戏正常时冻结。'}
+      action={
+        <Space direction="vertical">
+          {isFrozen ? (
+            <>
+              <Popconfirm title="按当前钉/权重重算并覆盖固定名单？" onConfirm={freeze}>
+                <Button size="small" type="primary" loading={busy}>重新生成并冻结</Button>
+              </Popconfirm>
+              <Popconfirm title="恢复为算法实时推荐？" onConfirm={unfreeze}>
+                <Button size="small" danger loading={busy}>恢复算法</Button>
+              </Popconfirm>
+            </>
+          ) : (
+            <Popconfirm title="把当前实际内容冻结为固定名单？" onConfirm={freeze}>
+              <Button size="small" type="primary" loading={busy}>生成并冻结</Button>
+            </Popconfirm>
+          )}
+        </Space>
+      }
+    />
+  )
+}
 
 // 板块顺序与前端首页渲染顺序一致
 const SECTION_ORDER = ['recommended', 'popular', 'highRebate', 'highRtp', 'slots', 'casino', 'newGames', 'perya', 'fishing', 'lottery', 'baccarat', 'sports']
@@ -214,6 +272,8 @@ export default function HomepageSections() {
   const [activeSection, setActiveSection] = useState('popular')
   const [baseline, setBaseline] = useState<Record<string, PublicHomepageGame[]>>({})
   const [overrides, setOverrides] = useState<Record<string, HomepageSectionEntry[]>>({})
+  const [frozen, setFrozen] = useState<FrozenBoardStatus[]>([])
+  const [freezableKeys, setFreezableKeys] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
 
   const load = useCallback(async () => {
@@ -222,6 +282,8 @@ export default function HomepageSections() {
       const [home, ov] = await Promise.all([getPublicHomepage(currency), getHomepageSections()])
       setBaseline(home)
       setOverrides(ov.sections)
+      setFrozen(ov.frozen ?? [])
+      setFreezableKeys(ov.freezableKeys ?? [])
     } catch (e) {
       message.error(e instanceof Error ? e.message : '加载失败')
     } finally { setLoading(false) }
@@ -247,14 +309,24 @@ export default function HomepageSections() {
           label: `${SECTION_LABELS[key] ?? key}（${(baseline[key] ?? []).length}）`,
           children: activeSection === key ? (
             loading ? <Empty description="加载中…" /> : (
-              <SectionEditor
-                key={`${key}:${currency}`}
-                sectionKey={key}
-                currency={currency}
-                baseline={baseline[key] ?? []}
-                overrides={overrides[key] ?? []}
-                onSaved={load}
-              />
+              <>
+                {freezableKeys.includes(key) && (
+                  <FreezeControl
+                    sectionKey={key}
+                    currency={currency}
+                    frozenCount={frozen.find((f) => f.sectionKey === key && f.currency === currency)?.count ?? null}
+                    onChanged={load}
+                  />
+                )}
+                <SectionEditor
+                  key={`${key}:${currency}`}
+                  sectionKey={key}
+                  currency={currency}
+                  baseline={baseline[key] ?? []}
+                  overrides={overrides[key] ?? []}
+                  onSaved={load}
+                />
+              </>
             )
           ) : null,
         }))}

@@ -783,8 +783,19 @@ export interface HomepageSectionEntry {
   imageUrl: string | null
   siteCategory: string | null
 }
+export interface FrozenBoardStatus { sectionKey: string; currency: string; count: number }
 export const getHomepageSections = () =>
-  get<{ sectionKeys: string[]; sections: Record<string, HomepageSectionEntry[]> }>('/admin/games/homepage-sections')
+  get<{
+    sectionKeys: string[]
+    sections: Record<string, HomepageSectionEntry[]>
+    freezableKeys: string[]
+    frozen: FrozenBoardStatus[]
+  }>('/admin/games/homepage-sections')
+// 冻结板块(popular/recommended/highRebate)：把当前算法+钉的实际内容快照成固定名单
+export const freezeHomepageSection = (sectionKey: string, currency: string) =>
+  post<{ ok: boolean; count: number }>(`/admin/games/homepage-sections/${sectionKey}/freeze`, { currency })
+export const unfreezeHomepageSection = (sectionKey: string, currency: string) =>
+  del<{ ok: boolean }>(`/admin/games/homepage-sections/${sectionKey}/freeze?currency=${currency}`)
 // 当前实际推荐结果（各板块生效列表，pin 已合并/exclude 已剔除），做后台编辑基线
 export interface PublicHomepageGame { uuid: string; name: string; provider: string; imageUrl: string | null; supportsActiveCurrency?: boolean }
 export const getPublicHomepage = (currency: string) =>

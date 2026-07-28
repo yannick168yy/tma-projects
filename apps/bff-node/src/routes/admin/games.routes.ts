@@ -11,11 +11,15 @@ import {
   listHomepageSectionGames,
   replaceHomepageSectionGames,
   HOMEPAGE_SECTION_KEYS,
+  FREEZABLE_SECTION_KEYS,
+  replaceFrozenBoard,
+  deleteFrozenBoard,
+  listFrozenBoardStatus,
   listCategorySortGames,
   replaceCategorySortGames,
   CATEGORY_SORT_KEYS,
 } from '../../services/admin-store.js'
-import { loadGamesCache, refreshHomepageSelection, scheduleCacheRefresh, getGamesFromCache, bustCategorySortCache } from '../../services/sg-game.service.js'
+import { loadGamesCache, refreshHomepageSelection, scheduleCacheRefresh, getGamesFromCache, bustCategorySortCache, computeFrozenSnapshot } from '../../services/sg-game.service.js'
 import {
   createJob,
   getJob,
@@ -257,9 +261,10 @@ router.post('/refresh-homepage', async (ctx) => {
 // 首页板块手动干预：当前各板块 pin/exclude 配置（附游戏名/图，取自 games 缓存）
 router.get('/homepage-sections', async (ctx) => {
   try {
-    const [rows, games] = await Promise.all([
+    const [rows, games, frozenStatus] = await Promise.all([
       listHomepageSectionGames(ctx.state.env),
       getGamesFromCache(ctx.state.env),
+      listFrozenBoardStatus(ctx.state.env),
     ])
     const byUuid = new Map(games.map((g) => [g.uuid, g]))
     const sections: Record<string, unknown[]> = {}
@@ -274,7 +279,7 @@ router.get('/homepage-sections', async (ctx) => {
         siteCategory: g?.siteCategory ?? null,
       })
     }
-    ok(ctx, { sectionKeys: HOMEPAGE_SECTION_KEYS, sections })
+    ok(ctx, { sectionKeys: HOMEPAGE_SECTION_KEYS, sections, freezableKeys: FREEZABLE_SECTION_KEYS, frozen: frozenStatus })
   } catch (e) {
     fail(ctx, 500, e instanceof Error ? e.message : 'Failed')
   }
@@ -297,6 +302,56 @@ router.put('/homepage-sections/:sectionKey', async (ctx) => {
       action: 'game.homepage.section.update',
       targetType: 'homepage_section',
       targetId: `${sectionKey}:${body.currency ?? ''}`,
+      ip: ctx.ip,
+    })
+    ok(ctx, { ok: true })
+  } catch (e) {
+    fail(ctx, 400, e instanceof Error ? e.message : 'Failed')
+  }
+})
+
+// 冻结板块(popular/recommended/highRebate)：把当前算法+钉的实际内容快照成固定名单，前台不再跑算法
+// body: { currency: 'PHP'|'USDT' }
+router.post('/homepage-sections/:sectionKey/freeze', async (ctx) => {
+  try {
+    const sectionKey = ctx.params.sectionKey
+    if (!FREEZABLE_SECTION_KEYS.includes(sectionKey as (typeof FREEZABLE_SECTION_KEYS)[number])) {
+      fail(ctx, 400, `板块 ${sectionKey} 不支持冻结`); return
+    }
+    const currency = (ctx.request.body as { currency?: string }).currency
+    if (currency !== 'PHP' && currency !== 'USDT') { fail(ctx, 400, 'currency 必须为 PHP 或 USDT'); return }
+    const uuids = await computeFrozenSnapshot(ctx.state.env, sectionKey, currency)
+    if (!uuids.length) { fail(ctx, 400, '当前该板块算法结果为空，无法冻结'); return }
+    await replaceFrozenBoard(ctx.state.env, sectionKey, currency, uuids)
+    await refreshHomepageSelection(ctx.state.env)
+    await writeAuditLog(ctx.state.env, {
+      adminId: ctx.state.adminId!,
+      adminUsername: ctx.state.adminUsername!,
+      action: 'game.homepage.section.freeze',
+      targetType: 'homepage_section',
+      targetId: `${sectionKey}:${currency}`,
+      ip: ctx.ip,
+    })
+    ok(ctx, { ok: true, count: uuids.length })
+  } catch (e) {
+    fail(ctx, 400, e instanceof Error ? e.message : 'Failed')
+  }
+})
+
+// 解冻：删除该板块该币种的冻结名单，回到算法。query: ?currency=PHP|USDT
+router.delete('/homepage-sections/:sectionKey/freeze', async (ctx) => {
+  try {
+    const sectionKey = ctx.params.sectionKey
+    const currency = ctx.query.currency
+    if (currency !== 'PHP' && currency !== 'USDT') { fail(ctx, 400, 'currency 必须为 PHP 或 USDT'); return }
+    await deleteFrozenBoard(ctx.state.env, sectionKey, currency)
+    await refreshHomepageSelection(ctx.state.env)
+    await writeAuditLog(ctx.state.env, {
+      adminId: ctx.state.adminId!,
+      adminUsername: ctx.state.adminUsername!,
+      action: 'game.homepage.section.unfreeze',
+      targetType: 'homepage_section',
+      targetId: `${sectionKey}:${currency}`,
       ip: ctx.ip,
     })
     ok(ctx, { ok: true })
