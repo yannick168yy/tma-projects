@@ -4,6 +4,14 @@ import { ok } from '../../utils/response.js'
 
 const router = new Router({ prefix: '/bet-orders' })
 
+function utc8DayStartUtc(date: string): string {
+  return new Date(`${date}T00:00:00+08:00`).toISOString().slice(0, 19).replace('T', ' ')
+}
+
+function utc8NextDayStartUtc(date: string): string {
+  return new Date(new Date(`${date}T00:00:00+08:00`).getTime() + 86400000).toISOString().slice(0, 19).replace('T', ' ')
+}
+
 router.get('/', async (ctx) => {
   const page     = Math.max(1, Number(ctx.query.page ?? 1))
   const pageSize = Math.min(1000, Math.max(10, Number(ctx.query.pageSize ?? 20)))
@@ -21,8 +29,8 @@ router.get('/', async (ctx) => {
   const statsWhere: string[] = []
   const statsParams: unknown[] = []
   if (userId)   { statsWhere.push('b.user_id = ?');     statsParams.push(userId) }
-  if (dateFrom) { statsWhere.push('b.created_at >= ?'); statsParams.push(dateFrom + ' 00:00:00') }
-  if (dateTo)   { statsWhere.push('b.created_at <= ?'); statsParams.push(dateTo   + ' 23:59:59') }
+  if (dateFrom) { statsWhere.push('b.created_at >= ?'); statsParams.push(utc8DayStartUtc(dateFrom)) }
+  if (dateTo)   { statsWhere.push('b.created_at < ?');  statsParams.push(utc8NextDayStartUtc(dateTo)) }
   const statsWhereClause = statsWhere.length ? 'WHERE ' + statsWhere.join(' AND ') : ''
 
   const [[sharedStats]] = await pool.query<import('mysql2/promise').RowDataPacket[]>(
@@ -40,8 +48,8 @@ router.get('/', async (ctx) => {
     const innerWhere: string[] = []
     const innerParams: unknown[] = []
     if (userId)   { innerWhere.push('b.user_id = ?');     innerParams.push(userId) }
-    if (dateFrom) { innerWhere.push('b.created_at >= ?'); innerParams.push(dateFrom + ' 00:00:00') }
-    if (dateTo)   { innerWhere.push('b.created_at <= ?'); innerParams.push(dateTo   + ' 23:59:59') }
+    if (dateFrom) { innerWhere.push('b.created_at >= ?'); innerParams.push(utc8DayStartUtc(dateFrom)) }
+    if (dateTo)   { innerWhere.push('b.created_at < ?');  innerParams.push(utc8NextDayStartUtc(dateTo)) }
     const innerWhereClause = innerWhere.length ? 'WHERE ' + innerWhere.join(' AND ') : ''
 
     // 无局号的单以 provider_txn_id 作为独立一局保留，不丢数据
@@ -107,8 +115,8 @@ router.get('/', async (ctx) => {
   if (userId)   { where.push('b.user_id = ?');     params.push(userId) }
   if (status)   { where.push('b.status = ?');      params.push(status) }
   if (betType)  { where.push('b.bet_type = ?');    params.push(betType) }
-  if (dateFrom) { where.push('b.created_at >= ?'); params.push(dateFrom + ' 00:00:00') }
-  if (dateTo)   { where.push('b.created_at <= ?'); params.push(dateTo   + ' 23:59:59') }
+  if (dateFrom) { where.push('b.created_at >= ?'); params.push(utc8DayStartUtc(dateFrom)) }
+  if (dateTo)   { where.push('b.created_at < ?');  params.push(utc8NextDayStartUtc(dateTo)) }
 
   const whereClause = where.length ? 'WHERE ' + where.join(' AND ') : ''
 
