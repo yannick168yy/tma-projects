@@ -65,6 +65,21 @@
   to { transform: translateY(-50%); }
 }
 
+/* 首页维护公告横向跑马灯：内容复制两份，滚动一半实现无缝循环 */
+@keyframes maintenanceMarquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+.maintenance-marquee-track {
+  display: inline-flex;
+  white-space: nowrap;
+  will-change: transform;
+  animation: maintenanceMarquee 22s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .maintenance-marquee-track { animation: none; }
+}
+
 /* ── 任务中心动效（只动 transform/opacity/box-shadow，GPU 合成层友好） ── */
 @media (prefers-reduced-motion: no-preference) {
   .task-kenburns {

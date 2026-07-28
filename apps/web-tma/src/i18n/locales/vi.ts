@@ -181,6 +181,7 @@ export default {
     supportSub: 'Luôn sẵn sàng hỗ trợ bạn',
     providersSection: 'NHÀ CUNG CẤP',
     bettingTable: 'BẢNG CƯỢC',
+    maintenanceNotice: 'Nền tảng trò chơi đang bảo trì & nâng cấp, dự kiến khôi phục lúc 13:00 hôm nay. Một số trò chơi tạm thời không thể vào — mong quý khách thông cảm.',
     latestBets: 'Cược Mới Nhất',
     topWeek: 'Top Tuần',
     topMonth: 'Top Tháng',

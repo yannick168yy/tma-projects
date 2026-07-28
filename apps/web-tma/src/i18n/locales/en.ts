@@ -368,6 +368,7 @@ export default {
     supportSub: 'Always here for you · Laging handa',
     providersSection: 'PROVIDERS',
     bettingTable: 'BETTING TABLE',
+    maintenanceNotice: 'Game platform under maintenance & upgrade, expected back by 13:00 today. Some games are temporarily unavailable — sorry for any inconvenience.',
     latestBets: 'Latest Bets',
     topWeek: 'Top of the Week',
     topMonth: 'Top of the Month',

@@ -367,6 +367,7 @@ export default {
     supportSub: '随时为您服务',
     providersSection: '游戏供应商',
     bettingTable: '下注排行',
+    maintenanceNotice: '游戏平台维护升级中，预计今日 13:00 恢复，期间部分游戏暂时无法进入，给您带来不便敬请谅解',
     latestBets: '最新下注',
     topWeek: '本周热门',
     topMonth: '本月热门',

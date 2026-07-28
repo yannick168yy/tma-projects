@@ -181,6 +181,7 @@ export default {
     supportSub: 'Selalu siap membantu Anda',
     providersSection: 'PENYEDIA',
     bettingTable: 'TABEL TARUHAN',
+    maintenanceNotice: 'Platform game sedang dalam pemeliharaan & peningkatan, diperkirakan pulih pukul 13:00 hari ini. Sebagian game sementara tidak dapat diakses — mohon maaf atas ketidaknyamanannya.',
     latestBets: 'Taruhan Terbaru',
     topWeek: 'Top Minggu Ini',
     topMonth: 'Top Bulan Ini',

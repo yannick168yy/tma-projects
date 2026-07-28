@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import {
   Trophy, TrendingUp, Gamepad2, Sparkles, History, Factory,
   Fish, Ticket, Drama, Rocket, X, Gem, Percent,
-  Zap, Headphones, ShieldCheck, Crown,
+  Zap, Headphones, ShieldCheck, Crown, Wrench,
 } from 'lucide-react'
 import GameCardV2 from '@/components/home/GameCardV2'
 import TaskFloatBall from '@/components/tasks/TaskFloatBall'
@@ -62,6 +62,14 @@ const COMMUNITY_LINKS: { label: string; icon: string; url: string }[] = [
 const BET_SCROLL_MIN_DURATION_SECONDS = 32
 const BET_SCROLL_SECONDS_PER_ITEM = 2.8
 
+// 游戏商 2026-07-28 08:00–13:00（+08:00）维护，公告条只在此窗口内自动显示，过点自动消失
+const MAINTENANCE_START = Date.parse('2026-07-28T08:00:00+08:00')
+const MAINTENANCE_END = Date.parse('2026-07-28T13:00:00+08:00')
+function isInMaintenanceWindow() {
+  const now = Date.now()
+  return now >= MAINTENANCE_START && now < MAINTENANCE_END
+}
+
 // 榜单前三名的金/银/铜华丽配色
 const RANK_TOP_STYLES = [
   { row: 'bg-gradient-to-r from-amber-500/25 via-amber-500/8 to-transparent border-amber-400/25', medal: 'bg-gradient-to-br from-amber-200 to-amber-500 text-amber-950 shadow-[0_3px_12px_rgba(245,158,11,0.55)]', ring: 'ring-2 ring-amber-400/60', amount: 'text-amber-300' },
@@ -114,6 +122,14 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
   const auth = useAuthStore()
   const activeCurrency = useWalletStore((s) => s.activeCurrency)
   const [homeBanners, setHomeBanners] = useState<HomeBanner[]>([])
+
+  // 维护公告条：进入维护窗口显示，过 13:00 自动隐藏（每 30s 复核一次，无需刷新页面）
+  const [showMaintenance, setShowMaintenance] = useState(isInMaintenanceWindow)
+  useEffect(() => {
+    if (Date.now() >= MAINTENANCE_END) return
+    const id = setInterval(() => setShowMaintenance(isInMaintenanceWindow()), 30_000)
+    return () => clearInterval(id)
+  }, [])
 
   // 首页装修配置的统一跳转：充值窗口是弹窗特判，内部路由走 navigate，外链走 window.open，空串不跳转
   function navHomeTarget(target: string) {
@@ -376,6 +392,19 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
 
   return (
     <div className="page-main">
+      {/* 游戏商维护公告：横向跑马灯，仅维护窗口内显示 */}
+      {showMaintenance && (
+        <div className="mx-4 mt-2 flex items-center gap-2 overflow-hidden rounded-xl border border-amber-400/40 bg-gradient-to-r from-amber-500/15 via-amber-400/10 to-red-500/15 py-2">
+          <span className="flex-shrink-0 pl-3 text-amber-400"><Wrench size={14} /></span>
+          <div className="relative flex-1 overflow-hidden">
+            <div className="maintenance-marquee-track">
+              <span className="px-6 text-xs font-semibold text-amber-200">{t('home.maintenanceNotice')}</span>
+              <span className="px-6 text-xs font-semibold text-amber-200" aria-hidden="true">{t('home.maintenanceNotice')}</span>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Banner 轮播（后台装修配置） */}
       {homeBanners.length > 0 && (
         <div className="px-4 mt-2">
