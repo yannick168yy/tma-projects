@@ -1180,6 +1180,33 @@ export const saveHomeContentItem = (item: Pick<HomeContentItem, 'kind' | 'slot' 
 export const deleteHomeContentItem = (kind: HomeContentItem['kind'], slot: number) =>
   req<{ ok: boolean }>('DELETE', `/admin/home-content/item/${kind}/${slot}`)
 
+// 站内公告
+export type AnnouncementPlacement = 'top_marquee' | 'home_banner_top'
+export interface AnnouncementContents {
+  en: string
+  zh: string
+  id: string
+  vi: string
+}
+export interface AdminAnnouncement {
+  placement: AnnouncementPlacement
+  enabled: boolean
+  contents: AnnouncementContents
+  startsAt: string | null
+  endsAt: string | null
+  updatedAt: string
+}
+export interface AnnouncementUpsert {
+  placement: AnnouncementPlacement
+  enabled: boolean
+  contents: AnnouncementContents
+  startsAt: string | null
+  endsAt: string | null
+}
+export const getAnnouncements = () => get<{ items: AdminAnnouncement[] }>('/admin/announcements')
+export const saveAnnouncement = (item: AnnouncementUpsert) =>
+  post<{ ok: boolean }>('/admin/announcements', item)
+
 // Rewards Spin
 export interface SpinDepositRule {
   id?: number

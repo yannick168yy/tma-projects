@@ -1,18 +1,24 @@
 import { useEffect, useState } from 'react'
-import { Alert, Button, Card, Col, Form, Image, Input, Popconfirm, Row, Select, Space, Switch, Tabs, Typography, Upload, message, Spin } from 'antd'
+import { Alert, Button, Card, Col, DatePicker, Form, Image, Input, Popconfirm, Row, Select, Space, Switch, Tabs, Typography, Upload, message, Spin } from 'antd'
 import { ArrowDownOutlined, ArrowUpOutlined, DeleteOutlined, HomeOutlined, PlusOutlined, UploadOutlined } from '@ant-design/icons'
+import dayjs from 'dayjs'
 import type { UploadFile } from 'antd'
 import {
   deleteHomeContentItem,
+  getAnnouncements,
   getHomeContent,
+  saveAnnouncement,
   saveHomeContentItem,
   uploadHomeImage,
+  type AdminAnnouncement,
+  type AnnouncementPlacement,
   type HomeContentItem,
 } from '../api'
 
 const { Title, Text } = Typography
 
 type Kind = HomeContentItem['kind']
+type HomeContentTab = Kind | 'announcements'
 
 interface FormItemState {
   kind: Kind
@@ -105,6 +111,22 @@ function emptyItem(kind: Kind, slot: number): FormItemState {
   return { kind, slot, imageKey: '', imageUrl: '', actionType: 'none', actionValue: null, enabled: true }
 }
 
+const announcementLabels: Record<AnnouncementPlacement, { title: string; position: string }> = {
+  top_marquee: {
+    title: '紧急公告',
+    position: '显示在前台顶部菜单栏下方，使用通栏跑马灯效果',
+  },
+  home_banner_top: {
+    title: '一般公告',
+    position: '显示在首页 Banner 上方',
+  },
+}
+
+const emptyAnnouncements: AdminAnnouncement[] = [
+  { placement: 'top_marquee', enabled: false, contents: { en: '', zh: '', id: '', vi: '' }, startsAt: null, endsAt: null, updatedAt: '' },
+  { placement: 'home_banner_top', enabled: false, contents: { en: '', zh: '', id: '', vi: '' }, startsAt: null, endsAt: null, updatedAt: '' },
+]
+
 function readFileDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
@@ -121,22 +143,24 @@ function nextSlot(items: FormItemState[]): number {
 export default function HomeContentConfig() {
   const [loading, setLoading] = useState(true)
   const [savingKey, setSavingKey] = useState('')
-  const [activeKind, setActiveKind] = useState<Kind>('banner')
+  const [activeKind, setActiveKind] = useState<HomeContentTab>('banner')
   const [activeBannerSlot, setActiveBannerSlot] = useState('1')
   const [activeWalletBannerSlot, setActiveWalletBannerSlot] = useState('1')
   const [banners, setBanners] = useState<FormItemState[]>([])
   const [walletBanners, setWalletBanners] = useState<FormItemState[]>([])
+  const [announcements, setAnnouncements] = useState<AdminAnnouncement[]>(emptyAnnouncements)
 
   async function load() {
     setLoading(true)
     try {
-      const data = await getHomeContent()
+      const [data, announcementData] = await Promise.all([getHomeContent(), getAnnouncements()])
       const nextBanners = data.banners.map((item) => ({ ...item })).sort((a, b) => a.slot - b.slot)
       const nextWalletBanners = data.walletBanners.map((item) => ({ ...item })).sort((a, b) => a.slot - b.slot)
       setBanners(nextBanners)
       setWalletBanners(nextWalletBanners)
       setActiveBannerSlot(String(nextBanners[0]?.slot ?? 1))
       setActiveWalletBannerSlot(String(nextWalletBanners[0]?.slot ?? 1))
+      setAnnouncements(emptyAnnouncements.map((fallback) => announcementData.items.find((item) => item.placement === fallback.placement) ?? fallback))
     } catch (e) {
       message.error(e instanceof Error ? e.message : '加载失败')
     } finally {
@@ -168,6 +192,28 @@ export default function HomeContentConfig() {
 
   function updateItem(kind: Kind, slot: number, patch: Partial<FormItemState>) {
     setItemsOf(kind, (prev) => prev.map((item) => item.slot === slot ? { ...item, ...patch } : item))
+  }
+
+  function updateAnnouncement(placement: AnnouncementPlacement, patch: Partial<AdminAnnouncement>) {
+    setAnnouncements((prev) => prev.map((item) => item.placement === placement ? { ...item, ...patch } : item))
+  }
+
+  async function handleSaveAnnouncement(item: AdminAnnouncement) {
+    setSavingKey(`announcement-${item.placement}`)
+    try {
+      await saveAnnouncement({
+        placement: item.placement,
+        enabled: item.enabled,
+        contents: item.contents,
+        startsAt: item.startsAt,
+        endsAt: item.endsAt,
+      })
+      message.success('已保存')
+    } catch (e) {
+      message.error(e instanceof Error ? e.message : '保存失败')
+    } finally {
+      setSavingKey('')
+    }
   }
 
   function handleAdd(kind: Kind) {
@@ -438,6 +484,105 @@ export default function HomeContentConfig() {
     )
   }
 
+  function renderAnnouncements() {
+    return (
+      <Space direction="vertical" size={16} style={{ width: '100%' }}>
+        {announcements.map((item) => {
+          const meta = announcementLabels[item.placement]
+          return (
+            <Card
+              key={item.placement}
+              title={meta.title}
+              extra={
+                <Switch
+                  checkedChildren="启用"
+                  unCheckedChildren="关闭"
+                  checked={item.enabled}
+                  onChange={(enabled) => updateAnnouncement(item.placement, { enabled })}
+                />
+              }
+            >
+              <Space direction="vertical" size={12} style={{ width: '100%' }}>
+                <Alert type="info" showIcon message={meta.position} />
+                <Form layout="vertical" requiredMark={false}>
+                  <Row gutter={12}>
+                    <Col xs={24} md={12}>
+                      <Form.Item label="开始时间（可选）" style={{ marginBottom: 12 }}>
+                        <DatePicker
+                          showTime
+                          allowClear
+                          style={{ width: '100%' }}
+                          value={item.startsAt ? dayjs(item.startsAt) : null}
+                          onChange={(value) => updateAnnouncement(item.placement, { startsAt: value ? value.toISOString() : null })}
+                        />
+                      </Form.Item>
+                    </Col>
+                    <Col xs={24} md={12}>
+                      <Form.Item label="结束时间（可选）" style={{ marginBottom: 12 }}>
+                        <DatePicker
+                          showTime
+                          allowClear
+                          style={{ width: '100%' }}
+                          value={item.endsAt ? dayjs(item.endsAt) : null}
+                          onChange={(value) => updateAnnouncement(item.placement, { endsAt: value ? value.toISOString() : null })}
+                        />
+                      </Form.Item>
+                    </Col>
+                  </Row>
+                  <Row gutter={12}>
+                    <Col xs={24} md={12}>
+                      <Form.Item label="英文" style={{ marginBottom: 12 }}>
+                        <Input.TextArea
+                          rows={3}
+                          value={item.contents.en}
+                          onChange={(e) => updateAnnouncement(item.placement, { contents: { ...item.contents, en: e.target.value } })}
+                        />
+                      </Form.Item>
+                    </Col>
+                    <Col xs={24} md={12}>
+                      <Form.Item label="中文" style={{ marginBottom: 12 }}>
+                        <Input.TextArea
+                          rows={3}
+                          value={item.contents.zh}
+                          onChange={(e) => updateAnnouncement(item.placement, { contents: { ...item.contents, zh: e.target.value } })}
+                        />
+                      </Form.Item>
+                    </Col>
+                    <Col xs={24} md={12}>
+                      <Form.Item label="印尼语" style={{ marginBottom: 12 }}>
+                        <Input.TextArea
+                          rows={3}
+                          value={item.contents.id}
+                          onChange={(e) => updateAnnouncement(item.placement, { contents: { ...item.contents, id: e.target.value } })}
+                        />
+                      </Form.Item>
+                    </Col>
+                    <Col xs={24} md={12}>
+                      <Form.Item label="越南语" style={{ marginBottom: 12 }}>
+                        <Input.TextArea
+                          rows={3}
+                          value={item.contents.vi}
+                          onChange={(e) => updateAnnouncement(item.placement, { contents: { ...item.contents, vi: e.target.value } })}
+                        />
+                      </Form.Item>
+                    </Col>
+                  </Row>
+                </Form>
+                <Button
+                  type="primary"
+                  loading={savingKey === `announcement-${item.placement}`}
+                  onClick={() => void handleSaveAnnouncement(item)}
+                >
+                  保存公告
+                </Button>
+              </Space>
+            </Card>
+          )
+        })}
+      </Space>
+    )
+  }
+
   if (loading) return <div style={{ textAlign: 'center', padding: 48 }}><Spin size="large" /></div>
 
   return (
@@ -450,9 +595,10 @@ export default function HomeContentConfig() {
 
       <Tabs
         activeKey={activeKind}
-        onChange={(key) => setActiveKind(key as Kind)}
+        onChange={(key) => setActiveKind(key as HomeContentTab)}
         items={[
           { key: 'banner', label: 'Banner', children: renderKind('banner') },
+          { key: 'announcements', label: '公告', children: renderAnnouncements() },
           { key: 'wallet_banner', label: '充值/提现 Banner', children: renderKind('wallet_banner') },
         ]}
       />

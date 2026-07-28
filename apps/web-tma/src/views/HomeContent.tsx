@@ -10,7 +10,9 @@ import TaskFloatBall from '@/components/tasks/TaskFloatBall'
 import { INFO_LINKS } from '@/data/home'
 import { fetchHomepageGames, fetchGames, fetchGameHistory, launchGame, fetchBettingActivity, type SlotGame, type BetRecord, type BetTab, type GameHistoryItem } from '@/api/slots'
 import { fetchHomeContent } from '@/api/home'
+import type { AnnouncementContents } from '@/api/announcements'
 import { resolveHomeActionPath } from '@/navigation/appRoutes'
+import AnnouncementBar from '@/components/AnnouncementBar'
 import { ApiError } from '@/api/client'
 import { usePromotionStore } from '@/stores/promotion'
 import { matchPopupAudience } from '@/api/promotion'
@@ -73,6 +75,7 @@ const RANK_TOP_STYLES = [
 interface HomeBanner { id: number; image: string; target: string }
 
 interface Props {
+  homeBannerTopAnnouncement?: AnnouncementContents
   onNavigatePath: (path: string) => void
   onOpenCs: () => void
   onOpenGame: (url: string) => void
@@ -107,7 +110,7 @@ function HomePromoFloat({ cashbackLabel, onOpenCashback }: HomePromoFloatProps) 
   )
 }
 
-export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOpenFirstDepositFiesta, onOpenCashback, onOpenDeposit }: Props) {
+export default function HomeContent({ homeBannerTopAnnouncement, onNavigatePath, onOpenCs, onOpenGame, onOpenFirstDepositFiesta, onOpenCashback, onOpenDeposit }: Props) {
   const { t, i18n } = useTranslation()
   const locale = i18n.language
   const promotion = usePromotionStore()
@@ -376,6 +379,12 @@ export default function HomeContent({ onNavigatePath, onOpenCs, onOpenGame, onOp
 
   return (
     <div className="page-main">
+      {homeBannerTopAnnouncement && (
+        <div className="px-4 pt-2">
+          <AnnouncementBar contents={homeBannerTopAnnouncement} tone="general" />
+        </div>
+      )}
+
       {/* Banner 轮播（后台装修配置） */}
       {homeBanners.length > 0 && (
         <div className="px-4 mt-2">

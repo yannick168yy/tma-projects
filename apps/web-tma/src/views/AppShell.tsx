@@ -22,8 +22,9 @@ import { usePromotionStore } from '@/stores/promotion'
 import { notifyTasksRefresh } from '@/api/tasks'
 import { useActiveTaskStore } from '@/stores/activeTask'
 import { claimAppdlBonus, fetchNewPlayerSummary, fetchRedepOffer, matchPopupAudience, type NewPlayerSummary, type RedepOffer } from '@/api/promotion'
+import { fetchAnnouncements, type PublicAnnouncements } from '@/api/announcements'
 import TopDownloadBar from '@/components/pwa/TopDownloadBar'
-import MaintenanceNotice from '@/components/MaintenanceNotice'
+import AnnouncementBar from '@/components/AnnouncementBar'
 import ActiveTaskBar from '@/components/tasks/ActiveTaskBar'
 import OrientationGuard from '@/components/OrientationGuard'
 import threeCirclesMenu from '@/assets/team/3-circles/menu-entry.webp'
@@ -137,6 +138,7 @@ export default function AppShell() {
   const [gamePlayerUrl, setGamePlayerUrl] = useState<string | null>(null)
   const [downloadBarVisible, setDownloadBarVisible] = useState(() => shouldShowDownloadBar())
   const [iosGuideOpen, setIosGuideOpen] = useState(false)
+  const [announcements, setAnnouncements] = useState<PublicAnnouncements>({})
 
   // ── 新人礼包弹窗：聚合状态 + 按后台 popups 配置调度 ──────────────────────────
   const promoConfig = usePromotionStore((s) => s.promoConfig)
@@ -204,6 +206,10 @@ export default function AppShell() {
     if (!promoConfig) void loadPromoConfig()
     void refreshNpSummary()
   }, [auth.token]) // 登录态变化后重拉真实领取状态
+
+  useEffect(() => {
+    fetchAnnouncements().then(setAnnouncements).catch(() => setAnnouncements({}))
+  }, [])
 
   // 空闲预热游戏加载宣传图：进游戏瞬间图已在缓存，慢网下不会出现"加载图还在加载"
   useEffect(() => {
@@ -558,7 +564,6 @@ export default function AppShell() {
               onDismiss={() => { dismissDownloadBar(); setDownloadBarVisible(false) }}
             />
           )}
-          <MaintenanceNotice />
           <div className="app-safe-header flex items-center gap-3 px-4 pb-2">
             <button type="button" className="flex-shrink-0 cursor-pointer" onClick={goHome}><BetogoLogo /></button>
 
@@ -593,6 +598,7 @@ export default function AppShell() {
               <Headset size={18} />
             </button>
           </div>
+          <AnnouncementBar contents={announcements.top_marquee?.contents} tone="emergency" />
 
           {walletOpen && isLoggedIn && (
             <>
@@ -748,7 +754,7 @@ export default function AppShell() {
           {view.type === 'none' && activeNav === 'games' && <GamesPage cat={gamesFilter.cat} provider={gamesFilter.provider} onChangeFilter={setGamesFilter} onOpenPerya={openPerya} onGameTap={() => void onGameTap()} onOpenGame={(url) => setGamePlayerUrl(url)} />}
           {view.type === 'none' && activeNav === 'menu' && <MenuPage onOpenCs={openCs} onLogin={() => void auth.ensureLoggedIn(t('auth.signInProfile'))} onLogout={onLogout} onOpenBetHistory={onOpenBetHistory} onOpenLedgerRecords={onOpenLedgerRecords} onOpenReferralPromo={onOpenReferralPromo} onOpenAgentCenter={onOpenAgentCenter} onOpenVipCenter={() => openVipCenter()} onOpenCashback={onOpenCashback} onOpenTasks={onOpenTasks} onOpenKycSetting={onOpenKycSetting} onOpenDownload={openDownload} onOpenTopUp={() => void openWalletFull('deposit')} onOpenCashOut={() => void openWalletFull('withdraw')} onOpenWalletHistory={() => void openWalletFull('history')} />}
           {view.type === 'none' && activeNav === 'casino' && (
-            <HomeContent onNavigatePath={navigatePath} onOpenCs={openCs} onOpenGame={(url) => setGamePlayerUrl(url)} onOpenFirstDepositFiesta={onOpenFirstDepositFiesta} onOpenCashback={onOpenCashback} onOpenDeposit={() => void openWalletFull('deposit')} />
+            <HomeContent homeBannerTopAnnouncement={announcements.home_banner_top?.contents} onNavigatePath={navigatePath} onOpenCs={openCs} onOpenGame={(url) => setGamePlayerUrl(url)} onOpenFirstDepositFiesta={onOpenFirstDepositFiesta} onOpenCashback={onOpenCashback} onOpenDeposit={() => void openWalletFull('deposit')} />
           )}
           </Suspense>
         </main>

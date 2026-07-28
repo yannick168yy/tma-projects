@@ -65,18 +65,20 @@
   to { transform: translateY(-50%); }
 }
 
-/* 首页维护公告横向跑马灯：内容复制两份，滚动一半实现无缝循环 */
-@keyframes maintenanceMarquee {
+/* 站内公告横向跑马灯：内容复制两份，滚动一半实现无缝循环 */
+@keyframes announcementMarquee {
   from { transform: translateX(0); }
   to { transform: translateX(-50%); }
 }
+.announcement-marquee-track,
 .maintenance-marquee-track {
   display: inline-flex;
   white-space: nowrap;
   will-change: transform;
-  animation: maintenanceMarquee 22s linear infinite;
+  animation: announcementMarquee 22s linear infinite;
 }
 @media (prefers-reduced-motion: reduce) {
+  .announcement-marquee-track { animation: none; }
   .maintenance-marquee-track { animation: none; }
 }
 
