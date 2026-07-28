@@ -44,7 +44,7 @@ const PROVIDER_ZONE = [
 ]
 // 厂商专区每页展示数；多拉一些做「已出现在首页的游戏跳过 + 同名去重」后再截取
 const PROVIDER_ZONE_SHOW = 12
-const PROVIDER_ZONE_FETCH = 36
+const PROVIDER_ZONE_FETCH = 48 // 拉多些兜底:过滤掉维护中游戏后仍尽量填满 12
 
 function historyToGame(item: GameHistoryItem): SlotGame {
   return {
@@ -216,6 +216,7 @@ export default function HomeContent({ homeBannerTopAnnouncement, onNavigatePath,
   const providerZoneGames = useMemo(() => {
     const names = new Set<string>()
     return providerZoneRaw.filter((g) => {
+      if (g.isAvailable === false) return false // 厂商专区:剔除维护/下线游戏(不置灰,直接不显示)
       if (homepageShownUuids.has(g.uuid)) return false
       const key = (g.name ?? '').trim().toLowerCase()
       if (key && names.has(key)) return false

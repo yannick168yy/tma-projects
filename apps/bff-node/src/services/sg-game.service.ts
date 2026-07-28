@@ -438,19 +438,23 @@ export async function loadSectionOverrides(env: Env): Promise<SectionOverrides> 
 
 function buildHomepageSelection(all: DbGame[], cur: string, overrides: SectionOverrides): HomepageSelection {
   const gameByUuid = new Map(all.map((g) => [g.uuid, g]))
+  // 可用池:过滤掉上游维护/下线游戏。第2/3组(newGames/slots/casino/perya/fishing/lottery/baccarat/sports)
+  // 从这里取——维护即剔除,算法自动用其他可用游戏补足 N。第1组+highRtp 仍从 all 取(维护游戏保留原位置灰)。
+  const available = all.filter((g) => g.isAvailable !== false)
   const entriesFor = (key: string) =>
     (overrides.get(key) ?? []).filter((e) => e.currency === '' || e.currency === cur)
 
   // pin/exclude 合并：先按当前币种筛出该板块的干预项；exclude 已在池层剔除，
   // 这里负责把 pin 的游戏插到指定位置（pin 不占厂商配额、可越过策略打底）。
-  const applyManual = (key: string, list: DbGame[], target: number): DbGame[] => {
+  const applyManual = (key: string, list: DbGame[], target: number, availableOnly = false): DbGame[] => {
     const entries = entriesFor(key)
     if (!entries.length) return list
     const ex = new Set(entries.filter((e) => e.action === 'exclude').map((e) => e.gameUuid))
     const pins = entries
       .filter((e) => e.action === 'pin')
       .map((e) => ({ e, g: gameByUuid.get(e.gameUuid) }))
-      .filter((x): x is { e: SectionGameEntry; g: DbGame } => !!x.g && !ex.has(x.e.gameUuid))
+      // availableOnly(第2/3组):维护中的 pin 让位,由可用池补足;第1组保留 pin 原位(前端置灰)
+      .filter((x): x is { e: SectionGameEntry; g: DbGame } => !!x.g && !ex.has(x.e.gameUuid) && (!availableOnly || x.g.isAvailable !== false))
     const pinnedUuids = new Set(pins.map((x) => x.e.gameUuid))
     // pin 优先：策略结果里与 pin 同系列的游戏剔除（板块内同款不同代只留 pin 的那款）
     const pinSeries = new Set(pins.map((x) => gameSeriesKey(x.g.name)).filter(Boolean))
@@ -518,11 +522,14 @@ function buildHomepageSelection(all: DbGame[], cur: string, overrides: SectionOv
     return result
   }
   const bySite = (cat: string) => all.filter((g) => g.siteCategory === cat)
+  // 第2/3组用:只取可用游戏(维护即剔除,算法自动用其他可用游戏补足 N)
+  const bySiteA = (cat: string) => available.filter((g) => g.siteCategory === cat)
   const score = (g: DbGame) => g.weight * (g.isFeatured ? 1.5 : 1)
 
   // New Games：按上游首次同步时间（created_at）降序取最新入库的一批做抽样池；
   // 上游常整批同厂商上新，池子放大到 120 并放宽厂商配额，避免板块只剩 2-3 款
-  const newPool = [...all]
+  // 第2组:池取可用游戏(维护游戏不上架)
+  const newPool = [...available]
     .sort((a, b) => String(b.createdAt ?? '').localeCompare(String(a.createdAt ?? '')))
     .slice(0, 120)
 
@@ -535,10 +542,10 @@ function buildHomepageSelection(all: DbGame[], cur: string, overrides: SectionOv
     const ex = new Set(entriesFor(key).filter((e) => e.action === 'exclude').map((e) => e.gameUuid))
     return ex.size ? pool.filter((g) => !ex.has(g.uuid)) : pool
   }
-  const sampleSection = (key: string, pool: DbGame[], sc: (g: DbGame) => number, n: number, mpp = 2) =>
-    applyManual(key, pick(exFilter(key, pool), sc, n, mpp), n)
-  const weightSection = (key: string, pool: DbGame[], n: number, priority?: (g: DbGame) => number) =>
-    applyManual(key, pickWeightTop(exFilter(key, pool), n, priority), n)
+  const sampleSection = (key: string, pool: DbGame[], sc: (g: DbGame) => number, n: number, mpp = 2, availableOnly = false) =>
+    applyManual(key, pick(exFilter(key, pool), sc, n, mpp), n, availableOnly)
+  const weightSection = (key: string, pool: DbGame[], n: number, priority?: (g: DbGame) => number, availableOnly = false) =>
+    applyManual(key, pickWeightTop(exFilter(key, pool), n, priority), n, availableOnly)
   // 返水档位优先级：elite(2%)>pro(1.5%)>basic(1%)>无。用于 slots 首推 cashback 游戏
   const cashbackRank = (g: DbGame) => g.cashbackTier === 'elite' ? 3 : g.cashbackTier === 'pro' ? 2 : g.cashbackTier === 'basic' ? 1 : 0
   const topSection = (key: string, pool: DbGame[], sc: (g: DbGame) => number, n: number, mpp = 3) =>
@@ -580,34 +587,34 @@ function buildHomepageSelection(all: DbGame[], cur: string, overrides: SectionOv
     // 取 24 款做候选池：前端展示前 12，后 12 专供「最近在玩」补位，保证补位游戏不与推荐板块重复。
     // sportsbook 合成条目(权重10000)排除——体育板块固定给它第一席位，进推荐必重复
     recommended: topSection('recommended', all.filter(notSports), score, 24, 3),
-    newGames:   sampleSection('newGames', newPool, score, 12, 4),
+    newGames:   sampleSection('newGames', newPool, score, 12, 4, true),
     // slots/perya/fishing/highRtp 改为确定性按权重降序推荐（含模块内同名去重）。
     // highRtp 在页面上位于 slots 之前，先计算以按展示顺序优先分配高权重游戏
     // 高 RTP 专栏：上游标称 rtp≥0.97，对标竞品「98%」栏；默认放 12 款
     highRtp:    weightSection('highRtp', all.filter((g) => (g.rtp ?? 0) >= 0.97), 12),
     // slots 首推 cashback（返水）游戏：按返水档位优先、档内按权重降序；不足再用普通老虎机补。
     // 跨板块 seen 去重保证这里选中的游戏不会在其他板块重复出现
-    slots:      weightSection('slots', bySite('slot'), 6, cashbackRank),
+    slots:      weightSection('slots', bySiteA('slot'), 6, cashbackRank, true),
     // 真人：排除百家乐(ntype101)，避免与百家乐专栏重复且被同款变体屠版
-    casino:     sampleSection('casino', bySite('casino').filter((g) => g.category !== '101'), score, 6),
+    casino:     sampleSection('casino', bySiteA('casino').filter((g) => g.category !== '101'), score, 6, 2, true),
     // perya 含 bingo(bingo 游戏 site_category 本就归 perya)，2 行 6 款
-    perya:      weightSection('perya', bySite('perya'), 6),
-    fishing:    weightSection('fishing', bySite('fishing'), 6),
+    perya:      weightSection('perya', bySiteA('perya'), 6, undefined, true),
+    fishing:    weightSection('fishing', bySiteA('fishing'), 6, undefined, true),
     // 彩票 & 其他：彩票(ntype207)低权重会被 other 淹没，先保底 4 彩票再用 other 补 8
-    lottery:    applyManual('lottery', [...pick(bySite('lottery'), score, 4), ...pick(bySite('other'), score, 8)], 12),
+    lottery:    applyManual('lottery', [...pick(bySiteA('lottery'), score, 4), ...pick(bySiteA('other'), score, 8)], 12, true),
     // 百家乐专栏：casinoplus 有独立返水专栏验证的品类需求（new_game_type=101）
     // 可用百家乐仅 2 家厂商(Pragmatic/Playtech)，默认每厂商≤2 只能凑出 4 款；放宽到 6 以填满 12
-    baccarat:   sampleSection('baccarat', all.filter((g) => g.category === '101'), score, 12, 6),
+    baccarat:   sampleSection('baccarat', available.filter((g) => g.category === '101'), score, 12, 6, true),
     // 高洗码专栏：已在 popular 前先算并登记 seen（见 highRebateList 注释）
     highRebate: highRebateList,
     // 体育：sportsbook 合成条目固定第一席位（前端已移除专属通栏）；Lucky Sports(迁移134统一名) 的 28 个
     // 分项(足球/拳击/…)是同一产品的不同入口，只保留 Basketball，其余席位给独立体育产品(AFB/BTi/Panda/Saba 等)
     sports:     applyManual('sports', [
       ...all.filter((g) => g.uuid === WIN568_SPORTSBOOK_UUID).slice(0, 1),
-      ...pick(exFilter('sports', bySite('sports').filter((g) =>
+      ...pick(exFilter('sports', bySiteA('sports').filter((g) =>
         g.uuid !== WIN568_SPORTSBOOK_UUID
         && !(g.provider === 'Lucky Sports' && g.name !== 'Basketball'))), score, 5, 6),
-    ], 6),
+    ], 6, true),
     generatedAt: new Date().toISOString(),
   }
 
