@@ -9,6 +9,7 @@ import { approveWithdraw } from './withdraw-approve.service.js'
 import { broadcastBadges } from './sse-badges.js'
 import { notifyWithdrawManual } from './admin-notify.js'
 import { recommendedUserReasonForRule } from './withdraw-reject-reason.service.js'
+import { compareKycNames } from './kyc.service.js'
 
 // ── 规则结果 / 上下文 ─────────────────────────────────────────────────────────
 
@@ -52,6 +53,14 @@ interface ReviewContext {
   completedWithdrawCount: number
   // 关系/风控面
   uplineBlacklisted: boolean
+  kycStatus: string
+  kycFullName: string
+  kycReviewedAt: Date | null
+  targetOwner: string
+  targetAccount: string
+  withdrawAccountOtherUsers: number
+  withdrawOwnerOtherUsers: number
+  minutesSinceKycApproved: number | null
   /** 未完成的优惠流水（required-completed，PHP 分） */
   promoTurnoverRemaining: number
   /** 近30天共用同 IP 的其他账号数 */
@@ -82,6 +91,10 @@ export const RULE_META: Record<string, { name: string; desc: string }> = {
   first_withdraw_no_deposit:{ name: '首次取款', desc: '该账号此前无任何成功取款，且历史无真实存款，首次取款即转人工。' },
   upline_blacklist:         { name: '上线黑名单', desc: '该用户的邀请人（上线）处于封禁/冻结或风控黑名单中，则本次取款转人工。' },
   same_ip_device:           { name: '同IP同设备', desc: '近30天与其它账号共用同一 IP 的数量 ≥ ip 阈值，或共用同一设备(device_id/硬件指纹)的数量 ≥ device 阈值。' },
+  kyc_name_mismatch:        { name: '实名户名不一致', desc: '提现户名与 KYC 实名姓名不完全一致时转人工；匹配算法会忽略大小写、标点、多余空格，并识别中间名缩写/姓名顺序差异。' },
+  withdraw_account_reuse:   { name: '提现账号复用', desc: '同一提现账号被其它用户使用过，达到阈值即转人工。默认 1 个其它用户。' },
+  withdraw_owner_reuse:     { name: '提现户名复用', desc: '同一提现户名被多个其它用户使用过，达到阈值即转人工。默认 2 个其它用户。' },
+  fast_withdraw_after_kyc:  { name: 'KYC后快速提现', desc: 'KYC 通过后短时间内立即提现，达到配置分钟阈值内则转人工。默认 10 分钟。' },
   promo_turnover:           { name: '优惠流水', desc: '存在已领取但尚未打完所需流水的优惠（剩余打码 > 0）则转人工。' },
   tampered_bet:             { name: '篡改注单', desc: '存在无对应投注却凭空派彩的 round，疑似数据被篡改，转人工。' },
   commission_anomaly:       { name: '三级分销佣金', desc: '三级分销佣金出现重复入账，或自身有佣金收益但下线累计 GGR ≤ 0（疑似刷佣），转人工。' },
@@ -226,6 +239,19 @@ export function evalUpstreamReconcile(stats: Win568ReviewStats): RuleResult {
   }
 }
 
+function extraText(order: OrderWithdraw, key: string): string {
+  const value = order.extraData?.[key]
+  return typeof value === 'string' ? value.trim() : ''
+}
+
+function minutesBetween(start: Date | null, endIso: string): number | null {
+  if (!start) return null
+  const end = Date.parse(endIso)
+  const startMs = start.getTime()
+  if (!Number.isFinite(end) || !Number.isFinite(startMs)) return null
+  return Math.max(0, Math.round((end - startMs) / 60000))
+}
+
 // ── 规则集：默认 pass，仅命中异常才 manual ─────────────────────────────────────
 
 type Rule = (ctx: ReviewContext, cfg: RuleConfig) => Promise<RuleResult> | RuleResult
@@ -321,6 +347,63 @@ const RULES: Record<string, Rule> = {
       actualValue: Math.max(ctx.relatedIpAccounts, deviceAccountsTotal),
       threshold: Math.min(ipTh, deviceTh),
       detail: { relatedIpAccounts: ctx.relatedIpAccounts, deviceAccountsTotal, ipTh, deviceTh },
+    }
+  },
+
+  kyc_name_mismatch(ctx) {
+    if (!ctx.kycFullName || !ctx.targetOwner) {
+      return {
+        code: 'kyc_name_mismatch',
+        verdict: 'manual',
+        detail: { reason: ctx.kycFullName ? 'missing target owner' : 'missing kyc name' },
+      }
+    }
+    const match = compareKycNames(ctx.targetOwner, ctx.kycFullName)
+    const exact = match.matched && match.reason === 'exact'
+    return {
+      code: 'kyc_name_mismatch',
+      verdict: exact ? 'pass' : 'manual',
+      detail: {
+        matched: match.matched,
+        reason: match.reason,
+        targetOwnerTokenCount: match.inputTokens.length,
+        kycNameTokenCount: match.documentTokens.length,
+      },
+    }
+  },
+
+  withdraw_account_reuse(ctx, cfg) {
+    const threshold = Number(cfg.threshold ?? 1)
+    if (!ctx.targetAccount || threshold <= 0) return { code: 'withdraw_account_reuse', verdict: 'pass' }
+    return {
+      code: 'withdraw_account_reuse',
+      verdict: ctx.withdrawAccountOtherUsers >= threshold ? 'manual' : 'pass',
+      actualValue: ctx.withdrawAccountOtherUsers,
+      threshold,
+    }
+  },
+
+  withdraw_owner_reuse(ctx, cfg) {
+    const threshold = Number(cfg.threshold ?? 2)
+    if (!ctx.targetOwner || threshold <= 0) return { code: 'withdraw_owner_reuse', verdict: 'pass' }
+    return {
+      code: 'withdraw_owner_reuse',
+      verdict: ctx.withdrawOwnerOtherUsers >= threshold ? 'manual' : 'pass',
+      actualValue: ctx.withdrawOwnerOtherUsers,
+      threshold,
+    }
+  },
+
+  fast_withdraw_after_kyc(ctx, cfg) {
+    const threshold = Number(cfg.threshold ?? 10)
+    if (ctx.minutesSinceKycApproved == null || threshold <= 0) {
+      return { code: 'fast_withdraw_after_kyc', verdict: 'pass' }
+    }
+    return {
+      code: 'fast_withdraw_after_kyc',
+      verdict: ctx.minutesSinceKycApproved <= threshold ? 'manual' : 'pass',
+      actualValue: ctx.minutesSinceKycApproved,
+      threshold,
     }
   },
 
@@ -441,6 +524,14 @@ async function buildContext(pool: Pool, order: OrderWithdraw, config: Record<str
   )
   const registeredAt = user?.registered_at ? new Date(user.registered_at as Date) : new Date(0)
   const uplineBlacklisted = user?.inviter_status === 'banned' || user?.inviter_status === 'frozen'
+  const targetOwner = extraText(order, 'targetOwner')
+  const targetAccount = extraText(order, 'targetAccount')
+
+  const [[kyc]] = await pool.query<RowDataPacket[]>(
+    `SELECT status, full_name, reviewed_at FROM bg_kyc WHERE user_id = ? LIMIT 1`,
+    [userId],
+  )
+  const kycReviewedAt = kyc?.reviewed_at ? new Date(kyc.reviewed_at as Date) : null
 
   const [[wd]] = await pool.query<RowDataPacket[]>(
     `SELECT MAX(created_at) AS last_at, COUNT(*) AS cnt
@@ -512,6 +603,22 @@ async function buildContext(pool: Pool, order: OrderWithdraw, config: Record<str
      WHERE l1.user_id = ? AND l1.created_at > NOW() - INTERVAL 30 DAY`,
     [userId],
   )
+  const [[acctReuse]] = await pool.query<RowDataPacket[]>(
+    `SELECT COUNT(DISTINCT user_id) AS cnt
+     FROM bg_withdraw_order
+     WHERE user_id <> ?
+       AND JSON_UNQUOTE(JSON_EXTRACT(extra, '$.targetAccount')) = ?
+       AND JSON_UNQUOTE(JSON_EXTRACT(extra, '$.targetAccount')) <> ''`,
+    [userId, targetAccount],
+  )
+  const [[ownerReuse]] = await pool.query<RowDataPacket[]>(
+    `SELECT COUNT(DISTINCT user_id) AS cnt
+     FROM bg_withdraw_order
+     WHERE user_id <> ?
+       AND LOWER(TRIM(JSON_UNQUOTE(JSON_EXTRACT(extra, '$.targetOwner')))) = LOWER(?)
+       AND JSON_UNQUOTE(JSON_EXTRACT(extra, '$.targetOwner')) <> ''`,
+    [userId, targetOwner],
+  )
 
   // 篡改注单：凭空派彩 round
   const [[orphan]] = await pool.query<RowDataPacket[]>(
@@ -562,6 +669,14 @@ async function buildContext(pool: Pool, order: OrderWithdraw, config: Record<str
     bonusPhp: 0,
     completedWithdrawCount,
     uplineBlacklisted,
+    kycStatus: String(kyc?.status ?? ''),
+    kycFullName: String(kyc?.full_name ?? ''),
+    kycReviewedAt,
+    targetOwner,
+    targetAccount,
+    withdrawAccountOtherUsers: targetAccount ? Number(acctReuse?.cnt ?? 0) : 0,
+    withdrawOwnerOtherUsers: targetOwner ? Number(ownerReuse?.cnt ?? 0) : 0,
+    minutesSinceKycApproved: kyc?.status === 'approved' ? minutesBetween(kycReviewedAt, order.createdAt) : null,
     promoTurnoverRemaining: Number(pt?.remaining ?? 0),
     relatedIpAccounts: Number(ip?.cnt ?? 0),
     relatedDeviceAccounts: Number(dev?.cnt ?? 0),

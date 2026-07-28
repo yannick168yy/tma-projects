@@ -606,6 +606,18 @@ export interface ReviewProposalDetail {
     registeredAt: string | null; inviterId: string | null; kycStatus: string | null
     walletAvailable: number; walletFrozen: number
   }
+  recipientCheck: {
+    kycFullName: string | null
+    kycReviewedAt: string | null
+    targetOwner: string | null
+    targetAccount: string | null
+    nameMatched: boolean | null
+    nameMatchReason: string | null
+    withdrawAccountOtherUserCount: number
+    withdrawAccountOtherUsers: string[]
+    withdrawOwnerOtherUserCount: number
+    withdrawOwnerOtherUsers: string[]
+  }
   snapshot: Record<string, number | string | boolean> | null
   rules: ReviewRuleResult[]
   related: { ip: { userId: string; ip: string }[]; device: { userId: string; deviceId: string }[] }

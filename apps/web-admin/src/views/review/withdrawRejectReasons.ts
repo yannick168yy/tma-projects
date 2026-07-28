@@ -36,6 +36,10 @@ export const WITHDRAW_USER_REJECT_REASON_OPTIONS = [
     value: 'Withdrawal account information does not match your verified details.',
   },
   {
+    label: '收款信息：账号已被其他用户使用',
+    value: 'This withdrawal account is already linked to another account.',
+  },
+  {
     label: '收款信息：账号或地址无效',
     value: 'Withdrawal channel or address information is invalid. Please check and submit again.',
   },
@@ -49,7 +53,7 @@ export const WITHDRAW_USER_REJECT_REASON_OPTIONS = [
   },
   {
     label: '同IP同设备：账号环境需要核验',
-    value: 'Your account login environment requires additional verification before withdrawal. Please contact support.',
+    value: 'Your withdrawal was rejected because your account shares the same IP address or device with other accounts.',
   },
   {
     label: '优惠流水：活动流水未完成',

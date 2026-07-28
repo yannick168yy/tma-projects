@@ -9,10 +9,11 @@ export const USER_WITHDRAW_REJECT_REASONS = [
   'A qualifying successful deposit is required before withdrawal.',
   'Please complete a qualifying successful deposit before your first withdrawal.',
   'Withdrawal account information does not match your verified details.',
+  'This withdrawal account is already linked to another account.',
   'Withdrawal channel or address information is invalid. Please check and submit again.',
   'Wagering requirements are not completed yet.',
   'Your account relationship information requires additional verification before withdrawal. Please contact support.',
-  'Your account login environment requires additional verification before withdrawal. Please contact support.',
+  'Your withdrawal was rejected because your account shares the same IP address or device with other accounts.',
   'Please complete the required bonus wagering before submitting a withdrawal.',
   'Your reward records require additional verification before withdrawal. Please contact support.',
   'Your bet records require additional verification before withdrawal. Please contact support.',
@@ -25,8 +26,7 @@ export const USER_WITHDRAW_REJECT_REASONS = [
 
 type UserReason = typeof USER_WITHDRAW_REJECT_REASONS[number]
 
-// 审核规则命中 → 推荐的用户可见驳回话术。全是中性「需额外核实」口径，绝不点破风控规则本身
-// （否则等于教工作室怎么绕），也不冤枉合法赢家。管理员驳回时据此自动预选，仍可手动改。
+// 审核规则命中 → 推荐的用户可见驳回话术。管理员驳回时据此自动预选，仍可手动改。
 const RULE_RECOMMENDED_USER_REASON: Record<string, UserReason> = {
   turnover: 'Please complete the required wagering before submitting a withdrawal.',
   promo_turnover: 'Please complete the required bonus wagering before submitting a withdrawal.',
@@ -37,10 +37,14 @@ const RULE_RECOMMENDED_USER_REASON: Record<string, UserReason> = {
   high_multiple_profit_24h: 'Your recent short-term gameplay activity requires additional verification before withdrawal. Please contact support.',
   deposit_source: 'A qualifying successful deposit is required before withdrawal.',
   first_withdraw_no_deposit: 'Please complete a qualifying successful deposit before your first withdrawal.',
+  kyc_name_mismatch: 'Withdrawal account information does not match your verified details.',
+  withdraw_account_reuse: 'This withdrawal account is already linked to another account.',
+  withdraw_owner_reuse: 'Withdrawal account information does not match your verified details.',
+  fast_withdraw_after_kyc: 'This withdrawal amount requires additional review. Please contact support for assistance.',
   total_bonus: 'Your reward records require additional verification before withdrawal. Please contact support.',
   bonus_bet_abuse: 'Your recent bonus activity requires additional verification before withdrawal. Please contact support.',
   upline_blacklist: 'Your account relationship information requires additional verification before withdrawal. Please contact support.',
-  same_ip_device: 'Your account login environment requires additional verification before withdrawal. Please contact support.',
+  same_ip_device: 'Your withdrawal was rejected because your account shares the same IP address or device with other accounts.',
   tampered_bet: 'Your bet records require additional verification before withdrawal. Please contact support.',
   commission_anomaly: 'Your account reward records require additional verification before withdrawal. Please contact support.',
   upstream_reconcile: 'Your withdrawal request requires transaction verification. Please contact support.',

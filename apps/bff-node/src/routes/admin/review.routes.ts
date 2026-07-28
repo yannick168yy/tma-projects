@@ -3,6 +3,7 @@ import { ok, fail } from '../../utils/response.js'
 import { getMysqlPool, isMysqlEnabled } from '../../clients/mysql.client.js'
 import { RULE_META, getReviewLog, getRelatedAccounts, rerunReview } from '../../services/withdraw-review.service.js'
 import { rerunTeamWithdrawalReview } from '../../services/team-withdraw-review.service.js'
+import { compareKycNames } from '../../services/kyc.service.js'
 import { writeAuditLog } from '../../services/admin-store.js'
 import { requireRole } from '../../middleware/require-role.js'
 import type { ResultSetHeader, RowDataPacket } from 'mysql2/promise'
@@ -10,6 +11,12 @@ import type { ResultSetHeader, RowDataPacket } from 'mysql2/promise'
 const router = new Router({ prefix: '/review' })
 
 const ruleName = (code: string) => RULE_META[code]?.name ?? code
+const jsonValue = (raw: unknown, key: string): string => {
+  const parsed = raw && typeof raw === 'string' ? JSON.parse(raw) : raw
+  if (!parsed || typeof parsed !== 'object') return ''
+  const value = (parsed as Record<string, unknown>)[key]
+  return typeof value === 'string' ? value.trim() : ''
+}
 
 // ── 总览 ──────────────────────────────────────────────────────────────────────
 router.get('/overview', async (ctx) => {
@@ -140,7 +147,28 @@ router.get('/proposals/:orderId', async (ctx) => {
     [userId],
   )
   const [[kyc]] = await pool.query<RowDataPacket[]>(
-    `SELECT status FROM bg_kyc WHERE user_id = ? LIMIT 1`, [userId],
+    `SELECT status, full_name, reviewed_at FROM bg_kyc WHERE user_id = ? LIMIT 1`, [userId],
+  )
+  const targetOwner = jsonValue(w.extra, 'targetOwner')
+  const targetAccount = jsonValue(w.extra, 'targetAccount')
+  const nameMatch = targetOwner && kyc?.full_name
+    ? compareKycNames(targetOwner, String(kyc.full_name))
+    : null
+  const [[accountReuse]] = await pool.query<RowDataPacket[]>(
+    `SELECT COUNT(DISTINCT user_id) AS cnt, GROUP_CONCAT(DISTINCT user_id ORDER BY user_id SEPARATOR ',') AS users
+     FROM bg_withdraw_order
+     WHERE user_id <> ?
+       AND JSON_UNQUOTE(JSON_EXTRACT(extra, '$.targetAccount')) = ?
+       AND JSON_UNQUOTE(JSON_EXTRACT(extra, '$.targetAccount')) <> ''`,
+    [userId, targetAccount],
+  )
+  const [[ownerReuse]] = await pool.query<RowDataPacket[]>(
+    `SELECT COUNT(DISTINCT user_id) AS cnt, GROUP_CONCAT(DISTINCT user_id ORDER BY user_id SEPARATOR ',') AS users
+     FROM bg_withdraw_order
+     WHERE user_id <> ?
+       AND LOWER(TRIM(JSON_UNQUOTE(JSON_EXTRACT(extra, '$.targetOwner')))) = LOWER(?)
+       AND JSON_UNQUOTE(JSON_EXTRACT(extra, '$.targetOwner')) <> ''`,
+    [userId, targetOwner],
   )
 
   const snapshot = w.review_snapshot
@@ -178,6 +206,18 @@ router.get('/proposals/:orderId', async (ctx) => {
       kycStatus: kyc?.status ? String(kyc.status) : null,
       walletAvailable: Number(wallet?.available ?? 0),
       walletFrozen: Number(wallet?.frozen ?? 0),
+    },
+    recipientCheck: {
+      kycFullName: kyc?.full_name ? String(kyc.full_name) : null,
+      kycReviewedAt: kyc?.reviewed_at ? new Date(kyc.reviewed_at as Date).toISOString() : null,
+      targetOwner: targetOwner || null,
+      targetAccount: targetAccount || null,
+      nameMatched: nameMatch ? nameMatch.matched : null,
+      nameMatchReason: nameMatch?.reason ?? null,
+      withdrawAccountOtherUserCount: targetAccount ? Number(accountReuse?.cnt ?? 0) : 0,
+      withdrawAccountOtherUsers: accountReuse?.users ? String(accountReuse.users).split(',') : [],
+      withdrawOwnerOtherUserCount: targetOwner ? Number(ownerReuse?.cnt ?? 0) : 0,
+      withdrawOwnerOtherUsers: ownerReuse?.users ? String(ownerReuse.users).split(',') : [],
     },
     snapshot,
     rules,

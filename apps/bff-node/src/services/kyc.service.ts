@@ -45,6 +45,7 @@ const OTP_TTL_SEC = 300
 const RESEND_INTERVAL_SEC = 60
 const MAX_VERIFY_ATTEMPTS = 3
 const KYC_FAILURE_LOCK_SECONDS = 180
+const KYC_NOTIFY_FAILURE_COUNT = 3
 const ACCEPTED_DOC_TYPES = ['passport', 'drivers_license', 'philid', 'umid', 'acr_icard']
 const NAME_SUFFIX_TOKENS = new Set(['JR', 'SR', 'II', 'III', 'IV', 'V'])
 const WEAK_NAME_TOKENS = new Set([
@@ -326,12 +327,13 @@ async function enforceKycFailureLimit(
   }
 }
 
-async function recordKycFailure(redis: Redis, limit: number, kind: 'doc' | 'face', userId: string): Promise<void> {
+async function recordKycFailure(redis: Redis, limit: number, kind: 'doc' | 'face', userId: string): Promise<number> {
   const failed = await redis.incr(kycFailureKey(kind, userId))
   if (failed >= limit) {
     await redis.set(kycFailureLockKey(kind, userId), '1', 'EX', KYC_FAILURE_LOCK_SECONDS)
     await redis.del(kycFailureKey(kind, userId))
   }
+  return failed
 }
 
 async function clearKycFailure(redis: Redis, kind: 'doc' | 'face', userId: string): Promise<void> {
@@ -776,10 +778,11 @@ export async function submitKycDocument(
   if (age != null && age < 21) reasons.push('underage')
 
   const docVerified = reasons.length === 0
+  let failedCount = 0
   if (docVerified) {
     await clearKycFailure(redis, 'doc', userId)
   } else {
-    await recordKycFailure(redis, failureLimit, 'doc', userId)
+    failedCount = await recordKycFailure(redis, failureLimit, 'doc', userId)
   }
   // 人脸验证关闭 ⇒ 证件通过即完成实名
   const approvedByDoc = docVerified && !cfg.requireFace
@@ -812,7 +815,7 @@ export async function submitKycDocument(
   }
   await saveApprovedWithIdGuard(redis, submission)
   broadcastBadges(env).catch(() => {})
-  if (submission.status === 'rejected') {
+  if (submission.status === 'rejected' && failedCount >= KYC_NOTIFY_FAILURE_COUNT) {
     notifyKycRejected(env, { userId, fullName: input.fullName, stage: 'document', reasons }).catch(() => {})
   }
   // 证件通过即完成实名时，把证件生日同步进用户生日字段（生日只来自 KYC，不接受手输）
@@ -881,10 +884,11 @@ export async function submitKycFace(
   if (verdict.confidence < env.KYC_GEMINI_MIN_CONFIDENCE) reasons.push('low_liveness_confidence')
 
   const faceVerified = reasons.length === 0
+  let failedCount = 0
   if (faceVerified) {
     await clearKycFailure(redis, 'face', userId)
   } else {
-    await recordKycFailure(redis, failureLimit, 'face', userId)
+    failedCount = await recordKycFailure(redis, failureLimit, 'face', userId)
   }
   const now = nowIso()
   const submission: KycSubmission = {
@@ -905,7 +909,7 @@ export async function submitKycFace(
 
   await saveApprovedWithIdGuard(redis, submission)
   broadcastBadges(env).catch(() => {})
-  if (submission.status === 'rejected') {
+  if (submission.status === 'rejected' && failedCount >= KYC_NOTIFY_FAILURE_COUNT) {
     notifyKycRejected(env, { userId, fullName: existing.fullName, stage: 'face', reasons }).catch(() => {})
   }
   if (submission.status === 'approved') {

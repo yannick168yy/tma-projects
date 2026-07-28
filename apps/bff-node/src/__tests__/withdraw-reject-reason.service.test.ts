@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   USER_WITHDRAW_REJECT_REASON,
   normalizeUserWithdrawRejectReason,
+  recommendedUserReasonForRule,
   resolveUserWithdrawRejectReason,
 } from '../services/withdraw-reject-reason.service.js'
 
@@ -24,5 +25,11 @@ describe('提款用户可见拒绝原因', () => {
     const allowed = 'Your recent winnings require additional verification before withdrawal. Please contact support.'
     expect(normalizeUserWithdrawRejectReason(allowed)).toBe(allowed)
     expect(normalizeUserWithdrawRejectReason('high_multiple_profit risk hit')).toBe(USER_WITHDRAW_REJECT_REASON)
+  })
+
+  it('同IP同设备命中时推荐明确原因', () => {
+    const reason = 'Your withdrawal was rejected because your account shares the same IP address or device with other accounts.'
+    expect(recommendedUserReasonForRule('same_ip_device')).toBe(reason)
+    expect(normalizeUserWithdrawRejectReason(reason)).toBe(reason)
   })
 })

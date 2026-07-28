@@ -51,7 +51,7 @@ export default function ProposalDetail() {
   if (loading) return <Spin />
   if (!data) return <Alert type="error" message="提案不存在" />
 
-  const { order, user, snapshot, rules, related } = data
+  const { order, user, recipientCheck, snapshot, rules, related } = data
   const hitRules = rules.filter((r) => r.verdict === 'manual' || r.verdict === 'error')
   const canOperate = order.status === 'pending'
 
@@ -153,6 +153,45 @@ export default function ProposalDetail() {
           </Card>
         </Col>
       </Row>
+
+      <Card title="收款实名核查" size="small" style={{ marginBottom: 16 }}>
+        <Descriptions column={2} size="small" bordered>
+          <Descriptions.Item label="KYC姓名">{recipientCheck.kycFullName ?? '—'}</Descriptions.Item>
+          <Descriptions.Item label="KYC通过时间">
+            {recipientCheck.kycReviewedAt ? new Date(recipientCheck.kycReviewedAt).toLocaleString('zh-CN') : '—'}
+          </Descriptions.Item>
+          <Descriptions.Item label="提现户名">{recipientCheck.targetOwner ?? '—'}</Descriptions.Item>
+          <Descriptions.Item label="提现账号">{recipientCheck.targetAccount ?? '—'}</Descriptions.Item>
+          <Descriptions.Item label="姓名匹配">
+            {recipientCheck.nameMatched == null ? '—' : (
+              <Space>
+                <Tag color={recipientCheck.nameMatched ? 'green' : 'red'}>{recipientCheck.nameMatched ? '匹配' : '不匹配'}</Tag>
+                <span>{recipientCheck.nameMatchReason ?? '—'}</span>
+              </Space>
+            )}
+          </Descriptions.Item>
+          <Descriptions.Item label="提现账号复用">
+            <Space wrap>
+              <Tag color={recipientCheck.withdrawAccountOtherUserCount > 0 ? 'red' : 'green'}>
+                {recipientCheck.withdrawAccountOtherUserCount}
+              </Tag>
+              {recipientCheck.withdrawAccountOtherUsers.map((id) => (
+                <Button key={id} type="link" size="small" style={{ padding: 0 }} onClick={() => navigate(`/users/${id}`)}>{id}</Button>
+              ))}
+            </Space>
+          </Descriptions.Item>
+          <Descriptions.Item label="提现户名复用">
+            <Space wrap>
+              <Tag color={recipientCheck.withdrawOwnerOtherUserCount > 0 ? 'orange' : 'green'}>
+                {recipientCheck.withdrawOwnerOtherUserCount}
+              </Tag>
+              {recipientCheck.withdrawOwnerOtherUsers.map((id) => (
+                <Button key={id} type="link" size="small" style={{ padding: 0 }} onClick={() => navigate(`/users/${id}`)}>{id}</Button>
+              ))}
+            </Space>
+          </Descriptions.Item>
+        </Descriptions>
+      </Card>
 
       {/* 操作 */}
       {canOperate && (
