@@ -1320,7 +1320,7 @@ export async function replaceFrozenBoard(
       seen.add(u)
       await conn.execute(
         `INSERT INTO bg_homepage_frozen_board (section_key, currency, game_uuid, sort_order) VALUES (?, ?, ?, ?)`,
-        [sectionKey, u, cur, i++],
+        [sectionKey, cur, u, i++],
       )
     }
     await conn.commit()
