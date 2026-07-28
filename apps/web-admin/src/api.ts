@@ -437,6 +437,7 @@ export interface AdminKycListItem {
   docSubmittedAt: string | null
   faceSubmittedAt: string | null
   reviewedAt: string | null
+  badgeIgnored: boolean
 }
 
 export interface AdminKycDetail {

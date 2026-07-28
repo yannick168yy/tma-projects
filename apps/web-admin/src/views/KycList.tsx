@@ -16,6 +16,16 @@ function kycStatusTag(status: string) {
   return <Tag color={item.color}>{item.label}</Tag>
 }
 
+function kycStatusTags(item: AdminKycListItem) {
+  return (
+    <Space size={4}>
+      {kycStatusTag(item.status)}
+      {item.status === 'rejected' && item.badgeIgnored && <Tag color="default">已忽略提醒</Tag>}
+      {item.status === 'rejected' && !item.badgeIgnored && <Tag color="warning">未处理</Tag>}
+    </Space>
+  )
+}
+
 export default function KycList() {
   const navigate = useNavigate()
   const screens = Grid.useBreakpoint()
@@ -25,7 +35,7 @@ export default function KycList() {
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE)
-  const [status, setStatus] = useState<string | undefined>()
+  const [status, setStatus] = useState<string | undefined>('unhandled')
   const [cfg, setCfg] = useState<KycStepSettings | null>(null)
   const [savingCfg, setSavingCfg] = useState(false)
 
@@ -62,7 +72,7 @@ export default function KycList() {
     { title: '昵称', dataIndex: 'displayName', key: 'displayName', render: (v: string | null) => v ?? '—' },
     { title: '姓名', dataIndex: 'fullName', key: 'fullName', render: (v: string | null) => v ?? '—' },
     { title: '手机', dataIndex: 'phone', key: 'phone', render: (v: string | null) => v ?? '—' },
-    { title: '状态', dataIndex: 'status', key: 'status', render: (v: string) => kycStatusTag(v) },
+    { title: '状态', dataIndex: 'status', key: 'status', render: (_: string, r: AdminKycListItem) => kycStatusTags(r) },
     {
       title: '进度',
       key: 'progress',
@@ -149,6 +159,7 @@ export default function KycList() {
           value={status}
           onChange={(v) => { setStatus(v); setPage(1) }}
           options={[
+            { value: 'unhandled', label: '未处理' },
             { value: 'pending', label: '进行中' },
             { value: 'approved', label: '已通过' },
             { value: 'rejected', label: '已拒绝' },
@@ -162,7 +173,7 @@ export default function KycList() {
             const ts = r.faceSubmittedAt ?? r.docSubmittedAt ?? r.submittedAt
             return (
               <Card key={r.userId} size="small" style={{ marginBottom: 10 }}
-                title={<Space>{r.displayName || r.userId} {kycStatusTag(r.status)}</Space>}
+                title={<Space>{r.displayName || r.userId} {kycStatusTags(r)}</Space>}
               >
                 <div style={{ color: '#999', fontSize: 12 }}>
                   ID {r.userId}{r.fullName ? ` · ${r.fullName}` : ''}{r.phone ? ` · ${r.phone}` : ''}

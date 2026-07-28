@@ -20,7 +20,9 @@ router.get('/', async (ctx) => {
   const db = getMysqlPool(ctx.state.env)
   const where: string[] = []
   const params: unknown[] = []
-  if (status) {
+  if (status === 'unhandled') {
+    where.push("k.status = 'rejected' AND k.badge_ignored = 0")
+  } else if (status) {
     where.push('k.status = ?')
     params.push(status)
   }
@@ -34,6 +36,7 @@ router.get('/', async (ctx) => {
     `SELECT k.user_id, k.status, k.phone, k.full_name, k.doc_type,
             k.phone_verified, k.doc_verified, k.face_verified,
             k.submitted_at, k.doc_submitted_at, k.face_submitted_at, k.reviewed_at,
+            k.badge_ignored,
             u.display_name
      FROM bg_kyc k
      LEFT JOIN bg_user u ON u.id = k.user_id
@@ -61,6 +64,7 @@ router.get('/', async (ctx) => {
       docSubmittedAt: r.doc_submitted_at ? new Date(r.doc_submitted_at as Date).toISOString() : null,
       faceSubmittedAt: r.face_submitted_at ? new Date(r.face_submitted_at as Date).toISOString() : null,
       reviewedAt: r.reviewed_at ? new Date(r.reviewed_at as Date).toISOString() : null,
+      badgeIgnored: Boolean(r.badge_ignored),
     })),
   })
 })
