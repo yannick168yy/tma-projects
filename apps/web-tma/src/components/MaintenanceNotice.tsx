@@ -21,7 +21,7 @@ export default function MaintenanceNotice() {
 
   if (!show) return null
   return (
-    <div className="flex items-center gap-2 overflow-hidden border-b border-amber-400/30 bg-gradient-to-r from-amber-500/15 via-amber-400/10 to-red-500/15 py-1.5">
+    <div className="flex items-center gap-2 overflow-hidden border-b border-amber-400/30 bg-black py-1.5">
       <span className="flex-shrink-0 pl-3 text-amber-400"><Wrench size={13} /></span>
       <div className="relative flex-1 overflow-hidden">
         <div className="maintenance-marquee-track">
