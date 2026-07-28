@@ -51,6 +51,7 @@ const ROUTE_TITLES: Record<string, string> = {
   '/tasks/checkin': '每日签到',
   '/tasks/rewards-spin': '转盘抽奖',
   '/risk/overview': '风险总览',
+  '/risk/farm-channels': '套利渠道',
   '/risk/users': '用户画像',
   '/risk/blacklist': '风控名单',
   '/risk/policies': '规则与策略',

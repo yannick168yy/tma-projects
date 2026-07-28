@@ -1555,6 +1555,24 @@ export const saveRiskPolicies = (items: Omit<RiskPolicyItem, 'updatedAt'>[]) =>
 export const getRiskHits = (params?: { checkpoint?: string; action?: string; limit?: number }) =>
   get<{ items: RiskHit[] }>('/admin/risk/hits', params)
 
+// ── 投放渠道套利客统计 ──────────────────────────────────────────────────────
+export interface FarmChannelRow {
+  channel: string; isTotal: boolean
+  entrants: number; farmDevice: number; suspectIp: number; farmPct: number; maxRing: number
+}
+export const getFarmChannels = (date: string) =>
+  get<{ date: string; items: FarmChannelRow[] }>('/admin/risk/farm-channels', { date })
+
+export interface FarmChannelDetailRow {
+  channel: string; userId: string; ring: number; deviceFp: string | null
+  status: string; createdAt: string
+  bonusTotal: number | null; netDeposit: number | null; withdrawCount: number | null
+}
+export const getFarmChannelDetail = (date: string, channel?: string) =>
+  get<{ date: string; channel: string | null; items: FarmChannelDetailRow[] }>(
+    '/admin/risk/farm-channels/detail', channel ? { date, channel } : { date },
+  )
+
 // ── 社区营销自动发帖 ─────────────────────────────────────────────────────────
 export type CmPlatform = 'telegram' | 'viber' | 'facebook'
 export type CmCategory = 'promo' | 'winner' | 'hotgame' | 'sports' | 'checkin' | 'festival'

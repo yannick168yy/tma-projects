@@ -194,6 +194,138 @@ router.put('/policies', requireRole('super_admin', '仅超级管理员可修改�
   ok(ctx, { updated: items.length })
 })
 
+// 投放渠道套利客统计（只读，实时计算，支持按天刷新）。
+// 口径：设备指纹(device_id 或硬件fp)被≥3账号共用=套利铁证；同IP≥5且无设备信号=疑似(IP噪声大不并入)；
+// 关联范围=全站全时段(抓团伙老主号)，人群=当天带投放归因的注册；已剔除风控白名单登记的测试机账号。
+// 与 scripts/farm-by-channel.sql 同源，改这里请同步那份。
+const FARM_CTE = `
+WITH
+wl_dev  AS (SELECT value FROM bg_promo_claim_whitelist WHERE type='device'),
+wl_ip   AS (SELECT value FROM bg_promo_claim_whitelist WHERE type='ip'),
+wl_user AS (SELECT value FROM bg_promo_claim_whitelist WHERE type='user'),
+wl_acct AS (
+  SELECT DISTINCT user_id FROM bg_login_log
+    WHERE device_id IN (SELECT value FROM wl_dev) OR fp_visitor IN (SELECT value FROM wl_dev)
+  UNION SELECT id FROM bg_user WHERE register_device_id IN (SELECT value FROM wl_dev)
+  UNION SELECT value FROM wl_user
+),
+pop AS (
+  SELECT a.user_id,
+         COALESCE(NULLIF(a.channel_code,''), NULLIF(a.utm_source,''), a.click_platform) AS channel
+  FROM bg_user_attribution a
+  WHERE a.created_at >= CONCAT(?, ' 00:00:00') AND a.created_at < CONCAT(?, ' 00:00:00') + INTERVAL 1 DAY
+    AND (a.channel_code IS NOT NULL OR a.click_platform <> 'other')
+    AND a.user_id NOT IN (SELECT user_id FROM wl_acct)
+),
+ud AS (
+  SELECT user_id, device_id FROM bg_login_log
+    WHERE device_id<>'' AND device_id IS NOT NULL
+      AND device_id NOT IN (SELECT value FROM wl_dev) AND user_id NOT IN (SELECT user_id FROM wl_acct)
+  UNION
+  SELECT id, register_device_id FROM bg_user
+    WHERE register_device_id<>'' AND register_device_id IS NOT NULL
+      AND register_device_id NOT IN (SELECT value FROM wl_dev) AND id NOT IN (SELECT user_id FROM wl_acct)
+),
+dc AS (SELECT device_id, COUNT(DISTINCT user_id) n FROM ud GROUP BY device_id),
+uf AS (
+  SELECT DISTINCT user_id, fp_visitor FROM bg_login_log
+    WHERE fp_visitor<>'' AND fp_visitor IS NOT NULL
+      AND fp_visitor NOT IN (SELECT value FROM wl_dev) AND user_id NOT IN (SELECT user_id FROM wl_acct)
+),
+fc AS (SELECT fp_visitor, COUNT(DISTINCT user_id) n FROM uf GROUP BY fp_visitor),
+ui AS (
+  SELECT user_id, ip FROM bg_login_log
+    WHERE ip<>'' AND ip IS NOT NULL AND ip NOT IN (SELECT value FROM wl_ip) AND user_id NOT IN (SELECT user_id FROM wl_acct)
+  UNION
+  SELECT user_id, client_ip FROM bg_user_attribution
+    WHERE client_ip<>'' AND client_ip IS NOT NULL AND client_ip NOT IN (SELECT value FROM wl_ip) AND user_id NOT IN (SELECT user_id FROM wl_acct)
+),
+ic AS (SELECT ip, COUNT(DISTINCT user_id) n FROM ui GROUP BY ip),
+u_dev AS (
+  SELECT p.user_id, p.channel,
+    GREATEST(
+      COALESCE((SELECT MAX(dc.n) FROM ud JOIN dc ON dc.device_id=ud.device_id WHERE ud.user_id=p.user_id),0),
+      COALESCE((SELECT MAX(fc.n) FROM uf JOIN fc ON fc.fp_visitor=uf.fp_visitor WHERE uf.user_id=p.user_id),0)
+    ) AS dev_cluster,
+    COALESCE((SELECT MAX(ic.n) FROM ui JOIN ic ON ic.ip=ui.ip WHERE ui.user_id=p.user_id),0) AS ip_cluster,
+    (SELECT dc.device_id FROM ud JOIN dc ON dc.device_id=ud.device_id WHERE ud.user_id=p.user_id ORDER BY dc.n DESC LIMIT 1) AS top_device
+  FROM pop p
+)`
+
+function farmDate(ctx: import('koa').Context): string | null {
+  const date = String(ctx.query.date ?? '').trim()
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { fail(ctx, 400, 'date 需为 YYYY-MM-DD'); return null }
+  return date
+}
+
+// 分渠道汇总。前端点「刷新」即重跑，当天数据实时。
+router.get('/farm-channels', async (ctx) => {
+  const pool = db(ctx); if (!pool) return
+  const date = farmDate(ctx); if (!date) return
+  const [rows] = await pool.query<RowDataPacket[]>(
+    `${FARM_CTE}
+     SELECT COALESCE(p.channel,'__total__') AS channel,
+       COUNT(*)                                             AS entrants,
+       SUM(x.dev_cluster>=3)                                AS farmDevice,
+       SUM(x.dev_cluster<3 AND x.ip_cluster>=5)             AS suspectIp,
+       ROUND(100*SUM(x.dev_cluster>=3 OR (x.dev_cluster<3 AND x.ip_cluster>=5))/COUNT(*),1) AS farmPct,
+       MAX(x.dev_cluster)                                   AS maxRing
+     FROM pop p JOIN u_dev x ON x.user_id=p.user_id
+     GROUP BY p.channel WITH ROLLUP
+     ORDER BY GROUPING(p.channel), farmPct DESC, entrants DESC`,
+    [date, date],
+  )
+  ok(ctx, {
+    date,
+    items: rows.map((r) => ({
+      channel: String(r.channel),
+      isTotal: r.channel === '__total__',
+      entrants: Number(r.entrants),
+      farmDevice: Number(r.farmDevice),
+      suspectIp: Number(r.suspectIp),
+      farmPct: Number(r.farmPct),
+      maxRing: Number(r.maxRing),
+    })),
+  })
+})
+
+// 某天套利客明细（可按渠道过滤），供运营复核与处置。
+router.get('/farm-channels/detail', async (ctx) => {
+  const pool = db(ctx); if (!pool) return
+  const date = farmDate(ctx); if (!date) return
+  const channel = String(ctx.query.channel ?? '').trim()
+  const params: unknown[] = [date, date]
+  let channelFilter = ''
+  if (channel) { channelFilter = 'AND x.channel = ?'; params.push(channel) }
+  const [rows] = await pool.query<RowDataPacket[]>(
+    `${FARM_CTE}
+     SELECT x.channel, x.user_id AS userId, x.dev_cluster AS ring,
+            LEFT(x.top_device,16) AS deviceFp, u.status, u.created_at AS createdAt,
+            s.bonus_total AS bonusTotal, s.net_deposit AS netDeposit, s.withdraw_count AS withdrawCount
+     FROM u_dev x
+     JOIN bg_user u ON u.id = x.user_id
+     LEFT JOIN bg_user_risk_signal s ON s.user_id = x.user_id
+     WHERE x.dev_cluster >= 3 ${channelFilter}
+     ORDER BY x.dev_cluster DESC, x.channel, x.user_id`,
+    params,
+  )
+  ok(ctx, {
+    date,
+    channel: channel || null,
+    items: rows.map((r) => ({
+      channel: String(r.channel),
+      userId: String(r.userId),
+      ring: Number(r.ring),
+      deviceFp: r.deviceFp ? String(r.deviceFp) : null,
+      status: String(r.status),
+      createdAt: r.createdAt,
+      bonusTotal: r.bonusTotal == null ? null : Number(r.bonusTotal),
+      netDeposit: r.netDeposit == null ? null : Number(r.netDeposit),
+      withdrawCount: r.withdrawCount == null ? null : Number(r.withdrawCount),
+    })),
+  })
+})
+
 router.get('/hits', async (ctx) => {
   const pool = db(ctx); if (!pool) return
   const checkpoint = String(ctx.query.checkpoint ?? '').trim()

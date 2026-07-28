@@ -24,6 +24,7 @@ import RiskUserProfiles from './views/risk/UserProfiles'
 import RiskBlacklist from './views/risk/Blacklist'
 import RiskPolicies from './views/risk/Policies'
 import RiskHitLogs from './views/risk/HitLogs'
+import RiskFarmChannels from './views/risk/FarmChannels'
 import ReviewManualQueue from './views/review/ManualQueue'
 import WithdrawRecords from './views/review/WithdrawRecords'
 import AuditLog from './views/AuditLog'
@@ -112,6 +113,7 @@ export default function App() {
           <Route path="risk" element={<Navigate to="/risk/overview" replace />} />
           <Route path="risk/overview" element={<RiskOverview />} />
           <Route path="risk/users" element={<RiskUserProfiles />} />
+          <Route path="risk/farm-channels" element={<RiskFarmChannels />} />
           <Route path="risk/blacklist" element={<RiskBlacklist />} />
           <Route path="risk/policies" element={<RequireRole role="super_admin"><RiskPolicies /></RequireRole>} />
           <Route path="risk/hits" element={<RiskHitLogs />} />

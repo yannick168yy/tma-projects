@@ -60,3 +60,9 @@
     padding-right: max(12px, env(safe-area-inset-right));
   }
 }
+
+/* 套利渠道报表：合计行高亮 */
+.farm-total-row > td {
+  background: #fafafa;
+  font-weight: 600;
+}

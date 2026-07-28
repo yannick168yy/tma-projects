@@ -143,6 +143,7 @@ function buildMenuItems(badges: AdminBadges) {
       label: '风控中心',
       children: [
         { key: '/risk/overview', label: '风险总览' },
+        { key: '/risk/farm-channels', label: '套利渠道' },
         { key: '/risk/users', label: '用户画像' },
         { key: '/risk/blacklist', label: '风控名单' },
         { key: '/risk/policies', label: '规则与策略', roles: ['super_admin'] },
