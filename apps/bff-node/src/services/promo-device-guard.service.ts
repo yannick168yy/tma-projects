@@ -8,8 +8,26 @@ import type { Pool, RowDataPacket } from 'mysql2/promise'
 const BURST_THRESHOLD = 3
 
 // 硬件指纹(FingerprintJS)同型号设备可能碰撞，单个撞号不拒；
-// 同指纹已有 2 个以上账号领过才拒 —— 碰撞撞出一对是运气，撞出仨是薅子。
-const FP_CLAIM_THRESHOLD = 2
+// 同指纹已有 N 个以上账号领过才拒 —— 碰撞撞出一对是运气，撞出仨是薅子。
+// 阈值走审核策略 bg_risk_policy(promo_claim/promo_device_dedup).params.fpClaimThreshold 可配，
+// 读不到（策略行缺失/禁用/解析失败）回退默认值，行为与写死 2 时一致。
+const DEFAULT_FP_CLAIM_THRESHOLD = 2
+
+async function getFpClaimThreshold(pool: Pool): Promise<number> {
+  try {
+    const [rows] = await pool.query<RowDataPacket[]>(
+      `SELECT params FROM bg_risk_policy
+        WHERE checkpoint = 'promo_claim' AND rule_code = 'promo_device_dedup' AND enabled = 1 LIMIT 1`,
+    )
+    const raw = rows[0]?.params
+    if (!raw) return DEFAULT_FP_CLAIM_THRESHOLD
+    const params = typeof raw === 'object' ? (raw as Record<string, unknown>) : JSON.parse(String(raw))
+    const n = Number(params.fpClaimThreshold)
+    return Number.isFinite(n) && n >= 1 ? n : DEFAULT_FP_CLAIM_THRESHOLD
+  } catch {
+    return DEFAULT_FP_CLAIM_THRESHOLD
+  }
+}
 
 function dedupeIds(deviceIds: Array<string | undefined>): string[] {
   return [...new Set(deviceIds.filter((d): d is string => Boolean(d && d.trim())))]
@@ -91,7 +109,7 @@ export async function trialClaimedOnSameDevice(
     [fps, userId],
   )
   const n = Number(fpRows[0]?.n ?? 0)
-  if (n < FP_CLAIM_THRESHOLD) return false
+  if (n < await getFpClaimThreshold(pool)) return false
   await logFpDenied(pool, userId, 'promo.trial_fp_dup', fps[0], n)
   return true
 }
@@ -124,7 +142,7 @@ export async function appdlClaimedOnSameDevice(
     [fps, userId],
   )
   const n = Number(fpRows[0]?.n ?? 0)
-  if (n < FP_CLAIM_THRESHOLD) return false
+  if (n < await getFpClaimThreshold(pool)) return false
   await logFpDenied(pool, userId, 'promo.appdl_fp_dup', fps[0], n)
   return true
 }
