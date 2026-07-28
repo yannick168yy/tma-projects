@@ -437,17 +437,22 @@ export async function loadSectionOverrides(env: Env): Promise<SectionOverrides> 
 }
 
 // 冻结名单读取：key = `${section_key}|${currency}` → 有序 uuid 列表。无行=未冻结走算法。
+// 容错：表尚未迁移(如新代码先于迁移上线)时返回空 Map，退化为全算法，避免首页选品整体报错。
 export async function loadFrozenBoards(env: Env): Promise<Map<string, string[]>> {
   const db = getMysqlPool(env)
-  const [rows] = await db.query<RowDataPacket[]>(
-    `SELECT section_key, currency, game_uuid FROM bg_homepage_frozen_board ORDER BY sort_order ASC, id ASC`,
-  )
   const map = new Map<string, string[]>()
-  for (const r of rows) {
-    const k = `${String(r.section_key)}|${String(r.currency)}`
-    const list = map.get(k) ?? []
-    list.push(String(r.game_uuid))
-    map.set(k, list)
+  try {
+    const [rows] = await db.query<RowDataPacket[]>(
+      `SELECT section_key, currency, game_uuid FROM bg_homepage_frozen_board ORDER BY sort_order ASC, id ASC`,
+    )
+    for (const r of rows) {
+      const k = `${String(r.section_key)}|${String(r.currency)}`
+      const list = map.get(k) ?? []
+      list.push(String(r.game_uuid))
+      map.set(k, list)
+    }
+  } catch (e) {
+    console.warn('[homepage] loadFrozenBoards failed (table missing?), fallback to algorithm:', e instanceof Error ? e.message : e)
   }
   return map
 }
