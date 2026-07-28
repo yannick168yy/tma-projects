@@ -65,8 +65,10 @@ interface ReviewContext {
   promoTurnoverRemaining: number
   /** 近30天共用同 IP 的其他账号数 */
   relatedIpAccounts: number
-  /** 共用同设备的其他账号数 */
-  relatedDeviceAccounts: number
+  /** 近30天共用同 device_id 的其他账号数 */
+  relatedDeviceIdAccounts: number
+  /** 近30天共用同硬件指纹的其他账号数 */
+  relatedDeviceFpAccounts: number
   /** 窗口内"有派彩无下注"的异常 round 数 */
   tamperOrphanRounds: number
   /** 作为收益人累计佣金（PHP 元） */
@@ -90,7 +92,9 @@ export const RULE_META: Record<string, { name: string; desc: string }> = {
   total_bonus:              { name: '总优惠金额', desc: '历史优惠领取表已废弃；当前无可用统计源。阈值≤0 表示不启用。' },
   first_withdraw_no_deposit:{ name: '首次取款', desc: '该账号此前无任何成功取款，且历史无真实存款，首次取款即转人工。' },
   upline_blacklist:         { name: '上线黑名单', desc: '该用户的邀请人（上线）处于封禁/冻结或风控黑名单中，则本次取款转人工。' },
-  same_ip_device:           { name: '同IP同设备', desc: '近30天与其它账号共用同一 IP 的数量 ≥ ip 阈值，或共用同一设备(device_id/硬件指纹)的数量 ≥ device 阈值。' },
+  same_ip:                  { name: '同IP', desc: '近30天与其它账号共用同一 IP 的数量 ≥ 阈值时转人工。' },
+  same_device_id:           { name: '同设备ID', desc: '近30天同一 device_id 下账号总数（含本人）≥ 阈值时转人工。' },
+  same_device_fp:           { name: '同设备指纹', desc: '近30天同一硬件指纹 fp_visitor 下账号总数（含本人）≥ 阈值时转人工。' },
   kyc_name_mismatch:        { name: '实名户名不一致', desc: '提现户名与 KYC 实名姓名不完全一致时转人工；匹配算法会忽略大小写、标点、多余空格，并识别中间名缩写/姓名顺序差异。' },
   withdraw_account_reuse:   { name: '提现账号复用', desc: '同一提现账号被其它用户使用过，达到阈值即转人工。默认 1 个其它用户。' },
   withdraw_owner_reuse:     { name: '提现户名复用', desc: '同一提现户名被多个其它用户使用过，达到阈值即转人工。默认 2 个其它用户。' },
@@ -332,21 +336,35 @@ const RULES: Record<string, Rule> = {
     return { code: 'upline_blacklist', verdict: ctx.uplineBlacklisted ? 'manual' : 'pass' }
   },
 
-  same_ip_device(ctx, cfg) {
-    const params = cfg.params ?? {}
-    const ipTh = Number(params.ip ?? 3)
-    // deviceTh=设备上账号总数阈值(含本人)，默认2=一台设备出现2个账号即可疑。
-    // relatedDeviceAccounts 是"除本人外"的关联账号数，故 +1 换算成设备账号总数。
-    // 设备门槛比 IP 更严：IP 会因共享网络误伤，设备几乎不会。
-    const deviceTh = Number(params.device ?? 2)
-    const deviceAccountsTotal = ctx.relatedDeviceAccounts + 1
-    const hit = ctx.relatedIpAccounts >= ipTh || deviceAccountsTotal >= deviceTh
+  same_ip(ctx, cfg) {
+    const threshold = Number(cfg.threshold ?? 3)
+    const hit = ctx.relatedIpAccounts >= threshold
+    return { code: 'same_ip', verdict: hit ? 'manual' : 'pass', actualValue: ctx.relatedIpAccounts, threshold }
+  },
+
+  same_device_id(ctx, cfg) {
+    const threshold = Number(cfg.threshold ?? 2)
+    const accountsTotal = ctx.relatedDeviceIdAccounts + 1
+    const hit = accountsTotal >= threshold
     return {
-      code: 'same_ip_device',
+      code: 'same_device_id',
       verdict: hit ? 'manual' : 'pass',
-      actualValue: Math.max(ctx.relatedIpAccounts, deviceAccountsTotal),
-      threshold: Math.min(ipTh, deviceTh),
-      detail: { relatedIpAccounts: ctx.relatedIpAccounts, deviceAccountsTotal, ipTh, deviceTh },
+      actualValue: accountsTotal,
+      threshold,
+      detail: { relatedDeviceIdAccounts: ctx.relatedDeviceIdAccounts, accountsTotal },
+    }
+  },
+
+  same_device_fp(ctx, cfg) {
+    const threshold = Number(cfg.threshold ?? 2)
+    const accountsTotal = ctx.relatedDeviceFpAccounts + 1
+    const hit = accountsTotal >= threshold
+    return {
+      code: 'same_device_fp',
+      verdict: hit ? 'manual' : 'pass',
+      actualValue: accountsTotal,
+      threshold,
+      detail: { relatedDeviceFpAccounts: ctx.relatedDeviceFpAccounts, accountsTotal },
     }
   },
 
@@ -592,15 +610,19 @@ async function buildContext(pool: Pool, order: OrderWithdraw, config: Record<str
     [userId],
   )
 
-  // 同设备（近30天）的其他账号数：device_id 相同，或硬件指纹 fp_visitor 相同（清缓存后 device_id 变但指纹仍在）
-  const [[dev]] = await pool.query<RowDataPacket[]>(
+  const [[devId]] = await pool.query<RowDataPacket[]>(
     `SELECT COUNT(DISTINCT l2.user_id) AS cnt
      FROM bg_login_log l1
-     JOIN bg_login_log l2
-       ON l2.user_id <> l1.user_id
-      AND ( (l1.device_id IS NOT NULL AND l2.device_id = l1.device_id)
-         OR (l1.fp_visitor IS NOT NULL AND l2.fp_visitor = l1.fp_visitor) )
-     WHERE l1.user_id = ? AND l1.created_at > NOW() - INTERVAL 30 DAY`,
+     JOIN bg_login_log l2 ON l2.device_id = l1.device_id AND l2.user_id <> l1.user_id
+     WHERE l1.user_id = ? AND l1.device_id IS NOT NULL AND l1.created_at > NOW() - INTERVAL 30 DAY`,
+    [userId],
+  )
+
+  const [[devFp]] = await pool.query<RowDataPacket[]>(
+    `SELECT COUNT(DISTINCT l2.user_id) AS cnt
+     FROM bg_login_log l1
+     JOIN bg_login_log l2 ON l2.fp_visitor = l1.fp_visitor AND l2.user_id <> l1.user_id
+     WHERE l1.user_id = ? AND l1.fp_visitor IS NOT NULL AND l1.created_at > NOW() - INTERVAL 30 DAY`,
     [userId],
   )
   const [[acctReuse]] = await pool.query<RowDataPacket[]>(
@@ -679,7 +701,8 @@ async function buildContext(pool: Pool, order: OrderWithdraw, config: Record<str
     minutesSinceKycApproved: kyc?.status === 'approved' ? minutesBetween(kycReviewedAt, order.createdAt) : null,
     promoTurnoverRemaining: Number(pt?.remaining ?? 0),
     relatedIpAccounts: Number(ip?.cnt ?? 0),
-    relatedDeviceAccounts: Number(dev?.cnt ?? 0),
+    relatedDeviceIdAccounts: Number(devId?.cnt ?? 0),
+    relatedDeviceFpAccounts: Number(devFp?.cnt ?? 0),
     tamperOrphanRounds: Number(orphan?.cnt ?? 0),
     // commission_cents / ggr_cents 是数据库真·分列，/100 折成元统一口径
     commissionEarnedPhp: Number(comm?.earned ?? 0) / 100,
@@ -706,7 +729,8 @@ function snapshotOf(ctx: ReviewContext): Record<string, number | string | boolea
     uplineBlacklisted: ctx.uplineBlacklisted,
     promoTurnoverRemaining: ctx.promoTurnoverRemaining,
     relatedIpAccounts: ctx.relatedIpAccounts,
-    relatedDeviceAccounts: ctx.relatedDeviceAccounts,
+    relatedDeviceIdAccounts: ctx.relatedDeviceIdAccounts,
+    relatedDeviceFpAccounts: ctx.relatedDeviceFpAccounts,
     tamperOrphanRounds: ctx.tamperOrphanRounds,
     commissionEarnedPhp: ctx.commissionEarnedPhp,
     commissionDownlineGgrPhp: ctx.commissionDownlineGgrPhp,

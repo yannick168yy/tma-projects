@@ -27,9 +27,11 @@ describe('提款用户可见拒绝原因', () => {
     expect(normalizeUserWithdrawRejectReason('high_multiple_profit risk hit')).toBe(USER_WITHDRAW_REJECT_REASON)
   })
 
-  it('同IP同设备命中时推荐明确原因', () => {
+  it('同IP或同设备命中时推荐明确原因', () => {
     const reason = 'Your withdrawal was rejected because your account shares the same IP address or device with other accounts.'
-    expect(recommendedUserReasonForRule('same_ip_device')).toBe(reason)
+    expect(recommendedUserReasonForRule('same_ip')).toBe(reason)
+    expect(recommendedUserReasonForRule('same_device_id')).toBe(reason)
+    expect(recommendedUserReasonForRule('same_device_fp')).toBe(reason)
     expect(normalizeUserWithdrawRejectReason(reason)).toBe(reason)
   })
 })

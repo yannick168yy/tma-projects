@@ -8,6 +8,9 @@ const THRESHOLD_HINT: Record<string, string> = {
   high_multiple_profit_24h: '近24h 盈利/存款 倍数',
   withdraw_deposit_ratio: '取款额/累计存款 倍数，如 5',
   total_bonus: '优惠总额（PHP元），如 50000 = 5万',
+  same_ip: '近30天同IP其它账号数',
+  same_device_id: '同设备ID账号总数（含本人）',
+  same_device_fp: '同设备指纹账号总数（含本人）',
 }
 
 function ScopePanel({ scope }: { scope: ReviewScope }) {

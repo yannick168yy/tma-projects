@@ -52,7 +52,7 @@ export const WITHDRAW_USER_REJECT_REASON_OPTIONS = [
     value: 'Your account relationship information requires additional verification before withdrawal. Please contact support.',
   },
   {
-    label: '同IP同设备：账号环境需要核验',
+    label: 'IP/设备：账号环境需要核验',
     value: 'Your withdrawal was rejected because your account shares the same IP address or device with other accounts.',
   },
   {

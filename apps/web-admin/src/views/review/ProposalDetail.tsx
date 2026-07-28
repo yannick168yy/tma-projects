@@ -23,6 +23,8 @@ const SNAP_LABELS: Record<string, { label: string; yuan?: boolean }> = {
   promoTurnoverRemaining: { label: '未完成优惠流水' },
   relatedIpAccounts: { label: '同IP关联账号数' },
   relatedDeviceAccounts: { label: '同设备关联账号数' },
+  relatedDeviceIdAccounts: { label: '同设备ID关联账号数' },
+  relatedDeviceFpAccounts: { label: '同设备指纹关联账号数' },
   tamperOrphanRounds: { label: '凭空派彩round数' },
   commissionEarnedPhp: { label: '累计佣金收入', yuan: true },
   commissionDownlineGgrPhp: { label: '下线累计GGR', yuan: true },
