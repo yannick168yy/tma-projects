@@ -69,6 +69,15 @@ interface ReviewContext {
   relatedDeviceIdAccounts: number
   /** 近30天共用同硬件指纹的其他账号数 */
   relatedDeviceFpAccounts: number
+  // 设备画像(可解释字段,仅供人工复核参考,不参与判定)
+  /** 该用户登录日志中最早出现时间(ISO),空串=无登录记录 */
+  firstSeenAt: string
+  /** 历史用过的不同 device_id 数(换设备次数 ≈ 该值 - 1) */
+  deviceIdCount: number
+  /** 历史用过的不同硬件指纹数 */
+  fpCount: number
+  /** 设备信号可信度:client(有 device_id) | fp(仅硬件指纹) | none(无设备信号) */
+  deviceTrustLevel: string
   /** 窗口内"有派彩无下注"的异常 round 数 */
   tamperOrphanRounds: number
   /** 作为收益人累计佣金（PHP 元） */
@@ -509,6 +518,10 @@ const RULES: Record<string, Rule> = {
 
 function round2(n: number): number { return Math.round(n * 100) / 100 }
 
+// 弱关联类信号:不再单独转人工,改累加权重评分(权重见 _score_policy 配置)。
+// 收款账号复用 withdraw_account_reuse 刻意不在池内 —— 保留硬闸门(两个陌生人几乎不可能填同一收款账号)。
+const SCORE_POOL = new Set(['same_ip', 'same_device_id', 'same_device_fp', 'withdraw_owner_reuse'])
+
 // ── 配置加载 ──────────────────────────────────────────────────────────────────
 
 export type ReviewScope = 'user' | 'team'
@@ -625,6 +638,14 @@ async function buildContext(pool: Pool, order: OrderWithdraw, config: Record<str
      WHERE l1.user_id = ? AND l1.fp_visitor IS NOT NULL AND l1.created_at > NOW() - INTERVAL 30 DAY`,
     [userId],
   )
+  // 设备画像(全周期):资历、换设备/换指纹次数,供人工复核可解释
+  const [[devProfile]] = await pool.query<RowDataPacket[]>(
+    `SELECT MIN(created_at) AS first_seen,
+            COUNT(DISTINCT device_id) AS device_id_count,
+            COUNT(DISTINCT fp_visitor) AS fp_count
+     FROM bg_login_log WHERE user_id = ?`,
+    [userId],
+  )
   const [[acctReuse]] = await pool.query<RowDataPacket[]>(
     `SELECT COUNT(DISTINCT user_id) AS cnt
      FROM bg_withdraw_order
@@ -703,6 +724,11 @@ async function buildContext(pool: Pool, order: OrderWithdraw, config: Record<str
     relatedIpAccounts: Number(ip?.cnt ?? 0),
     relatedDeviceIdAccounts: Number(devId?.cnt ?? 0),
     relatedDeviceFpAccounts: Number(devFp?.cnt ?? 0),
+    firstSeenAt: devProfile?.first_seen ? new Date(devProfile.first_seen as Date).toISOString() : '',
+    deviceIdCount: Number(devProfile?.device_id_count ?? 0),
+    fpCount: Number(devProfile?.fp_count ?? 0),
+    deviceTrustLevel: Number(devProfile?.device_id_count ?? 0) > 0 ? 'client'
+      : Number(devProfile?.fp_count ?? 0) > 0 ? 'fp' : 'none',
     tamperOrphanRounds: Number(orphan?.cnt ?? 0),
     // commission_cents / ggr_cents 是数据库真·分列，/100 折成元统一口径
     commissionEarnedPhp: Number(comm?.earned ?? 0) / 100,
@@ -731,6 +757,11 @@ function snapshotOf(ctx: ReviewContext): Record<string, number | string | boolea
     relatedIpAccounts: ctx.relatedIpAccounts,
     relatedDeviceIdAccounts: ctx.relatedDeviceIdAccounts,
     relatedDeviceFpAccounts: ctx.relatedDeviceFpAccounts,
+    firstSeenAt: ctx.firstSeenAt,
+    deviceIdCount: ctx.deviceIdCount,
+    fpCount: ctx.fpCount,
+    deviceChangedCount: Math.max(0, ctx.deviceIdCount - 1),
+    deviceTrustLevel: ctx.deviceTrustLevel,
     tamperOrphanRounds: ctx.tamperOrphanRounds,
     commissionEarnedPhp: ctx.commissionEarnedPhp,
     commissionDownlineGgrPhp: ctx.commissionDownlineGgrPhp,
@@ -791,8 +822,49 @@ export async function reviewWithdraw(env: Env, redis: Redis, orderId: string, ro
       )
     }
 
-    // manual 或 error 均不放行
-    verdict = results.some((r) => r.verdict === 'manual' || r.verdict === 'error') ? 'manual' : 'pass'
+    // ── 综合评分 ──────────────────────────────────────────────────────────────
+    // 硬闸门(资金红线/篡改/KYC/account_reuse 等)任一命中即 manual;
+    // 弱关联信号(SCORE_POOL)改累加权重,总分 ≥ 阈值才 manual。
+    // shadow=1:只记录新结果不生效,判定仍走旧 OR 逻辑。
+    // _score_policy 缺失(老库未迁移)时 weights 为空、shadow 默认 true → 完全等于旧行为。
+    const policy = config['_score_policy']
+    const policyParams = (policy?.params ?? null) as Record<string, unknown> | null
+    const weights = (policyParams?.weights ?? {}) as Record<string, number>
+    const scoreThreshold = Number(policy?.threshold ?? 100)
+    const shadow = Boolean(policyParams?.shadow ?? true)
+
+    let gateManual = false
+    let scoreTotal = 0
+    const scoreHits: Array<{ code: string; weight: number }> = []
+    for (const r of results) {
+      if (r.verdict === 'error') { gateManual = true; continue }
+      if (r.verdict !== 'manual') continue
+      if (SCORE_POOL.has(r.code)) {
+        const w = Number(weights[r.code] ?? 0)
+        scoreTotal += w
+        scoreHits.push({ code: r.code, weight: w })
+      } else {
+        gateManual = true
+      }
+    }
+    const scoredVerdict: ReviewVerdict = gateManual || scoreTotal >= scoreThreshold ? 'manual' : 'pass'
+    const legacyVerdict: ReviewVerdict =
+      results.some((r) => r.verdict === 'manual' || r.verdict === 'error') ? 'manual' : 'pass'
+
+    verdict = shadow ? legacyVerdict : scoredVerdict
+
+    // 评分明细并入 snapshot,供后台详情展示与影子期对比调参
+    snapshot = {
+      ...snapshot,
+      scoreShadow: shadow,
+      scoreTotal,
+      scoreThreshold,
+      scoreHits,
+      gateManual,
+      scoredVerdict,
+      legacyVerdict,
+      shadowWouldChange: scoredVerdict !== legacyVerdict,
+    }
   } catch (err) {
     // 引擎级异常：保守转人工，记一条审核日志
     await pool.execute(

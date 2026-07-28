@@ -242,7 +242,8 @@ router.get('/config', async (ctx) => {
   const scope = ctx.query.scope === 'team' ? 'team' : 'user'
   const pool = getMysqlPool(ctx.state.env)
   const [rows] = await pool.query<RowDataPacket[]>(
-    `SELECT rule_code, enabled, threshold, params, updated_at FROM bg_withdraw_review_config WHERE scope = ?`,
+    `SELECT rule_code, enabled, threshold, params, updated_at FROM bg_withdraw_review_config
+     WHERE scope = ? AND rule_code NOT LIKE '\\_%'`,
     [scope],
   )
   ok(ctx, {
