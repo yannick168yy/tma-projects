@@ -23,6 +23,7 @@ import { notifyTasksRefresh } from '@/api/tasks'
 import { useActiveTaskStore } from '@/stores/activeTask'
 import { claimAppdlBonus, fetchNewPlayerSummary, fetchRedepOffer, matchPopupAudience, type NewPlayerSummary, type RedepOffer } from '@/api/promotion'
 import TopDownloadBar from '@/components/pwa/TopDownloadBar'
+import MaintenanceNotice from '@/components/MaintenanceNotice'
 import ActiveTaskBar from '@/components/tasks/ActiveTaskBar'
 import OrientationGuard from '@/components/OrientationGuard'
 import threeCirclesMenu from '@/assets/team/3-circles/menu-entry.webp'
@@ -557,6 +558,7 @@ export default function AppShell() {
               onDismiss={() => { dismissDownloadBar(); setDownloadBarVisible(false) }}
             />
           )}
+          <MaintenanceNotice />
           <div className="app-safe-header flex items-center gap-3 px-4 pb-2">
             <button type="button" className="flex-shrink-0 cursor-pointer" onClick={goHome}><BetogoLogo /></button>
 
