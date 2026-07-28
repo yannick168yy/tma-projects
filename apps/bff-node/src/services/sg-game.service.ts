@@ -641,15 +641,29 @@ export function scheduleCacheRefresh(env: Env, delayMs = 2000): void {
   }, delayMs)
 }
 
+// 选品快照 3 小时才重算，但 isAvailable 会被烤进快照——上游维护/恢复(is_maintain 变化)
+// 需最多等 3 小时才反映。这里按实时游戏缓存(25 分钟重载)重新校准每款游戏的可用状态，
+// 使置灰/复亮在缓存周期内生效，达成「不可用立刻置灰、恢复及时变亮」。缓存里已不存在的游戏(下架)保持置灰。
+async function hydrateAvailability(env: Env, selection: HomepageSelection): Promise<HomepageSelection> {
+  const liveByUuid = new Map((await getGamesFromCache(env)).map((g) => [g.uuid, g.isAvailable !== false]))
+  const rehydrate = (games: DbGame[]) =>
+    games.map((g) => ({ ...g, isAvailable: liveByUuid.get(g.uuid) ?? false }))
+  const out = { ...selection } as Record<string, unknown>
+  for (const [k, v] of Object.entries(out)) {
+    if (Array.isArray(v)) out[k] = rehydrate(v as DbGame[])
+  }
+  return out as unknown as HomepageSelection
+}
+
 export async function getHomepageSelection(env: Env, currency?: string): Promise<HomepageSelection | null> {
   const redis = getRedis(env)
   const key = `${HOMEPAGE_KEY}:${homepageBucket(currency)}`
   const raw = await redis.get(key)
-  if (raw) return JSON.parse(raw) as HomepageSelection
+  if (raw) return hydrateAvailability(env, JSON.parse(raw) as HomepageSelection)
   // 缓存不存在则立即生成
   await refreshHomepageSelection(env)
   const raw2 = await redis.get(key)
-  return raw2 ? (JSON.parse(raw2) as HomepageSelection) : null
+  return raw2 ? hydrateAvailability(env, JSON.parse(raw2) as HomepageSelection) : null
 }
 
 export function applyHomepageCurrency(selection: HomepageSelection, currency?: string): HomepageSelection {
