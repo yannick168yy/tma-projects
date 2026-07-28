@@ -9,6 +9,7 @@ import {
   recordGameLaunch,
   getHomepageSelection,
   applyHomepageCurrency,
+  isGameAvailable,
 } from '../services/sg-game.service.js'
 import { getUser } from '../services/store/index.js'
 import { isMysqlEnabled } from '../clients/mysql.client.js'
@@ -192,6 +193,11 @@ router.post('/init', async (ctx) => {
   const user = await getUser(redis, userId)
   if (!user) {
     fail(ctx, 401, 'User not found')
+    return
+  }
+
+  if (!(await isGameAvailable(env, body.gameUuid))) {
+    fail(ctx, 409, 'This game is under maintenance')
     return
   }
 

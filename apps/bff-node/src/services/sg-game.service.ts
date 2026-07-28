@@ -41,6 +41,7 @@ export interface DbGame {
   isMobile: boolean
   weight: number
   isFeatured: boolean
+  isAvailable?: boolean
   /** Cashback Games 精选档位角标：elite=2% / pro=1.5% / basic=1%（bg_rebate_featured_game，真实结算费率） */
   cashbackTier?: 'elite' | 'pro' | 'basic' | null
   createdAt?: string | null
@@ -142,6 +143,7 @@ function rowToWin568Game(r: RowDataPacket): DbGame {
     isMobile: devices.includes('m'),
     weight: r.effective_weight == null ? Math.max(1, 3999 - rank) : Number(r.effective_weight),
     isFeatured: Boolean(r.effective_featured),
+    isAvailable: Boolean(r.is_enabled) && !Boolean(r.is_maintain) && String(r.provider_status) === 'Online' && Boolean(r.is_provider_online),
     createdAt: r.created_at ? new Date(r.created_at as Date).toISOString() : null,
     supportedCurrencies: parseJsonArray(r.supported_currencies),
   }
@@ -168,6 +170,7 @@ function win568SportsbookGame(row?: RowDataPacket | null): DbGame {
     isMobile: true,
     weight: row?.weight == null ? 10000 : Number(row.weight),
     isFeatured: row?.is_featured == null ? true : Boolean(row.is_featured),
+    isAvailable: true,
     supportedCurrencies,
   }
 }
@@ -192,6 +195,7 @@ export async function loadGamesCache(env: Env): Promise<number> {
   const [win568Rows] = await db.query<RowDataPacket[]>(
     `SELECT g.game_id, g.game_provider_id, g.provider, g.new_game_type, g.rank_no, g.device,
             g.name_en, g.name_zh, g.icon_url, g.icon_width, g.icon_height, g.supported_currencies, g.created_at, g.rtp,
+            g.is_enabled, g.is_maintain, g.provider_status, g.is_provider_online,
             COALESCE(o.name_override, g.name_en, g.name_zh, CONCAT('568Win ', g.game_id)) AS effective_name,
             -- 封面优先级：后台手动覆盖 > playtime > fbmplay > bingoplus > 568win 上游原图
             COALESCE(o.image_override, cp.url, cf.url, cb.url, g.icon_url) AS effective_image,
@@ -225,11 +229,7 @@ export async function loadGamesCache(env: Env): Promise<number> {
      LEFT JOIN bg_568win_game_cover_candidate cf ON cf.game_provider_id = g.game_provider_id AND cf.game_id = g.game_id AND cf.source = 'fbmplay'
      LEFT JOIN bg_568win_game_cover_candidate cb ON cb.game_provider_id = g.game_provider_id AND cb.game_id = g.game_id AND cb.source = 'bingoplus'
      LEFT JOIN bg_568win_game_cover_candidate cp ON cp.game_provider_id = g.game_provider_id AND cp.game_id = g.game_id AND cp.source = 'playtime'
-     WHERE g.is_enabled = 1
-       AND g.is_maintain = 0
-       AND g.provider_status = 'Online'
-       AND g.is_provider_online = 1
-       AND COALESCE(o.is_active, 1) = 1
+     WHERE COALESCE(o.is_active, 1) = 1
        AND COALESCE(o.site_category, g.site_category_auto, 'other') <> 'lobby'
        AND (g.supported_currencies IS NULL
          OR JSON_CONTAINS(supported_currencies, JSON_QUOTE('PHP'))
@@ -283,6 +283,13 @@ export async function getGamesFromCache(env: Env): Promise<DbGame[]> {
   // 缓存不存在时回填（loadGamesCache 内部会 setMemGames）
   await loadGamesCache(env)
   return memGames ?? []
+}
+
+// 启动守卫：维护/下线游戏在客户端已置灰禁点，这里兜底拦陈旧客户端的直连启动。
+// 缓存里查不到的 uuid 不在此拦，交由下游启动接口报错。
+export async function isGameAvailable(env: Env, uuid: string): Promise<boolean> {
+  const g = (await getGamesFromCache(env)).find((x) => x.uuid === uuid)
+  return !g || g.isAvailable !== false
 }
 
 // ── Games 页分类 All 列表手动置顶排序：分类 → 有序 game_uuid 列表 ──────────────
@@ -377,9 +384,9 @@ function serverWeightedSample(
   return result
 }
 
-// 首页选品按币种预生成：切币种后整页几乎全灰的根因是选品与币种无关，
-// 抽样池天然被 PHP 主导。这里对每个币种各建一份池（先按币种过滤再抽），
-// 保证 USDT 首页也填满可用游戏，而不是靠前端给固定选品打 unavailable 标记。
+// 首页选品按币种预生成：板块内容不因上游维护而变动——维护/下线的游戏(is_maintain / provider 离线)
+// 仍进选品池、按原选品结果占位返回，由客户端置灰(能看见、点不动)。避免 568Win 同步状态临时改变
+// 首页板块(整块塌缩/消失)。仅按币种拆池：切币种后不支持该币种的游戏排到末尾并标 unavailable。
 const HOMEPAGE_CURRENCIES = ['PHP', 'USDT'] as const
 
 function homepageBucket(currency?: string): string {

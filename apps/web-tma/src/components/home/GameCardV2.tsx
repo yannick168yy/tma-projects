@@ -26,7 +26,10 @@ export default function GameCardV2({ game, onTap, size, showLive }: Props) {
   // 大卡统一加细金边(全站所有页面),小卡横滑不加
   const goldBorder = size === 'lg'
   const locale = useLocaleStore((s) => s.locale)
-  const unavailable = game.supportsActiveCurrency === false
+  // 不可用 = 不支持当前币种 或 上游维护/下线(isAvailable=false)：都灰化+禁点，仅遮罩文案不同
+  const currencyUnsupported = game.supportsActiveCurrency === false
+  const maintaining = game.isAvailable === false
+  const unavailable = currencyUnsupported || maintaining
   // 封面裁剪版本：封面图走 immutable 长缓存，重裁同名图后需 bump 才能让客户端拿到新图
   const bust = (u: string | null | undefined) =>
     u && u.includes('/covers/') ? `${u}${u.includes('?') ? '&' : '?'}cv=6` : (u ?? null)
@@ -86,7 +89,7 @@ export default function GameCardV2({ game, onTap, size, showLive }: Props) {
       )}
       {unavailable && (
         <div className="absolute inset-0 flex items-center justify-center bg-black/55">
-          <span className="rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-bold text-white">Unavailable</span>
+          <span className="rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-bold text-white">{maintaining ? 'Maintenance' : 'Unavailable'}</span>
         </div>
       )}
     </div>
