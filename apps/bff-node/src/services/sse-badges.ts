@@ -36,7 +36,9 @@ async function fetchCounts(env: Env): Promise<{ manualWithdrawals: number; pendi
       `SELECT COUNT(*) AS cnt FROM cs_conversation WHERE status IN ('human_taken','escalated')`,
     ),
     db.query<RowDataPacket[]>(
-      `SELECT COUNT(*) AS cnt FROM bg_kyc WHERE status = 'rejected' AND badge_ignored = 0`,
+      `SELECT COUNT(*) AS cnt FROM bg_kyc
+       WHERE (status = 'rejected' AND badge_ignored = 0)
+          OR (status = 'pending' AND doc_submitted_at IS NOT NULL AND doc_verified = 0)`,
     ),
   ])
   return {

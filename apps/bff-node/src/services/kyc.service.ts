@@ -761,15 +761,6 @@ export async function submitKycDocument(
     throw new KycError('kyc.errors.unsupportedDocType', 400)
   }
 
-  const verdict = await runGeminiDocument(env, input.fullName, input.idImage)
-
-  // 证件号归一化(去分隔符+大写)后作为唯一键;提得出必查重
-  const idNo = normalizeIdNo(verdict.idNumber)
-  if (idNo) {
-    const owner = await findKycByExtractedIdNo(redis, idNo, userId)
-    if (owner) throw new KycError('kyc.errors.docAlreadyUsed', 409)
-  }
-
   const storage = getStorageProvider(env)
   const ts = Date.now()
   let docImageKey: string | undefined
@@ -778,6 +769,56 @@ export async function submitKycDocument(
     docImageKey = await storage.put(`${userId}/${ts}_id.jpg`, Buffer.from(idImg.data, 'base64'), idImg.mimeType)
   } catch (e) {
     console.error('[kyc] store doc image failed:', e)
+  }
+
+  let verdict: GeminiDocVerdict
+  try {
+    verdict = await runGeminiDocument(env, input.fullName, input.idImage)
+  } catch (e) {
+    const now = nowIso()
+    const reason = 'recognition_error'
+    const submission: KycSubmission = {
+      ...(existing ?? blankSubmission(userId)),
+      submissionId: userId,
+      userId,
+      status: 'pending',
+      fullName: input.fullName.trim(),
+      phone: existing?.phone ?? verifiedPhoneIdentity ?? undefined,
+      phoneVerified: existing?.phoneVerified || Boolean(verifiedPhoneIdentity),
+      docType: input.docType,
+      verifyMode: 'document',
+      docVerified: false,
+      faceVerified: false,
+      geminiResult: { document: { error: e instanceof Error ? e.message : String(e) } },
+      docImageKey,
+      rejectReason: reason,
+      rejectStep: 'document',
+      submittedAt: now,
+      docSubmittedAt: now,
+      livenessFrames: undefined,
+      selfieImageKey: undefined,
+      faceSubmittedAt: undefined,
+      reviewedAt: undefined,
+      reviewedBy: undefined,
+      badgeIgnored: false,
+    }
+    await saveKyc(redis, submission)
+    broadcastBadges(env).catch(() => {})
+    if (isMysqlEnabled(env)) {
+      getMysqlPool(env).execute(
+        `INSERT INTO bg_kyc_doc_log (user_id, full_name, doc_type, doc_image_key, gemini_confidence, doc_verified, reject_reason)
+         VALUES (?,?,?,?,?,?,?)`,
+        [userId, submission.fullName, input.docType, docImageKey ?? null, null, 0, reason],
+      ).catch((err) => console.error('[kyc] doc log insert failed:', err))
+    }
+    return { docVerified: false, status: 'pending', rejectReason: reason, rejectStep: 'document' }
+  }
+
+  // 证件号归一化(去分隔符+大写)后作为唯一键;提得出必查重
+  const idNo = normalizeIdNo(verdict.idNumber)
+  if (idNo) {
+    const owner = await findKycByExtractedIdNo(redis, idNo, userId)
+    if (owner) throw new KycError('kyc.errors.docAlreadyUsed', 409)
   }
 
   const reasons: string[] = []
@@ -808,7 +849,7 @@ export async function submitKycDocument(
     ...(existing ?? blankSubmission(userId)),
     submissionId: userId,
     userId,
-    status: docVerified ? (approvedByDoc ? 'approved' : 'pending') : 'rejected',
+    status: docVerified ? (approvedByDoc ? 'approved' : 'pending') : 'pending',
     fullName: extractedFullName || claimedFullName,
     phone: existing?.phone ?? verifiedPhoneIdentity ?? undefined,
     phoneVerified: existing?.phoneVerified || Boolean(verifiedPhoneIdentity),
@@ -834,7 +875,7 @@ export async function submitKycDocument(
   }
   await saveApprovedWithIdGuard(redis, submission)
   broadcastBadges(env).catch(() => {})
-  if (submission.status === 'rejected' && failedCount >= KYC_NOTIFY_FAILURE_COUNT) {
+  if (!docVerified && failedCount >= KYC_NOTIFY_FAILURE_COUNT) {
     notifyKycRejected(env, { userId, fullName: submission.fullName, stage: 'document', reasons }).catch(() => {})
   }
   // 证件通过即完成实名时，把证件生日同步进用户生日字段（生日只来自 KYC，不接受手输）

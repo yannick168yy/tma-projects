@@ -21,7 +21,7 @@ router.get('/', async (ctx) => {
   const where: string[] = []
   const params: unknown[] = []
   if (status === 'unhandled') {
-    where.push("k.status = 'rejected' AND k.badge_ignored = 0")
+    where.push("((k.status = 'rejected' AND k.badge_ignored = 0) OR (k.status = 'pending' AND k.doc_submitted_at IS NOT NULL AND k.doc_verified = 0))")
   } else if (status) {
     where.push('k.status = ?')
     params.push(status)

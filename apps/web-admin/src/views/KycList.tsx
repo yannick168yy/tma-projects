@@ -17,9 +17,11 @@ function kycStatusTag(status: string) {
 }
 
 function kycStatusTags(item: AdminKycListItem) {
+  const manualDocReview = item.status === 'pending' && !!item.docSubmittedAt && !item.docVerified
   return (
     <Space size={4}>
       {kycStatusTag(item.status)}
+      {manualDocReview && <Tag color="warning">待人工审核</Tag>}
       {item.status === 'rejected' && item.badgeIgnored && <Tag color="default">已忽略提醒</Tag>}
       {item.status === 'rejected' && !item.badgeIgnored && <Tag color="warning">未处理</Tag>}
     </Space>

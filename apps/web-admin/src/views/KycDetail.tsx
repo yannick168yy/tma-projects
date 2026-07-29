@@ -125,6 +125,7 @@ export default function KycDetail() {
   }
   const face = gemini.face
   const doc = gemini.document
+  const manualDocReview = kyc.status === 'pending' && !!kyc.docSubmittedAt && !kyc.docVerified
   const faceMatch = typeof face?.faceMatchWithId === 'number' ? face.faceMatchWithId : null
   const faceThreshold = typeof face?.threshold === 'number' ? face.threshold : null
   const faceMatchPass = faceMatch != null && faceThreshold != null ? faceMatch >= faceThreshold : null
@@ -156,6 +157,11 @@ export default function KycDetail() {
         <Descriptions column={2} size="small" bordered>
           <Descriptions.Item label="用户 ID">{userId}</Descriptions.Item>
           <Descriptions.Item label="状态">{kycStatusTag(kyc.status)}</Descriptions.Item>
+          {manualDocReview && (
+            <Descriptions.Item label="人工审核" span={2}>
+              <Tag color="warning">证件自动验证未通过，等待操作员人工通过或驳回</Tag>
+            </Descriptions.Item>
+          )}
           <Descriptions.Item label="手机">{kyc.phone ?? '—'}</Descriptions.Item>
           <Descriptions.Item label="姓名">{kyc.fullName ?? '—'}</Descriptions.Item>
           <Descriptions.Item label="证件类型">{kyc.docType ?? '—'}</Descriptions.Item>
