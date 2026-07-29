@@ -6,7 +6,7 @@ import {
   BI_TARGET_METRICS, type BiTargetMetric,
 } from '../../services/bi.service.js'
 import { getBiChannels } from '../../services/bi.service.js'
-import { getAdSourceReport, getAdSourceTrend, isValidChannel, getChannelQuality, listChannelCodes } from '../../services/marketing-bi.service.js'
+import { getAdSourceReport, getAdSourceTrend, isValidChannel, getChannelQuality, listChannelCodes, generateChannelVerdict } from '../../services/marketing-bi.service.js'
 import { sendBiReportNow, isBiReportEnabled, setBiReportEnabled } from '../../services/bi-report.service.js'
 import { writeAuditLog } from '../../services/admin-store.js'
 import { ok, fail } from '../../utils/response.js'
@@ -193,6 +193,25 @@ router.get('/ad-sources/quality', async (ctx) => {
 // 渠道短码下拉（配置过的 ∪ 实际出现过的）
 router.get('/ad-sources/channels', async (ctx) => {
   ok(ctx, await listChannelCodes(ctx.state.env))
+})
+
+// 渠道对比点评：规则文本兜底 + Gemini 润色（操作人在页面主动点击才触发）
+router.post('/ad-sources/verdict', async (ctx) => {
+  const body = (ctx.request.body ?? {}) as { from?: unknown; to?: unknown; channels?: unknown; spends?: unknown }
+  const dateRe = /^\d{4}-\d{2}-\d{2}$/
+  const from = dateRe.test(String(body.from)) ? String(body.from) : ''
+  const to = dateRe.test(String(body.to)) ? String(body.to) : ''
+  if (!from || !to || from > to) { fail(ctx, 400, 'invalid range'); return }
+  const channels = Array.isArray(body.channels) ? body.channels.map(String).filter(isValidChannel) : []
+  if (channels.length === 0 || channels.length > 8) { fail(ctx, 400, '请选择 1-8 个渠道'); return }
+  const spends: Record<string, number> = {}
+  if (body.spends && typeof body.spends === 'object') {
+    for (const [k, v] of Object.entries(body.spends as Record<string, unknown>)) {
+      const n = Number(v)
+      if (isValidChannel(k) && Number.isFinite(n) && n >= 0) spends[k] = n
+    }
+  }
+  ok(ctx, await generateChannelVerdict(ctx.state.env, ctx.state.redis, { from, to, channels, spends }))
 })
 
 router.post('/report/send', async (ctx) => {

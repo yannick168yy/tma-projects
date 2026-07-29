@@ -11,10 +11,13 @@
 //               买量用户首笔充 USDT/USDC 也必须计入首存，单币种过滤会漏
 import type { Pool, RowDataPacket } from 'mysql2/promise'
 import type { Redis } from 'ioredis'
+import { GoogleGenerativeAI } from '@google/generative-ai'
 import { getMysqlPool } from '../clients/mysql.client.js'
 import { getRate } from './exchange-rate.service.js'
+import { childLogger } from '../lib/logger.js'
 import type { Env } from '../config/env.js'
 
+const log = childLogger('marketing-bi')
 const DAY_MS = 24 * 60 * 60 * 1000
 
 function pool(env: Env): Pool {
@@ -385,6 +388,12 @@ export interface ChannelQualityRow {
   avgLtvPhp: number | null
   cpaUsd: number
   suspiciousUsers: number
+  // 利润侧（全币种折 PHP）：让页面能回答"这个渠道到底赚没赚"，不只看流水
+  withdrawAmount: number      // 已完成提现额（completed）
+  walletBalance: number       // 当前场内余额（bg_wallet.available，玩家还能提走的钱=负债）
+  rejectedWithdraw: number    // 被风控拦下的提现额（admin_rejected/rejected），薅羊毛强信号
+  netCashPhp: number          // 净现金 = 充值 − 完成提现（平台现在手里的现金）
+  ngrPhp: number              // 真毛利雏形 = 充值 − 完成提现 − 场内余额（扣掉未兑付负债）
 }
 
 export async function getChannelQuality(
@@ -426,6 +435,35 @@ export async function getChannelQuality(
     depByUser.set(k, prev)
   }
 
+  // 2b. 利润侧：完成提现 / 场内余额 / 被拦提现，均按 user×币种取回后折 PHP 归并到人
+  const [wds] = await db.query<RowDataPacket[]>(
+    `SELECT user_id, currency cur, COALESCE(SUM(amount),0) amt FROM bg_withdraw_order
+     WHERE status='completed' AND user_id IN (${ph}) GROUP BY user_id, currency`,
+    uid,
+  )
+  const [bals] = await db.query<RowDataPacket[]>(
+    `SELECT user_id, currency cur, COALESCE(SUM(available),0) amt FROM bg_wallet
+     WHERE user_id IN (${ph}) GROUP BY user_id, currency`,
+    uid,
+  )
+  const [rjs] = await db.query<RowDataPacket[]>(
+    `SELECT user_id, currency cur, COALESCE(SUM(amount),0) amt FROM bg_withdraw_order
+     WHERE status IN ('admin_rejected','rejected') AND user_id IN (${ph}) GROUP BY user_id, currency`,
+    uid,
+  )
+  const profitRates = await phpRateMap(redis, env, [...wds, ...bals, ...rjs].map((r) => String(r.cur)))
+  const sumPhpByUser = (rows: RowDataPacket[]): Map<string, number> => {
+    const m = new Map<string, number>()
+    for (const r of rows) {
+      const k = String(r.user_id)
+      m.set(k, (m.get(k) ?? 0) + Number(r.amt) * (profitRates.get(String(r.cur)) ?? 1))
+    }
+    return m
+  }
+  const wdByUser = sumPhpByUser(wds)
+  const balByUser = sumPhpByUser(bals)
+  const rjByUser = sumPhpByUser(rjs)
+
   // 3. 留存：活跃日集合
   const [acts] = await db.query<RowDataPacket[]>(
     `SELECT user_id, stat_date FROM bi_user_active_day WHERE user_id IN (${ph})`, uid,
@@ -453,7 +491,7 @@ export async function getChannelQuality(
   const rowOf = (ch: string): ChannelQualityRow => {
     let r = agg.get(ch)
     if (!r) {
-      r = { channelCode: ch, regUsers: 0, firstDepUsers: 0, depositAmount: 0, arpu: null, reDepUsers: 0, reDepRate: null, d1Retained: 0, d7Retained: 0, avgLtvPhp: null, cpaUsd: 0, suspiciousUsers: 0 }
+      r = { channelCode: ch, regUsers: 0, firstDepUsers: 0, depositAmount: 0, arpu: null, reDepUsers: 0, reDepRate: null, d1Retained: 0, d7Retained: 0, avgLtvPhp: null, cpaUsd: 0, suspiciousUsers: 0, withdrawAmount: 0, walletBalance: 0, rejectedWithdraw: 0, netCashPhp: 0, ngrPhp: 0 }
       agg.set(ch, r)
     }
     return r
@@ -468,6 +506,9 @@ export async function getChannelQuality(
       row.depositAmount += dep.amt
       if (dep.cnt >= 2) row.reDepUsers += 1
     }
+    row.withdrawAmount += wdByUser.get(id) ?? 0
+    row.walletBalance += balByUser.get(id) ?? 0
+    row.rejectedWithdraw += rjByUser.get(id) ?? 0
     const days = activeDays.get(id)
     const rd = regDay.get(id)!
     if (days?.has(dayShift(rd, 1))) row.d1Retained += 1
@@ -487,9 +528,86 @@ export async function getChannelQuality(
     r.avgLtvPhp = r.arpu
     r.reDepRate = r.firstDepUsers > 0 ? r.reDepUsers / r.firstDepUsers : null
     r.cpaUsd = priceMap.get(r.channelCode) ?? 0
+    r.netCashPhp = r.depositAmount - r.withdrawAmount
+    r.ngrPhp = r.depositAmount - r.withdrawAmount - r.walletBalance
   }
   rows.sort((a, b) => b.firstDepUsers - a.firstDepUsers || b.regUsers - a.regUsers)
   return { rows, usdToPhp: env.USDT_TO_PHP_RATE }
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// 渠道对比点评：把选中渠道的数字拼成可读文本（既是无 key 时的兜底，也是喂 Gemini 的原料），
+// 有 GEMINI_API_KEY 时润色成自然语言点评。操作人在页面主动点「生成AI点评」才调用。
+// ─────────────────────────────────────────────────────────────────────────
+export interface ChannelVerdict { text: string; ai: boolean }
+
+const vMoney = (v: number): string => Math.round(v).toLocaleString('en-US')
+const vPct = (v: number | null): string => (v == null ? '—' : `${(v * 100).toFixed(1)}%`)
+
+function buildVerdictText(
+  rows: ChannelQualityRow[],
+  spends: Record<string, number>,
+  usdToPhp: number,
+  from: string,
+  to: string,
+): string {
+  if (!rows.length) return '未选择任何渠道，或所选渠道在该区间无数据。'
+  const lines = [`投放渠道对比（${from} ~ ${to}，金额单位 PHP，USDT→PHP=${usdToPhp}）：`]
+  for (const r of rows) {
+    const conv = r.regUsers > 0 ? `${((r.firstDepUsers / r.regUsers) * 100).toFixed(1)}%` : '—'
+    const susPct = r.regUsers > 0 ? `${((r.suspiciousUsers / r.regUsers) * 100).toFixed(0)}%` : '0%'
+    const d1 = r.regUsers > 0 ? `${((r.d1Retained / r.regUsers) * 100).toFixed(0)}%` : '0%'
+    const parts = [
+      `【${r.channelCode}】注册${r.regUsers}、首存${r.firstDepUsers}（转化${conv}）`,
+      `充值₱${vMoney(r.depositAmount)}、完成提现₱${vMoney(r.withdrawAmount)}、场内余额₱${vMoney(r.walletBalance)}`,
+      `净现金₱${vMoney(r.netCashPhp)}、真毛利NGR₱${vMoney(r.ngrPhp)}`,
+      `复充率${vPct(r.reDepRate)}、D1留存${d1}、同IP多账号${r.suspiciousUsers}(${susPct})`,
+    ]
+    if (r.rejectedWithdraw > 0) parts.push(`异常提现被拦₱${vMoney(r.rejectedWithdraw)}`)
+    const spend = spends[r.channelCode]
+    if (typeof spend === 'number' && spend > 0) {
+      const cpa = (spend / Math.max(r.regUsers, 1)).toFixed(2)
+      const cpd = r.firstDepUsers > 0 ? `$${(spend / r.firstDepUsers).toFixed(2)}` : '—'
+      const roas = (r.depositAmount / usdToPhp / spend).toFixed(2)
+      const netRoi = (r.netCashPhp / usdToPhp / spend).toFixed(2)
+      parts.push(`花费$${spend}、CPA$${cpa}/注册、CPD${cpd}/首存、毛ROAS${roas}×、净现金ROI${netRoi}×`)
+    }
+    lines.push(parts.join('；'))
+  }
+  return lines.join('\n')
+}
+
+export async function generateChannelVerdict(
+  env: Env,
+  redis: Redis,
+  opts: { from: string; to: string; channels: string[]; spends?: Record<string, number> },
+): Promise<ChannelVerdict> {
+  const { rows } = await getChannelQuality(env, redis, { from: opts.from, to: opts.to })
+  const sel = rows.filter((r) => opts.channels.includes(r.channelCode))
+  const raw = buildVerdictText(sel, opts.spends ?? {}, env.USDT_TO_PHP_RATE, opts.from, opts.to)
+  if (!env.GEMINI_API_KEY || sel.length === 0) return { text: raw, ai: false }
+  try {
+    const ai = new GoogleGenerativeAI(env.GEMINI_API_KEY)
+    const model = ai.getGenerativeModel(
+      {
+        model: 'gemini-2.5-flash',
+        systemInstruction: [
+          '你是菲律宾在线游戏平台 BetoGo 的买量数据分析师，给老板写投放渠道对比点评。',
+          '硬性规则：所有数字、百分比、渠道名必须与原文完全一致，不得编造或推算原文没有的新数字；',
+          '重点判断：每个渠道值不值买量成本（看 CPA/ROAS/净现金ROI）、净现金是否为正、是否有薅羊毛信号（同IP多账号占比高、异常提现被拦）、留存与复充；',
+          '结构：一句话总体结论 → 逐个渠道点评优劣 → 风险提示 → 一条可执行建议；全文不超过 300 字；',
+          '直接从正文开始输出，不要标题、不要 Markdown 加粗、不要任何前言。',
+        ].join('\n'),
+      },
+      { timeout: 20_000 },
+    )
+    const res = await model.generateContent(`根据以下渠道数据写对比点评：\n\n${raw}`)
+    const text = res.response.text().trim()
+    return text ? { text, ai: true } : { text: raw, ai: false }
+  } catch (err) {
+    log.warn({ err }, 'gemini channel verdict error, fallback to raw')
+    return { text: raw, ai: false }
+  }
 }
 
 export { isValidChannel }

@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useState } from 'react'
-import { Button, Card, DatePicker, Input, InputNumber, Popconfirm, Select, Space, Spin, Table, Tag, Tooltip, Typography, message } from 'antd'
+import { useCallback, useEffect, useState, type ReactNode } from 'react'
+import { Alert, Button, Card, DatePicker, Input, InputNumber, Popconfirm, Select, Space, Spin, Table, Tag, Tooltip, Typography, message } from 'antd'
 import dayjs, { type Dayjs } from 'dayjs'
 import {
   getAdSources, getAdSourceTrend, getCapiTokens, upsertCapiToken, deleteCapiToken, revealCapiToken,
-  getChannelQuality, getChannelPrices, upsertChannelPrice,
+  getChannelQuality, getChannelPrices, upsertChannelPrice, getChannelVerdict,
   type AdSourceRow, type AdSourceReport, type CapiPixelToken, type ChannelQualityRow, type ChannelPrice,
 } from '../api'
 import { LineChart } from '../components/BiCharts'
@@ -189,6 +189,11 @@ export default function BiAdSources() {
   const [prices, setPrices] = useState<Record<string, number>>({})
   const [trendChannel, setTrendChannel] = useState<string | null>(null)
   const [trend, setTrend] = useState<{ dates: string[]; reg: number[]; fd: number[]; arpu: (number | null)[] } | null>(null)
+  // 渠道对比与点评
+  const [cmpChannels, setCmpChannels] = useState<string[]>([])
+  const [spends, setSpends] = useState<Record<string, number>>({})
+  const [verdict, setVerdict] = useState<{ text: string; ai: boolean } | null>(null)
+  const [verdictLoading, setVerdictLoading] = useState(false)
   const isSuper = localStorage.getItem('admin_role') === 'super_admin'
 
   const load = useCallback(() => {
@@ -240,6 +245,65 @@ export default function BiAdSources() {
   }
 
   const usdToPhp = quality?.usdToPhp ?? 58
+  const qualityRows = quality?.rows ?? []
+  const rowByChannel: Record<string, ChannelQualityRow> = Object.fromEntries(qualityRows.map((r) => [r.channelCode, r]))
+
+  // 规则标签（常驻，前端按阈值自动打）
+  const ruleTags = (r: ChannelQualityRow): ReactNode[] => {
+    const tags: ReactNode[] = []
+    const susPct = r.regUsers ? r.suspiciousUsers / r.regUsers : 0
+    if (susPct > 0.2) tags.push(<Tag key="sus" color="red">薅羊毛嫌疑高 {(susPct * 100).toFixed(0)}%</Tag>)
+    else if (susPct > 0.1) tags.push(<Tag key="sus" color="orange">同IP偏高 {(susPct * 100).toFixed(0)}%</Tag>)
+    if (r.rejectedWithdraw > 0) tags.push(<Tag key="rej" color="volcano">异常提现被拦 ₱{fmtMoney(r.rejectedWithdraw)}</Tag>)
+    if (r.netCashPhp < 0) tags.push(<Tag key="net" color="red">净现金为负</Tag>)
+    const conv = r.regUsers ? r.firstDepUsers / r.regUsers : 0
+    if (r.regUsers >= 20 && conv < 0.2) tags.push(<Tag key="cvr" color="orange">漏斗偏弱 转化{(conv * 100).toFixed(0)}%</Tag>)
+    if (r.firstDepUsers >= 10 && (r.reDepRate ?? 0) < 0.1) tags.push(<Tag key="redep" color="orange">复充偏低</Tag>)
+    if (!tags.length) tags.push(<Tag key="ok" color="green">未见明显异常</Tag>)
+    return tags
+  }
+
+  const genVerdict = async () => {
+    if (!cmpChannels.length) { message.warning('先选择要对比的渠道'); return }
+    setVerdictLoading(true)
+    try {
+      const r = await getChannelVerdict({
+        from: range[0].format('YYYY-MM-DD'), to: range[1].format('YYYY-MM-DD'),
+        channels: cmpChannels, spends,
+      })
+      setVerdict(r)
+    } catch (e) { message.error((e as Error).message) } finally { setVerdictLoading(false) }
+  }
+
+  // 转置对比：指标做行、渠道做列
+  const cmpMetrics: { key: string; label: string; tip?: string; render: (r: ChannelQualityRow, ch: string) => ReactNode }[] = [
+    { key: 'spend', label: '本期花费($)', tip: '你在该渠道投放的总花费(USD)，用于算 CPA/ROAS；仅本页临时输入，不保存', render: (_r, ch) => <InputNumber size="small" min={0} controls={false} placeholder="填花费" style={{ width: 90 }} value={spends[ch]} onChange={(v) => setSpends((m) => ({ ...m, [ch]: Number(v) || 0 }))} /> },
+    { key: 'reg', label: '注册数', render: (r) => r.regUsers },
+    { key: 'cpa', label: 'CPA($/注册)', render: (r, ch) => spends[ch] ? `$${(spends[ch] / Math.max(r.regUsers, 1)).toFixed(2)}` : '—' },
+    { key: 'fd', label: '首存人数', render: (r) => r.firstDepUsers },
+    { key: 'cvr', label: '首存转化', render: (r) => r.regUsers ? `${((r.firstDepUsers / r.regUsers) * 100).toFixed(1)}%` : '—' },
+    { key: 'cpd', label: 'CPD($/首存)', render: (r, ch) => spends[ch] && r.firstDepUsers ? `$${(spends[ch] / r.firstDepUsers).toFixed(2)}` : '—' },
+    { key: 'dep', label: '总充值(₱)', render: (r) => fmtMoney(r.depositAmount) },
+    { key: 'roas', label: '毛ROAS', tip: '总充值(折USD)÷花费', render: (r, ch) => spends[ch] ? `${(r.depositAmount / usdToPhp / spends[ch]).toFixed(2)}×` : '—' },
+    { key: 'arpu', label: '客均(₱)', render: (r) => arpuCell(r.arpu) },
+    { key: 'redep', label: '复充率', render: (r) => pct(r.reDepRate) },
+    { key: 'd1', label: 'D1留存', render: (r) => r.regUsers ? `${((r.d1Retained / r.regUsers) * 100).toFixed(0)}%` : '—' },
+    { key: 'wd', label: '完成提现(₱)', render: (r) => fmtMoney(r.withdrawAmount) },
+    { key: 'bal', label: '场内余额(₱)', render: (r) => fmtMoney(r.walletBalance) },
+    { key: 'net', label: '净现金(₱)', tip: '总充值 − 已完成提现', render: (r) => <span style={{ color: r.netCashPhp >= 0 ? '#3f8600' : '#cf1322', fontWeight: 500 }}>{fmtMoney(r.netCashPhp)}</span> },
+    { key: 'netroi', label: '净现金ROI', tip: '净现金(折USD)÷花费，>1才真正回本', render: (r, ch) => { if (!spends[ch]) return '—'; const roi = r.netCashPhp / usdToPhp / spends[ch]; return <span style={{ color: roi >= 1 ? '#3f8600' : '#cf1322' }}>{roi.toFixed(2)}×</span> } },
+    { key: 'ngr', label: '真毛利NGR(₱)', tip: '总充值 − 完成提现 − 场内余额（扣掉玩家还能提走的钱）', render: (r) => <span style={{ color: r.ngrPhp >= 0 ? '#3f8600' : '#cf1322' }}>{fmtMoney(r.ngrPhp)}</span> },
+    { key: 'rej', label: '异常提现拦截(₱)', render: (r) => r.rejectedWithdraw > 0 ? <Tag color="volcano">₱{fmtMoney(r.rejectedWithdraw)}</Tag> : '—' },
+    { key: 'sus', label: '同IP多账号', render: (r) => r.suspiciousUsers > 0 ? <span style={{ color: '#cf1322' }}>{r.suspiciousUsers}{r.regUsers ? ` (${((r.suspiciousUsers / r.regUsers) * 100).toFixed(0)}%)` : ''}</span> : '0' },
+    { key: 'tags', label: '规则标签', render: (r) => <Space size={4} wrap>{ruleTags(r)}</Space> },
+  ]
+  const cmpColumns = [
+    { title: '指标', dataIndex: 'label', fixed: 'left' as const, width: 130, render: (v: string, m: { tip?: string }) => m.tip ? <Tooltip title={m.tip}>{v}</Tooltip> : v },
+    ...cmpChannels.filter((ch) => rowByChannel[ch]).map((ch) => ({
+      title: <Tag color="geekblue">{ch}</Tag>, key: ch, align: 'right' as const,
+      render: (_: unknown, m: { render: (r: ChannelQualityRow, ch: string) => ReactNode }) => m.render(rowByChannel[ch], ch),
+    })),
+  ]
 
   const qualityCols = [
     { title: '渠道', dataIndex: 'channelCode', fixed: 'left' as const },
@@ -265,6 +329,14 @@ export default function BiAdSources() {
     {
       title: <Tooltip title="同一注册IP出现≥2个账号的用户数，疑似刷量，结算前重点核">刷量预警</Tooltip>, dataIndex: 'suspiciousUsers',
       render: (v: number) => v > 0 ? <Tag color="red">{v}</Tag> : <span style={{ color: '#bbb' }}>0</span>,
+    },
+    {
+      title: <Tooltip title="净现金 = 总充值 − 已完成提现（平台现在手里的现金），为负=玩家提走多于充入">净现金(₱)</Tooltip>, key: 'net',
+      render: (_: unknown, r: ChannelQualityRow) => <span style={{ color: r.netCashPhp >= 0 ? '#3f8600' : '#cf1322', fontWeight: 500 }}>{fmtMoney(r.netCashPhp)}</span>,
+    },
+    {
+      title: <Tooltip title="被风控拦下的提现额（admin_rejected/rejected），金额大=薅羊毛/套利强信号">异常拦截(₱)</Tooltip>, dataIndex: 'rejectedWithdraw',
+      render: (v: number) => v > 0 ? <Tag color="volcano">₱{fmtMoney(v)}</Tag> : <span style={{ color: '#bbb' }}>—</span>,
     },
   ]
 
@@ -353,6 +425,35 @@ export default function BiAdSources() {
             留存、复充、人均充值、回本倍数、刷量预警——看「来的人值不值 CPA」。CPA 单价按渠道配置（一线一价，super_admin 可改）。
           </div>
           <Table size="small" rowKey="channelCode" columns={qualityCols} dataSource={quality?.rows ?? []} pagination={false} scroll={{ x: 800 }} />
+        </Card>
+
+        <Card bordered={false} size="small" title="渠道对比与点评" style={{ marginTop: 16 }}>
+          <div style={{ color: '#999', fontSize: 12, marginBottom: 8 }}>
+            勾选多个渠道并排对比（指标做行、渠道做列）。填「本期花费」后自动算 CPA/CPD/ROAS/净现金ROI（花费仅本页临时输入，不保存）。
+            规则标签按阈值自动打；点「生成AI点评」用 Gemini 出一段自然语言总结（数字与表格一致，不编造）。
+          </div>
+          <Space style={{ marginBottom: 12 }} wrap>
+            <Select
+              mode="multiple" allowClear placeholder="选择要对比的渠道" style={{ minWidth: 280 }}
+              value={cmpChannels} onChange={setCmpChannels}
+              options={qualityRows.map((r) => ({ value: r.channelCode, label: r.channelCode }))}
+              maxTagCount={8}
+            />
+            <Button type="primary" loading={verdictLoading} disabled={!cmpChannels.length} onClick={genVerdict}>生成AI点评</Button>
+          </Space>
+          {cmpChannels.length > 0 && (
+            <Table
+              size="small" rowKey="key" columns={cmpColumns} dataSource={cmpMetrics}
+              pagination={false} scroll={{ x: 'max-content' }} style={{ marginBottom: 12 }}
+            />
+          )}
+          {verdict && (
+            <Alert
+              type={verdict.ai ? 'info' : 'warning'} showIcon
+              message={<Space>点评{verdict.ai ? <Tag color="blue">AI生成</Tag> : <Tag>规则文本（未配AI或调用失败）</Tag>}</Space>}
+              description={<div style={{ whiteSpace: 'pre-wrap', fontSize: 13, lineHeight: 1.7 }}>{verdict.text}</div>}
+            />
+          )}
         </Card>
 
         {trendChannel && (

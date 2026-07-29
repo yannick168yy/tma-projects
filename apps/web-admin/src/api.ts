@@ -216,10 +216,14 @@ export interface ChannelQualityRow {
   channelCode: string; regUsers: number; firstDepUsers: number; depositAmount: number; arpu: number | null
   reDepUsers: number; reDepRate: number | null; d1Retained: number; d7Retained: number
   avgLtvPhp: number | null; cpaUsd: number; suspiciousUsers: number
+  withdrawAmount: number; walletBalance: number; rejectedWithdraw: number; netCashPhp: number; ngrPhp: number
 }
 export const getChannelQuality = (params: { from?: string; to?: string }) =>
   get<{ rows: ChannelQualityRow[]; usdToPhp: number }>('/admin/bi/ad-sources/quality', params)
 export const getAdChannelCodes = () => get<string[]>('/admin/bi/ad-sources/channels')
+
+export const getChannelVerdict = (data: { from: string; to: string; channels: string[]; spends?: Record<string, number> }) =>
+  post<{ text: string; ai: boolean }>('/admin/bi/ad-sources/verdict', data)
 
 export interface ChannelPrice { channelCode: string; cpaUsd: number; remark: string | null; updatedAt: string }
 export const getChannelPrices = () => get<ChannelPrice[]>('/admin/marketing/channel-prices')
