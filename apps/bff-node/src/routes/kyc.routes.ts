@@ -44,8 +44,13 @@ router.get('/status', async (ctx) => {
   const phoneIdentity = (await listUserIdentities(ctx.state.redis, ctx.state.userId!)).find((item) => item.provider === 'phone')
   const registeredPhone = phoneIdentity ? normalizePhonePH(phoneIdentity.identifier) : null
   const cfg = await getKycStepConfig(ctx.state.redis, ctx.state.env, ctx.state.userId!)
+  const status = buildKycStatusResponse(kyc)
+  if (phoneIdentity?.verifiedAt && registeredPhone && !status.phoneVerified) {
+    status.phoneVerified = true
+    status.phone = status.phone ?? registeredPhone
+  }
   ok(ctx, {
-    ...buildKycStatusResponse(kyc),
+    ...status,
     registeredPhone,
     requirePhone: cfg.requirePhone,
     requireDocument: cfg.requireDocument,
@@ -116,13 +121,13 @@ router.post('/phone/verify', async (ctx) => {
 
 router.post('/document', async (ctx) => {
   const body = ctx.request.body as { fullName?: string; docType?: string; idImage?: string }
-  if (!body.fullName || !body.idImage) {
-    fail(ctx, 400, 'fullName and idImage are required')
+  if (!body.idImage) {
+    fail(ctx, 400, 'idImage is required')
     return
   }
   try {
     const result = await submitKycDocument(ctx.state.redis, ctx.state.env, ctx.state.userId!, {
-      fullName: body.fullName,
+      fullName: body.fullName ?? '',
       docType: body.docType ?? 'unknown',
       idImage: body.idImage,
     })

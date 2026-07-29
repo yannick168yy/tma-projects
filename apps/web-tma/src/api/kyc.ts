@@ -56,7 +56,6 @@ export function bindKycPhone(phone: string, password?: string): Promise<{ phoneV
 }
 
 export function submitKycDocument(input: {
-  fullName: string
   docType: string
   idImage: string
 }): Promise<{ docVerified: boolean; status: KycStatusValue; rejectReason?: string; rejectStep?: string }> {

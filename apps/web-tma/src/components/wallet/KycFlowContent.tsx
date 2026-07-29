@@ -16,7 +16,7 @@ export default function KycFlowContent({ flow, onClose, compactFace }: Props) {
   const {
     step, requirePhone, requireDocument, requireFace, loading, error,
     phone, setPhone, phoneLocked, code, setCode, resendIn,
-    fullName, setFullName, docType, setDocType, idImage, docReuploadRequired, idInputRef,
+    docType, setDocType, idImage, docReuploadRequired, idInputRef,
     onSendCode, onVerifyCode, onPickImage, onSubmitDoc, onSubmitFace,
   } = flow
 
@@ -72,7 +72,6 @@ export default function KycFlowContent({ flow, onClose, compactFace }: Props) {
 
       {step === 'document' && (
         <div className="space-y-3">
-          <input value={fullName} type="text" placeholder={t('kyc.fullName')} className={inputCls} onChange={(e) => setFullName(e.target.value)} />
           <select value={docType} className={inputCls} onChange={(e) => setDocType(e.target.value as DocType)}>
             <option value="philid">{t('kyc.docPhilid')}</option>
             <option value="passport">{t('kyc.docPassport')}</option>

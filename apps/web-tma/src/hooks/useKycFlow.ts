@@ -104,7 +104,6 @@ export function useKycFlow(active: boolean, onApproved?: () => void) {
   const [code, setCode] = useState('')
   const [resendIn, setResendIn] = useState(0)
 
-  const [fullName, setFullName] = useState('')
   const [docType, setDocType] = useState<DocType>('philid')
   const [idImage, setIdImage] = useState<string | null>(null)
   const [docReuploadRequired, setDocReuploadRequired] = useState(false)
@@ -129,7 +128,6 @@ export function useKycFlow(active: boolean, onApproved?: () => void) {
       } else if (s.phone) {
         setPhone(s.phone)
       }
-      if (s.fullName) setFullName(s.fullName)
       if (s.docType && DOC_TYPES.includes(s.docType as DocType)) {
         setDocType(s.docType as DocType)
       }
@@ -189,13 +187,13 @@ export function useKycFlow(active: boolean, onApproved?: () => void) {
   }
 
   async function onSubmitDoc() {
-    if (!fullName.trim() || !idImage) {
+    if (!idImage) {
       setError(docReuploadRequired ? formatDocRejectError(null, t) : t('kyc.fillAll'))
       return
     }
     setLoading(true); setError(null)
     try {
-      const res = await submitKycDocument({ fullName: fullName.trim(), docType, idImage })
+      const res = await submitKycDocument({ docType, idImage })
       if (res.docVerified) {
         if (res.status === 'approved') {
           setStep('done')
@@ -233,7 +231,7 @@ export function useKycFlow(active: boolean, onApproved?: () => void) {
   return {
     step, requirePhone, requireDocument, requireFace, loading, error,
     phone, setPhone, phoneLocked, code, setCode, resendIn,
-    fullName, setFullName, docType, setDocType, idImage, docReuploadRequired, idInputRef,
+    docType, setDocType, idImage, docReuploadRequired, idInputRef,
     onSendCode, onVerifyCode, onPickImage, onSubmitDoc, onSubmitFace,
   }
 }

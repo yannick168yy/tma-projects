@@ -156,6 +156,11 @@ export function compareKycNames(inputName: string, documentName: string): KycNam
 }
 const VERIFY_RL_WINDOW_SEC = 86400
 
+async function getVerifiedPhoneIdentity(redis: Redis, userId: string): Promise<string | null> {
+  const phoneIdentity = (await listUserIdentities(redis, userId)).find((item) => item.provider === 'phone' && item.verifiedAt)
+  return phoneIdentity ? normalizePhonePH(phoneIdentity.identifier) : null
+}
+
 /** 人脸 vs 证件照相似度通过阈值：后台 kyc_face_match_threshold 优先，否则用 env 兜底 */
 async function getKycFaceMatchThreshold(env: Env): Promise<number> {
   const raw = await getAdminSetting(env, 'kyc_face_match_threshold')
@@ -653,11 +658,14 @@ async function generateGeminiContent(
 }
 
 async function runGeminiDocument(env: Env, fullName: string, idImage: string): Promise<GeminiDocVerdict> {
+  const claimedNameLine = fullName.trim()
+    ? `The user claims their full name is: "${fullName.trim()}".`
+    : 'No user-entered name is provided; extract the full legal name from the document.'
   const prompt = `You are a KYC document verification system. Analyze the provided ID document image only.
 
 Accepted document types: passport, drivers_license, philid (Philippine National ID), umid, acr_icard (ACR I-Card / Alien Certificate of Registration Identity Card).
 Use docType value exactly as listed (e.g. acr_icard for ACR I-Card).
-The user claims their full name is: "${fullName}".
+${claimedNameLine}
 
 Return ONLY a valid JSON object (no markdown) with exactly these keys:
 {
@@ -732,8 +740,15 @@ export async function submitKycDocument(
 ): Promise<{ docVerified: boolean; status: KycSubmission['status']; rejectReason?: string; rejectStep?: string }> {
   const existing = await getKyc(redis, userId)
   const cfg = await getKycStepConfig(redis, env, userId)
-  if (cfg.requirePhone && !existing?.phoneVerified) {
+  const verifiedPhoneIdentity = cfg.requirePhone && !existing?.phoneVerified
+    ? await getVerifiedPhoneIdentity(redis, userId)
+    : null
+  if (cfg.requirePhone && !existing?.phoneVerified && !verifiedPhoneIdentity) {
     throw new KycError('请先完成手机验证', 400)
+  }
+  if (verifiedPhoneIdentity) {
+    const otherOwner = await findKycByVerifiedPhone(redis, verifiedPhoneIdentity, userId)
+    if (otherOwner) throw new KycError('kyc.errors.phoneTaken', 409)
   }
   if (!cfg.requireDocument) {
     throw new KycError('证件验证已关闭', 400)
@@ -766,12 +781,14 @@ export async function submitKycDocument(
   }
 
   const reasons: string[] = []
-  const nameCheck = compareKycNames(input.fullName, verdict.fullName)
+  const claimedFullName = input.fullName.trim()
+  const extractedFullName = verdict.fullName.trim()
+  const nameCheck = claimedFullName ? compareKycNames(claimedFullName, extractedFullName) : undefined
   if (!verdict.isValidDocument) reasons.push('invalid_doc')
   if (!ACCEPTED_DOC_TYPES.includes(normalizeDocType(verdict.docType))) reasons.push('unsupported_doc_type')
   // 证件号是防多账号复用的唯一键，提不出一律拒绝重拍
   if (!idNo) reasons.push('missing_id_number')
-  if (!nameCheck.matched) reasons.push('name_mismatch')
+  if (!extractedFullName) reasons.push('invalid_doc')
   if (verdict.confidence < env.KYC_GEMINI_MIN_CONFIDENCE) reasons.push('low_confidence')
   // 年龄限制：证件出生日期可解析且不足 21 周岁 → 拒绝（OCR 无法解析出生日期时不拦截，避免误杀）
   const age = ageFromDob(verdict.dob)
@@ -792,7 +809,9 @@ export async function submitKycDocument(
     submissionId: userId,
     userId,
     status: docVerified ? (approvedByDoc ? 'approved' : 'pending') : 'rejected',
-    fullName: input.fullName,
+    fullName: extractedFullName || claimedFullName,
+    phone: existing?.phone ?? verifiedPhoneIdentity ?? undefined,
+    phoneVerified: existing?.phoneVerified || Boolean(verifiedPhoneIdentity),
     docType: input.docType,
     verifyMode: 'document',
     docVerified,
@@ -816,7 +835,7 @@ export async function submitKycDocument(
   await saveApprovedWithIdGuard(redis, submission)
   broadcastBadges(env).catch(() => {})
   if (submission.status === 'rejected' && failedCount >= KYC_NOTIFY_FAILURE_COUNT) {
-    notifyKycRejected(env, { userId, fullName: input.fullName, stage: 'document', reasons }).catch(() => {})
+    notifyKycRejected(env, { userId, fullName: submission.fullName, stage: 'document', reasons }).catch(() => {})
   }
   // 证件通过即完成实名时，把证件生日同步进用户生日字段（生日只来自 KYC，不接受手输）
   if (submission.status === 'approved') {
@@ -828,7 +847,7 @@ export async function submitKycDocument(
     getMysqlPool(env).execute(
       `INSERT INTO bg_kyc_doc_log (user_id, full_name, doc_type, doc_image_key, gemini_confidence, doc_verified, reject_reason)
        VALUES (?,?,?,?,?,?,?)`,
-      [userId, input.fullName, input.docType, docImageKey ?? null, verdict.confidence, docVerified ? 1 : 0, submission.rejectReason ?? null],
+      [userId, submission.fullName, input.docType, docImageKey ?? null, verdict.confidence, docVerified ? 1 : 0, submission.rejectReason ?? null],
     ).catch((e) => console.error('[kyc] doc log insert failed:', e))
   }
 

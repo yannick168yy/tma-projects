@@ -77,7 +77,7 @@ vi.mock('../services/kyc.service.js', async () => {
   return {
     KycError,
     isKycApproved: vi.fn(),
-    getKycStepConfig: vi.fn(() => Promise.resolve({ requireDocument: true, requireFace: true })),
+    getKycStepConfig: vi.fn(() => Promise.resolve({ requirePhone: true, requireDocument: true, requireFace: true })),
     buildKycStatusResponse: vi.fn((kyc: KycSubmission | null) => ({
       status: kyc?.status ?? 'none',
       reason: kyc?.rejectReason ?? null,
@@ -395,8 +395,27 @@ describe('KYC 接口', () => {
 
     expect(res.status).toBe(200)
     expect(res.body.data.status).toBe('none')
+    expect(res.body.data.requirePhone).toBe(true)
     expect(res.body.data.requireDocument).toBe(true)
     expect(res.body.data.requireFace).toBe(true)
+  })
+
+  it('GET /kyc/status 已验证手机号账号自动视为手机步骤通过', async () => {
+    mockListUserIdentities.mockResolvedValue([
+      {
+        userId: 'BG-10001',
+        provider: 'phone',
+        identifier: '+639000033001',
+        verifiedAt: '2026-01-01T00:00:00.000Z',
+      },
+    ])
+
+    const res = await request(createApp(kycRouter, { userId: 'BG-10001' })).get('/kyc/status')
+
+    expect(res.status).toBe(200)
+    expect(res.body.data.phoneVerified).toBe(true)
+    expect(res.body.data.phone).toBe('+639000033001')
+    expect(res.body.data.registeredPhone).toBe('+639000033001')
   })
 
   it('POST /kyc/phone/send-otp 缺少 phone 返回 400', async () => {
