@@ -5,7 +5,23 @@
 //   signals   —— 原始信号，后端做相似度匹配用（hash 漂了但 GPU+屏幕+时区一致仍可判同设备）
 // 三者都与 IP 无关：用户换 WiFi/4G/代理，这三个值都不变。
 import FingerprintJS from '@fingerprintjs/fingerprintjs'
+import { Capacitor, registerPlugin } from '@capacitor/core'
 import { clientPlatform } from '@/utils/pwa'
+
+// Android 壳原生插件：返回 ANDROID_ID（重装不变），补 FingerprintJS 在 WebView 里出不了值的盲区
+const HardwareId = registerPlugin<{ getId(): Promise<{ id: string }> }>('HardwareId')
+
+// 仅在原生 App 里取硬件 ID，作为 fpVisitor；带前缀便于后台区分且不与 FingerprintJS hash 撞值。
+// web/PWA 返回空串，走原有 FingerprintJS 路径。
+async function nativeHardwareFp(): Promise<string> {
+  if (!Capacitor.isNativePlatform()) return ''
+  try {
+    const { id } = await HardwareId.getId()
+    return id ? `aid_${id}` : ''
+  } catch {
+    return ''
+  }
+}
 
 const DEVICE_ID_KEY = 'betogo_device_id'
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 365 * 2 // 2 年
@@ -82,13 +98,16 @@ export async function initFingerprint(): Promise<void> {
   if (initPromise) return initPromise
   initPromise = (async () => {
     const deviceId = getDeviceId()
-    let fpVisitor = ''
-    try {
-      const fp = await FingerprintJS.load()
-      const r = await fp.get()
-      fpVisitor = r.visitorId
-    } catch {
-      /* 指纹失败不影响登录，deviceId 仍可用 */
+    // App 优先用 ANDROID_ID（重装不变）；web/PWA 或取不到时回落 FingerprintJS
+    let fpVisitor = await nativeHardwareFp()
+    if (!fpVisitor) {
+      try {
+        const fp = await FingerprintJS.load()
+        const r = await fp.get()
+        fpVisitor = r.visitorId
+      } catch {
+        /* 指纹失败不影响登录，deviceId 仍可用 */
+      }
     }
     cache = { deviceId, fpVisitor, signals: b64(collectSignals()) }
   })()
