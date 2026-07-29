@@ -7,6 +7,13 @@ import { getWin568SwCompanyKey } from './win568-key-settings.service.js'
 
 type CallbackBody = Record<string, unknown>
 
+// feature 彩金闸阈值：bff 写入 Redis（键 settings:feature_bonus_lock），这里带 30s 进程缓存读取，
+// Redis 不可用时回落 env 默认。改后台系统参数即时生效（最多 30s 缓存延迟），无需重部署。
+interface FeatureBonusLockCfg { enabled: boolean; minAmount: number; minMultiple: number; wagerMult: number }
+const FL_REDIS_KEY = 'settings:feature_bonus_lock'
+const FL_CACHE_MS = 30_000
+let flCache: { v: FeatureBonusLockCfg; at: number } | null = null
+
 interface PlayerRef {
   userId: string
   username: string
@@ -685,15 +692,41 @@ export class Win568WalletService {
     }
   }
 
+  private async getFeatureBonusLockConfig(): Promise<FeatureBonusLockCfg> {
+    const now = Date.now()
+    if (flCache && now - flCache.at < FL_CACHE_MS) return flCache.v
+    const v: FeatureBonusLockCfg = {
+      enabled: env.FEATURE_BONUS_LOCK_ENABLED === 'true',
+      minAmount: env.FEATURE_BONUS_LOCK_MIN_AMOUNT,
+      minMultiple: env.FEATURE_BONUS_LOCK_MIN_MULTIPLE,
+      wagerMult: env.FEATURE_BONUS_LOCK_WAGER_MULT,
+    }
+    try {
+      const raw = await this.app.redis.get(FL_REDIS_KEY)
+      if (raw) {
+        const j = JSON.parse(raw) as Partial<FeatureBonusLockCfg>
+        if (typeof j.enabled === 'boolean') v.enabled = j.enabled
+        if (Number.isFinite(j.minAmount)) v.minAmount = Number(j.minAmount)
+        if (Number.isFinite(j.minMultiple)) v.minMultiple = Number(j.minMultiple)
+        if (Number.isFinite(j.wagerMult)) v.wagerMult = Number(j.wagerMult)
+      }
+    } catch {
+      /* Redis 不可用 → 用 env 默认，不影响派彩 */
+    }
+    flCache = { v, at: now }
+    return v
+  }
+
   // feature/免费旋转彩金薅羊毛闸：非平台活动派彩(IsGameProviderPromotion=false)中，
   // 单笔派彩相对触发注达到高倍(小注爆奖=farming 签名)时，按倍数补一条同额彩金流水锁，
   // 打满才可提。巨鲸大奖与正常小奖都是低倍，天然不受影响。
   private async maybeLockFeatureBonus(
     conn: PoolConnection, player: PlayerRef, body: CallbackBody, amount: number,
   ): Promise<void> {
-    if (env.FEATURE_BONUS_LOCK_ENABLED !== 'true') return
+    const cfg = await this.getFeatureBonusLockConfig()
+    if (!cfg.enabled) return
     if (bool(body, 'IsGameProviderPromotion')) return
-    if (amount < env.FEATURE_BONUS_LOCK_MIN_AMOUNT) return
+    if (amount < cfg.minAmount) return
     const extra = body.SeamlessGameExtraInfo as Record<string, unknown> | undefined
     const refNo = extra && typeof extra.ReferenceRefNo === 'string' ? extra.ReferenceRefNo : ''
     if (!refNo) return
@@ -702,8 +735,8 @@ export class Win568WalletService {
       [refNo],
     )
     const betAmount = betRows[0] ? Number(betRows[0].amount) : 0
-    if (betAmount <= 0 || amount / betAmount < env.FEATURE_BONUS_LOCK_MIN_MULTIPLE) return
-    const required = round2(amount * env.FEATURE_BONUS_LOCK_WAGER_MULT)
+    if (betAmount <= 0 || amount / betAmount < cfg.minMultiple) return
+    const required = round2(amount * cfg.wagerMult)
     await conn.execute(
       `INSERT IGNORE INTO bg_turnover_requirements
          (user_id, currency, source_type, source_ref, base_amount, required_amount)

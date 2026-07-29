@@ -1,8 +1,9 @@
 import { bootstrapEnv } from './config/bootstrap.js'
 import { createApp } from './app.js'
 import { logger } from './lib/logger.js'
-import { closeRedis } from './clients/redis.client.js'
+import { closeRedis, getRedis } from './clients/redis.client.js'
 import { closeMysql, getStorageMode, warmupMysql, isMysqlEnabled } from './clients/mysql.client.js'
+import { syncFeatureBonusLockToRedis } from './services/feature-bonus-lock.service.js'
 
 const env = await bootstrapEnv()
 
@@ -32,6 +33,13 @@ if (isMysqlEnabled(env)) {
 }
 
 const app = createApp(env)
+
+if (isMysqlEnabled(env)) {
+  // 把 feature 彩金闸阈值从 bg_admin_settings 播到 Redis 供 core-node 读（Redis 被清也能自愈）
+  syncFeatureBonusLockToRedis(env, getRedis(env)).catch((err) => {
+    logger.error({ err }, 'feature bonus lock redis seed failed')
+  })
+}
 
 const server = app.listen(env.BFF_PORT, () => {
   const nacos = Boolean(process.env.NACOS_SERVER_ADDR?.trim())

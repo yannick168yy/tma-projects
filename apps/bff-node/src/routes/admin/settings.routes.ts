@@ -29,6 +29,14 @@ import {
   getSmsDailyLimit,
 } from '../../services/otp-policy.service.js'
 import {
+  FEATURE_BONUS_LOCK_ENABLED_KEY,
+  FEATURE_BONUS_LOCK_MIN_AMOUNT_KEY,
+  FEATURE_BONUS_LOCK_MIN_MULTIPLE_KEY,
+  FEATURE_BONUS_LOCK_WAGER_MULT_KEY,
+  getFeatureBonusLockConfig,
+  syncFeatureBonusLockToRedis,
+} from '../../services/feature-bonus-lock.service.js'
+import {
   getAllCurrentRates, getRateHistory, setManualRate, clearManualRate, refreshRates,
 } from '../../services/exchange-rate.service.js'
 
@@ -170,6 +178,7 @@ router.get('/system-params', async (ctx) => {
     getLoginPasswordFailureLimit(ctx.state.env),
     getLoginPasswordLockSeconds(ctx.state.env),
   ])
+  const featureBonusLock = await getFeatureBonusLockConfig(ctx.state.env)
   ok(ctx, {
     smsDailyLimitPerUser,
     smsDailyLimitPerIp,
@@ -178,6 +187,10 @@ router.get('/system-params', async (ctx) => {
     kycFaceFailureLimit,
     loginPasswordFailureLimit,
     loginPasswordLockSeconds,
+    featureBonusLockEnabled: featureBonusLock.enabled,
+    featureBonusLockMinAmount: featureBonusLock.minAmount,
+    featureBonusLockMinMultiple: featureBonusLock.minMultiple,
+    featureBonusLockWagerMult: featureBonusLock.wagerMult,
   })
 })
 
@@ -190,6 +203,10 @@ router.put('/system-params', requireRole('super_admin', 'Only super_admin can ma
     kycFaceFailureLimit?: unknown
     loginPasswordFailureLimit?: unknown
     loginPasswordLockSeconds?: unknown
+    featureBonusLockEnabled?: unknown
+    featureBonusLockMinAmount?: unknown
+    featureBonusLockMinMultiple?: unknown
+    featureBonusLockWagerMult?: unknown
   }
   const smsDailyLimitPerUser = Number(body.smsDailyLimitPerUser)
   const smsDailyLimitPerIp = Number(body.smsDailyLimitPerIp)
@@ -219,6 +236,19 @@ router.put('/system-params', requireRole('super_admin', 'Only super_admin can ma
   if (!Number.isInteger(loginPasswordLockSeconds) || loginPasswordLockSeconds < 1 || loginPasswordLockSeconds > 86400) {
     fail(ctx, 400, 'loginPasswordLockSeconds must be an integer between 1 and 86400'); return
   }
+  const featureBonusLockEnabled = body.featureBonusLockEnabled === true || body.featureBonusLockEnabled === '1' || body.featureBonusLockEnabled === 1
+  const featureBonusLockMinAmount = Number(body.featureBonusLockMinAmount)
+  const featureBonusLockMinMultiple = Number(body.featureBonusLockMinMultiple)
+  const featureBonusLockWagerMult = Number(body.featureBonusLockWagerMult)
+  if (!Number.isFinite(featureBonusLockMinAmount) || featureBonusLockMinAmount < 0 || featureBonusLockMinAmount > 1000000) {
+    fail(ctx, 400, 'featureBonusLockMinAmount must be a number between 0 and 1000000'); return
+  }
+  if (!Number.isFinite(featureBonusLockMinMultiple) || featureBonusLockMinMultiple < 1 || featureBonusLockMinMultiple > 100000) {
+    fail(ctx, 400, 'featureBonusLockMinMultiple must be a number between 1 and 100000'); return
+  }
+  if (!Number.isFinite(featureBonusLockWagerMult) || featureBonusLockWagerMult < 0 || featureBonusLockWagerMult > 100) {
+    fail(ctx, 400, 'featureBonusLockWagerMult must be a number between 0 and 100'); return
+  }
   await setAdminSetting(ctx.state.env, SMS_DAILY_LIMIT_KEY, String(smsDailyLimitPerUser || DEFAULT_SMS_DAILY_LIMIT))
   await setAdminSetting(ctx.state.env, SMS_DAILY_IP_LIMIT_KEY, String(smsDailyLimitPerIp || DEFAULT_SMS_DAILY_IP_LIMIT))
   await setAdminSetting(ctx.state.env, OTP_LOCK_SECONDS_KEY, String(otpLockSeconds || DEFAULT_OTP_LOCK_SECONDS))
@@ -226,6 +256,12 @@ router.put('/system-params', requireRole('super_admin', 'Only super_admin can ma
   await setAdminSetting(ctx.state.env, KYC_FACE_FAILURE_LIMIT_KEY, String(kycFaceFailureLimit || DEFAULT_KYC_FACE_FAILURE_LIMIT))
   await setAdminSetting(ctx.state.env, LOGIN_PASSWORD_FAILURE_LIMIT_KEY, String(loginPasswordFailureLimit || DEFAULT_LOGIN_PASSWORD_FAILURE_LIMIT))
   await setAdminSetting(ctx.state.env, LOGIN_PASSWORD_LOCK_SECONDS_KEY, String(loginPasswordLockSeconds || DEFAULT_LOGIN_PASSWORD_LOCK_SECONDS))
+  await setAdminSetting(ctx.state.env, FEATURE_BONUS_LOCK_ENABLED_KEY, featureBonusLockEnabled ? '1' : '0')
+  await setAdminSetting(ctx.state.env, FEATURE_BONUS_LOCK_MIN_AMOUNT_KEY, String(featureBonusLockMinAmount))
+  await setAdminSetting(ctx.state.env, FEATURE_BONUS_LOCK_MIN_MULTIPLE_KEY, String(featureBonusLockMinMultiple))
+  await setAdminSetting(ctx.state.env, FEATURE_BONUS_LOCK_WAGER_MULT_KEY, String(featureBonusLockWagerMult))
+  // 镜像到 Redis 供 core-node 派彩回调即时读取
+  await syncFeatureBonusLockToRedis(ctx.state.env, ctx.state.redis)
   await writeAuditLog(ctx.state.env, {
     adminId: ctx.state.adminId!,
     adminUsername: ctx.state.adminUsername!,
@@ -240,6 +276,10 @@ router.put('/system-params', requireRole('super_admin', 'Only super_admin can ma
       kycFaceFailureLimit,
       loginPasswordFailureLimit,
       loginPasswordLockSeconds,
+      featureBonusLockEnabled,
+      featureBonusLockMinAmount,
+      featureBonusLockMinMultiple,
+      featureBonusLockWagerMult,
     },
     ip: ctx.ip,
   })
@@ -251,6 +291,10 @@ router.put('/system-params', requireRole('super_admin', 'Only super_admin can ma
     kycFaceFailureLimit,
     loginPasswordFailureLimit,
     loginPasswordLockSeconds,
+    featureBonusLockEnabled,
+    featureBonusLockMinAmount,
+    featureBonusLockMinMultiple,
+    featureBonusLockWagerMult,
   })
 })
 
