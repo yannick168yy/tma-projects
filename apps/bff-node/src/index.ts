@@ -35,10 +35,19 @@ if (isMysqlEnabled(env)) {
 const app = createApp(env)
 
 if (isMysqlEnabled(env)) {
-  // 把 feature 彩金闸阈值从 bg_admin_settings 播到 Redis 供 core-node 读（Redis 被清也能自愈）
-  syncFeatureBonusLockToRedis(env, getRedis(env)).catch((err) => {
-    logger.error({ err }, 'feature bonus lock redis seed failed')
-  })
+  // 把 feature 彩金闸阈值从 bg_admin_settings 播到 Redis 供 core-node 读。
+  // 重试兜住启动瞬间偶发的 tma-mysql DNS 未就绪（reference_deploy_dns）。
+  void (async () => {
+    for (let attempt = 1; attempt <= 5; attempt += 1) {
+      try {
+        await syncFeatureBonusLockToRedis(env, getRedis(env))
+        return
+      } catch (err) {
+        if (attempt === 5) { logger.error({ err }, 'feature bonus lock redis seed failed'); return }
+        await new Promise((resolve) => setTimeout(resolve, 3000))
+      }
+    }
+  })()
 }
 
 const server = app.listen(env.BFF_PORT, () => {
