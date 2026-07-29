@@ -12,6 +12,7 @@ function mainBundleHref(): string {
 }
 
 export function initVersionAutoReload(): void {
+  if (window.location.pathname !== '/kyc-setting') return
   const current = mainBundleHref()
   if (!current) return
   let checking = false
