@@ -20,13 +20,14 @@ describe('客服会话存储', () => {
     query.mockReset()
   })
 
-  it('闲置过期不自动关闭离线工单', async () => {
+  it('闲置过期只自动关闭 AI 会话', async () => {
     query.mockResolvedValue([{ affectedRows: 0 }])
 
     await expireStaleConversations({} as never)
 
     const sql = String(query.mock.calls[0][0])
-    expect(sql).toContain("c.status IN ('active','human_taken')")
+    expect(sql).toContain("c.status = 'active'")
+    expect(sql).not.toContain("'human_taken'")
     expect(sql).not.toContain("'escalated'")
   })
 

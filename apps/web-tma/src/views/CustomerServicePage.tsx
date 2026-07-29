@@ -324,6 +324,31 @@ export default function CustomerServicePage({ onClose }: Props) {
     endedRef.current = conversationEnded
   }, [conversationEnded])
 
+  useEffect(() => {
+    const shouldSyncHumanChat = isLoggedIn
+      && !sending
+      && !conversationEnded
+      && (conversationStatus === 'human_taken' || conversationStatus === 'escalated')
+    if (!shouldSyncHumanChat) return
+
+    const sync = async () => {
+      try {
+        const res = await fetchCsHistory()
+        setMessages((prev) => {
+          if (prev.at(-1)?.id !== res.messages.at(-1)?.id) scrollToBottom()
+          return res.messages
+        })
+        setConversationStatus(res.conversation.status)
+        setAgentName(res.conversation.agentName)
+      } catch {
+        /* 下次轮询再同步 */
+      }
+    }
+
+    const timer = window.setInterval(() => { void sync() }, 5000)
+    return () => window.clearInterval(timer)
+  }, [conversationEnded, conversationStatus, isLoggedIn, sending])
+
   useEffect(() => () => {
     if (!leftSentRef.current && !endedRef.current) {
       leftSentRef.current = true

@@ -78,7 +78,7 @@ export async function expireStaleConversations(env: Env, userId?: string): Promi
   const [result] = await db(env).query<ResultSetHeader>(
     `UPDATE cs_conversation c
      SET c.status = 'closed', c.resolved_at = NOW()
-     WHERE c.status IN ('active','human_taken')
+     WHERE c.status = 'active'
        ${userClause}
        AND COALESCE(
          (SELECT MAX(m.created_at) FROM cs_message m WHERE m.conversation_id = c.id AND m.role = 'user'),
