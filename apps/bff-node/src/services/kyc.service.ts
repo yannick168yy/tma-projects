@@ -49,6 +49,8 @@ const KYC_FAILURE_LOCK_SECONDS = 180
 const KYC_NOTIFY_FAILURE_COUNT = 3
 const ACCEPTED_DOC_TYPES = ['passport', 'drivers_license', 'philid', 'umid', 'acr_icard']
 const NAME_SUFFIX_TOKENS = new Set(['JR', 'SR', 'II', 'III', 'IV', 'V'])
+const RETRYABLE_DOC_REASONS = new Set(['invalid_doc', 'missing_id_number', 'low_confidence'])
+const HARD_REJECT_DOC_REASONS = new Set(['unsupported_doc_type', 'underage'])
 const WEAK_NAME_TOKENS = new Set([
   'DA',
   'DAS',
@@ -857,12 +859,31 @@ export async function submitKycDocument(
   }
   // 人脸验证关闭 ⇒ 证件通过即完成实名
   const approvedByDoc = docVerified && !cfg.requireFace
+  const hardRejected = reasons.some((reason) => HARD_REJECT_DOC_REASONS.has(reason))
+  const retryableOnly = reasons.length > 0 && reasons.every((reason) => RETRYABLE_DOC_REASONS.has(reason))
+  const manualReview = !docVerified && !hardRejected && (!retryableOnly || failedCount >= failureLimit)
   const now = nowIso()
+  if (!docVerified && retryableOnly && !manualReview) {
+    const rejectReason = reasons.join(';')
+    if (isMysqlEnabled(env)) {
+      getMysqlPool(env).execute(
+        `INSERT INTO bg_kyc_doc_log (user_id, full_name, doc_type, doc_image_key, gemini_confidence, doc_verified, reject_reason)
+         VALUES (?,?,?,?,?,?,?)`,
+        [userId, extractedFullName || claimedFullName, input.docType, docImageKey ?? null, verdict.confidence, 0, rejectReason],
+      ).catch((e) => console.error('[kyc] doc log insert failed:', e))
+    }
+    return {
+      docVerified: false,
+      status: 'rejected',
+      rejectReason,
+      rejectStep: 'document',
+    }
+  }
   const submission: KycSubmission = {
     ...(existing ?? blankSubmission(userId)),
     submissionId: userId,
     userId,
-    status: docVerified ? (approvedByDoc ? 'approved' : 'pending') : 'pending',
+    status: docVerified ? (approvedByDoc ? 'approved' : 'pending') : hardRejected ? 'rejected' : 'pending',
     fullName: extractedFullName || claimedFullName,
     phone: existing?.phone ?? verifiedPhoneIdentity ?? undefined,
     phoneVerified: existing?.phoneVerified || Boolean(verifiedPhoneIdentity),
@@ -882,7 +903,7 @@ export async function submitKycDocument(
     livenessFrames: undefined,
     selfieImageKey: undefined,
     faceSubmittedAt: undefined,
-    reviewedAt: approvedByDoc ? now : undefined,
+    reviewedAt: approvedByDoc || hardRejected ? now : undefined,
     reviewedBy: undefined,
     badgeIgnored: false,
   }
