@@ -25,6 +25,14 @@ const schema = z.object({
   WIN568_SW_ALLOWED_IPS: z.string().default(''),
   WIN568_DEFAULT_CURRENCY: z.enum(['PHP', 'USDT']).default('PHP'),
 
+  // feature/免费旋转彩金薅羊毛闸：非平台活动派彩(IsGameProviderPromotion=false)中，
+  // 单笔派彩 ÷ 触发注 ≥ MIN_MULTIPLE（小注爆奖=farming 签名）时，按 WAGER_MULT 倍补一条
+  // 彩金流水锁；巨鲸大奖/正常小奖都是低倍，不受影响。MIN_AMOUNT 以下不查库、直接放行。
+  FEATURE_BONUS_LOCK_ENABLED: z.string().default('true'),
+  FEATURE_BONUS_LOCK_MIN_AMOUNT: z.coerce.number().default(50),
+  FEATURE_BONUS_LOCK_MIN_MULTIPLE: z.coerce.number().default(20),
+  FEATURE_BONUS_LOCK_WAGER_MULT: z.coerce.number().default(2),
+
   // YFPay 回调验签
   YFPAY_API_KEY: z.string().default(''),
 

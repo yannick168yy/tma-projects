@@ -685,6 +685,37 @@ export class Win568WalletService {
     }
   }
 
+  // feature/免费旋转彩金薅羊毛闸：非平台活动派彩(IsGameProviderPromotion=false)中，
+  // 单笔派彩相对触发注达到高倍(小注爆奖=farming 签名)时，按倍数补一条同额彩金流水锁，
+  // 打满才可提。巨鲸大奖与正常小奖都是低倍，天然不受影响。
+  private async maybeLockFeatureBonus(
+    conn: PoolConnection, player: PlayerRef, body: CallbackBody, amount: number,
+  ): Promise<void> {
+    if (env.FEATURE_BONUS_LOCK_ENABLED !== 'true') return
+    if (bool(body, 'IsGameProviderPromotion')) return
+    if (amount < env.FEATURE_BONUS_LOCK_MIN_AMOUNT) return
+    const extra = body.SeamlessGameExtraInfo as Record<string, unknown> | undefined
+    const refNo = extra && typeof extra.ReferenceRefNo === 'string' ? extra.ReferenceRefNo : ''
+    if (!refNo) return
+    const [betRows] = await conn.query<RowDataPacket[]>(
+      `SELECT amount FROM bg_568win_wallet_txn WHERE transfer_code = ? AND txn_type = 'bet' ORDER BY id DESC LIMIT 1`,
+      [refNo],
+    )
+    const betAmount = betRows[0] ? Number(betRows[0].amount) : 0
+    if (betAmount <= 0 || amount / betAmount < env.FEATURE_BONUS_LOCK_MIN_MULTIPLE) return
+    const required = round2(amount * env.FEATURE_BONUS_LOCK_WAGER_MULT)
+    await conn.execute(
+      `INSERT IGNORE INTO bg_turnover_requirements
+         (user_id, currency, source_type, source_ref, base_amount, required_amount)
+       VALUES (?, ?, 'promotion', ?, ?, ?)`,
+      [player.userId, player.currency, `feature_bonus:${text(body, 'TransferCode')}`, amount, required],
+    )
+    this.app.log.info(
+      { userId: player.userId, amount, betAmount, multiple: round2(amount / betAmount), required },
+      '[568win] feature bonus wagering lock applied',
+    )
+  }
+
   async bonus(req: FastifyRequest, body: CallbackBody) {
     const invalid = await this.validate(req, body)
     if (invalid) return err(invalid.code, invalid.message)
@@ -713,6 +744,7 @@ export class Win568WalletService {
         ],
       )
       await this.addLedger(conn, player, 'bonus', amount, newBalance, text(body, 'TransferCode'), '568Win bonus')
+      await this.maybeLockFeatureBonus(conn, player, body, amount)
       await conn.commit()
       return ok(player.username, newBalance)
     } catch (e) {
