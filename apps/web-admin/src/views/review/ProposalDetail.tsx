@@ -32,6 +32,18 @@ const SNAP_LABELS: Record<string, { label: string; yuan?: boolean }> = {
 }
 const yuan = (n: number) => `₱${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
+// _score_policy 影子评分写入 snapshot 的字段（弱关联信号加权，见 bff withdraw-review.service）
+type ScoreSnapshot = {
+  scoreShadow?: boolean
+  scoreTotal?: number
+  scoreThreshold?: number
+  scoreHits?: { code: string; weight: number }[]
+  gateManual?: boolean
+  scoredVerdict?: string
+  legacyVerdict?: string
+  shadowWouldChange?: boolean
+}
+
 export default function ProposalDetail() {
   const { orderId = '' } = useParams()
   const navigate = useNavigate()
@@ -207,6 +219,54 @@ export default function ProposalDetail() {
           </Space>
         </Card>
       )}
+
+      {/* 综合评分（影子模式·弱关联信号加权） */}
+      {(() => {
+        const s = snapshot as unknown as ScoreSnapshot | null
+        if (!s || (s.scoreTotal == null && !s.scoreHits)) {
+          return (
+            <Card title="综合评分（影子）" size="small" style={{ marginBottom: 16 }}>
+              <span style={{ color: '#999' }}>此单在综合评分上线前审核，无评分数据。点上方「重跑审核」可生成。</span>
+            </Card>
+          )
+        }
+        const total = Number(s.scoreTotal ?? 0)
+        const thr = Number(s.scoreThreshold ?? 100)
+        const over = total >= thr
+        const vtag = (v?: string) => v === 'manual' ? <Tag color="orange">转人工</Tag> : v === 'pass' ? <Tag color="green">通过</Tag> : <Tag>—</Tag>
+        return (
+          <Card
+            title={<Space>综合评分（弱关联信号加权）{s.scoreShadow ? <Tag color="blue">影子模式·仅观测不改判定</Tag> : <Tag color="green">已生效</Tag>}</Space>}
+            size="small" style={{ marginBottom: 16 }}
+          >
+            {s.shadowWouldChange && (
+              <Alert
+                type="error" showIcon style={{ marginBottom: 12 }}
+                message="新评分与现行判定不一致"
+                description={`影子判定=${s.scoredVerdict === 'manual' ? '转人工' : '通过'}，现行=${s.legacyVerdict === 'manual' ? '转人工' : '通过'}。正式生效后此单结果会改变。`}
+              />
+            )}
+            <Descriptions column={2} size="small" bordered style={{ marginBottom: 12 }}>
+              <Descriptions.Item label="总分 / 阈值">
+                <b style={{ color: over ? '#fa8c16' : '#52c41a', fontSize: 16 }}>{total}</b> / {thr}
+              </Descriptions.Item>
+              <Descriptions.Item label="硬闸门命中">{s.gateManual ? <Tag color="red">是（直接转人工）</Tag> : <Tag color="green">否</Tag>}</Descriptions.Item>
+              <Descriptions.Item label="影子判定">{vtag(s.scoredVerdict)}</Descriptions.Item>
+              <Descriptions.Item label="现行判定">{vtag(s.legacyVerdict)}</Descriptions.Item>
+            </Descriptions>
+            <div style={{ marginBottom: 8, color: '#666' }}>命中的弱关联信号（累加权重）：</div>
+            {s.scoreHits && s.scoreHits.length > 0 ? (
+              <Table
+                rowKey="code" size="small" pagination={false} dataSource={s.scoreHits}
+                columns={[
+                  { title: '信号', dataIndex: 'code', render: (c: string) => rules.find((r) => r.ruleCode === c)?.ruleName ?? c },
+                  { title: '权重', dataIndex: 'weight', width: 100 },
+                ]}
+              />
+            ) : <span style={{ color: '#999' }}>无弱关联信号命中（转人工均来自硬闸门，或本单通过）</span>}
+          </Card>
+        )
+      })()}
 
       {/* 审核当时快照 */}
       <Card title="审核快照（审核当时的核查数据）" size="small" style={{ marginBottom: 16 }}>
