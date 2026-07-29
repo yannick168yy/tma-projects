@@ -436,6 +436,22 @@ describe('KYC 接口', () => {
     expect(mockSubmitKyc).not.toHaveBeenCalled()
   })
 
+  it('POST /kyc/submissions 兼容旧客户端不再强制 fullName', async () => {
+    mockSubmitKyc.mockResolvedValue({ status: 'pending' })
+
+    const res = await request(createApp(kycRouter, { userId: 'BG-10001' }))
+      .post('/kyc/submissions')
+      .send({ docType: 'philid', idImage: 'data:image/jpeg;base64,abc' })
+
+    expect(res.status).toBe(200)
+    expect(mockSubmitKyc).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      'BG-10001',
+      expect.objectContaining({ fullName: '', docType: 'philid' }),
+    )
+  })
+
   it('GET /kyc/submissions/latest 有记录时返回最近提交详情', async () => {
     mockGetKyc.mockResolvedValue({
       userId: 'BG-10001',

@@ -159,13 +159,13 @@ router.post('/submissions', async (ctx) => {
     idImage?: string
     selfieImage?: string
   }
-  if (!body.fullName || !body.idImage) {
-    fail(ctx, 400, 'fullName and idImage are required')
+  if (!body.idImage) {
+    fail(ctx, 400, 'idImage is required')
     return
   }
   try {
     const result = await submitKyc(ctx.state.redis, ctx.state.env, ctx.state.userId!, {
-      fullName: body.fullName,
+      fullName: body.fullName ?? '',
       docType: body.docType ?? 'unknown',
       verifyMode: body.verifyMode === 'face' ? 'face' : 'document',
       idImage: body.idImage,

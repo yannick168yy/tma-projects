@@ -40,12 +40,15 @@ export class ApiError extends Error {
 /** 请求超时：弱网/服务重启瞬间 fetch 可能永久挂起，悬死的 promise 会让调用方 loading 态卡死（按钮永久置灰） */
 const REQUEST_TIMEOUT_MS = 20000
 
+type ApiRequestInit = RequestInit & { timeoutMs?: number }
+
 export async function apiRequest<T>(
   path: string,
-  init: RequestInit = {},
+  init: ApiRequestInit = {},
 ): Promise<T> {
+  const { timeoutMs, ...fetchInit } = init
   const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
+  const timer = setTimeout(() => controller.abort(), timeoutMs ?? REQUEST_TIMEOUT_MS)
   const outerSignal = init.signal
   if (outerSignal) {
     if (outerSignal.aborted) controller.abort()
@@ -56,7 +59,7 @@ export async function apiRequest<T>(
   try {
     try {
       res = await fetch(`${BASE_URL}${path}`, {
-        ...init,
+        ...fetchInit,
         signal: controller.signal,
         headers: { ...authHeaders(), ...fingerprintHeaders(), ...attributionHeaders(), ...(init.headers as Record<string, string>) },
       })

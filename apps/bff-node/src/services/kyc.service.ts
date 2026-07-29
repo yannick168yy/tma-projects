@@ -41,6 +41,7 @@ const GEMINI_MODEL_CHAIN = [
 const GEMINI_PRIMARY_MODEL = GEMINI_MODEL_CHAIN[0].model
 const GEMINI_RETRY_DELAY_CAP_MS = 60_000
 const GEMINI_RETRY_DELAY_FALLBACK_MS = 5_000
+const KYC_DOCUMENT_SYNC_TIMEOUT_MS = 18_000
 const OTP_TTL_SEC = 300
 const RESEND_INTERVAL_SEC = 60
 const MAX_VERIFY_ATTEMPTS = 3
@@ -557,6 +558,14 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
+function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
+  let timer: NodeJS.Timeout
+  return new Promise((resolve, reject) => {
+    timer = setTimeout(() => reject(new KycError(message, 502)), ms)
+    promise.then(resolve, reject).finally(() => clearTimeout(timer))
+  })
+}
+
 function isGeminiRetryableError(err: unknown): boolean {
   if (err instanceof GoogleGenerativeAIFetchError) {
     const status = err.status
@@ -773,7 +782,11 @@ export async function submitKycDocument(
 
   let verdict: GeminiDocVerdict
   try {
-    verdict = await runGeminiDocument(env, input.fullName, input.idImage)
+    verdict = await withTimeout(
+      runGeminiDocument(env, input.fullName, input.idImage),
+      KYC_DOCUMENT_SYNC_TIMEOUT_MS,
+      '证件识别超时，已转人工审核',
+    )
   } catch (e) {
     const now = nowIso()
     const reason = 'recognition_error'

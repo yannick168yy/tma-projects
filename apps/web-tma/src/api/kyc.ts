@@ -59,7 +59,7 @@ export function submitKycDocument(input: {
   docType: string
   idImage: string
 }): Promise<{ docVerified: boolean; status: KycStatusValue; rejectReason?: string; rejectStep?: string }> {
-  return apiRequest('/kyc/document', { method: 'POST', body: JSON.stringify(input) })
+  return apiRequest('/kyc/document', { method: 'POST', body: JSON.stringify(input), timeoutMs: 60_000 })
 }
 
 export function submitKycFace(selfieImage: string): Promise<{
