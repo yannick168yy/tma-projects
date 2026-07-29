@@ -219,6 +219,22 @@ export default function SystemParams() {
       </Card>
 
       <Card title="老虎机彩金流水闸" bordered={false} style={{ marginTop: 16 }}>
+        <Alert
+          type="info"
+          showIcon
+          style={{ marginBottom: 16 }}
+          message="怎么生效：两个条件同时满足，才给这笔派彩加流水锁"
+          description={(
+            <div style={{ fontSize: 13, lineHeight: 1.8 }}>
+              老虎机 feature/免费旋转派彩中，当【单笔派彩 ≥ 最小额】<b>且</b>【派彩 ÷ 触发注 ≥ 倍数阈值】<b>同时</b>满足时，
+              自动给这笔派彩补「派彩额 × 流水倍数」的流水要求，用户打满该流水后才可提现（用于拦「小额存款靠老虎机 bonus 通道爆量套现」）。<br />
+              · <b>派彩倍数阈值</b>（主判据）：抓「小注博大彩」的薅羊毛形状 —— 如下注 5 中 1725 = 345 倍会锁；巨鲸大注低倍（如 500 中 5000 = 10 倍）不锁。<b>调低更严、调高更松。</b><br />
+              · <b>单笔派彩最小额</b>（噪音地板）：过滤「倍数高但金额很小」的碎钱，如 0.1 中 20（200 倍但只 20 元）不锁。<br />
+              · <b>流水倍数</b>：命中后要打几倍流水才解锁，2 = 派彩额打 2 遍。<br />
+              · 仅对游戏内 feature 派彩（IsGameProviderPromotion=false）生效，平台活动彩金、普通中奖不受影响。改动约 30 秒生效，无需重新部署。
+            </div>
+          )}
+        />
         {!isSuperAdmin && (
           <Alert message="仅 super_admin 可修改系统参数" type="warning" showIcon style={{ marginBottom: 16 }} />
         )}
@@ -245,9 +261,6 @@ export default function SystemParams() {
           </Space>
         </Space>
         {isSuperAdmin && <Button type="primary" loading={saving} onClick={save} style={{ marginTop: 16 }}>保存</Button>}
-        <Typography.Paragraph type="secondary" style={{ marginTop: 12 }}>
-          仅作用于老虎机 feature/免费旋转派彩（非平台活动彩金）。命中即给该笔派彩补「派彩额 × 流水倍数」的流水要求，打满才可提。改动即时生效（约 30 秒缓存），无需重新部署。
-        </Typography.Paragraph>
       </Card>
     </div>
   )
