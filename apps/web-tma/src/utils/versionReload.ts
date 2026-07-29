@@ -31,4 +31,7 @@ export function initVersionAutoReload(): void {
     finally { checking = false }
   }
   document.addEventListener('visibilitychange', () => { void check() })
+  window.addEventListener('focus', () => { void check() })
+  window.addEventListener('pageshow', () => { void check() })
+  window.setTimeout(() => { void check() }, 3000)
 }

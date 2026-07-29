@@ -33,6 +33,7 @@ function translateKycError(message: string, t: Translate, fallback?: string): st
     const code = message.slice('kyc.errors.smsFailedWithCode:'.length)
     return t('kyc.errors.smsFailedWithCode', { code })
   }
+  if (message.startsWith('errors.')) return t(message)
   if (message.startsWith('kyc.')) return t(message)
   // 后端可能返回未做 key 化的中文文案（如人脸/证件识别失败），用本地化兜底而非原样透传
   return fallback ?? message

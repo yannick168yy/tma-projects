@@ -17,6 +17,7 @@ export function accessLogMiddleware(): Middleware {
       status: ctx.status,
       ms,
       ip: ctx.ip,
+      userId: ctx.state.userId,
     }, 'http')
   }
 }
