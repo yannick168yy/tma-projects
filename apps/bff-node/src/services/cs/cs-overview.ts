@@ -61,7 +61,7 @@ export async function getBusinessOverview(env: Env): Promise<string> {
 - Games: ${totalGames} enabled games from providers: ${topProviders}${moreProviders}
 - Game categories: ${cats}
 - Login methods: Telegram, Google, phone number + password, username + password (extra methods can be bound in Menu > Account & Login)
-- KYC: required before first withdrawal; two steps — phone OTP, then government ID + face photo; automatic review, usually done in minutes; users must be 21+
+- KYC: required before first withdrawal; two steps — phone OTP, then government ID + face photo; automatic review, usually done in minutes
 - Withdrawal preconditions: KYC approved AND wagering (turnover) requirement completed; withdrawals go through review before payout
 - Active promotions:
 ${promos.map((p) => `  - ${p}`).join('\n')}`

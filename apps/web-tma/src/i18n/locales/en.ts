@@ -274,7 +274,6 @@ export default {
       name_mismatch: 'Name on document does not match',
       low_confidence: 'Document authenticity confidence too low',
       missing_id_number: 'ID number on the document could not be read',
-      underage: 'Must be at least 21 years old to complete verification',
       no_live_person: 'No live person detected',
       no_blink: 'Blink action not detected',
       no_mouth_open: 'Mouth open action not detected',
@@ -389,11 +388,11 @@ export default {
     brandStatInstant: 'Instant',
     brandStatPayouts: 'Payouts',
     brandStatSupport: 'Support',
-    responsibleNote: 'Gambling can be addictive, know when to stop. Gambling doesn’t guarantee earnings or financial improvement — stay within your limits. For 21 years old and above only.',
+    responsibleNote: 'Gambling can be addictive, know when to stop. Gambling doesn’t guarantee earnings or financial improvement — stay within your limits.',
     infoDetails: {
       terms: {
         title: 'Terms of Service',
-        content: 'By accessing or using BetoGo, you agree to be bound by these Terms of Service. Please read them carefully before using our platform.\n\nEligibility\n\nYou must be at least 21 years of age to use BetoGo. By using the platform, you confirm that you meet the minimum age requirement and that online gaming is permitted in your jurisdiction.\n\nGame Fairness\n\nAll games are powered by certified third-party providers using RNG technology that has been independently audited. BetoGo does not manipulate game outcomes. Winnings are subject to applicable wagering requirements.\n\nTransactions\n\nDeposits and withdrawals are processed via secure payment channels. Processing times may vary. BetoGo is not liable for delays caused by third-party payment processors. All transactions are monitored for security purposes.\n\nAccount Security\n\nYou are responsible for maintaining the confidentiality of your account credentials. BetoGo reserves the right to verify player identity and freeze suspicious accounts. Multiple accounts per player are prohibited.\n\nWagering & Withdrawal Requirements\n\nAll deposits are subject to a 1x wagering requirement before any withdrawal may be processed. This means you must wager an amount equal to your deposit before withdrawing. For example, a ₱1,000 deposit requires ₱1,000 in total wagers. The requirement applies to each deposit independently and is tracked automatically. Your wagering progress is displayed in the withdrawal tab of your wallet.\n\nThese terms may be updated at any time. Continued use of the platform constitutes acceptance of the latest terms.',
+        content: 'By accessing or using BetoGo, you agree to be bound by these Terms of Service. Please read them carefully before using our platform.\n\nEligibility\n\nBy using the platform, you confirm that online gaming is permitted in your jurisdiction.\n\nGame Fairness\n\nAll games are powered by certified third-party providers using RNG technology that has been independently audited. BetoGo does not manipulate game outcomes. Winnings are subject to applicable wagering requirements.\n\nTransactions\n\nDeposits and withdrawals are processed via secure payment channels. Processing times may vary. BetoGo is not liable for delays caused by third-party payment processors. All transactions are monitored for security purposes.\n\nAccount Security\n\nYou are responsible for maintaining the confidentiality of your account credentials. BetoGo reserves the right to verify player identity and freeze suspicious accounts. Multiple accounts per player are prohibited.\n\nWagering & Withdrawal Requirements\n\nAll deposits are subject to a 1x wagering requirement before any withdrawal may be processed. This means you must wager an amount equal to your deposit before withdrawing. For example, a ₱1,000 deposit requires ₱1,000 in total wagers. The requirement applies to each deposit independently and is tracked automatically. Your wagering progress is displayed in the withdrawal tab of your wallet.\n\nThese terms may be updated at any time. Continued use of the platform constitutes acceptance of the latest terms.',
       },
       privacy: {
         title: 'Privacy Policy',
@@ -401,7 +400,7 @@ export default {
       },
       responsible: {
         title: 'Responsible Gaming',
-        content: 'BetoGo is committed to responsible gaming in line with international responsible gaming standards. Gambling should be entertainment — never a source of income or an escape from problems. We actively promote responsible gambling practices across our platform.\n\n21+ Strictly Enforced\n\nIn line with our platform rules and international age-verification standards, BetoGo strictly prohibits players under 21 years of age. Age verification checks are conducted regularly. Any account found to belong to a minor will be permanently suspended.\n\nPlayer Protection Tools\n\n• Deposit Limits — Set daily/weekly/monthly deposit caps\n• Session Time Reminders — Get notified when you have played for extended periods\n• Self-Exclusion — Temporarily or permanently exclude yourself from the platform\n• Reality Check — Regular pop-ups showing your session time and spend\n\nProblem Gambling Help\n\nIf gambling is negatively affecting your life, please reach out:\n• BetoGo 24/7 Support — Available via live chat\n• Gamblers Anonymous — www.gamblersanonymous.org\n\nYou are never alone. Help is always available. Play responsibly.',
+        content: 'BetoGo is committed to responsible gaming in line with international responsible gaming standards. Gambling should be entertainment — never a source of income or an escape from problems. We actively promote responsible gambling practices across our platform.\n\nPlayer Protection Tools\n\n• Deposit Limits — Set daily/weekly/monthly deposit caps\n• Session Time Reminders — Get notified when you have played for extended periods\n• Self-Exclusion — Temporarily or permanently exclude yourself from the platform\n• Reality Check — Regular pop-ups showing your session time and spend\n\nProblem Gambling Help\n\nIf gambling is negatively affecting your life, please reach out:\n• BetoGo 24/7 Support — Available via live chat\n• Gamblers Anonymous — www.gamblersanonymous.org\n\nYou are never alone. Help is always available. Play responsibly.',
       },
       about: {
         title: 'About BetoGo',
@@ -870,7 +869,7 @@ export default {
       ctaReveal: 'Reveal My Bonus',
       ctaCashback: 'View Cashback',
       done: 'Claimed',
-      footnote: 'All gifts are subject to BetoGo terms and wagering requirements. See each activity in Bonuses for details. 21+',
+      footnote: 'All gifts are subject to BetoGo terms and wagering requirements. See each activity in Bonuses for details.',
       entryTitle: 'New Player Gifts',
       entrySub: 'Up to {{amount}} in welcome gifts',
     },
@@ -961,7 +960,7 @@ export default {
     },
     featuredBadge: '⭐ FEATURED',
     disclaimer:
-      'All bonuses are subject to BetoGo Terms & Conditions. Wagering requirements apply. 21+',
+      'All bonuses are subject to BetoGo Terms & Conditions. Wagering requirements apply.',
   },
   redpacket: {
     credited: 'Credited to your PHP balance',
@@ -1132,7 +1131,7 @@ export default {
     footerVersion: 'BetoGo · v1.0.0',
     footerCopyright: '© 2025 BetoGo. All rights reserved.',
     footerLegal:
-      'BetoGo operates under a valid gaming license. Please play responsibly. 21+',
+      'BetoGo operates under a valid gaming license. Please play responsibly.',
     links: {
       channel: 'Official Channel',
       channelSub: 'News & announcements',

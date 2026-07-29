@@ -50,7 +50,7 @@ const KYC_NOTIFY_FAILURE_COUNT = 3
 const ACCEPTED_DOC_TYPES = ['passport', 'drivers_license', 'philid', 'umid', 'acr_icard']
 const NAME_SUFFIX_TOKENS = new Set(['JR', 'SR', 'II', 'III', 'IV', 'V'])
 const RETRYABLE_DOC_REASONS = new Set(['invalid_doc', 'missing_id_number', 'low_confidence'])
-const HARD_REJECT_DOC_REASONS = new Set(['unsupported_doc_type', 'underage'])
+const HARD_REJECT_DOC_REASONS = new Set(['unsupported_doc_type'])
 const WEAK_NAME_TOKENS = new Set([
   'DA',
   'DAS',
@@ -518,18 +518,6 @@ function blankSubmission(userId: string): KycSubmission {
   }
 }
 
-/** 从证件出生日期字符串算周岁；无法解析返回 null */
-function ageFromDob(dob: string | undefined): number | null {
-  if (!dob) return null
-  const d = new Date(dob)
-  if (Number.isNaN(d.getTime())) return null
-  const now = new Date()
-  let age = now.getFullYear() - d.getFullYear()
-  const m = now.getMonth() - d.getMonth()
-  if (m < 0 || (m === 0 && now.getDate() < d.getDate())) age--
-  return age
-}
-
 interface GeminiDocVerdict {
   isValidDocument: boolean
   docType: string
@@ -846,9 +834,6 @@ export async function submitKycDocument(
   if (!idNo) reasons.push('missing_id_number')
   if (!extractedFullName) reasons.push('invalid_doc')
   if (verdict.confidence < env.KYC_GEMINI_MIN_CONFIDENCE) reasons.push('low_confidence')
-  // 年龄限制：证件出生日期可解析且不足 21 周岁 → 拒绝（OCR 无法解析出生日期时不拦截，避免误杀）
-  const age = ageFromDob(verdict.dob)
-  if (age != null && age < 21) reasons.push('underage')
 
   const docVerified = reasons.length === 0
   let failedCount = 0

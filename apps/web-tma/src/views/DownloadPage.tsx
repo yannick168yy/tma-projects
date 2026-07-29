@@ -233,8 +233,8 @@ export default function DownloadPage({ onClose }: { onClose: () => void }) {
         </div>
         <div className="h-7 w-px bg-[#e8eaed]" />
         <div className="flex-1">
-          <p className="text-[15px] font-bold">21+</p>
-          <p className="mt-0.5 text-[11px] text-[#5f6368]">Rated 21+</p>
+          <p className="text-[15px] font-bold">3+</p>
+          <p className="mt-0.5 text-[11px] text-[#5f6368]">Rated 3+</p>
         </div>
       </div>
 
