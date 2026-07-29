@@ -426,7 +426,16 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
     : sourceRef === 'appdl' ? t('wallet.promoAppdl')
     : sourceRef.startsWith('task:') ? t('wallet.promoTask')
     : sourceRef.startsWith('redep:') ? t('wallet.promoRedep')
+    : sourceRef.startsWith('feature_bonus:') ? t('wallet.turnoverFeatureBonus')
     : t('wallet.turnoverPromo')
+  // 老虎机彩金流水按笔生成，展开列表里合并成一条显示（金额取各笔之和），底层多行不变
+  const mergeFeatureBonus = <T extends { id: number; sourceRef: string; baseAmount: number; completedAmount: number; requiredAmount: number }>(reqs: T[]): T[] => {
+    const feat = reqs.filter((r) => r.sourceRef.startsWith('feature_bonus:'))
+    if (feat.length <= 1) return reqs
+    const others = reqs.filter((r) => !r.sourceRef.startsWith('feature_bonus:'))
+    const sum = (k: 'baseAmount' | 'completedAmount' | 'requiredAmount') => feat.reduce((s, r) => s + r[k], 0)
+    return [...others, { ...feat[0], id: -1, sourceRef: 'feature_bonus:merged', baseAmount: sum('baseAmount'), completedAmount: sum('completedAmount'), requiredAmount: sum('requiredAmount') }]
+  }
   // 法币取款金额区间（后台按渠道配置，须 ≥ YfPay 网关最低额，否则送到网关会拒单）
   const fiatWithdrawMin = selectedPayMethod?.minAmount ?? null
   const fiatWithdrawMax = selectedPayMethod?.maxAmount ?? null
@@ -937,7 +946,7 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
                     </button>
                     {guideRulesExpanded && (
                       <div className="rounded-xl bg-secondary px-4 py-3 space-y-1.5">
-                        {pendingPromoReqs.map((req) => (
+                        {mergeFeatureBonus(pendingPromoReqs).map((req) => (
                           <p key={req.id} className="text-[11px] leading-relaxed text-muted-foreground">
                             {promoLabel(req.sourceRef)} {fmtTurnoverAmount(req.baseAmount, req.currency)} · {t('wallet.guideRuleNeedTurnover', { required: fmtTurnoverAmount(req.requiredAmount, req.currency) })}
                           </p>
@@ -991,7 +1000,7 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
                             </button>
                             {turnoverExpanded && (
                               <div className="space-y-2 border-t border-amber-500/15 pt-2">
-                                {pend.map(req=>{
+                                {mergeFeatureBonus(pend).map(req=>{
                                   const pct=Math.min(100,(req.completedAmount/req.requiredAmount)*100)
                                   return (
                                     <div key={req.id} className="space-y-1">

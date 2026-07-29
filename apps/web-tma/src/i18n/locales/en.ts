@@ -1275,6 +1275,7 @@ export default {
     turnoverRemaining: 'Still needed',
     turnoverDeposit: 'Deposit',
     turnoverPromo: 'Bonus',
+    turnoverFeatureBonus: 'Slot Bonus',
     firstDepBannerLabel: 'FIRST DEPOSIT BONUS',
     firstDepBannerText: 'Get up to {{max}} on your first deposit',
     promoTrial: 'Trial Bonus',

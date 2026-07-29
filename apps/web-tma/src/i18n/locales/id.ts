@@ -872,6 +872,7 @@ export default {
     turnoverRemaining: 'Masih dibutuhkan',
     turnoverDeposit: 'Deposit',
     turnoverPromo: 'Bonus',
+    turnoverFeatureBonus: 'Bonus Slot',
     firstDepBannerLabel: 'BONUS DEPOSIT PERTAMA',
     firstDepBannerText: 'Dapatkan hingga {{max}} di deposit pertama',
     promoTrial: 'Bonus Uji Coba',
