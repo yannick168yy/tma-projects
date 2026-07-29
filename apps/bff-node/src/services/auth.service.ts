@@ -113,6 +113,11 @@ function telegramIdFromOidcSub(sub: string): number | null {
   return Number.isSafeInteger(id) ? id : null
 }
 
+function referralCodeFromStartParam(startParam?: string): string | undefined {
+  const code = startParam?.trim().replace(/^(ref|inv)_/i, '').trim()
+  return code || undefined
+}
+
 async function bindTelegramIdentity(
   redis: Redis,
   userId: string,
@@ -218,7 +223,7 @@ export async function loginWithInitData(
   avatarUrl = parsed.user.photoUrl
 
   let referredBy: string | undefined
-  const refCode = startParam?.replace(/^ref_/, '') ?? parsed.startParam?.replace(/^ref_/, '')
+  const refCode = referralCodeFromStartParam(startParam) ?? referralCodeFromStartParam(parsed.startParam)
   if (refCode) {
     const inviter = await getUserByInviteCode(redis, refCode.toUpperCase())
     if (inviter) referredBy = inviter.id

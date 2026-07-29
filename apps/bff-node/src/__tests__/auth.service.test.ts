@@ -31,6 +31,12 @@ const oidc = vi.hoisted(() => ({
   exchangeTelegramOidcCode: vi.fn(),
 }))
 
+const tmaInitData = vi.hoisted(() => ({
+  validate: vi.fn(),
+  parse: vi.fn(),
+}))
+
+vi.mock('@tma.js/init-data-node', () => tmaInitData)
 vi.mock('../services/store/index.js', () => store)
 vi.mock('../services/telegramOidc.service.js', () => oidc)
 vi.mock('../services/geo.service.js', () => ({
@@ -60,6 +66,7 @@ vi.mock('../services/google.service.js', () => ({
 }))
 
 import { loginWithTelegramOidc } from '../services/auth.service.js'
+import { loginWithInitData } from '../services/auth.service.js'
 
 function user(overrides: Partial<UserRecord> = {}): UserRecord {
   return {
@@ -124,5 +131,40 @@ describe('Telegram OIDC 登录', () => {
       verifiedAt: expect.any(String),
     })
     expect(store.saveUser).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ id: 'BG-10008' }))
+  })
+})
+
+describe('Telegram Mini App 邀请归因', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    tmaInitData.validate.mockReturnValue(undefined)
+    tmaInitData.parse.mockReturnValue({
+      user: { id: 10001, firstName: 'New', username: 'newuser' },
+      startParam: undefined,
+    })
+    store.getUserByInviteCode.mockResolvedValue(user({ id: 'BG-INVITER', inviteCode: 'BGT7HN' }))
+    store.getUserByTelegramId.mockResolvedValue(null)
+    store.getUserByTelegramOidcUsername.mockResolvedValue(null)
+    store.getUserByTelegramOidcSub.mockResolvedValue(null)
+    store.createUserFromTelegram.mockResolvedValue({
+      user: user({ id: 'BG-NEW', inviteCode: 'NEWCODE' }),
+      isNewUser: true,
+    })
+    store.saveSession.mockResolvedValue(undefined)
+  })
+
+  it.each(['ref_BGT7HN', 'inv_BGT7HN', 'BGT7HN'])('解析 start_param 邀请码 %s', async (startParam) => {
+    await loginWithInitData(
+      {} as never,
+      { TELEGRAM_BOT_TOKEN: 'token', SESSION_TTL_SECONDS: 3600 } as never,
+      'query_id=abc',
+      startParam,
+      '194.5.82.142',
+    )
+
+    expect(store.getUserByInviteCode).toHaveBeenCalledWith(expect.anything(), 'BGT7HN')
+    expect(store.createUserFromTelegram).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
+      referredBy: 'BG-INVITER',
+    }))
   })
 })

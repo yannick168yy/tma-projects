@@ -2,6 +2,7 @@ import { apiRequest, getInitData } from '@/api/client'
 import * as mock from '@/api/mock/auth.mock'
 import { getGoogleRedirectUri, startGoogleLoginRedirect } from '@/utils/googleOAuth'
 import { getTelegramRedirectUri, startTelegramLoginRedirect } from '@/utils/telegramOAuth'
+import { getStoredReferral, getTelegramStartParam } from '@/utils/referral'
 import { getToken, setToken } from '@/utils/tokenStore'
 import type { AuthSession, AuthUser, LoginProvider, PasswordMethod, TelegramWidgetUser } from '@/types/api'
 
@@ -66,10 +67,11 @@ export async function bindPhone(phone: string, password: string): Promise<{ user
 
 export async function loginTelegram(): Promise<AuthSession> {
   if (useMock) return mock.mockTelegramLogin(getInitData())
+  const startParam = getTelegramStartParam() || getStoredReferral() || ''
   const data = await apiRequest<AuthSession>('/auth/telegram', {
     method: 'POST',
     headers: { 'X-Telegram-Init-Data': getInitData() },
-    body: JSON.stringify({ initData: getInitData() }),
+    body: JSON.stringify({ initData: getInitData(), start_param: startParam || undefined }),
   })
   return data
 }
