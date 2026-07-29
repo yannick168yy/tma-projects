@@ -1,10 +1,13 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Table, Space, Input, Select, Button, Tag, Grid, Card } from 'antd'
+import { Table, Space, Input, Select, Button, Tag, Grid, Card, DatePicker } from 'antd'
 import type { TablePaginationConfig } from 'antd'
+import type { Dayjs } from 'dayjs'
 import { getDeposits, type AdminDeposit } from '../api'
 import { MobileCardList } from '../components/MobileCardList'
 import { PAGE_SIZE_OPTIONS, DEFAULT_PAGE_SIZE } from '../pagination'
+
+const { RangePicker } = DatePicker
 
 function depositStatusColor(s: string) {
   return ({ paid: 'green', pending: 'orange', failed: 'red', cancelled: 'default', rejected: 'red' } as Record<string, string>)[s] ?? 'default'
@@ -19,6 +22,7 @@ export default function Deposits() {
   const isMobile = !screens.md
   const [userIdFilter, setUserIdFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState<string | undefined>()
+  const [dateRange, setDateRange] = useState<[Dayjs | null, Dayjs | null] | null>(null)
   const [loading, setLoading] = useState(false)
   const [items, setItems] = useState<AdminDeposit[]>([])
   const [total, setTotal] = useState(0)
@@ -28,7 +32,14 @@ export default function Deposits() {
   async function load(p = 1, ps = pageSize) {
     setPage(p); setPageSize(ps); setLoading(true)
     try {
-      const res = await getDeposits({ page: p, pageSize: ps, userId: userIdFilter || undefined, status: statusFilter })
+      const res = await getDeposits({
+        page: p,
+        pageSize: ps,
+        userId: userIdFilter || undefined,
+        status: statusFilter,
+        dateFrom: dateRange?.[0]?.toISOString(),
+        dateTo: dateRange?.[1]?.toISOString(),
+      })
       setItems(res.items); setTotal(res.total)
     } finally { setLoading(false) }
   }
@@ -55,13 +66,21 @@ export default function Deposits() {
   return (
     <div>
       <h2>存款管理</h2>
-      <Space style={{ marginBottom: 16 }}>
+      <Space style={{ marginBottom: 16 }} wrap>
         <Input value={userIdFilter} onChange={(e) => setUserIdFilter(e.target.value)} placeholder="用户ID" style={{ width: 160 }} allowClear />
         <Select value={statusFilter} placeholder="状态" allowClear style={{ width: 130 }} onChange={setStatusFilter} options={[
           { value: 'pending', label: '待支付' }, { value: 'paid', label: '已支付' },
           { value: 'failed', label: '失败' }, { value: 'cancelled', label: '已取消' },
           { value: 'rejected', label: '已拒绝' },
         ]} />
+        <RangePicker
+          value={dateRange}
+          showTime
+          format="YYYY-MM-DD HH:mm:ss"
+          placeholder={['创建开始时间', '创建结束时间']}
+          style={{ width: 380 }}
+          onChange={setDateRange}
+        />
         <Button type="primary" onClick={() => load(1)}>查询</Button>
       </Space>
       {isMobile ? (

@@ -427,7 +427,7 @@ export async function listAdminUsers(
 
 export async function listAdminDeposits(
   env: Env,
-  opts: { page: number; pageSize: number; userId?: string; status?: string },
+  opts: { page: number; pageSize: number; userId?: string; status?: string; dateFrom?: Date; dateTo?: Date },
 ) {
   const offset = (opts.page - 1) * opts.pageSize
   const conditions: string[] = []
@@ -435,6 +435,8 @@ export async function listAdminDeposits(
 
   if (opts.userId) { conditions.push(`user_id = ?`); params.push(opts.userId) }
   if (opts.status) { conditions.push(`status = ?`); params.push(opts.status) }
+  if (opts.dateFrom) { conditions.push(`created_at >= ?`); params.push(opts.dateFrom) }
+  if (opts.dateTo) { conditions.push(`created_at <= ?`); params.push(opts.dateTo) }
 
   const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : ''
 

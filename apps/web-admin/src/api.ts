@@ -537,7 +537,7 @@ export interface AdminDeposit {
   orderId: string; userId: string; amount: number; currency: string; channelId: string
   status: string; createdAt: string; paidAt: string | null; credited: number | null
 }
-export const getDeposits = (params: { page?: number; pageSize?: number; userId?: string; status?: string }) =>
+export const getDeposits = (params: { page?: number; pageSize?: number; userId?: string; status?: string; dateFrom?: string; dateTo?: string }) =>
   get<{ total: number; items: AdminDeposit[] }>('/admin/deposits', params)
 
 // Withdrawals
