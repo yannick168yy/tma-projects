@@ -113,6 +113,7 @@ export const RULE_META: Record<string, { name: string; desc: string }> = {
   commission_anomaly:       { name: '三级分销佣金', desc: '三级分销佣金出现重复入账，或自身有佣金收益但下线累计 GGR ≤ 0（疑似刷佣），转人工。' },
   upstream_reconcile:       { name: '上游对账', desc: '窗口内本地已结算注单与 568Win 报表按 RefNo 双边核对：本地有上游无（伪造注单）、投注额不符（篡改）、上游已作废但本地已派彩（回滚遗漏）任一命中转人工。报表同步停摆时跳过不拦截。' },
   bonus_bet_abuse:          { name: '上游彩金异常', desc: '窗口内 568Win 活动彩金入账总额超过阈值（PHP 元）或笔数超过 params.count，疑似薅上游活动，转人工。只统计真正的活动彩金，排除 IsGameProviderPromotion=false 的游戏内派彩（如 PG Soft feature 派彩走 bonus 通道），避免正常玩老虎机被误判。' },
+  feature_bonus_ratio:      { name: 'feature彩金倍数', desc: '窗口内 游戏内 feature/免费旋转派彩(IsGameProviderPromotion=false) ÷ 历史累计真实存款 的倍数 ≥ 阈值转人工。与「上游彩金异常」互补：那条管平台活动彩金(=true)，这条管 feature 派彩(=false)；派彩时的自动流水闸之外，提现时再兜一层。无真实存款时跳过。' },
   cancel_pattern:           { name: '取消注单异常', desc: '窗口内被作废（Void）的注单笔数 ≥ 阈值且占比 ≥ params.ratio，疑似利用取消机制套利，转人工。' },
   risk_hit:                 { name: '风控命中', desc: '风控模块在本次取款请求上命中了 escalate/deny 动作（如用户/IP/设备在风控名单中），转人工。窗口 params.windowMins 分钟。' },
   commission_surge:         { name: '佣金激增', desc: '（佣金提现专用）窗口内佣金入账超过之前 30 天佣金总和 × params.mult，且不低于 params.minCents 起查额，疑似速成刷佣，转人工。新代理首笔大额佣金也会命中，由人工过目。' },
@@ -135,6 +136,8 @@ export interface Win568ReviewStats {
   bonusCount: number
   /** 上游活动彩金入账总额（PHP 元） */
   bonusAmountPhp: number
+  /** 游戏内 feature/免费旋转派彩总额（IsGameProviderPromotion=false，PHP 元） */
+  featureBonusPhp: number
   betTxnCount: number
   voidTxnCount: number
 }
@@ -175,9 +178,10 @@ export async function buildWin568ReviewStats(
        COALESCE(SUM(txn_type = 'bet'), 0) AS bet_cnt,
        COALESCE(SUM(txn_type = 'bet' AND status = 'Void'), 0) AS void_cnt,
        COALESCE(SUM(txn_type = 'bonus' AND status <> 'Void' AND COALESCE(raw_request->>'$.IsGameProviderPromotion', '') <> 'false'), 0) AS bonus_cnt,
-       COALESCE(SUM(CASE WHEN txn_type = 'bonus' AND status <> 'Void' AND COALESCE(raw_request->>'$.IsGameProviderPromotion', '') <> 'false' THEN amount * (CASE WHEN currency IN ('USDT','USDC','USD') THEN ? ELSE 1 END) ELSE 0 END), 0) AS bonus_amt
+       COALESCE(SUM(CASE WHEN txn_type = 'bonus' AND status <> 'Void' AND COALESCE(raw_request->>'$.IsGameProviderPromotion', '') <> 'false' THEN amount * (CASE WHEN currency IN ('USDT','USDC','USD') THEN ? ELSE 1 END) ELSE 0 END), 0) AS bonus_amt,
+       COALESCE(SUM(CASE WHEN txn_type = 'bonus' AND status <> 'Void' AND raw_request->>'$.IsGameProviderPromotion' = 'false' THEN amount * (CASE WHEN currency IN ('USDT','USDC','USD') THEN ? ELSE 1 END) ELSE 0 END), 0) AS feature_bonus_amt
      FROM bg_568win_wallet_txn WHERE user_id = ? AND created_at > ?`,
-    [usdRate, userId, since],
+    [usdRate, usdRate, userId, since],
   )
 
   let checked = 0, missing = 0, stakeMismatch = 0, voidPaid = 0
@@ -222,6 +226,7 @@ export async function buildWin568ReviewStats(
     reconcileVoidPaid: voidPaid,
     bonusCount: Number(txn?.bonus_cnt ?? 0),
     bonusAmountPhp: Number(txn?.bonus_amt ?? 0),
+    featureBonusPhp: Number(txn?.feature_bonus_amt ?? 0),
     betTxnCount: Number(txn?.bet_cnt ?? 0),
     voidTxnCount: Number(txn?.void_cnt ?? 0),
   }
@@ -477,6 +482,22 @@ const RULES: Record<string, Rule> = {
       actualValue: round2(ctx.win568.bonusAmountPhp),
       threshold: threshold > 0 ? threshold : undefined,
       detail: { bonusCount: ctx.win568.bonusCount, countThreshold: countTh },
+    }
+  },
+
+  feature_bonus_ratio(ctx, cfg) {
+    const mult = Number(cfg.threshold ?? 0)
+    // 无真实存款交由 deposit_source / first_withdraw_no_deposit 处置，这里不重复拦
+    if (mult <= 0 || ctx.lifetimeDepositPhp <= 0) {
+      return { code: 'feature_bonus_ratio', verdict: 'pass', detail: { featureBonusPhp: round2(ctx.win568.featureBonusPhp), lifetimeDepositPhp: ctx.lifetimeDepositPhp } }
+    }
+    const ratio = ctx.win568.featureBonusPhp / ctx.lifetimeDepositPhp
+    return {
+      code: 'feature_bonus_ratio',
+      verdict: ratio >= mult ? 'manual' : 'pass',
+      actualValue: round2(ratio),
+      threshold: mult,
+      detail: { featureBonusPhp: round2(ctx.win568.featureBonusPhp), lifetimeDepositPhp: ctx.lifetimeDepositPhp },
     }
   },
 

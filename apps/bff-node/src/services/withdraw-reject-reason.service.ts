@@ -43,6 +43,7 @@ const RULE_RECOMMENDED_USER_REASON: Record<string, UserReason> = {
   fast_withdraw_after_kyc: 'This withdrawal amount requires additional review. Please contact support for assistance.',
   total_bonus: 'Your reward records require additional verification before withdrawal. Please contact support.',
   bonus_bet_abuse: 'Your recent bonus activity requires additional verification before withdrawal. Please contact support.',
+  feature_bonus_ratio: 'Your recent bonus activity requires additional verification before withdrawal. Please contact support.',
   upline_blacklist: 'Your account relationship information requires additional verification before withdrawal. Please contact support.',
   same_ip: 'Your withdrawal was rejected because your account shares the same IP address or device with other accounts.',
   same_device_id: 'Your withdrawal was rejected because your account shares the same IP address or device with other accounts.',
