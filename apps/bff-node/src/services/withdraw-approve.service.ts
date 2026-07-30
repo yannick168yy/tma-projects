@@ -45,7 +45,8 @@ export async function approveWithdraw(
       const r = await yfpayCreateWithdrawal({
         merchantSerial: order.orderId,
         amount: order.amount,
-        targetOwner: String(ex.targetOwner ?? ''),
+        // 收款人不外泄用户真实姓名，改传去横杠的用户编号（BG-10001 → BG10001）
+        targetOwner: order.userId.replace(/-/g, ''),
         targetAccount: String(ex.targetAccount ?? ''),
         optionCode: optionCode ? String(optionCode) : undefined,
         notifyUrl: env.YFPAY_NOTIFY_URL,
