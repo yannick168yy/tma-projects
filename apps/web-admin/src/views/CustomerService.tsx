@@ -87,7 +87,7 @@ export default function CustomerService() {
     } finally { setLoading(false) }
   }
 
-  async function refreshDetail(conversationId = selectedIdRef.current) {
+  async function refreshDetail(conversationId = selectedIdRef.current, opts: { scroll?: boolean } = {}) {
     if (!conversationId) return
     setDetailLoading(true)
     try {
@@ -97,7 +97,8 @@ export default function CustomerService() {
       setConversations((prev) => prev.map((c) => c.id === conversationId ? { ...c, ...res.conversation } : c))
       setSummary(res.conversation.aiSummary ?? '')
       setSummaryMeta(summaryMetaText(res.conversation.aiSummaryModel, res.conversation.aiSummaryMessageCount, res.conversation.aiSummaryUpdatedAt))
-      setTimeout(() => { if (msgListRef.current) msgListRef.current.scrollTop = msgListRef.current.scrollHeight }, 50)
+      // 只在首次进入/手动刷新时滚到底；后台 15s 轮询不打断正在往上翻的客服
+      if (opts.scroll !== false) setTimeout(() => { if (msgListRef.current) msgListRef.current.scrollTop = msgListRef.current.scrollHeight }, 50)
     } finally {
       if (selectedIdRef.current === conversationId) setDetailLoading(false)
     }
@@ -107,22 +108,25 @@ export default function CustomerService() {
     void loadList(1)
     const timer = setInterval(() => {
       void loadList(1)
-      if (selectedIdRef.current) void refreshDetail(selectedIdRef.current)
+      if (selectedIdRef.current) void refreshDetail(selectedIdRef.current, { scroll: false })
     }, 15_000)
     return () => clearInterval(timer)
   }, [statusFilter])
 
   useEffect(() => { if (selectedId) void refreshDetail() }, [selectedId])
-  useEffect(() => { setSummary(''); setSummaryMeta(''); setTranslations({}); setShowTranslation(false) }, [selectedId])
+  useEffect(() => { setMessages([]); setSummary(''); setSummaryMeta(''); setTranslations({}); setShowTranslation(false) }, [selectedId])
 
   async function sendReply() {
     if (!replyText.trim() || !selectedId) return
+    const conversationId = selectedId
     setReplying(true)
     try {
-      const msg = await csReply(selectedId, replyText.trim())
+      const msg = await csReply(conversationId, replyText.trim())
+      // 发送期间可能已切走会话,只有仍停在同一会话才把回复落到消息区
+      if (selectedIdRef.current !== conversationId) return
       setMessages((prev) => [...prev, msg])
       setReplyText('')
-      setConversations((prev) => prev.map((c) => c.id === selectedId ? { ...c, lastMessage: msg.content } : c))
+      setConversations((prev) => prev.map((c) => c.id === conversationId ? { ...c, lastMessage: msg.content } : c))
       setTimeout(() => { if (msgListRef.current) msgListRef.current.scrollTop = msgListRef.current.scrollHeight }, 50)
     } catch (e) { message.error(e instanceof Error ? e.message : '发送失败') }
     finally { setReplying(false) }
