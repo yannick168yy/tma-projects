@@ -48,12 +48,15 @@ export default function CustomerService() {
   const [showTranslation, setShowTranslation] = useState(false)
   const [translating, setTranslating] = useState(false)
   const msgListRef = useRef<HTMLDivElement>(null)
+  const selectedIdRef = useRef<number | null>(null)
 
   const [duty, setDuty] = useState<{ enabled: boolean; onlineAdmins: number; onDuty: boolean } | null>(null)
   const [dutySaving, setDutySaving] = useState(false)
 
   const selectedConv = conversations.find((c) => c.id === selectedId) ?? null
   const unreadCount = conversations.filter((c) => c.status === 'human_taken' || c.status === 'escalated').length
+
+  useEffect(() => { selectedIdRef.current = selectedId }, [selectedId])
 
   useEffect(() => {
     getCsDuty().then((res) => {
@@ -84,24 +87,27 @@ export default function CustomerService() {
     } finally { setLoading(false) }
   }
 
-  async function refreshDetail() {
-    if (!selectedId) return
+  async function refreshDetail(conversationId = selectedIdRef.current) {
+    if (!conversationId) return
     setDetailLoading(true)
     try {
-      const res = await getCsConversation(selectedId)
+      const res = await getCsConversation(conversationId)
+      if (selectedIdRef.current !== conversationId) return
       setMessages(res.messages)
-      setConversations((prev) => prev.map((c) => c.id === selectedId ? { ...c, ...res.conversation } : c))
+      setConversations((prev) => prev.map((c) => c.id === conversationId ? { ...c, ...res.conversation } : c))
       setSummary(res.conversation.aiSummary ?? '')
       setSummaryMeta(summaryMetaText(res.conversation.aiSummaryModel, res.conversation.aiSummaryMessageCount, res.conversation.aiSummaryUpdatedAt))
       setTimeout(() => { if (msgListRef.current) msgListRef.current.scrollTop = msgListRef.current.scrollHeight }, 50)
-    } finally { setDetailLoading(false) }
+    } finally {
+      if (selectedIdRef.current === conversationId) setDetailLoading(false)
+    }
   }
 
   useEffect(() => {
     void loadList(1)
     const timer = setInterval(() => {
       void loadList(1)
-      if (selectedId) void refreshDetail()
+      if (selectedIdRef.current) void refreshDetail(selectedIdRef.current)
     }, 15_000)
     return () => clearInterval(timer)
   }, [statusFilter])
@@ -301,7 +307,7 @@ export default function CustomerService() {
               >
                 {Object.keys(translations).length > 0 ? (showTranslation ? '隐藏译文' : '显示译文') : 'AI翻译'}
               </Button>
-              <Button size="small" onClick={refreshDetail} loading={detailLoading}>刷新</Button>
+              <Button size="small" onClick={() => refreshDetail()} loading={detailLoading}>刷新</Button>
             </Space>
           }
         >
