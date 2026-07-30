@@ -12,6 +12,11 @@ function normalizePem(pem: string): string {
   return pem.replace(/\\n/g, '\n')
 }
 
+// 发给支付商的用户标识：去掉业务编号里的横杠（BG-10001 → BG10001），不外泄真实用户信息
+function externalUserId(userId: string): string {
+  return userId.replace(/-/g, '')
+}
+
 // ── Matrix 客户端工厂 ─────────────────────────────────────────────────────────
 
 export function matrixClientFromEnv(env: Env) {
@@ -51,7 +56,7 @@ export async function getOrFetchDepositAddress(
   }
 
   const client = matrixClientFromEnv(env)
-  const resp = await client.getDepositAddress({ userId, symbol, chain })
+  const resp = await client.getDepositAddress({ userId: externalUserId(userId), symbol, chain })
 
   await pool.query(
     `INSERT INTO bg_matrix_deposit_address (user_id, symbol, chain, address)
@@ -123,7 +128,7 @@ export async function executeMatrixWithdrawOrder(
   try {
     const resp = await client.createWithdrawOrder({
       merchantOrderNo,
-      userId: String(order.user_id),
+      userId: externalUserId(String(order.user_id)),
       toAddress: String(order.to_address),
       symbol: String(order.currency),
       chain: String(order.chain),
