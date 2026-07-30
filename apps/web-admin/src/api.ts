@@ -866,6 +866,8 @@ export const getCsConversation = (id: number) =>
   get<{ conversation: CsConversation; messages: CsMessage[] }>(`/admin/cs/conversations/${id}`)
 export const csSummarizeConversation = (id: number) =>
   post<{ summary: string; model: string; messageCount: number; summarizedAt: string }>(`/admin/cs/conversations/${id}/summary`)
+export const csTranslateConversation = (id: number) =>
+  post<{ items: { id: number; translated: string }[]; model: string }>(`/admin/cs/conversations/${id}/translate`)
 export const csReply = (id: number, message: string) =>
   post<CsMessage>(`/admin/cs/conversations/${id}/reply`, { message })
 export const csTakeover = (id: number) =>

@@ -14,6 +14,7 @@ import {
 import { CS_WELCOME_SETTING_KEY, DEFAULT_WELCOME } from '../../services/cs/cs-intents.js'
 import { CS_DUTY_SETTING_KEY, isHumanOnDuty, notifyTicketReplyViaTelegram } from '../../services/cs/cs-duty.js'
 import { summarizeCsConversation } from '../../services/cs/cs-summary.js'
+import { translateCsConversation } from '../../services/cs/cs-translate.js'
 import { getSseBadgeClientCount } from '../../services/sse-badges.js'
 import { getAdminSetting, setAdminSetting } from '../../services/admin-store.js'
 
@@ -96,6 +97,24 @@ router.post('/cs/conversations/:id/summary', async (ctx) => {
   } catch (e) {
     console.error('[admin-cs] summarize failed:', e)
     fail(ctx, 502, 'AI 总结失败，请稍后重试')
+  }
+})
+
+// POST /admin/cs/conversations/:id/translate — 调 Gemini 把整段对话翻译成中文
+router.post('/cs/conversations/:id/translate', async (ctx) => {
+  const id = Number(ctx.params.id)
+  const conversation = await getConversationById(ctx.state.env, id)
+  if (!conversation) {
+    fail(ctx, 404, '会话不存在', 404)
+    return
+  }
+  const messages = await getMessages(ctx.state.env, id, 100)
+  try {
+    const result = await translateCsConversation(ctx.state.env, messages)
+    ok(ctx, result)
+  } catch (e) {
+    console.error('[admin-cs] translate failed:', e)
+    fail(ctx, 502, 'AI 翻译失败，请稍后重试')
   }
 })
 

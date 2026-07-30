@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Card, Select, Tag, Button, Input, Space, Empty, Badge, Switch, Tooltip, message, Grid, Alert } from 'antd'
 import { useNavigate } from 'react-router-dom'
 import type { CsConversation, CsMessage } from '../api'
-import { getCsConversations, getCsConversation, csReply, csTakeover, csClose, getCsDuty, saveCsDuty, csSummarizeConversation } from '../api'
+import { getCsConversations, getCsConversation, csReply, csTakeover, csClose, getCsDuty, saveCsDuty, csSummarizeConversation, csTranslateConversation } from '../api'
 
 function statusColor(status?: string) {
   return ({ active: 'blue', escalated: 'red', human_taken: 'orange', resolved: 'green', closed: 'default' } as Record<string, string>)[status ?? ''] ?? 'default'
@@ -44,6 +44,9 @@ export default function CustomerService() {
   const [summary, setSummary] = useState('')
   const [summaryMeta, setSummaryMeta] = useState('')
   const [summaryLoading, setSummaryLoading] = useState(false)
+  const [translations, setTranslations] = useState<Record<number, string>>({})
+  const [showTranslation, setShowTranslation] = useState(false)
+  const [translating, setTranslating] = useState(false)
   const msgListRef = useRef<HTMLDivElement>(null)
 
   const [duty, setDuty] = useState<{ enabled: boolean; onlineAdmins: number; onDuty: boolean } | null>(null)
@@ -104,7 +107,7 @@ export default function CustomerService() {
   }, [statusFilter])
 
   useEffect(() => { if (selectedId) void refreshDetail() }, [selectedId])
-  useEffect(() => { setSummary(''); setSummaryMeta('') }, [selectedId])
+  useEffect(() => { setSummary(''); setSummaryMeta(''); setTranslations({}); setShowTranslation(false) }, [selectedId])
 
   async function sendReply() {
     if (!replyText.trim() || !selectedId) return
@@ -161,6 +164,27 @@ export default function CustomerService() {
       message.error(e instanceof Error ? e.message : 'AI 总结失败')
     } finally {
       setSummaryLoading(false)
+    }
+  }
+
+  async function toggleTranslate() {
+    if (!selectedId) return
+    // 已翻译过：仅切换显示/隐藏
+    if (Object.keys(translations).length > 0) {
+      setShowTranslation((v) => !v)
+      return
+    }
+    setTranslating(true)
+    try {
+      const res = await csTranslateConversation(selectedId)
+      const map: Record<number, string> = {}
+      for (const item of res.items) map[item.id] = item.translated
+      setTranslations(map)
+      setShowTranslation(true)
+    } catch (e) {
+      message.error(e instanceof Error ? e.message : 'AI 翻译失败')
+    } finally {
+      setTranslating(false)
     }
   }
 
@@ -268,6 +292,15 @@ export default function CustomerService() {
                 <Button size="small" type="primary" ghost onClick={resolve}>结束会话</Button>
               )}
               <Button size="small" onClick={summarize} loading={summaryLoading}>AI总结</Button>
+              <Button
+                size="small"
+                type={showTranslation ? 'primary' : 'default'}
+                ghost={showTranslation}
+                onClick={toggleTranslate}
+                loading={translating}
+              >
+                {Object.keys(translations).length > 0 ? (showTranslation ? '隐藏译文' : '显示译文') : 'AI翻译'}
+              </Button>
               <Button size="small" onClick={refreshDetail} loading={detailLoading}>刷新</Button>
             </Space>
           }
@@ -292,6 +325,11 @@ export default function CustomerService() {
                     {msg.role === 'user' ? '用户' : msg.role === 'assistant' ? '🤖 AI' : '👤 客服'}
                   </div>
                   <div style={{ whiteSpace: 'pre-wrap' }}>{msg.content}</div>
+                  {showTranslation && translations[msg.id] && translations[msg.id] !== msg.content && (
+                    <div style={{ whiteSpace: 'pre-wrap', marginTop: 4, paddingTop: 4, borderTop: '1px dashed #d9d9d9', color: '#555' }}>
+                      <span style={{ fontSize: 11, color: '#999', marginRight: 4 }}>译</span>{translations[msg.id]}
+                    </div>
+                  )}
                   <div style={{ fontSize: 11, color: '#bbb', marginTop: 4, textAlign: 'right' }}>{formatTime(msg.createdAt)}</div>
                 </div>
               </div>
