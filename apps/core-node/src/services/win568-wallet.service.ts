@@ -749,6 +749,39 @@ export class Win568WalletService {
     )
   }
 
+  // PG 等游戏的真实派彩走 /Bonus(BetPayout)通道:原逻辑只加钱到钱包、不写 bg_bet_order，
+  // 导致客户端投注记录里这一局只显示下注、赢钱恒为 0（20+万 PHP 派彩在展示层被吞）。
+  // 这里按母注单 round 补一条 win 行并重算 bet_round，使派彩正常体现在投注记录里。
+  // 归局键:body 无 GameRoundId，用 SeamlessGameExtraInfo.ReferenceRefNo（母 bet 的 TransferCode）
+  // 反查母 bet 的 round_id，与 deduct 写入 bg_bet_order.round_id 精确一致。
+  private async linkBonusToRound(
+    conn: PoolConnection, player: PlayerRef, body: CallbackBody, amount: number,
+  ): Promise<void> {
+    if (amount <= 0) return
+    const extra = body.SeamlessGameExtraInfo as Record<string, unknown> | undefined
+    const refNo = extra && typeof extra.ReferenceRefNo === 'string' ? extra.ReferenceRefNo : ''
+    if (!refNo) return
+    const [betRows] = await conn.query<RowDataPacket[]>(
+      `SELECT round_id, provider_id FROM bg_568win_wallet_txn
+       WHERE transfer_code = ? AND txn_type = 'bet' ORDER BY id DESC LIMIT 1`,
+      [refNo],
+    )
+    if (!betRows[0]) return
+    // deduct 写 wallet_txn.round_id = GameRoundId、bet_order.round_id = GameRoundId||transferCode；
+    // GameRoundId 存在时两者相等，为空时回退到母 bet 的 TransferCode(= refNo)。
+    const roundId = betRows[0].round_id ? String(betRows[0].round_id) : refNo
+    await conn.execute(
+      `INSERT IGNORE INTO bg_bet_order
+       (user_id, aggregator_id, provider_id, provider_txn_id, round_id, bet_type, amount, currency_code, original_amount, exchange_rate, status, settled_at)
+       VALUES (?, '568win', ?, ?, ?, 'win', ?, ?, ?, 1, 'settled', NOW(3))`,
+      [
+        player.userId, String(betRows[0].provider_id ?? body.GameId ?? ''),
+        `bonus:${text(body, 'TransferCode')}`, roundId, amount, player.currency, amount,
+      ],
+    )
+    await this.refreshBetRound(conn, player.userId, roundId)
+  }
+
   async bonus(req: FastifyRequest, body: CallbackBody) {
     const invalid = await this.validate(req, body)
     if (invalid) return err(invalid.code, invalid.message)
@@ -778,6 +811,7 @@ export class Win568WalletService {
       )
       await this.addLedger(conn, player, 'bonus', amount, newBalance, text(body, 'TransferCode'), '568Win bonus')
       await this.maybeLockFeatureBonus(conn, player, body, amount)
+      await this.linkBonusToRound(conn, player, body, amount)
       await conn.commit()
       return ok(player.username, newBalance)
     } catch (e) {
