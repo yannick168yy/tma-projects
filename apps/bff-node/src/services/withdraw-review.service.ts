@@ -605,12 +605,14 @@ async function buildContext(pool: Pool, order: OrderWithdraw, config: Record<str
     [sinceDate, usdRate, usdRate, usdRate, userId],
   )
 
-  // 投注盈亏（PHP 元，与 depositPhp 同口径）
+  // 投注盈亏（PHP 元，与 depositPhp 同口径）。
+  // 派彩行按 settled_at（真实派彩时间）归窗口：回填的历史派彩行 created_at 是入库时间,
+  // 按 created_at 会把全部历史赢钱塞进当前窗口/24h,导致盈利倍数误报。
   const [[bet]] = await pool.query<RowDataPacket[]>(
     `SELECT
-       COALESCE(SUM(CASE WHEN created_at > ? AND bet_type IN ('win','refund') THEN amount * (CASE WHEN currency_code IN ('USDT','USDC') THEN ? ELSE 1 END)
+       COALESCE(SUM(CASE WHEN COALESCE(settled_at, created_at) > ? AND bet_type IN ('win','refund') THEN amount * (CASE WHEN currency_code IN ('USDT','USDC') THEN ? ELSE 1 END)
                          WHEN created_at > ? AND bet_type = 'bet' THEN -amount * (CASE WHEN currency_code IN ('USDT','USDC') THEN ? ELSE 1 END) ELSE 0 END), 0) AS window_profit,
-       COALESCE(SUM(CASE WHEN created_at > NOW() - INTERVAL 24 HOUR AND bet_type IN ('win','refund') THEN amount * (CASE WHEN currency_code IN ('USDT','USDC') THEN ? ELSE 1 END)
+       COALESCE(SUM(CASE WHEN COALESCE(settled_at, created_at) > NOW() - INTERVAL 24 HOUR AND bet_type IN ('win','refund') THEN amount * (CASE WHEN currency_code IN ('USDT','USDC') THEN ? ELSE 1 END)
                          WHEN created_at > NOW() - INTERVAL 24 HOUR AND bet_type = 'bet' THEN -amount * (CASE WHEN currency_code IN ('USDT','USDC') THEN ? ELSE 1 END) ELSE 0 END), 0) AS d24_profit
      FROM bg_bet_order WHERE user_id = ? AND status = 'settled'`,
     [sinceDate, usdRate, sinceDate, usdRate, usdRate, usdRate, userId],
@@ -619,11 +621,18 @@ async function buildContext(pool: Pool, order: OrderWithdraw, config: Record<str
   // 游戏厂商 bonus 通道派彩（老虎机 feature/免费游戏，走 ledger type=bonus ref_type=game）。
   // 这类是真实赢钱但不进 bg_bet_order，历史上盈利/高倍规则完全看不见 → 存110赢13k靠 bonus 通道套现无人拦。
   // 折 PHP 元后并入 profit，让 large_profit / high_multiple_profit 能看见。
+  // 55e087f 起 bonus 派彩会同时写 bg_bet_order(provider_txn_id='bonus:<ref_id>'),
+  // 已入注单的条目在上面的投注盈亏里算过一次,这里必须排除,否则同一笔赢钱双重计入。
   const [[gb]] = await pool.query<RowDataPacket[]>(
     `SELECT
-       COALESCE(SUM(CASE WHEN created_at > ? THEN amount * (CASE WHEN currency IN ('USDT','USDC') THEN ? ELSE 1 END) END), 0) AS window_amt,
-       COALESCE(SUM(CASE WHEN created_at > NOW() - INTERVAL 24 HOUR THEN amount * (CASE WHEN currency IN ('USDT','USDC') THEN ? ELSE 1 END) END), 0) AS d24_amt
-     FROM bg_wallet_ledger WHERE user_id = ? AND type = 'bonus' AND ref_type = 'game'`,
+       COALESCE(SUM(CASE WHEN l.created_at > ? THEN l.amount * (CASE WHEN l.currency IN ('USDT','USDC') THEN ? ELSE 1 END) END), 0) AS window_amt,
+       COALESCE(SUM(CASE WHEN l.created_at > NOW() - INTERVAL 24 HOUR THEN l.amount * (CASE WHEN l.currency IN ('USDT','USDC') THEN ? ELSE 1 END) END), 0) AS d24_amt
+     FROM bg_wallet_ledger l
+     WHERE l.user_id = ? AND l.type = 'bonus' AND l.ref_type = 'game'
+       AND NOT EXISTS (
+         SELECT 1 FROM bg_bet_order o
+         WHERE o.aggregator_id = '568win' AND o.provider_txn_id = CONCAT('bonus:', l.ref_id)
+       )`,
     [sinceDate, usdRate, usdRate, userId],
   )
 
@@ -684,14 +693,17 @@ async function buildContext(pool: Pool, order: OrderWithdraw, config: Record<str
     [userId, targetOwner],
   )
 
-  // 篡改注单：凭空派彩 round
+  // 篡改注单：凭空派彩 round。
+  // 窗口只约束派彩行；投注存在性必须查全历史——下注可能早于窗口起点
+  // (上次取款前下注、之后才派彩,或回填的历史派彩行),按窗口内找 bet 会大面积误报。
   const [[orphan]] = await pool.query<RowDataPacket[]>(
     `SELECT COUNT(*) AS cnt FROM (
        SELECT round_id
        FROM bg_bet_order
-       WHERE user_id = ? AND status = 'settled' AND created_at > ? AND round_id IS NOT NULL
+       WHERE user_id = ? AND round_id IS NOT NULL
        GROUP BY round_id
-       HAVING SUM(bet_type = 'bet') = 0 AND SUM(bet_type IN ('win','refund')) > 0
+       HAVING SUM(bet_type = 'bet') = 0
+          AND SUM(bet_type IN ('win','refund') AND status = 'settled' AND created_at > ?) > 0
      ) t`,
     [userId, sinceDate],
   )
