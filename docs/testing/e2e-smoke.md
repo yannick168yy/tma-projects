@@ -11,7 +11,7 @@ node scripts/e2e-smoke.mjs
 默认目标：
 
 - 通过 SSH 隧道连接阿里云测试环境：`root@47.84.34.139`
-- SSH 密钥：`/Users/yannicky/TMA_FILES/aliyun.pem`
+- SSH 密钥：`/Volumes/MacAPFS/TMA_FILES/aliyun.pem`
 - 本地转发：`127.0.0.1:18080 -> 127.0.0.1:8080`（web-tma）
 - 本地转发：`127.0.0.1:18085 -> 127.0.0.1:8085`（web-admin）
 

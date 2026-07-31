@@ -34,7 +34,7 @@ bash scripts/ssh-tunnel-logs.sh
 或手动：
 
 ```bash
-ssh -i /Users/yannicky/TMA_FILES/aliyun.pem -o StrictHostKeyChecking=no \
+ssh -i /Volumes/MacAPFS/TMA_FILES/aliyun.pem -o StrictHostKeyChecking=no \
   -L 3001:127.0.0.1:3001 \
   -L 3100:127.0.0.1:3100 \
   -N root@47.84.34.139
@@ -43,7 +43,7 @@ ssh -i /Users/yannicky/TMA_FILES/aliyun.pem -o StrictHostKeyChecking=no \
 **MySQL 与 Grafana 同一条 SSH：**
 
 ```bash
-ssh -i /Users/yannicky/TMA_FILES/aliyun.pem -o StrictHostKeyChecking=no \
+ssh -i /Volumes/MacAPFS/TMA_FILES/aliyun.pem -o StrictHostKeyChecking=no \
   -L 13306:127.0.0.1:13306 \
   -L 3001:127.0.0.1:3001 \
   -N root@47.84.34.139
@@ -57,7 +57,7 @@ ssh -i /Users/yannicky/TMA_FILES/aliyun.pem -o StrictHostKeyChecking=no \
 
 ### macOS 登录自动建隧道（LaunchAgent）
 
-在项目根目录执行一次安装（使用 `/Users/yannicky/TMA_FILES/aliyun.pem`，可按需改环境变量）：
+在项目根目录执行一次安装（使用 `/Volumes/MacAPFS/TMA_FILES/aliyun.pem`，可按需改环境变量）：
 
 ```bash
 bash scripts/mac/install-grafana-tunnel.sh

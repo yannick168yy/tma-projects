@@ -4,7 +4,7 @@
 # 用法:
 #   DEPLOY_HOST=root@47.84.34.139 \
 #   DEPLOY_DIR=/root/workspace/tma-projects \
-#   SSH_IDENTITY_FILE=/Users/yannicky/TMA_FILES/aliyun.pem \
+#   SSH_IDENTITY_FILE=/Volumes/MacAPFS/TMA_FILES/aliyun.pem \
 #   SSH_OPTS="-o StrictHostKeyChecking=no" \
 #   bash deploy/single-node/run-enrich-sg-games.sh
 #

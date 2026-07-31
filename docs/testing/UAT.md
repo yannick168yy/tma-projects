@@ -27,7 +27,7 @@ node scripts/e2e-smoke.mjs
 | 项 | 值 |
 |----|----|
 | 服务器 | `47.84.34.139` |
-| SSH 密钥 | `/Users/yannicky/TMA_FILES/aliyun.pem` |
+| SSH 密钥 | `/Volumes/MacAPFS/TMA_FILES/aliyun.pem` |
 | 项目路径 | `/root/workspace/tma-projects` |
 | web-tma | `http://47.84.34.139:8080`，Telegram 内以实际 Bot / 域名入口为准 |
 | web-admin | `http://47.84.34.139:8085` |

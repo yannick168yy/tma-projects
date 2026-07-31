@@ -1,5 +1,5 @@
 -- 109: 删除 568Win AI 富化字段
--- 数据已于 2026-07-05 导出备份到 /Users/yannicky/TMA_FILES/568win-ai-enrichment-backup-2026-07-05.jsonl（1788 行）
+-- 数据已于 2026-07-05 导出备份到 /Volumes/MacAPFS/TMA_FILES/568win-ai-enrichment-backup-2026-07-05.jsonl（1788 行）
 -- 保留：weight/is_featured/weight_breakdown/weight_updated_at（竞品策略在用）、
 --       sort_category/site_category/name_override/image_override（人工运营字段）
 SET NAMES utf8mb4;

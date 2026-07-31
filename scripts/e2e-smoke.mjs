@@ -20,7 +20,7 @@ if (!chromePath) {
 
 const shouldTunnel = !process.env.E2E_WEB_TMA_BASE_URL && !process.env.E2E_WEB_ADMIN_BASE_URL
 const tunnelHost = process.env.E2E_TUNNEL_HOST || 'root@47.84.34.139'
-const tunnelKey = process.env.SSH_IDENTITY_FILE || '/Users/yannicky/TMA_FILES/aliyun.pem'
+const tunnelKey = process.env.SSH_IDENTITY_FILE || '/Volumes/MacAPFS/TMA_FILES/aliyun.pem'
 const localTmaPort = Number(process.env.E2E_LOCAL_TMA_PORT || 18080)
 const localAdminPort = Number(process.env.E2E_LOCAL_ADMIN_PORT || 18085)
 let tunnel

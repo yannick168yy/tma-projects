@@ -13,7 +13,7 @@ alwaysApply: true
 
 - EC2 m8g.xlarge，IP `13.213.107.231`
 - 域名 betogo.games / admin.betogo.games
-- SSH 用户 `ubuntu`，密钥 `/Users/yannicky/TMA_FILES/亚马逊云-阿里云/betogo-amazon-prod.pem`
+- SSH 用户 `ubuntu`，密钥 `/Volumes/MacAPFS/TMA_FILES/亚马逊云-阿里云/betogo-amazon-prod.pem`
 - 项目路径 `/opt/tma-projects`，容器 rootful（`sudo podman`）
 
 ## 判断标准

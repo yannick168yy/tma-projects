@@ -17,7 +17,7 @@ set -euo pipefail
 
 # ── 生产参数 ────────────────────────────────────────────────
 HOST=ubuntu@13.213.107.231
-KEY="/Users/yannicky/TMA_FILES/亚马逊云-阿里云/betogo-amazon-prod.pem"
+KEY="/Volumes/MacAPFS/TMA_FILES/亚马逊云-阿里云/betogo-amazon-prod.pem"
 SSH="ssh -i $KEY -o StrictHostKeyChecking=no -o ServerAliveInterval=10 -o ServerAliveCountMax=12 -o ConnectTimeout=25"
 WORK_DIR=/opt/tma-projects
 PODMAN="sudo podman"

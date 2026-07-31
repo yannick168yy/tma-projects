@@ -2,7 +2,7 @@
 # 本地打开 Grafana / Loki（与 MySQL 隧道互不冲突，可同一条 SSH 开多端口）
 set -euo pipefail
 HOST="${DEPLOY_HOST:-root@47.84.34.139}"
-KEY="${SSH_IDENTITY_FILE:-/Users/yannicky/TMA_FILES/aliyun.pem}"
+KEY="${SSH_IDENTITY_FILE:-/Volumes/MacAPFS/TMA_FILES/aliyun.pem}"
 LOCAL_GRAFANA="${LOCAL_GRAFANA_PORT:-3001}"
 LOCAL_LOKI="${LOCAL_LOKI_PORT:-3100}"
 

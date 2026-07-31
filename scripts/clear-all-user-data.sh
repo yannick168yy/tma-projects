@@ -7,7 +7,7 @@
 set -euo pipefail
 
 HOST=root@47.84.34.139
-KEY=/Users/yannicky/TMA_FILES/亚马逊云-阿里云/aliyun.pem
+KEY=/Volumes/MacAPFS/TMA_FILES/亚马逊云-阿里云/aliyun.pem
 SSH="ssh -i $KEY -o StrictHostKeyChecking=no -o ServerAliveInterval=10 -o ServerAliveCountMax=12"
 WORK_DIR=/root/workspace/tma-projects
 
