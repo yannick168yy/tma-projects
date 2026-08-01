@@ -4,10 +4,10 @@ import { Card, Tabs, Table, Spin, Alert, Typography, Modal, Descriptions, InputN
 import {
   getUserTurnover, adjustTurnoverRequirement, addTurnoverRequirement, TURNOVER_SOURCE_TYPE_OPTIONS,
   getUserLedgerPage, getUserLoginLogsPage, getUserBetOrdersPage, getUserPromoClaimsPage,
-  getRebateRecords, getVipRecords,
+  getRebateRecords, getVipRecords, getUserTaskClaimsPage, getUserCheckinsPage,
   platformMeta,
   type TurnoverRequirement, type PagedResult, type UserBetRound,
-  type RebateRecord, type VipRewardRecord,
+  type RebateRecord, type VipRewardRecord, type UserTaskClaimRecord, type UserCheckinRecord,
 } from '../../api'
 import type { Dayjs } from 'dayjs'
 
@@ -52,6 +52,12 @@ const REBATE_CATEGORY_LABELS: Record<string, string> = {
   slots: '🎰 Slots', live: '🎲 Live Casino', sports: '⚽ Sports', fishing: '🐟 Fishing', poker: '♠️ Poker',
   bingo: '🎱 Bingo', pinoy: '🐓 Pinoy', table: '🃏 Table', crash: '🚀 Crash', other: '🎮 Other',
 }
+// 任务奖励渲染：与前台任务中心口径一致（cash=现金、spin=转盘次数、growth=成长值）
+function taskRewardText(r: UserTaskClaimRecord) {
+  if (r.rewardType === 'spin') return r.rewardSpin > 0 ? `转盘 ×${r.rewardSpin}` : '-'
+  if (r.rewardType === 'growth') return r.rewardAmount > 0 ? `成长值 +${r.rewardAmount}` : '-'
+  return r.rewardAmount > 0 ? `+${r.rewardAmount} ${r.currency}` : '-'
+}
 const VIP_TYPE_LABELS: Record<string, { label: string; color: string }> = {
   promotion:       { label: '晋级礼金', color: 'gold' },
   negative_rebate: { label: '负盈利返水', color: 'red' },
@@ -87,6 +93,8 @@ export default function UserLogs({ userId }: Props) {
   const logins = usePaged(useCallback((p: number, ps: number) => getUserLoginLogsPage(userId, { page: p, pageSize: ps }), [userId]), activeTab === 'login')
   const bets = usePaged(useCallback((p: number, ps: number) => getUserBetOrdersPage(userId, { page: p, pageSize: ps }), [userId]), activeTab === 'bets')
   const promos = usePaged(useCallback((p: number, ps: number) => getUserPromoClaimsPage(userId, { page: p, pageSize: ps }), [userId]), activeTab === 'promo')
+  const taskClaims = usePaged(useCallback((p: number, ps: number) => getUserTaskClaimsPage(userId, { page: p, pageSize: ps }), [userId]), activeTab === 'task')
+  const checkins = usePaged(useCallback((p: number, ps: number) => getUserCheckinsPage(userId, { page: p, pageSize: ps }), [userId]), activeTab === 'checkin')
   const rebates = usePaged(useCallback((p: number, ps: number) => getRebateRecords({ userId, page: p, pageSize: ps }), [userId]), activeTab === 'rebate')
   const vipRewards = usePaged(useCallback((p: number, ps: number) => getVipRecords({ userId, page: p, pageSize: ps }), [userId]), activeTab === 'vip')
   const [turnover, setTurnover] = useState<Awaited<ReturnType<typeof getUserTurnover>> | null>(null)
@@ -188,6 +196,42 @@ export default function UserLogs({ userId }: Props) {
     { title: '描述', dataIndex: 'description', key: 'desc', ellipsis: true },
     { title: '领取时间', dataIndex: 'claimedAt', key: 'at', width: 160, render: (v: string) => new Date(v).toLocaleString('zh-CN') },
   ]
+  const taskCols = [
+    { title: '任务', dataIndex: 'title', key: 'title', width: 180, ellipsis: true },
+    {
+      title: '类型', key: 'kind', width: 90,
+      render: (_: unknown, r: UserTaskClaimRecord) =>
+        r.kind === 'social' ? <Tag color="purple">社群</Tag> : r.periodKey === 'once' ? <Tag color="cyan">一次性</Tag> : <Tag color="blue">每日</Tag>,
+    },
+    { title: '期次', dataIndex: 'periodKey', key: 'period', width: 110, render: (v: string | null) => v === 'once' ? '—' : (v ?? '—') },
+    {
+      title: '奖励', key: 'reward', width: 140,
+      render: (_: unknown, r: UserTaskClaimRecord) => <span style={{ color: '#52c41a' }}>{taskRewardText(r)}</span>,
+    },
+    {
+      title: '打码倍数', key: 'turnoverX', width: 90,
+      render: (_: unknown, r: UserTaskClaimRecord) => r.rewardType === 'cash' && r.turnoverX > 0 ? `${r.turnoverX}x` : '—',
+    },
+    { title: '验证方式', dataIndex: 'verifiedVia', key: 'via', width: 110, render: (v: string | null) => v ?? '—' },
+    { title: '领取时间', dataIndex: 'createdAt', key: 'at', width: 160, render: (v: string) => new Date(v).toLocaleString('zh-CN') },
+  ]
+  const checkinCols = [
+    { title: '签到日', dataIndex: 'date', key: 'date', width: 110 },
+    {
+      title: '轨道', dataIndex: 'track', key: 'track', width: 100,
+      render: (v: string) => v === 'enhanced' ? <Tag color="gold">增强轨</Tag> : <Tag>基础轨</Tag>,
+    },
+    { title: '连签', dataIndex: 'streak', key: 'streak', width: 80, render: (v: number) => `${v} 天` },
+    { title: '周期日', dataIndex: 'cycleDay', key: 'cycle', width: 80, render: (v: number) => `${v}/7` },
+    { title: '本月累计', dataIndex: 'monthDays', key: 'month', width: 90, render: (v: number) => `${v} 天` },
+    { title: '转盘次数', dataIndex: 'spinChances', key: 'chances', width: 90, render: (v: number) => v > 0 ? <span style={{ color: '#52c41a' }}>+{v}</span> : '—' },
+    {
+      title: '里程碑', key: 'milestone', width: 130,
+      render: (_: unknown, r: UserCheckinRecord) =>
+        r.milestoneDays > 0 ? <Tag color="magenta">{r.milestoneDays}天 转盘+{r.milestoneChances}</Tag> : '—',
+    },
+    { title: '签到时间', dataIndex: 'createdAt', key: 'at', width: 160, render: (v: string) => new Date(v).toLocaleString('zh-CN') },
+  ]
   const rebateCols = [
     { title: '日期', dataIndex: 'date', key: 'date', width: 110, render: (v: string) => v || '—' },
     { title: '游戏大类', dataIndex: 'gameCategory', key: 'category', width: 130, render: (v: string) => REBATE_CATEGORY_LABELS[v] ?? v },
@@ -251,6 +295,14 @@ export default function UserLogs({ userId }: Props) {
           { key: 'login', label: `登录记录${logins.total ? ` (${logins.total})` : ''}`, children: <Table columns={loginCols} dataSource={logins.items} rowKey="id" loading={logins.loading} pagination={logins.pagination} size="small" /> },
           { key: 'bets', label: `游戏记录${bets.total ? ` (${bets.total})` : ''}`, children: <Table columns={betCols} dataSource={bets.items} rowKey={(r) => `${r.roundId}_${r.currencyCode}`} loading={bets.loading} pagination={bets.pagination} size="small" /> },
           { key: 'promo', label: `优惠领取记录${promos.total ? ` (${promos.total})` : ''}`, children: <Table columns={promoCols} dataSource={promos.items} rowKey="id" loading={promos.loading} pagination={promos.pagination} size="small" /> },
+          {
+            key: 'task', label: `任务领取${taskClaims.total ? ` (${taskClaims.total})` : ''}`,
+            children: <Table columns={taskCols} dataSource={taskClaims.items as UserTaskClaimRecord[]} rowKey="id" loading={taskClaims.loading} pagination={taskClaims.pagination} size="small" scroll={{ x: 'max-content' }} />,
+          },
+          {
+            key: 'checkin', label: `签到记录${checkins.total ? ` (${checkins.total})` : ''}`,
+            children: <Table columns={checkinCols} dataSource={checkins.items as UserCheckinRecord[]} rowKey="date" loading={checkins.loading} pagination={checkins.pagination} size="small" scroll={{ x: 'max-content' }} />,
+          },
           {
             key: 'rebate', label: `洗码派发记录${rebates.total ? ` (${rebates.total})` : ''}`,
             children: <Table columns={rebateCols} dataSource={rebates.items as RebateRecord[]} rowKey="id" loading={rebates.loading} pagination={rebates.pagination} size="small" scroll={{ x: 'max-content' }} />,

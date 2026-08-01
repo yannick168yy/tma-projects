@@ -5,7 +5,9 @@ import { buildKycStatusResponse, getKycStepConfig } from '../../services/kyc.ser
 import { verifyPassword } from '../../services/admin-auth.service.js'
 import { hashPassword } from '../../utils/password.js'
 import { getMysqlPool, isMysqlEnabled } from '../../clients/mysql.client.js'
-import { getUserTotalTurnover, getLevelThresholds, resolveLevel } from '../../services/rebate.service.js'
+import { getUserTotalTurnover, getEffectiveLevel } from '../../services/rebate.service.js'
+import { getAdminUserGrowth } from '../../services/vip.service.js'
+import { nativeTaskTitle } from '../../services/task.service.js'
 import { getUserAttributionDetail } from '../../services/marketing-bi.service.js'
 import { fail, ok } from '../../utils/response.js'
 import { promoLabel } from './promotions.routes.js'
@@ -46,7 +48,7 @@ router.get('/', async (ctx) => {
 router.get('/:id', async (ctx) => {
   const user = await getUser(ctx.state.redis, ctx.params.id)
   if (!user) { fail(ctx, 404, 'User not found', 404); return }
-  const [wallet, walletBalances, ledger, loginLogs, betOrders, kyc, systemCfg, effectiveCfg, totalTurnover, thresholds, identities, attribution, depositTotals, withdrawTotals] = await Promise.all([
+  const [wallet, walletBalances, ledger, loginLogs, betOrders, kyc, systemCfg, effectiveCfg, totalTurnover, level, growth, identities, attribution, depositTotals, withdrawTotals] = await Promise.all([
     getWallet(ctx.state.redis, ctx.params.id),
     getWalletBalances(ctx.state.redis, ctx.params.id),
     listLedger(ctx.state.redis, ctx.params.id, 20),
@@ -56,7 +58,9 @@ router.get('/:id', async (ctx) => {
     getKycStepConfig(ctx.state.redis, ctx.state.env),
     getKycStepConfig(ctx.state.redis, ctx.state.env, ctx.params.id),
     getUserTotalTurnover(ctx.state.env, ctx.params.id, 'PHP'),
-    getLevelThresholds(ctx.state.env, 'PHP'),
+    // 权威等级（bg_user_vip_state.current_level，支持降级），而非按阈值现算
+    getEffectiveLevel(ctx.state.env, ctx.params.id, 'PHP'),
+    getAdminUserGrowth(ctx.state.env, ctx.params.id).catch(() => []),
     listUserIdentities(ctx.state.redis, ctx.params.id),
     getUserAttributionDetail(ctx.state.env, ctx.params.id).catch(() => null),
     getUserDepositSummaries(ctx.state.env, ctx.state.redis, [ctx.params.id]).catch(() => new Map()),
@@ -73,8 +77,9 @@ router.get('/:id', async (ctx) => {
       googleEmail: google?.displayLabel ?? user.email ?? null,
       phone: phone?.displayLabel ?? phone?.identifier ?? null,
     },
-    level: resolveLevel(thresholds, totalTurnover),
+    level,
     totalTurnover,
+    growth,
     depositTotal: depositTotals.get(ctx.params.id)?.php ?? 0,
     depositByCurrency: depositTotals.get(ctx.params.id)?.byCurrency ?? [],
     withdrawTotal: withdrawTotals.get(ctx.params.id)?.php ?? 0,
@@ -235,6 +240,80 @@ router.get('/:id/promo-claims', async (ctx) => {
       amount: Number(r.amount),
       currency: String(r.currency ?? 'PHP'),
       claimedAt: new Date(r.created_at as Date).toISOString(),
+    })),
+    total: Number(c?.total ?? 0), page, pageSize,
+  })
+})
+
+// 任务领取记录：原生任务（bg_task_claim）+ 社群任务（bg_task_social_claim）合并按时间倒序
+router.get('/:id/task-claims', async (ctx) => {
+  if (!isMysqlEnabled(ctx.state.env)) { ok(ctx, { items: [], total: 0, page: 1, pageSize: 20 }); return }
+  const { page, pageSize, offset } = pageParams(ctx)
+  const pool = getMysqlPool(ctx.state.env)
+  const [rows] = await pool.query<RowDataPacket[]>(
+    `SELECT * FROM (
+       SELECT CONCAT('n', c.id) AS row_id, 'native' AS kind, c.task_id AS task_key, NULL AS title,
+              c.period_key, c.reward_type, c.currency, c.reward_amount, c.reward_spin, c.turnover_x,
+              NULL AS verified_via, c.created_at
+       FROM bg_task_claim c WHERE c.user_id = ?
+       UNION ALL
+       SELECT CONCAT('s', sc.id), 'social', sc.task_key, s.title,
+              NULL, s.reward_type, s.currency, s.reward_amount, s.reward_spin, s.turnover_x,
+              sc.verified_via, sc.created_at
+       FROM bg_task_social_claim sc LEFT JOIN bg_task_social s ON s.task_key = sc.task_key
+       WHERE sc.user_id = ?
+     ) t ORDER BY t.created_at DESC LIMIT ? OFFSET ?`,
+    [ctx.params.id, ctx.params.id, pageSize, offset],
+  )
+  const [[c]] = await pool.query<RowDataPacket[]>(
+    `SELECT (SELECT COUNT(*) FROM bg_task_claim WHERE user_id = ?)
+          + (SELECT COUNT(*) FROM bg_task_social_claim WHERE user_id = ?) AS total`,
+    [ctx.params.id, ctx.params.id],
+  )
+  ok(ctx, {
+    items: rows.map((r) => ({
+      id: String(r.row_id),
+      kind: String(r.kind),
+      taskKey: String(r.task_key),
+      title: r.kind === 'native' ? nativeTaskTitle(String(r.task_key)) : String(r.title ?? r.task_key),
+      periodKey: r.period_key ? String(r.period_key) : null,
+      rewardType: r.reward_type ? String(r.reward_type) : null,
+      currency: String(r.currency ?? 'PHP'),
+      rewardAmount: Number(r.reward_amount ?? 0),
+      rewardSpin: Number(r.reward_spin ?? 0),
+      turnoverX: Number(r.turnover_x ?? 0),
+      verifiedVia: r.verified_via ? String(r.verified_via) : null,
+      createdAt: new Date(r.created_at as Date).toISOString(),
+    })),
+    total: Number(c?.total ?? 0), page, pageSize,
+  })
+})
+
+router.get('/:id/checkins', async (ctx) => {
+  if (!isMysqlEnabled(ctx.state.env)) { ok(ctx, { items: [], total: 0, page: 1, pageSize: 20 }); return }
+  const { page, pageSize, offset } = pageParams(ctx)
+  const pool = getMysqlPool(ctx.state.env)
+  const [rows] = await pool.query<RowDataPacket[]>(
+    `SELECT checkin_date, track, streak, cycle_day, month_days,
+            base_chances, enh_chances, milestone_days, milestone_chances, created_at
+     FROM bg_checkin_log WHERE user_id = ? ORDER BY checkin_date DESC LIMIT ? OFFSET ?`,
+    [ctx.params.id, pageSize, offset],
+  )
+  const [[c]] = await pool.query<RowDataPacket[]>(
+    `SELECT COUNT(*) AS total FROM bg_checkin_log WHERE user_id = ?`, [ctx.params.id],
+  )
+  ok(ctx, {
+    items: rows.map((r) => ({
+      // checkin_date 是马尼拉日期 DATE 列，直接格式化避免 ISO 时区偏移
+      date: new Date(r.checkin_date as Date).toLocaleDateString('sv-SE'),
+      track: String(r.track),
+      streak: Number(r.streak),
+      cycleDay: Number(r.cycle_day),
+      monthDays: Number(r.month_days),
+      spinChances: Number(r.base_chances ?? 0) + Number(r.enh_chances ?? 0),
+      milestoneDays: Number(r.milestone_days ?? 0),
+      milestoneChances: Number(r.milestone_chances ?? 0),
+      createdAt: new Date(r.created_at as Date).toISOString(),
     })),
     total: Number(c?.total ?? 0), page, pageSize,
   })

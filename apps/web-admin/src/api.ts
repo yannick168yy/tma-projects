@@ -329,11 +329,28 @@ export interface KycUserConfig {
   faceOverride: boolean | null
 }
 
+// 用户详情「成长体系」卡片：逐币种权威等级/流水/成长值/保级进度
+export interface AdminGrowthState {
+  currency: string
+  currentLevel: number
+  awardedLevel: number
+  demoted: boolean
+  turnoverTotal: number
+  taskGrowth: number
+  growthTotal: number
+  nextLevel: number | null
+  nextThreshold: number | null
+  quarterKey: string | null
+  quarterTurnover: number
+  retentionLine: number
+}
+
 export const getUserDetail = (id: string) =>
   get<{
     user: Record<string, unknown>
     level: number
     totalTurnover: number
+    growth: AdminGrowthState[]
     depositTotal: number
     depositByCurrency: CurrencyAmount[]
     withdrawTotal: number
@@ -383,6 +400,53 @@ export const getUserBetOrdersPage = (id: string, params: { page?: number; pageSi
   get<PagedResult<UserBetRound>>(`/admin/users/${id}/bet-orders`, params)
 export const getUserPromoClaimsPage = (id: string, params: { page?: number; pageSize?: number }) =>
   get<PagedResult<PromoClaimRecord>>(`/admin/users/${id}/promo-claims`, params)
+export interface UserTaskClaimRecord {
+  id: string
+  kind: 'native' | 'social'
+  taskKey: string
+  title: string
+  periodKey: string | null
+  rewardType: 'cash' | 'spin' | 'growth' | null
+  currency: string
+  rewardAmount: number
+  rewardSpin: number
+  turnoverX: number
+  verifiedVia: string | null
+  createdAt: string
+}
+export const getUserTaskClaimsPage = (id: string, params: { page?: number; pageSize?: number }) =>
+  get<PagedResult<UserTaskClaimRecord>>(`/admin/users/${id}/task-claims`, params)
+export interface UserCheckinRecord {
+  date: string
+  track: 'base' | 'enhanced'
+  streak: number
+  cycleDay: number
+  monthDays: number
+  spinChances: number
+  milestoneDays: number
+  milestoneChances: number
+  createdAt: string
+}
+export const getUserCheckinsPage = (id: string, params: { page?: number; pageSize?: number }) =>
+  get<PagedResult<UserCheckinRecord>>(`/admin/users/${id}/checkins`, params)
+
+// 任务/成长总览
+export interface GrowthLevelRow { level: number; users: number; demoted: number; turnover: number; taskGrowth: number }
+export const getGrowthOverview = (params: { currency: string }) =>
+  get<{ levels: GrowthLevelRow[]; totalUsers: number; stateUsers: number }>('/admin/growth/overview', params)
+export interface GrowthNativeTaskRow { taskId: string; title: string; claims: number; users: number; cash: number; spin: number; growth: number }
+export interface GrowthSocialTaskRow { taskKey: string; title: string; claims: number; rewardType: string | null; rewardAmount: number; rewardSpin: number; currency: string }
+export interface GrowthCheckinPoint { date: string; users: number; enhanced: number; chances: number }
+export const getGrowthParticipation = (params: { from: string; to: string; currency?: string }) =>
+  get<{
+    native: GrowthNativeTaskRow[]
+    social: GrowthSocialTaskRow[]
+    checkin: { series: GrowthCheckinPoint[]; milestones: { days: number; count: number }[] }
+    manualPending: number
+  }>('/admin/growth/participation', params)
+export interface GrowthCostRow { type: string; currency: string; amount: number; users: number; entries: number }
+export const getGrowthCost = (params: { from: string; to: string }) =>
+  get<{ items: GrowthCostRow[] }>('/admin/growth/cost', params)
 
 export interface AdminLedgerRecord {
   id: string

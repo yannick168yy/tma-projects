@@ -4,6 +4,7 @@ import { Row, Col, Button, Spin } from 'antd'
 import { getUserDetail } from '../api'
 import UserInfo from './user/UserInfo'
 import UserActions from './user/UserActions'
+import UserGrowth from './user/UserGrowth'
 import UserLogs from './user/UserLogs'
 import UserKyc from './user/UserKyc'
 
@@ -43,6 +44,7 @@ export default function UserDetail() {
                 currentLabel={String(u?.label ?? 'normal')}
                 onSuccess={loadDetail}
               />
+              <UserGrowth growth={detail.growth ?? []} />
             </Col>
             <Col span={24}>
               <UserKyc

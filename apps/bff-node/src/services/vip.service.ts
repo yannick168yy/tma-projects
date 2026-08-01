@@ -225,6 +225,62 @@ export async function getUserVipProgress(env: Env, userId: string, currency = 'P
   }
 }
 
+/** 后台用户详情「成长体系」卡片：逐币种的权威等级/流水/成长值/保级进度（纯只读，不触发对账） */
+export interface AdminGrowthState {
+  currency: string
+  currentLevel: number
+  awardedLevel: number
+  demoted: boolean
+  turnoverTotal: number
+  taskGrowth: number
+  growthTotal: number
+  nextLevel: number | null
+  nextThreshold: number | null
+  quarterKey: string | null
+  quarterTurnover: number
+  retentionLine: number
+}
+
+export async function getAdminUserGrowth(env: Env, userId: string): Promise<AdminGrowthState[]> {
+  if (!isMysqlEnabled(env)) return []
+  const pool = getMysqlPool(env)
+  const [rows] = await pool.query<RowDataPacket[]>(
+    `SELECT currency, current_level, awarded_level, turnover_total, task_growth, quarter_key, quarter_start_turnover
+     FROM bg_user_vip_state WHERE user_id = ?
+     ORDER BY FIELD(currency, 'PHP', 'USDT', 'USDC'), currency`,
+    [userId],
+  )
+  const out: AdminGrowthState[] = []
+  for (const r of rows) {
+    const currency = String(r.currency)
+    const [thresholds, benefits] = await Promise.all([
+      getLevelThresholds(env, currency),
+      getVipBenefits(env, currency),
+    ])
+    const currentLevel = Number(r.current_level)
+    const awardedLevel = Number(r.awarded_level)
+    const turnoverTotal = Number(r.turnover_total ?? 0)
+    const taskGrowth = Number(r.task_growth ?? 0)
+    const growthTotal = turnoverTotal + taskGrowth
+    const next = [...thresholds].sort((a, b) => a.level - b.level).find((t) => t.level === currentLevel + 1)
+    out.push({
+      currency,
+      currentLevel,
+      awardedLevel,
+      demoted: currentLevel < awardedLevel,
+      turnoverTotal,
+      taskGrowth,
+      growthTotal,
+      nextLevel: next ? next.level : null,
+      nextThreshold: next ? next.minTurnover : null,
+      quarterKey: r.quarter_key ? String(r.quarter_key) : null,
+      quarterTurnover: Math.max(0, growthTotal - Number(r.quarter_start_turnover ?? 0)),
+      retentionLine: benefits.find((b) => b.level === currentLevel)?.retentionLine ?? 0,
+    })
+  }
+  return out
+}
+
 /**
  * 生日只来自 KYC 证件（Gemini 识别的 dob），不接受用户手输。
  * 已设置返回 true；未设置且 KYC 已通过则从 gemini_result 提取 dob 懒回填（覆盖历史已认证用户）。

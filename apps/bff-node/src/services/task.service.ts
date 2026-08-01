@@ -47,6 +47,11 @@ const NEWBIE_ORDER = ['agg_trial', 'agg_firstdep', 'first_game', 'invite_milesto
 
 const NATIVE_BY_ID = new Map(NATIVE_TASKS.map((t) => [t.id, t]))
 
+/** 后台展示用：原生任务 id → 中文标题（未知 id 原样返回） */
+export function nativeTaskTitle(id: string): string {
+  return NATIVE_BY_ID.get(id)?.title ?? id
+}
+
 // ───────────────────────── 配置（后台可配开关/金额/阈值，缺省用下列常量） ─────────────────────────
 
 export interface TaskRewardCfg {

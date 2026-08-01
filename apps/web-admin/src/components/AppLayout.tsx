@@ -126,6 +126,7 @@ function buildMenuItems(badges: AdminBadges) {
       icon: <CrownOutlined />,
       label: '会员运营',
       children: [
+        { key: '/growth/overview', label: '任务成长总览' },
         { key: '/growth/vip-benefits', label: 'VIP 权益配置' },
         { key: '/growth/vip-records', label: 'VIP 礼金记录' },
         { key: '/growth/rebate-rates', label: '洗码费率' },
