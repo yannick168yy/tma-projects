@@ -19,6 +19,8 @@ function manilaWindow(date: string): { start: string; end: string } {
 }
 
 const BONUS_LEDGER_TYPES = "'bonus','red_packet','rebate','vip_bonus','task_bonus'"
+// channel='admin' 是后台调整余额写入的 paid/completed 单，不是真实充值/提现，运营口径全部排除
+const NOT_ADMIN = "channel<>'admin'"
 
 export async function aggregateBiDay(app: FastifyInstance, date: string): Promise<void> {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error(`invalid date: ${date}`)
@@ -35,14 +37,14 @@ export async function aggregateBiDay(app: FastifyInstance, date: string): Promis
 
   const [deps] = await db.query<RowDataPacket[]>(
     `SELECT currency, COUNT(*) cnt, COALESCE(SUM(amount),0) amt, COUNT(DISTINCT user_id) users
-     FROM bg_deposit_order WHERE status='paid' AND created_at>=? AND created_at<? GROUP BY currency`,
+     FROM bg_deposit_order WHERE status='paid' AND ${NOT_ADMIN} AND created_at>=? AND created_at<? GROUP BY currency`,
     [start, end],
   )
   for (const r of deps) acc(r.currency, { depositAmount: Number(r.amt), depositCount: Number(r.cnt), depositUsers: Number(r.users) })
 
   const [wds] = await db.query<RowDataPacket[]>(
     `SELECT currency, COUNT(*) cnt, COALESCE(SUM(amount),0) amt
-     FROM bg_withdraw_order WHERE status IN ('completed','processing') AND created_at>=? AND created_at<? GROUP BY currency`,
+     FROM bg_withdraw_order WHERE status IN ('completed','processing') AND ${NOT_ADMIN} AND created_at>=? AND created_at<? GROUP BY currency`,
     [start, end],
   )
   for (const r of wds) acc(r.currency, { withdrawAmount: Number(r.amt), withdrawCount: Number(r.cnt) })
@@ -68,9 +70,9 @@ export async function aggregateBiDay(app: FastifyInstance, date: string): Promis
   const [fdeps] = await db.query<RowDataPacket[]>(
     `SELECT d.currency, COUNT(DISTINCT d.user_id) users, COALESCE(SUM(d.amount),0) amt
      FROM bg_deposit_order d
-     JOIN (SELECT user_id, MIN(created_at) first_at FROM bg_deposit_order WHERE status='paid' GROUP BY user_id) f
+     JOIN (SELECT user_id, MIN(created_at) first_at FROM bg_deposit_order WHERE status='paid' AND ${NOT_ADMIN} GROUP BY user_id) f
        ON f.user_id=d.user_id AND f.first_at=d.created_at
-     WHERE d.status='paid' AND d.created_at>=? AND d.created_at<? GROUP BY d.currency`,
+     WHERE d.status='paid' AND d.channel<>'admin' AND d.created_at>=? AND d.created_at<? GROUP BY d.currency`,
     [start, end],
   )
   for (const r of fdeps) acc(r.currency, { firstDepUsers: Number(r.users), firstDepAmount: Number(r.amt) })
@@ -83,7 +85,7 @@ export async function aggregateBiDay(app: FastifyInstance, date: string): Promis
       (SELECT COUNT(DISTINCT user_id) FROM (
         SELECT user_id FROM bg_login_log WHERE created_at>=? AND created_at<?
         UNION SELECT user_id FROM bg_568win_wallet_txn WHERE txn_type='bet' AND created_at>=? AND created_at<?
-        UNION SELECT user_id FROM bg_deposit_order WHERE status='paid' AND created_at>=? AND created_at<?
+        UNION SELECT user_id FROM bg_deposit_order WHERE status='paid' AND ${NOT_ADMIN} AND created_at>=? AND created_at<?
       ) u) dau`,
     [start, end, start, end, start, end, start, end, start, end],
   )
@@ -163,10 +165,10 @@ export async function aggregateBiDay(app: FastifyInstance, date: string): Promis
     const [fdSrcRows] = await conn.query<RowDataPacket[]>(
       `SELECT u.register_entry_source s, COUNT(DISTINCT d.user_id) cnt
        FROM bg_deposit_order d
-       JOIN (SELECT user_id, MIN(created_at) first_at FROM bg_deposit_order WHERE status='paid' GROUP BY user_id) f
+       JOIN (SELECT user_id, MIN(created_at) first_at FROM bg_deposit_order WHERE status='paid' AND ${NOT_ADMIN} GROUP BY user_id) f
          ON f.user_id=d.user_id AND f.first_at=d.created_at
        JOIN bg_user u ON u.id=d.user_id
-       WHERE d.status='paid' AND d.created_at>=? AND d.created_at<? GROUP BY u.register_entry_source`,
+       WHERE d.status='paid' AND d.channel<>'admin' AND d.created_at>=? AND d.created_at<? GROUP BY u.register_entry_source`,
       [start, end],
     )
     for (const r of fdSrcRows) src(r.s).firstDep = Number(r.cnt)
@@ -190,7 +192,7 @@ export async function aggregateBiDay(app: FastifyInstance, date: string): Promis
     await conn.execute(
       `INSERT INTO bi_daily_user (stat_date, user_id, currency, deposit_amount)
        SELECT ?, user_id, currency, COALESCE(SUM(amount),0)
-       FROM bg_deposit_order WHERE status='paid' AND created_at>=? AND created_at<?
+       FROM bg_deposit_order WHERE status='paid' AND ${NOT_ADMIN} AND created_at>=? AND created_at<?
        GROUP BY user_id, currency
        ON DUPLICATE KEY UPDATE deposit_amount=VALUES(deposit_amount)`,
       [date, start, end],
@@ -198,7 +200,7 @@ export async function aggregateBiDay(app: FastifyInstance, date: string): Promis
     await conn.execute(
       `INSERT INTO bi_daily_user (stat_date, user_id, currency, withdraw_amount)
        SELECT ?, user_id, currency, COALESCE(SUM(amount),0)
-       FROM bg_withdraw_order WHERE status IN ('completed','processing') AND created_at>=? AND created_at<?
+       FROM bg_withdraw_order WHERE status IN ('completed','processing') AND ${NOT_ADMIN} AND created_at>=? AND created_at<?
        GROUP BY user_id, currency
        ON DUPLICATE KEY UPDATE withdraw_amount=VALUES(withdraw_amount)`,
       [date, start, end],
@@ -218,7 +220,7 @@ export async function aggregateBiDay(app: FastifyInstance, date: string): Promis
        SELECT ?, 'deposit', channel, COUNT(*), SUM(status='paid'),
               AVG(CASE WHEN status='paid' THEN TIMESTAMPDIFF(SECOND, created_at, updated_at) END)
        FROM bg_deposit_order
-       WHERE status IN ('paid','failed','rejected','admin_rejected') AND created_at>=? AND created_at<?
+       WHERE status IN ('paid','failed','rejected','admin_rejected') AND ${NOT_ADMIN} AND created_at>=? AND created_at<?
        GROUP BY channel`,
       [date, start, end],
     )
@@ -227,7 +229,7 @@ export async function aggregateBiDay(app: FastifyInstance, date: string): Promis
        SELECT ?, 'withdraw', channel, COUNT(*), SUM(status='completed'),
               AVG(CASE WHEN status='completed' THEN TIMESTAMPDIFF(SECOND, created_at, updated_at) END)
        FROM bg_withdraw_order
-       WHERE status IN ('completed','failed','rejected','admin_rejected') AND created_at>=? AND created_at<?
+       WHERE status IN ('completed','failed','rejected','admin_rejected') AND ${NOT_ADMIN} AND created_at>=? AND created_at<?
        GROUP BY channel`,
       [date, start, end],
     )
@@ -237,7 +239,7 @@ export async function aggregateBiDay(app: FastifyInstance, date: string): Promis
        SELECT DISTINCT ?, user_id FROM (
          SELECT user_id FROM bg_login_log WHERE created_at>=? AND created_at<?
          UNION SELECT user_id FROM bg_568win_wallet_txn WHERE txn_type='bet' AND created_at>=? AND created_at<?
-         UNION SELECT user_id FROM bg_deposit_order WHERE status='paid' AND created_at>=? AND created_at<?
+         UNION SELECT user_id FROM bg_deposit_order WHERE status='paid' AND ${NOT_ADMIN} AND created_at>=? AND created_at<?
        ) u`,
       [date, start, end, start, end, start, end],
     )

@@ -10,6 +10,8 @@ import { getRate } from './exchange-rate.service.js'
 
 const DAY_MS = 24 * 60 * 60 * 1000
 const BONUS_LEDGER_TYPES = "'bonus','red_packet','rebate','vip_bonus','task_bonus'"
+// channel='admin' 是后台调整余额写入的 paid/completed 单，不是真实充值/提现，全部运营口径都要排除
+const NOT_ADMIN = "channel<>'admin'"
 
 function pool(env: Env): Pool {
   return getMysqlPool(env)
@@ -59,10 +61,10 @@ async function windowStats(env: Env, redis: Redis, startMs: number, endMs: numbe
 
   const [moneyRows] = await db.query<RowDataPacket[]>(
     `SELECT 'dep' src, currency, COUNT(*) cnt, COALESCE(SUM(amount),0) amt, 0 extra
-       FROM bg_deposit_order WHERE status='paid' AND created_at>=? AND created_at<? GROUP BY currency
+       FROM bg_deposit_order WHERE status='paid' AND ${NOT_ADMIN} AND created_at>=? AND created_at<? GROUP BY currency
      UNION ALL
      SELECT 'wd', currency, COUNT(*), COALESCE(SUM(amount),0), 0
-       FROM bg_withdraw_order WHERE status IN ('completed','processing') AND created_at>=? AND created_at<? GROUP BY currency
+       FROM bg_withdraw_order WHERE status IN ('completed','processing') AND ${NOT_ADMIN} AND created_at>=? AND created_at<? GROUP BY currency
      UNION ALL
      SELECT 'bet', currency, COUNT(*), COALESCE(SUM(amount),0),
             COALESCE(SUM(CASE WHEN status='settled' THEN win_loss ELSE 0 END),0)
@@ -97,12 +99,12 @@ async function windowStats(env: Env, redis: Redis, startMs: number, endMs: numbe
       (SELECT COUNT(DISTINCT user_id) FROM (
         SELECT user_id FROM bg_login_log WHERE created_at>=? AND created_at<?
         UNION SELECT user_id FROM bg_568win_wallet_txn WHERE txn_type='bet' AND created_at>=? AND created_at<?
-        UNION SELECT user_id FROM bg_deposit_order WHERE status='paid' AND created_at>=? AND created_at<?
+        UNION SELECT user_id FROM bg_deposit_order WHERE status='paid' AND ${NOT_ADMIN} AND created_at>=? AND created_at<?
       ) u) dau,
       (SELECT COUNT(DISTINCT d.user_id) FROM bg_deposit_order d
-        JOIN (SELECT user_id, MIN(created_at) first_at FROM bg_deposit_order WHERE status='paid' GROUP BY user_id) f
+        JOIN (SELECT user_id, MIN(created_at) first_at FROM bg_deposit_order WHERE status='paid' AND ${NOT_ADMIN} GROUP BY user_id) f
           ON f.user_id=d.user_id AND f.first_at=d.created_at
-        WHERE d.status='paid' AND d.created_at>=? AND d.created_at<?) first_dep_users`,
+        WHERE d.status='paid' AND d.channel<>'admin' AND d.created_at>=? AND d.created_at<?) first_dep_users`,
     [start, end, start, end, start, end, start, end, start, end],
   )
   s.newUsers = Number(users?.new_users ?? 0)
@@ -480,7 +482,7 @@ export async function getBiFunnel(env: Env, opts: { days: number; source?: strin
             COUNT(CASE WHEN d.cnt>=2 THEN 1 END) redep
      FROM bg_user u
      LEFT JOIN bg_kyc k ON k.user_id=u.id AND k.status='approved'
-     LEFT JOIN (SELECT user_id, COUNT(*) cnt FROM bg_deposit_order WHERE status='paid' GROUP BY user_id) d ON d.user_id=u.id
+     LEFT JOIN (SELECT user_id, COUNT(*) cnt FROM bg_deposit_order WHERE status='paid' AND ${NOT_ADMIN} GROUP BY user_id) d ON d.user_id=u.id
      WHERE u.registered_at>=?${srcFilter}`,
     params,
   )
@@ -536,7 +538,7 @@ export async function getBiRfm(
   const startUtc = fmtUtc(manilaDayStartMs(-(days - 1)))
   const [rows] = await db.query<RowDataPacket[]>(
     `SELECT user_id, currency, SUM(amount) amt, MAX(created_at) last_at
-     FROM bg_deposit_order WHERE status='paid' AND created_at>=? GROUP BY user_id, currency`,
+     FROM bg_deposit_order WHERE status='paid' AND ${NOT_ADMIN} AND created_at>=? GROUP BY user_id, currency`,
     [startUtc],
   )
   const rates = await phpRates(redis, env, rows.map((r) => String(r.currency)))
@@ -887,7 +889,7 @@ export async function getBiChurnRisk(env: Env, redis: Redis): Promise<BiChurnUse
   const ids = candidates.map((c) => c.userId)
   const [depRows] = await db.query<RowDataPacket[]>(
     `SELECT user_id, currency, SUM(amount) amt FROM bg_deposit_order
-     WHERE status='paid' AND user_id IN (?) AND created_at>=? GROUP BY user_id, currency`,
+     WHERE status='paid' AND ${NOT_ADMIN} AND user_id IN (?) AND created_at>=? GROUP BY user_id, currency`,
     [ids, fmtUtc(manilaDayStartMs(-89))],
   )
   const rates = await phpRates(redis, env, depRows.map((r) => String(r.currency)))

@@ -4,6 +4,7 @@ import { Table, Tag, Select, Button, Space, Switch, Card, InputNumber, message, 
 import { getKycList, getKycSettings, setKycSettings, type AdminKycListItem, type KycStepSettings } from '../api'
 import { MobileCardList } from '../components/MobileCardList'
 import { PAGE_SIZE_OPTIONS, DEFAULT_PAGE_SIZE } from '../pagination'
+import { loadListState, saveListState } from '../listState'
 
 function kycStatusTag(status: string) {
   const map: Record<string, { color: string; label: string }> = {
@@ -28,6 +29,14 @@ function kycStatusTags(item: AdminKycListItem) {
   )
 }
 
+interface KycQuery {
+  status?: string
+  page: number
+  pageSize: number
+}
+
+const DEFAULT_QUERY: KycQuery = { status: 'unhandled', page: 1, pageSize: DEFAULT_PAGE_SIZE }
+
 export default function KycList() {
   const navigate = useNavigate()
   const screens = Grid.useBreakpoint()
@@ -35,9 +44,7 @@ export default function KycList() {
   const [loading, setLoading] = useState(false)
   const [items, setItems] = useState<AdminKycListItem[]>([])
   const [total, setTotal] = useState(0)
-  const [page, setPage] = useState(1)
-  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE)
-  const [status, setStatus] = useState<string | undefined>('unhandled')
+  const [{ status, page, pageSize }, setQuery] = useState<KycQuery>(() => loadListState('kyc', DEFAULT_QUERY))
   const [cfg, setCfg] = useState<KycStepSettings | null>(null)
   const [savingCfg, setSavingCfg] = useState(false)
 
@@ -57,6 +64,7 @@ export default function KycList() {
   }
 
   const load = useCallback(async () => {
+    saveListState('kyc', { status, page, pageSize })
     setLoading(true)
     try {
       const res = await getKycList({ page, pageSize, status })
@@ -159,7 +167,7 @@ export default function KycList() {
           placeholder="筛选状态"
           style={{ width: 140 }}
           value={status}
-          onChange={(v) => { setStatus(v); setPage(1) }}
+          onChange={(v) => setQuery((q) => ({ ...q, status: v, page: 1 }))}
           options={[
             { value: 'unhandled', label: '未处理' },
             { value: 'pending', label: '进行中' },
@@ -170,7 +178,8 @@ export default function KycList() {
       </div>
       {isMobile ? (
         <MobileCardList
-          items={items} loading={loading} page={page} total={total} pageSize={pageSize} onPage={setPage}
+          items={items} loading={loading} page={page} total={total} pageSize={pageSize}
+          onPage={(p) => setQuery((q) => ({ ...q, page: p }))}
           renderItem={(r) => {
             const ts = r.faceSubmittedAt ?? r.docSubmittedAt ?? r.submittedAt
             return (
@@ -201,7 +210,7 @@ export default function KycList() {
           loading={loading}
           columns={columns}
           dataSource={items}
-          pagination={{ current: page, total, pageSize, pageSizeOptions: PAGE_SIZE_OPTIONS, onChange: (p, ps) => { setPage(p); setPageSize(ps) } }}
+          pagination={{ current: page, total, pageSize, pageSizeOptions: PAGE_SIZE_OPTIONS, onChange: (p, ps) => setQuery((q) => ({ ...q, page: p, pageSize: ps })) }}
         />
       )}
     </div>

@@ -7,6 +7,7 @@ import type { SorterResult, SortOrder } from 'antd/es/table/interface'
 import dayjs, { type Dayjs } from 'dayjs'
 import { getUsers, updateUserStatus, updateUserLabel, getAdChannelCodes, fmtCurrencyAmounts, platformMeta, type AdminUser } from '../api'
 import { PAGE_SIZE_OPTIONS, DEFAULT_PAGE_SIZE } from '../pagination'
+import { loadListState, saveListState } from '../listState'
 
 function labelText(l: string) {
   return ({ normal: '普通', arbitrage: '套利客', test: '测试' } as Record<string, string>)[l] ?? l
@@ -17,47 +18,65 @@ const SORT_FIELD_MAP: Record<string, string> = {
   lastLoginAt: 'lastLoginAt', balance: 'balance', depositAmount: 'depositAmount', withdrawAmount: 'withdrawAmount', id: 'id',
 }
 
+interface UsersQuery {
+  search: string
+  status?: string
+  channel?: string
+  platform?: string
+  dateFrom?: string
+  dateTo?: string
+  minDeposit: number | null
+  minWithdraw: number | null
+  sortBy?: string
+  sortOrder?: 'asc' | 'desc'
+  page: number
+  pageSize: number
+}
+
+const DEFAULT_QUERY: UsersQuery = {
+  search: '', minDeposit: null, minWithdraw: null, page: 1, pageSize: DEFAULT_PAGE_SIZE,
+}
+
 export default function Users() {
   const navigate = useNavigate()
-  const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState<string | undefined>()
-  const [channelFilter, setChannelFilter] = useState<string | undefined>()
-  const [platformFilter, setPlatformFilter] = useState<string | undefined>()
+  const [query, setQuery] = useState<UsersQuery>(() => loadListState('users', DEFAULT_QUERY))
+  // 输入框类筛选先存草稿，回车/点筛选才并入 query 触发查询
+  const [search, setSearch] = useState(query.search)
+  const [minDeposit, setMinDeposit] = useState<number | null>(query.minDeposit)
+  const [minWithdraw, setMinWithdraw] = useState<number | null>(query.minWithdraw)
   const [channelOptions, setChannelOptions] = useState<string[]>([])
-  const [dateRange, setDateRange] = useState<[Dayjs | null, Dayjs | null] | null>(null)
-  const [minDeposit, setMinDeposit] = useState<number | null>(null)
-  const [minWithdraw, setMinWithdraw] = useState<number | null>(null)
-  const [sortBy, setSortBy] = useState<string | undefined>()
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc' | undefined>()
   const [loading, setLoading] = useState(false)
   const [users, setUsers] = useState<AdminUser[]>([])
   const [total, setTotal] = useState(0)
-  const [page, setPage] = useState(1)
-  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE)
   const [opUid, setOpUid] = useState<string | null>(null)
 
-  async function load(p = 1, ps = pageSize, sBy = sortBy, sOrder = sortOrder) {
-    setPage(p)
-    setPageSize(ps)
+  const dateRange: [Dayjs | null, Dayjs | null] | null = query.dateFrom || query.dateTo
+    ? [query.dateFrom ? dayjs(query.dateFrom) : null, query.dateTo ? dayjs(query.dateTo) : null]
+    : null
+
+  // 改筛选一律回第 1 页
+  const patchQuery = (patch: Partial<UsersQuery>) => setQuery((q) => ({ ...q, page: 1, ...patch }))
+  const applyInputs = () => patchQuery({ search, minDeposit, minWithdraw })
+
+  useEffect(() => {
+    saveListState('users', query)
+    let stale = false
     setLoading(true)
-    try {
-      const res = await getUsers({
-        page: p, pageSize: ps,
-        search: search || undefined, status: statusFilter, channel: channelFilter, platform: platformFilter,
-        dateFrom: dateRange?.[0]?.format('YYYY-MM-DD'),
-        dateTo: dateRange?.[1]?.format('YYYY-MM-DD'),
-        minDeposit: minDeposit ?? undefined,
-        minWithdraw: minWithdraw ?? undefined,
-        sortBy: sBy, sortOrder: sOrder,
-      })
+    getUsers({
+      page: query.page, pageSize: query.pageSize,
+      search: query.search || undefined, status: query.status, channel: query.channel, platform: query.platform,
+      dateFrom: query.dateFrom, dateTo: query.dateTo,
+      minDeposit: query.minDeposit ?? undefined,
+      minWithdraw: query.minWithdraw ?? undefined,
+      sortBy: query.sortBy, sortOrder: query.sortOrder,
+    }).then((res) => {
+      if (stale) return
       setUsers(res.items)
       setTotal(res.total)
-    } finally {
-      setLoading(false)
-    }
-  }
+    }).finally(() => { if (!stale) setLoading(false) })
+    return () => { stale = true }
+  }, [query])
 
-  useEffect(() => { void load() }, [])
   useEffect(() => { getAdChannelCodes().then(setChannelOptions).catch(() => {}) }, [])
 
   async function doDisable(record: AdminUser) {
@@ -88,7 +107,7 @@ export default function Users() {
     } catch { message.error('操作失败') }
   }
 
-  const sortOrderProp = (key: string): SortOrder => sortBy === key ? (sortOrder === 'asc' ? 'ascend' : 'descend') : null
+  const sortOrderProp = (key: string): SortOrder => query.sortBy === key ? (query.sortOrder === 'asc' ? 'ascend' : 'descend') : null
 
   const columns: ColumnsType<AdminUser> = [
     { title: 'ID', dataIndex: 'id', key: 'id', width: 100, sorter: true, sortOrder: sortOrderProp('id') },
@@ -160,7 +179,7 @@ export default function Users() {
   ]
 
   const pagination: TablePaginationConfig = {
-    current: page, pageSize, total,
+    current: query.page, pageSize: query.pageSize, total,
     showTotal: (t) => `共 ${t} 条`,
     pageSizeOptions: PAGE_SIZE_OPTIONS,
   }
@@ -169,9 +188,7 @@ export default function Users() {
     const s = Array.isArray(sorter) ? sorter[0] : sorter
     const key = s?.order ? SORT_FIELD_MAP[String(s.field ?? s.columnKey ?? '')] : undefined
     const order = s?.order === 'ascend' ? 'asc' : s?.order === 'descend' ? 'desc' : undefined
-    setSortBy(key)
-    setSortOrder(order)
-    void load(pg.current ?? 1, pg.pageSize ?? pageSize, key, order)
+    setQuery((q) => ({ ...q, sortBy: key, sortOrder: order, page: pg.current ?? 1, pageSize: pg.pageSize ?? q.pageSize }))
   }
 
   return (
@@ -184,12 +201,12 @@ export default function Users() {
           style={{ width: 220 }}
           allowClear
           onChange={(e) => setSearch(e.target.value)}
-          onSearch={() => load(1)}
+          onSearch={applyInputs}
         />
         <DatePicker.RangePicker
           value={dateRange as [Dayjs, Dayjs] | null}
           placeholder={['注册起', '注册止']}
-          onChange={(v) => { setDateRange(v as [Dayjs | null, Dayjs | null] | null); void load(1) }}
+          onChange={(v) => patchQuery({ dateFrom: v?.[0]?.format('YYYY-MM-DD'), dateTo: v?.[1]?.format('YYYY-MM-DD') })}
           presets={[
             { label: '今天', value: [dayjs(), dayjs()] },
             { label: '近7天', value: [dayjs().add(-6, 'd'), dayjs()] },
@@ -197,11 +214,11 @@ export default function Users() {
           ]}
         />
         <Select
-          value={statusFilter}
+          value={query.status}
           placeholder="状态"
           allowClear
           style={{ width: 110 }}
-          onChange={(v) => { setStatusFilter(v); void load(1) }}
+          onChange={(v) => patchQuery({ status: v })}
           options={[
             { value: 'active', label: '活跃' },
             { value: 'frozen', label: '冻结' },
@@ -209,22 +226,22 @@ export default function Users() {
           ]}
         />
         <Select
-          value={channelFilter}
+          value={query.channel}
           placeholder="投放渠道"
           allowClear showSearch
           style={{ width: 150 }}
-          onChange={(v) => { setChannelFilter(v); void load(1) }}
+          onChange={(v) => patchQuery({ channel: v })}
           options={[
             { value: 'organic', label: '自然量（无归因）' },
             ...channelOptions.map((c) => ({ value: c, label: c })),
           ]}
         />
         <Select
-          value={platformFilter}
+          value={query.platform}
           placeholder="客户端"
           allowClear
           style={{ width: 120 }}
-          onChange={(v) => { setPlatformFilter(v); void load(1) }}
+          onChange={(v) => patchQuery({ platform: v })}
           options={[
             { value: 'web', label: '🌐 网页' },
             { value: 'app', label: '📱 App' },
@@ -237,16 +254,16 @@ export default function Users() {
           placeholder="充值≥(₱)"
           min={0} style={{ width: 130 }}
           onChange={(v) => setMinDeposit(v)}
-          onPressEnter={() => load(1)}
+          onPressEnter={applyInputs}
         />
         <InputNumber
           value={minWithdraw}
           placeholder="取款≥(₱)"
           min={0} style={{ width: 130 }}
           onChange={(v) => setMinWithdraw(v)}
-          onPressEnter={() => load(1)}
+          onPressEnter={applyInputs}
         />
-        <Button type="primary" onClick={() => load(1)}>筛选</Button>
+        <Button type="primary" onClick={applyInputs}>筛选</Button>
       </Space>
       <Table
         columns={columns}

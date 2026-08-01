@@ -275,12 +275,18 @@ export default function CustomerService() {
       )}
 
       {showChat && (selectedId ? (
+        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        {/* 手机端返回键必须放在卡片外：Card 头部标题会被右侧操作按钮挤到 0 宽并被 overflow 裁掉 */}
+        {isMobile && (
+          <Button size="small" style={{ marginBottom: 8, alignSelf: 'flex-start' }} onClick={() => setSelectedId(null)}>
+            ← 返回会话列表
+          </Button>
+        )}
         <Card
-          style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
+          style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
           styles={{ body: { flex: 1, display: 'flex', flexDirection: 'column', padding: 12, overflow: 'hidden' } }}
           title={
             <span>
-              {isMobile && <Button size="small" style={{ marginRight: 8 }} onClick={() => setSelectedId(null)}>返回</Button>}
               工单 #{selectedConv?.id} ·
               <Button
                 type="link"
@@ -360,6 +366,7 @@ export default function CustomerService() {
             </div>
           )}
         </Card>
+        </div>
       ) : (
         !isMobile && <Empty description="选择一个会话开始处理" style={{ margin: 'auto' }} />
       ))}
