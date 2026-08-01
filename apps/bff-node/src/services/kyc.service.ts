@@ -839,6 +839,8 @@ export async function submitKycDocument(
   let failedCount = 0
   if (docVerified) {
     await clearKycFailure(redis, 'doc', userId)
+    // 证件重传通过=人脸比对基准图已更换,历史人脸失败计数/锁不再有意义;也让被人脸锁住的用户能靠重传证件自救
+    await clearKycFailure(redis, 'face', userId)
   } else {
     failedCount = await recordKycFailure(redis, failureLimit, 'doc', userId)
   }

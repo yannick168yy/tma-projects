@@ -1028,6 +1028,10 @@ export default {
     reuploadId: 'Unggah ulang foto ID',
     docReuploadHint: 'Gunakan ID asli, pastikan semua sudut terlihat, hindari silau atau blur, dan teks terbaca jelas.',
     faceRetryHint: 'Gunakan cahaya yang cukup, hadap kamera langsung, dan pastikan wajah terlihat penuh.',
+    redoDocEntry: 'Selalu gagal? Mungkin masalah foto ID — unggah ulang ID',
+    redoDocConfirmHint: 'ID Anda sudah terverifikasi. Mengunggah ulang berarti diperiksa ulang. Lanjutkan?',
+    redoDocConfirm: 'Unggah ulang ID',
+    redoDocCancel: 'Batal',
     errors: {
       otpInvalid: 'Kode verifikasi salah',
       otpExpired: 'Kode verifikasi kedaluwarsa. Silakan minta kode baru.',

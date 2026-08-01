@@ -121,10 +121,15 @@ export function useKycFlow(active: boolean, onApproved?: () => void) {
   const [requireDocument, setRequireDocument] = useState(true)
   const [requireFace, setRequireFace] = useState(true)
 
+  const [faceFailCount, setFaceFailCount] = useState(0)
+  const [suggestDocRedo, setSuggestDocRedo] = useState(false)
+
   useEffect(() => {
     if (!active) return
     setError(null)
     setDocReuploadRequired(false)
+    setFaceFailCount(0)
+    setSuggestDocRedo(false)
     void fetchKycStatus().then((s) => {
       setRequirePhone(s.requirePhone)
       setRequireDocument(s.requireDocument)
@@ -221,6 +226,24 @@ export function useKycFlow(active: boolean, onApproved?: () => void) {
     } finally { setLoading(false) }
   }
 
+  // 人脸反复不过(尤其与证件照不符/被锁)时,问题可能出在证件照本身,露出"回去重传证件"的出口
+  function recordFaceFailure(reason: string) {
+    const next = faceFailCount + 1
+    setFaceFailCount(next)
+    if (next >= 2 || reason.includes('face_id_mismatch') || reason === 'kyc.errors.faceFailureLimitReached') {
+      setSuggestDocRedo(true)
+    }
+  }
+
+  function backToDocument() {
+    setStep('document')
+    setIdImage(null)
+    setDocReuploadRequired(false)
+    setError(null)
+    setFaceFailCount(0)
+    setSuggestDocRedo(false)
+  }
+
   async function onSubmitFace(selfieImage: string) {
     setLoading(true); setError(null)
     try {
@@ -229,9 +252,12 @@ export function useKycFlow(active: boolean, onApproved?: () => void) {
         setStep('done')
         onApproved?.()
       } else {
+        recordFaceFailure(res.rejectReason ?? '')
         setError(formatFaceRejectError(res.rejectReason, t))
       }
     } catch (e) {
+      // 网络层错误不算人脸失败:请求可能根本没到后端
+      if (e instanceof ApiError && !e.network) recordFaceFailure(e.message)
       setError(formatFaceApiError(e, t))
     } finally { setLoading(false) }
   }
@@ -240,6 +266,7 @@ export function useKycFlow(active: boolean, onApproved?: () => void) {
     step, requirePhone, requireDocument, requireFace, loading, error,
     phone, setPhone, phoneLocked, code, setCode, resendIn,
     docType, setDocType, idImage, docReuploadRequired, idInputRef,
+    suggestDocRedo, backToDocument,
     onSendCode, onVerifyCode, onPickImage, onSubmitDoc, onSubmitFace,
   }
 }
