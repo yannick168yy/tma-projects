@@ -188,6 +188,9 @@ export default function HomeContent({ homeBannerTopAnnouncement, onNavigatePath,
   const emptyHomepage = { popular: [], recommended: [], newGames: [], slots: [], casino: [], perya: [], fishing: [], lottery: [], baccarat: [], highRtp: [], highRebate: [], sports: [] }
   const [launchingUuid, setLaunchingUuid] = useState<string | null>(null)
   const [homepageGames, setHomepageGames] = useState<Record<keyof typeof emptyHomepage, SlotGame[]>>(emptyHomepage)
+  // 后台「首页板块配置」按币种隐藏的板块：整块不渲染（内容仍会下发，只是不展示）
+  const [hiddenSections, setHiddenSections] = useState<string[]>([])
+  const shown = (key: keyof typeof emptyHomepage) => !hiddenSections.includes(key)
   const [gamesLoading, setGamesLoading] = useState(true)
   const [recentGames, setRecentGames] = useState<SlotGame[]>([])
   // 最近在玩不足最大数时补齐：只从推荐候选池第 13 款起取（前 12 由推荐板块展示、
@@ -332,10 +335,13 @@ export default function HomeContent({ homeBannerTopAnnouncement, onNavigatePath,
   useEffect(() => {
     setGamesLoading(true)
     fetchHomepageGames(activeCurrency)
-      .then((data) => setHomepageGames({
-        popular: data.popular ?? [], recommended: data.recommended ?? [], newGames: data.newGames ?? [], slots: data.slots ?? [], casino: data.casino ?? [],
-        perya: data.perya ?? [], fishing: data.fishing ?? [], lottery: data.lottery ?? [], baccarat: data.baccarat ?? [], highRtp: data.highRtp ?? [], highRebate: data.highRebate ?? [], sports: data.sports ?? [],
-      }))
+      .then((data) => {
+        setHomepageGames({
+          popular: data.popular ?? [], recommended: data.recommended ?? [], newGames: data.newGames ?? [], slots: data.slots ?? [], casino: data.casino ?? [],
+          perya: data.perya ?? [], fishing: data.fishing ?? [], lottery: data.lottery ?? [], baccarat: data.baccarat ?? [], highRtp: data.highRtp ?? [], highRebate: data.highRebate ?? [], sports: data.sports ?? [],
+        })
+        setHiddenSections(data.hiddenSections ?? [])
+      })
       .catch(() => {})
       .finally(() => setGamesLoading(false))
   }, [activeCurrency])
@@ -424,7 +430,7 @@ export default function HomeContent({ homeBannerTopAnnouncement, onNavigatePath,
           </div>
         </section>
       ) : (
-        (gamesLoading || homepageGames.recommended.length > 0) && (
+        shown('recommended') && (gamesLoading || homepageGames.recommended.length > 0) && (
           <section className="mt-5">
             {sectionHeader(<Percent size={15} className="text-red-400" />, t('home.recommended'), () => onNavigatePath('/games'))}
             {smallRow(recommendedDisplay)}
@@ -433,10 +439,12 @@ export default function HomeContent({ homeBannerTopAnnouncement, onNavigatePath,
       )}
 
       {/* Popular：大卡 3x3 */}
-      <section className="mt-5">
-        {sectionHeader(<TrendingUp size={15} className="text-primary" />, t('home.popularGames'), () => onNavigatePath('/games'))}
-        {bigGrid(homepageGames.popular, 12, true)}
-      </section>
+      {shown('popular') && (
+        <section className="mt-5">
+          {sectionHeader(<TrendingUp size={15} className="text-primary" />, t('home.popularGames'), () => onNavigatePath('/games'))}
+          {bigGrid(homepageGames.popular, 12, true)}
+        </section>
+      )}
 
       {/* Cash Rebate 活动横条 → rebate 页 */}
       <section className="mt-6">
@@ -453,7 +461,7 @@ export default function HomeContent({ homeBannerTopAnnouncement, onNavigatePath,
       </section>
 
       {/* 高洗码游戏：elite 档(2% 返水)精选，板块内容由后台首页板块配置管理 */}
-      {homepageGames.highRebate.length > 0 && (
+      {shown('highRebate') && homepageGames.highRebate.length > 0 && (
         <section className="mt-6">
           {sectionHeader(<Gem size={15} className="text-amber-400" />, t('home.highRebate'), () => onNavigatePath('/games?cat=highrebate'))}
           <div className="px-4 grid grid-cols-3 gap-x-2 gap-y-3">
@@ -463,7 +471,7 @@ export default function HomeContent({ homeBannerTopAnnouncement, onNavigatePath,
       )}
 
       {/* 高 RTP 专栏：小卡横滑 */}
-      {(gamesLoading || homepageGames.highRtp.length > 0) && (
+      {shown('highRtp') && (gamesLoading || homepageGames.highRtp.length > 0) && (
         <section className="mt-6">
           {sectionHeader(<Rocket size={15} className="text-yellow-400" />, t('home.highRtp'), () => onNavigatePath('/games?cat=highrtp'))}
           {smallRow(homepageGames.highRtp)}
@@ -481,7 +489,7 @@ export default function HomeContent({ homeBannerTopAnnouncement, onNavigatePath,
       </section>
 
       {/* 推荐精选（大卡）：有最近在玩时展示，置于 Slots 板块上方 */}
-      {recentGames.length > 0 && (gamesLoading || homepageGames.recommended.length > 0) && (
+      {shown('recommended') && recentGames.length > 0 && (gamesLoading || homepageGames.recommended.length > 0) && (
         <section className="mt-6">
           {sectionHeader(<Percent size={15} className="text-red-400" />, t('home.recommended'), () => onNavigatePath('/games'))}
           {bigGrid(recommendedDisplay, 12)}
@@ -489,7 +497,7 @@ export default function HomeContent({ homeBannerTopAnnouncement, onNavigatePath,
       )}
 
       {/* Slots：大卡 3x2 */}
-      {(gamesLoading || homepageGames.slots.length > 0) && (
+      {shown('slots') && (gamesLoading || homepageGames.slots.length > 0) && (
         <section className="mt-6">
           {sectionHeader(<Gamepad2 size={15} className="text-violet-400" />, t('home.egamesZone'), () => onNavigatePath('/games?cat=slot'))}
           {bigGrid(homepageGames.slots, 6)}
@@ -515,7 +523,7 @@ export default function HomeContent({ homeBannerTopAnnouncement, onNavigatePath,
       </section>
 
       {/* Casino：大卡 3x2 */}
-      {(gamesLoading || homepageGames.casino.length > 0) && (
+      {shown('casino') && (gamesLoading || homepageGames.casino.length > 0) && (
         <section className="mt-6">
           {sectionHeader(<span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />, t('home.casinoZone'), () => onNavigatePath('/games?cat=casino'))}
           {bigGrid(homepageGames.casino, 6)}
@@ -523,7 +531,7 @@ export default function HomeContent({ homeBannerTopAnnouncement, onNavigatePath,
       )}
 
       {/* New Games：小卡横滑 */}
-      {(gamesLoading || homepageGames.newGames.length > 0) && (
+      {shown('newGames') && (gamesLoading || homepageGames.newGames.length > 0) && (
         <section className="mt-6">
           {sectionHeader(<Sparkles size={15} className="text-emerald-400" />, t('home.newGames'))}
           {smallRow(homepageGames.newGames)}
@@ -531,7 +539,7 @@ export default function HomeContent({ homeBannerTopAnnouncement, onNavigatePath,
       )}
 
       {/* Perya：小卡横滑 */}
-      {(gamesLoading || homepageGames.perya.length > 0) && (
+      {shown('perya') && (gamesLoading || homepageGames.perya.length > 0) && (
         <section className="mt-6">
           {sectionHeader(<Drama size={15} className="text-orange-400" />, t('home.peryaZone'), () => onNavigatePath('/games?cat=perya'))}
           {bigGrid(homepageGames.perya, 6)}
@@ -539,7 +547,7 @@ export default function HomeContent({ homeBannerTopAnnouncement, onNavigatePath,
       )}
 
       {/* Fishing：大卡 3x2 */}
-      {(gamesLoading || homepageGames.fishing.length > 0) && (
+      {shown('fishing') && (gamesLoading || homepageGames.fishing.length > 0) && (
         <section className="mt-6">
           {sectionHeader(<Fish size={15} className="text-cyan-400" />, t('home.fishingZone'), () => onNavigatePath('/games?cat=fishing'))}
           {bigGrid(homepageGames.fishing, 6)}
@@ -547,7 +555,7 @@ export default function HomeContent({ homeBannerTopAnnouncement, onNavigatePath,
       )}
 
       {/* Lottery：小卡横滑 */}
-      {(gamesLoading || homepageGames.lottery.length > 0) && (
+      {shown('lottery') && (gamesLoading || homepageGames.lottery.length > 0) && (
         <section className="mt-6">
           {sectionHeader(<Ticket size={15} className="text-pink-400" />, t('home.lotteryZone'), () => onNavigatePath('/games?cat=lottery'))}
           {bigGrid(homepageGames.lottery.slice(0, 6), 6)}
@@ -555,7 +563,7 @@ export default function HomeContent({ homeBannerTopAnnouncement, onNavigatePath,
       )}
 
       {/* 百家乐专栏：小卡横滑 */}
-      {(gamesLoading || homepageGames.baccarat.length > 0) && (
+      {shown('baccarat') && (gamesLoading || homepageGames.baccarat.length > 0) && (
         <section className="mt-6">
           {sectionHeader(<Gem size={15} className="text-purple-400" />, t('home.baccaratZone'))}
           {smallRow(homepageGames.baccarat)}
@@ -563,7 +571,7 @@ export default function HomeContent({ homeBannerTopAnnouncement, onNavigatePath,
       )}
 
       {/* 体育游戏板块：大卡 3 列（USDT 仅 1 款，空则不渲染）*/}
-      {(gamesLoading || homepageGames.sports.length > 0) && (
+      {shown('sports') && (gamesLoading || homepageGames.sports.length > 0) && (
         <section className="mt-6">
           {sectionHeader(<Trophy size={15} className="text-green-400" />, t('home.sportsZone'), () => onNavigatePath('/games?cat=sports'))}
           {bigGrid(homepageGames.sports, 6)}

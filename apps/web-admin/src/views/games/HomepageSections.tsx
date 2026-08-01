@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Table, Select, Button, Modal, Input, message, Tag, Space, Popconfirm, Image, Alert, Tabs, Typography, Empty } from 'antd'
+import { Table, Select, Button, Modal, Input, message, Tag, Space, Popconfirm, Image, Alert, Tabs, Typography, Empty, Switch } from 'antd'
 import {
   getHomepageSections,
   getPublicHomepage,
@@ -7,10 +7,12 @@ import {
   getAdminWin568Games,
   freezeHomepageSection,
   unfreezeHomepageSection,
+  setHomepageSectionVisibility,
   type HomepageSectionEntry,
   type PublicHomepageGame,
   type AdminWin568Game,
   type FrozenBoardStatus,
+  type HiddenSection,
 } from '../../api'
 
 const { Title } = Typography
@@ -64,6 +66,36 @@ function FreezeControl({ sectionKey, currency, frozenCount, onChanged }: {
               <Button size="small" type="primary" loading={busy}>生成并冻结</Button>
             </Popconfirm>
           )}
+        </Space>
+      }
+    />
+  )
+}
+
+// 显示/隐藏控制条：隐藏后前台首页不渲染该板块，板块内容与冻结名单原样保留
+function VisibilityControl({ sectionKey, currency, hidden, onChanged }: {
+  sectionKey: string; currency: string; hidden: boolean; onChanged: () => void
+}) {
+  const [busy, setBusy] = useState(false)
+  const toggle = async (visible: boolean) => {
+    setBusy(true)
+    try {
+      await setHomepageSectionVisibility(sectionKey, currency, !visible)
+      message.success(visible ? '该板块已在前台显示' : '该板块已在前台隐藏')
+      onChanged()
+    } catch (e) { message.error(e instanceof Error ? e.message : '操作失败') } finally { setBusy(false) }
+  }
+  return (
+    <Alert
+      style={{ marginBottom: 12 }}
+      type={hidden ? 'error' : 'success'}
+      showIcon
+      message={hidden ? `前台已隐藏 —— ${currency} 首页不显示该板块` : `前台显示中 —— ${currency} 首页正常展示该板块`}
+      description="隐藏只影响前台渲染，板块内容、钉/移除、冻结名单都原样保留，重新打开即恢复。显示/隐藏按币种分别配置。"
+      action={
+        <Space>
+          <span>{hidden ? '隐藏' : '显示'}</span>
+          <Switch checked={!hidden} loading={busy} onChange={toggle} checkedChildren="显示" unCheckedChildren="隐藏" />
         </Space>
       }
     />
@@ -273,6 +305,7 @@ export default function HomepageSections() {
   const [baseline, setBaseline] = useState<Record<string, PublicHomepageGame[]>>({})
   const [overrides, setOverrides] = useState<Record<string, HomepageSectionEntry[]>>({})
   const [frozen, setFrozen] = useState<FrozenBoardStatus[]>([])
+  const [hidden, setHidden] = useState<HiddenSection[]>([])
   const [freezableKeys, setFreezableKeys] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
 
@@ -283,6 +316,7 @@ export default function HomepageSections() {
       setBaseline(home)
       setOverrides(ov.sections)
       setFrozen(ov.frozen ?? [])
+      setHidden(ov.hidden ?? [])
       setFreezableKeys(ov.freezableKeys ?? [])
     } catch (e) {
       message.error(e instanceof Error ? e.message : '加载失败')
@@ -306,10 +340,18 @@ export default function HomepageSections() {
         onChange={setActiveSection}
         items={SECTION_ORDER.map((key) => ({
           key,
-          label: `${SECTION_LABELS[key] ?? key}（${(baseline[key] ?? []).length}）`,
+          label: hidden.some((h) => h.sectionKey === key && h.currency === currency)
+            ? <span style={{ color: '#ff4d4f' }}>{SECTION_LABELS[key] ?? key}（{(baseline[key] ?? []).length}）· 已隐藏</span>
+            : `${SECTION_LABELS[key] ?? key}（${(baseline[key] ?? []).length}）`,
           children: activeSection === key ? (
             loading ? <Empty description="加载中…" /> : (
               <>
+                <VisibilityControl
+                  sectionKey={key}
+                  currency={currency}
+                  hidden={hidden.some((h) => h.sectionKey === key && h.currency === currency)}
+                  onChanged={load}
+                />
                 {freezableKeys.includes(key) && (
                   <FreezeControl
                     sectionKey={key}

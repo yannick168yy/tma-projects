@@ -1348,6 +1348,28 @@ export async function listFrozenBoardStatus(env: Env): Promise<{ sectionKey: str
   return rows.map((r) => ({ sectionKey: String(r.section_key), currency: String(r.currency), count: Number(r.cnt) }))
 }
 
+// ── 首页板块显示/隐藏 ────────────────────────────────────────────────────────
+
+// 已隐藏的 (板块,币种)。无行 或 hidden=0 视为显示。
+export async function listHiddenSections(env: Env): Promise<{ sectionKey: string; currency: string }[]> {
+  const [rows] = await pool(env).query<RowDataPacket[]>(
+    `SELECT section_key, currency FROM bg_homepage_section_visibility WHERE hidden = 1`,
+  )
+  return rows.map((r) => ({ sectionKey: String(r.section_key), currency: String(r.currency) }))
+}
+
+export async function setSectionVisibility(env: Env, sectionKey: string, currency: string, hidden: boolean): Promise<void> {
+  if (!HOMEPAGE_SECTION_KEYS.includes(sectionKey as (typeof HOMEPAGE_SECTION_KEYS)[number])) {
+    throw new Error(`unknown section_key: ${sectionKey}`)
+  }
+  if (currency !== 'PHP' && currency !== 'USDT') throw new Error('currency 必须为 PHP 或 USDT')
+  await pool(env).execute(
+    `INSERT INTO bg_homepage_section_visibility (section_key, currency, hidden) VALUES (?, ?, ?)
+     ON DUPLICATE KEY UPDATE hidden = VALUES(hidden)`,
+    [sectionKey, currency, hidden ? 1 : 0],
+  )
+}
+
 // 按 (板块, 币种) 整体替换：先删后插，sort_order 用数组下标。currency='' 表示全币种。
 export async function replaceHomepageSectionGames(
   env: Env,

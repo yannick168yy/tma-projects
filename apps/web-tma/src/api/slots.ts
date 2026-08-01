@@ -61,6 +61,8 @@ export interface HomepageGames {
   highRtp: SlotGame[]
   highRebate: SlotGame[]
   sports: SlotGame[]
+  // 后台配置为隐藏的板块 key，前台跳过渲染
+  hiddenSections?: string[]
   generatedAt: string
 }
 

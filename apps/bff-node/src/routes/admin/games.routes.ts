@@ -15,6 +15,8 @@ import {
   replaceFrozenBoard,
   deleteFrozenBoard,
   listFrozenBoardStatus,
+  listHiddenSections,
+  setSectionVisibility,
   listCategorySortGames,
   replaceCategorySortGames,
   CATEGORY_SORT_KEYS,
@@ -261,10 +263,11 @@ router.post('/refresh-homepage', async (ctx) => {
 // 首页板块手动干预：当前各板块 pin/exclude 配置（附游戏名/图，取自 games 缓存）
 router.get('/homepage-sections', async (ctx) => {
   try {
-    const [rows, games, frozenStatus] = await Promise.all([
+    const [rows, games, frozenStatus, hidden] = await Promise.all([
       listHomepageSectionGames(ctx.state.env),
       getGamesFromCache(ctx.state.env),
       listFrozenBoardStatus(ctx.state.env),
+      listHiddenSections(ctx.state.env),
     ])
     const byUuid = new Map(games.map((g) => [g.uuid, g]))
     const sections: Record<string, unknown[]> = {}
@@ -279,7 +282,7 @@ router.get('/homepage-sections', async (ctx) => {
         siteCategory: g?.siteCategory ?? null,
       })
     }
-    ok(ctx, { sectionKeys: HOMEPAGE_SECTION_KEYS, sections, freezableKeys: FREEZABLE_SECTION_KEYS, frozen: frozenStatus })
+    ok(ctx, { sectionKeys: HOMEPAGE_SECTION_KEYS, sections, freezableKeys: FREEZABLE_SECTION_KEYS, frozen: frozenStatus, hidden })
   } catch (e) {
     fail(ctx, 500, e instanceof Error ? e.message : 'Failed')
   }
@@ -305,6 +308,30 @@ router.put('/homepage-sections/:sectionKey', async (ctx) => {
       ip: ctx.ip,
     })
     ok(ctx, { ok: true })
+  } catch (e) {
+    fail(ctx, 400, e instanceof Error ? e.message : 'Failed')
+  }
+})
+
+// 板块显示/隐藏：隐藏只让前台跳过该板块，不动板块内容（后台仍可编辑/冻结）
+// body: { currency: 'PHP'|'USDT', hidden: boolean }
+router.put('/homepage-sections/:sectionKey/visibility', async (ctx) => {
+  try {
+    const sectionKey = ctx.params.sectionKey
+    const body = ctx.request.body as { currency?: string; hidden?: boolean }
+    if (body.currency !== 'PHP' && body.currency !== 'USDT') { fail(ctx, 400, 'currency 必须为 PHP 或 USDT'); return }
+    const hidden = body.hidden === true
+    await setSectionVisibility(ctx.state.env, sectionKey, body.currency, hidden)
+    await refreshHomepageSelection(ctx.state.env)
+    await writeAuditLog(ctx.state.env, {
+      adminId: ctx.state.adminId!,
+      adminUsername: ctx.state.adminUsername!,
+      action: hidden ? 'game.homepage.section.hide' : 'game.homepage.section.show',
+      targetType: 'homepage_section',
+      targetId: `${sectionKey}:${body.currency}`,
+      ip: ctx.ip,
+    })
+    ok(ctx, { ok: true, hidden })
   } catch (e) {
     fail(ctx, 400, e instanceof Error ? e.message : 'Failed')
   }

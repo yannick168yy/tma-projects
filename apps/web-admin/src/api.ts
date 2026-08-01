@@ -804,13 +804,18 @@ export interface HomepageSectionEntry {
   siteCategory: string | null
 }
 export interface FrozenBoardStatus { sectionKey: string; currency: string; count: number }
+export interface HiddenSection { sectionKey: string; currency: string }
 export const getHomepageSections = () =>
   get<{
     sectionKeys: string[]
     sections: Record<string, HomepageSectionEntry[]>
     freezableKeys: string[]
     frozen: FrozenBoardStatus[]
+    hidden: HiddenSection[]
   }>('/admin/games/homepage-sections')
+// 板块显示/隐藏：隐藏仅让前台跳过该板块，不影响板块内容与冻结名单
+export const setHomepageSectionVisibility = (sectionKey: string, currency: string, hidden: boolean) =>
+  put<{ ok: boolean; hidden: boolean }>(`/admin/games/homepage-sections/${sectionKey}/visibility`, { currency, hidden })
 // 冻结板块(popular/recommended/highRebate)：把当前算法+钉的实际内容快照成固定名单
 export const freezeHomepageSection = (sectionKey: string, currency: string) =>
   post<{ ok: boolean; count: number }>(`/admin/games/homepage-sections/${sectionKey}/freeze`, { currency })

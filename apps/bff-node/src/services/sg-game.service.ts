@@ -340,11 +340,14 @@ export interface HomepageSelection {
   highRtp: DbGame[]
   highRebate: DbGame[]
   sports: DbGame[]
+  // 后台配置为「隐藏」的板块 key：内容照常生成（后台仍可编辑/冻结），仅前台跳过渲染
+  hiddenSections: string[]
   generatedAt: string
 }
 
 export const EMPTY_HOMEPAGE_SELECTION: HomepageSelection = {
   popular: [], recommended: [], newGames: [], slots: [], casino: [], perya: [], fishing: [], lottery: [], baccarat: [], highRtp: [], highRebate: [], sports: [],
+  hiddenSections: [],
   generatedAt: '',
 }
 
@@ -457,9 +460,26 @@ export async function loadFrozenBoards(env: Env): Promise<Map<string, string[]>>
   return map
 }
 
+// 隐藏板块读取：Set 元素 = `${section_key}|${currency}`。容错同 loadFrozenBoards：
+// 表未迁移时返回空集合，退化为全部显示。
+export async function loadHiddenSections(env: Env): Promise<Set<string>> {
+  const db = getMysqlPool(env)
+  const set = new Set<string>()
+  try {
+    const [rows] = await db.query<RowDataPacket[]>(
+      `SELECT section_key, currency FROM bg_homepage_section_visibility WHERE hidden = 1`,
+    )
+    for (const r of rows) set.add(`${String(r.section_key)}|${String(r.currency)}`)
+  } catch (e) {
+    console.warn('[homepage] loadHiddenSections failed (table missing?), all sections visible:', e instanceof Error ? e.message : e)
+  }
+  return set
+}
+
 // frozen: 本币种的冻结名单(key=sectionKey → uuid[])。popular/recommended/highRebate 若有冻结名单则直接用，
 // 不跑算法(维护游戏保留在名单里、前端置灰)；其余板块不受影响。
-function buildHomepageSelection(all: DbGame[], cur: string, overrides: SectionOverrides, frozen: Map<string, string[]> = new Map()): HomepageSelection {
+// hidden: 本币种被后台隐藏的板块 key，只写进 hiddenSections 供前端跳过渲染，不影响选品本身。
+function buildHomepageSelection(all: DbGame[], cur: string, overrides: SectionOverrides, frozen: Map<string, string[]> = new Map(), hidden: string[] = []): HomepageSelection {
   const gameByUuid = new Map(all.map((g) => [g.uuid, g]))
   // 冻结名单 → 游戏对象(保序，缓存里已不存在的uuid跳过)，并登记 seen 供其它板块跨块去重
   const frozenList = (key: string): DbGame[] | null => {
@@ -654,6 +674,7 @@ function buildHomepageSelection(all: DbGame[], cur: string, overrides: SectionOv
         g.uuid !== WIN568_SPORTSBOOK_UUID
         && !(g.provider === 'Lucky Sports' && g.name !== 'Basketball'))), score, 5, 6),
     ], 6, true),
+    hiddenSections: hidden,
     generatedAt: new Date().toISOString(),
   }
 
@@ -676,10 +697,12 @@ export async function refreshHomepageSelection(env: Env): Promise<void> {
   if (!allGames.length) return
   const overrides = await loadSectionOverrides(env)
   const frozenAll = await loadFrozenBoards(env)
+  const hiddenAll = await loadHiddenSections(env)
 
   for (const cur of HOMEPAGE_CURRENCIES) {
     const pool = allGames.filter((g) => supportsCurrency(g, cur))
-    const selection = buildHomepageSelection(pool, cur, overrides, frozenForCurrency(frozenAll, cur))
+    const hidden = [...hiddenAll].filter((k) => k.endsWith(`|${cur}`)).map((k) => k.slice(0, k.lastIndexOf('|')))
+    const selection = buildHomepageSelection(pool, cur, overrides, frozenForCurrency(frozenAll, cur), hidden)
     await redis.set(`${HOMEPAGE_KEY}:${cur}`, JSON.stringify(selection), 'EX', HOMEPAGE_TTL)
   }
   console.log('[homepage] selection refreshed (per-currency)')
@@ -718,7 +741,7 @@ async function hydrateAvailability(env: Env, selection: HomepageSelection): Prom
     games.map((g) => ({ ...g, isAvailable: liveByUuid.get(g.uuid) ?? false }))
   const out = { ...selection } as Record<string, unknown>
   for (const [k, v] of Object.entries(out)) {
-    if (Array.isArray(v)) out[k] = rehydrate(v as DbGame[])
+    if (k !== 'hiddenSections' && Array.isArray(v)) out[k] = rehydrate(v as DbGame[])
   }
   return out as unknown as HomepageSelection
 }
@@ -749,6 +772,7 @@ export function applyHomepageCurrency(selection: HomepageSelection, currency?: s
     highRtp: apply(selection.highRtp ?? []),
     highRebate: apply(selection.highRebate ?? []),
     sports: apply(selection.sports ?? []),
+    hiddenSections: selection.hiddenSections ?? [],
     generatedAt: selection.generatedAt,
   }
 }
