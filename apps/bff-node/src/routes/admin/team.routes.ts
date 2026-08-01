@@ -33,13 +33,24 @@ router.get('/overview', async (ctx) => {
   })
 })
 
-// GET /admin/team/agents?search=&page=1&pageSize=20
+// 列表排序白名单：值直接拼进 SQL，只能取这里的固定字符串
+const AGENT_SORT_COLUMNS: Record<string, string> = {
+  teamSize:  'l1_count + l2_count + l3_count',
+  thisMonth: 'this_month_cents',
+  lifetime:  'lifetime_cents',
+  optedInAt: 'tn.opted_in_at',
+}
+
+// GET /admin/team/agents?search=&page=1&pageSize=20&sortBy=&sortOrder=
 router.get('/agents', async (ctx) => {
   const search   = ctx.query.search ? String(ctx.query.search) : ''
   const page     = Math.max(1, Number(ctx.query.page ?? 1))
   const pageSize = Math.min(1000, Math.max(10, Number(ctx.query.pageSize ?? 20)))
   const offset   = (page - 1) * pageSize
   const db       = getMysqlPool(ctx.state.env)
+
+  const sortCol  = AGENT_SORT_COLUMNS[String(ctx.query.sortBy ?? '')] ?? 'lifetime_cents'
+  const sortDir  = String(ctx.query.sortOrder) === 'asc' ? 'ASC' : 'DESC'
 
   const where  = search ? `AND (u.id LIKE ? OR u.display_name LIKE ?)` : ''
   const params: unknown[] = search ? [`%${search}%`, `%${search}%`] : []
@@ -65,7 +76,7 @@ router.get('/agents', async (ctx) => {
      LEFT JOIN bg_team_rate_plan rp ON rp.id = tn.rate_plan_id
      LEFT JOIN bg_team_wallet tw ON tw.user_id = tn.user_id
      WHERE tn.opted_in = 1 ${where}
-     ORDER BY lifetime_cents DESC
+     ORDER BY ${sortCol} ${sortDir}, tn.user_id ASC
      LIMIT ? OFFSET ?`,
     [currentMonthPrefix(), ...params, pageSize, offset],
   )

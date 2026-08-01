@@ -980,7 +980,7 @@ export interface TeamRatePlan {
 export const getTeamOverview = () =>
   get<TeamOverview>('/admin/team/overview')
 
-export const getTeamAgents = (params?: { search?: string; page?: number; pageSize?: number }) =>
+export const getTeamAgents = (params?: { search?: string; page?: number; pageSize?: number; sortBy?: string; sortOrder?: 'asc' | 'desc' }) =>
   get<{ items: TeamAgent[]; total: number; page: number; pageSize: number }>('/admin/team/agents', params)
 
 export const getTeamAgentDetail = (userId: string) =>

@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Row, Col, Statistic, Input, Button, Table, Tag, Space, Modal, Tree, Spin, DatePicker, Select, message } from 'antd'
 import type { TablePaginationConfig } from 'antd'
+import type { ColumnsType } from 'antd/es/table'
+import type { SorterResult, SortOrder } from 'antd/es/table/interface'
 import dayjs from 'dayjs'
 import { getTeamOverview, getTeamAgents, getTeamAgentTree, getTeamRatePlans, setAgentRatePlan, type TeamOverview, type TeamAgent, type TeamTreeMember, type TeamRatePlan } from '../../api'
 import { PAGE_SIZE_OPTIONS, DEFAULT_PAGE_SIZE } from '../../pagination'
@@ -63,6 +65,8 @@ export default function TeamAgents() {
   const [agentsPage, setAgentsPage] = useState(1)
   const [agentsPageSize, setAgentsPageSize] = useState(DEFAULT_PAGE_SIZE)
   const [agentsLoading, setAgentsLoading] = useState(false)
+  // 排序由后端做（列表分页，前端排只会排当前页）
+  const [agentSort, setAgentSort] = useState<{ by?: string; order?: 'asc' | 'desc' }>({ by: 'lifetime', order: 'desc' })
   const [treeVisible, setTreeVisible] = useState(false)
   const [treeAgent, setTreeAgent] = useState<TeamAgent | null>(null)
   const [treeData, setTreeData] = useState<{ l1Members: TeamTreeMember[] } | null>(null)
@@ -85,11 +89,11 @@ export default function TeamAgents() {
     try { setOverview(await getTeamOverview()) } catch { /* ignore */ }
   }
 
-  async function loadAgents(page = 1, ps = agentsPageSize) {
+  async function loadAgents(page = 1, ps = agentsPageSize, sort = agentSort) {
     setAgentsLoading(true)
     try {
-      const data = await getTeamAgents({ search: agentSearch, page, pageSize: ps })
-      setAgents(data.items); setAgentsTotal(data.total); setAgentsPage(page); setAgentsPageSize(ps)
+      const data = await getTeamAgents({ search: agentSearch, page, pageSize: ps, sortBy: sort.by, sortOrder: sort.order })
+      setAgents(data.items); setAgentsTotal(data.total); setAgentsPage(page); setAgentsPageSize(ps); setAgentSort(sort)
     } finally { setAgentsLoading(false) }
   }
 
@@ -143,11 +147,15 @@ export default function TeamAgents() {
     setTreeExpandedKeys(keys)
   }
 
-  const agentCols = [
+  const sortOrderOf = (key: string): SortOrder =>
+    agentSort.by === key ? (agentSort.order === 'asc' ? 'ascend' : 'descend') : null
+
+  const agentCols: ColumnsType<TeamAgent> = [
     { title: '用户ID', dataIndex: 'userId', key: 'userId', width: 110 },
     { title: '昵称', dataIndex: 'displayName', key: 'name' },
     {
-      title: '团队规模', key: 'team', width: 200,
+      title: '团队规模（L1+L2+L3）', key: 'teamSize', width: 210,
+      sorter: true, sortOrder: sortOrderOf('teamSize'),
       render: (_: unknown, r: TeamAgent) => (
         <Space size={4}>
           <Tag color="gold" style={{ margin: 0 }}>L1 · {r.l1Count}</Tag>
@@ -156,9 +164,20 @@ export default function TeamAgents() {
         </Space>
       ),
     },
-    { title: '本月佣金', key: 'thisMonth', width: 120, render: (_: unknown, r: TeamAgent) => phpDisplay(r.thisMonthCommissionCents) },
-    { title: '累计收益', key: 'lifetime', width: 120, render: (_: unknown, r: TeamAgent) => phpDisplay(r.lifetimeEarnedCents) },
-    { title: '开启时间', dataIndex: 'optedInAt', key: 'optedInAt', width: 160 },
+    {
+      title: '本月佣金', key: 'thisMonth', width: 120,
+      sorter: true, sortOrder: sortOrderOf('thisMonth'),
+      render: (_: unknown, r: TeamAgent) => phpDisplay(r.thisMonthCommissionCents),
+    },
+    {
+      title: '累计收益', key: 'lifetime', width: 120,
+      sorter: true, sortOrder: sortOrderOf('lifetime'),
+      render: (_: unknown, r: TeamAgent) => phpDisplay(r.lifetimeEarnedCents),
+    },
+    {
+      title: '开启时间', dataIndex: 'optedInAt', key: 'optedInAt', width: 160,
+      sorter: true, sortOrder: sortOrderOf('optedInAt'),
+    },
     {
       title: '费率套餐', key: 'ratePlan', width: 120,
       render: (_: unknown, r: TeamAgent) => {
@@ -179,7 +198,15 @@ export default function TeamAgents() {
     },
   ]
 
-  const agentPagination: TablePaginationConfig = { current: agentsPage, pageSize: agentsPageSize, total: agentsTotal, showTotal: (t) => `共 ${t} 条`, pageSizeOptions: PAGE_SIZE_OPTIONS, onChange: (p, ps) => loadAgents(p, ps) }
+  const agentPagination: TablePaginationConfig = { current: agentsPage, pageSize: agentsPageSize, total: agentsTotal, showTotal: (t) => `共 ${t} 条`, pageSizeOptions: PAGE_SIZE_OPTIONS }
+
+  function onAgentsTableChange(pg: TablePaginationConfig, _f: unknown, sorter: SorterResult<TeamAgent> | SorterResult<TeamAgent>[]) {
+    const s = Array.isArray(sorter) ? sorter[0] : sorter
+    const sort = s?.order
+      ? { by: String(s.columnKey ?? ''), order: (s.order === 'ascend' ? 'asc' : 'desc') as 'asc' | 'desc' }
+      : {}
+    void loadAgents(pg.current ?? 1, pg.pageSize ?? agentsPageSize, sort)
+  }
 
   return (
     <div>
@@ -193,7 +220,7 @@ export default function TeamAgents() {
         <Input value={agentSearch} onChange={(e) => setAgentSearch(e.target.value)} placeholder="搜索用户ID/昵称" allowClear style={{ width: 200 }} />
         <Button type="primary" onClick={() => loadAgents(1)}>查询</Button>
       </div>
-      <Table columns={agentCols} dataSource={agents} loading={agentsLoading} pagination={agentPagination} rowKey="userId" size="small" />
+      <Table columns={agentCols} dataSource={agents} loading={agentsLoading} pagination={agentPagination} onChange={onAgentsTableChange} rowKey="userId" size="small" scroll={{ x: 'max-content' }} />
 
       <Modal
         open={treeVisible}
