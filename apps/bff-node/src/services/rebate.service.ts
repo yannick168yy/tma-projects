@@ -569,8 +569,14 @@ export async function runDailyRebateSettlement(env: Env, date: string): Promise<
          WHERE th.currency = tt.currency AND th.min_turnover <= tt.total
        ) AS level
        FROM (
-         SELECT user_id, currency, SUM(effective_amount) AS total
-         FROM bg_turnover_logs WHERE is_reversed = 0 GROUP BY user_id, currency
+         -- 取迁移151的累加列而非对 bg_turnover_logs 全表 SUM：该表日增约3万行且此处无时间下界，
+         -- 半年后就是几百万行的全表聚合。turnover_total 由 core 在同事务内增量维护，
+         -- 生产实测 1180 个(用户,币种)与全表 SUM 完全一致（最大差 0.0000）。
+         -- turnover_total > 0 不可省：vip_state 里还有 251 行是无流水的(用户,币种)，
+         -- 不过滤会让本子查询多出这些行；虽然这里是 LEFT JOIN 不受影响，但同样的写法在
+         -- vip.service 的生日礼金是 INNER JOIN，多出的行会变成给没玩过的币种发钱。
+         SELECT user_id, currency, turnover_total AS total
+         FROM bg_user_vip_state WHERE turnover_total > 0
        ) tt
      ) ul ON ul.user_id = tl.user_id AND ul.currency = tl.currency
      LEFT JOIN bg_user_vip_state vs ON vs.user_id = tl.user_id AND vs.currency = tl.currency

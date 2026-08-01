@@ -405,8 +405,9 @@ export async function runWeeklyNegativeRebate(
          WHERE th.currency = tt.currency AND th.min_turnover <= tt.total
        ) AS level
        FROM (
-         SELECT user_id, currency, SUM(effective_amount) AS total
-         FROM bg_turnover_logs WHERE is_reversed = 0 GROUP BY user_id, currency
+         -- 同 rebate.service：改读迁移151的累加列，避开对 bg_turnover_logs 的无时间下界全表聚合
+         SELECT user_id, currency, turnover_total AS total
+         FROM bg_user_vip_state WHERE turnover_total > 0
        ) tt
      ) ul ON ul.user_id = x.user_id AND ul.currency = x.currency_code
      LEFT JOIN bg_user_vip_state vs ON vs.user_id = x.user_id AND vs.currency = x.currency_code
@@ -647,10 +648,10 @@ export async function getLossRebateStatus(env: Env, userId: string, currency: st
 const SQL_USER_LEVEL = `
   SELECT tt.user_id, tt.currency, (
     SELECT MAX(th.level) FROM bg_rebate_level_threshold th
-    WHERE th.currency = tt.currency AND th.min_turnover <= tt.cum + COALESCE(vs.task_growth, 0)
+    WHERE th.currency = tt.currency AND th.min_turnover <= tt.cum + tt.task_growth
   ) AS lvl
-  FROM (SELECT user_id, currency, SUM(effective_amount) AS cum FROM bg_turnover_logs WHERE is_reversed = 0 GROUP BY user_id, currency) tt
-  LEFT JOIN bg_user_vip_state vs ON vs.user_id = tt.user_id AND vs.currency = tt.currency
+  FROM (SELECT user_id, currency, turnover_total AS cum, COALESCE(task_growth, 0) AS task_growth
+        FROM bg_user_vip_state WHERE turnover_total > 0) tt
 `
 
 /** 当前保级考核季度键（PHT），如 2026-Q3 */
@@ -702,6 +703,11 @@ export async function reconcileVipState(
 export async function ensureAndClimbVipStates(env: Env): Promise<void> {
   if (!isMysqlEnabled(env)) return
   const pool = getMysqlPool(env)
+  // 这里是唯一保留对 bg_turnover_logs 全表聚合的地方：本语句的作用就是给"有流水但还没有
+  // vip_state 行"的用户建行，改读 bg_user_vip_state 会变成自我引用而彻底失效。
+  // 注意它很可能已经是死代码——core 每笔流水都会 INSERT ... ON DUPLICATE KEY UPDATE 建行
+  // (turnover.service.ts)，生产核对 1179 个(用户,币种)全部已有行，此处 INSERT IGNORE 从不命中。
+  // 若确认可删，这最后一处全表聚合也就没了；删前需确认建行时的等级初始化谁来负责。
   await pool.query(
     `INSERT IGNORE INTO bg_user_vip_state (user_id, currency, current_level, awarded_level, quarter_key, quarter_start_turnover)
      SELECT s.user_id, s.currency, COALESCE(s.lvl, 1), COALESCE(s.lvl, 1), ?, s.cum
@@ -736,7 +742,7 @@ export async function runQuarterlyRetention(env: Env): Promise<{ quarterKey: str
   // 每币种独立考核：累计流水按本币种、保级线按 (level, currency) 取
   const [demoteAgg] = await pool.query<RowDataPacket[]>(
     `SELECT COUNT(*) AS n FROM bg_user_vip_state vs
-     LEFT JOIN (SELECT user_id, currency, SUM(effective_amount) AS cum FROM bg_turnover_logs WHERE is_reversed = 0 GROUP BY user_id, currency) tt
+     LEFT JOIN (SELECT user_id, currency, turnover_total AS cum FROM bg_user_vip_state WHERE turnover_total > 0) tt
        ON tt.user_id = vs.user_id AND tt.currency = vs.currency
      LEFT JOIN bg_vip_level_benefit b ON b.level = vs.current_level AND b.currency = vs.currency
      WHERE vs.quarter_key <> ? AND vs.current_level > 1 AND vs.current_level >= vs.awarded_level
@@ -745,7 +751,7 @@ export async function runQuarterlyRetention(env: Env): Promise<{ quarterKey: str
   )
   await pool.query(
     `UPDATE bg_user_vip_state vs
-     LEFT JOIN (SELECT user_id, currency, SUM(effective_amount) AS cum FROM bg_turnover_logs WHERE is_reversed = 0 GROUP BY user_id, currency) tt
+     LEFT JOIN (SELECT user_id, currency, turnover_total AS cum FROM bg_user_vip_state WHERE turnover_total > 0) tt
        ON tt.user_id = vs.user_id AND tt.currency = vs.currency
      LEFT JOIN bg_vip_level_benefit b ON b.level = vs.current_level AND b.currency = vs.currency
      SET vs.current_level = CASE
