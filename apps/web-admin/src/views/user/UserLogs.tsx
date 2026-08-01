@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Card, Tabs, Table, Spin, Alert, Typography, Modal, Descriptions, InputNumber, Input, Space, Button, Progress, Tag, message } from 'antd'
+import { Card, Tabs, Table, Spin, Alert, Typography, Modal, Descriptions, InputNumber, Input, Select, DatePicker, Space, Button, Progress, Tag, message } from 'antd'
 import {
-  getUserTurnover, adjustTurnoverRequirement,
+  getUserTurnover, adjustTurnoverRequirement, addTurnoverRequirement, TURNOVER_SOURCE_TYPE_OPTIONS,
   getUserLedgerPage, getUserLoginLogsPage, getUserBetOrdersPage, getUserPromoClaimsPage,
   platformMeta,
   type TurnoverRequirement, type PagedResult, type UserBetRound,
 } from '../../api'
+import type { Dayjs } from 'dayjs'
 
 // 服务端分页数据加载：active 首次为 true 时加载第一页，翻页/改页大小时重新请求
 function usePaged<T>(fetcher: (page: number, pageSize: number) => Promise<PagedResult<T>>, active: boolean) {
@@ -77,11 +78,38 @@ export default function UserLogs({ userId }: Props) {
   const [adjustValue, setAdjustValue] = useState(0)
   const [adjustReason, setAdjustReason] = useState('')
   const [adjustLoading, setAdjustLoading] = useState(false)
+  const [addOpen, setAddOpen] = useState(false)
+  const [addLoading, setAddLoading] = useState(false)
+  const [addForm, setAddForm] = useState<{
+    sourceType: string; sourceRef: string; requiredAmount: number | null
+    currency: string; expiresAt: Dayjs | null; reason: string
+  }>({ sourceType: 'promotion', sourceRef: '', requiredAmount: null, currency: 'PHP', expiresAt: null, reason: '' })
 
   async function loadTurnover() {
     setTurnoverLoading(true)
     try { setTurnover(await getUserTurnover(userId)) }
     finally { setTurnoverLoading(false) }
+  }
+
+  async function doAddTurnover() {
+    if (!addForm.sourceRef.trim()) { message.warning('请填写流水来源'); return }
+    if (!addForm.requiredAmount || addForm.requiredAmount <= 0) { message.warning('流水要求金额必须大于 0'); return }
+    setAddLoading(true)
+    try {
+      await addTurnoverRequirement(userId, {
+        sourceType: addForm.sourceType,
+        sourceRef: addForm.sourceRef.trim(),
+        requiredAmount: addForm.requiredAmount,
+        currency: addForm.currency,
+        expiresAt: addForm.expiresAt ? addForm.expiresAt.toISOString() : null,
+        reason: addForm.reason || undefined,
+      })
+      message.success('流水要求已新增')
+      setAddOpen(false)
+      setAddForm({ sourceType: 'promotion', sourceRef: '', requiredAmount: null, currency: 'PHP', expiresAt: null, reason: '' })
+      await loadTurnover()
+    } catch (e) { message.error(e instanceof Error ? e.message : '操作失败') }
+    finally { setAddLoading(false) }
   }
 
   async function doAdjustTurnover(action: 'adjust' | 'cancel') {
@@ -145,6 +173,7 @@ export default function UserLogs({ userId }: Props) {
   ]
   const turnoverCols = [
     { title: '来源', key: 'source', render: (_: unknown, r: TurnoverRequirement) => sourceLabel(r) },
+    { title: '币种', dataIndex: 'currency', key: 'currency', width: 80 },
     { title: '要求金额', dataIndex: 'requiredAmount', key: 'req', width: 110, render: (v: number) => v.toFixed(4) },
     {
       title: '进度', key: 'progress', width: 200,
@@ -192,6 +221,7 @@ export default function UserLogs({ userId }: Props) {
                       message={turnover.canWithdraw ? '流水要求已全部完成，可提款' : `流水未完成，还需完成 ${turnover.totalRemaining.toFixed(4)}`}
                       showIcon
                     />
+                    <Button type="primary" size="small" style={{ marginBottom: 12 }} onClick={() => setAddOpen(true)}>新增流水要求</Button>
                     <Table columns={turnoverCols} dataSource={turnover.requirements} rowKey="id" pagination={{ pageSize: 20, showSizeChanger: true, showTotal: (t) => `共 ${t} 条` }} size="small" />
                   </div>
                 )}
@@ -226,6 +256,63 @@ export default function UserLogs({ userId }: Props) {
             </Space>
           </div>
         )}
+      </Modal>
+      <Modal open={addOpen} title="新增流水要求" onOk={doAddTurnover} confirmLoading={addLoading} onCancel={() => setAddOpen(false)} destroyOnClose>
+        <Space direction="vertical" style={{ width: '100%' }}>
+          <div>
+            <div style={{ marginBottom: 6, fontWeight: 500 }}>流水类型</div>
+            <Select
+              value={addForm.sourceType}
+              options={TURNOVER_SOURCE_TYPE_OPTIONS as unknown as { value: string; label: string }[]}
+              onChange={(v) => setAddForm((f) => ({ ...f, sourceType: v }))}
+              style={{ width: '100%' }}
+            />
+          </div>
+          <div>
+            <div style={{ marginBottom: 6, fontWeight: 500 }}>流水来源</div>
+            <Input
+              value={addForm.sourceRef}
+              onChange={(e) => setAddForm((f) => ({ ...f, sourceRef: e.target.value }))}
+              placeholder={addForm.sourceType === 'deposit' ? '存款订单号，如 D2026072200001830' : '优惠标识，如 trial / appdl / firstdep'}
+            />
+          </div>
+          <div>
+            <div style={{ marginBottom: 6, fontWeight: 500 }}>币种</div>
+            <Select
+              value={addForm.currency}
+              options={[{ value: 'PHP', label: 'PHP' }, { value: 'USDT', label: 'USDT' }]}
+              onChange={(v) => setAddForm((f) => ({ ...f, currency: v }))}
+              style={{ width: '100%' }}
+            />
+          </div>
+          <div>
+            <div style={{ marginBottom: 6, fontWeight: 500 }}>流水要求金额</div>
+            <InputNumber
+              value={addForm.requiredAmount}
+              onChange={(v) => setAddForm((f) => ({ ...f, requiredAmount: v }))}
+              min={0} precision={4} step={1} style={{ width: '100%' }} placeholder="需完成的有效流水额"
+            />
+          </div>
+          <div>
+            <div style={{ marginBottom: 6, fontWeight: 500 }}>到期时间</div>
+            <DatePicker
+              showTime
+              value={addForm.expiresAt}
+              onChange={(v) => setAddForm((f) => ({ ...f, expiresAt: v }))}
+              style={{ width: '100%' }}
+              placeholder="留空=永久有效"
+            />
+          </div>
+          <div>
+            <div style={{ marginBottom: 6, fontWeight: 500 }}>操作原因</div>
+            <Input.TextArea
+              value={addForm.reason}
+              onChange={(e) => setAddForm((f) => ({ ...f, reason: e.target.value }))}
+              rows={2}
+              placeholder="填写原因（可选，会记入审计日志）"
+            />
+          </div>
+        </Space>
       </Modal>
     </Card>
   )

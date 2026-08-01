@@ -410,7 +410,7 @@ router.get('/:id/turnover', async (ctx) => {
   }
   const pool = getMysqlPool(ctx.state.env)
   const [rows] = await pool.query<RowDataPacket[]>(
-    `SELECT id, source_type, source_ref, required_amount, completed_amount,
+    `SELECT id, currency, source_type, source_ref, required_amount, completed_amount,
             status, expires_at, created_at, updated_at
      FROM bg_turnover_requirements
      WHERE user_id = ?
@@ -419,6 +419,7 @@ router.get('/:id/turnover', async (ctx) => {
   )
   const requirements = rows.map((r) => ({
     id: Number(r.id),
+    currency: String(r.currency ?? 'PHP'),
     sourceType: r.source_type as string,
     sourceRef: String(r.source_ref),
     requiredAmount: Number(r.required_amount),
@@ -431,6 +432,57 @@ router.get('/:id/turnover', async (ctx) => {
   const pending = requirements.filter((r) => r.status === 'pending')
   const totalRemaining = Math.max(0, pending.reduce((s, r) => s + (r.requiredAmount - r.completedAmount), 0))
   ok(ctx, { canWithdraw: totalRemaining <= 0, totalRemaining, requirements })
+})
+
+router.post('/:id/turnover', async (ctx) => {
+  if (!isMysqlEnabled(ctx.state.env)) { fail(ctx, 503, 'MySQL not enabled'); return }
+  const body = ctx.request.body as {
+    sourceType?: string; sourceRef?: string; requiredAmount?: number
+    currency?: string; expiresAt?: string | null; reason?: string
+  }
+  const sourceType = String(body.sourceType ?? '')
+  if (!['deposit', 'promotion'].includes(sourceType)) {
+    fail(ctx, 400, 'sourceType must be deposit | promotion'); return
+  }
+  const sourceRef = String(body.sourceRef ?? '').trim()
+  if (!sourceRef || sourceRef.length > 128) { fail(ctx, 400, 'sourceRef required, max 128 chars'); return }
+  const requiredAmount = Number(body.requiredAmount)
+  if (!Number.isFinite(requiredAmount) || requiredAmount <= 0) {
+    fail(ctx, 400, 'requiredAmount must be > 0'); return
+  }
+  const currency = String(body.currency ?? 'PHP').toUpperCase()
+  // 流水闸是按币种独立结算的（idx_turnover_req_user_currency_status），
+  // 币种填错等于这条要求根本不拦提款，所以必须落在该用户已有的钱包币种上
+  const balances = await getWalletBalances(ctx.state.redis, ctx.params.id)
+  if (!balances.some((b) => b.currency === currency)) {
+    fail(ctx, 400, `User has no ${currency} wallet`); return
+  }
+  // expires_at 列是 DATETIME（无小数秒），传 ISO 串会被 MySQL 截断，这里显式转成 'YYYY-MM-DD HH:MM:SS'
+  let expiresAt: string | null = null
+  if (body.expiresAt) {
+    const d = new Date(body.expiresAt)
+    if (isNaN(d.getTime())) { fail(ctx, 400, 'expiresAt is not a valid date'); return }
+    expiresAt = d.toISOString().slice(0, 19).replace('T', ' ')
+  }
+
+  const pool = getMysqlPool(ctx.state.env)
+  const [res] = await pool.execute<OkPacket>(
+    `INSERT INTO bg_turnover_requirements
+       (user_id, currency, source_type, source_ref, required_amount, status, expires_at)
+     VALUES (?, ?, ?, ?, ?, 'pending', ?)`,
+    [ctx.params.id, currency, sourceType, sourceRef, requiredAmount, expiresAt],
+  )
+
+  await writeAuditLog(ctx.state.env, {
+    adminId: ctx.state.adminId!,
+    adminUsername: ctx.state.adminUsername!,
+    action: 'user.turnover_add',
+    targetType: 'user',
+    targetId: ctx.params.id,
+    detail: { reqId: res.insertId, currency, sourceType, sourceRef, requiredAmount, expiresAt, reason: body.reason },
+    ip: ctx.ip,
+  })
+  ok(ctx, { id: res.insertId })
 })
 
 router.patch('/:id/turnover/:reqId', async (ctx) => {

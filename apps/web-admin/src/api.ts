@@ -491,13 +491,21 @@ export async function fetchKycImageBlob(userId: string, key: string): Promise<st
 }
 
 export interface TurnoverRequirement {
-  id: number; sourceType: string; sourceRef: string
+  id: number; currency: string; sourceType: string; sourceRef: string
   requiredAmount: number; completedAmount: number
   status: 'pending' | 'completed' | 'expired' | 'cancelled'
   expiresAt: string | null; createdAt: string; updatedAt: string
 }
+export const TURNOVER_SOURCE_TYPE_OPTIONS = [
+  { value: 'deposit', label: '存款' },
+  { value: 'promotion', label: '优惠' },
+] as const
 export const getUserTurnover = (id: string) =>
   get<{ canWithdraw: boolean; totalRemaining: number; requirements: TurnoverRequirement[] }>(`/admin/users/${id}/turnover`)
+export const addTurnoverRequirement = (id: string, payload: {
+  sourceType: string; sourceRef: string; requiredAmount: number
+  currency: string; expiresAt?: string | null; reason?: string
+}) => post<{ id: number }>(`/admin/users/${id}/turnover`, payload)
 export const adjustTurnoverRequirement = (id: string, reqId: number, action: 'adjust' | 'cancel', completedAmount?: number, reason?: string) =>
   patch<{ success: boolean }>(`/admin/users/${id}/turnover/${reqId}`, { action, completedAmount, reason })
 
