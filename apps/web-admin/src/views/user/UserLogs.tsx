@@ -4,8 +4,10 @@ import { Card, Tabs, Table, Spin, Alert, Typography, Modal, Descriptions, InputN
 import {
   getUserTurnover, adjustTurnoverRequirement, addTurnoverRequirement, TURNOVER_SOURCE_TYPE_OPTIONS,
   getUserLedgerPage, getUserLoginLogsPage, getUserBetOrdersPage, getUserPromoClaimsPage,
+  getRebateRecords, getVipRecords,
   platformMeta,
   type TurnoverRequirement, type PagedResult, type UserBetRound,
+  type RebateRecord, type VipRewardRecord,
 } from '../../api'
 import type { Dayjs } from 'dayjs'
 
@@ -45,6 +47,19 @@ function ledgerTypeColor(t: string) {
 function ledgerTypeText(t: string) {
   return ({ deposit: '存款', withdraw: '取款', bet: '投注', win: '中奖', bonus: '奖励', red_packet: '红包', adjust: '调整', admin_adjust: '后台调整' } as Record<string, string>)[t] ?? t
 }
+// 与洗码/VIP 列表页保持一致的展示口径
+const REBATE_CATEGORY_LABELS: Record<string, string> = {
+  slots: '🎰 Slots', live: '🎲 Live Casino', sports: '⚽ Sports', fishing: '🐟 Fishing', poker: '♠️ Poker',
+  bingo: '🎱 Bingo', pinoy: '🐓 Pinoy', table: '🃏 Table', crash: '🚀 Crash', other: '🎮 Other',
+}
+const VIP_TYPE_LABELS: Record<string, { label: string; color: string }> = {
+  promotion:       { label: '晋级礼金', color: 'gold' },
+  negative_rebate: { label: '负盈利返水', color: 'red' },
+  weekly:          { label: '周俸', color: 'blue' },
+  monthly:         { label: '月俸', color: 'purple' },
+  birthday:        { label: '生日礼金', color: 'magenta' },
+}
+
 function sourceLabel(req: TurnoverRequirement) {
   if (req.sourceType === 'deposit') return `存款 ${req.sourceRef}`
   const names: Record<string, string> = { trial: '首席体验官', referral: '邀请共赢', firstdep: '首充嘉年华' }
@@ -72,6 +87,8 @@ export default function UserLogs({ userId }: Props) {
   const logins = usePaged(useCallback((p: number, ps: number) => getUserLoginLogsPage(userId, { page: p, pageSize: ps }), [userId]), activeTab === 'login')
   const bets = usePaged(useCallback((p: number, ps: number) => getUserBetOrdersPage(userId, { page: p, pageSize: ps }), [userId]), activeTab === 'bets')
   const promos = usePaged(useCallback((p: number, ps: number) => getUserPromoClaimsPage(userId, { page: p, pageSize: ps }), [userId]), activeTab === 'promo')
+  const rebates = usePaged(useCallback((p: number, ps: number) => getRebateRecords({ userId, page: p, pageSize: ps }), [userId]), activeTab === 'rebate')
+  const vipRewards = usePaged(useCallback((p: number, ps: number) => getVipRecords({ userId, page: p, pageSize: ps }), [userId]), activeTab === 'vip')
   const [turnover, setTurnover] = useState<Awaited<ReturnType<typeof getUserTurnover>> | null>(null)
   const [turnoverLoading, setTurnoverLoading] = useState(false)
   const [adjustModal, setAdjustModal] = useState<{ req: TurnoverRequirement } | null>(null)
@@ -171,6 +188,31 @@ export default function UserLogs({ userId }: Props) {
     { title: '描述', dataIndex: 'description', key: 'desc', ellipsis: true },
     { title: '领取时间', dataIndex: 'claimedAt', key: 'at', width: 160, render: (v: string) => new Date(v).toLocaleString('zh-CN') },
   ]
+  const rebateCols = [
+    { title: '日期', dataIndex: 'date', key: 'date', width: 110, render: (v: string) => v || '—' },
+    { title: '游戏大类', dataIndex: 'gameCategory', key: 'category', width: 130, render: (v: string) => REBATE_CATEGORY_LABELS[v] ?? v },
+    { title: '币种', dataIndex: 'currencyCode', key: 'currency', width: 90 },
+    { title: '有效投注', dataIndex: 'betAmount', key: 'bet', width: 120, align: 'right' as const, render: (v: number) => v.toFixed(2) },
+    { title: '费率', dataIndex: 'ratePct', key: 'rate', width: 80, render: (v: number) => `${v}%` },
+    {
+      title: '洗码金额', dataIndex: 'rebateAmount', key: 'rebate', width: 130, align: 'right' as const,
+      render: (v: number) => <span style={{ color: '#52c41a', fontWeight: 500 }}>+{v.toFixed(4)}</span>,
+    },
+    { title: '状态', dataIndex: 'status', key: 'status', width: 90, render: (v: string) => <Tag color={v === 'paid' ? 'success' : 'warning'}>{v === 'paid' ? '已领取' : '待领取'}</Tag> },
+    { title: '领取时间', dataIndex: 'paidAt', key: 'paidAt', width: 170, render: (v: string | null) => v || '—' },
+  ]
+  const vipRewardCols = [
+    { title: '类型', dataIndex: 'type', key: 'type', width: 110, render: (v: string) => { const t = VIP_TYPE_LABELS[v]; return <Tag color={t?.color}>{t?.label ?? v}</Tag> } },
+    { title: '等级', dataIndex: 'level', key: 'level', width: 80, render: (v: number) => <Tag>VIP{v}</Tag> },
+    {
+      title: '金额', key: 'amount', width: 140, align: 'right' as const,
+      render: (_: unknown, r: VipRewardRecord) => <span style={{ color: '#52c41a', fontWeight: 500 }}>+{r.amount} {r.currencyCode}</span>,
+    },
+    { title: '周期', dataIndex: 'periodKey', key: 'period', width: 120 },
+    { title: '状态', dataIndex: 'status', key: 'status', width: 90, render: (v: string) => <Tag color={v === 'paid' ? 'success' : 'warning'}>{v === 'paid' ? '已领取' : '待领取'}</Tag> },
+    { title: '发放时间', dataIndex: 'createdAt', key: 'createdAt', width: 170, render: (v: string | null) => v || '—' },
+    { title: '领取时间', dataIndex: 'paidAt', key: 'paidAt', width: 170, render: (v: string | null) => v || '—' },
+  ]
   const turnoverCols = [
     { title: '来源', key: 'source', render: (_: unknown, r: TurnoverRequirement) => sourceLabel(r) },
     { title: '币种', dataIndex: 'currency', key: 'currency', width: 80 },
@@ -209,6 +251,14 @@ export default function UserLogs({ userId }: Props) {
           { key: 'login', label: `登录记录${logins.total ? ` (${logins.total})` : ''}`, children: <Table columns={loginCols} dataSource={logins.items} rowKey="id" loading={logins.loading} pagination={logins.pagination} size="small" /> },
           { key: 'bets', label: `游戏记录${bets.total ? ` (${bets.total})` : ''}`, children: <Table columns={betCols} dataSource={bets.items} rowKey={(r) => `${r.roundId}_${r.currencyCode}`} loading={bets.loading} pagination={bets.pagination} size="small" /> },
           { key: 'promo', label: `优惠领取记录${promos.total ? ` (${promos.total})` : ''}`, children: <Table columns={promoCols} dataSource={promos.items} rowKey="id" loading={promos.loading} pagination={promos.pagination} size="small" /> },
+          {
+            key: 'rebate', label: `洗码派发记录${rebates.total ? ` (${rebates.total})` : ''}`,
+            children: <Table columns={rebateCols} dataSource={rebates.items as RebateRecord[]} rowKey="id" loading={rebates.loading} pagination={rebates.pagination} size="small" scroll={{ x: 'max-content' }} />,
+          },
+          {
+            key: 'vip', label: `VIP 礼金记录${vipRewards.total ? ` (${vipRewards.total})` : ''}`,
+            children: <Table columns={vipRewardCols} dataSource={vipRewards.items as VipRewardRecord[]} rowKey="id" loading={vipRewards.loading} pagination={vipRewards.pagination} size="small" scroll={{ x: 'max-content' }} />,
+          },
           {
             key: 'turnover', label: '流水记录',
             children: (
