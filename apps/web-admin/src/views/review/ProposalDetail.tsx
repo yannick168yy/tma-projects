@@ -76,8 +76,9 @@ export default function ProposalDetail() {
     finally { setOpLoading(false) }
   }
   async function doReject() {
+    // 内部原因非必填，与取款列表页(Withdrawals.tsx)和后端(reason ?? 'Rejected by admin')保持一致；
+    // 用户可见原因仍必填，它会展示在用户钱包历史里(7f3b588)
     if (!userReason) { message.warning('请选择用户可见原因'); return }
-    if (!reason.trim()) { message.warning('请填写拒绝原因'); return }
     setOpLoading(true)
     try { await rejectWithdrawal(orderId, reason, userReason); message.success('已拒绝并退款'); setRejectOpen(false); await load() }
     catch (e) { message.error(e instanceof Error ? e.message : '操作失败') }
@@ -339,7 +340,7 @@ export default function ProposalDetail() {
             value={reason}
             rows={3}
             onChange={(e) => setReason(e.target.value)}
-            placeholder="请输入内部拒绝原因（仅后台可见）"
+            placeholder="内部拒绝原因（可选，仅后台可见）"
           />
         </Space>
       </Modal>
