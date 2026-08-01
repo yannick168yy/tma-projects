@@ -4,6 +4,7 @@ import {
   KycError,
   bindKycPhone,
   buildKycStatusResponse,
+  getKycDocImage,
   getKycStepConfig,
   sendKycOtp,
   submitKyc,
@@ -56,6 +57,11 @@ router.get('/status', async (ctx) => {
     requireDocument: cfg.requireDocument,
     requireFace: cfg.requireFace,
   })
+})
+
+// 人脸回退重传场景：取回本人已上传的证件图（仅本人数据，dataURL 形式）
+router.get('/document/image', async (ctx) => {
+  ok(ctx, await getKycDocImage(ctx.state.redis, ctx.state.env, ctx.state.userId!))
 })
 
 // OTP 关闭时的直接绑定通道；开关开启时该接口返回 400，必须走 send-otp/verify

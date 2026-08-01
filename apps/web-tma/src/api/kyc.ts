@@ -70,3 +70,8 @@ export function submitKycFace(selfieImage: string): Promise<{
 }> {
   return apiRequest('/kyc/face', { method: 'POST', body: JSON.stringify({ selfieImage }) })
 }
+
+/** 人脸回退重传时取回已上传的证件图（dataURL；无图返回 null） */
+export function fetchKycDocImage(): Promise<{ image: string | null }> {
+  return apiRequest('/kyc/document/image')
+}

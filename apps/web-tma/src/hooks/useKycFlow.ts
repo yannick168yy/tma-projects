@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ApiError } from '@/api/client'
-import { fetchKycStatus, sendKycOtp, submitKycDocument, submitKycFace, verifyKycOtp } from '@/api/kyc'
+import { fetchKycDocImage, fetchKycStatus, sendKycOtp, submitKycDocument, submitKycFace, verifyKycOtp } from '@/api/kyc'
 
 export const DOC_TYPES = ['passport', 'drivers_license', 'philid', 'umid', 'acr_icard'] as const
 export type DocType = (typeof DOC_TYPES)[number]
@@ -123,6 +123,8 @@ export function useKycFlow(active: boolean, onApproved?: () => void) {
 
   const [faceFailCount, setFaceFailCount] = useState(0)
   const [suggestDocRedo, setSuggestDocRedo] = useState(false)
+  const [docRedoMode, setDocRedoMode] = useState(false)
+  const [prevDocImage, setPrevDocImage] = useState<string | null>(null)
 
   useEffect(() => {
     if (!active) return
@@ -130,6 +132,8 @@ export function useKycFlow(active: boolean, onApproved?: () => void) {
     setDocReuploadRequired(false)
     setFaceFailCount(0)
     setSuggestDocRedo(false)
+    setDocRedoMode(false)
+    setPrevDocImage(null)
     void fetchKycStatus().then((s) => {
       setRequirePhone(s.requirePhone)
       setRequireDocument(s.requireDocument)
@@ -205,6 +209,8 @@ export function useKycFlow(active: boolean, onApproved?: () => void) {
       return
     }
     setLoading(true); setError(null)
+    // 提交新证件即视为放弃"继续人脸"捷径:提交结果可能覆盖服务端已通过的旧证件,之后按常规被拒/重传流程走
+    setDocRedoMode(false)
     try {
       const res = await submitKycDocument({ docType, idImage })
       if (res.docVerified) {
@@ -235,13 +241,31 @@ export function useKycFlow(active: boolean, onApproved?: () => void) {
     }
   }
 
-  function backToDocument() {
+  // 非破坏性回退:已通过的证件保留在服务端,展示旧图,由用户决定重新上传还是继续人脸
+  async function backToDocument() {
     setStep('document')
-    setIdImage(null)
-    setDocReuploadRequired(false)
+    setDocRedoMode(true)
     setError(null)
     setFaceFailCount(0)
     setSuggestDocRedo(false)
+    if (idImage) {
+      // 本会话内刚传过:直接用本地图展示,idImage 腾出来放新选的图
+      setPrevDocImage(idImage)
+      setIdImage(null)
+    } else if (!prevDocImage) {
+      try {
+        const res = await fetchKycDocImage()
+        setPrevDocImage(res.image)
+      } catch {
+        // 取不到旧图只是少一张预览,不阻塞流程
+      }
+    }
+  }
+
+  function continueToFace() {
+    setDocRedoMode(false)
+    setError(null)
+    setStep('face')
   }
 
   async function onSubmitFace(selfieImage: string) {
@@ -266,7 +290,7 @@ export function useKycFlow(active: boolean, onApproved?: () => void) {
     step, requirePhone, requireDocument, requireFace, loading, error,
     phone, setPhone, phoneLocked, code, setCode, resendIn,
     docType, setDocType, idImage, docReuploadRequired, idInputRef,
-    suggestDocRedo, backToDocument,
+    suggestDocRedo, backToDocument, docRedoMode, prevDocImage, continueToFace,
     onSendCode, onVerifyCode, onPickImage, onSubmitDoc, onSubmitFace,
   }
 }

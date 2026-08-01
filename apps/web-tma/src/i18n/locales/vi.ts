@@ -1044,9 +1044,8 @@ export default {
     docReuploadHint: 'Hãy chụp giấy tờ gốc, thấy đủ bốn góc, tránh lóa hoặc mờ và đảm bảo chữ rõ.',
     faceRetryHint: 'Hãy dùng ánh sáng tốt, nhìn thẳng vào camera và để khuôn mặt hiện rõ đầy đủ.',
     redoDocEntry: 'Vẫn không đạt? Có thể do ảnh giấy tờ — tải lại giấy tờ',
-    redoDocConfirmHint: 'Giấy tờ của bạn đã được xác minh. Tải lại đồng nghĩa phải xét duyệt lại. Tiếp tục?',
-    redoDocConfirm: 'Tải lại giấy tờ',
-    redoDocCancel: 'Hủy',
+    redoDocChoiceHint: 'Giấy tờ hiện tại đã được xác minh. Bạn có thể tải lại ảnh rõ hơn, hoặc tiếp tục xác minh khuôn mặt.',
+    redoDocContinueFace: 'Tiếp tục xác minh khuôn mặt',
     errors: {
       otpInvalid: 'Mã xác minh không đúng',
       otpExpired: 'Mã xác minh đã hết hạn. Vui lòng lấy mã mới.',

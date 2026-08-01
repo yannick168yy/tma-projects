@@ -921,6 +921,15 @@ export async function submitKycDocument(
   }
 }
 
+/** 人脸步骤回退重传场景：取回本人已上传的证件图供前端展示（关闭重开后前端本地已无图） */
+export async function getKycDocImage(redis: Redis, env: Env, userId: string): Promise<{ image: string | null }> {
+  const existing = await getKyc(redis, userId)
+  if (!existing?.docImageKey) return { image: null }
+  const file = await getStorageProvider(env).get(existing.docImageKey)
+  if (!file) return { image: null }
+  return { image: `data:${file.mimeType};base64,${file.data.toString('base64')}` }
+}
+
 export async function submitKycFace(
   redis: Redis,
   env: Env,

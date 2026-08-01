@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Check, Loader2, ShieldCheck, Upload } from 'lucide-react'
 import FaceSelfieCapture from '@/components/wallet/FaceSelfieCapture'
@@ -18,10 +17,9 @@ export default function KycFlowContent({ flow, onClose, compactFace }: Props) {
     step, requirePhone, requireDocument, requireFace, loading, error,
     phone, setPhone, phoneLocked, code, setCode, resendIn,
     docType, setDocType, idImage, docReuploadRequired, idInputRef,
-    suggestDocRedo, backToDocument,
+    suggestDocRedo, backToDocument, docRedoMode, prevDocImage, continueToFace,
     onSendCode, onVerifyCode, onPickImage, onSubmitDoc, onSubmitFace,
   } = flow
-  const [confirmRedoDoc, setConfirmRedoDoc] = useState(false)
 
   const inputCls = 'w-full rounded-xl border border-border bg-secondary px-4 py-3 text-sm font-bold text-foreground focus:border-primary focus:outline-none'
 
@@ -83,16 +81,29 @@ export default function KycFlowContent({ flow, onClose, compactFace }: Props) {
             <option value="acr_icard">{t('kyc.docAcrIcard')}</option>
           </select>
 
+          {docRedoMode && !idImage && (
+            <>
+              {prevDocImage && <img src={prevDocImage} alt="id" className="max-h-32 w-full rounded-xl object-contain" />}
+              <p className="text-[10px] text-muted-foreground">{t('kyc.redoDocChoiceHint')}</p>
+            </>
+          )}
+
           <input ref={idInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => void onPickImage(e.target.files?.[0])} />
           <button type="button" className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-secondary py-3 text-sm font-bold text-foreground" onClick={() => idInputRef.current?.click()}>
             {idImage ? <Check size={16} className="text-emerald-400" /> : <Upload size={16} />}
-            {idImage ? `${t('kyc.uploadId')} ✓` : docReuploadRequired ? t('kyc.reuploadId') : t('kyc.uploadId')}
+            {idImage ? `${t('kyc.uploadId')} ✓` : docReuploadRequired || docRedoMode ? t('kyc.reuploadId') : t('kyc.uploadId')}
           </button>
           {idImage && <img src={idImage} alt="id" className="max-h-32 w-full rounded-xl object-contain" />}
 
-          <button type="button" className="w-full rounded-xl bg-primary py-3 text-sm font-bold text-primary-foreground disabled:opacity-50" disabled={loading || !idImage} onClick={() => void onSubmitDoc()}>
-            {loading ? t('kyc.reviewing') : t('kyc.submit')}
-          </button>
+          {docRedoMode && !idImage ? (
+            <button type="button" className="w-full rounded-xl bg-primary py-3 text-sm font-bold text-primary-foreground" onClick={continueToFace}>
+              {t('kyc.redoDocContinueFace')}
+            </button>
+          ) : (
+            <button type="button" className="w-full rounded-xl bg-primary py-3 text-sm font-bold text-primary-foreground disabled:opacity-50" disabled={loading || !idImage} onClick={() => void onSubmitDoc()}>
+              {loading ? t('kyc.reviewing') : t('kyc.submit')}
+            </button>
+          )}
         </div>
       )}
 
@@ -112,23 +123,10 @@ export default function KycFlowContent({ flow, onClose, compactFace }: Props) {
       {step === 'face' && (
         <>
           <FaceSelfieCapture loading={loading} compact={compactFace} onComplete={(selfie) => void onSubmitFace(selfie)} />
-          {suggestDocRedo && !confirmRedoDoc && (
-            <button type="button" className="mt-3 w-full text-center text-xs font-bold text-primary underline" onClick={() => setConfirmRedoDoc(true)}>
+          {suggestDocRedo && (
+            <button type="button" className="mt-3 w-full text-center text-xs font-bold text-primary underline" onClick={() => void backToDocument()}>
               {t('kyc.redoDocEntry')}
             </button>
-          )}
-          {suggestDocRedo && confirmRedoDoc && (
-            <div className="mt-3 space-y-2 rounded-xl border border-border bg-secondary p-3">
-              <p className="text-xs text-muted-foreground">{t('kyc.redoDocConfirmHint')}</p>
-              <div className="flex gap-2">
-                <button type="button" className="flex-1 rounded-xl border border-border py-2 text-xs font-bold text-foreground" onClick={() => setConfirmRedoDoc(false)}>
-                  {t('kyc.redoDocCancel')}
-                </button>
-                <button type="button" className="flex-1 rounded-xl bg-primary py-2 text-xs font-bold text-primary-foreground" onClick={() => { setConfirmRedoDoc(false); backToDocument() }}>
-                  {t('kyc.redoDocConfirm')}
-                </button>
-              </div>
-            </div>
           )}
         </>
       )}
