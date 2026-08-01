@@ -200,27 +200,40 @@ SET GLOBAL long_query_time = 1;
 ```
 （`performance_schema` 需重启才能开，且吃内存，可以先不动。）
 
-### 5.6 回收 22GB 并堵住复发路径
+### 5.6 回收 21GB 并堵住复发路径（已执行）
 
-**动作一（生产，需授权）**：
-```sql
-OPTIMIZE TABLE bg_568win_report_bet;
-```
-MySQL 8 下等价于 `ALTER TABLE ... FORCE, ALGORITHM=INPLACE, LOCK=NONE`，在线重建、
-不阻塞同步写入。重建按真实数据量（约 300MB）走，预计 1~3 分钟；
-临时空间需求约等于重建后大小，磁盘充裕。预期 22.9GB → 约 350MB。
+**动作一：`OPTIMIZE TABLE bg_568win_report_bet`（生产，2026-08-01 已完成）**
 
-**动作二（代码，可自动部署测试）**：
-`saveReportBets` 的逐行 `execute` 外面套 try/catch，坏行记日志跳过，
-让游标能继续推进。这是 178 没修完的那一半 —— 178 只加宽了列，
-没解决"一条坏行让整个 portfolio 的游标永久卡住"的结构问题。
-不修的话，下一个触发任何写错误的字段会原样再造出 19GB。
+| | 前 | 后 |
+|---|---:|---:|
+| `.ibd` 文件 | 22,917,677,056 B（21.3 GiB） | 436,207,616 B（416 MiB） |
+| `DATA_FREE` | 19,496 MB | 3 MB |
+| MySQL 数据目录 | 28 GB | 6.5 GB |
+| 根分区已用 / 可用 | 39G / 58G（41%） | **18G / 78G（19%）** |
 
-顺带：`saveReportBets` 现在是逐行 `await`，一页 1000 行就是 1000 次往返，
-可以顺手改成批量 `INSERT ... VALUES (...),(...) ON DUPLICATE KEY UPDATE` 分批提交——
-但**批量化必须和逐行容错一起设计**，否则一条坏行会让整批失败，比现在更糟。
+在线重建耗时 124 秒（`LOCK=NONE`，不阻塞写入），重建后 `uk_portfolio_ref` 无重复、
+7 个索引齐全、下一轮同步正常写入 1,313 条。
 
----
+**⚠️ 第一次执行失败了，原因值得记住**：首次在 09:45:03 启动，报
+`Duplicate entry ... for key 'uk_portfolio_ref'`。但那个 ref_no 在表里根本不存在
+（强制走 PRIMARY 全表扫也查不到），主键扫描与二级索引扫描行数一致，表本身没问题。
+真正原因是 **`win568-report-sync` 的定时任务在 09:45:26 插进了重建过程**——
+在线 DDL 末尾要把并发 DML 的行日志回放到新表，而该 cron 用的是
+`INSERT ... ON DUPLICATE KEY UPDATE`（且 `OVERLAP_MS=5min` 会重复 upsert 最近的行），
+回放时在唯一键上撞出了假冲突。
+
+失败是干净的：表原样保留，无数据损失。重试办法是**卡同步间隙**——
+盯 `bg_admin_settings` 里 `win568_report_sync_cursor:%` 的 `updated_at`，
+等一轮跑完立刻开始，就有近 10 分钟静默窗口（重建只要 2 分钟）。
+以后再对这张表做任何在线 DDL，都要这么错开。
+
+**动作二：`saveReportBets` 逐行容错（代码，已提交并部署测试环境）**
+
+逐行 `execute` 外套 try/catch，坏行记 error 日志跳过，返回值改为实际写入行数。
+这是 178 没修完的那一半 —— 178 只加宽了列，没解决"一条坏行让整个 portfolio 游标
+永久卡住"的结构问题。不修的话，下一个触发任何写错误的字段会原样再造出 19GB。
+
+配套补了单测：坏行不吞掉后面的行（`win568-operation.test.ts`）。
 
 ---
 
@@ -326,6 +339,9 @@ ALTER TABLE bg_bet_order_archive
 ## 8. 待办清单
 
 已完成（2026-08-01，测试 + 生产均已执行）：
+- [x] **回收 21GB**：`OPTIMIZE TABLE bg_568win_report_bet`，22.9GB → 416MB，
+      根分区可用 58G → 78G（第 5.6 节，含首次失败的原因与重试方法）。
+- [x] `saveReportBets` 逐行容错 + 单测。**生产尚未部署，待授权。**
 - [x] `bg_bet_order.idx_created`（迁移 191）。生产在线 DDL 5 秒完成，写入无中断。
       **注意**：加完之后当日窗口查询仍走全表扫，这是对的——现在表里只有 10 天数据，
       一天 = 全表 35%（`filtered: 34.80`），优化器判定全扫更便宜。缩到 1 小时窗口即
@@ -335,8 +351,6 @@ ALTER TABLE bg_bet_order_archive
 - [x] 删除 `bg_bet_round_bak_20260731`（228,219 行陈旧快照，全仓无引用）。
 
 下一批（按优先级）：
-- [ ] **`OPTIMIZE TABLE bg_568win_report_bet`** —— 回收 22GB，生产操作需授权（第 5.6 节）
-- [ ] **`saveReportBets` 逐行容错** —— 堵住 19GB 复发路径，代码改动（第 5.6 节）
 - [ ] 攒 1~2 周慢查询日志，按证据而非猜测排下一轮优化
 - [ ] `rebate.service.ts` 三处 `bg_turnover_logs` 全表 GROUP BY 改走 `bg_user_vip_state.turnover_total`（第 5.2 节）
 - [ ] 窗口 > 当日的聚合改读 `bi_daily_*`（第 5.2 节，同时是 P3 的前置条件）
