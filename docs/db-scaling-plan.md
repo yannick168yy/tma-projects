@@ -275,13 +275,18 @@ ALTER TABLE bg_bet_order_archive
 
 ## 8. 待办清单
 
-已完成：
-- [x] `bg_bet_order.idx_created`（迁移 191，已上测试环境验证 `type: ALL` → `range`）
+已完成（2026-08-01，测试 + 生产均已执行）：
+- [x] `bg_bet_order.idx_created`（迁移 191）。生产在线 DDL 5 秒完成，写入无中断。
+      **注意**：加完之后当日窗口查询仍走全表扫，这是对的——现在表里只有 10 天数据，
+      一天 = 全表 35%（`filtered: 34.80`），优化器判定全扫更便宜。缩到 1 小时窗口即
+      `type: range / key: idx_created / rows: 18894`，证明索引可用。它是**预防性**的：
+      表越深，一天占比越小，索引就越必然被选中，届时省下的是几十秒级的全表扫。
+- [x] 生产 `slow_query_log=ON` / `long_query_time=1`，用 `SET PERSIST` 写进
+      `mysqld-auto.cnf`（在 datadir 卷内，容器重建也保留）。
+- [x] 删除 `bg_bet_round_bak_20260731`（228,219 行 / 44MB 陈旧快照，最后更新停在
+      2026-07-31 09:25，全仓无代码引用）。
 
 按优先级排队（均需单独授权后执行）：
-- [ ] **生产执行迁移 191**（在线 DDL，`LOCK=NONE`，247MB 表预计秒级）
-- [ ] 打开生产 `slow_query_log`（第 5.5 节，动态变量，热开不重启）
-- [ ] 删 `bg_bet_round_bak_20260731`（44MB 残留备份）
 - [ ] `bg_568win_report_bet` JSON 降冷（第 6.2 节）—— **磁盘红线的主因，约 2 个月内必须动**
 - [ ] `rebate.service.ts` 三处 `bg_turnover_logs` 全表 GROUP BY 改走 `bg_user_vip_state.turnover_total`（第 5.2 节）
 - [ ] 窗口 > 当日的聚合改读 `bi_daily_*`（第 5.2 节，同时是 P3 的前置条件）
