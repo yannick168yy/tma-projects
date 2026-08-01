@@ -567,10 +567,6 @@ export class Win568WalletService {
         [player.userId, text(body, 'GameCode') || bet.provider_id, `settle:${bet.id}`, bet.round_id ?? bet.transfer_code, winLoss, player.currency, winLoss],
       )
       await this.addLedger(conn, player, 'win', winLoss, newBalance, bet.transfer_code, '568Win settle')
-      // WinLoss 是含本金的总派彩，bet.amount 是本局投注，倍数口径与 /Bonus 通道一致
-      if (!bool(body, 'IsGameProviderPromotion')) {
-        await this.maybeLockBigWin(conn, player, `bigwin:${bet.transfer_code}`, winLoss, Number(bet.amount))
-      }
       await this.refreshBetRound(conn, player.userId, bet.round_id ?? bet.transfer_code)
       await conn.commit()
       return ok(player.username, newBalance)
@@ -666,11 +662,11 @@ export class Win568WalletService {
         [player.userId, String(body.GameId ?? body.Gpid ?? ''), `${mode}:${transferKey(body)}`, reverseRoundId, mode === 'cancel' ? 'cancel' : 'refund', adjustment, player.currency, adjustment],
       )
       await this.addLedger(conn, player, adjustment >= 0 ? 'adjust' : 'bet', adjustment, newBalance, text(body, 'TransferCode'), `568Win ${mode}`)
-      // 派彩已被冲正收回，对应的小注爆高倍锁一并作废，避免玩家被无故压流水；已打满的(completed)不动
+      // 派彩已被冲正收回，对应的 feature 彩金流水锁一并作废，避免玩家被无故压流水；已打满的(completed)不动
       await conn.execute(
         `UPDATE bg_turnover_requirements SET status = 'cancelled', updated_at = NOW()
-         WHERE user_id = ? AND status = 'pending' AND source_type = 'promotion' AND source_ref IN (?, ?)`,
-        [player.userId, `bigwin:${text(body, 'TransferCode')}`, `feature_bonus:${text(body, 'TransferCode')}`],
+         WHERE user_id = ? AND status = 'pending' AND source_type = 'promotion' AND source_ref = ?`,
+        [player.userId, `feature_bonus:${text(body, 'TransferCode')}`],
       )
       await this.refreshBetRound(conn, player.userId, reverseRoundId)
       await conn.commit()
@@ -727,37 +723,17 @@ export class Win568WalletService {
     return v
   }
 
-  // 小注爆高倍闸：非平台活动派彩(IsGameProviderPromotion=false)中，单笔派彩相对本局投注
-  // 达到高倍(小注爆奖=farming 签名)时，按倍数补一条同额流水锁，打满才可提。
-  // 巨鲸大注中奖与正常小奖都是低倍，天然不受影响。
-  // 两条派彩通道都要过闸：/Bonus(PG 等 BetPayout 拆单) 与 /Settle(JILI/CQ9 等标准结算)。
-  private async maybeLockBigWin(
-    conn: PoolConnection, player: PlayerRef, sourceRef: string, payout: number, betAmount: number,
-  ): Promise<void> {
-    const cfg = await this.getFeatureBonusLockConfig()
-    if (!cfg.enabled) return
-    if (payout < cfg.minAmount) return
-    if (betAmount <= 0 || payout / betAmount < cfg.minMultiple) return
-    const required = round2(payout * cfg.wagerMult)
-    await conn.execute(
-      `INSERT IGNORE INTO bg_turnover_requirements
-         (user_id, currency, source_type, source_ref, base_amount, required_amount)
-       VALUES (?, ?, 'promotion', ?, ?, ?)`,
-      [player.userId, player.currency, sourceRef, payout, required],
-    )
-    this.app.log.info(
-      { userId: player.userId, sourceRef, payout, betAmount, multiple: round2(payout / betAmount), required },
-      '[568win] big win wagering lock applied',
-    )
-  }
-
-  // /Bonus 通道：body 无 stake，用 SeamlessGameExtraInfo.ReferenceRefNo 反查母 bet 的投注额算倍数。
+  // feature/免费旋转彩金薅羊毛闸：非平台活动派彩(IsGameProviderPromotion=false)中，
+  // 单笔派彩相对触发注达到高倍(小注爆奖=farming 签名)时，按倍数补一条同额彩金流水锁，
+  // 打满才可提。巨鲸大奖与正常小奖都是低倍，天然不受影响。
+  // 只挂 /Bonus 通道：普通结算中奖是玩家自己赢的钱，由提现审核规则把关，不在这里压流水。
   private async maybeLockFeatureBonus(
     conn: PoolConnection, player: PlayerRef, body: CallbackBody, amount: number,
   ): Promise<void> {
     const cfg = await this.getFeatureBonusLockConfig()
-    if (!cfg.enabled || amount < cfg.minAmount) return
+    if (!cfg.enabled) return
     if (bool(body, 'IsGameProviderPromotion')) return
+    if (amount < cfg.minAmount) return
     const extra = body.SeamlessGameExtraInfo as Record<string, unknown> | undefined
     const refNo = extra && typeof extra.ReferenceRefNo === 'string' ? extra.ReferenceRefNo : ''
     if (!refNo) return
@@ -766,7 +742,18 @@ export class Win568WalletService {
       [refNo],
     )
     const betAmount = betRows[0] ? Number(betRows[0].amount) : 0
-    await this.maybeLockBigWin(conn, player, `feature_bonus:${text(body, 'TransferCode')}`, amount, betAmount)
+    if (betAmount <= 0 || amount / betAmount < cfg.minMultiple) return
+    const required = round2(amount * cfg.wagerMult)
+    await conn.execute(
+      `INSERT IGNORE INTO bg_turnover_requirements
+         (user_id, currency, source_type, source_ref, base_amount, required_amount)
+       VALUES (?, ?, 'promotion', ?, ?, ?)`,
+      [player.userId, player.currency, `feature_bonus:${text(body, 'TransferCode')}`, amount, required],
+    )
+    this.app.log.info(
+      { userId: player.userId, amount, betAmount, multiple: round2(amount / betAmount), required },
+      '[568win] feature bonus wagering lock applied',
+    )
   }
 
   // PG 等游戏的真实派彩走 /Bonus(BetPayout)通道:原逻辑只加钱到钱包、不写 bg_bet_order，
