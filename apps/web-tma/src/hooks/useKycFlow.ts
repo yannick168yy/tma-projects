@@ -65,8 +65,14 @@ const NO_RETRY_HINT_ERRORS = new Set([
   'kyc.errors.verifyTooFrequent',
 ])
 
+// 网络层错误(超时/断网/WAF 拦截页):请求没到业务后端,不是照片质量问题,绝不能提示重拍
+function formatNetworkError(e: ApiError, t: Translate): string {
+  return e.message.startsWith('errors.') ? t(e.message) : t('errors.networkUnavailable')
+}
+
 function formatDocApiError(e: unknown, t: Translate): string {
   if (!(e instanceof ApiError)) return t('kyc.rejected')
+  if (e.network) return formatNetworkError(e, t)
   const message = translateKycError(e.message, t, t('kyc.docRecognitionFailed'))
   if (NO_RETRY_HINT_ERRORS.has(e.message)) return message
   return `${message}. ${t('kyc.docReuploadHint')}`
@@ -74,6 +80,7 @@ function formatDocApiError(e: unknown, t: Translate): string {
 
 function formatFaceApiError(e: unknown, t: Translate): string {
   if (!(e instanceof ApiError)) return t('kyc.rejected')
+  if (e.network) return formatNetworkError(e, t)
   const message = translateKycError(e.message, t, t('kyc.faceFailed'))
   if (NO_RETRY_HINT_ERRORS.has(e.message)) return message
   return `${message}. ${t('kyc.faceRetryHint')}`

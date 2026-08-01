@@ -60,6 +60,7 @@ export default {
     tooManyAttempts: 'Too many attempts, please try again later',
     captchaFailed: 'Human verification failed, please try again',
     requestTimeout: 'Request timed out. Please try again.',
+    networkUnavailable: 'Network error or service temporarily unavailable. Please try again later.',
     deviceAlreadyClaimed: 'This bonus has already been claimed on this device',
     noPermission: 'Operation not allowed',
     csEmpty: 'Message cannot be empty',

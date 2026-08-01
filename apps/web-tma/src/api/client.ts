@@ -31,6 +31,8 @@ export class ApiError extends Error {
     message: string,
     public code: number,
     public traceId?: string,
+    /** 网络层错误：请求没到达业务后端或响应不可解析（超时/断网/CDN/WAF 拦截页），message 不代表业务语义 */
+    public network = false,
   ) {
     super(message)
     this.name = 'ApiError'
@@ -65,21 +67,21 @@ export async function apiRequest<T>(
       })
     } catch (e) {
       if (e instanceof DOMException && e.name === 'AbortError' && !outerSignal?.aborted) {
-        throw new ApiError('errors.requestTimeout', 0)
+        throw new ApiError('errors.requestTimeout', 0, undefined, true)
       }
       const hint =
         BASE_URL.includes('localhost') && typeof window !== 'undefined'
           ? 'Cannot reach API (localhost is invalid on mobile). Use the production site URL.'
           : 'Network request failed. Check connection and try again.'
-      throw new ApiError(e instanceof Error ? `${hint} (${e.message})` : hint, 0)
+      throw new ApiError(e instanceof Error ? `${hint} (${e.message})` : hint, 0, undefined, true)
     }
     try {
       body = (await res.json()) as ApiResponse<T>
     } catch (e) {
       if (e instanceof DOMException && e.name === 'AbortError' && !outerSignal?.aborted) {
-        throw new ApiError('errors.requestTimeout', 0)
+        throw new ApiError('errors.requestTimeout', 0, undefined, true)
       }
-      throw new ApiError(res.ok ? 'Invalid API response' : res.statusText || 'Request failed', res.status)
+      throw new ApiError(res.ok ? 'Invalid API response' : res.statusText || 'Request failed', res.status, undefined, true)
     }
   } finally {
     clearTimeout(timer)
