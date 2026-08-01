@@ -313,9 +313,9 @@ export default function UserLogs({ userId }: Props) {
             ),
           },
           { key: 'bets', label: `游戏记录${bets.total ? ` (${bets.total})` : ''}`, children: <Table columns={betCols} dataSource={bets.items} rowKey={(r) => `${r.roundId}_${r.currencyCode}`} loading={bets.loading} pagination={bets.pagination} size="small" /> },
-          { key: 'promo', label: `优惠领取记录${promos.total ? ` (${promos.total})` : ''}`, children: <Table columns={promoCols} dataSource={promos.items} rowKey="id" loading={promos.loading} pagination={promos.pagination} size="small" /> },
+          { key: 'promo', label: `优惠领取${promos.total ? ` (${promos.total})` : ''}`, children: <Table columns={promoCols} dataSource={promos.items} rowKey="id" loading={promos.loading} pagination={promos.pagination} size="small" /> },
           {
-            key: 'rebate', label: `洗码派发记录${rebates.total ? ` (${rebates.total})` : ''}`,
+            key: 'rebate', label: `洗码派发${rebates.total ? ` (${rebates.total})` : ''}`,
             children: <Table columns={rebateCols} dataSource={rebates.items as RebateRecord[]} rowKey="id" loading={rebates.loading} pagination={rebates.pagination} size="small" scroll={{ x: 'max-content' }} />,
           },
           {
