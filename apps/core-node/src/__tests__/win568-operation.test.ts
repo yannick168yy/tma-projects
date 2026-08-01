@@ -44,6 +44,33 @@ describe('568Win Operation', () => {
     assert.match(calls[0].sql, /raw_response = NULL/)
   })
 
+  it('单条注单写失败时跳过并继续写后面的，不中断整页', async () => {
+    const saved: string[] = []
+    const logged: unknown[] = []
+    const app = {
+      mysql: {
+        async execute(_sql: string, params: unknown[]) {
+          const refNo = String(params[1])
+          if (refNo === 'bad') throw new Error("Data too long for column 'ref_no'")
+          saved.push(refNo)
+        },
+      },
+      log: { error: (obj: unknown) => logged.push(obj) },
+    }
+
+    const count = await saveReportBets(app as never, 'SeamlessGame', [
+      { refNo: '1001' },
+      { refNo: 'bad' },
+      { refNo: '1003' },
+    ])
+
+    // 坏行不能吃掉后面的行：它一抛就冒泡到 cron 的 portfolio catch，游标不推进，
+    // 下一轮把同一个 24h 窗口整页重刷 —— 178 那次卡死 3 天、撑出 19.5GB 碎片的成因。
+    assert.deepEqual(saved, ['1001', '1003'])
+    assert.equal(count, 2)
+    assert.equal(logged.length, 1)
+  })
+
   it('568Win Sports 使用 568WinSportsbook 登录入口', () => {
     assert.deepEqual(buildWin568SportsbookPayload({
       username: 'BG_10025',

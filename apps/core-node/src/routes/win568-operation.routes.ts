@@ -132,12 +132,18 @@ export function collectWin568ReportBets(value: unknown): Record<string, unknown>
 
 export async function saveReportBets(app: FastifyInstance, portfolio: string, result: unknown) {
   const bets = collectWin568ReportBets(result)
+  let saved = 0
   for (const bet of bets) {
     const refNo = text(bet.refNo ?? bet.refno)
     if (!refNo) continue
-    // raw_response 保存整页响应会随每条注单重复放大；单条原文保留在 raw_bet。
-    await app.mysql.execute(
-      `INSERT INTO bg_568win_report_bet
+    // 单行写失败必须就地吞掉：抛出去会冒泡到 cron 的 portfolio catch，游标不推进，
+    // 下一轮 10 分钟后把同一个 24h 窗口整页重拉、整页重新 UPDATE。
+    // 178 那次 ref_no 超长就是这么卡了 3 天，约 430 轮重刷把本表撑出 19.5GB 碎片
+    // （.ibd 22.9GB / 真实数据 300MB）。178 只加宽了列，没解决这个结构。
+    try {
+      // raw_response 保存整页响应会随每条注单重复放大；单条原文保留在 raw_bet。
+      await app.mysql.execute(
+        `INSERT INTO bg_568win_report_bet
        (portfolio, ref_no, external_username, currency, status, stake, win_lost,
         order_time, settle_time, win_lost_date, modify_date, raw_bet, raw_response)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)
@@ -147,23 +153,27 @@ export async function saveReportBets(app: FastifyInstance, portfolio: string, re
          settle_time = VALUES(settle_time), win_lost_date = VALUES(win_lost_date),
          modify_date = VALUES(modify_date), raw_bet = VALUES(raw_bet),
          raw_response = NULL, fetched_at = NOW(3)`,
-      [
-        portfolio,
-        refNo,
-        text(bet.username) || null,
-        text(bet.currency) || null,
-        text(bet.status) || null,
-        numberOrNull(bet.stake),
-        numberOrNull(bet.winLost ?? bet.winlost),
-        dateOrNull(bet.orderTime),
-        dateOrNull(bet.settleTime),
-        dateOrNull(bet.winLostDate ?? bet.winlostDate),
-        dateOrNull(bet.modifyDate ?? bet.modifiedDate),
-        JSON.stringify(bet),
-      ],
-    )
+        [
+          portfolio,
+          refNo,
+          text(bet.username) || null,
+          text(bet.currency) || null,
+          text(bet.status) || null,
+          numberOrNull(bet.stake),
+          numberOrNull(bet.winLost ?? bet.winlost),
+          dateOrNull(bet.orderTime),
+          dateOrNull(bet.settleTime),
+          dateOrNull(bet.winLostDate ?? bet.winlostDate),
+          dateOrNull(bet.modifyDate ?? bet.modifiedDate),
+          JSON.stringify(bet),
+        ],
+      )
+      saved += 1
+    } catch (err) {
+      app.log.error({ err, portfolio, refNo }, '[568win-report-sync] save bet failed, skipped')
+    }
   }
-  return bets.length
+  return saved
 }
 
 function collectWin568Games(result: unknown): Record<string, unknown>[] {
