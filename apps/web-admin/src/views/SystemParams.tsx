@@ -218,7 +218,7 @@ export default function SystemParams() {
         </Typography.Paragraph>
       </Card>
 
-      <Card title="老虎机彩金流水闸" bordered={false} style={{ marginTop: 16 }}>
+      <Card title="小注爆高倍流水闸" bordered={false} style={{ marginTop: 16 }}>
         <Alert
           type="info"
           showIcon
@@ -226,12 +226,12 @@ export default function SystemParams() {
           message="怎么生效：两个条件同时满足，才给这笔派彩加流水锁"
           description={(
             <div style={{ fontSize: 13, lineHeight: 1.8 }}>
-              老虎机 feature/免费旋转派彩中，当【单笔派彩 ≥ 最小额】<b>且</b>【派彩 ÷ 触发注 ≥ 倍数阈值】<b>同时</b>满足时，
-              自动给这笔派彩补「派彩额 × 流水倍数」的流水要求，用户打满该流水后才可提现（用于拦「小额存款靠老虎机 bonus 通道爆量套现」）。<br />
+              任何一局派彩中，当【单笔派彩 ≥ 最小额】<b>且</b>【派彩 ÷ 本局投注 ≥ 倍数阈值】<b>同时</b>满足时，
+              自动给这笔派彩补「派彩额 × 流水倍数」的流水要求，用户打满该流水后才可提现（用于拦「小额存款靠老虎机爆量套现」）。<br />
               · <b>派彩倍数阈值</b>（主判据）：抓「小注博大彩」的薅羊毛形状 —— 如下注 5 中 1725 = 345 倍会锁；巨鲸大注低倍（如 500 中 5000 = 10 倍）不锁。<b>调低更严、调高更松。</b><br />
               · <b>单笔派彩最小额</b>（噪音地板）：过滤「倍数高但金额很小」的碎钱，如 0.1 中 20（200 倍但只 20 元）不锁。<br />
               · <b>流水倍数</b>：命中后要打几倍流水才解锁，2 = 派彩额打 2 遍。<br />
-              · 仅对游戏内 feature 派彩（IsGameProviderPromotion=false）生效，平台活动彩金、普通中奖不受影响。改动约 30 秒生效，无需重新部署。
+              · 两条派彩通道都覆盖：feature/免费旋转拆单（PG 等）与普通结算中奖（JILI/CQ9 等）。仅平台活动彩金（IsGameProviderPromotion=true）不受影响；派彩被冲正/取消时锁自动作废。改动约 30 秒生效，无需重新部署。
             </div>
           )}
         />
