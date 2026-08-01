@@ -7,17 +7,50 @@
 
 ## 0. 结论先行
 
-**现在不要做分表，也不要做分区。** 60 万行对 MySQL 8 单表是"小表"级别：
-按当前列宽估算 `bg_bet_order` 约 180MB 数据 + 150MB 索引，`bg_wallet_ledger` 约 250MB + 200MB，
-生产 buffer pool 8G（`deploy/single-node/env-aws-16g.sh`），整张表连同索引全在内存里。
+**现在不要做分表，也不要做分区。** 60 万行对 MySQL 8 单表是"小表"级别，
+生产 buffer pool 8G（`deploy/single-node/env-aws-16g.sh`）装得下全部热表。
 此时上分区/分表，收益是 0，成本是唯一键约束退化 + 全部资金查询代码改造 —— 纯亏。
 
-真正该现在做的是 **P0 索引与聚合口径修复**（见第 4 节），那才是当前慢查询的来源。
-分表方案按阈值触发，提前把设计和迁移脚本准备好，到点直接执行。
+**但真正的约束不是行数，是磁盘。** 2026-08-01 生产实测（第 1 节）：
+全库 10 天涨了约 2.9GB，日增约 290MB，根分区剩余 58GB —— **约 6~7 个月写满**。
+其中 `bg_568win_report_bet` 一张表就占 2GB（日增约 200MB），是全库增量的 70%。
+
+优先级因此调整为：**P0 索引（已完成）→ 立刻处理 `bg_568win_report_bet` 的 JSON 膨胀
+→ 再谈归档/分区**。按行数触发的分表阈值排在磁盘问题之后。
 
 ---
 
-## 1. 表分级
+## 1. 生产实测数据（2026-08-01）
+
+主机 13.213.107.231，MySQL 8.0.46，根分区 96G / 已用 39G / 剩余 58G，buffer pool 8G。
+`bg_bet_order` 最早一行是 2026-07-22 —— **下面所有体量都只是 10 天累积出来的**。
+
+| 表 | 行数 | 数据 MB | 索引 MB | 合计 MB | 日增行 |
+|---|---:|---:|---:|---:|---:|
+| `bg_568win_report_bet` | 341,728 | 2024 | 41 | **2065** | ~5 万 |
+| `bg_568win_wallet_txn` | 318,168 | 193 | 107 | 300 | ~5 万 |
+| `bg_wallet_ledger` | 632,767 | 103 | 160 | 263 | **~10 万** |
+| `bg_bet_order` | 603,318 | 108 | 139 | 247 | **~10 万** |
+| `bg_bet_round` | 240,872 | 43 | 47 | 89 | ~4 万 |
+| `bg_bet_round_bak_20260731` | 224,225 | 44 | 0 | 44 | 残留备份，可删 |
+| `bg_turnover_logs` | 162,505 | 15 | 12 | 27 | ~3 万 |
+
+推算（按当前增速线性外推）：
+
+| 里程碑 | 到达时间 |
+|---|---|
+| `bg_bet_order` / `bg_wallet_ledger` 到 500 万行 | 约 50 天 |
+| 同上到 2000 万行 | 约 7 个月 |
+| **根分区写满（日增 290MB / 剩 58GB）** | **约 6~7 个月** |
+
+另外两项生产现状：
+- `performance_schema` = OFF，`slow_query_log` = OFF —— 目前**没有任何查询耗时观测能力**，
+  出问题只能靠事后 EXPLAIN 猜。`slow_query_log` 是动态变量，可热开不重启。
+- `bg_bet_round_bak_20260731` 是 55e087f/6406c67 那次 bonus 回填留下的备份表，占 44MB，确认后可删。
+
+---
+
+## 2. 表分级
 
 按"增长驱动因素"分四类，只有第 1 类需要拆：
 
@@ -47,7 +80,7 @@
 
 ---
 
-## 2. 拆分策略：为什么"归档"优于"原生分区"
+## 3. 拆分策略：为什么"归档"优于"原生分区"
 
 MySQL 原生分区有一条硬约束：**分区键必须包含在每一个唯一键（含主键）里**。
 类 A 的表全都栽在这条上，而且代价是资金安全：
@@ -74,23 +107,26 @@ MySQL 原生分区有一条硬约束：**分区键必须包含在每一个唯一
 
 ---
 
-## 3. 阶段路线与触发阈值
+## 4. 阶段路线与触发阈值
 
-| 阶段 | 触发条件 | 动作 |
-|---|---|---|
-| **P0（立即）** | 现在 | 补索引、把时间窗全表聚合改走 `bi_daily_*`、类 C 表定时清理 |
-| **P1** | 单表 ≥ **500 万行** 或 (data+index) ≥ **5GB** | 类 B 上 RANGE 月分区 + 过期 DROP；`bg_568win_report_bet` 的 JSON 列先降冷 |
-| **P2** | 单表 ≥ **2000 万行** | 类 A 启动归档，热表按第 4 节保留期滚动 |
-| **P3** | 单表 ≥ **1 亿行** 或 单机写入/IOPS 触顶 | 才考虑真正的分库分表（第 6 节），此前一律不上 |
+时间列按第 1 节的实测增速外推，不是拍脑袋估的。
 
-按现有 60 万行的规模，P2 距离约 2~3 年（按日均 1~3 万行估）。
-`bg_568win_report_bet` 因为带 JSON，可能先触发 P1 的 5GB 条件——它是第一个要动的表。
+| 阶段 | 触发条件 | 预计到达 | 动作 |
+|---|---|---|---|
+| **P0** | 现在 | — | ✅ 补 `bg_bet_order.idx_created`（191）；待办：时间窗聚合改走 `bi_daily_*`、类 C 定时清理、开慢查询日志 |
+| **P1** | 磁盘剩余 < 40GB | **约 2 个月** | `bg_568win_report_bet` JSON 降冷（单表就是全库增量的 70%）；删 `bg_bet_round_bak_20260731` |
+| **P2** | 单表 ≥ 2000 万行 | **约 7 个月** | 类 A 启动归档，热表按第 5 节保留期滚动；类 B 上 RANGE 月分区 |
+| **P3** | 单表 ≥ 1 亿行 或 单机写入/IOPS 触顶 | 约 2.5 年 | 才考虑真正的分库分表（第 7 节），此前一律不上 |
+
+P1 的触发条件从"行数"改成了"磁盘"——因为按实测，磁盘会比行数先到红线。
+若磁盘先扩容（EBS 在线扩容，无停机），P1 可整体后移，但 `bg_568win_report_bet` 的
+JSON 降冷仍然该做：2GB 里绝大部分是对账用不到的原文。
 
 ---
 
-## 4. P0：现在就该做的（不涉及分表）
+## 5. P0：现在就该做的（不涉及分表）
 
-### 4.1 缺失索引
+### 5.1 缺失索引（已完成，迁移 191）
 `bg_bet_order` **没有 `created_at` 单列索引**（`158_bi_user_daily.sql` 给 `bg_login_log`、
 `bg_wallet_ledger`、`bg_deposit_order`、`bg_withdraw_order`、`bg_568win_wallet_txn` 都补了，唯独漏了它）。
 而以下查询全是按纯时间窗扫全表：
@@ -98,34 +134,58 @@ MySQL 原生分区有一条硬约束：**分区键必须包含在每一个唯一
 - 亏损返水的 `EXISTS` 子查询：`bb.user_id = bo.user_id AND bb.round_id = bo.round_id`
 - `bi-aggregate.service.ts` 日聚合
 
-建议（新迁移文件，幂等写法参照 158）：
-```sql
-CREATE INDEX idx_created        ON bg_bet_order (created_at);
-CREATE INDEX idx_created_type   ON bg_bet_order (created_at, bet_type, status);
-CREATE INDEX idx_settled        ON bg_bet_order (settled_at);   -- cd1f81c 已把派彩按 settled_at 归期
-```
-上线前用 `EXPLAIN` 逐条验证，别盲目加——每个索引都会拖慢回调写入。
+生产 EXPLAIN 实证（加索引前）：`type=ALL`、`possible_keys=NULL`、`rows=601337`，
+实测每日返水聚合 0.23s。按日增 10 万行外推，3 个月后同一条查询要 10s 以上。
 
-### 4.2 把历史聚合从原表移走
+已落地 `191_bet_order_created_index.sql`：
+```sql
+CREATE INDEX `idx_created` ON `bg_bet_order` (`created_at`) ALGORITHM=INPLACE LOCK=NONE;
+```
+测试环境验证：`type: ALL` → `type: range`，`key: idx_created`。
+
+**只加了这一个**，另外两个候选经核对后否掉：
+- `(created_at, bet_type, status)`：返水查询 `GROUP BY user_id` 覆盖不到，不解决问题；
+- `(settled_at)`：`withdraw-review.service.ts:613` 那条按 `settled_at` 归期的查询
+  是 `WHERE user_id = ? AND status='settled'`，走 `idx_user_created` 前缀即可。
+
+注单表日写入 10 万行，每多一个索引都是常态写放大，不加没用的。
+
+### 5.2 把历史聚合从原表移走
 `bi_daily_user` / `bi_daily_platform` 已经存在，方向是对的。凡是查询窗口 > 当日的聚合
 （代理 GGR、返水统计、BI 报表、`agent.routes.ts` 里那个对每个用户跑两个标量子查询的分页），
 一律改读 `bi_daily_*`。只有"当日实时"才允许打原表。
 这一步做完，类 A 表的读压力基本清零，P2 会被推后很久。
 
-### 4.3 类 C 清理
+**另有一处同类问题**：`rebate.service.ts` 有三处（约 409 / 573 / 652 行）在跑
+`SELECT user_id, currency, SUM(effective_amount) FROM bg_turnover_logs WHERE is_reversed = 0 GROUP BY user_id, currency`
+—— 无时间下界的**全表** GROUP BY。而 `151_turnover_total_accumulator.sql` 已经为此
+在 `bg_user_vip_state` 加了 `turnover_total` 累加列（写侧事务内增量维护），
+只是这三处批处理路径没跟着改。该表日增约 3 万行，现在 16 万行还看不出来，
+半年后是 500 万行的全表扫。
+
+### 5.3 类 C 清理
 - `bg_idempotency`：定时 `DELETE FROM bg_idempotency WHERE expires_at < NOW() - INTERVAL 7 DAY LIMIT 5000` 循环
 - `bg_session`：Redis 已在用，MySQL 这张表若无实际读路径应废弃；否则按 `expires_at` 定时清
 
-### 4.4 后台分页 `COUNT(*)`
+### 5.4 后台分页 `COUNT(*)`
 `admin/bet-orders.routes.ts`、`admin/ledger.routes.ts` 每次分页都跑一次全条件 `COUNT(*)`。
 数据量再大一个量级后这会是最先卡死的地方。改法：只在第 1 页算总数并缓存，或改为
 "是否有下一页"（`LIMIT pageSize+1`）。
 
+### 5.5 打开查询观测
+生产 `performance_schema` 和 `slow_query_log` 全是 OFF，等于没有任何慢查询证据链。
+`slow_query_log` 是动态变量，热开不重启：
+```sql
+SET GLOBAL slow_query_log = 1;
+SET GLOBAL long_query_time = 1;
+```
+（`performance_schema` 需重启才能开，且吃内存，可以先不动。）
+
 ---
 
-## 5. P1/P2 明细方案
+## 6. P1/P2 明细方案
 
-### 5.1 类 B：RANGE 月分区（P1）
+### 6.1 类 B：RANGE 月分区（P2）
 
 统一模板（以 `bg_login_log` 为例）：
 ```sql
@@ -150,7 +210,7 @@ ALTER TABLE bg_login_log
 | `bg_spin_record` / `bg_checkin_log` | `created_at` | 24 个月 | 涉及奖品发放，保守些 |
 | `tg_broadcast_fail` | `created_at` | 3 个月 | |
 
-### 5.2 `bg_568win_report_bet`（P1，优先级最高）
+### 6.2 `bg_568win_report_bet`（P1，优先级最高）
 
 这张表存了上游注单的完整 JSON 原文，行宽是其他表的 10 倍以上。
 两步走，**不用分区**：
@@ -158,7 +218,7 @@ ALTER TABLE bg_login_log
    （对账只需要结构化列；原文若有留存要求，先落对象存储/日志归档）
 2. 仍然过大则整行归档到 `bg_568win_report_bet_archive`，按 `order_time` 切。
 
-### 5.3 类 A：冷热归档（P2）
+### 6.3 类 A：冷热归档（P2）
 
 | 表 | 归档键 | 热表保留 | 归档表 |
 |---|---|---|---|
@@ -201,37 +261,29 @@ ALTER TABLE bg_bet_order_archive
 
 ---
 
-## 6. P3：真分库分表（目前不要做）
+## 7. P3：真分库分表（目前不要做）
 
 只有单机彻底扛不住才走这一步，届时：
 - **分片键：`user_id`**。业务查询 95% 带 `user_id`（`bg_user.id` 是 `BG-xxxxx` 序列，见 `150_user_id_seq.sql`，取数字部分 `% N` 即可均匀）。
 - 类 A 全部按 `user_id` 分片，`bg_user`/`bg_wallet`/`bg_user_*` 同片（同一用户的资金操作必须在单库内完成事务）。
 - 配置/字典表做**广播表**（每个分片一份）。
-- 后台与 BI 的全局时间窗查询**不允许打分片**，只能读 `bi_daily_*`（所以第 4.2 步是 P3 的前置条件）。
+- 后台与 BI 的全局时间窗查询**不允许打分片**，只能读 `bi_daily_*`（所以第 5.2 步是 P3 的前置条件）。
 - 中间件选型：ShardingSphere-Proxy（对 `mysql2` 完全透明，Koa 侧零改动）优先于应用层路由。
 - 前置代价：跨分片事务、`ORDER BY id DESC` 全局分页、`COUNT(*)` 全部要重写，工作量以月计。
 
 ---
 
-## 7. 需要先采集的数据（生产只读，建议你本人执行）
+## 8. 待办清单
 
-方案里的阈值需要真实数据校准，请在生产跑以下只读 SQL 并回贴结果：
+已完成：
+- [x] `bg_bet_order.idx_created`（迁移 191，已上测试环境验证 `type: ALL` → `range`）
 
-```sql
--- 各表体量排行
-SELECT TABLE_NAME, TABLE_ROWS,
-       ROUND(DATA_LENGTH/1048576)  AS data_mb,
-       ROUND(INDEX_LENGTH/1048576) AS idx_mb,
-       ROUND((DATA_LENGTH+INDEX_LENGTH)/1048576) AS total_mb
-FROM information_schema.TABLES
-WHERE TABLE_SCHEMA='betogo'
-ORDER BY DATA_LENGTH+INDEX_LENGTH DESC LIMIT 30;
-
--- 近 30 天日增速（注单 / 账变 / 上游报表）
-SELECT DATE(created_at) d, COUNT(*) n FROM bg_bet_order
- WHERE created_at >= NOW() - INTERVAL 30 DAY GROUP BY d ORDER BY d;
-SELECT DATE(created_at) d, COUNT(*) n FROM bg_wallet_ledger
- WHERE created_at >= NOW() - INTERVAL 30 DAY GROUP BY d ORDER BY d;
-```
-
-有了日增速才能把第 3 节的阈值换算成具体日期。
+按优先级排队（均需单独授权后执行）：
+- [ ] **生产执行迁移 191**（在线 DDL，`LOCK=NONE`，247MB 表预计秒级）
+- [ ] 打开生产 `slow_query_log`（第 5.5 节，动态变量，热开不重启）
+- [ ] 删 `bg_bet_round_bak_20260731`（44MB 残留备份）
+- [ ] `bg_568win_report_bet` JSON 降冷（第 6.2 节）—— **磁盘红线的主因，约 2 个月内必须动**
+- [ ] `rebate.service.ts` 三处 `bg_turnover_logs` 全表 GROUP BY 改走 `bg_user_vip_state.turnover_total`（第 5.2 节）
+- [ ] 窗口 > 当日的聚合改读 `bi_daily_*`（第 5.2 节，同时是 P3 的前置条件）
+- [ ] 后台分页 `COUNT(*)` 改造（第 5.4 节）
+- [ ] 类 C 表定时清理（第 5.3 节）
