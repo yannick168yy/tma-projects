@@ -88,7 +88,7 @@ export default function UserLogs({ userId }: Props) {
   const navigate = useNavigate()
   const lookup = (field: 'ip' | 'deviceId' | 'fpVisitor', v: string | null) =>
     v ? <Button type="link" size="small" style={{ padding: 0 }} onClick={() => navigate(`/device-lookup?field=${field}&value=${encodeURIComponent(v)}`)}>{v}</Button> : '-'
-  const [activeTab, setActiveTab] = useState('ledger')
+  const [activeTab, setActiveTab] = useState('login')
   const ledger = usePaged(useCallback((p: number, ps: number) => getUserLedgerPage(userId, { page: p, pageSize: ps }), [userId]), activeTab === 'ledger')
   const logins = usePaged(useCallback((p: number, ps: number) => getUserLoginLogsPage(userId, { page: p, pageSize: ps }), [userId]), activeTab === 'login')
   const bets = usePaged(useCallback((p: number, ps: number) => getUserBetOrdersPage(userId, { page: p, pageSize: ps }), [userId]), activeTab === 'bets')
@@ -291,26 +291,7 @@ export default function UserLogs({ userId }: Props) {
         activeKey={activeTab}
         onChange={(key) => { setActiveTab(key); if (key === 'turnover' && !turnover) void loadTurnover() }}
         items={[
-          { key: 'ledger', label: `账变记录${ledger.total ? ` (${ledger.total})` : ''}`, children: <Table columns={ledgerCols} dataSource={ledger.items as object[]} rowKey="id" loading={ledger.loading} pagination={ledger.pagination} size="small" /> },
           { key: 'login', label: `登录记录${logins.total ? ` (${logins.total})` : ''}`, children: <Table columns={loginCols} dataSource={logins.items} rowKey="id" loading={logins.loading} pagination={logins.pagination} size="small" /> },
-          { key: 'bets', label: `游戏记录${bets.total ? ` (${bets.total})` : ''}`, children: <Table columns={betCols} dataSource={bets.items} rowKey={(r) => `${r.roundId}_${r.currencyCode}`} loading={bets.loading} pagination={bets.pagination} size="small" /> },
-          { key: 'promo', label: `优惠领取记录${promos.total ? ` (${promos.total})` : ''}`, children: <Table columns={promoCols} dataSource={promos.items} rowKey="id" loading={promos.loading} pagination={promos.pagination} size="small" /> },
-          {
-            key: 'task', label: `任务领取${taskClaims.total ? ` (${taskClaims.total})` : ''}`,
-            children: <Table columns={taskCols} dataSource={taskClaims.items as UserTaskClaimRecord[]} rowKey="id" loading={taskClaims.loading} pagination={taskClaims.pagination} size="small" scroll={{ x: 'max-content' }} />,
-          },
-          {
-            key: 'checkin', label: `签到记录${checkins.total ? ` (${checkins.total})` : ''}`,
-            children: <Table columns={checkinCols} dataSource={checkins.items as UserCheckinRecord[]} rowKey="date" loading={checkins.loading} pagination={checkins.pagination} size="small" scroll={{ x: 'max-content' }} />,
-          },
-          {
-            key: 'rebate', label: `洗码派发记录${rebates.total ? ` (${rebates.total})` : ''}`,
-            children: <Table columns={rebateCols} dataSource={rebates.items as RebateRecord[]} rowKey="id" loading={rebates.loading} pagination={rebates.pagination} size="small" scroll={{ x: 'max-content' }} />,
-          },
-          {
-            key: 'vip', label: `VIP 礼金记录${vipRewards.total ? ` (${vipRewards.total})` : ''}`,
-            children: <Table columns={vipRewardCols} dataSource={vipRewards.items as VipRewardRecord[]} rowKey="id" loading={vipRewards.loading} pagination={vipRewards.pagination} size="small" scroll={{ x: 'max-content' }} />,
-          },
           {
             key: 'turnover', label: '流水记录',
             children: (
@@ -330,6 +311,25 @@ export default function UserLogs({ userId }: Props) {
                 {!turnover && !turnoverLoading && <Typography.Text type="secondary">点击「流水记录」Tab 加载数据</Typography.Text>}
               </Spin>
             ),
+          },
+          { key: 'bets', label: `游戏记录${bets.total ? ` (${bets.total})` : ''}`, children: <Table columns={betCols} dataSource={bets.items} rowKey={(r) => `${r.roundId}_${r.currencyCode}`} loading={bets.loading} pagination={bets.pagination} size="small" /> },
+          { key: 'promo', label: `优惠领取记录${promos.total ? ` (${promos.total})` : ''}`, children: <Table columns={promoCols} dataSource={promos.items} rowKey="id" loading={promos.loading} pagination={promos.pagination} size="small" /> },
+          {
+            key: 'rebate', label: `洗码派发记录${rebates.total ? ` (${rebates.total})` : ''}`,
+            children: <Table columns={rebateCols} dataSource={rebates.items as RebateRecord[]} rowKey="id" loading={rebates.loading} pagination={rebates.pagination} size="small" scroll={{ x: 'max-content' }} />,
+          },
+          {
+            key: 'vip', label: `VIP 礼金记录${vipRewards.total ? ` (${vipRewards.total})` : ''}`,
+            children: <Table columns={vipRewardCols} dataSource={vipRewards.items as VipRewardRecord[]} rowKey="id" loading={vipRewards.loading} pagination={vipRewards.pagination} size="small" scroll={{ x: 'max-content' }} />,
+          },
+          { key: 'ledger', label: `账变记录${ledger.total ? ` (${ledger.total})` : ''}`, children: <Table columns={ledgerCols} dataSource={ledger.items as object[]} rowKey="id" loading={ledger.loading} pagination={ledger.pagination} size="small" /> },
+          {
+            key: 'task', label: `任务领取${taskClaims.total ? ` (${taskClaims.total})` : ''}`,
+            children: <Table columns={taskCols} dataSource={taskClaims.items as UserTaskClaimRecord[]} rowKey="id" loading={taskClaims.loading} pagination={taskClaims.pagination} size="small" scroll={{ x: 'max-content' }} />,
+          },
+          {
+            key: 'checkin', label: `签到记录${checkins.total ? ` (${checkins.total})` : ''}`,
+            children: <Table columns={checkinCols} dataSource={checkins.items as UserCheckinRecord[]} rowKey="date" loading={checkins.loading} pagination={checkins.pagination} size="small" scroll={{ x: 'max-content' }} />,
           },
         ]}
       />
