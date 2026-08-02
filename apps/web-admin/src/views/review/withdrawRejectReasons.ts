@@ -89,7 +89,7 @@ export const WITHDRAW_USER_REJECT_REASON_OPTIONS = [
   },
   {
     label: '同名账号：实名信息需核验',
-    value: 'Your withdrawal account details require additional identity verification. Please contact support.',
+    value: 'The name on your withdrawal account matches another registered account. Please contact support to verify your identity.',
   },
 ]
 
