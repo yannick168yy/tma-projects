@@ -22,6 +22,7 @@ export const USER_WITHDRAW_REJECT_REASONS = [
   'Your recent bonus activity requires additional verification before withdrawal. Please contact support.',
   'Your cancelled bet records require additional verification before withdrawal. Please contact support.',
   'Your withdrawal request did not pass account security review. Please contact support.',
+  'Your withdrawal account details require additional identity verification. Please contact support.',
 ] as const
 
 type UserReason = typeof USER_WITHDRAW_REJECT_REASONS[number]
@@ -40,7 +41,7 @@ const RULE_RECOMMENDED_USER_REASON: Record<string, UserReason> = {
   kyc_name_mismatch: 'Withdrawal account information does not match your verified details.',
   withdraw_account_reuse: 'This withdrawal account is already linked to another account.',
   withdraw_owner_reuse: 'Withdrawal account information does not match your verified details.',
-  same_name_review: 'Your account relationship information requires additional verification before withdrawal. Please contact support.',
+  same_name_review: 'Your withdrawal account details require additional identity verification. Please contact support.',
   fast_withdraw_after_kyc: 'This withdrawal amount requires additional review. Please contact support for assistance.',
   total_bonus: 'Your reward records require additional verification before withdrawal. Please contact support.',
   bonus_bet_abuse: 'Your recent bonus activity requires additional verification before withdrawal. Please contact support.',

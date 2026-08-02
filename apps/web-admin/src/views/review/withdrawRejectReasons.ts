@@ -87,6 +87,10 @@ export const WITHDRAW_USER_REJECT_REASON_OPTIONS = [
     label: '风控命中：账户安全审核未通过',
     value: 'Your withdrawal request did not pass account security review. Please contact support.',
   },
+  {
+    label: '同名账号：实名信息需核验',
+    value: 'Your withdrawal account details require additional identity verification. Please contact support.',
+  },
 ]
 
 export const DEFAULT_WITHDRAW_USER_REJECT_REASON = WITHDRAW_USER_REJECT_REASON_OPTIONS[0].value
