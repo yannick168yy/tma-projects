@@ -7,6 +7,7 @@ import PayMethodGrid from '@/components/wallet/PayMethodGrid'
 import { createDeposit } from '@/api/deposit'
 import { ApiError, isTelegramWebApp } from '@/api/client'
 import { translateApiError } from '@/utils/translateApiError'
+import { formatWithdrawRejectReason } from '@/utils/withdrawRejectReason'
 import { useWalletStore, formatBalanceWithCode } from '@/stores/wallet'
 import { openTelegramInvoice, waitForDepositPaid } from '@/utils/tgInvoice'
 import { fetchYfDepositOrders, fetchYfWithdrawOrders, fetchDepositHistory, fetchWithdrawHistory } from '@/api/yfpay'
@@ -1094,7 +1095,7 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
                         </button>
                       </div>
                       {isPendingDeposit&&<p className="pl-12 text-[10px] font-semibold leading-snug text-amber-300/85">{pendingStale?t('wallet.depositPendingStale'):t('wallet.depositProcessing')}</p>}
-                      {tx.rejectReason&&<p className="pl-12 text-[10px] font-semibold leading-snug text-red-400/90">{tx.rejectReason}</p>}
+                      {tx.rejectReason&&<p className="pl-12 text-[10px] font-semibold leading-snug text-red-400/90">{formatWithdrawRejectReason(tx.rejectReason, t)}</p>}
                     </div>
                   )
                 })}
