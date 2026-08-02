@@ -1,4 +1,6 @@
+import type { RowDataPacket } from 'mysql2/promise'
 import type { Env } from '../config/env.js'
+import { getMysqlPool } from '../clients/mysql.client.js'
 import { getGamesFromCache, type DbGame } from './sg-game.service.js'
 
 export interface BetRecord {
@@ -14,43 +16,18 @@ export interface BetRecord {
 
 // ── 内存缓存 ────────────────────────────────────────────────────────────────
 
-let latestPool: BetRecord[] = []
+let latestBets: BetRecord[] = []
 let weekTop: BetRecord[] = []
 let monthTop: BetRecord[] = []
 
-// ── 工具函数 ────────────────────────────────────────────────────────────────
-
-function randInt(min: number, max: number): number {
-  return Math.floor(Math.random() * (max - min + 1)) + min
-}
-
-function randStep(min: number, max: number, step: number): number {
-  return randInt(Math.ceil(min / step), Math.floor(max / step)) * step
-}
-
-function latestBetAmount(min: number, max: number, step: number): number {
-  if (Math.random() < 0.84) return randStep(min, max, step)
-  return randInt(min, max)
-}
-
-function skewedBetAmount(): number {
-  const r = Math.random()
-  if (r < 0.08) return randInt(1, 9)
-  if (r < 0.60) return latestBetAmount(10, 99, 10)
-  if (r < 0.80) return latestBetAmount(100, 499, 50)
-  if (r < 0.90) return latestBetAmount(500, 1499, 100)
-  if (r < 0.97) return latestBetAmount(1500, 3000, 100)
-  return latestBetAmount(3001, 9999, 500)
-}
-
-function shuffle<T>(arr: T[]): T[] {
-  const a = [...arr]
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = randInt(0, i)
-    ;[a[i], a[j]] = [a[j], a[i]]
-  }
-  return a
-}
+// Latest 展示门槛：₱5 起显示（87% 注单是 ₱5 以下的最小额 spin，全放会滚一屏 ₱1）。
+// 不足 50 条时降档门槛兜底，绝不造假数据。
+const LATEST_MIN_AMOUNT = 5
+const LATEST_FALLBACK_AMOUNTS = [1, 0]
+// 主键倒序最多回看 2000 行，锁死扫描成本（生产日增约 10 万行注单）
+const LATEST_SCAN_LIMIT = 2000
+const LATEST_SHOW = 50
+const RANK_TOP_N = 10
 
 function toRecord(g: DbGame, betAmount: number): BetRecord {
   return {
@@ -65,96 +42,82 @@ function toRecord(g: DbGame, betAmount: number): BetRecord {
   }
 }
 
-function gameWeightScore(g: DbGame): number {
-  return Math.max(1, g.weight * (g.isFeatured ? 1.5 : 1))
+function gamesByUuid(games: DbGame[]): Map<string, DbGame> {
+  return new Map(games.map((g) => [g.uuid, g]))
 }
 
-// 去整：把金额抹成带零头的非整数（真实投注不会恰好是 2,000,000）。
-// 精确到 1 元；若碰巧落在整千上，补一个 13~987 的随机零头。
-function deround(v: number): number {
-  const n = Math.round(v)
-  return n % 1000 === 0 ? n + randInt(13, 987) : n
-}
-
-// 加权随机选 n 款不重复游戏（权重 = weight × isFeatured ? 1.5 : 1）
-function weightedPick(games: DbGame[], n: number): DbGame[] {
-  if (games.length <= n) return [...games]
-  const scores = games.map(gameWeightScore)
-  const result: DbGame[] = []
-  const used = new Set<number>()
-  const totalRounds = Math.min(n, games.length)
-  for (let round = 0; round < totalRounds; round++) {
-    const total = scores.reduce((s, v, i) => (used.has(i) ? s : s + v), 0)
-    let r = Math.random() * total
-    for (let i = 0; i < games.length; i++) {
-      if (used.has(i)) continue
-      r -= scores[i]
-      if (r <= 0) {
-        used.add(i)
-        result.push(games[i])
-        break
-      }
-    }
-  }
-  return result
-}
-
-// 榜单入池：精选(isFeatured)爆款优先，不足 10 款再用权重最高的非精选游戏补齐。
-// 避免从全库加权随机抽——那样会混进大量无名气的长尾游戏，榜单显得没热度。
-function topGamePool(games: DbGame[], n: number): DbGame[] {
-  const featured = games.filter((g) => g.isFeatured)
-  if (featured.length >= n) return featured
-  const backfill = games
-    .filter((g) => !g.isFeatured)
-    .sort((a, b) => gameWeightScore(b) - gameWeightScore(a))
-    .slice(0, n - featured.length)
-  return [...featured, ...backfill]
-}
-
-const WEEK_MIN = 60_000
-const WEEK_MAX = 520_000
-
-// 周榜/月榜关联生成：同一批精选游戏，每款先算一个周投注额，月额 = 周额 × 各款独立的
-// 3.6~4.8 倍（月累计），因此两榜游戏一致、量级关联，但倍数不同使名次略有变化。
-// 金额按 权重分 + 每款独立热度系数 分布，不 clamp 到固定上限，避免多款撞同一整数。
-function buildRankTops(games: DbGame[]): { week: BetRecord[]; month: BetRecord[] } {
-  const picked = weightedPick(topGamePool(games, 10), 10)
-  const maxScore = Math.max(...picked.map(gameWeightScore), 1)
-  const rows = picked.map((g) => {
-    const ratio = Math.pow(gameWeightScore(g) / maxScore, 0.55)
-    const heat = 0.80 + Math.random() * 0.4 // 每款独立热度，拉开彼此金额、避免撞顶
-    const week = deround(WEEK_MIN + (WEEK_MAX - WEEK_MIN) * ratio * heat)
-    const month = deround(week * (3.6 + Math.random() * 1.2))
-    return { g, week, month }
-  })
-  return {
-    week: rows.map((r) => toRecord(r.g, r.week)).sort((a, b) => b.betAmount - a.betAmount),
-    month: rows.map((r) => toRecord(r.g, r.month)).sort((a, b) => b.betAmount - a.betAmount),
-  }
+// bi_daily_game 的 stat_date 是马尼拉日；窗口边界也按马尼拉时区算
+function manilaDate(daysAgo: number): string {
+  const d = new Date(Date.now() + 8 * 3600 * 1000 - daysAgo * 24 * 3600 * 1000)
+  return d.toISOString().slice(0, 10)
 }
 
 // ── 刷新函数 ────────────────────────────────────────────────────────────────
 
+// Latest：bg_568win_wallet_txn 最近真实注单，₱5 起显示，同游戏同金额相邻去重
 export async function refreshLatestPool(env: Env): Promise<void> {
   const games = await getGamesFromCache(env)
   if (games.length === 0) return
-  const pool: BetRecord[] = []
-  for (let i = 0; i < 300; i++) {
-    const g = games[randInt(0, games.length - 1)]
-    pool.push(toRecord(g, skewedBetAmount()))
+  const byUuid = gamesByUuid(games)
+  const [rows] = await getMysqlPool(env).query<RowDataPacket[]>(
+    `SELECT gpid, provider_id, amount FROM bg_568win_wallet_txn
+     WHERE txn_type='bet' AND voided_at IS NULL AND currency='PHP'
+     ORDER BY id DESC LIMIT ?`,
+    [LATEST_SCAN_LIMIT],
+  )
+  const candidates: { g: DbGame; amount: number }[] = []
+  for (const r of rows) {
+    if (r.gpid == null) continue
+    const g = byUuid.get(`568win:${Number(r.gpid)}:${Number(r.provider_id)}`)
+    if (!g) continue // 映射不到 games 缓存的（下架/体育）不展示，行点击要能启动游戏
+    candidates.push({ g, amount: Number(r.amount) })
   }
-  latestPool = pool
-  console.log('[betting-activity] latest pool refreshed (300 records)')
+  for (const min of [LATEST_MIN_AMOUNT, ...LATEST_FALLBACK_AMOUNTS]) {
+    const picked: BetRecord[] = []
+    for (const c of candidates) {
+      if (c.amount < min) continue
+      const prev = picked[picked.length - 1]
+      if (prev && prev.uuid === c.g.uuid && prev.betAmount === c.amount) continue // 连续 spin 相邻去重
+      picked.push(toRecord(c.g, c.amount))
+      if (picked.length >= LATEST_SHOW) break
+    }
+    if (picked.length >= LATEST_SHOW || min === 0) {
+      latestBets = picked
+      break
+    }
+  }
+  console.log(`[betting-activity] latest refreshed (${latestBets.length} real bets)`)
 }
 
-// 周榜与月榜一起生成以保证关联（同一批游戏、月额≈周额数倍）
+// 周榜/月榜：bi_daily_game 滚动 7/30 天真实投注额 Top10（core-node 每 10 分钟重算当日）。
+// 一条 SQL 同时算两个窗口，月窗口做基础过滤，周金额用条件求和。
 export async function refreshRankTops(env: Env): Promise<void> {
   const games = await getGamesFromCache(env)
   if (games.length === 0) return
-  const { week, month } = buildRankTops(games)
-  weekTop = week
-  monthTop = month
-  console.log('[betting-activity] week/month top refreshed (10+10 records)')
+  const byUuid = gamesByUuid(games)
+  const [rows] = await getMysqlPool(env).query<RowDataPacket[]>(
+    `SELECT game_provider_id gpid, game_id,
+            SUM(CASE WHEN stat_date >= ? THEN bet_amount ELSE 0 END) week_amt,
+            SUM(bet_amount) month_amt
+     FROM bi_daily_game
+     WHERE stat_date >= ? AND currency='PHP' AND game_provider_id <> 0
+     GROUP BY game_provider_id, game_id`,
+    [manilaDate(6), manilaDate(29)],
+  )
+  const mapped = rows.flatMap((r) => {
+    const g = byUuid.get(`568win:${Number(r.gpid)}:${Number(r.game_id)}`)
+    return g ? [{ g, week: Math.round(Number(r.week_amt)), month: Math.round(Number(r.month_amt)) }] : []
+  })
+  weekTop = mapped
+    .filter((r) => r.week > 0)
+    .sort((a, b) => b.week - a.week)
+    .slice(0, RANK_TOP_N)
+    .map((r) => toRecord(r.g, r.week))
+  monthTop = mapped
+    .sort((a, b) => b.month - a.month)
+    .slice(0, RANK_TOP_N)
+    .map((r) => toRecord(r.g, r.month))
+  console.log(`[betting-activity] week/month top refreshed (${weekTop.length}+${monthTop.length} games)`)
 }
 
 // ── 对外查询 ────────────────────────────────────────────────────────────────
@@ -164,7 +127,5 @@ export type BetTab = 'latest' | 'week' | 'month'
 export function getBettingActivity(tab: BetTab): BetRecord[] {
   if (tab === 'week') return weekTop
   if (tab === 'month') return monthTop
-  // latest：从 300 条 pool 中随机取 50 条
-  if (latestPool.length === 0) return []
-  return shuffle(latestPool).slice(0, 50)
+  return latestBets
 }

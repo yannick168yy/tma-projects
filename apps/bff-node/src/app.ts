@@ -235,22 +235,16 @@ export function createApp(env: Env): Koa {
       refreshHomepageSelection(env).catch((err) => log.homepage.error({ err }, 'refresh error'))
     }, 3 * 60 * 60 * 1000)
 
-    // Betting activity 定时刷新
-    // latest: 每 20 分钟
+    // Betting activity 定时刷新（真实数据）
+    // latest: 每 60 秒拉最近真实注单，列表随投注持续滚动更新
     setInterval(() => {
       refreshLatestPool(env).catch((err) => log.betting.error({ err }, 'latest refresh error'))
-    }, 20 * 60 * 1000)
+    }, 60 * 1000)
 
-    // week / month 一起刷新以保持关联（同一批游戏）；每 7 天一次，用每天检查 + 时间戳守卫
-    let rankLastAt = 0
-    const WEEK_MS = 7 * 24 * 60 * 60 * 1000
+    // week / month: 每 30 分钟重算滚动 7/30 天 Top10（bi_daily_game 小表聚合，成本可忽略）
     setInterval(() => {
-      const now = Date.now()
-      if (now - rankLastAt >= WEEK_MS) {
-        rankLastAt = now
-        refreshRankTops(env).catch((err) => log.betting.error({ err }, 'rank refresh error'))
-      }
-    }, 24 * 60 * 60 * 1000)
+      refreshRankTops(env).catch((err) => log.betting.error({ err }, 'rank refresh error'))
+    }, 30 * 60 * 1000)
   }
 
   app.use(errorHandler())
