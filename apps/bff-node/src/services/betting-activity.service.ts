@@ -21,12 +21,13 @@ let weekTop: BetRecord[] = []
 let monthTop: BetRecord[] = []
 
 // Latest 展示门槛：₱5 起显示（87% 注单是 ₱5 以下的最小额 spin，全放会滚一屏 ₱1）。
-// 不足 50 条时降档门槛兜底，绝不造假数据。
+// 玩家常连打几十把相同金额，相邻去重会大幅缩水（生产实测 2000 行→34 条），
+// 因此回看窗口给足 6000 行；去重后够 15 条就坚持门槛，不足才降档兜底，绝不造假数据。
 const LATEST_MIN_AMOUNT = 5
 const LATEST_FALLBACK_AMOUNTS = [1, 0]
-// 主键倒序最多回看 2000 行，锁死扫描成本（生产日增约 10 万行注单）
-const LATEST_SCAN_LIMIT = 2000
+const LATEST_SCAN_LIMIT = 6000
 const LATEST_SHOW = 50
+const LATEST_MIN_KEEP = 15
 const RANK_TOP_N = 10
 
 function toRecord(g: DbGame, betAmount: number): BetRecord {
@@ -81,7 +82,7 @@ export async function refreshLatestPool(env: Env): Promise<void> {
       picked.push(toRecord(c.g, c.amount))
       if (picked.length >= LATEST_SHOW) break
     }
-    if (picked.length >= LATEST_SHOW || min === 0) {
+    if (picked.length >= LATEST_MIN_KEEP || min === 0) {
       latestBets = picked
       break
     }
