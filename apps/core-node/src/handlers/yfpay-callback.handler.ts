@@ -118,7 +118,7 @@ async function handleWithdraw(
     [merchantSerial],
   )
   const order = rows[0]
-  if (!order || order.status === 'completed' || order.status === 'rejected') return
+  if (!order || order.status === 'completed' || order.status === 'rejected' || order.status === 'failed') return
 
   if (state === 1) {
     await db.execute(
@@ -131,9 +131,14 @@ async function handleWithdraw(
     const conn = await db.getConnection()
     try {
       await conn.beginTransaction()
-      // 终态条件防重复退款：只有一个事务能把订单推进到 rejected
+      // 渠道打款失败：置 failed（区别于人工 rejected/admin_rejected）+ 标记已退款 refunded=1，与 Matrix 出款失败口径一致。
+      // 终态条件防重复退款：只有一个事务能把订单从非终态推进到 failed
       const [mark] = await conn.execute<import('mysql2/promise').ResultSetHeader>(
-        `UPDATE bg_withdraw_order SET status='rejected', extra=JSON_SET(COALESCE(extra,'{}'),'$.providerRef',?) WHERE order_id=? AND status NOT IN ('completed','rejected')`,
+        `UPDATE bg_withdraw_order
+           SET status='failed', refunded=1,
+               reject_reason=COALESCE(reject_reason,'渠道打款失败，已自动退款'),
+               extra=JSON_SET(COALESCE(extra,'{}'),'$.providerRef',?)
+         WHERE order_id=? AND status NOT IN ('completed','rejected','failed')`,
         [platformId, merchantSerial],
       )
       if (mark.affectedRows === 0) {
