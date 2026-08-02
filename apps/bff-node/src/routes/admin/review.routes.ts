@@ -1,7 +1,7 @@
 import Router from '@koa/router'
 import { ok, fail } from '../../utils/response.js'
 import { getMysqlPool, isMysqlEnabled } from '../../clients/mysql.client.js'
-import { RULE_META, getReviewLog, getRelatedAccounts, rerunReview } from '../../services/withdraw-review.service.js'
+import { RULE_META, getReviewLog, getRelatedAccounts, rerunReview, findSameNameUsers } from '../../services/withdraw-review.service.js'
 import { rerunTeamWithdrawalReview } from '../../services/team-withdraw-review.service.js'
 import { compareKycNames } from '../../services/kyc.service.js'
 import { writeAuditLog } from '../../services/admin-store.js'
@@ -170,6 +170,7 @@ router.get('/proposals/:orderId', async (ctx) => {
        AND JSON_UNQUOTE(JSON_EXTRACT(extra, '$.targetOwner')) <> ''`,
     [userId, targetOwner],
   )
+  const sameNameUsers = kyc?.full_name ? await findSameNameUsers(pool, userId, String(kyc.full_name)) : []
 
   const snapshot = w.review_snapshot
     ? (typeof w.review_snapshot === 'string' ? JSON.parse(w.review_snapshot) : w.review_snapshot)
@@ -218,6 +219,8 @@ router.get('/proposals/:orderId', async (ctx) => {
       withdrawAccountOtherUsers: accountReuse?.users ? String(accountReuse.users).split(',') : [],
       withdrawOwnerOtherUserCount: targetOwner ? Number(ownerReuse?.cnt ?? 0) : 0,
       withdrawOwnerOtherUsers: ownerReuse?.users ? String(ownerReuse.users).split(',') : [],
+      sameNameOtherUserCount: sameNameUsers.length,
+      sameNameOtherUsers: sameNameUsers,
     },
     snapshot,
     rules,

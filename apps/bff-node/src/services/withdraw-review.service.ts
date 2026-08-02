@@ -60,6 +60,8 @@ interface ReviewContext {
   targetAccount: string
   withdrawAccountOtherUsers: number
   withdrawOwnerOtherUsers: number
+  /** 与本人 KYC 实名模糊同名的其他 approved 账号 userId 列表（same_name_review 用） */
+  sameNameOtherUsers: string[]
   minutesSinceKycApproved: number | null
   /** 未完成的优惠流水（required-completed，PHP 分） */
   promoTurnoverRemaining: number
@@ -107,6 +109,7 @@ export const RULE_META: Record<string, { name: string; desc: string }> = {
   kyc_name_mismatch:        { name: '实名户名不一致', desc: '提现户名与 KYC 实名姓名不完全一致时转人工；匹配算法会忽略大小写、标点、多余空格，并识别中间名缩写/姓名顺序差异。' },
   withdraw_account_reuse:   { name: '提现账号复用', desc: '同一提现账号被其它用户使用过，达到阈值即转人工。默认 1 个其它用户。' },
   withdraw_owner_reuse:     { name: '提现户名复用', desc: '同一提现户名被多个其它用户使用过，达到阈值即转人工。默认 2 个其它用户。' },
+  same_name_review:         { name: '同名账号', desc: '本人 KYC 实名与其它已通过 KYC 的账号做模糊比对（忽略大小写/标点/中间名缩写/姓名顺序/多空格），命中同名的其它账号数 ≥ 阈值即转人工，用于抓一人多开或团伙用同一实名。默认 1 个。' },
   fast_withdraw_after_kyc:  { name: 'KYC后快速提现', desc: 'KYC 通过后短时间内立即提现，达到配置分钟阈值内则转人工。默认 10 分钟。' },
   promo_turnover:           { name: '优惠流水', desc: '存在已领取但尚未打完所需流水的优惠（剩余打码 > 0）则转人工。' },
   tampered_bet:             { name: '篡改注单', desc: '存在无对应投注却凭空派彩的 round，疑似数据被篡改，转人工。' },
@@ -426,6 +429,19 @@ const RULES: Record<string, Rule> = {
     }
   },
 
+  same_name_review(ctx, cfg) {
+    const threshold = Number(cfg.threshold ?? 1)
+    if (!ctx.kycFullName || threshold <= 0) return { code: 'same_name_review', verdict: 'pass' }
+    const count = ctx.sameNameOtherUsers.length
+    return {
+      code: 'same_name_review',
+      verdict: count >= threshold ? 'manual' : 'pass',
+      actualValue: count,
+      threshold,
+      detail: { matchedUserIds: ctx.sameNameOtherUsers },
+    }
+  },
+
   fast_withdraw_after_kyc(ctx, cfg) {
     const threshold = Number(cfg.threshold ?? 10)
     if (ctx.minutesSinceKycApproved == null || threshold <= 0) {
@@ -563,6 +579,23 @@ export async function loadReviewConfig(pool: Pool, scope: ReviewScope = 'user'):
   return out
 }
 
+// 与本人 KYC 实名模糊同名的其它 approved 账号。模糊比对是 JS 算法(compareKycNames)无法 SQL 化,
+// 只能拉全量 approved 实名在内存逐条比。approved 规模变大成为瓶颈时,再加姓名 token 索引表缩候选。
+// 审核时(buildContext)与提案详情展示(admin/review.routes)共用,保证判定口径单一来源。
+export async function findSameNameUsers(pool: Pool, userId: string, kycFullName: string): Promise<string[]> {
+  if (!kycFullName.trim()) return []
+  const [rows] = await pool.query<RowDataPacket[]>(
+    `SELECT user_id, full_name FROM bg_kyc
+     WHERE status = 'approved' AND user_id <> ? AND full_name IS NOT NULL AND full_name <> ''`,
+    [userId],
+  )
+  const hits: string[] = []
+  for (const r of rows) {
+    if (compareKycNames(kycFullName, String(r.full_name)).matched) hits.push(String(r.user_id))
+  }
+  return hits
+}
+
 // ── 上下文构建 ────────────────────────────────────────────────────────────────
 
 async function buildContext(pool: Pool, order: OrderWithdraw, config: Record<string, RuleConfig>, usdRate: number): Promise<ReviewContext> {
@@ -693,6 +726,11 @@ async function buildContext(pool: Pool, order: OrderWithdraw, config: Record<str
     [userId, targetOwner],
   )
 
+  // 同名审核:仅规则启用时才拉全量 approved 实名比对,避免每笔提现无谓全表扫描
+  const sameNameUsers = config.same_name_review?.enabled
+    ? await findSameNameUsers(pool, userId, String(kyc?.full_name ?? ''))
+    : []
+
   // 篡改注单：凭空派彩 round。
   // 窗口只约束派彩行；投注存在性必须查全历史——下注可能早于窗口起点
   // (上次取款前下注、之后才派彩,或回填的历史派彩行),按窗口内找 bet 会大面积误报。
@@ -752,6 +790,7 @@ async function buildContext(pool: Pool, order: OrderWithdraw, config: Record<str
     targetAccount,
     withdrawAccountOtherUsers: targetAccount ? Number(acctReuse?.cnt ?? 0) : 0,
     withdrawOwnerOtherUsers: targetOwner ? Number(ownerReuse?.cnt ?? 0) : 0,
+    sameNameOtherUsers: sameNameUsers,
     minutesSinceKycApproved: kyc?.status === 'approved' ? minutesBetween(kycReviewedAt, order.createdAt) : null,
     promoTurnoverRemaining: Number(pt?.remaining ?? 0),
     relatedIpAccounts: Number(ip?.cnt ?? 0),

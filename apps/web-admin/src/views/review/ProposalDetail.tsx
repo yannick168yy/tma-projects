@@ -205,6 +205,16 @@ export default function ProposalDetail() {
               ))}
             </Space>
           </Descriptions.Item>
+          <Descriptions.Item label="同名账号" span={2}>
+            <Space wrap>
+              <Tag color={recipientCheck.sameNameOtherUserCount > 0 ? 'red' : 'green'}>
+                {recipientCheck.sameNameOtherUserCount}
+              </Tag>
+              {recipientCheck.sameNameOtherUsers.map((id) => (
+                <Button key={id} type="link" size="small" style={{ padding: 0 }} onClick={() => navigate(`/users/${id}`)}>{id}</Button>
+              ))}
+            </Space>
+          </Descriptions.Item>
         </Descriptions>
       </Card>
 

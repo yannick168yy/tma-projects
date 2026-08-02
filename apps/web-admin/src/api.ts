@@ -697,6 +697,8 @@ export interface ReviewProposalDetail {
     withdrawAccountOtherUsers: string[]
     withdrawOwnerOtherUserCount: number
     withdrawOwnerOtherUsers: string[]
+    sameNameOtherUserCount: number
+    sameNameOtherUsers: string[]
   }
   snapshot: Record<string, number | string | boolean> | null
   rules: ReviewRuleResult[]
