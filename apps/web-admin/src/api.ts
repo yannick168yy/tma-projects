@@ -932,7 +932,7 @@ export const getAuditLog = (params: { page?: number; pageSize?: number }) =>
 // Customer Service
 export interface CsConversation {
   id: number; userId: string; status: string; assignedAdminId: number | null
-  escalateReason: string | null
+  escalateReason: string | null; badgeIgnored: boolean
   aiSummary: string | null; aiSummaryModel: string | null
   aiSummaryMessageCount: number; aiSummaryUpdatedAt: string | null
   displayName: string; lastMessage: string; createdAt: string; updatedAt: string
@@ -957,6 +957,8 @@ export const csResolve = (id: number) =>
   post(`/admin/cs/conversations/${id}/resolve`)
 export const csClose = (id: number) =>
   post(`/admin/cs/conversations/${id}/close`)
+export const csIgnoreReminder = (id: number) =>
+  post<{ ignored: boolean }>(`/admin/cs/conversations/${id}/ignore`)
 
 // 汇率管理
 export interface ExchangeRate {

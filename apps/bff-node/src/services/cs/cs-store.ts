@@ -20,6 +20,7 @@ export interface Conversation {
   escalatedAt: Date | null
   userLeftAt: Date | null
   userTicketReadMessageId: number
+  badgeIgnored: boolean
   aiSummary: string | null
   aiSummaryModel: string | null
   aiSummaryMessageCount: number
@@ -122,7 +123,7 @@ export async function listConversations(
   const pendingOnly = opts.status === 'pending'
   const conditions: string[] = []
   const filterParams: unknown[] = []
-  if (pendingOnly) conditions.push(`c.status IN ('human_taken','escalated')`)
+  if (pendingOnly) conditions.push(`c.status IN ('human_taken','escalated') AND c.badge_ignored = 0`)
   else if (opts.status) {
     conditions.push('c.status = ?')
     filterParams.push(opts.status)
@@ -207,6 +208,17 @@ export async function reopenTicketForUserMessage(env: Env, id: number): Promise<
     [id],
   )
   if (result.affectedRows > 0) broadcastBadges(env).catch(() => {})
+}
+
+export async function ignoreTicketReminder(env: Env, id: number): Promise<boolean> {
+  const [result] = await db(env).query<ResultSetHeader>(
+    `UPDATE cs_conversation
+     SET badge_ignored = 1
+     WHERE id = ? AND escalated_at IS NOT NULL AND status IN ('escalated','human_taken')`,
+    [id],
+  )
+  if (result.affectedRows > 0) broadcastBadges(env).catch(() => {})
+  return result.affectedRows > 0
 }
 
 export async function markUserLeftConversation(env: Env, userId: string): Promise<void> {
@@ -346,6 +358,7 @@ function rowToConversation(r: RowDataPacket): Conversation {
     escalatedAt: r.escalated_at ?? null,
     userLeftAt: r.user_left_at ?? null,
     userTicketReadMessageId: Number(r.user_ticket_read_message_id ?? 0),
+    badgeIgnored: Boolean(r.badge_ignored),
     aiSummary: r.ai_summary ?? null,
     aiSummaryModel: r.ai_summary_model ?? null,
     aiSummaryMessageCount: Number(r.ai_summary_message_count ?? 0),

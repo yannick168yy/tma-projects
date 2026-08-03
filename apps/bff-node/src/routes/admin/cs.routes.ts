@@ -6,6 +6,7 @@ import {
   listConversations,
   getConversationById,
   getMessages,
+  ignoreTicketReminder,
   saveMessage,
   saveConversationSummary,
   updateConversationStatus,
@@ -175,6 +176,17 @@ router.post('/cs/conversations/:id/close', async (ctx) => {
   const id = Number(ctx.params.id)
   await updateConversationStatus(ctx.state.env, id, 'closed', ctx.state.adminId)
   ok(ctx, { success: true })
+})
+
+// POST /admin/cs/conversations/:id/ignore — 忽略该工单待办提醒
+router.post('/cs/conversations/:id/ignore', async (ctx) => {
+  const id = Number(ctx.params.id)
+  const ignored = await ignoreTicketReminder(ctx.state.env, id)
+  if (!ignored) {
+    fail(ctx, 404, '无可忽略的工单提醒', 404)
+    return
+  }
+  ok(ctx, { ignored: true })
 })
 
 // ─── FAQ 知识库管理 ───────────────────────────────────────────────────────────

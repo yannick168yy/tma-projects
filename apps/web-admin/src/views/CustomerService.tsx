@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
-import { Card, Select, Tag, Button, Input, Space, Empty, Badge, Switch, Tooltip, message, Grid, Alert } from 'antd'
+import { Card, Select, Tag, Button, Input, Space, Empty, Badge, Switch, Tooltip, message, Grid, Alert, Modal } from 'antd'
 import { useNavigate } from 'react-router-dom'
 import type { CsConversation, CsMessage } from '../api'
-import { getCsConversations, getCsConversation, csReply, csTakeover, csClose, getCsDuty, saveCsDuty, csSummarizeConversation, csTranslateConversation } from '../api'
+import { getCsConversations, getCsConversation, csReply, csTakeover, csClose, csIgnoreReminder, getCsDuty, saveCsDuty, csSummarizeConversation, csTranslateConversation } from '../api'
 
 function statusColor(status?: string) {
   return ({ active: 'blue', escalated: 'red', human_taken: 'orange', resolved: 'green', closed: 'default' } as Record<string, string>)[status ?? ''] ?? 'default'
@@ -34,7 +34,7 @@ export default function CustomerService({ ticketMode = false }: { ticketMode?: b
   const [conversations, setConversations] = useState<CsConversation[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(false)
-  const [statusFilter, setStatusFilter] = useState(ticketMode ? 'pending' : 'escalated')
+  const [statusFilter, setStatusFilter] = useState(ticketMode ? 'pending' : '')
   const [page, setPage] = useState(1)
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const [messages, setMessages] = useState<CsMessage[]>([])
@@ -54,23 +54,21 @@ export default function CustomerService({ ticketMode = false }: { ticketMode?: b
   const [dutySaving, setDutySaving] = useState(false)
 
   const selectedConv = conversations.find((c) => c.id === selectedId) ?? null
-  const unreadCount = conversations.filter((c) => c.status === 'human_taken' || c.status === 'escalated').length
+  const unreadCount = conversations.filter((c) => (c.status === 'human_taken' || c.status === 'escalated') && !c.badgeIgnored).length
 
   useEffect(() => { selectedIdRef.current = selectedId }, [selectedId])
 
   useEffect(() => {
     getCsDuty().then((res) => {
       setDuty(res)
-      if (!ticketMode) setStatusFilter(res.onDuty ? 'human_taken' : 'escalated')
     }).catch(() => {})
-  }, [ticketMode])
+  }, [])
 
   async function toggleDuty(enabled: boolean) {
     setDutySaving(true)
     try {
       await saveCsDuty(enabled)
       setDuty((prev) => prev ? { ...prev, enabled, onDuty: enabled && prev.onlineAdmins > 0 } : prev)
-      setStatusFilter(enabled ? 'human_taken' : 'escalated')
       message.success(enabled ? '已开启客服值班' : '已关闭值班,新转人工将进入离线工单')
     } catch { message.error('操作失败') }
     finally { setDutySaving(false) }
@@ -111,7 +109,7 @@ export default function CustomerService({ ticketMode = false }: { ticketMode?: b
       if (selectedIdRef.current) void refreshDetail(selectedIdRef.current, { scroll: false })
     }, 15_000)
     return () => clearInterval(timer)
-  }, [statusFilter])
+  }, [statusFilter, ticketMode])
 
   useEffect(() => { if (selectedId) void refreshDetail() }, [selectedId])
   useEffect(() => { setMessages([]); setSummary(''); setSummaryMeta(''); setTranslations({}); setShowTranslation(false) }, [selectedId])
@@ -145,6 +143,24 @@ export default function CustomerService({ ticketMode = false }: { ticketMode?: b
     message.success('工单已结束')
     setSelectedId(null); setMessages([])
     await loadList(1)
+  }
+
+  function ignoreReminder() {
+    if (!selectedId) return
+    const conversationId = selectedId
+    Modal.confirm({
+      title: '不再提醒该用户工单？',
+      content: '忽略后该工单不再计入待处理列表和菜单角标，仍可在全部工单中查看并继续留言。',
+      okText: '不再提醒',
+      cancelText: '取消',
+      onOk: async () => {
+        await csIgnoreReminder(conversationId)
+        message.success('已忽略，不再提醒')
+        setSelectedId(null)
+        setMessages([])
+        await loadList(1)
+      },
+    })
   }
 
   // 手机上主从切换:未选会话显示列表,选中显示聊天
@@ -204,7 +220,7 @@ export default function CustomerService({ ticketMode = false }: { ticketMode?: b
       <Card
         style={{ width: isMobile ? '100%' : 340, flexShrink: 0, overflow: 'auto' }}
         styles={{ body: { padding: '8px 0' } }}
-        title={<span>{ticketMode ? '工单处理' : '客服工单'} <Badge count={unreadCount} style={{ marginLeft: 8 }} /></span>}
+        title={<span>{ticketMode ? '工单处理' : '客服工单'} {ticketMode && <Badge count={unreadCount} style={{ marginLeft: 8 }} />}</span>}
         extra={
           <Space size={8}>
             <Tooltip title="关闭后用户转人工将进入离线工单模式(AI 如实告知无人在线并留单)">
@@ -259,6 +275,7 @@ export default function CustomerService({ ticketMode = false }: { ticketMode?: b
               </span>
               <Tag color={statusColor(conv.status)} style={{ margin: 0, fontSize: 11 }}>{statusText(conv.status)}</Tag>
             </div>
+            {conv.badgeIgnored && <Tag color="default" style={{ marginTop: 4, fontSize: 11 }}>已忽略提醒</Tag>}
             <div style={{ color: '#999', fontSize: 12, marginTop: 2, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
               {conv.lastMessage || '（暂无消息）'}
             </div>
@@ -299,10 +316,14 @@ export default function CustomerService({ ticketMode = false }: { ticketMode?: b
               {selectedConv?.displayName ? `· ${selectedConv.displayName}` : ''}
               <Tag color={statusColor(selectedConv?.status)} style={{ marginLeft: 8 }}>{statusText(selectedConv?.status)}</Tag>
               {selectedConv?.escalateReason && <Tag color="volcano">{reasonText(selectedConv.escalateReason)}</Tag>}
+              {selectedConv?.badgeIgnored && <Tag color="default">已忽略提醒</Tag>}
             </span>
           }
           extra={
             <Space>
+              {ticketMode && selectedConv && (selectedConv.status === 'active' || selectedConv.status === 'escalated' || selectedConv.status === 'human_taken') && !selectedConv.badgeIgnored && (
+                <Button size="small" onClick={ignoreReminder}>不再提醒该用户工单</Button>
+              )}
               {(selectedConv?.status === 'active' || selectedConv?.status === 'escalated') && <Button size="small" onClick={takeover}>接管工单</Button>}
               {selectedConv?.status !== 'resolved' && selectedConv?.status !== 'closed' && (
                 <Button size="small" type="primary" ghost onClick={resolve}>结束工单</Button>
