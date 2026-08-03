@@ -84,14 +84,15 @@ describe('客服会话存储', () => {
     expect(query.mock.calls.map(([sql]) => String(sql)).join('\n')).not.toContain("SET status = 'closed'")
   })
 
-  it('用户给工单留言会重新提醒已关闭或已忽略工单', async () => {
+  it('用户给任意待回复工单留言会重新进入处理队列', async () => {
     query.mockResolvedValueOnce([{ affectedRows: 1 }])
 
     await reopenTicketForUserMessage({} as never, 4)
 
     const sql = String(query.mock.calls[0][0])
-    expect(sql).toContain("status IN ('resolved','closed')")
+    expect(sql).toContain("status = CASE WHEN status = 'human_taken' THEN 'human_taken' ELSE 'escalated' END")
     expect(sql).toContain('badge_ignored = 0')
+    expect(sql).toContain("status IN ('active','resolved','closed')")
     expect(sql).toContain('OR badge_ignored = 1')
     expect(query.mock.calls[0][1]).toEqual([4])
   })

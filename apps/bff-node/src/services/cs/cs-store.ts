@@ -203,10 +203,10 @@ export async function markUserTicketRead(env: Env, userId: string, id: number): 
 export async function reopenTicketForUserMessage(env: Env, id: number): Promise<void> {
   const [result] = await db(env).query<ResultSetHeader>(
     `UPDATE cs_conversation
-     SET status = CASE WHEN status IN ('resolved','closed') THEN 'escalated' ELSE status END,
-         resolved_at = CASE WHEN status IN ('resolved','closed') THEN NULL ELSE resolved_at END,
+     SET status = CASE WHEN status = 'human_taken' THEN 'human_taken' ELSE 'escalated' END,
+         resolved_at = NULL,
          badge_ignored = 0
-     WHERE id = ? AND escalated_at IS NOT NULL AND (status IN ('resolved','closed') OR badge_ignored = 1)`,
+     WHERE id = ? AND escalated_at IS NOT NULL AND (status IN ('active','resolved','closed') OR resolved_at IS NOT NULL OR badge_ignored = 1)`,
     [id],
   )
   if (result.affectedRows > 0) broadcastBadges(env).catch(() => {})
