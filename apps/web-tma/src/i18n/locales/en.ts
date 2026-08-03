@@ -204,6 +204,7 @@ export default {
       loginRequired: 'Sign in to view your saved support tickets.',
       empty: 'No support tickets yet.',
       noMessage: 'No messages yet.',
+      replyPlaceholder: 'Leave a message on this ticket...',
       you: 'You',
       agent: 'Agent',
       ai: 'AI',

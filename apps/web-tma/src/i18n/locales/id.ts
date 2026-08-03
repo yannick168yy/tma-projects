@@ -1048,6 +1048,7 @@ export default {
       loginRequired: 'Masuk untuk melihat tiket dukungan Anda.',
       empty: 'Belum ada tiket dukungan.',
       noMessage: 'Belum ada pesan.',
+      replyPlaceholder: 'Tinggalkan pesan di tiket ini...',
       you: 'Anda',
       agent: 'Agen',
       ai: 'AI',

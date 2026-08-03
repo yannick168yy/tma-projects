@@ -66,6 +66,10 @@ export async function markCsTicketRead(id: number): Promise<{ success: boolean }
   return apiRequest(`/cs/tickets/${id}/read`, { method: 'POST', body: JSON.stringify({}) })
 }
 
+export async function sendCsTicketMessage(id: number, message: string): Promise<{ message: CsMessage; conversation: CsConversation | null }> {
+  return apiRequest(`/cs/tickets/${id}/message`, { method: 'POST', body: JSON.stringify({ message }) })
+}
+
 export async function markCsLeft(): Promise<{ success: boolean }> {
   return apiRequest('/cs/leave', { method: 'POST', body: JSON.stringify({}) })
 }

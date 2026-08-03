@@ -17,6 +17,7 @@ export interface Conversation {
   assignedAdminId: number | null
   agentName: CsAgentName
   escalateReason: string | null
+  escalatedAt: Date | null
   userLeftAt: Date | null
   userTicketReadMessageId: number
   aiSummary: string | null
@@ -198,6 +199,16 @@ export async function markUserTicketRead(env: Env, userId: string, id: number): 
   )
 }
 
+export async function reopenTicketForUserMessage(env: Env, id: number): Promise<void> {
+  const [result] = await db(env).query<ResultSetHeader>(
+    `UPDATE cs_conversation
+     SET status = 'escalated', resolved_at = NULL
+     WHERE id = ? AND status IN ('resolved','closed') AND escalated_at IS NOT NULL`,
+    [id],
+  )
+  if (result.affectedRows > 0) broadcastBadges(env).catch(() => {})
+}
+
 export async function markUserLeftConversation(env: Env, userId: string): Promise<void> {
   await db(env).query(
     `UPDATE cs_conversation SET user_left_at = NOW()
@@ -237,7 +248,7 @@ export async function updateConversationStatus(
     )
   } else {
     await pool.query(
-      `UPDATE cs_conversation SET status = ?, assigned_admin_id = COALESCE(?, assigned_admin_id) WHERE id = ?`,
+      `UPDATE cs_conversation SET status = ?, resolved_at = NULL, assigned_admin_id = COALESCE(?, assigned_admin_id) WHERE id = ?`,
       [status, adminId ?? null, id],
     )
   }
@@ -332,6 +343,7 @@ function rowToConversation(r: RowDataPacket): Conversation {
     assignedAdminId: r.assigned_admin_id ?? null,
     agentName: normalizeAgentName(r.agent_name) ?? fallbackAgentName(Number(r.id)),
     escalateReason: r.escalate_reason ?? null,
+    escalatedAt: r.escalated_at ?? null,
     userLeftAt: r.user_left_at ?? null,
     userTicketReadMessageId: Number(r.user_ticket_read_message_id ?? 0),
     aiSummary: r.ai_summary ?? null,

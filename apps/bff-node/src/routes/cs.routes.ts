@@ -5,7 +5,7 @@ import { createHash } from 'node:crypto'
 import { ok, fail } from '../utils/response.js'
 import { handleUserMessage } from '../services/cs/cs.service.js'
 import { csSessionEndedMessage, handleDeterministicCsIntent, normalizeCsReplyLocale } from '../services/cs/cs-deterministic.js'
-import { closeCurrentConversation, getOrCreateConversation, getMessages, getUserTicketById, listUserTickets, markUserLeftConversation, markUserTicketRead, resolveAgentName } from '../services/cs/cs-store.js'
+import { closeCurrentConversation, getOrCreateConversation, getMessages, getUserTicketById, listUserTickets, markUserLeftConversation, markUserTicketRead, reopenTicketForUserMessage, resolveAgentName, saveMessage } from '../services/cs/cs-store.js'
 import { CS_INTENTS, CS_WELCOME_SETTING_KEY, DEFAULT_WELCOME, renderWelcome } from '../services/cs/cs-intents.js'
 import { queryRecentOrders, type OrderKind } from '../services/cs/cs-orders.js'
 import { getAdminSetting } from '../services/admin-store.js'
@@ -258,6 +258,32 @@ router.post('/cs/tickets/:id/read', async (ctx) => {
   }
   await markUserTicketRead(ctx.state.env, ctx.state.userId, Number(ctx.params.id))
   ok(ctx, { success: true })
+})
+
+// POST /cs/tickets/:id/message — 登录用户在长期工单中追加留言
+router.post('/cs/tickets/:id/message', async (ctx) => {
+  if (!ctx.state.userId) {
+    fail(ctx, 401, 'errors.unauthorized', 401)
+    return
+  }
+  const id = Number(ctx.params.id)
+  const { message } = ctx.request.body as { message?: string }
+  if (!message?.trim()) {
+    fail(ctx, 400, 'errors.csEmpty')
+    return
+  }
+  if (message.length > 2000) {
+    fail(ctx, 400, 'errors.csTooLong')
+    return
+  }
+  const conversation = await getUserTicketById(ctx.state.env, ctx.state.userId, id)
+  if (!conversation) {
+    fail(ctx, 404, 'errors.notFound', 404)
+    return
+  }
+  const msg = await saveMessage(ctx.state.env, id, 'user', message.trim())
+  await reopenTicketForUserMessage(ctx.state.env, id)
+  ok(ctx, { message: msg, conversation: await getUserTicketById(ctx.state.env, ctx.state.userId, id) })
 })
 
 export default router

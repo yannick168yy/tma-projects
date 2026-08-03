@@ -1063,6 +1063,7 @@ export default {
       loginRequired: 'Đăng nhập để xem ticket hỗ trợ của bạn.',
       empty: 'Chưa có ticket hỗ trợ.',
       noMessage: 'Chưa có tin nhắn.',
+      replyPlaceholder: 'Để lại tin nhắn trong ticket này...',
       you: 'Bạn',
       agent: 'Nhân viên',
       ai: 'AI',

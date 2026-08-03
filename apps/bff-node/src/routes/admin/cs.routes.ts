@@ -132,12 +132,12 @@ router.post('/cs/conversations/:id/reply', async (ctx) => {
     fail(ctx, 404, '会话不存在', 404)
     return
   }
-  if (conversation.status === 'resolved' || conversation.status === 'closed') {
-    fail(ctx, 400, '会话已结束')
+  if ((conversation.status === 'resolved' || conversation.status === 'closed') && !conversation.escalatedAt) {
+    fail(ctx, 400, '工单已结束')
     return
   }
-  // 自动标记为人工接管(active/escalated 均可)
-  if (conversation.status === 'active' || conversation.status === 'escalated') {
+  // 工单允许关闭后继续留言；客服回复后回到人工处理中。
+  if (conversation.status !== 'human_taken') {
     await updateConversationStatus(ctx.state.env, id, 'human_taken', ctx.state.adminId)
   }
   const msg = await saveMessage(ctx.state.env, id, 'admin', message.trim())

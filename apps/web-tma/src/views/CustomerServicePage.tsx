@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Send, Headphones, Loader2, LayoutGrid, CircleX, Ticket, ChevronLeft } from 'lucide-react'
-import { sendCsIntent, fetchCsHistory, fetchCsWelcome, fetchCsOrders, sendCsMessageStream, markCsLeft, endCsConversation, fetchCsTickets, fetchCsTicket, markCsTicketRead } from '@/api/cs'
+import { sendCsIntent, fetchCsHistory, fetchCsWelcome, fetchCsOrders, sendCsMessageStream, markCsLeft, endCsConversation, fetchCsTickets, fetchCsTicket, markCsTicketRead, sendCsTicketMessage } from '@/api/cs'
 import type { CsMessage, CsOrder, CsConversation, CsTicketItem } from '@/api/cs'
 import { ApiError } from '@/api/client'
 import { translateApiError } from '@/utils/translateApiError'
@@ -298,6 +298,8 @@ export default function CustomerServicePage({ onClose }: Props) {
   const [selectedTicket, setSelectedTicket] = useState<CsConversation | null>(null)
   const [selectedTicketMessages, setSelectedTicketMessages] = useState<CsMessage[]>([])
   const [ticketDetailLoading, setTicketDetailLoading] = useState(false)
+  const [ticketReplyText, setTicketReplyText] = useState('')
+  const [ticketReplying, setTicketReplying] = useState(false)
   const msgRef = useRef<HTMLDivElement>(null)
   const leftSentRef = useRef(false)
   const endedRef = useRef(false)
@@ -353,6 +355,23 @@ export default function CustomerServicePage({ onClose }: Props) {
       setViewMode('tickets')
     } finally {
       setTicketDetailLoading(false)
+    }
+  }
+
+  async function sendTicketReply() {
+    const text = ticketReplyText.trim()
+    if (!selectedTicket || !text || ticketReplying) return
+    setTicketReplying(true)
+    try {
+      const res = await sendCsTicketMessage(selectedTicket.id, text)
+      setSelectedTicketMessages((prev) => [...prev, res.message])
+      if (res.conversation) setSelectedTicket(res.conversation)
+      setTicketReplyText('')
+      await loadTickets()
+    } catch {
+      /* 保持输入内容，用户可重试 */
+    } finally {
+      setTicketReplying(false)
     }
   }
 
@@ -586,6 +605,12 @@ export default function CustomerServicePage({ onClose }: Props) {
     return ''
   }
 
+  function ticketAuthorClass(role: CsMessage['role']) {
+    if (role === 'user') return 'border-primary/30 bg-primary/5 text-primary'
+    if (role === 'admin') return 'border-emerald-500/30 bg-emerald-500/10 text-emerald-500'
+    return 'border-blue-500/30 bg-blue-500/10 text-blue-500'
+  }
+
   if (viewMode === 'tickets') {
     return (
       <div className="page-scroll hide-scrollbar flex flex-col" style={{ height: '100%' }}>
@@ -656,18 +681,20 @@ export default function CustomerServicePage({ onClose }: Props) {
             <span className="text-lg leading-none">×</span>
           </button>
         </div>
-        <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
+        <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
           {ticketDetailLoading ? (
             <div className="flex justify-center py-8"><Loader2 size={20} className="animate-spin text-muted-foreground" /></div>
           ) : (
             <>
               {selectedTicketMessages.map((msg) => (
-                <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 ${msg.role === 'user' ? 'rounded-tr-sm bg-primary text-primary-foreground' : 'rounded-tl-sm bg-secondary text-foreground'}`}>
-                    {msg.role !== 'user' && <p className="text-xs text-muted-foreground mb-1">{msg.role === 'assistant' ? agentLabel : t('cs.agentLabel')}</p>}
-                    <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
-                    <p className="text-[10px] mt-1 opacity-60 text-right">{formatTime(msg.createdAt)}</p>
+                <div key={msg.id} className="rounded-xl border border-border bg-card px-3 py-2.5">
+                  <div className="mb-1.5 flex items-center justify-between gap-2">
+                    <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${ticketAuthorClass(msg.role)}`}>
+                      {ticketMessageAuthor(msg.role)}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground">{formatDateTime(msg.createdAt)}</span>
                   </div>
+                  <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">{msg.content}</p>
                 </div>
               ))}
               {selectedTicketMessages.length === 0 && (
@@ -675,6 +702,27 @@ export default function CustomerServicePage({ onClose }: Props) {
               )}
             </>
           )}
+        </div>
+        <div className="flex-shrink-0 border-t border-border bg-card px-3 py-2.5">
+          <div className="flex gap-2 items-end">
+            <textarea
+              value={ticketReplyText}
+              rows={2}
+              placeholder={t('cs.ticket.replyPlaceholder')}
+              className="flex-1 resize-none rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+              style={{ maxHeight: '96px', overflowY: 'auto' }}
+              disabled={ticketReplying}
+              onChange={(e) => setTicketReplyText(e.target.value)}
+            />
+            <button
+              type="button"
+              className="flex h-10 min-w-10 flex-shrink-0 items-center justify-center rounded-xl bg-primary px-3 text-primary-foreground disabled:opacity-40"
+              disabled={!ticketReplyText.trim() || ticketReplying || !selectedTicket}
+              onClick={() => void sendTicketReply()}
+            >
+              {ticketReplying ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+            </button>
+          </div>
         </div>
       </div>
     )

@@ -126,7 +126,7 @@ export default function CustomerService({ ticketMode = false }: { ticketMode?: b
       if (selectedIdRef.current !== conversationId) return
       setMessages((prev) => [...prev, msg])
       setReplyText('')
-      setConversations((prev) => prev.map((c) => c.id === conversationId ? { ...c, lastMessage: msg.content } : c))
+      setConversations((prev) => prev.map((c) => c.id === conversationId ? { ...c, status: 'human_taken', lastMessage: msg.content } : c))
       setTimeout(() => { if (msgListRef.current) msgListRef.current.scrollTop = msgListRef.current.scrollHeight }, 50)
     } catch (e) { message.error(e instanceof Error ? e.message : '发送失败') }
     finally { setReplying(false) }
@@ -332,13 +332,17 @@ export default function CustomerService({ ticketMode = false }: { ticketMode?: b
           )}
           <div ref={msgListRef} style={{ flex: 1, overflowY: 'auto', padding: '4px 0' }}>
             {messages.map((msg) => (
-              <div key={msg.id} style={{ display: 'flex', marginBottom: 12, justifyContent: msg.role === 'user' ? 'flex-start' : 'flex-end' }}>
+              <div key={msg.id} style={{ marginBottom: 10 }}>
                 <div style={{
-                  maxWidth: '70%', padding: '8px 12px', borderRadius: 8, fontSize: 13, lineHeight: 1.5,
-                  background: msg.role === 'user' ? '#f0f0f0' : msg.role === 'assistant' ? '#e6f4ff' : '#f6ffed',
+                  padding: '10px 12px', borderRadius: 8, fontSize: 13, lineHeight: 1.5,
+                  border: '1px solid #f0f0f0',
+                  background: '#fff',
                 }}>
-                  <div style={{ fontSize: 11, color: '#999', marginBottom: 2 }}>
-                    {msg.role === 'user' ? '用户' : msg.role === 'assistant' ? '🤖 AI' : '👤 客服'}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                    <Tag color={msg.role === 'user' ? 'blue' : msg.role === 'assistant' ? 'cyan' : 'green'} style={{ margin: 0 }}>
+                      {msg.role === 'user' ? '用户留言' : msg.role === 'assistant' ? 'AI记录' : '客服留言'}
+                    </Tag>
+                    <span style={{ fontSize: 11, color: '#bbb' }}>{formatTime(msg.createdAt)}</span>
                   </div>
                   <div style={{ whiteSpace: 'pre-wrap' }}>{msg.content}</div>
                   {showTranslation && translations[msg.id] && translations[msg.id] !== msg.content && (
@@ -346,25 +350,22 @@ export default function CustomerService({ ticketMode = false }: { ticketMode?: b
                       <span style={{ fontSize: 11, color: '#999', marginRight: 4 }}>译</span>{translations[msg.id]}
                     </div>
                   )}
-                  <div style={{ fontSize: 11, color: '#bbb', marginTop: 4, textAlign: 'right' }}>{formatTime(msg.createdAt)}</div>
                 </div>
               </div>
             ))}
             {messages.length === 0 && <Empty description="暂无消息" />}
           </div>
-          {selectedConv?.status !== 'resolved' && selectedConv?.status !== 'closed' && (
-            <div style={{ marginTop: 8, display: 'flex', gap: 8 }}>
-              <Input.TextArea
-                value={replyText}
-                onChange={(e) => setReplyText(e.target.value)}
-                autoSize={{ minRows: 2, maxRows: 4 }}
-                placeholder="输入回复内容，Ctrl+Enter 发送"
-                style={{ flex: 1 }}
-                onKeyDown={(e) => { if (e.ctrlKey && e.key === 'Enter') void sendReply() }}
-              />
-              <Button type="primary" loading={replying} onClick={sendReply} style={{ height: 'auto' }}>发送</Button>
-            </div>
-          )}
+          <div style={{ marginTop: 8, display: 'flex', gap: 8 }}>
+            <Input.TextArea
+              value={replyText}
+              onChange={(e) => setReplyText(e.target.value)}
+              autoSize={{ minRows: 2, maxRows: 4 }}
+              placeholder="输入工单留言，Ctrl+Enter 发送"
+              style={{ flex: 1 }}
+              onKeyDown={(e) => { if (e.ctrlKey && e.key === 'Enter') void sendReply() }}
+            />
+            <Button type="primary" loading={replying} onClick={sendReply} style={{ height: 'auto' }}>发送</Button>
+          </div>
         </Card>
         </div>
       ) : (

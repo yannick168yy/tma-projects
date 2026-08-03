@@ -203,6 +203,7 @@ export default {
       loginRequired: '登录后可查看你的客服工单。',
       empty: '暂无客服工单。',
       noMessage: '暂无消息。',
+      replyPlaceholder: '在此工单继续留言...',
       you: '你',
       agent: '客服',
       ai: 'AI',
