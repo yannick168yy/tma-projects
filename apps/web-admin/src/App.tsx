@@ -126,6 +126,7 @@ export default function App() {
           <Route path="db-backup" element={<RequireRole role="super_admin"><DbBackup /></RequireRole>} />
           <Route path="exchange-rates" element={<ExchangeRates />} />
           <Route path="customer-service" element={<CustomerService />} />
+          <Route path="cs-tickets" element={<CustomerService ticketMode />} />
           <Route path="cs-faq" element={<CsFaq />} />
           <Route path="bet-orders" element={<BetOrders />} />
           <Route path="team-referral" element={<Navigate to="/team-referral/agents" replace />} />

@@ -1,8 +1,8 @@
 import { useState, useRef, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Send, Headphones, Loader2, LayoutGrid, CircleX } from 'lucide-react'
-import { sendCsIntent, fetchCsHistory, fetchCsWelcome, fetchCsOrders, sendCsMessageStream, markCsLeft, endCsConversation } from '@/api/cs'
-import type { CsMessage, CsOrder } from '@/api/cs'
+import { Send, Headphones, Loader2, LayoutGrid, CircleX, Ticket, ChevronLeft } from 'lucide-react'
+import { sendCsIntent, fetchCsHistory, fetchCsWelcome, fetchCsOrders, sendCsMessageStream, markCsLeft, endCsConversation, fetchCsTickets, fetchCsTicket, markCsTicketRead } from '@/api/cs'
+import type { CsMessage, CsOrder, CsConversation, CsTicketItem } from '@/api/cs'
 import { ApiError } from '@/api/client'
 import { translateApiError } from '@/utils/translateApiError'
 import { useAuthStore } from '@/stores/auth'
@@ -141,6 +141,7 @@ const QUICK_OPTIONS: QuickNode[] = [
 ]
 
 type LocalMsg = CsMessage & { orders?: CsOrder[]; orderKind?: 'deposit' | 'withdraw' }
+type CsView = 'chat' | 'tickets' | 'ticketDetail'
 
 // 每个客服固定一套配色,Jenny/Jasmine 首字母都是 J,靠颜色区分
 const AGENT_COLORS: Record<string, [string, string]> = {
@@ -290,6 +291,13 @@ export default function CustomerServicePage({ onClose }: Props) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [quickPath, setQuickPath] = useState<QuickNode[]>([])
   const [streamingId, setStreamingId] = useState<number | null>(null)
+  const [viewMode, setViewMode] = useState<CsView>('chat')
+  const [tickets, setTickets] = useState<CsTicketItem[]>([])
+  const [ticketUnreadCount, setTicketUnreadCount] = useState(0)
+  const [ticketsLoading, setTicketsLoading] = useState(false)
+  const [selectedTicket, setSelectedTicket] = useState<CsConversation | null>(null)
+  const [selectedTicketMessages, setSelectedTicketMessages] = useState<CsMessage[]>([])
+  const [ticketDetailLoading, setTicketDetailLoading] = useState(false)
   const msgRef = useRef<HTMLDivElement>(null)
   const leftSentRef = useRef(false)
   const endedRef = useRef(false)
@@ -308,6 +316,46 @@ export default function CustomerServicePage({ onClose }: Props) {
     setTimeout(() => { if (msgRef.current) msgRef.current.scrollTop = msgRef.current.scrollHeight }, 0)
   }
 
+  async function loadTickets() {
+    if (!isLoggedIn) {
+      setTickets([])
+      setTicketUnreadCount(0)
+      return
+    }
+    setTicketsLoading(true)
+    try {
+      const res = await fetchCsTickets()
+      setTickets(res.items)
+      setTicketUnreadCount(res.unreadCount)
+    } catch {
+      /* 工单入口不影响当前聊天 */
+    } finally {
+      setTicketsLoading(false)
+    }
+  }
+
+  async function openTicketList() {
+    setMenuOpen(false)
+    setViewMode('tickets')
+    await loadTickets()
+  }
+
+  async function openTicketDetail(ticketId: number) {
+    setViewMode('ticketDetail')
+    setTicketDetailLoading(true)
+    try {
+      const res = await fetchCsTicket(ticketId)
+      setSelectedTicket(res.conversation)
+      setSelectedTicketMessages(res.messages)
+      await markCsTicketRead(ticketId).catch(() => {})
+      await loadTickets()
+    } catch {
+      setViewMode('tickets')
+    } finally {
+      setTicketDetailLoading(false)
+    }
+  }
+
   useEffect(() => {
     // 开场白要等客服名到位再渲染,否则首页图片抢带宽时会先闪一版没名字的兜底文案
     const welcomeReady = fetchCsWelcome()
@@ -317,7 +365,13 @@ export default function CustomerServicePage({ onClose }: Props) {
     const historyReady = fetchCsHistory()
       .then((res) => { setMessages(res.messages); setConversationStatus(res.conversation.status); setAgentName(res.conversation.agentName) })
       .catch(() => {})
-    void Promise.all([welcomeReady, historyReady]).finally(() => { setLoading(false); scrollToBottom() })
+    void Promise.all([welcomeReady, historyReady, loadTickets()]).finally(() => { setLoading(false); scrollToBottom() })
+  }, [isLoggedIn])
+
+  useEffect(() => {
+    if (!isLoggedIn) return
+    const timer = window.setInterval(() => { void loadTickets() }, 15000)
+    return () => window.clearInterval(timer)
   }, [isLoggedIn])
 
   useEffect(() => {
@@ -340,6 +394,7 @@ export default function CustomerServicePage({ onClose }: Props) {
         })
         setConversationStatus(res.conversation.status)
         setAgentName(res.conversation.agentName)
+        void loadTickets()
       } catch {
         /* 下次轮询再同步 */
       }
@@ -393,6 +448,7 @@ export default function CustomerServicePage({ onClose }: Props) {
     try {
       const res = await request()
       setConversationStatus(res.status)
+      void loadTickets()
       const reply: CsMessage = { id: Date.now() + 1, conversationId: res.conversationId, role: res.status === 'human_taken' ? 'admin' : 'assistant', content: res.reply, createdAt: new Date().toISOString() }
       setMessages((prev) => [...prev, reply])
       scrollToBottom()
@@ -433,7 +489,7 @@ export default function CustomerServicePage({ onClose }: Props) {
           }
           scrollToBottom()
         },
-        onDone: (r) => setConversationStatus(r.status),
+        onDone: (r) => { setConversationStatus(r.status); void loadTickets() },
         onError: (msg) => {
           const content = translateApiError(msg, t)
           const id = ensure(content)
@@ -503,6 +559,127 @@ export default function CustomerServicePage({ onClose }: Props) {
     return new Date(iso).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
   }
 
+  function statusText(status?: string) {
+    return ({
+      active: t('cs.status.active'),
+      escalated: t('cs.status.escalated'),
+      human_taken: t('cs.status.humanTaken'),
+      resolved: t('cs.status.resolved'),
+      closed: t('cs.status.closed'),
+    } as Record<string, string>)[status ?? ''] ?? status
+  }
+
+  function statusClass(status?: string) {
+    return ({
+      active: 'bg-blue-500/15 text-blue-500',
+      escalated: 'bg-yellow-500/15 text-yellow-500',
+      human_taken: 'bg-orange-500/15 text-orange-500',
+      resolved: 'bg-emerald-500/15 text-emerald-500',
+      closed: 'bg-muted text-muted-foreground',
+    } as Record<string, string>)[status ?? ''] ?? 'bg-muted text-muted-foreground'
+  }
+
+  function ticketMessageAuthor(role: CsMessage['role'] | null) {
+    if (role === 'user') return t('cs.ticket.you')
+    if (role === 'admin') return t('cs.ticket.agent')
+    if (role === 'assistant') return t('cs.ticket.ai')
+    return ''
+  }
+
+  if (viewMode === 'tickets') {
+    return (
+      <div className="page-scroll hide-scrollbar flex flex-col" style={{ height: '100%' }}>
+        <div className="app-safe-header flex items-center gap-3 border-b border-border bg-card px-4 pb-3 pt-3 flex-shrink-0">
+          <button type="button" className="flex h-9 w-9 items-center justify-center rounded-xl border border-border text-muted-foreground" onClick={() => setViewMode('chat')}>
+            <ChevronLeft size={18} />
+          </button>
+          <div className="flex-1">
+            <p className="text-sm font-bold text-foreground">{t('cs.ticket.title')}</p>
+            <p className="text-xs text-muted-foreground">{t('cs.ticket.subtitle')}</p>
+          </div>
+          <button type="button" className="text-muted-foreground hover:text-foreground p-1" onClick={closePage}>
+            <span className="text-lg leading-none">×</span>
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto px-4 py-3">
+          {!isLoggedIn ? (
+            <div className="rounded-xl border border-border bg-card px-3 py-3 text-sm text-muted-foreground">{t('cs.ticket.loginRequired')}</div>
+          ) : ticketsLoading ? (
+            <div className="flex justify-center py-8"><Loader2 size={20} className="animate-spin text-muted-foreground" /></div>
+          ) : tickets.length === 0 ? (
+            <div className="rounded-xl border border-border bg-card px-3 py-6 text-center text-sm text-muted-foreground">{t('cs.ticket.empty')}</div>
+          ) : (
+            <div className="space-y-2">
+              {tickets.map((ticket) => (
+                <button
+                  key={ticket.id}
+                  type="button"
+                  className="w-full rounded-xl border border-border bg-card px-3 py-3 text-left active:bg-secondary"
+                  onClick={() => void openTicketDetail(ticket.id)}
+                >
+                  <div className="mb-1.5 flex items-center justify-between gap-2">
+                    <span className="text-sm font-bold text-foreground">Ticket #{ticket.id}</span>
+                    <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${statusClass(ticket.status)}`}>{statusText(ticket.status)}</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <p className="min-w-0 flex-1 truncate text-sm text-muted-foreground">
+                      {ticketMessageAuthor(ticket.lastMessageRole)}{ticket.lastMessageRole ? ': ' : ''}{ticket.lastMessage || t('cs.ticket.noMessage')}
+                    </p>
+                    {ticket.unreadAdminMessages > 0 && (
+                      <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold text-white">
+                        {ticket.unreadAdminMessages > 99 ? '99+' : ticket.unreadAdminMessages}
+                      </span>
+                    )}
+                  </div>
+                  <p className="mt-1 text-[10px] text-muted-foreground">{formatDateTime(ticket.updatedAt)}</p>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  if (viewMode === 'ticketDetail') {
+    return (
+      <div className="page-scroll hide-scrollbar flex flex-col" style={{ height: '100%' }}>
+        <div className="app-safe-header flex items-center gap-3 border-b border-border bg-card px-4 pb-3 pt-3 flex-shrink-0">
+          <button type="button" className="flex h-9 w-9 items-center justify-center rounded-xl border border-border text-muted-foreground" onClick={() => setViewMode('tickets')}>
+            <ChevronLeft size={18} />
+          </button>
+          <div className="flex-1">
+            <p className="text-sm font-bold text-foreground">Ticket #{selectedTicket?.id ?? ''}</p>
+            <p className="text-xs text-muted-foreground">{statusText(selectedTicket?.status)}</p>
+          </div>
+          <button type="button" className="text-muted-foreground hover:text-foreground p-1" onClick={closePage}>
+            <span className="text-lg leading-none">×</span>
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
+          {ticketDetailLoading ? (
+            <div className="flex justify-center py-8"><Loader2 size={20} className="animate-spin text-muted-foreground" /></div>
+          ) : (
+            <>
+              {selectedTicketMessages.map((msg) => (
+                <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 ${msg.role === 'user' ? 'rounded-tr-sm bg-primary text-primary-foreground' : 'rounded-tl-sm bg-secondary text-foreground'}`}>
+                    {msg.role !== 'user' && <p className="text-xs text-muted-foreground mb-1">{msg.role === 'assistant' ? agentLabel : t('cs.agentLabel')}</p>}
+                    <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                    <p className="text-[10px] mt-1 opacity-60 text-right">{formatTime(msg.createdAt)}</p>
+                  </div>
+                </div>
+              ))}
+              {selectedTicketMessages.length === 0 && (
+                <div className="rounded-xl border border-border bg-card px-3 py-6 text-center text-sm text-muted-foreground">{t('cs.ticket.noMessage')}</div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="page-scroll hide-scrollbar flex flex-col" style={{ height: '100%' }}>
       <div className="app-safe-header flex items-center gap-3 border-b border-border bg-card px-4 pb-3 pt-3 flex-shrink-0">
@@ -513,6 +690,19 @@ export default function CustomerServicePage({ onClose }: Props) {
             {conversationEnded ? t('cs.sessionEndedStatus') : conversationStatus === 'human_taken' ? t('cs.humanService') : conversationStatus === 'escalated' ? t('cs.escalatedService') : t('cs.onlineStatus')}
           </p>
         </div>
+        <button
+          type="button"
+          className="relative flex items-center gap-1 rounded-lg border border-border px-2 py-1 text-xs font-semibold text-muted-foreground hover:text-foreground"
+          onClick={() => void openTicketList()}
+        >
+          <Ticket size={14} />
+          <span>{t('cs.ticket.entry')}</span>
+          {ticketUnreadCount > 0 && (
+            <span className="absolute -right-1.5 -top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+              {ticketUnreadCount > 99 ? '99+' : ticketUnreadCount}
+            </span>
+          )}
+        </button>
         <button
           type="button"
           className="flex items-center gap-1 rounded-lg border border-border px-2 py-1 text-xs font-semibold text-muted-foreground hover:text-foreground disabled:opacity-40"

@@ -941,7 +941,7 @@ export interface CsMessage {
   id: number; conversationId: number; role: 'user' | 'assistant' | 'admin'
   content: string; createdAt: string
 }
-export const getCsConversations = (params: { status?: string; page?: number; pageSize?: number }) =>
+export const getCsConversations = (params: { status?: string; page?: number; pageSize?: number; ticketOnly?: boolean }) =>
   get<{ items: CsConversation[]; total: number; page: number; pageSize: number }>('/admin/cs/conversations', params)
 export const getCsConversation = (id: number) =>
   get<{ conversation: CsConversation; messages: CsMessage[] }>(`/admin/cs/conversations/${id}`)

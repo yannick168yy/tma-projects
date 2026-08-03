@@ -60,10 +60,10 @@ router.put('/cs/welcome', async (ctx) => {
 
 // GET /admin/cs/conversations — 会话列表
 router.get('/cs/conversations', async (ctx) => {
-  const { status, page = '1', pageSize = '20' } = ctx.query as Record<string, string>
+  const { status, page = '1', pageSize = '20', ticketOnly } = ctx.query as Record<string, string>
   const limit = Math.min(Number(pageSize), 1000)
   const offset = (Number(page) - 1) * limit
-  const result = await listConversations(ctx.state.env, { status, limit, offset })
+  const result = await listConversations(ctx.state.env, { status, limit, offset, ticketOnly: ticketOnly === '1' || ticketOnly === 'true' })
   ok(ctx, { ...result, page: Number(page), pageSize: limit })
 })
 

@@ -160,6 +160,10 @@ function buildMenuItems(badges: AdminBadges) {
           key: '/customer-service',
           label: <MenuBadgeLabel text="客服工作台" count={badges.pendingCs} />,
         },
+        {
+          key: '/cs-tickets',
+          label: <MenuBadgeLabel text="工单处理" count={badges.pendingCs} />,
+        },
         { key: '/cs-faq', label: '知识库管理' },
       ],
     },
@@ -198,7 +202,7 @@ function getDefaultOpenKeys(pathname: string): string[] {
   if (['/growth', '/vip', '/rebate', '/tasks', '/checkin', '/rewards-spin'].some((p) => pathname.startsWith(p))) return ['member-ops']
   if (['/promotions', '/community', '/tg-broadcast'].some((p) => pathname.startsWith(p))) return ['marketing']
   if (pathname.startsWith('/team-referral') || pathname.startsWith('/agents') || pathname.startsWith('/agent-') || pathname === '/bi/ad-sources') return ['promotion-alliance']
-  if (['/customer-service', '/cs-faq'].some((p) => pathname.startsWith(p))) return ['cs']
+  if (['/customer-service', '/cs-tickets', '/cs-faq'].some((p) => pathname.startsWith(p))) return ['cs']
   if (['/audit-log', '/settings', '/system-params', '/sms-test', '/db-backup'].some((p) => pathname.startsWith(p))) return ['system']
   return []
 }

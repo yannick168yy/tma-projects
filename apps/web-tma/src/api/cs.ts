@@ -13,7 +13,9 @@ export interface CsConversation {
   userId: string
   status: string
   agentName: string
+  escalateReason?: string | null
   updatedAt: string
+  resolvedAt?: string | null
 }
 
 export interface CsReply {
@@ -37,6 +39,31 @@ export async function fetchCsWelcome(): Promise<{ welcome: string; agentName: st
 
 export async function fetchCsHistory(): Promise<{ conversation: CsConversation; messages: CsMessage[] }> {
   return apiRequest('/cs/history')
+}
+
+export interface CsTicketItem {
+  id: number
+  status: string
+  agentName: string
+  escalateReason: string | null
+  lastMessage: string
+  lastMessageRole: CsMessage['role'] | null
+  unreadAdminMessages: number
+  createdAt: string
+  updatedAt: string
+  resolvedAt: string | null
+}
+
+export async function fetchCsTickets(): Promise<{ items: CsTicketItem[]; unreadCount: number }> {
+  return apiRequest('/cs/tickets')
+}
+
+export async function fetchCsTicket(id: number): Promise<{ conversation: CsConversation; messages: CsMessage[] }> {
+  return apiRequest(`/cs/tickets/${id}`)
+}
+
+export async function markCsTicketRead(id: number): Promise<{ success: boolean }> {
+  return apiRequest(`/cs/tickets/${id}/read`, { method: 'POST', body: JSON.stringify({}) })
 }
 
 export async function markCsLeft(): Promise<{ success: boolean }> {

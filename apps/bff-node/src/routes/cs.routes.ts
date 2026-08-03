@@ -5,7 +5,7 @@ import { createHash } from 'node:crypto'
 import { ok, fail } from '../utils/response.js'
 import { handleUserMessage } from '../services/cs/cs.service.js'
 import { csSessionEndedMessage, handleDeterministicCsIntent, normalizeCsReplyLocale } from '../services/cs/cs-deterministic.js'
-import { closeCurrentConversation, getOrCreateConversation, getMessages, markUserLeftConversation, resolveAgentName } from '../services/cs/cs-store.js'
+import { closeCurrentConversation, getOrCreateConversation, getMessages, getUserTicketById, listUserTickets, markUserLeftConversation, markUserTicketRead, resolveAgentName } from '../services/cs/cs-store.js'
 import { CS_INTENTS, CS_WELCOME_SETTING_KEY, DEFAULT_WELCOME, renderWelcome } from '../services/cs/cs-intents.js'
 import { queryRecentOrders, type OrderKind } from '../services/cs/cs-orders.js'
 import { getAdminSetting } from '../services/admin-store.js'
@@ -223,6 +223,41 @@ router.get('/cs/history', async (ctx) => {
   const conversation = await getOrCreateConversation(ctx.state.env, ctx.state.userId)
   const messages = await getMessages(ctx.state.env, conversation.id, 50)
   ok(ctx, { conversation, messages })
+})
+
+// GET /cs/tickets — 登录用户长期工单列表
+router.get('/cs/tickets', async (ctx) => {
+  if (!ctx.state.userId) {
+    fail(ctx, 401, 'errors.unauthorized', 401)
+    return
+  }
+  ok(ctx, await listUserTickets(ctx.state.env, ctx.state.userId))
+})
+
+// GET /cs/tickets/:id — 登录用户查看自己的工单详情
+router.get('/cs/tickets/:id', async (ctx) => {
+  if (!ctx.state.userId) {
+    fail(ctx, 401, 'errors.unauthorized', 401)
+    return
+  }
+  const id = Number(ctx.params.id)
+  const conversation = await getUserTicketById(ctx.state.env, ctx.state.userId, id)
+  if (!conversation) {
+    fail(ctx, 404, 'errors.notFound', 404)
+    return
+  }
+  const messages = await getMessages(ctx.state.env, id, 100)
+  ok(ctx, { conversation, messages })
+})
+
+// POST /cs/tickets/:id/read — 用户进入工单后标记人工回复已读
+router.post('/cs/tickets/:id/read', async (ctx) => {
+  if (!ctx.state.userId) {
+    fail(ctx, 401, 'errors.unauthorized', 401)
+    return
+  }
+  await markUserTicketRead(ctx.state.env, ctx.state.userId, Number(ctx.params.id))
+  ok(ctx, { success: true })
 })
 
 export default router

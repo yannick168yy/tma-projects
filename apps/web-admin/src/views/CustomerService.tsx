@@ -27,14 +27,14 @@ function summaryMetaText(model?: string | null, messageCount?: number, updatedAt
   return `${model} · ${messageCount ?? 0} 条消息${savedAt}`
 }
 
-export default function CustomerService() {
+export default function CustomerService({ ticketMode = false }: { ticketMode?: boolean }) {
   const navigate = useNavigate()
   const screens = Grid.useBreakpoint()
   const isMobile = !screens.md
   const [conversations, setConversations] = useState<CsConversation[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(false)
-  const [statusFilter, setStatusFilter] = useState('escalated')
+  const [statusFilter, setStatusFilter] = useState(ticketMode ? 'pending' : 'escalated')
   const [page, setPage] = useState(1)
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const [messages, setMessages] = useState<CsMessage[]>([])
@@ -61,9 +61,9 @@ export default function CustomerService() {
   useEffect(() => {
     getCsDuty().then((res) => {
       setDuty(res)
-      setStatusFilter(res.onDuty ? 'human_taken' : 'escalated')
+      if (!ticketMode) setStatusFilter(res.onDuty ? 'human_taken' : 'escalated')
     }).catch(() => {})
-  }, [])
+  }, [ticketMode])
 
   async function toggleDuty(enabled: boolean) {
     setDutySaving(true)
@@ -79,7 +79,7 @@ export default function CustomerService() {
   async function loadList(p = 1) {
     setLoading(true)
     try {
-      const res = await getCsConversations({ status: statusFilter || undefined, page: p, pageSize: 30 })
+      const res = await getCsConversations({ status: statusFilter || undefined, page: p, pageSize: 30, ticketOnly: ticketMode })
       if (p === 1) setConversations(res.items)
       else setConversations((prev) => [...prev, ...res.items])
       setTotal(res.total)
@@ -135,14 +135,14 @@ export default function CustomerService() {
   async function takeover() {
     if (!selectedId) return
     await csTakeover(selectedId)
-    message.success('已接管会话')
+    message.success('已接管工单')
     await refreshDetail(); await loadList(1)
   }
 
   async function resolve() {
     if (!selectedId) return
     await csClose(selectedId)
-    message.success('会话已结束')
+    message.success('工单已结束')
     setSelectedId(null); setMessages([])
     await loadList(1)
   }
@@ -204,7 +204,7 @@ export default function CustomerService() {
       <Card
         style={{ width: isMobile ? '100%' : 340, flexShrink: 0, overflow: 'auto' }}
         styles={{ body: { padding: '8px 0' } }}
-        title={<span>客服会话 <Badge count={unreadCount} style={{ marginLeft: 8 }} /></span>}
+        title={<span>{ticketMode ? '工单处理' : '客服工单'} <Badge count={unreadCount} style={{ marginLeft: 8 }} /></span>}
         extra={
           <Space size={8}>
             <Tooltip title="关闭后用户转人工将进入离线工单模式(AI 如实告知无人在线并留单)">
@@ -265,7 +265,7 @@ export default function CustomerService() {
             <div style={{ color: '#bbb', fontSize: 11, marginTop: 2 }}>{formatTime(conv.updatedAt)}</div>
           </div>
         ))}
-        {!loading && conversations.length === 0 && <Empty description="暂无会话" style={{ padding: '32px 0' }} />}
+        {!loading && conversations.length === 0 && <Empty description="暂无工单" style={{ padding: '32px 0' }} />}
         {conversations.length < total && (
           <div style={{ textAlign: 'center', padding: 8 }}>
             <Button type="link" size="small" loading={loading} onClick={() => loadList(page + 1)}>加载更多</Button>
@@ -279,7 +279,7 @@ export default function CustomerService() {
         {/* 手机端返回键必须放在卡片外：Card 头部标题会被右侧操作按钮挤到 0 宽并被 overflow 裁掉 */}
         {isMobile && (
           <Button size="small" style={{ marginBottom: 8, alignSelf: 'flex-start' }} onClick={() => setSelectedId(null)}>
-            ← 返回会话列表
+            ← 返回工单列表
           </Button>
         )}
         <Card
@@ -303,9 +303,9 @@ export default function CustomerService() {
           }
           extra={
             <Space>
-              {(selectedConv?.status === 'active' || selectedConv?.status === 'escalated') && <Button size="small" onClick={takeover}>接管会话</Button>}
+              {(selectedConv?.status === 'active' || selectedConv?.status === 'escalated') && <Button size="small" onClick={takeover}>接管工单</Button>}
               {selectedConv?.status !== 'resolved' && selectedConv?.status !== 'closed' && (
-                <Button size="small" type="primary" ghost onClick={resolve}>结束会话</Button>
+                <Button size="small" type="primary" ghost onClick={resolve}>结束工单</Button>
               )}
               <Button size="small" onClick={summarize} loading={summaryLoading}>AI总结</Button>
               <Button
@@ -368,7 +368,7 @@ export default function CustomerService() {
         </Card>
         </div>
       ) : (
-        !isMobile && <Empty description="选择一个会话开始处理" style={{ margin: 'auto' }} />
+        !isMobile && <Empty description="选择一个工单开始处理" style={{ margin: 'auto' }} />
       ))}
     </div>
   )

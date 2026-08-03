@@ -18,6 +18,7 @@ export interface Conversation {
   agentName: CsAgentName
   escalateReason: string | null
   userLeftAt: Date | null
+  userTicketReadMessageId: number
   aiSummary: string | null
   aiSummaryModel: string | null
   aiSummaryMessageCount: number
@@ -33,6 +34,19 @@ export interface CsMessage {
   role: MessageRole
   content: string
   createdAt: Date
+}
+
+export interface CsTicketItem {
+  id: number
+  status: ConversationStatus
+  agentName: CsAgentName
+  escalateReason: string | null
+  lastMessage: string
+  lastMessageRole: MessageRole | null
+  unreadAdminMessages: number
+  createdAt: Date
+  updatedAt: Date
+  resolvedAt: Date | null
 }
 
 function db(env: Env) {
@@ -100,13 +114,21 @@ export async function getConversationById(env: Env, id: number): Promise<Convers
 
 export async function listConversations(
   env: Env,
-  opts: { status?: string; limit: number; offset: number },
+  opts: { status?: string; limit: number; offset: number; ticketOnly?: boolean },
 ): Promise<{ items: (Conversation & { displayName: string; lastMessage: string })[]; total: number }> {
   const pool = db(env)
   await expireStaleConversations(env)
   const pendingOnly = opts.status === 'pending'
-  const where = pendingOnly ? `WHERE c.status IN ('human_taken','escalated')` : opts.status ? `WHERE c.status = ?` : ''
-  const params: unknown[] = pendingOnly ? [opts.limit, opts.offset] : opts.status ? [opts.status, opts.limit, opts.offset] : [opts.limit, opts.offset]
+  const conditions: string[] = []
+  const filterParams: unknown[] = []
+  if (pendingOnly) conditions.push(`c.status IN ('human_taken','escalated')`)
+  else if (opts.status) {
+    conditions.push('c.status = ?')
+    filterParams.push(opts.status)
+  }
+  if (opts.ticketOnly) conditions.push('c.escalated_at IS NOT NULL')
+  const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : ''
+  const params: unknown[] = [...filterParams, opts.limit, opts.offset]
 
   const [rows] = await pool.query<RowDataPacket[]>(
     `SELECT c.*, u.display_name,
@@ -119,10 +141,9 @@ export async function listConversations(
     params,
   )
 
-  const countParams: unknown[] = pendingOnly ? [] : opts.status ? [opts.status] : []
   const [countRows] = await pool.query<RowDataPacket[]>(
     `SELECT COUNT(*) AS total FROM cs_conversation c ${where}`,
-    countParams,
+    filterParams,
   )
 
   return {
@@ -133,6 +154,48 @@ export async function listConversations(
     })),
     total: Number(countRows[0].total),
   }
+}
+
+export async function listUserTickets(env: Env, userId: string): Promise<{ items: CsTicketItem[]; unreadCount: number }> {
+  const [rows] = await db(env).query<RowDataPacket[]>(
+    `SELECT c.*,
+       (SELECT content FROM cs_message WHERE conversation_id = c.id ORDER BY id DESC LIMIT 1) AS last_message,
+       (SELECT role FROM cs_message WHERE conversation_id = c.id ORDER BY id DESC LIMIT 1) AS last_message_role,
+       (SELECT COUNT(*) FROM cs_message m
+        WHERE m.conversation_id = c.id AND m.role = 'admin' AND m.id > c.user_ticket_read_message_id) AS unread_admin_messages
+     FROM cs_conversation c
+     WHERE c.user_id = ? AND c.escalated_at IS NOT NULL
+     ORDER BY c.updated_at DESC`,
+    [userId],
+  )
+  const items = rows.map(rowToTicketItem)
+  return {
+    items,
+    unreadCount: items.reduce((sum, item) => sum + item.unreadAdminMessages, 0),
+  }
+}
+
+export async function getUserTicketById(env: Env, userId: string, id: number): Promise<Conversation | null> {
+  const [rows] = await db(env).query<RowDataPacket[]>(
+    `SELECT * FROM cs_conversation WHERE id = ? AND user_id = ? AND escalated_at IS NOT NULL`,
+    [id, userId],
+  )
+  return rows.length > 0 ? rowToConversation(rows[0]) : null
+}
+
+export async function markUserTicketRead(env: Env, userId: string, id: number): Promise<void> {
+  await db(env).query(
+    `UPDATE cs_conversation c
+     LEFT JOIN (
+       SELECT conversation_id, MAX(id) AS max_id
+       FROM cs_message
+       WHERE conversation_id = ?
+       GROUP BY conversation_id
+     ) m ON m.conversation_id = c.id
+     SET c.user_ticket_read_message_id = COALESCE(m.max_id, c.user_ticket_read_message_id)
+     WHERE c.id = ? AND c.user_id = ? AND c.escalated_at IS NOT NULL`,
+    [id, id, userId],
+  )
 }
 
 export async function markUserLeftConversation(env: Env, userId: string): Promise<void> {
@@ -270,6 +333,7 @@ function rowToConversation(r: RowDataPacket): Conversation {
     agentName: normalizeAgentName(r.agent_name) ?? fallbackAgentName(Number(r.id)),
     escalateReason: r.escalate_reason ?? null,
     userLeftAt: r.user_left_at ?? null,
+    userTicketReadMessageId: Number(r.user_ticket_read_message_id ?? 0),
     aiSummary: r.ai_summary ?? null,
     aiSummaryModel: r.ai_summary_model ?? null,
     aiSummaryMessageCount: Number(r.ai_summary_message_count ?? 0),
@@ -287,5 +351,20 @@ function rowToMessage(r: RowDataPacket): CsMessage {
     role: r.role,
     content: r.content,
     createdAt: r.created_at,
+  }
+}
+
+function rowToTicketItem(r: RowDataPacket): CsTicketItem {
+  return {
+    id: Number(r.id),
+    status: r.status,
+    agentName: normalizeAgentName(r.agent_name) ?? fallbackAgentName(Number(r.id)),
+    escalateReason: r.escalate_reason ?? null,
+    lastMessage: r.last_message ?? '',
+    lastMessageRole: r.last_message_role ?? null,
+    unreadAdminMessages: Number(r.unread_admin_messages ?? 0),
+    createdAt: r.created_at,
+    updatedAt: r.updated_at,
+    resolvedAt: r.resolved_at ?? null,
   }
 }
