@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Card, Descriptions, Tag, Button, Space, Table, Modal, Input, message, Spin, Row, Col, Alert, Popconfirm, Select } from 'antd'
 import {
-  getReviewProposalDetail, approveWithdrawal, rejectWithdrawal, rerunReview,
+  getReviewProposalDetail, approveWithdrawal, rejectWithdrawal, ignoreReviewProposal, rerunReview,
   type ReviewProposalDetail,
 } from '../../api'
 import { ruleVerdictTag, wdStatusLabel, toPhp } from './shared'
@@ -101,12 +101,19 @@ export default function ProposalDetail() {
     catch (e) { message.error(e instanceof Error ? e.message : '操作失败') }
     finally { setOpLoading(false) }
   }
+  async function doIgnore() {
+    setOpLoading(true)
+    try { await ignoreReviewProposal(orderId); message.success('已忽略，不再提醒'); await load() }
+    catch (e) { message.error(e instanceof Error ? e.message : '操作失败') }
+    finally { setOpLoading(false) }
+  }
 
   return (
     <div>
       <Space style={{ marginBottom: 12 }}>
         <Button onClick={() => navigate(-1)}>← 返回</Button>
         <h2 style={{ margin: 0 }}>提案详情 {order.orderId}</h2>
+        {order.badgeIgnored && <Tag color="default">已忽略提醒</Tag>}
       </Space>
 
       {/* 为什么转人工 */}
@@ -227,6 +234,15 @@ export default function ProposalDetail() {
             </Popconfirm>
             <Button danger loading={opLoading} onClick={openReject}>拒绝退款</Button>
             <Button loading={opLoading} onClick={doRerun}>重跑审核</Button>
+            {order.reviewVerdict === 'manual' && !order.badgeIgnored && (
+              <Popconfirm
+                title="忽略该提款提醒？"
+                description="忽略后不再计入待人工处理和菜单角标，订单仍可继续批准或拒绝。"
+                onConfirm={doIgnore}
+              >
+                <Button loading={opLoading}>忽略提醒</Button>
+              </Popconfirm>
+            )}
           </Space>
         </Card>
       )}

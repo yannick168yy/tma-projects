@@ -669,7 +669,7 @@ export interface ReviewProposal {
   orderId: string; userId: string; displayName: string | null
   channelId: string; currency: string; amount: number; status: string
   reviewVerdict: string | null; reviewedAt: string | null; reviewMs: number | null
-  handledBy: string | null; handledAt: string | null; createdAt: string
+  handledBy: string | null; handledAt: string | null; badgeIgnored: boolean; createdAt: string
   hitRules: { code: string; name: string }[]
 }
 export const getReviewProposals = (params: { page?: number; pageSize?: number; userId?: string; status?: string; reviewVerdict?: string; queue?: string }) =>
@@ -679,7 +679,7 @@ export interface ReviewProposalDetail {
   order: {
     orderId: string; userId: string; channelId: string; currency: string; amount: number; status: string
     reviewVerdict: string | null; reviewedAt: string | null; reviewRound: number | null; reviewMs: number | null
-    rejectReason: string | null; handledBy: string | null; handledAt: string | null; createdAt: string
+    rejectReason: string | null; handledBy: string | null; handledAt: string | null; badgeIgnored: boolean; createdAt: string
   }
   user: {
     userId: string; displayName: string | null; status: string | null; email: string | null
@@ -706,6 +706,8 @@ export interface ReviewProposalDetail {
 }
 export const getReviewProposalDetail = (orderId: string) =>
   get<ReviewProposalDetail>(`/admin/review/proposals/${orderId}`)
+export const ignoreReviewProposal = (orderId: string) =>
+  post<{ ignored: boolean }>(`/admin/review/proposals/${orderId}/ignore`)
 export const rerunReview = (orderId: string) =>
   post<{ round: number }>(`/admin/review/proposals/${orderId}/rerun`)
 

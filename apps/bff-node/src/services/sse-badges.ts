@@ -27,7 +27,7 @@ async function fetchCounts(env: Env): Promise<{ manualWithdrawals: number; pendi
   const [[wRow], [csRow], [kycRow]] = await Promise.all([
     db.query<RowDataPacket[]>(
       `SELECT (
-         SELECT COUNT(*) FROM bg_withdraw_order WHERE status = 'pending' AND review_verdict = 'manual'
+         SELECT COUNT(*) FROM bg_withdraw_order WHERE status = 'pending' AND review_verdict = 'manual' AND badge_ignored = 0
        ) + (
          SELECT COUNT(*) FROM bg_team_withdrawal WHERE status = 'pending' AND review_verdict = 'manual'
        ) AS cnt`,

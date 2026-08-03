@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Table, Space, Button, Tag, Modal, Input, message, Grid, Card } from 'antd'
 import type { TablePaginationConfig } from 'antd'
-import { getManualQueue, approveTeamWithdrawal, rejectTeamWithdrawal, type ManualQueueItem } from '../../api'
+import { getManualQueue, approveTeamWithdrawal, rejectTeamWithdrawal, ignoreReviewProposal, type ManualQueueItem } from '../../api'
 import { MobileCardList } from '../../components/MobileCardList'
 import { PAGE_SIZE_OPTIONS, DEFAULT_PAGE_SIZE } from '../../pagination'
 import { wdStatusLabel } from './shared'
@@ -46,6 +46,19 @@ export default function ManualQueue() {
   function handleReject(item: ManualQueueItem) {
     setRejecting(item)
     setRejectReason('')
+  }
+
+  function handleIgnore(item: ManualQueueItem) {
+    Modal.confirm({
+      title: '忽略该提款提醒？',
+      content: '忽略后该提案不再计入待人工处理和菜单角标，仍可在提案审核记录中查看并处理。',
+      okText: '忽略提醒',
+      onOk: async () => {
+        await ignoreReviewProposal(item.id)
+        message.success('已忽略，不再提醒')
+        void load(page)
+      },
+    })
   }
 
   async function doReject() {
@@ -109,7 +122,10 @@ export default function ManualQueue() {
       title: '操作', key: 'op', width: 160,
       render: (_: unknown, r: ManualQueueItem) =>
         r.kind === 'user' ? (
-          <Button type="link" size="small" onClick={() => navigate(`/review/proposals/${r.id}`)}>详情</Button>
+          <Space>
+            <Button type="link" size="small" onClick={() => navigate(`/review/proposals/${r.id}`)}>详情</Button>
+            <Button type="link" size="small" onClick={() => handleIgnore(r)}>忽略提醒</Button>
+          </Space>
         ) : (
           <Space>
             <Button type="link" size="small" onClick={() => handleApprove(r)}>出款</Button>
@@ -181,7 +197,10 @@ export default function ManualQueue() {
               </div>
               <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
                 {r.kind === 'user' ? (
-                  <Button block size="large" onClick={() => navigate(`/review/proposals/${r.id}`)}>详情</Button>
+                  <>
+                    <Button size="large" style={{ flex: 1 }} onClick={() => navigate(`/review/proposals/${r.id}`)}>详情</Button>
+                    <Button size="large" style={{ flex: 1 }} onClick={() => handleIgnore(r)}>忽略提醒</Button>
+                  </>
                 ) : (
                   <>
                     <Button type="primary" size="large" style={{ flex: 1 }} onClick={() => handleApprove(r)}>出款</Button>

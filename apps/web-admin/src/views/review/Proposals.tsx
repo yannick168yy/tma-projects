@@ -37,7 +37,12 @@ export default function Proposals({ queue = false }: { queue?: boolean }) {
     ) },
     { title: '金额', key: 'amount', render: (_: unknown, r: ReviewProposal) => `${r.amount} ${r.currency}` },
     { title: '渠道', dataIndex: 'channelId', width: 90 },
-    { title: '审核结果', key: 'verdict', width: 100, render: (_: unknown, r: ReviewProposal) => verdictTag(r.reviewVerdict) },
+    { title: '审核结果', key: 'verdict', width: 150, render: (_: unknown, r: ReviewProposal) => (
+      <Space size={4}>
+        {verdictTag(r.reviewVerdict)}
+        {r.badgeIgnored && <Tag color="default">已忽略提醒</Tag>}
+      </Space>
+    ) },
     { title: '命中规则', key: 'hits', render: (_: unknown, r: ReviewProposal) => (
       r.hitRules.length ? <Space size={[0, 4]} wrap>{r.hitRules.map((h) => <Tag key={h.code} color="orange">{h.name}</Tag>)}</Space> : <span style={{ color: '#ccc' }}>—</span>
     ) },

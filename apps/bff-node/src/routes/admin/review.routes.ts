@@ -35,9 +35,9 @@ router.get('/overview', async (ctx) => {
 
   const [[bl]] = await pool.query<RowDataPacket[]>(
     `SELECT
-       (SELECT COUNT(*) FROM bg_withdraw_order WHERE status = 'pending' AND review_verdict = 'manual')
+       (SELECT COUNT(*) FROM bg_withdraw_order WHERE status = 'pending' AND review_verdict = 'manual' AND badge_ignored = 0)
        + (SELECT COUNT(*) FROM bg_team_withdrawal WHERE status = 'pending' AND review_verdict = 'manual') AS backlog,
-       (SELECT COUNT(*) FROM bg_withdraw_order WHERE status = 'pending' AND review_verdict = 'manual' AND reviewed_at < NOW() - INTERVAL 6 HOUR)
+       (SELECT COUNT(*) FROM bg_withdraw_order WHERE status = 'pending' AND review_verdict = 'manual' AND badge_ignored = 0 AND reviewed_at < NOW() - INTERVAL 6 HOUR)
        + (SELECT COUNT(*) FROM bg_team_withdrawal WHERE status = 'pending' AND review_verdict = 'manual' AND reviewed_at < NOW() - INTERVAL 6 HOUR) AS overdue`,
   )
 
@@ -79,7 +79,7 @@ router.get('/proposals', async (ctx) => {
   if (ctx.query.reviewVerdict === 'none') { where.push('w.review_verdict IS NULL') }
   else if (ctx.query.reviewVerdict) { where.push('w.review_verdict = ?'); params.push(String(ctx.query.reviewVerdict)) }
   // queue=manual：只看待人工（manual + pending）
-  if (ctx.query.queue === 'manual') { where.push(`w.review_verdict = 'manual' AND w.status = 'pending'`) }
+  if (ctx.query.queue === 'manual') { where.push(`w.review_verdict = 'manual' AND w.status = 'pending' AND w.badge_ignored = 0`) }
   const whereClause = where.length ? `WHERE ${where.join(' AND ')}` : ''
 
   const [[cnt]] = await pool.query<RowDataPacket[]>(
@@ -87,7 +87,7 @@ router.get('/proposals', async (ctx) => {
   )
   const [rows] = await pool.query<RowDataPacket[]>(
     `SELECT w.order_id, w.user_id, w.channel, w.currency, w.amount, w.status,
-            w.review_verdict, w.reviewed_at, w.review_ms, w.handled_by, w.handled_at, w.created_at,
+            w.review_verdict, w.reviewed_at, w.review_ms, w.handled_by, w.handled_at, w.badge_ignored, w.created_at,
             u.display_name,
             hr.hit_rules
      FROM bg_withdraw_order w
@@ -120,6 +120,7 @@ router.get('/proposals', async (ctx) => {
       reviewMs: r.review_ms == null ? null : Number(r.review_ms),
       handledBy: r.handled_by ? String(r.handled_by) : null,
       handledAt: r.handled_at ? new Date(r.handled_at as Date).toISOString() : null,
+      badgeIgnored: Boolean(r.badge_ignored),
       createdAt: new Date(r.created_at as Date).toISOString(),
       hitRules: r.hit_rules ? String(r.hit_rules).split(',').map((c) => ({ code: c, name: ruleName(c) })) : [],
     })),
@@ -195,6 +196,7 @@ router.get('/proposals/:orderId', async (ctx) => {
       rejectReason: w.reject_reason ? String(w.reject_reason) : null,
       handledBy: w.handled_by ? String(w.handled_by) : null,
       handledAt: w.handled_at ? new Date(w.handled_at as Date).toISOString() : null,
+      badgeIgnored: Boolean(w.badge_ignored),
       createdAt: new Date(w.created_at as Date).toISOString(),
     },
     user: {
@@ -226,6 +228,24 @@ router.get('/proposals/:orderId', async (ctx) => {
     rules,
     related,
   })
+})
+
+// ── 忽略提案提醒：不改变提款状态，仅从后台待办/角标中隐藏 ───────────────────────
+router.post('/proposals/:orderId/ignore', async (ctx) => {
+  if (!isMysqlEnabled(ctx.state.env)) { fail(ctx, 503, 'DB not available'); return }
+  const pool = getMysqlPool(ctx.state.env)
+  const [res] = await pool.execute<ResultSetHeader>(
+    `UPDATE bg_withdraw_order
+     SET badge_ignored = 1
+     WHERE order_id = ? AND status = 'pending' AND review_verdict = 'manual'`,
+    [ctx.params.orderId],
+  )
+  await writeAuditLog(ctx.state.env, {
+    adminId: ctx.state.adminId!, adminUsername: ctx.state.adminUsername!,
+    action: 'review.proposal.badge_ignore', targetType: 'withdrawal', targetId: ctx.params.orderId,
+    detail: { affectedRows: res.affectedRows }, ip: ctx.ip,
+  })
+  ok(ctx, { ignored: true })
 })
 
 // ── 人工重跑审核 ──────────────────────────────────────────────────────────────
@@ -408,7 +428,7 @@ router.get('/manual-queue', async (ctx) => {
          AND l.round = (SELECT MAX(l2.round) FROM bg_withdraw_review_log l2 WHERE l2.order_id = l.order_id)
        GROUP BY l.order_id
      ) hr ON hr.order_id = w.order_id
-     WHERE w.status = 'pending' AND w.review_verdict = 'manual'`,
+     WHERE w.status = 'pending' AND w.review_verdict = 'manual' AND w.badge_ignored = 0`,
   )
 
   // 佣金提现：自动审核不通过才转人工
