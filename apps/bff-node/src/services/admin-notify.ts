@@ -93,15 +93,28 @@ export function notifyCsHuman(
   env: Env,
   p: { conversationId: number; userId?: string; reason: string; toStatus: 'escalated' | 'human_taken' },
 ): Promise<void> {
-  const label = p.toStatus === 'human_taken' ? '转人工(在线)' : '转人工(离线工单)'
+  const label = p.toStatus === 'human_taken' ? '工单待人工(在线)' : '离线工单待处理'
   const text = [
     `🔔 客服${label}`,
     `用户: ${p.userId ?? '未知'}`,
     `原因: ${p.reason || '未知'}`,
-    `会话: #${p.conversationId}`,
-    `${env.ADMIN_WEB_URL}/customer-service`,
+    `工单: #${p.conversationId}`,
+    `${env.ADMIN_WEB_URL}/cs-tickets`,
   ].join('\n')
   return send(env, { dedupKey: `cs:${p.conversationId}:${p.toStatus}`, text })
+}
+
+export function notifyCsTicketMessage(
+  env: Env,
+  p: { conversationId: number; userId: string },
+): Promise<void> {
+  const text = [
+    '🔔 客服工单新留言',
+    `用户: ${p.userId}`,
+    `工单: #${p.conversationId}`,
+    `${env.ADMIN_WEB_URL}/cs-tickets`,
+  ].join('\n')
+  return send(env, { dedupKey: `csmsg:${p.conversationId}`, text })
 }
 
 // ── 服务商余额不足 ─────────────────────────────────────────────────────────────

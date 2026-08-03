@@ -154,7 +154,7 @@ function buildMenuItems(badges: AdminBadges) {
     {
       key: 'cs',
       icon: <CustomerServiceOutlined />,
-      label: '客服中心',
+      label: <MenuBadgeLabel text="客服中心" count={badges.pendingCs} />,
       children: [
         {
           key: '/customer-service',
