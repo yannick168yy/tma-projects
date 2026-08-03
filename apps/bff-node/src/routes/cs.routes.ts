@@ -284,9 +284,7 @@ router.post('/cs/tickets/:id/message', async (ctx) => {
   }
   const msg = await saveMessage(ctx.state.env, id, 'user', message.trim())
   await reopenTicketForUserMessage(ctx.state.env, id)
-  if (!conversation.badgeIgnored) {
-    notifyCsTicketMessage(ctx.state.env, { conversationId: id, userId: ctx.state.userId }).catch(() => {})
-  }
+  notifyCsTicketMessage(ctx.state.env, { conversationId: id, userId: ctx.state.userId }).catch(() => {})
   ok(ctx, { message: msg, conversation: await getUserTicketById(ctx.state.env, ctx.state.userId, id) })
 })
 

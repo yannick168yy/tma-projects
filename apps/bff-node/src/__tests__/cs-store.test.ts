@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { closeCurrentConversation, expireStaleConversations, listConversations, saveConversationSummary } from '../services/cs/cs-store.js'
+import { closeCurrentConversation, expireStaleConversations, listConversations, reopenTicketForUserMessage, saveConversationSummary } from '../services/cs/cs-store.js'
 
 const query = vi.fn()
 
@@ -8,7 +8,7 @@ vi.mock('../clients/mysql.client.js', () => ({
 }))
 
 vi.mock('../services/sse-badges.js', () => ({
-  broadcastBadges: vi.fn(),
+  broadcastBadges: vi.fn(() => Promise.resolve()),
 }))
 
 vi.mock('../services/admin-notify.js', () => ({
@@ -82,6 +82,18 @@ describe('客服会话存储', () => {
     expect(result?.status).toBe('escalated')
     expect(String(query.mock.calls[2][0])).toContain('SET user_left_at = NOW()')
     expect(query.mock.calls.map(([sql]) => String(sql)).join('\n')).not.toContain("SET status = 'closed'")
+  })
+
+  it('用户给工单留言会重新提醒已关闭或已忽略工单', async () => {
+    query.mockResolvedValueOnce([{ affectedRows: 1 }])
+
+    await reopenTicketForUserMessage({} as never, 4)
+
+    const sql = String(query.mock.calls[0][0])
+    expect(sql).toContain("status IN ('resolved','closed')")
+    expect(sql).toContain('badge_ignored = 0')
+    expect(sql).toContain('OR badge_ignored = 1')
+    expect(query.mock.calls[0][1]).toEqual([4])
   })
 
   it('保存 AI 总结到会话', async () => {
