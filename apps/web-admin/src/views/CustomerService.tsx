@@ -34,7 +34,7 @@ export default function CustomerService({ ticketMode = false }: { ticketMode?: b
   const [conversations, setConversations] = useState<CsConversation[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(false)
-  const [statusFilter, setStatusFilter] = useState(ticketMode ? 'pending' : '')
+  const [statusFilter, setStatusFilter] = useState(ticketMode ? 'escalated' : '')
   const [page, setPage] = useState(1)
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const [messages, setMessages] = useState<CsMessage[]>([])
@@ -233,18 +233,20 @@ export default function CustomerService({ ticketMode = false }: { ticketMode?: b
                 onChange={(v) => void toggleDuty(v)}
               />
             </Tooltip>
-            <Select
-              value={statusFilter}
-              size="small"
-              style={{ width: 110 }}
-              onChange={(v) => { setStatusFilter(v); void loadList(1) }}
-              options={[
-                { value: 'pending', label: '待处理' }, { value: '', label: '全部' }, { value: 'active', label: 'AI 处理中' },
-                { value: 'escalated', label: '离线工单' },
-                { value: 'human_taken', label: '待人工' }, { value: 'resolved', label: '已解决' },
-                { value: 'closed', label: '已关闭' },
-              ]}
-            />
+            {!ticketMode && (
+              <Select
+                value={statusFilter}
+                size="small"
+                style={{ width: 110 }}
+                onChange={(v) => { setStatusFilter(v); void loadList(1) }}
+                options={[
+                  { value: 'pending', label: '待处理' }, { value: '', label: '全部' }, { value: 'active', label: 'AI 处理中' },
+                  { value: 'escalated', label: '离线工单' },
+                  { value: 'human_taken', label: '待人工' }, { value: 'resolved', label: '已解决' },
+                  { value: 'closed', label: '已关闭' },
+                ]}
+              />
+            )}
           </Space>
         }
       >
