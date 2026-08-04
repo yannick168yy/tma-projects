@@ -174,9 +174,21 @@ router.get('/:id/bet-orders', async (ctx) => {
                FROM bg_568win_game g
                LEFT JOIN bg_568win_game_override o
                  ON o.game_provider_id = g.game_provider_id AND o.game_id = g.game_id
-              WHERE g.game_id = r.provider_id LIMIT 1) AS game_name,
+              WHERE g.game_id = r.provider_id
+                AND g.game_provider_id = COALESCE(
+                  (SELECT wt.gpid FROM bg_568win_wallet_txn wt
+                    WHERE wt.user_id = ? AND wt.provider_id = r.provider_id AND wt.gpid IS NOT NULL
+                    ORDER BY (wt.round_id <=> r.round_id) DESC, wt.id DESC LIMIT 1),
+                  g.game_provider_id)
+              LIMIT 1) AS game_name,
             (SELECT COALESCE(g.provider, '568Win') FROM bg_568win_game g
-              WHERE g.game_id = r.provider_id LIMIT 1) AS provider_name
+              WHERE g.game_id = r.provider_id
+                AND g.game_provider_id = COALESCE(
+                  (SELECT wt.gpid FROM bg_568win_wallet_txn wt
+                    WHERE wt.user_id = ? AND wt.provider_id = r.provider_id AND wt.gpid IS NOT NULL
+                    ORDER BY (wt.round_id <=> r.round_id) DESC, wt.id DESC LIMIT 1),
+                  g.game_provider_id)
+              LIMIT 1) AS provider_name
      FROM (
        SELECT COALESCE(b.round_id, b.provider_txn_id) AS round_id,
          b.currency_code, MIN(b.provider_id) AS provider_id,
@@ -189,7 +201,7 @@ router.get('/:id/bet-orders', async (ctx) => {
        GROUP BY COALESCE(b.round_id, b.provider_txn_id), b.currency_code
      ) r
      ORDER BY COALESCE(r.bet_time, r.win_time) DESC LIMIT ? OFFSET ?`,
-    [ctx.params.id, pageSize, offset],
+    [ctx.params.id, ctx.params.id, ctx.params.id, pageSize, offset],
   )
   const [[c]] = await pool.query<RowDataPacket[]>(
     `SELECT COUNT(*) AS total FROM (
