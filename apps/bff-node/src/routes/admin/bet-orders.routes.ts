@@ -31,7 +31,87 @@ router.get('/', async (ctx) => {
 
   const pool = getMysqlPool(ctx.state.env)
 
-  // stats 始终只按 userId/日期过滤，两个视图共用，保持数字一致
+  // ── 按局视图 ────────────────────────────────────────────────────────────────
+  if (view === 'round') {
+    const roundWhere: string[] = []
+    const roundParams: unknown[] = []
+    if (userId)   { roundWhere.push('br.user_id = ?');  roundParams.push(userId) }
+    if (roundId)  { roundWhere.push('br.round_id = ?'); roundParams.push(roundId) }
+    if (dateFrom) { roundWhere.push('br.first_at >= ?'); roundParams.push(utc8DayStartUtc(dateFrom)) }
+    if (dateTo)   { roundWhere.push('br.first_at < ?');  roundParams.push(utc8NextDayStartUtc(dateTo)) }
+    const roundWhereClause = roundWhere.length ? 'WHERE ' + roundWhere.join(' AND ') : ''
+    const sortBy = ctx.query.sortBy === 'betAmount' || ctx.query.sortBy === 'ggr' ? String(ctx.query.sortBy) : 'time'
+    const sortDir = ctx.query.sortOrder === 'asc' ? 'ASC' : 'DESC'
+    const orderBy = sortBy === 'betAmount'
+      ? `br.bet_amount ${sortDir}, br.last_id DESC`
+      : sortBy === 'ggr'
+        ? `(br.bet_amount - br.win_amount) ${sortDir}, br.last_id DESC`
+        : 'br.last_id DESC'
+
+    const [[roundStats]] = await pool.query<import('mysql2/promise').RowDataPacket[]>(
+      `SELECT COALESCE(SUM(br.bet_amount), 0) AS totalBet,
+              COALESCE(SUM(br.win_amount), 0) AS totalWin,
+              COUNT(*) AS roundCount
+       FROM bg_bet_round br ${roundWhereClause}`,
+      roundParams,
+    )
+    const stats = { totalBet: Number(roundStats.totalBet), totalWin: Number(roundStats.totalWin), roundCount: Number(roundStats.roundCount) }
+
+    const [items] = await pool.query<import('mysql2/promise').RowDataPacket[]>(
+      `SELECT p.round_id, p.user_id, p.currency_code,
+              p.bet_amount, p.win_amount, p.first_at, p.updated_at,
+              COALESCE(o.name_override, g.name_en, g.name_zh) AS game_name,
+              COALESCE(g.provider, '568Win') AS provider_name
+       FROM (
+         SELECT br.round_id, br.user_id, br.currency_code, br.provider_txn_id,
+                br.bet_amount, br.win_amount, br.first_at, br.updated_at, br.aggregator_id, br.last_id
+         FROM bg_bet_round br
+         ${roundWhereClause}
+         ORDER BY ${orderBy} LIMIT ? OFFSET ?
+       ) p
+       LEFT JOIN bg_568win_wallet_txn wt
+         ON p.aggregator_id = '568win'
+        AND wt.transfer_code = CASE
+          WHEN LOCATE(':', p.provider_txn_id) > 0 THEN SUBSTRING_INDEX(p.provider_txn_id, ':', 1)
+          ELSE p.provider_txn_id
+        END
+        AND (
+          LOCATE(':', p.provider_txn_id) = 0
+          OR wt.transaction_id = SUBSTRING_INDEX(p.provider_txn_id, ':', -1)
+        )
+       LEFT JOIN bg_568win_game g
+         ON g.game_provider_id = wt.gpid
+        AND g.game_id = CAST(wt.provider_id AS UNSIGNED)
+       LEFT JOIN bg_568win_game_override o
+         ON o.game_provider_id = g.game_provider_id AND o.game_id = g.game_id
+       ORDER BY ${orderBy.replaceAll('br.', 'p.')}`,
+      [...roundParams, pageSize, offset],
+    )
+    const toIso = (v: unknown) => {
+      if (!v) return null
+      const d = new Date(v as Date)
+      return isNaN(d.getTime()) ? null : d.toISOString()
+    }
+    ok(ctx, {
+      total: stats.roundCount, page, pageSize,
+      stats,
+      items: items.map((r) => ({
+        roundId:      String(r.round_id),
+        userId:       String(r.user_id),
+        currencyCode: String(r.currency_code),
+        betAmount:    Number(r.bet_amount),
+        winAmount:    Number(r.win_amount),
+        cancelled:    false,
+        gameName:     r.game_name     ? String(r.game_name)     : null,
+        providerName: r.provider_name ? String(r.provider_name) : null,
+        betTime:      toIso(r.first_at),
+        winTime:      toIso(r.updated_at),
+      })),
+    })
+    return
+  }
+
+  // stats 始终只按 userId/日期过滤，明细视图使用原始注单表
   const statsWhere: string[] = []
   const statsParams: unknown[] = []
   if (userId)   { statsWhere.push('b.user_id = ?');     statsParams.push(userId) }
@@ -49,94 +129,6 @@ router.get('/', async (ctx) => {
     statsParams,
   )
   const stats = { totalBet: Number(sharedStats.totalBet), totalWin: Number(sharedStats.totalWin), roundCount: Number(sharedStats.roundCount) }
-
-  // ── 按局视图 ────────────────────────────────────────────────────────────────
-  if (view === 'round') {
-    const innerWhere: string[] = []
-    const innerParams: unknown[] = []
-    if (userId)   { innerWhere.push('b.user_id = ?');     innerParams.push(userId) }
-    if (roundId)  { pushRoundIdFilter(innerWhere, innerParams, roundId) }
-    if (dateFrom) { innerWhere.push('b.created_at >= ?'); innerParams.push(utc8DayStartUtc(dateFrom)) }
-    if (dateTo)   { innerWhere.push('b.created_at < ?');  innerParams.push(utc8NextDayStartUtc(dateTo)) }
-    const innerWhereClause = innerWhere.length ? 'WHERE ' + innerWhere.join(' AND ') : ''
-    const sortBy = ctx.query.sortBy === 'betAmount' || ctx.query.sortBy === 'ggr' ? String(ctx.query.sortBy) : 'time'
-    const sortDir = ctx.query.sortOrder === 'asc' ? 'ASC' : 'DESC'
-    const orderBy = sortBy === 'betAmount'
-      ? `r.bet_amount ${sortDir}, COALESCE(r.bet_time, r.win_time) DESC`
-      : sortBy === 'ggr'
-        ? `(r.bet_amount - r.win_amount) ${sortDir}, COALESCE(r.bet_time, r.win_time) DESC`
-        : 'COALESCE(r.bet_time, r.win_time) DESC'
-
-    // 无局号的单以 provider_txn_id 作为独立一局保留，不丢数据
-    const [[{ total }]] = await pool.query<import('mysql2/promise').RowDataPacket[]>(
-      `SELECT COUNT(*) AS total FROM (
-         SELECT 1 FROM bg_bet_order b ${innerWhereClause}
-         GROUP BY COALESCE(b.round_id, b.provider_txn_id), b.user_id, b.currency_code
-       ) sub`,
-      innerParams,
-    )
-    const [items] = await pool.query<import('mysql2/promise').RowDataPacket[]>(
-      `SELECT p.round_id, p.user_id, p.currency_code, p.provider_id,
-              p.bet_amount, p.win_amount, p.cancel_count, p.bet_time, p.win_time,
-              MAX(COALESCE(o.name_override, g.name_en, g.name_zh)) AS game_name,
-              MAX(COALESCE(g.provider, '568Win')) AS provider_name
-       FROM (
-         SELECT r.*
-         FROM (
-           SELECT COALESCE(b.round_id, b.provider_txn_id) AS round_id,
-             b.user_id, b.currency_code, MIN(b.provider_id) AS provider_id,
-             SUM(CASE WHEN b.bet_type='bet' THEN b.amount ELSE 0 END) AS bet_amount,
-             SUM(CASE WHEN b.bet_type IN ('win','refund') THEN b.amount ELSE 0 END) AS win_amount,
-             SUM(CASE WHEN b.bet_type='cancel' THEN 1 ELSE 0 END)     AS cancel_count,
-             MIN(CASE WHEN b.bet_type='bet' THEN b.created_at END)    AS bet_time,
-             MIN(CASE WHEN b.bet_type IN ('win','refund') THEN b.created_at END) AS win_time
-           FROM bg_bet_order b ${innerWhereClause}
-           GROUP BY COALESCE(b.round_id, b.provider_txn_id), b.user_id, b.currency_code
-         ) r
-         ORDER BY ${orderBy} LIMIT ? OFFSET ?
-       ) p
-       LEFT JOIN bg_568win_wallet_txn wt
-         ON wt.id = (
-           SELECT wt2.id
-           FROM bg_568win_wallet_txn wt2
-           WHERE wt2.user_id = p.user_id
-             AND wt2.provider_id = p.provider_id
-             AND wt2.gpid IS NOT NULL
-           ORDER BY (wt2.round_id <=> p.round_id) DESC, wt2.id DESC
-           LIMIT 1
-         )
-       LEFT JOIN bg_568win_game g
-         ON g.game_id = p.provider_id AND g.game_provider_id = wt.gpid
-       LEFT JOIN bg_568win_game_override o
-         ON o.game_provider_id = g.game_provider_id AND o.game_id = g.game_id
-       GROUP BY p.round_id, p.user_id, p.currency_code, p.provider_id,
-                p.bet_amount, p.win_amount, p.cancel_count, p.bet_time, p.win_time
-       ORDER BY ${orderBy.replaceAll('r.', 'p.')}`,
-      [...innerParams, pageSize, offset],
-    )
-    const toIso = (v: unknown) => {
-      if (!v) return null
-      const d = new Date(v as Date)
-      return isNaN(d.getTime()) ? null : d.toISOString()
-    }
-    ok(ctx, {
-      total: Number(total), page, pageSize,
-      stats,
-      items: items.map((r) => ({
-        roundId:      String(r.round_id),
-        userId:       String(r.user_id),
-        currencyCode: String(r.currency_code),
-        betAmount:    Number(r.bet_amount),
-        winAmount:    Number(r.win_amount),
-        cancelled:    Number(r.cancel_count) > 0,
-        gameName:     r.game_name     ? String(r.game_name)     : null,
-        providerName: r.provider_name ? String(r.provider_name) : null,
-        betTime:      toIso(r.bet_time),
-        winTime:      toIso(r.win_time),
-      })),
-    })
-    return
-  }
 
   // ── 明细视图 ────────────────────────────────────────────────────────────────
   const where: string[] = []
