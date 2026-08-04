@@ -12,6 +12,11 @@ function utc8NextDayStartUtc(date: string): string {
   return new Date(new Date(`${date}T00:00:00+08:00`).getTime() + 86400000).toISOString().slice(0, 19).replace('T', ' ')
 }
 
+function pushRoundIdFilter(where: string[], params: unknown[], roundId: string) {
+  where.push('(b.round_id = ? OR (b.round_id IS NULL AND b.provider_txn_id = ?))')
+  params.push(roundId, roundId)
+}
+
 router.get('/', async (ctx) => {
   const page     = Math.max(1, Number(ctx.query.page ?? 1))
   const pageSize = Math.min(1000, Math.max(10, Number(ctx.query.pageSize ?? 20)))
@@ -22,6 +27,7 @@ router.get('/', async (ctx) => {
   const betType  = ctx.query.betType  ? String(ctx.query.betType)  : undefined
   const dateFrom = ctx.query.dateFrom ? String(ctx.query.dateFrom) : undefined
   const dateTo   = ctx.query.dateTo   ? String(ctx.query.dateTo)   : undefined
+  const roundId  = ctx.query.roundId  ? String(ctx.query.roundId).trim() : undefined
 
   const pool = getMysqlPool(ctx.state.env)
 
@@ -29,6 +35,7 @@ router.get('/', async (ctx) => {
   const statsWhere: string[] = []
   const statsParams: unknown[] = []
   if (userId)   { statsWhere.push('b.user_id = ?');     statsParams.push(userId) }
+  if (roundId)  { pushRoundIdFilter(statsWhere, statsParams, roundId) }
   if (dateFrom) { statsWhere.push('b.created_at >= ?'); statsParams.push(utc8DayStartUtc(dateFrom)) }
   if (dateTo)   { statsWhere.push('b.created_at < ?');  statsParams.push(utc8NextDayStartUtc(dateTo)) }
   const statsWhereClause = statsWhere.length ? 'WHERE ' + statsWhere.join(' AND ') : ''
@@ -48,9 +55,17 @@ router.get('/', async (ctx) => {
     const innerWhere: string[] = []
     const innerParams: unknown[] = []
     if (userId)   { innerWhere.push('b.user_id = ?');     innerParams.push(userId) }
+    if (roundId)  { pushRoundIdFilter(innerWhere, innerParams, roundId) }
     if (dateFrom) { innerWhere.push('b.created_at >= ?'); innerParams.push(utc8DayStartUtc(dateFrom)) }
     if (dateTo)   { innerWhere.push('b.created_at < ?');  innerParams.push(utc8NextDayStartUtc(dateTo)) }
     const innerWhereClause = innerWhere.length ? 'WHERE ' + innerWhere.join(' AND ') : ''
+    const sortBy = ctx.query.sortBy === 'betAmount' || ctx.query.sortBy === 'ggr' ? String(ctx.query.sortBy) : 'time'
+    const sortDir = ctx.query.sortOrder === 'asc' ? 'ASC' : 'DESC'
+    const orderBy = sortBy === 'betAmount'
+      ? `r.bet_amount ${sortDir}, COALESCE(r.bet_time, r.win_time) DESC`
+      : sortBy === 'ggr'
+        ? `(r.bet_amount - r.win_amount) ${sortDir}, COALESCE(r.bet_time, r.win_time) DESC`
+        : 'COALESCE(r.bet_time, r.win_time) DESC'
 
     // 无局号的单以 provider_txn_id 作为独立一局保留，不丢数据
     const [[{ total }]] = await pool.query<import('mysql2/promise').RowDataPacket[]>(
@@ -61,39 +76,42 @@ router.get('/', async (ctx) => {
       innerParams,
     )
     const [items] = await pool.query<import('mysql2/promise').RowDataPacket[]>(
-      `SELECT r.round_id, r.user_id, r.currency_code, r.provider_id,
-              r.bet_amount, r.win_amount, r.cancel_count, r.bet_time, r.win_time,
-              (SELECT COALESCE(o.name_override, g.name_en, g.name_zh)
-                 FROM bg_568win_game g
-                 LEFT JOIN bg_568win_game_override o
-                   ON o.game_provider_id = g.game_provider_id AND o.game_id = g.game_id
-                WHERE g.game_id = r.provider_id
-                  AND g.game_provider_id = COALESCE(
-                    (SELECT wt.gpid FROM bg_568win_wallet_txn wt
-                      WHERE wt.user_id = r.user_id AND wt.provider_id = r.provider_id AND wt.gpid IS NOT NULL
-                      ORDER BY (wt.round_id <=> r.round_id) DESC, wt.id DESC LIMIT 1),
-                    g.game_provider_id)
-                LIMIT 1) AS game_name,
-              (SELECT COALESCE(g.provider, '568Win') FROM bg_568win_game g
-                WHERE g.game_id = r.provider_id
-                  AND g.game_provider_id = COALESCE(
-                    (SELECT wt.gpid FROM bg_568win_wallet_txn wt
-                      WHERE wt.user_id = r.user_id AND wt.provider_id = r.provider_id AND wt.gpid IS NOT NULL
-                      ORDER BY (wt.round_id <=> r.round_id) DESC, wt.id DESC LIMIT 1),
-                    g.game_provider_id)
-                LIMIT 1) AS provider_name
+      `SELECT p.round_id, p.user_id, p.currency_code, p.provider_id,
+              p.bet_amount, p.win_amount, p.cancel_count, p.bet_time, p.win_time,
+              MAX(COALESCE(o.name_override, g.name_en, g.name_zh)) AS game_name,
+              MAX(COALESCE(g.provider, '568Win')) AS provider_name
        FROM (
-         SELECT COALESCE(b.round_id, b.provider_txn_id) AS round_id,
-           b.user_id, b.currency_code, MIN(b.provider_id) AS provider_id,
-           SUM(CASE WHEN b.bet_type='bet' THEN b.amount ELSE 0 END) AS bet_amount,
-           SUM(CASE WHEN b.bet_type IN ('win','refund') THEN b.amount ELSE 0 END) AS win_amount,
-           SUM(CASE WHEN b.bet_type='cancel' THEN 1 ELSE 0 END)     AS cancel_count,
-           MIN(CASE WHEN b.bet_type='bet' THEN b.created_at END)    AS bet_time,
-           MIN(CASE WHEN b.bet_type IN ('win','refund') THEN b.created_at END) AS win_time
-         FROM bg_bet_order b ${innerWhereClause}
-         GROUP BY COALESCE(b.round_id, b.provider_txn_id), b.user_id, b.currency_code
-       ) r
-       ORDER BY COALESCE(r.bet_time, r.win_time) DESC LIMIT ? OFFSET ?`,
+         SELECT r.*
+         FROM (
+           SELECT COALESCE(b.round_id, b.provider_txn_id) AS round_id,
+             b.user_id, b.currency_code, MIN(b.provider_id) AS provider_id,
+             SUM(CASE WHEN b.bet_type='bet' THEN b.amount ELSE 0 END) AS bet_amount,
+             SUM(CASE WHEN b.bet_type IN ('win','refund') THEN b.amount ELSE 0 END) AS win_amount,
+             SUM(CASE WHEN b.bet_type='cancel' THEN 1 ELSE 0 END)     AS cancel_count,
+             MIN(CASE WHEN b.bet_type='bet' THEN b.created_at END)    AS bet_time,
+             MIN(CASE WHEN b.bet_type IN ('win','refund') THEN b.created_at END) AS win_time
+           FROM bg_bet_order b ${innerWhereClause}
+           GROUP BY COALESCE(b.round_id, b.provider_txn_id), b.user_id, b.currency_code
+         ) r
+         ORDER BY ${orderBy} LIMIT ? OFFSET ?
+       ) p
+       LEFT JOIN bg_568win_wallet_txn wt
+         ON wt.id = (
+           SELECT wt2.id
+           FROM bg_568win_wallet_txn wt2
+           WHERE wt2.user_id = p.user_id
+             AND wt2.provider_id = p.provider_id
+             AND wt2.gpid IS NOT NULL
+           ORDER BY (wt2.round_id <=> p.round_id) DESC, wt2.id DESC
+           LIMIT 1
+         )
+       LEFT JOIN bg_568win_game g
+         ON g.game_id = p.provider_id AND g.game_provider_id = wt.gpid
+       LEFT JOIN bg_568win_game_override o
+         ON o.game_provider_id = g.game_provider_id AND o.game_id = g.game_id
+       GROUP BY p.round_id, p.user_id, p.currency_code, p.provider_id,
+                p.bet_amount, p.win_amount, p.cancel_count, p.bet_time, p.win_time
+       ORDER BY ${orderBy.replaceAll('r.', 'p.')}`,
       [...innerParams, pageSize, offset],
     )
     const toIso = (v: unknown) => {
@@ -125,6 +143,7 @@ router.get('/', async (ctx) => {
   const params: unknown[] = []
 
   if (userId)   { where.push('b.user_id = ?');     params.push(userId) }
+  if (roundId)  { pushRoundIdFilter(where, params, roundId) }
   if (status)   { where.push('b.status = ?');      params.push(status) }
   if (betType)  { where.push('b.bet_type = ?');    params.push(betType) }
   if (dateFrom) { where.push('b.created_at >= ?'); params.push(utc8DayStartUtc(dateFrom)) }

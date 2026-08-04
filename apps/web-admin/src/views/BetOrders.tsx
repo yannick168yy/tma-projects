@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Table, Space, Input, Select, Button, Tag, Row, Col, Statistic, DatePicker, message, Radio } from 'antd'
 import type { TablePaginationConfig } from 'antd'
+import type { SorterResult, SortOrder } from 'antd/es/table/interface'
 import type { Dayjs } from 'dayjs'
 import { getBetOrders, getBetRounds, type BetOrderRecord, type BetRoundRecord, type BetOrderStats } from '../api'
 import { PAGE_SIZE_OPTIONS, DEFAULT_PAGE_SIZE } from '../pagination'
@@ -39,20 +40,24 @@ export default function BetOrders() {
   const [userId,    setUserId]    = useState('')
   const [betType,   setBetType]   = useState<string | undefined>()
   const [status,    setStatus]    = useState<string | undefined>()
+  const [roundId, setRoundId] = useState('')
   const [dateRange, setDateRange] = useState<[Dayjs | null, Dayjs | null] | null>(null)
+  const [sortBy, setSortBy] = useState<string | undefined>()
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc' | undefined>()
 
-  async function load(p = 1, v = view, ps = pageSize) {
+  async function load(p = 1, v = view, ps = pageSize, sb = sortBy, so = sortOrder) {
     setLoading(true)
     setPageSize(ps)
     try {
       const base = {
         page: p, pageSize: ps,
         userId: userId || undefined,
+        roundId: roundId.trim() || undefined,
         dateFrom: dateRange?.[0]?.format('YYYY-MM-DD'),
         dateTo:   dateRange?.[1]?.format('YYYY-MM-DD'),
       }
       if (v === 'round') {
-        const res = await getBetRounds(base)
+        const res = await getBetRounds({ ...base, sortBy: sb, sortOrder: so })
         setRoundItems(res.items); setTotal(res.total); setPage(p); setStats(res.stats)
       } else {
         const res = await getBetOrders({ ...base, betType, status })
@@ -63,12 +68,12 @@ export default function BetOrders() {
   }
 
   function reset() {
-    setUserId(''); setBetType(undefined); setStatus(undefined); setDateRange(null)
-    setPage(1); void load(1)
+    setUserId(''); setBetType(undefined); setStatus(undefined); setRoundId(''); setDateRange(null); setSortBy(undefined); setSortOrder(undefined)
+    setPage(1); void load(1, view, pageSize, undefined, undefined)
   }
 
   function switchView(v: 'detail' | 'round') {
-    setView(v); setPage(1); void load(1, v)
+    setView(v); setPage(1); setSortBy(undefined); setSortOrder(undefined); void load(1, v, pageSize, undefined, undefined)
   }
 
   useEffect(() => { void load() }, [])
@@ -106,13 +111,21 @@ export default function BetOrders() {
     { title: '游戏名', key: 'gameName', width: 170, ellipsis: true,
       render: (_: unknown, r: BetRoundRecord) => r.gameName ?? '-' },
     { title: '局号', dataIndex: 'roundId', key: 'roundId', width: 120, ellipsis: true },
-    { title: '投注额', key: 'betAmount', width: 130,
+    { title: '投注额', dataIndex: 'betAmount', key: 'betAmount', width: 130,
+      sorter: true,
+      sortOrder: sortBy === 'betAmount'
+        ? (sortOrder === 'asc' ? 'ascend' : 'descend') as SortOrder
+        : null,
       render: (_: unknown, r: BetRoundRecord) => `${r.currencyCode} ${r.betAmount.toFixed(2)}` },
     { title: '派彩额', key: 'winAmount', width: 130,
       render: (_: unknown, r: BetRoundRecord) => r.winAmount > 0
         ? `${r.currencyCode} ${r.winAmount.toFixed(2)}`
         : <span style={{ color: '#bbb' }}>—</span> },
     { title: '净盈亏', key: 'ggr', width: 130,
+      sorter: true,
+      sortOrder: sortBy === 'ggr'
+        ? (sortOrder === 'asc' ? 'ascend' : 'descend') as SortOrder
+        : null,
       render: (_: unknown, r: BetRoundRecord) => {
         const ggr = r.betAmount - r.winAmount
         return <span style={{ color: ggr >= 0 ? '#3f8600' : '#cf1322', fontWeight: 500 }}>
@@ -132,6 +145,24 @@ export default function BetOrders() {
     pageSizeOptions: PAGE_SIZE_OPTIONS,
     showTotal: (t) => view === 'round' ? `共 ${t} 局` : `共 ${t} 条`,
     onChange: (p, ps) => load(p, view, ps),
+  }
+  const roundPagination: TablePaginationConfig = {
+    current: page, pageSize, total,
+    pageSizeOptions: PAGE_SIZE_OPTIONS,
+    showTotal: (t) => `共 ${t} 局`,
+  }
+
+  function handleRoundTableChange(
+    pg: TablePaginationConfig,
+    _filters: unknown,
+    sorter: SorterResult<BetRoundRecord> | SorterResult<BetRoundRecord>[],
+  ) {
+    const s = Array.isArray(sorter) ? sorter[0] : sorter
+    const key = s?.order ? String(s.field ?? s.columnKey ?? '') : undefined
+    const order = s?.order === 'ascend' ? 'asc' : s?.order === 'descend' ? 'desc' : undefined
+    setSortBy(key)
+    setSortOrder(order)
+    void load(pg.current ?? 1, 'round', pg.pageSize ?? pageSize, key, order)
   }
 
   return (
@@ -155,6 +186,8 @@ export default function BetOrders() {
       <Space wrap style={{ marginBottom: 16 }}>
         <Input value={userId} onChange={(e) => setUserId(e.target.value)} placeholder="用户 ID"
           allowClear style={{ width: 160 }} onPressEnter={() => load(1)} />
+        <Input value={roundId} onChange={(e) => setRoundId(e.target.value)} placeholder="局号"
+          allowClear style={{ width: 200 }} onPressEnter={() => load(1)} />
         {view === 'detail' && <>
           <Select value={betType} placeholder="类型" allowClear style={{ width: 110 }}
             onChange={(v) => { setBetType(v); void load(1) }} options={[
@@ -176,7 +209,7 @@ export default function BetOrders() {
         ? <Table dataSource={detailItems} columns={detailColumns} rowKey="id"
             loading={loading} pagination={pagination} size="small" />
         : <Table dataSource={roundItems}  columns={roundColumns}  rowKey="roundId"
-            loading={loading} pagination={pagination} size="small" />}
+            loading={loading} pagination={roundPagination} size="small" onChange={handleRoundTableChange} />}
     </div>
   )
 }

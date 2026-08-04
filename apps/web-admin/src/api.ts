@@ -470,6 +470,8 @@ export const getLedgerRecords = (params: {
   currency?: string
   from?: string
   to?: string
+  sortBy?: string
+  sortOrder?: 'asc' | 'desc'
 }) =>
   get<{ total: number; items: AdminLedgerRecord[]; page: number; pageSize: number }>('/admin/ledger', params)
 
@@ -1122,12 +1124,13 @@ export interface BetOrderStats {
 export const getBetOrders = (params: {
   page?: number; pageSize?: number
   userId?: string; status?: string; betType?: string
-  dateFrom?: string; dateTo?: string
+  dateFrom?: string; dateTo?: string; roundId?: string
 }) => get<{ total: number; page: number; pageSize: number; stats: BetOrderStats; items: BetOrderRecord[] }>('/admin/bet-orders', params)
 
 export const getBetRounds = (params: {
   page?: number; pageSize?: number
-  userId?: string; dateFrom?: string; dateTo?: string
+  userId?: string; dateFrom?: string; dateTo?: string; roundId?: string
+  sortBy?: string; sortOrder?: 'asc' | 'desc'
 }) => get<{ total: number; page: number; pageSize: number; stats: BetOrderStats; items: BetRoundRecord[] }>('/admin/bet-orders', { ...params, view: 'round' })
 
 // Promo Config

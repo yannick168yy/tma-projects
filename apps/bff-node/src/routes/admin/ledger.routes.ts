@@ -20,6 +20,9 @@ router.get('/', async (ctx) => {
   const currency = ctx.query.currency ? String(ctx.query.currency).trim().toUpperCase() : ''
   const from = ctx.query.from ? String(ctx.query.from) : ''
   const to = ctx.query.to ? String(ctx.query.to) : ''
+  const sortBy = ctx.query.sortBy === 'amount' ? 'amount' : 'created_at'
+  const sortDir = ctx.query.sortOrder === 'asc' ? 'ASC' : 'DESC'
+  const orderBy = sortBy === 'amount' ? `amount ${sortDir}, created_at DESC` : 'created_at DESC'
 
   const where: string[] = []
   const params: unknown[] = []
@@ -52,7 +55,7 @@ router.get('/', async (ctx) => {
       `SELECT id, user_id, type, currency, amount, balance_after, ref_type, ref_id, description, trace_id, created_at
        FROM bg_wallet_ledger
        ${whereSql}
-       ORDER BY created_at DESC
+       ORDER BY ${orderBy}
        LIMIT ? OFFSET ?`,
       [...params, pageSize, offset],
     )

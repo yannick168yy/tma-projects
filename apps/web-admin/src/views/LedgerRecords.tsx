@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button, DatePicker, Input, Select, Space, Table, Tag } from 'antd'
 import type { TablePaginationConfig } from 'antd'
+import type { SorterResult, SortOrder } from 'antd/es/table/interface'
 import type { Dayjs } from 'dayjs'
 import dayjs from 'dayjs'
 import { getLedgerRecords, SUPPORTED_CURRENCIES, type AdminLedgerRecord } from '../api'
@@ -46,8 +47,10 @@ export default function LedgerRecords() {
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE)
+  const [sortBy, setSortBy] = useState<string | undefined>()
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc' | undefined>()
 
-  async function load(p = 1, ps = pageSize) {
+  async function load(p = 1, ps = pageSize, sb = sortBy, so = sortOrder) {
     setPage(p)
     setPageSize(ps)
     setLoading(true)
@@ -60,6 +63,8 @@ export default function LedgerRecords() {
         currency,
         from: range ? range[0].startOf('day').format('YYYY-MM-DD HH:mm:ss') : undefined,
         to: range ? range[1].endOf('day').format('YYYY-MM-DD HH:mm:ss') : undefined,
+        sortBy: sb,
+        sortOrder: so,
       })
       setItems(res.items)
       setTotal(res.total)
@@ -84,9 +89,14 @@ export default function LedgerRecords() {
     { title: '币种', dataIndex: 'currency', key: 'currency', width: 90 },
     {
       title: '金额',
+      dataIndex: 'amount',
       key: 'amount',
       align: 'right' as const,
       width: 150,
+      sorter: true,
+      sortOrder: sortBy === 'amount'
+        ? (sortOrder === 'asc' ? 'ascend' : 'descend') as SortOrder
+        : null,
       render: (_: unknown, r: AdminLedgerRecord) => (
         <span style={{ color: r.amount >= 0 ? '#3f8600' : '#cf1322', fontWeight: 600 }}>{formatMoney(r.amount, r.currency)}</span>
       ),
@@ -109,7 +119,19 @@ export default function LedgerRecords() {
     total,
     showTotal: (t) => `共 ${t} 条`,
     pageSizeOptions: PAGE_SIZE_OPTIONS,
-    onChange: (p, ps) => void load(p, ps),
+  }
+
+  function handleTableChange(
+    pg: TablePaginationConfig,
+    _filters: unknown,
+    sorter: SorterResult<AdminLedgerRecord> | SorterResult<AdminLedgerRecord>[],
+  ) {
+    const s = Array.isArray(sorter) ? sorter[0] : sorter
+    const key = s?.order ? String(s.field ?? s.columnKey ?? '') : undefined
+    const order = s?.order === 'ascend' ? 'asc' : s?.order === 'descend' ? 'desc' : undefined
+    setSortBy(key)
+    setSortOrder(order)
+    void load(pg.current ?? 1, pg.pageSize ?? pageSize, key, order)
   }
 
   return (
@@ -130,7 +152,7 @@ export default function LedgerRecords() {
         />
         <Button type="primary" onClick={() => void load(1)}>查询</Button>
       </Space>
-      <Table columns={columns} dataSource={items} loading={loading} pagination={pagination} rowKey="id" size="small" scroll={{ x: 1420 }} />
+      <Table columns={columns} dataSource={items} loading={loading} pagination={pagination} rowKey="id" size="small" scroll={{ x: 1420 }} onChange={handleTableChange} />
     </div>
   )
 }
