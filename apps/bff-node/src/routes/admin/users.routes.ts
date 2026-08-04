@@ -170,38 +170,34 @@ router.get('/:id/bet-orders', async (ctx) => {
   const [rows] = await pool.query<RowDataPacket[]>(
     `SELECT r.round_id, r.currency_code, r.provider_id,
             r.bet_amount, r.win_amount, r.cancel_count, r.bet_time, r.win_time,
-            (SELECT COALESCE(o.name_override, g.name_en, g.name_zh)
-               FROM bg_568win_game g
-               LEFT JOIN bg_568win_game_override o
-                 ON o.game_provider_id = g.game_provider_id AND o.game_id = g.game_id
-              WHERE g.game_id = r.provider_id
-                AND g.game_provider_id = COALESCE(
-                  (SELECT wt.gpid FROM bg_568win_wallet_txn wt
-                    WHERE wt.user_id = ? AND wt.provider_id = r.provider_id AND wt.gpid IS NOT NULL
-                    ORDER BY (wt.round_id <=> r.round_id) DESC, wt.id DESC LIMIT 1),
-                  g.game_provider_id)
-              LIMIT 1) AS game_name,
-            (SELECT COALESCE(g.provider, '568Win') FROM bg_568win_game g
-              WHERE g.game_id = r.provider_id
-                AND g.game_provider_id = COALESCE(
-                  (SELECT wt.gpid FROM bg_568win_wallet_txn wt
-                    WHERE wt.user_id = ? AND wt.provider_id = r.provider_id AND wt.gpid IS NOT NULL
-                    ORDER BY (wt.round_id <=> r.round_id) DESC, wt.id DESC LIMIT 1),
-                  g.game_provider_id)
-              LIMIT 1) AS provider_name
+            COALESCE(o.name_override, g.name_en, g.name_zh) AS game_name,
+            COALESCE(g.provider, '568Win') AS provider_name
      FROM (
        SELECT COALESCE(b.round_id, b.provider_txn_id) AS round_id,
-         b.currency_code, MIN(b.provider_id) AS provider_id,
+         b.currency_code, MIN(b.provider_id) AS provider_id, MAX(wt.gpid) AS gpid,
          SUM(CASE WHEN b.bet_type='bet' THEN b.amount ELSE 0 END) AS bet_amount,
          SUM(CASE WHEN b.bet_type IN ('win','refund') THEN b.amount ELSE 0 END) AS win_amount,
          SUM(CASE WHEN b.bet_type='cancel' THEN 1 ELSE 0 END)     AS cancel_count,
          MIN(CASE WHEN b.bet_type='bet' THEN b.created_at END)    AS bet_time,
          MIN(CASE WHEN b.bet_type IN ('win','refund') THEN b.created_at END) AS win_time
-       FROM bg_bet_order b WHERE b.user_id = ?
+       FROM bg_bet_order b
+       LEFT JOIN (
+         SELECT user_id, provider_id, round_id, MAX(gpid) AS gpid
+         FROM bg_568win_wallet_txn
+         WHERE user_id = ? AND gpid IS NOT NULL
+         GROUP BY user_id, provider_id, round_id
+       ) wt ON wt.user_id = b.user_id
+        AND wt.provider_id = b.provider_id
+        AND wt.round_id <=> b.round_id
+       WHERE b.user_id = ?
        GROUP BY COALESCE(b.round_id, b.provider_txn_id), b.currency_code
      ) r
+     LEFT JOIN bg_568win_game g
+       ON g.game_id = r.provider_id AND g.game_provider_id = r.gpid
+     LEFT JOIN bg_568win_game_override o
+       ON o.game_provider_id = g.game_provider_id AND o.game_id = g.game_id
      ORDER BY COALESCE(r.bet_time, r.win_time) DESC LIMIT ? OFFSET ?`,
-    [ctx.params.id, ctx.params.id, ctx.params.id, pageSize, offset],
+    [ctx.params.id, ctx.params.id, pageSize, offset],
   )
   const [[c]] = await pool.query<RowDataPacket[]>(
     `SELECT COUNT(*) AS total FROM (
