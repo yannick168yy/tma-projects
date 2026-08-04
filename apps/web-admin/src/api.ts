@@ -392,11 +392,11 @@ export interface PromoClaimRecord {
   id: string; promoName: string; type: string; description: string
   amount: number; currency: string; claimedAt: string
 }
-export const getUserLedgerPage = (id: string, params: { page?: number; pageSize?: number }) =>
+export const getUserLedgerPage = (id: string, params: { page?: number; pageSize?: number; sortBy?: string; sortOrder?: 'asc' | 'desc' }) =>
   get<PagedResult<LedgerEntry>>(`/admin/users/${id}/ledger`, params)
 export const getUserLoginLogsPage = (id: string, params: { page?: number; pageSize?: number }) =>
   get<PagedResult<LoginLog>>(`/admin/users/${id}/login-logs`, params)
-export const getUserBetOrdersPage = (id: string, params: { page?: number; pageSize?: number }) =>
+export const getUserBetOrdersPage = (id: string, params: { page?: number; pageSize?: number; sortBy?: string; sortOrder?: 'asc' | 'desc' }) =>
   get<PagedResult<UserBetRound>>(`/admin/users/${id}/bet-orders`, params)
 export const getUserPromoClaimsPage = (id: string, params: { page?: number; pageSize?: number }) =>
   get<PagedResult<PromoClaimRecord>>(`/admin/users/${id}/promo-claims`, params)

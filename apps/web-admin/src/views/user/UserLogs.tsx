@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Card, Tabs, Table, Spin, Alert, Typography, Modal, Descriptions, InputNumber, Input, Select, DatePicker, Space, Button, Progress, Tag, message } from 'antd'
+import type { TablePaginationConfig } from 'antd'
+import type { SorterResult, SortOrder } from 'antd/es/table/interface'
 import {
   getUserTurnover, adjustTurnoverRequirement, addTurnoverRequirement, TURNOVER_SOURCE_TYPE_OPTIONS,
   getUserLedgerPage, getUserLoginLogsPage, getUserBetOrdersPage, getUserPromoClaimsPage,
@@ -12,22 +14,28 @@ import {
 import type { Dayjs } from 'dayjs'
 
 // 服务端分页数据加载：active 首次为 true 时加载第一页，翻页/改页大小时重新请求
-function usePaged<T>(fetcher: (page: number, pageSize: number) => Promise<PagedResult<T>>, active: boolean) {
+type ServerSortOrder = 'asc' | 'desc'
+function usePaged<T>(
+  fetcher: (page: number, pageSize: number, sortBy?: string, sortOrder?: ServerSortOrder) => Promise<PagedResult<T>>,
+  active: boolean,
+) {
   const [items, setItems] = useState<T[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
+  const [sortBy, setSortBy] = useState<string | undefined>()
+  const [sortOrder, setSortOrder] = useState<ServerSortOrder | undefined>()
   const [loading, setLoading] = useState(false)
   const [loaded, setLoaded] = useState(false)
 
-  const load = useCallback(async (p: number, ps: number) => {
+  const load = useCallback(async (p: number, ps: number, sb = sortBy, so = sortOrder) => {
     setLoading(true)
     try {
-      const r = await fetcher(p, ps)
+      const r = await fetcher(p, ps, sb, so)
       setItems(r.items); setTotal(r.total); setPage(p); setPageSize(ps); setLoaded(true)
     } catch (e) { message.error(e instanceof Error ? e.message : '加载失败') }
     finally { setLoading(false) }
-  }, [fetcher])
+  }, [fetcher, sortBy, sortOrder])
 
   useEffect(() => { if (active && !loaded) void load(1, 20) }, [active, loaded, load])
 
@@ -38,7 +46,15 @@ function usePaged<T>(fetcher: (page: number, pageSize: number) => Promise<PagedR
     showTotal: (t: number) => `共 ${t} 条`,
     onChange: (p: number, ps: number) => { void load(ps !== pageSize ? 1 : p, ps) },
   }
-  return { items, total, loading, pagination }
+  function onTableChange(pg: TablePaginationConfig, _f: unknown, sorter: SorterResult<T> | SorterResult<T>[]) {
+    const s = Array.isArray(sorter) ? sorter[0] : sorter
+    const key = s?.order ? String(s.field ?? s.columnKey ?? '') : undefined
+    const order = s?.order === 'ascend' ? 'asc' : s?.order === 'descend' ? 'desc' : undefined
+    setSortBy(key); setSortOrder(order)
+    void load(pg.pageSize !== pageSize ? 1 : (pg.current ?? 1), pg.pageSize ?? pageSize, key, order)
+  }
+  const sortOrderOf = (key: string): SortOrder => sortBy === key ? (sortOrder === 'asc' ? 'ascend' : 'descend') : null
+  return { items, total, loading, pagination, onTableChange, sortOrderOf }
 }
 
 function ledgerTypeColor(t: string) {
@@ -89,9 +105,9 @@ export default function UserLogs({ userId }: Props) {
   const lookup = (field: 'ip' | 'deviceId' | 'fpVisitor', v: string | null) =>
     v ? <Button type="link" size="small" style={{ padding: 0 }} onClick={() => navigate(`/device-lookup?field=${field}&value=${encodeURIComponent(v)}`)}>{v}</Button> : '-'
   const [activeTab, setActiveTab] = useState('login')
-  const ledger = usePaged(useCallback((p: number, ps: number) => getUserLedgerPage(userId, { page: p, pageSize: ps }), [userId]), activeTab === 'ledger')
+  const ledger = usePaged(useCallback((p: number, ps: number, sortBy?: string, sortOrder?: ServerSortOrder) => getUserLedgerPage(userId, { page: p, pageSize: ps, sortBy, sortOrder }), [userId]), activeTab === 'ledger')
   const logins = usePaged(useCallback((p: number, ps: number) => getUserLoginLogsPage(userId, { page: p, pageSize: ps }), [userId]), activeTab === 'login')
-  const bets = usePaged(useCallback((p: number, ps: number) => getUserBetOrdersPage(userId, { page: p, pageSize: ps }), [userId]), activeTab === 'bets')
+  const bets = usePaged(useCallback((p: number, ps: number, sortBy?: string, sortOrder?: ServerSortOrder) => getUserBetOrdersPage(userId, { page: p, pageSize: ps, sortBy, sortOrder }), [userId]), activeTab === 'bets')
   const promos = usePaged(useCallback((p: number, ps: number) => getUserPromoClaimsPage(userId, { page: p, pageSize: ps }), [userId]), activeTab === 'promo')
   const taskClaims = usePaged(useCallback((p: number, ps: number) => getUserTaskClaimsPage(userId, { page: p, pageSize: ps }), [userId]), activeTab === 'task')
   const checkins = usePaged(useCallback((p: number, ps: number) => getUserCheckinsPage(userId, { page: p, pageSize: ps }), [userId]), activeTab === 'checkin')
@@ -152,7 +168,7 @@ export default function UserLogs({ userId }: Props) {
   const ledgerCols = [
     { title: '类型', dataIndex: 'type', key: 'type', width: 110, render: (t: string) => <Tag color={ledgerTypeColor(t)}>{ledgerTypeText(t)}</Tag> },
     { title: '币种', dataIndex: 'currency', key: 'currency', width: 110 },
-    { title: '金额', dataIndex: 'amount', key: 'amount', width: 120, render: (v: number) => <span style={{ color: v > 0 ? '#52c41a' : '#ff4d4f' }}>{v > 0 ? '+' : ''}{v}</span> },
+    { title: '金额', dataIndex: 'amount', key: 'amount', width: 120, sorter: true, sortOrder: ledger.sortOrderOf('amount'), render: (v: number) => <span style={{ color: v > 0 ? '#52c41a' : '#ff4d4f' }}>{v > 0 ? '+' : ''}{v}</span> },
     { title: '余额', dataIndex: 'balanceAfter', key: 'balanceAfter', width: 120 },
     { title: '描述', dataIndex: 'description', key: 'desc' },
     { title: '时间', dataIndex: 'createdAt', key: 'at', width: 160, render: (v: string) => new Date(v).toLocaleString('zh-CN') },
@@ -176,7 +192,7 @@ export default function UserLogs({ userId }: Props) {
     { title: '投注额', dataIndex: 'betAmount', key: 'bet', width: 100, render: (v: number) => v.toFixed(2) },
     { title: '派彩额', dataIndex: 'winAmount', key: 'win', width: 100, render: (v: number) => v.toFixed(2) },
     {
-      title: '输赢', key: 'net', width: 110,
+      title: '输赢', key: 'net', width: 110, sorter: true, sortOrder: bets.sortOrderOf('net'),
       render: (_: unknown, r: UserBetRound) => {
         const net = r.winAmount - r.betAmount
         return <span style={{ color: net >= 0 ? '#52c41a' : '#ff4d4f', fontWeight: 500 }}>{net >= 0 ? '+' : ''}{net.toFixed(2)}</span>
@@ -312,7 +328,7 @@ export default function UserLogs({ userId }: Props) {
               </Spin>
             ),
           },
-          { key: 'bets', label: `游戏记录${bets.total ? ` (${bets.total})` : ''}`, children: <Table columns={betCols} dataSource={bets.items} rowKey={(r) => `${r.roundId}_${r.currencyCode}`} loading={bets.loading} pagination={bets.pagination} size="small" /> },
+          { key: 'bets', label: `游戏记录${bets.total ? ` (${bets.total})` : ''}`, children: <Table columns={betCols} dataSource={bets.items} rowKey={(r) => `${r.roundId}_${r.currencyCode}`} loading={bets.loading} pagination={bets.pagination} onChange={bets.onTableChange} size="small" /> },
           { key: 'promo', label: `优惠领取${promos.total ? ` (${promos.total})` : ''}`, children: <Table columns={promoCols} dataSource={promos.items} rowKey="id" loading={promos.loading} pagination={promos.pagination} size="small" /> },
           {
             key: 'rebate', label: `洗码派发${rebates.total ? ` (${rebates.total})` : ''}`,
@@ -322,7 +338,7 @@ export default function UserLogs({ userId }: Props) {
             key: 'vip', label: `VIP 礼金记录${vipRewards.total ? ` (${vipRewards.total})` : ''}`,
             children: <Table columns={vipRewardCols} dataSource={vipRewards.items as VipRewardRecord[]} rowKey="id" loading={vipRewards.loading} pagination={vipRewards.pagination} size="small" scroll={{ x: 'max-content' }} />,
           },
-          { key: 'ledger', label: `账变记录${ledger.total ? ` (${ledger.total})` : ''}`, children: <Table columns={ledgerCols} dataSource={ledger.items as object[]} rowKey="id" loading={ledger.loading} pagination={ledger.pagination} size="small" /> },
+          { key: 'ledger', label: `账变记录${ledger.total ? ` (${ledger.total})` : ''}`, children: <Table columns={ledgerCols} dataSource={ledger.items} rowKey="id" loading={ledger.loading} pagination={ledger.pagination} onChange={ledger.onTableChange} size="small" /> },
           {
             key: 'task', label: `任务领取${taskClaims.total ? ` (${taskClaims.total})` : ''}`,
             children: <Table columns={taskCols} dataSource={taskClaims.items as UserTaskClaimRecord[]} rowKey="id" loading={taskClaims.loading} pagination={taskClaims.pagination} size="small" scroll={{ x: 'max-content' }} />,

@@ -110,10 +110,13 @@ router.get('/:id', async (ctx) => {
 router.get('/:id/ledger', async (ctx) => {
   if (!isMysqlEnabled(ctx.state.env)) { ok(ctx, { items: [], total: 0, page: 1, pageSize: 20 }); return }
   const { page, pageSize, offset } = pageParams(ctx)
+  const sortBy = ctx.query.sortBy === 'amount' ? 'amount' : 'created_at'
+  const sortDir = ctx.query.sortOrder === 'asc' ? 'ASC' : 'DESC'
+  const orderBy = sortBy === 'amount' ? `amount ${sortDir}, created_at DESC` : 'created_at DESC'
   const pool = getMysqlPool(ctx.state.env)
   const [rows] = await pool.query<RowDataPacket[]>(
     `SELECT id, type, currency, amount, balance_after, description, created_at
-     FROM bg_wallet_ledger WHERE user_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?`,
+     FROM bg_wallet_ledger WHERE user_id = ? ORDER BY ${orderBy} LIMIT ? OFFSET ?`,
     [ctx.params.id, pageSize, offset],
   )
   const [[c]] = await pool.query<RowDataPacket[]>(
@@ -166,6 +169,11 @@ router.get('/:id/login-logs', async (ctx) => {
 router.get('/:id/bet-orders', async (ctx) => {
   if (!isMysqlEnabled(ctx.state.env)) { ok(ctx, { items: [], total: 0, page: 1, pageSize: 20 }); return }
   const { page, pageSize, offset } = pageParams(ctx)
+  const sortBy = ctx.query.sortBy === 'net' ? 'net' : 'time'
+  const sortDir = ctx.query.sortOrder === 'asc' ? 'ASC' : 'DESC'
+  const orderBy = sortBy === 'net'
+    ? `(r.win_amount - r.bet_amount) ${sortDir}, COALESCE(r.bet_time, r.win_time) DESC`
+    : 'COALESCE(r.bet_time, r.win_time) DESC'
   const pool = getMysqlPool(ctx.state.env)
   const [rows] = await pool.query<RowDataPacket[]>(
     `SELECT r.round_id, r.currency_code, r.provider_id,
@@ -196,7 +204,7 @@ router.get('/:id/bet-orders', async (ctx) => {
        ON g.game_id = r.provider_id AND g.game_provider_id = r.gpid
      LEFT JOIN bg_568win_game_override o
        ON o.game_provider_id = g.game_provider_id AND o.game_id = g.game_id
-     ORDER BY COALESCE(r.bet_time, r.win_time) DESC LIMIT ? OFFSET ?`,
+     ORDER BY ${orderBy} LIMIT ? OFFSET ?`,
     [ctx.params.id, ctx.params.id, pageSize, offset],
   )
   const [[c]] = await pool.query<RowDataPacket[]>(
