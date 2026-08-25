@@ -113,6 +113,7 @@ export default {
     signInBonus: 'Đăng nhập để nhận thưởng',
     or: 'hoặc',
     phonePlaceholder: 'Số điện thoại (09xx...)',
+    phoneWithdrawalHint: 'Vui lòng nhập đúng số điện thoại. Số này sẽ được sử dụng để rút tiền.',
     passwordPlaceholder: 'Mật khẩu',
     newPasswordPlaceholder: 'Mật khẩu mới',
     otpPlaceholder: 'Mã xác minh',

@@ -354,6 +354,9 @@ export default function LoginSheet({ open, onClose }: Props) {
                     onFocus={() => setTurnstileArmed(true)}
                   />
                 </div>
+                <p className="px-1 text-[10px] font-semibold leading-relaxed text-amber-300/80">
+                  {t('auth.phoneWithdrawalHint')}
+                </p>
                 <div className="relative">
                   <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[#9aa1c7]">
                     <Lock size={18} />

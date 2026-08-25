@@ -152,6 +152,7 @@ export default {
     signInBonus: 'Sign in to claim rewards',
     or: 'or',
     phonePlaceholder: 'Phone number (09xx...)',
+    phoneWithdrawalHint: 'Please enter your phone number correctly. It will be used for withdrawals.',
     passwordPlaceholder: 'Password',
     newPasswordPlaceholder: 'New password',
     otpPlaceholder: 'Verification code',

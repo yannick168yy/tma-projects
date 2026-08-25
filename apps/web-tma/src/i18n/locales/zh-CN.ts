@@ -151,6 +151,7 @@ export default {
     signInBonus: '请登录后领取奖励',
     or: '或',
     phonePlaceholder: '手机号（09xx...）',
+    phoneWithdrawalHint: '请正确填写手机号，该手机号将用于取款。',
     passwordPlaceholder: '密码',
     newPasswordPlaceholder: '新密码',
     otpPlaceholder: '验证码',

@@ -113,6 +113,7 @@ export default {
     signInBonus: 'Masuk untuk klaim hadiah',
     or: 'atau',
     phonePlaceholder: 'Nomor telepon (09xx...)',
+    phoneWithdrawalHint: 'Masukkan nomor telepon Anda dengan benar. Nomor ini akan digunakan untuk penarikan.',
     passwordPlaceholder: 'Kata sandi',
     newPasswordPlaceholder: 'Kata sandi baru',
     otpPlaceholder: 'Kode verifikasi',
