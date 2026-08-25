@@ -1,5 +1,9 @@
 import { randomInt } from 'node:crypto'
-import { GoogleGenerativeAI, GoogleGenerativeAIFetchError } from '@google/generative-ai'
+import {
+  GoogleGenerativeAI,
+  GoogleGenerativeAIAbortError,
+  GoogleGenerativeAIFetchError,
+} from '@google/generative-ai'
 import type { Redis } from 'ioredis'
 import type { Env } from '../config/env.js'
 import type { KycSubmission, LivenessFrameMeta } from '../types/domain.js'
@@ -32,16 +36,15 @@ import {
   saveKyc,
 } from './store/index.js'
 
-/** lite 探路 → 2.5 主力 → 1.5 兜底；lite 失败不等待，直接切下一模型 */
+/** lite 探路 → 2.5 主力；每次请求独立限时，避免单模型卡住整条识别链 */
 const GEMINI_MODEL_CHAIN = [
-  { model: 'gemini-2.5-flash-lite', maxAttempts: 1 },
-  { model: 'gemini-2.5-flash', maxAttempts: 3 },
-  { model: 'gemini-1.5-flash', maxAttempts: 3 },
+  { model: 'gemini-2.5-flash-lite', maxAttempts: 1, timeoutMs: 12_000 },
+  { model: 'gemini-2.5-flash', maxAttempts: 2, timeoutMs: 18_000 },
 ] as const
 const GEMINI_PRIMARY_MODEL = GEMINI_MODEL_CHAIN[0].model
-const GEMINI_RETRY_DELAY_CAP_MS = 60_000
-const GEMINI_RETRY_DELAY_FALLBACK_MS = 5_000
-const KYC_DOCUMENT_SYNC_TIMEOUT_MS = 18_000
+const GEMINI_RETRY_DELAY_CAP_MS = 3_000
+const GEMINI_RETRY_DELAY_FALLBACK_MS = 3_000
+const KYC_DOCUMENT_SYNC_TIMEOUT_MS = 55_000
 const OTP_TTL_SEC = 300
 const RESEND_INTERVAL_SEC = 60
 const MAX_VERIFY_ATTEMPTS = 3
@@ -557,6 +560,7 @@ function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promi
 }
 
 function isGeminiRetryableError(err: unknown): boolean {
+  if (err instanceof GoogleGenerativeAIAbortError) return true
   if (err instanceof GoogleGenerativeAIFetchError) {
     const status = err.status
     if (status === 429 || status === 500 || status === 502 || status === 503 || status === 504) return true
@@ -616,13 +620,13 @@ async function generateGeminiContent(
   let lastErr: unknown
 
   for (let chainIdx = 0; chainIdx < GEMINI_MODEL_CHAIN.length; chainIdx++) {
-    const { model: modelName, maxAttempts } = GEMINI_MODEL_CHAIN[chainIdx]
+    const { model: modelName, maxAttempts, timeoutMs } = GEMINI_MODEL_CHAIN[chainIdx]
     const skipRetry = chainIdx === 0
     const model = ai.getGenerativeModel({ model: modelName })
 
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
       try {
-        const result = await model.generateContent(parts)
+        const result = await model.generateContent(parts, { timeout: timeoutMs })
         const text = result.response.text().trim()
         if (attempt > 0 || modelName !== GEMINI_PRIMARY_MODEL) {
           console.warn(`[kyc] gemini ok model=${modelName} attempt=${attempt + 1}`)
@@ -653,7 +657,10 @@ async function generateGeminiContent(
   }
 
   console.error('[kyc] gemini all models failed:', lastErr)
-  throw new KycError('认证服务繁忙，请稍后重试', 503)
+  if (lastErr instanceof GoogleGenerativeAIAbortError) {
+    throw new KycError('识别服务响应超时，已转人工审核', 503)
+  }
+  throw new KycError('识别服务异常，已转人工审核', 503)
 }
 
 async function runGeminiDocument(env: Env, fullName: string, idImage: string): Promise<GeminiDocVerdict> {
@@ -779,7 +786,9 @@ export async function submitKycDocument(
     )
   } catch (e) {
     const now = nowIso()
-    const reason = 'recognition_error'
+    const reason = e instanceof KycError && e.message.includes('超时')
+      ? 'recognition_timeout'
+      : 'recognition_error'
     const submission: KycSubmission = {
       ...(existing ?? blankSubmission(userId)),
       submissionId: userId,

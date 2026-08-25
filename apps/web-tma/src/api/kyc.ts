@@ -59,7 +59,7 @@ export function submitKycDocument(input: {
   docType: string
   idImage: string
 }): Promise<{ docVerified: boolean; status: KycStatusValue; rejectReason?: string; rejectStep?: string }> {
-  return apiRequest('/kyc/document', { method: 'POST', body: JSON.stringify(input), timeoutMs: 60_000 })
+  return apiRequest('/kyc/document', { method: 'POST', body: JSON.stringify(input), timeoutMs: 70_000 })
 }
 
 export function submitKycFace(selfieImage: string): Promise<{
@@ -68,7 +68,7 @@ export function submitKycFace(selfieImage: string): Promise<{
   rejectReason?: string
   rejectStep?: string
 }> {
-  return apiRequest('/kyc/face', { method: 'POST', body: JSON.stringify({ selfieImage }) })
+  return apiRequest('/kyc/face', { method: 'POST', body: JSON.stringify({ selfieImage }), timeoutMs: 70_000 })
 }
 
 /** 人脸回退重传时取回已上传的证件图（dataURL；无图返回 null） */
