@@ -1064,6 +1064,7 @@ export default {
   kyc: {
     faceFailed: 'Verifikasi wajah gagal, silakan coba lagi',
     docRecognitionFailed: 'Pengenalan dokumen gagal, silakan coba lagi',
+    purposeNotice: 'KYC hanya digunakan untuk memverifikasi keaslian identitas pengguna.',
     reviewing: 'Sedang ditinjau…',
     reviewingHint: 'Dokumen Anda telah dikirim dan sedang dalam peninjauan. Kami akan memberitahu hasilnya.',
     docAcrIcard: 'ACR I-Card',

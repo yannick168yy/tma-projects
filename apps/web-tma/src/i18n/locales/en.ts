@@ -250,6 +250,7 @@ export default {
     docRecognitionFailed: 'Document recognition failed, please try again',
     title: 'Identity Verification',
     subtitle: 'Required before your first withdrawal.',
+    purposeNotice: 'KYC is used only to verify the authenticity of your identity.',
     settingEntry: 'KYC Setting',
     settingTitle: 'KYC Setting',
     settingSubtitle: 'Complete identity verification to unlock withdrawals.',

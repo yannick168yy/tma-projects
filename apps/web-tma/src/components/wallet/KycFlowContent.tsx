@@ -29,7 +29,10 @@ export default function KycFlowContent({ flow, onClose, compactFace }: Props) {
         <ShieldCheck size={20} className="text-primary" />
         <h2 className={`${compactFace && step === 'face' ? 'text-base' : 'text-lg'} font-black text-foreground`}>{t('kyc.title')}</h2>
       </div>
-      <p className={`${compactFace && step === 'face' ? 'mb-3 truncate' : 'mb-5'} text-xs text-muted-foreground`}>{t('kyc.subtitle')}</p>
+      <p className="mb-2 text-xs text-muted-foreground">{t('kyc.subtitle')}</p>
+      <p className={`${compactFace && step === 'face' ? 'mb-3' : 'mb-5'} rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 text-[10px] font-semibold leading-relaxed text-muted-foreground`}>
+        {t('kyc.purposeNotice')}
+      </p>
 
       <div className={`${compactFace && step === 'face' ? 'mb-3' : 'mb-5'} flex items-center gap-1 text-[10px] font-bold`}>
         {requirePhone && (

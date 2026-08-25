@@ -1079,6 +1079,7 @@ export default {
   kyc: {
     faceFailed: 'Xác thực khuôn mặt thất bại, vui lòng thử lại',
     docRecognitionFailed: 'Nhận dạng giấy tờ thất bại, vui lòng thử lại',
+    purposeNotice: 'KYC chỉ được sử dụng để xác minh tính xác thực danh tính của người dùng.',
     reviewing: 'Đang xem xét…',
     reviewingHint: 'Hồ sơ của bạn đã được gửi và đang được xem xét. Chúng tôi sẽ thông báo kết quả.',
     docAcrIcard: 'ACR I-Card',

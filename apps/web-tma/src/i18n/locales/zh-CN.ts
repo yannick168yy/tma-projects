@@ -249,6 +249,7 @@ export default {
     docRecognitionFailed: '证件识别失败，请重试',
     title: '实名认证',
     subtitle: '首次提款前需完成实名认证。',
+    purposeNotice: 'KYC 仅用于校验用户身份的真实性。',
     settingEntry: '实名认证',
     settingTitle: '实名认证',
     settingSubtitle: '完成实名认证以解锁提款。',
