@@ -10,7 +10,7 @@ const schema = z.object({
   // 两者留空则静默禁用告警,不影响主流程
   ADMIN_TG_BOT_TOKEN: z.string().default(''),
   ADMIN_TG_CHAT_ID: z.string().default(''),
-  // 运营日报专用群(留空则回退到 ADMIN_TG_CHAT_ID，与告警同群)
+  // 运营日报专用群；留空则不发送日报，避免发到业务告警群
   BI_REPORT_CHAT_ID: z.string().default(''),
   // 告警消息里后台深链前缀
   ADMIN_WEB_URL: z.string().default('https://www.188facai.com/admin-panel'),

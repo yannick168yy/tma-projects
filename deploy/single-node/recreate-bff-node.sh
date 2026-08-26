@@ -47,6 +47,7 @@ run run -d --name tma-bff-node --network "$NET" --restart=always \
   -e TELEGRAM_BOT_TOKEN="${TELEGRAM_BOT_TOKEN:?缺少 TELEGRAM_BOT_TOKEN}" \
   -e ADMIN_TG_BOT_TOKEN="${ADMIN_TG_BOT_TOKEN:-}" \
   -e ADMIN_TG_CHAT_ID="${ADMIN_TG_CHAT_ID:-}" \
+  -e BI_REPORT_CHAT_ID="${BI_REPORT_CHAT_ID:-}" \
   -e ADMIN_WEB_URL="${ADMIN_WEB_URL:-https://www.188facai.com/admin-panel}" \
   -e BFF_DEV_SKIP_TELEGRAM_AUTH="${BFF_DEV_SKIP_TELEGRAM_AUTH:-false}" \
   -e BFF_DISABLE_RATE_LIMIT="${BFF_DISABLE_RATE_LIMIT:-false}" \

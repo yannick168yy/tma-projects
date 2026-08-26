@@ -220,6 +220,7 @@ run run -d --name "$BFF_NAME" --network "$NET" --restart=always \
   -e TURNSTILE_SECRET_KEY="${TURNSTILE_SECRET_KEY:-}" \
   -e ADMIN_TG_BOT_TOKEN="${ADMIN_TG_BOT_TOKEN:-}" \
   -e ADMIN_TG_CHAT_ID="${ADMIN_TG_CHAT_ID:-}" \
+  -e BI_REPORT_CHAT_ID="${BI_REPORT_CHAT_ID:-}" \
   -e ADMIN_WEB_URL="${ADMIN_WEB_URL:-}" \
   -e TELESMS_BASE_URL="${TELESMS_BASE_URL:-https://api2.santo.cc}" \
   -e TELESMS_CPID="${TELESMS_CPID:-}" \

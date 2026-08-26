@@ -118,7 +118,7 @@ export async function setBiReportEnabled(env: Env, enabled: boolean): Promise<vo
 }
 
 export async function runBiReportTick(env: Env, redis: Redis): Promise<void> {
-  const reportChat = env.BI_REPORT_CHAT_ID || env.ADMIN_TG_CHAT_ID
+  const reportChat = env.BI_REPORT_CHAT_ID
   if (!isMysqlEnabled(env) || !env.ADMIN_TG_BOT_TOKEN || !reportChat) return
   const manilaHour = new Date(Date.now() + PHT_OFFSET_MS).getUTCHours()
   if (manilaHour !== REPORT_HOUR_PHT) return
@@ -152,7 +152,7 @@ export async function runBiReportTick(env: Env, redis: Redis): Promise<void> {
 export async function sendBiReportNow(env: Env, redis: Redis): Promise<{ sent: boolean; text: string }> {
   const raw = await composeRawReport(env, redis, manilaDate(-1))
   const text = await polishWithGemini(env, raw)
-  const reportChat = env.BI_REPORT_CHAT_ID || env.ADMIN_TG_CHAT_ID
+  const reportChat = env.BI_REPORT_CHAT_ID
   if (!env.ADMIN_TG_BOT_TOKEN || !reportChat) return { sent: false, text }
   const resp = await fetch(`https://api.telegram.org/bot${env.ADMIN_TG_BOT_TOKEN}/sendMessage`, {
     method: 'POST',

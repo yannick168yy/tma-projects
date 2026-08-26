@@ -54,8 +54,8 @@ export default function BiChannels() {
     setSending(true)
     try {
       const r = await sendBiReport()
-      if (r.sent) message.success('日报已发送到运营 TG 群')
-      else Modal.info({ title: '未配置 TG 群，日报内容如下', content: <pre style={{ whiteSpace: 'pre-wrap' }}>{r.text}</pre>, width: 560 })
+      if (r.sent) message.success('日报已发送到日报 TG 群')
+      else Modal.info({ title: '未配置日报 TG 群，日报内容如下', content: <pre style={{ whiteSpace: 'pre-wrap' }}>{r.text}</pre>, width: 560 })
     } finally {
       setSending(false)
     }
