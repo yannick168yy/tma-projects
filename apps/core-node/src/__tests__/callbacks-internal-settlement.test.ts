@@ -15,6 +15,7 @@ process.env.NODE_ENV = 'test'
 process.env.INTERNAL_TOKEN = 'internal-test-token'
 process.env.NATS_CALLBACK_SUBJECT = 'betogo.callback.test'
 process.env.YFPAY_API_KEY = 'yfpay-secret'
+process.env.UNISPAY_API_KEY = 'unispay-secret'
 process.env.MATRIX_MERCHANT_NOTIFY_PRIVATE_KEY = merchantPrivatePem
 process.env.MATRIX_PLATFORM_NOTIFY_PUBLIC_KEY = platformPublicPem
 
@@ -130,10 +131,19 @@ async function createApp(opts: { mysql?: FakePool; redis?: ReturnType<typeof cre
 function yfpaySign(params: Record<string, unknown>, apiKey: string): string {
   const sorted = Object.entries(params)
     .filter(([k, v]) => k !== 'sign' && v !== null && v !== undefined && v !== '')
-    .sort(([a], [b]) => a.localeCompare(b))
+    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
     .map(([k, v]) => `${k}=${v}`)
     .join('&')
   return createHash('md5').update(`${sorted}&key=${apiKey}`).digest('hex').toUpperCase()
+}
+
+function unispaySign(params: Record<string, unknown>, apiKey: string): string {
+  const sorted = Object.entries(params)
+    .filter(([k, v]) => k !== 'sign' && v !== null && v !== undefined && v !== '')
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([k, v]) => `${k}=${v}`)
+    .join('&')
+  return createHash('sha256').update(`${sorted}&key=${apiKey}`).digest('hex')
 }
 
 function matrixRequestEnvelope(bizData: unknown) {
@@ -361,6 +371,112 @@ describe('Matrix 提现反查与通用回调', () => {
 
     assert.equal(res.statusCode, 401)
     assert.equal(published.length, 0)
+  })
+
+  it('UnisPay 通用回调验签通过后发布 NATS 并返回 SUCCESS', async () => {
+    const published: Array<{ subject: string; payload: string }> = []
+    const app = await createApp({
+      js: {
+        async publish(subject, payload) {
+          published.push({ subject, payload })
+        },
+      },
+    })
+    const payload = {
+      amount: '105',
+      mchNo: 'M171925157713',
+      mchOrderId: 'UPD_1',
+      orderNo: 'S1830881937527541760',
+      status: '1',
+    }
+    const signed = { ...payload, sign: unispaySign(payload, 'unispay-secret') }
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/v1/callback/unispay',
+      payload: signed,
+    })
+
+    assert.equal(res.statusCode, 200)
+    assert.equal(res.body, 'SUCCESS')
+    assert.equal(published.length, 1)
+    assert.equal(published[0].subject, 'betogo.callback.test')
+    assert.equal(JSON.parse(published[0].payload).provider, 'unispay')
+  })
+})
+
+describe('UnisPay 回调处理', () => {
+  it('存款成功回调按本地订单金额入账并提交事务', async () => {
+    const { handleUnispayCallback } = await import('../handlers/unispay-callback.handler.js')
+    const conn = createConn({
+      query(sql) {
+        if (sql.includes('SELECT available FROM bg_wallet')) return [[{ available: 105000 }]]
+        return [[]]
+      },
+      execute(sql) {
+        if (sql.includes('UPDATE bg_deposit_order')) return [{ affectedRows: 1 }]
+        return [{}]
+      },
+    })
+    const pool = createPool({
+      conn,
+      query(sql) {
+        if (sql.includes('FROM bg_deposit_order WHERE order_id')) {
+          return [[{ order_id: 'UPD_1', user_id: 'U1', currency: 'IDR', amount: 105000, credited: 0, status: 'pending' }]]
+        }
+        return [[]]
+      },
+    })
+    const redis = createRedis()
+
+    await handleUnispayCallback({
+      amount: '1',
+      mchNo: 'M1',
+      mchOrderId: 'UPD_1',
+      orderNo: 'S1',
+      status: '1',
+    }, pool as never, redis as never)
+
+    assert.equal(redis.setCalls[0][0], 'unispay:cb:S1:1')
+    assert.equal(conn.committed, true)
+    assert.equal(conn.executes.some((e) => e.sql.includes('INSERT INTO bg_wallet') && e.params?.[2] === 105000), true)
+    assert.equal(conn.executes.some((e) => e.sql.includes('INSERT INTO bg_wallet_ledger') && e.params?.[3] === 105000), true)
+  })
+
+  it('出款冲正回调只退款一次并标记 failed', async () => {
+    const { handleUnispayCallback } = await import('../handlers/unispay-callback.handler.js')
+    const conn = createConn({
+      query(sql) {
+        if (sql.includes('SELECT available FROM bg_wallet')) return [[{ available: 50000 }]]
+        return [[]]
+      },
+      execute(sql) {
+        if (sql.includes('UPDATE bg_withdraw_order')) return [{ affectedRows: 1 }]
+        return [{}]
+      },
+    })
+    const pool = createPool({
+      conn,
+      query(sql) {
+        if (sql.includes('FROM bg_withdraw_order')) {
+          return [[{ order_id: 'UPW_1', user_id: 'U1', currency: 'IDR', amount: 50000, status: 'processing', refunded: 0 }]]
+        }
+        return [[]]
+      },
+    })
+
+    await handleUnispayCallback({
+      amount: '50000',
+      mchNo: 'M1',
+      mchOrderId: 'UPW_1',
+      orderNo: 'F1',
+      status: '4',
+    }, pool as never, createRedis() as never)
+
+    assert.equal(conn.committed, true)
+    assert.equal(conn.executes.some((e) => e.sql.includes("SET status='failed', refunded=1")), true)
+    assert.equal(conn.executes.some((e) => e.sql.includes('INSERT INTO bg_wallet') && e.params?.[2] === 50000), true)
+    assert.equal(conn.executes.some((e) => e.params?.includes('REFUND_UPW_1')), true)
   })
 })
 

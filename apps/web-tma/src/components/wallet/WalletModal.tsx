@@ -30,22 +30,32 @@ interface Props { open: boolean; onClose: () => void; initialTab?: 'deposit'|'wi
 interface HistoryItem { id: string; orderId: string; type: 'deposit'|'withdraw'; method: string; amount: string; date: string; sortKey: string; status: 'success'|'pending'|'rejected'|'admin_rejected'|'failed'; rejectReason?: string | null }
 const STALE_DEPOSIT_PENDING_MS = 30 * 60 * 1000
 
-function methodDisplayName(code: string) { const m: Record<string,string>={GCASH:'GCash',GCash:'GCash',gcash:'GCash',MAYA:'Maya',Maya:'Maya',maya:'Maya',GOTYME:'GoTyme',GoTyme:'GoTyme',gotyme:'GoTyme',BDO:'BDO Bank',BPI:'BPI Bank'}; return m[code]??code??'—' }
+function methodDisplayName(code: string) { const m: Record<string,string>={GCASH:'GCash',GCash:'GCash',gcash:'GCash',MAYA:'Maya',Maya:'Maya',maya:'Maya',GOTYME:'GoTyme',GoTyme:'GoTyme',gotyme:'GoTyme',BDO:'BDO Bank',BPI:'BPI Bank',BRI:'BRI',bri:'BRI',BCA:'BCA',bca:'BCA',BNI:'BNI',bni:'BNI',MANDIRI:'Mandiri',mandiri:'Mandiri',DANA:'DANA',dana:'DANA',OVO:'OVO',ovo:'OVO',GOPAY:'GoPay',gopay:'GoPay',SHOPEEPAY:'ShopeePay',shopeepay:'ShopeePay',QRIS:'QRIS',qris:'QRIS'}; return m[code]??code??'—' }
 function formatOrderDate(iso: string) { try { return new Date(iso).toLocaleString('en-PH',{dateStyle:'short',timeStyle:'short'}) } catch { return iso } }
 function mapDepositState(state: number): HistoryItem['status'] { if(state===2)return 'success'; if(state===3)return 'rejected'; return 'pending' }
 function mapWithdrawState(state: number): HistoryItem['status'] { if(state===1)return 'success'; if(state===2||state===3)return 'rejected'; return 'pending' }
 function mapDepositStatus(status: string): HistoryItem['status'] { if(status==='paid'||status==='completed')return 'success'; if(status==='rejected')return 'rejected'; if(status==='admin_rejected')return 'admin_rejected'; if(status==='cancelled'||status==='failed')return 'failed'; return 'pending' }
-function mapDepositChannelName(channelId: string) { const m: Record<string,string>={admin:'Admin',tg_wallet:'Telegram',ammer_pay:'Telegram',yfpay_gcash:'GCash',yfpay_maya:'Maya',yfpay_gotyme:'GoTyme',yfpay_bdo:'BDO Bank',yfpay_bpi:'BPI Bank',yfpay_unknown:'YF Pay',matrix:'Matrix TRX'}; return m[channelId]??channelId??'—' }
+function mapDepositChannelName(channelId: string) { const m: Record<string,string>={admin:'Admin',tg_wallet:'Telegram',ammer_pay:'Telegram',yfpay_gcash:'GCash',yfpay_maya:'Maya',yfpay_gotyme:'GoTyme',yfpay_bdo:'BDO Bank',yfpay_bpi:'BPI Bank',yfpay_unknown:'YF Pay',unispay_bri:'BRI',unispay_bca:'BCA',unispay_bni:'BNI',unispay_mandiri:'Mandiri',unispay_dana:'DANA',unispay_ovo:'OVO',unispay_gopay:'GoPay',unispay_shopeepay:'ShopeePay',unispay_qris:'QRIS',matrix:'Matrix TRX'}; return m[channelId]??channelId??'—' }
 
 // 各币种充值预设档位（与后台首充档位口径一致），用于充值金额网格
 const DEPOSIT_PRESETS: Record<string, number[]> = {
   PHP: [100, 200, 500, 1000, 2000, 5000, 10000, 20000, 50000],
+  IDR: [10000, 25000, 50000, 100000, 200000, 500000, 1000000, 2000000],
   USDT: [1, 5, 10, 50, 100, 500, 1000],
   USDC: [1, 5, 10, 50, 100, 500, 1000],
   TRX: [100, 500, 1000, 5000, 10000],
 }
-function currencySymbol(cur: string) { return cur === 'PHP' ? '₱' : cur === 'TRX' ? '' : '$' }
-function fmtPreset(amount: number, cur: string) { const s = currencySymbol(cur); return cur === 'TRX' ? `${amount.toLocaleString()} ${cur}` : `${s}${amount.toLocaleString()}` }
+function currencySymbol(cur: string) { return cur === 'PHP' ? '₱' : cur === 'IDR' ? 'Rp' : cur === 'TRX' ? '' : '$' }
+function formatFiatAmount(amount: number, cur: string) {
+  if (cur === 'IDR') return `Rp ${amount.toLocaleString('id-ID', { maximumFractionDigits: 0 })}`
+  if (cur === 'PHP') return `₱${amount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  return `${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${cur}`
+}
+function fmtPreset(amount: number, cur: string) {
+  if (cur === 'IDR') return `Rp ${amount.toLocaleString('id-ID', { maximumFractionDigits: 0 })}`
+  const s = currencySymbol(cur)
+  return cur === 'TRX' ? `${amount.toLocaleString()} ${cur}` : `${s}${amount.toLocaleString()}`
+}
 /** 向下匹配档位奖励：amount 命中的最大档位的奖励，无命中返回 0 */
 function matchTierBonus(tiers: FirstDepTier[] | undefined, amount: number): number {
   if (!tiers || tiers.length === 0 || amount <= 0) return 0
@@ -236,16 +246,16 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
       void fetchHomeContent().then((content) => setWalletBannerUrl(content.walletBanners[0]?.imageUrl ?? null)).catch(()=>setWalletBannerUrl(null))
       setChannelsLoading(true)
       setCryptoChannelsLoaded(false)
-      const depP = fetchPaymentChannels('deposit').then(setPaymentDepositChannels).catch(()=>{})
+      const depP = fetchPaymentChannels('deposit', activeCurrency).then(setPaymentDepositChannels).catch(()=>{})
       const cryP = fetchCryptoChannels().then((list)=>{
         setCryptoEnabled(Object.fromEntries(list.map((c)=>[c.name,c.enabled])))
         setCryptoWithdrawGas(Object.fromEntries(list.map((c)=>[c.name,{gas:c.withdrawGasFee,discountThreshold:c.withdrawGasDiscountThreshold,discountFee:c.withdrawGasDiscountFee}])))
       }).catch(()=>{}).finally(()=>setCryptoChannelsLoaded(true))
       void Promise.all([depP, cryP]).finally(()=>setChannelsLoading(false))
-      void fetchPaymentChannels('withdraw').then(setPaymentWithdrawChannels).catch(()=>{})
+      void fetchPaymentChannels('withdraw', activeCurrency).then(setPaymentWithdrawChannels).catch(()=>{})
     } else { stopPolling() }
     return () => { document.body.style.overflow = '' }
-  }, [open])
+  }, [open, activeCurrency])
 
   useEffect(() => { if(tab==='history')void loadHistory() }, [tab])
 
@@ -313,18 +323,18 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
 
   useEffect(() => { return () => { stopPolling() } }, [])
 
-  const liveFiatDeposit = useMemo((): PayMethod[] => FIAT_DEPOSIT.map((m) => {
+  const liveFiatDeposit = useMemo((): PayMethod[] => FIAT_DEPOSIT.filter((m) => !m.currency || m.currency === activeCurrency).map((m) => {
     const ch = paymentDepositChannels.find((c) => c.name === m.id)
-    if (ch) return { ...m, id: `fiat_${m.id}`, tag: ch.minAmount ? `₱${ch.minAmount}–₱${ch.maxAmount}` : 'Instant', enabled: true, channelId: `fiat_${m.id}`, paymentChannelName: m.id, minAmount: ch.minAmount ?? undefined, maxAmount: ch.maxAmount ?? undefined }
+    if (ch) return { ...m, id: `fiat_${m.id}`, tag: ch.minAmount ? `${fmtPreset(ch.minAmount, activeCurrency)}–${ch.maxAmount ? fmtPreset(ch.maxAmount, activeCurrency) : '∞'}` : 'Instant', enabled: true, channelId: `fiat_${m.id}`, paymentChannelName: m.id, minAmount: ch.minAmount ?? undefined, maxAmount: ch.maxAmount ?? undefined }
     return { ...m, enabled: false }
-  }), [paymentDepositChannels])
+  }), [paymentDepositChannels, activeCurrency])
 
-  const liveFiatWithdraw = useMemo((): PayMethod[] => FIAT_WITHDRAW.map((m) => {
+  const liveFiatWithdraw = useMemo((): PayMethod[] => FIAT_WITHDRAW.filter((m) => !m.currency || m.currency === activeCurrency).map((m) => {
     const channelName = m.id.replace('-w', '')
     const ch = paymentWithdrawChannels.find((c) => c.name === channelName)
-    if (ch) return { ...m, enabled: true, paymentChannelName: channelName, minAmount: ch.minAmount ?? undefined, maxAmount: ch.maxAmount ?? undefined, tag: ch.minAmount ? `₱${ch.minAmount}–₱${ch.maxAmount}` : m.tag }
+    if (ch) return { ...m, enabled: true, paymentChannelName: channelName, minAmount: ch.minAmount ?? undefined, maxAmount: ch.maxAmount ?? undefined, tag: ch.minAmount ? `${fmtPreset(ch.minAmount, activeCurrency)}–${ch.maxAmount ? fmtPreset(ch.maxAmount, activeCurrency) : '∞'}` : m.tag }
     return { ...m, enabled: false }
-  }), [paymentWithdrawChannels])
+  }), [paymentWithdrawChannels, activeCurrency])
 
   // 虚拟币/TG 渠道开关由后台控制；开关未加载前不使用静态 enabled，避免误选已关闭币种
   const applyCrypto = (list: PayMethod[]) => list.map((m) => cryptoChannelsLoaded && m.id in cryptoEnabled ? { ...m, enabled: cryptoEnabled[m.id] } : { ...m, enabled: false })
@@ -467,7 +477,7 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
   const pollFiatDepositCountRef = useRef(0)
   async function pollFiatDeposit() {
     if(!pollSerial)return; pollFiatDepositCountRef.current++; if(pollFiatDepositCountRef.current>60){stopPolling();setDepositLoading(false);setDepositMessage(t('wallet.yfpayDepositTimeout'));return}
-    try { const res=await queryPaymentDeposit(pollSerial); if(res.state===2){stopPolling();setDepositLoading(false);setDepositSuccess(true);setDepositMessage(t('wallet.yfpayDepositSuccess'));analytics.depositSuccess(selectedPayMethod?.paymentChannelName,Number(amount),'PHP',pollSerial);setFirstDepDone(true);await walletStore.refresh()}else if(res.state===3){stopPolling();setDepositLoading(false);setDepositMessage(t('wallet.yfpayDepositRejected'))} } catch { /* keep polling */ }
+    try { const res=await queryPaymentDeposit(pollSerial); if(res.state===2){stopPolling();setDepositLoading(false);setDepositSuccess(true);setDepositMessage(t('wallet.yfpayDepositSuccess'));analytics.depositSuccess(selectedPayMethod?.paymentChannelName,Number(amount),activeCurrency,pollSerial);setFirstDepDone(true);await walletStore.refresh()}else if(res.state===3){stopPolling();setDepositLoading(false);setDepositMessage(t('wallet.yfpayDepositRejected'))} } catch { /* keep polling */ }
   }
 
   async function onProceedUnifiedFiatDeposit() {
@@ -476,10 +486,10 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
     if(method.minAmount&&num<method.minAmount){setDepositMessage(t('wallet.yfpayAmountOutOfRange',{min:method.minAmount,max:method.maxAmount}));return}
     if(method.maxAmount&&num>method.maxAmount){setDepositMessage(t('wallet.yfpayAmountOutOfRange',{min:method.minAmount,max:method.maxAmount}));return}
     setDepositLoading(true); setDepositMessage(t('wallet.yfpayOpenBrowser')); setDepositSuccess(false); stopPolling(); pollFiatDepositCountRef.current=0
-    analytics.depositStart(method.paymentChannelName,num,'PHP')
+    analytics.depositStart(method.paymentChannelName,num,activeCurrency)
     try {
-      const result=await createPaymentDeposit({channelName:method.paymentChannelName,amount:num}); setPollSerial(result.merchantSerial)
-      analytics.depositOrderCreated(method.paymentChannelName,num,'PHP',result.merchantSerial)
+      const result=await createPaymentDeposit({channelName:method.paymentChannelName,amount:num,currency:activeCurrency}); setPollSerial(result.merchantSerial)
+      analytics.depositOrderCreated(method.paymentChannelName,num,activeCurrency,result.merchantSerial)
       if(window.Telegram?.WebApp?.openLink)window.Telegram.WebApp.openLink(result.payUrl); else window.open(result.payUrl,'_blank')
       setDepositMessage(t('wallet.yfpayWaitingPayment')); pollTimerRef.current=setInterval(()=>void pollFiatDeposit(),3000)
     } catch(e){setDepositLoading(false);setDepositMessage(e instanceof ApiError?translateApiError(e.message,t):t('wallet.yfpayDepositFailed'))}
@@ -511,7 +521,7 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
     setWithdrawLoading(true); setWithdrawMessage(''); setWithdrawSuccess(false)
     const channelName=selectedPayMethod?.paymentChannelName; if(!channelName)return
     analytics.withdrawStart(channelName,n,activeCurrency)
-    try{await createPaymentWithdrawal({channelName,amount:n,targetOwner:withdrawOwner.trim(),targetAccount:withdrawAccount.trim()});analytics.withdrawCreated(channelName,n,activeCurrency);setWithdrawSuccess(true);setWithdrawMessage(t('wallet.yfpayWithdrawPending'));await walletStore.refresh();setTimeout(()=>{setTab('history');setHistoryFilter('withdraw');void loadHistory()},1500)}catch(e){setWithdrawMessage(e instanceof ApiError?translateApiError(e.message,t):t('wallet.yfpayWithdrawFailed'))}finally{setWithdrawLoading(false)}
+    try{await createPaymentWithdrawal({channelName,amount:n,targetOwner:withdrawOwner.trim(),targetAccount:withdrawAccount.trim(),currency:activeCurrency});analytics.withdrawCreated(channelName,n,activeCurrency);setWithdrawSuccess(true);setWithdrawMessage(t('wallet.yfpayWithdrawPending'));await walletStore.refresh();setTimeout(()=>{setTab('history');setHistoryFilter('withdraw');void loadHistory()},1500)}catch(e){setWithdrawMessage(e instanceof ApiError?translateApiError(e.message,t):t('wallet.yfpayWithdrawFailed'))}finally{setWithdrawLoading(false)}
   }
 
   async function onProceedMatrixWithdraw() {
@@ -548,8 +558,8 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
     try{
       const[yfDeposits,yfWithdrawals,bgDeposits,bgWithdrawals]=await Promise.all([fetchYfDepositOrders().catch(()=>[]),fetchYfWithdrawOrders().catch(()=>[]),fetchDepositHistory().catch(()=>[]),fetchWithdrawHistory().catch(()=>[])])
       const seen=new Set<string>(); const items: HistoryItem[]=[]
-      for(const d of bgDeposits){seen.add(d.orderId);const dAmt=d.currency==='PHP'?`+₱${(d.creditedCents??d.amount).toFixed(2)}`:`+${parseFloat(d.amount.toFixed(6))} ${d.currency}`;items.push({id:d.orderId,orderId:d.orderId,type:'deposit',method:mapDepositChannelName(d.channelId),amount:dAmt,date:formatOrderDate(d.createdAt),sortKey:d.createdAt,status:mapDepositStatus(d.status)})}
-      for(const w of bgWithdrawals){seen.add(w.orderId);const wAmt=w.channelId==='matrix'?`-${w.amount} ${w.currency}`:`-₱${w.amount.toFixed(2)}`;items.push({id:w.orderId,orderId:w.orderId,type:'withdraw',method:mapDepositChannelName(w.channelId),amount:wAmt,date:formatOrderDate(w.createdAt),sortKey:w.createdAt,status:mapDepositStatus(w.status),rejectReason:w.rejectReason})}
+      for(const d of bgDeposits){seen.add(d.orderId);const val=d.creditedCents??d.amount;const dAmt=d.currency==='PHP'||d.currency==='IDR'?`+${formatFiatAmount(val,d.currency)}`:`+${parseFloat(d.amount.toFixed(6))} ${d.currency}`;items.push({id:d.orderId,orderId:d.orderId,type:'deposit',method:mapDepositChannelName(d.channelId),amount:dAmt,date:formatOrderDate(d.createdAt),sortKey:d.createdAt,status:mapDepositStatus(d.status)})}
+      for(const w of bgWithdrawals){seen.add(w.orderId);const wAmt=w.channelId==='matrix'?`-${w.amount} ${w.currency}`:`-${formatFiatAmount(w.amount,w.currency)}`;items.push({id:w.orderId,orderId:w.orderId,type:'withdraw',method:mapDepositChannelName(w.channelId),amount:wAmt,date:formatOrderDate(w.createdAt),sortKey:w.createdAt,status:mapDepositStatus(w.status),rejectReason:w.rejectReason})}
       for(const d of yfDeposits)if(!seen.has(d.merchantSerial))items.push({id:d.merchantSerial,orderId:d.merchantSerial,type:'deposit',method:methodDisplayName(d.channelCode??''),amount:`+₱${d.amount.toFixed(2)}`,date:formatOrderDate(d.createdAt),sortKey:d.createdAt,status:mapDepositState(d.state)})
       for(const w of yfWithdrawals)if(!seen.has(w.merchantSerial))items.push({id:w.merchantSerial,orderId:w.merchantSerial,type:'withdraw',method:methodDisplayName(w.optionCode??''),amount:`-₱${w.amount.toFixed(2)}`,date:formatOrderDate(w.createdAt),sortKey:w.createdAt,status:mapWithdrawState(w.state)})
       items.sort((a,b)=>b.sortKey.localeCompare(a.sortKey)); setHistoryOrders(items)

@@ -30,7 +30,11 @@ export async function callbackRoutes(app: FastifyInstance) {
         JSON.stringify({ provider, payload, receivedAt: Date.now() }),
       )
 
-      // YF Pay / BeePay 要求明文 'success'，其余返回标准 JSON
+      // YF Pay / BeePay 要求明文 'success'；UnisPay 要求大写 'SUCCESS'
+      if (provider === 'unispay') {
+        reply.type('text/plain')
+        return reply.send('SUCCESS')
+      }
       if (provider === 'yfpay' || provider === 'beepay') {
         reply.type('text/plain')
         return reply.send('success')

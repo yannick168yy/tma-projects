@@ -80,7 +80,7 @@ export default function AppShell() {
   const isLoggedIn = Boolean(auth.token && auth.user)
   const activeCurrency = wallet.activeCurrency
 
-  // 预设币种(PHP/USDT/USDC，余额为 0 也显示) + 实际余额
+  // 预设币种余额为 0 也显示，实际余额覆盖预设值
   const allBalances = useMemo(() => {
     const actualMap = new Map((wallet.balance?.balances ?? []).map((b) => [b.currency, b.available]))
     const list = (SUPPORTED_CURRENCY_CODES as readonly string[]).map((code) => ({
@@ -97,7 +97,7 @@ export default function AppShell() {
   const activeAvailable = allBalances.find((b) => b.code === activeCurrency)?.available ?? 0
   const displayBalance = wallet.balance
     ? formatHeaderBalance(activeCurrency, activeAvailable)
-    : (activeCurrency === 'PHP' ? '₱ —' : '—')
+    : (activeCurrency === 'PHP' ? '₱ —' : activeCurrency === 'IDR' ? 'Rp —' : '—')
 
   const nav = useAppNavigation()
   const {

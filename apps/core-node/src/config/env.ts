@@ -39,6 +39,9 @@ const schema = z.object({
   // BeePay 回调验签
   BEEPAY_API_KEY: z.string().default(''),
 
+  // UnisPay 印尼通道回调验签
+  UNISPAY_API_KEY: z.string().default(''),
+
   // Matrix 通知密钥（入站验签解密）
   MATRIX_MERCHANT_NOTIFY_PRIVATE_KEY: z.string().default(''),
   MATRIX_PLATFORM_NOTIFY_PUBLIC_KEY: z.string().default(''),

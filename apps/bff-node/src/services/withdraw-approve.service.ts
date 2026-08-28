@@ -5,6 +5,7 @@ import { saveWithdraw, creditWallet } from './store/index.js'
 import { executeMatrixWithdrawOrder } from './matrix.service.js'
 import { createWithdrawal as yfpayCreateWithdrawal, YfPayError } from './yfpay.service.js'
 import { createWithdrawal as beepayCreateWithdrawal, BeepayError } from './beepay.service.js'
+import { createWithdrawal as unispayCreateWithdrawal, UnispayError } from './unispay.service.js'
 import { refreshAndCheckProviderBalance } from './payment-accounting.service.js'
 import { nowIso } from '../utils/format.js'
 import { providerFromChannel } from '../utils/payment-provider.js'
@@ -18,6 +19,8 @@ const isYfpay = (o: OrderWithdraw) =>
   o.provider === 'yfpay' || providerFromChannel(o.channelId) === 'yfpay'
 const isBeepay = (o: OrderWithdraw) =>
   o.provider === 'beepay' || providerFromChannel(o.channelId) === 'beepay'
+const isUnispay = (o: OrderWithdraw) =>
+  o.provider === 'unispay' || providerFromChannel(o.channelId) === 'unispay'
 
 /**
  * 批准提款并出款。管理员人工批准与自动审核共用此路径，避免两份逻辑漂移。
@@ -103,6 +106,35 @@ export async function approveWithdraw(
       order.status = 'failed'
       await saveWithdraw(redis, order)
       throw new Error(err instanceof BeepayError ? err.message : 'BeePay 提现出款失败')
+    }
+  }
+
+  if (isUnispay(order)) {
+    const ex = (order.extraData ?? {}) as Record<string, unknown>
+    try {
+      const r = await unispayCreateWithdrawal({
+        merchantSerial: order.orderId,
+        amount: order.amount,
+        channelName: String(ex.channelCode ?? '').toLowerCase(),
+        targetOwner: String(ex.targetOwner ?? ''),
+        targetAccount: String(ex.targetAccount ?? ''),
+        notifyUrl: env.UNISPAY_NOTIFY_URL,
+      }, env)
+      order.status = 'processing'
+      order.extraData = { ...ex, platformId: r.platformId }
+      await saveWithdraw(redis, order)
+      return { status: 'processing' }
+    } catch (err) {
+      await creditWallet(redis, order.userId, order.amount, {
+        type: 'bonus',
+        refId: `REFUND_${order.orderId}`,
+        description: `UnisPay 提现出款失败退款 #${order.orderId}`,
+        createdAt: nowIso(),
+        currency: order.currency ?? 'IDR',
+      })
+      order.status = 'failed'
+      await saveWithdraw(redis, order)
+      throw new Error(err instanceof UnispayError ? err.message : 'UnisPay 提现出款失败')
     }
   }
 

@@ -15,7 +15,7 @@ import { getFirstDepConfigByPool, matchFirstDepBonus, PROMO_DEFAULTS } from './p
 import { evaluateWithPool } from './risk.service.js'
 import { applyRedepPromo } from './redep.service.js'
 
-export type DepositCurrency = 'PHP' | 'USDT'
+export type DepositCurrency = 'PHP' | 'USDT' | 'USDC' | 'IDR'
 
 export function depositAmountToYuan(
   amount: number,
@@ -23,7 +23,7 @@ export function depositAmountToYuan(
   usdtToPhpRate: number,
 ): number {
   if (currency === 'PHP') return Math.round(amount * 100) / 100
-  if (currency === 'USDT') {
+  if (currency === 'USDT' || currency === 'USDC') {
     if (amount <= 0 || usdtToPhpRate <= 0) return 0
     return Math.round(amount * usdtToPhpRate * 100) / 100
   }

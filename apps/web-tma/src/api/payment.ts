@@ -54,6 +54,7 @@ export async function fetchCryptoChannels(): Promise<CryptoChannelState[]> {
 export async function createPaymentDeposit(params: {
   channelName: string
   amount: number
+  currency?: string
 }): Promise<PaymentDepositResult> {
   return apiRequest<PaymentDepositResult>('/payment/deposit/create', {
     method: 'POST',
@@ -77,6 +78,7 @@ export async function createPaymentWithdrawal(params: {
   amount: number
   targetOwner: string
   targetAccount: string
+  currency?: string
 }): Promise<PaymentWithdrawResult> {
   return apiRequest<PaymentWithdrawResult>('/payment/withdraw/create', {
     method: 'POST',

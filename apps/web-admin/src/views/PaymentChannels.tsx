@@ -147,7 +147,7 @@ function RuleTable({
       >
         <Form form={ruleForm} layout="vertical" style={{ marginTop: 8 }}>
           <Form.Item label="币种" name="currency">
-            <Select options={[{ value: 'PHP', label: 'PHP' }, { value: 'USDT', label: 'USDT' }]} />
+            <Select options={[{ value: 'PHP', label: 'PHP' }, { value: 'IDR', label: 'IDR' }, { value: 'USDT', label: 'USDT' }]} />
           </Form.Item>
           <Form.Item label="交易类型" name="txType">
             <Select options={[
@@ -475,12 +475,22 @@ export default function PaymentChannels() {
                 <Select options={[
                   { value: 'gcash', label: 'GCash' },
                   { value: 'maya', label: 'Maya' },
+                  { value: 'bri', label: 'BRI' },
+                  { value: 'bca', label: 'BCA' },
+                  { value: 'bni', label: 'BNI' },
+                  { value: 'mandiri', label: 'Mandiri' },
+                  { value: 'dana', label: 'DANA' },
+                  { value: 'ovo', label: 'OVO' },
+                  { value: 'gopay', label: 'GoPay' },
+                  { value: 'shopeepay', label: 'ShopeePay' },
+                  { value: 'qris', label: 'QRIS' },
                 ]} placeholder="选择渠道类型" />
               </Form.Item>
               <Form.Item label="服务商" name="provider" rules={[{ required: true }]}>
                 <Select options={[
                   { value: 'yfpay', label: 'YFPay' },
                   { value: 'beepay', label: 'BeePay' },
+                  { value: 'unispay', label: 'UnisPay' },
                 ]} placeholder="选择服务商" />
               </Form.Item>
             </>

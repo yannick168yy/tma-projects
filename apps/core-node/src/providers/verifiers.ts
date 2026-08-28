@@ -32,7 +32,7 @@ function getClientIp(req: FastifyRequest): string {
 function yfpaySign(params: Record<string, unknown>, apiKey: string): string {
   const sorted = Object.entries(params)
     .filter(([k, v]) => k !== 'sign' && v !== null && v !== undefined && v !== '')
-    .sort(([a], [b]) => a.localeCompare(b))
+    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
     .map(([k, v]) => `${k}=${v}`)
     .join('&')
   return createHash('md5').update(`${sorted}&key=${apiKey}`).digest('hex').toUpperCase()
@@ -71,6 +71,28 @@ function verifyBeepay(req: FastifyRequest, env: Record<string, string>): boolean
   return timingSafeEqual(Buffer.from(received), Buffer.from(expected))
 }
 
+// ── UnisPay ──────────────────────────────────────────────────────────────────
+// 签名算法：非空参数按 key 字母序排列后 SHA-256 小写，格式: k=v&k=v&key=<apiKey>
+
+function unispaySign(params: Record<string, unknown>, apiKey: string): string {
+  const sorted = Object.entries(params)
+    .filter(([k, v]) => k !== 'sign' && v !== null && v !== undefined && v !== '')
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([k, v]) => `${k}=${v}`)
+    .join('&')
+  return createHash('sha256').update(`${sorted}&key=${apiKey}`).digest('hex')
+}
+
+function verifyUnispay(req: FastifyRequest, env: Record<string, string>): boolean {
+  const apiKey = env['UNISPAY_API_KEY']
+  if (!apiKey) return false
+  const body = req.body as Record<string, unknown>
+  const received = String(body['sign'] ?? '')
+  const expected = unispaySign(body, apiKey)
+  if (received.length !== expected.length) return false
+  return timingSafeEqual(Buffer.from(received), Buffer.from(expected))
+}
+
 // ── Matrix ────────────────────────────────────────────────────────────────────
 
 function verifyMatrix(req: FastifyRequest, env: Record<string, string>): boolean {
@@ -101,5 +123,6 @@ function verifyMatrix(req: FastifyRequest, env: Record<string, string>): boolean
 export const providerVerifiers: Record<string, VerifyFn> = {
   yfpay: verifyYfpay,
   beepay: verifyBeepay,
+  unispay: verifyUnispay,
   matrix: verifyMatrix,
 }

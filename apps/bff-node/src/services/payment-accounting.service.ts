@@ -14,12 +14,13 @@ function pool(env: Env): Pool {
 const PROVIDER_LABELS: Record<string, string> = {
   yfpay: 'YFPay',
   beepay: 'BeePay',
+  unispay: 'UnisPay',
   matrix: 'Matrix',
   tg_wallet: 'Telegram 钱包',
   manual: '手动 / 链上',
 }
 // 带下划线的 provider 要排在前面，避免 tg_wallet_php 被切成 tg
-const KNOWN_PROVIDERS = ['tg_wallet', 'yfpay', 'beepay', 'matrix', 'manual']
+const KNOWN_PROVIDERS = ['tg_wallet', 'yfpay', 'beepay', 'unispay', 'matrix', 'manual']
 
 // 支持余额查询 API 的服务商
 const BALANCE_PROVIDERS = ['yfpay', 'beepay'] as const

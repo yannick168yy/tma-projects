@@ -75,6 +75,12 @@ const schema = z.object({
   BEEPAY_MID_NO: z.string().default(''),
   BEEPAY_API_KEY: z.string().default(''),
   BEEPAY_NOTIFY_URL: z.string().default('https://www.188facai.com/api/v1/callback/beepay'),
+  // ── UnisPay 印尼通道 ───────────────────────────────────────────────────────
+  UNISPAY_BASE_URL: z.string().default('https://asia666.unispay.vip'),
+  UNISPAY_MCH_NO: z.string().default(''),
+  UNISPAY_API_KEY: z.string().default(''),
+  UNISPAY_NOTIFY_URL: z.string().default('https://www.188facai.com/api/v1/callback/unispay'),
+  UNISPAY_RETURN_URL: z.string().default('https://www.188facai.com'),
   NACOS_SERVER_ADDR: z.string().default(''),
   NACOS_NAMESPACE: z.string().default('batogo'),
   NACOS_DATA_ID: z.string().default('bff-node'),

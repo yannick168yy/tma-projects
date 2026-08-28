@@ -4,6 +4,7 @@ import type { Redis } from 'ioredis'
 import { env } from '../config/env.js'
 import { handleYfPayCallback, type YfPayCallbackPayload } from '../handlers/yfpay-callback.handler.js'
 import { handleBeepayCallback, type BeepayCallbackPayload } from '../handlers/beepay-callback.handler.js'
+import { handleUnispayCallback, type UnispayCallbackPayload } from '../handlers/unispay-callback.handler.js'
 import { handleMatrixCallback, type MatrixNotify } from '../handlers/matrix-callback.handler.js'
 import { parseNotify, normalizePem, type MatrixEnvelope } from '../utils/matrix-crypto.js'
 
@@ -40,6 +41,9 @@ export async function startCallbackConsumer(app: FastifyInstance) {
 
       } else if (provider === 'beepay') {
         await handleBeepayCallback(payload as BeepayCallbackPayload, db, redis)
+
+      } else if (provider === 'unispay') {
+        await handleUnispayCallback(payload as UnispayCallbackPayload, db, redis)
 
       } else if (provider === 'matrix') {
         // Matrix payload 是加密外层报文，在 callback.routes 已验签，
