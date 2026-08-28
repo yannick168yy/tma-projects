@@ -475,14 +475,8 @@ export default function PaymentChannels() {
                 <Select options={[
                   { value: 'gcash', label: 'GCash' },
                   { value: 'maya', label: 'Maya' },
-                  { value: 'bri', label: 'BRI' },
-                  { value: 'bca', label: 'BCA' },
-                  { value: 'bni', label: 'BNI' },
-                  { value: 'mandiri', label: 'Mandiri' },
                   { value: 'dana', label: 'DANA' },
-                  { value: 'ovo', label: 'OVO' },
-                  { value: 'gopay', label: 'GoPay' },
-                  { value: 'shopeepay', label: 'ShopeePay' },
+                  { value: 'va', label: 'VA' },
                   { value: 'qris', label: 'QRIS' },
                 ]} placeholder="选择渠道类型" />
               </Form.Item>

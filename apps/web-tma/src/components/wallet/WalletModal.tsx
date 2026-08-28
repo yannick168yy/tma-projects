@@ -30,12 +30,12 @@ interface Props { open: boolean; onClose: () => void; initialTab?: 'deposit'|'wi
 interface HistoryItem { id: string; orderId: string; type: 'deposit'|'withdraw'; method: string; amount: string; date: string; sortKey: string; status: 'success'|'pending'|'rejected'|'admin_rejected'|'failed'; rejectReason?: string | null }
 const STALE_DEPOSIT_PENDING_MS = 30 * 60 * 1000
 
-function methodDisplayName(code: string) { const m: Record<string,string>={GCASH:'GCash',GCash:'GCash',gcash:'GCash',MAYA:'Maya',Maya:'Maya',maya:'Maya',GOTYME:'GoTyme',GoTyme:'GoTyme',gotyme:'GoTyme',BDO:'BDO Bank',BPI:'BPI Bank',BRI:'BRI',bri:'BRI',BCA:'BCA',bca:'BCA',BNI:'BNI',bni:'BNI',MANDIRI:'Mandiri',mandiri:'Mandiri',DANA:'DANA',dana:'DANA',OVO:'OVO',ovo:'OVO',GOPAY:'GoPay',gopay:'GoPay',SHOPEEPAY:'ShopeePay',shopeepay:'ShopeePay',QRIS:'QRIS',qris:'QRIS'}; return m[code]??code??'—' }
+function methodDisplayName(code: string) { const m: Record<string,string>={GCASH:'GCash',GCash:'GCash',gcash:'GCash',MAYA:'Maya',Maya:'Maya',maya:'Maya',GOTYME:'GoTyme',GoTyme:'GoTyme',gotyme:'GoTyme',BDO:'BDO Bank',BPI:'BPI Bank',DANA:'DANA',dana:'DANA',VA:'VA',va:'VA',QRIS:'QRIS',qris:'QRIS'}; return m[code]??code??'—' }
 function formatOrderDate(iso: string) { try { return new Date(iso).toLocaleString('en-PH',{dateStyle:'short',timeStyle:'short'}) } catch { return iso } }
 function mapDepositState(state: number): HistoryItem['status'] { if(state===2)return 'success'; if(state===3)return 'rejected'; return 'pending' }
 function mapWithdrawState(state: number): HistoryItem['status'] { if(state===1)return 'success'; if(state===2||state===3)return 'rejected'; return 'pending' }
 function mapDepositStatus(status: string): HistoryItem['status'] { if(status==='paid'||status==='completed')return 'success'; if(status==='rejected')return 'rejected'; if(status==='admin_rejected')return 'admin_rejected'; if(status==='cancelled'||status==='failed')return 'failed'; return 'pending' }
-function mapDepositChannelName(channelId: string) { const m: Record<string,string>={admin:'Admin',tg_wallet:'Telegram',ammer_pay:'Telegram',yfpay_gcash:'GCash',yfpay_maya:'Maya',yfpay_gotyme:'GoTyme',yfpay_bdo:'BDO Bank',yfpay_bpi:'BPI Bank',yfpay_unknown:'YF Pay',unispay_bri:'BRI',unispay_bca:'BCA',unispay_bni:'BNI',unispay_mandiri:'Mandiri',unispay_dana:'DANA',unispay_ovo:'OVO',unispay_gopay:'GoPay',unispay_shopeepay:'ShopeePay',unispay_qris:'QRIS',matrix:'Matrix TRX'}; return m[channelId]??channelId??'—' }
+function mapDepositChannelName(channelId: string) { const m: Record<string,string>={admin:'Admin',tg_wallet:'Telegram',ammer_pay:'Telegram',yfpay_gcash:'GCash',yfpay_maya:'Maya',yfpay_gotyme:'GoTyme',yfpay_bdo:'BDO Bank',yfpay_bpi:'BPI Bank',yfpay_unknown:'YF Pay',unispay_dana:'DANA',unispay_va:'VA',unispay_qris:'QRIS',matrix:'Matrix TRX'}; return m[channelId]??channelId??'—' }
 
 // 各币种充值预设档位（与后台首充档位口径一致），用于充值金额网格
 const DEPOSIT_PRESETS: Record<string, number[]> = {

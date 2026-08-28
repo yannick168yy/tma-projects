@@ -18,10 +18,10 @@ describe('UnisPay 签名', () => {
   })
 
   it('按印尼渠道类型映射代收 payType 和网银扩展参数', () => {
-    expect(resolveDepositPayType('bri')).toBe(6210)
     expect(resolveDepositPayType('dana')).toBe(6211)
     expect(resolveDepositPayType('qris')).toBe(6212)
-    expect(buildDepositChannelExtra('bri')).toBe('{"bank":"BRI"}')
+    expect(resolveDepositPayType('va')).toBe(6210)
+    expect(buildDepositChannelExtra('va')).toBe('{"bank":"VA"}')
     expect(buildDepositChannelExtra('dana')).toBeUndefined()
   })
 })

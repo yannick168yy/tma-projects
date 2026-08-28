@@ -26,7 +26,7 @@ export function verifySign(params: Record<string, unknown>, apiKey: string): boo
 export function resolveDepositPayType(channelName: string): number {
   const name = channelName.toLowerCase()
   if (name === 'qris') return 6212
-  if (['dana', 'ovo', 'gopay', 'shopeepay'].includes(name)) return 6211
+  if (name === 'dana') return 6211
   return 6210
 }
 
