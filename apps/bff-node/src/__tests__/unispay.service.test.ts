@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest'
-import { buildDepositChannelExtra, generateSign, resolveDepositPayType } from '../services/unispay.service.js'
+import { describe, expect, it, vi } from 'vitest'
+import type { Env } from '../config/env.js'
+import { buildDepositChannelExtra, createDeposit, generateSign, resolveDepositPayType } from '../services/unispay.service.js'
 
 describe('UnisPay 签名', () => {
   it('按文档规则排除空值并生成 SHA-256 小写签名', () => {
@@ -23,5 +24,24 @@ describe('UnisPay 签名', () => {
     expect(resolveDepositPayType('va')).toBe(6210)
     expect(buildDepositChannelExtra('va')).toBe('{"bank":"VA"}')
     expect(buildDepositChannelExtra('dana')).toBeUndefined()
+  })
+
+  it('商户配置缺失时不向 UnisPay 发起请求', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch')
+    const env = {
+      UNISPAY_MCH_NO: '',
+      UNISPAY_API_KEY: '',
+      UNISPAY_BASE_URL: 'https://asia666.unispay.vip',
+    } as Env
+
+    await expect(createDeposit({
+      amount: 100000,
+      channelName: 'dana',
+      merchantSerial: 'UPD_TEST',
+      notifyUrl: 'https://www.188facai.com/api/v1/callback/unispay',
+      returnUrl: 'https://www.188facai.com',
+    }, env)).rejects.toThrow('UnisPay 商户配置缺失')
+    expect(fetchMock).not.toHaveBeenCalled()
+    fetchMock.mockRestore()
   })
 })

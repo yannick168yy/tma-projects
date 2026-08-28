@@ -56,6 +56,7 @@ run run -d --name tma-core-node --network "$NET" --restart=always \
   -e SG_CURRENCY="${SG_CURRENCY:-EUR}" \
   -e YFPAY_API_KEY="${YFPAY_API_KEY:-}" \
   -e BEEPAY_API_KEY="${BEEPAY_API_KEY:-}" \
+  -e UNISPAY_API_KEY="${UNISPAY_API_KEY:-}" \
   -e INTERNAL_TOKEN="${INTERNAL_TOKEN:-}" \
   -e MATRIX_GATEWAY_URL="${MATRIX_GATEWAY_URL:-}" \
   -e MATRIX_API_KEY="${MATRIX_API_KEY:-}" \

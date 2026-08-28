@@ -45,6 +45,10 @@ async function request<T>(
   body: Record<string, unknown>,
   env: Env,
 ): Promise<T> {
+  if (!env.UNISPAY_MCH_NO || !env.UNISPAY_API_KEY) {
+    throw new UnispayError(500, 'UnisPay 商户配置缺失')
+  }
+
   const payload: Record<string, unknown> = {
     ...body,
     mchNo: env.UNISPAY_MCH_NO,
