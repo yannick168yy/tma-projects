@@ -16,9 +16,11 @@ router.get('/', async (ctx) => {
   const pageSize = Math.min(1000, Math.max(10, Number(ctx.query.pageSize ?? 20)))
   const userId = ctx.query.userId ? String(ctx.query.userId) : undefined
   const status = ctx.query.status ? String(ctx.query.status) : undefined
+  const currency = ctx.query.currency ? String(ctx.query.currency).toUpperCase() : undefined
+  const channel = ctx.query.channel ? String(ctx.query.channel) : undefined
   const dateFrom = parseDateQuery(ctx.query.dateFrom)
   const dateTo = parseDateQuery(ctx.query.dateTo)
-  const result = await listAdminDeposits(ctx.state.env, { page, pageSize, userId, status, dateFrom, dateTo })
+  const result = await listAdminDeposits(ctx.state.env, { page, pageSize, userId, status, currency, channel, dateFrom, dateTo })
   ok(ctx, result)
 })
 

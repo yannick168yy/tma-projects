@@ -619,7 +619,7 @@ export interface AdminDeposit {
   orderId: string; userId: string; amount: number; currency: string; channelId: string
   status: string; createdAt: string; paidAt: string | null; credited: number | null
 }
-export const getDeposits = (params: { page?: number; pageSize?: number; userId?: string; status?: string; dateFrom?: string; dateTo?: string }) =>
+export const getDeposits = (params: { page?: number; pageSize?: number; userId?: string; status?: string; currency?: string; channel?: string; dateFrom?: string; dateTo?: string }) =>
   get<{ total: number; items: AdminDeposit[] }>('/admin/deposits', params)
 
 // Withdrawals
@@ -628,7 +628,7 @@ export interface AdminWithdrawal {
   status: string; reviewVerdict: string | null; reviewedAt: string | null
   createdAt: string; completedAt: string | null; rejectReason: string | null
 }
-export const getWithdrawals = (params: { page?: number; pageSize?: number; userId?: string; status?: string; reviewVerdict?: string }) =>
+export const getWithdrawals = (params: { page?: number; pageSize?: number; userId?: string; status?: string; reviewVerdict?: string; currency?: string; channel?: string }) =>
   get<{ total: number; items: AdminWithdrawal[] }>('/admin/withdrawals', params)
 export const approveWithdrawal = (orderId: string) =>
   post<{ orderId: string; status: string }>(`/admin/withdrawals/${orderId}/approve`)
@@ -993,6 +993,8 @@ export const updateFaq = (id: number, data: Partial<{ category: string; question
   req<FaqItem>('PATCH', `/admin/cs/faq/${id}`, data)
 export const deleteFaq = (id: number) =>
   req<{ success: boolean }>('DELETE', `/admin/cs/faq/${id}`)
+export const translateCsContent = (texts: string[], targetLanguage: 'id' | 'zh-CN' = 'id') =>
+  post<{ items: string[]; model: string }>('/admin/cs/translate-content', { texts, targetLanguage })
 export const getCsWelcome = () => get<{ welcome: string; defaultWelcome: string }>('/admin/cs/welcome')
 export const saveCsWelcome = (welcome: string) => req<{ success: boolean }>('PUT', '/admin/cs/welcome', { welcome })
 export const getCsDuty = () => get<{ enabled: boolean; onlineAdmins: number; onDuty: boolean }>('/admin/cs/duty')
@@ -1135,11 +1137,12 @@ export const getBetRounds = (params: {
 
 // Promo Config
 export interface FirstDepTier { depositAmount: number; bonusAmount: number }
-export const FIRSTDEP_CURRENCIES = ['PHP', 'USDT', 'USDC'] as const
+export const FIRSTDEP_CURRENCIES = ['PHP', 'IDR', 'USDT', 'USDC'] as const
 export type FirstDepCurrency = (typeof FIRSTDEP_CURRENCIES)[number]
 // 激励类配置币种选项：稳定币 USDT/USDC 共用一套（保存 USDT 后端自动同步 USDC），后台只需维护两套
 export const CONFIG_CCY_OPTIONS = [
   { value: 'PHP', label: 'PHP' },
+  { value: 'IDR', label: 'IDR' },
   { value: 'USDT', label: 'USDT / USDC' },
 ] as const
 export type PopupAudience = 'all' | 'guest' | 'no_deposit' | 'new' | 'deposited'
@@ -1165,6 +1168,7 @@ export interface RedepConfig {
 }
 export interface LossRebateConfig {
   enabled: boolean
+  enabledCurrencies: string[]
   ratePct: number
   minDeposit: number
   /** 按币种独立的存款门槛（PHP/USDT/USDC） */
@@ -1183,9 +1187,9 @@ export interface BonusCard {
   audience: PopupAudience
 }
 export interface PromoConfig {
-  trial:    { amount: number; enabled: boolean; turnoverX: number; turnoverDays: number }
+  trial:    { amount: number; amountByCcy: Record<string, number>; enabled: boolean; turnoverX: number; turnoverDays: number }
   firstdep: { enabled: boolean; turnoverX: number; turnoverDays: number; tiers: Record<string, FirstDepTier[]> }
-  appdl:    { amount: number; enabled: boolean; turnoverX: number; turnoverDays: number }
+  appdl:    { amount: number; amountByCcy: Record<string, number>; enabled: boolean; turnoverX: number; turnoverDays: number }
   redep:    RedepConfig
   lossRebate: LossRebateConfig
   popups:   PopupConfig[]
@@ -1241,6 +1245,7 @@ export interface TaskSocialConfig {
   redeem_code: string
   reward_type: TaskRewardType
   currency: string
+  reward_by_currency: Record<string, number>
   reward_amount: number
   reward_spin: number
   turnover_x: number
@@ -1282,6 +1287,8 @@ export interface HomeContentItem {
   slot: number
   imageKey: string
   imageUrl: string
+  imageKeys: Record<string, string>
+  imageUrls: Record<string, string>
   actionType: 'promo' | 'cashback' | 'spin' | 'lobby' | 'none' | 'path' | 'url'
   actionValue: string | null
   enabled: boolean
@@ -1293,8 +1300,10 @@ export interface HomeContent {
   walletBanners: HomeContentItem[]
 }
 export const getHomeContent = () => get<HomeContent>('/admin/home-content')
-export const uploadHomeImage = (kind: HomeContentItem['kind'], imageData: string) =>
-  post<{ imageKey: string; imageUrl: string }>('/admin/home-content/upload', { kind, imageData })
+export const uploadHomeImage = (kind: HomeContentItem['kind'], imageData: string, locale = 'en') =>
+  post<{ imageKey: string; imageUrl: string }>('/admin/home-content/upload', { kind, imageData, locale })
+export const saveHomeContentLocalizedImage = (kind: HomeContentItem['kind'], slot: number, locale: string, imageKey: string | null) =>
+  req<{ ok: boolean }>('PUT', '/admin/home-content/item/image', { kind, slot, locale, imageKey })
 export const saveHomeContentItem = (item: Pick<HomeContentItem, 'kind' | 'slot' | 'imageKey' | 'actionType' | 'actionValue' | 'enabled'>) =>
   req<HomeContentItem>('PUT', '/admin/home-content/item', item)
 export const deleteHomeContentItem = (kind: HomeContentItem['kind'], slot: number) =>
@@ -1541,6 +1550,11 @@ export interface PaymentAccountingRow {
   withdrawAmount: number; withdrawCount: number
   feeAmount: number; netAmount: number; bookBalance: number
 }
+export interface PaymentReconciliationItem {
+  id: string; source: 'callback_issue' | 'deposit' | 'withdraw'; provider: string; issueType: string
+  orderId: string | null; providerOrderId: string | null; currency: string | null; amount: number | null
+  status: string | null; createdAt: string
+}
 export interface ProviderBalanceRow {
   provider: string; label: string
   balance: number; frozen: number; observedBalance: number; bookBalance: number; diffAmount: number
@@ -1551,13 +1565,16 @@ export interface ProviderBalanceRow {
   alertThreshold: number | null
 }
 
-export const getPaymentAccounting = (range: { from?: string; to?: string } = {}) => {
+export const getPaymentAccounting = (range: { from?: string; to?: string; currency?: string } = {}) => {
   const qs = new URLSearchParams()
   if (range.from) qs.set('from', range.from)
   if (range.to) qs.set('to', range.to)
+  if (range.currency) qs.set('currency', range.currency)
   const suffix = qs.toString() ? `?${qs.toString()}` : ''
   return get<{ rows: PaymentAccountingRow[]; total: PaymentAccountingRow }>(`/admin/payment/accounting${suffix}`)
 }
+export const getPaymentReconciliation = (provider = 'unispay', currency = 'IDR') =>
+  get<PaymentReconciliationItem[]>('/admin/payment/reconciliation', { provider, currency })
 export const getProviderBalances = () => get<ProviderBalanceRow[]>('/admin/payment/balance')
 export const refreshProviderBalances = () => post<ProviderBalanceRow[]>('/admin/payment/balance/refresh', {})
 export const setProviderAlertThreshold = (provider: string, threshold: number) =>

@@ -27,7 +27,16 @@ export function detectQuickIntent(text: string): QuickIntent | null {
 }
 
 export function detectLang(text: string): CsReplyLocale {
-  return /[一-鿿]/.test(text) ? 'zh-CN' : 'en'
+  if (/[一-鿿]/.test(text)) return 'zh-CN'
+  if (/\b(saldo|deposit|penarikan|saya|anda|belum|sudah|berapa|tolong)\b/i.test(text)) return 'id'
+  return 'en'
+}
+
+function money(amount: string | number, currency: string): string {
+  const n = Number(amount)
+  if (currency === 'PHP') return `₱${n.toFixed(2)}`
+  if (currency === 'IDR') return `Rp${n.toLocaleString('id-ID', { maximumFractionDigits: 2 })}`
+  return `${n.toFixed(2)} ${currency}`
 }
 
 function fmt(iso: string | null): string {
@@ -46,17 +55,16 @@ export async function buildQuickReply(
 ): Promise<string | null> {
   if (intent === 'balance') {
     const [rows] = await getMysqlPool(env).query<RowDataPacket[]>(
-      `SELECT available, frozen FROM bg_wallet WHERE user_id = ?`,
+      `SELECT currency, available, frozen FROM bg_wallet WHERE user_id = ? ORDER BY currency`,
       [userId],
     )
     if (!rows.length) return null
-    const a = Number(rows[0].available).toFixed(2)
-    const f = Number(rows[0].frozen).toFixed(2)
+    const lines = rows.map((row) => `${row.currency}: ${money(row.available, String(row.currency))} / ${money(row.frozen, String(row.currency))}`).join('\n')
     return ({
-      en: `Your wallet balance:\n- Available: ₱${a}\n- Frozen: ₱${f}`,
-      'zh-CN': `你的钱包余额:\n- 可用:₱${a}\n- 冻结:₱${f}`,
-      id: `Saldo wallet Anda:\n- Tersedia: ₱${a}\n- Dibekukan: ₱${f}`,
-      vi: `Số dư ví của bạn:\n- Khả dụng: ₱${a}\n- Đóng băng: ₱${f}`,
+      en: `Your wallet balances (available / frozen):\n${lines}`,
+      'zh-CN': `你的钱包余额（可用 / 冻结）：\n${lines}`,
+      id: `Saldo wallet Anda (tersedia / dibekukan):\n${lines}`,
+      vi: `Số dư ví của bạn (khả dụng / đóng băng):\n${lines}`,
     })[lang]
   }
 
@@ -85,50 +93,51 @@ export async function buildQuickReply(
     if (mins > 30) return null
   }
   const amt = o.amount
+  const displayAmount = money(amt, o.currency)
   const time = fmt(o.settledAt || o.createdAt)
 
   if (intent === 'deposit') {
     if (o.state === 'success')
       return ({
-        en: `Your latest deposit of ₱${amt} has been credited ✅ (${time}).`,
-        'zh-CN': `你最近一笔充值 ₱${amt} 已到账 ✅(${time})。`,
-        id: `Deposit terbaru Anda sebesar ₱${amt} sudah masuk ✅ (${time}).`,
-        vi: `Khoản nạp gần nhất ₱${amt} đã được cộng ✅ (${time}).`,
+        en: `Your latest deposit of ${displayAmount} has been credited ✅ (${time}).`,
+        'zh-CN': `你最近一笔充值 ${displayAmount} 已到账 ✅(${time})。`,
+        id: `Deposit terbaru Anda sebesar ${displayAmount} sudah masuk ✅ (${time}).`,
+        vi: `Khoản nạp gần nhất ${displayAmount} đã được cộng ✅ (${time}).`,
       })[lang]
     if (o.state === 'pending')
       return ({
-        en: `Your latest deposit of ₱${amt} is still processing. It usually credits within a few minutes.`,
-        'zh-CN': `你最近一笔充值 ₱${amt} 正在处理中,通常几分钟内到账,请稍候。`,
-        id: `Deposit terbaru Anda sebesar ₱${amt} masih diproses. Biasanya masuk dalam beberapa menit.`,
-        vi: `Khoản nạp gần nhất ₱${amt} vẫn đang xử lý. Thường sẽ được cộng trong vài phút.`,
+        en: `Your latest deposit of ${displayAmount} is still processing. It usually credits within a few minutes.`,
+        'zh-CN': `你最近一笔充值 ${displayAmount} 正在处理中,通常几分钟内到账,请稍候。`,
+        id: `Deposit terbaru Anda sebesar ${displayAmount} masih diproses. Biasanya masuk dalam beberapa menit.`,
+        vi: `Khoản nạp gần nhất ${displayAmount} vẫn đang xử lý. Thường sẽ được cộng trong vài phút.`,
       })[lang]
     return ({
-      en: `Your latest deposit of ₱${amt} did not succeed. You can try again on the Deposit page.`,
-      'zh-CN': `你最近一笔充值 ₱${amt} 未成功,可在充值页重新发起。`,
-      id: `Deposit terbaru Anda sebesar ₱${amt} tidak berhasil. Anda bisa mencoba lagi di halaman Deposit.`,
-      vi: `Khoản nạp gần nhất ₱${amt} không thành công. Bạn có thể thử lại trên trang Nạp tiền.`,
+      en: `Your latest deposit of ${displayAmount} did not succeed. You can try again on the Deposit page.`,
+      'zh-CN': `你最近一笔充值 ${displayAmount} 未成功,可在充值页重新发起。`,
+      id: `Deposit terbaru Anda sebesar ${displayAmount} tidak berhasil. Anda bisa mencoba lagi di halaman Deposit.`,
+      vi: `Khoản nạp gần nhất ${displayAmount} không thành công. Bạn có thể thử lại trên trang Nạp tiền.`,
     })[lang]
   }
 
   // withdraw
   if (o.state === 'success')
     return ({
-      en: `Your latest withdrawal of ₱${amt} has been completed ✅ (${time}).`,
-      'zh-CN': `你最近一笔提现 ₱${amt} 已完成 ✅(${time})。`,
-      id: `Penarikan terbaru Anda sebesar ₱${amt} sudah selesai ✅ (${time}).`,
-      vi: `Lệnh rút gần nhất ₱${amt} đã hoàn tất ✅ (${time}).`,
+      en: `Your latest withdrawal of ${displayAmount} has been completed ✅ (${time}).`,
+      'zh-CN': `你最近一笔提现 ${displayAmount} 已完成 ✅(${time})。`,
+      id: `Penarikan terbaru Anda sebesar ${displayAmount} sudah selesai ✅ (${time}).`,
+      vi: `Lệnh rút gần nhất ${displayAmount} đã hoàn tất ✅ (${time}).`,
     })[lang]
   if (o.state === 'pending')
     return ({
-      en: `Your latest withdrawal of ₱${amt} is under review and being processed. Please wait a moment.`,
-      'zh-CN': `你最近一笔提现 ₱${amt} 正在审核处理中,请耐心等待。`,
-      id: `Penarikan terbaru Anda sebesar ₱${amt} sedang direview dan diproses. Mohon tunggu sebentar.`,
-      vi: `Lệnh rút gần nhất ₱${amt} đang được xét duyệt và xử lý. Vui lòng chờ một chút.`,
+      en: `Your latest withdrawal of ${displayAmount} is under review and being processed. Please wait a moment.`,
+      'zh-CN': `你最近一笔提现 ${displayAmount} 正在审核处理中,请耐心等待。`,
+      id: `Penarikan terbaru Anda sebesar ${displayAmount} sedang direview dan diproses. Mohon tunggu sebentar.`,
+      vi: `Lệnh rút gần nhất ${displayAmount} đang được xét duyệt và xử lý. Vui lòng chờ một chút.`,
     })[lang]
   return ({
-    en: `Your latest withdrawal of ₱${amt} was not successful${o.rejectReason ? `. Reason: ${o.rejectReason}` : ''}.`,
-    'zh-CN': `你最近一笔提现 ₱${amt} 未成功${o.rejectReason ? `,原因:${o.rejectReason}` : ''}。`,
-    id: `Penarikan terbaru Anda sebesar ₱${amt} tidak berhasil${o.rejectReason ? `. Alasan: ${o.rejectReason}` : ''}.`,
-    vi: `Lệnh rút gần nhất ₱${amt} không thành công${o.rejectReason ? `. Lý do: ${o.rejectReason}` : ''}.`,
+    en: `Your latest withdrawal of ${displayAmount} was not successful${o.rejectReason ? `. Reason: ${o.rejectReason}` : ''}.`,
+    'zh-CN': `你最近一笔提现 ${displayAmount} 未成功${o.rejectReason ? `,原因:${o.rejectReason}` : ''}。`,
+    id: `Penarikan terbaru Anda sebesar ${displayAmount} tidak berhasil${o.rejectReason ? `. Alasan: ${o.rejectReason}` : ''}.`,
+    vi: `Lệnh rút gần nhất ${displayAmount} không thành công${o.rejectReason ? `. Lý do: ${o.rejectReason}` : ''}.`,
   })[lang]
 }

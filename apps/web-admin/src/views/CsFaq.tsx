@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Table, Space, Input, Select, Button, Tag, Switch, Modal, Form, Row, Col, InputNumber, Popconfirm, Typography, Card, message } from 'antd'
 import type { TablePaginationConfig } from 'antd'
-import { getFaqList, createFaq, updateFaq, deleteFaq, getCsWelcome, saveCsWelcome, type FaqItem } from '../api'
+import { getFaqList, createFaq, updateFaq, deleteFaq, getCsWelcome, saveCsWelcome, translateCsContent, type FaqItem } from '../api'
 import { PAGE_SIZE_OPTIONS, DEFAULT_PAGE_SIZE } from '../pagination'
 
 const CATEGORIES = [
@@ -62,6 +62,7 @@ export default function CsFaq() {
   const [togglingId, setTogglingId] = useState<number | null>(null)
   const [modalOpen, setModalOpen] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [translating, setTranslating] = useState(false)
   const [editingId, setEditingId] = useState<number | null>(null)
   const [form] = Form.useForm<{ category: string; question: string; answer: string; lang: string; sort_order: number }>()
 
@@ -120,6 +121,20 @@ export default function CsFaq() {
       void load(editingId ? page : 1)
     } catch (e) { message.error(e instanceof Error ? e.message : '保存失败') }
     finally { setSaving(false) }
+  }
+
+  async function handleTranslate() {
+    const { question, answer } = form.getFieldsValue()
+    if (!question?.trim() || !answer?.trim()) {
+      message.warning('请先填写问题和答案原文'); return
+    }
+    setTranslating(true)
+    try {
+      const result = await translateCsContent([question, answer], 'id')
+      form.setFieldsValue({ question: result.items[0], answer: result.items[1], lang: 'id' })
+      message.success('已翻译为印尼语，请确认后保存')
+    } catch (e) { message.error(e instanceof Error ? e.message : '翻译失败') }
+    finally { setTranslating(false) }
   }
 
   const columns = [
@@ -191,7 +206,7 @@ export default function CsFaq() {
             </Col>
             <Col span={6}>
               <Form.Item label="语言" name="lang">
-                <Select options={[{ value: 'zh', label: '中文' }, { value: 'en', label: 'English' }, { value: 'tl', label: 'Filipino' }]} />
+                <Select options={[{ value: 'zh', label: '中文' }, { value: 'en', label: 'English' }, { value: 'tl', label: 'Filipino' }, { value: 'id', label: 'Bahasa Indonesia' }]} />
               </Form.Item>
             </Col>
             <Col span={6}>
@@ -206,6 +221,7 @@ export default function CsFaq() {
           <Form.Item label="答案" name="answer" required>
             <Input.TextArea rows={5} placeholder="AI 将根据此答案回复用户" maxLength={2000} showCount />
           </Form.Item>
+          <Button loading={translating} onClick={() => void handleTranslate()}>AI 翻译为印尼语</Button>
         </Form>
       </Modal>
     </div>

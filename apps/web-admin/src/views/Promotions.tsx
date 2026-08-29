@@ -41,6 +41,7 @@ export default function Promotions() {
   const [cfg, setCfg] = useState<PromoConfig | null>(null)
   const [redepCcy, setRedepCcy] = useState<string>('PHP')
   const [lossCcy, setLossCcy] = useState<string>('PHP')
+  const [generalCcy, setGeneralCcy] = useState<string>('PHP')
 
   async function settleNow() {
     setSettling(true)
@@ -56,12 +57,19 @@ export default function Promotions() {
     try {
       const data = await getPromoConfig()
       for (const c of FIRSTDEP_CURRENCIES) if (!data.firstdep.tiers[c]) data.firstdep.tiers[c] = []
+      if (!data.trial.amountByCcy) data.trial.amountByCcy = { PHP: data.trial.amount }
+      if (!data.appdl.amountByCcy) data.appdl.amountByCcy = { PHP: data.appdl.amount }
+      for (const c of FIRSTDEP_CURRENCIES) {
+        if (data.trial.amountByCcy[c] == null) data.trial.amountByCcy[c] = data.trial.amount
+        if (data.appdl.amountByCcy[c] == null) data.appdl.amountByCcy[c] = data.appdl.amount
+      }
       // 防御性初始化按币种结构（后端一般已下发）
       if (!data.redep.byCcy) data.redep.byCcy = {}
       for (const c of FIRSTDEP_CURRENCIES) if (!data.redep.byCcy[c]) data.redep.byCcy[c] = { minDeposit: data.redep.minDeposit, bonusAmount: data.redep.bonusAmount }
       if (data.lossRebate.windowDays == null) data.lossRebate.windowDays = 7
       if (!data.lossRebate.minDepositByCcy) data.lossRebate.minDepositByCcy = {}
       for (const c of FIRSTDEP_CURRENCIES) if (data.lossRebate.minDepositByCcy[c] == null) data.lossRebate.minDepositByCcy[c] = data.lossRebate.minDeposit
+      if (!Array.isArray(data.lossRebate.enabledCurrencies)) data.lossRebate.enabledCurrencies = ['PHP', 'USDT', 'USDC']
       if (!Array.isArray(data.bonusCards)) data.bonusCards = []
       setCfg(data)
     } catch (e) {
@@ -83,9 +91,9 @@ export default function Promotions() {
   }
 
   function validate(c: PromoConfig): string | null {
-    if (c.trial.amount <= 0 || c.trial.amount > 50000) return 'trial 注册奖励必须在 1-50000'
+    if (Object.values(c.trial.amountByCcy).some((amount) => amount <= 0)) return '首席体验官各币种奖励必须大于 0'
     if (c.firstdep.turnoverX < 0 || c.firstdep.turnoverDays < 0) return 'firstdep 流水倍率/有效期不能为负'
-    if (c.appdl.amount <= 0 || c.appdl.amount > 50000) return 'App 下载礼金必须在 1-50000'
+    if (Object.values(c.appdl.amountByCcy).some((amount) => amount <= 0)) return 'App 下载礼金各币种金额必须大于 0'
     if (c.appdl.turnoverX < 0 || c.appdl.turnoverDays < 0) return 'App 下载礼金流水倍率/有效期不能为负'
     if (c.redep.minDeposit <= 0 || c.redep.bonusAmount < 0 || c.redep.windowHours <= 0) return '复充限时:档位/时长必须为正、奖励不能为负'
     if (c.lossRebate.ratePct < 0 || c.lossRebate.ratePct > 100 || c.lossRebate.minDeposit < 0) return '负盈利返水:费率须在 0-100、门槛不能为负'
@@ -251,14 +259,20 @@ export default function Promotions() {
     <>
       {bonusCardsTable}
 
+      <Space style={{ marginBottom: 12 }} align="center">
+        <Text strong>金额币种：</Text>
+        <Segmented value={generalCcy} onChange={(v) => setGeneralCcy(String(v))}
+          options={CONFIG_CCY_OPTIONS.map((o) => ({ value: o.value, label: o.label }))} />
+      </Space>
+
       <Card
         title={<span>🎖️ 首席体验官 · 金额设置</span>}
         style={{ marginBottom: 16 }}
       >
         <Row gutter={24}>
           <Col span={8}>
-            <Text>注册奖励金额（PHP）</Text>
-            <InputNumber prefix="₱" style={{ width: '100%', marginTop: 4 }} min={1} max={50000} precision={0} value={cfg.trial.amount} onChange={(v) => patch((d) => { d.trial.amount = Number(v ?? 0) })} />
+            <Text>注册奖励金额（{generalCcy}）</Text>
+            <InputNumber style={{ width: '100%', marginTop: 4 }} min={1} precision={generalCcy === 'IDR' ? 0 : 2} value={cfg.trial.amountByCcy[generalCcy]} onChange={(v) => patch((d) => { d.trial.amountByCcy[generalCcy] = Number(v ?? 0); if (generalCcy === 'PHP') d.trial.amount = Number(v ?? 0) })} />
           </Col>
           <Col span={8}>
             <Text>流水倍率（0=不要求）</Text>
@@ -280,8 +294,8 @@ export default function Promotions() {
         </Text>
         <Row gutter={24}>
           <Col span={8}>
-            <Text>礼金金额（PHP）</Text>
-            <InputNumber prefix="₱" style={{ width: '100%', marginTop: 4 }} min={1} max={50000} precision={0} value={cfg.appdl.amount} onChange={(v) => patch((d) => { d.appdl.amount = Number(v ?? 0) })} />
+            <Text>礼金金额（{generalCcy}）</Text>
+            <InputNumber style={{ width: '100%', marginTop: 4 }} min={1} precision={generalCcy === 'IDR' ? 0 : 2} value={cfg.appdl.amountByCcy[generalCcy]} onChange={(v) => patch((d) => { d.appdl.amountByCcy[generalCcy] = Number(v ?? 0); if (generalCcy === 'PHP') d.appdl.amount = Number(v ?? 0) })} />
           </Col>
           <Col span={8}>
             <Text>流水倍率（0=不要求）</Text>
@@ -364,6 +378,17 @@ export default function Promotions() {
           <Space size={4} align="center" style={{ marginBottom: 2 }}>
             <Text>充值门槛（{lossCcy}）</Text>
             <Segmented size="small" value={lossCcy} onChange={(v) => setLossCcy(String(v))} options={CONFIG_CCY_OPTIONS.map((o) => ({ value: o.value, label: o.label }))} />
+            <Switch
+              style={{ marginLeft: 12 }}
+              checked={cfg.lossRebate.enabledCurrencies.includes(lossCcy)}
+              checkedChildren="该币种启用"
+              unCheckedChildren="该币种停用"
+              onChange={(enabled) => patch((d) => {
+                d.lossRebate.enabledCurrencies = enabled
+                  ? Array.from(new Set([...d.lossRebate.enabledCurrencies, lossCcy]))
+                  : d.lossRebate.enabledCurrencies.filter((c) => c !== lossCcy)
+              })}
+            />
           </Space>
           <InputNumber prefix={lossCcy === 'PHP' ? '₱' : lossCcy} style={{ width: '100%', marginTop: 4 }} min={0} precision={2}
             value={cfg.lossRebate.minDepositByCcy[lossCcy] ?? 0}

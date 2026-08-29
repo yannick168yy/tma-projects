@@ -20,6 +20,7 @@ vi.mock('../services/store.js', () => ({
 
 vi.mock('../services/promo-config.service.js', () => ({
   getPromoConfig: vi.fn(),
+  promoAmountByCurrency: (config: { amount: number; amountByCcy?: Record<string, number> }, currency: string) => config.amountByCcy?.[currency] ?? config.amount,
 }))
 
 import promotionRouter from '../routes/promotion.routes.js'

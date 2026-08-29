@@ -26,7 +26,9 @@ router.get('/', async (ctx) => {
   const userId = ctx.query.userId ? String(ctx.query.userId) : undefined
   const status = ctx.query.status ? String(ctx.query.status) : undefined
   const reviewVerdict = ctx.query.reviewVerdict ? String(ctx.query.reviewVerdict) : undefined
-  const result = await listAdminWithdrawals(ctx.state.env, { page, pageSize, userId, status, reviewVerdict })
+  const currency = ctx.query.currency ? String(ctx.query.currency).toUpperCase() : undefined
+  const channel = ctx.query.channel ? String(ctx.query.channel) : undefined
+  const result = await listAdminWithdrawals(ctx.state.env, { page, pageSize, userId, status, reviewVerdict, currency, channel })
   ok(ctx, result)
 })
 

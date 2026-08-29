@@ -17,7 +17,7 @@ export const GEMINI_TOOLS: Tool[] = [
       },
       {
         name: 'get_wallet_balance',
-        description: "Get the current user's wallet balance (available and frozen amounts in PHP pesos).",
+        description: "Get all of the current user's wallet balances, including each currency.",
         parameters: { type: SchemaType.OBJECT, properties: {} },
       },
       {
@@ -127,13 +127,15 @@ export async function executeTool(
 
     case 'get_wallet_balance': {
       const [rows] = await pool.query<RowDataPacket[]>(
-        `SELECT available, frozen FROM bg_wallet WHERE user_id = ?`,
+        `SELECT currency, available, frozen FROM bg_wallet WHERE user_id = ? ORDER BY currency`,
         [context.userId],
       )
-      if (!rows.length) return { availablePHP: '0.00', frozenPHP: '0.00' }
       return {
-        availablePHP: Number(rows[0].available).toFixed(2),
-        frozenPHP: Number(rows[0].frozen).toFixed(2),
+        balances: rows.map((row) => ({
+          currency: String(row.currency),
+          available: Number(row.available).toFixed(2),
+          frozen: Number(row.frozen).toFixed(2),
+        })),
       }
     }
 

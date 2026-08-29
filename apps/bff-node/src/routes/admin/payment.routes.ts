@@ -6,7 +6,7 @@ import {
 } from '../../services/payment-channel.service.js'
 import {
   getAccounting, getBalances, refreshBalances,
-  setAlertThreshold, setManualProviderBalance, ALERT_PROVIDERS,
+  setAlertThreshold, setManualProviderBalance, getPaymentReconciliation, ALERT_PROVIDERS,
 } from '../../services/payment-accounting.service.js'
 import { writeAuditLog } from '../../services/admin-store.js'
 import { requireRole } from '../../middleware/require-role.js'
@@ -109,9 +109,15 @@ router.delete('/channels/:id', requireRole('super_admin'), async (ctx) => {
 // ── 记账：代收 / 代付汇总 + 服务商余额 ─────────────────────────────────────────
 
 router.get('/accounting', async (ctx) => {
-  const q = ctx.query as { from?: string; to?: string }
-  const data = await getAccounting(ctx.state.env, { from: q.from, to: q.to })
+  const q = ctx.query as { from?: string; to?: string; currency?: string }
+  const data = await getAccounting(ctx.state.env, { from: q.from, to: q.to, currency: q.currency })
   ok(ctx, data)
+})
+
+router.get('/reconciliation', async (ctx) => {
+  const provider = String(ctx.query.provider ?? 'unispay')
+  const currency = String(ctx.query.currency ?? 'IDR')
+  ok(ctx, await getPaymentReconciliation(ctx.state.env, provider, currency))
 })
 
 router.get('/balance', async (ctx) => {

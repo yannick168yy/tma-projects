@@ -16,9 +16,9 @@ router.put('/config', async (ctx) => {
 
   const current = await getPromoConfig(ctx.state.env)
   const updated: PromoConfig = {
-    trial:    { ...current.trial,    ...(body.trial    ?? {}) },
+    trial:    { ...current.trial,    ...(body.trial    ?? {}), amountByCcy: { ...(current.trial.amountByCcy ?? {}), ...(body.trial?.amountByCcy ?? {}) } },
     firstdep: { ...current.firstdep, ...(body.firstdep ?? {}) },
-    appdl:    { ...current.appdl,    ...(body.appdl    ?? {}) },
+    appdl:    { ...current.appdl,    ...(body.appdl    ?? {}), amountByCcy: { ...(current.appdl.amountByCcy ?? {}), ...(body.appdl?.amountByCcy ?? {}) } },
     redep:    { ...current.redep,    ...(body.redep    ?? {}) },
     lossRebate: { ...current.lossRebate, ...(body.lossRebate ?? {}) },
     popups:   body.popups ?? current.popups,
@@ -26,14 +26,16 @@ router.put('/config', async (ctx) => {
   }
 
   // 简单校验
-  if (updated.trial.amount <= 0 || updated.trial.amount > 50000) {
-    fail(ctx, 400, 'trial.amount 必须在 1-50000 之间'); return
+  if (updated.trial.amount <= 0 || updated.trial.amount > 50000
+    || Object.values(updated.trial.amountByCcy ?? {}).some((amount) => amount <= 0)) {
+    fail(ctx, 400, 'trial PHP 金额必须在 1-50000、各币种金额必须大于 0'); return
   }
   if (updated.firstdep.turnoverX < 0 || updated.firstdep.turnoverDays < 0) {
     fail(ctx, 400, 'firstdep 流水倍率/有效期不能为负'); return
   }
-  if (updated.appdl.amount <= 0 || updated.appdl.amount > 50000 || updated.appdl.turnoverX < 0 || updated.appdl.turnoverDays < 0) {
-    fail(ctx, 400, 'appdl 金额必须在 1-50000、流水倍率/有效期不能为负'); return
+  if (updated.appdl.amount <= 0 || updated.appdl.amount > 50000
+    || Object.values(updated.appdl.amountByCcy ?? {}).some((amount) => amount <= 0) || updated.appdl.turnoverX < 0 || updated.appdl.turnoverDays < 0) {
+    fail(ctx, 400, 'appdl PHP 金额必须在 1-50000、各币种金额必须大于 0、流水倍率/有效期不能为负'); return
   }
   if (updated.redep.minDeposit <= 0 || updated.redep.bonusAmount < 0 || updated.redep.windowHours <= 0
     || updated.redep.cooldownDays < 0 || updated.redep.turnoverX < 0 || updated.redep.turnoverDays < 0) {

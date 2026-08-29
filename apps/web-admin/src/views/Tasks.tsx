@@ -30,8 +30,7 @@ const REWARD_TYPE_OPTS: { value: TaskRewardType; label: string }[] = [
   { value: 'growth', label: '成长值' },
 ]
 
-/** 按前台分区展示原生任务配置；保存时提交全量配置（其余分区字段原样带回）
- *  currencyScoped=true（每日留存任务）时按币种独立配置；否则（新手拉新任务）固定 PHP */
+/** 按前台分区展示原生任务配置；保存时提交全量配置（其余分区字段原样带回）。 */
 function NativeConfig({ ids, title, currencyScoped = false }: { ids: string[]; title: string; currencyScoped?: boolean }) {
   const [cfg, setCfg] = useState<TaskConfig | null>(null)
   const [loading, setLoading] = useState(true)
@@ -90,6 +89,7 @@ function SocialConfig() {
   const [rows, setRows] = useState<TaskSocialConfig[]>([])
   const [loading, setLoading] = useState(true)
   const [savingKey, setSavingKey] = useState<string | null>(null)
+  const [currency, setCurrency] = useState('PHP')
 
   useEffect(() => { void load() }, [])
   async function load() {
@@ -112,6 +112,11 @@ function SocialConfig() {
       <Text type="secondary">
         tg_member=Bot 须设为频道管理员，channel_ref 填频道 @username 或 chat_id；code_redeem=码放"加入才可见"处并定期轮换、奖励压小。
       </Text>
+      <Space style={{ marginTop: 12 }}>
+        <Text strong>奖励币种：</Text>
+        <Segmented value={currency} onChange={(v) => setCurrency(String(v))}
+          options={CONFIG_CCY_OPTIONS.map((o) => ({ value: o.value, label: o.label }))} />
+      </Space>
       <Table
         style={{ marginTop: 12 }} pagination={false} dataSource={rows} rowKey="task_key" scroll={{ x: 1300 }}
         columns={[
@@ -126,7 +131,7 @@ function SocialConfig() {
           { title: '频道标识', dataIndex: 'channel_ref', width: 150, render: (v: string, r) => <Input placeholder="@channel / chat_id" value={v} onChange={(e) => patch(r.task_key, { channel_ref: e.target.value })} /> },
           { title: '当前暗号', dataIndex: 'redeem_code', width: 120, render: (v: string, r) => <Input value={v} onChange={(e) => patch(r.task_key, { redeem_code: e.target.value })} /> },
           { title: '奖励类型', dataIndex: 'reward_type', width: 110, render: (v: TaskRewardType, r) => <Select style={{ width: 100 }} value={v} options={REWARD_TYPE_OPTS} onChange={(x) => patch(r.task_key, { reward_type: x })} /> },
-          { title: '现金', dataIndex: 'reward_amount', width: 90, render: (v: number, r) => <InputNumber min={0} value={v} onChange={(x) => patch(r.task_key, { reward_amount: Number(x) })} /> },
+          { title: `现金(${currency})`, dataIndex: 'reward_amount', width: 110, render: (_v: number, r) => <InputNumber min={0} precision={currency === 'IDR' ? 0 : 2} value={r.reward_by_currency?.[currency] ?? r.reward_amount} onChange={(x) => patch(r.task_key, { reward_amount: currency === 'PHP' ? Number(x) : r.reward_amount, reward_by_currency: { ...(r.reward_by_currency ?? {}), [currency]: Number(x) } })} /> },
           { title: '次数', dataIndex: 'reward_spin', width: 80, render: (v: number, r) => <InputNumber min={0} value={v} onChange={(x) => patch(r.task_key, { reward_spin: Number(x) })} /> },
           { title: '打码', dataIndex: 'turnover_x', width: 80, render: (v: number, r) => <InputNumber min={0} value={v} onChange={(x) => patch(r.task_key, { turnover_x: Number(x) })} /> },
           { title: '开关', dataIndex: 'enabled', width: 70, render: (v: number, r) => <Switch checked={!!v} onChange={(x) => patch(r.task_key, { enabled: x ? 1 : 0 })} /> },
@@ -181,6 +186,7 @@ function AppdlConfig() {
   const [cfg, setCfg] = useState<PromoConfig | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [currency, setCurrency] = useState('PHP')
 
   useEffect(() => { void load() }, [])
   async function load() {
@@ -200,10 +206,12 @@ function AppdlConfig() {
   if (loading || !cfg) return <Spin style={{ margin: 40 }} />
   return (
     <Card style={{ marginTop: 16 }} title="下载 App 礼金（agg_appdl）" extra={<Button type="primary" loading={saving} onClick={save}>保存</Button>}>
-      <Text type="secondary">与「营销运营 · 活动配置」同一份配置，两处改任一处即生效。拉新活动固定 PHP 一次性发放。</Text>
+      <Text type="secondary">与「营销运营 · 活动配置」同一份配置，两处改任一处即生效；按当前币种一次性发放。</Text>
       <Space style={{ marginTop: 12 }} size="large" wrap>
+        <Segmented value={currency} onChange={(v) => setCurrency(String(v))}
+          options={CONFIG_CCY_OPTIONS.map((o) => ({ value: o.value, label: o.label }))} />
         <Space><Text>开关</Text><Switch checked={cfg.appdl.enabled} onChange={(x) => patch({ enabled: x })} /></Space>
-        <Space><Text>奖金 ₱</Text><InputNumber min={1} max={50000} precision={0} value={cfg.appdl.amount} onChange={(v) => patch({ amount: Number(v ?? 0) })} /></Space>
+        <Space><Text>奖金 {currency}</Text><InputNumber min={1} precision={currency === 'IDR' ? 0 : 2} value={cfg.appdl.amountByCcy[currency] ?? cfg.appdl.amount} onChange={(v) => setCfg((c) => c ? { ...c, appdl: { ...c.appdl, amount: currency === 'PHP' ? Number(v ?? 0) : c.appdl.amount, amountByCcy: { ...c.appdl.amountByCcy, [currency]: Number(v ?? 0) } } } : c)} /></Space>
         <Space><Text>打码倍数</Text><InputNumber min={0} max={100} precision={0} value={cfg.appdl.turnoverX} onChange={(v) => patch({ turnoverX: Number(v ?? 0) })} /></Space>
         <Space><Text>流水有效期(天)</Text><InputNumber min={0} max={365} precision={0} value={cfg.appdl.turnoverDays} onChange={(v) => patch({ turnoverDays: Number(v ?? 0) })} /></Space>
       </Space>
@@ -223,7 +231,7 @@ function NewbieTab() {
         message="前台新手区其余卡片的配置位置"
         description="领取新手体验金 / 首充彩金 → 营销运营 · 活动配置；解锁生日礼金 → KYC 通过后自动同步证件生日，无需配置。"
       />
-      <NativeConfig ids={NEWBIE_IDS} title="新手任务" />
+      <NativeConfig ids={NEWBIE_IDS} title="新手任务" currencyScoped />
       <AppdlConfig />
     </>
   )

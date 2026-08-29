@@ -2,6 +2,7 @@ import type { ApiResponse } from '@/types/api'
 import { attributionHeaders } from '@/utils/attribution'
 import { fingerprintHeaders } from '@/utils/fingerprint'
 import { getToken } from '@/utils/tokenStore'
+import { getSiteMarket } from '@/config/market'
 
 /** 生产域名走同源 /api/v1（Nginx → BFF）；避免 www/裸域跨域与 .env 写死 www 导致异常 */
 function resolveBaseUrl(): string {
@@ -21,6 +22,7 @@ export function authHeaders(): HeadersInit {
   const token = getToken()
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
+    'X-Site-Market': getSiteMarket(),
   }
   if (token) headers.Authorization = `Bearer ${token}`
   return headers

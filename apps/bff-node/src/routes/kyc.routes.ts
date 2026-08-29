@@ -13,7 +13,7 @@ import {
   verifyKycOtp,
 } from '../services/kyc.service.js'
 import { AuthError, bindPhone } from '../services/auth.service.js'
-import { normalizePhonePH } from '../utils/phone.js'
+import { normalizePhone } from '../utils/phone.js'
 import { fail, ok } from '../utils/response.js'
 
 const router = new Router({ prefix: '/kyc' })
@@ -43,7 +43,7 @@ async function bindPhoneLoginIfNeeded(ctx: import('koa').Context, phone: string,
 router.get('/status', async (ctx) => {
   const kyc = await getKyc(ctx.state.redis, ctx.state.userId!)
   const phoneIdentity = (await listUserIdentities(ctx.state.redis, ctx.state.userId!)).find((item) => item.provider === 'phone')
-  const registeredPhone = phoneIdentity ? normalizePhonePH(phoneIdentity.identifier) : null
+  const registeredPhone = phoneIdentity ? normalizePhone(phoneIdentity.identifier) : null
   const cfg = await getKycStepConfig(ctx.state.redis, ctx.state.env, ctx.state.userId!)
   const status = buildKycStatusResponse(kyc)
   if (phoneIdentity?.verifiedAt && registeredPhone && !status.phoneVerified) {
@@ -76,9 +76,9 @@ router.post('/phone/bind', async (ctx) => {
     return
   }
   try {
-    const normalized = normalizePhonePH(body.phone)
+    const normalized = normalizePhone(body.phone)
     const kyc = await getKyc(ctx.state.redis, ctx.state.userId!)
-    if (normalized && kyc?.phoneVerified && normalizePhonePH(kyc.phone ?? '') === normalized) {
+    if (normalized && kyc?.phoneVerified && normalizePhone(kyc.phone ?? '') === normalized) {
       await bindPhoneLoginIfNeeded(ctx, normalized, body.password, true)
       ok(ctx, { phoneVerified: true, status: kyc.status, phone: normalized })
       return

@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { ArrowLeft } from 'lucide-react'
 import { isInsideTelegram } from '@/utils/initTelegramWebApp'
 import gameLoadingImg from '@/assets/game-loading.webp'
+import { localizedImage } from '@/utils/localizedImage'
 
 interface Props {
   url: string
@@ -14,7 +15,8 @@ interface Props {
 const MIN_LOADING_MS = 2000
 
 export default function GamePlayer({ url, onClose }: Props) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const loadingImage = localizedImage(gameLoadingImg, i18n.language, 'game-loading.webp')
   const [iframeLoaded, setIframeLoaded] = useState(false)
   const shownAt = useRef(Date.now())
   const [expanded, setExpanded] = useState(false)
@@ -178,7 +180,7 @@ export default function GamePlayer({ url, onClose }: Props) {
       {!iframeLoaded && (
         <div className="absolute inset-0 z-10 bg-[#080b14]">
           <img
-            src={gameLoadingImg}
+            src={loadingImage}
             alt=""
             draggable={false}
             className="w-full h-full object-cover object-top select-none"

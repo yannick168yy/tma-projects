@@ -5,10 +5,10 @@ import type { PromoHighlight, RedPacketRecord, TeamAgentStatus } from '@/types/a
 // 显式 'true' 才启用 mock：构建变量缺失时绝不能默认走假数据
 const useMock = import.meta.env.VITE_USE_MOCK_API === 'true'
 
-export async function fetchPromoHighlights(): Promise<PromoHighlight[]> {
+export async function fetchPromoHighlights(currency = 'PHP'): Promise<PromoHighlight[]> {
   if (useMock) return mock.mockGetHighlights()
   const list = await apiRequest<Array<{ promoId: string; highlight: boolean; flagLabel: string | null }>>(
-    '/promotions',
+    `/promotions?currency=${encodeURIComponent(currency)}`,
   )
   return list.map((p) => ({
     promoId: p.promoId as PromoHighlight['promoId'],
@@ -17,9 +17,9 @@ export async function fetchPromoHighlights(): Promise<PromoHighlight[]> {
   }))
 }
 
-export async function claimTrialBonus(): Promise<{ amountPhp: number }> {
+export async function claimTrialBonus(currency = 'PHP'): Promise<{ amountPhp: number; currency?: string }> {
   if (useMock) return mock.mockClaimTrial()
-  return apiRequest<{ amountPhp: number }>('/promotions/trial-play/claim', { method: 'POST' })
+  return apiRequest<{ amountPhp: number; currency?: string }>('/promotions/trial-play/claim', { method: 'POST', body: JSON.stringify({ currency }) })
 }
 
 export interface AppdlStatus {
@@ -30,14 +30,14 @@ export interface AppdlStatus {
   claimed: boolean
 }
 
-export async function fetchAppdlStatus(): Promise<AppdlStatus> {
-  return apiRequest<AppdlStatus>('/promotions/app-download')
+export async function fetchAppdlStatus(currency = 'PHP'): Promise<AppdlStatus> {
+  return apiRequest<AppdlStatus>(`/promotions/app-download?currency=${encodeURIComponent(currency)}`)
 }
 
-export async function claimAppdlBonus(source: 'pwa' | 'apk'): Promise<{ amountPhp: number }> {
+export async function claimAppdlBonus(source: 'pwa' | 'apk', currency = 'PHP'): Promise<{ amountPhp: number; currency?: string }> {
   return apiRequest<{ amountPhp: number }>('/promotions/app-download/claim', {
     method: 'POST',
-    body: JSON.stringify({ source }),
+    body: JSON.stringify({ source, currency }),
   })
 }
 
@@ -178,9 +178,9 @@ export interface LossRebateConfig {
 }
 
 export interface PromoConfig {
-  trial:    { amount: number; enabled: boolean }
+  trial:    { amount: number; amountByCcy?: Record<string, number>; enabled: boolean }
   firstdep: { enabled: boolean; turnoverX: number; turnoverDays?: number; tiers: Record<string, FirstDepTier[]> }
-  appdl:    { amount: number; enabled: boolean; turnoverX: number; turnoverDays?: number }
+  appdl:    { amount: number; amountByCcy?: Record<string, number>; enabled: boolean; turnoverX: number; turnoverDays?: number }
   lossRebate?: LossRebateConfig
   popups?:  PopupConfig[]
   checkinEnabled?: boolean
@@ -242,11 +242,11 @@ export interface CheckinClaimResult {
   grantedChances: number
   milestoneHit: number
 }
-export async function fetchCheckinStatus(): Promise<CheckinStatus> {
-  return apiRequest<CheckinStatus>('/promotions/checkin/status')
+export async function fetchCheckinStatus(currency = 'PHP'): Promise<CheckinStatus> {
+  return apiRequest<CheckinStatus>(`/promotions/checkin/status?currency=${encodeURIComponent(currency)}`)
 }
-export async function claimCheckin(): Promise<CheckinClaimResult> {
-  return apiRequest<CheckinClaimResult>('/promotions/checkin/claim', { method: 'POST' })
+export async function claimCheckin(currency = 'PHP'): Promise<CheckinClaimResult> {
+  return apiRequest<CheckinClaimResult>('/promotions/checkin/claim', { method: 'POST', body: JSON.stringify({ currency }) })
 }
 
 const DEFAULT_PROMO_CONFIG: PromoConfig = {
@@ -275,4 +275,3 @@ export async function fetchPromoConfig(): Promise<PromoConfig> {
     return DEFAULT_PROMO_CONFIG
   }
 }
-

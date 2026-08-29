@@ -73,8 +73,17 @@ router.put('/benefits', async (ctx) => {
 //   body.includeToday=true 结算今日至今（测试用），否则结算昨天整日
 router.post('/negative-rebate/manual', async (ctx) => {
   const body = (ctx.request.body ?? {}) as { includeToday?: boolean; includeCurrentWeek?: boolean }
-  const result = await runDailyLossRebate(ctx.state.env, { includeToday: Boolean(body.includeToday ?? body.includeCurrentWeek) })
-  ok(ctx, result)
+  const includeToday = Boolean(body.includeToday ?? body.includeCurrentWeek)
+  const [other, idr] = await Promise.all([
+    runDailyLossRebate(ctx.state.env, { includeToday, currencies: ['PHP', 'USDT', 'USDC'], timezoneOffsetHours: 8 }),
+    runDailyLossRebate(ctx.state.env, { includeToday, currencies: ['IDR'], timezoneOffsetHours: 7 }),
+  ])
+  ok(ctx, {
+    periodKey: idr.periodKey || other.periodKey,
+    users: other.users + idr.users,
+    totalAmount: other.totalAmount + idr.totalAmount,
+    results: { utc8: other, utc7: idr },
+  })
 })
 
 // POST /admin/vip/weekly-salary/manual — 手动发周俸

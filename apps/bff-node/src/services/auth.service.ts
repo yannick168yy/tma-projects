@@ -28,7 +28,7 @@ import {
   saveUser,
 } from './store/index.js'
 import { randomToken } from '../utils/id.js'
-import { normalizePhonePH } from '../utils/phone.js'
+import { normalizePhone, normalizePhonePH } from '../utils/phone.js'
 import { verifyTelegramWidget } from '../utils/telegramWidget.js'
 import { hashPassword, verifyPassword } from '../utils/password.js'
 import type { UserRecord } from '../types/domain.js'
@@ -54,6 +54,7 @@ const REGISTERED_GOOGLE_AUTH_DOMAINS = new Set([
   'betogo.xyz',
   'betogo.cc',
   'betogo.app',
+  'betogo.games',
   'betogo.vip',
 ])
 
@@ -320,7 +321,7 @@ export async function loginWithGoogleCode(
 }
 
 function normalizeIdentifier(_method: PasswordMethod, identifier: string): string {
-  const e164 = normalizePhonePH(identifier.trim())
+  const e164 = normalizePhone(identifier.trim())
   if (!e164) throw new AuthError('Invalid phone number', 400)
   return e164
 }
@@ -722,7 +723,7 @@ export async function bindPhone(
   phoneRaw: string,
   password: string,
 ): Promise<UserRecord> {
-  const phone = normalizePhonePH(phoneRaw)
+  const phone = normalizePhone(phoneRaw)
   if (!phone) throw new AuthError('Invalid phone number', 400)
   // 全局互斥：手机登录号 + KYC 已验手机
   const owner = await getUserByPhoneAccount(redis, phone)

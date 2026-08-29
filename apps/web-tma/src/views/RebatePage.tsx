@@ -9,6 +9,7 @@ import { localizedGameName } from '@/utils/game'
 import { ApiError } from '@/api/client'
 import { analytics } from '@/utils/analytics'
 import rebateHero from '@/assets/home/promos/rebate-hero-purple.webp'
+import { localizedImage } from '@/utils/localizedImage'
 
 const CATEGORY_ICONS: Record<string, string> = {
   slots: '🎰', live: '🎲', sports: '⚽', fishing: '🐟',
@@ -177,7 +178,8 @@ function RebateFooter({ onGoBet }: { onGoBet: () => void }) {
 }
 
 export default function RebatePage({ onOpenGame, onOpenCategory }: Props) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const heroImage = localizedImage(rebateHero, i18n.language, 'rebate-hero.webp')
   const token = useAuthStore((s) => s.token)
   const auth = useAuthStore()
   const activeCurrency = useWalletStore((s) => s.activeCurrency)
@@ -296,7 +298,7 @@ export default function RebatePage({ onOpenGame, onOpenCategory }: Props) {
     <div className="page-main pb-8 min-h-screen bg-[#0f0a1d]">
       {/* Hero —— 设计稿成品图贴顶（含标题/徽章/副标题） */}
       <img
-        src={rebateHero}
+        src={heroImage}
         alt={t('cashback.pageTitle')}
         className="block w-full select-none"
         draggable={false}

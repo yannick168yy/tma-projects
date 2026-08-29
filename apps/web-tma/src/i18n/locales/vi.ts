@@ -1084,6 +1084,8 @@ export default {
     reviewing: 'Đang xem xét…',
     reviewingHint: 'Hồ sơ của bạn đã được gửi và đang được xem xét. Chúng tôi sẽ thông báo kết quả.',
     docAcrIcard: 'ACR I-Card',
+    docKtp: 'KTP (Căn cước Indonesia)',
+    docSim: 'SIM (Bằng lái Indonesia)',
     match: 'Khớp',
     matched: 'Đã khớp',
     reuploadId: 'Tải lại ảnh giấy tờ',

@@ -2,9 +2,11 @@ import i18next from 'i18next'
 import { initReactI18next } from 'react-i18next'
 import en from '@/i18n/locales/en'
 import id from '@/i18n/locales/id'
+import idComplete from '@/i18n/locales/id-complete'
 import vi from '@/i18n/locales/vi'
 import zhCN from '@/i18n/locales/zh-CN'
 import { isSupportedLocale, LOCALE_STORAGE_KEY, type SupportedLocale } from '@/i18n/types'
+import { defaultMarketLocale } from '@/config/market'
 
 // URL 语言别名 → 站点标准 locale，方便外部链接用短码
 const LOCALE_ALIASES: Record<string, SupportedLocale> = {
@@ -46,17 +48,35 @@ function readStoredLocale(): SupportedLocale {
   if (typeof localStorage === 'undefined') return 'en'
   const stored = localStorage.getItem(LOCALE_STORAGE_KEY)
   if (stored && isSupportedLocale(stored)) return stored
-  return 'en'
+  const telegramLanguage = window.Telegram?.WebApp.initDataUnsafe?.user?.language_code
+  const detected = [telegramLanguage, ...(navigator.languages ?? []), navigator.language]
+    .filter(Boolean)
+    .map((value) => String(value).trim().toLowerCase())
+    .map((value) => LOCALE_ALIASES[value] ?? LOCALE_ALIASES[value.split('-')[0]])
+    .find(Boolean)
+  if (detected) return detected
+  return defaultMarketLocale()
 }
 
 export const i18n = i18next.createInstance()
+
+function mergeTranslations(base: Record<string, unknown>, supplement: Record<string, unknown>): Record<string, unknown> {
+  const result = { ...base }
+  for (const [key, value] of Object.entries(supplement)) {
+    const current = result[key]
+    result[key] = value && typeof value === 'object' && !Array.isArray(value)
+      ? mergeTranslations((current && typeof current === 'object' ? current : {}) as Record<string, unknown>, value as Record<string, unknown>)
+      : value
+  }
+  return result
+}
 
 void i18n.use(initReactI18next).init({
   lng: readStoredLocale(),
   fallbackLng: 'en',
   resources: {
     en: { translation: en },
-    id: { translation: id },
+    id: { translation: mergeTranslations(id, idComplete) },
     vi: { translation: vi },
     'zh-CN': { translation: zhCN },
   },

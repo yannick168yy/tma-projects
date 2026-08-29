@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { fetchBalance } from '@/api/wallet'
 import { getToken } from '@/utils/tokenStore'
 import type { WalletBalance } from '@/types/api'
+import { defaultMarketCurrency } from '@/config/market'
 
 interface WalletState {
   balance: WalletBalance | null
@@ -19,7 +20,7 @@ interface WalletActions {
 export const useWalletStore = create<WalletState & WalletActions>((set) => ({
   balance: null,
   loading: false,
-  activeCurrency: localStorage.getItem('betogo_currency') ?? 'PHP',
+  activeCurrency: localStorage.getItem('betogo_currency') ?? defaultMarketCurrency(),
 
   setBalance(balance) {
     set({ balance })

@@ -95,7 +95,7 @@ export const usePromotionStore = create<PromotionState & PromotionActions>((set,
   setHighlights(rows) { set({ highlights: rows }) },
 
   async refreshHighlights() {
-    set({ highlights: await fetchPromoHighlights() })
+    set({ highlights: await fetchPromoHighlights(useWalletStore.getState().activeCurrency) })
   },
 
   async loadLists() {
@@ -201,7 +201,7 @@ export const usePromotionStore = create<PromotionState & PromotionActions>((set,
         : 'bonuses.promos.firstdep.title'
     try {
       let amountPhp = 0
-      if (id === 'trial') ({ amountPhp } = await claimTrialBonus())
+      if (id === 'trial') ({ amountPhp } = await claimTrialBonus(useWalletStore.getState().activeCurrency))
       else if (id === 'firstdep') ({ amountPhp } = await claimFirstDepBonus())
       analytics.promoClaimSuccess(id, amountPhp)
       await useWalletStore.getState().refresh()

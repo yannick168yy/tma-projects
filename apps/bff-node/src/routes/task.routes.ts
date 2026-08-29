@@ -37,11 +37,11 @@ router.post('/:id/claim', async (ctx) => {
 // POST /tasks/social/:key/claim — 领取社群任务（body: code / screenshotUrl）
 router.post('/social/:key/claim', async (ctx) => {
   if (!ctx.state.userId) { fail(ctx, 401, 'Unauthorized', 401); return }
-  const body = (ctx.request.body ?? {}) as { code?: string; screenshotUrl?: string }
+  const body = (ctx.request.body ?? {}) as { code?: string; screenshotUrl?: string; currency?: string }
   try {
     if (!(await riskAllowed(ctx, 'promo_claim'))) return
     const result = await claimSocialTask(ctx.state.env, ctx.state.userId, ctx.params.key, {
-      code: body.code, screenshotUrl: body.screenshotUrl, ip: ctx.ip,
+      code: body.code, screenshotUrl: body.screenshotUrl, currency: body.currency, ip: ctx.ip,
     })
     ok(ctx, result)
   } catch (e) {

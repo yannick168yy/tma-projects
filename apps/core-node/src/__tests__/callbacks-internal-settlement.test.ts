@@ -403,9 +403,43 @@ describe('Matrix 提现反查与通用回调', () => {
     assert.equal(published[0].subject, 'betogo.callback.test')
     assert.equal(JSON.parse(published[0].payload).provider, 'unispay')
   })
+
+  it('UnisPay 已验签但字段不完整的回调不会进入结算队列', async () => {
+    const published: Array<{ subject: string; payload: string }> = []
+    const app = await createApp({ js: { async publish(subject, payload) { published.push({ subject, payload }) } } })
+    const payload = { amount: '0', mchNo: 'M1', mchOrderId: 'UPD_1', orderNo: 'S1', status: '9' }
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/v1/callback/unispay',
+      payload: { ...payload, sign: unispaySign(payload, 'unispay-secret') },
+    })
+
+    assert.equal(res.statusCode, 400)
+    assert.equal(published.length, 0)
+  })
 })
 
 describe('UnisPay 回调处理', () => {
+  it('重复回调命中幂等锁时不访问数据库', async () => {
+    const { handleUnispayCallback } = await import('../handlers/unispay-callback.handler.js')
+    const pool = createPool()
+    await handleUnispayCallback({ amount: '10000', mchNo: 'M1', mchOrderId: 'UPD_DUP', orderNo: 'S_DUP', status: '1' }, pool as never, createRedis(null) as never)
+    assert.equal(pool.queries.length, 0)
+    assert.equal(pool.executes.length, 0)
+  })
+
+  it('订单不存在时抛错、释放幂等锁并记录异常', async () => {
+    const { handleUnispayCallback } = await import('../handlers/unispay-callback.handler.js')
+    const pool = createPool()
+    const redis = createRedis()
+    await assert.rejects(
+      handleUnispayCallback({ amount: '10000', mchNo: 'M1', mchOrderId: 'UPD_MISSING', orderNo: 'S_MISSING', status: '1' }, pool as never, redis as never),
+      /订单不存在/,
+    )
+    assert.equal(redis.delCalls.includes('unispay:cb:S_MISSING:1'), true)
+    assert.equal(pool.executes.some((e) => e.sql.includes('bg_payment_callback_issue')), true)
+  })
+
   it('存款成功回调按本地订单金额入账并提交事务', async () => {
     const { handleUnispayCallback } = await import('../handlers/unispay-callback.handler.js')
     const conn = createConn({
@@ -477,6 +511,19 @@ describe('UnisPay 回调处理', () => {
     assert.equal(conn.executes.some((e) => e.sql.includes("SET status='failed', refunded=1")), true)
     assert.equal(conn.executes.some((e) => e.sql.includes('INSERT INTO bg_wallet') && e.params?.[2] === 50000), true)
     assert.equal(conn.executes.some((e) => e.params?.includes('REFUND_UPW_1')), true)
+  })
+
+  it('出款成功回调标记 completed 且不退款', async () => {
+    const { handleUnispayCallback } = await import('../handlers/unispay-callback.handler.js')
+    const pool = createPool({
+      query(sql) {
+        if (sql.includes('FROM bg_withdraw_order')) return [[{ order_id: 'UPW_OK', user_id: 'U1', currency: 'IDR', amount: 50000, status: 'processing', refunded: 0 }]]
+        return [[]]
+      },
+    })
+    await handleUnispayCallback({ amount: '50000', mchNo: 'M1', mchOrderId: 'UPW_OK', orderNo: 'F_OK', status: '2' }, pool as never, createRedis() as never)
+    assert.equal(pool.executes.some((e) => e.sql.includes("SET status='completed'")), true)
+    assert.equal(pool.conn.executes.some((e) => e.sql.includes('INSERT INTO bg_wallet')), false)
   })
 })
 

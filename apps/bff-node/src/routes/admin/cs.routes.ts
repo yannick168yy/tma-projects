@@ -15,7 +15,7 @@ import {
 import { CS_WELCOME_SETTING_KEY, DEFAULT_WELCOME } from '../../services/cs/cs-intents.js'
 import { CS_DUTY_SETTING_KEY, isHumanOnDuty, notifyTicketReplyViaTelegram } from '../../services/cs/cs-duty.js'
 import { summarizeCsConversation } from '../../services/cs/cs-summary.js'
-import { translateCsConversation } from '../../services/cs/cs-translate.js'
+import { translateContent, translateCsConversation, type CsTranslationLanguage } from '../../services/cs/cs-translate.js'
 import { getSseBadgeClientCount } from '../../services/sse-badges.js'
 import { getAdminSetting, setAdminSetting } from '../../services/admin-store.js'
 
@@ -116,6 +116,24 @@ router.post('/cs/conversations/:id/translate', async (ctx) => {
   } catch (e) {
     console.error('[admin-cs] translate failed:', e)
     fail(ctx, 502, 'AI 翻译失败，请稍后重试')
+  }
+})
+
+// POST /admin/cs/translate-content — FAQ、公告等运营文案翻译
+router.post('/cs/translate-content', async (ctx) => {
+  const { texts, targetLanguage = 'id' } = ctx.request.body as {
+    texts?: string[]
+    targetLanguage?: CsTranslationLanguage
+  }
+  if (!Array.isArray(texts) || !texts.length || texts.length > 20 || !['id', 'zh-CN'].includes(targetLanguage)) {
+    fail(ctx, 400, '翻译参数不合法')
+    return
+  }
+  try {
+    ok(ctx, await translateContent(ctx.state.env, texts, targetLanguage))
+  } catch (e) {
+    console.error('[admin-cs] translate content failed:', e)
+    fail(ctx, 502, e instanceof Error && e.message.includes('not configured') ? '尚未配置 Gemini API Key' : 'AI 翻译失败，请稍后重试')
   }
 })
 

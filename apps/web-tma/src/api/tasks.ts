@@ -66,7 +66,7 @@ export interface SocialClaimResult {
 /** 社群任务领取：code_redeem 传 code；manual_review 传 screenshotUrl */
 export async function claimSocialTask(
   taskKey: string,
-  input: { code?: string; screenshotUrl?: string } = {},
+  input: { code?: string; screenshotUrl?: string; currency?: string } = {},
 ): Promise<SocialClaimResult> {
   return apiRequest<SocialClaimResult>(`/tasks/social/${encodeURIComponent(taskKey)}/claim`, {
     method: 'POST',

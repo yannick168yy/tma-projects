@@ -272,6 +272,8 @@ export default {
     docPhilid: 'PhilID (National ID)',
     docUmid: 'UMID',
     docAcrIcard: 'ACR I-Card',
+    docKtp: 'KTP (Indonesian identity card)',
+    docSim: 'SIM (Indonesian driving licence)',
     uploadId: 'Upload ID photo',
     reuploadId: 'Re-upload ID photo',
     docReuploadHint: 'Use the original ID, keep all corners visible, avoid glare or blur, and make the text readable.',

@@ -18,6 +18,7 @@ import { fetchRebateProgress } from '@/api/rebate'
 import { fetchSpinStatus } from '@/api/spin'
 import wheelImg from '@/assets/spin/checkin/wheel-icon.webp'
 import taskHero from '@/assets/tasks/task-hero.webp'
+import { localizedImage } from '@/utils/localizedImage'
 import iconBirthday from '@/assets/tasks/icon-birthday.webp'
 import iconClaimable from '@/assets/tasks/icon-claimable.webp'
 import iconDownload from '@/assets/tasks/icon-download.webp'
@@ -52,7 +53,8 @@ const PETALS: React.CSSProperties[] = [
 const STAYS_ON_TASKS_PAGE = new Set(['checkin', 'trial_bonus', 'app_download', 'deposit'])
 
 export default function TasksPage({ initialPath = 'newbie', onNavigate }: { initialPath?: TaskPath; onNavigate?: (target: string) => void }) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const heroImage = localizedImage(taskHero, i18n.language, 'task-hero.webp')
   const auth = useAuthStore()
   const [center, setCenter] = useState<TaskCenter | null>(null)
   const [activePath, setActivePath] = useState<TaskPath>('newbie')
@@ -187,7 +189,7 @@ export default function TasksPage({ initialPath = 'newbie', onNavigate }: { init
     }
     setBusyId(card.id)
     try {
-      const res = await claimSocialTask(card.id, input)
+      const res = await claimSocialTask(card.id, { ...input, currency: activeCurrency })
       if (res.status === 'pending_review') { showToast(t('tasks.submittedReview'), 'ok'); await load() }
       else { setJustClaimedId(card.id); await afterSuccess(t('tasks.claimSuccess', { reward: rewardText(card) })) }
       return true
@@ -274,7 +276,7 @@ export default function TasksPage({ initialPath = 'newbie', onNavigate }: { init
         {/* hero 可视区=2/3屏-半卡高：统计卡中线跨机型都压在屏高 2/3 分界线，上下内容跟随该区移动 */}
         <div className="relative h-[calc(66.7vh-25px)] max-h-[660px] min-h-[380px] overflow-hidden">
           <img
-            src={taskHero}
+            src={heroImage}
             alt=""
             className="task-kenburns pointer-events-none absolute inset-0 h-full w-full object-cover object-top"
           />

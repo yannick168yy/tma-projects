@@ -9,6 +9,8 @@ import {
   getHomeContent,
   saveAnnouncement,
   saveHomeContentItem,
+  saveHomeContentLocalizedImage,
+  translateCsContent,
   uploadHomeImage,
   type AdminAnnouncement,
   type AnnouncementPlacement,
@@ -25,6 +27,8 @@ interface FormItemState {
   slot: number
   imageKey: string
   imageUrl: string
+  imageKeys: Record<string, string>
+  imageUrls: Record<string, string>
   actionType: HomeContentItem['actionType']
   actionValue: string | null
   enabled: boolean
@@ -108,7 +112,7 @@ function destToAction(dest: string, sub?: string): Pick<FormItemState, 'actionTy
 }
 
 function emptyItem(kind: Kind, slot: number): FormItemState {
-  return { kind, slot, imageKey: '', imageUrl: '', actionType: 'none', actionValue: null, enabled: true }
+  return { kind, slot, imageKey: '', imageUrl: '', imageKeys: {}, imageUrls: {}, actionType: 'none', actionValue: null, enabled: true }
 }
 
 const announcementLabels: Record<AnnouncementPlacement, { title: string; position: string }> = {
@@ -146,9 +150,11 @@ export default function HomeContentConfig() {
   const [activeKind, setActiveKind] = useState<HomeContentTab>('banner')
   const [activeBannerSlot, setActiveBannerSlot] = useState('1')
   const [activeWalletBannerSlot, setActiveWalletBannerSlot] = useState('1')
+  const [imageLocale, setImageLocale] = useState('en')
   const [banners, setBanners] = useState<FormItemState[]>([])
   const [walletBanners, setWalletBanners] = useState<FormItemState[]>([])
   const [announcements, setAnnouncements] = useState<AdminAnnouncement[]>(emptyAnnouncements)
+  const [translatingAnnouncement, setTranslatingAnnouncement] = useState<AnnouncementPlacement | null>(null)
 
   async function load() {
     setLoading(true)
@@ -216,6 +222,24 @@ export default function HomeContentConfig() {
     }
   }
 
+  async function handleTranslateAnnouncement(item: AdminAnnouncement) {
+    const source = item.contents.zh.trim() || item.contents.en.trim()
+    if (!source) {
+      message.warning('请先填写中文或英文公告原文')
+      return
+    }
+    setTranslatingAnnouncement(item.placement)
+    try {
+      const result = await translateCsContent([source], 'id')
+      updateAnnouncement(item.placement, { contents: { ...item.contents, id: result.items[0] } })
+      message.success('已翻译为印尼语，请确认后保存')
+    } catch (e) {
+      message.error(e instanceof Error ? e.message : '翻译失败')
+    } finally {
+      setTranslatingAnnouncement(null)
+    }
+  }
+
   function handleAdd(kind: Kind) {
     const slot = nextSlot(itemsOf(kind))
     setItemsOf(kind, (prev) => [...prev, emptyItem(kind, slot)])
@@ -237,8 +261,13 @@ export default function HomeContentConfig() {
   async function handleUpload(kind: Kind, slot: number, file: File) {
     try {
       const imageData = await readFileDataUrl(file)
-      const uploaded = await uploadHomeImage(kind, imageData)
-      updateItem(kind, slot, { ...uploaded, imageMissing: false })
+      const uploaded = await uploadHomeImage(kind, imageData, imageLocale)
+      const item = itemsOf(kind).find((entry) => entry.slot === slot)
+      const imageKeys = { ...(item?.imageKeys ?? {}), [imageLocale]: uploaded.imageKey }
+      const imageUrls = { ...(item?.imageUrls ?? {}), [imageLocale]: uploaded.imageUrl }
+      updateItem(kind, slot, imageLocale === 'en'
+        ? { ...uploaded, imageKeys, imageUrls, imageMissing: false }
+        : { imageKeys, imageUrls })
       message.success('图片已上传，请保存设置')
     } catch (e) {
       message.error(e instanceof Error ? e.message : '上传失败')
@@ -246,21 +275,35 @@ export default function HomeContentConfig() {
   }
 
   async function handleSave(item: FormItemState) {
-    if (!item.imageKey) {
-      message.warning('请先上传图片')
+    const selectedImageKey = item.imageKeys[imageLocale] ?? (imageLocale === 'en' ? item.imageKey : '')
+    if (!selectedImageKey) {
+      message.warning(`请先上传 ${imageLocale} 图片`)
       return
     }
     const key = `${item.kind}-${item.slot}`
     setSavingKey(key)
     try {
-      await saveHomeContentItem({
-        kind: item.kind,
-        slot: item.slot,
-        imageKey: item.imageKey,
-        actionType: item.actionType,
-        actionValue: item.actionValue,
-        enabled: item.enabled,
-      })
+      if (imageLocale === 'en') {
+        await saveHomeContentItem({
+          kind: item.kind,
+          slot: item.slot,
+          imageKey: selectedImageKey,
+          actionType: item.actionType,
+          actionValue: item.actionValue,
+          enabled: item.enabled,
+        })
+      } else {
+        if (!item.imageKey) throw new Error('请先保存英文默认图片')
+        await saveHomeContentItem({
+          kind: item.kind,
+          slot: item.slot,
+          imageKey: item.imageKey,
+          actionType: item.actionType,
+          actionValue: item.actionValue,
+          enabled: item.enabled,
+        })
+        await saveHomeContentLocalizedImage(item.kind, item.slot, imageLocale, selectedImageKey)
+      }
       message.success('已保存')
     } catch (e) {
       message.error(e instanceof Error ? e.message : '保存失败')
@@ -284,6 +327,7 @@ export default function HomeContentConfig() {
     }
     const content = (x: FormItemState) => ({
       imageKey: x.imageKey, imageUrl: x.imageUrl,
+      imageKeys: x.imageKeys, imageUrls: x.imageUrls,
       actionType: x.actionType, actionValue: x.actionValue, enabled: x.enabled,
     })
     const aContent = content(a)
@@ -292,6 +336,10 @@ export default function HomeContentConfig() {
     try {
       await saveHomeContentItem({ kind: a.kind, slot: a.slot, ...bContent })
       await saveHomeContentItem({ kind: b.kind, slot: b.slot, ...aContent })
+      for (const locale of ['id', 'vi', 'zh-CN']) {
+        await saveHomeContentLocalizedImage(a.kind, a.slot, locale, bContent.imageKeys[locale] ?? null)
+        await saveHomeContentLocalizedImage(b.kind, b.slot, locale, aContent.imageKeys[locale] ?? null)
+      }
       setItemsOf(item.kind, (prev) => prev.map((x) => {
         if (x.slot === a.slot) return { ...x, ...bContent }
         if (x.slot === b.slot) return { ...x, ...aContent }
@@ -349,6 +397,17 @@ export default function HomeContentConfig() {
       >
         <Space direction="vertical" style={{ width: '100%' }} size={12}>
           <Text type="secondary">{ratioText}</Text>
+          <Select
+            value={imageLocale}
+            style={{ width: 220 }}
+            options={[
+              { value: 'en', label: '英文 / 默认图片' },
+              { value: 'id', label: '印尼语图片' },
+              { value: 'vi', label: '越南语图片' },
+              { value: 'zh-CN', label: '中文图片' },
+            ]}
+            onChange={setImageLocale}
+          />
           {item.imageMissing && (
             <Alert
               type="error"
@@ -361,9 +420,9 @@ export default function HomeContentConfig() {
             <div style={{ height: item.kind === 'banner' ? 220 : 140, border: '1px dashed #ff4d4f', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ff4d4f', background: '#fff1f0' }}>
               图片文件已丢失，请重新上传
             </div>
-          ) : item.imageUrl ? (
+          ) : (item.imageUrls[imageLocale] ?? (imageLocale === 'en' ? item.imageUrl : '')) ? (
             <Image
-              src={item.imageUrl}
+              src={item.imageUrls[imageLocale] ?? item.imageUrl}
               height={item.kind === 'banner' ? 220 : 140}
               style={{ width: '100%', objectFit: 'cover', borderRadius: 6, background: '#111827' }}
             />
@@ -441,7 +500,7 @@ export default function HomeContentConfig() {
               )
             })()}
             <Form.Item label="图片 key" style={{ marginBottom: 8 }}>
-              <Input value={item.imageKey} readOnly placeholder="上传后自动生成" />
+              <Input value={item.imageKeys[imageLocale] ?? (imageLocale === 'en' ? item.imageKey : '')} readOnly placeholder="上传后自动生成" />
             </Form.Item>
           </Form>
           <Button
@@ -568,13 +627,21 @@ export default function HomeContentConfig() {
                     </Col>
                   </Row>
                 </Form>
-                <Button
-                  type="primary"
-                  loading={savingKey === `announcement-${item.placement}`}
-                  onClick={() => void handleSaveAnnouncement(item)}
-                >
-                  保存公告
-                </Button>
+                <Space>
+                  <Button
+                    loading={translatingAnnouncement === item.placement}
+                    onClick={() => void handleTranslateAnnouncement(item)}
+                  >
+                    AI 翻译印尼语
+                  </Button>
+                  <Button
+                    type="primary"
+                    loading={savingKey === `announcement-${item.placement}`}
+                    onClick={() => void handleSaveAnnouncement(item)}
+                  >
+                    保存公告
+                  </Button>
+                </Space>
               </Space>
             </Card>
           )

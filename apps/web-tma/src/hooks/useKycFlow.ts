@@ -2,8 +2,9 @@ import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ApiError } from '@/api/client'
 import { fetchKycDocImage, fetchKycStatus, sendKycOtp, submitKycDocument, submitKycFace, verifyKycOtp } from '@/api/kyc'
+import { getAppLocale } from '@/i18n'
 
-export const DOC_TYPES = ['passport', 'drivers_license', 'philid', 'umid', 'acr_icard'] as const
+export const DOC_TYPES = ['passport', 'drivers_license', 'philid', 'umid', 'acr_icard', 'ktp', 'sim'] as const
 export type DocType = (typeof DOC_TYPES)[number]
 export type KycStep = 'phone' | 'document' | 'reviewing' | 'face' | 'done'
 
@@ -112,7 +113,7 @@ export function useKycFlow(active: boolean, onApproved?: () => void) {
   const [code, setCode] = useState('')
   const [resendIn, setResendIn] = useState(0)
 
-  const [docType, setDocType] = useState<DocType>('philid')
+  const [docType, setDocType] = useState<DocType>(() => getAppLocale() === 'id' ? 'ktp' : 'philid')
   const [idImage, setIdImage] = useState<string | null>(null)
   const [docReuploadRequired, setDocReuploadRequired] = useState(false)
   const idInputRef = useRef<HTMLInputElement>(null)

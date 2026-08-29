@@ -57,6 +57,8 @@ export default function Withdrawals() {
   const [userIdFilter, setUserIdFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState<string | undefined>()
   const [verdictFilter, setVerdictFilter] = useState<string | undefined>()
+  const [currencyFilter, setCurrencyFilter] = useState<string | undefined>()
+  const [channelFilter, setChannelFilter] = useState('')
   const [loading, setLoading] = useState(false)
   const [opLoading, setOpLoading] = useState(false)
   const [items, setItems] = useState<AdminWithdrawal[]>([])
@@ -89,7 +91,7 @@ export default function Withdrawals() {
   async function load(p = 1, ps = pageSize) {
     setPage(p); setPageSize(ps); setLoading(true)
     try {
-      const res = await getWithdrawals({ page: p, pageSize: ps, userId: userIdFilter || undefined, status: statusFilter, reviewVerdict: verdictFilter })
+      const res = await getWithdrawals({ page: p, pageSize: ps, userId: userIdFilter || undefined, status: statusFilter, reviewVerdict: verdictFilter, currency: currencyFilter, channel: channelFilter || undefined })
       setItems(res.items); setTotal(res.total)
     } finally { setLoading(false) }
   }
@@ -159,6 +161,8 @@ export default function Withdrawals() {
         <Select value={verdictFilter} placeholder="审核结果" allowClear style={{ width: 140 }} onChange={setVerdictFilter} options={[
           { value: 'manual', label: '转人工' }, { value: 'pass', label: '自动通过' }, { value: 'none', label: '未审核' },
         ]} />
+        <Select value={currencyFilter} placeholder="币种" allowClear style={{ width: 110 }} onChange={setCurrencyFilter} options={['IDR', 'PHP', 'USDT', 'USDC'].map((value) => ({ value, label: value }))} />
+        <Input value={channelFilter} onChange={(e) => setChannelFilter(e.target.value)} placeholder="渠道，如 unispay_bank" style={{ width: 190 }} allowClear />
         <Button type="primary" onClick={() => load(1)}>查询</Button>
       </Space>
       {isMobile ? (

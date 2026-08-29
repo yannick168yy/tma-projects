@@ -10,6 +10,7 @@ import { useAuthStore } from '@/stores/auth'
 import { usePromotionStore } from '@/stores/promotion'
 import { analytics } from '@/utils/analytics'
 import threeCircleHero from '@/assets/team/3-circles/hero.webp'
+import { localizedImage } from '@/utils/localizedImage'
 import circleStructureImage from '@/assets/team/3-circles/3-circle-structure.webp'
 import iconFacebook from '@/assets/team/3-circles/facebook.webp'
 import iconViber from '@/assets/team/3-circles/viber.webp'
@@ -139,6 +140,8 @@ function TreeNodeRow({ node, depth, expandedIds, onToggle }: {
 // ── 页面主体 ──────────────────────────────────────────────────────────────────
 export default function TeamCenterPage() {
   const { t, i18n } = useTranslation()
+  const heroImage = localizedImage(threeCircleHero, i18n.language, 'team-hero.webp')
+  const structureImage = localizedImage(circleStructureImage, i18n.language, '3-circle-structure.webp')
   const user = useAuthStore((s) => s.user)
   const ensureLoggedIn = useAuthStore((s) => s.ensureLoggedIn)
   const store = usePromotionStore()
@@ -391,7 +394,7 @@ export default function TeamCenterPage() {
     <div className="flex min-h-full flex-col bg-[#07111c] text-white">
       <style>{`@keyframes team-open-shake{0%,100%{transform:translateX(0)}15%{transform:translateX(-8px)}30%{transform:translateX(7px)}45%{transform:translateX(-5px)}60%{transform:translateX(4px)}75%{transform:translateX(-2px)}}`}</style>
       <div className="relative overflow-hidden">
-        <img src={threeCircleHero} alt="" className="block w-full" />
+        <img src={heroImage} alt="" className="block w-full" />
       </div>
 
       <div className="sticky z-20 bg-[#07111c]/96 px-4 pt-1 backdrop-blur" style={{ top: 'var(--app-header-height)' }}>
@@ -475,7 +478,7 @@ export default function TeamCenterPage() {
 
             <section>
               <h2 className={sectionTitleClass}>{t('team.sectionStructure')}</h2>
-              <img src={circleStructureImage} alt="3-Circle Structure" className="w-full rounded-2xl" />
+              <img src={structureImage} alt="3-Circle Structure" className="w-full rounded-2xl" />
             </section>
 
             <section>

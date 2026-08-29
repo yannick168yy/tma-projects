@@ -46,7 +46,7 @@ const schema = z.object({
   GOOGLE_REDIRECT_URI: z
     .string()
     .default(
-      'https://www.188facai.com/auth/google/callback,https://www.betogo.games/auth/google/callback',
+      'https://www.188facai.com/auth/google/callback,https://www.betogo.games/auth/google/callback,https://www.betogo666.com/auth/google/callback,https://www.betogo777.com/auth/google/callback,https://www.betogo.ph/auth/google/callback,https://www.betogo.xyz/auth/google/callback,https://www.betogo.vip/auth/google/callback,https://www.betogo888.com/auth/google/callback,https://www.betogo.cc/auth/google/callback,https://www.betogo.app/auth/google/callback',
     ),
   // Telegram 新版网页登录（OIDC）。client_id 即 bot_id，从 TELEGRAM_BOT_TOKEN 前缀推导，无需单独配置
   TELEGRAM_OIDC_CLIENT_SECRET: z.string().default(''),
@@ -54,7 +54,7 @@ const schema = z.object({
   TELEGRAM_OIDC_BOT_TOKENS: z.string().default(''),
   TELEGRAM_OIDC_REDIRECT_URI: z
     .string()
-    .default('https://www.188facai.com/auth/telegram/callback,https://www.betogo.games/auth/telegram/callback'),
+    .default('https://www.188facai.com/auth/telegram/callback,https://www.betogo.games/auth/telegram/callback,https://www.betogo666.com/auth/telegram/callback,https://www.betogo777.com/auth/telegram/callback,https://www.betogo.ph/auth/telegram/callback,https://www.betogo.xyz/auth/telegram/callback,https://www.betogo.vip/auth/telegram/callback,https://www.betogo888.com/auth/telegram/callback,https://www.betogo.cc/auth/telegram/callback,https://www.betogo.app/auth/telegram/callback'),
   AMMER_PAY_PROVIDER_TOKEN: z.string().default(''),
   AMMER_PAY_PHP_PER_STAR: z.coerce.number().positive().default(1.12),
   // 社区营销 AI 文案改写(Claude Haiku)。留空则跳过改写直接用模板原文
@@ -66,6 +66,8 @@ const schema = z.object({
   // 手动兜底汇率（无 API key 或 API 故障时使用）
   EUR_TO_PHP_RATE: z.coerce.number().positive().default(62),
   USDT_TO_PHP_RATE: z.coerce.number().positive().default(58),
+  // 风控统一折算为 PHP 等值时使用；1 IDR ≈ 1/287 PHP
+  IDR_TO_PHP_RATE: z.coerce.number().positive().default(1 / 287),
   TRX_TO_PHP_RATE: z.coerce.number().positive().default(10),
   YFPAY_USERNAME: z.string().default(''),
   YFPAY_API_KEY: z.string().default(''),

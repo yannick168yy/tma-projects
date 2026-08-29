@@ -6,7 +6,7 @@ import { fail, ok } from '../utils/response.js'
 const router = new Router({ prefix: '/home' })
 
 router.get('/content', async (ctx) => {
-  ok(ctx, await getHomeContent(ctx.state.env))
+  ok(ctx, await getHomeContent(ctx.state.env, false, String(ctx.query.locale ?? 'en')))
 })
 
 // 用通配捕获：key 含斜杠(home/banner/xxx.webp)，nginx 反代会把 %2F 解码成 /，

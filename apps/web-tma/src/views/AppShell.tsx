@@ -29,6 +29,7 @@ import ActiveTaskBar from '@/components/tasks/ActiveTaskBar'
 import OrientationGuard from '@/components/OrientationGuard'
 import threeCirclesMenu from '@/assets/team/3-circles/menu-entry.webp'
 import gameLoadingImg from '@/assets/game-loading.webp'
+import { localizedImage } from '@/utils/localizedImage'
 
 /** 任务条实测高度，用于给 main 补底部内边距，避免盖住页面最后一行内容 */
 const TASK_BAR_HEIGHT = 58
@@ -74,7 +75,7 @@ function navIcon(id: string) {
 }
 
 export default function AppShell() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const auth = useAuthStore()
   const wallet = useWalletStore()
   const isLoggedIn = Boolean(auth.token && auth.user)
@@ -213,11 +214,11 @@ export default function AppShell() {
 
   // 空闲预热游戏加载宣传图：进游戏瞬间图已在缓存，慢网下不会出现"加载图还在加载"
   useEffect(() => {
-    const warm = () => { const img = new Image(); img.src = gameLoadingImg }
+    const warm = () => { const img = new Image(); img.src = localizedImage(gameLoadingImg, i18n.language, 'game-loading.webp') }
     const idle = (window as { requestIdleCallback?: (cb: () => void) => number }).requestIdleCallback
     if (idle) idle(warm)
     else setTimeout(warm, 3000)
-  }, [])
+  }, [i18n.language])
 
   // 拦截态镜像(游戏中/禁弹落地页) + 卸载清理延迟弹窗 timer(供 setTimeout 内读最新值)
   useEffect(() => { popupBlockedRef.current = Boolean(gamePlayerUrl) || POPUP_BLOCKED_VIEWS.has(view.type) }, [gamePlayerUrl, view.type])
@@ -337,7 +338,7 @@ export default function AppShell() {
     }
     if (!(await auth.ensureLoggedIn(t('auth.signInBonus')))) return
     try {
-      const res = await claimAppdlBonus(installSource())
+      const res = await claimAppdlBonus(installSource(), activeCurrency)
       alert(t('bonuses.promos.appdl.claimSuccess', { amount: res.amountPhp }))
       await Promise.all([wallet.refresh(), refreshNpSummary()])
     } catch (e) {
@@ -833,7 +834,7 @@ export default function AppShell() {
 
         {trialWelcomeOpen && (
           <TrialWelcomeSheet
-            amount={promoConfig?.trial.amount ?? 0}
+            amount={promoConfig ? (promoConfig.trial.amountByCcy?.[activeCurrency] ?? promoConfig.trial.amount) : 0}
             firstDepTier={firstDepSampleTier}
             firstDepMaxBonus={firstDepMaxBonus}
             onClaimed={() => { void refreshNpSummary(); notifyTasksRefresh() }}

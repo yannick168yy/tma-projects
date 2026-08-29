@@ -11,6 +11,37 @@ export interface CsTranslation {
   translated: string
 }
 
+export type CsTranslationLanguage = 'id' | 'zh-CN'
+
+const LANGUAGE_NAMES: Record<CsTranslationLanguage, string> = {
+  id: '印尼语（Bahasa Indonesia）',
+  'zh-CN': '简体中文',
+}
+
+export async function translateContent(
+  env: Env,
+  texts: string[],
+  targetLanguage: CsTranslationLanguage = 'id',
+): Promise<{ items: string[]; model: string }> {
+  if (!env.GEMINI_API_KEY) throw new Error('Gemini API is not configured')
+  const targets = texts.slice(0, 20).map((text) => text.trim().slice(0, MAX_MESSAGE_CHARS))
+  if (!targets.length || targets.some((text) => !text)) throw new Error('翻译原文不能为空')
+
+  const prompt = `你是专业本地化翻译。请把下面 JSON 数组中的平台运营和客服文案翻译成${LANGUAGE_NAMES[targetLanguage]}。
+保留金额、币种、网址、占位符和原有语气，不增加承诺，不解释。只返回相同长度的 JSON 字符串数组。\n\n${JSON.stringify(targets)}`
+  const ai = new GoogleGenerativeAI(env.GEMINI_API_KEY)
+  const model = ai.getGenerativeModel({
+    model: CS_TRANSLATE_MODEL,
+    generationConfig: { responseMimeType: 'application/json' },
+  }, { timeout: 30_000 })
+  const result = await model.generateContent([{ text: prompt }])
+  const parsed = JSON.parse(result.response.text().trim()) as unknown
+  if (!Array.isArray(parsed) || parsed.length !== targets.length || parsed.some((item) => typeof item !== 'string')) {
+    throw new Error('翻译结果解析失败')
+  }
+  return { items: parsed.map((item) => String(item).trim()), model: CS_TRANSLATE_MODEL }
+}
+
 // 把整段客服对话逐条翻译成中文。已是中文的原样返回。
 export async function translateCsConversation(
   env: Env,

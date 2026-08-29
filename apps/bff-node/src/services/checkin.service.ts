@@ -108,6 +108,9 @@ export async function saveCheckinConfig(env: Env, config: unknown): Promise<Chec
 export function manilaToday(nowMs = Date.now()): string {
   return new Date(nowMs + 8 * 3600_000).toISOString().slice(0, 10)
 }
+export function checkinToday(currency: string, nowMs = Date.now()): string {
+  return new Date(nowMs + (currency === 'IDR' ? 7 : 8) * 3600_000).toISOString().slice(0, 10)
+}
 /** 给定马尼拉日期字符串，返回其前一天 */
 export function prevDate(dateStr: string): string {
   const d = new Date(`${dateStr}T00:00:00Z`)
@@ -154,19 +157,20 @@ async function grantSpin(conn: PoolConnection, userId: string, source: string, r
   )
 }
 
-/** 当日增强轨是否达标：有存款 或 有效投注流水≥阈值（马尼拉日） */
-async function enhancedEligible(conn: PoolConnection | Pool, userId: string, date: string, minPhp: number, usdRate: number): Promise<boolean> {
+/** 当日增强轨是否达标：按当前钱包币种和对应市场业务日计算。 */
+async function enhancedEligible(conn: PoolConnection | Pool, userId: string, date: string, currency: string, minPhp: number, usdRate: number, idrRate: number): Promise<boolean> {
+  const offsetHours = currency === 'IDR' ? 7 : 8
   const [[dep]] = await conn.query<RowDataPacket[]>(
     `SELECT 1 AS ok FROM bg_deposit_order
-     WHERE user_id = ? AND status = 'paid' AND DATE(created_at + INTERVAL 8 HOUR) = ? LIMIT 1`,
-    [userId, date],
+     WHERE user_id = ? AND status = 'paid' AND currency = ? AND DATE(created_at + INTERVAL ${offsetHours} HOUR) = ? LIMIT 1`,
+    [userId, currency, date],
   )
   if (dep) return true
   // 门槛 enhancedMinPhp 为 PHP 口径：跨币种流水折 PHP 等值（USDT/USDC 按 usdRate）再比较
   const [[bet]] = await conn.query<RowDataPacket[]>(
-    `SELECT COALESCE(SUM(amount * (CASE WHEN currency_code IN ('USDT','USDC') THEN ? ELSE 1 END)), 0) AS turnover FROM bg_bet_order
-     WHERE user_id = ? AND bet_type = 'bet' AND status = 'settled' AND DATE(created_at + INTERVAL 8 HOUR) = ?`,
-    [usdRate, userId, date],
+    `SELECT COALESCE(SUM(amount * (CASE WHEN currency_code IN ('USDT','USDC') THEN ? WHEN currency_code = 'IDR' THEN ? ELSE 1 END)), 0) AS turnover FROM bg_bet_order
+     WHERE user_id = ? AND currency_code = ? AND bet_type = 'bet' AND status = 'settled' AND DATE(created_at + INTERVAL ${offsetHours} HOUR) = ?`,
+    [usdRate, idrRate, userId, currency, date],
   )
   return Number(bet?.turnover ?? 0) >= minPhp
 }
@@ -208,8 +212,8 @@ export interface CheckinStatus {
   milestones: { atDays: number; tier: Tier; n: number; reached: boolean }[]
 }
 
-export async function getCheckinStatus(env: Env, userId: string): Promise<CheckinStatus> {
-  const today = manilaToday()
+export async function getCheckinStatus(env: Env, userId: string, currency = 'PHP'): Promise<CheckinStatus> {
+  const today = checkinToday(currency)
   const cfg = await getCheckinConfig(env)
   const cycle = cfg.cycle.map((r, i) => ({ day: i + 1, base: r.base, enh: r.enh }))
   if (!isMysqlEnabled(env)) {
@@ -227,7 +231,7 @@ export async function getCheckinStatus(env: Env, userId: string): Promise<Checki
   )
   const last = await lastLogRow(pool, userId)
   const monthDays = await monthCount(pool, userId, today)
-  const eligible = await enhancedEligible(pool, userId, today, cfg.enhancedMinPhp, env.USDT_TO_PHP_RATE)
+  const eligible = await enhancedEligible(pool, userId, today, currency, cfg.enhancedMinPhp, env.USDT_TO_PHP_RATE, env.IDR_TO_PHP_RATE)
 
   const claimed = Boolean(todayRow)
   const todayTrack = (todayRow?.track as 'base' | 'enhanced' | undefined) ?? null
@@ -267,7 +271,7 @@ export interface CheckinClaimResult {
  * - 当天已签(base) 且现在才达增强条件 → 升级补发增强轨
  * - 当天已完成 → 抛 'already claimed'
  */
-export async function claimCheckin(env: Env, userId: string): Promise<CheckinClaimResult> {
+export async function claimCheckin(env: Env, userId: string, currency = 'PHP'): Promise<CheckinClaimResult> {
   if (!isMysqlEnabled(env)) throw new Error('storage unavailable')
   const pool = getMysqlPool(env)
   // 先读配置再取连接：getCheckinConfig 内部走池，持有连接时调用会嵌套取连接（池满即死锁）
@@ -276,9 +280,9 @@ export async function claimCheckin(env: Env, userId: string): Promise<CheckinCla
   const conn = await pool.getConnection()
   try {
     await conn.beginTransaction()
-    const today = manilaToday()
+    const today = checkinToday(currency)
     const tiers = await tierRuleIds(conn)
-    const eligible = await enhancedEligible(conn, userId, today, cfg.enhancedMinPhp, env.USDT_TO_PHP_RATE)
+    const eligible = await enhancedEligible(conn, userId, today, currency, cfg.enhancedMinPhp, env.USDT_TO_PHP_RATE, env.IDR_TO_PHP_RATE)
 
     // 先按可靠的字符串比较查今天是否已签（不依赖 DATE 列回读格式）
     const [[todayRow]] = await conn.query<RowDataPacket[]>(

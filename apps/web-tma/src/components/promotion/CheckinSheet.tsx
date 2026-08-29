@@ -50,12 +50,13 @@ export default function CheckinSheet({ open, onClose, onOpenSpin }: Props) {
   const [claiming, setClaiming] = useState(false)
   const [result, setResult] = useState<CheckinClaimResult | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const activeCurrency = useWalletStore((s) => s.activeCurrency)
 
   const load = useCallback(async () => {
     setLoading(true)
     try {
       const [st, spin] = await Promise.all([
-        fetchCheckinStatus(),
+        fetchCheckinStatus(activeCurrency),
         fetchSpinStatus().catch(() => null),
       ])
       setStatus(st)
@@ -69,7 +70,7 @@ export default function CheckinSheet({ open, onClose, onOpenSpin }: Props) {
     }
     catch (e) { setError(e instanceof ApiError ? e.message : 'Failed to load') }
     finally { setLoading(false) }
-  }, [])
+  }, [activeCurrency])
 
   useEffect(() => {
     if (!open) return
@@ -82,7 +83,7 @@ export default function CheckinSheet({ open, onClose, onOpenSpin }: Props) {
     setClaiming(true)
     setError(null)
     try {
-      const res = await claimCheckin()
+      const res = await claimCheckin(activeCurrency)
       setResult(res)
       void useWalletStore.getState().refresh()
       await load()

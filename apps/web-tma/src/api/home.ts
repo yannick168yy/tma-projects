@@ -15,4 +15,4 @@ export interface HomeContent {
   walletBanners: HomeContentItem[]
 }
 
-export const fetchHomeContent = () => apiRequest<HomeContent>('/home/content')
+export const fetchHomeContent = (locale = 'en') => apiRequest<HomeContent>(`/home/content?locale=${encodeURIComponent(locale)}`)

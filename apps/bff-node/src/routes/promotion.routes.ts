@@ -4,7 +4,7 @@ import type { Env } from '../config/env.js'
 import { creditWallet, getUser, listLedger, saveUser } from '../services/store.js'
 import { formatDisplayTime, nowIso } from '../utils/format.js'
 import { fail, ok } from '../utils/response.js'
-import { getPromoConfig } from '../services/promo-config.service.js'
+import { getPromoConfig, promoAmountByCurrency } from '../services/promo-config.service.js'
 import { getOrCreateRedepOffer } from '../services/redep.service.js'
 import { getMysqlPool, isMysqlEnabled } from '../clients/mysql.client.js'
 import { createPromoRequirement } from '../services/turnover.service.js'
@@ -83,7 +83,8 @@ router.get('/redep-offer', async (ctx) => {
 router.get('/', async (ctx) => {
   const user = await getUser(ctx.state.redis, ctx.state.userId!)
   const cfg = await getPromoConfig(ctx.state.env)
-  const highlights = promoHighlights(user, await hasFirstDeposit(ctx.state.env, user), cfg.trial.amount)
+  const currency = String(ctx.query.currency ?? 'PHP').toUpperCase()
+  const highlights = promoHighlights(user, await hasFirstDeposit(ctx.state.env, user), promoAmountByCurrency(cfg.trial, currency))
   ok(
     ctx,
     PROMOS.map((p) => {
@@ -100,10 +101,12 @@ router.get('/trial-play', async (ctx) => {
     return
   }
   const cfg = await getPromoConfig(ctx.state.env)
-  const amount = cfg.trial.amount
+  const currency = String(ctx.query.currency ?? 'PHP').toUpperCase()
+  const amount = promoAmountByCurrency(cfg.trial, currency)
   ok(ctx, {
     claimed: user.trialClaimed,
     amountPhp: amount,
+    currency,
     turnoverRequired: amount * cfg.trial.turnoverX,
     turnoverCompleted: 0,
     canWithdraw: false,
@@ -123,13 +126,16 @@ router.post('/trial-play/claim', async (ctx) => {
         && await trialClaimedOnSameDevice(getMysqlPool(ctx.state.env), user.id, [getDeviceId(ctx), user.registerDeviceId], ctx.get('x-fp-visitor') || undefined, getClientIp(ctx))) {
         throw new Error('errors.deviceAlreadyClaimed')
       }
+      const body = (ctx.request.body ?? {}) as { currency?: string }
+      const currency = String(body.currency ?? 'PHP').toUpperCase()
       const cfg = await getPromoConfig(ctx.state.env)
       if (!cfg.trial.enabled) throw new Error('Trial bonus is currently disabled')
-      const amount = cfg.trial.amount
+      const amount = promoAmountByCurrency(cfg.trial, currency)
       user.trialClaimed = true
       await saveUser(ctx.state.redis, user)
       await creditWallet(ctx.state.redis, user.id, amount, {
         type: 'red_packet',
+        currency,
         description: 'Trial Officer red packet',
         createdAt: nowIso(),
         traceId: ctx.state.traceId,
@@ -138,9 +144,9 @@ router.post('/trial-play/claim', async (ctx) => {
         const expiresAt = cfg.trial.turnoverDays > 0
           ? new Date(Date.now() + cfg.trial.turnoverDays * 86400000).toISOString().slice(0, 19).replace('T', ' ')
           : null
-        await createPromoRequirement(getMysqlPool(ctx.state.env), user.id, 'trial', amount, cfg.trial.turnoverX, expiresAt)
+        await createPromoRequirement(getMysqlPool(ctx.state.env), user.id, 'trial', amount, cfg.trial.turnoverX, expiresAt, currency)
       }
-      return { amountPhp: amount, amountCents: amount }
+      return { amountPhp: amount, amountCents: amount, currency }
     })
     ok(ctx, result)
   } catch (e) {
@@ -164,6 +170,7 @@ router.post('/trial-play/claim', async (ctx) => {
 // App/PWA 下载礼金：状态查询
 router.get('/app-download', async (ctx) => {
   const cfg = await getPromoConfig(ctx.state.env)
+  const currency = String(ctx.query.currency ?? 'PHP').toUpperCase()
   let claimed = false
   if (isMysqlEnabled(ctx.state.env)) {
     const [rows] = await getMysqlPool(ctx.state.env).query<RowDataPacket[]>(
@@ -174,7 +181,8 @@ router.get('/app-download', async (ctx) => {
   }
   ok(ctx, {
     enabled: cfg.appdl.enabled,
-    amountPhp: cfg.appdl.amount,
+    amountPhp: promoAmountByCurrency(cfg.appdl, currency),
+    currency,
     turnoverX: cfg.appdl.turnoverX,
     turnoverDays: cfg.appdl.turnoverDays,
     claimed,
@@ -185,13 +193,14 @@ router.get('/app-download', async (ctx) => {
 router.post('/app-download/claim', async (ctx) => {
   try {
     if (!(await riskAllowed(ctx, 'promo_claim'))) return
-    const body = (ctx.request.body ?? {}) as { source?: string }
+    const body = (ctx.request.body ?? {}) as { source?: string; currency?: string }
     const source = body.source === 'apk' ? 'apk' : 'pwa'
+    const currency = String(body.currency ?? 'PHP').toUpperCase()
     const result = await withUserPromoLock(ctx, ctx.state.userId!, 'appdl', async () => {
       if (!isMysqlEnabled(ctx.state.env)) throw new Error('App download bonus unavailable')
       const cfg = await getPromoConfig(ctx.state.env)
       if (!cfg.appdl.enabled) throw new Error('App download bonus is currently disabled')
-      const amount = cfg.appdl.amount
+      const amount = promoAmountByCurrency(cfg.appdl, currency)
       const pool = getMysqlPool(ctx.state.env)
       const deviceId = getDeviceId(ctx)
       const claimer = await getUser(ctx.state.redis, ctx.state.userId!)
@@ -206,6 +215,7 @@ router.post('/app-download/claim', async (ctx) => {
       if ((res as { affectedRows: number }).affectedRows === 0) throw new Error('App download bonus already claimed')
       await creditWallet(ctx.state.redis, ctx.state.userId!, amount, {
         type: 'red_packet',
+        currency,
         description: 'App download bonus',
         createdAt: nowIso(),
         traceId: ctx.state.traceId,
@@ -214,9 +224,9 @@ router.post('/app-download/claim', async (ctx) => {
         const expiresAt = cfg.appdl.turnoverDays > 0
           ? new Date(Date.now() + cfg.appdl.turnoverDays * 86400000).toISOString().slice(0, 19).replace('T', ' ')
           : null
-        await createPromoRequirement(pool, ctx.state.userId!, 'appdl', amount, cfg.appdl.turnoverX, expiresAt)
+        await createPromoRequirement(pool, ctx.state.userId!, 'appdl', amount, cfg.appdl.turnoverX, expiresAt, currency)
       }
-      return { amountPhp: amount }
+      return { amountPhp: amount, currency }
     })
     ok(ctx, result)
   } catch (e) {

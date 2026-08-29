@@ -85,7 +85,7 @@ function fmtCryptoAmount(amount: number, currency: string) {
 }
 
 export default function WalletModal({ open, onClose, initialTab = 'deposit', fullscreen = false }: Props) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const walletStore = useWalletStore()
   const activeCurrency = useWalletStore((s) => s.activeCurrency)
   const activeAvailable = useWalletStore((s) => {
@@ -243,7 +243,7 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
       pendingWithdrawMethodRef.current = null
       setTurnoverProgress(null); setTurnoverLoading(false)
       void walletStore.refresh()
-      void fetchHomeContent().then((content) => setWalletBannerUrl(content.walletBanners[0]?.imageUrl ?? null)).catch(()=>setWalletBannerUrl(null))
+      void fetchHomeContent(i18n.language).then((content) => setWalletBannerUrl(content.walletBanners[0]?.imageUrl ?? null)).catch(()=>setWalletBannerUrl(null))
       setChannelsLoading(true)
       setCryptoChannelsLoaded(false)
       const depP = fetchPaymentChannels('deposit', activeCurrency).then(setPaymentDepositChannels).catch(()=>{})
@@ -255,7 +255,7 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
       void fetchPaymentChannels('withdraw', activeCurrency).then(setPaymentWithdrawChannels).catch(()=>{})
     } else { stopPolling() }
     return () => { document.body.style.overflow = '' }
-  }, [open, activeCurrency])
+  }, [open, activeCurrency, i18n.language])
 
   useEffect(() => { if(tab==='history')void loadHistory() }, [tab])
 

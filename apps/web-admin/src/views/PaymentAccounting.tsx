@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react'
-import { Card, Table, Button, Space, Tag, DatePicker, message, Statistic, Row, Col, Tooltip, Modal, InputNumber } from 'antd'
+import { Card, Table, Button, Space, Tag, DatePicker, message, Statistic, Row, Col, Tooltip, Modal, InputNumber, Segmented } from 'antd'
 import { ReloadOutlined } from '@ant-design/icons'
 import type { ColumnsType } from 'antd/es/table'
 import dayjs, { type Dayjs } from 'dayjs'
 import {
-  getPaymentAccounting, getProviderBalances, refreshProviderBalances,
+  getPaymentAccounting, getPaymentReconciliation, getProviderBalances, refreshProviderBalances,
   setProviderAlertThreshold, setMatrixBalance,
-  type PaymentAccountingRow, type ProviderBalanceRow,
+  type PaymentAccountingRow, type PaymentReconciliationItem, type ProviderBalanceRow,
 } from '../api'
 
 const { RangePicker } = DatePicker
@@ -26,6 +26,9 @@ export default function PaymentAccounting() {
   const [rows, setRows] = useState<PaymentAccountingRow[]>([])
   const [total, setTotal] = useState<PaymentAccountingRow | null>(null)
   const [loading, setLoading] = useState(false)
+  const [currency, setCurrency] = useState('IDR')
+  const [reconciliation, setReconciliation] = useState<PaymentReconciliationItem[]>([])
+  const [reconLoading, setReconLoading] = useState(false)
 
   const [balances, setBalances] = useState<ProviderBalanceRow[]>([])
   const [balLoading, setBalLoading] = useState(false)
@@ -45,10 +48,18 @@ export default function PaymentAccounting() {
       const r = await getPaymentAccounting({
         from: range ? range[0].startOf('day').format('YYYY-MM-DD HH:mm:ss') : undefined,
         to: range ? range[1].endOf('day').format('YYYY-MM-DD HH:mm:ss') : undefined,
+        currency,
       })
       setRows(r.rows); setTotal(r.total)
     } catch (e) { message.error(e instanceof Error ? e.message : '加载失败') }
     finally { setLoading(false) }
+  }
+
+  async function loadReconciliation() {
+    setReconLoading(true)
+    try { setReconciliation(await getPaymentReconciliation('unispay', currency)) }
+    catch (e) { message.error(e instanceof Error ? e.message : '对账报告加载失败') }
+    finally { setReconLoading(false) }
   }
 
   async function loadBalances() {
@@ -89,7 +100,7 @@ export default function PaymentAccounting() {
     finally { setSaving(false) }
   }
 
-  useEffect(() => { void loadAccounting() }, [range])
+  useEffect(() => { void loadAccounting(); void loadReconciliation() }, [range, currency])
   useEffect(() => { void loadBalances() }, [])
 
   const columns: ColumnsType<PaymentAccountingRow> = [
@@ -115,6 +126,7 @@ export default function PaymentAccounting() {
         title="服务商余额"
         extra={
           <Space>
+            <Segmented value={currency} onChange={(v) => setCurrency(String(v))} options={['IDR', 'PHP', 'USDT']} />
             <span style={{ color: '#999', fontSize: 12 }}>每小时自动刷新</span>
             <Button size="small" icon={<ReloadOutlined />} loading={refreshing} onClick={handleRefreshBalances}>手动刷新</Button>
           </Space>
@@ -173,6 +185,20 @@ export default function PaymentAccounting() {
             )
           })}
         </Row>
+      </Card>
+
+      <Card size="small" title="UnisPay 回调异常 / 对账报告" style={{ marginBottom: 16 }}
+        extra={<Button size="small" icon={<ReloadOutlined />} onClick={loadReconciliation}>刷新</Button>}>
+        <Table rowKey="id" size="small" loading={reconLoading} dataSource={reconciliation}
+          pagination={{ pageSize: 20 }} columns={[
+            { title: '时间', dataIndex: 'createdAt', width: 170, render: (v: string) => dayjs(v).format('YYYY-MM-DD HH:mm:ss') },
+            { title: '来源', dataIndex: 'source', width: 110, render: (v: string) => <Tag color={v === 'callback_issue' ? 'red' : 'orange'}>{v}</Tag> },
+            { title: '异常', dataIndex: 'issueType', width: 210 },
+            { title: '商户订单', dataIndex: 'orderId' },
+            { title: '渠道订单', dataIndex: 'providerOrderId' },
+            { title: '金额', key: 'amount', width: 150, render: (_: unknown, r: PaymentReconciliationItem) => r.amount == null ? '—' : `${fmtMoney(r.amount)} ${r.currency ?? ''}` },
+            { title: '状态', dataIndex: 'status', width: 100 },
+          ]} />
       </Card>
 
       <Card

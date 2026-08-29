@@ -56,9 +56,9 @@ router.get('/summary', async (ctx) => {
 
   let phtDate: string
   if (dateParam === 'today') {
-    phtDate = todayPHT()
+    phtDate = todayPHT(currency)
   } else if (dateParam === 'yesterday') {
-    phtDate = yesterdayPHT()
+    phtDate = yesterdayPHT(currency)
   } else if (/^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
     phtDate = dateParam
   } else {

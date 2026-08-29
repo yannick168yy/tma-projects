@@ -26,6 +26,7 @@ import iconViber from '@/assets/team/3-circles/viber.webp'
 import cashbackFloatImg from '@/assets/home/promos/cashback-float.webp'
 import cashRebateBannerImg from '@/assets/home/promos/cash-rebate-banner.webp'
 import lossRebateBannerImg from '@/assets/home/promos/loss-rebate-banner.webp'
+import { localizedImage } from '@/utils/localizedImage'
 
 // 最近在玩区最大展示数，不足时用推荐游戏补齐
 const RECENT_ROW_MAX = 10
@@ -112,6 +113,8 @@ function HomePromoFloat({ cashbackLabel, onOpenCashback }: HomePromoFloatProps) 
 
 export default function HomeContent({ homeBannerTopAnnouncement, onNavigatePath, onOpenCs, onOpenGame, onOpenFirstDepositFiesta, onOpenCashback, onOpenDeposit }: Props) {
   const { t, i18n } = useTranslation()
+  const cashRebateBanner = localizedImage(cashRebateBannerImg, i18n.language, 'cash-rebate-banner.webp')
+  const lossRebateBanner = localizedImage(lossRebateBannerImg, i18n.language, 'loss-rebate-banner.webp')
   const locale = i18n.language
   const promotion = usePromotionStore()
   const auth = useAuthStore()
@@ -359,7 +362,7 @@ export default function HomeContent({ homeBannerTopAnnouncement, onNavigatePath,
   }, [providerZoneTab, activeCurrency])
 
   useEffect(() => {
-    fetchHomeContent().then((content) => {
+    fetchHomeContent(i18n.language).then((content) => {
       setHomeBanners(content.banners.map((item) => ({
         id: item.slot,
         image: item.imageUrl,
@@ -367,7 +370,7 @@ export default function HomeContent({ homeBannerTopAnnouncement, onNavigatePath,
       })))
     }).catch(() => {})
     if (auth.token && auth.user) void promotion.loadTeamStatus()
-  }, [])
+  }, [i18n.language])
 
   // 投注流非首屏关键，进入视口前不拉，避免与首页游戏/内容抢首屏带宽
   useEffect(() => {
@@ -451,7 +454,7 @@ export default function HomeContent({ homeBannerTopAnnouncement, onNavigatePath,
         {sectionHeader(<Percent size={15} className="text-amber-400" />, t('cashback.pageTitle').toUpperCase())}
         <div className="px-4">
           <button type="button" className="relative block w-full active:scale-[0.98] transition-transform" onClick={() => onNavigatePath('/rebate')}>
-            <img src={cashRebateBannerImg} alt="Cash Rebate" draggable={false} className="w-full rounded-2xl" />
+            <img src={cashRebateBanner} alt="Cash Rebate" draggable={false} className="w-full rounded-2xl" />
             {/* ENTER NOW 金条区域流光扫过（区域按图内按钮实测位置定位；rb-shine 自带 position:relative 故外层定位） */}
             <span className="pointer-events-none absolute" style={{ left: '60%', top: '77.5%', right: 0, bottom: '2.5%' }}>
               <span className="rb-shine block h-full w-full rounded-lg" />
@@ -483,7 +486,7 @@ export default function HomeContent({ homeBannerTopAnnouncement, onNavigatePath,
         {sectionHeader(<Percent size={15} className="text-amber-400" />, t('lossRebate.title'))}
         <div className="px-4">
           <button type="button" className="relative block w-full active:scale-[0.98] transition-transform" onClick={() => void onLossRebateBannerTap()}>
-            <img src={lossRebateBannerImg} alt="Loss Rebate" draggable={false} className="w-full rounded-2xl" />
+            <img src={lossRebateBanner} alt="Loss Rebate" draggable={false} className="w-full rounded-2xl" />
           </button>
         </div>
       </section>

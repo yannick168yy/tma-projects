@@ -26,6 +26,7 @@ interface MeResponse {
   boundGoogle?: boolean
   boundPhone?: boolean
   isAgent?: boolean
+  locale?: string
 }
 
 function toAuthUser(me: MeResponse): AuthUser {
@@ -43,6 +44,7 @@ function toAuthUser(me: MeResponse): AuthUser {
     boundGoogle: me.boundGoogle,
     boundPhone: me.boundPhone,
     isAgent: me.isAgent,
+    locale: me.locale,
   }
 }
 
@@ -63,6 +65,10 @@ export async function bindGoogle(code: string, redirectUri: string): Promise<{ u
 
 export async function bindPhone(phone: string, password: string): Promise<{ user: AuthUser }> {
   return apiRequest('/user/bind/phone', { method: 'POST', body: JSON.stringify({ phone, password }) })
+}
+
+export async function updateUserLanguage(locale: string): Promise<void> {
+  await apiRequest('/user/language', { method: 'PATCH', body: JSON.stringify({ locale }) })
 }
 
 export async function loginTelegram(): Promise<AuthSession> {

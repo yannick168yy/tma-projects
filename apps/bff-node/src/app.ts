@@ -13,7 +13,7 @@ import { initStore } from './services/store/index.js'
 import { loadGamesCache, refreshHomepageSelection } from './services/sg-game.service.js'
 import { refreshLatestPool, refreshRankTops } from './services/betting-activity.service.js'
 import { refreshRates } from './services/exchange-rate.service.js'
-import { refreshBalances } from './services/payment-accounting.service.js'
+import { notifyPendingPaymentCallbackIssues, refreshBalances } from './services/payment-accounting.service.js'
 import { runDailyRebateSettlement, yesterdayPHT } from './services/rebate.service.js'
 import {
   runDailyLossRebate, runWeeklySalary, runMonthlySalary,
@@ -80,6 +80,9 @@ export function createApp(env: Env): Koa {
       const run = () => refreshBalances(env).catch((err) => log.payment.error({ err }, 'balance refresh error'))
       run()
       setInterval(run, 60 * 60 * 1000)
+      const alert = () => notifyPendingPaymentCallbackIssues(env).catch((err) => log.payment.error({ err }, 'callback issue alert error'))
+      alert()
+      setInterval(alert, 60 * 1000)
     }, 60_000)
   }
 
@@ -92,25 +95,20 @@ export function createApp(env: Env): Koa {
     }, 90_000)
   }
 
-  // 洗码每日结算：每天 UTC 16:00（PHT 00:00 凌晨）结算昨日流水写入待领取记录（不自动入账，用户手动领取）
+  // 洗码每日结算：菲律宾 UTC+8、印尼 UTC+7 分开切业务日。
   if (singletonJobs && isMysqlEnabled(env)) {
-    const runRebate = () =>
-      runDailyRebateSettlement(env, yesterdayPHT())
-        .then(({ users, totalRebate }) =>
-          log.rebate.info({ users, totalRebate }, 'rebate settlement done'),
-        )
-        .catch((err) => log.rebate.error({ err }, 'rebate settlement error'))
-    const msUntilRebate = () => {
+    const scheduleRebate = (utcHour: number, currencies: string[], timezoneOffsetHours: number) => {
+      const run = () => runDailyRebateSettlement(env, yesterdayPHT(currencies[0]), { currencies, timezoneOffsetHours })
+        .then(({ users, totalRebate }) => log.rebate.info({ users, totalRebate, timezoneOffsetHours }, 'rebate settlement done'))
+        .catch((err) => log.rebate.error({ err, timezoneOffsetHours }, 'rebate settlement error'))
       const now = new Date()
       const next = new Date()
-      next.setUTCHours(16, 0, 0, 0)
+      next.setUTCHours(utcHour, 0, 0, 0)
       if (next <= now) next.setUTCDate(next.getUTCDate() + 1)
-      return next.getTime() - now.getTime()
+      setTimeout(() => { run(); setInterval(run, 24 * 60 * 60 * 1000) }, next.getTime() - now.getTime())
     }
-    setTimeout(() => {
-      runRebate()
-      setInterval(runRebate, 24 * 60 * 60 * 1000)
-    }, msUntilRebate())
+    scheduleRebate(16, ['PHP', 'USDT', 'USDC'], 8)
+    scheduleRebate(17, ['IDR'], 7)
   }
 
   // 负盈利返水（路线A）：每小时 :30 检查，PHT 到达配置的结算时刻（lossRebate.settleHour）时结算「昨天」整日
@@ -121,9 +119,15 @@ export function createApp(env: Env): Koa {
         const cfg = await getLossRebateConfigByPool(getMysqlPool(env))
         if (!cfg.enabled) return
         const phtHour = new Date(Date.now() + 8 * 60 * 60 * 1000).getUTCHours()
-        if (phtHour !== cfg.settleHour) return
-        const { periodKey, users, totalAmount, skipped } = await runDailyLossRebate(env)
-        log.vip.info({ periodKey, users, totalAmount, skipped }, 'daily loss rebate settled')
+        const idHour = new Date(Date.now() + 7 * 60 * 60 * 1000).getUTCHours()
+        if (phtHour === cfg.settleHour) {
+          const result = await runDailyLossRebate(env, { currencies: ['PHP', 'USDT', 'USDC'], timezoneOffsetHours: 8 })
+          log.vip.info({ ...result, timezone: 'UTC+8' }, 'daily loss rebate settled')
+        }
+        if (idHour === cfg.settleHour) {
+          const result = await runDailyLossRebate(env, { currencies: ['IDR'], timezoneOffsetHours: 7 })
+          log.vip.info({ ...result, timezone: 'UTC+7' }, 'daily loss rebate settled')
+        }
       } catch (err) {
         log.vip.error({ err }, 'daily loss rebate settlement error')
       }

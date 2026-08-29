@@ -15,6 +15,8 @@ export interface HomeContentItem {
   slot: number
   imageKey: string
   imageUrl: string
+  imageKeys: Record<string, string>
+  imageUrls: Record<string, string>
   actionType: HomeContentActionType
   actionValue: string | null
   enabled: boolean
@@ -35,6 +37,7 @@ interface HomeContentRow extends RowDataPacket {
   action_value: string | null
   enabled: number
   updated_at: Date | string | null
+  localized_images: unknown
 }
 
 const VALID_MIME = new Set(['image/png', 'image/jpeg', 'image/webp'])
@@ -54,12 +57,27 @@ function imageUrl(env: Env, key: string): string {
   return `/api/v1/home/images/${keyPath}`
 }
 
+export function parseLocalizedImageKeys(defaultImageKey: string, raw: unknown): Record<string, string> {
+  let parsed: unknown = raw
+  if (typeof raw === 'string') {
+    try { parsed = JSON.parse(raw) } catch { parsed = null }
+  }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return { en: defaultImageKey }
+  const localized = Object.fromEntries(
+    Object.entries(parsed).filter((entry): entry is [string, string] => typeof entry[1] === 'string' && entry[1].startsWith('home/')),
+  )
+  return { en: defaultImageKey, ...localized }
+}
+
 function mapRow(env: Env, row: HomeContentRow): HomeContentItem {
+  const imageKeys = parseLocalizedImageKeys(row.image_key, row.localized_images)
   return {
     kind: row.kind,
     slot: Number(row.slot),
     imageKey: row.image_key,
     imageUrl: imageUrl(env, row.image_key),
+    imageKeys,
+    imageUrls: Object.fromEntries(Object.entries(imageKeys).map(([locale, key]) => [locale, imageUrl(env, key)])),
     actionType: row.action_type,
     actionValue: row.action_value ?? null,
     enabled: Boolean(row.enabled),
@@ -67,16 +85,25 @@ function mapRow(env: Env, row: HomeContentRow): HomeContentItem {
   }
 }
 
-export async function getHomeContent(env: Env, includeDisabled = false): Promise<HomeContent> {
+export async function getHomeContent(env: Env, includeDisabled = false, locale = 'en'): Promise<HomeContent> {
   if (!isMysqlEnabled(env)) return { banners: [], walletBanners: [] }
   const db = getMysqlPool(env)
   const [rows] = await db.query<HomeContentRow[]>(
-    `SELECT kind, slot, image_key, action_type, action_value, enabled, updated_at
-     FROM bg_home_content
-     ${includeDisabled ? '' : 'WHERE enabled = 1'}
-     ORDER BY kind, slot`,
+    `SELECT h.kind, h.slot, h.image_key, h.action_type, h.action_value, h.enabled, h.updated_at,
+            COALESCE((SELECT JSON_OBJECTAGG(i.locale, i.image_key)
+                      FROM bg_home_content_image i WHERE i.kind = h.kind AND i.slot = h.slot), JSON_OBJECT()) AS localized_images
+     FROM bg_home_content h
+     ${includeDisabled ? '' : 'WHERE h.enabled = 1'}
+     ORDER BY h.kind, h.slot`,
   )
   let items = rows.map((row) => mapRow(env, row))
+  if (!includeDisabled) {
+    const normalizedLocale = locale.toLowerCase().startsWith('id') ? 'id' : locale.toLowerCase().startsWith('vi') ? 'vi' : locale.toLowerCase().startsWith('zh') ? 'zh-CN' : 'en'
+    items = items.map((item) => {
+      const key = item.imageKeys[normalizedLocale] ?? item.imageKeys.en ?? item.imageKey
+      return { ...item, imageKey: key, imageUrl: imageUrl(env, key) }
+    })
+  }
 
   // 图片文件缺失检测：配置存在但文件丢失时（历史上部署 --delete 误删过），
   // 前台过滤避免破图，后台保留并打标供标红提示，两条路径都记 warn 便于排查
@@ -129,11 +156,25 @@ export async function saveHomeContentItem(env: Env, item: {
     slot: item.slot,
     imageKey: item.imageKey,
     imageUrl: imageUrl(env, item.imageKey),
+    imageKeys: { en: item.imageKey },
+    imageUrls: { en: imageUrl(env, item.imageKey) },
     actionType: item.actionType,
     actionValue: item.actionValue,
     enabled: item.enabled,
     updatedAt: null,
   }
+}
+
+export async function saveHomeContentLocalizedImage(env: Env, kind: HomeContentKind, slot: number, locale: string, imageKey: string | null): Promise<void> {
+  if (!imageKey) {
+    await getMysqlPool(env).query('DELETE FROM bg_home_content_image WHERE kind = ? AND slot = ? AND locale = ?', [kind, slot, locale])
+    return
+  }
+  await getMysqlPool(env).query(
+    `INSERT INTO bg_home_content_image (kind, slot, locale, image_key) VALUES (?, ?, ?, ?)
+     ON DUPLICATE KEY UPDATE image_key = VALUES(image_key)`,
+    [kind, slot, locale, imageKey],
+  )
 }
 
 export async function deleteHomeContentItem(env: Env, kind: HomeContentKind, slot: number): Promise<void> {
@@ -155,11 +196,11 @@ export function parseImageDataUrl(dataUrl: string): { data: Buffer; mimeType: st
   return { data, mimeType, ext }
 }
 
-export async function storeHomeImage(env: Env, kind: HomeContentKind, dataUrl: string): Promise<{ imageKey: string; imageUrl: string }> {
+export async function storeHomeImage(env: Env, kind: HomeContentKind, dataUrl: string, locale = 'en'): Promise<{ imageKey: string; imageUrl: string }> {
   const parsed = parseImageDataUrl(dataUrl)
   if (!parsed) throw new Error('只支持 PNG、JPG、WEBP 图片')
   if (parsed.data.length > 5 * 1024 * 1024) throw new Error('图片不能超过 5MB')
-  const key = `home/${kind}/${Date.now()}-${randomUUID()}.${parsed.ext}`
+  const key = `home/${kind}/${locale}/${Date.now()}-${randomUUID()}.${parsed.ext}`
   const imageKey = await getStorageProvider(env).put(key, parsed.data, parsed.mimeType)
   return { imageKey, imageUrl: imageUrl(env, imageKey) }
 }

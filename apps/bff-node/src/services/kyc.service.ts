@@ -7,7 +7,7 @@ import {
 import type { Redis } from 'ioredis'
 import type { Env } from '../config/env.js'
 import type { KycSubmission, LivenessFrameMeta } from '../types/domain.js'
-import { normalizePhonePH } from '../utils/phone.js'
+import { normalizePhone } from '../utils/phone.js'
 import { nowIso } from '../utils/format.js'
 import { getAdminSetting } from './admin-store.js'
 import { ensureBirthdayFromKyc } from './vip.service.js'
@@ -50,7 +50,7 @@ const RESEND_INTERVAL_SEC = 60
 const MAX_VERIFY_ATTEMPTS = 3
 const KYC_FAILURE_LOCK_SECONDS = 180
 const KYC_NOTIFY_FAILURE_COUNT = 3
-const ACCEPTED_DOC_TYPES = ['passport', 'drivers_license', 'philid', 'umid', 'acr_icard']
+const ACCEPTED_DOC_TYPES = ['passport', 'drivers_license', 'philid', 'umid', 'acr_icard', 'ktp', 'sim']
 const NAME_SUFFIX_TOKENS = new Set(['JR', 'SR', 'II', 'III', 'IV', 'V'])
 const RETRYABLE_DOC_REASONS = new Set(['invalid_doc', 'missing_id_number', 'low_confidence'])
 const HARD_REJECT_DOC_REASONS = new Set(['unsupported_doc_type'])
@@ -164,7 +164,7 @@ const VERIFY_RL_WINDOW_SEC = 86400
 
 async function getVerifiedPhoneIdentity(redis: Redis, userId: string): Promise<string | null> {
   const phoneIdentity = (await listUserIdentities(redis, userId)).find((item) => item.provider === 'phone' && item.verifiedAt)
-  return phoneIdentity ? normalizePhonePH(phoneIdentity.identifier) : null
+  return phoneIdentity ? normalizePhone(phoneIdentity.identifier) : null
 }
 
 /** 人脸 vs 证件照相似度通过阈值：后台 kyc_face_match_threshold 优先，否则用 env 兜底 */
@@ -361,12 +361,12 @@ export async function sendKycOtp(
   if (!(await getKycStepConfig(redis, env, userId)).requirePhone) {
     throw new KycError('手机验证已关闭', 400)
   }
-  const phone = normalizePhonePH(phoneRaw)
+  const phone = normalizePhone(phoneRaw)
   if (!phone) throw new KycError('kyc.errors.invalidPhone', 400)
 
   const phoneIdentity = (await listUserIdentities(redis, userId)).find((item) => item.provider === 'phone')
   if (phoneIdentity) {
-    const bound = normalizePhonePH(phoneIdentity.identifier)
+    const bound = normalizePhone(phoneIdentity.identifier)
     if (bound && bound !== phone) {
       throw new KycError('kyc.errors.phoneUseRegistered', 400)
     }
@@ -430,12 +430,12 @@ export async function bindKycPhone(
 ): Promise<{ phoneVerified: true; status: KycSubmission['status'] }> {
   const cfg = await getKycStepConfig(redis, env, userId)
   if (cfg.requirePhone) throw new KycError('kyc.errors.otpRequired', 400)
-  const phone = normalizePhonePH(phoneRaw)
+  const phone = normalizePhone(phoneRaw)
   if (!phone) throw new KycError('kyc.errors.invalidPhone', 400)
 
   const phoneIdentity = (await listUserIdentities(redis, userId)).find((item) => item.provider === 'phone')
   if (phoneIdentity) {
-    const bound = normalizePhonePH(phoneIdentity.identifier)
+    const bound = normalizePhone(phoneIdentity.identifier)
     if (bound && bound !== phone) throw new KycError('kyc.errors.phoneUseRegistered', 400)
   }
   const otherOwner = await findKycByVerifiedPhone(redis, phone, userId)
@@ -669,7 +669,7 @@ async function runGeminiDocument(env: Env, fullName: string, idImage: string): P
     : 'No user-entered name is provided; extract the full legal name from the document.'
   const prompt = `You are a KYC document verification system. Analyze the provided ID document image only.
 
-Accepted document types: passport, drivers_license, philid (Philippine National ID), umid, acr_icard (ACR I-Card / Alien Certificate of Registration Identity Card).
+Accepted document types: passport, drivers_license, philid (Philippine National ID), umid, acr_icard (ACR I-Card / Alien Certificate of Registration Identity Card), ktp (Indonesian electronic identity card / KTP-el), sim (Indonesian driving licence).
 Use docType value exactly as listed (e.g. acr_icard for ACR I-Card).
 ${claimedNameLine}
 

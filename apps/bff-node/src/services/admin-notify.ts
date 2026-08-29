@@ -132,6 +132,20 @@ export function notifyProviderBalanceLow(
   return send(env, { dedupKey: `balance:${p.provider}`, text })
 }
 
+export function notifyPaymentCallbackIssue(
+  env: Env,
+  p: { id: number; provider: string; issueType: string; orderId?: string | null },
+): Promise<void> {
+  const text = [
+    '⚠️ 支付回调异常',
+    `服务商: ${p.provider}`,
+    `类型: ${p.issueType}`,
+    p.orderId ? `订单: ${p.orderId}` : '',
+    `${env.ADMIN_WEB_URL}/payment/accounting`,
+  ].filter(Boolean).join('\n')
+  return send(env, { dedupKey: `payment-callback:${p.id}`, text })
+}
+
 // ── 风控命中(仅 deny/escalate 高危)────────────────────────────────────────────
 export function notifyRiskHit(
   env: Env,

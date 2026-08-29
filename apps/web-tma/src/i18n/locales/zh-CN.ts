@@ -271,6 +271,8 @@ export default {
     docPhilid: 'PhilID（国民身份证）',
     docUmid: 'UMID',
     docAcrIcard: 'ACR I-Card',
+    docKtp: 'KTP（印度尼西亚身份证）',
+    docSim: 'SIM（印度尼西亚驾驶证）',
     uploadId: '上传证件照',
     reuploadId: '重新上传证件照',
     docReuploadHint: '请拍摄证件原件，四角完整入镜，避免反光或模糊，确保文字清晰。',

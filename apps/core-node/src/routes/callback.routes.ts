@@ -3,6 +3,7 @@ import { env } from '../config/env.js'
 import { providerVerifiers } from '../providers/verifiers.js'
 import { parseNotify, buildWithdrawCheckResponse, normalizePem, type MatrixEnvelope } from '../utils/matrix-crypto.js'
 import type { RowDataPacket } from 'mysql2/promise'
+import { recordUnispayIssue } from '../handlers/unispay-callback.handler.js'
 
 export async function callbackRoutes(app: FastifyInstance) {
   // ── 通用回调入口：验签 → NATS（YF Pay / Matrix 通知）────────────────────────
@@ -20,7 +21,18 @@ export async function callbackRoutes(app: FastifyInstance) {
 
       if (!verify(req, env as unknown as Record<string, string>)) {
         app.log.warn({ provider }, 'Callback: invalid signature')
+        if (provider === 'unispay') await recordUnispayIssue(app.mysql, 'invalid_signature', payload as never)
         return reply.status(401).send({ code: 1, message: 'invalid signature' })
+      }
+
+      if (provider === 'unispay') {
+        const required = ['amount', 'mchNo', 'mchOrderId', 'orderNo', 'status'] as const
+        const missing = required.filter((key) => payload[key] === undefined || payload[key] === null || String(payload[key]).trim() === '')
+        if (missing.length > 0 || !Number.isFinite(Number(payload.amount)) || Number(payload.amount) <= 0 || !['1', '2', '3', '4'].includes(String(payload.status))) {
+          app.log.warn({ missing, orderNo: payload.orderNo }, 'UnisPay callback: invalid payload')
+          await recordUnispayIssue(app.mysql, 'invalid_payload', payload as never, { missing })
+          return reply.status(400).send({ code: 1, message: 'invalid payload' })
+        }
       }
 
       app.log.info({ provider }, 'Callback received, publishing to NATS')

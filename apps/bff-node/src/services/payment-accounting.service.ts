@@ -4,7 +4,7 @@ import type { Env } from '../config/env.js'
 import { getBalance as yfpayGetBalance } from './yfpay.service.js'
 import { getBalance as beepayGetBalance } from './beepay.service.js'
 import { getAdminSetting, setAdminSetting } from './admin-store.js'
-import { notifyProviderBalanceLow } from './admin-notify.js'
+import { notifyPaymentCallbackIssue, notifyProviderBalanceLow } from './admin-notify.js'
 
 function pool(env: Env): Pool {
   return getMysqlPool(env)
@@ -78,12 +78,13 @@ interface ChannelFeeRow extends RowDataPacket {
  */
 export async function getAccounting(
   env: Env,
-  range: { from?: string; to?: string } = {},
+  range: { from?: string; to?: string; currency?: string } = {},
 ): Promise<{ rows: AccountingRow[]; total: AccountingRow }> {
   const where: string[] = []
   const params: string[] = []
   if (range.from) { where.push('created_at >= ?'); params.push(range.from) }
   if (range.to) { where.push('created_at <= ?'); params.push(range.to) }
+  if (range.currency) { where.push('currency = ?'); params.push(range.currency) }
   const rangeSql = where.length ? ` AND ${where.join(' AND ')}` : ''
 
   const [depRows] = await pool(env).query<ChannelAggRow[]>(
@@ -154,6 +155,87 @@ export async function getAccounting(
   rows.forEach((r) => { r.depositAmount = round2(r.depositAmount); r.withdrawAmount = round2(r.withdrawAmount) })
 
   return { rows, total }
+}
+
+export interface PaymentReconciliationItem {
+  id: string
+  source: 'callback_issue' | 'deposit' | 'withdraw'
+  provider: string
+  issueType: string
+  orderId: string | null
+  providerOrderId: string | null
+  currency: string | null
+  amount: number | null
+  status: string | null
+  createdAt: string
+}
+
+export async function getPaymentReconciliation(
+  env: Env,
+  provider = 'unispay',
+  currency = 'IDR',
+): Promise<PaymentReconciliationItem[]> {
+  const [issues, deposits, withdrawals] = await Promise.all([
+    pool(env).query<RowDataPacket[]>(
+      `SELECT id, issue_type, order_id, provider_order_id, status_value, created_at
+       FROM bg_payment_callback_issue WHERE provider = ? AND resolved = 0
+       ORDER BY created_at DESC LIMIT 200`, [provider]),
+    pool(env).query<RowDataPacket[]>(
+      `SELECT order_id, currency, amount, status,
+              JSON_UNQUOTE(JSON_EXTRACT(extra, '$.providerRef')) provider_ref, created_at
+       FROM bg_deposit_order
+       WHERE channel LIKE ? AND currency = ?
+         AND ((status = 'pending' AND created_at < NOW() - INTERVAL 30 MINUTE)
+           OR (status = 'paid' AND JSON_EXTRACT(extra, '$.providerRef') IS NULL))
+       ORDER BY created_at DESC LIMIT 200`, [`${provider}%`, currency]),
+    pool(env).query<RowDataPacket[]>(
+      `SELECT order_id, currency, amount, status,
+              JSON_UNQUOTE(JSON_EXTRACT(extra, '$.providerRef')) provider_ref, created_at
+       FROM bg_withdraw_order
+       WHERE channel LIKE ? AND currency = ?
+         AND ((status IN ('pending','processing') AND created_at < NOW() - INTERVAL 30 MINUTE)
+           OR (status = 'completed' AND JSON_EXTRACT(extra, '$.providerRef') IS NULL))
+       ORDER BY created_at DESC LIMIT 200`, [`${provider}%`, currency]),
+  ])
+  const fmt = (value: unknown) => value instanceof Date ? value.toISOString() : String(value)
+  return [
+    ...(issues[0] as RowDataPacket[]).map((r) => ({
+      id: `issue-${r.id}`, source: 'callback_issue' as const, provider,
+      issueType: String(r.issue_type), orderId: r.order_id ? String(r.order_id) : null,
+      providerOrderId: r.provider_order_id ? String(r.provider_order_id) : null,
+      currency: null, amount: null, status: r.status_value ? String(r.status_value) : null,
+      createdAt: fmt(r.created_at),
+    })),
+    ...(deposits[0] as RowDataPacket[]).map((r) => ({
+      id: `deposit-${r.order_id}`, source: 'deposit' as const, provider,
+      issueType: r.status === 'pending' ? 'deposit_stale_pending' : 'deposit_missing_provider_ref',
+      orderId: String(r.order_id), providerOrderId: r.provider_ref ? String(r.provider_ref) : null,
+      currency: String(r.currency), amount: Number(r.amount), status: String(r.status), createdAt: fmt(r.created_at),
+    })),
+    ...(withdrawals[0] as RowDataPacket[]).map((r) => ({
+      id: `withdraw-${r.order_id}`, source: 'withdraw' as const, provider,
+      issueType: r.status === 'pending' || r.status === 'processing' ? 'withdraw_stale_pending' : 'withdraw_missing_provider_ref',
+      orderId: String(r.order_id), providerOrderId: r.provider_ref ? String(r.provider_ref) : null,
+      currency: String(r.currency), amount: Number(r.amount), status: String(r.status), createdAt: fmt(r.created_at),
+    })),
+  ].sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+}
+
+export async function notifyPendingPaymentCallbackIssues(env: Env): Promise<number> {
+  const [rows] = await pool(env).query<RowDataPacket[]>(
+    `SELECT id, provider, issue_type, order_id
+     FROM bg_payment_callback_issue
+     WHERE resolved = 0 AND notified = 0
+     ORDER BY created_at ASC LIMIT 20`,
+  )
+  for (const row of rows) {
+    await notifyPaymentCallbackIssue(env, {
+      id: Number(row.id), provider: String(row.provider), issueType: String(row.issue_type),
+      orderId: row.order_id ? String(row.order_id) : null,
+    })
+    await pool(env).execute('UPDATE bg_payment_callback_issue SET notified = 1 WHERE id = ?', [row.id])
+  }
+  return rows.length
 }
 
 export interface BalanceRow {

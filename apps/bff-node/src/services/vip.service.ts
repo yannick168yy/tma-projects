@@ -490,9 +490,9 @@ export async function runWeeklyNegativeRebate(
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** 计算 PHT 日窗口；includeToday=true 结算今日至今（后台手动测试用），否则结算昨天整日（定时任务用） */
-function vipDayWindow(includeToday: boolean): { periodKey: string; startUtc: string; endUtc: string } {
+function vipDayWindow(includeToday: boolean, offsetHours = 8): { periodKey: string; startUtc: string; endUtc: string } {
   const nowMs = Date.now()
-  const phtMs = nowMs + 8 * 3600 * 1000
+  const phtMs = nowMs + offsetHours * 3600 * 1000
   const pht = new Date(phtMs)
   const todayPhtMs = Date.UTC(pht.getUTCFullYear(), pht.getUTCMonth(), pht.getUTCDate(), 0, 0, 0)
   let startPhtMs: number
@@ -507,7 +507,7 @@ function vipDayWindow(includeToday: boolean): { periodKey: string; startUtc: str
     endPhtMs = todayPhtMs
     keyPhtMs = startPhtMs
   }
-  const toUtcStr = (phtWallMs: number) => new Date(phtWallMs - 8 * 3600 * 1000).toISOString().slice(0, 19).replace('T', ' ')
+  const toUtcStr = (phtWallMs: number) => new Date(phtWallMs - offsetHours * 3600 * 1000).toISOString().slice(0, 19).replace('T', ' ')
   return {
     periodKey: new Date(keyPhtMs).toISOString().slice(0, 10),
     startUtc: toUtcStr(startPhtMs),
@@ -517,13 +517,15 @@ function vipDayWindow(includeToday: boolean): { periodKey: string; startUtc: str
 
 export async function runDailyLossRebate(
   env: Env,
-  opts: { includeToday?: boolean } = {},
+  opts: { includeToday?: boolean; currencies?: string[]; timezoneOffsetHours?: number } = {},
 ): Promise<{ periodKey: string; users: number; totalAmount: number; skipped?: string }> {
   if (!isMysqlEnabled(env)) return { periodKey: '', users: 0, totalAmount: 0 }
   const pool = getMysqlPool(env)
   const cfg = await getLossRebateConfigByPool(pool)
-  const { periodKey, startUtc, endUtc } = vipDayWindow(Boolean(opts.includeToday))
-  if (!cfg.enabled || cfg.ratePct <= 0 || cfg.eligibleCats.length === 0) {
+  const configuredCurrencies = cfg.enabledCurrencies ?? ['PHP', 'USDT', 'USDC']
+  const enabledCurrencies = opts.currencies?.filter((currency) => configuredCurrencies.includes(currency)) ?? configuredCurrencies
+  const { periodKey, startUtc, endUtc } = vipDayWindow(Boolean(opts.includeToday), opts.timezoneOffsetHours ?? 8)
+  if (!cfg.enabled || cfg.ratePct <= 0 || cfg.eligibleCats.length === 0 || enabledCurrencies.length === 0) {
     return { periodKey, users: 0, totalAmount: 0, skipped: 'disabled' }
   }
   const catPlaceholders = cfg.eligibleCats.map(() => '?').join(', ')
@@ -570,20 +572,22 @@ export async function runDailyLossRebate(
        WHERE status = 'paid' AND created_at >= ? AND created_at < ?
        GROUP BY user_id, currency
      ) d ON d.user_id = x.user_id AND d.currency = x.currency_code
-     WHERE COALESCE(d.dep, 0) >= CASE x.currency_code WHEN 'USDT' THEN ? WHEN 'USDC' THEN ? ELSE ? END
+     WHERE x.currency_code IN (${enabledCurrencies.map(() => '?').join(', ')})
+       AND COALESCE(d.dep, 0) >= CASE x.currency_code WHEN 'IDR' THEN ? WHEN 'USDT' THEN ? WHEN 'USDC' THEN ? ELSE ? END
        AND ROUND(IF(? = 1, LEAST(x.net_loss, COALESCE(d.dep, 0)), x.net_loss) * ? / 100, 2) > 0
      ON DUPLICATE KEY UPDATE
        amount = IF(status = 'pending', VALUES(amount), amount),
        level  = IF(status = 'pending', VALUES(level), level)`,
     [cap, cfg.ratePct, periodKey, startUtc, endUtc, ...cfg.eligibleCats, depStartUtc, endUtc,
-     cfg.minDepositByCcy?.USDT ?? cfg.minDeposit, cfg.minDepositByCcy?.USDC ?? cfg.minDeposit, cfg.minDeposit,
+     ...enabledCurrencies, cfg.minDepositByCcy?.IDR ?? 0, cfg.minDepositByCcy?.USDT ?? cfg.minDeposit, cfg.minDepositByCcy?.USDC ?? cfg.minDeposit, cfg.minDeposit,
      cap, cfg.ratePct],
   )
 
   const [[agg]] = await pool.query<RowDataPacket[]>(
     `SELECT COUNT(DISTINCT user_id) AS users, COALESCE(SUM(amount), 0) AS total
-     FROM bg_vip_reward_log WHERE type = 'negative_rebate' AND period_key = ?`,
-    [periodKey],
+     FROM bg_vip_reward_log WHERE type = 'negative_rebate' AND period_key = ?
+       AND currency_code IN (${enabledCurrencies.map(() => '?').join(', ')})`,
+    [periodKey, ...enabledCurrencies],
   )
   return { periodKey, users: Number(agg?.users ?? 0), totalAmount: Number(agg?.total ?? 0) }
 }
@@ -622,12 +626,13 @@ export async function getLossRebateStatus(env: Env, userId: string, currency: st
   if (!isMysqlEnabled(env)) return base
   const pool = getMysqlPool(env)
   const cfg = await getLossRebateConfigByPool(pool)
+  const enabledCurrencies = cfg.enabledCurrencies ?? ['PHP', 'USDT', 'USDC']
   const minDeposit = cfg.minDepositByCcy?.[currency] ?? cfg.minDeposit
   const ratePct = cfg.ratePct
   base.enabled = cfg.enabled; base.ratePct = ratePct; base.minDeposit = minDeposit; base.windowDays = cfg.windowDays
-  if (!cfg.enabled || ratePct <= 0 || cfg.eligibleCats.length === 0) return base
+  if (!cfg.enabled || !enabledCurrencies.includes(currency) || ratePct <= 0 || cfg.eligibleCats.length === 0) return base
 
-  const { periodKey, startUtc, endUtc } = vipDayWindow(true) // 净输统计：今日至今
+  const { periodKey, startUtc, endUtc } = vipDayWindow(true, currency === 'IDR' ? 7 : 8)
   // 存款统计：近 windowDays 天滚动窗口（松绑「必须当日存款」）
   const depStartUtc = new Date(new Date(endUtc.replace(' ', 'T') + 'Z').getTime() - cfg.windowDays * 86400000)
     .toISOString().slice(0, 19).replace('T', ' ')

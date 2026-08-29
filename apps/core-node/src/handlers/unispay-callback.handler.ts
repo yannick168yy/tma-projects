@@ -14,23 +14,40 @@ export interface UnispayCallbackPayload {
   [key: string]: unknown
 }
 
+export async function recordUnispayIssue(
+  db: Pool,
+  issueType: string,
+  payload: Partial<UnispayCallbackPayload>,
+  detail: Record<string, unknown> = {},
+): Promise<void> {
+  await db.execute(
+    `INSERT INTO bg_payment_callback_issue
+       (provider, issue_type, order_id, provider_order_id, status_value, detail)
+     VALUES ('unispay', ?, ?, ?, ?, ?)`,
+    [issueType, payload.mchOrderId ?? null, payload.orderNo ?? null, payload.status ?? null, JSON.stringify(detail)],
+  ).catch(() => {})
+}
+
 export async function handleUnispayCallback(
   payload: UnispayCallbackPayload,
   db: Pool,
   redis: Redis,
 ): Promise<void> {
-  const { mchOrderId, orderNo, status } = payload
+  const { mchOrderId, orderNo, status, amount } = payload
   const idempotencyKey = `unispay:cb:${orderNo}:${status}`
   const locked = await redis.set(idempotencyKey, '1', 'EX', 604800, 'NX')
   if (!locked) return
 
   try {
     if (mchOrderId.startsWith('UPD')) {
-      await handleDeposit(mchOrderId, orderNo, status, db)
+      await handleDeposit(mchOrderId, orderNo, status, amount, db)
     } else {
       await handleWithdraw(mchOrderId, orderNo, status, db)
     }
   } catch (err) {
+    await recordUnispayIssue(db, 'processing_error', payload, {
+      error: err instanceof Error ? err.message : String(err),
+    })
     await redis.del(idempotencyKey).catch(() => {})
     throw err
   }
@@ -40,6 +57,7 @@ async function handleDeposit(
   merchantSerial: string,
   platformId: string,
   status: string,
+  callbackAmount: string,
   db: Pool,
 ): Promise<void> {
   const [rows] = await db.query<RowDataPacket[]>(
@@ -47,7 +65,13 @@ async function handleDeposit(
     [merchantSerial],
   )
   const order = rows[0]
-  if (!order || order.status === 'paid') return
+  if (!order) throw new Error(`UnisPay 存款订单不存在: ${merchantSerial}`)
+  if (Number(callbackAmount) !== Number(order.amount)) {
+    await recordUnispayIssue(db, 'amount_mismatch', {
+      mchOrderId: merchantSerial, orderNo: platformId, status, amount: callbackAmount,
+    }, { localAmount: Number(order.amount), callbackAmount: Number(callbackAmount) })
+  }
+  if (order.status === 'paid') return
 
   if (status === '1') {
     const creditAmount = Number(order.amount)
@@ -99,6 +123,8 @@ async function handleDeposit(
       `UPDATE bg_deposit_order SET status='rejected', extra=JSON_SET(COALESCE(extra,'{}'),'$.providerRef',?) WHERE order_id=?`,
       [platformId, merchantSerial],
     )
+  } else {
+    await recordUnispayIssue(db, 'unexpected_deposit_status', { mchOrderId: merchantSerial, orderNo: platformId, status })
   }
 }
 
@@ -113,7 +139,8 @@ async function handleWithdraw(
     [merchantSerial],
   )
   const order = rows[0]
-  if (!order || order.status === 'completed' || order.status === 'rejected' || order.status === 'failed') return
+  if (!order) throw new Error(`UnisPay 提现订单不存在: ${merchantSerial}`)
+  if (order.status === 'completed' || order.status === 'rejected' || order.status === 'failed') return
 
   if (status === '2') {
     await db.execute(
@@ -162,5 +189,7 @@ async function handleWithdraw(
     } finally {
       conn.release()
     }
+  } else if (!['2', '3', '4'].includes(status)) {
+    await recordUnispayIssue(db, 'unexpected_withdraw_status', { mchOrderId: merchantSerial, orderNo: platformId, status })
   }
 }

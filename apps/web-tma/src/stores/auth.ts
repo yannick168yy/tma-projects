@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { loginPassword, loginTelegram, loginTelegramWidget, loginWithGoogleRedirect, loginWithTelegramRedirect, logoutSession, registerPassword, restoreSession, TRIAL_CLAIMED_KEY } from '@/api/auth'
+import { loginPassword, loginTelegram, loginTelegramWidget, loginWithGoogleRedirect, loginWithTelegramRedirect, logoutSession, registerPassword, restoreSession, TRIAL_CLAIMED_KEY, updateUserLanguage } from '@/api/auth'
 import { getInitData } from '@/api/client'
 import { fetchBalance } from '@/api/wallet'
 import { fetchPromoHighlights } from '@/api/promotion'
@@ -82,7 +82,7 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
       }
 
       if (get().token && get().user) {
-        const [highlights, balance] = await Promise.all([fetchPromoHighlights(), fetchBalance()])
+        const [highlights, balance] = await Promise.all([fetchPromoHighlights(useWalletStore.getState().activeCurrency), fetchBalance()])
         promotion.setHighlights(highlights)
         wallet.setBalance(balance)
       }
@@ -112,6 +112,7 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
       trialEligible: Boolean(session.trialRedPacketEligible),
     })
     setToken(session.token)
+    void updateUserLanguage(i18n.language).catch(() => {})
     localStorage.removeItem(LOGOUT_FLAG) // 成功登录后解除登出抑制
     // 记住"本次实际使用"的登录方式，供下次打开登录框快捷续登；只记身份标识，不记密码。
     // 必须用 loginMethod（发起登录时确定），不能用 user.loginProvider——后者是后端按
@@ -133,10 +134,10 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
       localStorage.setItem('betogo_seen', '1')
       clearStoredReferral()
     }
-    // 首次登录默认选中 PHP：一次性标记，避免覆盖用户之后手动切换的币种
+    // 首次登录按当前语言选择当地法币；一次性标记避免覆盖用户之后手动选择
     if (!localStorage.getItem('betogo_currency_init')) {
       localStorage.setItem('betogo_currency_init', '1')
-      useWalletStore.getState().setActiveCurrency('PHP')
+      useWalletStore.getState().setActiveCurrency(i18n.language === 'id' ? 'IDR' : 'PHP')
     }
   },
 

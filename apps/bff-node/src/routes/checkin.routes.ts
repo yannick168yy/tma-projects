@@ -7,7 +7,8 @@ const router = new Router({ prefix: '/promotions/checkin' })
 
 router.get('/status', async (ctx) => {
   try {
-    const status = await getCheckinStatus(ctx.state.env, ctx.state.userId!)
+    const currency = String(ctx.query.currency ?? 'PHP').toUpperCase()
+    const status = await getCheckinStatus(ctx.state.env, ctx.state.userId!, currency)
     ok(ctx, status)
   } catch (e) {
     fail(ctx, 500, e instanceof Error ? e.message : 'checkin status failed')
@@ -17,7 +18,8 @@ router.get('/status', async (ctx) => {
 router.post('/claim', async (ctx) => {
   try {
     if (!(await riskAllowed(ctx, 'promo_claim'))) return
-    const result = await claimCheckin(ctx.state.env, ctx.state.userId!)
+    const currency = String((ctx.request.body as { currency?: string } | undefined)?.currency ?? 'PHP').toUpperCase()
+    const result = await claimCheckin(ctx.state.env, ctx.state.userId!, currency)
     ok(ctx, result)
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'checkin claim failed'

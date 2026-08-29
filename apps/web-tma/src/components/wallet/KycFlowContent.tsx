@@ -77,6 +77,8 @@ export default function KycFlowContent({ flow, onClose, compactFace }: Props) {
       {step === 'document' && (
         <div className="space-y-3">
           <select value={docType} className={inputCls} onChange={(e) => setDocType(e.target.value as DocType)}>
+            <option value="ktp">{t('kyc.docKtp')}</option>
+            <option value="sim">{t('kyc.docSim')}</option>
             <option value="philid">{t('kyc.docPhilid')}</option>
             <option value="passport">{t('kyc.docPassport')}</option>
             <option value="drivers_license">{t('kyc.docDriversLicense')}</option>

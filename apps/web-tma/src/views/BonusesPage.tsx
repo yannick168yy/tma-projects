@@ -10,6 +10,7 @@ import { isInstalledApp, installSource } from '@/utils/pwa'
 import { isInsideTelegram } from '@/utils/initTelegramWebApp'
 import { analytics } from '@/utils/analytics'
 import bonusesHero from '@/assets/home/promos/bonuses-hero.webp'
+import { localizedImage } from '@/utils/localizedImage'
 
 interface Props {
   promoFilter?: string | null
@@ -37,7 +38,8 @@ const DEFAULT_BONUS_CARDS: BonusCard[] = [
 ]
 
 export default function BonusesPage({ promoFilter, onOpenWallet, onOpenTeam, onOpenAppInstall, newPlayerSummary, onOpenNewPlayerGift, onOpenCheckin, onOpenLossRebate }: Props) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const heroImage = localizedImage(bonusesHero, i18n.language, 'bonuses-hero.webp')
   const promotionStore = usePromotionStore()
   const highlights = usePromotionStore((s) => s.highlights)
   const trialClaiming = usePromotionStore((s) => s.trialClaiming)
@@ -74,8 +76,8 @@ export default function BonusesPage({ promoFilter, onOpenWallet, onOpenTeam, onO
   // App 内已登录时查询下载礼金领取状态
   useEffect(() => {
     if (!inApp || !token || !user) return
-    fetchAppdlStatus().then((st) => setAppdlClaimed(st.claimed)).catch(() => {})
-  }, [inApp, token, user])
+    fetchAppdlStatus(activeCurrency).then((st) => setAppdlClaimed(st.claimed)).catch(() => {})
+  }, [inApp, token, user, activeCurrency])
 
   useEffect(() => {
     if (promoFilter) {
@@ -114,7 +116,7 @@ export default function BonusesPage({ promoFilter, onOpenWallet, onOpenTeam, onO
       setAppdlMsg(null)
       setAppdlClaiming(true)
       try {
-        const res = await claimAppdlBonus(installSource())
+        const res = await claimAppdlBonus(installSource(), activeCurrency)
         setAppdlClaimed(true)
         setAppdlMsg({ ok: true, text: t('bonuses.promos.appdl.claimSuccess', { amount: res.amountPhp }) })
         void useWalletStore.getState().refresh()
@@ -141,11 +143,13 @@ export default function BonusesPage({ promoFilter, onOpenWallet, onOpenTeam, onO
         let vars: Record<string, unknown> = {}
         let reward = p.reward
         if (p.id === 'trial' && cfg) {
-          vars = { amount: cfg.trial.amount }
-          reward = `₱ ${cfg.trial.amount}`
+          const amount = cfg.trial.amountByCcy?.[activeCurrency] ?? cfg.trial.amount
+          vars = { amount }
+          reward = fmtBonus(amount)
         } else if (p.id === 'appdl' && cfg?.appdl) {
-          vars = { amount: cfg.appdl.amount }
-          reward = `₱ ${cfg.appdl.amount}`
+          const amount = cfg.appdl.amountByCcy?.[activeCurrency] ?? cfg.appdl.amount
+          vars = { amount }
+          reward = fmtBonus(amount)
         } else if (p.id === 'firstdep' && cfg) {
           // 首充多币种：按当前币种取档位与格式化(bg_firstdep_tiers 有 PHP/USDT/USDC)
           const tiers = cfg.firstdep.tiers?.[activeCurrency] ?? cfg.firstdep.tiers?.PHP ?? []
@@ -550,7 +554,7 @@ export default function BonusesPage({ promoFilter, onOpenWallet, onOpenTeam, onO
   return (
     <div className="page-main">
       <div className="relative overflow-hidden bg-[#080b14] pb-[18px]">
-        <img src={bonusesHero} alt="" className="block w-full h-auto" />
+        <img src={heroImage} alt="" className="block w-full h-auto" />
         <div className="absolute inset-x-0 top-0 h-[8%] bg-gradient-to-b from-[#080b14] to-transparent" />
         <div className="absolute inset-x-0 bottom-[18px] h-[20%] bg-gradient-to-b from-transparent to-[#080b14]" />
         <div className="absolute inset-x-4 bottom-0 z-10 bg-secondary/95 rounded-xl px-3 py-2 flex items-center gap-2 overflow-hidden shadow-[0_8px_24px_rgba(0,0,0,0.35)]">

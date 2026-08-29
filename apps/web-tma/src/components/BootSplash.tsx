@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { isInstalledApp } from '@/utils/pwa'
 import bootImg from '@/assets/game-loading.webp'
+import { useTranslation } from 'react-i18next'
+import { localizedImage } from '@/utils/localizedImage'
 
 const SHOW_MS = 2500
 const FADE_MS = 300
@@ -9,6 +11,8 @@ const FADE_MS = 300
 // 全屏宣传图只能在 web 层做；放这里同时覆盖 iOS PWA，且换图不用重新发包。
 // 只在冷启动（页面加载）时出现一次；切后台再回来不重放。
 export default function BootSplash() {
+  const { i18n } = useTranslation()
+  const loadingImage = localizedImage(bootImg, i18n.language, 'game-loading.webp')
   const [state, setState] = useState<'shown' | 'fading' | 'gone'>(() => (isInstalledApp() ? 'shown' : 'gone'))
   const [barStarted, setBarStarted] = useState(false)
 
@@ -27,7 +31,7 @@ export default function BootSplash() {
     <div
       className={`fixed inset-0 z-[200] bg-[#080b14] transition-opacity duration-300 ${state === 'fading' ? 'opacity-0' : 'opacity-100'}`}
     >
-      <img src={bootImg} alt="" draggable={false} className="w-full h-full object-cover object-top select-none" />
+      <img src={loadingImage} alt="" draggable={false} className="w-full h-full object-cover object-top select-none" />
       <div
         className="absolute inset-x-0 flex flex-col items-center"
         style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 22px)' }}

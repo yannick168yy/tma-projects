@@ -120,26 +120,26 @@ const SQL_REBATE_CAPPED = `
 `
 
 /** PHT = UTC+8，计算给定 Date 对象的 PHT 日期字符串 YYYY-MM-DD */
-function toPhtDateStr(d: Date): string {
-  const pht = new Date(d.getTime() + 8 * 60 * 60 * 1000)
+function toBusinessDateStr(d: Date, offsetHours = 8): string {
+  const pht = new Date(d.getTime() + offsetHours * 60 * 60 * 1000)
   return pht.toISOString().slice(0, 10)
 }
 
-export function todayPHT(): string {
-  return toPhtDateStr(new Date())
+export function todayPHT(currency = 'PHP'): string {
+  return toBusinessDateStr(new Date(), currency === 'IDR' ? 7 : 8)
 }
 
-export function yesterdayPHT(): string {
+export function yesterdayPHT(currency = 'PHP'): string {
   const d = new Date()
   d.setTime(d.getTime() - 24 * 60 * 60 * 1000)
-  return toPhtDateStr(d)
+  return toBusinessDateStr(d, currency === 'IDR' ? 7 : 8)
 }
 
 // PHT 日历日 → UTC 区间 [start, end)。created_at 存 UTC, 用区间比较可走 (user_id, created_at) 索引,
 // 避免 DATE(CONVERT_TZ(created_at)) 包裹列导致全量扫描。
-function phtDayUtcRange(phtDate: string): [Date, Date] {
+function phtDayUtcRange(phtDate: string, currency = 'PHP'): [Date, Date] {
   const [y, m, d] = phtDate.split('-').map(Number)
-  const off = 8 * 60 * 60 * 1000
+  const off = (currency === 'IDR' ? 7 : 8) * 60 * 60 * 1000
   return [new Date(Date.UTC(y, m - 1, d) - off), new Date(Date.UTC(y, m - 1, d + 1) - off)]
 }
 
@@ -298,7 +298,7 @@ export async function getEffectiveLevel(env: Env, userId: string, currency: stri
  * 双算防护：今日若被后台手动结算写入 bg_rebate_record(date=今日), 那部分已并入 claimable, 从预估里扣除。
  */
 async function getEstimatedTodayRebate(env: Env, userId: string, currency: string): Promise<number> {
-  const today = todayPHT()
+  const today = todayPHT(currency)
   const summary = await getUserRebateSummary(env, userId, today, currency)
   const pool = getMysqlPool(env)
   const [[settled]] = await pool.query<RowDataPacket[]>(
@@ -390,7 +390,7 @@ async function getUserTierRebateBreakdown(
        AND tl.currency = ?
        AND tl.created_at >= ? AND tl.created_at < ?
      GROUP BY rfg.tier`,
-    [userId, currency, ...phtDayUtcRange(phtDate)],
+    [userId, currency, ...phtDayUtcRange(phtDate, currency)],
   )
   return rows.map((r) => {
     const tier = String(r.tier)
@@ -410,7 +410,7 @@ export async function getUserRebateSummary(env: Env, userId: string, phtDate: st
     return { date: phtDate, status: 'estimated', totalBet: 0, totalRebate: 0, currency, breakdown: [], tierBreakdown: [] }
   }
   const pool = getMysqlPool(env)
-  const today = todayPHT()
+  const today = todayPHT(currency)
   const isToday = phtDate === today
 
   if (isToday) {
@@ -434,7 +434,7 @@ export async function getUserRebateSummary(env: Env, userId: string, phtDate: st
          AND tl.currency = ?
          AND tl.created_at >= ? AND tl.created_at < ?
        GROUP BY COALESCE(tl.sort_category, 'other'), tl.currency`,
-      [level, userId, currency, ...phtDayUtcRange(phtDate)],
+      [level, userId, currency, ...phtDayUtcRange(phtDate, currency)],
     )
     const breakdown: RebateSummaryItem[] = rows.map((r) => {
       const betAmt = Number(r.bet_amount)
@@ -539,9 +539,15 @@ export async function removeFeaturedGame(env: Env, id: number): Promise<void> {
  * 不再自动入账，由用户在客户端手动领取（见 claimRebate）。按用户当前等级取分级费率。
  * 设计为幂等：已有 pending 记录会刷新到当前聚合值，paid 记录不再改写。
  */
-export async function runDailyRebateSettlement(env: Env, date: string): Promise<{ users: number; totalRebate: number }> {
+export async function runDailyRebateSettlement(
+  env: Env,
+  date: string,
+  opts: { currencies?: string[]; timezoneOffsetHours?: number } = {},
+): Promise<{ users: number; totalRebate: number }> {
   if (!isMysqlEnabled(env)) return { users: 0, totalRebate: 0 }
   const pool = getMysqlPool(env)
+  const currencies = opts.currencies ?? ['PHP', 'IDR', 'USDT', 'USDC']
+  const timezone = `${(opts.timezoneOffsetHours ?? 8) >= 0 ? '+' : '-'}${String(Math.abs(opts.timezoneOffsetHours ?? 8)).padStart(2, '0')}:00`
 
   await pool.query(
     `INSERT IGNORE INTO bg_rebate_record
@@ -584,20 +590,21 @@ export async function runDailyRebateSettlement(env: Env, date: string): Promise<
        ON lc.level = COALESCE(vs.current_level, ul.level, 1) AND lc.game_category = COALESCE(tl.sort_category, 'other')
           AND lc.currency = tl.currency AND lc.enabled = 1
      WHERE tl.is_reversed = 0
-       AND DATE(CONVERT_TZ(tl.created_at, '+00:00', '+08:00')) = ?
+       AND DATE(CONVERT_TZ(tl.created_at, '+00:00', ?)) = ?
+       AND tl.currency IN (${currencies.map(() => '?').join(', ')})
      GROUP BY tl.user_id, COALESCE(tl.sort_category, 'other'), tl.currency
      HAVING rebate_amount > 0
      ON DUPLICATE KEY UPDATE
        bet_amount = IF(status = 'pending', VALUES(bet_amount), bet_amount),
        rebate_amount = IF(status = 'pending', VALUES(rebate_amount), rebate_amount),
        rate_pct = IF(status = 'pending', VALUES(rate_pct), rate_pct)`,
-    [date, date],
+    [date, timezone, date, ...currencies],
   )
 
   const [[agg]] = await pool.query<RowDataPacket[]>(
     `SELECT COUNT(DISTINCT user_id) AS users, COALESCE(SUM(rebate_amount), 0) AS total
-     FROM bg_rebate_record WHERE date = ?`,
-    [date],
+     FROM bg_rebate_record WHERE date = ? AND currency_code IN (${currencies.map(() => '?').join(', ')})`,
+    [date, ...currencies],
   )
   return { users: Number(agg?.users ?? 0), totalRebate: Number(agg?.total ?? 0) }
 }

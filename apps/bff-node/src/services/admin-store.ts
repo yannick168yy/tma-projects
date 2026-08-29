@@ -427,7 +427,7 @@ export async function listAdminUsers(
 
 export async function listAdminDeposits(
   env: Env,
-  opts: { page: number; pageSize: number; userId?: string; status?: string; dateFrom?: Date; dateTo?: Date },
+  opts: { page: number; pageSize: number; userId?: string; status?: string; currency?: string; channel?: string; dateFrom?: Date; dateTo?: Date },
 ) {
   const offset = (opts.page - 1) * opts.pageSize
   const conditions: string[] = []
@@ -435,6 +435,8 @@ export async function listAdminDeposits(
 
   if (opts.userId) { conditions.push(`user_id = ?`); params.push(opts.userId) }
   if (opts.status) { conditions.push(`status = ?`); params.push(opts.status) }
+  if (opts.currency) { conditions.push(`currency = ?`); params.push(opts.currency) }
+  if (opts.channel) { conditions.push(`channel = ?`); params.push(opts.channel) }
   if (opts.dateFrom) { conditions.push(`created_at >= ?`); params.push(opts.dateFrom) }
   if (opts.dateTo) { conditions.push(`created_at <= ?`); params.push(opts.dateTo) }
 
@@ -1168,7 +1170,7 @@ export async function setMaintenanceMode(redis: Redis, env: Env, enabled: boolea
 
 export async function listAdminWithdrawals(
   env: Env,
-  opts: { page: number; pageSize: number; userId?: string; status?: string; reviewVerdict?: string },
+  opts: { page: number; pageSize: number; userId?: string; status?: string; reviewVerdict?: string; currency?: string; channel?: string },
 ) {
   const offset = (opts.page - 1) * opts.pageSize
   const conditions: string[] = []
@@ -1176,6 +1178,8 @@ export async function listAdminWithdrawals(
 
   if (opts.userId) { conditions.push(`user_id = ?`); params.push(opts.userId) }
   if (opts.status) { conditions.push(`status = ?`); params.push(opts.status) }
+  if (opts.currency) { conditions.push(`currency = ?`); params.push(opts.currency) }
+  if (opts.channel) { conditions.push(`channel = ?`); params.push(opts.channel) }
   if (opts.reviewVerdict === 'none') { conditions.push(`review_verdict IS NULL`) }
   else if (opts.reviewVerdict) { conditions.push(`review_verdict = ?`); params.push(opts.reviewVerdict) }
 

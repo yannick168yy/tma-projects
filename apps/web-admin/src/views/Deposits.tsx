@@ -22,6 +22,8 @@ export default function Deposits() {
   const isMobile = !screens.md
   const [userIdFilter, setUserIdFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState<string | undefined>()
+  const [currencyFilter, setCurrencyFilter] = useState<string | undefined>()
+  const [channelFilter, setChannelFilter] = useState('')
   const [dateRange, setDateRange] = useState<[Dayjs | null, Dayjs | null] | null>(null)
   const [loading, setLoading] = useState(false)
   const [items, setItems] = useState<AdminDeposit[]>([])
@@ -37,6 +39,8 @@ export default function Deposits() {
         pageSize: ps,
         userId: userIdFilter || undefined,
         status: statusFilter,
+        currency: currencyFilter,
+        channel: channelFilter || undefined,
         dateFrom: dateRange?.[0]?.toISOString(),
         dateTo: dateRange?.[1]?.toISOString(),
       })
@@ -73,6 +77,8 @@ export default function Deposits() {
           { value: 'failed', label: '失败' }, { value: 'cancelled', label: '已取消' },
           { value: 'rejected', label: '已拒绝' },
         ]} />
+        <Select value={currencyFilter} placeholder="币种" allowClear style={{ width: 110 }} onChange={setCurrencyFilter} options={['IDR', 'PHP', 'USDT', 'USDC'].map((value) => ({ value, label: value }))} />
+        <Input value={channelFilter} onChange={(e) => setChannelFilter(e.target.value)} placeholder="渠道，如 unispay_qris" style={{ width: 190 }} allowClear />
         <RangePicker
           value={dateRange}
           showTime

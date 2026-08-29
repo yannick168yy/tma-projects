@@ -1,11 +1,12 @@
 import type { Pool, PoolConnection, RowDataPacket, ResultSetHeader } from 'mysql2/promise'
 import type { Env } from '../config/env.js'
+import { toIdrHundred } from '../utils/idr.js'
 import { getMysqlPool, isMysqlEnabled } from '../clients/mysql.client.js'
 import { getRedis } from '../clients/redis.client.js'
 import { creditWallet, listUserIdentities, getUser } from './store/mysql-store.js'
 import { createPromoRequirement } from './turnover.service.js'
 import { manilaToday, getCheckinStatus } from './checkin.service.js'
-import { getPromoConfig } from './promo-config.service.js'
+import { getPromoConfig, promoAmountByCurrency } from './promo-config.service.js'
 import { ensureBirthdayFromKyc } from './vip.service.js'
 
 // ───────────────────────── 任务定义（硬编码，一期不做 def 表） ─────────────────────────
@@ -123,7 +124,7 @@ async function readSetting(env: Env, key: string): Promise<string | null> {
 }
 
 /** 留存类币种：拉新一次性任务固定 PHP，仅这几个币种有独立留存任务配置 */
-export const TASK_CURRENCIES = ['PHP', 'USDT', 'USDC'] as const
+export const TASK_CURRENCIES = ['PHP', 'IDR', 'USDT', 'USDC'] as const
 /** USDT/USDC 未配置时的默认起点：PHP 金额型字段 ÷ 此值（仿 VIP/首充，后台可再调） */
 const TASK_FX_SEED = 58
 
@@ -156,21 +157,43 @@ function scaleCfgToCurrency(php: TaskConfig, currency: string): TaskConfig {
   return out
 }
 
-/** 读取指定币种的任务配置（daily 留存任务用；once 拉新任务固定读 PHP） */
+function idrCfgFromPhp(php: TaskConfig): TaskConfig {
+  const out: TaskConfig = {}
+  for (const [id, c] of Object.entries(php)) {
+    out[id] = {
+      ...c,
+      currency: 'IDR',
+      amount: toIdrHundred(c.amount),
+      minStake: toIdrHundred(c.minStake),
+      threshold: thresholdIsMoney(id) ? toIdrHundred(c.threshold) : c.threshold,
+    }
+  }
+  return out
+}
+
+/** 读取指定币种的任务配置；每日与一次性任务均按币种独立发奖。 */
 export async function getTaskConfig(env: Env, currency = 'PHP'): Promise<TaskConfig> {
   if (!isMysqlEnabled(env)) return sanitizeTaskConfig(scaleIfStable(DEFAULT_TASK_CONFIG, currency))
   try {
     const raw = await readSetting(env, TASK_CONFIG_KEY)
     const nested = toNestedRaw(raw ? JSON.parse(raw) : {})
     if (currency === 'PHP') return sanitizeTaskConfig(nested.PHP ?? {})
-    if (nested[currency]) return sanitizeTaskConfig(nested[currency])
+    if (nested[currency]) {
+      const configured = sanitizeTaskConfig(nested[currency])
+      const hasIdrMoney = currency !== 'IDR' || Object.entries(configured).some(([id, c]) =>
+        c.amount > 0 || c.minStake > 0 || (thresholdIsMoney(id) && c.threshold > 0))
+      if (hasIdrMoney) return configured
+    }
+    if (currency === 'IDR') return idrCfgFromPhp(sanitizeTaskConfig(nested.PHP ?? {}))
     // 该稳定币未单独配置 → 从 PHP 配置 ÷FX 派生默认（后台保存后即持久化独立值）
     return scaleCfgToCurrency(sanitizeTaskConfig(nested.PHP ?? {}), currency)
   } catch { return sanitizeTaskConfig(scaleIfStable(DEFAULT_TASK_CONFIG, currency)) }
 }
 
 function scaleIfStable(php: TaskConfig, currency: string): TaskConfig {
-  return currency === 'PHP' ? php : scaleCfgToCurrency(php, currency)
+  if (currency === 'PHP') return php
+  if (currency === 'IDR') return idrCfgFromPhp(php)
+  return scaleCfgToCurrency(php, currency)
 }
 
 /** 保存指定币种的任务配置（其余币种保持不变；首次保存自动把旧扁平结构迁为嵌套） */
@@ -196,9 +219,10 @@ function periodKey(def: NativeTaskDef, today: string): string {
 
 /** 当日成功充值累计额（马尼拉日，限定币种） */
 async function todayDepositTotal(pool: Pool, userId: string, date: string, currency: string): Promise<number> {
+  const offsetHours = currency === 'IDR' ? 7 : 8
   const [[row]] = await pool.query<RowDataPacket[]>(
     `SELECT COALESCE(SUM(amount), 0) AS total FROM bg_deposit_order
-     WHERE user_id = ? AND status = 'paid' AND currency = ? AND DATE(created_at + INTERVAL 8 HOUR) = ?`,
+     WHERE user_id = ? AND status = 'paid' AND currency = ? AND DATE(created_at + INTERVAL ${offsetHours} HOUR) = ?`,
     [userId, currency, date],
   )
   return Number(row?.total ?? 0)
@@ -214,10 +238,11 @@ async function hasBet(pool: Pool, userId: string): Promise<boolean> {
 
 /** 当日有效投注笔数（单笔 ≥ minStake 才计数，马尼拉日，限定币种） */
 async function todayBetCount(pool: Pool, userId: string, date: string, minStake: number, currency: string): Promise<number> {
+  const offsetHours = currency === 'IDR' ? 7 : 8
   const [[row]] = await pool.query<RowDataPacket[]>(
     `SELECT COUNT(*) AS n FROM bg_bet_order
      WHERE user_id = ? AND bet_type = 'bet' AND currency_code = ? AND amount >= ?
-       AND DATE(created_at + INTERVAL 8 HOUR) = ?`,
+       AND DATE(created_at + INTERVAL ${offsetHours} HOUR) = ?`,
     [userId, currency, Math.max(0, minStake), date],
   )
   return Number(row?.n ?? 0)
@@ -226,12 +251,13 @@ async function todayBetCount(pool: Pool, userId: string, date: string, minStake:
 /** 当日指定 site_category 的投注局数（bet.provider_id = 568win game_id，限定币种） */
 async function todayCategoryBetCount(pool: Pool, userId: string, date: string, category: string, currency: string): Promise<number> {
   if (!category) return 0
+  const offsetHours = currency === 'IDR' ? 7 : 8
   const [[row]] = await pool.query<RowDataPacket[]>(
     `SELECT COUNT(DISTINCT b.id) AS n FROM bg_bet_order b
      JOIN bg_568win_game g ON g.game_id = b.provider_id
      LEFT JOIN bg_568win_game_override o ON o.game_provider_id = g.game_provider_id AND o.game_id = g.game_id
      WHERE b.user_id = ? AND b.bet_type = 'bet' AND b.currency_code = ?
-       AND DATE(b.created_at + INTERVAL 8 HOUR) = ?
+       AND DATE(b.created_at + INTERVAL ${offsetHours} HOUR) = ?
        AND COALESCE(o.site_category, g.site_category_auto, 'other') = ?`,
     [userId, currency, date, category],
   )
@@ -265,7 +291,9 @@ async function evalTask(
   memo: { depositTotal?: number } = {},
 ): Promise<TaskEval> {
   const pool = getMysqlPool(env)
-  const today = manilaToday()
+  const today = currency === 'IDR'
+    ? new Date(Date.now() + 7 * 3600000).toISOString().slice(0, 10)
+    : manilaToday()
   // 每日留存类按币种判定；一次性拉新类（profile/first_game/invite）与币种无关
   if (def.id.startsWith('daily_deposit_t')) {
     memo.depositTotal ??= await todayDepositTotal(pool, userId, today, currency)
@@ -397,6 +425,7 @@ interface SocialRow {
   redeem_code: string
   reward_type: RewardType
   currency: string
+  reward_by_currency: Record<string, number> | string | null
   reward_amount: number
   reward_spin: number
   turnover_x: number
@@ -408,7 +437,19 @@ async function loadSocialConfigs(pool: Pool, onlyEnabled: boolean): Promise<Soci
   const [rows] = await pool.query<RowDataPacket[]>(
     `SELECT * FROM bg_task_social ${onlyEnabled ? 'WHERE enabled = 1' : ''} ORDER BY sort ASC`,
   )
-  return rows as unknown as SocialRow[]
+  return rows.map((row) => ({
+    ...row,
+    reward_by_currency: typeof row.reward_by_currency === 'string'
+      ? JSON.parse(row.reward_by_currency)
+      : row.reward_by_currency,
+  })) as unknown as SocialRow[]
+}
+
+function socialRewardAmount(row: SocialRow, currency: string): number {
+  const raw = typeof row.reward_by_currency === 'string'
+    ? JSON.parse(row.reward_by_currency) as Record<string, number>
+    : row.reward_by_currency
+  return Number(raw?.[currency] ?? row.reward_amount)
 }
 
 export interface TaskCenter {
@@ -447,12 +488,13 @@ async function computeTaskCenter(env: Env, userId: string, currency: string): Pr
   const empty: TaskCenter = { groups: { newbie: [], daily: [], achievement: [], social: [] } }
   if (!isMysqlEnabled(env)) return empty
   const pool = getMysqlPool(env)
-  // daily 留存任务用当前币种配置；once 拉新任务固定 PHP 配置
+  // 每日与一次性任务均使用当前币种配置，避免印尼用户领取到 PHP 钱包。
   const cfgCur = await getTaskConfig(env, currency)
-  const cfgPhp = currency === 'PHP' ? cfgCur : await getTaskConfig(env, 'PHP')
-  const cfgFor = (def: NativeTaskDef) => (def.period === 'once' ? cfgPhp : cfgCur)
-  const curFor = (def: NativeTaskDef) => (def.period === 'once' ? 'PHP' : currency)
-  const today = manilaToday()
+  const cfgFor = (_def: NativeTaskDef) => cfgCur
+  const curFor = (_def: NativeTaskDef) => currency
+  const today = currency === 'IDR'
+    ? new Date(Date.now() + 7 * 3600000).toISOString().slice(0, 10)
+    : manilaToday()
 
   const nativeEnabled = NATIVE_TASKS.filter((d) => cfgFor(d)[d.id]?.enabled)
   const claimed = await claimedPeriods(pool, userId, nativeEnabled.map((d) => d.id))
@@ -505,7 +547,7 @@ async function computeTaskCenter(env: Env, userId: string, currency: string): Pr
     return {
       id: s.task_key, group: 'social', title: s.title, subtitle: s.subtitle,
       status: done ? 'done' : 'claimable',
-      reward: { type: s.reward_type, amount: Number(s.reward_amount), spin: Number(s.reward_spin), currency: s.currency, turnoverX: Number(s.turnover_x) },
+      reward: { type: s.reward_type, amount: socialRewardAmount(s, currency), spin: Number(s.reward_spin), currency, turnoverX: Number(s.turnover_x) },
       action: { kind, url: s.action_url || undefined, verifyStrategy: s.verify_strategy },
     }
   })
@@ -514,7 +556,7 @@ async function computeTaskCenter(env: Env, userId: string, currency: string): Pr
   for (const card of cards) out.groups[card.group].push(card)
 
   // 聚合层：把散落的老模块（签到/trial/appdl/首充/生日）读现状串成任务卡（display-only，跳各自入口）
-  const agg = await buildAggregatedCards(env, userId)
+  const agg = await buildAggregatedCards(env, userId, currency)
   out.groups.newbie.push(...agg.newbie)
   out.groups.daily.unshift(...agg.daily)         // 签到置每日区首位
   out.groups.achievement.push(...agg.achievement)
@@ -526,14 +568,14 @@ async function computeTaskCenter(env: Env, userId: string, currency: string): Pr
 }
 
 /** 聚合老模块 → 任务卡（每块独立 try/catch，单块失败不拖垮整个任务中心） */
-async function buildAggregatedCards(env: Env, userId: string): Promise<{ newbie: TaskCard[]; daily: TaskCard[]; achievement: TaskCard[] }> {
+async function buildAggregatedCards(env: Env, userId: string, currency: string): Promise<{ newbie: TaskCard[]; daily: TaskCard[]; achievement: TaskCard[] }> {
   const pool = getMysqlPool(env)
   const newbie: TaskCard[] = []
   const daily: TaskCard[] = []
   const achievement: TaskCard[] = []
 
   const zeroReward = (type: RewardType, amount = 0, spin = 0): TaskCard['reward'] =>
-    ({ type, amount, spin, currency: 'PHP', turnoverX: 0 })
+    ({ type, amount, spin, currency, turnoverX: 0 })
   const aggCard = (id: string, title: string, subtitle: string, done: boolean, target: string, reward: TaskCard['reward'], group: TaskGroup, progress?: TaskCard['progress']): TaskCard =>
     ({ id, group, title, subtitle, status: done ? 'done' : 'claimable', reward, progress, action: { kind: 'open_module', target } })
 
@@ -541,15 +583,14 @@ async function buildAggregatedCards(env: Env, userId: string): Promise<{ newbie:
   const promo = await getPromoConfig(env).catch(() => null)
 
   if (promo?.trial.enabled) {
-    newbie.push(aggCard('agg_trial', '领取新手体验金', '登录即可一键领取，无需充值', Boolean(user?.trialClaimed), 'trial_bonus', zeroReward('cash', promo.trial.amount), 'newbie'))
+    newbie.push(aggCard('agg_trial', '领取新手体验金', '登录即可一键领取，无需充值', Boolean(user?.trialClaimed), 'trial_bonus', zeroReward('cash', promoAmountByCurrency(promo.trial, currency)), 'newbie'))
   }
   if (promo?.appdl.enabled) {
     const [[c]] = await pool.query<RowDataPacket[]>('SELECT 1 AS ok FROM bg_app_download_claim WHERE user_id = ? LIMIT 1', [userId])
-    newbie.push(aggCard('agg_appdl', '下载 App 领礼金', '安装 App / PWA 一次性奖励', Boolean(c), 'app_download', zeroReward('cash', promo.appdl.amount), 'newbie'))
+    newbie.push(aggCard('agg_appdl', '下载 App 领礼金', '安装 App / PWA 一次性奖励', Boolean(c), 'app_download', zeroReward('cash', promoAmountByCurrency(promo.appdl, currency)), 'newbie'))
   }
   if (promo?.firstdep.enabled) {
-    // 按钮展示奖励额：取 PHP 档位最高彩金（首充最高可得），拉新活动固定 PHP
-    const firstdepMax = Math.max(0, ...(promo.firstdep.tiers.PHP ?? []).map((t) => t.bonusAmount))
+    const firstdepMax = Math.max(0, ...(promo.firstdep.tiers[currency] ?? promo.firstdep.tiers.PHP ?? []).map((t) => t.bonusAmount))
     newbie.push(aggCard('agg_firstdep', '完成首充', '首次充值即得彩金', Boolean(user?.firstDepClaimed), 'deposit', zeroReward('cash', firstdepMax), 'newbie'))
   }
   // 生日只来自 KYC 证件：未设置时引导去实名认证，KYC 已通过的历史用户在 ensure 内懒回填
@@ -590,8 +631,7 @@ export async function claimTask(env: Env, userId: string, taskId: string, curren
   if (!isMysqlEnabled(env)) throw new Error('storage unavailable')
   const def = NATIVE_BY_ID.get(taskId)
   if (!def) throw new Error('unknown task')
-  // daily 留存任务按传入币种；once 拉新任务固定 PHP
-  const effCur = def.period === 'once' ? 'PHP' : currency
+  const effCur = currency
   const cfg = await getTaskConfig(env, effCur)
   const c = cfg[taskId]
   if (!c?.enabled) throw new Error('disabled')
@@ -600,7 +640,10 @@ export async function claimTask(env: Env, userId: string, taskId: string, curren
   if (!eligible) throw new Error('not eligible')
 
   const pool = getMysqlPool(env)
-  const pk = periodKey(def, manilaToday())
+  const businessToday = effCur === 'IDR'
+    ? new Date(Date.now() + 7 * 3600000).toISOString().slice(0, 10)
+    : manilaToday()
+  const pk = periodKey(def, businessToday)
   const conn = await pool.getConnection()
   try {
     await conn.beginTransaction()
@@ -652,7 +695,7 @@ async function tgIsMember(env: Env, channelRef: string, tgId: string): Promise<b
   } catch { return false }
 }
 
-export interface SocialClaimInput { code?: string; screenshotUrl?: string; ip?: string }
+export interface SocialClaimInput { code?: string; screenshotUrl?: string; ip?: string; currency?: string }
 export interface SocialClaimResult { status: 'claimed' | 'pending_review'; reward?: RewardSpec }
 
 /**
@@ -669,6 +712,7 @@ export async function claimSocialTask(env: Env, userId: string, taskKey: string,
   )
   if (!row) throw new Error('unknown task')
   const s = row as unknown as SocialRow
+  const currency = input.currency || 'PHP'
 
   const [[already]] = await pool.query<RowDataPacket[]>(
     `SELECT 1 AS ok FROM bg_task_social_claim WHERE user_id = ? AND task_key = ? LIMIT 1`, [userId, taskKey],
@@ -692,8 +736,8 @@ export async function claimSocialTask(env: Env, userId: string, taskKey: string,
     }
     case 'manual_review': {
       await pool.execute(
-        `INSERT INTO bg_task_manual_review (user_id, task_key, screenshot_url) VALUES (?,?,?)`,
-        [userId, taskKey, (input.screenshotUrl ?? '').slice(0, 512)],
+        `INSERT INTO bg_task_manual_review (user_id, task_key, currency, screenshot_url) VALUES (?,?,?,?)`,
+        [userId, taskKey, currency, (input.screenshotUrl ?? '').slice(0, 512)],
       )
       return { status: 'pending_review' }
     }
@@ -708,8 +752,8 @@ export async function claimSocialTask(env: Env, userId: string, taskKey: string,
   if (res.affectedRows === 0) throw new Error('already claimed')
 
   const reward: RewardSpec = {
-    type: s.reward_type, amount: Number(s.reward_amount), spin: Number(s.reward_spin),
-    turnoverX: Number(s.turnover_x), currency: s.currency,
+    type: s.reward_type, amount: socialRewardAmount(s, currency), spin: Number(s.reward_spin),
+    turnoverX: Number(s.turnover_x), currency,
   }
   await grantReward(env, userId, reward, `social:${taskKey}`)
   await invalidateTaskCenter(env, userId)
@@ -727,10 +771,10 @@ export async function adminSaveSocialConfig(env: Env, key: string, patch: Partia
   const pool = getMysqlPool(env)
   const fields: string[] = []
   const vals: (string | number)[] = []
-  const allow: (keyof SocialRow)[] = ['title', 'subtitle', 'action_url', 'channel_ref', 'redeem_code', 'reward_type', 'currency', 'reward_amount', 'reward_spin', 'turnover_x', 'enabled', 'sort', 'verify_strategy']
+  const allow: (keyof SocialRow)[] = ['title', 'subtitle', 'action_url', 'channel_ref', 'redeem_code', 'reward_type', 'currency', 'reward_by_currency', 'reward_amount', 'reward_spin', 'turnover_x', 'enabled', 'sort', 'verify_strategy']
   for (const f of allow) {
     const v = patch[f]
-    if (v !== undefined) { fields.push(`\`${f}\` = ?`); vals.push(v as string | number) }
+    if (v !== undefined) { fields.push(`\`${f}\` = ?`); vals.push(f === 'reward_by_currency' ? JSON.stringify(v) : v as string | number) }
   }
   if (fields.length === 0) return
   vals.push(key)
@@ -750,11 +794,12 @@ export async function adminReviewManual(env: Env, id: number, approve: boolean, 
   const pool = getMysqlPool(env)
   let rewardUserId: string | null = null
   let taskKey = ''
+  let rewardCurrency = 'PHP'
   const conn: PoolConnection = await pool.getConnection()
   try {
     await conn.beginTransaction()
     const [[rev]] = await conn.query<RowDataPacket[]>(
-      `SELECT user_id, task_key, status FROM bg_task_manual_review WHERE id = ? FOR UPDATE`, [id],
+      `SELECT user_id, task_key, currency, status FROM bg_task_manual_review WHERE id = ? FOR UPDATE`, [id],
     )
     if (!rev || rev.status !== 'pending') { await conn.rollback(); throw new Error('not pending') }
     await conn.execute(
@@ -770,6 +815,7 @@ export async function adminReviewManual(env: Env, id: number, approve: boolean, 
     await conn.commit()
     rewardUserId = approve ? String(rev.user_id) : null
     taskKey = String(rev.task_key)
+    rewardCurrency = String(rev.currency ?? 'PHP')
   } catch (e) {
     try { await conn.rollback() } catch { /* noop */ }
     throw e
@@ -782,8 +828,8 @@ export async function adminReviewManual(env: Env, id: number, approve: boolean, 
     if (s) {
       const row = s as unknown as SocialRow
       await grantReward(env, rewardUserId, {
-        type: row.reward_type, amount: Number(row.reward_amount), spin: Number(row.reward_spin),
-        turnoverX: Number(row.turnover_x), currency: row.currency,
+        type: row.reward_type, amount: socialRewardAmount(row, rewardCurrency), spin: Number(row.reward_spin),
+        turnoverX: Number(row.turnover_x), currency: rewardCurrency,
       }, `social:${taskKey}`)
     }
   }
