@@ -6,9 +6,10 @@ import { canNativeInstall, isIos, isInstalledApp, isInAppWebView, promptNativeIn
 import { reportInstallClick } from '@/api/attribution'
 import { useTranslation } from 'react-i18next'
 
+const APK_DOWNLOAD_ORIGIN = (import.meta.env.VITE_APK_DOWNLOAD_ORIGIN?.trim() || 'https://betogo.app').replace(/\/$/, '')
 const APK_DOWNLOAD_URLS = {
-  id: '/app/id/betogo.apk',
-  ph: '/app/ph/betogo.apk',
+  id: `${APK_DOWNLOAD_ORIGIN}/app/id/betogo.apk`,
+  ph: `${APK_DOWNLOAD_ORIGIN}/app/ph/betogo.apk`,
 } as const
 
 // 仿应用商店页，文案固定英文（面向 PH 用户，模拟 Play Store 不随站点语言切换）
