@@ -861,7 +861,7 @@ export const listWithdrawals = listOrderWithdrawals
 export async function recordUserLogin(
   env: Env,
   userId: string,
-  opts: { ip?: string; region?: string; userAgent?: string; authMethod?: string; deviceId?: string; fpVisitor?: string; fpSignals?: string; entrySource?: string; platform?: string; isNewUser?: boolean },
+  opts: { ip?: string; region?: string; userAgent?: string; authMethod?: string; deviceId?: string; fpVisitor?: string; fpSignals?: string; entrySource?: string; platform?: string; market?: 'PH' | 'ID'; isNewUser?: boolean },
 ): Promise<void> {
   const conn = await pool(env).getConnection()
   try {
@@ -874,9 +874,11 @@ export async function recordUserLogin(
            last_login_region = ?,
            last_platform = COALESCE(?, last_platform),
            register_device_id = COALESCE(register_device_id, ?),
-           register_entry_source = IF(? = 1, COALESCE(register_entry_source, ?), register_entry_source)
+           register_entry_source = IF(? = 1, COALESCE(register_entry_source, ?), register_entry_source),
+           market = IF(? = 1, ?, market)
        WHERE id = ?`,
-      [opts.ip ?? null, opts.region ?? null, opts.platform ?? null, opts.deviceId ?? null, opts.isNewUser ? 1 : 0, opts.entrySource ?? null, userId],
+      [opts.ip ?? null, opts.region ?? null, opts.platform ?? null, opts.deviceId ?? null,
+       opts.isNewUser ? 1 : 0, opts.entrySource ?? null, opts.isNewUser ? 1 : 0, opts.market ?? 'PH', userId],
     )
     await conn.execute(
       `INSERT INTO bg_login_log (user_id, ip, region, user_agent, auth_method, entry_source, platform, device_id, fp_visitor, fp_signals) VALUES (?,?,?,?,?,?,?,?,?,?)`,

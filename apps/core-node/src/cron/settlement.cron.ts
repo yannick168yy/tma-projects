@@ -1,8 +1,9 @@
 import type { FastifyInstance } from 'fastify'
 import type { RowDataPacket } from 'mysql2/promise'
-import { runDailySettlement } from '../routes/internal.routes.js'
+import { runDailySettlement, type TeamMarket } from '../routes/internal.routes.js'
 
 const PHT_OFFSET_MS = 8 * 60 * 60 * 1000
+const ID_OFFSET_MS = 7 * 60 * 60 * 1000
 
 // 每分钟检查，到达 settlement_hour 时结算前一天（PHT）
 export function startSettlementCron(app: FastifyInstance): void {
@@ -19,27 +20,28 @@ async function check(app: FastifyInstance) {
     )
     if (!cfg) return
 
-    const now    = new Date(Date.now() + PHT_OFFSET_MS)
-    const hour   = now.getUTCHours()
-    const minute = now.getUTCMinutes()
-
-    if (hour !== Number(cfg.settlement_hour ?? 3) || minute !== 0) return
-
-    // 结算 PHT 前一天
-    const prev = new Date(Date.now() + PHT_OFFSET_MS - 24 * 60 * 60 * 1000)
-    const date = prev.toISOString().slice(0, 10)
-
-    if (cfg.last_auto_settlement === date) return
-
-    // 先标记防并发重入
-    await db.execute(
-      `UPDATE bg_team_config SET last_auto_settlement = ? WHERE id = 1`,
-      [date],
-    )
-
-    app.log.info({ date }, '[settlement-cron] triggering daily settlement (force=true)')
-    await runDailySettlement(app, date, true)
-    app.log.info({ date }, '[settlement-cron] done')
+    const settlementHour = Number(cfg.settlement_hour ?? 3)
+    for (const item of [
+      { market: 'PH' as TeamMarket, offsetMs: PHT_OFFSET_MS },
+      { market: 'ID' as TeamMarket, offsetMs: ID_OFFSET_MS },
+    ]) {
+      const now = new Date(Date.now() + item.offsetMs)
+      if (now.getUTCHours() !== settlementHour || now.getUTCMinutes() !== 0) continue
+      const date = new Date(Date.now() + item.offsetMs - 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+      const [[state]] = await db.query<RowDataPacket[]>(
+        `SELECT last_auto_settlement FROM bg_team_settlement_state WHERE market = ? LIMIT 1`,
+        [item.market],
+      )
+      if (state?.last_auto_settlement === date) continue
+      await db.execute(
+        `INSERT INTO bg_team_settlement_state (market, last_auto_settlement) VALUES (?, ?)
+         ON DUPLICATE KEY UPDATE last_auto_settlement = VALUES(last_auto_settlement)`,
+        [item.market, date],
+      )
+      app.log.info({ date, market: item.market }, '[settlement-cron] triggering daily settlement (force=true)')
+      await runDailySettlement(app, date, true, item.market)
+      app.log.info({ date, market: item.market }, '[settlement-cron] done')
+    }
   } catch (err) {
     app.log.error({ err }, '[settlement-cron] check failed')
   }

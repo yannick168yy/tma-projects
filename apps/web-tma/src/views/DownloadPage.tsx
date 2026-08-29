@@ -4,11 +4,12 @@ import InstallGuideSheet from '@/components/pwa/InstallGuideSheet'
 import ApkInstallGuideSheet from '@/components/pwa/ApkInstallGuideSheet'
 import { canNativeInstall, isIos, isInstalledApp, isInAppWebView, promptNativeInstall } from '@/utils/pwa'
 import { reportInstallClick } from '@/api/attribution'
+import { useTranslation } from 'react-i18next'
 
-// 相对路径：跟随当前域名（测试 188facai / 生产 betogo.games 各自的 /app/betogo.apk），
-// 别写死域名，否则生产会从测试站下包。为空时 Android 退回 PWA 安装过渡方案。
-// ⚠️ 生产站要单独把 APK 放到 /app/betogo.apk，否则生产点下载会 404。
-const APK_DOWNLOAD_URL = '/app/betogo.apk'
+const APK_DOWNLOAD_URLS = {
+  id: '/app/id/betogo.apk',
+  ph: '/app/ph/betogo.apk',
+} as const
 
 // 仿应用商店页，文案固定英文（面向 PH 用户，模拟 Play Store 不随站点语言切换）
 const SCREENSHOTS = [
@@ -105,6 +106,9 @@ function Stars({ n, size = 12 }: { n: number; size?: number }) {
 }
 
 export default function DownloadPage({ onClose }: { onClose: () => void }) {
+  const { i18n } = useTranslation()
+  const apkMarket = i18n.resolvedLanguage?.toLowerCase().startsWith('id') ? 'id' : 'ph'
+  const apkDownloadUrl = APK_DOWNLOAD_URLS[apkMarket]
   const [phase, setPhase] = useState<'idle' | 'installing' | 'done'>('idle')
   const [progress, setProgress] = useState(0)
   const [guideOpen, setGuideOpen] = useState(false)
@@ -135,10 +139,10 @@ export default function DownloadPage({ onClose }: { onClose: () => void }) {
       }
       // Android 主路径：触发 APK 下载，同时弹安装引导教用户过 Play Protect 拦截。
       // 用 <a download> 而非 location.href —— 后者会发起页面导航把当前页(和引导弹窗)冲掉
-      if (APK_DOWNLOAD_URL) {
+      if (apkDownloadUrl) {
         const a = document.createElement('a')
-        a.href = APK_DOWNLOAD_URL
-        a.download = 'betogo.apk'
+        a.href = apkDownloadUrl
+        a.download = `betogo-${apkMarket}.apk`
         document.body.appendChild(a)
         a.click()
         a.remove()

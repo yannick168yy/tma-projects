@@ -577,16 +577,40 @@ describe('团队日结', () => {
 
     await runDailySettlement({ mysql: pool, log: { info() {}, warn() {}, error() {} } } as unknown as FastifyInstance, '2026-06-28', false)
 
-    assert.equal(pool.executes.some((e) => e.sql.includes('INSERT INTO bg_team_turnover_daily') && e.params?.[3] === 10000), true)
+    assert.equal(pool.executes.some((e) => e.sql.includes('INSERT INTO bg_team_turnover_daily') && e.params?.[3] === 'PH' && e.params?.[4] === 10000), true)
     const commissionParams = pool.executes
       .filter((e) => e.sql.includes('INSERT INTO bg_team_commission'))
       .map((e) => e.params)
     assert.equal(commissionParams.length, 2)
-    assert.deepEqual(commissionParams[0]?.slice(0, 9), ['A1', 'U1', 1, '2026-06-28', 10000, 10, 1000, 1000, JSON.stringify([{ currency: 'PHP', betCents: 10000, fxRate: 1 }])])
-    assert.deepEqual(commissionParams[1]?.slice(0, 9), ['A2', 'U1', 2, '2026-06-28', 10000, 5, 500, 500, JSON.stringify([{ currency: 'PHP', betCents: 10000, fxRate: 1 }])])
+    assert.deepEqual(commissionParams[0]?.slice(0, 10), ['A1', 'U1', 1, '2026-06-28', 'PH', 10000, 10, 1000, 1000, JSON.stringify([{ currency: 'PHP', betCents: 10000, fxRate: 1 }])])
+    assert.deepEqual(commissionParams[1]?.slice(0, 10), ['A2', 'U1', 2, '2026-06-28', 'PH', 10000, 5, 500, 500, JSON.stringify([{ currency: 'PHP', betCents: 10000, fxRate: 1 }])])
     assert.equal(pool.executes.filter((e) => e.sql.includes('INSERT IGNORE INTO bg_team_wallet')).length, 2)
     assert.equal(pool.executes.filter((e) => e.sql.includes('UPDATE bg_team_wallet') && e.sql.includes('available_cents')).length, 2)
     assert.equal(pool.executes.some((e) => e.sql.includes("UPDATE bg_team_commission SET status='paid'")), true)
     assert.equal(pool.executes.some((e) => e.sql.includes('UPDATE bg_team_turnover_daily SET settled=1')), true)
+  })
+
+  it('印尼市场按 UTC+7 切分业务日并过滤印尼用户', async () => {
+    const { runDailySettlement } = await import('../routes/internal.routes.js')
+    const pool = createPool({
+      query(sql) {
+        if (sql.includes('SELECT COUNT(*) AS cnt')) return [[{ cnt: 0 }]]
+        return [[]]
+      },
+    })
+
+    await runDailySettlement(
+      { mysql: pool, log: { info() {}, warn() {}, error() {} } } as unknown as FastifyInstance,
+      '2026-06-28',
+      false,
+      'ID',
+    )
+
+    const betQuery = pool.queries.find((item) => item.sql.includes('FROM bg_bet_order'))
+    assert.deepEqual(betQuery?.params, [
+      new Date('2026-06-27T17:00:00.000Z'),
+      new Date('2026-06-28T17:00:00.000Z'),
+      'ID',
+    ])
   })
 })

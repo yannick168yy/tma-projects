@@ -268,9 +268,9 @@ router.get('/commissions', async (ctx) => {
   ok(ctx, { total: Number(total), page, pageSize, items: rows })
 })
 
-// POST /admin/team/settle  { date: YYYY-MM-DD, force?: boolean }
+// POST /admin/team/settle  { date: YYYY-MM-DD, force?: boolean, market?: PH|ID }
 router.post('/settle', async (ctx) => {
-  const body  = ctx.request.body as { date?: string; force?: boolean }
+  const body  = ctx.request.body as { date?: string; force?: boolean; market?: 'PH' | 'ID' }
   const date  = body?.date ?? yesterdayDate()
   const force = Boolean(body?.force ?? false)
 
@@ -281,10 +281,10 @@ router.post('/settle', async (ctx) => {
   const res = await fetch(`${ctx.state.env.CORE_NODE_URL}/internal/team/settle`, {
     method:  'POST',
     headers: { 'Content-Type': 'application/json', 'X-Internal-Token': ctx.state.env.INTERNAL_TOKEN },
-    body:    JSON.stringify({ date, force }),
+    body:    JSON.stringify({ date, force, market: body.market }),
   })
   if (!res.ok) { fail(ctx, 502, 'core-node settlement trigger failed'); return }
-  ok(ctx, { message: `settlement triggered for ${date}`, force })
+  ok(ctx, { message: `settlement triggered for ${date}`, force, markets: body.market ? [body.market] : ['PH', 'ID'] })
 })
 
 // GET /admin/team/withdrawals?status=&page=1

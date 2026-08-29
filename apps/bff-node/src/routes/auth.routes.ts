@@ -35,7 +35,7 @@ async function loginRiskDenied(ctx: import('koa').Context, userId: string, ip: s
 const CLIENT_PLATFORMS = new Set(['web', 'app', 'pwa', 'telegram'])
 
 // 从请求头提取设备指纹（前端 client.ts 统一注入）。全部非致命，缺失即降级
-function fingerprint(ctx: import('koa').Context): { deviceId?: string; fpVisitor?: string; fpSignals?: string; platform?: string } {
+function fingerprint(ctx: import('koa').Context): { deviceId?: string; fpVisitor?: string; fpSignals?: string; platform?: string; market: 'PH' | 'ID' } {
   const deviceId = ctx.get('x-device-id') || undefined
   const fpVisitor = ctx.get('x-fp-visitor') || undefined
   const rawPlatform = ctx.get('x-platform')
@@ -51,7 +51,7 @@ function fingerprint(ctx: import('koa').Context): { deviceId?: string; fpVisitor
       /* 忽略非法指纹信号 */
     }
   }
-  return { deviceId, fpVisitor, fpSignals, platform }
+  return { deviceId, fpVisitor, fpSignals, platform, market: siteMarket(ctx) }
 }
 
 // Cloudflare Turnstile 服务端校验。密钥未配置时不启用；校验失败/网络异常一律拒绝
@@ -85,6 +85,15 @@ function entrySource(ctx: import('koa').Context, forceTma = false): string | und
   return hostFromHeader(ctx.get('origin'))
     ?? hostFromHeader(ctx.get('referer'))
     ?? hostFromHeader(ctx.get('host'))
+}
+
+function siteMarket(ctx: import('koa').Context): 'PH' | 'ID' {
+  const header = ctx.get('x-site-market').toUpperCase()
+  if (header === 'ID' || header === 'PH') return header
+  const host = entrySource(ctx)?.toLowerCase()
+  return host && ['betogo.xyz', 'betogo.vip', 'betogo888.com', 'betogo.cc'].some((domain) => host === domain || host === `www.${domain}`)
+    ? 'ID'
+    : 'PH'
 }
 
 // 新注册用户的归因：按来源域名归代理 + 落广告投放来源并发注册转化事件。

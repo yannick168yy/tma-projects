@@ -11,6 +11,8 @@ import { applyDepositPromos } from '../services/deposit-promo.service.js'
 import { sendRegistrationConversion } from '../services/capi.service.js'
 
 const PHT_OFFSET_MS = 8 * 60 * 60 * 1000
+const ID_OFFSET_MS = 7 * 60 * 60 * 1000
+export type TeamMarket = 'PH' | 'ID'
 
 // 共用：首充激活
 export async function tryActivateTeamNode(
@@ -262,16 +264,20 @@ export async function internalRoutes(app: FastifyInstance) {
     }
   })
 
-  // POST /internal/team/settle  { date: YYYY-MM-DD, force?: boolean }
-  app.post<{ Body: { date: string; force?: boolean } }>('/internal/team/settle', async (req, reply) => {
-    const { date, force = false } = req.body
+  // POST /internal/team/settle  { date: YYYY-MM-DD, force?: boolean, market?: PH|ID }
+  app.post<{ Body: { date: string; force?: boolean; market?: TeamMarket } }>('/internal/team/settle', async (req, reply) => {
+    const { date, force = false, market } = req.body
     if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
       return reply.status(400).send({ code: 400, message: 'date 格式应为 YYYY-MM-DD' })
     }
-    runDailySettlement(app, date, force).catch((err: unknown) =>
-      app.log.error({ err, date }, '[daily-settle] failed'),
-    )
-    return reply.send({ code: 0, message: 'settlement triggered', date })
+    const markets: TeamMarket[] = market ? [market] : ['PH', 'ID']
+    if (market && market !== 'PH' && market !== 'ID') {
+      return reply.status(400).send({ code: 400, message: 'market 应为 PH 或 ID' })
+    }
+    void (async () => {
+      for (const item of markets) await runDailySettlement(app, date, force, item)
+    })().catch((err: unknown) => app.log.error({ err, date, markets }, '[daily-settle] failed'))
+    return reply.send({ code: 0, message: 'settlement triggered', date, markets })
   })
 
   // POST /internal/team/withdrawal/approve
@@ -330,7 +336,7 @@ export async function internalRoutes(app: FastifyInstance) {
 }
 
 // ── 每日流水结算引擎 ──────────────────────────────────────────────────────────
-export async function runDailySettlement(app: FastifyInstance, date: string, force = false): Promise<void> {
+export async function runDailySettlement(app: FastifyInstance, date: string, force = false, market: TeamMarket = 'PH'): Promise<void> {
   const db = app.mysql
 
   // 覆盖模式：先回滚已入账佣金，再删旧记录
@@ -343,9 +349,9 @@ export async function runDailySettlement(app: FastifyInstance, date: string, for
               tw.available_cents, tw.frozen_cents
        FROM bg_team_commission tc
        JOIN bg_team_wallet tw ON tw.user_id = tc.beneficiary_id AND tw.currency = 'PHP'
-       WHERE tc.period = ? AND tc.status = 'paid'
+       WHERE tc.period = ? AND tc.market = ? AND tc.status = 'paid'
        GROUP BY tc.beneficiary_id, tw.available_cents, tw.frozen_cents`,
-      [date],
+      [date, market],
     )
     for (const row of paidRows) {
       const total     = Number(row.total_php)
@@ -360,7 +366,7 @@ export async function runDailySettlement(app: FastifyInstance, date: string, for
       if (alreadyOut > 0) {
         withdrawnMap.set(String(row.beneficiary_id), alreadyOut)
         app.log.warn(
-          { beneficiaryId: row.beneficiary_id, alreadyOut, date },
+          { beneficiaryId: row.beneficiary_id, alreadyOut, date, market },
           '[daily-settle] partial rollback: commission already withdrawn, re-settle will credit net delta only',
         )
       }
@@ -374,12 +380,12 @@ export async function runDailySettlement(app: FastifyInstance, date: string, for
         [fromAvailable, fromFrozen, fromAvailable + fromFrozen, row.beneficiary_id],
       )
     }
-    await db.execute(`DELETE FROM bg_team_commission WHERE period = ?`, [date])
-    await db.execute(`DELETE FROM bg_team_turnover_daily WHERE date = ?`, [date])
-    app.log.info({ date }, '[daily-settle] existing data cleared for force re-run')
+    await db.execute(`DELETE FROM bg_team_commission WHERE period = ? AND market = ?`, [date, market])
+    await db.execute(`DELETE FROM bg_team_turnover_daily WHERE date = ? AND market = ?`, [date, market])
+    app.log.info({ date, market }, '[daily-settle] existing data cleared for force re-run')
   } else {
     const [[{ cnt }]] = await db.query<RowDataPacket[]>(
-      `SELECT COUNT(*) AS cnt FROM bg_team_commission WHERE period = ? LIMIT 1`, [date],
+      `SELECT COUNT(*) AS cnt FROM bg_team_commission WHERE period = ? AND market = ? LIMIT 1`, [date, market],
     )
     if (Number(cnt) > 0) {
       app.log.info({ date }, '[daily-settle] already settled, skip (use force=true to override)')
@@ -387,22 +393,24 @@ export async function runDailySettlement(app: FastifyInstance, date: string, for
     }
   }
 
-  app.log.info({ date, force }, '[daily-settle] start')
+  app.log.info({ date, force, market }, '[daily-settle] start')
 
-  // 按 PHT 日期范围切割
+  // 菲律宾按 UTC+8、印尼按 UTC+7 切各自业务日。
   const [y, m, d] = date.split('-').map(Number)
-  const startDate = new Date(Date.UTC(y, m - 1, d)     - PHT_OFFSET_MS)
-  const endDate   = new Date(Date.UTC(y, m - 1, d + 1) - PHT_OFFSET_MS)
+  const offsetMs = market === 'ID' ? ID_OFFSET_MS : PHT_OFFSET_MS
+  const startDate = new Date(Date.UTC(y, m - 1, d)     - offsetMs)
+  const endDate   = new Date(Date.UTC(y, m - 1, d + 1) - offsetMs)
 
   // 聚合当日投注流水（仅 bet，不减 win）
   const [bets] = await db.query<RowDataPacket[]>(
-    `SELECT user_id, COALESCE(currency_code, 'PHP') AS currency_code,
-       ROUND(SUM(amount) * 100) AS bet_cents
-     FROM bg_bet_order
-     WHERE created_at >= ? AND created_at < ?
-       AND bet_type = 'bet' AND status = 'settled'
-     GROUP BY user_id, currency_code`,
-    [startDate, endDate],
+    `SELECT b.user_id, COALESCE(b.currency_code, 'PHP') AS currency_code,
+       ROUND(SUM(b.amount) * 100) AS bet_cents
+     FROM bg_bet_order b
+     JOIN bg_user u ON u.id = b.user_id
+     WHERE b.created_at >= ? AND b.created_at < ? AND u.market = ?
+       AND b.bet_type = 'bet' AND b.status = 'settled'
+     GROUP BY b.user_id, b.currency_code`,
+    [startDate, endDate, market],
   )
 
   if (bets.length === 0) {
@@ -413,10 +421,10 @@ export async function runDailySettlement(app: FastifyInstance, date: string, for
   // 写 bg_team_turnover_daily（各币种原始流水）
   for (const row of bets) {
     await db.execute(
-      `INSERT INTO bg_team_turnover_daily (user_id, date, currency_code, bet_cents, settled)
-       VALUES (?, ?, ?, ?, 0)
+      `INSERT INTO bg_team_turnover_daily (user_id, date, currency_code, market, bet_cents, settled)
+       VALUES (?, ?, ?, ?, ?, 0)
        ON DUPLICATE KEY UPDATE bet_cents = VALUES(bet_cents), settled = 0`,
-      [row.user_id, date, row.currency_code, row.bet_cents],
+      [row.user_id, date, row.currency_code, market, row.bet_cents],
     )
   }
 
@@ -488,10 +496,10 @@ export async function runDailySettlement(app: FastifyInstance, date: string, for
 
       await db.execute(
         `INSERT INTO bg_team_commission
-           (beneficiary_id, from_user_id, level, period, currency,
+           (beneficiary_id, from_user_id, level, period, currency, market,
             turnover_cents, ggr_cents, rate_pct, commission_cents,
             fx_rate, php_equivalent_cents, currency_breakdown, status)
-         VALUES (?,?,?,?,'PHP', ?,0,?,?,1,?,?,'pending')
+         VALUES (?,?,?,?,'PHP',?, ?,0,?,?,1,?,?,'pending')
          ON DUPLICATE KEY UPDATE
            turnover_cents       = VALUES(turnover_cents),
            commission_cents     = VALUES(commission_cents),
@@ -499,7 +507,7 @@ export async function runDailySettlement(app: FastifyInstance, date: string, for
            currency_breakdown   = VALUES(currency_breakdown),
            status               = 'pending'`,
         [
-          ref.id, fromUserId, ref.level, date,
+          ref.id, fromUserId, ref.level, date, market,
           totals.phpCents, ref.rate, commCents,
           commCents, JSON.stringify(totals.breakdown),
         ],
@@ -510,9 +518,9 @@ export async function runDailySettlement(app: FastifyInstance, date: string, for
   // 按 beneficiary 汇总入账 bg_team_wallet（乐观锁，最多3次重试）
   const [pending] = await db.query<RowDataPacket[]>(
     `SELECT beneficiary_id, SUM(php_equivalent_cents) AS total_php
-     FROM bg_team_commission WHERE period = ? AND status = 'pending'
+     FROM bg_team_commission WHERE period = ? AND market = ? AND status = 'pending'
      GROUP BY beneficiary_id`,
-    [date],
+    [date, market],
   )
 
   for (const row of pending) {
@@ -546,13 +554,13 @@ export async function runDailySettlement(app: FastifyInstance, date: string, for
 
   // 标记已付
   await db.execute(
-    `UPDATE bg_team_commission SET status='paid', paid_at=NOW(3) WHERE period=? AND status='pending'`,
-    [date],
+    `UPDATE bg_team_commission SET status='paid', paid_at=NOW(3) WHERE period=? AND market=? AND status='pending'`,
+    [date, market],
   )
   await db.execute(
-    `UPDATE bg_team_turnover_daily SET settled=1 WHERE date=?`,
-    [date],
+    `UPDATE bg_team_turnover_daily SET settled=1 WHERE date=? AND market=?`,
+    [date, market],
   )
 
-  app.log.info({ date, bets: bets.length, beneficiaries: pending.length }, '[daily-settle] done')
+  app.log.info({ date, market, bets: bets.length, beneficiaries: pending.length }, '[daily-settle] done')
 }
