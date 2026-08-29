@@ -8,6 +8,8 @@ const DEFAULT_DOMAIN_MARKETS: Record<string, SiteMarket> = {
   'betogo.vip': 'ID',
   'betogo888.com': 'ID',
   'betogo.cc': 'ID',
+  'betogo.games': 'ID',
+  'www.betogo.games': 'ID',
 }
 
 const MARKET_STORAGE_KEY = 'betogo_market'
@@ -38,7 +40,9 @@ export function getSiteMarket(): SiteMarket {
     localStorage.setItem(MARKET_STORAGE_KEY, explicit)
     return explicit
   }
-  const byDomain = configuredDomainMarkets()[window.location.hostname.toLowerCase()]
+  const hostname = window.location.hostname.toLowerCase()
+  const domainMarkets = configuredDomainMarkets()
+  const byDomain = domainMarkets[hostname] ?? domainMarkets[hostname.replace(/^www\./, '')]
   if (byDomain) {
     localStorage.setItem(MARKET_STORAGE_KEY, byDomain)
     return byDomain

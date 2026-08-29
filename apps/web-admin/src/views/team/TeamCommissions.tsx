@@ -8,6 +8,10 @@ function phpCell(cents: number) {
   const val = (cents ?? 0) / 100
   return <span style={{ color: val < 0 ? '#ff4d4f' : undefined }}>{(val < 0 ? '-₱' : '₱') + Math.abs(val).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
 }
+function commissionCell(cents: number, currency: string) {
+  if (currency === 'PHP') return phpCell(cents)
+  return <span>{`Rp${Math.round((cents ?? 0) / 100).toLocaleString('id-ID')}`}</span>
+}
 
 export default function TeamCommissions() {
   const [filter, setFilter] = useState({ month: '', beneficiaryId: '', status: undefined as string | undefined })
@@ -54,7 +58,8 @@ export default function TeamCommissions() {
       },
     },
     { title: '费率', dataIndex: 'rate_pct', key: 'rate', width: 70 },
-    { title: '佣金(PHP等值)', key: 'commission', width: 140, render: (_: unknown, r: TeamCommission) => phpCell(r.php_equivalent_cents ?? r.commission_cents) },
+    { title: '佣金', key: 'commission', width: 140, render: (_: unknown, r: TeamCommission) => commissionCell(r.commission_cents, r.currency) },
+    { title: 'PHP等值', key: 'phpEquivalent', width: 130, render: (_: unknown, r: TeamCommission) => phpCell(r.php_equivalent_cents ?? r.commission_cents) },
     { title: '状态', key: 'status', width: 90, render: (_: unknown, r: TeamCommission) => <Tag color={r.status === 'paid' ? 'green' : r.status === 'pending' ? 'orange' : 'default'}>{r.status}</Tag> },
   ]
 

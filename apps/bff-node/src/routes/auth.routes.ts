@@ -88,12 +88,18 @@ function entrySource(ctx: import('koa').Context, forceTma = false): string | und
 }
 
 function siteMarket(ctx: import('koa').Context): 'PH' | 'ID' {
-  const header = ctx.get('x-site-market').toUpperCase()
-  if (header === 'ID' || header === 'PH') return header
   const host = entrySource(ctx)?.toLowerCase()
-  return host && ['betogo.xyz', 'betogo.vip', 'betogo888.com', 'betogo.cc'].some((domain) => host === domain || host === `www.${domain}`)
-    ? 'ID'
-    : 'PH'
+  if (host) {
+    try {
+      const domainMarkets = JSON.parse(ctx.state.env.MARKET_DOMAIN_MAP) as Record<string, string>
+      const market = (domainMarkets[host] ?? domainMarkets[host.replace(/^www\./, '')])?.toUpperCase()
+      if (market === 'ID' || market === 'PH') return market
+    } catch {
+      // 继续使用前端市场标识
+    }
+  }
+  const header = ctx.get('x-site-market').toUpperCase()
+  return header === 'ID' ? 'ID' : 'PH'
 }
 
 // 新注册用户的归因：按来源域名归代理 + 落广告投放来源并发注册转化事件。

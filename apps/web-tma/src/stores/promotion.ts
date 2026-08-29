@@ -40,7 +40,7 @@ interface PromotionState {
   teamCommissionItems: TeamCommissionItem[]
   teamCommissionMonth: string
   teamCommissionLoading: boolean
-  teamWallet: { availableCents: number; frozenCents: number; lifetimeEarnedCents: number } | null
+  teamWallet: { currency: 'PHP' | 'IDR'; availableCents: number; frozenCents: number; lifetimeEarnedCents: number; minWithdrawalCents: number } | null
   teamWithdrawals: TeamWithdrawal[]
   teamWithdrawalsTotal: number
   teamWithdrawalsPage: number

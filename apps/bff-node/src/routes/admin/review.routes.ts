@@ -438,7 +438,7 @@ router.get('/manual-queue', async (ctx) => {
             tw.user_id,
             u.display_name,
             tw.amount_cents / 100 AS amount,
-            'PHP' AS currency,
+            tw.currency,
             tw.status,
             tw.handled_by,
             tw.handled_at,
@@ -532,7 +532,7 @@ router.post('/team-withdrawals/:id/reject', async (ctx) => {
   const pool = getMysqlPool(ctx.state.env)
 
   const [[wd]] = await pool.query<RowDataPacket[]>(
-    `SELECT user_id, amount_cents, status FROM bg_team_withdrawal WHERE id = ? LIMIT 1`, [id],
+    `SELECT user_id, currency, amount_cents, status FROM bg_team_withdrawal WHERE id = ? LIMIT 1`, [id],
   )
   if (!wd) { fail(ctx, 404, '提现记录不存在'); return }
   if (wd.status !== 'pending') { fail(ctx, 409, '该记录已处理'); return }
@@ -543,8 +543,8 @@ router.post('/team-withdrawals/:id/reject', async (ctx) => {
     const [walletRes] = await conn.execute<ResultSetHeader>(
       `UPDATE bg_team_wallet
        SET frozen_cents = frozen_cents - ?, available_cents = available_cents + ?
-       WHERE user_id = ? AND currency = 'PHP' AND frozen_cents >= ?`,
-      [wd.amount_cents, wd.amount_cents, wd.user_id, wd.amount_cents],
+       WHERE user_id = ? AND currency = ? AND frozen_cents >= ?`,
+      [wd.amount_cents, wd.amount_cents, wd.user_id, wd.currency, wd.amount_cents],
     )
     if (walletRes.affectedRows === 0) throw new Error('佣金钱包冻结余额不足')
     await conn.execute(

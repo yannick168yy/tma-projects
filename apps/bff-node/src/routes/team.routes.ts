@@ -9,10 +9,18 @@ import { reviewTeamWithdrawal } from '../services/team-withdraw-review.service.j
 
 const router = new Router({ prefix: '/promotions/team' })
 
+type TeamCurrency = 'PHP' | 'IDR'
+
+async function teamCurrency(db: ReturnType<typeof getMysqlPool>, userId: string): Promise<TeamCurrency> {
+  const [[user]] = await db.query<RowDataPacket[]>(`SELECT market FROM bg_user WHERE id = ? LIMIT 1`, [userId])
+  return user?.market === 'ID' ? 'IDR' : 'PHP'
+}
+
 // GET /promotions/team/status
 router.get('/status', async (ctx) => {
   const userId = ctx.state.userId!
   const db = getMysqlPool(ctx.state.env)
+  const currency = await teamCurrency(db, userId)
 
   const [[node], [wallet], [defaultPlan]] = await Promise.all([
     db.query<RowDataPacket[]>(
@@ -22,8 +30,8 @@ router.get('/status', async (ctx) => {
     ),
     db.query<RowDataPacket[]>(
       `SELECT available_cents, lifetime_earned_cents
-       FROM bg_team_wallet WHERE user_id = ? AND currency = 'PHP' LIMIT 1`,
-      [userId],
+       FROM bg_team_wallet WHERE user_id = ? AND currency = ? LIMIT 1`,
+      [userId, currency],
     ),
     db.query<RowDataPacket[]>(
       `SELECT l1_rate_pct, l2_rate_pct, l3_rate_pct FROM bg_team_rate_plan WHERE is_default = 1 LIMIT 1`,
@@ -34,6 +42,7 @@ router.get('/status', async (ctx) => {
     ok(ctx, {
       isAgent: false, activated: false, l1Count: 0, l2Count: 0, l3Count: 0,
       availableCents: 0, lifetimeEarnedCents: 0,
+      currency,
       ratePlan: {
         l1RatePct: Number(defaultPlan[0]?.l1_rate_pct ?? 0.6),
         l2RatePct: Number(defaultPlan[0]?.l2_rate_pct ?? 0.3),
@@ -80,6 +89,7 @@ router.get('/status', async (ctx) => {
     l3Count:             Number(counts[0]?.l3Count ?? 0),
     availableCents:      Number(wallet[0]?.available_cents ?? 0),
     lifetimeEarnedCents: Number(wallet[0]?.lifetime_earned_cents ?? 0),
+    currency,
     ratePlan,
   })
 })
@@ -89,6 +99,7 @@ router.post('/enable', async (ctx) => {
   const userId = ctx.state.userId!
   const db = getMysqlPool(ctx.state.env)
   const now = nowMysql()
+  const currency = await teamCurrency(db, userId)
 
   const [[user]] = await db.query<RowDataPacket[]>(
     `SELECT u.inviter_id AS l1_id, l1.inviter_id AS l2_id, l2.inviter_id AS l3_id
@@ -108,8 +119,8 @@ router.post('/enable', async (ctx) => {
     [userId, user.l1_id ?? null, user.l2_id ?? null, user.l3_id ?? null, now],
   )
   await db.execute<ResultSetHeader>(
-    `INSERT IGNORE INTO bg_team_wallet (user_id, currency) VALUES (?, 'PHP')`,
-    [userId],
+    `INSERT IGNORE INTO bg_team_wallet (user_id, currency) VALUES (?, ?)`,
+    [userId, currency],
   )
   ok(ctx, { isAgent: true })
 })
@@ -154,29 +165,31 @@ router.get('/commissions', async (ctx) => {
   const month = String(ctx.query.month ?? ctx.query.period ?? currentMonth())
   const likeParam = `${month.slice(0, 7)}%`
   const db    = getMysqlPool(ctx.state.env)
+  const currency = await teamCurrency(db, userId)
 
   const [rows] = await db.query<RowDataPacket[]>(
     `SELECT tc.*, u.display_name
      FROM bg_team_commission tc
      JOIN bg_user u ON u.id = tc.from_user_id
-     WHERE tc.beneficiary_id = ? AND tc.period LIKE ?
+     WHERE tc.beneficiary_id = ? AND tc.period LIKE ? AND tc.currency = ?
      ORDER BY tc.period DESC, tc.commission_cents DESC`,
-    [userId, likeParam],
+    [userId, likeParam, currency],
   )
 
   const summary = { l1Cents: 0, l2Cents: 0, l3Cents: 0, totalCents: 0, paidCents: 0 }
   for (const r of rows) {
-    const c = Number(r.php_equivalent_cents ?? r.commission_cents)
+    const c = Number(r.commission_cents)
     const lvl = Number(r.level)
     if (lvl === 1) summary.l1Cents += c
     else if (lvl === 2) summary.l2Cents += c
     else summary.l3Cents += c
     summary.totalCents += c
-    if (r.status === 'paid') summary.paidCents += Number(r.php_equivalent_cents ?? r.commission_cents)
+    if (r.status === 'paid') summary.paidCents += Number(r.commission_cents)
   }
 
   ok(ctx, {
     month,
+    currency,
     summary,
     items: rows.map(r => ({
       fromUserId:        r.from_user_id,
@@ -187,6 +200,7 @@ router.get('/commissions', async (ctx) => {
       phpEquivCents:     Number(r.php_equivalent_cents ?? r.commission_cents),
       ratePct:           Number(r.rate_pct),
       commissionCents:   Number(r.commission_cents),
+      currency:          String(r.currency),
       status:            r.status,
       paidAt:            r.paid_at ?? null,
       currencyBreakdown: parseCurrencyBreakdown(r.currency_breakdown),
@@ -198,15 +212,21 @@ router.get('/commissions', async (ctx) => {
 router.get('/wallet', async (ctx) => {
   const userId = ctx.state.userId!
   const db     = getMysqlPool(ctx.state.env)
+  const currency = await teamCurrency(db, userId)
   const [[row]] = await db.query<RowDataPacket[]>(
     `SELECT available_cents, frozen_cents, lifetime_earned_cents
-     FROM bg_team_wallet WHERE user_id = ? AND currency = 'PHP' LIMIT 1`,
-    [userId],
+     FROM bg_team_wallet WHERE user_id = ? AND currency = ? LIMIT 1`,
+    [userId, currency],
+  )
+  const [[cfg]] = await db.query<RowDataPacket[]>(
+    `SELECT min_withdrawal_cents, min_withdrawal_idr_cents FROM bg_team_config WHERE id = 1 LIMIT 1`,
   )
   ok(ctx, {
+    currency,
     availableCents:      Number(row?.available_cents ?? 0),
     frozenCents:         Number(row?.frozen_cents ?? 0),
     lifetimeEarnedCents: Number(row?.lifetime_earned_cents ?? 0),
+    minWithdrawalCents:  Number(currency === 'IDR' ? cfg?.min_withdrawal_idr_cents ?? 1440000 : cfg?.min_withdrawal_cents ?? 5000),
   })
 })
 
@@ -218,11 +238,13 @@ router.post('/withdraw', async (ctx) => {
   if (amountCents <= 0) { fail(ctx, 400, 'amount_cents must be positive'); return }
 
   const db = getMysqlPool(ctx.state.env)
+  const currency = await teamCurrency(db, userId)
   const [[cfg]] = await db.query<RowDataPacket[]>(
-    `SELECT min_withdrawal_cents FROM bg_team_config WHERE id = 1 LIMIT 1`,
+    `SELECT min_withdrawal_cents, min_withdrawal_idr_cents FROM bg_team_config WHERE id = 1 LIMIT 1`,
   )
-  if (amountCents < Number(cfg?.min_withdrawal_cents ?? 5000)) {
-    fail(ctx, 400, `errors.minWithdrawal:${(Number(cfg?.min_withdrawal_cents ?? 5000) / 100).toFixed(0)}`); return
+  const minWithdrawalCents = Number(currency === 'IDR' ? cfg?.min_withdrawal_idr_cents ?? 1440000 : cfg?.min_withdrawal_cents ?? 5000)
+  if (amountCents < minWithdrawalCents) {
+    fail(ctx, 400, `errors.minWithdrawal:${(minWithdrawalCents / 100).toFixed(0)}`); return
   }
 
   if (!(await isKycApproved(ctx.state.redis, ctx.state.env, userId))) {
@@ -233,8 +255,8 @@ router.post('/withdraw', async (ctx) => {
   let withdrawalId: number | null = null
   for (let i = 0; i < 3; i++) {
     const [[wallet]] = await db.query<RowDataPacket[]>(
-      `SELECT available_cents, version FROM bg_team_wallet WHERE user_id = ? AND currency = 'PHP' LIMIT 1`,
-      [userId],
+      `SELECT available_cents, version FROM bg_team_wallet WHERE user_id = ? AND currency = ? LIMIT 1`,
+      [userId, currency],
     )
     if (!wallet) { fail(ctx, 400, 'errors.withdrawableInsufficient'); return }
     const available = Number(wallet.available_cents)
@@ -245,13 +267,13 @@ router.post('/withdraw', async (ctx) => {
        SET available_cents = available_cents - ?,
            frozen_cents    = frozen_cents + ?,
            version = version + 1
-       WHERE user_id = ? AND currency = 'PHP' AND version = ? AND available_cents >= ?`,
-      [amountCents, amountCents, userId, wallet.version, amountCents],
+       WHERE user_id = ? AND currency = ? AND version = ? AND available_cents >= ?`,
+      [amountCents, amountCents, userId, currency, wallet.version, amountCents],
     )
     if (res.affectedRows > 0) {
       const [ins] = await db.execute<import('mysql2/promise').ResultSetHeader>(
-        `INSERT INTO bg_team_withdrawal (user_id, amount_cents) VALUES (?, ?)`,
-        [userId, amountCents],
+        `INSERT INTO bg_team_withdrawal (user_id, currency, amount_cents) VALUES (?, ?, ?)`,
+        [userId, currency, amountCents],
       )
       withdrawalId = ins.insertId
       break
@@ -274,7 +296,7 @@ router.get('/withdrawals', async (ctx) => {
     `SELECT COUNT(*) AS total FROM bg_team_withdrawal WHERE user_id = ?`, [userId],
   )
   const [rows] = await db.query<RowDataPacket[]>(
-    `SELECT id, amount_cents, status, reject_reason, reviewed_at, created_at
+    `SELECT id, currency, amount_cents, status, reject_reason, reviewed_at, created_at
      FROM bg_team_withdrawal WHERE user_id = ?
      ORDER BY created_at DESC LIMIT ? OFFSET ?`,
     [userId, size, offset],
@@ -283,6 +305,7 @@ router.get('/withdrawals', async (ctx) => {
     total: Number(total), page,
     items: rows.map(r => ({
       id:           r.id,
+      currency:     String(r.currency ?? 'PHP'),
       amountCents:  Number(r.amount_cents),
       status:       r.status,
       rejectReason: r.reject_reason ?? null,
@@ -300,6 +323,7 @@ router.get('/tree', async (ctx) => {
                   : currentMonth()
   const likeParam = `${month}%`
   const db = getMysqlPool(ctx.state.env)
+  const currency = await teamCurrency(db, userId)
 
   // 用户自身套餐费率（用于预估未结算部分）
   const [[node]] = await db.query<RowDataPacket[]>(
@@ -332,9 +356,9 @@ router.get('/tree', async (ctx) => {
   }
   function commSub(level: number) {
     return `
-      SELECT from_user_id, SUM(php_equivalent_cents) AS commission_cents
+      SELECT from_user_id, SUM(commission_cents) AS commission_cents
       FROM bg_team_commission
-      WHERE period LIKE ? AND beneficiary_id = ? AND level = ${level}
+      WHERE period LIKE ? AND beneficiary_id = ? AND currency = '${currency}' AND level = ${level}
       GROUP BY from_user_id`
   }
 
@@ -415,7 +439,7 @@ router.get('/tree', async (ctx) => {
   }
 
   const l1Members = [...l1Map.values()].sort((a, b) => b.turnoverCents - a.turnoverCents)
-  ok(ctx, { l1Members })
+  ok(ctx, { currency, l1Members })
 })
 
 // ── 工具函数 ──────────────────────────────────────────────────────────────────

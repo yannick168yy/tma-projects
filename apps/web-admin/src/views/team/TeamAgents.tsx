@@ -28,7 +28,12 @@ function turnoverLabel(m: TeamTreeMember): string | null {
   return null
 }
 
-function buildTreeNode(m: TeamTreeMember, level: 1 | 2 | 3): TreeNodeItem {
+function moneyDisplay(cents: number, currency: string) {
+  if (currency === 'PHP') return phpDisplay(cents)
+  return `Rp${Math.round((cents ?? 0) / 100).toLocaleString('id-ID')}`
+}
+
+function buildTreeNode(m: TeamTreeMember, level: 1 | 2 | 3, currency: 'PHP' | 'IDR'): TreeNodeItem {
   const levelColor = level === 1 ? 'gold' : level === 2 ? 'blue' : 'green'
   const turnover = turnoverLabel(m)
   return {
@@ -39,11 +44,11 @@ function buildTreeNode(m: TeamTreeMember, level: 1 | 2 | 3): TreeNodeItem {
         <span style={{ fontWeight: 500 }}>{m.displayName}</span>
         <span style={{ color: '#bbb', fontSize: 11 }}>{m.userId}</span>
         {m.isAgent && <Tag color="purple" style={{ fontSize: 10, padding: '0 4px', margin: 0, lineHeight: '16px' }}>代理</Tag>}
-        {m.thisMonthCents !== 0 && <span style={{ color: '#1677ff', fontSize: 11 }}>₱{(m.thisMonthCents / 100).toFixed(2)}</span>}
+        {m.thisMonthCents !== 0 && <span style={{ color: '#1677ff', fontSize: 11 }}>{moneyDisplay(m.thisMonthCents, currency)}</span>}
         {turnover && <span style={{ color: '#999', fontSize: 11 }}>流水 {turnover}</span>}
       </span>
     ),
-    children: m.children.length > 0 ? m.children.map((c) => buildTreeNode(c, (level + 1) as 2 | 3)) : undefined,
+    children: m.children.length > 0 ? m.children.map((c) => buildTreeNode(c, (level + 1) as 2 | 3, currency)) : undefined,
   }
 }
 
@@ -69,7 +74,7 @@ export default function TeamAgents() {
   const [agentSort, setAgentSort] = useState<{ by?: string; order?: 'asc' | 'desc' }>({ by: 'lifetime', order: 'desc' })
   const [treeVisible, setTreeVisible] = useState(false)
   const [treeAgent, setTreeAgent] = useState<TeamAgent | null>(null)
-  const [treeData, setTreeData] = useState<{ l1Members: TeamTreeMember[] } | null>(null)
+  const [treeData, setTreeData] = useState<{ currency: 'PHP' | 'IDR'; l1Members: TeamTreeMember[] } | null>(null)
   const [treeLoading, setTreeLoading] = useState(false)
   const [treeExpandedKeys, setTreeExpandedKeys] = useState<(string | number)[]>([])
   const [treePeriod, setTreePeriod] = useState(currentPeriod())
@@ -167,12 +172,12 @@ export default function TeamAgents() {
     {
       title: '本月佣金', key: 'thisMonth', width: 120,
       sorter: true, sortOrder: sortOrderOf('thisMonth'),
-      render: (_: unknown, r: TeamAgent) => phpDisplay(r.thisMonthCommissionCents),
+      render: (_: unknown, r: TeamAgent) => moneyDisplay(r.thisMonthCommissionCents, r.currency),
     },
     {
       title: '累计收益', key: 'lifetime', width: 120,
       sorter: true, sortOrder: sortOrderOf('lifetime'),
-      render: (_: unknown, r: TeamAgent) => phpDisplay(r.lifetimeEarnedCents),
+      render: (_: unknown, r: TeamAgent) => moneyDisplay(r.lifetimeEarnedCents, r.currency),
     },
     {
       title: '开启时间', dataIndex: 'optedInAt', key: 'optedInAt', width: 160,
@@ -274,7 +279,7 @@ export default function TeamAgents() {
                         <span style={{ color: '#aaa', fontSize: 11 }}>L1·{treeAgent.l1Count} L2·{treeAgent.l2Count} L3·{treeAgent.l3Count}</span>
                       </span>
                     ),
-                    children: treeData.l1Members.map((m) => buildTreeNode(m, 1)),
+                    children: treeData.l1Members.map((m) => buildTreeNode(m, 1, treeData.currency)),
                   }] as TreeNodeItem[]}
                 />
               </div>

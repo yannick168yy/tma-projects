@@ -50,6 +50,7 @@ const schema = z.object({
   USDT_TO_PHP_RATE: z.coerce.number().positive().default(58),
   EUR_TO_PHP_RATE:  z.coerce.number().positive().default(62),
   TRX_TO_PHP_RATE:  z.coerce.number().positive().default(19),
+  IDR_TO_PHP_RATE:  z.coerce.number().positive().default(1 / 287),
 
   // 内部服务间通信 token
   INTERNAL_TOKEN: z.string().default(''),

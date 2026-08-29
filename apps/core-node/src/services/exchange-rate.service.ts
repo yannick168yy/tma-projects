@@ -60,6 +60,7 @@ function buildFallback(): Record<string, number> {
     USDT: env.USDT_TO_PHP_RATE,
     USDC: env.USDT_TO_PHP_RATE,
     TRX:  env.TRX_TO_PHP_RATE,
+    IDR:  env.IDR_TO_PHP_RATE,
   }
 }
 
@@ -68,5 +69,6 @@ function fallbackRate(currency: string): number {
   if (upper === 'EUR') return env.EUR_TO_PHP_RATE
   if (upper === 'USD' || upper === 'USDT' || upper === 'USDC') return env.USDT_TO_PHP_RATE
   if (upper === 'TRX') return env.TRX_TO_PHP_RATE
+  if (upper === 'IDR') return env.IDR_TO_PHP_RATE
   return 1
 }

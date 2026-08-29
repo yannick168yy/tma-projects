@@ -562,7 +562,7 @@ describe('团队日结', () => {
           }]]
         }
         if (sql.includes('max_commission_per_settlement_cents')) return [[{ max_commission_per_settlement_cents: null }]]
-        if (sql.includes('SUM(php_equivalent_cents)')) return [[{ beneficiary_id: 'A1', total_php: 1000 }, { beneficiary_id: 'A2', total_php: 500 }]]
+        if (sql.includes('SUM(commission_cents)')) return [[{ beneficiary_id: 'A1', total_payout: 1000 }, { beneficiary_id: 'A2', total_payout: 500 }]]
         if (sql.includes('SELECT version FROM bg_team_wallet')) {
           versionReads += 1
           return [[{ version: versionReads }]]
@@ -582,8 +582,8 @@ describe('团队日结', () => {
       .filter((e) => e.sql.includes('INSERT INTO bg_team_commission'))
       .map((e) => e.params)
     assert.equal(commissionParams.length, 2)
-    assert.deepEqual(commissionParams[0]?.slice(0, 10), ['A1', 'U1', 1, '2026-06-28', 'PH', 10000, 10, 1000, 1000, JSON.stringify([{ currency: 'PHP', betCents: 10000, fxRate: 1 }])])
-    assert.deepEqual(commissionParams[1]?.slice(0, 10), ['A2', 'U1', 2, '2026-06-28', 'PH', 10000, 5, 500, 500, JSON.stringify([{ currency: 'PHP', betCents: 10000, fxRate: 1 }])])
+    assert.deepEqual(commissionParams[0], ['A1', 'U1', 1, '2026-06-28', 'PHP', 'PH', 10000, 10, 1000, 1, 1000, JSON.stringify([{ currency: 'PHP', betCents: 10000, fxRate: 1 }])])
+    assert.deepEqual(commissionParams[1], ['A2', 'U1', 2, '2026-06-28', 'PHP', 'PH', 10000, 5, 500, 1, 500, JSON.stringify([{ currency: 'PHP', betCents: 10000, fxRate: 1 }])])
     assert.equal(pool.executes.filter((e) => e.sql.includes('INSERT IGNORE INTO bg_team_wallet')).length, 2)
     assert.equal(pool.executes.filter((e) => e.sql.includes('UPDATE bg_team_wallet') && e.sql.includes('available_cents')).length, 2)
     assert.equal(pool.executes.some((e) => e.sql.includes("UPDATE bg_team_commission SET status='paid'")), true)
@@ -612,5 +612,40 @@ describe('团队日结', () => {
       new Date('2026-06-28T17:00:00.000Z'),
       'ID',
     ])
+  })
+
+  it('印尼市场佣金以 IDR 计算并入账 IDR 团队钱包', async () => {
+    const { runDailySettlement } = await import('../routes/internal.routes.js')
+    const pool = createPool({
+      query(sql) {
+        if (sql.includes('SELECT COUNT(*) AS cnt')) return [[{ cnt: 0 }]]
+        if (sql.includes('FROM bg_bet_order')) return [[{ user_id: 'U1', currency_code: 'IDR', bet_cents: 10000000 }]]
+        if (sql.includes('FROM bg_team_rate_plan')) return [[{ l1_rate_pct: 10, l2_rate_pct: 0, l3_rate_pct: 0 }]]
+        if (sql.includes('FROM bg_team_node')) return [[{
+          user_id: 'U1', l1_referrer_id: 'A1', l2_referrer_id: null, l3_referrer_id: null,
+          l1_rate_pct: 10, l2_rate_pct: 0, l3_rate_pct: 0,
+        }]]
+        if (sql.includes('max_commission_per_settlement_cents')) {
+          return [[{ max_commission_per_settlement_cents: null, max_commission_per_settlement_idr_cents: null }]]
+        }
+        if (sql.includes('SUM(commission_cents)')) return [[{ beneficiary_id: 'A1', total_payout: 1000000 }]]
+        if (sql.includes('SELECT version FROM bg_team_wallet')) return [[{ version: 1 }]]
+        return [[]]
+      },
+      execute(sql) {
+        if (sql.includes('UPDATE bg_team_wallet') && sql.includes('version = ?')) return [{ affectedRows: 1 }]
+        return [{}]
+      },
+    })
+
+    await runDailySettlement(
+      { mysql: pool, log: { info() {}, warn() {}, error() {} } } as unknown as FastifyInstance,
+      '2026-06-28', false, 'ID',
+    )
+
+    const commission = pool.executes.find((item) => item.sql.includes('INSERT INTO bg_team_commission'))
+    assert.deepEqual(commission?.params?.slice(0, 10), ['A1', 'U1', 1, '2026-06-28', 'IDR', 'ID', 10000000, 10, 1000000, 1 / 287])
+    assert.equal(pool.executes.some((item) => item.sql.includes('INSERT IGNORE INTO bg_team_wallet') && item.params?.[1] === 'IDR'), true)
+    assert.equal(pool.executes.some((item) => item.sql.includes("currency = ? AND version = ?") && item.params?.[3] === 'IDR'), true)
   })
 })

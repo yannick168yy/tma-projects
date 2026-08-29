@@ -39,6 +39,9 @@ const schema = z.object({
     .default('true')
     .transform((v) => v === 'true'),
   SESSION_TTL_SECONDS: z.coerce.number().default(86400),
+  MARKET_DOMAIN_MAP: z.string()
+    .default('{"betogo666.com":"PH","betogo777.com":"PH","betogo.ph":"PH","betogo.xyz":"ID","betogo.vip":"ID","betogo888.com":"ID","betogo.cc":"ID","betogo.games":"ID","www.betogo.games":"ID"}')
+    .transform((value) => value.trim() || '{"betogo666.com":"PH","betogo777.com":"PH","betogo.ph":"PH","betogo.xyz":"ID","betogo.vip":"ID","betogo888.com":"ID","betogo.cc":"ID","betogo.games":"ID","www.betogo.games":"ID"}'),
   GOOGLE_CLIENT_ID: z.string().default(''),
   GOOGLE_CLIENT_SECRET: z.string().default(''),
   // 逗号分隔白名单：一份前端 bundle 部署多域名（测试 188facai + 生产 betogo），

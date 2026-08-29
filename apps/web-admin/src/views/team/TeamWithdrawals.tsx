@@ -9,6 +9,10 @@ function phpDisplay(cents: number) {
   const val = (cents ?? 0) / 100
   return (val < 0 ? '-₱' : '₱') + Math.abs(val).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
+function moneyDisplay(cents: number, currency: string) {
+  if (currency === 'PHP') return phpDisplay(cents)
+  return `Rp${Math.round((cents ?? 0) / 100).toLocaleString('id-ID')}`
+}
 function wdColor(s: string) {
   return s === 'approved' ? 'green' : s === 'pending' ? 'orange' : s === 'rejected' ? 'red' : 'default'
 }
@@ -39,7 +43,8 @@ export default function TeamWithdrawals() {
     { title: 'ID', dataIndex: 'id', key: 'id', width: 80 },
     { title: '用户', dataIndex: 'display_name', key: 'user' },
     { title: '用户ID', dataIndex: 'user_id', key: 'userId', width: 110 },
-    { title: '金额', key: 'amount', width: 110, render: (_: unknown, r: TeamWithdrawalAdmin) => phpDisplay(r.amount_cents) },
+    { title: '金额', key: 'amount', width: 130, render: (_: unknown, r: TeamWithdrawalAdmin) => moneyDisplay(r.amount_cents, r.currency) },
+    { title: '币种', dataIndex: 'currency', key: 'currency', width: 70 },
     { title: '状态', key: 'status', width: 90, render: (_: unknown, r: TeamWithdrawalAdmin) => <Tag color={wdColor(r.status)}>{r.status}</Tag> },
     { title: '驳回原因', dataIndex: 'reject_reason', key: 'reason', render: (v: string | null) => v || '-' },
     { title: '申请时间', key: 'createdAt', width: 160, render: (_: unknown, r: TeamWithdrawalAdmin) => fmtTime(r.created_at) },

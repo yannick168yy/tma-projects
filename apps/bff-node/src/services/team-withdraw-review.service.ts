@@ -20,6 +20,7 @@ interface TeamWithdrawal {
   id: number
   userId: string
   amountCents: number
+  currency: 'PHP' | 'IDR'
   status: 'pending' | 'approved' | 'rejected'
 }
 
@@ -49,6 +50,7 @@ interface ReviewContext {
   /** 近 30 天与团队长共用 IP 的下线账号数 */
   downlineIpOverlap: number
   win568: Win568ReviewStats
+  idrToPhpRate: number
 }
 
 type Rule = (ctx: ReviewContext, cfg: RuleConfig) => Promise<RuleResult> | RuleResult
@@ -57,7 +59,7 @@ const TEAM_RULES: Record<string, Rule> = {
   large_amount(ctx, cfg) {
     const threshold = Number((cfg.params ?? {}).php)
     if (!Number.isFinite(threshold) || threshold <= 0) return { code: 'large_amount', verdict: 'pass' }
-    const amountPhp = ctx.withdrawal.amountCents / 100
+    const amountPhp = ctx.withdrawal.amountCents / 100 * (ctx.withdrawal.currency === 'IDR' ? ctx.idrToPhpRate : 1)
     const hit = amountPhp > threshold
     return { code: 'large_amount', verdict: hit ? 'manual' : 'pass', actualValue: amountPhp, threshold }
   },
@@ -186,7 +188,7 @@ const TEAM_RULES: Record<string, Rule> = {
   },
 }
 
-async function buildContext(pool: Pool, withdrawal: TeamWithdrawal, config: Record<string, RuleConfig>): Promise<ReviewContext> {
+async function buildContext(pool: Pool, withdrawal: TeamWithdrawal, config: Record<string, RuleConfig>, idrToPhpRate: number): Promise<ReviewContext> {
   const userId = withdrawal.userId
   const [[user]] = await pool.query<RowDataPacket[]>(
     `SELECT u.registered_at, inv.status AS inviter_status
@@ -328,6 +330,7 @@ async function buildContext(pool: Pool, withdrawal: TeamWithdrawal, config: Reco
     downlineDepositCents: Number(ddep?.cents ?? 0),
     downlineIpOverlap: Number(dip?.cnt ?? 0),
     win568,
+    idrToPhpRate,
   }
 }
 
@@ -335,6 +338,7 @@ function snapshotOf(ctx: ReviewContext): Record<string, number | string | boolea
   return {
     since: ctx.since,
     amountCents: ctx.withdrawal.amountCents,
+    currency: ctx.withdrawal.currency,
     depositCents: ctx.depositCents,
     lifetimeDepositCount: ctx.lifetimeDepositCount,
     approvedTeamWithdrawCount: ctx.approvedTeamWithdrawCount,
@@ -373,7 +377,7 @@ export async function reviewTeamWithdrawal(env: Env, _redis: Redis, withdrawalId
   if (!isMysqlEnabled(env)) return
   const pool = getMysqlPool(env)
   const [[row]] = await pool.query<RowDataPacket[]>(
-    `SELECT id, user_id, amount_cents, status FROM bg_team_withdrawal WHERE id = ? LIMIT 1`,
+    `SELECT id, user_id, currency, amount_cents, status FROM bg_team_withdrawal WHERE id = ? LIMIT 1`,
     [withdrawalId],
   )
   if (!row || row.status !== 'pending') return
@@ -382,6 +386,7 @@ export async function reviewTeamWithdrawal(env: Env, _redis: Redis, withdrawalId
     id: Number(row.id),
     userId: String(row.user_id),
     amountCents: Number(row.amount_cents),
+    currency: row.currency === 'IDR' ? 'IDR' : 'PHP',
     status: row.status,
   }
   const t0 = Date.now()
@@ -390,7 +395,7 @@ export async function reviewTeamWithdrawal(env: Env, _redis: Redis, withdrawalId
 
   try {
     const config = await loadReviewConfig(pool, 'team')
-    const ctx = await buildContext(pool, withdrawal, config)
+    const ctx = await buildContext(pool, withdrawal, config, env.IDR_TO_PHP_RATE)
     snapshot = snapshotOf(ctx)
     const results: RuleResult[] = []
     for (const [code, rule] of Object.entries(TEAM_RULES)) {
@@ -435,7 +440,7 @@ export async function reviewTeamWithdrawal(env: Env, _redis: Redis, withdrawalId
       orderId: withdrawal.id,
       userId: withdrawal.userId,
       amount: withdrawal.amountCents / 100,
-      currency: 'PHP',
+      currency: withdrawal.currency,
     }).catch(() => {})
   }
 

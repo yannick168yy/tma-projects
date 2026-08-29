@@ -107,8 +107,14 @@ export default function TeamReferralConfig() {
             <Form.Item label="最低提现 (PHP分)" name="min_withdrawal_cents">
               <InputNumber min={0} style={{ width: '100%' }} />
             </Form.Item>
+            <Form.Item label="最低提现 (IDR分)" name="min_withdrawal_idr_cents">
+              <InputNumber min={0} precision={0} style={{ width: '100%' }} />
+            </Form.Item>
             <Form.Item label="单次结算佣金上限 (PHP分，空=不限)" name="max_commission_per_settlement_cents">
               <InputNumber min={0} style={{ width: '100%' }} />
+            </Form.Item>
+            <Form.Item label="单次结算佣金上限 (IDR分，空=不限)" name="max_commission_per_settlement_idr_cents">
+              <InputNumber min={0} precision={0} style={{ width: '100%' }} />
             </Form.Item>
           </div>
           <Form.Item>
@@ -119,7 +125,7 @@ export default function TeamReferralConfig() {
 
       <Card title="自动结算时间" style={{ marginBottom: 20 }}>
         <Form form={configForm} layout="vertical">
-          <Form.Item label="结算时（菲律宾时间，0-23点，每天该时刻结算前一天）" name="settlement_hour">
+          <Form.Item label="结算时（各市场当地时间，0-23点，每天该时刻结算前一天）" name="settlement_hour">
             <InputNumber min={0} max={23} style={{ width: 200 }} />
           </Form.Item>
           <Form.Item>

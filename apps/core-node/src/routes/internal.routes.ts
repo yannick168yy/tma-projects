@@ -288,36 +288,37 @@ export async function internalRoutes(app: FastifyInstance) {
     const conn = await db.getConnection()
     try {
       const [[wd]] = await conn.query<RowDataPacket[]>(
-        `SELECT user_id, amount_cents, status FROM bg_team_withdrawal WHERE id = ? LIMIT 1`,
+        `SELECT user_id, currency, amount_cents, status FROM bg_team_withdrawal WHERE id = ? LIMIT 1`,
         [withdrawalId],
       )
       if (!wd) return reply.status(404).send({ code: 404, message: 'withdrawal not found' })
       if (wd.status !== 'pending') return reply.send({ code: 0, message: 'already processed' })
 
-      const amountYuan = wd.amount_cents / 100
+      const currency = String(wd.currency ?? 'PHP')
+      const amount = wd.amount_cents / 100
       await conn.beginTransaction()
       const [twRes] = await conn.execute<import('mysql2/promise').ResultSetHeader>(
         `UPDATE bg_team_wallet
          SET frozen_cents = frozen_cents - ?
-         WHERE user_id = ? AND currency = 'PHP' AND frozen_cents >= ?`,
-        [wd.amount_cents, wd.user_id, wd.amount_cents],
+         WHERE user_id = ? AND currency = ? AND frozen_cents >= ?`,
+        [wd.amount_cents, wd.user_id, currency, wd.amount_cents],
       )
       if (twRes.affectedRows === 0) throw new Error('insufficient frozen balance')
       await conn.execute(
         `INSERT INTO bg_wallet (user_id, currency, available, version)
-         VALUES (?, 'PHP', ?, 1)
+         VALUES (?, ?, ?, 1)
          ON DUPLICATE KEY UPDATE available = available + ?, version = version + 1`,
-        [wd.user_id, amountYuan, amountYuan],
+        [wd.user_id, currency, amount, amount],
       )
       const [[walletRow]] = await conn.query<RowDataPacket[]>(
-        `SELECT available FROM bg_wallet WHERE user_id = ? AND currency = 'PHP'`,
-        [wd.user_id],
+        `SELECT available FROM bg_wallet WHERE user_id = ? AND currency = ?`,
+        [wd.user_id, currency],
       )
       const balanceAfter = Number(walletRow?.available ?? 0)
       await conn.execute(
         `INSERT INTO bg_wallet_ledger (id, user_id, currency, type, amount, balance_after, ref_type, ref_id, description)
-         VALUES (?, ?, 'PHP', 'bonus', ?, ?, 'team_withdrawal', ?, 'Team commission payout')`,
-        [lgId(), wd.user_id, amountYuan, balanceAfter, String(withdrawalId)],
+         VALUES (?, ?, ?, 'bonus', ?, ?, 'team_withdrawal', ?, 'Team commission payout')`,
+        [lgId(), wd.user_id, currency, amount, balanceAfter, String(withdrawalId)],
       )
       await conn.execute(
         `UPDATE bg_team_withdrawal SET status='approved', reviewed_at=NOW(3) WHERE id=?`,
@@ -338,6 +339,7 @@ export async function internalRoutes(app: FastifyInstance) {
 // ── 每日流水结算引擎 ──────────────────────────────────────────────────────────
 export async function runDailySettlement(app: FastifyInstance, date: string, force = false, market: TeamMarket = 'PH'): Promise<void> {
   const db = app.mysql
+  const settlementCurrency = market === 'ID' ? 'IDR' : 'PHP'
 
   // 覆盖模式：先回滚已入账佣金，再删旧记录
   // 回滚顺序：先扣 available_cents，不够再扣 frozen_cents（待审提现）
@@ -345,16 +347,16 @@ export async function runDailySettlement(app: FastifyInstance, date: string, for
   const withdrawnMap = new Map<string, number>() // beneficiaryId → 已不可回滚的金额
   if (force) {
     const [paidRows] = await db.query<RowDataPacket[]>(
-      `SELECT tc.beneficiary_id, SUM(tc.php_equivalent_cents) AS total_php,
+      `SELECT tc.beneficiary_id, tc.currency, SUM(tc.commission_cents) AS total_payout,
               tw.available_cents, tw.frozen_cents
        FROM bg_team_commission tc
-       JOIN bg_team_wallet tw ON tw.user_id = tc.beneficiary_id AND tw.currency = 'PHP'
+       JOIN bg_team_wallet tw ON tw.user_id = tc.beneficiary_id AND tw.currency = tc.currency
        WHERE tc.period = ? AND tc.market = ? AND tc.status = 'paid'
-       GROUP BY tc.beneficiary_id, tw.available_cents, tw.frozen_cents`,
+       GROUP BY tc.beneficiary_id, tc.currency, tw.available_cents, tw.frozen_cents`,
       [date, market],
     )
     for (const row of paidRows) {
-      const total     = Number(row.total_php)
+      const total     = Number(row.total_payout)
       const available = Number(row.available_cents)
       const frozen    = Number(row.frozen_cents)
       if (total <= 0) continue
@@ -364,7 +366,7 @@ export async function runDailySettlement(app: FastifyInstance, date: string, for
       const alreadyOut    = total - fromAvailable - fromFrozen // 已提走，无法回滚
 
       if (alreadyOut > 0) {
-        withdrawnMap.set(String(row.beneficiary_id), alreadyOut)
+        if (row.currency === settlementCurrency) withdrawnMap.set(String(row.beneficiary_id), alreadyOut)
         app.log.warn(
           { beneficiaryId: row.beneficiary_id, alreadyOut, date, market },
           '[daily-settle] partial rollback: commission already withdrawn, re-settle will credit net delta only',
@@ -376,8 +378,8 @@ export async function runDailySettlement(app: FastifyInstance, date: string, for
          SET available_cents       = available_cents - ?,
              frozen_cents          = frozen_cents - ?,
              lifetime_earned_cents = lifetime_earned_cents - ?
-         WHERE user_id = ? AND currency = 'PHP'`,
-        [fromAvailable, fromFrozen, fromAvailable + fromFrozen, row.beneficiary_id],
+         WHERE user_id = ? AND currency = ?`,
+        [fromAvailable, fromFrozen, fromAvailable + fromFrozen, row.beneficiary_id, row.currency],
       )
     }
     await db.execute(`DELETE FROM bg_team_commission WHERE period = ? AND market = ?`, [date, market])
@@ -449,31 +451,37 @@ export async function runDailySettlement(app: FastifyInstance, date: string, for
 
   // 上限配置
   const [[cfg]] = await db.query<RowDataPacket[]>(
-    `SELECT max_commission_per_settlement_cents FROM bg_team_config WHERE id = 1 LIMIT 1`,
+    `SELECT max_commission_per_settlement_cents, max_commission_per_settlement_idr_cents
+     FROM bg_team_config WHERE id = 1 LIMIT 1`,
   )
+  const maxField = market === 'ID'
+    ? cfg?.max_commission_per_settlement_idr_cents
+    : cfg?.max_commission_per_settlement_cents
   const maxCommission: number | null =
-    cfg?.max_commission_per_settlement_cents != null
-      ? Number(cfg.max_commission_per_settlement_cents)
+    maxField != null
+      ? Number(maxField)
       : null
 
   // 汇率（一次批量获取）
   const currencies = [...new Set(bets.map(r => String(r.currency_code ?? 'PHP')))]
   const fxRates: Record<string, number> = {}
   await Promise.all(currencies.map(async cur => { fxRates[cur] = await getPhpRate(cur) }))
-  app.log.info({ date, fxRates }, '[daily-settle] fx rates')
+  const settlementToPhpRate = await getPhpRate(settlementCurrency)
+  app.log.info({ date, fxRates, settlementCurrency, settlementToPhpRate }, '[daily-settle] fx rates')
 
   // 按 from_user 聚合多币种投注，折算 PHP
   type Breakdown = { currency: string; betCents: number; fxRate: number }
-  const userTotals = new Map<string, { phpCents: number; breakdown: Breakdown[] }>()
+  const userTotals = new Map<string, { phpCents: number; settlementCents: number; breakdown: Breakdown[] }>()
   for (const row of bets) {
     const uid = row.user_id as string
     const cur = String(row.currency_code ?? 'PHP')
     const betCents = Number(row.bet_cents)
     const fx = fxRates[cur] ?? 1
     const phpCents = Math.floor(betCents * fx)
-    if (!userTotals.has(uid)) userTotals.set(uid, { phpCents: 0, breakdown: [] })
+    if (!userTotals.has(uid)) userTotals.set(uid, { phpCents: 0, settlementCents: 0, breakdown: [] })
     const entry = userTotals.get(uid)!
     entry.phpCents += phpCents
+    entry.settlementCents += cur === settlementCurrency ? betCents : Math.floor(phpCents / settlementToPhpRate)
     entry.breakdown.push({ currency: cur, betCents, fxRate: fx })
   }
 
@@ -490,16 +498,18 @@ export async function runDailySettlement(app: FastifyInstance, date: string, for
 
     for (const ref of referrers) {
       if (!ref.id) continue
-      let commCents = Math.floor(totals.phpCents * ref.rate / 100)
+      let commCents = Math.floor(totals.settlementCents * ref.rate / 100)
       if (commCents <= 0) continue
       if (maxCommission !== null) commCents = Math.min(commCents, maxCommission)
+      const phpEquivalentCents = Math.floor(commCents * settlementToPhpRate)
+      const turnoverCents = totals.settlementCents
 
       await db.execute(
         `INSERT INTO bg_team_commission
            (beneficiary_id, from_user_id, level, period, currency, market,
             turnover_cents, ggr_cents, rate_pct, commission_cents,
             fx_rate, php_equivalent_cents, currency_breakdown, status)
-         VALUES (?,?,?,?,'PHP',?, ?,0,?,?,1,?,?,'pending')
+         VALUES (?,?,?,?,?,?, ?,0,?,?,?,?,?,'pending')
          ON DUPLICATE KEY UPDATE
            turnover_cents       = VALUES(turnover_cents),
            commission_cents     = VALUES(commission_cents),
@@ -507,9 +517,9 @@ export async function runDailySettlement(app: FastifyInstance, date: string, for
            currency_breakdown   = VALUES(currency_breakdown),
            status               = 'pending'`,
         [
-          ref.id, fromUserId, ref.level, date, market,
-          totals.phpCents, ref.rate, commCents,
-          commCents, JSON.stringify(totals.breakdown),
+          ref.id, fromUserId, ref.level, date, settlementCurrency, market,
+          turnoverCents, ref.rate, commCents,
+          settlementToPhpRate, phpEquivalentCents, JSON.stringify(totals.breakdown),
         ],
       )
     }
@@ -517,35 +527,35 @@ export async function runDailySettlement(app: FastifyInstance, date: string, for
 
   // 按 beneficiary 汇总入账 bg_team_wallet（乐观锁，最多3次重试）
   const [pending] = await db.query<RowDataPacket[]>(
-    `SELECT beneficiary_id, SUM(php_equivalent_cents) AS total_php
-     FROM bg_team_commission WHERE period = ? AND market = ? AND status = 'pending'
+    `SELECT beneficiary_id, SUM(commission_cents) AS total_payout
+     FROM bg_team_commission WHERE period = ? AND market = ? AND currency = ? AND status = 'pending'
      GROUP BY beneficiary_id`,
-    [date, market],
+    [date, market, settlementCurrency],
   )
 
   for (const row of pending) {
-    const totalPhp  = Number(row.total_php)
+    const totalPayout = Number(row.total_payout)
     // force 重算时减去已提走的部分，防止重复入账
     const alreadyOut = withdrawnMap.get(String(row.beneficiary_id)) ?? 0
-    const creditPhp  = totalPhp - alreadyOut
-    if (creditPhp <= 0) continue
+    const creditPayout = totalPayout - alreadyOut
+    if (creditPayout <= 0) continue
     await db.execute(
-      `INSERT IGNORE INTO bg_team_wallet (user_id, currency) VALUES (?, 'PHP')`,
-      [row.beneficiary_id],
+      `INSERT IGNORE INTO bg_team_wallet (user_id, currency) VALUES (?, ?)`,
+      [row.beneficiary_id, settlementCurrency],
     )
     let settled = false
     for (let i = 0; i < 3; i++) {
       const [[w]] = await db.query<RowDataPacket[]>(
-        `SELECT version FROM bg_team_wallet WHERE user_id = ? AND currency = 'PHP'`,
-        [row.beneficiary_id],
+        `SELECT version FROM bg_team_wallet WHERE user_id = ? AND currency = ?`,
+        [row.beneficiary_id, settlementCurrency],
       )
       const [res] = await db.execute<import('mysql2/promise').ResultSetHeader>(
         `UPDATE bg_team_wallet
          SET available_cents        = available_cents + ?,
              lifetime_earned_cents  = lifetime_earned_cents + ?,
              version                = version + 1
-         WHERE user_id = ? AND currency = 'PHP' AND version = ?`,
-        [creditPhp, creditPhp, row.beneficiary_id, w.version],
+         WHERE user_id = ? AND currency = ? AND version = ?`,
+        [creditPayout, creditPayout, row.beneficiary_id, settlementCurrency, w.version],
       )
       if (res.affectedRows > 0) { settled = true; break }
     }

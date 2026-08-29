@@ -82,5 +82,6 @@ export interface TeamAgentStatus {
   l3Count: number
   availableCents: number
   lifetimeEarnedCents: number
+  currency: 'PHP' | 'IDR'
   ratePlan: { l1RatePct: number; l2RatePct: number; l3RatePct: number }
 }

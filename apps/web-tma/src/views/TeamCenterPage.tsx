@@ -43,6 +43,12 @@ function phpDisplay(cents: number) {
   return (val < 0 ? '-₱' : '₱') + abs
 }
 
+function moneyDisplay(cents: number, currency: string) {
+  if (currency === 'PHP') return phpDisplay(cents)
+  const val = Math.abs((cents ?? 0) / 100)
+  return `${cents < 0 ? '-' : ''}Rp${val.toLocaleString('id-ID', { maximumFractionDigits: 0 })}`
+}
+
 function turnoverDisplay(cents: number): string {
   const val = (cents ?? 0) / 100
   return '₱' + val.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -96,9 +102,10 @@ type ThreeCircleTab = 'overview' | 'circle' | 'rewards'
 type SharePlatform = 'facebook' | 'viber' | 'whatsapp' | 'telegram' | 'x' | 'line' | 'copy'
 
 // ── 树形节点 ──────────────────────────────────────────────────────────────────
-function TreeNodeRow({ node, depth, expandedIds, onToggle }: {
+function TreeNodeRow({ node, depth, currency, expandedIds, onToggle }: {
   node: TeamTreeNode
   depth: 1 | 2 | 3
+  currency: 'PHP' | 'IDR'
   expandedIds: Set<string>
   onToggle: (id: string) => void
 }) {
@@ -127,11 +134,11 @@ function TreeNodeRow({ node, depth, expandedIds, onToggle }: {
           )}
         </div>
         {node.thisMonthCents !== 0 && (
-          <span className={`font-black text-sm flex-shrink-0 pr-1 ${color.text}`}>{phpDisplay(node.thisMonthCents)}</span>
+          <span className={`font-black text-sm flex-shrink-0 pr-1 ${color.text}`}>{moneyDisplay(node.thisMonthCents, currency)}</span>
         )}
       </div>
       {hasKids && isExpanded && node.children.map((child) => (
-        <TreeNodeRow key={child.userId} node={child} depth={Math.min(depth + 1, 3) as 2 | 3} expandedIds={expandedIds} onToggle={onToggle} />
+        <TreeNodeRow key={child.userId} node={child} depth={Math.min(depth + 1, 3) as 2 | 3} currency={currency} expandedIds={expandedIds} onToggle={onToggle} />
       ))}
     </>
   )
@@ -157,7 +164,7 @@ export default function TeamCenterPage() {
 
   // 树形视图状态
   const [treeView, setTreeView] = useState(true)
-  const [treeData, setTreeData] = useState<{ l1Members: TeamTreeNode[] } | null>(null)
+  const [treeData, setTreeData] = useState<{ currency: 'PHP' | 'IDR'; l1Members: TeamTreeNode[] } | null>(null)
   const [treeLoading, setTreeLoading] = useState(false)
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
   const [guideOpen, setGuideOpen] = useState(false)
@@ -344,6 +351,7 @@ export default function TeamCenterPage() {
   const teamWallet   = store.teamWallet
   const summary      = store.teamCommissionSummary
   const commItems    = store.teamCommissionItems
+  const teamCurrency = teamWallet?.currency ?? teamStatus?.currency ?? 'PHP'
   const commLoading  = store.teamCommissionLoading
   const withdrawals  = store.teamWithdrawals
   const wdLoading    = store.teamWithdrawalsLoading
@@ -568,13 +576,13 @@ export default function TeamCenterPage() {
                 ].map(([label, sub, cents]) => (
                   <div key={label as string} className={metricCardClass}>
                     <p className="text-[11px] font-medium text-slate-400">{label as string} · {sub as string}</p>
-                    <p className="mt-1 text-[17px] font-semibold leading-none text-white">{phpDisplay(cents as number)}</p>
+                    <p className="mt-1 text-[17px] font-semibold leading-none text-white">{moneyDisplay(cents as number, teamCurrency)}</p>
                   </div>
                 ))}
               </div>
               <div className="mt-3 flex items-center justify-between rounded-xl border border-amber-300/25 bg-[linear-gradient(135deg,rgba(245,158,11,0.18),rgba(255,255,255,0.04))] px-3 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.07)]">
                 <span className="text-sm font-medium text-slate-300">{t('team.settled')}</span>
-                <span className="text-lg font-semibold text-amber-300">{phpDisplay(summary?.paidCents ?? 0)}</span>
+                <span className="text-lg font-semibold text-amber-300">{moneyDisplay(summary?.paidCents ?? 0, teamCurrency)}</span>
               </div>
             </div>
 
@@ -606,7 +614,7 @@ export default function TeamCenterPage() {
                     <p className="text-sm">{t('team.noDownlines')}</p>
                   </div>
                 ) : treeData.l1Members.map((m) => (
-                  <TreeNodeRow key={m.userId} node={m} depth={1} expandedIds={expandedIds} onToggle={toggleExpand} />
+                  <TreeNodeRow key={m.userId} node={m} depth={1} currency={treeData.currency} expandedIds={expandedIds} onToggle={toggleExpand} />
                 ))}
               </div>
             )}
@@ -630,7 +638,7 @@ export default function TeamCenterPage() {
                       </p>
                     </div>
                     <div className="text-right flex-shrink-0">
-                      <p className={`font-black text-sm leading-none ${item.phpEquivCents < 0 ? 'text-red-400' : 'text-amber-300'}`}>{phpDisplay(item.phpEquivCents)}</p>
+                      <p className={`font-black text-sm leading-none ${item.commissionCents < 0 ? 'text-red-400' : 'text-amber-300'}`}>{moneyDisplay(item.commissionCents, item.currency)}</p>
                       <p className={`text-[9px] mt-1 ${statusColor[item.status] ?? 'text-slate-400'}`}>{item.status}</p>
                     </div>
                   </div>
@@ -647,20 +655,20 @@ export default function TeamCenterPage() {
                 {(teamWallet?.availableCents ?? 0) < 0 ? t('team.debtLabel') : t('team.available')}
               </p>
               <p className={`text-center text-[2.5rem] font-semibold leading-none ${(teamWallet?.availableCents ?? 0) < 0 ? 'text-red-400' : 'text-amber-300'}`}>
-                {phpDisplay(teamWallet?.availableCents ?? 0)}
+                {moneyDisplay(teamWallet?.availableCents ?? 0, teamCurrency)}
               </p>
               <div className="mt-4 flex items-center justify-center gap-3 text-sm text-slate-400">
-                <span>{t('team.frozen')}: {phpDisplay(teamWallet?.frozenCents ?? 0)}</span>
+                <span>{t('team.frozen')}: {moneyDisplay(teamWallet?.frozenCents ?? 0, teamCurrency)}</span>
                 <span className="text-slate-600">•</span>
-                <span>{t('team.lifetime')}: {phpDisplay(teamWallet?.lifetimeEarnedCents ?? 0)}</span>
+                <span>{t('team.lifetime')}: {moneyDisplay(teamWallet?.lifetimeEarnedCents ?? 0, teamCurrency)}</span>
               </div>
               <div className="mt-5 grid grid-cols-2 gap-3 border-t border-white/10 pt-5">
                 <div className={`${metricCardClass} text-center`}>
-                  <div className="text-lg font-semibold leading-none text-white">{phpDisplay(summary?.totalCents ?? 0)}</div>
+                  <div className="text-lg font-semibold leading-none text-white">{moneyDisplay(summary?.totalCents ?? 0, teamCurrency)}</div>
                   <div className="mt-2 text-xs text-slate-400">{t('team.periodEarned', { period: periodLabel })}</div>
                 </div>
                 <div className={`${metricCardClass} text-center`}>
-                  <div className="text-lg font-semibold leading-none text-amber-300">{phpDisplay(summary?.paidCents ?? 0)}</div>
+                  <div className="text-lg font-semibold leading-none text-amber-300">{moneyDisplay(summary?.paidCents ?? 0, teamCurrency)}</div>
                   <div className="mt-2 text-xs text-slate-400">{t('team.periodSettled', { period: periodLabel })}</div>
                 </div>
               </div>
@@ -671,7 +679,7 @@ export default function TeamCenterPage() {
                 <div className="mb-3 rounded-2xl border border-red-500/30 bg-red-500/10 p-4">
                   <p className="text-xs font-bold text-red-400 mb-1">{t('team.debtLabel')}</p>
                   <p className="text-[11px] text-red-300/80 leading-relaxed">
-                    {t('team.debtWarning', { amount: phpDisplay(Math.abs(teamWallet!.availableCents)) })}
+                    {t('team.debtWarning', { amount: moneyDisplay(Math.abs(teamWallet!.availableCents), teamCurrency) })}
                   </p>
                 </div>
               ) : (
@@ -679,8 +687,8 @@ export default function TeamCenterPage() {
                   <p className={sectionTitleClass}>{t('team.withdrawAmount')}</p>
                   <div className="flex gap-3">
                     <div className="flex-1 relative">
-                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 text-lg">₱</span>
-                      <input type="number" value={withdrawInput} placeholder={t('team.minWithdrawPhp')} min="100" step="1"
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 text-lg">{teamCurrency === 'IDR' ? 'Rp' : '₱'}</span>
+                      <input type="number" value={withdrawInput} placeholder={moneyDisplay(teamWallet?.minWithdrawalCents ?? 0, teamCurrency)} min={(teamWallet?.minWithdrawalCents ?? 0) / 100} step="1"
                         className="h-12 w-full rounded-xl border border-white/10 bg-[#06101a] pl-9 pr-3 text-base font-medium text-white outline-none focus:ring-1 focus:ring-amber-500"
                         onChange={(e) => setWithdrawInput(e.target.value)} />
                     </div>
@@ -728,7 +736,7 @@ export default function TeamCenterPage() {
                   <div key={wd.id} className="flex items-center gap-3 bg-[#101824] rounded-xl px-3 py-3 mb-2">
                     <StatusIcon size={18} className={`flex-shrink-0 ${statusColor[wd.status] ?? 'text-slate-400'}`} />
                     <div className="flex-1 min-w-0">
-                      <p className="text-white font-bold text-sm leading-none mb-0.5">{phpDisplay(wd.amountCents)}</p>
+                      <p className="text-white font-bold text-sm leading-none mb-0.5">{moneyDisplay(wd.amountCents, wd.currency)}</p>
                       <p className="text-slate-400 text-[10px]">{new Date(wd.createdAt).toLocaleDateString()}</p>
                       {wd.rejectReason && <p className="text-red-400 text-[10px] mt-0.5">{wd.rejectReason}</p>}
                     </div>

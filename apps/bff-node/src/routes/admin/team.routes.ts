@@ -19,8 +19,10 @@ router.get('/overview', async (ctx) => {
       [currentMonthPrefix()],
     ),
     db.query<RowDataPacket[]>(
-      `SELECT COUNT(*) AS cnt, COALESCE(SUM(amount_cents), 0) AS total
+      `SELECT COUNT(*) AS cnt,
+              COALESCE(SUM(CASE WHEN currency = 'IDR' THEN amount_cents * ? ELSE amount_cents END), 0) AS total
        FROM bg_team_withdrawal WHERE status = 'pending' AND review_verdict = 'manual'`,
+      [ctx.state.env.IDR_TO_PHP_RATE],
     ),
   ])
 
@@ -64,17 +66,18 @@ router.get('/agents', async (ctx) => {
   const [rows] = await db.query<RowDataPacket[]>(
     `SELECT tn.user_id, tn.opted_in_at, tn.rate_plan_id,
             rp.name AS rate_plan_name,
-            u.display_name,
+            u.display_name, IF(u.market = 'ID', 'IDR', 'PHP') AS currency,
             (SELECT COUNT(*) FROM bg_team_node WHERE l1_referrer_id = tn.user_id) AS l1_count,
             (SELECT COUNT(*) FROM bg_team_node WHERE l2_referrer_id = tn.user_id) AS l2_count,
             (SELECT COUNT(*) FROM bg_team_node WHERE l3_referrer_id = tn.user_id) AS l3_count,
-            COALESCE((SELECT SUM(php_equivalent_cents) FROM bg_team_commission
-                      WHERE beneficiary_id = tn.user_id AND period LIKE ?), 0) AS this_month_cents,
+            COALESCE((SELECT SUM(commission_cents) FROM bg_team_commission
+                      WHERE beneficiary_id = tn.user_id AND period LIKE ?
+                        AND currency = IF(u.market = 'ID', 'IDR', 'PHP')), 0) AS this_month_cents,
             COALESCE(tw.lifetime_earned_cents, 0) AS lifetime_cents
      FROM bg_team_node tn
      JOIN bg_user u ON u.id = tn.user_id
      LEFT JOIN bg_team_rate_plan rp ON rp.id = tn.rate_plan_id
-     LEFT JOIN bg_team_wallet tw ON tw.user_id = tn.user_id
+     LEFT JOIN bg_team_wallet tw ON tw.user_id = tn.user_id AND tw.currency = IF(u.market = 'ID', 'IDR', 'PHP')
      WHERE tn.opted_in = 1 ${where}
      ORDER BY ${sortCol} ${sortDir}, tn.user_id ASC
      LIMIT ? OFFSET ?`,
@@ -86,6 +89,7 @@ router.get('/agents', async (ctx) => {
     items: rows.map(r => ({
       userId:                   r.user_id,
       displayName:              r.display_name,
+      currency:                 r.currency,
       ratePlanId:               r.rate_plan_id ?? null,
       ratePlanName:             r.rate_plan_name ?? null,
       l1Count:                  Number(r.l1_count),
@@ -105,7 +109,8 @@ router.get('/agents/:userId', async (ctx) => {
 
   const [[node], [wallet], periods] = await Promise.all([
     db.query<RowDataPacket[]>(
-      `SELECT tn.*, u.display_name, rp.name AS rate_plan_name,
+      `SELECT tn.*, u.display_name, IF(u.market = 'ID', 'IDR', 'PHP') AS currency,
+              rp.name AS rate_plan_name,
               rp.l1_rate_pct, rp.l2_rate_pct, rp.l3_rate_pct
        FROM bg_team_node tn
        JOIN bg_user u ON u.id = tn.user_id
@@ -114,14 +119,18 @@ router.get('/agents/:userId', async (ctx) => {
       [userId],
     ),
     db.query<RowDataPacket[]>(
-      `SELECT available_cents, frozen_cents, lifetime_earned_cents FROM bg_team_wallet WHERE user_id = ?`,
-      [userId],
+      `SELECT available_cents, frozen_cents, lifetime_earned_cents, currency
+       FROM bg_team_wallet
+       WHERE user_id = ?
+         AND currency = COALESCE((SELECT IF(market = 'ID', 'IDR', 'PHP') FROM bg_user WHERE id = ?), 'PHP')`,
+      [userId, userId],
     ),
     db.query<RowDataPacket[]>(
       `SELECT LEFT(period, 7) AS month, SUM(commission_cents) AS total, status
        FROM bg_team_commission WHERE beneficiary_id = ?
+         AND currency = COALESCE((SELECT IF(market = 'ID', 'IDR', 'PHP') FROM bg_user WHERE id = ?), 'PHP')
        GROUP BY month, status ORDER BY month DESC LIMIT 24`,
-      [userId],
+      [userId, userId],
     ),
   ])
 
@@ -136,6 +145,8 @@ router.get('/agents/:userId/tree', async (ctx) => {
     ? String(ctx.query.date).slice(0, 7)
     : currentMonthPrefix().replace('%', '')
   const db = getMysqlPool(ctx.state.env)
+  const [[agentUser]] = await db.query<RowDataPacket[]>(`SELECT market FROM bg_user WHERE id = ? LIMIT 1`, [userId])
+  const currency = agentUser?.market === 'ID' ? 'IDR' : 'PHP'
 
   function turnoverSub(levelCol: string) {
     return `
@@ -147,9 +158,9 @@ router.get('/agents/:userId/tree', async (ctx) => {
   }
   function commSub(level: number) {
     return `
-      SELECT from_user_id, SUM(php_equivalent_cents) AS commission_cents
+      SELECT from_user_id, SUM(commission_cents) AS commission_cents
       FROM bg_team_commission
-      WHERE period LIKE ? AND beneficiary_id = ? AND level = ${level}
+      WHERE period LIKE ? AND beneficiary_id = ? AND currency = '${currency}' AND level = ${level}
       GROUP BY from_user_id`
   }
 
@@ -230,7 +241,7 @@ router.get('/agents/:userId/tree', async (ctx) => {
     l2Map.get(String(r.l1_referrer_id))?.children.push(buildNode(r))
   }
 
-  ok(ctx, { l1Members: [...l1Map.values()].sort((a, b) => b.turnoverCents - a.turnoverCents) })
+  ok(ctx, { currency, l1Members: [...l1Map.values()].sort((a, b) => b.turnoverCents - a.turnoverCents) })
 })
 
 // GET /admin/team/commissions?date=&month=&beneficiaryId=&status=&page=1
@@ -337,7 +348,7 @@ router.post('/withdrawals/:id/reject', async (ctx) => {
   const db      = getMysqlPool(ctx.state.env)
 
   const [[wd]] = await db.query<RowDataPacket[]>(
-    `SELECT user_id, amount_cents, status FROM bg_team_withdrawal WHERE id = ? LIMIT 1`, [id],
+    `SELECT user_id, currency, amount_cents, status FROM bg_team_withdrawal WHERE id = ? LIMIT 1`, [id],
   )
   if (!wd) { fail(ctx, 404, 'not found'); return }
   if (wd.status !== 'pending') { fail(ctx, 409, 'already processed'); return }
@@ -348,8 +359,8 @@ router.post('/withdrawals/:id/reject', async (ctx) => {
     await conn.execute(
       `UPDATE bg_team_wallet
        SET frozen_cents = frozen_cents - ?, available_cents = available_cents + ?
-       WHERE user_id = ?`,
-      [wd.amount_cents, wd.amount_cents, wd.user_id],
+       WHERE user_id = ? AND currency = ?`,
+      [wd.amount_cents, wd.amount_cents, wd.user_id, wd.currency],
     )
     await conn.execute(
       `UPDATE bg_team_withdrawal SET status='rejected', reject_reason=?, admin_id=?, reviewed_at=NOW(3) WHERE id=?`,
@@ -453,8 +464,8 @@ router.put('/agents/:userId/rate-plan', async (ctx) => {
 // GET /admin/team/config
 router.get('/config', async (ctx) => {
   const [[row]] = await getMysqlPool(ctx.state.env).query<RowDataPacket[]>(
-    `SELECT min_activation_cents, min_withdrawal_cents,
-            max_commission_per_settlement_cents, settlement_hour,
+    `SELECT min_activation_cents, min_withdrawal_cents, min_withdrawal_idr_cents,
+            max_commission_per_settlement_cents, max_commission_per_settlement_idr_cents, settlement_hour,
             last_auto_settlement, commission_basis, updated_at
      FROM bg_team_config WHERE id = 1 LIMIT 1`,
   )
@@ -467,8 +478,9 @@ router.put('/config', async (ctx) => {
   const adminId = (ctx.state as { adminId?: number }).adminId
   const db      = getMysqlPool(ctx.state.env)
 
-  const allowed = ['min_activation_cents', 'min_withdrawal_cents',
-                   'max_commission_per_settlement_cents', 'settlement_hour', 'commission_basis']
+  const allowed = ['min_activation_cents', 'min_withdrawal_cents', 'min_withdrawal_idr_cents',
+                   'max_commission_per_settlement_cents', 'max_commission_per_settlement_idr_cents',
+                   'settlement_hour', 'commission_basis']
   const sets: string[] = []
   const vals: unknown[] = []
   for (const key of allowed) {
