@@ -9,7 +9,8 @@ interface Props {
 }
 
 function fmtPhp(amount: number, currency = 'PHP'): string {
-  if (currency !== 'PHP') return `${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`
+  if (currency === 'IDR') return `Rp${Math.round(amount).toLocaleString('id-ID')}`
+  if (currency !== 'PHP') return `${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 })} ${currency}`
   if (amount >= 1000) return `₱${Math.round(amount).toLocaleString('en-PH')}`
   return `₱${amount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }

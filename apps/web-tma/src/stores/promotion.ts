@@ -29,7 +29,7 @@ interface PromotionState {
   promoConfig: PromoConfig | null
   highlights: PromoHighlight[]
   redPacketRecords: RedPacketRecord[]
-  redPacketSheet: { open: boolean; amountPhp: number; title: string }
+  redPacketSheet: { open: boolean; amount: number; currency: string; title: string }
   teamStatus: TeamAgentStatus | null
   teamStatusLoading: boolean
   teamDownlines: { 1: TeamDownline[]; 2: TeamDownline[]; 3: TeamDownline[] }
@@ -53,7 +53,7 @@ interface PromotionActions {
   setHighlights: (rows: PromoHighlight[]) => void
   refreshHighlights: () => Promise<void>
   loadLists: () => Promise<void>
-  showRedPacket: (title: string, amountPhp: number) => void
+  showRedPacket: (title: string, amount: number, currency: string) => void
   closeRedPacket: () => void
   loadTeamStatus: () => Promise<void>
   enableAgent: () => Promise<{ ok: boolean }>
@@ -70,7 +70,7 @@ export const usePromotionStore = create<PromotionState & PromotionActions>((set,
   promoConfig: null,
   highlights: [],
   redPacketRecords: [],
-  redPacketSheet: { open: false, amountPhp: 0, title: '' },
+  redPacketSheet: { open: false, amount: 0, currency: 'PHP', title: '' },
   teamStatus: null,
   teamStatusLoading: false,
   teamDownlines: { 1: [], 2: [], 3: [] },
@@ -102,12 +102,12 @@ export const usePromotionStore = create<PromotionState & PromotionActions>((set,
     set({ redPacketRecords: await fetchRedPacketRecords() })
   },
 
-  showRedPacket(title, amountPhp) {
-    set({ redPacketSheet: { open: true, amountPhp, title } })
+  showRedPacket(title, amount, currency) {
+    set({ redPacketSheet: { open: true, amount, currency, title } })
   },
 
   closeRedPacket() {
-    set({ redPacketSheet: { open: false, amountPhp: 0, title: '' } })
+    set({ redPacketSheet: { open: false, amount: 0, currency: 'PHP', title: '' } })
   },
 
   async loadTeamStatus() {
@@ -201,14 +201,15 @@ export const usePromotionStore = create<PromotionState & PromotionActions>((set,
         : 'bonuses.promos.firstdep.title'
     try {
       let amountPhp = 0
-      if (id === 'trial') ({ amountPhp } = await claimTrialBonus(useWalletStore.getState().activeCurrency))
+      const currency = useWalletStore.getState().activeCurrency
+      if (id === 'trial') ({ amountPhp } = await claimTrialBonus(currency))
       else if (id === 'firstdep') ({ amountPhp } = await claimFirstDepBonus())
       analytics.promoClaimSuccess(id, amountPhp)
       await useWalletStore.getState().refresh()
       await get().refreshHighlights()
       await get().loadLists()
       // silent=调用方自带成功态 UI（如欢迎弹窗领取后原地引导首充），不再叠红包动画
-      if (!opts?.silent) get().showRedPacket(i18n.t(titleKey), amountPhp)
+      if (!opts?.silent) get().showRedPacket(i18n.t(titleKey), amountPhp, currency)
       if (id === 'trial') useAuthStore.getState().clearTrialEligible()
       return { ok: true }
     } catch (e) {

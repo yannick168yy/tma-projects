@@ -518,15 +518,15 @@ function vipDayWindow(includeToday: boolean, offsetHours = 8): { periodKey: stri
 export async function runDailyLossRebate(
   env: Env,
   opts: { includeToday?: boolean; currencies?: string[]; timezoneOffsetHours?: number } = {},
-): Promise<{ periodKey: string; users: number; totalAmount: number; skipped?: string }> {
-  if (!isMysqlEnabled(env)) return { periodKey: '', users: 0, totalAmount: 0 }
+): Promise<{ periodKey: string; users: number; totalAmount: number; byCurrency: Record<string, number>; skipped?: string }> {
+  if (!isMysqlEnabled(env)) return { periodKey: '', users: 0, totalAmount: 0, byCurrency: {} }
   const pool = getMysqlPool(env)
   const cfg = await getLossRebateConfigByPool(pool)
   const configuredCurrencies = cfg.enabledCurrencies ?? ['PHP', 'USDT', 'USDC']
   const enabledCurrencies = opts.currencies?.filter((currency) => configuredCurrencies.includes(currency)) ?? configuredCurrencies
   const { periodKey, startUtc, endUtc } = vipDayWindow(Boolean(opts.includeToday), opts.timezoneOffsetHours ?? 8)
   if (!cfg.enabled || cfg.ratePct <= 0 || cfg.eligibleCats.length === 0 || enabledCurrencies.length === 0) {
-    return { periodKey, users: 0, totalAmount: 0, skipped: 'disabled' }
+    return { periodKey, users: 0, totalAmount: 0, byCurrency: {}, skipped: 'disabled' }
   }
   const catPlaceholders = cfg.eligibleCats.map(() => '?').join(', ')
   const cap = cfg.capToDeposit ? 1 : 0
@@ -589,7 +589,19 @@ export async function runDailyLossRebate(
        AND currency_code IN (${enabledCurrencies.map(() => '?').join(', ')})`,
     [periodKey, ...enabledCurrencies],
   )
-  return { periodKey, users: Number(agg?.users ?? 0), totalAmount: Number(agg?.total ?? 0) }
+  const [currencyRows] = await pool.query<RowDataPacket[]>(
+    `SELECT currency_code, COALESCE(SUM(amount), 0) AS total
+     FROM bg_vip_reward_log WHERE type = 'negative_rebate' AND period_key = ?
+       AND currency_code IN (${enabledCurrencies.map(() => '?').join(', ')})
+     GROUP BY currency_code`,
+    [periodKey, ...enabledCurrencies],
+  )
+  return {
+    periodKey,
+    users: Number(agg?.users ?? 0),
+    totalAmount: Number(agg?.total ?? 0),
+    byCurrency: Object.fromEntries(currencyRows.map((row) => [String(row.currency_code), Number(row.total ?? 0)])),
+  }
 }
 
 export interface LossRebateStatus {

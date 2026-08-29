@@ -34,9 +34,7 @@ export function cardSubtitle(t: TFunction, card: TaskCard): string {
 export function rewardText(t: TFunction, card: TaskCard): string {
   const r = card.reward
   if (card.id === 'agg_firstdep' && r.type === 'cash' && r.amount > 0) {
-    const amount = r.currency === 'PHP'
-      ? `₱${Math.round(r.amount).toLocaleString('en-PH')}`
-      : `${Math.round(r.amount).toLocaleString('en-US')} ${r.currency}`
+    const amount = formatCurrencyAmount(r.currency, r.amount)
     return `up to ${amount}`
   }
   if (r.type === 'cash') return r.amount > 0 ? `+${formatCurrencyAmount(r.currency, r.amount)}` : ''

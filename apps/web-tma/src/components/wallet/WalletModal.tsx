@@ -149,10 +149,10 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
   useEffect(() => {
     if (!open || tab !== 'deposit' || !isLoggedIn) { setFirstDepDone(null); return }
     setFirstDepDone(null)
-    fetchNewPlayerSummary()
+    fetchNewPlayerSummary(activeCurrency)
       .then((summary) => setFirstDepDone(summary.tasks.firstdep.done))
       .catch(() => setFirstDepDone(null))
-  }, [open, tab, isLoggedIn])
+  }, [open, tab, isLoggedIn, activeCurrency])
   const redepEndsMs = redepOffer?.active && redepOffer.endsAt ? new Date(redepOffer.endsAt).getTime() : 0
   const redepActive = redepEndsMs > redepNow
   useEffect(() => {
@@ -427,7 +427,7 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
   }, [promoConfig, activeCurrency])
   const guideTierCurrency = (promoConfig?.firstdep.tiers?.[activeCurrency]?.length ?? 0) > 0 ? activeCurrency : 'PHP'
   const guideMaxBonus = Math.max(0, ...(promoConfig?.firstdep.tiers?.[guideTierCurrency] ?? []).map((tier) => tier.bonusAmount))
-  const guideMaxBonusDisplay = guideTierCurrency === 'PHP' ? `₱${guideMaxBonus.toLocaleString('en-PH')}` : `${guideMaxBonus} ${guideTierCurrency}`
+  const guideMaxBonusDisplay = formatFiatAmount(guideMaxBonus, guideTierCurrency)
   // 已完成首充的用户不再看首充默认 banner（后台上传图不受此限制）
   const showFirstDepDefaultBanner = guideMaxBonus > 0 && (promoConfig?.firstdep.enabled ?? false) && firstDepDone !== true
   const promoLabel = (sourceRef: string) =>
@@ -894,7 +894,7 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
                         })}
                       </div>
                       <div className="relative rounded-2xl border border-white/10 bg-[#07111f]">
-                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-white/45 font-bold text-sm">{depositCurrency==='USDT'||depositCurrency==='USDC'?'$':isCryptoMethod?'≈ $':'₱'}</span>
+                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-white/45 font-bold text-sm">{depositCurrency==='USDT'||depositCurrency==='USDC'?'$':isCryptoMethod?'≈ $':currencySymbol(depositCurrency)}</span>
                         <input value={amount} type="number" min={selectedPayMethod?.minAmount} max={selectedPayMethod?.maxAmount} placeholder="0.00" className="w-full bg-transparent pr-32 py-3 text-white font-black text-xl focus:outline-none pl-10" onChange={(e)=>setAmount(e.target.value)} />
                         <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-white/65">{t('wallet.editAmount')}</span>
                       </div>
@@ -1049,7 +1049,7 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
                   </div>
                   {!isMatrixWithdraw&&<p className="text-muted-foreground text-[11px] font-bold uppercase tracking-wider">{t('wallet.withdrawAmount')}</p>}
                   {!isMatrixWithdraw&&<div className="relative">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground font-bold text-sm">{isTgWallet&&depositCurrency==='USDT'?'$':isCryptoMethod?'≈ $':'₱'}</span>
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground font-bold text-sm">{isTgWallet&&depositCurrency==='USDT'?'$':isCryptoMethod?'≈ $':currencySymbol(depositCurrency)}</span>
                     <input value={amount} type="number" placeholder="0.00" className="w-full bg-secondary border border-border rounded-xl pr-4 py-3 text-foreground font-black text-lg focus:outline-none focus:border-primary pl-10" onChange={(e)=>setAmount(e.target.value)} />
                   </div>}
                   {tab==='withdraw'&&isFiatWithdraw&&(fiatWithdrawMin!=null||fiatWithdrawMax!=null)&&<p className={`text-[11px] font-bold ${amount&&!fiatWithdrawAmountValid?'text-amber-400':'text-muted-foreground'}`}>{amount&&!fiatWithdrawAmountValid?t('wallet.yfpayAmountOutOfRange',{min:fiatWithdrawMin??0,max:fiatWithdrawMax??'—'}):t('wallet.withdrawAmountRange',{min:fiatWithdrawMin??0,max:fiatWithdrawMax??'—'})}</p>}

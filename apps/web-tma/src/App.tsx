@@ -54,7 +54,8 @@ function MainApp() {
       {redPacketSheet.open && (
         <RedPacketSheet
           title={redPacketSheet.title}
-          amountPhp={redPacketSheet.amountPhp}
+          amount={redPacketSheet.amount}
+          currency={redPacketSheet.currency}
           onClose={closeRedPacket}
         />
       )}

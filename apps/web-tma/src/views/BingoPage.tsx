@@ -44,6 +44,11 @@ export default function BingoPage({ onOpenWallet, onGameTap, onOpenGame, onOpenC
   const heroGame = bingoGames[0] ?? null
   const subGames = bingoGames.slice(1, 5)
   const marqueeWinners = useMemo(() => Array.from({ length: 24 }, (_, i) => PERYA_WINNERS[i % PERYA_WINNERS.length]), [])
+  const displayPesoAmount = (value: string) => {
+    if (activeCurrency !== 'IDR') return value
+    const php = Number(value.replace(/[^\d.]/g, ''))
+    return Number.isFinite(php) ? `Rp ${(Math.round(php * 287 / 100) * 100).toLocaleString('id-ID')}` : value
+  }
 
   useEffect(() => {
     fetchGames({ siteCategory: 'lottery', sortBy: 'weight', limit: 8, currency: activeCurrency }).then((res) => setBingoGames(res.items)).catch(() => {})
@@ -74,7 +79,7 @@ export default function BingoPage({ onOpenWallet, onGameTap, onOpenGame, onOpenC
                     <span key={`${group}-${i}`} className="text-[11px] flex-shrink-0">
                       <span className="text-primary font-bold">{w.name}</span>
                       <span className="text-white/70"> {t('common.won')} </span>
-                      <span className="text-emerald-400 font-bold">{w.amount}</span>
+                      <span className="text-emerald-400 font-bold">{displayPesoAmount(w.amount)}</span>
                       <span className="text-white/40"> · {w.game}</span>
                     </span>
                   ))}
@@ -87,7 +92,7 @@ export default function BingoPage({ onOpenWallet, onGameTap, onOpenGame, onOpenC
 
       <div className="mx-4 mt-[10px] rounded-2xl px-4 py-3 flex items-center gap-3" style={{ background: 'linear-gradient(90deg, #2d1800, #1a0d40)', border: '1px solid rgba(255, 184, 0, 0.25)', boxShadow: '0 4px 20px rgba(255, 184, 0, 0.12)' }}>
         <span className="text-2xl">🏆</span>
-        <div className="flex-1"><p className="text-primary text-[10px] font-black uppercase tracking-widest leading-none">Today's Jackpot</p><p className="text-white font-black text-xl leading-tight font-display">₱ 1,200,000</p></div>
+        <div className="flex-1"><p className="text-primary text-[10px] font-black uppercase tracking-widest leading-none">Today's Jackpot</p><p className="text-white font-black text-xl leading-tight font-display">{displayPesoAmount('₱ 1,200,000')}</p></div>
         <button type="button" className="bg-primary text-primary-foreground font-black text-xs px-4 py-2 rounded-xl shadow shadow-amber-500/25 flex-shrink-0" onClick={onOpenWallet}>JOIN NOW</button>
       </div>
 

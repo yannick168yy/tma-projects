@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { Env } from '../config/env.js'
-import { buildDepositChannelExtra, createDeposit, generateSign, resolveDepositPayType } from '../services/unispay.service.js'
+import { buildDepositChannelExtra, createDeposit, generateSign, getBalance, queryDeposit, queryWithdrawal, resolveDepositPayType } from '../services/unispay.service.js'
 
 describe('UnisPay 签名', () => {
   it('按文档规则排除空值并生成 SHA-256 小写签名', () => {
@@ -42,6 +42,28 @@ describe('UnisPay 签名', () => {
       returnUrl: 'https://www.188facai.com',
     }, env)).rejects.toThrow('UnisPay 商户配置缺失')
     expect(fetchMock).not.toHaveBeenCalled()
+    fetchMock.mockRestore()
+  })
+
+  it('使用生产文档对应路径查询存款、出款与商户余额', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(new Response(JSON.stringify({ code: 200, msg: 'ok', data: { mchOrderId: 'UPD_1', orderNo: 'D_1', amount: '100000', status: '1' } })))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ code: 200, msg: 'ok', data: { mchOrderId: 'UPW_1', orderNo: 'W_1', amount: '50000', status: '2' } })))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ code: 200, msg: 'ok', data: { balance: '900000', freezeAmount: '100000', currency: 'IDR' } })))
+    const env = {
+      UNISPAY_MCH_NO: 'merchant',
+      UNISPAY_API_KEY: 'secret',
+      UNISPAY_BASE_URL: 'https://asia666.unispay.vip',
+    } as Env
+
+    await expect(queryDeposit('UPD_1', env)).resolves.toMatchObject({ platformId: 'D_1', state: 1 })
+    await expect(queryWithdrawal('UPW_1', env)).resolves.toMatchObject({ platformId: 'W_1', state: 2 })
+    await expect(getBalance(env)).resolves.toEqual({ balance: 900000, frozen: 100000, currency: 'IDR' })
+    expect(fetchMock.mock.calls.map(([url]) => String(url))).toEqual([
+      'https://asia666.unispay.vip/api/order/query',
+      'https://asia666.unispay.vip/api/payout/query',
+      'https://asia666.unispay.vip/api/mch/balance',
+    ])
     fetchMock.mockRestore()
   })
 })

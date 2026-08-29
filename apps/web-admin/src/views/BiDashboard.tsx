@@ -11,7 +11,7 @@ import {
 import { BI_COLORS as C, LineChart } from '../components/BiCharts'
 
 const METRIC_LABEL: Record<string, string> = {
-  ggr: 'GGR (₱)', deposit: '充值 (₱)', new_users: '新增注册', first_dep_users: '首充人数',
+  ggr: 'GGR（PHP等值）', deposit: '充值（PHP等值）', new_users: '新增注册', first_dep_users: '首充人数',
 }
 
 const fmtMoney = (v: number) => v.toLocaleString('en-PH', { maximumFractionDigits: 0 })
@@ -163,11 +163,11 @@ export default function BiDashboard() {
       ydFull: money ? fmtMoney(pick(overview.yesterdayFull)) : pick(overview.yesterdayFull),
     })
     return [
-      make('今日 GGR (₱)', (s) => Math.round(s.ggr), true, '有效投注-派彩，多币种折算 PHP'),
-      make('今日 NGR (₱)', (s) => Math.round(s.ngr), true, 'GGR-活动成本'),
-      make('今日充值 (₱)', (s) => Math.round(s.depositAmount)),
-      make('今日提现 (₱)', (s) => Math.round(s.withdrawAmount)),
-      make('今日投注额 (₱)', (s) => Math.round(s.betAmount)),
+      make('今日 GGR（PHP等值）', (s) => Math.round(s.ggr), true, '有效投注-派彩，多币种折算 PHP'),
+      make('今日 NGR（PHP等值）', (s) => Math.round(s.ngr), true, 'GGR-活动成本'),
+      make('今日充值（PHP等值）', (s) => Math.round(s.depositAmount)),
+      make('今日提现（PHP等值）', (s) => Math.round(s.withdrawAmount)),
+      make('今日投注额（PHP等值）', (s) => Math.round(s.betAmount)),
       make('活跃用户 DAU', (s) => s.dau, false, '登录∪投注∪充值去重'),
       make('新增注册', (s) => s.newUsers, false),
       make('首充人数', (s) => s.firstDepUsers, false),
@@ -177,7 +177,7 @@ export default function BiDashboard() {
   const dates = useMemo(() => (trend?.series ?? []).map((p) => p.date), [trend])
   const pick = (k: keyof BiTrendPoint) => (trend?.series ?? []).map((p) => Math.round(Number(p[k]) * 100) / 100)
 
-  const unit = trend?.currency === 'PHP' ? '₱' : trend?.currency ?? ''
+  const unit = trend?.currency ?? ''
   const tableCols = [
     { title: '日期', dataIndex: 'date' },
     { title: `充值(${unit})`, dataIndex: 'deposit', render: fmtMoney },
@@ -236,6 +236,7 @@ export default function BiDashboard() {
           options={[
             { label: '全部折算 PHP', value: 'ALL' },
             { label: 'PHP', value: 'PHP' },
+            { label: 'IDR', value: 'IDR' },
             { label: 'USDT', value: 'USDT' },
             { label: 'USDC', value: 'USDC' },
           ]} />

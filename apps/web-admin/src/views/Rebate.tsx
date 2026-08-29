@@ -219,7 +219,10 @@ export default function Rebate({ tab = 'config' }: { tab?: RebateTab }) {
     setPayoutLoading(true)
     try {
       const res = await triggerRebatePayout()
-      message.success(`已结算至当前时间：${res.users} 用户，共 ₱${Number(res.totalRebate).toFixed(4)} 待领取`)
+      const totals = Object.entries(res.byCurrency)
+        .map(([currency, amount]) => `${currency === 'PHP' ? '₱' : currency === 'IDR' ? 'Rp' : currency}${Number(amount).toLocaleString('en-US', { maximumFractionDigits: currency === 'IDR' ? 0 : 4 })}`)
+        .join(' / ')
+      message.success(`已结算至当前时间：${res.users} 个用户币种，${totals} 待领取`)
       void loadRecords()
     } catch (e) {
       message.error(e instanceof Error ? e.message : '派发失败')

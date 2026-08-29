@@ -543,8 +543,8 @@ export async function runDailyRebateSettlement(
   env: Env,
   date: string,
   opts: { currencies?: string[]; timezoneOffsetHours?: number } = {},
-): Promise<{ users: number; totalRebate: number }> {
-  if (!isMysqlEnabled(env)) return { users: 0, totalRebate: 0 }
+): Promise<{ users: number; totalRebate: number; byCurrency: Record<string, number> }> {
+  if (!isMysqlEnabled(env)) return { users: 0, totalRebate: 0, byCurrency: {} }
   const pool = getMysqlPool(env)
   const currencies = opts.currencies ?? ['PHP', 'IDR', 'USDT', 'USDC']
   const timezone = `${(opts.timezoneOffsetHours ?? 8) >= 0 ? '+' : '-'}${String(Math.abs(opts.timezoneOffsetHours ?? 8)).padStart(2, '0')}:00`
@@ -606,7 +606,17 @@ export async function runDailyRebateSettlement(
      FROM bg_rebate_record WHERE date = ? AND currency_code IN (${currencies.map(() => '?').join(', ')})`,
     [date, ...currencies],
   )
-  return { users: Number(agg?.users ?? 0), totalRebate: Number(agg?.total ?? 0) }
+  const [currencyRows] = await pool.query<RowDataPacket[]>(
+    `SELECT currency_code, COALESCE(SUM(rebate_amount), 0) AS total
+     FROM bg_rebate_record WHERE date = ? AND currency_code IN (${currencies.map(() => '?').join(', ')})
+     GROUP BY currency_code`,
+    [date, ...currencies],
+  )
+  return {
+    users: Number(agg?.users ?? 0),
+    totalRebate: Number(agg?.total ?? 0),
+    byCurrency: Object.fromEntries(currencyRows.map((row) => [String(row.currency_code), Number(row.total ?? 0)])),
+  }
 }
 
 /**

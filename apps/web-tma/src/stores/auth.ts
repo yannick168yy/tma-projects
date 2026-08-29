@@ -241,7 +241,7 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
     usePromotionStore.setState({
       highlights: [],
       redPacketRecords: [],
-      redPacketSheet: { open: false, amountPhp: 0, title: '' },
+      redPacketSheet: { open: false, amount: 0, currency: 'PHP', title: '' },
     })
     // keep other promo state as-is
     void promotion

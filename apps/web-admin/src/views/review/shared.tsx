@@ -22,4 +22,4 @@ export function wdStatusLabel(s: string) {
 }
 
 // PHP 分 → 元
-export const toPhp = (cents: number) => `₱${(cents / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+export const toPhp = (cents: number) => `PHP ${(cents / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} 等值`

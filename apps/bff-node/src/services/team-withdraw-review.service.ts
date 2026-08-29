@@ -20,7 +20,7 @@ interface TeamWithdrawal {
   id: number
   userId: string
   amountCents: number
-  currency: 'PHP' | 'IDR'
+  currency: 'PHP' | 'IDR' | 'USDT' | 'USDC'
   status: 'pending' | 'approved' | 'rejected'
 }
 
@@ -50,18 +50,17 @@ interface ReviewContext {
   /** 近 30 天与团队长共用 IP 的下线账号数 */
   downlineIpOverlap: number
   win568: Win568ReviewStats
-  idrToPhpRate: number
 }
 
 type Rule = (ctx: ReviewContext, cfg: RuleConfig) => Promise<RuleResult> | RuleResult
 
 const TEAM_RULES: Record<string, Rule> = {
   large_amount(ctx, cfg) {
-    const threshold = Number((cfg.params ?? {}).php)
+    const threshold = teamCurrencyThreshold(ctx, cfg, '')
     if (!Number.isFinite(threshold) || threshold <= 0) return { code: 'large_amount', verdict: 'pass' }
-    const amountPhp = ctx.withdrawal.amountCents / 100 * (ctx.withdrawal.currency === 'IDR' ? ctx.idrToPhpRate : 1)
-    const hit = amountPhp > threshold
-    return { code: 'large_amount', verdict: hit ? 'manual' : 'pass', actualValue: amountPhp, threshold }
+    const amount = ctx.withdrawal.amountCents / 100
+    const hit = amount > threshold
+    return { code: 'large_amount', verdict: hit ? 'manual' : 'pass', actualValue: amount, threshold, detail: { currency: ctx.withdrawal.currency } }
   },
 
   deposit_source(ctx) {
@@ -136,7 +135,7 @@ const TEAM_RULES: Record<string, Rule> = {
   commission_surge(ctx, cfg) {
     const p = cfg.params ?? {}
     const mult = Number(p.mult ?? 1.0)
-    const minCents = Number(p.minCents ?? 50000)
+    const minCents = teamCurrencyThreshold(ctx, cfg, 'min') * 100
     const hit = ctx.windowCommissionCents >= minCents
       && ctx.windowCommissionCents > ctx.prior30dCommissionCents * mult
     return {
@@ -150,7 +149,7 @@ const TEAM_RULES: Record<string, Rule> = {
   fresh_downline_commission(ctx, cfg) {
     const p = cfg.params ?? {}
     const ratioTh = Number(p.ratio ?? 0.6)
-    const minCents = Number(p.minCents ?? 50000)
+    const minCents = teamCurrencyThreshold(ctx, cfg, 'min') * 100
     const total = ctx.windowCommissionCents
     const ratio = total > 0 ? ctx.freshCommissionCents / total : 0
     const hit = total >= minCents && ratio >= ratioTh
@@ -165,7 +164,7 @@ const TEAM_RULES: Record<string, Rule> = {
   commission_deposit_ratio(ctx, cfg) {
     const p = cfg.params ?? {}
     const ratioTh = Number(p.ratio ?? 0.5)
-    const minCents = Number(p.minCents ?? 50000)
+    const minCents = teamCurrencyThreshold(ctx, cfg, 'min') * 100
     const hit = ctx.commissionEarnedCents >= minCents
       && ctx.commissionEarnedCents > ctx.downlineDepositCents * ratioTh
     return {
@@ -188,7 +187,19 @@ const TEAM_RULES: Record<string, Rule> = {
   },
 }
 
-async function buildContext(pool: Pool, withdrawal: TeamWithdrawal, config: Record<string, RuleConfig>, idrToPhpRate: number): Promise<ReviewContext> {
+function teamCurrencyThreshold(ctx: ReviewContext, cfg: RuleConfig, prefix: '' | 'min'): number {
+  const suffix = ctx.withdrawal.currency === 'IDR'
+    ? 'Idr'
+    : ctx.withdrawal.currency === 'USDT' || ctx.withdrawal.currency === 'USDC'
+      ? 'Usdt'
+      : 'Php'
+  const key = prefix ? `${prefix}${suffix}` : suffix.toLowerCase()
+  const configured = Number(cfg.params?.[key])
+  if (Number.isFinite(configured)) return configured
+  return prefix ? Number(cfg.params?.minCents ?? 50000) / 100 : Number(cfg.threshold ?? 0)
+}
+
+async function buildContext(pool: Pool, withdrawal: TeamWithdrawal, config: Record<string, RuleConfig>, usdToPhpRate: number, idrToPhpRate: number): Promise<ReviewContext> {
   const userId = withdrawal.userId
   const [[user]] = await pool.query<RowDataPacket[]>(
     `SELECT u.registered_at, inv.status AS inviter_status
@@ -206,13 +217,16 @@ async function buildContext(pool: Pool, withdrawal: TeamWithdrawal, config: Reco
   )
   const approvedTeamWithdrawCount = Number(tw?.cnt ?? 0)
   const sinceDate = tw?.last_at ? new Date(tw.last_at as Date) : registeredAt
+  const targetToPhpRate = withdrawal.currency === 'IDR'
+    ? idrToPhpRate
+    : withdrawal.currency === 'USDT' || withdrawal.currency === 'USDC' ? usdToPhpRate : 1
 
   const [[dep]] = await pool.query<RowDataPacket[]>(
     `SELECT
-       COALESCE(SUM(CASE WHEN created_at > ? THEN ROUND(amount * 100) END), 0) AS window_cents,
+       COALESCE(SUM(CASE WHEN created_at > ? THEN ROUND(amount * (CASE WHEN currency IN ('USDT','USDC') THEN ? WHEN currency = 'IDR' THEN ? ELSE 1 END) / ? * 100) END), 0) AS window_cents,
        COUNT(*) AS lifetime_cnt
      FROM bg_deposit_order WHERE user_id = ? AND status = 'paid'`,
-    [sinceDate, userId],
+    [sinceDate, usdToPhpRate, idrToPhpRate, targetToPhpRate, userId],
   )
 
   const [[ip]] = await pool.query<RowDataPacket[]>(
@@ -254,16 +268,16 @@ async function buildContext(pool: Pool, withdrawal: TeamWithdrawal, config: Reco
     `SELECT
        COALESCE(SUM(commission_cents), 0) AS earned,
        COALESCE(SUM(ggr_cents), 0) AS downline_ggr
-     FROM bg_team_commission WHERE beneficiary_id = ? AND status <> 'voided'`,
-    [userId],
+     FROM bg_team_commission WHERE beneficiary_id = ? AND currency = ? AND status <> 'voided'`,
+    [userId, withdrawal.currency],
   )
   const [[dup]] = await pool.query<RowDataPacket[]>(
     `SELECT COUNT(*) AS cnt FROM (
        SELECT 1 FROM bg_team_commission
-       WHERE beneficiary_id = ?
+       WHERE beneficiary_id = ? AND currency = ?
        GROUP BY from_user_id, level, period HAVING COUNT(*) > 1
      ) t`,
-    [userId],
+    [userId, withdrawal.currency],
   )
 
   // 佣金激增：窗口内 vs 窗口起点前 30 天
@@ -272,8 +286,8 @@ async function buildContext(pool: Pool, withdrawal: TeamWithdrawal, config: Reco
        COALESCE(SUM(CASE WHEN created_at > ? THEN commission_cents END), 0) AS window_cents,
        COALESCE(SUM(CASE WHEN created_at <= ? AND created_at > DATE_SUB(?, INTERVAL 30 DAY) THEN commission_cents END), 0) AS prior_cents
      FROM bg_team_commission
-     WHERE beneficiary_id = ? AND status <> 'voided'`,
-    [sinceDate, sinceDate, sinceDate, userId],
+     WHERE beneficiary_id = ? AND currency = ? AND status <> 'voided'`,
+    [sinceDate, sinceDate, sinceDate, userId, withdrawal.currency],
   )
 
   // 新号佣金：窗口内来自「入账时注册龄 ≤ days 天」下线的佣金
@@ -282,19 +296,19 @@ async function buildContext(pool: Pool, withdrawal: TeamWithdrawal, config: Reco
     `SELECT COALESCE(SUM(c.commission_cents), 0) AS fresh_cents
      FROM bg_team_commission c
      JOIN bg_user u ON u.id = c.from_user_id
-     WHERE c.beneficiary_id = ? AND c.status <> 'voided' AND c.created_at > ?
+     WHERE c.beneficiary_id = ? AND c.currency = ? AND c.status <> 'voided' AND c.created_at > ?
        AND u.registered_at > DATE_SUB(c.created_at, INTERVAL ? DAY)`,
-    [userId, sinceDate, freshDays],
+    [userId, withdrawal.currency, sinceDate, freshDays],
   )
 
   // 名下产生过佣金的下线累计真实存款
   const [[ddep]] = await pool.query<RowDataPacket[]>(
-    `SELECT COALESCE(SUM(ROUND(d.amount * 100)), 0) AS cents
+    `SELECT COALESCE(SUM(ROUND(d.amount * (CASE WHEN d.currency IN ('USDT','USDC') THEN ? WHEN d.currency = 'IDR' THEN ? ELSE 1 END) / ? * 100)), 0) AS cents
      FROM bg_deposit_order d
      WHERE d.status = 'paid' AND d.user_id IN (
-       SELECT DISTINCT from_user_id FROM bg_team_commission WHERE beneficiary_id = ?
+       SELECT DISTINCT from_user_id FROM bg_team_commission WHERE beneficiary_id = ? AND currency = ?
      )`,
-    [userId],
+    [usdToPhpRate, idrToPhpRate, targetToPhpRate, userId, withdrawal.currency],
   )
 
   // 近 30 天与团队长共用 IP 的下线账号数
@@ -303,11 +317,11 @@ async function buildContext(pool: Pool, withdrawal: TeamWithdrawal, config: Reco
      FROM bg_login_log l1
      JOIN bg_login_log l2 ON l2.ip = l1.ip AND l2.user_id <> l1.user_id
      WHERE l1.user_id = ? AND l1.ip IS NOT NULL AND l1.created_at > NOW() - INTERVAL 30 DAY
-       AND l2.user_id IN (SELECT DISTINCT from_user_id FROM bg_team_commission WHERE beneficiary_id = ?)`,
-    [userId, userId],
+       AND l2.user_id IN (SELECT DISTINCT from_user_id FROM bg_team_commission WHERE beneficiary_id = ? AND currency = ?)`,
+    [userId, userId, withdrawal.currency],
   )
 
-  const win568 = await buildWin568ReviewStats(pool, userId, sinceDate, reconcileGraceMinutes(config))
+  const win568 = await buildWin568ReviewStats(pool, userId, sinceDate, reconcileGraceMinutes(config), usdToPhpRate)
 
   return {
     pool,
@@ -330,7 +344,6 @@ async function buildContext(pool: Pool, withdrawal: TeamWithdrawal, config: Reco
     downlineDepositCents: Number(ddep?.cents ?? 0),
     downlineIpOverlap: Number(dip?.cnt ?? 0),
     win568,
-    idrToPhpRate,
   }
 }
 
@@ -386,7 +399,7 @@ export async function reviewTeamWithdrawal(env: Env, _redis: Redis, withdrawalId
     id: Number(row.id),
     userId: String(row.user_id),
     amountCents: Number(row.amount_cents),
-    currency: row.currency === 'IDR' ? 'IDR' : 'PHP',
+    currency: row.currency === 'IDR' || row.currency === 'USDT' || row.currency === 'USDC' ? row.currency : 'PHP',
     status: row.status,
   }
   const t0 = Date.now()
@@ -395,7 +408,7 @@ export async function reviewTeamWithdrawal(env: Env, _redis: Redis, withdrawalId
 
   try {
     const config = await loadReviewConfig(pool, 'team')
-    const ctx = await buildContext(pool, withdrawal, config, env.IDR_TO_PHP_RATE)
+    const ctx = await buildContext(pool, withdrawal, config, env.USDT_TO_PHP_RATE, env.IDR_TO_PHP_RATE)
     snapshot = snapshotOf(ctx)
     const results: RuleResult[] = []
     for (const [code, rule] of Object.entries(TEAM_RULES)) {

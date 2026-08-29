@@ -48,6 +48,7 @@ router.get('/', async (ctx) => {
 router.get('/:id', async (ctx) => {
   const user = await getUser(ctx.state.redis, ctx.params.id)
   if (!user) { fail(ctx, 404, 'User not found', 404); return }
+  const balanceCurrency = user.market === 'ID' ? 'IDR' : 'PHP'
   const [wallet, walletBalances, ledger, loginLogs, betOrders, kyc, systemCfg, effectiveCfg, totalTurnover, level, growth, identities, attribution, depositTotals, withdrawTotals] = await Promise.all([
     getWallet(ctx.state.redis, ctx.params.id),
     getWalletBalances(ctx.state.redis, ctx.params.id),
@@ -57,9 +58,9 @@ router.get('/:id', async (ctx) => {
     getKyc(ctx.state.redis, ctx.params.id),
     getKycStepConfig(ctx.state.redis, ctx.state.env),
     getKycStepConfig(ctx.state.redis, ctx.state.env, ctx.params.id),
-    getUserTotalTurnover(ctx.state.env, ctx.params.id, 'PHP'),
+    getUserTotalTurnover(ctx.state.env, ctx.params.id, balanceCurrency),
     // 权威等级（bg_user_vip_state.current_level，支持降级），而非按阈值现算
-    getEffectiveLevel(ctx.state.env, ctx.params.id, 'PHP'),
+    getEffectiveLevel(ctx.state.env, ctx.params.id, balanceCurrency),
     getAdminUserGrowth(ctx.state.env, ctx.params.id).catch(() => []),
     listUserIdentities(ctx.state.redis, ctx.params.id),
     getUserAttributionDetail(ctx.state.env, ctx.params.id).catch(() => null),
@@ -79,13 +80,14 @@ router.get('/:id', async (ctx) => {
     },
     level,
     totalTurnover,
+    balanceCurrency,
     growth,
     depositTotal: depositTotals.get(ctx.params.id)?.php ?? 0,
     depositByCurrency: depositTotals.get(ctx.params.id)?.byCurrency ?? [],
     withdrawTotal: withdrawTotals.get(ctx.params.id)?.php ?? 0,
     withdrawByCurrency: withdrawTotals.get(ctx.params.id)?.byCurrency ?? [],
     wallet,
-    walletBalances: walletBalances.length ? walletBalances : [{ currency: 'PHP', available: wallet.available, frozen: wallet.frozen }],
+    walletBalances: walletBalances.length ? walletBalances : [{ currency: balanceCurrency, available: wallet.available, frozen: wallet.frozen }],
     ledger,
     loginLogs,
     betOrders,

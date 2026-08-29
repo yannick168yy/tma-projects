@@ -34,6 +34,18 @@ const FREQUENCY_OPTIONS = [
   { value: 'always', label: '每次进站' },
 ]
 
+function currencyPrefix(currency: string): string {
+  if (currency === 'PHP') return '₱'
+  if (currency === 'IDR') return 'Rp'
+  return currency
+}
+
+function formatCurrencyTotals(byCurrency: Record<string, number>): string {
+  return Object.entries(byCurrency)
+    .map(([currency, amount]) => `${currencyPrefix(currency)}${Number(amount).toLocaleString('en-US', { maximumFractionDigits: currency === 'IDR' ? 0 : 4 })}`)
+    .join(' / ')
+}
+
 export default function Promotions() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -48,7 +60,7 @@ export default function Promotions() {
     try {
       const r = await triggerVipNegativeRebate(true)
       if (r.skipped) message.warning('活动未开启，未结算（请先开启开关并保存）')
-      else message.success(`结算完成：${r.users} 人，共 ₱${r.totalAmount}（写入待领取，幂等可重跑）`)
+      else message.success(`结算完成：${r.users} 人，${formatCurrencyTotals(r.byCurrency)}（写入待领取，幂等可重跑）`)
     } catch { message.error('结算失败') } finally { setSettling(false) }
   }
 
@@ -328,13 +340,13 @@ export default function Promotions() {
       <Row gutter={24} style={{ marginBottom: 16 }}>
         <Col span={8}>
           <Text>达标充值额（{redepCcy}）</Text>
-          <InputNumber prefix={redepCcy === 'PHP' ? '₱' : redepCcy} style={{ width: '100%', marginTop: 4 }} min={0} precision={2}
+          <InputNumber prefix={currencyPrefix(redepCcy)} style={{ width: '100%', marginTop: 4 }} min={0} precision={redepCcy === 'IDR' ? 0 : 2}
             value={cfg.redep.byCcy[redepCcy]?.minDeposit ?? 0}
             onChange={(v) => patch((d) => { d.redep.byCcy[redepCcy] = { ...d.redep.byCcy[redepCcy], minDeposit: Number(v ?? 0) }; if (redepCcy === 'PHP') d.redep.minDeposit = Number(v ?? 0) })} />
         </Col>
         <Col span={8}>
           <Text>额外奖励（{redepCcy}）</Text>
-          <InputNumber prefix={redepCcy === 'PHP' ? '₱' : redepCcy} style={{ width: '100%', marginTop: 4 }} min={0} precision={2}
+          <InputNumber prefix={currencyPrefix(redepCcy)} style={{ width: '100%', marginTop: 4 }} min={0} precision={redepCcy === 'IDR' ? 0 : 2}
             value={cfg.redep.byCcy[redepCcy]?.bonusAmount ?? 0}
             onChange={(v) => patch((d) => { d.redep.byCcy[redepCcy] = { ...d.redep.byCcy[redepCcy], bonusAmount: Number(v ?? 0) }; if (redepCcy === 'PHP') d.redep.bonusAmount = Number(v ?? 0) })} />
         </Col>
@@ -390,7 +402,7 @@ export default function Promotions() {
               })}
             />
           </Space>
-          <InputNumber prefix={lossCcy === 'PHP' ? '₱' : lossCcy} style={{ width: '100%', marginTop: 4 }} min={0} precision={2}
+          <InputNumber prefix={currencyPrefix(lossCcy)} style={{ width: '100%', marginTop: 4 }} min={0} precision={lossCcy === 'IDR' ? 0 : 2}
             value={cfg.lossRebate.minDepositByCcy[lossCcy] ?? 0}
             onChange={(v) => patch((d) => { d.lossRebate.minDepositByCcy[lossCcy] = Number(v ?? 0); if (lossCcy === 'PHP') d.lossRebate.minDeposit = Number(v ?? 0) })} />
         </Col>

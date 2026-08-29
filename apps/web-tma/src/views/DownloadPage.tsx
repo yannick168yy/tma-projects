@@ -31,6 +31,14 @@ Daily Check-in = FREE Lucky Wheel spins 🎡 higher tiers, bigger pots
 Task Center: Newbie Bonus ₱18 + First Bet ₱5 + Invite Friends ₱10
 JILI · PG · FaChai · CQ9 · Pragmatic Play — 2,000+ games in one app`
 
+const ABOUT_TEXT_ID = `🔥 🌟🌟🌟🌟🌟 4,9, tanpa iklan, permainan lancar, penarikan cepat 🔥
+🎁 Bonus Deposit Pertama hingga 120% 🎁 Deposit dan penarikan IDR yang mudah 🎁
+Program VIP dengan hadiah mingguan, bulanan, dan ulang tahun
+Loss Rebate hingga 7% dan Cash Rebate hingga 2%
+Check-in harian untuk spin Lucky Wheel gratis
+Pusat Tugas: hadiah pemain baru, taruhan pertama, dan undang teman
+JILI · PG · FaChai · CQ9 · Pragmatic Play — 2.000+ game dalam satu aplikasi`
+
 const TAGS = ['Casino', 'Slots', 'Bingo', 'Live Casino', 'Multiplayer']
 
 const RATING_BARS = [100, 26, 10, 7, 3]
@@ -110,6 +118,7 @@ export default function DownloadPage({ onClose }: { onClose: () => void }) {
   const { i18n } = useTranslation()
   const apkMarket = i18n.resolvedLanguage?.toLowerCase().startsWith('id') ? 'id' : 'ph'
   const apkDownloadUrl = APK_DOWNLOAD_URLS[apkMarket]
+  const aboutText = apkMarket === 'id' ? ABOUT_TEXT_ID : ABOUT_TEXT
   const [phase, setPhase] = useState<'idle' | 'installing' | 'done'>('idle')
   const [progress, setProgress] = useState(0)
   const [guideOpen, setGuideOpen] = useState(false)
@@ -272,7 +281,7 @@ export default function DownloadPage({ onClose }: { onClose: () => void }) {
           <h2 className="text-[18px] font-bold">About this App</h2>
           <ChevronRight size={20} className="text-[#5f6368]" />
         </div>
-        <p className="mt-2 whitespace-pre-line text-[13px] leading-relaxed text-[#3c4043]">{ABOUT_TEXT}</p>
+        <p className="mt-2 whitespace-pre-line text-[13px] leading-relaxed text-[#3c4043]">{aboutText}</p>
         <p className="mt-4 text-[13px] font-medium">Updated on</p>
         <p className="mt-0.5 text-[13px] text-[#5f6368]">July 15, 2026</p>
         <div className="hide-scrollbar mt-3 flex gap-2 overflow-x-auto">

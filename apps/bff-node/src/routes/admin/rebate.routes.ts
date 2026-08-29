@@ -130,9 +130,17 @@ router.delete('/featured-games/:id', async (ctx) => {
 
 // POST /admin/rebate/payout/manual — 手动结算截至当前时间的洗码记录
 router.post('/payout/manual', async (ctx) => {
-  const date = todayPHT()
-  const result = await runDailyRebateSettlement(ctx.state.env, date)
-  ok(ctx, { date, ...result })
+  const utc8Date = todayPHT()
+  const utc7Date = todayPHT('IDR')
+  const [other, idr] = await Promise.all([
+    runDailyRebateSettlement(ctx.state.env, utc8Date, { currencies: ['PHP', 'USDT', 'USDC'], timezoneOffsetHours: 8 }),
+    runDailyRebateSettlement(ctx.state.env, utc7Date, { currencies: ['IDR'], timezoneOffsetHours: 7 }),
+  ])
+  ok(ctx, {
+    users: other.users + idr.users,
+    byCurrency: { ...other.byCurrency, ...idr.byCurrency },
+    results: { utc8: { date: utc8Date, ...other }, utc7: { date: utc7Date, ...idr } },
+  })
 })
 
 // GET /admin/rebate/records — 洗码派发记录列表（管理后台查看）

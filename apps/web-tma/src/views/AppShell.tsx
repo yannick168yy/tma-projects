@@ -200,13 +200,13 @@ export default function AppShell() {
   }, [npSummary, inTelegram])
 
   async function refreshNpSummary() {
-    try { setNpSummary(await fetchNewPlayerSummary()) } catch { /* 弱网失败静默，稍后手动入口仍可重试 */ }
+    try { setNpSummary(await fetchNewPlayerSummary(activeCurrency)) } catch { /* 弱网失败静默，稍后手动入口仍可重试 */ }
   }
 
   useEffect(() => {
     if (!promoConfig) void loadPromoConfig()
     void refreshNpSummary()
-  }, [auth.token]) // 登录态变化后重拉真实领取状态
+  }, [auth.token, activeCurrency]) // 登录态或当前币种变化后重拉真实领取状态
 
   useEffect(() => {
     fetchAnnouncements().then(setAnnouncements).catch(() => setAnnouncements({}))
@@ -835,6 +835,7 @@ export default function AppShell() {
         {trialWelcomeOpen && (
           <TrialWelcomeSheet
             amount={promoConfig ? (promoConfig.trial.amountByCcy?.[activeCurrency] ?? promoConfig.trial.amount) : 0}
+            currency={activeCurrency}
             firstDepTier={firstDepSampleTier}
             firstDepMaxBonus={firstDepMaxBonus}
             onClaimed={() => { void refreshNpSummary(); notifyTasksRefresh() }}

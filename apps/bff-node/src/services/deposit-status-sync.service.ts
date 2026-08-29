@@ -4,12 +4,13 @@ import type { OrderDeposit } from '../types/domain.js'
 import { getMysqlPool } from '../clients/mysql.client.js'
 import { queryDeposit as yfpayQueryDeposit } from './yfpay.service.js'
 import { queryDeposit as beepayQueryDeposit } from './beepay.service.js'
+import { queryDeposit as unispayQueryDeposit, type UnispayOrderQueryResult } from './unispay.service.js'
 
 const QUERY_AFTER_MINUTES = 30
 const FORCE_FAIL_AFTER_MINUTES = 120
 const SCAN_LIMIT = 50
 
-type DepositProvider = 'yfpay' | 'beepay'
+type DepositProvider = 'yfpay' | 'beepay' | 'unispay'
 
 interface PendingDepositRow extends RowDataPacket {
   order_id: string
@@ -42,18 +43,28 @@ function resolveProvider(order: Pick<OrderDeposit, 'provider' | 'channelId'>): D
   const raw = String(order.provider || order.channelId || '').toLowerCase()
   if (raw.includes('yfpay')) return 'yfpay'
   if (raw.includes('beepay')) return 'beepay'
+  if (raw.includes('unispay')) return 'unispay'
   return null
 }
 
-function mapStateToStatus(state: number): OrderDeposit['status'] | null {
+function mapStateToStatus(provider: DepositProvider, state: number): OrderDeposit['status'] | null {
+  if (provider === 'unispay') {
+    if (state === 1) return 'paid'
+    if (state === 2 || state === 3) return 'failed'
+    return null
+  }
   if (state === 2) return 'paid'
   if (state === 3) return 'failed'
   return null
 }
 
-async function queryProviderState(env: Env, provider: DepositProvider, orderId: string): Promise<number> {
-  if (provider === 'beepay') return (await beepayQueryDeposit(orderId, env)).state
-  return (await yfpayQueryDeposit(orderId, env)).state
+async function queryProviderState(env: Env, provider: DepositProvider, orderId: string): Promise<{ state: number; unispay?: UnispayOrderQueryResult }> {
+  if (provider === 'beepay') return { state: (await beepayQueryDeposit(orderId, env)).state }
+  if (provider === 'unispay') {
+    const result = await unispayQueryDeposit(orderId, env)
+    return { state: result.state, unispay: result }
+  }
+  return { state: (await yfpayQueryDeposit(orderId, env)).state }
 }
 
 function extraPatch(reason: string, state?: number): Record<string, unknown> {
@@ -77,7 +88,7 @@ async function markDepositFailed(env: Env, orderId: string, reason: string, stat
   return res.affectedRows > 0
 }
 
-async function settleDepositViaCore(env: Env, provider: DepositProvider, order: OrderDeposit): Promise<boolean> {
+async function settleDepositViaCore(env: Env, provider: DepositProvider, order: OrderDeposit, unispay?: UnispayOrderQueryResult): Promise<boolean> {
   const res = await fetch(`${env.CORE_NODE_URL}/internal/payment/${provider}`, {
     method: 'POST',
     headers: {
@@ -88,6 +99,11 @@ async function settleDepositViaCore(env: Env, provider: DepositProvider, order: 
       orderId: order.orderId,
       userId: order.userId,
       creditedCents: order.amount,
+      ...(provider === 'unispay' ? {
+        providerOrderId: unispay?.platformId,
+        status: String(unispay?.state ?? 0),
+        amount: unispay?.amount || order.amount,
+      } : {}),
     }),
     signal: AbortSignal.timeout(15000),
   })
@@ -100,8 +116,9 @@ export async function syncQueriedDepositStatus(env: Env, order: OrderDeposit): P
   const provider = resolveProvider(order)
   if (!provider) return null
 
-  const state = await queryProviderState(env, provider, order.orderId)
-  const status = mapStateToStatus(state)
+  const queried = await queryProviderState(env, provider, order.orderId)
+  const state = queried.state
+  const status = mapStateToStatus(provider, state)
   if (!status) return { orderId: order.orderId, provider, state, status: 'pending', changed: false }
 
   if (status === 'failed') {
@@ -109,7 +126,7 @@ export async function syncQueriedDepositStatus(env: Env, order: OrderDeposit): P
     return { orderId: order.orderId, provider, state, status: 'failed', changed }
   }
 
-  await settleDepositViaCore(env, provider, order)
+  await settleDepositViaCore(env, provider, order, queried.unispay)
   return { orderId: order.orderId, provider, state, status: 'paid', changed: true }
 }
 

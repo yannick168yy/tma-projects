@@ -31,7 +31,7 @@ export default function BiProviders() {
     loadAlerts()
   }
 
-  const unit = data?.currency === 'PHP' ? '₱' : data?.currency ?? ''
+  const unit = data?.currency ?? ''
   const pieData = (data?.providers ?? []).slice(0, 7).map((p) => ({ name: p.provider, value: p.betAmount }))
   const rest = (data?.providers ?? []).slice(7).reduce((a, p) => a + p.betAmount, 0)
   if (rest > 0) pieData.push({ name: '其他', value: rest })
@@ -83,6 +83,7 @@ export default function BiProviders() {
           options={[
             { label: '全部折算 PHP', value: 'ALL' },
             { label: 'PHP', value: 'PHP' },
+            { label: 'IDR', value: 'IDR' },
             { label: 'USDT', value: 'USDT' },
             { label: 'USDC', value: 'USDC' },
           ]} />

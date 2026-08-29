@@ -23,8 +23,11 @@ interface Props {
   onOpenLossRebate: () => void
 }
 
-function phpDisplay(cents: number) {
-  return '₱' + (cents / 100).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+function teamMoneyDisplay(cents: number, currency: 'PHP' | 'IDR') {
+  const amount = cents / 100
+  return currency === 'IDR'
+    ? `Rp ${amount.toLocaleString('id-ID', { maximumFractionDigits: 0 })}`
+    : `₱${amount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
 // 后台 bonusCards 配置缺失/弱网未加载时的兜底顺序，保证页面不空白
@@ -65,7 +68,12 @@ export default function BonusesPage({ promoFilter, onOpenWallet, onOpenTeam, onO
   const activeCurrency = useWalletStore((s) => s.activeCurrency)
   const fmtBonus = (amt: number) => activeCurrency === 'PHP'
     ? `₱${amt.toLocaleString('en-PH')}`
-    : `${amt.toLocaleString('en-US')} ${activeCurrency}`
+    : activeCurrency === 'IDR' ? `Rp ${amt.toLocaleString('id-ID')}` : `${amt.toLocaleString('en-US')} ${activeCurrency}`
+  const displayWinnerAmount = (value: string) => {
+    if (activeCurrency !== 'IDR') return value
+    const php = Number(value.replace(/[^\d.]/g, ''))
+    return Number.isFinite(php) ? `Rp ${(Math.round(php * 287 / 100) * 100).toLocaleString('id-ID')}` : value
+  }
 
   useEffect(() => {
     if (token && user) void promotionStore.loadTeamStatus()
@@ -408,7 +416,7 @@ export default function BonusesPage({ promoFilter, onOpenWallet, onOpenTeam, onO
                     <span className="text-white/50 text-[9px]">{t('bonuses.promos.agent.commissionLabel')}</span>
                   </div>
                   <div className="text-amber-400 font-black text-sm leading-none">
-                    {phpDisplay(teamStatus.availableCents)}
+                    {teamMoneyDisplay(teamStatus.availableCents, teamStatus.currency)}
                   </div>
                 </div>
               </div>
@@ -571,7 +579,7 @@ export default function BonusesPage({ promoFilter, onOpenWallet, onOpenTeam, onO
                     <span key={`${group}-${i}`} className="text-[11px] flex-shrink-0">
                       <span className="text-primary font-bold">{w.name}</span>
                       <span className="text-white/50"> {t('common.claimed')} </span>
-                      <span className="text-emerald-400 font-bold">{w.amount}</span>
+                      <span className="text-emerald-400 font-bold">{displayWinnerAmount(w.amount)}</span>
                       <span className="text-white/30"> · {w.promo}</span>
                     </span>
                   ))}
@@ -601,7 +609,7 @@ export default function BonusesPage({ promoFilter, onOpenWallet, onOpenTeam, onO
                   {t('bonuses.newPlayer.entryTitle')}
                 </h2>
                 <p className="text-white/70 text-xs mt-0.5">
-                  {t('bonuses.newPlayer.entrySub', { amount: '₱' + newPlayerSummary.totalShowcase.toLocaleString('en-PH') })}
+                  {t('bonuses.newPlayer.entrySub', { amount: fmtBonus(newPlayerSummary.totalShowcase) })}
                 </p>
               </div>
               <span className="text-4xl">🎁</span>

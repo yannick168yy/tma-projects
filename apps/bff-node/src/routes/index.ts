@@ -82,6 +82,8 @@ export function createApiRouter(): Router {
     const env = ctx.state.env
     const cfg = await getPromoConfig(env)
     const userId = ctx.state.userId as string | undefined
+    const requestedCurrency = String(ctx.query.currency ?? 'PHP').toUpperCase()
+    const currency = ['PHP', 'IDR', 'USDT', 'USDC'].includes(requestedCurrency) ? requestedCurrency : 'PHP'
 
     let trialClaimed = false
     let appdlClaimed = false
@@ -100,14 +102,14 @@ export function createApiRouter(): Router {
       }
     }
 
-    const phpTiers = cfg.firstdep.tiers.PHP ?? []
-    const firstdepMax = phpTiers.length ? Math.max(...phpTiers.map((tier) => tier.bonusAmount)) : 0
+    const currencyTiers = cfg.firstdep.tiers[currency] ?? []
+    const firstdepMax = currencyTiers.length ? Math.max(...currencyTiers.map((tier) => tier.bonusAmount)) : 0
 
     // 返水橱窗数：最高等级各大类日封顶加总 ×30 天；封顶全为 0（不封顶）时 monthlyCap=0，客户端展示 Unlimited 卖点
     let cashbackDailyCap = 0
     let cashbackTopRatePct = 0
     try {
-      const levelCfg = await getLevelConfig(env)
+      const levelCfg = await getLevelConfig(env, currency)
       const topLevel = levelCfg.reduce((m, it) => Math.max(m, it.level), 0)
       for (const it of levelCfg) {
         if (it.level !== topLevel || !it.enabled) continue
@@ -118,17 +120,18 @@ export function createApiRouter(): Router {
     const cashbackMonthlyCap = Math.round(cashbackDailyCap * 30)
 
     const totalShowcase =
-      (cfg.trial.enabled ? cfg.trial.amount : 0) +
-      (cfg.appdl.enabled ? cfg.appdl.amount : 0) +
+      (cfg.trial.enabled ? (cfg.trial.amountByCcy?.[currency] ?? cfg.trial.amount) : 0) +
+      (cfg.appdl.enabled ? (cfg.appdl.amountByCcy?.[currency] ?? cfg.appdl.amount) : 0) +
       (cfg.firstdep.enabled ? firstdepMax : 0) +
       cashbackMonthlyCap
 
     ok(ctx, {
       registered: Boolean(userId),
+      currency,
       totalShowcase,
       tasks: {
-        trial:    { enabled: cfg.trial.enabled, amount: cfg.trial.amount, claimed: trialClaimed },
-        appdl:    { enabled: cfg.appdl.enabled, amount: cfg.appdl.amount, claimed: appdlClaimed },
+        trial:    { enabled: cfg.trial.enabled, amount: cfg.trial.amountByCcy?.[currency] ?? cfg.trial.amount, claimed: trialClaimed },
+        appdl:    { enabled: cfg.appdl.enabled, amount: cfg.appdl.amountByCcy?.[currency] ?? cfg.appdl.amount, claimed: appdlClaimed },
         firstdep: { enabled: cfg.firstdep.enabled, maxBonus: firstdepMax, done: deposited },
       },
       cashback: { dailyCap: cashbackDailyCap, monthlyCap: cashbackMonthlyCap, topRatePct: cashbackTopRatePct },

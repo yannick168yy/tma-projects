@@ -2,7 +2,7 @@ import type { Pool, RowDataPacket } from 'mysql2/promise'
 import type { Redis } from 'ioredis'
 import { lgId } from '../utils/id.js'
 import { createDepositRequirement } from '../services/turnover.service.js'
-import { tryActivateTeamNode } from '../routes/internal.routes.js'
+import { tryActivateTeamNode } from '../services/team-activation.service.js'
 import { getPhpRate } from '../services/exchange-rate.service.js'
 import { applyDepositPromos } from '../services/deposit-promo.service.js'
 
@@ -139,8 +139,8 @@ async function handleMatrixDeposit(
     )
     await createDepositRequirement(conn, notify.userId, notify.orderNo, amount, notify.symbol)
     const phpRate = await getPhpRate(notify.symbol)
-    const phpCents = Math.floor(amount * phpRate * 100)
-    await tryActivateTeamNode(conn, notify.userId, phpCents)
+    const phpAmount = amount * phpRate
+    await tryActivateTeamNode(conn, notify.userId, phpAmount, 'PHP')
     await conn.commit()
     await applyDepositPromos(db, {
       orderId: notify.orderNo,

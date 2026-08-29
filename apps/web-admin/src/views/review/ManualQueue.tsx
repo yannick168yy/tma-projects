@@ -7,6 +7,12 @@ import { MobileCardList } from '../../components/MobileCardList'
 import { PAGE_SIZE_OPTIONS, DEFAULT_PAGE_SIZE } from '../../pagination'
 import { wdStatusLabel } from './shared'
 
+function money(amount: number, currency: string): string {
+  if (currency === 'IDR') return `Rp ${amount.toLocaleString('id-ID', { maximumFractionDigits: 0 })}`
+  if (currency === 'PHP') return `₱${amount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  return `${amount.toLocaleString('en-US', { maximumFractionDigits: 6 })} ${currency}`
+}
+
 export default function ManualQueue() {
   const navigate = useNavigate()
   const screens = Grid.useBreakpoint()
@@ -33,7 +39,7 @@ export default function ManualQueue() {
   function handleApprove(item: ManualQueueItem) {
     Modal.confirm({
       title: '确认出款？',
-      content: `将向 ${item.displayName || item.userId} 出款 ₱${item.amount.toLocaleString()}`,
+      content: `将向 ${item.displayName || item.userId} 出款 ${money(item.amount, item.currency)}`,
       okText: '确认出款',
       onOk: async () => {
         await approveTeamWithdrawal(item.id)
@@ -101,7 +107,7 @@ export default function ManualQueue() {
     {
       title: '金额', key: 'amount', width: 120,
       render: (_: unknown, r: ManualQueueItem) =>
-        `₱${r.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+        money(r.amount, r.currency),
     },
     {
       title: '命中规则', key: 'hits',
@@ -184,7 +190,7 @@ export default function ManualQueue() {
                   {r.displayName || r.userId}
                 </Button>
                 <span style={{ fontSize: 20, fontWeight: 700 }}>
-                  ₱{r.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  {money(r.amount, r.currency)}
                 </span>
               </div>
               {r.hitRules.length > 0 && (

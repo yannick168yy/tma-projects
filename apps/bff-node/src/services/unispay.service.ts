@@ -135,6 +135,50 @@ export interface WithdrawalOrderResult {
   state: number
 }
 
+export interface UnispayOrderQueryResult {
+  platformId: string
+  merchantSerial: string
+  amount: number
+  state: number
+}
+
+function normalizeOrderResult(data: {
+  mchOrderId?: string
+  merchantSerial?: string
+  orderNo?: string
+  platformId?: string
+  amount?: string | number
+  status?: string | number
+}): UnispayOrderQueryResult {
+  return {
+    platformId: String(data.orderNo ?? data.platformId ?? ''),
+    merchantSerial: String(data.mchOrderId ?? data.merchantSerial ?? ''),
+    amount: Number(data.amount ?? 0),
+    state: Number(data.status ?? 0),
+  }
+}
+
+export async function queryDeposit(merchantSerial: string, env: Env): Promise<UnispayOrderQueryResult> {
+  const data = await request<Record<string, string | number>>('/api/order/query', { mchOrderId: merchantSerial }, env)
+  return normalizeOrderResult(data)
+}
+
+export async function queryWithdrawal(merchantSerial: string, env: Env): Promise<UnispayOrderQueryResult> {
+  const data = await request<Record<string, string | number>>('/api/payout/query', { mchOrderId: merchantSerial }, env)
+  return normalizeOrderResult(data)
+}
+
+export async function getBalance(env: Env): Promise<{ balance: number; frozen: number; currency: string }> {
+  const data = await request<Record<string, string | number>>('/api/mch/balance', {}, env)
+  const balance = Number(data.balance ?? data.availableBalance ?? data.available ?? data.amount ?? 0)
+  const frozen = Number(data.frozen ?? data.frozenBalance ?? data.freezeBalance ?? data.freezeAmount ?? 0)
+  return {
+    balance: Number.isFinite(balance) ? balance : 0,
+    frozen: Number.isFinite(frozen) ? frozen : 0,
+    currency: String(data.currency ?? 'IDR'),
+  }
+}
+
 export async function createWithdrawal(params: CreateWithdrawalParams, env: Env): Promise<WithdrawalOrderResult> {
   const data = await request<{
     mchNo: string

@@ -33,6 +33,7 @@ export interface UserRecord {
   inviteCode: string
   referredBy?: string
   locale: AppLocale
+  market?: 'PH' | 'ID'
   /** 被邀请人首充达标（≥₱100）已触发，避免重复处理 */
   referralMilestoneMet?: boolean
   status: UserStatus

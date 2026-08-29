@@ -23,7 +23,7 @@ export default function BiGames() {
     getBiGames({ days, currency, limit: 200 }).then(setData).finally(() => setLoading(false))
   }, [days, currency])
 
-  const unit = data?.currency === 'PHP' ? '₱' : data?.currency ?? ''
+  const unit = data?.currency ?? ''
   const games = (data?.games ?? []).filter((g) => category === 'ALL' || g.category === category)
   const catData = (data?.categories ?? []).map((c) => ({ name: CATEGORY_LABEL[c.category] ?? c.category, value: c.betAmount }))
   const topGgr = [...(data?.games ?? [])].sort((a, b) => b.ggr - a.ggr).slice(0, 10)
@@ -59,6 +59,7 @@ export default function BiGames() {
           options={[
             { label: '全部折算 PHP', value: 'ALL' },
             { label: 'PHP', value: 'PHP' },
+            { label: 'IDR', value: 'IDR' },
             { label: 'USDT', value: 'USDT' },
             { label: 'USDC', value: 'USDC' },
           ]} />

@@ -464,7 +464,7 @@ router.put('/agents/:userId/rate-plan', async (ctx) => {
 // GET /admin/team/config
 router.get('/config', async (ctx) => {
   const [[row]] = await getMysqlPool(ctx.state.env).query<RowDataPacket[]>(
-    `SELECT min_activation_cents, min_withdrawal_cents, min_withdrawal_idr_cents,
+    `SELECT min_activation_cents, min_activation_idr_cents, min_withdrawal_cents, min_withdrawal_idr_cents,
             max_commission_per_settlement_cents, max_commission_per_settlement_idr_cents, settlement_hour,
             last_auto_settlement, commission_basis, updated_at
      FROM bg_team_config WHERE id = 1 LIMIT 1`,
@@ -478,7 +478,7 @@ router.put('/config', async (ctx) => {
   const adminId = (ctx.state as { adminId?: number }).adminId
   const db      = getMysqlPool(ctx.state.env)
 
-  const allowed = ['min_activation_cents', 'min_withdrawal_cents', 'min_withdrawal_idr_cents',
+  const allowed = ['min_activation_cents', 'min_activation_idr_cents', 'min_withdrawal_cents', 'min_withdrawal_idr_cents',
                    'max_commission_per_settlement_cents', 'max_commission_per_settlement_idr_cents',
                    'settlement_hour', 'commission_basis']
   const sets: string[] = []

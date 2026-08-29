@@ -33,6 +33,19 @@ const IMAGE_OPTIONS = Array.from({ length: PRIZE_COUNT }, (_, i) => {
   }
 })
 
+function currencyPrefix(currency: string): string {
+  if (currency === 'PHP') return '₱'
+  if (currency === 'IDR') return 'Rp'
+  return currency
+}
+
+function formatAmount(amount: number, currency: string): string {
+  return `${currencyPrefix(currency)}${Number(amount).toLocaleString('en-US', {
+    minimumFractionDigits: currency === 'IDR' ? 0 : 2,
+    maximumFractionDigits: currency === 'IDR' ? 0 : 4,
+  })}`
+}
+
 function PrizeImageSelect({ value, onChange }: { value?: string; onChange?: (v: string) => void }) {
   return (
     <Select
@@ -61,7 +74,7 @@ const recordColumns: ColumnsType<SpinRecord> = [
     <span><div style={{ fontFamily: 'monospace', fontSize: 12 }}>{id}</div><div style={{ color: '#999', fontSize: 12 }}>{r.displayName}</div></span>
   ) },
   { title: '奖品', dataIndex: 'prizeName', width: 120, render: (v) => <Tag color="gold">{v}</Tag> },
-  { title: '入账金额', dataIndex: 'amountPhp', width: 120, render: (v) => <b>₱{Number(v).toFixed(2)}</b> },
+  { title: '入账金额', dataIndex: 'amountPhp', width: 140, render: (v, r) => <b>{formatAmount(Number(v), r.currency)}</b> },
   { title: '中奖时间', dataIndex: 'createdAt', width: 170, render: (v) => new Date(v).toLocaleString('zh-CN', { hour12: false }) },
 ]
 
@@ -83,11 +96,12 @@ function defaultCheckinRule(tier: CheckinTier, tierIndex: number): SpinDepositRu
   }
 }
 
-function defaultPrize(ruleId: number | null | undefined, i: number): SpinPrize {
-  const amount = [7.77, 17.77, 77.77, 277.77, 777.77, 1777, 7777, 17777][i] ?? 7.77
+function defaultPrize(ruleId: number | null | undefined, i: number, currency: string): SpinPrize {
+  const phpAmount = [7.77, 17.77, 77.77, 277.77, 777.77, 1777, 7777, 17777][i] ?? 7.77
+  const amount = currency === 'IDR' ? Math.max(100, Math.round(phpAmount * 287 / 100) * 100) : phpAmount
   return {
     ruleId,
-    name: `₱${amount.toLocaleString('en-PH')}`,
+    name: formatAmount(amount, currency),
     imageKey: `prize-${i + 1}`,
     amountPhp: amount,
     weight: i < 2 ? 3000 : i < 5 ? 800 : 100,
@@ -97,7 +111,7 @@ function defaultPrize(ruleId: number | null | undefined, i: number): SpinPrize {
   }
 }
 
-function prizesForRule(config: SpinConfig, rule: SpinDepositRule, ruleIndex: number): SpinPrize[] {
+function prizesForRule(config: SpinConfig, rule: SpinDepositRule, ruleIndex: number, currency: string): SpinPrize[] {
   const byRuleId = config.prizes
     .filter((p) => rule.id != null && Number(p.ruleId) === Number(rule.id))
     .sort((a, b) => a.sortOrder - b.sortOrder || Number(a.id ?? 0) - Number(b.id ?? 0))
@@ -107,7 +121,7 @@ function prizesForRule(config: SpinConfig, rule: SpinDepositRule, ruleIndex: num
   )
   const source = byRuleId.length > 0 ? byRuleId : byPosition
   return Array.from({ length: PRIZE_COUNT }, (_, i) => ({
-    ...defaultPrize(rule.id, i),
+    ...defaultPrize(rule.id, i, currency),
     ...source[i],
     ruleId: rule.id,
     imageKey: source[i]?.imageKey || `prize-${i + 1}`,
@@ -115,7 +129,7 @@ function prizesForRule(config: SpinConfig, rule: SpinDepositRule, ruleIndex: num
   }))
 }
 
-function normalizeConfig(config: SpinConfig): SpinConfig {
+function normalizeConfig(config: SpinConfig, currency: string): SpinConfig {
   const checkinRules = CHECKIN_TIERS.map((tier, tierIndex) => {
     const existing = config.depositRules.find((r) => r.kind === 'checkin' && r.checkinTier === tier)
     return {
@@ -132,7 +146,7 @@ function normalizeConfig(config: SpinConfig): SpinConfig {
     }
   })
 
-  const prizes = checkinRules.flatMap((rule, ruleIndex) => prizesForRule(config, rule, ruleIndex))
+  const prizes = checkinRules.flatMap((rule, ruleIndex) => prizesForRule(config, rule, ruleIndex, currency))
 
   return { enabled: config.enabled, depositRules: checkinRules, prizes }
 }
@@ -147,7 +161,7 @@ function PrizeRowFields({ flatIndex }: { flatIndex: number }) {
   )
 }
 
-function PrizeTable({ ruleIndex }: { ruleIndex: number }) {
+function PrizeTable({ ruleIndex, currency }: { ruleIndex: number; currency: string }) {
   return (
     <Table
       rowKey={(slot) => String(slot)}
@@ -180,11 +194,11 @@ function PrizeTable({ ruleIndex }: { ruleIndex: number }) {
           ),
         },
         {
-          title: '奖金 PHP',
+          title: `奖金 ${currency}`,
           width: 130,
           render: (_, __, slot) => (
             <Form.Item name={['prizes', prizeFlatIndex(ruleIndex, slot), 'amountPhp']} noStyle rules={[{ required: true, type: 'number', min: 0.01 }]}>
-              <InputNumber prefix="₱" min={0.01} precision={2} style={{ width: '100%' }} />
+              <InputNumber prefix={currencyPrefix(currency)} min={currency === 'IDR' ? 100 : 0.01} precision={currency === 'IDR' ? 0 : 2} style={{ width: '100%' }} />
             </Form.Item>
           ),
         },
@@ -236,7 +250,7 @@ export default function RewardsSpin() {
   async function loadConfig(cur = currency) {
     setLoading(true)
     try {
-      form.setFieldsValue(normalizeConfig(await getSpinConfig(cur)))
+      form.setFieldsValue(normalizeConfig(await getSpinConfig(cur), cur))
     } catch (e) {
       message.error(e instanceof Error ? e.message : '加载失败')
     } finally {
@@ -268,10 +282,10 @@ export default function RewardsSpin() {
   async function handleSave() {
     let values: SpinConfig
     try { values = await form.validateFields() } catch { return }
-    const normalized = normalizeConfig(values)
+    const normalized = normalizeConfig(values, currency)
     setSaving(true)
     try {
-      form.setFieldsValue(normalizeConfig(await saveSpinConfig(normalized, currency)))
+      form.setFieldsValue(normalizeConfig(await saveSpinConfig(normalized, currency), currency))
       message.success(`转盘配置已保存（${currency}）`)
     } catch (e) {
       message.error(e instanceof Error ? e.message : '保存失败')
@@ -338,7 +352,7 @@ export default function RewardsSpin() {
                                 <Form.Item label="启用" name={['depositRules', ruleIndex, 'enabled']} valuePropName="checked">
                                   <Switch />
                                 </Form.Item>
-                                <PrizeTable ruleIndex={ruleIndex} />
+                                <PrizeTable ruleIndex={ruleIndex} currency={currency} />
                               </>
                             ),
                           }]}

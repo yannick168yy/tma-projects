@@ -226,7 +226,7 @@ function phtNow(): Date {
 }
 
 export function renderTemplateVars(body: string): string {
-  const week = getBettingActivity('week')
+  const week = getBettingActivity('week', 'PHP')
   const gameNames = week.length ? week.map((g) => g.name) : ['Fortune Gems', 'Super Ace', 'Boxing King']
   const pht = phtNow()
   const vars: Record<string, string> = {

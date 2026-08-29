@@ -3,14 +3,29 @@ import { Table, Switch, InputNumber, Button, Space, Card, Tag, Tabs, message } f
 import { getReviewConfig, saveReviewConfig, type ReviewConfigItem, type ReviewScope } from '../../api'
 
 const THRESHOLD_HINT: Record<string, string> = {
-  large_profit: '净盈利（PHP元），如 200000 = 20万',
   high_multiple_profit: '盈利/存款 倍数',
   high_multiple_profit_24h: '近24h 盈利/存款 倍数',
   withdraw_deposit_ratio: '取款额/累计存款 倍数，如 5',
-  total_bonus: '优惠总额（PHP元），如 50000 = 5万',
   same_ip: '近30天同IP其它账号数',
   same_device_id: '同设备ID账号总数（含本人）',
   same_device_fp: '同设备指纹账号总数（含本人）',
+}
+
+const PARAM_LABELS: Record<string, string> = {
+  php: 'PHP 金额', idr: 'IDR 金额', usdt: 'USDT/USDC 金额',
+  minPhp: 'PHP 起查额', minIdr: 'IDR 起查额', minUsdt: 'USDT/USDC 起查额',
+  mult: '增长倍数', ratio: '占比', days: '新号天数', count: '笔数', graceMinutes: '宽限分钟', windowMins: '窗口分钟',
+}
+
+const PARAM_ORDER = ['php', 'idr', 'usdt', 'minPhp', 'minIdr', 'minUsdt', 'mult', 'ratio', 'days', 'count', 'graceMinutes', 'windowMins']
+
+function visibleParamKeys(params: Record<string, number>): string[] {
+  const keys = Object.keys(params).filter((key) => key !== 'minCents' || !('minPhp' in params))
+  return keys.sort((a, b) => {
+    const ai = PARAM_ORDER.indexOf(a)
+    const bi = PARAM_ORDER.indexOf(b)
+    return (ai < 0 ? PARAM_ORDER.length : ai) - (bi < 0 ? PARAM_ORDER.length : bi)
+  })
 }
 
 function ScopePanel({ scope }: { scope: ReviewScope }) {
@@ -48,9 +63,9 @@ function ScopePanel({ scope }: { scope: ReviewScope }) {
     { title: '启用', key: 'enabled', width: 70, render: (_: unknown, r: ReviewConfigItem) => <Switch checked={r.enabled} onChange={(c) => update(r.ruleCode, { enabled: c })} /> },
     { title: '阈值参数', key: 'threshold', render: (_: unknown, r: ReviewConfigItem) => {
       if (r.params) {
-        const keys = Object.keys(r.params)
+        const keys = visibleParamKeys(r.params)
         return <Space wrap>{keys.map((k) => (
-          <span key={k}>{k} <InputNumber value={r.params![k]} min={0} style={{ width: 110 }} onChange={(v) => updateParam(r.ruleCode, k, v)} /></span>
+          <span key={k}>{PARAM_LABELS[k] ?? k} <InputNumber value={r.params![k]} min={0} precision={k === 'idr' || k === 'minIdr' || k === 'days' || k === 'count' ? 0 : undefined} style={{ width: 120 }} onChange={(v) => updateParam(r.ruleCode, k, v)} /></span>
         ))}</Space>
       }
       if (r.threshold == null) return <span style={{ color: '#999' }}>无（开关型）</span>

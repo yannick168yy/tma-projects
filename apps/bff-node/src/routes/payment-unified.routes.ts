@@ -22,6 +22,7 @@ import {
 } from '../services/beepay.service.js'
 import {
   createDeposit as unispayCreateDeposit,
+  queryDeposit as unispayQueryDeposit,
   UnispayError,
 } from '../services/unispay.service.js'
 import { syncQueriedDepositStatus } from '../services/deposit-status-sync.service.js'
@@ -195,7 +196,7 @@ router.post('/payment/deposit/query', async (ctx) => {
   if (isMysqlEnabled(ctx.state.env)) {
     order = await getDeposit(ctx.state.redis, body.merchantSerial)
     if (!order || order.userId !== ctx.state.userId) { fail(ctx, 403, 'errors.noPermission'); return }
-    provider = order.provider ?? (order.channelId.startsWith('beepay_') ? 'beepay' : 'yfpay')
+    provider = order.provider ?? (order.channelId.startsWith('beepay_') ? 'beepay' : order.channelId.startsWith('unispay_') ? 'unispay' : 'yfpay')
     if (order.status !== 'pending') {
       ok(ctx, { state: depositOrderState(order.status) })
       return
@@ -210,6 +211,9 @@ router.post('/payment/deposit/query', async (ctx) => {
     } else if (provider === 'beepay') {
       const r = await beepayQueryDeposit(body.merchantSerial, ctx.state.env)
       state = r.state
+    } else if (provider === 'unispay') {
+      const r = await unispayQueryDeposit(body.merchantSerial, ctx.state.env)
+      state = r.state
     } else {
       const r = await yfpayQueryDeposit(body.merchantSerial, ctx.state.env)
       state = r.state
@@ -218,6 +222,7 @@ router.post('/payment/deposit/query', async (ctx) => {
   } catch (err) {
     const msg = err instanceof YfPayError ? err.message
       : err instanceof BeepayError ? err.message
+      : err instanceof UnispayError ? err.message
       : '查询失败'
     fail(ctx, 500, msg)
   }

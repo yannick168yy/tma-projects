@@ -254,11 +254,13 @@ export default function HomeContent({ homeBannerTopAnnouncement, onNavigatePath,
   const [activeBetTab, setActiveBetTab] = useState<BetTab>('latest')
   const [latestBets, setLatestBets] = useState<BetRecord[]>([]); const [weekBets, setWeekBets] = useState<BetRecord[]>([]); const [monthBets, setMonthBets] = useState<BetRecord[]>([])
   const [betLoaded, setBetLoaded] = useState<Record<BetTab, boolean>>({ latest: false, week: false, month: false })
-  function formatBet(amount: number) { return '₱ ' + amount.toLocaleString() }
+  function formatBet(amount: number, currency: string) {
+    return currency === 'IDR' ? `Rp ${amount.toLocaleString('id-ID')}` : `₱ ${amount.toLocaleString('en-PH')}`
+  }
   async function loadBetTab(tab: BetTab) {
     if (betLoaded[tab]) return; setBetLoaded((prev) => ({ ...prev, [tab]: true }))
     try {
-      const data = await fetchBettingActivity(tab)
+      const data = await fetchBettingActivity(tab, activeCurrency)
       if (tab === 'latest') setLatestBets(data); else if (tab === 'week') setWeekBets(data); else setMonthBets(data)
     } catch { /**/ }
   }
@@ -374,17 +376,21 @@ export default function HomeContent({ homeBannerTopAnnouncement, onNavigatePath,
 
   // 投注流非首屏关键，进入视口前不拉，避免与首页游戏/内容抢首屏带宽
   useEffect(() => {
+    setLatestBets([]); setWeekBets([]); setMonthBets([])
+    setBetLoaded({ latest: false, week: false, month: false })
     const el = betSectionRef.current
     if (!el) return
     const observer = new IntersectionObserver((entries) => {
       if (entries[0]?.isIntersecting) {
-        void loadBetTab('latest')
+        fetchBettingActivity('latest', activeCurrency)
+          .then((data) => { setLatestBets(data); setBetLoaded((prev) => ({ ...prev, latest: true })) })
+          .catch(() => {})
         observer.disconnect()
       }
     }, { threshold: 0.1, rootMargin: '200px' })
     observer.observe(el)
     return () => observer.disconnect()
-  }, [])
+  }, [activeCurrency])
 
 
   return (
@@ -633,7 +639,7 @@ export default function HomeContent({ homeBannerTopAnnouncement, onNavigatePath,
                       <p className="text-xs font-bold text-foreground truncate">{localizedGameName(rec, locale)}</p>
                       <p className="text-[10px] text-muted-foreground">{rec.provider}</p>
                     </div>
-                    <span className="text-xs font-bold text-primary flex-shrink-0">{formatBet(rec.betAmount)}</span>
+                    <span className="text-xs font-bold text-primary flex-shrink-0">{formatBet(rec.betAmount, rec.currency)}</span>
                   </button>
                 ))}
               </div>
@@ -680,7 +686,7 @@ export default function HomeContent({ homeBannerTopAnnouncement, onNavigatePath,
                           <p className="text-sm font-black text-foreground truncate">{localizedGameName(rec, locale)}</p>
                           <p className="text-[11px] text-muted-foreground">{rec.provider}</p>
                         </div>
-                        <span className={`text-base font-black flex-shrink-0 ${top.amount}`}>{formatBet(rec.betAmount)}</span>
+                        <span className={`text-base font-black flex-shrink-0 ${top.amount}`}>{formatBet(rec.betAmount, rec.currency)}</span>
                       </button>
                     )
                   }
@@ -701,7 +707,7 @@ export default function HomeContent({ homeBannerTopAnnouncement, onNavigatePath,
                         <p className="text-xs font-bold text-foreground truncate">{localizedGameName(rec, locale)}</p>
                         <p className="text-[10px] text-muted-foreground">{rec.provider}</p>
                       </div>
-                      <span className="text-xs font-bold text-primary flex-shrink-0">{formatBet(rec.betAmount)}</span>
+                      <span className="text-xs font-bold text-primary flex-shrink-0">{formatBet(rec.betAmount, rec.currency)}</span>
                     </button>
                   )
                 })}

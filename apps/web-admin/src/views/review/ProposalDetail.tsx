@@ -30,7 +30,7 @@ const SNAP_LABELS: Record<string, { label: string; yuan?: boolean }> = {
   commissionDownlineGgrPhp: { label: '下线累计GGR', yuan: true },
   commissionDupGroups: { label: '佣金重复入账组' },
 }
-const yuan = (n: number) => `₱${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+const yuan = (n: number) => `PHP ${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} 等值`
 
 // _score_policy 影子评分写入 snapshot 的字段（弱关联信号加权，见 bff withdraw-review.service）
 type ScoreSnapshot = {

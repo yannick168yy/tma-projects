@@ -12,7 +12,7 @@ export default {
     invalidWithdrawAccount: 'Nomor akun penarikan tidak valid',
     withdrawPhoneMismatch: 'Penarikan hanya dapat dilakukan ke nomor telepon terdaftar Anda sendiri',
     withdrawPhoneTaken: 'Nomor telepon ini milik akun lain dan tidak dapat digunakan untuk penarikan',
-    minWithdrawal: 'Penarikan minimum ₱{{value}}',
+    minWithdrawal: 'Penarikan minimum Rp{{value}}',
     withdrawBelowMin: 'Di bawah penarikan minimum {{value}}',
     withdrawAboveMax: 'Di atas penarikan maksimum {{value}}',
     withdrawAmountMustExceedGas: 'Jumlah penarikan harus lebih besar dari biaya gas',
@@ -208,7 +208,7 @@ export default {
     infoDetails: {
       terms: {
         title: 'Syarat Layanan',
-        content: 'Dengan mengakses atau menggunakan BetoGo, Anda setuju untuk terikat oleh Syarat Layanan ini. Harap baca dengan seksama sebelum menggunakan platform.\n\nKelayakan Pengguna\n\nDengan menggunakan platform ini, Anda menyatakan gaming online diizinkan di yurisdiksi Anda.\n\nKeadilan Game\n\nSemua game menggunakan teknologi RNG yang diaudit secara independen. BetoGo tidak memanipulasi hasil game. Kemenangan tunduk pada persyaratan taruhan yang berlaku.\n\nTransaksi\n\nDeposit dan penarikan diproses melalui saluran pembayaran yang aman. Waktu pemrosesan dapat bervariasi. BetoGo tidak bertanggung jawab atas keterlambatan dari pemroses pembayaran pihak ketiga. Semua transaksi dipantau untuk tujuan keamanan.\n\nAkun\n\nAnda bertanggung jawab menjaga kerahasiaan kredensial akun. BetoGo berhak memverifikasi identitas pemain dan membekukan akun mencurigakan. Satu akun per pemain.\n\nPersyaratan Taruhan & Penarikan\n\nSemua deposit dikenakan persyaratan taruhan 1x sebelum penarikan dapat diproses. Anda harus bertaruh sebesar jumlah deposit sebelum menarik dana. Contoh: deposit ₱1.000 memerlukan taruhan total ₱1.000. Persyaratan ini berlaku untuk setiap deposit secara mandiri dan progresnya ditampilkan di tab penarikan dompet.\n\nSyarat dapat diperbarui kapan saja. Penggunaan berkelanjutan berarti penerimaan syarat terbaru.',
+        content: 'Dengan mengakses atau menggunakan BetoGo, Anda setuju untuk terikat oleh Syarat Layanan ini. Harap baca dengan seksama sebelum menggunakan platform.\n\nKelayakan Pengguna\n\nDengan menggunakan platform ini, Anda menyatakan gaming online diizinkan di yurisdiksi Anda.\n\nKeadilan Game\n\nSemua game menggunakan teknologi RNG yang diaudit secara independen. BetoGo tidak memanipulasi hasil game. Kemenangan tunduk pada persyaratan taruhan yang berlaku.\n\nTransaksi\n\nDeposit dan penarikan diproses melalui saluran pembayaran yang aman. Waktu pemrosesan dapat bervariasi. BetoGo tidak bertanggung jawab atas keterlambatan dari pemroses pembayaran pihak ketiga. Semua transaksi dipantau untuk tujuan keamanan.\n\nAkun\n\nAnda bertanggung jawab menjaga kerahasiaan kredensial akun. BetoGo berhak memverifikasi identitas pemain dan membekukan akun mencurigakan. Satu akun per pemain.\n\nPersyaratan Taruhan & Penarikan\n\nSemua deposit dikenakan persyaratan taruhan 1x sebelum penarikan dapat diproses. Anda harus bertaruh sebesar jumlah deposit sebelum menarik dana. Contoh: deposit Rp100.000 memerlukan taruhan total Rp100.000. Persyaratan ini berlaku untuk setiap deposit secara mandiri dan progresnya ditampilkan di tab penarikan dompet.\n\nSyarat dapat diperbarui kapan saja. Penggunaan berkelanjutan berarti penerimaan syarat terbaru.',
       },
       privacy: {
         title: 'Kebijakan Privasi',
@@ -226,14 +226,14 @@ export default {
   },
   category: {
     bonuses: 'Bonus',
-    firstPlay: 'Gratis ₱88',
+    firstPlay: 'Gratis Rp25.300',
     referWin: 'Ajak & Menang',
     firstDep: 'Bonus 120%',
     cashback: 'Cashback',
   },
   spin: {
     title: 'Rewards Spin',
-    subtitle: 'Deposit PHP yang memenuhi syarat untuk mendapat kesempatan spin dan hadiah dompet instan.',
+    subtitle: 'Deposit IDR yang memenuhi syarat untuk mendapat kesempatan spin dan hadiah dompet instan.',
     remaining: 'Sisa kesempatan',
     prizes: 'Hadiah',
     depositNow: 'Deposit sekarang',
@@ -495,9 +495,9 @@ export default {
     },
     bustRescue: {
       title: 'Hampir menang besar!',
-      subtitle: 'Bonus gratis sudah habis. Deposit uang asli untuk lanjut main — deposit pertama dapat hingga ₱{{max}}',
-      offerLine: 'Deposit ₱{{dep}}, dapat ₱{{total}}',
-      offerHint: 'Makin besar deposit, makin besar bonus — hingga ₱{{max}}',
+      subtitle: 'Bonus gratis sudah habis. Deposit uang asli untuk lanjut main — deposit pertama dapat hingga Rp{{max}}',
+      offerLine: 'Deposit Rp{{dep}}, dapat Rp{{total}}',
+      offerHint: 'Makin besar deposit, makin besar bonus — hingga Rp{{max}}',
       cta: 'Deposit & Lanjut Main',
       later: 'Nanti saja',
     },
@@ -507,23 +507,23 @@ export default {
         title: 'Chief Trial Officer',
         tagline: 'Daftar & Main Gratis',
         rewardLabel: 'Bonus Gratis',
-        desc: 'Pemain baru mendapat kredit gratis ₱{{amount}} saat registrasi — tanpa deposit. Jelajahi semua game tanpa risiko!',
+        desc: 'Pemain baru mendapat kredit gratis Rp{{amount}} saat registrasi — tanpa deposit. Jelajahi semua game tanpa risiko!',
         badge: 'Tanpa Deposit',
         cta: 'Klaim Sekarang',
         ctaClaimed: 'Sudah diklaim',
         claiming: 'Mengklaim...',
-        sheetSub: 'Selamat! Klaim ₱{{amount}} kredit gratis — tanpa deposit.',
-        sheetCta: 'Klaim ₱{{amount}}',
+        sheetSub: 'Selamat! Klaim Rp{{amount}} kredit gratis — tanpa deposit.',
+        sheetCta: 'Klaim Rp{{amount}}',
         sheetLater: 'Nanti saja',
         alreadyClaimed: 'Bonus ini sudah Anda klaim',
         claimFailed: 'Gagal klaim. Coba lagi.',
         step1: 'Daftar akun baru',
-        step2: 'Terima bonus ₱{{amount}} instan',
-        firstdepTeaser: 'Plus bonus deposit pertama hingga ₱{{max}} setelah klaim',
-        claimedTitle: '₱{{amount}} sudah masuk!',
+        step2: 'Terima bonus Rp{{amount}} instan',
+        firstdepTeaser: 'Plus bonus deposit pertama hingga Rp{{max}} setelah klaim',
+        claimedTitle: 'Rp{{amount}} sudah masuk!',
         claimedSub: 'Bonus gratis sudah ada di saldo Anda — main kapan saja.',
-        firstdepOfferTitle: 'Bonus deposit pertama: hingga ₱{{max}}',
-        firstdepOfferLine: 'Deposit ₱{{dep}}, dapat ₱{{total}} — makin besar deposit, makin besar bonus',
+        firstdepOfferTitle: 'Bonus deposit pertama: hingga Rp{{max}}',
+        firstdepOfferLine: 'Deposit Rp{{dep}}, dapat Rp{{total}} — makin besar deposit, makin besar bonus',
         goDeposit: 'Deposit & Ambil Bonus',
         playFirst: 'Main Dulu',
       },
@@ -557,7 +557,7 @@ export default {
         rateL3: 'C3 Teman',
         teamLabel: 'Circles',
         commissionLabel: 'Rewards',
-        activationHint: 'Deposit ₱100 untuk aktif — circle Anda mulai menghasilkan reward',
+        activationHint: 'Deposit Rp28.700 untuk aktif — circle Anda mulai menghasilkan reward',
         signInHint: 'Masuk untuk memulai 3-Circle Rewards',
       },
     },
@@ -566,7 +566,7 @@ export default {
       'Semua bonus tunduk pada Syarat & Ketentuan BetoGo. Persyaratan taruhan berlaku.',
   },
   redpacket: {
-    credited: 'Dikreditkan ke saldo PHP Anda',
+    credited: 'Dikreditkan ke saldo IDR Anda',
     awesome: 'Mantap!',
   },
   team: {
@@ -608,7 +608,7 @@ export default {
     overviewGuideTitle: 'Apa itu 3-Circle Rewards?',
     overviewGuideDesc: 'Penjelasan lingkaran, tarif reward, aktivasi, dan aturan penyelesaian.',
     overviewNotesTitle: 'Perlu diketahui',
-    overviewNote1: 'Anggota aktif setelah deposit pertama minimal ₱100 — hanya taruhan anggota aktif yang menghasilkan reward.',
+    overviewNote1: 'Anggota aktif setelah deposit pertama minimal Rp28.700 — hanya taruhan anggota aktif yang menghasilkan reward.',
     overviewNote2: 'Taruhan dari bonus gratis dan omzet anggota yang belum pernah deposit tidak dihitung dalam dasar reward.',
     overviewNote3: 'Reward diselesaikan setiap hari (waktu Filipina) dan dapat ditarik setelah ditinjau.',
     available: 'Reward Tersedia',
@@ -637,29 +637,29 @@ export default {
     withdrawFailed: 'Penarikan gagal, coba lagi',
     debtWarning: 'Akun Anda memiliki hutang {{amount}}. Penarikan dinonaktifkan hingga hutang lunas pada siklus reward berikutnya.',
     debtLabel: 'Hutang',
-    minWithdrawPhp: 'Min ₱100',
+    minWithdrawPhp: 'Min Rp14.400',
     turnover: 'Permainan Valid',
     guideEntry: 'Cara kerja',
     guide: {
       title: '3-Circle Rewards',
       content:
         'Apa itu 3 circle\n\n' +
-        'Bagikan tautan undangan dan tumbuhkan reward melalui tiga circle. C1 adalah teman yang Anda undang langsung. C2 adalah teman yang diundang oleh C1. C3 adalah satu circle berikutnya. Reward dihitung dari jumlah taruhan valid saja (menang/kalah tidak dikurangi). Taruhan multi-mata uang dikonversi ke setara PHP dengan kurs harian.\n\n' +
+        'Bagikan tautan undangan dan tumbuhkan reward melalui tiga circle. C1 adalah teman yang Anda undang langsung. C2 adalah teman yang diundang oleh C1. C3 adalah satu circle berikutnya. Reward dihitung dari jumlah taruhan valid saja (menang/kalah tidak dikurangi). Taruhan multi-mata uang dikonversi ke IDR dengan kurs harian.\n\n' +
         'Struktur circle\n\n' +
         'C1: Teman yang Anda undang langsung\n' +
         'C2: Teman yang diundang oleh anggota C1 Anda\n' +
         'C3: Teman yang diundang oleh anggota C2 Anda\n' +
         'Angka C1 / C2 / C3 di atas menunjukkan ukuran circle Anda saat ini.\n\n' +
         'Tarif reward\n\n' +
-        'Reward C1 = taruhan valid bulanan anggota (setara PHP) × {{l1Rate}}%\n' +
-        'Reward C2 = taruhan valid bulanan anggota (setara PHP) × {{l2Rate}}%\n' +
-        'Reward C3 = taruhan valid bulanan anggota (setara PHP) × {{l3Rate}}%\n' +
+        'Reward C1 = taruhan valid bulanan anggota (setara IDR) × {{l1Rate}}%\n' +
+        'Reward C2 = taruhan valid bulanan anggota (setara IDR) × {{l2Rate}}%\n' +
+        'Reward C3 = taruhan valid bulanan anggota (setara IDR) × {{l3Rate}}%\n' +
         'Tarif di halaman ini berlaku untuk akun Anda.\n\n' +
         'Aktivasi circle\n\n' +
-        'Anggota circle harus deposit pertama minimal ₱100 dan aktif sebelum permainannya menghasilkan reward untuk Anda. Permainan dari anggota yang belum aktif tidak menghasilkan reward (permainan valid hari yang sama mungkin tetap tampil di pohon circle sebagai referensi). Taruhan dari bonus gratis (angpau, spin, reward tugas, dll.) dan omzet anggota yang belum pernah deposit tidak dihitung dalam dasar reward.\n\n' +
+        'Anggota circle harus deposit pertama minimal Rp28.700 dan aktif sebelum permainannya menghasilkan reward untuk Anda. Permainan dari anggota yang belum aktif tidak menghasilkan reward (permainan valid hari yang sama mungkin tetap tampil di pohon circle sebagai referensi). Taruhan dari bonus gratis (angpau, spin, reward tugas, dll.) dan omzet anggota yang belum pernah deposit tidak dihitung dalam dasar reward.\n\n' +
         'Permainan valid & penyelesaian\n\n' +
         'Taruhan valid: hanya order bet yang sudah settled; payout win tidak dikurangi.\n' +
-        'Multi-mata uang: PHP, USDT, USDC, dll. dicatat terpisah lalu dikonversi ke PHP untuk reward.\n' +
+        'Multi-mata uang: IDR, PHP, USDT, dan USDC dicatat terpisah lalu dikonversi ke IDR untuk reward.\n' +
         'Permainan valid pohon circle: hari lalu dari snapshot harian; taruhan hari ini diperbarui secara real time.\n' +
         'Penyelesaian reward: berjalan setiap hari (waktu Filipina) untuk taruhan hari sebelumnya. Setelah selesai, reward masuk ke Circle Rewards dan saldo yang bisa ditarik.\n\n' +
         'Lihat & tarik dana\n\n' +
@@ -667,7 +667,7 @@ export default {
         'Tarik dana: ajukan di tab Tarik Dana. Jumlah minimum ditampilkan di halaman. Review biasanya 1–3 hari kerja.\n\n' +
         'Catatan\n\n' +
         'Selalu bagikan tautan undangan resmi agar anggota circle teratribusi dengan benar.\n' +
-        'Reward dikreditkan dalam setara PHP terlepas dari mata uang yang dipakai anggota circle.\n' +
+        'Reward dikreditkan dalam IDR terlepas dari mata uang yang dipakai anggota circle.\n' +
         'Hubungi dukungan langsung jika ada pertanyaan.',
     },
   },
@@ -843,7 +843,7 @@ export default {
     openingPay: 'Membuka Telegram Pay…',
     proceedWithdraw: 'Lanjutkan Penarikan',
     banners: {
-      '0': { label: 'BONUS DEPOSIT PERTAMA', text: '100% hingga ₱50.000' },
+      '0': { label: 'BONUS DEPOSIT PERTAMA', text: '100% hingga Rp14.350.000' },
       '1': { label: 'KRIPTO TANPA BIAYA', text: 'Deposit 0% biaya' },
     },
     invalidAmount: 'Masukkan jumlah yang valid',
@@ -867,8 +867,8 @@ export default {
     yfpayDepositRejected: 'Pembayaran ditolak. Silakan coba lagi.',
     yfpayDepositTimeout: 'Pembayaran habis waktu. Cek riwayat untuk status.',
     yfpayDepositFailed: 'Deposit gagal. Silakan coba lagi.',
-    yfpayAmountOutOfRange: 'Jumlah harus antara ₱{{min}} dan ₱{{max}}.',
-    withdrawAmountRange: 'Rentang penarikan: ₱{{min}} – ₱{{max}}',
+    yfpayAmountOutOfRange: 'Jumlah harus antara Rp{{min}} dan Rp{{max}}.',
+    withdrawAmountRange: 'Rentang penarikan: Rp{{min}} – Rp{{max}}',
     yfpayAccountNumber: 'Nomor Akun (mis. nomor HP)',
     yfpayFullName: 'Nama Lengkap',
     yfpayWithdrawSubmit: 'Kirim Penarikan',
@@ -1027,7 +1027,7 @@ export default {
     enableDesc: 'Buka tiga circle Anda dan mulai tumbuhkan reward dari permainan bersama.',
     enableCta: 'Mulai Sekarang',
     enabling: 'Memulai...',
-    notActivatedHint: 'Lakukan deposit pertama ≥ ₱100 untuk aktivasi — permainan valid dari circle akan menghasilkan reward.',
+    notActivatedHint: 'Lakukan deposit pertama ≥ Rp28.700 untuk aktivasi — permainan valid dari circle akan menghasilkan reward.',
   },
   cs: {
     title: 'Pusat Bantuan',

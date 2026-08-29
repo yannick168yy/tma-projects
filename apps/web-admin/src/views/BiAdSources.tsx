@@ -10,7 +10,7 @@ import { LineChart } from '../components/BiCharts'
 
 const fmtMoney = (v: number) => Math.round(v).toLocaleString()
 const pct = (v: number | null) => (v == null ? '—' : `${(v * 100).toFixed(1)}%`)
-const ARPU_TARGET = 1200 // 条款客均门槛 ₱1200
+const ARPU_TARGET = 1200 // PHP 等值客均门槛
 
 // 马尼拉今天（展示层用本地 dayjs 即可，服务端按 UTC+8 切日）
 const manilaToday = () => dayjs()
@@ -254,7 +254,7 @@ export default function BiAdSources() {
     const susPct = r.regUsers ? r.suspiciousUsers / r.regUsers : 0
     if (susPct > 0.2) tags.push(<Tag key="sus" color="red">薅羊毛嫌疑高 {(susPct * 100).toFixed(0)}%</Tag>)
     else if (susPct > 0.1) tags.push(<Tag key="sus" color="orange">同IP偏高 {(susPct * 100).toFixed(0)}%</Tag>)
-    if (r.rejectedWithdraw > 0) tags.push(<Tag key="rej" color="volcano">异常提现被拦 ₱{fmtMoney(r.rejectedWithdraw)}</Tag>)
+    if (r.rejectedWithdraw > 0) tags.push(<Tag key="rej" color="volcano">异常提现被拦 PHP {fmtMoney(r.rejectedWithdraw)} 等值</Tag>)
     if (r.netCashPhp < 0) tags.push(<Tag key="net" color="red">净现金为负</Tag>)
     const conv = r.regUsers ? r.firstDepUsers / r.regUsers : 0
     if (r.regUsers >= 20 && conv < 0.2) tags.push(<Tag key="cvr" color="orange">漏斗偏弱 转化{(conv * 100).toFixed(0)}%</Tag>)
@@ -283,17 +283,17 @@ export default function BiAdSources() {
     { key: 'fd', label: '首存人数', render: (r) => r.firstDepUsers },
     { key: 'cvr', label: '首存转化', render: (r) => r.regUsers ? `${((r.firstDepUsers / r.regUsers) * 100).toFixed(1)}%` : '—' },
     { key: 'cpd', label: 'CPD($/首存)', render: (r, ch) => spends[ch] && r.firstDepUsers ? `$${(spends[ch] / r.firstDepUsers).toFixed(2)}` : '—' },
-    { key: 'dep', label: '总充值(₱)', render: (r) => fmtMoney(r.depositAmount) },
+    { key: 'dep', label: '总充值（PHP等值）', render: (r) => fmtMoney(r.depositAmount) },
     { key: 'roas', label: '毛ROAS', tip: '总充值(折USD)÷花费', render: (r, ch) => spends[ch] ? `${(r.depositAmount / usdToPhp / spends[ch]).toFixed(2)}×` : '—' },
-    { key: 'arpu', label: '客均(₱)', render: (r) => arpuCell(r.arpu) },
+    { key: 'arpu', label: '客均（PHP等值）', render: (r) => arpuCell(r.arpu) },
     { key: 'redep', label: '复充率', render: (r) => pct(r.reDepRate) },
     { key: 'd1', label: 'D1留存', render: (r) => r.regUsers ? `${((r.d1Retained / r.regUsers) * 100).toFixed(0)}%` : '—' },
-    { key: 'wd', label: '完成提现(₱)', render: (r) => fmtMoney(r.withdrawAmount) },
-    { key: 'bal', label: '场内余额(₱)', render: (r) => fmtMoney(r.walletBalance) },
-    { key: 'net', label: '净现金(₱)', tip: '总充值 − 已完成提现', render: (r) => <span style={{ color: r.netCashPhp >= 0 ? '#3f8600' : '#cf1322', fontWeight: 500 }}>{fmtMoney(r.netCashPhp)}</span> },
+    { key: 'wd', label: '完成提现（PHP等值）', render: (r) => fmtMoney(r.withdrawAmount) },
+    { key: 'bal', label: '场内余额（PHP等值）', render: (r) => fmtMoney(r.walletBalance) },
+    { key: 'net', label: '净现金（PHP等值）', tip: '总充值 − 已完成提现', render: (r) => <span style={{ color: r.netCashPhp >= 0 ? '#3f8600' : '#cf1322', fontWeight: 500 }}>{fmtMoney(r.netCashPhp)}</span> },
     { key: 'netroi', label: '净现金ROI', tip: '净现金(折USD)÷花费，>1才真正回本', render: (r, ch) => { if (!spends[ch]) return '—'; const roi = r.netCashPhp / usdToPhp / spends[ch]; return <span style={{ color: roi >= 1 ? '#3f8600' : '#cf1322' }}>{roi.toFixed(2)}×</span> } },
-    { key: 'ngr', label: '真毛利NGR(₱)', tip: '总充值 − 完成提现 − 场内余额（扣掉玩家还能提走的钱）', render: (r) => <span style={{ color: r.ngrPhp >= 0 ? '#3f8600' : '#cf1322' }}>{fmtMoney(r.ngrPhp)}</span> },
-    { key: 'rej', label: '异常提现拦截(₱)', render: (r) => r.rejectedWithdraw > 0 ? <Tag color="volcano">₱{fmtMoney(r.rejectedWithdraw)}</Tag> : '—' },
+    { key: 'ngr', label: '真毛利NGR（PHP等值）', tip: '总充值 − 完成提现 − 场内余额（扣掉玩家还能提走的钱）', render: (r) => <span style={{ color: r.ngrPhp >= 0 ? '#3f8600' : '#cf1322' }}>{fmtMoney(r.ngrPhp)}</span> },
+    { key: 'rej', label: '异常提现拦截（PHP等值）', render: (r) => r.rejectedWithdraw > 0 ? <Tag color="volcano">PHP {fmtMoney(r.rejectedWithdraw)} 等值</Tag> : '—' },
     { key: 'sus', label: '同IP多账号', render: (r) => r.suspiciousUsers > 0 ? <span style={{ color: '#cf1322' }}>{r.suspiciousUsers}{r.regUsers ? ` (${((r.suspiciousUsers / r.regUsers) * 100).toFixed(0)}%)` : ''}</span> : '0' },
     { key: 'tags', label: '规则标签', render: (r) => <Space size={4} wrap>{ruleTags(r)}</Space> },
   ]
@@ -310,7 +310,7 @@ export default function BiAdSources() {
     { title: <Tooltip title="注册后次日仍有登录/投注">D1留存</Tooltip>, key: 'd1', render: (_: unknown, r: ChannelQualityRow) => `${r.d1Retained}${r.regUsers ? ` (${((r.d1Retained / r.regUsers) * 100).toFixed(0)}%)` : ''}` },
     { title: <Tooltip title="注册后第7日仍有活跃">D7留存</Tooltip>, key: 'd7', render: (_: unknown, r: ChannelQualityRow) => `${r.d7Retained}${r.regUsers ? ` (${((r.d7Retained / r.regUsers) * 100).toFixed(0)}%)` : ''}` },
     { title: <Tooltip title="首存后又充过的人数占比">复充率</Tooltip>, key: 'redep', render: (_: unknown, r: ChannelQualityRow) => pct(r.reDepRate) },
-    { title: <Tooltip title="人均累计充值(LTV雏形)=总充值÷首存人数">人均充值(₱)</Tooltip>, dataIndex: 'avgLtvPhp', render: (v: number | null) => v == null ? '—' : fmtMoney(v) },
+    { title: <Tooltip title="人均累计充值(LTV雏形)=总充值÷首存人数">人均充值（PHP等值）</Tooltip>, dataIndex: 'avgLtvPhp', render: (v: number | null) => v == null ? '—' : fmtMoney(v) },
     {
       title: <Tooltip title="每首存单价(USD)，用于算回本倍数。super_admin 可改">CPA单价($)</Tooltip>, key: 'cpa',
       render: (_: unknown, r: ChannelQualityRow) => isSuper
@@ -331,12 +331,12 @@ export default function BiAdSources() {
       render: (v: number) => v > 0 ? <Tag color="red">{v}</Tag> : <span style={{ color: '#bbb' }}>0</span>,
     },
     {
-      title: <Tooltip title="净现金 = 总充值 − 已完成提现（平台现在手里的现金），为负=玩家提走多于充入">净现金(₱)</Tooltip>, key: 'net',
+      title: <Tooltip title="净现金 = 总充值 − 已完成提现（平台现在手里的现金），为负=玩家提走多于充入">净现金（PHP等值）</Tooltip>, key: 'net',
       render: (_: unknown, r: ChannelQualityRow) => <span style={{ color: r.netCashPhp >= 0 ? '#3f8600' : '#cf1322', fontWeight: 500 }}>{fmtMoney(r.netCashPhp)}</span>,
     },
     {
-      title: <Tooltip title="被风控拦下的提现额（admin_rejected/rejected），金额大=薅羊毛/套利强信号">异常拦截(₱)</Tooltip>, dataIndex: 'rejectedWithdraw',
-      render: (v: number) => v > 0 ? <Tag color="volcano">₱{fmtMoney(v)}</Tag> : <span style={{ color: '#bbb' }}>—</span>,
+      title: <Tooltip title="被风控拦下的提现额（admin_rejected/rejected），金额大=薅羊毛/套利强信号">异常拦截（PHP等值）</Tooltip>, dataIndex: 'rejectedWithdraw',
+      render: (v: number) => v > 0 ? <Tag color="volcano">PHP {fmtMoney(v)} 等值</Tag> : <span style={{ color: '#bbb' }}>—</span>,
     },
   ]
 
@@ -366,10 +366,10 @@ export default function BiAdSources() {
       title: <Tooltip title="首存转化率 = 首存人数 ÷ 注册数">首存转化</Tooltip>, key: 'cvr',
       render: (_: unknown, r: AdSourceRow) => (r.regUsers > 0 ? `${((r.firstDepUsers / r.regUsers) * 100).toFixed(1)}%` : '—'),
     },
-    { title: '首存金额(₱)', dataIndex: 'firstDepAmount', render: fmtMoney },
-    { title: <Tooltip title="区间内该渠道用户的充值总额(含复充)">总充值(₱)</Tooltip>, dataIndex: 'depositAmount', render: fmtMoney },
+    { title: '首存金额（PHP等值）', dataIndex: 'firstDepAmount', render: fmtMoney },
+    { title: <Tooltip title="区间内该渠道用户的充值总额(含复充)">总充值（PHP等值）</Tooltip>, dataIndex: 'depositAmount', render: fmtMoney },
     {
-      title: <Tooltip title="客均 = 总充值 ÷ 首存人数；条款要求 ≥ ₱1200，达标绿色">客均(₱)</Tooltip>,
+      title: <Tooltip title="客均 = 总充值 ÷ 首存人数；当前目标按 PHP 等值配置">客均（PHP等值）</Tooltip>,
       dataIndex: 'arpu', render: arpuCell,
       sorter: (a: AdSourceRow, b: AdSourceRow) => (a.arpu ?? -1) - (b.arpu ?? -1),
     },
@@ -406,9 +406,9 @@ export default function BiAdSources() {
             <Tag>下载 {data.totals.downloads} / 安装 {data.totals.installs}</Tag>
             <Tag color="blue">注册 {data.totals.regUsers}</Tag>
             <Tag color="geekblue">首存 {data.totals.firstDepUsers}</Tag>
-            <Tag color="green">总充值 ₱{fmtMoney(data.totals.depositAmount)}</Tag>
+            <Tag color="green">总充值 PHP {fmtMoney(data.totals.depositAmount)} 等值</Tag>
             <Tag color={data.totals.arpu != null && data.totals.arpu >= ARPU_TARGET ? 'success' : 'error'}>
-              整体客均 {data.totals.arpu == null ? '—' : `₱${fmtMoney(data.totals.arpu)}`}
+              整体客均 {data.totals.arpu == null ? '—' : `PHP ${fmtMoney(data.totals.arpu)} 等值`}
             </Tag>
           </Space>
         )}
@@ -468,7 +468,7 @@ export default function BiAdSources() {
                   series={[
                     { name: '注册', data: trend.reg },
                     { name: '首存人数', data: trend.fd },
-                    { name: '客均(₱)', data: trend.arpu, dashed: true },
+                    { name: '客均（PHP等值）', data: trend.arpu, dashed: true },
                   ]}
                   height={300}
                 />

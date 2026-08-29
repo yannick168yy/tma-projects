@@ -43,6 +43,8 @@ interface ReviewContext {
   lifetimeDepositPhp: number
   /** 本次取款金额（折 PHP 元） */
   withdrawPhp: number
+  /** 本次取款币种折 PHP 汇率 */
+  orderCurrencyToPhpRate: number
   /** 净盈利：投注盈亏 + 游戏内 bonus 通道派彩（PHP 元）。已含 gameBonusPhp。 */
   profitPhp: number
   profit24hPhp: number
@@ -95,12 +97,12 @@ interface ReviewContext {
 export const RULE_META: Record<string, { name: string; desc: string }> = {
   turnover:                  { name: '流水检查', desc: '复核「上次成功取款至今」窗口内的有效投注流水是否达到打码要求；未达标则转人工（与请求路径的流水闸门一致，此处兜底）。' },
   large_amount:             { name: '大额取款', desc: '本次取款金额超过设定阈值转人工；按币种分别设阈（php=法币元/比索，usdt=Matrix 链上 USDT）。' },
-  large_profit:             { name: '大额盈利', desc: '统计窗口内的净盈利（投注盈亏＋游戏bonus通道派彩）超过阈值（PHP 元）转人工。阈值≤0 表示不启用。' },
+  large_profit:             { name: '大额盈利', desc: '统计窗口内的净盈利（投注盈亏＋游戏bonus通道派彩）超过对应取款币种阈值转人工；USDC 共用 USDT 阈值。' },
   high_multiple_profit:     { name: '高倍盈利', desc: '窗口内 净盈利 ÷ 累计存款 的倍数 ≥ 阈值倍数转人工；无存款时跳过。' },
   high_multiple_profit_24h: { name: '24小时高倍盈利', desc: '近 24 小时内 盈利 ÷ 存款 的倍数 ≥ 阈值倍数转人工，用于抓短时暴赚；近 24h 无存款时跳过。' },
   withdraw_deposit_ratio:   { name: '取款存款倍数', desc: '本次取款额 ÷ 历史累计真实存款 的倍数 ≥ 阈值转人工。不依赖盈利口径，直接抓「小存大取」（如存110取5000=45x），可拦到赢利经 bonus 通道套现、被盈利规则漏看的情形；无真实存款时跳过（交由存款来源/首次取款规则）。' },
   deposit_source:           { name: '存款来源', desc: '账号历史从未有过真实成功存款（即纯靠彩金/盈利出款）转人工。' },
-  total_bonus:              { name: '总优惠金额', desc: '历史优惠领取表已废弃；当前无可用统计源。阈值≤0 表示不启用。' },
+  total_bonus:              { name: '总优惠金额', desc: '累计已发放优惠超过对应取款币种阈值转人工；统计 bonus、红包、返水、VIP 与任务奖励，排除游戏派彩。' },
   first_withdraw_no_deposit:{ name: '首次取款', desc: '该账号此前无任何成功取款，且历史无真实存款，首次取款即转人工。' },
   upline_blacklist:         { name: '上线黑名单', desc: '该用户的邀请人（上线）处于封禁/冻结或风控黑名单中，则本次取款转人工。' },
   same_ip:                  { name: '同IP', desc: '近30天与其它账号共用同一 IP 的数量 ≥ 阈值时转人工。' },
@@ -119,9 +121,9 @@ export const RULE_META: Record<string, { name: string; desc: string }> = {
   feature_bonus_ratio:      { name: '老虎机彩金倍数', desc: '玩家老虎机免费旋转赢的钱 ÷ 真实充值 ≥ 设定倍数即转人工（如充 500 赢 6000＝12 倍），抓小额充值靠彩金爆量套现；无真实充值则跳过。' },
   cancel_pattern:           { name: '取消注单异常', desc: '窗口内被作废（Void）的注单笔数 ≥ 阈值且占比 ≥ params.ratio，疑似利用取消机制套利，转人工。' },
   risk_hit:                 { name: '风控命中', desc: '风控模块在本次取款请求上命中了 escalate/deny 动作（如用户/IP/设备在风控名单中），转人工。窗口 params.windowMins 分钟。' },
-  commission_surge:         { name: '佣金激增', desc: '（佣金提现专用）窗口内佣金入账超过之前 30 天佣金总和 × params.mult，且不低于 params.minCents 起查额，疑似速成刷佣，转人工。新代理首笔大额佣金也会命中，由人工过目。' },
-  fresh_downline_commission:{ name: '新号佣金占比', desc: '（佣金提现专用）窗口内佣金中来自「注册 ≤ params.days 天下线」的占比 ≥ params.ratio 且总额 ≥ params.minCents，疑似批量注册小号刷佣，转人工。' },
-  commission_deposit_ratio: { name: '佣金存款比', desc: '（佣金提现专用）累计佣金 > 下线累计真实存款 × params.ratio 且 ≥ params.minCents。佣金规模不可能长期超过下线净存入，命中即彩金刷佣或结算故障，转人工。' },
+  commission_surge:         { name: '佣金激增', desc: '（佣金提现专用）窗口内佣金超过之前 30 天佣金总和 × params.mult，且不低于对应提现币种起查额，疑似速成刷佣，转人工。' },
+  fresh_downline_commission:{ name: '新号佣金占比', desc: '（佣金提现专用）窗口内来自「注册 ≤ params.days 天下线」的佣金占比达到 params.ratio，且总额不低于对应提现币种起查额，转人工。' },
+  commission_deposit_ratio: { name: '佣金存款比', desc: '（佣金提现专用）累计佣金超过下线累计真实存款 × params.ratio，且不低于对应提现币种起查额，转人工。' },
   downline_ip_overlap:      { name: '下线同IP', desc: '（佣金提现专用）近 30 天与团队长共用 IP 的下线账号数 ≥ 阈值，疑似自己给自己当下线，转人工。' },
 }
 
@@ -296,10 +298,11 @@ const RULES: Record<string, Rule> = {
   },
 
   large_profit(ctx, cfg) {
-    const threshold = Number(cfg.threshold ?? 0)
+    const threshold = currencyAmountThreshold(ctx, cfg)
     if (threshold <= 0) return { code: 'large_profit', verdict: 'pass' }
-    const hit = ctx.profitPhp > threshold
-    return { code: 'large_profit', verdict: hit ? 'manual' : 'pass', actualValue: round2(ctx.profitPhp), threshold }
+    const profit = phpAmountInOrderCurrency(ctx, ctx.profitPhp)
+    const hit = profit > threshold
+    return { code: 'large_profit', verdict: hit ? 'manual' : 'pass', actualValue: profit, threshold, detail: { currency: ctx.order.currency } }
   },
 
   high_multiple_profit(ctx, cfg) {
@@ -340,10 +343,11 @@ const RULES: Record<string, Rule> = {
   },
 
   total_bonus(ctx, cfg) {
-    const threshold = Number(cfg.threshold ?? 0)
+    const threshold = currencyAmountThreshold(ctx, cfg)
     if (threshold <= 0) return { code: 'total_bonus', verdict: 'pass' }
-    const hit = ctx.bonusPhp > threshold
-    return { code: 'total_bonus', verdict: hit ? 'manual' : 'pass', actualValue: ctx.bonusPhp, threshold }
+    const bonus = phpAmountInOrderCurrency(ctx, ctx.bonusPhp)
+    const hit = bonus > threshold
+    return { code: 'total_bonus', verdict: hit ? 'manual' : 'pass', actualValue: bonus, threshold, detail: { currency: ctx.order.currency } }
   },
 
   first_withdraw_no_deposit(ctx) {
@@ -557,6 +561,21 @@ const RULES: Record<string, Rule> = {
 
 function round2(n: number): number { return Math.round(n * 100) / 100 }
 
+function currencyAmountThreshold(ctx: ReviewContext, cfg: RuleConfig): number {
+  const params = cfg.params ?? {}
+  const key = ctx.order.currency === 'IDR'
+    ? 'idr'
+    : ctx.order.currency === 'USDT' || ctx.order.currency === 'USDC' || ctx.order.channelId === 'matrix'
+      ? 'usdt'
+      : 'php'
+  const configured = Number(params[key])
+  return Number.isFinite(configured) ? configured : Number(cfg.threshold ?? 0)
+}
+
+function phpAmountInOrderCurrency(ctx: ReviewContext, phpAmount: number): number {
+  return round2(phpAmount / ctx.orderCurrencyToPhpRate)
+}
+
 // 弱关联类信号:不再单独转人工,改累加权重评分(权重见 _score_policy 配置)。
 // 收款账号复用 withdraw_account_reuse 刻意不在池内 —— 保留硬闸门(两个陌生人几乎不可能填同一收款账号)。
 const SCORE_POOL = new Set(['same_ip', 'same_device_id', 'same_device_fp', 'withdraw_owner_reuse'])
@@ -671,6 +690,15 @@ async function buildContext(pool: Pool, order: OrderWithdraw, config: Record<str
     [sinceDate, usdRate, idrRate, usdRate, idrRate, userId],
   )
 
+  const [[bonus]] = await pool.query<RowDataPacket[]>(
+    `SELECT COALESCE(SUM(amount * (CASE WHEN currency IN ('USDT','USDC') THEN ? WHEN currency = 'IDR' THEN ? ELSE 1 END)), 0) AS total_amt
+     FROM bg_wallet_ledger
+     WHERE user_id = ? AND amount > 0
+       AND type IN ('bonus','red_packet','rebate','vip_bonus','task_bonus')
+       AND COALESCE(ref_type, '') <> 'game'`,
+    [usdRate, idrRate, userId],
+  )
+
   // 优惠流水未完成（promotion 类型），只检查与本次取款同币种的要求，跨币种不拦截
   const [[pt]] = await pool.query<RowDataPacket[]>(
     `SELECT COALESCE(SUM(required_amount - completed_amount), 0) AS remaining
@@ -780,11 +808,12 @@ async function buildContext(pool: Pool, order: OrderWithdraw, config: Record<str
     lifetimeDepositCount: Number(dep?.lifetime_cnt ?? 0),
     lifetimeDepositPhp: Number(dep?.lifetime_amt ?? 0),
     withdrawPhp,
+    orderCurrencyToPhpRate: rateToPhp,
     profitPhp: Number(bet?.window_profit ?? 0) + gameBonusPhp,
     profit24hPhp: Number(bet?.d24_profit ?? 0) + gameBonus24hPhp,
     gameBonusPhp,
     gameBonus24hPhp,
-    bonusPhp: 0,
+    bonusPhp: Number(bonus?.total_amt ?? 0),
     completedWithdrawCount,
     uplineBlacklisted,
     kycStatus: String(kyc?.status ?? ''),

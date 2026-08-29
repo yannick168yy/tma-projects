@@ -3,6 +3,7 @@ import { getMysqlPool } from '../clients/mysql.client.js'
 import type { Env } from '../config/env.js'
 import { getBalance as yfpayGetBalance } from './yfpay.service.js'
 import { getBalance as beepayGetBalance } from './beepay.service.js'
+import { getBalance as unispayGetBalance } from './unispay.service.js'
 import { getAdminSetting, setAdminSetting } from './admin-store.js'
 import { notifyPaymentCallbackIssue, notifyProviderBalanceLow } from './admin-notify.js'
 
@@ -23,7 +24,7 @@ const PROVIDER_LABELS: Record<string, string> = {
 const KNOWN_PROVIDERS = ['tg_wallet', 'yfpay', 'beepay', 'unispay', 'matrix', 'manual']
 
 // 支持余额查询 API 的服务商
-const BALANCE_PROVIDERS = ['yfpay', 'beepay'] as const
+const BALANCE_PROVIDERS = ['yfpay', 'beepay', 'unispay'] as const
 // 无余额 API、只能手动登记余额的服务商
 const MANUAL_BALANCE_PROVIDERS = ['matrix'] as const
 export const ALERT_PROVIDERS: string[] = [...BALANCE_PROVIDERS, ...MANUAL_BALANCE_PROVIDERS]
@@ -444,17 +445,24 @@ async function refreshOne(env: Env, provider: (typeof BALANCE_PROVIDERS)[number]
       balance = Number(r.balance) || 0
       frozen = Number(r.frozen) || 0
       await insertBalanceHistory(env, { provider, balance, frozen, currency, status: 'ok', errorMsg: null, rawResponse: r })
-    } else {
+    } else if (provider === 'beepay') {
       const r = await beepayGetBalance(env)
       balance = Number(r.balance) || 0
       currency = r.currency || 'PHP'
+      await insertBalanceHistory(env, { provider, balance, frozen, currency, status: 'ok', errorMsg: null, rawResponse: r })
+    } else {
+      const r = await unispayGetBalance(env)
+      balance = Number(r.balance) || 0
+      frozen = Number(r.frozen) || 0
+      currency = r.currency || 'IDR'
       await insertBalanceHistory(env, { provider, balance, frozen, currency, status: 'ok', errorMsg: null, rawResponse: r })
     }
     await upsertBalance(env, { provider, balance, frozen, currency, status: 'ok', errorMsg: null })
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
-    await insertBalanceHistory(env, { provider, balance: null, frozen: null, currency: 'PHP', status: 'error', errorMsg: msg.slice(0, 500), rawResponse: null })
-    await markBalanceError(env, provider, msg.slice(0, 500))
+    const currency = provider === 'unispay' ? 'IDR' : 'PHP'
+    await insertBalanceHistory(env, { provider, balance: null, frozen: null, currency, status: 'error', errorMsg: msg.slice(0, 500), rawResponse: null })
+    await markBalanceError(env, provider, msg.slice(0, 500), currency)
   }
 }
 
@@ -471,12 +479,12 @@ async function upsertBalance(
   )
 }
 
-async function markBalanceError(env: Env, provider: string, errorMsg: string): Promise<void> {
+async function markBalanceError(env: Env, provider: string, errorMsg: string, currency = 'PHP'): Promise<void> {
   await pool(env).execute(
     `INSERT INTO provider_balance_snapshot (provider, balance, frozen, currency, status, error_msg)
-       VALUES (?,0,0,'PHP','error',?)
+       VALUES (?,0,0,?,'error',?)
      ON DUPLICATE KEY UPDATE status=VALUES(status), error_msg=VALUES(error_msg), updated_at=CURRENT_TIMESTAMP`,
-    [provider, errorMsg],
+    [provider, currency, errorMsg],
   )
 }
 

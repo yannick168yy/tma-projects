@@ -98,7 +98,10 @@ export default function Vip({ section = 'benefits' }: { section?: 'benefits' | '
     setSettleLoading(true)
     try {
       const res = await triggerVipNegativeRebate(includeCurrentWeek)
-      message.success(`负盈利返水 [${res.periodKey}]：${res.users} 人 / 合计 ${res.totalAmount}`)
+      const totals = Object.entries(res.byCurrency)
+        .map(([currency, amount]) => `${currency === 'PHP' ? '₱' : currency === 'IDR' ? 'Rp' : currency}${Number(amount).toLocaleString('en-US', { maximumFractionDigits: currency === 'IDR' ? 0 : 4 })}`)
+        .join(' / ')
+      message.success(`负盈利返水 [${res.periodKey}]：${res.users} 个用户币种 / ${totals}`)
       if (recordsType === undefined || recordsType === 'negative_rebate') loadRecords(1)
     } catch (e) {
       message.error(e instanceof Error ? e.message : '结算失败')

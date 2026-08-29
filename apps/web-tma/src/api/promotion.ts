@@ -206,6 +206,7 @@ export async function fetchRedepOffer(currency?: string): Promise<RedepOffer> {
 
 export interface NewPlayerSummary {
   registered: boolean
+  currency: string
   totalShowcase: number
   tasks: {
     trial:    { enabled: boolean; amount: number; claimed: boolean }
@@ -215,8 +216,8 @@ export interface NewPlayerSummary {
   cashback: { dailyCap: number; monthlyCap: number; topRatePct: number }
 }
 
-export async function fetchNewPlayerSummary(): Promise<NewPlayerSummary> {
-  return apiRequest<NewPlayerSummary>('/promotions/new-player-summary')
+export async function fetchNewPlayerSummary(currency = 'PHP'): Promise<NewPlayerSummary> {
+  return apiRequest<NewPlayerSummary>(`/promotions/new-player-summary?currency=${encodeURIComponent(currency)}`)
 }
 
 // ── 每日签到 ──

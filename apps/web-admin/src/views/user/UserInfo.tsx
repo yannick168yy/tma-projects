@@ -14,8 +14,14 @@ function labelText(l: string) {
 }
 function fmtDate(s: string) { return new Date(s).toLocaleString('zh-CN') }
 function fmtBalance(n: number, currency: string) {
-  const digits = currency === 'PHP' ? 2 : 6
+  const digits = currency === 'IDR' ? 0 : currency === 'PHP' ? 2 : 6
   return Number(n).toLocaleString('en-US', { minimumFractionDigits: digits, maximumFractionDigits: digits })
+}
+
+function currencyPrefix(currency: string) {
+  if (currency === 'PHP') return '₱'
+  if (currency === 'IDR') return 'Rp'
+  return `${currency} `
 }
 
 interface Props { detail: Detail; onSuccess?: () => void }
@@ -89,7 +95,9 @@ export default function UserInfo({ detail, onSuccess }: Props) {
           <Descriptions.Item label="显示名">{String(u.displayName ?? '')}</Descriptions.Item>
           <Descriptions.Item label="洗码等级">
             <Tag color={detail.level === 6 ? 'gold' : 'blue'}>LV{detail.level}</Tag>
-            <Typography.Text type="secondary" style={{ fontSize: 12 }}>累计有效流水 ₱{Number(detail.totalTurnover).toFixed(2)}</Typography.Text>
+            <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+              累计有效流水 {currencyPrefix(detail.balanceCurrency)}{fmtBalance(detail.totalTurnover, detail.balanceCurrency)}
+            </Typography.Text>
           </Descriptions.Item>
           <Descriptions.Item label="Email">{String(u.email ?? '') || '-'}</Descriptions.Item>
           <Descriptions.Item label="Telegram">{String(u.telegramUsername ?? u.telegramUserId ?? '') || '-'}</Descriptions.Item>
@@ -119,7 +127,7 @@ export default function UserInfo({ detail, onSuccess }: Props) {
               ? <Tag color="geekblue">{detail.attribution.channelCode}</Tag>
               : <span style={{ color: '#bbb' }}>自然量</span>}
           </Descriptions.Item>
-          <Descriptions.Item label="累计充值">
+          <Descriptions.Item label="累计充值（PHP等值）">
             <Typography.Text strong style={{ color: Number(detail.depositTotal) > 0 ? '#389e0d' : undefined }}>
               ₱{Number(detail.depositTotal ?? 0).toFixed(2)}
             </Typography.Text>
@@ -127,7 +135,7 @@ export default function UserInfo({ detail, onSuccess }: Props) {
               <Typography.Text type="secondary" style={{ fontSize: 12 }}> （{fmtCurrencyAmounts(detail.depositByCurrency)}）</Typography.Text>
             )}
           </Descriptions.Item>
-          <Descriptions.Item label="累计取款">
+          <Descriptions.Item label="累计取款（PHP等值）">
             <Typography.Text strong style={{ color: Number(detail.withdrawTotal) > 0 ? '#cf1322' : undefined }}>
               ₱{Number(detail.withdrawTotal ?? 0).toFixed(2)}
             </Typography.Text>

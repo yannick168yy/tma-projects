@@ -130,10 +130,11 @@ export interface BetRecord {
   provider: string
   imageUrl: string | null
   betAmount: number
+  currency: 'PHP' | 'IDR'
 }
 
 export type BetTab = 'latest' | 'week' | 'month'
 
-export function fetchBettingActivity(tab: BetTab): Promise<BetRecord[]> {
-  return apiRequest<BetRecord[]>(`/slots/betting-activity?tab=${tab}`)
+export function fetchBettingActivity(tab: BetTab, currency: string): Promise<BetRecord[]> {
+  return apiRequest<BetRecord[]>(`/slots/betting-activity?tab=${tab}&currency=${encodeURIComponent(currency)}`)
 }

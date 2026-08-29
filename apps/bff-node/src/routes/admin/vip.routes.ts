@@ -81,7 +81,8 @@ router.post('/negative-rebate/manual', async (ctx) => {
   ok(ctx, {
     periodKey: idr.periodKey || other.periodKey,
     users: other.users + idr.users,
-    totalAmount: other.totalAmount + idr.totalAmount,
+    byCurrency: { ...other.byCurrency, ...idr.byCurrency },
+    skipped: other.skipped && idr.skipped ? 'disabled' : undefined,
     results: { utc8: other, utc7: idr },
   })
 })

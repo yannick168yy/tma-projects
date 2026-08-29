@@ -3,7 +3,7 @@ import type { Redis } from 'ioredis'
 import { lgId } from '../utils/id.js'
 import { createDepositRequirement } from '../services/turnover.service.js'
 import { applyDepositPromos } from '../services/deposit-promo.service.js'
-import { tryActivateTeamNode } from '../routes/internal.routes.js'
+import { tryActivateTeamNode } from '../services/team-activation.service.js'
 
 export interface BeepayCallbackPayload {
   channelOrderNo: string
@@ -86,7 +86,7 @@ async function handleDeposit(
         [lgId(), order.user_id, currency, creditAmount, balanceAfter, merchantSerial, `BeePay 充值 #${merchantSerial}`],
       )
       await createDepositRequirement(conn, order.user_id, merchantSerial, creditAmount, currency)
-      await tryActivateTeamNode(conn, String(order.user_id), creditAmount)
+      await tryActivateTeamNode(conn, String(order.user_id), creditAmount, currency)
       await conn.commit()
     } catch (err) {
       await conn.rollback()

@@ -356,7 +356,7 @@ export async function listAdminUsers(
 
   const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : ''
   const attrJoin = `LEFT JOIN bg_user_attribution attr ON attr.user_id = u.id`
-  const walletJoin = `LEFT JOIN bg_wallet w ON w.user_id = u.id AND w.currency = 'PHP'`
+  const walletJoin = `LEFT JOIN bg_wallet w ON w.user_id = u.id AND w.currency = CASE WHEN u.market = 'ID' THEN 'IDR' ELSE 'PHP' END`
   const baseJoins = `${walletJoin} ${attrJoin} ${depJoin} ${wdJoin}`
 
   const sortCol = USER_SORT_COLUMNS[opts.sortBy ?? ''] ?? null
@@ -370,7 +370,7 @@ export async function listAdminUsers(
   const total = Number(countRows[0]?.cnt ?? 0)
 
   const [rows] = await pool(env).query<RowDataPacket[]>(
-    `SELECT u.id, u.display_name, u.email, u.status, u.label,
+    `SELECT u.id, u.display_name, u.email, u.status, u.label, u.market,
             u.last_login_at, u.last_login_region, u.last_platform, u.register_region, u.registered_at,
             COALESCE(w.available,0) as available, attr.channel_code,
             COALESCE(dep.php,0) AS deposit_php, COALESCE(wd.php,0) AS withdraw_php
@@ -388,12 +388,21 @@ export async function listAdminUsers(
   if (ids.length) {
     const placeholders = ids.map(() => '?').join(',')
     const [tRows] = await pool(env).query<RowDataPacket[]>(
-      `SELECT user_id, SUM(effective_amount) AS total FROM bg_turnover_logs
-       WHERE is_reversed = 0 AND currency = 'PHP' AND user_id IN (${placeholders}) GROUP BY user_id`,
+      `SELECT t.user_id, t.currency, SUM(t.effective_amount) AS total FROM bg_turnover_logs t
+       JOIN bg_user u ON u.id = t.user_id
+       WHERE t.is_reversed = 0
+         AND t.currency = CASE WHEN u.market = 'ID' THEN 'IDR' ELSE 'PHP' END
+         AND t.user_id IN (${placeholders}) GROUP BY t.user_id, t.currency`,
       ids,
     )
-    const thresholds = await getLevelThresholds(env, 'PHP')
-    for (const tr of tRows) levelMap.set(String(tr.user_id), resolveLevel(thresholds, Number(tr.total)))
+    const [phpThresholds, idrThresholds] = await Promise.all([
+      getLevelThresholds(env, 'PHP'),
+      getLevelThresholds(env, 'IDR'),
+    ])
+    for (const tr of tRows) {
+      const thresholds = tr.currency === 'IDR' ? idrThresholds : phpThresholds
+      levelMap.set(String(tr.user_id), resolveLevel(thresholds, Number(tr.total)))
+    }
   }
 
   // 充值/取款：折 PHP 总额 + 非 PHP 原币种明细（展示用；排序/筛选仍用 SQL 内的折 PHP 值）
@@ -414,6 +423,8 @@ export async function listAdminUsers(
     registerRegion: r.register_region ? String(r.register_region) : null,
     registeredAt: (() => { const d = new Date(r.registered_at as Date); return isNaN(d.getTime()) ? null : d.toISOString() })(),
     balance: Number(r.available),
+    market: r.market === 'ID' ? 'ID' : 'PH',
+    balanceCurrency: r.market === 'ID' ? 'IDR' : 'PHP',
     channelCode: r.channel_code ? String(r.channel_code) : null,
     level: levelMap.get(String(r.id)) ?? 1,
     depositAmount: Number(r.deposit_php),

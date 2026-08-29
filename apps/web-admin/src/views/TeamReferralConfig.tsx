@@ -104,6 +104,9 @@ export default function TeamReferralConfig() {
             <Form.Item label="激活门槛 (PHP分)" name="min_activation_cents">
               <InputNumber min={0} style={{ width: '100%' }} />
             </Form.Item>
+            <Form.Item label="激活门槛 (IDR分)" name="min_activation_idr_cents">
+              <InputNumber min={0} precision={0} style={{ width: '100%' }} />
+            </Form.Item>
             <Form.Item label="最低提现 (PHP分)" name="min_withdrawal_cents">
               <InputNumber min={0} style={{ width: '100%' }} />
             </Form.Item>

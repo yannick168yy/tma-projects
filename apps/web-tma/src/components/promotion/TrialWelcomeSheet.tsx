@@ -6,6 +6,7 @@ import { usePromotionStore } from '@/stores/promotion'
 
 interface Props {
   amount: number
+  currency: string
   /** 首充示例档位（取有奖励的最低档），无档位配置时为 null */
   firstDepTier: { depositAmount: number; bonusAmount: number } | null
   /** 首充最高可得礼金 */
@@ -16,7 +17,7 @@ interface Props {
 }
 
 /** 首席体验官进站欢迎弹窗：一键领取免费礼金（免绑定），领取成功后原地引导首充加码。 */
-export default function TrialWelcomeSheet({ amount, firstDepTier, firstDepMaxBonus, onClaimed, onDeposit, onDismiss }: Props) {
+export default function TrialWelcomeSheet({ amount, currency, firstDepTier, firstDepMaxBonus, onClaimed, onDeposit, onDismiss }: Props) {
   const { t } = useTranslation()
   const claimTrialIfEligible = usePromotionStore((s) => s.claimTrialIfEligible)
   const [step, setStep] = useState<'offer' | 'claimed'>('offer')
@@ -51,7 +52,7 @@ export default function TrialWelcomeSheet({ amount, firstDepTier, firstDepMaxBon
             <p className="mb-2 text-4xl">🎖️</p>
             <h3 className="text-xl font-black text-white">{t('bonuses.promos.trial.title')}</h3>
             <p className="mt-2 text-sm leading-relaxed text-white/60">{t('bonuses.promos.trial.sheetSub', { amount })}</p>
-            <p className="mt-3 text-3xl font-black text-primary">₱ {amount}</p>
+            <p className="mt-3 text-3xl font-black text-primary">{currency === 'IDR' ? `Rp ${amount.toLocaleString('id-ID')}` : currency === 'PHP' ? `₱ ${amount.toLocaleString('en-PH')}` : `${amount.toLocaleString('en-US')} ${currency}`}</p>
             {showFirstDep && (
               <p className="mt-2 text-xs font-semibold text-amber-300/90">{t('bonuses.promos.trial.firstdepTeaser', { max: firstDepMaxBonus })}</p>
             )}

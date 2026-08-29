@@ -9,28 +9,12 @@ import { lgId } from '../utils/id.js'
 import { getPhpRate } from '../services/exchange-rate.service.js'
 import { applyDepositPromos } from '../services/deposit-promo.service.js'
 import { sendRegistrationConversion } from '../services/capi.service.js'
+import { tryActivateTeamNode } from '../services/team-activation.service.js'
+import { handleUnispayCallback } from '../handlers/unispay-callback.handler.js'
 
 const PHT_OFFSET_MS = 8 * 60 * 60 * 1000
 const ID_OFFSET_MS = 7 * 60 * 60 * 1000
 export type TeamMarket = 'PH' | 'ID'
-
-// 共用：首充激活
-export async function tryActivateTeamNode(
-  conn: PoolConnection,
-  userId: string,
-  creditedCents: number,
-): Promise<void> {
-  await conn.execute(
-    `UPDATE bg_team_node tn
-     SET tn.activated = 1,
-         tn.activation_cents = ?,
-         tn.activated_at = NOW(3)
-     WHERE tn.user_id = ?
-       AND tn.activated = 0
-       AND ? >= (SELECT min_activation_cents FROM bg_team_config WHERE id = 1 LIMIT 1)`,
-    [creditedCents, userId, creditedCents],
-  )
-}
 
 // 共用：钱包入账 + ledger（在已开启的事务内调用）
 async function creditWalletInTx(
@@ -121,7 +105,7 @@ export async function internalRoutes(app: FastifyInstance) {
         return reply.send({ code: 0, message: 'already paid' })
       }
       const balanceAfter = await creditWalletInTx(conn, userId, creditedCents, orderId, description ?? 'Telegram Wallet deposit')
-      await tryActivateTeamNode(conn, userId, creditedCents)
+      await tryActivateTeamNode(conn, userId, creditedCents, 'PHP')
       await conn.commit()
       await applyDepositPromos(db, {
         orderId, userId,
@@ -184,7 +168,7 @@ export async function internalRoutes(app: FastifyInstance) {
         return reply.send({ code: 0, message: 'already paid' })
       }
       const balanceAfter = await creditWalletInTx(conn, userId, creditAmount, orderId, 'YFPay deposit', currency)
-      await tryActivateTeamNode(conn, userId, creditAmount)
+      await tryActivateTeamNode(conn, userId, creditAmount, currency)
       await conn.commit()
       await applyDepositPromos(db, {
         orderId, userId,
@@ -246,7 +230,7 @@ export async function internalRoutes(app: FastifyInstance) {
         return reply.send({ code: 0, message: 'already paid' })
       }
       const balanceAfter = await creditWalletInTx(conn, userId, creditAmount, orderId, 'BeePay deposit', currency)
-      await tryActivateTeamNode(conn, userId, creditAmount)
+      await tryActivateTeamNode(conn, userId, creditAmount, currency)
       await conn.commit()
       await applyDepositPromos(db, {
         orderId, userId,
@@ -262,6 +246,23 @@ export async function internalRoutes(app: FastifyInstance) {
     } finally {
       conn.release()
     }
+  })
+
+  app.post<{
+    Body: { orderId: string; providerOrderId: string; status: string; amount: number }
+  }>('/internal/payment/unispay', async (req, reply) => {
+    const { orderId, providerOrderId, status, amount } = req.body
+    if (!orderId || !providerOrderId || !['1', '2', '3', '4'].includes(String(status)) || !Number.isFinite(Number(amount)) || Number(amount) <= 0) {
+      return reply.status(400).send({ code: 400, message: 'invalid payload' })
+    }
+    await handleUnispayCallback({
+      mchOrderId: orderId,
+      orderNo: providerOrderId,
+      status: String(status),
+      amount: String(amount),
+      mchNo: 'internal-query-sync',
+    }, app.mysql, app.redis as unknown as Redis)
+    return reply.send({ code: 0, message: 'ok' })
   })
 
   // POST /internal/team/settle  { date: YYYY-MM-DD, force?: boolean, market?: PH|ID }

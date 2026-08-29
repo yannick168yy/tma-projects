@@ -113,14 +113,14 @@ export default function Users() {
     { title: 'ID', dataIndex: 'id', key: 'id', width: 100, sorter: true, sortOrder: sortOrderProp('id') },
     { title: '显示名', dataIndex: 'displayName', key: 'displayName' },
     { title: '等级', key: 'level', width: 70, render: (_: unknown, r: AdminUser) => <Tag color={r.level === 6 ? 'gold' : 'blue'}>LV{r.level}</Tag> },
-    { title: '余额', key: 'balance', width: 100, sorter: true, sortOrder: sortOrderProp('balance'), render: (_: unknown, r: AdminUser) => `₱${Number(r.balance).toFixed(2)}` },
+    { title: '主钱包余额', key: 'balance', width: 130, sorter: true, sortOrder: sortOrderProp('balance'), render: (_: unknown, r: AdminUser) => `${r.balanceCurrency} ${Number(r.balance).toLocaleString('en-US', { maximumFractionDigits: 2 })}` },
     {
       title: '充值金额', key: 'depositAmount', width: 150, sorter: true, sortOrder: sortOrderProp('depositAmount'),
       render: (_: unknown, r: AdminUser) => {
         const detail = fmtCurrencyAmounts(r.depositByCurrency)
         return (
           <span style={{ color: Number(r.depositAmount) > 0 ? '#389e0d' : '#bbb' }}>
-            ₱{Number(r.depositAmount).toFixed(2)}
+            PHP {Number(r.depositAmount).toFixed(2)} 等值
             {detail && <span style={{ color: '#888', fontSize: 11 }}> ({detail})</span>}
           </span>
         )
@@ -132,7 +132,7 @@ export default function Users() {
         const detail = fmtCurrencyAmounts(r.withdrawByCurrency)
         return (
           <span style={{ color: Number(r.withdrawAmount) > 0 ? '#cf1322' : '#bbb' }}>
-            ₱{Number(r.withdrawAmount).toFixed(2)}
+            PHP {Number(r.withdrawAmount).toFixed(2)} 等值
             {detail && <span style={{ color: '#888', fontSize: 11 }}> ({detail})</span>}
           </span>
         )
@@ -251,14 +251,14 @@ export default function Users() {
         />
         <InputNumber
           value={minDeposit}
-          placeholder="充值≥(₱)"
+          placeholder="充值≥(PHP等值)"
           min={0} style={{ width: 130 }}
           onChange={(v) => setMinDeposit(v)}
           onPressEnter={applyInputs}
         />
         <InputNumber
           value={minWithdraw}
-          placeholder="取款≥(₱)"
+          placeholder="取款≥(PHP等值)"
           min={0} style={{ width: 130 }}
           onChange={(v) => setMinWithdraw(v)}
           onPressEnter={applyInputs}

@@ -4,7 +4,7 @@ import { ReloadOutlined } from '@ant-design/icons'
 import type { ColumnsType } from 'antd/es/table'
 import dayjs, { type Dayjs } from 'dayjs'
 import {
-  getPaymentAccounting, getPaymentReconciliation, getProviderBalances, refreshProviderBalances,
+  getPaymentAccounting, getPaymentReconciliation, getProviderBalances, refreshProviderBalances, syncUnispayReconciliation,
   setProviderAlertThreshold, setMatrixBalance,
   type PaymentAccountingRow, type PaymentReconciliationItem, type ProviderBalanceRow,
 } from '../api'
@@ -198,6 +198,17 @@ export default function PaymentAccounting() {
             { title: '渠道订单', dataIndex: 'providerOrderId' },
             { title: '金额', key: 'amount', width: 150, render: (_: unknown, r: PaymentReconciliationItem) => r.amount == null ? '—' : `${fmtMoney(r.amount)} ${r.currency ?? ''}` },
             { title: '状态', dataIndex: 'status', width: 100 },
+            { title: '操作', key: 'action', width: 90, render: (_: unknown, r: PaymentReconciliationItem) => (
+              r.orderId && (r.source === 'deposit' || r.source === 'withdraw')
+                ? <Button size="small" onClick={async () => {
+                    try {
+                      const result = await syncUnispayReconciliation(r.source as 'deposit' | 'withdraw', r.orderId!)
+                      message.success(`渠道状态 ${result.providerState}，本地状态 ${result.localStatus}`)
+                      await loadReconciliation()
+                    } catch (e) { message.error(e instanceof Error ? e.message : '同步失败') }
+                  }}>查询同步</Button>
+                : '—'
+            ) },
           ]} />
       </Card>
 

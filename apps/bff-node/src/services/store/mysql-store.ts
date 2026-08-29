@@ -72,6 +72,7 @@ function mapUser(row: UserRow): UserRecord {
     inviteCode: row.invite_code,
     referredBy: row.inviter_id ?? undefined,
     locale: row.locale as UserRecord['locale'],
+    market: row.market === 'ID' ? 'ID' : 'PH',
     status: row.status,
     statusReason: row.status_reason ?? undefined,
     label: row.label ?? 'normal',

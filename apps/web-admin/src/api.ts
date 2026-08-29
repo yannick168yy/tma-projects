@@ -253,6 +253,7 @@ export interface AdminUser {
   lastLoginAt: string | null; lastLoginRegion: string | null; lastPlatform: string | null
   registerRegion: string | null
   registeredAt: string; balance: number; level: number
+  market: 'PH' | 'ID'; balanceCurrency: 'PHP' | 'IDR'
   channelCode: string | null
   depositAmount: number
   depositByCurrency: CurrencyAmount[]
@@ -350,6 +351,7 @@ export const getUserDetail = (id: string) =>
     user: Record<string, unknown>
     level: number
     totalTurnover: number
+    balanceCurrency: string
     growth: AdminGrowthState[]
     depositTotal: number
     depositByCurrency: CurrencyAmount[]
@@ -1040,7 +1042,7 @@ export interface TeamWithdrawalAdmin {
 }
 
 export interface TeamConfig {
-  min_activation_cents: number; min_withdrawal_cents: number
+  min_activation_cents: number; min_activation_idr_cents: number; min_withdrawal_cents: number
   min_withdrawal_idr_cents: number
   max_commission_per_settlement_cents: number | null
   max_commission_per_settlement_idr_cents: number | null
@@ -1376,6 +1378,7 @@ export interface SpinRecord {
   displayName: string
   prizeName: string
   amountPhp: number
+  currency: string
   createdAt: string
 }
 export const getSpinConfig = (currency = 'PHP') => get<SpinConfig>('/admin/spin/config', { currency })
@@ -1431,7 +1434,7 @@ export const addFeaturedGame = (data: { gameUuid: string; tier: string; sortOrde
 export const removeFeaturedGame = (id: number) =>
   req('DELETE', `/admin/rebate/featured-games/${id}`)
 export const triggerRebatePayout = (date?: string) =>
-  req<{ users: number; totalRebate: number }>('POST', '/admin/rebate/payout/manual', { date })
+  req<{ users: number; byCurrency: Record<string, number> }>('POST', '/admin/rebate/payout/manual', { date })
 export const getRebateRecords = (params?: { page?: number; pageSize?: number; date?: string; userId?: string }) =>
   get<{ items: RebateRecord[]; total: number; page: number; pageSize: number }>('/admin/rebate/records', params)
 
@@ -1465,7 +1468,7 @@ export const getVipBenefits = (currency = 'PHP') =>
 export const saveVipBenefits = (benefits: VipBenefitItem[], currency = 'PHP') =>
   req<{ saved: number }>('PUT', '/admin/vip/benefits', { benefits, currency })
 export const triggerVipNegativeRebate = (includeToday?: boolean) =>
-  req<{ periodKey: string; users: number; totalAmount: number; skipped?: string }>('POST', '/admin/vip/negative-rebate/manual', { includeToday })
+  req<{ periodKey: string; users: number; byCurrency: Record<string, number>; skipped?: string }>('POST', '/admin/vip/negative-rebate/manual', { includeToday })
 export const triggerVipWeeklySalary = (includeCurrentWeek?: boolean) =>
   req<{ periodKey: string; users: number; totalAmount: number }>('POST', '/admin/vip/weekly-salary/manual', { includeCurrentWeek })
 export const triggerVipMonthlySalary = (includeCurrentMonth?: boolean) =>
@@ -1579,6 +1582,8 @@ export const getPaymentAccounting = (range: { from?: string; to?: string; curren
 }
 export const getPaymentReconciliation = (provider = 'unispay', currency = 'IDR') =>
   get<PaymentReconciliationItem[]>('/admin/payment/reconciliation', { provider, currency })
+export const syncUnispayReconciliation = (source: 'deposit' | 'withdraw', orderId: string) =>
+  post<{ providerState: number; localStatus: string; synced: boolean }>('/admin/payment/reconciliation/unispay/sync', { source, orderId })
 export const getProviderBalances = () => get<ProviderBalanceRow[]>('/admin/payment/balance')
 export const refreshProviderBalances = () => post<ProviderBalanceRow[]>('/admin/payment/balance/refresh', {})
 export const setProviderAlertThreshold = (provider: string, threshold: number) =>

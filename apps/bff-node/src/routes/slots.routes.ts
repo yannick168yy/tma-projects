@@ -110,7 +110,8 @@ router.get('/betting-activity', (ctx) => {
     fail(ctx, 400, 'Invalid tab')
     return
   }
-  ok(ctx, getBettingActivity(tab as BetTab))
+  const currency = String(ctx.query.currency ?? 'PHP').toUpperCase() === 'IDR' ? 'IDR' : 'PHP'
+  ok(ctx, getBettingActivity(tab as BetTab, currency))
 })
 
 // GET /slots/providers?sortCategory=slots — distinct providers from cache

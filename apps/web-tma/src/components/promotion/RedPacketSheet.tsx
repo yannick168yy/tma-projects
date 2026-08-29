@@ -3,11 +3,12 @@ import { createPortal } from 'react-dom'
 
 interface Props {
   title: string
-  amountPhp: number
+  amount: number
+  currency: string
   onClose: () => void
 }
 
-export default function RedPacketSheet({ title, amountPhp, onClose }: Props) {
+export default function RedPacketSheet({ title, amount, currency, onClose }: Props) {
   const { t } = useTranslation()
 
   return createPortal(
@@ -17,7 +18,7 @@ export default function RedPacketSheet({ title, amountPhp, onClose }: Props) {
         <p className="text-4xl mb-2">🧧</p>
         <h3 className="text-xl font-black text-white">{title}</h3>
         <p className="mt-2 text-3xl font-black text-primary">
-          ₱ {amountPhp.toLocaleString('en-PH')}
+          {currency === 'IDR' ? `Rp ${amount.toLocaleString('id-ID')}` : currency === 'PHP' ? `₱ ${amount.toLocaleString('en-PH')}` : `${amount.toLocaleString('en-US')} ${currency}`}
         </p>
         <p className="mt-2 text-xs text-white/60">{t('redpacket.credited')}</p>
         <button
