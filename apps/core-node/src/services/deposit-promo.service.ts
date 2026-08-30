@@ -4,7 +4,7 @@ import { sendPurchaseConversion } from './capi.service.js'
 
 /**
  * 充值成功后的活动发放：首充嘉年华。
- * 挂在所有入账路径（internal.routes 两条 + NATS yfpay/beepay 回调）之后调用，
+ * 挂在所有入账路径（internal.routes + NATS 支付回调）之后调用，
  * 幂等由 bg_user_promo_state.first_dep_claimed 条件更新保证，发放失败不影响充值主流程。
  */
 export interface PaidDepositInfo {
@@ -141,7 +141,7 @@ export async function applyDepositPromos(
   } catch (err) {
     log.error({ err, orderId: dep.orderId }, 'first deposit bonus failed')
   }
-  // 广告转化回传挂在这里，是因为这个函数是全部入账路径（internal 三条 + yfpay/beepay/matrix
+  // 广告转化回传挂在这里，是因为这个函数是全部入账路径（internal + yfpay/unispay/matrix
   // 回调）的唯一汇合点，挂别处必漏。失败不影响充值与发奖。
   try {
     await sendPurchaseConversion(db, {

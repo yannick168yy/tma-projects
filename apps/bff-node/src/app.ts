@@ -65,12 +65,12 @@ export function createApp(env: Env): Koa {
     setTimeout(() => trySeed(0), 10_000)
   }
 
-  // 汇率定时刷新：启动后 30s 先跑一次，之后每 10 分钟（全部走 CoinGecko）。结果落 Redis 共享,单实例跑即可
+  // 汇率定时刷新：启动后 30s 先跑一次，之后每 15 分钟。与 core-node 合计约 3600 次/月，给手动刷新留余量。
   if (singletonJobs) setTimeout(() => {
     refreshRates(redis, env).catch((err) => log.rates.error({ err }, 'refresh error'))
     setInterval(
       () => refreshRates(redis, env).catch((err) => log.rates.error({ err }, 'refresh error')),
-      10 * 60 * 1000,
+      15 * 60 * 1000,
     )
   }, 30_000)
 

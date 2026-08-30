@@ -83,10 +83,24 @@ async function fetchFromCoinGecko(from: string, to: string, env: Env): Promise<R
 }
 
 export async function getRate(redis: Redis, from: string, to: string, env: Env): Promise<RateResult> {
+  from = from.toUpperCase()
+  to = to.toUpperCase()
   if (from === to) return { rate: 1, fetchedAt: new Date().toISOString(), source: 'identity' }
 
   const cached = await redis.get(redisKey(from, to))
   if (cached) return JSON.parse(cached) as RateResult
+
+  if (to !== 'PHP') {
+    const [fromToPhp, toToPhp] = await Promise.all([
+      getRate(redis, from, 'PHP', env),
+      getRate(redis, to, 'PHP', env),
+    ])
+    return {
+      rate: fromToPhp.rate / toToPhp.rate,
+      fetchedAt: fromToPhp.fetchedAt > toToPhp.fetchedAt ? fromToPhp.fetchedAt : toToPhp.fetchedAt,
+      source: `derived:${fromToPhp.source}/${toToPhp.source}`,
+    }
+  }
 
   let result: RateResult
   try {
@@ -103,6 +117,8 @@ export async function getRate(redis: Redis, from: string, to: string, env: Env):
 }
 
 export async function setManualRate(redis: Redis, from: string, to: string, rate: number, env: Env): Promise<RateResult> {
+  from = from.toUpperCase()
+  to = to.toUpperCase()
   const result: RateResult = { rate, fetchedAt: new Date().toISOString(), source: 'manual' }
   await redis.setex(redisKey(from, to), MANUAL_TTL, JSON.stringify(result))
   if (isMysqlEnabled(env)) {
@@ -115,7 +131,7 @@ export async function setManualRate(redis: Redis, from: string, to: string, rate
 }
 
 export async function clearManualRate(redis: Redis, from: string, to: string): Promise<void> {
-  await redis.del(redisKey(from, to))
+  await redis.del(redisKey(from.toUpperCase(), to.toUpperCase()))
 }
 
 export async function getAllCurrentRates(redis: Redis, env: Env): Promise<Array<{

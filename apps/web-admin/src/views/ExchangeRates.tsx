@@ -172,7 +172,7 @@ export default function ExchangeRates() {
         type="info"
         showIcon
         style={{ marginBottom: 16 }}
-        message="USDT、USDC、TRX 每 10 分钟共用一次 CoinGecko 批量请求，约 4,320 次/月；IDR 使用环境值或手动值，不增加 API 调用。"
+        message="USDT、USDC、TRX 每 15 分钟共用一次 CoinGecko 批量请求；加上 core-node 每小时刷新，约 3,600 次/月。IDR 使用环境值或手动值，不增加 API 调用；其他币种对由基础汇率推导。"
       />
 
       <Table dataSource={sortedRates} columns={rateColumns} rowKey={(r) => `${r.from}-${r.to}`} loading={loading} pagination={false} style={{ marginBottom: 24 }} scroll={{ x: 720 }} />

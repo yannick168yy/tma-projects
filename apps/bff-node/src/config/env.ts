@@ -62,8 +62,6 @@ const schema = z.object({
   AMMER_PAY_PHP_PER_STAR: z.coerce.number().positive().default(1.12),
   // 社区营销 AI 文案改写(Claude Haiku)。留空则跳过改写直接用模板原文
   ANTHROPIC_API_KEY: z.string().default(''),
-  // 第三方汇率 API（freecurrencyapi.com，免费额度 5000 次/月）
-  EXCHANGE_RATE_API_KEY: z.string().default(''),
   // CoinGecko API key（可选，无 key 也可用免费 demo tier，50 次/分）
   COINGECKO_API_KEY: z.string().default(''),
   // 手动兜底汇率（无 API key 或 API 故障时使用）
@@ -75,11 +73,6 @@ const schema = z.object({
   YFPAY_USERNAME: z.string().default(''),
   YFPAY_API_KEY: z.string().default(''),
   YFPAY_NOTIFY_URL: z.string().default('https://www.188facai.com/api/v1/callback/yfpay'),
-  // ── BeePay ──────────────────────────────────────────────────────────────────
-  BEEPAY_BASE_URL: z.string().default(''),
-  BEEPAY_MID_NO: z.string().default(''),
-  BEEPAY_API_KEY: z.string().default(''),
-  BEEPAY_NOTIFY_URL: z.string().default('https://www.188facai.com/api/v1/callback/beepay'),
   // ── UnisPay 印尼通道 ───────────────────────────────────────────────────────
   UNISPAY_BASE_URL: z.string().default('https://asia666.unispay.vip'),
   UNISPAY_MCH_NO: z.string().default(''),

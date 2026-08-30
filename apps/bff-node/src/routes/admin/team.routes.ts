@@ -11,9 +11,9 @@ const router = new Router({ prefix: '/team' })
 router.get('/overview', async (ctx) => {
   const db = getMysqlPool(ctx.state.env)
   const today = currentDate()
-  const [usdtToPhp, idrToPhp] = await Promise.all([
-    getRate(ctx.state.redis, 'USDT', 'PHP', ctx.state.env),
-    getRate(ctx.state.redis, 'IDR', 'PHP', ctx.state.env),
+  const [phpToUsdt, idrToUsdt] = await Promise.all([
+    getRate(ctx.state.redis, 'PHP', 'USDT', ctx.state.env),
+    getRate(ctx.state.redis, 'IDR', 'USDT', ctx.state.env),
   ])
 
   const [[agents], [commission], [pending]] = await Promise.all([
@@ -25,17 +25,17 @@ router.get('/overview', async (ctx) => {
     ),
     db.query<RowDataPacket[]>(
       `SELECT COUNT(*) AS cnt,
-              COALESCE(SUM(CASE WHEN currency = 'IDR' THEN amount_cents * ? ELSE amount_cents END), 0) AS total
+              COALESCE(SUM(amount_cents * CASE WHEN currency = 'IDR' THEN ? ELSE ? END), 0) AS total
        FROM bg_team_withdrawal WHERE status = 'pending' AND review_verdict = 'manual'`,
-      [idrToPhp.rate],
+      [idrToUsdt.rate, phpToUsdt.rate],
     ),
   ])
 
   ok(ctx, {
     activeAgents:             Number(agents[0]?.cnt ?? 0),
-    thisMonthCommissionCents: Number(commission[0]?.total ?? 0) / usdtToPhp.rate,
+    thisMonthCommissionCents: Number(commission[0]?.total ?? 0) * phpToUsdt.rate,
     pendingWithdrawalCount:   Number(pending[0]?.cnt ?? 0),
-    pendingWithdrawalCents:   Number(pending[0]?.total ?? 0) / usdtToPhp.rate,
+    pendingWithdrawalCents:   Number(pending[0]?.total ?? 0),
     today,
   })
 })
@@ -280,13 +280,13 @@ router.get('/commissions', async (ctx) => {
      ORDER BY tc.created_at DESC LIMIT ? OFFSET ?`,
     [...params, pageSize, offset],
   )
-  const usdtToPhp = await getRate(ctx.state.redis, 'USDT', 'PHP', ctx.state.env)
+  const phpToUsdt = await getRate(ctx.state.redis, 'PHP', 'USDT', ctx.state.env)
 
   ok(ctx, {
     total: Number(total), page, pageSize,
     items: rows.map((row) => ({
       ...row,
-      usdt_equivalent_cents: Number(row.php_equivalent_cents ?? 0) / usdtToPhp.rate,
+      usdt_equivalent_cents: Number(row.php_equivalent_cents ?? 0) * phpToUsdt.rate,
     })),
   })
 })

@@ -435,7 +435,7 @@ export default function PaymentChannels() {
       >
         <Form form={channelForm} layout="vertical" style={{ marginTop: 8 }}>
           <Form.Item label="显示名称" name="label" rules={[{ required: true }]}>
-            <Input placeholder="如：GCash-BeePay" />
+            <Input placeholder="如：GCash-YFPay" />
           </Form.Item>
           <Form.Item label="类别" name="category" rules={[{ required: true }]}>
             <Select options={[
@@ -483,7 +483,6 @@ export default function PaymentChannels() {
               <Form.Item label="服务商" name="provider" rules={[{ required: true }]}>
                 <Select options={[
                   { value: 'yfpay', label: 'YFPay' },
-                  { value: 'beepay', label: 'BeePay' },
                   { value: 'unispay', label: 'UnisPay' },
                 ]} placeholder="选择服务商" />
               </Form.Item>

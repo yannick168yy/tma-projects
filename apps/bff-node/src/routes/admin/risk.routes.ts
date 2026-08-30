@@ -21,8 +21,7 @@ function db(ctx: import('koa').Context) {
 }
 
 async function phpToUsdt(ctx: import('koa').Context): Promise<number> {
-  const phpPerUsdt = (await getRate(ctx.state.redis, 'USDT', 'PHP', ctx.state.env)).rate
-  return phpPerUsdt > 0 ? 1 / phpPerUsdt : 0
+  return (await getRate(ctx.state.redis, 'PHP', 'USDT', ctx.state.env)).rate
 }
 
 // 风险总览：标签分布 + 近 24h 命中动作分布。影子模式期靠这里评估误报率。

@@ -10,6 +10,7 @@ import { nowIso } from '../utils/format.js'
 import { fail, ok } from '../utils/response.js'
 import { randomOrderId } from '../utils/id.js'
 import type { DepositOrder } from '../types/domain.js'
+import { getRate } from '../services/exchange-rate.service.js'
 
 const router = new Router({ prefix: '/deposits' })
 
@@ -55,10 +56,11 @@ router.post('/', async (ctx) => {
 
   if (providerToken) {
     try {
+      const usdtToPhpRate = (await getRate(ctx.state.redis, 'USDT', 'PHP', ctx.state.env)).rate
       const invoice = orderToTelegramInvoice(
         currency,
         body.amount,
-        ctx.state.env.USDT_TO_PHP_RATE,
+        usdtToPhpRate,
         ctx.state.env.AMMER_PAY_PHP_PER_STAR,
       )
       invoiceLink = await createTelegramInvoiceLink(
@@ -78,9 +80,10 @@ router.post('/', async (ctx) => {
       return
     }
   } else if (ctx.state.env.NODE_ENV !== 'production') {
+    const usdtToPhpRate = (await getRate(ctx.state.redis, 'USDT', 'PHP', ctx.state.env)).rate
     await settlePaidDeposit(ctx.state.redis, order, {
       traceId: ctx.state.traceId,
-      usdtToPhpRate: ctx.state.env.USDT_TO_PHP_RATE,
+      usdtToPhpRate,
       amountPhpUnits: body.amount,
       currency,
       mysqlPool: isMysqlEnabled(ctx.state.env) ? getMysqlPool(ctx.state.env) : undefined,

@@ -1,6 +1,6 @@
 /**
  * 统一支付路由（用户侧）
- * 前端面向此接口，后端透明路由到 yfpay / beepay / unispay
+ * 前端面向此接口，后端透明路由到 yfpay / unispay
  */
 import Router from '@koa/router'
 import { randomBytes } from 'node:crypto'
@@ -15,11 +15,6 @@ import {
   YfPayError,
   normalizeWithdrawOptionCode,
 } from '../services/yfpay.service.js'
-import {
-  createDeposit as beepayCreateDeposit,
-  queryDeposit as beepayQueryDeposit,
-  BeepayError,
-} from '../services/beepay.service.js'
 import {
   createDeposit as unispayCreateDeposit,
   queryDeposit as unispayQueryDeposit,
@@ -87,7 +82,7 @@ router.get('/payment/channels', async (ctx) => {
   const currency = String(ctx.query.currency ?? 'PHP').toUpperCase()
 
   // min/max 以后台配置的规则区间为准（listAvailableChannels 已聚合 MIN/MAX），
-  // 不再用 yfpay 接口覆盖——否则同名 yfpay 渠道会把 beepay 渠道的配置区间冲掉
+  // 不用服务商接口覆盖，金额区间始终以后端渠道规则为准。
   const channels = await getCachedAvailableChannels(ctx.state.redis as Redis, ctx.state.env, txType, currency)
   ok(ctx, channels)
 })
@@ -116,7 +111,7 @@ router.post('/payment/deposit/create', async (ctx) => {
     fail(ctx, 400, 'errors.amountOrChannelUnavailable'); return
   }
 
-  const merchantSerial = randomOrderId(provider === 'yfpay' ? 'YFD' : provider === 'beepay' ? 'BPD' : 'UPD')
+  const merchantSerial = randomOrderId(provider === 'yfpay' ? 'YFD' : 'UPD')
 
   try {
     let payUrl: string
@@ -133,14 +128,6 @@ router.post('/payment/deposit/create', async (ctx) => {
         notifyUrl: ctx.state.env.YFPAY_NOTIFY_URL,
       }, ctx.state.env)
       payUrl = result.url
-      platformId = result.platformId
-    } else if (provider === 'beepay') {
-      channelCodeUsed = channelName.toUpperCase()
-      const result = await beepayCreateDeposit({
-        amount, channelCode: channelCodeUsed, merchantSerial,
-        notifyUrl: ctx.state.env.BEEPAY_NOTIFY_URL,
-      }, ctx.state.env)
-      payUrl = result.payUrl
       platformId = result.platformId
     } else if (provider === 'unispay') {
       if (currency !== 'IDR') { fail(ctx, 400, 'UnisPay 仅支持 IDR'); return }
@@ -178,7 +165,6 @@ router.post('/payment/deposit/create', async (ctx) => {
   } catch (err) {
     console.error('[bff] payment/deposit/create', merchantSerial, err)
     const msg = err instanceof YfPayError ? err.message
-      : err instanceof BeepayError ? err.message
       : err instanceof UnispayError ? err.message
       : '创建充值订单失败'
     fail(ctx, 500, msg)
@@ -196,7 +182,7 @@ router.post('/payment/deposit/query', async (ctx) => {
   if (isMysqlEnabled(ctx.state.env)) {
     order = await getDeposit(ctx.state.redis, body.merchantSerial)
     if (!order || order.userId !== ctx.state.userId) { fail(ctx, 403, 'errors.noPermission'); return }
-    provider = order.provider ?? (order.channelId.startsWith('beepay_') ? 'beepay' : order.channelId.startsWith('unispay_') ? 'unispay' : 'yfpay')
+    provider = order.provider ?? (order.channelId.startsWith('unispay_') ? 'unispay' : 'yfpay')
     if (order.status !== 'pending') {
       ok(ctx, { state: depositOrderState(order.status) })
       return
@@ -208,9 +194,6 @@ router.post('/payment/deposit/query', async (ctx) => {
     if (order) {
       const synced = await syncQueriedDepositStatus(ctx.state.env, order)
       state = synced?.state ?? depositOrderState(order.status)
-    } else if (provider === 'beepay') {
-      const r = await beepayQueryDeposit(body.merchantSerial, ctx.state.env)
-      state = r.state
     } else if (provider === 'unispay') {
       const r = await unispayQueryDeposit(body.merchantSerial, ctx.state.env)
       state = r.state
@@ -221,7 +204,6 @@ router.post('/payment/deposit/query', async (ctx) => {
     ok(ctx, { state })
   } catch (err) {
     const msg = err instanceof YfPayError ? err.message
-      : err instanceof BeepayError ? err.message
       : err instanceof UnispayError ? err.message
       : '查询失败'
     fail(ctx, 500, msg)
@@ -237,7 +219,7 @@ router.get('/payment/deposit/orders', async (ctx) => {
     merchantSerial: o.orderId,
     amount: o.amount,
     channelName: (o.extraData as Record<string, string> | undefined)?.channelName ?? o.channelId,
-    provider: o.provider ?? (o.channelId.startsWith('beepay_') ? 'beepay' : o.channelId.startsWith('unispay_') ? 'unispay' : o.channelId.startsWith('yfpay_') ? 'yfpay' : undefined),
+    provider: o.provider ?? (o.channelId.startsWith('unispay_') ? 'unispay' : o.channelId.startsWith('yfpay_') ? 'yfpay' : undefined),
     state: depositOrderState(o.status),
     payUrl: (o.extraData as Record<string, string> | undefined)?.payUrl,
     createdAt: o.createdAt,
@@ -300,10 +282,10 @@ router.post('/payment/withdraw/create', async (ctx) => {
       fail(ctx, 400, 'UnisPay IDR 提现金额必须为整数'); return
     }
 
-    // provider 专用渠道码：yfpay 代付使用 bank-codes 数字编码，beepay 待文档确认
+    // provider 专用渠道码：yfpay 代付使用 bank-codes 数字编码。
     const channelCode = channelName.toUpperCase()
     const optionCode = normalizeWithdrawOptionCode(channelCode)
-    const merchantSerial = randomOrderId(provider === 'yfpay' ? 'YFW' : provider === 'beepay' ? 'BPW' : 'UPW')
+    const merchantSerial = randomOrderId(provider === 'yfpay' ? 'YFW' : 'UPW')
 
     await creditWallet(redis, userId, -amount, {
       type: 'withdraw',
@@ -328,7 +310,6 @@ router.post('/payment/withdraw/create', async (ctx) => {
         channelName,
         targetAccount: targetAccount ?? '',
         targetOwner: targetOwner ?? '',
-        // BeePay 文档到手后补充其他字段
       },
       createdAt: nowIso(),
     }

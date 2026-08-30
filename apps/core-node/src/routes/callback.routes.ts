@@ -6,7 +6,7 @@ import type { RowDataPacket } from 'mysql2/promise'
 import { recordUnispayIssue } from '../handlers/unispay-callback.handler.js'
 
 export async function callbackRoutes(app: FastifyInstance) {
-  // ── 通用回调入口：验签 → NATS（YF Pay / Matrix 通知）────────────────────────
+  // ── 通用回调入口：验签 → NATS ──────────────────────────────────────────────
   app.post<{ Params: { provider: string } }>(
     '/callback/:provider',
     async (req, reply) => {
@@ -42,12 +42,12 @@ export async function callbackRoutes(app: FastifyInstance) {
         JSON.stringify({ provider, payload, receivedAt: Date.now() }),
       )
 
-      // YF Pay / BeePay 要求明文 'success'；UnisPay 要求大写 'SUCCESS'
+      // YF Pay 要求明文 'success'；UnisPay 要求大写 'SUCCESS'
       if (provider === 'unispay') {
         reply.type('text/plain')
         return reply.send('SUCCESS')
       }
-      if (provider === 'yfpay' || provider === 'beepay') {
+      if (provider === 'yfpay') {
         reply.type('text/plain')
         return reply.send('success')
       }

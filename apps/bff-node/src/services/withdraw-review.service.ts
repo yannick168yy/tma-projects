@@ -10,6 +10,7 @@ import { broadcastBadges } from './sse-badges.js'
 import { notifyWithdrawManual } from './admin-notify.js'
 import { recommendedUserReasonForRule } from './withdraw-reject-reason.service.js'
 import { compareKycNames } from './kyc.service.js'
+import { getRate } from './exchange-rate.service.js'
 
 // ── 规则结果 / 上下文 ─────────────────────────────────────────────────────────
 
@@ -903,8 +904,12 @@ export async function reviewWithdraw(env: Env, redis: Redis, orderId: string, ro
   let snapshot: Record<string, unknown> | null = null
 
   try {
-    const config = await loadReviewConfig(pool)
-    const ctx = await buildContext(pool, order, config, env.USDT_TO_PHP_RATE, env.IDR_TO_PHP_RATE)
+    const [config, usdToPhp, idrToPhp] = await Promise.all([
+      loadReviewConfig(pool),
+      getRate(redis, 'USDT', 'PHP', env),
+      getRate(redis, 'IDR', 'PHP', env),
+    ])
+    const ctx = await buildContext(pool, order, config, usdToPhp.rate, idrToPhp.rate)
     snapshot = snapshotOf(ctx)
 
     const results: RuleResult[] = []

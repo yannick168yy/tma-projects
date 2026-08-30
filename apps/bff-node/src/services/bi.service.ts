@@ -540,10 +540,10 @@ export async function getBiRfm(
   }
 
   const now = Date.now()
-  const usdtToPhp = (await getRate(redis, 'USDT', 'PHP', env)).rate
+  const phpToUsdt = (await getRate(redis, 'PHP', 'USDT', env)).rate
   const cellMap = new Map<string, BiRfmCell>()
   for (const u of byUser.values()) {
-    const valueTier = u.total >= 50000 / usdtToPhp ? 'whale' : u.total >= 5000 / usdtToPhp ? 'mid' : 'small'
+    const valueTier = u.total >= 50000 * phpToUsdt ? 'whale' : u.total >= 5000 * phpToUsdt ? 'mid' : 'small'
     const idleDays = (now - u.lastAt) / DAY_MS
     const recency = idleDays <= 7 ? 'active' : idleDays <= 30 ? 'cooling' : 'churned'
     const key = `${valueTier}|${recency}`
@@ -783,11 +783,11 @@ export type BiTargetMetric = (typeof BI_TARGET_METRICS)[number]
 export async function listBiTargets(env: Env, redis: Redis, period: string): Promise<{ metric: string; targetValue: number }[]> {
   const [rows] = await pool(env).query<RowDataPacket[]>(
     `SELECT metric, target_value FROM bi_target WHERE period=?`, [period])
-  const usdtToPhp = (await getRate(redis, 'USDT', 'PHP', env)).rate
+  const phpToUsdt = (await getRate(redis, 'PHP', 'USDT', env)).rate
   return rows.map((r) => {
     const metric = String(r.metric)
     const stored = Number(r.target_value)
-    return { metric, targetValue: metric === 'ggr' || metric === 'deposit' ? stored / usdtToPhp : stored }
+    return { metric, targetValue: metric === 'ggr' || metric === 'deposit' ? stored * phpToUsdt : stored }
   })
 }
 

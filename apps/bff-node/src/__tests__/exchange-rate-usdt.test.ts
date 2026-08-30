@@ -10,8 +10,10 @@ import { usdtRateMap } from '../services/marketing-bi.service.js'
 describe('后台 USDT 等值汇率', () => {
   beforeEach(() => {
     getRate.mockReset()
-    getRate.mockImplementation(async (_redis, from: string) => ({
-      rate: from === 'IDR' ? 1 / 287 : from === 'USDT' || from === 'USDC' ? 58 : from === 'PHP' ? 1 : 10,
+    getRate.mockImplementation(async (_redis, from: string, to: string) => ({
+      rate: to === 'USDT'
+        ? (from === 'IDR' ? 1 / 287 / 58 : from === 'PHP' ? 1 / 58 : 1)
+        : (from === 'IDR' ? 1 / 287 : from === 'USDT' || from === 'USDC' ? 58 : from === 'PHP' ? 1 : 10),
       fetchedAt: new Date().toISOString(),
       source: 'test',
     }))

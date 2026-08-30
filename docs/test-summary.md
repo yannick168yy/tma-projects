@@ -37,7 +37,7 @@
 
 ## 👤 待人工执行（QA，~33 条）
 
-- **资金**：真实充值到账（YF Pay/BeePay 收银台）、Telegram Stars、Matrix 加密充提、KYC 通过后真实出款全链路
+- **资金**：真实充值到账（YF Pay/UnisPay 收银台）、Telegram Stars、Matrix 加密充提、KYC 通过后真实出款全链路
 - **账号**：短信 OTP（注册/忘密/KYC/绑手机）、Google/Telegram OAuth 授权、Turnstile 人机验证
 - **端上**：真机 PWA 安装、H5 全屏、非游戏页禁横屏、窄屏 Android、iOS 白屏回归、TG Mini App 内自动登录
 - **主观**：各页视觉设计还原度、动画动效

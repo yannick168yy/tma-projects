@@ -96,7 +96,7 @@ function mapRule(row: RuleRow): PaymentChannelRule {
 export async function listChannels(env: Env): Promise<PaymentChannel[]> {
   const p = pool(env)
   const [channelRows] = await p.query<ChannelRow[]>(
-    `SELECT * FROM payment_channels ORDER BY sort_order ASC, id ASC`
+    `SELECT * FROM payment_channels WHERE provider <> 'beepay' ORDER BY sort_order ASC, id ASC`
   )
   if (channelRows.length === 0) return []
   const ids = channelRows.map((r) => r.id)
@@ -250,6 +250,7 @@ export async function resolveChannel(
     `SELECT r.*, c.provider FROM payment_channel_rules r
      JOIN payment_channels c ON c.id = r.channel_id
      WHERE r.enabled = 1 AND c.enabled = 1
+       AND c.provider <> 'beepay'
        AND c.name = ?
        AND r.currency = ?
        AND (r.tx_type = ? OR r.tx_type = 'both')
@@ -291,6 +292,7 @@ export async function listAvailableChannels(
      FROM payment_channels c
      JOIN payment_channel_rules r ON r.channel_id = c.id
      WHERE c.enabled = 1 AND r.enabled = 1
+       AND c.provider <> 'beepay'
        AND r.currency = ?
        AND (r.tx_type = ? OR r.tx_type = 'both')
      GROUP BY c.name, c.label`,

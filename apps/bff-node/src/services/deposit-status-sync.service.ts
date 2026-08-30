@@ -3,14 +3,13 @@ import type { Env } from '../config/env.js'
 import type { OrderDeposit } from '../types/domain.js'
 import { getMysqlPool } from '../clients/mysql.client.js'
 import { queryDeposit as yfpayQueryDeposit } from './yfpay.service.js'
-import { queryDeposit as beepayQueryDeposit } from './beepay.service.js'
 import { queryDeposit as unispayQueryDeposit, type UnispayOrderQueryResult } from './unispay.service.js'
 
 const QUERY_AFTER_MINUTES = 30
 const FORCE_FAIL_AFTER_MINUTES = 120
 const SCAN_LIMIT = 50
 
-type DepositProvider = 'yfpay' | 'beepay' | 'unispay'
+type DepositProvider = 'yfpay' | 'unispay'
 
 interface PendingDepositRow extends RowDataPacket {
   order_id: string
@@ -42,7 +41,6 @@ export interface DepositStatusTickResult {
 function resolveProvider(order: Pick<OrderDeposit, 'provider' | 'channelId'>): DepositProvider | null {
   const raw = String(order.provider || order.channelId || '').toLowerCase()
   if (raw.includes('yfpay')) return 'yfpay'
-  if (raw.includes('beepay')) return 'beepay'
   if (raw.includes('unispay')) return 'unispay'
   return null
 }
@@ -59,7 +57,6 @@ function mapStateToStatus(provider: DepositProvider, state: number): OrderDeposi
 }
 
 async function queryProviderState(env: Env, provider: DepositProvider, orderId: string): Promise<{ state: number; unispay?: UnispayOrderQueryResult }> {
-  if (provider === 'beepay') return { state: (await beepayQueryDeposit(orderId, env)).state }
   if (provider === 'unispay') {
     const result = await unispayQueryDeposit(orderId, env)
     return { state: result.state, unispay: result }
@@ -156,7 +153,7 @@ export async function runDepositStatusTick(env: Env, log: { info: (obj: unknown,
     `SELECT order_id, user_id, amount, currency, channel, status, created_at, extra
      FROM bg_deposit_order
      WHERE status = 'pending'
-       AND (channel LIKE 'yfpay\\_%' OR channel LIKE 'beepay\\_%')
+       AND channel LIKE 'yfpay\\_%'
        AND created_at < NOW() - INTERVAL ? MINUTE
      ORDER BY created_at ASC
      LIMIT ?`,

@@ -27,6 +27,17 @@ export async function getPhpRate(currency: string): Promise<number> {
   return rates[key] ?? fallbackRate(key)
 }
 
+// 返回 1 单位 from 可兑换的 to 数量；底层复用同一批基础汇率，不增加 API 请求。
+export async function getExchangeRate(from: string, to: string): Promise<number> {
+  const fromUpper = TESTNET_TO_MAINNET[from.toUpperCase()] ?? from.toUpperCase()
+  const toUpper = TESTNET_TO_MAINNET[to.toUpperCase()] ?? to.toUpperCase()
+  if (fromUpper === toUpper) return 1
+  const rates = await fetchRates()
+  const fromToPhp = fromUpper === 'PHP' ? 1 : rates[fromUpper] ?? fallbackRate(fromUpper)
+  const toToPhp = toUpper === 'PHP' ? 1 : rates[toUpper] ?? fallbackRate(toUpper)
+  return fromToPhp / toToPhp
+}
+
 // 返回所有货币的 PHP 汇率 Map（全量从 CoinGecko 拉取）
 export async function fetchRates(): Promise<Record<string, number>> {
   if (cachedRates && Date.now() < cacheExpiry) return cachedRates

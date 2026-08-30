@@ -36,9 +36,6 @@ const schema = z.object({
   // YFPay 回调验签
   YFPAY_API_KEY: z.string().default(''),
 
-  // BeePay 回调验签
-  BEEPAY_API_KEY: z.string().default(''),
-
   // UnisPay 印尼通道回调验签
   UNISPAY_API_KEY: z.string().default(''),
 

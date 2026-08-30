@@ -79,32 +79,14 @@ function rateSymbol(currency: string): string {
   return c === 'USD' ? 'USDT' : c
 }
 
-export async function phpRateMap(redis: Redis, env: Env, currencies: string[]): Promise<Map<string, number>> {
-  const map = new Map<string, number>()
-  for (const cur of currencies) {
-    if (map.has(cur)) continue
-    const sym = rateSymbol(cur)
-    if (sym === 'PHP') { map.set(cur, 1); continue }
-    try {
-      map.set(cur, (await getRate(redis, sym, 'PHP', env)).rate)
-    } catch {
-      // 汇率不可得的兜底：稳定币按环境配置价，其余按 1 计——宁可金额失真也别把首存漏掉
-      map.set(cur, sym === 'USDT' || sym === 'USDC' ? env.USDT_TO_PHP_RATE : 1)
-    }
-  }
-  return map
-}
-
 /** 1 单位原币种折算为 USDT；复用汇率管理中的「原币→PHP」快照，不产生额外 API 请求。 */
 export async function usdtRateMap(redis: Redis, env: Env, currencies: string[]): Promise<Map<string, number>> {
-  const usdtToPhp = (await getRate(redis, 'USDT', 'PHP', env)).rate
   const map = new Map<string, number>()
   for (const currency of currencies) {
     const symbol = rateSymbol(currency)
     if (symbol === 'USDT' || symbol === 'USDC') { map.set(currency, 1); continue }
-    if (symbol === 'PHP') { map.set(currency, 1 / usdtToPhp); continue }
     try {
-      map.set(currency, (await getRate(redis, symbol, 'PHP', env)).rate / usdtToPhp)
+      map.set(currency, (await getRate(redis, symbol, 'USDT', env)).rate)
     } catch {
       map.set(currency, 0)
     }

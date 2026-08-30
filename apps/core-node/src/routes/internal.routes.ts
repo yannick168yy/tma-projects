@@ -6,7 +6,7 @@ import type { PoolConnection, RowDataPacket } from 'mysql2/promise'
 import type { Redis } from 'ioredis'
 import { env } from '../config/env.js'
 import { lgId } from '../utils/id.js'
-import { getPhpRate } from '../services/exchange-rate.service.js'
+import { getExchangeRate, getPhpRate } from '../services/exchange-rate.service.js'
 import { applyDepositPromos } from '../services/deposit-promo.service.js'
 import { sendRegistrationConversion } from '../services/capi.service.js'
 import { tryActivateTeamNode } from '../services/team-activation.service.js'
@@ -180,68 +180,6 @@ export async function internalRoutes(app: FastifyInstance) {
       await conn.rollback()
       await redis.del(idempotencyKey).catch(() => {})
       app.log.error({ err, orderId }, 'YFPay deposit failed')
-      return reply.status(500).send({ code: 500, message: 'internal error' })
-    } finally {
-      conn.release()
-    }
-  })
-
-  // POST /internal/payment/beepay
-  // 供 BFF 主动查询到 BeePay 成功但回调尚未到达时补偿入账；金额/币种仍以订单行为准。
-  app.post<{
-    Body: { orderId: string; userId: string; creditedCents: number }
-  }>('/internal/payment/beepay', async (req, reply) => {
-    const { orderId, userId, creditedCents } = req.body
-    if (!orderId || !userId || creditedCents <= 0) {
-      return reply.status(400).send({ code: 400, message: 'invalid payload' })
-    }
-    const db = app.mysql
-    const redis = app.redis as unknown as Redis
-    const idempotencyKey = `beepay:sync:${orderId}`
-    const locked = await redis.set(idempotencyKey, '1', 'EX', 604800, 'NX')
-    if (!locked) return reply.send({ code: 0, message: 'duplicate, skipped' })
-    const [rows] = await db.query<RowDataPacket[]>(
-      `SELECT user_id, status, credited, currency, amount FROM bg_deposit_order WHERE order_id = ? LIMIT 1`, [orderId],
-    )
-    const order = rows[0]
-    if (!order) {
-      await redis.del(idempotencyKey)
-      return reply.status(404).send({ code: 404, message: 'order not found' })
-    }
-    if (order.status === 'paid' || order.credited) return reply.send({ code: 0, message: 'already paid' })
-    if (String(order.user_id) !== userId) {
-      await redis.del(idempotencyKey)
-      app.log.error({ orderId, userId, orderUserId: order.user_id }, 'BeePay deposit user mismatch')
-      return reply.status(409).send({ code: 409, message: 'user mismatch' })
-    }
-    const creditAmount = Number(order.amount)
-    const currency = String(order.currency ?? 'PHP')
-    if (Math.abs(creditedCents - creditAmount) > 0.01) {
-      app.log.warn({ orderId, creditedCents, orderAmount: creditAmount }, 'BeePay query amount differs from order, crediting order amount')
-    }
-    const conn = await db.getConnection()
-    try {
-      await conn.beginTransaction()
-      const [mark] = await conn.execute<import('mysql2/promise').ResultSetHeader>(
-        `UPDATE bg_deposit_order SET status='paid', credited=1 WHERE order_id=? AND credited=0`, [orderId],
-      )
-      if (mark.affectedRows === 0) {
-        await conn.rollback()
-        return reply.send({ code: 0, message: 'already paid' })
-      }
-      const balanceAfter = await creditWalletInTx(conn, userId, creditAmount, orderId, 'BeePay deposit', currency)
-      await tryActivateTeamNode(conn, userId, creditAmount, currency)
-      await conn.commit()
-      await applyDepositPromos(db, {
-        orderId, userId,
-        amount: creditAmount,
-        currency,
-      }, app.log)
-      return reply.send({ code: 0, message: 'ok', balanceAfter })
-    } catch (err) {
-      await conn.rollback()
-      await redis.del(idempotencyKey).catch(() => {})
-      app.log.error({ err, orderId }, 'BeePay deposit failed')
       return reply.status(500).send({ code: 500, message: 'internal error' })
     } finally {
       conn.release()
@@ -465,24 +403,28 @@ export async function runDailySettlement(app: FastifyInstance, date: string, for
 
   // 汇率（一次批量获取）
   const currencies = [...new Set(bets.map(r => String(r.currency_code ?? 'PHP')))]
-  const fxRates: Record<string, number> = {}
-  await Promise.all(currencies.map(async cur => { fxRates[cur] = await getPhpRate(cur) }))
+  const settlementRates: Record<string, number> = {}
+  const phpRates: Record<string, number> = {}
+  await Promise.all(currencies.map(async (cur) => {
+    settlementRates[cur] = await getExchangeRate(cur, settlementCurrency)
+    phpRates[cur] = await getPhpRate(cur)
+  }))
   const settlementToPhpRate = await getPhpRate(settlementCurrency)
-  app.log.info({ date, fxRates, settlementCurrency, settlementToPhpRate }, '[daily-settle] fx rates')
+  app.log.info({ date, settlementRates, settlementCurrency, settlementToPhpRate }, '[daily-settle] fx rates')
 
-  // 按 from_user 聚合多币种投注，折算 PHP
+  // 按 from_user 聚合多币种投注，直接折算到市场结算币种；PHP 等值仅保留作历史审计快照。
   type Breakdown = { currency: string; betCents: number; fxRate: number }
   const userTotals = new Map<string, { phpCents: number; settlementCents: number; breakdown: Breakdown[] }>()
   for (const row of bets) {
     const uid = row.user_id as string
     const cur = String(row.currency_code ?? 'PHP')
     const betCents = Number(row.bet_cents)
-    const fx = fxRates[cur] ?? 1
-    const phpCents = Math.floor(betCents * fx)
+    const fx = settlementRates[cur] ?? 1
+    const phpCents = Math.floor(betCents * (phpRates[cur] ?? 1))
     if (!userTotals.has(uid)) userTotals.set(uid, { phpCents: 0, settlementCents: 0, breakdown: [] })
     const entry = userTotals.get(uid)!
     entry.phpCents += phpCents
-    entry.settlementCents += cur === settlementCurrency ? betCents : Math.floor(phpCents / settlementToPhpRate)
+    entry.settlementCents += Math.floor(betCents * fx)
     entry.breakdown.push({ currency: cur, betCents, fxRate: fx })
   }
 

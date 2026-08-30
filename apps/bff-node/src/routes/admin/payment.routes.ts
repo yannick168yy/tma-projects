@@ -16,6 +16,7 @@ import { queryDeposit as queryUnispayDeposit, queryWithdrawal as queryUnispayWit
 
 const router = new Router({ prefix: '/payment' })
 const FEE_TYPES: FeeType[] = ['none', 'percent', 'fixed']
+const REMOVED_PAYMENT_PROVIDERS = new Set(['beepay'])
 
 // ── 渠道管理 ──────────────────────────────────────────────────────────────────
 
@@ -35,6 +36,9 @@ router.post('/channels', requireRole('super_admin'), async (ctx) => {
   }
   if (!body.name || !body.provider || !body.label) {
     fail(ctx, 400, 'name / provider / label 必填'); return
+  }
+  if (REMOVED_PAYMENT_PROVIDERS.has(String(body.provider).trim().toLowerCase())) {
+    fail(ctx, 400, '该支付服务商已停用'); return
   }
   const id = await createChannel(ctx.state.env, {
     name: String(body.name).trim(),
@@ -72,6 +76,9 @@ router.put('/channels/:id', requireRole('super_admin'), async (ctx) => {
     enabled?: unknown; sortOrder?: unknown
   }
   const data: Parameters<typeof updateChannel>[2] = {}
+  if (body.provider !== undefined && REMOVED_PAYMENT_PROVIDERS.has(String(body.provider).trim().toLowerCase())) {
+    fail(ctx, 400, '该支付服务商已停用'); return
+  }
   if (body.name !== undefined) data.name = String(body.name).trim()
   if (body.provider !== undefined) data.provider = String(body.provider).trim()
   if (body.label !== undefined) data.label = String(body.label).trim()

@@ -55,7 +55,6 @@ run run -d --name tma-core-node --network "$NET" --restart=always \
   -e SG_MERCHANT_KEY="${SG_MERCHANT_KEY:-}" \
   -e SG_CURRENCY="${SG_CURRENCY:-EUR}" \
   -e YFPAY_API_KEY="${YFPAY_API_KEY:-}" \
-  -e BEEPAY_API_KEY="${BEEPAY_API_KEY:-}" \
   -e UNISPAY_API_KEY="${UNISPAY_API_KEY:-}" \
   -e IDR_TO_PHP_RATE="${IDR_TO_PHP_RATE:-0.0034843206}" \
   -e INTERNAL_TOKEN="${INTERNAL_TOKEN:-}" \

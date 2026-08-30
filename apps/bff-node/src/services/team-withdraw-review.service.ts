@@ -15,6 +15,7 @@ import {
 } from './withdraw-review.service.js'
 import { broadcastBadges } from './sse-badges.js'
 import { notifyWithdrawManual } from './admin-notify.js'
+import { getRate } from './exchange-rate.service.js'
 
 interface TeamWithdrawal {
   id: number
@@ -386,7 +387,7 @@ async function approveTeamWithdrawal(env: Env, withdrawalId: number): Promise<vo
   if (!res.ok) throw new Error('team withdrawal approval failed')
 }
 
-export async function reviewTeamWithdrawal(env: Env, _redis: Redis, withdrawalId: number, round = 1): Promise<void> {
+export async function reviewTeamWithdrawal(env: Env, redis: Redis, withdrawalId: number, round = 1): Promise<void> {
   if (!isMysqlEnabled(env)) return
   const pool = getMysqlPool(env)
   const [[row]] = await pool.query<RowDataPacket[]>(
@@ -407,8 +408,12 @@ export async function reviewTeamWithdrawal(env: Env, _redis: Redis, withdrawalId
   let snapshot: Record<string, unknown> | null = null
 
   try {
-    const config = await loadReviewConfig(pool, 'team')
-    const ctx = await buildContext(pool, withdrawal, config, env.USDT_TO_PHP_RATE, env.IDR_TO_PHP_RATE)
+    const [config, usdToPhp, idrToPhp] = await Promise.all([
+      loadReviewConfig(pool, 'team'),
+      getRate(redis, 'USDT', 'PHP', env),
+      getRate(redis, 'IDR', 'PHP', env),
+    ])
+    const ctx = await buildContext(pool, withdrawal, config, usdToPhp.rate, idrToPhp.rate)
     snapshot = snapshotOf(ctx)
     const results: RuleResult[] = []
     for (const [code, rule] of Object.entries(TEAM_RULES)) {

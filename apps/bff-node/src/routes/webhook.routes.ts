@@ -1,6 +1,7 @@
 import Router from '@koa/router'
 import { getDeposit } from '../services/store/index.js'
 import { depositAmountToYuan } from '../services/deposit.service.js'
+import { getRate } from '../services/exchange-rate.service.js'
 import { answerPreCheckoutQuery } from '../services/telegramPayments.js'
 import { ok } from '../utils/response.js'
 
@@ -67,10 +68,11 @@ router.post('/telegram', async (ctx) => {
   }
 
   // 折算入账金额
+  const usdtToPhpRate = (await getRate(ctx.state.redis, 'USDT', 'PHP', ctx.state.env)).rate
   const creditedCents = depositAmountToYuan(
     order.amount,
     order.currency,
-    ctx.state.env.USDT_TO_PHP_RATE,
+    usdtToPhpRate,
   )
 
   // 转发到 core-node 入账（core-node 负责账变）

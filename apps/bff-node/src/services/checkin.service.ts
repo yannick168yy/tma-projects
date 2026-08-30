@@ -1,5 +1,7 @@
 import type { Pool, PoolConnection, RowDataPacket } from 'mysql2/promise'
+import type { Redis } from 'ioredis'
 import type { Env } from '../config/env.js'
+import { getRate } from './exchange-rate.service.js'
 import { getMysqlPool, isMysqlEnabled } from '../clients/mysql.client.js'
 
 // ───────────────────────── 配置（后台可配，缺省用下列常量） ─────────────────────────
@@ -212,7 +214,7 @@ export interface CheckinStatus {
   milestones: { atDays: number; tier: Tier; n: number; reached: boolean }[]
 }
 
-export async function getCheckinStatus(env: Env, userId: string, currency = 'PHP'): Promise<CheckinStatus> {
+export async function getCheckinStatus(env: Env, userId: string, currency = 'PHP', redis?: Redis): Promise<CheckinStatus> {
   const today = checkinToday(currency)
   const cfg = await getCheckinConfig(env)
   const cycle = cfg.cycle.map((r, i) => ({ day: i + 1, base: r.base, enh: r.enh }))
@@ -231,7 +233,13 @@ export async function getCheckinStatus(env: Env, userId: string, currency = 'PHP
   )
   const last = await lastLogRow(pool, userId)
   const monthDays = await monthCount(pool, userId, today)
-  const eligible = await enhancedEligible(pool, userId, today, currency, cfg.enhancedMinPhp, env.USDT_TO_PHP_RATE, env.IDR_TO_PHP_RATE)
+  const [usdToPhpRate, idrToPhpRate] = redis
+    ? await Promise.all([
+        getRate(redis, 'USDT', 'PHP', env).then((r) => r.rate),
+        getRate(redis, 'IDR', 'PHP', env).then((r) => r.rate),
+      ])
+    : [env.USDT_TO_PHP_RATE, env.IDR_TO_PHP_RATE]
+  const eligible = await enhancedEligible(pool, userId, today, currency, cfg.enhancedMinPhp, usdToPhpRate, idrToPhpRate)
 
   const claimed = Boolean(todayRow)
   const todayTrack = (todayRow?.track as 'base' | 'enhanced' | undefined) ?? null
@@ -271,18 +279,24 @@ export interface CheckinClaimResult {
  * - 当天已签(base) 且现在才达增强条件 → 升级补发增强轨
  * - 当天已完成 → 抛 'already claimed'
  */
-export async function claimCheckin(env: Env, userId: string, currency = 'PHP'): Promise<CheckinClaimResult> {
+export async function claimCheckin(env: Env, userId: string, currency = 'PHP', redis?: Redis): Promise<CheckinClaimResult> {
   if (!isMysqlEnabled(env)) throw new Error('storage unavailable')
   const pool = getMysqlPool(env)
   // 先读配置再取连接：getCheckinConfig 内部走池，持有连接时调用会嵌套取连接（池满即死锁）
   const cfg = await getCheckinConfig(env)
   if (!cfg.enabled) throw new Error('disabled')
+  const [usdToPhpRate, idrToPhpRate] = redis
+    ? await Promise.all([
+        getRate(redis, 'USDT', 'PHP', env).then((r) => r.rate),
+        getRate(redis, 'IDR', 'PHP', env).then((r) => r.rate),
+      ])
+    : [env.USDT_TO_PHP_RATE, env.IDR_TO_PHP_RATE]
   const conn = await pool.getConnection()
   try {
     await conn.beginTransaction()
     const today = checkinToday(currency)
     const tiers = await tierRuleIds(conn)
-    const eligible = await enhancedEligible(conn, userId, today, currency, cfg.enhancedMinPhp, env.USDT_TO_PHP_RATE, env.IDR_TO_PHP_RATE)
+    const eligible = await enhancedEligible(conn, userId, today, currency, cfg.enhancedMinPhp, usdToPhpRate, idrToPhpRate)
 
     // 先按可靠的字符串比较查今天是否已签（不依赖 DATE 列回读格式）
     const [[todayRow]] = await conn.query<RowDataPacket[]>(
