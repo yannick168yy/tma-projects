@@ -1,0 +1,4 @@
+-- 域名可直接访问对应主站，同时为两个 Android App 提供可后台调整的线路组。
+UPDATE bg_admin_settings
+SET `value` = '[{"domain":"betogo666.com","market":"PH","enabled":true,"appMarket":"PH","appPriority":20},{"domain":"betogo777.com","market":"PH","enabled":true,"appMarket":"PH","appPriority":30},{"domain":"betogo.ph","market":"PH","enabled":true,"appMarket":null,"appPriority":100},{"domain":"betogo.xyz","market":"ID","enabled":true,"appMarket":"ID","appPriority":20},{"domain":"betogo.vip","market":"ID","enabled":true,"appMarket":"ID","appPriority":30},{"domain":"betogo888.com","market":"ID","enabled":true,"appMarket":null,"appPriority":100},{"domain":"betogo.cc","market":"ID","enabled":true,"appMarket":null,"appPriority":100},{"domain":"betogo.games","market":"PH","enabled":true,"appMarket":"PH","appPriority":10},{"domain":"betogo.app","market":"ID","enabled":true,"appMarket":"ID","appPriority":10}]'
+WHERE `key` = 'site_domain_mappings';

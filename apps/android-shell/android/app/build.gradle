@@ -19,11 +19,14 @@ if (idKeystorePropsFile.exists()) {
 android {
     namespace "games.betogo.app"
     compileSdk rootProject.ext.compileSdkVersion
+    buildFeatures {
+        buildConfig true
+    }
     defaultConfig {
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 8
-        versionName "1.0.7"
+        versionCode 9
+        versionName "1.0.8"
         // 桌面显示名按构建参数切，测试包与生产包同机肉眼可辨：
         //   ./gradlew assembleRelease -PappLabel="BETOGO Test"
         // 不传默认 BETOGO。注意包名相同，同一台设备两个包互相覆盖、不能共存
@@ -62,6 +65,8 @@ android {
             applicationId "games.betogo.app"
             resValue "string", "package_name", "games.betogo.app"
             resValue "string", "custom_url_scheme", "games.betogo.app"
+            buildConfigField "String", "APP_MARKET", '"PH"'
+            buildConfigField "String", "APP_DOMAINS", '"betogo.games,betogo666.com,betogo777.com"'
             if (keystorePropsFile.exists()) signingConfig signingConfigs.phRelease
         }
         id {
@@ -69,6 +74,8 @@ android {
             applicationId "games.betogo.id"
             resValue "string", "package_name", "games.betogo.id"
             resValue "string", "custom_url_scheme", "games.betogo.id"
+            buildConfigField "String", "APP_MARKET", '"ID"'
+            buildConfigField "String", "APP_DOMAINS", '"betogo.app,betogo.xyz,betogo.vip"'
             if (idKeystorePropsFile.exists()) signingConfig signingConfigs.idRelease
         }
     }

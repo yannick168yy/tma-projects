@@ -5,6 +5,7 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.os.Message;
 import android.webkit.WebResourceRequest;
+import android.webkit.WebResourceError;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.Toast;
@@ -17,6 +18,9 @@ import com.getcapacitor.BridgeActivity;
 import com.getcapacitor.BridgeWebChromeClient;
 import com.getcapacitor.BridgeWebViewClient;
 
+import java.util.HashSet;
+import java.util.Set;
+
 /**
  * 壳的全部定制都集中在这里，站点代码不做 App 特化（同一份 bundle 还要服务 H5/PWA/Telegram）。
  *
@@ -27,9 +31,7 @@ import com.getcapacitor.BridgeWebViewClient;
  */
 public class MainActivity extends BridgeActivity {
 
-    /** 站内域名，留在 App 的 WebView 里；其余一律 Custom Tab。与 capacitor.config.ts 的 allowNavigation 对应。
-     *  ⚠️ 生产包入口是 betogo.app——漏掉它会让 App Link 回调被 loadAppLink 丢弃、
-     *  站内导航被踢进 Custom Tab（Google/TG 登录回不来的事故根因） */
+    /** 站内域名留在 App WebView；实际启动线路由后台 App 域名组和 APK 白名单共同决定。 */
     private static final String[] OWN_HOSTS = {
         "betogo.games", "betogo666.com", "betogo777.com", "betogo.ph",
         "betogo.xyz", "betogo.vip", "betogo888.com", "betogo.cc",
@@ -37,11 +39,14 @@ public class MainActivity extends BridgeActivity {
     };
 
     private long lastBackAt = 0;
+    private boolean selectingDomain = false;
+    private final Set<String> failedDomains = new HashSet<>();
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         // 自定义插件必须在 super.onCreate() 之前注册（Capacitor 桥在 super 里初始化）
         registerPlugin(HardwareIdPlugin.class);
+        registerPlugin(SessionVaultPlugin.class);
         super.onCreate(savedInstanceState);
 
         WebView webView = getBridge().getWebView();
@@ -51,7 +56,7 @@ public class MainActivity extends BridgeActivity {
         webView.setWebViewClient(new ExternalLinkWebViewClient(getBridge()));
         webView.setWebChromeClient(new PopupWebChromeClient(getBridge()));
 
-        loadAppLink(getIntent());
+        if (!loadAppLink(getIntent())) selectDomainAndLoad();
         registerBackHandler();
     }
 
@@ -67,11 +72,30 @@ public class MainActivity extends BridgeActivity {
      * 该路径已在 manifest 注册成 App Link，系统把它交回 App —— 登录态于是落在 App 的 WebView 里，
      * 而不是留在浏览器中（这正是壳里 Google 登录原本走不通的原因）。
      */
-    private void loadAppLink(Intent intent) {
-        if (intent == null || intent.getData() == null) return;
+    private boolean loadAppLink(Intent intent) {
+        if (intent == null || intent.getData() == null) return false;
         Uri url = intent.getData();
-        if (!isOwnHost(url.getHost())) return;
+        if (!isOwnHost(url.getHost())) return false;
         getBridge().getWebView().loadUrl(url.toString());
+        return true;
+    }
+
+    private void selectDomainAndLoad() {
+        if (selectingDomain) return;
+        selectingDomain = true;
+        new AppDomainSelector(this).select(failedDomains, origin -> {
+            selectingDomain = false;
+            if (origin == null) {
+                getBridge().getWebView().evaluateJavascript(
+                    "document.getElementById('t').textContent='Network unavailable, please retry';document.querySelector('.s').style.display='none'", null);
+                return;
+            }
+            Uri target = Uri.parse(origin).buildUpon()
+                .appendQueryParameter("market", BuildConfig.APP_MARKET)
+                .appendQueryParameter("utm_source", "apk")
+                .build();
+            getBridge().getWebView().loadUrl(target.toString());
+        });
     }
 
     private void registerBackHandler() {
@@ -145,6 +169,23 @@ public class MainActivity extends BridgeActivity {
 
             openInCustomTab(url);
             return true;
+        }
+
+        @Override
+        public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
+            super.onReceivedError(view, request, error);
+            if (!request.isForMainFrame()) return;
+            String host = request.getUrl().getHost();
+            if (!isOwnHost(host)) return;
+            if (host != null) failedDomains.add(host.replaceFirst("^www\\.", ""));
+            selectDomainAndLoad();
+        }
+
+        @Override
+        public void onPageFinished(WebView view, String url) {
+            super.onPageFinished(view, url);
+            String host = Uri.parse(url).getHost();
+            if (host != null && isOwnHost(host)) failedDomains.clear();
         }
     }
 

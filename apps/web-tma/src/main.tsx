@@ -13,6 +13,7 @@ import { initPwa } from '@/utils/pwa'
 import { initFingerprint } from '@/utils/fingerprint'
 import { initVersionAutoReload } from '@/utils/versionReload'
 import { initSiteMarketConfig } from '@/config/market'
+import { initNativeToken } from '@/utils/tokenStore'
 
 // Vite modulepreload 失败（部署后旧客户端引用的 chunk 已被覆盖删除）→ 自动整页刷新一次自愈，避免黑屏
 window.addEventListener('vite:preloadError', () => {
@@ -29,6 +30,8 @@ initTheme()
 initAnalytics()
 
 async function bootstrap() {
+  // App 切换备用域名后 Web 存储属于新 origin，先从 Android Keystore 恢复会话再初始化页面。
+  await initNativeToken()
   // 必须先解析域名所属市场，再加载 i18n/App；否则新配置域名首次打开会先初始化成错误语言和币种。
   await initSiteMarketConfig()
   const [{ default: App }, { i18n }] = await Promise.all([import('./App'), import('@/i18n')])

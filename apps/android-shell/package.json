@@ -5,8 +5,8 @@
   "description": "BETOGO Android 壳（Capacitor，远程 URL 模式）",
   "scripts": {
     "sync": "cap sync android",
-    "sync:ph": "CAP_APP_ID=games.betogo.app CAP_MARKET=PH CAP_SERVER_URL=https://betogo.app cap sync android",
-    "sync:id": "CAP_APP_ID=games.betogo.id CAP_MARKET=ID CAP_SERVER_URL=https://www.betogo.games cap sync android",
+    "sync:ph": "CAP_APP_ID=games.betogo.app cap sync android",
+    "sync:id": "CAP_APP_ID=games.betogo.id cap sync android",
     "open": "cap open android",
     "apk:debug": "npm run apk:ph:debug",
     "apk:release": "npm run apk:ph:release",

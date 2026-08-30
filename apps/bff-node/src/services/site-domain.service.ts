@@ -8,6 +8,8 @@ export interface SiteDomainMapping {
   domain: string
   market: SiteDomainTarget
   enabled: boolean
+  appMarket: SiteMarket | null
+  appPriority: number
 }
 
 export const SITE_DOMAIN_MAPPINGS_KEY = 'site_domain_mappings'
@@ -35,7 +37,11 @@ export function normalizeSiteDomainMappings(value: unknown): SiteDomainMapping[]
     const market = String(row.market ?? '').toUpperCase()
     if (!domain || (market !== 'PH' && market !== 'ID' && market !== 'PUBLIC') || seen.has(domain)) continue
     seen.add(domain)
-    result.push({ domain, market, enabled: row.enabled !== false })
+    const rawAppMarket = String(row.appMarket ?? '').toUpperCase()
+    const appMarket = rawAppMarket === 'PH' || rawAppMarket === 'ID' ? rawAppMarket : null
+    const rawPriority = Number(row.appPriority)
+    const appPriority = Number.isInteger(rawPriority) && rawPriority >= 1 && rawPriority <= 999 ? rawPriority : 100
+    result.push({ domain, market, enabled: row.enabled !== false, appMarket, appPriority })
   }
   return result
 }
@@ -79,4 +85,10 @@ export function marketForHost(mappings: SiteDomainMapping[], host: string | unde
   if (!domain) return null
   const target = mappings.find((item) => item.enabled && item.domain === domain)?.market
   return target === 'PH' || target === 'ID' ? target : null
+}
+
+export function appDomainsForMarket(mappings: SiteDomainMapping[], market: SiteMarket): SiteDomainMapping[] {
+  return mappings
+    .filter((item) => item.enabled && item.appMarket === market && item.market === market)
+    .sort((a, b) => a.appPriority - b.appPriority || a.domain.localeCompare(b.domain))
 }

@@ -114,12 +114,14 @@ cd android && ./gradlew assembleDebug   # 产物：app/build/outputs/apk/debug/a
 
 ### 菲律宾与印尼独立包
 
-- 菲律宾：包名 `games.betogo.app`，构建命令 `npm run apk:ph:release`。
-- 印尼：包名 `games.betogo.id`，入口 `https://www.betogo.games?market=ID`，构建命令 `npm run apk:id:release`。
+- 菲律宾：包名 `games.betogo.app`，内置 `betogo.games / betogo666.com / betogo777.com`，构建命令 `npm run apk:ph:release`。
+- 印尼：包名 `games.betogo.id`，内置 `betogo.app / betogo.xyz / betogo.vip`，构建命令 `npm run apk:id:release`。
+- App 不再写死 `server.url`：启动时并行请求 `/api/v1/app/bootstrap`，上次线路健康则继续使用，失败时切到响应最快的备用域名。
+- 后台“系统设置 → 站点域名映射”可调整每个市场的 App 域名组、启停和优先级；APK 只接受构建时白名单内的域名。
+- 登录 token 会同步保存到 Android Keystore；切换域名后新 origin 可恢复会话，不通过 URL 传递 token。
 - 两个产品变体可同时安装；印尼签名读取 `android/keystore-id.properties`，不会复用或覆盖菲律宾签名。
-- 印尼包发布前，必须把 `games.betogo.id` 与其 release SHA-256 指纹加入入口域名的
-  `/.well-known/assetlinks.json`。当前主入口为 `www.betogo.games`；若其他印尼域名也要直接承接
-  `/auth/*` App Link，再分别部署对应文件并加入 Manifest。
+- 两个域名组里的每个域名都必须部署同时包含 `games.betogo.app` 与 `games.betogo.id` 指纹的
+  `/.well-known/assetlinks.json`，并在 Manifest 注册 `/auth/*` App Link。
 - `assetlinks/www.betogo.games.json` 是已合并旧包与印尼新包的生产候选文件；部署时不能只保留
   新包 statement，否则会让现有 `games.betogo.app` 的 App Link 失效。
 - 首次生成印尼独立签名：`bash scripts/generate-id-signing.sh <站外安全备份目录>`。脚本拒绝覆盖
@@ -127,5 +129,5 @@ cd android && ./gradlew assembleDebug   # 产物：app/build/outputs/apk/debug/a
 
 ## 更新机制
 
-远程 URL 模式：前端照常部署到服务器，用户重开 App 即最新版，**无需重发 APK**。
-只有域名列表、原生权限、targetSdk 变更才需要重新出包。
+线路选择完成后仍加载线上前端，日常页面更新无需重发 APK。APK 白名单、原生权限、会话插件或
+targetSdk 变更时才需要重新出包。

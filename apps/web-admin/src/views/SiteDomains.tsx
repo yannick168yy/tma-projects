@@ -36,7 +36,10 @@ export default function SiteDomains() {
   }
 
   async function save() {
-    const normalized = rows.map((item) => ({ domain: cleanDomain(item.domain), market: item.market, enabled: item.enabled }))
+    const normalized = rows.map((item) => ({
+      domain: cleanDomain(item.domain), market: item.market, enabled: item.enabled,
+      appMarket: item.appMarket, appPriority: Math.max(1, Math.min(999, Number(item.appPriority) || 100)),
+    }))
     if (normalized.some((item) => !item.domain)) { message.error('请填写有效域名'); return }
     if (new Set(normalized.map((item) => item.domain)).size !== normalized.length) { message.error('域名不能重复'); return }
     setSaving(true)
@@ -57,7 +60,7 @@ export default function SiteDomains() {
     <Alert showIcon type="info" message="域名统一按裸域保存，www 子域会自动匹配。公共入口不强制市场，由客户端语言或请求参数决定。已登录用户不会因为修改映射而迁移市场。" />
     <Card
       extra={editable && <Space>
-        <Button icon={<PlusOutlined />} onClick={() => setRows((items) => [...items, { key: `new-${Date.now()}`, domain: '', market: 'ID', enabled: true }])}>新增域名</Button>
+        <Button icon={<PlusOutlined />} onClick={() => setRows((items) => [...items, { key: `new-${Date.now()}`, domain: '', market: 'ID', enabled: true, appMarket: null, appPriority: 100 }])}>新增域名</Button>
         <Button type="primary" icon={<SaveOutlined />} loading={saving} onClick={() => void save()}>保存配置</Button>
       </Space>}
     >
@@ -82,6 +85,18 @@ export default function SiteDomains() {
           {
             title: '启用', dataIndex: 'enabled', width: 100,
             render: (value: boolean, row) => <Switch checked={value} disabled={!editable} onChange={(enabled) => updateRow(row.key, { enabled })} />,
+          },
+          {
+            title: 'App 域名组', dataIndex: 'appMarket', width: 170,
+            render: (value: 'PH' | 'ID' | null, row) => editable
+              ? <Select value={value} allowClear placeholder="不用于 App" style={{ width: 145 }} onChange={(appMarket) => updateRow(row.key, { appMarket: appMarket ?? null })} options={[{ value: 'PH', label: '菲律宾 App' }, { value: 'ID', label: '印尼 App' }]} />
+              : value ? <Tag color={value === 'ID' ? 'red' : 'blue'}>{value === 'ID' ? '印尼 App' : '菲律宾 App'}</Tag> : '—',
+          },
+          {
+            title: 'App 优先级', dataIndex: 'appPriority', width: 120,
+            render: (value: number, row) => editable
+              ? <Input type="number" min={1} max={999} value={value} disabled={!row.appMarket} onChange={(e) => updateRow(row.key, { appPriority: Number(e.target.value) })} />
+              : row.appMarket ? value : '—',
           },
           ...(editable ? [{
             title: '操作', key: 'action', width: 90,

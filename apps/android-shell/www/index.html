@@ -17,41 +17,10 @@
   <div id="t">Connecting…</div>
 </div>
 <script>
-// 配置了 server.url 时 Capacitor 直接加载线上站，本页不会出现。
-// 本页是「线路容灾」的落点：正式版去掉 server.url，改由这里探活选线后跳转。
-// 域名被封时用户无感切到备用线路 —— 这是 App 相对 PWA 最核心的优势，PWA 的 SW 绑死 origin 做不到。
-var HOSTS = [
-  'https://www.betogo.games',
-  'https://www.188facai.com'
-]
+// 原生 AppDomainSelector 会读取后台域名组、并行探活并跳转；本页只负责展示连接状态。
 var t = document.getElementById('t')
-
-function probe(host) {
-  // 带时间戳绕缓存；用 /health 这类轻量端点，超时 3.5s 判定不可用
-  return new Promise(function (resolve) {
-    var done = false
-    var timer = setTimeout(function () { if (!done) { done = true; resolve(null) } }, 3500)
-    fetch(host + '/healthz?_=' + Date.now(), { cache: 'no-store' })
-      .then(function (r) {
-        if (done) return
-        done = true; clearTimeout(timer)
-        resolve(r.ok ? host : null)
-      })
-      .catch(function () {
-        if (done) return
-        done = true; clearTimeout(timer)
-        resolve(null)
-      })
-  })
-}
-
-Promise.all(HOSTS.map(probe)).then(function (results) {
-  var alive = results.filter(Boolean)[0]
-  if (alive) {
-    location.replace(alive + '/?utm_source=apk')
-  } else {
-    t.textContent = 'Network unavailable, please retry'
-    document.querySelector('.s').style.display = 'none'
-  }
-})
+setTimeout(function () {
+  t.textContent = 'Network unavailable, please retry'
+  document.querySelector('.s').style.display = 'none'
+}, 8000)
 </script>

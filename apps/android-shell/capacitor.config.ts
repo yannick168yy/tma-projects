@@ -1,9 +1,6 @@
 import type { CapacitorConfig } from '@capacitor/cli'
 
-const serverUrl = new URL(process.env.CAP_SERVER_URL || 'https://www.188facai.com')
-const appMarket = process.env.CAP_MARKET?.toUpperCase()
 const appId = process.env.CAP_APP_ID?.trim() || 'games.betogo.app'
-if (appMarket === 'ID' || appMarket === 'PH') serverUrl.searchParams.set('market', appMarket)
 const allowedDomains = (process.env.CAP_ALLOWED_DOMAINS
   || 'www.188facai.com,188facai.com,www.betogo.games,betogo.games,*.betogo.games,betogo666.com,*.betogo666.com,betogo777.com,*.betogo777.com,betogo.ph,*.betogo.ph,betogo.xyz,*.betogo.xyz,betogo.vip,*.betogo.vip,betogo888.com,*.betogo888.com,betogo.cc,*.betogo.cc,betogo.app,*.betogo.app')
   .split(',').map((domain) => domain.trim()).filter(Boolean)
@@ -34,10 +31,7 @@ const config: CapacitorConfig = {
     allowMixedContent: false,
   },
   server: {
-    // 入口域名按环境变量切：出生产包 CAP_SERVER_URL=https://www.betogo.games npx cap sync android
-    // 后再 assembleRelease；不设则默认测试站。两个域名各出各的包，其余配置共用。
-    // 同一 APK 工程可按 CAP_MARKET=ID|PH 出包；市场参数会由前端持久化。
-    url: serverUrl.toString(),
+    // 不再写死远程 server.url。App 先加载包内启动页，再由原生线路选择器并行探活并进入主站。
     androidScheme: 'https',
     cleartext: false,
     // 只放自己的域名。支付网关与 Google/Telegram 授权页刻意排除在外：

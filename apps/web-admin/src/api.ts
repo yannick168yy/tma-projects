@@ -620,6 +620,8 @@ export interface SiteDomainMapping {
   domain: string
   market: 'PH' | 'ID' | 'PUBLIC'
   enabled: boolean
+  appMarket: 'PH' | 'ID' | null
+  appPriority: number
 }
 export const getSiteDomainMappings = () => get<SiteDomainMapping[]>('/admin/settings/site-domains')
 export const updateSiteDomainMappings = (mappings: SiteDomainMapping[]) =>

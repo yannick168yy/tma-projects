@@ -37,6 +37,10 @@
                      OAuth 回跳走 location.origin，App 跑在哪个域回跳就是哪个域 -->
                 <data android:scheme="https" android:host="betogo.app" android:pathPrefix="/auth/" />
                 <data android:scheme="https" android:host="www.betogo.games" android:pathPrefix="/auth/" />
+                <data android:scheme="https" android:host="betogo666.com" android:pathPrefix="/auth/" />
+                <data android:scheme="https" android:host="betogo777.com" android:pathPrefix="/auth/" />
+                <data android:scheme="https" android:host="betogo.xyz" android:pathPrefix="/auth/" />
+                <data android:scheme="https" android:host="betogo.vip" android:pathPrefix="/auth/" />
                 <data android:scheme="https" android:host="www.188facai.com" android:pathPrefix="/auth/" />
             </intent-filter>
 
