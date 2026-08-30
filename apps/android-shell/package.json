@@ -5,9 +5,15 @@
   "description": "BETOGO Android 壳（Capacitor，远程 URL 模式）",
   "scripts": {
     "sync": "cap sync android",
+    "sync:ph": "CAP_APP_ID=games.betogo.app CAP_MARKET=PH CAP_SERVER_URL=https://betogo.app cap sync android",
+    "sync:id": "CAP_APP_ID=games.betogo.id CAP_MARKET=ID CAP_SERVER_URL=https://www.betogo.games cap sync android",
     "open": "cap open android",
-    "apk:debug": "cd android && ./gradlew assembleDebug",
-    "apk:release": "cd android && ./gradlew assembleRelease"
+    "apk:debug": "npm run apk:ph:debug",
+    "apk:release": "npm run apk:ph:release",
+    "apk:ph:debug": "npm run sync:ph && cd android && ANDROID_HOME=${ANDROID_HOME:-/usr/local/share/android-commandlinetools} ./gradlew assemblePhDebug",
+    "apk:ph:release": "npm run sync:ph && cd android && ANDROID_HOME=${ANDROID_HOME:-/usr/local/share/android-commandlinetools} ./gradlew assemblePhRelease",
+    "apk:id:debug": "npm run sync:id && cd android && ANDROID_HOME=${ANDROID_HOME:-/usr/local/share/android-commandlinetools} ./gradlew assembleIdDebug",
+    "apk:id:release": "npm run sync:id && cd android && ANDROID_HOME=${ANDROID_HOME:-/usr/local/share/android-commandlinetools} ./gradlew assembleIdRelease"
   },
   "devDependencies": {
     "@capacitor/cli": "^7.0.0",

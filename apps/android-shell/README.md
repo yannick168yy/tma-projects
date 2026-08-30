@@ -112,6 +112,19 @@ cd apps/android-shell && npx cap sync android
 cd android && ./gradlew assembleDebug   # 产物：app/build/outputs/apk/debug/app-debug.apk
 ```
 
+### 菲律宾与印尼独立包
+
+- 菲律宾：包名 `games.betogo.app`，构建命令 `npm run apk:ph:release`。
+- 印尼：包名 `games.betogo.id`，入口 `https://www.betogo.games?market=ID`，构建命令 `npm run apk:id:release`。
+- 两个产品变体可同时安装；印尼签名读取 `android/keystore-id.properties`，不会复用或覆盖菲律宾签名。
+- 印尼包发布前，必须把 `games.betogo.id` 与其 release SHA-256 指纹加入入口域名的
+  `/.well-known/assetlinks.json`。当前主入口为 `www.betogo.games`；若其他印尼域名也要直接承接
+  `/auth/*` App Link，再分别部署对应文件并加入 Manifest。
+- `assetlinks/www.betogo.games.json` 是已合并旧包与印尼新包的生产候选文件；部署时不能只保留
+  新包 statement，否则会让现有 `games.betogo.app` 的 App Link 失效。
+- 首次生成印尼独立签名：`bash scripts/generate-id-signing.sh <站外安全备份目录>`。脚本拒绝覆盖
+  已存在的签名，并在本地生成 gitignore 的 `android/keystore-id.properties`。
+
 ## 更新机制
 
 远程 URL 模式：前端照常部署到服务器，用户重开 App 即最新版，**无需重发 APK**。

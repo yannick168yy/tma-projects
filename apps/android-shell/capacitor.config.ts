@@ -2,6 +2,7 @@ import type { CapacitorConfig } from '@capacitor/cli'
 
 const serverUrl = new URL(process.env.CAP_SERVER_URL || 'https://www.188facai.com')
 const appMarket = process.env.CAP_MARKET?.toUpperCase()
+const appId = process.env.CAP_APP_ID?.trim() || 'games.betogo.app'
 if (appMarket === 'ID' || appMarket === 'PH') serverUrl.searchParams.set('market', appMarket)
 const allowedDomains = (process.env.CAP_ALLOWED_DOMAINS
   || 'www.188facai.com,188facai.com,www.betogo.games,betogo.games,*.betogo.games,betogo666.com,*.betogo666.com,betogo777.com,*.betogo777.com,betogo.ph,*.betogo.ph,betogo.xyz,*.betogo.xyz,betogo.vip,*.betogo.vip,betogo888.com,*.betogo888.com,betogo.cc,*.betogo.cc,betogo.app,*.betogo.app')
@@ -11,7 +12,7 @@ const allowedDomains = (process.env.CAP_ALLOWED_DOMAINS
 // 前端改动照常 deploy 到服务器即可，用户重开 App 就是最新版，无需重发包。
 // 只有域名列表 / 原生权限 / targetSdk 变更才需要重新出包。
 const config: CapacitorConfig = {
-  appId: 'games.betogo.app',
+  appId,
   appName: 'BETOGO',
   webDir: 'www',
   // WebView 底色：原生启动屏结束到页面渲染之间的空档显示深色而非白屏

@@ -30,7 +30,11 @@ public class MainActivity extends BridgeActivity {
     /** 站内域名，留在 App 的 WebView 里；其余一律 Custom Tab。与 capacitor.config.ts 的 allowNavigation 对应。
      *  ⚠️ 生产包入口是 betogo.app——漏掉它会让 App Link 回调被 loadAppLink 丢弃、
      *  站内导航被踢进 Custom Tab（Google/TG 登录回不来的事故根因） */
-    private static final String[] OWN_HOSTS = { "betogo.games", "188facai.com", "betogo.app" };
+    private static final String[] OWN_HOSTS = {
+        "betogo.games", "betogo666.com", "betogo777.com", "betogo.ph",
+        "betogo.xyz", "betogo.vip", "betogo888.com", "betogo.cc",
+        "188facai.com", "betogo.app"
+    };
 
     private long lastBackAt = 0;
 

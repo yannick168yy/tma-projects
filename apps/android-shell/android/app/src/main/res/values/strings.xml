@@ -1,6 +1,4 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <!-- app_name / title_activity_main 由 build.gradle 的 resValue 按 -PappLabel 生成 -->
-    <string name="package_name">games.betogo.app</string>
-    <string name="custom_url_scheme">games.betogo.app</string>
+    <!-- 包名、URL scheme 和显示名由 build.gradle 按 PH/ID 产品变体生成。 -->
 </resources>
