@@ -3,12 +3,8 @@ ALTER TABLE bg_user
   ADD COLUMN market VARCHAR(2) NOT NULL DEFAULT 'PH' AFTER locale,
   ADD INDEX idx_user_market (market);
 
-UPDATE bg_user
-SET market = 'ID'
-WHERE locale = 'id'
-   OR register_entry_source IN ('betogo.xyz', 'www.betogo.xyz', 'betogo.vip', 'www.betogo.vip',
-                                'betogo888.com', 'www.betogo888.com', 'betogo.cc', 'www.betogo.cc',
-                                'betogo.games', 'www.betogo.games');
+-- 生产启用印尼站前的既有用户全部属于菲律宾市场；market 默认值 PH 即为最终归属。
+-- 印尼站开放后的新用户由注册服务根据后台域名映射写入 ID，不在迁移中回溯猜测历史市场。
 
 ALTER TABLE bg_team_turnover_daily
   ADD COLUMN market VARCHAR(2) NOT NULL DEFAULT 'PH' AFTER currency_code,
