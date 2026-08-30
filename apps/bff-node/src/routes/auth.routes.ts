@@ -8,6 +8,7 @@ import { captureAdAttribution } from '../services/attribution.service.js'
 import { fail, ok } from '../utils/response.js'
 import { getLoginPasswordFailureLimit, getLoginPasswordLockSeconds } from '../services/otp-policy.service.js'
 import { evaluateCheckpoint } from '../services/risk.service.js'
+import { getSiteDomainMappings, marketForHost } from '../services/site-domain.service.js'
 
 const router = new Router({ prefix: '/auth' })
 
@@ -35,7 +36,7 @@ async function loginRiskDenied(ctx: import('koa').Context, userId: string, ip: s
 const CLIENT_PLATFORMS = new Set(['web', 'app', 'pwa', 'telegram'])
 
 // 从请求头提取设备指纹（前端 client.ts 统一注入）。全部非致命，缺失即降级
-function fingerprint(ctx: import('koa').Context): { deviceId?: string; fpVisitor?: string; fpSignals?: string; platform?: string; market: 'PH' | 'ID' } {
+async function fingerprint(ctx: import('koa').Context): Promise<{ deviceId?: string; fpVisitor?: string; fpSignals?: string; platform?: string; market: 'PH' | 'ID' }> {
   const deviceId = ctx.get('x-device-id') || undefined
   const fpVisitor = ctx.get('x-fp-visitor') || undefined
   const rawPlatform = ctx.get('x-platform')
@@ -51,7 +52,7 @@ function fingerprint(ctx: import('koa').Context): { deviceId?: string; fpVisitor
       /* 忽略非法指纹信号 */
     }
   }
-  return { deviceId, fpVisitor, fpSignals, platform, market: siteMarket(ctx) }
+  return { deviceId, fpVisitor, fpSignals, platform, market: await siteMarket(ctx) }
 }
 
 // Cloudflare Turnstile 服务端校验。密钥未配置时不启用；校验失败/网络异常一律拒绝
@@ -87,16 +88,11 @@ function entrySource(ctx: import('koa').Context, forceTma = false): string | und
     ?? hostFromHeader(ctx.get('host'))
 }
 
-function siteMarket(ctx: import('koa').Context): 'PH' | 'ID' {
+async function siteMarket(ctx: import('koa').Context): Promise<'PH' | 'ID'> {
   const host = entrySource(ctx)?.toLowerCase()
   if (host) {
-    try {
-      const domainMarkets = JSON.parse(ctx.state.env.MARKET_DOMAIN_MAP) as Record<string, string>
-      const market = (domainMarkets[host] ?? domainMarkets[host.replace(/^www\./, '')])?.toUpperCase()
-      if (market === 'ID' || market === 'PH') return market
-    } catch {
-      // 继续使用前端市场标识
-    }
+    const market = marketForHost(await getSiteDomainMappings(ctx.state.redis, ctx.state.env), host)
+    if (market) return market
   }
   const header = ctx.get('x-site-market').toUpperCase()
   return header === 'ID' ? 'ID' : 'PH'
@@ -137,7 +133,7 @@ router.post('/telegram', async (ctx) => {
     recordUserLogin(ctx.state.redis, result.user.id, {
       ip,
       region: lookupRegion(ip),
-      ...fingerprint(ctx),
+      ...(await fingerprint(ctx)),
       userAgent: ctx.get('user-agent'),
       authMethod: 'telegram',
       entrySource: entrySource(ctx, true),
@@ -180,7 +176,7 @@ router.post('/google', async (ctx) => {
     recordUserLogin(ctx.state.redis, result.user.id, {
       ip,
       region: lookupRegion(ip),
-      ...fingerprint(ctx),
+      ...(await fingerprint(ctx)),
       userAgent: ctx.get('user-agent'),
       authMethod: 'google',
       entrySource: entrySource(ctx),
@@ -223,7 +219,7 @@ router.post('/telegram-oidc', async (ctx) => {
     recordUserLogin(ctx.state.redis, result.user.id, {
       ip,
       region: lookupRegion(ip),
-      ...fingerprint(ctx),
+      ...(await fingerprint(ctx)),
       userAgent: ctx.get('user-agent'),
       authMethod: 'telegram',
       entrySource: entrySource(ctx),
@@ -270,7 +266,7 @@ router.post('/register', async (ctx) => {
     recordUserLogin(ctx.state.redis, result.user.id, {
       ip,
       region: lookupRegion(ip),
-      ...fingerprint(ctx),
+      ...(await fingerprint(ctx)),
       userAgent: ctx.get('user-agent'),
       authMethod: body.method,
       entrySource: entrySource(ctx),
@@ -322,7 +318,7 @@ router.post('/login', async (ctx) => {
     recordUserLogin(ctx.state.redis, result.user.id, {
       ip,
       region: lookupRegion(ip),
-      ...fingerprint(ctx),
+      ...(await fingerprint(ctx)),
       userAgent: ctx.get('user-agent'),
       authMethod: body.method,
       entrySource: entrySource(ctx),
@@ -405,7 +401,7 @@ router.post('/telegram-widget', async (ctx) => {
     recordUserLogin(ctx.state.redis, result.user.id, {
       ip,
       region: lookupRegion(ip),
-      ...fingerprint(ctx),
+      ...(await fingerprint(ctx)),
       userAgent: ctx.get('user-agent'),
       authMethod: 'telegram',
       entrySource: entrySource(ctx),

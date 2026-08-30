@@ -35,6 +35,15 @@ import { getUser } from '../services/store/index.js'
 import { getMysqlPool, isMysqlEnabled } from '../clients/mysql.client.js'
 import { ok, fail } from '../utils/response.js'
 import type { RowDataPacket } from 'mysql2/promise'
+import { getSiteDomainMappings, marketForHost } from '../services/site-domain.service.js'
+
+function requestHost(ctx: import('koa').Context): string {
+  for (const raw of [ctx.get('origin'), ctx.get('referer'), ctx.get('host')]) {
+    if (!raw) continue
+    try { return new URL(raw.includes('://') ? raw : `https://${raw}`).hostname } catch { /* 继续 */ }
+  }
+  return ''
+}
 
 export function createApiRouter(): Router {
   const api = new Router({ prefix: '/api/v1' })
@@ -53,6 +62,13 @@ export function createApiRouter(): Router {
   api.use(announcementRoutes.routes(), announcementRoutes.allowedMethods())
   // 公开：APK 安装归因配对（点下载在登录前，App 首启也在登录前）
   api.use(attributionRoutes.routes(), attributionRoutes.allowedMethods())
+
+  // 公开：前台初始化语言、币种和登录市场时读取当前域名配置。
+  api.get('/site/config', async (ctx) => {
+    const host = requestHost(ctx)
+    const mappings = await getSiteDomainMappings(ctx.state.redis, ctx.state.env)
+    ok(ctx, { domain: host.toLowerCase().replace(/^www\./, ''), market: marketForHost(mappings, host) ?? 'PH' })
+  })
 
   // 公开：活动参数配置（App 启动即拉，先于登录完成，不含用户数据）
   api.get('/promotions/config', async (ctx) => {

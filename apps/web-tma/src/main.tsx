@@ -1,8 +1,6 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { I18nextProvider } from 'react-i18next'
-import App from './App'
-import { i18n } from '@/i18n'
 import './styles/index.css'
 import { preventDoubleTapZoom } from '@/utils/preventDoubleTapZoom'
 import { initTelegramWebApp } from '@/utils/initTelegramWebApp'
@@ -14,6 +12,7 @@ import { initPixels } from '@/utils/pixels'
 import { initPwa } from '@/utils/pwa'
 import { initFingerprint } from '@/utils/fingerprint'
 import { initVersionAutoReload } from '@/utils/versionReload'
+import { initSiteMarketConfig } from '@/config/market'
 
 // Vite modulepreload 失败（部署后旧客户端引用的 chunk 已被覆盖删除）→ 自动整页刷新一次自愈，避免黑屏
 window.addEventListener('vite:preloadError', () => {
@@ -30,6 +29,9 @@ initTheme()
 initAnalytics()
 
 async function bootstrap() {
+  // 必须先解析域名所属市场，再加载 i18n/App；否则新配置域名首次打开会先初始化成错误语言和币种。
+  await initSiteMarketConfig()
+  const [{ default: App }, { i18n }] = await Promise.all([import('./App'), import('@/i18n')])
   // 短链 /t/<code> 落地：先换出归因（含像素 ID）并把地址清回首页，再装像素、再挂路由。
   // 非短链路径 resolve 立即返回，不引入任何延迟。
   // 顺序敏感：短链解析必须在普通参数捕获之前——短链 URL 上往往还挂着 fbclid，

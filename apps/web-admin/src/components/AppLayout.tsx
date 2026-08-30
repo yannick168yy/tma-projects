@@ -174,6 +174,7 @@ function buildMenuItems(badges: AdminBadges) {
       children: [
         { key: '/settings', label: '管理员与权限' },
         { key: '/system-params', label: '系统参数' },
+        { key: '/site-domains', label: '站点域名映射' },
         { key: '/audit-log', label: '操作日志' },
         { key: '/sms-test', label: '短信测试' },
         { key: '/db-backup', label: '数据库备份', roles: ['super_admin'] },
@@ -203,7 +204,7 @@ function getDefaultOpenKeys(pathname: string): string[] {
   if (['/promotions', '/community', '/tg-broadcast'].some((p) => pathname.startsWith(p))) return ['marketing']
   if (pathname.startsWith('/team-referral') || pathname.startsWith('/agents') || pathname.startsWith('/agent-') || pathname === '/bi/ad-sources') return ['promotion-alliance']
   if (['/customer-service', '/cs-tickets', '/cs-faq'].some((p) => pathname.startsWith(p))) return ['cs']
-  if (['/audit-log', '/settings', '/system-params', '/sms-test', '/db-backup'].some((p) => pathname.startsWith(p))) return ['system']
+  if (['/audit-log', '/settings', '/system-params', '/site-domains', '/sms-test', '/db-backup'].some((p) => pathname.startsWith(p))) return ['system']
   return []
 }
 

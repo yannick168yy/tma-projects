@@ -39,9 +39,39 @@ import {
 import {
   getAllCurrentRates, getRateHistory, setManualRate, clearManualRate, refreshRates, RATE_PAIRS,
 } from '../../services/exchange-rate.service.js'
+import { getSiteDomainMappings, saveSiteDomainMappings } from '../../services/site-domain.service.js'
 
 const router = new Router({ prefix: '/settings' })
 const WIN568_KEY_AUTO_ROTATION_ENABLED_KEY = 'win568_key_auto_rotation_enabled'
+
+// ── 站点域名映射 ──────────────────────────────────────────────────────────────
+
+router.get('/site-domains', async (ctx) => {
+  ok(ctx, await getSiteDomainMappings(ctx.state.redis, ctx.state.env))
+})
+
+router.put('/site-domains', requireRole('super_admin', 'Only super_admin can manage site domains'), async (ctx) => {
+  const body = ctx.request.body as { mappings?: unknown }
+  if (!Array.isArray(body.mappings) || body.mappings.length > 100) {
+    fail(ctx, 400, 'mappings 必须是最多 100 项的数组'); return
+  }
+  try {
+    const mappings = await saveSiteDomainMappings(ctx.state.redis, ctx.state.env, body.mappings)
+    await writeAuditLog(ctx.state.env, {
+      adminId: ctx.state.adminId!,
+      adminUsername: ctx.state.adminUsername!,
+      action: 'site_domain_mappings_update',
+      targetType: 'settings',
+      targetId: 'site_domain_mappings',
+      detail: { mappings },
+      ip: ctx.ip,
+    })
+    ok(ctx, mappings)
+  } catch (err) {
+    fail(ctx, 400, err instanceof Error ? err.message : '域名配置无效')
+  }
+})
+
 // 查询操作密码是否已设置（所有管理员均可查）
 router.get('/op-password', async (ctx) => {
   const hash = await getOpPasswordHash(ctx.state.env)

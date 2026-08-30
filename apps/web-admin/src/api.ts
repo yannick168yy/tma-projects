@@ -616,6 +616,15 @@ export interface SystemParams {
 export const getSystemParams = () => get<SystemParams>('/admin/settings/system-params')
 export const updateSystemParams = (params: SystemParams) => put<SystemParams>('/admin/settings/system-params', params)
 
+export interface SiteDomainMapping {
+  domain: string
+  market: 'PH' | 'ID'
+  enabled: boolean
+}
+export const getSiteDomainMappings = () => get<SiteDomainMapping[]>('/admin/settings/site-domains')
+export const updateSiteDomainMappings = (mappings: SiteDomainMapping[]) =>
+  put<SiteDomainMapping[]>('/admin/settings/site-domains', { mappings })
+
 // Deposits
 export interface AdminDeposit {
   orderId: string; userId: string; amount: number; currency: string; channelId: string

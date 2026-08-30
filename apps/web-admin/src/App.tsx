@@ -31,6 +31,7 @@ import AuditLog from './views/AuditLog'
 import Games from './views/Games'
 import Settings from './views/Settings'
 import SystemParams from './views/SystemParams'
+import SiteDomains from './views/SiteDomains'
 import SmsTest from './views/SmsTest'
 import DbBackup from './views/DbBackup'
 import ExchangeRates from './views/ExchangeRates'
@@ -122,6 +123,7 @@ export default function App() {
           <Route path="games" element={<Games />} />
           <Route path="settings" element={<Settings />} />
           <Route path="system-params" element={<SystemParams />} />
+          <Route path="site-domains" element={<SiteDomains />} />
           <Route path="sms-test" element={<SmsTest />} />
           <Route path="db-backup" element={<RequireRole role="super_admin"><DbBackup /></RequireRole>} />
           <Route path="exchange-rates" element={<ExchangeRates />} />

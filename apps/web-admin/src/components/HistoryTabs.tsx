@@ -60,6 +60,7 @@ const ROUTE_TITLES: Record<string, string> = {
   '/cs-faq': '知识库管理',
   '/settings': '管理员与权限',
   '/system-params': '系统参数',
+  '/site-domains': '站点域名映射',
   '/audit-log': '操作日志',
   '/sms-test': '短信测试',
   '/db-backup': '数据库备份',
