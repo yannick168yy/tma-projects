@@ -255,7 +255,7 @@ export default function HomeContent({ homeBannerTopAnnouncement, onNavigatePath,
   const [latestBets, setLatestBets] = useState<BetRecord[]>([]); const [weekBets, setWeekBets] = useState<BetRecord[]>([]); const [monthBets, setMonthBets] = useState<BetRecord[]>([])
   const [betLoaded, setBetLoaded] = useState<Record<BetTab, boolean>>({ latest: false, week: false, month: false })
   function formatBet(amount: number, currency: string) {
-    return currency === 'IDR' ? `Rp ${amount.toLocaleString('id-ID')}` : `₱ ${amount.toLocaleString('en-PH')}`
+    return currency === 'IDR' ? `Rp ${amount.toLocaleString('en-US')}` : `₱ ${amount.toLocaleString('en-PH')}`
   }
   async function loadBetTab(tab: BetTab) {
     if (betLoaded[tab]) return; setBetLoaded((prev) => ({ ...prev, [tab]: true }))

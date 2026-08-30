@@ -18,7 +18,7 @@ export default function RedPacketSheet({ title, amount, currency, onClose }: Pro
         <p className="text-4xl mb-2">🧧</p>
         <h3 className="text-xl font-black text-white">{title}</h3>
         <p className="mt-2 text-3xl font-black text-primary">
-          {currency === 'IDR' ? `Rp ${amount.toLocaleString('id-ID')}` : currency === 'PHP' ? `₱ ${amount.toLocaleString('en-PH')}` : `${amount.toLocaleString('en-US')} ${currency}`}
+          {currency === 'IDR' ? `Rp ${amount.toLocaleString('en-US')}` : currency === 'PHP' ? `₱ ${amount.toLocaleString('en-PH')}` : `${amount.toLocaleString('en-US')} ${currency}`}
         </p>
         <p className="mt-2 text-xs text-white/60">{t('redpacket.credited')}</p>
         <button

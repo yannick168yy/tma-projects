@@ -117,6 +117,7 @@ router.post('/payment/deposit/create', async (ctx) => {
     let payUrl: string
     let platformId: string
     let channelCodeUsed: string
+    let qrcode: string | undefined
 
     if (provider === 'yfpay') {
       const yfChannels = await getCachedYfpayChannels(ctx.state.redis as Redis, ctx.state.env)
@@ -140,6 +141,7 @@ router.post('/payment/deposit/create', async (ctx) => {
       }, ctx.state.env)
       channelCodeUsed = channelName.toUpperCase()
       payUrl = result.payUrl
+      qrcode = result.qrcode
       platformId = result.platformId
     } else {
       fail(ctx, 500, `未知 provider: ${provider}`); return
@@ -154,14 +156,14 @@ router.post('/payment/deposit/create', async (ctx) => {
       status: 'pending',
       provider,
       providerRef: platformId,
-      extraData: { channelCode: channelCodeUsed, payUrl, channelName },
+      extraData: { channelCode: channelCodeUsed, payUrl, qrcode, channelName },
       createdAt: nowIso(),
     }
     if (isMysqlEnabled(ctx.state.env)) {
       await saveDeposit(ctx.state.redis, order)
     }
 
-    ok(ctx, { merchantSerial, platformId, payUrl, amount, state: 0, provider })
+    ok(ctx, { merchantSerial, platformId, payUrl, qrcode, amount, state: 0, provider })
   } catch (err) {
     console.error('[bff] payment/deposit/create', merchantSerial, err)
     const msg = err instanceof YfPayError ? err.message

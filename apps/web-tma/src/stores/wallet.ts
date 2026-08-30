@@ -87,7 +87,7 @@ export function formatHeaderBalance(currency: string, available: number): string
     return `₱ ${available.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
   }
   if (currency === 'IDR') {
-    return `Rp ${available.toLocaleString('id-ID', { maximumFractionDigits: 0 })}`
+    return `Rp ${available.toLocaleString('en-US', { maximumFractionDigits: 0 })}`
   }
   return available.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
@@ -98,7 +98,7 @@ export function formatRowAmount(currency: string, available: number): string {
     return `₱ ${available.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
   }
   if (currency === 'IDR') {
-    return `Rp ${available.toLocaleString('id-ID', { maximumFractionDigits: 0 })}`
+    return `Rp ${available.toLocaleString('en-US', { maximumFractionDigits: 0 })}`
   }
   return available.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
@@ -109,7 +109,7 @@ export function formatCurrencyAmount(currency: string, available: number): strin
     return `₱ ${available.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
   }
   if (currency === 'IDR') {
-    return `Rp ${available.toLocaleString('id-ID', { maximumFractionDigits: 0 })}`
+    return `Rp ${available.toLocaleString('en-US', { maximumFractionDigits: 0 })}`
   }
   return `${available.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`
 }
@@ -121,7 +121,7 @@ export function formatBalanceWithCode(currency: string, available: number): stri
     currency === 'PHP'
       ? available.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
       : currency === 'IDR'
-        ? available.toLocaleString('id-ID', { maximumFractionDigits: 0 })
+        ? available.toLocaleString('en-US', { maximumFractionDigits: 0 })
       : available.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
   return `${code} ${num}`
 }

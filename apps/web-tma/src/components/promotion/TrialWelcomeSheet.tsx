@@ -52,7 +52,7 @@ export default function TrialWelcomeSheet({ amount, currency, firstDepTier, firs
             <p className="mb-2 text-4xl">🎖️</p>
             <h3 className="text-xl font-black text-white">{t('bonuses.promos.trial.title')}</h3>
             <p className="mt-2 text-sm leading-relaxed text-white/60">{t('bonuses.promos.trial.sheetSub', { amount })}</p>
-            <p className="mt-3 text-3xl font-black text-primary">{currency === 'IDR' ? `Rp ${amount.toLocaleString('id-ID')}` : currency === 'PHP' ? `₱ ${amount.toLocaleString('en-PH')}` : `${amount.toLocaleString('en-US')} ${currency}`}</p>
+            <p className="mt-3 text-3xl font-black text-primary">{currency === 'IDR' ? `Rp ${amount.toLocaleString('en-US')}` : currency === 'PHP' ? `₱ ${amount.toLocaleString('en-PH')}` : `${amount.toLocaleString('en-US')} ${currency}`}</p>
             {showFirstDep && (
               <p className="mt-2 text-xs font-semibold text-amber-300/90">{t('bonuses.promos.trial.firstdepTeaser', { max: firstDepMaxBonus })}</p>
             )}

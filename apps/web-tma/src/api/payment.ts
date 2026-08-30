@@ -11,6 +11,7 @@ export interface PaymentDepositResult {
   merchantSerial: string
   platformId: string
   payUrl: string
+  qrcode?: string
   amount: number
   state: number
   provider: string

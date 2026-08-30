@@ -47,12 +47,12 @@ const DEPOSIT_PRESETS: Record<string, number[]> = {
 }
 function currencySymbol(cur: string) { return cur === 'PHP' ? '₱' : cur === 'IDR' ? 'Rp' : cur === 'TRX' ? '' : '$' }
 function formatFiatAmount(amount: number, cur: string) {
-  if (cur === 'IDR') return `Rp ${amount.toLocaleString('id-ID', { maximumFractionDigits: 0 })}`
+  if (cur === 'IDR') return `Rp ${amount.toLocaleString('en-US', { maximumFractionDigits: 0 })}`
   if (cur === 'PHP') return `₱${amount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
   return `${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${cur}`
 }
 function fmtPreset(amount: number, cur: string) {
-  if (cur === 'IDR') return `Rp ${amount.toLocaleString('id-ID', { maximumFractionDigits: 0 })}`
+  if (cur === 'IDR') return `Rp ${amount.toLocaleString('en-US', { maximumFractionDigits: 0 })}`
   const s = currencySymbol(cur)
   return cur === 'TRX' ? `${amount.toLocaleString()} ${cur}` : `${s}${amount.toLocaleString()}`
 }
@@ -119,7 +119,8 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
   const [cryptoChannelsLoaded, setCryptoChannelsLoaded] = useState(false)
   const [cryptoWithdrawGas, setCryptoWithdrawGas] = useState<Record<string, { gas: number; discountThreshold: number | null; discountFee: number | null }>>({})
   const pollTimerRef = useRef<ReturnType<typeof setInterval>|null>(null)
-  const [pollSerial, setPollSerial] = useState('')
+  const [paymentCheckout, setPaymentCheckout] = useState<{ payUrl: string; qrcode?: string } | null>(null)
+  const [copiedPaymentLink, setCopiedPaymentLink] = useState(false)
   const [withdrawAccount, setWithdrawAccount] = useState('')
   const [withdrawOwner, setWithdrawOwner] = useState('')
   const [withdrawLoading, setWithdrawLoading] = useState(false)
@@ -238,7 +239,7 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
       const defaultDepositCat: DepositCategory = (activeCurrency === 'USDT' || activeCurrency === 'USDC') ? 'crypto' : 'ewallet'
       setTab(initialTab); setDepositView('select'); setSelectedMethod(null); setAmount(''); setHistoryFilter('all'); setHistoryStatus('all'); setDepositCategory(defaultDepositCat)
       void loadPromoConfig()
-      setDepositLoading(false); setDepositMessage(''); setDepositSuccess(false)
+      setDepositLoading(false); setDepositMessage(''); setDepositSuccess(false); setPaymentCheckout(null); setCopiedPaymentLink(false)
       setWithdrawAccount(''); setWithdrawOwner(''); setWithdrawMessage(''); setWithdrawSuccess(false)
       pendingWithdrawMethodRef.current = null
       setTurnoverProgress(null); setTurnoverLoading(false)
@@ -409,7 +410,7 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
     if (!open || tab !== 'deposit') return
     const firstEnabled = currentCategoryMethods.find((m) => m.enabled !== false)
     setSelectedMethod(firstEnabled?.id ?? null)
-    setAmount(''); setDepositMessage('')
+    setAmount(''); setDepositMessage(''); setPaymentCheckout(null); setCopiedPaymentLink(false)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [depositCategory, open, tab, currentCategoryMethods])
   const canSubmitDeposit = Boolean(!depositLoading && selectedPayMethod?.channelId && Number(amount) > 0)
@@ -475,9 +476,19 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
   ], [t])
 
   const pollFiatDepositCountRef = useRef(0)
-  async function pollFiatDeposit() {
-    if(!pollSerial)return; pollFiatDepositCountRef.current++; if(pollFiatDepositCountRef.current>60){stopPolling();setDepositLoading(false);setDepositMessage(t('wallet.yfpayDepositTimeout'));return}
-    try { const res=await queryPaymentDeposit(pollSerial); if(res.state===2){stopPolling();setDepositLoading(false);setDepositSuccess(true);setDepositMessage(t('wallet.yfpayDepositSuccess'));analytics.depositSuccess(selectedPayMethod?.paymentChannelName,Number(amount),activeCurrency,pollSerial);setFirstDepDone(true);await walletStore.refresh()}else if(res.state===3){stopPolling();setDepositLoading(false);setDepositMessage(t('wallet.yfpayDepositRejected'))} } catch { /* keep polling */ }
+  async function pollFiatDeposit(serial: string) {
+    if(!serial)return; pollFiatDepositCountRef.current++; if(pollFiatDepositCountRef.current>60){stopPolling();setDepositLoading(false);setDepositMessage(t('wallet.yfpayDepositTimeout'));return}
+    try { const res=await queryPaymentDeposit(serial); if(res.state===2){stopPolling();setDepositLoading(false);setDepositSuccess(true);setPaymentCheckout(null);setDepositMessage(t('wallet.yfpayDepositSuccess'));analytics.depositSuccess(selectedPayMethod?.paymentChannelName,Number(amount),activeCurrency,serial);setFirstDepDone(true);await walletStore.refresh()}else if(res.state===3){stopPolling();setDepositLoading(false);setPaymentCheckout(null);setDepositMessage(t('wallet.yfpayDepositRejected'))} } catch { /* keep polling */ }
+  }
+
+  function openPaymentCheckout(payUrl: string) {
+    if (!payUrl) return
+    if(window.Telegram?.WebApp?.openLink)window.Telegram.WebApp.openLink(payUrl); else window.open(payUrl,'_blank')
+  }
+
+  async function copyPaymentLink() {
+    if (!paymentCheckout?.payUrl) return
+    try { await navigator.clipboard.writeText(paymentCheckout.payUrl); setCopiedPaymentLink(true); setTimeout(()=>setCopiedPaymentLink(false),2000) } catch { /**/ }
   }
 
   async function onProceedUnifiedFiatDeposit() {
@@ -485,13 +496,13 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
     if(!Number.isFinite(num)||num<=0){setDepositMessage(t('wallet.invalidAmount'));return}
     if(method.minAmount&&num<method.minAmount){setDepositMessage(t('wallet.yfpayAmountOutOfRange',{min:method.minAmount,max:method.maxAmount}));return}
     if(method.maxAmount&&num>method.maxAmount){setDepositMessage(t('wallet.yfpayAmountOutOfRange',{min:method.minAmount,max:method.maxAmount}));return}
-    setDepositLoading(true); setDepositMessage(t('wallet.yfpayOpenBrowser')); setDepositSuccess(false); stopPolling(); pollFiatDepositCountRef.current=0
+    setDepositLoading(true); setDepositMessage(t('wallet.yfpayOpenBrowser')); setDepositSuccess(false); setPaymentCheckout(null); setCopiedPaymentLink(false); stopPolling(); pollFiatDepositCountRef.current=0
     analytics.depositStart(method.paymentChannelName,num,activeCurrency)
     try {
-      const result=await createPaymentDeposit({channelName:method.paymentChannelName,amount:num,currency:activeCurrency}); setPollSerial(result.merchantSerial)
+      const result=await createPaymentDeposit({channelName:method.paymentChannelName,amount:num,currency:activeCurrency}); setPaymentCheckout({payUrl:result.payUrl,qrcode:result.qrcode})
       analytics.depositOrderCreated(method.paymentChannelName,num,activeCurrency,result.merchantSerial)
-      if(window.Telegram?.WebApp?.openLink)window.Telegram.WebApp.openLink(result.payUrl); else window.open(result.payUrl,'_blank')
-      setDepositMessage(t('wallet.yfpayWaitingPayment')); pollTimerRef.current=setInterval(()=>void pollFiatDeposit(),3000)
+      openPaymentCheckout(result.payUrl)
+      setDepositMessage(t('wallet.yfpayWaitingPayment')); pollTimerRef.current=setInterval(()=>void pollFiatDeposit(result.merchantSerial),3000)
     } catch(e){setDepositLoading(false);setDepositMessage(e instanceof ApiError?translateApiError(e.message,t):t('wallet.yfpayDepositFailed'))}
   }
 
@@ -568,7 +579,7 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
 
   async function copyOrderId(id: string) { try{await navigator.clipboard.writeText(id);setCopiedId(id);setTimeout(()=>setCopiedId(null),2000)}catch{/***/} }
 
-  function resetToSelect() { pendingWithdrawMethodRef.current = null; setDepositView('select'); setSelectedMethod(null); setAmount(''); setDepositMessage(''); setWithdrawMessage(''); setWithdrawAccount(''); setWithdrawOwner(''); stopPolling(); setDepositLoading(false); setPollSerial(''); setDepositSuccess(false); setMatrixAddress(''); setMatrixCryptoAmount(''); setCopiedAddress(false); setCopiedDepositAmount(false) }
+  function resetToSelect() { pendingWithdrawMethodRef.current = null; setDepositView('select'); setSelectedMethod(null); setAmount(''); setDepositMessage(''); setWithdrawMessage(''); setWithdrawAccount(''); setWithdrawOwner(''); stopPolling(); setDepositLoading(false); setDepositSuccess(false); setPaymentCheckout(null); setCopiedPaymentLink(false); setMatrixAddress(''); setMatrixCryptoAmount(''); setCopiedAddress(false); setCopiedDepositAmount(false) }
 
   function switchTab(next: 'deposit'|'withdraw'|'history') {
     if (next === tab) return
@@ -807,7 +818,7 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
                     {currentCategoryMethods.map((m)=>{
                       const disabled=m.enabled===false; const sel=selectedMethod===m.id
                       return (
-                        <button key={m.id} type="button" disabled={disabled} onClick={()=>{setSelectedMethod(m.id);setAmount('');setCopiedDepositAmount(false);setDepositMessage('')}}
+                        <button key={m.id} type="button" disabled={disabled} onClick={()=>{setSelectedMethod(m.id);setAmount('');setCopiedDepositAmount(false);setDepositMessage('');setPaymentCheckout(null);setCopiedPaymentLink(false)}}
                           className={`relative flex-shrink-0 w-[27%] rounded-2xl border p-2 flex flex-col items-center justify-center gap-1.5 transition-colors ${sel?'border-primary bg-primary/10 shadow-[0_0_22px_rgba(245,158,11,0.20)]':'border-white/10 bg-[#101a2c]'} ${disabled?'opacity-40':''}`}>
                           {sel&&<span className="absolute right-1.5 top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-black"><Check size={10} strokeWidth={3}/></span>}
                           {m.iconUrl ? <div className="w-10 h-10 rounded-xl overflow-hidden flex-shrink-0"><img src={m.iconUrl} alt={m.name} className="w-full h-full object-contain" /></div>
@@ -901,6 +912,24 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
                       {firstDepEligible&&Number(amount)>0&&selectedBonus>0&&<p className="text-[11px] font-bold text-primary text-center -mt-1">{t('wallet.firstDepBonusHint',{amount:fmtPreset(selectedBonus,depositCurrency)})}</p>}
                       {redepShow&&Number(amount)>0&&selectedBonus>0&&<p className="text-[11px] font-bold text-amber-300 text-center -mt-1">{t('wallet.limitedOfferHint',{amount:fmtPreset(selectedBonus,depositCurrency)})}</p>}
                       {depositMessage&&<p className={`text-xs font-bold text-center ${depositSuccess?'text-emerald-400':'text-amber-400'}`}>{depositMessage}</p>}
+                      {paymentCheckout&&!depositSuccess&&(
+                        <div className="space-y-3 rounded-2xl border border-primary/25 bg-primary/10 px-4 py-4">
+                          <p className="text-center text-xs font-bold leading-relaxed text-white/75">{t('wallet.paymentPendingHelp')}</p>
+                          {paymentCheckout.qrcode&&(
+                            <div className="flex justify-center">
+                              <div className="rounded-xl bg-white p-2">
+                                {/^(data:image|https?:\/\/)/i.test(paymentCheckout.qrcode)
+                                  ? <img src={paymentCheckout.qrcode} alt="Payment QR" className="h-36 w-36 object-contain" />
+                                  : <QRCodeSVG value={paymentCheckout.qrcode} size={144} bgColor="#ffffff" fgColor="#111111" level="M" />}
+                              </div>
+                            </div>
+                          )}
+                          <div className="grid grid-cols-2 gap-2">
+                            <button type="button" disabled={!paymentCheckout.payUrl} onClick={()=>openPaymentCheckout(paymentCheckout.payUrl)} className="rounded-xl bg-primary px-3 py-2.5 text-xs font-black text-black disabled:opacity-40">{t('wallet.reopenPayment')}</button>
+                            <button type="button" disabled={!paymentCheckout.payUrl} onClick={()=>void copyPaymentLink()} className="flex items-center justify-center gap-1.5 rounded-xl border border-white/15 bg-white/5 px-3 py-2.5 text-xs font-black text-white disabled:opacity-40">{copiedPaymentLink?<Check size={13}/>:<Copy size={13}/>} {copiedPaymentLink?t('wallet.paymentLinkCopied'):t('wallet.copyPaymentLink')}</button>
+                          </div>
+                        </div>
+                      )}
                       {Number(amount)>0&&<div className="flex items-center justify-between rounded-2xl border border-primary/25 bg-primary/10 px-4 py-3">
                         <div className="flex items-center gap-3">
                           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/20 text-primary"><ShieldCheck size={20}/></div>

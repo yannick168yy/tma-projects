@@ -26,7 +26,7 @@ interface Props {
 function teamMoneyDisplay(cents: number, currency: 'PHP' | 'IDR') {
   const amount = cents / 100
   return currency === 'IDR'
-    ? `Rp ${amount.toLocaleString('id-ID', { maximumFractionDigits: 0 })}`
+    ? `Rp ${amount.toLocaleString('en-US', { maximumFractionDigits: 0 })}`
     : `₱${amount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
@@ -68,11 +68,11 @@ export default function BonusesPage({ promoFilter, onOpenWallet, onOpenTeam, onO
   const activeCurrency = useWalletStore((s) => s.activeCurrency)
   const fmtBonus = (amt: number) => activeCurrency === 'PHP'
     ? `₱${amt.toLocaleString('en-PH')}`
-    : activeCurrency === 'IDR' ? `Rp ${amt.toLocaleString('id-ID')}` : `${amt.toLocaleString('en-US')} ${activeCurrency}`
+    : activeCurrency === 'IDR' ? `Rp ${amt.toLocaleString('en-US')}` : `${amt.toLocaleString('en-US')} ${activeCurrency}`
   const displayWinnerAmount = (value: string) => {
     if (activeCurrency !== 'IDR') return value
     const php = Number(value.replace(/[^\d.]/g, ''))
-    return Number.isFinite(php) ? `Rp ${(Math.round(php * 287 / 100) * 100).toLocaleString('id-ID')}` : value
+    return Number.isFinite(php) ? `Rp ${(Math.round(php * 287 / 100) * 100).toLocaleString('en-US')}` : value
   }
 
   useEffect(() => {

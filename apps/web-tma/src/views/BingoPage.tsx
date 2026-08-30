@@ -47,7 +47,7 @@ export default function BingoPage({ onOpenWallet, onGameTap, onOpenGame, onOpenC
   const displayPesoAmount = (value: string) => {
     if (activeCurrency !== 'IDR') return value
     const php = Number(value.replace(/[^\d.]/g, ''))
-    return Number.isFinite(php) ? `Rp ${(Math.round(php * 287 / 100) * 100).toLocaleString('id-ID')}` : value
+    return Number.isFinite(php) ? `Rp ${(Math.round(php * 287 / 100) * 100).toLocaleString('en-US')}` : value
   }
 
   useEffect(() => {

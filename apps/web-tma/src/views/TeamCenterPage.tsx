@@ -46,7 +46,7 @@ function phpDisplay(cents: number) {
 function moneyDisplay(cents: number, currency: string) {
   if (currency === 'PHP') return phpDisplay(cents)
   const val = Math.abs((cents ?? 0) / 100)
-  return `${cents < 0 ? '-' : ''}Rp${val.toLocaleString('id-ID', { maximumFractionDigits: 0 })}`
+  return `${cents < 0 ? '-' : ''}Rp${val.toLocaleString('en-US', { maximumFractionDigits: 0 })}`
 }
 
 function turnoverDisplay(cents: number): string {
