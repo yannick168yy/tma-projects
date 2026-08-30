@@ -2,11 +2,12 @@ import type { Redis } from 'ioredis'
 import type { Pool, RowDataPacket } from 'mysql2/promise'
 import { getMysqlPool } from '../clients/mysql.client.js'
 import type { Env } from '../config/env.js'
+import { usdtRateMap } from './marketing-bi.service.js'
 import { getRate } from './exchange-rate.service.js'
 
 // BI 驾驶舱查询服务（只读）。
 // 实时卡片：OLTP 窄时间窗查询（≤24h，走 created_at 索引），口径=今日累计 vs 昨日同时刻 vs 上周同日同时刻
-// 趋势：只读 bi_daily_* 聚合表，多币种按当前汇率折算 PHP
+// 趋势：只读 bi_daily_* 聚合表，多币种按当前汇率折算 USDT
 
 const DAY_MS = 24 * 60 * 60 * 1000
 const BONUS_LEDGER_TYPES = "'bonus','red_packet','rebate','vip_bonus','task_bonus'"
@@ -27,19 +28,7 @@ function manilaDayStartMs(offsetDays = 0): number {
   return Date.parse(`${date}T00:00:00+08:00`) + offsetDays * DAY_MS
 }
 
-async function phpRates(redis: Redis, env: Env, currencies: string[]): Promise<Map<string, number>> {
-  const map = new Map<string, number>()
-  for (const c of currencies) {
-    if (map.has(c)) continue
-    try {
-      const r = await getRate(redis, c, 'PHP', env)
-      map.set(c, r.rate)
-    } catch {
-      map.set(c, c === 'USD' ? 56 : 1) // 汇率不可得时的保守兜底，仅影响展示
-    }
-  }
-  return map
-}
+const displayRates = usdtRateMap
 
 export interface BiWindowStats {
   depositAmount: number
@@ -75,8 +64,8 @@ async function windowStats(env: Env, redis: Redis, startMs: number, endMs: numbe
     [start, end, start, end, start, end, start, end],
   )
 
-  const rates = await phpRates(redis, env, moneyRows.map((r) => String(r.currency)))
-  const toPhp = (cur: string, v: number) => v * (rates.get(cur) ?? 1)
+  const rates = await displayRates(redis, env, moneyRows.map((r) => String(r.currency)))
+  const toDisplay = (cur: string, v: number) => v * (rates.get(cur) ?? 0)
 
   const s: BiWindowStats = {
     depositAmount: 0, depositCount: 0, withdrawAmount: 0,
@@ -85,10 +74,10 @@ async function windowStats(env: Env, redis: Redis, startMs: number, endMs: numbe
   }
   for (const r of moneyRows) {
     const cur = String(r.currency)
-    const amt = toPhp(cur, Number(r.amt))
+    const amt = toDisplay(cur, Number(r.amt))
     if (r.src === 'dep') { s.depositAmount += amt; s.depositCount += Number(r.cnt) }
     else if (r.src === 'wd') s.withdrawAmount += amt
-    else if (r.src === 'bet') { s.betAmount += amt; s.ggr += amt - toPhp(cur, Number(r.extra)) }
+    else if (r.src === 'bet') { s.betAmount += amt; s.ggr += amt - toDisplay(cur, Number(r.extra)) }
     else if (r.src === 'bonus') s.bonusCost += amt
   }
   s.ngr = s.ggr - s.bonusCost
@@ -173,9 +162,9 @@ export async function getBiTrends(
 
   const convert = opts.currency === undefined || opts.currency === 'ALL'
   const rates = convert
-    ? await phpRates(redis, env, platRows.map((r) => String(r.currency)))
+    ? await displayRates(redis, env, platRows.map((r) => String(r.currency)))
     : new Map<string, number>()
-  const toDisplay = (cur: string, v: number) => (convert ? v * (rates.get(cur) ?? 1) : v)
+  const toDisplay = (cur: string, v: number) => (convert ? v * (rates.get(cur) ?? 0) : v)
 
   // 按粒度归桶：day=YYYY-MM-DD, week=该周周一, month=YYYY-MM-01
   const bucketOf = (d: Date): string => {
@@ -215,7 +204,7 @@ export async function getBiTrends(
   for (const b of buckets.values()) b.ngr = b.ggr - b.bonusCost
 
   return {
-    currency: convert ? 'PHP' : (opts.currency as string),
+    currency: convert ? 'USDT' : (opts.currency as string),
     series: [...buckets.values()].sort((a, b) => a.date.localeCompare(b.date)),
   }
 }
@@ -254,8 +243,8 @@ export async function getBiProviders(
      FROM bi_daily_provider WHERE stat_date>=?${curFilter} GROUP BY provider, currency`,
     params,
   )
-  const rates = convert ? await phpRates(redis, env, rows.map((r) => String(r.currency))) : new Map<string, number>()
-  const toDisplay = (cur: string, v: number) => (convert ? v * (rates.get(cur) ?? 1) : v)
+  const rates = convert ? await displayRates(redis, env, rows.map((r) => String(r.currency))) : new Map<string, number>()
+  const toDisplay = (cur: string, v: number) => (convert ? v * (rates.get(cur) ?? 0) : v)
 
   const byProvider = new Map<string, BiProviderRow>()
   for (const r of rows) {
@@ -305,7 +294,7 @@ export async function getBiProviders(
     for (const name of top) trendSeries.push({ name, ggr: (byName.get(name) ?? []).map((v) => Math.round(v * 100) / 100) })
   }
 
-  return { currency: convert ? 'PHP' : (opts.currency as string), providers, trend: { dates, series: trendSeries } }
+  return { currency: convert ? 'USDT' : (opts.currency as string), providers, trend: { dates, series: trendSeries } }
 }
 
 export interface BiGameRow {
@@ -341,8 +330,8 @@ export async function getBiGames(
      FROM bi_daily_game d WHERE d.stat_date>=?${curFilter} GROUP BY d.game_provider_id, d.game_id, d.currency`,
     params,
   )
-  const rates = convert ? await phpRates(redis, env, rows.map((r) => String(r.currency))) : new Map<string, number>()
-  const toDisplay = (cur: string, v: number) => (convert ? v * (rates.get(cur) ?? 1) : v)
+  const rates = convert ? await displayRates(redis, env, rows.map((r) => String(r.currency))) : new Map<string, number>()
+  const toDisplay = (cur: string, v: number) => (convert ? v * (rates.get(cur) ?? 0) : v)
 
   const byGame = new Map<string, BiGameRow>()
   for (const r of rows) {
@@ -408,7 +397,7 @@ export async function getBiGames(
   }
   const categories = [...byCat.values()].sort((a, b) => b.betAmount - a.betAmount)
 
-  return { currency: convert ? 'PHP' : (opts.currency as string), games, categories }
+  return { currency: convert ? 'USDT' : (opts.currency as string), games, categories }
 }
 
 export interface BiAlertRow {
@@ -541,19 +530,20 @@ export async function getBiRfm(
      FROM bg_deposit_order WHERE status='paid' AND ${NOT_ADMIN} AND created_at>=? GROUP BY user_id, currency`,
     [startUtc],
   )
-  const rates = await phpRates(redis, env, rows.map((r) => String(r.currency)))
+  const rates = await displayRates(redis, env, rows.map((r) => String(r.currency)))
   const byUser = new Map<string, { total: number; lastAt: number }>()
   for (const r of rows) {
     const u = byUser.get(String(r.user_id)) ?? { total: 0, lastAt: 0 }
-    u.total += Number(r.amt) * (rates.get(String(r.currency)) ?? 1)
+    u.total += Number(r.amt) * (rates.get(String(r.currency)) ?? 0)
     u.lastAt = Math.max(u.lastAt, new Date(r.last_at as string).getTime())
     byUser.set(String(r.user_id), u)
   }
 
   const now = Date.now()
+  const usdtToPhp = (await getRate(redis, 'USDT', 'PHP', env)).rate
   const cellMap = new Map<string, BiRfmCell>()
   for (const u of byUser.values()) {
-    const valueTier = u.total >= 50000 ? 'whale' : u.total >= 5000 ? 'mid' : 'small'
+    const valueTier = u.total >= 50000 / usdtToPhp ? 'whale' : u.total >= 5000 / usdtToPhp ? 'mid' : 'small'
     const idleDays = (now - u.lastAt) / DAY_MS
     const recency = idleDays <= 7 ? 'active' : idleDays <= 30 ? 'cooling' : 'churned'
     const key = `${valueTier}|${recency}`
@@ -571,7 +561,7 @@ export async function getBiRfm(
 export interface BiLtvCohort {
   week: string
   size: number
-  d7: number; d30: number; d60: number; d90: number  // 人均累计 NGR (PHP)
+  d7: number; d30: number; d60: number; d90: number  // 人均累计 NGR (USDT)
 }
 
 export async function getBiLtv(env: Env, redis: Redis, weeks: number): Promise<BiLtvCohort[]> {
@@ -594,10 +584,10 @@ export async function getBiLtv(env: Env, redis: Redis, weeks: number): Promise<B
      GROUP BY wk, d.currency`,
     [startUtc],
   )
-  const rates = await phpRates(redis, env, valRows.map((r) => String(r.currency)))
+  const rates = await displayRates(redis, env, valRows.map((r) => String(r.currency)))
   const agg = new Map<string, { v7: number; v30: number; v60: number; v90: number }>()
   for (const r of valRows) {
-    const rate = rates.get(String(r.currency)) ?? 1
+    const rate = rates.get(String(r.currency)) ?? 0
     const a = agg.get(String(r.wk)) ?? { v7: 0, v30: 0, v60: 0, v90: 0 }
     a.v7 += Number(r.v7) * rate
     a.v30 += Number(r.v30) * rate
@@ -630,10 +620,10 @@ export async function getBiTopWinners(env: Env, redis: Redis, days: number): Pro
      FROM bi_daily_user WHERE stat_date>=? GROUP BY user_id, currency`,
     [fromDate],
   )
-  const rates = await phpRates(redis, env, rows.map((r) => String(r.currency)))
+  const rates = await displayRates(redis, env, rows.map((r) => String(r.currency)))
   const byUser = new Map<string, { netWin: number; betAmount: number }>()
   for (const r of rows) {
-    const rate = rates.get(String(r.currency)) ?? 1
+    const rate = rates.get(String(r.currency)) ?? 0
     const u = byUser.get(String(r.user_id)) ?? { netWin: 0, betAmount: 0 }
     u.netWin += Number(r.net_win) * rate
     u.betAmount += Number(r.stake) * rate
@@ -714,8 +704,8 @@ export async function getBiChannels(
 
 // ---- P4 预测层 ----
 
-/** 近 N 天平台日汇总（折算 PHP），预测与目标进度共用 */
-async function dailyPhpTotals(
+/** 近 N 天平台日汇总（折算 USDT），预测与目标进度共用 */
+async function dailyUsdtTotals(
   env: Env, redis: Redis, fromDate: string,
   metric: 'ggr' | 'deposit' | 'new_users' | 'first_dep_users',
 ): Promise<Map<string, number>> {
@@ -730,10 +720,10 @@ async function dailyPhpTotals(
   const [rows] = await db.query<RowDataPacket[]>(
     `SELECT stat_date, currency, deposit_amount, bet_amount, payout_amount, first_dep_users
      FROM bi_daily_platform WHERE stat_date>=?`, [fromDate])
-  const rates = await phpRates(redis, env, rows.map((r) => String(r.currency)))
+  const rates = await displayRates(redis, env, rows.map((r) => String(r.currency)))
   for (const r of rows) {
     const d = dateKey(r.stat_date)
-    const rate = rates.get(String(r.currency)) ?? 1
+    const rate = rates.get(String(r.currency)) ?? 0
     const v = metric === 'deposit' ? Number(r.deposit_amount) * rate
       : metric === 'first_dep_users' ? Number(r.first_dep_users)
       : (Number(r.bet_amount) - Number(r.payout_amount)) * rate
@@ -777,7 +767,7 @@ function forecastDays(totals: Map<string, number>, horizon: number): BiForecastP
 export async function getBiForecast(
   env: Env, redis: Redis, metric: 'ggr' | 'deposit',
 ): Promise<{ history: BiForecastPoint[]; forecast: BiForecastPoint[] }> {
-  const totals = await dailyPhpTotals(env, redis, fromDateOf(56), metric)
+  const totals = await dailyUsdtTotals(env, redis, fromDateOf(56), metric)
   const history = [...totals.entries()]
     .map(([date, value]) => ({ date, value: Math.round(value * 100) / 100 }))
     .sort((a, b) => a.date.localeCompare(b.date))
@@ -790,17 +780,25 @@ export async function getBiForecast(
 export const BI_TARGET_METRICS = ['ggr', 'deposit', 'new_users', 'first_dep_users'] as const
 export type BiTargetMetric = (typeof BI_TARGET_METRICS)[number]
 
-export async function listBiTargets(env: Env, period: string): Promise<{ metric: string; targetValue: number }[]> {
+export async function listBiTargets(env: Env, redis: Redis, period: string): Promise<{ metric: string; targetValue: number }[]> {
   const [rows] = await pool(env).query<RowDataPacket[]>(
     `SELECT metric, target_value FROM bi_target WHERE period=?`, [period])
-  return rows.map((r) => ({ metric: String(r.metric), targetValue: Number(r.target_value) }))
+  const usdtToPhp = (await getRate(redis, 'USDT', 'PHP', env)).rate
+  return rows.map((r) => {
+    const metric = String(r.metric)
+    const stored = Number(r.target_value)
+    return { metric, targetValue: metric === 'ggr' || metric === 'deposit' ? stored / usdtToPhp : stored }
+  })
 }
 
-export async function upsertBiTarget(env: Env, period: string, metric: BiTargetMetric, value: number, by: string): Promise<void> {
+export async function upsertBiTarget(env: Env, redis: Redis, period: string, metric: BiTargetMetric, value: number, by: string): Promise<void> {
+  const storedValue = metric === 'ggr' || metric === 'deposit'
+    ? value * (await getRate(redis, 'USDT', 'PHP', env)).rate
+    : value
   await pool(env).execute(
     `INSERT INTO bi_target (period, metric, target_value, created_by) VALUES (?,?,?,?)
      ON DUPLICATE KEY UPDATE target_value=VALUES(target_value), created_by=VALUES(created_by)`,
-    [period, metric, value, by])
+    [period, metric, storedValue, by])
 }
 
 export interface BiTargetProgress {
@@ -822,12 +820,12 @@ export async function getBiTargetProgress(env: Env, redis: Redis): Promise<{ per
   const dayOfMonth = Number(todayStr.slice(8, 10))
   const remainingDays = daysInMonth - dayOfMonth // 今天不算(未完整)
 
-  const targets = await listBiTargets(env, period)
+  const targets = await listBiTargets(env, redis, period)
   const items: BiTargetProgress[] = []
   for (const t of targets) {
     const metric = t.metric as BiTargetMetric
     if (!BI_TARGET_METRICS.includes(metric)) continue
-    const totals = await dailyPhpTotals(env, redis, monthStart, metric)
+    const totals = await dailyUsdtTotals(env, redis, monthStart, metric)
     let actual = 0
     for (const v of totals.values()) actual += v
     const fc = forecastDays(totals, Math.max(remainingDays, 0))
@@ -892,10 +890,10 @@ export async function getBiChurnRisk(env: Env, redis: Redis): Promise<BiChurnUse
      WHERE status='paid' AND ${NOT_ADMIN} AND user_id IN (?) AND created_at>=? GROUP BY user_id, currency`,
     [ids, fmtUtc(manilaDayStartMs(-89))],
   )
-  const rates = await phpRates(redis, env, depRows.map((r) => String(r.currency)))
+  const rates = await displayRates(redis, env, depRows.map((r) => String(r.currency)))
   const depMap = new Map<string, number>()
   for (const r of depRows) {
-    depMap.set(String(r.user_id), (depMap.get(String(r.user_id)) ?? 0) + Number(r.amt) * (rates.get(String(r.currency)) ?? 1))
+    depMap.set(String(r.user_id), (depMap.get(String(r.user_id)) ?? 0) + Number(r.amt) * (rates.get(String(r.currency)) ?? 0))
   }
   const [nameRows] = await db.query<RowDataPacket[]>(`SELECT id, display_name FROM bg_user WHERE id IN (?)`, [ids])
   const nameMap = new Map(nameRows.map((n) => [String(n.id), String(n.display_name ?? '')]))
@@ -978,7 +976,7 @@ export async function getBiAcquisition(
      WHERE d.stat_date>=? GROUP BY src, d.currency`,
     [fromDate],
   )
-  const rates = await phpRates(redis, env, [...costRows, ...ngrRows].map((r) => String(r.currency)))
+  const rates = await displayRates(redis, env, [...costRows, ...ngrRows].map((r) => String(r.currency)))
 
   const map = new Map<string, BiAcquisitionRow>()
   const rowOf = (src: string) => {
@@ -991,8 +989,8 @@ export async function getBiAcquisition(
     row.newUsers += Number(r.nu)
     row.firstDepUsers += Number(r.fd)
   }
-  for (const r of costRows) rowOf(String(r.src)).bonusCost += Number(r.amt) * (rates.get(String(r.currency)) ?? 1)
-  for (const r of ngrRows) rowOf(String(r.src)).ngr += Number(r.ngr) * (rates.get(String(r.currency)) ?? 1)
+  for (const r of costRows) rowOf(String(r.src)).bonusCost += Number(r.amt) * (rates.get(String(r.currency)) ?? 0)
+  for (const r of ngrRows) rowOf(String(r.src)).ngr += Number(r.ngr) * (rates.get(String(r.currency)) ?? 0)
   for (const r of map.values()) r.conversion = r.newUsers > 0 ? r.firstDepUsers / r.newUsers : null
   const sources = [...map.values()].sort((a, b) => b.newUsers - a.newUsers)
 

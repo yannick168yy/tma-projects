@@ -4,6 +4,7 @@ import { ok, fail } from '../../utils/response.js'
 import { getMysqlPool, isMysqlEnabled } from '../../clients/mysql.client.js'
 import { writeAuditLog } from '../../services/admin-store.js'
 import { requireRole } from '../../middleware/require-role.js'
+import { getRate } from '../../services/exchange-rate.service.js'
 
 const router = new Router({ prefix: '/risk' })
 
@@ -17,6 +18,11 @@ export const TAG_META: Record<string, { name: string; desc: string }> = {
 function db(ctx: import('koa').Context) {
   if (!isMysqlEnabled(ctx.state.env)) { fail(ctx, 503, 'DB not available'); return null }
   return getMysqlPool(ctx.state.env)
+}
+
+async function phpToUsdt(ctx: import('koa').Context): Promise<number> {
+  const phpPerUsdt = (await getRate(ctx.state.redis, 'USDT', 'PHP', ctx.state.env)).rate
+  return phpPerUsdt > 0 ? 1 / phpPerUsdt : 0
 }
 
 // 风险总览：标签分布 + 近 24h 命中动作分布。影子模式期靠这里评估误报率。
@@ -71,11 +77,12 @@ router.get('/users', async (ctx) => {
       LIMIT ?`,
     [...params, limit],
   )
+  const toUsdt = await phpToUsdt(ctx)
   ok(ctx, {
     items: rows.map((r) => ({
       userId: String(r.user_id),
-      bonusTotal: Number(r.bonus_total),
-      netDeposit: Number(r.net_deposit),
+      bonusTotal: Number(r.bonus_total) * toUsdt,
+      netDeposit: Number(r.net_deposit) * toUsdt,
       bonusRatio: Number(r.bonus_ratio),
       withdrawCount: Number(r.withdraw_count),
       deviceSharedUsers: Number(r.device_shared_users),
@@ -101,10 +108,11 @@ router.get('/users/:id', async (ctx) => {
        FROM bg_risk_hit_log WHERE user_id = ? ORDER BY id DESC LIMIT 20`,
     [userId],
   )
+  const toUsdt = await phpToUsdt(ctx)
   ok(ctx, {
     signal: signal
       ? {
-          userId, bonusTotal: Number(signal.bonus_total), netDeposit: Number(signal.net_deposit),
+          userId, bonusTotal: Number(signal.bonus_total) * toUsdt, netDeposit: Number(signal.net_deposit) * toUsdt,
           bonusRatio: Number(signal.bonus_ratio), withdrawCount: Number(signal.withdraw_count),
           deviceSharedUsers: Number(signal.device_shared_users), ipSharedUsers: Number(signal.ip_shared_users),
           riskScore: Number(signal.risk_score), computedAt: signal.computed_at,
@@ -309,6 +317,7 @@ router.get('/farm-channels/detail', async (ctx) => {
      ORDER BY x.dev_cluster DESC, x.channel, x.user_id`,
     params,
   )
+  const toUsdt = await phpToUsdt(ctx)
   ok(ctx, {
     date,
     channel: channel || null,
@@ -319,8 +328,8 @@ router.get('/farm-channels/detail', async (ctx) => {
       deviceFp: r.deviceFp ? String(r.deviceFp) : null,
       status: String(r.status),
       createdAt: r.createdAt,
-      bonusTotal: r.bonusTotal == null ? null : Number(r.bonusTotal),
-      netDeposit: r.netDeposit == null ? null : Number(r.netDeposit),
+      bonusTotal: r.bonusTotal == null ? null : Number(r.bonusTotal) * toUsdt,
+      netDeposit: r.netDeposit == null ? null : Number(r.netDeposit) * toUsdt,
       withdrawCount: r.withdrawCount == null ? null : Number(r.withdrawCount),
     })),
   })

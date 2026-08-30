@@ -64,7 +64,7 @@ export default function Checkin() {
             <Text type="secondary">关闭后前端入口隐藏、签到接口拒绝</Text>
           </Space>
           <Space>
-            <Text strong>增强轨阈值（PHP等值）</Text>
+            <Text strong>增强轨阈值（USDT等值）</Text>
             <InputNumber min={0} value={cfg.enhancedMinPhp} onChange={(v) => patch((d) => { d.enhancedMinPhp = Number(v) || 0 })} />
             <Text type="secondary">当日充值 或 有效投注流水 ≥ 该值 即解锁增强奖励</Text>
           </Space>

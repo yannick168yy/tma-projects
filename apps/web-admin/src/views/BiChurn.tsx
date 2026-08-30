@@ -33,7 +33,7 @@ export default function BiChurn() {
   const columns = [
     { title: '用户', dataIndex: 'displayName',
       render: (v: string, r: BiChurnUser) => <Link to={`/users/${r.userId}`}>{v || r.userId}</Link> },
-    { title: '90天充值（PHP等值）', dataIndex: 'deposit90d', render: fmtMoney,
+    { title: '90天充值（USDT等值）', dataIndex: 'deposit90d', render: fmtMoney,
       sorter: (a: BiChurnUser, b: BiChurnUser) => a.deposit90d - b.deposit90d },
     { title: '最近活跃', dataIndex: 'lastActive' },
     { title: '已静默', dataIndex: 'idleDays', render: (v: number) => `${v} 天`,

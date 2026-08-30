@@ -120,7 +120,7 @@ export default function Users() {
         const detail = fmtCurrencyAmounts(r.depositByCurrency)
         return (
           <span style={{ color: Number(r.depositAmount) > 0 ? '#389e0d' : '#bbb' }}>
-            PHP {Number(r.depositAmount).toFixed(2)} 等值
+            USDT {Number(r.depositAmount).toFixed(2)} 等值
             {detail && <span style={{ color: '#888', fontSize: 11 }}> ({detail})</span>}
           </span>
         )
@@ -132,7 +132,7 @@ export default function Users() {
         const detail = fmtCurrencyAmounts(r.withdrawByCurrency)
         return (
           <span style={{ color: Number(r.withdrawAmount) > 0 ? '#cf1322' : '#bbb' }}>
-            PHP {Number(r.withdrawAmount).toFixed(2)} 等值
+            USDT {Number(r.withdrawAmount).toFixed(2)} 等值
             {detail && <span style={{ color: '#888', fontSize: 11 }}> ({detail})</span>}
           </span>
         )
@@ -251,14 +251,14 @@ export default function Users() {
         />
         <InputNumber
           value={minDeposit}
-          placeholder="充值≥(PHP等值)"
+          placeholder="充值≥(USDT等值)"
           min={0} style={{ width: 130 }}
           onChange={(v) => setMinDeposit(v)}
           onPressEnter={applyInputs}
         />
         <InputNumber
           value={minWithdraw}
-          placeholder="取款≥(PHP等值)"
+          placeholder="取款≥(USDT等值)"
           min={0} style={{ width: 130 }}
           onChange={(v) => setMinWithdraw(v)}
           onPressEnter={applyInputs}

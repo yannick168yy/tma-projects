@@ -217,9 +217,9 @@ export default function TeamAgents() {
     <div>
       <Row gutter={16} style={{ marginBottom: 20 }} className="responsive-cols">
         <Col span={6}><Statistic title="活跃代理" value={overview.activeAgents} /></Col>
-        <Col span={6}><Statistic title="本月佣金总额" value={phpDisplay(overview.thisMonthCommissionCents)} /></Col>
+        <Col span={6}><Statistic title="本月佣金总额（USDT等值）" value={`${(overview.thisMonthCommissionCents / 100).toFixed(2)} USDT`} /></Col>
         <Col span={6}><Statistic title="待审提现笔数" value={overview.pendingWithdrawalCount} /></Col>
-        <Col span={6}><Statistic title="待审提现金额" value={phpDisplay(overview.pendingWithdrawalCents)} /></Col>
+        <Col span={6}><Statistic title="待审提现金额（USDT等值）" value={`${(overview.pendingWithdrawalCents / 100).toFixed(2)} USDT`} /></Col>
       </Row>
       <div style={{ marginBottom: 12, display: 'flex', gap: 8 }}>
         <Input value={agentSearch} onChange={(e) => setAgentSearch(e.target.value)} placeholder="搜索用户ID/昵称" allowClear style={{ width: 200 }} />

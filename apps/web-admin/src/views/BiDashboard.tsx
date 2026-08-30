@@ -11,7 +11,7 @@ import {
 import { BI_COLORS as C, LineChart } from '../components/BiCharts'
 
 const METRIC_LABEL: Record<string, string> = {
-  ggr: 'GGR（PHP等值）', deposit: '充值（PHP等值）', new_users: '新增注册', first_dep_users: '首充人数',
+  ggr: 'GGR（USDT等值）', deposit: '充值（USDT等值）', new_users: '新增注册', first_dep_users: '首充人数',
 }
 
 const fmtMoney = (v: number) => v.toLocaleString('en-PH', { maximumFractionDigits: 0 })
@@ -119,7 +119,7 @@ function ForecastSection() {
   const g = mk(ggr); const w = mk(dep)
 
   return (
-    <Card bordered={false} size="small" title="未来 7 天预测（虚线，按星期规律外推，折算 PHP）" style={{ marginBottom: 16 }}>
+    <Card bordered={false} size="small" title="未来 7 天预测（虚线，按星期规律外推，折算 USDT）" style={{ marginBottom: 16 }}>
       <LineChart dates={dates} height={260} series={[
         { name: 'GGR', color: C.green, data: g.actual },
         { name: 'GGR 预测', color: C.green, data: g.pred, dashed: true },
@@ -163,11 +163,11 @@ export default function BiDashboard() {
       ydFull: money ? fmtMoney(pick(overview.yesterdayFull)) : pick(overview.yesterdayFull),
     })
     return [
-      make('今日 GGR（PHP等值）', (s) => Math.round(s.ggr), true, '有效投注-派彩，多币种折算 PHP'),
-      make('今日 NGR（PHP等值）', (s) => Math.round(s.ngr), true, 'GGR-活动成本'),
-      make('今日充值（PHP等值）', (s) => Math.round(s.depositAmount)),
-      make('今日提现（PHP等值）', (s) => Math.round(s.withdrawAmount)),
-      make('今日投注额（PHP等值）', (s) => Math.round(s.betAmount)),
+      make('今日 GGR（USDT等值）', (s) => Math.round(s.ggr), true, '有效投注-派彩，多币种折算 USDT'),
+      make('今日 NGR（USDT等值）', (s) => Math.round(s.ngr), true, 'GGR-活动成本'),
+      make('今日充值（USDT等值）', (s) => Math.round(s.depositAmount)),
+      make('今日提现（USDT等值）', (s) => Math.round(s.withdrawAmount)),
+      make('今日投注额（USDT等值）', (s) => Math.round(s.betAmount)),
       make('活跃用户 DAU', (s) => s.dau, false, '登录∪投注∪充值去重'),
       make('新增注册', (s) => s.newUsers, false),
       make('首充人数', (s) => s.firstDepUsers, false),
@@ -234,7 +234,7 @@ export default function BiDashboard() {
           options={[{ label: '按日', value: 'day' }, { label: '按周', value: 'week' }, { label: '按月', value: 'month' }]} />
         <Select value={currency} onChange={setCurrency} style={{ width: 140 }}
           options={[
-            { label: '全部折算 PHP', value: 'ALL' },
+            { label: '全部折算 USDT', value: 'ALL' },
             { label: 'PHP', value: 'PHP' },
             { label: 'IDR', value: 'IDR' },
             { label: 'USDT', value: 'USDT' },

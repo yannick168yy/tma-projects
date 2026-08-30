@@ -100,7 +100,7 @@ router.get('/forecast', async (ctx) => {
 router.get('/targets', async (ctx) => {
   const period = String(ctx.query.period ?? '')
   if (!/^\d{4}-\d{2}$/.test(period)) { fail(ctx, 400, 'invalid period'); return }
-  ok(ctx, await listBiTargets(ctx.state.env, period))
+  ok(ctx, await listBiTargets(ctx.state.env, ctx.state.redis, period))
 })
 
 router.put('/targets', async (ctx) => {
@@ -114,7 +114,7 @@ router.put('/targets', async (ctx) => {
       || typeof targetValue !== 'number' || targetValue < 0) {
     fail(ctx, 400, 'invalid params'); return
   }
-  await upsertBiTarget(ctx.state.env, period, metric as BiTargetMetric, targetValue, ctx.state.adminUsername!)
+  await upsertBiTarget(ctx.state.env, ctx.state.redis, period, metric as BiTargetMetric, targetValue, ctx.state.adminUsername!)
   ok(ctx, { ok: true })
 })
 
@@ -150,7 +150,7 @@ router.get('/channels', async (ctx) => {
   ok(ctx, await getBiChannels(ctx.state.env, days))
 })
 
-// 买量投放渠道报表：马尼拉日范围，默认最近 7 天；金额口径固定=全币种折 PHP 合并
+// 买量投放渠道报表：马尼拉日范围，默认最近 7 天；金额口径固定=全币种折 USDT 合并
 function parseAdSourceRange(q: Record<string, unknown>): { from: string; to: string } | null {
   const dateRe = /^\d{4}-\d{2}-\d{2}$/
   const manilaToday = new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10)

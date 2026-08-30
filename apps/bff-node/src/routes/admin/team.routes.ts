@@ -3,6 +3,7 @@ import type { RowDataPacket, ResultSetHeader } from 'mysql2/promise'
 import { getMysqlPool } from '../../clients/mysql.client.js'
 import { ok, fail } from '../../utils/response.js'
 import { fetchMonthTurnoverBreakdown, sumBreakdownCents } from '../../utils/team-turnover.js'
+import { getRate } from '../../services/exchange-rate.service.js'
 
 const router = new Router({ prefix: '/team' })
 
@@ -10,6 +11,10 @@ const router = new Router({ prefix: '/team' })
 router.get('/overview', async (ctx) => {
   const db = getMysqlPool(ctx.state.env)
   const today = currentDate()
+  const [usdtToPhp, idrToPhp] = await Promise.all([
+    getRate(ctx.state.redis, 'USDT', 'PHP', ctx.state.env),
+    getRate(ctx.state.redis, 'IDR', 'PHP', ctx.state.env),
+  ])
 
   const [[agents], [commission], [pending]] = await Promise.all([
     db.query<RowDataPacket[]>(`SELECT COUNT(*) AS cnt FROM bg_team_node WHERE opted_in = 1`),
@@ -22,15 +27,15 @@ router.get('/overview', async (ctx) => {
       `SELECT COUNT(*) AS cnt,
               COALESCE(SUM(CASE WHEN currency = 'IDR' THEN amount_cents * ? ELSE amount_cents END), 0) AS total
        FROM bg_team_withdrawal WHERE status = 'pending' AND review_verdict = 'manual'`,
-      [ctx.state.env.IDR_TO_PHP_RATE],
+      [idrToPhp.rate],
     ),
   ])
 
   ok(ctx, {
     activeAgents:             Number(agents[0]?.cnt ?? 0),
-    thisMonthCommissionCents: Number(commission[0]?.total ?? 0),
+    thisMonthCommissionCents: Number(commission[0]?.total ?? 0) / usdtToPhp.rate,
     pendingWithdrawalCount:   Number(pending[0]?.cnt ?? 0),
-    pendingWithdrawalCents:   Number(pending[0]?.total ?? 0),
+    pendingWithdrawalCents:   Number(pending[0]?.total ?? 0) / usdtToPhp.rate,
     today,
   })
 })
@@ -275,8 +280,15 @@ router.get('/commissions', async (ctx) => {
      ORDER BY tc.created_at DESC LIMIT ? OFFSET ?`,
     [...params, pageSize, offset],
   )
+  const usdtToPhp = await getRate(ctx.state.redis, 'USDT', 'PHP', ctx.state.env)
 
-  ok(ctx, { total: Number(total), page, pageSize, items: rows })
+  ok(ctx, {
+    total: Number(total), page, pageSize,
+    items: rows.map((row) => ({
+      ...row,
+      usdt_equivalent_cents: Number(row.php_equivalent_cents ?? 0) / usdtToPhp.rate,
+    })),
+  })
 })
 
 // POST /admin/team/settle  { date: YYYY-MM-DD, force?: boolean, market?: PH|ID }

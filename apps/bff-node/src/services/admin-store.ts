@@ -3,14 +3,14 @@ import type { Pool, RowDataPacket } from 'mysql2/promise'
 import { getMysqlPool } from '../clients/mysql.client.js'
 import type { Env } from '../config/env.js'
 import { getLevelThresholds, resolveLevel } from './rebate.service.js'
-import { phpRateMap } from './marketing-bi.service.js'
+import { usdtRateMap } from './marketing-bi.service.js'
 
 export interface OrderSummary {
-  php: number                                          // 全币种折 PHP 合计
-  byCurrency: { currency: string; amount: number }[]   // 非 PHP 原币种金额（用于 PHP 后括号展示）
+  usdt: number                                         // 全币种折 USDT 合计
+  byCurrency: { currency: string; amount: number }[]   // 原币种明细
 }
 
-// 金额全币种折 PHP 合并 + 非 PHP 原币种明细：批量查一页用户，返回 user_id -> OrderSummary
+// 金额全币种折 USDT 合并 + 原币种明细：批量查一页用户，返回 user_id -> OrderSummary
 async function orderSummaries(
   env: Env,
   redis: Redis,
@@ -29,25 +29,25 @@ async function orderSummaries(
      GROUP BY user_id, currency`,
     [...statusIn, ...userIds],
   )
-  const rates = await phpRateMap(redis, env, rows.map((r) => String(r.cur)))
+  const rates = await usdtRateMap(redis, env, rows.map((r) => String(r.cur)))
   for (const r of rows) {
     const uid = String(r.user_id)
     const cur = String(r.cur)
     const amt = Number(r.amt)
     if (amt === 0) continue
     let s = map.get(uid)
-    if (!s) { s = { php: 0, byCurrency: [] }; map.set(uid, s) }
-    s.php += amt * (rates.get(cur) ?? 1)
-    if (cur !== 'PHP') s.byCurrency.push({ currency: cur, amount: amt })
+    if (!s) { s = { usdt: 0, byCurrency: [] }; map.set(uid, s) }
+    s.usdt += amt * (rates.get(cur) ?? 0)
+    s.byCurrency.push({ currency: cur, amount: amt })
   }
   return map
 }
 
-// 累计充值（已支付订单，全币种折 PHP + 非 PHP 明细）
+// 累计充值（已支付订单，全币种折 USDT + 原币种明细）
 export function getUserDepositSummaries(env: Env, redis: Redis, userIds: string[]) {
   return orderSummaries(env, redis, 'bg_deposit_order', ['paid'], userIds)
 }
-// 累计取款（已完成订单，全币种折 PHP + 非 PHP 明细）
+// 累计取款（已完成订单，全币种折 USDT + 原币种明细）
 export function getUserWithdrawSummaries(env: Env, redis: Redis, userIds: string[]) {
   return orderSummaries(env, redis, 'bg_withdraw_order', ['completed'], userIds)
 }
@@ -265,25 +265,23 @@ export async function getDashboardStats(env: Env): Promise<DashboardStats> {
   }
 }
 
-// 折 PHP 支持的币种（其余按 1:1 计）
-const FOLD_CURRENCIES = ['PHP', 'USDT', 'USDC', 'TRX_TESTNET']
+const FOLD_CURRENCIES = ['PHP', 'IDR', 'USDT', 'USDC', 'TRX_TESTNET']
 
 // 排序字段白名单 -> SQL 列（值来自后端固定映射，杜绝注入）
 const USER_SORT_COLUMNS: Record<string, string> = {
   lastLoginAt: 'u.last_login_at',
   balance: 'available',
-  depositAmount: 'deposit_php',
-  withdrawAmount: 'withdraw_php',
+  depositAmount: 'deposit_usdt',
+  withdrawAmount: 'withdraw_usdt',
   id: 'CAST(REGEXP_REPLACE(u.id, "[^0-9]", "") AS UNSIGNED)',
 }
 
-// 折 PHP 的 CASE 片段：币种->汇率来自 Redis 快照，数值直接内联（非用户输入，安全）
-function phpFoldCase(rates: Map<string, number>): string {
+// 折 USDT 的 CASE 片段：币种->汇率来自汇率管理快照，数值直接内联（非用户输入，安全）
+function usdtFoldCase(rates: Map<string, number>): string {
   const whens = [...rates.entries()]
-    .filter(([cur]) => cur !== 'PHP')
     .map(([cur, rate]) => `WHEN ${JSON.stringify(cur)} THEN ${Number(rate) || 0}`)
     .join(' ')
-  return whens ? `CASE currency ${whens} ELSE 1 END` : '1'
+  return whens ? `CASE currency ${whens} ELSE 0 END` : '0'
 }
 
 export async function listAdminUsers(
@@ -333,24 +331,24 @@ export async function listAdminUsers(
     params.push(new Date(new Date(`${opts.dateTo}T00:00:00+08:00`).getTime() + 86400000))
   }
 
-  // 充值/取款金额门槛需先算折 PHP 汇率快照，构造 SQL 内联 CASE
-  const rates = await phpRateMap(redis, env, FOLD_CURRENCIES)
-  const foldCase = phpFoldCase(rates)
+  // 充值/取款金额门槛统一使用 USDT 等值。
+  const rates = await usdtRateMap(redis, env, FOLD_CURRENCIES)
+  const foldCase = usdtFoldCase(rates)
   const depJoin = `LEFT JOIN (
-       SELECT user_id, SUM(amount * (${foldCase})) AS php
+       SELECT user_id, SUM(amount * (${foldCase})) AS usdt
        FROM bg_deposit_order WHERE status = 'paid' GROUP BY user_id
      ) dep ON dep.user_id = u.id`
   const wdJoin = `LEFT JOIN (
-       SELECT user_id, SUM(amount * (${foldCase})) AS php
+       SELECT user_id, SUM(amount * (${foldCase})) AS usdt
        FROM bg_withdraw_order WHERE status = 'completed' GROUP BY user_id
      ) wd ON wd.user_id = u.id`
 
   if (opts.minDeposit != null) {
-    conditions.push(`COALESCE(dep.php,0) >= ?`)
+    conditions.push(`COALESCE(dep.usdt,0) >= ?`)
     params.push(opts.minDeposit)
   }
   if (opts.minWithdraw != null) {
-    conditions.push(`COALESCE(wd.php,0) >= ?`)
+    conditions.push(`COALESCE(wd.usdt,0) >= ?`)
     params.push(opts.minWithdraw)
   }
 
@@ -373,7 +371,7 @@ export async function listAdminUsers(
     `SELECT u.id, u.display_name, u.email, u.status, u.label, u.market,
             u.last_login_at, u.last_login_region, u.last_platform, u.register_region, u.registered_at,
             COALESCE(w.available,0) as available, attr.channel_code,
-            COALESCE(dep.php,0) AS deposit_php, COALESCE(wd.php,0) AS withdraw_php
+            COALESCE(dep.usdt,0) AS deposit_usdt, COALESCE(wd.usdt,0) AS withdraw_usdt
      FROM bg_user u
      ${baseJoins}
      ${where}
@@ -405,7 +403,7 @@ export async function listAdminUsers(
     }
   }
 
-  // 充值/取款：折 PHP 总额 + 非 PHP 原币种明细（展示用；排序/筛选仍用 SQL 内的折 PHP 值）
+  // 充值/取款：折 USDT 总额 + 原币种明细（展示、排序和筛选口径一致）
   const [depSum, wdSum] = await Promise.all([
     getUserDepositSummaries(env, redis, ids),
     getUserWithdrawSummaries(env, redis, ids),
@@ -427,9 +425,9 @@ export async function listAdminUsers(
     balanceCurrency: r.market === 'ID' ? 'IDR' : 'PHP',
     channelCode: r.channel_code ? String(r.channel_code) : null,
     level: levelMap.get(String(r.id)) ?? 1,
-    depositAmount: Number(r.deposit_php),
+    depositAmount: Number(r.deposit_usdt),
     depositByCurrency: depSum.get(String(r.id))?.byCurrency ?? [],
-    withdrawAmount: Number(r.withdraw_php),
+    withdrawAmount: Number(r.withdraw_usdt),
     withdrawByCurrency: wdSum.get(String(r.id))?.byCurrency ?? [],
   }))
 

@@ -146,8 +146,8 @@ export default function RiskFarmChannels() {
             },
             { title: '设备指纹', dataIndex: 'deviceFp', render: (v: string | null) => v ? <code style={{ fontSize: 11 }}>{v}</code> : '-' },
             { title: '账号状态', dataIndex: 'status', render: statusTag },
-            { title: '累计彩金（PHP等值）', dataIndex: 'bonusTotal', align: 'right', render: (v: number | null) => v == null ? '-' : `PHP ${v.toFixed(2)}` },
-            { title: '净充值（PHP等值）', dataIndex: 'netDeposit', align: 'right', render: (v: number | null) => v == null ? '-' : `PHP ${v.toFixed(2)}` },
+            { title: '累计彩金（USDT等值）', dataIndex: 'bonusTotal', align: 'right', render: (v: number | null) => v == null ? '-' : `USDT ${v.toFixed(2)}` },
+            { title: '净充值（USDT等值）', dataIndex: 'netDeposit', align: 'right', render: (v: number | null) => v == null ? '-' : `USDT ${v.toFixed(2)}` },
             { title: '提现次数', dataIndex: 'withdrawCount', align: 'right', render: (v: number | null) => v ?? '-' },
             { title: '注册时间', dataIndex: 'createdAt', render: (v: string) => String(v).slice(0, 19) },
           ]}

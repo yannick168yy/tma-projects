@@ -4,7 +4,7 @@ import { getMysqlPool } from '../clients/mysql.client.js'
 import type { Env } from '../config/env.js'
 import { getBiOverview, listBiAlerts, type BiWindowStats } from './bi.service.js'
 import { fetchBadgeCounts } from './sse-badges.js'
-import { getRate } from './exchange-rate.service.js'
+import { usdtRateMap } from './marketing-bi.service.js'
 
 // 后台首页数据看板：实时快照 + 待办 + 资金 + 心跳。
 // 定位与 BI 驾驶舱互补：驾驶舱看趋势与分析，这里看「现在什么状态、有什么事要处理」。
@@ -13,12 +13,9 @@ function pool(env: Env): Pool {
   return getMysqlPool(env)
 }
 
-async function toPhp(redis: Redis, env: Env, currency: string, amount: number): Promise<number> {
-  try {
-    return amount * (await getRate(redis, currency, 'PHP', env)).rate
-  } catch {
-    return amount
-  }
+async function toUsdt(redis: Redis, env: Env, currency: string, amount: number): Promise<number> {
+  const rates = await usdtRateMap(redis, env, [currency])
+  return amount * (rates.get(currency) ?? 0)
 }
 
 export interface HomeDashboard {
@@ -27,10 +24,10 @@ export interface HomeDashboard {
   today: BiWindowStats
   yesterdaySameTime: BiWindowStats
   balances: {
-    wallets: { currency: string; amount: number; php: number }[]
-    walletTotalPhp: number
+    wallets: { currency: string; amount: number; usdt: number }[]
+    walletTotalUsdt: number
     pendingWithdrawCount: number
-    pendingWithdrawPhp: number
+    pendingWithdrawUsdt: number
     providers: { provider: string; balance: number; currency: string; status: string; updatedAt: string | null }[]
   }
   heartbeat: {
@@ -57,25 +54,25 @@ export async function getHomeDashboard(env: Env, redis: Redis): Promise<HomeDash
   const [walletRows] = await db.query<RowDataPacket[]>(
     `SELECT currency, COALESCE(SUM(available),0) amt FROM bg_wallet GROUP BY currency`,
   )
-  const wallets: { currency: string; amount: number; php: number }[] = []
-  let walletTotalPhp = 0
+  const wallets: { currency: string; amount: number; usdt: number }[] = []
+  let walletTotalUsdt = 0
   for (const r of walletRows) {
     const amount = Number(r.amt)
-    const php = await toPhp(redis, env, String(r.currency), amount)
-    wallets.push({ currency: String(r.currency), amount, php })
-    walletTotalPhp += php
+    const usdt = await toUsdt(redis, env, String(r.currency), amount)
+    wallets.push({ currency: String(r.currency), amount, usdt })
+    walletTotalUsdt += usdt
   }
-  wallets.sort((a, b) => b.php - a.php)
+  wallets.sort((a, b) => b.usdt - a.usdt)
 
   const [pendingRows] = await db.query<RowDataPacket[]>(
     `SELECT currency, COUNT(*) cnt, COALESCE(SUM(amount),0) amt
      FROM bg_withdraw_order WHERE status IN ('pending','processing') GROUP BY currency`,
   )
   let pendingWithdrawCount = 0
-  let pendingWithdrawPhp = 0
+  let pendingWithdrawUsdt = 0
   for (const r of pendingRows) {
     pendingWithdrawCount += Number(r.cnt)
-    pendingWithdrawPhp += await toPhp(redis, env, String(r.currency), Number(r.amt))
+    pendingWithdrawUsdt += await toUsdt(redis, env, String(r.currency), Number(r.amt))
   }
 
   const [provRows] = await db.query<RowDataPacket[]>(
@@ -119,7 +116,7 @@ export async function getHomeDashboard(env: Env, redis: Redis): Promise<HomeDash
     },
     today: overview.today,
     yesterdaySameTime: overview.yesterdaySameTime,
-    balances: { wallets, walletTotalPhp, pendingWithdrawCount, pendingWithdrawPhp, providers },
+    balances: { wallets, walletTotalUsdt, pendingWithdrawCount, pendingWithdrawUsdt, providers },
     heartbeat: {
       lastBetAt: iso(hb?.last_bet),
       lastDepositAt: iso(hb?.last_dep),

@@ -85,10 +85,10 @@ export interface HomeDashboard {
   today: BiWindowStats
   yesterdaySameTime: BiWindowStats
   balances: {
-    wallets: { currency: string; amount: number; php: number }[]
-    walletTotalPhp: number
+    wallets: { currency: string; amount: number; usdt: number }[]
+    walletTotalUsdt: number
     pendingWithdrawCount: number
-    pendingWithdrawPhp: number
+    pendingWithdrawUsdt: number
     providers: { provider: string; balance: number; currency: string; status: string; updatedAt: string | null }[]
   }
   heartbeat: {
@@ -1028,7 +1028,7 @@ export interface TeamCommission {
   beneficiary_id: string; beneficiary_name: string
   from_user_id: string; from_name: string
   level: number; period: string; currency: string
-  turnover_cents: number; rate_pct: number; commission_cents: number; php_equivalent_cents: number
+  turnover_cents: number; rate_pct: number; commission_cents: number; php_equivalent_cents: number; usdt_equivalent_cents: number
   currency_breakdown: { currency: string; betCents: number; fxRate: number }[] | null
   status: string; paid_at: string | null; created_at: string
 }

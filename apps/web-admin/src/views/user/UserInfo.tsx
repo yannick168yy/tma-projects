@@ -127,17 +127,17 @@ export default function UserInfo({ detail, onSuccess }: Props) {
               ? <Tag color="geekblue">{detail.attribution.channelCode}</Tag>
               : <span style={{ color: '#bbb' }}>自然量</span>}
           </Descriptions.Item>
-          <Descriptions.Item label="累计充值（PHP等值）">
+          <Descriptions.Item label="累计充值（USDT等值）">
             <Typography.Text strong style={{ color: Number(detail.depositTotal) > 0 ? '#389e0d' : undefined }}>
-              ₱{Number(detail.depositTotal ?? 0).toFixed(2)}
+              USDT {Number(detail.depositTotal ?? 0).toFixed(2)}
             </Typography.Text>
             {fmtCurrencyAmounts(detail.depositByCurrency) && (
               <Typography.Text type="secondary" style={{ fontSize: 12 }}> （{fmtCurrencyAmounts(detail.depositByCurrency)}）</Typography.Text>
             )}
           </Descriptions.Item>
-          <Descriptions.Item label="累计取款（PHP等值）">
+          <Descriptions.Item label="累计取款（USDT等值）">
             <Typography.Text strong style={{ color: Number(detail.withdrawTotal) > 0 ? '#cf1322' : undefined }}>
-              ₱{Number(detail.withdrawTotal ?? 0).toFixed(2)}
+              USDT {Number(detail.withdrawTotal ?? 0).toFixed(2)}
             </Typography.Text>
             {fmtCurrencyAmounts(detail.withdrawByCurrency) && (
               <Typography.Text type="secondary" style={{ fontSize: 12 }}> （{fmtCurrencyAmounts(detail.withdrawByCurrency)}）</Typography.Text>

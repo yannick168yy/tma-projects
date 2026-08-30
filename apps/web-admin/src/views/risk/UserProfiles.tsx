@@ -132,8 +132,8 @@ export default function RiskUserProfiles() {
           { title: '用户', dataIndex: 'userId', render: (id: string) => <a onClick={() => void openDetail(id)}>{id}</a> },
           { title: '风险分', dataIndex: 'riskScore', render: scoreTag, sorter: (a, b) => a.riskScore - b.riskScore, defaultSortOrder: 'descend' },
           { title: '标签', dataIndex: 'tags', render: (tags: RiskUserItem['tags']) => tags.length ? tags.map((t) => <span key={t.tagCode}>{tagLabel(t.tagCode)}{sourceTag(t.source)}</span>) : <Tag>无</Tag> },
-          { title: '彩金（PHP等值）', dataIndex: 'bonusTotal', render: (v: number) => `PHP ${v.toFixed(2)}` },
-          { title: '净充值（PHP等值）', dataIndex: 'netDeposit', render: (v: number) => `PHP ${v.toFixed(2)}` },
+          { title: '彩金（USDT等值）', dataIndex: 'bonusTotal', render: (v: number) => `USDT ${v.toFixed(2)}` },
+          { title: '净充值（USDT等值）', dataIndex: 'netDeposit', render: (v: number) => `USDT ${v.toFixed(2)}` },
           { title: '彩金/充值', dataIndex: 'bonusRatio', render: (v: number) => v >= 9999 ? <Tag color="red">∞（零充值）</Tag> : v.toFixed(2) },
           { title: '提现次数', dataIndex: 'withdrawCount' },
           { title: '同设备账号', dataIndex: 'deviceSharedUsers', render: (v: number) => v >= 3 ? <Tag color="red">{v}</Tag> : v },
@@ -165,8 +165,8 @@ export default function RiskUserProfiles() {
           <Descriptions bordered size="small" column={2} style={{ marginBottom: 16 }}>
             <Descriptions.Item label="风险分">{scoreTag(detail.signal.riskScore)}</Descriptions.Item>
             <Descriptions.Item label="彩金/充值">{detail.signal.bonusRatio >= 9999 ? '∞（零充值）' : detail.signal.bonusRatio.toFixed(4)}</Descriptions.Item>
-            <Descriptions.Item label="累计彩金（PHP等值）">PHP {detail.signal.bonusTotal.toFixed(2)}</Descriptions.Item>
-            <Descriptions.Item label="累计充值（PHP等值）">PHP {detail.signal.netDeposit.toFixed(2)}</Descriptions.Item>
+            <Descriptions.Item label="累计彩金（USDT等值）">USDT {detail.signal.bonusTotal.toFixed(2)}</Descriptions.Item>
+            <Descriptions.Item label="累计充值（USDT等值）">USDT {detail.signal.netDeposit.toFixed(2)}</Descriptions.Item>
             <Descriptions.Item label="成功提现次数">{detail.signal.withdrawCount}</Descriptions.Item>
             <Descriptions.Item label="同设备账号数">{detail.signal.deviceSharedUsers}</Descriptions.Item>
             <Descriptions.Item label="同 IP 账号数">{detail.signal.ipSharedUsers}</Descriptions.Item>

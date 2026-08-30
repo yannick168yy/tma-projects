@@ -57,7 +57,7 @@ export default function BiGames() {
           options={[{ label: '近7天', value: 7 }, { label: '近30天', value: 30 }, { label: '近90天', value: 90 }]} />
         <Select value={currency} onChange={setCurrency} style={{ width: 140 }}
           options={[
-            { label: '全部折算 PHP', value: 'ALL' },
+            { label: '全部折算 USDT', value: 'ALL' },
             { label: 'PHP', value: 'PHP' },
             { label: 'IDR', value: 'IDR' },
             { label: 'USDT', value: 'USDT' },

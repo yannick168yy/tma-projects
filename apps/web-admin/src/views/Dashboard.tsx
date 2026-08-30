@@ -41,9 +41,9 @@ export default function Dashboard() {
   ] : []
 
   const snapshot = data ? [
-    { label: '今日 GGR（PHP等值）', cur: Math.round(data.today.ggr), base: Math.round(data.yesterdaySameTime.ggr) },
-    { label: '今日充值（PHP等值）', cur: Math.round(data.today.depositAmount), base: Math.round(data.yesterdaySameTime.depositAmount) },
-    { label: '今日提现（PHP等值）', cur: Math.round(data.today.withdrawAmount), base: Math.round(data.yesterdaySameTime.withdrawAmount) },
+    { label: '今日 GGR（USDT等值）', cur: Math.round(data.today.ggr), base: Math.round(data.yesterdaySameTime.ggr) },
+    { label: '今日充值（USDT等值）', cur: Math.round(data.today.depositAmount), base: Math.round(data.yesterdaySameTime.depositAmount) },
+    { label: '今日提现（USDT等值）', cur: Math.round(data.today.withdrawAmount), base: Math.round(data.yesterdaySameTime.withdrawAmount) },
     { label: 'DAU', cur: data.today.dau, base: data.yesterdaySameTime.dau },
     { label: '新增注册', cur: data.today.newUsers, base: data.yesterdaySameTime.newUsers },
     { label: '首充人数', cur: data.today.firstDepUsers, base: data.yesterdaySameTime.firstDepUsers },
@@ -63,7 +63,7 @@ export default function Dashboard() {
         <Link to="/bi/dashboard" style={{ fontSize: 12 }}>看趋势与分析 → 运营驾驶舱</Link>
       </div>
       <div style={{ color: '#999', fontSize: 12, marginBottom: 16 }}>
-        当前网站状态与待办事项，每分钟自动刷新。金额均折算 PHP。
+        当前网站状态与待办事项，每分钟自动刷新。金额均折算 USDT。
       </div>
 
       <Spin spinning={loading && !data}>
@@ -100,7 +100,7 @@ export default function Dashboard() {
           <Col xs={24} lg={12}>
             <Card bordered={false} size="small" title="资金状态" style={{ marginBottom: 16 }}>
               <div style={{ marginBottom: 8 }}>
-                玩家钱包总余额 <b style={{ fontSize: 18 }}>PHP {fmtMoney(data?.balances.walletTotalPhp ?? 0)} 等值</b>
+                玩家钱包总余额 <b style={{ fontSize: 18 }}>USDT {fmtMoney(data?.balances.walletTotalUsdt ?? 0)} 等值</b>
                 <Space size={4} style={{ marginLeft: 8 }} wrap>
                   {(data?.balances.wallets ?? []).map((w) => (
                     <Tag key={w.currency}>{w.currency} {fmtMoney(w.amount)}</Tag>
@@ -108,7 +108,7 @@ export default function Dashboard() {
                 </Space>
               </div>
               <div style={{ marginBottom: 12 }}>
-                待付提现 <b>{data?.balances.pendingWithdrawCount ?? 0} 笔 / PHP {fmtMoney(data?.balances.pendingWithdrawPhp ?? 0)} 等值</b>
+                待付提现 <b>{data?.balances.pendingWithdrawCount ?? 0} 笔 / USDT {fmtMoney(data?.balances.pendingWithdrawUsdt ?? 0)} 等值</b>
                 <Link to="/withdrawals" style={{ marginLeft: 8, fontSize: 12 }}>去处理</Link>
               </div>
               <Table size="small" rowKey="provider" pagination={false}

@@ -7,7 +7,7 @@
 //   首存人数   = 平台历史首笔成功充值发生在当日、且归因到该渠道的人
 //   客均       = 当日该渠道所有用户的充值总额 ÷ 首存人数
 //   首存成本   = 广告花费在投手侧，我方只给首存数；成本由投手用「花费 ÷ 首存数」自算
-//   金额口径   = 全币种折 PHP 合并（与 CAPI Purchase 折 PHP 上报一致）：结算条款按 ₱ 客均看总额，
+//   后台金额口径 = 全币种折 USDT 合并；CAPI 上报仍保留原有 PHP 口径。
 //               买量用户首笔充 USDT/USDC 也必须计入首存，单币种过滤会漏
 import type { Pool, RowDataPacket } from 'mysql2/promise'
 import type { Redis } from 'ioredis'
@@ -95,9 +95,26 @@ export async function phpRateMap(redis: Redis, env: Env, currencies: string[]): 
   return map
 }
 
+/** 1 单位原币种折算为 USDT；复用汇率管理中的「原币→PHP」快照，不产生额外 API 请求。 */
+export async function usdtRateMap(redis: Redis, env: Env, currencies: string[]): Promise<Map<string, number>> {
+  const usdtToPhp = (await getRate(redis, 'USDT', 'PHP', env)).rate
+  const map = new Map<string, number>()
+  for (const currency of currencies) {
+    const symbol = rateSymbol(currency)
+    if (symbol === 'USDT' || symbol === 'USDC') { map.set(currency, 1); continue }
+    if (symbol === 'PHP') { map.set(currency, 1 / usdtToPhp); continue }
+    try {
+      map.set(currency, (await getRate(redis, symbol, 'PHP', env)).rate / usdtToPhp)
+    } catch {
+      map.set(currency, 0)
+    }
+  }
+  return map
+}
+
 /**
  * 渠道汇总报表：给定马尼拉日范围 [from, to]（含端点），按 channel_code 聚合。
- * 金额全币种折 PHP 合并；channel 省略则返回全部渠道。
+ * 金额全币种折 USDT 合并；channel 省略则返回全部渠道。
  */
 export async function getAdSourceReport(
   env: Env,
@@ -151,7 +168,7 @@ export async function getAdSourceReport(
   )
   for (const r of regRows) rowOf(String(r.code)).regUsers = Number(r.cnt)
 
-  // 当日充值（全币种）：按 渠道×币种 聚合后折 PHP 相加；充值人数单独按渠道去重（跨币种不重计）
+  // 当日充值（全币种）：按 渠道×币种 聚合后折 USDT 相加；充值人数单独按渠道去重（跨币种不重计）
   const [depRows] = await db.query<RowDataPacket[]>(
     `SELECT a.channel_code code, d.currency cur, COALESCE(SUM(d.amount),0) amt
      FROM bg_deposit_order d
@@ -161,9 +178,9 @@ export async function getAdSourceReport(
      GROUP BY a.channel_code, d.currency`,
     [start, end, ...chanArg],
   )
-  const rates = await phpRateMap(redis, env, depRows.map((r) => String(r.cur)))
+  const rates = await usdtRateMap(redis, env, depRows.map((r) => String(r.cur)))
   for (const r of depRows) {
-    rowOf(String(r.code)).depositAmount += Number(r.amt) * (rates.get(String(r.cur)) ?? 1)
+    rowOf(String(r.code)).depositAmount += Number(r.amt) * (rates.get(String(r.cur)) ?? 0)
   }
   const [depUserRows] = await db.query<RowDataPacket[]>(
     `SELECT a.channel_code code, COUNT(DISTINCT d.user_id) users
@@ -191,11 +208,11 @@ export async function getAdSourceReport(
      GROUP BY a.channel_code, d.currency`,
     [start, end, ...chanArg],
   )
-  const fdRates = await phpRateMap(redis, env, fdRows.map((r) => String(r.cur)))
+  const fdRates = await usdtRateMap(redis, env, fdRows.map((r) => String(r.cur)))
   for (const r of fdRows) {
     const row = rowOf(String(r.code))
     row.firstDepUsers += Number(r.users)
-    row.firstDepAmount += Number(r.amt) * (fdRates.get(String(r.cur)) ?? 1)
+    row.firstDepAmount += Number(r.amt) * (fdRates.get(String(r.cur)) ?? 0)
   }
 
   const rows = [...map.values()]
@@ -229,7 +246,7 @@ export interface AdSourceTrendPoint {
 }
 
 /**
- * 单渠道逐日趋势，用于投手面板画曲线。channel 必填。金额全币种折 PHP。
+ * 单渠道逐日趋势，用于投手面板画曲线。channel 必填。金额全币种折 USDT。
  */
 export async function getAdSourceTrend(
   env: Env,
@@ -266,10 +283,10 @@ export async function getAdSourceTrend(
      WHERE a.channel_code=? AND d.status='paid' AND d.created_at>=? AND d.created_at<?`,
     [channel, start, end],
   )
-  const rates = await phpRateMap(redis, env, depRows.map((r) => String(r.cur)))
+  const rates = await usdtRateMap(redis, env, depRows.map((r) => String(r.cur)))
   for (const r of depRows) {
     const p = byDate.get(manilaDateOf(new Date(r.ca)))
-    if (p) p.depositAmount += Number(r.amt) * (rates.get(String(r.cur)) ?? 1)
+    if (p) p.depositAmount += Number(r.amt) * (rates.get(String(r.cur)) ?? 0)
   }
 
   const [fdRows] = await db.query<RowDataPacket[]>(
@@ -388,7 +405,7 @@ export interface ChannelQualityRow {
   avgLtvPhp: number | null
   cpaUsd: number
   suspiciousUsers: number
-  // 利润侧（全币种折 PHP）：让页面能回答"这个渠道到底赚没赚"，不只看流水
+  // 利润侧（全币种折 USDT）：让页面能回答"这个渠道到底赚没赚"，不只看流水
   withdrawAmount: number      // 已完成提现额（completed）
   walletBalance: number       // 当前场内余额（bg_wallet.available，玩家还能提走的钱=负债）
   rejectedWithdraw: number    // 被风控拦下的提现额（admin_rejected/rejected），薅羊毛强信号
@@ -413,29 +430,29 @@ export async function getChannelQuality(
      WHERE channel_code IS NOT NULL AND created_at>=? AND created_at<?`,
     [start, end],
   )
-  if (!users.length) return { rows: [], usdToPhp: env.USDT_TO_PHP_RATE }
+  if (!users.length) return { rows: [], usdToPhp: 1 }
   const uid = users.map((u) => String(u.user_id))
   const ph = uid.map(() => '?').join(',')
   const regDay = new Map<string, string>()
   for (const u of users) regDay.set(String(u.user_id), manilaDateOf(new Date(u.created_at as Date)))
 
-  // 2. 充值：paid 订单数 + 累计充值额（全币种折 PHP）
+  // 2. 充值：paid 订单数 + 累计充值额（全币种折 USDT）
   const [deps] = await db.query<RowDataPacket[]>(
     `SELECT user_id, currency cur, COUNT(*) cnt, COALESCE(SUM(amount),0) amt FROM bg_deposit_order
      WHERE status='paid' AND user_id IN (${ph}) GROUP BY user_id, currency`,
     uid,
   )
-  const depRates = await phpRateMap(redis, env, deps.map((d) => String(d.cur)))
+  const depRates = await usdtRateMap(redis, env, deps.map((d) => String(d.cur)))
   const depByUser = new Map<string, { cnt: number; amt: number }>()
   for (const d of deps) {
     const k = String(d.user_id)
     const prev = depByUser.get(k) ?? { cnt: 0, amt: 0 }
     prev.cnt += Number(d.cnt)
-    prev.amt += Number(d.amt) * (depRates.get(String(d.cur)) ?? 1)
+    prev.amt += Number(d.amt) * (depRates.get(String(d.cur)) ?? 0)
     depByUser.set(k, prev)
   }
 
-  // 2b. 利润侧：完成提现 / 场内余额 / 被拦提现，均按 user×币种取回后折 PHP 归并到人
+  // 2b. 利润侧：完成提现 / 场内余额 / 被拦提现，均按 user×币种取回后折 USDT 归并到人
   const [wds] = await db.query<RowDataPacket[]>(
     `SELECT user_id, currency cur, COALESCE(SUM(amount),0) amt FROM bg_withdraw_order
      WHERE status='completed' AND user_id IN (${ph}) GROUP BY user_id, currency`,
@@ -451,18 +468,18 @@ export async function getChannelQuality(
      WHERE status IN ('admin_rejected','rejected') AND user_id IN (${ph}) GROUP BY user_id, currency`,
     uid,
   )
-  const profitRates = await phpRateMap(redis, env, [...wds, ...bals, ...rjs].map((r) => String(r.cur)))
-  const sumPhpByUser = (rows: RowDataPacket[]): Map<string, number> => {
+  const profitRates = await usdtRateMap(redis, env, [...wds, ...bals, ...rjs].map((r) => String(r.cur)))
+  const sumUsdtByUser = (rows: RowDataPacket[]): Map<string, number> => {
     const m = new Map<string, number>()
     for (const r of rows) {
       const k = String(r.user_id)
-      m.set(k, (m.get(k) ?? 0) + Number(r.amt) * (profitRates.get(String(r.cur)) ?? 1))
+      m.set(k, (m.get(k) ?? 0) + Number(r.amt) * (profitRates.get(String(r.cur)) ?? 0))
     }
     return m
   }
-  const wdByUser = sumPhpByUser(wds)
-  const balByUser = sumPhpByUser(bals)
-  const rjByUser = sumPhpByUser(rjs)
+  const wdByUser = sumUsdtByUser(wds)
+  const balByUser = sumUsdtByUser(bals)
+  const rjByUser = sumUsdtByUser(rjs)
 
   // 3. 留存：活跃日集合
   const [acts] = await db.query<RowDataPacket[]>(
@@ -532,7 +549,7 @@ export async function getChannelQuality(
     r.ngrPhp = r.depositAmount - r.withdrawAmount - r.walletBalance
   }
   rows.sort((a, b) => b.firstDepUsers - a.firstDepUsers || b.regUsers - a.regUsers)
-  return { rows, usdToPhp: env.USDT_TO_PHP_RATE }
+  return { rows, usdToPhp: 1 }
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -552,18 +569,18 @@ function buildVerdictText(
   to: string,
 ): string {
   if (!rows.length) return '未选择任何渠道，或所选渠道在该区间无数据。'
-  const lines = [`投放渠道对比（${from} ~ ${to}，金额单位 PHP，USDT→PHP=${usdToPhp}）：`]
+  const lines = [`投放渠道对比（${from} ~ ${to}，金额单位 USDT）：`]
   for (const r of rows) {
     const conv = r.regUsers > 0 ? `${((r.firstDepUsers / r.regUsers) * 100).toFixed(1)}%` : '—'
     const susPct = r.regUsers > 0 ? `${((r.suspiciousUsers / r.regUsers) * 100).toFixed(0)}%` : '0%'
     const d1 = r.regUsers > 0 ? `${((r.d1Retained / r.regUsers) * 100).toFixed(0)}%` : '0%'
     const parts = [
       `【${r.channelCode}】注册${r.regUsers}、首存${r.firstDepUsers}（转化${conv}）`,
-      `充值₱${vMoney(r.depositAmount)}、完成提现₱${vMoney(r.withdrawAmount)}、场内余额₱${vMoney(r.walletBalance)}`,
-      `净现金₱${vMoney(r.netCashPhp)}、真毛利NGR₱${vMoney(r.ngrPhp)}`,
+      `充值${vMoney(r.depositAmount)} USDT、完成提现${vMoney(r.withdrawAmount)} USDT、场内余额${vMoney(r.walletBalance)} USDT`,
+      `净现金${vMoney(r.netCashPhp)} USDT、真毛利NGR${vMoney(r.ngrPhp)} USDT`,
       `复充率${vPct(r.reDepRate)}、D1留存${d1}、同IP多账号${r.suspiciousUsers}(${susPct})`,
     ]
-    if (r.rejectedWithdraw > 0) parts.push(`异常提现被拦₱${vMoney(r.rejectedWithdraw)}`)
+    if (r.rejectedWithdraw > 0) parts.push(`异常提现被拦${vMoney(r.rejectedWithdraw)} USDT`)
     const spend = spends[r.channelCode]
     if (typeof spend === 'number' && spend > 0) {
       const cpa = (spend / Math.max(r.regUsers, 1)).toFixed(2)
@@ -584,7 +601,7 @@ export async function generateChannelVerdict(
 ): Promise<ChannelVerdict> {
   const { rows } = await getChannelQuality(env, redis, { from: opts.from, to: opts.to })
   const sel = rows.filter((r) => opts.channels.includes(r.channelCode))
-  const raw = buildVerdictText(sel, opts.spends ?? {}, env.USDT_TO_PHP_RATE, opts.from, opts.to)
+  const raw = buildVerdictText(sel, opts.spends ?? {}, 1, opts.from, opts.to)
   if (!env.GEMINI_API_KEY || sel.length === 0) return { text: raw, ai: false }
   try {
     const ai = new GoogleGenerativeAI(env.GEMINI_API_KEY)

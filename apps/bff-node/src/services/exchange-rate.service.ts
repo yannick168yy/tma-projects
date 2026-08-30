@@ -16,10 +16,11 @@ const REDIS_TTL = 3600 // 1 小时
 const MANUAL_TTL = 7 * 24 * 3600 // 手动覆盖：7 天
 const redisKey = (from: string, to: string) => `exchange_rate:${from}:${to}`
 
-/** 与 web-tma 钱包支持的虚拟币种对齐（均为 xxx → PHP） */
+/** 与 web-tma 钱包支持币种对齐（均为 xxx → PHP） */
 export const CRYPTO_RATE_CURRENCIES = ['USDT', 'USDC', 'TRX'] as const
+export const FIAT_RATE_CURRENCIES = ['IDR'] as const
 
-export const RATE_PAIRS: [string, string][] = CRYPTO_RATE_CURRENCIES.map(
+export const RATE_PAIRS: [string, string][] = [...CRYPTO_RATE_CURRENCIES, ...FIAT_RATE_CURRENCIES].map(
   (c) => [c, 'PHP'] as [string, string],
 )
 
@@ -37,6 +38,7 @@ function fallbackRate(from: string, to: string, env: Env): number | null {
   if (to !== 'PHP') return null
   if (from === 'USD' || from === 'USDT' || from === 'USDC') return env.USDT_TO_PHP_RATE
   if (from === 'PHP') return 1
+  if (from === 'IDR') return env.IDR_TO_PHP_RATE
   return null
 }
 
@@ -184,7 +186,8 @@ export async function refreshRates(redis: Redis, env: Env): Promise<void> {
   const toRefresh: string[] = []
 
   for (const [from, to] of RATE_PAIRS) {
-    if (to !== 'PHP' || (await isManualRate(redis, from, to))) continue
+    // IDR 使用环境值或后台手动值，不增加第三方 API 调用次数。
+    if (to !== 'PHP' || !(from in COINGECKO_IDS) || (await isManualRate(redis, from, to))) continue
     toRefresh.push(from)
   }
 

@@ -20,7 +20,7 @@ function RetCell({ n, size }: { n: number; size: number }) {
   )
 }
 
-const TIER_LABEL: Record<string, string> = { whale: '大R（≥5万 PHP等值）', mid: '中R（≥5千 PHP等值）', small: '小R' }
+const TIER_LABEL: Record<string, string> = { whale: '大R（≥862 USDT等值）', mid: '中R（≥86 USDT等值）', small: '小R' }
 const REC_LABEL: Record<string, string> = { active: '7天内有充值', cooling: '8-30天未充', churned: '30天+未充' }
 const REC_COLOR: Record<string, string> = { active: '#3f8600', cooling: '#d46b08', churned: '#cf1322' }
 
@@ -64,25 +64,25 @@ export default function BiUsers() {
   const ltvCols = [
     { title: '注册周', dataIndex: 'week' },
     { title: '人数', dataIndex: 'size' },
-    { title: 'D7 人均NGR（PHP等值）', dataIndex: 'd7', render: fmtMoney },
-    { title: 'D30 人均NGR（PHP等值）', dataIndex: 'd30', render: fmtMoney },
-    { title: 'D60 人均NGR（PHP等值）', dataIndex: 'd60', render: fmtMoney },
-    { title: 'D90 人均NGR（PHP等值）', dataIndex: 'd90', render: fmtMoney },
+    { title: 'D7 人均NGR（USDT等值）', dataIndex: 'd7', render: fmtMoney },
+    { title: 'D30 人均NGR（USDT等值）', dataIndex: 'd30', render: fmtMoney },
+    { title: 'D60 人均NGR（USDT等值）', dataIndex: 'd60', render: fmtMoney },
+    { title: 'D90 人均NGR（USDT等值）', dataIndex: 'd90', render: fmtMoney },
   ]
 
   const winnerCols = [
     { title: '用户', dataIndex: 'displayName',
       render: (v: string, r: BiTopWinner) => <Link to={`/users/${r.userId}`}>{v || r.userId}</Link> },
-    { title: '净赢（PHP等值）', dataIndex: 'netWin',
+    { title: '净赢（USDT等值）', dataIndex: 'netWin',
       render: (v: number) => <span style={{ color: v > 0 ? '#cf1322' : undefined }}>{fmtMoney(v)}</span> },
-    { title: '投注额（PHP等值）', dataIndex: 'betAmount', render: fmtMoney },
+    { title: '投注额（USDT等值）', dataIndex: 'betAmount', render: fmtMoney },
   ]
 
   return (
     <div>
       <h2 style={{ marginBottom: 4 }}>用户分析</h2>
       <div style={{ color: '#999', fontSize: 12, marginBottom: 16 }}>
-        漏斗/盈利榜口径随天数筛选；留存与 LTV 为固定周 cohort（留存=登录∪投注∪充值，LTV=人均累计 NGR 折算 PHP）。
+        漏斗/盈利榜口径随天数筛选；留存与 LTV 为固定周 cohort（留存=登录∪投注∪充值，LTV=人均累计 NGR 折算 USDT）。
       </div>
 
       <Space style={{ marginBottom: 16 }}>

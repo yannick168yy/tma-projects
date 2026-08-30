@@ -8,8 +8,8 @@ import {
   type ExchangeRate, type RateHistoryBatch,
 } from '../api'
 
-/** 与 BFF RATE_PAIRS 一致：加密货币 → PHP（CoinGecko simple/price） */
-const TRACKED_TO_PHP = ['USDT', 'USDC', 'TRX'] as const
+/** 与 BFF RATE_PAIRS 一致；IDR 默认使用环境值或手动值，不调用第三方 API。 */
+const TRACKED_TO_PHP = ['USDT', 'USDC', 'TRX', 'IDR'] as const
 
 function fmtRate(r: number | string | null | undefined): string {
   if (r === null || r === undefined) return '—'
@@ -161,12 +161,19 @@ export default function ExchangeRates() {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
         <div>
           <h2 style={{ margin: 0 }}>汇率管理</h2>
-          <p style={{ margin: '4px 0 0', color: '#888', fontSize: 12 }}>加密货币 → PHP，CoinGecko simple/price 单次批量刷新</p>
+          <p style={{ margin: '4px 0 0', color: '#888', fontSize: 12 }}>统一维护“原币 → PHP”，后台再换算为 USDT 等值</p>
         </div>
         <Button loading={refreshing} disabled={cooldown > 0} onClick={handleRefresh} icon={<SyncOutlined />}>
           {cooldown > 0 ? `${cooldown}s 后可刷新` : '从 CoinGecko 刷新'}
         </Button>
       </div>
+
+      <Alert
+        type="info"
+        showIcon
+        style={{ marginBottom: 16 }}
+        message="USDT、USDC、TRX 每 10 分钟共用一次 CoinGecko 批量请求，约 4,320 次/月；IDR 使用环境值或手动值，不增加 API 调用。"
+      />
 
       <Table dataSource={sortedRates} columns={rateColumns} rowKey={(r) => `${r.from}-${r.to}`} loading={loading} pagination={false} style={{ marginBottom: 24 }} scroll={{ x: 720 }} />
 
