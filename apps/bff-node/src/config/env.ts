@@ -67,8 +67,8 @@ const schema = z.object({
   // 手动兜底汇率（无 API key 或 API 故障时使用）
   EUR_TO_PHP_RATE: z.coerce.number().positive().default(62),
   USDT_TO_PHP_RATE: z.coerce.number().positive().default(58),
-  // 风控统一折算为 PHP 等值时使用；1 IDR ≈ 1/287 PHP
-  IDR_TO_PHP_RATE: z.coerce.number().positive().default(1 / 287),
+  // 印尼法币基础汇率；其他 IDR 币种对统一从该值推导。
+  USDT_TO_IDR_RATE: z.coerce.number().positive().default(16646),
   TRX_TO_PHP_RATE: z.coerce.number().positive().default(10),
   YFPAY_USERNAME: z.string().default(''),
   YFPAY_API_KEY: z.string().default(''),

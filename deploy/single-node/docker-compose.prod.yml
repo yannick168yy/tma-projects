@@ -99,7 +99,7 @@ services:
       WIN568_SW_COMPANY_KEY: ${WIN568_SW_COMPANY_KEY:-}
       WIN568_SW_ALLOWED_IPS: ${WIN568_SW_ALLOWED_IPS:-}
       WIN568_DEFAULT_CURRENCY: ${WIN568_DEFAULT_CURRENCY:-PHP}
-      IDR_TO_PHP_RATE: ${IDR_TO_PHP_RATE:-0.0034843206}
+      USDT_TO_IDR_RATE: ${USDT_TO_IDR_RATE:-16646}
     depends_on:
       mysql:
         condition: service_healthy

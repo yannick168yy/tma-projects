@@ -16,13 +16,14 @@ const REDIS_TTL = 3600 // 1 小时
 const MANUAL_TTL = 7 * 24 * 3600 // 手动覆盖：7 天
 const redisKey = (from: string, to: string) => `exchange_rate:${from}:${to}`
 
-/** 与 web-tma 钱包支持币种对齐（均为 xxx → PHP） */
+/** CoinGecko 单次批量刷新这些加密币种对 PHP 的基础价格。 */
 export const CRYPTO_RATE_CURRENCIES = ['USDT', 'USDC', 'TRX'] as const
-export const FIAT_RATE_CURRENCIES = ['IDR'] as const
 
-export const RATE_PAIRS: [string, string][] = [...CRYPTO_RATE_CURRENCIES, ...FIAT_RATE_CURRENCIES].map(
-  (c) => [c, 'PHP'] as [string, string],
-)
+/** 后台只维护基础汇率；其他任意币种对统一经 USDT 基准推导。 */
+export const RATE_PAIRS: [string, string][] = [
+  ...CRYPTO_RATE_CURRENCIES.map((c) => [c, 'PHP'] as [string, string]),
+  ['USDT', 'IDR'],
+]
 
 const COINGECKO_IDS: Record<string, string> = {
   USDT: 'tether',
@@ -35,11 +36,14 @@ const COINGECKO_ID_TO_SYMBOL = Object.fromEntries(
 ) as Record<string, string>
 
 function fallbackRate(from: string, to: string, env: Env): number | null {
-  if (to !== 'PHP') return null
-  if (from === 'USD' || from === 'USDT' || from === 'USDC') return env.USDT_TO_PHP_RATE
-  if (from === 'PHP') return 1
-  if (from === 'IDR') return env.IDR_TO_PHP_RATE
+  if (to === 'PHP' && (from === 'USD' || from === 'USDT' || from === 'USDC')) return env.USDT_TO_PHP_RATE
+  if (to === 'PHP' && from === 'TRX') return env.TRX_TO_PHP_RATE
+  if (from === 'USDT' && to === 'IDR') return env.USDT_TO_IDR_RATE
   return null
+}
+
+function isBasePair(from: string, to: string): boolean {
+  return RATE_PAIRS.some(([baseFrom, baseTo]) => baseFrom === from && baseTo === to)
 }
 
 function coingeckoHeaders(env: Env): Record<string, string> {
@@ -87,23 +91,41 @@ export async function getRate(redis: Redis, from: string, to: string, env: Env):
   to = to.toUpperCase()
   if (from === to) return { rate: 1, fetchedAt: new Date().toISOString(), source: 'identity' }
 
-  const cached = await redis.get(redisKey(from, to))
-  if (cached) return JSON.parse(cached) as RateResult
-
-  if (to !== 'PHP') {
-    const [fromToPhp, toToPhp] = await Promise.all([
-      getRate(redis, from, 'PHP', env),
-      getRate(redis, to, 'PHP', env),
-    ])
+  if (!isBasePair(from, to)) {
+    const toUsdt = async (currency: string): Promise<RateResult> => {
+      if (currency === 'USD' || currency === 'USDT') {
+        return { rate: 1, fetchedAt: new Date().toISOString(), source: 'identity' }
+      }
+      if (currency === 'IDR') {
+        const usdtToIdr = await getRate(redis, 'USDT', 'IDR', env)
+        return { ...usdtToIdr, rate: 1 / usdtToIdr.rate }
+      }
+      const [currencyToPhp, usdtToPhp] = await Promise.all([
+        currency === 'PHP'
+          ? Promise.resolve({ rate: 1, fetchedAt: new Date().toISOString(), source: 'identity' } as RateResult)
+          : getRate(redis, currency, 'PHP', env),
+        getRate(redis, 'USDT', 'PHP', env),
+      ])
+      return {
+        rate: currencyToPhp.rate / usdtToPhp.rate,
+        fetchedAt: currencyToPhp.fetchedAt > usdtToPhp.fetchedAt ? currencyToPhp.fetchedAt : usdtToPhp.fetchedAt,
+        source: `derived:${currencyToPhp.source}/${usdtToPhp.source}`,
+      }
+    }
+    const [fromToUsdt, toToUsdt] = await Promise.all([toUsdt(from), toUsdt(to)])
     return {
-      rate: fromToPhp.rate / toToPhp.rate,
-      fetchedAt: fromToPhp.fetchedAt > toToPhp.fetchedAt ? fromToPhp.fetchedAt : toToPhp.fetchedAt,
-      source: `derived:${fromToPhp.source}/${toToPhp.source}`,
+      rate: fromToUsdt.rate / toToUsdt.rate,
+      fetchedAt: fromToUsdt.fetchedAt > toToUsdt.fetchedAt ? fromToUsdt.fetchedAt : toToUsdt.fetchedAt,
+      source: `derived:${fromToUsdt.source}/${toToUsdt.source}`,
     }
   }
 
+  const cached = await redis.get(redisKey(from, to))
+  if (cached) return JSON.parse(cached) as RateResult
+
   let result: RateResult
   try {
+    if (to !== 'PHP' || !(from in COINGECKO_IDS)) throw new Error(`No automatic source for ${from}→${to}`)
     result = await fetchFromCoinGecko(from, to, env)
   } catch (err) {
     const fb = fallbackRate(from, to, env)
@@ -160,7 +182,7 @@ export async function getRateHistory(env: Env, limit = 1000): Promise<Array<{
        MIN(id) AS id,
        MIN(fetched_at) AS fetchedAt,
        GROUP_CONCAT(DISTINCT source ORDER BY source SEPARATOR ',') AS source,
-       JSON_OBJECTAGG(currency_from, CAST(rate AS DOUBLE)) AS rates
+       JSON_OBJECTAGG(CONCAT(currency_from, ':', currency_to), CAST(rate AS DOUBLE)) AS rates
      FROM (SELECT * FROM bg_exchange_rate ORDER BY id DESC LIMIT ?) t
      GROUP BY FLOOR(UNIX_TIMESTAMP(fetched_at) / 5)
      ORDER BY id DESC`,
@@ -202,7 +224,7 @@ export async function refreshRates(redis: Redis, env: Env): Promise<void> {
   const toRefresh: string[] = []
 
   for (const [from, to] of RATE_PAIRS) {
-    // IDR 使用环境值或后台手动值，不增加第三方 API 调用次数。
+    // USDT→IDR 使用环境值或后台手动值，不增加第三方 API 调用次数。
     if (to !== 'PHP' || !(from in COINGECKO_IDS) || (await isManualRate(redis, from, to))) continue
     toRefresh.push(from)
   }

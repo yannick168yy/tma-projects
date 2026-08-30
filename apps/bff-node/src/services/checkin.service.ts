@@ -238,7 +238,7 @@ export async function getCheckinStatus(env: Env, userId: string, currency = 'PHP
         getRate(redis, 'USDT', 'PHP', env).then((r) => r.rate),
         getRate(redis, 'IDR', 'PHP', env).then((r) => r.rate),
       ])
-    : [env.USDT_TO_PHP_RATE, env.IDR_TO_PHP_RATE]
+    : [env.USDT_TO_PHP_RATE, env.USDT_TO_PHP_RATE / env.USDT_TO_IDR_RATE]
   const eligible = await enhancedEligible(pool, userId, today, currency, cfg.enhancedMinPhp, usdToPhpRate, idrToPhpRate)
 
   const claimed = Boolean(todayRow)
@@ -290,7 +290,7 @@ export async function claimCheckin(env: Env, userId: string, currency = 'PHP', r
         getRate(redis, 'USDT', 'PHP', env).then((r) => r.rate),
         getRate(redis, 'IDR', 'PHP', env).then((r) => r.rate),
       ])
-    : [env.USDT_TO_PHP_RATE, env.IDR_TO_PHP_RATE]
+    : [env.USDT_TO_PHP_RATE, env.USDT_TO_PHP_RATE / env.USDT_TO_IDR_RATE]
   const conn = await pool.getConnection()
   try {
     await conn.beginTransaction()

@@ -37,7 +37,7 @@ import {
   syncFeatureBonusLockToRedis,
 } from '../../services/feature-bonus-lock.service.js'
 import {
-  getAllCurrentRates, getRateHistory, setManualRate, clearManualRate, refreshRates,
+  getAllCurrentRates, getRateHistory, setManualRate, clearManualRate, refreshRates, RATE_PAIRS,
 } from '../../services/exchange-rate.service.js'
 
 const router = new Router({ prefix: '/settings' })
@@ -380,6 +380,9 @@ router.post('/exchange-rates/manual', requireRole(['super_admin', 'finance']), a
   if (!from || !to || isNaN(rate) || rate <= 0) {
     fail(ctx, 400, 'from / to / rate 参数无效'); return
   }
+  if (!RATE_PAIRS.some(([allowedFrom, allowedTo]) => allowedFrom === from && allowedTo === to)) {
+    fail(ctx, 400, '不支持的基础汇率对'); return
+  }
   const redis = ctx.state.redis as Redis
   const result = await setManualRate(redis, from, to, rate, ctx.state.env)
   ok(ctx, result)
@@ -389,6 +392,9 @@ router.post('/exchange-rates/manual', requireRole(['super_admin', 'finance']), a
 router.delete('/exchange-rates/manual/:from/:to', requireRole(['super_admin', 'finance']), async (ctx) => {
   const from = ctx.params.from.toUpperCase()
   const to = ctx.params.to.toUpperCase()
+  if (!RATE_PAIRS.some(([allowedFrom, allowedTo]) => allowedFrom === from && allowedTo === to)) {
+    fail(ctx, 400, '不支持的基础汇率对'); return
+  }
   const redis = ctx.state.redis as Redis
   await clearManualRate(redis, from, to)
   ok(ctx, null)

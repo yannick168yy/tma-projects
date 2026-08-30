@@ -528,6 +528,19 @@ describe('UnisPay 回调处理', () => {
 })
 
 describe('团队日结', () => {
+  it('结算汇率优先使用后台写入 Redis 的 USDT 基础汇率', async () => {
+    const { getExchangeRate } = await import('../services/exchange-rate.service.js')
+    const redis = {
+      async get(key: string) {
+        if (key === 'exchange_rate:USDT:PHP') return JSON.stringify({ rate: 60 })
+        if (key === 'exchange_rate:USDT:IDR') return JSON.stringify({ rate: 18000 })
+        return null
+      },
+    }
+
+    assert.equal(await getExchangeRate('IDR', 'PHP', redis as never), 60 / 18000)
+  })
+
   it('已有结算记录且非 force 时直接跳过', async () => {
     const { runDailySettlement } = await import('../routes/internal.routes.js')
     const pool = createPool({
@@ -639,7 +652,11 @@ describe('团队日结', () => {
     })
 
     await runDailySettlement(
-      { mysql: pool, log: { info() {}, warn() {}, error() {} } } as unknown as FastifyInstance,
+      {
+        mysql: pool,
+        redis: createRedis(),
+        log: { info() {}, warn() {}, error() {} },
+      } as unknown as FastifyInstance,
       '2026-06-28', false, 'ID',
     )
 

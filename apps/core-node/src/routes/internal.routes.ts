@@ -406,10 +406,10 @@ export async function runDailySettlement(app: FastifyInstance, date: string, for
   const settlementRates: Record<string, number> = {}
   const phpRates: Record<string, number> = {}
   await Promise.all(currencies.map(async (cur) => {
-    settlementRates[cur] = await getExchangeRate(cur, settlementCurrency)
-    phpRates[cur] = await getPhpRate(cur)
+    settlementRates[cur] = await getExchangeRate(cur, settlementCurrency, app.redis)
+    phpRates[cur] = await getPhpRate(cur, app.redis)
   }))
-  const settlementToPhpRate = await getPhpRate(settlementCurrency)
+  const settlementToPhpRate = await getPhpRate(settlementCurrency, app.redis)
   app.log.info({ date, settlementRates, settlementCurrency, settlementToPhpRate }, '[daily-settle] fx rates')
 
   // 按 from_user 聚合多币种投注，直接折算到市场结算币种；PHP 等值仅保留作历史审计快照。

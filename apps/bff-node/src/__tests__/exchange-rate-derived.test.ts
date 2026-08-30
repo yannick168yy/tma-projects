@@ -12,11 +12,11 @@ describe('派生币种汇率', () => {
     }
 
     const result = await getRate(redis as never, 'idr', 'usdt', {
-      IDR_TO_PHP_RATE: 1 / 287,
+      USDT_TO_IDR_RATE: 16646,
       USDT_TO_PHP_RATE: 58,
     } as Env)
 
-    expect(result.rate).toBeCloseTo(1 / 287 / 58, 12)
+    expect(result.rate).toBeCloseTo(1 / 16646, 12)
     expect(result.source).toContain('derived:')
     expect(redis.setex).toHaveBeenCalledTimes(1)
   })

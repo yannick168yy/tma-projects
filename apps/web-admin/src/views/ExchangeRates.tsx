@@ -8,8 +8,13 @@ import {
   type ExchangeRate, type RateHistoryBatch,
 } from '../api'
 
-/** 与 BFF RATE_PAIRS 一致；IDR 默认使用环境值或手动值，不调用第三方 API。 */
-const TRACKED_TO_PHP = ['USDT', 'USDC', 'TRX', 'IDR'] as const
+/** 与 BFF RATE_PAIRS 一致；USDT→IDR 使用环境值或手动值，不调用第三方 API。 */
+const TRACKED_PAIRS = [
+  { from: 'USDT', to: 'PHP' },
+  { from: 'USDC', to: 'PHP' },
+  { from: 'TRX', to: 'PHP' },
+  { from: 'USDT', to: 'IDR' },
+] as const
 
 function fmtRate(r: number | string | null | undefined): string {
   if (r === null || r === undefined) return '—'
@@ -115,14 +120,14 @@ export default function ExchangeRates() {
   }
 
   const sortedRates = useMemo(() => {
-    const order = new Map(TRACKED_TO_PHP.map((c, i) => [c, i]))
-    return [...rates].sort((a, b) => (order.get(a.from as typeof TRACKED_TO_PHP[number]) ?? 99) - (order.get(b.from as typeof TRACKED_TO_PHP[number]) ?? 99))
+    const order = new Map(TRACKED_PAIRS.map((pair, i) => [`${pair.from}:${pair.to}`, i]))
+    return [...rates].sort((a, b) => (order.get(`${a.from}:${a.to}`) ?? 99) - (order.get(`${b.from}:${b.to}`) ?? 99))
   }, [rates])
 
   const rateColumns = [
     { title: '货币对', key: 'pair', render: (_: unknown, r: ExchangeRate) => `${r.from} → ${r.to}` },
     {
-      title: '当前汇率（= PHP）', key: 'rate',
+      title: '当前汇率', key: 'rate',
       render: (_: unknown, r: ExchangeRate) => r.rate !== null
         ? <span style={{ fontSize: 15, fontWeight: 600 }}>{fmtRate(r.rate)}</span>
         : <Tag color="red">未配置</Tag>,
@@ -142,11 +147,11 @@ export default function ExchangeRates() {
 
   const historyColumns = useMemo(() => [
     { title: '时间', key: 'fetchedAt', fixed: 'left' as const, width: 168, render: (_: unknown, r: RateHistoryBatch) => <span style={{ color: '#888', fontSize: 12 }}>{fmtTime(r.fetchedAt)}</span> },
-    ...TRACKED_TO_PHP.map((code) => ({
-      title: `${code}→PHP`,
-      key: code,
+    ...TRACKED_PAIRS.map((pair) => ({
+      title: `${pair.from}→${pair.to}`,
+      key: `${pair.from}:${pair.to}`,
       width: 100,
-      render: (_: unknown, r: RateHistoryBatch) => <span style={{ fontSize: 12 }}>{fmtRate(r.rates?.[code])}</span>,
+      render: (_: unknown, r: RateHistoryBatch) => <span style={{ fontSize: 12 }}>{fmtRate(r.rates?.[`${pair.from}:${pair.to}`] ?? (pair.to === 'PHP' ? r.rates?.[pair.from] : undefined))}</span>,
     })),
     {
       title: '来源', key: 'hsource', width: 120,
@@ -161,7 +166,7 @@ export default function ExchangeRates() {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
         <div>
           <h2 style={{ margin: 0 }}>汇率管理</h2>
-          <p style={{ margin: '4px 0 0', color: '#888', fontSize: 12 }}>统一维护“原币 → PHP”，后台再换算为 USDT 等值</p>
+          <p style={{ margin: '4px 0 0', color: '#888', fontSize: 12 }}>USDT 为系统换算基准；这里只维护外部或人工来源的基础汇率</p>
         </div>
         <Button loading={refreshing} disabled={cooldown > 0} onClick={handleRefresh} icon={<SyncOutlined />}>
           {cooldown > 0 ? `${cooldown}s 后可刷新` : '从 CoinGecko 刷新'}
@@ -172,7 +177,7 @@ export default function ExchangeRates() {
         type="info"
         showIcon
         style={{ marginBottom: 16 }}
-        message="USDT、USDC、TRX 每 15 分钟共用一次 CoinGecko 批量请求；加上 core-node 每小时刷新，约 3,600 次/月。IDR 使用环境值或手动值，不增加 API 调用；其他币种对由基础汇率推导。"
+        message="USDT、USDC、TRX 每 15 分钟共用一次 CoinGecko 批量请求；加上 core-node 每小时刷新，约 3,600 次/月。USDT→IDR 使用环境值或手动值，不增加 API 调用；IDR→PHP 等其他币种对统一经 USDT 推导。"
       />
 
       <Table dataSource={sortedRates} columns={rateColumns} rowKey={(r) => `${r.from}-${r.to}`} loading={loading} pagination={false} style={{ marginBottom: 24 }} scroll={{ x: 720 }} />
@@ -193,7 +198,7 @@ export default function ExchangeRates() {
         cancelText="取消"
       >
         <Form form={form} layout="vertical" style={{ marginTop: 8 }}>
-          <Form.Item label={`1 ${editInfo.from} = ? PHP`} name="rate">
+          <Form.Item label={`1 ${editInfo.from} = ? ${editInfo.to}`} name="rate">
             <InputNumber min={0.0001} step={0.01} precision={4} style={{ width: '100%' }} placeholder="例如：62.5000" />
           </Form.Item>
           <Alert type="info" showIcon message={'手动汇率有效期 7 天，期间不会被 API 自动覆盖。到期或点击"恢复自动"后恢复 API 汇率。'} />

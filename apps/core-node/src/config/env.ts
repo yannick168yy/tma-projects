@@ -43,11 +43,11 @@ const schema = z.object({
   MATRIX_MERCHANT_NOTIFY_PRIVATE_KEY: z.string().default(''),
   MATRIX_PLATFORM_NOTIFY_PUBLIC_KEY: z.string().default(''),
 
-  // 汇率兜底（CoinGecko 不可用时使用，单位：PHP）
+  // 汇率兜底；业务统一以 USDT 为基准币种。
   USDT_TO_PHP_RATE: z.coerce.number().positive().default(58),
   EUR_TO_PHP_RATE:  z.coerce.number().positive().default(62),
   TRX_TO_PHP_RATE:  z.coerce.number().positive().default(19),
-  IDR_TO_PHP_RATE:  z.coerce.number().positive().default(1 / 287),
+  USDT_TO_IDR_RATE: z.coerce.number().positive().default(16646),
 
   // 内部服务间通信 token
   INTERNAL_TOKEN: z.string().default(''),
