@@ -67,7 +67,7 @@ export function createApiRouter(): Router {
   api.get('/site/config', async (ctx) => {
     const host = requestHost(ctx)
     const mappings = await getSiteDomainMappings(ctx.state.redis, ctx.state.env)
-    ok(ctx, { domain: host.toLowerCase().replace(/^www\./, ''), market: marketForHost(mappings, host) ?? 'PH' })
+    ok(ctx, { domain: host.toLowerCase().replace(/^www\./, ''), market: marketForHost(mappings, host) })
   })
 
   // 公开：活动参数配置（App 启动即拉，先于登录完成，不含用户数据）

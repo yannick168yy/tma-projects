@@ -3,9 +3,10 @@ import type { Env } from '../config/env.js'
 import { getAdminSetting, setAdminSetting } from './admin-store.js'
 
 export type SiteMarket = 'PH' | 'ID'
+export type SiteDomainTarget = SiteMarket | 'PUBLIC'
 export interface SiteDomainMapping {
   domain: string
-  market: SiteMarket
+  market: SiteDomainTarget
   enabled: boolean
 }
 
@@ -32,7 +33,7 @@ export function normalizeSiteDomainMappings(value: unknown): SiteDomainMapping[]
     const row = item as Record<string, unknown>
     const domain = normalizeDomain(String(row.domain ?? ''))
     const market = String(row.market ?? '').toUpperCase()
-    if (!domain || (market !== 'PH' && market !== 'ID') || seen.has(domain)) continue
+    if (!domain || (market !== 'PH' && market !== 'ID' && market !== 'PUBLIC') || seen.has(domain)) continue
     seen.add(domain)
     result.push({ domain, market, enabled: row.enabled !== false })
   }
@@ -76,5 +77,6 @@ export async function saveSiteDomainMappings(redis: Redis, env: Env, value: unkn
 export function marketForHost(mappings: SiteDomainMapping[], host: string | undefined): SiteMarket | null {
   const domain = normalizeDomain(host ?? '')
   if (!domain) return null
-  return mappings.find((item) => item.enabled && item.domain === domain)?.market ?? null
+  const target = mappings.find((item) => item.enabled && item.domain === domain)?.market
+  return target === 'PH' || target === 'ID' ? target : null
 }

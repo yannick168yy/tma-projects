@@ -52,9 +52,9 @@ export default function SiteDomains() {
   return <Space direction="vertical" size={16} style={{ width: '100%' }}>
     <div>
       <Typography.Title level={3} style={{ marginBottom: 4 }}>站点域名映射</Typography.Title>
-      <Typography.Text type="secondary">统一决定访问域名属于菲律宾站还是印尼站，并控制新用户默认市场、语言和币种。</Typography.Text>
+      <Typography.Text type="secondary">统一决定访问域名属于菲律宾站、印尼站或公共入口，并控制新用户默认市场、语言和币种。</Typography.Text>
     </div>
-    <Alert showIcon type="info" message="域名统一按裸域保存，www 子域会自动匹配。已登录用户不会因为修改映射而迁移市场。" />
+    <Alert showIcon type="info" message="域名统一按裸域保存，www 子域会自动匹配。公共入口不强制市场，由客户端语言或请求参数决定。已登录用户不会因为修改映射而迁移市场。" />
     <Card
       extra={editable && <Space>
         <Button icon={<PlusOutlined />} onClick={() => setRows((items) => [...items, { key: `new-${Date.now()}`, domain: '', market: 'ID', enabled: true }])}>新增域名</Button>
@@ -75,9 +75,9 @@ export default function SiteDomains() {
           },
           {
             title: '所属站点', dataIndex: 'market', width: 180,
-            render: (value: 'PH' | 'ID', row) => editable
-              ? <Select value={value} style={{ width: 150 }} onChange={(market) => updateRow(row.key, { market })} options={[{ value: 'PH', label: '菲律宾站（PH）' }, { value: 'ID', label: '印尼站（ID）' }]} />
-              : <Tag color={value === 'ID' ? 'red' : 'blue'}>{value === 'ID' ? '印尼站' : '菲律宾站'}</Tag>,
+            render: (value: 'PH' | 'ID' | 'PUBLIC', row) => editable
+              ? <Select value={value} style={{ width: 150 }} onChange={(market) => updateRow(row.key, { market })} options={[{ value: 'PH', label: '菲律宾站（PH）' }, { value: 'ID', label: '印尼站（ID）' }, { value: 'PUBLIC', label: '公共入口' }]} />
+              : <Tag color={value === 'ID' ? 'red' : value === 'PH' ? 'blue' : 'gold'}>{value === 'ID' ? '印尼站' : value === 'PH' ? '菲律宾站' : '公共入口'}</Tag>,
           },
           {
             title: '启用', dataIndex: 'enabled', width: 100,

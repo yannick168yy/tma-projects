@@ -8,8 +8,6 @@ const DEFAULT_DOMAIN_MARKETS: Record<string, SiteMarket> = {
   'betogo.vip': 'ID',
   'betogo888.com': 'ID',
   'betogo.cc': 'ID',
-  'betogo.games': 'ID',
-  'www.betogo.games': 'ID',
 }
 
 const MARKET_STORAGE_KEY = 'betogo_market'

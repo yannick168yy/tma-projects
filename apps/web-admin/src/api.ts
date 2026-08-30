@@ -618,7 +618,7 @@ export const updateSystemParams = (params: SystemParams) => put<SystemParams>('/
 
 export interface SiteDomainMapping {
   domain: string
-  market: 'PH' | 'ID'
+  market: 'PH' | 'ID' | 'PUBLIC'
   enabled: boolean
 }
 export const getSiteDomainMappings = () => get<SiteDomainMapping[]>('/admin/settings/site-domains')

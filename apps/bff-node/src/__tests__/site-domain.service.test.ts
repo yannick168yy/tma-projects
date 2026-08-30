@@ -7,20 +7,22 @@ describe('站点域名映射', () => {
       { domain: 'https://WWW.BETOGO.XYZ/path', market: 'id', enabled: true },
       { domain: 'betogo.xyz', market: 'PH', enabled: true },
       { domain: 'betogo666.com', market: 'ph', enabled: false },
+      { domain: 'betogo.app', market: 'public', enabled: true },
       { domain: 'invalid.example', market: 'SG', enabled: true },
     ])).toEqual([
       { domain: 'betogo.xyz', market: 'ID', enabled: true },
       { domain: 'betogo666.com', market: 'PH', enabled: false },
+      { domain: 'betogo.app', market: 'PUBLIC', enabled: true },
     ])
   })
 
   it('www 与裸域命中同一配置，禁用项不生效', () => {
     const mappings = normalizeSiteDomainMappings([
-      { domain: 'betogo.games', market: 'ID', enabled: true },
+      { domain: 'betogo.games', market: 'PUBLIC', enabled: true },
       { domain: 'betogo666.com', market: 'PH', enabled: false },
     ])
-    expect(marketForHost(mappings, 'www.betogo.games')).toBe('ID')
-    expect(marketForHost(mappings, 'https://betogo.games/auth/google/callback')).toBe('ID')
+    expect(marketForHost(mappings, 'www.betogo.games')).toBeNull()
+    expect(marketForHost(mappings, 'https://betogo.games/auth/google/callback')).toBeNull()
     expect(marketForHost(mappings, 'betogo666.com')).toBeNull()
   })
 })
