@@ -98,6 +98,7 @@ for t in "${TARGETS[@]}"; do
       echo "### web-tma"
       (cd "$ROOT/apps/web-tma" && npm run build >/dev/null)
       sync_dist web-tma
+      remote "sudo install -d -m 755 $PROD_DIR/data/apk/ph $PROD_DIR/data/apk/id && sudo install -m 644 $PROD_DIR/apps/web-tma/dist/app/ph/betogo.apk $PROD_DIR/data/apk/ph/betogo.apk && sudo install -m 644 $PROD_DIR/apps/web-tma/dist/app/id/betogo.apk $PROD_DIR/data/apk/id/betogo.apk"
       health "http://127.0.0.1:8080/" web-tma
       ;;
     web-admin)
