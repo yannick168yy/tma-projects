@@ -39,7 +39,7 @@ import { createHash } from 'node:crypto'
 import { appDomainsForMarket, getSiteDomainMappings, marketForHost, type SiteMarket } from '../services/site-domain.service.js'
 
 function requestHost(ctx: import('koa').Context): string {
-  for (const raw of [ctx.get('origin'), ctx.get('referer'), ctx.get('host')]) {
+  for (const raw of [ctx.get('x-viewer-host'), ctx.get('origin'), ctx.get('referer'), ctx.get('host')]) {
     if (!raw) continue
     try { return new URL(raw.includes('://') ? raw : `https://${raw}`).hostname } catch { /* 继续 */ }
   }

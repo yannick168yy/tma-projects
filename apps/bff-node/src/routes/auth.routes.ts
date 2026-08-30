@@ -83,7 +83,8 @@ function hostFromHeader(raw: string): string | undefined {
 
 function entrySource(ctx: import('koa').Context, forceTma = false): string | undefined {
   if (forceTma) return 'tma'
-  return hostFromHeader(ctx.get('origin'))
+  return hostFromHeader(ctx.get('x-viewer-host'))
+    ?? hostFromHeader(ctx.get('origin'))
     ?? hostFromHeader(ctx.get('referer'))
     ?? hostFromHeader(ctx.get('host'))
 }
@@ -102,7 +103,7 @@ async function siteMarket(ctx: import('koa').Context): Promise<'PH' | 'ID'> {
 // 两者都非致命，不阻塞登录。
 function attributeNewUser(ctx: import('koa').Context, isNewUser: boolean, userId: string): void {
   if (!isNewUser) return
-  const host = ctx.get('origin') || ctx.get('host')
+  const host = ctx.get('x-viewer-host') || ctx.get('origin') || ctx.get('host')
   attributeAgentByDomain(ctx.state.env, userId, host).catch(() => {})
   captureAdAttribution(ctx.state.env, isNewUser, userId, {
     attrHeader: ctx.get('x-attr') || undefined,
