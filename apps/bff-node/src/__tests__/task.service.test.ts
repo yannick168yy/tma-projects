@@ -61,7 +61,7 @@ vi.mock('../services/vip.service.js', () => ({
   ensureBirthdayFromKyc: vi.fn(() => Promise.resolve(false)),
 }))
 
-import { claimTask, getTaskCenter } from '../services/task.service.js'
+import { claimTask, getTaskCenter, taskSpinChanceSource } from '../services/task.service.js'
 
 const identity = (provider: UserIdentity['provider']): UserIdentity => ({
   id: 1,
@@ -97,6 +97,7 @@ function setupPool(rows: {
     if (sql.includes('FROM bg_deposit_order')) return Promise.resolve([[{ total: rows.depositTotal ?? 0 }]])
     if (sql.includes('FROM bg_bet_order')) return Promise.resolve([[{ n: rows.betCount ?? 0 }]])
     if (sql.includes('FROM bg_app_download_claim')) return Promise.resolve([[]])
+    if (sql.includes('FROM bg_spin_deposit_rule')) return Promise.resolve([[{ id: 7 }]])
     return Promise.resolve([[]])
   })
 }
@@ -115,6 +116,17 @@ describe('任务服务', () => {
     state.getUser.mockResolvedValue(null)
     state.listUserIdentities.mockResolvedValue([])
     state.creditWallet.mockResolvedValue({ available: 10, frozen: 0 })
+  })
+
+  it('转盘机会来源按用户和币种隔离且长度符合数据库字段', () => {
+    const source = 'task:daily_play:2026-07-22'
+    const php = taskSpinChanceSource(source, 'BG-10001', 'PHP')
+    const otherUser = taskSpinChanceSource(source, 'BG-10002', 'PHP')
+    const idr = taskSpinChanceSource(source, 'BG-10001', 'IDR')
+
+    expect(php).toHaveLength(44)
+    expect(new Set([php, otherUser, idr]).size).toBe(3)
+    expect(taskSpinChanceSource(source, 'BG-10001', 'PHP')).toBe(php)
   })
 
   it('Telegram OIDC 绑定计入 Link Your Accounts', async () => {
@@ -174,5 +186,22 @@ describe('任务服务', () => {
     await expect(claimTask({} as never, 'BG-10001', 'daily_deposit_t2', 'PHP'))
       .resolves.toMatchObject({ taskId: 'daily_deposit_t2' })
     expect(state.creditWallet).toHaveBeenCalledOnce()
+  })
+
+  it('转盘任务按用户和币种写入独立机会来源', async () => {
+    setupPool({ depositTotal: 100 })
+    state.conn.query.mockResolvedValue([[]])
+    state.conn.execute.mockResolvedValue([{ affectedRows: 1 }])
+    state.pool.execute.mockResolvedValue([{ affectedRows: 1 }])
+
+    await claimTask({} as never, 'BG-10001', 'daily_deposit_t1', 'PHP')
+
+    const chanceCall = state.pool.execute.mock.calls.find(([sql]) => String(sql).includes('INSERT IGNORE INTO bg_spin_chance'))
+    expect(chanceCall?.[1]).toEqual([
+      'BG-10001',
+      taskSpinChanceSource('task:daily_deposit_t1:2026-07-22', 'BG-10001', 'PHP'),
+      7,
+      1,
+    ])
   })
 })

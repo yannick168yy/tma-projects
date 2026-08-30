@@ -1,4 +1,5 @@
 import type { Pool, PoolConnection, RowDataPacket, ResultSetHeader } from 'mysql2/promise'
+import { createHash } from 'node:crypto'
 import type { Env } from '../config/env.js'
 import { toIdrHundred } from '../utils/idr.js'
 import { getMysqlPool, isMysqlEnabled } from '../clients/mysql.client.js'
@@ -345,7 +346,12 @@ async function claimedPeriods(pool: Pool, userId: string, taskIds: string[]): Pr
 // ───────────────────────── 发奖（复用 creditWallet + createPromoRequirement 打码） ─────────────────────────
 
 /** 幂等发放转盘次数：source 唯一。任务发次数复用签到档的最低启用档 */
-async function grantSpinChance(env: Env, userId: string, source: string, n: number): Promise<void> {
+export function taskSpinChanceSource(source: string, userId: string, currency: string): string {
+  const digest = createHash('sha256').update(`${source}|${userId}|${currency}`).digest('hex').slice(0, 40)
+  return `tsk:${digest}`
+}
+
+async function grantSpinChance(env: Env, userId: string, source: string, n: number, currency: string): Promise<void> {
   if (n <= 0) return
   const pool = getMysqlPool(env)
   const [rows] = await pool.query<RowDataPacket[]>(
@@ -356,7 +362,7 @@ async function grantSpinChance(env: Env, userId: string, source: string, n: numb
   await pool.execute(
     `INSERT IGNORE INTO bg_spin_chance (user_id, source_order_id, rule_id, deposit_amount_php, chances_total)
      VALUES (?, ?, ?, 0, ?)`,
-    [userId, source, Number(ruleId), n],
+    [userId, taskSpinChanceSource(source, userId, currency), Number(ruleId), n],
   )
 }
 
@@ -385,7 +391,7 @@ async function grantReward(env: Env, userId: string, reward: RewardSpec, source:
       }
     }
   } else if (reward.type === 'spin') {
-    await grantSpinChance(env, userId, `task:${source}`, reward.spin)
+    await grantSpinChance(env, userId, `task:${source}`, reward.spin, reward.currency)
   } else if (reward.type === 'growth') {
     await grantGrowth(env, userId, reward.amount, reward.currency)
   }

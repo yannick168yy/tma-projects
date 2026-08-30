@@ -510,8 +510,7 @@ function SummaryTile({ icon, label, value, iconClass = '' }: { icon: string; lab
   )
 }
 
-// 转盘入口 tile：占据统计区左格（原 Claimable 位置），与 Rewards 并排。
-// 有 checkin 剩余次数→显示次数点转盘；没次数→引导去签到；自身数据加载中显示 …
+// 常驻转盘入口：显示所有来源的剩余次数，无次数时仍可进入转盘页查看规则。
 function SpinTile({ onNavigate }: { onNavigate?: (target: string) => void }) {
   const { t } = useTranslation()
   const token = useAuthStore((s) => s.token)
@@ -522,11 +521,7 @@ function SpinTile({ onNavigate }: { onNavigate?: (target: string) => void }) {
     if (!token) { setRemaining(null); return }
     try {
       const spin = await fetchSpinStatus()
-      // 只算每日签到转盘（kind==='checkin'）的次数，与 CheckinSheet / RewardsSpinPage 口径一致
-      const n = (spin.depositRules ?? [])
-        .filter((r) => r.kind === 'checkin')
-        .reduce((sum, r) => sum + (r.remainingChances ?? 0), 0)
-      setRemaining(n)
+      setRemaining(spin.remainingChances ?? 0)
     } catch { setRemaining(null) }
   }, [token])
 
@@ -540,19 +535,19 @@ function SpinTile({ onNavigate }: { onNavigate?: (target: string) => void }) {
 
   const loading = !!token && remaining === null
   const has = (remaining ?? 0) > 0
-  const value = loading ? '…' : has ? t('tasks.spinCard.tileReady', { n: remaining }) : t('tasks.spinCard.goCheckin')
+  const value = loading ? '…' : has ? t('tasks.spinCard.tileReady', { n: remaining }) : t('tasks.spinCard.goSpin')
 
   return (
     <button
       type="button"
-      onClick={() => { if (!loading) onNavigate?.(has ? 'spin' : 'checkin') }}
+      onClick={() => onNavigate?.('spin')}
       className="flex min-w-0 items-center gap-2 rounded-[12px] bg-[#12100b]/95 px-2.5 py-2 text-left shadow-[0_4px_14px_rgba(0,0,0,0.4)] active:scale-[0.98]"
     >
       <img
         src={wheelImg}
         alt=""
         draggable={false}
-        className={`h-[34px] w-[34px] flex-shrink-0 rounded-full object-cover ${has || loading ? '' : 'opacity-55 grayscale'}`}
+        className="h-[34px] w-[34px] flex-shrink-0 rounded-full object-cover"
       />
       <span className="min-w-0">
         <span className="block truncate text-[11px] font-medium leading-tight text-[#f0e6d2]">{t('tasks.spinCard.title')}</span>
