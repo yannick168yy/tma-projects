@@ -1,17 +1,18 @@
 import { useEffect, useState } from 'react'
-import { Alert, Button, Card, Col, Row, Segmented, Select, Space, Spin, Table, Tag, message } from 'antd'
+import { Alert, Button, Card, Col, Row, Segmented, Space, Spin, Table, Tag, message } from 'antd'
 import {
   getBiAlerts, getBiProviders, setBiAlertStatus,
   type BiAlertRow, type BiProviderRow,
 } from '../api'
 import { LineChart, PieChart } from '../components/BiCharts'
+import { useMarketScope } from '../components/MarketScope'
 
 const fmtMoney = (v: number) => Math.round(v).toLocaleString()
 const fmtRtp = (v: number | null) => (v == null ? '—' : `${(v * 100).toFixed(1)}%`)
 
 export default function BiProviders() {
+  const { currency } = useMarketScope()
   const [days, setDays] = useState(30)
-  const [currency, setCurrency] = useState('ALL')
   const [loading, setLoading] = useState(false)
   const [data, setData] = useState<Awaited<ReturnType<typeof getBiProviders>> | null>(null)
   const [alerts, setAlerts] = useState<BiAlertRow[]>([])
@@ -79,14 +80,6 @@ export default function BiProviders() {
       <Space style={{ margin: '8px 0 16px' }} wrap>
         <Segmented value={days} onChange={(v) => setDays(v as number)}
           options={[{ label: '近7天', value: 7 }, { label: '近30天', value: 30 }, { label: '近90天', value: 90 }]} />
-        <Select value={currency} onChange={setCurrency} style={{ width: 140 }}
-          options={[
-            { label: '全部折算 USDT', value: 'ALL' },
-            { label: 'PHP', value: 'PHP' },
-            { label: 'IDR', value: 'IDR' },
-            { label: 'USDT', value: 'USDT' },
-            { label: 'USDC', value: 'USDC' },
-          ]} />
       </Space>
 
       <Spin spinning={loading}>

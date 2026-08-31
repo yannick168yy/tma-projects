@@ -81,6 +81,7 @@ export const getDashboard = () => get<{
 
 export interface HomeDashboard {
   asOf: string
+  market: 'ALL' | 'PH' | 'ID'; currency: 'USDT' | 'PHP' | 'IDR'; timezone: 'UTC+7' | 'UTC+8'
   todos: { manualWithdrawals: number; rejectedKyc: number; csConversations: number; openAlerts: number }
   today: BiWindowStats
   yesterdaySameTime: BiWindowStats
@@ -89,6 +90,7 @@ export interface HomeDashboard {
     walletTotalUsdt: number
     pendingWithdrawCount: number
     pendingWithdrawUsdt: number
+    pendingWithdrawals: { currency: string; amount: number; count: number; usdt: number }[]
     providers: { provider: string; balance: number; currency: string; status: string; updatedAt: string | null }[]
   }
   heartbeat: {
@@ -99,22 +101,27 @@ export interface HomeDashboard {
   }
   users: { total: number; active: number; frozen: number }
 }
-export const getHomeDashboard = () => get<HomeDashboard>('/admin/dashboard/v2')
+export const getHomeDashboard = (market: 'ALL' | 'PH' | 'ID' = 'ALL') => get<HomeDashboard>('/admin/dashboard/v2', { market })
 
 // BI 数据分析
 export interface BiWindowStats {
   depositAmount: number; depositCount: number; withdrawAmount: number
   betAmount: number; ggr: number; bonusCost: number; ngr: number
   dau: number; newUsers: number; firstDepUsers: number
+  moneyByCurrency: Record<string, {
+    depositAmount: number; withdrawAmount: number; betAmount: number
+    ggr: number; bonusCost: number; ngr: number
+  }>
 }
 export interface BiOverview {
   asOf: string
+  market: 'ALL' | 'PH' | 'ID'; currency: 'USDT' | 'PHP' | 'IDR'; timezone: 'UTC+7' | 'UTC+8'
   today: BiWindowStats
   yesterdaySameTime: BiWindowStats
   lastWeekSameTime: BiWindowStats
   yesterdayFull: BiWindowStats
 }
-export const getBiOverview = () => get<BiOverview>('/admin/bi/overview')
+export const getBiOverview = (market: 'ALL' | 'PH' | 'ID' = 'ALL') => get<BiOverview>('/admin/bi/overview', { market })
 
 export interface BiTrendPoint {
   date: string; deposit: number; withdraw: number; betAmount: number
@@ -146,48 +153,48 @@ export interface BiAlertRow {
 export const getBiAlerts = (status?: string) => get<BiAlertRow[]>('/admin/bi/alerts', status ? { status } : undefined)
 
 export interface BiFunnel { registered: number; kycApproved: number; firstDep: number; redep: number }
-export const getBiFunnel = (params: { days: number; source?: string }) => get<BiFunnel>('/admin/bi/funnel', params)
+export const getBiFunnel = (params: { days: number; source?: string; market?: 'ALL' | 'PH' | 'ID' }) => get<BiFunnel>('/admin/bi/funnel', params)
 
 export interface BiRetentionCohort { week: string; size: number; d1: number; d3: number; d7: number; d14: number; d30: number }
-export const getBiRetention = (weeks: number) => get<BiRetentionCohort[]>('/admin/bi/retention', { weeks })
+export const getBiRetention = (weeks: number, market: 'ALL' | 'PH' | 'ID' = 'ALL') => get<BiRetentionCohort[]>('/admin/bi/retention', { weeks, market })
 
 export interface BiRfmCell { valueTier: string; recency: string; users: number; depositAmount: number }
-export const getBiRfm = (days: number) =>
-  get<{ cells: BiRfmCell[]; nonDepositors: number; totalUsers: number }>('/admin/bi/rfm', { days })
+export const getBiRfm = (days: number, market: 'ALL' | 'PH' | 'ID' = 'ALL') =>
+  get<{ cells: BiRfmCell[]; nonDepositors: number; totalUsers: number }>('/admin/bi/rfm', { days, market })
 
 export interface BiLtvCohort { week: string; size: number; d7: number; d30: number; d60: number; d90: number }
-export const getBiLtv = (weeks: number) => get<BiLtvCohort[]>('/admin/bi/ltv', { weeks })
+export const getBiLtv = (weeks: number, market: 'ALL' | 'PH' | 'ID' = 'ALL') => get<BiLtvCohort[]>('/admin/bi/ltv', { weeks, market })
 
 export interface BiTopWinner { userId: string; displayName: string; netWin: number; betAmount: number }
-export const getBiTopWinners = (days: number) => get<BiTopWinner[]>('/admin/bi/top-winners', { days })
+export const getBiTopWinners = (days: number, market: 'ALL' | 'PH' | 'ID' = 'ALL') => get<BiTopWinner[]>('/admin/bi/top-winners', { days, market })
 
 export interface BiAcquisitionRow {
   source: string; newUsers: number; firstDepUsers: number
   conversion: number | null; bonusCost: number; ngr: number
 }
-export const getBiAcquisition = (days: number) =>
-  get<{ sources: BiAcquisitionRow[]; dauTrend: { dates: string[]; series: { name: string; data: number[] }[] } }>('/admin/bi/acquisition', { days })
+export const getBiAcquisition = (days: number, market: 'ALL' | 'PH' | 'ID' = 'ALL') =>
+  get<{ sources: BiAcquisitionRow[]; dauTrend: { dates: string[]; series: { name: string; data: number[] }[] }; currency: string }>('/admin/bi/acquisition', { days, market })
 
 export interface BiForecastPoint { date: string; value: number }
-export const getBiForecast = (metric: 'ggr' | 'deposit') =>
-  get<{ history: BiForecastPoint[]; forecast: BiForecastPoint[] }>('/admin/bi/forecast', { metric })
+export const getBiForecast = (metric: 'ggr' | 'deposit', market: 'ALL' | 'PH' | 'ID' = 'ALL') =>
+  get<{ history: BiForecastPoint[]; forecast: BiForecastPoint[]; currency?: string }>('/admin/bi/forecast', { metric, market })
 
-export const getBiTargets = (period: string) => get<{ metric: string; targetValue: number }[]>('/admin/bi/targets', { period })
-export const putBiTarget = (period: string, metric: string, targetValue: number) =>
-  put<{ ok: boolean }>('/admin/bi/targets', { period, metric, targetValue })
+export const getBiTargets = (period: string, market: 'ALL' | 'PH' | 'ID' = 'ALL') => get<{ metric: string; targetValue: number }[]>('/admin/bi/targets', { period, market })
+export const putBiTarget = (period: string, metric: string, targetValue: number, market: 'ALL' | 'PH' | 'ID' = 'ALL') =>
+  put<{ ok: boolean }>('/admin/bi/targets', { period, metric, targetValue, market })
 
 export interface BiTargetProgress {
   metric: string; target: number; actual: number
   timeProgress: number; completion: number; requiredDaily: number
   projected: number; projectedCompletion: number
 }
-export const getBiTargetProgress = () => get<{ period: string; items: BiTargetProgress[] }>('/admin/bi/target-progress')
+export const getBiTargetProgress = (market: 'ALL' | 'PH' | 'ID' = 'ALL') => get<{ period: string; items: BiTargetProgress[]; currency?: string }>('/admin/bi/target-progress', { market })
 
 export interface BiChurnUser {
   userId: string; displayName: string; deposit90d: number
   lastActive: string; idleDays: number; cadenceDays: number; score: number
 }
-export const getBiChurnRisk = () => get<BiChurnUser[]>('/admin/bi/churn-risk')
+export const getBiChurnRisk = (market: 'ALL' | 'PH' | 'ID' = 'ALL') => get<BiChurnUser[]>('/admin/bi/churn-risk', { market })
 export const grantChurnRedepOffer = (userId: string, currency = 'PHP') =>
   post<{ ok: boolean; reason?: string; bonusAmount?: number; minDeposit?: number; endsAt?: string }>('/admin/bi/churn/redep-offer', { userId, currency })
 
@@ -195,8 +202,8 @@ export interface BiChannelRow {
   direction: string; channel: string; total: number; success: number
   rate: number; avgSecs: number | null
 }
-export const getBiChannels = (days: number) =>
-  get<{ channels: BiChannelRow[]; trend: { dates: string[]; series: { name: string; data: (number | null)[] }[] } }>('/admin/bi/channels', { days })
+export const getBiChannels = (days: number, market: 'ALL' | 'PH' | 'ID' = 'ALL') =>
+  get<{ channels: BiChannelRow[]; trend: { dates: string[]; series: { name: string; data: (number | null)[] }[] } }>('/admin/bi/channels', { days, market })
 export interface AdSourceRow {
   channelCode: string; downloads: number; installs: number; regUsers: number; firstDepUsers: number
   firstDepAmount: number; depositAmount: number; depositUsers: number; arpu: number | null
@@ -205,11 +212,11 @@ export interface AdSourceReport {
   from: string; to: string; currency: string
   rows: AdSourceRow[]; totals: Omit<AdSourceRow, 'channelCode'>
 }
-export const getAdSources = (params: { from?: string; to?: string; channel?: string }) =>
+export const getAdSources = (params: { from?: string; to?: string; channel?: string; market?: 'ALL' | 'PH' | 'ID' }) =>
   get<AdSourceReport>('/admin/bi/ad-sources', params)
 
 export interface AdSourceTrendPoint { date: string; regUsers: number; firstDepUsers: number; depositAmount: number; arpu: number | null }
-export const getAdSourceTrend = (params: { channel: string; from?: string; to?: string }) =>
+export const getAdSourceTrend = (params: { channel: string; from?: string; to?: string; market?: 'ALL' | 'PH' | 'ID' }) =>
   get<{ channel: string; currency: string; points: AdSourceTrendPoint[] }>('/admin/bi/ad-sources/trend', params)
 
 export interface ChannelQualityRow {
@@ -218,11 +225,11 @@ export interface ChannelQualityRow {
   avgLtvPhp: number | null; cpaUsd: number; suspiciousUsers: number
   withdrawAmount: number; walletBalance: number; rejectedWithdraw: number; netCashPhp: number; ngrPhp: number
 }
-export const getChannelQuality = (params: { from?: string; to?: string }) =>
+export const getChannelQuality = (params: { from?: string; to?: string; market?: 'ALL' | 'PH' | 'ID' }) =>
   get<{ rows: ChannelQualityRow[]; usdToPhp: number }>('/admin/bi/ad-sources/quality', params)
 export const getAdChannelCodes = () => get<string[]>('/admin/bi/ad-sources/channels')
 
-export const getChannelVerdict = (data: { from: string; to: string; channels: string[]; spends?: Record<string, number> }) =>
+export const getChannelVerdict = (data: { from: string; to: string; channels: string[]; spends?: Record<string, number>; market?: 'ALL' | 'PH' | 'ID' }) =>
   post<{ text: string; ai: boolean }>('/admin/bi/ad-sources/verdict', data)
 
 export interface ChannelPrice { channelCode: string; cpaUsd: number; remark: string | null; updatedAt: string }

@@ -2,7 +2,7 @@ import type { Redis } from 'ioredis'
 import type { Pool, RowDataPacket } from 'mysql2/promise'
 import { getMysqlPool } from '../clients/mysql.client.js'
 import type { Env } from '../config/env.js'
-import { getBiOverview, listBiAlerts, type BiWindowStats } from './bi.service.js'
+import { getBiOverview, listBiAlerts, marketCurrency, marketOffsetHours, type BiMarket, type BiWindowStats } from './bi.service.js'
 import { fetchBadgeCounts } from './sse-badges.js'
 import { usdtRateMap } from './marketing-bi.service.js'
 
@@ -20,6 +20,9 @@ async function toUsdt(redis: Redis, env: Env, currency: string, amount: number):
 
 export interface HomeDashboard {
   asOf: string
+  market: BiMarket
+  currency: 'USDT' | 'PHP' | 'IDR'
+  timezone: 'UTC+7' | 'UTC+8'
   todos: { manualWithdrawals: number; rejectedKyc: number; csConversations: number; openAlerts: number }
   today: BiWindowStats
   yesterdaySameTime: BiWindowStats
@@ -28,6 +31,7 @@ export interface HomeDashboard {
     walletTotalUsdt: number
     pendingWithdrawCount: number
     pendingWithdrawUsdt: number
+    pendingWithdrawals: { currency: string; amount: number; count: number; usdt: number }[]
     providers: { provider: string; balance: number; currency: string; status: string; updatedAt: string | null }[]
   }
   heartbeat: {
@@ -42,11 +46,12 @@ export interface HomeDashboard {
 const iso = (v: unknown): string | null =>
   v == null ? null : v instanceof Date ? v.toISOString() : new Date(String(v)).toISOString()
 
-export async function getHomeDashboard(env: Env, redis: Redis): Promise<HomeDashboard> {
+export async function getHomeDashboard(env: Env, redis: Redis, market: BiMarket = 'ALL'): Promise<HomeDashboard> {
   const db = pool(env)
+  const currency = marketCurrency(market)
 
   const [overview, badges, alerts] = await Promise.all([
-    getBiOverview(env, redis),
+    getBiOverview(env, redis, market),
     fetchBadgeCounts(env),
     listBiAlerts(env, 'open'),
   ])
@@ -57,6 +62,7 @@ export async function getHomeDashboard(env: Env, redis: Redis): Promise<HomeDash
   const wallets: { currency: string; amount: number; usdt: number }[] = []
   let walletTotalUsdt = 0
   for (const r of walletRows) {
+    if (currency !== 'ALL' && String(r.currency) !== currency) continue
     const amount = Number(r.amt)
     const usdt = await toUsdt(redis, env, String(r.currency), amount)
     wallets.push({ currency: String(r.currency), amount, usdt })
@@ -70,15 +76,21 @@ export async function getHomeDashboard(env: Env, redis: Redis): Promise<HomeDash
   )
   let pendingWithdrawCount = 0
   let pendingWithdrawUsdt = 0
+  const pendingWithdrawals: { currency: string; amount: number; count: number; usdt: number }[] = []
   for (const r of pendingRows) {
-    pendingWithdrawCount += Number(r.cnt)
-    pendingWithdrawUsdt += await toUsdt(redis, env, String(r.currency), Number(r.amt))
+    if (currency !== 'ALL' && String(r.currency) !== currency) continue
+    const count = Number(r.cnt)
+    const amount = Number(r.amt)
+    const usdt = await toUsdt(redis, env, String(r.currency), amount)
+    pendingWithdrawCount += count
+    pendingWithdrawUsdt += usdt
+    pendingWithdrawals.push({ currency: String(r.currency), amount, count, usdt })
   }
 
   const [provRows] = await db.query<RowDataPacket[]>(
     `SELECT provider, balance, currency, status, error_msg, updated_at FROM provider_balance_snapshot ORDER BY provider`,
   )
-  const providers = provRows.map((r) => ({
+  const providers = provRows.filter((r) => currency === 'ALL' || String(r.currency) === currency).map((r) => ({
     provider: String(r.provider),
     balance: Number(r.balance),
     currency: String(r.currency ?? ''),
@@ -86,19 +98,23 @@ export async function getHomeDashboard(env: Env, redis: Redis): Promise<HomeDash
     updatedAt: iso(r.updated_at),
   }))
 
+  const currencyCondition = currency === 'ALL' ? '' : ' AND currency=?'
+  const currencyParams = currency === 'ALL' ? [] : [currency]
   const [[hb]] = await db.query<RowDataPacket[]>(
     `SELECT
-      (SELECT MAX(created_at) FROM bg_568win_wallet_txn) last_bet,
-      (SELECT MAX(created_at) FROM bg_deposit_order WHERE status='paid') last_dep,
-      (SELECT MAX(created_at) FROM bg_login_log) last_login`,
+      (SELECT MAX(created_at) FROM bg_568win_wallet_txn WHERE 1=1${currencyCondition}) last_bet,
+      (SELECT MAX(created_at) FROM bg_deposit_order WHERE status='paid'${currencyCondition}) last_dep,
+      (SELECT MAX(l.created_at) FROM bg_login_log l JOIN bg_user u ON u.id=l.user_id WHERE 1=1${market === 'ALL' ? '' : ' AND u.market=?'}) last_login`,
+    [...currencyParams, ...currencyParams, ...(market === 'ALL' ? [] : [market])],
   )
-  const manilaToday = new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10)
+  const localToday = new Date(Date.now() + marketOffsetHours(market) * 3600 * 1000).toISOString().slice(0, 10)
+  const channelFilter = market === 'ID' ? " AND channel LIKE 'unispay%'" : market === 'PH' ? " AND channel NOT LIKE 'unispay%'" : ''
   const [chRows] = await db.query<RowDataPacket[]>(
-    `SELECT direction, channel, total, success FROM bi_daily_channel WHERE stat_date=? ORDER BY total DESC`,
-    [manilaToday],
+    `SELECT direction, channel, total, success FROM bi_daily_channel WHERE stat_date=?${channelFilter} ORDER BY total DESC`,
+    [localToday],
   )
 
-  const [uRows] = await db.query<RowDataPacket[]>(`SELECT status, COUNT(*) cnt FROM bg_user GROUP BY status`)
+  const [uRows] = await db.query<RowDataPacket[]>(`SELECT status, COUNT(*) cnt FROM bg_user${market === 'ALL' ? '' : ' WHERE market=?'} GROUP BY status`, market === 'ALL' ? [] : [market])
   const users = { total: 0, active: 0, frozen: 0 }
   for (const r of uRows) {
     users.total += Number(r.cnt)
@@ -108,6 +124,9 @@ export async function getHomeDashboard(env: Env, redis: Redis): Promise<HomeDash
 
   return {
     asOf: overview.asOf,
+    market,
+    currency: overview.currency,
+    timezone: overview.timezone,
     todos: {
       manualWithdrawals: badges.manualWithdrawals,
       rejectedKyc: badges.rejectedKyc,
@@ -116,7 +135,7 @@ export async function getHomeDashboard(env: Env, redis: Redis): Promise<HomeDash
     },
     today: overview.today,
     yesterdaySameTime: overview.yesterdaySameTime,
-    balances: { wallets, walletTotalUsdt, pendingWithdrawCount, pendingWithdrawUsdt, providers },
+    balances: { wallets, walletTotalUsdt, pendingWithdrawCount, pendingWithdrawUsdt, pendingWithdrawals, providers },
     heartbeat: {
       lastBetAt: iso(hb?.last_bet),
       lastDepositAt: iso(hb?.last_dep),

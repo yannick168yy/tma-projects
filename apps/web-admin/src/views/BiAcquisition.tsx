@@ -2,18 +2,18 @@ import { useEffect, useState } from 'react'
 import { Card, Col, Row, Segmented, Space, Spin, Table, Tooltip } from 'antd'
 import { getBiAcquisition, type BiAcquisitionRow } from '../api'
 import { LineChart } from '../components/BiCharts'
-
-const fmtMoney = (v: number) => Math.round(v).toLocaleString()
+import { formatMarketAmount, useMarketScope } from '../components/MarketScope'
 
 export default function BiAcquisition() {
+  const { market, unit, timezone } = useMarketScope()
   const [days, setDays] = useState(30)
   const [loading, setLoading] = useState(false)
   const [data, setData] = useState<Awaited<ReturnType<typeof getBiAcquisition>> | null>(null)
 
   useEffect(() => {
     setLoading(true)
-    getBiAcquisition(days).then(setData).finally(() => setLoading(false))
-  }, [days])
+    getBiAcquisition(days, market).then(setData).finally(() => setLoading(false))
+  }, [days, market])
 
   const columns = [
     { title: '渠道(注册入口)', dataIndex: 'source', fixed: 'left' as const },
@@ -21,10 +21,10 @@ export default function BiAcquisition() {
     { title: '首充人数', dataIndex: 'firstDepUsers' },
     { title: '首充转化率', dataIndex: 'conversion',
       render: (v: number | null) => (v == null ? '—' : `${(v * 100).toFixed(1)}%`) },
-    { title: <Tooltip title="期间该来源用户领取的彩金总额（折算USDT），含老用户">彩金成本（USDT等值）</Tooltip>,
-      dataIndex: 'bonusCost', render: fmtMoney },
-    { title: <Tooltip title="期间该来源用户贡献的 NGR（投注-派彩-彩金，折算USDT），含老用户">NGR（USDT等值）</Tooltip>,
-      dataIndex: 'ngr', render: (v: number) => <span style={{ color: v >= 0 ? undefined : '#cf1322' }}>{fmtMoney(v)}</span>,
+    { title: <Tooltip title="期间该来源用户领取的彩金总额，含老用户">彩金成本（{unit}）</Tooltip>,
+      dataIndex: 'bonusCost', render: (v: number) => formatMarketAmount(v, unit) },
+    { title: <Tooltip title="期间该来源用户贡献的 NGR（投注-派彩-彩金），含老用户">NGR（{unit}）</Tooltip>,
+      dataIndex: 'ngr', render: (v: number) => <span style={{ color: v >= 0 ? undefined : '#cf1322' }}>{formatMarketAmount(v, unit)}</span>,
       sorter: (a: BiAcquisitionRow, b: BiAcquisitionRow) => a.ngr - b.ngr },
     { title: <Tooltip title="NGR÷彩金成本,大于1=活动投入已回本">产出比</Tooltip>, key: 'roi',
       render: (_: unknown, r: BiAcquisitionRow) =>
@@ -35,7 +35,7 @@ export default function BiAcquisition() {
     <div>
       <h2 style={{ marginBottom: 4 }}>渠道拉新</h2>
       <div style={{ color: '#999', fontSize: 12, marginBottom: 16 }}>
-        渠道=入口域名或 tma。新增/首充按注册域名终身归因；DAU 按当日登录域名归因——推广新域名后看这里量有没有起来。
+        渠道=入口域名或 tma。新增/首充按注册域名终身归因；DAU 按当日登录域名归因。当前金额单位 {unit}，统计日 {timezone}。
       </div>
 
       <Space style={{ marginBottom: 16 }}>

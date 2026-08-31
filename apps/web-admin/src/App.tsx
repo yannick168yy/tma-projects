@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import AppLayout from './components/AppLayout'
+import { AdminMarketProvider } from './components/MarketScope'
 import Login from './views/Login'
 import Dashboard from './views/Dashboard'
 import BiDashboard from './views/BiDashboard'
@@ -86,7 +87,7 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<GuestOnly><Login /></GuestOnly>} />
-        <Route path="/" element={<RequireAuth><AppLayout /></RequireAuth>}>
+        <Route path="/" element={<RequireAuth><AdminMarketProvider><AppLayout /></AdminMarketProvider></RequireAuth>}>
           <Route index element={<Navigate to="/dashboard" replace />} />
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="bi/dashboard" element={<BiDashboard />} />

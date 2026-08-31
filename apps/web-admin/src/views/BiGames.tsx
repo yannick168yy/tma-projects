@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Card, Col, Row, Segmented, Select, Space, Spin, Table, Tag } from 'antd'
 import { getBiGames, type BiGameRow } from '../api'
 import { HBarChart, PieChart } from '../components/BiCharts'
+import { useMarketScope } from '../components/MarketScope'
 
 const fmtMoney = (v: number) => Math.round(v).toLocaleString()
 const fmtRtp = (v: number | null) => (v == null ? '—' : `${(v * 100).toFixed(1)}%`)
@@ -12,8 +13,8 @@ const CATEGORY_LABEL: Record<string, string> = {
 }
 
 export default function BiGames() {
+  const { currency } = useMarketScope()
   const [days, setDays] = useState(30)
-  const [currency, setCurrency] = useState('ALL')
   const [category, setCategory] = useState('ALL')
   const [loading, setLoading] = useState(false)
   const [data, setData] = useState<Awaited<ReturnType<typeof getBiGames>> | null>(null)
@@ -55,14 +56,6 @@ export default function BiGames() {
       <Space style={{ marginBottom: 16 }} wrap>
         <Segmented value={days} onChange={(v) => setDays(v as number)}
           options={[{ label: '近7天', value: 7 }, { label: '近30天', value: 30 }, { label: '近90天', value: 90 }]} />
-        <Select value={currency} onChange={setCurrency} style={{ width: 140 }}
-          options={[
-            { label: '全部折算 USDT', value: 'ALL' },
-            { label: 'PHP', value: 'PHP' },
-            { label: 'IDR', value: 'IDR' },
-            { label: 'USDT', value: 'USDT' },
-            { label: 'USDC', value: 'USDC' },
-          ]} />
         <Select value={category} onChange={setCategory} style={{ width: 120 }}
           options={[{ label: '全部品类', value: 'ALL' },
             ...Object.entries(CATEGORY_LABEL).map(([v, label]) => ({ label, value: v }))]} />

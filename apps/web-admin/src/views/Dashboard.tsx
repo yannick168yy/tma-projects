@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Badge, Card, Col, Row, Space, Spin, Table, Tag, Tooltip } from 'antd'
 import { Link, useNavigate } from 'react-router-dom'
 import { getHomeDashboard, type HomeDashboard } from '../api'
+import { formatMarketAmount, useMarketScope } from '../components/MarketScope'
 
 const fmtMoney = (v: number) => Math.round(v).toLocaleString()
 
@@ -23,15 +24,16 @@ function Delta({ cur, base }: { cur: number; base: number }) {
 
 export default function Dashboard() {
   const navigate = useNavigate()
+  const { market, unit, timezone } = useMarketScope()
   const [data, setData] = useState<HomeDashboard | null>(null)
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
     setLoading(true)
-    getHomeDashboard().then(setData).finally(() => setLoading(false))
-    const timer = setInterval(() => getHomeDashboard().then(setData), 60_000)
+    getHomeDashboard(market).then(setData).finally(() => setLoading(false))
+    const timer = setInterval(() => getHomeDashboard(market).then(setData), 60_000)
     return () => clearInterval(timer)
-  }, [])
+  }, [market])
 
   const todos = data ? [
     { label: '待人工审核提现', count: data.todos.manualWithdrawals, to: '/review/manual' },
@@ -41,13 +43,19 @@ export default function Dashboard() {
   ] : []
 
   const snapshot = data ? [
-    { label: '今日 GGR（USDT等值）', cur: Math.round(data.today.ggr), base: Math.round(data.yesterdaySameTime.ggr) },
-    { label: '今日充值（USDT等值）', cur: Math.round(data.today.depositAmount), base: Math.round(data.yesterdaySameTime.depositAmount) },
-    { label: '今日提现（USDT等值）', cur: Math.round(data.today.withdrawAmount), base: Math.round(data.yesterdaySameTime.withdrawAmount) },
-    { label: 'DAU', cur: data.today.dau, base: data.yesterdaySameTime.dau },
-    { label: '新增注册', cur: data.today.newUsers, base: data.yesterdaySameTime.newUsers },
-    { label: '首充人数', cur: data.today.firstDepUsers, base: data.yesterdaySameTime.firstDepUsers },
+    { label: '今日 GGR', cur: data.today.ggr, base: data.yesterdaySameTime.ggr, money: true, metric: 'ggr' as const },
+    { label: '今日充值', cur: data.today.depositAmount, base: data.yesterdaySameTime.depositAmount, money: true, metric: 'depositAmount' as const },
+    { label: '今日提现', cur: data.today.withdrawAmount, base: data.yesterdaySameTime.withdrawAmount, money: true, metric: 'withdrawAmount' as const },
+    { label: 'DAU', cur: data.today.dau, base: data.yesterdaySameTime.dau, money: false },
+    { label: '新增注册', cur: data.today.newUsers, base: data.yesterdaySameTime.newUsers, money: false },
+    { label: '首充人数', cur: data.today.firstDepUsers, base: data.yesterdaySameTime.firstDepUsers, money: false },
   ] : []
+
+  const breakdown = (metric: 'ggr' | 'depositAmount' | 'withdrawAmount') =>
+    Object.entries(data?.today.moneyByCurrency ?? {})
+      .filter(([, values]) => Math.abs(values[metric]) > 0)
+      .map(([currency, values]) => `${currency === 'PHP' ? '₱' : currency === 'IDR' ? 'Rp ' : `${currency} `}${fmtMoney(values[metric])}`)
+      .join(' · ')
 
   const hb = data?.heartbeat
   const heartbeatItems = hb ? [
@@ -63,7 +71,7 @@ export default function Dashboard() {
         <Link to="/bi/dashboard" style={{ fontSize: 12 }}>看趋势与分析 → 运营驾驶舱</Link>
       </div>
       <div style={{ color: '#999', fontSize: 12, marginBottom: 16 }}>
-        当前网站状态与待办事项，每分钟自动刷新。金额均折算 USDT。
+        当前网站状态与待办事项，每分钟自动刷新。当前口径：{market === 'ALL' ? '综合（USDT 等值，附原币拆分）' : market === 'PH' ? '菲律宾 PHP 原币' : '印尼 IDR 原币'} · {timezone}。
       </div>
 
       <Spin spinning={loading && !data}>
@@ -88,7 +96,8 @@ export default function Dashboard() {
             <Col xs={12} md={4} key={s.label}>
               <Card bordered={false} size="small" style={{ marginBottom: 16 }}>
                 <div style={{ color: '#8c8c8c', fontSize: 13 }}>{s.label}</div>
-                <div style={{ fontSize: 22, fontWeight: 600, margin: '2px 0' }}>{s.cur.toLocaleString()}</div>
+                <div style={{ fontSize: 22, fontWeight: 600, margin: '2px 0' }}>{s.money ? formatMarketAmount(s.cur, unit) : s.cur.toLocaleString()}</div>
+                {market === 'ALL' && s.money && s.metric && <div style={{ color: '#999', fontSize: 11, minHeight: 17 }}>{breakdown(s.metric)}</div>}
                 <Delta cur={s.cur} base={s.base} />
               </Card>
             </Col>
@@ -100,7 +109,7 @@ export default function Dashboard() {
           <Col xs={24} lg={12}>
             <Card bordered={false} size="small" title="资金状态" style={{ marginBottom: 16 }}>
               <div style={{ marginBottom: 8 }}>
-                玩家钱包总余额 <b style={{ fontSize: 18 }}>USDT {fmtMoney(data?.balances.walletTotalUsdt ?? 0)} 等值</b>
+                玩家钱包总余额 <b style={{ fontSize: 18 }}>{market === 'ALL' ? `USDT ${fmtMoney(data?.balances.walletTotalUsdt ?? 0)} 等值` : formatMarketAmount((data?.balances.wallets ?? []).reduce((sum, w) => sum + w.amount, 0), unit)}</b>
                 <Space size={4} style={{ marginLeft: 8 }} wrap>
                   {(data?.balances.wallets ?? []).map((w) => (
                     <Tag key={w.currency}>{w.currency} {fmtMoney(w.amount)}</Tag>
@@ -108,7 +117,7 @@ export default function Dashboard() {
                 </Space>
               </div>
               <div style={{ marginBottom: 12 }}>
-                待付提现 <b>{data?.balances.pendingWithdrawCount ?? 0} 笔 / USDT {fmtMoney(data?.balances.pendingWithdrawUsdt ?? 0)} 等值</b>
+                待付提现 <b>{data?.balances.pendingWithdrawCount ?? 0} 笔 / {market === 'ALL' ? `USDT ${fmtMoney(data?.balances.pendingWithdrawUsdt ?? 0)} 等值` : formatMarketAmount((data?.balances.pendingWithdrawals ?? []).reduce((sum, w) => sum + w.amount, 0), unit)}</b>
                 <Link to="/withdrawals" style={{ marginLeft: 8, fontSize: 12 }}>去处理</Link>
               </div>
               <Table size="small" rowKey="provider" pagination={false}

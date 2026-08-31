@@ -5,6 +5,7 @@ import {
   type BiAlertRow, type BiChannelRow,
 } from '../api'
 import { LineChart } from '../components/BiCharts'
+import { useMarketScope } from '../components/MarketScope'
 
 const fmtSecs = (v: number | null) => {
   if (v == null) return '—'
@@ -14,6 +15,7 @@ const fmtSecs = (v: number | null) => {
 }
 
 export default function BiChannels() {
+  const { market, timezone } = useMarketScope()
   const isSuperAdmin = localStorage.getItem('admin_role') === 'super_admin'
   const [days, setDays] = useState(30)
   const [loading, setLoading] = useState(false)
@@ -42,8 +44,8 @@ export default function BiChannels() {
   }
   useEffect(() => {
     setLoading(true)
-    getBiChannels(days).then(setData).finally(() => setLoading(false))
-  }, [days])
+    getBiChannels(days, market).then(setData).finally(() => setLoading(false))
+  }, [days, market])
 
   const handleAlert = async (id: number, status: 'ack' | 'closed') => {
     await setBiAlertStatus(id, status)
@@ -77,7 +79,7 @@ export default function BiChannels() {
     <div>
       <h2 style={{ marginBottom: 4 }}>支付通道监控</h2>
       <div style={{ color: '#999', fontSize: 12, marginBottom: 16 }}>
-        只统计终态订单（充值 paid/failed/rejected；提现 completed/failed/rejected）。单日 ≥10 单且成功率 &lt;80% 自动告警。
+        只统计终态订单（充值 paid/failed/rejected；提现 completed/failed/rejected）。单日 ≥10 单且成功率 &lt;80% 自动告警。当前统计日 {timezone}。
       </div>
 
       {alerts.map((a) => (

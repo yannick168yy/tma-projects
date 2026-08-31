@@ -1,5 +1,6 @@
 import { useMemo, useState, useEffect, useCallback, type ReactNode } from 'react'
 import { Outlet, useNavigate, useLocation } from 'react-router-dom'
+import { MarketScopeSelector } from './MarketScope'
 import {
   Layout, Menu, Dropdown, Button, Modal, Form, Input, message, Badge, Drawer, Grid,
 } from 'antd'
@@ -257,6 +258,7 @@ export default function AppLayout() {
   const [form] = Form.useForm<{ current: string; newPwd: string; confirm: string }>()
   const badges = useAdminBadges()
   const defaultOpenKeys = useMemo(() => getDefaultOpenKeys(location.pathname), [])
+  const showMarketScope = location.pathname === '/dashboard' || location.pathname.startsWith('/bi/')
 
   const menuItems = useMemo(() => filterMenuByRole(buildMenuItems(badges) as MenuNode[], role), [badges, role])
 
@@ -348,11 +350,14 @@ export default function AppLayout() {
             )}
             {isMobile ? 'BetoGo' : 'BetoGo 管理后台'}
           </span>
-          <Dropdown menu={{ items: userMenuItems }}>
-            <Button type="text">
-              <UserOutlined /> {role || 'Admin'} <DownOutlined />
-            </Button>
-          </Dropdown>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            {showMarketScope && <MarketScopeSelector />}
+            <Dropdown menu={{ items: userMenuItems }}>
+              <Button type="text">
+                <UserOutlined /> {role || 'Admin'} <DownOutlined />
+              </Button>
+            </Dropdown>
+          </span>
         </Header>
 
         <HistoryTabs />

@@ -3,7 +3,7 @@ import {
   getBiOverview, getBiTrends, getBiProviders, getBiGames, listBiAlerts, setBiAlertStatus,
   getBiFunnel, getBiRetention, getBiRfm, getBiLtv, getBiTopWinners, getBiAcquisition,
   getBiForecast, listBiTargets, upsertBiTarget, getBiTargetProgress, getBiChurnRisk, grantRedepOffer,
-  BI_TARGET_METRICS, type BiTargetMetric,
+  BI_TARGET_METRICS, type BiTargetMetric, type BiMarket,
 } from '../../services/bi.service.js'
 import { getBiChannels } from '../../services/bi.service.js'
 import { getAdSourceReport, getAdSourceTrend, isValidChannel, getChannelQuality, listChannelCodes, generateChannelVerdict } from '../../services/marketing-bi.service.js'
@@ -20,8 +20,15 @@ function parseCommon(q: Record<string, unknown>): { days: number; currency: stri
 
 const router = new Router({ prefix: '/bi' })
 
+function parseMarket(value: unknown): BiMarket | null {
+  const market = String(value ?? 'ALL').toUpperCase()
+  return market === 'ALL' || market === 'PH' || market === 'ID' ? market : null
+}
+
 router.get('/overview', async (ctx) => {
-  const data = await getBiOverview(ctx.state.env, ctx.state.redis)
+  const market = parseMarket(ctx.query.market)
+  if (!market) { fail(ctx, 400, 'invalid market'); return }
+  const data = await getBiOverview(ctx.state.env, ctx.state.redis, market)
   ok(ctx, data)
 })
 
@@ -63,67 +70,89 @@ router.get('/alerts', async (ctx) => {
 router.get('/funnel', async (ctx) => {
   const days = Math.min(Math.max(Number(ctx.query.days) || 30, 7), 365)
   const source = ctx.query.source ? String(ctx.query.source) : 'ALL'
-  ok(ctx, await getBiFunnel(ctx.state.env, { days, source }))
+  const market = parseMarket(ctx.query.market)
+  if (!market) { fail(ctx, 400, 'invalid market'); return }
+  ok(ctx, await getBiFunnel(ctx.state.env, { days, source, market }))
 })
 
 router.get('/retention', async (ctx) => {
   const weeks = Math.min(Math.max(Number(ctx.query.weeks) || 8, 2), 26)
-  ok(ctx, await getBiRetention(ctx.state.env, weeks))
+  const market = parseMarket(ctx.query.market)
+  if (!market) { fail(ctx, 400, 'invalid market'); return }
+  ok(ctx, await getBiRetention(ctx.state.env, weeks, market))
 })
 
 router.get('/rfm', async (ctx) => {
   const days = Math.min(Math.max(Number(ctx.query.days) || 90, 30), 365)
-  ok(ctx, await getBiRfm(ctx.state.env, ctx.state.redis, days))
+  const market = parseMarket(ctx.query.market)
+  if (!market) { fail(ctx, 400, 'invalid market'); return }
+  ok(ctx, await getBiRfm(ctx.state.env, ctx.state.redis, days, market))
 })
 
 router.get('/ltv', async (ctx) => {
   const weeks = Math.min(Math.max(Number(ctx.query.weeks) || 12, 2), 26)
-  ok(ctx, await getBiLtv(ctx.state.env, ctx.state.redis, weeks))
+  const market = parseMarket(ctx.query.market)
+  if (!market) { fail(ctx, 400, 'invalid market'); return }
+  ok(ctx, await getBiLtv(ctx.state.env, ctx.state.redis, weeks, market))
 })
 
 router.get('/top-winners', async (ctx) => {
   const days = Math.min(Math.max(Number(ctx.query.days) || 30, 1), 365)
-  ok(ctx, await getBiTopWinners(ctx.state.env, ctx.state.redis, days))
+  const market = parseMarket(ctx.query.market)
+  if (!market) { fail(ctx, 400, 'invalid market'); return }
+  ok(ctx, await getBiTopWinners(ctx.state.env, ctx.state.redis, days, market))
 })
 
 router.get('/acquisition', async (ctx) => {
   const days = Math.min(Math.max(Number(ctx.query.days) || 30, 7), 365)
-  ok(ctx, await getBiAcquisition(ctx.state.env, ctx.state.redis, days))
+  const market = parseMarket(ctx.query.market)
+  if (!market) { fail(ctx, 400, 'invalid market'); return }
+  ok(ctx, await getBiAcquisition(ctx.state.env, ctx.state.redis, days, market))
 })
 
 router.get('/forecast', async (ctx) => {
   const metric = String(ctx.query.metric ?? 'ggr')
   if (!['ggr', 'deposit'].includes(metric)) { fail(ctx, 400, 'invalid metric'); return }
-  ok(ctx, await getBiForecast(ctx.state.env, ctx.state.redis, metric as 'ggr' | 'deposit'))
+  const market = parseMarket(ctx.query.market)
+  if (!market) { fail(ctx, 400, 'invalid market'); return }
+  ok(ctx, await getBiForecast(ctx.state.env, ctx.state.redis, metric as 'ggr' | 'deposit', market))
 })
 
 router.get('/targets', async (ctx) => {
   const period = String(ctx.query.period ?? '')
   if (!/^\d{4}-\d{2}$/.test(period)) { fail(ctx, 400, 'invalid period'); return }
-  ok(ctx, await listBiTargets(ctx.state.env, ctx.state.redis, period))
+  const market = parseMarket(ctx.query.market)
+  if (!market) { fail(ctx, 400, 'invalid market'); return }
+  ok(ctx, await listBiTargets(ctx.state.env, ctx.state.redis, period, market))
 })
 
 router.put('/targets', async (ctx) => {
   if (!['super_admin', 'finance'].includes(ctx.state.adminRole ?? '')) {
     fail(ctx, 403, '仅 super_admin / finance 可设置目标', 403); return
   }
-  const body = ctx.request.body as { period?: string; metric?: string; targetValue?: number }
+  const body = ctx.request.body as { period?: string; metric?: string; targetValue?: number; market?: string }
   const { period, metric, targetValue } = body ?? {}
+  const market = parseMarket(body.market)
   if (!period || !/^\d{4}-\d{2}$/.test(period) || !metric
+      || !market
       || !BI_TARGET_METRICS.includes(metric as BiTargetMetric)
       || typeof targetValue !== 'number' || targetValue < 0) {
     fail(ctx, 400, 'invalid params'); return
   }
-  await upsertBiTarget(ctx.state.env, ctx.state.redis, period, metric as BiTargetMetric, targetValue, ctx.state.adminUsername!)
+  await upsertBiTarget(ctx.state.env, ctx.state.redis, period, metric as BiTargetMetric, targetValue, ctx.state.adminUsername!, market)
   ok(ctx, { ok: true })
 })
 
 router.get('/target-progress', async (ctx) => {
-  ok(ctx, await getBiTargetProgress(ctx.state.env, ctx.state.redis))
+  const market = parseMarket(ctx.query.market)
+  if (!market) { fail(ctx, 400, 'invalid market'); return }
+  ok(ctx, await getBiTargetProgress(ctx.state.env, ctx.state.redis, market))
 })
 
 router.get('/churn-risk', async (ctx) => {
-  ok(ctx, await getBiChurnRisk(ctx.state.env, ctx.state.redis))
+  const market = parseMarket(ctx.query.market)
+  if (!market) { fail(ctx, 400, 'invalid market'); return }
+  ok(ctx, await getBiChurnRisk(ctx.state.env, ctx.state.redis, market))
 })
 
 router.post('/churn/redep-offer', async (ctx) => {
@@ -147,14 +176,17 @@ router.post('/churn/redep-offer', async (ctx) => {
 
 router.get('/channels', async (ctx) => {
   const days = Math.min(Math.max(Number(ctx.query.days) || 30, 7), 365)
-  ok(ctx, await getBiChannels(ctx.state.env, days))
+  const market = parseMarket(ctx.query.market)
+  if (!market) { fail(ctx, 400, 'invalid market'); return }
+  ok(ctx, await getBiChannels(ctx.state.env, days, market))
 })
 
 // 买量投放渠道报表：马尼拉日范围，默认最近 7 天；金额口径固定=全币种折 USDT 合并
-function parseAdSourceRange(q: Record<string, unknown>): { from: string; to: string } | null {
+function parseAdSourceRange(q: Record<string, unknown>, market: BiMarket): { from: string; to: string } | null {
   const dateRe = /^\d{4}-\d{2}-\d{2}$/
-  const manilaToday = new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10)
-  const to = q.to && dateRe.test(String(q.to)) ? String(q.to) : manilaToday
+  const offset = market === 'ID' ? 7 : 8
+  const marketToday = new Date(Date.now() + offset * 3600 * 1000).toISOString().slice(0, 10)
+  const to = q.to && dateRe.test(String(q.to)) ? String(q.to) : marketToday
   let from: string
   if (q.from && dateRe.test(String(q.from))) {
     from = String(q.from)
@@ -168,26 +200,32 @@ function parseAdSourceRange(q: Record<string, unknown>): { from: string; to: str
 }
 
 router.get('/ad-sources', async (ctx) => {
-  const r = parseAdSourceRange(ctx.query)
+  const market = parseMarket(ctx.query.market)
+  if (!market) { fail(ctx, 400, 'invalid market'); return }
+  const r = parseAdSourceRange(ctx.query, market)
   if (!r) { fail(ctx, 400, 'invalid range/currency'); return }
   const channel = ctx.query.channel ? String(ctx.query.channel) : undefined
   if (channel && !isValidChannel(channel)) { fail(ctx, 400, 'invalid channel'); return }
-  ok(ctx, await getAdSourceReport(ctx.state.env, ctx.state.redis, { ...r, channel }))
+  ok(ctx, await getAdSourceReport(ctx.state.env, ctx.state.redis, { ...r, channel, market }))
 })
 
 router.get('/ad-sources/trend', async (ctx) => {
-  const r = parseAdSourceRange(ctx.query)
+  const market = parseMarket(ctx.query.market)
+  if (!market) { fail(ctx, 400, 'invalid market'); return }
+  const r = parseAdSourceRange(ctx.query, market)
   if (!r) { fail(ctx, 400, 'invalid range/currency'); return }
   const channel = ctx.query.channel ? String(ctx.query.channel) : ''
   if (!isValidChannel(channel)) { fail(ctx, 400, 'channel required'); return }
-  ok(ctx, await getAdSourceTrend(ctx.state.env, ctx.state.redis, { ...r, channel }))
+  ok(ctx, await getAdSourceTrend(ctx.state.env, ctx.state.redis, { ...r, channel, market }))
 })
 
 // 渠道质量对比：留存/复充/人均充值/刷量预警(注册同期群口径)
 router.get('/ad-sources/quality', async (ctx) => {
-  const r = parseAdSourceRange(ctx.query)
+  const market = parseMarket(ctx.query.market)
+  if (!market) { fail(ctx, 400, 'invalid market'); return }
+  const r = parseAdSourceRange(ctx.query, market)
   if (!r) { fail(ctx, 400, 'invalid range/currency'); return }
-  ok(ctx, await getChannelQuality(ctx.state.env, ctx.state.redis, r))
+  ok(ctx, await getChannelQuality(ctx.state.env, ctx.state.redis, { ...r, market }))
 })
 
 // 渠道短码下拉（配置过的 ∪ 实际出现过的）
@@ -197,12 +235,14 @@ router.get('/ad-sources/channels', async (ctx) => {
 
 // 渠道对比点评：规则文本兜底 + Gemini 润色（操作人在页面主动点击才触发）
 router.post('/ad-sources/verdict', async (ctx) => {
-  const body = (ctx.request.body ?? {}) as { from?: unknown; to?: unknown; channels?: unknown; spends?: unknown }
+  const body = (ctx.request.body ?? {}) as { from?: unknown; to?: unknown; channels?: unknown; spends?: unknown; market?: unknown }
   const dateRe = /^\d{4}-\d{2}-\d{2}$/
   const from = dateRe.test(String(body.from)) ? String(body.from) : ''
   const to = dateRe.test(String(body.to)) ? String(body.to) : ''
   if (!from || !to || from > to) { fail(ctx, 400, 'invalid range'); return }
   const channels = Array.isArray(body.channels) ? body.channels.map(String).filter(isValidChannel) : []
+  const market = parseMarket(body.market)
+  if (!market) { fail(ctx, 400, 'invalid market'); return }
   if (channels.length === 0 || channels.length > 8) { fail(ctx, 400, '请选择 1-8 个渠道'); return }
   const spends: Record<string, number> = {}
   if (body.spends && typeof body.spends === 'object') {
@@ -211,7 +251,7 @@ router.post('/ad-sources/verdict', async (ctx) => {
       if (isValidChannel(k) && Number.isFinite(n) && n >= 0) spends[k] = n
     }
   }
-  ok(ctx, await generateChannelVerdict(ctx.state.env, ctx.state.redis, { from, to, channels, spends }))
+  ok(ctx, await generateChannelVerdict(ctx.state.env, ctx.state.redis, { from, to, channels, spends, market }))
 })
 
 router.post('/report/send', async (ctx) => {

@@ -6,8 +6,8 @@ import {
   type BiFunnel, type BiLtvCohort, type BiRetentionCohort, type BiRfmCell, type BiTopWinner,
 } from '../api'
 import { HBarChart } from '../components/BiCharts'
+import { formatMarketAmount, useMarketScope } from '../components/MarketScope'
 
-const fmtMoney = (v: number) => Math.round(v).toLocaleString()
 const pct = (n: number, base: number) => (base > 0 ? `${((n / base) * 100).toFixed(1)}%` : '—')
 
 // 留存热力格：单色蓝按比例加深（顺序型编码），文字保持墨色保证可读
@@ -20,11 +20,12 @@ function RetCell({ n, size }: { n: number; size: number }) {
   )
 }
 
-const TIER_LABEL: Record<string, string> = { whale: '大R（≥862 USDT等值）', mid: '中R（≥86 USDT等值）', small: '小R' }
+const TIER_LABEL: Record<string, string> = { whale: '大R', mid: '中R', small: '小R' }
 const REC_LABEL: Record<string, string> = { active: '7天内有充值', cooling: '8-30天未充', churned: '30天+未充' }
 const REC_COLOR: Record<string, string> = { active: '#3f8600', cooling: '#d46b08', churned: '#cf1322' }
 
 export default function BiUsers() {
+  const { market, unit, timezone } = useMarketScope()
   const [days, setDays] = useState(30)
   const [loading, setLoading] = useState(false)
   const [funnel, setFunnel] = useState<BiFunnel | null>(null)
@@ -34,16 +35,16 @@ export default function BiUsers() {
   const [winners, setWinners] = useState<BiTopWinner[]>([])
 
   useEffect(() => {
-    getBiRetention(8).then(setRetention)
-    getBiRfm(90).then(setRfm)
-    getBiLtv(12).then(setLtv)
-  }, [])
+    getBiRetention(8, market).then(setRetention)
+    getBiRfm(90, market).then(setRfm)
+    getBiLtv(12, market).then(setLtv)
+  }, [market])
   useEffect(() => {
     setLoading(true)
-    Promise.all([getBiFunnel({ days }), getBiTopWinners(days)])
+    Promise.all([getBiFunnel({ days, market }), getBiTopWinners(days, market)])
       .then(([f, w]) => { setFunnel(f); setWinners(w) })
       .finally(() => setLoading(false))
-  }, [days])
+  }, [days, market])
 
   const funnelData = funnel ? [
     { name: '注册', value: funnel.registered },
@@ -64,25 +65,25 @@ export default function BiUsers() {
   const ltvCols = [
     { title: '注册周', dataIndex: 'week' },
     { title: '人数', dataIndex: 'size' },
-    { title: 'D7 人均NGR（USDT等值）', dataIndex: 'd7', render: fmtMoney },
-    { title: 'D30 人均NGR（USDT等值）', dataIndex: 'd30', render: fmtMoney },
-    { title: 'D60 人均NGR（USDT等值）', dataIndex: 'd60', render: fmtMoney },
-    { title: 'D90 人均NGR（USDT等值）', dataIndex: 'd90', render: fmtMoney },
+    { title: `D7 人均NGR（${unit}）`, dataIndex: 'd7', render: (v: number) => formatMarketAmount(v, unit) },
+    { title: `D30 人均NGR（${unit}）`, dataIndex: 'd30', render: (v: number) => formatMarketAmount(v, unit) },
+    { title: `D60 人均NGR（${unit}）`, dataIndex: 'd60', render: (v: number) => formatMarketAmount(v, unit) },
+    { title: `D90 人均NGR（${unit}）`, dataIndex: 'd90', render: (v: number) => formatMarketAmount(v, unit) },
   ]
 
   const winnerCols = [
     { title: '用户', dataIndex: 'displayName',
       render: (v: string, r: BiTopWinner) => <Link to={`/users/${r.userId}`}>{v || r.userId}</Link> },
-    { title: '净赢（USDT等值）', dataIndex: 'netWin',
-      render: (v: number) => <span style={{ color: v > 0 ? '#cf1322' : undefined }}>{fmtMoney(v)}</span> },
-    { title: '投注额（USDT等值）', dataIndex: 'betAmount', render: fmtMoney },
+    { title: `净赢（${unit}）`, dataIndex: 'netWin',
+      render: (v: number) => <span style={{ color: v > 0 ? '#cf1322' : undefined }}>{formatMarketAmount(v, unit)}</span> },
+    { title: `投注额（${unit}）`, dataIndex: 'betAmount', render: (v: number) => formatMarketAmount(v, unit) },
   ]
 
   return (
     <div>
       <h2 style={{ marginBottom: 4 }}>用户分析</h2>
       <div style={{ color: '#999', fontSize: 12, marginBottom: 16 }}>
-        漏斗/盈利榜口径随天数筛选；留存与 LTV 为固定周 cohort（留存=登录∪投注∪充值，LTV=人均累计 NGR 折算 USDT）。
+        漏斗/盈利榜口径随天数筛选；留存与 LTV 为固定周 cohort。当前金额单位 {unit}，统计日 {timezone}。
       </div>
 
       <Space style={{ marginBottom: 16 }}>
@@ -129,7 +130,7 @@ export default function BiUsers() {
                         <div style={{ fontSize: 11, color: '#8c8c8c' }}>{TIER_LABEL[tier]}</div>
                         <div style={{ fontSize: 11, color: REC_COLOR[rec] }}>{REC_LABEL[rec]}</div>
                         <div style={{ fontSize: 18, fontWeight: 600 }}>{cell?.users ?? 0} 人</div>
-                        <div style={{ fontSize: 11, color: '#8c8c8c' }}>充值 PHP {fmtMoney(cell?.depositAmount ?? 0)} 等值</div>
+                        <div style={{ fontSize: 11, color: '#8c8c8c' }}>充值 {formatMarketAmount(cell?.depositAmount ?? 0, unit)}</div>
                       </Card>
                     </Col>
                   )

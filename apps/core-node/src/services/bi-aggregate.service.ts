@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify'
 import type { RowDataPacket } from 'mysql2/promise'
+import { getExchangeRate } from './exchange-rate.service.js'
 
 // BI 日聚合：把一个马尼拉统计日的数据重算进 bi_* 聚合表。
 // 全量重算当日窗口 + 事务内先删后插，天然幂等，可任意回填。
@@ -12,8 +13,8 @@ export function manilaToday(offsetDays = 0): string {
 }
 
 // 马尼拉日 D = UTC [D-1 16:00, D 16:00)，业务表 created_at 均为 UTC
-function manilaWindow(date: string): { start: string; end: string } {
-  const startMs = Date.parse(`${date}T00:00:00+08:00`)
+function businessWindow(date: string, offset: 7 | 8): { start: string; end: string } {
+  const startMs = Date.parse(`${date}T00:00:00+0${offset}:00`)
   const fmt = (ms: number) => new Date(ms).toISOString().slice(0, 19).replace('T', ' ')
   return { start: fmt(startMs), end: fmt(startMs + DAY_MS) }
 }
@@ -24,7 +25,11 @@ const NOT_ADMIN = "channel<>'admin'"
 
 export async function aggregateBiDay(app: FastifyInstance, date: string): Promise<void> {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error(`invalid date: ${date}`)
-  const { start, end } = manilaWindow(date)
+  const ph = businessWindow(date, 8)
+  const id = businessWindow(date, 7)
+  const { start, end } = ph
+  const moneyWindow = (alias = '') => `((${alias}currency='IDR' AND ${alias}created_at>=? AND ${alias}created_at<?) OR (${alias}currency<>'IDR' AND ${alias}created_at>=? AND ${alias}created_at<?))`
+  const moneyParams = [id.start, id.end, ph.start, ph.end]
   const db = app.mysql
 
   // ---- 平台按币种（JS 合并多数据源） ----
@@ -37,15 +42,15 @@ export async function aggregateBiDay(app: FastifyInstance, date: string): Promis
 
   const [deps] = await db.query<RowDataPacket[]>(
     `SELECT currency, COUNT(*) cnt, COALESCE(SUM(amount),0) amt, COUNT(DISTINCT user_id) users
-     FROM bg_deposit_order WHERE status='paid' AND ${NOT_ADMIN} AND created_at>=? AND created_at<? GROUP BY currency`,
-    [start, end],
+     FROM bg_deposit_order WHERE status='paid' AND ${NOT_ADMIN} AND ${moneyWindow()} GROUP BY currency`,
+    moneyParams,
   )
   for (const r of deps) acc(r.currency, { depositAmount: Number(r.amt), depositCount: Number(r.cnt), depositUsers: Number(r.users) })
 
   const [wds] = await db.query<RowDataPacket[]>(
     `SELECT currency, COUNT(*) cnt, COALESCE(SUM(amount),0) amt
-     FROM bg_withdraw_order WHERE status IN ('completed','processing') AND ${NOT_ADMIN} AND created_at>=? AND created_at<? GROUP BY currency`,
-    [start, end],
+     FROM bg_withdraw_order WHERE status IN ('completed','processing') AND ${NOT_ADMIN} AND ${moneyWindow()} GROUP BY currency`,
+    moneyParams,
   )
   for (const r of wds) acc(r.currency, { withdrawAmount: Number(r.amt), withdrawCount: Number(r.cnt) })
 
@@ -54,15 +59,15 @@ export async function aggregateBiDay(app: FastifyInstance, date: string): Promis
             COALESCE(SUM(CASE WHEN status='settled' THEN win_loss ELSE 0 END),0) payout,
             COUNT(DISTINCT user_id) users
      FROM bg_568win_wallet_txn
-     WHERE txn_type='bet' AND voided_at IS NULL AND created_at>=? AND created_at<? GROUP BY currency`,
-    [start, end],
+     WHERE txn_type='bet' AND voided_at IS NULL AND ${moneyWindow()} GROUP BY currency`,
+    moneyParams,
   )
   for (const r of bets) acc(r.currency, { betAmount: Number(r.stake), payoutAmount: Number(r.payout), betCount: Number(r.cnt), betUsers: Number(r.users) })
 
   const [bonus] = await db.query<RowDataPacket[]>(
     `SELECT currency, COALESCE(SUM(amount),0) amt
-     FROM bg_wallet_ledger WHERE type IN (${BONUS_LEDGER_TYPES}) AND amount>0 AND created_at>=? AND created_at<? GROUP BY currency`,
-    [start, end],
+     FROM bg_wallet_ledger WHERE type IN (${BONUS_LEDGER_TYPES}) AND amount>0 AND ${moneyWindow()} GROUP BY currency`,
+    moneyParams,
   )
   for (const r of bonus) acc(r.currency, { bonusCost: Number(r.amt) })
 
@@ -72,23 +77,28 @@ export async function aggregateBiDay(app: FastifyInstance, date: string): Promis
      FROM bg_deposit_order d
      JOIN (SELECT user_id, MIN(created_at) first_at FROM bg_deposit_order WHERE status='paid' AND ${NOT_ADMIN} GROUP BY user_id) f
        ON f.user_id=d.user_id AND f.first_at=d.created_at
-     WHERE d.status='paid' AND d.channel<>'admin' AND d.created_at>=? AND d.created_at<? GROUP BY d.currency`,
-    [start, end],
+     WHERE d.status='paid' AND d.channel<>'admin' AND ${moneyWindow('d.')} GROUP BY d.currency`,
+    moneyParams,
   )
   for (const r of fdeps) acc(r.currency, { firstDepUsers: Number(r.users), firstDepAmount: Number(r.amt) })
 
   // ---- 用户活跃（不分币种）：DAU=登录∪投注∪充值 ----
-  const [[active]] = await db.query<RowDataPacket[]>(
+  const activeFor = async (market: 'PH' | 'ID', window: { start: string; end: string }) => {
+    const [[row]] = await db.query<RowDataPacket[]>(
     `SELECT
-      (SELECT COUNT(*) FROM bg_user WHERE registered_at>=? AND registered_at<?) new_users,
-      (SELECT COUNT(*) FROM bg_login_log WHERE created_at>=? AND created_at<?) login_count,
+      (SELECT COUNT(*) FROM bg_user WHERE market=? AND registered_at>=? AND registered_at<?) new_users,
+      (SELECT COUNT(*) FROM bg_login_log l JOIN bg_user lu ON lu.id=l.user_id WHERE lu.market=? AND l.created_at>=? AND l.created_at<?) login_count,
       (SELECT COUNT(DISTINCT user_id) FROM (
         SELECT user_id FROM bg_login_log WHERE created_at>=? AND created_at<?
         UNION SELECT user_id FROM bg_568win_wallet_txn WHERE txn_type='bet' AND created_at>=? AND created_at<?
         UNION SELECT user_id FROM bg_deposit_order WHERE status='paid' AND ${NOT_ADMIN} AND created_at>=? AND created_at<?
-      ) u) dau`,
-    [start, end, start, end, start, end, start, end, start, end],
-  )
+      ) a JOIN bg_user u ON u.id=a.user_id WHERE u.market=?) dau`,
+      [market, window.start, window.end, market, window.start, window.end,
+       window.start, window.end, window.start, window.end, window.start, window.end, market],
+    )
+    return row
+  }
+  const [activePh, activeId] = await Promise.all([activeFor('PH', ph), activeFor('ID', id)])
 
   const conn = await db.getConnection()
   try {
@@ -114,12 +124,26 @@ export async function aggregateBiDay(app: FastifyInstance, date: string): Promis
          m.betAmount ?? 0, m.payoutAmount ?? 0, m.betCount ?? 0, m.betUsers ?? 0,
          m.bonusCost ?? 0, m.firstDepUsers ?? 0, m.firstDepAmount ?? 0],
       )
+      const rateToUsdt = await getExchangeRate(currency, 'USDT', app.redis)
+      await conn.execute(
+        `INSERT INTO bi_daily_exchange_rate (stat_date, currency, rate_to_usdt, source)
+         VALUES (?,?,?,'managed')
+         ON DUPLICATE KEY UPDATE rate_to_usdt=VALUES(rate_to_usdt), source=VALUES(source), captured_at=NOW(3)`,
+        [date, currency, rateToUsdt],
+      )
     }
 
-    await conn.execute(
-      `INSERT INTO bi_daily_active (stat_date, new_users, dau, login_count) VALUES (?,?,?,?)`,
-      [date, Number(active?.new_users ?? 0), Number(active?.dau ?? 0), Number(active?.login_count ?? 0)],
-    )
+    const activeAll = {
+      new_users: Number(activePh?.new_users ?? 0) + Number(activeId?.new_users ?? 0),
+      dau: Number(activePh?.dau ?? 0) + Number(activeId?.dau ?? 0),
+      login_count: Number(activePh?.login_count ?? 0) + Number(activeId?.login_count ?? 0),
+    }
+    for (const [market, active] of [['ALL', activeAll], ['PH', activePh], ['ID', activeId]] as const) {
+      await conn.execute(
+        `INSERT INTO bi_daily_active (stat_date, market, new_users, dau, login_count) VALUES (?,?,?,?,?)`,
+        [date, market, Number(active?.new_users ?? 0), Number(active?.dau ?? 0), Number(active?.login_count ?? 0)],
+      )
+    }
 
     // 厂商归因必须 (gpid, game_id) 复合键；provider_id 为 GameId 字符串，CAST 后走游戏表主键
     await conn.execute(
@@ -128,9 +152,9 @@ export async function aggregateBiDay(app: FastifyInstance, date: string): Promis
               COALESCE(SUM(t.amount),0), COALESCE(SUM(CASE WHEN t.status='settled' THEN t.win_loss ELSE 0 END),0)
        FROM bg_568win_wallet_txn t
        LEFT JOIN bg_568win_game g ON g.game_provider_id=t.gpid AND g.game_id=CAST(t.provider_id AS UNSIGNED)
-       WHERE t.txn_type='bet' AND t.voided_at IS NULL AND t.created_at>=? AND t.created_at<?
+       WHERE t.txn_type='bet' AND t.voided_at IS NULL AND ${moneyWindow('t.')}
        GROUP BY COALESCE(g.provider,'Unknown'), t.currency`,
-      [date, start, end],
+      [date, ...moneyParams],
     )
 
     await conn.execute(
@@ -139,9 +163,9 @@ export async function aggregateBiDay(app: FastifyInstance, date: string): Promis
               COUNT(*), COUNT(DISTINCT t.user_id),
               COALESCE(SUM(t.amount),0), COALESCE(SUM(CASE WHEN t.status='settled' THEN t.win_loss ELSE 0 END),0)
        FROM bg_568win_wallet_txn t
-       WHERE t.txn_type='bet' AND t.voided_at IS NULL AND t.created_at>=? AND t.created_at<?
+       WHERE t.txn_type='bet' AND t.voided_at IS NULL AND ${moneyWindow('t.')}
        GROUP BY COALESCE(t.gpid,0), COALESCE(CAST(t.provider_id AS UNSIGNED),0), t.currency`,
-      [date, start, end],
+      [date, ...moneyParams],
     )
 
     // 渠道：注册/首充按注册入口归因，DAU 按当日登录入口归因，三源 JS 合并
@@ -185,33 +209,33 @@ export async function aggregateBiDay(app: FastifyInstance, date: string): Promis
        SELECT ?, user_id, currency, COALESCE(SUM(amount),0),
               COALESCE(SUM(CASE WHEN status='settled' THEN win_loss ELSE 0 END),0), COUNT(*)
        FROM bg_568win_wallet_txn
-       WHERE txn_type='bet' AND voided_at IS NULL AND created_at>=? AND created_at<?
+       WHERE txn_type='bet' AND voided_at IS NULL AND ${moneyWindow()}
        GROUP BY user_id, currency`,
-      [date, start, end],
+      [date, ...moneyParams],
     )
     await conn.execute(
       `INSERT INTO bi_daily_user (stat_date, user_id, currency, deposit_amount)
        SELECT ?, user_id, currency, COALESCE(SUM(amount),0)
-       FROM bg_deposit_order WHERE status='paid' AND ${NOT_ADMIN} AND created_at>=? AND created_at<?
+       FROM bg_deposit_order WHERE status='paid' AND ${NOT_ADMIN} AND ${moneyWindow()}
        GROUP BY user_id, currency
        ON DUPLICATE KEY UPDATE deposit_amount=VALUES(deposit_amount)`,
-      [date, start, end],
+      [date, ...moneyParams],
     )
     await conn.execute(
       `INSERT INTO bi_daily_user (stat_date, user_id, currency, withdraw_amount)
        SELECT ?, user_id, currency, COALESCE(SUM(amount),0)
-       FROM bg_withdraw_order WHERE status IN ('completed','processing') AND ${NOT_ADMIN} AND created_at>=? AND created_at<?
+       FROM bg_withdraw_order WHERE status IN ('completed','processing') AND ${NOT_ADMIN} AND ${moneyWindow()}
        GROUP BY user_id, currency
        ON DUPLICATE KEY UPDATE withdraw_amount=VALUES(withdraw_amount)`,
-      [date, start, end],
+      [date, ...moneyParams],
     )
     await conn.execute(
       `INSERT INTO bi_daily_user (stat_date, user_id, currency, bonus_amount)
        SELECT ?, user_id, currency, COALESCE(SUM(amount),0)
-       FROM bg_wallet_ledger WHERE type IN (${BONUS_LEDGER_TYPES}) AND amount>0 AND created_at>=? AND created_at<?
+       FROM bg_wallet_ledger WHERE type IN (${BONUS_LEDGER_TYPES}) AND amount>0 AND ${moneyWindow()}
        GROUP BY user_id, currency
        ON DUPLICATE KEY UPDATE bonus_amount=VALUES(bonus_amount)`,
-      [date, start, end],
+      [date, ...moneyParams],
     )
 
     // 支付通道：只统计终态订单，成功率与处理时长

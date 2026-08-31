@@ -2,25 +2,25 @@ import { useEffect, useState } from 'react'
 import { Button, Card, Popconfirm, Space, Spin, Table, Tag, message } from 'antd'
 import { Link, useNavigate } from 'react-router-dom'
 import { getBiChurnRisk, grantChurnRedepOffer, type BiChurnUser } from '../api'
-
-const fmtMoney = (v: number) => Math.round(v).toLocaleString()
+import { formatMarketAmount, useMarketScope } from '../components/MarketScope'
 
 export default function BiChurn() {
   const navigate = useNavigate()
+  const { market, unit } = useMarketScope()
   const [loading, setLoading] = useState(false)
   const [rows, setRows] = useState<BiChurnUser[]>([])
   const [granting, setGranting] = useState<string | null>(null)
 
   const load = () => {
     setLoading(true)
-    getBiChurnRisk().then(setRows).finally(() => setLoading(false))
+    getBiChurnRisk(market).then(setRows).finally(() => setLoading(false))
   }
-  useEffect(load, [])
+  useEffect(load, [market])
 
   const grant = async (userId: string) => {
     setGranting(userId)
     try {
-      const r = await grantChurnRedepOffer(userId)
+      const r = await grantChurnRedepOffer(userId, market === 'ID' ? 'IDR' : 'PHP')
       if (r.ok) message.success(`已开窗：充值满 ${r.minDeposit} 送 ${r.bonusAmount}（用户下次进站可见）`)
       else message.warning(r.reason ?? '未能开窗')
     } finally {
@@ -33,7 +33,7 @@ export default function BiChurn() {
   const columns = [
     { title: '用户', dataIndex: 'displayName',
       render: (v: string, r: BiChurnUser) => <Link to={`/users/${r.userId}`}>{v || r.userId}</Link> },
-    { title: '90天充值（USDT等值）', dataIndex: 'deposit90d', render: fmtMoney,
+    { title: `90天充值（${unit}）`, dataIndex: 'deposit90d', render: (v: number) => formatMarketAmount(v, unit),
       sorter: (a: BiChurnUser, b: BiChurnUser) => a.deposit90d - b.deposit90d },
     { title: '最近活跃', dataIndex: 'lastActive' },
     { title: '已静默', dataIndex: 'idleDays', render: (v: number) => `${v} 天`,

@@ -1,8 +1,9 @@
 import Router from '@koa/router'
 import { getDashboardStats } from '../../services/admin-store.js'
 import { getHomeDashboard } from '../../services/home-dashboard.service.js'
+import type { BiMarket } from '../../services/bi.service.js'
 import { fetchBadgeCounts } from '../../services/sse-badges.js'
-import { ok } from '../../utils/response.js'
+import { ok, fail } from '../../utils/response.js'
 
 const router = new Router({ prefix: '/dashboard' })
 
@@ -13,7 +14,9 @@ router.get('/', async (ctx) => {
 
 // 重设计版首页看板：待办+今日快照+资金+心跳+用户结构
 router.get('/v2', async (ctx) => {
-  ok(ctx, await getHomeDashboard(ctx.state.env, ctx.state.redis))
+  const market = String(ctx.query.market ?? 'ALL').toUpperCase() as BiMarket
+  if (!['ALL', 'PH', 'ID'].includes(market)) { fail(ctx, 400, 'invalid market'); return }
+  ok(ctx, await getHomeDashboard(ctx.state.env, ctx.state.redis, market))
 })
 
 // HTTP 轮询备用（前端 EventSource 不可用时 fallback）
