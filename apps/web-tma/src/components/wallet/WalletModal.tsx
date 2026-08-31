@@ -41,7 +41,7 @@ function mapDepositChannelName(channelId: string) { const m: Record<string,strin
 // 各币种充值预设档位（与后台首充档位口径一致），用于充值金额网格
 const DEPOSIT_PRESETS: Record<string, number[]> = {
   PHP: [100, 200, 500, 1000, 2000, 5000, 10000, 20000, 50000],
-  IDR: [10000, 25000, 50000, 100000, 200000, 500000, 1000000, 2000000],
+  IDR: [10000, 25000, 50000, 100000, 200000, 500000, 1000000, 2000000, 5000000],
   USDT: [1, 5, 10, 50, 100, 500, 1000],
   USDC: [1, 5, 10, 50, 100, 500, 1000],
   TRX: [100, 500, 1000, 5000, 10000],
@@ -405,6 +405,16 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
   const redepBonusFor = (amt: number) => (redepShow && amt >= (redepOffer?.minDeposit ?? Infinity) ? (redepOffer?.bonusAmount ?? 0) : 0)
   const regularRedepTiers = promoConfig?.regularRedep?.enabled && firstDepDone === true ? promoConfig.regularRedep.tiers?.[depositCurrency] : undefined
   const regularRedepBonusFor = (amt: number) => !redepShow ? matchTierBonus(regularRedepTiers, amt) : 0
+  const cryptoRegularRedepTiers = useMemo(
+    () => [...(regularRedepTiers ?? [])].filter((tier) => tier.bonusAmount > 0).sort((a, b) => a.depositAmount - b.depositAmount),
+    [regularRedepTiers],
+  )
+  const showCryptoRegularRedepGuide = isMatrixDeposit && firstDepDone === true && !redepShow && cryptoRegularRedepTiers.length > 0
+  const cryptoRegularRedepAmount = Number(amount)
+  const cryptoRegularRedepBonus = showCryptoRegularRedepGuide ? matchTierBonus(cryptoRegularRedepTiers, cryptoRegularRedepAmount) : 0
+  const nextCryptoRegularRedepTier = showCryptoRegularRedepGuide && cryptoRegularRedepAmount > 0
+    ? cryptoRegularRedepTiers.find((tier) => cryptoRegularRedepAmount < tier.depositAmount)
+    : null
   const selectedBonus = firstDepEligible ? matchTierBonus(depositTierList, Number(amount)) : redepBonusFor(Number(amount))
   const displayedBonus = selectedBonus || regularRedepBonusFor(Number(amount))
   const receiveAmount = Math.max(0, Number(amount) || 0) + selectedBonus
@@ -729,6 +739,52 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
     )
   }
 
+  function renderCryptoRegularRedepGuide() {
+    if (!showCryptoRegularRedepGuide) return null
+    return (
+      <div className="space-y-3 rounded-2xl border border-primary/35 bg-gradient-to-br from-primary/15 via-amber-500/10 to-[#101a2c] p-3 shadow-[0_0_22px_rgba(245,158,11,0.14)]">
+        <div className="flex items-start gap-2.5">
+          <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-primary/15 text-primary"><Gift size={18} strokeWidth={2.5} /></div>
+          <div>
+            <p className="text-sm font-black text-primary">{t('wallet.regularRedepTitle')}</p>
+            <p className="mt-0.5 text-[11px] font-bold leading-snug text-white/70">{t('wallet.regularRedepCryptoDesc', { currency: depositCurrency })}</p>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          {cryptoRegularRedepTiers.map((tier) => (
+            <button key={tier.depositAmount} type="button" onClick={() => { setAmount(String(tier.depositAmount)); setCopiedDepositAmount(false) }}
+              className={`rounded-xl border px-3 py-2 text-left transition-colors ${amount === String(tier.depositAmount) ? 'border-primary bg-primary/20' : 'border-white/10 bg-[#07111f]/80'}`}>
+              <span className="block text-xs font-black leading-none text-white">{fmtCryptoAmount(tier.depositAmount, depositCurrency)}</span>
+              <span className="mt-1 block text-[10px] font-black leading-none text-primary">+{fmtCryptoAmount(tier.bonusAmount, depositCurrency)}</span>
+            </button>
+          ))}
+        </div>
+        <div className="grid grid-cols-[1fr_auto] gap-2">
+          <div className="relative rounded-xl border border-white/10 bg-[#07111f]">
+            <input value={amount} type="number" min={0} placeholder={t('wallet.cryptoFirstDepAmount', { currency: depositCurrency })}
+              className="w-full bg-transparent px-3 py-2.5 pr-14 text-sm font-black text-white focus:outline-none"
+              onChange={(e) => { setAmount(e.target.value); setCopiedDepositAmount(false) }} />
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-black text-white/45">{depositCurrency}</span>
+          </div>
+          <button type="button" disabled={!amount} onClick={() => void copyDepositAmount()}
+            className={`flex min-w-[92px] items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-[11px] font-black transition-colors disabled:opacity-45 ${copiedDepositAmount ? 'bg-emerald-500/18 text-emerald-300' : 'bg-primary text-black hover:bg-yellow-400'}`}>
+            {copiedDepositAmount ? <Check size={13} strokeWidth={3} /> : <Copy size={13} strokeWidth={3} />}
+            {copiedDepositAmount ? t('common.copied') : t('wallet.copyAmount')}
+          </button>
+        </div>
+        {cryptoRegularRedepAmount > 0 && (
+          <div className="rounded-xl border border-primary/25 bg-primary/10 px-3 py-2.5 text-center text-[11px] font-bold">
+            {cryptoRegularRedepBonus > 0
+              ? <p className="text-primary">{t('wallet.regularRedepHint', { amount: fmtCryptoAmount(cryptoRegularRedepBonus, depositCurrency) })}</p>
+              : nextCryptoRegularRedepTier
+                ? <p className="text-amber-300">{t('wallet.cryptoFirstDepNext', { amount: fmtCryptoAmount(nextCryptoRegularRedepTier.depositAmount, depositCurrency), bonus: fmtCryptoAmount(nextCryptoRegularRedepTier.bonusAmount, depositCurrency) })}</p>
+                : null}
+          </div>
+        )}
+      </div>
+    )
+  }
+
   if (!open) return null
 
   return createPortal(
@@ -836,6 +892,8 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
                   )}
                   {renderCryptoFirstDepGuide()}
                   {renderCryptoRedepGuide()}
+                  {renderCryptoRegularRedepGuide()}
+                  <RegularRedepClaims currency={depositCurrency} refreshKey={depositSuccess ? 1 : 0} />
                   {selectedPayMethod ? (
                     isMatrixDeposit ? (
                       <div className="space-y-4">
@@ -917,7 +975,6 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
                       {redepShow&&Number(amount)>0&&selectedBonus>0&&<p className="text-[11px] font-bold text-amber-300 text-center -mt-1">{t('wallet.limitedOfferHint',{amount:fmtPreset(selectedBonus,depositCurrency)})}</p>}
                       {!redepShow&&firstDepDone===true&&Number(amount)>0&&displayedBonus>0&&<p className="text-[11px] font-bold text-amber-300 text-center -mt-1">{t('wallet.regularRedepHint',{amount:fmtPreset(displayedBonus,depositCurrency)})}</p>}
                       {depositMessage&&<p className={`text-xs font-bold text-center ${depositSuccess?'text-emerald-400':'text-amber-400'}`}>{depositMessage}</p>}
-                      <RegularRedepClaims currency={depositCurrency} refreshKey={depositSuccess ? 1 : 0} />
                       {paymentCheckout&&!depositSuccess&&(
                         <div className="space-y-3 rounded-2xl border border-primary/25 bg-primary/10 px-4 py-4">
                           <p className="text-center text-xs font-bold leading-relaxed text-white/75">{t('wallet.paymentPendingHelp')}</p>

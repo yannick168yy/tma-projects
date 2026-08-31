@@ -342,7 +342,7 @@ export default function Promotions() {
         </Text>
         <Row gutter={[16, 16]}>
           <Col span={8}><Text>流水倍率</Text><InputNumber suffix="x" min={0} max={100} style={{ width: '100%', marginTop: 4 }} value={cfg.regularRedep.turnoverX} onChange={(v) => patch((d) => { d.regularRedep.turnoverX = Number(v ?? 0) })} /></Col>
-          <Col span={8}><Text>流水有效期</Text><InputNumber suffix="天" min={0} max={365} style={{ width: '100%', marginTop: 4 }} value={cfg.regularRedep.turnoverDays} onChange={(v) => patch((d) => { d.regularRedep.turnoverDays = Number(v ?? 0) })} /></Col>
+          <Col span={8}><Text>流水有效期（0=永久）</Text><InputNumber suffix="天" min={0} max={365} style={{ width: '100%', marginTop: 4 }} value={cfg.regularRedep.turnoverDays} onChange={(v) => patch((d) => { d.regularRedep.turnoverDays = Number(v ?? 0) })} /></Col>
           <Col span={8}><Text>领取有效期</Text><InputNumber suffix="小时" min={1} max={168} style={{ width: '100%', marginTop: 4 }} value={cfg.regularRedep.claimHours} onChange={(v) => patch((d) => { d.regularRedep.claimHours = Number(v ?? 0) })} /></Col>
           <Col span={8}><Text>每日最多领取</Text><InputNumber suffix="次" min={1} max={100} style={{ width: '100%', marginTop: 4 }} value={cfg.regularRedep.dailyMaxClaims} onChange={(v) => patch((d) => { d.regularRedep.dailyMaxClaims = Number(v ?? 1) })} /></Col>
           <Col span={8}><Text>允许叠加限时复充</Text><div style={{ marginTop: 8 }}><Switch checked={cfg.regularRedep.stackWithLimited} onChange={(v) => patch((d) => { d.regularRedep.stackWithLimited = v })} /></div></Col>
