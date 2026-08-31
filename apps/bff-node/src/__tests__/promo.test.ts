@@ -72,6 +72,7 @@ const DEFAULT_CONFIG = {
   firstdep: { enabled: true, turnoverX: 15, turnoverDays: 30, tiers: { PHP: [{ depositAmount: 100, bonusAmount: 15 }, { depositAmount: 1000, bonusAmount: 70 }] } },
   appdl: { amount: 66, enabled: true, turnoverX: 5, turnoverDays: 30 },
   redep: { enabled: false, minDeposit: 500, bonusAmount: 75, byCcy: { PHP: { minDeposit: 500, bonusAmount: 75 }, USDT: { minDeposit: 8.62, bonusAmount: 1.29 }, USDC: { minDeposit: 8.62, bonusAmount: 1.29 } }, windowHours: 4, cooldownDays: 2, turnoverX: 1, turnoverDays: 30 },
+  regularRedep: { enabled: true, tiers: { PHP: [{ depositAmount: 500, bonusAmount: 25 }], IDR: [], USDT: [], USDC: [] }, turnoverX: 3, turnoverDays: 30, claimHours: 24, dailyMaxClaims: 3, dailyBonusCaps: { PHP: 1200, IDR: 0, USDT: 0, USDC: 0 }, stackWithLimited: false },
   lossRebate: { enabled: false, ratePct: 5, minDeposit: 50, minDepositByCcy: { PHP: 50, USDT: 0.86, USDC: 0.86 }, windowDays: 7, capToDeposit: true, eligibleCats: ['slots', 'fishing'], settleHour: 0 },
   popups: [{ id: 'new_player', enabled: true, order: 1, audience: 'all' as const, frequency: 'daily' as const }],
   bonusCards: [{ id: 'trial' as const, enabled: true, order: 1, audience: 'all' as const }],

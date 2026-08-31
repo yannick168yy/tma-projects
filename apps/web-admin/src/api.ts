@@ -1190,6 +1190,16 @@ export interface RedepConfig {
   turnoverX: number
   turnoverDays: number
 }
+export interface RegularRedepConfig {
+  enabled: boolean
+  tiers: Record<string, FirstDepTier[]>
+  turnoverX: number
+  turnoverDays: number
+  claimHours: number
+  dailyMaxClaims: number
+  dailyBonusCaps: Record<string, number>
+  stackWithLimited: boolean
+}
 export interface LossRebateConfig {
   enabled: boolean
   enabledCurrencies: string[]
@@ -1215,6 +1225,7 @@ export interface PromoConfig {
   firstdep: { enabled: boolean; turnoverX: number; turnoverDays: number; tiers: Record<string, FirstDepTier[]> }
   appdl:    { amount: number; amountByCcy: Record<string, number>; enabled: boolean; turnoverX: number; turnoverDays: number }
   redep:    RedepConfig
+  regularRedep: RegularRedepConfig
   lossRebate: LossRebateConfig
   popups:   PopupConfig[]
   bonusCards: BonusCard[]
@@ -1293,17 +1304,22 @@ export const getTaskReviews = (status = 'pending') =>
 export const reviewTaskManual = (id: number, approve: boolean, note = '') =>
   req<{ ok: boolean }>('POST', `/admin/tasks/manual-reviews/${id}/review`, { approve, note })
 
-export interface PromoClaimRecord {
+export interface PromotionClaimListRecord {
   id: string
   userId: string
   displayName: string
   promoName: string
+  orderId?: string
+  depositAmount?: number
   amount: number
   currency: string
-  claimedAt: string
+  status?: 'pending' | 'claimed' | 'expired' | 'cancelled' | 'rejected'
+  createdAt?: string
+  expiresAt?: string
+  claimedAt: string | null
 }
 export const getPromoClaims = (params?: { page?: number; pageSize?: number; promoId?: string }) =>
-  get<{ items: PromoClaimRecord[]; total: number; page: number; pageSize: number }>('/admin/promotions/claims', params)
+  get<{ items: PromotionClaimListRecord[]; total: number; page: number; pageSize: number }>('/admin/promotions/claims', params)
 
 // 首页装修
 export interface HomeContentItem {

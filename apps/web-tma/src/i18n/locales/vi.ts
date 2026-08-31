@@ -828,6 +828,7 @@ export default {
     limitedOfferTitle: 'Ưu đãi có thời hạn',
     limitedOfferDesc: 'Nạp từ {{min}} nhận thêm {{bonus}}',
     limitedOfferHint: 'Thưởng ưu đãi có hạn {{amount}}',
+    regularRedepHint: 'Nhận {{amount}} sau khi thanh toán. Yêu cầu doanh thu chỉ áp dụng sau khi nhận.',
     limitedOfferCta: 'Nạp ngay',
     limitedOfferLater: 'Để sau',
     cryptoFirstDepTitle: 'Thưởng nạp lần đầu đang bật',

@@ -183,10 +183,32 @@ export interface PromoConfig {
   trial:    { amount: number; amountByCcy?: Record<string, number>; enabled: boolean }
   firstdep: { enabled: boolean; turnoverX: number; turnoverDays?: number; tiers: Record<string, FirstDepTier[]> }
   appdl:    { amount: number; amountByCcy?: Record<string, number>; enabled: boolean; turnoverX: number; turnoverDays?: number }
+  regularRedep?: { enabled: boolean; tiers: Record<string, FirstDepTier[]>; turnoverX: number; turnoverDays: number; claimHours: number; dailyMaxClaims: number; dailyBonusCaps: Record<string, number>; stackWithLimited: boolean }
   lossRebate?: LossRebateConfig
   popups?:  PopupConfig[]
   checkinEnabled?: boolean
   bonusCards?: BonusCard[]
+}
+
+export interface RegularRedepClaim {
+  id: number
+  orderId: string
+  currency: string
+  depositAmount: number
+  bonusAmount: number
+  turnoverX: number
+  turnoverRequired: number
+  expiresAt: string
+  status: string
+}
+
+export async function fetchRegularRedepClaims(currency?: string): Promise<RegularRedepClaim[]> {
+  const qs = currency ? `?currency=${encodeURIComponent(currency)}` : ''
+  return apiRequest<RegularRedepClaim[]>(`/promotions/regular-redep/claims${qs}`)
+}
+
+export async function claimRegularRedep(id: number): Promise<{ amount: number; currency: string; turnoverRequired: number }> {
+  return apiRequest(`/promotions/regular-redep/claims/${id}/claim`, { method: 'POST' })
 }
 
 // ── 复充限时优惠 ──

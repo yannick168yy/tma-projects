@@ -1254,6 +1254,7 @@ export default {
     limitedOfferTitle: 'Limited-Time Offer',
     limitedOfferDesc: 'Deposit {{min}} or more and get {{bonus}} extra',
     limitedOfferHint: 'Limited-time bonus {{amount}}',
+    regularRedepHint: 'Claim {{amount}} after payment. Turnover applies only after you claim it.',
     limitedOfferCta: 'Deposit Now',
     limitedOfferLater: 'Maybe later',
     cryptoFirstDepTitle: 'First deposit bonus is active',

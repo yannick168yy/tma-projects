@@ -40,6 +40,17 @@ export interface RedepConfig {
   turnoverDays: number
 }
 
+export interface RegularRedepConfig {
+  enabled: boolean
+  tiers: Record<string, FirstDepTier[]>
+  turnoverX: number
+  turnoverDays: number
+  claimHours: number
+  dailyMaxClaims: number
+  dailyBonusCaps: Record<string, number>
+  stackWithLimited: boolean
+}
+
 /** 负盈利返水（路线A·CasinoPlus 式）：每日结算，统一费率、全等级、无上限。
  *  品类白名单复用 bg_turnover_logs.sort_category（与洗码同源）；门槛+封顶用「近 windowDays 天存款」（滚动窗口，非当日），防对赌套利靠白名单+打码。
  *  注：VIP 等级差异化返水（bg_vip_level_benefit.negative_rebate_pct）已降格停用，字段保留可回滚。 */
@@ -77,6 +88,7 @@ export interface PromoConfig {
   firstdep: { enabled: boolean; turnoverX: number; turnoverDays: number; tiers: Record<string, FirstDepTier[]> }
   appdl:    { amount: number; amountByCcy?: Record<string, number>; enabled: boolean; turnoverX: number; turnoverDays: number }
   redep:    RedepConfig
+  regularRedep: RegularRedepConfig
   lossRebate: LossRebateConfig
   popups:   PopupConfig[]
   bonusCards: BonusCard[]
@@ -122,6 +134,18 @@ export const PROMO_DEFAULTS: PromoConfig = {
   redep:    { enabled: false, minDeposit: 500, bonusAmount: 75,
               byCcy: { PHP: { minDeposit: 500, bonusAmount: 75 }, IDR: { minDeposit: 143500, bonusAmount: 21500 }, USDT: { minDeposit: 8.62, bonusAmount: 1.29 }, USDC: { minDeposit: 8.62, bonusAmount: 1.29 } },
               windowHours: 4, cooldownDays: 2, turnoverX: 1, turnoverDays: 30 },
+  regularRedep: {
+    enabled: true,
+    tiers: {
+      PHP: [{ depositAmount: 500, bonusAmount: 25 }, { depositAmount: 1000, bonusAmount: 75 }, { depositAmount: 3000, bonusAmount: 300 }, { depositAmount: 5000, bonusAmount: 600 }],
+      IDR: [{ depositAmount: 143500, bonusAmount: 7200 }, { depositAmount: 287000, bonusAmount: 21500 }, { depositAmount: 861000, bonusAmount: 86100 }, { depositAmount: 1435000, bonusAmount: 172200 }],
+      USDT: [{ depositAmount: 8.62, bonusAmount: 0.43 }, { depositAmount: 17.24, bonusAmount: 1.29 }, { depositAmount: 51.72, bonusAmount: 5.17 }, { depositAmount: 86.21, bonusAmount: 10.34 }],
+      USDC: [{ depositAmount: 8.62, bonusAmount: 0.43 }, { depositAmount: 17.24, bonusAmount: 1.29 }, { depositAmount: 51.72, bonusAmount: 5.17 }, { depositAmount: 86.21, bonusAmount: 10.34 }],
+    },
+    turnoverX: 3, turnoverDays: 30, claimHours: 24, dailyMaxClaims: 3,
+    dailyBonusCaps: { PHP: 1200, IDR: 344400, USDT: 20.69, USDC: 20.69 },
+    stackWithLimited: false,
+  },
   // 负盈利返水：默认关闭，后台开启后每日结算。白名单只含电子类(slots/fishing)，排除真人(live)/体育(sports)防对赌套利
   lossRebate: { enabled: false, enabledCurrencies: ['PHP', 'USDT', 'USDC'], ratePct: 5, minDeposit: 50, minDepositByCcy: { PHP: 50, IDR: 14400, USDT: 0.86, USDC: 0.86 }, windowDays: 7, capToDeposit: true, eligibleCats: ['slots', 'fishing'], settleHour: 0 },
   popups:   [
@@ -262,6 +286,32 @@ function parseRedepConfig(r: Record<string, string>): RedepConfig {
   }
 }
 
+function parseRegularRedepConfig(r: Record<string, string>): RegularRedepConfig {
+  const d = PROMO_DEFAULTS.regularRedep
+  let tiers = d.tiers
+  let dailyBonusCaps = d.dailyBonusCaps
+  try {
+    const parsed = JSON.parse(r.tiers ?? '') as Record<string, FirstDepTier[]>
+    tiers = Object.fromEntries(PROMO_CCYS.map((currency) => [currency,
+      Array.isArray(parsed[currency])
+        ? parsed[currency].filter((tier) => Number(tier.depositAmount) > 0 && Number(tier.bonusAmount) >= 0)
+          .map((tier) => ({ depositAmount: Number(tier.depositAmount), bonusAmount: Number(tier.bonusAmount) }))
+          .sort((a, b) => a.depositAmount - b.depositAmount)
+        : d.tiers[currency] ?? [],
+    ]))
+  } catch { /* 使用默认档位 */ }
+  try {
+    const parsed = JSON.parse(r.daily_bonus_caps ?? '') as Record<string, number>
+    dailyBonusCaps = Object.fromEntries(PROMO_CCYS.map((currency) => [currency, num(String(parsed[currency]), d.dailyBonusCaps[currency] ?? 0)]))
+  } catch { /* 使用默认上限 */ }
+  return {
+    enabled: bool(r.enabled, d.enabled), tiers,
+    turnoverX: num(r.turnover_x, d.turnoverX), turnoverDays: num(r.turnover_days, d.turnoverDays),
+    claimHours: num(r.claim_hours, d.claimHours), dailyMaxClaims: num(r.daily_max_claims, d.dailyMaxClaims),
+    dailyBonusCaps, stackWithLimited: bool(r.stack_with_limited, d.stackWithLimited),
+  }
+}
+
 /** turnover sort_category 全集（turnover.service 产出）；白名单仅从中取值，过滤脏数据 */
 const TURNOVER_CATEGORIES = ['slots', 'fishing', 'table', 'live', 'sports', 'other'] as const
 
@@ -352,6 +402,7 @@ export async function getPromoConfig(env: Env): Promise<PromoConfig> {
     const f = map.firstdep ?? {}
     const a = map.appdl ?? {}
     const r = map.redep ?? {}
+    const rr = map.redep_regular ?? {}
     const D = PROMO_DEFAULTS
     const tiers = await loadFirstDepTiers(env)
     let popups = D.popups
@@ -369,6 +420,7 @@ export async function getPromoConfig(env: Env): Promise<PromoConfig> {
       firstdep: { enabled: bool(f.enabled, D.firstdep.enabled), turnoverX: num(f.turnover_x, D.firstdep.turnoverX), turnoverDays: num(f.turnover_days, D.firstdep.turnoverDays), tiers },
       appdl:    { amount: appdlAmountByCcy.PHP, amountByCcy: appdlAmountByCcy, enabled: bool(a.enabled, D.appdl.enabled), turnoverX: num(a.turnover_x, D.appdl.turnoverX), turnoverDays: num(a.turnover_days, D.appdl.turnoverDays) },
       redep:    parseRedepConfig(r),
+      regularRedep: parseRegularRedepConfig(rr),
       lossRebate: parseLossRebateConfig(map.loss_rebate ?? {}),
       popups,
       bonusCards,
@@ -388,6 +440,8 @@ export async function savePromoConfig(env: Env, config: PromoConfig): Promise<vo
   if (Array.isArray(config.bonusCards)) syncScalarEnabledFromCards(config)
   // 稳定币共用一套：redep/loss_rebate/首充档位 的 USDC 镜像 USDT
   if (config.redep?.byCcy?.USDT) config.redep.byCcy.USDC = { ...config.redep.byCcy.USDT }
+  if (config.regularRedep?.tiers?.USDT) config.regularRedep.tiers.USDC = config.regularRedep.tiers.USDT.map((tier) => ({ ...tier }))
+  if (config.regularRedep?.dailyBonusCaps?.USDT != null) config.regularRedep.dailyBonusCaps.USDC = config.regularRedep.dailyBonusCaps.USDT
   if (config.trial.amountByCcy?.USDT != null) config.trial.amountByCcy.USDC = config.trial.amountByCcy.USDT
   if (config.appdl.amountByCcy?.USDT != null) config.appdl.amountByCcy.USDC = config.appdl.amountByCcy.USDT
   if (config.lossRebate?.minDepositByCcy?.USDT != null) config.lossRebate.minDepositByCcy.USDC = config.lossRebate.minDepositByCcy.USDT
@@ -418,6 +472,14 @@ export async function savePromoConfig(env: Env, config: PromoConfig): Promise<vo
         ['redep', ccyKey('bonus_amount', c), String(t.bonusAmount)],
       ]
     }),
+    ['redep_regular', 'enabled', config.regularRedep.enabled ? '1' : '0'],
+    ['redep_regular', 'tiers', JSON.stringify(config.regularRedep.tiers)],
+    ['redep_regular', 'turnover_x', String(config.regularRedep.turnoverX)],
+    ['redep_regular', 'turnover_days', String(config.regularRedep.turnoverDays)],
+    ['redep_regular', 'claim_hours', String(config.regularRedep.claimHours)],
+    ['redep_regular', 'daily_max_claims', String(config.regularRedep.dailyMaxClaims)],
+    ['redep_regular', 'daily_bonus_caps', JSON.stringify(config.regularRedep.dailyBonusCaps)],
+    ['redep_regular', 'stack_with_limited', config.regularRedep.stackWithLimited ? '1' : '0'],
     ['loss_rebate', 'enabled',        config.lossRebate.enabled            ? '1' : '0'],
     ['loss_rebate', 'enabled_currencies', (config.lossRebate.enabledCurrencies ?? D.lossRebate.enabledCurrencies ?? ['PHP', 'USDT', 'USDC']).filter((c) => (PROMO_CCYS as readonly string[]).includes(c)).join(',')],
     ['loss_rebate', 'rate_pct',       String(config.lossRebate.ratePct     ?? D.lossRebate.ratePct)],

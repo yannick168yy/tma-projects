@@ -78,6 +78,12 @@ export default function Promotions() {
       // 防御性初始化按币种结构（后端一般已下发）
       if (!data.redep.byCcy) data.redep.byCcy = {}
       for (const c of FIRSTDEP_CURRENCIES) if (!data.redep.byCcy[c]) data.redep.byCcy[c] = { minDeposit: data.redep.minDeposit, bonusAmount: data.redep.bonusAmount }
+      if (!data.regularRedep.tiers) data.regularRedep.tiers = {}
+      if (!data.regularRedep.dailyBonusCaps) data.regularRedep.dailyBonusCaps = {}
+      for (const c of FIRSTDEP_CURRENCIES) {
+        if (!data.regularRedep.tiers[c]) data.regularRedep.tiers[c] = []
+        if (data.regularRedep.dailyBonusCaps[c] == null) data.regularRedep.dailyBonusCaps[c] = 0
+      }
       if (data.lossRebate.windowDays == null) data.lossRebate.windowDays = 7
       if (!data.lossRebate.minDepositByCcy) data.lossRebate.minDepositByCcy = {}
       for (const c of FIRSTDEP_CURRENCIES) if (data.lossRebate.minDepositByCcy[c] == null) data.lossRebate.minDepositByCcy[c] = data.lossRebate.minDeposit
@@ -108,11 +114,15 @@ export default function Promotions() {
     if (Object.values(c.appdl.amountByCcy).some((amount) => amount <= 0)) return 'App 下载礼金各币种金额必须大于 0'
     if (c.appdl.turnoverX < 0 || c.appdl.turnoverDays < 0) return 'App 下载礼金流水倍率/有效期不能为负'
     if (c.redep.minDeposit <= 0 || c.redep.bonusAmount < 0 || c.redep.windowHours <= 0) return '复充限时:档位/时长必须为正、奖励不能为负'
+    if (c.regularRedep.turnoverX < 0 || c.regularRedep.turnoverDays < 0 || c.regularRedep.claimHours <= 0 || c.regularRedep.dailyMaxClaims <= 0) return '常规复充:流水、领取时限和每日次数配置无效'
     if (c.lossRebate.ratePct < 0 || c.lossRebate.ratePct > 100 || c.lossRebate.minDeposit < 0) return '负盈利返水:费率须在 0-100、门槛不能为负'
     for (const [currency, list] of Object.entries(c.firstdep.tiers)) {
       for (const t of list) {
         if (!(t.depositAmount > 0) || t.bonusAmount < 0) return `${currency} 档位金额必须大于 0、奖励不能为负`
       }
+    }
+    for (const [currency, list] of Object.entries(c.regularRedep.tiers)) {
+      for (const t of list) if (t.depositAmount <= 0 || t.bonusAmount < 0) return `常规复充 ${currency} 档位金额必须大于0、奖励不能为负`
     }
     return null
   }
@@ -320,6 +330,41 @@ export default function Promotions() {
         </Row>
       </Card>
 
+    </>
+  )
+
+  const regularRedepTab = (
+    <>
+      <Card style={{ marginBottom: 16 }} title="常规复充赠金"
+        extra={<Switch checkedChildren="开启" unCheckedChildren="关闭" checked={cfg.regularRedep.enabled} onChange={(value) => patch((d) => { d.regularRedep.enabled = value })} />}>
+        <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 12 }}>
+          非首充订单按最高达标档位生成待领取资格；用户领取后才增加赠金流水。默认与限时复充互斥，防止同一订单重复奖励。
+        </Text>
+        <Row gutter={[16, 16]}>
+          <Col span={8}><Text>流水倍率</Text><InputNumber suffix="x" min={0} max={100} style={{ width: '100%', marginTop: 4 }} value={cfg.regularRedep.turnoverX} onChange={(v) => patch((d) => { d.regularRedep.turnoverX = Number(v ?? 0) })} /></Col>
+          <Col span={8}><Text>流水有效期</Text><InputNumber suffix="天" min={0} max={365} style={{ width: '100%', marginTop: 4 }} value={cfg.regularRedep.turnoverDays} onChange={(v) => patch((d) => { d.regularRedep.turnoverDays = Number(v ?? 0) })} /></Col>
+          <Col span={8}><Text>领取有效期</Text><InputNumber suffix="小时" min={1} max={168} style={{ width: '100%', marginTop: 4 }} value={cfg.regularRedep.claimHours} onChange={(v) => patch((d) => { d.regularRedep.claimHours = Number(v ?? 0) })} /></Col>
+          <Col span={8}><Text>每日最多领取</Text><InputNumber suffix="次" min={1} max={100} style={{ width: '100%', marginTop: 4 }} value={cfg.regularRedep.dailyMaxClaims} onChange={(v) => patch((d) => { d.regularRedep.dailyMaxClaims = Number(v ?? 1) })} /></Col>
+          <Col span={8}><Text>允许叠加限时复充</Text><div style={{ marginTop: 8 }}><Switch checked={cfg.regularRedep.stackWithLimited} onChange={(v) => patch((d) => { d.regularRedep.stackWithLimited = v })} /></div></Col>
+        </Row>
+      </Card>
+      <Card title="各币种阶梯（单笔充值只匹配最高档）">
+        <Tabs items={CONFIG_CCY_OPTIONS.map(({ value: currency, label }) => ({
+          key: currency, label,
+          children: <>
+            <Text>每日赠金上限（{currency}）</Text>
+            <InputNumber min={0} precision={currency === 'IDR' ? 0 : 2} prefix={currencyPrefix(currency)} style={{ width: 220, margin: '0 0 12px 8px' }} value={cfg.regularRedep.dailyBonusCaps[currency] ?? 0} onChange={(v) => patch((d) => { d.regularRedep.dailyBonusCaps[currency] = Number(v ?? 0) })} />
+            <Table<FirstDepTier> size="small" pagination={false} rowKey={(_, idx) => `regular-${currency}-${idx}`}
+              dataSource={cfg.regularRedep.tiers[currency]}
+              columns={[
+                { title: `充值门槛（${currency}）`, render: (_: unknown, __: FirstDepTier, idx: number) => <InputNumber min={0} precision={currency === 'IDR' ? 0 : 2} value={cfg.regularRedep.tiers[currency][idx].depositAmount} onChange={(v) => patch((d) => { d.regularRedep.tiers[currency][idx].depositAmount = Number(v ?? 0) })} /> },
+                { title: `赠金（${currency}）`, render: (_: unknown, __: FirstDepTier, idx: number) => <InputNumber min={0} precision={currency === 'IDR' ? 0 : 2} value={cfg.regularRedep.tiers[currency][idx].bonusAmount} onChange={(v) => patch((d) => { d.regularRedep.tiers[currency][idx].bonusAmount = Number(v ?? 0) })} /> },
+                { title: '操作', width: 80, render: (_: unknown, __: FirstDepTier, idx: number) => <Button danger type="text" icon={<DeleteOutlined />} onClick={() => patch((d) => { d.regularRedep.tiers[currency].splice(idx, 1) })} /> },
+              ]} />
+            <Button block type="dashed" icon={<PlusOutlined />} style={{ marginTop: 12 }} onClick={() => patch((d) => { d.regularRedep.tiers[currency].push({ depositAmount: 0, bonusAmount: 0 }) })}>添加档位</Button>
+          </>,
+        }))} />
+      </Card>
     </>
   )
 
@@ -531,6 +576,7 @@ export default function Promotions() {
         items={[
           { key: 'general', label: '常规活动', children: generalTab },
           { key: 'firstdep', label: '💰 首充嘉年华', children: firstdepTab },
+          { key: 'regularRedep', label: '🎁 常规复充', children: regularRedepTab },
           { key: 'redep', label: '⏰ 复充限时', children: redepTab },
           { key: 'lossRebate', label: '💸 负盈利返水', children: lossRebateTab },
           { key: 'popups', label: '🪟 首页弹窗', children: popupsTab },

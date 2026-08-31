@@ -828,6 +828,7 @@ export default {
     limitedOfferTitle: 'Promo Waktu Terbatas',
     limitedOfferDesc: 'Deposit {{min}} atau lebih dapat ekstra {{bonus}}',
     limitedOfferHint: 'Bonus promo terbatas {{amount}}',
+    regularRedepHint: 'Klaim {{amount}} setelah pembayaran. Turnover hanya berlaku setelah bonus diklaim.',
     limitedOfferCta: 'Deposit Sekarang',
     limitedOfferLater: 'Nanti saja',
     cryptoFirstDepTitle: 'Bonus deposit pertama aktif',

@@ -20,6 +20,7 @@ router.put('/config', async (ctx) => {
     firstdep: { ...current.firstdep, ...(body.firstdep ?? {}) },
     appdl:    { ...current.appdl,    ...(body.appdl    ?? {}), amountByCcy: { ...(current.appdl.amountByCcy ?? {}), ...(body.appdl?.amountByCcy ?? {}) } },
     redep:    { ...current.redep,    ...(body.redep    ?? {}) },
+    regularRedep: { ...current.regularRedep, ...(body.regularRedep ?? {}), tiers: { ...current.regularRedep.tiers, ...(body.regularRedep?.tiers ?? {}) }, dailyBonusCaps: { ...current.regularRedep.dailyBonusCaps, ...(body.regularRedep?.dailyBonusCaps ?? {}) } },
     lossRebate: { ...current.lossRebate, ...(body.lossRebate ?? {}) },
     popups:   body.popups ?? current.popups,
     bonusCards: body.bonusCards ?? current.bonusCards,
@@ -41,6 +42,15 @@ router.put('/config', async (ctx) => {
     || updated.redep.cooldownDays < 0 || updated.redep.turnoverX < 0 || updated.redep.turnoverDays < 0) {
     fail(ctx, 400, 'redep 档位/时长必须为正,奖励/冷却/流水参数不能为负'); return
   }
+  if (updated.regularRedep.turnoverX < 0 || updated.regularRedep.turnoverDays < 0 || updated.regularRedep.claimHours <= 0
+    || updated.regularRedep.dailyMaxClaims <= 0 || Object.values(updated.regularRedep.dailyBonusCaps).some((amount) => amount < 0)) {
+    fail(ctx, 400, '常规复充的流水、领取时限、每日次数或赠金上限配置无效'); return
+  }
+  for (const [currency, tiers] of Object.entries(updated.regularRedep.tiers)) {
+    if (tiers.some((tier) => tier.depositAmount <= 0 || tier.bonusAmount < 0)) {
+      fail(ctx, 400, `常规复充 ${currency} 档位金额必须大于 0、奖励不能为负`); return
+    }
+  }
   if (updated.lossRebate.ratePct < 0 || updated.lossRebate.ratePct > 100 || updated.lossRebate.minDeposit < 0) {
     fail(ctx, 400, 'lossRebate 费率须在 0-100、门槛不能为负'); return
   }
@@ -61,6 +71,7 @@ export function promoLabel(type: string, description: string): string {
     return '首席体验官'
   }
   if (type === 'bonus') {
+    if (/regular redeposit/i.test(description)) return '常规复充赠金'
     if (/referral/i.test(description)) return '邀请共赢'
     if (/first deposit/i.test(description)) return '首充嘉年华'
     return '活动奖励'
@@ -75,6 +86,31 @@ router.get('/claims', async (ctx) => {
   const pageSize = Math.min(1000, Math.max(1, Number(ctx.query.pageSize ?? 20)))
   const promoId  = ctx.query.promoId ? String(ctx.query.promoId) : undefined
   const offset   = (page - 1) * pageSize
+
+  if (promoId === 'regular_redep') {
+    const [rows] = await pool.query<RowDataPacket[]>(
+      `SELECT c.id,c.order_id,c.user_id,u.display_name,c.deposit_amount,c.bonus_amount,c.currency,
+              CASE WHEN c.status='pending' AND c.expires_at<=NOW(3) THEN 'expired' ELSE c.status END status,
+              c.expires_at,c.claimed_at,c.created_at
+       FROM bg_regular_redep_claim c
+       LEFT JOIN bg_user u ON u.id=c.user_id
+       ORDER BY c.created_at DESC LIMIT ? OFFSET ?`,
+      [pageSize, offset],
+    )
+    const [[countRow]] = await pool.query<RowDataPacket[]>('SELECT COUNT(*) total FROM bg_regular_redep_claim')
+    ok(ctx, {
+      items: rows.map((r) => ({
+        id: String(r.id), userId: String(r.user_id), displayName: r.display_name ?? r.user_id,
+        promoName: '常规复充赠金', orderId: String(r.order_id), depositAmount: Number(r.deposit_amount),
+        amount: Number(r.bonus_amount), currency: String(r.currency), status: String(r.status),
+        createdAt: r.created_at instanceof Date ? r.created_at.toISOString() : String(r.created_at),
+        expiresAt: r.expires_at instanceof Date ? r.expires_at.toISOString() : String(r.expires_at),
+        claimedAt: r.claimed_at instanceof Date ? r.claimed_at.toISOString() : r.claimed_at ? String(r.claimed_at) : null,
+      })),
+      total: Number(countRow?.total ?? 0), page, pageSize,
+    })
+    return
+  }
 
   const promoFilter = promoId === 'trial'    ? `AND l.type = 'red_packet' AND l.description NOT LIKE '%App download%'`
                     : promoId === 'referral'  ? `AND l.type = 'bonus' AND l.description LIKE '%Referral%'`

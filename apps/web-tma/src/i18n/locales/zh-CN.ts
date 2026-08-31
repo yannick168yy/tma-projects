@@ -1250,6 +1250,7 @@ export default {
     limitedOfferTitle: '限时充值优惠',
     limitedOfferDesc: '充值满 {{min}} 额外送 {{bonus}}',
     limitedOfferHint: '限时优惠奖励 {{amount}}',
+    regularRedepHint: '充值成功后可领取 {{amount}}，领取后才增加赠金流水。',
     limitedOfferCta: '立即充值',
     limitedOfferLater: '稍后再说',
     cryptoFirstDepTitle: '首充礼金已开启',

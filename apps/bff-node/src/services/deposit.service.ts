@@ -14,6 +14,7 @@ import { createDepositRequirement, createPromoRequirement } from './turnover.ser
 import { getFirstDepConfigByPool, matchFirstDepBonus, PROMO_DEFAULTS } from './promo-config.service.js'
 import { evaluateWithPool } from './risk.service.js'
 import { applyRedepPromo } from './redep.service.js'
+import { createRegularRedepClaim } from './regular-redep.service.js'
 
 export type DepositCurrency = 'PHP' | 'USDT' | 'USDC' | 'IDR'
 
@@ -138,6 +139,7 @@ export async function settlePaidDeposit(
   // 复充限时优惠：按币种独立，达标额与发奖均用原币种（credited/creditedCurrency 即入账原币种口径）
   if (opts.mysqlPool) {
     await applyRedepPromo(redis, opts.mysqlPool, order.userId, order.orderId, credited, creditedCurrency, opts.traceId)
+    await createRegularRedepClaim(opts.mysqlPool, order.userId, order.orderId, credited, creditedCurrency)
   }
 
   if (opts.mysqlPool) {

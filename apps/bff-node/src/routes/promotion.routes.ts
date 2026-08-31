@@ -11,6 +11,7 @@ import { createPromoRequirement } from '../services/turnover.service.js'
 import { riskAllowed } from '../utils/risk-guard.js'
 import { getClientIp, getDeviceId } from '../utils/client-context.js'
 import { appdlClaimedOnSameDevice, trialClaimedOnSameDevice } from '../services/promo-device-guard.service.js'
+import { claimRegularRedep, listRegularRedepClaims } from '../services/regular-redep.service.js'
 
 const PROMOS = [
   {
@@ -78,6 +79,24 @@ function promoHighlights(user: Awaited<ReturnType<typeof getUser>>, firstDeposit
 router.get('/redep-offer', async (ctx) => {
   const currency = (ctx.query.currency as string) || 'PHP'
   ok(ctx, await getOrCreateRedepOffer(ctx.state.env, ctx.state.userId!, currency))
+})
+
+router.get('/regular-redep/claims', async (ctx) => {
+  const currency = ctx.query.currency ? String(ctx.query.currency).toUpperCase() : undefined
+  if (currency && !['PHP', 'IDR', 'USDT', 'USDC'].includes(currency)) { fail(ctx, 400, 'invalid currency'); return }
+  ok(ctx, await listRegularRedepClaims(ctx.state.env, ctx.state.userId!, currency))
+})
+
+router.post('/regular-redep/claims/:id/claim', async (ctx) => {
+  const id = Number(ctx.params.id)
+  if (!Number.isInteger(id) || id <= 0) { fail(ctx, 400, 'invalid claim'); return }
+  try {
+    const result = await withUserPromoLock(ctx, ctx.state.userId!, `regular-redep:${id}`, () =>
+      claimRegularRedep(ctx.state.env, ctx.state.userId!, id))
+    ok(ctx, result)
+  } catch (error) {
+    fail(ctx, 400, error instanceof Error ? error.message : 'errors.promoNotEligible')
+  }
 })
 
 router.get('/', async (ctx) => {

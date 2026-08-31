@@ -17,6 +17,17 @@ export interface PaidDepositInfo {
 
 interface FirstDepTier { depositAmount: number; bonusAmount: number }
 
+interface RegularRedepConfig {
+  enabled: boolean
+  tiers: Record<string, FirstDepTier[]>
+  turnoverX: number
+  turnoverDays: number
+  claimHours: number
+  dailyMaxClaims: number
+  dailyBonusCaps: Record<string, number>
+  stackWithLimited: boolean
+}
+
 async function loadPromoKv(db: Pool, promoId: string): Promise<Record<string, string>> {
   const [rows] = await db.query<RowDataPacket[]>(
     'SELECT config_key, config_value FROM bg_promo_config WHERE promo_id = ?',
@@ -37,6 +48,59 @@ function matchFirstDepBonus(tiers: FirstDepTier[], amount: number): number {
     }
   }
   return bonus
+}
+
+async function loadRegularRedepConfig(db: Pool): Promise<RegularRedepConfig | null> {
+  const cfg = await loadPromoKv(db, 'redep_regular')
+  if (cfg.enabled !== '1') return null
+  try {
+    return {
+      enabled: true,
+      tiers: JSON.parse(cfg.tiers ?? '{}') as Record<string, FirstDepTier[]>,
+      turnoverX: Number(cfg.turnover_x ?? 3), turnoverDays: Number(cfg.turnover_days ?? 30),
+      claimHours: Number(cfg.claim_hours ?? 24), dailyMaxClaims: Number(cfg.daily_max_claims ?? 3),
+      dailyBonusCaps: JSON.parse(cfg.daily_bonus_caps ?? '{}') as Record<string, number>,
+      stackWithLimited: cfg.stack_with_limited === '1',
+    }
+  } catch { return null }
+}
+
+async function createRegularRedepClaim(db: Pool, dep: PaidDepositInfo): Promise<void> {
+  const cfg = await loadRegularRedepConfig(db)
+  if (!cfg?.enabled) return
+  const [prior] = await db.query<RowDataPacket[]>(
+    "SELECT 1 FROM bg_deposit_order WHERE user_id=? AND status='paid' AND channel<>'admin' AND order_id<>? LIMIT 1",
+    [dep.userId, dep.orderId],
+  )
+  if (prior.length === 0) return
+  if (!cfg.stackWithLimited) {
+    const [limited] = await db.query<RowDataPacket[]>(
+      `SELECT 1 FROM bg_redep_offer WHERE user_id=? AND currency=? AND (
+         claimed_order_id=? OR (claimed_at IS NULL AND ends_at>NOW(3) AND min_deposit<=?)
+       ) LIMIT 1`,
+      [dep.userId, dep.currency, dep.orderId, dep.amount],
+    )
+    if (limited.length > 0) return
+  }
+  const bonus = matchFirstDepBonus(cfg.tiers[dep.currency] ?? [], dep.amount)
+  if (bonus <= 0) return
+  const offset = dep.currency === 'IDR' ? 7 : 8
+  const [[daily]] = await db.query<RowDataPacket[]>(
+    `SELECT COUNT(*) cnt, COALESCE(SUM(bonus_amount),0) bonus
+     FROM bg_regular_redep_claim
+     WHERE user_id=? AND currency=? AND status IN ('pending','claimed')
+       AND DATE(DATE_ADD(created_at, INTERVAL ${offset} HOUR))=DATE(DATE_ADD(NOW(3), INTERVAL ${offset} HOUR))`,
+    [dep.userId, dep.currency],
+  )
+  if (Number(daily?.cnt ?? 0) >= cfg.dailyMaxClaims) return
+  const cap = Number(cfg.dailyBonusCaps[dep.currency] ?? 0)
+  if (cap > 0 && Number(daily?.bonus ?? 0) + bonus > cap) return
+  await db.execute(
+    `INSERT IGNORE INTO bg_regular_redep_claim
+       (order_id,user_id,currency,deposit_amount,bonus_amount,turnover_x,turnover_days,expires_at)
+     VALUES (?,?,?,?,?,?,?,DATE_ADD(NOW(3),INTERVAL ? HOUR))`,
+    [dep.orderId, dep.userId, dep.currency, dep.amount, bonus, cfg.turnoverX, cfg.turnoverDays, cfg.claimHours],
+  )
 }
 
 function turnoverExpiresAt(days: number): string | null {
@@ -140,6 +204,11 @@ export async function applyDepositPromos(
     await applyFirstDepBonus(db, dep)
   } catch (err) {
     log.error({ err, orderId: dep.orderId }, 'first deposit bonus failed')
+  }
+  try {
+    await createRegularRedepClaim(db, dep)
+  } catch (err) {
+    log.error({ err, orderId: dep.orderId }, 'regular redeposit claim creation failed')
   }
   // 广告转化回传挂在这里，是因为这个函数是全部入账路径（internal + yfpay/unispay/matrix
   // 回调）的唯一汇合点，挂别处必漏。失败不影响充值与发奖。

@@ -11,6 +11,7 @@ import { isInsideTelegram } from '@/utils/initTelegramWebApp'
 import { analytics } from '@/utils/analytics'
 import bonusesHero from '@/assets/home/promos/bonuses-hero.webp'
 import { localizedImage } from '@/utils/localizedImage'
+import RegularRedepClaims from '@/components/promotion/RegularRedepClaims'
 
 interface Props {
   promoFilter?: string | null
@@ -591,6 +592,7 @@ export default function BonusesPage({ promoFilter, onOpenWallet, onOpenTeam, onO
       </div>
 
       <div className="px-4 mt-4 space-y-3">
+        <RegularRedepClaims currency={activeCurrency} />
         {orderedCards.map((c) => renderCard(c.id))}
 
         {/* New Player Gifts 测试入口：放在最底部，不纳入后台编排 */}

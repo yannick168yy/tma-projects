@@ -24,6 +24,7 @@ import { isKycGatePassed } from '@/api/kyc'
 import { useKycGate } from '@/hooks/useKycGate'
 import { CRYPTO_DEPOSIT, CRYPTO_WITHDRAW, FIAT_DEPOSIT, FIAT_WITHDRAW, TG_WALLET_DEPOSIT, type PayMethod } from '@/data/wallet'
 import { useBottomSheetDrag } from '@/hooks/useBottomSheetDrag'
+import RegularRedepClaims from '@/components/promotion/RegularRedepClaims'
 
 interface Props { open: boolean; onClose: () => void; initialTab?: 'deposit'|'withdraw'|'history'; fullscreen?: boolean }
 
@@ -402,7 +403,10 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
   const redepShow = redepActive && firstDepDone === true && depositCurrency === (redepOffer?.currency ?? 'PHP')
   const showCryptoRedepGuide = isMatrixDeposit && redepShow
   const redepBonusFor = (amt: number) => (redepShow && amt >= (redepOffer?.minDeposit ?? Infinity) ? (redepOffer?.bonusAmount ?? 0) : 0)
+  const regularRedepTiers = promoConfig?.regularRedep?.enabled && firstDepDone === true ? promoConfig.regularRedep.tiers?.[depositCurrency] : undefined
+  const regularRedepBonusFor = (amt: number) => !redepShow ? matchTierBonus(regularRedepTiers, amt) : 0
   const selectedBonus = firstDepEligible ? matchTierBonus(depositTierList, Number(amount)) : redepBonusFor(Number(amount))
+  const displayedBonus = selectedBonus || regularRedepBonusFor(Number(amount))
   const receiveAmount = Math.max(0, Number(amount) || 0) + selectedBonus
 
   // 充值：切换分类（或渠道加载完成）时自动选中该分类首个可用渠道
@@ -884,17 +888,17 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
                       )}
                       <div className="flex items-center justify-between gap-3">
                         <p className="text-white/40 text-[11px] font-black uppercase tracking-widest">{t('wallet.depositAmount')}</p>
-                        {selectedBonus > 0 && (
+                        {displayedBonus > 0 && (
                           <div className="inline-flex items-center gap-1.5 rounded-xl border border-primary/45 bg-primary/10 px-3 py-1.5 text-primary">
                             <Gift size={13} strokeWidth={3} />
-                            <span className="text-[11px] font-black">{t('wallet.firstDepBonusBadge',{amount:fmtPreset(selectedBonus,depositCurrency)})}</span>
+                            <span className="text-[11px] font-black">{t('wallet.firstDepBonusBadge',{amount:fmtPreset(displayedBonus,depositCurrency)})}</span>
                           </div>
                         )}
                       </div>
                       {/* 金额档位网格（带首存/复充奖励角标） */}
                       <div className="grid grid-cols-3 gap-2">
                         {depositPresets.map((amt)=>{
-                          const sel=amount===String(amt); const bonus=firstDepEligible?matchTierBonus(depositTierList,amt):redepBonusFor(amt)
+                          const sel=amount===String(amt); const bonus=firstDepEligible?matchTierBonus(depositTierList,amt):(redepBonusFor(amt)||regularRedepBonusFor(amt))
                           return (
                             <button key={amt} type="button" onClick={()=>selectDepositAmount(String(amt))} className={`relative rounded-xl border py-2.5 px-1 flex flex-col items-center transition-colors ${sel?'border-primary bg-primary/15 shadow-[0_0_18px_rgba(245,158,11,0.24)]':'border-white/10 bg-[#101a2c]'}`}>
                               {sel&&<span className="absolute right-2 top-2 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-black"><Check size={10} strokeWidth={3}/></span>}
@@ -911,7 +915,9 @@ export default function WalletModal({ open, onClose, initialTab = 'deposit', ful
                       </div>
                       {firstDepEligible&&Number(amount)>0&&selectedBonus>0&&<p className="text-[11px] font-bold text-primary text-center -mt-1">{t('wallet.firstDepBonusHint',{amount:fmtPreset(selectedBonus,depositCurrency)})}</p>}
                       {redepShow&&Number(amount)>0&&selectedBonus>0&&<p className="text-[11px] font-bold text-amber-300 text-center -mt-1">{t('wallet.limitedOfferHint',{amount:fmtPreset(selectedBonus,depositCurrency)})}</p>}
+                      {!redepShow&&firstDepDone===true&&Number(amount)>0&&displayedBonus>0&&<p className="text-[11px] font-bold text-amber-300 text-center -mt-1">{t('wallet.regularRedepHint',{amount:fmtPreset(displayedBonus,depositCurrency)})}</p>}
                       {depositMessage&&<p className={`text-xs font-bold text-center ${depositSuccess?'text-emerald-400':'text-amber-400'}`}>{depositMessage}</p>}
+                      <RegularRedepClaims currency={depositCurrency} refreshKey={depositSuccess ? 1 : 0} />
                       {paymentCheckout&&!depositSuccess&&(
                         <div className="space-y-3 rounded-2xl border border-primary/25 bg-primary/10 px-4 py-4">
                           <p className="text-center text-xs font-bold leading-relaxed text-white/75">{t('wallet.paymentPendingHelp')}</p>
