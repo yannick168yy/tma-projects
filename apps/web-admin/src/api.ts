@@ -617,6 +617,7 @@ export interface SystemParams {
   loginPasswordLockSeconds: number
   featureBonusLockEnabled: boolean
   featureBonusLockMinAmount: number
+  featureBonusLockMinAmountIdr: number
   featureBonusLockMinMultiple: number
   featureBonusLockWagerMult: number
 }

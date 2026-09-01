@@ -9,7 +9,7 @@ type CallbackBody = Record<string, unknown>
 
 // feature 彩金闸阈值：bff 写入 Redis（键 settings:feature_bonus_lock），这里带 30s 进程缓存读取，
 // Redis 不可用时回落 env 默认。改后台系统参数即时生效（最多 30s 缓存延迟），无需重部署。
-interface FeatureBonusLockCfg { enabled: boolean; minAmount: number; minMultiple: number; wagerMult: number }
+interface FeatureBonusLockCfg { enabled: boolean; minAmount: number; minAmountIdr: number; minMultiple: number; wagerMult: number }
 const FL_REDIS_KEY = 'settings:feature_bonus_lock'
 const FL_CACHE_MS = 30_000
 let flCache: { v: FeatureBonusLockCfg; at: number } | null = null
@@ -724,6 +724,7 @@ export class Win568WalletService {
     const v: FeatureBonusLockCfg = {
       enabled: env.FEATURE_BONUS_LOCK_ENABLED === 'true',
       minAmount: env.FEATURE_BONUS_LOCK_MIN_AMOUNT,
+      minAmountIdr: env.FEATURE_BONUS_LOCK_MIN_AMOUNT_IDR,
       minMultiple: env.FEATURE_BONUS_LOCK_MIN_MULTIPLE,
       wagerMult: env.FEATURE_BONUS_LOCK_WAGER_MULT,
     }
@@ -733,6 +734,7 @@ export class Win568WalletService {
         const j = JSON.parse(raw) as Partial<FeatureBonusLockCfg>
         if (typeof j.enabled === 'boolean') v.enabled = j.enabled
         if (Number.isFinite(j.minAmount)) v.minAmount = Number(j.minAmount)
+        if (Number.isFinite(j.minAmountIdr)) v.minAmountIdr = Number(j.minAmountIdr)
         if (Number.isFinite(j.minMultiple)) v.minMultiple = Number(j.minMultiple)
         if (Number.isFinite(j.wagerMult)) v.wagerMult = Number(j.wagerMult)
       }
@@ -753,7 +755,10 @@ export class Win568WalletService {
     const cfg = await this.getFeatureBonusLockConfig()
     if (!cfg.enabled) return
     if (bool(body, 'IsGameProviderPromotion')) return
-    if (amount < cfg.minAmount) return
+    // 阈值必须按币种取：amount 是钱包单位（IDR 即实际卢比），共用 PHP 的门槛
+    // 会让每一笔 IDR 彩金都越过闸门，白白给玩家压上流水锁
+    const minAmount = player.currency === 'IDR' ? cfg.minAmountIdr : cfg.minAmount
+    if (amount < minAmount) return
     const extra = body.SeamlessGameExtraInfo as Record<string, unknown> | undefined
     const refNo = extra && typeof extra.ReferenceRefNo === 'string' ? extra.ReferenceRefNo : ''
     if (!refNo) return

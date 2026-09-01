@@ -30,6 +30,7 @@ const schema = z.object({
   // 彩金流水锁；巨鲸大奖/正常小奖都是低倍，不受影响。MIN_AMOUNT 以下不查库、直接放行。
   FEATURE_BONUS_LOCK_ENABLED: z.string().default('true'),
   FEATURE_BONUS_LOCK_MIN_AMOUNT: z.coerce.number().default(50),
+  FEATURE_BONUS_LOCK_MIN_AMOUNT_IDR: z.coerce.number().default(14400),
   FEATURE_BONUS_LOCK_MIN_MULTIPLE: z.coerce.number().default(20),
   FEATURE_BONUS_LOCK_WAGER_MULT: z.coerce.number().default(2),
 
