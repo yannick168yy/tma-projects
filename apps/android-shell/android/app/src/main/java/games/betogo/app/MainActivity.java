@@ -6,6 +6,7 @@ import android.os.Bundle;
 import android.os.Message;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceError;
+import android.webkit.WebResourceResponse;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.Toast;
@@ -98,6 +99,13 @@ public class MainActivity extends BridgeActivity {
         });
     }
 
+    /** 把出问题的域名拉黑并立刻重选线路；候选被排完时 select 回调会给出 null 并提示用户。 */
+    private void switchAwayFrom(String host) {
+        if (!isOwnHost(host)) return;
+        failedDomains.add(host.replaceFirst("^www\\.", ""));
+        selectDomainAndLoad();
+    }
+
     private void registerBackHandler() {
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
@@ -174,11 +182,20 @@ public class MainActivity extends BridgeActivity {
         @Override
         public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
             super.onReceivedError(view, request, error);
-            if (!request.isForMainFrame()) return;
-            String host = request.getUrl().getHost();
-            if (!isOwnHost(host)) return;
-            if (host != null) failedDomains.add(host.replaceFirst("^www\\.", ""));
-            selectDomainAndLoad();
+            if (request.isForMainFrame()) switchAwayFrom(request.getUrl().getHost());
+        }
+
+        /**
+         * 域名可达但回源挂了（502/503/504）走的是这里而不是 onReceivedError —— 这恰恰是最常见的
+         * 故障形态。不接管的话用户会卡在错误页，明明还有备用线路也切不过去。
+         * 4xx 不换线：那是页面级问题（登录过期、路由不存在），换域名解决不了还会白丢会话。
+         */
+        @Override
+        public void onReceivedHttpError(WebView view, WebResourceRequest request, WebResourceResponse errorResponse) {
+            super.onReceivedHttpError(view, request, errorResponse);
+            if (request.isForMainFrame() && errorResponse.getStatusCode() >= 500) {
+                switchAwayFrom(request.getUrl().getHost());
+            }
         }
 
         @Override

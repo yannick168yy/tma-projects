@@ -32,6 +32,7 @@ final class AppDomainSelector {
     private static final String PREFS = "app_domain_selector";
     private static final String LAST_DOMAIN = "last_domain_";
     private static final String CACHED_DOMAINS = "cached_domains_";
+    private static final String CACHED_VERSION = "cached_version_";
     private static final int TIMEOUT_MS = 1800;
 
     private final Context context;
@@ -72,6 +73,7 @@ final class AppDomainSelector {
                 preferences().edit()
                     .putString(LAST_DOMAIN + market, selected.domain)
                     .putString(CACHED_DOMAINS + market, selected.remoteDomains)
+                    .putString(CACHED_VERSION + market, selected.configVersion)
                     .apply();
             }
             String origin = selected == null ? null : selected.origin;
@@ -81,8 +83,20 @@ final class AppDomainSelector {
 
     private Result choose(List<Result> alive) {
         if (alive.isEmpty()) return null;
-        String last = preferences().getString(LAST_DOMAIN + market, "");
-        for (Result result : alive) if (result.domain.equals(last)) return result;
+        // 粘住上次成功的域名，避免每次换线把 localStorage 里的会话和偏好甩掉。
+        // 但后台调整过线路（configVersion 变了）时必须放弃粘性，否则运营新启用的更优线路永远轮不上。
+        String cachedVersion = preferences().getString(CACHED_VERSION + market, "");
+        boolean configChanged = false;
+        for (Result result : alive) {
+            if (!result.configVersion.isEmpty() && !result.configVersion.equals(cachedVersion)) {
+                configChanged = true;
+                break;
+            }
+        }
+        if (!configChanged) {
+            String last = preferences().getString(LAST_DOMAIN + market, "");
+            for (Result result : alive) if (result.domain.equals(last)) return result;
+        }
         return alive.stream().min(Comparator
             .comparingLong((Result item) -> item.elapsedMs)
             .thenComparingInt(item -> item.priority)).orElse(null);
@@ -123,10 +137,13 @@ final class AppDomainSelector {
                 if (domain.equals(candidate.domain)) currentEnabled = true;
             }
             if (!currentEnabled || accepted.length() == 0) return null;
+            // 跟随重定向后的落点也要在 APK 白名单内：域名过期被抢注后 301 到站外时，
+            // 不校验就等于把用户直接送进别人的站点。
             String finalHost = connection.getURL().getHost();
+            if (!allowedDomains.contains(normalizeDomain(finalHost))) return null;
             String origin = "https://" + finalHost;
             return new Result(candidate.domain, origin, candidate.priority,
-                System.currentTimeMillis() - startedAt, accepted.toString());
+                System.currentTimeMillis() - startedAt, accepted.toString(), data.optString("configVersion", ""));
         } catch (Exception ignored) {
             return null;
         } finally {
@@ -189,12 +206,14 @@ final class AppDomainSelector {
         final int priority;
         final long elapsedMs;
         final String remoteDomains;
-        Result(String domain, String origin, int priority, long elapsedMs, String remoteDomains) {
+        final String configVersion;
+        Result(String domain, String origin, int priority, long elapsedMs, String remoteDomains, String configVersion) {
             this.domain = domain;
             this.origin = origin;
             this.priority = priority;
             this.elapsedMs = elapsedMs;
             this.remoteDomains = remoteDomains;
+            this.configVersion = configVersion;
         }
     }
 }

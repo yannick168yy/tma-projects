@@ -36,7 +36,7 @@ import { getMysqlPool, isMysqlEnabled } from '../clients/mysql.client.js'
 import { ok, fail } from '../utils/response.js'
 import type { RowDataPacket } from 'mysql2/promise'
 import { createHash } from 'node:crypto'
-import { appDomainsForMarket, getSiteDomainMappings, marketForHost, type SiteMarket } from '../services/site-domain.service.js'
+import { appDomainsForMarket, defaultAppDomainsForMarket, getSiteDomainMappings, marketForHost, type SiteMarket } from '../services/site-domain.service.js'
 
 function requestHost(ctx: import('koa').Context): string {
   for (const raw of [ctx.get('x-viewer-host'), ctx.get('origin'), ctx.get('referer'), ctx.get('host')]) {
@@ -81,7 +81,9 @@ export function createApiRouter(): Router {
     }
     const market = rawMarket as SiteMarket
     const mappings = await getSiteDomainMappings(ctx.state.redis, ctx.state.env)
-    const domains = appDomainsForMarket(mappings, market).map((item) => ({
+    // 配置异常（DB 降级、线路被清空）时绝不下发空表：App 收到空表会判定全部线路不可用而起不来
+    const configured = appDomainsForMarket(mappings, market)
+    const domains = (configured.length > 0 ? configured : defaultAppDomainsForMarket(market)).map((item) => ({
       domain: item.domain,
       url: `https://${item.domain}`,
       priority: item.appPriority,
