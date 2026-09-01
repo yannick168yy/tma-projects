@@ -11,14 +11,14 @@
 3. **生产 AWS 的数据（MySQL / 文件）修改或删除，必须用户逐次明确授权** —— 未获授权时对生产数据**只读**，绝不改删。
 
 - 每次代码改完：自动 commit + 部署**阿里云测试**（无需再提醒）；**`git push` 与生产部署**都要等用户通知/授权后执行
-- **阿里云测试**：IP `47.84.34.139`，SSH 密钥 `/Volumes/MacAPFS/TMA_FILES/亚马逊云-阿里云/aliyun.pem`，项目路径 `/root/workspace/tma-projects`，root 登录
-- **生产 AWS（需授权）**：EC2 m8g.xlarge，IP `13.213.107.231`，域名 betogo.games / admin.betogo.games，SSH 用户 `ubuntu`，密钥 `/Volumes/MacAPFS/TMA_FILES/亚马逊云-阿里云/betogo-amazon-prod.pem`，项目路径 `/opt/tma-projects`，容器 rootful（`sudo podman`）
+- **阿里云测试**：IP `47.84.34.139`，SSH 密钥 `/Volumes/MacImage/TMA_FILES/亚马逊云-阿里云/aliyun.pem`，项目路径 `/root/workspace/tma-projects`，root 登录
+- **生产 AWS（需授权）**：EC2 m8g.xlarge，IP `13.213.107.231`，域名 betogo.games / admin.betogo.games，SSH 用户 `ubuntu`，密钥 `/Volumes/MacImage/TMA_FILES/亚马逊云-阿里云/betogo-amazon-prod.pem`，项目路径 `/opt/tma-projects`，容器 rootful（`sudo podman`）
 
 ### 默认使用：Fast 部署，约 20-40 秒（纯代码改动，无新 npm 依赖）
 ```bash
 DEPLOY_HOST=root@47.84.34.139 \
 DEPLOY_DIR=/root/workspace/tma-projects \
-SSH_IDENTITY_FILE=/Volumes/MacAPFS/TMA_FILES/亚马逊云-阿里云/aliyun.pem \
+SSH_IDENTITY_FILE=/Volumes/MacImage/TMA_FILES/亚马逊云-阿里云/aliyun.pem \
 SSH_OPTS="-o StrictHostKeyChecking=no" \
 bash deploy/single-node/deploy-fast.sh <目标>
 # 目标：web-tma | bff-node | core-node | all
@@ -28,7 +28,7 @@ bash deploy/single-node/deploy-fast.sh <目标>
 ```bash
 DEPLOY_HOST=root@47.84.34.139 \
 DEPLOY_DIR=/root/workspace/tma-projects \
-SSH_IDENTITY_FILE=/Volumes/MacAPFS/TMA_FILES/亚马逊云-阿里云/aliyun.pem \
+SSH_IDENTITY_FILE=/Volumes/MacImage/TMA_FILES/亚马逊云-阿里云/aliyun.pem \
 SSH_OPTS="-o StrictHostKeyChecking=no" \
 bash deploy/single-node/deploy-web-tma.sh
 ```
