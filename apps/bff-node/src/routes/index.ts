@@ -38,6 +38,7 @@ import type { RowDataPacket } from 'mysql2/promise'
 import { createHash } from 'node:crypto'
 import { appDomainsForMarket, defaultAppDomainsForMarket, getSiteDomainMappings, marketForHost, type SiteMarket } from '../services/site-domain.service.js'
 import { signRoutes } from '../services/app-route-sign.service.js'
+import { recordRouteProbes } from '../services/route-health.service.js'
 
 function requestHost(ctx: import('koa').Context): string {
   for (const raw of [ctx.get('x-viewer-host'), ctx.get('origin'), ctx.get('referer'), ctx.get('host')]) {
@@ -99,6 +100,36 @@ export function createApiRouter(): Router {
       issuedAt,
     )
     ok(ctx, { market, domains, configVersion, issuedAt, signature, serverTime: new Date().toISOString() })
+  })
+
+  // 公开：App 上报本次选线的探活结果。没有它后台完全看不到哪条线在被墙、哪条在变慢，
+  // 只能等用户报障。只累加计数，不落库、不记用户。
+  api.post('/app/route-report', async (ctx) => {
+    ctx.set('Cache-Control', 'no-store')
+    const body = ctx.request.body as { market?: unknown; selected?: unknown; results?: unknown }
+    const market = String(body.market ?? '').toUpperCase()
+    if (market !== 'PH' && market !== 'ID') { fail(ctx, 400, 'market 必须是 PH 或 ID'); return }
+    if (!Array.isArray(body.results) || body.results.length === 0 || body.results.length > 20) {
+      fail(ctx, 400, 'results 必须是 1-20 项的数组'); return
+    }
+    const probes = body.results.flatMap((item) => {
+      if (!item || typeof item !== 'object') return []
+      const row = item as Record<string, unknown>
+      const domain = String(row.domain ?? '').trim().toLowerCase()
+      const elapsedMs = Number(row.elapsedMs)
+      if (!domain) return []
+      return [{
+        domain,
+        ok: row.ok === true,
+        elapsedMs: Number.isFinite(elapsedMs) && elapsedMs >= 0 && elapsedMs < 60000 ? elapsedMs : 0,
+      }]
+    })
+    const mappings = await getSiteDomainMappings(ctx.state.redis, ctx.state.env)
+    const accepted = await recordRouteProbes(
+      ctx.state.redis, market as SiteMarket, mappings, probes,
+      String(body.selected ?? '').trim().toLowerCase(),
+    )
+    ok(ctx, { accepted })
   })
 
   // 公开：活动参数配置（App 启动即拉，先于登录完成，不含用户数据）

@@ -14,7 +14,30 @@ const DEFAULT_DOMAIN_MARKETS: Record<string, SiteMarket> = {
 }
 
 const MARKET_STORAGE_KEY = 'betogo_market'
+// 按域名记住服务端最近一次的判定。内置表是编译期快照，后台改了某域名的所属站点
+// 它不会跟着变；服务端拿不到时，用「上次服务端说的」远比用「出包那天写死的」准。
+const DOMAIN_MARKET_CACHE_KEY = 'betogo_domain_market'
 let runtimeMarket: SiteMarket | null = null
+
+function cacheDomainMarket(host: string, market: SiteMarket): void {
+  try {
+    const raw = localStorage.getItem(DOMAIN_MARKET_CACHE_KEY)
+    const map = raw ? JSON.parse(raw) as Record<string, string> : {}
+    map[host] = market
+    localStorage.setItem(DOMAIN_MARKET_CACHE_KEY, JSON.stringify(map))
+  } catch { /* 缓存失败不影响主流程 */ }
+}
+
+function readCachedDomainMarket(host: string): SiteMarket | null {
+  try {
+    const raw = localStorage.getItem(DOMAIN_MARKET_CACHE_KEY)
+    if (!raw) return null
+    const value = (JSON.parse(raw) as Record<string, string>)[host]
+    return value === 'PH' || value === 'ID' ? value : null
+  } catch {
+    return null
+  }
+}
 
 export async function initSiteMarketConfig(): Promise<void> {
   if (typeof window === 'undefined') return
@@ -25,7 +48,10 @@ export async function initSiteMarketConfig(): Promise<void> {
     if (!res.ok) return
     const body = await res.json() as { code?: number; data?: { market?: string } }
     const market = body.data?.market?.toUpperCase()
-    if (body.code === 0 && (market === 'PH' || market === 'ID')) runtimeMarket = market
+    if (body.code === 0 && (market === 'PH' || market === 'ID')) {
+      runtimeMarket = market
+      cacheDomainMarket(window.location.hostname.toLowerCase(), market)
+    }
   } catch {
     // 启动配置不可用时继续使用内置映射，避免阻断站点。
   } finally {
@@ -64,6 +90,12 @@ export function getSiteMarket(): SiteMarket {
     return runtimeMarket
   }
   const hostname = window.location.hostname.toLowerCase()
+  // 服务端此刻不可达时，优先信任它上次对这个域名的判定，再退回编译期内置表
+  const cached = readCachedDomainMarket(hostname)
+  if (cached) {
+    localStorage.setItem(MARKET_STORAGE_KEY, cached)
+    return cached
+  }
   const domainMarkets = configuredDomainMarkets()
   const byDomain = domainMarkets[hostname] ?? domainMarkets[hostname.replace(/^www\./, '')]
   if (byDomain) {

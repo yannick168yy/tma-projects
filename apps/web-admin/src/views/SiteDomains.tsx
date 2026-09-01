@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Alert, Button, Card, Input, Popconfirm, Select, Space, Switch, Table, Tag, Typography, message } from 'antd'
 import { DeleteOutlined, PlusOutlined, SaveOutlined } from '@ant-design/icons'
-import { getSiteDomainMappings, updateSiteDomainMappings, type SiteDomainMapping } from '../api'
+import { getRouteHealth, getSiteDomainMappings, updateSiteDomainMappings, type RouteHealthRow, type SiteDomainMapping } from '../api'
 import { useAuthStore } from '../stores/auth'
 
 type Row = SiteDomainMapping & { key: string }
@@ -18,6 +18,7 @@ export default function SiteDomains() {
   const [rows, setRows] = useState<Row[]>([])
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [health, setHealth] = useState<Record<string, RouteHealthRow>>({})
 
   async function load() {
     setLoading(true)
@@ -30,6 +31,15 @@ export default function SiteDomains() {
   }
 
   useEffect(() => { void load() }, [])
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const [ph, id] = await Promise.all([getRouteHealth('PH'), getRouteHealth('ID')])
+        setHealth(Object.fromEntries([...ph, ...id].map((item) => [item.domain, item])))
+      } catch { /* 健康度只是辅助信息，拉不到不影响配置 */ }
+    })()
+  }, [])
 
   function updateRow(key: string, patch: Partial<Row>) {
     setRows((items) => items.map((item) => item.key === key ? { ...item, ...patch } : item))
@@ -124,6 +134,21 @@ export default function SiteDomains() {
               : value
                 ? <Tag color={value !== row.market ? 'error' : value === 'ID' ? 'red' : 'blue'}>{value === 'ID' ? '印尼 App' : '菲律宾 App'}{value !== row.market ? '（与站点不符，未生效）' : ''}</Tag>
                 : '—',
+          },
+          {
+            title: '近 24h 探活', key: 'health', width: 150,
+            render: (_: unknown, row) => {
+              const stat = health[row.domain]
+              if (!stat || stat.ok + stat.fail === 0) return <span style={{ color: '#999' }}>无上报</span>
+              return <div style={{ lineHeight: 1.5 }}>
+                <Tag color={stat.successRate >= 90 ? 'success' : stat.successRate >= 50 ? 'warning' : 'error'}>
+                  {stat.successRate}% 可达
+                </Tag>
+                <div style={{ fontSize: 12, color: '#888' }}>
+                  {stat.avgMs == null ? '—' : `${stat.avgMs}ms`} · 选中 {stat.selected} 次
+                </div>
+              </div>
+            },
           },
           {
             title: 'App 优先级', dataIndex: 'appPriority', width: 120,

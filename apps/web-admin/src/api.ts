@@ -630,6 +630,17 @@ export interface SiteDomainMapping {
   appMarket: 'PH' | 'ID' | null
   appPriority: number
 }
+export interface RouteHealthRow {
+  domain: string
+  ok: number
+  fail: number
+  successRate: number
+  avgMs: number | null
+  selected: number
+}
+export const getRouteHealth = (market: 'PH' | 'ID') =>
+  get<RouteHealthRow[]>(`/admin/settings/site-domains/health?market=${market}`)
+
 export const getSiteDomainMappings = () => get<SiteDomainMapping[]>('/admin/settings/site-domains')
 export const updateSiteDomainMappings = (mappings: SiteDomainMapping[]) =>
   put<SiteDomainMapping[]>('/admin/settings/site-domains', { mappings })

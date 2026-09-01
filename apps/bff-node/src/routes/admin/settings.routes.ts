@@ -40,6 +40,7 @@ import {
   getAllCurrentRates, getRateHistory, setManualRate, clearManualRate, refreshRates, RATE_PAIRS,
 } from '../../services/exchange-rate.service.js'
 import { getSiteDomainMappings, saveSiteDomainMappings } from '../../services/site-domain.service.js'
+import { getRouteHealth } from '../../services/route-health.service.js'
 
 const router = new Router({ prefix: '/settings' })
 const WIN568_KEY_AUTO_ROTATION_ENABLED_KEY = 'win568_key_auto_rotation_enabled'
@@ -48,6 +49,13 @@ const WIN568_KEY_AUTO_ROTATION_ENABLED_KEY = 'win568_key_auto_rotation_enabled'
 
 router.get('/site-domains', async (ctx) => {
   ok(ctx, await getSiteDomainMappings(ctx.state.redis, ctx.state.env))
+})
+
+// 近 24 小时 App 探活结果：成功率骤降通常就是该域名被墙的第一信号
+router.get('/site-domains/health', async (ctx) => {
+  const market = String(ctx.query.market ?? '').toUpperCase()
+  if (market !== 'PH' && market !== 'ID') { fail(ctx, 400, 'market 必须是 PH 或 ID'); return }
+  ok(ctx, await getRouteHealth(ctx.state.redis, market))
 })
 
 router.put('/site-domains', requireRole('super_admin', 'Only super_admin can manage site domains'), async (ctx) => {

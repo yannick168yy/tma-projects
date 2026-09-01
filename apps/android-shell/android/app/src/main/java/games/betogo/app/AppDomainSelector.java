@@ -45,6 +45,8 @@ final class AppDomainSelector {
     private static final String CACHED_VERSION = "cached_version_";
     private static final String CACHED_ISSUED_AT = "cached_issued_at_";
     private static final int TIMEOUT_MS = 1800;
+    /** 粘性域名允许比最快线路慢多少（配合 2 倍系数），单位毫秒 */
+    private static final int STICKY_SLACK_MS = 300;
 
     private final Context context;
     private final String market = BuildConfig.APP_MARKET;
@@ -91,8 +93,45 @@ final class AppDomainSelector {
             }
             String origin = selected == null ? null : selected.origin;
             Set<String> known = selected == null ? new HashSet<>() : domainsOf(selected.remoteDomains);
+            report(candidates, alive, selected);
             new Handler(Looper.getMainLooper()).post(() -> callback.onSelected(origin, known));
         }).start();
+    }
+
+    /**
+     * 把本次探活结果回传给选中的线路。后台据此才能看出某条线是不是正在被墙 ——
+     * 否则只能等用户报障。全挂时无处可报，直接跳过；失败不影响启动。
+     */
+    private void report(List<Candidate> candidates, List<Result> alive, Result selected) {
+        if (selected == null) return;
+        try {
+            Set<String> aliveDomains = new HashSet<>();
+            JSONArray results = new JSONArray();
+            for (Result item : alive) {
+                aliveDomains.add(item.domain);
+                results.put(new JSONObject().put("domain", item.domain).put("ok", true).put("elapsedMs", item.elapsedMs));
+            }
+            for (Candidate candidate : candidates) {
+                if (aliveDomains.contains(candidate.domain)) continue;
+                results.put(new JSONObject().put("domain", candidate.domain).put("ok", false).put("elapsedMs", 0));
+            }
+            byte[] payload = new JSONObject()
+                .put("market", market).put("selected", selected.domain).put("results", results)
+                .toString().getBytes(StandardCharsets.UTF_8);
+
+            HttpURLConnection connection = (HttpURLConnection)
+                new URL(selected.origin + "/api/v1/app/route-report").openConnection();
+            connection.setConnectTimeout(TIMEOUT_MS);
+            connection.setReadTimeout(TIMEOUT_MS);
+            connection.setRequestMethod("POST");
+            connection.setDoOutput(true);
+            connection.setRequestProperty("Content-Type", "application/json");
+            connection.getOutputStream().write(payload);
+            connection.getResponseCode();
+            connection.disconnect();
+        } catch (Exception ignored) {
+            // 上报是观测手段，不能影响进站
+        }
     }
 
     private Result choose(List<Result> alive) {
@@ -107,13 +146,20 @@ final class AppDomainSelector {
                 break;
             }
         }
-        if (!configChanged) {
-            String last = preferences().getString(LAST_DOMAIN + market, "");
-            for (Result result : alive) if (result.domain.equals(last)) return result;
-        }
-        return alive.stream().min(Comparator
+        Result fastest = alive.stream().min(Comparator
             .comparingLong((Result item) -> item.elapsedMs)
             .thenComparingInt(item -> item.priority)).orElse(null);
+        if (!configChanged && fastest != null) {
+            String last = preferences().getString(LAST_DOMAIN + market, "");
+            for (Result result : alive) {
+                if (!result.domain.equals(last)) continue;
+                // 粘性有上限：上次那条已经明显更慢时还硬用它，等于把用户钉在劣化线路上。
+                // 留 2 倍 + 300ms 的余量，避免网络抖动引起来回换线（换线会重载页面、丢当前页状态）。
+                if (result.elapsedMs <= fastest.elapsedMs * 2 + STICKY_SLACK_MS) return result;
+                break;
+            }
+        }
+        return fastest;
     }
 
     private Result probe(Candidate candidate) {
