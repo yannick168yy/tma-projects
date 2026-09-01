@@ -91,7 +91,9 @@ PYEOF
 rebuild_bff_node() {  # <容器名> <health端口>
   local c="$1" port="$2"
   echo "==> [$c] 复用 CreateCommand 重建（重读 --env-file）"
-  remote "sudo podman inspect $c --format '{{json .Config.CreateCommand}}' > /tmp/cc_$c.json"
+  # 必须 root 建 root 写：fs.protected_regular=2 下 root 不能写 ubuntu 拥有的 /tmp 文件，
+  # 用 shell 重定向（属主 ubuntu）后面 inject_env_keys 会 PermissionError
+  remote "sudo rm -f /tmp/cc_$c.json && sudo podman inspect $c --format '{{json .Config.CreateCommand}}' | sudo tee /tmp/cc_$c.json > /dev/null"
   inject_env_keys "$c"
   # /tmp 会被系统清理，env-file 丢了 run 会失败且容器已被 rm——重建前先从在线容器导出兜底
   remote "sudo podman inspect $c --format '{{range .Config.Env}}{{println .}}{{end}}' | grep -vE '^(PATH|TERM|HOSTNAME|container|HOME|NODE_VERSION|YARN_VERSION)=' | grep -v '^\$' > /tmp/$c.recreate.env"
