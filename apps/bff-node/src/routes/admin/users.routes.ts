@@ -443,7 +443,7 @@ router.post('/:id/reset-password', async (ctx) => {
   ok(ctx, { success: true })
 })
 
-const SUPPORTED_CURRENCIES = ['PHP', 'USDT', 'USDC', 'TRX_TESTNET']
+const SUPPORTED_CURRENCIES = ['PHP', 'IDR', 'USDT', 'USDC', 'TRX_TESTNET']
 
 router.post('/:id/adjust-balance', async (ctx) => {
   const body = ctx.request.body as { amount?: number; note?: string; opPassword?: string; currency?: string }

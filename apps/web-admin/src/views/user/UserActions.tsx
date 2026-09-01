@@ -19,6 +19,8 @@ export default function UserActions({ userId, currentStatus, currentLabel, onSuc
   const [adjustOpPwd, setAdjustOpPwd] = useState('')
   const [opLoading, setOpLoading] = useState(false)
 
+  const adjustDigits = adjustCurrency === 'IDR' ? 0 : adjustCurrency === 'PHP' ? 2 : 6
+
   useEffect(() => { setNewStatus(currentStatus) }, [currentStatus])
   useEffect(() => { setNewLabel(currentLabel) }, [currentLabel])
 
@@ -46,7 +48,7 @@ export default function UserActions({ userId, currentStatus, currentLabel, onSuc
     setOpLoading(true)
     try {
       const res = await adjustBalance(userId, adjustAmount, adjustOpPwd, adjustCurrency, adjustNote || undefined)
-      message.success(`余额已调整，订单: ${res.orderId}，当前 ${adjustCurrency} 余额: ${Number(res.available).toFixed(adjustCurrency === 'PHP' ? 2 : 6)}`)
+      message.success(`余额已调整，订单: ${res.orderId}，当前 ${adjustCurrency} 余额: ${Number(res.available).toFixed(adjustDigits)}`)
       setAdjustOpPwd(''); setAdjustAmount(0); setAdjustNote('')
       onSuccess()
     } catch (e) { message.error(e instanceof Error ? e.message : '操作失败') }
@@ -86,7 +88,7 @@ export default function UserActions({ userId, currentStatus, currentLabel, onSuc
                   label: c === 'TRX_TESTNET' ? <span>TRX <sup style={{ color: '#faad14', fontSize: 10, fontWeight: 700 }}>TEST</sup></span> : c,
                 }))}
               />
-              <InputNumber value={adjustAmount} onChange={(v) => setAdjustAmount(v ?? 0)} step={adjustCurrency === 'PHP' ? 1 : 0.000001} precision={adjustCurrency === 'PHP' ? 2 : 6} style={{ width: 160 }} placeholder="金额" />
+              <InputNumber value={adjustAmount} onChange={(v) => setAdjustAmount(v ?? 0)} step={adjustCurrency === 'IDR' || adjustCurrency === 'PHP' ? 1 : 0.000001} precision={adjustDigits} style={{ width: 160 }} placeholder="金额" />
               <Input value={adjustNote} onChange={(e) => setAdjustNote(e.target.value)} placeholder="备注" style={{ width: 200 }} />
             </Space>
             <Space>
