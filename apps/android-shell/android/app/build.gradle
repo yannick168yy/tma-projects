@@ -58,6 +58,10 @@ android {
             }
         }
     }
+    // 线路表验签公钥。空值 = 不校验（仅本地调试）；出包前必须用 gradle.properties 或
+    // -PappRoutePublicKey=... 传入，与服务端 APP_ROUTE_SIGNING_KEY 配对。
+    def appRoutePublicKey = project.findProperty('appRoutePublicKey') ?: ''
+
     flavorDimensions "market"
     productFlavors {
         ph {
@@ -67,6 +71,7 @@ android {
             resValue "string", "custom_url_scheme", "games.betogo.app"
             buildConfigField "String", "APP_MARKET", '"PH"'
             buildConfigField "String", "APP_DOMAINS", '"betogo.games,betogo666.com,betogo777.com"'
+            buildConfigField "String", "APP_ROUTE_PUBLIC_KEY", "\"${appRoutePublicKey}\""
             if (keystorePropsFile.exists()) signingConfig signingConfigs.phRelease
         }
         id {
@@ -76,6 +81,7 @@ android {
             resValue "string", "custom_url_scheme", "games.betogo.id"
             buildConfigField "String", "APP_MARKET", '"ID"'
             buildConfigField "String", "APP_DOMAINS", '"betogo.app,betogo.xyz,betogo.vip"'
+            buildConfigField "String", "APP_ROUTE_PUBLIC_KEY", "\"${appRoutePublicKey}\""
             if (idKeystorePropsFile.exists()) signingConfig signingConfigs.idRelease
         }
     }

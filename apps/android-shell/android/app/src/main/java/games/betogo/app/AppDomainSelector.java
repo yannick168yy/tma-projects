@@ -5,6 +5,7 @@ import android.content.SharedPreferences;
 import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
+import android.util.Base64;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -14,6 +15,10 @@ import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.security.KeyFactory;
+import java.security.PublicKey;
+import java.security.Signature;
+import java.security.spec.X509EncodedKeySpec;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -26,24 +31,31 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
+/**
+ * 线路选择。可信来源不是 APK 里的域名白名单，而是服务端私钥签名 —— 白名单写死会让
+ * 「临时注册一个域名、后台配上就能顶替被封线路」变成不可能（新域名必须重新出包）。
+ * 内置域名退化为首次启动的探活种子，之后一切以验签通过的下发列表为准。
+ */
 final class AppDomainSelector {
-    interface Callback { void onSelected(String origin); }
+    interface Callback { void onSelected(String origin, Set<String> knownDomains); }
 
     private static final String PREFS = "app_domain_selector";
     private static final String LAST_DOMAIN = "last_domain_";
     private static final String CACHED_DOMAINS = "cached_domains_";
     private static final String CACHED_VERSION = "cached_version_";
+    private static final String CACHED_ISSUED_AT = "cached_issued_at_";
     private static final int TIMEOUT_MS = 1800;
 
     private final Context context;
     private final String market = BuildConfig.APP_MARKET;
-    private final Set<String> allowedDomains = new HashSet<>();
+    /** 只用于首次启动时有个地方可探；不再是「允许使用哪些域名」的判据 */
+    private final List<String> seedDomains = new ArrayList<>();
 
     AppDomainSelector(Context context) {
         this.context = context.getApplicationContext();
         for (String domain : BuildConfig.APP_DOMAINS.split(",")) {
             String normalized = normalizeDomain(domain);
-            if (!normalized.isEmpty()) allowedDomains.add(normalized);
+            if (!normalized.isEmpty() && !seedDomains.contains(normalized)) seedDomains.add(normalized);
         }
     }
 
@@ -51,7 +63,7 @@ final class AppDomainSelector {
         List<Candidate> candidates = loadCandidates();
         candidates.removeIf(item -> excluded.contains(item.domain));
         if (candidates.isEmpty()) {
-            new Handler(Looper.getMainLooper()).post(() -> callback.onSelected(null));
+            new Handler(Looper.getMainLooper()).post(() -> callback.onSelected(null, new HashSet<>()));
             return;
         }
         ExecutorService executor = Executors.newFixedThreadPool(candidates.size());
@@ -74,10 +86,12 @@ final class AppDomainSelector {
                     .putString(LAST_DOMAIN + market, selected.domain)
                     .putString(CACHED_DOMAINS + market, selected.remoteDomains)
                     .putString(CACHED_VERSION + market, selected.configVersion)
+                    .putLong(CACHED_ISSUED_AT + market, selected.issuedAt)
                     .apply();
             }
             String origin = selected == null ? null : selected.origin;
-            new Handler(Looper.getMainLooper()).post(() -> callback.onSelected(origin));
+            Set<String> known = selected == null ? new HashSet<>() : domainsOf(selected.remoteDomains);
+            new Handler(Looper.getMainLooper()).post(() -> callback.onSelected(origin, known));
         }).start();
     }
 
@@ -122,28 +136,41 @@ final class AppDomainSelector {
             JSONObject data = body.optJSONObject("data");
             if (body.optInt("code", -1) != 0 || data == null || !market.equals(data.optString("market"))) return null;
             JSONArray domains = data.optJSONArray("domains");
-            if (domains == null) return null;
+            if (domains == null || domains.length() == 0) return null;
+            long issuedAt = data.optLong("issuedAt", 0);
+            // 拒绝重放：攻击者截下一份旧的合法响应，就能把用户按回已经弃用（甚至已被他拿下）的域名
+            if (issuedAt < preferences().getLong(CACHED_ISSUED_AT + market, 0)) return null;
+
             JSONArray accepted = new JSONArray();
+            StringBuilder signed = new StringBuilder("v1|").append(market).append('|');
             boolean currentEnabled = false;
             for (int i = 0; i < domains.length(); i++) {
                 JSONObject item = domains.optJSONObject(i);
-                if (item == null) continue;
-                String domain = normalizeDomain(item.optString("domain"));
-                if (!allowedDomains.contains(domain)) continue;
+                if (item == null) return null;
+                String rawDomain = item.optString("domain");
+                int priority = item.optInt("priority", 100);
+                if (i > 0) signed.append(',');
+                signed.append(rawDomain).append(':').append(priority);
+                String domain = normalizeDomain(rawDomain);
+                if (domain.isEmpty()) return null;
                 JSONObject safe = new JSONObject();
                 safe.put("domain", domain);
-                safe.put("priority", Math.max(1, item.optInt("priority", 100)));
+                safe.put("priority", Math.max(1, priority));
                 accepted.put(safe);
                 if (domain.equals(candidate.domain)) currentEnabled = true;
             }
-            if (!currentEnabled || accepted.length() == 0) return null;
-            // 跟随重定向后的落点也要在 APK 白名单内：域名过期被抢注后 301 到站外时，
+            signed.append('|').append(issuedAt);
+            if (!verify(signed.toString(), data.optString("signature", ""))) return null;
+            if (!currentEnabled) return null;
+
+            // 跟随重定向后的落点必须仍在这份已验签的列表里：域名过期被抢注后 301 到站外时，
             // 不校验就等于把用户直接送进别人的站点。
             String finalHost = connection.getURL().getHost();
-            if (!allowedDomains.contains(normalizeDomain(finalHost))) return null;
+            if (!domainsOf(accepted.toString()).contains(normalizeDomain(finalHost))) return null;
             String origin = "https://" + finalHost;
             return new Result(candidate.domain, origin, candidate.priority,
-                System.currentTimeMillis() - startedAt, accepted.toString(), data.optString("configVersion", ""));
+                System.currentTimeMillis() - startedAt, accepted.toString(),
+                data.optString("configVersion", ""), issuedAt);
         } catch (Exception ignored) {
             return null;
         } finally {
@@ -160,13 +187,13 @@ final class AppDomainSelector {
                 JSONObject row = rows.optJSONObject(i);
                 if (row == null) continue;
                 String domain = normalizeDomain(row.optString("domain"));
-                if (allowedDomains.contains(domain)) result.put(domain, Math.max(1, row.optInt("priority", 100)));
+                // 缓存只来自验签通过的响应，所以这里不再过白名单 —— 后台新配的域名正是靠这条路进来的
+                if (!domain.isEmpty()) result.put(domain, Math.max(1, row.optInt("priority", 100)));
             }
         } catch (Exception ignored) {}
         int priority = 10;
-        for (String raw : BuildConfig.APP_DOMAINS.split(",")) {
-            String domain = normalizeDomain(raw);
-            if (!domain.isEmpty()) result.putIfAbsent(domain, priority);
+        for (String domain : seedDomains) {
+            result.putIfAbsent(domain, priority);
             priority += 10;
         }
         List<Candidate> candidates = new ArrayList<>();
@@ -175,6 +202,39 @@ final class AppDomainSelector {
         }
         candidates.sort(Comparator.comparingInt(item -> item.priority));
         return candidates;
+    }
+
+    /**
+     * 公钥内置在 APK，私钥只在服务端。拿下任一线路域名、劫持 DNS、甚至签发了合法证书的攻击者
+     * 都伪造不出签名，所以「接受服务端下发的任意域名」是安全的。
+     * 公钥为空的构建（本地调试）跳过校验；正式 flavor 必须配。
+     */
+    private boolean verify(String payload, String signatureBase64) {
+        String publicKeyBase64 = BuildConfig.APP_ROUTE_PUBLIC_KEY;
+        if (publicKeyBase64.isEmpty()) return true;
+        if (signatureBase64.isEmpty()) return false;
+        try {
+            PublicKey key = KeyFactory.getInstance("EC").generatePublic(
+                new X509EncodedKeySpec(Base64.decode(publicKeyBase64, Base64.DEFAULT)));
+            Signature verifier = Signature.getInstance("SHA256withECDSA");
+            verifier.initVerify(key);
+            verifier.update(payload.getBytes(StandardCharsets.UTF_8));
+            return verifier.verify(Base64.decode(signatureBase64, Base64.DEFAULT));
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
+
+    private static Set<String> domainsOf(String cachedJson) {
+        Set<String> result = new HashSet<>();
+        try {
+            JSONArray rows = new JSONArray(cachedJson);
+            for (int i = 0; i < rows.length(); i++) {
+                JSONObject row = rows.optJSONObject(i);
+                if (row != null) result.add(row.optString("domain"));
+            }
+        } catch (Exception ignored) {}
+        return result;
     }
 
     private SharedPreferences preferences() {
@@ -207,13 +267,16 @@ final class AppDomainSelector {
         final long elapsedMs;
         final String remoteDomains;
         final String configVersion;
-        Result(String domain, String origin, int priority, long elapsedMs, String remoteDomains, String configVersion) {
+        final long issuedAt;
+        Result(String domain, String origin, int priority, long elapsedMs, String remoteDomains,
+               String configVersion, long issuedAt) {
             this.domain = domain;
             this.origin = origin;
             this.priority = priority;
             this.elapsedMs = elapsedMs;
             this.remoteDomains = remoteDomains;
             this.configVersion = configVersion;
+            this.issuedAt = issuedAt;
         }
     }
 }

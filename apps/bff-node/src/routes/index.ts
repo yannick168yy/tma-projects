@@ -37,6 +37,7 @@ import { ok, fail } from '../utils/response.js'
 import type { RowDataPacket } from 'mysql2/promise'
 import { createHash } from 'node:crypto'
 import { appDomainsForMarket, defaultAppDomainsForMarket, getSiteDomainMappings, marketForHost, type SiteMarket } from '../services/site-domain.service.js'
+import { signRoutes } from '../services/app-route-sign.service.js'
 
 function requestHost(ctx: import('koa').Context): string {
   for (const raw of [ctx.get('x-viewer-host'), ctx.get('origin'), ctx.get('referer'), ctx.get('host')]) {
@@ -89,7 +90,15 @@ export function createApiRouter(): Router {
       priority: item.appPriority,
     }))
     const configVersion = createHash('sha256').update(JSON.stringify(domains)).digest('hex').slice(0, 16)
-    ok(ctx, { market, domains, configVersion, serverTime: new Date().toISOString() })
+    // 签名让 App 不必再靠 APK 内置白名单判断可信域名：临时注册的新域名后台配上即可下发，
+    // 拿下任一线路域名的攻击者没有私钥，伪造不出线路表。issuedAt 供 App 拒绝重放旧配置。
+    const issuedAt = Math.floor(Date.now() / 1000)
+    const signature = signRoutes(
+      ctx.state.env, market,
+      domains.map((item) => ({ domain: item.domain, priority: item.priority })),
+      issuedAt,
+    )
+    ok(ctx, { market, domains, configVersion, issuedAt, signature, serverTime: new Date().toISOString() })
   })
 
   // 公开：活动参数配置（App 启动即拉，先于登录完成，不含用户数据）

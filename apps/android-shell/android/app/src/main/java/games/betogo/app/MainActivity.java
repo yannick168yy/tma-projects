@@ -33,7 +33,10 @@ import java.util.Set;
  */
 public class MainActivity extends BridgeActivity {
 
-    /** 站内域名留在 App WebView；实际启动线路由后台 App 域名组和 APK 白名单共同决定。 */
+    /**
+     * 站内域名的编译期种子。后台新配的线路域名不在这里，靠 sessionDomains 在运行时补齐 ——
+     * 漏了会导致站内跳转被当成外链丢进 Custom Tab。
+     */
     private static final String[] OWN_HOSTS = {
         "betogo.games", "betogo666.com", "betogo777.com", "betogo.ph",
         "betogo.xyz", "betogo.vip", "betogo888.com", "betogo.cc",
@@ -43,6 +46,8 @@ public class MainActivity extends BridgeActivity {
     private long lastBackAt = 0;
     private boolean selectingDomain = false;
     private final Set<String> failedDomains = new HashSet<>();
+    /** 本次选线中验签通过的域名，与 OWN_HOSTS 一起构成「站内」判据 */
+    private final Set<String> sessionDomains = new HashSet<>();
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -85,8 +90,9 @@ public class MainActivity extends BridgeActivity {
     private void selectDomainAndLoad() {
         if (selectingDomain) return;
         selectingDomain = true;
-        new AppDomainSelector(this).select(failedDomains, origin -> {
+        new AppDomainSelector(this).select(failedDomains, (origin, knownDomains) -> {
             selectingDomain = false;
+            sessionDomains.addAll(knownDomains);
             if (origin == null) {
                 getBridge().getWebView().evaluateJavascript(
                     "document.getElementById('t').textContent='Network unavailable';document.querySelector('.s').style.display='none'", null);
@@ -154,9 +160,12 @@ public class MainActivity extends BridgeActivity {
         return path == null || path.equals("/") || path.equals("/home");
     }
 
-    private static boolean isOwnHost(String host) {
+    private boolean isOwnHost(String host) {
         if (host == null) return false;
         for (String own : OWN_HOSTS) {
+            if (host.equals(own) || host.endsWith("." + own)) return true;
+        }
+        for (String own : sessionDomains) {
             if (host.equals(own) || host.endsWith("." + own)) return true;
         }
         return false;
