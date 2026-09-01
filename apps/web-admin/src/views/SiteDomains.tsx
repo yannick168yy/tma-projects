@@ -68,6 +68,21 @@ export default function SiteDomains() {
     </div>
     <Alert showIcon type="info" message="域名统一按裸域保存，www 子域会自动匹配。公共入口不强制市场，由客户端语言或请求参数决定。已登录用户不会因为修改映射而迁移市场。" />
     <Alert showIcon type="warning" message="App 域名组只能选与「所属站点」相同的市场，公共入口不能作为 App 线路；每个市场必须至少保留一个启用的线路域名，否则该市场的 App 会全部无法启动。" />
+    <Alert
+      showIcon
+      type="success"
+      message="域名被封时可临时注册新域名直接给 App 补线路，无需重新出包"
+      description={<div style={{ lineHeight: 1.9 }}>
+        线路表由服务端私钥签名下发，App 验签通过即接受任意域名。临时注册一个域名后，在这里加一行、设为对应市场的 App 域名组即可生效，用户下次冷启动（或当前线路加载失败触发换线）就会用上。
+        <b>前提是至少还有一条旧线路能访问</b>，否则 App 拿不到新线路表。
+        <br />
+        新域名上的 <b>Google 登录会自动借道已注册域名</b>（菲律宾 www.betogo.games、印尼 betogo.app）完成，再跳回新域名，登录态经 App 原生会话保险箱传递，用户无感。
+        这是 Android 限制：Google 回跳要靠 App Link 交回 App，而 App Link 的域名表编译在 APK 里改不了。
+        <b>手机号和 Telegram 登录不受影响</b>，在新域名上直接可用。
+        <br />
+        新域名仍需自行完成：DNS 解析到服务器、配置 HTTPS 证书、部署 <code>/.well-known/assetlinks.json</code>。
+      </div>}
+    />
     <Card
       extra={editable && <Space>
         <Button icon={<PlusOutlined />} onClick={() => setRows((items) => [...items, { key: `new-${Date.now()}`, domain: '', market: 'ID', enabled: true, appMarket: null, appPriority: 100 }])}>新增域名</Button>

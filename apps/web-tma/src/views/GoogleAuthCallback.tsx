@@ -4,9 +4,29 @@ import { Loader2 } from 'lucide-react'
 import BetogoLogo from '@/components/BetogoLogo'
 import { bindGoogle, completeGoogleLogin } from '@/api/auth'
 import { ApiError } from '@/api/client'
-import { clearStoredOAuthState, extractRefFromOAuthState, getGoogleRedirectUri, isWellFormedOAuthState, readStoredOAuthState } from '@/utils/googleOAuth'
+import { clearStoredOAuthState, extractRefFromOAuthState, getGoogleRedirectUri, isWellFormedOAuthState, parseOAuthState, readStoredOAuthState } from '@/utils/googleOAuth'
+import { getSiteMarket } from '@/config/market'
 import { useAuthStore } from '@/stores/auth'
 import { analytics } from '@/utils/analytics'
+
+/**
+ * 借道注册域名登录后要跳回原线路域名。目标来自 Google 原样带回的 state，
+ * 是攻击者可构造的，所以必须比对服务端签名下发的线路表，否则就是个开放重定向。
+ */
+async function safeReturnOrigin(origin: string | undefined): Promise<string | null> {
+  if (!origin) return null
+  let url: URL
+  try { url = new URL(origin) } catch { return null }
+  if (url.protocol !== 'https:' || url.origin !== origin || url.origin === window.location.origin) return null
+  try {
+    const res = await fetch(`/api/v1/app/bootstrap?market=${getSiteMarket()}`, { cache: 'no-store' })
+    const body = await res.json() as { data?: { domains?: Array<{ domain: string }> } }
+    const allowed = (body.data?.domains ?? []).map((item) => item.domain)
+    return allowed.includes(url.hostname.replace(/^www\./, '')) ? origin : null
+  } catch {
+    return null
+  }
+}
 
 export default function GoogleAuthCallback() {
   const { t } = useTranslation()
@@ -30,11 +50,19 @@ export default function GoogleAuthCallback() {
       setLoading(false); clearStoredOAuthState(); setError(t('auth.stateInvalid')); return
     }
 
+    const returned = parseOAuthState(state)
+    // 借道登录时会话 token 已写进原生 SessionVault，跳回线路域名后 initNativeToken 能读出来
+    const goHome = (suffix = '') => {
+      void safeReturnOrigin(returned?.origin).then((origin) => {
+        window.location.replace(`${origin ?? ''}/${suffix}`)
+      })
+    }
+
     // 绑定意图：已登录用户把 Google 挂到当前账号（而非登录/新建）
-    if (sessionStorage.getItem('google_bind_intent')) {
+    if (sessionStorage.getItem('google_bind_intent') || returned?.intent === 'bind') {
       sessionStorage.removeItem('google_bind_intent')
       bindGoogle(code, getGoogleRedirectUri())
-        .then(() => { clearStoredOAuthState(); window.location.replace('/?bound=google') })
+        .then(() => { clearStoredOAuthState(); goHome('?bound=google') })
         .catch((e) => { clearStoredOAuthState(); setError(e instanceof ApiError ? e.message : t('auth.bindFailed')); setLoading(false) })
       return
     }
@@ -45,7 +73,7 @@ export default function GoogleAuthCallback() {
         applySession(session, 'google')
         analytics.loginSuccess(session.user.loginProvider ?? 'google', session.isNewUser, session.user.id)
         clearStoredOAuthState()
-        window.location.replace('/')
+        goHome()
       })
       .catch(() => {
         clearStoredOAuthState()

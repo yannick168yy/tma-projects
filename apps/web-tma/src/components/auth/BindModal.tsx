@@ -61,8 +61,9 @@ export default function BindModal({ open, onClose }: Props) {
   }
 
   function onBindGoogle() {
+    // sessionStorage 跨不过借道域名，意图同时塞进 OAuth state 由 Google 原样带回
     sessionStorage.setItem('google_bind_intent', '1')
-    startGoogleLoginRedirect()
+    startGoogleLoginRedirect('bind')
   }
 
   function onBindTelegram() {

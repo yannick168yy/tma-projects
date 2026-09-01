@@ -55,6 +55,9 @@ const REGISTERED_GOOGLE_AUTH_DOMAINS = new Set([
   'betogo.cc',
   'betogo.app',
   'betogo.games',
+  // App Link 只认 www.betogo.games（裸域 301 到 www，验证不跟随重定向），
+  // 线路域名未注册 App Link 时 App 会借道它完成 Google 登录，这里必须放行
+  'www.betogo.games',
   'betogo.vip',
 ])
 
