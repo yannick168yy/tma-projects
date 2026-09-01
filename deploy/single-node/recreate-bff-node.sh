@@ -57,6 +57,7 @@ run run -d --name tma-bff-node --network "$NET" --restart=always \
   -e ADMIN_NOTIFY_ENV_LABEL="${ADMIN_NOTIFY_ENV_LABEL:-}" \
   -e SESSION_TTL_SECONDS="${SESSION_TTL_SECONDS:-86400}" \
   -e MARKET_DOMAIN_MAP="${MARKET_DOMAIN_MAP:-}" \
+  -e APP_ROUTE_SIGNING_KEY="${APP_ROUTE_SIGNING_KEY:-}" \
   -e GOOGLE_CLIENT_ID="${GOOGLE_CLIENT_ID:-}" \
   -e GOOGLE_CLIENT_SECRET="${GOOGLE_CLIENT_SECRET:-}" \
   -e GOOGLE_REDIRECT_URI="${GOOGLE_REDIRECT_URI:-https://www.188facai.com/auth/google/callback}" \
