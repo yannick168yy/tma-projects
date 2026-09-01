@@ -81,6 +81,10 @@ function round2(value: number): number {
   return Math.round((value + Number.EPSILON) * 100) / 100
 }
 
+function amountFactor(currency: string): number {
+  return currency === 'IDR' ? 1000 : 1
+}
+
 function isDupEntry(e: unknown): boolean {
   return !!e && typeof e === 'object' && (e as { code?: string }).code === 'ER_DUP_ENTRY'
 }
@@ -129,6 +133,22 @@ export class Win568WalletService {
   constructor(private app: FastifyInstance) {}
 
   private get db() { return this.app.mysql }
+
+  private toWalletAmount(player: PlayerRef, amount: number): number {
+    return round2(amount * amountFactor(player.currency))
+  }
+
+  private toGameAmount(player: PlayerRef, amount: number): number {
+    return round2(amount / amountFactor(player.currency))
+  }
+
+  private ok(player: PlayerRef, balance: number, extra: Record<string, unknown> = {}) {
+    return ok(player.username, this.toGameAmount(player, balance), extra)
+  }
+
+  private err(code: number, message: string, player: PlayerRef, balance: number, extra: Record<string, unknown> = {}) {
+    return err(code, message, player.username, this.toGameAmount(player, balance), extra)
+  }
 
   private async validate(req: FastifyRequest, body: CallbackBody): Promise<{ code: number; message: string } | null> {
     // 生产环境 fail-closed：白名单/密钥未配置视为配置错误，直接拒绝，绝不裸奔
@@ -284,7 +304,7 @@ export class Win568WalletService {
       const diff = round2(amount - oldAmount)
       if (balance < diff) {
         await conn.commit()
-        return err(5, 'Not enough balance', player.username, balance, { BetAmount: 0 })
+        return this.err(5, 'Not enough balance', player, balance, { BetAmount: 0 })
       }
       const newBalance = await this.changeBalance(conn, player, -diff)
       await conn.execute(
@@ -307,10 +327,10 @@ export class Win568WalletService {
       await this.addLedger(conn, player, 'bet', -diff, newBalance, transferCode, '568Win raise bet')
       await this.refreshBetRound(conn, player.userId, text(body, 'GameRoundId') || transferCode)
       await conn.commit()
-      return ok(player.username, newBalance, { BetAmount: amount })
+      return this.ok(player, newBalance, { BetAmount: this.toGameAmount(player, amount) })
     }
     await conn.commit()
-    return err(amount < oldAmount ? 7 : 5003, amount < oldAmount ? 'Invalid raise amount' : 'Bet With Same RefNo Exists', player.username, balance, { BetAmount: 0 })
+    return this.err(amount < oldAmount ? 7 : 5003, amount < oldAmount ? 'Invalid raise amount' : 'Bet With Same RefNo Exists', player, balance, { BetAmount: 0 })
   }
 
   private async retryDuplicateRaiseDeduct(conn: PoolConnection, player: PlayerRef, body: CallbackBody) {
@@ -330,9 +350,9 @@ export class Win568WalletService {
       const current = await this.currentBalance(conn, player)
       if (status === 'void' || status !== 'running') {
         await conn.commit()
-        return err(5003, 'Bet With Same RefNo Exists', player.username, current, { BetAmount: 0 })
+        return this.err(5003, 'Bet With Same RefNo Exists', player, current, { BetAmount: 0 })
       }
-      return this.finishRaiseDeduct(conn, player, body, bet, round2(num(body, 'Amount')), balance)
+      return this.finishRaiseDeduct(conn, player, body, bet, this.toWalletAmount(player, num(body, 'Amount')), balance)
     } catch (retryErr) {
       await conn.rollback()
       throw retryErr
@@ -362,7 +382,7 @@ export class Win568WalletService {
       `SELECT available FROM bg_wallet WHERE user_id = ? AND currency = ?`,
       [player.userId, player.currency],
     )
-    return ok(player.username, Number(wallet?.available ?? 0))
+    return this.ok(player, Number(wallet?.available ?? 0))
   }
 
   async deduct(req: FastifyRequest, body: CallbackBody) {
@@ -375,17 +395,17 @@ export class Win568WalletService {
     try {
       await conn.beginTransaction()
       const balance = await this.lockedBalance(conn, player)
-      const amount = round2(num(body, 'Amount'))
+      const amount = this.toWalletAmount(player, num(body, 'Amount'))
       const transferCode = text(body, 'TransferCode')
       const transactionId = text(body, 'TransactionId')
       const productType = int(body, 'ProductType')
       if (productType === 1 && amount === 0 && !hasPromotionReward(body.ExtraInfo)) {
         await conn.commit()
-        return err(7, 'Invalid free bet amount', player.username, balance, { BetAmount: 0 })
+        return this.err(7, 'Invalid free bet amount', player, balance, { BetAmount: 0 })
       }
       if (productType === 9 && int(body, 'NewGameType') === 300 && amount === 0 && !hasPromotionReward(body.SeamlessGameExtraInfo)) {
         await conn.commit()
-        return err(7, 'Invalid free bet amount', player.username, balance, { BetAmount: 0 })
+        return this.err(7, 'Invalid free bet amount', player, balance, { BetAmount: 0 })
       }
       const existing = await this.findTxns(conn, body, { lock: true })
 
@@ -397,18 +417,18 @@ export class Win568WalletService {
         const current = await this.currentBalance(conn, player)
         if (productType === 9 || status === 'void' || status !== 'running') {
           await conn.commit()
-          return err(5003, 'Bet With Same RefNo Exists', player.username, current, { BetAmount: 0 })
+          return this.err(5003, 'Bet With Same RefNo Exists', player, current, { BetAmount: 0 })
         }
         if (productType === 3 || productType === 7) {
           return this.finishRaiseDeduct(conn, player, body, bet, amount, balance)
         }
         await conn.commit()
-        return err(5003, 'Bet With Same RefNo Exists', player.username, current, { BetAmount: 0 })
+        return this.err(5003, 'Bet With Same RefNo Exists', player, current, { BetAmount: 0 })
       }
 
       if (balance < amount) {
         await conn.commit()
-        return err(5, 'Not enough balance', player.username, balance, { BetAmount: 0 })
+        return this.err(5, 'Not enough balance', player, balance, { BetAmount: 0 })
       }
 
       const newBalance = await this.changeBalance(conn, player, -amount)
@@ -434,7 +454,7 @@ export class Win568WalletService {
       await this.addLedger(conn, player, 'bet', -amount, newBalance, transferCode, '568Win deduct')
       await this.refreshBetRound(conn, player.userId, text(body, 'GameRoundId') || transferCode)
       await conn.commit()
-      return ok(player.username, newBalance, { BetAmount: amount })
+      return this.ok(player, newBalance, { BetAmount: this.toGameAmount(player, amount) })
     } catch (e) {
       await conn.rollback()
       if (isDupEntry(e)) {
@@ -445,7 +465,7 @@ export class Win568WalletService {
           })
         if (raised) return raised
         const balance = await this.currentBalance(conn, player).catch(() => 0)
-        return err(5003, 'Bet With Same RefNo Exists', player.username, balance, { BetAmount: 0 })
+        return this.err(5003, 'Bet With Same RefNo Exists', player, balance, { BetAmount: 0 })
       }
       this.app.log.error({ err: e }, '[568win] deduct failed')
       return err(7, 'Internal error')
@@ -473,20 +493,20 @@ export class Win568WalletService {
       const balance = await this.currentBalance(conn, player)
       if (bet.status !== 'running') {
         await conn.commit()
-        if (bet.status === 'settled') return err(2001, 'Bet Already Settled', player.username, balance)
-        if (bet.status === 'Void') return err(2002, 'Bet Already Canceled', player.username, balance)
-        return err(7, 'Invalid bet state for return stake', player.username, balance)
+        if (bet.status === 'settled') return this.err(2001, 'Bet Already Settled', player, balance)
+        if (bet.status === 'Void') return this.err(2002, 'Bet Already Canceled', player, balance)
+        return this.err(7, 'Invalid bet state for return stake', player, balance)
       }
 
-      const currentStake = round2(num(body, 'CurrentStake'))
+      const currentStake = this.toWalletAmount(player, num(body, 'CurrentStake'))
       const oldStake = round2(Number(bet.amount))
       if (currentStake === oldStake) {
         await conn.commit()
-        return err(5003, 'Bet With Same RefNo Exists', player.username, balance)
+        return this.err(5003, 'Bet With Same RefNo Exists', player, balance)
       }
       if (currentStake > oldStake) {
         await conn.commit()
-        return err(7, 'Invalid current stake', player.username, balance)
+        return this.err(7, 'Invalid current stake', player, balance)
       }
 
       const refund = round2(oldStake - currentStake)
@@ -504,7 +524,7 @@ export class Win568WalletService {
       }
       await this.refreshBetRound(conn, player.userId, bet.round_id ?? text(body, 'TransferCode'))
       await conn.commit()
-      return ok(player.username, newBalance)
+      return this.ok(player, newBalance)
     } catch (e) {
       await conn.rollback()
       this.app.log.error({ err: e }, '[568win] return stake failed')
@@ -530,7 +550,7 @@ export class Win568WalletService {
         if (all.some((b) => b.status === 'Void')) {
           const bal = await this.currentBalance(conn, player)
           await conn.commit()
-          return err(2002, 'Bet Already Canceled', player.username, bal)
+          return this.err(2002, 'Bet Already Canceled', player, bal)
         }
       }
       if (bets.length === 0) {
@@ -541,13 +561,13 @@ export class Win568WalletService {
       const balance = await this.currentBalance(conn, player)
       if (bet.status === 'Void') {
         await conn.commit()
-        return err(2002, 'Bet Already Canceled', player.username, balance)
+        return this.err(2002, 'Bet Already Canceled', player, balance)
       }
       if (bet.status === 'settled') {
         await conn.commit()
-        return err(2001, 'Bet Already Settled', player.username, balance)
+        return this.err(2001, 'Bet Already Settled', player, balance)
       }
-      const winLoss = round2(num(body, 'WinLoss'))
+      const winLoss = this.toWalletAmount(player, num(body, 'WinLoss'))
       const newBalance = await this.changeBalance(conn, player, winLoss)
       await conn.execute(
         `UPDATE bg_568win_wallet_txn
@@ -569,7 +589,7 @@ export class Win568WalletService {
       await this.addLedger(conn, player, 'win', winLoss, newBalance, bet.transfer_code, '568Win settle')
       await this.refreshBetRound(conn, player.userId, bet.round_id ?? bet.transfer_code)
       await conn.commit()
-      return ok(player.username, newBalance)
+      return this.ok(player, newBalance)
     } catch (e) {
       await conn.rollback()
       this.app.log.error({ err: e }, '[568win] settle failed')
@@ -617,13 +637,13 @@ export class Win568WalletService {
       const balance = await this.currentBalance(conn, player)
       if (mode === 'cancel' && bets.every((b) => b.status === 'Void')) {
         await conn.commit()
-        return err(2002, 'Bet Already Canceled', player.username, balance)
+        return this.err(2002, 'Bet Already Canceled', player, balance)
       }
       if (mode === 'rollback') {
         const settledOrVoid = bets.filter((b) => b.status === 'settled' || b.status === 'Void')
         if (settledOrVoid.length === 0) {
           await conn.commit()
-          return err(bets.some((b) => b.status === 'running' && b.win_loss !== null) ? 2003 : 7, bets.some((b) => b.status === 'running' && b.win_loss !== null) ? 'Bet Already Rollback' : 'Invalid Bet State For Rollback', player.username, balance)
+          return this.err(bets.some((b) => b.status === 'running' && b.win_loss !== null) ? 2003 : 7, bets.some((b) => b.status === 'running' && b.win_loss !== null) ? 'Bet Already Rollback' : 'Invalid Bet State For Rollback', player, balance)
         }
         bets = settledOrVoid
       }
@@ -675,19 +695,19 @@ export class Win568WalletService {
           this.app.log.error({ err: rollbackErr }, '[568win] reverse turnover failed')
         })
       }
-      return ok(player.username, newBalance)
+      return this.ok(player, newBalance)
     } catch (e) {
       await conn.rollback()
       if (mode === 'rollback') {
         for (let i = 0; i < 5; i += 1) {
           const balance = await this.rollbackAlreadyApplied(conn, player, body).catch(() => null)
-          if (balance !== null) return err(2003, 'Bet Already Rollback', player.username, balance)
+          if (balance !== null) return this.err(2003, 'Bet Already Rollback', player, balance)
           if (i < 4) await sleep(50)
         }
       } else {
         for (let i = 0; i < 5; i += 1) {
           const balance = await this.cancelAlreadyApplied(conn, player, body).catch(() => null)
-          if (balance !== null) return err(2002, 'Bet Already Canceled', player.username, balance)
+          if (balance !== null) return this.err(2002, 'Bet Already Canceled', player, balance)
           if (i < 4) await sleep(50)
         }
       }
@@ -802,9 +822,9 @@ export class Win568WalletService {
       const existing = await this.findAllByTransfer(conn, text(body, 'TransferCode'), true)
       if (existing.length > 0) {
         await conn.commit()
-        return err(5003, 'Bet With Same RefNo Exists', player.username, balance)
+        return this.err(5003, 'Bet With Same RefNo Exists', player, balance)
       }
-      const amount = round2(num(body, 'Amount'))
+      const amount = this.toWalletAmount(player, num(body, 'Amount'))
       const newBalance = await this.changeBalance(conn, player, amount)
       await conn.execute(
         `INSERT INTO bg_568win_wallet_txn
@@ -820,12 +840,12 @@ export class Win568WalletService {
       await this.maybeLockFeatureBonus(conn, player, body, amount)
       await this.linkBonusToRound(conn, player, body, amount)
       await conn.commit()
-      return ok(player.username, newBalance)
+      return this.ok(player, newBalance)
     } catch (e) {
       await conn.rollback()
       if (isDupEntry(e)) {
         const balance = await this.currentBalance(conn, player).catch(() => 0)
-        return err(5003, 'Bet With Same RefNo Exists', player.username, balance)
+        return this.err(5003, 'Bet With Same RefNo Exists', player, balance)
       }
       this.app.log.error({ err: e }, '[568win] bonus failed')
       return err(7, 'Internal error')
@@ -851,8 +871,8 @@ export class Win568WalletService {
         TransferCode: bet.transfer_code,
         TransactionId: bet.transaction_id,
         Status: status,
-        WinLoss: status === 'settled' ? round2(Number(bet.win_loss ?? 0)) : 0,
-        Stake: round2(Number(bet.amount)),
+        WinLoss: status === 'settled' ? this.toGameAmount(player, Number(bet.win_loss ?? 0)) : 0,
+        Stake: this.toGameAmount(player, Number(bet.amount)),
         ErrorCode: 0,
         ErrorMessage: 'No Error',
       }

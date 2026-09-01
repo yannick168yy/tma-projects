@@ -23,7 +23,7 @@ const schema = z.object({
   WIN568_SERVER_ID: z.string().default(''),
   WIN568_SW_COMPANY_KEY: z.string().default(''),
   WIN568_SW_ALLOWED_IPS: z.string().default(''),
-  WIN568_DEFAULT_CURRENCY: z.enum(['PHP', 'USDT']).default('PHP'),
+  WIN568_DEFAULT_CURRENCY: z.enum(['PHP', 'IDR', 'USDT']).default('PHP'),
 
   // feature/免费旋转彩金薅羊毛闸：非平台活动派彩(IsGameProviderPromotion=false)中，
   // 单笔派彩 ÷ 触发注 ≥ MIN_MULTIPLE（小注爆奖=farming 签名）时，按 WAGER_MULT 倍补一条

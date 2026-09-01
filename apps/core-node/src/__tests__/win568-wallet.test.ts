@@ -7,6 +7,102 @@ process.env.WIN568_SW_COMPANY_KEY = 'test-key'
 process.env.WIN568_SW_ALLOWED_IPS = '122.146.58.49'
 
 describe('568Win 钱包回调', () => {
+  function createReq() {
+    return {
+      headers: { 'x-real-ip': '122.146.58.49' },
+      ip: '127.0.0.1',
+    } as unknown as FastifyRequest
+  }
+
+  it('GetBalance 对 IDR 按 1:1000 返回给 568Win', async () => {
+    const { Win568WalletService } = await import('../services/win568-wallet.service.js')
+    const mysql = {
+      async query(sql: string) {
+        if (sql.includes('bg_aggregator_player')) {
+          return [[{
+            user_id: 'BG-10025',
+            external_username: 'BG_10025I',
+            currency: 'IDR',
+            status: 'active',
+          }], undefined]
+        }
+        if (sql.includes('SELECT available FROM bg_wallet')) return [[{ available: 100000 }], undefined]
+        return [[], undefined]
+      },
+    }
+    const app = {
+      mysql,
+      log: { error() {} },
+    } as unknown as FastifyInstance
+
+    const result = await new Win568WalletService(app).getBalance(createReq(), {
+      CompanyKey: 'test-key',
+      Username: 'BG_10025I',
+    })
+
+    assert.equal(result.Balance, 100)
+  })
+
+  it('Deduct 对 IDR 按 1:1000 记入本地钱包', async () => {
+    const { Win568WalletService } = await import('../services/win568-wallet.service.js')
+    const executes: { sql: string; params?: unknown[] }[] = []
+    let balance = 100000
+    const conn = {
+      async query(sql: string) {
+        if (sql.includes('SELECT available FROM bg_wallet')) return [[{ available: balance }], undefined]
+        if (sql.includes('bg_568win_wallet_txn')) return [[], undefined]
+        return [[], undefined]
+      },
+      async execute(sql: string, params?: unknown[]) {
+        executes.push({ sql, params })
+        if (sql.includes('UPDATE bg_wallet')) balance += Number(params?.[0] ?? 0)
+        return [{ insertId: 1 }, undefined]
+      },
+      async beginTransaction() {},
+      async commit() {},
+      async rollback() {},
+      release() {},
+    }
+    const mysql = {
+      async query(sql: string) {
+        if (sql.includes('bg_aggregator_player')) {
+          return [[{
+            user_id: 'BG-10025',
+            external_username: 'BG_10025I',
+            currency: 'IDR',
+            status: 'active',
+          }], undefined]
+        }
+        return [[], undefined]
+      },
+      async getConnection() {
+        return conn
+      },
+    }
+    const app = {
+      mysql,
+      log: { error() {} },
+    } as unknown as FastifyInstance
+
+    const result = await new Win568WalletService(app).deduct(createReq(), {
+      CompanyKey: 'test-key',
+      Username: 'BG_10025I',
+      ProductType: 9,
+      GameType: 0,
+      Gpid: 29,
+      GameId: 635,
+      GameRoundId: 'R1',
+      TransferCode: 'T1',
+      TransactionId: 'TX1',
+      Amount: 10,
+    })
+
+    assert.equal(result.Balance, 90)
+    assert.equal((result as { BetAmount?: number }).BetAmount, 10)
+    assert.deepEqual(executes.find((e) => e.sql.includes('UPDATE bg_wallet'))?.params?.slice(0, 3), [-10000, 'BG-10025', 'IDR'])
+    assert.equal(executes.find((e) => e.sql.includes('INSERT INTO bg_bet_order'))?.params?.[4], 10000)
+  })
+
   async function returnStakeWithBet(status: string, stake = '6.0000') {
     const { Win568WalletService } = await import('../services/win568-wallet.service.js')
     const conn = {
