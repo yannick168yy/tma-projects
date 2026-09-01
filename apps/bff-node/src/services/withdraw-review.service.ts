@@ -200,10 +200,15 @@ export async function buildWin568ReviewStats(
       `SELECT
          COUNT(*) AS checked,
          COALESCE(SUM(has_report = 0), 0) AS missing,
-         COALESCE(SUM(has_report = 1 AND report_stake IS NOT NULL AND ABS(report_stake - amount) > 0.01), 0) AS stake_mismatch,
+         COALESCE(SUM(has_report = 1 AND report_stake IS NOT NULL
+                      AND ABS(report_stake * unit - amount) > 0.01 * unit), 0) AS stake_mismatch,
          COALESCE(SUM(win_loss > 0 AND report_void = 1), 0) AS void_paid
        FROM (
          SELECT t.transfer_code,
+                -- 568Win 报表的 IDR 金额是千卢比（与 core-node win568-wallet.service 的
+                -- amountFactor 同一约定），而 wallet_txn.amount 是实际卢比。不折算的话
+                -- 每笔 IDR 注单都会被判成对账不符，把 IDR 用户的提现全推去人工审核。
+                IF(t.currency = 'IDR', 1000, 1) AS unit,
                 SUM(t.amount) AS amount,
                 COALESCE(SUM(t.win_loss), 0) AS win_loss,
                 EXISTS(SELECT 1 FROM bg_568win_report_bet r WHERE r.ref_no = t.transfer_code) AS has_report,
@@ -213,7 +218,7 @@ export async function buildWin568ReviewStats(
          FROM bg_568win_wallet_txn t
          WHERE t.user_id = ? AND t.txn_type = 'bet' AND t.status = 'settled'
            AND t.settled_at > ? AND t.settled_at < ?
-         GROUP BY t.transfer_code
+         GROUP BY t.transfer_code, t.currency
        ) x`,
       [userId, lower, bound],
     )
