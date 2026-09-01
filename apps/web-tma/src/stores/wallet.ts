@@ -14,24 +14,42 @@ interface WalletActions {
   setBalance: (balance: WalletBalance) => void
   refresh: () => Promise<void>
   reset: () => void
-  setActiveCurrency: (currency: string) => void
+  setActiveCurrency: (currency: string, manual?: boolean) => void
 }
 
-export const useWalletStore = create<WalletState & WalletActions>((set) => ({
+const CURRENCY_KEY = 'betogo_currency'
+// 用户在钱包里手动选过币种后就不再自动纠正，否则会和用户较劲（选回去又被改掉）
+const CURRENCY_MANUAL_KEY = 'betogo_currency_manual'
+
+/**
+ * activeCurrency 的初值来自界面语言或域名市场，跟用户实际有钱的钱包没有关系。
+ * 而进游戏是按 activeCurrency 选 568Win 账号的（每种法币一个独立账号），选错币种
+ * 就会用一个空账号启动，玩家看到带入金额是 0。这里在余额到手后做一次纠正。
+ */
+function reconcileCurrency(current: string, balance: WalletBalance): string | null {
+  if (localStorage.getItem(CURRENCY_MANUAL_KEY)) return null
+  const fiat = balance.balances.filter((item) => isFiatCurrency(item.currency))
+  if (fiat.some((item) => item.currency === current && item.available > 0)) return null
+  const funded = fiat.filter((item) => item.available > 0)
+  return funded.length === 1 && funded[0].currency !== current ? funded[0].currency : null
+}
+
+export const useWalletStore = create<WalletState & WalletActions>((set, get) => ({
   balance: null,
   loading: false,
-  activeCurrency: localStorage.getItem('betogo_currency') ?? defaultMarketCurrency(),
+  activeCurrency: localStorage.getItem(CURRENCY_KEY) ?? defaultMarketCurrency(),
 
   setBalance(balance) {
-    set({ balance })
+    const corrected = reconcileCurrency(get().activeCurrency, balance)
+    if (corrected) localStorage.setItem(CURRENCY_KEY, corrected)
+    set(corrected ? { balance, activeCurrency: corrected } : { balance })
   },
 
   async refresh() {
     if (!getToken()) return
     set({ loading: true })
     try {
-      const balance = await fetchBalance()
-      set({ balance })
+      get().setBalance(await fetchBalance())
     } finally {
       set({ loading: false })
     }
@@ -41,8 +59,9 @@ export const useWalletStore = create<WalletState & WalletActions>((set) => ({
     set({ balance: null, loading: false })
   },
 
-  setActiveCurrency(currency) {
-    localStorage.setItem('betogo_currency', currency)
+  setActiveCurrency(currency, manual = false) {
+    localStorage.setItem(CURRENCY_KEY, currency)
+    if (manual) localStorage.setItem(CURRENCY_MANUAL_KEY, '1')
     set({ activeCurrency: currency })
   },
 }))

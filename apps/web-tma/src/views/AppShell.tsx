@@ -533,7 +533,7 @@ export default function AppShell() {
         type="button"
         className={`flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-left transition-colors ${isActive ? 'bg-primary/6' : 'hover:bg-white/4'}`}
         onClick={() => {
-          wallet.setActiveCurrency(b.code)
+          wallet.setActiveCurrency(b.code, true)
           setWalletOpen(false)
         }}
       >
