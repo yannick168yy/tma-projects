@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Card, InputNumber, Select, Switch, Button, message, Typography, Row, Col, Spin, Tabs, Table, Space, Segmented } from 'antd'
 import { GiftOutlined, PlusOutlined, DeleteOutlined, ArrowUpOutlined, ArrowDownOutlined } from '@ant-design/icons'
-import { getPromoConfig, savePromoConfig, triggerVipNegativeRebate, FIRSTDEP_CURRENCIES, CONFIG_CCY_OPTIONS, type PromoConfig, type FirstDepTier, type PopupConfig, type BonusCard } from '../api'
+import { getPromoConfig, savePromoConfig, triggerVipNegativeRebate, FIRSTDEP_CURRENCIES, CONFIG_CCY_OPTIONS, type PromoConfig, type FirstDepTier, type RegularRedepTier, type PopupConfig, type BonusCard } from '../api'
 
 const { Title, Text } = Typography
 
@@ -122,7 +122,7 @@ export default function Promotions() {
       }
     }
     for (const [currency, list] of Object.entries(c.regularRedep.tiers)) {
-      for (const t of list) if (t.depositAmount <= 0 || t.bonusAmount < 0) return `常规复充 ${currency} 档位金额必须大于0、奖励不能为负`
+      for (const t of list) if (t.depositAmount <= 0 || t.bonusAmount < 0 || t.turnoverX < 0 || t.turnoverX > 100) return `常规复充 ${currency} 档位金额必须大于0、奖励不能为负，流水须为0至100倍`
     }
     return null
   }
@@ -341,7 +341,7 @@ export default function Promotions() {
           非首充订单按最高达标档位生成待领取资格；用户领取后才增加赠金流水。默认与限时复充互斥，防止同一订单重复奖励。
         </Text>
         <Row gutter={[16, 16]}>
-          <Col span={8}><Text>流水倍率</Text><InputNumber suffix="x" min={0} max={100} style={{ width: '100%', marginTop: 4 }} value={cfg.regularRedep.turnoverX} onChange={(v) => patch((d) => { d.regularRedep.turnoverX = Number(v ?? 0) })} /></Col>
+          <Col span={8}><Text>旧档位默认流水</Text><InputNumber suffix="x" min={0} max={100} style={{ width: '100%', marginTop: 4 }} value={cfg.regularRedep.turnoverX} onChange={(v) => patch((d) => { d.regularRedep.turnoverX = Number(v ?? 0) })} /></Col>
           <Col span={8}><Text>流水有效期（0=永久）</Text><InputNumber suffix="天" min={0} max={365} style={{ width: '100%', marginTop: 4 }} value={cfg.regularRedep.turnoverDays} onChange={(v) => patch((d) => { d.regularRedep.turnoverDays = Number(v ?? 0) })} /></Col>
           <Col span={8}><Text>领取有效期</Text><InputNumber suffix="小时" min={1} max={168} style={{ width: '100%', marginTop: 4 }} value={cfg.regularRedep.claimHours} onChange={(v) => patch((d) => { d.regularRedep.claimHours = Number(v ?? 0) })} /></Col>
           <Col span={8}><Text>每日最多领取</Text><InputNumber suffix="次" min={1} max={100} style={{ width: '100%', marginTop: 4 }} value={cfg.regularRedep.dailyMaxClaims} onChange={(v) => patch((d) => { d.regularRedep.dailyMaxClaims = Number(v ?? 1) })} /></Col>
@@ -354,14 +354,15 @@ export default function Promotions() {
           children: <>
             <Text>每日赠金上限（{currency}）</Text>
             <InputNumber min={0} precision={currency === 'IDR' ? 0 : 2} prefix={currencyPrefix(currency)} style={{ width: 220, margin: '0 0 12px 8px' }} value={cfg.regularRedep.dailyBonusCaps[currency] ?? 0} onChange={(v) => patch((d) => { d.regularRedep.dailyBonusCaps[currency] = Number(v ?? 0) })} />
-            <Table<FirstDepTier> size="small" pagination={false} rowKey={(_, idx) => `regular-${currency}-${idx}`}
+            <Table<RegularRedepTier> size="small" pagination={false} rowKey={(_, idx) => `regular-${currency}-${idx}`}
               dataSource={cfg.regularRedep.tiers[currency]}
               columns={[
-                { title: `充值门槛（${currency}）`, render: (_: unknown, __: FirstDepTier, idx: number) => <InputNumber min={0} precision={currency === 'IDR' ? 0 : 2} value={cfg.regularRedep.tiers[currency][idx].depositAmount} onChange={(v) => patch((d) => { d.regularRedep.tiers[currency][idx].depositAmount = Number(v ?? 0) })} /> },
-                { title: `赠金（${currency}）`, render: (_: unknown, __: FirstDepTier, idx: number) => <InputNumber min={0} precision={currency === 'IDR' ? 0 : 2} value={cfg.regularRedep.tiers[currency][idx].bonusAmount} onChange={(v) => patch((d) => { d.regularRedep.tiers[currency][idx].bonusAmount = Number(v ?? 0) })} /> },
-                { title: '操作', width: 80, render: (_: unknown, __: FirstDepTier, idx: number) => <Button danger type="text" icon={<DeleteOutlined />} onClick={() => patch((d) => { d.regularRedep.tiers[currency].splice(idx, 1) })} /> },
+                { title: `充值门槛（${currency}）`, render: (_: unknown, __: RegularRedepTier, idx: number) => <InputNumber min={0} precision={currency === 'IDR' ? 0 : 2} value={cfg.regularRedep.tiers[currency][idx].depositAmount} onChange={(v) => patch((d) => { d.regularRedep.tiers[currency][idx].depositAmount = Number(v ?? 0) })} /> },
+                { title: `赠金（${currency}）`, render: (_: unknown, __: RegularRedepTier, idx: number) => <InputNumber min={0} precision={currency === 'IDR' ? 0 : 2} value={cfg.regularRedep.tiers[currency][idx].bonusAmount} onChange={(v) => patch((d) => { d.regularRedep.tiers[currency][idx].bonusAmount = Number(v ?? 0) })} /> },
+                { title: '赠金流水', render: (_: unknown, __: RegularRedepTier, idx: number) => <InputNumber min={0} max={100} suffix="x" value={cfg.regularRedep.tiers[currency][idx].turnoverX} onChange={(v) => patch((d) => { d.regularRedep.tiers[currency][idx].turnoverX = Number(v ?? 0) })} /> },
+                { title: '操作', width: 80, render: (_: unknown, __: RegularRedepTier, idx: number) => <Button danger type="text" icon={<DeleteOutlined />} onClick={() => patch((d) => { d.regularRedep.tiers[currency].splice(idx, 1) })} /> },
               ]} />
-            <Button block type="dashed" icon={<PlusOutlined />} style={{ marginTop: 12 }} onClick={() => patch((d) => { d.regularRedep.tiers[currency].push({ depositAmount: 0, bonusAmount: 0 }) })}>添加档位</Button>
+            <Button block type="dashed" icon={<PlusOutlined />} style={{ marginTop: 12 }} onClick={() => patch((d) => { d.regularRedep.tiers[currency].push({ depositAmount: 0, bonusAmount: 0, turnoverX: d.regularRedep.turnoverX }) })}>添加档位</Button>
           </>,
         }))} />
       </Card>

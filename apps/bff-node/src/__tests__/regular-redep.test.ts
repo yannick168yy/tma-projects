@@ -5,8 +5,8 @@ import { createRegularRedepClaim } from '../services/regular-redep.service.js'
 const configRows = [
   { config_key: 'enabled', config_value: '1' },
   { config_key: 'tiers', config_value: JSON.stringify({ PHP: [
-    { depositAmount: 500, bonusAmount: 25 }, { depositAmount: 1000, bonusAmount: 75 },
-    { depositAmount: 3000, bonusAmount: 300 },
+    { depositAmount: 500, bonusAmount: 50, turnoverX: 25 }, { depositAmount: 1000, bonusAmount: 120, turnoverX: 28 },
+    { depositAmount: 3000, bonusAmount: 450, turnoverX: 32 },
   ] }) },
   { config_key: 'turnover_x', config_value: '3' },
   { config_key: 'turnover_days', config_value: '30' },
@@ -34,7 +34,7 @@ describe('常规复充资格生成', () => {
     await createRegularRedepClaim(pool, 'BG-10001', 'DEP-2', 3200, 'PHP')
 
     expect(execute).toHaveBeenCalledOnce()
-    expect(execute.mock.calls[0][1]).toEqual(['DEP-2', 'BG-10001', 'PHP', 3200, 300, 3, 30, 24])
+    expect(execute.mock.calls[0][1]).toEqual(['DEP-2', 'BG-10001', 'PHP', 3200, 450, 32, 30, 24])
   })
 
   it('同一订单已命中限时复充时不再生成常规赠金', async () => {

@@ -1179,6 +1179,7 @@ export interface PopupConfig {
   frequency: PopupFrequency
 }
 export interface RedepCcyTier { minDeposit: number; bonusAmount: number }
+export interface RegularRedepTier extends FirstDepTier { turnoverX: number }
 export interface RedepConfig {
   enabled: boolean
   minDeposit: number
@@ -1192,7 +1193,7 @@ export interface RedepConfig {
 }
 export interface RegularRedepConfig {
   enabled: boolean
-  tiers: Record<string, FirstDepTier[]>
+  tiers: Record<string, RegularRedepTier[]>
   turnoverX: number
   turnoverDays: number
   claimHours: number

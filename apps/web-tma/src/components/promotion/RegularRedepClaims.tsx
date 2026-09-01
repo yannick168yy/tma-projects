@@ -8,10 +8,10 @@ import { useWalletStore } from '@/stores/wallet'
 interface Props { currency: string; refreshKey?: number }
 
 const text = {
-  en: { title: 'Reload bonus ready', deposit: 'Deposit', bonus: 'Bonus', turnover: 'Required turnover', claim: 'Claim bonus', claiming: 'Claiming…', success: 'Bonus credited', expires: 'Claim before' },
-  id: { title: 'Bonus isi ulang siap', deposit: 'Setoran', bonus: 'Bonus', turnover: 'Turnover diperlukan', claim: 'Klaim bonus', claiming: 'Memproses…', success: 'Bonus berhasil masuk', expires: 'Klaim sebelum' },
-  'zh-CN': { title: '复充赠金待领取', deposit: '本次充值', bonus: '可领赠金', turnover: '所需流水', claim: '领取赠金', claiming: '领取中…', success: '赠金已到账', expires: '领取截止' },
-  vi: { title: 'Thưởng nạp lại đang chờ', deposit: 'Tiền nạp', bonus: 'Tiền thưởng', turnover: 'Doanh thu yêu cầu', claim: 'Nhận thưởng', claiming: 'Đang nhận…', success: 'Đã cộng thưởng', expires: 'Nhận trước' },
+  en: { title: 'Your reload bonus is ready', deposit: 'Deposit', bonus: 'Bonus', turnover: 'Turnover after claim', rule: 'Please note: claiming this bonus adds {{x}}x bonus turnover. Your current requirement will be {{amount}}.', claim: 'Accept & claim', claiming: 'Claiming…', success: 'Bonus credited', expires: 'Claim before' },
+  id: { title: 'Bonus isi ulang Anda siap', deposit: 'Setoran', bonus: 'Bonus', turnover: 'Turnover setelah klaim', rule: 'Mohon diperhatikan: setelah bonus diklaim, berlaku turnover bonus {{x}}x. Jumlah yang perlu diselesaikan adalah {{amount}}.', claim: 'Setuju & klaim', claiming: 'Memproses…', success: 'Bonus berhasil masuk', expires: 'Klaim sebelum' },
+  'zh-CN': { title: '您的复充赠金已准备好', deposit: '本次充值', bonus: '可领赠金', turnover: '领取后需完成', rule: '温馨提示：领取后将增加 {{x}} 倍赠金流水，当前应完成流水为 {{amount}}。', claim: '确认并领取', claiming: '领取中…', success: '赠金已到账', expires: '领取截止' },
+  vi: { title: 'Thưởng nạp lại đã sẵn sàng', deposit: 'Tiền nạp', bonus: 'Tiền thưởng', turnover: 'Doanh thu sau khi nhận', rule: 'Lưu ý: sau khi nhận, tiền thưởng áp dụng doanh thu {{x}}x. Số tiền cần hoàn thành là {{amount}}.', claim: 'Đồng ý & nhận', claiming: 'Đang nhận…', success: 'Đã cộng thưởng', expires: 'Nhận trước' },
 } as const
 
 function money(value: number, currency: string) {
@@ -38,6 +38,7 @@ export default function RegularRedepClaims({ currency, refreshKey = 0 }: Props) 
         <div>{copy.bonus}<b className="block text-sm text-amber-300">+{money(item.bonusAmount, item.currency)}</b></div>
         <div>{copy.turnover}<b className="block text-sm text-white">{money(item.turnoverRequired, item.currency)}</b></div>
       </div>
+      <p className="mt-2 rounded-xl bg-black/20 px-3 py-2 text-center text-[11px] leading-relaxed text-white/70">{copy.rule.replace('{{x}}', String(item.turnoverX)).replace('{{amount}}', money(item.turnoverRequired, item.currency))}</p>
       <div className="mt-2 text-center text-[10px] text-white/45">{copy.expires} {new Date(item.expiresAt).toLocaleString()}</div>
       <button type="button" disabled={claiming === item.id} onClick={async () => {
         setClaiming(item.id); setMessage('')

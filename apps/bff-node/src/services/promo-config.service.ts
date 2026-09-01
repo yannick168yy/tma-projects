@@ -8,6 +8,10 @@ export interface FirstDepTier {
   bonusAmount: number
 }
 
+export interface RegularRedepTier extends FirstDepTier {
+  turnoverX?: number
+}
+
 /** 首充嘉年华支持的币种（USDC 暂未开通充值通道，先预留配置） */
 export const FIRSTDEP_CURRENCIES = ['PHP', 'IDR', 'USDT', 'USDC'] as const
 export type FirstDepCurrency = (typeof FIRSTDEP_CURRENCIES)[number]
@@ -42,7 +46,7 @@ export interface RedepConfig {
 
 export interface RegularRedepConfig {
   enabled: boolean
-  tiers: Record<string, FirstDepTier[]>
+  tiers: Record<string, RegularRedepTier[]>
   turnoverX: number
   turnoverDays: number
   claimHours: number
@@ -137,13 +141,30 @@ export const PROMO_DEFAULTS: PromoConfig = {
   regularRedep: {
     enabled: true,
     tiers: {
-      PHP: [{ depositAmount: 500, bonusAmount: 25 }, { depositAmount: 1000, bonusAmount: 75 }, { depositAmount: 3000, bonusAmount: 300 }, { depositAmount: 5000, bonusAmount: 600 }],
-      IDR: [{ depositAmount: 143500, bonusAmount: 7200 }, { depositAmount: 287000, bonusAmount: 21500 }, { depositAmount: 861000, bonusAmount: 86100 }, { depositAmount: 1435000, bonusAmount: 172200 }],
-      USDT: [{ depositAmount: 8.62, bonusAmount: 0.43 }, { depositAmount: 17.24, bonusAmount: 1.29 }, { depositAmount: 51.72, bonusAmount: 5.17 }, { depositAmount: 86.21, bonusAmount: 10.34 }],
-      USDC: [{ depositAmount: 8.62, bonusAmount: 0.43 }, { depositAmount: 17.24, bonusAmount: 1.29 }, { depositAmount: 51.72, bonusAmount: 5.17 }, { depositAmount: 86.21, bonusAmount: 10.34 }],
+      PHP: [
+        { depositAmount: 500, bonusAmount: 50, turnoverX: 25 }, { depositAmount: 1000, bonusAmount: 120, turnoverX: 28 },
+        { depositAmount: 2000, bonusAmount: 280, turnoverX: 30 }, { depositAmount: 3000, bonusAmount: 450, turnoverX: 32 },
+        { depositAmount: 5000, bonusAmount: 850, turnoverX: 33 }, { depositAmount: 10000, bonusAmount: 1800, turnoverX: 34 },
+        { depositAmount: 20000, bonusAmount: 3800, turnoverX: 35 }, { depositAmount: 50000, bonusAmount: 10000, turnoverX: 35 },
+      ],
+      IDR: [
+        { depositAmount: 100000, bonusAmount: 10000, turnoverX: 25 }, { depositAmount: 200000, bonusAmount: 24000, turnoverX: 28 },
+        { depositAmount: 500000, bonusAmount: 70000, turnoverX: 30 }, { depositAmount: 1000000, bonusAmount: 170000, turnoverX: 33 },
+        { depositAmount: 2000000, bonusAmount: 380000, turnoverX: 35 }, { depositAmount: 5000000, bonusAmount: 1000000, turnoverX: 35 },
+      ],
+      USDT: [
+        { depositAmount: 20, bonusAmount: 2, turnoverX: 25 }, { depositAmount: 50, bonusAmount: 6, turnoverX: 28 },
+        { depositAmount: 100, bonusAmount: 14, turnoverX: 30 }, { depositAmount: 200, bonusAmount: 34, turnoverX: 33 },
+        { depositAmount: 500, bonusAmount: 95, turnoverX: 35 }, { depositAmount: 1000, bonusAmount: 200, turnoverX: 35 },
+      ],
+      USDC: [
+        { depositAmount: 20, bonusAmount: 2, turnoverX: 25 }, { depositAmount: 50, bonusAmount: 6, turnoverX: 28 },
+        { depositAmount: 100, bonusAmount: 14, turnoverX: 30 }, { depositAmount: 200, bonusAmount: 34, turnoverX: 33 },
+        { depositAmount: 500, bonusAmount: 95, turnoverX: 35 }, { depositAmount: 1000, bonusAmount: 200, turnoverX: 35 },
+      ],
     },
-    turnoverX: 3, turnoverDays: 30, claimHours: 24, dailyMaxClaims: 3,
-    dailyBonusCaps: { PHP: 1200, IDR: 344400, USDT: 20.69, USDC: 20.69 },
+    turnoverX: 25, turnoverDays: 30, claimHours: 24, dailyMaxClaims: 3,
+    dailyBonusCaps: { PHP: 10000, IDR: 1000000, USDT: 200, USDC: 200 },
     stackWithLimited: false,
   },
   // 负盈利返水：默认关闭，后台开启后每日结算。白名单只含电子类(slots/fishing)，排除真人(live)/体育(sports)防对赌套利
@@ -291,11 +312,15 @@ function parseRegularRedepConfig(r: Record<string, string>): RegularRedepConfig 
   let tiers = d.tiers
   let dailyBonusCaps = d.dailyBonusCaps
   try {
-    const parsed = JSON.parse(r.tiers ?? '') as Record<string, FirstDepTier[]>
+    const parsed = JSON.parse(r.tiers ?? '') as Record<string, RegularRedepTier[]>
     tiers = Object.fromEntries(PROMO_CCYS.map((currency) => [currency,
       Array.isArray(parsed[currency])
         ? parsed[currency].filter((tier) => Number(tier.depositAmount) > 0 && Number(tier.bonusAmount) >= 0)
-          .map((tier) => ({ depositAmount: Number(tier.depositAmount), bonusAmount: Number(tier.bonusAmount) }))
+          .map((tier) => ({
+            depositAmount: Number(tier.depositAmount), bonusAmount: Number(tier.bonusAmount),
+            turnoverX: Number.isFinite(Number(tier.turnoverX)) ? Number(tier.turnoverX) : num(r.turnover_x, d.turnoverX),
+          }))
+          .filter((tier) => tier.turnoverX >= 0 && tier.turnoverX <= 100)
           .sort((a, b) => a.depositAmount - b.depositAmount)
         : d.tiers[currency] ?? [],
     ]))

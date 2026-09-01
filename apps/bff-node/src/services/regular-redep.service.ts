@@ -5,18 +5,18 @@ import { getMysqlPool } from '../clients/mysql.client.js'
 import { evaluateWithPool } from './risk.service.js'
 import { creditWalletTx } from './store/mysql-store.js'
 
-interface RegularRedepTier { depositAmount: number; bonusAmount: number }
+interface RegularRedepTier { depositAmount: number; bonusAmount: number; turnoverX?: number }
 
-function matchTier(tiers: RegularRedepTier[], amount: number): number {
+function matchTier(tiers: RegularRedepTier[], amount: number): RegularRedepTier | undefined {
   let matchedAmount = -1
-  let bonus = 0
+  let matched: RegularRedepTier | undefined
   for (const tier of tiers) {
     if (amount >= tier.depositAmount && tier.depositAmount > matchedAmount) {
       matchedAmount = tier.depositAmount
-      bonus = tier.bonusAmount
+      matched = tier
     }
   }
-  return bonus
+  return matched
 }
 
 /** 兼容仍由 BFF 直接入账的充值路径；order_id 唯一索引负责跨服务幂等。 */
@@ -58,7 +58,8 @@ export async function createRegularRedepClaim(
     if (limited.length > 0) return
   }
 
-  const bonus = matchTier(tiers[currency] ?? [], amount)
+  const matched = matchTier(tiers[currency] ?? [], amount)
+  const bonus = Number(matched?.bonusAmount ?? 0)
   if (bonus <= 0) return
   const offset = currency === 'IDR' ? 7 : 8
   const [[daily]] = await db.query<RowDataPacket[]>(
@@ -76,7 +77,7 @@ export async function createRegularRedepClaim(
     `INSERT IGNORE INTO bg_regular_redep_claim
        (order_id,user_id,currency,deposit_amount,bonus_amount,turnover_x,turnover_days,expires_at)
      VALUES (?,?,?,?,?,?,?,DATE_ADD(NOW(3),INTERVAL ? HOUR))`,
-    [orderId, userId, currency, amount, bonus, Number(config.turnover_x ?? 3),
+    [orderId, userId, currency, amount, bonus, Number(matched?.turnoverX ?? config.turnover_x ?? 25),
       Number(config.turnover_days ?? 30), Number(config.claim_hours ?? 24)],
   )
 }
