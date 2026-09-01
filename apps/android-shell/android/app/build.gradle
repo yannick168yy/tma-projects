@@ -62,6 +62,14 @@ android {
     // -PappRoutePublicKey=... 传入，与服务端 APP_ROUTE_SIGNING_KEY 配对。
     def appRoutePublicKey = project.findProperty('appRoutePublicKey') ?: ''
 
+    // 漏传公钥的 release 包会因为 verify() 失败关闭而完全连不上线路，与其发出去不如构建期就拦住
+    gradle.taskGraph.whenReady { graph ->
+        if (!appRoutePublicKey && graph.allTasks.any { it.name.toLowerCase().contains('release') }) {
+            throw new GradleException(
+                'release 构建缺少 -PappRoutePublicKey=<公钥>，用 node scripts/gen-app-route-key.mjs 生成')
+        }
+    }
+
     flavorDimensions "market"
     productFlavors {
         ph {

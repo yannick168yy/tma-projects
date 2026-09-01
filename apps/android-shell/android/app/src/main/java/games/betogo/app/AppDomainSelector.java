@@ -207,11 +207,12 @@ final class AppDomainSelector {
     /**
      * 公钥内置在 APK，私钥只在服务端。拿下任一线路域名、劫持 DNS、甚至签发了合法证书的攻击者
      * 都伪造不出签名，所以「接受服务端下发的任意域名」是安全的。
-     * 公钥为空的构建（本地调试）跳过校验；正式 flavor 必须配。
+     * 公钥缺失时 release 一律拒绝（失败关闭）：白名单已经取消，再放行就等于接受任意
+     * 服务器下发的任意域名，比改造前更不安全。只有 debug 构建允许空公钥。
      */
     private boolean verify(String payload, String signatureBase64) {
         String publicKeyBase64 = BuildConfig.APP_ROUTE_PUBLIC_KEY;
-        if (publicKeyBase64.isEmpty()) return true;
+        if (publicKeyBase64.isEmpty()) return BuildConfig.DEBUG;
         if (signatureBase64.isEmpty()) return false;
         try {
             PublicKey key = KeyFactory.getInstance("EC").generatePublic(
