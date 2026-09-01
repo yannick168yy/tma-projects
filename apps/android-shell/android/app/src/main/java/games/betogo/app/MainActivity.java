@@ -1,5 +1,6 @@
 package games.betogo.app;
 
+import android.app.AlertDialog;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
@@ -88,7 +89,8 @@ public class MainActivity extends BridgeActivity {
             selectingDomain = false;
             if (origin == null) {
                 getBridge().getWebView().evaluateJavascript(
-                    "document.getElementById('t').textContent='Network unavailable, please retry';document.querySelector('.s').style.display='none'", null);
+                    "document.getElementById('t').textContent='Network unavailable';document.querySelector('.s').style.display='none'", null);
+                showRetryDialog();
                 return;
             }
             Uri target = Uri.parse(origin).buildUpon()
@@ -97,6 +99,24 @@ public class MainActivity extends BridgeActivity {
                 .build();
             getBridge().getWebView().loadUrl(target.toString());
         });
+    }
+
+    /**
+     * 线路全挂时唯一的出路。此前只把启动页文案改成 "please retry" 却没有任何可点的东西，
+     * 用户只能杀进程重开 —— 而杀进程和点这里做的是同一件事，白白劝退。
+     */
+    private void showRetryDialog() {
+        if (isFinishing() || isDestroyed()) return;
+        new AlertDialog.Builder(this)
+            .setTitle("Connection failed")
+            .setMessage("Cannot reach the server. Check your network and try again.")
+            .setCancelable(false)
+            .setPositiveButton("Retry", (dialog, which) -> {
+                // 整批失败通常是本机断网而非这些域名真挂了，重试时把上一轮的拉黑全部撤销
+                failedDomains.clear();
+                selectDomainAndLoad();
+            })
+            .show();
     }
 
     /** 把出问题的域名拉黑并立刻重选线路；候选被排完时 select 回调会给出 null 并提示用户。 */
