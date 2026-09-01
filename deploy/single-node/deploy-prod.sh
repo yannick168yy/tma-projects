@@ -23,7 +23,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 PROD_HOST="${PROD_HOST:-ubuntu@13.213.107.231}"
 PROD_DIR="${PROD_DIR:-/opt/tma-projects}"
-KEY="${PROD_SSH_KEY:-$HOME/TMA_FILES/亚马逊云-阿里云/betogo-amazon-prod.pem}"
+KEY="${PROD_SSH_KEY:-/Volumes/MacImage/TMA_FILES/亚马逊云-阿里云/betogo-amazon-prod.pem}"
 SSH=(ssh -i "$KEY" -o StrictHostKeyChecking=no)
 RSH="ssh -i $KEY -o StrictHostKeyChecking=no"
 
@@ -63,10 +63,36 @@ health() {  # <url> <标签>
   [[ "$code" == 200 ]] || echo "    ⚠️ $2 非 200，请检查日志"
 }
 
+# 重建是回放旧容器的 CreateCommand，里面的 --env 是上一代容器的快照 ——
+# 往 .env 里新加的变量永远进不来，表现是新功能在生产静默失效（不报错，只是值为空）。
+# 这里把白名单内的键从 .env 补进重放命令。SYNC_ENV_KEYS 可覆盖，空格分隔。
+inject_env_keys() {  # <容器名>
+  local c="$1"
+  "${SSH[@]}" "$PROD_HOST" "sudo python3 - '$PROD_DIR/.env' '/tmp/cc_$c.json' ${SYNC_ENV_KEYS:-APP_ROUTE_SIGNING_KEY}" <<'PYEOF'
+import json, sys
+env_path, cc_path, *keys = sys.argv[1:]
+cc = json.load(open(cc_path))
+env = dict(l.split('=', 1) for l in open(env_path).read().splitlines() if '=' in l and not l.startswith('#'))
+insert_at = cc.index('run') + 1
+added = []
+for key in keys:
+    if any(a.startswith(key + '=') for a in cc):
+        continue
+    if key not in env:
+        continue
+    cc[insert_at:insert_at] = ['--env', key + '=' + env[key]]
+    added.append(key)
+if added:
+    json.dump(cc, open(cc_path, 'w'))
+print('    补入 env:', ','.join(added) if added else '（无需补入）')
+PYEOF
+}
+
 rebuild_bff_node() {  # <容器名> <health端口>
   local c="$1" port="$2"
   echo "==> [$c] 复用 CreateCommand 重建（重读 --env-file）"
   remote "sudo podman inspect $c --format '{{json .Config.CreateCommand}}' > /tmp/cc_$c.json"
+  inject_env_keys "$c"
   # /tmp 会被系统清理，env-file 丢了 run 会失败且容器已被 rm——重建前先从在线容器导出兜底
   remote "sudo podman inspect $c --format '{{range .Config.Env}}{{println .}}{{end}}' | grep -vE '^(PATH|TERM|HOSTNAME|container|HOME|NODE_VERSION|YARN_VERSION)=' | grep -v '^\$' > /tmp/$c.recreate.env"
   remote "sudo podman rm -f $c >/dev/null"
